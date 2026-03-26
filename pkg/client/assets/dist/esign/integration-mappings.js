@@ -1,7 +1,9 @@
-import { b as s, a as F, h, s as m, f as k } from "../chunks/dom-helpers-CMRVXsMj.js";
-import { d as P } from "../chunks/async-helpers-D7xplkWe.js";
+import { b as s, h as m, s as g, f as $ } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { d as L } from "../chunks/async-helpers-D7xplkWe.js";
+import { i as N } from "../chunks/formatters-Bx8onLEN.js";
+import { a as w, s as x } from "../chunks/page-feedback-XrK1vdW2.js";
 import { escapeHTML as l } from "../shared/html.js";
-class L {
+class C {
   constructor(e) {
     this.mappings = [], this.editingMappingId = null, this.pendingPublishId = null, this.pendingDeleteId = null, this.currentPreviewMapping = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: s("#mappings-announcements"),
@@ -91,74 +93,52 @@ class L {
       addRuleBtn: d,
       validateBtn: a,
       mappingForm: u,
-      publishCancelBtn: g,
+      publishCancelBtn: h,
       publishConfirmBtn: b,
       deleteCancelBtn: c,
       deleteConfirmBtn: f,
-      closePreviewBtn: $,
-      loadSampleBtn: C,
-      runPreviewBtn: T,
-      clearPreviewBtn: _,
-      previewSourceInput: j,
-      searchInput: B,
-      filterStatus: I,
-      filterProvider: R,
-      mappingModal: y,
-      publishModal: x,
-      deleteModal: M,
-      previewModal: S
+      closePreviewBtn: T,
+      loadSampleBtn: _,
+      runPreviewBtn: j,
+      clearPreviewBtn: B,
+      previewSourceInput: I,
+      searchInput: R,
+      filterStatus: F,
+      filterProvider: D,
+      mappingModal: M,
+      publishModal: S,
+      deleteModal: P,
+      previewModal: E
     } = this.elements;
     e?.addEventListener("click", () => this.openCreateModal()), t?.addEventListener("click", () => this.openCreateModal()), i?.addEventListener("click", () => this.closeModal()), n?.addEventListener("click", () => this.closeModal()), r?.addEventListener("click", () => this.loadMappings()), o?.addEventListener("click", () => this.loadMappings()), p?.addEventListener("click", () => this.addSchemaField()), d?.addEventListener("click", () => this.addMappingRule()), a?.addEventListener("click", () => this.validateMapping()), u?.addEventListener("submit", (v) => {
       v.preventDefault(), this.saveMapping();
-    }), g?.addEventListener("click", () => this.closePublishModal()), b?.addEventListener("click", () => this.publishMapping()), c?.addEventListener("click", () => this.closeDeleteModal()), f?.addEventListener("click", () => this.deleteMapping()), $?.addEventListener("click", () => this.closePreviewModal()), C?.addEventListener("click", () => this.loadSamplePayload()), T?.addEventListener("click", () => this.runPreviewTransform()), _?.addEventListener("click", () => this.clearPreview()), j?.addEventListener("input", P(() => this.validateSourceJson(), 300)), B?.addEventListener("input", P(() => this.renderMappings(), 300)), I?.addEventListener("change", () => this.renderMappings()), R?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (v) => {
-      v.key === "Escape" && (y && !y.classList.contains("hidden") && this.closeModal(), x && !x.classList.contains("hidden") && this.closePublishModal(), M && !M.classList.contains("hidden") && this.closeDeleteModal(), S && !S.classList.contains("hidden") && this.closePreviewModal());
-    }), [y, x, M, S].forEach((v) => {
-      v?.addEventListener("click", (D) => {
-        const E = D.target;
-        (E === v || E.getAttribute("aria-hidden") === "true") && (v === y ? this.closeModal() : v === x ? this.closePublishModal() : v === M ? this.closeDeleteModal() : v === S && this.closePreviewModal());
+    }), h?.addEventListener("click", () => this.closePublishModal()), b?.addEventListener("click", () => this.publishMapping()), c?.addEventListener("click", () => this.closeDeleteModal()), f?.addEventListener("click", () => this.deleteMapping()), T?.addEventListener("click", () => this.closePreviewModal()), _?.addEventListener("click", () => this.loadSamplePayload()), j?.addEventListener("click", () => this.runPreviewTransform()), B?.addEventListener("click", () => this.clearPreview()), I?.addEventListener("input", L(() => this.validateSourceJson(), 300)), R?.addEventListener("input", L(() => this.renderMappings(), 300)), F?.addEventListener("change", () => this.renderMappings()), D?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (v) => {
+      v.key === "Escape" && (M && !M.classList.contains("hidden") && this.closeModal(), S && !S.classList.contains("hidden") && this.closePublishModal(), P && !P.classList.contains("hidden") && this.closeDeleteModal(), E && !E.classList.contains("hidden") && this.closePreviewModal());
+    }), [M, S, P, E].forEach((v) => {
+      v?.addEventListener("click", (H) => {
+        const k = H.target;
+        (k === v || k.getAttribute("aria-hidden") === "true") && (v === M ? this.closeModal() : v === S ? this.closePublishModal() : v === P ? this.closeDeleteModal() : v === E && this.closePreviewModal());
       });
     });
-  }
-  /**
-   * Announce message for screen readers
-   */
-  announce(e) {
-    const { announcements: t } = this.elements;
-    t && (t.textContent = e), F(e);
   }
   /**
    * Show a specific page state
    */
   showState(e) {
     const { loadingState: t, emptyState: i, errorState: n, mappingsList: r } = this.elements;
-    switch (h(t), h(i), h(n), h(r), e) {
+    switch (m(t), m(i), m(n), m(r), e) {
       case "loading":
-        m(t);
+        g(t);
         break;
       case "empty":
-        m(i);
+        g(i);
         break;
       case "error":
-        m(n);
+        g(n);
         break;
       case "list":
-        m(r);
+        g(r);
         break;
-    }
-  }
-  /**
-   * Escape HTML for safe rendering
-   */
-  /**
-   * Format date string
-   */
-  formatDate(e) {
-    if (!e) return "-";
-    try {
-      const t = new Date(e);
-      return t.toLocaleDateString() + " " + t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    } catch {
-      return e;
     }
   }
   /**
@@ -186,11 +166,11 @@ class L {
       });
       if (!e.ok) throw new Error(`HTTP ${e.status}`);
       const t = await e.json();
-      this.mappings = t.mappings || [], this.populateProviderFilter(), this.renderMappings(), this.announce(`Loaded ${this.mappings.length} mappings`);
+      this.mappings = t.mappings || [], this.populateProviderFilter(), this.renderMappings(), w(this.elements.announcements, `Loaded ${this.mappings.length} mappings`);
     } catch (e) {
       console.error("Error loading mappings:", e);
       const { errorMessage: t } = this.elements;
-      t && (t.textContent = e instanceof Error ? e.message : "An error occurred"), this.showState("error"), this.announce("Error loading mappings");
+      t && (t.textContent = e instanceof Error ? e.message : "An error occurred"), this.showState("error"), w(this.elements.announcements, "Error loading mappings");
     }
   }
   /**
@@ -223,7 +203,7 @@ class L {
         <td class="px-6 py-4 text-sm text-gray-700">${l(a.provider)}</td>
         <td class="px-6 py-4">${this.getStatusBadge(a.status)}</td>
         <td class="px-6 py-4 text-sm text-gray-700">v${a.version || 1}</td>
-        <td class="px-6 py-4 text-sm text-gray-500">${this.formatDate(a.updated_at)}</td>
+        <td class="px-6 py-4 text-sm text-gray-500">${N(a.updated_at)}</td>
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
             <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${l(a.id)}" aria-label="Preview ${l(a.name)}">
@@ -337,21 +317,21 @@ class L {
       schemaFieldsContainer: p,
       mappingRulesContainer: d
     } = this.elements, a = [];
-    p?.querySelectorAll(".schema-field-row").forEach((g) => {
+    p?.querySelectorAll(".schema-field-row").forEach((h) => {
       a.push({
-        object: (g.querySelector(".field-object")?.value || "").trim(),
-        field: (g.querySelector(".field-name")?.value || "").trim(),
-        type: g.querySelector(".field-type")?.value || "string",
-        required: g.querySelector(".field-required")?.checked || !1
+        object: (h.querySelector(".field-object")?.value || "").trim(),
+        field: (h.querySelector(".field-name")?.value || "").trim(),
+        type: h.querySelector(".field-type")?.value || "string",
+        required: h.querySelector(".field-required")?.checked || !1
       });
     });
     const u = [];
-    return d?.querySelectorAll(".mapping-rule-row").forEach((g) => {
+    return d?.querySelectorAll(".mapping-rule-row").forEach((h) => {
       u.push({
-        source_object: (g.querySelector(".rule-source-object")?.value || "").trim(),
-        source_field: (g.querySelector(".rule-source-field")?.value || "").trim(),
-        target_entity: g.querySelector(".rule-target-entity")?.value || "participant",
-        target_path: (g.querySelector(".rule-target-path")?.value || "").trim()
+        source_object: (h.querySelector(".rule-source-object")?.value || "").trim(),
+        source_field: (h.querySelector(".rule-source-field")?.value || "").trim(),
+        target_entity: h.querySelector(".rule-target-entity")?.value || "participant",
+        target_path: (h.querySelector(".rule-target-path")?.value || "").trim()
       });
     }), {
       id: e?.value.trim() || void 0,
@@ -380,11 +360,11 @@ class L {
       schemaFieldsContainer: d,
       mappingRulesContainer: a,
       mappingStatusBadge: u,
-      formValidationStatus: g
+      formValidationStatus: h
     } = this.elements;
     t && (t.value = e.id || ""), i && (i.value = String(e.version || 0)), n && (n.value = e.name || ""), r && (r.value = e.provider || "");
     const b = e.external_schema || { object_type: "", fields: [] };
-    o && (o.value = b.object_type || ""), p && (p.value = b.version || ""), d && (d.innerHTML = "", (b.fields || []).forEach((c) => d.appendChild(this.createSchemaFieldRow(c)))), a && (a.innerHTML = "", (e.rules || []).forEach((c) => a.appendChild(this.createMappingRuleRow(c)))), e.status && u ? (u.innerHTML = this.getStatusBadge(e.status), u.classList.remove("hidden")) : u && u.classList.add("hidden"), h(g);
+    o && (o.value = b.object_type || ""), p && (p.value = b.version || ""), d && (d.innerHTML = "", (b.fields || []).forEach((c) => d.appendChild(this.createSchemaFieldRow(c)))), a && (a.innerHTML = "", (e.rules || []).forEach((c) => a.appendChild(this.createMappingRuleRow(c)))), e.status && u ? (u.innerHTML = this.getStatusBadge(e.status), u.classList.remove("hidden")) : u && u.classList.add("hidden"), m(h);
   }
   /**
    * Reset the form to initial state
@@ -399,7 +379,7 @@ class L {
       mappingStatusBadge: o,
       formValidationStatus: p
     } = this.elements;
-    e?.reset(), t && (t.value = ""), i && (i.value = "0"), n && (n.innerHTML = ""), r && (r.innerHTML = ""), o && o.classList.add("hidden"), h(p), this.editingMappingId = null;
+    e?.reset(), t && (t.value = ""), i && (i.value = "0"), n && (n.innerHTML = ""), r && (r.innerHTML = ""), o && o.classList.add("hidden"), m(p), this.editingMappingId = null;
   }
   // Modal methods
   /**
@@ -407,7 +387,7 @@ class L {
    */
   openCreateModal() {
     const { mappingModal: e, mappingModalTitle: t, mappingNameInput: i } = this.elements;
-    this.resetForm(), t && (t.textContent = "New Mapping Specification"), this.addSchemaField({ field: "email", type: "string", required: !0 }), this.addMappingRule({ target_entity: "participant", target_path: "email" }), m(e), i?.focus();
+    this.resetForm(), t && (t.textContent = "New Mapping Specification"), this.addSchemaField({ field: "email", type: "string", required: !0 }), this.addMappingRule({ target_entity: "participant", target_path: "email" }), g(e), i?.focus();
   }
   /**
    * Open edit mapping modal
@@ -416,14 +396,14 @@ class L {
     const t = this.mappings.find((o) => o.id === e);
     if (!t) return;
     const { mappingModal: i, mappingModalTitle: n, mappingNameInput: r } = this.elements;
-    this.editingMappingId = e, n && (n.textContent = "Edit Mapping Specification"), this.populateForm(t), m(i), r?.focus();
+    this.editingMappingId = e, n && (n.textContent = "Edit Mapping Specification"), this.populateForm(t), g(i), r?.focus();
   }
   /**
    * Close mapping modal
    */
   closeModal() {
     const { mappingModal: e } = this.elements;
-    h(e), this.resetForm();
+    m(e), this.resetForm();
   }
   /**
    * Open publish confirmation modal
@@ -432,25 +412,25 @@ class L {
     const t = this.mappings.find((o) => o.id === e);
     if (!t) return;
     const { publishModal: i, publishMappingName: n, publishMappingVersion: r } = this.elements;
-    this.pendingPublishId = e, n && (n.textContent = t.name), r && (r.textContent = `v${t.version || 1}`), m(i);
+    this.pendingPublishId = e, n && (n.textContent = t.name), r && (r.textContent = `v${t.version || 1}`), g(i);
   }
   /**
    * Close publish modal
    */
   closePublishModal() {
-    h(this.elements.publishModal), this.pendingPublishId = null;
+    m(this.elements.publishModal), this.pendingPublishId = null;
   }
   /**
    * Open delete confirmation modal
    */
   openDeleteModal(e) {
-    this.pendingDeleteId = e, m(this.elements.deleteModal);
+    this.pendingDeleteId = e, g(this.elements.deleteModal);
   }
   /**
    * Close delete modal
    */
   closeDeleteModal() {
-    h(this.elements.deleteModal), this.pendingDeleteId = null;
+    m(this.elements.deleteModal), this.pendingDeleteId = null;
   }
   // CRUD operations
   /**
@@ -479,7 +459,7 @@ class L {
                 <p class="text-sm mt-1">Mapping specification is valid. Compiled hash: <code class="text-xs bg-green-100 px-1 py-0.5 rounded">${l((r.mapping?.compiled_hash || "").slice(0, 16))}</code></p>
               </div>
             </div>
-          `, t.className = "rounded-lg p-4"), this.announce("Validation passed");
+          `, t.className = "rounded-lg p-4"), w(this.elements.announcements, "Validation passed");
       else {
         const o = r.errors || [r.error?.message || "Validation failed"];
         t && (t.innerHTML = `
@@ -492,11 +472,11 @@ class L {
                 <ul class="text-sm mt-1 list-disc list-inside">${o.map((p) => `<li>${l(p)}</li>`).join("")}</ul>
               </div>
             </div>
-          `, t.className = "rounded-lg p-4"), this.announce("Validation failed");
+          `, t.className = "rounded-lg p-4"), w(this.elements.announcements, "Validation failed");
       }
-      m(t);
+      g(t);
     } catch (n) {
-      console.error("Validation error:", n), t && (t.innerHTML = `<div class="text-red-600">Error: ${l(n instanceof Error ? n.message : "Unknown error")}</div>`, m(t));
+      console.error("Validation error:", n), t && (t.innerHTML = `<div class="text-red-600">Error: ${l(n instanceof Error ? n.message : "Unknown error")}</div>`, g(t));
     } finally {
       e.removeAttribute("disabled"), e.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Validate';
     }
@@ -520,11 +500,14 @@ class L {
         const p = await o.json();
         throw new Error(p.error?.message || `HTTP ${o.status}`);
       }
-      this.showToast(i ? "Mapping updated" : "Mapping created", "success"), this.announce(i ? "Mapping updated" : "Mapping created"), this.closeModal(), await this.loadMappings();
+      x(i ? "Mapping updated" : "Mapping created", "success"), w(
+        this.elements.announcements,
+        i ? "Mapping updated" : "Mapping created"
+      ), this.closeModal(), await this.loadMappings();
     } catch (i) {
       console.error("Save error:", i);
       const n = i instanceof Error ? i.message : "Unknown error";
-      this.showToast(`Failed to save: ${n}`, "error"), this.announce(`Failed to save: ${n}`);
+      x(`Failed to save: ${n}`, "error"), w(this.elements.announcements, `Failed to save: ${n}`);
     } finally {
       e.removeAttribute("disabled"), e.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Draft';
     }
@@ -550,11 +533,11 @@ class L {
           const n = await i.json();
           throw new Error(n.error?.message || `HTTP ${i.status}`);
         }
-        this.showToast("Mapping published", "success"), this.announce("Mapping published"), this.closePublishModal(), await this.loadMappings();
+        x("Mapping published", "success"), w(this.elements.announcements, "Mapping published"), this.closePublishModal(), await this.loadMappings();
       } catch (i) {
         console.error("Publish error:", i);
         const n = i instanceof Error ? i.message : "Unknown error";
-        this.showToast(`Failed to publish: ${n}`, "error");
+        x(`Failed to publish: ${n}`, "error");
       } finally {
         t.removeAttribute("disabled"), t.textContent = "Publish";
       }
@@ -578,11 +561,11 @@ class L {
           const i = await t.json();
           throw new Error(i.error?.message || `HTTP ${t.status}`);
         }
-        this.showToast("Mapping deleted", "success"), this.announce("Mapping deleted"), this.closeDeleteModal(), await this.loadMappings();
+        x("Mapping deleted", "success"), w(this.elements.announcements, "Mapping deleted"), this.closeDeleteModal(), await this.loadMappings();
       } catch (t) {
         console.error("Delete error:", t);
         const i = t instanceof Error ? t.message : "Unknown error";
-        this.showToast(`Failed to delete: ${i}`, "error");
+        x(`Failed to delete: ${i}`, "error");
       } finally {
         e.removeAttribute("disabled"), e.textContent = "Delete";
       }
@@ -604,31 +587,31 @@ class L {
       previewSourceInput: d,
       sourceSyntaxError: a
     } = this.elements;
-    this.currentPreviewMapping = t, n && (n.textContent = t.name), r && (r.textContent = t.provider), o && (o.textContent = t.external_schema?.object_type || "-"), p && (p.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), d && (d.value = ""), h(a), m(i), d?.focus();
+    this.currentPreviewMapping = t, n && (n.textContent = t.name), r && (r.textContent = t.provider), o && (o.textContent = t.external_schema?.object_type || "-"), p && (p.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), d && (d.value = ""), m(a), g(i), d?.focus();
   }
   /**
    * Close preview modal
    */
   closePreviewModal() {
-    h(this.elements.previewModal), this.currentPreviewMapping = null, this.elements.previewSourceInput && (this.elements.previewSourceInput.value = "");
+    m(this.elements.previewModal), this.currentPreviewMapping = null, this.elements.previewSourceInput && (this.elements.previewSourceInput.value = "");
   }
   /**
    * Show preview state
    */
   showPreviewState(e) {
     const { previewEmpty: t, previewLoading: i, previewError: n, previewSuccess: r } = this.elements;
-    switch (h(t), h(i), h(n), h(r), e) {
+    switch (m(t), m(i), m(n), m(r), e) {
       case "empty":
-        m(t);
+        g(t);
         break;
       case "loading":
-        m(i);
+        g(i);
         break;
       case "error":
-        m(n);
+        g(n);
         break;
       case "success":
-        m(r);
+        g(r);
         break;
     }
   }
@@ -683,7 +666,7 @@ class L {
         default:
           p[a] = `sample_${a}`;
       }
-    }), o[n] = p, e && (e.value = JSON.stringify(o, null, 2)), h(t);
+    }), o[n] = p, e && (e.value = JSON.stringify(o, null, 2)), m(t);
   }
   /**
    * Validate source JSON
@@ -691,12 +674,12 @@ class L {
   validateSourceJson() {
     const { previewSourceInput: e, sourceSyntaxError: t } = this.elements, i = e?.value.trim() || "";
     if (!i)
-      return h(t), null;
+      return m(t), null;
     try {
       const n = JSON.parse(i);
-      return h(t), n;
+      return m(t), n;
     } catch (n) {
-      return t && (t.textContent = `JSON Syntax Error: ${n instanceof Error ? n.message : "Invalid JSON"}`, m(t)), null;
+      return t && (t.textContent = `JSON Syntax Error: ${n instanceof Error ? n.message : "Invalid JSON"}`, g(t)), null;
     }
   }
   /**
@@ -811,7 +794,7 @@ class L {
           </div>
         `
     ).join(""));
-    const g = e.agreement || {}, b = Object.entries(g);
+    const h = e.agreement || {}, b = Object.entries(h);
     o && (b.length === 0 ? o.innerHTML = '<p class="text-sm text-gray-500">No agreement metadata resolved</p>' : o.innerHTML = b.map(
       ([c, f]) => `
           <div class="flex items-center gap-2 text-sm">
@@ -829,30 +812,23 @@ class L {
    */
   clearPreview() {
     const { previewSourceInput: e, sourceSyntaxError: t } = this.elements;
-    e && (e.value = ""), h(t), this.showPreviewState("empty"), this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
-  }
-  /**
-   * Show toast notification
-   */
-  showToast(e, t) {
-    const n = window.toastManager;
-    n && (t === "success" ? n.success(e) : n.error(e));
+    e && (e.value = ""), m(t), this.showPreviewState("empty"), this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
   }
 }
-function V(w) {
-  const e = new L(w);
-  return k(() => e.init()), e;
+function U(y) {
+  const e = new C(y);
+  return $(() => e.init()), e;
 }
-function A(w) {
+function z(y) {
   const e = {
-    basePath: w.basePath,
-    apiBasePath: w.apiBasePath || `${w.basePath}/api`
-  }, t = new L(e);
-  k(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
+    basePath: y.basePath,
+    apiBasePath: y.apiBasePath || `${y.basePath}/api`
+  }, t = new C(e);
+  $(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
 }
 export {
-  L as IntegrationMappingsController,
-  A as bootstrapIntegrationMappings,
-  V as initIntegrationMappings
+  C as IntegrationMappingsController,
+  z as bootstrapIntegrationMappings,
+  U as initIntegrationMappings
 };
 //# sourceMappingURL=integration-mappings.js.map

@@ -6,6 +6,13 @@
 import { qs, qsa, show, hide, onReady, announce } from '../utils/dom-helpers.js';
 import { debounce } from '../utils/async-helpers.js';
 import { formatFileSize, formatDateTime } from '../utils/formatters.js';
+import {
+  resolveAccountId,
+  normalizeAccountId,
+  saveAccountId,
+  applyAccountIdToPath,
+  syncAccountIdToUrl,
+} from '../utils/google-drive-utils.js';
 import { httpRequest } from '../../shared/transport/http-client.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 import {
@@ -53,7 +60,6 @@ interface ConnectedGoogleAccount {
 }
 
 // Constants
-const GOOGLE_ACCOUNT_STORAGE_KEY = 'esign.google.account_id';
 const MAX_FILE_SIZE_DEFAULT = 25 * 1024 * 1024; // 25 MB
 const POLL_INTERVAL = 2000;
 const MAX_POLL_ATTEMPTS = 60;
@@ -155,7 +161,10 @@ export class DocumentFormController {
     this.config = config;
     this.apiBase = config.apiBasePath || `${config.basePath}/api/v1`;
     this.maxFileSize = config.maxFileSize || MAX_FILE_SIZE_DEFAULT;
-    this.currentAccountId = this.resolveInitialAccountId();
+    this.currentAccountId = resolveAccountId(
+      new URLSearchParams(window.location.search),
+      this.config.googleAccountId
+    );
 
     this.elements = {
       // Upload panel
@@ -395,37 +404,10 @@ export class DocumentFormController {
   // ============================================================
 
   /**
-   * Resolve initial account ID from query, template, or localStorage
-   */
-  private resolveInitialAccountId(): string {
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = this.normalizeAccountId(params.get('account_id'));
-    if (fromQuery) return fromQuery;
-
-    const fromTemplate = this.normalizeAccountId(this.config.googleAccountId);
-    if (fromTemplate) return fromTemplate;
-
-    try {
-      return this.normalizeAccountId(
-        window.localStorage.getItem(GOOGLE_ACCOUNT_STORAGE_KEY)
-      );
-    } catch {
-      return '';
-    }
-  }
-
-  /**
-   * Normalize account ID
-   */
-  private normalizeAccountId(value: string | null | undefined): string {
-    return (value || '').trim();
-  }
-
-  /**
    * Set current account ID and optionally refresh Drive files
    */
   private setCurrentAccountId(value: string, refreshFiles = false): void {
-    const normalized = this.normalizeAccountId(value);
+    const normalized = normalizeAccountId(value);
     if (normalized === this.currentAccountId) {
       this.updateAccountScopeUI();
       return;
@@ -501,7 +483,7 @@ export class DocumentFormController {
 
     const seen = new Set<string>(['']);
     for (const account of this.connectedAccounts) {
-      const accountID = this.normalizeAccountId(account?.account_id);
+      const accountID = normalizeAccountId(account?.account_id);
       if (seen.has(accountID)) {
         continue;
       }
@@ -529,46 +511,11 @@ export class DocumentFormController {
   }
 
   /**
-   * Sync account ID to URL and localStorage
-   */
-  private syncScopedAccountState(): void {
-    const url = new URL(window.location.href);
-    if (this.currentAccountId) {
-      url.searchParams.set('account_id', this.currentAccountId);
-    } else {
-      url.searchParams.delete('account_id');
-    }
-    window.history.replaceState({}, '', url.toString());
-
-    try {
-      if (this.currentAccountId) {
-        window.localStorage.setItem(GOOGLE_ACCOUNT_STORAGE_KEY, this.currentAccountId);
-      } else {
-        window.localStorage.removeItem(GOOGLE_ACCOUNT_STORAGE_KEY);
-      }
-    } catch {
-      // Ignore storage failures
-    }
-  }
-
-  /**
-   * Apply account ID to a path
-   */
-  private applyAccountIdToPath(pathOrURL: string): string {
-    const parsed = new URL(pathOrURL, window.location.origin);
-    if (this.currentAccountId) {
-      parsed.searchParams.set('account_id', this.currentAccountId);
-    } else {
-      parsed.searchParams.delete('account_id');
-    }
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-  }
-
-  /**
    * Update account scope UI elements
    */
   private updateAccountScopeUI(): void {
-    this.syncScopedAccountState();
+    syncAccountIdToUrl(this.currentAccountId);
+    saveAccountId(this.currentAccountId);
 
     const { accountScopeHelp, connectGoogleLink, driveAccountDropdown } = this.elements;
 
@@ -585,13 +532,16 @@ export class DocumentFormController {
       const baseHref =
         connectGoogleLink.dataset.baseHref || connectGoogleLink.getAttribute('href');
       if (baseHref) {
-        connectGoogleLink.setAttribute('href', this.applyAccountIdToPath(baseHref));
+        connectGoogleLink.setAttribute(
+          'href',
+          applyAccountIdToPath(baseHref, this.currentAccountId)
+        );
       }
     }
 
     if (driveAccountDropdown) {
       const hasOption = Array.from(driveAccountDropdown.options).some(
-        (option) => this.normalizeAccountId(option.value) === this.currentAccountId
+        (option) => normalizeAccountId(option.value) === this.currentAccountId
       );
       if (!hasOption) {
         this.renderConnectedAccountsDropdown();
@@ -1599,7 +1549,10 @@ export class DocumentFormController {
       ) {
         const integrationsPath =
           this.config.routes.integrations || '/admin/esign/integrations/google';
-        importReconnectLink.href = this.applyAccountIdToPath(integrationsPath);
+        importReconnectLink.href = applyAccountIdToPath(
+          integrationsPath,
+          this.currentAccountId
+        );
         show(importReconnectLink);
       } else {
         hide(importReconnectLink);

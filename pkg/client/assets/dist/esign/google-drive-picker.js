@@ -1,22 +1,27 @@
-import { b as r, s as g, h as u, a as b, q as k, f as S } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as r, s as g, h as m, a as b, q as S, f as k } from "../chunks/dom-helpers-CMRVXsMj.js";
 import { d as P } from "../chunks/async-helpers-D7xplkWe.js";
-import { b as L } from "../chunks/formatters-9EdySuC_.js";
-import { escapeHTML as I } from "../shared/html.js";
-import { g as A, h as B, r as M } from "../chunks/lineage-contracts-CFbDklQS.js";
-const y = "esign.google.account_id", x = {
+import { b as y } from "../chunks/formatters-Bx8onLEN.js";
+import { s as F } from "../chunks/page-feedback-XrK1vdW2.js";
+import { r as B, u as M, s as A, q as C } from "../chunks/google-drive-utils-_iSuaPZh.js";
+import { escapeHTML as x } from "../shared/html.js";
+import { g as E, h as $, r as R } from "../chunks/lineage-contracts-CFbDklQS.js";
+const I = {
   "application/vnd.google-apps.folder": "folder",
   "application/vnd.google-apps.document": "doc",
   "application/vnd.google-apps.spreadsheet": "sheet",
   "application/vnd.google-apps.presentation": "slide",
   "application/pdf": "pdf",
   default: "file"
-}, F = [
+}, L = [
   "application/vnd.google-apps.document",
   "application/pdf"
 ];
 class T {
   constructor(e) {
-    this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.isListView = !0, this.isLoading = !1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = this.resolveInitialAccountId(), this.elements = {
+    this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.isListView = !0, this.isLoading = !1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = B(
+      new URLSearchParams(window.location.search),
+      this.config.googleAccountId
+    ), this.elements = {
       searchInput: r("#drive-search"),
       clearSearchBtn: r("#clear-search-btn"),
       fileList: r("#file-list"),
@@ -70,8 +75,8 @@ class T {
       clearSearchBtn: t,
       refreshBtn: i,
       loadMoreBtn: n,
-      importBtn: o,
-      clearSelectionBtn: s,
+      importBtn: s,
+      clearSelectionBtn: o,
       importCancelBtn: c,
       importConfirmBtn: h,
       importForm: a,
@@ -85,7 +90,7 @@ class T {
         v.key === "Enter" && (v.preventDefault(), this.handleSearch());
       });
     }
-    t && t.addEventListener("click", () => this.clearSearch()), i && i.addEventListener("click", () => this.refresh()), n && n.addEventListener("click", () => this.loadMore()), o && o.addEventListener("click", () => this.showImportModal()), s && s.addEventListener("click", () => this.clearSelection()), c && c.addEventListener("click", () => this.hideImportModal()), h && a && a.addEventListener("submit", (p) => {
+    t && t.addEventListener("click", () => this.clearSearch()), i && i.addEventListener("click", () => this.refresh()), n && n.addEventListener("click", () => this.loadMore()), s && s.addEventListener("click", () => this.showImportModal()), o && o.addEventListener("click", () => this.clearSelection()), c && c.addEventListener("click", () => this.hideImportModal()), h && a && a.addEventListener("submit", (p) => {
       p.preventDefault(), this.handleImport();
     }), l && l.addEventListener("click", (p) => {
       const v = p.target;
@@ -97,55 +102,18 @@ class T {
     w && w.addEventListener("click", (p) => this.handleFileListClick(p));
   }
   /**
-   * Resolve initial account ID from various sources
-   */
-  resolveInitialAccountId() {
-    const e = new URLSearchParams(window.location.search), t = this.normalizeAccountId(e.get("account_id"));
-    if (t) return t;
-    const i = this.normalizeAccountId(this.config.googleAccountId);
-    if (i) return i;
-    try {
-      return this.normalizeAccountId(
-        window.localStorage.getItem(y)
-      );
-    } catch {
-      return "";
-    }
-  }
-  /**
-   * Normalize account ID
-   */
-  normalizeAccountId(e) {
-    return (e || "").trim();
-  }
-  /**
    * Update UI elements with account scope
    */
   updateScopedUI() {
-    this.syncScopedURLState();
+    M(this.currentAccountId), A(this.currentAccountId);
     const { accountScopeHelp: e, connectGoogleLink: t } = this.elements;
-    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, g(e)) : u(e)), t) {
+    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, g(e)) : m(e)), t) {
       const i = t.dataset.baseHref || t.getAttribute("href");
-      i && t.setAttribute("href", this.applyAccountIdToPath(i));
+      i && t.setAttribute(
+        "href",
+        C(i, this.currentAccountId)
+      );
     }
-  }
-  /**
-   * Sync account ID to URL and localStorage
-   */
-  syncScopedURLState() {
-    const e = new URL(window.location.href);
-    this.currentAccountId ? e.searchParams.set("account_id", this.currentAccountId) : e.searchParams.delete("account_id"), window.history.replaceState({}, "", e.toString());
-    try {
-      this.currentAccountId ? window.localStorage.setItem(y, this.currentAccountId) : window.localStorage.removeItem(y);
-    } catch {
-    }
-  }
-  /**
-   * Apply account ID to a path
-   */
-  applyAccountIdToPath(e) {
-    const t = new URL(e, window.location.origin);
-    return this.currentAccountId ? t.searchParams.set("account_id", this.currentAccountId) : t.searchParams.delete("account_id"), `${t.pathname}${t.search}${t.hash}`;
   }
   /**
    * Build scoped API URL
@@ -168,15 +136,15 @@ class T {
         parents: [],
         owners: []
       };
-    const t = String(e.id || e.ID || "").trim(), i = String(e.name || e.Name || "").trim(), n = String(e.mimeType || e.MimeType || "").trim(), o = String(e.modifiedTime || e.ModifiedTime || "").trim(), s = String(
+    const t = String(e.id || e.ID || "").trim(), i = String(e.name || e.Name || "").trim(), n = String(e.mimeType || e.MimeType || "").trim(), s = String(e.modifiedTime || e.ModifiedTime || "").trim(), o = String(
       e.webViewLink || e.webViewURL || e.WebViewURL || ""
     ).trim(), c = String(e.parentId || e.ParentID || "").trim(), h = String(e.ownerEmail || e.OwnerEmail || "").trim(), a = Array.isArray(e.parents) ? e.parents : c ? [c] : [], l = Array.isArray(e.owners) ? e.owners : h ? [{ emailAddress: h }] : [];
     return {
       id: t,
       name: i,
       mimeType: n,
-      modifiedTime: o,
-      webViewLink: s,
+      modifiedTime: s,
+      webViewLink: o,
       parents: a,
       owners: l,
       size: e.size,
@@ -194,26 +162,26 @@ class T {
     e || (this.currentFiles = [], this.nextPageToken = null, t && g(t));
     try {
       const n = this.currentFolderPath[this.currentFolderPath.length - 1];
-      let o;
-      this.searchQuery ? o = this.buildScopedAPIURL(
+      let s;
+      this.searchQuery ? s = this.buildScopedAPIURL(
         `/esign/integrations/google/files?q=${encodeURIComponent(this.searchQuery)}`
-      ) : o = this.buildScopedAPIURL(
+      ) : s = this.buildScopedAPIURL(
         `/esign/integrations/google/files?folder_id=${encodeURIComponent(n.id)}`
-      ), this.nextPageToken && (o += `&page_token=${encodeURIComponent(this.nextPageToken)}`);
-      const s = await fetch(o, {
+      ), this.nextPageToken && (s += `&page_token=${encodeURIComponent(this.nextPageToken)}`);
+      const o = await fetch(s, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (!s.ok)
-        throw new Error(`Failed to load files: ${s.status}`);
-      const c = await s.json(), h = Array.isArray(c.files) ? c.files.map((a) => this.normalizeDriveFile(a)) : [];
+      if (!o.ok)
+        throw new Error(`Failed to load files: ${o.status}`);
+      const c = await o.json(), h = Array.isArray(c.files) ? c.files.map((a) => this.normalizeDriveFile(a)) : [];
       e ? this.currentFiles = [...this.currentFiles, ...h] : this.currentFiles = h, this.nextPageToken = c.next_page_token || null, this.renderFiles(), this.updateResultCount(), this.updatePagination(), b(
         this.searchQuery ? `Found ${this.currentFiles.length} files` : `Loaded ${this.currentFiles.length} files`
       );
     } catch (n) {
       console.error("Error loading files:", n), this.renderError(n instanceof Error ? n.message : "Failed to load files"), b("Error loading files");
     } finally {
-      this.isLoading = !1, t && u(t);
+      this.isLoading = !1, t && m(t);
     }
   }
   /**
@@ -222,7 +190,7 @@ class T {
   renderFiles() {
     const { fileList: e, loadingState: t } = this.elements;
     if (!e) return;
-    if (t && u(t), this.currentFiles.length === 0) {
+    if (t && m(t), this.currentFiles.length === 0) {
       e.innerHTML = `
         <div class="p-8 text-center">
           <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -247,25 +215,25 @@ class T {
    * Render a single file item
    */
   renderFileItem(e) {
-    const t = e.mimeType === "application/vnd.google-apps.folder", i = F.includes(e.mimeType), n = this.selectedFile?.id === e.id, o = x[e.mimeType] || x.default, s = this.getFileIcon(o);
+    const t = e.mimeType === "application/vnd.google-apps.folder", i = L.includes(e.mimeType), n = this.selectedFile?.id === e.id, s = I[e.mimeType] || I.default, o = this.getFileIcon(s);
     return `
       <div
         class="file-item flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer ${n ? "bg-blue-50 border-l-2 border-blue-500" : ""}"
-        data-file-id="${I(e.id)}"
+        data-file-id="${x(e.id)}"
         data-is-folder="${t}"
         role="option"
         aria-selected="${n}"
         tabindex="0"
       >
         <div class="w-8 h-8 flex items-center justify-center flex-shrink-0">
-          ${s}
+          ${o}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-medium text-gray-900 truncate">
-            ${I(e.name)}
+            ${x(e.name)}
           </p>
           <p class="text-xs text-gray-500">
-            ${L(e.modifiedTime)}
+            ${y(e.modifiedTime)}
           </p>
         </div>
         ${i ? '<span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">Importable</span>' : ""}
@@ -292,8 +260,8 @@ class T {
   handleFileListClick(e) {
     const i = e.target.closest(".file-item");
     if (!i) return;
-    const n = i.dataset.fileId, o = i.dataset.isFolder === "true";
-    n && (o ? this.navigateToFolder(n) : this.selectFile(n));
+    const n = i.dataset.fileId, s = i.dataset.isFolder === "true";
+    n && (s ? this.navigateToFolder(n) : this.selectFile(n));
   }
   /**
    * Navigate into a folder
@@ -324,20 +292,20 @@ class T {
       filePreview: t,
       previewIcon: i,
       previewTitle: n,
-      previewType: o,
-      previewFileId: s,
+      previewType: s,
+      previewFileId: o,
       previewOwner: c,
       previewModified: h,
       importBtn: a,
       openInGoogleBtn: l
     } = this.elements;
     if (!this.selectedFile) {
-      e && g(e), t && u(t);
+      e && g(e), t && m(t);
       return;
     }
-    e && u(e), t && g(t);
-    const d = this.selectedFile, f = F.includes(d.mimeType);
-    n && (n.textContent = d.name), o && (o.textContent = this.getMimeTypeLabel(d.mimeType)), s && (s.textContent = d.id), c && d.owners.length > 0 && (c.textContent = d.owners[0].emailAddress || "-"), h && (h.textContent = L(d.modifiedTime)), a && (f ? (a.removeAttribute("disabled"), a.classList.remove("opacity-50", "cursor-not-allowed")) : (a.setAttribute("disabled", "true"), a.classList.add("opacity-50", "cursor-not-allowed"))), l && d.webViewLink && (l.href = d.webViewLink);
+    e && m(e), t && g(t);
+    const d = this.selectedFile, f = L.includes(d.mimeType);
+    n && (n.textContent = d.name), s && (s.textContent = this.getMimeTypeLabel(d.mimeType)), o && (o.textContent = d.id), c && d.owners.length > 0 && (c.textContent = d.owners[0].emailAddress || "-"), h && (h.textContent = y(d.modifiedTime)), a && (f ? (a.removeAttribute("disabled"), a.classList.remove("opacity-50", "cursor-not-allowed")) : (a.setAttribute("disabled", "true"), a.classList.add("opacity-50", "cursor-not-allowed"))), l && d.webViewLink && (l.href = d.webViewLink);
   }
   /**
    * Get human-readable mime type label
@@ -358,7 +326,7 @@ class T {
     const { breadcrumb: e, listTitle: t } = this.elements;
     if (!e) return;
     if (this.searchQuery) {
-      u(e), t && (t.textContent = "Search Results");
+      m(e), t && (t.textContent = "Search Results");
       return;
     }
     g(e);
@@ -366,23 +334,23 @@ class T {
     t && (t.textContent = i.name);
     const n = e.querySelector("ol");
     n && (n.innerHTML = this.currentFolderPath.map(
-      (o, s) => `
+      (s, o) => `
         <li class="flex items-center">
-          ${s > 0 ? '<span class="text-gray-400 mx-2">/</span>' : ""}
+          ${o > 0 ? '<span class="text-gray-400 mx-2">/</span>' : ""}
           <button
             type="button"
-            data-folder-id="${I(o.id)}"
-            data-folder-index="${s}"
+            data-folder-id="${x(s.id)}"
+            data-folder-index="${o}"
             class="breadcrumb-item text-blue-600 hover:text-blue-800 hover:underline"
           >
-            ${I(o.name)}
+            ${x(s.name)}
           </button>
         </li>
       `
-    ).join(""), k(".breadcrumb-item", n).forEach((o) => {
-      o.addEventListener("click", () => {
-        const s = parseInt(o.dataset.folderIndex || "0", 10);
-        this.navigateToBreadcrumb(s);
+    ).join(""), S(".breadcrumb-item", n).forEach((s) => {
+      s.addEventListener("click", () => {
+        const o = parseInt(s.dataset.folderIndex || "0", 10);
+        this.navigateToBreadcrumb(o);
       });
     }));
   }
@@ -404,7 +372,7 @@ class T {
    */
   updatePagination() {
     const { pagination: e, loadMoreBtn: t } = this.elements;
-    e && (this.nextPageToken ? g(e) : u(e));
+    e && (this.nextPageToken ? g(e) : m(e));
   }
   /**
    * Handle search
@@ -413,14 +381,14 @@ class T {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
     if (!e) return;
     const i = e.value.trim();
-    this.searchQuery = i, t && (i ? g(t) : u(t)), this.clearSelection(), this.loadFiles();
+    this.searchQuery = i, t && (i ? g(t) : m(t)), this.clearSelection(), this.loadFiles();
   }
   /**
    * Clear search
    */
   clearSearch() {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
-    e && (e.value = ""), t && u(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
+    e && (e.value = ""), t && m(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
   }
   /**
    * Refresh file list
@@ -448,8 +416,8 @@ class T {
     if (!this.selectedFile) return;
     const { importModal: e, importGoogleFileId: t, importDocumentTitle: i, importAgreementTitle: n } = this.elements;
     if (t && (t.value = this.selectedFile.id), i) {
-      const o = this.selectedFile.name.replace(/\.[^/.]+$/, "");
-      i.value = o;
+      const s = this.selectedFile.name.replace(/\.[^/.]+$/, "");
+      i.value = s;
     }
     n && (n.value = ""), e && g(e);
   }
@@ -458,7 +426,7 @@ class T {
    */
   hideImportModal() {
     const { importModal: e } = this.elements;
-    e && u(e);
+    e && m(e);
   }
   /**
    * Handle import form submission
@@ -470,8 +438,8 @@ class T {
       importSpinner: t,
       importBtnText: i,
       importDocumentTitle: n,
-      importAgreementTitle: o
-    } = this.elements, s = this.selectedFile.id, c = n?.value.trim() || this.selectedFile.name, h = o?.value.trim() || "";
+      importAgreementTitle: s
+    } = this.elements, o = this.selectedFile.id, c = n?.value.trim() || this.selectedFile.name, h = s?.value.trim() || "";
     e && e.setAttribute("disabled", "true"), t && g(t), i && (i.textContent = "Importing...");
     try {
       const a = await fetch(this.buildScopedAPIURL("/esign/google-drive/imports"), {
@@ -482,7 +450,7 @@ class T {
           Accept: "application/json"
         },
         body: JSON.stringify({
-          google_file_id: s,
+          google_file_id: o,
           document_title: c,
           agreement_title: h || void 0
         })
@@ -491,9 +459,9 @@ class T {
         const p = await a.json();
         throw new Error(p.error?.message || "Import failed");
       }
-      const l = await a.json(), d = A(l), f = B(l);
-      if (this.showToast("Import started successfully", "success"), b("Import started"), this.hideImportModal(), f.status === "succeeded" && this.config.pickerRoutes?.documents) {
-        window.location.href = M(f, {
+      const l = await a.json(), d = E(l), f = $(l);
+      if (F("Import started successfully", "success", { alertFallback: !0 }), b("Import started"), this.hideImportModal(), f.status === "succeeded" && this.config.pickerRoutes?.documents) {
+        window.location.href = R(f, {
           agreements: this.config.pickerRoutes.agreements,
           documents: this.config.pickerRoutes.documents,
           fallback: this.config.pickerRoutes.documents
@@ -505,9 +473,9 @@ class T {
     } catch (a) {
       console.error("Import error:", a);
       const l = a instanceof Error ? a.message : "Import failed";
-      this.showToast(l, "error"), b(`Error: ${l}`);
+      F(l, "error", { alertFallback: !0 }), b(`Error: ${l}`);
     } finally {
-      e && e.removeAttribute("disabled"), t && u(t), i && (i.textContent = "Import");
+      e && e.removeAttribute("disabled"), t && m(t), i && (i.textContent = "Import");
     }
   }
   /**
@@ -523,23 +491,12 @@ class T {
           </svg>
         </div>
         <h3 class="text-lg font-medium text-gray-900 mb-2">Error Loading Files</h3>
-        <p class="text-sm text-gray-500 mb-4">${I(e)}</p>
+        <p class="text-sm text-gray-500 mb-4">${x(e)}</p>
         <button type="button" class="btn btn-secondary" onclick="location.reload()">
           Try Again
         </button>
       </div>
     `);
-  }
-  /**
-   * Show toast notification
-   */
-  showToast(e, t) {
-    const n = window.toastManager;
-    if (n) {
-      t === "success" ? n.success(e) : n.error(e);
-      return;
-    }
-    t === "success" ? window.alert(`Success: ${e}`) : window.alert(`Error: ${e}`);
   }
   buildImportMonitorURL(e) {
     const t = this.config.pickerRoutes?.documentImport;
@@ -552,24 +509,24 @@ class T {
    * Escape HTML
    */
 }
-function V(m) {
-  const e = new T(m);
-  return S(() => e.init()), e;
+function j(u) {
+  const e = new T(u);
+  return k(() => e.init()), e;
 }
-function _(m) {
+function Q(u) {
   const e = {
-    basePath: m.basePath,
-    apiBasePath: m.apiBasePath || `${m.basePath}/api`,
-    userId: m.userId,
-    googleAccountId: m.googleAccountId,
-    googleConnected: m.googleConnected !== !1,
-    pickerRoutes: m.pickerRoutes
+    basePath: u.basePath,
+    apiBasePath: u.apiBasePath || `${u.basePath}/api`,
+    userId: u.userId,
+    googleAccountId: u.googleAccountId,
+    googleConnected: u.googleConnected !== !1,
+    pickerRoutes: u.pickerRoutes
   }, t = new T(e);
-  S(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
+  k(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
 }
 export {
   T as GoogleDrivePickerController,
-  _ as bootstrapGoogleDrivePicker,
-  V as initGoogleDrivePicker
+  Q as bootstrapGoogleDrivePicker,
+  j as initGoogleDrivePicker
 };
 //# sourceMappingURL=google-drive-picker.js.map

@@ -261,23 +261,23 @@ export function resolveAccountId(
   templateAccountId?: string
 ): string {
   // 1. Check query params
-  const queryAccountId = queryParams.get('account_id');
+  const queryAccountId = normalizeAccountId(queryParams.get('account_id'));
   if (queryAccountId) {
-    return normalizeAccountId(queryAccountId);
+    return queryAccountId;
   }
 
   // 2. Check template-provided value
-  if (templateAccountId) {
-    return normalizeAccountId(templateAccountId);
+  const normalizedTemplateAccountId = normalizeAccountId(templateAccountId);
+  if (normalizedTemplateAccountId) {
+    return normalizedTemplateAccountId;
   }
 
   // 3. Check localStorage
-  const storedAccountId = localStorage.getItem(GOOGLE_ACCOUNT_STORAGE_KEY);
-  if (storedAccountId) {
-    return normalizeAccountId(storedAccountId);
+  try {
+    return normalizeAccountId(localStorage.getItem(GOOGLE_ACCOUNT_STORAGE_KEY));
+  } catch {
+    return '';
   }
-
-  return '';
 }
 
 /**
@@ -297,8 +297,14 @@ export function normalizeAccountId(value: string | null | undefined): string {
  */
 export function saveAccountId(accountId: string): void {
   const normalized = normalizeAccountId(accountId);
-  if (normalized) {
-    localStorage.setItem(GOOGLE_ACCOUNT_STORAGE_KEY, normalized);
+  try {
+    if (normalized) {
+      localStorage.setItem(GOOGLE_ACCOUNT_STORAGE_KEY, normalized);
+    } else {
+      localStorage.removeItem(GOOGLE_ACCOUNT_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage failures.
   }
 }
 
@@ -306,16 +312,28 @@ export function saveAccountId(accountId: string): void {
  * Apply account ID to a URL path or full URL
  */
 export function applyAccountIdToPath(pathOrUrl: string, accountId: string): string {
-  if (!accountId) return pathOrUrl;
+  const normalizedAccountId = normalizeAccountId(accountId);
 
   try {
     const url = new URL(pathOrUrl, window.location.origin);
-    url.searchParams.set('account_id', accountId);
-    return url.pathname + url.search;
+    if (normalizedAccountId) {
+      url.searchParams.set('account_id', normalizedAccountId);
+    } else {
+      url.searchParams.delete('account_id');
+    }
+    return `${url.pathname}${url.search}${url.hash}`;
   } catch {
-    // If not a valid URL, append as query param
-    const separator = pathOrUrl.includes('?') ? '&' : '?';
-    return `${pathOrUrl}${separator}account_id=${encodeURIComponent(accountId)}`;
+    const [pathWithQuery, hash = ''] = pathOrUrl.split('#', 2);
+    const [pathname, queryString = ''] = pathWithQuery.split('?', 2);
+    const params = new URLSearchParams(queryString);
+    if (normalizedAccountId) {
+      params.set('account_id', normalizedAccountId);
+    } else {
+      params.delete('account_id');
+    }
+    const query = params.toString();
+    const hashSuffix = hash ? `#${hash}` : '';
+    return `${pathname}${query ? `?${query}` : ''}${hashSuffix}`;
   }
 }
 
@@ -339,11 +357,12 @@ export function buildScopedApiUrl(apiBase: string, path: string, accountId?: str
 export function syncAccountIdToUrl(accountId: string): void {
   const url = new URL(window.location.href);
   const currentAccountId = url.searchParams.get('account_id');
+  const normalizedAccountId = normalizeAccountId(accountId);
 
-  if (accountId && currentAccountId !== accountId) {
-    url.searchParams.set('account_id', accountId);
+  if (normalizedAccountId && currentAccountId !== normalizedAccountId) {
+    url.searchParams.set('account_id', normalizedAccountId);
     window.history.replaceState({}, '', url.toString());
-  } else if (!accountId && currentAccountId) {
+  } else if (!normalizedAccountId && currentAccountId) {
     url.searchParams.delete('account_id');
     window.history.replaceState({}, '', url.toString());
   }

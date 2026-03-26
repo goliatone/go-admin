@@ -93,6 +93,8 @@ function stageRuntimeAssets() {
 function swapDistAtomically() {
   let movedPrevious = false;
   try {
+    // Ensure .dist-prev is removed before rename (may exist from previous failed build)
+    removeDir(distPrevDir);
     if (existsSync(distDir)) {
       renameSync(distDir, distPrevDir);
       movedPrevious = true;

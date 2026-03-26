@@ -50,6 +50,27 @@ export function formatDateTime(
 }
 
 /**
+ * Format date/time using the compact page-controller style used by legacy e-sign pages.
+ */
+export function formatCompactDateTime(
+  value: string | Date | undefined | null
+): string {
+  if (!value) return '-';
+  try {
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) return '-';
+
+    return (
+      date.toLocaleDateString() +
+      ' ' +
+      date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    );
+  } catch {
+    return String(value);
+  }
+}
+
+/**
  * Format date only (no time)
  */
 export function formatDate(

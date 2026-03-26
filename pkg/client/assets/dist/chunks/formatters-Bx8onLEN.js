@@ -13,24 +13,20 @@ function d(t, n) {
   try {
     const e = t instanceof Date ? t : new Date(t);
     if (isNaN(e.getTime())) return "-";
-    const r = {
+    const i = {
       dateStyle: "short",
       timeStyle: "short"
     };
-    return e.toLocaleString(void 0, n || r);
+    return e.toLocaleString(void 0, n || i);
   } catch {
     return String(t);
   }
 }
-function g(t, n) {
+function g(t) {
   if (!t) return "-";
   try {
-    const e = t instanceof Date ? t : new Date(t);
-    if (isNaN(e.getTime())) return "-";
-    const r = {
-      dateStyle: "medium"
-    };
-    return e.toLocaleDateString(void 0, n || r);
+    const n = t instanceof Date ? t : new Date(t);
+    return isNaN(n.getTime()) ? "-" : n.toLocaleDateString() + " " + n.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   } catch {
     return String(t);
   }
@@ -40,48 +36,62 @@ function p(t, n) {
   try {
     const e = t instanceof Date ? t : new Date(t);
     if (isNaN(e.getTime())) return "-";
-    const r = {
-      hour: "2-digit",
-      minute: "2-digit"
+    const i = {
+      dateStyle: "medium"
     };
-    return e.toLocaleTimeString(void 0, n || r);
+    return e.toLocaleDateString(void 0, n || i);
   } catch {
     return String(t);
   }
 }
-function h(t) {
+function h(t, n) {
   if (!t) return "-";
   try {
-    const n = t instanceof Date ? t : new Date(t);
-    if (isNaN(n.getTime())) return "-";
-    const e = /* @__PURE__ */ new Date(), r = n.getTime() - e.getTime(), f = Math.round(r / 1e3), o = Math.round(f / 60), a = Math.round(o / 60), c = Math.round(a / 24), i = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" });
-    return Math.abs(c) >= 1 ? i.format(c, "day") : Math.abs(a) >= 1 ? i.format(a, "hour") : Math.abs(o) >= 1 ? i.format(o, "minute") : i.format(f, "second");
+    const e = t instanceof Date ? t : new Date(t);
+    if (isNaN(e.getTime())) return "-";
+    const i = {
+      hour: "2-digit",
+      minute: "2-digit"
+    };
+    return e.toLocaleTimeString(void 0, n || i);
   } catch {
     return String(t);
   }
 }
 function D(t) {
+  if (!t) return "-";
+  try {
+    const n = t instanceof Date ? t : new Date(t);
+    if (isNaN(n.getTime())) return "-";
+    const e = /* @__PURE__ */ new Date(), i = n.getTime() - e.getTime(), f = Math.round(i / 1e3), o = Math.round(f / 60), a = Math.round(o / 60), c = Math.round(a / 24), r = new Intl.RelativeTimeFormat(void 0, { numeric: "auto" });
+    return Math.abs(c) >= 1 ? r.format(c, "day") : Math.abs(a) >= 1 ? r.format(a, "hour") : Math.abs(o) >= 1 ? r.format(o, "minute") : r.format(f, "second");
+  } catch {
+    return String(t);
+  }
+}
+function T(t) {
   return t == null ? "0 recipients" : t === 1 ? "1 recipient" : `${t} recipients`;
 }
 function s(t) {
   return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
 }
-function T(t) {
+function S(t) {
   return t ? t.split("_").map((n) => s(n)).join(" ") : "";
 }
-function S(t, n) {
+function N(t, n) {
   return !t || t.length <= n ? t : `${t.slice(0, n - 3)}...`;
 }
 export {
   m as a,
   d as b,
-  g as c,
-  p as d,
-  h as e,
+  p as c,
+  h as d,
+  D as e,
   u as f,
-  D as g,
+  T as g,
   s as h,
-  T as s,
-  S as t
+  g as i,
+  S as s,
+  N as t
 };
-//# sourceMappingURL=formatters-9EdySuC_.js.map
+//# sourceMappingURL=formatters-Bx8onLEN.js.map

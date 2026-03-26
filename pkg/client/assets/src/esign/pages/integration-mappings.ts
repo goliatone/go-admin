@@ -3,8 +3,10 @@
  * CRUD management for integration mapping specifications
  */
 
-import { qs, qsa, show, hide, onReady, announce } from '../utils/dom-helpers.js';
+import { qs, qsa, show, hide, onReady } from '../utils/dom-helpers.js';
 import { debounce } from '../utils/async-helpers.js';
+import { formatCompactDateTime } from '../utils/formatters.js';
+import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 /**
@@ -319,17 +321,6 @@ export class IntegrationMappingsController {
   }
 
   /**
-   * Announce message for screen readers
-   */
-  private announce(message: string): void {
-    const { announcements } = this.elements;
-    if (announcements) {
-      announcements.textContent = message;
-    }
-    announce(message);
-  }
-
-  /**
    * Show a specific page state
    */
   private showState(state: PageState): void {
@@ -353,27 +344,6 @@ export class IntegrationMappingsController {
       case 'list':
         show(mappingsList);
         break;
-    }
-  }
-
-  /**
-   * Escape HTML for safe rendering
-   */
-
-  /**
-   * Format date string
-   */
-  private formatDate(dateStr?: string): string {
-    if (!dateStr) return '-';
-    try {
-      const date = new Date(dateStr);
-      return (
-        date.toLocaleDateString() +
-        ' ' +
-        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      );
-    } catch {
-      return dateStr;
     }
   }
 
@@ -413,7 +383,7 @@ export class IntegrationMappingsController {
       this.populateProviderFilter();
 
       this.renderMappings();
-      this.announce(`Loaded ${this.mappings.length} mappings`);
+      announcePageMessage(this.elements.announcements, `Loaded ${this.mappings.length} mappings`);
     } catch (error) {
       console.error('Error loading mappings:', error);
       const { errorMessage } = this.elements;
@@ -421,7 +391,7 @@ export class IntegrationMappingsController {
         errorMessage.textContent = error instanceof Error ? error.message : 'An error occurred';
       }
       this.showState('error');
-      this.announce('Error loading mappings');
+      announcePageMessage(this.elements.announcements, 'Error loading mappings');
     }
   }
 
@@ -474,7 +444,7 @@ export class IntegrationMappingsController {
         <td class="px-6 py-4 text-sm text-gray-700">${escapeHtml(m.provider)}</td>
         <td class="px-6 py-4">${this.getStatusBadge(m.status)}</td>
         <td class="px-6 py-4 text-sm text-gray-700">v${m.version || 1}</td>
-        <td class="px-6 py-4 text-sm text-gray-500">${this.formatDate(m.updated_at)}</td>
+        <td class="px-6 py-4 text-sm text-gray-500">${formatCompactDateTime(m.updated_at)}</td>
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
             <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${escapeHtml(m.id)}" aria-label="Preview ${escapeHtml(m.name)}">
@@ -851,7 +821,7 @@ export class IntegrationMappingsController {
           `;
           formValidationStatus.className = 'rounded-lg p-4';
         }
-        this.announce('Validation passed');
+        announcePageMessage(this.elements.announcements, 'Validation passed');
       } else {
         const errors = result.errors || [result.error?.message || 'Validation failed'];
         if (formValidationStatus) {
@@ -868,7 +838,7 @@ export class IntegrationMappingsController {
           `;
           formValidationStatus.className = 'rounded-lg p-4';
         }
-        this.announce('Validation failed');
+        announcePageMessage(this.elements.announcements, 'Validation failed');
       }
 
       show(formValidationStatus);
@@ -913,15 +883,18 @@ export class IntegrationMappingsController {
         throw new Error(result.error?.message || `HTTP ${response.status}`);
       }
 
-      this.showToast(isUpdate ? 'Mapping updated' : 'Mapping created', 'success');
-      this.announce(isUpdate ? 'Mapping updated' : 'Mapping created');
+      showPageToast(isUpdate ? 'Mapping updated' : 'Mapping created', 'success');
+      announcePageMessage(
+        this.elements.announcements,
+        isUpdate ? 'Mapping updated' : 'Mapping created'
+      );
       this.closeModal();
       await this.loadMappings();
     } catch (error) {
       console.error('Save error:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.showToast(`Failed to save: ${message}`, 'error');
-      this.announce(`Failed to save: ${message}`);
+      showPageToast(`Failed to save: ${message}`, 'error');
+      announcePageMessage(this.elements.announcements, `Failed to save: ${message}`);
     } finally {
       saveBtn.removeAttribute('disabled');
       saveBtn.innerHTML = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Save Draft`;
@@ -956,14 +929,14 @@ export class IntegrationMappingsController {
         throw new Error(result.error?.message || `HTTP ${response.status}`);
       }
 
-      this.showToast('Mapping published', 'success');
-      this.announce('Mapping published');
+      showPageToast('Mapping published', 'success');
+      announcePageMessage(this.elements.announcements, 'Mapping published');
       this.closePublishModal();
       await this.loadMappings();
     } catch (error) {
       console.error('Publish error:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.showToast(`Failed to publish: ${message}`, 'error');
+      showPageToast(`Failed to publish: ${message}`, 'error');
     } finally {
       publishConfirmBtn.removeAttribute('disabled');
       publishConfirmBtn.textContent = 'Publish';
@@ -994,14 +967,14 @@ export class IntegrationMappingsController {
         throw new Error(result.error?.message || `HTTP ${response.status}`);
       }
 
-      this.showToast('Mapping deleted', 'success');
-      this.announce('Mapping deleted');
+      showPageToast('Mapping deleted', 'success');
+      announcePageMessage(this.elements.announcements, 'Mapping deleted');
       this.closeDeleteModal();
       await this.loadMappings();
     } catch (error) {
       console.error('Delete error:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.showToast(`Failed to delete: ${message}`, 'error');
+      showPageToast(`Failed to delete: ${message}`, 'error');
     } finally {
       deleteConfirmBtn.removeAttribute('disabled');
       deleteConfirmBtn.textContent = 'Delete';
@@ -1419,23 +1392,6 @@ export class IntegrationMappingsController {
     this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
   }
 
-  /**
-   * Show toast notification
-   */
-  private showToast(message: string, type: 'success' | 'error'): void {
-    const win = window as unknown as Record<string, unknown>;
-    const toastManager = win.toastManager as
-      | { success: (msg: string) => void; error: (msg: string) => void }
-      | undefined;
-
-    if (toastManager) {
-      if (type === 'success') {
-        toastManager.success(message);
-      } else {
-        toastManager.error(message);
-      }
-    }
-  }
 }
 
 /**

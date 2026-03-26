@@ -7,6 +7,13 @@ import type { ESignPageConfig, GoogleDriveFile } from '../types.js';
 import { qs, qsa, show, hide, onReady, announce, on, setLoading } from '../utils/dom-helpers.js';
 import { debounce } from '../utils/async-helpers.js';
 import { formatDateTime } from '../utils/formatters.js';
+import { showPageToast } from '../utils/page-feedback.js';
+import {
+  resolveAccountId,
+  saveAccountId,
+  applyAccountIdToPath,
+  syncAccountIdToUrl,
+} from '../utils/google-drive-utils.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 import {
   normalizeGoogleImportRunDetail,
@@ -43,8 +50,6 @@ interface NormalizedDriveFile {
   iconLink?: string;
   thumbnailLink?: string;
 }
-
-const GOOGLE_ACCOUNT_STORAGE_KEY = 'esign.google.account_id';
 
 const MIME_TYPE_ICONS: Record<string, string> = {
   'application/vnd.google-apps.folder': 'folder',
@@ -124,7 +129,10 @@ export class GoogleDrivePickerController {
   constructor(config: GoogleDrivePickerConfig) {
     this.config = config;
     this.apiBase = config.apiBasePath || `${config.basePath}/api`;
-    this.currentAccountId = this.resolveInitialAccountId();
+    this.currentAccountId = resolveAccountId(
+      new URLSearchParams(window.location.search),
+      this.config.googleAccountId
+    );
 
     this.elements = {
       searchInput: qs<HTMLInputElement>('#drive-search'),
@@ -282,37 +290,11 @@ export class GoogleDrivePickerController {
   }
 
   /**
-   * Resolve initial account ID from various sources
-   */
-  private resolveInitialAccountId(): string {
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = this.normalizeAccountId(params.get('account_id'));
-    if (fromQuery) return fromQuery;
-
-    const fromTemplate = this.normalizeAccountId(this.config.googleAccountId);
-    if (fromTemplate) return fromTemplate;
-
-    try {
-      return this.normalizeAccountId(
-        window.localStorage.getItem(GOOGLE_ACCOUNT_STORAGE_KEY)
-      );
-    } catch {
-      return '';
-    }
-  }
-
-  /**
-   * Normalize account ID
-   */
-  private normalizeAccountId(value: string | null | undefined): string {
-    return (value || '').trim();
-  }
-
-  /**
    * Update UI elements with account scope
    */
   private updateScopedUI(): void {
-    this.syncScopedURLState();
+    syncAccountIdToUrl(this.currentAccountId);
+    saveAccountId(this.currentAccountId);
 
     const { accountScopeHelp, connectGoogleLink } = this.elements;
 
@@ -329,45 +311,12 @@ export class GoogleDrivePickerController {
       const baseHref =
         connectGoogleLink.dataset.baseHref || connectGoogleLink.getAttribute('href');
       if (baseHref) {
-        connectGoogleLink.setAttribute('href', this.applyAccountIdToPath(baseHref));
+        connectGoogleLink.setAttribute(
+          'href',
+          applyAccountIdToPath(baseHref, this.currentAccountId)
+        );
       }
     }
-  }
-
-  /**
-   * Sync account ID to URL and localStorage
-   */
-  private syncScopedURLState(): void {
-    const url = new URL(window.location.href);
-    if (this.currentAccountId) {
-      url.searchParams.set('account_id', this.currentAccountId);
-    } else {
-      url.searchParams.delete('account_id');
-    }
-    window.history.replaceState({}, '', url.toString());
-
-    try {
-      if (this.currentAccountId) {
-        window.localStorage.setItem(GOOGLE_ACCOUNT_STORAGE_KEY, this.currentAccountId);
-      } else {
-        window.localStorage.removeItem(GOOGLE_ACCOUNT_STORAGE_KEY);
-      }
-    } catch {
-      // Ignore storage failures
-    }
-  }
-
-  /**
-   * Apply account ID to a path
-   */
-  private applyAccountIdToPath(pathOrURL: string): string {
-    const parsed = new URL(pathOrURL, window.location.origin);
-    if (this.currentAccountId) {
-      parsed.searchParams.set('account_id', this.currentAccountId);
-    } else {
-      parsed.searchParams.delete('account_id');
-    }
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   }
 
   /**
@@ -974,7 +923,7 @@ export class GoogleDrivePickerController {
       const handle = normalizeGoogleImportRunHandle(payload);
       const detail = normalizeGoogleImportRunDetail(payload);
 
-      this.showToast('Import started successfully', 'success');
+      showPageToast('Import started successfully', 'success', { alertFallback: true });
       announce('Import started');
 
       this.hideImportModal();
@@ -998,7 +947,7 @@ export class GoogleDrivePickerController {
     } catch (error) {
       console.error('Import error:', error);
       const message = error instanceof Error ? error.message : 'Import failed';
-      this.showToast(message, 'error');
+      showPageToast(message, 'error', { alertFallback: true });
       announce(`Error: ${message}`);
     } finally {
       if (importConfirmBtn) {
@@ -1030,31 +979,6 @@ export class GoogleDrivePickerController {
         </button>
       </div>
     `;
-  }
-
-  /**
-   * Show toast notification
-   */
-  private showToast(message: string, type: 'success' | 'error'): void {
-    const win = window as unknown as Record<string, unknown>;
-    const toastManager = win.toastManager as
-      | { success: (msg: string) => void; error: (msg: string) => void }
-      | undefined;
-
-    if (toastManager) {
-      if (type === 'success') {
-        toastManager.success(message);
-      } else {
-        toastManager.error(message);
-      }
-      return;
-    }
-
-    if (type === 'success') {
-      window.alert(`Success: ${message}`);
-    } else {
-      window.alert(`Error: ${message}`);
-    }
   }
 
   private buildImportMonitorURL(importRunId: string): string | null {

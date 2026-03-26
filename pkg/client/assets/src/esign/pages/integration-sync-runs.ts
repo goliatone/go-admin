@@ -3,7 +3,9 @@
  * Timeline view for CRM/HRIS sync operations
  */
 
-import { qs, show, hide, onReady, announce } from '../utils/dom-helpers.js';
+import { qs, show, hide, onReady } from '../utils/dom-helpers.js';
+import { formatCompactDateTime } from '../utils/formatters.js';
+import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 /**
@@ -237,17 +239,6 @@ export class IntegrationSyncRunsController {
   }
 
   /**
-   * Announce message for screen readers
-   */
-  private announce(message: string): void {
-    const { announcements } = this.elements;
-    if (announcements) {
-      announcements.textContent = message;
-    }
-    announce(message);
-  }
-
-  /**
    * Show a specific page state
    */
   private showState(state: PageState): void {
@@ -271,27 +262,6 @@ export class IntegrationSyncRunsController {
       case 'list':
         show(runsTimeline);
         break;
-    }
-  }
-
-  /**
-   * Escape HTML for safe rendering
-   */
-
-  /**
-   * Format date string
-   */
-  private formatDate(dateStr?: string): string {
-    if (!dateStr) return '-';
-    try {
-      const date = new Date(dateStr);
-      return (
-        date.toLocaleDateString() +
-        ' ' +
-        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      );
-    } catch {
-      return dateStr;
     }
   }
 
@@ -399,7 +369,7 @@ export class IntegrationSyncRunsController {
 
       this.updateStats();
       this.renderTimeline();
-      this.announce(`Loaded ${this.syncRuns.length} sync runs`);
+      announcePageMessage(this.elements.announcements, `Loaded ${this.syncRuns.length} sync runs`);
     } catch (error) {
       console.error('Error loading sync runs:', error);
       const { errorMessage } = this.elements;
@@ -492,7 +462,7 @@ export class IntegrationSyncRunsController {
             </div>
             <div class="text-right">
               ${this.getStatusBadge(run.status)}
-              <p class="text-xs text-gray-500 mt-1">${this.formatDate(run.started_at)}</p>
+              <p class="text-xs text-gray-500 mt-1">${formatCompactDateTime(run.started_at)}</p>
             </div>
           </div>
 
@@ -586,14 +556,14 @@ export class IntegrationSyncRunsController {
         throw new Error(result.error?.message || `HTTP ${response.status}`);
       }
 
-      this.showToast('Sync run started', 'success');
-      this.announce('Sync run started');
+      showPageToast('Sync run started', 'success');
+      announcePageMessage(this.elements.announcements, 'Sync run started');
       this.closeStartSyncModal();
       await this.loadSyncRuns();
     } catch (error) {
       console.error('Start sync error:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.showToast(`Failed to start: ${message}`, 'error');
+      showPageToast(`Failed to start: ${message}`, 'error');
     } finally {
       submitSyncBtn.removeAttribute('disabled');
       submitSyncBtn.innerHTML = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg> Start Sync`;
@@ -635,9 +605,11 @@ export class IntegrationSyncRunsController {
         run.direction === 'inbound' ? 'Inbound (Import)' : 'Outbound (Export)';
     }
     if (detailStatus) detailStatus.innerHTML = this.getStatusBadge(run.status);
-    if (detailStarted) detailStarted.textContent = this.formatDate(run.started_at);
+    if (detailStarted) detailStarted.textContent = formatCompactDateTime(run.started_at);
     if (detailCompleted) {
-      detailCompleted.textContent = run.completed_at ? this.formatDate(run.completed_at) : '-';
+      detailCompleted.textContent = run.completed_at
+        ? formatCompactDateTime(run.completed_at)
+        : '-';
     }
     if (detailCursor) detailCursor.textContent = run.cursor || '-';
     if (detailAttempt) detailAttempt.textContent = String(run.attempt_count || 1);
@@ -718,7 +690,7 @@ export class IntegrationSyncRunsController {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1">
             <span class="text-sm font-medium text-gray-900">${escapeHtml(cp.checkpoint_key)}</span>
-            <span class="text-xs text-gray-500">${this.formatDate(cp.created_at)}</span>
+            <span class="text-xs text-gray-500">${formatCompactDateTime(cp.created_at)}</span>
           </div>
           <p class="text-xs text-gray-600 font-mono truncate">Cursor: ${escapeHtml(cp.cursor)}</p>
         </div>
@@ -781,13 +753,13 @@ export class IntegrationSyncRunsController {
         throw new Error(result.error?.message || `HTTP ${response.status}`);
       }
 
-      this.showToast(`Sync run ${action} successful`, 'success');
+      showPageToast(`Sync run ${action} successful`, 'success');
       this.closeRunDetail();
       await this.loadSyncRuns();
     } catch (error) {
       console.error(`${action} error:`, error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.showToast(`Failed: ${message}`, 'error');
+      showPageToast(`Failed: ${message}`, 'error');
     } finally {
       btn.removeAttribute('disabled');
       retryBtn?.removeAttribute('disabled');
@@ -813,32 +785,13 @@ export class IntegrationSyncRunsController {
       if (response.ok) {
         const data = await response.json();
         console.log('Diagnostics:', data);
-        this.showToast('Diagnostics logged to console', 'info');
+        showPageToast('Diagnostics logged to console', 'info');
       }
     } catch (error) {
       console.error('Diagnostics error:', error);
     }
   }
 
-  /**
-   * Show toast notification
-   */
-  private showToast(message: string, type: 'success' | 'error' | 'info'): void {
-    const win = window as unknown as Record<string, unknown>;
-    const toastManager = win.toastManager as
-      | { success: (msg: string) => void; error: (msg: string) => void; info?: (msg: string) => void }
-      | undefined;
-
-    if (toastManager) {
-      if (type === 'success') {
-        toastManager.success(message);
-      } else if (type === 'error') {
-        toastManager.error(message);
-      } else if (type === 'info' && toastManager.info) {
-        toastManager.info(message);
-      }
-    }
-  }
 }
 
 /**

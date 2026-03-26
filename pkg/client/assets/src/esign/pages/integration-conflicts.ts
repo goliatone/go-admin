@@ -3,7 +3,9 @@
  * Conflict queue management for CRM/HRIS sync operations
  */
 
-import { qs, show, hide, onReady, announce } from '../utils/dom-helpers.js';
+import { qs, show, hide, onReady } from '../utils/dom-helpers.js';
+import { formatCompactDateTime } from '../utils/formatters.js';
+import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 /**
@@ -211,17 +213,6 @@ export class IntegrationConflictsController {
   }
 
   /**
-   * Announce message for screen readers
-   */
-  private announce(message: string): void {
-    const { announcements } = this.elements;
-    if (announcements) {
-      announcements.textContent = message;
-    }
-    announce(message);
-  }
-
-  /**
    * Show a specific page state
    */
   private showState(state: PageState): void {
@@ -245,27 +236,6 @@ export class IntegrationConflictsController {
       case 'list':
         show(conflictsList);
         break;
-    }
-  }
-
-  /**
-   * Escape HTML for safe rendering
-   */
-
-  /**
-   * Format date string
-   */
-  private formatDate(dateStr?: string): string {
-    if (!dateStr) return '-';
-    try {
-      const date = new Date(dateStr);
-      return (
-        date.toLocaleDateString() +
-        ' ' +
-        date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      );
-    } catch {
-      return dateStr;
     }
   }
 
@@ -326,7 +296,10 @@ export class IntegrationConflictsController {
 
       this.updateStats();
       this.renderConflicts();
-      this.announce(`Loaded ${this.conflicts.length} conflicts`);
+      announcePageMessage(
+        this.elements.announcements,
+        `Loaded ${this.conflicts.length} conflicts`
+      );
     } catch (error) {
       console.error('Error loading conflicts:', error);
       const { errorMessage } = this.elements;
@@ -421,7 +394,7 @@ export class IntegrationConflictsController {
             </div>
             <div class="text-right">
               ${this.getStatusBadge(conflict.status)}
-              <p class="text-xs text-gray-500 mt-1">${this.formatDate(conflict.created_at)}</p>
+              <p class="text-xs text-gray-500 mt-1">${formatCompactDateTime(conflict.created_at)}</p>
             </div>
           </div>
         </div>
@@ -477,7 +450,9 @@ export class IntegrationConflictsController {
     if (detailBindingId) detailBindingId.textContent = conflict.binding_id || '-';
     if (detailConflictId) detailConflictId.textContent = conflict.id;
     if (detailRunId) detailRunId.textContent = conflict.run_id || '-';
-    if (detailCreatedAt) detailCreatedAt.textContent = this.formatDate(conflict.created_at);
+    if (detailCreatedAt) {
+      detailCreatedAt.textContent = formatCompactDateTime(conflict.created_at);
+    }
     if (detailVersion) detailVersion.textContent = String(conflict.version || 1);
 
     // Payload
@@ -498,7 +473,9 @@ export class IntegrationConflictsController {
       hide(actionButtons);
 
       if (detailResolvedAt) {
-        detailResolvedAt.textContent = conflict.resolved_at ? this.formatDate(conflict.resolved_at) : '';
+        detailResolvedAt.textContent = conflict.resolved_at
+          ? formatCompactDateTime(conflict.resolved_at)
+          : '';
       }
       if (detailResolvedBy) {
         detailResolvedBy.textContent = conflict.resolved_by_user_id
@@ -603,38 +580,21 @@ export class IntegrationConflictsController {
         throw new Error(result.error?.message || `HTTP ${response.status}`);
       }
 
-      this.showToast('Conflict resolved', 'success');
-      this.announce('Conflict resolved');
+      showPageToast('Conflict resolved', 'success');
+      announcePageMessage(this.elements.announcements, 'Conflict resolved');
       this.closeResolveModal();
       this.closeConflictDetail();
       await this.loadConflicts();
     } catch (error) {
       console.error('Resolution error:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.showToast(`Failed: ${message}`, 'error');
+      showPageToast(`Failed: ${message}`, 'error');
     } finally {
       submitResolveBtn.removeAttribute('disabled');
       submitResolveBtn.innerHTML = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Submit Resolution`;
     }
   }
 
-  /**
-   * Show toast notification
-   */
-  private showToast(message: string, type: 'success' | 'error'): void {
-    const win = window as unknown as Record<string, unknown>;
-    const toastManager = win.toastManager as
-      | { success: (msg: string) => void; error: (msg: string) => void }
-      | undefined;
-
-    if (toastManager) {
-      if (type === 'success') {
-        toastManager.success(message);
-      } else {
-        toastManager.error(message);
-      }
-    }
-  }
 }
 
 /**

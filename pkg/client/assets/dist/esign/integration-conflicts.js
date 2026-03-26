@@ -1,6 +1,8 @@
-import { b as n, a as $, h as u, s as g, f as L } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as n, h as u, s as g, f as k } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { i as w } from "../chunks/formatters-Bx8onLEN.js";
+import { a as $, s as L } from "../chunks/page-feedback-XrK1vdW2.js";
 import { escapeHTML as b } from "../shared/html.js";
-class R {
+class P {
   constructor(e) {
     this.conflicts = [], this.currentConflictId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.conflictsEndpoint = `${this.apiBase}/esign/integrations/conflicts`, this.elements = {
       announcements: n("#conflicts-announcements"),
@@ -79,13 +81,6 @@ class R {
     });
   }
   /**
-   * Announce message for screen readers
-   */
-  announce(e) {
-    const { announcements: t } = this.elements;
-    t && (t.textContent = e), $(e);
-  }
-  /**
    * Show a specific page state
    */
   showState(e) {
@@ -103,21 +98,6 @@ class R {
       case "list":
         g(a);
         break;
-    }
-  }
-  /**
-   * Escape HTML for safe rendering
-   */
-  /**
-   * Format date string
-   */
-  formatDate(e) {
-    if (!e) return "-";
-    try {
-      const t = new Date(e);
-      return t.toLocaleDateString() + " " + t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    } catch {
-      return e;
     }
   }
   /**
@@ -159,7 +139,10 @@ class R {
       });
       if (!i.ok) throw new Error(`HTTP ${i.status}`);
       const o = await i.json();
-      this.conflicts = o.conflicts || [], this.populateProviderFilter(), this.updateStats(), this.renderConflicts(), this.announce(`Loaded ${this.conflicts.length} conflicts`);
+      this.conflicts = o.conflicts || [], this.populateProviderFilter(), this.updateStats(), this.renderConflicts(), $(
+        this.elements.announcements,
+        `Loaded ${this.conflicts.length} conflicts`
+      );
     } catch (e) {
       console.error("Error loading conflicts:", e);
       const { errorMessage: t } = this.elements;
@@ -220,7 +203,7 @@ class R {
             </div>
             <div class="text-right">
               ${this.getStatusBadge(s.status)}
-              <p class="text-xs text-gray-500 mt-1">${this.formatDate(s.created_at)}</p>
+              <p class="text-xs text-gray-500 mt-1">${w(s.created_at)}</p>
             </div>
           </div>
         </div>
@@ -251,13 +234,13 @@ class R {
       detailCreatedAt: d,
       detailVersion: x,
       detailPayload: m,
-      resolutionSection: w,
-      actionButtons: S,
-      detailResolvedAt: B,
-      detailResolvedBy: E,
+      resolutionSection: S,
+      actionButtons: B,
+      detailResolvedAt: E,
+      detailResolvedBy: R,
       detailResolution: C
     } = this.elements;
-    if (o && (o.textContent = t.reason || "Data conflict"), a && (a.textContent = t.entity_kind || "-"), l && (l.innerHTML = this.getStatusBadge(t.status)), r && (r.textContent = t.provider || "-"), c && (c.textContent = t.external_id || "-"), s && (s.textContent = t.internal_id || "-"), f && (f.textContent = t.binding_id || "-"), h && (h.textContent = t.id), v && (v.textContent = t.run_id || "-"), d && (d.textContent = this.formatDate(t.created_at)), x && (x.textContent = String(t.version || 1)), m)
+    if (o && (o.textContent = t.reason || "Data conflict"), a && (a.textContent = t.entity_kind || "-"), l && (l.innerHTML = this.getStatusBadge(t.status)), r && (r.textContent = t.provider || "-"), c && (c.textContent = t.external_id || "-"), s && (s.textContent = t.internal_id || "-"), f && (f.textContent = t.binding_id || "-"), h && (h.textContent = t.id), v && (v.textContent = t.run_id || "-"), d && (d.textContent = w(t.created_at)), x && (x.textContent = String(t.version || 1)), m)
       try {
         const y = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
         m.textContent = JSON.stringify(y, null, 2);
@@ -265,7 +248,7 @@ class R {
         m.textContent = t.payload_json || "{}";
       }
     if (t.status === "resolved" || t.status === "ignored") {
-      if (g(w), u(S), B && (B.textContent = t.resolved_at ? this.formatDate(t.resolved_at) : ""), E && (E.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), C)
+      if (g(S), u(B), E && (E.textContent = t.resolved_at ? w(t.resolved_at) : ""), R && (R.textContent = t.resolved_by_user_id ? `By user ${t.resolved_by_user_id}` : "-"), C)
         try {
           const y = t.resolution_json ? JSON.parse(t.resolution_json) : t.resolution || {};
           C.textContent = JSON.stringify(y, null, 2);
@@ -273,7 +256,7 @@ class R {
           C.textContent = t.resolution_json || "{}";
         }
     } else
-      u(w), g(S);
+      u(S), g(B);
     g(i);
   }
   /**
@@ -333,37 +316,30 @@ class R {
         const f = await s.json();
         throw new Error(f.error?.message || `HTTP ${s.status}`);
       }
-      this.showToast("Conflict resolved", "success"), this.announce("Conflict resolved"), this.closeResolveModal(), this.closeConflictDetail(), await this.loadConflicts();
+      L("Conflict resolved", "success"), $(this.elements.announcements, "Conflict resolved"), this.closeResolveModal(), this.closeConflictDetail(), await this.loadConflicts();
     } catch (s) {
       console.error("Resolution error:", s);
       const f = s instanceof Error ? s.message : "Unknown error";
-      this.showToast(`Failed: ${f}`, "error");
+      L(`Failed: ${f}`, "error");
     } finally {
       i.removeAttribute("disabled"), i.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Submit Resolution';
     }
   }
-  /**
-   * Show toast notification
-   */
-  showToast(e, t) {
-    const o = window.toastManager;
-    o && (t === "success" ? o.success(e) : o.error(e));
-  }
 }
-function D(p) {
-  const e = new R(p);
-  return L(() => e.init()), e;
+function j(p) {
+  const e = new P(p);
+  return k(() => e.init()), e;
 }
-function I(p) {
+function T(p) {
   const e = {
     basePath: p.basePath,
     apiBasePath: p.apiBasePath || `${p.basePath}/api`
-  }, t = new R(e);
-  L(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
+  }, t = new P(e);
+  k(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
 }
 export {
-  R as IntegrationConflictsController,
-  I as bootstrapIntegrationConflicts,
-  D as initIntegrationConflicts
+  P as IntegrationConflictsController,
+  T as bootstrapIntegrationConflicts,
+  j as initIntegrationConflicts
 };
 //# sourceMappingURL=integration-conflicts.js.map

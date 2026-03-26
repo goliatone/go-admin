@@ -10,12 +10,18 @@ import type {
   GoogleOAuthState,
   GoogleAccountInfo,
 } from '../types.js';
-import { qs, show, hide, onReady, announce } from '../utils/dom-helpers.js';
+import { qs, show, hide, onReady } from '../utils/dom-helpers.js';
+import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
+import {
+  resolveAccountId,
+  normalizeAccountId,
+  saveAccountId,
+  applyAccountIdToPath,
+  syncAccountIdToUrl,
+} from '../utils/google-drive-utils.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 type IntegrationState = 'loading' | 'disconnected' | 'connected' | 'error';
-
-const GOOGLE_ACCOUNT_STORAGE_KEY = 'esign.google.account_id';
 
 const SCOPE_DESCRIPTIONS: Record<string, { label: string; description: string }> = {
   'https://www.googleapis.com/auth/drive.readonly': {
@@ -105,7 +111,10 @@ export class GoogleIntegrationController {
   constructor(config: GoogleIntegrationPageConfig) {
     this.config = config;
     this.apiBase = config.apiBasePath || `${config.basePath}/api`;
-    this.currentAccountId = this.resolveInitialAccountId();
+    this.currentAccountId = resolveAccountId(
+      new URLSearchParams(window.location.search),
+      this.config.googleAccountId
+    );
 
     this.elements = {
       loadingState: qs('#loading-state'),
@@ -287,44 +296,10 @@ export class GoogleIntegrationController {
   }
 
   /**
-   * Resolve initial account ID from various sources
-   */
-  private resolveInitialAccountId(): string {
-    // 1. Check URL query params
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = this.normalizeAccountId(params.get('account_id'));
-    if (fromQuery) {
-      return fromQuery;
-    }
-
-    // 2. Check template config
-    const fromTemplate = this.normalizeAccountId(this.config.googleAccountId);
-    if (fromTemplate) {
-      return fromTemplate;
-    }
-
-    // 3. Check localStorage
-    try {
-      return this.normalizeAccountId(
-        window.localStorage.getItem(GOOGLE_ACCOUNT_STORAGE_KEY)
-      );
-    } catch {
-      return '';
-    }
-  }
-
-  /**
-   * Normalize account ID value
-   */
-  private normalizeAccountId(value: string | null | undefined): string {
-    return (value || '').trim();
-  }
-
-  /**
    * Set current account ID and optionally refresh status
    */
   private setCurrentAccountId(value: string, refreshStatus = false): void {
-    const normalized = this.normalizeAccountId(value);
+    const normalized = normalizeAccountId(value);
     if (normalized === this.currentAccountId) {
       this.updateAccountScopeUI();
       return;
@@ -343,12 +318,12 @@ export class GoogleIntegrationController {
    */
   private resolveNewAccountId(): string {
     const { accountIdInput } = this.elements;
-    const manualValue = this.normalizeAccountId(accountIdInput?.value);
+    const manualValue = normalizeAccountId(accountIdInput?.value);
     if (!manualValue) {
       return '';
     }
     const isExisting = this.accounts.some(
-      (account) => this.normalizeAccountId(account.account_id) === manualValue
+      (account) => normalizeAccountId(account.account_id) === manualValue
     );
     return isExisting ? '' : manualValue;
   }
@@ -359,11 +334,14 @@ export class GoogleIntegrationController {
   private startOAuthFlowForNewAccount(): void {
     const accountID = this.resolveNewAccountId();
     if (!accountID && this.accounts.length > 0) {
-      this.showToast(
+      showPageToast(
         'Enter a unique account ID (for example: work) before connecting another account.',
         'error'
       );
-      this.announce('Enter a unique account ID before connecting another account');
+      announcePageMessage(
+        this.elements.announcements,
+        'Enter a unique account ID before connecting another account'
+      );
       const { accountIdInput } = this.elements;
       if (accountIdInput) {
         accountIdInput.focus();
@@ -398,44 +376,14 @@ export class GoogleIntegrationController {
         : 'Account ID: default';
     }
 
-    // Persist to storage
-    this.persistAccountId();
-
-    // Sync URL
-    this.syncAccountIdInURL();
+    // Persist to storage and sync URL
+    saveAccountId(this.currentAccountId);
+    syncAccountIdToUrl(this.currentAccountId);
 
     // Update links
     this.updateScopedLinks([importDriveLink, integrationSettingsLink]);
     this.renderAccountDropdown();
     this.renderAccountsGrid();
-  }
-
-  /**
-   * Persist account ID to localStorage
-   */
-  private persistAccountId(): void {
-    try {
-      if (this.currentAccountId) {
-        window.localStorage.setItem(GOOGLE_ACCOUNT_STORAGE_KEY, this.currentAccountId);
-      } else {
-        window.localStorage.removeItem(GOOGLE_ACCOUNT_STORAGE_KEY);
-      }
-    } catch {
-      // Ignore storage failures
-    }
-  }
-
-  /**
-   * Sync account ID to URL without navigation
-   */
-  private syncAccountIdInURL(): void {
-    const url = new URL(window.location.href);
-    if (this.currentAccountId) {
-      url.searchParams.set('account_id', this.currentAccountId);
-    } else {
-      url.searchParams.delete('account_id');
-    }
-    window.history.replaceState({}, '', url.toString());
   }
 
   /**
@@ -446,21 +394,8 @@ export class GoogleIntegrationController {
       if (!link) return;
       const baseHref = link.dataset.baseHref || link.getAttribute('href');
       if (!baseHref) return;
-      link.setAttribute('href', this.applyAccountIdToPath(baseHref));
+      link.setAttribute('href', applyAccountIdToPath(baseHref, this.currentAccountId));
     });
-  }
-
-  /**
-   * Apply account ID to a path/URL
-   */
-  private applyAccountIdToPath(pathOrURL: string): string {
-    const parsed = new URL(pathOrURL, window.location.origin);
-    if (this.currentAccountId) {
-      parsed.searchParams.set('account_id', this.currentAccountId);
-    } else {
-      parsed.searchParams.delete('account_id');
-    }
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   }
 
   /**
@@ -473,17 +408,6 @@ export class GoogleIntegrationController {
       url.searchParams.set('account_id', accountId);
     }
     return url.toString();
-  }
-
-  /**
-   * Announce message to screen readers
-   */
-  private announce(message: string): void {
-    const { announcements } = this.elements;
-    if (announcements) {
-      announcements.textContent = message;
-    }
-    announce(message);
   }
 
   /**
@@ -580,7 +504,7 @@ export class GoogleIntegrationController {
           // Not connected
           this.showState('disconnected');
           this.updateStatusBadge(false);
-          this.announce('Google Drive is not connected');
+          announcePageMessage(this.elements.announcements, 'Google Drive is not connected');
           return;
         }
 
@@ -613,7 +537,8 @@ export class GoogleIntegrationController {
         this.renderConnectedState(integration);
         this.showState('connected');
         this.updateStatusBadge(true, integration.needs_reauthorization, isDegraded);
-        this.announce(
+        announcePageMessage(
+          this.elements.announcements,
           isDegraded
             ? 'Google Drive connected with degraded provider health'
             : 'Google Drive is connected'
@@ -621,7 +546,8 @@ export class GoogleIntegrationController {
       } else {
         this.showState('disconnected');
         this.updateStatusBadge(false, false, isDegraded);
-        this.announce(
+        announcePageMessage(
+          this.elements.announcements,
           isDegraded
             ? 'Google Drive integration is degraded'
             : 'Google Drive is not connected'
@@ -639,7 +565,7 @@ export class GoogleIntegrationController {
       this.showState('error');
       this.renderDegradedState(false, '');
       this.updateStatusBadge(false);
-      this.announce('Error checking Google Drive status');
+      announcePageMessage(this.elements.announcements, 'Error checking Google Drive status');
     }
   }
 
@@ -660,7 +586,7 @@ export class GoogleIntegrationController {
 
     const expiresAt = firstDefined<string>(['expires_at', 'ExpiresAt'], '');
     const scopes = firstDefined<string[]>(['scopes', 'Scopes'], []);
-    const accountId = this.normalizeAccountId(
+    const accountId = normalizeAccountId(
       firstDefined<string>(['account_id', 'AccountID'], '')
     );
     const connected = firstDefined<boolean>(['connected', 'Connected'], false);
@@ -922,7 +848,7 @@ export class GoogleIntegrationController {
     // Add connected accounts
     const seenAccountIDs = new Set<string>(['']);
     for (const account of this.accounts) {
-      const accountID = this.normalizeAccountId(account.account_id);
+      const accountID = normalizeAccountId(account.account_id);
       if (seenAccountIDs.has(accountID)) {
         continue;
       }
@@ -1124,7 +1050,7 @@ export class GoogleIntegrationController {
     const redirectUri = this.resolveOAuthRedirectURI();
     const oauthAccountId =
       targetAccountId !== undefined
-        ? this.normalizeAccountId(targetAccountId)
+        ? normalizeAccountId(targetAccountId)
         : this.currentAccountId;
     this.pendingOAuthAccountId = oauthAccountId;
     const authUrl = this.buildGoogleOAuthUrl(redirectUri, oauthAccountId);
@@ -1136,7 +1062,7 @@ export class GoogleIntegrationController {
       }
       this.pendingOAuthAccountId = null;
       this.showState('error');
-      this.announce('Google OAuth is not configured');
+      announcePageMessage(this.elements.announcements, 'Google OAuth is not configured');
       return;
     }
 
@@ -1155,8 +1081,8 @@ export class GoogleIntegrationController {
     if (!this.oauthWindow) {
       if (oauthModal) hide(oauthModal);
       this.pendingOAuthAccountId = null;
-      this.showToast('Popup blocked. Allow popups for this site and try again.', 'error');
-      this.announce('Popup blocked');
+      showPageToast('Popup blocked. Allow popups for this site and try again.', 'error');
+      announcePageMessage(this.elements.announcements, 'Popup blocked');
       return;
     }
 
@@ -1169,8 +1095,8 @@ export class GoogleIntegrationController {
       this.cleanupOAuthFlow();
       if (oauthModal) hide(oauthModal);
       this.pendingOAuthAccountId = null;
-      this.showToast('Google authorization timed out. Please try again.', 'error');
-      this.announce('Authorization timed out');
+      showPageToast('Google authorization timed out. Please try again.', 'error');
+      announcePageMessage(this.elements.announcements, 'Authorization timed out');
     }, 120000);
   }
 
@@ -1301,8 +1227,8 @@ export class GoogleIntegrationController {
     this.closeOAuthWindow();
 
     if (data.error) {
-      this.showToast(`OAuth failed: ${data.error}`, 'error');
-      this.announce(`OAuth failed: ${data.error}`);
+      showPageToast(`OAuth failed: ${data.error}`, 'error');
+      announcePageMessage(this.elements.announcements, `OAuth failed: ${data.error}`);
       this.pendingOAuthAccountId = null;
       return;
     }
@@ -1312,7 +1238,7 @@ export class GoogleIntegrationController {
         const redirectUri = this.resolveOAuthRedirectURI();
         const callbackAccountId =
           typeof data.account_id === 'string'
-            ? this.normalizeAccountId(data.account_id)
+            ? normalizeAccountId(data.account_id)
             : null;
         const accountIdForConnect =
           callbackAccountId ?? this.pendingOAuthAccountId ?? this.currentAccountId;
@@ -1343,14 +1269,14 @@ export class GoogleIntegrationController {
           throw new Error(errorData.error?.message || 'Failed to connect');
         }
 
-        this.showToast('Google Drive connected successfully', 'success');
-        this.announce('Google Drive connected successfully');
+        showPageToast('Google Drive connected successfully', 'success');
+        announcePageMessage(this.elements.announcements, 'Google Drive connected successfully');
         await Promise.all([this.checkStatus(), this.loadAccounts()]);
       } catch (error) {
         console.error('Connect error:', error);
         const message = error instanceof Error ? error.message : 'Unknown error';
-        this.showToast(`Failed to connect: ${message}`, 'error');
-        this.announce(`Failed to connect: ${message}`);
+        showPageToast(`Failed to connect: ${message}`, 'error');
+        announcePageMessage(this.elements.announcements, `Failed to connect: ${message}`);
       } finally {
         this.pendingOAuthAccountId = null;
       }
@@ -1421,8 +1347,8 @@ export class GoogleIntegrationController {
         throw new Error(errorData.error?.message || 'Failed to disconnect');
       }
 
-      this.showToast('Google Drive disconnected', 'success');
-      this.announce('Google Drive disconnected');
+      showPageToast('Google Drive disconnected', 'success');
+      announcePageMessage(this.elements.announcements, 'Google Drive disconnected');
       if (accountIdToDisconnect === this.currentAccountId) {
         this.setCurrentAccountId('', false);
       }
@@ -1430,31 +1356,13 @@ export class GoogleIntegrationController {
     } catch (error) {
       console.error('Disconnect error:', error);
       const message = error instanceof Error ? error.message : 'Unknown error';
-      this.showToast(`Failed to disconnect: ${message}`, 'error');
-      this.announce(`Failed to disconnect: ${message}`);
+      showPageToast(`Failed to disconnect: ${message}`, 'error');
+      announcePageMessage(this.elements.announcements, `Failed to disconnect: ${message}`);
     } finally {
       this.pendingDisconnectAccountId = null;
     }
   }
 
-  /**
-   * Show toast notification
-   */
-  private showToast(message: string, type: 'success' | 'error'): void {
-    // Use global toast manager if available
-    const win = window as unknown as Record<string, unknown>;
-    const toastManager = win.toastManager as
-      | { success: (msg: string) => void; error: (msg: string) => void }
-      | undefined;
-
-    if (toastManager) {
-      if (type === 'success') {
-        toastManager.success(message);
-      } else {
-        toastManager.error(message);
-      }
-    }
-  }
 }
 
 /**

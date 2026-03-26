@@ -1,6 +1,8 @@
-import { b as n, a as E, h as y, s as v, f as $ } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as n, h as f, s as v, f as L } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { i as B } from "../chunks/formatters-Bx8onLEN.js";
+import { a as E, s as b } from "../chunks/page-feedback-XrK1vdW2.js";
 import { escapeHTML as l } from "../shared/html.js";
-class B {
+class C {
   constructor(t) {
     this.syncRuns = [], this.mappings = [], this.currentRunId = null, this.config = t, this.apiBase = t.apiBasePath || `${t.basePath}/api`, this.syncRunsEndpoint = `${this.apiBase}/esign/integrations/sync-runs`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: n("#sync-announcements"),
@@ -59,43 +61,36 @@ class B {
       startSyncBtn: t,
       startSyncEmptyBtn: e,
       cancelSyncBtn: s,
-      startSyncForm: i,
+      startSyncForm: r,
       refreshBtn: c,
       retryBtn: a,
-      closeDetailBtn: r,
-      filterProvider: p,
+      closeDetailBtn: i,
+      filterProvider: u,
       filterStatus: o,
-      filterDirection: u,
+      filterDirection: p,
       actionResumeBtn: S,
-      actionRetryBtn: b,
-      actionCompleteBtn: w,
-      actionFailBtn: h,
-      actionDiagnosticsBtn: k,
+      actionRetryBtn: w,
+      actionCompleteBtn: k,
+      actionFailBtn: g,
+      actionDiagnosticsBtn: R,
       startSyncModal: m,
-      runDetailModal: f
+      runDetailModal: y
     } = this.elements;
-    t?.addEventListener("click", () => this.openStartSyncModal()), e?.addEventListener("click", () => this.openStartSyncModal()), s?.addEventListener("click", () => this.closeStartSyncModal()), i?.addEventListener("submit", (d) => this.startSync(d)), c?.addEventListener("click", () => this.loadSyncRuns()), a?.addEventListener("click", () => this.loadSyncRuns()), r?.addEventListener("click", () => this.closeRunDetail()), p?.addEventListener("change", () => this.renderTimeline()), o?.addEventListener("change", () => this.renderTimeline()), u?.addEventListener("change", () => this.renderTimeline()), S?.addEventListener("click", () => this.runAction("resume")), b?.addEventListener("click", () => this.runAction("resume")), w?.addEventListener("click", () => this.runAction("complete")), h?.addEventListener("click", () => this.runAction("fail")), k?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (d) => {
-      d.key === "Escape" && (m && !m.classList.contains("hidden") && this.closeStartSyncModal(), f && !f.classList.contains("hidden") && this.closeRunDetail());
-    }), [m, f].forEach((d) => {
-      d?.addEventListener("click", (g) => {
-        const R = g.target;
-        (R === d || R.getAttribute("aria-hidden") === "true") && (d === m ? this.closeStartSyncModal() : d === f && this.closeRunDetail());
+    t?.addEventListener("click", () => this.openStartSyncModal()), e?.addEventListener("click", () => this.openStartSyncModal()), s?.addEventListener("click", () => this.closeStartSyncModal()), r?.addEventListener("submit", (d) => this.startSync(d)), c?.addEventListener("click", () => this.loadSyncRuns()), a?.addEventListener("click", () => this.loadSyncRuns()), i?.addEventListener("click", () => this.closeRunDetail()), u?.addEventListener("change", () => this.renderTimeline()), o?.addEventListener("change", () => this.renderTimeline()), p?.addEventListener("change", () => this.renderTimeline()), S?.addEventListener("click", () => this.runAction("resume")), w?.addEventListener("click", () => this.runAction("resume")), k?.addEventListener("click", () => this.runAction("complete")), g?.addEventListener("click", () => this.runAction("fail")), R?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (d) => {
+      d.key === "Escape" && (m && !m.classList.contains("hidden") && this.closeStartSyncModal(), y && !y.classList.contains("hidden") && this.closeRunDetail());
+    }), [m, y].forEach((d) => {
+      d?.addEventListener("click", (h) => {
+        const $ = h.target;
+        ($ === d || $.getAttribute("aria-hidden") === "true") && (d === m ? this.closeStartSyncModal() : d === y && this.closeRunDetail());
       });
     });
-  }
-  /**
-   * Announce message for screen readers
-   */
-  announce(t) {
-    const { announcements: e } = this.elements;
-    e && (e.textContent = t), E(t);
   }
   /**
    * Show a specific page state
    */
   showState(t) {
-    const { loadingState: e, emptyState: s, errorState: i, runsTimeline: c } = this.elements;
-    switch (y(e), y(s), y(i), y(c), t) {
+    const { loadingState: e, emptyState: s, errorState: r, runsTimeline: c } = this.elements;
+    switch (f(e), f(s), f(r), f(c), t) {
       case "loading":
         v(e);
         break;
@@ -103,26 +98,11 @@ class B {
         v(s);
         break;
       case "error":
-        v(i);
+        v(r);
         break;
       case "list":
         v(c);
         break;
-    }
-  }
-  /**
-   * Escape HTML for safe rendering
-   */
-  /**
-   * Format date string
-   */
-  formatDate(t) {
-    if (!t) return "-";
-    try {
-      const e = new Date(t);
-      return e.toLocaleDateString() + " " + e.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    } catch {
-      return t;
     }
   }
   /**
@@ -194,8 +174,8 @@ class B {
         }
       );
       if (!s.ok) throw new Error(`HTTP ${s.status}`);
-      const i = await s.json();
-      this.syncRuns = i.runs || [], this.populateProviderFilter(), this.updateStats(), this.renderTimeline(), this.announce(`Loaded ${this.syncRuns.length} sync runs`);
+      const r = await s.json();
+      this.syncRuns = r.runs || [], this.populateProviderFilter(), this.updateStats(), this.renderTimeline(), E(this.elements.announcements, `Loaded ${this.syncRuns.length} sync runs`);
     } catch (t) {
       console.error("Error loading sync runs:", t);
       const { errorMessage: e } = this.elements;
@@ -208,19 +188,19 @@ class B {
   populateProviderFilter() {
     const { filterProvider: t } = this.elements;
     if (!t) return;
-    const e = t.value, s = [...new Set(this.syncRuns.map((i) => i.provider).filter(Boolean))];
+    const e = t.value, s = [...new Set(this.syncRuns.map((r) => r.provider).filter(Boolean))];
     t.innerHTML = '<option value="">All Providers</option>' + s.map(
-      (i) => `<option value="${l(i)}" ${i === e ? "selected" : ""}>${l(i)}</option>`
+      (r) => `<option value="${l(r)}" ${r === e ? "selected" : ""}>${l(r)}</option>`
     ).join("");
   }
   /**
    * Update stats display
    */
   updateStats() {
-    const { statTotal: t, statRunning: e, statCompleted: s, statFailed: i } = this.elements, c = this.syncRuns.length, a = this.syncRuns.filter(
+    const { statTotal: t, statRunning: e, statCompleted: s, statFailed: r } = this.elements, c = this.syncRuns.length, a = this.syncRuns.filter(
       (o) => o.status === "running" || o.status === "pending"
-    ).length, r = this.syncRuns.filter((o) => o.status === "completed").length, p = this.syncRuns.filter((o) => o.status === "failed").length;
-    t && (t.textContent = String(c)), e && (e.textContent = String(a)), s && (s.textContent = String(r)), i && (i.textContent = String(p));
+    ).length, i = this.syncRuns.filter((o) => o.status === "completed").length, u = this.syncRuns.filter((o) => o.status === "failed").length;
+    t && (t.textContent = String(c)), e && (e.textContent = String(a)), s && (s.textContent = String(i)), r && (r.textContent = String(u));
   }
   /**
    * Render sync runs timeline with filters applied
@@ -228,52 +208,52 @@ class B {
   renderTimeline() {
     const { runsTimeline: t, filterStatus: e, filterDirection: s } = this.elements;
     if (!t) return;
-    const i = e?.value || "", c = s?.value || "", a = this.syncRuns.filter((r) => !(i && r.status !== i || c && r.direction !== c));
+    const r = e?.value || "", c = s?.value || "", a = this.syncRuns.filter((i) => !(r && i.status !== r || c && i.direction !== c));
     if (a.length === 0) {
       this.showState("empty");
       return;
     }
     t.innerHTML = a.map(
-      (r) => `
-      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer sync-run-card" data-id="${l(r.id)}">
+      (i) => `
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow cursor-pointer sync-run-card" data-id="${l(i.id)}">
         <div class="p-4">
           <div class="flex items-start justify-between">
             <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg ${r.status === "running" ? "bg-blue-100" : r.status === "completed" ? "bg-green-100" : r.status === "failed" ? "bg-red-100" : "bg-gray-100"} flex items-center justify-center">
-                <svg class="w-5 h-5 ${r.status === "running" ? "text-blue-600 animate-spin" : r.status === "completed" ? "text-green-600" : r.status === "failed" ? "text-red-600" : "text-gray-400"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div class="w-10 h-10 rounded-lg ${i.status === "running" ? "bg-blue-100" : i.status === "completed" ? "bg-green-100" : i.status === "failed" ? "bg-red-100" : "bg-gray-100"} flex items-center justify-center">
+                <svg class="w-5 h-5 ${i.status === "running" ? "text-blue-600 animate-spin" : i.status === "completed" ? "text-green-600" : i.status === "failed" ? "text-red-600" : "text-gray-400"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
               </div>
               <div>
                 <div class="flex items-center gap-2">
-                  <span class="font-medium text-gray-900">${l(r.provider)}</span>
-                  ${this.getDirectionBadge(r.direction)}
+                  <span class="font-medium text-gray-900">${l(i.provider)}</span>
+                  ${this.getDirectionBadge(i.direction)}
                 </div>
-                <p class="text-xs text-gray-500 font-mono">${l(r.id.slice(0, 8))}...</p>
+                <p class="text-xs text-gray-500 font-mono">${l(i.id.slice(0, 8))}...</p>
               </div>
             </div>
             <div class="text-right">
-              ${this.getStatusBadge(r.status)}
-              <p class="text-xs text-gray-500 mt-1">${this.formatDate(r.started_at)}</p>
+              ${this.getStatusBadge(i.status)}
+              <p class="text-xs text-gray-500 mt-1">${B(i.started_at)}</p>
             </div>
           </div>
 
-          ${r.cursor ? `
+          ${i.cursor ? `
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-gray-500">Cursor: <span class="font-mono text-gray-700">${l(r.cursor)}</span></p>
+              <p class="text-xs text-gray-500">Cursor: <span class="font-mono text-gray-700">${l(i.cursor)}</span></p>
             </div>
           ` : ""}
 
-          ${r.last_error ? `
+          ${i.last_error ? `
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <p class="text-xs text-red-600 truncate">Error: ${l(r.last_error)}</p>
+              <p class="text-xs text-red-600 truncate">Error: ${l(i.last_error)}</p>
             </div>
           ` : ""}
         </div>
       </div>
     `
-    ).join(""), this.showState("list"), t.querySelectorAll(".sync-run-card").forEach((r) => {
-      r.addEventListener("click", () => this.openRunDetail(r.dataset.id || ""));
+    ).join(""), this.showState("list"), t.querySelectorAll(".sync-run-card").forEach((i) => {
+      i.addEventListener("click", () => this.openRunDetail(i.dataset.id || ""));
     });
   }
   /**
@@ -287,7 +267,7 @@ class B {
    * Close start sync modal
    */
   closeStartSyncModal() {
-    y(this.elements.startSyncModal);
+    f(this.elements.startSyncModal);
   }
   /**
    * Start a new sync run
@@ -296,11 +276,11 @@ class B {
     t.preventDefault();
     const { startSyncForm: e, submitSyncBtn: s } = this.elements;
     if (!e || !s) return;
-    const i = new FormData(e), c = {
-      provider: i.get("provider"),
-      direction: i.get("direction"),
-      mapping_spec_id: i.get("mapping_spec_id"),
-      cursor: i.get("cursor") || void 0
+    const r = new FormData(e), c = {
+      provider: r.get("provider"),
+      direction: r.get("direction"),
+      mapping_spec_id: r.get("mapping_spec_id"),
+      cursor: r.get("cursor") || void 0
     };
     s.setAttribute("disabled", "true"), s.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Starting...';
     try {
@@ -315,14 +295,14 @@ class B {
         body: JSON.stringify(c)
       });
       if (!a.ok) {
-        const r = await a.json();
-        throw new Error(r.error?.message || `HTTP ${a.status}`);
+        const i = await a.json();
+        throw new Error(i.error?.message || `HTTP ${a.status}`);
       }
-      this.showToast("Sync run started", "success"), this.announce("Sync run started"), this.closeStartSyncModal(), await this.loadSyncRuns();
+      b("Sync run started", "success"), E(this.elements.announcements, "Sync run started"), this.closeStartSyncModal(), await this.loadSyncRuns();
     } catch (a) {
       console.error("Start sync error:", a);
-      const r = a instanceof Error ? a.message : "Unknown error";
-      this.showToast(`Failed to start: ${r}`, "error");
+      const i = a instanceof Error ? a.message : "Unknown error";
+      b(`Failed to start: ${i}`, "error");
     } finally {
       s.removeAttribute("disabled"), s.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg> Start Sync';
     }
@@ -332,39 +312,39 @@ class B {
    */
   async openRunDetail(t) {
     this.currentRunId = t;
-    const e = this.syncRuns.find((g) => g.id === t);
+    const e = this.syncRuns.find((h) => h.id === t);
     if (!e) return;
     const {
       runDetailModal: s,
-      detailRunId: i,
+      detailRunId: r,
       detailProvider: c,
       detailDirection: a,
-      detailStatus: r,
-      detailStarted: p,
+      detailStatus: i,
+      detailStarted: u,
       detailCompleted: o,
-      detailCursor: u,
+      detailCursor: p,
       detailAttempt: S,
-      detailErrorSection: b,
-      detailLastError: w,
-      detailCheckpoints: h,
-      actionResumeBtn: k,
+      detailErrorSection: w,
+      detailLastError: k,
+      detailCheckpoints: g,
+      actionResumeBtn: R,
       actionRetryBtn: m,
-      actionCompleteBtn: f,
+      actionCompleteBtn: y,
       actionFailBtn: d
     } = this.elements;
-    i && (i.textContent = e.id), c && (c.textContent = e.provider), a && (a.textContent = e.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), r && (r.innerHTML = this.getStatusBadge(e.status)), p && (p.textContent = this.formatDate(e.started_at)), o && (o.textContent = e.completed_at ? this.formatDate(e.completed_at) : "-"), u && (u.textContent = e.cursor || "-"), S && (S.textContent = String(e.attempt_count || 1)), e.last_error ? (w && (w.textContent = e.last_error), v(b)) : y(b), k && k.classList.toggle("hidden", e.status !== "running"), m && m.classList.toggle("hidden", e.status !== "failed"), f && f.classList.toggle("hidden", e.status !== "running"), d && d.classList.toggle("hidden", e.status !== "running"), h && (h.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), v(s);
+    r && (r.textContent = e.id), c && (c.textContent = e.provider), a && (a.textContent = e.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), i && (i.innerHTML = this.getStatusBadge(e.status)), u && (u.textContent = B(e.started_at)), o && (o.textContent = e.completed_at ? B(e.completed_at) : "-"), p && (p.textContent = e.cursor || "-"), S && (S.textContent = String(e.attempt_count || 1)), e.last_error ? (k && (k.textContent = e.last_error), v(w)) : f(w), R && R.classList.toggle("hidden", e.status !== "running"), m && m.classList.toggle("hidden", e.status !== "failed"), y && y.classList.toggle("hidden", e.status !== "running"), d && d.classList.toggle("hidden", e.status !== "running"), g && (g.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), v(s);
     try {
-      const g = await fetch(`${this.syncRunsEndpoint}/${t}/checkpoints`, {
+      const h = await fetch(`${this.syncRunsEndpoint}/${t}/checkpoints`, {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (g.ok) {
-        const R = await g.json();
-        this.renderCheckpoints(R.checkpoints || []);
+      if (h.ok) {
+        const $ = await h.json();
+        this.renderCheckpoints($.checkpoints || []);
       } else
-        h && (h.innerHTML = '<p class="text-sm text-gray-500">No checkpoints available</p>');
-    } catch (g) {
-      console.error("Error loading checkpoints:", g), h && (h.innerHTML = '<p class="text-sm text-red-600">Failed to load checkpoints</p>');
+        g && (g.innerHTML = '<p class="text-sm text-gray-500">No checkpoints available</p>');
+    } catch (h) {
+      console.error("Error loading checkpoints:", h), g && (g.innerHTML = '<p class="text-sm text-red-600">Failed to load checkpoints</p>');
     }
   }
   /**
@@ -378,15 +358,15 @@ class B {
         return;
       }
       e.innerHTML = t.map(
-        (s, i) => `
+        (s, r) => `
       <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
         <div class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-xs font-medium text-blue-700 flex-shrink-0">
-          ${i + 1}
+          ${r + 1}
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1">
             <span class="text-sm font-medium text-gray-900">${l(s.checkpoint_key)}</span>
-            <span class="text-xs text-gray-500">${this.formatDate(s.created_at)}</span>
+            <span class="text-xs text-gray-500">${B(s.created_at)}</span>
           </div>
           <p class="text-xs text-gray-600 font-mono truncate">Cursor: ${l(s.cursor)}</p>
         </div>
@@ -399,20 +379,20 @@ class B {
    * Close run detail modal
    */
   closeRunDetail() {
-    y(this.elements.runDetailModal), this.currentRunId = null;
+    f(this.elements.runDetailModal), this.currentRunId = null;
   }
   /**
    * Run an action on the current sync run
    */
   async runAction(t) {
     if (!this.currentRunId) return;
-    const { actionResumeBtn: e, actionRetryBtn: s, actionCompleteBtn: i, actionFailBtn: c } = this.elements, a = t === "resume" ? e : t === "complete" ? i : c, r = t === "resume" ? s : null;
+    const { actionResumeBtn: e, actionRetryBtn: s, actionCompleteBtn: r, actionFailBtn: c } = this.elements, a = t === "resume" ? e : t === "complete" ? r : c, i = t === "resume" ? s : null;
     if (!a) return;
-    a.setAttribute("disabled", "true"), r?.setAttribute("disabled", "true");
-    const p = a.innerHTML;
+    a.setAttribute("disabled", "true"), i?.setAttribute("disabled", "true");
+    const u = a.innerHTML;
     a.innerHTML = '<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
     try {
-      const o = `${this.syncRunsEndpoint}/${this.currentRunId}/${t}`, u = await fetch(o, {
+      const o = `${this.syncRunsEndpoint}/${this.currentRunId}/${t}`, p = await fetch(o, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -424,17 +404,17 @@ class B {
           t === "fail" ? { last_error: "Manually marked as failed" } : {}
         )
       });
-      if (!u.ok) {
-        const S = await u.json();
-        throw new Error(S.error?.message || `HTTP ${u.status}`);
+      if (!p.ok) {
+        const S = await p.json();
+        throw new Error(S.error?.message || `HTTP ${p.status}`);
       }
-      this.showToast(`Sync run ${t} successful`, "success"), this.closeRunDetail(), await this.loadSyncRuns();
+      b(`Sync run ${t} successful`, "success"), this.closeRunDetail(), await this.loadSyncRuns();
     } catch (o) {
       console.error(`${t} error:`, o);
-      const u = o instanceof Error ? o.message : "Unknown error";
-      this.showToast(`Failed: ${u}`, "error");
+      const p = o instanceof Error ? o.message : "Unknown error";
+      b(`Failed: ${p}`, "error");
     } finally {
-      a.removeAttribute("disabled"), r?.removeAttribute("disabled"), a.innerHTML = p;
+      a.removeAttribute("disabled"), i?.removeAttribute("disabled"), a.innerHTML = u;
     }
   }
   /**
@@ -452,34 +432,27 @@ class B {
         );
         if (t.ok) {
           const e = await t.json();
-          console.log("Diagnostics:", e), this.showToast("Diagnostics logged to console", "info");
+          console.log("Diagnostics:", e), b("Diagnostics logged to console", "info");
         }
       } catch (t) {
         console.error("Diagnostics error:", t);
       }
   }
-  /**
-   * Show toast notification
-   */
-  showToast(t, e) {
-    const i = window.toastManager;
-    i && (e === "success" ? i.success(t) : e === "error" ? i.error(t) : e === "info" && i.info && i.info(t));
-  }
 }
-function C(x) {
-  const t = new B(x);
-  return $(() => t.init()), t;
+function A(x) {
+  const t = new C(x);
+  return L(() => t.init()), t;
 }
-function T(x) {
+function j(x) {
   const t = {
     basePath: x.basePath,
     apiBasePath: x.apiBasePath || `${x.basePath}/api`
-  }, e = new B(t);
-  $(() => e.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = e);
+  }, e = new C(t);
+  L(() => e.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = e);
 }
 export {
-  B as IntegrationSyncRunsController,
-  T as bootstrapIntegrationSyncRuns,
-  C as initIntegrationSyncRuns
+  C as IntegrationSyncRunsController,
+  j as bootstrapIntegrationSyncRuns,
+  A as initIntegrationSyncRuns
 };
 //# sourceMappingURL=integration-sync-runs.js.map
