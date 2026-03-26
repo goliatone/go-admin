@@ -349,8 +349,7 @@ func TestInitializeRunsInitHooksOnlyOnceAfterSuccess(t *testing.T) {
 }
 
 func TestPrepareStartsTranslationExchangeRuntime(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	store := newContextAwareTranslationExchangeRuntimeStore(func() time.Time {
 		return time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC)
@@ -370,8 +369,7 @@ func TestPrepareStartsTranslationExchangeRuntime(t *testing.T) {
 }
 
 func TestInitializeWithContextStartsTranslationExchangeRuntimeWithProvidedContext(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	store := newContextAwareTranslationExchangeRuntimeStore(func() time.Time {
 		return time.Date(2026, 3, 26, 13, 0, 0, 0, time.UTC)
@@ -391,8 +389,7 @@ func TestInitializeWithContextStartsTranslationExchangeRuntimeWithProvidedContex
 }
 
 func TestBootWithContextNestedCallsInheritAndRestoreLifecycleContext(t *testing.T) {
-	outerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	outerCtx := t.Context()
 
 	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 	seen := []context.Context{}

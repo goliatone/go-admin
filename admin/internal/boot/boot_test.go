@@ -384,8 +384,7 @@ func TestRunShortCircuitsOnError(t *testing.T) {
 }
 
 func TestPrepareStepUsesLifecycleContext(t *testing.T) {
-	lifecycleCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	lifecycleCtx := t.Context()
 
 	combined := struct {
 		*stubCtx

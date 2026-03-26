@@ -743,11 +743,17 @@ func TestPanelBindingWorkflowActionPropagatesCanonicalRequestMetadata(t *testing
 	if input.ExecCtx.Tenant != "tenant-xyz" {
 		t.Fatalf("expected tenant tenant-xyz, got %q", input.ExecCtx.Tenant)
 	}
-	if got := toString(input.Metadata["requestId"]); got != "req-123" {
-		t.Fatalf("expected requestId req-123, got %q", got)
+	if got := toString(input.Metadata["request_id"]); got != "req-123" {
+		t.Fatalf("expected request_id req-123, got %q", got)
 	}
-	if got := toString(input.Metadata["correlationId"]); got != "corr-789" {
-		t.Fatalf("expected correlationId corr-789, got %q", got)
+	if got := toString(input.Metadata["correlation_id"]); got != "corr-789" {
+		t.Fatalf("expected correlation_id corr-789, got %q", got)
+	}
+	if _, ok := input.Metadata["requestId"]; ok {
+		t.Fatalf("expected camelCase requestId metadata to be absent")
+	}
+	if _, ok := input.Metadata["correlationId"]; ok {
+		t.Fatalf("expected camelCase correlationId metadata to be absent")
 	}
 }
 

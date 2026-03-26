@@ -127,14 +127,23 @@ func (r *captureRouter) WithLogger(logger router.Logger) router.Router[*fiber.Ap
 type stubIdentityProvider struct{}
 
 func (stubIdentityProvider) VerifyIdentity(ctx context.Context, identifier, password string) (auth.Identity, error) {
-	_, _, _ = ctx, identifier, password
-	return nil, nil
+	_, _ = ctx, password
+	return stubIdentity{identifier: identifier}, nil
 }
 
 func (stubIdentityProvider) FindIdentityByIdentifier(ctx context.Context, identifier string) (auth.Identity, error) {
 	_, _ = ctx, identifier
-	return nil, nil
+	return stubIdentity{identifier: identifier}, nil
 }
+
+type stubIdentity struct {
+	identifier string
+}
+
+func (s stubIdentity) ID() string       { return s.identifier }
+func (s stubIdentity) Username() string { return s.identifier }
+func (s stubIdentity) Email() string    { return s.identifier + "@example.test" }
+func (s stubIdentity) Role() string     { return string(auth.RoleAdmin) }
 
 func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
@@ -146,8 +155,12 @@ func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 	}
 	r := newCaptureRouter()
 	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
 
-	if err := RegisterAuthUIRoutes(r, cfg, auther, "auth", WithAuthUIFeatureGate(gate)); err != nil {
+	if err := RegisterAuthUIRoutes(r, cfg, routeAuth, WithAuthUIFeatureGate(gate)); err != nil {
 		t.Fatalf("register auth routes: %v", err)
 	}
 	handler := r.getHandlers["/admin/password-reset"]
@@ -157,7 +170,7 @@ func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 
 	ctx := router.NewMockContext()
 	ctx.On("Context").Return(context.Background())
-	err := handler(ctx)
+	err = handler(ctx)
 	if err == nil {
 		t.Fatalf("expected password reset disabled error")
 	}
@@ -189,8 +202,12 @@ func TestAuthUIRoutesRegisterCSRFMiddlewareInRouterChain(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	r := newCaptureRouter()
 	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
 
-	if err := RegisterAuthUIRoutes(r, cfg, auther, "auth"); err != nil {
+	if err := RegisterAuthUIRoutes(r, cfg, routeAuth); err != nil {
 		t.Fatalf("register auth routes: %v", err)
 	}
 	if got := r.getMiddlewareCounts["/admin/login"]; got != 1 {
@@ -202,6 +219,102 @@ func TestAuthUIRoutesRegisterCSRFMiddlewareInRouterChain(t *testing.T) {
 	if got := r.postMiddlewareCounts["/admin/logout"]; got != 1 {
 		t.Fatalf("expected logout POST to register one middleware, got %d", got)
 	}
+}
+
+func TestAuthUIRoutesLoginRedirectResolverOverridesStaticRedirect(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	if err := RegisterAuthUIRoutes(
+		r,
+		cfg,
+		routeAuth,
+		WithAuthUILoginRedirect("/admin"),
+		WithAuthUILoginRedirectResolver(func(_ router.Context, fallback string) string {
+			if fallback != "/admin" {
+				t.Fatalf("unexpected fallback %q", fallback)
+			}
+			return "https://sim.example.test/workspace"
+		}),
+	); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+
+	handler := r.postHandlers["/admin/login"]
+	if handler == nil {
+		t.Fatalf("expected login POST route")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Bind", mock.AnythingOfType("*quickstart.loginPayload")).Run(func(args mock.Arguments) {
+		payload, ok := args.Get(0).(*loginPayload)
+		if !ok || payload == nil {
+			t.Fatalf("expected loginPayload pointer, got %T", args.Get(0))
+		}
+		payload.Identifier = "triage.admin"
+		payload.Password = "password"
+	}).Return(nil)
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Cookie", mock.AnythingOfType("*router.Cookie")).Return()
+	ctx.On("Redirect", "https://sim.example.test/workspace", []int{fiber.StatusFound}).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("login handler error: %v", err)
+	}
+
+	ctx.AssertExpectations(t)
+}
+
+func TestAuthUIRoutesLogoutUsesRouteAuthenticatorCookieTemplate(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(
+		auther,
+		stubAuthConfig{},
+		auth.WithAuthCookieTemplate(router.Cookie{
+			Path:     "/",
+			Domain:   ".example.test",
+			HTTPOnly: true,
+			Secure:   true,
+			SameSite: router.CookieSameSiteLaxMode,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	if err := RegisterAuthUIRoutes(r, cfg, routeAuth); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+
+	handler := r.postHandlers["/admin/logout"]
+	if handler == nil {
+		t.Fatalf("expected logout POST route")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Cookie", mock.MatchedBy(func(c *router.Cookie) bool {
+		return c.Name == "user" &&
+			c.Value == "" &&
+			c.Path == "/" &&
+			c.Domain == ".example.test" &&
+			c.HTTPOnly &&
+			c.Secure &&
+			c.SameSite == router.CookieSameSiteLaxMode
+	})).Return()
+	ctx.On("Redirect", "/admin/login", []int{fiber.StatusFound}).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("logout handler error: %v", err)
+	}
+
+	ctx.AssertExpectations(t)
 }
 
 func TestRegistrationUIRoutesRespectUsersSignupGate(t *testing.T) {

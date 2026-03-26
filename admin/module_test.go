@@ -285,9 +285,12 @@ func TestModuleStartupValidationFailsWhenPolicyIsEnforce(t *testing.T) {
 	if mod.validated == 0 {
 		t.Fatal("expected startup validator to be executed")
 	}
+	if mod.registered != 1 {
+		t.Fatal("expected invalid module registration to run before enforce-mode validation failure")
+	}
 }
 
-func TestModuleStartupValidationWarnPolicyAllowsStartup(t *testing.T) {
+func TestModuleStartupValidationWarnPolicySkipsModuleRegistration(t *testing.T) {
 	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 	adm.WithModuleStartupPolicy(ModuleStartupPolicyWarn)
 	mod := &startupValidatorModule{
@@ -302,6 +305,56 @@ func TestModuleStartupValidationWarnPolicyAllowsStartup(t *testing.T) {
 	}
 	if mod.validated == 0 {
 		t.Fatal("expected startup validator to be executed")
+	}
+	if mod.registered != 1 {
+		t.Fatal("expected invalid module registration to run before warn-mode skip")
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize failed: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodGet, "/admin/startup_validator_warn", nil)
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected skipped invalid module route to stay unavailable, got %d", res.Code)
+	}
+}
+
+func TestModuleStartupValidationWarnPolicySkipsDependentsOfInvalidModule(t *testing.T) {
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
+	adm.WithModuleStartupPolicy(ModuleStartupPolicyWarn)
+	invalid := &startupValidatorModule{
+		id:          "startup.validator.warn.parent",
+		validateErr: errors.New("startup validation warning"),
+	}
+	dependent := &stubModule{
+		id: "startup.validator.warn.child",
+		onRegister: func() {
+			t.Fatal("expected dependent module not to register when dependency was skipped")
+		},
+		manifestFn: func() ModuleManifest {
+			return ModuleManifest{
+				ID:           "startup.validator.warn.child",
+				Dependencies: []string{"startup.validator.warn.parent"},
+			}
+		},
+	}
+	if err := adm.RegisterModule(invalid); err != nil {
+		t.Fatalf("register invalid failed: %v", err)
+	}
+	if err := adm.RegisterModule(dependent); err != nil {
+		t.Fatalf("register dependent failed: %v", err)
+	}
+	if err := adm.loadModules(context.Background()); err != nil {
+		t.Fatalf("expected startup to continue under warn policy, got %v", err)
+	}
+	if invalid.validated == 0 {
+		t.Fatal("expected invalid module to be validated")
+	}
+	if invalid.registered != 1 {
+		t.Fatal("expected invalid module registration to run before warn-mode skip")
 	}
 }
 
@@ -576,6 +629,7 @@ type startupValidatorModule struct {
 	id          string
 	validateErr error
 	validated   int
+	registered  int
 }
 
 func (m *startupValidatorModule) Manifest() ModuleManifest {
@@ -583,6 +637,7 @@ func (m *startupValidatorModule) Manifest() ModuleManifest {
 }
 
 func (m *startupValidatorModule) Register(_ ModuleContext) error {
+	m.registered++
 	return nil
 }
 

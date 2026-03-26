@@ -222,10 +222,15 @@ func TestAdminRPCDispatchEndpointSanitizesUntrustedMetadata(t *testing.T) {
 			Name: "rpc.meta.test",
 			Payload: map[string]any{
 				"actor_id":        "spoofed-payload",
+				"actorId":         "spoofed-payload-camel",
 				"user_id":         "spoofed-user",
+				"userId":          "spoofed-user-camel",
 				"tenant_id":       "tenant-payload",
+				"tenantId":        "tenant-payload-camel",
 				"org_id":          "org-payload",
+				"orgId":           "org-payload-camel",
 				"organization_id": "org-payload-alt",
+				"organizationId":  "org-payload-alt-camel",
 			},
 			Options: command.DispatchOptions{
 				CorrelationID: "corr-client",
@@ -288,6 +293,21 @@ func TestAdminRPCDispatchEndpointSanitizesUntrustedMetadata(t *testing.T) {
 	}
 	if capturedPayload["organization_id"] != "org-context" {
 		t.Fatalf("expected trusted organization_id payload, got %v", capturedPayload["organization_id"])
+	}
+	if _, ok := capturedPayload["actorId"]; ok {
+		t.Fatalf("expected camelCase actorId payload key to be removed")
+	}
+	if _, ok := capturedPayload["userId"]; ok {
+		t.Fatalf("expected camelCase userId payload key to be removed")
+	}
+	if _, ok := capturedPayload["tenantId"]; ok {
+		t.Fatalf("expected camelCase tenantId payload key to be removed")
+	}
+	if _, ok := capturedPayload["orgId"]; ok {
+		t.Fatalf("expected camelCase orgId payload key to be removed")
+	}
+	if _, ok := capturedPayload["organizationId"]; ok {
+		t.Fatalf("expected camelCase organizationId payload key to be removed")
 	}
 }
 

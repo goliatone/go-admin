@@ -2385,7 +2385,7 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 		return eSignRuntimeWebFixture{}, fmt.Errorf("initialize admin: %w", err)
 	}
 	routes := handlers.BuildRouteSet(adm.URLs(), adm.BasePath(), adm.AdminAPIGroup())
-	if err := registerESignWebRoutes(server.Router(), cfg, adm, authn, auther, cookieName, routes, esignModule); err != nil {
+	if err := registerESignWebRoutes(server.Router(), cfg, adm, authn, authBundle.RouteAuthenticator, auther, cookieName, routes, esignModule); err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("register web routes: %w", err)
 	}
 	if err := registerESignAgreementEventsRoute(server.Router(), adm, authn, esignModule, nil); err != nil {
