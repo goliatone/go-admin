@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
@@ -145,6 +146,13 @@ func (s stubIdentity) Username() string { return s.identifier }
 func (s stubIdentity) Email() string    { return s.identifier + "@example.test" }
 func (s stubIdentity) Role() string     { return string(auth.RoleAdmin) }
 
+func resetAuthUICSRFKeyForTest(t *testing.T) {
+	t.Helper()
+	defaultAuthUICSRFKeyMu.Lock()
+	defaultAuthUICSRFKey = nil
+	defaultAuthUICSRFKeyMu.Unlock()
+}
+
 func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	gate := stubFeatureGate{
@@ -218,6 +226,83 @@ func TestAuthUIRoutesRegisterCSRFMiddlewareInRouterChain(t *testing.T) {
 	}
 	if got := r.postMiddlewareCounts["/admin/logout"]; got != 1 {
 		t.Fatalf("expected logout POST to register one middleware, got %d", got)
+	}
+}
+
+func TestAuthUIRoutesFailWhenCSRFSecureKeyEntropyUnavailable(t *testing.T) {
+	resetAuthUICSRFKeyForTest(t)
+	originalRandRead := authUIRandRead
+	authUIRandRead = func(_ []byte) (int, error) {
+		return 0, errors.New("entropy unavailable")
+	}
+	t.Cleanup(func() {
+		authUIRandRead = originalRandRead
+		resetAuthUICSRFKeyForTest(t)
+	})
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	err = RegisterAuthUIRoutes(r, cfg, routeAuth)
+	if err == nil {
+		t.Fatal("expected csrf secure key generation failure")
+	}
+	if got := err.Error(); got != "generate auth ui csrf secure key: entropy unavailable" {
+		t.Fatalf("unexpected error %q", got)
+	}
+}
+
+func TestAuthUIRoutesAllowExplicitCSRFSecureKeyWhenEntropyUnavailable(t *testing.T) {
+	resetAuthUICSRFKeyForTest(t)
+	originalRandRead := authUIRandRead
+	authUIRandRead = func(_ []byte) (int, error) {
+		return 0, errors.New("entropy unavailable")
+	}
+	t.Cleanup(func() {
+		authUIRandRead = originalRandRead
+		resetAuthUICSRFKeyForTest(t)
+	})
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	if err := RegisterAuthUIRoutes(r, cfg, routeAuth, WithAuthUICSRFSecureKey([]byte("01234567890123456789012345678901"))); err != nil {
+		t.Fatalf("register auth routes with explicit csrf key: %v", err)
+	}
+}
+
+func TestAuthUIRoutesAllowPreviewSecretWhenEntropyUnavailable(t *testing.T) {
+	resetAuthUICSRFKeyForTest(t)
+	originalRandRead := authUIRandRead
+	authUIRandRead = func(_ []byte) (int, error) {
+		return 0, errors.New("entropy unavailable")
+	}
+	t.Cleanup(func() {
+		authUIRandRead = originalRandRead
+		resetAuthUICSRFKeyForTest(t)
+	})
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.PreviewSecret = "preview-secret"
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	if err := RegisterAuthUIRoutes(r, cfg, routeAuth); err != nil {
+		t.Fatalf("register auth routes with preview secret: %v", err)
 	}
 }
 
