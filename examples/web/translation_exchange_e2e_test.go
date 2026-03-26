@@ -213,7 +213,7 @@ func newTranslationExchangeE2EFixture(t *testing.T) translationExchangeE2EFixtur
 	})
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", normalizedTestDSNName(t.Name()))
+	dsn := testSQLiteDSN(t)
 
 	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
 	require.NoError(t, err, "setup persistent cms")

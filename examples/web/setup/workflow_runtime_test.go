@@ -2,8 +2,6 @@ package setup
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"testing"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
@@ -11,7 +9,7 @@ import (
 
 func TestSetupPersistentWorkflowRuntimeAppliesMigrationsAndPersistsData(t *testing.T) {
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 
 	runtime, err := SetupPersistentWorkflowRuntime(ctx, dsn)
 	if err != nil {

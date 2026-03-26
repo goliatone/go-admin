@@ -16,7 +16,7 @@ import (
 )
 
 func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 	cmsOpts, err := setup.SetupPersistentCMS(context.Background(), "en", dsn)
 	require.NoError(t, err)
 

@@ -17,7 +17,7 @@ func TestPersistentCMSAppliesMigrations(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 
 	opts, err := SetupPersistentCMS(ctx, "en", dsn)
 	if err != nil {
@@ -104,7 +104,7 @@ func TestPersistentCMSSeedsRequiredContentTypes(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 
 	opts, err := SetupPersistentCMS(ctx, "en", dsn)
 	if err != nil {
@@ -201,7 +201,7 @@ func TestPersistentCMSSeedsSiteMenuBindingsAndViewProfiles(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 
 	opts, err := SetupPersistentCMS(ctx, "en", dsn)
 	if err != nil {
@@ -271,7 +271,7 @@ func TestPersistentCMSSeedsCoreBlockDefinitions(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 
 	opts, err := SetupPersistentCMS(ctx, "en", dsn)
 	if err != nil {
@@ -320,7 +320,7 @@ func TestPersistentCMSReconcilesRichTextBlockSlugDrift(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 
 	opts, err := SetupPersistentCMS(ctx, "en", dsn)
 	if err != nil {
@@ -385,7 +385,7 @@ func TestPersistentCMSBackfillsContentTranslationPathFromPageTranslations(t *tes
 	t.Helper()
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 
 	opts, err := SetupPersistentCMS(ctx, "en", dsn)
 	if err != nil {

@@ -28,7 +28,7 @@ type userProfilesCRUDHarness struct {
 
 func setupUserProfilesCRUDApp(t *testing.T) userProfilesCRUDHarness {
 	t.Helper()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 	ctx := context.Background()
 
 	deps, _, _, err := setup.SetupUsers(ctx, dsn)

@@ -22,7 +22,7 @@ import (
 )
 
 func setupContentCRUDApp(t *testing.T) (*fiber.App, admin.CMSOptions) {
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", strings.ToLower(t.Name()))
+	dsn := testSQLiteDSN(t)
 	ctx := context.Background()
 
 	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)

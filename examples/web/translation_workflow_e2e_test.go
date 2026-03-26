@@ -37,6 +37,24 @@ type translationWorkflowPolicy struct {
 	contentSvc coreadmin.CMSContentService
 }
 
+func (translationWorkflowEngine) WorkflowDefinition(entityType string) (coreadmin.WorkflowDefinition, bool) {
+	entityType = strings.TrimSpace(entityType)
+	if entityType == "" {
+		return coreadmin.WorkflowDefinition{}, false
+	}
+	return coreadmin.WorkflowDefinition{
+		EntityType: entityType,
+		Transitions: []coreadmin.WorkflowTransition{
+			{Name: "publish", From: "draft", To: "published"},
+			{Name: "submit_for_approval", From: "draft", To: "pending_approval"},
+			{Name: "request_approval", From: "draft", To: "pending_approval"},
+			{Name: "approve", From: "pending_approval", To: "published"},
+			{Name: "reject", From: "pending_approval", To: "draft"},
+			{Name: "unpublish", From: "published", To: "draft"},
+		},
+	}, true
+}
+
 func workflowTransitionsForState(state string) []coreadmin.WorkflowTransitionInfo {
 	switch strings.ToLower(strings.TrimSpace(state)) {
 	case "", "draft":
@@ -340,7 +358,7 @@ func newTranslationWorkflowFixture(t *testing.T) translationWorkflowFixture {
 	})
 
 	ctx := context.Background()
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared&_fk=1", normalizedTestDSNName(t.Name()))
+	dsn := testSQLiteDSN(t)
 
 	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
 	require.NoError(t, err, "setup persistent cms")
@@ -736,11 +754,6 @@ func normalizePolicyEntity(value string) string {
 		trimmed = trimmed[:idx]
 	}
 	return strings.ToLower(strings.TrimSpace(trimmed))
-}
-
-func normalizedTestDSNName(name string) string {
-	replacer := strings.NewReplacer("/", "_", "\\", "_", " ", "_", ":", "_")
-	return replacer.Replace(strings.ToLower(strings.TrimSpace(name)))
 }
 
 // Task 16.4: Integration test for translation exchange flow
