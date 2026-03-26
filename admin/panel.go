@@ -892,7 +892,7 @@ func normalizeActionFieldList(fields []string) []string {
 	out := make([]string, 0, len(fields))
 	seen := map[string]struct{}{}
 	for _, field := range fields {
-		normalized := strings.TrimSpace(field)
+		normalized := canonicalActionPayloadFieldName(field)
 		if normalized == "" {
 			continue
 		}
@@ -909,7 +909,7 @@ func normalizeActionFieldList(fields []string) []string {
 }
 
 func ensureActionPayloadSchemaContract(schema map[string]any, required []string) map[string]any {
-	out := primitives.CloneAnyMap(schema)
+	out := normalizeActionPayloadSchema(schema)
 	if out == nil {
 		out = map[string]any{}
 	}
@@ -928,7 +928,7 @@ func ensureActionPayloadSchemaContract(schema map[string]any, required []string)
 	requiredSet := map[string]struct{}{}
 	requiredOut := []string{}
 	appendRequired := func(field string) {
-		normalized := strings.TrimSpace(field)
+		normalized := canonicalActionPayloadFieldName(field)
 		if normalized == "" {
 			return
 		}
@@ -1001,12 +1001,12 @@ func hasActionNamed(actions []Action, name string) bool {
 }
 
 func containsActionField(fields []string, field string) bool {
-	target := strings.TrimSpace(field)
+	target := canonicalActionPayloadFieldName(field)
 	if target == "" {
 		return false
 	}
 	for _, candidate := range fields {
-		if strings.TrimSpace(candidate) == target {
+		if canonicalActionPayloadFieldName(candidate) == target {
 			return true
 		}
 	}
@@ -1015,7 +1015,7 @@ func containsActionField(fields []string, field string) bool {
 
 func actionIdempotencyField(action Action) string {
 	if field := strings.TrimSpace(action.IdempotencyField); field != "" {
-		return field
+		return canonicalActionPayloadFieldName(field)
 	}
 	return "idempotency_key"
 }
@@ -1124,7 +1124,7 @@ func ensureActionPayloadRequiredFields(raw any, fields ...string) []string {
 	out := []string{}
 	seen := map[string]struct{}{}
 	appendField := func(field string) {
-		normalized := strings.TrimSpace(field)
+		normalized := canonicalActionPayloadFieldName(field)
 		if normalized == "" {
 			return
 		}
