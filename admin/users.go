@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"sort"
@@ -318,15 +320,26 @@ func (s *UserManagementService) DeleteUser(ctx context.Context, id string) error
 	if s == nil || s.users == nil {
 		return serviceNotConfiguredDomainError("user service", nil)
 	}
-	if err := s.users.Delete(ctx, id); err != nil {
-		return err
-	}
+	roleIDs := []string{}
 	if s.roles != nil {
-		if roles, err := s.roles.RolesForUser(ctx, id); err == nil {
-			for _, role := range roles {
-				_ = s.roles.Unassign(ctx, id, role.ID)
-			}
+		roles, err := s.roles.RolesForUser(ctx, id)
+		if err != nil {
+			return err
 		}
+		roleIDs = roleIDsFromRecords(roles)
+		removed := make([]string, 0, len(roleIDs))
+		for _, roleID := range roleIDs {
+			if err := s.roles.Unassign(ctx, id, roleID); err != nil {
+				return errors.Join(
+					fmt.Errorf("unassign role %q for user %q: %w", roleID, id, err),
+					s.restoreRoleAssignments(ctx, id, removed),
+				)
+			}
+			removed = append(removed, roleID)
+		}
+	}
+	if err := s.users.Delete(ctx, id); err != nil {
+		return errors.Join(err, s.restoreRoleAssignments(ctx, id, roleIDs))
 	}
 	s.recordActivity(ctx, "user.delete", "user:"+id, map[string]any{"user_id": id})
 	return nil
@@ -514,6 +527,34 @@ func (s *UserManagementService) syncAssignments(ctx context.Context, userID stri
 		}
 	}
 	return nil
+}
+
+func (s *UserManagementService) restoreRoleAssignments(ctx context.Context, userID string, roleIDs []string) error {
+	if s == nil || s.roles == nil || strings.TrimSpace(userID) == "" || len(roleIDs) == 0 {
+		return nil
+	}
+	restoreErrs := make([]error, 0, len(roleIDs))
+	for _, roleID := range dedupeStrings(roleIDs) {
+		if strings.TrimSpace(roleID) == "" {
+			continue
+		}
+		if err := s.roles.Assign(ctx, userID, roleID); err != nil {
+			restoreErrs = append(restoreErrs, fmt.Errorf("restore role %q for user %q: %w", roleID, userID, err))
+		}
+	}
+	return errors.Join(restoreErrs...)
+}
+
+func roleIDsFromRecords(roles []RoleRecord) []string {
+	out := make([]string, 0, len(roles))
+	for _, role := range roles {
+		roleID := strings.TrimSpace(role.ID)
+		if roleID == "" {
+			continue
+		}
+		out = append(out, roleID)
+	}
+	return dedupeStrings(out)
 }
 
 func (s *UserManagementService) filterAssignableRoles(ctx context.Context, roles []string) ([]string, error) {
