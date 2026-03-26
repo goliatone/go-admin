@@ -114,15 +114,18 @@ func (a *Admin) loadModules(ctx context.Context) error {
 			if !ok {
 				return validationDomainError("module missing Register implementation", map[string]any{"component": "modules", "module": mod.Manifest().ID})
 			}
+			moduleID := strings.TrimSpace(mod.Manifest().ID)
+			stagedPublicRouter := newStagedAdminRouter(publicRouter)
+			stagedProtectedRouter := newStagedAdminRouter(protectedRouter)
 			moduleCtx := ModuleContext{
 				Admin:           a,
-				Router:          protectedRouter,
-				ProtectedRouter: protectedRouter,
-				PublicRouter:    publicRouter,
+				Router:          stagedProtectedRouter,
+				ProtectedRouter: stagedProtectedRouter,
+				PublicRouter:    stagedPublicRouter,
 				AuthMiddleware:  authMiddleware,
 				Locale:          a.config.DefaultLocale,
 				Translator:      a.translator,
-				Routing:         routingContexts[strings.TrimSpace(mod.Manifest().ID)],
+				Routing:         routingContexts[moduleID],
 			}
 			if err := registrar.Register(moduleCtx); err != nil {
 				return err
@@ -132,19 +135,27 @@ func (a *Admin) loadModules(ctx context.Context) error {
 				if validateErr != nil {
 					if a.moduleStartupPolicy == ModuleStartupPolicyWarn {
 						a.loggerFor("admin.modules").Warn("module startup validation warning",
-							"module", strings.TrimSpace(mod.Manifest().ID),
+							"module", moduleID,
 							"error", validateErr,
 						)
-						return nil
+						return modules.NewSkippedModuleError(moduleID, validateErr)
 					}
 					return validationDomainError("module startup validation failed", map[string]any{
 						"component": "modules",
-						"module":    strings.TrimSpace(mod.Manifest().ID),
+						"module":    moduleID,
 						"error":     strings.TrimSpace(validateErr.Error()),
 					})
 				}
 			}
+			stagedPublicRouter.Commit()
+			stagedProtectedRouter.Commit()
 			return nil
+		},
+		SkipDependency: func(moduleID string, dependencies []string) {
+			a.loggerFor("admin.modules").Warn("module startup skipped due to invalid dependency",
+				"module", strings.TrimSpace(moduleID),
+				"dependencies", dependencies,
+			)
 		},
 		AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
 			return a.addMenuItems(ctx, []MenuItem(items))
