@@ -265,7 +265,8 @@ func buildScopeDebugEntry(c router.Context, cfg *admin.Config) ScopeDebugEntry {
 			entry.Claims.Metadata = filterScopeMetadata(carrier.ClaimsMetadata())
 		}
 	}
-	// TODO: Should we use masker?
+	// Sensitive headers are always redacted here; hosts can add logger-level masking
+	// filters for any additional scope fields they consider sensitive.
 	entry.Headers = map[string]string{
 		"authorization": redactHeader(c.Header("Authorization")),
 		"cookie":        redactHeader(c.Header("Cookie")),
@@ -337,7 +338,6 @@ func filterScopeMetadata(metadata map[string]any) map[string]any {
 	return out
 }
 
-// TODO: Should we use masker?
 func redactHeader(value string) string {
 	if strings.TrimSpace(value) == "" {
 		return ""
