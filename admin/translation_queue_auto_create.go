@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"log/slog"
 	"strings"
 	"time"
 )
@@ -46,7 +45,7 @@ type TranslationQueueAutoCreateResult struct {
 // DefaultTranslationQueueAutoCreateHook implements auto-create using the assignment repository.
 type DefaultTranslationQueueAutoCreateHook struct {
 	Repository TranslationAssignmentRepository `json:"repository"`
-	Logger     *slog.Logger                    `json:"logger"`
+	Logger     Logger                          `json:"logger"`
 }
 
 // OnTranslationBlocker creates or reuses queue assignments for missing locales.
@@ -70,7 +69,7 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 
 	logger := h.Logger
 	if logger == nil {
-		logger = slog.Default()
+		logger = resolveNamedLogger("admin.translation.queue", nil, translationObservabilityLogger)
 	}
 
 	sourceLocale := strings.TrimSpace(strings.ToLower(input.SourceLocale))
@@ -109,12 +108,12 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 			result.Failed++
 			result.Errors = append(result.Errors, err)
 			logger.Warn("translation queue auto-create failed",
-				slog.String("event", "translation.queue.auto_create.error"),
-				slog.String("family_id", assignment.FamilyID),
-				slog.String("entity_type", assignment.EntityType),
-				slog.String("source_locale", assignment.SourceLocale),
-				slog.String("target_locale", assignment.TargetLocale),
-				slog.String("error", err.Error()),
+				"event", "translation.queue.auto_create.error",
+				"family_id", assignment.FamilyID,
+				"entity_type", assignment.EntityType,
+				"source_locale", assignment.SourceLocale,
+				"target_locale", assignment.TargetLocale,
+				"error", err.Error(),
 			)
 			continue
 		}
@@ -123,22 +122,22 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 		if isNew {
 			result.Created++
 			logger.Info("translation queue auto-create success",
-				slog.String("event", "translation.queue.auto_create.created"),
-				slog.String("assignment_id", created.ID),
-				slog.String("family_id", created.FamilyID),
-				slog.String("entity_type", created.EntityType),
-				slog.String("source_locale", created.SourceLocale),
-				slog.String("target_locale", created.TargetLocale),
+				"event", "translation.queue.auto_create.created",
+				"assignment_id", created.ID,
+				"family_id", created.FamilyID,
+				"entity_type", created.EntityType,
+				"source_locale", created.SourceLocale,
+				"target_locale", created.TargetLocale,
 			)
 		} else {
 			result.Reused++
 			logger.Info("translation queue auto-create reused existing",
-				slog.String("event", "translation.queue.auto_create.reused"),
-				slog.String("assignment_id", created.ID),
-				slog.String("family_id", created.FamilyID),
-				slog.String("entity_type", created.EntityType),
-				slog.String("source_locale", created.SourceLocale),
-				slog.String("target_locale", created.TargetLocale),
+				"event", "translation.queue.auto_create.reused",
+				"assignment_id", created.ID,
+				"family_id", created.FamilyID,
+				"entity_type", created.EntityType,
+				"source_locale", created.SourceLocale,
+				"target_locale", created.TargetLocale,
 			)
 		}
 	}
