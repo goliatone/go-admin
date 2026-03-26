@@ -55,5 +55,5 @@ func recordTranslationExchangeValidationDiagnostics(ctx context.Context, kind, f
 	if len(result.Summary.ByConflict) > 0 {
 		attrs = append(attrs, "by_conflict", result.Summary.ByConflict)
 	}
-	translationObservabilityLogger.InfoContext(ctx, "translation exchange validation diagnostics", attrs...)
+	translationObservabilityContextLogger(ctx).Info("translation exchange validation diagnostics", attrs...)
 }
