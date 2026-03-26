@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"io/fs"
-	"log"
 	"maps"
 	"regexp"
 	"sort"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
@@ -103,12 +103,12 @@ func SetupUsersWithMigrations(ctx context.Context, dsn string, registrar UserMig
 	if registrar == nil {
 		strategy, err := detectUserMigrationStrategy(ctx, sqlDB)
 		if err != nil {
-			log.Printf("warning: failed to detect user migration strategy: %v", err)
+			weblog.Named("examples.web.users").Warn("failed to detect user migration strategy", "error", err)
 			strategy = userMigrationStrategyOrdered
 		}
 		switch strategy {
 		case userMigrationStrategyLegacy:
-			log.Printf("users migrations: detected legacy go-auth history; using legacy migration registrar")
+			weblog.Named("examples.web.users").Info("users migrations: detected legacy go-auth history; using legacy migration registrar")
 			registrar = LegacyUserMigrations()
 		default:
 			registrar = QuickstartUserMigrations()
@@ -1374,7 +1374,7 @@ func (n *OnboardingNotifier) addNotification(ctx context.Context, notification a
 		return
 	}
 	if _, err := n.Notifications.Add(ctx, notification); err != nil {
-		log.Printf("onboarding notifier add notification failed: %v", err)
+		weblog.Named("examples.web.users").Warn("onboarding notifier add notification failed", "error", err)
 	}
 }
 

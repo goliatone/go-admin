@@ -6,12 +6,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"log"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/pkg/admin"
 	auth "github.com/goliatone/go-auth"
@@ -53,7 +53,7 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 		auth.WithRedirectCookieTemplate(router.Cookie{Path: "/", HTTPOnly: true, SameSite: router.CookieSameSiteLaxMode}),
 	)
 	if err != nil {
-		log.Fatalf("failed to initialize go-auth HTTP authenticator: %v", err)
+		weblog.Named("examples.web.auth").Fatal("failed to initialize go-auth HTTP authenticator", "error", err)
 	}
 
 	goAuth := admin.NewGoAuthAuthenticator(
@@ -186,8 +186,9 @@ func (p *demoIdentityProvider) FindIdentityByIdentifier(ctx context.Context, ide
 }
 
 func (p *demoIdentityProvider) lookup(ctx context.Context, identifier string) (auth.Identity, error) {
+	logger := weblog.Named("examples.web.auth")
 	if p == nil {
-		log.Printf("DEBUG: demoIdentityProvider.lookup - provider is nil")
+		logger.Debug("demo identity lookup skipped", "reason", "provider_nil")
 		return nil, auth.ErrIdentityNotFound
 	}
 	if p.authRepo != nil {
@@ -200,23 +201,22 @@ func (p *demoIdentityProvider) lookup(ctx context.Context, identifier string) (a
 	}
 	records, _, err := p.users.List(ctx, admin.ListOptions{PerPage: 50})
 	if err != nil {
-		log.Printf("DEBUG: demoIdentityProvider.lookup - error listing users: %v", err)
+		logger.Warn("demo identity lookup failed to list users", "error", err)
 		return nil, err
 	}
 	target := strings.ToLower(strings.TrimSpace(identifier))
-	log.Printf("DEBUG: demoIdentityProvider.lookup - searching for identifier: %q among %d users", target, len(records))
+	logger.Debug("demo identity lookup scanning users", "records", len(records))
 	for _, rec := range records {
 		id := strings.ToLower(toString(rec["id"]))
 		username := strings.ToLower(toString(rec["username"]))
 		email := strings.ToLower(toString(rec["email"]))
-		log.Printf("DEBUG: comparing target=%q with id=%q, username=%q, email=%q", target, id, username, email)
 		if target != "" && target != id && target != username && target != email {
 			continue
 		}
-		log.Printf("DEBUG: found matching user: %s", username)
+		logger.Debug("demo identity lookup matched record")
 		return p.identityFromRecord(rec), nil
 	}
-	log.Printf("DEBUG: demoIdentityProvider.lookup - no matching user found for: %q", target)
+	logger.Debug("demo identity lookup completed with no match")
 	return nil, auth.ErrIdentityNotFound
 }
 
@@ -355,19 +355,20 @@ func logDemoTokens(ctx context.Context, auther *auth.Auther, provider *demoIdent
 	if len(identities) == 0 {
 		return
 	}
-	log.Println("demo Authorization tokens (use Authorization: Bearer <token>):")
+	logger := weblog.Named("examples.web.auth")
+	logger.Info("demo authorization tokens available (use Authorization: Bearer <token>)")
 	for _, identity := range identities {
 		if s := statusFromIdentity(identity); s != "" && s != auth.UserStatusActive {
-			log.Printf("  - %s (%s): skipped, status=%s", identity.Username(), identity.Role(), s)
+			logger.Info("demo authorization token skipped", "user", identity.Username(), "role", identity.Role(), "status", s)
 			continue
 		}
 		password := fmt.Sprintf("%s.pwd", identity.Username())
 		token, err := auther.Login(ctx, identity.Username(), password)
 		if err != nil {
-			log.Printf("  - %s token error: %v", identity.Username(), err)
+			logger.Warn("demo authorization token generation failed", "user", identity.Username(), "error", err)
 			continue
 		}
-		log.Printf("  - %s (%s): %s", identity.Username(), identity.Role(), token)
+		logger.Info("demo authorization token", "user", identity.Username(), "role", identity.Role(), "token", token)
 	}
 }
 
@@ -406,7 +407,7 @@ func applySessionClaimsMetadata(ctx context.Context, identity auth.Identity, cla
 	if registry != nil {
 		scope := scopeFromClaims(claims, defaults)
 		if version, err := resolveRolePermissionsVersion(ctx, registry, identity, scope); err != nil {
-			log.Printf("DEBUG: applySessionClaimsMetadata - permissions version lookup failed: %v", err)
+			weblog.Named("examples.web.auth").Warn("permissions version lookup failed", "error", err)
 		} else if strings.TrimSpace(version) != "" {
 			auth.SetPermissionsVersionMetadata(claims, version)
 		}

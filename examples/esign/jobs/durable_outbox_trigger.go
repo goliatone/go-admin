@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -62,7 +62,7 @@ func (t *DurableOutboxDrainTrigger) NotifyScope(scope stores.Scope) {
 	t.scopes[scopeKey(scope)] = scope
 	t.mu.Unlock()
 	if err := t.enqueueScope(context.Background(), scope); err != nil {
-		log.Printf("durable outbox drain enqueue failed: job=%s tenant=%s org=%s err=%v", t.jobName, scope.TenantID, scope.OrgID, err)
+		observability.NamedLogger("esign.jobs.outbox").Warn("durable outbox drain enqueue failed", "job", t.jobName, "tenant_id", scope.TenantID, "org_id", scope.OrgID, "error", err)
 	}
 }
 
@@ -87,7 +87,7 @@ func (t *DurableOutboxDrainTrigger) worker() {
 		case <-ticker.C:
 			for _, scope := range t.snapshotScopes() {
 				if err := t.enqueueScope(context.Background(), scope); err != nil {
-					log.Printf("durable outbox drain sweep enqueue failed: job=%s tenant=%s org=%s err=%v", t.jobName, scope.TenantID, scope.OrgID, err)
+					observability.NamedLogger("esign.jobs.outbox").Warn("durable outbox drain sweep enqueue failed", "job", t.jobName, "tenant_id", scope.TenantID, "org_id", scope.OrgID, "error", err)
 				}
 			}
 		}

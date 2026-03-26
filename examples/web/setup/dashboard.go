@@ -1,11 +1,11 @@
 package setup
 
 import (
-	"log"
 	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/admin"
@@ -43,7 +43,7 @@ func SetupDashboard(adm *admin.Admin, dataStores *stores.DataStores, basePath st
 		Name: "Disabled Legacy Chart",
 		// NO DefaultArea - prevents creating default instance
 		Handler: func(ctx admin.AdminContext, cfg map[string]any) (admin.WidgetPayload, error) {
-			log.Printf("WARNING: Legacy chart_sample handler was called! This widget instance should have been removed. Config: %+v", cfg)
+			weblog.Named("examples.web.dashboard").Warn("legacy chart_sample handler was called", "config", cfg)
 			_ = ctx
 			// This provider should never be used, but contract stays canonical.
 			return toWidgetPayload(LegacyChartSampleWidgetData{Disabled: true}), nil

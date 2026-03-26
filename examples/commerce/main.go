@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -15,6 +14,7 @@ import (
 	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-featuregate/resolver"
+	glog "github.com/goliatone/go-logger/glog"
 	"github.com/goliatone/go-router"
 )
 
@@ -31,10 +31,17 @@ func featureGateFromDefaults(defaults map[string]bool) fggate.FeatureGate {
 }
 
 func main() {
+	rootLogger := glog.NewLogger(
+		glog.WithName("examples.commerce"),
+		glog.WithLoggerTypeConsole(),
+	)
+	configureCommerceLogging(rootLogger, rootLogger)
+	logger := commerceNamedLogger("examples.commerce.bootstrap")
+
 	ctx := context.Background()
 	dataStores, err := stores.Seed(ctx)
 	if err != nil {
-		log.Fatalf("seed stores: %v", err)
+		logger.Fatal("seed stores failed", "error", err)
 	}
 
 	cfg := admin.Config{
@@ -52,9 +59,13 @@ func main() {
 		"commands":  true,
 		"jobs":      true,
 	}
-	adm, err := admin.New(cfg, admin.Dependencies{FeatureGate: featureGateFromDefaults(featureDefaults)})
+	adm, err := admin.New(cfg, admin.Dependencies{
+		FeatureGate:    featureGateFromDefaults(featureDefaults),
+		LoggerProvider: rootLogger,
+		Logger:         rootLogger,
+	})
 	if err != nil {
-		log.Fatalf("failed to construct admin: %v", err)
+		logger.Fatal("failed to construct admin", "error", err)
 	}
 	_ = setupAuth(adm, dataStores)
 
@@ -68,7 +79,7 @@ func main() {
 		}),
 	}
 	if err := adm.RegisterModule(module); err != nil {
-		log.Fatalf("register module: %v", err)
+		logger.Fatal("register module failed", "error", err)
 	}
 
 	var fiberApp *fiber.App
@@ -84,7 +95,7 @@ func main() {
 	r := server.Router()
 
 	if err := adm.Initialize(r); err != nil {
-		log.Fatalf("initialize admin: %v", err)
+		logger.Fatal("initialize admin failed", "error", err)
 	}
 
 	// Serve static demo UI (after admin routes so it acts as fallback)
@@ -92,17 +103,17 @@ func main() {
 		Index: "index.html",
 	})
 
-	log.Println("Commerce admin ready at http://localhost:8081")
-	log.Println("  Demo UI: http://localhost:8081/")
-	log.Println("  Dashboard API:", path.Join(cfg.BasePath, "api/dashboard"))
-	log.Println("  Navigation API:", path.Join(cfg.BasePath, "api/navigation"))
-	log.Println("  Users API:", path.Join(cfg.BasePath, "api/users"))
-	log.Println("  Products API:", path.Join(cfg.BasePath, "api/products"))
-	log.Println("  Orders API:", path.Join(cfg.BasePath, "api/orders"))
-	log.Println("  Search API:", path.Join(cfg.BasePath, "api/search"))
-	log.Println("  Jobs API:", path.Join(cfg.BasePath, "api/jobs"))
+	logger.Info("commerce admin ready", "url", "http://localhost:8081")
+	logger.Info("demo ui", "url", "http://localhost:8081/")
+	logger.Info("dashboard api", "path", path.Join(cfg.BasePath, "api/dashboard"))
+	logger.Info("navigation api", "path", path.Join(cfg.BasePath, "api/navigation"))
+	logger.Info("users api", "path", path.Join(cfg.BasePath, "api/users"))
+	logger.Info("products api", "path", path.Join(cfg.BasePath, "api/products"))
+	logger.Info("orders api", "path", path.Join(cfg.BasePath, "api/orders"))
+	logger.Info("search api", "path", path.Join(cfg.BasePath, "api/search"))
+	logger.Info("jobs api", "path", path.Join(cfg.BasePath, "api/jobs"))
 
 	if err := server.Serve(":8081"); err != nil {
-		log.Fatalf("server stopped: %v", err)
+		logger.Fatal("server stopped", "error", err)
 	}
 }

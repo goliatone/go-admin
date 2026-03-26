@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"path"
@@ -24,14 +23,21 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
+	glog "github.com/goliatone/go-logger/glog"
 	"github.com/goliatone/go-router/eventstream"
 	"github.com/goliatone/go-uploader"
 )
 
 func main() {
+	rootLogger := glog.NewLogger(
+		glog.WithName("esign"),
+		glog.WithLoggerTypeConsole(),
+	)
+	logger := rootLogger.GetLogger("esign.bootstrap")
+
 	runtimeConfig, err := appcfg.Load()
 	if err != nil {
-		log.Fatalf("load runtime config: %v", err)
+		logger.Fatal("load runtime config failed", "error", err)
 	}
 
 	cfg := quickstart.NewAdminConfig(
@@ -63,38 +69,40 @@ func main() {
 	}
 	adminDeps, err := newESignActivityDependencies()
 	if err != nil {
-		log.Fatalf("init activity sqlite dependencies: %v", err)
+		logger.Fatal("init activity sqlite dependencies failed", "error", err)
 	}
+	adminDeps.LoggerProvider = rootLogger
+	adminDeps.Logger = rootLogger
 	authBundle, err := newESignAuthBundle(cfg)
 	if err != nil {
-		log.Fatalf("build auth bundle: %v", err)
+		logger.Fatal("build auth bundle failed", "error", err)
 	}
 	adminDeps.Authenticator = authBundle.Authenticator
 	adminDeps.Authorizer = authBundle.Authorizer
 	if err := validateRuntimeSecurityBaseline(runtimeConfig); err != nil {
-		log.Fatalf("runtime security baseline: %v", err)
+		logger.Fatal("runtime security baseline failed", "error", err)
 	}
 	if err := validateRuntimeProviderConfiguration(runtimeConfig); err != nil {
-		log.Fatalf("runtime provider configuration: %v", err)
+		logger.Fatal("runtime provider configuration failed", "error", err)
 	}
 	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), runtimeConfig)
 	if err != nil {
-		log.Fatalf("bootstrap persistence: %v", err)
+		logger.Fatal("bootstrap persistence failed", "error", err)
 	}
 	defer func() {
 		if cerr := bootstrapResult.Close(); cerr != nil {
-			log.Printf("close persistence bootstrap: %v", cerr)
+			logger.Warn("close persistence bootstrap failed", "error", cerr)
 		}
 	}()
 
 	store, storeCleanup, err := newESignRuntimeStore(bootstrapResult)
 	if err != nil {
-		log.Fatalf("initialize e-sign runtime store: %v", err)
+		logger.Fatal("initialize e-sign runtime store failed", "error", err)
 	}
 	if storeCleanup != nil {
 		defer func() {
 			if cerr := storeCleanup(); cerr != nil {
-				log.Printf("close e-sign runtime store: %v", cerr)
+				logger.Warn("close e-sign runtime store failed", "error", cerr)
 			}
 		}()
 	}
@@ -139,26 +147,27 @@ func main() {
 		}),
 	)
 	if err != nil {
-		log.Fatalf("new admin: %v", err)
+		logger.Fatal("new admin failed", "error", err)
 	}
 	adminApp = adm
 	observability.ConfigureLogging(
+		observability.WithLoggerProvider(adm.LoggerProvider()),
 		observability.WithLogger(adm.NamedLogger("esign.observability")),
 	)
 
 	if debugEnabled {
 		if err := adm.RegisterModule(admin.NewDebugModule(cfg.Debug)); err != nil {
-			log.Fatalf("register debug module: %v", err)
+			logger.Fatal("register debug module failed", "error", err)
 		}
 	}
 
 	servicesModule, err := setupESignServicesModule(adm, bootstrapResult)
 	if err != nil {
-		log.Fatalf("setup services module: %v", err)
+		logger.Fatal("setup services module failed", "error", err)
 	}
 	storageBundle, err := newESignStorageBundle(adm.NamedLogger("esign.storage"), runtimeConfig)
 	if err != nil {
-		log.Fatalf("setup e-sign storage: %v", err)
+		logger.Fatal("setup e-sign storage failed", "error", err)
 	}
 
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
@@ -168,12 +177,12 @@ func main() {
 		WithAgreementEventPublisher(agreementPublisher).
 		WithStore(store)
 	if err := adm.RegisterModule(esignModule); err != nil {
-		log.Fatalf("register module: %v", err)
+		logger.Fatal("register module failed", "error", err)
 	}
 	if shouldSeedESignRuntimeFixtures() {
 		fixtureSet, urls, seedErr := seedESignRuntimeFixtures(context.Background(), cfg.BasePath, esignModule, bootstrapResult)
 		if seedErr != nil {
-			log.Fatalf("seed e-sign runtime fixtures: %v", seedErr)
+			logger.Fatal("seed e-sign runtime fixtures failed", "error", seedErr)
 		}
 		adm.NamedLogger("esign.bootstrap").Info(
 			"seeded e-sign lineage qa fixtures",
@@ -189,7 +198,7 @@ func main() {
 	}
 
 	if err := authBundle.Apply(adm); err != nil {
-		log.Fatalf("apply auth bundle: %v", err)
+		logger.Fatal("apply auth bundle failed", "error", err)
 	}
 	authn := authBundle.Authenticator
 	auther := authBundle.Auther
@@ -197,7 +206,7 @@ func main() {
 
 	viewEngine, err := newESignViewEngine(cfg, adm)
 	if err != nil {
-		log.Fatalf("initialize view engine: %v", err)
+		logger.Fatal("initialize view engine failed", "error", err)
 	}
 	server, r := quickstart.NewFiberServer(viewEngine, cfg, adm, isDev)
 	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(resolveESignDiskAssetsDir()))
@@ -207,14 +216,14 @@ func main() {
 	}
 
 	if err := adm.Initialize(r); err != nil {
-		log.Fatalf("initialize admin: %v", err)
+		logger.Fatal("initialize admin failed", "error", err)
 	}
 	routes := handlers.BuildRouteSet(adm.URLs(), adm.BasePath(), adm.AdminAPIGroup())
 	if err := registerESignWebRoutes(r, cfg, adm, authn, auther, authCookieName, routes, esignModule); err != nil {
-		log.Fatalf("register web routes: %v", err)
+		logger.Fatal("register web routes failed", "error", err)
 	}
 	if err := registerESignAgreementEventsRoute(r, adm, authn, esignModule, agreementStream); err != nil {
-		log.Fatalf("register agreement events route: %v", err)
+		logger.Fatal("register agreement events route failed", "error", err)
 	}
 	if debugEnabled {
 		if runtimeConfig.Admin.Debug.EnableSlog {
@@ -226,7 +235,7 @@ func main() {
 	startupURL := "http://localhost" + addr + adm.BasePath()
 	adm.NamedLogger("esign.bootstrap").Info("e-sign admin ready", "url", startupURL)
 	if err := server.Serve(addr); err != nil {
-		log.Fatalf("server stopped: %v", err)
+		logger.Fatal("server stopped", "error", err)
 	}
 }
 

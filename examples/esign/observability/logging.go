@@ -14,11 +14,15 @@ import (
 // Logger is the go-logger compatible contract used by e-sign observability logging.
 type Logger = glog.Logger
 
+// LoggerProvider resolves named loggers.
+type LoggerProvider = glog.LoggerProvider
+
 // LoggerOption customizes how operation logging is wired.
 type LoggerOption func(*loggerOptions)
 
 type loggerOptions struct {
-	logger Logger
+	provider LoggerProvider
+	logger   Logger
 }
 
 // WithLogger injects the logger used to emit observability operation logs.
@@ -28,6 +32,16 @@ func WithLogger(logger Logger) LoggerOption {
 			return
 		}
 		opts.logger = logger
+	}
+}
+
+// WithLoggerProvider injects the provider used to resolve named loggers.
+func WithLoggerProvider(provider LoggerProvider) LoggerOption {
+	return func(opts *loggerOptions) {
+		if opts == nil {
+			return
+		}
+		opts.provider = provider
 	}
 }
 
@@ -56,11 +70,34 @@ var defaultOperationLoggerState = struct {
 	logger: NewOperationLogger(),
 }
 
+var defaultNamedLoggerState = struct {
+	mu       sync.RWMutex
+	provider LoggerProvider
+	logger   Logger
+}{
+	provider: glog.ProviderFromLogger(glog.Nop()),
+	logger:   glog.Nop(),
+}
+
 // ConfigureLogging updates package-level logging behavior using options.
 func ConfigureLogging(opts ...LoggerOption) {
+	config := loggerOptions{logger: glog.Nop()}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&config)
+		}
+	}
+
+	provider, logger := glog.Resolve("esign", config.provider, config.logger)
+
 	defaultOperationLoggerState.mu.Lock()
-	defaultOperationLoggerState.logger = NewOperationLogger(opts...)
+	defaultOperationLoggerState.logger = NewOperationLogger(WithLogger(logger))
 	defaultOperationLoggerState.mu.Unlock()
+
+	defaultNamedLoggerState.mu.Lock()
+	defaultNamedLoggerState.provider = provider
+	defaultNamedLoggerState.logger = logger
+	defaultNamedLoggerState.mu.Unlock()
 }
 
 // SetLogger is a convenience wrapper around ConfigureLogging(WithLogger(...)).
@@ -81,6 +118,27 @@ func defaultOperationLogger() *OperationLogger {
 		return NewOperationLogger()
 	}
 	return logger
+}
+
+// NamedLogger resolves a named logger from the configured e-sign logging provider.
+func NamedLogger(name string) Logger {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		name = "esign"
+	}
+
+	defaultNamedLoggerState.mu.RLock()
+	provider := defaultNamedLoggerState.provider
+	logger := defaultNamedLoggerState.logger
+	defaultNamedLoggerState.mu.RUnlock()
+
+	if provider != nil {
+		if resolved := provider.GetLogger(name); resolved != nil {
+			return resolved
+		}
+	}
+
+	return glog.Ensure(logger)
 }
 
 func withContextLogger(logger Logger, ctx context.Context) Logger {

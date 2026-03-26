@@ -3,11 +3,11 @@ package jobs
 import (
 	"context"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -190,7 +190,7 @@ func (r *DurableJobRuntime) processOnce(ctx context.Context) {
 			Now:      now,
 			Limit:    r.batchLimit,
 		}); err != nil {
-			log.Printf("durable job runtime requeue failed: tenant=%s org=%s err=%v", scope.TenantID, scope.OrgID, err)
+			observability.NamedLogger("esign.jobs.runtime").Warn("durable job runtime requeue failed", "tenant_id", scope.TenantID, "org_id", scope.OrgID, "error", err)
 		}
 		runs, err := r.store.ClaimDueJobs(ctx, scope, stores.JobRunClaimInput{
 			JobNames:      jobNames,
@@ -200,21 +200,21 @@ func (r *DurableJobRuntime) processOnce(ctx context.Context) {
 			WorkerID:      r.workerID,
 		})
 		if err != nil {
-			log.Printf("durable job runtime claim failed: tenant=%s org=%s err=%v", scope.TenantID, scope.OrgID, err)
+			observability.NamedLogger("esign.jobs.runtime").Warn("durable job runtime claim failed", "tenant_id", scope.TenantID, "org_id", scope.OrgID, "error", err)
 			continue
 		}
 		for _, run := range runs {
 			handler := handlers[run.JobName]
 			if handler == nil {
 				if _, err := r.store.MarkJobStale(ctx, scope, run.ID, "job handler not registered", now); err != nil {
-					log.Printf("durable job runtime stale mark failed: job=%s id=%s err=%v", run.JobName, run.ID, err)
+					observability.NamedLogger("esign.jobs.runtime").Warn("durable job runtime stale mark failed", "job", run.JobName, "id", run.ID, "error", err)
 				}
 				continue
 			}
 			err := handler(ctx, scope, run)
 			if err == nil {
 				if _, markErr := r.store.MarkJobSucceeded(ctx, scope, run.ID, r.now().UTC()); markErr != nil {
-					log.Printf("durable job runtime success mark failed: job=%s id=%s err=%v", run.JobName, run.ID, markErr)
+					observability.NamedLogger("esign.jobs.runtime").Warn("durable job runtime success mark failed", "job", run.JobName, "id", run.ID, "error", markErr)
 				}
 				continue
 			}
@@ -225,7 +225,7 @@ func (r *DurableJobRuntime) processOnce(ctx context.Context) {
 				NextAvailableAt: nextRetry,
 				FailedAt:        failedAt,
 			}); markErr != nil {
-				log.Printf("durable job runtime failure mark failed: job=%s id=%s err=%v cause=%v", run.JobName, run.ID, markErr, err)
+				observability.NamedLogger("esign.jobs.runtime").Warn("durable job runtime failure mark failed", "job", run.JobName, "id", run.ID, "error", markErr, "cause", err)
 			}
 		}
 	}

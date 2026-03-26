@@ -2,8 +2,8 @@ package setup
 
 import (
 	"context"
-	"log"
 
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/pkg/admin"
 )
 
@@ -19,14 +19,14 @@ func SetupSettingsWithOptions(adm *admin.Admin) {
 		Scope:  admin.SettingsScopeSystem,
 		Values: defaultSystemSettings(),
 	}); err != nil {
-		log.Printf("go-options system settings failed: %v", err)
+		weblog.Named("examples.web.settings").Warn("go-options system settings failed", "error", err)
 	}
 
 	if err := settings.Apply(context.Background(), admin.SettingsBundle{
 		Scope:  admin.SettingsScopeSite,
 		Values: goOptionsSiteOverrides(),
 	}); err != nil {
-		log.Printf("go-options site settings failed: %v", err)
+		weblog.Named("examples.web.settings").Warn("go-options site settings failed", "error", err)
 	}
 }
 

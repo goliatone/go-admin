@@ -3,9 +3,9 @@ package helpers
 import (
 	"embed"
 	"io/fs"
-	"log"
 	"time"
 
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/quickstart"
 )
 
@@ -103,7 +103,7 @@ func (c *WebViewConfig) GetDevDir() string { return "" }
 func MustSubFS(fsys embed.FS, dir string) fs.FS {
 	sub, err := fs.Sub(fsys, dir)
 	if err != nil {
-		log.Printf("failed to access %s: %v", dir, err)
+		weblog.Named("examples.web.views").Warn("failed to access embedded sub-fs", "dir", dir, "error", err)
 		return nil
 	}
 	return sub

@@ -2,9 +2,9 @@ package helpers
 
 import (
 	"io/fs"
-	"log"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/pkg/client"
 	formgen "github.com/goliatone/go-formgen"
 	formgenmodel "github.com/goliatone/go-formgen/pkg/model"
@@ -40,7 +40,7 @@ func NewUserFormGenerator(openapiFS fs.FS, templatesFS fs.FS) *formgenorchestrat
 		vanilla.WithComponentRegistry(componentRegistry),
 	)
 	if err != nil {
-		log.Printf("failed to initialize form renderer: %v", err)
+		weblog.Named("examples.web.views").Warn("failed to initialize form renderer", "error", err)
 		return nil
 	}
 	registry.MustRegister(vanillaRenderer)

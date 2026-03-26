@@ -3,8 +3,8 @@ package setup
 import (
 	"context"
 	"fmt"
-	"log"
 
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/pkg/admin"
 )
 
@@ -20,7 +20,7 @@ func SetupSettings(adm *admin.Admin) {
 		Scope:  admin.SettingsScopeSystem,
 		Values: defaultSystemSettings(),
 	}); err != nil {
-		log.Printf("setup settings apply failed: %v", err)
+		weblog.Named("examples.web.settings").Warn("setup settings apply failed", "error", err)
 	}
 }
 

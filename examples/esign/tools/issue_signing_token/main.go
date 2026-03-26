@@ -4,16 +4,21 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/stores"
+	glog "github.com/goliatone/go-logger/glog"
 )
 
 func main() {
+	logger := glog.NewLogger(
+		glog.WithName("esign.issue_signing_token"),
+		glog.WithLoggerTypeConsole(),
+	)
+
 	tenantID := flag.String("tenant-id", "", "tenant scope id")
 	orgID := flag.String("org-id", "", "org scope id")
 	agreementID := flag.String("agreement-id", "", "agreement id")
@@ -28,16 +33,16 @@ func main() {
 	recipient := strings.TrimSpace(*recipientID)
 	if scope.TenantID == "" || scope.OrgID == "" || agreement == "" || recipient == "" {
 		flag.Usage()
-		log.Fatal("tenant-id, org-id, agreement-id, and recipient-id are required")
+		logger.Fatal("tenant-id, org-id, agreement-id, and recipient-id are required")
 	}
 
 	cfg, err := appcfg.Load()
 	if err != nil {
-		log.Fatalf("load runtime config: %v", err)
+		logger.Fatal("load runtime config failed", "error", err)
 	}
 	store, cleanup, err := esignpersistence.OpenStore(context.Background(), cfg)
 	if err != nil {
-		log.Fatalf("initialize runtime store: %v", err)
+		logger.Fatal("initialize runtime store failed", "error", err)
 	}
 	defer func() {
 		if cleanup != nil {
@@ -48,7 +53,7 @@ func main() {
 	tokens := stores.NewTokenService(store)
 	issued, err := tokens.Issue(context.Background(), scope, agreement, recipient)
 	if err != nil {
-		log.Fatalf("issue signing token: %v", err)
+		logger.Fatal("issue signing token failed", "error", err)
 	}
 	_, _ = fmt.Fprintln(os.Stdout, strings.TrimSpace(issued.Token))
 }

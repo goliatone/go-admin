@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -363,7 +362,12 @@ func (s SigningService) notifyAgreementChanged(ctx context.Context, scope stores
 		return
 	}
 	if err := s.agreementChanges(ctx, scope, notification); err != nil {
-		log.Printf("signing agreement change notify failed: agreement_id=%s correlation_id=%s err=%v", notification.AgreementID, strings.TrimSpace(notification.CorrelationID), err)
+		observability.NamedLogger("esign.signing").Warn(
+			"signing agreement change notify failed",
+			"agreement_id", notification.AgreementID,
+			"correlation_id", strings.TrimSpace(notification.CorrelationID),
+			"error", err,
+		)
 	}
 }
 
@@ -1765,10 +1769,21 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 							"error":              strings.TrimSpace(err.Error()),
 						})
 						if auditErr != nil {
-							log.Printf("signer stage activation workflow failure audit append failed: agreement_id=%s recipient_id=%s err=%v audit_err=%v", stageAgreementID, completedRecipientID, err, auditErr)
+							observability.NamedLogger("esign.signing").Warn(
+								"signer stage activation workflow failure audit append failed",
+								"agreement_id", stageAgreementID,
+								"recipient_id", completedRecipientID,
+								"error", err,
+								"audit_error", auditErr,
+							)
 							return nil
 						}
-						log.Printf("signer stage activation workflow failed: agreement_id=%s recipient_id=%s err=%v", stageAgreementID, completedRecipientID, err)
+						observability.NamedLogger("esign.signing").Warn(
+							"signer stage activation workflow failed",
+							"agreement_id", stageAgreementID,
+							"recipient_id", completedRecipientID,
+							"error", err,
+						)
 					}
 					return nil
 				})
@@ -1800,10 +1815,21 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 							"error":           strings.TrimSpace(err.Error()),
 						})
 						if auditErr != nil {
-							log.Printf("signer completion workflow failure audit append failed: agreement_id=%s recipient_id=%s err=%v audit_err=%v", completionAgreementID, completionRecipientID, err, auditErr)
+							observability.NamedLogger("esign.signing").Warn(
+								"signer completion workflow failure audit append failed",
+								"agreement_id", completionAgreementID,
+								"recipient_id", completionRecipientID,
+								"error", err,
+								"audit_error", auditErr,
+							)
 							return nil
 						}
-						log.Printf("signer completion workflow failed: agreement_id=%s recipient_id=%s err=%v", completionAgreementID, completionRecipientID, err)
+						observability.NamedLogger("esign.signing").Warn(
+							"signer completion workflow failed",
+							"agreement_id", completionAgreementID,
+							"recipient_id", completionRecipientID,
+							"error", err,
+						)
 					}
 					return nil
 				})

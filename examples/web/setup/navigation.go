@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"path"
 	"sort"
 	"strings"
 
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/pkg/admin"
 	"github.com/goliatone/go-admin/quickstart"
 )
@@ -270,7 +270,7 @@ func debugLogf(format string, args ...any) {
 	if !navDebugEnabled() {
 		return
 	}
-	log.Printf(format, args...)
+	weblog.Named("examples.web.navigation").Debug(fmt.Sprintf(format, args...))
 }
 
 func describeMenuItem(item admin.MenuItem) string {
@@ -821,16 +821,18 @@ func LogNavigationIntegritySummary(ctx context.Context, menuSvc admin.CMSMenuSer
 	if err != nil {
 		return report, err
 	}
-	log.Printf(
-		"[nav integrity] menu=%s locale=%s nodes=%d roots=%d orphans=%d cycles=%d self_parent=%d repaired=%d",
-		report.MenuCode,
-		report.Locale,
-		report.NodeCount,
-		report.RootCount,
-		report.OrphanCount,
-		report.CycleCount,
-		report.SelfParentCount,
-		report.RepairedCount,
+	weblog.Named("examples.web.navigation").Info(
+		fmt.Sprintf(
+			"[nav integrity] menu=%s locale=%s nodes=%d roots=%d orphans=%d cycles=%d self_parent=%d repaired=%d",
+			report.MenuCode,
+			report.Locale,
+			report.NodeCount,
+			report.RootCount,
+			report.OrphanCount,
+			report.CycleCount,
+			report.SelfParentCount,
+			report.RepairedCount,
+		),
 	)
 	return report, nil
 }

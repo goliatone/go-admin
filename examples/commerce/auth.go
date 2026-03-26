@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"strings"
 
 	"github.com/goliatone/go-admin/examples/commerce/stores"
@@ -28,7 +27,7 @@ func setupAuth(adm *admin.Admin, dataStores *stores.CommerceStores) map[string]s
 		auth.WithRedirectCookieTemplate(router.Cookie{Path: "/", HTTPOnly: true, SameSite: router.CookieSameSiteLaxMode}),
 	)
 	if err != nil {
-		log.Fatalf("failed to initialize go-auth HTTP authenticator: %v", err)
+		commerceNamedLogger("examples.commerce.auth").Fatal("failed to initialize go-auth HTTP authenticator", "error", err)
 	}
 
 	authenticator := admin.NewGoAuthAuthenticator(routeAuth, cfg, admin.WithAuthErrorHandler(func(c router.Context, err error) error {
@@ -43,7 +42,7 @@ func setupAuth(adm *admin.Admin, dataStores *stores.CommerceStores) map[string]s
 				c.SetContext(ctxWithClaims)
 				return c.Next()
 			} else {
-				log.Printf("commerce auth validation failed: %v", valErr)
+				commerceNamedLogger("examples.commerce.auth").Warn("commerce auth validation failed", "error", valErr)
 			}
 		}
 		return err
@@ -134,9 +133,10 @@ func logDemoCommerceTokens(tokens map[string]string) {
 	if len(tokens) == 0 {
 		return
 	}
-	log.Println("commerce demo tokens (Authorization: Bearer <token>):")
+	logger := commerceNamedLogger("examples.commerce.auth")
+	logger.Info("commerce demo tokens available (Authorization: Bearer <token>)")
 	for user, token := range tokens {
-		log.Printf("  - %s: %s", user, token)
+		logger.Info("commerce demo token", "user", user, "token", token)
 	}
 }
 

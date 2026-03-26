@@ -2,8 +2,8 @@ package jobs
 
 import (
 	"context"
-	"log"
 
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/examples/web/stores"
 	"github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
@@ -25,7 +25,7 @@ func (j *databaseBackupJob) Name() string {
 
 func (j *databaseBackupJob) Execute(ctx context.Context, _ DatabaseBackupMsg) error {
 	j.runCount++
-	log.Printf("Running database backup (run #%d)...", j.runCount)
+	weblog.Named("examples.web.jobs").Info("running database backup", "run_count", j.runCount)
 	return nil
 }
 
@@ -52,7 +52,7 @@ func (j *cacheCleanupJob) Name() string {
 }
 
 func (j *cacheCleanupJob) Execute(ctx context.Context, _ CacheCleanupMsg) error {
-	log.Println("Cleaning up cache...")
+	weblog.Named("examples.web.jobs").Info("cleaning up cache")
 	return nil
 }
 
@@ -81,7 +81,7 @@ func (j *contentExportJob) Name() string {
 }
 
 func (j *contentExportJob) Execute(ctx context.Context, _ ContentExportMsg) error {
-	log.Println("Exporting content...")
+	weblog.Named("examples.web.jobs").Info("exporting content")
 	return nil
 }
 
@@ -110,7 +110,7 @@ func (j *inactiveUsersCleanupJob) Name() string {
 }
 
 func (j *inactiveUsersCleanupJob) Execute(ctx context.Context, _ InactiveUsersCleanupMsg) error {
-	log.Println("Cleaning up inactive users...")
+	weblog.Named("examples.web.jobs").Info("cleaning up inactive users")
 	return nil
 }
 

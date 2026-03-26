@@ -24,6 +24,7 @@ import (
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/examples/web/handlers"
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/examples/web/jobs"
 	"github.com/goliatone/go-admin/examples/web/search"
 	"github.com/goliatone/go-admin/examples/web/setup"
@@ -40,6 +41,7 @@ import (
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
 	"github.com/goliatone/go-i18n"
+	glog "github.com/goliatone/go-logger/glog"
 	persistence "github.com/goliatone/go-persistence-bun"
 	"github.com/goliatone/go-router"
 	gotheme "github.com/goliatone/go-theme"
@@ -61,9 +63,25 @@ const (
 )
 
 func main() {
+	rootLogger := glog.NewLogger(
+		glog.WithName("examples.web"),
+		glog.WithLoggerTypeConsole(),
+	)
+	weblog.Configure(rootLogger, rootLogger)
+	bootstrapLogger := weblog.Named("examples.web.bootstrap")
+	fatalf := func(format string, args ...any) {
+		bootstrapLogger.Fatal(fmt.Sprintf(format, args...))
+	}
+	warnf := func(format string, args ...any) {
+		bootstrapLogger.Warn(fmt.Sprintf(format, args...))
+	}
+	infof := func(format string, args ...any) {
+		bootstrapLogger.Info(fmt.Sprintf(format, args...))
+	}
+
 	runtimeConfig, _, err := appcfg.Load(context.Background())
 	if err != nil {
-		log.Panicf("failed to load app config: %v", err)
+		fatalf("failed to load app config: %v", err)
 	}
 
 	scopeCfg := quickstart.NormalizeScopeConfig(quickstart.ScopeConfig{
@@ -250,11 +268,11 @@ func main() {
 		debugHookOpts...,
 	)
 	if err != nil {
-		log.Panicf("failed to setup users: %v", err)
+		fatalf("failed to setup users: %v", err)
 	}
 	if usersService != nil {
 		if err := usersService.HealthCheck(context.Background()); err != nil {
-			log.Panicf("users service not ready: %v", err)
+			fatalf("users service not ready: %v", err)
 		}
 	}
 	scopeResolver := quickstart.ScopeBuilder(cfg)
@@ -294,7 +312,7 @@ func main() {
 				Args:              append([]string{}, runtimeConfig.ExportPDF.Args...),
 			}),
 		); err != nil {
-			log.Panicf("failed to configure export renderers: %v", err)
+			fatalf("failed to configure export renderers: %v", err)
 		}
 	}
 	if debugEnabled && featureDefaults["export"] {
@@ -317,6 +335,8 @@ func main() {
 		ExportRegistry:  exportBundle.Registry,
 		ExportRegistrar: exportBundle.Registrar,
 		ExportMetadata:  exportBundle.Metadata,
+		LoggerProvider:  rootLogger,
+		Logger:          rootLogger,
 	}
 	if usersDeps.ActivityRepo != nil {
 		adminDeps.ActivityRepository = usersDeps.ActivityRepo
@@ -328,10 +348,10 @@ func main() {
 		exampleTranslationPolicyValidationCatalog(),
 	)
 	if err != nil {
-		log.Panicf("invalid translation policy config: %v", err)
+		fatalf("invalid translation policy config: %v", err)
 	}
 	for _, warning := range validationResult.Warnings {
-		log.Printf("warning: translation policy config: %s", warning)
+		warnf("translation policy config warning: %s", warning)
 	}
 
 	// Resolve translation profile and module wiring from runtime config.
@@ -343,7 +363,7 @@ func main() {
 	if adapterFlags.UsePersistentCMS {
 		translationDB, err := stores.SetupContentDatabase(context.Background(), "")
 		if err != nil {
-			log.Panicf("failed to setup translation persistence: %v", err)
+			fatalf("failed to setup translation persistence: %v", err)
 		}
 		queueRepository = coreadmin.NewBunTranslationAssignmentRepository(translationDB)
 		adminDeps.TranslationFamilyStore = coreadmin.NewBunTranslationFamilyStore(translationDB)
@@ -355,7 +375,7 @@ func main() {
 		runtimeConfig.Translation,
 	)
 	if translationProductCfg.Queue != nil && translationProductCfg.Queue.Enabled && !adapterFlags.UsePersistentCMS {
-		log.Panicf("translation queue requires persistent CMS storage")
+		fatalf("translation queue requires persistent CMS storage")
 	}
 	if translationProductCfg.Queue != nil && translationProductCfg.Queue.Enabled {
 		featureDefaults[string(coreadmin.FeatureTranslationQATerms)] = true
@@ -369,11 +389,11 @@ func main() {
 	if adapterFlags.UsePersistentCMS {
 		workflowRuntime, err = setup.SetupPersistentWorkflowRuntime(context.Background(), "")
 		if err != nil {
-			log.Panicf("failed to setup persistent workflow runtime: %v", err)
+			fatalf("failed to setup persistent workflow runtime: %v", err)
 		}
 	}
 	if err := seedWorkflowRuntimeFromConfig(context.Background(), workflowRuntime, workflowConfigPath); err != nil {
-		log.Panicf("failed to seed workflow runtime from config: %v", err)
+		fatalf("failed to seed workflow runtime from config: %v", err)
 	}
 
 	adm, adapterResult, err := quickstart.NewAdmin(
@@ -405,15 +425,15 @@ func main() {
 		quickstart.WithFeatureDefaults(featureDefaults),
 	)
 	if err != nil {
-		log.Panicf("failed to construct admin: %v", err)
+		fatalf("failed to construct admin: %v", err)
 	}
 	if adminDeps.TranslationFamilyStore != nil {
 		if err := coreadmin.SyncTranslationFamilyStore(context.Background(), adm, defaultSiteContentChannel); err != nil {
-			log.Panicf("failed to sync translation family store: %v", err)
+			fatalf("failed to sync translation family store: %v", err)
 		}
 	}
 	if caps := quickstart.TranslationCapabilities(adm); len(caps) > 0 {
-		log.Printf(
+		infof(
 			"translation.capabilities.startup profile=%v schema_version=%v modules=%v features=%v routes=%v panels=%v resolver_keys=%v warnings=%v",
 			caps["profile"],
 			caps["schema_version"],
@@ -440,10 +460,10 @@ func main() {
 		authzPreflightRoles,
 	)
 	if err != nil {
-		log.Panicf("authorization preflight failed: %v", err)
+		fatalf("authorization preflight failed: %v", err)
 	}
 	if preflightReport.Mode != authzPreflightModeOff && len(preflightReport.RequiredPermissions) > 0 && len(preflightReport.Issues) == 0 {
-		log.Printf(
+		infof(
 			"authz.preflight passed mode=%s modules=%v roles=%v permissions=%v",
 			preflightReport.Mode,
 			preflightReport.Modules,
@@ -462,19 +482,19 @@ func main() {
 	}
 	if adapterResult.Flags.UsePersistentCMS && !adapterResult.PersistentCMSSet {
 		if adapterResult.PersistentCMSError != nil {
-			log.Panicf(
-				"warning: persistent CMS requested but setup did not complete; using fallback content service (backend=%s): %v",
+			fatalf(
+				"persistent CMS requested but setup did not complete; using fallback content service (backend=%s): %v",
 				cmsBackend,
 				adapterResult.PersistentCMSError,
 			)
 		}
-		log.Panicf(
-			"warning: persistent CMS requested but setup did not complete; using fallback content service (backend=%s)",
+		fatalf(
+			"persistent CMS requested but setup did not complete; using fallback content service (backend=%s)",
 			cmsBackend,
 		)
 	}
 	if cmsContentSvc == nil {
-		log.Panicf("cms content service is required")
+		fatalf("cms content service is required")
 	}
 	exchangeContentService = cmsContentSvc
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
@@ -494,11 +514,11 @@ func main() {
 			familySync,
 			queueFixtureAssignees...,
 		); err != nil {
-			log.Panicf("failed to seed translation queue fixture: %v", err)
+			fatalf("failed to seed translation queue fixture: %v", err)
 		}
 		if adminDeps.TranslationFamilyStore != nil {
 			if err := coreadmin.SyncTranslationFamilyStore(context.Background(), adm, defaultSiteContentChannel); err != nil {
-				log.Panicf("failed to resync translation family store after queue fixture seed: %v", err)
+				fatalf("failed to resync translation family store after queue fixture seed: %v", err)
 			}
 		}
 	}
@@ -508,11 +528,11 @@ func main() {
 		PersistenceOptions: debugHookOpts,
 	})
 	if err != nil {
-		log.Panicf("failed to initialize data stores: %v", err)
+		fatalf("failed to initialize data stores: %v", err)
 	}
 	if featureEnabled(adm.FeatureGate(), "export") {
 		if err := registerExampleExports(exportBundle, dataStores, adm.TenantService(), adm.UserService()); err != nil {
-			log.Panicf("failed to register exports: %v", err)
+			fatalf("failed to register exports: %v", err)
 		}
 	}
 
@@ -520,7 +540,7 @@ func main() {
 	dashboardHooks := dashboardactivity.Hooks{
 		// Log activity events to console for demonstration.
 		dashboardactivity.HookFunc(func(ctx context.Context, event dashboardactivity.Event) error {
-			log.Printf("[Dashboard Activity] %s %s %s:%s (channel: %s)",
+			infof("[Dashboard Activity] %s %s %s:%s (channel: %s)",
 				event.ActorID, event.Verb, event.ObjectType, event.ObjectID, event.Channel)
 			return nil
 		}),
@@ -703,7 +723,7 @@ func main() {
 		}),
 	)
 	if err != nil {
-		log.Panicf("failed to register theme: %v", err)
+		fatalf("failed to register theme: %v", err)
 	}
 	adm.WithGoTheme(themeSelector)
 
@@ -711,7 +731,7 @@ func main() {
 	openapiFS := helpers.MustSubFS(webFS, "openapi")
 	formTemplatesFS, err := fs.Sub(client.Templates(), "formgen/vanilla")
 	if err != nil {
-		log.Panicf("failed to access form templates: %v", err)
+		fatalf("failed to access form templates: %v", err)
 	}
 	componentRegistry := components.New()
 	adminAPIBasePath := strings.TrimSpace(quickstart.ResolveAdminAPIBasePath(adm.URLs(), cfg, cfg.BasePath))
@@ -728,7 +748,7 @@ func main() {
 		quickstart.WithComponentRegistryMergeDefaults(componentRegistry),
 	)
 	if err != nil {
-		log.Panicf("failed to initialize form generator: %v", err)
+		fatalf("failed to initialize form generator: %v", err)
 	}
 
 	// Initialize view engine
@@ -746,7 +766,7 @@ func main() {
 		quickstart.WithViewDebug(cfg.Debug.Enabled),
 	)
 	if err != nil {
-		log.Panicf("failed to initialize view engine: %v", err)
+		fatalf("failed to initialize view engine: %v", err)
 	}
 
 	// Initialize Fiber server
@@ -768,7 +788,7 @@ func main() {
 			diskAssetsDir = abs
 		}
 		if info, err := os.Stat(diskAssetsDir); err != nil || !info.IsDir() {
-			log.Printf("warning: admin.assets_dir %q not accessible: %v", diskAssetsDir, err)
+			warnf("admin.assets_dir %q not accessible: %v", diskAssetsDir, err)
 			diskAssetsDir = ""
 		}
 	}
@@ -894,56 +914,56 @@ func main() {
 		quickstart.WithTranslationCapabilityMenuMode(quickstart.TranslationCapabilityMenuModeTools),
 		quickstart.WithDefaultSidebarUtilityItems(true),
 	); err != nil {
-		log.Panicf("failed to register modules: %v", err)
+		fatalf("failed to register modules: %v", err)
 	}
 	if err := ensureCoreContentPanels(adm, dataStores.Pages, dataStores.Posts); err != nil {
-		log.Panicf("failed to ensure core content panels: %v", err)
+		fatalf("failed to ensure core content panels: %v", err)
 	}
 
 	// Wire dashboard renderer for server-side rendering
 	dashboardRenderer, err := setup.NewDashboardRenderer()
 	if err != nil {
-		log.Printf("warning: failed to initialize dashboard renderer (falling back to JSON API): %v", err)
+		warnf("failed to initialize dashboard renderer (falling back to JSON API): %v", err)
 	} else {
 		if dashboard := adm.Dashboard(); dashboard != nil {
 			dashboard.WithRenderer(dashboardRenderer)
-			log.Println("Dashboard SSR enabled")
+			infof("Dashboard SSR enabled")
 		}
 	}
 
 	// Initialize admin
 	if err := adm.Initialize(r); err != nil {
-		log.Panicf("failed to initialize admin: %v", err)
+		fatalf("failed to initialize admin: %v", err)
 	}
 	if err := setup.RemovePrimarySettingsMenuItems(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		log.Printf("warning: failed to prune primary settings menu item: %v", err)
+		warnf("failed to prune primary settings menu item: %v", err)
 	}
 	if _, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		log.Printf("warning: failed to repair/check navigation integrity: %v", err)
+		warnf("failed to repair/check navigation integrity: %v", err)
 	}
 	// Reorder after full module/panel registration to avoid mutation races with dynamic panel sync.
 	if err := setup.EnsureDashboardFirstWithOptions(context.Background(), adm.MenuService(), cfg.BasePath, cfg.NavMenuCode, cfg.DefaultLocale, setup.EnsureDashboardFirstOptions{
 		EnsureContentParentPath: false,
 	}); err != nil {
-		log.Printf("warning: failed to fix dashboard ordering: %v", err)
+		warnf("failed to fix dashboard ordering: %v", err)
 	}
 	if err := setup.EnsureContentParentPermissions(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		log.Printf("warning: failed to reconcile content parent permissions: %v", err)
+		warnf("failed to reconcile content parent permissions: %v", err)
 	}
 	if err := setup.RemoveLegacyTranslationToolsMenuItems(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		log.Printf("warning: failed to remove legacy translation items from tools menu: %v", err)
+		warnf("failed to remove legacy translation items from tools menu: %v", err)
 	}
 	if report, err := setup.LogNavigationIntegritySummary(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
-		log.Printf("warning: failed to compute final navigation integrity summary: %v", err)
+		warnf("failed to compute final navigation integrity summary: %v", err)
 	} else if report.HasIssues() {
 		if strictIntegrity := runtimeConfig.Navigation.IntegrityStrict || runtimeConfig.Admin.Debug.NavigationStrict; strictIntegrity {
-			log.Panicf(
+			fatalf(
 				"navigation integrity check failed: menu=%s locale=%s orphans=%d cycles=%d self_parent=%d",
 				report.MenuCode, report.Locale, report.OrphanCount, report.CycleCount, report.SelfParentCount,
 			)
 		}
-		log.Printf(
-			"warning: navigation integrity issues detected (menu=%s locale=%s orphans=%d cycles=%d self_parent=%d)",
+		warnf(
+			"navigation integrity issues detected (menu=%s locale=%s orphans=%d cycles=%d self_parent=%d)",
 			report.MenuCode, report.Locale, report.OrphanCount, report.CycleCount, report.SelfParentCount,
 		)
 	}
@@ -1016,7 +1036,7 @@ func main() {
 	}
 	if debugEnabled {
 		if err := registerDebugCompatibilityRoutes(r, adm, adminAPIBasePath); err != nil {
-			log.Printf("warning: failed to register debug compatibility routes: %v", err)
+			warnf("failed to register debug compatibility routes: %v", err)
 		}
 	}
 
@@ -1106,18 +1126,18 @@ func main() {
 		quickstart.WithUIDashboardActive(setup.NavigationSectionDashboard),
 	}
 	if translationCoreUIEnabled(adm) {
-		log.Printf("Translation family detail/create-locale UI route enabled (/admin/translations/families/:family_id)")
-		log.Printf("Translation matrix UI route enabled with dense coverage cells, sticky headers, and quick create/open actions (/admin/translations/matrix)")
+		infof("Translation family detail/create-locale UI route enabled (/admin/translations/families/:family_id)")
+		infof("Translation matrix UI route enabled with dense coverage cells, sticky headers, and quick create/open actions (/admin/translations/matrix)")
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationQueue)) {
 		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationDashboardRoute(true))
-		log.Printf("Translation dashboard UI route enabled with aggregate cards, degraded-state metadata, and runbook links (/admin/translations/dashboard)")
-		log.Printf("Translation queue UI route enabled with reviewer state presets, inline claim/release, and review actions (/admin/translations/queue)")
-		log.Printf("Translation editor UI route enabled with reject-with-reason modal, QA surfacing, and workflow timeline (/admin/translations/assignments/:assignment_id/edit)")
+		infof("Translation dashboard UI route enabled with aggregate cards, degraded-state metadata, and runbook links (/admin/translations/dashboard)")
+		infof("Translation queue UI route enabled with reviewer state presets, inline claim/release, and review actions (/admin/translations/queue)")
+		infof("Translation editor UI route enabled with reject-with-reason modal, QA surfacing, and workflow timeline (/admin/translations/assignments/:assignment_id/edit)")
 	}
 	if featureEnabled(adm.FeatureGate(), string(coreadmin.FeatureTranslationExchange)) {
 		uiRouteOpts = append(uiRouteOpts, quickstart.WithUITranslationExchangeRoute(true))
-		log.Printf("Translation exchange UI route enabled (/admin/translations/exchange) with export, validate, apply, retained history, and retry flows")
+		infof("Translation exchange UI route enabled (/admin/translations/exchange) with export, validate, apply, retained history, and retry flows")
 	}
 	if err := quickstart.RegisterAdminUIRoutes(
 		r,
@@ -1126,20 +1146,20 @@ func main() {
 		authn,
 		uiRouteOpts...,
 	); err != nil {
-		log.Panicf("failed to register admin UI routes: %v", err)
+		fatalf("failed to register admin UI routes: %v", err)
 	}
 	dashboardPath := path.Join(cfg.BasePath, "dashboard")
 	r.Get(cfg.BasePath, wrapAuthed(func(c router.Context) error {
 		return c.Redirect(dashboardPath, fiber.StatusFound)
 	}))
 	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
-		log.Panicf("failed to register settings UI routes: %v", err)
+		fatalf("failed to register settings UI routes: %v", err)
 	}
 	if err := quickstart.RegisterContentTypeBuilderUIRoutes(r, cfg, adm, authn); err != nil {
-		log.Panicf("failed to register content type builder UI routes: %v", err)
+		fatalf("failed to register content type builder UI routes: %v", err)
 	}
 	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(r, cfg, adm, authn); err != nil {
-		log.Panicf("failed to register content type builder API routes: %v", err)
+		fatalf("failed to register content type builder API routes: %v", err)
 	}
 	contentEntryUIOpts := []quickstart.ContentEntryUIOption{
 		quickstart.WithContentEntryUITemplateFS(client.FS(), webFS),
@@ -1177,7 +1197,7 @@ func main() {
 		authn,
 		contentEntryUIOpts...,
 	); err != nil {
-		log.Panicf("failed to register content entry UI routes: %v", err)
+		fatalf("failed to register content entry UI routes: %v", err)
 	}
 	secureLinkUI := setup.ResolveSecureLinkUIConfig()
 	passwordPolicyHints := setup.PasswordPolicyHints()
@@ -1220,7 +1240,7 @@ func main() {
 		quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
 		quickstart.WithAuthUIViewContextBuilder(authUIViewContext),
 	); err != nil {
-		log.Panicf("failed to register auth UI routes: %v", err)
+		fatalf("failed to register auth UI routes: %v", err)
 	}
 
 	r.Get(registerPath, func(c router.Context) error {
@@ -1261,32 +1281,32 @@ func main() {
 		quicksite.WithSearchProvider(siteSearchProvider),
 		quicksite.WithDeliveryServices(cmsContentSvc, adm.ContentTypeService()),
 	); err != nil {
-		log.Panicf("failed to register site runtime routes: %v", err)
+		fatalf("failed to register site runtime routes: %v", err)
 	}
 	if err := logSiteRuntimeContentChannelDiagnostics(adm, cmsContentSvc, cfg, siteCfg, runtimeConfig.Site.EnvironmentStrict); err != nil {
-		log.Panicf("site runtime content channel diagnostics failed: %v", err)
+		fatalf("site runtime content channel diagnostics failed: %v", err)
 	}
 
 	listenAddr := resolveListenAddr(runtimeConfig.Server)
-	log.Printf("Enterprise Admin available at %s", urlForListenAddr(listenAddr))
-	log.Printf("  Dashboard API: %s", path.Join(adminAPIBasePath, "dashboard"))
-	log.Printf("  Navigation API: %s", path.Join(adminAPIBasePath, "navigation"))
-	log.Printf("  Users API: %s", path.Join(adminAPIBasePath, "users"))
-	log.Printf("  Panel API (content): %s", path.Join(adminAPIBasePath, "content"))
-	log.Printf("  Panel API (media): %s", path.Join(adminAPIBasePath, "media"))
-	log.Printf("  Settings API: %s", path.Join(adminAPIBasePath, "settings"))
-	log.Printf("  Session API: %s", path.Join(adminAPIBasePath, "session"))
-	log.Println("  Content UI (Pages): /admin/content/pages (alias: /admin/pages)")
-	log.Println("  Content UI (Posts): /admin/content/posts (alias: /admin/posts)")
-	log.Printf("  Dashboard: go-dashboard (persistent, requires CMS)")
-	log.Printf("  Activity backend: %s (features.go_users_activity=%t)", activityBackend, adapterResult.Flags.UseGoUsersActivity)
-	log.Printf("  CMS backend: %s (features.persistent_cms=%t)", cmsBackend, adapterResult.Flags.UsePersistentCMS)
-	log.Printf("  Settings backend: %s (features.go_options=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
-	log.Printf("  Search API: %s?query=...", path.Join(adminAPIBasePath, "search"))
-	log.Printf("  Site Runtime: / (search: %s, search api: %s)", siteCfg.Search.Route, siteCfg.Search.Endpoint)
+	infof("Enterprise Admin available at %s", urlForListenAddr(listenAddr))
+	infof("  Dashboard API: %s", path.Join(adminAPIBasePath, "dashboard"))
+	infof("  Navigation API: %s", path.Join(adminAPIBasePath, "navigation"))
+	infof("  Users API: %s", path.Join(adminAPIBasePath, "users"))
+	infof("  Panel API (content): %s", path.Join(adminAPIBasePath, "content"))
+	infof("  Panel API (media): %s", path.Join(adminAPIBasePath, "media"))
+	infof("  Settings API: %s", path.Join(adminAPIBasePath, "settings"))
+	infof("  Session API: %s", path.Join(adminAPIBasePath, "session"))
+	infof("  Content UI (Pages): /admin/content/pages (alias: /admin/pages)")
+	infof("  Content UI (Posts): /admin/content/posts (alias: /admin/posts)")
+	infof("  Dashboard: go-dashboard (persistent, requires CMS)")
+	infof("  Activity backend: %s (features.go_users_activity=%t)", activityBackend, adapterResult.Flags.UseGoUsersActivity)
+	infof("  CMS backend: %s (features.persistent_cms=%t)", cmsBackend, adapterResult.Flags.UsePersistentCMS)
+	infof("  Settings backend: %s (features.go_options=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
+	infof("  Search API: %s?query=...", path.Join(adminAPIBasePath, "search"))
+	infof("  Site Runtime: / (search: %s, search api: %s)", siteCfg.Search.Route, siteCfg.Search.Endpoint)
 
 	if err := server.Serve(listenAddr); err != nil {
-		log.Panicf("server stopped: %v", err)
+		fatalf("server stopped: %v", err)
 	}
 }
 
@@ -1472,22 +1492,30 @@ func logSiteRuntimeContentChannelDiagnostics(
 	}
 
 	active := collect(contentChannel)
-	log.Printf(
-		"  Site runtime scope: runtime_environment=%s content_channel=%s content_types=%d contents=%d main_menu_items=%d",
-		resolved.Environment,
-		contentChannel,
-		active.ContentTypes,
-		active.Contents,
-		active.MainMenu,
+	weblog.Named("examples.web.site").Info(
+		fmt.Sprintf(
+			"  Site runtime scope: runtime_environment=%s content_channel=%s content_types=%d contents=%d main_menu_items=%d",
+			resolved.Environment,
+			contentChannel,
+			active.ContentTypes,
+			active.Contents,
+			active.MainMenu,
+		),
 	)
 	if active.ContentTypeErr != nil {
-		log.Printf("warning: site content channel diagnostics content type read failed (channel=%s): %v", contentChannel, active.ContentTypeErr)
+		weblog.Named("examples.web.site").Warn(
+			fmt.Sprintf("site content channel diagnostics content type read failed (channel=%s): %v", contentChannel, active.ContentTypeErr),
+		)
 	}
 	if active.ContentErr != nil {
-		log.Printf("warning: site content channel diagnostics content read failed (channel=%s): %v", contentChannel, active.ContentErr)
+		weblog.Named("examples.web.site").Warn(
+			fmt.Sprintf("site content channel diagnostics content read failed (channel=%s): %v", contentChannel, active.ContentErr),
+		)
 	}
 	if active.MenuErr != nil {
-		log.Printf("warning: site content channel diagnostics menu read failed (channel=%s): %v", contentChannel, active.MenuErr)
+		weblog.Named("examples.web.site").Warn(
+			fmt.Sprintf("site content channel diagnostics menu read failed (channel=%s): %v", contentChannel, active.MenuErr),
+		)
 	}
 
 	if strings.EqualFold(contentChannel, defaultSiteContentChannel) {
@@ -1514,7 +1542,7 @@ func logSiteRuntimeContentChannelDiagnostics(
 	if channelStrict {
 		return fmt.Errorf("%s", message)
 	}
-	log.Printf("warning: %s", message)
+	weblog.Named("examples.web.site").Warn(message)
 	return nil
 }
 
@@ -2091,12 +2119,14 @@ func finalizeTranslationAuthzPreflight(report translationAuthzPreflightReport) (
 		return report, nil
 	}
 	for _, issue := range report.Issues {
-		log.Printf(
-			"warning: authz.preflight issue=%s role=%s scope=%s missing=%s",
-			issue.Issue,
-			issue.RoleKey,
-			strings.TrimSpace(issue.Scope),
-			strings.Join(issue.MissingPermissions, ","),
+		weblog.Named("examples.web.authz").Warn(
+			fmt.Sprintf(
+				"authz.preflight issue=%s role=%s scope=%s missing=%s",
+				issue.Issue,
+				issue.RoleKey,
+				strings.TrimSpace(issue.Scope),
+				strings.Join(issue.MissingPermissions, ","),
+			),
 		)
 	}
 	if report.Mode != authzPreflightModeStrict {
@@ -2125,7 +2155,9 @@ func resolveAuthzPreflightMode(raw string, isDev bool) authzPreflightMode {
 		return authzPreflightModeOff
 	default:
 		if isDev {
-			log.Printf("warning: unknown admin.authz_preflight.mode=%q, defaulting to warn", raw)
+			weblog.Named("examples.web.authz").Warn(
+				fmt.Sprintf("unknown admin.authz_preflight.mode=%q, defaulting to warn", raw),
+			)
 			return authzPreflightModeWarn
 		}
 		return authzPreflightModeOff

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
+	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/pkg/admin"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
@@ -1289,9 +1290,12 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 
 	// Extract query string to parse parameters
 	queryStr := mockQuery.String()
-
-	// Debug: log the generated query
-	fmt.Printf("[DEBUG] Generated query: %s\n", queryStr)
+	weblog.Named("examples.web.users.store").Debug(
+		"derived in-memory user list options from select criteria",
+		"has_where", strings.Contains(queryStr, "WHERE"),
+		"has_order", strings.Contains(queryStr, "ORDER BY"),
+		"criteria_count", len(criteria),
+	)
 
 	// Parse LIMIT and OFFSET
 	if _, after, ok := strings.Cut(queryStr, "LIMIT "); ok {
@@ -1353,7 +1357,6 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 			// Check for username ILIKE (support multiple values)
 			if strings.Contains(queryUpper, `USERNAME`) && strings.Contains(queryUpper, `ILIKE`) {
 				usernameTerms = extractAllILikeValuesForField(queryStr, "username")
-				fmt.Printf("[DEBUG] Extracted username ILIKE: %v\n", usernameTerms)
 				if len(usernameTerms) > 0 {
 					opts.Filters["username__ilike"] = strings.Join(usernameTerms, ",")
 				}
@@ -1361,7 +1364,6 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 			// Check for email ILIKE (support multiple values)
 			if strings.Contains(queryUpper, `EMAIL`) && strings.Contains(queryUpper, `ILIKE`) {
 				emailTerms = extractAllILikeValuesForField(queryStr, "email")
-				fmt.Printf("[DEBUG] Extracted email ILIKE: %v\n", emailTerms)
 				if len(emailTerms) > 0 {
 					opts.Filters["email__ilike"] = strings.Join(emailTerms, ",")
 				}
@@ -1369,7 +1371,6 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 			// Check for role ILIKE (support multiple values)
 			if strings.Contains(queryUpper, `ROLE`) && strings.Contains(queryUpper, `ILIKE`) {
 				roleTerms = extractAllILikeValuesForField(queryStr, "role")
-				fmt.Printf("[DEBUG] Extracted role ILIKE: %v\n", roleTerms)
 				if len(roleTerms) > 0 {
 					opts.Filters["role__ilike"] = strings.Join(roleTerms, ",")
 				}
@@ -1387,7 +1388,6 @@ func extractListOptionsFromCriteria(ctx context.Context, criteria []repository.S
 			// Fallback: if only one ILIKE without field-specific matches, use as _search
 			if len(opts.Filters) == 0 {
 				searchTerm := extractILikeValue(queryStr)
-				fmt.Printf("[DEBUG] Extracted generic ILIKE search term: '%s'\n", searchTerm)
 				if searchTerm != "" {
 					opts.Filters["_search"] = searchTerm
 				}

@@ -2,12 +2,12 @@ package services
 
 import (
 	"fmt"
-	"log"
 	"maps"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
 
@@ -41,7 +41,7 @@ func LogSendDebug(component, phase string, fields map[string]any) {
 	for _, key := range keys {
 		parts = append(parts, fmt.Sprintf("%s=%v", key, fields[key]))
 	}
-	log.Print(strings.Join(parts, " "))
+	observability.NamedLogger("esign.send").Debug(strings.Join(parts, " "))
 }
 
 func LogSendPhaseDuration(component, phase string, startedAt time.Time, fields map[string]any) {

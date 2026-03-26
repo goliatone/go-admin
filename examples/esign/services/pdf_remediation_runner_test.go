@@ -62,7 +62,7 @@ done
 	template := PDFRemediationCommandTemplate{
 		Bin:         script,
 		Args:        []string{"{in}", "{out}"},
-		Timeout:     10 * time.Second,
+		Timeout:     30 * time.Second,
 		MaxPDFBytes: 1 << 20,
 		MaxLogBytes: 16,
 	}
@@ -101,7 +101,7 @@ done
 	template := PDFRemediationCommandTemplate{
 		Bin:         script,
 		Args:        []string{"{in}", "{out}"},
-		Timeout:     10 * time.Second,
+		Timeout:     30 * time.Second,
 		MaxPDFBytes: 8,
 		MaxLogBytes: 64,
 	}

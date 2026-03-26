@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
@@ -197,7 +197,7 @@ func (d *EmailOutboxDispatcher) dispatchScope(ctx context.Context, scope stores.
 			services.LogSendPhaseDuration("email_outbox_dispatcher", "dispatch_scope_failed", loopStartedAt, services.SendDebugFields(scope, "", map[string]any{
 				"error": strings.TrimSpace(err.Error()),
 			}))
-			log.Printf("email outbox dispatch failed: tenant=%s org=%s err=%v", scope.TenantID, scope.OrgID, err)
+			observability.NamedLogger("esign.jobs.email_outbox").Warn("email outbox dispatch failed", "tenant_id", scope.TenantID, "org_id", scope.OrgID, "error", err)
 			return
 		}
 		services.LogSendPhaseDuration("email_outbox_dispatcher", "dispatch_scope_batch", loopStartedAt, services.SendDebugFields(scope, "", map[string]any{

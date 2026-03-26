@@ -4,11 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/goliatone/go-admin/examples/esign/observability"
 	"github.com/goliatone/go-admin/examples/esign/services"
 	"github.com/goliatone/go-admin/examples/esign/stores"
 )
@@ -94,7 +94,7 @@ func (p SigningWorkflowOutboxPublisher) appendFailureAudit(
 		"error":          strings.TrimSpace(cause.Error()),
 	}
 	if err := p.handlers.appendJobAudit(ctx, scope, agreementID, failureAuditEvent, metadata); err != nil {
-		log.Printf("signing workflow failure audit append failed: agreement_id=%s event=%s err=%v audit_err=%v", agreementID, failureAuditEvent, cause, err)
+		observability.NamedLogger("esign.jobs.workflow_outbox").Warn("signing workflow failure audit append failed", "agreement_id", agreementID, "event", failureAuditEvent, "error", cause, "audit_error", err)
 	}
 }
 
@@ -213,7 +213,7 @@ func (d *SigningWorkflowOutboxDispatcher) dispatchScope(ctx context.Context, sco
 					"sqlite_lock":        sqliteDispatchLockReason(err) != "",
 					"sqlite_lock_reason": sqliteDispatchLockReason(err),
 				}))
-				log.Printf("signing workflow outbox dispatch failed: tenant=%s org=%s topic=%s err=%v", scope.TenantID, scope.OrgID, topic, err)
+				observability.NamedLogger("esign.jobs.workflow_outbox").Warn("signing workflow outbox dispatch failed", "tenant_id", scope.TenantID, "org_id", scope.OrgID, "topic", topic, "error", err)
 				break
 			}
 			services.LogSendPhaseDuration("signing_workflow_outbox_dispatcher", "dispatch_scope_batch", batchStartedAt, services.SendDebugFields(scope, "", map[string]any{
