@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"path"
 	"sort"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/internal/urlutil"
 	router "github.com/goliatone/go-router"
 )
 
@@ -152,7 +152,7 @@ func contentAliasHandler(adm *admin.Admin, alias string, aliasBase string, baseP
 			target += suffix
 		}
 
-		if rawQuery := rawQueryFromOriginalURL(c.OriginalURL()); rawQuery != "" {
+		if rawQuery := urlutil.RawQueryFromOriginalURL(c.OriginalURL()); rawQuery != "" {
 			if strings.Contains(target, "?") {
 				target = target + "&" + rawQuery
 			} else {
@@ -248,17 +248,4 @@ func capabilityStringValue(raw any) string {
 	default:
 		return strings.TrimSpace(fmt.Sprint(raw))
 	}
-}
-
-func rawQueryFromOriginalURL(raw string) string {
-	if raw == "" {
-		return ""
-	}
-	if parsed, err := url.Parse(raw); err == nil {
-		return parsed.RawQuery
-	}
-	if idx := strings.Index(raw, "?"); idx >= 0 && idx+1 < len(raw) {
-		return raw[idx+1:]
-	}
-	return ""
 }
