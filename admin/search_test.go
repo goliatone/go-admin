@@ -28,6 +28,23 @@ func TestSearchEngineRespectsPermission(t *testing.T) {
 	}
 }
 
+func TestSearchEngineFailsClosedWithoutAuthorizerForProtectedAdapter(t *testing.T) {
+	engine := NewSearchEngine(nil)
+	engine.Register("dummy", &repoSearchAdapter{
+		repo:       NewMemoryRepository(),
+		resource:   "dummy",
+		permission: "search.dummy",
+	})
+
+	results, err := engine.Query(AdminContext{Context: context.Background()}, "x", 5)
+	if err != nil {
+		t.Fatalf("query error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected zero results without authorizer, got %d", len(results))
+	}
+}
+
 func TestSearchEngineDisabledByFeatureGate(t *testing.T) {
 	engine := NewSearchEngine(allowAll{})
 	engine.Enable(false)
@@ -111,6 +128,22 @@ func TestSearchPrimaryAdapterStillRespectsPermission(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Fatalf("expected zero primary results due to permission, got %+v", results)
+	}
+}
+
+func TestSearchPrimaryAdapterFailsClosedWithoutAuthorizer(t *testing.T) {
+	engine := NewSearchEngine(nil)
+	engine.SetPrimary(&stubSearchAdapter{
+		permission: "search.media",
+		results:    []SearchResult{{ID: "primary-1", Type: "media", Title: "Alice"}},
+	})
+
+	results, err := engine.Query(AdminContext{Context: context.Background()}, "Alice", 10)
+	if err != nil {
+		t.Fatalf("query error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected zero primary results without authorizer, got %+v", results)
 	}
 }
 

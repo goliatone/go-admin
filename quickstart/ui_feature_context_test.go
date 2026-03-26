@@ -35,6 +35,7 @@ func TestWithUIFeatureContextMarksActivityDisabledByDefault(t *testing.T) {
 
 func TestWithUIFeatureContextMarksActivityEnabledWhenFeedConfigured(t *testing.T) {
 	adm, err := admin.New(admin.Config{}, admin.Dependencies{
+		FeatureGate:       stubFeatureGate{flags: map[string]bool{string(admin.FeatureActivity): true}},
 		ActivityFeedQuery: stubActivityFeedQuery{},
 	})
 	if err != nil {
@@ -45,11 +46,50 @@ func TestWithUIFeatureContextMarksActivityEnabledWhenFeedConfigured(t *testing.T
 	if enabled, ok := viewCtx["activity_enabled"].(bool); !ok || !enabled {
 		t.Fatalf("expected activity_enabled=true, got %v", viewCtx["activity_enabled"])
 	}
+	if enabled, ok := viewCtx["activity_feature_enabled"].(bool); !ok || !enabled {
+		t.Fatalf("expected activity_feature_enabled=true, got %v", viewCtx["activity_feature_enabled"])
+	}
 	assertBodyClass(t, viewCtx, "feature-activity")
 	assertBodyClass(t, viewCtx, "feature-activity-enabled")
 	if hasBodyClass(viewCtx, "feature-enabled") {
 		t.Fatalf("did not expect feature-enabled when active route is not activity")
 	}
+}
+
+func TestWithUIFeatureContextKeepsActivityDisabledWhenFeedConfiguredWithoutFeatureGate(t *testing.T) {
+	adm, err := admin.New(admin.Config{}, admin.Dependencies{
+		ActivityFeedQuery: stubActivityFeedQuery{},
+	})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+
+	viewCtx := withUIFeatureContext(nil, adm, "dashboard", context.Background())
+	if enabled, ok := viewCtx["activity_enabled"].(bool); !ok || enabled {
+		t.Fatalf("expected activity_enabled=false, got %v", viewCtx["activity_enabled"])
+	}
+	if enabled, ok := viewCtx["activity_feature_enabled"].(bool); !ok || enabled {
+		t.Fatalf("expected activity_feature_enabled=false, got %v", viewCtx["activity_feature_enabled"])
+	}
+	assertBodyClass(t, viewCtx, "feature-activity-disabled")
+}
+
+func TestWithUIFeatureContextExposesFeatureGateWithoutFeedReadiness(t *testing.T) {
+	adm, err := admin.New(admin.Config{}, admin.Dependencies{
+		FeatureGate: stubFeatureGate{flags: map[string]bool{string(admin.FeatureActivity): true}},
+	})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+
+	viewCtx := withUIFeatureContext(nil, adm, "dashboard", context.Background())
+	if enabled, ok := viewCtx["activity_enabled"].(bool); !ok || enabled {
+		t.Fatalf("expected activity_enabled=false without feed, got %v", viewCtx["activity_enabled"])
+	}
+	if enabled, ok := viewCtx["activity_feature_enabled"].(bool); !ok || !enabled {
+		t.Fatalf("expected activity_feature_enabled=true, got %v", viewCtx["activity_feature_enabled"])
+	}
+	assertBodyClass(t, viewCtx, "feature-activity-disabled")
 }
 
 func TestWithFeatureBodyClassesPreservesExistingBodyClasses(t *testing.T) {

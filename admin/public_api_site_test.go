@@ -459,7 +459,16 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 
 	admAllowed, allowedServer := newSiteTestServer(t, protectedCfg, Dependencies{Authorizer: allowAuthorizer{}}, contentSvc, nil)
 	allowedPath := mustResolveURL(t, admAllowed.URLs(), publicAPIGroupName(admAllowed.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en"})
+	missingActorReq := httptest.NewRequest(http.MethodGet, allowedPath, nil)
+	missingActorRes := httptest.NewRecorder()
+	allowedServer.WrappedRouter().ServeHTTP(missingActorRes, missingActorReq)
+	if missingActorRes.Code != http.StatusForbidden {
+		t.Fatalf("expected protected site read without actor denied, got %d body=%s", missingActorRes.Code, missingActorRes.Body.String())
+	}
 	allowedReq := httptest.NewRequest(http.MethodGet, allowedPath, nil)
+	allowedReq = allowedReq.WithContext(auth.WithActorContext(allowedReq.Context(), &auth.ActorContext{
+		ActorID: "user-1",
+	}))
 	allowedRes := httptest.NewRecorder()
 	allowedServer.WrappedRouter().ServeHTTP(allowedRes, allowedReq)
 	if allowedRes.Code != http.StatusOK {
@@ -651,7 +660,25 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 		t.Fatalf("expected authenticated actor without override permission to be ignored, got %q", got)
 	}
 
-	actorAllowedPath := mustResolveURL(t, actorDeniedAdmin.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
+	nilAuthzPath := mustResolveURL(t, actorDeniedAdmin.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
+		"locale":       "en",
+		"view_profile": "footer",
+	})
+	nilAuthzAdmin, nilAuthzServer := newSiteTestServer(t, cfg, Dependencies{}, nil, menuSvc)
+	nilAuthzReq := httptest.NewRequest(http.MethodGet, nilAuthzPath, nil)
+	nilAuthzReq = nilAuthzReq.WithContext(auth.WithActorContext(nilAuthzReq.Context(), &auth.ActorContext{
+		ActorID: "user-1",
+	}))
+	nilAuthzRes := httptest.NewRecorder()
+	nilAuthzServer.WrappedRouter().ServeHTTP(nilAuthzRes, nilAuthzReq)
+	if nilAuthzRes.Code != http.StatusOK {
+		t.Fatalf("actor nil-authz menu read status=%d body=%s", nilAuthzRes.Code, nilAuthzRes.Body.String())
+	}
+	if got := strings.TrimSpace(menuSvc.lastLocationOpts.ViewProfile); got != "" {
+		t.Fatalf("expected authenticated actor without authorizer to be ignored, got %q", got)
+	}
+
+	actorAllowedPath := mustResolveURL(t, nilAuthzAdmin.URLs(), publicGroup, SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
 		"locale":       "en",
 		"view_profile": "footer",
 	})

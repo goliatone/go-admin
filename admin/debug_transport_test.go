@@ -38,6 +38,60 @@ func TestDebugRoutesRequirePermission(t *testing.T) {
 	}
 }
 
+func TestDebugRoutesDenyWhenNoAuthorizerOrIPAllowlistConfigured(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled: true,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected debug snapshot denied without authorizer or IP allowlist, got %d", rr.Code)
+	}
+}
+
+func TestDebugRoutesAllowStandaloneIPAccessWithoutAuthorizer(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled:    true,
+			AllowedIPs: []string{"1.1.1.1"},
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
+	req.RemoteAddr = "1.1.1.1:12345"
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected debug snapshot allowed for allowlisted IP, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestDebugRoutesUseAuthenticator(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
