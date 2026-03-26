@@ -526,13 +526,18 @@ func (s *MenuBuilderService) UpsertMenuItems(ctx context.Context, svc CMSMenuSer
 		return nil, err
 	}
 	current, err := svc.Menu(ctx, menuCode, "")
-	if err == nil && current != nil {
+	if err != nil {
+		return nil, err
+	}
+	if current != nil {
 		roots := append([]MenuItem{}, current.Items...)
 		for _, root := range roots {
 			if strings.TrimSpace(root.ID) == "" {
 				continue
 			}
-			_ = svc.DeleteMenuItem(ctx, menuCode, root.ID)
+			if err := svc.DeleteMenuItem(ctx, menuCode, root.ID); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := upsertTreeRecursive(ctx, svc, menuCode, normalized); err != nil {
