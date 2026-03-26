@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/goliatone/go-admin/admin/internal/boot"
 	"github.com/goliatone/go-admin/admin/routing"
 	auth "github.com/goliatone/go-auth"
 	cms "github.com/goliatone/go-cms"
@@ -344,6 +345,76 @@ func TestInitializeRunsInitHooksOnlyOnceAfterSuccess(t *testing.T) {
 	}
 	if runs != 1 {
 		t.Fatalf("expected init hooks to run once after successful initialize, got %d", runs)
+	}
+}
+
+func TestPrepareStartsTranslationExchangeRuntime(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := newContextAwareTranslationExchangeRuntimeStore(func() time.Time {
+		return time.Date(2026, 3, 26, 12, 0, 0, 0, time.UTC)
+	})
+	runtime := NewTranslationExchangeRuntime(store, nil, nil)
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureTranslationExchange, FeatureCommands, FeatureCMS),
+	})
+	adm.WithTranslationExchangeRuntime(runtime)
+
+	if err := adm.Prepare(ctx); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	if got := store.lastListRecoverableCtx(); got != ctx {
+		t.Fatalf("expected prepare context to reach translation exchange runtime start")
+	}
+}
+
+func TestInitializeWithContextStartsTranslationExchangeRuntimeWithProvidedContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store := newContextAwareTranslationExchangeRuntimeStore(func() time.Time {
+		return time.Date(2026, 3, 26, 13, 0, 0, 0, time.UTC)
+	})
+	runtime := NewTranslationExchangeRuntime(store, nil, nil)
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureTranslationExchange, FeatureCommands, FeatureCMS),
+	})
+	adm.WithTranslationExchangeRuntime(runtime)
+
+	if err := adm.InitializeWithContext(ctx, nilRouter{}); err != nil {
+		t.Fatalf("initialize with context: %v", err)
+	}
+	if got := store.lastListRecoverableCtx(); got != ctx {
+		t.Fatalf("expected initialize lifecycle context to reach translation exchange runtime start")
+	}
+}
+
+func TestBootWithContextNestedCallsInheritAndRestoreLifecycleContext(t *testing.T) {
+	outerCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
+	seen := []context.Context{}
+
+	err := adm.BootWithContext(outerCtx, func(ctx boot.BootCtx) error {
+		seen = append(seen, ctx.LifecycleContext())
+		return adm.BootWithContext(nil, func(inner boot.BootCtx) error {
+			seen = append(seen, inner.LifecycleContext())
+			return nil
+		})
+	})
+	if err != nil {
+		t.Fatalf("nested boot with context: %v", err)
+	}
+	if len(seen) != 2 {
+		t.Fatalf("expected two lifecycle captures, got %d", len(seen))
+	}
+	if seen[0] != outerCtx || seen[1] != outerCtx {
+		t.Fatalf("expected nested boot calls to inherit the outer lifecycle context")
+	}
+	if adm.bootContext != nil {
+		t.Fatalf("expected boot context to be cleared after boot completion")
 	}
 }
 

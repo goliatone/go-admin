@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	auth "github.com/goliatone/go-auth"
 	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
-	"github.com/gofiber/fiber/v2"
 	router "github.com/goliatone/go-router"
 )
 

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin/routing"
 	auth "github.com/goliatone/go-auth"
 	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
-	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 )
 

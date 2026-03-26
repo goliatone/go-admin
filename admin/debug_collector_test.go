@@ -491,6 +491,40 @@ func TestDebugCollectorPublishPanelStreaming(t *testing.T) {
 	}
 }
 
+func TestDebugCollectorPublishPrunesClosedSubscriberAndDeliversToHealthyOnes(t *testing.T) {
+	collector := NewDebugCollector(DebugConfig{})
+	healthy := collector.Subscribe("healthy")
+	if healthy == nil {
+		t.Fatalf("expected healthy subscription channel")
+	}
+
+	stale := make(chan DebugEvent, 1)
+	close(stale)
+
+	collector.mu.Lock()
+	collector.subscribers["stale"] = stale
+	collector.mu.Unlock()
+
+	collector.PublishEvent("custom.event", map[string]any{"status": "ok"})
+
+	select {
+	case event := <-healthy:
+		payload, ok := event.Payload.(map[string]any)
+		if !ok || payload["status"] != "ok" {
+			t.Fatalf("expected healthy subscriber payload, got %+v", event.Payload)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("expected healthy subscriber event")
+	}
+
+	collector.mu.RLock()
+	_, stalePresent := collector.subscribers["stale"]
+	collector.mu.RUnlock()
+	if stalePresent {
+		t.Fatalf("expected stale subscriber to be pruned after closed-channel send")
+	}
+}
+
 func TestDebugCollectorRequestBodyMasking(t *testing.T) {
 	cfg := DebugConfig{
 		Panels: []string{DebugPanelRequests},

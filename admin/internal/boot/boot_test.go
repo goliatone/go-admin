@@ -1,6 +1,7 @@
 package boot
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -34,6 +35,7 @@ func (s *stubResponder) WriteHTML(_ router.Context, _ string) error { s.htmlCall
 func (s *stubResponder) WriteError(_ router.Context, _ error) error { s.errCalled++; return nil }
 
 type stubCtx struct {
+	lifecycle  context.Context
 	router     Router
 	wrapper    HandlerWrapper
 	basePath   string
@@ -59,9 +61,10 @@ type stubCtx struct {
 	widgetErr  error
 }
 
-func (s *stubCtx) Router() Router              { return s.router }
-func (s *stubCtx) AuthWrapper() HandlerWrapper { return s.wrapper }
-func (s *stubCtx) BasePath() string            { return s.basePath }
+func (s *stubCtx) LifecycleContext() context.Context { return s.lifecycle }
+func (s *stubCtx) Router() Router                    { return s.router }
+func (s *stubCtx) AuthWrapper() HandlerWrapper       { return s.wrapper }
+func (s *stubCtx) BasePath() string                  { return s.basePath }
 func (s *stubCtx) AdminUIGroup() string {
 	if s.adminUI != "" {
 		return s.adminUI
@@ -171,6 +174,16 @@ func (r *recordRouter) Patch(path string, handler router.HandlerFunc, mw ...rout
 func (r *recordRouter) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.calls = append(r.calls, routeCall{method: "HEAD", path: path, handler: handler})
 	return nil
+}
+
+type prepareRecorder struct {
+	lastContext context.Context
+	err         error
+}
+
+func (p *prepareRecorder) Prepare(ctx context.Context) error {
+	p.lastContext = ctx
+	return p.err
 }
 
 func newTestURLManager(basePath string) *urlkit.RouteManager {
@@ -368,6 +381,36 @@ func TestRunShortCircuitsOnError(t *testing.T) {
 
 	require.Error(t, err)
 	require.Equal(t, []string{"first", "second"}, seen)
+}
+
+func TestPrepareStepUsesLifecycleContext(t *testing.T) {
+	lifecycleCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	combined := struct {
+		*stubCtx
+		*prepareRecorder
+	}{
+		stubCtx:         &stubCtx{lifecycle: lifecycleCtx},
+		prepareRecorder: &prepareRecorder{},
+	}
+
+	require.NoError(t, PrepareStep(combined))
+	require.Same(t, lifecycleCtx, combined.prepareRecorder.lastContext)
+}
+
+func TestPrepareStepFallsBackToBackgroundWhenLifecycleContextMissing(t *testing.T) {
+	combined := struct {
+		*stubCtx
+		*prepareRecorder
+	}{
+		stubCtx:         &stubCtx{},
+		prepareRecorder: &prepareRecorder{},
+	}
+
+	require.NoError(t, PrepareStep(combined))
+	require.NotNil(t, combined.prepareRecorder.lastContext)
+	require.NoError(t, combined.prepareRecorder.lastContext.Err())
 }
 
 func TestHealthStepRegistersRouteWithWrapper(t *testing.T) {

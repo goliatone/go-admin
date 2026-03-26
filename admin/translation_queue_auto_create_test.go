@@ -12,7 +12,7 @@ func TestDefaultTranslationQueueAutoCreateHookCreatesAssignmentsForMissingLocale
 	repo := NewInMemoryTranslationAssignmentRepository()
 	hook := &DefaultTranslationQueueAutoCreateHook{
 		Repository: repo,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:     testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	input := TranslationQueueAutoCreateInput{
@@ -61,7 +61,7 @@ func TestDefaultTranslationQueueAutoCreateHookReusesExistingActiveAssignment(t *
 	repo := NewInMemoryTranslationAssignmentRepository()
 	hook := &DefaultTranslationQueueAutoCreateHook{
 		Repository: repo,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:     testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	input := TranslationQueueAutoCreateInput{
@@ -100,7 +100,7 @@ func TestDefaultTranslationQueueAutoCreateHookSkipsEmptyInput(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	hook := &DefaultTranslationQueueAutoCreateHook{
 		Repository: repo,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:     testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	// Missing family_id
@@ -141,7 +141,7 @@ func TestDefaultTranslationQueueAutoCreateHookSkipsSourceLocale(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	hook := &DefaultTranslationQueueAutoCreateHook{
 		Repository: repo,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:     testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	// Source locale "en" should be skipped when it appears in missing locales
@@ -164,7 +164,7 @@ func TestDefaultTranslationQueueAutoCreateHookSkipsSourceLocale(t *testing.T) {
 func TestDefaultTranslationQueueAutoCreateHookNilRepositoryNoOp(t *testing.T) {
 	hook := &DefaultTranslationQueueAutoCreateHook{
 		Repository: nil,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:     testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	result := hook.OnTranslationBlocker(context.Background(), TranslationQueueAutoCreateInput{
@@ -264,7 +264,7 @@ func TestApplyTranslationPolicyWithQueueHookTriggersHookOnBlocker(t *testing.T) 
 	repo := NewInMemoryTranslationAssignmentRepository()
 	hook := &DefaultTranslationQueueAutoCreateHook{
 		Repository: repo,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:     testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	policy := TranslationPolicyFunc(func(_ context.Context, _ TranslationPolicyInput) error {
@@ -338,7 +338,7 @@ func TestApplyTranslationPolicyWithQueueHookSuccessNoHookTrigger(t *testing.T) {
 	repo := NewInMemoryTranslationAssignmentRepository()
 	hook := &DefaultTranslationQueueAutoCreateHook{
 		Repository: repo,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Logger:     testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	policy := TranslationPolicyFunc(func(_ context.Context, _ TranslationPolicyInput) error {
