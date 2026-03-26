@@ -259,24 +259,19 @@ func trustedRPCIdentityFromContext(ctx context.Context, meta cmdrpc.RequestMeta,
 }
 
 func enrichRPCDispatchPayload(identity rpcTrustedIdentity, payload map[string]any) map[string]any {
-	enriched := copyRPCMap(payload)
+	enriched := normalizeActionPayloadMap(copyRPCMap(payload))
 
 	if identity.ActorID != "" {
 		enriched["actor_id"] = identity.ActorID
-		enriched["actorId"] = identity.ActorID
 		enriched["user_id"] = identity.ActorID
-		enriched["userId"] = identity.ActorID
 	}
 	if identity.TenantID != "" {
 		enriched["tenant"] = identity.TenantID
 		enriched["tenant_id"] = identity.TenantID
-		enriched["tenantId"] = identity.TenantID
 	}
 	if identity.OrganizationID != "" {
 		enriched["org_id"] = identity.OrganizationID
-		enriched["orgId"] = identity.OrganizationID
 		enriched["organization_id"] = identity.OrganizationID
-		enriched["organizationId"] = identity.OrganizationID
 	}
 
 	return enriched
