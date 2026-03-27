@@ -173,16 +173,24 @@ func (a *Admin) initializeCommandRegistry(ctx context.Context) error {
 	if a == nil || a.commandBus == nil || !a.commandBus.enabled {
 		return nil
 	}
+	if a.commandRegistryInitialized {
+		return nil
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	if err := registry.Start(ctx); err != nil {
 		var regErr *goerrors.Error
 		if errors.As(err, &regErr) && regErr.TextCode == "REGISTRY_ALREADY_INITIALIZED" {
-			return nil
+			return validationDomainError("command registry already initialized outside admin lifecycle", map[string]any{
+				"component": "bootstrap",
+				"registry":  "command",
+				"scope":     "process",
+			})
 		}
 		return err
 	}
+	a.commandRegistryInitialized = true
 	return nil
 }
 
