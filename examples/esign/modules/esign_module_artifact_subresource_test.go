@@ -306,6 +306,7 @@ func setupESignModuleArtifactSubresourceTest(t *testing.T, authz coreadmin.Autho
 	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
 
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Artifact Test", "en")
+	cfg.AuthConfig = &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	cfg.URLs.Admin.APIPrefix = "api"
 	cfg.URLs.Admin.APIVersion = "v1"
 	cfg.URLs.Public.APIPrefix = "api"

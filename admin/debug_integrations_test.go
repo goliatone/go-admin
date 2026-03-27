@@ -77,6 +77,25 @@ func TestDebugContentTypeAndRemoteIP(t *testing.T) {
 	}
 }
 
+func TestCaptureJSErrorContextSkipsInjectionWhenRouteDisabled(t *testing.T) {
+	collector := NewDebugCollector(DebugConfig{
+		Enabled:         true,
+		CaptureJSErrors: true,
+		Panels:          []string{DebugPanelJSErrors},
+	})
+	collector.SetJSErrorRouteEnabled(false)
+
+	viewCtx := router.ViewContext{}
+	CaptureJSErrorContext(collector, nil, viewCtx)
+
+	if _, ok := viewCtx["debug_jserror_enabled"]; ok {
+		t.Fatalf("expected JS error collector injection to be skipped when route is disabled")
+	}
+	if _, ok := viewCtx["debug_jserror_endpoint"]; ok {
+		t.Fatalf("expected JS error endpoint to be omitted when route is disabled")
+	}
+}
+
 func TestDebugRequestAndResponseSize(t *testing.T) {
 	reqBody := "payload"
 	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(reqBody))

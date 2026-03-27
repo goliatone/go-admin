@@ -356,6 +356,48 @@ func TestBuildAuditTrailDocumentDerivesLifecycleFromAgreementAndRecipientTimesta
 	}
 }
 
+func TestBuildAuditTrailDocumentSkipsMissingDerivedLifecyclePolicyWithoutPanicking(t *testing.T) {
+	now := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
+	viewedAt := now.Add(-90 * time.Minute)
+	agreement := stores.AgreementRecord{
+		ID:         "agreement-derived-missing-policy",
+		DocumentID: "doc-derived-missing-policy",
+		Title:      "Derived Agreement",
+		Status:     stores.AgreementStatusSent,
+		UpdatedAt:  now,
+	}
+	recipients := []stores.RecipientRecord{
+		{
+			ID:           "recipient-1",
+			Name:         "Signer One",
+			Email:        "one@example.com",
+			Role:         stores.RecipientRoleSigner,
+			SigningOrder: 1,
+			FirstViewAt:  &viewedAt,
+		},
+	}
+
+	originalPolicy, hadPolicy := auditTrailDerivedEventPolicies[auditTrailSourceDerivedLifecycleViewed]
+	delete(auditTrailDerivedEventPolicies, auditTrailSourceDerivedLifecycleViewed)
+	t.Cleanup(func() {
+		if hadPolicy {
+			auditTrailDerivedEventPolicies[auditTrailSourceDerivedLifecycleViewed] = originalPolicy
+		}
+	})
+
+	doc := BuildAuditTrailDocument(AuditTrailBuildInput{
+		Agreement:   agreement,
+		Recipients:  recipients,
+		GeneratedAt: now,
+	})
+
+	for _, entry := range doc.Entries {
+		if entry.SourceEvent == auditTrailSourceDerivedLifecycleViewed {
+			t.Fatalf("expected missing derived viewed policy to skip entry, got %+v", entry)
+		}
+	}
+}
+
 func TestBuildAuditTrailDocumentOrdersSameTimestampByEventID(t *testing.T) {
 	now := time.Date(2026, 3, 5, 12, 0, 0, 0, time.UTC)
 	agreement := stores.AgreementRecord{

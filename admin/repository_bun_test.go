@@ -149,3 +149,97 @@ func TestBunRepositoryAdapterUpdateNotFoundMapsError(t *testing.T) {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
+
+func TestBunRepositoryAdapterListUsesLegacySearchFilterWhenSearchEmpty(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestBunDB(t)
+	defer db.Close()
+
+	repo := newTestProductRepo(db)
+	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo, WithBunSearchColumns[*bunTestProduct]("name"))
+
+	if _, err := adapter.Create(ctx, map[string]any{"name": "Alpha", "status": "draft"}); err != nil {
+		t.Fatalf("create alpha: %v", err)
+	}
+	if _, err := adapter.Create(ctx, map[string]any{"name": "Beta", "status": "published"}); err != nil {
+		t.Fatalf("create beta: %v", err)
+	}
+
+	results, total, err := adapter.List(ctx, ListOptions{
+		PerPage: 10,
+		Filters: map[string]any{"_search": "bet"},
+	})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if total != 1 || len(results) != 1 {
+		t.Fatalf("unexpected search results: total=%d len=%d results=%+v", total, len(results), results)
+	}
+	if got := fmt.Sprint(results[0]["name"]); got != "Beta" {
+		t.Fatalf("expected Beta, got %q", got)
+	}
+}
+
+func TestBunRepositoryAdapterListHonorsExplicitPredicates(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestBunDB(t)
+	defer db.Close()
+
+	repo := newTestProductRepo(db)
+	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo)
+
+	if _, err := adapter.Create(ctx, map[string]any{"name": "Alpha", "status": "draft"}); err != nil {
+		t.Fatalf("create alpha: %v", err)
+	}
+	if _, err := adapter.Create(ctx, map[string]any{"name": "Beta", "status": "published"}); err != nil {
+		t.Fatalf("create beta: %v", err)
+	}
+
+	results, total, err := adapter.List(ctx, ListOptions{
+		PerPage: 10,
+		Predicates: []ListPredicate{
+			{Field: "status", Operator: "eq", Values: []string{"published"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if total != 1 || len(results) != 1 {
+		t.Fatalf("unexpected predicate results: total=%d len=%d results=%+v", total, len(results), results)
+	}
+	if got := fmt.Sprint(results[0]["status"]); got != "published" {
+		t.Fatalf("expected published result, got %q", got)
+	}
+}
+
+func TestBunRepositoryAdapterListSupportsInPredicate(t *testing.T) {
+	ctx := context.Background()
+	db := setupTestBunDB(t)
+	defer db.Close()
+
+	repo := newTestProductRepo(db)
+	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo)
+
+	if _, err := adapter.Create(ctx, map[string]any{"name": "Alpha", "status": "draft"}); err != nil {
+		t.Fatalf("create alpha: %v", err)
+	}
+	if _, err := adapter.Create(ctx, map[string]any{"name": "Beta", "status": "published"}); err != nil {
+		t.Fatalf("create beta: %v", err)
+	}
+	if _, err := adapter.Create(ctx, map[string]any{"name": "Gamma", "status": "archived"}); err != nil {
+		t.Fatalf("create gamma: %v", err)
+	}
+
+	results, total, err := adapter.List(ctx, ListOptions{
+		PerPage: 10,
+		Predicates: []ListPredicate{
+			{Field: "status", Operator: "in", Values: []string{"draft", "published"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if total != 2 || len(results) != 2 {
+		t.Fatalf("unexpected in-predicate results: total=%d len=%d results=%+v", total, len(results), results)
+	}
+}

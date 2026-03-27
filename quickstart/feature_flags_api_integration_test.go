@@ -23,6 +23,7 @@ func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 		Title:         "Admin",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 	}
 	store := admin.NewInMemoryPreferencesStore()
 	defaults := map[string]bool{
@@ -33,6 +34,7 @@ func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
 	adm, err := admin.New(cfg, admin.Dependencies{
 		FeatureGate:      gate,
 		PreferencesStore: store,
+		Authorizer:       allowAllQuickstartAuthorizer{},
 	})
 	if err != nil {
 		t.Fatalf("admin.New error: %v", err)
@@ -105,6 +107,7 @@ func TestFeatureFlagsAPIIncludesUsersDescriptionAndDefault(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 		Title:         "Admin",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 	}
 	catalogPath := filepath.Join(t.TempDir(), "feature_catalog.yaml")
 	catalogBody := []byte("users: \"User and role management.\"\n")
@@ -122,6 +125,7 @@ func TestFeatureFlagsAPIIncludesUsersDescriptionAndDefault(t *testing.T) {
 	adm, err := admin.New(cfg, admin.Dependencies{
 		FeatureGate:      gate,
 		PreferencesStore: store,
+		Authorizer:       allowAllQuickstartAuthorizer{},
 	})
 	if err != nil {
 		t.Fatalf("admin.New error: %v", err)
@@ -157,6 +161,7 @@ func TestFeatureFlagsAPIMutateAllScopesWithGoUsersPreferencesStore(t *testing.T)
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 		Title:         "Admin",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 	}
 	repo := newStubPreferenceRepo()
 	store, err := NewGoUsersPreferencesStore(repo)
@@ -171,6 +176,7 @@ func TestFeatureFlagsAPIMutateAllScopesWithGoUsersPreferencesStore(t *testing.T)
 	adm, err := admin.New(cfg, admin.Dependencies{
 		FeatureGate:      gate,
 		PreferencesStore: store,
+		Authorizer:       allowAllQuickstartAuthorizer{},
 	})
 	if err != nil {
 		t.Fatalf("admin.New error: %v", err)

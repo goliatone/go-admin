@@ -72,6 +72,7 @@ func TestRegisterTranslationProgressWidgetUsesResolverLinks(t *testing.T) {
 
 	dash := NewDashboard()
 	dash.WithWidgetService(NewInMemoryWidgetService())
+	dash.WithAuthorizer(allowAll{})
 	dash.RegisterArea(WidgetAreaDefinition{Code: "admin.dashboard.main"})
 
 	cfg := applyConfigDefaults(Config{BasePath: "/admin", DefaultLocale: "en"})
@@ -150,6 +151,7 @@ func TestRegisterTranslationProgressWidgetUsesResolverLinks(t *testing.T) {
 
 func TestTranslationQueueStatsServiceFromAdminUsesQueuePanelRepository(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS)})
+	adm.WithAuthorizer(allowAll{})
 	repo := NewInMemoryTranslationAssignmentRepository()
 	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
 		t.Fatalf("register queue panel: %v", err)

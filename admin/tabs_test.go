@@ -274,3 +274,26 @@ func TestResolvePanelTabsUsesAdminContextAndPermissions(t *testing.T) {
 		t.Fatalf("expected [details profile], got %+v", tabs)
 	}
 }
+
+func TestResolvePanelTabsFailsClosedWithoutAuthorizer(t *testing.T) {
+	adm := &Admin{
+		registry: NewRegistry(),
+	}
+	if err := adm.registry.RegisterPanelTab("users", PanelTab{
+		ID:         "activity",
+		Label:      "Activity",
+		Permission: "admin.users.view",
+		Scope:      PanelTabScopeDetail,
+		Target:     PanelTabTarget{Type: "path", Path: "/admin/activity"},
+	}); err != nil {
+		t.Fatalf("register activity tab: %v", err)
+	}
+
+	tabs, err := adm.ResolvePanelTabs(AdminContext{Context: context.Background()}, "users")
+	if err != nil {
+		t.Fatalf("resolve tabs: %v", err)
+	}
+	if len(tabs) != 0 {
+		t.Fatalf("expected permissioned tabs hidden without authorizer, got %+v", tabs)
+	}
+}

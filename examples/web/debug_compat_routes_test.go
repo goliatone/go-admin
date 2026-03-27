@@ -49,6 +49,7 @@ func newDebugCompatibilityTestServer(t *testing.T) (http.Handler, string) {
 	cfg := coreadmin.Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
+		AuthConfig:    &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true},
 		Debug: coreadmin.DebugConfig{
 			Enabled: true,
 		},
@@ -59,6 +60,7 @@ func newDebugCompatibilityTestServer(t *testing.T) (http.Handler, string) {
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
 	}
+	adm.WithAuth(translationRuntimeHarnessPassthroughAuthenticator{}, nil)
 	if err := adm.RegisterModule(coreadmin.NewDebugModule(cfg.Debug)); err != nil {
 		t.Fatalf("register debug module: %v", err)
 	}

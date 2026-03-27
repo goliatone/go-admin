@@ -26,6 +26,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		cfg := admin.Config{
 			BasePath:      "/admin",
 			DefaultLocale: "en",
+			AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 		}
 		featureDefaults := map[string]bool{
 			"dashboard": true,
@@ -40,7 +41,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		}
 		defer adm.Commands().Reset()
 		tokens := setupAuth(adm, dataStores)
-		adm.WithAuth(nil, nil)
+		adm.WithAuth(nil, cfg.AuthConfig)
 		adm.WithAuthorizer(allowAllAuthz{})
 		mod := &commerceModule{
 			stores:        dataStores,

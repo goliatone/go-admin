@@ -279,6 +279,7 @@ func TestPreferencesUpdateRoundTripViaAPI(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -320,6 +321,7 @@ func TestPreferencesUpdateRoundTripViaAPIStoresRawUIKeysAndStripsReserved(t *tes
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -421,6 +423,7 @@ func TestPreferencesClearKeysViaAPI(t *testing.T) {
 		Theme:         "base",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -482,6 +485,7 @@ func TestPreferencesClearAllRawViaAPI(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -534,6 +538,7 @@ func TestPreferencesRejectsRawUIInAPI(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -570,6 +575,7 @@ func TestPreferencesRejectsClearKeysInAPI(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -606,6 +612,7 @@ func TestPreferencesQueryParamsIncludeTracesAndVersions(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -677,6 +684,7 @@ func TestPreferencesQueryParamsRejectInvalidLevels(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -707,6 +715,7 @@ func TestPreferencesQueryBaseOverridesDefaults(t *testing.T) {
 		Theme:         "default",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -740,6 +749,7 @@ func TestPreferencesEmptyThemeClearsToInheritedValue(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {

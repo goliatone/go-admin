@@ -238,6 +238,82 @@ func TestInitializeRegistersHealth(t *testing.T) {
 	}
 }
 
+func TestInitializeRequiresAuthenticatorByDefault(t *testing.T) {
+	adm, err := New(Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+
+	err = adm.Initialize(router.NewHTTPServer().Router())
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "authenticator") {
+		t.Fatalf("expected missing authenticator startup failure, got %v", err)
+	}
+}
+
+func TestInitializeAllowsExplicitUnauthenticatedOptOut(t *testing.T) {
+	adm, err := New(Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		AuthConfig:    &AuthConfig{AllowUnauthenticatedRoutes: true},
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+
+	if err := adm.Initialize(router.NewHTTPServer().Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+}
+
+func TestBootWithContextRequiresAuthenticatorByDefault(t *testing.T) {
+	adm, err := New(Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	adm.router = router.NewHTTPServer().Router()
+
+	err = adm.BootWithContext(context.Background())
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "authenticator") {
+		t.Fatalf("expected missing authenticator boot failure, got %v", err)
+	}
+}
+
+func TestWithAuthorizerRetrofitsRegisteredPanelsWithoutLocalAuthorizer(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}, Dependencies{})
+	server := router.NewHTTPServer()
+
+	builder := adm.Panel("items").
+		WithRepository(NewMemoryRepository()).
+		ListFields(Field{Name: "id", Label: "ID", Type: "text"}).
+		Permissions(PanelPermissions{View: "items.view"})
+	_, err := adm.RegisterPanel("items", builder)
+	if err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	adm.WithAuthorizer(allowAll{})
+
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", adminPanelAPIPath(adm, adm.config, "items"), nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 after late authorizer wiring, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestInitializeRunsPreRoutePreparation(t *testing.T) {
 	cfg := Config{
 		Title:         "test admin",
@@ -1037,6 +1113,7 @@ func TestNotificationsRoutes(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureNotifications, FeatureDashboard)})
+	adm.WithAuthorizer(allowAll{})
 	userCtx := context.WithValue(context.Background(), userIDContextKey, "tester")
 	_, err := adm.NotificationService().Add(userCtx, Notification{Title: "Hello", Message: "world", UserID: "tester"})
 	if err != nil {
@@ -1427,6 +1504,7 @@ func TestJobsRouteAndTrigger(t *testing.T) {
 			DefaultLocale: "en",
 		}
 		adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureJobs, FeatureCommands)})
+		adm.WithAuthorizer(allowAll{})
 		defer adm.Commands().Reset()
 		cmd := &cronCommand{}
 		if _, err := RegisterCommand(adm.Commands(), cmd); err != nil {

@@ -199,6 +199,7 @@ func TestSettingsRoutesUseCommandAndReturnValidation(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSettings)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 
@@ -240,6 +241,7 @@ func TestSettingsWidgetResolvesValues(t *testing.T) {
 		Title:         "test admin",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureSettings, FeatureDashboard)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 

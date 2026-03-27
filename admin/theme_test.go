@@ -187,6 +187,7 @@ func TestThemeOverrideViaGoThemeSelector(t *testing.T) {
 		ThemeVariant:  "light",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureSettings)})
+	adm.WithAuthorizer(allowAll{})
 	adm.WithGoTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
 
 	repo := NewMemoryRepository()

@@ -113,6 +113,7 @@ func newTranslationUIFixture(t *testing.T) translationUIFixture {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 		Title:         "Translation UI Test",
+		AuthConfig:    &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true},
 	}
 	urlManager, err := quickstartTestTranslationURLManager()
 	require.NoError(t, err, "create translation url manager")

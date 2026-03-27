@@ -124,6 +124,33 @@ func TestDebugRoutesUseAuthenticator(t *testing.T) {
 	}
 }
 
+func TestDebugRoutesDenyWhenAuthenticatorMissingEvenWithAuthorizer(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled: true,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	adm.WithAuthorizer(allowAuthorizer{})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("expected debug snapshot denied without authenticator, got %d", rr.Code)
+	}
+}
+
 func TestDebugDoctorActionEndpointRunsCheckAction(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
@@ -133,6 +160,7 @@ func TestDebugDoctorActionEndpointRunsCheckAction(t *testing.T) {
 		},
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	adm.WithAuth(&recordingAuthenticator{}, nil)
 	adm.WithAuthorizer(allowAuthorizer{})
 	called := false
 	adm.RegisterDoctorChecks(DoctorCheck{
@@ -192,6 +220,7 @@ func addNonceCookie(req *http.Request, nonce string) {
 
 func TestJSErrorReportEndpointAcceptsValidPayload(t *testing.T) {
 	debugCfg := jsErrorTestConfig()
+	debugCfg.AllowedIPs = []string{"1.1.1.1"}
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
@@ -211,6 +240,7 @@ func TestJSErrorReportEndpointAcceptsValidPayload(t *testing.T) {
 	body := `{"type":"uncaught","message":"ReferenceError: foo is not defined","source":"app.js","line":42,"nonce":"` + nonce + `"}`
 	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, nonce)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -224,6 +254,7 @@ func TestJSErrorReportEndpointAcceptsValidPayload(t *testing.T) {
 
 func TestJSErrorReportEndpointRejectsEmptyMessage(t *testing.T) {
 	debugCfg := jsErrorTestConfig()
+	debugCfg.AllowedIPs = []string{"1.1.1.1"}
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
@@ -243,6 +274,7 @@ func TestJSErrorReportEndpointRejectsEmptyMessage(t *testing.T) {
 	body := `{"type":"uncaught","message":"","nonce":"` + nonce + `"}`
 	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, nonce)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -253,6 +285,7 @@ func TestJSErrorReportEndpointRejectsEmptyMessage(t *testing.T) {
 
 func TestJSErrorReportEndpointRejectsInvalidJSON(t *testing.T) {
 	debugCfg := jsErrorTestConfig()
+	debugCfg.AllowedIPs = []string{"1.1.1.1"}
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
@@ -271,6 +304,7 @@ func TestJSErrorReportEndpointRejectsInvalidJSON(t *testing.T) {
 	body := `not json`
 	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, "some-nonce")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -279,7 +313,7 @@ func TestJSErrorReportEndpointRejectsInvalidJSON(t *testing.T) {
 	}
 }
 
-func TestJSErrorReportEndpointNoAuthRequired(t *testing.T) {
+func TestJSErrorReportEndpointReturns404WithoutExposureBoundary(t *testing.T) {
 	debugCfg := jsErrorTestConfig()
 	cfg := Config{
 		BasePath:      "/admin",
@@ -287,7 +321,6 @@ func TestJSErrorReportEndpointNoAuthRequired(t *testing.T) {
 		Debug:         debugCfg,
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
-	adm.WithAuthorizer(denyAllAuthz{})
 	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
 		t.Fatalf("register debug module: %v", err)
 	}
@@ -297,7 +330,6 @@ func TestJSErrorReportEndpointNoAuthRequired(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	// api/errors should be accessible even with denyAllAuthz (uses nonce instead)
 	nonce := "test-nonce-no-auth"
 	body := `{"type":"uncaught","message":"test error","nonce":"` + nonce + `"}`
 	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
@@ -305,13 +337,14 @@ func TestJSErrorReportEndpointNoAuthRequired(t *testing.T) {
 	addNonceCookie(req, nonce)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
-	if rr.Code != 200 {
-		t.Fatalf("expected 200 for unauthenticated error report with valid nonce, got %d: %s", rr.Code, rr.Body.String())
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 without a configured debug exposure boundary, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
 
 func TestJSErrorReportEndpointRejectsMismatchedNonce(t *testing.T) {
 	debugCfg := jsErrorTestConfig()
+	debugCfg.AllowedIPs = []string{"1.1.1.1"}
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
@@ -330,6 +363,7 @@ func TestJSErrorReportEndpointRejectsMismatchedNonce(t *testing.T) {
 	body := `{"type":"uncaught","message":"test error","nonce":"body-nonce"}`
 	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, "cookie-nonce") // Different from body nonce
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -340,6 +374,7 @@ func TestJSErrorReportEndpointRejectsMismatchedNonce(t *testing.T) {
 
 func TestJSErrorReportEndpointRejectsMissingNonce(t *testing.T) {
 	debugCfg := jsErrorTestConfig()
+	debugCfg.AllowedIPs = []string{"1.1.1.1"}
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
@@ -359,6 +394,7 @@ func TestJSErrorReportEndpointRejectsMissingNonce(t *testing.T) {
 	body := `{"type":"uncaught","message":"test error"}`
 	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "1.1.1.1:12345"
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 403 {
@@ -398,6 +434,7 @@ func TestJSErrorReportEndpointReturns404WhenDisabled(t *testing.T) {
 
 func TestJSErrorReportEndpointAcceptsNetworkErrorType(t *testing.T) {
 	debugCfg := jsErrorTestConfig()
+	debugCfg.AllowedIPs = []string{"1.1.1.1"}
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
@@ -417,6 +454,7 @@ func TestJSErrorReportEndpointAcceptsNetworkErrorType(t *testing.T) {
 	body := `{"type":"network_error","message":"GET http://localhost/api/test 404 (Not Found)","nonce":"` + nonce + `","extra":{"method":"GET","status":404,"status_text":"Not Found","request_url":"http://localhost/api/test"}}`
 	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, nonce)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)

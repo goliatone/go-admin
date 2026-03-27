@@ -484,6 +484,7 @@ func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 		cfg := admin.Config{
 			BasePath:      "/admin",
 			DefaultLocale: "en",
+			AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 		}
 
 		adm, _, err := NewAdmin(
@@ -491,6 +492,9 @@ func TestNewAdminRegistersRoutesWithGoUsersPreferencesRepo(t *testing.T) {
 			AdapterHooks{},
 			WithGoUsersPreferencesRepository(repo),
 			EnablePreferences(),
+			WithAdminDependencies(admin.Dependencies{
+				Authorizer: allowAllQuickstartAuthorizer{},
+			}),
 			func(opts *adminOptions) { opts.registerUserRoleBulkRoutes = false },
 		)
 		if err != nil {

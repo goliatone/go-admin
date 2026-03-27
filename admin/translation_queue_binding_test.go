@@ -1117,6 +1117,9 @@ func TestTranslationQueueAssigneeOptionBuildsLabelAndDescription(t *testing.T) {
 
 func newTranslationQueueTestApp(t *testing.T, binding *translationQueueBinding) *fiber.App {
 	t.Helper()
+	if binding != nil && binding.admin != nil && binding.admin.Authorizer() == nil {
+		binding.admin.WithAuthorizer(allowAll{})
+	}
 	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
 			UnescapePath:      true,

@@ -61,6 +61,7 @@ func TestNewAdminAdapterHooksSuccess(t *testing.T) {
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	cmsContainer := admin.NewNoopCMSContainer()
 	activitySink := &stubActivitySink{}
 	var persistentCalled bool
@@ -127,6 +128,7 @@ func TestNewAdminInvalidDependencies(t *testing.T) {
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	deps := admin.Dependencies{
 		UserRepository: stubUserRepo{},
 	}
@@ -144,6 +146,7 @@ func TestNewAdminAdapterHookErrors(t *testing.T) {
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	hooks := AdapterHooks{
 		PersistentCMS: func(ctx context.Context, defaultLocale string) (admin.CMSOptions, string, error) {
 			_, _ = ctx, defaultLocale
@@ -183,6 +186,7 @@ func TestNewAdminPersistentCMSRequestedWithoutHookFails(t *testing.T) {
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	_, result, err := NewAdmin(cfg, AdapterHooks{}, WithAdapterFlags(AdapterFlags{
 		UsePersistentCMS: true,
 	}))
@@ -204,6 +208,7 @@ func TestNewAdminPersistentCMSNilContainerFails(t *testing.T) {
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	hooks := AdapterHooks{
 		PersistentCMS: func(ctx context.Context, defaultLocale string) (admin.CMSOptions, string, error) {
 			_, _ = ctx, defaultLocale
@@ -232,6 +237,7 @@ func TestNewAdminAdapterFlagsOverrideEnv(t *testing.T) {
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	activitySink := &stubActivitySink{}
 	var persistentCalled bool
 	var optionsCalled bool
@@ -275,6 +281,7 @@ func TestNewAdminAdapterFlagsSupplied(t *testing.T) {
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	cmsContainer := admin.NewNoopCMSContainer()
 	activitySink := &stubActivitySink{}
 	var persistentCalled bool
@@ -331,6 +338,7 @@ func TestNewAdminWithStartupPolicyWarnAllowsModuleStartupValidationErrors(t *tes
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithStartupPolicy(StartupPolicyWarn))
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
@@ -352,6 +360,7 @@ func TestNewAdminWithStartupPolicyEnforceFailsOnModuleStartupValidationErrors(t 
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("", "", "")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(cfg, AdapterHooks{}, WithStartupPolicy(StartupPolicyEnforce))
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)

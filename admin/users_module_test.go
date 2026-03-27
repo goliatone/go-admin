@@ -330,6 +330,7 @@ func TestUserModuleCreateWithSystemAndCustomRoles(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
+	adm.WithAuthorizer(allowAll{})
 	adm.WithRoleAssignmentLookup(UUIDRoleAssignmentLookup{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -390,6 +391,7 @@ func TestUserPanelListIncludesRoleDisplayFields(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers)})
+	adm.WithAuthorizer(allowAll{})
 	adm.WithRoleAssignmentLookup(UUIDRoleAssignmentLookup{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -519,6 +521,7 @@ func TestUserPanelBulkRoleActionsRouteThroughPanelBulkEndpoint(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers, FeatureCommands)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize: %v", err)

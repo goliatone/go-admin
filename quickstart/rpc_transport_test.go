@@ -74,6 +74,7 @@ func TestNewAdminWithoutRPCTransportDoesNotMountRPCRoutes(t *testing.T) {
 	t.Cleanup(func() { resetCommandRegistryForTest(t) })
 
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
 		t.Fatalf("new admin: %v", err)
@@ -116,6 +117,7 @@ func TestWithRPCTransportAllowsAuthConfiguredAfterNewAdmin(t *testing.T) {
 
 	authn := &rpcTestAuthenticator{}
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
@@ -221,12 +223,16 @@ func TestWithRPCTransportCanExplicitlyAllowUnauthenticatedRoutes(t *testing.T) {
 	t.Cleanup(func() { resetCommandRegistryForTest(t) })
 
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
 		WithRPCTransport(RPCTransportConfig{
 			Enabled:              true,
 			AllowUnauthenticated: true,
+			CommandRules: map[string]admin.RPCCommandRule{
+				"rpc.transport.public": {AllowUnauthenticated: true},
+			},
 		}),
 	)
 	if err != nil {
@@ -240,6 +246,50 @@ func TestWithRPCTransportCanExplicitlyAllowUnauthenticatedRoutes(t *testing.T) {
 	invokePath := path.Join(adm.AdminAPIBasePath(), "rpc")
 	if !hasRoute(server.Router().Routes(), router.POST, invokePath) {
 		t.Fatalf("expected rpc invoke route %q", invokePath)
+	}
+}
+
+func TestWithRPCTransportRejectsUnauthenticatedModeWithoutExplicitAnonymousRule(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	_, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithRPCTransport(RPCTransportConfig{
+			Enabled:              true,
+			AllowUnauthenticated: true,
+			CommandRules: map[string]admin.RPCCommandRule{
+				"rpc.transport.private": {Permission: "admin.rpc.private"},
+			},
+		}),
+	)
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "allow_unauthenticated") {
+		t.Fatalf("expected explicit anonymous rule config failure, got %v", err)
+	}
+}
+
+func TestWithRPCTransportRejectsUnauthenticatedDiscovery(t *testing.T) {
+	resetCommandRegistryForTest(t)
+	t.Cleanup(func() { resetCommandRegistryForTest(t) })
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	_, _, err := NewAdmin(
+		cfg,
+		AdapterHooks{},
+		WithRPCTransport(RPCTransportConfig{
+			Enabled:              true,
+			AllowUnauthenticated: true,
+			DiscoveryEnabled:     true,
+			CommandRules: map[string]admin.RPCCommandRule{
+				"rpc.transport.public": {AllowUnauthenticated: true},
+			},
+		}),
+	)
+	if err == nil || !strings.Contains(strings.ToLower(err.Error()), "discovery") {
+		t.Fatalf("expected unauthenticated discovery config failure, got %v", err)
 	}
 }
 

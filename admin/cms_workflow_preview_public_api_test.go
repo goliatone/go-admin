@@ -13,7 +13,14 @@ import (
 )
 
 func TestCMSWorkflowPreviewAndPublicAPIIntegration(t *testing.T) {
-	cfg := Config{BasePath: "/admin", DefaultLocale: "en", EnablePublicAPI: true}
+	cfg := Config{
+		BasePath:        "/admin",
+		DefaultLocale:   "en",
+		EnablePublicAPI: true,
+		Site: SiteConfig{
+			AllowUnauthenticatedReads: true,
+		},
+	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
 	if err := adm.RegisterCMSDemoPanels(); err != nil {
 		t.Fatalf("register cms demo panels: %v", err)

@@ -14,6 +14,7 @@ import (
 
 func TestESignModuleHonorsCustomDashboardPlacements(t *testing.T) {
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
+	cfg.AuthConfig = &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := quickstart.NewAdmin(
 		cfg,
 		quickstart.AdapterHooks{},

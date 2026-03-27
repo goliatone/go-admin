@@ -10,7 +10,20 @@ import (
 
 func mustNewAdmin(t *testing.T, cfg Config, deps Dependencies) *Admin {
 	t.Helper()
+	return mustNewAdminWithDeps(t, cfg, deps)
+}
+
+func mustNewAdminWithoutAuthorizer(t *testing.T, cfg Config, deps Dependencies) *Admin {
+	t.Helper()
+	return mustNewAdminWithDeps(t, cfg, deps)
+}
+
+func mustNewAdminWithDeps(t *testing.T, cfg Config, deps Dependencies) *Admin {
+	t.Helper()
 	_ = registry.Stop(context.Background())
+	if cfg.AuthConfig == nil {
+		cfg.AuthConfig = &AuthConfig{AllowUnauthenticatedRoutes: true}
+	}
 	adm, err := New(cfg, deps)
 	if err != nil {
 		t.Fatalf("admin.New: %v", err)

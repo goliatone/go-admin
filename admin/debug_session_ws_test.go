@@ -28,6 +28,7 @@ func TestDebugSessionWebSocketRequiresAttachPermission(t *testing.T) {
 		},
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	adm.WithAuth(&recordingAuthenticator{}, nil)
 	adm.WithAuthorizer(mapAuthorizer{allowed: map[string]bool{debugSessionAttachPermission: false}})
 	stubRouter := &stubWebSocketRouter{}
 	adm.router = stubRouter
@@ -57,6 +58,7 @@ func TestDebugSessionWebSocketAllowsAttachPermission(t *testing.T) {
 		},
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	adm.WithAuth(&recordingAuthenticator{}, nil)
 	adm.WithAuthorizer(mapAuthorizer{allowed: map[string]bool{debugSessionAttachPermission: true}})
 	stubRouter := &stubWebSocketRouter{}
 	adm.router = stubRouter

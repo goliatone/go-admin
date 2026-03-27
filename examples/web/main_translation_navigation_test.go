@@ -193,6 +193,7 @@ func newExampleTranslationAdmin(
 	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
 
 	cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := quickstart.NewAdmin(
 		cfg,
 		quickstart.AdapterHooks{},

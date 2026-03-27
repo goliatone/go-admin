@@ -366,9 +366,9 @@ func TestMenuBuilderLifecyclePreviewCloneArchiveAndAudit(t *testing.T) {
 	}
 
 	archivePath := mustResolveURL(t, adm.URLs(), group, "menus.archive", map[string]string{"id": "main"}, nil)
-	archiveRes := menuBuilderDoRequest(server, http.MethodPost, archivePath, `{"archived":true}`)
+	archiveRes := menuBuilderDoRequest(server, http.MethodPost, archivePath, "")
 	if archiveRes.Code != http.StatusOK {
-		t.Fatalf("archive status=%d body=%s", archiveRes.Code, archiveRes.Body.String())
+		t.Fatalf("archive with empty body status=%d body=%s", archiveRes.Code, archiveRes.Body.String())
 	}
 	archivePayload := decodeJSONMap(t, archiveRes)
 	archivedMenu := extractMap(archivePayload["menu"])

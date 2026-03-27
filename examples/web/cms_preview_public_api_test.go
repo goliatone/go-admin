@@ -20,9 +20,17 @@ func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
 	cmsOpts, err := setup.SetupPersistentCMS(context.Background(), "en", dsn)
 	require.NoError(t, err)
 
-	cfg := admin.Config{BasePath: "/admin", DefaultLocale: "en", EnablePublicAPI: true, PreviewSecret: "secret"}
+	cfg := admin.Config{
+		BasePath:        "/admin",
+		DefaultLocale:   "en",
+		EnablePublicAPI: true,
+		PreviewSecret:   "secret",
+		AuthConfig:      &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
+	}
+	cfg.Site.AllowUnauthenticatedReads = true
 	adm, err := admin.New(cfg, admin.Dependencies{CMSContainer: cmsOpts.Container})
 	require.NoError(t, err)
+	adm.WithAuth(translationRuntimeHarnessPassthroughAuthenticator{}, nil)
 
 	contentSvc := cmsOpts.Container.ContentService()
 	require.NotNil(t, contentSvc)

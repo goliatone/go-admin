@@ -99,6 +99,7 @@ func mustNewWebTestAdmin(t *testing.T) *admin.Admin {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 		Title:         "Web Test Admin",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 	}, admin.Dependencies{})
 	if err != nil {
 		t.Fatalf("new admin: %v", err)

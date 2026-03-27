@@ -79,7 +79,10 @@ func TestOrderModulesDeterministic(t *testing.T) {
 }
 
 func TestNewModuleRegistrarWrapsRegisterErrors(t *testing.T) {
-	cfg := admin.Config{DefaultLocale: "en"}
+	cfg := admin.Config{
+		DefaultLocale: "en",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
+	}
 	adm, err := admin.New(cfg, admin.Dependencies{})
 	if err != nil {
 		t.Fatalf("admin.New error: %v", err)
@@ -102,6 +105,7 @@ func TestNewModuleRegistrarDoesNotDoubleRegisterContentTypeBuilder(t *testing.T)
 	resetCommandRegistryForTest(t)
 
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
@@ -125,7 +129,10 @@ func TestNewModuleRegistrarDoesNotDoubleRegisterContentTypeBuilder(t *testing.T)
 }
 
 func TestNewModuleRegistrarFeatureGatesSkipModules(t *testing.T) {
-	cfg := admin.Config{DefaultLocale: "en"}
+	cfg := admin.Config{
+		DefaultLocale: "en",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
+	}
 	adm, err := admin.New(cfg, admin.Dependencies{})
 	if err != nil {
 		t.Fatalf("admin.New error: %v", err)
@@ -228,6 +235,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsByDefault(t *testi
 	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
 
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
@@ -306,6 +314,7 @@ func TestResolveTranslationCapabilityMenuPathFallsBackToCanonicalTranslationsPan
 
 func TestNewModuleRegistrarDoesNotSeedSidebarUtilityMenuItemsByDefault(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
@@ -330,6 +339,7 @@ func TestNewModuleRegistrarDoesNotSeedSidebarUtilityMenuItemsByDefault(t *testin
 
 func TestNewModuleRegistrarSeedsSidebarUtilityMenuItemsWhenOptedIn(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
@@ -385,6 +395,7 @@ func TestNewModuleRegistrarSeedsSidebarUtilityMenuItemsWhenOptedIn(t *testing.T)
 
 func TestNewModuleRegistrarSkipsSettingsUtilityItemWhenSettingsFeatureDisabled(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},
@@ -420,6 +431,7 @@ func TestNewModuleRegistrarSkipsSettingsUtilityItemWhenSettingsFeatureDisabled(t
 
 func TestNewModuleRegistrarSeedsToolsMenuItemsUnderToolsGroup(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(cfg, AdapterHooks{})
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
@@ -536,6 +548,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 			t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
 
 			cfg := NewAdminConfig("/admin", "Admin", "en")
+			cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 			adm, _, err := NewAdmin(
 				cfg,
 				AdapterHooks{},
@@ -627,6 +640,7 @@ func TestTranslationCapabilityMenuItemsVisibleWithoutTranslationPermissions(t *t
 	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
 
 	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	adm, _, err := NewAdmin(
 		cfg,
 		AdapterHooks{},

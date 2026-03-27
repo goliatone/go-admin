@@ -48,6 +48,9 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	adm, _, err := quickstart.NewAdmin(
 		cfg,
 		quickstart.AdapterHooks{},
+		quickstart.WithAdminDependencies(coreadmin.Dependencies{
+			Authorizer: translationRuntimeHarnessAllowAllAuthorizer{},
+		}),
 		quickstart.WithAdapterFlags(quickstart.AdapterFlags{
 			UsePersistentCMS:   false,
 			UseGoOptions:       false,
@@ -117,7 +120,14 @@ func TestDevServeEquivalentTranslationRuntimeContracts(t *testing.T) {
 	require.GreaterOrEqual(t, intFromAny(queue["total"]), 1)
 
 	panelListPath := fmt.Sprintf("%s?page=1&per_page=200", panelCollectionPath("translations"))
-	panelStatus, panelPayload := doAdminJSONRequestFiber(t, app, http.MethodGet, panelListPath, nil)
+	panelStatus, panelPayload := doAdminJSONRequestWithHeaders(
+		t,
+		app,
+		http.MethodGet,
+		panelListPath,
+		nil,
+		map[string]string{"X-User-ID": "runtime-user"},
+	)
 	require.Equal(t, http.StatusOK, panelStatus, "translations panel payload=%+v", panelPayload)
 	panelData := unwrapResponseDataMap(panelPayload)
 	panelRecords := extractListRecords(panelData)

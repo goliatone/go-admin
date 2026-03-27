@@ -78,6 +78,7 @@ func TestQuickstartRoutingStartupReportLogsDoctorOutputAndOverrideMounts(t *test
 			},
 		}),
 	)
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 
 	adm, _, err := NewAdmin(
 		cfg,
@@ -208,6 +209,7 @@ func TestQuickstartRoutingConflictFailsStartupEvenWhenFiberRuntimeOptionsRelaxCo
 			},
 		}),
 	)
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 
 	adm, _, err := NewAdmin(
 		cfg,
@@ -319,6 +321,7 @@ func TestQuickstartRoutingManifestRemainsCoherentWithRuntimeRoutes(t *testing.T)
 			},
 		}),
 	)
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
 
 	adm, _, err := NewAdmin(
 		cfg,

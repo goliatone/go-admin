@@ -237,6 +237,7 @@ func TestSeedExampleTranslationQueueFixtureSeedsPersistentBunEditorAssignmentAnd
 	require.NotNil(t, familyStore)
 
 	cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+	cfg.AuthConfig = &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true}
 	cfg.CMS = cmsOpts
 	queueEnabled := true
 	translationCfg := appcfg.TranslationConfig{

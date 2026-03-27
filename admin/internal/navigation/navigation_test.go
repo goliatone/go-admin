@@ -58,3 +58,19 @@ func TestConvertMenuItemsTranslatesLabelAndGroupTitle(t *testing.T) {
 		t.Fatalf("expected group title translation, got %q", items[0].GroupTitle)
 	}
 }
+
+func TestNavigationFailsClosedWithoutAuthorizerForPermissionedItems(t *testing.T) {
+	nav := NewNavigation(nil, nil)
+	nav.AddFallback(
+		NavigationItem{ID: "public", Label: "Public", Locale: "en"},
+		NavigationItem{ID: "protected", Label: "Protected", Locale: "en", Permissions: []string{"admin.settings.view"}},
+	)
+
+	items := nav.Resolve(context.Background(), "en")
+	if len(items) != 1 {
+		t.Fatalf("expected only unprotected item without authorizer, got %+v", items)
+	}
+	if items[0].ID != "public" {
+		t.Fatalf("expected public item to remain visible, got %+v", items[0])
+	}
+}

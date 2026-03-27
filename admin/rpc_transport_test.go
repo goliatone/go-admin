@@ -104,7 +104,8 @@ func TestAdminRPCDispatchEndpointRoutesCommandBusWhenAuthorized(t *testing.T) {
 		t.Fatalf("register message factory: %v", err)
 	}
 
-	result, err := adm.RPCServer().Invoke(context.Background(), RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
+	result, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
 		Data: RPCCommandDispatchRequest{
 			Name:    "rpc.dispatch.test",
 			Payload: map[string]any{"value": "ok"},
@@ -138,12 +139,88 @@ func TestAdminRPCDispatchEndpointRequiresPermission(t *testing.T) {
 		FeatureGate: featureGateFromKeys(FeatureCommands),
 		Authorizer:  rpcTestAuthorizer{allow: map[string]bool{}},
 	})
-	_, err := adm.RPCServer().Invoke(context.Background(), RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
+	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
 		Data: RPCCommandDispatchRequest{Name: "rpc.dispatch.test"},
 	})
 	var denied PermissionDeniedError
 	if !errors.As(err, &denied) {
 		t.Fatalf("expected PermissionDeniedError, got %T (%v)", err, err)
+	}
+}
+
+func TestAdminRPCDispatchEndpointRejectsUnauthenticatedRequestWhenRuleRequiresAuth(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				Commands: map[string]RPCCommandRule{
+					"rpc.dispatch.test": {Permission: "admin.commands.dispatch", Resource: "commands"},
+				},
+			},
+		},
+	}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.dispatch|commands": true,
+		}},
+	})
+	_, err := adm.RPCServer().Invoke(context.Background(), RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+		Data: RPCCommandDispatchRequest{Name: "rpc.dispatch.test"},
+	})
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected ErrForbidden, got %T (%v)", err, err)
+	}
+}
+
+func TestAdminRPCDispatchEndpointAllowsExplicitUnauthenticatedRuleWithoutActor(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{
+			RPC: RPCCommandConfig{
+				Commands: map[string]RPCCommandRule{
+					"rpc.dispatch.test": {AllowUnauthenticated: true},
+				},
+			},
+		},
+	}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+	})
+	bus := adm.Commands()
+	if bus == nil {
+		t.Fatalf("expected command bus")
+	}
+	seenValue := ""
+	if _, err := RegisterCommand(bus, command.CommandFunc[rpcDispatchTestMessage](func(_ context.Context, msg rpcDispatchTestMessage) error {
+		seenValue = msg.Value
+		return nil
+	})); err != nil {
+		t.Fatalf("register command: %v", err)
+	}
+	if err := RegisterMessageFactory(bus, "rpc.dispatch.test", func(payload map[string]any, ids []string) (rpcDispatchTestMessage, error) {
+		_ = ids
+		out := rpcDispatchTestMessage{}
+		if value, ok := payload["value"].(string); ok {
+			out.Value = value
+		}
+		return out, nil
+	}); err != nil {
+		t.Fatalf("register message factory: %v", err)
+	}
+
+	result, err := adm.RPCServer().Invoke(context.Background(), RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+		Data: RPCCommandDispatchRequest{
+			Name:    "rpc.dispatch.test",
+			Payload: map[string]any{"value": "anon"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("invoke rpc dispatch: %v", err)
+	}
+	resp, ok := result.(cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse])
+	if !ok || !resp.Data.Receipt.Accepted {
+		t.Fatalf("expected accepted dispatch response, got %#v", result)
+	}
+	if seenValue != "anon" {
+		t.Fatalf("expected anonymous dispatch payload, got %q", seenValue)
 	}
 }
 
@@ -169,7 +246,8 @@ func TestAdminRPCDispatchEndpointRunsBusinessRuleHook(t *testing.T) {
 			return hookErr
 		},
 	})
-	_, err := adm.RPCServer().Invoke(context.Background(), RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
+	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandDispatch, &cmdrpc.RequestEnvelope[RPCCommandDispatchRequest]{
 		Data: RPCCommandDispatchRequest{Name: "rpc.dispatch.test"},
 	})
 	if !errors.Is(err, hookErr) {
@@ -315,7 +393,8 @@ func TestAdminRPCListEndpointHiddenByDefault(t *testing.T) {
 	adm := mustNewAdmin(t, Config{}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCommands),
 	})
-	_, err := adm.RPCServer().Invoke(context.Background(), RPCMethodCommandList, &cmdrpc.RequestEnvelope[map[string]any]{})
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
+	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandList, &cmdrpc.RequestEnvelope[map[string]any]{})
 	if !errors.Is(err, ErrNotFound) {
 		t.Fatalf("expected ErrNotFound when discovery disabled, got %v", err)
 	}
@@ -328,10 +407,26 @@ func TestAdminRPCListEndpointRequiresPermissionWhenEnabled(t *testing.T) {
 		FeatureGate: featureGateFromKeys(FeatureCommands),
 		Authorizer:  rpcTestAuthorizer{allow: map[string]bool{}},
 	})
-	_, err := adm.RPCServer().Invoke(context.Background(), RPCMethodCommandList, &cmdrpc.RequestEnvelope[map[string]any]{})
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
+	_, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandList, &cmdrpc.RequestEnvelope[map[string]any]{})
 	var denied PermissionDeniedError
 	if !errors.As(err, &denied) {
 		t.Fatalf("expected PermissionDeniedError, got %T (%v)", err, err)
+	}
+}
+
+func TestAdminRPCListEndpointRequiresActorWhenEnabled(t *testing.T) {
+	adm := mustNewAdmin(t, Config{
+		Commands: CommandConfig{RPC: RPCCommandConfig{DiscoveryEnabled: true}},
+	}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+		Authorizer: rpcTestAuthorizer{allow: map[string]bool{
+			"admin.commands.read|commands": true,
+		}},
+	})
+	_, err := adm.RPCServer().Invoke(context.Background(), RPCMethodCommandList, &cmdrpc.RequestEnvelope[map[string]any]{})
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected ErrForbidden, got %T (%v)", err, err)
 	}
 }
 
@@ -354,7 +449,8 @@ func TestAdminRPCListEndpointReturnsRegisteredCommandNamesWhenEnabled(t *testing
 	}); err != nil {
 		t.Fatalf("register message factory: %v", err)
 	}
-	result, err := adm.RPCServer().Invoke(context.Background(), RPCMethodCommandList, &cmdrpc.RequestEnvelope[map[string]any]{})
+	ctx := auth.WithActorContext(context.Background(), &auth.ActorContext{ActorID: "rpc-user", Subject: "rpc-user"})
+	result, err := adm.RPCServer().Invoke(ctx, RPCMethodCommandList, &cmdrpc.RequestEnvelope[map[string]any]{})
 	if err != nil {
 		t.Fatalf("invoke rpc list: %v", err)
 	}

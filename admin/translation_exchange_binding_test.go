@@ -76,6 +76,10 @@ func (s *stubTranslationExchangeExecutor) applySnapshot() (int, TranslationImpor
 	return s.applyCalled, s.applyInput
 }
 
+type translationExchangeCookieOnlyAuthenticator struct{}
+
+func (translationExchangeCookieOnlyAuthenticator) Wrap(router.Context) error { return nil }
+
 func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActivity(t *testing.T) {
 	feed := NewActivityFeed()
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
@@ -789,6 +793,35 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 	}
 }
 
+func TestTranslationExchangeBindingExportAllowsCookieAuthWithoutBrowserCSRFProtector(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	adm.WithAuth(translationExchangeCookieOnlyAuthenticator{}, nil)
+	adm.WithAuthorizer(allowAll{})
+
+	executor := &stubTranslationExchangeExecutor{
+		exportResult: TranslationExportResult{Format: "json"},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/translations/exchange/export", strings.NewReader(`{"filter":{"resources":["pages"]}}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Cookie", "session=opaque")
+	req.Header.Set("X-User-ID", "user-123")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
+	}
+	if called, _ := executor.exportSnapshot(); called != 1 {
+		t.Fatalf("expected export executor to run once, got %d", called)
+	}
+}
+
 func TestTranslationExchangeBindingDeleteJobRejectsCookieAuthWithoutCSRFToken(t *testing.T) {
 	cfg := cookieTestAuthConfig{signingKey: "test-secret", adminCfg: Config{BasePath: "/admin", DefaultLocale: "en"}}
 	provider := &stubIdentityProvider{identity: testIdentity{
@@ -1400,6 +1433,9 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 
 func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBinding) *fiber.App {
 	t.Helper()
+	if binding != nil && binding.admin != nil && binding.admin.Authorizer() == nil {
+		binding.admin.WithAuthorizer(allowAll{})
+	}
 	adapter := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{
 			UnescapePath:      true,

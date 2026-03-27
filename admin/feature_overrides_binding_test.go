@@ -54,7 +54,7 @@ func (s *stubMutableGate) Unset(_ context.Context, key string, scope fggate.Scop
 
 func TestFeatureOverridesBindingSetCapturesScope(t *testing.T) {
 	gate := &stubMutableGate{}
-	adm, err := New(Config{}, Dependencies{FeatureGate: gate})
+	adm, err := New(Config{}, Dependencies{FeatureGate: gate, Authorizer: allowAll{}})
 	require.NoError(t, err)
 
 	binding := newFeatureOverridesBinding(adm)
@@ -143,7 +143,7 @@ func TestFeatureOverridesBindingSetCapturesScope(t *testing.T) {
 
 func TestFeatureOverridesBindingUnsetCallsGate(t *testing.T) {
 	gate := &stubMutableGate{}
-	adm, err := New(Config{}, Dependencies{FeatureGate: gate})
+	adm, err := New(Config{}, Dependencies{FeatureGate: gate, Authorizer: allowAll{}})
 	require.NoError(t, err)
 
 	binding := newFeatureOverridesBinding(adm)
@@ -170,7 +170,7 @@ func TestFeatureOverridesBindingUnsetCallsGate(t *testing.T) {
 
 func TestFeatureOverridesBindingRejectsAliases(t *testing.T) {
 	gate := &stubMutableGate{}
-	adm, err := New(Config{}, Dependencies{FeatureGate: gate})
+	adm, err := New(Config{}, Dependencies{FeatureGate: gate, Authorizer: allowAll{}})
 	require.NoError(t, err)
 
 	binding := newFeatureOverridesBinding(adm)

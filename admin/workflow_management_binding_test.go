@@ -14,6 +14,7 @@ func TestWorkflowManagementBindingWorkflowCRUDAndRollback(t *testing.T) {
 		Workflow:        NewFSMWorkflowEngine(),
 		WorkflowRuntime: runtime,
 	})
+	adm.WithAuthorizer(allowAll{})
 	binding := newWorkflowManagementBinding(adm)
 	require.NotNil(t, binding)
 
@@ -80,6 +81,7 @@ func TestWorkflowManagementBindingBindingCRUDAndValidation(t *testing.T) {
 		Workflow:        NewFSMWorkflowEngine(),
 		WorkflowRuntime: runtime,
 	})
+	adm.WithAuthorizer(allowAll{})
 	binding := newWorkflowManagementBinding(adm)
 	require.NotNil(t, binding)
 

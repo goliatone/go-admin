@@ -17,6 +17,7 @@ func TestRuntimeOverridesAffectBootAndModules(t *testing.T) {
 		BasePath:      "/admin",
 		DefaultLocale: "en",
 		Title:         "Admin",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 	}
 	store := admin.NewInMemoryPreferencesStore()
 	defaults := map[string]bool{

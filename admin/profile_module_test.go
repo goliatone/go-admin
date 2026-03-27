@@ -72,6 +72,7 @@ func TestProfileAPIRejectsMismatchedUser(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureProfile)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize: %v", err)
@@ -97,6 +98,7 @@ func TestProfileUpdateRoundTripViaAPI(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureProfile)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {
@@ -146,6 +148,7 @@ func TestProfileSchemaIncludesMediaHintsWhenEnabled(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureProfile, FeatureMedia, FeatureCMS)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 
 	if err := adm.Initialize(server.Router()); err != nil {

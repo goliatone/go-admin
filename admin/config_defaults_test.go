@@ -60,6 +60,9 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.Site.AllowLocaleFallback == nil || !*adm.config.Site.AllowLocaleFallback {
 		t.Fatalf("expected site locale fallback default true")
 	}
+	if adm.config.Site.AllowUnauthenticatedReads {
+		t.Fatalf("expected anonymous site reads to default false")
+	}
 	if adm.config.Site.ReadPermission != "admin.site.read" {
 		t.Fatalf("expected site read permission default, got %q", adm.config.Site.ReadPermission)
 	}

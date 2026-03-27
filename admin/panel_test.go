@@ -52,6 +52,43 @@ func TestPanelListCreateUpdateDelete(t *testing.T) {
 	}
 }
 
+func TestPanelProtectedOperationsFailClosedWithoutAuthorizer(t *testing.T) {
+	repo := NewMemoryRepository()
+	panel := &Panel{
+		name:        "items",
+		repo:        repo,
+		permissions: PanelPermissions{View: "items.view", Create: "items.create", Edit: "items.edit", Delete: "items.delete"},
+	}
+	ctx := AdminContext{Context: context.Background()}
+
+	if _, _, err := panel.List(ctx, ListOptions{Page: 1, PerPage: 10}); err == nil {
+		t.Fatalf("expected list to fail closed without authorizer")
+	}
+	if _, err := panel.Create(ctx, map[string]any{"name": "A"}); err == nil {
+		t.Fatalf("expected create to fail closed without authorizer")
+	}
+}
+
+func TestPanelBlankPermissionsRemainAllowedWithoutAuthorizer(t *testing.T) {
+	repo := NewMemoryRepository()
+	panel := &Panel{
+		name: "items",
+		repo: repo,
+	}
+	ctx := AdminContext{Context: context.Background()}
+
+	created, err := panel.Create(ctx, map[string]any{"name": "A"})
+	if err != nil {
+		t.Fatalf("expected blank-permission create to remain allowed, got %v", err)
+	}
+	if _, _, err := panel.List(ctx, ListOptions{Page: 1, PerPage: 10}); err != nil {
+		t.Fatalf("expected blank-permission list to remain allowed, got %v", err)
+	}
+	if err := panel.Delete(ctx, toString(created["id"])); err != nil {
+		t.Fatalf("expected blank-permission delete to remain allowed, got %v", err)
+	}
+}
+
 func TestPanelHooksOrder(t *testing.T) {
 	repo := NewMemoryRepository()
 	order := []string{}

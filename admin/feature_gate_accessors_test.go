@@ -53,7 +53,7 @@ func TestActivityReadEnabledRequiresFeatureGateAndFeed(t *testing.T) {
 }
 
 func TestUserImportAllowedFailsClosedWithoutAuthorizer(t *testing.T) {
-	adm := mustNewAdmin(t, Config{}, Dependencies{
+	adm := mustNewAdminWithoutAuthorizer(t, Config{}, Dependencies{
 		BulkUserImport: &userscommand.BulkUserImportCommand{},
 	})
 	if adm.UserImportAllowed(context.Background()) {

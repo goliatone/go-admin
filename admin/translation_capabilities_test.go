@@ -121,6 +121,28 @@ func TestTranslationCapabilitiesExposeActionPermissionStates(t *testing.T) {
 	}
 }
 
+func TestTranslationCapabilitiesFailClosedWithoutAuthorizer(t *testing.T) {
+	t.Parallel()
+
+	adm := mustNewAdminWithoutAuthorizer(t, Config{BasePath: "/admin"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationExchange, FeatureTranslationQueue),
+	})
+
+	caps := TranslationCapabilitiesForContext(adm, context.Background())
+	modules, _ := caps["modules"].(map[string]any)
+	exchange, _ := modules["exchange"].(map[string]any)
+	if visible, _ := exchange["visible"].(bool); visible {
+		t.Fatalf("expected exchange hidden without authorizer")
+	}
+	entry, _ := exchange["entry"].(map[string]any)
+	if enabled, _ := entry["enabled"].(bool); enabled {
+		t.Fatalf("expected exchange entry disabled without authorizer")
+	}
+	if code := strings.TrimSpace(toString(entry["reason_code"])); code != ActionDisabledReasonCodePermissionDenied {
+		t.Fatalf("expected exchange entry reason code %q, got %q", ActionDisabledReasonCodePermissionDenied, code)
+	}
+}
+
 func TestTranslationCapabilitiesExposeSharedContracts(t *testing.T) {
 	t.Parallel()
 

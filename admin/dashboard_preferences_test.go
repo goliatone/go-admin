@@ -74,6 +74,7 @@ func TestDashboardPreferencesEndpointPersistsLayout(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS, FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
 	adm.PreferencesService().WithStore(store)
 
 	server := router.NewHTTPServer()

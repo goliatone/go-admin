@@ -21,6 +21,7 @@ func TestCommerceModuleHonorsCustomDashboardPlacements(t *testing.T) {
 	cfg := admin.Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
 	}
 	adm, err := admin.New(cfg, admin.Dependencies{FeatureGate: featureGateFromDefaults(map[string]bool{
 		"dashboard": true,

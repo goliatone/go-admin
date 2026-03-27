@@ -79,6 +79,8 @@ type stubCreateTranslationRequest struct {
 	ContentType     string
 	ContentTypeSlug string
 	Status          string
+	Metadata        map[string]any
+	Meta            map[string]any
 	CreatedBy       uuid.UUID
 	UpdatedBy       uuid.UUID
 }
@@ -505,6 +507,60 @@ func TestGoCMSContentAdapterCreateTranslationUsesDedicatedTranslationCapability(
 	}
 	if created.FamilyID != groupID.String() {
 		t.Fatalf("expected group id %s, got %s", groupID.String(), created.FamilyID)
+	}
+}
+
+func TestGoCMSContentAdapterCreateTranslationUsesCanonicalMetadataOnly(t *testing.T) {
+	ctx := context.Background()
+	typeID := uuid.New()
+	sourceID := uuid.New()
+	typeSvc := newStubContentTypeService(CMSContentType{
+		ID:   typeID.String(),
+		Slug: "posts",
+	})
+	contentSvc := &stubGoCMSContentService{
+		createTranslationRes: &cmscontent.Content{
+			ID:     uuid.New(),
+			Slug:   "hello-fr",
+			Status: "draft",
+			Type:   &cmscontent.ContentType{Slug: "posts"},
+			Translations: []*cmscontent.ContentTranslation{
+				{
+					Locale:  &cmscontent.Locale{Code: "fr"},
+					Title:   "Bonjour",
+					Content: map[string]any{"body": "bonjour"},
+				},
+			},
+		},
+	}
+	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
+	adapter, ok := svc.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", svc)
+	}
+
+	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
+		SourceID:    sourceID.String(),
+		Locale:      "fr",
+		Environment: "staging",
+		ContentType: "posts",
+		Status:      "draft",
+		Metadata: map[string]any{
+			"path":   "/bonjour",
+			"custom": "keep",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if contentSvc.createTranslationReq.Metadata == nil {
+		t.Fatalf("expected canonical metadata field to be populated")
+	}
+	if contentSvc.createTranslationReq.Metadata["path"] != "/bonjour" {
+		t.Fatalf("expected canonical metadata path /bonjour, got %v", contentSvc.createTranslationReq.Metadata["path"])
+	}
+	if len(contentSvc.createTranslationReq.Meta) != 0 {
+		t.Fatalf("expected legacy Meta field to remain empty, got %v", contentSvc.createTranslationReq.Meta)
 	}
 }
 

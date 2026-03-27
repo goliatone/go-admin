@@ -248,6 +248,27 @@ func TestGoCMSMenuAdapterResetMenuContextMapsNotFound(t *testing.T) {
 	}
 }
 
+func TestGoCMSMenuAdapterNormalizesMissingMenuTargetMutationErrors(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := newStubCMSMenuService()
+	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
+
+	if _, err := adapter.CreateMenu(ctx, "admin.main"); err != nil {
+		t.Fatalf("create menu: %v", err)
+	}
+
+	menuSvc.updateItemErr = errors.New(`cms: menu item "admin_main.missing" not found`)
+	if err := adapter.UpdateMenuItem(ctx, "admin.main", MenuItem{ID: "missing", Label: "Missing", Locale: "en"}); !errors.Is(err, ErrMenuTargetNotFound) {
+		t.Fatalf("expected ErrMenuTargetNotFound from update, got %v", err)
+	}
+
+	menuSvc.updateItemErr = nil
+	menuSvc.deleteItemErr = errors.New(`cms: menu item "admin_main.missing" not found`)
+	if err := adapter.DeleteMenuItem(ctx, "admin.main", "missing"); !errors.Is(err, ErrMenuTargetNotFound) {
+		t.Fatalf("expected ErrMenuTargetNotFound from delete, got %v", err)
+	}
+}
+
 type stubGoCMSContainer struct {
 	menu    *stubCMSMenuService
 	widgets CMSWidgetService
@@ -262,9 +283,12 @@ func (s *stubGoCMSContainer) ContentTypeService() CMSContentTypeService {
 }
 
 type stubCMSMenuService struct {
-	menus     map[string]*stubCMSMenu
-	locations map[string]string
-	resetErr  error
+	menus         map[string]*stubCMSMenu
+	locations     map[string]string
+	resetErr      error
+	updateItemErr error
+	deleteItemErr error
+	translateErr  error
 }
 
 type stubCMSMenu struct {
@@ -551,6 +575,9 @@ func (s *stubCMSMenuService) UpsertMenuItemByPath(_ context.Context, input cms.U
 }
 
 func (s *stubCMSMenuService) UpdateMenuItemByPath(_ context.Context, menuCode string, path string, input cms.UpdateMenuItemByPathInput) (*cms.MenuItemInfo, error) {
+	if s.updateItemErr != nil {
+		return nil, s.updateItemErr
+	}
 	parsed, err := cms.ParseMenuItemPathForMenu(menuCode, path)
 	if err != nil {
 		return nil, err
@@ -603,6 +630,9 @@ func (s *stubCMSMenuService) UpdateMenuItemByPath(_ context.Context, menuCode st
 }
 
 func (s *stubCMSMenuService) DeleteMenuItemByPath(_ context.Context, menuCode string, path string, _ uuid.UUID, cascadeChildren bool) error {
+	if s.deleteItemErr != nil {
+		return s.deleteItemErr
+	}
 	parsed, err := cms.ParseMenuItemPathForMenu(menuCode, path)
 	if err != nil {
 		return err
@@ -623,6 +653,9 @@ func (s *stubCMSMenuService) DeleteMenuItemByPath(_ context.Context, menuCode st
 }
 
 func (s *stubCMSMenuService) UpsertMenuItemTranslationByPath(_ context.Context, menuCode string, path string, input cms.MenuItemTranslationInput) error {
+	if s.translateErr != nil {
+		return s.translateErr
+	}
 	parsed, err := cms.ParseMenuItemPathForMenu(menuCode, path)
 	if err != nil {
 		return err

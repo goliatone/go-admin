@@ -232,6 +232,7 @@ func newTranslationExchangeE2EFixture(t *testing.T) translationExchangeE2EFixtur
 	adm, err := coreadmin.New(coreadmin.Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
+		AuthConfig:    &coreadmin.AuthConfig{AllowUnauthenticatedRoutes: true},
 	}, coreadmin.Dependencies{
 		CMSContainer:      cmsOpts.Container,
 		Workflow:          translationWorkflowEngine{},
@@ -239,6 +240,8 @@ func newTranslationExchangeE2EFixture(t *testing.T) translationExchangeE2EFixtur
 		FeatureGate:       alwaysOnFeatureGate{},
 	})
 	require.NoError(t, err, "create admin")
+	adm.WithAuth(translationRuntimeHarnessPassthroughAuthenticator{}, nil)
+	adm.WithAuthorizer(translationRuntimeHarnessAllowAllAuthorizer{})
 
 	require.NoError(t, commands.RegisterPageCommandFactories(adm.Commands()), "register page command factories")
 	require.NoError(t, commands.RegisterPostCommandFactories(adm.Commands()), "register post command factories")

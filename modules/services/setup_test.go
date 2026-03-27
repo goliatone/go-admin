@@ -11,6 +11,7 @@ import (
 
 	goadmin "github.com/goliatone/go-admin/admin"
 	persistence "github.com/goliatone/go-persistence-bun"
+	router "github.com/goliatone/go-router"
 	goservices "github.com/goliatone/go-services"
 	gocore "github.com/goliatone/go-services/core"
 	"github.com/uptrace/bun"
@@ -70,7 +71,21 @@ func newTestAdmin(t *testing.T) *goadmin.Admin {
 	if err != nil {
 		t.Fatalf("admin.New: %v", err)
 	}
+	adm.WithAuth(testServicesPassthroughAuthenticator{}, nil)
 	return adm
+}
+
+type testServicesPassthroughAuthenticator struct{}
+
+func (testServicesPassthroughAuthenticator) Wrap(router.Context) error {
+	return nil
+}
+
+func (testServicesPassthroughAuthenticator) WrapHandler(handler router.HandlerFunc) router.HandlerFunc {
+	if handler == nil {
+		return func(router.Context) error { return nil }
+	}
+	return handler
 }
 
 type fixedConfigProvider struct {
