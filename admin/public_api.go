@@ -492,14 +492,11 @@ func (a *Admin) authorizeSiteRead(c router.Context) error {
 	if a == nil || !a.config.Site.Protected {
 		return nil
 	}
+	if c == nil || !hasAuthActor(c.Context()) {
+		return ErrForbidden
+	}
 	permission := strings.TrimSpace(a.config.Site.ReadPermission)
-	if permission == "" {
-		return nil
-	}
-	if a.authorizer == nil || !a.authorizer.Can(c.Context(), permission, "site") {
-		return permissionDenied(permission, "site")
-	}
-	return nil
+	return requirePermissionWithAuthorizer(a.authorizer, c.Context(), permission, "site")
 }
 
 func (a *Admin) authorizeSiteDraftRead(c router.Context, query SiteQuery, previewValidated bool) error {
@@ -546,16 +543,10 @@ func siteViewProfileOverrideAllowed(c router.Context, admin *Admin) bool {
 		return false
 	}
 	if admin == nil {
-		return true
+		return false
 	}
 	permission := strings.TrimSpace(admin.config.Site.ViewProfileOverridePermission)
-	if permission == "" {
-		return true
-	}
-	if admin.authorizer == nil {
-		return true
-	}
-	return admin.authorizer.Can(c.Context(), permission, "site")
+	return permissionAllowed(admin.authorizer, c.Context(), permission, "site")
 }
 
 func (a *Admin) previewTokenFromQuery(token string) (*PreviewToken, error) {
