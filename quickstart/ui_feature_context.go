@@ -13,8 +13,9 @@ func withUIFeatureContext(ctx router.ViewContext, adm *admin.Admin, active strin
 		ctx = router.ViewContext{}
 	}
 	activityEnabled := adm != nil && adm.ActivityReadEnabled()
+	activityFeatureEnabled := adm != nil && adm.ActivityFeatureEnabled()
 	ctx["activity_enabled"] = activityEnabled
-	ctx["activity_feature_enabled"] = activityEnabled
+	ctx["activity_feature_enabled"] = activityFeatureEnabled
 	ctx["translation_capabilities"] = translationCapabilitiesForContext(adm, reqCtx)
 	return withFeatureBodyClasses(ctx, "activity", activityEnabled, strings.EqualFold(strings.TrimSpace(active), "activity"))
 }
