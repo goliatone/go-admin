@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -63,8 +62,8 @@ func NewTenantService(repo TenantRepository) *TenantService {
 
 // WithActivitySink wires activity emission for tenant mutations.
 func (s *TenantService) WithActivitySink(sink ActivitySink) {
-	if s != nil && sink != nil {
-		s.activity = sink
+	if s != nil {
+		assignActivitySink(&s.activity, sink)
 	}
 }
 
@@ -205,23 +204,14 @@ func (s *TenantService) SearchTenants(ctx context.Context, query string, limit i
 }
 
 func (s *TenantService) recordActivity(ctx context.Context, action string, tenant TenantRecord, metadata map[string]any) {
-	if s == nil || s.activity == nil {
+	if s == nil {
 		return
-	}
-	actor := actorFromContext(ctx)
-	if actor == "" {
-		actor = userIDFromContext(ctx)
 	}
 	if metadata == nil {
 		metadata = map[string]any{}
 	}
 	metadata["tenant_id"] = tenant.ID
-	_ = s.activity.Record(ctx, ActivityEntry{
-		Actor:    actor,
-		Action:   action,
-		Object:   "tenant:" + tenant.ID,
-		Metadata: metadata,
-	})
+	recordEntityActivity(ctx, s.activity, action, "tenant:"+tenant.ID, metadata)
 }
 
 // InMemoryTenantStore keeps tenants and memberships in memory.
@@ -242,23 +232,26 @@ func (s *InMemoryTenantStore) List(ctx context.Context, opts ListOptions) ([]Ten
 	_ = ctx
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]TenantRecord, 0, len(s.tenants))
-	search := inMemoryListSearchTerm(opts)
-	filterStatus := strings.ToLower(toString(opts.Filters["status"]))
-	for _, tenant := range s.tenants {
-		if filterStatus != "" && strings.ToLower(tenant.Status) != filterStatus {
-			continue
-		}
-		if search != "" && !strings.Contains(strings.ToLower(tenant.Name), search) && !strings.Contains(strings.ToLower(tenant.Slug), search) && !strings.Contains(strings.ToLower(tenant.Domain), search) {
-			continue
-		}
-		out = append(out, cloneTenant(tenant))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
+	items, total := listInMemoryRecords(s.tenants, opts, inMemoryListConfig[TenantRecord]{
+		clone: cloneTenant,
+		include: func(tenant TenantRecord, search string, filters map[string]any) bool {
+			filterStatus := strings.ToLower(toString(filters["status"]))
+			if filterStatus != "" && strings.ToLower(tenant.Status) != filterStatus {
+				return false
+			}
+			if search == "" {
+				return true
+			}
+			return strings.Contains(strings.ToLower(tenant.Name), search) ||
+				strings.Contains(strings.ToLower(tenant.Slug), search) ||
+				strings.Contains(strings.ToLower(tenant.Domain), search)
+		},
+		less: func(left, right TenantRecord) bool {
+			return strings.ToLower(left.Name) < strings.ToLower(right.Name)
+		},
+		defaultPerPage: 10,
 	})
-	sliced, total := paginateInMemory(out, opts, 10)
-	return sliced, total, nil
+	return items, total, nil
 }
 
 // Get returns a tenant by ID.
@@ -266,10 +259,7 @@ func (s *InMemoryTenantStore) Get(ctx context.Context, id string) (TenantRecord,
 	_ = ctx
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if tenant, ok := s.tenants[id]; ok {
-		return cloneTenant(tenant), nil
-	}
-	return TenantRecord{}, ErrNotFound
+	return getInMemoryRecord(s.tenants, id, cloneTenant)
 }
 
 // Create inserts a tenant.
@@ -277,18 +267,24 @@ func (s *InMemoryTenantStore) Create(ctx context.Context, tenant TenantRecord) (
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if tenant.ID == "" {
-		tenant.ID = uuid.NewString()
-	}
-	if tenant.CreatedAt.IsZero() {
-		tenant.CreatedAt = time.Now()
-	}
-	if tenant.UpdatedAt.IsZero() {
-		tenant.UpdatedAt = tenant.CreatedAt
-	}
-	tenant.Members = normalizeTenantMembers(tenant.Members)
-	s.tenants[tenant.ID] = cloneTenant(tenant)
-	return cloneTenant(tenant), nil
+	return createInMemoryRecord(s.tenants, tenant, inMemoryCreateConfig[TenantRecord]{
+		clone: cloneTenant,
+		id: func(record TenantRecord) string {
+			return record.ID
+		},
+		setID: func(record *TenantRecord, id string) {
+			record.ID = id
+		},
+		prepare: func(record *TenantRecord, now time.Time) {
+			if record.CreatedAt.IsZero() {
+				record.CreatedAt = now
+			}
+			if record.UpdatedAt.IsZero() {
+				record.UpdatedAt = record.CreatedAt
+			}
+			record.Members = normalizeTenantMembers(record.Members)
+		},
+	})
 }
 
 // Update modifies a tenant.
@@ -296,31 +292,31 @@ func (s *InMemoryTenantStore) Update(ctx context.Context, tenant TenantRecord) (
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	existing, ok := s.tenants[tenant.ID]
-	if !ok {
-		return TenantRecord{}, ErrNotFound
-	}
-	if tenant.Name != "" {
-		existing.Name = tenant.Name
-	}
-	if tenant.Slug != "" {
-		existing.Slug = tenant.Slug
-	}
-	if tenant.Domain != "" {
-		existing.Domain = tenant.Domain
-	}
-	if tenant.Status != "" {
-		existing.Status = tenant.Status
-	}
-	if len(tenant.Members) > 0 {
-		existing.Members = normalizeTenantMembers(tenant.Members)
-	}
-	if tenant.Metadata != nil {
-		existing.Metadata = mergeMapInto(existing.Metadata, tenant.Metadata)
-	}
-	existing.UpdatedAt = time.Now()
-	s.tenants[existing.ID] = cloneTenant(existing)
-	return cloneTenant(existing), nil
+	return updateInMemoryRecord(s.tenants, tenant.ID, tenant, inMemoryUpdateConfig[TenantRecord]{
+		clone: cloneTenant,
+		merge: func(existing *TenantRecord, update TenantRecord, now time.Time) error {
+			if update.Name != "" {
+				existing.Name = update.Name
+			}
+			if update.Slug != "" {
+				existing.Slug = update.Slug
+			}
+			if update.Domain != "" {
+				existing.Domain = update.Domain
+			}
+			if update.Status != "" {
+				existing.Status = update.Status
+			}
+			if len(update.Members) > 0 {
+				existing.Members = normalizeTenantMembers(update.Members)
+			}
+			if update.Metadata != nil {
+				existing.Metadata = mergeMapInto(existing.Metadata, update.Metadata)
+			}
+			existing.UpdatedAt = now
+			return nil
+		},
+	})
 }
 
 // Delete removes a tenant.
@@ -328,11 +324,7 @@ func (s *InMemoryTenantStore) Delete(ctx context.Context, id string) error {
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.tenants[id]; !ok {
-		return ErrNotFound
-	}
-	delete(s.tenants, id)
-	return nil
+	return deleteInMemoryRecord(s.tenants, id)
 }
 
 // Search performs a simple keyword search.

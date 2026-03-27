@@ -62,6 +62,20 @@ func (a *Admin) InitializeWithContext(ctx context.Context, r AdminRouter) error 
 	return a.BootWithContext(ctx)
 }
 
+func (a *Admin) validateMountAuthBoundary() error {
+	if a == nil || a.authenticator != nil {
+		return nil
+	}
+	if a.config.AuthConfig != nil && a.config.AuthConfig.AllowUnauthenticatedRoutes {
+		return nil
+	}
+	return validationDomainError("authenticator required before mounting admin routes", map[string]any{
+		"component": "bootstrap",
+		"field":     "authenticator",
+		"hint":      "attach an authenticator with WithAuth(...) or explicitly opt out via auth_config.allow_unauthenticated_routes",
+	})
+}
+
 // AddInitHook registers a hook that runs after Initialize sets the router.
 func (a *Admin) AddInitHook(hook func(AdminRouter) error) {
 	if a == nil || hook == nil {
@@ -268,13 +282,10 @@ func (a *Admin) ensureSettingsNavigation(ctx context.Context) error {
 }
 
 func (a *Admin) requirePermission(ctx AdminContext, permission string, resource string) error {
-	if permission == "" || a.authorizer == nil {
-		return nil
-	}
-	if !a.authorizer.Can(ctx.Context, permission, resource) {
+	if a == nil {
 		return permissionDenied(permission, resource)
 	}
-	return nil
+	return requirePermissionWithAuthorizer(a.authorizer, ctx.Context, permission, resource)
 }
 
 func (a *Admin) bootstrapSettingsDefaults(ctx context.Context) error {

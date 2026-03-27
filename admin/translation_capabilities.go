@@ -131,13 +131,10 @@ func translationCapabilityPermissionAllowed(adm *Admin, reqCtx context.Context, 
 	if strings.TrimSpace(permission) == "" {
 		return true
 	}
-	if adm == nil || adm.authorizer == nil {
-		return true
+	if adm == nil {
+		return false
 	}
-	if reqCtx == nil {
-		return true
-	}
-	return adm.authorizer.Can(reqCtx, strings.TrimSpace(permission), strings.TrimSpace(resource))
+	return permissionAllowed(adm.authorizer, reqCtx, permission, resource)
 }
 
 func translationCapabilityActionState(moduleEnabled, permissionAllowed bool, permission string) map[string]any {

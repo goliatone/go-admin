@@ -51,8 +51,7 @@ func CaptureJSErrorContext(collector *DebugCollector, c router.Context, viewCtx 
 	if collector == nil || viewCtx == nil {
 		return viewCtx
 	}
-	cfg := collector.config
-	if !cfg.CaptureJSErrors {
+	if !collector.jsErrorsEnabled() {
 		return viewCtx
 	}
 	injectJSErrorContext(collector, c, viewCtx)
@@ -69,7 +68,7 @@ func captureViewContext(collector *DebugCollector, c router.Context, viewCtx rou
 
 	// Inject JS error collector variables when CaptureJSErrors is enabled.
 	// This is independent of ToolbarMode — the collector runs on all pages.
-	if cfg.CaptureJSErrors {
+	if collector.jsErrorsEnabled() {
 		injectJSErrorContext(collector, c, viewCtx)
 	}
 
@@ -96,7 +95,6 @@ func injectJSErrorContext(collector *DebugCollector, c router.Context, viewCtx r
 	if collector == nil {
 		return
 	}
-	// cfg := collector.config
 	viewCtx["debug_jserror_enabled"] = true
 	viewCtx["debug_jserror_endpoint"] = debugJSErrorEndpoint(collector)
 	if c != nil {

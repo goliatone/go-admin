@@ -30,6 +30,7 @@ func NewManagementServices(container CMSContainer, opts DeliveryOptions) Managem
 
 // ManagementContentService adapts CMS content for management APIs.
 type ManagementContentService struct {
+	readOnlyBatchCRUD[admingraphql.Content]
 	content       CMSContentService
 	defaultLocale string
 }
@@ -40,8 +41,9 @@ func NewManagementContentService(container CMSContainer, opts DeliveryOptions) *
 		svc = container.ContentService()
 	}
 	return &ManagementContentService{
-		content:       svc,
-		defaultLocale: strings.TrimSpace(opts.DefaultLocale),
+		readOnlyBatchCRUD: newReadOnlyBatchCRUD[admingraphql.Content](errManagementReadOnly),
+		content:           svc,
+		defaultLocale:     strings.TrimSpace(opts.DefaultLocale),
 	}
 }
 
@@ -98,10 +100,6 @@ func (s *ManagementContentService) Create(ctx crud.Context, record admingraphql.
 	return mapManagementContent(*created), nil
 }
 
-func (s *ManagementContentService) CreateBatch(ctx crud.Context, records []admingraphql.Content) ([]admingraphql.Content, error) {
-	return nil, errManagementReadOnly
-}
-
 func (s *ManagementContentService) Update(ctx crud.Context, record admingraphql.Content) (admingraphql.Content, error) {
 	if s == nil || s.content == nil {
 		return admingraphql.Content{}, ErrNotFound
@@ -117,10 +115,6 @@ func (s *ManagementContentService) Update(ctx crud.Context, record admingraphql.
 	return mapManagementContent(*updated), nil
 }
 
-func (s *ManagementContentService) UpdateBatch(ctx crud.Context, records []admingraphql.Content) ([]admingraphql.Content, error) {
-	return nil, errManagementReadOnly
-}
-
 func (s *ManagementContentService) Delete(ctx crud.Context, record admingraphql.Content) error {
 	if s == nil || s.content == nil {
 		return ErrNotFound
@@ -128,12 +122,9 @@ func (s *ManagementContentService) Delete(ctx crud.Context, record admingraphql.
 	return s.content.DeleteContent(ctx.UserContext(), record.ID)
 }
 
-func (s *ManagementContentService) DeleteBatch(ctx crud.Context, records []admingraphql.Content) error {
-	return errManagementReadOnly
-}
-
 // ManagementPageService adapts CMS pages for management APIs.
 type ManagementPageService struct {
+	readOnlyBatchCRUD[admingraphql.Page]
 	content       CMSContentService
 	defaultLocale string
 }
@@ -144,8 +135,9 @@ func NewManagementPageService(container CMSContainer, opts DeliveryOptions) *Man
 		svc = container.ContentService()
 	}
 	return &ManagementPageService{
-		content:       svc,
-		defaultLocale: strings.TrimSpace(opts.DefaultLocale),
+		readOnlyBatchCRUD: newReadOnlyBatchCRUD[admingraphql.Page](errManagementReadOnly),
+		content:           svc,
+		defaultLocale:     strings.TrimSpace(opts.DefaultLocale),
 	}
 }
 
@@ -202,10 +194,6 @@ func (s *ManagementPageService) Create(ctx crud.Context, record admingraphql.Pag
 	return mapManagementPage(*created), nil
 }
 
-func (s *ManagementPageService) CreateBatch(ctx crud.Context, records []admingraphql.Page) ([]admingraphql.Page, error) {
-	return nil, errManagementReadOnly
-}
-
 func (s *ManagementPageService) Update(ctx crud.Context, record admingraphql.Page) (admingraphql.Page, error) {
 	if s == nil || s.content == nil {
 		return admingraphql.Page{}, ErrNotFound
@@ -221,10 +209,6 @@ func (s *ManagementPageService) Update(ctx crud.Context, record admingraphql.Pag
 	return mapManagementPage(*updated), nil
 }
 
-func (s *ManagementPageService) UpdateBatch(ctx crud.Context, records []admingraphql.Page) ([]admingraphql.Page, error) {
-	return nil, errManagementReadOnly
-}
-
 func (s *ManagementPageService) Delete(ctx crud.Context, record admingraphql.Page) error {
 	if s == nil || s.content == nil {
 		return ErrNotFound
@@ -232,12 +216,9 @@ func (s *ManagementPageService) Delete(ctx crud.Context, record admingraphql.Pag
 	return s.content.DeletePage(ctx.UserContext(), record.ID)
 }
 
-func (s *ManagementPageService) DeleteBatch(ctx crud.Context, records []admingraphql.Page) error {
-	return errManagementReadOnly
-}
-
 // ManagementContentTypeService adapts CMS content types for management APIs.
 type ManagementContentTypeService struct {
+	readOnlyBatchCRUD[admingraphql.ContentType]
 	types CMSContentTypeService
 }
 
@@ -246,7 +227,10 @@ func NewManagementContentTypeService(container CMSContainer) *ManagementContentT
 	if container != nil {
 		svc = container.ContentTypeService()
 	}
-	return &ManagementContentTypeService{types: svc}
+	return &ManagementContentTypeService{
+		readOnlyBatchCRUD: newReadOnlyBatchCRUD[admingraphql.ContentType](errManagementReadOnly),
+		types:             svc,
+	}
 }
 
 func (s *ManagementContentTypeService) Index(ctx crud.Context, _ []repository.SelectCriteria) ([]admingraphql.ContentType, int, error) {
@@ -286,10 +270,6 @@ func (s *ManagementContentTypeService) Create(ctx crud.Context, record admingrap
 	return mapContentType(*created), nil
 }
 
-func (s *ManagementContentTypeService) CreateBatch(ctx crud.Context, records []admingraphql.ContentType) ([]admingraphql.ContentType, error) {
-	return nil, errManagementReadOnly
-}
-
 func (s *ManagementContentTypeService) Update(ctx crud.Context, record admingraphql.ContentType) (admingraphql.ContentType, error) {
 	if s == nil || s.types == nil {
 		return admingraphql.ContentType{}, ErrNotFound
@@ -301,19 +281,11 @@ func (s *ManagementContentTypeService) Update(ctx crud.Context, record admingrap
 	return mapContentType(*updated), nil
 }
 
-func (s *ManagementContentTypeService) UpdateBatch(ctx crud.Context, records []admingraphql.ContentType) ([]admingraphql.ContentType, error) {
-	return nil, errManagementReadOnly
-}
-
 func (s *ManagementContentTypeService) Delete(ctx crud.Context, record admingraphql.ContentType) error {
 	if s == nil || s.types == nil {
 		return ErrNotFound
 	}
 	return s.types.DeleteContentType(ctx.UserContext(), record.ID)
-}
-
-func (s *ManagementContentTypeService) DeleteBatch(ctx crud.Context, records []admingraphql.ContentType) error {
-	return errManagementReadOnly
 }
 
 func resolveManagementLocale(ctx crud.Context, fallback string) string {

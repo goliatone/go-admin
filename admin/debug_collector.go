@@ -29,11 +29,12 @@ type DebugPanel interface {
 type DebugCollector struct {
 	mu sync.RWMutex
 
-	config     DebugConfig
-	panelSet   map[string]bool
-	panels     []DebugPanel
-	panelIndex map[string]DebugPanel
-	panelData  map[string]debugPanelSnapshot
+	config              DebugConfig
+	jsErrorRouteEnabled bool
+	panelSet            map[string]bool
+	panels              []DebugPanel
+	panelIndex          map[string]DebugPanel
+	panelData           map[string]debugPanelSnapshot
 
 	templateData map[string]any
 	sessionData  map[string]any
@@ -148,19 +149,20 @@ func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 		panelSet[normalizePanelID(panel)] = true
 	}
 	return &DebugCollector{
-		config:       cfg,
-		panelSet:     panelSet,
-		panelIndex:   map[string]DebugPanel{},
-		panelData:    map[string]debugPanelSnapshot{},
-		templateData: map[string]any{},
-		sessionData:  map[string]any{},
-		requestLog:   NewRingBuffer[RequestEntry](cfg.MaxLogEntries),
-		sqlLog:       NewRingBuffer[SQLEntry](cfg.MaxSQLQueries),
-		serverLog:    NewRingBuffer[LogEntry](cfg.MaxLogEntries),
-		jsErrorLog:   NewRingBuffer[JSErrorEntry](cfg.MaxLogEntries),
-		customData:   map[string]any{},
-		customLog:    NewRingBuffer[CustomLogEntry](cfg.MaxLogEntries),
-		subscribers:  map[string]chan DebugEvent{},
+		config:              cfg,
+		jsErrorRouteEnabled: cfg.CaptureJSErrors,
+		panelSet:            panelSet,
+		panelIndex:          map[string]DebugPanel{},
+		panelData:           map[string]debugPanelSnapshot{},
+		templateData:        map[string]any{},
+		sessionData:         map[string]any{},
+		requestLog:          NewRingBuffer[RequestEntry](cfg.MaxLogEntries),
+		sqlLog:              NewRingBuffer[SQLEntry](cfg.MaxSQLQueries),
+		serverLog:           NewRingBuffer[LogEntry](cfg.MaxLogEntries),
+		jsErrorLog:          NewRingBuffer[JSErrorEntry](cfg.MaxLogEntries),
+		customData:          map[string]any{},
+		customLog:           NewRingBuffer[CustomLogEntry](cfg.MaxLogEntries),
+		subscribers:         map[string]chan DebugEvent{},
 	}
 }
 
@@ -186,6 +188,16 @@ func (c *DebugCollector) WithSessionStore(store DebugUserSessionStore) *DebugCol
 	return c
 }
 
+func (c *DebugCollector) SetJSErrorRouteEnabled(enabled bool) *DebugCollector {
+	if c == nil {
+		return c
+	}
+	c.mu.Lock()
+	c.jsErrorRouteEnabled = enabled
+	c.mu.Unlock()
+	return c
+}
+
 func (c *DebugCollector) urlResolver() urlkit.Resolver {
 	if c == nil {
 		return nil
@@ -202,6 +214,15 @@ func (c *DebugCollector) sessionStoreRef() DebugUserSessionStore {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.sessionStore
+}
+
+func (c *DebugCollector) jsErrorsEnabled() bool {
+	if c == nil {
+		return false
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.config.CaptureJSErrors && c.jsErrorRouteEnabled
 }
 
 // RegisterPanel adds a custom debug panel.

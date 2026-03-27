@@ -125,6 +125,7 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	if m.collector == nil {
 		m.collector = NewDebugCollector(cfg)
 	}
+	m.collector.SetJSErrorRouteEnabled(debugJSErrorRouteEnabled(ctx.Admin, cfg))
 	m.admin = ctx.Admin
 	m.collector.WithURLs(ctx.Admin.URLs())
 	if m.sessionStore == nil {

@@ -121,7 +121,7 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 	}
 
 	_, err = a.service.UpsertMenuItemByPath(ctx, input)
-	return err
+	return normalizeMenuTargetError(err)
 }
 
 // UpdateMenuItem updates an item by path and refreshes its translation for the provided locale.
@@ -187,7 +187,7 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 	update.Metadata = map[string]any{"path": path, "parent_path": parent}
 
 	if _, err := a.service.UpdateMenuItemByPath(ctx, menuCode, path, update); err != nil {
-		return err
+		return normalizeMenuTargetError(err)
 	}
 
 	locale := strings.TrimSpace(item.Locale)
@@ -198,14 +198,14 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 		return nil
 	}
 	label, labelKey, groupTitle, groupTitleKey := normalizeMenuItemTranslationFields(item)
-	return a.service.UpsertMenuItemTranslationByPath(ctx, menuCode, path, cms.MenuItemTranslationInput{
+	return normalizeMenuTargetError(a.service.UpsertMenuItemTranslationByPath(ctx, menuCode, path, cms.MenuItemTranslationInput{
 		Locale:        locale,
 		Label:         label,
 		LabelKey:      labelKey,
 		GroupTitle:    groupTitle,
 		GroupTitleKey: groupTitleKey,
 		URLOverride:   normalizedURLOverride(item.URLOverride),
-	})
+	}))
 }
 
 func (a *GoCMSMenuAdapter) ensureMenuHierarchyIntegrity(ctx context.Context, menuCode, path, parent string) error {
@@ -237,7 +237,7 @@ func (a *GoCMSMenuAdapter) DeleteMenuItem(ctx context.Context, menuCode, id stri
 	if path == "" {
 		return ErrNotFound
 	}
-	return a.service.DeleteMenuItemByPath(ctx, menuCode, path, uuid.Nil, true)
+	return normalizeMenuTargetError(a.service.DeleteMenuItemByPath(ctx, menuCode, path, uuid.Nil, true))
 }
 
 // ReorderMenu updates item positions while preserving their parents.

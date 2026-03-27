@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -63,8 +62,8 @@ func NewOrganizationService(repo OrganizationRepository) *OrganizationService {
 
 // WithActivitySink wires activity emission for organization mutations.
 func (s *OrganizationService) WithActivitySink(sink ActivitySink) {
-	if s != nil && sink != nil {
-		s.activity = sink
+	if s != nil {
+		assignActivitySink(&s.activity, sink)
 	}
 }
 
@@ -208,12 +207,8 @@ func (s *OrganizationService) SearchOrganizations(ctx context.Context, query str
 }
 
 func (s *OrganizationService) recordActivity(ctx context.Context, action string, org OrganizationRecord, metadata map[string]any) {
-	if s == nil || s.activity == nil {
+	if s == nil {
 		return
-	}
-	actor := actorFromContext(ctx)
-	if actor == "" {
-		actor = userIDFromContext(ctx)
 	}
 	if metadata == nil {
 		metadata = map[string]any{}
@@ -222,12 +217,7 @@ func (s *OrganizationService) recordActivity(ctx context.Context, action string,
 	if org.TenantID != "" {
 		metadata["tenant_id"] = org.TenantID
 	}
-	_ = s.activity.Record(ctx, ActivityEntry{
-		Actor:    actor,
-		Action:   action,
-		Object:   "organization:" + org.ID,
-		Metadata: metadata,
-	})
+	recordEntityActivity(ctx, s.activity, action, "organization:"+org.ID, metadata)
 }
 
 // InMemoryOrganizationStore keeps organizations and memberships in memory.
@@ -248,27 +238,29 @@ func (s *InMemoryOrganizationStore) List(ctx context.Context, opts ListOptions) 
 	_ = ctx
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]OrganizationRecord, 0, len(s.orgs))
-	search := inMemoryListSearchTerm(opts)
-	filterStatus := strings.ToLower(toString(opts.Filters["status"]))
-	filterTenant := strings.ToLower(toString(opts.Filters["tenant_id"]))
-	for _, org := range s.orgs {
-		if filterStatus != "" && strings.ToLower(org.Status) != filterStatus {
-			continue
-		}
-		if filterTenant != "" && strings.ToLower(org.TenantID) != filterTenant {
-			continue
-		}
-		if search != "" && !strings.Contains(strings.ToLower(org.Name), search) && !strings.Contains(strings.ToLower(org.Slug), search) {
-			continue
-		}
-		out = append(out, cloneOrganization(org))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
+	items, total := listInMemoryRecords(s.orgs, opts, inMemoryListConfig[OrganizationRecord]{
+		clone: cloneOrganization,
+		include: func(org OrganizationRecord, search string, filters map[string]any) bool {
+			filterStatus := strings.ToLower(toString(filters["status"]))
+			filterTenant := strings.ToLower(toString(filters["tenant_id"]))
+			if filterStatus != "" && strings.ToLower(org.Status) != filterStatus {
+				return false
+			}
+			if filterTenant != "" && strings.ToLower(org.TenantID) != filterTenant {
+				return false
+			}
+			if search == "" {
+				return true
+			}
+			return strings.Contains(strings.ToLower(org.Name), search) ||
+				strings.Contains(strings.ToLower(org.Slug), search)
+		},
+		less: func(left, right OrganizationRecord) bool {
+			return strings.ToLower(left.Name) < strings.ToLower(right.Name)
+		},
+		defaultPerPage: 10,
 	})
-	sliced, total := paginateInMemory(out, opts, 10)
-	return sliced, total, nil
+	return items, total, nil
 }
 
 // Get returns an organization by ID.
@@ -276,10 +268,7 @@ func (s *InMemoryOrganizationStore) Get(ctx context.Context, id string) (Organiz
 	_ = ctx
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if org, ok := s.orgs[id]; ok {
-		return cloneOrganization(org), nil
-	}
-	return OrganizationRecord{}, ErrNotFound
+	return getInMemoryRecord(s.orgs, id, cloneOrganization)
 }
 
 // Create inserts an organization.
@@ -287,18 +276,24 @@ func (s *InMemoryOrganizationStore) Create(ctx context.Context, org Organization
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if org.ID == "" {
-		org.ID = uuid.NewString()
-	}
-	if org.CreatedAt.IsZero() {
-		org.CreatedAt = time.Now()
-	}
-	if org.UpdatedAt.IsZero() {
-		org.UpdatedAt = org.CreatedAt
-	}
-	org.Members = normalizeOrganizationMembers(org.Members)
-	s.orgs[org.ID] = cloneOrganization(org)
-	return cloneOrganization(org), nil
+	return createInMemoryRecord(s.orgs, org, inMemoryCreateConfig[OrganizationRecord]{
+		clone: cloneOrganization,
+		id: func(record OrganizationRecord) string {
+			return record.ID
+		},
+		setID: func(record *OrganizationRecord, id string) {
+			record.ID = id
+		},
+		prepare: func(record *OrganizationRecord, now time.Time) {
+			if record.CreatedAt.IsZero() {
+				record.CreatedAt = now
+			}
+			if record.UpdatedAt.IsZero() {
+				record.UpdatedAt = record.CreatedAt
+			}
+			record.Members = normalizeOrganizationMembers(record.Members)
+		},
+	})
 }
 
 // Update modifies an organization.
@@ -306,31 +301,31 @@ func (s *InMemoryOrganizationStore) Update(ctx context.Context, org Organization
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	existing, ok := s.orgs[org.ID]
-	if !ok {
-		return OrganizationRecord{}, ErrNotFound
-	}
-	if org.Name != "" {
-		existing.Name = org.Name
-	}
-	if org.Slug != "" {
-		existing.Slug = org.Slug
-	}
-	if org.Status != "" {
-		existing.Status = org.Status
-	}
-	if org.TenantID != "" {
-		existing.TenantID = org.TenantID
-	}
-	if len(org.Members) > 0 {
-		existing.Members = normalizeOrganizationMembers(org.Members)
-	}
-	if org.Metadata != nil {
-		existing.Metadata = mergeMapInto(existing.Metadata, org.Metadata)
-	}
-	existing.UpdatedAt = time.Now()
-	s.orgs[existing.ID] = cloneOrganization(existing)
-	return cloneOrganization(existing), nil
+	return updateInMemoryRecord(s.orgs, org.ID, org, inMemoryUpdateConfig[OrganizationRecord]{
+		clone: cloneOrganization,
+		merge: func(existing *OrganizationRecord, update OrganizationRecord, now time.Time) error {
+			if update.Name != "" {
+				existing.Name = update.Name
+			}
+			if update.Slug != "" {
+				existing.Slug = update.Slug
+			}
+			if update.Status != "" {
+				existing.Status = update.Status
+			}
+			if update.TenantID != "" {
+				existing.TenantID = update.TenantID
+			}
+			if len(update.Members) > 0 {
+				existing.Members = normalizeOrganizationMembers(update.Members)
+			}
+			if update.Metadata != nil {
+				existing.Metadata = mergeMapInto(existing.Metadata, update.Metadata)
+			}
+			existing.UpdatedAt = now
+			return nil
+		},
+	})
 }
 
 // Delete removes an organization.
@@ -338,11 +333,7 @@ func (s *InMemoryOrganizationStore) Delete(ctx context.Context, id string) error
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.orgs[id]; !ok {
-		return ErrNotFound
-	}
-	delete(s.orgs, id)
-	return nil
+	return deleteInMemoryRecord(s.orgs, id)
 }
 
 // Search performs a simple keyword search.

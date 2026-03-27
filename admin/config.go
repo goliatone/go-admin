@@ -99,9 +99,13 @@ type SiteConfig struct {
 	// AllowLocaleFallback controls missing translation fallback behavior for site APIs.
 	// Nil defaults to true.
 	AllowLocaleFallback *bool `json:"allow_locale_fallback"`
-	// Protected enables auth wrapping for site endpoints when an authenticator is configured.
+	// AllowUnauthenticatedReads explicitly opts into anonymous public-site reads.
+	// Leave false to require an authenticated actor for the public API surface.
+	AllowUnauthenticatedReads bool `json:"allow_unauthenticated_reads,omitempty"`
+	// Protected forces authenticated site reads even when anonymous reads would
+	// otherwise be allowed by configuration.
 	Protected bool `json:"protected"`
-	// ReadPermission optionally guards site endpoint reads when Protected is enabled.
+	// ReadPermission guards authenticated site endpoint reads.
 	ReadPermission string `json:"read_permission"`
 	// DraftReadPermission optionally guards include_drafts access.
 	DraftReadPermission string `json:"draft_read_permission"`
@@ -144,4 +148,8 @@ type AuthConfig struct {
 	LoginPath    string `json:"login_path"`
 	LogoutPath   string `json:"logout_path"`
 	RedirectPath string `json:"redirect_path"`
+	// AllowUnauthenticatedRoutes explicitly opts out of the default admin
+	// route-auth requirement. Leave false to require an authenticator before
+	// Initialize mounts the protected admin surface.
+	AllowUnauthenticatedRoutes bool `json:"allow_unauthenticated_routes,omitempty"`
 }

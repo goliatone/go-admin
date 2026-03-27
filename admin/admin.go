@@ -770,6 +770,9 @@ func (a *Admin) WithTranslator(t Translator) *Admin {
 
 // WithAuthorizer sets an authorizer for panel permissions.
 func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
+	if a == nil {
+		return a
+	}
 	a.authorizer = authz
 	if a.nav != nil {
 		a.nav.SetAuthorizer(authz)
@@ -779,6 +782,14 @@ func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 	}
 	if a.dashboard != nil {
 		a.dashboard.WithAuthorizer(authz)
+	}
+	if a.registry != nil {
+		for _, panel := range a.registry.Panels() {
+			if panel == nil || panel.authorizer != nil {
+				continue
+			}
+			panel.authorizer = authz
+		}
 	}
 	return a
 }
@@ -1688,10 +1699,7 @@ func (a *Admin) panelTabAllowed(ctx AdminContext, tab PanelTab, panelName string
 	if perm == "" {
 		return true
 	}
-	if a.authorizer == nil {
-		return true
-	}
-	return a.authorizer.Can(ctx.Context, perm, "navigation")
+	return permissionAllowed(a.authorizer, ctx.Context, perm, "navigation")
 }
 
 func (a *Admin) resolvePanelTabCollision(panelName string, existing PanelTab, incoming PanelTab) (PanelTab, error) {

@@ -212,9 +212,6 @@ func orderNavigation(items []NavigationItem) []NavigationItem {
 }
 
 func (n *Navigation) filter(items []NavigationItem, ctx context.Context) []NavigationItem {
-	if n.authorizer == nil {
-		return items
-	}
 	out := []NavigationItem{}
 	lastWasSeparator := false
 	for _, item := range items {
@@ -266,6 +263,9 @@ func boolFromTarget(target map[string]any, key string) bool {
 }
 
 func (n *Navigation) canAny(ctx context.Context, perms []string) bool {
+	if n == nil || n.authorizer == nil {
+		return false
+	}
 	for _, perm := range perms {
 		if strings.TrimSpace(perm) == "" {
 			continue

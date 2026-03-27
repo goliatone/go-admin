@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -19,6 +20,14 @@ type Authenticator interface {
 // HandlerAuthenticator can wrap handlers directly to preserve middleware semantics.
 type HandlerAuthenticator interface {
 	WrapHandler(handler router.HandlerFunc) router.HandlerFunc
+}
+
+// BrowserCSRFProtector exposes browser-session detection and CSRF enforcement
+// for mutating routes that need browser-grade CSRF semantics without depending
+// on a specific authenticator implementation.
+type BrowserCSRFProtector interface {
+	UsesBrowserSession(c router.Context) bool
+	EnforceBrowserCSRF(c router.Context) error
 }
 
 // GoAuthAuthenticator adapts a go-auth RouteAuthenticator to the Authenticator contract.
@@ -199,6 +208,20 @@ func (a *GoAuthAuthenticator) Wrap(ctx router.Context) error {
 		}
 		return nil
 	})(ctx)
+}
+
+func (a *GoAuthAuthenticator) UsesBrowserSession(c router.Context) bool {
+	if a == nil || a.authConfig == nil {
+		return false
+	}
+	return translationExchangeUsesCookieAuth(c, a.authConfig)
+}
+
+func (a *GoAuthAuthenticator) EnforceBrowserCSRF(c router.Context) error {
+	if a == nil || a.authConfig == nil {
+		return errors.New("csrf configuration unavailable")
+	}
+	return translationExchangeValidateCSRFMiddleware(c, a.authConfig)
 }
 
 func (a *GoAuthAuthenticator) resolveErrorHandler() func(router.Context, error) error {

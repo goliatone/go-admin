@@ -174,7 +174,7 @@ func (f *DynamicPanelFactory) RefreshPanel(ctx context.Context, contentType *CMS
 			if err := f.admin.UnregisterPanel(previousName); err != nil && !errors.Is(err, ErrNotFound) {
 				return err
 			}
-			if err := f.removeFromNavigation(ctx, previous, env); err != nil && !errors.Is(err, ErrNotFound) && !isMenuItemMissing(err) {
+			if err := f.removeFromNavigation(ctx, previous, env); err != nil && !isMenuTargetMissing(err) {
 				return err
 			}
 		}
@@ -207,7 +207,7 @@ func (f *DynamicPanelFactory) RemovePanel(ctx context.Context, slugOrID string) 
 	if err := f.admin.UnregisterPanel(panelName); err != nil && !errors.Is(err, ErrNotFound) {
 		return err
 	}
-	if err := f.removeFromNavigation(ctx, slug, env); err != nil && !errors.Is(err, ErrNotFound) && !isMenuItemMissing(err) {
+	if err := f.removeFromNavigation(ctx, slug, env); err != nil && !isMenuTargetMissing(err) {
 		return err
 	}
 	return nil
@@ -354,7 +354,7 @@ func (f *DynamicPanelFactory) cleanupPanel(ctx context.Context, contentType *CMS
 		if err := f.admin.UnregisterPanel(panelName); err != nil && !errors.Is(err, ErrNotFound) {
 			return err
 		}
-		if err := f.removeFromNavigation(ctx, slug, env); err != nil && !errors.Is(err, ErrNotFound) && !isMenuItemMissing(err) {
+		if err := f.removeFromNavigation(ctx, slug, env); err != nil && !isMenuTargetMissing(err) {
 			return err
 		}
 	}
@@ -487,7 +487,7 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 	}
 
 	if err := f.admin.addMenuItems(ctx, []MenuItem{item}); err != nil {
-		if isMenuItemMissing(err) {
+		if isMenuTargetMissing(err) {
 			return nil
 		}
 		return err
@@ -529,7 +529,7 @@ func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, 
 		item.Position = new(*existing.Position)
 	}
 	if err := f.admin.menuSvc.UpdateMenuItem(ctx, menuCode, item); err != nil {
-		if isMenuItemMissing(err) || errors.Is(err, ErrNotFound) {
+		if isMenuTargetMissing(err) {
 			return false, nil
 		}
 		return false, err
@@ -575,7 +575,7 @@ func (f *DynamicPanelFactory) deleteLegacyPanelNavigationItems(ctx context.Conte
 			continue
 		}
 		if err := f.admin.menuSvc.DeleteMenuItem(ctx, menuCode, candidateID); err != nil {
-			if isMenuItemMissing(err) || errors.Is(err, ErrNotFound) {
+			if isMenuTargetMissing(err) {
 				continue
 			}
 			return err
@@ -709,7 +709,7 @@ func (f *DynamicPanelFactory) removeFromNavigation(ctx context.Context, slug, en
 	}
 	item = normalizeMenuItem(item, menuCode)
 	if err := f.admin.menuSvc.DeleteMenuItem(ctx, menuCode, item.ID); err != nil {
-		if isMenuItemMissing(err) {
+		if isMenuTargetMissing(err) {
 			return nil
 		}
 		return err

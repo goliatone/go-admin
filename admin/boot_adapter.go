@@ -16,6 +16,11 @@ func (a *Admin) Boot(steps ...boot.Step) error {
 
 // BootWithContext runs the admin boot pipeline with the given lifecycle context and steps.
 func (a *Admin) BootWithContext(ctx context.Context, steps ...boot.Step) error {
+	if a != nil && a.router != nil {
+		if err := a.validateMountAuthBoundary(); err != nil {
+			return err
+		}
+	}
 	if len(steps) == 0 {
 		steps = boot.DefaultBootSteps()
 	}
@@ -162,6 +167,9 @@ func (a *Admin) Responder() boot.Responder {
 
 // ParseBody parses JSON into a map.
 func (a *Admin) ParseBody(c router.Context) (map[string]any, error) {
+	if c == nil || len(c.Body()) == 0 {
+		return map[string]any{}, nil
+	}
 	return parseJSONBody(c)
 }
 

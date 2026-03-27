@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	goerrors "github.com/goliatone/go-errors"
@@ -135,45 +136,23 @@ func (a *BunRepositoryAdapter[T]) List(ctx context.Context, opts ListOptions) ([
 	if err := a.ensureRepo(); err != nil {
 		return nil, 0, err
 	}
+	query := normalizeRepositoryListQuery(opts)
 	criteria := append([]repository.SelectCriteria{}, a.baseCriteria...)
 
-	per := opts.PerPage
-	if per <= 0 {
-		per = 10
-	}
-	page := max(opts.Page, 1)
-	offset := (page - 1) * per
-	criteria = append(criteria, repository.SelectPaginate(per, offset))
+	criteria = append(criteria, repository.SelectPaginate(query.PerPage, query.Offset()))
 
-	if opts.SortBy != "" {
-		dir := "ASC"
-		if opts.SortDesc {
-			dir = "DESC"
-		}
-		criteria = append(criteria, repository.OrderBy(fmt.Sprintf("%s %s", opts.SortBy, dir)))
+	if order := query.OrderExpr(); order != "" {
+		criteria = append(criteria, repository.OrderBy(order))
 	}
 
-	search := strings.TrimSpace(opts.Search)
-	if search == "" {
-		if raw, ok := opts.Filters["_search"]; ok {
-			search = strings.TrimSpace(fmt.Sprint(raw))
-		}
-	}
-	if sc := a.buildSearchCriteria(search); sc != nil {
+	if sc := a.buildSearchCriteria(query.Search); sc != nil {
 		criteria = append(criteria, sc)
 	}
 
-	for key, val := range opts.Filters {
-		if key == "" || val == nil || key == "_search" {
-			continue
+	for _, predicate := range query.FilterPredicates() {
+		if crit := a.buildPredicateCriteria(predicate); crit != nil {
+			criteria = append(criteria, crit)
 		}
-		if builder, ok := a.filterBuilders[key]; ok && builder != nil {
-			if crit := builder(val); crit != nil {
-				criteria = append(criteria, crit)
-			}
-			continue
-		}
-		criteria = append(criteria, repository.SelectBy(key, "=", fmt.Sprint(val)))
 	}
 
 	records, total, err := a.repo.List(ctx, criteria...)
@@ -269,6 +248,52 @@ func (a *BunRepositoryAdapter[T]) mapRecords(records []T) ([]map[string]any, err
 	return out, nil
 }
 
+var repositoryAdapterIdentifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$`)
+
+func (a *BunRepositoryAdapter[T]) buildPredicateCriteria(predicate ListPredicate) repository.SelectCriteria {
+	field, ok := normalizeRepositoryAdapterIdentifier(predicate.Field)
+	if !ok {
+		return invalidBunPredicateCriteria()
+	}
+
+	values := normalizePredicateValues(predicate.Values)
+	if len(values) == 0 {
+		return nil
+	}
+
+	if builder, ok := a.filterBuilders[field]; ok && builder != nil {
+		if crit := builder(repositoryPredicateBuilderValue(values)); crit != nil {
+			return crit
+		}
+		return nil
+	}
+
+	switch strings.ToLower(strings.TrimSpace(predicate.Operator)) {
+	case "", "eq":
+		return repository.SelectBy(field, "=", strings.Join(values, ","))
+	case "ne", "neq":
+		return repository.SelectBy(field, "!=", strings.Join(values, ","))
+	case "gt":
+		return repository.SelectBy(field, ">", strings.Join(values, ","))
+	case "gte":
+		return repository.SelectBy(field, ">=", strings.Join(values, ","))
+	case "lt":
+		return repository.SelectBy(field, "<", strings.Join(values, ","))
+	case "lte":
+		return repository.SelectBy(field, "<=", strings.Join(values, ","))
+	case "in":
+		return bunAnyValuePredicate(field, values, false)
+	case "nin":
+		return bunAnyValuePredicate(field, values, true)
+	case "like":
+		return bunContainsPredicate(field, values, false)
+	case "ilike", "contains":
+		return bunContainsPredicate(field, values, true)
+	default:
+		return repository.SelectBy(field, "=", strings.Join(values, ","))
+	}
+}
+
 func (a *BunRepositoryAdapter[T]) buildSearchCriteria(term string) repository.SelectCriteria {
 	if term = strings.TrimSpace(term); term == "" || len(a.searchColumns) == 0 {
 		return nil
@@ -293,6 +318,74 @@ func (a *BunRepositoryAdapter[T]) buildSearchCriteria(term string) repository.Se
 			}
 		}
 		return q
+	})
+}
+
+func normalizeRepositoryAdapterIdentifier(field string) (string, bool) {
+	normalized := strings.TrimSpace(field)
+	if !repositoryAdapterIdentifierPattern.MatchString(normalized) {
+		return "", false
+	}
+	return normalized, true
+}
+
+func repositoryPredicateBuilderValue(values []string) any {
+	if len(values) == 0 {
+		return nil
+	}
+	if len(values) == 1 {
+		return values[0]
+	}
+	out := make([]string, len(values))
+	copy(out, values)
+	return out
+}
+
+func invalidBunPredicateCriteria() repository.SelectCriteria {
+	return repository.SelectRawProcessor(func(q *bun.SelectQuery) *bun.SelectQuery {
+		return q.Where("1=0")
+	})
+}
+
+func bunAnyValuePredicate(field string, values []string, negate bool) repository.SelectCriteria {
+	if len(values) == 0 {
+		return nil
+	}
+	return repository.SelectRawProcessor(func(q *bun.SelectQuery) *bun.SelectQuery {
+		if !negate {
+			return q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+				for _, value := range values {
+					q = q.WhereOr(fmt.Sprintf("?TableAlias.%s = ?", field), value)
+				}
+				return q
+			})
+		}
+		for _, value := range values {
+			q = q.Where(fmt.Sprintf("NOT (?TableAlias.%s = ?)", field), value)
+		}
+		return q
+	})
+}
+
+func bunContainsPredicate(field string, values []string, caseInsensitive bool) repository.SelectCriteria {
+	if len(values) == 0 {
+		return nil
+	}
+	return repository.SelectRawProcessor(func(q *bun.SelectQuery) *bun.SelectQuery {
+		return q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+			for _, value := range values {
+				pattern := "%" + strings.ToLower(strings.TrimSpace(value)) + "%"
+				if !caseInsensitive {
+					pattern = "%" + strings.TrimSpace(value) + "%"
+				}
+				cond := fmt.Sprintf("?TableAlias.%s LIKE ?", field)
+				if caseInsensitive {
+					cond = fmt.Sprintf("LOWER(?TableAlias.%s) LIKE ?", field)
+				}
+				q = q.WhereOr(cond, pattern)
+			}
+			return q
+		})
 	})
 }
 

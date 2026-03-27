@@ -35,6 +35,7 @@ func NewDeliveryServices(container CMSContainer, opts DeliveryOptions) DeliveryS
 
 // DeliveryContentService adapts CMS content for delivery.
 type DeliveryContentService struct {
+	readOnlyCRUD[delivery.Content]
 	content       CMSContentService
 	defaultLocale string
 }
@@ -46,6 +47,7 @@ func NewDeliveryContentService(container CMSContainer, opts DeliveryOptions) *De
 		svc = container.ContentService()
 	}
 	return &DeliveryContentService{
+		readOnlyCRUD:  newReadOnlyCRUD[delivery.Content](errDeliveryReadOnly),
 		content:       svc,
 		defaultLocale: strings.TrimSpace(opts.DefaultLocale),
 	}
@@ -93,27 +95,9 @@ func (s *DeliveryContentService) Show(ctx crud.Context, id string, _ []repositor
 	return mapDeliveryContent(*record), nil
 }
 
-func (s *DeliveryContentService) Create(crud.Context, delivery.Content) (delivery.Content, error) {
-	return delivery.Content{}, errDeliveryReadOnly
-}
-func (s *DeliveryContentService) CreateBatch(crud.Context, []delivery.Content) ([]delivery.Content, error) {
-	return nil, errDeliveryReadOnly
-}
-func (s *DeliveryContentService) Update(crud.Context, delivery.Content) (delivery.Content, error) {
-	return delivery.Content{}, errDeliveryReadOnly
-}
-func (s *DeliveryContentService) UpdateBatch(crud.Context, []delivery.Content) ([]delivery.Content, error) {
-	return nil, errDeliveryReadOnly
-}
-func (s *DeliveryContentService) Delete(crud.Context, delivery.Content) error {
-	return errDeliveryReadOnly
-}
-func (s *DeliveryContentService) DeleteBatch(crud.Context, []delivery.Content) error {
-	return errDeliveryReadOnly
-}
-
 // DeliveryPageService adapts CMS pages for delivery.
 type DeliveryPageService struct {
+	readOnlyCRUD[delivery.Page]
 	content       CMSContentService
 	defaultLocale string
 }
@@ -125,6 +109,7 @@ func NewDeliveryPageService(container CMSContainer, opts DeliveryOptions) *Deliv
 		svc = container.ContentService()
 	}
 	return &DeliveryPageService{
+		readOnlyCRUD:  newReadOnlyCRUD[delivery.Page](errDeliveryReadOnly),
 		content:       svc,
 		defaultLocale: strings.TrimSpace(opts.DefaultLocale),
 	}
@@ -172,27 +157,9 @@ func (s *DeliveryPageService) Show(ctx crud.Context, id string, _ []repository.S
 	return mapDeliveryPage(*record), nil
 }
 
-func (s *DeliveryPageService) Create(crud.Context, delivery.Page) (delivery.Page, error) {
-	return delivery.Page{}, errDeliveryReadOnly
-}
-func (s *DeliveryPageService) CreateBatch(crud.Context, []delivery.Page) ([]delivery.Page, error) {
-	return nil, errDeliveryReadOnly
-}
-func (s *DeliveryPageService) Update(crud.Context, delivery.Page) (delivery.Page, error) {
-	return delivery.Page{}, errDeliveryReadOnly
-}
-func (s *DeliveryPageService) UpdateBatch(crud.Context, []delivery.Page) ([]delivery.Page, error) {
-	return nil, errDeliveryReadOnly
-}
-func (s *DeliveryPageService) Delete(crud.Context, delivery.Page) error {
-	return errDeliveryReadOnly
-}
-func (s *DeliveryPageService) DeleteBatch(crud.Context, []delivery.Page) error {
-	return errDeliveryReadOnly
-}
-
 // DeliveryMenuService adapts CMS menus for delivery.
 type DeliveryMenuService struct {
+	readOnlyCRUD[delivery.Menu]
 	menus         CMSMenuService
 	defaultLocale string
 }
@@ -204,6 +171,7 @@ func NewDeliveryMenuService(container CMSContainer, opts DeliveryOptions) *Deliv
 		svc = container.MenuService()
 	}
 	return &DeliveryMenuService{
+		readOnlyCRUD:  newReadOnlyCRUD[delivery.Menu](errDeliveryReadOnly),
 		menus:         svc,
 		defaultLocale: strings.TrimSpace(opts.DefaultLocale),
 	}
@@ -229,25 +197,6 @@ func (s *DeliveryMenuService) Show(ctx crud.Context, id string, _ []repository.S
 		return delivery.Menu{}, err
 	}
 	return mapDeliveryMenu(*record), nil
-}
-
-func (s *DeliveryMenuService) Create(crud.Context, delivery.Menu) (delivery.Menu, error) {
-	return delivery.Menu{}, errDeliveryReadOnly
-}
-func (s *DeliveryMenuService) CreateBatch(crud.Context, []delivery.Menu) ([]delivery.Menu, error) {
-	return nil, errDeliveryReadOnly
-}
-func (s *DeliveryMenuService) Update(crud.Context, delivery.Menu) (delivery.Menu, error) {
-	return delivery.Menu{}, errDeliveryReadOnly
-}
-func (s *DeliveryMenuService) UpdateBatch(crud.Context, []delivery.Menu) ([]delivery.Menu, error) {
-	return nil, errDeliveryReadOnly
-}
-func (s *DeliveryMenuService) Delete(crud.Context, delivery.Menu) error {
-	return errDeliveryReadOnly
-}
-func (s *DeliveryMenuService) DeleteBatch(crud.Context, []delivery.Menu) error {
-	return errDeliveryReadOnly
 }
 
 func resolveDeliveryLocale(ctx crud.Context, fallback string) string {

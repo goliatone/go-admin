@@ -373,19 +373,19 @@ type dashboardAuthorizerAdapter struct {
 }
 
 func (a dashboardAuthorizerAdapter) CanViewWidget(ctx context.Context, _ dashcmp.ViewerContext, instance dashcmp.WidgetInstance) bool {
-	if a.authorizer == nil {
-		return true
-	}
 	spec, ok := a.specs[instance.DefinitionID]
 	if !ok {
 		return true
 	}
 	perm := strings.TrimSpace(spec.Permission)
-	if perm != "" && !a.authorizer.Can(ctx, perm, "dashboard") {
+	if perm != "" && !permissionAllowed(a.authorizer, ctx, perm, "dashboard") {
 		return false
 	}
 	if len(spec.VisibilityRole) == 0 {
 		return true
+	}
+	if a.authorizer == nil {
+		return false
 	}
 	for _, role := range spec.VisibilityRole {
 		role = strings.TrimSpace(role)

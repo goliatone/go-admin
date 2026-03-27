@@ -859,13 +859,7 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionFieldTypesRoute(admin 
 }
 
 func (m *ContentTypeBuilderModule) authorize(ctx AdminContext, authorizer Authorizer) error {
-	if m.permission == "" || authorizer == nil {
-		return nil
-	}
-	if !authorizer.Can(ctx.Context, m.permission, contentTypeBuilderPermissions) {
-		return permissionDenied(m.permission, contentTypeBuilderPermissions)
-	}
-	return nil
+	return requirePermissionWithAuthorizer(authorizer, ctx.Context, m.permission, contentTypeBuilderPermissions)
 }
 
 type contentTypeSearchAdapter struct {

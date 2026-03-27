@@ -184,10 +184,12 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	registerPost(debugAPIRoutePath(admin, m.config, "clear"), m.handleDebugClear)
 	registerPost(debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel)
 	registerPost(debugAPIRoutePath(admin, m.config, "doctor.action"), m.handleDebugDoctorAction)
-	// JS error ingestion endpoint — registered without access middleware so
-	// the global error collector on all app pages can report errors.
-	if path := debugAPIRoutePath(admin, m.config, "errors"); path != "" {
-		admin.router.Post(path, m.handleJSErrorReport)
+	// JS error ingestion remains nonce-protected, but it should only be mounted
+	// when the host explicitly configured a debug exposure boundary.
+	if path := debugAPIRoutePath(admin, m.config, "errors"); path != "" && debugJSErrorRouteEnabled(admin, m.config) {
+		admin.router.Post(path, func(c router.Context) error {
+			return m.handleJSErrorReport(admin, c)
+		})
 	}
 }
 
@@ -398,11 +400,11 @@ var errJSErrorMessageRequired = goerrors.New("message is required", goerrors.Cat
 	WithCode(http.StatusBadRequest).
 	WithTextCode("MISSING_MESSAGE")
 
-func (m *DebugModule) handleJSErrorReport(c router.Context) error {
+func (m *DebugModule) handleJSErrorReport(admin *Admin, c router.Context) error {
 	if m == nil || m.collector == nil {
 		return writeJSON(c, map[string]string{"status": "ignored"})
 	}
-	if !m.config.CaptureJSErrors {
+	if !debugJSErrorRouteEnabled(admin, m.config) {
 		return writeError(c, ErrNotFound)
 	}
 	var payload struct {
@@ -791,12 +793,27 @@ func debugResolvedPermission(cfg DebugConfig, permission string) string {
 	return strings.TrimSpace(cfg.Permission)
 }
 
+func debugHasAuthenticatedExposure(admin *Admin) bool {
+	return admin != nil && admin.authenticator != nil && admin.authorizer != nil
+}
+
 func debugHasStandaloneIPAccess(cfg DebugConfig) bool {
 	return len(cfg.AllowedIPs) > 0
 }
 
+func debugHasExposureBoundary(admin *Admin, cfg DebugConfig) bool {
+	return debugHasStandaloneIPAccess(cfg) || debugHasAuthenticatedExposure(admin)
+}
+
+func debugJSErrorRouteEnabled(admin *Admin, cfg DebugConfig) bool {
+	return cfg.CaptureJSErrors && debugHasExposureBoundary(admin, cfg)
+}
+
 func debugAuthorizeRequestWithContext(admin *Admin, cfg DebugConfig, permission string, c router.Context) (AdminContext, error) {
 	if admin == nil || c == nil {
+		return AdminContext{}, ErrForbidden
+	}
+	if !debugHasExposureBoundary(admin, cfg) {
 		return AdminContext{}, ErrForbidden
 	}
 	if err := debugCheckIP(cfg.AllowedIPs, c.IP()); err != nil {
@@ -808,20 +825,12 @@ func debugAuthorizeRequestWithContext(admin *Admin, cfg DebugConfig, permission 
 	}
 	adminCtx := admin.adminContextFromRequest(c, locale)
 	c.SetContext(adminCtx.Context)
-	resolvedPermission := debugResolvedPermission(cfg, permission)
-	if admin.authorizer == nil && !debugHasStandaloneIPAccess(cfg) {
-		if resolvedPermission != "" {
-			return adminCtx, permissionDenied(resolvedPermission, debugModuleID)
-		}
-		return adminCtx, ErrForbidden
-	}
-	if admin.authorizer != nil {
-		if err := requirePermissionWithAuthorizer(admin.authorizer, adminCtx.Context, resolvedPermission, debugModuleID); err != nil {
-			return adminCtx, err
-		}
-	}
-	if admin.authorizer == nil && debugHasStandaloneIPAccess(cfg) {
+	if !debugHasAuthenticatedExposure(admin) {
 		return adminCtx, nil
+	}
+	resolvedPermission := debugResolvedPermission(cfg, permission)
+	if err := requirePermissionWithAuthorizer(admin.authorizer, adminCtx.Context, resolvedPermission, debugModuleID); err != nil {
+		return adminCtx, err
 	}
 	return adminCtx, nil
 }

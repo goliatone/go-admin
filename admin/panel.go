@@ -1291,30 +1291,24 @@ func applyMediaHints(schema *Schema, libraryPath string) {
 
 // Get returns a single record if permitted.
 func (p *Panel) Get(ctx AdminContext, id string) (map[string]any, error) {
-	if p.permissions.View != "" && p.authorizer != nil {
-		if !p.authorizer.Can(ctx.Context, p.permissions.View, p.name) {
-			return nil, permissionDenied(p.permissions.View, p.name)
-		}
+	if err := requirePermissionWithAuthorizer(p.authorizer, ctx.Context, p.permissions.View, p.name); err != nil {
+		return nil, err
 	}
 	return p.repo.Get(ctx.Context, id)
 }
 
 // List retrieves records with permissions enforced.
 func (p *Panel) List(ctx AdminContext, opts ListOptions) ([]map[string]any, int, error) {
-	if p.permissions.View != "" && p.authorizer != nil {
-		if !p.authorizer.Can(ctx.Context, p.permissions.View, p.name) {
-			return nil, 0, permissionDenied(p.permissions.View, p.name)
-		}
+	if err := requirePermissionWithAuthorizer(p.authorizer, ctx.Context, p.permissions.View, p.name); err != nil {
+		return nil, 0, err
 	}
 	return p.repo.List(ctx.Context, opts)
 }
 
 // Create inserts a record with hooks and permissions.
 func (p *Panel) Create(ctx AdminContext, record map[string]any) (map[string]any, error) {
-	if p.permissions.Create != "" && p.authorizer != nil {
-		if !p.authorizer.Can(ctx.Context, p.permissions.Create, p.name) {
-			return nil, permissionDenied(p.permissions.Create, p.name)
-		}
+	if err := requirePermissionWithAuthorizer(p.authorizer, ctx.Context, p.permissions.Create, p.name); err != nil {
+		return nil, err
 	}
 	if p.hooks.BeforeCreate != nil {
 		if err := p.hooks.BeforeCreate(ctx, record); err != nil {
@@ -1339,10 +1333,8 @@ func (p *Panel) Create(ctx AdminContext, record map[string]any) (map[string]any,
 
 // Update modifies a record with hooks and permissions.
 func (p *Panel) Update(ctx AdminContext, id string, record map[string]any) (map[string]any, error) {
-	if p.permissions.Edit != "" && p.authorizer != nil {
-		if !p.authorizer.Can(ctx.Context, p.permissions.Edit, p.name) {
-			return nil, permissionDenied(p.permissions.Edit, p.name)
-		}
+	if err := requirePermissionWithAuthorizer(p.authorizer, ctx.Context, p.permissions.Edit, p.name); err != nil {
+		return nil, err
 	}
 	if p.hooks.BeforeUpdateWithID != nil {
 		if err := p.hooks.BeforeUpdateWithID(ctx, id, record); err != nil {
@@ -1374,12 +1366,9 @@ func (p *Panel) Update(ctx AdminContext, id string, record map[string]any) (map[
 
 // Delete removes a record with hooks and permissions.
 func (p *Panel) Delete(ctx AdminContext, id string) error {
-	if p.permissions.Delete != "" && p.authorizer != nil {
-		if !p.authorizer.Can(ctx.Context, p.permissions.Delete, p.name) {
-			err := permissionDenied(p.permissions.Delete, p.name)
-			captureActionExecutionFailureDiagnostic(ctx.Context, p.name, "delete", ActionScopeDetail, "permission", id, []string{id}, err)
-			return err
-		}
+	if err := requirePermissionWithAuthorizer(p.authorizer, ctx.Context, p.permissions.Delete, p.name); err != nil {
+		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, "delete", ActionScopeDetail, "permission", id, []string{id}, err)
+		return err
 	}
 	if p.hooks.BeforeDelete != nil {
 		if err := p.hooks.BeforeDelete(ctx, id); err != nil {
@@ -1426,10 +1415,8 @@ func (p *Panel) ServeSubresource(ctx AdminContext, c router.Context, id, subreso
 	if !ok {
 		return ErrNotFound
 	}
-	if spec.Permission != "" && p.authorizer != nil {
-		if !p.authorizer.Can(ctx.Context, spec.Permission, p.name) {
-			return permissionDenied(spec.Permission, p.name)
-		}
+	if err := requirePermissionWithAuthorizer(p.authorizer, ctx.Context, spec.Permission, p.name); err != nil {
+		return err
 	}
 	id = strings.TrimSpace(id)
 	value = strings.TrimSpace(value)
@@ -1451,7 +1438,7 @@ func (p *Panel) RunActionResponse(ctx AdminContext, name string, payload map[str
 	for _, action := range p.actions {
 		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
 			required := actionRequiredPermissions(action)
-			if len(required) > 0 && p.authorizer != nil && !CanAll(p.authorizer, ctx.Context, p.name, required...) {
+			if len(required) > 0 && !CanAll(p.authorizer, ctx.Context, p.name, required...) {
 				err := permissionDenied(actionMissingPermission(p.authorizer, ctx.Context, p.name, required), p.name)
 				captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, action.Scope, "permission", resolvePrimaryActionID(payload, ids), ids, err)
 				return ActionResponse{}, err

@@ -119,8 +119,12 @@ func commandDispatchRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 			if !ok {
 				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, ErrNotFound
 			}
-			if err := authorizeRPCPermission(ctx, adm.Authorizer(), rule.Permission, rule.Resource); err != nil {
-				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
+			if rpcRequestHasActor(ctx) {
+				if err := authorizeRPCPermission(ctx, adm.Authorizer(), rule.Permission, rule.Resource); err != nil {
+					return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, err
+				}
+			} else if !rule.AllowUnauthenticated {
+				return cmdrpc.ResponseEnvelope[RPCCommandDispatchResponse]{}, ErrForbidden
 			}
 
 			payload := req.Data.Payload
@@ -185,6 +189,9 @@ func commandListRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 			if !adm.config.Commands.RPC.DiscoveryEnabled {
 				return cmdrpc.ResponseEnvelope[RPCCommandListResponse]{}, ErrNotFound
 			}
+			if !rpcRequestHasActor(ctx) {
+				return cmdrpc.ResponseEnvelope[RPCCommandListResponse]{}, ErrForbidden
+			}
 			if err := authorizeRPCPermission(ctx, adm.Authorizer(), "admin.commands.read", defaultRPCCommandResource); err != nil {
 				return cmdrpc.ResponseEnvelope[RPCCommandListResponse]{}, err
 			}
@@ -200,6 +207,18 @@ func commandListRPCEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 			}, nil
 		},
 	)
+}
+
+func rpcRequestHasActor(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
+		if strings.TrimSpace(actor.ActorID) != "" || strings.TrimSpace(actor.Subject) != "" {
+			return true
+		}
+	}
+	return strings.TrimSpace(actorFromContext(ctx)) != ""
 }
 
 func authorizeRPCPermission(ctx context.Context, authorizer Authorizer, permission, resource string) error {

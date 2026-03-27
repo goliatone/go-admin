@@ -61,55 +61,34 @@ func (a *Admin) registerMenuBuilderRoutes() {
 		return
 	}
 	endpoints := a.menuBuilderEndpoints()
-	registerGet := func(route string, handler router.HandlerFunc) {
+	registerRoute := func(route string, handler router.HandlerFunc, register func(string, router.HandlerFunc, ...router.MiddlewareFunc) router.RouteInfo) {
 		path := strings.TrimSpace(endpoints[route])
-		if path == "" || handler == nil {
+		if path == "" || handler == nil || register == nil {
 			return
 		}
-		target.Get(path, handler)
-	}
-	registerPost := func(route string, handler router.HandlerFunc) {
-		path := strings.TrimSpace(endpoints[route])
-		if path == "" || handler == nil {
-			return
-		}
-		target.Post(path, handler)
-	}
-	registerPut := func(route string, handler router.HandlerFunc) {
-		path := strings.TrimSpace(endpoints[route])
-		if path == "" || handler == nil {
-			return
-		}
-		target.Put(path, handler)
-	}
-	registerDelete := func(route string, handler router.HandlerFunc) {
-		path := strings.TrimSpace(endpoints[route])
-		if path == "" || handler == nil {
-			return
-		}
-		target.Delete(path, handler)
+		register(path, handler)
 	}
 
-	registerGet("menus.contracts", binding.Contracts)
-	registerGet("menus", binding.ListMenus)
-	registerPost("menus", binding.CreateMenu)
-	registerGet("menus.id", binding.GetMenu)
-	registerPut("menus.id", binding.UpdateMenu)
-	registerDelete("menus.id", binding.DeleteMenu)
-	registerPost("menus.publish", binding.PublishMenu)
-	registerPost("menus.unpublish", binding.UnpublishMenu)
-	registerPut("menus.items", binding.UpsertMenuItems)
-	registerGet("menus.preview", binding.PreviewMenu)
-	registerPost("menus.clone", binding.CloneMenu)
-	registerPost("menus.archive", binding.ArchiveMenu)
+	registerRoute("menus.contracts", binding.Contracts, target.Get)
+	registerRoute("menus", binding.ListMenus, target.Get)
+	registerRoute("menus", binding.CreateMenu, target.Post)
+	registerRoute("menus.id", binding.GetMenu, target.Get)
+	registerRoute("menus.id", binding.UpdateMenu, target.Put)
+	registerRoute("menus.id", binding.DeleteMenu, target.Delete)
+	registerRoute("menus.publish", binding.PublishMenu, target.Post)
+	registerRoute("menus.unpublish", binding.UnpublishMenu, target.Post)
+	registerRoute("menus.items", binding.UpsertMenuItems, target.Put)
+	registerRoute("menus.preview", binding.PreviewMenu, target.Get)
+	registerRoute("menus.clone", binding.CloneMenu, target.Post)
+	registerRoute("menus.archive", binding.ArchiveMenu, target.Post)
 
-	registerGet("menu.bindings", binding.ListBindings)
-	registerPut("menu.bindings.location", binding.UpsertBindingByLocation)
-	registerGet("menu.view_profiles", binding.ListViewProfiles)
-	registerPost("menu.view_profiles", binding.CreateViewProfile)
-	registerPut("menu.view_profiles.code", binding.UpdateViewProfile)
-	registerDelete("menu.view_profiles.code", binding.DeleteViewProfile)
-	registerPost("menu.view_profiles.publish", binding.PublishViewProfile)
+	registerRoute("menu.bindings", binding.ListBindings, target.Get)
+	registerRoute("menu.bindings.location", binding.UpsertBindingByLocation, target.Put)
+	registerRoute("menu.view_profiles", binding.ListViewProfiles, target.Get)
+	registerRoute("menu.view_profiles", binding.CreateViewProfile, target.Post)
+	registerRoute("menu.view_profiles.code", binding.UpdateViewProfile, target.Put)
+	registerRoute("menu.view_profiles.code", binding.DeleteViewProfile, target.Delete)
+	registerRoute("menu.view_profiles.publish", binding.PublishViewProfile, target.Post)
 
 	a.menuBuilderRoutesRegistered = true
 }
@@ -133,13 +112,6 @@ func (b *menuBuilderBinding) requirePublish(ctx AdminContext) error {
 		return serviceUnavailableDomainError("menu builder unavailable", nil)
 	}
 	return b.admin.requirePermission(ctx, b.admin.config.MenuBuilderPublishPermission, "menus")
-}
-
-func (b *menuBuilderBinding) parseBody(c router.Context) (map[string]any, error) {
-	if c == nil || len(c.Body()) == 0 {
-		return map[string]any{}, nil
-	}
-	return parseJSONBody(c)
 }
 
 func (b *menuBuilderBinding) Contracts(c router.Context) error {
@@ -172,7 +144,7 @@ func (b *menuBuilderBinding) CreateMenu(c router.Context) error {
 	if err := b.requireEdit(adminCtx); err != nil {
 		return writeError(c, err)
 	}
-	body, err := b.parseBody(c)
+	body, err := b.admin.ParseBody(c)
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -221,7 +193,7 @@ func (b *menuBuilderBinding) UpdateMenu(c router.Context) error {
 	if id == "" {
 		return writeError(c, requiredFieldDomainError("id", map[string]any{"field": "id"}))
 	}
-	body, err := b.parseBody(c)
+	body, err := b.admin.ParseBody(c)
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -247,7 +219,7 @@ func (b *menuBuilderBinding) DeleteMenu(c router.Context) error {
 	}
 	force := strings.EqualFold(strings.TrimSpace(c.Query("force")), "true")
 	if !force {
-		body, err := b.parseBody(c)
+		body, err := b.admin.ParseBody(c)
 		if err == nil {
 			if raw, ok := body["force"].(bool); ok {
 				force = raw
@@ -309,7 +281,7 @@ func (b *menuBuilderBinding) UpsertMenuItems(c router.Context) error {
 	if id == "" {
 		return writeError(c, requiredFieldDomainError("id", map[string]any{"field": "id"}))
 	}
-	body, err := b.parseBody(c)
+	body, err := b.admin.ParseBody(c)
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -424,7 +396,7 @@ func (b *menuBuilderBinding) CloneMenu(c router.Context) error {
 	if id == "" {
 		return writeError(c, requiredFieldDomainError("id", map[string]any{"field": "id"}))
 	}
-	body, err := b.parseBody(c)
+	body, err := b.admin.ParseBody(c)
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -454,7 +426,7 @@ func (b *menuBuilderBinding) ArchiveMenu(c router.Context) error {
 	if id == "" {
 		return writeError(c, requiredFieldDomainError("id", map[string]any{"field": "id"}))
 	}
-	body, err := b.parseBody(c)
+	body, err := b.admin.ParseBody(c)
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -493,7 +465,7 @@ func (b *menuBuilderBinding) UpsertBindingByLocation(c router.Context) error {
 	if location == "" {
 		return writeError(c, requiredFieldDomainError("location", map[string]any{"field": "location"}))
 	}
-	body, err := b.parseBody(c)
+	body, err := b.admin.ParseBody(c)
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -529,7 +501,7 @@ func (b *menuBuilderBinding) CreateViewProfile(c router.Context) error {
 	if err := b.requireEdit(adminCtx); err != nil {
 		return writeError(c, err)
 	}
-	body, err := b.parseBody(c)
+	body, err := b.admin.ParseBody(c)
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -556,7 +528,7 @@ func (b *menuBuilderBinding) UpdateViewProfile(c router.Context) error {
 	if code == "" {
 		return writeError(c, requiredFieldDomainError("code", map[string]any{"field": "code"}))
 	}
-	body, err := b.parseBody(c)
+	body, err := b.admin.ParseBody(c)
 	if err != nil {
 		return writeError(c, err)
 	}
@@ -602,7 +574,7 @@ func (b *menuBuilderBinding) PublishViewProfile(c router.Context) error {
 	if code == "" {
 		return writeError(c, requiredFieldDomainError("code", map[string]any{"field": "code"}))
 	}
-	body, err := b.parseBody(c)
+	body, err := b.admin.ParseBody(c)
 	if err != nil {
 		return writeError(c, err)
 	}

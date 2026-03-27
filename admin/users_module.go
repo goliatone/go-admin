@@ -552,131 +552,77 @@ func statusOptions() []Option {
 }
 
 // UserPanelRepository adapts UserManagementService to the panel Repository contract.
-type UserPanelRepository struct {
-	service *UserManagementService
-}
+type UserPanelRepository = genericPanelRepository[UserRecord]
 
 // NewUserPanelRepository constructs a new panel repository.
 func NewUserPanelRepository(service *UserManagementService) *UserPanelRepository {
-	return &UserPanelRepository{service: service}
-}
-
-// List returns user records.
-func (r *UserPanelRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
-	if r.service == nil {
-		return nil, 0, FeatureDisabledError{Feature: string(FeatureUsers)}
-	}
-	users, total, err := r.service.ListUsers(ctx, opts)
-	if err != nil {
-		return nil, 0, err
-	}
-	out := make([]map[string]any, 0, len(users))
-	for _, user := range users {
-		out = append(out, userToRecord(user))
-	}
-	return out, total, nil
-}
-
-// Get fetches a single user record.
-func (r *UserPanelRepository) Get(ctx context.Context, id string) (map[string]any, error) {
-	if r.service == nil {
-		return nil, FeatureDisabledError{Feature: string(FeatureUsers)}
-	}
-	user, err := r.service.GetUser(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return userToRecord(user), nil
-}
-
-// Create adds a user.
-func (r *UserPanelRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	return r.Update(ctx, "", record)
-}
-
-// Update modifies a user.
-func (r *UserPanelRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	if r.service == nil {
-		return nil, FeatureDisabledError{Feature: string(FeatureUsers)}
-	}
-	user := recordToUser(record, id)
-	saved, err := r.service.SaveUser(ctx, user)
-	if err != nil {
-		return nil, err
-	}
-	return userToRecord(saved), nil
-}
-
-// Delete removes a user.
-func (r *UserPanelRepository) Delete(ctx context.Context, id string) error {
-	if r.service == nil {
-		return FeatureDisabledError{Feature: string(FeatureUsers)}
-	}
-	return r.service.DeleteUser(ctx, id)
+	return newGenericPanelRepository(
+		FeatureDisabledError{Feature: string(FeatureUsers)},
+		func(ctx context.Context, opts ListOptions) ([]UserRecord, int, error) {
+			if service == nil {
+				return nil, 0, FeatureDisabledError{Feature: string(FeatureUsers)}
+			}
+			return service.ListUsers(ctx, opts)
+		},
+		func(ctx context.Context, id string) (UserRecord, error) {
+			if service == nil {
+				return UserRecord{}, FeatureDisabledError{Feature: string(FeatureUsers)}
+			}
+			return service.GetUser(ctx, id)
+		},
+		func(ctx context.Context, user UserRecord) (UserRecord, error) {
+			if service == nil {
+				return UserRecord{}, FeatureDisabledError{Feature: string(FeatureUsers)}
+			}
+			return service.SaveUser(ctx, user)
+		},
+		func(ctx context.Context, id string) error {
+			if service == nil {
+				return FeatureDisabledError{Feature: string(FeatureUsers)}
+			}
+			return service.DeleteUser(ctx, id)
+		},
+		recordToUser,
+		userToRecord,
+		nil,
+	)
 }
 
 // RolePanelRepository adapts roles to the panel Repository contract.
-type RolePanelRepository struct {
-	service *UserManagementService
-}
+type RolePanelRepository = genericPanelRepository[RoleRecord]
 
 // NewRolePanelRepository constructs a repository backed by UserManagementService roles.
 func NewRolePanelRepository(service *UserManagementService) *RolePanelRepository {
-	return &RolePanelRepository{service: service}
-}
-
-// List returns roles.
-func (r *RolePanelRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
-	if r.service == nil {
-		return nil, 0, FeatureDisabledError{Feature: string(FeatureUsers)}
-	}
-	roles, total, err := r.service.ListRoles(ctx, opts)
-	if err != nil {
-		return nil, 0, err
-	}
-	out := make([]map[string]any, 0, len(roles))
-	for _, role := range roles {
-		out = append(out, roleToRecord(role))
-	}
-	return out, total, nil
-}
-
-// Get returns a role.
-func (r *RolePanelRepository) Get(ctx context.Context, id string) (map[string]any, error) {
-	if r.service == nil {
-		return nil, FeatureDisabledError{Feature: string(FeatureUsers)}
-	}
-	role, err := r.service.roles.Get(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	return roleToRecord(role), nil
-}
-
-// Create adds a role.
-func (r *RolePanelRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	return r.Update(ctx, "", record)
-}
-
-// Update modifies a role.
-func (r *RolePanelRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	if r.service == nil {
-		return nil, FeatureDisabledError{Feature: string(FeatureUsers)}
-	}
-	role := recordToRole(record, id)
-	saved, err := r.service.SaveRole(ctx, role)
-	if err != nil {
-		return nil, err
-	}
-	return roleToRecord(saved), nil
-}
-
-// Delete removes a role.
-func (r *RolePanelRepository) Delete(ctx context.Context, id string) error {
-	if r.service == nil {
-		return FeatureDisabledError{Feature: string(FeatureUsers)}
-	}
-	return r.service.DeleteRole(ctx, id)
+	return newGenericPanelRepository(
+		FeatureDisabledError{Feature: string(FeatureUsers)},
+		func(ctx context.Context, opts ListOptions) ([]RoleRecord, int, error) {
+			if service == nil {
+				return nil, 0, FeatureDisabledError{Feature: string(FeatureUsers)}
+			}
+			return service.ListRoles(ctx, opts)
+		},
+		func(ctx context.Context, id string) (RoleRecord, error) {
+			if service == nil {
+				return RoleRecord{}, FeatureDisabledError{Feature: string(FeatureUsers)}
+			}
+			return service.GetRole(ctx, id)
+		},
+		func(ctx context.Context, role RoleRecord) (RoleRecord, error) {
+			if service == nil {
+				return RoleRecord{}, FeatureDisabledError{Feature: string(FeatureUsers)}
+			}
+			return service.SaveRole(ctx, role)
+		},
+		func(ctx context.Context, id string) error {
+			if service == nil {
+				return FeatureDisabledError{Feature: string(FeatureUsers)}
+			}
+			return service.DeleteRole(ctx, id)
+		},
+		recordToRole,
+		roleToRecord,
+		nil,
+	)
 }
 
 // UserProfilesPanelRepository adapts ProfileStore to managed user profile panels.

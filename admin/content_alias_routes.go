@@ -37,7 +37,7 @@ func (a *Admin) contentEntryAliases() []string {
 	if a == nil || a.contentTypeSvc == nil {
 		return nil
 	}
-	types, err := a.contentTypeSvc.ContentTypes(context.Background())
+	types, err := a.contentTypeSvc.ContentTypes(a.LifecycleContext())
 	if err != nil {
 		return nil
 	}

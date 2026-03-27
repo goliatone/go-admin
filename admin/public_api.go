@@ -31,7 +31,7 @@ func (a *Admin) RegisterPublicAPI(r AdminRouter) {
 		return
 	}
 	target := r
-	if a != nil && a.config.Site.Protected && a.authenticator != nil {
+	if siteReadRequiresAuth(a) && a != nil && a.authenticator != nil {
 		target = wrapAdminRouter(r, a.authWrapper())
 	}
 	register := func(route string, handler router.HandlerFunc) {
@@ -489,7 +489,7 @@ func siteLocaleFallbackAllowed(a *Admin) bool {
 }
 
 func (a *Admin) authorizeSiteRead(c router.Context) error {
-	if a == nil || !a.config.Site.Protected {
+	if a == nil || siteAllowsUnauthenticatedReads(a) {
 		return nil
 	}
 	if c == nil || !hasAuthActor(c.Context()) {
@@ -497,6 +497,20 @@ func (a *Admin) authorizeSiteRead(c router.Context) error {
 	}
 	permission := strings.TrimSpace(a.config.Site.ReadPermission)
 	return requirePermissionWithAuthorizer(a.authorizer, c.Context(), permission, "site")
+}
+
+func siteAllowsUnauthenticatedReads(a *Admin) bool {
+	if a == nil {
+		return false
+	}
+	if a.config.Site.Protected {
+		return false
+	}
+	return a.config.Site.AllowUnauthenticatedReads
+}
+
+func siteReadRequiresAuth(a *Admin) bool {
+	return !siteAllowsUnauthenticatedReads(a)
 }
 
 func (a *Admin) authorizeSiteDraftRead(c router.Context, query SiteQuery, previewValidated bool) error {
@@ -516,7 +530,7 @@ func (a *Admin) authorizeSiteDraftRead(c router.Context, query SiteQuery, previe
 	if permission == "" {
 		permission = "admin.site.read_drafts"
 	}
-	if a != nil && a.authorizer != nil && a.authorizer.Can(c.Context(), permission, "site") {
+	if c != nil && hasAuthActor(c.Context()) && a != nil && permissionAllowed(a.authorizer, c.Context(), permission, "site") {
 		return nil
 	}
 	return permissionDenied(permission, "site")
@@ -526,11 +540,26 @@ func isInternalSiteRequest(c router.Context) bool {
 	if c == nil {
 		return false
 	}
+	if siteRequestHasForwardedClientIP(c) {
+		return false
+	}
 	host := net.ParseIP(strings.TrimSpace(c.IP()))
 	if host == nil {
 		return false
 	}
 	return host.IsLoopback() || host.IsPrivate()
+}
+
+func siteRequestHasForwardedClientIP(c router.Context) bool {
+	if c == nil {
+		return false
+	}
+	for _, header := range []string{"X-Forwarded-For", "Forwarded", "X-Real-IP"} {
+		if strings.TrimSpace(c.Header(header)) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func hasAuthActor(ctx context.Context) bool {
@@ -546,7 +575,7 @@ func siteViewProfileOverrideAllowed(c router.Context, admin *Admin) bool {
 		return false
 	}
 	permission := strings.TrimSpace(admin.config.Site.ViewProfileOverridePermission)
-	return permissionAllowed(admin.authorizer, c.Context(), permission, "site")
+	return permissionAllowedWithOptionalAuthorizer(admin.authorizer, c.Context(), permission, "site")
 }
 
 func (a *Admin) previewTokenFromQuery(token string) (*PreviewToken, error) {

@@ -381,6 +381,12 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 }
 
 func actionMissingPermission(authorizer Authorizer, ctx context.Context, resource string, required []string) string {
+	if authorizer == nil {
+		for _, permission := range compactPermissions(required...) {
+			return permission
+		}
+		return ""
+	}
 	for _, permission := range compactPermissions(required...) {
 		if !authorizer.Can(ctx, permission, resource) {
 			return permission

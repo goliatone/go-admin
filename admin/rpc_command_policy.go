@@ -15,8 +15,9 @@ var defaultRPCMetadataAllowlist = []string{"request_id", "correlation_id"}
 
 // RPCCommandRule maps a command id to the permission/resource required for RPC dispatch.
 type RPCCommandRule struct {
-	Permission string `json:"permission,omitempty"`
-	Resource   string `json:"resource,omitempty"`
+	Permission           string `json:"permission,omitempty"`
+	Resource             string `json:"resource,omitempty"`
+	AllowUnauthenticated bool   `json:"allow_unauthenticated,omitempty"`
 }
 
 // RPCCommandConfig controls command RPC exposure and authorization behavior.
@@ -70,10 +71,11 @@ func normalizeRPCCommandConfig(cfg RPCCommandConfig) (RPCCommandConfig, error) {
 			})
 		}
 		rule := RPCCommandRule{
-			Permission: strings.TrimSpace(rawRule.Permission),
-			Resource:   strings.TrimSpace(rawRule.Resource),
+			Permission:           strings.TrimSpace(rawRule.Permission),
+			Resource:             strings.TrimSpace(rawRule.Resource),
+			AllowUnauthenticated: rawRule.AllowUnauthenticated,
 		}
-		if rule.Permission == "" {
+		if rule.Permission == "" && !rule.AllowUnauthenticated {
 			return RPCCommandConfig{}, validationDomainError("rpc command rule permission required", map[string]any{
 				"field":        "commands.rpc.commands.permission",
 				"command_name": name,
@@ -99,8 +101,9 @@ func (c RPCCommandConfig) ResolveRule(commandName string) (RPCCommandRule, bool)
 		return RPCCommandRule{}, false
 	}
 	return RPCCommandRule{
-		Permission: strings.TrimSpace(rule.Permission),
-		Resource:   strings.TrimSpace(rule.Resource),
+		Permission:           strings.TrimSpace(rule.Permission),
+		Resource:             strings.TrimSpace(rule.Resource),
+		AllowUnauthenticated: rule.AllowUnauthenticated,
 	}, true
 }
 
@@ -138,8 +141,9 @@ func cloneRPCCommandRules(in map[string]RPCCommandRule) map[string]RPCCommandRul
 			continue
 		}
 		out[name] = RPCCommandRule{
-			Permission: strings.TrimSpace(rawRule.Permission),
-			Resource:   strings.TrimSpace(rawRule.Resource),
+			Permission:           strings.TrimSpace(rawRule.Permission),
+			Resource:             strings.TrimSpace(rawRule.Resource),
+			AllowUnauthenticated: rawRule.AllowUnauthenticated,
 		}
 	}
 	if len(out) == 0 {

@@ -687,8 +687,10 @@ func (r *PreferencesRepository) requireScopePermission(ctx context.Context, leve
 	if level == PreferenceLevelUser {
 		return nil
 	}
-	if r == nil || r.authorizer == nil {
-		return nil
+	if r == nil {
+		return serviceUnavailableDomainError("preferences repository unavailable", map[string]any{
+			"component": "preferences_repository",
+		})
 	}
 	permission := ""
 	switch level {
@@ -703,13 +705,7 @@ func (r *PreferencesRepository) requireScopePermission(ctx context.Context, leve
 			WithCode(http.StatusBadRequest).
 			WithMetadata(map[string]any{"level": string(level)})
 	}
-	if permission == "" {
-		return nil
-	}
-	if !r.authorizer.Can(ctx, permission, preferencesModuleID) {
-		return permissionDenied(permission, preferencesModuleID)
-	}
-	return nil
+	return requirePermissionWithAuthorizer(r.authorizer, ctx, permission, preferencesModuleID)
 }
 
 func preferenceLevelFromRecord(record map[string]any) (PreferenceLevel, error) {

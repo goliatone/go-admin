@@ -1674,20 +1674,25 @@ func enforceTranslationExchangeCSRF(c router.Context, admin *Admin) error {
 	if !translationExchangeMethodRequiresCSRF(c.Method()) {
 		return nil
 	}
-	cfg, ok := translationExchangeAuthConfig(admin)
-	if !ok {
-		if strings.TrimSpace(c.Header("Cookie")) == "" {
-			return nil
-		}
-		return permissionDenied("csrf", "translations")
-	}
-	if !translationExchangeUsesCookieAuth(c, cfg) {
+	protector := translationExchangeCSRFProtector(admin)
+	if protector == nil {
 		return nil
 	}
-	if err := translationExchangeValidateCSRFMiddleware(c, cfg); err != nil {
+	if !protector.UsesBrowserSession(c) {
+		return nil
+	}
+	if err := protector.EnforceBrowserCSRF(c); err != nil {
 		return permissionDenied("csrf", "translations")
 	}
 	return nil
+}
+
+func translationExchangeCSRFProtector(admin *Admin) BrowserCSRFProtector {
+	if admin == nil {
+		return nil
+	}
+	protector, _ := admin.authenticator.(BrowserCSRFProtector)
+	return protector
 }
 
 func translationExchangeMethodRequiresCSRF(method string) bool {
@@ -1697,17 +1702,6 @@ func translationExchangeMethodRequiresCSRF(method string) bool {
 	default:
 		return true
 	}
-}
-
-func translationExchangeAuthConfig(admin *Admin) (auth.Config, bool) {
-	if admin == nil {
-		return nil, false
-	}
-	authenticator, ok := admin.authenticator.(*GoAuthAuthenticator)
-	if !ok || authenticator == nil || authenticator.authConfig == nil {
-		return nil, false
-	}
-	return authenticator.authConfig, true
 }
 
 func translationExchangeUsesCookieAuth(c router.Context, cfg auth.Config) bool {

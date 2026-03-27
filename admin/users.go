@@ -638,47 +638,31 @@ func (s *InMemoryUserStore) ListUsers(ctx context.Context, opts ListOptions) ([]
 	_ = ctx
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]UserRecord, 0, len(s.users))
-	search := strings.ToLower(strings.TrimSpace(opts.Search))
-	if search == "" {
-		if term, ok := opts.Filters["_search"].(string); ok && strings.TrimSpace(term) != "" {
-			search = strings.ToLower(strings.TrimSpace(term))
-		}
-	}
-	filterStatus := strings.ToLower(toString(opts.Filters["status"]))
-	filterRole := strings.ToLower(toString(opts.Filters["role"]))
-	for _, user := range s.users {
-		if filterStatus != "" && strings.ToLower(user.Status) != filterStatus {
-			continue
-		}
-		if filterRole != "" && !containsStringInsensitive(user.Roles, filterRole) && strings.ToLower(user.Role) != filterRole {
-			continue
-		}
-		if search != "" {
-			if !strings.Contains(strings.ToLower(user.Email), search) &&
-				!strings.Contains(strings.ToLower(user.Username), search) &&
-				!strings.Contains(strings.ToLower(user.FirstName), search) &&
-				!strings.Contains(strings.ToLower(user.LastName), search) {
-				continue
+	items, total := listInMemoryRecords(s.users, opts, inMemoryListConfig[UserRecord]{
+		clone: cloneUser,
+		include: func(user UserRecord, search string, filters map[string]any) bool {
+			filterStatus := strings.ToLower(toString(filters["status"]))
+			filterRole := strings.ToLower(toString(filters["role"]))
+			if filterStatus != "" && strings.ToLower(user.Status) != filterStatus {
+				return false
 			}
-		}
-		out = append(out, cloneUser(user))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].Email < out[j].Email
+			if filterRole != "" && !containsStringInsensitive(user.Roles, filterRole) && strings.ToLower(user.Role) != filterRole {
+				return false
+			}
+			if search == "" {
+				return true
+			}
+			return strings.Contains(strings.ToLower(user.Email), search) ||
+				strings.Contains(strings.ToLower(user.Username), search) ||
+				strings.Contains(strings.ToLower(user.FirstName), search) ||
+				strings.Contains(strings.ToLower(user.LastName), search)
+		},
+		less: func(left, right UserRecord) bool {
+			return left.Email < right.Email
+		},
+		defaultPerPage: 10,
 	})
-	total := len(out)
-	page := opts.Page
-	if page <= 0 {
-		page = 1
-	}
-	per := opts.PerPage
-	if per <= 0 {
-		per = 10
-	}
-	start := min((page-1)*per, len(out))
-	end := min(start+per, len(out))
-	return out[start:end], total, nil
+	return items, total, nil
 }
 
 // GetUser returns a user by ID (implements UserRepository.Get).
@@ -686,11 +670,12 @@ func (s *InMemoryUserStore) GetUser(ctx context.Context, id string) (UserRecord,
 	_ = ctx
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if user, ok := s.users[id]; ok {
-		user.Roles = s.roleIDsForUserLocked(id)
-		return cloneUser(user), nil
+	user, err := getInMemoryRecord(s.users, id, cloneUser)
+	if err != nil {
+		return UserRecord{}, err
 	}
-	return UserRecord{}, ErrNotFound
+	user.Roles = s.roleIDsForUserLocked(id)
+	return user, nil
 }
 
 // CreateUser inserts a new user (implements UserRepository.Create).
@@ -698,22 +683,31 @@ func (s *InMemoryUserStore) CreateUser(ctx context.Context, user UserRecord) (Us
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if user.ID == "" {
-		user.ID = uuid.NewString()
+	created, err := createInMemoryRecord(s.users, user, inMemoryCreateConfig[UserRecord]{
+		clone: cloneUser,
+		id: func(record UserRecord) string {
+			return record.ID
+		},
+		setID: func(record *UserRecord, id string) {
+			record.ID = id
+		},
+		prepare: func(record *UserRecord, now time.Time) {
+			if record.CreatedAt.IsZero() {
+				record.CreatedAt = now
+			}
+			if record.UpdatedAt.IsZero() {
+				record.UpdatedAt = now
+			}
+			record.Roles = dedupeStrings(record.Roles)
+		},
+	})
+	if err != nil {
+		return UserRecord{}, err
 	}
-	now := time.Now()
-	if user.CreatedAt.IsZero() {
-		user.CreatedAt = now
+	for _, role := range created.Roles {
+		s.assignNoLock(created.ID, role)
 	}
-	if user.UpdatedAt.IsZero() {
-		user.UpdatedAt = now
-	}
-	user.Roles = dedupeStrings(user.Roles)
-	s.users[user.ID] = cloneUser(user)
-	for _, role := range user.Roles {
-		s.assignNoLock(user.ID, role)
-	}
-	return cloneUser(user), nil
+	return created, nil
 }
 
 // UpdateUser modifies an existing user (implements UserRepository.Update).
@@ -721,47 +715,47 @@ func (s *InMemoryUserStore) UpdateUser(ctx context.Context, user UserRecord) (Us
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	existing, ok := s.users[user.ID]
-	if !ok {
-		return UserRecord{}, ErrNotFound
-	}
-	if user.Email != "" {
-		existing.Email = user.Email
-	}
-	if user.Username != "" {
-		existing.Username = user.Username
-	}
-	if user.FirstName != "" {
-		existing.FirstName = user.FirstName
-	}
-	if user.LastName != "" {
-		existing.LastName = user.LastName
-	}
-	if user.Status != "" {
-		existing.Status = user.Status
-	}
-	if user.Role != "" {
-		existing.Role = user.Role
-	}
-	if len(user.Permissions) > 0 {
-		existing.Permissions = dedupeStrings(user.Permissions)
-	}
-	if len(user.Metadata) > 0 {
-		if existing.Metadata == nil {
-			existing.Metadata = map[string]any{}
-		}
-		maps.Copy(existing.Metadata, user.Metadata)
-	}
-	if len(user.Roles) > 0 {
-		existing.Roles = dedupeStrings(user.Roles)
-		s.assignments[user.ID] = map[string]time.Time{}
-		for _, role := range existing.Roles {
-			s.assignNoLock(user.ID, role)
-		}
-	}
-	existing.UpdatedAt = time.Now()
-	s.users[user.ID] = cloneUser(existing)
-	return cloneUser(existing), nil
+	return updateInMemoryRecord(s.users, user.ID, user, inMemoryUpdateConfig[UserRecord]{
+		clone: cloneUser,
+		merge: func(existing *UserRecord, update UserRecord, now time.Time) error {
+			if update.Email != "" {
+				existing.Email = update.Email
+			}
+			if update.Username != "" {
+				existing.Username = update.Username
+			}
+			if update.FirstName != "" {
+				existing.FirstName = update.FirstName
+			}
+			if update.LastName != "" {
+				existing.LastName = update.LastName
+			}
+			if update.Status != "" {
+				existing.Status = update.Status
+			}
+			if update.Role != "" {
+				existing.Role = update.Role
+			}
+			if len(update.Permissions) > 0 {
+				existing.Permissions = dedupeStrings(update.Permissions)
+			}
+			if len(update.Metadata) > 0 {
+				if existing.Metadata == nil {
+					existing.Metadata = map[string]any{}
+				}
+				maps.Copy(existing.Metadata, update.Metadata)
+			}
+			if len(update.Roles) > 0 {
+				existing.Roles = dedupeStrings(update.Roles)
+				s.assignments[update.ID] = map[string]time.Time{}
+				for _, role := range existing.Roles {
+					s.assignNoLock(update.ID, role)
+				}
+			}
+			existing.UpdatedAt = now
+			return nil
+		},
+	})
 }
 
 // DeleteUser removes a user (implements UserRepository.Delete).
@@ -769,10 +763,9 @@ func (s *InMemoryUserStore) DeleteUser(ctx context.Context, id string) error {
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.users[id]; !ok {
-		return ErrNotFound
+	if err := deleteInMemoryRecord(s.users, id); err != nil {
+		return err
 	}
-	delete(s.users, id)
 	delete(s.assignments, id)
 	return nil
 }
@@ -792,27 +785,17 @@ func (s *InMemoryUserStore) List(ctx context.Context, opts ListOptions) ([]RoleR
 	_ = ctx
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]RoleRecord, 0, len(s.roles))
-	search := strings.ToLower(strings.TrimSpace(opts.Search))
-	for _, role := range s.roles {
-		if search != "" && !strings.Contains(strings.ToLower(role.Name), search) {
-			continue
-		}
-		out = append(out, cloneRole(role))
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	total := len(out)
-	page := opts.Page
-	if page <= 0 {
-		page = 1
-	}
-	per := opts.PerPage
-	if per <= 0 {
-		per = 10
-	}
-	start := min((page-1)*per, len(out))
-	end := min(start+per, len(out))
-	return out[start:end], total, nil
+	items, total := listInMemoryRecords(s.roles, opts, inMemoryListConfig[RoleRecord]{
+		clone: cloneRole,
+		include: func(role RoleRecord, search string, _ map[string]any) bool {
+			return search == "" || strings.Contains(strings.ToLower(role.Name), search)
+		},
+		less: func(left, right RoleRecord) bool {
+			return left.Name < right.Name
+		},
+		defaultPerPage: 10,
+	})
+	return items, total, nil
 }
 
 // Get returns a role by ID (implements RoleRepository.Get).
@@ -820,11 +803,7 @@ func (s *InMemoryUserStore) Get(ctx context.Context, id string) (RoleRecord, err
 	_ = ctx
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	role, ok := s.roles[id]
-	if !ok {
-		return RoleRecord{}, ErrNotFound
-	}
-	return cloneRole(role), nil
+	return getInMemoryRecord(s.roles, id, cloneRole)
 }
 
 // Create inserts a role (implements RoleRepository.Create).
@@ -832,19 +811,24 @@ func (s *InMemoryUserStore) Create(ctx context.Context, role RoleRecord) (RoleRe
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if role.ID == "" {
-		role.ID = uuid.NewString()
-	}
-	now := time.Now()
-	if role.CreatedAt.IsZero() {
-		role.CreatedAt = now
-	}
-	if role.UpdatedAt.IsZero() {
-		role.UpdatedAt = now
-	}
-	role.Permissions = dedupeStrings(role.Permissions)
-	s.roles[role.ID] = cloneRole(role)
-	return cloneRole(role), nil
+	return createInMemoryRecord(s.roles, role, inMemoryCreateConfig[RoleRecord]{
+		clone: cloneRole,
+		id: func(record RoleRecord) string {
+			return record.ID
+		},
+		setID: func(record *RoleRecord, id string) {
+			record.ID = id
+		},
+		prepare: func(record *RoleRecord, now time.Time) {
+			if record.CreatedAt.IsZero() {
+				record.CreatedAt = now
+			}
+			if record.UpdatedAt.IsZero() {
+				record.UpdatedAt = now
+			}
+			record.Permissions = dedupeStrings(record.Permissions)
+		},
+	})
 }
 
 // Update updates an existing role (implements RoleRepository.Update).
@@ -852,26 +836,26 @@ func (s *InMemoryUserStore) Update(ctx context.Context, role RoleRecord) (RoleRe
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	existing, ok := s.roles[role.ID]
-	if !ok {
-		return RoleRecord{}, ErrNotFound
-	}
-	if existing.IsSystem && !role.IsSystem {
-		role.IsSystem = true
-	}
-	if role.Name != "" {
-		existing.Name = role.Name
-	}
-	if role.Description != "" {
-		existing.Description = role.Description
-	}
-	if len(role.Permissions) > 0 {
-		existing.Permissions = dedupeStrings(role.Permissions)
-	}
-	existing.IsSystem = existing.IsSystem || role.IsSystem
-	existing.UpdatedAt = time.Now()
-	s.roles[role.ID] = cloneRole(existing)
-	return cloneRole(existing), nil
+	return updateInMemoryRecord(s.roles, role.ID, role, inMemoryUpdateConfig[RoleRecord]{
+		clone: cloneRole,
+		merge: func(existing *RoleRecord, update RoleRecord, now time.Time) error {
+			if existing.IsSystem && !update.IsSystem {
+				update.IsSystem = true
+			}
+			if update.Name != "" {
+				existing.Name = update.Name
+			}
+			if update.Description != "" {
+				existing.Description = update.Description
+			}
+			if len(update.Permissions) > 0 {
+				existing.Permissions = dedupeStrings(update.Permissions)
+			}
+			existing.IsSystem = existing.IsSystem || update.IsSystem
+			existing.UpdatedAt = now
+			return nil
+		},
+	})
 }
 
 // Delete removes a role if not system-protected (implements RoleRepository.Delete).
@@ -879,14 +863,16 @@ func (s *InMemoryUserStore) Delete(ctx context.Context, id string) error {
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	role, ok := s.roles[id]
-	if !ok {
-		return ErrNotFound
+	role, err := getInMemoryRecord(s.roles, id, cloneRole)
+	if err != nil {
+		return err
 	}
 	if role.IsSystem {
 		return ErrForbidden
 	}
-	delete(s.roles, id)
+	if err := deleteInMemoryRecord(s.roles, id); err != nil {
+		return err
+	}
 	for userID := range s.assignments {
 		delete(s.assignments[userID], id)
 	}

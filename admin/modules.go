@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -278,9 +277,9 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 			keys := canonicalMenuKeys(item)
 			if hasAnyKey(keySet, keys) {
 				if item.ID != "" && keySet["path:"+strings.TrimSpace(item.ID)] {
-					if err := a.menuSvc.UpdateMenuItem(ctx, code, item); err != nil && !errors.Is(err, ErrNotFound) {
-						if isMenuItemMissing(err) {
-							if addErr := a.menuSvc.AddMenuItem(ctx, code, item); addErr != nil && !isMenuItemMissing(addErr) && !errors.Is(addErr, ErrNotFound) {
+					if err := a.menuSvc.UpdateMenuItem(ctx, code, item); err != nil {
+						if isMenuTargetMissing(err) {
+							if addErr := a.menuSvc.AddMenuItem(ctx, code, item); addErr != nil && !isMenuTargetMissing(addErr) {
 								return addErr
 							}
 							continue
@@ -301,7 +300,7 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 				menuCodes[code] = true
 			}
 			if err := a.menuSvc.AddMenuItem(ctx, code, item); err != nil {
-				if isMenuItemMissing(err) {
+				if isMenuTargetMissing(err) {
 					continue
 				}
 				return err
