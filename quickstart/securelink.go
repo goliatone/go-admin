@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/admin"
 	linknotifications "github.com/goliatone/go-notifications/adapters/securelink"
 	"github.com/goliatone/go-notifications/pkg/links"
 	linkusers "github.com/goliatone/go-users/adapter/securelink"
@@ -47,7 +48,7 @@ func DefaultSecureLinkConfig(basePath string) SecureLinkConfig {
 	if basePath == "" {
 		basePath = "/admin"
 	}
-	basePath = normalizeBasePathValue(basePath)
+	basePath = admin.NormalizeBasePath(basePath)
 
 	return SecureLinkConfig{
 		SigningKey: "",
@@ -65,7 +66,7 @@ func DefaultSecureLinkRoutes(basePath string) map[string]string {
 	if basePath == "" {
 		basePath = "/admin"
 	}
-	basePath = normalizeBasePathValue(basePath)
+	basePath = admin.NormalizeBasePath(basePath)
 	return map[string]string{
 		command.SecureLinkRouteInviteAccept:  path.Join(basePath, "invite"),
 		command.SecureLinkRouteRegister:      path.Join(basePath, "register"),

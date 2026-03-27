@@ -20,7 +20,7 @@ func NewAdminConfig(basePath, title, defaultLocale string, opts ...AdminConfigOp
 	if basePath == "" {
 		basePath = "/admin"
 	}
-	basePath = normalizeBasePathValue(basePath)
+	basePath = admin.NormalizeBasePath(basePath)
 	cfg := admin.Config{
 		Title:         strings.TrimSpace(title),
 		BasePath:      basePath,

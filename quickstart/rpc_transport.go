@@ -67,6 +67,9 @@ func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 		return fmt.Errorf("rpc transport enabled but rpc server is not configured")
 	}
 	cfg := normalizeRPCTransportConfig(adm, config)
+	if err := validateRPCTransportExposureConfig(cfg); err != nil {
+		return err
+	}
 
 	mount := func(r admin.AdminRouter) error {
 		if r == nil {
@@ -138,6 +141,21 @@ func normalizeRPCTransportConfig(adm *admin.Admin, cfg RPCTransportConfig) RPCTr
 	return cfg
 }
 
+func validateRPCTransportExposureConfig(cfg RPCTransportConfig) error {
+	if !cfg.Enabled || !cfg.AllowUnauthenticated {
+		return nil
+	}
+	if cfg.DiscoveryEnabled {
+		return fmt.Errorf("rpc transport unauthenticated mode does not allow discovery")
+	}
+	for _, rule := range cfg.CommandRules {
+		if rule.AllowUnauthenticated {
+			return nil
+		}
+	}
+	return fmt.Errorf("rpc transport unauthenticated mode requires at least one command rule with allow_unauthenticated")
+}
+
 func resolveRPCTransportRequireAuth(cfg RPCTransportConfig) bool {
 	if cfg.AllowUnauthenticated {
 		return false
@@ -159,8 +177,9 @@ func cloneQuickstartRPCCommandRules(in map[string]admin.RPCCommandRule) map[stri
 			continue
 		}
 		out[name] = admin.RPCCommandRule{
-			Permission: strings.TrimSpace(rawRule.Permission),
-			Resource:   strings.TrimSpace(rawRule.Resource),
+			Permission:           strings.TrimSpace(rawRule.Permission),
+			Resource:             strings.TrimSpace(rawRule.Resource),
+			AllowUnauthenticated: rawRule.AllowUnauthenticated,
 		}
 	}
 	if len(out) == 0 {

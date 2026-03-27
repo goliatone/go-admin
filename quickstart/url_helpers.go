@@ -59,7 +59,7 @@ func resolveAdminBasePath(urls urlkit.Resolver, fallback string) string {
 	if path := resolveRoutePath(urls, "admin", "dashboard"); path != "" {
 		return trimTrailingSlash(path)
 	}
-	return normalizeBasePathValue(fallback)
+	return admin.NormalizeBasePath(fallback)
 }
 
 func resolveAdminBaseURL(urls urlkit.Resolver, fallback string) string {
@@ -73,7 +73,7 @@ func resolveAdminRoutePath(urls urlkit.Resolver, fallback, route string) string 
 	if path := resolveRoutePath(urls, "admin", route); path != "" {
 		return path
 	}
-	return prefixBasePath(normalizeBasePathValue(fallback), route)
+	return prefixBasePath(admin.NormalizeBasePath(fallback), route)
 }
 
 func resolveAdminRouteURL(urls urlkit.Resolver, fallback, route string, fallbackSegments ...string) string {
@@ -215,10 +215,6 @@ func resolveAdminPanelAPICollectionURL(urls urlkit.Resolver, cfg admin.Config, f
 	return resolveAdminPanelAPICollectionPath(urls, cfg, fallback, panel)
 }
 
-func normalizeBasePathValue(basePath string) string {
-	return admin.NormalizeBasePath(basePath)
-}
-
 func trimTrailingSlash(path string) string {
 	return pathutil.TrimTrailingSlash(path)
 }
@@ -242,7 +238,6 @@ func prefixBasePath(basePath, suffix string) string {
 		return basePath + "/" + strings.TrimPrefix(trimmed, "/")
 	}
 
-	basePath = normalizeBasePathValue(basePath)
 	return admin.PrefixBasePath(basePath, trimmed)
 }
 

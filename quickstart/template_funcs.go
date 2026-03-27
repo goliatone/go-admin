@@ -279,7 +279,7 @@ func defaultWidgetTitles() map[string]string {
 }
 
 func sanitizeTemplateBasePath(basePath string) string {
-	return normalizeBasePathValue(basePath)
+	return admin.NormalizeBasePath(basePath)
 }
 
 func cloneWidgetTitles(input map[string]string) map[string]string {

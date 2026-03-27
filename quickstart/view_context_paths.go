@@ -23,7 +23,7 @@ type PathViewContextConfig struct {
 // - preferences_api_path
 func PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext {
 	basePath := resolveAdminBasePath(pathCfg.URLResolver, firstNonEmpty(pathCfg.BasePath, cfg.BasePath))
-	basePath = normalizeBasePathValue(basePath)
+	basePath = admin.NormalizeBasePath(basePath)
 
 	apiBasePath := strings.TrimSpace(pathCfg.APIBasePath)
 	if apiBasePath == "" {
@@ -63,5 +63,5 @@ func normalizeAssetBasePath(basePath string) string {
 	if isAbsoluteURL(trimmed) {
 		return strings.TrimSuffix(trimmed, "/")
 	}
-	return normalizeBasePathValue(trimmed)
+	return admin.NormalizeBasePath(trimmed)
 }

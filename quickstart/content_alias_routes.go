@@ -19,6 +19,7 @@ type ContentAliasRouteOption func(*contentAliasRouteOptions)
 type contentAliasRouteOptions struct {
 	basePath string
 	aliases  []string
+	ctx      context.Context
 }
 
 // WithContentAliasBasePath overrides the base path used to build alias routes.
@@ -41,6 +42,15 @@ func WithContentAliasRoutes(aliases ...string) ContentAliasRouteOption {
 			if trimmed := strings.TrimSpace(alias); trimmed != "" {
 				opts.aliases = append(opts.aliases, trimmed)
 			}
+		}
+	}
+}
+
+// WithContentAliasContext overrides the context used to discover content aliases during route registration.
+func WithContentAliasContext(ctx context.Context) ContentAliasRouteOption {
+	return func(opts *contentAliasRouteOptions) {
+		if opts != nil {
+			opts.ctx = ctx
 		}
 	}
 }
@@ -69,7 +79,7 @@ func RegisterContentEntryAliasRoutes[T any](
 		options.basePath = "/"
 	}
 	if len(options.aliases) == 0 {
-		options.aliases = contentEntryAliasesFromAdmin(adm)
+		options.aliases = contentEntryAliasesFromAdmin(options.ctx, adm)
 	}
 	if len(options.aliases) == 0 {
 		return nil
@@ -91,11 +101,14 @@ func RegisterContentEntryAliasRoutes[T any](
 	return nil
 }
 
-func contentEntryAliasesFromAdmin(adm *admin.Admin) []string {
+func contentEntryAliasesFromAdmin(ctx context.Context, adm *admin.Admin) []string {
 	if adm == nil || adm.ContentTypeService() == nil {
 		return nil
 	}
-	types, err := adm.ContentTypeService().ContentTypes(context.Background())
+	if ctx == nil {
+		ctx = adm.LifecycleContext()
+	}
+	types, err := adm.ContentTypeService().ContentTypes(ctx)
 	if err != nil {
 		return nil
 	}

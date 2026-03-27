@@ -15,7 +15,7 @@ import (
 var firstFormTagPattern = regexp.MustCompile(`(?i)<form\b[^>]*>`)
 
 func normalizeQuickstartRouteBasePath(basePath string) string {
-	return normalizeBasePathValue(basePath)
+	return admin.NormalizeBasePath(basePath)
 }
 
 func resolveQuickstartUIViewContextBuilder(adm *admin.Admin, cfg admin.Config, builder UIViewContextBuilder) UIViewContextBuilder {
