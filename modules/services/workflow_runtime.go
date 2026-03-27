@@ -377,7 +377,7 @@ func (s *workflowMappingSpecStore) UpdateDraft(_ context.Context, spec gocore.Ma
 }
 
 func (s *workflowMappingSpecStore) SetStatus(
-	_ context.Context,
+	ctx context.Context,
 	providerID string,
 	scope gocore.ScopeRef,
 	specID string,
@@ -385,6 +385,12 @@ func (s *workflowMappingSpecStore) SetStatus(
 	status gocore.MappingSpecStatus,
 	now time.Time,
 ) (gocore.MappingSpec, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return gocore.MappingSpec{}, err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := s.key(providerID, scope, specID, version)
@@ -470,8 +476,10 @@ func (s *workflowMappingSpecStore) PublishVersion(
 	version int,
 	publishedAt time.Time,
 ) (gocore.MappingSpec, error) {
-	_, _ = ctx, publishedAt
-	return s.SetStatus(context.Background(), providerID, scope, specID, version, gocore.MappingSpecStatusPublished, publishedAt)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return s.SetStatus(ctx, providerID, scope, specID, version, gocore.MappingSpecStatusPublished, publishedAt)
 }
 
 func (s *workflowMappingSpecStore) UnpublishVersion(
@@ -741,12 +749,27 @@ func (s *workflowSyncConflictStore) Get(_ context.Context, providerID string, sc
 }
 
 func (s *workflowSyncConflictStore) ListByBinding(
-	_ context.Context,
+	ctx context.Context,
 	providerID string,
 	scope gocore.ScopeRef,
 	syncBindingID string,
 	status gocore.SyncConflictStatus,
 ) ([]gocore.SyncConflict, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return s.listByBinding(providerID, scope, syncBindingID, status), nil
+}
+
+func (s *workflowSyncConflictStore) listByBinding(
+	providerID string,
+	scope gocore.ScopeRef,
+	syncBindingID string,
+	status gocore.SyncConflictStatus,
+) []gocore.SyncConflict {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	rows := make([]gocore.SyncConflict, 0)
@@ -766,7 +789,7 @@ func (s *workflowSyncConflictStore) ListByBinding(
 		rows = append(rows, record)
 	}
 	sort.SliceStable(rows, func(i, j int) bool { return rows[i].UpdatedAt.After(rows[j].UpdatedAt) })
-	return rows, nil
+	return rows
 }
 
 func (s *workflowSyncConflictStore) Resolve(
@@ -806,8 +829,7 @@ func (s *workflowSyncConflictStore) Resolve(
 }
 
 func (s *workflowSyncConflictStore) List(providerID string, scope gocore.ScopeRef, syncBindingID string, status gocore.SyncConflictStatus) []gocore.SyncConflict {
-	rows, _ := s.ListByBinding(context.Background(), providerID, scope, syncBindingID, status)
-	return rows
+	return s.listByBinding(providerID, scope, syncBindingID, status)
 }
 
 var _ gocore.MappingSpecStore = (*workflowMappingSpecStore)(nil)
