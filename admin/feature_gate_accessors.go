@@ -15,9 +15,20 @@ func (a *Admin) FeatureGate() fggate.FeatureGate {
 	return a.featureGate
 }
 
-// ActivityReadEnabled reports whether the activity read API is wired.
+// ActivityFeatureEnabled reports whether the activity feature gate is enabled.
+func (a *Admin) ActivityFeatureEnabled() bool {
+	if a == nil {
+		return false
+	}
+	return featureEnabled(a.featureGate, FeatureActivity)
+}
+
+// ActivityReadEnabled reports whether the activity read API is both enabled and wired.
 func (a *Admin) ActivityReadEnabled() bool {
 	if a == nil {
+		return false
+	}
+	if !a.ActivityFeatureEnabled() {
 		return false
 	}
 	return a.activityFeed != nil
@@ -37,14 +48,5 @@ func (a *Admin) UserImportAllowed(ctx context.Context) bool {
 		return false
 	}
 	permission := strings.TrimSpace(a.config.UsersImportPermission)
-	if permission == "" {
-		return true
-	}
-	if a.authorizer == nil {
-		return true
-	}
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return a.authorizer.Can(ctx, permission, "users")
+	return permissionAllowed(a.authorizer, ctx, permission, "users")
 }
