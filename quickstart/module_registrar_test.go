@@ -10,6 +10,7 @@ import (
 	commandregistry "github.com/goliatone/go-command/registry"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
+	urlkit "github.com/goliatone/go-urlkit"
 )
 
 type stubModule struct {
@@ -223,6 +224,7 @@ func TestBuildSeedMenuItemsRespectsGates(t *testing.T) {
 }
 
 func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsByDefault(t *testing.T) {
+	resetCommandRegistryForTest(t)
 	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
 
 	cfg := NewAdminConfig("/admin", "Admin", "en")
@@ -269,6 +271,36 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsByDefault(t *testi
 	}
 	if exchangeItem := findMenuItemByRouteName(menu.Items, "admin.translations.exchange"); exchangeItem == nil {
 		t.Fatalf("expected exchange menu seeded by default")
+	}
+}
+
+func TestResolveTranslationCapabilityMenuPathFallsBackToCanonicalTranslationsPanel(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/control",
+				Routes: map[string]string{
+					"dashboard":              "/",
+					"content.panel":          "/content/:panel",
+					"translations.dashboard": "/translations/dashboard",
+					"translations.exchange":  "/translations/exchange",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+
+	if got := resolveTranslationCapabilityMenuPath(manager, "/admin", "translations.queue"); got != "/control/content/translations" {
+		t.Fatalf("expected queue fallback to canonical translations panel path, got %q", got)
+	}
+	if got := resolveTranslationCapabilityMenuPath(manager, "/admin", "translations.dashboard"); got != "/control/translations/dashboard" {
+		t.Fatalf("expected dashboard path to resolve through URLKit, got %q", got)
+	}
+	if got := resolveTranslationCapabilityMenuPath(manager, "/admin", "translations.exchange"); got != "/control/translations/exchange" {
+		t.Fatalf("expected exchange path to resolve through URLKit, got %q", got)
 	}
 }
 

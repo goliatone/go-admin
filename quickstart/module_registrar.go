@@ -3,7 +3,6 @@ package quickstart
 import (
 	"context"
 	"fmt"
-	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -589,16 +588,11 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	}
 
 	urls := adm.URLs()
-	basePath := resolveAdminBasePath(urls, cfg.BasePath)
 	parentID := NavigationGroupTranslationsID
 	items := []admin.MenuItem{}
 
 	if queueEnabled {
-		// TODO: Use proper URL management
-		dashboardPath := strings.TrimSpace(resolveRoutePath(urls, "admin", "translations.dashboard"))
-		if dashboardPath == "" {
-			dashboardPath = prefixBasePath(basePath, path.Join("translations", "dashboard"))
-		}
+		dashboardPath := resolveTranslationCapabilityMenuPath(urls, cfg.BasePath, "translations.dashboard")
 		items = append(items, admin.MenuItem{
 			ID:       parentID + ".translations.dashboard",
 			Type:     admin.MenuItemTypeItem,
@@ -621,10 +615,7 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 			Locale:   locale,
 		})
 
-		queuePath := strings.TrimSpace(resolveRoutePath(urls, "admin", "translations.queue"))
-		if queuePath == "" {
-			queuePath = prefixBasePath(basePath, path.Join("translations", "queue"))
-		}
+		queuePath := resolveTranslationCapabilityMenuPath(urls, cfg.BasePath, "translations.queue")
 		items = append(items, admin.MenuItem{
 			ID:       parentID + ".translations.queue",
 			Type:     admin.MenuItemTypeItem,
@@ -649,10 +640,7 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	}
 
 	if exchangeEnabled {
-		exchangePath := strings.TrimSpace(resolveRoutePath(urls, "admin", "translations.exchange"))
-		if exchangePath == "" {
-			exchangePath = prefixBasePath(basePath, path.Join("translations", "exchange"))
-		}
+		exchangePath := resolveTranslationCapabilityMenuPath(urls, cfg.BasePath, "translations.exchange")
 		items = append(items, admin.MenuItem{
 			ID:       parentID + ".translations.exchange",
 			Type:     admin.MenuItemTypeItem,
@@ -679,6 +667,22 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	return items
 }
 
+func resolveTranslationCapabilityMenuPath(urls urlkit.Resolver, fallbackBase, routeName string) string {
+	switch strings.TrimSpace(routeName) {
+	case "translations.dashboard":
+		return resolveAdminRouteURL(urls, fallbackBase, routeName, "translations", "dashboard")
+	case "translations.queue":
+		if resolved := strings.TrimSpace(resolveRouteURL(urls, "admin", routeName, nil, nil)); resolved != "" {
+			return resolved
+		}
+		return resolveAdminPanelURL(urls, fallbackBase, "translations")
+	case "translations.exchange":
+		return resolveAdminRouteURL(urls, fallbackBase, routeName, "translations", "exchange")
+	default:
+		return resolveAdminRouteURL(urls, fallbackBase, routeName)
+	}
+}
+
 func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode, locale string) []admin.MenuItem {
 	menuCode = admin.NormalizeMenuSlug(strings.TrimSpace(menuCode))
 	if menuCode == "" {
@@ -694,16 +698,8 @@ func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	if adm != nil {
 		urls = adm.URLs()
 	}
-	basePath := resolveAdminBasePath(urls, cfg.BasePath)
 	resolvePath := func(routeName string, fallbackSegments ...string) string {
-		pathValue := strings.TrimSpace(resolveRoutePath(urls, "admin", routeName))
-		if pathValue != "" {
-			return pathValue
-		}
-		if len(fallbackSegments) == 0 {
-			return ""
-		}
-		return prefixBasePath(basePath, path.Join(fallbackSegments...))
+		return resolveAdminRouteURL(urls, cfg.BasePath, routeName, fallbackSegments...)
 	}
 	featureIsEnabled := func(feature admin.FeatureKey) bool {
 		if adm == nil {

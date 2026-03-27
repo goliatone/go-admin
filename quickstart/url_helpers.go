@@ -76,6 +76,42 @@ func resolveAdminRoutePath(urls urlkit.Resolver, fallback, route string) string 
 	return prefixBasePath(normalizeBasePathValue(fallback), route)
 }
 
+func resolveAdminRouteURL(urls urlkit.Resolver, fallback, route string, fallbackSegments ...string) string {
+	if resolved := strings.TrimSpace(resolveRouteURL(urls, "admin", route, nil, nil)); resolved != "" {
+		return resolved
+	}
+	if resolved := strings.TrimSpace(resolveRoutePath(urls, "admin", route)); resolved != "" && !strings.ContainsAny(resolved, ":*{}") {
+		return resolved
+	}
+	if len(fallbackSegments) == 0 {
+		return ""
+	}
+	return prefixBasePath(resolveAdminBasePath(urls, fallback), path.Join(fallbackSegments...))
+}
+
+func resolveAdminContentEntryBasePath(urls urlkit.Resolver, fallback string) string {
+	const panelPlaceholder = "__go_admin_content_panel__"
+
+	if resolved := strings.TrimSpace(resolveRouteURL(urls, "admin", "content.panel", map[string]string{"panel": panelPlaceholder}, nil)); resolved != "" {
+		if trimmed, ok := strings.CutSuffix(resolved, "/"+panelPlaceholder); ok && strings.TrimSpace(trimmed) != "" {
+			return trimmed
+		}
+	}
+
+	if routePath := strings.TrimSpace(resolveRoutePath(urls, "admin", "content.panel")); routePath != "" {
+		for _, suffix := range []string{"/:panel", "/{panel}", "/:" + panelPlaceholder, "/" + panelPlaceholder} {
+			if trimmed, ok := strings.CutSuffix(routePath, suffix); ok && strings.TrimSpace(trimmed) != "" {
+				return trimmed
+			}
+		}
+		if !strings.ContainsAny(routePath, ":*{}") {
+			return routePath
+		}
+	}
+
+	return prefixBasePath(resolveAdminBasePath(urls, fallback), "content")
+}
+
 func resolveAdminURL(urls urlkit.Resolver, fallback, path string) string {
 	basePath := resolveAdminBaseURL(urls, fallback)
 	return prefixBasePath(basePath, path)

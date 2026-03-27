@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	cms "github.com/goliatone/go-cms"
@@ -34,6 +35,153 @@ func newTranslationFamilyURLManager(t *testing.T) *urlkit.RouteManager {
 		t.Fatalf("new route manager: %v", err)
 	}
 	return manager
+}
+
+type contentEntryRouteCaptureRouter struct {
+	prefix string
+	paths  map[string]bool
+}
+
+func newContentEntryRouteCaptureRouter() *contentEntryRouteCaptureRouter {
+	return &contentEntryRouteCaptureRouter{paths: map[string]bool{}}
+}
+
+func (r *contentEntryRouteCaptureRouter) fullPath(routePath string) string {
+	return prefixBasePath(strings.TrimSpace(r.prefix), strings.TrimSpace(routePath))
+}
+
+func (r *contentEntryRouteCaptureRouter) record(routePath string) {
+	if r == nil {
+		return
+	}
+	r.paths[r.fullPath(routePath)] = true
+}
+
+func (r *contentEntryRouteCaptureRouter) Handle(method router.HTTPMethod, routePath string, handler router.HandlerFunc, middlewares ...router.MiddlewareFunc) router.RouteInfo {
+	_, _, _, _ = method, handler, middlewares, routePath
+	r.record(routePath)
+	return nil
+}
+
+func (r *contentEntryRouteCaptureRouter) Group(prefix string) router.Router[*fiber.App] {
+	return &contentEntryRouteCaptureRouter{
+		prefix: r.fullPath(prefix),
+		paths:  r.paths,
+	}
+}
+
+func (r *contentEntryRouteCaptureRouter) Mount(prefix string) router.Router[*fiber.App] {
+	return r.Group(prefix)
+}
+
+func (r *contentEntryRouteCaptureRouter) WithGroup(groupPath string, cb func(r router.Router[*fiber.App])) router.Router[*fiber.App] {
+	group := r.Group(groupPath)
+	if cb != nil {
+		cb(group)
+	}
+	return group
+}
+
+func (r *contentEntryRouteCaptureRouter) Use(m ...router.MiddlewareFunc) router.Router[*fiber.App] {
+	_ = m
+	return r
+}
+
+func (r *contentEntryRouteCaptureRouter) Get(routePath string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	_, _ = handler, mw
+	r.record(routePath)
+	return nil
+}
+
+func (r *contentEntryRouteCaptureRouter) Post(routePath string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	_, _ = handler, mw
+	r.record(routePath)
+	return nil
+}
+
+func (r *contentEntryRouteCaptureRouter) Put(routePath string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	_, _, _ = routePath, handler, mw
+	return nil
+}
+
+func (r *contentEntryRouteCaptureRouter) Delete(routePath string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	_, _, _ = routePath, handler, mw
+	return nil
+}
+
+func (r *contentEntryRouteCaptureRouter) Patch(routePath string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	_, _, _ = routePath, handler, mw
+	return nil
+}
+
+func (r *contentEntryRouteCaptureRouter) Head(routePath string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
+	_, _, _ = routePath, handler, mw
+	return nil
+}
+
+func (r *contentEntryRouteCaptureRouter) Static(prefix, root string, config ...router.Static) router.Router[*fiber.App] {
+	_, _, _ = prefix, root, config
+	return r
+}
+
+func (r *contentEntryRouteCaptureRouter) WebSocket(routePath string, config router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo {
+	_, _, _ = routePath, config, handler
+	return nil
+}
+
+func (r *contentEntryRouteCaptureRouter) Routes() []router.RouteDefinition { return nil }
+func (r *contentEntryRouteCaptureRouter) ValidateRoutes() []error          { return nil }
+func (r *contentEntryRouteCaptureRouter) PrintRoutes()                     {}
+func (r *contentEntryRouteCaptureRouter) WithLogger(logger router.Logger) router.Router[*fiber.App] {
+	_ = logger
+	return r
+}
+
+func TestRegisterContentEntryUIRoutesUsesResolvedAdminContentBasePath(t *testing.T) {
+	manager, err := urlkit.NewRouteManagerFromConfig(&urlkit.Config{
+		Groups: []urlkit.GroupConfig{
+			{
+				Name:    "admin",
+				BaseURL: "/control",
+				Routes: map[string]string{
+					"dashboard":     "/",
+					"content.panel": "/content/:panel",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new route manager: %v", err)
+	}
+
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{URLManager: manager})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+
+	r := newContentEntryRouteCaptureRouter()
+	if err := RegisterContentEntryUIRoutes(r, cfg, adm, nil); err != nil {
+		t.Fatalf("RegisterContentEntryUIRoutes: %v", err)
+	}
+
+	paths := r.paths
+	for _, want := range []string{
+		"/control/content/:name",
+		"/control/content/:name/new",
+		"/control/content/:name/:id",
+		"/control/content/:name/:id/edit",
+	} {
+		if !paths[want] {
+			t.Fatalf("expected runtime route %q registered, got %v", want, sortedRoutePaths(paths))
+		}
+	}
+	if paths["/admin/content/:name"] {
+		t.Fatalf("expected generic content routes to avoid stale cfg.BasePath prefix, got %v", sortedRoutePaths(paths))
+	}
 }
 
 func TestContentEntryColumnsMarksFilterableFields(t *testing.T) {

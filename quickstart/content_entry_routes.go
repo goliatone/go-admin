@@ -3,7 +3,6 @@ package quickstart
 import (
 	"fmt"
 	"io/fs"
-	"path"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -244,8 +243,11 @@ func RegisterContentEntryUIRoutes[T any](
 	// can be captured as /:name/:id with id="new", which bypasses the intended new-entry
 	// handler and breaks browser flows that rely on the canonical content URLs.
 	registerCanonicalContentEntryPanelRoutes(r, adm, wrap, handlers)
-	// TODO: Make configurable, use URLKit and url manager
-	base := path.Join(options.basePath, "content")
+	var urls urlkit.Resolver
+	if adm != nil {
+		urls = adm.URLs()
+	}
+	base := resolveAdminContentEntryBasePath(urls, options.basePath)
 	contentRoutes := r.Group(base)
 	contentRoutes.Get("/:name", wrap(handlers.List))
 	contentRoutes.Get("/:name/new", wrap(handlers.New))

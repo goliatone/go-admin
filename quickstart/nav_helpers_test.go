@@ -12,6 +12,10 @@ import (
 	"github.com/goliatone/go-users/command"
 )
 
+type allowAllQuickstartAuthorizer struct{}
+
+func (allowAllQuickstartAuthorizer) Can(context.Context, string, string) bool { return true }
+
 func TestBuildNavItemsOrdering(t *testing.T) {
 	cfg := admin.Config{
 		DefaultLocale: "en",
@@ -131,6 +135,7 @@ func TestWithNavCarriesConfiguredLogoURLIntoThemeAssets(t *testing.T) {
 }
 
 func TestWithNavIncludesUsersImportFlagsWhenConfigured(t *testing.T) {
+	resetCommandRegistryForTest(t)
 	cfg := admin.Config{DefaultLocale: "en"}
 	adm, err := admin.New(cfg, admin.Dependencies{
 		BulkUserImport: &command.BulkUserImportCommand{},
@@ -138,6 +143,7 @@ func TestWithNavIncludesUsersImportFlagsWhenConfigured(t *testing.T) {
 	if err != nil {
 		t.Fatalf("admin.New: %v", err)
 	}
+	adm.WithAuthorizer(allowAllQuickstartAuthorizer{})
 	view := WithNav(nil, adm, cfg, "", context.Background())
 	if available, ok := view["users_import_available"].(bool); !ok || !available {
 		t.Fatalf("expected users_import_available=true when command is configured, got %v", view["users_import_available"])
