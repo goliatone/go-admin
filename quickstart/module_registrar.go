@@ -2,7 +2,6 @@ package quickstart
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -222,10 +221,6 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 		}
 	}
 
-	if err := preSeedContentTypeBuilder(adm, cfg, ordered); err != nil {
-		return err
-	}
-
 	if options.seed && options.seedOpts.MenuSvc != nil {
 		mainMenuCode := admin.NormalizeMenuSlug(strings.TrimSpace(options.seedOpts.MenuCode))
 		if mainMenuCode == "" {
@@ -281,29 +276,6 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 		}
 	}
 
-	return nil
-}
-
-func preSeedContentTypeBuilder(adm *admin.Admin, cfg admin.Config, modules []admin.Module) error {
-	if adm == nil || len(modules) == 0 {
-		return nil
-	}
-	for _, mod := range modules {
-		builder, ok := mod.(*admin.ContentTypeBuilderModule)
-		if !ok || builder == nil {
-			continue
-		}
-		err := builder.Register(admin.ModuleContext{
-			Admin:           adm,
-			Router:          adm.PublicRouter(),
-			PublicRouter:    adm.PublicRouter(),
-			ProtectedRouter: adm.ProtectedRouter(),
-			Locale:          strings.TrimSpace(cfg.DefaultLocale),
-		})
-		if err != nil && !errors.Is(err, admin.ErrFeatureDisabled) {
-			return err
-		}
-	}
 	return nil
 }
 
