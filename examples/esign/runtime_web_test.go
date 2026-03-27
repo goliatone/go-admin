@@ -2450,7 +2450,7 @@ func drainRuntimeNotificationOutboxes(t *testing.T, fixture eSignRuntimeWebFixtu
 
 	ctx := context.Background()
 	retryDelay := jobs.DefaultRetryPolicy().BaseDelay
-	for attempt := 0; attempt < 6; attempt++ {
+	for range 6 {
 		claimed := 0
 		now := time.Now().UTC()
 		result, err := stores.DispatchOutboxBatch(ctx, store, scope, emailPublisher, stores.OutboxDispatchInput{
