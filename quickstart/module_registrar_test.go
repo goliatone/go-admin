@@ -9,6 +9,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 	commandregistry "github.com/goliatone/go-command/registry"
 	fggate "github.com/goliatone/go-featuregate/gate"
+	router "github.com/goliatone/go-router"
 )
 
 type stubModule struct {
@@ -93,6 +94,32 @@ func TestNewModuleRegistrarWrapsRegisterErrors(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "register module dup-module") {
 		t.Fatalf("expected wrapped error with module ID, got %v", err)
+	}
+}
+
+func TestNewModuleRegistrarDoesNotDoubleRegisterContentTypeBuilder(t *testing.T) {
+	resetCommandRegistryForTest(t)
+
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	adm, _, err := NewAdmin(cfg, AdapterHooks{})
+	if err != nil {
+		t.Fatalf("NewAdmin error: %v", err)
+	}
+	adm.UseCMS(admin.NewNoopCMSContainer())
+	if adm.Commands() != nil {
+		t.Cleanup(adm.Commands().Reset)
+	}
+
+	modules := []admin.Module{
+		NewContentTypeBuilderModule(cfg, ""),
+	}
+	if err := NewModuleRegistrar(adm, cfg, modules, false, WithSeedNavigation(false)); err != nil {
+		t.Fatalf("NewModuleRegistrar error: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("Initialize error: %v", err)
 	}
 }
 

@@ -348,6 +348,44 @@ func TestInitializeRunsInitHooksOnlyOnceAfterSuccess(t *testing.T) {
 	}
 }
 
+func TestInitializeAllowsSameAdminToReuseOwnedCommandRegistry(t *testing.T) {
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+	})
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+
+	if err := adm.Initialize(nilRouter{}); err != nil {
+		t.Fatalf("first initialize: %v", err)
+	}
+	if !adm.commandRegistryInitialized {
+		t.Fatalf("expected admin to record command registry ownership after initialize")
+	}
+	if err := adm.Initialize(nilRouter{}); err != nil {
+		t.Fatalf("second initialize: %v", err)
+	}
+}
+
+func TestInitializeFailsWhenGlobalCommandRegistryAlreadyInitializedExternally(t *testing.T) {
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCommands),
+	})
+	if err := registry.Start(context.Background()); err != nil {
+		t.Fatalf("force registry initialized state: %v", err)
+	}
+	t.Cleanup(func() { _ = registry.Stop(context.Background()) })
+
+	err := adm.Initialize(nilRouter{})
+	if err == nil {
+		t.Fatalf("expected initialize to fail when registry was started outside admin lifecycle")
+	}
+	if !strings.Contains(err.Error(), "command registry already initialized outside admin lifecycle") {
+		t.Fatalf("expected bootstrap isolation error, got %v", err)
+	}
+	if adm.commandRegistryInitialized {
+		t.Fatalf("expected admin to leave ownership unset after external registry conflict")
+	}
+}
+
 func TestPrepareStartsTranslationExchangeRuntime(t *testing.T) {
 	ctx := t.Context()
 

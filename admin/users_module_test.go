@@ -241,6 +241,7 @@ func TestUserModuleCRUDSearchAndActivity(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureUsers, FeatureSearch)})
+	adm.WithAuthorizer(allowAuthorizer{})
 	server := router.NewHTTPServer()
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize: %v", err)
