@@ -94,7 +94,10 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 	readModels := services.NewDefaultSourceReadModelService(store, store, store)
 	fingerprints := services.NewDefaultSourceFingerprintService(store, uploads)
 	reconciliation := services.NewDefaultSourceReconciliationService(store)
-	provider := newLineageValidationGoogleProvider()
+	provider, err := newLineageValidationGoogleProvider()
+	if err != nil {
+		return LineageValidationResult{}, fmt.Errorf("build lineage validation google provider: %w", err)
+	}
 	google := services.NewGoogleIntegrationService(
 		store,
 		provider,
@@ -137,6 +140,13 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 		return LineageValidationResult{}, fmt.Errorf("re-import unchanged google document: %w", err)
 	}
 
+	changedPDF, err := makeReadableValidationPDF(
+		"Master Services Agreement",
+		"Commercial terms were updated for the March revision.",
+	)
+	if err != nil {
+		return LineageValidationResult{}, fmt.Errorf("build changed lineage validation PDF: %w", err)
+	}
 	provider.setFile(
 		"google-file-1",
 		lineageValidationGoogleFile{
@@ -149,10 +159,7 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 				ParentID:     "contracts",
 				ModifiedTime: time.Date(2026, 3, 19, 15, 0, 0, 0, time.UTC),
 			},
-			pdf: makeReadableValidationPDF(
-				"Master Services Agreement",
-				"Commercial terms were updated for the March revision.",
-			),
+			pdf: changedPDF,
 		},
 	)
 
@@ -298,7 +305,21 @@ type lineageValidationGoogleProvider struct {
 	files map[string]lineageValidationGoogleFile
 }
 
-func newLineageValidationGoogleProvider() *lineageValidationGoogleProvider {
+func newLineageValidationGoogleProvider() (*lineageValidationGoogleProvider, error) {
+	primaryPDF, err := makeReadableValidationPDF(
+		"Master Services Agreement",
+		"Commercial terms remain unchanged in the initial revision.",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("build primary lineage validation PDF: %w", err)
+	}
+	candidatePDF, err := makeReadableValidationPDF(
+		"Master Services Agreement",
+		"This sibling draft keeps the same title but changes appendix language for review.",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("build candidate lineage validation PDF: %w", err)
+	}
 	return &lineageValidationGoogleProvider{
 		files: map[string]lineageValidationGoogleFile{
 			"google-file-1": {
@@ -311,10 +332,7 @@ func newLineageValidationGoogleProvider() *lineageValidationGoogleProvider {
 					ParentID:     "contracts",
 					ModifiedTime: time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC),
 				},
-				pdf: makeReadableValidationPDF(
-					"Master Services Agreement",
-					"Commercial terms remain unchanged in the initial revision.",
-				),
+				pdf: primaryPDF,
 			},
 			"google-file-candidate": {
 				file: services.GoogleDriveFile{
@@ -326,13 +344,10 @@ func newLineageValidationGoogleProvider() *lineageValidationGoogleProvider {
 					ParentID:     "contracts",
 					ModifiedTime: time.Date(2026, 3, 19, 16, 0, 0, 0, time.UTC),
 				},
-				pdf: makeReadableValidationPDF(
-					"Master Services Agreement",
-					"This sibling draft keeps the same title but changes appendix language for review.",
-				),
+				pdf: candidatePDF,
 			},
 		},
-	}
+	}, nil
 }
 
 func (p *lineageValidationGoogleProvider) setFile(id string, file lineageValidationGoogleFile) {
@@ -488,7 +503,7 @@ func validateLineageAgreementContract(detail services.AgreementLineageDetail) bo
 		detail.NewerSourceSummary.Exists
 }
 
-func makeReadableValidationPDF(paragraphs ...string) []byte {
+func makeReadableValidationPDF(paragraphs ...string) ([]byte, error) {
 	doc := gofpdf.New("P", "pt", "Letter", "")
 	doc.SetMargins(48, 48, 48)
 	doc.SetFont("Helvetica", "", 12)
@@ -503,7 +518,7 @@ func makeReadableValidationPDF(paragraphs ...string) []byte {
 	}
 	var out bytes.Buffer
 	if err := doc.Output(&out); err != nil {
-		panic(fmt.Sprintf("makeReadableValidationPDF: %v", err))
+		return nil, fmt.Errorf("render readable validation PDF: %w", err)
 	}
-	return out.Bytes()
+	return out.Bytes(), nil
 }

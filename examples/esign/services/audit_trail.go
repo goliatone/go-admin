@@ -566,14 +566,6 @@ func auditTrailPolicyForDerivedSourceEvent(sourceEvent string) (auditTrailDerive
 	return policy, ok
 }
 
-func mustAuditTrailPolicyForDerivedSourceEvent(sourceEvent string) auditTrailDerivedEventPolicy {
-	policy, ok := auditTrailPolicyForDerivedSourceEvent(sourceEvent)
-	if ok {
-		return policy
-	}
-	panic(fmt.Sprintf("missing derived audit trail policy for source event %q", sourceEvent))
-}
-
 func buildAuditTrailEventDescription(
 	kind auditTrailDescriptionKind,
 	sourceEvent string,
@@ -760,12 +752,12 @@ func deriveLifecycleAuditTrailEntries(
 ) []AuditTrailEntry {
 	entries := make([]AuditTrailEntry, 0, 2+(len(signerRecipients)*2))
 	creator := coalesce(strings.TrimSpace(agreement.CreatedByUserID), "system")
-	createdPolicy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleCreated)
-	sentPolicy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleSent)
-	viewedPolicy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleViewed)
-	signedPolicy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleSigned)
+	createdPolicy, hasCreatedPolicy := auditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleCreated)
+	sentPolicy, hasSentPolicy := auditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleSent)
+	viewedPolicy, hasViewedPolicy := auditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleViewed)
+	signedPolicy, hasSignedPolicy := auditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleSigned)
 
-	if !markers.HasCreated && !agreement.CreatedAt.IsZero() {
+	if hasCreatedPolicy && !markers.HasCreated && !agreement.CreatedAt.IsZero() {
 		createdAt := agreement.CreatedAt.UTC()
 		entries = append(entries, AuditTrailEntry{
 			EventType:     createdPolicy.EventType,
@@ -779,7 +771,7 @@ func deriveLifecycleAuditTrailEntries(
 			SourceEventID: "derived.created",
 		})
 	}
-	if !markers.HasSent && agreement.SentAt != nil && !agreement.SentAt.IsZero() {
+	if hasSentPolicy && !markers.HasSent && agreement.SentAt != nil && !agreement.SentAt.IsZero() {
 		sentAt := agreement.SentAt.UTC()
 		entries = append(entries, AuditTrailEntry{
 			EventType:     sentPolicy.EventType,
@@ -794,7 +786,7 @@ func deriveLifecycleAuditTrailEntries(
 		})
 	}
 
-	if !markers.HasViewedWithoutActor {
+	if hasViewedPolicy && !markers.HasViewedWithoutActor {
 		for _, recipient := range signerRecipients {
 			recipientID := strings.TrimSpace(recipient.ID)
 			if recipientID == "" {
@@ -826,7 +818,7 @@ func deriveLifecycleAuditTrailEntries(
 		}
 	}
 
-	if !markers.HasSignedWithoutActor {
+	if hasSignedPolicy && !markers.HasSignedWithoutActor {
 		for _, recipient := range signerRecipients {
 			recipientID := strings.TrimSpace(recipient.ID)
 			if recipientID == "" {
@@ -895,7 +887,10 @@ func buildTerminalAuditTrailEntry(agreement stores.AgreementRecord, now time.Tim
 	}
 	switch status {
 	case stores.AgreementStatusCompleted:
-		policy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedStatusCompleted)
+		policy, ok := auditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedStatusCompleted)
+		if !ok {
+			return nil
+		}
 		return &AuditTrailEntry{
 			EventType:     policy.EventType,
 			Timestamp:     timestamp,
@@ -906,7 +901,10 @@ func buildTerminalAuditTrailEntry(agreement stores.AgreementRecord, now time.Tim
 			SourceEventID: "derived.completed",
 		}
 	case stores.AgreementStatusDeclined, stores.AgreementStatusVoided, stores.AgreementStatusExpired:
-		policy := mustAuditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedStatusIncomplete)
+		policy, ok := auditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedStatusIncomplete)
+		if !ok {
+			return nil
+		}
 		return &AuditTrailEntry{
 			EventType:     policy.EventType,
 			Timestamp:     timestamp,

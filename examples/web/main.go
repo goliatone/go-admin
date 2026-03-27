@@ -170,6 +170,7 @@ func main() {
 		"preferences.update":    "Updated",
 	}
 	cfg.EnablePublicAPI = runtimeConfig.Admin.PublicAPI
+	cfg.Site.AllowUnauthenticatedReads = runtimeConfig.Admin.PublicAPI
 	cfg.PreviewSecret = strings.TrimSpace(runtimeConfig.Admin.PreviewSecret)
 	cfg.URLs.Admin.APIVersion = strings.TrimSpace(runtimeConfig.Admin.APIVersion)
 	cfg.URLs.Admin.APIPrefix = strings.TrimSpace(runtimeConfig.Admin.APIPrefix)
@@ -3037,7 +3038,12 @@ func triggerTestError(errorType string) error {
 				},
 			})
 	case "panic":
-		panic("intentional panic for error page testing")
+		return goerrors.New("intentional panic-equivalent error for error page testing", goerrors.CategoryInternal).
+			WithCode(fiber.StatusInternalServerError).
+			WithTextCode("INTENTIONAL_PANIC_TEST_ERROR").
+			WithMetadata(map[string]any{
+				"test_type": "panic",
+			})
 	case "nested":
 		return nestedErrorExample()
 	case "template":

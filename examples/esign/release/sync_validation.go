@@ -96,12 +96,16 @@ func RunSyncValidationProfile(ctx context.Context) (SyncValidationResult, error)
 		Scope: esignsync.BuildIdentityScope(scope, actorID),
 	}
 
+	autosavePayload, err := jsonPayload(syncValidationAutosavePayload(document.ID, "Sync Validation Draft", "Second pass", 3))
+	if err != nil {
+		return SyncValidationResult{}, fmt.Errorf("marshal sync validation autosave payload: %w", err)
+	}
 	successResult, err := svc.Mutate(ctx, gosynccore.MutationInput{
 		ResourceRef:      ref,
 		Operation:        esignsync.OperationAutosave,
 		ExpectedRevision: draft.Revision,
 		ActorID:          actorID,
-		Payload:          mustJSONPayload(syncValidationAutosavePayload(document.ID, "Sync Validation Draft", "Second pass", 3)),
+		Payload:          autosavePayload,
 	})
 	if err != nil {
 		return SyncValidationResult{}, fmt.Errorf("autosave sync validation draft: %w", err)
@@ -124,13 +128,17 @@ func RunSyncValidationProfile(ctx context.Context) (SyncValidationResult, error)
 		return SyncValidationResult{}, fmt.Errorf("build blocking sync validation service: %w", err)
 	}
 
+	sendPayload, err := jsonPayload(map[string]any{})
+	if err != nil {
+		return SyncValidationResult{}, fmt.Errorf("marshal sync validation send payload: %w", err)
+	}
 	sendInput := gosynccore.MutationInput{
 		ResourceRef:      ref,
 		Operation:        esignsync.OperationSend,
 		ExpectedRevision: successResult.Snapshot.Revision,
 		ActorID:          actorID,
 		IdempotencyKey:   "sync-validation-send-once",
-		Payload:          mustJSONPayload(map[string]any{}),
+		Payload:          sendPayload,
 	}
 
 	type sendOutcome struct {
@@ -201,12 +209,16 @@ func runSyncValidationConflict(
 	staleRevision int64,
 	documentID string,
 ) error {
-	_, err := svc.Mutate(ctx, gosynccore.MutationInput{
+	payload, err := jsonPayload(syncValidationAutosavePayload(documentID, "Sync Validation Draft", "Stale branch", 4))
+	if err != nil {
+		return fmt.Errorf("marshal sync validation conflict payload: %w", err)
+	}
+	_, err = svc.Mutate(ctx, gosynccore.MutationInput{
 		ResourceRef:      ref,
 		Operation:        esignsync.OperationAutosave,
 		ExpectedRevision: staleRevision,
 		ActorID:          actorID,
-		Payload:          mustJSONPayload(syncValidationAutosavePayload(documentID, "Sync Validation Draft", "Stale branch", 4)),
+		Payload:          payload,
 	})
 	if err == nil {
 		return fmt.Errorf("expected stale revision conflict")
@@ -272,12 +284,12 @@ func syncValidationWizardState(documentID, title, message string) map[string]any
 	}
 }
 
-func mustJSONPayload(value any) []byte {
+func jsonPayload(value any) ([]byte, error) {
 	raw, err := json.Marshal(value)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return raw
+	return raw, nil
 }
 
 type blockingMutationResourceStore struct {
