@@ -43,13 +43,12 @@ func (m *capturingTranslationMetrics) IncrementQAOutcome(_ context.Context, tags
 func TestApplyTranslationPolicyRecordsBlockedTransitionMetric(t *testing.T) {
 	metrics := &capturingTranslationMetrics{}
 	original := defaultTranslationMetrics
-	originalLogger := translationObservabilityLogger
 	logCapture := &capturingSlogHandler{}
 	defaultTranslationMetrics = metrics
-	translationObservabilityLogger = testLoggerWithHandler(logCapture)
+	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
 	t.Cleanup(func() {
 		defaultTranslationMetrics = original
-		translationObservabilityLogger = originalLogger
+		restoreLogger()
 	})
 
 	err := applyTranslationPolicy(context.Background(), TranslationPolicyFunc(func(_ context.Context, input TranslationPolicyInput) error {
@@ -106,13 +105,12 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 	t.Run("created", func(t *testing.T) {
 		metrics := &capturingTranslationMetrics{}
 		original := defaultTranslationMetrics
-		originalLogger := translationObservabilityLogger
 		logCapture := &capturingSlogHandler{}
 		defaultTranslationMetrics = metrics
-		translationObservabilityLogger = testLoggerWithHandler(logCapture)
+		restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
 		t.Cleanup(func() {
 			defaultTranslationMetrics = original
-			translationObservabilityLogger = originalLogger
+			restoreLogger()
 		})
 
 		repo := &translationActionRepoStub{
@@ -163,13 +161,12 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 	t.Run("duplicate", func(t *testing.T) {
 		metrics := &capturingTranslationMetrics{}
 		original := defaultTranslationMetrics
-		originalLogger := translationObservabilityLogger
 		logCapture := &capturingSlogHandler{}
 		defaultTranslationMetrics = metrics
-		translationObservabilityLogger = testLoggerWithHandler(logCapture)
+		restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
 		t.Cleanup(func() {
 			defaultTranslationMetrics = original
-			translationObservabilityLogger = originalLogger
+			restoreLogger()
 		})
 
 		repo := &translationActionRepoStub{
@@ -221,13 +218,12 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 func TestRecordTranslationCreateLocaleMetricCapturesOutcomesAndTraceContext(t *testing.T) {
 	metrics := &capturingTranslationMetrics{}
 	original := defaultTranslationMetrics
-	originalLogger := translationObservabilityLogger
 	logCapture := &capturingSlogHandler{}
 	defaultTranslationMetrics = metrics
-	translationObservabilityLogger = testLoggerWithHandler(logCapture)
+	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
 	t.Cleanup(func() {
 		defaultTranslationMetrics = original
-		translationObservabilityLogger = originalLogger
+		restoreLogger()
 	})
 
 	ctx := context.Background()
@@ -287,13 +283,12 @@ func cloneTagsMap(values map[string]string) map[string]string {
 }
 
 func TestRecordTranslationAPIOperationLogsTraceCorrelation(t *testing.T) {
-	originalLogger := translationObservabilityLogger
 	logCapture := &capturingSlogHandler{}
-	translationObservabilityLogger = testLoggerWithHandler(logCapture)
+	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
 	originalMetrics := translationAPIObservabilityMetrics
 	translationAPIObservabilityMetrics = new(expvar.Map).Init()
 	t.Cleanup(func() {
-		translationObservabilityLogger = originalLogger
+		restoreLogger()
 		translationAPIObservabilityMetrics = originalMetrics
 	})
 
@@ -328,13 +323,12 @@ func TestRecordTranslationAPIOperationLogsTraceCorrelation(t *testing.T) {
 func TestRecordTranslationReviewActionMetricCapturesApproveAndRequestChanges(t *testing.T) {
 	metrics := &capturingTranslationMetrics{}
 	original := defaultTranslationMetrics
-	originalLogger := translationObservabilityLogger
 	logCapture := &capturingSlogHandler{}
 	defaultTranslationMetrics = metrics
-	translationObservabilityLogger = testLoggerWithHandler(logCapture)
+	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
 	t.Cleanup(func() {
 		defaultTranslationMetrics = original
-		translationObservabilityLogger = originalLogger
+		restoreLogger()
 	})
 
 	ctx := context.Background()
@@ -388,13 +382,12 @@ func TestRecordTranslationReviewActionMetricCapturesApproveAndRequestChanges(t *
 func TestRecordTranslationQAOutcomeMetricCapturesSaveAndSubmitStates(t *testing.T) {
 	metrics := &capturingTranslationMetrics{}
 	original := defaultTranslationMetrics
-	originalLogger := translationObservabilityLogger
 	logCapture := &capturingSlogHandler{}
 	defaultTranslationMetrics = metrics
-	translationObservabilityLogger = testLoggerWithHandler(logCapture)
+	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(logCapture))
 	t.Cleanup(func() {
 		defaultTranslationMetrics = original
-		translationObservabilityLogger = originalLogger
+		restoreLogger()
 	})
 
 	ctx := context.Background()

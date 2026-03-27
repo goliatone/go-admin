@@ -32,6 +32,10 @@ import {
 } from './source-management-pages.js';
 
 import { onReady } from './utils/dom-helpers.js';
+import {
+  formatSourceManagementDateTime,
+  formatSourceManagementRelativeTime,
+} from './utils/formatters.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 type SourceManagementRuntimePage =
@@ -97,42 +101,6 @@ function parseJSONScript<T>(id: string): T | null {
     return null;
   }
 }
-
-
-function formatDateTime(value: string | undefined): string {
-  const input = String(value ?? '').trim();
-  if (!input) {
-    return '-';
-  }
-  const parsed = new Date(input);
-  if (Number.isNaN(parsed.getTime())) {
-    return escapeHtml(input);
-  }
-  return escapeHtml(parsed.toLocaleString());
-}
-
-function formatRelativeTime(value: string | undefined): string {
-  const input = String(value ?? '').trim();
-  if (!input) {
-    return '';
-  }
-  const parsed = new Date(input);
-  if (Number.isNaN(parsed.getTime())) {
-    return '';
-  }
-  const now = Date.now();
-  const diff = now - parsed.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  return parsed.toLocaleDateString();
-}
-
 function badgeClass(value: string): string {
   switch (value) {
     case 'active':
@@ -673,7 +641,7 @@ function renderBrowserTable(
           </td>
           <td class="${runtimeTableCellClass} text-sm text-gray-700">
             <p>${escapeHtml(item.latest_revision?.provider_revision_hint ?? '-')}</p>
-            <p class="mt-0.5 text-xs text-gray-500">${formatDateTime(item.latest_revision?.modified_time)}</p>
+            <p class="mt-0.5 text-xs text-gray-500">${formatSourceManagementDateTime(item.latest_revision?.modified_time)}</p>
           </td>
           <td class="${runtimeTableCellClass}">${statusBadge(item.status)}</td>
           <td class="${runtimeTableCellClass} text-sm">
@@ -983,7 +951,7 @@ function renderWorkspacePage(
             ${renderRuntimeSupportCard(`
               <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500">Latest Revision</h4>
               <p class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(workspace.latest_revision?.provider_revision_hint ?? workspace.latest_revision?.id ?? '-')}</p>
-              <p class="mt-1 text-xs text-gray-500">${formatDateTime(workspace.latest_revision?.modified_time)}</p>
+              <p class="mt-1 text-xs text-gray-500">${formatSourceManagementDateTime(workspace.latest_revision?.modified_time)}</p>
             `)}
           </div>
           ${renderRuntimeSupportCard(`
@@ -1051,7 +1019,7 @@ function renderRevisionInspector(detail: SourceRevisionDetail): string {
         </div>
         <div>
           <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Modified</h3>
-          <p class="mt-1 text-sm text-gray-900">${formatDateTime(detail.revision?.modified_time)}</p>
+          <p class="mt-1 text-sm text-gray-900">${formatSourceManagementDateTime(detail.revision?.modified_time)}</p>
         </div>
         <div>
           <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Evidence</h3>
@@ -1121,7 +1089,7 @@ function renderCommentThread(thread: SourceCommentThreadSummary): string {
           ${statusBadge(thread.status)}
           ${thread.sync_status ? statusBadge(thread.sync_status) : ''}
         </div>
-        <span class="text-xs text-gray-500">${formatRelativeTime(thread.last_synced_at)}</span>
+        <span class="text-xs text-gray-500">${formatSourceManagementRelativeTime(thread.last_synced_at)}</span>
       </div>
       <p class="mt-3 text-sm font-medium text-gray-900">${escapeHtml(thread.anchor?.label ?? 'Comment Thread')}</p>
       <p class="mt-1 text-sm text-gray-600 line-clamp-2">${escapeHtml(thread.body_preview ?? '')}</p>

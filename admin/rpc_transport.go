@@ -213,6 +213,9 @@ func rpcRequestHasActor(ctx context.Context) bool {
 	if ctx == nil {
 		return false
 	}
+	if authenticatedRequestFromContext(ctx) {
+		return true
+	}
 	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
 		if strings.TrimSpace(actor.ActorID) != "" || strings.TrimSpace(actor.Subject) != "" {
 			return true

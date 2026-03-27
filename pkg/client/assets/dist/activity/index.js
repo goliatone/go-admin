@@ -1,6 +1,7 @@
 import { escapeHTML as l } from "../shared/html.js";
 import { r as E } from "../chunks/icon-renderer-FL11lsYV.js";
-const re = {
+import { formatRelativeTimeCompactPast as re, formatRelativeTimeNatural as oe } from "../shared/time-formatters.js";
+const le = {
   // Created
   created: "created",
   added: "created",
@@ -40,13 +41,13 @@ const re = {
   read: "viewed",
   downloaded: "viewed",
   exported: "viewed"
-}, oe = "actor_display", le = "object_display", ce = "object_deleted", de = "actor_type", fe = "actor_email", ue = "session_id", pe = "enriched_at", he = "enricher_version", F = {
+}, ce = "actor_display", de = "object_display", ue = "object_deleted", pe = "actor_type", fe = "actor_email", he = "session_id", me = "enriched_at", ge = "enricher_version", F = {
   user: "user",
   system: "settings",
   job: "clock",
   api: "cloud",
   unknown: "help-circle"
-}, me = {
+}, be = {
   user: "User",
   system: "System",
   job: "Job",
@@ -76,7 +77,7 @@ const G = {
   auth: "key",
   viewed: "eye",
   system: "settings"
-}, ge = {
+}, ye = {
   debug: "terminal",
   user: "user",
   users: "group",
@@ -118,10 +119,10 @@ function W(e, t) {
     return { namespace: "", action: "", icon: "activity", category: "system" };
   const i = J(e, t);
   if (e.includes(".")) {
-    const a = e.split("."), r = a[0].toLowerCase(), o = a.slice(1).join("."), c = ge[r] || "activity", f = a[a.length - 1], h = N(f);
+    const a = e.split("."), r = a[0].toLowerCase(), o = a.slice(1).join("."), c = ye[r] || "activity", u = a[a.length - 1], h = B(u);
     return { namespace: r, action: i !== e ? i : o, icon: c, category: h };
   }
-  const n = N(e);
+  const n = B(e);
   return {
     namespace: "",
     action: i !== e ? i : e,
@@ -129,12 +130,12 @@ function W(e, t) {
     category: n
   };
 }
-function N(e) {
+function B(e) {
   if (!e) return "system";
   const t = e.toLowerCase().trim().replace(/-/g, "_");
-  return re[t] || "system";
+  return le[t] || "system";
 }
-function be(e) {
+function ve(e) {
   if (!e) return { type: "", id: "" };
   if (!e.includes(":"))
     return { type: e, id: "" };
@@ -149,7 +150,7 @@ function S(e, t) {
   const i = e[t];
   return i == null ? "" : typeof i == "string" ? i.trim() : typeof i == "number" || typeof i == "boolean" ? String(i) : "";
 }
-function ye(...e) {
+function we(...e) {
   for (const t of e) {
     if (!t) continue;
     const i = t.trim();
@@ -158,17 +159,17 @@ function ye(...e) {
   return "";
 }
 function Q(e) {
-  return ye(S(e.metadata, oe), e.actor);
+  return we(S(e.metadata, ce), e.actor);
 }
-function ve(e) {
-  return S(e.metadata, le);
+function xe(e) {
+  return S(e.metadata, de);
 }
-function we(e) {
-  return !e.metadata || typeof e.metadata != "object" ? !1 : e.metadata[ce] === !0;
+function Ee(e) {
+  return !e.metadata || typeof e.metadata != "object" ? !1 : e.metadata[ue] === !0;
 }
-function B(e) {
+function N(e) {
   if (!e.metadata || typeof e.metadata != "object") return "unknown";
-  const t = e.metadata[de];
+  const t = e.metadata[pe];
   if (typeof t == "string") {
     const i = t.toLowerCase();
     if (i in F)
@@ -176,23 +177,23 @@ function B(e) {
   }
   return "unknown";
 }
-function Ye(e) {
+function Je(e) {
   return S(e.metadata, fe);
 }
 function X(e) {
-  return S(e.metadata, ue);
+  return S(e.metadata, he);
 }
-function xe(e) {
-  const t = S(e.metadata, pe), i = S(e.metadata, he);
+function Se(e) {
+  const t = S(e.metadata, me), i = S(e.metadata, ge);
   return !t && !i ? null : { enrichedAt: t, enricherVersion: i };
 }
-function Ee(e) {
+function Te(e) {
   return e ? e.charAt(0).toUpperCase() + e.slice(1) : "";
 }
-function R(e) {
-  return e ? e.split(/[_-]/).map(Ee).join(" ") : "";
+function O(e) {
+  return e ? e.split(/[_-]/).map(Te).join(" ") : "";
 }
-function I(e, t = 7) {
+function C(e, t = 7) {
   if (!e) return "";
   const i = e.replace(/-/g, "");
   return /^[0-9a-f]{32}$/i.test(i) || e.length > t + 3 ? e.substring(0, t) : e;
@@ -202,62 +203,56 @@ function Z(e) {
   const t = e.replace(/-/g, "");
   return /^[0-9a-f]{32}$/i.test(t);
 }
-function C(e, t = 8) {
+function I(e, t = 8) {
   if (!e) return "";
-  const i = I(e, t);
+  const i = C(e, t);
   return i === e ? l(e) : `<span class="activity-id-short" title="${l(e)}" style="cursor: help; border-bottom: 1px dotted #9ca3af;">${l(i)}</span>`;
 }
 function ee(e, t, i) {
   const { showActorTypeBadge: n = !1 } = i || {}, s = Q(e) || "Unknown", a = e.action || "performed action on", r = J(a, t);
   let o = "";
   if (n) {
-    const d = B(e);
-    d !== "user" && d !== "unknown" && (o = O(d, { badge: !0, size: "sm" }) + " ");
+    const d = N(e);
+    d !== "user" && d !== "unknown" && (o = R(d, { badge: !0, size: "sm" }) + " ");
   }
-  const c = Z(s) ? `${o}${C(s, 8)}` : `${o}<strong>${l(s)}</strong>`, h = we(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
-  let u = "";
-  const m = ve(e);
+  const c = Z(s) ? `${o}${I(s, 8)}` : `${o}<strong>${l(s)}</strong>`, h = Ee(e) ? ' <span class="activity-deleted-marker" title="This object has been deleted">(deleted)</span>' : "";
+  let p = "";
+  const m = xe(e);
   if (m)
-    u = l(m) + h;
+    p = l(m) + h;
   else {
-    const { type: d, id: p } = be(e.object);
-    if (d && p) {
-      const g = C(p, 8);
-      u = `${l(R(d))} #${g}${h}`;
-    } else d ? u = l(R(d)) + h : p && (u = `#${C(p, 8)}${h}`);
+    const { type: d, id: f } = ve(e.object);
+    if (d && f) {
+      const g = I(f, 8);
+      p = `${l(O(d))} #${g}${h}`;
+    } else d ? p = l(O(d)) + h : f && (p = `#${I(f, 8)}${h}`);
   }
-  if (N(a) === "auth") {
+  if (B(a) === "auth") {
     const d = e.metadata?.ip || e.metadata?.IP;
     return d ? `${c} ${l(r)} from ${l(String(d))}` : `${c} ${l(r)}`;
   }
-  return u ? `${c} ${l(r)} <strong>${u}</strong>` : `${c} ${l(r)}`;
+  return p ? `${c} ${l(r)} <strong>${p}</strong>` : `${c} ${l(r)}`;
 }
-function Se(e) {
+function $e(e) {
   if (!e) return "-";
   const t = new Date(e);
   return Number.isNaN(t.getTime()) ? e : t.toLocaleString();
 }
-function Te(e) {
-  if (!e) return "";
-  const t = new Date(e);
-  if (Number.isNaN(t.getTime())) return e;
-  const n = (/* @__PURE__ */ new Date()).getTime() - t.getTime(), s = Math.floor(n / 1e3), a = Math.floor(s / 60), r = Math.floor(a / 60), o = Math.floor(r / 24);
-  return s < 60 ? "just now" : a < 60 ? `${a}m ago` : r < 24 ? `${r}h ago` : o < 7 ? `${o}d ago` : t.toLocaleDateString();
+function Ae(e) {
+  return re(e, {
+    emptyFallback: "",
+    invalidFallback: "__ORIGINAL__"
+  });
 }
-function $e(e) {
-  if (!e) return "";
-  const t = new Date(e);
-  if (Number.isNaN(t.getTime())) return e;
-  const n = (/* @__PURE__ */ new Date()).getTime() - t.getTime(), s = Math.floor(n / 1e3), a = Math.floor(s / 60), r = Math.floor(a / 60), o = Math.floor(r / 24), c = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  if (s < 60) return "just now";
-  if (a < 60) return c.format(-a, "minute");
-  if (r < 24) return c.format(-r, "hour");
-  if (o < 7) return c.format(-o, "day");
-  if (o < 30) {
-    const f = Math.floor(o / 7);
-    return c.format(-f, "week");
-  }
-  return t.toLocaleDateString();
+function Ie(e) {
+  return oe(e, {
+    emptyFallback: "",
+    invalidFallback: "__ORIGINAL__",
+    locale: "en",
+    numeric: "auto",
+    direction: "past-only",
+    maxRelativeDays: 30
+  });
 }
 function te(e) {
   const t = /* @__PURE__ */ new Date(), i = new Date(t.getFullYear(), t.getMonth(), t.getDate()), n = new Date(i);
@@ -277,13 +272,13 @@ function T(e) {
   const t = e.getFullYear(), i = String(e.getMonth() + 1).padStart(2, "0"), n = String(e.getDate()).padStart(2, "0");
   return `${t}-${i}-${n}`;
 }
-function Ae(e) {
+function Ce(e) {
   return !e || typeof e != "object" ? 0 : Object.keys(e).length;
 }
 function ne(e) {
   if (e === null) return "hidden";
   if (e === void 0 || typeof e != "object") return "";
-  const t = Ae(e);
+  const t = Ce(e);
   return t === 0 || K(e) ? "hidden" : t === 1 ? "1 field" : `${t} fields`;
 }
 function se(e) {
@@ -307,7 +302,7 @@ function se(e) {
     else if (n.endsWith("_old") || n.endsWith("_new"))
       r = l(j(s));
     else if (typeof s == "object" && s !== null) {
-      const f = JSON.stringify(s), h = f.length > 100 ? f.substring(0, 100) + "..." : f;
+      const u = JSON.stringify(s), h = u.length > 100 ? u.substring(0, 100) + "..." : u;
       r = `<code style="font-size: 11px; background: #e5e7eb; padding: 2px 6px; border-radius: 4px; word-break: break-all;">${l(h)}</code>`;
     } else
       r = l(j(s));
@@ -320,7 +315,7 @@ function se(e) {
   }).join("");
 }
 function ae(e) {
-  const t = xe(e);
+  const t = Se(e);
   if (!t) return "";
   const i = [];
   if (t.enrichedAt) {
@@ -350,18 +345,18 @@ function ae(e) {
 function j(e) {
   return e == null ? "-" : typeof e == "boolean" ? e ? "Yes" : "No" : typeof e == "number" ? String(e) : typeof e == "string" ? e.length > 100 ? e.substring(0, 100) + "..." : e : JSON.stringify(e);
 }
-function Ce(e) {
-  return e ? I(e, 7) : "";
+function _e(e) {
+  return e ? C(e, 7) : "";
 }
-function Ke(e) {
+function We(e) {
   return `activity-action--${e}`;
 }
-function Ge(e) {
+function Qe(e) {
   const t = G[e];
   return E(`iconoir:${t}`, { extraClass: "activity-action-icon" });
 }
-function O(e, t) {
-  const { badge: i = !1, size: n = "md" } = t || {}, s = F[e], a = me[e], r = {
+function R(e, t) {
+  const { badge: i = !1, size: n = "md" } = t || {}, s = F[e], a = be[e], r = {
     sm: "12px",
     md: "14px",
     lg: "16px"
@@ -379,17 +374,17 @@ function O(e, t) {
     extraClass: `activity-actor-type-icon activity-actor-type-icon--${e}`
   });
 }
-function Je(e) {
-  const t = Q(e) || "Unknown", i = B(e), n = Z(t) ? C(t, 8) : l(t);
-  return `${i !== "user" && i !== "unknown" ? O(i, { badge: !0, size: "sm" }) + " " : ""}<strong>${n}</strong>`;
+function Xe(e) {
+  const t = Q(e) || "Unknown", i = N(e), n = Z(t) ? I(t, 8) : l(t);
+  return `${i !== "user" && i !== "unknown" ? R(i, { badge: !0, size: "sm" }) + " " : ""}<strong>${n}</strong>`;
 }
-function Ie(e, t = 10) {
-  return e ? I(e, t) : "";
+function ke(e, t = 10) {
+  return e ? C(e, t) : "";
 }
-function ke(e) {
-  return e ? Y(e) ? "Session (masked)" : `Session ${Ie(e, 8)}` : "No session";
+function Le(e) {
+  return e ? Y(e) ? "Session (masked)" : `Session ${ke(e, 8)}` : "No session";
 }
-const Le = {
+const De = {
   container: "#activity-view-switcher",
   tableTab: '[data-view-tab="table"]',
   timelineTab: '[data-view-tab="timeline"]',
@@ -403,7 +398,7 @@ class q {
       this.setView("table");
     }, this.handleTimelineClick = () => {
       this.setView("timeline");
-    }, this.selectors = { ...Le, ...t }, this.onViewChange = i;
+    }, this.selectors = { ...De, ...t }, this.onViewChange = i;
   }
   /**
    * Initialize the view switcher
@@ -501,7 +496,7 @@ class q {
     i === "timeline" ? t.set(x, i) : t.delete(x);
   }
 }
-const H = {
+const P = {
   created: { bg: "#ecfdf5", color: "#10b981", border: "#a7f3d0" },
   updated: { bg: "#eff6ff", color: "#3b82f6", border: "#bfdbfe" },
   deleted: { bg: "#fef2f2", color: "#ef4444", border: "#fecaca" },
@@ -527,7 +522,7 @@ function Me(e) {
     (i, n) => n.date.getTime() - i.date.getTime()
   );
 }
-function _e(e) {
+function Ve(e) {
   if (!e || e.length === 0)
     return [];
   const t = /* @__PURE__ */ new Map();
@@ -535,7 +530,7 @@ function _e(e) {
     const s = X(n) || "", a = s || "__no_session__";
     t.has(a) || t.set(a, {
       sessionId: s,
-      label: ke(s),
+      label: Le(s),
       entries: [],
       collapsed: !1
     }), t.get(a).entries.push(n);
@@ -552,7 +547,7 @@ function _e(e) {
     return (s.entries[0] ? new Date(s.entries[0].created_at).getTime() : 0) - a;
   });
 }
-function De(e, t) {
+function Be(e, t) {
   if (!t || t.length === 0)
     return e;
   const i = /* @__PURE__ */ new Map();
@@ -569,7 +564,7 @@ function De(e, t) {
       collapsed: !1
     });
     const c = i.get(r);
-    c.entries.some((f) => f.id === s.id) || c.entries.push(s);
+    c.entries.some((u) => u.id === s.id) || c.entries.push(s);
   });
   const n = Array.from(i.values()).sort(
     (s, a) => a.date.getTime() - s.date.getTime()
@@ -580,7 +575,7 @@ function De(e, t) {
     );
   }), n;
 }
-function Ve(e) {
+function Ne(e) {
   if (!e) return "?";
   const t = e.replace(/-/g, "");
   if (/^[0-9a-f]{32}$/i.test(t))
@@ -588,11 +583,11 @@ function Ve(e) {
   const i = e.split(/[\s._-]+/).filter(Boolean);
   return i.length >= 2 ? (i[0][0] + i[1][0]).toUpperCase() : e.substring(0, 2).toUpperCase();
 }
-function _(e, t, i) {
-  const { showDebugInfo: n = !1 } = i || {}, s = W(e.action, t), a = ee(e, t), r = $e(e.created_at), o = ne(e.metadata), c = se(e.metadata), f = n ? ae(e) : "", h = H[s.category] || H.system, u = Ve(e.actor), m = B(e), y = m !== "user" && m !== "unknown" ? O(m, { badge: !0, size: "sm" }) : "", d = document.createElement("div");
+function D(e, t, i) {
+  const { showDebugInfo: n = !1 } = i || {}, s = W(e.action, t), a = ee(e, t), r = Ie(e.created_at), o = ne(e.metadata), c = se(e.metadata), u = n ? ae(e) : "", h = P[s.category] || P.system, p = Ne(e.actor), m = N(e), y = m !== "user" && m !== "unknown" ? R(m, { badge: !0, size: "sm" }) : "", d = document.createElement("div");
   d.className = `timeline-entry timeline-entry--${s.category}`, d.dataset.entryId = e.id;
-  let p = "";
-  o === "hidden" ? p = `
+  let f = "";
+  o === "hidden" ? f = `
       <div class="timeline-entry-metadata">
         <button type="button"
                 class="timeline-metadata-toggle timeline-metadata-toggle--hidden"
@@ -608,10 +603,10 @@ function _(e, t, i) {
           <div class="timeline-metadata-grid">
             ${c}
           </div>
-          ${f}
+          ${u}
         </div>
       </div>
-    ` : o ? p = `
+    ` : o ? f = `
       <div class="timeline-entry-metadata">
         <button type="button"
                 class="timeline-metadata-toggle"
@@ -626,10 +621,10 @@ function _(e, t, i) {
           <div class="timeline-metadata-grid">
             ${c}
           </div>
-          ${f}
+          ${u}
         </div>
       </div>
-    ` : f && (p = `
+    ` : u && (f = `
       <div class="timeline-entry-metadata">
         <button type="button"
                 class="timeline-metadata-toggle timeline-metadata-toggle--debug"
@@ -642,7 +637,7 @@ function _(e, t, i) {
           </svg>
         </button>
         <div class="timeline-metadata-content" data-timeline-metadata-content="${e.id}">
-          ${f}
+          ${u}
         </div>
       </div>
     `);
@@ -654,7 +649,7 @@ function _(e, t, i) {
     <div class="timeline-entry-card">
       <div class="timeline-entry-header">
         <div class="timeline-entry-avatar" style="background-color: ${h.bg}; color: ${h.color};">
-          ${l(u)}
+          ${l(p)}
           ${g}
         </div>
         <div class="timeline-entry-content">
@@ -668,11 +663,11 @@ function _(e, t, i) {
           <div class="timeline-entry-time">${l(r)}</div>
         </div>
       </div>
-      ${p}
+      ${f}
     </div>
   `, d;
 }
-function Ne(e, t, i) {
+function Re(e, t, i) {
   const n = `${t}__${e.sessionId || "no-session"}`, s = document.createElement("div");
   s.className = "timeline-session-header", s.dataset.sessionGroup = n;
   const a = e.entries.length, r = a === 1 ? "1 entry" : `${a} entries`;
@@ -692,7 +687,7 @@ function Ne(e, t, i) {
     e.collapsed = c, o.setAttribute("aria-expanded", (!c).toString()), i(n, c);
   }), s;
 }
-function Be(e, t) {
+function Oe(e, t) {
   const i = T(e.date), n = document.createElement("div");
   n.className = "timeline-date-header", n.dataset.dateGroup = i, n.innerHTML = `
     <button type="button" class="timeline-date-toggle" aria-expanded="${!e.collapsed}">
@@ -709,43 +704,43 @@ function Be(e, t) {
     e.collapsed = a, s.setAttribute("aria-expanded", (!a).toString()), t(i, a);
   }), n;
 }
-function Oe(e, t, i, n) {
+function je(e, t, i, n) {
   const {
     groupBySession: s = !0,
     showDebugInfo: a = !1,
     onSessionToggle: r,
     collapsedSessions: o = /* @__PURE__ */ new Set()
-  } = n || {}, c = T(e.date), f = document.createElement("div");
-  f.className = "timeline-group", f.dataset.dateGroup = c;
-  const h = Be(e, i);
-  f.appendChild(h);
-  const u = document.createElement("div");
-  if (u.className = "timeline-entries", e.collapsed && u.classList.add("collapsed"), s) {
-    const m = _e(e.entries), y = m.length > 1 || m.length === 1 && m[0].sessionId;
+  } = n || {}, c = T(e.date), u = document.createElement("div");
+  u.className = "timeline-group", u.dataset.dateGroup = c;
+  const h = Oe(e, i);
+  u.appendChild(h);
+  const p = document.createElement("div");
+  if (p.className = "timeline-entries", e.collapsed && p.classList.add("collapsed"), s) {
+    const m = Ve(e.entries), y = m.length > 1 || m.length === 1 && m[0].sessionId;
     m.forEach((d) => {
-      const p = `${c}__${d.sessionId || "no-session"}`;
-      if (d.collapsed = o.has(p), y) {
-        const g = Ne(d, c, r);
-        u.appendChild(g);
+      const f = `${c}__${d.sessionId || "no-session"}`;
+      if (d.collapsed = o.has(f), y) {
+        const g = Re(d, c, r);
+        p.appendChild(g);
         const b = document.createElement("div");
-        b.className = "timeline-session-entries", b.dataset.sessionEntries = p, d.collapsed && b.classList.add("collapsed"), d.entries.forEach(($) => {
-          const A = _($, t, { showDebugInfo: a });
+        b.className = "timeline-session-entries", b.dataset.sessionEntries = f, d.collapsed && b.classList.add("collapsed"), d.entries.forEach(($) => {
+          const A = D($, t, { showDebugInfo: a });
           b.appendChild(A);
-        }), u.appendChild(b);
+        }), p.appendChild(b);
       } else
         d.entries.forEach((g) => {
-          const b = _(g, t, { showDebugInfo: a });
-          u.appendChild(b);
+          const b = D(g, t, { showDebugInfo: a });
+          p.appendChild(b);
         });
     });
   } else
     e.entries.forEach((m) => {
-      const y = _(m, t, { showDebugInfo: a });
-      u.appendChild(y);
+      const y = D(m, t, { showDebugInfo: a });
+      p.appendChild(y);
     });
-  return f.appendChild(u), f;
+  return u.appendChild(p), u;
 }
-class Re {
+class ze {
   constructor(t, i, n) {
     this.collapsedGroups = /* @__PURE__ */ new Set(), this.collapsedSessions = /* @__PURE__ */ new Set(), this.groups = [], this.container = t, this.actionLabels = i, this.options = {
       groupBySession: !0,
@@ -771,7 +766,7 @@ class Re {
     i.className = "timeline", this.groups.forEach((n) => {
       const s = T(n.date);
       n.collapsed = this.collapsedGroups.has(s);
-      const a = Oe(
+      const a = je(
         n,
         this.actionLabels,
         (r, o) => {
@@ -793,7 +788,7 @@ class Re {
    * Append more entries (for infinite scroll)
    */
   appendEntries(t) {
-    this.groups = De(this.groups, t);
+    this.groups = Be(this.groups, t);
     const i = this.groups.flatMap((n) => n.entries);
     this.render(i);
   }
@@ -846,24 +841,24 @@ class Re {
     });
   }
 }
-function je() {
+function qe() {
   const e = document.createElement("div");
   return e.className = "timeline-loading", e.innerHTML = `
     <div class="timeline-loading-spinner"></div>
     <span>Loading more entries...</span>
   `, e;
 }
-function ze() {
+function Pe() {
   const e = document.createElement("div");
   return e.className = "timeline-end", e.innerHTML = `
     <span>No more entries</span>
   `, e;
 }
-function We() {
+function Ze() {
   const e = document.createElement("div");
   return e.className = "timeline-sentinel", e.setAttribute("aria-hidden", "true"), e;
 }
-const qe = {
+const He = {
   form: "#activity-filters",
   tableBody: "#activity-table-body",
   emptyState: "#activity-empty",
@@ -875,20 +870,20 @@ const qe = {
   refreshBtn: "#activity-refresh",
   clearBtn: "#activity-clear",
   limitInput: "#filter-limit"
-}, P = {
+}, H = {
   container: "#activity-timeline",
   sentinel: "#activity-timeline-sentinel"
-}, D = ["q", "verb", "channels", "object_type", "object_id"], V = ["since", "until"], He = ["user_id", "actor_id"];
+}, M = ["q", "verb", "channels", "object_type", "object_id"], V = ["since", "until"], Ue = ["user_id", "actor_id"];
 function U(e) {
   return e !== null && typeof e == "object" && !Array.isArray(e);
 }
-function Pe(e) {
+function Fe(e) {
   if (!U(e))
     return { textCode: "", message: "" };
   const t = U(e.error) ? e.error : e, i = typeof t.text_code == "string" ? t.text_code.trim() : "", n = typeof t.message == "string" ? t.message.trim() : "";
   return { textCode: i, message: n };
 }
-class Qe {
+class et {
   constructor(t, i = {}, n) {
     this.form = null, this.tableBody = null, this.emptyState = null, this.disabledState = null, this.errorState = null, this.countEl = null, this.prevBtn = null, this.nextBtn = null, this.refreshBtn = null, this.clearBtn = null, this.limitInput = null, this.viewSwitcher = null, this.timelineRenderer = null, this.timelineContainer = null, this.timelineSentinel = null, this.infiniteScrollObserver = null, this.isLoadingMore = !1, this.allEntriesLoaded = !1, this.cachedEntries = [], this.state = {
       limit: 50,
@@ -897,7 +892,7 @@ class Qe {
       nextOffset: 0,
       hasMore: !1,
       extraParams: {}
-    }, this.config = t, this.selectors = { ...qe, ...i }, this.toast = n || window.toastManager || null;
+    }, this.config = t, this.selectors = { ...He, ...i }, this.toast = n || window.toastManager || null;
   }
   /**
    * Initialize the activity manager
@@ -925,7 +920,7 @@ class Qe {
    * Initialize the timeline renderer
    */
   initTimeline() {
-    this.timelineContainer = document.querySelector(P.container), this.timelineSentinel = document.querySelector(P.sentinel), this.timelineContainer && (this.timelineRenderer = new Re(
+    this.timelineContainer = document.querySelector(H.container), this.timelineSentinel = document.querySelector(H.sentinel), this.timelineContainer && (this.timelineRenderer = new ze(
       this.timelineContainer,
       this.config.actionLabels
     )), this.setupInfiniteScroll();
@@ -970,7 +965,7 @@ class Qe {
     if (this.isLoadingMore || this.allEntriesLoaded || !this.state.hasMore)
       return;
     this.isLoadingMore = !0;
-    const t = je();
+    const t = qe();
     this.timelineSentinel?.parentElement?.insertBefore(t, this.timelineSentinel);
     try {
       this.state.offset = this.state.nextOffset;
@@ -980,7 +975,7 @@ class Qe {
       const a = await s.json(), r = Array.isArray(a.entries) ? a.entries : [];
       if (this.state.hasMore = !!a.has_more, this.state.nextOffset = typeof a.next_offset == "number" ? a.next_offset : this.state.offset + r.length, r.length === 0 ? this.allEntriesLoaded = !0 : (this.cachedEntries = [...this.cachedEntries, ...r], this.timelineRenderer && this.timelineRenderer.appendEntries(r)), !this.state.hasMore) {
         this.allEntriesLoaded = !0;
-        const o = ze();
+        const o = Pe();
         this.timelineSentinel?.parentElement?.insertBefore(o, this.timelineSentinel);
       }
     } catch (i) {
@@ -996,7 +991,7 @@ class Qe {
     this.form?.addEventListener("submit", (t) => {
       t.preventDefault(), this.state.limit = parseInt(this.limitInput?.value || "50", 10) || 50, this.state.offset = 0, this.loadActivity();
     }), this.clearBtn?.addEventListener("click", () => {
-      D.forEach((t) => this.setInputValue(t, "")), V.forEach((t) => this.setInputValue(t, "")), this.state.offset = 0, this.loadActivity();
+      M.forEach((t) => this.setInputValue(t, "")), V.forEach((t) => this.setInputValue(t, "")), this.state.offset = 0, this.loadActivity();
     }), this.prevBtn?.addEventListener("click", () => {
       this.state.offset = Math.max(0, this.state.offset - this.state.limit), this.loadActivity();
     }), this.nextBtn?.addEventListener("click", () => {
@@ -1027,14 +1022,14 @@ class Qe {
   }
   syncFromQuery() {
     const t = new URLSearchParams(window.location.search), i = parseInt(t.get("limit") || "", 10), n = parseInt(t.get("offset") || "", 10);
-    !Number.isNaN(i) && i > 0 && (this.state.limit = i), !Number.isNaN(n) && n >= 0 && (this.state.offset = n), this.limitInput && (this.limitInput.value = String(this.state.limit)), D.forEach((s) => this.setInputValue(s, t.get(s) || "")), V.forEach((s) => this.setInputValue(s, this.toLocalInput(t.get(s) || ""))), He.forEach((s) => {
+    !Number.isNaN(i) && i > 0 && (this.state.limit = i), !Number.isNaN(n) && n >= 0 && (this.state.offset = n), this.limitInput && (this.limitInput.value = String(this.state.limit)), M.forEach((s) => this.setInputValue(s, t.get(s) || "")), V.forEach((s) => this.setInputValue(s, this.toLocalInput(t.get(s) || ""))), Ue.forEach((s) => {
       const a = t.get(s);
       a && (this.state.extraParams[s] = a);
     });
   }
   buildParams() {
     const t = new URLSearchParams();
-    return t.set("limit", String(this.state.limit)), t.set("offset", String(this.state.offset)), D.forEach((i) => {
+    return t.set("limit", String(this.state.limit)), t.set("offset", String(this.state.offset)), M.forEach((i) => {
       const n = this.getInputValue(i);
       n && t.set(i, n);
     }), V.forEach((i) => {
@@ -1072,7 +1067,7 @@ class Qe {
         } catch {
           o = null;
         }
-        const c = Pe(o);
+        const c = Fe(o);
         if (n.status === 404 && c.textCode === "FEATURE_DISABLED") {
           this.showDisabled(c.message || "Activity feature disabled."), this.renderRows([]), this.updatePagination(0);
           return;
@@ -1109,14 +1104,14 @@ class Qe {
     }), this.wireMetadataToggles();
   }
   createRowPair(t) {
-    const i = this.config.actionLabels || {}, n = W(t.action, i), s = ee(t, i, { showActorTypeBadge: !0 }), a = Se(t.created_at), r = Te(t.created_at), o = ne(t.metadata), c = se(t.metadata), f = ae(t), h = Ce(t.channel), u = !!o, m = !!f, y = u || m, d = {
+    const i = this.config.actionLabels || {}, n = W(t.action, i), s = ee(t, i, { showActorTypeBadge: !0 }), a = $e(t.created_at), r = Ae(t.created_at), o = ne(t.metadata), c = se(t.metadata), u = ae(t), h = _e(t.channel), p = !!o, m = !!u, y = p || m, d = {
       created: { bg: "#ecfdf5", color: "#10b981", border: "#a7f3d0" },
       updated: { bg: "#eff6ff", color: "#3b82f6", border: "#bfdbfe" },
       deleted: { bg: "#fef2f2", color: "#ef4444", border: "#fecaca" },
       auth: { bg: "#fffbeb", color: "#f59e0b", border: "#fde68a" },
       viewed: { bg: "#f5f3ff", color: "#8b5cf6", border: "#ddd6fe" },
       system: { bg: "#f9fafb", color: "#6b7280", border: "#e5e7eb" }
-    }, p = d[n.category] || d.system, g = document.createElement("tr");
+    }, f = d[n.category] || d.system, g = document.createElement("tr");
     g.className = `activity-row activity-row--${n.category}`;
     let b = "";
     n.namespace ? b = `
@@ -1124,12 +1119,12 @@ class Qe {
           <span style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f3f4f6; border-radius: 6px; color: #6b7280;" title="${l(n.namespace)}">
             ${E(`iconoir:${n.icon}`, { size: "14px" })}
           </span>
-          <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${p.bg}; color: ${p.color}; border: 1px solid ${p.border};">
+          <span style="display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${f.bg}; color: ${f.color}; border: 1px solid ${f.border};">
             ${l(n.action)}
           </span>
         </div>
       ` : b = `
-        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${p.bg}; color: ${p.color}; border: 1px solid ${p.border};">
+        <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background-color: ${f.bg}; color: ${f.color}; border: 1px solid ${f.border};">
           ${E(`iconoir:${n.icon}`, { size: "14px" })}
           <span>${l(n.action || "-")}</span>
         </span>
@@ -1142,14 +1137,14 @@ class Qe {
       ` : $ = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
     let A = "";
     if (y) {
-      let v = o || "", k = "activity-metadata-toggle", L = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;", M = "";
-      o === "hidden" ? (v = "Hidden", k += " activity-metadata-toggle--hidden", L = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", M = '<i class="iconoir-eye-off" style="font-size: 12px;"></i>') : !u && m && (v = "Debug", k += " activity-metadata-toggle--debug", L = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", M = '<i class="iconoir-info-circle" style="font-size: 12px;"></i>'), A = `
+      let v = o || "", _ = "activity-metadata-toggle", k = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #6b7280; background: #f3f4f6; border: none; border-radius: 6px; cursor: pointer;", L = "";
+      o === "hidden" ? (v = "Hidden", _ += " activity-metadata-toggle--hidden", k = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", L = '<i class="iconoir-eye-off" style="font-size: 12px;"></i>') : !p && m && (v = "Debug", _ += " activity-metadata-toggle--debug", k = "display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; color: #9ca3af; background: transparent; border: 1px dashed #d1d5db; border-radius: 6px; cursor: pointer;", L = '<i class="iconoir-info-circle" style="font-size: 12px;"></i>'), A = `
         <button type="button"
-                class="${k}"
-                style="${L}"
+                class="${_}"
+                style="${k}"
                 aria-expanded="false"
                 data-metadata-toggle="${t.id}">
-          ${M}
+          ${L}
           <span>${v}</span>
           <svg class="activity-metadata-chevron" style="width: 12px; height: 12px; transition: transform 0.15s ease;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -1159,7 +1154,7 @@ class Qe {
     } else
       A = '<span style="color: #9ca3af; font-size: 12px;">-</span>';
     g.innerHTML = `
-      <td style="padding: 12px 16px; vertical-align: middle; border-left: 3px solid ${p.color};">
+      <td style="padding: 12px 16px; vertical-align: middle; border-left: 3px solid ${f.color};">
         <div style="font-size: 13px; color: #374151; white-space: nowrap;">${a}</div>
         <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">${r}</div>
       </td>
@@ -1174,12 +1169,12 @@ class Qe {
     if (y) {
       w = document.createElement("tr"), w.className = "activity-details-row", w.style.display = "none", w.dataset.metadataContent = t.id;
       let v = "";
-      u && (v += `
+      p && (v += `
           <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px 24px;">
             ${c}
           </div>
-        `), m && (v += f), w.innerHTML = `
-        <td colspan="5" style="padding: 0; background: #f9fafb; border-left: 3px solid ${p.color};">
+        `), m && (v += u), w.innerHTML = `
+        <td colspan="5" style="padding: 0; background: #f9fafb; border-left: 3px solid ${f.color};">
           <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb;">
             ${v}
           </div>
@@ -1191,7 +1186,7 @@ class Qe {
   createSessionRow(t) {
     const i = document.createElement("tr");
     i.className = "activity-session-row";
-    const n = I(t, 10);
+    const n = C(t, 10);
     return i.innerHTML = `
       <td colspan="5" style="padding: 8px 16px; background: #f8fafc; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb;">
         <div style="display: flex; align-items: center; gap: 8px; font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em;">
@@ -1221,53 +1216,53 @@ class Qe {
 export {
   G as ACTION_ICONS,
   F as ACTOR_TYPE_ICONS,
-  me as ACTOR_TYPE_LABELS,
-  Qe as ActivityManager,
+  be as ACTOR_TYPE_LABELS,
+  et as ActivityManager,
   q as ActivityViewSwitcher,
-  ge as NAMESPACE_ICONS,
-  Re as TimelineRenderer,
-  Ae as countMetadataFields,
-  ze as createEndIndicator,
-  je as createLoadingIndicator,
-  We as createScrollSentinel,
+  ye as NAMESPACE_ICONS,
+  ze as TimelineRenderer,
+  Ce as countMetadataFields,
+  Pe as createEndIndicator,
+  qe as createLoadingIndicator,
+  Ze as createScrollSentinel,
   l as escapeHtml,
   ee as formatActivitySentence,
-  Je as formatActorWithType,
-  Ce as formatChannel,
+  Xe as formatActorWithType,
+  _e as formatChannel,
   ae as formatEnrichmentDebugInfo,
   se as formatMetadataExpanded,
-  Te as formatRelativeTime,
-  $e as formatRelativeTimeIntl,
-  Ie as formatSessionId,
-  Se as formatTimestamp,
-  N as getActionCategory,
-  Ke as getActionClass,
-  Ge as getActionIconHtml,
-  Ye as getActorEmail,
-  B as getActorType,
-  O as getActorTypeIconHtml,
+  Ae as formatRelativeTime,
+  Ie as formatRelativeTimeIntl,
+  ke as formatSessionId,
+  $e as formatTimestamp,
+  B as getActionCategory,
+  We as getActionClass,
+  Qe as getActionIconHtml,
+  Je as getActorEmail,
+  N as getActorType,
+  R as getActorTypeIconHtml,
   te as getDateGroupLabel,
   T as getDateKey,
-  xe as getEnrichmentInfo,
+  Se as getEnrichmentInfo,
   ne as getMetadataSummary,
-  ke as getSessionGroupLabel,
+  Le as getSessionGroupLabel,
   X as getSessionId,
   ie as getStartOfDay,
   Me as groupEntriesByDate,
-  _e as groupEntriesBySession,
+  Ve as groupEntriesBySession,
   Y as isMaskedValue,
   K as isMetadataHidden,
-  we as isObjectDeleted,
-  De as mergeEntriesIntoGroups,
+  Ee as isObjectDeleted,
+  Be as mergeEntriesIntoGroups,
   W as parseActionString,
-  be as parseObject,
-  Oe as renderDateGroup,
-  Be as renderDateGroupHeader,
-  Ne as renderSessionGroupHeader,
-  _ as renderTimelineEntry,
+  ve as parseObject,
+  je as renderDateGroup,
+  Oe as renderDateGroupHeader,
+  Re as renderSessionGroupHeader,
+  D as renderTimelineEntry,
   J as resolveActionLabel,
   Q as resolveActorLabel,
-  ve as resolveObjectDisplay,
-  I as shortenId
+  xe as resolveObjectDisplay,
+  C as shortenId
 };
 //# sourceMappingURL=index.js.map

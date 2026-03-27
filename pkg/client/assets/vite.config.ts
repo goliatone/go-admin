@@ -44,6 +44,7 @@ export default defineConfig({
         'shared/record-normalization': resolve(__dirname, 'src/shared/record-normalization.ts'),
         'shared/dom-ready': resolve(__dirname, 'src/shared/dom-ready.ts'),
         'shared/stateful-controller': resolve(__dirname, 'src/shared/stateful-controller.ts'),
+        'shared/time-formatters': resolve(__dirname, 'src/shared/time-formatters.ts'),
         // E-Sign module entries
         'esign/index': resolve(__dirname, 'src/esign/index.ts'),
         'esign/admin-landing': resolve(__dirname, 'src/esign/entries/admin-landing.ts'),
@@ -55,6 +56,7 @@ export default defineConfig({
         'esign/source-management-runtime': resolve(__dirname, 'src/esign/entries/source-management-runtime.ts'),
         'esign/document-detail': resolve(__dirname, 'src/esign/entries/document-detail.ts'),
         'esign/agreement-detail': resolve(__dirname, 'src/esign/entries/agreement-detail.ts'),
+        'esign/timeline-formatters': resolve(__dirname, 'src/esign/timeline/formatters.ts'),
         'esign/datatable': resolve(__dirname, 'src/esign/entries/datatable.ts'),
         'esign/signer-review': resolve(__dirname, 'src/esign/entries/signer-review.ts'),
         'esign/signer-complete': resolve(__dirname, 'src/esign/entries/signer-complete.ts'),

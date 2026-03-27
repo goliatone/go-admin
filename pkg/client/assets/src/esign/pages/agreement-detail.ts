@@ -33,13 +33,12 @@ import {
 import {
   TimelineController,
   parseMergedTimelineBootstrap,
-  formatTimestamp as timelineFormatTimestamp,
-  formatRelativeTime as timelineFormatRelativeTime,
   looksLikeUUID,
   humanizeActorRole,
   getActorColor,
   getActorInitials,
 } from '../timeline/index.js';
+import { formatTimestamp, formatRelativeTime } from '../timeline/formatters.js';
 import {
   initCommandRuntime,
   type CommandRuntimeController,
@@ -65,24 +64,7 @@ interface ScopeParams {
 // =============================================================================
 
 export { looksLikeUUID } from '../timeline/index.js';
-
-// =============================================================================
-// Timestamp Formatting
-// =============================================================================
-
-/**
- * Format a timestamp for display
- */
-export function formatTimestamp(ts: string): string {
-  return timelineFormatTimestamp(ts);
-}
-
-/**
- * Format a relative time for display
- */
-export function formatRelativeTime(ts: string): string {
-  return timelineFormatRelativeTime(ts);
-}
+export { formatTimestamp, formatRelativeTime } from '../timeline/formatters.js';
 
 /**
  * Format all timestamp nodes in the DOM

@@ -19,6 +19,7 @@ import type {
   LineageEmptyState,
   LineageReference,
 } from './lineage-contracts.js';
+import { formatLineageDateTime } from './utils/formatters.js';
 
 /**
  * Provenance source type enumeration for display logic.
@@ -237,20 +238,6 @@ export interface AgreementProvenanceViewModel {
 // ============================================================================
 
 /**
- * Format a date string for display.
- */
-function formatDate(dateStr: string | undefined): string | undefined {
-  if (!dateStr) return undefined;
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return undefined;
-    return date.toLocaleString();
-  } catch {
-    return undefined;
-  }
-}
-
-/**
  * Format bytes to human-readable size.
  */
 function formatBytes(bytes: number | undefined): string | undefined {
@@ -373,9 +360,9 @@ function normalizeRevisionSummary(rev: SourceRevisionSummary | null): Provenance
     id: rev.id,
     versionHint: rev.provider_revision_hint,
     modifiedAt: rev.modified_time,
-    modifiedAtFormatted: formatDate(rev.modified_time),
+    modifiedAtFormatted: formatLineageDateTime(rev.modified_time),
     exportedAt: rev.exported_at,
-    exportedAtFormatted: formatDate(rev.exported_at),
+    exportedAtFormatted: formatLineageDateTime(rev.exported_at),
     exportedByUserId: rev.exported_by_user_id,
     mimeType: rev.source_mime_type,
   };
@@ -410,7 +397,7 @@ function normalizeGoogleSource(source: SourceMetadataBaseline | null): Provenanc
     webUrl: source.web_url,
     title: source.title_hint,
     modifiedTime: source.modified_time,
-    modifiedTimeFormatted: formatDate(source.modified_time),
+    modifiedTimeFormatted: formatLineageDateTime(source.modified_time),
     mimeType: source.source_mime_type,
     ingestionMode: source.source_ingestion_mode,
     pageCountHint: source.page_count_hint,

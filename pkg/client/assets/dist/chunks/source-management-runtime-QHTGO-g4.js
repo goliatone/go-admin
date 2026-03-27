@@ -1,6 +1,7 @@
 import { S as k } from "./lineage-contracts-BR7-TggW.js";
 import { c as re, p as ne, o as ie, j as oe, m as ae, l as q, i as ce, S as H, a as le, h as j, r as de } from "./source-management-pages-6jhmEW80.js";
 import { onReady as ue } from "../shared/dom-ready.js";
+import { i as z, j as me } from "./formatters-CxrdwABk.js";
 import { escapeHTML as o } from "../shared/html.js";
 function N(t) {
   const s = document.getElementById(t)?.textContent?.trim();
@@ -11,23 +12,6 @@ function N(t) {
   } catch (n) {
     return console.warn(`[SourceManagementRuntime] Failed to parse ${t}:`, n), null;
   }
-}
-function F(t) {
-  const e = String(t ?? "").trim();
-  if (!e)
-    return "-";
-  const s = new Date(e);
-  return Number.isNaN(s.getTime()) ? o(e) : o(s.toLocaleString());
-}
-function me(t) {
-  const e = String(t ?? "").trim();
-  if (!e)
-    return "";
-  const s = new Date(e);
-  if (Number.isNaN(s.getTime()))
-    return "";
-  const r = Date.now() - s.getTime(), i = Math.floor(r / 6e4), a = Math.floor(r / 36e5), l = Math.floor(r / 864e5);
-  return i < 1 ? "just now" : i < 60 ? `${i}m ago` : a < 24 ? `${a}h ago` : l < 7 ? `${l}d ago` : s.toLocaleDateString();
 }
 function pe(t) {
   switch (t) {
@@ -184,7 +168,7 @@ function S(t, e, ...s) {
   }
   return "";
 }
-const He = [
+const je = [
   k.SOURCE_DOCUMENT,
   k.SOURCE_REVISION
 ];
@@ -249,7 +233,7 @@ function M() {
     </div>
   `;
 }
-function L(t) {
+function P(t) {
   return `
     <div class="rounded-lg border border-red-200 bg-red-50 p-4">
       <div class="flex">
@@ -269,8 +253,8 @@ function L(t) {
     </div>
   `;
 }
-const Y = "bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm", w = "h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", $e = "h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-500 bg-blue-50 text-blue-600 shadow-sm hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", U = "h-10 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", X = "block w-full h-10 ps-9 pe-8 border border-gray-200 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-gray-200", I = "block w-full h-10 rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500", Z = "inline-flex items-center gap-2 h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 cursor-pointer hover:bg-gray-50", E = "bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden", g = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider", f = "px-6 py-4 align-top", _e = "rounded-lg border border-gray-200 bg-gray-50 p-4", we = "rounded-xl border border-gray-200 bg-white p-6";
-function D(t = "refresh", e = "Refresh") {
+const Y = "bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm", w = "h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", $e = "h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-500 bg-blue-50 text-blue-600 shadow-sm hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", F = "h-10 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", X = "block w-full h-10 ps-9 pe-8 border border-gray-200 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-gray-200", I = "block w-full h-10 rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500", Z = "inline-flex items-center gap-2 h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 cursor-pointer hover:bg-gray-50", E = "bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden", g = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider", f = "px-6 py-4 align-top", _e = "rounded-lg border border-gray-200 bg-gray-50 p-4", we = "rounded-xl border border-gray-200 bg-white p-6";
+function U(t = "refresh", e = "Refresh") {
   return `
     <button type="button" data-runtime-action="${o(t)}" class="${w}">
       <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -281,7 +265,7 @@ function D(t = "refresh", e = "Refresh") {
 function b(t, e = "") {
   return `<div class="${_e}${e ? ` ${e}` : ""}">${t}</div>`;
 }
-function z(t, e = "") {
+function D(t, e = "") {
   return `<div class="${we}${e ? ` ${e}` : ""}">${t}</div>`;
 }
 function ee(t, e, s) {
@@ -338,7 +322,7 @@ function ke(t) {
                 </div>
               </div>
               <div class="flex items-center gap-2 pt-2 border-t border-gray-200">
-                <button type="submit" class="${U}">
+                <button type="submit" class="${F}">
                   Apply Filters
                 </button>
                 <button type="button" data-runtime-action="clear-browser-filters" class="${w}">
@@ -391,7 +375,7 @@ function V(t, e, s) {
           </td>
           <td class="${f} text-sm text-gray-700">
             <p>${o(a.latest_revision?.provider_revision_hint ?? "-")}</p>
-            <p class="mt-0.5 text-xs text-gray-500">${F(a.latest_revision?.modified_time)}</p>
+            <p class="mt-0.5 text-xs text-gray-500">${z(a.latest_revision?.modified_time)}</p>
           </td>
           <td class="${f}">${p(a.status)}</td>
           <td class="${f} text-sm">
@@ -425,7 +409,7 @@ function V(t, e, s) {
     ${O(t.page_info, "source-browser-page")}
   `;
 }
-function P(t, e, s, n) {
+function L(t, e, s, n) {
   const r = t === String(s ?? "").trim();
   return `
     <section id="workspace-panel-${o(t)}" class="rounded-xl border ${r ? "border-blue-300 bg-blue-50/40" : "border-gray-200 bg-white"} p-5">
@@ -588,7 +572,7 @@ function W(t, e, s) {
   );
   return `
     <div class="p-6 space-y-6">
-      ${z(`
+      ${D(`
         <div class="flex items-start justify-between gap-4">
           <div>
             <h2 class="text-xl font-semibold text-gray-900">${o(
@@ -598,7 +582,7 @@ function W(t, e, s) {
     t.source?.id ?? "-"
   )}</p>
           </div>
-          ${D()}
+          ${U()}
         </div>
         <div class="mt-4 flex flex-wrap gap-2">
           ${p(t.status)}
@@ -611,7 +595,7 @@ function W(t, e, s) {
 
       ${Se(t, s)}
 
-      ${P(
+      ${L(
     "overview",
     "Overview",
     n,
@@ -625,7 +609,7 @@ function W(t, e, s) {
             ${b(`
               <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500">Latest Revision</h4>
               <p class="mt-2 text-sm font-medium text-gray-900">${o(t.latest_revision?.provider_revision_hint ?? t.latest_revision?.id ?? "-")}</p>
-              <p class="mt-1 text-xs text-gray-500">${F(t.latest_revision?.modified_time)}</p>
+              <p class="mt-1 text-xs text-gray-500">${z(t.latest_revision?.modified_time)}</p>
             `)}
           </div>
           ${b(`
@@ -640,16 +624,16 @@ function W(t, e, s) {
         `
   )}
 
-      ${P("timeline", "Revision Timeline", n, d)}
-      ${P("agreements", "Related Agreements", n, m)}
-      ${P("artifacts", "Related Artifacts", n, u)}
-      ${P(
+      ${L("timeline", "Revision Timeline", n, d)}
+      ${L("agreements", "Related Agreements", n, m)}
+      ${L("artifacts", "Related Artifacts", n, u)}
+      ${L(
     "comments",
     "Related Comments",
     n,
     `${t.comments?.sync_status ? `<div class="mb-3">${p(t.comments.sync_status)}</div>` : ""}${R}`
   )}
-      ${P("handles", "Active Handles", n, $)}
+      ${L("handles", "Active Handles", n, $)}
     </div>
   `;
 }
@@ -661,7 +645,7 @@ function Q(t) {
           <h2 class="text-lg font-semibold text-gray-900">${o(t.revision?.provider_revision_hint ?? "Revision")}</h2>
           <p class="mt-1 text-sm text-gray-500 font-mono">${o(t.revision?.id ?? "-")}</p>
         </div>
-        ${D()}
+        ${U()}
       </div>
 
       <div class="grid gap-4 sm:grid-cols-2">
@@ -688,7 +672,7 @@ function Q(t) {
         </div>
         <div>
           <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Modified</h3>
-          <p class="mt-1 text-sm text-gray-900">${F(t.revision?.modified_time)}</p>
+          <p class="mt-1 text-sm text-gray-900">${z(t.revision?.modified_time)}</p>
         </div>
         <div>
           <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wide">Evidence</h3>
@@ -703,7 +687,7 @@ function G(t) {
   if (e.length === 0)
     return v(t.empty_state?.title ?? "No artifacts", t.empty_state?.description ?? "No artifacts have been generated for this revision.", !0);
   const s = e.map((n) => `
-        ${z(`
+        ${D(`
           <div class="flex items-start justify-between">
             <div class="flex flex-wrap gap-2">
               ${p(n.artifact_kind)}
@@ -734,7 +718,7 @@ function G(t) {
           <h2 class="text-lg font-semibold text-gray-900">Artifacts</h2>
           <p class="mt-1 text-sm text-gray-500">${e.length} artifact${e.length !== 1 ? "s" : ""}</p>
         </div>
-        ${D()}
+        ${U()}
       </div>
       <div class="grid gap-4">${s}</div>
     </div>
@@ -742,7 +726,7 @@ function G(t) {
 }
 function te(t) {
   return `
-    ${z(`
+    ${D(`
       <div class="flex items-start justify-between">
         <div class="flex flex-wrap gap-2">
           ${p(t.status)}
@@ -775,7 +759,7 @@ function K(t) {
           <h2 class="text-lg font-semibold text-gray-900">Comments</h2>
           ${p(t.sync_status ?? "unknown")}
         </div>
-        ${D()}
+        ${U()}
       </div>
       <div class="space-y-3">${e.map(te).join("")}</div>
       ${O(t.page_info, "source-comment-page")}
@@ -836,7 +820,7 @@ function Ce(t) {
                 </div>
               </div>
               <div class="flex items-center gap-2 pt-2 border-t border-gray-200">
-                <button type="submit" class="${U}">
+                <button type="submit" class="${F}">
                   Apply Filters
                 </button>
                 <button type="button" data-runtime-action="clear-search-filters" class="${w}">
@@ -847,7 +831,7 @@ function Ce(t) {
           </div>
 
           <div class="flex items-center gap-2 flex-shrink-0">
-            <button type="submit" class="${U}">
+            <button type="submit" class="${F}">
               Search
             </button>
             <button type="button" data-runtime-action="refresh" class="${w}">
@@ -1220,7 +1204,7 @@ class Me {
         return;
       }
       if (e.error) {
-        this.root.innerHTML = L(e.error);
+        this.root.innerHTML = P(e.error);
         return;
       }
       e.contracts?.listSources && (this.hasLiveContract = !0, this.root.innerHTML = V(e.contracts.listSources, this.config.routes ?? {}, this.config));
@@ -1233,7 +1217,7 @@ class Me {
         return;
       }
       if (e.error) {
-        this.root.innerHTML = L(e.error);
+        this.root.innerHTML = P(e.error);
         return;
       }
       e.contracts?.workspace && (this.hasLiveContract = !0, this.root.innerHTML = W(e.contracts.workspace, this.config.routes ?? {}, this.config));
@@ -1246,7 +1230,7 @@ class Me {
         return;
       }
       if (e.error) {
-        this.root.innerHTML = L(e.error);
+        this.root.innerHTML = P(e.error);
         return;
       }
       e.contracts?.revisionDetail && (this.hasLiveContract = !0, this.root.innerHTML = Q(e.contracts.revisionDetail));
@@ -1259,7 +1243,7 @@ class Me {
         return;
       }
       if (e.error) {
-        this.root.innerHTML = L(e.error);
+        this.root.innerHTML = P(e.error);
         return;
       }
       e.contracts?.commentPage && (this.hasLiveContract = !0, this.root.innerHTML = K(e.contracts.commentPage));
@@ -1272,7 +1256,7 @@ class Me {
         return;
       }
       if (e.error) {
-        this.root.innerHTML = L(e.error);
+        this.root.innerHTML = P(e.error);
         return;
       }
       e.contracts?.artifactPage && (this.hasLiveContract = !0, this.root.innerHTML = G(e.contracts.artifactPage));
@@ -1285,7 +1269,7 @@ class Me {
         return;
       }
       if (e.error) {
-        this.root.innerHTML = L(e.error);
+        this.root.innerHTML = P(e.error);
         return;
       }
       e.contracts?.searchResults && (this.hasLiveContract = !0, this.root.innerHTML = J(
@@ -1355,7 +1339,7 @@ function x(t) {
   const e = String(t ?? "").trim();
   return e || void 0;
 }
-function Le(t = document) {
+function Pe(t = document) {
   const e = Array.from(t.querySelectorAll("[data-admin-action-menu]"));
   if (e.length === 0)
     return;
@@ -1399,7 +1383,7 @@ function se() {
   const t = document.querySelector('[data-esign-page^="admin.sources."]'), e = document.querySelector("[data-source-management-runtime-root]");
   if (!t || !e)
     return null;
-  Le(document);
+  Pe(document);
   const s = N("esign-page-config"), n = N("source-management-page-model"), r = String(s?.page ?? t.dataset.esignPage ?? "").trim();
   if (!r)
     return null;
@@ -1412,7 +1396,7 @@ function se() {
   });
   return i.init(), i;
 }
-function Pe() {
+function Le() {
   const t = {
     success: !1,
     page: null,
@@ -1443,12 +1427,12 @@ function Pe() {
   const l = se();
   return t.controllerMounted = l !== null, t.controllerMounted || t.issues.push("Runtime controller failed to mount"), t.success = t.hasBackendConfig && t.hasBackendPageModel && t.hasBackendRoutes && t.controllerMounted && t.issues.length === 0, t;
 }
-function je() {
-  const t = Pe();
+function Ne() {
+  const t = Le();
   if (!t.success)
     throw new Error(`V2 runtime initialization failed: ${t.issues.join("; ")}`);
 }
-function Ne(t) {
+function Ee(t) {
   if (console.group("V2 Source-Management Runtime Initialization"), console.log(`Success: ${t.success ? "YES" : "NO"}`), console.log(`Page: ${t.page ?? "unknown"}`), console.log(`Surface: ${t.surface ?? "unknown"}`), console.log(`Backend Config: ${t.hasBackendConfig ? "✓" : "✗"}`), console.log(`Backend Page Model: ${t.hasBackendPageModel ? "✓" : "✗"}`), console.log(`Backend Routes: ${t.hasBackendRoutes ? "✓" : "✗"}`), console.log(`Controller Mounted: ${t.controllerMounted ? "✓" : "✗"}`), t.issues.length > 0) {
     console.group("Issues");
     for (const e of t.issues)
@@ -1464,12 +1448,12 @@ export {
   Me as S,
   y as a,
   be as b,
-  He as c,
-  Pe as d,
-  je as e,
+  je as c,
+  Le as d,
+  Ne as e,
   se as i,
-  Ne as l,
+  Ee as l,
   xe as r,
   A as t
 };
-//# sourceMappingURL=source-management-runtime-DE2wKMED.js.map
+//# sourceMappingURL=source-management-runtime-QHTGO-g4.js.map

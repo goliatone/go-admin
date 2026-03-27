@@ -151,11 +151,8 @@ func BenchmarkPanelActionCreateTranslation(b *testing.B) {
 	c.On("Context").Return(context.Background())
 	c.On("IP").Return("").Maybe()
 
-	previousLogger := translationObservabilityLogger
-	translationObservabilityLogger = testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil))
-	b.Cleanup(func() {
-		translationObservabilityLogger = previousLogger
-	})
+	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil)))
+	b.Cleanup(restoreLogger)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -205,11 +202,8 @@ func BenchmarkPanelActionBlockedTransition(b *testing.B) {
 	c.On("Context").Return(context.Background())
 	c.On("IP").Return("").Maybe()
 
-	previousLogger := translationObservabilityLogger
-	translationObservabilityLogger = testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil))
-	b.Cleanup(func() {
-		translationObservabilityLogger = previousLogger
-	})
+	restoreLogger := swapTranslationObservabilityLoggerForTest(testLoggerWithHandler(slog.NewTextHandler(io.Discard, nil)))
+	b.Cleanup(restoreLogger)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

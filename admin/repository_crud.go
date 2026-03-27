@@ -25,10 +25,7 @@ func NewCRUDContext(ctx context.Context) crud.Context {
 }
 
 func (r *CRUDRepositoryAdapter) ensureService() error {
-	if r == nil || r.service == nil {
-		return ErrNotFound
-	}
-	return nil
+	return ensureRepositoryAdapterConfigured(r != nil && r.service != nil)
 }
 
 // List delegates to the go-crud service using translated list options.

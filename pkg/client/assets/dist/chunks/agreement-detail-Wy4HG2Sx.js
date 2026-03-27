@@ -1,10 +1,11 @@
 import "./provenance-card-BnOi6ubz.js";
 import { escapeHTML as v } from "../shared/html.js";
+import { formatRelativeTime as C, formatTimestamp as k } from "../esign/timeline-formatters.js";
 import { i as re } from "./command-runtime-DiUPApH6.js";
-import { executeActionRequest as ne, formatStructuredErrorForDisplay as ie } from "../toast/error-helpers.js";
+import { executeActionRequest as ie, formatStructuredErrorForDisplay as ne } from "../toast/error-helpers.js";
 var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
-  constructor(r) {
-    if (this.options = r, this.running = !1, this.connectLoop = null, this.controller = null, this.heartbeatDegradeTimer = null, this.heartbeatFailoverTimer = null, this.reconnectTimer = null, this.reconnectWaiterResolve = null, this.reconnectAttempt = 0, this.serverRetryMs = null, this.recoveryPending = !1, !r.url || r.url.trim() === "")
+  constructor(i) {
+    if (this.options = i, this.running = !1, this.connectLoop = null, this.controller = null, this.heartbeatDegradeTimer = null, this.heartbeatFailoverTimer = null, this.reconnectTimer = null, this.reconnectWaiterResolve = null, this.reconnectAttempt = 0, this.serverRetryMs = null, this.recoveryPending = !1, !i.url || i.url.trim() === "")
       throw new Error("go-router SSE client requires a url");
     this.diagnosticsState = {
       connectionState: "disconnected",
@@ -16,7 +17,7 @@ var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
       gapEventsReceived: 0,
       failoverTriggered: !1,
       failoverReason: null,
-      streamUrl: r.url
+      streamUrl: i.url
     };
   }
   start() {
@@ -31,8 +32,8 @@ var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
   getDiagnostics() {
     return { ...this.diagnosticsState };
   }
-  triggerFailover(r) {
-    this.enterFailover(r);
+  triggerFailover(i) {
+    this.enterFailover(i);
   }
   attemptRecovery() {
     this.diagnosticsState.failoverTriggered && (this.diagnosticsState.failoverTriggered = !1, this.diagnosticsState.failoverReason = null, this.recoveryPending = !0, this.reconnectAttempt = 0, this.diagnosticsState.reconnectAttempts = 0, this.running = !0, !this.connectLoop && this.ensureConnectLoop());
@@ -48,29 +49,29 @@ var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
   }
   async run() {
     for (; this.running; ) {
-      const r = this.reconnectAttempt > 0;
-      this.setConnectionState(r ? "reconnecting" : "connecting");
+      const i = this.reconnectAttempt > 0;
+      this.setConnectionState(i ? "reconnecting" : "connecting");
       try {
-        const e = this.buildRequestURL(r);
+        const e = this.buildRequestURL(i);
         this.diagnosticsState.streamUrl = e;
         const t = await this.resolveHeaders();
         if (!this.running)
           return;
         this.controller = new AbortController();
-        const n = await fetch(e, {
+        const r = await fetch(e, {
           method: "GET",
           headers: t,
           signal: this.controller.signal
         });
-        if (n.status === 401 || n.status === 403) {
+        if (r.status === 401 || r.status === 403) {
           this.enterFailover("auth_failed");
           return;
         }
-        if (!n.ok)
-          throw new Error(`SSE request failed with status ${n.status}`);
-        if (!n.body)
+        if (!r.ok)
+          throw new Error(`SSE request failed with status ${r.status}`);
+        if (!r.body)
           throw new Error("SSE response body is not readable");
-        if (this.reconnectAttempt = 0, this.diagnosticsState.reconnectAttempts = 0, this.setConnectionState("connected"), this.armHeartbeatTimers(), this.recoveryPending && (this.recoveryPending = !1, this.options.onRecovery?.(this.getDiagnostics())), await this.consume(n.body), !this.running || this.diagnosticsState.failoverTriggered)
+        if (this.reconnectAttempt = 0, this.diagnosticsState.reconnectAttempts = 0, this.setConnectionState("connected"), this.armHeartbeatTimers(), this.recoveryPending && (this.recoveryPending = !1, this.options.onRecovery?.(this.getDiagnostics())), await this.consume(r.body), !this.running || this.diagnosticsState.failoverTriggered)
           return;
         await this.scheduleReconnect();
       } catch (e) {
@@ -82,17 +83,17 @@ var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
       }
     }
   }
-  async consume(r) {
-    const e = r.getReader(), t = new TextDecoder();
-    let n = "";
+  async consume(i) {
+    const e = i.getReader(), t = new TextDecoder();
+    let r = "";
     try {
       for (; this.running; ) {
-        const { done: i, value: a } = await e.read();
-        if (i)
+        const { done: n, value: a } = await e.read();
+        if (n)
           return;
-        n += t.decode(a, { stream: !0 });
-        const s = ue(n);
-        n = s.remainder;
+        r += t.decode(a, { stream: !0 });
+        const s = ue(r);
+        r = s.remainder;
         for (const c of s.frames) {
           const l = me(c);
           if (l && (this.dispatch(l), !this.running || this.diagnosticsState.failoverTriggered))
@@ -103,11 +104,11 @@ var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
       e.releaseLock();
     }
   }
-  dispatch(r) {
-    if (r.retry !== null && r.retry > 0 && (this.serverRetryMs = r.retry), r.data === "" && r.id === null && r.event === "message")
+  dispatch(i) {
+    if (i.retry !== null && i.retry > 0 && (this.serverRetryMs = i.retry), i.data === "" && i.id === null && i.event === "message")
       return;
-    const e = pe(r.data);
-    switch (r.event) {
+    const e = pe(i.data);
+    switch (i.event) {
       case "heartbeat":
         this.handleHeartbeat(e);
         return;
@@ -116,28 +117,28 @@ var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
         return;
       default:
         this.handleDomainEvent({
-          id: r.id,
-          name: r.event || "message",
+          id: i.id,
+          name: i.event || "message",
           payload: e
         });
     }
   }
-  handleDomainEvent(r) {
-    r.id && (this.diagnosticsState.lastEventId = r.id), this.diagnosticsState.totalEventsReceived += 1, this.diagnosticsState.lastEventAt = (/* @__PURE__ */ new Date()).toISOString(), this.options.onEvent?.(r);
+  handleDomainEvent(i) {
+    i.id && (this.diagnosticsState.lastEventId = i.id), this.diagnosticsState.totalEventsReceived += 1, this.diagnosticsState.lastEventAt = (/* @__PURE__ */ new Date()).toISOString(), this.options.onEvent?.(i);
   }
-  handleHeartbeat(r) {
-    this.diagnosticsState.lastHeartbeatAt = r.timestamp ?? (/* @__PURE__ */ new Date()).toISOString(), this.diagnosticsState.connectionState === "degraded" && this.setConnectionState("connected"), this.armHeartbeatTimers(), this.options.onHeartbeat?.(r);
+  handleHeartbeat(i) {
+    this.diagnosticsState.lastHeartbeatAt = i.timestamp ?? (/* @__PURE__ */ new Date()).toISOString(), this.diagnosticsState.connectionState === "degraded" && this.setConnectionState("connected"), this.armHeartbeatTimers(), this.options.onHeartbeat?.(i);
   }
-  handleStreamGap(r) {
-    this.diagnosticsState.gapEventsReceived += 1, this.options.onStreamGap?.(r), this.options.onRequestSnapshot?.(), this.enterFailover("stream_gap");
+  handleStreamGap(i) {
+    this.diagnosticsState.gapEventsReceived += 1, this.options.onStreamGap?.(i), this.options.onRequestSnapshot?.(), this.enterFailover("stream_gap");
   }
   armHeartbeatTimers() {
-    const r = this.resolveHeartbeatTimeoutMs();
-    r <= 0 || (this.clearHeartbeatTimers(), this.heartbeatDegradeTimer = setTimeout(() => {
+    const i = this.resolveHeartbeatTimeoutMs();
+    i <= 0 || (this.clearHeartbeatTimers(), this.heartbeatDegradeTimer = setTimeout(() => {
       !this.running || this.diagnosticsState.failoverTriggered || (this.setConnectionState("degraded"), this.heartbeatFailoverTimer = setTimeout(() => {
         !this.running || this.diagnosticsState.failoverTriggered || this.diagnosticsState.connectionState === "degraded" && this.enterFailover("heartbeat_timeout");
-      }, r));
-    }, r));
+      }, i));
+    }, i));
   }
   clearHeartbeatTimers() {
     this.heartbeatDegradeTimer && (clearTimeout(this.heartbeatDegradeTimer), this.heartbeatDegradeTimer = null), this.heartbeatFailoverTimer && (clearTimeout(this.heartbeatFailoverTimer), this.heartbeatFailoverTimer = null);
@@ -148,44 +149,44 @@ var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
       return;
     }
     this.setConnectionState("reconnecting");
-    const r = this.computeReconnectDelay(this.reconnectAttempt);
+    const i = this.computeReconnectDelay(this.reconnectAttempt);
     await new Promise((e) => {
       this.clearReconnectTimer(), this.reconnectWaiterResolve = () => {
         this.reconnectWaiterResolve = null, e();
       }, this.reconnectTimer = setTimeout(() => {
         this.reconnectTimer = null, this.reconnectWaiterResolve?.();
-      }, r);
+      }, i);
     });
   }
   clearReconnectTimer() {
     if (this.reconnectTimer && (clearTimeout(this.reconnectTimer), this.reconnectTimer = null), this.reconnectWaiterResolve) {
-      const r = this.reconnectWaiterResolve;
-      this.reconnectWaiterResolve = null, r();
+      const i = this.reconnectWaiterResolve;
+      this.reconnectWaiterResolve = null, i();
     }
   }
-  setConnectionState(r) {
-    this.diagnosticsState.connectionState !== r && (this.diagnosticsState.connectionState = r, this.options.onConnectionStateChange?.(r, this.getDiagnostics()));
+  setConnectionState(i) {
+    this.diagnosticsState.connectionState !== i && (this.diagnosticsState.connectionState = i, this.options.onConnectionStateChange?.(i, this.getDiagnostics()));
   }
-  enterFailover(r) {
-    this.diagnosticsState.failoverTriggered || (this.running = !1, this.diagnosticsState.failoverTriggered = !0, this.diagnosticsState.failoverReason = r, this.clearReconnectTimer(), this.clearHeartbeatTimers(), this.controller?.abort(), this.controller = null, this.setConnectionState("failed"), this.options.onFailover?.(r, this.getDiagnostics()));
+  enterFailover(i) {
+    this.diagnosticsState.failoverTriggered || (this.running = !1, this.diagnosticsState.failoverTriggered = !0, this.diagnosticsState.failoverReason = i, this.clearReconnectTimer(), this.clearHeartbeatTimers(), this.controller?.abort(), this.controller = null, this.setConnectionState("failed"), this.options.onFailover?.(i, this.getDiagnostics()));
   }
   async resolveHeaders() {
-    const r = new Headers();
-    r.set("Accept", "text/event-stream");
+    const i = new Headers();
+    i.set("Accept", "text/event-stream");
     try {
       const e = await this.options.getHeaders?.();
-      return de(r, e), r;
+      return de(i, e), i;
     } catch {
       throw this.enterFailover("auth_failed"), new Error("auth_failed");
     }
   }
-  buildRequestURL(r) {
+  buildRequestURL(i) {
     const e = typeof globalThis.location?.href == "string" && globalThis.location.href !== "" ? globalThis.location.href : "http://localhost", t = new URL(this.options.url, e);
-    return r && this.diagnosticsState.lastEventId && t.searchParams.set("cursor", this.diagnosticsState.lastEventId), this.options.enableClientTuning && (typeof this.options.heartbeatMs == "number" && this.options.heartbeatMs > 0 && t.searchParams.set("heartbeat_ms", String(this.options.heartbeatMs)), typeof this.options.retryMs == "number" && this.options.retryMs > 0 && t.searchParams.set("retry_ms", String(this.options.retryMs))), t.toString();
+    return i && this.diagnosticsState.lastEventId && t.searchParams.set("cursor", this.diagnosticsState.lastEventId), this.options.enableClientTuning && (typeof this.options.heartbeatMs == "number" && this.options.heartbeatMs > 0 && t.searchParams.set("heartbeat_ms", String(this.options.heartbeatMs)), typeof this.options.retryMs == "number" && this.options.retryMs > 0 && t.searchParams.set("retry_ms", String(this.options.retryMs))), t.toString();
   }
-  computeReconnectDelay(r) {
-    const e = this.resolveRetryMs(), t = Math.min(e * 2 ** Math.max(0, r - 1), oe), n = t * ce * Math.random();
-    return Math.round(t + n);
+  computeReconnectDelay(i) {
+    const e = this.resolveRetryMs(), t = Math.min(e * 2 ** Math.max(0, i - 1), oe), r = t * ce * Math.random();
+    return Math.round(t + r);
   }
   resolveRetryMs() {
     return typeof this.serverRetryMs == "number" && this.serverRetryMs > 0 ? this.serverRetryMs : typeof this.options.retryMs == "number" && this.options.retryMs > 0 ? this.options.retryMs : ae;
@@ -197,25 +198,25 @@ var ae = 3e3, $ = 45e3, se = 5, oe = 3e4, ce = 0.2, le = class {
     return typeof this.options.maxReconnectAttempts == "number" && this.options.maxReconnectAttempts >= 0 ? this.options.maxReconnectAttempts : se;
   }
 };
-function de(r, e) {
+function de(i, e) {
   if (e) {
     if (e instanceof Headers) {
-      e.forEach((t, n) => {
-        r.set(n, t);
+      e.forEach((t, r) => {
+        i.set(r, t);
       });
       return;
     }
     if (Array.isArray(e)) {
-      for (const [t, n] of e)
-        r.set(t, n);
+      for (const [t, r] of e)
+        i.set(t, r);
       return;
     }
-    for (const [t, n] of Object.entries(e))
-      r.set(t, n);
+    for (const [t, r] of Object.entries(e))
+      i.set(t, r);
   }
 }
-function ue(r) {
-  const e = r.replace(/\r\n/g, `
+function ue(i) {
+  const e = i.replace(/\r\n/g, `
 `), t = e.split(`
 
 `);
@@ -224,20 +225,20 @@ function ue(r) {
     remainder: t[t.length - 1] ?? ""
   };
 }
-function me(r) {
-  const e = r.split(`
+function me(i) {
+  const e = i.split(`
 `), t = [];
-  let n = null, i = "message", a = null;
+  let r = null, n = "message", a = null;
   for (const s of e) {
     if (s === "" || s.startsWith(":"))
       continue;
     const c = s.indexOf(":"), l = c === -1 ? s : s.slice(0, c), d = c === -1 ? "" : s.slice(c + 1).replace(/^ /, "");
     switch (l) {
       case "id":
-        n = d;
+        r = d;
         break;
       case "event":
-        i = d || "message";
+        n = d || "message";
         break;
       case "data":
         t.push(d);
@@ -249,41 +250,41 @@ function me(r) {
       }
     }
   }
-  return t.length === 0 && n === null && a === null && i === "message" ? null : {
-    id: n,
-    event: i,
+  return t.length === 0 && r === null && a === null && n === "message" ? null : {
+    id: r,
+    event: n,
     data: t.join(`
 `),
     retry: a
   };
 }
-function pe(r) {
-  if (r === "")
+function pe(i) {
+  if (i === "")
     return null;
   try {
-    return JSON.parse(r);
+    return JSON.parse(i);
   } catch {
-    return r;
+    return i;
   }
 }
-function ge(r) {
-  return r instanceof Error && r.name === "AbortError";
+function ge(i) {
+  return i instanceof Error && i.name === "AbortError";
 }
-function fe(r) {
-  return new le(r);
+function fe(i) {
+  return new le(i);
 }
 var he = fe;
 const ve = he;
-function ye(r) {
-  if (!r || typeof r != "object")
+function ye(i) {
+  if (!i || typeof i != "object")
     return null;
-  const e = r;
+  const e = i;
   if (String(e.type || "").trim() !== "esign.agreement.changed" || String(e.resource_type || "").trim() !== "esign_agreement")
     return null;
   const t = String(e.resource_id || "").trim();
   if (!t)
     return null;
-  const n = Array.isArray(e.sections) ? e.sections.map((i) => String(i || "").trim()).filter(Boolean) : [];
+  const r = Array.isArray(e.sections) ? e.sections.map((n) => String(n || "").trim()).filter(Boolean) : [];
   return {
     type: "esign.agreement.changed",
     resource_type: "esign_agreement",
@@ -291,7 +292,7 @@ function ye(r) {
     tenant_id: String(e.tenant_id || "").trim() || void 0,
     org_id: String(e.org_id || "").trim() || void 0,
     correlation_id: String(e.correlation_id || "").trim() || void 0,
-    sections: n,
+    sections: r,
     occurred_at: String(e.occurred_at || "").trim(),
     status: String(e.status || "").trim(),
     message: String(e.message || "").trim() || void 0,
@@ -303,18 +304,18 @@ class we {
     this.listeners = /* @__PURE__ */ new Set(), this.client = ve({
       url: e,
       onEvent: (t) => {
-        const n = ye(t.payload);
-        n && this.emit({
-          type: n.type,
-          resourceType: n.resource_type,
-          resourceId: n.resource_id,
-          tenantId: n.tenant_id,
-          orgId: n.org_id,
-          correlationId: n.correlation_id,
-          sections: n.sections,
-          status: n.status,
-          message: n.message,
-          metadata: n.metadata
+        const r = ye(t.payload);
+        r && this.emit({
+          type: r.type,
+          resourceType: r.resource_type,
+          resourceId: r.resource_id,
+          tenantId: r.tenant_id,
+          orgId: r.org_id,
+          correlationId: r.correlation_id,
+          sections: r.sections,
+          status: r.status,
+          message: r.message,
+          metadata: r.metadata
         });
       },
       onStreamGap: (t) => {
@@ -365,7 +366,7 @@ const V = {
   delivery: "#agreement-delivery-panel",
   artifacts: "#agreement-artifacts-panel",
   timeline: "#agreement-timeline"
-}, _e = "#agreement-page-status-target", k = {
+}, _e = "#agreement-page-status-target", L = {
   submitting: {
     text: "Sending...",
     icon: "spinner",
@@ -482,8 +483,8 @@ const V = {
     completed: "Document generated"
   }
 };
-function G(r, e, t) {
-  const n = String(r || "").toLowerCase().trim(), i = (u) => {
+function G(i, e, t) {
+  const r = String(i || "").toLowerCase().trim(), n = (u) => {
     if (u)
       switch (e) {
         case "submitting":
@@ -501,11 +502,11 @@ function G(r, e, t) {
         default:
           return;
       }
-  }, a = P[n], s = i(a);
+  }, a = P[r], s = n(a);
   if (s)
     return s;
-  const c = n.split(".").pop() || "", l = P[c], d = i(l);
-  return d || t || k[e]?.text || "";
+  const c = r.split(".").pop() || "", l = P[c], d = n(l);
+  return d || t || L[e]?.text || "";
 }
 const J = {
   spinner: '<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>',
@@ -515,8 +516,8 @@ const J = {
   refresh: '<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>',
   retry: '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>'
 };
-function Se(r, e, t = V) {
-  const n = {
+function Se(i, e, t = V) {
+  const r = {
     target: null,
     section: null,
     participantId: e || null
@@ -527,64 +528,64 @@ function Se(r, e, t = V) {
     );
     if (a) {
       const s = a.querySelector("[data-live-status-target]");
-      return s ? (n.target = s, n.section = "participants", n) : (n.target = a, n.section = "participants", n);
+      return s ? (r.target = s, r.section = "participants", r) : (r.target = a, r.section = "participants", r);
     }
   }
-  const i = r;
-  if (i && N[i]) {
+  const n = i;
+  if (n && N[n]) {
     const a = document.querySelector(
-      N[i]
+      N[n]
     );
     if (a)
-      return n.target = a, n.section = i, n;
+      return r.target = a, r.section = n, r;
     const s = document.querySelector(
-      be[i]
+      be[n]
     );
     if (s) {
       const c = s.querySelector(
         "[data-live-status-target], .flex.items-center.justify-between"
       );
       if (c)
-        return n.target = c, n.section = i, n;
+        return r.target = c, r.section = n, r;
     }
   }
   if (t.usePageFallback) {
     const a = document.querySelector(_e);
     if (a)
-      return n.target = a, n;
+      return r.target = a, r;
   }
-  return n;
+  return r;
 }
-function xe(r) {
-  const e = String(r || "").toLowerCase();
+function xe(i) {
+  const e = String(i || "").toLowerCase();
   return e.includes("review") || e.includes("approve") || e.includes("request_changes") || e.includes("force_approve") ? "review_status" : e.includes("participant") || e.includes("notify_reviewer") || e.includes("reminder") || e.includes("on_behalf") ? "participants" : e.includes("comment") || e.includes("thread") || e.includes("reply") ? "comments" : e.includes("resend") || e.includes("delivery") || e.includes("email") || e.includes("send") ? "delivery" : e.includes("artifact") || e.includes("job") || e.includes("retry_job") || e.includes("retry_artifact") ? "artifacts" : null;
 }
-function Ee(r, e) {
-  const t = k[r.state], n = r.message || G(r.commandName, r.state, t.text), i = document.createElement("span"), a = t.pulse ? "inline-status-pulse" : "";
-  i.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${t.colorClass} ${a}`.trim(), i.setAttribute("data-inline-status", e), i.setAttribute("data-status-state", r.state), i.setAttribute("data-command-name", r.commandName || ""), i.setAttribute("role", "status"), i.setAttribute("aria-live", t.ariaLive);
+function Ee(i, e) {
+  const t = L[i.state], r = i.message || G(i.commandName, i.state, t.text), n = document.createElement("span"), a = t.pulse ? "inline-status-pulse" : "";
+  n.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${t.colorClass} ${a}`.trim(), n.setAttribute("data-inline-status", e), n.setAttribute("data-status-state", i.state), n.setAttribute("data-command-name", i.commandName || ""), n.setAttribute("role", "status"), n.setAttribute("aria-live", t.ariaLive);
   const s = J[t.icon] || "";
-  return i.innerHTML = `${s}<span class="inline-status-text">${v(n)}</span>`, i;
+  return n.innerHTML = `${s}<span class="inline-status-text">${v(r)}</span>`, n;
 }
-function Ae(r, e) {
-  const t = k[e.state], n = e.message || G(e.commandName, e.state, t.text);
-  r.setAttribute("data-status-state", e.state), r.setAttribute("data-command-name", e.commandName || ""), r.setAttribute("aria-live", t.ariaLive);
-  const i = t.pulse ? "inline-status-pulse" : "";
-  r.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${t.colorClass} ${i}`.trim();
+function Ae(i, e) {
+  const t = L[e.state], r = e.message || G(e.commandName, e.state, t.text);
+  i.setAttribute("data-status-state", e.state), i.setAttribute("data-command-name", e.commandName || ""), i.setAttribute("aria-live", t.ariaLive);
+  const n = t.pulse ? "inline-status-pulse" : "";
+  i.className = `inline-status inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded ${t.colorClass} ${n}`.trim();
   const a = J[t.icon] || "";
-  r.innerHTML = `${a}<span class="inline-status-text">${v(n)}</span>`;
+  i.innerHTML = `${a}<span class="inline-status-text">${v(r)}</span>`;
 }
-function Te(r) {
-  const e = document.querySelector(`[data-inline-status="${r}"]`);
+function Re(i) {
+  const e = document.querySelector(`[data-inline-status="${i}"]`);
   e && e.remove();
 }
-function Re() {
-  document.querySelectorAll("[data-inline-status]").forEach((r) => r.remove());
+function Te() {
+  document.querySelectorAll("[data-inline-status]").forEach((i) => i.remove());
 }
-function Ce(r = 5e3) {
+function Ce(i = 5e3) {
   const e = Date.now();
   document.querySelectorAll("[data-inline-status]").forEach((t) => {
-    const n = t.getAttribute("data-status-state"), i = parseInt(t.getAttribute("data-status-timestamp") || "0", 10);
-    (n === "completed" || n === "failed") && i > 0 && e - i > r && t.remove();
+    const r = t.getAttribute("data-status-state"), n = parseInt(t.getAttribute("data-status-timestamp") || "0", 10);
+    (r === "completed" || r === "failed") && n > 0 && e - n > i && t.remove();
   });
 }
 class ke {
@@ -597,8 +598,8 @@ class ke {
   handleStatusChange(e) {
     const { entry: t } = e;
     this.clearTimer(t.correlationId);
-    const n = t.section || xe(t.commandName), { target: i } = Se(n, t.participantId, this.config);
-    if (!i)
+    const r = t.section || xe(t.commandName), { target: n } = Se(r, t.participantId, this.config);
+    if (!n)
       return;
     const a = document.querySelector(
       `[data-inline-status="${t.correlationId}"]`
@@ -607,7 +608,7 @@ class ke {
       Ae(a, t);
     else {
       const s = Ee(t, t.correlationId);
-      s.setAttribute("data-status-timestamp", String(t.timestamp)), this.insertStatusElement(i, s);
+      s.setAttribute("data-status-timestamp", String(t.timestamp)), this.insertStatusElement(n, s);
     }
     t.state === "completed" && this.config.completedClearDelay > 0 ? this.scheduleRemoval(t.correlationId, this.config.completedClearDelay) : t.state === "failed" && this.config.failedClearDelay > 0 && this.scheduleRemoval(t.correlationId, this.config.failedClearDelay);
   }
@@ -615,7 +616,7 @@ class ke {
    * Clear all statuses and timers
    */
   clear() {
-    this.clearTimers.forEach((e) => clearTimeout(e)), this.clearTimers.clear(), Re();
+    this.clearTimers.forEach((e) => clearTimeout(e)), this.clearTimers.clear(), Te();
   }
   /**
    * Clear completed/failed statuses that may have lingered
@@ -633,14 +634,14 @@ class ke {
     this.clearTerminalStatuses(), Ce(1e3);
   }
   insertStatusElement(e, t) {
-    const n = e.querySelector("[data-live-status-insert]");
-    if (n) {
-      n.appendChild(t);
+    const r = e.querySelector("[data-live-status-insert]");
+    if (r) {
+      r.appendChild(t);
       return;
     }
-    const i = e.querySelectorAll(".inline-flex.items-center.rounded-full");
-    if (i.length > 0) {
-      const a = i[0];
+    const n = e.querySelectorAll(".inline-flex.items-center.rounded-full");
+    if (n.length > 0) {
+      const a = n[0];
       a.parentElement?.insertBefore(t, a);
       return;
     }
@@ -648,18 +649,18 @@ class ke {
   }
   scheduleRemoval(e, t) {
     this.clearTimer(e);
-    const n = setTimeout(() => {
-      Te(e), this.clearTimers.delete(e);
+    const r = setTimeout(() => {
+      Re(e), this.clearTimers.delete(e);
     }, t);
-    this.clearTimers.set(e, n);
+    this.clearTimers.set(e, r);
   }
   clearTimer(e) {
     const t = this.clearTimers.get(e);
     t && (clearTimeout(t), this.clearTimers.delete(e));
   }
 }
-function Me(r) {
-  return new ke(r);
+function Le(i) {
+  return new ke(i);
 }
 const H = {
   green: { bg: "bg-green-100", text: "text-green-700", dot: "bg-green-500" },
@@ -672,7 +673,7 @@ const H = {
   indigo: { bg: "bg-indigo-100", text: "text-indigo-700", dot: "bg-indigo-500" },
   cyan: { bg: "bg-cyan-100", text: "text-cyan-700", dot: "bg-cyan-500" },
   amber: { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" }
-}, Le = {
+}, Me = {
   label: "Event",
   icon: "info-circle",
   color: "gray",
@@ -680,8 +681,8 @@ const H = {
   priority: 4,
   groupable: !0
 };
-function o(r, e, t, n, i, a = !1) {
-  return { label: r, icon: e, color: t, category: n, priority: i, groupable: a };
+function o(i, e, t, r, n, a = !1) {
+  return { label: i, icon: e, color: t, category: r, priority: n, groupable: a };
 }
 const S = {
   // ===== Agreement Lifecycle (Priority 1-2) =====
@@ -807,34 +808,34 @@ const S = {
   "agreement sent": "agreement.sent",
   "agreement completed": "agreement.completed"
 };
-function x(r) {
-  const e = String(r || "").trim().toLowerCase();
+function x(i) {
+  const e = String(i || "").trim().toLowerCase();
   return De[e] || e;
 }
-function w(r) {
-  const e = x(r);
+function w(i) {
+  const e = x(i);
   if (S[e])
     return S[e];
-  if (S[r])
-    return S[r];
-  const t = Ie(r);
+  if (S[i])
+    return S[i];
+  const t = Ie(i);
   return {
-    ...Le,
+    ...Me,
     label: t
   };
 }
-function Ie(r) {
-  const e = String(r || "").trim();
+function Ie(i) {
+  const e = String(i || "").trim();
   return e && e.replace(/[._]/g, " ").replace(/([a-z])([A-Z])/g, "$1 $2").replace(/\b\w/g, (t) => t.toUpperCase()).trim() || "Event";
 }
-function W(r) {
-  return H[r] || H.gray;
+function W(i) {
+  return H[i] || H.gray;
 }
-function St(r) {
-  return w(r).priority <= 3;
+function _t(i) {
+  return w(i).priority <= 3;
 }
-function xt(r) {
-  return w(r).groupable;
+function St(i) {
+  return w(i).groupable;
 }
 const M = 3, Be = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, $e = /^[0-9a-f]{24,32}$/i, Ne = /* @__PURE__ */ new Set([
   "correlation_id",
@@ -887,55 +888,55 @@ const M = 3, Be = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
   admin: "#dc2626",
   automation: "#64748b"
 };
-function g(r) {
-  if (!r || typeof r != "string")
+function g(i) {
+  if (!i || typeof i != "string")
     return !1;
-  const e = r.trim();
+  const e = i.trim();
   return Be.test(e) || $e.test(e);
 }
-function b(r, e) {
-  const t = String(r || "").trim(), n = String(e || "").trim();
-  return !t || !n ? "" : `${t}:${n}`;
+function b(i, e) {
+  const t = String(i || "").trim(), r = String(e || "").trim();
+  return !t || !r ? "" : `${t}:${r}`;
 }
-function L(r) {
-  const e = String(r || "").trim().toLowerCase();
+function D(i) {
+  const e = String(i || "").trim().toLowerCase();
   return Fe[e] || (e ? e.replace(/_/g, " ").replace(/\b\w/g, (t) => t.toUpperCase()) : "Participant");
 }
-function K(r) {
-  const e = String(r || "").trim().toLowerCase();
+function K(i) {
+  const e = String(i || "").trim().toLowerCase();
   return qe[e] || "#64748b";
 }
-function Y(r, e = "P") {
-  const t = String(r || "").trim();
-  return t ? t.split(/\s+/).map((i) => i[0] || "").join("").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 2) || String(e || "P").trim().slice(0, 2).toUpperCase() || "P" : String(e || "P").trim().slice(0, 2).toUpperCase() || "P";
+function Y(i, e = "P") {
+  const t = String(i || "").trim();
+  return t ? t.split(/\s+/).map((n) => n[0] || "").join("").replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 2) || String(e || "P").trim().slice(0, 2).toUpperCase() || "P" : String(e || "P").trim().slice(0, 2).toUpperCase() || "P";
 }
-function F(r) {
+function F(i) {
   return {
-    actors: r.actors || {},
-    participants: r.participants || [],
-    fieldDefinitions: r.field_definitions || [],
-    currentUserId: r.current_user_id
+    actors: i.actors || {},
+    participants: i.participants || [],
+    fieldDefinitions: i.field_definitions || [],
+    currentUserId: i.current_user_id
   };
 }
-function D(r, e) {
+function I(i, e) {
   if (!e)
     return null;
   const t = String(e).trim();
-  return r.participants.find((n) => {
-    const i = String(n.id || "").trim(), a = String(n.recipient_id || "").trim();
-    return i === t || a === t;
+  return i.participants.find((r) => {
+    const n = String(r.id || "").trim(), a = String(r.recipient_id || "").trim();
+    return n === t || a === t;
   }) || null;
 }
-function X(r, e) {
+function X(i, e) {
   if (!e)
     return null;
   const t = String(e).trim();
-  return r.fieldDefinitions.find((n) => String(n.id || "").trim() === t) || null;
+  return i.fieldDefinitions.find((r) => String(r.id || "").trim() === t) || null;
 }
-function Ue(r, e) {
-  const t = String(e.actor_type || "").trim(), n = String(e.actor_id || "").trim(), i = [];
-  t === "recipient" || t === "signer" ? i.push(b("recipient", n), b("signer", n)) : t === "user" || t === "sender" ? i.push(b("user", n), b("sender", n)) : t === "reviewer" || t === "external" ? i.push(b("reviewer", n), b("external", n)) : i.push(b(t, n));
-  const a = i.map((A) => r.actors[A]).find(Boolean) || {}, s = String(a.display_name || a.name || "").trim(), c = String(a.email || "").trim(), l = D(r, n), d = l ? String(l.display_name || l.name || "").trim() : "", u = l ? String(l.email || "").trim() : "", m = r.currentUserId && n === r.currentUserId, f = L(a.role || a.actor_type || t);
+function Ue(i, e) {
+  const t = String(e.actor_type || "").trim(), r = String(e.actor_id || "").trim(), n = [];
+  t === "recipient" || t === "signer" ? n.push(b("recipient", r), b("signer", r)) : t === "user" || t === "sender" ? n.push(b("user", r), b("sender", r)) : t === "reviewer" || t === "external" ? n.push(b("reviewer", r), b("external", r)) : n.push(b(t, r));
+  const a = n.map((E) => i.actors[E]).find(Boolean) || {}, s = String(a.display_name || a.name || "").trim(), c = String(a.email || "").trim(), l = I(i, r), d = l ? String(l.display_name || l.name || "").trim() : "", u = l ? String(l.email || "").trim() : "", m = i.currentUserId && r === i.currentUserId, f = D(a.role || a.actor_type || t);
   let h = "";
   s && !g(s) ? h = s : c && !g(c) ? h = c : d && !g(d) ? h = d : u && !g(u) ? h = u : m ? h = "You" : f ? h = f : h = "Unknown User";
   const p = String(a.role || a.actor_type || t || "participant").trim() || "participant", y = String(a.actor_type || t).trim();
@@ -948,28 +949,28 @@ function Ue(r, e) {
     color: K(y)
   };
 }
-function ze(r) {
-  const e = r.toLowerCase();
+function ze(i) {
+  const e = i.toLowerCase();
   return !!(Ne.has(e) || e.startsWith("_"));
 }
-function Oe(r) {
-  const e = r.toLowerCase();
+function Oe(i) {
+  const e = i.toLowerCase();
   return Pe.some((t) => e.includes(t));
 }
-function I(r) {
-  return r.replace(/_/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
+function B(i) {
+  return i.replace(/_/g, " ").replace(/\b\w/g, (e) => e.toUpperCase());
 }
-function je(r, e, t) {
+function je(i, e, t) {
   if (t == null)
     return { displayValue: "-", isResolved: !1 };
   if (typeof t == "object")
     return { displayValue: "[Complex Data]", isResolved: !1 };
-  const n = String(t).trim();
+  const r = String(t).trim();
   if (He.has(e.toLowerCase())) {
     if (e.toLowerCase().includes("participant") || e.toLowerCase().includes("recipient") || e.toLowerCase().includes("signer")) {
-      const i = D(r, n);
-      if (i) {
-        const a = String(i.display_name || i.name || "").trim(), s = String(i.email || "").trim();
+      const n = I(i, r);
+      if (n) {
+        const a = String(n.display_name || n.name || "").trim(), s = String(n.email || "").trim();
         if (a && !g(a))
           return { displayValue: a, isResolved: !0 };
         if (s && !g(s))
@@ -977,93 +978,93 @@ function je(r, e, t) {
       }
     }
     if (e.toLowerCase().includes("field")) {
-      const i = X(r, n);
-      if (i) {
-        const a = String(i.label || "").trim(), s = String(i.type || "").trim();
+      const n = X(i, r);
+      if (n) {
+        const a = String(n.label || "").trim(), s = String(n.type || "").trim();
         if (a && !g(a))
           return { displayValue: a, isResolved: !0 };
         if (s && !g(s))
-          return { displayValue: `${I(s)} Field`, isResolved: !0 };
+          return { displayValue: `${B(s)} Field`, isResolved: !0 };
       }
     }
-    if (g(n))
+    if (g(r))
       return { displayValue: "", isResolved: !1 };
   }
-  return g(n) ? { displayValue: "", isResolved: !1 } : { displayValue: n, isResolved: !1 };
+  return g(r) ? { displayValue: "", isResolved: !1 } : { displayValue: r, isResolved: !1 };
 }
-function Ve(r, e) {
-  const t = e.metadata || {}, n = [];
-  for (const [i, a] of Object.entries(t)) {
-    if (ze(i))
+function Ve(i, e) {
+  const t = e.metadata || {}, r = [];
+  for (const [n, a] of Object.entries(t)) {
+    if (ze(n))
       continue;
-    const { displayValue: s, isResolved: c } = je(r, i, a);
-    s && n.push({
-      key: i,
-      displayKey: I(i),
+    const { displayValue: s, isResolved: c } = je(i, n, a);
+    s && r.push({
+      key: n,
+      displayKey: B(n),
       value: a,
       displayValue: s,
-      isBadge: Oe(i),
+      isBadge: Oe(n),
       isHidden: !1
     });
   }
-  return n;
+  return r;
 }
-function Et(r, e) {
-  const t = X(r, e);
+function xt(i, e) {
+  const t = X(i, e);
   if (!t)
     return null;
-  const n = String(t.label || "").trim();
-  if (n && !g(n))
-    return n;
-  const i = String(t.type || "").trim();
-  return i && !g(i) ? I(i) + " Field" : null;
+  const r = String(t.label || "").trim();
+  if (r && !g(r))
+    return r;
+  const n = String(t.type || "").trim();
+  return n && !g(n) ? B(n) + " Field" : null;
 }
-function At(r, e) {
-  const t = D(r, e);
+function Et(i, e) {
+  const t = I(i, e);
   if (!t)
     return null;
-  const n = String(t.display_name || t.name || "").trim();
-  if (n && !g(n))
-    return n;
-  const i = String(t.email || "").trim();
-  return i && !g(i) ? i : null;
+  const r = String(t.display_name || t.name || "").trim();
+  if (r && !g(r))
+    return r;
+  const n = String(t.email || "").trim();
+  return n && !g(n) ? n : null;
 }
 const Ge = 5 * 60 * 1e3, Je = 20;
-function We(r, e = !1) {
-  return [...r].sort((t, n) => {
-    const i = new Date(t.created_at || 0).getTime(), a = new Date(n.created_at || 0).getTime();
-    return e ? i - a : a - i;
+function We(i, e = !1) {
+  return [...i].sort((t, r) => {
+    const n = new Date(t.created_at || 0).getTime(), a = new Date(r.created_at || 0).getTime();
+    return e ? n - a : a - n;
   });
 }
-function Ke(r, e) {
-  const t = x(r.event_type), n = x(e.event_type);
-  if (t !== n || !w(t).groupable)
+function Ke(i, e) {
+  const t = x(i.event_type), r = x(e.event_type);
+  if (t !== r || !w(t).groupable)
     return !1;
-  const a = new Date(r.created_at || 0).getTime(), s = new Date(e.created_at || 0).getTime();
+  const a = new Date(i.created_at || 0).getTime(), s = new Date(e.created_at || 0).getTime();
   return !(Math.abs(a - s) > Ge);
 }
-function Ye(r, e) {
-  return e === "all" ? !0 : w(r.event_type).priority <= M;
+function Ye(i, e) {
+  return e === "all" ? !0 : w(i.event_type).priority <= M;
 }
-function Xe(r, e) {
+function Xe(i, e) {
   const t = [];
-  let n = [], i = "";
+  let r = [], n = "";
   const a = () => {
-    if (n.length !== 0) {
-      if (n.length === 1) {
-        const s = n[0];
+    if (r.length !== 0) {
+      if (r.length === 1) {
+        const s = r[0];
         t.push({
           type: "event",
           event: s,
           config: w(s.event_type)
         });
       } else {
-        const s = w(i), c = {
-          events: [...n],
+        const s = w(n), c = {
+          events: [...r],
           config: s,
-          eventType: i,
-          startTime: n[n.length - 1].created_at,
-          endTime: n[0].created_at,
+          eventType: n,
+          startTime: r[r.length - 1].created_at,
+          endTime: r[0].created_at,
           isExpanded: !1
         };
         t.push({
@@ -1072,10 +1073,10 @@ function Xe(r, e) {
           config: s
         });
       }
-      n = [], i = "";
+      r = [], n = "";
     }
   };
-  for (const s of r) {
+  for (const s of i) {
     if (!Ye(s, e))
       continue;
     const c = x(s.event_type), l = w(c);
@@ -1095,80 +1096,60 @@ function Xe(r, e) {
       });
       continue;
     }
-    n.length === 0 ? (n.push(s), i = c) : i === c && n.length < Je && Ke(n[n.length - 1], s) ? n.push(s) : (a(), n.push(s), i = c);
+    r.length === 0 ? (r.push(s), n = c) : n === c && r.length < Je && Ke(r[r.length - 1], s) ? r.push(s) : (a(), r.push(s), n = c);
   }
   return a(), t;
 }
-function Ze(r, e) {
-  const t = We(r, !1), n = Xe(t, e);
-  let i = 0, a = 0, s = 0;
-  for (const l of n)
-    l.type === "event" ? i++ : l.type === "group" && l.group && (a++, s += l.group.events.length, i += l.group.events.length);
-  const c = t.length - i;
+function Ze(i, e) {
+  const t = We(i, !1), r = Xe(t, e);
+  let n = 0, a = 0, s = 0;
+  for (const l of r)
+    l.type === "event" ? n++ : l.type === "group" && l.group && (a++, s += l.group.events.length, n += l.group.events.length);
+  const c = t.length - n;
   return {
-    items: n,
+    items: r,
     stats: {
-      totalEvents: r.length,
-      visibleEvents: i,
+      totalEvents: i.length,
+      visibleEvents: n,
       hiddenEvents: c,
       groupCount: a,
       groupedEventCount: s
     }
   };
 }
-function Qe(r) {
+function Qe(i) {
   const e = /* @__PURE__ */ new Date(), t = new Date(e);
-  return t.setDate(t.getDate() - 1), r.toDateString() === e.toDateString() ? "Today" : r.toDateString() === t.toDateString() ? "Yesterday" : r.toLocaleDateString(void 0, {
+  return t.setDate(t.getDate() - 1), i.toDateString() === e.toDateString() ? "Today" : i.toDateString() === t.toDateString() ? "Yesterday" : i.toLocaleDateString(void 0, {
     weekday: "long",
     month: "short",
     day: "numeric"
   });
 }
-function et(r) {
+function et(i) {
   const e = /* @__PURE__ */ new Map();
-  for (const t of r) {
-    let n;
+  for (const t of i) {
+    let r;
     if (t.type === "event" && t.event)
-      n = t.event.created_at;
+      r = t.event.created_at;
     else if (t.type === "group" && t.group)
-      n = t.group.endTime;
+      r = t.group.endTime;
     else
       continue;
-    const i = new Date(n), a = i.toLocaleDateString();
+    const n = new Date(r), a = n.toLocaleDateString();
     e.has(a) || e.set(a, {
       dateKey: a,
-      dateLabel: Qe(i),
+      dateLabel: Qe(n),
       items: []
     }), e.get(a).items.push(t);
   }
   return Array.from(e.values());
 }
-function Tt(r) {
-  return r.filter((e) => w(e.event_type).priority > M).length;
+function At(i) {
+  return i.filter((e) => w(e.event_type).priority > M).length;
 }
-function E(r) {
-  if (!r)
-    return "-";
-  try {
-    const e = new Date(r);
-    return e.toLocaleDateString() + " at " + e.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return r;
-  }
-}
-function B(r) {
-  if (!r)
-    return "";
-  try {
-    const e = new Date(r), n = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), i = Math.floor(n / 6e4), a = Math.floor(n / 36e5), s = Math.floor(n / 864e5);
-    return i < 1 ? "just now" : i < 60 ? `${i}m ago` : a < 24 ? `${a}h ago` : s < 7 ? `${s}d ago` : E(r);
-  } catch {
-    return r;
-  }
-}
-function tt(r) {
-  const e = v(r.displayKey), t = v(r.displayValue);
-  return r.isBadge ? `
+function tt(i) {
+  const e = v(i.displayKey), t = v(i.displayValue);
+  return i.isBadge ? `
       <div class="flex items-center gap-1.5">
         <span class="text-gray-500">${e}:</span>
         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">${t}</span>
@@ -1180,35 +1161,35 @@ function tt(r) {
     </div>
   `;
 }
-function rt(r, e) {
-  const t = Ve(e, r);
+function rt(i, e) {
+  const t = Ve(e, i);
   if (t.length === 0)
     return "";
-  const n = v(r.id), i = t.map(tt).join("");
+  const r = v(i.id), n = t.map(tt).join("");
   return `
     <button type="button" class="timeline-meta-toggle mt-2 text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1"
-            aria-expanded="false" data-event-id="${n}">
+            aria-expanded="false" data-event-id="${r}">
       <svg class="w-3 h-3 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
       </svg>
       Details
     </button>
-    <div class="timeline-meta-content hidden mt-2 text-xs bg-gray-50 rounded p-2 space-y-1" data-event-content="${n}">
-      ${i}
+    <div class="timeline-meta-content hidden mt-2 text-xs bg-gray-50 rounded p-2 space-y-1" data-event-content="${r}">
+      ${n}
     </div>
   `;
 }
-function Z(r, e, t = !1) {
-  const n = w(r.event_type), i = W(n.color), a = Ue(e, r), s = B(r.created_at), c = E(r.created_at), l = rt(r, e), d = v(r.id), u = v(a.name), m = v(n.label);
+function Z(i, e, t = !1) {
+  const r = w(i.event_type), n = W(r.color), a = Ue(e, i), s = C(i.created_at), c = k(i.created_at), l = rt(i, e), d = v(i.id), u = v(a.name), m = v(r.label);
   return `
     <div class="timeline-entry relative pl-8 pb-6 ${t ? "last:pb-0" : ""}" role="listitem" data-event-id="${d}">
-      <div class="absolute left-0 top-1 w-4 h-4 rounded-full ${i.dot} ring-4 ring-white" aria-hidden="true"></div>
+      <div class="absolute left-0 top-1 w-4 h-4 rounded-full ${n.dot} ring-4 ring-white" aria-hidden="true"></div>
       <div class="absolute left-[7px] top-5 bottom-0 w-0.5 bg-gray-200 ${t ? "hidden" : ""}" aria-hidden="true"></div>
       <div class="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors">
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${i.bg} ${i.text}">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${n.bg} ${n.text}">
                 ${m}
               </span>
             </div>
@@ -1225,21 +1206,21 @@ function Z(r, e, t = !1) {
     </div>
   `;
 }
-function nt(r, e) {
-  const t = r.config, n = W(t.color), i = r.events.length, a = B(r.endTime), s = E(r.endTime), c = v(t.label), l = `group-${r.events[0]?.id || Date.now()}`;
+function it(i, e) {
+  const t = i.config, r = W(t.color), n = i.events.length, a = C(i.endTime), s = k(i.endTime), c = v(t.label), l = `group-${i.events[0]?.id || Date.now()}`;
   return `
     <div class="timeline-group relative pl-8 pb-6" role="listitem" data-group-id="${l}">
-      <div class="absolute left-0 top-1 w-4 h-4 rounded-full ${n.dot} ring-4 ring-white" aria-hidden="true"></div>
+      <div class="absolute left-0 top-1 w-4 h-4 rounded-full ${r.dot} ring-4 ring-white" aria-hidden="true"></div>
       <div class="absolute left-[7px] top-5 bottom-0 w-0.5 bg-gray-200" aria-hidden="true"></div>
       <div class="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors">
         <div class="flex items-start justify-between gap-2">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${n.bg} ${n.text}">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${r.bg} ${r.text}">
                 ${c}
               </span>
               <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
-                ${i} events
+                ${n} events
               </span>
             </div>
             <button type="button" class="timeline-group-toggle text-xs text-gray-500 hover:text-gray-700 inline-flex items-center gap-1 mt-1"
@@ -1261,14 +1242,14 @@ function nt(r, e) {
     </div>
   `;
 }
-function it(r, e, t = !1) {
-  return r.type === "event" && r.event ? Z(r.event, e, t) : r.type === "group" && r.group ? nt(r.group) : "";
+function nt(i, e, t = !1) {
+  return i.type === "event" && i.event ? Z(i.event, e, t) : i.type === "group" && i.group ? it(i.group) : "";
 }
-function at(r, e) {
-  const t = r.items.map((n, i) => it(n, e, i === r.items.length - 1)).join("");
+function at(i, e) {
+  const t = i.items.map((r, n) => nt(r, e, n === i.items.length - 1)).join("");
   return `
     <div class="mb-6">
-      <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 pl-8">${v(r.dateLabel)}</div>
+      <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 pl-8">${v(i.dateLabel)}</div>
       ${t}
     </div>
   `;
@@ -1284,14 +1265,14 @@ function q() {
     </div>
   `;
 }
-function st(r) {
+function st(i) {
   return `
     <div class="text-center py-8 text-gray-500">
       <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16M4 18h16"/>
       </svg>
       <p class="font-medium">All current activity is hidden in condensed view.</p>
-      <p class="text-sm">${r} ${r === 1 ? "event is" : "events are"} available in all activity.</p>
+      <p class="text-sm">${i} ${i === 1 ? "event is" : "events are"} available in all activity.</p>
     </div>
   `;
 }
@@ -1303,18 +1284,18 @@ function ot() {
     </div>
   `;
 }
-function U(r, e) {
-  return r <= 0 || e === "all" ? "" : `
+function U(i, e) {
+  return i <= 0 || e === "all" ? "" : `
     <div class="timeline-hidden-notice text-center py-3 text-sm text-gray-500 border-t border-gray-100 mt-4">
-      <span>${r} system ${r === 1 ? "event" : "events"} hidden.</span>
+      <span>${i} system ${i === 1 ? "event" : "events"} hidden.</span>
       <button type="button" class="timeline-show-all-btn ml-1 text-blue-600 hover:text-blue-800 font-medium">
         Show all activity
       </button>
     </div>
   `;
 }
-function ct(r) {
-  const e = r === "condensed";
+function ct(i) {
+  const e = i === "condensed";
   return `
     <div class="timeline-view-toggle flex items-center gap-2 text-sm">
       <button type="button" class="timeline-mode-btn px-2 py-1 rounded ${e ? "bg-gray-100 font-medium" : "text-gray-500 hover:text-gray-700"}" data-mode="condensed">
@@ -1326,53 +1307,53 @@ function ct(r) {
     </div>
   `;
 }
-function lt(r, e, t, n) {
+function lt(i, e, t, r) {
   if (t.totalEvents === 0)
     return q();
   if (t.visibleEvents === 0)
-    return t.hiddenEvents > 0 && n === "condensed" ? `
+    return t.hiddenEvents > 0 && r === "condensed" ? `
         ${st(t.hiddenEvents)}
-        ${U(t.hiddenEvents, n)}
+        ${U(t.hiddenEvents, r)}
       ` : q();
-  const i = r.map((s) => at(s, e)).join(""), a = U(t.hiddenEvents, n);
+  const n = i.map((s) => at(s, e)).join(""), a = U(t.hiddenEvents, r);
   return `
     <div class="relative">
-      ${i}
+      ${n}
     </div>
     ${a}
   `;
 }
-function Q(r) {
-  r.querySelectorAll(".timeline-meta-toggle").forEach((e) => {
+function Q(i) {
+  i.querySelectorAll(".timeline-meta-toggle").forEach((e) => {
     e.addEventListener("click", () => {
       const t = e.getAttribute("data-event-id");
       if (!t) return;
-      const n = r.querySelector(`[data-event-content="${t}"]`);
-      if (!n) return;
-      const i = e.getAttribute("aria-expanded") === "true";
-      e.setAttribute("aria-expanded", String(!i)), n.classList.toggle("hidden", i);
+      const r = i.querySelector(`[data-event-content="${t}"]`);
+      if (!r) return;
+      const n = e.getAttribute("aria-expanded") === "true";
+      e.setAttribute("aria-expanded", String(!n)), r.classList.toggle("hidden", n);
       const a = e.querySelector("svg");
-      a && (a.style.transform = i ? "" : "rotate(180deg)");
+      a && (a.style.transform = n ? "" : "rotate(180deg)");
     });
   });
 }
-function dt(r, e, t) {
-  r.querySelectorAll(".timeline-group-toggle").forEach((n) => {
-    n.addEventListener("click", () => {
-      const i = n.getAttribute("data-group-id");
-      if (!i) return;
-      const a = r.querySelector(`[data-group-content="${i}"]`);
+function dt(i, e, t) {
+  i.querySelectorAll(".timeline-group-toggle").forEach((r) => {
+    r.addEventListener("click", () => {
+      const n = r.getAttribute("data-group-id");
+      if (!n) return;
+      const a = i.querySelector(`[data-group-content="${n}"]`);
       if (!a) return;
-      const s = n.getAttribute("aria-expanded") === "true";
-      n.setAttribute("aria-expanded", String(!s)), a.classList.toggle("hidden", s);
-      const c = n.querySelector("svg");
-      if (c && (c.style.transform = s ? "" : "rotate(180deg)"), n.innerHTML = `
+      const s = r.getAttribute("aria-expanded") === "true";
+      r.setAttribute("aria-expanded", String(!s)), a.classList.toggle("hidden", s);
+      const c = r.querySelector("svg");
+      if (c && (c.style.transform = s ? "" : "rotate(180deg)"), r.innerHTML = `
         <svg class="w-3 h-3 transition-transform" style="transform: ${s ? "" : "rotate(180deg)"}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
         </svg>
         ${s ? "Show details" : "Hide details"}
       `, !s && a.children.length === 0) {
-        const l = t(i);
+        const l = t(n);
         if (l) {
           const d = l.events.map((u, m) => Z(u, e, m === l.events.length - 1)).join("");
           a.innerHTML = d, Q(a);
@@ -1437,15 +1418,15 @@ class ee {
   render() {
     if (!this.container)
       return;
-    const e = this.bootstrap.events || [], { items: t, stats: n } = Ze(e, this.viewMode);
-    this.processedItems = t, this.stats = n, this.dateGroups = et(t), this.groupMap.clear();
+    const e = this.bootstrap.events || [], { items: t, stats: r } = Ze(e, this.viewMode);
+    this.processedItems = t, this.stats = r, this.dateGroups = et(t), this.groupMap.clear();
     for (const s of t)
       if (s.type === "group" && s.group) {
         const c = `group-${s.group.events[0]?.id || Date.now()}`;
         this.groupMap.set(c, s.group);
       }
-    const i = lt(this.dateGroups, this.resolverContext, n, this.viewMode);
-    this.container.innerHTML = i, Q(this.container), dt(
+    const n = lt(this.dateGroups, this.resolverContext, r, this.viewMode);
+    this.container.innerHTML = n, Q(this.container), dt(
       this.container,
       this.resolverContext,
       (s) => this.groupMap.get(s)
@@ -1488,24 +1469,24 @@ class ee {
         });
         if (!e.ok)
           throw new Error(`Failed to refresh: HTTP ${e.status}`);
-        const t = await e.text(), i = new DOMParser().parseFromString(t, "text/html");
-        if (i.getElementById("agreement-timeline-bootstrap")?.textContent)
+        const t = await e.text(), n = new DOMParser().parseFromString(t, "text/html");
+        if (n.getElementById("agreement-timeline-bootstrap")?.textContent)
           try {
-            const c = C(
+            const c = T(
               "agreement-timeline-bootstrap",
               "agreement-review-bootstrap",
               {
                 agreement_id: this.config.agreementId,
                 current_user_id: this.bootstrap.current_user_id
               },
-              i
+              n
             );
             this.updateBootstrap(c);
             return;
           } catch (c) {
             console.warn("Failed to parse timeline bootstrap:", c);
           }
-        const s = this.extractLegacyBootstrap(i);
+        const s = this.extractLegacyBootstrap(n);
         if (s) {
           this.updateBootstrap(s);
           return;
@@ -1521,18 +1502,18 @@ class ee {
    */
   extractLegacyBootstrap(e) {
     const t = e.getElementById("agreement-review-bootstrap");
-    let n = {}, i = [];
+    let r = {}, n = [];
     if (t?.textContent)
       try {
         const a = JSON.parse(t.textContent);
-        n = a.actor_map || {}, i = a.participants || [];
+        r = a.actor_map || {}, n = a.participants || [];
       } catch {
       }
-    return Object.keys(n).length > 0 || i.length > 0 ? {
+    return Object.keys(r).length > 0 || n.length > 0 ? {
       agreement_id: this.config.agreementId,
       events: this.bootstrap.events || [],
-      actors: n,
-      participants: i,
+      actors: r,
+      participants: n,
       field_definitions: this.bootstrap.field_definitions || []
     } : null;
   }
@@ -1549,12 +1530,12 @@ class ee {
     this.container = null, this.refreshBtn = null, this.viewToggle = null, this.groupMap.clear();
   }
 }
-function Rt(r) {
-  const e = new ee(r);
+function Rt(i) {
+  const e = new ee(i);
   return e.init(), e;
 }
-function Ct(r, e) {
-  const t = document.getElementById(r), n = {
+function Tt(i, e) {
+  const t = document.getElementById(i), r = {
     agreement_id: e?.agreement_id || "",
     events: e?.events || [],
     actors: e?.actors || {},
@@ -1563,100 +1544,94 @@ function Ct(r, e) {
     current_user_id: e?.current_user_id
   };
   if (!t?.textContent)
-    return n;
+    return r;
   try {
-    const i = JSON.parse(t.textContent);
+    const n = JSON.parse(t.textContent);
     return {
-      agreement_id: i.agreement_id || n.agreement_id,
-      events: Array.isArray(i.events) ? i.events : n.events,
-      actors: i.actors && typeof i.actors == "object" ? i.actors : n.actors,
-      participants: Array.isArray(i.participants) ? i.participants : n.participants,
-      field_definitions: Array.isArray(i.field_definitions) ? i.field_definitions : n.field_definitions,
-      current_user_id: i.current_user_id || n.current_user_id
+      agreement_id: n.agreement_id || r.agreement_id,
+      events: Array.isArray(n.events) ? n.events : r.events,
+      actors: n.actors && typeof n.actors == "object" ? n.actors : r.actors,
+      participants: Array.isArray(n.participants) ? n.participants : r.participants,
+      field_definitions: Array.isArray(n.field_definitions) ? n.field_definitions : r.field_definitions,
+      current_user_id: n.current_user_id || r.current_user_id
     };
-  } catch (i) {
-    return console.warn(`Failed to parse ${r}:`, i), n;
+  } catch (n) {
+    return console.warn(`Failed to parse ${i}:`, n), r;
   }
 }
-function ut(r, e) {
+function ut(i, e) {
   if (!e || typeof e != "object")
-    return r;
+    return i;
   const t = {
     ...e.actor_map && typeof e.actor_map == "object" ? e.actor_map : {},
-    ...r.actors
-  }, n = new Set(
-    r.participants.map((a) => String(a.id || "").trim()).filter(Boolean)
-  ), i = Array.isArray(e.participants) ? e.participants.filter((a) => {
+    ...i.actors
+  }, r = new Set(
+    i.participants.map((a) => String(a.id || "").trim()).filter(Boolean)
+  ), n = Array.isArray(e.participants) ? e.participants.filter((a) => {
     const s = String(a?.id || "").trim();
-    return s && !n.has(s);
+    return s && !r.has(s);
   }) : [];
   return {
-    ...r,
+    ...i,
     actors: t,
-    participants: [...r.participants, ...i]
+    participants: [...i.participants, ...n]
   };
 }
-function T(r, e, t = document) {
-  const n = t.querySelector(`#${e}`);
-  if (!n?.textContent)
-    return r;
+function A(i, e, t = document) {
+  const r = t.querySelector(`#${e}`);
+  if (!r?.textContent)
+    return i;
   try {
-    const i = JSON.parse(n.textContent);
-    return ut(r, i);
-  } catch (i) {
-    return console.warn(`Failed to parse ${e}:`, i), r;
+    const n = JSON.parse(r.textContent);
+    return ut(i, n);
+  } catch (n) {
+    return console.warn(`Failed to parse ${e}:`, n), i;
   }
 }
-function C(r, e, t, n = document) {
-  const i = {
+function T(i, e, t, r = document) {
+  const n = {
     agreement_id: t?.agreement_id || "",
     events: t?.events || [],
     actors: t?.actors || {},
     participants: t?.participants || [],
     field_definitions: t?.field_definitions || [],
     current_user_id: t?.current_user_id
-  }, a = n.querySelector(`#${r}`);
+  }, a = r.querySelector(`#${i}`);
   if (!a?.textContent)
-    return T(i, e, n);
+    return A(n, e, r);
   try {
     const s = JSON.parse(a.textContent);
-    return T({
-      agreement_id: s.agreement_id || i.agreement_id,
-      events: Array.isArray(s.events) ? s.events : i.events,
-      actors: s.actors && typeof s.actors == "object" ? s.actors : i.actors,
-      participants: Array.isArray(s.participants) ? s.participants : i.participants,
-      field_definitions: Array.isArray(s.field_definitions) ? s.field_definitions : i.field_definitions,
-      current_user_id: s.current_user_id || i.current_user_id
-    }, e, n);
+    return A({
+      agreement_id: s.agreement_id || n.agreement_id,
+      events: Array.isArray(s.events) ? s.events : n.events,
+      actors: s.actors && typeof s.actors == "object" ? s.actors : n.actors,
+      participants: Array.isArray(s.participants) ? s.participants : n.participants,
+      field_definitions: Array.isArray(s.field_definitions) ? s.field_definitions : n.field_definitions,
+      current_user_id: s.current_user_id || n.current_user_id
+    }, e, r);
   } catch (s) {
-    return console.warn(`Failed to parse ${r}:`, s), T(i, e, n);
+    return console.warn(`Failed to parse ${i}:`, s), A(n, e, r);
   }
 }
-function mt(r) {
-  return E(r);
-}
-function pt(r) {
-  return B(r);
-}
-function z(r = document) {
-  r.querySelectorAll("[data-timestamp]").forEach((e) => {
+function z(i = document) {
+  i.querySelectorAll("[data-timestamp]").forEach((e) => {
     if (e.classList.contains("recipient-timestamp"))
       return;
     const t = e.getAttribute("data-timestamp");
-    t && (e.textContent = mt(t));
-  }), r.querySelectorAll(".recipient-timestamp").forEach((e) => {
+    t && (e.textContent = k(t));
+  }), i.querySelectorAll(".recipient-timestamp").forEach((e) => {
     const t = e.getAttribute("data-timestamp");
-    t && (e.textContent = pt(t));
+    t && (e.textContent = C(t));
   });
 }
-function gt(r = document) {
-  r.addEventListener("click", (e) => {
+function mt(i = document) {
+  i.addEventListener("click", (e) => {
     const t = e.target;
     if (!(t instanceof Element))
       return;
-    const n = t.closest(".collapsible-expand-trigger");
-    if (n) {
-      const d = n.closest(".collapsible-trigger");
+    const r = t.closest(".collapsible-expand-trigger");
+    if (r) {
+      const d = r.closest(".collapsible-trigger");
       if (d) {
         const u = d.getAttribute("aria-controls"), m = u ? document.getElementById(u) : null;
         m && (d.setAttribute("aria-expanded", "true"), m.classList.add("expanded"));
@@ -1675,23 +1650,23 @@ function gt(r = document) {
     a.setAttribute("aria-expanded", String(!l)), c.classList.toggle("expanded", !l);
   });
 }
-function _(r, e) {
-  const t = String(r || "").trim(), n = String(e || "").trim();
-  return !t || !n ? "" : `${t}:${n}`;
+function _(i, e) {
+  const t = String(i || "").trim(), r = String(e || "").trim();
+  return !t || !r ? "" : `${t}:${r}`;
 }
-function ft(r, e) {
+function pt(i, e) {
   if (!e)
     return null;
   const t = String(e).trim();
-  return r.find((n) => {
-    const i = String(n.id || "").trim(), a = String(n.recipient_id || "").trim();
-    return i === t || a === t;
+  return i.find((r) => {
+    const n = String(r.id || "").trim(), a = String(r.recipient_id || "").trim();
+    return n === t || a === t;
   }) || null;
 }
-function R(r, e, t) {
-  const n = t.actor_map && typeof t.actor_map == "object" ? t.actor_map : {}, i = Array.isArray(t.participants) ? t.participants : [], a = String(r || "").trim(), s = String(e || "").trim(), c = [];
+function R(i, e, t) {
+  const r = t.actor_map && typeof t.actor_map == "object" ? t.actor_map : {}, n = Array.isArray(t.participants) ? t.participants : [], a = String(i || "").trim(), s = String(e || "").trim(), c = [];
   a === "recipient" || a === "signer" ? c.push(_("recipient", e), _("signer", e)) : a === "user" || a === "sender" ? c.push(_("user", e), _("sender", e)) : a === "reviewer" || a === "external" ? c.push(_("reviewer", e), _("external", e)) : c.push(_(a, e));
-  const l = c.map((A) => n[A]).find(Boolean) || {}, d = String(l.display_name || l.name || "").trim(), u = String(l.email || "").trim(), m = ft(i, s), f = m ? String(m.display_name || m.name || "").trim() : "", h = m ? String(m.email || "").trim() : "", p = L(l.role || l.actor_type || a);
+  const l = c.map((E) => r[E]).find(Boolean) || {}, d = String(l.display_name || l.name || "").trim(), u = String(l.email || "").trim(), m = pt(n, s), f = m ? String(m.display_name || m.name || "").trim() : "", h = m ? String(m.email || "").trim() : "", p = D(l.role || l.actor_type || a);
   let y = "";
   return d && !g(d) ? y = d : u && !g(u) ? y = u : f && !g(f) ? y = f : h && !g(h) ? y = h : p ? y = p : y = "Unknown User", {
     name: y,
@@ -1699,26 +1674,26 @@ function R(r, e, t) {
     actor_type: String(l.actor_type || a).trim()
   };
 }
-function O(r) {
+function O(i) {
   document.querySelectorAll("[data-review-actor-avatar]").forEach((e) => {
-    const t = e.getAttribute("data-actor-type") || "", n = e.getAttribute("data-actor-id") || "", i = R(t, n, r), a = K(i.actor_type), s = Y(i.name, i.role);
+    const t = e.getAttribute("data-actor-type") || "", r = e.getAttribute("data-actor-id") || "", n = R(t, r, i), a = K(n.actor_type), s = Y(n.name, n.role);
     e.textContent = s, e.style.backgroundColor = a, e.style.color = "#ffffff";
   }), document.querySelectorAll("[data-review-actor-name]").forEach((e) => {
-    const t = e.getAttribute("data-actor-type") || "", n = e.getAttribute("data-actor-id") || "", i = R(t, n, r);
-    e.textContent = i.name;
+    const t = e.getAttribute("data-actor-type") || "", r = e.getAttribute("data-actor-id") || "", n = R(t, r, i);
+    e.textContent = n.name;
   }), document.querySelectorAll("[data-review-actor-role]").forEach((e) => {
-    const t = e.getAttribute("data-actor-type") || "", n = e.getAttribute("data-actor-id") || "", i = R(t, n, r);
-    e.textContent = L(i.role || i.actor_type);
+    const t = e.getAttribute("data-actor-type") || "", r = e.getAttribute("data-actor-id") || "", n = R(t, r, i);
+    e.textContent = D(n.role || n.actor_type);
   });
 }
-function ht(r, e, t = document) {
-  const n = t.querySelector(`#${r}`);
-  if (!n?.textContent)
+function gt(i, e, t = document) {
+  const r = t.querySelector(`#${i}`);
+  if (!r?.textContent)
     return e;
   try {
-    return JSON.parse(n.textContent);
-  } catch (i) {
-    return console.warn(`Unable to parse ${r}`, i), e;
+    return JSON.parse(r.textContent);
+  } catch (n) {
+    return console.warn(`Unable to parse ${i}`, n), e;
   }
 }
 const j = {
@@ -1733,7 +1708,7 @@ const j = {
   override_at: "",
   actor_map: {},
   participants: []
-}, vt = {
+}, ft = {
   review_status: ["#agreement-review-status-panel"],
   review_config: ["#agreement-review-configuration-panel", "#agreement-review-bootstrap"],
   participants: ["#review-participants-panel", "#agreement-participants-panel", "#participant-progress-panel"],
@@ -1754,13 +1729,13 @@ class te {
    * Initialize the page controller
    */
   init() {
-    this.initialized || (this.initialized = !0, this.hydrateReviewBootstrap(), z(), gt(), O(this.reviewBootstrap), this.initializeReviewWorkspace(), this.syncAgreementThreadAnchorFields(), this.initializeDeliveryState(), this.initInlineStatusManager(), this.initFeedbackAdapter(), this.initCommandRuntime(), this.feedbackAdapter?.start(), document.addEventListener("click", this.clickHandler), document.addEventListener("change", this.changeHandler), this.initTimeline());
+    this.initialized || (this.initialized = !0, this.hydrateReviewBootstrap(), z(), mt(), O(this.reviewBootstrap), this.initializeReviewWorkspace(), this.syncAgreementThreadAnchorFields(), this.initializeDeliveryState(), this.initInlineStatusManager(), this.initFeedbackAdapter(), this.initCommandRuntime(), this.feedbackAdapter?.start(), document.addEventListener("click", this.clickHandler), document.addEventListener("change", this.changeHandler), this.initTimeline());
   }
   /**
    * Initialize the timeline controller
    */
   initTimeline() {
-    const e = C(
+    const e = T(
       "agreement-timeline-bootstrap",
       "agreement-review-bootstrap",
       {
@@ -1782,13 +1757,13 @@ class te {
    * Hydrate review bootstrap from JSON script
    */
   hydrateReviewBootstrap(e = document) {
-    const t = ht(
+    const t = gt(
       "agreement-review-bootstrap",
       j,
       e
     );
-    Object.keys(this.reviewBootstrap).forEach((n) => {
-      delete this.reviewBootstrap[n];
+    Object.keys(this.reviewBootstrap).forEach((r) => {
+      delete this.reviewBootstrap[r];
     }), Object.assign(this.reviewBootstrap, t);
   }
   /**
@@ -1803,13 +1778,13 @@ class te {
   onCommandRuntimeRefresh(e = document) {
     if (this.hydrateReviewBootstrap(e), this.initializeReviewWorkspace(), O(this.reviewBootstrap), z(e), this.syncAgreementThreadAnchorFields(), e.querySelector("#agreement-timeline-bootstrap")?.textContent && this.timelineController)
       try {
-        const n = C(
+        const r = T(
           "agreement-timeline-bootstrap",
           "agreement-review-bootstrap",
           { agreement_id: this.config.agreementId },
           e
         );
-        this.timelineController.updateBootstrap(n);
+        this.timelineController.updateBootstrap(r);
       } catch {
       }
   }
@@ -1817,25 +1792,25 @@ class te {
    * Get scope params from URL and resource
    */
   resolveScopeParams() {
-    const e = new URLSearchParams(window.location.search || ""), t = (this.config.tenantId || e.get("tenant_id") || "").trim(), n = (this.config.orgId || e.get("org_id") || "").trim();
-    return { tenantId: t, orgId: n };
+    const e = new URLSearchParams(window.location.search || ""), t = (this.config.tenantId || e.get("tenant_id") || "").trim(), r = (this.config.orgId || e.get("org_id") || "").trim();
+    return { tenantId: t, orgId: r };
   }
   /**
    * Build a scoped URL with tenant/org params
    */
   buildScopedURL(e) {
-    const t = new URL(e, window.location.origin), { tenantId: n, orgId: i } = this.resolveScopeParams();
-    return n && t.searchParams.set("tenant_id", n), i && t.searchParams.set("org_id", i), t.toString();
+    const t = new URL(e, window.location.origin), { tenantId: r, orgId: n } = this.resolveScopeParams();
+    return r && t.searchParams.set("tenant_id", r), n && t.searchParams.set("org_id", n), t.toString();
   }
   /**
    * Build asset download URL
    */
   buildAssetDownloadURL(e) {
-    const t = this.config.panelName || "esign_agreements", n = new URL(
+    const t = this.config.panelName || "esign_agreements", r = new URL(
       `${this.config.apiBasePath}/panels/${t}/${this.config.agreementId}/artifact/${e}`,
       window.location.origin
-    ), { tenantId: i, orgId: a } = this.resolveScopeParams();
-    return i && n.searchParams.set("tenant_id", i), a && n.searchParams.set("org_id", a), n.searchParams.set("disposition", "attachment"), n.toString();
+    ), { tenantId: n, orgId: a } = this.resolveScopeParams();
+    return n && r.searchParams.set("tenant_id", n), a && r.searchParams.set("org_id", a), r.searchParams.set("disposition", "attachment"), r.toString();
   }
   /**
    * Refresh the timeline
@@ -1870,33 +1845,33 @@ class te {
   normalizeRecipientParticipant(e) {
     if (!e.querySelector("[data-review-recipient-enabled]")?.checked)
       return null;
-    const n = String(e.getAttribute("data-recipient-id") || "").trim();
-    return n ? {
+    const r = String(e.getAttribute("data-recipient-id") || "").trim();
+    return r ? {
       participant_type: "recipient",
-      recipient_id: n,
+      recipient_id: r,
       can_comment: e.querySelector("[data-review-recipient-comment]")?.checked ?? !0,
       can_approve: e.querySelector("[data-review-recipient-approve]")?.checked ?? !0
     } : null;
   }
   collectReviewParticipants() {
     const e = [];
-    return this.getReviewRecipientRows().forEach((n) => {
-      const i = this.normalizeRecipientParticipant(n);
-      i && e.push(i);
+    return this.getReviewRecipientRows().forEach((r) => {
+      const n = this.normalizeRecipientParticipant(r);
+      n && e.push(n);
     }), Array.from(
       document.querySelectorAll("[data-review-external-row]")
-    ).forEach((n) => {
-      const i = String(
-        n.querySelector("[data-review-external-email]")?.value || ""
+    ).forEach((r) => {
+      const n = String(
+        r.querySelector("[data-review-external-email]")?.value || ""
       ).trim();
-      i && e.push({
+      n && e.push({
         participant_type: "external",
-        email: i,
+        email: n,
         display_name: String(
-          n.querySelector("[data-review-external-name]")?.value || ""
+          r.querySelector("[data-review-external-name]")?.value || ""
         ).trim(),
-        can_comment: n.querySelector("[data-review-external-comment]")?.checked ?? !0,
-        can_approve: n.querySelector("[data-review-external-approve]")?.checked ?? !0
+        can_comment: r.querySelector("[data-review-external-comment]")?.checked ?? !0,
+        can_approve: r.querySelector("[data-review-external-approve]")?.checked ?? !0
       });
     }), e;
   }
@@ -1904,33 +1879,33 @@ class te {
     const e = document.getElementById("agreement-external-reviewers-empty"), t = this.getExternalReviewersContainer();
     if (!e)
       return;
-    const n = !!t?.querySelector("[data-review-external-row]");
-    e.classList.toggle("hidden", n);
+    const r = !!t?.querySelector("[data-review-external-row]");
+    e.classList.toggle("hidden", r);
   }
   resetExternalReviewerRows() {
     const e = this.getExternalReviewersContainer();
     e && (e.innerHTML = "", this.syncExternalReviewersEmptyState());
   }
   appendExternalReviewerRow(e = {}) {
-    const t = this.getExternalReviewersContainer(), n = document.getElementById("agreement-external-reviewer-template");
-    if (!t || !n?.content)
+    const t = this.getExternalReviewersContainer(), r = document.getElementById("agreement-external-reviewer-template");
+    if (!t || !r?.content)
       return;
-    const i = document.importNode(n.content, !0), a = i.querySelector("[data-review-external-row]");
+    const n = document.importNode(r.content, !0), a = n.querySelector("[data-review-external-row]");
     if (!a)
       return;
     const s = a.querySelector("[data-review-external-name]"), c = a.querySelector("[data-review-external-email]"), l = a.querySelector("[data-review-external-comment]"), d = a.querySelector("[data-review-external-approve]");
-    s && (s.value = String(e.display_name || e.name || "").trim()), c && (c.value = String(e.email || "").trim()), l && (l.checked = e.can_comment !== !1), d && (d.checked = e.can_approve !== !1), t.appendChild(i), this.syncExternalReviewersEmptyState();
+    s && (s.value = String(e.display_name || e.name || "").trim()), c && (c.value = String(e.email || "").trim()), l && (l.checked = e.can_comment !== !1), d && (d.checked = e.can_approve !== !1), t.appendChild(n), this.syncExternalReviewersEmptyState();
   }
   initializeReviewWorkspace() {
     const e = document.getElementById("agreement-review-gate"), t = document.getElementById("agreement-review-comments-enabled");
     e && (e.value = String(this.reviewBootstrap.gate || "approve_before_send").trim() || "approve_before_send"), t && (t.checked = !!this.reviewBootstrap.comments_enabled);
-    const n = Array.isArray(this.reviewBootstrap.participants) ? this.reviewBootstrap.participants : [];
-    this.resetExternalReviewerRows(), this.getReviewRecipientRows().forEach((i) => {
-      const a = String(i.getAttribute("data-recipient-id") || "").trim(), s = i.querySelector("[data-review-recipient-enabled]"), c = i.querySelector("[data-review-recipient-comment]"), l = i.querySelector("[data-review-recipient-approve]"), d = n.find(
+    const r = Array.isArray(this.reviewBootstrap.participants) ? this.reviewBootstrap.participants : [];
+    this.resetExternalReviewerRows(), this.getReviewRecipientRows().forEach((n) => {
+      const a = String(n.getAttribute("data-recipient-id") || "").trim(), s = n.querySelector("[data-review-recipient-enabled]"), c = n.querySelector("[data-review-recipient-comment]"), l = n.querySelector("[data-review-recipient-approve]"), d = r.find(
         (u) => this.normalizeParticipantType(u?.participant_type) === "recipient" && String(u?.recipient_id || "").trim() === a
       );
       s && (s.checked = !!d), c && (c.checked = d ? !!d.can_comment : !0), l && (l.checked = d ? !!d.can_approve : !0);
-    }), n.filter((i) => this.normalizeParticipantType(i?.participant_type) === "external").forEach((i) => this.appendExternalReviewerRow(i)), this.syncExternalReviewersEmptyState();
+    }), r.filter((n) => this.normalizeParticipantType(n?.participant_type) === "external").forEach((n) => this.appendExternalReviewerRow(n)), this.syncExternalReviewersEmptyState();
   }
   syncAgreementThreadAnchorFields() {
     const e = String(
@@ -1939,11 +1914,11 @@ class te {
     document.getElementById("agreement-thread-page-wrap")?.classList.toggle("hidden", e !== "page"), document.getElementById("agreement-thread-field-wrap")?.classList.toggle("hidden", e !== "field");
   }
   syncBootstrapScriptContent(e, t) {
-    const n = document.getElementById(e), i = t.getElementById(e);
-    n && i && (n.textContent = i.textContent || "");
+    const r = document.getElementById(e), n = t.getElementById(e);
+    r && n && (r.textContent = n.textContent || "");
   }
   initInlineStatusManager() {
-    this.inlineStatusManager = Me({
+    this.inlineStatusManager = Le({
       completedClearDelay: 3e3,
       failedClearDelay: 8e3,
       usePageFallback: !0
@@ -1955,9 +1930,9 @@ class te {
   }
   resolveLiveSelectors(e) {
     const t = /* @__PURE__ */ new Set();
-    return e.forEach((n) => {
-      (vt[n] || []).forEach((i) => {
-        t.add(i);
+    return e.forEach((r) => {
+      (ft[r] || []).forEach((n) => {
+        t.add(n);
       });
     }), Array.from(t);
   }
@@ -1979,16 +1954,16 @@ class te {
   matchesAgreementFeedback(e) {
     if (e.type !== "esign.agreement.changed" || e.resourceType !== "esign_agreement" || String(e.resourceId || "").trim() !== this.config.agreementId)
       return !1;
-    const { tenantId: t, orgId: n } = this.resolveScopeParams();
-    return !(t && String(e.tenantId || "").trim() && String(e.tenantId || "").trim() !== t || n && String(e.orgId || "").trim() && String(e.orgId || "").trim() !== n);
+    const { tenantId: t, orgId: r } = this.resolveScopeParams();
+    return !(t && String(e.tenantId || "").trim() && String(e.tenantId || "").trim() !== t || r && String(e.orgId || "").trim() && String(e.orgId || "").trim() !== r);
   }
   async reconcileAgreementFeedback(e) {
     if (!this.matchesAgreementFeedback(e.event))
       return;
-    const t = Array.isArray(e.event.sections) ? e.event.sections : [], n = new Set(e.pending?.refreshSelectors || []);
-    this.resolveLiveSelectors(t).forEach((i) => {
-      n.add(i);
-    }), n.add("#agreement-review-bootstrap"), n.add("#agreement-timeline-bootstrap"), n.size !== 0 && await e.controller.refreshSelectors(Array.from(n));
+    const t = Array.isArray(e.event.sections) ? e.event.sections : [], r = new Set(e.pending?.refreshSelectors || []);
+    this.resolveLiveSelectors(t).forEach((n) => {
+      r.add(n);
+    }), r.add("#agreement-review-bootstrap"), r.add("#agreement-timeline-bootstrap"), r.size !== 0 && await e.controller.refreshSelectors(Array.from(r));
   }
   async reconcileAgreementStreamGap(e) {
     await e.controller.refreshSelectors(this.allLiveSelectors()), this.feedbackAdapter?.attemptRecovery();
@@ -2019,15 +1994,15 @@ class te {
     )));
   }
   async executeAction(e, t = {}) {
-    const n = this.buildScopedURL(
+    const r = this.buildScopedURL(
       `${this.config.apiBasePath}/panels/${this.panelName}/actions/${e}`
-    ), i = await ne(
-      n,
+    ), n = await ie(
+      r,
       { id: this.config.agreementId, ...t },
       { credentials: "same-origin" }
     );
-    if (!i.success || i.error) {
-      const a = ie(i.error || {
+    if (!n.success || n.error) {
+      const a = ne(n.error || {
         textCode: null,
         message: `${e} failed`,
         metadata: null,
@@ -2036,8 +2011,8 @@ class te {
       throw new Error(a);
     }
   }
-  async executeActionAndReload(e, t = {}, n = `${e} completed successfully`) {
-    await this.executeAction(e, t), this.notifySuccess(n), window.location.reload();
+  async executeActionAndReload(e, t = {}, r = `${e} completed successfully`) {
+    await this.executeAction(e, t), this.notifySuccess(r), window.location.reload();
   }
   setElementBusy(e, t) {
     e && ((e instanceof HTMLButtonElement || e instanceof HTMLInputElement) && (e.disabled = t), t ? e.setAttribute("aria-busy", "true") : e.removeAttribute("aria-busy"));
@@ -2045,9 +2020,9 @@ class te {
   async submitAgreementReview(e) {
     if (e?.getAttribute("aria-busy") === "true")
       return;
-    const t = document.getElementById("agreement-review-gate"), n = document.getElementById("agreement-review-comments-enabled"), i = {
+    const t = document.getElementById("agreement-review-gate"), r = document.getElementById("agreement-review-comments-enabled"), n = {
       gate: String(t?.value || "approve_before_send").trim() || "approve_before_send",
-      comments_enabled: n?.checked ?? !1,
+      comments_enabled: r?.checked ?? !1,
       review_participants: this.collectReviewParticipants()
     }, a = String(this.reviewBootstrap.status || "").trim().toLowerCase(), s = a && a !== "none" && a !== "in_review" ? "reopen_review" : "request_review";
     this.setElementBusy(e, !0);
@@ -2058,7 +2033,7 @@ class te {
         commandName: s,
         dispatchName: `esign.agreements.${s}`,
         transport: "rpc",
-        payload: i,
+        payload: n,
         successMessage: s === "reopen_review" ? "Review reopened" : "Review requested",
         fallbackMessage: "Unable to submit review",
         refreshSelectors: [
@@ -2078,8 +2053,8 @@ class te {
     return (e.headers.get("content-disposition") || "").match(/filename="?([^"]+)"?/i)?.[1] || t;
   }
   showDownloadNotice(e, t = "warning") {
-    const n = document.getElementById("download-status-notice-dynamic");
-    n && (document.getElementById("download-status-notice-static")?.classList.add("hidden"), n.className = `mx-6 mt-6 rounded-lg border p-4 text-sm ${t === "success" ? "border-green-200 bg-green-50 text-green-900" : "border-amber-200 bg-amber-50 text-amber-900"}`, n.textContent = e, n.classList.remove("hidden"));
+    const r = document.getElementById("download-status-notice-dynamic");
+    r && (document.getElementById("download-status-notice-static")?.classList.add("hidden"), r.className = `mx-6 mt-6 rounded-lg border p-4 text-sm ${t === "success" ? "border-green-200 bg-green-50 text-green-900" : "border-amber-200 bg-amber-50 text-amber-900"}`, r.textContent = e, r.classList.remove("hidden"));
   }
   getExecutedDownloadButtons() {
     return Array.from(
@@ -2088,14 +2063,14 @@ class te {
   }
   markExecutedDownloadUnavailable(e) {
     const t = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
-    this.getExecutedDownloadButtons().forEach((n) => {
-      n.dataset.downloadState = "unavailable", n.disabled = !0, n.setAttribute("aria-disabled", "true"), n.classList.remove("btn-primary"), n.classList.add("btn-warning"), n.innerHTML = `${t}Unable To Download Package`, n.setAttribute("title", e), n.setAttribute("aria-label", "Executed completion package is unavailable");
+    this.getExecutedDownloadButtons().forEach((r) => {
+      r.dataset.downloadState = "unavailable", r.disabled = !0, r.setAttribute("aria-disabled", "true"), r.classList.remove("btn-primary"), r.classList.add("btn-warning"), r.innerHTML = `${t}Unable To Download Package`, r.setAttribute("title", e), r.setAttribute("aria-label", "Executed completion package is unavailable");
     }), e && this.showDownloadNotice(e, "warning");
   }
   setExecutedDownloadLoading(e) {
-    const t = '<svg class="w-4 h-4 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>', n = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Download Completion Package';
-    this.getExecutedDownloadButtons().forEach((i) => {
-      (i.dataset.downloadState || "").toLowerCase() !== "unavailable" && (i.disabled = e, i.innerHTML = e ? `${t}Preparing package...` : n);
+    const t = '<svg class="w-4 h-4 mr-1 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>', r = '<svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Download Completion Package';
+    this.getExecutedDownloadButtons().forEach((n) => {
+      (n.dataset.downloadState || "").toLowerCase() !== "unavailable" && (n.disabled = e, n.innerHTML = e ? `${t}Preparing package...` : r);
     });
   }
   initializeDeliveryState() {
@@ -2103,22 +2078,22 @@ class te {
       "Executed completion package is still unavailable for this agreement. Artifact generation may still be running."
     );
   }
-  async fetchAndDownloadAsset(e, t, n) {
-    const i = await fetch(this.buildAssetDownloadURL(e), {
+  async fetchAndDownloadAsset(e, t, r) {
+    const n = await fetch(this.buildAssetDownloadURL(e), {
       method: "GET",
       credentials: "same-origin",
       headers: {
         Accept: "application/pdf"
       }
     });
-    if (!i.ok)
-      throw new Error(`${n} is not available (HTTP ${i.status}). Refresh delivery status and try again.`);
-    if (!(i.headers.get("content-type") || "").toLowerCase().includes("application/pdf"))
-      throw new Error(`${n} is unavailable because the response is not a PDF.`);
-    const s = await i.blob();
+    if (!n.ok)
+      throw new Error(`${r} is not available (HTTP ${n.status}). Refresh delivery status and try again.`);
+    if (!(n.headers.get("content-type") || "").toLowerCase().includes("application/pdf"))
+      throw new Error(`${r} is unavailable because the response is not a PDF.`);
+    const s = await n.blob();
     if (!s || s.size === 0)
-      throw new Error(`${n} is unavailable because the file is empty.`);
-    const c = this.resolveDownloadFilename(i, t), l = URL.createObjectURL(s), d = document.createElement("a");
+      throw new Error(`${r} is unavailable because the file is empty.`);
+    const c = this.resolveDownloadFilename(n, t), l = URL.createObjectURL(s), d = document.createElement("a");
     d.href = l, d.download = c, document.body.appendChild(d), d.click(), d.remove(), setTimeout(() => URL.revokeObjectURL(l), 1e3);
   }
   async handleDocumentClick(e) {
@@ -2129,9 +2104,9 @@ class te {
       e.preventDefault(), this.appendExternalReviewerRow();
       return;
     }
-    const i = t.closest("[data-review-external-remove]");
-    if (i) {
-      e.preventDefault(), i.closest("[data-review-external-row]")?.remove(), this.syncExternalReviewersEmptyState();
+    const n = t.closest("[data-review-external-remove]");
+    if (n) {
+      e.preventDefault(), n.closest("[data-review-external-row]")?.remove(), this.syncExternalReviewersEmptyState();
       return;
     }
     const a = t.closest("#agreement-submit-review-btn");
@@ -2320,79 +2295,77 @@ class te {
     document.removeEventListener("click", this.clickHandler), document.removeEventListener("change", this.changeHandler), this.inlineStatusUnsubscribe?.(), this.inlineStatusUnsubscribe = null, this.inlineStatusManager?.clear(), this.inlineStatusManager = null, this.commandRuntimeController?.destroy(), this.commandRuntimeController = null, this.feedbackAdapter?.stop(), this.feedbackAdapter = null, this.timelineController && (this.timelineController.dispose(), this.timelineController = null), this.initialized = !1;
   }
 }
-function kt(r) {
-  if (!r)
+function Ct(i) {
+  if (!i)
     return console.warn("Agreement detail page config not provided"), null;
-  const e = new te(r);
+  const e = new te(i);
   return document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", () => e.init()) : e.init(), e;
 }
-function Mt(r) {
-  const e = new te(r);
+function kt(i) {
+  const e = new te(i);
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", () => e.init()) : e.init(), window.__agreementDetailController = e;
 }
 function Lt() {
   return window.__agreementDetailController || null;
 }
 export {
-  ee as $,
+  Rt as $,
   te as A,
-  Ie as B,
+  W as B,
   P as C,
   V as D,
   S as E,
-  W as F,
+  _t as F,
   St as G,
-  xt as H,
+  b as H,
   ke as I,
-  b as J,
-  L as K,
-  K as L,
-  Y as M,
-  F as N,
-  Ue as O,
+  D as J,
+  K,
+  Y as L,
+  F as M,
+  Ue as N,
+  Ve as O,
   _e as P,
-  Ve as Q,
+  xt as Q,
   Et as R,
   N as S,
   H as T,
-  At as U,
-  Ze as V,
-  et as W,
-  Tt as X,
-  Qe as Y,
-  lt as Z,
-  st as _,
-  z as a,
-  Rt as a0,
-  Ct as a1,
-  C as a2,
-  ut as a3,
-  T as a4,
-  pt as a5,
-  Mt as b,
-  R as c,
-  O as d,
-  ft as e,
-  mt as f,
+  Ze as U,
+  et as V,
+  At as W,
+  Qe as X,
+  lt as Y,
+  st as Z,
+  ee as _,
+  R as a,
+  Tt as a0,
+  T as a1,
+  ut as a2,
+  A as a3,
+  kt as b,
+  O as c,
+  pt as d,
+  Le as e,
+  z as f,
   Lt as g,
-  Me as h,
-  kt as i,
-  Se as j,
-  xe as k,
+  Se as h,
+  Ct as i,
+  xe as j,
+  Ee as k,
   g as l,
-  Ee as m,
+  Re as m,
   Te as n,
-  Re as o,
-  Ce as p,
-  G as q,
+  Ce as o,
+  G as p,
+  be as q,
   _ as r,
-  ht as s,
-  be as t,
+  gt as s,
+  L as t,
   Ae as u,
-  k as v,
-  gt as w,
-  Le as x,
-  M as y,
-  w as z
+  Me as v,
+  mt as w,
+  M as x,
+  w as y,
+  Ie as z
 };
-//# sourceMappingURL=agreement-detail-B3si1_g4.js.map
+//# sourceMappingURL=agreement-detail-Wy4HG2Sx.js.map

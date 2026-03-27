@@ -69,7 +69,7 @@ func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context
 
 	logger := h.Logger
 	if logger == nil {
-		logger = resolveNamedLogger("admin.translation.queue", nil, translationObservabilityLogger)
+		logger = resolveNamedLogger("admin.translation.queue", nil, getTranslationObservabilityLogger())
 	}
 
 	sourceLocale := strings.TrimSpace(strings.ToLower(input.SourceLocale))

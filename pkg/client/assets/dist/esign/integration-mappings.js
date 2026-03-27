@@ -1,6 +1,6 @@
 import { b as s, h as m, s as g } from "../chunks/dom-helpers-cltCUiC5.js";
 import { d as L } from "../chunks/async-helpers-D7xplkWe.js";
-import { i as N } from "../chunks/formatters-Bx8onLEN.js";
+import { m as N } from "../chunks/formatters-CxrdwABk.js";
 import { a as w, s as x } from "../chunks/page-feedback-CVdtgsKH.js";
 import { escapeHTML as l } from "../shared/html.js";
 import { onReady as $ } from "../shared/dom-ready.js";

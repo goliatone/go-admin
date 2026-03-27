@@ -125,10 +125,7 @@ func NewBunRepositoryAdapter[T any](repo repository.Repository[T], opts ...BunRe
 }
 
 func (a *BunRepositoryAdapter[T]) ensureRepo() error {
-	if a == nil || a.repo == nil {
-		return ErrNotFound
-	}
-	return nil
+	return ensureRepositoryAdapterConfigured(a != nil && a.repo != nil)
 }
 
 // List delegates to the underlying repository with translated pagination/sort/filter/search.

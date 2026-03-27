@@ -59,8 +59,6 @@ export {
 
 // Timeline Renderer
 export {
-  formatTimestamp,
-  formatRelativeTime,
   renderTimelineEntry,
   renderGroupHeader,
   renderTimelineItem,
@@ -74,6 +72,11 @@ export {
   wireMetadataToggles,
   wireGroupToggles,
 } from './timeline-renderer.js';
+
+export {
+  formatTimestamp,
+  formatRelativeTime,
+} from './formatters.js';
 
 // Timeline Controller
 export {

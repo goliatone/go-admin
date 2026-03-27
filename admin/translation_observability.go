@@ -6,6 +6,7 @@ import (
 	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
+	"sync"
 )
 
 const (
@@ -33,14 +34,34 @@ var defaultTranslationMetrics TranslationMetrics = &expvarTranslationMetrics{
 	qaOutcomes:         expvar.NewMap(translationQAOutcomeCountMetric),
 }
 
+var translationObservabilityLoggerMu sync.RWMutex
 var translationObservabilityLogger = ensureLogger(nil)
 
 func setTranslationObservabilityLogger(logger Logger) {
+	translationObservabilityLoggerMu.Lock()
 	translationObservabilityLogger = ensureLogger(logger)
+	translationObservabilityLoggerMu.Unlock()
+}
+
+func getTranslationObservabilityLogger() Logger {
+	translationObservabilityLoggerMu.RLock()
+	logger := translationObservabilityLogger
+	translationObservabilityLoggerMu.RUnlock()
+	return ensureLogger(logger)
+}
+
+func swapTranslationObservabilityLoggerForTest(logger Logger) func() {
+	translationObservabilityLoggerMu.Lock()
+	previous := translationObservabilityLogger
+	translationObservabilityLogger = ensureLogger(logger)
+	translationObservabilityLoggerMu.Unlock()
+	return func() {
+		setTranslationObservabilityLogger(previous)
+	}
 }
 
 func translationObservabilityContextLogger(ctx context.Context) Logger {
-	logger := ensureLogger(translationObservabilityLogger)
+	logger := getTranslationObservabilityLogger()
 	if ctx == nil {
 		return logger
 	}

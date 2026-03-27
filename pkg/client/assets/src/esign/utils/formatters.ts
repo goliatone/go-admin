@@ -3,6 +3,8 @@
  * Common formatting utilities for dates, file sizes, and document metadata
  */
 
+import { escapeHTML as escapeHtml } from '../../shared/html.js';
+
 /**
  * Format bytes to human-readable file size
  */
@@ -143,6 +145,82 @@ export function formatRelativeTime(value: string | Date | undefined | null): str
       return rtf.format(diffMin, 'minute');
     }
     return rtf.format(diffSec, 'second');
+  } catch {
+    return String(value);
+  }
+}
+
+/**
+ * Format date/time for source-management runtime display, preserving escaped
+ * invalid input and the existing locale-string rendering shape.
+ */
+export function formatSourceManagementDateTime(
+  value: string | Date | undefined | null
+): string {
+  const input = String(value ?? '').trim();
+  if (!input) return '-';
+
+  const date = value instanceof Date ? value : new Date(input);
+  if (Number.isNaN(date.getTime())) return escapeHtml(input);
+
+  return escapeHtml(date.toLocaleString());
+}
+
+/**
+ * Format relative time for source-management runtime display.
+ */
+export function formatSourceManagementRelativeTime(
+  value: string | Date | undefined | null
+): string {
+  if (!value) return '';
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const now = Date.now();
+  const diff = now - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
+
+/**
+ * Format a date/time string for lineage presentation view models. Invalid or
+ * empty input returns `undefined` to preserve optional display fields.
+ */
+export function formatLineageDateTime(
+  value: string | Date | undefined | null
+): string | undefined {
+  if (!value) return undefined;
+
+  try {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return undefined;
+    return date.toLocaleString();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Format a Google Drive modified date using the legacy date-only display
+ * contract expected by the Drive picker and related helpers.
+ */
+export function formatGoogleDriveDate(
+  value: string | Date | undefined | null
+): string {
+  if (!value) return '-';
+
+  try {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString();
   } catch {
     return String(value);
   }

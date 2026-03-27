@@ -1676,6 +1676,9 @@ func enforceTranslationExchangeCSRF(c router.Context, admin *Admin) error {
 	}
 	protector := translationExchangeCSRFProtector(admin)
 	if protector == nil {
+		if translationExchangeRequestUsesCookies(c) {
+			return permissionDenied("csrf", "translations")
+		}
 		return nil
 	}
 	if !protector.UsesBrowserSession(c) {
@@ -1693,6 +1696,13 @@ func translationExchangeCSRFProtector(admin *Admin) BrowserCSRFProtector {
 	}
 	protector, _ := admin.authenticator.(BrowserCSRFProtector)
 	return protector
+}
+
+func translationExchangeRequestUsesCookies(c router.Context) bool {
+	if c == nil {
+		return false
+	}
+	return strings.TrimSpace(c.Header("Cookie")) != ""
 }
 
 func translationExchangeMethodRequiresCSRF(method string) bool {

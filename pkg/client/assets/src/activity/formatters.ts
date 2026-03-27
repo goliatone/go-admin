@@ -6,6 +6,10 @@
 import type { ActivityEntry, ActionCategory, ParsedObject, ActorType } from './types.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { renderIcon } from '../shared/icon-renderer.js';
+import {
+  formatRelativeTimeCompactPast,
+  formatRelativeTimeNatural,
+} from '../shared/time-formatters.js';
 
 export { escapeHtml };
 
@@ -513,24 +517,10 @@ export function formatTimestamp(value: string): string {
  * Format relative time in short format (e.g., "2h ago")
  */
 export function formatRelativeTime(value: string): string {
-  if (!value) return '';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  if (diffSecs < 60) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString();
+  return formatRelativeTimeCompactPast(value, {
+    emptyFallback: '',
+    invalidFallback: '__ORIGINAL__',
+  });
 }
 
 /**
@@ -538,30 +528,14 @@ export function formatRelativeTime(value: string): string {
  * (e.g., "2 hours ago", "yesterday", "3 days ago")
  */
 export function formatRelativeTimeIntl(value: string): string {
-  if (!value) return '';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSecs = Math.floor(diffMs / 1000);
-  const diffMins = Math.floor(diffSecs / 60);
-  const diffHours = Math.floor(diffMins / 60);
-  const diffDays = Math.floor(diffHours / 24);
-
-  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-
-  if (diffSecs < 60) return 'just now';
-  if (diffMins < 60) return rtf.format(-diffMins, 'minute');
-  if (diffHours < 24) return rtf.format(-diffHours, 'hour');
-  if (diffDays < 7) return rtf.format(-diffDays, 'day');
-  if (diffDays < 30) {
-    const weeks = Math.floor(diffDays / 7);
-    return rtf.format(-weeks, 'week');
-  }
-
-  return date.toLocaleDateString();
+  return formatRelativeTimeNatural(value, {
+    emptyFallback: '',
+    invalidFallback: '__ORIGINAL__',
+    locale: 'en',
+    numeric: 'auto',
+    direction: 'past-only',
+    maxRelativeDays: 30,
+  });
 }
 
 /**

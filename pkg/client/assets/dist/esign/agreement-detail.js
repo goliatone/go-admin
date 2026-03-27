@@ -1,7 +1,8 @@
-import { D as s, k as t, l as r, E as i, P as o, b as E, f as n, d as C, g, j as l, e as A, h as c, a as m, c as d, i as D } from "../chunks/provenance-card-BnOi6ubz.js";
-import { A as p, d as N, b as R, e as T, a5 as O, f as _, a as f, g as v, i as L, l as S, c as I, r as b, s as w, w as V } from "../chunks/agreement-detail-B3si1_g4.js";
+import { D as s, k as t, l as r, E as i, P as o, b as E, f as n, d as C, g, j as l, e as m, h as A, a as c, c as d, i as p } from "../chunks/provenance-card-BnOi6ubz.js";
+import { A as P, c as N, b as R, d as T, f, g as O, i as _, l as v, a as L, r as S, s as I, w as b } from "../chunks/agreement-detail-Wy4HG2Sx.js";
+import { formatRelativeTime as V, formatTimestamp as y } from "./timeline-formatters.js";
 export {
-  p as AgreementDetailPageController,
+  P as AgreementDetailPageController,
   s as DEFAULT_PROVENANCE_CARD_CONFIG,
   t as EVIDENCE_COLLAPSED_SELECTOR,
   r as EVIDENCE_CONTAINER_SELECTOR,
@@ -11,24 +12,24 @@ export {
   R as bootstrapAgreementDetailPage,
   E as bootstrapProvenanceCards,
   T as findParticipantById,
-  O as formatRelativeTime,
-  _ as formatTimestamp,
+  V as formatRelativeTime,
+  y as formatTimestamp,
   f as formatTimestampNodes,
-  v as getAgreementDetailController,
+  O as getAgreementDetailController,
   n as getLineageStatus,
   C as getProvenanceCardFor,
   g as getProvenanceCards,
   l as getResourceKind,
-  A as hasEmptyState,
-  c as hasWarnings,
-  L as initAgreementDetailPage,
-  m as initAllEvidenceToggles,
+  m as hasEmptyState,
+  A as hasWarnings,
+  _ as initAgreementDetailPage,
+  c as initAllEvidenceToggles,
   d as initEvidenceToggle,
-  D as initProvenanceCards,
-  S as looksLikeUUID,
-  I as reviewActorInfo,
-  b as reviewActorKey,
-  w as safeParseJSONScript,
-  V as wireCollapsibleSections
+  p as initProvenanceCards,
+  v as looksLikeUUID,
+  L as reviewActorInfo,
+  S as reviewActorKey,
+  I as safeParseJSONScript,
+  b as wireCollapsibleSections
 };
 //# sourceMappingURL=agreement-detail.js.map

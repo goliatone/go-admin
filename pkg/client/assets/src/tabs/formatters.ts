@@ -1,4 +1,9 @@
 export { escapeHTML } from '../shared/html.js';
+import {
+  formatAbsoluteDateTime,
+  formatRelativeTimeNatural,
+  parseTimeValue,
+} from '../shared/time-formatters.js';
 
 /**
  * Formatting utilities for tab panels
@@ -17,47 +22,29 @@ export function formatNumber(value: unknown): string {
  * Parse a timestamp string into a Date object
  */
 export function parseTimestamp(value: unknown): Date | null {
-  if (value === null || value === undefined || value === '') return null;
-  const parsed = new Date(value as string);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return parseTimeValue(value);
 }
 
 /**
  * Format a timestamp as an absolute date/time string
  */
 export function formatAbsoluteTime(value: unknown): string {
-  const parsed = parseTimestamp(value);
-  if (!parsed) return String(value || '');
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(parsed);
+  return formatAbsoluteDateTime(value, {
+    emptyFallback: '',
+    invalidFallback: '__ORIGINAL__',
+  });
 }
 
 /**
  * Format a timestamp as a relative time string (e.g., "2 hours ago")
  */
 export function formatRelativeTime(value: unknown): string {
-  const parsed = parseTimestamp(value);
-  if (!parsed) return String(value || '');
-
-  const diffMs = parsed.getTime() - Date.now();
-  const absMs = Math.abs(diffMs);
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-
-  const second = 1000;
-  const minute = 60 * second;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-  const month = 30 * day;
-  const year = 365 * day;
-
-  if (absMs < minute) return rtf.format(Math.round(diffMs / second), 'second');
-  if (absMs < hour) return rtf.format(Math.round(diffMs / minute), 'minute');
-  if (absMs < day) return rtf.format(Math.round(diffMs / hour), 'hour');
-  if (absMs < month) return rtf.format(Math.round(diffMs / day), 'day');
-  if (absMs < year) return rtf.format(Math.round(diffMs / month), 'month');
-  return rtf.format(Math.round(diffMs / year), 'year');
+  return formatRelativeTimeNatural(value, {
+    emptyFallback: '',
+    invalidFallback: '__ORIGINAL__',
+    numeric: 'auto',
+    direction: 'bidirectional',
+  });
 }
 
 /**

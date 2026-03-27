@@ -243,3 +243,63 @@ func TestBunRepositoryAdapterListSupportsInPredicate(t *testing.T) {
 		t.Fatalf("unexpected in-predicate results: total=%d len=%d results=%+v", total, len(results), results)
 	}
 }
+
+func TestBunRepositoryAdapterMissingRepoReturnsNotFoundAcrossOperations(t *testing.T) {
+	ctx := context.Background()
+
+	var nilAdapter *BunRepositoryAdapter[*bunTestProduct]
+	zeroAdapter := &BunRepositoryAdapter[*bunTestProduct]{}
+
+	testCases := []struct {
+		name string
+		run  func(*BunRepositoryAdapter[*bunTestProduct]) error
+	}{
+		{
+			name: "list",
+			run: func(adapter *BunRepositoryAdapter[*bunTestProduct]) error {
+				_, _, err := adapter.List(ctx, ListOptions{})
+				return err
+			},
+		},
+		{
+			name: "get",
+			run: func(adapter *BunRepositoryAdapter[*bunTestProduct]) error {
+				_, err := adapter.Get(ctx, "missing")
+				return err
+			},
+		},
+		{
+			name: "create",
+			run: func(adapter *BunRepositoryAdapter[*bunTestProduct]) error {
+				_, err := adapter.Create(ctx, map[string]any{"name": "Item"})
+				return err
+			},
+		},
+		{
+			name: "update",
+			run: func(adapter *BunRepositoryAdapter[*bunTestProduct]) error {
+				_, err := adapter.Update(ctx, "missing", map[string]any{"name": "Item"})
+				return err
+			},
+		},
+		{
+			name: "delete",
+			run: func(adapter *BunRepositoryAdapter[*bunTestProduct]) error {
+				return adapter.Delete(ctx, "missing")
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run("nil/"+tc.name, func(t *testing.T) {
+			if err := tc.run(nilAdapter); !errors.Is(err, ErrNotFound) {
+				t.Fatalf("expected ErrNotFound, got %v", err)
+			}
+		})
+		t.Run("zero/"+tc.name, func(t *testing.T) {
+			if err := tc.run(zeroAdapter); !errors.Is(err, ErrNotFound) {
+				t.Fatalf("expected ErrNotFound, got %v", err)
+			}
+		})
+	}
+}

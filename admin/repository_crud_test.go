@@ -292,3 +292,63 @@ func TestCRUDAdapterCreateUpdateDelete(t *testing.T) {
 		t.Fatalf("expected record removed")
 	}
 }
+
+func TestCRUDAdapterMissingServiceReturnsNotFoundAcrossOperations(t *testing.T) {
+	ctx := context.Background()
+
+	var nilAdapter *CRUDRepositoryAdapter
+	zeroAdapter := &CRUDRepositoryAdapter{}
+
+	testCases := []struct {
+		name string
+		run  func(*CRUDRepositoryAdapter) error
+	}{
+		{
+			name: "list",
+			run: func(adapter *CRUDRepositoryAdapter) error {
+				_, _, err := adapter.List(ctx, ListOptions{})
+				return err
+			},
+		},
+		{
+			name: "get",
+			run: func(adapter *CRUDRepositoryAdapter) error {
+				_, err := adapter.Get(ctx, "missing")
+				return err
+			},
+		},
+		{
+			name: "create",
+			run: func(adapter *CRUDRepositoryAdapter) error {
+				_, err := adapter.Create(ctx, map[string]any{"name": "Item"})
+				return err
+			},
+		},
+		{
+			name: "update",
+			run: func(adapter *CRUDRepositoryAdapter) error {
+				_, err := adapter.Update(ctx, "missing", map[string]any{"name": "Item"})
+				return err
+			},
+		},
+		{
+			name: "delete",
+			run: func(adapter *CRUDRepositoryAdapter) error {
+				return adapter.Delete(ctx, "missing")
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run("nil/"+tc.name, func(t *testing.T) {
+			if err := tc.run(nilAdapter); err != ErrNotFound {
+				t.Fatalf("expected ErrNotFound, got %v", err)
+			}
+		})
+		t.Run("zero/"+tc.name, func(t *testing.T) {
+			if err := tc.run(zeroAdapter); err != ErrNotFound {
+				t.Fatalf("expected ErrNotFound, got %v", err)
+			}
+		})
+	}
+}

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"reflect"
@@ -1290,92 +1289,12 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 		}
 	}
 
-	translations := deref(val.FieldByName("Translations"))
-	availableLocales := stringSliceFieldAny(val, "AvailableLocales", "Locales")
-	var chosen reflect.Value
-	localeLower := strings.ToLower(strings.TrimSpace(locale))
-	seenLocales := map[string]bool{}
-	for _, code := range availableLocales {
-		if trimmed := strings.ToLower(strings.TrimSpace(code)); trimmed != "" {
-			seenLocales[trimmed] = true
-		}
-	}
-	for i := 0; translations.IsValid() && i < translations.Len(); i++ {
-		current := deref(translations.Index(i))
-		rawCode := strings.TrimSpace(localeCodeFromTranslation(current))
-		code := strings.ToLower(rawCode)
-		if rawCode != "" && !seenLocales[code] {
-			availableLocales = append(availableLocales, rawCode)
-			seenLocales[code] = true
-		}
-		if !chosen.IsValid() {
-			chosen = current
-		}
-		if localeLower == "" {
-			continue
-		}
-		if code != "" && code == localeLower {
-			chosen = current
-		}
-	}
-	if chosen.IsValid() {
-		if groupID := uuidStringField(chosen, "FamilyID"); groupID != "" {
-			out.FamilyID = groupID
-		}
-		if code := localeCodeFromTranslation(chosen); code != "" {
-			out.Locale = code
-		}
-		out.Title = stringField(chosen, "Title")
-		if summary := stringField(chosen, "Summary"); summary != "" {
-			out.Data["excerpt"] = summary
-		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Pointer && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
-			out.Data["excerpt"] = summaryPtr.Elem().String()
-		}
-		if contentData := translationContentMap(chosen); len(contentData) > 0 {
-			maps.Copy(contentData, out.Data)
-			out.Data = contentData
-		}
-		if out.Title == "" {
-			if title := strings.TrimSpace(toString(out.Data["title"])); title != "" {
-				out.Title = title
-			}
-		}
-	}
+	projection := buildGoCMSTranslationProjection(val, locale)
+	applyGoCMSTranslationProjection(&out, projection)
 	if out.Locale == "" {
 		out.Locale = locale
 	}
-	if len(availableLocales) > 0 {
-		out.AvailableLocales = append([]string{}, availableLocales...)
-	}
-	requestedLocale := strings.TrimSpace(locale)
-	if requestedLocale == "" {
-		requestedLocale = strings.TrimSpace(stringFieldAny(val, "RequestedLocale"))
-	}
-	out.RequestedLocale = requestedLocale
-	resolvedLocale := strings.TrimSpace(stringFieldAny(val, "ResolvedLocale"))
-	if resolvedLocale == "" && chosen.IsValid() {
-		resolvedLocale = strings.TrimSpace(stringFieldAny(chosen, "ResolvedLocale"))
-	}
-	if resolvedLocale == "" {
-		resolvedLocale = out.Locale
-	}
-	out.ResolvedLocale = resolvedLocale
-	missing := false
-	if ok, set := boolFieldAny(val, "MissingRequestedLocale"); set {
-		missing = ok
-	} else if requestedLocale != "" {
-		found := false
-		for _, code := range out.AvailableLocales {
-			if strings.EqualFold(code, requestedLocale) {
-				found = true
-				break
-			}
-		}
-		if !found && len(out.AvailableLocales) > 0 {
-			missing = true
-		}
-	}
-	out.MissingRequestedLocale = missing
+	applyGoCMSTranslationLocaleState(&out, val, projection.chosen, strings.TrimSpace(locale))
 	if schema := strings.TrimSpace(toString(out.Data["_schema"])); schema != "" {
 		out.SchemaVersion = schema
 	}
@@ -1692,68 +1611,6 @@ func pageFromContent(content CMSContent) CMSPage {
 		out.PreviewURL = "/" + strings.TrimPrefix(out.Slug, "/")
 	}
 	return out
-}
-
-func localeCodeFromTranslation(val reflect.Value) string {
-	if code := stringField(val, "Locale"); code != "" {
-		return code
-	}
-	if code := stringField(val, "LocaleCode"); code != "" {
-		return code
-	}
-	localeVal := deref(val.FieldByName("Locale"))
-	if localeVal.IsValid() {
-		if code := stringField(localeVal, "Code"); code != "" {
-			return code
-		}
-	}
-	return ""
-}
-
-func translationContentMap(val reflect.Value) map[string]any {
-	contentField := val.FieldByName("Content")
-	if !contentField.IsValid() {
-		return nil
-	}
-	contentField = deref(contentField)
-	if !contentField.IsValid() {
-		return nil
-	}
-	switch contentField.Kind() {
-	case reflect.Map:
-		if m, ok := contentField.Interface().(map[string]any); ok {
-			return primitives.CloneAnyMap(m)
-		}
-		if contentField.Type().Key().Kind() == reflect.String {
-			out := map[string]any{}
-			iter := contentField.MapRange()
-			for iter.Next() {
-				out[iter.Key().String()] = iter.Value().Interface()
-			}
-			return out
-		}
-	case reflect.String:
-		raw := strings.TrimSpace(contentField.String())
-		if raw == "" {
-			return nil
-		}
-		var decoded map[string]any
-		if err := json.Unmarshal([]byte(raw), &decoded); err == nil {
-			return decoded
-		}
-	case reflect.Slice:
-		if contentField.Type().Elem().Kind() == reflect.Uint8 {
-			raw := contentField.Bytes()
-			if len(raw) == 0 {
-				return nil
-			}
-			var decoded map[string]any
-			if err := json.Unmarshal(raw, &decoded); err == nil {
-				return decoded
-			}
-		}
-	}
-	return nil
 }
 
 func uuidFromString(id string) uuid.UUID {

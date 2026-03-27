@@ -793,7 +793,7 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 	}
 }
 
-func TestTranslationExchangeBindingExportAllowsCookieAuthWithoutBrowserCSRFProtector(t *testing.T) {
+func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutBrowserCSRFProtector(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 	adm.WithAuth(translationExchangeCookieOnlyAuthenticator{}, nil)
 	adm.WithAuthorizer(allowAll{})
@@ -814,11 +814,11 @@ func TestTranslationExchangeBindingExportAllowsCookieAuthWithoutBrowserCSRFProte
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
 	}
-	if called, _ := executor.exportSnapshot(); called != 1 {
-		t.Fatalf("expected export executor to run once, got %d", called)
+	if called, _ := executor.exportSnapshot(); called != 0 {
+		t.Fatalf("expected export executor not to run without csrf-capable browser authenticator")
 	}
 }
 

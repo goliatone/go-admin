@@ -1154,7 +1154,10 @@ func (a *Admin) authWrapper() func(router.HandlerFunc) router.HandlerFunc {
 	}
 	if handlerAuth, ok := a.authenticator.(HandlerAuthenticator); ok && handlerAuth != nil {
 		return func(handler router.HandlerFunc) router.HandlerFunc {
-			return handlerAuth.WrapHandler(handler)
+			return handlerAuth.WrapHandler(func(c router.Context) error {
+				markAuthenticatedRequest(c)
+				return handler(c)
+			})
 		}
 	}
 	return func(handler router.HandlerFunc) router.HandlerFunc {
@@ -1162,6 +1165,7 @@ func (a *Admin) authWrapper() func(router.HandlerFunc) router.HandlerFunc {
 			if err := a.authenticator.Wrap(c); err != nil {
 				return err
 			}
+			markAuthenticatedRequest(c)
 			return handler(c)
 		}
 	}

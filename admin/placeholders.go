@@ -192,6 +192,7 @@ func (a *GoAuthAuthenticator) WrapHandler(handler router.HandlerFunc) router.Han
 	return a.middleware(func(c router.Context) error {
 		if c != nil {
 			c.SetContext(WithResolvedPermissionsCache(c.Context()))
+			markAuthenticatedRequest(c)
 		}
 		return handler(c)
 	})
@@ -205,6 +206,7 @@ func (a *GoAuthAuthenticator) Wrap(ctx router.Context) error {
 	return a.middleware(func(c router.Context) error {
 		if c != nil {
 			c.SetContext(WithResolvedPermissionsCache(c.Context()))
+			markAuthenticatedRequest(c)
 		}
 		return nil
 	})(ctx)

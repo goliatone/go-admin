@@ -15,6 +15,17 @@ import (
 	"github.com/julienschmidt/httprouter"
 )
 
+type markerOnlyAuthenticator struct {
+	calls int
+}
+
+func (a *markerOnlyAuthenticator) Wrap(ctx router.Context) error {
+	if ctx != nil {
+		a.calls++
+	}
+	return nil
+}
+
 type siteAPIContentServiceStub struct {
 	byLocale map[string][]CMSContent
 }
@@ -449,6 +460,22 @@ func TestSitePublicAPIDraftReadAndProtectedEnforcement(t *testing.T) {
 		t.Fatalf("expected public api auth wrapper to invoke authenticator")
 	}
 
+	markerAuthn := &markerOnlyAuthenticator{}
+	markerAdmin, markerServer := newSiteTestServer(t, defaultCfg, Dependencies{
+		Authenticator: markerAuthn,
+		Authorizer:    allowAuthorizer{},
+	}, contentSvc, nil)
+	markerPath := mustResolveURL(t, markerAdmin.URLs(), publicAPIGroupName(markerAdmin.config), SiteRouteContentList, map[string]string{"type": "article"}, map[string]string{"locale": "en"})
+	markerReq := httptest.NewRequest(http.MethodGet, markerPath, nil)
+	markerRes := httptest.NewRecorder()
+	markerServer.WrappedRouter().ServeHTTP(markerRes, markerReq)
+	if markerRes.Code != http.StatusOK {
+		t.Fatalf("expected protected site read allowed for successful authenticator without actor injection, got %d body=%s", markerRes.Code, markerRes.Body.String())
+	}
+	if markerAuthn.calls == 0 {
+		t.Fatalf("expected marker-only authenticator to run")
+	}
+
 	publicCfg := allowPublicSiteReads(Config{BasePath: "/admin", DefaultLocale: "en"})
 	adm, server := newSiteTestServer(t, publicCfg, Dependencies{}, contentSvc, nil)
 	publicGroup = publicAPIGroupName(adm.config)
@@ -785,6 +812,48 @@ func TestSitePublicAPIMenuRoutesAndQueryContracts(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(aliasRes, aliasReq)
 	if aliasRes.Code != http.StatusOK {
 		t.Fatalf("legacy site/navigation alias status=%d body=%s", aliasRes.Code, aliasRes.Body.String())
+	}
+}
+
+func TestAdminPreviewRouteUsesAuthWrapperWhenSiteReadsRequireAuthentication(t *testing.T) {
+	contentSvc := &siteAPIContentServiceStub{byLocale: map[string][]CMSContent{
+		"en": {
+			{ID: "draft-1", Title: "Draft", Slug: "draft", Locale: "en", ContentType: "article", ContentTypeSlug: "article", Status: "draft"},
+		},
+	}}
+	authn := &markerOnlyAuthenticator{}
+	cfg := Config{
+		BasePath:        "/admin",
+		DefaultLocale:   "en",
+		EnablePublicAPI: true,
+		Site: SiteConfig{
+			Protected: true,
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		Authenticator: authn,
+		Authorizer:    allowAuthorizer{},
+	})
+	adm.contentSvc = contentSvc
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	token, err := adm.Preview().Generate("article@preview", "draft-1", time.Hour)
+	if err != nil {
+		t.Fatalf("generate preview token: %v", err)
+	}
+	path := mustResolveURL(t, adm.URLs(), adminAPIGroupName(adm.config), "preview", map[string]string{"token": token}, nil)
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected protected admin preview route to inherit auth wrapper, got %d body=%s", res.Code, res.Body.String())
+	}
+	if authn.calls == 0 {
+		t.Fatalf("expected preview route authenticator to run")
 	}
 }
 

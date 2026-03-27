@@ -38,6 +38,7 @@ const traceIDContextKey adminContextKey = "admin.trace_id"
 const requestIPContextKey adminContextKey = "admin.request_ip"
 const queryParamsContextKey adminContextKey = "admin.query_params"
 const localeFallbackContextKey adminContextKey = "admin.locale_fallback_allowed"
+const authenticatedRequestContextKey adminContextKey = "admin.authenticated_request"
 
 // Authorizer determines whether a subject can perform an action on a resource.
 type Authorizer interface {
@@ -107,6 +108,28 @@ func compactPermissions(values ...string) []string {
 		return nil
 	}
 	return out
+}
+
+func WithAuthenticatedRequest(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, authenticatedRequestContextKey, true)
+}
+
+func authenticatedRequestFromContext(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	authenticated, _ := ctx.Value(authenticatedRequestContextKey).(bool)
+	return authenticated
+}
+
+func markAuthenticatedRequest(c router.Context) {
+	if c == nil {
+		return
+	}
+	c.SetContext(WithAuthenticatedRequest(c.Context()))
 }
 
 func resolveContentChannelFromRouter(c router.Context) string {

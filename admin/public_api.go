@@ -64,7 +64,11 @@ func (a *Admin) registerPreviewRoutes() {
 	if path == "" {
 		return
 	}
-	a.router.Get(path, a.handlePublicPreview)
+	target := a.router
+	if siteReadRequiresAuth(a) && a.authenticator != nil {
+		target = wrapAdminRouter(a.router, a.authWrapper())
+	}
+	target.Get(path, a.handlePublicPreview)
 }
 
 func (a *Admin) registerSiteMenuRoutes(r AdminRouter) {
@@ -492,7 +496,7 @@ func (a *Admin) authorizeSiteRead(c router.Context) error {
 	if a == nil || siteAllowsUnauthenticatedReads(a) {
 		return nil
 	}
-	if c == nil || !hasAuthActor(c.Context()) {
+	if c == nil || !authenticatedAdminRequest(c.Context()) {
 		return ErrForbidden
 	}
 	permission := strings.TrimSpace(a.config.Site.ReadPermission)
@@ -530,7 +534,7 @@ func (a *Admin) authorizeSiteDraftRead(c router.Context, query SiteQuery, previe
 	if permission == "" {
 		permission = "admin.site.read_drafts"
 	}
-	if c != nil && hasAuthActor(c.Context()) && a != nil && permissionAllowed(a.authorizer, c.Context(), permission, "site") {
+	if c != nil && authenticatedAdminRequest(c.Context()) && a != nil && permissionAllowed(a.authorizer, c.Context(), permission, "site") {
 		return nil
 	}
 	return permissionDenied(permission, "site")
@@ -567,8 +571,12 @@ func hasAuthActor(ctx context.Context) bool {
 	return ok && actor != nil
 }
 
+func authenticatedAdminRequest(ctx context.Context) bool {
+	return hasAuthActor(ctx) || authenticatedRequestFromContext(ctx)
+}
+
 func siteViewProfileOverrideAllowed(c router.Context, admin *Admin) bool {
-	if c == nil || !hasAuthActor(c.Context()) {
+	if c == nil || !authenticatedAdminRequest(c.Context()) {
 		return false
 	}
 	if admin == nil {
