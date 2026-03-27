@@ -10,6 +10,19 @@ export { DebugFab } from './debug-fab.js';
 export { DebugManager, initDebugManager } from './debug-manager.js';
 export type { DebugManagerOptions } from './debug-manager.js';
 export { renderPanel, getCounts } from './panel-renderers.js';
+export {
+  applyCustomEventPayload,
+  applyDebugEventToSnapshot,
+  buildEventToPanel,
+  fetchDebugSnapshot,
+  getDefaultPanels,
+  getDefaultToolbarPanels,
+  getPanelEventTypes,
+  getPanelLabel,
+  isKnownPanel,
+  normalizeReplCommands,
+  replPanelIDs,
+} from '../shared/runtime-helpers.js';
 export type {
   DebugSnapshot,
   RequestEntry,

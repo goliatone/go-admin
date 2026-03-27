@@ -12,8 +12,9 @@ import type {
   DebugSnapshot,
   PanelOptions,
 } from '../shared/types.js';
-import { escapeHTML, isSlowDuration } from '../shared/utils.js';
+import { escapeHTML } from '../shared/utils.js';
 import { toolbarStyles } from '../shared/styles.js';
+import { getToolbarCounts } from '../shared/runtime-helpers.js';
 import {
   panelRegistry,
   getPanelData,
@@ -154,28 +155,5 @@ export function getCounts(
   errors: number;
   slowQueries: number;
 } {
-  const requests = snapshot.requests?.length || 0;
-  const sql = snapshot.sql?.length || 0;
-  const logs = snapshot.logs?.length || 0;
-  const jserrors = snapshot.jserrors?.length || 0;
-
-  // Count errors
-  const requestErrors = (snapshot.requests || []).filter((r) => (r.status || 0) >= 400).length;
-  const sqlErrors = (snapshot.sql || []).filter((q) => q.error).length;
-  const logErrors = (snapshot.logs || []).filter((l) => {
-    const level = (l.level || '').toLowerCase();
-    return level === 'error' || level === 'fatal';
-  }).length;
-
-  // Count slow queries (using default 50ms threshold)
-  const slowQueries = (snapshot.sql || []).filter((q) => isSlowDuration(q.duration, slowThresholdMs)).length;
-
-  return {
-    requests,
-    sql,
-    logs,
-    jserrors,
-    errors: requestErrors + sqlErrors + logErrors + jserrors,
-    slowQueries,
-  };
+  return getToolbarCounts(snapshot, slowThresholdMs);
 }

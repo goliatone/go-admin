@@ -1,7 +1,9 @@
-import { v as P, p as u, y as z, z as M, o as b, A as T, n as A, r as R, k as $, j as H, h as I, f as j, D as q, g as D, t as O, a as f, q as F, b as B, d as N, L as Q, e as _, w as E } from "../chunks/builtin-panels-Jiso1TXI.js";
-import { DebugReplPanel as G } from "./repl.js";
-import { escapeHTML as K } from "../shared/html.js";
-const Y = `
+import { k as h, t as E, j as q, r as L, i as P, h as z, g as T, f as M, D as y, a as f, b as R, d as $, p as H, e as I } from "../chunks/builtin-panels-CNd50t4L.js";
+import { DebugReplPanel as A } from "./repl.js";
+import { escapeHTML as D } from "../shared/html.js";
+import { z as j, p, t as O, u as F, b, g as v, A as u, B as k, C as S, n as B, a as N, r as Q, h as _ } from "../chunks/shared-helpers-an_E0Pab.js";
+import { D as ot, o as st, k as rt } from "../chunks/shared-helpers-an_E0Pab.js";
+const G = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -1031,37 +1033,37 @@ const Y = `
       max-width: 60%;
     }
   }
-`, c = T;
-function x(o, t, e = 50, s) {
-  const a = u.get(o);
-  if (a) {
-    const l = z(t, a);
-    return M(a, l, c, s || {}, "toolbar");
+`, d = E;
+function m(n, t, e = 50, a) {
+  const o = p.get(n);
+  if (o) {
+    const l = O(t, o);
+    return F(o, l, d, a || {}, "toolbar");
   }
-  const r = s?.newestFirst ?? !0, n = s?.slowThresholdMs ?? e;
-  switch (o) {
+  const s = a?.newestFirst ?? !0, r = a?.slowThresholdMs ?? e;
+  switch (n) {
     case "requests":
-      return j(t.requests || [], c, {
-        newestFirst: r,
-        slowThresholdMs: n,
+      return M(t.requests || [], d, {
+        newestFirst: s,
+        slowThresholdMs: r,
         maxEntries: 50,
         showSortToggle: !0,
         truncatePath: !0,
         maxPathLength: 50,
-        expandedRequestIds: s?.expandedRequestIds,
+        expandedRequestIds: a?.expandedRequestIds,
         maxDetailLength: 80
       });
     case "sql":
-      return I(t.sql || [], c, {
-        newestFirst: r,
-        slowThresholdMs: n,
+      return T(t.sql || [], d, {
+        newestFirst: s,
+        slowThresholdMs: r,
         maxEntries: 50,
         showSortToggle: !0,
         useIconCopyButton: !1
         // Toolbar uses SVG icons
       });
     case "logs":
-      return H(t.logs || [], c, {
+      return z(t.logs || [], d, {
         newestFirst: !0,
         // Logs always show newest first in toolbar
         maxEntries: 100,
@@ -1073,105 +1075,55 @@ function x(o, t, e = 50, s) {
         maxMessageLength: 100
       });
     case "config":
-      return b("Config", t.config || {}, c, {
+      return h("Config", t.config || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "routes":
-      return $(t.routes || [], c, {
+      return P(t.routes || [], d, {
         showName: !1
         // Toolbar doesn't show name column
       });
     case "template":
-      return b("Template Context", t.template || {}, c, {
+      return h("Template Context", t.template || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "session":
-      return b("Session", t.session || {}, c, {
+      return h("Session", t.session || {}, d, {
         useIconCopyButton: !1,
         showCount: !1
       });
     case "jserrors":
-      return R(t.jserrors || [], c, {
-        newestFirst: r,
+      return L(t.jserrors || [], d, {
+        newestFirst: s,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return A(t.custom || {}, c, {
+      return q(t.custom || {}, d, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
       });
     default: {
-      const l = t[o];
+      const l = t[n];
       if (l != null) {
-        const i = o.replace(/[_-]/g, " ").replace(/\b\w/g, (d) => d.toUpperCase());
-        return b(i, l, c, {
+        const i = n.replace(/[_-]/g, " ").replace(/\b\w/g, (x) => x.toUpperCase());
+        return h(i, l, d, {
           useIconCopyButton: !1,
           showCount: !1
         });
       }
-      return `<div class="${c.emptyState}">Panel "${K(o)}" not available</div>`;
+      return `<div class="${d.emptyState}">Panel "${D(n)}" not available</div>`;
     }
   }
 }
-function g(o, t = 50) {
-  const e = o.requests?.length || 0, s = o.sql?.length || 0, a = o.logs?.length || 0, r = o.jserrors?.length || 0, n = (o.requests || []).filter((p) => (p.status || 0) >= 400).length, l = (o.sql || []).filter((p) => p.error).length, i = (o.logs || []).filter((p) => {
-    const v = (p.level || "").toLowerCase();
-    return v === "error" || v === "fatal";
-  }).length, d = (o.sql || []).filter((p) => P(p.duration, t)).length;
-  return {
-    requests: e,
-    sql: s,
-    logs: a,
-    jserrors: r,
-    errors: n + l + i + r,
-    slowQueries: d
-  };
+function g(n, t = 50) {
+  return j(n, t);
 }
-const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
-  console: "Console",
-  shell: "Shell"
-}, y = () => {
-  const o = u.getToolbarPanels();
-  return o.length > 0 ? o.filter((t) => t.category === "core" || t.category === "system").map((t) => t.id) : ["requests", "sql", "logs", "routes", "config"];
-}, W = (o) => {
-  if (w[o])
-    return w[o];
-  const t = u.get(o);
-  return t ? t.label : o.charAt(0).toUpperCase() + o.slice(1);
-}, k = (o) => {
-  const t = u.get(o);
-  return t ? E(t) : [o];
-}, S = () => {
-  const o = {};
-  for (const t of u.list())
-    for (const e of E(t))
-      o[e] = t.id;
-  return o;
-}, J = (o) => {
-  if (!Array.isArray(o))
-    return [];
-  const t = [];
-  return o.forEach((e) => {
-    if (!e || typeof e != "object")
-      return;
-    const s = e, a = typeof s.command == "string" ? s.command.trim() : "";
-    if (!a)
-      return;
-    const r = typeof s.description == "string" ? s.description.trim() : "", n = Array.isArray(s.tags) ? s.tags.filter((d) => typeof d == "string" && d.trim() !== "").map((d) => d.trim()) : [], l = Array.isArray(s.aliases) ? s.aliases.filter((d) => typeof d == "string" && d.trim() !== "").map((d) => d.trim()) : [], i = typeof s.mutates == "boolean" ? s.mutates : typeof s.read_only == "boolean" ? !s.read_only : !1;
-    t.push({
-      command: a,
-      description: r || void 0,
-      tags: n.length > 0 ? n : void 0,
-      aliases: l.length > 0 ? l : void 0,
-      mutates: i
-    });
-  }), t;
-}, h = class h extends HTMLElement {
+const c = class c extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.externalStream = null, this.snapshot = {}, this.replPanels = /* @__PURE__ */ new Map(), this.replCommands = [], this.expanded = !1, this.activePanel = "requests", this.connectionStatus = "disconnected", this.slowThresholdMs = 50, this.useFab = !1, this.customHeight = null, this.isResizing = !1, this.resizeStartY = 0, this.resizeStartHeight = 0, this.panelSortOrder = /* @__PURE__ */ new Map([
       ["requests", !0],
@@ -1184,7 +1136,7 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     return ["base-path", "debug-path", "panels", "expanded", "slow-threshold-ms", "use-fab"];
   }
   connectedCallback() {
-    this.eventToPanel = S(), this.unsubscribeRegistry = u.subscribe((t) => this.handleRegistryChange(t)), this.loadState(), this.render(), this.useFab || (this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
+    this.eventToPanel = b(), this.unsubscribeRegistry = p.subscribe((t) => this.handleRegistryChange(t)), this.loadState(), this.render(), this.useFab || (this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
   }
   disconnectedCallback() {
     this.stream?.close(), this.unsubscribeRegistry?.(), document.removeEventListener("keydown", this.handleKeyDown);
@@ -1193,7 +1145,7 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
    * Handle registry changes (panel registered/unregistered)
    */
   handleRegistryChange(t) {
-    this.eventToPanel = S(), this.updateSubscriptions(), this.expanded && this.render();
+    this.eventToPanel = b(), this.updateSubscriptions(), this.expanded && this.render();
   }
   /**
    * Update WebSocket subscriptions based on current panels
@@ -1202,13 +1154,13 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     const t = this.getStream();
     if (!t) return;
     const e = /* @__PURE__ */ new Set();
-    for (const s of this.panels)
-      for (const a of k(s))
-        e.add(a);
+    for (const a of this.panels)
+      for (const o of v(a))
+        e.add(o);
     t.subscribe(Array.from(e));
   }
-  attributeChangedCallback(t, e, s) {
-    e !== s && (t === "expanded" ? (this.expanded = s === "true" || s === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(s || "50", 10) || 50 : t === "use-fab" && (this.useFab = s === "true" || s === ""));
+  attributeChangedCallback(t, e, a) {
+    e !== a && (t === "expanded" ? (this.expanded = a === "true" || a === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(a || "50", 10) || 50 : t === "use-fab" && (this.useFab = a === "true" || a === ""));
   }
   // Public API for FAB integration
   setExpanded(t) {
@@ -1233,15 +1185,15 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
       t !== null && (this.expanded = t === "true");
       const e = localStorage.getItem("debug-toolbar-height");
       if (e !== null) {
-        const a = parseInt(e, 10);
-        !isNaN(a) && a >= h.MIN_HEIGHT && (this.customHeight = a);
+        const o = parseInt(e, 10);
+        !isNaN(o) && o >= c.MIN_HEIGHT && (this.customHeight = o);
       }
-      const s = localStorage.getItem("debug-toolbar-sort-order");
-      if (s)
+      const a = localStorage.getItem("debug-toolbar-sort-order");
+      if (a)
         try {
-          const a = JSON.parse(s);
-          Object.entries(a).forEach(([r, n]) => {
-            this.panelSortOrder.set(r, n);
+          const o = JSON.parse(a);
+          Object.entries(o).forEach(([s, r]) => {
+            this.panelSortOrder.set(s, r);
           });
         } catch {
         }
@@ -1252,8 +1204,8 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     try {
       localStorage.setItem("debug-toolbar-expanded", String(this.expanded)), this.customHeight !== null && localStorage.setItem("debug-toolbar-height", String(this.customHeight));
       const t = {};
-      this.panelSortOrder.forEach((e, s) => {
-        t[s] = e;
+      this.panelSortOrder.forEach((e, a) => {
+        t[a] = e;
       }), localStorage.setItem("debug-toolbar-sort-order", JSON.stringify(t));
     } catch {
     }
@@ -1286,10 +1238,10 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   get panels() {
     const t = this.getAttribute("panels");
     if (t) {
-      const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : y();
+      const e = t.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean);
+      return e.length ? e : u();
     }
-    return y();
+    return u();
   }
   get wsUrl() {
     return `${this.debugPath}/ws`;
@@ -1300,29 +1252,21 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   }
   // WebSocket initialization
   initWebSocket() {
-    this.stream = new q({
+    this.stream = new y({
       basePath: this.debugPath,
       onEvent: (e) => this.handleEvent(e),
       onStatusChange: (e) => this.handleStatusChange(e)
     }), this.stream.connect();
     const t = /* @__PURE__ */ new Set();
     for (const e of this.panels)
-      for (const s of k(e))
-        t.add(s);
+      for (const a of v(e))
+        t.add(a);
     this.stream.subscribe(Array.from(t));
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
-    try {
-      const t = await fetch(`${this.debugPath}/api/snapshot`, {
-        credentials: "same-origin"
-      });
-      if (t.ok) {
-        const e = await t.json();
-        this.applySnapshot(e);
-      }
-    } catch {
-    }
+    const t = await k(this.debugPath);
+    t && this.applySnapshot(t);
   }
   // Event handlers
   handleEvent(t) {
@@ -1331,63 +1275,30 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
       this.applySnapshot(t.payload);
       return;
     }
-    const e = this.eventToPanel[t.type] || t.type, s = u.get(e);
-    if (s) {
-      const a = D(s), r = this.snapshot[a], l = (s.handleEvent || ((i, d) => O(i, d, 500)))(r, t.payload);
-      this.snapshot[a] = l;
-    } else
-      switch (t.type) {
-        case "request":
-          this.snapshot.requests = this.snapshot.requests || [], this.snapshot.requests.push(t.payload), this.trimArray(this.snapshot.requests, 500);
-          break;
-        case "sql":
-          this.snapshot.sql = this.snapshot.sql || [], this.snapshot.sql.push(t.payload), this.trimArray(this.snapshot.sql, 200);
-          break;
-        case "log":
-          this.snapshot.logs = this.snapshot.logs || [], this.snapshot.logs.push(t.payload), this.trimArray(this.snapshot.logs, 500);
-          break;
-        case "template":
-          this.snapshot.template = t.payload || {};
-          break;
-        case "session":
-          this.snapshot.session = t.payload || {};
-          break;
-        case "custom":
-          this.handleCustomEvent(t.payload);
-          break;
-      }
-    e === this.activePanel && this.expanded && this.updateContent();
-  }
-  handleCustomEvent(t) {
-    if (!t || typeof t != "object") return;
-    this.snapshot.custom = this.snapshot.custom || { data: {}, logs: [] };
-    const e = t;
-    "key" in e && "value" in e ? (this.snapshot.custom.data = this.snapshot.custom.data || {}, this.snapshot.custom.data[String(e.key)] = e.value) : ("category" in e || "message" in e) && (this.snapshot.custom.logs = this.snapshot.custom.logs || [], this.snapshot.custom.logs.push(t), this.trimArray(this.snapshot.custom.logs, 500));
+    (S(this.snapshot, t, {
+      eventToPanel: this.eventToPanel
+    }) || t.type) === this.activePanel && this.expanded && this.updateContent();
   }
   handleStatusChange(t) {
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.replCommands = J(this.snapshot.repl_commands), this.updateContent();
-  }
-  trimArray(t, e) {
-    for (; t.length > e; )
-      t.shift();
+    this.snapshot = t || {}, this.replCommands = B(this.snapshot.repl_commands), this.updateContent();
   }
   // Rendering
   render() {
     const t = g(this.snapshot, this.slowThresholdMs), e = this.panels.map((l) => {
-      const i = W(l), d = this.getPanelCount(l);
+      const i = N(l), x = this.getPanelCount(l);
       return `
           <button class="tab ${this.activePanel === l ? "active" : ""}" data-panel="${l}">
             ${i}
-            <span class="tab-count">${d}</span>
+            <span class="tab-count">${x}</span>
           </button>
         `;
-    }).join(""), s = this.expanded ? "expanded" : "collapsed", a = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || h.DEFAULT_HEIGHT : 36, n = this.expanded ? `height: ${r}px;` : "";
+    }).join(""), a = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", s = this.expanded ? this.customHeight || c.DEFAULT_HEIGHT : 36, r = this.expanded ? `height: ${s}px;` : "";
     this.shadow.innerHTML = `
-      <style>${Y}</style>
-      <div class="toolbar ${s} ${a}" style="${n}">
+      <style>${G}</style>
+      <div class="toolbar ${a} ${o}" style="${r}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
           <div class="toolbar-header">
@@ -1421,7 +1332,7 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
           </div>
           <div class="toolbar-content">
             <div class="panel-container" id="panel-content">
-              ${x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
+              ${m(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions())}
             </div>
           </div>
         ` : ""}
@@ -1457,9 +1368,9 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (U.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests))), this.panels.forEach((e) => {
-        const s = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
-        s && (s.textContent = String(this.getPanelCount(e)));
+      t && (Q.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = m(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests))), this.panels.forEach((e) => {
+        const a = this.shadow.querySelector(`[data-panel="${e}"] .tab-count`);
+        a && (a.textContent = String(this.getPanelCount(e)));
       });
     }
     this.useFab || this.updateSummary();
@@ -1467,21 +1378,21 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   updateSummary() {
     const t = g(this.snapshot, this.slowThresholdMs), e = this.shadow.querySelector(".toolbar-summary");
     if (!e) return;
-    e.querySelectorAll(".summary-item").forEach((a) => {
-      const r = a.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), n = a.querySelector(".count");
-      !n || !r || (r === "requests" ? (n.textContent = String(t.requests), a.classList.toggle("has-errors", t.errors > 0)) : r === "sql" ? (n.textContent = String(t.sql), a.classList.toggle("has-slow", t.slowQueries > 0)) : r === "logs" ? n.textContent = String(t.logs) : r === "errors" && (n.textContent = String(t.errors)));
+    e.querySelectorAll(".summary-item").forEach((o) => {
+      const s = o.querySelector("span:first-child")?.textContent?.replace(":", "").toLowerCase(), r = o.querySelector(".count");
+      !r || !s || (s === "requests" ? (r.textContent = String(t.requests), o.classList.toggle("has-errors", t.errors > 0)) : s === "sql" ? (r.textContent = String(t.sql), o.classList.toggle("has-slow", t.slowQueries > 0)) : s === "logs" ? r.textContent = String(t.logs) : s === "errors" && (r.textContent = String(t.errors)));
     });
   }
   updateConnectionStatus() {
     const t = this.shadow.querySelector(".connection-indicator .status-dot");
     t && (t.className = `status-dot ${this.connectionStatus}`);
-    const e = this.shadow.querySelector(".connection-status .status-dot"), s = this.shadow.querySelector(".connection-status span:last-child");
-    e && (e.className = `status-dot ${this.connectionStatus}`), s && (s.textContent = this.connectionStatus);
+    const e = this.shadow.querySelector(".connection-status .status-dot"), a = this.shadow.querySelector(".connection-status span:last-child");
+    e && (e.className = `status-dot ${this.connectionStatus}`), a && (a.textContent = this.connectionStatus);
   }
   getPanelCount(t) {
-    const e = u.get(t);
+    const e = p.get(t);
     if (e)
-      return F(this.snapshot, e);
+      return _(this.snapshot, e);
     switch (t) {
       case "requests":
         return this.snapshot.requests?.length || 0;
@@ -1498,11 +1409,11 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
       case "config":
         return Object.keys(this.snapshot.config || {}).length;
       case "custom":
-        const s = this.snapshot.custom || {};
-        return Object.keys(s.data || {}).length + (s.logs?.length || 0);
+        const a = this.snapshot.custom || {};
+        return Object.keys(a.data || {}).length + (a.logs?.length || 0);
       default: {
-        const a = this.snapshot[t];
-        return Array.isArray(a) ? a.length : a != null && typeof a == "object" ? Object.keys(a).length : 0;
+        const o = this.snapshot[t];
+        return Array.isArray(o) ? o.length : o != null && typeof o == "object" ? Object.keys(o).length : 0;
       }
     }
   }
@@ -1516,17 +1427,17 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
   attachEventListeners() {
     if (this.shadow.querySelectorAll(".tab").forEach((t) => {
       t.addEventListener("click", (e) => {
-        const s = e.currentTarget.dataset.panel;
-        if (s && s !== this.activePanel) {
-          this.activePanel = s, this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), e.currentTarget.classList.add("active");
-          const a = this.shadow.getElementById("panel-content");
-          a && (a.innerHTML = x(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests));
+        const a = e.currentTarget.dataset.panel;
+        if (a && a !== this.activePanel) {
+          this.activePanel = a, this.shadow.querySelectorAll(".tab").forEach((s) => s.classList.remove("active")), e.currentTarget.classList.add("active");
+          const o = this.shadow.getElementById("panel-content");
+          o && (o.innerHTML = m(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests));
         }
       });
     }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
       t.addEventListener("click", (e) => {
-        const s = e.currentTarget.dataset.action, a = this.getStream();
-        switch (s) {
+        const a = e.currentTarget.dataset.action, o = this.getStream();
+        switch (a) {
           case "toggle":
             this.toggleExpanded();
             break;
@@ -1534,10 +1445,10 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
             this.collapse();
             break;
           case "refresh":
-            a?.requestSnapshot();
+            o?.requestSnapshot();
             break;
           case "clear":
-            a?.clear(), this.snapshot = {}, this.updateContent();
+            o?.clear(), this.snapshot = {}, this.updateContent();
             break;
         }
       });
@@ -1550,62 +1461,62 @@ const U = /* @__PURE__ */ new Set(["console", "shell"]), w = {
     this.attachResizeListeners(), this.attachCopyListeners();
   }
   renderReplPanel(t, e) {
-    let s = this.replPanels.get(e);
-    s || (s = new G({
+    let a = this.replPanels.get(e);
+    a || (a = new A({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
-    }), this.replPanels.set(e, s)), s.attach(t);
+    }), this.replPanels.set(e, a)), a.attach(t);
   }
   attachResizeListeners() {
     const t = this.shadow.querySelector("[data-resize-handle]");
     t && (t.addEventListener("mousedown", (e) => {
-      const s = e;
-      s.preventDefault(), this.startResize(s.clientY);
+      const a = e;
+      a.preventDefault(), this.startResize(a.clientY);
     }), t.addEventListener("touchstart", (e) => {
-      const s = e;
-      s.touches.length === 1 && (s.preventDefault(), this.startResize(s.touches[0].clientY));
+      const a = e;
+      a.touches.length === 1 && (a.preventDefault(), this.startResize(a.touches[0].clientY));
     }, { passive: !1 }));
   }
   startResize(t) {
     this.isResizing = !0, this.resizeStartY = t;
     const e = this.shadow.querySelector(".toolbar");
-    this.resizeStartHeight = e?.offsetHeight || h.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
-    const s = (n) => {
-      this.handleResize(n.clientY);
-    }, a = (n) => {
-      n.touches.length === 1 && this.handleResize(n.touches[0].clientY);
-    }, r = () => {
-      this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", s), document.removeEventListener("mouseup", r), document.removeEventListener("touchmove", a), document.removeEventListener("touchend", r), this.saveState();
+    this.resizeStartHeight = e?.offsetHeight || c.DEFAULT_HEIGHT, e?.classList.add("resizing"), document.body.style.cursor = "ns-resize", document.body.style.userSelect = "none";
+    const a = (r) => {
+      this.handleResize(r.clientY);
+    }, o = (r) => {
+      r.touches.length === 1 && this.handleResize(r.touches[0].clientY);
+    }, s = () => {
+      this.isResizing = !1, e?.classList.remove("resizing"), document.body.style.cursor = "", document.body.style.userSelect = "", document.removeEventListener("mousemove", a), document.removeEventListener("mouseup", s), document.removeEventListener("touchmove", o), document.removeEventListener("touchend", s), this.saveState();
     };
-    document.addEventListener("mousemove", s), document.addEventListener("mouseup", r), document.addEventListener("touchmove", a, { passive: !0 }), document.addEventListener("touchend", r);
+    document.addEventListener("mousemove", a), document.addEventListener("mouseup", s), document.addEventListener("touchmove", o, { passive: !0 }), document.addEventListener("touchend", s);
   }
   handleResize(t) {
     if (!this.isResizing) return;
-    const e = this.resizeStartY - t, s = window.innerHeight * h.MAX_HEIGHT_RATIO, a = Math.min(s, Math.max(h.MIN_HEIGHT, this.resizeStartHeight + e));
-    this.customHeight = a;
-    const r = this.shadow.querySelector(".toolbar");
-    r && (r.style.height = `${a}px`);
+    const e = this.resizeStartY - t, a = window.innerHeight * c.MAX_HEIGHT_RATIO, o = Math.min(a, Math.max(c.MIN_HEIGHT, this.resizeStartHeight + e));
+    this.customHeight = o;
+    const s = this.shadow.querySelector(".toolbar");
+    s && (s.style.height = `${o}px`);
   }
   attachExpandableRowListeners() {
-    B(this.shadow);
+    R(this.shadow);
   }
   attachCopyListeners() {
-    N(this.shadow, { useIconFeedback: !1 });
+    $(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    Q(this.shadow, (t, e) => {
+    H(this.shadow, (t, e) => {
       this.panelSortOrder.set(t, e), this.saveState(), this.updateContent();
     });
   }
   attachSQLSelectionListeners() {
-    this.activePanel === "sql" && _(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
+    this.activePanel === "sql" && I(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
   }
 };
-h.MIN_HEIGHT = 150, h.MAX_HEIGHT_RATIO = 0.8, h.DEFAULT_HEIGHT = 320;
-let m = h;
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", m);
-const X = `
+c.MIN_HEIGHT = 150, c.MAX_HEIGHT_RATIO = 0.8, c.DEFAULT_HEIGHT = 320;
+let w = c;
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", w);
+const Y = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1835,29 +1746,22 @@ const X = `
       font-size: 8px;
     }
   }
-`, Z = {
-  template: "template",
-  session: "session",
-  requests: "request",
-  sql: "sql",
-  logs: "log",
-  custom: "custom"
-}, C = ["requests", "sql", "logs", "routes", "config"];
-class V extends HTMLElement {
+`;
+class K extends HTMLElement {
   constructor() {
-    super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.shadow = this.attachShadow({ mode: "open" });
+    super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.eventToPanel = {}, this.unsubscribeRegistry = null, this.shadow = this.attachShadow({ mode: "open" });
   }
   static get observedAttributes() {
     return ["debug-path", "panels", "toolbar-expanded"];
   }
   connectedCallback() {
-    this.render(), this.initWebSocket(), this.fetchInitialSnapshot(), this.loadState();
+    this.eventToPanel = b(), this.unsubscribeRegistry = p.subscribe((t) => this.handleRegistryChange(t)), this.render(), this.initWebSocket(), this.fetchInitialSnapshot(), this.loadState();
   }
   disconnectedCallback() {
-    this.stream?.close();
+    this.stream?.close(), this.unsubscribeRegistry?.();
   }
-  attributeChangedCallback(t, e, s) {
-    e !== s && t === "toolbar-expanded" && (this.toolbarExpanded = s === "true" || s === "", this.render());
+  attributeChangedCallback(t, e, a) {
+    e !== a && t === "toolbar-expanded" && (this.toolbarExpanded = a === "true" || a === "", this.render());
   }
   // Public API
   setToolbarExpanded(t) {
@@ -1879,10 +1783,10 @@ class V extends HTMLElement {
   get panels() {
     const t = this.getAttribute("panels");
     if (t) {
-      const e = t.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-      return e.length ? e : C;
+      const e = t.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean);
+      return e.length ? e : u();
     }
-    return C;
+    return u();
   }
   // State persistence
   loadState() {
@@ -1900,24 +1804,16 @@ class V extends HTMLElement {
   }
   // WebSocket initialization
   initWebSocket() {
-    this.stream = new q({
+    this.stream = new y({
       basePath: this.debugPath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.handleStatusChange(t)
-    }), this.stream.connect(), this.stream.subscribe(this.panels.map((t) => Z[t] || t));
+    }), this.stream.connect(), this.updateSubscriptions();
   }
   // Fetch initial snapshot via HTTP
   async fetchInitialSnapshot() {
-    try {
-      const t = await fetch(`${this.debugPath}/api/snapshot`, {
-        credentials: "same-origin"
-      });
-      if (t.ok) {
-        const e = await t.json();
-        this.applySnapshot(e);
-      }
-    } catch {
-    }
+    const t = await k(this.debugPath);
+    t && this.applySnapshot(t);
   }
   // Event handlers
   handleEvent(t) {
@@ -1926,34 +1822,10 @@ class V extends HTMLElement {
         this.applySnapshot(t.payload);
         return;
       }
-      switch (t.type) {
-        case "request":
-          this.snapshot.requests = this.snapshot.requests || [], this.snapshot.requests.push(t.payload), this.trimArray(this.snapshot.requests, 500);
-          break;
-        case "sql":
-          this.snapshot.sql = this.snapshot.sql || [], this.snapshot.sql.push(t.payload), this.trimArray(this.snapshot.sql, 200);
-          break;
-        case "log":
-          this.snapshot.logs = this.snapshot.logs || [], this.snapshot.logs.push(t.payload), this.trimArray(this.snapshot.logs, 500);
-          break;
-        case "template":
-          this.snapshot.template = t.payload || {};
-          break;
-        case "session":
-          this.snapshot.session = t.payload || {};
-          break;
-        case "custom":
-          this.handleCustomEvent(t.payload);
-          break;
-      }
-      this.updateCounters();
+      S(this.snapshot, t, {
+        eventToPanel: this.eventToPanel
+      }), this.updateCounters();
     }
-  }
-  handleCustomEvent(t) {
-    if (!t || typeof t != "object") return;
-    this.snapshot.custom = this.snapshot.custom || { data: {}, logs: [] };
-    const e = t;
-    "key" in e && "value" in e ? (this.snapshot.custom.data = this.snapshot.custom.data || {}, this.snapshot.custom.data[String(e.key)] = e.value) : ("category" in e || "message" in e) && (this.snapshot.custom.logs = this.snapshot.custom.logs || [], this.snapshot.custom.logs.push(t), this.trimArray(this.snapshot.custom.logs, 500));
   }
   handleStatusChange(t) {
     this.connectionStatus = t, this.updateConnectionStatus(), this.dispatchEvent(new CustomEvent("debug-status-change", {
@@ -1969,16 +1841,12 @@ class V extends HTMLElement {
       composed: !0
     }));
   }
-  trimArray(t, e) {
-    for (; t.length > e; )
-      t.shift();
-  }
   // Rendering
   render() {
-    const t = g(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, a = this.toolbarExpanded ? "hidden" : "";
+    const t = g(this.snapshot), e = t.errors > 0, a = t.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${X}</style>
-      <div class="fab ${a}" data-status="${this.connectionStatus}">
+      <style>${Y}</style>
+      <div class="fab ${o}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
           <span class="fab-icon">
@@ -1992,7 +1860,7 @@ class V extends HTMLElement {
             <span class="counter-value">${t.requests}</span>
             <span class="counter-label">Req</span>
           </div>
-          <div class="fab-counter ${t.sql > 0 ? "has-items" : ""} ${s ? "has-slow" : ""}">
+          <div class="fab-counter ${t.sql > 0 ? "has-items" : ""} ${a ? "has-slow" : ""}">
             <span class="counter-value">${t.sql}</span>
             <span class="counter-label">SQL</span>
           </div>
@@ -2011,20 +1879,20 @@ class V extends HTMLElement {
     `, this.attachEventListeners();
   }
   updateCounters() {
-    const t = g(this.snapshot), e = t.errors > 0, s = t.slowQueries > 0, a = this.shadow.querySelector(".fab-counter:nth-child(1)");
-    if (a) {
-      const i = a.querySelector(".counter-value");
-      i && (i.textContent = String(t.requests)), a.classList.toggle("has-items", t.requests > 0);
+    const t = g(this.snapshot), e = t.errors > 0, a = t.slowQueries > 0, o = this.shadow.querySelector(".fab-counter:nth-child(1)");
+    if (o) {
+      const i = o.querySelector(".counter-value");
+      i && (i.textContent = String(t.requests)), o.classList.toggle("has-items", t.requests > 0);
     }
-    const r = this.shadow.querySelector(".fab-counter:nth-child(2)");
+    const s = this.shadow.querySelector(".fab-counter:nth-child(2)");
+    if (s) {
+      const i = s.querySelector(".counter-value");
+      i && (i.textContent = String(t.sql)), s.classList.toggle("has-items", t.sql > 0), s.classList.toggle("has-slow", a);
+    }
+    const r = this.shadow.querySelector(".fab-counter:nth-child(3)");
     if (r) {
       const i = r.querySelector(".counter-value");
-      i && (i.textContent = String(t.sql)), r.classList.toggle("has-items", t.sql > 0), r.classList.toggle("has-slow", s);
-    }
-    const n = this.shadow.querySelector(".fab-counter:nth-child(3)");
-    if (n) {
-      const i = n.querySelector(".counter-value");
-      i && (i.textContent = String(t.logs)), n.classList.toggle("has-items", t.logs > 0), n.classList.toggle("has-errors", e);
+      i && (i.textContent = String(t.logs)), r.classList.toggle("has-items", t.logs > 0), r.classList.toggle("has-errors", e);
     }
     const l = this.shadow.querySelector(".fab-counter:nth-child(4)");
     if (e && l) {
@@ -2035,6 +1903,18 @@ class V extends HTMLElement {
   updateConnectionStatus() {
     const t = this.shadow.querySelector(".fab");
     t && t.setAttribute("data-status", this.connectionStatus);
+  }
+  handleRegistryChange(t) {
+    this.eventToPanel = b(), this.updateSubscriptions();
+  }
+  updateSubscriptions() {
+    if (!this.stream)
+      return;
+    const t = /* @__PURE__ */ new Set();
+    for (const e of this.panels)
+      for (const a of v(e))
+        t.add(a);
+    this.stream.subscribe(Array.from(t));
   }
   attachEventListeners() {
     const t = this.shadow.querySelector(".fab");
@@ -2051,12 +1931,12 @@ class V extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", V);
-const tt = (o) => {
-  const t = (o || "").trim();
+customElements.get("debug-fab") || customElements.define("debug-fab", K);
+const U = (n) => {
+  const t = (n || "").trim();
   return !t || t === "/" ? "" : "/" + t.replace(/^\/+|\/+$/g, "");
 };
-class L {
+class C {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
       panels: ["requests", "sql", "logs", "routes", "config"],
@@ -2064,7 +1944,7 @@ class L {
       container: document.body,
       ...t
     };
-    const e = tt(this.options.basePath);
+    const e = U(this.options.basePath);
     e && (this.options.basePath = e), !this.options.debugPath && e && (this.options.debugPath = `${e}/debug`);
   }
   /**
@@ -2108,10 +1988,10 @@ class L {
       if (t.detail?.expanded && this.toolbar) {
         const e = this.fab?.getStream();
         e && this.toolbar.setStream(e);
-        const s = this.fab?.getSnapshot();
-        s && this.toolbar.setSnapshot(s);
-        const a = this.fab?.getConnectionStatus();
-        a && this.toolbar.setConnectionStatus(a), this.toolbar.setExpanded(!0);
+        const a = this.fab?.getSnapshot();
+        a && this.toolbar.setSnapshot(a);
+        const o = this.fab?.getConnectionStatus();
+        o && this.toolbar.setConnectionStatus(o), this.toolbar.setExpanded(!0);
       }
     }), this.fab.addEventListener("debug-status-change", (t) => {
       this.toolbar && t.detail?.status && this.toolbar.setConnectionStatus(t.detail.status);
@@ -2122,32 +2002,43 @@ class L {
     }));
   }
 }
-function et() {
-  const o = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
+function W() {
+  const n = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let e = {};
-  if (o ? e = {
-    basePath: o.basePath,
-    debugPath: o.debugPath,
-    panels: o.panels,
-    slowThresholdMs: o.slowThresholdMs
+  if (n ? e = {
+    basePath: n.basePath,
+    debugPath: n.debugPath,
+    panels: n.panels,
+    slowThresholdMs: n.slowThresholdMs
   } : t && (e = {
     basePath: t.getAttribute("data-base-path") || void 0,
     debugPath: t.getAttribute("data-debug-path") || void 0,
     panels: t.getAttribute("data-panels")?.split(","),
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
-  }), !e.debugPath && !e.basePath && !o && !t)
+  }), !e.debugPath && !e.basePath && !n && !t)
     return null;
-  const s = new L(e);
-  return s.init(), s;
+  const a = new C(e);
+  return a.init(), a;
 }
-window.DebugManager = L;
-window.initDebugManager = et;
+window.DebugManager = C;
+window.initDebugManager = W;
 export {
-  V as DebugFab,
-  L as DebugManager,
-  m as DebugToolbar,
+  K as DebugFab,
+  C as DebugManager,
+  w as DebugToolbar,
+  ot as applyCustomEventPayload,
+  S as applyDebugEventToSnapshot,
+  b as buildEventToPanel,
+  k as fetchDebugSnapshot,
   g as getCounts,
-  et as initDebugManager,
-  x as renderPanel
+  st as getDefaultPanels,
+  u as getDefaultToolbarPanels,
+  v as getPanelEventTypes,
+  N as getPanelLabel,
+  W as initDebugManager,
+  rt as isKnownPanel,
+  B as normalizeReplCommands,
+  m as renderPanel,
+  Q as replPanelIDs
 };
 //# sourceMappingURL=toolbar.js.map

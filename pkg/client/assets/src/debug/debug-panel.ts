@@ -38,23 +38,22 @@ import {
 import {
   panelRegistry,
   getSnapshotKey,
-  normalizeEventTypes,
   defaultHandleEvent,
   getPanelCount,
   type PanelDefinition,
   type RegistryChangeEvent,
 } from './shared/panel-registry.js';
+import {
+  buildEventToPanel,
+  getDefaultPanels,
+  getPanelEventTypes,
+  getPanelLabel,
+  isKnownPanel,
+  normalizeReplCommands,
+  replPanelIDs,
+} from './shared/runtime-helpers.js';
 // Import to ensure built-in panels are registered
 import './shared/builtin-panels.js';
-
-type DebugReplCommandPayload = {
-  command?: string;
-  description?: string;
-  tags?: string[];
-  aliases?: string[];
-  mutates?: boolean;
-  read_only?: boolean;
-};
 
 type PanelFilters = {
   requests: { method: string; status: string; search: string; newestFirst: boolean; hasBody: boolean; contentType: string };
@@ -83,76 +82,6 @@ type PanelRenderer = {
   filters?: () => string;
 };
 
-// Default panels come from registry, with REPL panels added if needed
-const getDefaultPanels = (): string[] => {
-  // Get built-in panels from registry, sorted by category/order
-  const registryPanels = panelRegistry.getSortedIds();
-  // Default console order: data panels first, then core, then system
-  // This matches the original order: template, session, requests, sql, logs, config, routes, custom
-  return registryPanels.length > 0
-    ? registryPanels
-    : ['template', 'session', 'requests', 'sql', 'logs', 'config', 'routes', 'custom'];
-};
-
-const replPanelIDs = new Set(['shell', 'console']);
-
-// Helper to check if a panel is known (in registry or is a REPL panel)
-const isKnownPanel = (panel: string): boolean => {
-  return panelRegistry.has(panel) || replPanelIDs.has(panel);
-};
-
-// REPL panel labels (not in registry)
-const replPanelLabels: Record<string, string> = {
-  shell: 'Shell',
-  console: 'Console',
-};
-
-// Get panel label - from registry or fallback
-const getPanelLabel = (panelId: string): string => {
-  // Check REPL panels first
-  if (replPanelLabels[panelId]) {
-    return replPanelLabels[panelId];
-  }
-  // Check registry
-  const def = panelRegistry.get(panelId);
-  if (def) {
-    return def.label;
-  }
-  // Fallback: format the panel ID
-  if (!panelId) {
-    return '';
-  }
-  return panelId
-    .replace(/[-_.]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/\bsql\b/i, 'SQL')
-    .replace(/\b([a-z])/g, (match) => match.toUpperCase());
-};
-
-// Get event types for a panel from registry
-const getPanelEventTypes = (panelId: string): string[] => {
-  if (panelId === 'sessions') {
-    return [];
-  }
-  const def = panelRegistry.get(panelId);
-  if (def) {
-    return normalizeEventTypes(def);
-  }
-  // Fallback for unknown panels
-  return [panelId];
-};
-
-// Build event-to-panel mapping from registry
-const buildEventToPanel = (): Record<string, string> => {
-  const mapping: Record<string, string> = {};
-  for (const def of panelRegistry.list()) {
-    for (const eventType of normalizeEventTypes(def)) {
-      mapping[eventType] = def.id;
-    }
-  }
-  return mapping;
-};
 
 const parseJSON = (value: string | undefined): any => {
   if (!value) {
@@ -164,49 +93,6 @@ const parseJSON = (value: string | undefined): any => {
     return null;
   }
 };
-
-const normalizeReplCommands = (value: any): DebugReplCommand[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const commands: DebugReplCommand[] = [];
-  value.forEach((item) => {
-    if (!item || typeof item !== 'object') {
-      return;
-    }
-    const raw = item as DebugReplCommandPayload;
-    const command = typeof raw.command === 'string' ? raw.command.trim() : '';
-    if (!command) {
-      return;
-    }
-    const description = typeof raw.description === 'string' ? raw.description.trim() : '';
-    const tags = Array.isArray(raw.tags)
-      ? raw.tags
-          .filter((tag) => typeof tag === 'string' && tag.trim() !== '')
-          .map((tag) => tag.trim())
-      : [];
-    const aliases = Array.isArray(raw.aliases)
-      ? raw.aliases
-          .filter((alias) => typeof alias === 'string' && alias.trim() !== '')
-          .map((alias) => alias.trim())
-      : [];
-    const mutates =
-      typeof raw.mutates === 'boolean'
-        ? raw.mutates
-        : typeof raw.read_only === 'boolean'
-          ? !raw.read_only
-          : false;
-    commands.push({
-      command,
-      description: description || undefined,
-      tags: tags.length > 0 ? tags : undefined,
-      aliases: aliases.length > 0 ? aliases : undefined,
-      mutates,
-    });
-  });
-  return commands;
-};
-
 
 const normalizePanelList = (value: any): string[] => {
   if (Array.isArray(value) && value.length > 0) {

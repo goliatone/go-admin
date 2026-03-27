@@ -14,7 +14,7 @@ import type {
   PermissionsSnapshot,
   DoctorReport,
 } from './types.js';
-import { isSlowDuration } from './utils.js';
+import { applyCustomEventPayload } from './runtime-helpers.js';
 import {
   renderRequestsPanel,
   renderSQLPanel,
@@ -436,19 +436,7 @@ const customPanel: PanelDefinition = {
   },
 
   handleEvent: (current, event) => {
-    const currentCustom = (current as CustomSnapshot) || { data: {}, logs: [] };
-    const eventCustom = event as Partial<CustomSnapshot>;
-
-    // Merge data, append logs
-    const newData = eventCustom.data
-      ? { ...currentCustom.data, ...eventCustom.data }
-      : currentCustom.data;
-
-    const newLogs = eventCustom.logs
-      ? [...(currentCustom.logs || []), ...eventCustom.logs].slice(-500)
-      : currentCustom.logs;
-
-    return { data: newData, logs: newLogs };
+    return applyCustomEventPayload(current as CustomSnapshot | undefined, event, 500);
   },
 
   supportsToolbar: true,
@@ -614,49 +602,7 @@ export function registerBuiltinPanels(): void {
  * Get count helpers for toolbar summary display.
  * These are specific calculations used by the toolbar FAB.
  */
-export function getToolbarCounts(
-  snapshot: {
-    requests?: RequestEntry[];
-    sql?: SQLEntry[];
-    logs?: LogEntry[];
-    jserrors?: JSErrorEntry[];
-  },
-  slowThresholdMs = 50
-): {
-  requests: number;
-  sql: number;
-  logs: number;
-  jserrors: number;
-  errors: number;
-  slowQueries: number;
-} {
-  const requests = snapshot.requests?.length || 0;
-  const sql = snapshot.sql?.length || 0;
-  const logs = snapshot.logs?.length || 0;
-  const jserrors = snapshot.jserrors?.length || 0;
-
-  // Count errors
-  const requestErrors = (snapshot.requests || []).filter((r) => (r.status || 0) >= 400).length;
-  const sqlErrors = (snapshot.sql || []).filter((q) => q.error).length;
-  const logErrors = (snapshot.logs || []).filter((l) => {
-    const level = (l.level || '').toLowerCase();
-    return level === 'error' || level === 'fatal';
-  }).length;
-
-  // Count slow queries
-  const slowQueries = (snapshot.sql || []).filter((q) =>
-    isSlowDuration(q.duration, slowThresholdMs)
-  ).length;
-
-  return {
-    requests,
-    sql,
-    logs,
-    jserrors,
-    errors: requestErrors + sqlErrors + logErrors + jserrors,
-    slowQueries,
-  };
-}
+export { getToolbarCounts } from './runtime-helpers.js';
 
 // Export individual panel definitions for testing or customization
 export {

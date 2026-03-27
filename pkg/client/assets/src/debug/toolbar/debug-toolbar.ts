@@ -15,115 +15,21 @@ import {
 } from '../shared/interactions.js';
 import {
   panelRegistry,
-  normalizeEventTypes,
-  defaultHandleEvent,
-  getSnapshotKey,
   getPanelCount as getRegistryPanelCount,
   type RegistryChangeEvent,
 } from '../shared/panel-registry.js';
+import {
+  applyDebugEventToSnapshot,
+  buildEventToPanel,
+  fetchDebugSnapshot,
+  getDefaultToolbarPanels,
+  getPanelEventTypes,
+  getPanelLabel,
+  normalizeReplCommands,
+  replPanelIDs,
+} from '../shared/runtime-helpers.js';
 // Import to ensure built-in panels are registered
 import '../shared/builtin-panels.js';
-
-// Panel configuration
-const replPanelIDs = new Set(['console', 'shell']);
-
-// REPL panel labels (not in registry)
-const replPanelLabels: Record<string, string> = {
-  console: 'Console',
-  shell: 'Shell',
-};
-
-// Get default toolbar panels from registry (filter to toolbar-compatible)
-const getDefaultToolbarPanels = (): string[] => {
-  const toolbarPanels = panelRegistry.getToolbarPanels();
-  if (toolbarPanels.length > 0) {
-    // Filter to core panels for toolbar default
-    return toolbarPanels
-      .filter((p) => p.category === 'core' || p.category === 'system')
-      .map((p) => p.id);
-  }
-  return ['requests', 'sql', 'logs', 'routes', 'config'];
-};
-
-// Get panel label from registry or fallback
-const getPanelLabel = (panelId: string): string => {
-  if (replPanelLabels[panelId]) {
-    return replPanelLabels[panelId];
-  }
-  const def = panelRegistry.get(panelId);
-  if (def) {
-    return def.label;
-  }
-  // Fallback: capitalize
-  return panelId.charAt(0).toUpperCase() + panelId.slice(1);
-};
-
-// Get event types for a panel
-const getPanelEventTypes = (panelId: string): string[] => {
-  const def = panelRegistry.get(panelId);
-  if (def) {
-    return normalizeEventTypes(def);
-  }
-  return [panelId];
-};
-
-// Build event-to-panel mapping from registry
-const buildEventToPanel = (): Record<string, string> => {
-  const mapping: Record<string, string> = {};
-  for (const def of panelRegistry.list()) {
-    for (const eventType of normalizeEventTypes(def)) {
-      mapping[eventType] = def.id;
-    }
-  }
-  return mapping;
-};
-
-type DebugReplCommandPayload = {
-  command?: string;
-  description?: string;
-  tags?: string[];
-  aliases?: string[];
-  mutates?: boolean;
-  read_only?: boolean;
-};
-
-const normalizeReplCommands = (value: unknown): DebugReplCommand[] => {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const commands: DebugReplCommand[] = [];
-  value.forEach((item) => {
-    if (!item || typeof item !== 'object') {
-      return;
-    }
-    const raw = item as DebugReplCommandPayload;
-    const command = typeof raw.command === 'string' ? raw.command.trim() : '';
-    if (!command) {
-      return;
-    }
-    const description = typeof raw.description === 'string' ? raw.description.trim() : '';
-    const tags = Array.isArray(raw.tags)
-      ? raw.tags.filter((tag) => typeof tag === 'string' && tag.trim() !== '').map((tag) => tag.trim())
-      : [];
-    const aliases = Array.isArray(raw.aliases)
-      ? raw.aliases.filter((alias) => typeof alias === 'string' && alias.trim() !== '').map((alias) => alias.trim())
-      : [];
-    const mutates =
-      typeof raw.mutates === 'boolean'
-        ? raw.mutates
-        : typeof raw.read_only === 'boolean'
-          ? !raw.read_only
-          : false;
-    commands.push({
-      command,
-      description: description || undefined,
-      tags: tags.length > 0 ? tags : undefined,
-      aliases: aliases.length > 0 ? aliases : undefined,
-      mutates,
-    });
-  });
-  return commands;
-};
 
 export class DebugToolbar extends HTMLElement {
   private shadow: ShadowRoot;
@@ -407,16 +313,9 @@ export class DebugToolbar extends HTMLElement {
 
   // Fetch initial snapshot via HTTP
   private async fetchInitialSnapshot(): Promise<void> {
-    try {
-      const response = await fetch(`${this.debugPath}/api/snapshot`, {
-        credentials: 'same-origin',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        this.applySnapshot(data);
-      }
-    } catch {
-      // Ignore fetch errors - WebSocket will provide data
+    const data = await fetchDebugSnapshot(this.debugPath);
+    if (data) {
+      this.applySnapshot(data);
     }
   }
 
@@ -429,66 +328,13 @@ export class DebugToolbar extends HTMLElement {
       return;
     }
 
-    // Find panel for this event type
-    const panel = this.eventToPanel[event.type] || event.type;
-
-    // Check if we have a registry definition
-    const def = panelRegistry.get(panel);
-    if (def) {
-      // Use registry's handleEvent or default
-      const snapshotKey = getSnapshotKey(def);
-      const currentData = (this.snapshot as Record<string, unknown>)[snapshotKey];
-      const handler = def.handleEvent || ((current, payload) => defaultHandleEvent(current, payload, 500));
-      const newData = handler(currentData, event.payload);
-      (this.snapshot as Record<string, unknown>)[snapshotKey] = newData;
-    } else {
-      // Fallback for non-registry events
-      switch (event.type) {
-        case 'request':
-          this.snapshot.requests = this.snapshot.requests || [];
-          this.snapshot.requests.push(event.payload);
-          this.trimArray(this.snapshot.requests, 500);
-          break;
-        case 'sql':
-          this.snapshot.sql = this.snapshot.sql || [];
-          this.snapshot.sql.push(event.payload);
-          this.trimArray(this.snapshot.sql, 200);
-          break;
-        case 'log':
-          this.snapshot.logs = this.snapshot.logs || [];
-          this.snapshot.logs.push(event.payload);
-          this.trimArray(this.snapshot.logs, 500);
-          break;
-        case 'template':
-          this.snapshot.template = event.payload || {};
-          break;
-        case 'session':
-          this.snapshot.session = event.payload || {};
-          break;
-        case 'custom':
-          this.handleCustomEvent(event.payload);
-          break;
-      }
-    }
+    const panel = applyDebugEventToSnapshot(this.snapshot, event, {
+      eventToPanel: this.eventToPanel,
+    }) || event.type;
 
     // Update UI if showing affected panel
     if (panel === this.activePanel && this.expanded) {
       this.updateContent();
-    }
-  }
-
-  private handleCustomEvent(payload: unknown): void {
-    if (!payload || typeof payload !== 'object') return;
-    this.snapshot.custom = this.snapshot.custom || { data: {}, logs: [] };
-
-    const p = payload as Record<string, unknown>;
-    if ('key' in p && 'value' in p) {
-      this.snapshot.custom.data = this.snapshot.custom.data || {};
-      this.snapshot.custom.data[String(p.key)] = p.value;
-    } else if ('category' in p || 'message' in p) {
-      this.snapshot.custom.logs = this.snapshot.custom.logs || [];
-      this.snapshot.custom.logs.push(payload as { category?: string; message?: string });
-      this.trimArray(this.snapshot.custom.logs, 500);
     }
   }
 
@@ -502,13 +348,6 @@ export class DebugToolbar extends HTMLElement {
     this.replCommands = normalizeReplCommands(this.snapshot.repl_commands);
     this.updateContent();
   }
-
-  private trimArray<T>(arr: T[], max: number): void {
-    while (arr.length > max) {
-      arr.shift();
-    }
-  }
-
   // Rendering
   private render(): void {
     const counts = getCounts(this.snapshot, this.slowThresholdMs);

@@ -25,6 +25,7 @@ export default defineConfig({
         'components/permission-pills': resolve(__dirname, 'src/components/permission-pills.ts'),
         'debug/index': resolve(__dirname, 'src/debug/index.ts'),
         'debug/repl': resolve(__dirname, 'src/debug/repl/index.ts'),
+        'debug/shared-helpers': resolve(__dirname, 'src/debug/shared-helpers.ts'),
         'debug/toolbar': resolve(__dirname, 'src/debug/toolbar/index.ts'),
         'content-type-builder/index': resolve(__dirname, 'src/content-type-builder/index.ts'),
         'menu-builder/index': resolve(__dirname, 'src/menu-builder/index.ts'),

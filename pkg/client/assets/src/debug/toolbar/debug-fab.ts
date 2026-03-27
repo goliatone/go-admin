@@ -4,27 +4,15 @@
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from '../debug-stream.js';
 import { getCounts, type DebugSnapshot } from './panel-renderers.js';
 import { fabStyles } from './fab-styles.js';
-
-// Panel configuration for events
-const panelEventMap: Record<string, string> = {
-  template: 'template',
-  session: 'session',
-  requests: 'request',
-  sql: 'sql',
-  logs: 'log',
-  custom: 'custom',
-};
-
-const eventToPanel: Record<string, string> = {
-  request: 'requests',
-  sql: 'sql',
-  log: 'logs',
-  template: 'template',
-  session: 'session',
-  custom: 'custom',
-};
-
-const defaultPanels = ['requests', 'sql', 'logs', 'routes', 'config'];
+import { panelRegistry, type RegistryChangeEvent } from '../shared/panel-registry.js';
+import {
+  applyDebugEventToSnapshot,
+  buildEventToPanel,
+  fetchDebugSnapshot,
+  getDefaultToolbarPanels,
+  getPanelEventTypes,
+} from '../shared/runtime-helpers.js';
+import '../shared/builtin-panels.js';
 
 export class DebugFab extends HTMLElement {
   private shadow: ShadowRoot;
@@ -33,6 +21,8 @@ export class DebugFab extends HTMLElement {
   private connectionStatus: DebugStreamStatus = 'disconnected';
   private isHovered = false;
   private toolbarExpanded = false;
+  private eventToPanel: Record<string, string> = {};
+  private unsubscribeRegistry: (() => void) | null = null;
 
   static get observedAttributes(): string[] {
     return ['debug-path', 'panels', 'toolbar-expanded'];
@@ -44,6 +34,8 @@ export class DebugFab extends HTMLElement {
   }
 
   connectedCallback(): void {
+    this.eventToPanel = buildEventToPanel();
+    this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
     this.render();
     this.initWebSocket();
     this.fetchInitialSnapshot();
@@ -52,6 +44,7 @@ export class DebugFab extends HTMLElement {
 
   disconnectedCallback(): void {
     this.stream?.close();
+    this.unsubscribeRegistry?.();
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -94,9 +87,9 @@ export class DebugFab extends HTMLElement {
         .split(',')
         .map((p) => p.trim().toLowerCase())
         .filter(Boolean);
-      return parsed.length ? parsed : defaultPanels;
+      return parsed.length ? parsed : getDefaultToolbarPanels();
     }
-    return defaultPanels;
+    return getDefaultToolbarPanels();
   }
 
   // State persistence
@@ -129,21 +122,14 @@ export class DebugFab extends HTMLElement {
     });
 
     this.stream.connect();
-    this.stream.subscribe(this.panels.map((panel) => panelEventMap[panel] || panel));
+    this.updateSubscriptions();
   }
 
   // Fetch initial snapshot via HTTP
   private async fetchInitialSnapshot(): Promise<void> {
-    try {
-      const response = await fetch(`${this.debugPath}/api/snapshot`, {
-        credentials: 'same-origin',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        this.applySnapshot(data);
-      }
-    } catch {
-      // Ignore fetch errors - WebSocket will provide data
+    const data = await fetchDebugSnapshot(this.debugPath);
+    if (data) {
+      this.applySnapshot(data);
     }
   }
 
@@ -156,50 +142,11 @@ export class DebugFab extends HTMLElement {
       return;
     }
 
-    // Apply incremental updates
-    switch (event.type) {
-      case 'request':
-        this.snapshot.requests = this.snapshot.requests || [];
-        this.snapshot.requests.push(event.payload);
-        this.trimArray(this.snapshot.requests, 500);
-        break;
-      case 'sql':
-        this.snapshot.sql = this.snapshot.sql || [];
-        this.snapshot.sql.push(event.payload);
-        this.trimArray(this.snapshot.sql, 200);
-        break;
-      case 'log':
-        this.snapshot.logs = this.snapshot.logs || [];
-        this.snapshot.logs.push(event.payload);
-        this.trimArray(this.snapshot.logs, 500);
-        break;
-      case 'template':
-        this.snapshot.template = event.payload || {};
-        break;
-      case 'session':
-        this.snapshot.session = event.payload || {};
-        break;
-      case 'custom':
-        this.handleCustomEvent(event.payload);
-        break;
-    }
+    applyDebugEventToSnapshot(this.snapshot, event, {
+      eventToPanel: this.eventToPanel,
+    });
 
     this.updateCounters();
-  }
-
-  private handleCustomEvent(payload: unknown): void {
-    if (!payload || typeof payload !== 'object') return;
-    this.snapshot.custom = this.snapshot.custom || { data: {}, logs: [] };
-
-    const p = payload as Record<string, unknown>;
-    if ('key' in p && 'value' in p) {
-      this.snapshot.custom.data = this.snapshot.custom.data || {};
-      this.snapshot.custom.data[String(p.key)] = p.value;
-    } else if ('category' in p || 'message' in p) {
-      this.snapshot.custom.logs = this.snapshot.custom.logs || [];
-      this.snapshot.custom.logs.push(payload as { category?: string; message?: string });
-      this.trimArray(this.snapshot.custom.logs, 500);
-    }
   }
 
   private handleStatusChange(status: DebugStreamStatus): void {
@@ -223,13 +170,6 @@ export class DebugFab extends HTMLElement {
       composed: true,
     }));
   }
-
-  private trimArray<T>(arr: T[], max: number): void {
-    while (arr.length > max) {
-      arr.shift();
-    }
-  }
-
   // Rendering
   private render(): void {
     const counts = getCounts(this.snapshot);
@@ -322,6 +262,25 @@ export class DebugFab extends HTMLElement {
     if (fab) {
       fab.setAttribute('data-status', this.connectionStatus);
     }
+  }
+
+  private handleRegistryChange(event: RegistryChangeEvent): void {
+    this.eventToPanel = buildEventToPanel();
+    this.updateSubscriptions();
+  }
+
+  private updateSubscriptions(): void {
+    if (!this.stream) {
+      return;
+    }
+
+    const eventTypes = new Set<string>();
+    for (const panel of this.panels) {
+      for (const eventType of getPanelEventTypes(panel)) {
+        eventTypes.add(eventType);
+      }
+    }
+    this.stream.subscribe(Array.from(eventTypes));
   }
 
   private attachEventListeners(): void {
