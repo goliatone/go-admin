@@ -783,6 +783,18 @@ func debugAuthorizeRequest(admin *Admin, cfg DebugConfig, permission string, c r
 	return err
 }
 
+func debugResolvedPermission(cfg DebugConfig, permission string) string {
+	permission = strings.TrimSpace(permission)
+	if permission != "" {
+		return permission
+	}
+	return strings.TrimSpace(cfg.Permission)
+}
+
+func debugHasStandaloneIPAccess(cfg DebugConfig) bool {
+	return len(cfg.AllowedIPs) > 0
+}
+
 func debugAuthorizeRequestWithContext(admin *Admin, cfg DebugConfig, permission string, c router.Context) (AdminContext, error) {
 	if admin == nil || c == nil {
 		return AdminContext{}, ErrForbidden
@@ -796,11 +808,20 @@ func debugAuthorizeRequestWithContext(admin *Admin, cfg DebugConfig, permission 
 	}
 	adminCtx := admin.adminContextFromRequest(c, locale)
 	c.SetContext(adminCtx.Context)
-	if permission == "" {
-		permission = cfg.Permission
+	resolvedPermission := debugResolvedPermission(cfg, permission)
+	if admin.authorizer == nil && !debugHasStandaloneIPAccess(cfg) {
+		if resolvedPermission != "" {
+			return adminCtx, permissionDenied(resolvedPermission, debugModuleID)
+		}
+		return adminCtx, ErrForbidden
 	}
-	if err := admin.requirePermission(adminCtx, permission, debugModuleID); err != nil {
-		return adminCtx, err
+	if admin.authorizer != nil {
+		if err := requirePermissionWithAuthorizer(admin.authorizer, adminCtx.Context, resolvedPermission, debugModuleID); err != nil {
+			return adminCtx, err
+		}
+	}
+	if admin.authorizer == nil && debugHasStandaloneIPAccess(cfg) {
+		return adminCtx, nil
 	}
 	return adminCtx, nil
 }
