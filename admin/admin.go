@@ -41,6 +41,7 @@ type Admin struct {
 	authenticator                Authenticator
 	router                       AdminRouter
 	commandBus                   *CommandBus
+	commandRegistryInitialized   bool
 	validatePanelCommandWiring   bool
 	rpcServer                    *cmdrpc.Server
 	rpcCommandPolicyHook         RPCCommandPolicyHook
