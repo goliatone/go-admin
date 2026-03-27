@@ -33,6 +33,7 @@ import {
   INPUT_CHECKBOX,
   INPUT_SELECT,
   ROUNDED_CARD,
+  formatTranslationShortDateTime,
   getStatusSeverityClass,
   TEXT_TITLE,
   type BadgeSeverity,
@@ -139,18 +140,6 @@ const MUTED_PANEL_TIGHT = `${ROUNDED_CARD} border ${BORDER_DEFAULT} ${BG_MUTED} 
 const EMPTY_PANEL = `${ROUNDED_CARD} border ${BORDER_DEFAULT} ${BG_MUTED} px-6 py-10 text-center text-sm text-gray-600`;
 const METRIC_LABEL = "text-xs uppercase tracking-wider text-gray-500";
 const SURFACE_TITLE = `mt-2 text-2xl font-bold ${TEXT_TITLE}`;
-
-function formatDate(value?: string): string {
-  if (!value) return "Pending";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(date);
-}
 
 function toDataURL(contentType: string, value: string): string {
   const base64 =
@@ -1786,7 +1775,7 @@ export class TranslationExchangeManager {
                             ${job.fixture ? `<span class="${statusBadgeClass("warning")}">Fixture</span>` : ""}
                           </div>
                           <h3 class="mt-3 text-lg font-semibold text-gray-900">${escapeHTML(job.file?.name ?? job.id)}</h3>
-                          <p class="mt-1 text-sm text-gray-600">Actor ${escapeHTML(job.actor?.label ?? "system")} • ${escapeHTML(formatDate(job.created_at))}</p>
+                          <p class="mt-1 text-sm text-gray-600">Actor ${escapeHTML(job.actor?.label ?? "system")} • ${escapeHTML(formatTranslationShortDateTime(job.created_at, "Pending"))}</p>
                         </div>
                         <div class="text-sm text-gray-600">
                           <div>${escapeHTML(job.progress.processed)} / ${escapeHTML(job.progress.total ?? 0)} processed</div>
@@ -1805,7 +1794,7 @@ export class TranslationExchangeManager {
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 class="text-lg font-semibold text-gray-900">${escapeHTML(selected.file?.name ?? selected.id)}</h2>
-                      <p class="mt-1 text-sm text-gray-600">${escapeHTML(selected.kind.replace(/_/g, " "))} • ${escapeHTML(selected.status)} • ${escapeHTML(formatDate(selected.updated_at))}</p>
+                      <p class="mt-1 text-sm text-gray-600">${escapeHTML(selected.kind.replace(/_/g, " "))} • ${escapeHTML(selected.status)} • ${escapeHTML(formatTranslationShortDateTime(selected.updated_at, "Pending"))}</p>
                     </div>
                     <div class="flex flex-wrap gap-3">
                       <button class="${BTN_SECONDARY}" type="button" data-history-load-apply="all">Load in apply step</button>

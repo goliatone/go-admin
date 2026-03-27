@@ -1,4 +1,7 @@
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
+import { asNumberish as asNumber, asRecord, asString } from '../shared/coercion.js';
+import { normalizeNumberRecord, normalizeStringRecord } from '../shared/record-normalization.js';
+import { StatefulController } from '../shared/stateful-controller.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
@@ -214,48 +217,6 @@ export class TranslationDashboardRequestError extends Error {
   }
 }
 
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function asNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return fallback;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-}
-
-function asStringRecord(value: unknown): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [key, candidate] of Object.entries(asRecord(value))) {
-    const normalized = asString(candidate);
-    if (normalized) {
-      out[key] = normalized;
-    }
-  }
-  return out;
-}
-
-function asNumberRecord(value: unknown): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const [key, candidate] of Object.entries(asRecord(value))) {
-    out[key] = asNumber(candidate);
-  }
-  return out;
-}
-
 function asList<T>(value: unknown, map: (item: unknown) => T | null): T[] {
   if (!Array.isArray(value)) {
     return [];
@@ -292,8 +253,8 @@ export function normalizeTranslationDashboardLink(value: unknown): TranslationDa
     group: asString(raw.group),
     route: asString(raw.route),
     resolverKey: asString(raw.resolver_key),
-    params: asStringRecord(raw.params),
-    query: asStringRecord(raw.query),
+    params: normalizeStringRecord(raw.params, { omitEmptyValues: true }),
+    query: normalizeStringRecord(raw.query, { omitEmptyValues: true }),
     key: asString(raw.key),
     label: asString(raw.label),
     description: asString(raw.description),
@@ -334,7 +295,7 @@ export function normalizeTranslationDashboardCard(value: unknown): TranslationDa
     label: asString(raw.label),
     description: asString(raw.description),
     count: asNumber(raw.count),
-    breakdown: asNumberRecord(raw.breakdown),
+    breakdown: normalizeNumberRecord(raw.breakdown),
     alert: {
       state: normalizeAlertState(alert.state),
       message: asString(alert.message),
@@ -388,7 +349,7 @@ export function normalizeTranslationDashboardRunbook(value: unknown): Translatio
     route: asString(raw.route),
     resolverKey: asString(raw.resolver_key),
     href: asString(raw.href),
-    query: asStringRecord(raw.query),
+    query: normalizeStringRecord(raw.query, { omitEmptyValues: true }),
   };
 }
 
@@ -434,7 +395,7 @@ function normalizeTranslationDashboardContracts(value: unknown): TranslationDash
     cardIds: asList(raw.card_ids, (item) => asString(item) || null),
     tableIds: asList(raw.table_ids, (item) => asString(item) || null),
     alertStates: asList(raw.alert_states, (item) => normalizeAlertState(item)),
-    defaultLimits: asNumberRecord(raw.default_limits),
+    defaultLimits: normalizeNumberRecord(raw.default_limits),
     queryModels,
     runbooks: asList(raw.runbooks, normalizeTranslationDashboardRunbook),
   };
@@ -496,7 +457,7 @@ export function normalizeTranslationDashboardResponse(value: unknown): Translati
       tables,
       alerts: asList(data.alerts, normalizeTranslationDashboardAlert),
       runbooks: asList(data.runbooks, normalizeTranslationDashboardRunbook),
-      summary: asNumberRecord(data.summary),
+      summary: normalizeNumberRecord(data.summary),
     },
     meta: {
       channel: asString(meta.channel),
@@ -514,7 +475,7 @@ export function normalizeTranslationDashboardResponse(value: unknown): Translati
         return { component, message };
       }),
       familyReport: asRecord(meta.family_report),
-      scope: asStringRecord(meta.scope),
+      scope: normalizeStringRecord(meta.scope, { omitEmptyValues: true }),
       metrics: asList(meta.metrics, (item) => {
         const record = asRecord(item);
         const key = asString(record.key);
@@ -967,17 +928,17 @@ function renderLoadingState(): string {
   `;
 }
 
-export class TranslationDashboardPage {
+export class TranslationDashboardPage extends StatefulController<TranslationDashboardScreenState> {
   private config: TranslationDashboardPageConfig;
   private client: TranslationDashboardClient;
   private refreshController: TranslationDashboardRefreshController | null = null;
   private container: HTMLElement | null = null;
-  private state: TranslationDashboardScreenState = 'idle';
   private payload: TranslationDashboardResponse | null = null;
   private refreshing = false;
   private lastError: unknown = null;
 
   constructor(config: TranslationDashboardPageConfig) {
+    super('idle');
     this.config = {
       refreshInterval: 30000,
       title: 'Translation Dashboard',
@@ -1030,11 +991,6 @@ export class TranslationDashboardPage {
     this.refreshController = null;
     this.container = null;
   }
-
-  getState(): TranslationDashboardScreenState {
-    return this.state;
-  }
-
   getData(): TranslationDashboardResponse | null {
     return this.payload;
   }

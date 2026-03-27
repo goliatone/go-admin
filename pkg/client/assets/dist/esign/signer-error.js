@@ -1,4 +1,5 @@
-import { q as e, f as o } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { q as e } from "../chunks/dom-helpers-cltCUiC5.js";
+import { onReady as o } from "../shared/dom-ready.js";
 class i {
   constructor(t = {}) {
     this.config = t;
@@ -26,17 +27,17 @@ class i {
     window.location.reload();
   }
 }
-function c(r = {}) {
+function l(r = {}) {
   const t = new i(r);
   return o(() => t.init()), t;
 }
-function l(r = {}) {
+function d(r = {}) {
   const t = new i(r);
   o(() => t.init()), typeof window < "u" && (window.esignErrorController = t);
 }
 export {
   i as SignerErrorPageController,
-  l as bootstrapSignerErrorPage,
-  c as initSignerErrorPage
+  d as bootstrapSignerErrorPage,
+  l as initSignerErrorPage
 };
 //# sourceMappingURL=signer-error.js.map

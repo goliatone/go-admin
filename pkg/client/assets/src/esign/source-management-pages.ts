@@ -55,6 +55,54 @@ import type {
 } from './source-management-composition.js';
 
 import { validatePageComposition } from './source-management-composition.js';
+import { StatefulController } from '../shared/stateful-controller.js';
+
+type SourceManagementControllerConfig<TContracts> = {
+  apiBasePath: string;
+  onStateChange?: (state: SourceManagementPageState<TContracts>) => void;
+};
+
+type SourceManagementPageBootstrapOptions = {
+  pageId: string;
+  endpointFamily: string;
+  dependencies: string[];
+  label: string;
+  logWarnings?: boolean;
+};
+
+abstract class SourceManagementPageControllerBase<
+  TContracts,
+  TConfig extends SourceManagementControllerConfig<TContracts>,
+> extends StatefulController<SourceManagementPageState<TContracts>> {
+  protected readonly config: TConfig;
+  protected readonly metadata: SourceManagementPageMetadata;
+
+  protected constructor(config: TConfig, options: SourceManagementPageBootstrapOptions) {
+    super(
+      {
+        loading: false,
+        error: null,
+        contracts: null,
+      },
+      config.onStateChange
+    );
+    this.config = config;
+    this.metadata = {
+      pageId: options.pageId,
+      apiBasePath: config.apiBasePath,
+      endpointFamily: options.endpointFamily,
+      contractVersion: 1,
+    };
+
+    const validation = validatePageComposition(this.metadata, options.dependencies);
+    if (!validation.valid) {
+      console.error(`[${options.label}] Composition validation failed:`, validation.errors);
+    }
+    if (options.logWarnings && validation.warnings.length > 0) {
+      console.warn(`[${options.label}] Composition warnings:`, validation.warnings);
+    }
+  }
+}
 
 // ============================================================================
 // HTTP Client Abstraction
@@ -400,34 +448,18 @@ export interface SourceBrowserPageConfig {
  * Source Browser Page Controller.
  * Manages URL state, data fetching, and page lifecycle for source list.
  */
-export class SourceBrowserPageController {
-  private readonly config: SourceBrowserPageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<SourceBrowserPageContracts>;
-
+export class SourceBrowserPageController extends SourceManagementPageControllerBase<
+  SourceBrowserPageContracts,
+  SourceBrowserPageConfig
+> {
   constructor(config: SourceBrowserPageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'source-browser',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'sources',
-      contractVersion: 1,
-    };
-
-    // Validate composition
-    const validation = validatePageComposition(this.metadata, ['sources']);
-    if (!validation.valid) {
-      console.error('[SourceBrowserPage] Composition validation failed:', validation.errors);
-    }
-    if (validation.warnings.length > 0) {
-      console.warn('[SourceBrowserPage] Composition warnings:', validation.warnings);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['sources'],
+      label: 'SourceBrowserPage',
+      logWarnings: true,
+    });
   }
 
   /**
@@ -486,23 +518,6 @@ export class SourceBrowserPageController {
     updateQueryParams(buildSourceListQueryParamUpdates(newQuery));
     await this.fetchSources(newQuery);
   }
-
-  /**
-   * Get current page state.
-   */
-  getState(): SourceManagementPageState<SourceBrowserPageContracts> {
-    return this.state;
-  }
-
-  /**
-   * Update page state and trigger callbacks.
-   */
-  private setState(state: SourceManagementPageState<SourceBrowserPageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
-  }
 }
 
 /**
@@ -541,31 +556,17 @@ export interface SourceDetailPageConfig {
  * Source Detail Page Controller.
  * Manages data fetching and page lifecycle for source detail.
  */
-export class SourceDetailPageController {
-  private readonly config: SourceDetailPageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<SourceDetailPageContracts>;
-
+export class SourceDetailPageController extends SourceManagementPageControllerBase<
+  SourceDetailPageContracts,
+  SourceDetailPageConfig
+> {
   constructor(config: SourceDetailPageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'source-detail',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'sources/:id',
-      contractVersion: 1,
-    };
-
-    // Validate composition
-    const validation = validatePageComposition(this.metadata, ['sources/:id']);
-    if (!validation.valid) {
-      console.error('[SourceDetailPage] Composition validation failed:', validation.errors);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['sources/:id'],
+      label: 'SourceDetailPage',
+    });
   }
 
   /**
@@ -607,23 +608,6 @@ export class SourceDetailPageController {
   async refresh(): Promise<void> {
     await this.fetchSource();
   }
-
-  /**
-   * Get current page state.
-   */
-  getState(): SourceManagementPageState<SourceDetailPageContracts> {
-    return this.state;
-  }
-
-  /**
-   * Update page state and trigger callbacks.
-   */
-  private setState(state: SourceManagementPageState<SourceDetailPageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
-  }
 }
 
 /**
@@ -651,30 +635,17 @@ export interface SourceWorkspacePageConfig {
   onStateChange?: (state: SourceManagementPageState<SourceWorkspacePageContracts>) => void;
 }
 
-export class SourceWorkspacePageController {
-  private readonly config: SourceWorkspacePageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<SourceWorkspacePageContracts>;
-
+export class SourceWorkspacePageController extends SourceManagementPageControllerBase<
+  SourceWorkspacePageContracts,
+  SourceWorkspacePageConfig
+> {
   constructor(config: SourceWorkspacePageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'source-workspace',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'sources/:id/workspace',
-      contractVersion: 1,
-    };
-
-    const validation = validatePageComposition(this.metadata, ['sources/:id/workspace']);
-    if (!validation.valid) {
-      console.error('[SourceWorkspacePage] Composition validation failed:', validation.errors);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['sources/:id/workspace'],
+      label: 'SourceWorkspacePage',
+    });
   }
 
   async init(): Promise<void> {
@@ -729,17 +700,6 @@ export class SourceWorkspacePageController {
     updateQueryParams(buildSourceWorkspaceQueryParamUpdates(query));
     await this.fetchWorkspace(query);
   }
-
-  getState(): SourceManagementPageState<SourceWorkspacePageContracts> {
-    return this.state;
-  }
-
-  private setState(state: SourceManagementPageState<SourceWorkspacePageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
-  }
 }
 
 export function bootstrapSourceWorkspacePage(
@@ -776,31 +736,17 @@ export interface SourceRevisionTimelinePageConfig {
  * Source Revision Timeline Page Controller.
  * Manages URL state, data fetching, and page lifecycle for revision timeline.
  */
-export class SourceRevisionTimelinePageController {
-  private readonly config: SourceRevisionTimelinePageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<SourceRevisionTimelinePageContracts>;
-
+export class SourceRevisionTimelinePageController extends SourceManagementPageControllerBase<
+  SourceRevisionTimelinePageContracts,
+  SourceRevisionTimelinePageConfig
+> {
   constructor(config: SourceRevisionTimelinePageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'source-revision-timeline',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'sources/:id/revisions',
-      contractVersion: 1,
-    };
-
-    // Validate composition
-    const validation = validatePageComposition(this.metadata, ['sources/:id/revisions']);
-    if (!validation.valid) {
-      console.error('[SourceRevisionTimelinePage] Composition validation failed:', validation.errors);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['sources/:id/revisions'],
+      label: 'SourceRevisionTimelinePage',
+    });
   }
 
   /**
@@ -859,23 +805,6 @@ export class SourceRevisionTimelinePageController {
     updateQueryParams({ sort, page: 1 });
     await this.fetchRevisions(newQuery);
   }
-
-  /**
-   * Get current page state.
-   */
-  getState(): SourceManagementPageState<SourceRevisionTimelinePageContracts> {
-    return this.state;
-  }
-
-  /**
-   * Update page state and trigger callbacks.
-   */
-  private setState(state: SourceManagementPageState<SourceRevisionTimelinePageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
-  }
 }
 
 /**
@@ -903,30 +832,17 @@ export interface SourceRevisionInspectorPageConfig {
   onStateChange?: (state: SourceManagementPageState<SourceRevisionDetailPageContracts>) => void;
 }
 
-export class SourceRevisionInspectorPageController {
-  private readonly config: SourceRevisionInspectorPageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<SourceRevisionDetailPageContracts>;
-
+export class SourceRevisionInspectorPageController extends SourceManagementPageControllerBase<
+  SourceRevisionDetailPageContracts,
+  SourceRevisionInspectorPageConfig
+> {
   constructor(config: SourceRevisionInspectorPageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'source-revision-inspector',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'source-revisions/:id',
-      contractVersion: 1,
-    };
-
-    const validation = validatePageComposition(this.metadata, ['source-revisions/:id']);
-    if (!validation.valid) {
-      console.error('[SourceRevisionInspectorPage] Composition validation failed:', validation.errors);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['source-revisions/:id'],
+      label: 'SourceRevisionInspectorPage',
+    });
   }
 
   async init(): Promise<void> {
@@ -959,17 +875,6 @@ export class SourceRevisionInspectorPageController {
   async refresh(): Promise<void> {
     await this.fetchRevision();
   }
-
-  getState(): SourceManagementPageState<SourceRevisionDetailPageContracts> {
-    return this.state;
-  }
-
-  private setState(state: SourceManagementPageState<SourceRevisionDetailPageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
-  }
 }
 
 export function bootstrapSourceRevisionInspectorPage(
@@ -994,30 +899,17 @@ export interface SourceCommentInspectorPageConfig {
   onStateChange?: (state: SourceManagementPageState<SourceCommentInspectorPageContracts>) => void;
 }
 
-export class SourceCommentInspectorPageController {
-  private readonly config: SourceCommentInspectorPageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<SourceCommentInspectorPageContracts>;
-
+export class SourceCommentInspectorPageController extends SourceManagementPageControllerBase<
+  SourceCommentInspectorPageContracts,
+  SourceCommentInspectorPageConfig
+> {
   constructor(config: SourceCommentInspectorPageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'source-comment-inspector',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'source-revisions/:id/comments',
-      contractVersion: 1,
-    };
-
-    const validation = validatePageComposition(this.metadata, ['source-revisions/:id/comments']);
-    if (!validation.valid) {
-      console.error('[SourceCommentInspectorPage] Composition validation failed:', validation.errors);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['source-revisions/:id/comments'],
+      label: 'SourceCommentInspectorPage',
+    });
   }
 
   async init(): Promise<void> {
@@ -1062,17 +954,6 @@ export class SourceCommentInspectorPageController {
     const query = extractSourceCommentListQuery(parseQueryParams());
     await this.fetchComments(query);
   }
-
-  getState(): SourceManagementPageState<SourceCommentInspectorPageContracts> {
-    return this.state;
-  }
-
-  private setState(state: SourceManagementPageState<SourceCommentInspectorPageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
-  }
 }
 
 export function bootstrapSourceCommentInspectorPage(
@@ -1096,30 +977,17 @@ export interface SourceArtifactInspectorPageConfig {
   onStateChange?: (state: SourceManagementPageState<SourceArtifactInspectorPageContracts>) => void;
 }
 
-export class SourceArtifactInspectorPageController {
-  private readonly config: SourceArtifactInspectorPageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<SourceArtifactInspectorPageContracts>;
-
+export class SourceArtifactInspectorPageController extends SourceManagementPageControllerBase<
+  SourceArtifactInspectorPageContracts,
+  SourceArtifactInspectorPageConfig
+> {
   constructor(config: SourceArtifactInspectorPageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'source-artifact-inspector',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'source-revisions/:id/artifacts',
-      contractVersion: 1,
-    };
-
-    const validation = validatePageComposition(this.metadata, ['source-revisions/:id/artifacts']);
-    if (!validation.valid) {
-      console.error('[SourceArtifactInspectorPage] Composition validation failed:', validation.errors);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['source-revisions/:id/artifacts'],
+      label: 'SourceArtifactInspectorPage',
+    });
   }
 
   async init(): Promise<void> {
@@ -1151,17 +1019,6 @@ export class SourceArtifactInspectorPageController {
   async refresh(): Promise<void> {
     await this.fetchArtifacts();
   }
-
-  getState(): SourceManagementPageState<SourceArtifactInspectorPageContracts> {
-    return this.state;
-  }
-
-  private setState(state: SourceManagementPageState<SourceArtifactInspectorPageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
-  }
 }
 
 export function bootstrapSourceArtifactInspectorPage(
@@ -1185,30 +1042,17 @@ export interface SourceSearchPageConfig {
   onStateChange?: (state: SourceManagementPageState<SourceSearchPageContracts>) => void;
 }
 
-export class SourceSearchPageController {
-  private readonly config: SourceSearchPageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<SourceSearchPageContracts>;
-
+export class SourceSearchPageController extends SourceManagementPageControllerBase<
+  SourceSearchPageContracts,
+  SourceSearchPageConfig
+> {
   constructor(config: SourceSearchPageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'source-search',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'source-search',
-      contractVersion: 1,
-    };
-
-    const validation = validatePageComposition(this.metadata, ['source-search']);
-    if (!validation.valid) {
-      console.error('[SourceSearchPage] Composition validation failed:', validation.errors);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['source-search'],
+      label: 'SourceSearchPage',
+    });
   }
 
   async init(): Promise<void> {
@@ -1259,17 +1103,6 @@ export class SourceSearchPageController {
     const query = this.state.contracts?.query ?? extractSourceSearchQuery(parseQueryParams());
     await this.search(query);
   }
-
-  getState(): SourceManagementPageState<SourceSearchPageContracts> {
-    return this.state;
-  }
-
-  private setState(state: SourceManagementPageState<SourceSearchPageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
-  }
 }
 
 export function bootstrapSourceSearchPage(
@@ -1309,33 +1142,18 @@ export interface ReconciliationQueuePageConfig {
  *
  * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6
  */
-export class ReconciliationQueuePageController {
-  private readonly config: ReconciliationQueuePageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<ReconciliationQueuePageContracts>;
-
+export class ReconciliationQueuePageController extends SourceManagementPageControllerBase<
+  ReconciliationQueuePageContracts,
+  ReconciliationQueuePageConfig
+> {
   constructor(config: ReconciliationQueuePageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'reconciliation-queue',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'reconciliation-queue',
-      contractVersion: 1,
-    };
-
-    const validation = validatePageComposition(this.metadata, ['reconciliation-queue']);
-    if (!validation.valid) {
-      console.error('[ReconciliationQueuePage] Composition validation failed:', validation.errors);
-    }
-    if (validation.warnings.length > 0) {
-      console.warn('[ReconciliationQueuePage] Composition warnings:', validation.warnings);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['reconciliation-queue'],
+      label: 'ReconciliationQueuePage',
+      logWarnings: true,
+    });
   }
 
   /**
@@ -1412,23 +1230,6 @@ export class ReconciliationQueuePageController {
     const query = this.state.contracts?.query ?? extractReconciliationQueueQuery(parseQueryParams());
     await this.fetchQueue(query);
   }
-
-  /**
-   * Get current page state.
-   */
-  getState(): SourceManagementPageState<ReconciliationQueuePageContracts> {
-    return this.state;
-  }
-
-  /**
-   * Update page state and trigger callbacks.
-   */
-  private setState(state: SourceManagementPageState<ReconciliationQueuePageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
-  }
 }
 
 /**
@@ -1476,31 +1277,19 @@ export interface ReconciliationCandidateDetailPageConfig {
  *
  * @see DOC_LINEAGE_V2_TSK.md Phase 17 Task 17.6, 17.7
  */
-export class ReconciliationCandidateDetailPageController {
-  private readonly config: ReconciliationCandidateDetailPageConfig;
-  private readonly metadata: SourceManagementPageMetadata;
-  private state: SourceManagementPageState<ReconciliationCandidateDetailPageContracts>;
+export class ReconciliationCandidateDetailPageController extends SourceManagementPageControllerBase<
+  ReconciliationCandidateDetailPageContracts,
+  ReconciliationCandidateDetailPageConfig
+> {
   private reviewInProgress: boolean = false;
 
   constructor(config: ReconciliationCandidateDetailPageConfig) {
-    this.config = config;
-    this.metadata = {
+    super(config, {
       pageId: 'reconciliation-candidate-detail',
-      apiBasePath: config.apiBasePath,
       endpointFamily: 'reconciliation-queue/:id',
-      contractVersion: 1,
-    };
-
-    const validation = validatePageComposition(this.metadata, ['reconciliation-queue/:id']);
-    if (!validation.valid) {
-      console.error('[ReconciliationCandidateDetailPage] Composition validation failed:', validation.errors);
-    }
-
-    this.state = {
-      loading: false,
-      error: null,
-      contracts: null,
-    };
+      dependencies: ['reconciliation-queue/:id'],
+      label: 'ReconciliationCandidateDetailPage',
+    });
   }
 
   /**
@@ -1602,23 +1391,6 @@ export class ReconciliationCandidateDetailPageController {
    */
   isReviewInProgress(): boolean {
     return this.reviewInProgress;
-  }
-
-  /**
-   * Get current page state.
-   */
-  getState(): SourceManagementPageState<ReconciliationCandidateDetailPageContracts> {
-    return this.state;
-  }
-
-  /**
-   * Update page state and trigger callbacks.
-   */
-  private setState(state: SourceManagementPageState<ReconciliationCandidateDetailPageContracts>): void {
-    this.state = state;
-    if (this.config.onStateChange) {
-      this.config.onStateChange(state);
-    }
   }
 }
 

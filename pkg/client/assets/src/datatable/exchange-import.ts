@@ -19,6 +19,7 @@ import type {
 import { renderVocabularyStatusBadge, getStatusCssClass } from './translation-status-vocabulary.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { escapeAttribute as escapeAttr } from '../shared/html.js';
+import { StatefulController } from '../shared/stateful-controller.js';
 
 // ============================================================================
 // Types
@@ -175,10 +176,9 @@ interface ResolvedExchangeImportConfig {
 /**
  * Exchange Import component
  */
-export class ExchangeImport {
+export class ExchangeImport extends StatefulController<ImportPreviewState> {
   private config: ResolvedExchangeImportConfig;
   private container: HTMLElement | null = null;
-  private state: ImportPreviewState = 'idle';
   private validationResult: ExchangeImportResult | null = null;
   private previewRows: ImportPreviewRow[] = [];
   private selection: RowSelectionState = {
@@ -197,6 +197,7 @@ export class ExchangeImport {
   private rawData: string = '';
 
   constructor(config: ExchangeImportConfig) {
+    super('idle');
     const labels = { ...DEFAULT_LABELS, ...(config.labels || {}) };
     this.config = {
       validateEndpoint: config.validateEndpoint,
@@ -225,13 +226,6 @@ export class ExchangeImport {
       this.container.innerHTML = '';
     }
     this.container = null;
-  }
-
-  /**
-   * Get current state
-   */
-  getState(): ImportPreviewState {
-    return this.state;
   }
 
   /**

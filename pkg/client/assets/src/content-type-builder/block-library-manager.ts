@@ -18,10 +18,12 @@ import { FieldTypePicker, FIELD_TYPES } from './field-type-picker';
 import { FieldConfigForm } from './field-config-form';
 import { fieldsToBlockSchema, schemaToFields, generateFieldId } from './api-client';
 import { badge } from '../shared/badge';
+import { onReady } from '../shared/dom-ready.js';
 import { Modal, ConfirmModal, TextPromptModal } from '../shared/modal.js';
 import { inputClasses, selectClasses, textareaClasses, labelClasses } from './shared/field-input-classes';
 import { renderIconTrigger, bindIconTriggerEvents, resolveIcon } from './shared/icon-picker';
 import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
+import { formatContentTypeDate } from './shared/date-formatters';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
@@ -1076,7 +1078,7 @@ class BlockVersionHistoryViewer extends Modal {
                 ${version.is_breaking ? badge('Breaking', 'status', 'breaking') : ''}
                 ${this.getMigrationBadge(version.migration_status)}
               </div>
-              <span class="text-xs text-gray-500 dark:text-gray-400">${formatDate(version.created_at)}</span>
+              <span class="text-xs text-gray-500 dark:text-gray-400">${formatContentTypeDate(version.created_at)}</span>
             </div>
             ${
               version.migration_status && version.total_count
@@ -1123,15 +1125,6 @@ function titleCase(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
-function formatDate(dateStr: string): string {
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return dateStr;
-  }
-}
-
 // =============================================================================
 // Auto-initialization
 // =============================================================================
@@ -1166,14 +1159,6 @@ export function initBlockLibraryManagers(scope: ParentNode = document): void {
 
     trigger.dataset.initialized = 'true';
   });
-}
-
-function onReady(fn: () => void): void {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn, { once: true });
-  } else {
-    fn();
-  }
 }
 
 onReady(() => initBlockLibraryManagers());

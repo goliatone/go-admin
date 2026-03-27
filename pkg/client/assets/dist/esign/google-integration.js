@@ -1,7 +1,8 @@
-import { f as _, b as r, s as m, h as u } from "../chunks/dom-helpers-CMRVXsMj.js";
-import { s as w, a as f } from "../chunks/page-feedback-XrK1vdW2.js";
+import { b as r, s as m, h as u } from "../chunks/dom-helpers-cltCUiC5.js";
+import { s as w, a as f } from "../chunks/page-feedback-CVdtgsKH.js";
 import { r as k, p as I, s as L, u as E, q as O } from "../chunks/google-drive-utils-_iSuaPZh.js";
 import { escapeHTML as C } from "../shared/html.js";
+import { onReady as _ } from "../shared/dom-ready.js";
 const D = {
   "https://www.googleapis.com/auth/drive.readonly": {
     label: "Drive (Read Only)",
@@ -747,7 +748,7 @@ class S {
     }
   }
 }
-function G(a) {
+function M(a) {
   const e = new S(a);
   return _(() => e.init()), e;
 }
@@ -797,6 +798,6 @@ typeof document < "u" && _(() => {
 export {
   S as GoogleIntegrationController,
   R as bootstrapGoogleIntegration,
-  G as initGoogleIntegration
+  M as initGoogleIntegration
 };
 //# sourceMappingURL=google-integration.js.map

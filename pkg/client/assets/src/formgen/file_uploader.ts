@@ -1,3 +1,5 @@
+import { onReady } from '../shared/dom-ready.js';
+
 type FileUploaderConfig = {
   uploadEndpoint?: string;
   allowedTypes?: string[];
@@ -222,13 +224,4 @@ export function initFileUploaders(scope: ParentNode = document): void {
   roots.forEach((root) => initUploader(root));
 }
 
-function onReady(fn: () => void): void {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn, { once: true });
-  } else {
-    fn();
-  }
-}
-
 onReady(() => initFileUploaders());
-

@@ -10,6 +10,7 @@ import { createCapabilityGate, renderDisabledReasonBadge } from './capability-ga
 import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { escapeAttribute as escapeAttr } from '../shared/html.js';
+import { StatefulController } from '../shared/stateful-controller.js';
 
 // ============================================================================
 // Types
@@ -278,10 +279,9 @@ export const DEFAULT_FILTER_PRESETS: FilterPreset[] = [
 /**
  * Translator Dashboard component
  */
-export class TranslatorDashboard {
+export class TranslatorDashboard extends StatefulController<DashboardState> {
   private config: ResolvedDashboardConfig;
   private container: HTMLElement | null = null;
-  private state: DashboardState = 'loading';
   private gateResult: GateResult | null = null;
   private data: MyWorkResponse | null = null;
   private error: Error | null = null;
@@ -289,6 +289,7 @@ export class TranslatorDashboard {
   private refreshTimer: number | null = null;
 
   constructor(config: TranslatorDashboardConfig) {
+    super('loading');
     this.config = {
       myWorkEndpoint: config.myWorkEndpoint,
       queueEndpoint: config.queueEndpoint || '',
@@ -362,13 +363,6 @@ export class TranslatorDashboard {
   setActivePreset(presetId: string): void {
     this.activePreset = presetId;
     this.loadData();
-  }
-
-  /**
-   * Get current state
-   */
-  getState(): DashboardState {
-    return this.state;
   }
 
   /**

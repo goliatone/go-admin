@@ -2,6 +2,14 @@ import {
   normalizeTranslationActionState,
   type TranslationActionState,
 } from '../translation-contracts/index.js';
+import {
+  asBoolean,
+  asNumberish as asNumber,
+  asRecord,
+  asString,
+  asUniqueStringArray as asStringArray,
+} from '../shared/coercion.js';
+import { StatefulController } from '../shared/stateful-controller.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
@@ -253,47 +261,6 @@ export interface TranslationMatrixPageConfig {
 }
 
 export type TranslationMatrixPageState = 'loading' | 'ready' | 'empty' | 'error';
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function asBoolean(value: unknown): boolean {
-  return value === true;
-}
-
-function asNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return fallback;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  const out: string[] = [];
-  for (const item of value) {
-    const normalized = asString(item);
-    if (normalized && !out.includes(normalized)) {
-      out.push(normalized);
-    }
-  }
-  return out;
-}
 
 function asObjectArray(value: unknown): Record<string, unknown>[] {
   if (!Array.isArray(value)) {
@@ -1178,12 +1145,11 @@ function renderMatrixPage(
   `;
 }
 
-export class TranslationMatrixPage {
+export class TranslationMatrixPage extends StatefulController<TranslationMatrixPageState> {
   private config: TranslationMatrixPageConfig;
   private client: TranslationMatrixClient;
   private root: HTMLElement | null = null;
   private payload: TranslationMatrixResponse | null = null;
-  private state: TranslationMatrixPageState = 'loading';
   private error: unknown = null;
   private query: TranslationMatrixQuery;
   private selection: TranslationMatrixSelectionState = createTranslationMatrixSelectionState();
@@ -1191,6 +1157,7 @@ export class TranslationMatrixPage {
   private working = false;
 
   constructor(config: TranslationMatrixPageConfig) {
+    super('loading');
     const basePath = resolveMatrixBasePath(config.basePath || '', config.endpoint);
     this.config = {
       ...config,
@@ -1219,11 +1186,6 @@ export class TranslationMatrixPage {
     this.root.removeEventListener('keydown', this.handleKeydown);
     this.root = null;
   }
-
-  getState(): TranslationMatrixPageState {
-    return this.state;
-  }
-
   async refresh(): Promise<void> {
     await this.load();
   }

@@ -1,3 +1,13 @@
+import {
+  asBoolean,
+  asNumber,
+  asOptionalNumber,
+  asOptionalString,
+  asRecord,
+  asString,
+  asStringArray,
+} from '../shared/coercion.js';
+
 export interface SourceMetadataBaseline {
   account_id: string;
   external_file_id: string;
@@ -327,35 +337,6 @@ export interface GoogleImportRedirectRoutes {
   documents: string;
   fallback: string;
   agreements?: string;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? value as Record<string, unknown> : {};
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function asOptionalString(value: unknown): string | undefined {
-  const normalized = asString(value);
-  return normalized || undefined;
-}
-
-function asNumber(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
-function asOptionalNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
-}
-
-function asBoolean(value: unknown): boolean {
-  return value === true;
-}
-
-function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.map((item) => asString(item)).filter(Boolean) : [];
 }
 
 function asOptionalRecord(value: unknown): Record<string, unknown> | undefined {

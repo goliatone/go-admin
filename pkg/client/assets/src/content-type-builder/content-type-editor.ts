@@ -35,6 +35,7 @@ import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './sha
 import { renderEntityHeader } from './shared/entity-header';
 import { renderFieldCard as renderFieldCardShared, renderFieldKebab, renderDropZone } from './shared/field-card';
 import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
+import { formatContentTypeDate } from './shared/date-formatters';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
@@ -2360,15 +2361,6 @@ function titleCase(str: string): string {
     .join(' ');
 }
 
-function formatDate(dateStr: string): string {
-  try {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  } catch {
-    return dateStr;
-  }
-}
-
 // =============================================================================
 // Publish Confirmation Modal
 // =============================================================================
@@ -2807,7 +2799,7 @@ class ContentTypeVersionHistoryViewer extends Modal {
             </div>
           </div>
           <div class="flex items-center gap-3">
-            <span class="text-xs text-gray-500 dark:text-gray-400">${formatDate(version.created_at)}</span>
+            <span class="text-xs text-gray-500 dark:text-gray-400">${formatContentTypeDate(version.created_at)}</span>
             ${hasChanges ? `
               <button
                 type="button"

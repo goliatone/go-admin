@@ -3,6 +3,10 @@
  * Utilities for DOM manipulation, element selection, and event handling
  */
 
+import { onReady } from '../../shared/dom-ready.js';
+
+export { onReady };
+
 /**
  * Safely query selector that returns null instead of throwing
  */
@@ -101,17 +105,6 @@ export function delegate<K extends keyof HTMLElementEventMap>(
 
   parent.addEventListener(event, delegatedHandler, options);
   return () => parent.removeEventListener(event, delegatedHandler, options);
-}
-
-/**
- * Run callback when DOM is ready
- */
-export function onReady(callback: () => void): void {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', callback, { once: true });
-  } else {
-    callback();
-  }
 }
 
 /**

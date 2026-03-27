@@ -1,5 +1,6 @@
-import { g as u, h as f } from "./lineage-contracts-CFbDklQS.js";
-import { f as l, u as c, j as m } from "./dom-helpers-CMRVXsMj.js";
+import { g as u, h as f } from "./lineage-contracts-BR7-TggW.js";
+import { u as c, i as m } from "./dom-helpers-cltCUiC5.js";
+import { onReady as l } from "../shared/dom-ready.js";
 class S {
   constructor(t) {
     this.basePath = t.basePath, this.apiBasePath = t.apiBasePath || `${t.basePath}/api`, this.defaultHeaders = {
@@ -18,9 +19,9 @@ class S {
   async getAgreementStats() {
     const t = [];
     let e = 1;
-    const a = 200, i = 25;
+    const n = 200, i = 25;
     for (; e <= i; ) {
-      const r = await this.listAgreements({ page: e, per_page: a }), o = r.items || r.records || [];
+      const r = await this.listAgreements({ page: e, per_page: n }), o = r.items || r.records || [];
       if (t.push(...o), o.length === 0 || t.length >= r.total)
         break;
       e += 1;
@@ -71,20 +72,20 @@ class S {
     return this.handleResponse(e);
   }
   async post(t, e) {
-    const a = await fetch(`${this.apiBasePath}${t}`, {
+    const n = await fetch(`${this.apiBasePath}${t}`, {
       method: "POST",
       headers: this.defaultHeaders,
       body: e ? JSON.stringify(e) : void 0
     });
-    return this.handleResponse(a);
+    return this.handleResponse(n);
   }
   async put(t, e) {
-    const a = await fetch(`${this.apiBasePath}${t}`, {
+    const n = await fetch(`${this.apiBasePath}${t}`, {
       method: "PUT",
       headers: this.defaultHeaders,
       body: JSON.stringify(e)
     });
-    return this.handleResponse(a);
+    return this.handleResponse(n);
   }
   async delete(t) {
     const e = await fetch(`${this.apiBasePath}${t}`, {
@@ -114,21 +115,21 @@ class S {
   }
 }
 class P extends Error {
-  constructor(t, e, a) {
-    super(e), this.code = t, this.details = a, this.name = "ESignAPIError";
+  constructor(t, e, n) {
+    super(e), this.code = t, this.details = n, this.name = "ESignAPIError";
   }
 }
 let d = null;
-function C() {
+function $() {
   if (!d)
     throw new Error("ESign API client not initialized. Call setESignClient first.");
   return d;
 }
-function w(n) {
-  d = n;
+function w(a) {
+  d = a;
 }
-function y(n) {
-  const t = new S(n);
+function y(a) {
+  const t = new S(a);
   return w(t), t;
 }
 class p {
@@ -159,12 +160,12 @@ class p {
    * Update a stat element by key
    */
   updateStatElement(t, e) {
-    const a = document.querySelector(`[data-esign-count="${t}"]`);
-    a && (a.textContent = String(e));
+    const n = document.querySelector(`[data-esign-count="${t}"]`);
+    n && (n.textContent = String(e));
   }
 }
-function $(n) {
-  const t = n || m(
+function b(a) {
+  const t = a || m(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
   if (!t)
@@ -172,19 +173,19 @@ function $(n) {
   const e = new p(t);
   return l(() => e.init()), e;
 }
-function b(n, t) {
+function A(a, t) {
   const e = {
-    basePath: n,
-    apiBasePath: t || `${n}/api`
-  }, a = new p(e);
-  l(() => a.init());
+    basePath: a,
+    apiBasePath: t || `${a}/api`
+  }, n = new p(e);
+  l(() => n.init());
 }
 typeof document < "u" && l(() => {
-  const n = document.querySelector(
+  const a = document.querySelector(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
-  if (n) {
-    const t = document.getElementById("esign-page-config"), e = n.getAttribute("data-esign-config"), a = (() => {
+  if (a) {
+    const t = document.getElementById("esign-page-config"), e = a.getAttribute("data-esign-config"), n = (() => {
       if (t?.textContent)
         try {
           return JSON.parse(t.textContent);
@@ -199,9 +200,9 @@ typeof document < "u" && l(() => {
         }
       return null;
     })();
-    if (a) {
-      const i = String(a.basePath || a.base_path || "/admin"), s = String(
-        a.apiBasePath || a.api_base_path || `${i}/api`
+    if (n) {
+      const i = String(n.basePath || n.base_path || "/admin"), s = String(
+        n.apiBasePath || n.api_base_path || `${i}/api`
       );
       new p({ basePath: i, apiBasePath: s }).init();
     }
@@ -211,10 +212,10 @@ export {
   S as E,
   p as L,
   P as a,
-  b,
+  A as b,
   y as c,
-  C as g,
-  $ as i,
+  $ as g,
+  b as i,
   w as s
 };
-//# sourceMappingURL=admin-landing-D7TTGyDX.js.map
+//# sourceMappingURL=admin-landing-DpIB0ZmI.js.map

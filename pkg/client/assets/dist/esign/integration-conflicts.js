@@ -1,7 +1,8 @@
-import { b as n, h as u, s as g, f as k } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as n, h as u, s as g } from "../chunks/dom-helpers-cltCUiC5.js";
 import { i as w } from "../chunks/formatters-Bx8onLEN.js";
-import { a as $, s as L } from "../chunks/page-feedback-XrK1vdW2.js";
+import { a as $, s as L } from "../chunks/page-feedback-CVdtgsKH.js";
 import { escapeHTML as b } from "../shared/html.js";
+import { onReady as k } from "../shared/dom-ready.js";
 class P {
   constructor(e) {
     this.conflicts = [], this.currentConflictId = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.conflictsEndpoint = `${this.apiBase}/esign/integrations/conflicts`, this.elements = {
@@ -69,14 +70,14 @@ class P {
       cancelResolveBtn: s,
       resolveForm: f,
       conflictDetailModal: h,
-      resolveModal: v
+      resolveModal: p
     } = this.elements;
     e?.addEventListener("click", () => this.loadConflicts()), t?.addEventListener("click", () => this.loadConflicts()), i?.addEventListener("click", () => this.closeConflictDetail()), o?.addEventListener("change", () => this.loadConflicts()), a?.addEventListener("change", () => this.renderConflicts()), l?.addEventListener("change", () => this.renderConflicts()), r?.addEventListener("click", () => this.openResolveModal("resolved")), c?.addEventListener("click", () => this.openResolveModal("ignored")), s?.addEventListener("click", () => this.closeResolveModal()), f?.addEventListener("submit", (d) => this.submitResolution(d)), document.addEventListener("keydown", (d) => {
-      d.key === "Escape" && (v && !v.classList.contains("hidden") ? this.closeResolveModal() : h && !h.classList.contains("hidden") && this.closeConflictDetail());
-    }), [h, v].forEach((d) => {
+      d.key === "Escape" && (p && !p.classList.contains("hidden") ? this.closeResolveModal() : h && !h.classList.contains("hidden") && this.closeConflictDetail());
+    }), [h, p].forEach((d) => {
       d?.addEventListener("click", (x) => {
         const m = x.target;
-        (m === d || m.getAttribute("aria-hidden") === "true") && (d === h ? this.closeConflictDetail() : d === v && this.closeResolveModal());
+        (m === d || m.getAttribute("aria-hidden") === "true") && (d === h ? this.closeConflictDetail() : d === p && this.closeResolveModal());
       });
     });
   }
@@ -230,7 +231,7 @@ class P {
       detailInternalId: s,
       detailBindingId: f,
       detailConflictId: h,
-      detailRunId: v,
+      detailRunId: p,
       detailCreatedAt: d,
       detailVersion: x,
       detailPayload: m,
@@ -240,7 +241,7 @@ class P {
       detailResolvedBy: R,
       detailResolution: C
     } = this.elements;
-    if (o && (o.textContent = t.reason || "Data conflict"), a && (a.textContent = t.entity_kind || "-"), l && (l.innerHTML = this.getStatusBadge(t.status)), r && (r.textContent = t.provider || "-"), c && (c.textContent = t.external_id || "-"), s && (s.textContent = t.internal_id || "-"), f && (f.textContent = t.binding_id || "-"), h && (h.textContent = t.id), v && (v.textContent = t.run_id || "-"), d && (d.textContent = w(t.created_at)), x && (x.textContent = String(t.version || 1)), m)
+    if (o && (o.textContent = t.reason || "Data conflict"), a && (a.textContent = t.entity_kind || "-"), l && (l.innerHTML = this.getStatusBadge(t.status)), r && (r.textContent = t.provider || "-"), c && (c.textContent = t.external_id || "-"), s && (s.textContent = t.internal_id || "-"), f && (f.textContent = t.binding_id || "-"), h && (h.textContent = t.id), p && (p.textContent = t.run_id || "-"), d && (d.textContent = w(t.created_at)), x && (x.textContent = String(t.version || 1)), m)
       try {
         const y = t.payload_json ? JSON.parse(t.payload_json) : t.payload || {};
         m.textContent = JSON.stringify(y, null, 2);
@@ -326,20 +327,20 @@ class P {
     }
   }
 }
-function j(p) {
-  const e = new P(p);
+function T(v) {
+  const e = new P(v);
   return k(() => e.init()), e;
 }
-function T(p) {
+function A(v) {
   const e = {
-    basePath: p.basePath,
-    apiBasePath: p.apiBasePath || `${p.basePath}/api`
+    basePath: v.basePath,
+    apiBasePath: v.apiBasePath || `${v.basePath}/api`
   }, t = new P(e);
   k(() => t.init()), typeof window < "u" && (window.esignIntegrationConflictsController = t);
 }
 export {
   P as IntegrationConflictsController,
-  T as bootstrapIntegrationConflicts,
-  j as initIntegrationConflicts
+  A as bootstrapIntegrationConflicts,
+  T as initIntegrationConflicts
 };
 //# sourceMappingURL=integration-conflicts.js.map

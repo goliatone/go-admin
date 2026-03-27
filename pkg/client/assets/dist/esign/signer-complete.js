@@ -1,4 +1,5 @@
-import { b as s, s as l, h as f, f as r } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as s, s as r, h as f } from "../chunks/dom-helpers-cltCUiC5.js";
+import { onReady as l } from "../shared/dom-ready.js";
 const h = 3 * 60 * 1e3, u = 10 * 60 * 1e3, g = 2e3, p = 15e3, m = 15e3, w = 6e4;
 function A(e) {
   return String(e || "").trim().toLowerCase();
@@ -101,7 +102,7 @@ class c {
   showArtifactState(t) {
     ["loading", "processing", "available", "unavailable", "fallback"].forEach((o) => {
       const n = s(`#artifacts-${o}`);
-      n && (o === t ? l(n) : f(n));
+      n && (o === t ? r(n) : f(n));
     });
   }
   schedulePollingIfNeeded() {
@@ -134,15 +135,15 @@ class c {
   displayArtifacts(t) {
     if (t.executed) {
       const i = s("#artifact-executed"), o = s("#artifact-executed-link");
-      i && o && (o.href = new URL(t.executed, window.location.origin).toString(), l(i));
+      i && o && (o.href = new URL(t.executed, window.location.origin).toString(), r(i));
     }
     if (t.source) {
       const i = s("#artifact-source"), o = s("#artifact-source-link");
-      i && o && (o.href = new URL(t.source, window.location.origin).toString(), l(i));
+      i && o && (o.href = new URL(t.source, window.location.origin).toString(), r(i));
     }
     if (t.certificate) {
       const i = s("#artifact-certificate"), o = s("#artifact-certificate-link");
-      i && o && (o.href = new URL(t.certificate, window.location.origin).toString(), l(i));
+      i && o && (o.href = new URL(t.certificate, window.location.origin).toString(), r(i));
     }
   }
   /**
@@ -152,19 +153,19 @@ class c {
     return { ...this.state };
   }
 }
-function _(e) {
-  const t = new c(e);
-  return r(() => t.init()), t;
-}
 function C(e) {
   const t = new c(e);
-  r(() => t.init()), typeof window < "u" && (window.esignCompletionController = t, window.loadArtifacts = () => t.loadArtifacts());
+  return l(() => t.init()), t;
+}
+function L(e) {
+  const t = new c(e);
+  l(() => t.init()), typeof window < "u" && (window.esignCompletionController = t, window.loadArtifacts = () => t.loadArtifacts());
 }
 export {
   c as SignerCompletePageController,
-  C as bootstrapSignerCompletePage,
+  L as bootstrapSignerCompletePage,
   P as getSignerCompletionPollDelayMs,
-  _ as initSignerCompletePage,
+  C as initSignerCompletePage,
   S as resolveSignerCompleteArtifacts,
   E as resolveSignerCompletePayloadState
 };

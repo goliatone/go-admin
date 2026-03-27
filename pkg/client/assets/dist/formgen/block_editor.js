@@ -1,5 +1,6 @@
+import { onReady as le } from "../shared/dom-ready.js";
 const z = /* @__PURE__ */ new WeakMap();
-function le(t) {
+function se(t) {
   if (!t) return {};
   try {
     const e = JSON.parse(t);
@@ -11,7 +12,7 @@ function le(t) {
 }
 function Z(t) {
   const e = t.closest("[data-component-config]");
-  return le(e?.getAttribute("data-component-config") ?? null);
+  return se(e?.getAttribute("data-component-config") ?? null);
 }
 function ee(t) {
   if (t == null) return;
@@ -19,7 +20,7 @@ function ee(t) {
   if (e === "true") return !0;
   if (e === "false") return !1;
 }
-function se(t) {
+function ie(t) {
   const e = t.querySelector("[data-block-list]"), r = t.querySelector("input[data-block-output]");
   if (!e || !r) return null;
   const n = t.querySelector("[data-block-add-select]"), o = t.querySelector("[data-block-add]"), s = t.querySelector("[data-block-empty]");
@@ -28,7 +29,7 @@ function se(t) {
 function F(t) {
   return t.replace(/\]/g, "").split(/\.|\[/).map((r) => r.trim()).filter((r) => r.length > 0);
 }
-function ie(t, e, r) {
+function de(t, e, r) {
   if (!t) return r;
   const n = F(r);
   let o = `${t}[${e}]`;
@@ -36,7 +37,7 @@ function ie(t, e, r) {
     o += `[${s}]`;
   return o;
 }
-function de(t, e) {
+function ue(t, e) {
   if (!t || !e) return;
   const r = F(e);
   let n = t;
@@ -46,7 +47,7 @@ function de(t, e) {
   }
   return n;
 }
-function ue(t, e, r) {
+function fe(t, e, r) {
   if (!e) return;
   const n = F(e);
   if (n.length === 0) return;
@@ -61,7 +62,7 @@ function ue(t, e, r) {
     (o[s] == null || typeof o[s] != "object") && (o[s] = C ? [] : {}), o = o[s];
   });
 }
-function fe(t) {
+function me(t) {
   if (t.length === 0) return;
   const e = t[0];
   if (e instanceof HTMLSelectElement && e.multiple)
@@ -76,7 +77,7 @@ function fe(t) {
   }
   return e.value;
 }
-function me(t, e) {
+function pe(t, e) {
   if (e != null) {
     if (t instanceof HTMLInputElement) {
       if (t.type === "checkbox") {
@@ -98,35 +99,35 @@ function me(t, e) {
     t.value = String(e);
   }
 }
-function pe(t, e) {
+function be(t, e) {
   const r = /* @__PURE__ */ new Map();
   return t.querySelectorAll("template[data-block-template]").forEach((n) => {
     const o = n.dataset.blockType?.trim();
     if (!o) return;
-    const s = n.dataset.blockLabel?.trim() || o, f = n.dataset.blockIcon?.trim(), v = ee(n.dataset.blockCollapsed), A = n.dataset.blockSchemaVersion?.trim() || ne(o, e.schemaVersionPattern), C = n.dataset.blockRequiredFields?.trim(), L = C ? C.split(",").map((c) => c.trim()).filter(Boolean) : e.requiredFields?.[o] || [];
+    const s = n.dataset.blockLabel?.trim() || o, f = n.dataset.blockIcon?.trim(), v = ee(n.dataset.blockCollapsed), A = n.dataset.blockSchemaVersion?.trim() || ne(o, e.schemaVersionPattern), C = n.dataset.blockRequiredFields?.trim(), B = C ? C.split(",").map((c) => c.trim()).filter(Boolean) : e.requiredFields?.[o] || [];
     r.set(o, {
       type: o,
       label: s,
       icon: f || void 0,
       collapsed: v,
       schemaVersion: A,
-      requiredFields: L,
+      requiredFields: B,
       template: n
     });
   }), r;
 }
 function te(t, e) {
-  const n = z.get(t) ?? /* @__PURE__ */ new Map(), o = pe(t, e);
+  const n = z.get(t) ?? /* @__PURE__ */ new Map(), o = be(t, e);
   return n.clear(), o.forEach((s, f) => n.set(f, s)), z.set(t, n), n;
 }
 function ne(t, e) {
   return e ? e.replace("{type}", t) : `${t}@v1.0.0`;
 }
-function be(t, e, r) {
+function ge(t, e, r) {
   const n = e && typeof e._schema == "string" ? e._schema.trim() : "";
   return n || (t.schemaVersion ? t.schemaVersion : ne(t.type, r));
 }
-function ge(t, e) {
+function he(t, e) {
   const r = [], n = e.requiredFields || [];
   for (const o of n) {
     const s = t.querySelector(
@@ -150,8 +151,8 @@ function ge(t, e) {
   }
   return r;
 }
-function he(t, e) {
-  if (ke(t), e.length === 0) return;
+function ke(t, e) {
+  if (ye(t), e.length === 0) return;
   t.classList.add("block-item--invalid"), t.dataset.blockValid = "false";
   const r = t.querySelector("[data-block-header]");
   if (r) {
@@ -172,12 +173,12 @@ function he(t, e) {
     }
   }
 }
-function ke(t) {
+function ye(t) {
   t.classList.remove("block-item--invalid"), t.dataset.blockValid = "true", t.querySelectorAll("[data-block-error-badge]").forEach((e) => e.remove()), t.querySelectorAll("[data-block-field-error]").forEach((e) => e.remove()), t.querySelectorAll(".border-red-500").forEach((e) => {
     e.classList.remove("border-red-500", "focus:ring-red-500");
   });
 }
-function ye(t, e) {
+function xe(t, e) {
   for (const r of e) {
     const n = t.querySelector(
       `[name="${r}"], [data-block-field-name="${r}"]`
@@ -206,12 +207,12 @@ function W(t, e) {
     const s = t[o] || {}, f = e[o] || {}, v = s._type || f._type || `block_${o}`, A = /* @__PURE__ */ new Set([...Object.keys(s), ...Object.keys(f)]);
     for (const C of A) {
       if (C.startsWith("_")) continue;
-      const L = s[C], c = f[C];
-      O(L, c) || r.push({
+      const B = s[C], c = f[C];
+      O(B, c) || r.push({
         blockIndex: o,
         blockType: v,
         field: C,
-        embeddedValue: L,
+        embeddedValue: B,
         legacyValue: c
       });
     }
@@ -235,7 +236,7 @@ function O(t, e) {
   }
   return !1;
 }
-function xe(t) {
+function ve(t) {
   const e = document.createElement("div");
   e.className = "block-conflict-report border border-amber-200 bg-amber-50 rounded-lg p-4 mb-4 dark:bg-amber-900/20 dark:border-amber-700", e.setAttribute("data-block-conflict-report", "true");
   const r = document.createElement("div");
@@ -250,17 +251,17 @@ function xe(t) {
     A.className = "text-sm";
     const C = document.createElement("summary");
     C.className = "cursor-pointer text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 font-medium", C.textContent = `View ${t.conflicts.length} field conflict${t.conflicts.length > 1 ? "s" : ""}`, A.appendChild(C);
-    const L = document.createElement("ul");
-    L.className = "mt-2 space-y-1 pl-4";
+    const B = document.createElement("ul");
+    B.className = "mt-2 space-y-1 pl-4";
     for (const c of t.conflicts.slice(0, 10)) {
       const N = document.createElement("li");
-      N.className = "text-amber-700 dark:text-amber-300", N.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, L.appendChild(N);
+      N.className = "text-amber-700 dark:text-amber-300", N.innerHTML = `<span class="font-mono text-xs">${c.blockType}[${c.blockIndex}].${c.field}</span>: <span class="text-green-600 dark:text-green-400">embedded</span> vs <span class="text-red-600 dark:text-red-400">legacy</span>`, B.appendChild(N);
     }
     if (t.conflicts.length > 10) {
       const c = document.createElement("li");
-      c.className = "text-amber-600 dark:text-amber-400 italic", c.textContent = `...and ${t.conflicts.length - 10} more`, L.appendChild(c);
+      c.className = "text-amber-600 dark:text-amber-400 italic", c.textContent = `...and ${t.conflicts.length - 10} more`, B.appendChild(c);
     }
-    A.appendChild(L), e.appendChild(A);
+    A.appendChild(B), e.appendChild(A);
   }
   const f = document.createElement("div");
   f.className = "mt-3 flex gap-2";
@@ -269,16 +270,16 @@ function xe(t) {
 }
 function G(t, e) {
   if (t.querySelector("[data-block-conflict-report]")?.remove(), !e.hasConflicts) return;
-  const r = xe(e), n = t.querySelector("[data-block-list]");
+  const r = ve(e), n = t.querySelector("[data-block-list]");
   n ? n.parentElement?.insertBefore(r, n) : t.insertBefore(r, t.firstChild);
 }
-function ve() {
+function Ee() {
   const t = document.createElement("div");
   return t.className = "block-drop-indicator", t.setAttribute("data-block-drop-indicator", "true"), t.setAttribute("aria-hidden", "true"), t;
 }
 function Q(t, e, r) {
   w(t);
-  const n = ve();
+  const n = Ee();
   return e ? r === "before" ? e.parentElement?.insertBefore(n, e) : e.parentElement?.insertBefore(n, e.nextSibling) : t.appendChild(n), n;
 }
 function w(t) {
@@ -333,14 +334,14 @@ function X(t, e) {
     }
   );
 }
-function Ee() {
+function Ae() {
   const t = document.getElementById("block-editor-live-region");
   if (t) return t;
   const e = document.createElement("div");
   return e.id = "block-editor-live-region", e.setAttribute("aria-live", "polite"), e.setAttribute("aria-atomic", "true"), e.className = "sr-only", e.style.cssText = "position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;", document.body.appendChild(e), e;
 }
-function B(t) {
-  const e = Ee();
+function L(t) {
+  const e = Ae();
   e.textContent = "", requestAnimationFrame(() => {
     e.textContent = t;
   });
@@ -349,14 +350,14 @@ function $(t, e) {
   const r = Array.from(t.querySelectorAll("[data-block-item]")), n = r.indexOf(e) + 1, o = r.length;
   return { label: e.querySelector("[data-block-header] span")?.textContent || e.dataset.blockType || "Block", position: n, total: o };
 }
-function Ae(t) {
+function Ce(t) {
   const e = {};
   return t.querySelectorAll("input, select, textarea").forEach((r) => {
     const n = r.getAttribute("data-block-field-name") || r.name;
     !n || r.dataset.blockIgnore === "true" || (r instanceof HTMLInputElement && r.type === "checkbox" ? e[n] = r.checked : r instanceof HTMLSelectElement && r.multiple ? e[n] = Array.from(r.selectedOptions).map((o) => o.value) : e[n] = r.value);
   }), e._type = t.dataset.blockType || "", e._schema = t.dataset.blockSchema || "", e;
 }
-function Ce(t, e, r = 50, n = 10) {
+function Se(t, e, r = 50, n = 10) {
   const o = () => {
     if (!e.dragging) {
       e.scrollInterval && (clearInterval(e.scrollInterval), e.scrollInterval = null);
@@ -367,7 +368,7 @@ function Ce(t, e, r = 50, n = 10) {
   };
   e.scrollInterval || (e.scrollInterval = window.setInterval(o, 16));
 }
-function Se(t, e) {
+function Be(t, e) {
   const r = t.querySelectorAll('[name="_type"], [data-block-type-input]');
   if (r.length === 0) {
     const n = document.createElement("input");
@@ -395,10 +396,10 @@ function Le(t, e) {
     o && o.classList.add("hidden");
   });
 }
-function Be(t) {
-  const e = se(t);
+function qe(t) {
+  const e = ie(t);
   if (!e) return;
-  const r = Z(t), n = te(t, r), o = t.dataset.blockField || e.output.name, s = ee(t.dataset.blockSortable), f = r.sortable ?? s ?? !1, v = r.allowDrag ?? f, A = r.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", C = r.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", L = r.validateOnInput ?? !0;
+  const r = Z(t), n = te(t, r), o = t.dataset.blockField || e.output.name, s = ee(t.dataset.blockSortable), f = r.sortable ?? s ?? !1, v = r.allowDrag ?? f, A = r.addLabel || e.addButton?.dataset.blockAddLabel || "Add block", C = r.emptyLabel || e.emptyState?.dataset.blockEmptyLabel || "No blocks added yet.", B = r.validateOnInput ?? !0;
   e.addButton && (e.addButton.textContent = A), e.emptyState && (e.emptyState.textContent = C);
   const c = e.list, N = e.output, R = () => {
     const a = Array.from(c.querySelectorAll("[data-block-item]"));
@@ -410,8 +411,8 @@ function Be(t) {
         const b = p.getAttribute("data-block-field-name") || p.name || "";
         b && (g.has(b) || g.set(b, []), g.get(b).push(p));
       }), g.forEach((p, b) => {
-        const E = fe(p);
-        E !== void 0 && ue(l, b, E);
+        const E = me(p);
+        E !== void 0 && fe(l, b, E);
       });
       const k = m.dataset.blockType || l._type || "";
       k && (l._type = k);
@@ -422,11 +423,11 @@ function Be(t) {
         const p = n.get(k);
         p?.schemaVersion && (l._schema = p.schemaVersion);
       }
-      if (L) {
+      if (B) {
         const p = n.get(k);
         if (p) {
-          const b = ge(m, p);
-          he(m, b), b.length > 0 && (d = !0);
+          const b = he(m, p);
+          ke(m, b), b.length > 0 && (d = !0);
         }
       }
       return l;
@@ -437,7 +438,7 @@ function Be(t) {
       d.querySelectorAll("input, select, textarea").forEach((m) => {
         if (m.dataset.blockIgnore === "true" || m.hasAttribute("data-block-ignore")) return;
         const l = m.getAttribute("data-block-field-name") || m.name;
-        l && (m.hasAttribute("data-block-field-name") || m.setAttribute("data-block-field-name", l), m.name = ie(o, u, l));
+        l && (m.hasAttribute("data-block-field-name") || m.setAttribute("data-block-field-name", l), m.name = de(o, u, l));
       });
     });
   }, oe = () => {
@@ -454,11 +455,11 @@ function Be(t) {
     a.querySelectorAll("input, select, textarea").forEach((u) => {
       const m = u.getAttribute("data-block-field-name") || u.name;
       if (!m) return;
-      const l = de(d, m);
-      l !== void 0 && me(u, l);
+      const l = ue(d, m);
+      l !== void 0 && pe(u, l);
     });
   }, _ = (a, d) => {
-    const u = be(a, d, r.schemaVersionPattern), m = document.createElement("div");
+    const u = ge(a, d, r.schemaVersionPattern), m = document.createElement("div");
     m.className = "border border-gray-200 rounded-lg bg-white shadow-sm dark:bg-slate-900 dark:border-gray-700", m.setAttribute("data-block-item", "true"), m.dataset.blockType = a.type, f && m.setAttribute("draggable", "true");
     const l = document.createElement("div");
     l.className = "flex flex-wrap items-center justify-between gap-2 p-3 border-b border-gray-200 dark:border-gray-700", l.setAttribute("data-block-header", "true");
@@ -490,9 +491,9 @@ function Be(t) {
     const y = document.createElement("div");
     y.className = "p-4 space-y-4", y.setAttribute("data-block-body", "true");
     const T = a.template.content.cloneNode(!0);
-    y.appendChild(T), m.appendChild(l), m.appendChild(y), Se(m, a.type), Le(m, u), m.dataset.blockSchema = u, d && ae(m, d);
+    y.appendChild(T), m.appendChild(l), m.appendChild(y), Be(m, a.type), Le(m, u), m.dataset.blockSchema = u, d && ae(m, d);
     const I = a.requiredFields || [];
-    return I.length > 0 && ye(y, I), (a.collapsed ?? !1) && (y.classList.add("hidden"), m.dataset.blockCollapsed = "true", h.textContent = "Expand"), m;
+    return I.length > 0 && xe(y, I), (a.collapsed ?? !1) && (y.classList.add("hidden"), m.dataset.blockCollapsed = "true", h.textContent = "Expand"), m;
   }, j = (a, d) => {
     const u = n.get(a);
     if (!u) return;
@@ -557,14 +558,14 @@ function Be(t) {
       if (!b) return;
       if (l.dragging = b, l.originalIndex = k(b), b.classList.add("block-item--dragging"), i.dataTransfer) {
         if (i.dataTransfer.effectAllowed = "move", i.dataTransfer.setData("text/plain", "block"), m) {
-          const x = Ae(b);
+          const x = Ce(b);
           i.dataTransfer.setData("application/x-block", JSON.stringify(x));
         }
         const h = b.cloneNode(!0);
         h.style.cssText = "position: absolute; top: -9999px; left: -9999px; opacity: 0.8; transform: rotate(2deg);", document.body.appendChild(h), i.dataTransfer.setDragImage(h, 20, 20), requestAnimationFrame(() => h.remove());
       }
       const E = $(c, b);
-      B(`Dragging ${E.label} from position ${E.position} of ${E.total}. Use arrow keys to move.`);
+      L(`Dragging ${E.label} from position ${E.position} of ${E.total}. Use arrow keys to move.`);
     }), c.addEventListener("dragover", (i) => {
       i.preventDefault(), i.dataTransfer && (i.dataTransfer.dropEffect = "move");
       const p = i.clientY, b = H(c, p, l.dragging || void 0);
@@ -584,7 +585,7 @@ function Be(t) {
             const x = JSON.parse(h), y = x._type;
             if (y && n.has(y)) {
               const T = n.get(y), I = _(T, x);
-              b ? b.position === "before" ? c.insertBefore(I, b.item) : c.insertBefore(I, b.item.nextSibling) : c.appendChild(I), S(), B(`Block ${y} added from another editor`);
+              b ? b.position === "before" ? c.insertBefore(I, b.item) : c.insertBefore(I, b.item.nextSibling) : c.appendChild(I), S(), L(`Block ${y} added from another editor`);
             }
           } catch {
           }
@@ -593,7 +594,7 @@ function Be(t) {
       if (!l.dragging) return;
       if (b && (b.position === "before" ? c.insertBefore(l.dragging, b.item) : c.insertBefore(l.dragging, b.item.nextSibling)), u && X(c, l.dragging), k(l.dragging) !== l.originalIndex) {
         const h = $(c, l.dragging);
-        B(`${h.label} moved to position ${h.position} of ${h.total}`);
+        L(`${h.label} moved to position ${h.position} of ${h.total}`);
       }
     }), c.addEventListener("dragend", () => {
       w(c), l.dragging && (l.dragging.classList.remove("block-item--dragging"), l.dragging = null), l.originalIndex = -1, S();
@@ -622,18 +623,18 @@ function Be(t) {
             transform: scale(1.02);
           `, document.body.appendChild(p), i.classList.add("block-item--placeholder"), l.dragging = i, l.originalIndex = k(i);
           const I = $(c, i);
-          B(`Dragging ${I.label}. Move finger to reposition.`);
+          L(`Dragging ${I.label}. Move finger to reposition.`);
         }
         h.preventDefault(), p && (p.style.top = `${x.clientY - p.offsetHeight / 2}px`);
         const y = H(c, x.clientY, i || void 0);
-        y ? Q(c, y.item, y.position) : w(c), Ce(c, l);
+        y ? Q(c, y.item, y.position) : w(c), Se(c, l);
       }, { passive: !1 }), c.addEventListener("touchend", () => {
         if (l.scrollInterval && (clearInterval(l.scrollInterval), l.scrollInterval = null), w(c), p && (p.remove(), p = null), i && b) {
           i.classList.remove("block-item--placeholder");
           const h = H(c, l.touchCurrentY, i);
           if (h && (h.position === "before" ? c.insertBefore(i, h.item) : c.insertBefore(i, h.item.nextSibling)), u && X(c, i), k(i) !== l.originalIndex) {
             const y = $(c, i);
-            B(`${y.label} moved to position ${y.position} of ${y.total}`);
+            L(`${y.label} moved to position ${y.position} of ${y.total}`);
           }
           S();
         }
@@ -669,13 +670,13 @@ function Be(t) {
             if (g) {
               c.insertBefore(u, g), S(), u.querySelector("[data-block-header]")?.focus();
               const k = $(c, u);
-              B(`${k.label} moved to position ${k.position} of ${k.total}`);
+              L(`${k.label} moved to position ${k.position} of ${k.total}`);
             } else
-              B("Already at the top");
+              L("Already at the top");
           } else if (!a.altKey) {
             a.preventDefault();
             const k = u.previousElementSibling?.querySelector("[data-block-header]");
-            k ? k.focus() : B("At the first block");
+            k ? k.focus() : L("At the first block");
           }
           break;
         case "ArrowDown":
@@ -685,13 +686,13 @@ function Be(t) {
             if (g) {
               c.insertBefore(g, u), S(), u.querySelector("[data-block-header]")?.focus();
               const k = $(c, u);
-              B(`${k.label} moved to position ${k.position} of ${k.total}`);
+              L(`${k.label} moved to position ${k.position} of ${k.total}`);
             } else
-              B("Already at the bottom");
+              L("Already at the bottom");
           } else if (!a.altKey) {
             a.preventDefault();
             const k = u.nextElementSibling?.querySelector("[data-block-header]");
-            k ? k.focus() : B("At the last block");
+            k ? k.focus() : L("At the last block");
           }
           break;
         case "Enter":
@@ -744,27 +745,24 @@ function Be(t) {
     }
   S();
 }
-function Ne(t, e) {
+function $e(t, e) {
   const r = document.createElement("template");
   r.setAttribute("data-block-template", ""), r.dataset.blockType = e.type, r.dataset.blockLabel = e.label, e.icon && (r.dataset.blockIcon = e.icon), e.schemaVersion && (r.dataset.blockSchemaVersion = e.schemaVersion), e.requiredFields && e.requiredFields.length > 0 && (r.dataset.blockRequiredFields = e.requiredFields.join(",")), r.innerHTML = e.html, t.appendChild(r);
 }
-function $e(t) {
+function De(t) {
   if (!t) return;
   const e = Z(t);
   te(t, e);
 }
-function qe(t = document) {
-  Array.from(t.querySelectorAll('[data-component="block"], [data-block-editor]')).filter((r) => r.dataset.blockLibraryPicker !== "true" && r.dataset.blockInit !== "manual").forEach((r) => Be(r));
+function Ie(t = document) {
+  Array.from(t.querySelectorAll('[data-component="block"], [data-block-editor]')).filter((r) => r.dataset.blockLibraryPicker !== "true" && r.dataset.blockInit !== "manual").forEach((r) => qe(r));
 }
-function Ie(t) {
-  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", t, { once: !0 }) : t();
-}
-Ie(() => qe());
+le(() => Ie());
 export {
-  Be as initBlockEditor,
-  qe as initBlockEditors,
-  ye as markRequiredFields,
-  $e as refreshBlockTemplateRegistry,
-  Ne as registerBlockTemplate
+  qe as initBlockEditor,
+  Ie as initBlockEditors,
+  xe as markRequiredFields,
+  De as refreshBlockTemplateRegistry,
+  $e as registerBlockTemplate
 };
 //# sourceMappingURL=block_editor.js.map

@@ -12,6 +12,7 @@ export type {
 export { MenuBuilderAPIClient, MenuBuilderAPIError } from './api-client.js';
 export { MenuBuilderStore } from './store.js';
 import { MenuBuilderUI, EntryNavigationOverrideUI, initMenuBuilder, initEntryNavigationOverrides } from './editor.js';
+import { onReady } from '../shared/dom-ready.js';
 export { MenuBuilderUI, EntryNavigationOverrideUI, initMenuBuilder, initEntryNavigationOverrides };
 export {
   parseMenuContracts,
@@ -21,14 +22,6 @@ export {
   parseMenuViewProfileRecord,
   parseNavigationOverrides,
 } from './guards.js';
-
-function onReady(fn: () => void): void {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn, { once: true });
-  } else {
-    fn();
-  }
-}
 
 onReady(() => {
   document.querySelectorAll<HTMLElement>('[data-menu-builder-root]').forEach((root) => {

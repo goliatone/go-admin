@@ -1,10 +1,11 @@
-import { b as r, s as g, h as m, a as b, q as S, f as k } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as r, s as g, h as m, a as b, q as S } from "../chunks/dom-helpers-cltCUiC5.js";
 import { d as P } from "../chunks/async-helpers-D7xplkWe.js";
 import { b as y } from "../chunks/formatters-Bx8onLEN.js";
-import { s as F } from "../chunks/page-feedback-XrK1vdW2.js";
+import { s as F } from "../chunks/page-feedback-CVdtgsKH.js";
 import { r as B, u as M, s as A, q as C } from "../chunks/google-drive-utils-_iSuaPZh.js";
 import { escapeHTML as x } from "../shared/html.js";
-import { g as E, h as $, r as R } from "../chunks/lineage-contracts-CFbDklQS.js";
+import { g as E, h as $, r as R } from "../chunks/lineage-contracts-BR7-TggW.js";
+import { onReady as k } from "../shared/dom-ready.js";
 const I = {
   "application/vnd.google-apps.folder": "folder",
   "application/vnd.google-apps.document": "doc",
@@ -509,11 +510,11 @@ class T {
    * Escape HTML
    */
 }
-function j(u) {
+function Q(u) {
   const e = new T(u);
   return k(() => e.init()), e;
 }
-function Q(u) {
+function q(u) {
   const e = {
     basePath: u.basePath,
     apiBasePath: u.apiBasePath || `${u.basePath}/api`,
@@ -526,7 +527,7 @@ function Q(u) {
 }
 export {
   T as GoogleDrivePickerController,
-  Q as bootstrapGoogleDrivePicker,
-  j as initGoogleDrivePicker
+  q as bootstrapGoogleDrivePicker,
+  Q as initGoogleDrivePicker
 };
 //# sourceMappingURL=google-drive-picker.js.map

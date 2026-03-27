@@ -1,6 +1,6 @@
-import { S as k } from "./lineage-contracts-CFbDklQS.js";
-import { c as re, p as ne, o as ie, j as oe, m as ae, l as q, i as ce, S as H, a as le, h as j, r as de } from "./source-management-pages-Bzq4f4fH.js";
-import { f as ue } from "./dom-helpers-CMRVXsMj.js";
+import { S as k } from "./lineage-contracts-BR7-TggW.js";
+import { c as re, p as ne, o as ie, j as oe, m as ae, l as q, i as ce, S as H, a as le, h as j, r as de } from "./source-management-pages-6jhmEW80.js";
+import { onReady as ue } from "../shared/dom-ready.js";
 import { escapeHTML as o } from "../shared/html.js";
 function N(t) {
   const s = document.getElementById(t)?.textContent?.trim();
@@ -1472,4 +1472,4 @@ export {
   xe as r,
   A as t
 };
-//# sourceMappingURL=source-management-runtime-Z5HaQKx6.js.map
+//# sourceMappingURL=source-management-runtime-DE2wKMED.js.map

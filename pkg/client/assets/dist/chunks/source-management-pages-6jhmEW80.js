@@ -1,5 +1,6 @@
-import { n as S } from "./lineage-contracts-CFbDklQS.js";
-function B(t) {
+import { n as S } from "./lineage-contracts-BR7-TggW.js";
+import { StatefulController as v } from "../shared/stateful-controller.js";
+function N(t) {
   return {
     workspaceId: t,
     panels: {
@@ -69,7 +70,7 @@ function B(t) {
     error: null
   };
 }
-function F() {
+function $() {
   return {
     workspaceId: "source-search",
     panels: {
@@ -108,7 +109,7 @@ function F() {
     error: null
   };
 }
-function c(t, e) {
+function P(t, e) {
   const n = [], s = [];
   return e.includes(t.endpointFamily) || n.push(
     `Page ${t.pageId} consumes unapproved endpoint family: ${t.endpointFamily}. Allowed: ${e.join(", ")}`
@@ -118,7 +119,7 @@ function c(t, e) {
     warnings: s
   };
 }
-function U(t) {
+function M(t) {
   const e = [
     "SourceListPage",
     "SourceDetail",
@@ -130,10 +131,10 @@ function U(t) {
     "SourceArtifactPage",
     "SourceCommentPage",
     "SourceSearchResults"
-  ], n = ["DocumentLineageDetail", "AgreementLineageDetail"], s = t.some((o) => e.includes(o)), a = t.some((o) => n.includes(o));
+  ], n = ["DocumentLineageDetail", "AgreementLineageDetail"], s = t.some((r) => e.includes(r)), a = t.some((r) => n.includes(r));
   return s && a;
 }
-const N = {
+const O = {
   version: 1,
   enforcementLevel: "strict",
   approvedContracts: [
@@ -159,7 +160,7 @@ const N = {
     "No client-side lineage computation",
     "Provider-neutral by default"
   ]
-}, M = {
+}, W = {
   version: 1,
   phase: 13,
   enforcementLevel: "strict",
@@ -230,7 +231,7 @@ const N = {
       orchestrationMode: "search-driven"
     }
   }
-}, $ = {
+}, B = {
   version: 2,
   phase: 14,
   documentationDate: "2025-03-22",
@@ -403,6 +404,25 @@ const N = {
     "Page composition is validated by validatePageComposition()"
   ]
 };
+class c extends v {
+  constructor(e, n) {
+    super(
+      {
+        loading: !1,
+        error: null,
+        contracts: null
+      },
+      e.onStateChange
+    ), this.config = e, this.metadata = {
+      pageId: n.pageId,
+      apiBasePath: e.apiBasePath,
+      endpointFamily: n.endpointFamily,
+      contractVersion: 1
+    };
+    const s = P(this.metadata, n.dependencies);
+    s.valid || console.error(`[${n.label}] Composition validation failed:`, s.errors), n.logWarnings && s.warnings.length > 0 && console.warn(`[${n.label}] Composition warnings:`, s.warnings);
+  }
+}
 async function l(t, e = {}) {
   const n = {
     "Content-Type": "application/json",
@@ -414,15 +434,15 @@ async function l(t, e = {}) {
   e.body && (s.body = JSON.stringify(e.body));
   const a = await fetch(t, s);
   if (!a.ok) {
-    const o = await a.text();
-    throw new Error(`HTTP ${a.status}: ${o}`);
+    const r = await a.text();
+    throw new Error(`HTTP ${a.status}: ${r}`);
   }
   return a.json();
 }
-function i() {
+function o() {
   return typeof window > "u" ? new URLSearchParams() : new URLSearchParams(window.location.search);
 }
-function r(t) {
+function i(t) {
   if (typeof window > "u" || typeof history > "u")
     return;
   const e = new URL(window.location.href), n = e.searchParams;
@@ -442,7 +462,7 @@ function p(t) {
     page_size: t.page_size
   };
 }
-function v(t) {
+function w(t) {
   const e = Number.parseInt(t.get("page") ?? "1", 10), n = Number.parseInt(t.get("page_size") ?? "20", 10);
   return {
     query: t.get("q") ?? t.get("query") ?? void 0,
@@ -454,7 +474,7 @@ function v(t) {
     page_size: n > 0 ? n : 20
   };
 }
-function P(t) {
+function y(t) {
   const e = Number.parseInt(t.get("page") ?? "1", 10), n = Number.parseInt(t.get("page_size") ?? "20", 10);
   return {
     sort: t.get("sort") ?? void 0,
@@ -471,7 +491,7 @@ function u(t) {
     page_size: n > 0 ? n : 20
   };
 }
-function h(t) {
+function m(t) {
   const e = Number.parseInt(t.get("page") ?? "1", 10), n = Number.parseInt(t.get("page_size") ?? "20", 10);
   return {
     query: t.get("q") ?? t.get("query") ?? void 0,
@@ -487,19 +507,19 @@ function h(t) {
     has_comments: t.get("has_comments") === "true" ? !0 : void 0
   };
 }
-function w(t) {
+function _(t) {
   const e = new URLSearchParams();
   return t.query && e.set("q", t.query), t.provider_kind && e.set("provider_kind", t.provider_kind), t.status && e.set("status", t.status), t.has_pending_candidates !== void 0 && e.set("has_pending_candidates", String(t.has_pending_candidates)), t.sort && e.set("sort", t.sort), t.page && t.page !== 1 && e.set("page", String(t.page)), t.page_size && t.page_size !== 20 && e.set("page_size", String(t.page_size)), e.toString();
 }
-function y(t) {
+function b(t) {
   const e = new URLSearchParams();
   return t.sort && e.set("sort", t.sort), t.page && t.page !== 1 && e.set("page", String(t.page)), t.page_size && t.page_size !== 20 && e.set("page_size", String(t.page_size)), e.toString();
 }
-function _(t) {
+function k(t) {
   const e = new URLSearchParams();
   return t.status && e.set("status", t.status), t.sync_status && e.set("sync_status", t.sync_status), t.page && t.page !== 1 && e.set("page", String(t.page)), t.page_size && t.page_size !== 20 && e.set("page_size", String(t.page_size)), e.toString();
 }
-function m(t) {
+function h(t) {
   return {
     q: t.query,
     query: void 0,
@@ -525,36 +545,31 @@ function d(t) {
     anchor: t.get("anchor") ?? void 0
   };
 }
-function k(t) {
+function I(t) {
   return {
     panel: t.panel,
     anchor: t.anchor
   };
 }
-function b(t) {
+function R(t) {
   const e = new URLSearchParams();
   return t.panel && e.set("panel", t.panel), t.anchor && e.set("anchor", t.anchor), e.toString();
 }
-class I {
+class z extends c {
   constructor(e) {
-    this.config = e, this.metadata = {
+    super(e, {
       pageId: "source-browser",
-      apiBasePath: e.apiBasePath,
       endpointFamily: "sources",
-      contractVersion: 1
-    };
-    const n = c(this.metadata, ["sources"]);
-    n.valid || console.error("[SourceBrowserPage] Composition validation failed:", n.errors), n.warnings.length > 0 && console.warn("[SourceBrowserPage] Composition warnings:", n.warnings), this.state = {
-      loading: !1,
-      error: null,
-      contracts: null
-    };
+      dependencies: ["sources"],
+      label: "SourceBrowserPage",
+      logWarnings: !0
+    });
   }
   /**
    * Initialize page from current URL state.
    */
   async init() {
-    const e = i(), n = v(e);
+    const e = o(), n = w(e);
     await this.fetchSources(n);
   }
   /**
@@ -563,12 +578,12 @@ class I {
   async fetchSources(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = w(e), s = `${this.config.apiBasePath}/sources?${n}`, a = await l(s), o = {
+      const n = _(e), s = `${this.config.apiBasePath}/sources?${n}`, a = await l(s), r = {
         listSources: a,
         query: e,
         permissions: a.permissions
       };
-      this.setState({ loading: !1, error: null, contracts: o });
+      this.setState({ loading: !1, error: null, contracts: r });
     } catch (n) {
       this.setState({
         loading: !1,
@@ -582,48 +597,30 @@ class I {
    */
   async goToPage(e) {
     const s = { ...this.state.contracts?.query ?? {}, page: e };
-    r(p(s)), await this.fetchSources(s);
+    i(p(s)), await this.fetchSources(s);
   }
   /**
    * Apply filters and reset to page 1.
    */
   async applyFilters(e) {
     const s = { ...this.state.contracts?.query ?? {}, ...e, page: 1 };
-    r(p(s)), await this.fetchSources(s);
-  }
-  /**
-   * Get current page state.
-   */
-  getState() {
-    return this.state;
-  }
-  /**
-   * Update page state and trigger callbacks.
-   */
-  setState(e) {
-    this.state = e, this.config.onStateChange && this.config.onStateChange(e);
+    i(p(s)), await this.fetchSources(s);
   }
 }
-function x(t) {
-  const e = new I(t);
+function G(t) {
+  const e = new z(t);
   return e.init().catch((n) => {
     console.error("[SourceBrowserPage] Initialization failed:", n);
   }), e;
 }
-class R {
+class L extends c {
   constructor(e) {
-    this.config = e, this.metadata = {
+    super(e, {
       pageId: "source-detail",
-      apiBasePath: e.apiBasePath,
       endpointFamily: "sources/:id",
-      contractVersion: 1
-    };
-    const n = c(this.metadata, ["sources/:id"]);
-    n.valid || console.error("[SourceDetailPage] Composition validation failed:", n.errors), this.state = {
-      loading: !1,
-      error: null,
-      contracts: null
-    };
+      dependencies: ["sources/:id"],
+      label: "SourceDetailPage"
+    });
   }
   /**
    * Initialize page.
@@ -657,52 +654,34 @@ class R {
   async refresh() {
     await this.fetchSource();
   }
-  /**
-   * Get current page state.
-   */
-  getState() {
-    return this.state;
-  }
-  /**
-   * Update page state and trigger callbacks.
-   */
-  setState(e) {
-    this.state = e, this.config.onStateChange && this.config.onStateChange(e);
-  }
 }
-function O(t) {
-  const e = new R(t);
+function H(t) {
+  const e = new L(t);
   return e.init().catch((n) => {
     console.error("[SourceDetailPage] Initialization failed:", n);
   }), e;
 }
-class z {
+class A extends c {
   constructor(e) {
-    this.config = e, this.metadata = {
+    super(e, {
       pageId: "source-workspace",
-      apiBasePath: e.apiBasePath,
       endpointFamily: "sources/:id/workspace",
-      contractVersion: 1
-    };
-    const n = c(this.metadata, ["sources/:id/workspace"]);
-    n.valid || console.error("[SourceWorkspacePage] Composition validation failed:", n.errors), this.state = {
-      loading: !1,
-      error: null,
-      contracts: null
-    };
+      dependencies: ["sources/:id/workspace"],
+      label: "SourceWorkspacePage"
+    });
   }
   async init() {
-    const e = i(), n = d(e);
+    const e = o(), n = d(e);
     await this.fetchWorkspace(n);
   }
   async fetchWorkspace(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = b(e), s = n ? `?${n}` : "", a = `${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/workspace${s}`, o = S(await l(a)), f = {
-        workspace: o,
+      const n = R(e), s = n ? `?${n}` : "", a = `${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/workspace${s}`, r = S(await l(a)), f = {
+        workspace: r,
         query: e,
-        links: o.links,
-        permissions: o.permissions
+        links: r.links,
+        permissions: r.permissions
       };
       this.setState({ loading: !1, error: null, contracts: f });
     } catch (n) {
@@ -714,7 +693,7 @@ class z {
     }
   }
   async refresh() {
-    const e = this.state.contracts?.query ?? d(i());
+    const e = this.state.contracts?.query ?? d(o());
     await this.fetchWorkspace(e);
   }
   async navigateToHref(e) {
@@ -726,42 +705,30 @@ class z {
       window.location.assign(a.toString());
       return;
     }
-    const o = d(a.searchParams);
-    r(k(o)), await this.fetchWorkspace(o);
-  }
-  getState() {
-    return this.state;
-  }
-  setState(e) {
-    this.state = e, this.config.onStateChange && this.config.onStateChange(e);
+    const r = d(a.searchParams);
+    i(I(r)), await this.fetchWorkspace(r);
   }
 }
-function W(t) {
-  const e = new z(t);
+function V(t) {
+  const e = new A(t);
   return e.init().catch((n) => {
     console.error("[SourceWorkspacePage] Initialization failed:", n);
   }), e;
 }
-class L {
+class D extends c {
   constructor(e) {
-    this.config = e, this.metadata = {
+    super(e, {
       pageId: "source-revision-timeline",
-      apiBasePath: e.apiBasePath,
       endpointFamily: "sources/:id/revisions",
-      contractVersion: 1
-    };
-    const n = c(this.metadata, ["sources/:id/revisions"]);
-    n.valid || console.error("[SourceRevisionTimelinePage] Composition validation failed:", n.errors), this.state = {
-      loading: !1,
-      error: null,
-      contracts: null
-    };
+      dependencies: ["sources/:id/revisions"],
+      label: "SourceRevisionTimelinePage"
+    });
   }
   /**
    * Initialize page from current URL state.
    */
   async init() {
-    const e = i(), n = P(e);
+    const e = o(), n = y(e);
     await this.fetchRevisions(n);
   }
   /**
@@ -770,12 +737,12 @@ class L {
   async fetchRevisions(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = y(e), s = `${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/revisions?${n}`, a = await l(s), o = {
+      const n = b(e), s = `${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/revisions?${n}`, a = await l(s), r = {
         revisionPage: a,
         query: e,
         links: a.links
       };
-      this.setState({ loading: !1, error: null, contracts: o });
+      this.setState({ loading: !1, error: null, contracts: r });
     } catch (n) {
       this.setState({
         loading: !1,
@@ -789,48 +756,30 @@ class L {
    */
   async goToPage(e) {
     const s = { ...this.state.contracts?.query ?? {}, page: e };
-    r({ page: e }), await this.fetchRevisions(s);
+    i({ page: e }), await this.fetchRevisions(s);
   }
   /**
    * Change sort order.
    */
   async changeSort(e) {
     const s = { ...this.state.contracts?.query ?? {}, sort: e, page: 1 };
-    r({ sort: e, page: 1 }), await this.fetchRevisions(s);
-  }
-  /**
-   * Get current page state.
-   */
-  getState() {
-    return this.state;
-  }
-  /**
-   * Update page state and trigger callbacks.
-   */
-  setState(e) {
-    this.state = e, this.config.onStateChange && this.config.onStateChange(e);
+    i({ sort: e, page: 1 }), await this.fetchRevisions(s);
   }
 }
-function V(t) {
-  const e = new L(t);
+function j(t) {
+  const e = new D(t);
   return e.init().catch((n) => {
     console.error("[SourceRevisionTimelinePage] Initialization failed:", n);
   }), e;
 }
-class A {
+class Q extends c {
   constructor(e) {
-    this.config = e, this.metadata = {
+    super(e, {
       pageId: "source-revision-inspector",
-      apiBasePath: e.apiBasePath,
       endpointFamily: "source-revisions/:id",
-      contractVersion: 1
-    };
-    const n = c(this.metadata, ["source-revisions/:id"]);
-    n.valid || console.error("[SourceRevisionInspectorPage] Composition validation failed:", n.errors), this.state = {
-      loading: !1,
-      error: null,
-      contracts: null
-    };
+      dependencies: ["source-revisions/:id"],
+      label: "SourceRevisionInspectorPage"
+    });
   }
   async init() {
     await this.fetchRevision();
@@ -855,46 +804,34 @@ class A {
   async refresh() {
     await this.fetchRevision();
   }
-  getState() {
-    return this.state;
-  }
-  setState(e) {
-    this.state = e, this.config.onStateChange && this.config.onStateChange(e);
-  }
 }
-function G(t) {
-  const e = new A(t);
+function Y(t) {
+  const e = new Q(t);
   return e.init().catch((n) => {
     console.error("[SourceRevisionInspectorPage] Initialization failed:", n);
   }), e;
 }
-class D {
+class x extends c {
   constructor(e) {
-    this.config = e, this.metadata = {
+    super(e, {
       pageId: "source-comment-inspector",
-      apiBasePath: e.apiBasePath,
       endpointFamily: "source-revisions/:id/comments",
-      contractVersion: 1
-    };
-    const n = c(this.metadata, ["source-revisions/:id/comments"]);
-    n.valid || console.error("[SourceCommentInspectorPage] Composition validation failed:", n.errors), this.state = {
-      loading: !1,
-      error: null,
-      contracts: null
-    };
+      dependencies: ["source-revisions/:id/comments"],
+      label: "SourceCommentInspectorPage"
+    });
   }
   async init() {
-    const e = i(), n = u(e);
+    const e = o(), n = u(e);
     await this.fetchComments(n);
   }
   async fetchComments(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = _(e), s = `${this.config.apiBasePath}/source-revisions/${encodeURIComponent(this.config.sourceRevisionId)}/comments?${n}`, a = await l(s), o = {
+      const n = k(e), s = `${this.config.apiBasePath}/source-revisions/${encodeURIComponent(this.config.sourceRevisionId)}/comments?${n}`, a = await l(s), r = {
         commentPage: a,
         links: a.links
       };
-      this.setState({ loading: !1, error: null, contracts: o });
+      this.setState({ loading: !1, error: null, contracts: r });
     } catch (n) {
       this.setState({
         loading: !1,
@@ -904,40 +841,28 @@ class D {
     }
   }
   async goToPage(e) {
-    const s = { ...this.state.contracts?.commentPage.page_info ? u(i()) : {}, page: e };
-    r({ page: e }), await this.fetchComments(s);
+    const s = { ...this.state.contracts?.commentPage.page_info ? u(o()) : {}, page: e };
+    i({ page: e }), await this.fetchComments(s);
   }
   async refresh() {
-    const e = u(i());
+    const e = u(o());
     await this.fetchComments(e);
   }
-  getState() {
-    return this.state;
-  }
-  setState(e) {
-    this.state = e, this.config.onStateChange && this.config.onStateChange(e);
-  }
 }
-function H(t) {
-  const e = new D(t);
+function J(t) {
+  const e = new x(t);
   return e.init().catch((n) => {
     console.error("[SourceCommentInspectorPage] Initialization failed:", n);
   }), e;
 }
-class Q {
+class E extends c {
   constructor(e) {
-    this.config = e, this.metadata = {
+    super(e, {
       pageId: "source-artifact-inspector",
-      apiBasePath: e.apiBasePath,
       endpointFamily: "source-revisions/:id/artifacts",
-      contractVersion: 1
-    };
-    const n = c(this.metadata, ["source-revisions/:id/artifacts"]);
-    n.valid || console.error("[SourceArtifactInspectorPage] Composition validation failed:", n.errors), this.state = {
-      loading: !1,
-      error: null,
-      contracts: null
-    };
+      dependencies: ["source-revisions/:id/artifacts"],
+      label: "SourceArtifactInspectorPage"
+    });
   }
   async init() {
     await this.fetchArtifacts();
@@ -961,47 +886,35 @@ class Q {
   async refresh() {
     await this.fetchArtifacts();
   }
-  getState() {
-    return this.state;
-  }
-  setState(e) {
-    this.state = e, this.config.onStateChange && this.config.onStateChange(e);
-  }
 }
-function j(t) {
-  const e = new Q(t);
+function K(t) {
+  const e = new E(t);
   return e.init().catch((n) => {
     console.error("[SourceArtifactInspectorPage] Initialization failed:", n);
   }), e;
 }
-class E {
+class T extends c {
   constructor(e) {
-    this.config = e, this.metadata = {
+    super(e, {
       pageId: "source-search",
-      apiBasePath: e.apiBasePath,
       endpointFamily: "source-search",
-      contractVersion: 1
-    };
-    const n = c(this.metadata, ["source-search"]);
-    n.valid || console.error("[SourceSearchPage] Composition validation failed:", n.errors), this.state = {
-      loading: !1,
-      error: null,
-      contracts: null
-    };
+      dependencies: ["source-search"],
+      label: "SourceSearchPage"
+    });
   }
   async init() {
-    const e = i(), n = h(e);
+    const e = o(), n = m(e);
     await this.search(n);
   }
   async search(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = C(e), s = `${this.config.apiBasePath}/source-search?${n}`, a = await l(s), o = {
+      const n = C(e), s = `${this.config.apiBasePath}/source-search?${n}`, a = await l(s), r = {
         searchResults: a,
         query: e,
         links: a.links
       };
-      this.setState({ loading: !1, error: null, contracts: o });
+      this.setState({ loading: !1, error: null, contracts: r });
     } catch (n) {
       this.setState({
         loading: !1,
@@ -1012,65 +925,59 @@ class E {
   }
   async goToPage(e) {
     const s = { ...this.state.contracts?.query ?? {}, page: e };
-    r(m(s)), await this.search(s);
+    i(h(s)), await this.search(s);
   }
   async applyFilters(e) {
     const s = { ...this.state.contracts?.query ?? {}, ...e, page: 1 };
-    r(m(s)), await this.search(s);
+    i(h(s)), await this.search(s);
   }
   async refresh() {
-    const e = this.state.contracts?.query ?? h(i());
+    const e = this.state.contracts?.query ?? m(o());
     await this.search(e);
   }
-  getState() {
-    return this.state;
-  }
-  setState(e) {
-    this.state = e, this.config.onStateChange && this.config.onStateChange(e);
-  }
 }
-function Y(t) {
-  const e = new E(t);
+function X(t) {
+  const e = new T(t);
   return e.init().catch((n) => {
     console.error("[SourceSearchPage] Initialization failed:", n);
   }), e;
 }
 const g = /* @__PURE__ */ new Map();
-function J(t, e) {
+function Z(t, e) {
   g.set(t, e);
 }
-function K(t) {
+function q(t) {
   return g.get(t);
 }
-function X() {
+function ee() {
   return Array.from(g.keys());
 }
 export {
-  M as P,
-  I as S,
-  $ as V,
-  D as a,
-  R as b,
-  z as c,
-  U as d,
-  A as e,
-  L as f,
-  Q as g,
-  E as h,
-  x as i,
-  H as j,
-  O as k,
-  W as l,
-  G as m,
-  V as n,
-  j as o,
-  Y as p,
-  K as q,
-  J as r,
-  X as s,
-  B as t,
-  F as u,
-  c as v,
-  N as w
+  W as P,
+  z as S,
+  B as V,
+  x as a,
+  L as b,
+  A as c,
+  M as d,
+  Q as e,
+  D as f,
+  E as g,
+  T as h,
+  G as i,
+  J as j,
+  H as k,
+  V as l,
+  Y as m,
+  j as n,
+  K as o,
+  X as p,
+  q,
+  Z as r,
+  ee as s,
+  N as t,
+  $ as u,
+  P as v,
+  O as w
 };
-//# sourceMappingURL=source-management-pages-Bzq4f4fH.js.map
+//# sourceMappingURL=source-management-pages-6jhmEW80.js.map

@@ -1,5 +1,13 @@
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
+import {
+  asLooseBoolean as asBoolean,
+  asNumberish as asNumber,
+  asRecord,
+  asString,
+  asStringArray,
+} from '../shared/coercion.js';
 import { httpRequest } from '../shared/transport/http-client.js';
+import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -17,6 +25,8 @@ import {
   CARD,
   MODAL_OVERLAY,
   MODAL_CONTENT,
+  formatTranslationTimestampUTC,
+  sentenceCaseToken,
   trapFocus,
   getStatusColorClass,
 } from '../translation-shared/index.js';
@@ -268,42 +278,12 @@ export interface TranslationCreateLocaleActionModel {
   request: TranslationCreateLocaleRequest;
 }
 
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function asNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return fallback;
-}
-
-function asBoolean(value: unknown): boolean {
-  return value === true || value === 'true' || value === '1';
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : {};
-}
-
 function requestTraceID(headers: Headers): string {
   return asString(
     headers.get('x-trace-id') ||
       headers.get('x-correlation-id') ||
       headers.get('traceparent')
   );
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((entry) => asString(entry))
-    .filter((entry) => entry.length > 0);
 }
 
 function normalizeReadinessState(value: unknown): FamilyReadinessState {
@@ -322,16 +302,6 @@ function normalizeBlockerCode(value: unknown): FamilyBlockerCode {
     default:
       return 'policy_denied';
   }
-}
-
-function normalizeStringMap(value: unknown): Record<string, string> {
-  const record = asRecord(value);
-  const out: Record<string, string> = {};
-  for (const [key, entry] of Object.entries(record)) {
-    const normalized = asString(entry);
-    if (key.trim() !== '' && normalized !== '') out[key] = normalized;
-  }
-  return out;
 }
 
 export function createFamilyFilters(input: Partial<TranslationFamilyFilters> = {}): TranslationFamilyFilters {
@@ -576,7 +546,7 @@ function normalizeVariant(input: Record<string, unknown>): TranslationFamilyVari
     isSource: asBoolean(input.is_source),
     sourceRecordId: asString(input.source_record_id),
     sourceHashAtLastSync: asString(input.source_hash_at_last_sync),
-    fields: normalizeStringMap(input.fields),
+    fields: normalizeStringRecord(input.fields, { omitBlankKeys: true, omitEmptyValues: true }),
     createdAt: asString(input.created_at),
     updatedAt: asString(input.updated_at),
     publishedAt: asString(input.published_at),
@@ -883,20 +853,6 @@ async function createLocaleErrorFromResponse(response: Response): Promise<Transl
   return error;
 }
 
-function formatTimestamp(value: string): string {
-  const normalized = asString(value);
-  if (!normalized) return '';
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return normalized;
-  return parsed.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
-}
-
-function sentenceCase(value: string): string {
-  const normalized = asString(value).replace(/_/g, ' ');
-  if (!normalized) return '';
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-}
-
 function variantStatusSeverity(status: string): string {
   switch (asString(status)) {
     case 'published':
@@ -999,7 +955,7 @@ export function buildFamilyActivityPreview(
         title: `${variant.locale.toUpperCase()} variant created`,
         detail: variant.isSource
           ? 'Source locale registered for this family.'
-          : `Variant entered ${sentenceCase(variant.status)} state.`,
+          : `Variant entered ${sentenceCaseToken(variant.status)} state.`,
         tone: variant.isSource ? 'neutral' : 'success',
       });
     }
@@ -1023,7 +979,7 @@ export function buildFamilyActivityPreview(
     items.push({
       id: `assignment-${assignment.id}`,
       timestamp,
-      title: `${assignment.targetLocale.toUpperCase()} assignment ${sentenceCase(assignment.status)}`,
+      title: `${assignment.targetLocale.toUpperCase()} assignment ${sentenceCaseToken(assignment.status)}`,
       detail: `${owner} Priority ${assignment.priority || 'normal'}.`,
       tone: assignment.status === 'changes_requested' ? 'warning' : 'neutral',
     });
@@ -1101,10 +1057,10 @@ function renderLocalePanel(detail: TranslationFamilyDetail, options: Translation
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-semibold text-gray-900">${escapeHTML(variant.locale.toUpperCase())}</span>
             ${variant.isSource ? '<span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-700">Source</span>' : ''}
-            <span class="rounded-full px-2 py-0.5 text-xs font-medium ${variantTone(variant.status)}">${escapeHTML(sentenceCase(variant.status))}</span>
+            <span class="rounded-full px-2 py-0.5 text-xs font-medium ${variantTone(variant.status)}">${escapeHTML(sentenceCaseToken(variant.status))}</span>
           </div>
           <p class="mt-2 text-sm text-gray-600">${escapeHTML(title)}</p>
-          <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTimestamp(variant.updatedAt || variant.createdAt)) || 'n/a'}</p>
+          <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTranslationTimestampUTC(variant.updatedAt || variant.createdAt)) || 'n/a'}</p>
         </div>
         <div class="flex-shrink-0">${openLink}</div>
       </li>
@@ -1159,12 +1115,12 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
         ${detail.activeAssignments
           .map((assignment) => {
             const dueState = deriveDueState(assignment.dueDate);
-            const dueLabel = dueState === 'none' ? 'No due date' : sentenceCase(dueState);
+            const dueLabel = dueState === 'none' ? 'No due date' : sentenceCaseToken(dueState);
             return `
               <li class="rounded-xl border border-gray-200 bg-gray-50 p-6">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="text-sm font-semibold text-gray-900">${escapeHTML(assignment.targetLocale.toUpperCase())}</span>
-                  <span class="rounded-full px-2 py-0.5 text-xs font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCase(assignment.status))}</span>
+                  <span class="rounded-full px-2 py-0.5 text-xs font-medium ${assignmentTone(assignment.status)}">${escapeHTML(sentenceCaseToken(assignment.status))}</span>
                   <span class="rounded-full px-2 py-0.5 text-xs font-medium ${dueTone(dueState)}">${escapeHTML(dueLabel)}</span>
                 </div>
                 <p class="mt-2 text-sm text-gray-600">
@@ -1172,7 +1128,7 @@ function renderAssignmentPanel(detail: TranslationFamilyDetail): string {
                   <span class="text-gray-400">·</span>
                   Priority ${escapeHTML(assignment.priority || 'normal')}
                 </p>
-                <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTimestamp(assignment.updatedAt || assignment.createdAt)) || 'n/a'}</p>
+                <p class="mt-1 text-xs text-gray-500">Updated ${escapeHTML(formatTranslationTimestampUTC(assignment.updatedAt || assignment.createdAt)) || 'n/a'}</p>
               </li>
             `;
           })
@@ -1189,7 +1145,7 @@ function renderPublishGatePanel(detail: TranslationFamilyDetail): string {
           const scope = [blocker.locale && blocker.locale.toUpperCase(), blocker.fieldPath].filter(Boolean).join(' · ');
           return `
             <li class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(blocker.blockerCode)}">${escapeHTML(sentenceCase(blocker.blockerCode))}</span>
+              <span class="rounded-full px-2 py-0.5 text-xs font-medium ${blockerTone(blocker.blockerCode)}">${escapeHTML(sentenceCaseToken(blocker.blockerCode))}</span>
               ${scope ? `<span class="text-sm text-gray-600">${escapeHTML(scope)}</span>` : ''}
             </li>
           `;
@@ -1252,7 +1208,7 @@ function renderActivityPanel(detail: TranslationFamilyDetail): string {
                             : item.tone === 'warning'
                               ? 'bg-amber-100 text-amber-700'
                               : 'bg-gray-100 text-gray-700'
-                        }">${escapeHTML(formatTimestamp(item.timestamp))}</span>
+                        }">${escapeHTML(formatTranslationTimestampUTC(item.timestamp))}</span>
                       </div>
                       <p class="mt-2 text-sm text-gray-600">${escapeHTML(item.detail)}</p>
                     </li>
@@ -1359,7 +1315,7 @@ export function renderTranslationFamilyDetailState(
     detail.sourceVariant?.fields.slug ||
     `${detail.contentType} family`;
   const blockerSummary = detail.readinessSummary.blockerCodes.length
-    ? detail.readinessSummary.blockerCodes.map(sentenceCase).join(', ')
+    ? detail.readinessSummary.blockerCodes.map(sentenceCaseToken).join(', ')
     : 'No blockers';
   const quickCreateDisabled = !detail.quickCreate.enabled;
   const createLocaleCTA = detail.quickCreate.recommendedLocale
@@ -1614,7 +1570,7 @@ function openCreateLocaleDialog(config: CreateLocaleDialogConfig): void {
               <span class="text-sm font-medium text-gray-900">Priority</span>
               <select name="priority" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
                 ${['low', 'normal', 'high', 'urgent'].map((priority) => `
-                  <option value="${priority}" ${priority === (quickCreate.defaultAssignment.priority || 'normal') ? 'selected' : ''}>${sentenceCase(priority)}</option>
+                  <option value="${priority}" ${priority === (quickCreate.defaultAssignment.priority || 'normal') ? 'selected' : ''}>${sentenceCaseToken(priority)}</option>
                 `).join('')}
               </select>
             </label>

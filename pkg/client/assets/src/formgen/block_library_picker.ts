@@ -1,4 +1,5 @@
 import { escapeHTML } from '../shared/html.js';
+import { onReady } from '../shared/dom-ready.js';
 
 import {
   initBlockEditor,
@@ -1063,14 +1064,6 @@ export async function initBlockLibraryPickers(scope: ParentNode = document): Pro
 // =============================================================================
 // 5.6  DOMContentLoaded auto-initialization
 // =============================================================================
-
-function onReady(fn: () => void): void {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn, { once: true });
-  } else {
-    fn();
-  }
-}
 
 onReady(() => {
   initBlockLibraryPickers();

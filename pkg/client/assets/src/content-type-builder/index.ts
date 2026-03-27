@@ -104,6 +104,7 @@ import { ContentTypeEditor } from './content-type-editor';
 import { initBlockLibraryIDE } from './block-library-ide';
 import type { ContentTypeEditorConfig } from './types';
 import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
+import { onReady } from '../shared/dom-ready.js';
 
 /**
  * Initialize content type editors on elements matching [data-content-type-editor]
@@ -199,14 +200,6 @@ function parseConfig(root: HTMLElement): ContentTypeEditorConfig {
     channel: config.channel ?? root.dataset.channel,
     locale: config.locale ?? root.dataset.locale,
   };
-}
-
-function onReady(fn: () => void): void {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn, { once: true });
-  } else {
-    fn();
-  }
 }
 
 // Auto-initialize on DOM ready

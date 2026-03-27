@@ -1,4 +1,5 @@
-function y(e) {
+import { onReady as y } from "../shared/dom-ready.js";
+function h(e) {
   if (!e) return {};
   try {
     const t = JSON.parse(e);
@@ -20,7 +21,7 @@ function c(e) {
 function d(e, t) {
   e.errorEl.textContent = t, e.errorEl.classList.remove("hidden"), e.statusEl.textContent = "", e.statusEl.classList.add("hidden");
 }
-function h(e) {
+function w(e) {
   e.errorEl.textContent = "", e.errorEl.classList.add("hidden");
 }
 function p(e, t) {
@@ -38,25 +39,25 @@ function m(e, t, r) {
   const n = document.createElement("p");
   return n.className = r, e.appendChild(n), n;
 }
-function w(e) {
+function v(e) {
   const t = e.querySelector("input[data-file-uploader-url]"), r = e.querySelector("input[data-file-uploader-file]");
   if (!t || !r) return null;
   const i = m(e, "[data-file-uploader-error]", "text-sm text-red-600 hidden");
   i.setAttribute("data-file-uploader-error", "true");
   const n = m(e, "[data-file-uploader-status]", "text-xs text-gray-500 hidden");
   n.setAttribute("data-file-uploader-status", "true");
-  const l = e.querySelector("[data-file-uploader-preview]"), s = e.querySelector("[data-file-uploader-placeholder]");
+  const l = e.querySelector("[data-file-uploader-preview]"), o = e.querySelector("[data-file-uploader-placeholder]");
   return {
     root: e,
     urlInput: t,
     fileInput: r,
     previewImg: l ?? void 0,
-    placeholder: s ?? void 0,
+    placeholder: o ?? void 0,
     errorEl: i,
     statusEl: n
   };
 }
-async function v(e, t, r) {
+async function x(e, t, r) {
   const i = new FormData();
   i.append("file", r, r.name);
   const n = await fetch(t, {
@@ -66,13 +67,13 @@ async function v(e, t, r) {
     headers: { Accept: "application/json" }
   });
   if (!n.ok) {
-    const s = await n.text();
+    const o = await n.text();
     let a = `Upload failed (${n.status})`;
     try {
-      const o = JSON.parse(s);
-      o?.message && typeof o.message == "string" && (a = o.message), o?.error && typeof o.error == "string" && (a = o.error), o?.error?.message && typeof o.error.message == "string" && (a = o.error.message);
+      const s = JSON.parse(o);
+      s?.message && typeof s.message == "string" && (a = s.message), s?.error && typeof s.error == "string" && (a = s.error), s?.error?.message && typeof s.error.message == "string" && (a = s.error.message);
     } catch {
-      s && (a = s);
+      o && (a = o);
     }
     throw new Error(a);
   }
@@ -81,16 +82,16 @@ async function v(e, t, r) {
     throw new Error("Upload succeeded but response did not include a url");
   return l.url;
 }
-function x(e) {
-  const t = w(e);
+function E(e) {
+  const t = v(e);
   if (!t) return;
-  const r = y(e.getAttribute("data-component-config"));
+  const r = h(e.getAttribute("data-component-config"));
   if (Array.isArray(r.allowedTypes) && r.allowedTypes.length > 0 && t.fileInput.setAttribute("accept", r.allowedTypes.join(",")), r.preview !== !1) {
     const i = t.urlInput.value?.trim();
     i && u(t, i);
   }
   t.fileInput.addEventListener("change", async () => {
-    h(t), f(t);
+    w(t), f(t);
     const i = t.fileInput.files?.[0];
     if (!i) return;
     if (Array.isArray(r.allowedTypes) && r.allowedTypes.length > 0 && !r.allowedTypes.includes(i.type)) {
@@ -108,30 +109,27 @@ function x(e) {
     }
     const l = t.fileInput.disabled;
     t.fileInput.disabled = !0;
-    let s = null;
+    let o = null;
     try {
-      r.preview !== !1 && (s = URL.createObjectURL(i), u(t, s)), p(t, "Uploading…");
-      const a = await v(t, n, i);
+      r.preview !== !1 && (o = URL.createObjectURL(i), u(t, o)), p(t, "Uploading…");
+      const a = await x(t, n, i);
       t.urlInput.value = a, r.preview !== !1 && u(t, a), p(t, "Uploaded"), window.setTimeout(() => f(t), 1500);
     } catch (a) {
-      const o = a instanceof Error ? a.message : "Upload failed";
-      if (d(t, o), r.preview !== !1) {
+      const s = a instanceof Error ? a.message : "Upload failed";
+      if (d(t, s), r.preview !== !1) {
         const g = t.urlInput.value?.trim();
         u(t, g || null);
       }
     } finally {
-      s && URL.revokeObjectURL(s), t.fileInput.disabled = l;
+      o && URL.revokeObjectURL(o), t.fileInput.disabled = l;
     }
   });
 }
-function E(e = document) {
-  Array.from(e.querySelectorAll('[data-component="file_uploader"], [data-file-uploader]')).forEach((r) => x(r));
+function I(e = document) {
+  Array.from(e.querySelectorAll('[data-component="file_uploader"], [data-file-uploader]')).forEach((r) => E(r));
 }
-function I(e) {
-  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", e, { once: !0 }) : e();
-}
-I(() => E());
+y(() => I());
 export {
-  E as initFileUploaders
+  I as initFileUploaders
 };
 //# sourceMappingURL=file_uploader.js.map

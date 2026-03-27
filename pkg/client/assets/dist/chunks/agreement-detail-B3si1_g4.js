@@ -1,4 +1,4 @@
-import "./provenance-card-DHMrX2oO.js";
+import "./provenance-card-BnOi6ubz.js";
 import { escapeHTML as v } from "../shared/html.js";
 import { i as re } from "./command-runtime-DiUPApH6.js";
 import { executeActionRequest as ne, formatStructuredErrorForDisplay as ie } from "../toast/error-helpers.js";
@@ -2395,4 +2395,4 @@ export {
   M as y,
   w as z
 };
-//# sourceMappingURL=agreement-detail-QzNEpIFm.js.map
+//# sourceMappingURL=agreement-detail-B3si1_g4.js.map

@@ -1,10 +1,11 @@
 import { escapeHTML as o } from "../shared/html.js";
 import { n as x, a as k, b as C, c as U } from "../chunks/index-YiVxcMWC.js";
 import { C as V, H as B, T as W, a as z, B as f, R as $, b as _, c as j, d as F, I as E, e as v, f as R, g as q } from "../chunks/style-constants-i2xRoO1L.js";
+import { formatTranslationShortDateTime as D } from "../translation-shared/formatters.js";
 const G = {
   root: "#translation-exchange-app"
 };
-function D(l) {
+function L(l) {
   switch (l) {
     case "completed":
       return "success";
@@ -31,17 +32,7 @@ function S(l) {
 function y(l) {
   return `rounded-full px-3 py-1 text-xs font-medium ${q(l)}`;
 }
-const m = `${F} p-5`, K = `${F} p-4`, L = `${$} border ${_} ${j} p-5`, A = `${$} border ${_} ${j} p-4`, I = `${$} border ${_} ${j} px-4 py-3`, H = `${$} border ${_} ${j} px-6 py-10 text-center text-sm text-gray-600`, b = "text-xs uppercase tracking-wider text-gray-500", Y = `mt-2 text-2xl font-bold ${W}`;
-function O(l) {
-  if (!l) return "Pending";
-  const t = new Date(l);
-  return Number.isNaN(t.getTime()) ? l : new Intl.DateTimeFormat(void 0, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(t);
-}
+const m = `${F} p-5`, K = `${F} p-4`, I = `${$} border ${_} ${j} p-5`, A = `${$} border ${_} ${j} p-4`, H = `${$} border ${_} ${j} px-4 py-3`, O = `${$} border ${_} ${j} px-6 py-10 text-center text-sm text-gray-600`, b = "text-xs uppercase tracking-wider text-gray-500", Y = `mt-2 text-2xl font-bold ${W}`;
 function X(l, t) {
   const e = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
   return e ? `data:${l};base64,${e(
@@ -66,7 +57,7 @@ function Z(l, t) {
 function tt(l, t) {
   return l?.downloads ? l.downloads[t]?.label ?? l.downloads.artifact?.label ?? "Download artifact" : "";
 }
-function N(l) {
+function P(l) {
   const t = [];
   return l.resources.length === 0 && t.push("Select at least one resource."), l.targetLocales.length === 0 && t.push("Select at least one target locale."), l.targetLocales.includes(l.sourceLocale) && t.push("Target locales cannot include the source locale."), l.includeSourceHash || t.push("Conflict detection is weaker when source hashes are excluded."), t;
 }
@@ -86,7 +77,7 @@ function M(l, t) {
     e[a.index] = a.status === "success" ? "apply" : "skip";
   return e;
 }
-function P(l) {
+function N(l) {
   const t = /* @__PURE__ */ new Map();
   for (const e of l?.results ?? [])
     t.set(e.index, e);
@@ -121,7 +112,7 @@ function w(l, t) {
     index: typeof l.index == "number" ? l.index : t
   };
 }
-class ot {
+class nt {
   constructor(t, e = {}, a) {
     this.root = null, this.step = "export", this.exportState = {
       draft: {
@@ -353,7 +344,7 @@ class ot {
   async submitExport(t) {
     const e = this.readExportDraft(t);
     this.exportState.draft = e;
-    const a = N(e);
+    const a = P(e);
     if (e.resources.length === 0 || e.targetLocales.length === 0 || a.some((s) => s.includes("cannot include"))) {
       this.exportState.status = "error", this.exportState.message = a[0] ?? "Complete the export filters before continuing.", this.render();
       return;
@@ -664,7 +655,7 @@ class ot {
     return this.applyState.resolutions[t] ?? "apply";
   }
   validationRowForIndex(t) {
-    return P(this.validateState.result).get(t) ?? null;
+    return N(this.validateState.result).get(t) ?? null;
   }
   rowActions(t, e) {
     const a = ["apply", "skip"], s = e?.metadata ?? {};
@@ -704,7 +695,7 @@ class ot {
   }
   render() {
     if (!this.root) return;
-    const t = N(this.exportState.draft), e = Object.values(this.validateState.decisions).filter(
+    const t = P(this.exportState.draft), e = Object.values(this.validateState.decisions).filter(
       (n) => n === "accepted"
     ).length, a = Object.values(this.validateState.decisions).filter(
       (n) => n === "rejected"
@@ -818,7 +809,7 @@ class ot {
                 </label>`).join("")}
             </div>
           </fieldset>
-          <label class="flex items-center gap-3 ${I} text-sm text-gray-700">
+          <label class="flex items-center gap-3 ${H} text-sm text-gray-700">
             <input type="checkbox" class="${v}" name="include_source_hash" ${this.exportState.draft.includeSourceHash ? "checked" : ""}>
             <span>Include source hashes so validate and apply can detect stale source drift.</span>
           </label>
@@ -827,7 +818,7 @@ class ot {
             <span class="text-sm text-gray-600">${o(this.exportState.message)}</span>
           </div>
         </form>
-        <aside class="space-y-4 ${L}">
+        <aside class="space-y-4 ${I}">
           <div>
             <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-500">Preflight</h2>
             <div class="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
@@ -859,7 +850,7 @@ class ot {
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
                     <p class="text-xs text-gray-500">${o(a.id)}</p>
                   </div>
-                  <span class="${y(D(a.status))}">${o(a.status)}</span>
+                  <span class="${y(L(a.status))}">${o(a.status)}</span>
                 </div>
                 <div class="mt-4 h-2 overflow-hidden rounded-full bg-gray-200">
                   <div class="h-full bg-blue-500" style="width: ${J(a)}%"></div>
@@ -879,7 +870,7 @@ class ot {
       ${this.renderExampleLinks(a.filter((n) => n.kind === "import_validate"))}
       <section class="space-y-5 ${m}">
         <form data-validate-form="true" class="space-y-4">
-          <div class="${L}">
+          <div class="${I}">
             <label class="text-sm font-semibold text-gray-900" for="exchange-import-file">Validation file</label>
             <input id="exchange-import-file" type="file" accept=".json,.csv" class="mt-3 block w-full text-sm text-gray-700">
             <p class="mt-2 text-sm text-gray-600">${o(this.validateState.upload.filename ?? "Choose a JSON or CSV package exported for translators.")}</p>
@@ -956,7 +947,7 @@ class ot {
     `;
   }
   renderApplyStep() {
-    const t = this.applyState.rows, e = P(this.validateState.result), a = this.applyState.result, s = a?.results ?? [], i = this.applyState.job, n = {
+    const t = this.applyState.rows, e = N(this.validateState.result), a = this.applyState.result, s = a?.results ?? [], i = this.applyState.job, n = {
       apply: 0,
       skip: 0,
       override: 0,
@@ -1112,7 +1103,7 @@ class ot {
   }
   renderApplyToggle(t, e, a) {
     return `
-      <label class="flex items-center gap-3 ${I} text-sm text-gray-700">
+      <label class="flex items-center gap-3 ${H} text-sm text-gray-700">
         <input type="checkbox" class="${v}" data-apply-option="${t}" ${a ? "checked" : ""}>
         <span>${o(e)}</span>
       </label>
@@ -1168,11 +1159,11 @@ class ot {
                         <div>
                           <div class="flex flex-wrap items-center gap-2">
                             <span class="${y("info")}">${o(r.kind.replace(/_/g, " "))}</span>
-                            <span class="${y(D(r.status))}">${o(r.status)}</span>
+                            <span class="${y(L(r.status))}">${o(r.status)}</span>
                             ${r.fixture ? `<span class="${y("warning")}">Fixture</span>` : ""}
                           </div>
                           <h3 class="mt-3 text-lg font-semibold text-gray-900">${o(r.file?.name ?? r.id)}</h3>
-                          <p class="mt-1 text-sm text-gray-600">Actor ${o(r.actor?.label ?? "system")} • ${o(O(r.created_at))}</p>
+                          <p class="mt-1 text-sm text-gray-600">Actor ${o(r.actor?.label ?? "system")} • ${o(D(r.created_at, "Pending"))}</p>
                         </div>
                         <div class="text-sm text-gray-600">
                           <div>${o(r.progress.processed)} / ${o(r.progress.total ?? 0)} processed</div>
@@ -1180,14 +1171,14 @@ class ot {
                         </div>
                       </div>
                     </button>
-                  </article>`).join("") : `<div class="${H}">No jobs match the current filters.</div>`}
+                  </article>`).join("") : `<div class="${O}">No jobs match the current filters.</div>`}
           </div>
           ${i ? `
                 <section class="${m} space-y-4">
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 class="text-lg font-semibold text-gray-900">${o(i.file?.name ?? i.id)}</h2>
-                      <p class="mt-1 text-sm text-gray-600">${o(i.kind.replace(/_/g, " "))} • ${o(i.status)} • ${o(O(i.updated_at))}</p>
+                      <p class="mt-1 text-sm text-gray-600">${o(i.kind.replace(/_/g, " "))} • ${o(i.status)} • ${o(D(i.updated_at, "Pending"))}</p>
                     </div>
                     <div class="flex flex-wrap gap-3">
                       <button class="${f}" type="button" data-history-load-apply="all">Load in apply step</button>
@@ -1238,7 +1229,7 @@ class ot {
                                 </tr>`).join("")}
                             </tbody>
                           </table>
-                        </div>` : `<div class="${H}">No per-row results were retained for this job.</div>`}
+                        </div>` : `<div class="${O}">No per-row results were retained for this job.</div>`}
                 </section>` : ""}
         </div>
       </section>
@@ -1246,7 +1237,7 @@ class ot {
   }
 }
 export {
-  ot as TranslationExchangeManager,
+  nt as TranslationExchangeManager,
   U as normalizeTranslationExchangeHistoryResponse,
   C as normalizeTranslationExchangeJob,
   x as normalizeTranslationExchangeUploadDescriptor,

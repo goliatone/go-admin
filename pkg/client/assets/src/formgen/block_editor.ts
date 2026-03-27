@@ -1,3 +1,5 @@
+import { onReady } from '../shared/dom-ready.js';
+
 type BlockEditorConfig = {
   sortable?: boolean;
   addLabel?: string;
@@ -1706,14 +1708,6 @@ export function initBlockEditors(scope: ParentNode = document): void {
   roots
     .filter((root) => root.dataset.blockLibraryPicker !== 'true' && root.dataset.blockInit !== 'manual')
     .forEach((root) => initBlockEditor(root));
-}
-
-function onReady(fn: () => void): void {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fn, { once: true });
-  } else {
-    fn();
-  }
 }
 
 onReady(() => initBlockEditors());

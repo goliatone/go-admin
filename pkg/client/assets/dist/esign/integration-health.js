@@ -1,5 +1,6 @@
-import { b as i, a as L, f as S } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as i, a as L } from "../chunks/dom-helpers-cltCUiC5.js";
 import { escapeHTML as l } from "../shared/html.js";
+import { onReady as S } from "../shared/dom-ready.js";
 class M {
   constructor(e) {
     this.healthData = null, this.autoRefreshTimer = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.elements = {
@@ -373,11 +374,11 @@ class M {
    * Escape HTML
    */
 }
-function R(c) {
+function A(c) {
   const e = new M(c);
   return S(() => e.init()), e;
 }
-function A(c) {
+function B(c) {
   const e = {
     basePath: c.basePath,
     apiBasePath: c.apiBasePath || `${c.basePath}/api`,
@@ -387,7 +388,7 @@ function A(c) {
 }
 export {
   M as IntegrationHealthController,
-  A as bootstrapIntegrationHealth,
-  R as initIntegrationHealth
+  B as bootstrapIntegrationHealth,
+  A as initIntegrationHealth
 };
 //# sourceMappingURL=integration-health.js.map

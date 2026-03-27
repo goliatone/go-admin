@@ -1,4 +1,4 @@
-import { f as Dt } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { onReady as Dt } from "../shared/dom-ready.js";
 import { l as jt, a as Gt } from "../chunks/runtime-bhSs9hEJ.js";
 import { escapeHTML as Ue } from "../shared/html.js";
 const $e = {

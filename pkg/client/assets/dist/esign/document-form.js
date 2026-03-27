@@ -1,10 +1,11 @@
-import { f as L, b as a, q as E, h as d, s as p, a as b } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as a, q as E, h as d, s as p, a as b } from "../chunks/dom-helpers-cltCUiC5.js";
 import { d as _ } from "../chunks/async-helpers-D7xplkWe.js";
 import { f as S, b as M } from "../chunks/formatters-Bx8onLEN.js";
 import { r as B, p as I, u as R, s as z, q as T } from "../chunks/google-drive-utils-_iSuaPZh.js";
 import { h as $ } from "../chunks/http-client-DZnuedzQ.js";
 import { escapeHTML as y } from "../shared/html.js";
-import { g as U, h as j, r as H } from "../chunks/lineage-contracts-CFbDklQS.js";
+import { g as U, h as j, r as H } from "../chunks/lineage-contracts-BR7-TggW.js";
+import { onReady as L } from "../shared/dom-ready.js";
 const O = 25 * 1024 * 1024, q = 2e3, k = 60, x = "application/vnd.google-apps.document", F = "application/pdf", C = "application/vnd.google-apps.folder", G = [x, F];
 class P {
   constructor(e) {
@@ -893,11 +894,11 @@ class P {
    * Escape HTML
    */
 }
-function Y(c) {
+function ee(c) {
   const e = new P(c);
   return L(() => e.init()), e;
 }
-function ee(c) {
+function te(c) {
   const e = {
     basePath: c.basePath,
     apiBasePath: c.apiBasePath || `${c.basePath}/api/v1`,
@@ -948,7 +949,7 @@ typeof document < "u" && L(() => {
 });
 export {
   P as DocumentFormController,
-  ee as bootstrapDocumentForm,
-  Y as initDocumentForm
+  te as bootstrapDocumentForm,
+  ee as initDocumentForm
 };
 //# sourceMappingURL=document-form.js.map

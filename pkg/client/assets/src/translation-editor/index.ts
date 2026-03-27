@@ -2,7 +2,15 @@ import {
   normalizeTranslationActionState,
   type TranslationActionState,
 } from '../translation-contracts/index.js';
+import {
+  asBoolean,
+  asNumber,
+  asRecord,
+  asString,
+  asStringArray,
+} from '../shared/coercion.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
+import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
@@ -34,6 +42,8 @@ import {
   getTimelineEntryClasses,
   GLOSSARY_CHIP,
   GLOSSARY_CHIP_TERM,
+  formatTranslationTimestampUTC,
+  sentenceCaseToken,
   type AutosaveState,
   type QASeverity,
   type TimelineTone,
@@ -281,38 +291,6 @@ export interface TranslationEditorScreenConfig {
   variantEndpointBase: string;
   actionEndpointBase: string;
   basePath?: string;
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? value as Record<string, unknown> : {};
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function asBoolean(value: unknown): boolean {
-  return value === true;
-}
-
-function asNumber(value: unknown, fallback = 0): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
-function asStringMap(value: unknown): Record<string, string> {
-  const record = asRecord(value);
-  const out: Record<string, string> = {};
-  for (const [key, candidate] of Object.entries(record)) {
-    const normalized = asString(candidate);
-    if (!key.trim()) continue;
-    out[key.trim()] = normalized;
-  }
-  return out;
-}
-
-function asStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => asString(entry)).filter(Boolean);
 }
 
 function normalizeFieldCompleteness(value: unknown): TranslationEditorFieldCompleteness {
@@ -676,8 +654,8 @@ function normalizeFieldEntries(
 export function normalizeAssignmentEditorDetail(raw: unknown): TranslationAssignmentEditorDetail {
   const envelope = asRecord(raw);
   const record = asRecord(envelope.data && typeof envelope.data === 'object' ? envelope.data : raw);
-  const sourceFields = asStringMap(record.source_fields);
-  const targetFields = asStringMap(record.target_fields ?? record.fields);
+  const sourceFields = normalizeStringRecord(record.source_fields, { trimKeys: true, omitBlankKeys: true });
+  const targetFields = normalizeStringRecord(record.target_fields ?? record.fields, { trimKeys: true, omitBlankKeys: true });
   const completeness = normalizeFieldMap(record.field_completeness, normalizeFieldCompleteness);
   const drift = normalizeFieldMap(record.field_drift, normalizeFieldDrift);
   const validations = normalizeFieldMap(record.field_validations, normalizeFieldValidation);
@@ -729,7 +707,7 @@ export function normalizeEditorUpdateResponse(raw: unknown): TranslationEditorUp
   return {
     variant_id: asString(record.variant_id),
     row_version: asNumber(record.row_version || record.version),
-    fields: asStringMap(record.fields),
+    fields: normalizeStringRecord(record.fields, { trimKeys: true, omitBlankKeys: true }),
     field_completeness: normalizeFieldMap(record.field_completeness, normalizeFieldCompleteness),
     field_drift: normalizeFieldMap(record.field_drift, normalizeFieldDrift),
     field_validations: normalizeFieldMap(record.field_validations, normalizeFieldValidation),
@@ -978,20 +956,6 @@ function byteSizeLabel(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function formatTimestamp(value: string): string {
-  const normalized = asString(value);
-  if (!normalized) return '';
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return normalized;
-  return parsed.toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
-}
-
-function sentenceCase(value: string): string {
-  const normalized = asString(value).replace(/_/g, ' ');
-  if (!normalized) return '';
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-}
-
 function assignmentLifecycleStatus(detail: TranslationAssignmentEditorDetail): string {
   return asString(detail.status || detail.translation_assignment.status || detail.translation_assignment.queue_state);
 }
@@ -1164,7 +1128,7 @@ function renderHeader(
           <div>
             <h1 class="${HEADER_TITLE}">${escapeHTML(assignment.source_title || 'Translation assignment')}</h1>
             <p class="mt-2 text-sm text-gray-600">
-              ${escapeHTML(sourceLocale)} to ${escapeHTML(targetLocale)} • ${escapeHTML(sentenceCase(detail.status || assignment.status || 'draft'))} • Priority ${escapeHTML(detail.priority || 'normal')}
+              ${escapeHTML(sourceLocale)} to ${escapeHTML(targetLocale)} • ${escapeHTML(sentenceCaseToken(detail.status || assignment.status || 'draft'))} • Priority ${escapeHTML(detail.priority || 'normal')}
             </p>
           </div>
           <div class="flex flex-wrap gap-2 text-xs text-gray-600">
@@ -1319,7 +1283,7 @@ interface TranslationEditorTimelineItem {
 function buildTimelineItems(detail: TranslationAssignmentEditorDetail): TranslationEditorTimelineItem[] {
   const items: TranslationEditorTimelineItem[] = detail.history.items.map((entry) => ({
     id: entry.id,
-    title: entry.title || sentenceCase(entry.entry_type),
+    title: entry.title || sentenceCaseToken(entry.entry_type),
     body: entry.body || '',
     created_at: entry.created_at,
     badge: entry.kind === 'review_feedback' ? 'Reviewer feedback' : entry.entry_type === 'comment' ? 'Comment' : 'Activity',
@@ -1375,7 +1339,7 @@ function renderQAPanel(detail: TranslationAssignmentEditorDetail): string {
         <ol class="mt-3 space-y-3">${findings.map((finding) => `
           <li class="${classes.container}">
             <div class="flex items-center justify-between gap-3">
-              <strong>${escapeHTML(sentenceCase(finding.category))}</strong>
+              <strong>${escapeHTML(sentenceCaseToken(finding.category))}</strong>
               <span class="${classes.badge}">${escapeHTML(finding.severity)}</span>
             </div>
             <p class="mt-2">${escapeHTML(finding.message)}</p>
@@ -1535,7 +1499,7 @@ function renderAttachmentPanel(detail: TranslationAssignmentEditorDetail): strin
                 <span class="text-xs text-gray-500">${escapeHTML(byteSizeLabel(attachment.byte_size))}</span>
               </div>
               ${attachment.description ? `<p class="mt-2 text-xs text-gray-500">${escapeHTML(attachment.description)}</p>` : ''}
-              ${attachment.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${escapeHTML(formatTimestamp(attachment.uploaded_at))}</p>` : ''}
+              ${attachment.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${escapeHTML(formatTranslationTimestampUTC(attachment.uploaded_at))}</p>` : ''}
             </li>
           `).join('')}</ul>`
         : '<p class="mt-4 text-sm text-gray-500">No reference attachments for this assignment.</p>'}
@@ -1562,7 +1526,7 @@ function renderTimelinePanel(detail: TranslationAssignmentEditorDetail): string 
                   <p class="${classes.title}">${escapeHTML(entry.title)}</p>
                   <span class="${classes.badge}">${escapeHTML(entry.badge)}</span>
                 </div>
-                <span class="${classes.time}">${escapeHTML(formatTimestamp(entry.created_at) || 'Current')}</span>
+                <span class="${classes.time}">${escapeHTML(formatTranslationTimestampUTC(entry.created_at) || 'Current')}</span>
               </div>
               ${entry.body ? `<p class="mt-2 text-sm">${escapeHTML(entry.body)}</p>` : ''}
             </li>
@@ -1900,7 +1864,7 @@ export class TranslationEditorScreen {
       ? detail.assignment_action_states.archive
       : detail.review_action_states[action];
     if (!actionState?.enabled) {
-      this.feedback = { kind: 'error', message: actionState?.reason || `${sentenceCase(action)} is unavailable.` };
+      this.feedback = { kind: 'error', message: actionState?.reason || `${sentenceCaseToken(action)} is unavailable.` };
       this.render();
       return;
     }

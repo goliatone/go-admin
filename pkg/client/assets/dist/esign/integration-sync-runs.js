@@ -1,7 +1,8 @@
-import { b as n, h as f, s as v, f as L } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as n, h as f, s as v } from "../chunks/dom-helpers-cltCUiC5.js";
 import { i as B } from "../chunks/formatters-Bx8onLEN.js";
-import { a as E, s as b } from "../chunks/page-feedback-XrK1vdW2.js";
+import { a as E, s as b } from "../chunks/page-feedback-CVdtgsKH.js";
 import { escapeHTML as l } from "../shared/html.js";
+import { onReady as L } from "../shared/dom-ready.js";
 class C {
   constructor(t) {
     this.syncRuns = [], this.mappings = [], this.currentRunId = null, this.config = t, this.apiBase = t.apiBasePath || `${t.basePath}/api`, this.syncRunsEndpoint = `${this.apiBase}/esign/integrations/sync-runs`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
@@ -439,11 +440,11 @@ class C {
       }
   }
 }
-function A(x) {
+function j(x) {
   const t = new C(x);
   return L(() => t.init()), t;
 }
-function j(x) {
+function H(x) {
   const t = {
     basePath: x.basePath,
     apiBasePath: x.apiBasePath || `${x.basePath}/api`
@@ -452,7 +453,7 @@ function j(x) {
 }
 export {
   C as IntegrationSyncRunsController,
-  j as bootstrapIntegrationSyncRuns,
-  A as initIntegrationSyncRuns
+  H as bootstrapIntegrationSyncRuns,
+  j as initIntegrationSyncRuns
 };
 //# sourceMappingURL=integration-sync-runs.js.map

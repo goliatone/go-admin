@@ -2,6 +2,9 @@ import { renderVocabularyStatusBadge } from '../datatable/translation-status-voc
 import {
   type TranslationActionState,
 } from '../translation-contracts/index.js';
+import { asNumber, asRecord, asString } from '../shared/coercion.js';
+import { StatefulController } from '../shared/stateful-controller.js';
+import { normalizeNumberRecord } from '../shared/record-normalization.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 import { extractStructuredError, type StructuredError } from '../toast/error-helpers.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
@@ -29,6 +32,7 @@ import {
   MOBILE_CARD_LABEL,
   MOBILE_CARD_VALUE,
   MOBILE_CARD_ACTIONS,
+  formatTranslationShortDateTime,
 } from '../translation-shared/index.js';
 
 export type AssignmentDueState = 'none' | 'on_track' | 'due_soon' | 'overdue';
@@ -293,18 +297,6 @@ export const DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS: AssignmentQueueSavedFilter
   },
 ];
 
-function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? value as Record<string, unknown> : {};
-}
-
-function asString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function asNumber(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
-}
-
 function normalizeActionState(value: unknown): TranslationActionState {
   const raw = asRecord(value);
   return {
@@ -454,17 +446,6 @@ function cloneSavedFilterPreset(preset: AssignmentQueueSavedFilterPreset): Assig
   };
 }
 
-function normalizeAggregateCounts(value: unknown): Record<string, number> {
-  const raw = asRecord(value);
-  const out: Record<string, number> = {};
-  for (const [key, candidate] of Object.entries(raw)) {
-    const normalized = asNumber(candidate);
-    if (!key.trim()) continue;
-    out[key.trim()] = normalized;
-  }
-  return out;
-}
-
 function uniqueFilterOptions(values: Array<string | undefined>): string[] {
   return Array.from(new Set(values.map((value) => asString(value)).filter(Boolean)));
 }
@@ -501,7 +482,7 @@ export function normalizeAssignmentListMeta(value: unknown): AssignmentListMeta 
     saved_review_filter_presets: normalizeSavedFilterPresets(raw.saved_review_filter_presets, DEFAULT_ASSIGNMENT_QUEUE_REVIEW_FILTERS),
     default_review_filter_preset: asString(raw.default_review_filter_preset) || undefined,
     review_actor_id: asString(raw.review_actor_id) || undefined,
-    review_aggregate_counts: normalizeAggregateCounts(raw.review_aggregate_counts),
+    review_aggregate_counts: normalizeNumberRecord(raw.review_aggregate_counts, { trimKeys: true, omitBlankKeys: true }),
   };
 }
 
@@ -792,10 +773,9 @@ function shouldShowQueueManagementActions(row: AssignmentListRow): boolean {
   return Boolean(row.review_actions.archive.enabled);
 }
 
-export class AssignmentQueueScreen {
+export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScreenState> {
   private config: Required<AssignmentQueueScreenConfig>;
   private container: HTMLElement | null = null;
-  private state: AssignmentQueueScreenState = 'loading';
   private response: AssignmentListResponse | null = null;
   private rows: AssignmentListRow[] = [];
   private queryState: AssignmentListQueryState;
@@ -807,6 +787,7 @@ export class AssignmentQueueScreen {
   private pendingActions = new Set<string>();
 
   constructor(config: AssignmentQueueScreenConfig) {
+    super('loading');
     const requestedPresetId = asString(config.initialPresetId);
     this.config = {
       endpoint: config.endpoint,
@@ -843,11 +824,6 @@ export class AssignmentQueueScreen {
     }
     this.container = null;
   }
-
-  getState(): AssignmentQueueScreenState {
-    return this.state;
-  }
-
   getData(): AssignmentListResponse | null {
     return this.response;
   }
@@ -1289,7 +1265,7 @@ export class AssignmentQueueScreen {
         <td>
           <div class="queue-due-cell">
             <span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>
-            <span>${escapeHtml(formatDueDate(row.due_date))}</span>
+            <span>${escapeHtml(formatTranslationShortDateTime(row.due_date, 'No due date'))}</span>
           </div>
         </td>
         <td>
@@ -1412,7 +1388,7 @@ export class AssignmentQueueScreen {
             <span class="${MOBILE_CARD_LABEL}">Due</span>
             <span class="${MOBILE_CARD_VALUE}">
               <span class="due-pill due-${escapeAttr(row.due_state)}">${escapeHtml(humanizeToken(row.due_state))}</span>
-              ${row.due_date ? `<span class="text-gray-500 ml-1">${escapeHtml(formatDueDate(row.due_date))}</span>` : ''}
+              ${row.due_date ? `<span class="text-gray-500 ml-1">${escapeHtml(formatTranslationShortDateTime(row.due_date, 'No due date'))}</span>` : ''}
             </span>
           </div>
           <div class="${MOBILE_CARD_ROW}">
@@ -1629,24 +1605,6 @@ function humanizeToken(value: string): string {
     .map((entry) => entry.charAt(0).toUpperCase() + entry.slice(1))
     .join(' ');
 }
-
-function formatDueDate(value?: string): string {
-  if (!value) {
-    return 'No due date';
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return parsed.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-
 
 export function getAssignmentQueueStyles(): string {
   return `

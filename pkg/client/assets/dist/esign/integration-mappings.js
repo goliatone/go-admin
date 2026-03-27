@@ -1,8 +1,9 @@
-import { b as s, h as m, s as g, f as $ } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as s, h as m, s as g } from "../chunks/dom-helpers-cltCUiC5.js";
 import { d as L } from "../chunks/async-helpers-D7xplkWe.js";
 import { i as N } from "../chunks/formatters-Bx8onLEN.js";
-import { a as w, s as x } from "../chunks/page-feedback-XrK1vdW2.js";
+import { a as w, s as x } from "../chunks/page-feedback-CVdtgsKH.js";
 import { escapeHTML as l } from "../shared/html.js";
+import { onReady as $ } from "../shared/dom-ready.js";
 class C {
   constructor(e) {
     this.mappings = [], this.editingMappingId = null, this.pendingPublishId = null, this.pendingDeleteId = null, this.currentPreviewMapping = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
@@ -815,11 +816,11 @@ class C {
     e && (e.value = ""), m(t), this.showPreviewState("empty"), this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
   }
 }
-function U(y) {
+function z(y) {
   const e = new C(y);
   return $(() => e.init()), e;
 }
-function z(y) {
+function G(y) {
   const e = {
     basePath: y.basePath,
     apiBasePath: y.apiBasePath || `${y.basePath}/api`
@@ -828,7 +829,7 @@ function z(y) {
 }
 export {
   C as IntegrationMappingsController,
-  z as bootstrapIntegrationMappings,
-  U as initIntegrationMappings
+  G as bootstrapIntegrationMappings,
+  z as initIntegrationMappings
 };
 //# sourceMappingURL=integration-mappings.js.map

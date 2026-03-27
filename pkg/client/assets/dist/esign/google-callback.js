@@ -1,4 +1,5 @@
-import { b as i, h as l, s as c, f as h } from "../chunks/dom-helpers-CMRVXsMj.js";
+import { b as r, h as l, s as c } from "../chunks/dom-helpers-cltCUiC5.js";
+import { onReady as h } from "../shared/dom-ready.js";
 const u = {
   access_denied: "You denied access to your Google account.",
   invalid_request: "The authorization request was invalid.",
@@ -12,12 +13,12 @@ const u = {
 class p {
   constructor(e) {
     this.config = e, this.elements = {
-      loadingState: i("#loading-state"),
-      successState: i("#success-state"),
-      errorState: i("#error-state"),
-      errorMessage: i("#error-message"),
-      errorDetail: i("#error-detail"),
-      closeBtn: i("#close-btn")
+      loadingState: r("#loading-state"),
+      successState: r("#success-state"),
+      errorState: r("#error-state"),
+      errorMessage: r("#error-message"),
+      errorDetail: r("#error-detail"),
+      closeBtn: r("#close-btn")
     };
   }
   /**
@@ -37,8 +38,8 @@ class p {
    * Process the OAuth callback parameters
    */
   processCallback() {
-    const e = new URLSearchParams(window.location.search), t = e.get("code"), o = e.get("error"), s = e.get("error_description"), n = e.get("state"), a = this.parseOAuthState(n);
-    a.account_id || (a.account_id = (e.get("account_id") || "").trim()), o ? this.handleError(o, s, a) : t ? this.handleSuccess(t, a) : this.handleError("unknown", "No authorization code was received from Google.", a);
+    const e = new URLSearchParams(window.location.search), t = e.get("code"), o = e.get("error"), s = e.get("error_description"), n = e.get("state"), i = this.parseOAuthState(n);
+    i.account_id || (i.account_id = (e.get("account_id") || "").trim()), o ? this.handleError(o, s, i) : t ? this.handleSuccess(t, i) : this.handleError("unknown", "No authorization code was received from Google.", i);
   }
   /**
    * Parse OAuth state parameter
@@ -86,7 +87,7 @@ class p {
    */
   handleError(e, t, o) {
     this.showState("error");
-    const { errorMessage: s, errorDetail: n, closeBtn: a } = this.elements;
+    const { errorMessage: s, errorDetail: n, closeBtn: i } = this.elements;
     s && (s.textContent = u[e] || u.unknown), t && n && (n.textContent = t, c(n)), this.sendToOpener({
       type: "google_oauth_callback",
       error: e,
@@ -125,23 +126,23 @@ class p {
     }
   }
 }
-function w(r) {
-  const e = r || {
+function _(a) {
+  const e = a || {
     basePath: "/admin",
     apiBasePath: "/admin/api"
   }, t = new p(e);
   return h(() => t.init()), t;
 }
-function _(r) {
+function f(a) {
   const e = {
-    basePath: r,
-    apiBasePath: `${r}/api`
+    basePath: a,
+    apiBasePath: `${a}/api`
   }, t = new p(e);
   h(() => t.init());
 }
 export {
   p as GoogleCallbackController,
-  _ as bootstrapGoogleCallback,
-  w as initGoogleCallback
+  f as bootstrapGoogleCallback,
+  _ as initGoogleCallback
 };
 //# sourceMappingURL=google-callback.js.map
