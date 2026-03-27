@@ -69,10 +69,8 @@ func (s *SearchEngine) Query(ctx AdminContext, query string, limit int) ([]Searc
 		limit = 10
 	}
 	if s.primary != nil {
-		if perm := s.primary.Permission(); perm != "" && s.authorizer != nil {
-			if !s.authorizer.Can(ctx.Context, perm, "search") {
-				return []SearchResult{}, nil
-			}
+		if !permissionAllowed(s.authorizer, ctx.Context, s.primary.Permission(), "search") {
+			return []SearchResult{}, nil
 		}
 		hits, err := s.primary.Search(ctx.Context, query, limit)
 		if err != nil {
@@ -82,10 +80,8 @@ func (s *SearchEngine) Query(ctx AdminContext, query string, limit int) ([]Searc
 	}
 	results := []SearchResult{}
 	for key, adapter := range s.adapters {
-		if perm := adapter.Permission(); perm != "" && s.authorizer != nil {
-			if !s.authorizer.Can(ctx.Context, perm, "search") {
-				continue
-			}
+		if !permissionAllowed(s.authorizer, ctx.Context, adapter.Permission(), "search") {
+			continue
 		}
 		hits, err := adapter.Search(ctx.Context, query, limit)
 		if err != nil {
