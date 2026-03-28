@@ -1,45 +1,46 @@
-import { a as yt, b as ce, c as de } from "../chunks/lineage-contracts-BR7-TggW.js";
-import { C as wo, k as Co, K as Po, l as xo, F as Eo, S as To, L as Ao, i as Ro, m as Fo, M as Do, j as Io, d as Mo, f as Lo, h as $o, g as No, e as jo, t as Zo, s as zo, o as Ho, p as Oo, q as Ko, x as Go, y as Vo, w as qo, H as Uo, I as Qo, J as Bo, G as Xo, B as Wo, A as Jo, n as Yo, E as er, D as tr, u as ir, z as nr, v as sr, r as ar } from "../chunks/lineage-contracts-BR7-TggW.js";
-import { a as oe } from "../chunks/formatters-CxrdwABk.js";
-import { l as rr, e as cr, d as dr, f as ur, b as lr, f as mr, c as _r, k as pr, h as gr, i as fr, j as vr, g as hr, s as yr, t as br } from "../chunks/formatters-CxrdwABk.js";
-import { D as kr, k as wr, l as Cr, E as Pr, P as xr, b as Er, f as Tr, d as Ar, g as Rr, j as Fr, e as Dr, h as Ir, a as Mr, c as Lr, i as $r } from "../chunks/provenance-card-BnOi6ubz.js";
-import { a as bt, b as St, c as ue, d as kt, e as wt, f as Ct, g as Pt, h as xt, i as Et, j as Tt, k as At, l as Rt, m as Ft } from "../chunks/source-search-DfQNk6Ak.js";
-import { y as jr, n as Zr, z as zr, x as Hr, o as Or, r as Kr, q as Gr, p as Vr, t as qr, s as Ur, B as Qr, A as Br, v as Xr, u as Wr, w as Jr } from "../chunks/source-search-DfQNk6Ak.js";
-import { d as Dt } from "../chunks/source-management-pages-6jhmEW80.js";
-import { P as ec, w as tc, g as ic, S as nc, a as sc, b as ac, e as oc, f as rc, h as cc, c as dc, V as uc, o as lc, i as mc, j as _c, k as pc, m as gc, n as fc, p as vc, l as hc, t as yc, u as bc, q as Sc, s as kc, r as wc, v as Cc } from "../chunks/source-management-pages-6jhmEW80.js";
-import { c as xc, S as Ec, e as Tc, i as Ac, d as Rc, a as Fc, l as Dc, r as Ic, b as Mc, t as Lc } from "../chunks/source-management-runtime-QHTGO-g4.js";
-import { E as Nc, a as jc, L as Zc, b as zc, c as Hc, g as Oc, i as Kc, s as Gc } from "../chunks/admin-landing-DpIB0ZmI.js";
-import { a as qc, c as Uc, d as Qc, e as Bc, i as Xc, h as Wc, o as Jc, b as Yc, q as ed, f as td, s as id, t as nd, u as sd, g as ad } from "../chunks/dom-helpers-cltCUiC5.js";
-import { c as rd, d as cd, p as dd, r as ud, s as ld, t as md, w as _d } from "../chunks/async-helpers-D7xplkWe.js";
-import { a as gd, s as fd } from "../chunks/page-feedback-CVdtgsKH.js";
-import { SignerCompletePageController as hd, bootstrapSignerCompletePage as yd, getSignerCompletionPollDelayMs as bd, initSignerCompletePage as Sd, resolveSignerCompleteArtifacts as kd, resolveSignerCompletePayloadState as wd } from "./signer-complete.js";
-import { DocumentDetailPreviewController as Pd, applyDetailFormatters as xd, bootstrapDocumentDetailPreview as Ed, formatSizeElements as Td, formatTimestampElements as Ad, initDetailFormatters as Rd, initDocumentDetailPreview as Fd } from "./document-detail.js";
-import { GoogleCallbackController as Id, bootstrapGoogleCallback as Md, initGoogleCallback as Ld } from "./google-callback.js";
-import { GoogleIntegrationController as Nd, bootstrapGoogleIntegration as jd, initGoogleIntegration as Zd } from "./google-integration.js";
-import { GoogleDrivePickerController as Hd, bootstrapGoogleDrivePicker as Od, initGoogleDrivePicker as Kd } from "./google-drive-picker.js";
-import { IntegrationHealthController as Vd, bootstrapIntegrationHealth as qd, initIntegrationHealth as Ud } from "./integration-health.js";
-import { IntegrationMappingsController as Bd, bootstrapIntegrationMappings as Xd, initIntegrationMappings as Wd } from "./integration-mappings.js";
-import { IntegrationConflictsController as Yd, bootstrapIntegrationConflicts as eu, initIntegrationConflicts as tu } from "./integration-conflicts.js";
-import { IntegrationSyncRunsController as nu, bootstrapIntegrationSyncRuns as su, initIntegrationSyncRuns as au } from "./integration-sync-runs.js";
-import { DocumentFormController as ru, bootstrapDocumentForm as cu, initDocumentForm as du } from "./document-form.js";
-import { AgreementFormController as lu, bootstrapAgreementForm as mu, initAgreementForm as _u } from "./agreement-form.js";
-import { SignerReviewController as gu, bootstrapSignerReview as fu, initSignerReview as vu } from "./signer-review.js";
-import { SignerErrorPageController as yu, bootstrapSignerErrorPage as bu, initSignerErrorPage as Su } from "./signer-error.js";
-import { PanelPaginationBehavior as wu, PanelSearchBehavior as Cu, STANDARD_GRID_SELECTORS as Pu, createSchemaActionCachingRefresh as xu, dateTimeCellRenderer as Eu, defaultActionErrorHandler as Tu, defaultActionSuccessHandler as Au, fileSizeCellRenderer as Ru, normalizeFilterOperators as Fu, normalizeFilterOptions as Du, normalizeFilterType as Iu, prepareFilterFields as Mu, prepareGridColumns as Lu, setupRefreshButton as $u } from "./datatable.js";
-import { A as ju, C as Zu, x as zu, v as Hu, D as Ou, E as Ku, I as Gu, P as Vu, q as qu, S as Uu, t as Qu, T as Bu, _ as Xu, c as Wu, b as Ju, H as Yu, n as el, o as tl, j as il, W as nl, e as sl, M as al, k as ol, $ as rl, d as cl, f as dl, z as ul, K as ll, L as ml, g as _l, B as pl, p as gl, X as fl, y as vl, V as hl, J as yl, i as bl, G as Sl, F as kl, l as wl, a3 as Cl, a2 as Pl, a1 as xl, a0 as El, U as Tl, m as Al, Z as Rl, Y as Fl, N as Dl, Q as Il, O as Ml, R as Ll, h as $l, a as Nl, r as jl, s as Zl, u as zl, w as Hl } from "../chunks/agreement-detail-Wy4HG2Sx.js";
-import { formatTimestamp as Kl } from "./timeline-formatters.js";
-import { G as Vl, I as ql, M as Ul, c as Ql, a as Bl, b as Xl, d as Wl, p as Jl, q as Yl, y as em, m as tm, l as im, k as nm, f as sm, i as am, h as om, g as rm, e as cm, o as dm, n as um, j as lm, v as mm, u as _m, w as pm, x as gm, r as fm, s as vm, t as hm } from "../chunks/google-drive-utils-Ds4hfRZV.js";
-import { onReady as bm } from "../shared/dom-ready.js";
-import { escapeHTML as km } from "../shared/html.js";
-function It(e) {
-  if (e == null) return;
-  const t = ["B", "KB", "MB", "GB"];
-  let i = e, n = 0;
-  for (; i >= 1024 && n < t.length - 1; )
-    i /= 1024, n++;
-  return `${i.toFixed(n === 0 ? 0 : 1)} ${t[n]}`;
-}
+import { a as bt, b as ce, c as de } from "../chunks/lineage-contracts-BR7-TggW.js";
+import { C as Po, k as Eo, K as xo, l as To, F as Ao, S as Ro, L as Fo, i as Do, m as Io, M as Mo, j as Lo, d as $o, f as No, h as jo, g as Zo, e as zo, t as Ho, s as Oo, o as Ko, p as Go, q as Vo, x as qo, y as Uo, w as Qo, H as Bo, I as Xo, J as Wo, G as Jo, B as Yo, A as er, n as tr, E as ir, D as nr, u as sr, z as ar, v as or, r as rr } from "../chunks/lineage-contracts-BR7-TggW.js";
+import { a as oe } from "../chunks/formatters-DYQo8z6P.js";
+import { l as dr, e as ur, d as lr, f as mr, b as _r, f as pr, c as gr, k as fr, h as vr, i as hr, j as yr, g as br, s as Sr, t as kr } from "../chunks/formatters-DYQo8z6P.js";
+import { formatByteSize as be } from "../shared/size-formatters.js";
+import { D as Cr, k as Pr, l as Er, E as xr, P as Tr, b as Ar, f as Rr, d as Fr, g as Dr, j as Ir, e as Mr, h as Lr, a as $r, c as Nr, i as jr } from "../chunks/provenance-card-BnOi6ubz.js";
+import { a as St, b as kt, c as ue, d as wt, e as Ct, f as Pt, g as Et, h as xt, i as Tt, j as At, k as Rt, l as Ft, m as Dt } from "../chunks/source-search-DfQNk6Ak.js";
+import { y as zr, n as Hr, z as Or, x as Kr, o as Gr, r as Vr, q as qr, p as Ur, t as Qr, s as Br, B as Xr, A as Wr, v as Jr, u as Yr, w as ec } from "../chunks/source-search-DfQNk6Ak.js";
+import { d as It } from "../chunks/source-management-pages-6jhmEW80.js";
+import { P as ic, w as nc, g as sc, S as ac, a as oc, b as rc, e as cc, f as dc, h as uc, c as lc, V as mc, o as _c, i as pc, j as gc, k as fc, m as vc, n as hc, p as yc, l as bc, t as Sc, u as kc, q as wc, s as Cc, r as Pc, v as Ec } from "../chunks/source-management-pages-6jhmEW80.js";
+import { c as Tc, S as Ac, e as Rc, i as Fc, d as Dc, a as Ic, l as Mc, r as Lc, b as $c, t as Nc } from "../chunks/source-management-runtime-BnOgD4NY.js";
+import { E as Zc, a as zc, L as Hc, b as Oc, c as Kc, g as Gc, i as Vc, s as qc } from "../chunks/admin-landing-DpIB0ZmI.js";
+import { a as Qc, c as Bc, d as Xc, e as Wc, i as Jc, h as Yc, o as ed, b as td, q as id, f as nd, s as sd, t as ad, u as od, g as rd } from "../chunks/dom-helpers-cltCUiC5.js";
+import { c as dd, d as ud, p as ld, r as md, s as _d, t as pd, w as gd } from "../chunks/async-helpers-D7xplkWe.js";
+import { a as vd, s as hd } from "../chunks/page-feedback-CVdtgsKH.js";
+import { SignerCompletePageController as bd, bootstrapSignerCompletePage as Sd, getSignerCompletionPollDelayMs as kd, initSignerCompletePage as wd, resolveSignerCompleteArtifacts as Cd, resolveSignerCompletePayloadState as Pd } from "./signer-complete.js";
+import { DocumentDetailPreviewController as xd, applyDetailFormatters as Td, bootstrapDocumentDetailPreview as Ad, formatSizeElements as Rd, formatTimestampElements as Fd, initDetailFormatters as Dd, initDocumentDetailPreview as Id } from "./document-detail.js";
+import { GoogleCallbackController as Ld, bootstrapGoogleCallback as $d, initGoogleCallback as Nd } from "./google-callback.js";
+import { GoogleIntegrationController as Zd, bootstrapGoogleIntegration as zd, initGoogleIntegration as Hd } from "./google-integration.js";
+import { GoogleDrivePickerController as Kd, bootstrapGoogleDrivePicker as Gd, initGoogleDrivePicker as Vd } from "./google-drive-picker.js";
+import { IntegrationHealthController as Ud, bootstrapIntegrationHealth as Qd, initIntegrationHealth as Bd } from "./integration-health.js";
+import { IntegrationMappingsController as Wd, bootstrapIntegrationMappings as Jd, initIntegrationMappings as Yd } from "./integration-mappings.js";
+import { IntegrationConflictsController as tu, bootstrapIntegrationConflicts as iu, initIntegrationConflicts as nu } from "./integration-conflicts.js";
+import { IntegrationSyncRunsController as au, bootstrapIntegrationSyncRuns as ou, initIntegrationSyncRuns as ru } from "./integration-sync-runs.js";
+import { DocumentFormController as du, bootstrapDocumentForm as uu, initDocumentForm as lu } from "./document-form.js";
+import { AgreementFormController as _u, bootstrapAgreementForm as pu, initAgreementForm as gu } from "./agreement-form.js";
+import { SignerReviewController as vu, bootstrapSignerReview as hu, initSignerReview as yu } from "./signer-review.js";
+import { SignerErrorPageController as Su, bootstrapSignerErrorPage as ku, initSignerErrorPage as wu } from "./signer-error.js";
+import { PanelPaginationBehavior as Pu, PanelSearchBehavior as Eu, STANDARD_GRID_SELECTORS as xu, createSchemaActionCachingRefresh as Tu, dateTimeCellRenderer as Au, defaultActionErrorHandler as Ru, defaultActionSuccessHandler as Fu, fileSizeCellRenderer as Du, normalizeFilterOperators as Iu, normalizeFilterOptions as Mu, normalizeFilterType as Lu, prepareFilterFields as $u, prepareGridColumns as Nu, setupRefreshButton as ju } from "./datatable.js";
+import { A as zu, C as Hu, x as Ou, v as Ku, D as Gu, E as Vu, I as qu, P as Uu, q as Qu, S as Bu, t as Xu, T as Wu, _ as Ju, c as Yu, b as el, H as tl, n as il, o as nl, j as sl, W as al, e as ol, M as rl, k as cl, $ as dl, d as ul, f as ll, z as ml, K as _l, L as pl, g as gl, B as fl, p as vl, X as hl, y as yl, V as bl, J as Sl, i as kl, G as wl, F as Cl, l as Pl, a3 as El, a2 as xl, a1 as Tl, a0 as Al, U as Rl, m as Fl, Z as Dl, Y as Il, N as Ml, Q as Ll, O as $l, R as Nl, h as jl, a as Zl, r as zl, s as Hl, u as Ol, w as Kl } from "../chunks/agreement-detail-CdjFUGjt.js";
+import { formatTimestamp as Vl } from "./timeline-formatters.js";
+import { G as Ul, I as Ql, M as Bl, c as Xl, a as Wl, b as Jl, d as Yl, p as em, q as tm, y as im, m as nm, l as sm, k as am, f as om, i as rm, h as cm, g as dm, e as um, o as lm, n as mm, j as _m, v as pm, u as gm, w as fm, x as vm, r as hm, s as ym, t as bm } from "../chunks/google-drive-utils-DVyZvmUh.js";
+import { onReady as km } from "../shared/dom-ready.js";
+import { escapeHTML as Cm } from "../shared/html.js";
 function Mt(e) {
+  return be(e, {
+    emptyFallback: void 0,
+    zeroFallback: "0 B",
+    invalidFallback: void 0,
+    precisionByUnit: [0, 1, 1, 1]
+  });
+}
+function Lt(e) {
   switch (e) {
     case "ready":
       return "Fingerprint Ready";
@@ -53,22 +54,22 @@ function Mt(e) {
       return e || "Unknown";
   }
 }
-function be(e) {
+function Se(e) {
   return e?.external_file_id ? "google_drive" : "upload";
 }
-function Se(e, t, i) {
+function ke(e, t, i) {
   return i.kind !== "none" && !e && !t ? "empty" : e && t ? "native" : e || t ? "partial" : "empty";
 }
-function Lt(e) {
+function $t(e) {
   return e === "critical" || e === "warning" || e === "info" ? e : "none";
 }
-function ke(e) {
+function we(e) {
   return e.some((t) => t.type === "candidate_relationship");
 }
-function we(e) {
+function Ce(e) {
   return {
     id: e.id,
-    severity: Lt(e.severity),
+    severity: $t(e.severity),
     type: e.type,
     title: e.title,
     description: e.description,
@@ -81,7 +82,7 @@ function we(e) {
     reviewActionVisibility: e.review_action_visible
   };
 }
-function Ce(e, t) {
+function Pe(e, t) {
   return e ? {
     id: e.id,
     label: e.label || e.id,
@@ -89,7 +90,7 @@ function Ce(e, t) {
     provider: t
   } : null;
 }
-function Pe(e) {
+function Ee(e) {
   return e ? {
     id: e.id,
     versionHint: e.provider_revision_hint,
@@ -108,12 +109,12 @@ function xe(e) {
     sha256: e.sha256,
     pageCount: e.page_count,
     sizeBytes: e.size_bytes,
-    sizeBytesFormatted: It(e.size_bytes),
+    sizeBytesFormatted: Mt(e.size_bytes),
     compatibilityTier: e.compatibility_tier,
     compatibilityReason: e.compatibility_reason
   } : null;
 }
-function Ee(e) {
+function Te(e) {
   return !e || !e.external_file_id ? null : {
     accountId: e.account_id,
     fileId: e.external_file_id,
@@ -128,7 +129,7 @@ function Ee(e) {
     ownerEmail: e.owner_email
   };
 }
-function $t(e) {
+function Nt(e) {
   return e ? {
     exists: e.exists,
     pinnedSourceRevisionId: e.pinned_source_revision_id,
@@ -136,11 +137,11 @@ function $t(e) {
     summary: e.summary
   } : null;
 }
-function Nt(e) {
+function jt(e) {
   const t = e.status || "", i = t === "ready", n = t === "pending", s = t === "failed", a = t === "not_applicable", o = t === "" || t === "unknown", r = i && e.evidence_available;
   return {
     status: t,
-    statusLabel: Mt(t),
+    statusLabel: Lt(t),
     extractVersion: e.extract_version,
     evidenceAvailable: e.evidence_available,
     isPending: n,
@@ -153,7 +154,7 @@ function Nt(e) {
     canMatch: r
   };
 }
-function Te(e) {
+function Ae(e) {
   const t = e.kind === "none";
   return {
     kind: e.kind,
@@ -162,8 +163,8 @@ function Te(e) {
     showPlaceholder: !t
   };
 }
-function $s(e) {
-  const t = be(e.google_source), i = e.source_document !== null, n = e.source_revision !== null, s = e.source_artifact !== null, a = Se(i, n, e.empty_state), o = Nt(e.fingerprint_status), r = e.presentation_warnings.map(we);
+function js(e) {
+  const t = Se(e.google_source), i = e.source_document !== null, n = e.source_revision !== null, s = e.source_artifact !== null, a = ke(i, n, e.empty_state), o = jt(e.fingerprint_status), r = e.presentation_warnings.map(Ce);
   return {
     documentId: e.document_id,
     status: a,
@@ -172,21 +173,21 @@ function $s(e) {
     hasGoogleSource: e.google_source !== null,
     hasArtifact: s,
     hasFingerprint: o.isReady || o.isPending,
-    hasCandidateWarnings: ke(r),
-    source: Ce(e.source_document, t),
-    revision: Pe(e.source_revision),
+    hasCandidateWarnings: we(r),
+    source: Pe(e.source_document, t),
+    revision: Ee(e.source_revision),
     artifact: xe(e.source_artifact),
-    googleSource: Ee(e.google_source),
+    googleSource: Te(e.google_source),
     fingerprintStatus: o,
-    emptyState: Te(e.empty_state),
+    emptyState: Ae(e.empty_state),
     warnings: r,
     primaryWarning: r.length > 0 ? r[0] : null,
     diagnosticsUrl: e.diagnostics_url,
     showDiagnosticsLink: !!e.diagnostics_url
   };
 }
-function Ns(e) {
-  const t = be(e.google_source), i = e.source_revision !== null, n = e.linked_document_artifact !== null, s = Se(i, n, e.empty_state), a = e.presentation_warnings.map(we);
+function Zs(e) {
+  const t = Se(e.google_source), i = e.source_revision !== null, n = e.linked_document_artifact !== null, s = ke(i, n, e.empty_state), a = e.presentation_warnings.map(Ce);
   return {
     agreementId: e.agreement_id,
     status: s,
@@ -194,22 +195,22 @@ function Ns(e) {
     hasLineage: i || n,
     hasGoogleSource: e.google_source !== null,
     hasArtifact: n,
-    hasCandidateWarnings: ke(a),
+    hasCandidateWarnings: we(a),
     newerSourceExists: e.newer_source_exists,
     pinnedSourceRevisionId: e.pinned_source_revision_id,
-    source: Ce(e.source_document, t),
-    revision: Pe(e.source_revision),
+    source: Pe(e.source_document, t),
+    revision: Ee(e.source_revision),
     artifact: xe(e.linked_document_artifact),
-    googleSource: Ee(e.google_source),
-    newerSourceSummary: $t(e.newer_source_summary),
-    emptyState: Te(e.empty_state),
+    googleSource: Te(e.google_source),
+    newerSourceSummary: Nt(e.newer_source_summary),
+    emptyState: Ae(e.empty_state),
     warnings: a,
     primaryWarning: a.length > 0 ? a[0] : null,
     diagnosticsUrl: e.diagnostics_url,
     showDiagnosticsLink: !!e.diagnostics_url
   };
 }
-function js(e) {
+function zs(e) {
   const t = [];
   if (!e || typeof e != "object")
     return t.push("view model must be an object"), t;
@@ -230,7 +231,7 @@ function js(e) {
     i[a] !== null && typeof i[a] != "object" && t.push(`${a} must be an object or null`);
   return (typeof i.fingerprintStatus != "object" || i.fingerprintStatus === null) && t.push("fingerprintStatus must be an object"), (typeof i.emptyState != "object" || i.emptyState === null) && t.push("emptyState must be an object"), Array.isArray(i.warnings) || t.push("warnings must be an array"), t;
 }
-function Zs(e) {
+function Hs(e) {
   const t = [];
   if (!e || typeof e != "object")
     return t.push("view model must be an object"), t;
@@ -251,13 +252,13 @@ function Zs(e) {
     i[a] !== null && typeof i[a] != "object" && t.push(`${a} must be an object or null`);
   return (typeof i.emptyState != "object" || i.emptyState === null) && t.push("emptyState must be an object"), Array.isArray(i.warnings) || t.push("warnings must be an array"), t;
 }
-function zs(e) {
+function Os(e) {
   return e.sourceType === "google_drive" && e.hasGoogleSource;
 }
-function Hs(e) {
+function Ks(e) {
   return e.warnings.some((t) => t.severity === "critical" || t.severity === "warning");
 }
-function Ae(e) {
+function Re(e) {
   switch (e) {
     case "critical":
       return "warning-critical";
@@ -269,7 +270,7 @@ function Ae(e) {
       return "";
   }
 }
-function Re(e) {
+function Fe(e) {
   switch (e) {
     case "critical":
       return "exclamation-triangle";
@@ -281,7 +282,7 @@ function Re(e) {
       return "";
   }
 }
-function jt(e) {
+function Zt(e) {
   switch (e) {
     case "google_drive":
       return "google-drive";
@@ -291,7 +292,7 @@ function jt(e) {
       return "file";
   }
 }
-function Zt(e) {
+function zt(e) {
   switch (e) {
     case "google_drive":
       return "Google Drive";
@@ -301,25 +302,25 @@ function Zt(e) {
       return "Unknown Source";
   }
 }
-function Os(e) {
+function Gs(e) {
   return e.isReady ? "fingerprint-ready" : e.isPending ? "fingerprint-pending" : e.isFailed ? "fingerprint-failed" : e.isNotApplicable ? "fingerprint-not-applicable" : "fingerprint-unknown";
 }
-function Ks(e) {
+function Vs(e) {
   return e.isReady ? "check-circle" : e.isPending ? "hourglass" : e.isFailed ? "exclamation-triangle" : e.isNotApplicable ? "minus-circle" : "question-circle";
 }
-function Gs(e) {
+function qs(e) {
   return e.isReady || e.isFailed || e.isNotApplicable;
 }
-function Vs(e) {
+function Us(e) {
   return e.isReady && e.evidenceAvailable;
 }
-function qs(e) {
+function Qs(e) {
   return e.isFailed;
 }
-function Us(e) {
+function Bs(e) {
   return e.isReady && e.evidenceAvailable ? e.extractVersion ? `Fingerprint ready (${e.extractVersion})` : "Fingerprint ready" : e.isReady && !e.evidenceAvailable ? "Fingerprint completed but no evidence generated" : e.isPending ? "Fingerprint extraction in progress..." : e.isFailed ? e.errorMessage || "Fingerprint extraction failed" : e.isNotApplicable ? "Fingerprint not applicable for this document" : "Fingerprint status unknown";
 }
-function Fe(e) {
+function De(e) {
   if (e.hasCandidateWarnings)
     return "candidate_warning";
   if ("hasFingerprint" in e) {
@@ -331,7 +332,7 @@ function Fe(e) {
   }
   return e.status === "native" || e.status === "partial" ? "native" : "empty";
 }
-function De(e, t) {
+function Ie(e, t) {
   return {
     state: "empty",
     title: e?.title || "No Source Information",
@@ -344,7 +345,7 @@ function De(e, t) {
     ariaLabel: "No source provenance information available"
   };
 }
-function Ie(e) {
+function Me(e) {
   return {
     state: "native",
     title: "Source Provenance",
@@ -357,7 +358,7 @@ function Ie(e) {
     ariaLabel: "Source provenance information available"
   };
 }
-function zt(e) {
+function Ht(e) {
   return {
     state: "fingerprint_pending",
     title: "Processing Source",
@@ -370,7 +371,7 @@ function zt(e) {
     ariaLabel: "Document fingerprinting in progress"
   };
 }
-function Ht(e, t) {
+function Ot(e, t) {
   return {
     state: "fingerprint_failed",
     title: "Fingerprint Extraction Failed",
@@ -383,21 +384,21 @@ function Ht(e, t) {
     ariaLabel: "Document fingerprint extraction failed"
   };
 }
-function Me(e, t) {
+function Le(e, t) {
   const i = e === "critical" ? "Critical" : e === "warning" ? "Warning" : "Notice";
   return {
     state: "candidate_warning",
     title: `${i}: Review Required`,
     description: "Potential source relationship detected that may require operator review.",
-    icon: Re(e),
-    cssClass: `diagnostic-state-candidate-warning ${Ae(e)}`,
+    icon: Fe(e),
+    cssClass: `diagnostic-state-candidate-warning ${Re(e)}`,
     showDetails: !0,
     showDiagnosticsLink: !!t,
     diagnosticsUrl: t ?? null,
     ariaLabel: `${i} level provenance warning requiring review`
   };
 }
-function Qs() {
+function Xs() {
   return {
     state: "loading",
     title: "Loading Provenance",
@@ -410,7 +411,7 @@ function Qs() {
     ariaLabel: "Loading provenance information"
   };
 }
-function Bs(e) {
+function Ws(e) {
   return {
     state: "error",
     title: "Unable to Load Provenance",
@@ -423,25 +424,25 @@ function Bs(e) {
     ariaLabel: "Error loading provenance information"
   };
 }
-function Ot(e) {
+function Kt(e) {
   return {
     id: e.id,
     type: e.type,
     severity: e.severity,
     title: e.title,
     description: e.description,
-    icon: Re(e.severity),
-    cssClass: `diagnostic-warning-card ${Ae(e.severity)}`,
+    icon: Fe(e.severity),
+    cssClass: `diagnostic-warning-card ${Re(e.severity)}`,
     actionLabel: e.actionLabel ?? null,
     actionUrl: e.actionUrl ?? null,
     evidence: e.evidence ?? [],
     ariaLabel: `${e.severity} level warning: ${e.title}`
   };
 }
-function Le(e) {
-  return e.map(Ot);
+function $e(e) {
+  return e.map(Kt);
 }
-function Kt(e) {
+function Gt(e) {
   let t = "diagnostic-fingerprint-card", i = "fingerprint";
   return e.isPending ? (t += " fingerprint-pending", i = "hourglass") : e.isReady ? (t += " fingerprint-ready", i = "check-circle") : e.isFailed ? (t += " fingerprint-failed", i = "warning-triangle") : e.isNotApplicable && (t += " fingerprint-not-applicable", i = "minus-circle"), {
     status: e.status,
@@ -457,14 +458,14 @@ function Kt(e) {
     ariaLabel: `Fingerprint status: ${e.statusLabel}`
   };
 }
-function $e(e) {
+function Ne(e) {
   if (!e.hasGoogleSource || !e.googleSource)
     return null;
   const t = e.googleSource;
   return {
     provider: e.sourceType,
-    providerIcon: jt(e.sourceType),
-    providerLabel: Zt(e.sourceType),
+    providerIcon: Zt(e.sourceType),
+    providerLabel: zt(e.sourceType),
     fileId: t.fileId,
     webUrl: t.webUrl,
     title: t.title,
@@ -477,7 +478,7 @@ function $e(e) {
     ariaLabel: `Source: ${t.title ?? "Google Drive document"}`
   };
 }
-function Gt(e) {
+function Vt(e) {
   return e.newerSourceExists ? {
     visible: !0,
     title: "Newer Source Available",
@@ -487,103 +488,103 @@ function Gt(e) {
     ariaLabel: "Notice: A newer version of the source document is available"
   } : null;
 }
-function Xs(e) {
-  const t = Fe(e);
+function Js(e) {
+  const t = De(e);
   let i;
   switch (t) {
     case "candidate_warning":
-      i = Me(
+      i = Le(
         e.primaryWarning?.severity ?? "info",
         e.diagnosticsUrl
       );
       break;
     case "fingerprint_pending":
-      i = zt(e.diagnosticsUrl);
+      i = Ht(e.diagnosticsUrl);
       break;
     case "fingerprint_failed":
-      i = Ht(
+      i = Ot(
         e.fingerprintStatus.errorMessage,
         e.diagnosticsUrl
       );
       break;
     case "native":
-      i = Ie(e.diagnosticsUrl);
+      i = Me(e.diagnosticsUrl);
       break;
     case "empty":
     default:
-      i = De(e.emptyState, e.diagnosticsUrl);
+      i = Ie(e.emptyState, e.diagnosticsUrl);
       break;
   }
   return {
     provenance: e,
     displayConfig: i,
-    warningCards: Le(e.warnings),
-    fingerprintCard: Kt(e.fingerprintStatus),
-    sourceCard: $e(e)
+    warningCards: $e(e.warnings),
+    fingerprintCard: Gt(e.fingerprintStatus),
+    sourceCard: Ne(e)
   };
 }
-function Ws(e) {
-  const t = Fe(e);
+function Ys(e) {
+  const t = De(e);
   let i;
   switch (t) {
     case "candidate_warning":
-      i = Me(
+      i = Le(
         e.primaryWarning?.severity ?? "info",
         e.diagnosticsUrl
       );
       break;
     case "native":
-      i = Ie(e.diagnosticsUrl);
+      i = Me(e.diagnosticsUrl);
       break;
     case "empty":
     default:
-      i = De(e.emptyState, e.diagnosticsUrl);
+      i = Ie(e.emptyState, e.diagnosticsUrl);
       break;
   }
   return {
     provenance: e,
     displayConfig: i,
-    warningCards: Le(e.warnings),
-    sourceCard: $e(e),
-    newerSourceCard: Gt(e)
+    warningCards: $e(e.warnings),
+    sourceCard: Ne(e),
+    newerSourceCard: Vt(e)
   };
 }
-function Js(e) {
+function ea(e) {
   return e.displayConfig.state === "empty";
 }
-function Ys(e) {
+function ta(e) {
   return e.displayConfig.state === "native";
 }
-function ea(e) {
+function ia(e) {
   return e.displayConfig.state === "fingerprint_pending";
 }
-function ta(e) {
+function na(e) {
   return e.displayConfig.state === "fingerprint_failed";
 }
-function ia(e) {
+function sa(e) {
   return e.displayConfig.state === "candidate_warning";
 }
-function na(e) {
+function aa(e) {
   return e.warningCards.length > 0 ? e.warningCards[0] : null;
 }
-function sa(e) {
+function oa(e) {
   return e.warningCards.some((t) => t.severity === "critical" || t.severity === "warning");
 }
-function aa(e) {
+function ra(e) {
   const t = [];
   if (!e || typeof e != "object")
     return t.push("diagnostic view model must be an object"), t;
   const i = e;
   return (!i.provenance || typeof i.provenance != "object") && t.push("provenance must be an object"), (!i.displayConfig || typeof i.displayConfig != "object") && t.push("displayConfig must be an object"), Array.isArray(i.warningCards) || t.push("warningCards must be an array"), (!i.fingerprintCard || typeof i.fingerprintCard != "object") && t.push("fingerprintCard must be an object"), i.sourceCard !== null && typeof i.sourceCard != "object" && t.push("sourceCard must be an object or null"), t;
 }
-function oa(e) {
+function ca(e) {
   const t = [];
   if (!e || typeof e != "object")
     return t.push("diagnostic view model must be an object"), t;
   const i = e;
   return (!i.provenance || typeof i.provenance != "object") && t.push("provenance must be an object"), (!i.displayConfig || typeof i.displayConfig != "object") && t.push("displayConfig must be an object"), Array.isArray(i.warningCards) || t.push("warningCards must be an array"), i.sourceCard !== null && typeof i.sourceCard != "object" && t.push("sourceCard must be an object or null"), i.newerSourceCard !== null && typeof i.newerSourceCard != "object" && t.push("newerSourceCard must be an object or null"), t;
 }
-const Vt = 1, qt = {
+const qt = 1, Ut = {
   frontend_presentation_only: !0,
   diagnostics_owned_by_backend: !0,
   warning_precedence: [
@@ -594,7 +595,7 @@ const Vt = 1, qt = {
     "empty_state"
   ],
   candidate_review_visibility: "admin_debug_only"
-}, Ut = {
+}, Qt = {
   account_id: "acct_primary",
   external_file_id: "google-file-123",
   drive_id: "shared-drive-123",
@@ -607,7 +608,7 @@ const Vt = 1, qt = {
   page_count_hint: 12,
   owner_email: "owner@example.com",
   parent_id: "folder-legal"
-}, Qt = {
+}, Bt = {
   document_native: {
     document_id: "doc_001",
     source_document: {
@@ -929,16 +930,16 @@ const Vt = 1, qt = {
     document_detail_url: "/admin/content/documents/doc_001",
     agreement_detail_url: "/admin/content/agreements/agr_001"
   }
-}, Bt = {
-  schema_version: Vt,
-  presentation_rules: qt,
-  metadata_baseline: Ut,
-  states: Qt
-}, y = yt(Bt);
-function Ne(e) {
+}, Xt = {
+  schema_version: qt,
+  presentation_rules: Ut,
+  metadata_baseline: Qt,
+  states: Bt
+}, y = bt(Xt);
+function je(e) {
   return ce(e);
 }
-function je(e) {
+function Ze(e) {
   return de(e);
 }
 function k(e, t) {
@@ -954,7 +955,7 @@ function k(e, t) {
     }))
   };
 }
-function E(e, t) {
+function x(e, t) {
   const i = `/admin/debug/lineage/agreements/${t}`;
   return {
     ...e,
@@ -1019,13 +1020,13 @@ const p = {
   normalization_status: "completed"
 }, b = {
   ...y.states.document_native.fingerprint_status
-}, Xt = {
+}, Wt = {
   status: "pending",
   evidence_available: !1
-}, Ze = {
+}, ze = {
   status: "not_applicable",
   evidence_available: !1
-}, Wt = {
+}, Jt = {
   status: "failed",
   extract_version: "v1.0",
   evidence_available: !1,
@@ -1042,7 +1043,7 @@ const p = {
     review_action_visible: "admin_debug_only"
   }
 };
-function ze(e) {
+function He(e) {
   return {
     ...y.states.document_native.presentation_warnings[0] ?? {
       id: z.id,
@@ -1055,7 +1056,7 @@ function ze(e) {
     action_url: e
   };
 }
-function Jt() {
+function Yt() {
   return {
     id: "fingerprint_pending_warning",
     type: "fingerprint_pending",
@@ -1065,7 +1066,7 @@ function Jt() {
     evidence: []
   };
 }
-function Yt(e) {
+function ei(e) {
   return {
     id: "fingerprint_failed_warning",
     type: "fingerprint_failed",
@@ -1075,7 +1076,7 @@ function Yt(e) {
     evidence: []
   };
 }
-function ei() {
+function ti() {
   return {
     id: "newer_source_warning",
     type: "newer_source_exists",
@@ -1085,28 +1086,28 @@ function ei() {
     evidence: []
   };
 }
-const ti = {
+const ii = {
   ...y.states.document_empty.empty_state
-}, ii = {
+}, ni = {
   ...y.states.agreement_empty.empty_state
 }, h = {
   kind: "none"
-}, C = Ne(
+}, C = je(
   y.states.document_native
-), ni = Ne(
-  y.states.document_empty
-), F = je(
-  y.states.agreement_native
 ), si = je(
+  y.states.document_empty
+), F = Ze(
+  y.states.agreement_native
+), ai = Ze(
   y.states.agreement_empty
-), ai = {
+), oi = {
   empty: k(
     {
-      ...ni,
-      fingerprint_status: Ze,
+      ...si,
+      fingerprint_status: ze,
       candidate_warning_summary: [],
       presentation_warnings: [],
-      empty_state: ti
+      empty_state: ii
     },
     "doc-fixture-empty"
   ),
@@ -1152,7 +1153,7 @@ const ti = {
       fingerprint_status: { ...b },
       candidate_warning_summary: [{ ...z }],
       presentation_warnings: [
-        ze("/admin/debug/lineage/documents/doc-fixture-candidate")
+        He("/admin/debug/lineage/documents/doc-fixture-candidate")
       ],
       empty_state: h
     },
@@ -1165,8 +1166,8 @@ const ti = {
       source_revision: { ...l },
       source_artifact: { ..._ },
       google_source: { ...p },
-      fingerprint_status: { ...Xt },
-      presentation_warnings: [Jt()],
+      fingerprint_status: { ...Wt },
+      presentation_warnings: [Yt()],
       empty_state: h
     }),
     "doc-fixture-fp-pending"
@@ -1183,9 +1184,9 @@ const ti = {
       source_revision: { ...l },
       source_artifact: { ..._ },
       google_source: { ...p },
-      fingerprint_status: { ...Wt },
+      fingerprint_status: { ...Jt },
       presentation_warnings: [
-        Yt(
+        ei(
           "PDF text extraction failed: document is encrypted or corrupted"
         )
       ],
@@ -1193,18 +1194,18 @@ const ti = {
     }),
     "doc-fixture-fp-failed"
   )
-}, oi = {
-  empty: E(
+}, ri = {
+  empty: x(
     {
-      ...si,
+      ...ai,
       newer_source_exists: !1,
       candidate_warning_summary: [],
       presentation_warnings: [],
-      empty_state: ii
+      empty_state: ni
     },
     "agr-fixture-empty"
   ),
-  native: E(
+  native: x(
     he({
       ...F,
       source_revision: { ...l },
@@ -1215,19 +1216,19 @@ const ti = {
     }),
     "agr-fixture-native"
   ),
-  newer_source_exists: E(
+  newer_source_exists: x(
     he({
       ...F,
       source_revision: { ...l },
       linked_document_artifact: { ..._ },
       google_source: { ...p },
       newer_source_exists: !0,
-      presentation_warnings: [ei()],
+      presentation_warnings: [ti()],
       empty_state: h
     }),
     "agr-fixture-newer"
   ),
-  candidate_warning: E(
+  candidate_warning: x(
     {
       ...F,
       source_revision: { ...l },
@@ -1236,26 +1237,26 @@ const ti = {
       newer_source_exists: !1,
       candidate_warning_summary: [{ ...z }],
       presentation_warnings: [
-        ze("/admin/debug/lineage/agreements/agr-fixture-candidate")
+        He("/admin/debug/lineage/agreements/agr-fixture-candidate")
       ],
       empty_state: h
     },
     "agr-fixture-candidate"
   )
 };
-function ra(e) {
-  const t = ai[e];
+function da(e) {
+  const t = oi[e];
   if (!t)
     throw new Error(`Unknown document lineage fixture state: ${e}`);
   return ce(t);
 }
-function ca(e) {
-  const t = oi[e];
+function ua(e) {
+  const t = ri[e];
   if (!t)
     throw new Error(`Unknown agreement lineage fixture state: ${e}`);
   return de(t);
 }
-function da(e) {
+function la(e) {
   const t = [];
   if (!e || typeof e != "object")
     return t.push("payload must be an object"), t;
@@ -1266,7 +1267,7 @@ function da(e) {
     i[s] !== null && typeof i[s] != "object" && t.push(`${s} must be an object or null`);
   return t;
 }
-function ua(e) {
+function ma(e) {
   const t = [];
   if (!e || typeof e != "object")
     return t.push("payload must be an object"), t;
@@ -1277,7 +1278,7 @@ function ua(e) {
     i[s] !== null && typeof i[s] != "object" && t.push(`${s} must be an object or null`);
   return t;
 }
-const ri = {
+const ci = {
   /**
    * Native import success - first time import of a new source document.
    * Creates a new source_document, source_revision, and source_artifact.
@@ -1429,7 +1430,7 @@ const ri = {
     source_document: null,
     source_revision: null,
     source_artifact: null,
-    fingerprint_status: Ze,
+    fingerprint_status: ze,
     candidate_status: [],
     document: null,
     agreement: null,
@@ -1446,8 +1447,8 @@ const ri = {
     }
   }
 };
-function la(e) {
-  const t = ri[e];
+function _a(e) {
+  const t = ci[e];
   if (!t)
     throw new Error(`Unknown import response fixture state: ${e}`);
   return {
@@ -1468,7 +1469,7 @@ function la(e) {
     } : null
   };
 }
-function ma(e) {
+function pa(e) {
   const t = [];
   if (!e || typeof e != "object")
     return t.push("payload must be an object"), t;
@@ -1490,7 +1491,7 @@ function ma(e) {
     i[a] !== null && typeof i[a] != "string" && t.push(`${a} must be a string or null`);
   return i.error !== null && typeof i.error != "object" && t.push("error must be an object or null"), t;
 }
-function _a() {
+function ga() {
   return [
     "native_import_success",
     "duplicate_import",
@@ -1499,7 +1500,7 @@ function _a() {
     "import_failure"
   ];
 }
-const ci = {
+const di = {
   /**
    * Upload-only document - no lineage linkage.
    * Represents a document uploaded directly without Google import.
@@ -1602,7 +1603,7 @@ const ci = {
     created_at: "2026-03-18T14:05:00Z",
     updated_at: "2026-03-18T14:05:00Z"
   }
-}, di = {
+}, ui = {
   /**
    * Upload-only agreement - no lineage linkage.
    * Created from an uploaded document without Google import.
@@ -1700,19 +1701,19 @@ const ci = {
     updated_at: "2026-03-18T14:05:00Z"
   }
 };
-function pa(e) {
-  const t = ci[e];
+function fa(e) {
+  const t = di[e];
   if (!t)
     throw new Error(`Unknown document detail payload fixture state: ${e}`);
   return { ...t };
 }
-function ga(e) {
-  const t = di[e];
+function va(e) {
+  const t = ui[e];
   if (!t)
     throw new Error(`Unknown agreement detail payload fixture state: ${e}`);
   return { ...t };
 }
-function fa(e) {
+function ha(e) {
   const t = [];
   if (!e || typeof e != "object")
     return t.push("payload must be an object"), t;
@@ -1733,7 +1734,7 @@ function fa(e) {
     i[o] !== null && typeof i[o] != "string" && t.push(`${o} must be a string or null`);
   return t;
 }
-function va(e) {
+function ya(e) {
   const t = [];
   if (!e || typeof e != "object")
     return t.push("payload must be an object"), t;
@@ -1751,19 +1752,19 @@ function va(e) {
     i[a] !== null && typeof i[a] != "string" && t.push(`${a} must be a string or null`);
   return t;
 }
-function ui(e) {
+function li(e) {
   return e.source_document_id !== null && e.source_revision_id !== null && e.source_artifact_id !== null;
 }
-function li(e) {
+function mi(e) {
   return e.source_revision_id !== null;
 }
-function ha() {
+function ba() {
   return {
     documents: ["upload_only", "google_import", "google_reimport"],
     agreements: ["upload_only", "google_import", "google_reimport"]
   };
 }
-const He = {
+const Oe = {
   /**
    * First-time Google import producing a lineage-linked document/agreement pair.
    * This is the primary QA scenario for Phase 4 validation.
@@ -1838,8 +1839,8 @@ const He = {
     }
   }
 };
-function ya(e) {
-  const t = He[e];
+function Sa(e) {
+  const t = Oe[e];
   if (!t)
     throw new Error(`Unknown seeded Google import scenario: ${e}`);
   return {
@@ -1849,12 +1850,12 @@ function ya(e) {
     lineage_summary: { ...t.lineage_summary }
   };
 }
-function ba() {
-  return Object.keys(He);
+function ka() {
+  return Object.keys(Oe);
 }
-function Sa(e) {
+function wa(e) {
   const t = [];
-  return ui(e.document) || t.push("seeded document missing lineage linkage"), li(e.agreement) || t.push("seeded agreement missing pinned source_revision_id"), e.document.source_document_id !== e.lineage_summary.source_document_id && t.push("document source_document_id does not match lineage_summary"), e.document.source_revision_id !== e.lineage_summary.source_revision_id && t.push("document source_revision_id does not match lineage_summary"), e.document.source_artifact_id !== e.lineage_summary.source_artifact_id && t.push("document source_artifact_id does not match lineage_summary"), e.agreement.source_revision_id !== e.document.source_revision_id && t.push("agreement source_revision_id does not match document"), e.agreement.document_id !== e.document.id && t.push("agreement document_id does not match document id"), t;
+  return li(e.document) || t.push("seeded document missing lineage linkage"), mi(e.agreement) || t.push("seeded agreement missing pinned source_revision_id"), e.document.source_document_id !== e.lineage_summary.source_document_id && t.push("document source_document_id does not match lineage_summary"), e.document.source_revision_id !== e.lineage_summary.source_revision_id && t.push("document source_revision_id does not match lineage_summary"), e.document.source_artifact_id !== e.lineage_summary.source_artifact_id && t.push("document source_artifact_id does not match lineage_summary"), e.agreement.source_revision_id !== e.document.source_revision_id && t.push("agreement source_revision_id does not match document"), e.agreement.document_id !== e.document.id && t.push("agreement document_id does not match document id"), t;
 }
 const ie = {
   code: "normalized_text_match",
@@ -1864,23 +1865,23 @@ const ie = {
   code: "title_similarity",
   label: "Title similarity",
   details: "Identical canonical title"
-}, mi = {
+}, _i = {
   code: "chunk_overlap",
   label: "Content chunk overlap",
   details: "87% of chunks match"
-}, _i = {
+}, pi = {
   code: "temporal_proximity",
   label: "Temporal proximity",
   details: "Created within 24 hours"
-}, Oe = {
+}, Ke = {
   code: "account_corroboration",
   label: "Account corroboration",
   details: "Same owner email domain"
-}, pi = {
+}, gi = {
   code: "exact_artifact_match",
   label: "Exact artifact match",
   details: "SHA-256 hash identical"
-}, gi = {
+}, fi = {
   code: "url_history",
   label: "URL history",
   details: "Previous URL recorded in metadata"
@@ -1891,25 +1892,25 @@ const ie = {
   confidence_band: "high",
   confidence_score: 0.94,
   summary: "High-confidence match detected with a Google document from a different account.",
-  evidence: [ie, le, mi],
+  evidence: [ie, le, _i],
   review_action_visible: "admin_debug_only"
-}, Ke = {
+}, Ge = {
   id: "rel-ambiguous-1",
   relationship_type: "copied_from",
   status: "pending_review",
   confidence_band: "medium",
   confidence_score: 0.72,
   summary: 'Possible copy from document "Contract Template v2" in shared drive.',
-  evidence: [ie, _i],
+  evidence: [ie, pi],
   review_action_visible: "admin_debug_only"
-}, Ge = {
+}, Ve = {
   id: "rel-ambiguous-2",
   relationship_type: "copied_from",
   status: "pending_review",
   confidence_band: "medium",
   confidence_score: 0.68,
   summary: 'Possible copy from document "MSA Packet Draft" in personal drive.',
-  evidence: [le, Oe],
+  evidence: [le, Ke],
   review_action_visible: "admin_debug_only"
 }, O = {
   id: "rel-rejected-1",
@@ -1936,7 +1937,7 @@ const ie = {
   confidence_band: "exact",
   confidence_score: 1,
   summary: "Auto-linked: Exact artifact match confirmed this as an identical document.",
-  evidence: [pi],
+  evidence: [gi],
   review_action_visible: "none"
 }, ee = {
   id: "rel-migration-1",
@@ -1945,10 +1946,10 @@ const ie = {
   confidence_band: "high",
   confidence_score: 0.91,
   summary: "Cross-account migration detected. Document appears to have been moved from another Google account.",
-  evidence: [ie, gi, Oe],
+  evidence: [ie, fi, Ke],
   review_action_visible: "admin_debug_only"
 };
-function Ve(e) {
+function qe(e) {
   return {
     id: H.id,
     type: "candidate_relationship",
@@ -1961,7 +1962,7 @@ function Ve(e) {
     evidence: H.evidence
   };
 }
-function qe(e) {
+function Ue(e) {
   return {
     id: "ambiguous-candidates-group",
     type: "candidate_relationship",
@@ -1976,7 +1977,7 @@ function qe(e) {
     ]
   };
 }
-function Ue() {
+function Qe() {
   return {
     id: O.id,
     type: "candidate_relationship",
@@ -1987,7 +1988,7 @@ function Ue() {
     evidence: O.evidence
   };
 }
-function fi() {
+function vi() {
   return {
     id: J.id,
     type: "candidate_relationship",
@@ -1998,7 +1999,7 @@ function fi() {
     evidence: J.evidence
   };
 }
-function vi() {
+function hi() {
   return {
     id: Y.id,
     type: "candidate_relationship",
@@ -2009,7 +2010,7 @@ function vi() {
     evidence: Y.evidence
   };
 }
-function hi(e) {
+function yi(e) {
   return {
     id: ee.id,
     type: "candidate_relationship",
@@ -2022,7 +2023,7 @@ function hi(e) {
     evidence: ee.evidence
   };
 }
-const yi = {
+const bi = {
   /**
    * Single likely continuity match - high confidence candidate requiring review.
    * Represents a document with one strong candidate relationship.
@@ -2037,7 +2038,7 @@ const yi = {
       fingerprint_status: { ...b },
       candidate_warning_summary: [{ ...H }],
       presentation_warnings: [
-        Ve("/admin/debug/lineage/documents/doc-single-likely")
+        qe("/admin/debug/lineage/documents/doc-single-likely")
       ],
       empty_state: h
     },
@@ -2056,11 +2057,11 @@ const yi = {
       google_source: { ...p },
       fingerprint_status: { ...b },
       candidate_warning_summary: [
-        { ...Ke },
-        { ...Ge }
+        { ...Ge },
+        { ...Ve }
       ],
       presentation_warnings: [
-        qe("/admin/debug/lineage/documents/doc-ambiguous")
+        Ue("/admin/debug/lineage/documents/doc-ambiguous")
       ],
       empty_state: h
     },
@@ -2079,7 +2080,7 @@ const yi = {
       google_source: { ...p },
       fingerprint_status: { ...b },
       candidate_warning_summary: [{ ...O }],
-      presentation_warnings: [Ue()],
+      presentation_warnings: [Qe()],
       empty_state: h
     },
     "doc-rejected"
@@ -2097,7 +2098,7 @@ const yi = {
       google_source: { ...p },
       fingerprint_status: { ...b },
       candidate_warning_summary: [{ ...J }],
-      presentation_warnings: [fi()],
+      presentation_warnings: [vi()],
       empty_state: h
     },
     "doc-superseded"
@@ -2115,7 +2116,7 @@ const yi = {
       google_source: { ...p },
       fingerprint_status: { ...b },
       candidate_warning_summary: [{ ...Y }],
-      presentation_warnings: [vi()],
+      presentation_warnings: [hi()],
       empty_state: h
     },
     "doc-auto-linked"
@@ -2138,17 +2139,17 @@ const yi = {
       fingerprint_status: { ...b },
       candidate_warning_summary: [{ ...ee }],
       presentation_warnings: [
-        hi("/admin/debug/lineage/documents/doc-migration")
+        yi("/admin/debug/lineage/documents/doc-migration")
       ],
       empty_state: h
     },
     "doc-migration"
   )
-}, bi = {
+}, Si = {
   /**
    * Agreement with single likely continuity match.
    */
-  single_likely_continuity: E(
+  single_likely_continuity: x(
     {
       ...F,
       source_revision: { ...l },
@@ -2157,7 +2158,7 @@ const yi = {
       newer_source_exists: !1,
       candidate_warning_summary: [{ ...H }],
       presentation_warnings: [
-        Ve("/admin/debug/lineage/agreements/agr-single-likely")
+        qe("/admin/debug/lineage/agreements/agr-single-likely")
       ],
       empty_state: h
     },
@@ -2166,7 +2167,7 @@ const yi = {
   /**
    * Agreement with multiple ambiguous candidates.
    */
-  multiple_ambiguous_candidates: E(
+  multiple_ambiguous_candidates: x(
     {
       ...F,
       source_revision: { ...l },
@@ -2174,11 +2175,11 @@ const yi = {
       google_source: { ...p },
       newer_source_exists: !1,
       candidate_warning_summary: [
-        { ...Ke },
-        { ...Ge }
+        { ...Ge },
+        { ...Ve }
       ],
       presentation_warnings: [
-        qe("/admin/debug/lineage/agreements/agr-ambiguous")
+        Ue("/admin/debug/lineage/agreements/agr-ambiguous")
       ],
       empty_state: h
     },
@@ -2187,7 +2188,7 @@ const yi = {
   /**
    * Agreement with previously rejected candidate.
    */
-  previously_rejected: E(
+  previously_rejected: x(
     {
       ...F,
       source_revision: { ...l },
@@ -2195,25 +2196,25 @@ const yi = {
       google_source: { ...p },
       newer_source_exists: !1,
       candidate_warning_summary: [{ ...O }],
-      presentation_warnings: [Ue()],
+      presentation_warnings: [Qe()],
       empty_state: h
     },
     "agr-rejected"
   )
 };
-function ka(e) {
-  const t = yi[e];
+function Ca(e) {
+  const t = bi[e];
   if (!t)
     throw new Error(`Unknown candidate warning fixture state: ${e}`);
   return ce(t);
 }
-function wa(e) {
-  const t = bi[e];
+function Pa(e) {
+  const t = Si[e];
   if (!t)
     throw new Error(`Unknown agreement candidate warning fixture state: ${e}`);
   return de(t);
 }
-function Ca() {
+function Ea() {
   return [
     "single_likely_continuity",
     "multiple_ambiguous_candidates",
@@ -2223,13 +2224,13 @@ function Ca() {
     "cross_account_migration"
   ];
 }
-function Pa(e) {
+function xa(e) {
   return e.status === "pending_review";
 }
-function xa(e) {
+function Ta(e) {
   return ["confirmed", "rejected", "superseded", "auto_linked"].includes(e.status);
 }
-function Ea(e) {
+function Aa(e) {
   if (e.length === 0) return null;
   const t = {
     pending_review: 0,
@@ -2243,20 +2244,20 @@ function Ea(e) {
     return s !== a ? s - a : (n.confidence_score ?? 0) - (i.confidence_score ?? 0);
   })[0];
 }
-function Ta(e) {
+function Ra(e) {
   const t = {};
   for (const i of e)
     t[i.status] = (t[i.status] || 0) + 1;
   return t;
 }
-function Aa(e) {
+function Fa(e) {
   const t = [];
   (!e.candidate_warning_summary || e.candidate_warning_summary.length === 0) && t.push("candidate_warning_summary must have at least one entry");
   for (const i of e.candidate_warning_summary || [])
     i.id || t.push("candidate warning missing id"), i.relationship_type || t.push("candidate warning missing relationship_type"), i.status || t.push("candidate warning missing status"), i.confidence_band || t.push("candidate warning missing confidence_band"), i.summary || t.push("candidate warning missing summary"), Array.isArray(i.evidence) || t.push("candidate warning evidence must be an array");
   return (!e.presentation_warnings || e.presentation_warnings.length === 0) && t.push("presentation_warnings must have at least one entry"), t;
 }
-const Si = {
+const ki = {
   items: [],
   page_info: {
     mode: "page",
@@ -2283,7 +2284,7 @@ const Si = {
   links: {
     self: "/admin/api/v1/esign/sources"
   }
-}, Qe = {
+}, Be = {
   items: [
     {
       source: {
@@ -2362,7 +2363,7 @@ const Si = {
   links: {
     self: "/admin/api/v1/esign/sources"
   }
-}, Be = {
+}, Xe = {
   source: {
     id: "src_01HX5ZCQK0ABC123",
     label: "Product Requirements Document v3.pdf",
@@ -2417,7 +2418,7 @@ const Si = {
   empty_state: {
     kind: "none"
   }
-}, ki = {
+}, wi = {
   source: {
     id: "src_01HX5ZCQK0MERGED",
     label: "Contract Template (Merged)",
@@ -2461,7 +2462,7 @@ const Si = {
   empty_state: {
     kind: "none"
   }
-}, wi = {
+}, Ci = {
   source: {
     id: "src_01HX5ZCQK0ARCHIVE",
     label: "Old Draft Agreement",
@@ -2501,7 +2502,7 @@ const Si = {
   empty_state: {
     kind: "none"
   }
-}, Xe = {
+}, We = {
   source: {
     id: "src_01HX5ZCQK0ABC123",
     label: "Product Requirements Document v3.pdf",
@@ -2627,7 +2628,7 @@ const Si = {
     self: "/admin/api/v1/esign/sources/src_01HX5ZCQK0ABC123/revisions",
     source: "/admin/api/v1/esign/sources/src_01HX5ZCQK0ABC123"
   }
-}, We = {
+}, Je = {
   source: {
     id: "src_01HX5ZCQK0ABC123",
     label: "Product Requirements Document v3.pdf",
@@ -2699,7 +2700,7 @@ const Si = {
     self: "/admin/api/v1/esign/sources/src_01HX5ZCQK0ABC123/relationships",
     source: "/admin/api/v1/esign/sources/src_01HX5ZCQK0ABC123"
   }
-}, Ci = {
+}, Pi = {
   items: [],
   page_info: {
     mode: "page",
@@ -2727,7 +2728,7 @@ const Si = {
   links: {
     self: "/admin/api/v1/esign/source-search?q=nonexistent+document"
   }
-}, Je = {
+}, Ye = {
   items: [
     {
       result_kind: "source_document",
@@ -2816,7 +2817,7 @@ const Si = {
   links: {
     self: "/admin/api/v1/esign/source-search?q=agreement&has_comments=true"
   }
-}, Pi = {
+}, Ei = {
   source: {
     id: "src_01HX5ZCQK0COMMENT1",
     label: "New Document Template",
@@ -2861,7 +2862,7 @@ const Si = {
     self: "/admin/api/v1/esign/sources/src_01HX5ZCQK0COMMENT1/comments",
     source: "/admin/api/v1/esign/sources/src_01HX5ZCQK0COMMENT1"
   }
-}, Ye = {
+}, et = {
   source: {
     id: "src_01HX5ZCQK0COMMENT2",
     label: "NDA Template - Enterprise Edition",
@@ -3050,7 +3051,7 @@ const Si = {
     self: "/admin/api/v1/esign/sources/src_01HX5ZCQK0COMMENT3/comments",
     source: "/admin/api/v1/esign/sources/src_01HX5ZCQK0COMMENT3"
   }
-}, Ei = {
+}, Ti = {
   source: {
     id: "src_01HX5ZCQK0COMMENT4",
     label: "Vendor Agreement 2026",
@@ -3097,7 +3098,7 @@ const Si = {
     self: "/admin/api/v1/esign/sources/src_01HX5ZCQK0COMMENT4/comments",
     source: "/admin/api/v1/esign/sources/src_01HX5ZCQK0COMMENT4"
   }
-}, Ti = {
+}, Ai = {
   source: {
     id: "src_01HX5ZCQK0COMMENT5",
     label: "License Agreement - OEM",
@@ -3166,7 +3167,7 @@ const Si = {
     self: "/admin/api/v1/esign/sources/src_01HX5ZCQK0COMMENT5/comments",
     source: "/admin/api/v1/esign/sources/src_01HX5ZCQK0COMMENT5"
   }
-}, Ra = {
+}, Da = {
   schema_version: 1,
   rules: {
     frontend_presentation_only: !0,
@@ -3206,15 +3207,15 @@ const Si = {
     }
   },
   states: {
-    search_empty: Ci,
-    search_results_with_comments: Je,
-    comments_empty: Pi,
-    comments_synced: Ye,
+    search_empty: Pi,
+    search_results_with_comments: Ye,
+    comments_empty: Ei,
+    comments_synced: et,
     comments_pending_sync: xi,
-    comments_sync_failed: Ei,
-    comments_sync_stale: Ti
+    comments_sync_failed: Ti,
+    comments_sync_stale: Ai
   }
-}, Fa = {
+}, Ia = {
   schema_version: 1,
   rules: {
     frontend_presentation_only: !0,
@@ -3250,9 +3251,9 @@ const Si = {
     }
   },
   states: {
-    source_list_empty: Si,
-    source_list_single: Qe,
-    source_detail_repeated: Be,
+    source_list_empty: ki,
+    source_list_single: Be,
+    source_detail_repeated: Xe,
     source_handles_multi: {
       source: {
         id: "src_01HX5ZCQK0ABC123",
@@ -3277,8 +3278,8 @@ const Si = {
       },
       links: {}
     },
-    source_revisions_repeated: Xe,
-    source_relationships_review: We,
+    source_revisions_repeated: We,
+    source_relationships_review: Je,
     source_revision_detail: {
       source: {
         id: "src_01HX5ZCQK0ABC123",
@@ -3405,13 +3406,10 @@ const Si = {
       },
       links: {}
     },
-    source_detail_merged: ki,
-    source_detail_archived: wi
+    source_detail_merged: wi,
+    source_detail_archived: Ci
   }
 };
-function Ai() {
-  return { ...Qe };
-}
 function Ri() {
   return { ...Be };
 }
@@ -3427,51 +3425,54 @@ function Ii() {
 function Mi() {
   return { ...Ye };
 }
+function Li() {
+  return { ...et };
+}
 const m = {
   source_list: {
     route: "/admin/api/v1/esign/fixtures/source-list-page",
-    fixture: Ai,
+    fixture: Ri,
     contractFamily: "SourceListPage"
   },
   source_detail: {
     route: "/admin/api/v1/esign/fixtures/source-detail",
-    fixture: Ri,
+    fixture: Fi,
     contractFamily: "SourceDetail"
   },
   revision_history: {
     route: "/admin/api/v1/esign/fixtures/source-revision-page",
-    fixture: Fi,
+    fixture: Di,
     contractFamily: "SourceRevisionPage"
   },
   relationship_summaries: {
     route: "/admin/api/v1/esign/fixtures/source-relationship-page",
-    fixture: Di,
+    fixture: Ii,
     contractFamily: "SourceRelationshipPage"
   },
   search: {
     route: "/admin/api/v1/esign/fixtures/phase13-source-search-results",
-    fixture: Ii,
+    fixture: Mi,
     contractFamily: "Phase13SourceSearchResults"
   },
   source_comment: {
     route: "/admin/api/v1/esign/fixtures/phase13-source-comment-page",
-    fixture: Mi,
+    fixture: Li,
     contractFamily: "Phase13SourceCommentPage"
   }
 };
-function Li(e) {
+function $i(e) {
   if (typeof e != "object" || e === null)
     return !1;
   const t = e;
   return "document_id" in t && "fingerprint_status" in t && "google_source" in t;
 }
-function $i(e) {
+function Ni(e) {
   if (typeof e != "object" || e === null)
     return !1;
   const t = e;
   return "agreement_id" in t && "pinned_source_revision_id" in t && "newer_source_exists" in t;
 }
-function et(e) {
+function tt(e) {
   if (typeof e != "object" || e === null)
     return !1;
   const t = e;
@@ -3482,23 +3483,23 @@ function me(e) {
   if (typeof t != "object" || t === null)
     return !1;
   const i = t.self;
-  return typeof i != "string" ? !1 : tt(i);
+  return typeof i != "string" ? !1 : it(i);
 }
-function tt(e) {
+function it(e) {
   return ne(e) !== "unknown";
 }
 function ne(e) {
   return e.includes("/source-search") ? "source-search" : e.includes("/source-revisions/") && e.includes("/comments") ? "source-revision-comments" : e.includes("/source-revisions/") && e.includes("/artifacts") ? "source-revision-artifacts" : e.includes("/source-revisions/") ? "source-revision-detail" : e.includes("/sources/") && e.includes("/comments") ? "source-comments" : e.includes("/sources/") && e.includes("/revisions") ? "source-revisions" : e.includes("/sources/") && e.includes("/relationships") ? "source-relationships" : e.includes("/sources/") && e.includes("/handles") ? "source-handles" : e.includes("/sources/") ? "source-detail" : e.includes("/sources") ? "source-list" : "unknown";
 }
-function Ni(e) {
-  return Li(e) ? "DocumentLineageDetail" : $i(e) ? "AgreementLineageDetail" : et(e) ? "SourceManagementContract" : null;
-}
 function ji(e) {
+  return $i(e) ? "DocumentLineageDetail" : Ni(e) ? "AgreementLineageDetail" : tt(e) ? "SourceManagementContract" : null;
+}
+function Zi(e) {
   return e !== null;
 }
-function Zi(e, t) {
-  const i = [], n = t.map(Ni).filter(ji);
-  return Dt(n) && i.push(
+function zi(e, t) {
+  const i = [], n = t.map(ji).filter(Zi);
+  return It(n) && i.push(
     `Page "${e}" violates composition boundary: mixing source-management contracts with document/agreement provenance payloads. Source-management pages must consume source-management endpoints only.`
   ), {
     violated: i.length > 0,
@@ -3506,7 +3507,7 @@ function Zi(e, t) {
     guardName: "checkCompositionBoundaryViolation"
   };
 }
-function zi(e, t, i) {
+function Hi(e, t, i) {
   const n = [], s = ["DocumentLineageDetail", "AgreementLineageDetail"], a = t.filter(
     (o) => s.includes(o)
   );
@@ -3524,7 +3525,7 @@ function zi(e, t, i) {
     guardName: "checkAdapterBoundaryViolation"
   };
 }
-function Hi(e, t) {
+function Oi(e, t) {
   const i = [], n = [
     "newer_source_exists",
     "warning_precedence",
@@ -3544,9 +3545,9 @@ function Hi(e, t) {
     guardName: "checkSemanticComputationViolation"
   };
 }
-function Oi(e, t) {
+function Ki(e, t) {
   const i = [], n = t.filter(
-    (o) => !tt(o) && !o.includes("/diagnostics")
+    (o) => !it(o) && !o.includes("/diagnostics")
   );
   n.length > 0 && i.push(
     `Page "${e}" fetches from non-source-management endpoints: [${n.join(", ")}]. Source-management pages must consume one source-management endpoint family only.`
@@ -3563,10 +3564,10 @@ function Oi(e, t) {
   };
 }
 let K = "strict";
-function Da(e) {
+function Ma(e) {
   K = e;
 }
-function Ia() {
+function La() {
   return K;
 }
 function w(e) {
@@ -3578,17 +3579,17 @@ function w(e) {
     throw new Error(t);
   K === "warn" && console.warn(t);
 }
-function it(e) {
+function nt(e) {
   const t = [];
   if (e.dependencies) {
-    const s = Zi(
+    const s = zi(
       e.pageId,
       e.dependencies
     );
     s.violated && (t.push(s), w(s));
   }
   if (e.usedContracts && e.usedAdapters) {
-    const s = zi(
+    const s = Hi(
       e.pageId,
       e.usedContracts,
       e.usedAdapters
@@ -3596,11 +3597,11 @@ function it(e) {
     s.violated && (t.push(s), w(s));
   }
   if (e.computedFields) {
-    const s = Hi(e.pageId, e.computedFields);
+    const s = Oi(e.pageId, e.computedFields);
     s.violated && (t.push(s), w(s));
   }
   if (e.fetchedEndpoints) {
-    const s = Oi(e.pageId, e.fetchedEndpoints);
+    const s = Ki(e.pageId, e.fetchedEndpoints);
     s.violated && (t.push(s), w(s));
   }
   const i = t.some((s) => s.violated), n = i ? `Page "${e.pageId}" has ${t.length} architectural violations` : `Page "${e.pageId}" passes all architectural guards`;
@@ -3621,12 +3622,12 @@ function _e(e) {
     }));
   });
 }
-function Ma(e) {
-  const t = it(e);
+function $a(e) {
+  const t = nt(e);
   if (t.violated)
     throw _e(t), new Error(t.summary);
 }
-function Ki(e) {
+function Gi(e) {
   if (typeof e != "object" || e === null)
     return !1;
   const t = e;
@@ -3642,7 +3643,7 @@ function Ki(e) {
   const n = i[0];
   return "result_kind" in n && "matched_fields" in n;
 }
-function nt(e) {
+function st(e) {
   if (typeof e != "object" || e === null)
     return !1;
   const t = e;
@@ -3662,23 +3663,23 @@ function nt(e) {
   const n = i[0];
   return "message_count" in n && ("anchor" in n || "messages" in n);
 }
-function Gi(e) {
+function Vi(e) {
   if (typeof e != "object" || e === null)
     return !1;
   const t = e;
   return "agreement_id" in t && "review_status" in t || "signer_id" in t && "comment_type" in t || "placement_id" in t && "field_id" in t;
 }
-function Vi(e) {
+function qi(e) {
   if (typeof e != "object" || e === null)
     return !1;
   const t = e;
   return "kind" in t && (t.kind === "drive#comment" || t.kind === "drive#reply") || "htmlContent" in t && "quotedFileContent" in t || "anchor" in t && typeof t.anchor == "string" && t.anchor.includes("kix.");
 }
-function qi(e, t) {
+function Ui(e, t) {
   const i = [], n = t.some(
-    (a) => nt(a) || et(a)
+    (a) => st(a) || tt(a)
   ), s = t.some(
-    (a) => Gi(a)
+    (a) => Vi(a)
   );
   return n && s && i.push(
     `Page "${e}" mixes source-management comment contracts with agreement-review comment payloads. Source comments and agreement-review comments are distinct contract families and must NOT be mixed. Use separate pages or panels for each comment type.`
@@ -3688,9 +3689,9 @@ function qi(e, t) {
     guardName: "checkSourceCommentMixingViolation"
   };
 }
-function Ui(e, t) {
+function Qi(e, t) {
   const i = [];
-  t.some((s) => Vi(s)) && i.push(
+  t.some((s) => qi(s)) && i.push(
     `Page "${e}" uses raw Google Drive comment payloads directly. Source-management surfaces must consume provider-neutral contracts only. Use Phase13SourceCommentPage or Phase13SourceCommentThreadSummary instead.`
   );
   for (const s of t)
@@ -3712,11 +3713,11 @@ function Ui(e, t) {
     guardName: "checkGoogleProviderPayloadViolation"
   };
 }
-function Qi(e, t, i) {
+function Bi(e, t, i) {
   const n = [], s = i.some(
     (o) => ["comment_sync_status", "has_comments", "relationship_state", "comment_count"].includes(o)
   ), a = t.some(
-    (o) => Ki(o)
+    (o) => Gi(o)
   );
   return s && !a && n.push(
     `Page "${e}" uses Phase 13 search fields [${i.filter(
@@ -3728,11 +3729,11 @@ function Qi(e, t, i) {
     guardName: "checkSearchContractViolation"
   };
 }
-function Bi(e, t, i) {
+function Xi(e, t, i) {
   const n = [], s = i.some(
     (o) => ["sync", "messages", "author", "last_activity_at"].includes(o)
   ), a = t.some(
-    (o) => nt(o)
+    (o) => st(o)
   );
   return s && !a && n.push(
     `Page "${e}" uses Phase 13 comment fields [${i.filter(
@@ -3744,22 +3745,22 @@ function Bi(e, t, i) {
     guardName: "checkCommentContractViolation"
   };
 }
-function st(e) {
-  const i = [...it(e).results];
+function at(e) {
+  const i = [...nt(e).results];
   if (e.dependencies) {
-    const a = qi(
+    const a = Ui(
       e.pageId,
       e.dependencies
     );
     a.violated && (i.push(a), w(a));
-    const o = Ui(
+    const o = Qi(
       e.pageId,
       e.dependencies
     );
     o.violated && (i.push(o), w(o));
   }
   if (e.searchContracts && e.searchFieldsAccessed) {
-    const a = Qi(
+    const a = Bi(
       e.pageId,
       e.searchContracts,
       e.searchFieldsAccessed
@@ -3767,7 +3768,7 @@ function st(e) {
     a.violated && (i.push(a), w(a));
   }
   if (e.commentContracts && e.commentFieldsAccessed) {
-    const a = Bi(
+    const a = Xi(
       e.pageId,
       e.commentContracts,
       e.commentFieldsAccessed
@@ -3781,12 +3782,12 @@ function st(e) {
     summary: s
   };
 }
-function La(e) {
-  const t = st(e);
+function Na(e) {
+  const t = at(e);
   if (t.violated)
     throw _e(t), new Error(t.summary);
 }
-function $a() {
+function ja() {
   return {
     agreement_id: "agr_123",
     review_status: "pending",
@@ -3797,7 +3798,7 @@ function $a() {
     created_at: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
-function Na() {
+function Za() {
   return {
     kind: "drive#comment",
     id: "AAAgB1234",
@@ -3814,7 +3815,7 @@ function Na() {
     }
   };
 }
-function ja() {
+function za() {
   return {
     source: { id: "src_123", label: "Test Source" },
     revision: { id: "rev_456" },
@@ -3838,7 +3839,7 @@ function ja() {
     links: {}
   };
 }
-function Za() {
+function Ha() {
   return {
     items: [],
     page_info: { mode: "page", page: 1, page_size: 20, total_count: 0, has_more: !1 },
@@ -3861,7 +3862,7 @@ const re = [
   "source-management-guards",
   "source-management-pages",
   "source-management-rendering-states"
-], at = [
+], ot = [
   // Direct Google Drive API fields
   "kind",
   "htmlContent",
@@ -3898,21 +3899,21 @@ const re = [
   // presentation adapters
   "source-management-composition"
   // composition helpers
-], za = [
+], Oa = [
   "source_list",
   "source_detail",
   "revision_history",
   "relationship_summaries",
   "search",
   "source_comment"
-], Xi = {
+], Wi = {
   source_list: "source-browser-page",
   source_detail: "source-detail-page",
   revision_history: "source-revision-timeline-page",
   relationship_summaries: "source-relationship-graph-page",
   search: "source-search-page",
   source_comment: "source-comment-inspector-page"
-}, Wi = {
+}, Ji = {
   source_list: "/admin/api/v1/esign/sources",
   source_detail: "/admin/api/v1/esign/sources/src_123",
   revision_history: "/admin/api/v1/esign/sources/src_123/revisions",
@@ -3920,26 +3921,26 @@ const re = [
   search: "/admin/api/v1/esign/source-search?q=test",
   source_comment: "/admin/api/v1/esign/sources/src_123/comments"
 };
-function ot(e) {
+function rt(e) {
   return e.replace(/^\.\.\//, "").replace(/^\.\//, "").replace(/\.js$/, "").replace(/\.ts$/, "");
 }
-function Ji(e) {
+function Yi(e) {
   if (!e)
     return !1;
-  const t = ot(e);
+  const t = rt(e);
   return pe.some(
     (i) => t === i || t.endsWith(`/${i}`)
   );
 }
-function Yi(e) {
+function en(e) {
   return typeof e == "string" ? { field: e } : e;
 }
-function en(e) {
-  return at.some(
+function tn(e) {
+  return ot.some(
     (t) => e === t || e.includes(t)
   );
 }
-function tn(e) {
+function nn(e) {
   if (typeof e != "object" || e === null)
     return;
   const t = e.links;
@@ -3948,9 +3949,9 @@ function tn(e) {
   const i = t.self;
   return typeof i == "string" && i.length > 0 ? i : void 0;
 }
-function nn(e, t) {
+function sn(e, t) {
   const i = [], n = t.filter((s) => {
-    const a = ot(s);
+    const a = rt(s);
     return a.includes("source-management") || a.includes("lineage") || a.includes("esign") ? !re.some(
       (r) => a === r || a.endsWith(`/${r}`)
     ) : !1;
@@ -3963,8 +3964,8 @@ function nn(e, t) {
     guardName: "checkContractModuleConsumptionViolation"
   };
 }
-function sn(e, t) {
-  const i = [], n = t.map((s) => Yi(s)).filter((s) => en(s.field)).filter((s) => !Ji(s.accessedThrough));
+function an(e, t) {
+  const i = [], n = t.map((s) => en(s)).filter((s) => tn(s.field)).filter((s) => !Yi(s.accessedThrough));
   if (n.length > 0) {
     const s = n.map(
       (a) => a.accessedThrough ? `${a.field} via non-approved boundary ${a.accessedThrough}` : a.field
@@ -3979,7 +3980,7 @@ function sn(e, t) {
     guardName: "checkRawGoogleFieldAccessViolation"
   };
 }
-function an(e, t) {
+function on(e, t) {
   const i = [], n = [
     "SourceListPage",
     "SourceDetail",
@@ -4005,7 +4006,7 @@ function an(e, t) {
     guardName: "checkCanonicalContractFamilyViolation"
   };
 }
-function on(e, t) {
+function rn(e, t) {
   const i = [], n = [
     // Lineage semantics
     "newer_source_exists",
@@ -4044,28 +4045,28 @@ function on(e, t) {
     guardName: "checkSemanticOwnershipViolation"
   };
 }
-function rt(e) {
-  const i = [...st(e).results];
+function ct(e) {
+  const i = [...at(e).results];
   if (e.importSources && e.enforceContractModules !== !1) {
-    const o = nn(
+    const o = sn(
       e.pageId,
       e.importSources
     );
     o.violated && (i.push(o), w(o));
   }
   if (e.rawFieldAccesses) {
-    const o = sn(e.pageId, e.rawFieldAccesses);
+    const o = an(e.pageId, e.rawFieldAccesses);
     o.violated && (i.push(o), w(o));
   }
   if (e.usedContracts) {
-    const o = an(
+    const o = on(
       e.pageId,
       e.usedContracts
     );
     o.violated && (i.push(o), w(o));
   }
   if (e.computedFields) {
-    const o = on(
+    const o = rn(
       e.pageId,
       e.computedFields
     );
@@ -4078,8 +4079,8 @@ function rt(e) {
     summary: a
   };
 }
-function Ha(e) {
-  const t = rt(e);
+function Ka(e) {
+  const t = ct(e);
   if (t.violated)
     throw _e(t), new Error(t.summary);
 }
@@ -4106,8 +4107,8 @@ function G(e) {
   };
 }
 function A(e, t) {
-  const i = tn(t) ?? Wi[e], n = {
-    ...G(Xi[e]),
+  const i = nn(t) ?? Ji[e], n = {
+    ...G(Wi[e]),
     dependencies: [t],
     fetchedEndpoints: [i]
   };
@@ -4153,7 +4154,7 @@ function A(e, t) {
       };
   }
 }
-function Oa(e) {
+function Ga(e) {
   return {
     ...G(e),
     importSources: [
@@ -4165,7 +4166,7 @@ function Oa(e) {
     ]
   };
 }
-function Ka(e) {
+function Va(e) {
   return {
     ...G(e),
     rawFieldAccesses: [
@@ -4178,7 +4179,7 @@ function Ka(e) {
     ]
   };
 }
-function Ga(e) {
+function qa(e) {
   return {
     ...G(e),
     usedContracts: [
@@ -4190,7 +4191,7 @@ function Ga(e) {
     ]
   };
 }
-function Va(e) {
+function Ua(e) {
   return {
     ...G(e),
     computedFields: [
@@ -4203,7 +4204,7 @@ function Va(e) {
     ]
   };
 }
-const qa = {
+const Qa = {
   version: 2,
   phase: 14,
   enforcementLevel: "strict",
@@ -4229,7 +4230,7 @@ const qa = {
   ],
   // Contract module rules
   approvedModules: re,
-  forbiddenGoogleFields: at,
+  forbiddenGoogleFields: ot,
   approvedGoogleAdapters: pe,
   // Composition rules
   pageRules: [
@@ -4282,7 +4283,7 @@ function D(e, t, i = !0) {
   };
 }
 function P(e, t, i) {
-  const n = t.kind ?? "none", s = rn(e, n);
+  const n = t.kind ?? "none", s = cn(e, n);
   return {
     metadata: {
       panelId: e,
@@ -4301,7 +4302,7 @@ function P(e, t, i) {
     actionable: i?.actionable ?? !1
   };
 }
-function rn(e, t) {
+function cn(e, t) {
   return {
     no_artifacts: "no_artifacts",
     no_comments: "no_comments",
@@ -4315,12 +4316,12 @@ function rn(e, t) {
     none: "success"
   }[t] ?? "empty";
 }
-function cn(e) {
-  const t = bt(e);
+function dn(e) {
+  const t = St(e);
   return {
     metadata: {
       panelId: "overview",
-      stateKind: dn(e),
+      stateKind: un(e),
       timestamp: (/* @__PURE__ */ new Date()).toISOString()
     },
     source: t,
@@ -4328,11 +4329,11 @@ function cn(e) {
     links: e.links
   };
 }
-function dn(e) {
+function un(e) {
   const t = (e.status ?? "").toLowerCase();
   return t === "merged" ? "merged_source" : t === "archived" ? "archived_source" : "success";
 }
-function ct(e, t, i) {
+function dt(e, t, i) {
   return e ? S("overview", "Loading source...") : t !== null ? t.message.includes("403") || t.message.includes("Forbidden") ? P("overview", {
     kind: "unauthorized",
     title: "Access Denied",
@@ -4341,10 +4342,10 @@ function ct(e, t, i) {
     kind: "not_found",
     title: "Source Not Found",
     description: "The requested source document could not be found."
-  }) : D("overview", t) : i === null ? S("overview") : i.empty_state.kind !== "none" ? P("overview", i.empty_state) : cn(i);
+  }) : D("overview", t) : i === null ? S("overview") : i.empty_state.kind !== "none" ? P("overview", i.empty_state) : dn(i);
 }
-function un(e) {
-  const t = St(e), i = t.items.length > 1;
+function ln(e) {
+  const t = kt(e), i = t.items.length > 1;
   return {
     metadata: {
       panelId: "revisions",
@@ -4360,10 +4361,10 @@ function un(e) {
     hasRepeatedRevisions: i
   };
 }
-function ln(e, t, i) {
-  return e ? S("revisions", "Loading revisions...") : t !== null ? D("revisions", t) : i === null ? S("revisions") : i.empty_state.kind !== "none" ? P("revisions", i.empty_state) : un(i);
+function mn(e, t, i) {
+  return e ? S("revisions", "Loading revisions...") : t !== null ? D("revisions", t) : i === null ? S("revisions") : i.empty_state.kind !== "none" ? P("revisions", i.empty_state) : ln(i);
 }
-function mn(e) {
+function _n(e) {
   return {
     pdf_export: "PDF Export",
     native_export: "Native Export",
@@ -4372,14 +4373,14 @@ function mn(e) {
     fingerprint: "Fingerprint"
   }[e] ?? e;
 }
-function _n(e) {
+function pn(e) {
   return {
     native: "Native",
     converted: "Converted",
     unsupported: "Unsupported"
   }[e ?? ""] ?? e ?? "";
 }
-function pn(e) {
+function gn(e) {
   return {
     pending: "Pending",
     complete: "Complete",
@@ -4387,34 +4388,34 @@ function pn(e) {
     skipped: "Skipped"
   }[e ?? ""] ?? e ?? "";
 }
-function gn(e) {
-  if (e === void 0 || e === 0) return "0 B";
-  const t = ["B", "KB", "MB", "GB"];
-  let i = e, n = 0;
-  for (; i >= 1024 && n < t.length - 1; )
-    i /= 1024, n++;
-  return `${i.toFixed(n > 0 ? 1 : 0)} ${t[n]}`;
+function fn(e) {
+  return be(e, {
+    emptyFallback: "0 B",
+    zeroFallback: "0 B",
+    invalidFallback: "0 B",
+    precisionByUnit: [0, 1, 1, 1]
+  });
 }
-function fn(e, t) {
+function vn(e, t) {
   const i = e.sha256 ?? "";
   return {
     id: e.id,
     artifactKind: e.artifact_kind,
-    artifactKindLabel: mn(e.artifact_kind),
+    artifactKindLabel: _n(e.artifact_kind),
     sha256: i,
     sha256Short: i.length > 12 ? `${i.substring(0, 12)}...` : i,
     pageCount: e.page_count ?? 0,
     sizeBytes: e.size_bytes ?? 0,
-    sizeBytesFormatted: gn(e.size_bytes),
+    sizeBytesFormatted: fn(e.size_bytes),
     compatibilityTier: e.compatibility_tier ?? "",
-    compatibilityTierLabel: _n(e.compatibility_tier),
+    compatibilityTierLabel: pn(e.compatibility_tier),
     normalizationStatus: e.normalization_status ?? "",
-    normalizationStatusLabel: pn(e.normalization_status),
+    normalizationStatusLabel: gn(e.normalization_status),
     links: t
   };
 }
-function vn(e) {
-  const t = e.items.map((i) => fn(i, e.links));
+function hn(e) {
+  const t = e.items.map((i) => vn(i, e.links));
   return {
     metadata: {
       panelId: "artifacts",
@@ -4428,14 +4429,14 @@ function vn(e) {
     links: e.links
   };
 }
-function hn(e, t, i) {
+function yn(e, t, i) {
   return e ? S("artifacts", "Loading artifacts...") : t !== null ? D("artifacts", t) : i === null ? S("artifacts") : i.empty_state.kind !== "none" ? P("artifacts", i.empty_state, {
     suggestedActionLabel: "View Revisions",
     suggestedActionUrl: i.links.revisions
-  }) : vn(i);
+  }) : hn(i);
 }
-function yn(e, t) {
-  const i = kt(e), n = (t ?? 0) > 0;
+function bn(e, t) {
+  const i = wt(e), n = (t ?? 0) > 0;
   return {
     metadata: {
       panelId: "relationships",
@@ -4452,20 +4453,20 @@ function yn(e, t) {
     pendingCandidateCount: t ?? 0
   };
 }
-function bn(e, t, i, n) {
+function Sn(e, t, i, n) {
   return e ? S("relationships", "Loading relationships...") : t !== null ? D("relationships", t) : i === null ? S("relationships") : i.empty_state.kind !== "none" ? P("relationships", i.empty_state, {
     suggestedActionLabel: "View All Sources",
     suggestedActionUrl: i.links.source
-  }) : yn(i, n);
+  }) : bn(i, n);
 }
-function Sn(e) {
+function kn(e) {
   return {
     open: "Open",
     resolved: "Resolved",
     deleted: "Deleted"
   }[e ?? ""] ?? e ?? "";
 }
-function kn(e) {
+function wn(e) {
   return {
     not_configured: "Not Configured",
     pending_sync: "Syncing...",
@@ -4474,12 +4475,12 @@ function kn(e) {
     stale: "Data May Be Outdated"
   }[e] ?? e;
 }
-function wn(e) {
+function Cn(e) {
   return {
     id: e.id ?? "",
     threadId: e.thread_id ?? "",
     status: e.status ?? "unknown",
-    statusLabel: Sn(e.status),
+    statusLabel: kn(e.status),
     isResolved: !!e.resolved_at,
     anchorKind: e.anchor?.kind ?? "",
     anchorLabel: e.anchor?.label ?? "General",
@@ -4493,8 +4494,8 @@ function wn(e) {
     links: e.links ?? {}
   };
 }
-function Cn(e) {
-  const t = e.items.map(wn);
+function Pn(e) {
+  const t = e.items.map(Cn);
   return {
     metadata: {
       panelId: "comments",
@@ -4509,12 +4510,12 @@ function Cn(e) {
     permissions: e.permissions,
     links: e.links,
     syncStatus: e.sync_status,
-    syncStatusLabel: kn(e.sync_status),
+    syncStatusLabel: wn(e.sync_status),
     threadCount: e.sync?.thread_count ?? 0,
     messageCount: e.sync?.message_count ?? 0
   };
 }
-function Pn(e, t, i) {
+function En(e, t, i) {
   if (e)
     return S("comments", "Loading comments...");
   if (t !== null)
@@ -4534,7 +4535,7 @@ function Pn(e, t, i) {
     kind: "not_configured",
     title: "Comments not configured",
     description: "Comment synchronization is not enabled for this source."
-  }) : i.empty_state.kind !== "none" ? P("comments", i.empty_state) : Cn(i);
+  }) : i.empty_state.kind !== "none" ? P("comments", i.empty_state) : Pn(i);
 }
 function xn(e) {
   return {
@@ -4544,7 +4545,7 @@ function xn(e) {
     api: "API"
   }[e] ?? e;
 }
-function En(e) {
+function Tn(e) {
   return {
     active: "Active",
     inactive: "Inactive",
@@ -4552,7 +4553,7 @@ function En(e) {
     revoked: "Revoked"
   }[e] ?? e;
 }
-function Tn(e, t) {
+function An(e, t) {
   return {
     id: e.id,
     providerKind: e.provider_kind,
@@ -4561,15 +4562,15 @@ function Tn(e, t) {
     accountId: e.account_id ?? "",
     webUrl: e.web_url ?? "",
     handleStatus: e.handle_status,
-    handleStatusLabel: En(e.handle_status),
+    handleStatusLabel: Tn(e.handle_status),
     isActive: e.id === t,
     validFrom: e.valid_from ?? "",
     validTo: e.valid_to ?? "",
     links: e.links
   };
 }
-function An(e, t) {
-  const i = e.items.map((n) => Tn(n, t));
+function Rn(e, t) {
+  const i = e.items.map((n) => An(n, t));
   return {
     metadata: {
       panelId: "handles",
@@ -4585,14 +4586,14 @@ function An(e, t) {
     activeHandleId: t
   };
 }
-function Rn(e, t, i, n) {
-  return e ? S("handles", "Loading handles...") : t !== null ? D("handles", t) : i === null ? S("handles") : i.empty_state.kind !== "none" ? P("handles", i.empty_state) : An(i, n ?? "");
+function Fn(e, t, i, n) {
+  return e ? S("handles", "Loading handles...") : t !== null ? D("handles", t) : i === null ? S("handles") : i.empty_state.kind !== "none" ? P("handles", i.empty_state) : Rn(i, n ?? "");
 }
 function ge(e, t) {
   return {
     sourceId: e,
     activePanel: "overview",
-    overview: ct(!1, null, t),
+    overview: dt(!1, null, t),
     revisions: null,
     artifacts: null,
     relationships: null,
@@ -4602,7 +4603,7 @@ function ge(e, t) {
     links: t.links
   };
 }
-function Ua(e) {
+function Ba(e) {
   return {
     sourceId: e,
     activePanel: "overview",
@@ -4621,19 +4622,19 @@ function Ua(e) {
     links: {}
   };
 }
-function Qa(e, t, i) {
+function Xa(e, t, i) {
   return {
     ...e,
     [t]: i
   };
 }
-function Ba(e, t) {
+function Wa(e, t) {
   return {
     ...e,
     activePanel: t
   };
 }
-function Xa(e, t) {
+function Ja(e, t) {
   const i = e.links;
   switch (t) {
     case "revisions":
@@ -4652,7 +4653,7 @@ function Xa(e, t) {
       return;
   }
 }
-function Wa(e, t) {
+function Ya(e, t) {
   switch (t) {
     case "overview":
       return !1;
@@ -4678,7 +4679,7 @@ const te = [
   "SourceHandlePage",
   "Phase13SourceCommentPage"
 ];
-function dt(e) {
+function ut(e) {
   const t = [], i = e.filter(
     (n) => !te.includes(n)
   );
@@ -4690,15 +4691,15 @@ function dt(e) {
     usedContractFamilies: e
   };
 }
-const Fn = [
+const Dn = [
   "DocumentLineageDetail",
   "AgreementLineageDetail",
   "GoogleImportLineageStatus",
   "GoogleImportRunDetail"
 ];
-function ut(e) {
+function lt(e) {
   const t = [], i = e.filter(
-    (n) => Fn.includes(n)
+    (n) => Dn.includes(n)
   );
   return i.length > 0 && t.push(
     `Workspace mixes forbidden contract families: [${i.join(", ")}]. Workspace must consume source-management contracts only.`
@@ -4708,7 +4709,7 @@ function ut(e) {
     usedContractFamilies: e
   };
 }
-function lt(e) {
+function mt(e) {
   const t = [], i = ["SourceDetail"];
   e.links.self === void 0 && t.push("Workspace missing backend-provided self link.");
   const n = Object.values(e.links).filter(
@@ -4738,7 +4739,7 @@ function N(e) {
   const t = e;
   return Array.isArray(t.items) && typeof t.page_info == "object" && t.page_info !== null && typeof t.links == "object" && t.links !== null;
 }
-function Dn(e) {
+function In(e) {
   if (typeof e != "object" || e === null)
     return !1;
   const t = e;
@@ -4758,21 +4759,21 @@ const q = {
     contractFamily: m.source_list.contractFamily,
     route: m.source_list.route,
     validateFixture: (e) => N(e) && R(e, "/sources"),
-    createRenderState: (e) => At(e),
+    createRenderState: (e) => Rt(e),
     createGuardConfig: (e) => A("source_list", e)
   },
   source_detail: {
     contractFamily: m.source_detail.contractFamily,
     route: m.source_detail.route,
-    validateFixture: (e) => Dn(e) && R(e, "/sources/"),
-    createRenderState: (e) => Tt(e),
+    validateFixture: (e) => In(e) && R(e, "/sources/"),
+    createRenderState: (e) => At(e),
     createGuardConfig: (e) => A("source_detail", e)
   },
   revision_history: {
     contractFamily: m.revision_history.contractFamily,
     route: m.revision_history.route,
     validateFixture: (e) => N(e) && R(e, "/revisions"),
-    createRenderState: (e) => Et(e),
+    createRenderState: (e) => Tt(e),
     createGuardConfig: (e) => A("revision_history", e)
   },
   relationship_summaries: {
@@ -4786,28 +4787,28 @@ const q = {
     contractFamily: m.search.contractFamily,
     route: m.search.route,
     validateFixture: (e) => N(e) && R(e, "/source-search"),
-    createRenderState: (e) => Pt(e),
+    createRenderState: (e) => Et(e),
     createGuardConfig: (e) => A("search", e)
   },
   source_comment: {
     contractFamily: m.source_comment.contractFamily,
     route: m.source_comment.route,
     validateFixture: (e) => N(e) && typeof e.sync_status == "string" && R(e, "/comments"),
-    createRenderState: (e) => Ct(e),
+    createRenderState: (e) => Pt(e),
     createGuardConfig: (e) => A("source_comment", e)
   }
 };
-function mt(e) {
+function _t(e) {
   const t = e.fetchImpl ?? globalThis.fetch;
   if (typeof t != "function")
     throw new Error("Fetch API is not available for Phase 14 smoke coverage");
   return t;
 }
-function _t(e, t) {
+function pt(e, t) {
   return `${t.basePath ?? ""}${q[e].route}`;
 }
-async function In(e, t = {}) {
-  const i = mt(t), n = _t(e, t), s = await i(n);
+async function Mn(e, t = {}) {
+  const i = _t(t), n = pt(e, t), s = await i(n);
   if (!s.ok)
     throw new Error(
       `Failed to load fixture for ${e} from ${n}: HTTP ${s.status}`
@@ -4826,53 +4827,53 @@ async function I(e, t = {}) {
     durationMs: 0
   };
   try {
-    const a = await In(e, t);
+    const a = await Mn(e, t);
     if (s.fixtureLoaded = n.validateFixture(a), !s.fixtureLoaded)
       return s.errorMessage = `Fixture loaded from ${n.route} but did not match ${n.contractFamily}`, j(s, i);
     const o = n.createRenderState(a);
     if (s.renderStateCreated = o !== null && o.metadata !== void 0 && o.metadata.kind === "success", !s.renderStateCreated)
       return s.errorMessage = `Failed to create success state for ${e} using ${n.contractFamily}`, j(s, i);
-    const r = rt(n.createGuardConfig(a));
+    const r = ct(n.createGuardConfig(a));
     return s.guardsPassed = !r.violated, s.guardsPassed ? (s.passed = !0, j(s, i)) : (s.errorMessage = `Guards failed: ${r.summary}`, j(s, i));
   } catch (a) {
     return s.errorMessage = a instanceof Error ? a.message : String(a), j(s, i);
   }
 }
-function Mn(e = {}) {
+function Ln(e = {}) {
   return I("source_list", e);
 }
-function Ln(e = {}) {
+function $n(e = {}) {
   return I("source_detail", e);
 }
-function $n(e = {}) {
+function Nn(e = {}) {
   return I("revision_history", e);
 }
-function Nn(e = {}) {
+function jn(e = {}) {
   return I("relationship_summaries", e);
 }
-function jn(e = {}) {
+function Zn(e = {}) {
   return I("search", e);
 }
-function Zn(e = {}) {
+function zn(e = {}) {
   return I("source_comment", e);
 }
 function j(e, t) {
   return e.durationMs = performance.now() - t, e;
 }
-function zn(e) {
+function Hn(e) {
   return {
-    source_list: Mn,
-    source_detail: Ln,
-    revision_history: $n,
-    relationship_summaries: Nn,
-    search: jn,
-    source_comment: Zn
+    source_list: Ln,
+    source_detail: $n,
+    revision_history: Nn,
+    relationship_summaries: jn,
+    search: Zn,
+    source_comment: zn
   }[e];
 }
 async function M(e = {}) {
   const t = performance.now(), i = [];
   for (const r of V) {
-    const g = await zn(r)(e);
+    const g = await Hn(r)(e);
     i.push(g);
   }
   const n = i.every((r) => r.passed), s = i.filter((r) => r.passed).length, a = i.filter((r) => !r.passed).map((r) => r.surface), o = n ? `V2 landing-zone smoke tests: ${s}/${i.length} surfaces passed` : `V2 landing-zone smoke tests failed: ${a.join(", ")}`;
@@ -4884,7 +4885,7 @@ async function M(e = {}) {
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
-async function Ja(e = {}) {
+async function eo(e = {}) {
   const t = await M(e);
   if (!t.passed) {
     const i = t.surfaces.filter((n) => !n.passed).map((n) => `  - ${n.surface}: ${n.errorMessage}`).join(`
@@ -4893,8 +4894,8 @@ async function Ja(e = {}) {
 ${i}`);
   }
 }
-function Hn() {
-  const e = [], i = wt({ loadingMessage: "Loading..." }).metadata.kind === "loading";
+function On() {
+  const e = [], i = Ct({ loadingMessage: "Loading..." }).metadata.kind === "loading";
   for (const n of V)
     e.push({
       surface: n,
@@ -4908,10 +4909,10 @@ function Hn() {
     });
   return e;
 }
-function On() {
+function Kn() {
   const e = [];
   for (const t of V) {
-    const i = performance.now(), n = Rt({
+    const i = performance.now(), n = Ft({
       kind: "no_results",
       title: "No Results",
       description: `No ${t.replace("_", " ")} found.`
@@ -4929,10 +4930,10 @@ function On() {
   }
   return e;
 }
-function Kn() {
+function Gn() {
   const e = [];
   for (const t of V) {
-    const i = performance.now(), n = Ft(new Error("HTTP 500: Server Error"), !0), s = n.metadata.kind === "error" && n.retryable === !0 && n.code === "HTTP_500";
+    const i = performance.now(), n = Dt(new Error("HTTP 500: Server Error"), !0), s = n.metadata.kind === "error" && n.retryable === !0 && n.code === "HTTP_500";
     e.push({
       surface: t,
       contractFamily: fe[t],
@@ -4946,8 +4947,8 @@ function Kn() {
   }
   return e;
 }
-async function Ya(e = {}) {
-  const t = await M(e), i = Hn(), n = On(), s = Kn(), a = [
+async function to(e = {}) {
+  const t = await M(e), i = On(), n = Kn(), s = Gn(), a = [
     t.passed,
     i.every((o) => o.passed),
     n.every((o) => o.passed),
@@ -4969,10 +4970,10 @@ const ye = {
   search: m.search.route,
   source_comment: m.source_comment.route
 };
-async function eo(e = {}) {
-  const t = mt(e), i = [];
+async function io(e = {}) {
+  const t = _t(e), i = [];
   for (const n of V) {
-    const s = _t(n, e);
+    const s = pt(n, e);
     try {
       const a = await t(s, { method: "HEAD" });
       i.push({
@@ -4991,7 +4992,7 @@ async function eo(e = {}) {
   }
   return i;
 }
-function to(e) {
+function no(e) {
   console.group("V2 Landing-Zone Smoke Test Results"), console.log(`Overall: ${e.passed ? "PASSED" : "FAILED"}`), console.log(`Duration: ${e.totalDurationMs.toFixed(2)}ms`), console.log(`Timestamp: ${e.timestamp}`), console.group("Surface Results");
   for (const t of e.surfaces) {
     const i = t.passed ? "✓" : "✗", n = [
@@ -5005,7 +5006,7 @@ function to(e) {
   }
   console.groupEnd(), console.log(`Summary: ${e.summary}`), console.groupEnd();
 }
-const pt = {
+const gt = {
   "source-browser": {
     templatePath: "resources/esign-source-management/runtime.html",
     bootstrapFunction: "bootstrapSourceBrowserPage",
@@ -5043,7 +5044,7 @@ const pt = {
     requiresBackendLinks: !0
   }
 };
-function Gn(e) {
+function Vn(e) {
   if (typeof e != "object" || e === null)
     return !1;
   const t = e;
@@ -5060,11 +5061,11 @@ function Gn(e) {
       return !1;
   return !0;
 }
-function Vn(e) {
+function qn(e) {
   return !0;
 }
-function qn(e) {
-  const t = performance.now(), i = pt[e], n = {
+function Un(e) {
+  const t = performance.now(), i = gt[e], n = {
     pageId: e,
     templatePath: i.templatePath,
     bootstrapFunctionAvailable: !1,
@@ -5081,9 +5082,9 @@ function qn(e) {
       apiBasePath: "/admin/api/v1/esign",
       sourceId: "src_test"
     };
-    n.backendLinksOnly = Gn(s);
+    n.backendLinksOnly = Vn(s);
     const a = (o) => o;
-    n.noFallbackSynthesis = Vn(a), n.passed = n.bootstrapFunctionAvailable && n.controllerRegisterable && n.stateCallbackWired && n.backendLinksOnly && n.noFallbackSynthesis;
+    n.noFallbackSynthesis = qn(a), n.passed = n.bootstrapFunctionAvailable && n.controllerRegisterable && n.stateCallbackWired && n.backendLinksOnly && n.noFallbackSynthesis;
   } catch (s) {
     n.errorMessage = s instanceof Error ? s.message : String(s);
   }
@@ -5091,8 +5092,8 @@ function qn(e) {
 }
 function U() {
   const e = performance.now(), t = [];
-  for (const o of Object.keys(pt)) {
-    const r = qn(o);
+  for (const o of Object.keys(gt)) {
+    const r = Un(o);
     t.push(r);
   }
   const i = t.every((o) => o.passed), n = t.filter((o) => o.passed).length, s = t.filter((o) => !o.passed).map((o) => o.pageId), a = i ? `Phase 15 page bootstrap: ${n}/${t.length} pages passed` : `Phase 15 page bootstrap failed: ${s.join(", ")}`;
@@ -5104,7 +5105,7 @@ function U() {
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
-function io() {
+function so() {
   const e = U();
   if (!e.passed) {
     const t = e.pages.filter((i) => !i.passed).map((i) => `  - ${i.pageId}: ${i.errorMessage || "validation failed"}`).join(`
@@ -5113,7 +5114,7 @@ function io() {
 ${t}`);
   }
 }
-function no(e, t) {
+function ao(e, t) {
   const i = [];
   if ((!t.apiBasePath || typeof t.apiBasePath != "string") && i.push("apiBasePath must be provided by backend template"), t.bootstrap && typeof t.bootstrap == "object") {
     const n = ["_synthesized", "_clientGenerated", "_fallback"];
@@ -5125,7 +5126,7 @@ function no(e, t) {
     violations: i
   };
 }
-function so(e) {
+function oo(e) {
   console.group("Phase 15 Page Bootstrap Smoke Test Results"), console.log(`Overall: ${e.passed ? "PASSED" : "FAILED"}`), console.log(`Duration: ${e.totalDurationMs.toFixed(2)}ms`), console.log(`Timestamp: ${e.timestamp}`), console.group("Page Results");
   for (const t of e.pages) {
     const i = t.passed ? "✓" : "✗", n = [
@@ -5141,7 +5142,7 @@ function so(e) {
   }
   console.groupEnd(), console.log(`Summary: ${e.summary}`), console.groupEnd();
 }
-async function ao(e = {}) {
+async function ro(e = {}) {
   const t = await M(e), i = U();
   return {
     landingZone: t,
@@ -5149,7 +5150,7 @@ async function ao(e = {}) {
     overallPassed: t.passed && i.passed
   };
 }
-const Un = [
+const Qn = [
   "loading",
   "success",
   "empty",
@@ -5183,7 +5184,7 @@ function $(e) {
   if (!i)
     return !1;
   const n = i.stateKind;
-  return n === "empty" || Un.includes(n) ? n === "success" || n === "loading" || n === "error" ? !0 : "backendEmptyStateKind" in t ? typeof t.backendEmptyStateKind == "string" : !0 : !0;
+  return n === "empty" || Qn.includes(n) ? n === "success" || n === "loading" || n === "error" ? !0 : "backendEmptyStateKind" in t ? typeof t.backendEmptyStateKind == "string" : !0 : !0;
 }
 function T(e) {
   if (typeof e != "object" || e === null)
@@ -5228,7 +5229,7 @@ function se() {
     empty_state: { kind: "none" }
   };
 }
-function Qn() {
+function Bn() {
   return {
     source: { id: "src_smoke_test", label: "Smoke Test Source" },
     items: [
@@ -5273,7 +5274,7 @@ function Qn() {
     links: { self: "/admin/api/v1/esign/sources/src_smoke_test/revisions" }
   };
 }
-function Bn() {
+function Xn() {
   return {
     source: { id: "src_smoke_test", label: "Smoke Test Source" },
     items: [],
@@ -5289,7 +5290,7 @@ function Bn() {
     links: { self: "/admin/api/v1/esign/sources/src_smoke_test/relationships" }
   };
 }
-function Xn() {
+function Wn() {
   return {
     revision: { id: "rev_001" },
     items: [],
@@ -5304,7 +5305,7 @@ function Xn() {
     links: { self: "/admin/api/v1/esign/source-revisions/rev_001/artifacts" }
   };
 }
-function Wn() {
+function Jn() {
   return {
     source: { id: "src_smoke_test", label: "Smoke Test Source" },
     revision: { id: "rev_001" },
@@ -5322,7 +5323,7 @@ function Wn() {
     links: { self: "/admin/api/v1/esign/sources/src_smoke_test/comments" }
   };
 }
-function Jn() {
+function Yn() {
   return {
     source: { id: "src_smoke_test", label: "Smoke Test Source" },
     items: [
@@ -5345,7 +5346,7 @@ function Jn() {
     links: { self: "/admin/api/v1/esign/sources/src_smoke_test/handles" }
   };
 }
-function Yn() {
+function es() {
   const e = performance.now(), t = {
     panelId: "overview",
     stateKind: "loading",
@@ -5356,14 +5357,14 @@ function Yn() {
     durationMs: 0
   };
   try {
-    const i = se(), n = ct(!1, null, i), s = L(n, "success");
+    const i = se(), n = dt(!1, null, i), s = L(n, "success");
     t.stateKind = s.actualKind, t.renderStateResolved = s.valid, t.backendEmptyStateUsed = $(n), t.noClientSideSemantics = T(n), t.passed = t.renderStateResolved && t.backendEmptyStateUsed && t.noClientSideSemantics, s.valid || (t.errorMessage = s.issues.join("; "));
   } catch (i) {
     t.errorMessage = i instanceof Error ? i.message : String(i);
   }
   return t.durationMs = performance.now() - e, t;
 }
-function es() {
+function ts() {
   const e = performance.now(), t = {
     panelId: "revisions",
     stateKind: "loading",
@@ -5374,14 +5375,14 @@ function es() {
     durationMs: 0
   };
   try {
-    const i = Qn(), n = ln(!1, null, i), s = L(n);
+    const i = Bn(), n = mn(!1, null, i), s = L(n);
     t.stateKind = s.actualKind, t.renderStateResolved = s.valid, t.backendEmptyStateUsed = $(n), t.noClientSideSemantics = T(n), t.passed = t.renderStateResolved && t.backendEmptyStateUsed && t.noClientSideSemantics, s.valid || (t.errorMessage = s.issues.join("; "));
   } catch (i) {
     t.errorMessage = i instanceof Error ? i.message : String(i);
   }
   return t.durationMs = performance.now() - e, t;
 }
-function ts() {
+function is() {
   const e = performance.now(), t = {
     panelId: "artifacts_empty",
     stateKind: "loading",
@@ -5392,14 +5393,14 @@ function ts() {
     durationMs: 0
   };
   try {
-    const i = Xn(), n = hn(!1, null, i), s = L(n, "no_artifacts");
+    const i = Wn(), n = yn(!1, null, i), s = L(n, "no_artifacts");
     t.stateKind = s.actualKind, t.renderStateResolved = s.valid, t.backendEmptyStateUsed = $(n), t.noClientSideSemantics = T(n), t.passed = t.renderStateResolved && t.backendEmptyStateUsed && t.noClientSideSemantics, s.valid || (t.errorMessage = s.issues.join("; "));
   } catch (i) {
     t.errorMessage = i instanceof Error ? i.message : String(i);
   }
   return t.durationMs = performance.now() - e, t;
 }
-function is() {
+function ns() {
   const e = performance.now(), t = {
     panelId: "relationships_empty",
     stateKind: "loading",
@@ -5410,14 +5411,14 @@ function is() {
     durationMs: 0
   };
   try {
-    const i = Bn(), n = bn(!1, null, i), s = L(n, "no_relationships");
+    const i = Xn(), n = Sn(!1, null, i), s = L(n, "no_relationships");
     t.stateKind = s.actualKind, t.renderStateResolved = s.valid, t.backendEmptyStateUsed = $(n), t.noClientSideSemantics = T(n), t.passed = t.renderStateResolved && t.backendEmptyStateUsed && t.noClientSideSemantics, s.valid || (t.errorMessage = s.issues.join("; "));
   } catch (i) {
     t.errorMessage = i instanceof Error ? i.message : String(i);
   }
   return t.durationMs = performance.now() - e, t;
 }
-function ns() {
+function ss() {
   const e = performance.now(), t = {
     panelId: "comments_empty",
     stateKind: "loading",
@@ -5428,14 +5429,14 @@ function ns() {
     durationMs: 0
   };
   try {
-    const i = Wn(), n = Pn(!1, null, i), s = L(n, "no_comments");
+    const i = Jn(), n = En(!1, null, i), s = L(n, "no_comments");
     t.stateKind = s.actualKind, t.renderStateResolved = s.valid, t.backendEmptyStateUsed = $(n), t.noClientSideSemantics = T(n), t.passed = t.renderStateResolved && t.backendEmptyStateUsed && t.noClientSideSemantics, s.valid || (t.errorMessage = s.issues.join("; "));
   } catch (i) {
     t.errorMessage = i instanceof Error ? i.message : String(i);
   }
   return t.durationMs = performance.now() - e, t;
 }
-function ss() {
+function as() {
   const e = performance.now(), t = {
     panelId: "handles",
     stateKind: "loading",
@@ -5446,14 +5447,14 @@ function ss() {
     durationMs: 0
   };
   try {
-    const i = Jn(), n = Rn(!1, null, i, "hdl_001"), s = L(n, "success");
+    const i = Yn(), n = Fn(!1, null, i, "hdl_001"), s = L(n, "success");
     t.stateKind = s.actualKind, t.renderStateResolved = s.valid, t.backendEmptyStateUsed = $(n), t.noClientSideSemantics = T(n), t.passed = t.renderStateResolved && t.backendEmptyStateUsed && t.noClientSideSemantics, s.valid || (t.errorMessage = s.issues.join("; "));
   } catch (i) {
     t.errorMessage = i instanceof Error ? i.message : String(i);
   }
   return t.durationMs = performance.now() - e, t;
 }
-function as() {
+function os() {
   const e = performance.now(), t = {
     panelId: "workspace_init",
     stateKind: "loading",
@@ -5474,7 +5475,7 @@ function as() {
   }
   return t.durationMs = performance.now() - e, t;
 }
-function os() {
+function rs() {
   const e = performance.now(), t = {
     panelId: "contract_validation",
     stateKind: "loading",
@@ -5485,15 +5486,15 @@ function os() {
     durationMs: 0
   };
   try {
-    const i = dt([
+    const i = ut([
       "SourceDetail",
       "SourceRevisionPage",
       "Phase13SourceCommentPage"
-    ]), n = ut([
+    ]), n = lt([
       "SourceDetail",
       "DocumentLineageDetail"
       // This should fail
-    ]), s = se(), a = ge("src_test", s), o = lt(a);
+    ]), s = se(), a = ge("src_test", s), o = mt(a);
     if (t.renderStateResolved = i.valid, t.backendEmptyStateUsed = !n.valid, t.noClientSideSemantics = o.valid, t.stateKind = "success", t.passed = t.renderStateResolved && t.backendEmptyStateUsed && t.noClientSideSemantics, !t.passed) {
       const r = [];
       i.valid || r.push(`approved validation failed: ${i.violations.join(", ")}`), n.valid && r.push("isolation validation should have failed for DocumentLineageDetail"), o.valid || r.push(`links validation failed: ${o.violations.join(", ")}`), t.errorMessage = r.join("; ");
@@ -5505,8 +5506,8 @@ function os() {
 }
 function Q() {
   const e = performance.now(), t = [];
-  t.push(Yn()), t.push(es()), t.push(ts()), t.push(is()), t.push(ns()), t.push(ss()), t.push(as()), t.push(os());
-  const i = dt([...te]), n = ut([...te]), s = se(), a = ge("src_test", s), o = lt(a), c = t.every((x) => x.passed) && i.valid && n.valid && o.valid, g = t.filter((x) => !x.passed).map((x) => x.panelId), d = c ? `Phase 16 workspace smoke tests: ${t.length}/${t.length} panels passed` : `Phase 16 workspace smoke tests failed: ${g.join(", ")}`;
+  t.push(es()), t.push(ts()), t.push(is()), t.push(ns()), t.push(ss()), t.push(as()), t.push(os()), t.push(rs());
+  const i = ut([...te]), n = lt([...te]), s = se(), a = ge("src_test", s), o = mt(a), c = t.every((E) => E.passed) && i.valid && n.valid && o.valid, g = t.filter((E) => !E.passed).map((E) => E.panelId), d = c ? `Phase 16 workspace smoke tests: ${t.length}/${t.length} panels passed` : `Phase 16 workspace smoke tests failed: ${g.join(", ")}`;
   return {
     passed: c,
     panels: t,
@@ -5518,7 +5519,7 @@ function Q() {
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
-function oo() {
+function co() {
   const e = Q();
   if (!e.passed) {
     const t = e.panels.filter((i) => !i.passed).map((i) => `  - ${i.panelId}: ${i.errorMessage || "validation failed"}`).join(`
@@ -5527,7 +5528,7 @@ function oo() {
 ${t}`);
   }
 }
-function ro(e) {
+function uo(e) {
   console.group("Phase 16 Workspace Smoke Test Results"), console.log(`Overall: ${e.passed ? "PASSED" : "FAILED"}`), console.log(`Duration: ${e.totalDurationMs.toFixed(2)}ms`), console.log(`Timestamp: ${e.timestamp}`), console.log(`Contract Usage: ${e.contractUsageValid ? "✓" : "✗"}`), console.log(`Contract Isolation: ${e.contractIsolationValid ? "✓" : "✗"}`), console.log(`Backend Links: ${e.backendLinksValid ? "✓" : "✗"}`), console.group("Panel Results");
   for (const t of e.panels) {
     const i = t.passed ? "✓" : "✗", n = [
@@ -5542,14 +5543,14 @@ function ro(e) {
   }
   console.groupEnd(), console.log(`Summary: ${e.summary}`), console.groupEnd();
 }
-function co() {
+function lo() {
   const e = Q();
   return {
     workspace: e,
     overallPassed: e.passed
   };
 }
-async function uo(e = {}) {
+async function mo(e = {}) {
   const t = await M(e), i = U(), n = Q();
   return {
     landingZone: t,
@@ -5571,7 +5572,7 @@ function ae() {
     links: { self: "/admin/api/v1/esign/reconciliation-queue", queue: "/admin/api/v1/esign/reconciliation-queue" }
   };
 }
-function rs() {
+function cs() {
   return {
     items: [],
     page_info: { page: 1, page_size: 20, total_count: 0, has_more: !1, mode: "page" },
@@ -5599,7 +5600,7 @@ function B() {
     links: { self: "/admin/api/v1/esign/reconciliation-queue/rel_1", queue: "/admin/api/v1/esign/reconciliation-queue" }
   };
 }
-function cs() {
+function ds() {
   const e = performance.now(), t = [], i = {
     confidence_band: "high",
     relationship_type: "copied_from",
@@ -5630,8 +5631,8 @@ function cs() {
     durationMs: performance.now() - e
   };
 }
-function ds() {
-  const e = performance.now(), t = [], i = rs();
+function us() {
+  const e = performance.now(), t = [], i = cs();
   return t.push({
     name: "empty_state kind is backend-authored",
     passed: i.empty_state.kind === "queue_empty"
@@ -5655,7 +5656,7 @@ function ds() {
     durationMs: performance.now() - e
   };
 }
-function us() {
+function ls() {
   const e = performance.now(), t = [], i = B();
   return t.push({
     name: "actions array is present",
@@ -5683,7 +5684,7 @@ function us() {
     durationMs: performance.now() - e
   };
 }
-function ls() {
+function ms() {
   const e = performance.now(), t = [], i = B();
   return t.push({
     name: "audit_trail array is present",
@@ -5705,7 +5706,7 @@ function ls() {
     durationMs: performance.now() - e
   };
 }
-function ms() {
+function _s() {
   const e = performance.now(), t = [], i = ae();
   return t.push({
     name: "queue has self link",
@@ -5724,7 +5725,7 @@ function ms() {
     durationMs: performance.now() - e
   };
 }
-function _s() {
+function ps() {
   const e = performance.now(), t = [], i = {
     candidate: B()
   };
@@ -5748,7 +5749,7 @@ function _s() {
     durationMs: performance.now() - e
   };
 }
-function ps() {
+function gs() {
   const e = performance.now(), t = [], i = ae(), n = B();
   return t.push({
     name: "queue has can_review_candidates permission",
@@ -5767,7 +5768,7 @@ function ps() {
     durationMs: performance.now() - e
   };
 }
-function gs() {
+function fs() {
   const e = performance.now(), t = [], i = ae();
   return t.push({
     name: "queue items are returned in backend order",
@@ -5786,7 +5787,7 @@ function gs() {
 }
 function ve() {
   const e = performance.now(), t = [];
-  t.push(cs()), t.push(ds()), t.push(us()), t.push(ls()), t.push(ms()), t.push(_s()), t.push(ps()), t.push(gs());
+  t.push(ds()), t.push(us()), t.push(ls()), t.push(ms()), t.push(_s()), t.push(ps()), t.push(gs()), t.push(fs());
   const i = t.find((c) => c.testId === "queue_filters")?.passed ?? !1, n = t.find((c) => c.testId === "empty_queue_state")?.passed ?? !1, s = t.find((c) => c.testId === "post_action_refresh")?.passed ?? !1, a = t.every((c) => c.passed), o = t.filter((c) => !c.passed).map((c) => c.testId), r = a ? `Phase 17 reconciliation queue smoke tests: ${t.length}/${t.length} tests passed` : `Phase 17 reconciliation queue smoke tests failed: ${o.join(", ")}`;
   return {
     passed: a,
@@ -5799,7 +5800,7 @@ function ve() {
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
-function lo() {
+function _o() {
   const e = ve();
   if (!e.passed) {
     const t = e.tests.filter((i) => !i.passed).map((i) => {
@@ -5813,7 +5814,7 @@ ${n}`;
 ${t}`);
   }
 }
-function mo(e) {
+function po(e) {
   console.group("Phase 17 Reconciliation Queue Smoke Test Results"), console.log(`Overall: ${e.passed ? "PASSED" : "FAILED"}`), console.log(`Duration: ${e.totalDurationMs.toFixed(2)}ms`), console.log(`Timestamp: ${e.timestamp}`), console.log(`Queue Filters: ${e.queueFiltersValid ? "✓" : "✗"}`), console.log(`Empty States: ${e.emptyStatesValid ? "✓" : "✗"}`), console.log(`Post-Action Refresh: ${e.postActionRefreshValid ? "✓" : "✗"}`), console.group("Test Results");
   for (const t of e.tests) {
     const i = t.passed ? "✓" : "✗", n = `${t.assertions.filter((s) => s.passed).length}/${t.assertions.length} assertions`;
@@ -5823,7 +5824,7 @@ function mo(e) {
   }
   console.groupEnd(), console.log(`Summary: ${e.summary}`), console.groupEnd();
 }
-async function _o(e = {}) {
+async function go(e = {}) {
   const t = await M(e), i = U(), n = Q(), s = ve();
   return {
     landingZone: t,
@@ -5907,7 +5908,7 @@ const v = [
     canNavigateFrom: ["reconciliation_queue"]
   }
 ];
-function fs(e) {
+function vs(e) {
   const t = [];
   return [
     "SourceListPage",
@@ -5924,7 +5925,7 @@ function fs(e) {
     issues: t
   };
 }
-function vs(e, t) {
+function hs(e, t) {
   const i = [];
   if (!e.links)
     return { valid: !1, missingLinks: t };
@@ -5935,7 +5936,7 @@ function vs(e, t) {
     missingLinks: i
   };
 }
-function hs() {
+function ys() {
   return {
     items: [
       { source: { id: "src_journey_001" }, status: "active" },
@@ -5951,7 +5952,7 @@ function hs() {
     }
   };
 }
-function ys() {
+function bs() {
   return {
     source: { id: "src_journey_001", label: "Journey Test Source" },
     status: "active",
@@ -5972,7 +5973,7 @@ function ys() {
     }
   };
 }
-function bs() {
+function Ss() {
   return {
     source: { id: "src_journey_001" },
     items: [
@@ -5999,7 +6000,7 @@ function bs() {
     links: { self: "/admin/api/v1/esign/sources/src_journey_001/revisions" }
   };
 }
-function Ss() {
+function ks() {
   return {
     revision: { id: "rev_journey_001" },
     source: { id: "src_journey_001" },
@@ -6012,7 +6013,7 @@ function Ss() {
     }
   };
 }
-function ks() {
+function ws() {
   return {
     revision: { id: "rev_journey_001" },
     items: [{ id: "art_journey_001", kind: "pdf_export" }],
@@ -6022,7 +6023,7 @@ function ks() {
     links: { self: "/admin/api/v1/esign/source-revisions/rev_journey_001/artifacts" }
   };
 }
-function ws() {
+function Cs() {
   return {
     source: { id: "src_journey_001" },
     items: [
@@ -6036,7 +6037,7 @@ function ws() {
     links: { self: "/admin/api/v1/esign/sources/src_journey_001/comments" }
   };
 }
-function Cs() {
+function Ps() {
   return {
     items: [
       { result_kind: "source_document", source: { id: "src_journey_001" } },
@@ -6049,22 +6050,22 @@ function Cs() {
     links: { self: "/admin/api/v1/esign/source-search" }
   };
 }
-function gt(e) {
+function ft(e) {
   switch (e) {
     case "browse_sources":
-      return hs();
-    case "view_source_detail":
       return ys();
-    case "view_revision_history":
+    case "view_source_detail":
       return bs();
-    case "inspect_revision_detail":
+    case "view_revision_history":
       return Ss();
-    case "view_artifacts":
+    case "inspect_revision_detail":
       return ks();
-    case "view_comments":
+    case "view_artifacts":
       return ws();
-    case "search_sources":
+    case "view_comments":
       return Cs();
+    case "search_sources":
+      return Ps();
     case "view_reconciliation_queue":
       return ae();
     case "review_candidate":
@@ -6073,14 +6074,14 @@ function gt(e) {
       return {};
   }
 }
-function Ps(e) {
-  const t = performance.now(), i = [], n = fs(e);
+function Es(e) {
+  const t = performance.now(), i = [], n = vs(e);
   i.push({
     name: "step definition is valid",
     passed: n.valid,
     message: n.valid ? void 0 : n.issues.join("; ")
   });
-  const s = gt(e.stepId), a = vs(s, e.requiredLinks);
+  const s = ft(e.stepId), a = hs(s, e.requiredLinks);
   if (i.push({
     name: "contract has required links",
     passed: a.valid,
@@ -6157,7 +6158,7 @@ function xs() {
     durationMs: performance.now() - e
   };
 }
-function Es() {
+function Ts() {
   const e = performance.now(), t = [], i = [
     "source_browser",
     "source_detail",
@@ -6188,10 +6189,10 @@ function Es() {
     durationMs: performance.now() - e
   };
 }
-function Ts() {
+function As() {
   const e = performance.now(), t = [];
   for (const n of v) {
-    const s = gt(n.stepId), o = [
+    const s = ft(n.stepId), o = [
       "_synthesized",
       "_clientGenerated",
       "_fallback",
@@ -6213,32 +6214,32 @@ function Ts() {
     durationMs: performance.now() - e
   };
 }
-function ft() {
+function vt() {
   const e = performance.now(), t = [];
   for (const u of v)
-    t.push(Ps(u));
+    t.push(Es(u));
   const i = xs();
   t.push(i);
-  const n = Es();
+  const n = Ts();
   t.push(n);
-  const s = Ts();
+  const s = As();
   t.push(s);
   const a = v.every(
-    (u) => t.find((ht) => ht.stepId === u.stepId)?.passed ?? !1
-  ), o = i.passed, r = n.passed, c = s.passed, g = a && o && r && c, d = t.filter((u) => !u.passed).map((u) => u.stepId), x = g ? `Phase 18 V2 operator journey smoke tests: ${t.length}/${t.length} steps passed` : `Phase 18 V2 operator journey smoke tests failed: ${d.join(", ")}`;
+    (u) => t.find((yt) => yt.stepId === u.stepId)?.passed ?? !1
+  ), o = i.passed, r = n.passed, c = s.passed, g = a && o && r && c, d = t.filter((u) => !u.passed).map((u) => u.stepId), E = g ? `Phase 18 V2 operator journey smoke tests: ${t.length}/${t.length} steps passed` : `Phase 18 V2 operator journey smoke tests failed: ${d.join(", ")}`;
   return {
     passed: g,
     steps: t,
     journeyNavigable: o,
     contractCoverageComplete: r,
     noFallbackSynthesis: c,
-    summary: x,
+    summary: E,
     totalDurationMs: performance.now() - e,
     timestamp: (/* @__PURE__ */ new Date()).toISOString()
   };
 }
-function po() {
-  const e = ft();
+function fo() {
+  const e = vt();
   if (!e.passed) {
     const t = e.steps.filter((i) => !i.passed).map((i) => {
       const n = i.assertions.filter((s) => !s.passed).map((s) => `    - ${s.name}${s.message ? `: ${s.message}` : ""}`).join(`
@@ -6251,7 +6252,7 @@ ${n}`;
 ${t}`);
   }
 }
-function go(e) {
+function vo(e) {
   console.group("Phase 18 V2 Operator Journey Smoke Test Results"), console.log(`Overall: ${e.passed ? "PASSED" : "FAILED"}`), console.log(`Duration: ${e.totalDurationMs.toFixed(2)}ms`), console.log(`Timestamp: ${e.timestamp}`), console.log(`Journey Navigable: ${e.journeyNavigable ? "✓" : "✗"}`), console.log(`Contract Coverage: ${e.contractCoverageComplete ? "✓" : "✗"}`), console.log(`No Fallback Synthesis: ${e.noFallbackSynthesis ? "✓" : "✗"}`), console.group("Journey Step Results");
   for (const t of e.steps) {
     const i = t.passed ? "✓" : "✗", n = `${t.assertions.filter((s) => s.passed).length}/${t.assertions.length} assertions`;
@@ -6261,8 +6262,8 @@ function go(e) {
   }
   console.groupEnd(), console.log(`Summary: ${e.summary}`), console.groupEnd();
 }
-async function As(e = {}) {
-  const t = await M(e), i = U(), n = Q(), s = ve(), a = ft();
+async function Rs(e = {}) {
+  const t = await M(e), i = U(), n = Q(), s = ve(), a = vt();
   return {
     landingZone: t,
     pageBootstrap: i,
@@ -6272,14 +6273,14 @@ async function As(e = {}) {
     overallPassed: t.passed && i.passed && n.passed && s.passed && a.passed
   };
 }
-async function fo(e = {}) {
-  const t = await As(e);
+async function ho(e = {}) {
+  const t = await Rs(e);
   if (!t.overallPassed) {
     const i = [];
     throw t.landingZone.passed || i.push("landing-zone"), t.pageBootstrap.passed || i.push("page-bootstrap"), t.workspace.passed || i.push("workspace"), t.reconciliationQueue.passed || i.push("reconciliation-queue"), t.v2Journey.passed || i.push("v2-journey"), new Error(`V2 comprehensive smoke coverage failed: ${i.join(", ")}`);
   }
 }
-function vo() {
+function yo() {
   const e = [], t = v.find((u) => u.stepId === "browse_sources");
   e.push({
     name: "browse_sources",
@@ -6318,14 +6319,14 @@ function vo() {
     passed: r?.requiredLinks.includes("queue") ?? !1,
     description: "Reconciliation outcomes preserve historical agreement artifact identity"
   });
-  const c = e.every((u) => u.passed), g = e.filter((u) => u.passed).length, d = e.filter((u) => !u.passed).map((u) => u.name), x = c ? `V2 exit criteria validation: ${g}/${e.length} criteria met` : `V2 exit criteria validation failed: ${d.join(", ")}`;
+  const c = e.every((u) => u.passed), g = e.filter((u) => u.passed).length, d = e.filter((u) => !u.passed).map((u) => u.name), E = c ? `V2 exit criteria validation: ${g}/${e.length} criteria met` : `V2 exit criteria validation failed: ${d.join(", ")}`;
   return {
     passed: c,
     criteria: e,
-    summary: x
+    summary: E
   };
 }
-function ho(e) {
+function bo(e) {
   console.group("V2 Exit Criteria Validation"), console.log(`Overall: ${e.passed ? "PASSED" : "FAILED"}`);
   for (const t of e.criteria) {
     const i = t.passed ? "✓" : "✗";
@@ -6333,7 +6334,7 @@ function ho(e) {
   }
   console.log(`Summary: ${e.summary}`), console.groupEnd();
 }
-const Rs = {
+const Fs = {
   draft: {
     label: "Draft",
     bgClass: "bg-gray-100",
@@ -6377,29 +6378,29 @@ const Rs = {
     dotClass: "bg-gray-400"
   }
 };
-function vt(e) {
+function ht(e) {
   const t = String(e || "").trim().toLowerCase();
-  return Rs[t] || {
+  return Fs[t] || {
     label: e || "Unknown",
     bgClass: "bg-gray-100",
     textClass: "text-gray-600",
     dotClass: "bg-gray-400"
   };
 }
-function Fs(e, t) {
-  const i = vt(e), n = t?.showDot ?? !1, s = t?.size ?? "sm", a = {
+function Ds(e, t) {
+  const i = ht(e), n = t?.showDot ?? !1, s = t?.size ?? "sm", a = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
     lg: "px-4 py-1.5 text-base"
   }, o = n ? `<span class="w-2 h-2 rounded-full ${i.dotClass} mr-1.5" aria-hidden="true"></span>` : "";
   return `<span class="inline-flex items-center ${a[s]} rounded-full font-medium ${i.bgClass} ${i.textClass}">${o}${i.label}</span>`;
 }
-function yo(e, t) {
+function So(e, t) {
   const i = document.createElement("span");
-  return i.innerHTML = Fs(e, t), i.firstElementChild;
+  return i.innerHTML = Ds(e, t), i.firstElementChild;
 }
-function bo(e, t, i) {
-  const n = vt(t), s = i?.size ?? "sm", a = {
+function ko(e, t, i) {
+  const n = ht(t), s = i?.size ?? "sm", a = {
     sm: "px-2.5 py-0.5 text-xs",
     md: "px-3 py-1 text-sm",
     lg: "px-4 py-1.5 text-base"
@@ -6417,527 +6418,527 @@ function bo(e, t, i) {
   r && r.nodeType === Node.TEXT_NODE ? r.textContent = n.label : e.appendChild(document.createTextNode(n.label));
 }
 export {
-  Rs as AGREEMENT_STATUS_BADGES,
+  Fs as AGREEMENT_STATUS_BADGES,
   pe as APPROVED_GOOGLE_ADAPTER_BOUNDARIES,
-  ju as AgreementDetailPageController,
-  lu as AgreementFormController,
-  wo as CANDIDATE_RELATIONSHIP_STATUS,
-  Co as CANDIDATE_RELATIONSHIP_TYPE,
-  Zu as COMMAND_MESSAGES,
-  Pi as COMMENTS_EMPTY,
+  zu as AgreementDetailPageController,
+  _u as AgreementFormController,
+  Po as CANDIDATE_RELATIONSHIP_STATUS,
+  Eo as CANDIDATE_RELATIONSHIP_TYPE,
+  Hu as COMMAND_MESSAGES,
+  Ei as COMMENTS_EMPTY,
   xi as COMMENTS_PENDING_SYNC,
-  Ye as COMMENTS_SYNCED,
-  Ei as COMMENTS_SYNC_FAILED,
-  Ti as COMMENTS_SYNC_STALE,
-  Po as COMMENT_SYNC_STATUS,
-  zu as CONDENSED_MODE_PRIORITY_THRESHOLD,
-  xo as CONFIDENCE_BAND,
-  Hu as DEFAULT_EVENT_CONFIG,
-  Ou as DEFAULT_INLINE_STATUS_CONFIG,
-  kr as DEFAULT_PROVENANCE_CARD_CONFIG,
-  Pd as DocumentDetailPreviewController,
-  ru as DocumentFormController,
-  Nc as ESignAPIClient,
-  jc as ESignAPIError,
-  Ku as EVENT_REGISTRY,
-  wr as EVIDENCE_COLLAPSED_SELECTOR,
-  Cr as EVIDENCE_CONTAINER_SELECTOR,
-  Pr as EVIDENCE_TOGGLE_SELECTOR,
-  Eo as FINGERPRINT_STATUS,
-  at as FORBIDDEN_RAW_GOOGLE_FIELDS,
-  Vl as GOOGLE_ACCOUNT_STORAGE_KEY,
-  Id as GoogleCallbackController,
-  Hd as GoogleDrivePickerController,
-  Nd as GoogleIntegrationController,
-  ql as IMPORTABLE_MIME_TYPES,
-  Gu as InlineStatusManager,
-  Yd as IntegrationConflictsController,
-  Vd as IntegrationHealthController,
-  Bd as IntegrationMappingsController,
-  nu as IntegrationSyncRunsController,
-  Zc as LandingPageController,
-  Ul as MIME_GOOGLE_DOC,
-  Ql as MIME_GOOGLE_FOLDER,
-  Bl as MIME_GOOGLE_SHEET,
-  Xl as MIME_GOOGLE_SLIDES,
-  Wl as MIME_PDF,
-  Vu as PAGE_STATUS_TARGET,
-  Fa as PHASE_11_FIXTURES,
-  ec as PHASE_13_COMPOSITION_GUIDELINES,
-  Ra as PHASE_13_FIXTURES,
+  et as COMMENTS_SYNCED,
+  Ti as COMMENTS_SYNC_FAILED,
+  Ai as COMMENTS_SYNC_STALE,
+  xo as COMMENT_SYNC_STATUS,
+  Ou as CONDENSED_MODE_PRIORITY_THRESHOLD,
+  To as CONFIDENCE_BAND,
+  Ku as DEFAULT_EVENT_CONFIG,
+  Gu as DEFAULT_INLINE_STATUS_CONFIG,
+  Cr as DEFAULT_PROVENANCE_CARD_CONFIG,
+  xd as DocumentDetailPreviewController,
+  du as DocumentFormController,
+  Zc as ESignAPIClient,
+  zc as ESignAPIError,
+  Vu as EVENT_REGISTRY,
+  Pr as EVIDENCE_COLLAPSED_SELECTOR,
+  Er as EVIDENCE_CONTAINER_SELECTOR,
+  xr as EVIDENCE_TOGGLE_SELECTOR,
+  Ao as FINGERPRINT_STATUS,
+  ot as FORBIDDEN_RAW_GOOGLE_FIELDS,
+  Ul as GOOGLE_ACCOUNT_STORAGE_KEY,
+  Ld as GoogleCallbackController,
+  Kd as GoogleDrivePickerController,
+  Zd as GoogleIntegrationController,
+  Ql as IMPORTABLE_MIME_TYPES,
+  qu as InlineStatusManager,
+  tu as IntegrationConflictsController,
+  Ud as IntegrationHealthController,
+  Wd as IntegrationMappingsController,
+  au as IntegrationSyncRunsController,
+  Hc as LandingPageController,
+  Bl as MIME_GOOGLE_DOC,
+  Xl as MIME_GOOGLE_FOLDER,
+  Wl as MIME_GOOGLE_SHEET,
+  Jl as MIME_GOOGLE_SLIDES,
+  Yl as MIME_PDF,
+  Uu as PAGE_STATUS_TARGET,
+  Ia as PHASE_11_FIXTURES,
+  ic as PHASE_13_COMPOSITION_GUIDELINES,
+  Da as PHASE_13_FIXTURES,
   re as PHASE_14_APPROVED_CONTRACT_MODULES,
-  qa as PHASE_14_ARCHITECTURAL_INVARIANTS,
+  Qa as PHASE_14_ARCHITECTURAL_INVARIANTS,
   m as PHASE_14_FIXTURE_ROUTES,
-  za as PHASE_14_GUARD_SURFACES,
-  Wi as PHASE_14_SURFACE_ENDPOINT_FALLBACKS,
-  Xi as PHASE_14_SURFACE_PAGE_IDS,
-  pt as PHASE_15_PAGE_DEFINITIONS,
-  xr as PROVENANCE_CARD_SELECTOR,
-  wu as PanelPaginationBehavior,
-  Cu as PanelSearchBehavior,
-  Ci as SEARCH_EMPTY,
-  Je as SEARCH_RESULTS_WITH_COMMENTS,
-  To as SEARCH_RESULT_KIND,
-  qu as SECTION_FALLBACK_SELECTORS,
-  Uu as SECTION_TARGET_SELECTORS,
-  wi as SOURCE_DETAIL_ARCHIVED,
-  ki as SOURCE_DETAIL_MERGED,
-  Be as SOURCE_DETAIL_REPEATED,
-  Si as SOURCE_LIST_EMPTY,
-  Qe as SOURCE_LIST_SINGLE,
-  tc as SOURCE_MANAGEMENT_COMPOSITION_GUIDELINES,
-  We as SOURCE_RELATIONSHIPS_REVIEW,
-  Xe as SOURCE_REVISIONS_REPEATED,
-  xc as SOURCE_SEARCH_RESULT_KIND_OPTIONS,
-  Ao as SOURCE_WORKSPACE_PANEL,
-  Pu as STANDARD_GRID_SELECTORS,
-  Qu as STATUS_DISPLAY,
+  Oa as PHASE_14_GUARD_SURFACES,
+  Ji as PHASE_14_SURFACE_ENDPOINT_FALLBACKS,
+  Wi as PHASE_14_SURFACE_PAGE_IDS,
+  gt as PHASE_15_PAGE_DEFINITIONS,
+  Tr as PROVENANCE_CARD_SELECTOR,
+  Pu as PanelPaginationBehavior,
+  Eu as PanelSearchBehavior,
+  Pi as SEARCH_EMPTY,
+  Ye as SEARCH_RESULTS_WITH_COMMENTS,
+  Ro as SEARCH_RESULT_KIND,
+  Qu as SECTION_FALLBACK_SELECTORS,
+  Bu as SECTION_TARGET_SELECTORS,
+  Ci as SOURCE_DETAIL_ARCHIVED,
+  wi as SOURCE_DETAIL_MERGED,
+  Xe as SOURCE_DETAIL_REPEATED,
+  ki as SOURCE_LIST_EMPTY,
+  Be as SOURCE_LIST_SINGLE,
+  nc as SOURCE_MANAGEMENT_COMPOSITION_GUIDELINES,
+  Je as SOURCE_RELATIONSHIPS_REVIEW,
+  We as SOURCE_REVISIONS_REPEATED,
+  Tc as SOURCE_SEARCH_RESULT_KIND_OPTIONS,
+  Fo as SOURCE_WORKSPACE_PANEL,
+  xu as STANDARD_GRID_SELECTORS,
+  Xu as STATUS_DISPLAY,
   fe as SURFACE_CONTRACT_MAPPING,
-  hd as SignerCompletePageController,
-  yu as SignerErrorPageController,
-  gu as SignerReviewController,
-  ic as SourceArtifactInspectorPageController,
-  nc as SourceBrowserPageController,
-  sc as SourceCommentInspectorPageController,
-  ac as SourceDetailPageController,
-  Ec as SourceManagementRuntimeController,
-  oc as SourceRevisionInspectorPageController,
-  rc as SourceRevisionTimelinePageController,
-  cc as SourceSearchPageController,
-  dc as SourceWorkspacePageController,
-  Bu as TIMELINE_COLOR_CLASSES,
-  Xu as TimelineController,
+  bd as SignerCompletePageController,
+  Su as SignerErrorPageController,
+  vu as SignerReviewController,
+  sc as SourceArtifactInspectorPageController,
+  ac as SourceBrowserPageController,
+  oc as SourceCommentInspectorPageController,
+  rc as SourceDetailPageController,
+  Ac as SourceManagementRuntimeController,
+  cc as SourceRevisionInspectorPageController,
+  dc as SourceRevisionTimelinePageController,
+  uc as SourceSearchPageController,
+  lc as SourceWorkspacePageController,
+  Wu as TIMELINE_COLOR_CLASSES,
+  Ju as TimelineController,
   ye as V2_FIXTURE_ROUTES,
   V as V2_LANDING_ZONE_SURFACES,
   v as V2_OPERATOR_JOURNEY_STEPS,
-  uc as VERSION_2_ARCHITECTURAL_INVARIANTS,
+  mc as VERSION_2_ARCHITECTURAL_INVARIANTS,
   te as WORKSPACE_APPROVED_CONTRACT_FAMILIES,
-  Fn as WORKSPACE_FORBIDDEN_CONTRACT_FAMILIES,
-  jr as adaptCommentSyncStatus,
-  Zr as adaptEmptyState,
+  Dn as WORKSPACE_FORBIDDEN_CONTRACT_FAMILIES,
+  zr as adaptCommentSyncStatus,
+  Hr as adaptEmptyState,
   ue as adaptPaginationInfo,
-  zr as adaptPhase13CommentThread,
-  Hr as adaptPhase13SearchResult,
-  bt as adaptSourceDetail,
-  Or as adaptSourceListItem,
-  Kr as adaptSourceListPage,
-  kt as adaptSourceRelationshipPage,
-  Gr as adaptSourceRelationshipSummary,
-  Vr as adaptSourceRevisionListItem,
-  St as adaptSourceRevisionPage,
-  bi as agreementCandidateWarningFixtures,
-  di as agreementDetailPayloadFixtures,
-  oi as agreementLineageFixtures,
-  qc as announce,
-  gd as announcePageMessage,
-  Jl as applyAccountIdToPath,
-  xd as applyDetailFormatters,
-  Wu as applyReviewActorMetadata,
-  Ma as assertPageGuards,
-  La as assertPhase13PageGuards,
-  Ha as assertPhase14PageGuards,
-  io as assertPhase15PageBootstrapSmokeTests,
-  oo as assertPhase16WorkspaceSmokeTests,
-  lo as assertPhase17ReconciliationQueueSmokeTests,
-  fo as assertPhase18ComprehensiveSmokeCoverage,
-  po as assertPhase18V2JourneySmokeTests,
-  Ja as assertV2LandingZoneSmokeTests,
-  Tc as assertV2RuntimeInitialization,
-  Ju as bootstrapAgreementDetailPage,
-  mu as bootstrapAgreementForm,
-  Ed as bootstrapDocumentDetailPreview,
-  cu as bootstrapDocumentForm,
-  Md as bootstrapGoogleCallback,
-  Od as bootstrapGoogleDrivePicker,
-  jd as bootstrapGoogleIntegration,
-  eu as bootstrapIntegrationConflicts,
-  qd as bootstrapIntegrationHealth,
-  Xd as bootstrapIntegrationMappings,
-  su as bootstrapIntegrationSyncRuns,
-  zc as bootstrapLandingPage,
-  Er as bootstrapProvenanceCards,
-  yd as bootstrapSignerCompletePage,
-  bu as bootstrapSignerErrorPage,
-  fu as bootstrapSignerReview,
-  lc as bootstrapSourceArtifactInspectorPage,
-  mc as bootstrapSourceBrowserPage,
-  _c as bootstrapSourceCommentInspectorPage,
-  pc as bootstrapSourceDetailPage,
-  gc as bootstrapSourceRevisionInspectorPage,
-  fc as bootstrapSourceRevisionTimelinePage,
-  vc as bootstrapSourceSearchPage,
-  hc as bootstrapSourceWorkspacePage,
-  Yu as buildActorKey,
-  Yl as buildScopedApiUrl,
-  Uc as byId,
-  yi as candidateWarningFixtures,
-  rr as capitalize,
-  zi as checkAdapterBoundaryViolation,
-  an as checkCanonicalContractFamilyViolation,
-  Bi as checkCommentContractViolation,
-  Zi as checkCompositionBoundaryViolation,
-  nn as checkContractModuleConsumptionViolation,
-  Oi as checkEndpointStitchingViolation,
-  Ui as checkGoogleProviderPayloadViolation,
-  sn as checkRawGoogleFieldAccessViolation,
-  Qi as checkSearchContractViolation,
-  Hi as checkSemanticComputationViolation,
-  on as checkSemanticOwnershipViolation,
-  qi as checkSourceCommentMixingViolation,
-  el as clearAllStatusElements,
-  tl as clearStaleStatusElements,
-  il as commandToSection,
-  Ta as countCandidatesByStatus,
-  nl as countHiddenEvents,
-  Ws as createAgreementDiagnosticViewModel,
-  vn as createArtifactsPanelSuccessState,
-  Me as createCandidateWarningDisplayConfig,
-  Cn as createCommentsPanelSuccessState,
-  qr as createDegradedState,
-  Xs as createDocumentDiagnosticViewModel,
-  Hc as createESignClient,
-  Qc as createElement,
-  De as createEmptyDisplayConfig,
-  Rt as createEmptyState,
-  Bs as createErrorDisplayConfig,
-  Ft as createErrorState,
-  Kt as createFingerprintCard,
-  Ht as createFingerprintFailedDisplayConfig,
-  zt as createFingerprintPendingDisplayConfig,
-  Ka as createGoogleFieldViolationConfig,
-  An as createHandlesPanelSuccessState,
+  Or as adaptPhase13CommentThread,
+  Kr as adaptPhase13SearchResult,
+  St as adaptSourceDetail,
+  Gr as adaptSourceListItem,
+  Vr as adaptSourceListPage,
+  wt as adaptSourceRelationshipPage,
+  qr as adaptSourceRelationshipSummary,
+  Ur as adaptSourceRevisionListItem,
+  kt as adaptSourceRevisionPage,
+  Si as agreementCandidateWarningFixtures,
+  ui as agreementDetailPayloadFixtures,
+  ri as agreementLineageFixtures,
+  Qc as announce,
+  vd as announcePageMessage,
+  em as applyAccountIdToPath,
+  Td as applyDetailFormatters,
+  Yu as applyReviewActorMetadata,
+  $a as assertPageGuards,
+  Na as assertPhase13PageGuards,
+  Ka as assertPhase14PageGuards,
+  so as assertPhase15PageBootstrapSmokeTests,
+  co as assertPhase16WorkspaceSmokeTests,
+  _o as assertPhase17ReconciliationQueueSmokeTests,
+  ho as assertPhase18ComprehensiveSmokeCoverage,
+  fo as assertPhase18V2JourneySmokeTests,
+  eo as assertV2LandingZoneSmokeTests,
+  Rc as assertV2RuntimeInitialization,
+  el as bootstrapAgreementDetailPage,
+  pu as bootstrapAgreementForm,
+  Ad as bootstrapDocumentDetailPreview,
+  uu as bootstrapDocumentForm,
+  $d as bootstrapGoogleCallback,
+  Gd as bootstrapGoogleDrivePicker,
+  zd as bootstrapGoogleIntegration,
+  iu as bootstrapIntegrationConflicts,
+  Qd as bootstrapIntegrationHealth,
+  Jd as bootstrapIntegrationMappings,
+  ou as bootstrapIntegrationSyncRuns,
+  Oc as bootstrapLandingPage,
+  Ar as bootstrapProvenanceCards,
+  Sd as bootstrapSignerCompletePage,
+  ku as bootstrapSignerErrorPage,
+  hu as bootstrapSignerReview,
+  _c as bootstrapSourceArtifactInspectorPage,
+  pc as bootstrapSourceBrowserPage,
+  gc as bootstrapSourceCommentInspectorPage,
+  fc as bootstrapSourceDetailPage,
+  vc as bootstrapSourceRevisionInspectorPage,
+  hc as bootstrapSourceRevisionTimelinePage,
+  yc as bootstrapSourceSearchPage,
+  bc as bootstrapSourceWorkspacePage,
+  tl as buildActorKey,
+  tm as buildScopedApiUrl,
+  Bc as byId,
+  bi as candidateWarningFixtures,
+  dr as capitalize,
+  Hi as checkAdapterBoundaryViolation,
+  on as checkCanonicalContractFamilyViolation,
+  Xi as checkCommentContractViolation,
+  zi as checkCompositionBoundaryViolation,
+  sn as checkContractModuleConsumptionViolation,
+  Ki as checkEndpointStitchingViolation,
+  Qi as checkGoogleProviderPayloadViolation,
+  an as checkRawGoogleFieldAccessViolation,
+  Bi as checkSearchContractViolation,
+  Oi as checkSemanticComputationViolation,
+  rn as checkSemanticOwnershipViolation,
+  Ui as checkSourceCommentMixingViolation,
+  il as clearAllStatusElements,
+  nl as clearStaleStatusElements,
+  sl as commandToSection,
+  Ra as countCandidatesByStatus,
+  al as countHiddenEvents,
+  Ys as createAgreementDiagnosticViewModel,
+  hn as createArtifactsPanelSuccessState,
+  Le as createCandidateWarningDisplayConfig,
+  Pn as createCommentsPanelSuccessState,
+  Qr as createDegradedState,
+  Js as createDocumentDiagnosticViewModel,
+  Kc as createESignClient,
+  Xc as createElement,
+  Ie as createEmptyDisplayConfig,
+  Ft as createEmptyState,
+  Ws as createErrorDisplayConfig,
+  Dt as createErrorState,
+  Gt as createFingerprintCard,
+  Ot as createFingerprintFailedDisplayConfig,
+  Ht as createFingerprintPendingDisplayConfig,
+  Va as createGoogleFieldViolationConfig,
+  Rn as createHandlesPanelSuccessState,
   ge as createInitialWorkspaceState,
-  sl as createInlineStatusManager,
-  Qs as createLoadingDisplayConfig,
-  wt as createLoadingState,
-  Ua as createLoadingWorkspaceState,
-  $a as createMockAgreementReviewComment,
-  Za as createMockPhase13SearchResults,
-  ja as createMockPhase13SourceCommentPage,
-  Na as createMockRawGoogleDriveComment,
-  Oa as createModuleViolationConfig,
-  Ga as createMultipleContractFamilyViolationConfig,
-  Ie as createNativeDisplayConfig,
-  Gt as createNewerSourceCard,
-  cn as createOverviewPanelSuccessState,
+  ol as createInlineStatusManager,
+  Xs as createLoadingDisplayConfig,
+  Ct as createLoadingState,
+  Ba as createLoadingWorkspaceState,
+  ja as createMockAgreementReviewComment,
+  Ha as createMockPhase13SearchResults,
+  za as createMockPhase13SourceCommentPage,
+  Za as createMockRawGoogleDriveComment,
+  Ga as createModuleViolationConfig,
+  qa as createMultipleContractFamilyViolationConfig,
+  Me as createNativeDisplayConfig,
+  Vt as createNewerSourceCard,
+  dn as createOverviewPanelSuccessState,
   P as createPanelEmptyState,
   D as createPanelErrorState,
   S as createPanelLoadingState,
   G as createPassingPhase14PageConfig,
-  Ct as createPhase13CommentSuccessState,
-  Pt as createPhase13SearchSuccessState,
-  Mi as createPhase13SourceCommentPageFixture,
-  Ii as createPhase13SourceSearchResultsFixture,
+  Pt as createPhase13CommentSuccessState,
+  Et as createPhase13SearchSuccessState,
+  Li as createPhase13SourceCommentPageFixture,
+  Mi as createPhase13SourceSearchResultsFixture,
   A as createPhase14SurfacePageConfig,
-  yn as createRelationshipsPanelSuccessState,
-  al as createResolverContext,
-  un as createRevisionsPanelSuccessState,
-  xu as createSchemaActionCachingRefresh,
-  em as createSelectedFile,
-  Va as createSemanticOwnershipViolationConfig,
-  $e as createSourceCard,
-  Ri as createSourceDetailFixture,
-  yc as createSourceDetailWorkspace,
-  Ai as createSourceListPageFixture,
-  Di as createSourceRelationshipPageFixture,
-  Fi as createSourceRevisionPageFixture,
-  bc as createSourceSearchWorkspace,
-  yo as createStatusBadgeElement,
-  ol as createStatusElement,
-  rl as createTimelineController,
-  rd as createTimeoutController,
-  Ur as createUnauthorizedState,
-  Ot as createWarningCard,
-  Le as createWarningCards,
-  Eu as dateTimeCellRenderer,
-  cd as debounce,
-  Tu as defaultActionErrorHandler,
-  Au as defaultActionSuccessHandler,
-  Bc as delegate,
-  Dt as detectProvenancePayloadMixing,
-  Fe as determineDiagnosticState,
-  ci as documentDetailPayloadFixtures,
-  ai as documentLineageFixtures,
-  km as escapeHtml,
-  Ru as fileSizeCellRenderer,
-  cl as findParticipantById,
-  cr as formatDate,
-  dr as formatDateTime,
-  ur as formatDriveDate,
-  tm as formatDriveFileSize,
-  lr as formatFileSize,
-  mr as formatGoogleDriveDate,
+  bn as createRelationshipsPanelSuccessState,
+  rl as createResolverContext,
+  ln as createRevisionsPanelSuccessState,
+  Tu as createSchemaActionCachingRefresh,
+  im as createSelectedFile,
+  Ua as createSemanticOwnershipViolationConfig,
+  Ne as createSourceCard,
+  Fi as createSourceDetailFixture,
+  Sc as createSourceDetailWorkspace,
+  Ri as createSourceListPageFixture,
+  Ii as createSourceRelationshipPageFixture,
+  Di as createSourceRevisionPageFixture,
+  kc as createSourceSearchWorkspace,
+  So as createStatusBadgeElement,
+  cl as createStatusElement,
+  dl as createTimelineController,
+  dd as createTimeoutController,
+  Br as createUnauthorizedState,
+  Kt as createWarningCard,
+  $e as createWarningCards,
+  Au as dateTimeCellRenderer,
+  ud as debounce,
+  Ru as defaultActionErrorHandler,
+  Fu as defaultActionSuccessHandler,
+  Wc as delegate,
+  It as detectProvenancePayloadMixing,
+  De as determineDiagnosticState,
+  di as documentDetailPayloadFixtures,
+  oi as documentLineageFixtures,
+  Cm as escapeHtml,
+  Du as fileSizeCellRenderer,
+  ul as findParticipantById,
+  ur as formatDate,
+  lr as formatDateTime,
+  mr as formatDriveDate,
+  nm as formatDriveFileSize,
+  _r as formatFileSize,
+  pr as formatGoogleDriveDate,
   oe as formatLineageDateTime,
-  _r as formatPageCount,
-  pr as formatRecipientCount,
-  gr as formatRelativeTime,
-  Td as formatSizeElements,
-  fr as formatSourceManagementDateTime,
-  vr as formatSourceManagementRelativeTime,
-  hr as formatTime,
-  Kl as formatTimestamp,
-  Ad as formatTimestampElements,
-  dl as formatTimestampNodes,
-  ul as generateFallbackLabel,
-  ll as getActorColor,
-  ml as getActorInitials,
-  wa as getAgreementCandidateWarningFixture,
-  _l as getAgreementDetailController,
-  ga as getAgreementDetailPayloadFixture,
-  ca as getAgreementLineageFixture,
-  vt as getAgreementStatusBadge,
-  ka as getCandidateWarningFixture,
-  Ca as getCandidateWarningFixtureStates,
-  pl as getColorClasses,
-  gl as getCommandMessage,
-  fl as getDateLabel,
-  ha as getDetailPayloadFixtureStates,
-  pa as getDocumentDetailPayloadFixture,
-  ra as getDocumentLineageFixture,
-  Oc as getESignClient,
-  vl as getEventConfig,
-  im as getFileIconConfig,
-  nm as getFileTypeName,
-  Os as getFingerprintStatusClass,
-  Ks as getFingerprintStatusIcon,
-  Us as getFingerprintStatusMessage,
-  Ia as getGuardEnforcementMode,
-  _a as getImportFixtureStates,
-  la as getImportResponseFixture,
-  Tr as getLineageStatus,
-  Xc as getPageConfig,
-  Sc as getPageController,
-  Xa as getPanelDrillInUrl,
-  Ea as getPrimaryCandidateWarning,
-  na as getPrimaryWarningCard,
-  Ar as getProvenanceCardFor,
-  Rr as getProvenanceCards,
-  Fr as getResourceKind,
-  ya as getSeededGoogleImportScenario,
-  ba as getSeededScenarioIds,
-  bd as getSignerCompletionPollDelayMs,
-  jt as getSourceTypeIcon,
-  Zt as getSourceTypeLabel,
-  Ae as getWarningSeverityClass,
-  Re as getWarningSeverityIcon,
-  hl as groupItemsByDate,
-  Hs as hasActionableWarnings,
-  li as hasAgreementPinnedProvenance,
-  sa as hasDiagnosticActionableWarnings,
-  ui as hasDocumentLineageLinkage,
-  Dr as hasEmptyState,
-  qs as hasFingerprintError,
-  Ir as hasWarnings,
-  Wc as hide,
-  yl as humanizeActorRole,
-  ri as importResponseFixtures,
-  bl as initAgreementDetailPage,
-  _u as initAgreementForm,
-  Mr as initAllEvidenceToggles,
-  Rd as initDetailFormatters,
-  Fd as initDocumentDetailPreview,
-  du as initDocumentForm,
-  Lr as initEvidenceToggle,
-  Ld as initGoogleCallback,
-  Kd as initGoogleDrivePicker,
-  Zd as initGoogleIntegration,
-  tu as initIntegrationConflicts,
-  Ud as initIntegrationHealth,
-  Wd as initIntegrationMappings,
-  au as initIntegrationSyncRuns,
-  Kc as initLandingPage,
-  $r as initProvenanceCards,
-  Sd as initSignerCompletePage,
-  Su as initSignerErrorPage,
-  vu as initSignerReview,
-  Ac as initSourceManagementRuntimePage,
-  Rc as initV2SourceManagementRuntime,
-  $i as isAgreementLineageDetail,
-  Gi as isAgreementReviewCommentPayload,
-  Pa as isCandidateActionable,
-  xa as isCandidateResolved,
-  ia as isDiagnosticCandidateWarning,
-  Js as isDiagnosticEmpty,
-  ta as isDiagnosticFingerprintFailed,
-  ea as isDiagnosticFingerprintPending,
-  Ys as isDiagnosticNative,
-  Li as isDocumentLineageDetail,
-  Vs as isFingerprintSuccessful,
-  Gs as isFingerprintTerminal,
-  sm as isFolder,
-  am as isGoogleDoc,
-  zs as isGoogleSourced,
-  om as isGoogleWorkspaceFile,
-  Sl as isGroupableEvent,
-  rm as isImportable,
-  cm as isPDF,
-  nt as isPhase13SourceCommentPage,
-  Ki as isPhase13SourceSearchResults,
-  Vi as isRawGoogleDriveCommentPayload,
-  Fc as isRegisteredRuntimeHref,
-  et as isSourceManagementContract,
-  Ro as isTerminalGoogleImportStatus,
-  Fo as isValidCandidateRelationshipStatus,
-  Do as isValidCommentSyncStatus,
-  Io as isValidFingerprintStatus,
-  kl as isVisibleInCondensedMode,
-  kc as listRegisteredPages,
-  In as loadFixtureForSurface,
-  so as logPhase15SmokeTestResults,
-  ro as logPhase16SmokeTestResults,
-  mo as logPhase17SmokeTestResults,
-  go as logPhase18SmokeTestResults,
-  to as logSmokeTestResults,
-  ho as logV2ExitCriteriaResults,
-  Dc as logV2RuntimeInitResult,
-  wl as looksLikeUUID,
-  Ns as mapAgreementProvenance,
-  $s as mapDocumentProvenance,
-  Cl as mergeReviewBootstrapIntoTimeline,
-  Pl as mergeReviewDataIntoTimeline,
-  dm as normalizeAccountId,
+  gr as formatPageCount,
+  fr as formatRecipientCount,
+  vr as formatRelativeTime,
+  Rd as formatSizeElements,
+  hr as formatSourceManagementDateTime,
+  yr as formatSourceManagementRelativeTime,
+  br as formatTime,
+  Vl as formatTimestamp,
+  Fd as formatTimestampElements,
+  ll as formatTimestampNodes,
+  ml as generateFallbackLabel,
+  _l as getActorColor,
+  pl as getActorInitials,
+  Pa as getAgreementCandidateWarningFixture,
+  gl as getAgreementDetailController,
+  va as getAgreementDetailPayloadFixture,
+  ua as getAgreementLineageFixture,
+  ht as getAgreementStatusBadge,
+  Ca as getCandidateWarningFixture,
+  Ea as getCandidateWarningFixtureStates,
+  fl as getColorClasses,
+  vl as getCommandMessage,
+  hl as getDateLabel,
+  ba as getDetailPayloadFixtureStates,
+  fa as getDocumentDetailPayloadFixture,
+  da as getDocumentLineageFixture,
+  Gc as getESignClient,
+  yl as getEventConfig,
+  sm as getFileIconConfig,
+  am as getFileTypeName,
+  Gs as getFingerprintStatusClass,
+  Vs as getFingerprintStatusIcon,
+  Bs as getFingerprintStatusMessage,
+  La as getGuardEnforcementMode,
+  ga as getImportFixtureStates,
+  _a as getImportResponseFixture,
+  Rr as getLineageStatus,
+  Jc as getPageConfig,
+  wc as getPageController,
+  Ja as getPanelDrillInUrl,
+  Aa as getPrimaryCandidateWarning,
+  aa as getPrimaryWarningCard,
+  Fr as getProvenanceCardFor,
+  Dr as getProvenanceCards,
+  Ir as getResourceKind,
+  Sa as getSeededGoogleImportScenario,
+  ka as getSeededScenarioIds,
+  kd as getSignerCompletionPollDelayMs,
+  Zt as getSourceTypeIcon,
+  zt as getSourceTypeLabel,
+  Re as getWarningSeverityClass,
+  Fe as getWarningSeverityIcon,
+  bl as groupItemsByDate,
+  Ks as hasActionableWarnings,
+  mi as hasAgreementPinnedProvenance,
+  oa as hasDiagnosticActionableWarnings,
+  li as hasDocumentLineageLinkage,
+  Mr as hasEmptyState,
+  Qs as hasFingerprintError,
+  Lr as hasWarnings,
+  Yc as hide,
+  Sl as humanizeActorRole,
+  ci as importResponseFixtures,
+  kl as initAgreementDetailPage,
+  gu as initAgreementForm,
+  $r as initAllEvidenceToggles,
+  Dd as initDetailFormatters,
+  Id as initDocumentDetailPreview,
+  lu as initDocumentForm,
+  Nr as initEvidenceToggle,
+  Nd as initGoogleCallback,
+  Vd as initGoogleDrivePicker,
+  Hd as initGoogleIntegration,
+  nu as initIntegrationConflicts,
+  Bd as initIntegrationHealth,
+  Yd as initIntegrationMappings,
+  ru as initIntegrationSyncRuns,
+  Vc as initLandingPage,
+  jr as initProvenanceCards,
+  wd as initSignerCompletePage,
+  wu as initSignerErrorPage,
+  yu as initSignerReview,
+  Fc as initSourceManagementRuntimePage,
+  Dc as initV2SourceManagementRuntime,
+  Ni as isAgreementLineageDetail,
+  Vi as isAgreementReviewCommentPayload,
+  xa as isCandidateActionable,
+  Ta as isCandidateResolved,
+  sa as isDiagnosticCandidateWarning,
+  ea as isDiagnosticEmpty,
+  na as isDiagnosticFingerprintFailed,
+  ia as isDiagnosticFingerprintPending,
+  ta as isDiagnosticNative,
+  $i as isDocumentLineageDetail,
+  Us as isFingerprintSuccessful,
+  qs as isFingerprintTerminal,
+  om as isFolder,
+  rm as isGoogleDoc,
+  Os as isGoogleSourced,
+  cm as isGoogleWorkspaceFile,
+  wl as isGroupableEvent,
+  dm as isImportable,
+  um as isPDF,
+  st as isPhase13SourceCommentPage,
+  Gi as isPhase13SourceSearchResults,
+  qi as isRawGoogleDriveCommentPayload,
+  Ic as isRegisteredRuntimeHref,
+  tt as isSourceManagementContract,
+  Do as isTerminalGoogleImportStatus,
+  Io as isValidCandidateRelationshipStatus,
+  Mo as isValidCommentSyncStatus,
+  Lo as isValidFingerprintStatus,
+  Cl as isVisibleInCondensedMode,
+  Cc as listRegisteredPages,
+  Mn as loadFixtureForSurface,
+  oo as logPhase15SmokeTestResults,
+  uo as logPhase16SmokeTestResults,
+  po as logPhase17SmokeTestResults,
+  vo as logPhase18SmokeTestResults,
+  no as logSmokeTestResults,
+  bo as logV2ExitCriteriaResults,
+  Mc as logV2RuntimeInitResult,
+  Pl as looksLikeUUID,
+  Zs as mapAgreementProvenance,
+  js as mapDocumentProvenance,
+  El as mergeReviewBootstrapIntoTimeline,
+  xl as mergeReviewDataIntoTimeline,
+  lm as normalizeAccountId,
   de as normalizeAgreementLineageDetail,
-  Mo as normalizeCandidateWarningSummary,
+  $o as normalizeCandidateWarningSummary,
   ce as normalizeDocumentLineageDetail,
-  um as normalizeDriveFile,
-  lm as normalizeDriveFiles,
-  Fu as normalizeFilterOperators,
-  Du as normalizeFilterOptions,
-  Iu as normalizeFilterType,
-  Lo as normalizeGoogleImportLineageStatus,
-  $o as normalizeGoogleImportRunDetail,
-  No as normalizeGoogleImportRunHandle,
-  jo as normalizeLineagePresentationWarning,
-  Zo as normalizePhase13SourceCommentPage,
-  zo as normalizePhase13SourceCommentThreadSummary,
-  Ho as normalizePhase13SourceSearchQuery,
-  Oo as normalizePhase13SourceSearchResultSummary,
-  Ko as normalizePhase13SourceSearchResults,
-  yt as normalizePhase1LineageContractFixtures,
-  Go as normalizeSourceAgreementListQuery,
-  Vo as normalizeSourceAgreementPage,
-  qo as normalizeSourceAgreementSummary,
-  Uo as normalizeSourceCommentAuthorSummary,
-  Qo as normalizeSourceCommentMessageSummary,
-  Bo as normalizeSourceCommentSyncSummary,
-  Xo as normalizeSourceContinuitySummary,
-  Wo as normalizeSourceRevisionTimeline,
-  Jo as normalizeSourceRevisionTimelineEntry,
-  Yo as normalizeSourceWorkspace,
-  er as normalizeSourceWorkspaceArtifactPage,
-  tr as normalizeSourceWorkspaceArtifactSummary,
-  ir as normalizeSourceWorkspaceDrillIn,
-  nr as normalizeSourceWorkspacePanelSummary,
-  sr as normalizeSourceWorkspaceQuery,
-  Jc as on,
-  bm as onReady,
-  Wa as panelRequiresLoad,
-  xl as parseMergedTimelineBootstrap,
-  El as parseTimelineBootstrap,
-  dd as poll,
-  Mu as prepareFilterFields,
-  Lu as prepareGridColumns,
-  Tl as processEventsForDisplay,
-  Yc as qs,
-  ed as qsa,
-  wc as registerPageController,
-  Al as removeStatusElement,
-  mm as renderBreadcrumb,
-  _m as renderFileIcon,
-  pm as renderFileItem,
-  gm as renderFileList,
-  Rl as renderFilteredState,
-  Fs as renderStatusBadge,
-  Fl as renderTimeline,
-  fm as resolveAccountId,
-  Dl as resolveActor,
-  hn as resolveArtifactsPanelState,
-  Ic as resolveBrowserItemRuntimeHref,
-  Pn as resolveCommentsPanelState,
-  Il as resolveFieldLabel,
-  ar as resolveGoogleImportRedirectURL,
-  Rn as resolveHandlesPanelState,
-  Ml as resolveMetadata,
-  ct as resolveOverviewPanelState,
-  Ll as resolveParticipantName,
-  Qr as resolvePhase13CommentRenderingState,
-  Br as resolvePhase13SearchRenderingState,
-  bn as resolveRelationshipsPanelState,
-  ln as resolveRevisionsPanelState,
-  Mc as resolveSearchResultRuntimeHref,
-  kd as resolveSignerCompleteArtifacts,
-  wd as resolveSignerCompletePayloadState,
-  Xr as resolveSourceDetailRenderingState,
-  Wr as resolveSourceListRenderingState,
-  Jr as resolveSourceRevisionTimelineRenderingState,
-  $l as resolveStatusTarget,
-  ud as retry,
-  Nl as reviewActorInfo,
-  jl as reviewActorKey,
-  Ya as runComprehensiveSmokeCoverage,
-  it as runPageGuards,
-  st as runPhase13PageGuards,
-  rt as runPhase14PageGuards,
+  mm as normalizeDriveFile,
+  _m as normalizeDriveFiles,
+  Iu as normalizeFilterOperators,
+  Mu as normalizeFilterOptions,
+  Lu as normalizeFilterType,
+  No as normalizeGoogleImportLineageStatus,
+  jo as normalizeGoogleImportRunDetail,
+  Zo as normalizeGoogleImportRunHandle,
+  zo as normalizeLineagePresentationWarning,
+  Ho as normalizePhase13SourceCommentPage,
+  Oo as normalizePhase13SourceCommentThreadSummary,
+  Ko as normalizePhase13SourceSearchQuery,
+  Go as normalizePhase13SourceSearchResultSummary,
+  Vo as normalizePhase13SourceSearchResults,
+  bt as normalizePhase1LineageContractFixtures,
+  qo as normalizeSourceAgreementListQuery,
+  Uo as normalizeSourceAgreementPage,
+  Qo as normalizeSourceAgreementSummary,
+  Bo as normalizeSourceCommentAuthorSummary,
+  Xo as normalizeSourceCommentMessageSummary,
+  Wo as normalizeSourceCommentSyncSummary,
+  Jo as normalizeSourceContinuitySummary,
+  Yo as normalizeSourceRevisionTimeline,
+  er as normalizeSourceRevisionTimelineEntry,
+  tr as normalizeSourceWorkspace,
+  ir as normalizeSourceWorkspaceArtifactPage,
+  nr as normalizeSourceWorkspaceArtifactSummary,
+  sr as normalizeSourceWorkspaceDrillIn,
+  ar as normalizeSourceWorkspacePanelSummary,
+  or as normalizeSourceWorkspaceQuery,
+  ed as on,
+  km as onReady,
+  Ya as panelRequiresLoad,
+  Tl as parseMergedTimelineBootstrap,
+  Al as parseTimelineBootstrap,
+  ld as poll,
+  $u as prepareFilterFields,
+  Nu as prepareGridColumns,
+  Rl as processEventsForDisplay,
+  td as qs,
+  id as qsa,
+  Pc as registerPageController,
+  Fl as removeStatusElement,
+  pm as renderBreadcrumb,
+  gm as renderFileIcon,
+  fm as renderFileItem,
+  vm as renderFileList,
+  Dl as renderFilteredState,
+  Ds as renderStatusBadge,
+  Il as renderTimeline,
+  hm as resolveAccountId,
+  Ml as resolveActor,
+  yn as resolveArtifactsPanelState,
+  Lc as resolveBrowserItemRuntimeHref,
+  En as resolveCommentsPanelState,
+  Ll as resolveFieldLabel,
+  rr as resolveGoogleImportRedirectURL,
+  Fn as resolveHandlesPanelState,
+  $l as resolveMetadata,
+  dt as resolveOverviewPanelState,
+  Nl as resolveParticipantName,
+  Xr as resolvePhase13CommentRenderingState,
+  Wr as resolvePhase13SearchRenderingState,
+  Sn as resolveRelationshipsPanelState,
+  mn as resolveRevisionsPanelState,
+  $c as resolveSearchResultRuntimeHref,
+  Cd as resolveSignerCompleteArtifacts,
+  Pd as resolveSignerCompletePayloadState,
+  Jr as resolveSourceDetailRenderingState,
+  Yr as resolveSourceListRenderingState,
+  ec as resolveSourceRevisionTimelineRenderingState,
+  jl as resolveStatusTarget,
+  md as retry,
+  Zl as reviewActorInfo,
+  zl as reviewActorKey,
+  to as runComprehensiveSmokeCoverage,
+  nt as runPageGuards,
+  at as runPhase13PageGuards,
+  ct as runPhase14PageGuards,
   U as runPhase15PageBootstrapSmokeTests,
-  ao as runPhase15RuntimeSmokeCoverage,
-  uo as runPhase16ComprehensiveSmokeCoverage,
-  co as runPhase16RuntimeSmokeCoverage,
+  ro as runPhase15RuntimeSmokeCoverage,
+  mo as runPhase16ComprehensiveSmokeCoverage,
+  lo as runPhase16RuntimeSmokeCoverage,
   Q as runPhase16WorkspaceSmokeTests,
-  _o as runPhase17ComprehensiveSmokeCoverage,
+  go as runPhase17ComprehensiveSmokeCoverage,
   ve as runPhase17ReconciliationQueueSmokeTests,
-  As as runPhase18ComprehensiveSmokeCoverage,
-  ft as runPhase18V2JourneySmokeTests,
-  vo as runV2ExitCriteriaValidation,
+  Rs as runPhase18ComprehensiveSmokeCoverage,
+  vt as runPhase18V2JourneySmokeTests,
+  yo as runV2ExitCriteriaValidation,
   M as runV2LandingZoneSmokeTests,
-  Zl as safeParseJSONScript,
-  vm as saveAccountId,
-  He as seededGoogleImportScenarios,
-  Ba as setActivePanel,
-  Gc as setESignClient,
-  Da as setGuardEnforcementMode,
-  td as setLoading,
-  $u as setupRefreshButton,
-  id as show,
-  fd as showPageToast,
-  ld as sleep,
-  On as smokeTestEmptyStates,
-  Kn as smokeTestErrorStates,
-  Hn as smokeTestLoadingStates,
-  Nn as smokeTestRelationshipSummaries,
-  $n as smokeTestRevisionHistory,
-  jn as smokeTestSearch,
-  Zn as smokeTestSourceComment,
-  Ln as smokeTestSourceDetail,
-  Mn as smokeTestSourceList,
-  yr as snakeToTitle,
-  hm as syncAccountIdToUrl,
-  md as throttle,
-  nd as toggle,
-  Lc as translateSourceManagementHrefToRuntime,
-  br as truncate,
-  sd as updateDataText,
-  ad as updateDataTexts,
-  bo as updateStatusBadge,
-  zl as updateStatusElement,
-  Qa as updateWorkspacePanel,
-  va as validateAgreementDetailPayloadWithLineage,
-  oa as validateAgreementDiagnosticViewModel,
-  ua as validateAgreementLineagePayload,
-  Zs as validateAgreementProvenanceViewModel,
-  Aa as validateCandidateWarningFixture,
-  fa as validateDocumentDetailPayloadWithLineage,
-  aa as validateDocumentDiagnosticViewModel,
-  da as validateDocumentLineagePayload,
-  js as validateDocumentProvenanceViewModel,
-  eo as validateFixtureRoutes,
-  ma as validateImportResponsePayload,
-  no as validateLivePageBootstrap,
-  Cc as validatePageComposition,
-  Sa as validateSeededScenarioLineage,
-  lt as validateWorkspaceBackendLinks,
-  ut as validateWorkspaceContractIsolation,
-  dt as validateWorkspaceContractUsage,
-  Hl as wireCollapsibleSections,
-  _d as withTimeout
+  Hl as safeParseJSONScript,
+  ym as saveAccountId,
+  Oe as seededGoogleImportScenarios,
+  Wa as setActivePanel,
+  qc as setESignClient,
+  Ma as setGuardEnforcementMode,
+  nd as setLoading,
+  ju as setupRefreshButton,
+  sd as show,
+  hd as showPageToast,
+  _d as sleep,
+  Kn as smokeTestEmptyStates,
+  Gn as smokeTestErrorStates,
+  On as smokeTestLoadingStates,
+  jn as smokeTestRelationshipSummaries,
+  Nn as smokeTestRevisionHistory,
+  Zn as smokeTestSearch,
+  zn as smokeTestSourceComment,
+  $n as smokeTestSourceDetail,
+  Ln as smokeTestSourceList,
+  Sr as snakeToTitle,
+  bm as syncAccountIdToUrl,
+  pd as throttle,
+  ad as toggle,
+  Nc as translateSourceManagementHrefToRuntime,
+  kr as truncate,
+  od as updateDataText,
+  rd as updateDataTexts,
+  ko as updateStatusBadge,
+  Ol as updateStatusElement,
+  Xa as updateWorkspacePanel,
+  ya as validateAgreementDetailPayloadWithLineage,
+  ca as validateAgreementDiagnosticViewModel,
+  ma as validateAgreementLineagePayload,
+  Hs as validateAgreementProvenanceViewModel,
+  Fa as validateCandidateWarningFixture,
+  ha as validateDocumentDetailPayloadWithLineage,
+  ra as validateDocumentDiagnosticViewModel,
+  la as validateDocumentLineagePayload,
+  zs as validateDocumentProvenanceViewModel,
+  io as validateFixtureRoutes,
+  pa as validateImportResponsePayload,
+  ao as validateLivePageBootstrap,
+  Ec as validatePageComposition,
+  wa as validateSeededScenarioLineage,
+  mt as validateWorkspaceBackendLinks,
+  lt as validateWorkspaceContractIsolation,
+  ut as validateWorkspaceContractUsage,
+  Kl as wireCollapsibleSections,
+  gd as withTimeout
 };
 //# sourceMappingURL=index.js.map

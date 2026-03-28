@@ -34,7 +34,7 @@ func (r *CRUDRepositoryAdapter) List(ctx context.Context, opts ListOptions) ([]m
 		return nil, 0, err
 	}
 
-	queryOpts := crudListQueryOptions(normalizeRepositoryListQuery(opts))
+	queryOpts := crudListQueryOptions(normalizeRepositoryAdapterListQuery(opts))
 	criteria, _, err := crud.BuildListCriteriaFromOptions[map[string]any](queryOpts)
 	if err != nil {
 		return nil, 0, err
@@ -48,7 +48,7 @@ func (r *CRUDRepositoryAdapter) List(ctx context.Context, opts ListOptions) ([]m
 	return r.service.Index(c, criteria)
 }
 
-func crudListQueryOptions(query normalizedRepositoryListQuery) crud.ListQueryOptions {
+func crudListQueryOptions(query normalizedRepositoryAdapterListQuery) crud.ListQueryOptions {
 	predicates := make([]crud.ListQueryPredicate, 0, len(query.Predicates))
 	for _, predicate := range query.Predicates {
 		predicates = append(predicates, crud.ListQueryPredicate{

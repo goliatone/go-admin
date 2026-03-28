@@ -12,6 +12,7 @@ import {
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
+import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -1077,30 +1078,43 @@ function buildSubmitSuccessMessage(detail: TranslationAssignmentEditorDetail, st
 }
 
 function renderLoadingState(): string {
-  return `
-    <section class="${LOADING_STATE} p-8 shadow-sm" aria-busy="true">
-      <p class="text-sm font-medium text-gray-500">Loading translation assignment…</p>
-    </section>
-  `;
+  return renderPanelLoadingState({
+    tag: 'section',
+    text: 'Loading translation assignment…',
+    showSpinner: false,
+    containerClass: `${LOADING_STATE} p-8 shadow-sm`,
+    textClass: 'text-sm font-medium text-gray-500',
+  });
 }
 
 function renderEmptyState(title: string, message: string): string {
-  return `
-    <section class="${EMPTY_STATE} p-8 text-center shadow-sm">
-      <h2 class="${EMPTY_STATE_TITLE}">${escapeHTML(title)}</h2>
-      <p class="${EMPTY_STATE_TEXT} mt-2">${escapeHTML(message)}</p>
-    </section>
-  `;
+  return renderPanelState({
+    tag: 'section',
+    containerClass: `${EMPTY_STATE} p-8 text-center shadow-sm`,
+    bodyClass: '',
+    contentClass: '',
+    title,
+    titleTag: 'h2',
+    titleClass: EMPTY_STATE_TITLE,
+    message,
+    messageClass: `${EMPTY_STATE_TEXT} mt-2`,
+  });
 }
 
 function renderErrorState(title: string, message: string, state: TranslationEditorLoadState): string {
-  return `
-    <section class="${ERROR_STATE} p-8 shadow-sm">
-      <h2 class="${ERROR_STATE_TITLE}">${escapeHTML(title)}</h2>
-      <p class="${ERROR_STATE_TEXT} mt-2">${escapeHTML(message)}</p>
-      ${renderDiagnostics(state)}
-    </section>
-  `;
+  return renderPanelState({
+    tag: 'section',
+    containerClass: `${ERROR_STATE} p-8 shadow-sm`,
+    bodyClass: '',
+    contentClass: '',
+    title,
+    titleTag: 'h2',
+    titleClass: ERROR_STATE_TITLE,
+    message,
+    messageClass: `${ERROR_STATE_TEXT} mt-2`,
+    actionsHtml: renderDiagnostics(state),
+    role: 'alert',
+  });
 }
 
 function renderHeader(

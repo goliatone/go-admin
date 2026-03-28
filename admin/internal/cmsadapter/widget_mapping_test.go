@@ -1,19 +1,20 @@
-package admin
+package cmsadapter
 
 import (
 	"testing"
 
+	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	cmswidgets "github.com/goliatone/go-cms/widgets"
 	"github.com/google/uuid"
 )
 
 func TestWidgetPlacementMetadataOmitsEmptyFields(t *testing.T) {
-	meta := widgetPlacementMetadata(WidgetInstance{})
+	meta := WidgetPlacementMetadata(dashinternal.WidgetInstance{})
 	if meta != nil {
 		t.Fatalf("expected nil metadata for empty placement, got %+v", meta)
 	}
 
-	meta = widgetPlacementMetadata(WidgetInstance{PageID: "page-1", Locale: "es"})
+	meta = WidgetPlacementMetadata(dashinternal.WidgetInstance{PageID: "page-1", Locale: "es"})
 	if meta["page_id"] != "page-1" || meta["locale"] != "es" {
 		t.Fatalf("expected page_id and locale metadata, got %+v", meta)
 	}
@@ -37,7 +38,7 @@ func TestConvertGoCMSResolvedWidgetBackfillsPlacementMetadata(t *testing.T) {
 		},
 	}
 
-	inst := convertGoCMSResolvedWidget(entry)
+	inst := ConvertGoCMSResolvedWidget(entry)
 	if inst.Area != area {
 		t.Fatalf("expected area %q, got %q", area, inst.Area)
 	}
@@ -50,13 +51,13 @@ func TestConvertGoCMSResolvedWidgetBackfillsPlacementMetadata(t *testing.T) {
 }
 
 func TestFilterWidgetInstancesTreatsEmptyInstanceLocaleAsWildcard(t *testing.T) {
-	instances := []WidgetInstance{
+	instances := []dashinternal.WidgetInstance{
 		{ID: "1", PageID: "page-1", Locale: ""},
 		{ID: "2", PageID: "page-1", Locale: "es"},
 		{ID: "3", PageID: "page-2", Locale: "es"},
 	}
 
-	filtered := filterWidgetInstances(instances, WidgetInstanceFilter{
+	filtered := FilterWidgetInstances(instances, dashinternal.WidgetInstanceFilter{
 		PageID: "page-1",
 		Locale: "fr",
 	})

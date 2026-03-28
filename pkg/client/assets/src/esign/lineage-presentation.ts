@@ -20,6 +20,7 @@ import type {
   LineageReference,
 } from './lineage-contracts.js';
 import { formatLineageDateTime } from './utils/formatters.js';
+import { formatByteSize } from '../shared/size-formatters.js';
 
 /**
  * Provenance source type enumeration for display logic.
@@ -241,15 +242,12 @@ export interface AgreementProvenanceViewModel {
  * Format bytes to human-readable size.
  */
 function formatBytes(bytes: number | undefined): string | undefined {
-  if (bytes === undefined || bytes === null) return undefined;
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  return formatByteSize(bytes, {
+    emptyFallback: undefined,
+    zeroFallback: '0 B',
+    invalidFallback: undefined,
+    precisionByUnit: [0, 1, 1, 1],
+  });
 }
 
 /**

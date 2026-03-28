@@ -32,6 +32,7 @@ import { createAgreementWizardValidationController } from './wizard-validation';
 import { createAgreementResumeController } from './resume-flow';
 import { createAgreementFeedbackController } from './feedback';
 import { createAgreementRuntimeActionsController } from './runtime-actions';
+import { formatRelativeTimeVerbosePast } from '../../../shared/time-formatters.js';
 import {
   type AgreementFormRuntimeInputConfig,
   type AgreementProgressState,
@@ -173,7 +174,11 @@ export function createAgreementFormRuntimeCoordinator(
 
   const debouncedTrackChanges = () => stateBindingController?.debouncedTrackChanges?.();
   const trackWizardStateChanges = () => runtimeActionsController?.trackWizardStateChanges?.();
-  const formatRelativeTime = (value?: string | null): string => feedbackController?.formatRelativeTime(value) || 'unknown';
+  const formatRelativeTime = (value?: string | null): string =>
+    formatRelativeTimeVerbosePast(value, {
+      emptyFallback: 'unknown',
+      invalidFallback: 'Invalid Date',
+    });
   const restoreSyncStatusFromState = (): void => feedbackController?.restoreSyncStatusFromState();
   const updateSyncStatus = (status?: string): void => feedbackController?.updateSyncStatus(status);
   const showSyncConflictDialog = (serverRevision?: number | string): void => feedbackController?.showSyncConflictDialog(serverRevision);

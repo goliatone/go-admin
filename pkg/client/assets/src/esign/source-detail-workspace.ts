@@ -54,6 +54,7 @@ import {
   createErrorState,
   createUnauthorizedState,
 } from './source-management-rendering-states.js';
+import { formatByteSize as formatSharedByteSize } from '../shared/size-formatters.js';
 
 // ============================================================================
 // Workspace Panel Types (Phase 16 Task 16.6)
@@ -654,18 +655,12 @@ function formatNormalizationStatus(status: string | undefined): string {
  * Format byte size for display.
  */
 function formatByteSize(bytes: number | undefined): string {
-  if (bytes === undefined || bytes === 0) return '0 B';
-
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unitIndex = 0;
-
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex++;
-  }
-
-  return `${size.toFixed(unitIndex > 0 ? 1 : 0)} ${units[unitIndex]}`;
+  return formatSharedByteSize(bytes, {
+    emptyFallback: '0 B',
+    zeroFallback: '0 B',
+    invalidFallback: '0 B',
+    precisionByUnit: [0, 1, 1, 1],
+  }) as string;
 }
 
 /**

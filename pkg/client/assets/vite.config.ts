@@ -29,6 +29,8 @@ export default defineConfig({
         'debug/toolbar': resolve(__dirname, 'src/debug/toolbar/index.ts'),
         'content-type-builder/index': resolve(__dirname, 'src/content-type-builder/index.ts'),
         'content-type-builder/shared/date-formatters': resolve(__dirname, 'src/content-type-builder/shared/date-formatters.ts'),
+        'content-type-builder/shared/status-badges': resolve(__dirname, 'src/content-type-builder/shared/status-badges.ts'),
+        'content-type-builder/shared/text': resolve(__dirname, 'src/content-type-builder/shared/text.ts'),
         'menu-builder/index': resolve(__dirname, 'src/menu-builder/index.ts'),
         'translation-exchange/index': resolve(__dirname, 'src/translation-exchange/index.ts'),
         'translation-family/index': resolve(__dirname, 'src/translation-family/index.ts'),
@@ -43,6 +45,7 @@ export default defineConfig({
         'shared/coercion': resolve(__dirname, 'src/shared/coercion.ts'),
         'shared/record-normalization': resolve(__dirname, 'src/shared/record-normalization.ts'),
         'shared/dom-ready': resolve(__dirname, 'src/shared/dom-ready.ts'),
+        'shared/size-formatters': resolve(__dirname, 'src/shared/size-formatters.ts'),
         'shared/stateful-controller': resolve(__dirname, 'src/shared/stateful-controller.ts'),
         'shared/time-formatters': resolve(__dirname, 'src/shared/time-formatters.ts'),
         // E-Sign module entries

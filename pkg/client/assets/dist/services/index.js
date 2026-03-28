@@ -1,8 +1,10 @@
-import { r as u } from "../chunks/icon-renderer-FL11lsYV.js";
-import { escapeHTML as o } from "../shared/html.js";
-import { C as ft } from "../chunks/modal-8-n6PAK8.js";
-import { c as Ct, m as Lt, g as kt } from "../chunks/command-runtime-DiUPApH6.js";
-import { C as Ze, a as Xe, f as ts, h as es, b as ss, i as is, d as rs, n as ns, p as as, e as os } from "../chunks/command-runtime-DiUPApH6.js";
+import { b as st, c as it, d as T, e as St, f as P, g as H, h as B, i as wt } from "../chunks/ui-states-B4-pLIrz.js";
+import { U as Je, a as Ke, r as Ye, j as Ze } from "../chunks/ui-states-B4-pLIrz.js";
+import { C as bt } from "../chunks/modal-8-n6PAK8.js";
+import { r as p } from "../chunks/icon-renderer-FL11lsYV.js";
+import { escapeHTML as c } from "../shared/html.js";
+import { c as $t, m as _t, g as Ct } from "../chunks/command-runtime-DiUPApH6.js";
+import { C as ts, a as es, f as ss, h as is, b as rs, i as ns, d as as, n as os, p as cs, e as ls } from "../chunks/command-runtime-DiUPApH6.js";
 class I extends Error {
   constructor(t, e, s, i) {
     super(t), this.name = "ServicesAPIError", this.code = e, this.statusCode = s, this.details = i;
@@ -32,18 +34,18 @@ const _ = {
   RECONSENT: "admin.services.reconsent",
   ACTIVITY_VIEW: "admin.services.activity.view",
   WEBHOOKS: "admin.services.webhooks"
-}, Tt = {
+}, Lt = {
   basePath: "/admin/api/services",
   timeout: 3e4,
   headers: {}
 };
-function Et() {
+function kt() {
   return (typeof globalThis < "u" ? globalThis.location : void 0)?.origin || "http://localhost";
 }
-class bt {
+class ft {
   constructor(t = {}) {
     this.abortControllers = /* @__PURE__ */ new Map(), this.config = {
-      ...Tt,
+      ...Lt,
       ...t
     };
   }
@@ -567,8 +569,8 @@ class bt {
       Accept: "application/json",
       ...this.config.headers,
       ...i
-    }, c = s && s.trim() || this.createIdempotencyKey(t);
-    l["Idempotency-Key"] = c;
+    }, o = s && s.trim() || this.createIdempotencyKey(t);
+    l["Idempotency-Key"] = o;
     try {
       const d = await this.fetchWithTimeout(r, {
         method: "POST",
@@ -582,7 +584,7 @@ class bt {
     }
   }
   buildUrl(t, e = {}) {
-    const s = this.config.basePath.replace(/\/$/, ""), i = new URL(`${s}${t}`, Et());
+    const s = this.config.basePath.replace(/\/$/, ""), i = new URL(`${s}${t}`, kt());
     for (const [r, a] of Object.entries(e))
       a != null && a !== "" && i.searchParams.set(r, String(a));
     return i.toString();
@@ -626,32 +628,32 @@ class bt {
   }
 }
 let j = null;
-function E() {
-  return j || (j = new bt()), j;
+function q() {
+  return j || (j = new ft()), j;
 }
-function ne(n) {
+function re(n) {
   j = n;
 }
-function ae(n = {}) {
-  return new bt(n);
+function ne(n = {}) {
+  return new ft(n);
 }
-const qt = {
+const Tt = {
   defaultPage: 1,
   defaultPerPage: 25,
   searchDelay: 300,
   useReplaceState: !1
 };
-function Z() {
+function K() {
   if (typeof window < "u")
     return window;
 }
 function at() {
   return typeof globalThis > "u" ? void 0 : globalThis.localStorage;
 }
-class O {
+class z {
   constructor(t = {}) {
     this.searchTimeout = null, this.initialized = !1, this.config = {
-      ...qt,
+      ...Tt,
       ...t.config
     }, this.filterFields = new Set(t.filterFields || []), this.dateFields = new Set(t.dateFields || []), this.storageKey = t.storageKey || null, this.state = {
       page: this.config.defaultPage,
@@ -800,31 +802,31 @@ class O {
   // Private Methods
   // ---------------------------------------------------------------------------
   restoreFromURL() {
-    const t = Z();
+    const t = K();
     if (!t?.location)
       return;
     const e = new URLSearchParams(t.location.search), s = e.get("page");
     if (s) {
-      const c = parseInt(s, 10);
-      !Number.isNaN(c) && c > 0 && (this.state.page = c);
+      const o = parseInt(s, 10);
+      !Number.isNaN(o) && o > 0 && (this.state.page = o);
     }
     const i = e.get("per_page");
     if (i) {
-      const c = parseInt(i, 10);
-      !Number.isNaN(c) && c > 0 && (this.state.per_page = c);
+      const o = parseInt(i, 10);
+      !Number.isNaN(o) && o > 0 && (this.state.per_page = o);
     }
     const r = e.get("q") || e.get("search");
     r && (this.state.search = r);
     const a = e.get("sort_field"), l = e.get("sort_order");
     a && (this.state.sort_field = a, this.state.sort_order = l === "desc" ? "desc" : "asc");
-    for (const c of this.filterFields) {
-      const d = e.get(String(c));
-      d !== null && (this.dateFields.has(c) ? this.state.filters[c] = this.toLocalInput(d) : this.state.filters[c] = d);
+    for (const o of this.filterFields) {
+      const d = e.get(String(o));
+      d !== null && (this.dateFields.has(o) ? this.state.filters[o] = this.toLocalInput(d) : this.state.filters[o] = d);
     }
   }
   restoreFromStorage() {
     if (!this.storageKey) return;
-    const t = at(), e = Z();
+    const t = at(), e = K();
     if (t)
       try {
         const s = t.getItem(this.storageKey);
@@ -850,7 +852,7 @@ class O {
       }
   }
   syncToURL() {
-    const t = Z();
+    const t = K();
     if (!t?.location || !t.history)
       return;
     const e = new URLSearchParams();
@@ -881,7 +883,7 @@ class O {
     return new Date(e.getTime() - s).toISOString().slice(0, 16);
   }
 }
-function oe(n, t) {
+function ae(n, t) {
   let e = null;
   return Object.assign((...r) => {
     e && clearTimeout(e), e = setTimeout(() => {
@@ -891,11 +893,11 @@ function oe(n, t) {
     e && (clearTimeout(e), e = null);
   } });
 }
-function ce(n, t) {
+function oe(n, t) {
   if (!("filters" in n)) {
     const a = n, l = new URLSearchParams();
-    for (const [c, d] of Object.entries(a))
-      d != null && d !== "" && l.set(c, String(d));
+    for (const [o, d] of Object.entries(a))
+      d != null && d !== "" && l.set(o, String(d));
     return l;
   }
   const e = n, s = new URLSearchParams(), { includePage: i = !0, includeDefaults: r = !1 } = t || {};
@@ -904,18 +906,18 @@ function ce(n, t) {
     l != null && l !== "" && s.set(a, l);
   return s;
 }
-function le(n, t, e) {
+function ce(n, t, e) {
   if (!e) {
-    const c = {};
+    const o = {};
     for (const d of t) {
-      const p = n.get(String(d));
-      p !== null && (c[String(d)] = p);
+      const h = n.get(String(d));
+      h !== null && (o[String(d)] = h);
     }
     for (const d of ["page", "per_page", "q", "search", "sort_field", "sort_order"]) {
-      const p = n.get(d);
-      p !== null && (c[d] = p);
+      const h = n.get(d);
+      h !== null && (o[d] = h);
     }
-    return c;
+    return o;
   }
   const s = {
     page: e?.page ?? 1,
@@ -925,25 +927,25 @@ function le(n, t, e) {
     ...e
   }, i = n.get("page");
   if (i) {
-    const c = parseInt(i, 10);
-    Number.isNaN(c) || (s.page = Math.max(1, c));
+    const o = parseInt(i, 10);
+    Number.isNaN(o) || (s.page = Math.max(1, o));
   }
   const r = n.get("per_page");
   if (r) {
-    const c = parseInt(r, 10);
-    Number.isNaN(c) || (s.per_page = Math.max(1, c));
+    const o = parseInt(r, 10);
+    Number.isNaN(o) || (s.per_page = Math.max(1, o));
   }
   const a = n.get("q") || n.get("search");
   a && (s.search = a);
   const l = n.get("sort_field");
   l && (s.sort_field = l, s.sort_order = n.get("sort_order") === "desc" ? "desc" : "asc");
-  for (const c of t) {
-    const d = n.get(String(c));
-    d !== null && (s.filters[c] = d);
+  for (const o of t) {
+    const d = n.get(String(o));
+    d !== null && (s.filters[o] = d);
   }
   return s;
 }
-class B {
+class V {
   constructor() {
     this.state = {
       granted: /* @__PURE__ */ new Set(),
@@ -1073,54 +1075,54 @@ class B {
     this.listeners.forEach((e) => e(t));
   }
 }
-let X = null;
+let Y = null;
 function C() {
-  return X || (X = new B()), X;
+  return Y || (Y = new V()), Y;
 }
-function de(n) {
+function le(n) {
   C().init(n);
 }
-function q(n, t) {
+function E(n, t) {
   return (e) => {
-    const s = e instanceof B ? e : t || C(), i = Array.isArray(n) ? n : [n];
+    const s = e instanceof V ? e : t || C(), i = Array.isArray(n) ? n : [n];
     return () => s.hasAll(i);
+  };
+}
+function de(n, t) {
+  return (e) => {
+    const s = e instanceof V ? e : t || C();
+    return () => s.hasAll(n);
   };
 }
 function ue(n, t) {
   return (e) => {
-    const s = e instanceof B ? e : t || C();
-    return () => s.hasAll(n);
-  };
-}
-function he(n, t) {
-  return (e) => {
-    const s = e instanceof B ? e : t || C();
+    const s = e instanceof V ? e : t || C();
     return () => s.hasAny(n);
   };
 }
-function pe(...n) {
+function he(...n) {
   const t = n.flatMap((e) => Array.isArray(e) ? e : [e]);
   return (e) => () => t.every((s) => s(e)());
 }
 function F(n) {
-  return q(_.VIEW, n)();
+  return E(_.VIEW, n)();
 }
-function k(n) {
-  return q(_.CONNECT, n)();
+function L(n) {
+  return E(_.CONNECT, n)();
 }
 function A(n) {
-  return q(_.EDIT, n)();
+  return E(_.EDIT, n)();
 }
 function rt(n) {
-  return q(_.REVOKE, n)();
+  return E(_.REVOKE, n)();
 }
 function yt(n) {
-  return q(_.RECONSENT, n)();
+  return E(_.RECONSENT, n)();
 }
-function At(n) {
-  return q(_.ACTIVITY_VIEW, n)();
+function qt(n) {
+  return E(_.ACTIVITY_VIEW, n)();
 }
-function Rt(n) {
+function Et(n) {
   if (n instanceof I)
     return n.isForbidden;
   if (!n || typeof n != "object")
@@ -1128,10 +1130,10 @@ function Rt(n) {
   const t = n;
   return t.isForbidden === !0 || t.statusCode === 403 || t.code === "FORBIDDEN";
 }
-function ge(n, t) {
-  return Rt(n) ? (t(n), !0) : !1;
+function pe(n, t) {
+  return Et(n) ? (t(n), !0) : !1;
 }
-function fe(n, t, e, s) {
+function ge(n, t, e, s) {
   const i = s || C();
   return async () => {
     if (!i.has(n)) {
@@ -1141,24 +1143,24 @@ function fe(n, t, e, s) {
     return t();
   };
 }
-function tt(n, t, e) {
+function Z(n, t, e) {
   const s = e || C(), { requires: i = [], requiresAny: r = [], onDenied: a, disableOnDenied: l } = t;
-  let c = !0, d = [];
-  i.length > 0 ? (d = s.getMissing(i), c = d.length === 0) : r.length > 0 && (c = s.hasAny(r), c || (d = r)), c || (l ? ((n instanceof HTMLButtonElement || n instanceof HTMLInputElement) && (n.disabled = !0), n.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), n.setAttribute("title", `Permission required: ${d.join(", ")}`)) : (n.style.display = "none", n.classList.add("permission-hidden")), t.deniedContent && (typeof t.deniedContent == "string" ? n.outerHTML = t.deniedContent : n.replaceWith(t.deniedContent)), a?.(d));
+  let o = !0, d = [];
+  i.length > 0 ? (d = s.getMissing(i), o = d.length === 0) : r.length > 0 && (o = s.hasAny(r), o || (d = r)), o || (l ? ((n instanceof HTMLButtonElement || n instanceof HTMLInputElement) && (n.disabled = !0), n.classList.add("permission-denied", "opacity-50", "cursor-not-allowed"), n.setAttribute("title", `Permission required: ${d.join(", ")}`)) : (n.style.display = "none", n.classList.add("permission-hidden")), t.deniedContent && (typeof t.deniedContent == "string" ? n.outerHTML = t.deniedContent : n.replaceWith(t.deniedContent)), a?.(d));
 }
 function be(n = document.body, t) {
   n.querySelectorAll("[data-permission-requires]").forEach((r) => {
     const a = r.dataset.permissionRequires?.split(",").map((l) => l.trim());
-    a && a.length > 0 && tt(r, { requires: a }, t);
+    a && a.length > 0 && Z(r, { requires: a }, t);
   }), n.querySelectorAll("[data-permission-requires-any]").forEach((r) => {
     const a = r.dataset.permissionRequiresAny?.split(",").map((l) => l.trim());
-    a && a.length > 0 && tt(r, { requiresAny: a }, t);
+    a && a.length > 0 && Z(r, { requiresAny: a }, t);
   }), n.querySelectorAll("[data-permission-disable]").forEach((r) => {
     const a = r.dataset.permissionDisable?.split(",").map((l) => l.trim());
-    a && a.length > 0 && tt(r, { requires: a, disableOnDenied: !0 }, t);
+    a && a.length > 0 && Z(r, { requires: a, disableOnDenied: !0 }, t);
   });
 }
-function Pt() {
+function At() {
   if (typeof window > "u" || typeof document > "u")
     return [];
   const n = window.__permissions;
@@ -1178,368 +1180,11 @@ function Pt() {
     }
   return [];
 }
-function ye() {
-  const n = Pt(), t = C();
+function fe() {
+  const n = At(), t = C();
   return t.init(n), t;
 }
-const mt = {
-  providers: {
-    icon: "iconoir:plug",
-    title: "No providers available",
-    message: "No service providers are currently configured."
-  },
-  connections: {
-    icon: "iconoir:link",
-    title: "No connections found",
-    message: "Connect a service to get started."
-  },
-  installations: {
-    icon: "iconoir:download",
-    title: "No installations found",
-    message: "Install a service to get started."
-  },
-  subscriptions: {
-    icon: "iconoir:bell-off",
-    title: "No subscriptions found",
-    message: "Subscriptions will appear here when created."
-  },
-  sync: {
-    icon: "iconoir:sync",
-    title: "No sync jobs found",
-    message: "Sync jobs will appear here when syncs are triggered."
-  },
-  activity: {
-    icon: "iconoir:activity",
-    title: "No activity found",
-    message: "Activity entries will appear here as actions occur."
-  },
-  generic: {
-    icon: "iconoir:folder-empty",
-    title: "No data",
-    message: "Nothing to display."
-  }
-};
-function z(n = {}) {
-  const { text: t = "Loading...", size: e = "md", containerClass: s = "" } = n, r = {
-    sm: { spinner: "h-4 w-4", text: "text-xs", py: "py-4" },
-    md: { spinner: "h-5 w-5", text: "text-sm", py: "py-8" },
-    lg: { spinner: "h-8 w-8", text: "text-base", py: "py-16" }
-  }[e];
-  return `
-    <div class="ui-state ui-state-loading flex items-center justify-center ${r.py} ${s}" aria-busy="true" aria-label="Loading">
-      <div class="flex flex-col items-center gap-3 text-gray-500">
-        <svg class="animate-spin ${r.spinner}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <span class="${r.text}">${o(t)}</span>
-      </div>
-    </div>
-  `;
-}
-function xt(n = {}) {
-  const t = mt[n.type || "generic"], {
-    icon: e = t.icon,
-    iconClass: s = "text-gray-400",
-    title: i = t.title,
-    message: r = t.message,
-    containerClass: a = "",
-    action: l
-  } = n;
-  return `
-    <div class="ui-state ui-state-empty flex items-center justify-center py-12 ${a}" role="status" aria-label="Empty">
-      <div class="flex flex-col items-center gap-4 text-center max-w-sm">
-        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center" aria-hidden="true">
-          ${u(e, { size: "24px", extraClass: s })}
-        </div>
-        <div>
-          <h3 class="text-lg font-medium text-gray-900">${o(i)}</h3>
-          <p class="text-sm text-gray-500 mt-1">${o(r)}</p>
-        </div>
-        ${l ? St(l) : ""}
-      </div>
-    </div>
-  `;
-}
-function vt(n = {}) {
-  const {
-    icon: t = "iconoir:search",
-    iconClass: e = "text-gray-400",
-    title: s = "No results found",
-    query: i,
-    filterCount: r = 0,
-    containerClass: a = "",
-    onReset: l
-  } = n;
-  let c = n.message;
-  return c || (i && r > 0 ? c = `No items match "${i}" with ${r} filter${r > 1 ? "s" : ""} applied.` : i ? c = `No items match "${i}".` : r > 0 ? c = `No items match the ${r} filter${r > 1 ? "s" : ""} applied.` : c = "Try adjusting your search or filters."), `
-    <div class="ui-state ui-state-no-results flex items-center justify-center py-12 ${a}" role="status" aria-label="No results">
-      <div class="flex flex-col items-center gap-4 text-center max-w-sm">
-        <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center" aria-hidden="true">
-          ${u(t, { size: "24px", extraClass: e })}
-        </div>
-        <div>
-          <h3 class="text-lg font-medium text-gray-900">${o(s)}</h3>
-          <p class="text-sm text-gray-500 mt-1">${o(c)}</p>
-        </div>
-        ${l ? `
-          <button type="button" class="ui-state-reset-btn px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors">
-            Clear filters
-          </button>
-        ` : ""}
-      </div>
-    </div>
-  `;
-}
-function V(n = {}) {
-  const {
-    icon: t = "iconoir:warning-triangle",
-    iconClass: e = "text-red-500",
-    title: s = "Something went wrong",
-    error: i,
-    compact: r = !1,
-    containerClass: a = "",
-    showRetry: l = !0,
-    retryText: c = "Try again"
-  } = n, d = n.message || i?.message || "An unexpected error occurred. Please try again.";
-  return r ? `
-      <div class="ui-state ui-state-error ui-state-error-compact p-4 ${a}" role="alert">
-        <div class="flex items-start gap-3">
-          <div class="flex-shrink-0 text-red-500" aria-hidden="true">
-            ${u(t, { size: "20px", extraClass: e })}
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-red-800">${o(s)}</p>
-            <p class="text-sm text-red-700 mt-1">${o(d)}</p>
-          </div>
-          ${l ? `
-            <button type="button" class="ui-state-retry-btn flex-shrink-0 text-sm text-red-600 hover:text-red-700 font-medium">
-              ${o(c)}
-            </button>
-          ` : ""}
-        </div>
-      </div>
-    ` : `
-    <div class="ui-state ui-state-error flex items-center justify-center py-16 ${a}" role="alert">
-      <div class="flex flex-col items-center gap-4 text-center max-w-md">
-        <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center" aria-hidden="true">
-          ${u(t, { size: "24px", extraClass: e })}
-        </div>
-        <div>
-          <h3 class="text-lg font-medium text-gray-900">${o(s)}</h3>
-          <p class="text-sm text-gray-500 mt-1">${o(d)}</p>
-        </div>
-        ${l ? `
-          <button type="button" class="ui-state-retry-btn px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
-            ${o(c)}
-          </button>
-        ` : ""}
-      </div>
-    </div>
-  `;
-}
-function L(n = {}) {
-  const {
-    icon: t = "iconoir:lock",
-    iconClass: e = "text-amber-500",
-    title: s = "Access Denied",
-    resource: i,
-    permission: r,
-    containerClass: a = "",
-    action: l
-  } = n;
-  let c = n.message;
-  return c || (i && r ? c = `You need the "${r}" permission to view ${i}.` : i ? c = `You don't have permission to view ${i}.` : c = "You don't have permission to access this resource."), `
-    <div class="ui-state ui-state-forbidden flex items-center justify-center py-16 ${a}" role="alert" aria-label="Access denied">
-      <div class="flex flex-col items-center gap-4 text-center max-w-md">
-        <div class="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center" aria-hidden="true">
-          ${u(t, { size: "24px", extraClass: e })}
-        </div>
-        <div>
-          <h3 class="text-lg font-medium text-gray-900">${o(s)}</h3>
-          <p class="text-sm text-gray-500 mt-1">${o(c)}</p>
-        </div>
-        ${l ? St(l) : ""}
-      </div>
-    </div>
-  `;
-}
-function W(n, t = {}) {
-  const { text: e = "Loading...", containerClass: s = "" } = t;
-  return `
-    <tr class="ui-state ui-state-table-loading ${s}">
-      <td colspan="${n}" class="px-4 py-12 text-center">
-        <div class="inline-flex items-center gap-2 text-gray-500" aria-busy="true">
-          <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <span class="text-sm">${o(e)}</span>
-        </div>
-      </td>
-    </tr>
-  `;
-}
-function G(n, t = {}) {
-  const {
-    icon: e = "iconoir:warning-triangle",
-    iconClass: s = "text-red-500",
-    title: i = "Failed to load data",
-    error: r,
-    containerClass: a = "",
-    showRetry: l = !0,
-    retryText: c = "Try again"
-  } = t, d = t.message || r?.message || "An error occurred while loading.";
-  return `
-    <tr class="ui-state ui-state-table-error ${a}">
-      <td colspan="${n}" class="px-4 py-12 text-center">
-        <div class="text-red-500 mb-2" aria-hidden="true">
-          ${u(e, { size: "24px", extraClass: s })}
-        </div>
-        <p class="text-sm font-medium text-gray-900">${o(i)}</p>
-        <p class="text-sm text-gray-500 mt-1">${o(d)}</p>
-        ${l ? `
-          <button type="button" class="ui-state-retry-btn mt-2 text-sm text-blue-600 hover:text-blue-700 font-medium">
-            ${o(c)}
-          </button>
-        ` : ""}
-      </td>
-    </tr>
-  `;
-}
-function me(n, t = {}) {
-  const e = mt[t.type || "generic"], {
-    icon: s = e.icon,
-    iconClass: i = "text-gray-400",
-    title: r = e.title,
-    message: a = e.message,
-    containerClass: l = ""
-  } = t;
-  return `
-    <tr class="ui-state ui-state-table-empty ${l}">
-      <td colspan="${n}" class="px-4 py-12 text-center">
-        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4" aria-hidden="true">
-          ${u(s, { size: "24px", extraClass: i })}
-        </div>
-        <h3 class="text-lg font-medium text-gray-900">${o(r)}</h3>
-        <p class="text-sm text-gray-500 mt-1">${o(a)}</p>
-      </td>
-    </tr>
-  `;
-}
-function R(n, t = {}) {
-  const {
-    icon: e = "iconoir:search",
-    iconClass: s = "text-gray-400",
-    title: i = "No results found",
-    query: r,
-    filterCount: a = 0,
-    containerClass: l = "",
-    onReset: c
-  } = t;
-  let d = t.message;
-  return d || (r && a > 0 ? d = `No items match "${r}" with ${a} filter${a > 1 ? "s" : ""} applied.` : r ? d = `No items match "${r}".` : a > 0 ? d = `No items match the ${a} filter${a > 1 ? "s" : ""} applied.` : d = "Try adjusting your search or filters."), `
-    <tr class="ui-state ui-state-table-no-results ${l}">
-      <td colspan="${n}" class="px-4 py-12 text-center">
-        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4" aria-hidden="true">
-          ${u(e, { size: "24px", extraClass: s })}
-        </div>
-        <h3 class="text-lg font-medium text-gray-900">${o(i)}</h3>
-        <p class="text-sm text-gray-500 mt-1">${o(d)}</p>
-        ${c ? `
-          <button type="button" class="ui-state-reset-btn mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium">
-            Clear filters
-          </button>
-        ` : ""}
-      </td>
-    </tr>
-  `;
-}
-class xe {
-  constructor(t) {
-    this.currentState = "loading", this.container = t.container, this.config = t;
-  }
-  /**
-   * Show loading state
-   */
-  showLoading(t) {
-    this.currentState = "loading", this.container.innerHTML = z(t);
-  }
-  /**
-   * Show empty state (no data)
-   */
-  showEmpty(t) {
-    this.currentState = "empty", this.container.innerHTML = xt(t);
-  }
-  /**
-   * Show no-results state (filters returned nothing)
-   */
-  showNoResults(t) {
-    this.currentState = "no-results";
-    const e = { ...t, onReset: t?.onReset || this.config.onReset };
-    this.container.innerHTML = vt(e), this.bindResetHandler();
-  }
-  /**
-   * Show error state
-   */
-  showError(t) {
-    this.currentState = "error";
-    const e = { ...t, onRetry: t?.onRetry || this.config.onRetry };
-    this.container.innerHTML = V(e), this.bindRetryHandler();
-  }
-  /**
-   * Show forbidden state
-   */
-  showForbidden(t) {
-    this.currentState = "forbidden", this.container.innerHTML = L(t);
-  }
-  /**
-   * Show content (clears any state and allows content rendering)
-   */
-  showContent() {
-    this.currentState = "content";
-  }
-  /**
-   * Get current state
-   */
-  getState() {
-    return this.currentState;
-  }
-  /**
-   * Check if currently showing loading
-   */
-  isLoading() {
-    return this.currentState === "loading";
-  }
-  /**
-   * Check if showing error
-   */
-  hasError() {
-    return this.currentState === "error";
-  }
-  bindRetryHandler() {
-    this.container.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => {
-      this.config.onRetry?.();
-    });
-  }
-  bindResetHandler() {
-    this.container.querySelector(".ui-state-reset-btn")?.addEventListener("click", () => {
-      this.config.onReset?.();
-    });
-  }
-}
-function St(n) {
-  return `
-    <button type="button" class="ui-state-action-btn px-4 py-2 text-sm font-medium rounded-lg focus:ring-2 focus:ring-offset-2 transition-colors ${{
-    primary: "text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500",
-    secondary: "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:ring-gray-500",
-    danger: "text-white bg-red-600 hover:bg-red-700 focus:ring-red-500"
-  }[n.variant || "primary"]}">
-      ${o(n.text)}
-    </button>
-  `;
-}
-class It {
+class Pt {
   constructor(t) {
     this.state = "idle", this.feedbackTimeout = null, this.button = t.button, this.originalHTML = this.button.innerHTML, this.originalDisabled = this.button.disabled, this.config = {
       loadingText: t.loadingText ?? "Processing...",
@@ -1561,7 +1206,7 @@ class It {
            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
          </svg>` : "";
-    this.button.innerHTML = `${t}<span>${o(this.config.loadingText)}</span>`;
+    this.button.innerHTML = `${t}<span>${c(this.config.loadingText)}</span>`;
   }
   /** Set button to success state (briefly shows success, then returns to idle) */
   setSuccess() {
@@ -1569,7 +1214,7 @@ class It {
       <svg class="-ml-1 mr-2 h-4 w-4 inline-block text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
       </svg>
-      <span>${o(this.config.successText)}</span>
+      <span>${c(this.config.successText)}</span>
     `, this.feedbackTimeout = setTimeout(() => {
       this.reset();
     }, this.config.feedbackDuration);
@@ -1580,7 +1225,7 @@ class It {
       <svg class="-ml-1 mr-2 h-4 w-4 inline-block text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
       </svg>
-      <span>${o(this.config.errorText)}</span>
+      <span>${c(this.config.errorText)}</span>
     `, this.feedbackTimeout = setTimeout(() => {
       this.reset();
     }, this.config.feedbackDuration);
@@ -1606,38 +1251,38 @@ async function S(n) {
     buttonConfig: r,
     onSuccess: a,
     onError: l,
-    showInlineRetry: c = !1,
+    showInlineRetry: o = !1,
     retryContainer: d
-  } = n, p = r ? new It(r) : null;
+  } = n, h = r ? new Pt(r) : null;
   try {
-    p?.setLoading();
-    const h = await t();
-    if (p?.setSuccess(), e && s) {
-      const g = typeof s == "function" ? s(h) : s;
+    h?.setLoading();
+    const u = await t();
+    if (h?.setSuccess(), e && s) {
+      const g = typeof s == "function" ? s(u) : s;
       e.success(g);
     }
-    return d && it(d), await a?.(h), { success: !0, result: h };
-  } catch (h) {
-    const g = h instanceof Error ? h : new Error(String(h));
-    return p?.setError(), e && e.error(`${i}: ${g.message}`), c && d && Ft({
+    return d && et(d), await a?.(u), { success: !0, result: u };
+  } catch (u) {
+    const g = u instanceof Error ? u : new Error(String(u));
+    return h?.setError(), e && e.error(`${i}: ${g.message}`), o && d && Rt({
       container: d,
       action: () => S(n).then(() => {
       }),
       errorMessage: `${i}: ${g.message}`,
-      onDismiss: () => it(d)
+      onDismiss: () => et(d)
     }), l?.(g), { success: !1, error: g };
   }
 }
-async function ve(n) {
+async function ye(n) {
   const { confirmMessage: t, confirmOptions: e, ...s } = n;
-  return await ft.confirm(t, {
+  return await bt.confirm(t, {
     title: e?.title ?? "Confirm Action",
     confirmText: e?.confirmText ?? "Confirm",
     cancelText: e?.cancelText ?? "Cancel",
     confirmVariant: e?.variant ?? "primary"
   }) ? { ...await S(s), cancelled: !1 } : { success: !1, cancelled: !0 };
 }
-function Ft(n) {
+function Rt(n) {
   const {
     container: t,
     action: e,
@@ -1649,26 +1294,26 @@ function Ft(n) {
   t.innerHTML = `
     <div class="mutation-retry-ui flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
       <div class="flex-shrink-0 text-red-500" aria-hidden="true">
-        ${u("iconoir:warning-triangle", { size: "20px" })}
+        ${p("iconoir:warning-triangle", { size: "20px" })}
       </div>
       <div class="flex-1 min-w-0">
-        <p class="text-sm text-red-700">${o(s)}</p>
+        <p class="text-sm text-red-700">${c(s)}</p>
         <div class="flex items-center gap-2 mt-2">
           <button type="button"
                   class="mutation-retry-btn px-3 py-1 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded transition-colors">
-            ${o(i)}
+            ${c(i)}
           </button>
           <button type="button"
                   class="mutation-dismiss-btn px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors">
-            ${o(r)}
+            ${c(r)}
           </button>
         </div>
       </div>
     </div>
   `;
-  const l = t.querySelector(".mutation-retry-btn"), c = t.querySelector(".mutation-dismiss-btn");
+  const l = t.querySelector(".mutation-retry-btn"), o = t.querySelector(".mutation-dismiss-btn");
   l?.addEventListener("click", async () => {
-    const d = l, p = d.textContent;
+    const d = l, h = d.textContent;
     d.disabled = !0, d.innerHTML = `
       <svg class="animate-spin h-3 w-3 inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -1679,16 +1324,16 @@ function Ft(n) {
     try {
       await e();
     } finally {
-      d.disabled = !1, d.textContent = p;
+      d.disabled = !1, d.textContent = h;
     }
-  }), c?.addEventListener("click", () => {
-    it(t), a?.();
+  }), o?.addEventListener("click", () => {
+    et(t), a?.();
   });
 }
-function it(n) {
+function et(n) {
   n.querySelector(".mutation-retry-ui")?.remove();
 }
-function Mt(n) {
+function It(n) {
   const { action: t, resourceType: e, resourceName: s, additionalContext: i } = n, r = {
     revoke: { verb: "revoke", noun: "Revoke", variant: "danger" },
     disconnect: { verb: "disconnect", noun: "Disconnect", variant: "danger" },
@@ -1701,23 +1346,23 @@ function Mt(n) {
     installation: "installation",
     subscription: "subscription",
     sync: "sync job"
-  }, l = r[t] || { verb: t, noun: t, variant: "primary" }, c = a[e] || e;
-  let d = `Are you sure you want to ${l.verb} this ${c}`;
+  }, l = r[t] || { verb: t, noun: t, variant: "primary" }, o = a[e] || e;
+  let d = `Are you sure you want to ${l.verb} this ${o}`;
   return s && (d += ` (${s})`), d += "?", i && (d += ` ${i}`), l.variant === "danger" && (d += " This action cannot be undone."), {
     message: d,
     options: {
-      title: `${l.noun} ${c.charAt(0).toUpperCase() + c.slice(1)}`,
+      title: `${l.noun} ${o.charAt(0).toUpperCase() + o.slice(1)}`,
       confirmText: l.noun,
       cancelText: "Cancel",
       variant: l.variant
     }
   };
 }
-async function Q(n) {
-  const { message: t, options: e } = Mt(n);
-  return ft.confirm(t, e);
+async function W(n) {
+  const { message: t, options: e } = It(n);
+  return bt.confirm(t, e);
 }
-class J {
+class G {
   constructor() {
     this.inFlight = /* @__PURE__ */ new Set();
   }
@@ -1945,7 +1590,7 @@ const M = {
     category: "errors"
   }
 };
-class Nt {
+class Ft {
   constructor() {
     this.backendLabels = {}, this.initialized = !1, this.fallbackFormatter = ot;
   }
@@ -2025,38 +1670,38 @@ class Nt {
     this.backendLabels = {}, this.fallbackFormatter = ot, this.initialized = !1;
   }
 }
-const $ = new Nt();
-function Se(n = {}) {
+const $ = new Ft();
+function me(n = {}) {
   $.init(n);
 }
-function jt(n) {
+function Mt(n) {
   return $.getLabel(n);
 }
-function we(n) {
+function xe(n) {
   return $.getEntry(n);
 }
-function $e() {
+function ve() {
   return $.getAllLabels();
 }
-function Dt() {
+function Nt() {
   return $.getActionsByCategory();
 }
-function _e(n) {
+function Se(n) {
   $.setLabels(n);
 }
-function Ce() {
+function we() {
   return $.isInitialized();
 }
-function Le() {
+function $e() {
   $.reset();
 }
-function ke(n = {}) {
+function _e(n = {}) {
   return (t) => n[t] ? n[t] : $.getLabel(t);
 }
 function ot(n) {
   return n.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
 }
-function Ut(n) {
+function jt(n) {
   const {
     container: t,
     selector: e,
@@ -2065,64 +1710,64 @@ function Ut(n) {
     onEscape: r,
     wrap: a = !0,
     autoFocus: l = !1,
-    keyHandlers: c = {}
+    keyHandlers: o = {}
   } = n;
   function d() {
     return Array.from(t.querySelectorAll(e));
   }
-  function p(f) {
-    const b = d();
-    if (b.length === 0) return;
-    let y = f;
-    a ? y = (f % b.length + b.length) % b.length : y = Math.max(0, Math.min(f, b.length - 1)), b.forEach(($t, _t) => {
-      $t.setAttribute("tabindex", _t === y ? "0" : "-1");
+  function h(b) {
+    const f = d();
+    if (f.length === 0) return;
+    let y = b;
+    a ? y = (b % f.length + f.length) % f.length : y = Math.max(0, Math.min(b, f.length - 1)), f.forEach((xt, vt) => {
+      xt.setAttribute("tabindex", vt === y ? "0" : "-1");
     });
-    const x = b[y];
+    const x = f[y];
     x.focus(), i?.(x, y);
   }
-  function h(f) {
-    const b = d();
-    if (b.length === 0) return;
-    const y = f.target, x = b.indexOf(y);
+  function u(b) {
+    const f = d();
+    if (f.length === 0) return;
+    const y = b.target, x = f.indexOf(y);
     if (x !== -1) {
-      if (c[f.key]) {
-        c[f.key](f, y, x);
+      if (o[b.key]) {
+        o[b.key](b, y, x);
         return;
       }
-      switch (f.key) {
+      switch (b.key) {
         case "ArrowDown":
         case "ArrowRight":
-          f.preventDefault(), p(x + 1);
+          b.preventDefault(), h(x + 1);
           break;
         case "ArrowUp":
         case "ArrowLeft":
-          f.preventDefault(), p(x - 1);
+          b.preventDefault(), h(x - 1);
           break;
         case "Home":
-          f.preventDefault(), p(0);
+          b.preventDefault(), h(0);
           break;
         case "End":
-          f.preventDefault(), p(b.length - 1);
+          b.preventDefault(), h(f.length - 1);
           break;
         case "Enter":
         case " ":
-          f.preventDefault(), s?.(y, x);
+          b.preventDefault(), s?.(y, x);
           break;
         case "Escape":
-          f.preventDefault(), r?.();
+          b.preventDefault(), r?.();
           break;
       }
     }
   }
   const g = d();
-  return g.forEach((f, b) => {
-    f.setAttribute("tabindex", b === 0 ? "0" : "-1"), f.hasAttribute("role") || f.setAttribute("role", "option");
-  }), t.hasAttribute("role") || t.setAttribute("role", "listbox"), t.addEventListener("keydown", h), l && g.length > 0 && p(0), () => {
-    t.removeEventListener("keydown", h);
+  return g.forEach((b, f) => {
+    b.setAttribute("tabindex", f === 0 ? "0" : "-1"), b.hasAttribute("role") || b.setAttribute("role", "option");
+  }), t.hasAttribute("role") || t.setAttribute("role", "listbox"), t.addEventListener("keydown", u), l && g.length > 0 && h(0), () => {
+    t.removeEventListener("keydown", u);
   };
 }
-function Te(n, t) {
-  return Ut({
+function Ce(n, t) {
+  return jt({
     container: n,
     selector: t,
     wrap: !0,
@@ -2131,7 +1776,7 @@ function Te(n, t) {
     }
   });
 }
-const Ht = [
+const Dt = [
   "a[href]",
   "button:not([disabled])",
   "input:not([disabled])",
@@ -2139,21 +1784,21 @@ const Ht = [
   "textarea:not([disabled])",
   '[tabindex]:not([tabindex="-1"])'
 ].join(", ");
-function Ot(n) {
+function Ut(n) {
   const { container: t, initialFocus: e, returnFocus: s, onEscape: i } = n, r = document.activeElement;
   function a() {
-    return Array.from(t.querySelectorAll(Ht));
+    return Array.from(t.querySelectorAll(Dt));
   }
-  function l(c) {
-    if (c.key === "Escape") {
-      c.preventDefault(), i?.();
+  function l(o) {
+    if (o.key === "Escape") {
+      o.preventDefault(), i?.();
       return;
     }
-    if (c.key !== "Tab") return;
+    if (o.key !== "Tab") return;
     const d = a();
     if (d.length === 0) return;
-    const p = d[0], h = d[d.length - 1];
-    c.shiftKey ? document.activeElement === p && (c.preventDefault(), h.focus()) : document.activeElement === h && (c.preventDefault(), p.focus());
+    const h = d[0], u = d[d.length - 1];
+    o.shiftKey ? document.activeElement === h && (o.preventDefault(), u.focus()) : document.activeElement === u && (o.preventDefault(), h.focus());
   }
   return requestAnimationFrame(() => {
     e ? (typeof e == "string" ? t.querySelector(e) : e)?.focus() : a()[0]?.focus();
@@ -2161,7 +1806,7 @@ function Ot(n) {
     t.removeEventListener("keydown", l), t.removeAttribute("aria-modal"), (s || r)?.focus?.();
   };
 }
-function Bt(n) {
+function Ot(n) {
   const t = `services-live-region-${n}`;
   let e = document.getElementById(t);
   return e || (e = document.createElement("div"), e.id = t, e.setAttribute("aria-live", n), e.setAttribute("aria-atomic", "true"), e.setAttribute("role", "status"), e.className = "sr-only", Object.assign(e.style, {
@@ -2176,53 +1821,53 @@ function Bt(n) {
     border: "0"
   }), document.body.appendChild(e)), e;
 }
-function K(n, t = {}) {
-  const { priority: e = "polite", clear: s = !0 } = t, i = Bt(e);
+function Q(n, t = {}) {
+  const { priority: e = "polite", clear: s = !0 } = t, i = Ot(e);
   s && (i.textContent = ""), setTimeout(() => {
     i.textContent = n;
   }, 100);
 }
-function Ee(n) {
-  K(`Loading ${n}...`, { priority: "polite" });
+function Le(n) {
+  Q(`Loading ${n}...`, { priority: "polite" });
+}
+function ke(n) {
+  Q(n, { priority: "polite" });
+}
+function Te(n) {
+  Q(`Error: ${n}`, { priority: "assertive" });
 }
 function qe(n) {
-  K(n, { priority: "polite" });
+  Q(`Navigating to ${n}`, { priority: "polite" });
 }
-function Ae(n) {
-  K(`Error: ${n}`, { priority: "assertive" });
-}
-function Re(n) {
-  K(`Navigating to ${n}`, { priority: "polite" });
-}
-function Pe(n, t, e) {
+function Ee(n, t, e) {
   n.setAttribute("aria-expanded", String(e));
   const s = typeof t == "string" ? t : t.id;
   s && n.setAttribute("aria-controls", s);
 }
-function Ie(n, t) {
+function Ae(n, t) {
   n.setAttribute("aria-busy", String(t)), t ? n.setAttribute("aria-describedby", "loading-indicator") : n.removeAttribute("aria-describedby");
 }
-function Fe(n, t, e) {
+function Pe(n, t, e) {
   n.setAttribute("role", "status"), n.setAttribute("aria-label", `Status: ${e}`);
 }
-function Me(n, t) {
+function Re(n, t) {
   n.setAttribute("aria-sort", t), n.setAttribute("role", "columnheader");
 }
-function Ne(n, t, e = 100, s) {
+function Ie(n, t, e = 100, s) {
   n.setAttribute("role", "progressbar"), n.setAttribute("aria-valuenow", String(t)), n.setAttribute("aria-valuemin", "0"), n.setAttribute("aria-valuemax", String(e)), s && n.setAttribute("aria-label", s);
 }
-function je(n, t = "Skip to main content") {
+function Fe(n, t = "Skip to main content") {
   const e = document.createElement("a");
   return e.href = `#${n}`, e.className = "sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow-lg", e.textContent = t, e;
 }
-function De(n, t = {}) {
+function Me(n, t = {}) {
   const { title: e, describedBy: s, onClose: i } = t;
   if (n.setAttribute("role", "dialog"), n.setAttribute("aria-modal", "true"), e) {
     const a = `dialog-title-${Date.now()}`, l = n.querySelector('h1, h2, h3, [role="heading"]');
     l && (l.id = a, n.setAttribute("aria-labelledby", a));
   }
   s && n.setAttribute("aria-describedby", s);
-  const r = Ot({
+  const r = Ut({
     container: n,
     onEscape: i
   });
@@ -2230,23 +1875,23 @@ function De(n, t = {}) {
     r(), n.removeAttribute("aria-modal"), n.removeAttribute("aria-labelledby"), n.removeAttribute("aria-describedby");
   };
 }
-function zt() {
+function Ht() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
-function Ue(n) {
-  return zt() ? 0 : n;
+function Ne(n) {
+  return Ht() ? 0 : n;
 }
 const ct = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   degraded: { label: "Degraded", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   disabled: { label: "Disabled", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:cancel" }
-}, Vt = {
+}, Bt = {
   healthy: { label: "Healthy", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   warning: { label: "Warnings", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" },
   error: { label: "Errors", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
 };
-class He {
+class je {
   constructor(t) {
     this.container = null, this.state = null, this.loading = !1, this.config = t, this.state = t.state || null;
   }
@@ -2296,7 +1941,7 @@ class He {
           <div>
             <h2 class="text-lg font-semibold text-gray-900">Extension Diagnostics</h2>
             <p class="text-sm text-gray-500 mt-0.5">
-              Runtime v${o(this.state.runtimeVersion)} &middot;
+              Runtime v${c(this.state.runtimeVersion)} &middot;
               Worker ${this.state.workerStatus}
             </p>
           </div>
@@ -2306,7 +1951,7 @@ class He {
             </span>
             <button type="button"
                     class="diagnostics-refresh px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1.5">
-              ${u("iconoir:refresh", { size: "16px" })}
+              ${p("iconoir:refresh", { size: "16px" })}
               Refresh
             </button>
           </div>
@@ -2345,7 +1990,7 @@ class He {
           <div class="bg-white rounded-lg border border-red-200">
             <div class="px-4 py-3 border-b border-red-200 bg-red-50">
               <h3 class="text-base font-medium text-red-900 flex items-center gap-2">
-                ${u("iconoir:warning-circle", { size: "18px" })}
+                ${p("iconoir:warning-circle", { size: "18px" })}
                 Recent Errors (${this.state.recentErrors.length})
               </h3>
             </div>
@@ -2375,10 +2020,10 @@ class He {
         </div>
         <div class="flex items-center gap-2 mt-2">
           ${Object.entries(s).map(([a, l]) => {
-      const c = ct[a];
+      const o = ct[a];
       return l > 0 ? `
-              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs ${c.bg} ${c.text}">
-                ${l} ${c.label.toLowerCase()}
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs ${o.bg} ${o.text}">
+                ${l} ${o.label.toLowerCase()}
               </span>
             ` : "";
     }).join("")}
@@ -2388,13 +2033,13 @@ class He {
   }
   renderConfigHealthCard() {
     if (!this.state) return "";
-    const t = this.state.configHealth, e = Vt[t.status];
+    const t = this.state.configHealth, e = Bt[t.status];
     return `
       <div class="bg-white rounded-lg border ${t.status === "healthy" ? "border-gray-200" : "border-amber-200"} p-4">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-gray-500">Config Health</span>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${p(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </div>
@@ -2430,14 +2075,14 @@ class He {
   renderPackRow(t) {
     const e = ct[t.status];
     return `
-      <div class="pack-row px-4 py-3 hover:bg-gray-50 cursor-pointer" data-pack-id="${o(t.id)}">
+      <div class="pack-row px-4 py-3 hover:bg-gray-50 cursor-pointer" data-pack-id="${c(t.id)}">
         <div class="flex items-center justify-between">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900">${o(t.name)}</span>
-              <span class="text-xs text-gray-400">v${o(t.version)}</span>
+              <span class="text-sm font-medium text-gray-900">${c(t.name)}</span>
+              <span class="text-xs text-gray-400">v${c(t.version)}</span>
               <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${e.bg} ${e.text}">
-                ${u(e.icon, { size: "10px" })}
+                ${p(e.icon, { size: "10px" })}
                 ${e.label}
               </span>
             </div>
@@ -2449,11 +2094,11 @@ class He {
           </div>
           <div class="flex items-center gap-2">
             ${t.lastError ? `
-              <span class="text-xs text-red-600 truncate max-w-48" title="${o(t.lastError)}">
-                ${o(t.lastError.slice(0, 50))}${t.lastError.length > 50 ? "..." : ""}
+              <span class="text-xs text-red-600 truncate max-w-48" title="${c(t.lastError)}">
+                ${c(t.lastError.slice(0, 50))}${t.lastError.length > 50 ? "..." : ""}
               </span>
             ` : ""}
-            ${u("iconoir:nav-arrow-right", { size: "16px", extraClass: "text-gray-400" })}
+            ${p("iconoir:nav-arrow-right", { size: "16px", extraClass: "text-gray-400" })}
           </div>
         </div>
       </div>
@@ -2466,8 +2111,8 @@ class He {
         <div class="flex items-center justify-between">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-gray-900">${o(t.name)}</span>
-              <span class="text-xs text-gray-400">from ${o(t.sourcePack)}</span>
+              <span class="text-sm font-medium text-gray-900">${c(t.name)}</span>
+              <span class="text-xs text-gray-400">from ${c(t.sourcePack)}</span>
               ${t.enabled ? '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">Enabled</span>' : '<span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-500">Disabled</span>'}
             </div>
             <div class="flex items-center gap-4 mt-1 text-xs text-gray-500">
@@ -2482,21 +2127,21 @@ class He {
   }
   renderErrorRow(t) {
     return `
-      <div class="error-row px-4 py-3 hover:bg-red-50 cursor-pointer" data-error-id="${o(t.id)}">
+      <div class="error-row px-4 py-3 hover:bg-red-50 cursor-pointer" data-error-id="${c(t.id)}">
         <div class="flex items-start gap-3">
           <div class="flex-shrink-0 mt-0.5">
-            ${u("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500" })}
+            ${p("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500" })}
           </div>
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-red-800">${o(t.type)}</span>
-              <span class="text-xs text-gray-400">from ${o(t.packId)}</span>
+              <span class="text-sm font-medium text-red-800">${c(t.type)}</span>
+              <span class="text-xs text-gray-400">from ${c(t.packId)}</span>
             </div>
-            <p class="text-sm text-gray-700 mt-0.5">${o(t.message)}</p>
+            <p class="text-sm text-gray-700 mt-0.5">${c(t.message)}</p>
             <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
               <span>${this.formatTime(t.occurredAt)}</span>
               ${t.relatedEntity ? `
-                <span>${o(t.relatedEntity.type)}:${o(t.relatedEntity.id)}</span>
+                <span>${c(t.relatedEntity.type)}:${c(t.relatedEntity.id)}</span>
               ` : ""}
             </div>
           </div>
@@ -2507,7 +2152,7 @@ class He {
   renderEmptyState(t) {
     return `
       <div class="px-4 py-8 text-center">
-        <p class="text-sm text-gray-500">${o(t)}</p>
+        <p class="text-sm text-gray-500">${c(t)}</p>
       </div>
     `;
   }
@@ -2584,25 +2229,25 @@ function D(n) {
   }[t];
   return s === "tooltip" ? `
       <span class="state-source-indicator inline-flex items-center"
-            title="${o(a.description)}${i ? ` - ${i}` : ""}"
-            aria-label="${o(a.description)}">
-        ${u(a.icon, { size: "14px", extraClass: a.text })}
+            title="${c(a.description)}${i ? ` - ${i}` : ""}"
+            aria-label="${c(a.description)}">
+        ${p(a.icon, { size: "14px", extraClass: a.text })}
       </span>
     ` : `
     <span class="state-source-indicator inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${a.bg} ${a.text}"
-          title="${o(a.description)}${i ? ` - ${i}` : ""}"
+          title="${c(a.description)}${i ? ` - ${i}` : ""}"
           role="note"
-          aria-label="State source: ${o(a.description)}">
-      ${u(a.icon, { size: "12px" })}
-      <span>${o(a.label)}</span>
+          aria-label="State source: ${c(a.description)}">
+      ${p(a.icon, { size: "12px" })}
+      <span>${c(a.label)}</span>
     </span>
   `;
 }
-function Oe(n, t) {
+function De(n, t) {
   const e = document.createElement("span");
   e.innerHTML = D(t), n.appendChild(e.firstElementChild);
 }
-function Be() {
+function Ue() {
   return `
     <div class="state-source-legend p-4 bg-gray-50 rounded-lg border border-gray-200">
       <h4 class="text-sm font-medium text-gray-900 mb-3">State Source Legend</h4>
@@ -2630,13 +2275,13 @@ function w(n, t) {
   const e = typeof t == "function" ? String(t(n) || "").trim() : "";
   return e || U(n);
 }
-function H(n) {
+function O(n) {
   return n.replace(/_/g, " ").replace(/-/g, " ").replace(/\b\w/g, (t) => t.toUpperCase());
 }
 function v(n, t = 12) {
   return n.length <= t ? n : `${n.slice(0, t - 3)}...`;
 }
-function P(n) {
+function R(n) {
   const t = new Date(n);
   return Number.isNaN(t.getTime()) ? n : t.toLocaleString();
 }
@@ -2644,13 +2289,13 @@ function m(n, t = {}) {
   const e = new Date(n);
   if (Number.isNaN(e.getTime())) return n;
   if (!t.allowFuture) {
-    const h = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), g = Math.floor(h / 6e4), f = Math.floor(h / 36e5), b = Math.floor(h / 864e5);
-    return g < 1 ? t.pastImmediateLabel || "Just now" : g < 60 ? `${g}m ago` : f < 24 ? `${f}h ago` : b < 7 ? `${b}d ago` : e.toLocaleDateString();
+    const u = (/* @__PURE__ */ new Date()).getTime() - e.getTime(), g = Math.floor(u / 6e4), b = Math.floor(u / 36e5), f = Math.floor(u / 864e5);
+    return g < 1 ? t.pastImmediateLabel || "Just now" : g < 60 ? `${g}m ago` : b < 24 ? `${b}h ago` : f < 7 ? `${f}d ago` : e.toLocaleDateString();
   }
-  const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime(), r = i > 0, a = Math.abs(i), l = Math.floor(a / 6e4), c = Math.floor(a / 36e5), d = Math.floor(a / 864e5);
-  return l < 1 ? r ? t.futureImmediateLabel || "Soon" : t.pastImmediateLabel || "Just now" : l < 60 ? r ? `in ${l}m` : `${l}m ago` : c < 24 ? r ? `in ${c}h` : `${c}h ago` : d < 7 ? r ? `in ${d}d` : `${d}d ago` : e.toLocaleDateString();
+  const s = /* @__PURE__ */ new Date(), i = e.getTime() - s.getTime(), r = i > 0, a = Math.abs(i), l = Math.floor(a / 6e4), o = Math.floor(a / 36e5), d = Math.floor(a / 864e5);
+  return l < 1 ? r ? t.futureImmediateLabel || "Soon" : t.pastImmediateLabel || "Just now" : l < 60 ? r ? `in ${l}m` : `${l}m ago` : o < 24 ? r ? `in ${o}h` : `${o}h ago` : d < 7 ? r ? `in ${d}d` : `${d}d ago` : e.toLocaleDateString();
 }
-async function wt(n, t = {}) {
+async function mt(n, t = {}) {
   try {
     return (await n.listProviders(t.signal)).providers || [];
   } catch (e) {
@@ -2659,8 +2304,8 @@ async function wt(n, t = {}) {
   }
 }
 async function nt(n, t) {
-  const e = await wt(n, t);
-  return Wt({
+  const e = await mt(n, t);
+  return zt({
     container: t.container,
     providers: e,
     selectedProviderId: t.selectedProviderId,
@@ -2669,21 +2314,21 @@ async function nt(n, t) {
     emptyLabel: t.emptyLabel
   }), e;
 }
-function Wt(n) {
+function zt(n) {
   const t = n.container?.querySelector(
     n.selectSelector || '[data-filter="provider_id"]'
   );
   if (!t) return;
   const e = n.emptyLabel || "All Providers", s = n.providers.map((i) => {
     const r = w(i.id, n.getProviderName);
-    return `<option value="${o(i.id)}">${o(r)}</option>`;
+    return `<option value="${c(i.id)}">${c(r)}</option>`;
   }).join("");
-  t.innerHTML = `<option value="">${o(e)}</option>${s}`, t.value = n.selectedProviderId || "";
+  t.innerHTML = `<option value="">${c(e)}</option>${s}`, t.value = n.selectedProviderId || "";
 }
-function T(n, t) {
+function k(n, t) {
   n.querySelector(".ui-state-reset-btn")?.addEventListener("click", t);
 }
-function Y(n, t) {
+function J(n, t) {
   return n?.abort(), t.destroy(), null;
 }
 const lt = {
@@ -2700,7 +2345,7 @@ const lt = {
   teams: "iconoir:group",
   onedrive: "iconoir:cloud",
   default: "iconoir:plugin"
-}, Gt = {
+}, Vt = {
   github: "GitHub",
   google: "Google",
   gmail: "Gmail",
@@ -2714,7 +2359,7 @@ const lt = {
   teams: "Microsoft Teams",
   onedrive: "OneDrive"
 };
-class Qt {
+class Wt {
   constructor(t) {
     this.container = null, this.providers = [], this.loading = !1, this.error = null, this.config = t;
   }
@@ -2756,8 +2401,8 @@ class Qt {
   async loadProviders() {
     if (!this.container) return;
     this.loading = !0, this.error = null, this.renderLoading();
-    const t = E();
-    this.providers = await wt(t, {
+    const t = q();
+    this.providers = await mt(t, {
       notifier: this.config.notifier,
       onError: (e) => {
         this.error = e;
@@ -2774,21 +2419,21 @@ class Qt {
     }
   }
   renderLoading() {
-    this.container && (this.container.innerHTML = z({
+    this.container && (this.container.innerHTML = st({
       text: "Loading providers...",
       size: "lg"
     }));
   }
   renderError() {
     if (!this.container) return;
-    this.container.innerHTML = V({
+    this.container.innerHTML = it({
       title: "Failed to load providers",
       error: this.error,
       showRetry: !0
     }), this.container.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadProviders());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = L({
+    this.container && (this.container.innerHTML = T({
       resource: "service providers"
     }));
   }
@@ -2806,25 +2451,25 @@ class Qt {
     `, this.bindCardEvents();
   }
   renderEmpty() {
-    this.container && (this.container.innerHTML = xt({
+    this.container && (this.container.innerHTML = St({
       type: "providers"
     }));
   }
   buildProviderCard(t) {
-    const e = this.getProviderCardData(t), s = k()() && t.supported_scope_types.includes("user"), i = k()() && t.supported_scope_types.includes("org"), r = this.buildCapabilitySummary(t.capabilities), a = this.buildScopeBadges(t.supported_scope_types);
+    const e = this.getProviderCardData(t), s = L()() && t.supported_scope_types.includes("user"), i = L()() && t.supported_scope_types.includes("org"), r = this.buildCapabilitySummary(t.capabilities), a = this.buildScopeBadges(t.supported_scope_types);
     return `
       <div class="provider-card bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-sm transition-all cursor-pointer"
-           data-provider-id="${o(t.id)}">
+           data-provider-id="${c(t.id)}">
         <div class="p-4">
           <!-- Header -->
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
-                ${u(e.icon, { size: "20px", extraClass: "text-gray-600" })}
+                ${p(e.icon, { size: "20px", extraClass: "text-gray-600" })}
               </div>
               <div>
-                <h3 class="text-sm font-semibold text-gray-900">${o(e.displayName)}</h3>
-                <span class="text-xs text-gray-500">${o(t.auth_kind)}</span>
+                <h3 class="text-sm font-semibold text-gray-900">${c(e.displayName)}</h3>
+                <span class="text-xs text-gray-500">${c(t.auth_kind)}</span>
               </div>
             </div>
             ${a}
@@ -2843,7 +2488,7 @@ class Qt {
             ${s ? `
               <button type="button"
                       class="provider-connect-btn flex-1 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 transition-colors"
-                      data-provider-id="${o(t.id)}"
+                      data-provider-id="${c(t.id)}"
                       data-scope-type="user">
                 Connect as User
               </button>
@@ -2851,7 +2496,7 @@ class Qt {
             ${i ? `
               <button type="button"
                       class="provider-connect-btn flex-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-                      data-provider-id="${o(t.id)}"
+                      data-provider-id="${c(t.id)}"
                       data-scope-type="org">
                 Connect Org
               </button>
@@ -2870,11 +2515,11 @@ class Qt {
     const e = 4, s = t.slice(0, e), i = t.length - e;
     let r = '<div class="flex flex-wrap gap-1">';
     for (const a of s) {
-      const [l, c] = a.name.split(".");
+      const [l, o] = a.name.split(".");
       r += `
         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600"
-              title="${o(a.name)}">
-          ${o(c || a.name)}
+              title="${c(a.name)}">
+          ${c(o || a.name)}
         </span>
       `;
     }
@@ -2892,14 +2537,14 @@ class Qt {
     `;
   }
   getProviderCardData(t) {
-    const e = this.config.getProviderName ? this.config.getProviderName(t.id) : Gt[t.id.toLowerCase()] || w(t.id), s = this.config.getProviderIcon ? this.config.getProviderIcon(t.id) : lt[t.id.toLowerCase()] || lt.default;
+    const e = this.config.getProviderName ? this.config.getProviderName(t.id) : Vt[t.id.toLowerCase()] || w(t.id), s = this.config.getProviderIcon ? this.config.getProviderIcon(t.id) : lt[t.id.toLowerCase()] || lt.default;
     return {
       provider: t,
       displayName: e,
       icon: s,
       description: `${t.auth_kind} authentication`,
       capabilityCount: t.capabilities.length,
-      canConnect: k()()
+      canConnect: L()()
     };
   }
   bindCardEvents() {
@@ -2925,8 +2570,8 @@ class Qt {
     });
   }
 }
-async function ze(n) {
-  const t = new Qt(n);
+async function Oe(n) {
+  const t = new Wt(n);
   return await t.init(), t;
 }
 const dt = {
@@ -2936,7 +2581,7 @@ const dt = {
   pending_reauth: { label: "Pending Reauth", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
 };
-class Jt {
+class Gt {
   constructor(t) {
     this.container = null, this.state = {
       connections: [],
@@ -2944,11 +2589,11 @@ class Jt {
       total: 0,
       loading: !1,
       error: null
-    }, this.abortController = null, this.actionQueue = new J(), this.config = {
+    }, this.abortController = null, this.actionQueue = new G(), this.config = {
       perPage: 25,
       syncUrl: !0,
       ...t
-    }, this.client = t.apiClient || E(), this.queryState = new O({
+    }, this.client = t.apiClient || q(), this.queryState = new z({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadConnections()
@@ -2998,7 +2643,7 @@ class Jt {
    * Destroy the manager
    */
   destroy() {
-    this.abortController = Y(this.abortController, this.queryState);
+    this.abortController = J(this.abortController, this.queryState);
   }
   // ---------------------------------------------------------------------------
   // Data Loading
@@ -3065,9 +2710,9 @@ class Jt {
           <button type="button"
                   class="connections-reset px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                   title="Reset filters">
-            ${u("iconoir:refresh", { size: "16px" })}
+            ${p("iconoir:refresh", { size: "16px" })}
           </button>
-          ${k()() && this.config.onConnect ? `
+          ${L()() && this.config.onConnect ? `
             <button type="button"
                     class="connections-connect-user px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
               Connect User
@@ -3101,7 +2746,7 @@ class Jt {
         <!-- Empty State -->
         <div class="connections-empty hidden py-12 text-center">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            ${u("iconoir:link", { size: "24px", extraClass: "text-gray-400" })}
+            ${p("iconoir:link", { size: "24px", extraClass: "text-gray-400" })}
           </div>
           <h3 class="text-lg font-medium text-gray-900">No connections found</h3>
           <p class="text-sm text-gray-500 mt-1">Connect a service to get started.</p>
@@ -3137,12 +2782,12 @@ class Jt {
   }
   bindEvents() {
     if (!this.container) return;
-    this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (c) => {
-      this.queryState.setSearch(c.target.value);
-    }), this.container.querySelectorAll("select[data-filter]").forEach((c) => {
-      c.addEventListener("change", () => {
-        const d = c.dataset.filter;
-        this.queryState.setFilter(d, c.value || void 0);
+    this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (o) => {
+      this.queryState.setSearch(o.target.value);
+    }), this.container.querySelectorAll("select[data-filter]").forEach((o) => {
+      o.addEventListener("change", () => {
+        const d = o.dataset.filter;
+        this.queryState.setFilter(d, o.value || void 0);
       });
     }), this.container.querySelector(".connections-reset")?.addEventListener("click", () => {
       this.queryState.reset(), this.restoreFilterValues();
@@ -3156,13 +2801,13 @@ class Jt {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-empty"), s = this.container?.querySelector(".connections-table-wrapper");
     if (t) {
       if (this.state.connections.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(6, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = P(6, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount(),
           onReset: () => {
             this.queryState.reset(), this.restoreFilterValues();
           }
-        }), T(t, () => {
+        }), k(t, () => {
           this.queryState.reset(), this.restoreFilterValues();
         })) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"));
         return;
@@ -3171,7 +2816,7 @@ class Jt {
     }
   }
   handleConnect(t) {
-    if (!this.config.onConnect || !k()()) return;
+    if (!this.config.onConnect || !L()()) return;
     const s = this.container?.querySelector('[data-filter="provider_id"]')?.value || "";
     if (!s) {
       this.config.notifier?.error("Select a provider before starting a connection.");
@@ -3192,31 +2837,31 @@ class Jt {
   renderConnectionRow(t) {
     const e = dt[t.status] || dt.disconnected, s = w(t.provider_id, this.config.getProviderName), i = m(t.updated_at), r = this.buildRowActions(t);
     return `
-      <tr class="connection-row hover:bg-gray-50 cursor-pointer" data-connection-id="${o(t.id)}">
+      <tr class="connection-row hover:bg-gray-50 cursor-pointer" data-connection-id="${c(t.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${o(s)}</span>
+          <span class="font-medium text-gray-900">${c(s)}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-            ${o(t.scope_type)}
+            ${c(t.scope_type)}
           </span>
-          <span class="text-gray-500 text-xs ml-1" title="${o(t.scope_id)}">
-            ${o(v(t.scope_id))}
+          <span class="text-gray-500 text-xs ml-1" title="${c(t.scope_id)}">
+            ${c(v(t.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-gray-600" title="${o(t.external_account_id)}">
-            ${o(v(t.external_account_id, 20))}
+          <span class="text-gray-600" title="${c(t.external_account_id)}">
+            ${c(v(t.external_account_id, 20))}
           </span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${p(e.icon, { size: "12px" })}
             ${e.label}
           </span>
           ${t.last_error ? `
-            <div class="text-xs text-red-500 mt-0.5 truncate max-w-[200px]" title="${o(t.last_error)}">
-              ${o(t.last_error)}
+            <div class="text-xs text-red-500 mt-0.5 truncate max-w-[200px]" title="${c(t.last_error)}">
+              ${c(t.last_error)}
             </div>
           ` : ""}
         </td>
@@ -3236,21 +2881,21 @@ class Jt {
                 class="connection-action-refresh p-1 text-gray-400 hover:text-blue-600"
                 data-action="refresh"
                 title="Refresh credentials">
-          ${u("iconoir:refresh", { size: "16px" })}
+          ${p("iconoir:refresh", { size: "16px" })}
         </button>
       `), t.status === "needs_reconsent" && yt()() && e.push(`
         <button type="button"
                 class="connection-action-reconsent p-1 text-gray-400 hover:text-orange-600"
                 data-action="reconsent"
                 title="Re-consent">
-          ${u("iconoir:redo", { size: "16px" })}
+          ${p("iconoir:redo", { size: "16px" })}
         </button>
       `), t.status !== "disconnected" && rt()() && e.push(`
         <button type="button"
                 class="connection-action-revoke p-1 text-gray-400 hover:text-red-600"
                 data-action="revoke"
                 title="Revoke connection">
-          ${u("iconoir:cancel", { size: "16px" })}
+          ${p("iconoir:cancel", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -3317,7 +2962,7 @@ class Jt {
   }
   async handleRevoke(t, e) {
     const s = this.getConnection(t), i = s ? w(s.provider_id, this.config.getProviderName) : void 0;
-    await Q({
+    await W({
       action: "revoke",
       resourceType: "connection",
       resourceName: i
@@ -3340,28 +2985,28 @@ class Jt {
   renderError() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-table-wrapper"), s = this.container?.querySelector(".connections-empty");
     if (!t) return;
-    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = G(6, {
+    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = H(6, {
       title: "Failed to load connections",
       error: this.state.error,
       showRetry: !0
     }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadConnections());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = L({
+    this.container && (this.container.innerHTML = T({
       resource: "connections"
     }));
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".connections-tbody"), e = this.container?.querySelector(".connections-table-wrapper"), s = this.container?.querySelector(".connections-empty");
-    this.state.loading && t && this.state.connections.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = W(6, { text: "Loading connections..." }));
+    this.state.loading && t && this.state.connections.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = B(6, { text: "Loading connections..." }));
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, c = e > 1, d = this.container?.querySelector(".connections-info"), p = this.container?.querySelector(".connections-prev"), h = this.container?.querySelector(".connections-next");
-    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No connections"), p && (p.disabled = !c), h && (h.disabled = !l);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, o = e > 1, d = this.container?.querySelector(".connections-info"), h = this.container?.querySelector(".connections-prev"), u = this.container?.querySelector(".connections-next");
+    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No connections"), h && (h.disabled = !o), u && (u.disabled = !l);
   }
 }
-async function Ve(n) {
-  const t = new Jt(n);
+async function He(n) {
+  const t = new Gt(n);
   return await t.init(), t;
 }
 const ut = {
@@ -3376,7 +3021,7 @@ const ut = {
   marketplace_app: { label: "Marketplace", bg: "bg-pink-50", text: "text-pink-600" },
   standard: { label: "Standard", bg: "bg-gray-50", text: "text-gray-600" }
 };
-class Kt {
+class Qt {
   constructor(t) {
     this.container = null, this.state = {
       installations: [],
@@ -3384,11 +3029,11 @@ class Kt {
       total: 0,
       loading: !1,
       error: null
-    }, this.abortController = null, this.actionQueue = new J(), this.config = {
+    }, this.abortController = null, this.actionQueue = new G(), this.config = {
       perPage: 25,
       syncUrl: !0,
       ...t
-    }, this.client = t.apiClient || E(), this.queryState = new O({
+    }, this.client = t.apiClient || q(), this.queryState = new z({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadInstallations()
@@ -3438,7 +3083,7 @@ class Kt {
    * Destroy the manager
    */
   destroy() {
-    this.abortController = Y(this.abortController, this.queryState);
+    this.abortController = J(this.abortController, this.queryState);
   }
   // ---------------------------------------------------------------------------
   // Data Loading
@@ -3515,7 +3160,7 @@ class Kt {
           <button type="button"
                   class="installations-reset px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                   title="Reset filters">
-            ${u("iconoir:refresh", { size: "16px" })}
+            ${p("iconoir:refresh", { size: "16px" })}
           </button>
         </div>
 
@@ -3541,7 +3186,7 @@ class Kt {
         <!-- Empty State -->
         <div class="installations-empty hidden py-12 text-center">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            ${u("iconoir:download", { size: "24px", extraClass: "text-gray-400" })}
+            ${p("iconoir:download", { size: "24px", extraClass: "text-gray-400" })}
           </div>
           <h3 class="text-lg font-medium text-gray-900">No installations found</h3>
           <p class="text-sm text-gray-500 mt-1">Install a service to get started.</p>
@@ -3592,10 +3237,10 @@ class Kt {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-empty"), s = this.container?.querySelector(".installations-table-wrapper");
     if (t) {
       if (this.state.installations.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = P(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
-        }), T(t, () => {
+        }), k(t, () => {
           this.queryState.reset(), this.restoreFilterValues();
         })) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"));
         return;
@@ -3606,9 +3251,9 @@ class Kt {
   renderInstallationRow(t) {
     const e = ut[t.status] || ut.uninstalled, s = ht[t.install_type] || ht.standard, i = w(t.provider_id, this.config.getProviderName), r = t.granted_at ? m(t.granted_at) : "—", a = t.revoked_at ? m(t.revoked_at) : "—", l = this.buildRowActions(t);
     return `
-      <tr class="installation-row hover:bg-gray-50 cursor-pointer" data-installation-id="${o(t.id)}">
+      <tr class="installation-row hover:bg-gray-50 cursor-pointer" data-installation-id="${c(t.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${o(i)}</span>
+          <span class="font-medium text-gray-900">${c(i)}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}">
@@ -3617,15 +3262,15 @@ class Kt {
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-            ${o(t.scope_type)}
+            ${c(t.scope_type)}
           </span>
-          <span class="text-gray-500 text-xs ml-1" title="${o(t.scope_id)}">
-            ${o(v(t.scope_id))}
+          <span class="text-gray-500 text-xs ml-1" title="${c(t.scope_id)}">
+            ${c(v(t.scope_id))}
           </span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${p(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
@@ -3648,14 +3293,14 @@ class Kt {
                 class="installation-action-uninstall p-1 text-gray-400 hover:text-red-600"
                 data-action="uninstall"
                 title="Uninstall">
-          ${u("iconoir:trash", { size: "16px" })}
+          ${p("iconoir:trash", { size: "16px" })}
         </button>
-      `), t.status === "uninstalled" && k()() && e.push(`
+      `), t.status === "uninstalled" && L()() && e.push(`
         <button type="button"
                 class="installation-action-reinstall p-1 text-gray-400 hover:text-green-600"
                 data-action="reinstall"
                 title="Reinstall">
-          ${u("iconoir:redo", { size: "16px" })}
+          ${p("iconoir:redo", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -3682,7 +3327,7 @@ class Kt {
   }
   async handleUninstall(t, e) {
     const s = this.getInstallation(t), i = s ? w(s.provider_id, this.config.getProviderName) : void 0;
-    await Q({
+    await W({
       action: "uninstall",
       resourceType: "installation",
       resourceName: i
@@ -3709,28 +3354,28 @@ class Kt {
   renderError() {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-table-wrapper"), s = this.container?.querySelector(".installations-empty");
     if (!t) return;
-    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = G(7, {
+    e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = H(7, {
       title: "Failed to load installations",
       error: this.state.error,
       showRetry: !0
     }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadInstallations());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = L({
+    this.container && (this.container.innerHTML = T({
       resource: "installations"
     }));
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".installations-tbody"), e = this.container?.querySelector(".installations-table-wrapper"), s = this.container?.querySelector(".installations-empty");
-    this.state.loading && t && this.state.installations.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = W(7, { text: "Loading installations..." }));
+    this.state.loading && t && this.state.installations.length === 0 && (e?.classList.remove("hidden"), s?.classList.add("hidden"), t.innerHTML = B(7, { text: "Loading installations..." }));
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, c = e > 1, d = this.container?.querySelector(".installations-info"), p = this.container?.querySelector(".installations-prev"), h = this.container?.querySelector(".installations-next");
-    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No installations"), p && (p.disabled = !c), h && (h.disabled = !l);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, o = e > 1, d = this.container?.querySelector(".installations-info"), h = this.container?.querySelector(".installations-prev"), u = this.container?.querySelector(".installations-next");
+    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No installations"), h && (h.disabled = !o), u && (u.disabled = !l);
   }
 }
-async function We(n) {
-  const t = new Kt(n);
+async function Be(n) {
+  const t = new Qt(n);
   return await t.init(), t;
 }
 const N = {
@@ -3738,7 +3383,7 @@ const N = {
   failure: { label: "Failed", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending: { label: "Pending", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" }
 };
-class Yt {
+class Jt {
   constructor(t) {
     this.container = null, this.state = {
       entries: [],
@@ -3752,7 +3397,7 @@ class Yt {
       viewMode: "timeline",
       useDeepLinks: !0,
       ...t
-    }, this.state.viewMode = this.config.viewMode || "timeline", this.client = t.apiClient || E(), this.queryState = new O({
+    }, this.state.viewMode = this.config.viewMode || "timeline", this.client = t.apiClient || q(), this.queryState = new z({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadActivity()
@@ -3781,7 +3426,7 @@ class Yt {
       console.error("[ActivityPage] Container not found:", this.config.container);
       return;
     }
-    if (!At()()) {
+    if (!qt()()) {
       this.renderForbidden();
       return;
     }
@@ -3821,7 +3466,7 @@ class Yt {
    * Destroy the manager
    */
   destroy() {
-    this.abortController = Y(this.abortController, this.queryState);
+    this.abortController = J(this.abortController, this.queryState);
   }
   // ---------------------------------------------------------------------------
   // Data Loading
@@ -3865,13 +3510,13 @@ class Yt {
             <button type="button"
                     class="activity-view-timeline px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${this.state.viewMode === "timeline" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}"
                     title="Timeline view">
-              ${u("iconoir:timeline", { size: "16px" })}
+              ${p("iconoir:timeline", { size: "16px" })}
               <span class="ml-1.5">Timeline</span>
             </button>
             <button type="button"
                     class="activity-view-table px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${this.state.viewMode === "table" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}"
                     title="Table view">
-              ${u("iconoir:table-rows", { size: "16px" })}
+              ${p("iconoir:table-rows", { size: "16px" })}
               <span class="ml-1.5">Table</span>
             </button>
           </div>
@@ -3985,7 +3630,7 @@ class Yt {
             <button type="button"
                     class="activity-reset flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
                     title="Reset filters">
-              ${u("iconoir:refresh", { size: "16px" })}
+              ${p("iconoir:refresh", { size: "16px" })}
               <span>Reset</span>
             </button>
           </div>
@@ -4025,7 +3670,7 @@ class Yt {
           <!-- Empty State -->
           <div class="activity-empty hidden py-12 text-center bg-white rounded-lg border border-gray-200">
             <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-              ${u("iconoir:activity", { size: "24px", extraClass: "text-gray-400" })}
+              ${p("iconoir:activity", { size: "24px", extraClass: "text-gray-400" })}
             </div>
             <h3 class="text-lg font-medium text-gray-900">No activity found</h3>
             <p class="text-sm text-gray-500 mt-1">Activity entries will appear here as actions occur.</p>
@@ -4054,18 +3699,18 @@ class Yt {
     `, this.restoreFilterValues());
   }
   renderProviderOptions() {
-    return !this.config.providers || this.config.providers.length === 0 ? "" : this.config.providers.map((t) => `<option value="${o(t.id)}">${o(t.name)}</option>`).join("");
+    return !this.config.providers || this.config.providers.length === 0 ? "" : this.config.providers.map((t) => `<option value="${c(t.id)}">${c(t.name)}</option>`).join("");
   }
   renderChannelOptions() {
-    return (this.config.channels || ["connections", "credentials", "grants", "webhooks", "sync", "lifecycle"]).map((e) => `<option value="${o(e)}">${o(H(e))}</option>`).join("");
+    return (this.config.channels || ["connections", "credentials", "grants", "webhooks", "sync", "lifecycle"]).map((e) => `<option value="${c(e)}">${c(O(e))}</option>`).join("");
   }
   renderActionOptions() {
     if (this.config.actions && this.config.actions.length > 0)
       return this.config.actions.map((i) => {
         const r = this.resolveActionLabel(i);
-        return `<option value="${o(i)}">${o(r)}</option>`;
+        return `<option value="${c(i)}">${c(r)}</option>`;
       }).join("");
-    const t = Dt(), e = {
+    const t = Nt(), e = {
       connections: "Connections",
       credentials: "Credentials",
       sync: "Sync",
@@ -4077,11 +3722,11 @@ class Yt {
       other: "Other"
     }, s = [];
     for (const [i, r] of Object.entries(t)) {
-      const a = e[i] || H(i), l = r.map((c) => {
-        const d = this.resolveActionLabel(c.action);
-        return `<option value="${o(c.action)}">${o(d)}</option>`;
+      const a = e[i] || O(i), l = r.map((o) => {
+        const d = this.resolveActionLabel(o.action);
+        return `<option value="${c(o.action)}">${c(d)}</option>`;
       }).join("");
-      s.push(`<optgroup label="${o(a)}">${l}</optgroup>`);
+      s.push(`<optgroup label="${c(a)}">${l}</optgroup>`);
     }
     return s.join("");
   }
@@ -4089,7 +3734,7 @@ class Yt {
    * Resolve action label using config override or centralized registry.
    */
   resolveActionLabel(t) {
-    return this.config.getActionLabel ? this.config.getActionLabel(t) : jt(t);
+    return this.config.getActionLabel ? this.config.getActionLabel(t) : Mt(t);
   }
   restoreFilterValues() {
     const t = this.queryState.getState(), e = this.container?.querySelector('[data-filter="search"]');
@@ -4102,17 +3747,17 @@ class Yt {
   bindEvents() {
     if (!this.container) return;
     const t = this.container.querySelector(".activity-view-timeline"), e = this.container.querySelector(".activity-view-table");
-    t?.addEventListener("click", () => this.setViewMode("timeline")), e?.addEventListener("click", () => this.setViewMode("table")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (h) => {
-      this.queryState.setSearch(h.target.value);
-    }), this.container.querySelectorAll("select[data-filter]").forEach((h) => {
-      h.addEventListener("change", () => {
-        const g = h.dataset.filter;
-        this.queryState.setFilter(g, h.value || void 0);
+    t?.addEventListener("click", () => this.setViewMode("timeline")), e?.addEventListener("click", () => this.setViewMode("table")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (u) => {
+      this.queryState.setSearch(u.target.value);
+    }), this.container.querySelectorAll("select[data-filter]").forEach((u) => {
+      u.addEventListener("change", () => {
+        const g = u.dataset.filter;
+        this.queryState.setFilter(g, u.value || void 0);
       });
-    }), this.container.querySelectorAll('input[data-filter]:not([type="text"])').forEach((h) => {
-      h.addEventListener("change", () => {
-        const g = h.dataset.filter;
-        this.queryState.setFilter(g, h.value || void 0);
+    }), this.container.querySelectorAll('input[data-filter]:not([type="text"])').forEach((u) => {
+      u.addEventListener("change", () => {
+        const g = u.dataset.filter;
+        this.queryState.setFilter(g, u.value || void 0);
       });
     });
     const a = this.container.querySelector('[data-filter="object_type"]'), l = this.container.querySelector('[data-filter="object_id"]');
@@ -4123,22 +3768,22 @@ class Yt {
     }), this.container.querySelector(".activity-reset")?.addEventListener("click", () => {
       this.queryState.reset(), this.restoreFilterValues();
     });
-    const d = this.container.querySelector(".activity-prev"), p = this.container.querySelector(".activity-next");
-    d?.addEventListener("click", () => this.queryState.prevPage()), p?.addEventListener("click", () => this.queryState.nextPage());
+    const d = this.container.querySelector(".activity-prev"), h = this.container.querySelector(".activity-next");
+    d?.addEventListener("click", () => this.queryState.prevPage()), h?.addEventListener("click", () => this.queryState.nextPage());
   }
   renderEntries() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-empty"), i = this.container?.querySelector(".activity-timeline-container"), r = this.container?.querySelector(".activity-table-container");
     if (this.state.entries.length === 0) {
-      this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = vt({
+      this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = wt({
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount(),
         containerClass: "bg-white rounded-lg border border-gray-200"
-      }), T(t, () => {
+      }), k(t, () => {
         this.queryState.reset(), this.restoreFilterValues();
-      }))) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = R(7, {
+      }))) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = P(7, {
         query: this.queryState.getState().search,
         filterCount: this.queryState.getActiveFilterCount()
-      }), T(e, () => {
+      }), k(e, () => {
         this.queryState.reset(), this.restoreFilterValues();
       })))) : (i?.classList.add("hidden"), r?.classList.add("hidden"), s?.classList.remove("hidden")), this.updateFilterSummary();
       return;
@@ -4146,14 +3791,14 @@ class Yt {
     s?.classList.add("hidden"), this.state.viewMode === "timeline" ? (i?.classList.remove("hidden"), r?.classList.add("hidden"), t && (t.innerHTML = this.state.entries.map((a) => this.renderTimelineEntry(a)).join(""), this.bindEntryActions())) : (r?.classList.remove("hidden"), i?.classList.add("hidden"), e && (e.innerHTML = this.state.entries.map((a) => this.renderTableRow(a)).join(""), this.bindEntryActions())), this.updateFilterSummary();
   }
   renderTimelineEntry(t) {
-    const e = N[t.status] || N.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : U(t.provider_id), i = this.resolveActionLabel(t.action), r = P(t.created_at), a = m(t.created_at);
+    const e = N[t.status] || N.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : U(t.provider_id), i = this.resolveActionLabel(t.action), r = R(t.created_at), a = m(t.created_at);
     return `
       <div class="activity-entry flex gap-4 bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 transition-colors cursor-pointer"
-           data-entry-id="${o(t.id)}">
+           data-entry-id="${c(t.id)}">
         <!-- Status indicator -->
         <div class="flex-shrink-0">
           <div class="w-10 h-10 rounded-full ${e.bg} flex items-center justify-center">
-            ${u(e.icon, { size: "20px", extraClass: e.text })}
+            ${p(e.icon, { size: "20px", extraClass: e.text })}
           </div>
         </div>
 
@@ -4162,30 +3807,30 @@ class Yt {
           <div class="flex items-start justify-between gap-4">
             <div>
               <p class="text-sm font-medium text-gray-900">
-                ${o(i)}
+                ${c(i)}
               </p>
               <div class="flex items-center gap-2 mt-1">
-                <span class="text-xs text-gray-500">${o(s)}</span>
+                <span class="text-xs text-gray-500">${c(s)}</span>
                 ${t.channel ? `
                   <span class="text-gray-300">&middot;</span>
-                  <span class="text-xs text-gray-500">${o(t.channel)}</span>
+                  <span class="text-xs text-gray-500">${c(t.channel)}</span>
                 ` : ""}
                 ${t.object_type && t.object_id ? `
                   <span class="text-gray-300">&middot;</span>
                   <a href="${this.buildObjectLinkUrl(t.object_type, t.object_id)}"
                      class="activity-object-link text-xs text-blue-600 hover:text-blue-700"
-                     data-object-type="${o(t.object_type)}"
-                     data-object-id="${o(t.object_id)}">
-                    ${o(t.object_type)}:${o(v(t.object_id))}
+                     data-object-type="${c(t.object_type)}"
+                     data-object-id="${c(t.object_id)}">
+                    ${c(t.object_type)}:${c(v(t.object_id))}
                   </a>
                 ` : ""}
               </div>
             </div>
             <div class="text-right flex-shrink-0">
-              <p class="text-xs text-gray-500" title="${o(r)}">${a}</p>
+              <p class="text-xs text-gray-500" title="${c(r)}">${a}</p>
               <div class="flex items-center gap-1 mt-1">
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-                  ${o(t.scope_type)}
+                  ${c(t.scope_type)}
                 </span>
               </div>
             </div>
@@ -4195,7 +3840,7 @@ class Yt {
           ${Object.keys(t.metadata || {}).length > 0 ? `
             <div class="mt-2 pt-2 border-t border-gray-100">
               <div class="text-xs text-gray-500 font-mono truncate">
-                ${o(this.formatMetadataPreview(t.metadata))}
+                ${c(this.formatMetadataPreview(t.metadata))}
               </div>
             </div>
           ` : ""}
@@ -4211,41 +3856,41 @@ class Yt {
     `;
   }
   renderTableRow(t) {
-    const e = N[t.status] || N.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : U(t.provider_id), i = this.resolveActionLabel(t.action), r = P(t.created_at), a = m(t.created_at);
+    const e = N[t.status] || N.pending, s = this.config.getProviderName ? this.config.getProviderName(t.provider_id) : U(t.provider_id), i = this.resolveActionLabel(t.action), r = R(t.created_at), a = m(t.created_at);
     return `
-      <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${o(t.id)}">
+      <tr class="activity-row hover:bg-gray-50 cursor-pointer" data-entry-id="${c(t.id)}">
         <td class="px-4 py-3 whitespace-nowrap">
-          <span class="text-sm text-gray-900" title="${o(r)}">${a}</span>
+          <span class="text-sm text-gray-900" title="${c(r)}">${a}</span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-sm font-medium text-gray-900">${o(s)}</span>
+          <span class="text-sm font-medium text-gray-900">${c(s)}</span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-sm text-gray-700">${o(i)}</span>
+          <span class="text-sm text-gray-700">${c(i)}</span>
         </td>
         <td class="px-4 py-3">
           ${t.object_type && t.object_id ? `
             <a href="${this.buildObjectLinkUrl(t.object_type, t.object_id)}"
                class="activity-object-link text-sm text-blue-600 hover:text-blue-700"
-               data-object-type="${o(t.object_type)}"
-               data-object-id="${o(t.object_id)}">
-              ${o(t.object_type)}:${o(v(t.object_id))}
+               data-object-type="${c(t.object_type)}"
+               data-object-id="${c(t.object_id)}">
+              ${c(t.object_type)}:${c(v(t.object_id))}
             </a>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-            ${o(t.scope_type)}
+            ${c(t.scope_type)}
           </span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${p(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
         <td class="px-4 py-3">
-          <span class="text-sm text-gray-500">${o(t.channel || "—")}</span>
+          <span class="text-sm text-gray-500">${c(t.channel || "—")}</span>
         </td>
       </tr>
     `;
@@ -4276,7 +3921,7 @@ class Yt {
    * Create a navigate handler that uses deep links with context preservation.
    */
   createDeepLinkNavigateHandler() {
-    return Ct(
+    return $t(
       () => {
         const t = this.queryState.getState();
         return {
@@ -4295,7 +3940,7 @@ class Yt {
   buildObjectLinkUrl(t, e) {
     if (!this.config.useDeepLinks)
       return "#";
-    const s = Lt(t);
+    const s = _t(t);
     if (!s)
       return "#";
     const i = this.queryState.getState(), r = {
@@ -4307,7 +3952,7 @@ class Yt {
       page: i.page > 1 ? i.page : void 0,
       viewMode: this.state.viewMode
     };
-    return kt(s, e, r);
+    return Ct(s, e, r);
   }
   updateViewModeUI() {
     const t = this.container?.querySelector(".activity-view-timeline"), e = this.container?.querySelector(".activity-view-table");
@@ -4326,29 +3971,29 @@ class Yt {
   }
   renderError() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-timeline-container"), i = this.container?.querySelector(".activity-table-container");
-    this.container?.querySelector(".activity-empty")?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = V({
+    this.container?.querySelector(".activity-empty")?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = it({
       title: "Failed to load activity",
       error: this.state.error,
       containerClass: "bg-white rounded-lg border border-gray-200",
       showRetry: !0
-    }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity()))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = G(7, {
+    }), t.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity()))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = H(7, {
       title: "Failed to load activity",
       error: this.state.error,
       showRetry: !0
     }), e.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadActivity())));
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = L({
+    this.container && (this.container.innerHTML = T({
       resource: "activity"
     }));
   }
   updateLoadingState() {
     const t = this.container?.querySelector(".activity-timeline"), e = this.container?.querySelector(".activity-tbody"), s = this.container?.querySelector(".activity-timeline-container"), i = this.container?.querySelector(".activity-table-container"), r = this.container?.querySelector(".activity-empty");
-    this.state.loading && (this.state.entries.length > 0 || (r?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = z({ text: "Loading activity..." }))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = W(7, { text: "Loading activity..." })))));
+    this.state.loading && (this.state.entries.length > 0 || (r?.classList.add("hidden"), this.state.viewMode === "timeline" ? (s?.classList.remove("hidden"), i?.classList.add("hidden"), t && (t.innerHTML = st({ text: "Loading activity..." }))) : (i?.classList.remove("hidden"), s?.classList.add("hidden"), e && (e.innerHTML = B(7, { text: "Loading activity..." })))));
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, c = e > 1, d = this.container?.querySelector(".activity-info"), p = this.container?.querySelector(".activity-prev"), h = this.container?.querySelector(".activity-next");
-    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No activity"), p && (p.disabled = !c), h && (h.disabled = !l);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, { total: i } = this.state, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, o = e > 1, d = this.container?.querySelector(".activity-info"), h = this.container?.querySelector(".activity-prev"), u = this.container?.querySelector(".activity-next");
+    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i}` : "No activity"), h && (h.disabled = !o), u && (u.disabled = !l);
   }
   // ---------------------------------------------------------------------------
   // View Mode Persistence
@@ -4378,16 +4023,16 @@ class Yt {
     return Object.entries(t).slice(0, 3).map(([s, i]) => `${s}: ${JSON.stringify(i)}`).join(", ");
   }
 }
-async function Ge(n) {
-  const t = new Yt(n);
+async function ze(n) {
+  const t = new Jt(n);
   return await t.init(), t;
 }
-const et = {
+const X = {
   active: { label: "Active", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
   expired: { label: "Expired", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:clock" },
   cancelled: { label: "Cancelled", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:cancel" },
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" }
-}, st = {
+}, tt = {
   queued: { label: "Queued", bg: "bg-gray-100", text: "text-gray-600", icon: "iconoir:clock" },
   running: { label: "Running", bg: "bg-blue-100", text: "text-blue-700", icon: "iconoir:play" },
   succeeded: { label: "Succeeded", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check-circle" },
@@ -4397,7 +4042,7 @@ const et = {
   incremental: { label: "Incremental", description: "Delta changes only" },
   backfill: { label: "Backfill", description: "Historical data recovery" }
 };
-class Zt {
+class Kt {
   constructor(t) {
     this.container = null, this.state = {
       providers: [],
@@ -4408,12 +4053,12 @@ class Zt {
       loading: !1,
       error: null,
       activeTab: "subscriptions"
-    }, this.abortController = null, this.actionQueue = new J(), this.config = {
+    }, this.abortController = null, this.actionQueue = new G(), this.config = {
       perPage: 25,
       syncUrl: !0,
       activeTab: "subscriptions",
       ...t
-    }, this.state.activeTab = this.config.activeTab || "subscriptions", this.client = t.apiClient || E(), this.queryState = new O({
+    }, this.state.activeTab = this.config.activeTab || "subscriptions", this.client = t.apiClient || q(), this.queryState = new z({
       config: {
         defaultPerPage: this.config.perPage,
         onChange: () => this.loadData()
@@ -4475,7 +4120,7 @@ class Zt {
    * Destroy the manager
    */
   destroy() {
-    this.abortController = Y(this.abortController, this.queryState);
+    this.abortController = J(this.abortController, this.queryState);
   }
   // ---------------------------------------------------------------------------
   // Data Loading
@@ -4506,12 +4151,12 @@ class Zt {
     this.state.subscriptions = s.subscriptions, this.state.subscriptionsTotal = s.total, this.queryState.updateFromResponse(s.total, s.has_next), this.renderSubscriptions(), this.updatePagination();
   }
   async loadSyncJobs(t) {
-    const e = t.provider_id, s = t.connection_id, i = t.status, r = String(t.q || "").trim().toLowerCase(), a = t.page || 1, l = t.per_page || this.config.perPage || 25, c = await this.loadSyncConnections({
+    const e = t.provider_id, s = t.connection_id, i = t.status, r = String(t.q || "").trim().toLowerCase(), a = t.page || 1, l = t.per_page || this.config.perPage || 25, o = await this.loadSyncConnections({
       providerId: e,
       connectionId: s,
       signal: this.abortController?.signal
-    }), h = (await Promise.all(
-      c.map(async (y) => {
+    }), u = (await Promise.all(
+      o.map(async (y) => {
         try {
           const x = await this.client.getSyncStatus(y.id, this.abortController?.signal);
           return { connection: y, summary: x.sync_summary };
@@ -4521,8 +4166,8 @@ class Zt {
           return null;
         }
       })
-    )).filter((y) => y !== null).map((y) => this.toSyncJob(y.connection, y.summary)).filter((y) => y !== null).filter((y) => i && y.status !== i ? !1 : r ? this.matchesSyncSearch(y, r) : !0), g = h.length, f = (a - 1) * l, b = h.slice(f, f + l);
-    this.state.syncJobs = b, this.state.syncJobsTotal = g, this.renderSyncJobs(), this.updatePagination();
+    )).filter((y) => y !== null).map((y) => this.toSyncJob(y.connection, y.summary)).filter((y) => y !== null).filter((y) => i && y.status !== i ? !1 : r ? this.matchesSyncSearch(y, r) : !0), g = u.length, b = (a - 1) * l, f = u.slice(b, b + l);
+    this.state.syncJobs = f, this.state.syncJobsTotal = g, this.renderSyncJobs(), this.updatePagination();
   }
   // ---------------------------------------------------------------------------
   // Rendering
@@ -4534,12 +4179,12 @@ class Zt {
         <div class="tabs-header flex items-center gap-4 mb-4 border-b border-gray-200">
           <button type="button"
                   class="tab-subscriptions px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${this.state.activeTab === "subscriptions" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}">
-            ${u("iconoir:bell", { size: "16px" })}
+            ${p("iconoir:bell", { size: "16px" })}
             <span class="ml-1.5">Subscriptions</span>
           </button>
           <button type="button"
                   class="tab-sync px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${this.state.activeTab === "sync" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}">
-            ${u("iconoir:sync", { size: "16px" })}
+            ${p("iconoir:sync", { size: "16px" })}
             <span class="ml-1.5">Sync Jobs</span>
           </button>
         </div>
@@ -4568,7 +4213,7 @@ class Zt {
             <button type="button"
                     class="reset-btn px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
                     title="Reset filters">
-              ${u("iconoir:refresh", { size: "16px" })}
+              ${p("iconoir:refresh", { size: "16px" })}
             </button>
           </div>
         </div>
@@ -4620,7 +4265,7 @@ class Zt {
         <!-- Empty State -->
         <div class="empty-state hidden py-12 text-center bg-white rounded-lg border border-gray-200">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-4">
-            ${u("iconoir:bell-off", { size: "24px", extraClass: "text-gray-400" })}
+            ${p("iconoir:bell-off", { size: "24px", extraClass: "text-gray-400" })}
           </div>
           <h3 class="text-lg font-medium text-gray-900 empty-title">No subscriptions found</h3>
           <p class="text-sm text-gray-500 mt-1 empty-message">Subscriptions will appear here when created.</p>
@@ -4648,10 +4293,10 @@ class Zt {
     `, this.restoreFilterValues());
   }
   renderSubscriptionStatusOptions() {
-    return Object.entries(et).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
+    return Object.entries(X).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
   }
   renderSyncStatusOptions() {
-    return Object.entries(st).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
+    return Object.entries(tt).map(([t, e]) => `<option value="${t}">${e.label}</option>`).join("");
   }
   restoreFilterValues() {
     const t = this.queryState.getState(), e = this.container?.querySelector('[data-filter="search"]');
@@ -4663,12 +4308,12 @@ class Zt {
   bindEvents() {
     if (!this.container) return;
     const t = this.container.querySelector(".tab-subscriptions"), e = this.container.querySelector(".tab-sync");
-    t?.addEventListener("click", () => this.setTab("subscriptions")), e?.addEventListener("click", () => this.setTab("sync")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (c) => {
-      this.queryState.setSearch(c.target.value);
-    }), this.container.querySelectorAll("select[data-filter]").forEach((c) => {
-      c.addEventListener("change", () => {
-        const d = c.dataset.filter;
-        this.queryState.setFilter(d, c.value || void 0);
+    t?.addEventListener("click", () => this.setTab("subscriptions")), e?.addEventListener("click", () => this.setTab("sync")), this.container.querySelector('[data-filter="search"]')?.addEventListener("input", (o) => {
+      this.queryState.setSearch(o.target.value);
+    }), this.container.querySelectorAll("select[data-filter]").forEach((o) => {
+      o.addEventListener("change", () => {
+        const d = o.dataset.filter;
+        this.queryState.setFilter(d, o.value || void 0);
       });
     }), this.container.querySelector(".reset-btn")?.addEventListener("click", () => {
       this.queryState.reset(), this.restoreFilterValues();
@@ -4680,10 +4325,10 @@ class Zt {
     const t = this.container?.querySelector(".subscriptions-tbody"), e = this.container?.querySelector(".empty-state"), s = this.container?.querySelector(".subscriptions-content");
     if (t) {
       if (this.state.subscriptions.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = P(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
-        }), T(t, () => {
+        }), k(t, () => {
           this.queryState.reset(), this.restoreFilterValues();
         })) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("subscriptions"));
         return;
@@ -4692,27 +4337,27 @@ class Zt {
     }
   }
   renderSubscriptionRow(t) {
-    const e = et[t.status] || et.errored, s = w(t.provider_id, this.config.getProviderName), i = t.expires_at ? m(t.expires_at, { allowFuture: !0, futureImmediateLabel: "Soon" }) : "—", r = t.expires_at ? P(t.expires_at) : "", a = m(t.updated_at, {
+    const e = X[t.status] || X.errored, s = w(t.provider_id, this.config.getProviderName), i = t.expires_at ? m(t.expires_at, { allowFuture: !0, futureImmediateLabel: "Soon" }) : "—", r = t.expires_at ? R(t.expires_at) : "", a = m(t.updated_at, {
       allowFuture: !0,
       futureImmediateLabel: "Soon"
     }), l = t.expires_at && this.isExpiringSoon(t.expires_at);
     return `
-      <tr class="subscription-row hover:bg-gray-50 cursor-pointer" data-subscription-id="${o(t.id)}">
+      <tr class="subscription-row hover:bg-gray-50 cursor-pointer" data-subscription-id="${c(t.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${o(s)}</span>
+          <span class="font-medium text-gray-900">${c(s)}</span>
         </td>
         <td class="px-4 py-3">
-          <div class="text-sm text-gray-700">${o(t.resource_type)}</div>
-          <div class="text-xs text-gray-500" title="${o(t.resource_id)}">
-            ${o(v(t.resource_id))}
+          <div class="text-sm text-gray-700">${c(t.resource_type)}</div>
+          <div class="text-xs text-gray-500" title="${c(t.resource_id)}">
+            ${c(v(t.resource_id))}
           </div>
         </td>
         <td class="px-4 py-3">
-          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${o(v(t.channel_id, 16))}</code>
+          <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded">${c(v(t.channel_id, 16))}</code>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${p(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
@@ -4720,7 +4365,7 @@ class Zt {
           <span class="${l ? "text-amber-600 font-medium" : "text-gray-500"}" title="${r}">
             ${i}
           </span>
-          ${l ? u("iconoir:warning-triangle", { size: "12px", extraClass: "inline ml-1 text-amber-500" }) : ""}
+          ${l ? p("iconoir:warning-triangle", { size: "12px", extraClass: "inline ml-1 text-amber-500" }) : ""}
         </td>
         <td class="px-4 py-3 text-gray-500 text-xs">
           ${a}
@@ -4738,14 +4383,14 @@ class Zt {
                 class="action-renew p-1 text-gray-400 hover:text-blue-600"
                 data-action="renew"
                 title="Renew subscription">
-          ${u("iconoir:refresh", { size: "16px" })}
+          ${p("iconoir:refresh", { size: "16px" })}
         </button>
       `), t.status !== "cancelled" && A()() && e.push(`
         <button type="button"
                 class="action-cancel p-1 text-gray-400 hover:text-red-600"
                 data-action="cancel"
                 title="Cancel subscription">
-          ${u("iconoir:cancel", { size: "16px" })}
+          ${p("iconoir:cancel", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -4774,10 +4419,10 @@ class Zt {
     const t = this.container?.querySelector(".sync-tbody"), e = this.container?.querySelector(".empty-state"), s = this.container?.querySelector(".sync-content");
     if (t) {
       if (this.state.syncJobs.length === 0) {
-        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = R(7, {
+        this.queryState.getActiveFilterCount() > 0 || !!this.queryState.getState().search ? (s?.classList.remove("hidden"), e?.classList.add("hidden"), t.innerHTML = P(7, {
           query: this.queryState.getState().search,
           filterCount: this.queryState.getActiveFilterCount()
-        }), T(t, () => {
+        }), k(t, () => {
           this.queryState.reset(), this.restoreFilterValues();
         })) : (t.innerHTML = "", s?.classList.add("hidden"), e?.classList.remove("hidden"), this.updateEmptyState("sync"));
         return;
@@ -4786,11 +4431,11 @@ class Zt {
     }
   }
   renderSyncJobRow(t) {
-    const e = st[t.status] || st.failed, s = pt[t.mode] || pt.incremental, i = w(t.provider_id, this.config.getProviderName), r = t.metadata, a = typeof r.last_synced_at == "string" ? r.last_synced_at : "", l = a ? m(a, { allowFuture: !0, futureImmediateLabel: "Soon" }) : m(t.updated_at, { allowFuture: !0, futureImmediateLabel: "Soon" }), c = typeof r.last_sync_error == "string" ? r.last_sync_error : "", d = t.checkpoint || "";
+    const e = tt[t.status] || tt.failed, s = pt[t.mode] || pt.incremental, i = w(t.provider_id, this.config.getProviderName), r = t.metadata, a = typeof r.last_synced_at == "string" ? r.last_synced_at : "", l = a ? m(a, { allowFuture: !0, futureImmediateLabel: "Soon" }) : m(t.updated_at, { allowFuture: !0, futureImmediateLabel: "Soon" }), o = typeof r.last_sync_error == "string" ? r.last_sync_error : "", d = t.checkpoint || "";
     return `
-      <tr class="sync-row hover:bg-gray-50 cursor-pointer" data-job-id="${o(t.id)}">
+      <tr class="sync-row hover:bg-gray-50 cursor-pointer" data-job-id="${c(t.id)}">
         <td class="px-4 py-3">
-          <span class="font-medium text-gray-900">${o(i)}</span>
+          <span class="font-medium text-gray-900">${c(i)}</span>
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700" title="${s.description}">
@@ -4799,14 +4444,14 @@ class Zt {
         </td>
         <td class="px-4 py-3">
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${e.bg} ${e.text}">
-            ${u(e.icon, { size: "12px" })}
+            ${p(e.icon, { size: "12px" })}
             ${e.label}
           </span>
         </td>
         <td class="px-4 py-3">
           ${d ? `
-            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${o(d)}">
-              ${o(v(d, 16))}
+            <code class="text-xs bg-gray-100 px-1.5 py-0.5 rounded" title="${c(d)}">
+              ${c(v(d, 16))}
             </code>
           ` : '<span class="text-gray-400">—</span>'}
         </td>
@@ -4814,7 +4459,7 @@ class Zt {
           ${l}
         </td>
         <td class="px-4 py-3 text-xs">
-          ${c ? `<span class="text-red-600" title="${o(c)}">${o(v(c, 48))}</span>` : '<span class="text-gray-400">—</span>'}
+          ${o ? `<span class="text-red-600" title="${c(o)}">${c(v(o, 48))}</span>` : '<span class="text-gray-400">—</span>'}
         </td>
         <td class="px-4 py-3 text-right">
           ${this.buildSyncJobActions(t)}
@@ -4829,7 +4474,7 @@ class Zt {
                 class="action-run p-1 text-gray-400 hover:text-green-600"
                 data-action="run"
                 title="Run sync now">
-          ${u("iconoir:play", { size: "16px" })}
+          ${p("iconoir:play", { size: "16px" })}
         </button>
       `), e.length === 0 ? '<span class="text-gray-300 text-xs">—</span>' : `<div class="flex items-center justify-end gap-1">${e.join("")}</div>`;
   }
@@ -4865,7 +4510,7 @@ class Zt {
     });
   }
   async handleCancel(t, e) {
-    await Q({
+    await W({
       action: "cancel",
       resourceType: "subscription"
     }) && (this.actionQueue.isInFlight(`cancel-${t}`) || await this.actionQueue.execute(`cancel-${t}`, async () => {
@@ -4920,14 +4565,14 @@ class Zt {
     const t = this.state.activeTab === "subscriptions" ? ".subscriptions-content" : ".sync-content", e = this.container?.querySelector(t), s = this.container?.querySelector(".empty-state"), i = this.state.activeTab === "subscriptions" ? this.container?.querySelector(".subscriptions-tbody") : this.container?.querySelector(".sync-tbody");
     if (!i) return;
     const r = 7;
-    i.innerHTML = G(r, {
+    i.innerHTML = H(r, {
       title: `Failed to load ${this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs"}`,
       error: this.state.error,
       showRetry: !0
     }), e?.classList.remove("hidden"), s?.classList.add("hidden"), i.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadData());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = L({
+    this.container && (this.container.innerHTML = T({
       resource: "subscriptions and sync"
     }));
   }
@@ -4936,7 +4581,7 @@ class Zt {
     if (!this.state.loading || !e) return;
     if ((this.state.activeTab === "subscriptions" ? this.state.subscriptions : this.state.syncJobs).length === 0) {
       const a = this.state.activeTab === "subscriptions" ? "Loading subscriptions..." : "Loading sync jobs...";
-      t?.classList.remove("hidden"), s?.classList.add("hidden"), e.innerHTML = W(7, { text: a });
+      t?.classList.remove("hidden"), s?.classList.add("hidden"), e.innerHTML = B(7, { text: a });
     }
   }
   async loadSyncConnections(t) {
@@ -4996,8 +4641,8 @@ class Zt {
     ].join(" ").toLowerCase().includes(e);
   }
   updatePagination() {
-    const t = this.queryState.getState(), { page: e, per_page: s } = t, i = this.state.activeTab === "subscriptions" ? this.state.subscriptionsTotal : this.state.syncJobsTotal, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, c = e > 1, d = this.container?.querySelector(".info"), p = this.container?.querySelector(".prev-btn"), h = this.container?.querySelector(".next-btn"), g = this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs";
-    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i} ${g}` : `No ${g}`), p && (p.disabled = !c), h && (h.disabled = !l);
+    const t = this.queryState.getState(), { page: e, per_page: s } = t, i = this.state.activeTab === "subscriptions" ? this.state.subscriptionsTotal : this.state.syncJobsTotal, r = i > 0 ? (e - 1) * s + 1 : 0, a = Math.min(e * s, i), l = a < i, o = e > 1, d = this.container?.querySelector(".info"), h = this.container?.querySelector(".prev-btn"), u = this.container?.querySelector(".next-btn"), g = this.state.activeTab === "subscriptions" ? "subscriptions" : "sync jobs";
+    d && (d.textContent = i > 0 ? `Showing ${r}-${a} of ${i} ${g}` : `No ${g}`), h && (h.disabled = !o), u && (u.disabled = !l);
   }
   // ---------------------------------------------------------------------------
   // Tab Persistence
@@ -5019,8 +4664,8 @@ class Zt {
     return i > 0 && i < 864e5;
   }
 }
-async function Qe(n) {
-  const t = new Zt(n);
+async function Ve(n) {
+  const t = new Kt(n);
   return await t.init(), t;
 }
 const gt = {
@@ -5029,13 +4674,13 @@ const gt = {
   errored: { label: "Error", bg: "bg-red-100", text: "text-red-700", icon: "iconoir:warning-circle" },
   pending_reauth: { label: "Pending Reauth", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:clock" },
   needs_reconsent: { label: "Needs Reconsent", bg: "bg-orange-100", text: "text-orange-700", icon: "iconoir:refresh" }
-}, Xt = {
+}, Yt = {
   granted: { label: "Granted", bg: "bg-green-100", text: "text-green-700", icon: "iconoir:check" },
   requested: { label: "Requested", bg: "bg-blue-100", text: "text-blue-700", icon: "iconoir:clock" },
   missing: { label: "Missing", bg: "bg-gray-100", text: "text-gray-500", icon: "iconoir:minus" },
   capability_required: { label: "Required", bg: "bg-amber-100", text: "text-amber-700", icon: "iconoir:warning-triangle" }
 };
-class te {
+class Zt {
   constructor(t) {
     this.container = null, this.state = {
       connection: null,
@@ -5046,7 +4691,7 @@ class te {
       loading: !1,
       error: null,
       reconsentInProgress: !1
-    }, this.abortController = null, this.actionQueue = new J(), this.config = t, this.client = t.apiClient || E();
+    }, this.abortController = null, this.actionQueue = new G(), this.config = t, this.client = t.apiClient || q();
   }
   /**
    * Initialize the detail panel
@@ -5126,17 +4771,17 @@ class te {
           <div class="flex items-center gap-4">
             ${this.config.onBack ? `
               <button type="button" class="back-btn p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100">
-                ${u("iconoir:arrow-left", { size: "20px" })}
+                ${p("iconoir:arrow-left", { size: "20px" })}
               </button>
             ` : ""}
             <div>
-              <h2 class="text-xl font-semibold text-gray-900">${o(s)}</h2>
+              <h2 class="text-xl font-semibold text-gray-900">${c(s)}</h2>
               <p class="text-sm text-gray-500 mt-0.5">Connection Details</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${e.bg} ${e.text}">
-              ${u(e.icon, { size: "16px" })}
+              ${p(e.icon, { size: "16px" })}
               ${e.label}
             </span>
           </div>
@@ -5148,32 +4793,32 @@ class te {
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Scope</dt>
             <dd class="mt-1 flex items-center gap-2">
               <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.scope_type === "user" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600"}">
-                ${o(t.scope_type)}
+                ${c(t.scope_type)}
               </span>
-              <span class="text-sm text-gray-700" title="${o(t.scope_id)}">
-                ${o(v(t.scope_id, 16))}
+              <span class="text-sm text-gray-700" title="${c(t.scope_id)}">
+                ${c(v(t.scope_id, 16))}
               </span>
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">External Account</dt>
-            <dd class="mt-1 text-sm text-gray-700" title="${o(t.external_account_id)}">
-              ${o(v(t.external_account_id, 20))}
+            <dd class="mt-1 text-sm text-gray-700" title="${c(t.external_account_id)}">
+              ${c(v(t.external_account_id, 20))}
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Created</dt>
             <dd class="mt-1 text-sm text-gray-700">
-              ${P(t.created_at)}
+              ${R(t.created_at)}
             </dd>
           </div>
 
           <div class="info-card bg-white rounded-lg border border-gray-200 p-4">
             <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Updated</dt>
             <dd class="mt-1 text-sm text-gray-700">
-              ${P(t.updated_at)}
+              ${R(t.updated_at)}
             </dd>
           </div>
         </div>
@@ -5181,11 +4826,11 @@ class te {
         ${t.last_error ? `
           <div class="error-banner flex items-start gap-3 p-4 mb-6 bg-red-50 border border-red-200 rounded-lg">
             <div class="flex-shrink-0 text-red-500">
-              ${u("iconoir:warning-circle", { size: "20px" })}
+              ${p("iconoir:warning-circle", { size: "20px" })}
             </div>
             <div>
               <h4 class="text-sm font-medium text-red-800">Last Error</h4>
-              <p class="text-sm text-red-700 mt-1">${o(t.last_error)}</p>
+              <p class="text-sm text-red-700 mt-1">${c(t.last_error)}</p>
             </div>
           </div>
         ` : ""}
@@ -5194,7 +4839,7 @@ class te {
           <div class="reconsent-banner flex items-center justify-between p-4 mb-6 bg-amber-50 border border-amber-200 rounded-lg">
             <div class="flex items-start gap-3">
               <div class="flex-shrink-0 text-amber-500">
-                ${u("iconoir:warning-triangle", { size: "20px" })}
+                ${p("iconoir:warning-triangle", { size: "20px" })}
               </div>
               <div>
                 <h4 class="text-sm font-medium text-amber-800">Re-consent Required</h4>
@@ -5268,14 +4913,14 @@ class te {
           ${A()() && t.status === "active" ? `
             <button type="button"
                     class="refresh-btn px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-              ${u("iconoir:refresh", { size: "16px", extraClass: "mr-1.5" })}
+              ${p("iconoir:refresh", { size: "16px", extraClass: "mr-1.5" })}
               Refresh Credentials
             </button>
           ` : ""}
           ${rt()() && t.status !== "disconnected" ? `
             <button type="button"
                     class="revoke-btn px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-300 rounded-lg hover:bg-red-50 focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-              ${u("iconoir:cancel", { size: "16px", extraClass: "mr-1.5" })}
+              ${p("iconoir:cancel", { size: "16px", extraClass: "mr-1.5" })}
               Revoke Connection
             </button>
           ` : ""}
@@ -5285,28 +4930,28 @@ class te {
   }
   renderGrantMatrix(t) {
     return t.length === 0 ? "" : t.map((e) => {
-      const s = Xt[e.status], i = e.capabilities.length > 0 ? e.capabilities.map((r) => H(r)).join(", ") : null;
+      const s = Yt[e.status], i = e.capabilities.length > 0 ? e.capabilities.map((r) => O(r)).join(", ") : null;
       return `
           <div class="grant-row flex items-center justify-between px-4 py-3 hover:bg-gray-50">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-2">
-                <code class="text-sm font-mono text-gray-700">${o(e.grant)}</code>
+                <code class="text-sm font-mono text-gray-700">${c(e.grant)}</code>
                 ${e.isCapabilityRequired ? `
                   <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-600" title="Required by capabilities">
-                    ${u("iconoir:puzzle", { size: "10px", extraClass: "mr-0.5" })}
+                    ${p("iconoir:puzzle", { size: "10px", extraClass: "mr-0.5" })}
                     Required
                   </span>
                 ` : ""}
               </div>
               ${i ? `
                 <p class="text-xs text-gray-500 mt-0.5">
-                  Used by: ${o(i)}
+                  Used by: ${c(i)}
                 </p>
               ` : ""}
             </div>
             <div class="flex-shrink-0">
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${s.bg} ${s.text}">
-                ${u(s.icon, { size: "12px" })}
+                ${p(s.icon, { size: "12px" })}
                 ${s.label}
               </span>
             </div>
@@ -5316,25 +4961,25 @@ class te {
   }
   renderCapabilities() {
     return !this.state.provider || !this.state.grantSnapshot ? "" : this.state.provider.capabilities.map((t) => {
-      const e = new Set(this.state.grantSnapshot.granted_grants), s = t.required_grants.every((h) => e.has(h)), i = t.optional_grants.every((h) => e.has(h)), r = s && i, a = s && !i, l = !s;
-      let c, d, p;
-      return r ? (c = "Fully Enabled", d = "bg-green-100 text-green-700", p = "iconoir:check-circle") : a ? (c = "Partially Enabled", d = "bg-blue-100 text-blue-700", p = "iconoir:half-moon") : (c = t.denied_behavior === "block" ? "Blocked" : "Degraded", d = t.denied_behavior === "block" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", p = t.denied_behavior === "block" ? "iconoir:lock" : "iconoir:warning-triangle"), `
+      const e = new Set(this.state.grantSnapshot.granted_grants), s = t.required_grants.every((u) => e.has(u)), i = t.optional_grants.every((u) => e.has(u)), r = s && i, a = s && !i, l = !s;
+      let o, d, h;
+      return r ? (o = "Fully Enabled", d = "bg-green-100 text-green-700", h = "iconoir:check-circle") : a ? (o = "Partially Enabled", d = "bg-blue-100 text-blue-700", h = "iconoir:half-moon") : (o = t.denied_behavior === "block" ? "Blocked" : "Degraded", d = t.denied_behavior === "block" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700", h = t.denied_behavior === "block" ? "iconoir:lock" : "iconoir:warning-triangle"), `
           <div class="capability-card border border-gray-200 rounded-lg p-3">
             <div class="flex items-start justify-between">
               <div>
-                <h4 class="text-sm font-medium text-gray-900">${o(H(t.name))}</h4>
+                <h4 class="text-sm font-medium text-gray-900">${c(O(t.name))}</h4>
                 <p class="text-xs text-gray-500 mt-0.5">
                   ${t.required_grants.length} required, ${t.optional_grants.length} optional
                 </p>
               </div>
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${d}">
-                ${u(p, { size: "12px" })}
-                ${c}
+                ${p(h, { size: "12px" })}
+                ${o}
               </span>
             </div>
             ${l && t.denied_behavior === "block" ? `
               <p class="text-xs text-red-600 mt-2">
-                Missing required: ${t.required_grants.filter((h) => !e.has(h)).join(", ")}
+                Missing required: ${t.required_grants.filter((u) => !e.has(u)).join(", ")}
               </p>
             ` : ""}
           </div>
@@ -5351,18 +4996,18 @@ class te {
     else if (t.last_error)
       e = "error", s = "Credential Error", i = "bg-red-100 text-red-700 border-red-200", r = "iconoir:warning-circle";
     else if (t.expires_at) {
-      const a = new Date(t.expires_at), l = /* @__PURE__ */ new Date(), c = (a.getTime() - l.getTime()) / (1e3 * 60 * 60);
-      c < 0 ? (e = "error", s = "Expired", i = "bg-red-100 text-red-700 border-red-200", r = "iconoir:clock") : c < 24 && (e = "warning", s = "Expiring Soon", i = "bg-amber-100 text-amber-700 border-amber-200", r = "iconoir:clock");
+      const a = new Date(t.expires_at), l = /* @__PURE__ */ new Date(), o = (a.getTime() - l.getTime()) / (1e3 * 60 * 60);
+      o < 0 ? (e = "error", s = "Expired", i = "bg-red-100 text-red-700 border-red-200", r = "iconoir:clock") : o < 24 && (e = "warning", s = "Expiring Soon", i = "bg-amber-100 text-amber-700 border-amber-200", r = "iconoir:clock");
     }
     return `
       <div class="credential-health-panel bg-white rounded-lg border ${e === "healthy" ? "border-gray-200" : e === "warning" ? "border-amber-200" : "border-red-200"}">
         <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
           <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-            ${u("iconoir:key", { size: "20px" })}
+            ${p("iconoir:key", { size: "20px" })}
             Credential Health
           </h3>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${i}">
-            ${u(r, { size: "12px" })}
+            ${p(r, { size: "12px" })}
             ${s}
           </span>
         </div>
@@ -5383,7 +5028,7 @@ class te {
           ${t.expires_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Expires At</span>
-              <span class="text-sm font-medium text-gray-900" title="${o(t.expires_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${c(t.expires_at)}">
                 ${m(t.expires_at, {
       allowFuture: !0,
       futureImmediateLabel: "in a moment",
@@ -5395,7 +5040,7 @@ class te {
           ${t.last_refresh_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Last Refresh</span>
-              <span class="text-sm font-medium text-gray-900" title="${o(t.last_refresh_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${c(t.last_refresh_at)}">
                 ${m(t.last_refresh_at, {
       allowFuture: !0,
       futureImmediateLabel: "in a moment",
@@ -5407,7 +5052,7 @@ class te {
           ${t.next_refresh_attempt_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Refresh</span>
-              <span class="text-sm font-medium text-gray-900" title="${o(t.next_refresh_attempt_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${c(t.next_refresh_attempt_at)}">
                 ${m(t.next_refresh_attempt_at, {
       allowFuture: !0,
       futureImmediateLabel: "in a moment",
@@ -5419,8 +5064,8 @@ class te {
           ${t.last_error ? `
             <div class="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
               <div class="flex items-start gap-2">
-                ${u("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500 mt-0.5 flex-shrink-0" })}
-                <p class="text-sm text-red-700">${o(t.last_error)}</p>
+                ${p("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500 mt-0.5 flex-shrink-0" })}
+                <p class="text-sm text-red-700">${c(t.last_error)}</p>
               </div>
             </div>
           ` : ""}
@@ -5442,11 +5087,11 @@ class te {
       <div class="rate-limit-panel bg-white rounded-lg border ${e === "healthy" ? "border-gray-200" : e === "warning" ? "border-amber-200" : "border-red-200"}">
         <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
           <h3 class="text-lg font-medium text-gray-900 flex items-center gap-2">
-            ${u("iconoir:graph-up", { size: "20px" })}
+            ${p("iconoir:graph-up", { size: "20px" })}
             Rate Limits
           </h3>
           <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${i}">
-            ${u(r, { size: "12px" })}
+            ${p(r, { size: "12px" })}
             ${s}
           </span>
         </div>
@@ -5467,7 +5112,7 @@ class te {
           ${t.next_reset_at ? `
             <div class="flex items-center justify-between py-2 border-b border-gray-100">
               <span class="text-sm text-gray-600">Next Reset</span>
-              <span class="text-sm font-medium text-gray-900" title="${o(t.next_reset_at)}">
+              <span class="text-sm font-medium text-gray-900" title="${c(t.next_reset_at)}">
                 ${m(t.next_reset_at, {
       allowFuture: !0,
       futureImmediateLabel: "in a moment",
@@ -5489,7 +5134,7 @@ class te {
           ${e === "exhausted" ? `
             <div class="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
               <div class="flex items-start gap-2">
-                ${u("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500 mt-0.5 flex-shrink-0" })}
+                ${p("iconoir:warning-circle", { size: "16px", extraClass: "text-red-500 mt-0.5 flex-shrink-0" })}
                 <p class="text-sm text-red-700">
                   All rate limit buckets are exhausted. API requests may be throttled until limits reset.
                 </p>
@@ -5551,7 +5196,7 @@ class te {
   async handleRevoke() {
     if (!this.state.connection) return;
     const t = this.config.getProviderName ? this.config.getProviderName(this.state.connection.provider_id) : U(this.state.connection.provider_id);
-    if (!await Q({
+    if (!await W({
       action: "revoke",
       resourceType: "connection",
       resourceName: t
@@ -5584,21 +5229,21 @@ class te {
       `) : (t.disabled = !1, t.textContent = "Re-consent Now"));
   }
   renderLoading() {
-    this.container && (this.container.innerHTML = z({
+    this.container && (this.container.innerHTML = st({
       text: "Loading connection details...",
       size: "lg"
     }));
   }
   renderError() {
     if (!this.container) return;
-    this.container.innerHTML = V({
+    this.container.innerHTML = it({
       title: "Failed to Load Connection",
       error: this.state.error,
       showRetry: !0
     }), this.container.querySelector(".ui-state-retry-btn")?.addEventListener("click", () => this.loadConnection());
   }
   renderForbidden() {
-    this.container && (this.container.innerHTML = L({
+    this.container && (this.container.innerHTML = T({
       resource: "connection details"
     }));
   }
@@ -5611,31 +5256,31 @@ class te {
       return [];
     const s = new Set(t.requested_grants), i = new Set(t.granted_grants), r = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Set();
     if (e)
-      for (const p of e.capabilities) {
-        for (const h of p.required_grants) {
-          a.add(h);
-          const g = r.get(h) || [];
-          g.push(p.name), r.set(h, g);
+      for (const h of e.capabilities) {
+        for (const u of h.required_grants) {
+          a.add(u);
+          const g = r.get(u) || [];
+          g.push(h.name), r.set(u, g);
         }
-        for (const h of p.optional_grants) {
-          const g = r.get(h) || [];
-          g.push(p.name), r.set(h, g);
+        for (const u of h.optional_grants) {
+          const g = r.get(u) || [];
+          g.push(h.name), r.set(u, g);
         }
       }
     const l = /* @__PURE__ */ new Set([
       ...t.requested_grants,
       ...t.granted_grants,
       ...a
-    ]), c = [];
-    for (const p of l) {
-      const h = i.has(p), g = s.has(p), f = a.has(p);
-      let b;
-      h ? b = "granted" : g ? b = "requested" : f ? b = "capability_required" : b = "missing", c.push({
-        grant: p,
-        status: b,
-        isRequired: g || f,
-        isCapabilityRequired: f,
-        capabilities: r.get(p) || []
+    ]), o = [];
+    for (const h of l) {
+      const u = i.has(h), g = s.has(h), b = a.has(h);
+      let f;
+      u ? f = "granted" : g ? f = "requested" : b ? f = "capability_required" : f = "missing", o.push({
+        grant: h,
+        status: f,
+        isRequired: g || b,
+        isCapabilityRequired: b,
+        capabilities: r.get(h) || []
       });
     }
     const d = {
@@ -5644,129 +5289,131 @@ class te {
       requested: 2,
       missing: 3
     };
-    return c.sort((p, h) => d[p.status] - d[h.status]), c;
+    return o.sort((h, u) => d[h.status] - d[u.status]), o;
   }
 }
-async function Je(n) {
-  const t = new te(n);
+async function We(n) {
+  const t = new Zt(n);
   return await t.init(), t;
 }
 export {
-  J as ActionQueue,
-  Yt as ActivityPageManager,
-  Ze as CommandRuntimeController,
-  te as ConnectionDetailManager,
-  Jt as ConnectionsListManager,
+  G as ActionQueue,
+  Jt as ActivityPageManager,
+  ts as CommandRuntimeController,
+  Zt as ConnectionDetailManager,
+  Gt as ConnectionsListManager,
   M as DEFAULT_ACTION_LABELS,
-  He as ExtensionDiagnosticsPanel,
-  Ht as FOCUSABLE_SELECTOR,
-  Kt as InstallationsListManager,
-  It as MutationButtonManager,
-  Qt as ProvidersCatalogManager,
-  O as QueryStateManager,
-  bt as ServicesAPIClient,
+  je as ExtensionDiagnosticsPanel,
+  Dt as FOCUSABLE_SELECTOR,
+  Qt as InstallationsListManager,
+  Pt as MutationButtonManager,
+  Wt as ProvidersCatalogManager,
+  z as QueryStateManager,
+  ft as ServicesAPIClient,
   I as ServicesAPIError,
-  B as ServicesPermissionManager,
+  V as ServicesPermissionManager,
   _ as ServicesPermissions,
-  Zt as SubscriptionsSyncPageManager,
-  xe as UIStateManager,
-  Oe as addStateSourceIndicator,
-  Ae as announceError,
-  Ee as announceLoading,
-  Re as announceNavigation,
-  qe as announceSuccess,
-  K as announceToScreenReader,
-  T as bindNoResultsResetAction,
-  ce as buildSearchParams,
-  k as canConnect,
+  Kt as SubscriptionsSyncPageManager,
+  Je as UIStateManager,
+  De as addStateSourceIndicator,
+  Te as announceError,
+  Le as announceLoading,
+  qe as announceNavigation,
+  ke as announceSuccess,
+  Q as announceToScreenReader,
+  k as bindNoResultsResetAction,
+  oe as buildSearchParams,
+  L as canConnect,
   A as canEdit,
   yt as canReconsent,
   rt as canRevoke,
-  At as canViewActivity,
+  qt as canViewActivity,
   F as canViewServices,
-  it as clearRetryUI,
-  pe as combineGuards,
-  Xe as configureDeepLinks,
-  Q as confirmServiceAction,
-  ke as createActionLabelResolver,
-  Ct as createActivityNavigateHandler,
-  Ge as createActivityPage,
-  Je as createConnectionDetail,
-  Ve as createConnectionsList,
-  Ot as createFocusTrap,
-  We as createInstallationsList,
-  ts as createNavigationContext,
-  q as createPermissionGuard,
-  ze as createProvidersCatalog,
-  ae as createServicesClient,
-  je as createSkipLink,
-  Qe as createSubscriptionsSyncPage,
-  oe as debounce,
-  es as deepLinkManager,
-  Y as destroyAbortableQueryPage,
-  P as formatDateTime,
+  et as clearRetryUI,
+  he as combineGuards,
+  es as configureDeepLinks,
+  W as confirmServiceAction,
+  _e as createActionLabelResolver,
+  $t as createActivityNavigateHandler,
+  ze as createActivityPage,
+  We as createConnectionDetail,
+  He as createConnectionsList,
+  Ut as createFocusTrap,
+  Be as createInstallationsList,
+  ss as createNavigationContext,
+  E as createPermissionGuard,
+  Oe as createProvidersCatalog,
+  ne as createServicesClient,
+  Fe as createSkipLink,
+  Ve as createSubscriptionsSyncPage,
+  ae as debounce,
+  is as deepLinkManager,
+  J as destroyAbortableQueryPage,
+  R as formatDateTime,
   U as formatProviderId,
   m as formatRelativeTime,
-  H as formatServiceLabel,
-  tt as gateElement,
-  kt as generateDeepLink,
-  ss as generateListLink,
-  we as getActionEntry,
-  jt as getActionLabel,
-  Dt as getActionsByCategory,
-  $e as getAllActionLabels,
-  Ue as getAnimationDuration,
+  O as formatServiceLabel,
+  Z as gateElement,
+  Ct as generateDeepLink,
+  rs as generateListLink,
+  xe as getActionEntry,
+  Mt as getActionLabel,
+  Nt as getActionsByCategory,
+  ve as getAllActionLabels,
+  Ne as getAnimationDuration,
   C as getPermissionManager,
-  Mt as getServiceConfirmConfig,
-  E as getServicesClient,
-  ge as handleForbidden,
-  Se as initActivityLabels,
-  is as initCommandRuntime,
+  It as getServiceConfirmConfig,
+  q as getServicesClient,
+  pe as handleForbidden,
+  me as initActivityLabels,
+  ns as initCommandRuntime,
   be as initPermissionGates,
-  de as initPermissions,
-  ye as initPermissionsFromContext,
-  Ce as isActivityLabelsInitialized,
-  Rt as isForbiddenError,
+  le as initPermissions,
+  fe as initPermissionsFromContext,
+  we as isActivityLabelsInitialized,
+  Et as isForbiddenError,
   nt as loadAndPopulateProviders,
-  Pt as loadPermissionsFromContext,
-  wt as loadProviders,
-  Lt as mapObjectTypeToEntity,
-  rs as navigateBack,
-  ns as navigateToEntity,
-  as as parseCurrentDeepLink,
-  os as parseDeepLink,
-  le as parseSearchParams,
-  Wt as populateProviderFilterOptions,
-  zt as prefersReducedMotion,
-  xt as renderEmptyState,
-  V as renderErrorState,
-  L as renderForbiddenState,
-  z as renderLoadingState,
-  vt as renderNoResultsState,
-  Ft as renderRetryUI,
+  At as loadPermissionsFromContext,
+  mt as loadProviders,
+  _t as mapObjectTypeToEntity,
+  as as navigateBack,
+  os as navigateToEntity,
+  cs as parseCurrentDeepLink,
+  ls as parseDeepLink,
+  ce as parseSearchParams,
+  zt as populateProviderFilterOptions,
+  Ht as prefersReducedMotion,
+  St as renderEmptyState,
+  it as renderErrorState,
+  T as renderForbiddenState,
+  st as renderLoadingState,
+  wt as renderNoResultsState,
+  Ke as renderPanelLoadingState,
+  Ye as renderPanelState,
+  Rt as renderRetryUI,
   D as renderStateSourceIndicator,
-  Be as renderStateSourceLegend,
-  me as renderTableEmptyState,
-  G as renderTableErrorState,
-  W as renderTableLoadingState,
-  R as renderTableNoResultsState,
-  ue as requireAll,
-  he as requireAny,
-  Le as resetActivityLabels,
+  Ue as renderStateSourceLegend,
+  Ze as renderTableEmptyState,
+  H as renderTableErrorState,
+  B as renderTableLoadingState,
+  P as renderTableNoResultsState,
+  de as requireAll,
+  ue as requireAny,
+  $e as resetActivityLabels,
   w as resolveProviderDisplayName,
-  _e as setActionLabels,
-  Pe as setExpandedState,
-  Ie as setLoadingState,
-  Ne as setProgress,
-  ne as setServicesClient,
-  Me as setSortableHeader,
-  Fe as setStatusLabel,
-  De as setupDialogFocus,
-  Ut as setupKeyboardNavigation,
-  Te as setupRovingTabindex,
+  Se as setActionLabels,
+  Ee as setExpandedState,
+  Ae as setLoadingState,
+  Ie as setProgress,
+  re as setServicesClient,
+  Re as setSortableHeader,
+  Pe as setStatusLabel,
+  Me as setupDialogFocus,
+  jt as setupKeyboardNavigation,
+  Ce as setupRovingTabindex,
   v as truncateId,
-  ve as withConfirmation,
+  ye as withConfirmation,
   S as withMutationFeedback,
-  fe as withPermission
+  ge as withPermission
 };
 //# sourceMappingURL=index.js.map

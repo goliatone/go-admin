@@ -4,18 +4,18 @@
  */
 
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import { formatByteSize } from '../../shared/size-formatters.js';
 
 /**
  * Format bytes to human-readable file size
  */
 export function formatFileSize(bytes: number | string | undefined | null): string {
-  if (bytes === undefined || bytes === null || bytes === '' || bytes === 0) return '-';
-  const numBytes = typeof bytes === 'string' ? parseInt(bytes, 10) : bytes;
-  if (!Number.isFinite(numBytes) || numBytes <= 0) return '-';
-
-  if (numBytes < 1024) return `${numBytes} B`;
-  if (numBytes < 1024 * 1024) return `${(numBytes / 1024).toFixed(1)} KB`;
-  return `${(numBytes / (1024 * 1024)).toFixed(2)} MB`;
+  return formatByteSize(bytes, {
+    emptyFallback: '-',
+    zeroFallback: '-',
+    invalidFallback: '-',
+    precisionByUnit: [0, 1, 2, 2],
+  }) as string;
 }
 
 /**

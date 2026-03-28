@@ -1,12 +1,13 @@
-import { d as V } from "../chunks/index-YiVxcMWC.js";
+import { d as W } from "../chunks/index-YiVxcMWC.js";
 import { asRecord as d, asString as i, asNumber as f, asStringArray as F, asBoolean as g } from "../shared/coercion.js";
-import { escapeHTML as c, escapeAttribute as m } from "../shared/html.js";
+import { escapeAttribute as m, escapeHTML as c } from "../shared/html.js";
 import { normalizeStringRecord as k } from "../shared/record-normalization.js";
 import { h as y, r as B } from "../chunks/http-client-DZnuedzQ.js";
-import { extractStructuredError as M } from "../toast/error-helpers.js";
-import { f as z, s as W, t as X, L as J, E as Z, i as ee, j as te, k as se, l as ae, m as re, r as ie, u as ne, d as S, H as oe, h as ce, B as j, o as I, v as le, w as _, x as C, y as de, M as ue, n as me, q as fe, G as ge, z as pe, A as _e } from "../chunks/style-constants-i2xRoO1L.js";
-import { sentenceCaseToken as $, formatTranslationTimestampUTC as N } from "../translation-shared/formatters.js";
-function A(t) {
+import { a as X, r as M } from "../chunks/ui-states-B4-pLIrz.js";
+import { extractStructuredError as z } from "../toast/error-helpers.js";
+import { f as I, s as J, t as Z, L as ee, E as te, i as se, j as ae, k as re, l as ie, m as ne, r as oe, u as le, d as S, H as ce, h as de, B as j, o as N, v as ue, w as _, x as C, y as me, M as fe, n as ge, q as pe, G as _e, z as be, A as ve } from "../chunks/style-constants-i2xRoO1L.js";
+import { sentenceCaseToken as $, formatTranslationTimestampUTC as H } from "../translation-shared/formatters.js";
+function T(t) {
   const e = d(t);
   return {
     required: g(e.required),
@@ -14,7 +15,7 @@ function A(t) {
     missing: g(e.missing)
   };
 }
-function T(t) {
+function A(t) {
   const e = d(t), s = i(e.comparison_mode) === "hash_only" ? "hash_only" : "snapshot";
   return {
     changed: g(e.changed),
@@ -36,7 +37,7 @@ function b(t, e) {
     r.trim() && (a[r.trim()] = e(n));
   return a;
 }
-function be(t) {
+function he(t) {
   if (!Array.isArray(t)) return [];
   const e = [];
   for (const s of t) {
@@ -50,7 +51,7 @@ function be(t) {
   }
   return e;
 }
-function ve(t) {
+function ye(t) {
   const e = d(t);
   return {
     available: g(e.available),
@@ -59,12 +60,12 @@ function ve(t) {
     rules: F(e.rules)
   };
 }
-function H(t) {
+function U(t) {
   return i(
     t.get("x-trace-id") || t.get("x-correlation-id") || t.get("traceparent")
   );
 }
-function he(t) {
+function xe(t) {
   const e = d(t), s = i(e.id), a = i(e.filename);
   return !s && !a ? null : {
     id: s || a || "attachment",
@@ -76,10 +77,10 @@ function he(t) {
     url: i(e.url)
   };
 }
-function ye(t) {
-  return Array.isArray(t) ? t.map((e) => he(e)).filter((e) => e !== null) : [];
+function $e(t) {
+  return Array.isArray(t) ? t.map((e) => xe(e)).filter((e) => e !== null) : [];
 }
-function xe(t, e) {
+function we(t, e) {
   const s = d(t), a = d(s.kinds), r = {};
   for (const [n, o] of Object.entries(a)) {
     const l = f(o);
@@ -93,14 +94,14 @@ function xe(t, e) {
     kinds: r
   };
 }
-function $e(t) {
+function ke(t) {
   return i(t) === "comment" ? "comment" : "event";
 }
-function we(t) {
+function Se(t) {
   const e = d(t), s = i(e.id);
   return s ? {
     id: s,
-    entry_type: $e(e.entry_type),
+    entry_type: ke(e.entry_type),
     title: i(e.title),
     body: i(e.body),
     action: i(e.action),
@@ -111,8 +112,8 @@ function we(t) {
     metadata: d(e.metadata)
   } : null;
 }
-function ke(t) {
-  const e = d(t), s = Array.isArray(e.items) ? e.items.map((a) => we(a)).filter((a) => a !== null) : [];
+function je(t) {
+  const e = d(t), s = Array.isArray(e.items) ? e.items.map((a) => Se(a)).filter((a) => a !== null) : [];
   return {
     items: s,
     page: f(e.page, 1) || 1,
@@ -122,7 +123,7 @@ function ke(t) {
     next_page: f(e.next_page)
   };
 }
-function Se(t) {
+function Te(t) {
   const e = d(t), s = i(e.id), a = i(e.body);
   return !s && !a ? null : {
     id: s || a || "review-feedback",
@@ -132,8 +133,8 @@ function Se(t) {
     author_id: i(e.author_id) || void 0
   };
 }
-function je(t, e) {
-  const s = d(t), a = Array.isArray(s.comments) ? s.comments.map((n) => Se(n)).filter((n) => n !== null) : [], r = i(s.last_rejection_reason || e) || void 0;
+function Ae(t, e) {
+  const s = d(t), a = Array.isArray(s.comments) ? s.comments.map((n) => Te(n)).filter((n) => n !== null) : [], r = i(s.last_rejection_reason || e) || void 0;
   return !a.length && r && a.push({
     id: "last-rejection-reason",
     body: r,
@@ -144,7 +145,7 @@ function je(t, e) {
     comments: a
   };
 }
-function Ae(t) {
+function Ee(t) {
   const e = d(t), s = i(e.id), a = i(e.message);
   return !s || !a ? null : {
     id: s,
@@ -154,7 +155,7 @@ function Ae(t) {
     message: a
   };
 }
-function Te(t, e) {
+function Re(t, e) {
   const s = d(t);
   return {
     category: i(s.category) || e,
@@ -165,11 +166,11 @@ function Te(t, e) {
     blocker_count: f(s.blocker_count)
   };
 }
-function U(t) {
+function Q(t) {
   const e = d(t), s = d(e.summary), a = d(e.categories), r = {};
   for (const [o, l] of Object.entries(a))
-    o.trim() && (r[o.trim()] = Te(l, o.trim()));
-  const n = Array.isArray(e.findings) ? e.findings.map((o) => Ae(o)).filter((o) => o !== null) : [];
+    o.trim() && (r[o.trim()] = Re(l, o.trim()));
+  const n = Array.isArray(e.findings) ? e.findings.map((o) => Ee(o)).filter((o) => o !== null) : [];
   return {
     enabled: g(e.enabled),
     summary: {
@@ -183,7 +184,7 @@ function U(t) {
     submit_blocked: g(e.submit_blocked)
   };
 }
-function Ee(t) {
+function qe(t) {
   const e = d(t);
   return {
     id: i(e.id || e.assignment_id),
@@ -200,13 +201,13 @@ function Ee(t) {
     updated_at: i(e.updated_at)
   };
 }
-function Q(t, e) {
+function G(t, e) {
   const s = d(t), a = d(e);
   return {
-    glossary_matches: be(
+    glossary_matches: he(
       s.glossary_matches ?? a.glossary_matches
     ),
-    style_guide_summary: ve(
+    style_guide_summary: ye(
       s.style_guide_summary ?? a.style_guide_summary
     ),
     translation_memory_suggestions: Array.isArray(s.translation_memory_suggestions) ? s.translation_memory_suggestions.filter((r) => r && typeof r == "object") : []
@@ -215,12 +216,12 @@ function Q(t, e) {
 function x(t) {
   const e = d(t), s = {};
   for (const [a, r] of Object.entries(e)) {
-    const n = V(r);
+    const n = W(r);
     !n || !a.trim() || (s[a.trim()] = n);
   }
   return s;
 }
-function G(t, e, s, a, r, n) {
+function K(t, e, s, a, r, n) {
   if (Array.isArray(t.fields))
     return t.fields.map((l) => {
       const u = d(l), p = i(u.path);
@@ -231,8 +232,8 @@ function G(t, e, s, a, r, n) {
         required: g(u.required),
         source_value: i(u.source_value) || e[p] || "",
         target_value: i(u.target_value) || s[p] || "",
-        completeness: A(u.completeness ?? a[p]),
-        drift: T(u.drift ?? r[p]),
+        completeness: T(u.completeness ?? a[p]),
+        drift: A(u.drift ?? r[p]),
         validation: E(u.validation ?? n[p]),
         glossary_hits: Array.isArray(u.glossary_hits) ? u.glossary_hits.filter((v) => v && typeof v == "object") : []
       } : null;
@@ -262,8 +263,8 @@ function G(t, e, s, a, r, n) {
     glossary_hits: []
   }));
 }
-function Re(t) {
-  const e = d(t), s = d(e.data && typeof e.data == "object" ? e.data : t), a = k(s.source_fields, { trimKeys: !0, omitBlankKeys: !0 }), r = k(s.target_fields ?? s.fields, { trimKeys: !0, omitBlankKeys: !0 }), n = b(s.field_completeness, A), o = b(s.field_drift, T), l = b(s.field_validations, E), u = ye(s.attachments);
+function Ce(t) {
+  const e = d(t), s = d(e.data && typeof e.data == "object" ? e.data : t), a = k(s.source_fields, { trimKeys: !0, omitBlankKeys: !0 }), r = k(s.target_fields ?? s.fields, { trimKeys: !0, omitBlankKeys: !0 }), n = b(s.field_completeness, T), o = b(s.field_drift, A), l = b(s.field_validations, E), u = $e(s.attachments);
   return {
     assignment_id: i(s.assignment_id),
     assignment_row_version: f(
@@ -280,19 +281,19 @@ function Re(t) {
     row_version: f(s.row_version || s.version),
     source_fields: a,
     target_fields: r,
-    fields: G(s, a, r, n, o, l),
+    fields: K(s, a, r, n, o, l),
     field_completeness: n,
     field_drift: o,
     field_validations: l,
     source_target_drift: d(s.source_target_drift),
-    history: ke(s.history),
+    history: je(s.history),
     attachments: u,
-    attachment_summary: xe(s.attachment_summary, u),
-    translation_assignment: Ee(s.translation_assignment),
-    assist: Q(s.assist, s),
+    attachment_summary: we(s.attachment_summary, u),
+    translation_assignment: qe(s.translation_assignment),
+    assist: G(s.assist, s),
     last_rejection_reason: i(s.last_rejection_reason) || void 0,
-    review_feedback: je(s.review_feedback, s.last_rejection_reason),
-    qa_results: U(s.qa_results),
+    review_feedback: Ae(s.review_feedback, s.last_rejection_reason),
+    qa_results: Q(s.qa_results),
     assignment_action_states: x(
       s.assignment_action_states ?? s.editor_actions ?? s.actions
     ),
@@ -301,23 +302,23 @@ function Re(t) {
     )
   };
 }
-function qe(t) {
+function De(t) {
   const e = d(t), s = d(e.data && typeof e.data == "object" ? e.data : t);
   return {
     variant_id: i(s.variant_id),
     row_version: f(s.row_version || s.version),
     fields: k(s.fields, { trimKeys: !0, omitBlankKeys: !0 }),
-    field_completeness: b(s.field_completeness, A),
-    field_drift: b(s.field_drift, T),
+    field_completeness: b(s.field_completeness, T),
+    field_drift: b(s.field_drift, A),
     field_validations: b(s.field_validations, E),
-    assist: Q(s.assist, s),
-    qa_results: U(s.qa_results),
+    assist: G(s.assist, s),
+    qa_results: Q(s.qa_results),
     assignment_action_states: x(s.assignment_action_states),
     review_action_states: x(s.review_action_states)
   };
 }
 function R(t) {
-  return G(
+  return K(
     { fields: t.fields },
     t.source_fields,
     t.target_fields,
@@ -332,7 +333,7 @@ function q(t) {
     if (s.required && s.missing) return !1;
   return !0;
 }
-function Ce(t) {
+function Le(t) {
   return {
     detail: {
       ...t,
@@ -384,7 +385,7 @@ function D(t, e, s) {
     can_submit_review: q(u)
   };
 }
-function De(t) {
+function Oe(t) {
   return {
     ...t,
     assignment_row_version: t.assignment_row_version,
@@ -394,8 +395,8 @@ function De(t) {
     }
   };
 }
-function Le(t, e) {
-  const s = qe(e), a = {
+function Pe(t, e) {
+  const s = De(e), a = {
     ...t.detail,
     row_version: s.row_version,
     target_fields: {
@@ -423,7 +424,7 @@ function Le(t, e) {
     }
   };
 }
-function Oe(t, e) {
+function Fe(t, e) {
   const s = d(d(d(e).error).metadata);
   return {
     ...t,
@@ -440,26 +441,26 @@ function L(t, e) {
     r == null || `${r}`.trim() === "" || s.searchParams.set(a, String(r));
   return /^https?:\/\//i.test(t) ? s.toString() : `${s.pathname}${s.search}`;
 }
-class Pe extends Error {
+class Be extends Error {
   constructor(e) {
     super(e.message), this.name = "TranslationEditorRequestError", this.status = e.status, this.code = e.code ?? null, this.metadata = e.metadata ?? null, this.requestId = e.requestId, this.traceId = e.traceId;
   }
 }
 async function w(t, e) {
-  const s = await M(t);
-  return new Pe({
+  const s = await z(t);
+  return new Be({
     message: s.message || await B(t, e),
     status: t.status,
     code: s.textCode,
     metadata: s.metadata,
     requestId: i(t.headers.get("x-request-id")) || void 0,
-    traceId: H(t.headers) || void 0
+    traceId: U(t.headers) || void 0
   });
 }
-async function Fe(t) {
-  const e = await y(t, { method: "GET" }), s = i(e.headers.get("x-request-id")) || void 0, a = H(e.headers) || void 0;
+async function Me(t) {
+  const e = await y(t, { method: "GET" }), s = i(e.headers.get("x-request-id")) || void 0, a = U(e.headers) || void 0;
   if (!e.ok) {
-    const o = await M(e);
+    const o = await z(e);
     return {
       status: o.textCode === "VERSION_CONFLICT" ? "conflict" : "error",
       message: o.message || `Failed to load assignment (${e.status})`,
@@ -469,7 +470,7 @@ async function Fe(t) {
       errorCode: o.textCode
     };
   }
-  const r = await e.json(), n = Re(r);
+  const r = await e.json(), n = Ce(r);
   return n.assignment_id ? {
     status: "ready",
     detail: n,
@@ -484,31 +485,31 @@ async function Fe(t) {
     statusCode: e.status
   };
 }
-function Be(t) {
+function ze(t) {
   return !t || t <= 0 ? "0 B" : t < 1024 ? `${t} B` : t < 1024 * 1024 ? `${(t / 1024).toFixed(1)} KB` : `${(t / (1024 * 1024)).toFixed(1)} MB`;
 }
-function Me(t) {
+function Ie(t) {
   return i(t.status || t.translation_assignment.status || t.translation_assignment.queue_state);
 }
-function ze(t) {
+function Ne(t) {
   return t === "review" || t === "in_review";
 }
-function Ie(t) {
-  const e = Me(t);
-  return ze(e) ? !0 : !!(t.review_action_states.approve?.enabled || t.review_action_states.reject?.enabled);
+function He(t) {
+  const e = Ie(t);
+  return Ne(e) ? !0 : !!(t.review_action_states.approve?.enabled || t.review_action_states.reject?.enabled);
 }
-function Ne(t) {
+function Ue(t) {
   return !!t.assignment_action_states.archive?.enabled;
 }
-function He(t, e, s) {
+function Qe(t, e, s) {
   let a = "idle";
   return t?.autosave.conflict ? a = "conflict" : t?.autosave.pending ? a = "saving" : e ? a = "dirty" : s && (a = "saved"), {
-    tone: ne(a),
-    text: ie(a, s),
+    tone: le(a),
+    text: oe(a, s),
     state: a
   };
 }
-function K(t) {
+function Y(t) {
   const e = [
     t.requestId ? `Request ${c(t.requestId)}` : "",
     t.traceId ? `Trace ${c(t.traceId)}` : "",
@@ -516,14 +517,14 @@ function K(t) {
   ].filter(Boolean);
   return e.length ? `<p class="mt-3 text-xs text-gray-500">${e.join(" · ")}</p>` : "";
 }
-function Ue(t) {
+function Ge(t) {
   return t ? `
     <div class="rounded-xl border px-4 py-3 text-sm font-medium ${t.kind === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : t.kind === "conflict" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-rose-200 bg-rose-50 text-rose-800"}" data-editor-feedback-kind="${m(t.kind)}" role="status" aria-live="polite">
       ${c(t.message)}
     </div>
   ` : "";
 }
-function Qe(t) {
+function Ke(t) {
   const e = t.qa_results;
   if (!e.enabled || e.summary.finding_count <= 0) return "";
   const s = e.summary.blocker_count > 0 ? _("error") : _("success"), a = e.summary.blocker_count > 0 ? `Blockers ${e.summary.blocker_count}` : "No blockers";
@@ -532,7 +533,7 @@ function Qe(t) {
     <span class="${s}">${a}</span>
   `;
 }
-function Ge(t, e) {
+function Ye(t, e) {
   return t.summary.blocker_count > 0 ? {
     kind: "conflict",
     message: `Draft saved with ${t.summary.blocker_count} QA blocker${t.summary.blocker_count === 1 ? "" : "s"} and ${t.summary.warning_count} warning${t.summary.warning_count === 1 ? "" : "s"}. Submit remains blocked.`,
@@ -547,47 +548,60 @@ function Ge(t, e) {
     lastSaved: e ? "Draft saved automatically" : "Draft saved"
   };
 }
-function Ke(t) {
+function Ve(t) {
   const e = t.qa_results;
   return e.submit_blocked ? `Resolve ${e.summary.blocker_count} QA blocker${e.summary.blocker_count === 1 ? "" : "s"} before submitting for review. ${e.summary.warning_count} warning${e.summary.warning_count === 1 ? "" : "s"} remain advisory.` : "Submit for review is unavailable.";
 }
-function Ye(t, e) {
+function We(t, e) {
   const s = t.qa_results, a = s.summary.warning_count > 0 ? ` ${s.summary.warning_count} QA warning${s.summary.warning_count === 1 ? "" : "s"} remain visible to reviewers.` : "";
   return e === "approved" ? `Submitted and auto-approved.${a}` : `Submitted for review.${a}`;
 }
-function Ve() {
-  return `
-    <section class="${J} p-8 shadow-sm" aria-busy="true">
-      <p class="text-sm font-medium text-gray-500">Loading translation assignment…</p>
-    </section>
-  `;
+function Xe() {
+  return X({
+    tag: "section",
+    text: "Loading translation assignment…",
+    showSpinner: !1,
+    containerClass: `${ee} p-8 shadow-sm`,
+    textClass: "text-sm font-medium text-gray-500"
+  });
 }
 function O(t, e) {
-  return `
-    <section class="${Z} p-8 text-center shadow-sm">
-      <h2 class="${ee}">${c(t)}</h2>
-      <p class="${te} mt-2">${c(e)}</p>
-    </section>
-  `;
+  return M({
+    tag: "section",
+    containerClass: `${te} p-8 text-center shadow-sm`,
+    bodyClass: "",
+    contentClass: "",
+    title: t,
+    titleTag: "h2",
+    titleClass: se,
+    message: e,
+    messageClass: `${ae} mt-2`
+  });
 }
 function P(t, e, s) {
-  return `
-    <section class="${se} p-8 shadow-sm">
-      <h2 class="${ae}">${c(t)}</h2>
-      <p class="${re} mt-2">${c(e)}</p>
-      ${K(s)}
-    </section>
-  `;
+  return M({
+    tag: "section",
+    containerClass: `${re} p-8 shadow-sm`,
+    bodyClass: "",
+    contentClass: "",
+    title: t,
+    titleTag: "h2",
+    titleClass: ie,
+    message: e,
+    messageClass: `${ne} mt-2`,
+    actionsHtml: Y(s),
+    role: "alert"
+  });
 }
-function We(t, e, s, a, r, n = "") {
-  const o = t.assignment_action_states.submit_review, l = !o?.enabled || r || a || t.qa_results.submit_blocked, u = r || !s, p = (t.source_locale || "source").toUpperCase(), v = (t.target_locale || "target").toUpperCase(), h = t.translation_assignment, Y = t.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : o?.reason || "";
+function Je(t, e, s, a, r, n = "") {
+  const o = t.assignment_action_states.submit_review, l = !o?.enabled || r || a || t.qa_results.submit_blocked, u = r || !s, p = (t.source_locale || "source").toUpperCase(), v = (t.target_locale || "target").toUpperCase(), h = t.translation_assignment, V = t.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : o?.reason || "";
   return `
     <section class="${S} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="space-y-3">
-          <p class="${oe}">Assignment editor</p>
+          <p class="${ce}">Assignment editor</p>
           <div>
-            <h1 class="${ce}">${c(h.source_title || "Translation assignment")}</h1>
+            <h1 class="${de}">${c(h.source_title || "Translation assignment")}</h1>
             <p class="mt-2 text-sm text-gray-600">
               ${c(p)} to ${c(v)} • ${c($(t.status || h.status || "draft"))} • Priority ${c(t.priority || "normal")}
             </p>
@@ -596,7 +610,7 @@ function We(t, e, s, a, r, n = "") {
             <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${c(h.assignee_id || "Unassigned")}</span>
             <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${c(h.reviewer_id || "Not set")}</span>
             <span class="rounded-full px-3 py-1 font-medium ${e.tone}" data-autosave-state="${m(e.state)}">${c(e.text)}</span>
-            ${Qe(t)}
+            ${Ke(t)}
           </div>
         </div>
         <div class="flex flex-wrap items-center gap-3">
@@ -610,9 +624,9 @@ function We(t, e, s, a, r, n = "") {
           </button>
           <button
             type="button"
-            class="${z}"
+            class="${I}"
             data-action="submit-review"
-            title="${m(Y)}"
+            title="${m(V)}"
             ${l ? 'disabled aria-disabled="true"' : ""}
           >
             ${a ? "Submitting…" : o?.enabled ? "Submit for review" : "Submit unavailable"}
@@ -622,7 +636,7 @@ function We(t, e, s, a, r, n = "") {
     </section>
   `;
 }
-function Xe(t) {
+function Ze(t) {
   return t.drift.changed ? `
     <div class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-field-drift="${m(t.path)}">
       <p class="font-semibold">Source changed since the last synced draft.</p>
@@ -631,20 +645,20 @@ function Xe(t) {
     </div>
   ` : "";
 }
-function Je(t) {
+function et(t) {
   const e = Array.isArray(t.glossary_hits) ? t.glossary_hits : [];
   return e.length ? `
     <div class="mt-3 flex flex-wrap gap-2">
       ${e.map((s) => `
-        <span class="${ge}">
-          <span class="${pe}">${c(i(s.term))}</span>
+        <span class="${_e}">
+          <span class="${be}">${c(i(s.term))}</span>
           → ${c(i(s.preferred_translation))}
         </span>
       `).join("")}
     </div>
   ` : "";
 }
-function Ze(t) {
+function tt(t) {
   return `
     <section class="space-y-4">
       ${t.fields.map((e) => `
@@ -656,7 +670,7 @@ function Ze(t) {
             </div>
             <button
               type="button"
-              class="${I}"
+              class="${N}"
               data-copy-source="${m(e.path)}"
               aria-label="Copy source text to translation field for ${m(e.label)}"
             >
@@ -678,8 +692,8 @@ function Ze(t) {
                 ${e.drift.changed ? '<span class="rounded-full bg-amber-100 px-2.5 py-1 text-amber-700">Source changed</span>' : ""}
               </div>
               ${e.validation.valid ? "" : `<p class="mt-3 text-sm font-medium text-rose-700" data-field-validation="${m(e.path)}">${c(e.validation.message || "Validation error")}</p>`}
-              ${Xe(e)}
-              ${Je(e)}
+              ${Ze(e)}
+              ${et(e)}
             </div>
           </div>
         </article>
@@ -687,7 +701,7 @@ function Ze(t) {
     </section>
   `;
 }
-function et(t) {
+function st(t) {
   const e = t.assist.glossary_matches, s = t.assist.style_guide_summary;
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5">
@@ -718,7 +732,7 @@ function et(t) {
     </section>
   `;
 }
-function tt(t) {
+function at(t) {
   const e = t.history.items.map((s) => ({
     id: s.id,
     title: s.title || $(s.entry_type),
@@ -746,14 +760,14 @@ function tt(t) {
     return (a.created_at ? Date.parse(a.created_at) : 0) - r;
   });
 }
-function st(t) {
+function rt(t) {
   const e = t.qa_results;
   if (!e.enabled)
     return "";
   const s = e.findings.filter((n) => n.severity === "blocker"), a = e.findings.filter((n) => n.severity !== "blocker"), r = (n, o) => {
     if (!n.length)
       return "";
-    const l = _e(o);
+    const l = ve(o);
     return `
       <section data-qa-group="${m(o === "blocker" ? "blockers" : "warnings")}">
         <h3 class="text-sm font-semibold ${o === "blocker" ? "text-rose-800" : "text-amber-800"}">
@@ -773,7 +787,7 @@ function st(t) {
     `;
   };
   return `
-    <section class="${le(e.submit_blocked)}">
+    <section class="${ue(e.submit_blocked)}">
       <div class="flex items-center justify-between gap-3">
         <div>
           <h2 class="text-lg font-semibold text-gray-900">QA checks</h2>
@@ -793,9 +807,9 @@ function st(t) {
     </section>
   `;
 }
-function at(t, e) {
+function it(t, e) {
   const s = t.review_action_states.approve, a = t.review_action_states.reject;
-  return Ie(t) ? `
+  return He(t) ? `
     <section
       class="rounded-xl border border-gray-200 bg-white p-5"
       data-editor-panel="review-actions"
@@ -834,17 +848,17 @@ function at(t, e) {
     </section>
   ` : "";
 }
-function rt(t, e) {
+function nt(t, e) {
   return t ? `
-    <div class="${ue}" data-reject-modal="true">
-      <section class="${me}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
+    <div class="${fe}" data-reject-modal="true">
+      <section class="${ge}" role="dialog" aria-modal="true" aria-labelledby="translation-reject-title">
         <div class="flex items-start justify-between gap-4">
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500">Review action</p>
             <h2 id="translation-reject-title" class="mt-2 text-2xl font-semibold text-gray-900">Request changes</h2>
             <p class="mt-2 text-sm text-gray-600">Capture the rejection reason so translators can see it directly in the editor timeline.</p>
           </div>
-          <button type="button" class="${I}" data-action="cancel-reject">Close</button>
+          <button type="button" class="${N}" data-action="cancel-reject">Close</button>
         </div>
         <label class="mt-5 block text-sm font-medium text-gray-700">
           Reject reason
@@ -857,14 +871,14 @@ function rt(t, e) {
         ${t.error ? `<p class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-sm font-medium text-rose-800">${c(t.error)}</p>` : ""}
         <div class="mt-5 flex items-center justify-end gap-3">
           <button type="button" class="${j}" data-action="cancel-reject">Cancel</button>
-          <button type="button" class="${fe}" data-action="confirm-reject" ${e ? 'disabled aria-disabled="true"' : ""}>${e ? "Submitting…" : "Request changes"}</button>
+          <button type="button" class="${pe}" data-action="confirm-reject" ${e ? 'disabled aria-disabled="true"' : ""}>${e ? "Submitting…" : "Request changes"}</button>
         </div>
       </section>
     </div>
   ` : "";
 }
-function it(t, e) {
-  if (!Ne(t))
+function ot(t, e) {
+  if (!Ue(t))
     return "";
   const s = t.assignment_action_states.archive, a = !s?.enabled || e;
   return `
@@ -888,7 +902,7 @@ function it(t, e) {
     </section>
   `;
 }
-function nt(t) {
+function lt(t) {
   return `
     <section class="${S} p-5">
       <div class="flex items-center justify-between gap-3">
@@ -902,17 +916,17 @@ function nt(t) {
                   <p class="font-semibold text-gray-900">${c(e.filename)}</p>
                   <p class="mt-1 text-xs uppercase tracking-[0.18em] text-gray-500">${c(e.kind)}</p>
                 </div>
-                <span class="text-xs text-gray-500">${c(Be(e.byte_size))}</span>
+                <span class="text-xs text-gray-500">${c(ze(e.byte_size))}</span>
               </div>
               ${e.description ? `<p class="mt-2 text-xs text-gray-500">${c(e.description)}</p>` : ""}
-              ${e.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${c(N(e.uploaded_at))}</p>` : ""}
+              ${e.uploaded_at ? `<p class="mt-2 text-xs text-gray-500">Uploaded ${c(H(e.uploaded_at))}</p>` : ""}
             </li>
           `).join("")}</ul>` : '<p class="mt-4 text-sm text-gray-500">No reference attachments for this assignment.</p>'}
     </section>
   `;
 }
-function ot(t) {
-  const e = t.history, s = tt(t);
+function ct(t) {
+  const e = t.history, s = at(t);
   return `
     <section class="rounded-xl border border-gray-200 bg-white p-5">
       <div class="flex items-center justify-between gap-3">
@@ -920,7 +934,7 @@ function ot(t) {
         <span class="text-xs text-gray-500">Page ${e.page} of ${Math.max(1, Math.ceil(e.total / Math.max(1, e.per_page)))}</span>
       </div>
       ${s.length ? `<ol class="mt-4 space-y-3">${s.map((a) => {
-    const r = de(a.tone);
+    const r = me(a.tone);
     return `
             <li class="${r.container}" data-history-entry="${m(a.id)}">
               <div class="flex items-start justify-between gap-3">
@@ -928,7 +942,7 @@ function ot(t) {
                   <p class="${r.title}">${c(a.title)}</p>
                   <span class="${r.badge}">${c(a.badge)}</span>
                 </div>
-                <span class="${r.time}">${c(N(a.created_at) || "Current")}</span>
+                <span class="${r.time}">${c(H(a.created_at) || "Current")}</span>
               </div>
               ${a.body ? `<p class="mt-2 text-sm">${c(a.body)}</p>` : ""}
             </li>
@@ -941,18 +955,18 @@ function ot(t) {
     </section>
   `;
 }
-function ct(t, e, s = {}, a = {}) {
-  if (t.status === "loading") return Ve();
+function dt(t, e, s = {}, a = {}) {
+  if (t.status === "loading") return Xe();
   if (t.status === "empty") return O("Assignment unavailable", t.message || "No assignment detail payload was returned.");
   if (t.status === "error") return P("Editor unavailable", t.message || "Unable to load the assignment editor.", t);
   if (t.status === "conflict") return P("Editor conflict", t.message || "A newer version of this assignment is available.", t);
   const r = e?.detail || t.detail;
   if (!r) return O("Assignment unavailable", "No assignment detail payload was returned.");
-  const n = !!(e && Object.keys(e.dirty_fields).length), o = He(e || null, n, a.lastSavedMessage || ""), l = e?.autosave.conflict;
+  const n = !!(e && Object.keys(e.dirty_fields).length), o = Qe(e || null, n, a.lastSavedMessage || ""), l = e?.autosave.conflict;
   return `
     <div class="translation-editor-screen space-y-6" data-translation-editor="true">
-      ${Ue(a.feedback || null)}
-      ${We(r, o, n, a.submitting === !0, a.saving === !0, s.basePath || "")}
+      ${Ge(a.feedback || null)}
+      ${Je(r, o, n, a.submitting === !0, a.saving === !0, s.basePath || "")}
       ${l ? `
         <section class="rounded-xl border border-amber-200 bg-amber-50 p-5">
           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -960,32 +974,32 @@ function ct(t, e, s = {}, a = {}) {
               <h2 class="text-lg font-semibold text-amber-900">Autosave conflict</h2>
               <p class="mt-1 text-sm text-amber-800">A newer server draft exists. Reload it before continuing.</p>
             </div>
-            <button type="button" class="${z}" data-action="reload-server-state">Reload server draft</button>
+            <button type="button" class="${I}" data-action="reload-server-state">Reload server draft</button>
           </div>
         </section>
       ` : ""}
       <div class="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div class="order-1 space-y-4 sm:space-y-6">
-          ${Ze(r)}
+          ${tt(r)}
         </div>
         <aside class="order-2 space-y-4 sm:space-y-6">
-          ${at(r, a.submitting === !0)}
           ${it(r, a.submitting === !0)}
+          ${ot(r, a.submitting === !0)}
+          ${rt(r)}
           ${st(r)}
-          ${et(r)}
-          ${nt(r)}
-          ${ot(r)}
-          ${K(t)}
+          ${lt(r)}
+          ${ct(r)}
+          ${Y(t)}
         </aside>
       </div>
-      ${rt(a.rejectDraft || null, a.submitting === !0)}
+      ${nt(a.rejectDraft || null, a.submitting === !0)}
     </div>
   `;
 }
-function lt(t, e, s, a = {}, r = {}) {
-  t.innerHTML = ct(e, s, a, r);
+function ut(t, e, s, a = {}, r = {}) {
+  t.innerHTML = dt(e, s, a, r);
 }
-class dt {
+class mt {
   constructor(e) {
     this.container = null, this.loadState = { status: "loading" }, this.editorState = null, this.feedback = null, this.lastSavedMessage = "", this.autosaveTimer = null, this.keyboardHandler = null, this.focusTrapCleanup = null, this.saving = !1, this.submitting = !1, this.rejectDraft = null, this.config = {
       endpoint: e.endpoint,
@@ -1008,16 +1022,16 @@ class dt {
       history_page: e,
       history_per_page: this.editorState?.detail.history.per_page || this.loadState.detail?.history.per_page || 10
     }) : this.config.endpoint;
-    this.loadState = await Fe(s), this.loadState.status === "ready" && this.loadState.detail ? this.editorState = Ce(this.loadState.detail) : this.editorState = null, this.render();
+    this.loadState = await Me(s), this.loadState.status === "ready" && this.loadState.detail ? this.editorState = Le(this.loadState.detail) : this.editorState = null, this.render();
   }
   render() {
-    this.container && (lt(this.container, this.loadState, this.editorState, { basePath: this.config.basePath }, {
+    this.container && (ut(this.container, this.loadState, this.editorState, { basePath: this.config.basePath }, {
       feedback: this.feedback,
       lastSavedMessage: this.lastSavedMessage,
       saving: this.saving,
       submitting: this.submitting,
       rejectDraft: this.rejectDraft
-    }), this.attachEventListeners(), W(this.container));
+    }), this.attachEventListeners(), J(this.container));
   }
   attachEventListeners() {
     !this.container || !this.editorState || (this.container.querySelectorAll("[data-field-input]").forEach((e) => {
@@ -1069,7 +1083,7 @@ class dt {
   }
   async saveDirtyFields(e) {
     if (!this.editorState || !Object.keys(this.editorState.dirty_fields).length || this.saving) return !0;
-    this.saving = !0, this.editorState = De(this.editorState), this.render();
+    this.saving = !0, this.editorState = Oe(this.editorState), this.render();
     const s = this.editorState.detail, a = await y(L(`${this.config.variantEndpointBase}/${encodeURIComponent(s.variant_id)}`, {}), {
       method: "PATCH",
       json: {
@@ -1081,14 +1095,14 @@ class dt {
     if (!a.ok) {
       if (a.status === 409) {
         const l = await a.json().catch(async () => ({ error: { message: await B(a, "Autosave conflict") } }));
-        return this.editorState = Oe(this.editorState, l), this.feedback = { kind: "conflict", message: "Autosave conflict detected. Reload the latest server draft." }, this.saving = !1, this.render(), !1;
+        return this.editorState = Fe(this.editorState, l), this.feedback = { kind: "conflict", message: "Autosave conflict detected. Reload the latest server draft." }, this.saving = !1, this.render(), !1;
       }
       const o = await w(a, "Failed to save draft");
       return this.feedback = { kind: "error", message: o.message }, this.saving = !1, this.render(), !1;
     }
     const r = await a.json();
-    this.editorState = Le(this.editorState, r);
-    const n = Ge(this.editorState.detail.qa_results, e);
+    this.editorState = Pe(this.editorState, r);
+    const n = Ye(this.editorState.detail.qa_results, e);
     return this.lastSavedMessage = n.lastSaved, (!e || n.kind === "conflict") && (this.feedback = { kind: n.kind, message: n.message }), this.saving = !1, this.render(), !0;
   }
   async submitForReview() {
@@ -1102,7 +1116,7 @@ class dt {
       const o = Object.entries(this.editorState.detail.field_completeness).filter(([, l]) => l.required && l.missing).map(([l]) => l);
       this.feedback = {
         kind: this.editorState.detail.qa_results.submit_blocked ? "conflict" : "error",
-        message: this.editorState.detail.qa_results.submit_blocked ? Ke(this.editorState.detail) : o.length ? `Complete required fields before submitting for review: ${o.join(", ")}.` : "Submit for review is unavailable."
+        message: this.editorState.detail.qa_results.submit_blocked ? Ve(this.editorState.detail) : o.length ? `Complete required fields before submitting for review: ${o.join(", ")}.` : "Submit for review is unavailable."
       }, this.render();
       return;
     }
@@ -1124,7 +1138,7 @@ class dt {
     const r = await a.json(), n = i(d(r).data && d(d(r).data).status);
     this.feedback = {
       kind: "success",
-      message: Ye(this.editorState.detail, n)
+      message: We(this.editorState.detail, n)
     }, this.submitting = !1, await this.load(this.editorState.detail.history.page);
   }
   async runReviewAction(e, s) {
@@ -1170,7 +1184,7 @@ class dt {
       error: e
     }, this.render();
     const s = this.container?.querySelector('[data-reject-modal] [role="dialog"]');
-    s && (this.focusTrapCleanup = X(s, () => this.closeRejectDialog()));
+    s && (this.focusTrapCleanup = Z(s, () => this.closeRejectDialog()));
   }
   closeRejectDialog() {
     this.focusTrapCleanup && (this.focusTrapCleanup(), this.focusTrapCleanup = null), this.rejectDraft = null, this.render();
@@ -1186,24 +1200,24 @@ class dt {
     await this.runReviewAction("reject", { reason: e, comment: s });
   }
 }
-async function ht(t, e) {
-  const s = new dt(e);
+async function $t(t, e) {
+  const s = new mt(e);
   return s.mount(t), s;
 }
 export {
-  Pe as TranslationEditorRequestError,
-  dt as TranslationEditorScreen,
-  Oe as applyEditorAutosaveConflict,
+  Be as TranslationEditorRequestError,
+  mt as TranslationEditorScreen,
+  Fe as applyEditorAutosaveConflict,
   D as applyEditorFieldChange,
-  Le as applyEditorUpdateResponse,
-  Ce as createTranslationEditorState,
-  Fe as fetchTranslationEditorDetailState,
-  ht as initTranslationEditorPage,
-  De as markEditorAutosavePending,
-  Re as normalizeAssignmentEditorDetail,
-  Q as normalizeEditorAssistPayload,
-  qe as normalizeEditorUpdateResponse,
-  lt as renderTranslationEditorPage,
-  ct as renderTranslationEditorState
+  Pe as applyEditorUpdateResponse,
+  Le as createTranslationEditorState,
+  Me as fetchTranslationEditorDetailState,
+  $t as initTranslationEditorPage,
+  Oe as markEditorAutosavePending,
+  Ce as normalizeAssignmentEditorDetail,
+  G as normalizeEditorAssistPayload,
+  De as normalizeEditorUpdateResponse,
+  ut as renderTranslationEditorPage,
+  dt as renderTranslationEditorState
 };
 //# sourceMappingURL=index.js.map

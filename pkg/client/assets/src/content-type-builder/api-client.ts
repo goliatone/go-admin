@@ -25,6 +25,7 @@ import type {
 } from './types';
 import type { BackendFieldTypeCategoryGroup } from './block-field-type-registry';
 import { extractErrorMessage } from '../toast/error-helpers';
+import { titleCaseIdentifier } from './shared/text';
 
 export interface ContentTypeAPIConfig {
   basePath: string;
@@ -1067,7 +1068,7 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
     id: generateFieldId(),
     name,
     type: schemaToFieldType(schema),
-    label: schema.title ?? titleCase(name),
+    label: schema.title ?? titleCaseIdentifier(name),
     description: schema.description,
     placeholder: formgen?.placeholder,
     helpText: formgen?.helpText,
@@ -1097,7 +1098,7 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
     field.config = {
       options: schema.enum.map((value) => ({
         value: String(value),
-        label: titleCase(String(value)),
+        label: titleCaseIdentifier(String(value)),
       })),
     };
   }
@@ -1249,18 +1250,4 @@ function schemaToFieldType(schema: JSONSchema): FieldType {
  */
 export function generateFieldId(): string {
   return `field_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-/**
- * Convert string to title case
- */
-function titleCase(str: string): string {
-  return str
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/[_-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
 }

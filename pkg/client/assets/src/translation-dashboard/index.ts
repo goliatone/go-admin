@@ -3,6 +3,7 @@ import { asNumberish as asNumber, asRecord, asString } from '../shared/coercion.
 import { normalizeNumberRecord, normalizeStringRecord } from '../shared/record-normalization.js';
 import { StatefulController } from '../shared/stateful-controller.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
+import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -867,30 +868,51 @@ function renderEmptyState(payload: TranslationDashboardResponse): string {
   const action = runbook?.href
     ? `<a class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50" href="${escapeAttribute(runbook.href)}">${escapeHTML(runbook.title || 'Open runbook')}</a>`
     : '';
-  return `
-    <section class="${EMPTY_STATE} p-6 shadow-sm" data-dashboard-empty="true" role="status" aria-live="polite">
-      <p class="${EMPTY_STATE_TITLE}">No active pressure</p>
-      <h3 class="mt-2 text-xl font-semibold text-gray-900">This scope is clear right now.</h3>
-      <p class="${EMPTY_STATE_TEXT} mt-3 max-w-2xl leading-6">Managers can refresh the aggregate snapshot to confirm the latest state or jump into a runbook if activity is expected to resume.</p>
+  return renderPanelState({
+    tag: 'section',
+    containerClass: `${EMPTY_STATE} p-6 shadow-sm`,
+    bodyClass: '',
+    contentClass: '',
+    title: 'No active pressure',
+    titleClass: EMPTY_STATE_TITLE,
+    heading: 'This scope is clear right now.',
+    headingTag: 'h3',
+    headingClass: 'mt-2 text-xl font-semibold text-gray-900',
+    message: 'Managers can refresh the aggregate snapshot to confirm the latest state or jump into a runbook if activity is expected to resume.',
+    messageClass: `${EMPTY_STATE_TEXT} mt-3 max-w-2xl leading-6`,
+    actionsHtml: `
       <div class="mt-5 flex flex-wrap gap-3">
         <button type="button" class="${BTN_PRIMARY}" data-dashboard-refresh-button="true">Refresh dashboard</button>
         ${action}
       </div>
-    </section>
-  `;
+    `,
+    attributes: {
+      'data-dashboard-empty': 'true',
+    },
+    ariaLive: 'polite',
+  });
 }
 
 function renderInlineError(error: unknown): string {
   const requestID = error instanceof TranslationDashboardRequestError ? error.requestId : undefined;
   const traceID = error instanceof TranslationDashboardRequestError ? error.traceId : undefined;
   const metadata = [requestID ? `Request ${requestID}` : '', traceID ? `Trace ${traceID}` : ''].filter(Boolean).join(' • ');
-  return `
-    <section class="${ERROR_STATE} p-4" data-dashboard-inline-error="true" role="alert">
-      <p class="${ERROR_STATE_TITLE}">Latest refresh failed</p>
-      <p class="${ERROR_STATE_TEXT} mt-2">${escapeHTML(error instanceof Error ? error.message : 'Failed to load translation dashboard')}</p>
-      ${metadata ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${escapeHTML(metadata)}</p>` : ''}
-    </section>
-  `;
+  return renderPanelState({
+    tag: 'section',
+    containerClass: `${ERROR_STATE} p-4`,
+    bodyClass: '',
+    contentClass: '',
+    title: 'Latest refresh failed',
+    titleClass: ERROR_STATE_TITLE,
+    message: error instanceof Error ? error.message : 'Failed to load translation dashboard',
+    messageClass: `${ERROR_STATE_TEXT} mt-2`,
+    metadata,
+    metadataClass: 'mt-2 text-xs uppercase tracking-[0.16em] text-rose-700',
+    role: 'alert',
+    attributes: {
+      'data-dashboard-inline-error': 'true',
+    },
+  });
 }
 
 function renderError(error: unknown): string {
@@ -898,34 +920,55 @@ function renderError(error: unknown): string {
   const requestID = error instanceof TranslationDashboardRequestError ? error.requestId : undefined;
   const traceID = error instanceof TranslationDashboardRequestError ? error.traceId : undefined;
   const metadata = [requestID ? `Request ${requestID}` : '', traceID ? `Trace ${traceID}` : ''].filter(Boolean).join(' • ');
-  return `
-    <section class="${ERROR_STATE} p-4" data-dashboard-error="true" role="alert">
-      <p class="${ERROR_STATE_TITLE}">Translation dashboard unavailable</p>
-      <p class="${ERROR_STATE_TEXT} mt-2">Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.</p>
-      <p class="${ERROR_STATE_TEXT} mt-2">${escapeHTML(message)}</p>
-      ${metadata ? `<p class="mt-2 text-xs uppercase tracking-[0.16em] text-rose-700">${escapeHTML(metadata)}</p>` : ''}
-      <div class="mt-4">
-        <button type="button" class="${BTN_DANGER}" data-dashboard-refresh-button="true">Retry dashboard</button>
-      </div>
-    </section>
-  `;
+  return renderPanelState({
+    tag: 'section',
+    containerClass: `${ERROR_STATE} p-4`,
+    bodyClass: '',
+    contentClass: '',
+    title: 'Translation dashboard unavailable',
+    titleClass: ERROR_STATE_TITLE,
+    heading: 'Managers can retry the aggregate request and return to queue-health monitoring once the endpoint recovers.',
+    headingTag: 'p',
+    headingClass: `${ERROR_STATE_TEXT} mt-2`,
+    message,
+    messageClass: `${ERROR_STATE_TEXT} mt-2`,
+    metadata,
+    metadataClass: 'mt-2 text-xs uppercase tracking-[0.16em] text-rose-700',
+    actionsHtml: `<div class="mt-4"><button type="button" class="${BTN_DANGER}" data-dashboard-refresh-button="true">Retry dashboard</button></div>`,
+    role: 'alert',
+    attributes: {
+      'data-dashboard-error': 'true',
+    },
+  });
 }
 
 function renderUnconfiguredState(): string {
-  return `
-    <section class="${EMPTY_STATE} p-5" data-dashboard-empty="true">
-      <p class="${EMPTY_STATE_TITLE}">Dashboard contract route is not wired.</p>
-      <p class="${EMPTY_STATE_TEXT} mt-2">Set a dashboard aggregate endpoint before initializing the dashboard client.</p>
-    </section>
-  `;
+  return renderPanelState({
+    tag: 'section',
+    containerClass: `${EMPTY_STATE} p-5`,
+    bodyClass: '',
+    contentClass: '',
+    title: 'Dashboard contract route is not wired.',
+    titleClass: EMPTY_STATE_TITLE,
+    message: 'Set a dashboard aggregate endpoint before initializing the dashboard client.',
+    messageClass: `${EMPTY_STATE_TEXT} mt-2`,
+    attributes: {
+      'data-dashboard-empty': 'true',
+    },
+  });
 }
 
 function renderLoadingState(): string {
-  return `
-    <section class="${LOADING_STATE} p-5" data-dashboard-loading="true" role="status" aria-live="polite">
-      Loading translation dashboard aggregates...
-    </section>
-  `;
+  return renderPanelLoadingState({
+    tag: 'section',
+    text: 'Loading translation dashboard aggregates...',
+    showSpinner: false,
+    containerClass: `${LOADING_STATE} p-5`,
+    attributes: {
+      'data-dashboard-loading': 'true',
+    },
+    ariaLive: 'polite',
+  });
 }
 
 export class TranslationDashboardPage extends StatefulController<TranslationDashboardScreenState> {

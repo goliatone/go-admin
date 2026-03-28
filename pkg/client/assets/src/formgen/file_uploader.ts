@@ -1,4 +1,5 @@
 import { onReady } from '../shared/dom-ready.js';
+import { formatByteSize } from '../shared/size-formatters.js';
 
 type FileUploaderConfig = {
   uploadEndpoint?: string;
@@ -32,16 +33,12 @@ function parseConfig(raw: string | null): FileUploaderConfig {
 }
 
 function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let size = bytes;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-  const precision = unitIndex === 0 ? 0 : 1;
-  return `${size.toFixed(precision)} ${units[unitIndex]}`;
+  return formatByteSize(bytes, {
+    emptyFallback: '0 B',
+    zeroFallback: '0 B',
+    invalidFallback: '0 B',
+    precisionByUnit: [0, 1, 1, 1],
+  }) as string;
 }
 
 function showError(elements: FileUploaderElements, message: string): void {

@@ -12,6 +12,7 @@ import {
 import { StatefulController } from '../shared/stateful-controller.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
+import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -1081,27 +1082,61 @@ function renderFilters(query: TranslationMatrixQuery, busy = false): string {
 }
 
 function renderLoadingState(): string {
-  return `<section class="${LOADING_STATE} p-8 shadow-sm" data-matrix-loading="true" role="status" aria-live="polite">Loading translation matrix…</section>`;
+  return renderPanelLoadingState({
+    tag: 'section',
+    text: 'Loading translation matrix…',
+    showSpinner: false,
+    containerClass: `${LOADING_STATE} p-8 shadow-sm`,
+    attributes: {
+      'data-matrix-loading': 'true',
+    },
+    ariaLive: 'polite',
+  });
 }
 
 function renderEmptyState(): string {
-  return `<section class="${EMPTY_STATE} p-8 shadow-sm" data-matrix-empty="true" role="status" aria-live="polite"><p class="${EMPTY_STATE_TITLE}">No rows</p><h2 class="mt-2 text-xl font-semibold text-gray-900">No families match this matrix scope.</h2><p class="${EMPTY_STATE_TEXT} mt-3 max-w-2xl leading-6">Adjust the filters, widen the locale window, or clear blocker constraints to inspect additional family coverage.</p></section>`;
+  return renderPanelState({
+    tag: 'section',
+    containerClass: `${EMPTY_STATE} p-8 shadow-sm`,
+    bodyClass: '',
+    contentClass: '',
+    title: 'No rows',
+    titleClass: EMPTY_STATE_TITLE,
+    heading: 'No families match this matrix scope.',
+    headingTag: 'h2',
+    headingClass: 'mt-2 text-xl font-semibold text-gray-900',
+    message: 'Adjust the filters, widen the locale window, or clear blocker constraints to inspect additional family coverage.',
+    messageClass: `${EMPTY_STATE_TEXT} mt-3 max-w-2xl leading-6`,
+    attributes: {
+      'data-matrix-empty': 'true',
+    },
+    ariaLive: 'polite',
+  });
 }
 
 function renderErrorState(error: unknown): string {
   const requestId = error instanceof TranslationMatrixRequestError ? error.requestId : '';
   const traceId = error instanceof TranslationMatrixRequestError ? error.traceId : '';
-  return `
-    <section class="${ERROR_STATE} p-6 shadow-sm" data-matrix-error="true" role="alert">
-      <p class="${ERROR_STATE_TITLE}">Matrix unavailable</p>
-      <h2 class="mt-2 text-xl font-semibold text-rose-900">The matrix payload could not be loaded.</h2>
-      <p class="${ERROR_STATE_TEXT} mt-3 leading-6">${escapeHTML(error instanceof Error ? error.message : 'Failed to load the translation matrix')}</p>
-      ${(requestId || traceId) ? `<p class="mt-3 text-xs uppercase tracking-[0.16em] text-rose-700">${escapeHTML([requestId ? `Request ${requestId}` : '', traceId ? `Trace ${traceId}` : ''].filter(Boolean).join(' • '))}</p>` : ''}
-      <div class="mt-4">
-        <button type="button" data-matrix-retry="true" class="${BTN_DANGER}">Retry matrix</button>
-      </div>
-    </section>
-  `;
+  return renderPanelState({
+    tag: 'section',
+    containerClass: `${ERROR_STATE} p-6 shadow-sm`,
+    bodyClass: '',
+    contentClass: '',
+    title: 'Matrix unavailable',
+    titleClass: ERROR_STATE_TITLE,
+    heading: 'The matrix payload could not be loaded.',
+    headingTag: 'h2',
+    headingClass: 'mt-2 text-xl font-semibold text-rose-900',
+    message: error instanceof Error ? error.message : 'Failed to load the translation matrix',
+    messageClass: `${ERROR_STATE_TEXT} mt-3 leading-6`,
+    metadata: (requestId || traceId) ? [requestId ? `Request ${requestId}` : '', traceId ? `Trace ${traceId}` : ''].filter(Boolean).join(' • ') : '',
+    metadataClass: 'mt-3 text-xs uppercase tracking-[0.16em] text-rose-700',
+    actionsHtml: `<div class="mt-4"><button type="button" data-matrix-retry="true" class="${BTN_DANGER}">Retry matrix</button></div>`,
+    role: 'alert',
+    attributes: {
+      'data-matrix-error': 'true',
+    },
+  });
 }
 
 function renderMatrixPage(

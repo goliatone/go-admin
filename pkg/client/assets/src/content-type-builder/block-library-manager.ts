@@ -24,6 +24,8 @@ import { inputClasses, selectClasses, textareaClasses, labelClasses } from './sh
 import { renderIconTrigger, bindIconTriggerEvents, resolveIcon } from './shared/icon-picker';
 import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
 import { formatContentTypeDate } from './shared/date-formatters';
+import { renderBlockStatusBadge } from './shared/status-badges';
+import { capitalizeLabel } from './shared/text';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
@@ -318,7 +320,7 @@ export class BlockLibraryManager extends Modal {
     for (const category of this.categories) {
       const option = document.createElement('option');
       option.value = category;
-      option.textContent = titleCase(category);
+      option.textContent = capitalizeLabel(category);
       select.appendChild(option);
     }
   }
@@ -383,7 +385,7 @@ export class BlockLibraryManager extends Modal {
     for (const [category, blocks] of groupedBlocks) {
       html += `
         <div class="mb-6">
-          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">${titleCase(category)}</h3>
+          <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">${capitalizeLabel(category)}</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${blocks.map((block) => this.renderBlockCard(block)).join('')}
           </div>
@@ -397,7 +399,7 @@ export class BlockLibraryManager extends Modal {
   private renderBlockCard(block: BlockDefinition): string {
     const isManageMode = this.config.mode !== 'picker';
     const isAllowed = this.isBlockAllowed(block);
-    const statusBadge = this.getStatusBadge(block.status);
+    const statusBadge = renderBlockStatusBadge(block.status);
     const blockKey = this.blockKey(block);
 
     return `
@@ -500,12 +502,6 @@ export class BlockLibraryManager extends Modal {
         ${!isAllowed ? `<div class="absolute inset-0 flex items-center justify-center bg-gray-100/50 dark:bg-gray-900/50 rounded-lg"><span class="text-xs text-gray-500 dark:text-gray-400">Not allowed</span></div>` : ''}
       </div>
     `;
-  }
-
-  private getStatusBadge(status?: string): string {
-    const variant = status || 'active';
-    const label = variant.charAt(0).toUpperCase() + variant.slice(1);
-    return badge(label, 'status', variant);
   }
 
   private getFilteredBlocks(): BlockDefinition[] {
@@ -743,7 +739,7 @@ class BlockDefinitionEditor extends Modal {
                 name="category"
                 class="${selectClasses()}"
               >
-                ${this.config.categories.map((cat) => `<option value="${cat}" ${block?.category === cat ? 'selected' : ''}>${titleCase(cat)}</option>`).join('')}
+                ${this.config.categories.map((cat) => `<option value="${cat}" ${block?.category === cat ? 'selected' : ''}>${capitalizeLabel(cat)}</option>`).join('')}
               </select>
             </div>
             <div>
@@ -1119,11 +1115,6 @@ class BlockVersionHistoryViewer extends Modal {
 // =============================================================================
 // Utilities
 // =============================================================================
-
-
-function titleCase(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
 
 // =============================================================================
 // Auto-initialization

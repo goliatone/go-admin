@@ -1,59 +1,69 @@
-function p(t, r, e) {
-  return t == null || t === "" ? r : e === "__ORIGINAL__" ? String(t) : e;
+function h(t, o, i) {
+  return t == null || t === "" ? o : i === "__ORIGINAL__" ? String(t) : i;
 }
-function b(t) {
+function M(t) {
   if (t == null || t === "") return null;
-  const r = t instanceof Date ? t : new Date(t);
-  return Number.isNaN(r.getTime()) ? null : r;
+  const o = t instanceof Date ? t : new Date(t);
+  return Number.isNaN(o.getTime()) ? null : o;
 }
-function k(t, r = {}) {
+function I(t, o = {}) {
   const {
-    emptyFallback: e = "",
-    invalidFallback: s = "__ORIGINAL__"
-  } = r, a = b(t);
-  return a ? new Intl.DateTimeFormat(void 0, {
+    emptyFallback: i = "",
+    invalidFallback: c = "__ORIGINAL__"
+  } = o, n = M(t);
+  return n ? new Intl.DateTimeFormat(void 0, {
     dateStyle: "medium",
     timeStyle: "short"
-  }).format(a) : p(t, e, s);
+  }).format(n) : h(t, i, c);
 }
-function F(t, r = {}) {
+function F(t, o = {}) {
   const {
-    emptyFallback: e = "",
-    invalidFallback: s = "__ORIGINAL__"
-  } = r, a = b(t);
-  if (!a) return p(t, e, s);
-  const d = Date.now() - a.getTime(), c = Math.floor(d / 1e3), f = Math.floor(c / 60), i = Math.floor(f / 60), o = Math.floor(i / 24);
-  return c < 60 ? "just now" : f < 60 ? `${f}m ago` : i < 24 ? `${i}h ago` : o < 7 ? `${o}d ago` : a.toLocaleDateString();
+    emptyFallback: i = "",
+    invalidFallback: c = "__ORIGINAL__"
+  } = o, n = M(t);
+  if (!n) return h(t, i, c);
+  const u = Date.now() - n.getTime(), f = Math.floor(u / 1e3), e = Math.floor(f / 60), r = Math.floor(e / 60), a = Math.floor(r / 24);
+  return f < 60 ? "just now" : e < 60 ? `${e}m ago` : r < 24 ? `${r}h ago` : a < 7 ? `${a}d ago` : n.toLocaleDateString();
 }
-function N(t, r = {}) {
+function R(t, o = {}) {
   const {
-    emptyFallback: e = "",
-    invalidFallback: s = "__ORIGINAL__",
-    locale: a,
-    numeric: d = "auto",
-    direction: c = "bidirectional",
-    maxRelativeDays: f
-  } = r, i = b(t);
-  if (!i) return p(t, e, s);
-  const o = c === "past-only" ? Date.now() - i.getTime() : i.getTime() - Date.now(), D = Math.floor(o / 1e3), h = Math.floor(D / 60), M = Math.floor(h / 60), m = Math.floor(M / 24), n = new Intl.RelativeTimeFormat(a, { numeric: d });
-  if (c === "past-only") {
-    if (D < 60) return "just now";
-    if (h < 60) return n.format(-h, "minute");
-    if (M < 24) return n.format(-M, "hour");
-    if (m < 7) return n.format(-m, "day");
-    if (typeof f == "number" && m < f) {
-      const T = Math.floor(m / 7);
-      return n.format(-T, "week");
+    emptyFallback: i = "",
+    invalidFallback: c = "__ORIGINAL__",
+    locale: n,
+    numeric: u = "auto",
+    direction: f = "bidirectional",
+    maxRelativeDays: e
+  } = o, r = M(t);
+  if (!r) return h(t, i, c);
+  const a = f === "past-only" ? Date.now() - r.getTime() : r.getTime() - Date.now(), g = Math.floor(a / 1e3), y = Math.floor(g / 60), D = Math.floor(y / 60), m = Math.floor(D / 24), s = new Intl.RelativeTimeFormat(n, { numeric: u });
+  if (f === "past-only") {
+    if (g < 60) return "just now";
+    if (y < 60) return s.format(-y, "minute");
+    if (D < 24) return s.format(-D, "hour");
+    if (m < 7) return s.format(-m, "day");
+    if (typeof e == "number" && m < e) {
+      const k = Math.floor(m / 7);
+      return s.format(-k, "week");
     }
-    return i.toLocaleDateString();
+    return r.toLocaleDateString();
   }
-  const u = Math.abs(o), g = 1e3, y = 60 * g, _ = 60 * y, l = 24 * _, w = 30 * l, I = 365 * l;
-  return u < y ? n.format(Math.round(o / g), "second") : u < _ ? n.format(Math.round(o / y), "minute") : u < l ? n.format(Math.round(o / _), "hour") : u < w ? n.format(Math.round(o / l), "day") : u < I ? n.format(Math.round(o / w), "month") : n.format(Math.round(o / I), "year");
+  const l = Math.abs(a), p = 1e3, _ = 60 * p, b = 60 * _, d = 24 * b, w = 30 * d, T = 365 * d;
+  return l < _ ? s.format(Math.round(a / p), "second") : l < b ? s.format(Math.round(a / _), "minute") : l < d ? s.format(Math.round(a / b), "hour") : l < w ? s.format(Math.round(a / d), "day") : l < T ? s.format(Math.round(a / w), "month") : s.format(Math.round(a / T), "year");
+}
+function $(t, o = {}) {
+  const {
+    emptyFallback: i = "unknown",
+    invalidFallback: c = "Invalid Date"
+  } = o, n = M(t);
+  if (!n) return h(t, i, c);
+  const u = Date.now() - n.getTime(), f = Math.floor(u / 6e4), e = Math.floor(u / 36e5), r = Math.floor(e / 24);
+  return f < 1 ? "just now" : f < 60 ? `${f} minute${f !== 1 ? "s" : ""} ago` : e < 24 ? `${e} hour${e !== 1 ? "s" : ""} ago` : r < 7 ? `${r} day${r !== 1 ? "s" : ""} ago` : n.toLocaleDateString();
 }
 export {
-  k as formatAbsoluteDateTime,
+  I as formatAbsoluteDateTime,
   F as formatRelativeTimeCompactPast,
-  N as formatRelativeTimeNatural,
-  b as parseTimeValue
+  R as formatRelativeTimeNatural,
+  $ as formatRelativeTimeVerbosePast,
+  M as parseTimeValue
 };
 //# sourceMappingURL=time-formatters.js.map

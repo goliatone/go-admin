@@ -20,6 +20,8 @@ import { ConfirmModal, TextPromptModal } from '../shared/modal';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
 import { resolveIcon } from './shared/icon-picker';
 import { resolveApiBasePath } from './shared/api-paths';
+import { renderBlockStatusDot } from './shared/status-badges';
+import { capitalizeLabel, nameToSlug } from './shared/text';
 
 // =============================================================================
 // Types
@@ -899,7 +901,7 @@ export class BlockLibraryIDE {
     if (!select) return;
     const current = selected ?? select.value;
     select.innerHTML = this.state.categories
-      .map((c) => `<option value="${esc(c)}">${esc(titleCase(c))}</option>`)
+      .map((c) => `<option value="${esc(c)}">${esc(capitalizeLabel(c))}</option>`)
       .join('');
     select.innerHTML += '<option value="__add__">Add category...</option>';
     if (current && this.state.categories.includes(current)) {
@@ -1080,7 +1082,7 @@ export class BlockLibraryIDE {
     } else if (isDirty) {
       indicatorHtml = `<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-orange-400" title="Unsaved changes"></span>`;
     } else {
-      indicatorHtml = statusDot(block.status);
+      indicatorHtml = renderBlockStatusDot(block.status);
     }
 
     return `
@@ -1125,7 +1127,7 @@ export class BlockLibraryIDE {
             <label class="block text-[11px] font-medium text-gray-600 dark:text-gray-400 mb-0.5">Category</label>
             <select data-create-category
                     class="${selectClasses()}">
-              ${this.state.categories.map((c) => `<option value="${esc(c)}">${esc(titleCase(c))}</option>`).join('')}
+              ${this.state.categories.map((c) => `<option value="${esc(c)}">${esc(capitalizeLabel(c))}</option>`).join('')}
               <option value="__add__">Add category...</option>
             </select>
           </div>
@@ -1228,7 +1230,7 @@ export class BlockLibraryIDE {
     for (const cat of this.state.categories) {
       const option = document.createElement('option');
       option.value = cat;
-      option.textContent = titleCase(cat);
+      option.textContent = capitalizeLabel(cat);
       if (cat === this.state.categoryFilter) option.selected = true;
       this.categorySelect.appendChild(option);
     }
@@ -1352,7 +1354,7 @@ export class BlockLibraryIDE {
 
     // Auto-generate defaults for blocks fields (Phase 4 — Task 4.2)
     const isBlocks = meta.type === 'blocks';
-    const label = isBlocks ? 'Content Blocks' : (meta?.label ?? titleCase(meta.type));
+    const label = isBlocks ? 'Content Blocks' : (meta?.label ?? capitalizeLabel(meta.type));
     const baseName = isBlocks ? 'content_blocks' : meta.type.replace(/-/g, '_');
 
     // Ensure unique field name
@@ -1870,29 +1872,6 @@ function esc(str: string): string {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
-}
-
-function titleCase(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
-}
-
-function nameToSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function statusDot(status?: string): string {
-  switch (status) {
-    case 'draft':
-      return '<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-yellow-400" title="Draft"></span>';
-    case 'deprecated':
-      return '<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-red-400" title="Deprecated"></span>';
-    case 'active':
-    default:
-      return '<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-green-400" title="Active"></span>';
-  }
 }
 
 // Context menu icons (compact SVGs)

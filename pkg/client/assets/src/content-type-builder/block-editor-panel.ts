@@ -22,6 +22,7 @@ import { renderEntityHeader, renderSaveIndicator } from './shared/entity-header'
 import type { SaveState } from './shared/entity-header';
 import { renderFieldCard as renderFieldCardShared, renderDropZone } from './shared/field-card';
 import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
+import { titleCaseWords } from './shared/text';
 
 // =============================================================================
 // Types
@@ -230,7 +231,7 @@ export class BlockEditorPanel {
             <div>
               <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Category</label>
               <select data-meta-field="category" class="${selectClasses()}">
-                ${this.config.categories.map((c) => `<option value="${esc(c)}" ${c === (b.category ?? '') ? 'selected' : ''}>${esc(titleCase(c))}</option>`).join('')}
+                ${this.config.categories.map((c) => `<option value="${esc(c)}" ${c === (b.category ?? '') ? 'selected' : ''}>${esc(titleCaseWords(c))}</option>`).join('')}
               </select>
             </div>
             <div>
@@ -316,7 +317,7 @@ export class BlockEditorPanel {
                 : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'
               }
             </span>
-            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${esc(titleCase(sectionName))}</span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${esc(titleCaseWords(sectionName))}</span>
             <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">${fields.length}</span>
           </button>
 
@@ -501,7 +502,7 @@ export class BlockEditorPanel {
             <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
             <select data-field-section-select="${esc(field.id)}"
                     class="${selectClasses('xs')}">
-              ${allSections.map((s) => `<option value="${esc(s)}" ${s === currentSection ? 'selected' : ''}>${esc(titleCase(s))}</option>`).join('')}
+              ${allSections.map((s) => `<option value="${esc(s)}" ${s === currentSection ? 'selected' : ''}>${esc(titleCaseWords(s))}</option>`).join('')}
               <option value="__new__">+ New section...</option>
             </select>
           </div>
@@ -664,7 +665,7 @@ export class BlockEditorPanel {
                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5">Section</label>
                 <select data-field-section-select="${esc(field.id)}"
                         class="${selectClasses('xs')}">
-                  ${allSections.map((s) => `<option value="${esc(s)}" ${s === currentSection ? 'selected' : ''}>${esc(titleCase(s))}</option>`).join('')}
+                  ${allSections.map((s) => `<option value="${esc(s)}" ${s === currentSection ? 'selected' : ''}>${esc(titleCaseWords(s))}</option>`).join('')}
                   <option value="__new__">+ New section...</option>
                 </select>
               </div>
@@ -714,7 +715,7 @@ export class BlockEditorPanel {
             <svg class="w-3 h-3 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
             </svg>
-            ${esc(titleCase(s))}
+            ${esc(titleCaseWords(s))}
           </button>`).join('')}
         <div class="border-t border-gray-100 dark:border-gray-700 mt-1 pt-1">
           <button type="button" data-move-new-section="${esc(field.id)}"
@@ -897,7 +898,7 @@ export class BlockEditorPanel {
               getFieldTypeMetadata(normalized) ??
               ({
                 type: normalized,
-                label: titleCase(normalized),
+                label: titleCaseWords(normalized),
                 description: '',
                 icon: '',
                 category: 'advanced',
@@ -1514,10 +1515,4 @@ function esc(str: string): string {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
-}
-
-function titleCase(str: string): string {
-  return str
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
 }

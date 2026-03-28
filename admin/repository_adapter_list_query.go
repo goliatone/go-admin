@@ -4,7 +4,7 @@ import "strings"
 
 const defaultRepositoryAdapterPerPage = 10
 
-type normalizedRepositoryListQuery struct {
+type normalizedRepositoryAdapterListQuery struct {
 	Page       int
 	PerPage    int
 	SortBy     string
@@ -13,7 +13,7 @@ type normalizedRepositoryListQuery struct {
 	Predicates []ListPredicate
 }
 
-func normalizeRepositoryListQuery(opts ListOptions) normalizedRepositoryListQuery {
+func normalizeRepositoryAdapterListQuery(opts ListOptions) normalizedRepositoryAdapterListQuery {
 	perPage := opts.PerPage
 	if perPage <= 0 {
 		perPage = defaultRepositoryAdapterPerPage
@@ -23,10 +23,10 @@ func normalizeRepositoryListQuery(opts ListOptions) normalizedRepositoryListQuer
 	predicates := NormalizeListPredicates(opts)
 	search := strings.TrimSpace(opts.Search)
 	if search == "" {
-		search = repositoryListSearchTerm(predicates)
+		search = repositoryAdapterListSearchTerm(predicates)
 	}
 
-	return normalizedRepositoryListQuery{
+	return normalizedRepositoryAdapterListQuery{
 		Page:       page,
 		PerPage:    perPage,
 		SortBy:     strings.TrimSpace(opts.SortBy),
@@ -36,11 +36,11 @@ func normalizeRepositoryListQuery(opts ListOptions) normalizedRepositoryListQuer
 	}
 }
 
-func (q normalizedRepositoryListQuery) Offset() int {
+func (q normalizedRepositoryAdapterListQuery) Offset() int {
 	return (q.Page - 1) * q.PerPage
 }
 
-func (q normalizedRepositoryListQuery) OrderExpr() string {
+func (q normalizedRepositoryAdapterListQuery) OrderExpr() string {
 	if q.SortBy == "" {
 		return ""
 	}
@@ -51,7 +51,7 @@ func (q normalizedRepositoryListQuery) OrderExpr() string {
 	return q.SortBy + " " + dir
 }
 
-func (q normalizedRepositoryListQuery) FilterPredicates() []ListPredicate {
+func (q normalizedRepositoryAdapterListQuery) FilterPredicates() []ListPredicate {
 	if len(q.Predicates) == 0 {
 		return nil
 	}
@@ -69,7 +69,7 @@ func (q normalizedRepositoryListQuery) FilterPredicates() []ListPredicate {
 	return out
 }
 
-func repositoryListSearchTerm(predicates []ListPredicate) string {
+func repositoryAdapterListSearchTerm(predicates []ListPredicate) string {
 	for _, predicate := range predicates {
 		field := strings.ToLower(strings.TrimSpace(predicate.Field))
 		if field != "_search" && field != "search" {

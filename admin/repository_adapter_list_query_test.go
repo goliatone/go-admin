@@ -2,8 +2,8 @@ package admin
 
 import "testing"
 
-func TestNormalizeRepositoryListQueryAppliesDefaultsAndSearchFallback(t *testing.T) {
-	query := normalizeRepositoryListQuery(ListOptions{
+func TestNormalizeRepositoryAdapterListQueryAppliesDefaultsAndSearchFallback(t *testing.T) {
+	query := normalizeRepositoryAdapterListQuery(ListOptions{
 		Filters: map[string]any{
 			"_search": "  widget  ",
 			"status":  "draft",
@@ -27,8 +27,8 @@ func TestNormalizeRepositoryListQueryAppliesDefaultsAndSearchFallback(t *testing
 	}
 }
 
-func TestNormalizeRepositoryListQueryPreservesExplicitPredicates(t *testing.T) {
-	query := normalizeRepositoryListQuery(ListOptions{
+func TestNormalizeRepositoryAdapterListQueryPreservesExplicitPredicates(t *testing.T) {
+	query := normalizeRepositoryAdapterListQuery(ListOptions{
 		Page:    2,
 		PerPage: 5,
 		SortBy:  "name",

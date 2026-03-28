@@ -7,6 +7,7 @@
 
 import type { FieldType, FieldTypeCategory, FieldTypeMetadata, FieldDefinition } from './types';
 import { iconForKey, normalizeFieldType } from './field-type-picker';
+import { titleCaseWords } from './shared/text';
 
 export interface BackendFieldTypeDefinition {
   type: string;
@@ -74,7 +75,7 @@ function normalizeCategoryLabel(label?: string, fallbackId?: string): string {
   const val = (label ?? '').trim();
   if (val) return val;
   const id = (fallbackId ?? '').trim();
-  return id ? titleCase(id) : 'Advanced';
+  return id ? titleCaseWords(id) : 'Advanced';
 }
 
 function normalizeCategoryIcon(id?: string): string {
@@ -93,7 +94,7 @@ function normalizeDefaults(def: BackendFieldTypeDefinition): Partial<FieldDefini
 function mapFieldType(def: BackendFieldTypeDefinition, categoryId: FieldTypeCategory): FieldTypeMetadata {
   const rawType = (def.type ?? 'text').trim().toLowerCase();
   const normalizedType = rawType === 'text' ? 'textarea' : normalizeFieldType(rawType);
-  const label = (def.label ?? '').trim() || titleCase(def.type ?? normalizedType);
+  const label = (def.label ?? '').trim() || titleCaseWords(def.type ?? normalizedType);
   const description = (def.description ?? '').trim();
   const icon = iconForKey(def.icon ?? '') || iconForKey(normalizedType) || '';
   const defaultConfig = normalizeDefaults(def);
@@ -339,9 +340,3 @@ export const BLOCK_FIELD_TYPE_REGISTRY_FALLBACK: BlockFieldTypeRegistry = buildR
     ],
   },
 ]);
-
-function titleCase(value: string): string {
-  return value
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}

@@ -11,6 +11,7 @@ import type { BlockDefinitionSummary } from '../types';
 import type { ContentTypeAPIClient } from '../api-client';
 import { checkboxClasses } from './field-input-classes';
 import { resolveIcon } from './icon-picker';
+import { titleCaseWords } from './text';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 
 // ---------------------------------------------------------------------------
@@ -156,7 +157,7 @@ export function renderInlineBlockPicker(config: InlineBlockPickerConfig): string
     for (const [cat, blocks] of grouped) {
       if (grouped.size > 1) {
         html += `
-        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">${escapeHtml(titleCase(cat))}</div>`;
+        <div class="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider pt-1">${escapeHtml(titleCaseWords(cat))}</div>`;
       }
       for (const block of blocks) {
         const key = blockKey(block);
@@ -266,10 +267,3 @@ function refreshInlineBlockPickerList(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-
-function titleCase(str: string): string {
-  return str
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}

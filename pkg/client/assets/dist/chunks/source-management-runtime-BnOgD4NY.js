@@ -1,8 +1,9 @@
 import { S as k } from "./lineage-contracts-BR7-TggW.js";
-import { c as re, p as ne, o as ie, j as oe, m as ae, l as q, i as ce, S as H, a as le, h as j, r as de } from "./source-management-pages-6jhmEW80.js";
-import { onReady as ue } from "../shared/dom-ready.js";
-import { i as z, j as me } from "./formatters-CxrdwABk.js";
+import { c as ne, p as ie, o as oe, j as ae, m as le, l as q, i as ce, S as A, a as de, h as j, r as ue } from "./source-management-pages-6jhmEW80.js";
+import { onReady as me } from "../shared/dom-ready.js";
+import { i as z, j as pe } from "./formatters-DYQo8z6P.js";
 import { escapeHTML as o } from "../shared/html.js";
+import { a as ge, r as Y } from "./ui-states-B4-pLIrz.js";
 function N(t) {
   const s = document.getElementById(t)?.textContent?.trim();
   if (!s)
@@ -13,7 +14,7 @@ function N(t) {
     return console.warn(`[SourceManagementRuntime] Failed to parse ${t}:`, n), null;
   }
 }
-function pe(t) {
+function fe(t) {
   switch (t) {
     case "active":
     case "ready":
@@ -42,29 +43,29 @@ function pe(t) {
 }
 function p(t, e = "-") {
   const s = String(t ?? "").trim();
-  return s ? `<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${pe(s)}">${o(s.replace(/_/g, " "))}</span>` : `<span class="text-gray-400">${o(e)}</span>`;
+  return s ? `<span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${fe(s)}">${o(s.replace(/_/g, " "))}</span>` : `<span class="text-gray-400">${o(e)}</span>`;
 }
 function _(t, e) {
   const s = String(t ?? "").trim(), n = String(e ?? "").trim();
   return !s || !n ? s : s.replace(/:source_document_id/g, encodeURIComponent(n)).replace(/:source_revision_id/g, encodeURIComponent(n)).replace(new RegExp(encodeURIComponent(":source_document_id"), "g"), encodeURIComponent(n)).replace(new RegExp(encodeURIComponent(":source_revision_id"), "g"), encodeURIComponent(n));
 }
-function B(t, e) {
+function H(t, e) {
   const s = String(t ?? "").trim(), n = String(e ?? "").trim().replace(/^\?+/, "");
   if (!s || !n)
     return s;
   try {
     const r = new URL(s, "https://runtime.invalid");
-    return new URLSearchParams(n).forEach((a, l) => {
-      r.searchParams.has(l) || r.searchParams.append(l, a);
+    return new URLSearchParams(n).forEach((a, c) => {
+      r.searchParams.has(c) || r.searchParams.append(c, a);
     }), `${r.pathname}${r.search}${r.hash}`;
   } catch {
     return s.includes("?") ? `${s}&${n}` : `${s}?${n}`;
   }
 }
-function ge() {
+function he() {
   return typeof window > "u" || typeof window.location?.search != "string" ? "" : window.location.search.replace(/^\?+/, "").trim();
 }
-function C(t) {
+function S(t) {
   const e = String(t ?? "").trim();
   if (!e)
     return "";
@@ -74,7 +75,7 @@ function C(t) {
     return e.split("?")[0] ?? "";
   }
 }
-function fe(t) {
+function ve(t) {
   return t ? [
     t.source_browser,
     t.source_search,
@@ -83,16 +84,16 @@ function fe(t) {
     t.source_revision,
     t.source_comment_inspector,
     t.source_artifact_inspector
-  ].map((e) => C(String(e ?? ""))).filter((e) => e.length > 0) : [];
+  ].map((e) => S(String(e ?? ""))).filter((e) => e.length > 0) : [];
 }
-function he(t, e) {
-  const s = C(t).split("/").filter(Boolean), n = C(e).split("/").filter(Boolean);
+function xe(t, e) {
+  const s = S(t).split("/").filter(Boolean), n = S(e).split("/").filter(Boolean);
   return s.length !== n.length ? !1 : n.every((r, i) => r.startsWith(":") || r === s[i]);
 }
 function y(t, e) {
-  const s = C(String(t ?? ""));
-  return s ? fe(e).some(
-    (n) => he(s, n)
+  const s = S(String(t ?? ""));
+  return s ? ve(e).some(
+    (n) => xe(s, n)
   ) : !1;
 }
 function T(t, e, s) {
@@ -101,32 +102,32 @@ function T(t, e, s) {
     return "";
   try {
     const r = new URL(n, "https://runtime.invalid");
-    return new URL(e, "https://runtime.invalid").searchParams.forEach((a, l) => {
-      r.searchParams.has(l) || r.searchParams.append(l, a);
-    }), B(`${r.pathname}${r.search}${r.hash}`, s);
+    return new URL(e, "https://runtime.invalid").searchParams.forEach((a, c) => {
+      r.searchParams.has(c) || r.searchParams.append(c, a);
+    }), H(`${r.pathname}${r.search}${r.hash}`, s);
   } catch {
-    return B(n, s);
+    return H(n, s);
   }
 }
-function ve(t, e) {
+function be(t, e) {
   const s = String(t ?? "").trim(), n = String(e.api_base_path ?? "").trim().replace(/\/+$/, "");
   if (!s || !n)
     return "";
-  const r = C(s);
+  const r = S(s);
   return r.startsWith(n) ? r.slice(n.length) : "";
 }
-function A(t, e, s = ge()) {
+function I(t, e, s = he()) {
   const n = String(t ?? "").trim();
   if (!n)
     return "";
-  const r = ve(n, e);
+  const r = be(n, e);
   if (!r)
-    return y(n, e.routes) ? B(n, s) : n.startsWith("/") ? "" : n;
-  const i = r.match(/^\/sources\/([^/]+)\/workspace$/), a = r.match(/^\/sources\/([^/]+)$/), l = r.match(/^\/source-revisions\/([^/]+)$/), d = r.match(/^\/source-revisions\/([^/]+)\/comments$/), m = r.match(/^\/source-revisions\/([^/]+)\/artifacts$/);
+    return y(n, e.routes) ? H(n, s) : n.startsWith("/") ? "" : n;
+  const i = r.match(/^\/sources\/([^/]+)\/workspace$/), a = r.match(/^\/sources\/([^/]+)$/), c = r.match(/^\/source-revisions\/([^/]+)$/), d = r.match(/^\/source-revisions\/([^/]+)\/comments$/), m = r.match(/^\/source-revisions\/([^/]+)\/artifacts$/);
   if (r === "/sources")
-    return B(String(e.routes?.source_browser ?? ""), s);
+    return H(String(e.routes?.source_browser ?? ""), s);
   if (r === "/source-search")
-    return B(String(e.routes?.source_search ?? ""), s);
+    return H(String(e.routes?.source_search ?? ""), s);
   if (i) {
     const u = decodeURIComponent(i[1] ?? ""), R = String(
       e.routes?.source_workspace ?? e.routes?.source_detail ?? ""
@@ -151,36 +152,36 @@ function A(t, e, s = ge()) {
     );
     return y(u, e.routes) ? T(u, n, s) : "";
   }
-  if (l) {
+  if (c) {
     const u = _(
       e.routes?.source_revision,
-      decodeURIComponent(l[1] ?? "")
+      decodeURIComponent(c[1] ?? "")
     );
     return y(u, e.routes) ? T(u, n, s) : "";
   }
   return "";
 }
-function S(t, e, ...s) {
+function C(t, e, ...s) {
   for (const n of s) {
-    const r = A(t?.[n], e);
+    const r = I(t?.[n], e);
     if (r)
       return r;
   }
   return "";
 }
-const je = [
+const Ue = [
   k.SOURCE_DOCUMENT,
   k.SOURCE_REVISION
 ];
-function xe(t, e) {
-  const s = S(t.links, e, "workspace", "anchor", "source", "self");
+function ye(t, e) {
+  const s = C(t.links, e, "workspace", "anchor", "source", "self");
   if (s)
     return s;
   const n = _(e.routes?.source_workspace ?? e.routes?.source_detail, t.source?.id ?? "");
   return y(n, e.routes) ? n : "";
 }
-function be(t, e) {
-  const s = A(t.drill_in?.href, e) || S(t.links, e, "anchor", "workspace", "comments", "artifacts", "source", "self");
+function $e(t, e) {
+  const s = I(t.drill_in?.href, e) || C(t.links, e, "anchor", "workspace", "comments", "artifacts", "source", "self");
   if (s)
     return s;
   if (t.result_kind === k.SOURCE_REVISION && t.revision?.id) {
@@ -196,64 +197,76 @@ function be(t, e) {
   }
   return "";
 }
-function ye(t, e, s) {
+function _e(t, e, s) {
   const n = Array.isArray(e) ? e : [];
   if (n.length === 0)
     return "";
-  const r = String(t.revision?.id ?? "").trim(), i = String(t.source?.id ?? "").trim(), a = String(t.summary ?? t.source?.label ?? "").trim(), l = n.filter((d) => {
+  const r = String(t.revision?.id ?? "").trim(), i = String(t.source?.id ?? "").trim(), a = String(t.summary ?? t.source?.label ?? "").trim(), c = n.filter((d) => {
     const m = String(d?.href ?? "").trim();
     return m ? r && m.includes(r) || r && m.includes(encodeURIComponent(r)) || i && m.includes(i) || i && m.includes(encodeURIComponent(i)) || a && String(d?.label ?? "").trim() === a : !1;
   });
-  for (const d of l) {
-    const m = A(String(d?.href ?? "").trim(), s);
+  for (const d of c) {
+    const m = I(String(d?.href ?? "").trim(), s);
     if (m)
       return m;
   }
   return "";
 }
 function v(t, e, s = !1) {
-  return `
-    <div class="flex flex-col items-center justify-center py-12 text-center">
-      <div class="rounded-full bg-gray-100 p-3 mb-4">
+  return Y({
+    containerClass: "py-12",
+    bodyClass: "flex flex-col items-center justify-center text-center",
+    contentClass: "",
+    iconHtml: `
+      <div class="rounded-full bg-gray-100 p-3 mb-4" aria-hidden="true">
         <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
       </div>
-      <h3 class="text-sm font-medium text-gray-900">${o(t)}</h3>
-      <p class="mt-1 text-sm text-gray-500">${o(e)}</p>
-      ${s ? '<button type="button" data-runtime-action="refresh" class="mt-4 inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Try again</button>' : ""}
-    </div>
-  `;
+    `,
+    title: t,
+    titleTag: "h3",
+    titleClass: "text-sm font-medium text-gray-900",
+    message: e,
+    messageClass: "mt-1 text-sm text-gray-500",
+    actionsHtml: s ? '<button type="button" data-runtime-action="refresh" class="mt-4 inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Try again</button>' : ""
+  });
 }
 function M() {
-  return `
-    <div class="flex items-center justify-center py-12">
-      <div class="animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600"></div>
-      <span class="ml-3 text-sm text-gray-500">Loading...</span>
-    </div>
-  `;
+  return ge({
+    containerClass: "py-12",
+    bodyClass: "flex items-center justify-center",
+    spinnerClass: "animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600",
+    text: "Loading...",
+    textClass: "ml-3 text-sm text-gray-500"
+  });
 }
 function P(t) {
-  return `
-    <div class="rounded-lg border border-red-200 bg-red-50 p-4">
-      <div class="flex">
-        <div class="flex-shrink-0">
-          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/>
-          </svg>
-        </div>
-        <div class="ml-3">
-          <h3 class="text-sm font-medium text-red-800">Something went wrong</h3>
-          <p class="mt-1 text-sm text-red-700">${o(t.message)}</p>
-          <button type="button" data-runtime-action="refresh" class="mt-3 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
-            Try again
-          </button>
-        </div>
+  return Y({
+    containerClass: "rounded-lg border border-red-200 bg-red-50 p-4",
+    bodyClass: "flex items-start",
+    contentClass: "ml-3",
+    iconHtml: `
+      <div class="flex-shrink-0" aria-hidden="true">
+        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/>
+        </svg>
       </div>
-    </div>
-  `;
+    `,
+    title: "Something went wrong",
+    titleTag: "h3",
+    titleClass: "text-sm font-medium text-red-800",
+    message: t.message,
+    messageClass: "mt-1 text-sm text-red-700",
+    actionsHtml: `
+      <button type="button" data-runtime-action="refresh" class="mt-3 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+        Try again
+      </button>
+    `,
+    role: "alert"
+  });
 }
-const Y = "bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm", w = "h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", $e = "h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-500 bg-blue-50 text-blue-600 shadow-sm hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", F = "h-10 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", X = "block w-full h-10 ps-9 pe-8 border border-gray-200 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-gray-200", I = "block w-full h-10 rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500", Z = "inline-flex items-center gap-2 h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 cursor-pointer hover:bg-gray-50", E = "bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden", g = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider", f = "px-6 py-4 align-top", _e = "rounded-lg border border-gray-200 bg-gray-50 p-4", we = "rounded-xl border border-gray-200 bg-white p-6";
+const X = "bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm", w = "h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", we = "h-10 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-500 bg-blue-50 text-blue-600 shadow-sm hover:bg-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", F = "h-10 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-blue-600 bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 transition-colors", Z = "block w-full h-10 ps-9 pe-8 border border-gray-200 rounded-lg text-sm placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-gray-200", B = "block w-full h-10 rounded-lg border border-gray-200 bg-white py-2 px-3 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500", ee = "inline-flex items-center gap-2 h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 cursor-pointer hover:bg-gray-50", E = "bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden", g = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider", f = "px-6 py-4 align-top", ke = "rounded-lg border border-gray-200 bg-gray-50 p-4", Ce = "rounded-xl border border-gray-200 bg-white p-6";
 function U(t = "refresh", e = "Refresh") {
   return `
     <button type="button" data-runtime-action="${o(t)}" class="${w}">
@@ -263,35 +276,35 @@ function U(t = "refresh", e = "Refresh") {
   `;
 }
 function b(t, e = "") {
-  return `<div class="${_e}${e ? ` ${e}` : ""}">${t}</div>`;
+  return `<div class="${ke}${e ? ` ${e}` : ""}">${t}</div>`;
 }
 function D(t, e = "") {
-  return `<div class="${we}${e ? ` ${e}` : ""}">${t}</div>`;
+  return `<div class="${Ce}${e ? ` ${e}` : ""}">${t}</div>`;
 }
-function ee(t, e, s) {
+function te(t, e, s) {
   return `
-    <button type="button" data-runtime-action="${o(t)}" class="${s ? $e : w}">
+    <button type="button" data-runtime-action="${o(t)}" class="${s ? we : w}">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
       ${o(e)}${s ? " (Active)" : ""}
     </button>
   `;
 }
-function ke(t) {
+function Se(t) {
   const e = t.applied_query ?? {}, s = !!(e.provider_kind || e.status || e.has_pending_candidates);
   return `
-    <div class="${Y}">
+    <div class="${X}">
       <form data-runtime-form="source-browser">
         <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div class="relative max-w-2xl w-full flex flex-col gap-2">
             <div class="flex gap-2">
-              ${ee("toggle-filters", "Filter", s)}
+              ${te("toggle-filters", "Filter", s)}
               <div class="relative flex-1">
                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                   <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                   </svg>
                 </div>
-                <input type="search" id="browser-search" name="q" value="${o(e.query ?? "")}" placeholder="Search sources..." class="${X}" />
+                <input type="search" id="browser-search" name="q" value="${o(e.query ?? "")}" placeholder="Search sources..." class="${Z}" />
               </div>
             </div>
 
@@ -299,7 +312,7 @@ function ke(t) {
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label class="block text-xs font-medium text-gray-500 mb-1" for="browser-provider">Provider</label>
-                  <select id="browser-provider" name="provider_kind" class="${I}">
+                  <select id="browser-provider" name="provider_kind" class="${B}">
                     <option value="">All providers</option>
                     <option value="google_docs" ${e.provider_kind === "google_docs" ? "selected" : ""}>Google Docs</option>
                     <option value="google_drive" ${e.provider_kind === "google_drive" ? "selected" : ""}>Google Drive</option>
@@ -307,7 +320,7 @@ function ke(t) {
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-500 mb-1" for="browser-status">Status</label>
-                  <select id="browser-status" name="status" class="${I}">
+                  <select id="browser-status" name="status" class="${B}">
                     <option value="">All statuses</option>
                     <option value="active" ${e.status === "active" ? "selected" : ""}>Active</option>
                     <option value="pending" ${e.status === "pending" ? "selected" : ""}>Pending</option>
@@ -315,7 +328,7 @@ function ke(t) {
                   </select>
                 </div>
                 <div class="flex items-end">
-                  <label class="${Z}">
+                  <label class="${ee}">
                     <input type="checkbox" name="has_pending_candidates" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${e.has_pending_candidates ? "checked" : ""} />
                     <span>Pending review</span>
                   </label>
@@ -343,7 +356,7 @@ function ke(t) {
   `;
 }
 function V(t, e, s) {
-  const n = ke(t), r = t.items ?? [];
+  const n = Se(t), r = t.items ?? [];
   if (r.length === 0) {
     const a = t.empty_state;
     return `
@@ -358,7 +371,7 @@ function V(t, e, s) {
     `;
   }
   const i = r.map((a) => {
-    const l = a.source?.id ?? "", d = xe(a, {
+    const c = a.source?.id ?? "", d = ye(a, {
       base_path: s.base_path,
       api_base_path: s.api_base_path,
       routes: e
@@ -367,7 +380,7 @@ function V(t, e, s) {
         <tr class="hover:bg-gray-50">
           <td class="${f}">
             <a href="${o(d)}" class="font-medium text-gray-900 hover:text-blue-600">${o(a.source?.label ?? "Untitled")}</a>
-            <p class="mt-0.5 text-xs text-gray-500 font-mono">${o(l.substring(0, 12))}...</p>
+            <p class="mt-0.5 text-xs text-gray-500 font-mono">${o(c.substring(0, 12))}...</p>
           </td>
           <td class="${f}">
             ${p(m)}
@@ -421,7 +434,7 @@ function L(t, e, s, n) {
     </section>
   `;
 }
-function Se(t, e) {
+function Re(t, e) {
   const s = t.panels ?? [];
   if (s.length === 0)
     return "";
@@ -430,7 +443,7 @@ function Se(t, e) {
     <div class="rounded-xl border border-gray-200 bg-white p-3">
       <div class="flex flex-wrap gap-2">
         ${s.map((r) => {
-    const i = S(r.links, e, "anchor", "workspace", "self"), a = r.id === n, l = r.item_count ?? 0, d = a ? "border-blue-600 bg-blue-600 text-white" : "border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50";
+    const i = C(r.links, e, "anchor", "workspace", "self"), a = r.id === n, c = r.item_count ?? 0, d = a ? "border-blue-600 bg-blue-600 text-white" : "border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50";
     return i ? `
               <a
                 href="${o(i)}"
@@ -438,12 +451,12 @@ function Se(t, e) {
                 class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${d}"
               >
                 <span>${o(r.label)}</span>
-                <span class="${a ? "text-blue-100" : "text-gray-400"}">${o(l)}</span>
+                <span class="${a ? "text-blue-100" : "text-gray-400"}">${o(c)}</span>
               </a>
             ` : `
                 <span class="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${d}">
                   <span>${o(r.label)}</span>
-                  <span class="${a ? "text-blue-100" : "text-gray-400"}">${o(l)}</span>
+                  <span class="${a ? "text-blue-100" : "text-gray-400"}">${o(c)}</span>
                 </span>
               `;
   }).join("")}
@@ -458,29 +471,29 @@ function W(t, e, s) {
       t.empty_state.description ?? "",
       !0
     );
-  const n = String(t.active_panel ?? "overview").trim(), r = String(t.active_anchor ?? "").trim(), i = t.continuity, a = [...i.predecessors ?? [], ...i.successors ?? []], l = i.summary ? `<p class="text-sm text-gray-700">${o(i.summary)}</p>` : '<p class="text-sm text-gray-500">No continuity summary available.</p>', d = (t.timeline?.entries ?? []).length > 0 ? `<div class="space-y-3">
-          ${t.timeline.entries.map((c) => {
-    const h = A(c.drill_in?.href, s) || S(c.links, s, "anchor", "timeline", "workspace", "source", "self");
+  const n = String(t.active_panel ?? "overview").trim(), r = String(t.active_anchor ?? "").trim(), i = t.continuity, a = [...i.predecessors ?? [], ...i.successors ?? []], c = i.summary ? `<p class="text-sm text-gray-700">${o(i.summary)}</p>` : '<p class="text-sm text-gray-500">No continuity summary available.</p>', d = (t.timeline?.entries ?? []).length > 0 ? `<div class="space-y-3">
+          ${t.timeline.entries.map((l) => {
+    const h = I(l.drill_in?.href, s) || C(l.links, s, "anchor", "timeline", "workspace", "source", "self");
     return `
                 ${b(`
                   <div class="flex items-start justify-between gap-4">
                     <div>
                       <h4 class="text-sm font-medium text-gray-900">${o(
-      c.revision?.provider_revision_hint ?? c.revision?.id ?? "Revision"
+      l.revision?.provider_revision_hint ?? l.revision?.id ?? "Revision"
     )}</h4>
-                      <p class="mt-1 text-xs text-gray-500">${o(c.continuity_summary ?? "Continuity details available from backend workspace timeline.")}</p>
+                      <p class="mt-1 text-xs text-gray-500">${o(l.continuity_summary ?? "Continuity details available from backend workspace timeline.")}</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                      ${c.is_latest ? '<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">Latest</span>' : ""}
-                      ${c.is_repeated_handle ? '<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">Repeated Handle</span>' : ""}
+                      ${l.is_latest ? '<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">Latest</span>' : ""}
+                      ${l.is_repeated_handle ? '<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">Repeated Handle</span>' : ""}
                       ${h ? `<a href="${o(h)}" data-runtime-workspace-link="drill-in" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ""}
                     </div>
                   </div>
                   <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
-                    <span>${o(c.comment_count ?? 0)} comments</span>
-                    <span>${o(c.agreement_count ?? 0)} agreements</span>
-                    <span>${o(c.artifact_count ?? 0)} artifacts</span>
-                    <span>${o(c.handle?.external_file_id ?? c.handle?.id ?? "No active handle")}</span>
+                    <span>${o(l.comment_count ?? 0)} comments</span>
+                    <span>${o(l.agreement_count ?? 0)} agreements</span>
+                    <span>${o(l.artifact_count ?? 0)} artifacts</span>
+                    <span>${o(l.handle?.external_file_id ?? l.handle?.id ?? "No active handle")}</span>
                   </div>
                 `)}
               `;
@@ -489,22 +502,22 @@ function W(t, e, s) {
     t.timeline?.empty_state?.title ?? "No revision timeline",
     t.timeline?.empty_state?.description ?? "No revisions are available in this workspace."
   ), m = (t.agreements?.items ?? []).length > 0 ? `<div class="space-y-3">
-          ${t.agreements.items.map((c) => {
-    const h = S(c.links, s, "anchor", "workspace", "agreement", "self");
+          ${t.agreements.items.map((l) => {
+    const h = C(l.links, s, "anchor", "workspace", "agreement", "self");
     return `
                 ${b(`
                   <div class="flex items-start justify-between gap-4">
                     <div>
                       <h4 class="text-sm font-medium text-gray-900">${o(
-      c.agreement?.label ?? c.agreement?.id ?? "Agreement"
+      l.agreement?.label ?? l.agreement?.id ?? "Agreement"
     )}</h4>
                       <p class="mt-1 text-xs text-gray-500">${o(
-      c.document?.label ?? c.document?.id ?? "Linked document"
+      l.document?.label ?? l.document?.id ?? "Linked document"
     )}</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
-                      ${p(c.status)}
-                      ${c.is_pinned_latest ? '<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">Pinned Latest</span>' : ""}
+                      ${p(l.status)}
+                      ${l.is_pinned_latest ? '<span class="inline-flex items-center rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">Pinned Latest</span>' : ""}
                       ${h ? `<a href="${o(h)}" data-runtime-workspace-link="drill-in" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ""}
                     </div>
                   </div>
@@ -515,25 +528,25 @@ function W(t, e, s) {
     t.agreements?.empty_state?.title ?? "No related agreements",
     t.agreements?.empty_state?.description ?? "No agreements are pinned to this source."
   ), u = (t.artifacts?.items ?? []).length > 0 ? `<div class="grid gap-3">
-          ${t.artifacts.items.map((c) => {
-    const h = A(c.drill_in?.href, s) || S(c.links, s, "anchor", "workspace", "artifacts", "self");
+          ${t.artifacts.items.map((l) => {
+    const h = I(l.drill_in?.href, s) || C(l.links, s, "anchor", "workspace", "artifacts", "self");
     return `
                 ${b(`
                   <div class="flex items-start justify-between gap-4">
                     <div>
                       <h4 class="text-sm font-medium text-gray-900">${o(
-      c.artifact?.artifact_kind ?? "Artifact"
+      l.artifact?.artifact_kind ?? "Artifact"
     )}</h4>
                       <p class="mt-1 text-xs text-gray-500">${o(
-      c.revision?.provider_revision_hint ?? c.revision?.id ?? ""
+      l.revision?.provider_revision_hint ?? l.revision?.id ?? ""
     )}</p>
                     </div>
                     ${h ? `<a href="${o(h)}" data-runtime-workspace-link="drill-in" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ""}
                   </div>
                   <div class="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
-                    <span>${o(c.provider?.kind ?? "provider")}</span>
-                    <span>${o(c.artifact?.page_count ?? 0)} pages</span>
-                    <span class="font-mono">${o(c.artifact?.id ?? "-")}</span>
+                    <span>${o(l.provider?.kind ?? "provider")}</span>
+                    <span>${o(l.artifact?.page_count ?? 0)} pages</span>
+                    <span class="font-mono">${o(l.artifact?.id ?? "-")}</span>
                   </div>
                 `)}
               `;
@@ -541,25 +554,25 @@ function W(t, e, s) {
         </div>` : v(
     t.artifacts?.empty_state?.title ?? "No artifacts",
     t.artifacts?.empty_state?.description ?? "No artifacts are available in this workspace."
-  ), R = (t.comments?.items ?? []).length > 0 ? `<div class="space-y-3">${t.comments.items.map(te).join("")}</div>` : v(
+  ), R = (t.comments?.items ?? []).length > 0 ? `<div class="space-y-3">${t.comments.items.map(se).join("")}</div>` : v(
     t.comments?.empty_state?.title ?? "No comments",
     t.comments?.empty_state?.description ?? "No comment threads are available in this workspace."
   ), $ = (t.handles?.items ?? []).length > 0 ? `<div class="grid gap-3">
-          ${t.handles.items.map((c) => {
-    const h = S(c.links, s, "workspace", "source", "self");
+          ${t.handles.items.map((l) => {
+    const h = C(l.links, s, "workspace", "source", "self");
     return `
                 ${b(`
                   <div class="flex items-start justify-between gap-4">
                     <div>
                       <h4 class="text-sm font-medium text-gray-900">${o(
-      c.external_file_id ?? c.id
+      l.external_file_id ?? l.id
     )}</h4>
                       <p class="mt-1 text-xs text-gray-500">${o(
-      c.provider_kind ?? "provider"
+      l.provider_kind ?? "provider"
     )}</p>
                     </div>
                     <div class="flex items-center gap-2">
-                      ${p(c.handle_status)}
+                      ${p(l.handle_status)}
                       ${h ? `<a href="${o(h)}" class="text-sm font-medium text-blue-600 hover:text-blue-700">Open</a>` : ""}
                     </div>
                   </div>
@@ -593,7 +606,7 @@ function W(t, e, s) {
         </div>
       `)}
 
-      ${Se(t, s)}
+      ${Re(t, s)}
 
       ${L(
     "overview",
@@ -617,9 +630,9 @@ function W(t, e, s) {
               <h4 class="text-xs font-medium uppercase tracking-wide text-gray-500">Continuity</h4>
               ${p(i.status)}
             </div>
-            ${l}
+            ${c}
             ${i.continuation ? `<p class="mt-3 text-xs text-gray-500">Continuation: ${o(i.continuation.label ?? i.continuation.id ?? "-")}</p>` : ""}
-            ${a.length > 0 ? `<p class="mt-2 text-xs text-gray-500">Linked sources: ${a.map((c) => o(c.label ?? c.id ?? "-")).join(", ")}</p>` : ""}
+            ${a.length > 0 ? `<p class="mt-2 text-xs text-gray-500">Linked sources: ${a.map((l) => o(l.label ?? l.id ?? "-")).join(", ")}</p>` : ""}
           `, "mt-4")}
         `
   )}
@@ -724,7 +737,7 @@ function G(t) {
     </div>
   `;
 }
-function te(t) {
+function se(t) {
   return `
     ${D(`
       <div class="flex items-start justify-between">
@@ -732,7 +745,7 @@ function te(t) {
           ${p(t.status)}
           ${t.sync_status ? p(t.sync_status) : ""}
         </div>
-        <span class="text-xs text-gray-500">${me(t.last_synced_at)}</span>
+        <span class="text-xs text-gray-500">${pe(t.last_synced_at)}</span>
       </div>
       <p class="mt-3 text-sm font-medium text-gray-900">${o(t.anchor?.label ?? "Comment Thread")}</p>
       <p class="mt-1 text-sm text-gray-600 line-clamp-2">${o(t.body_preview ?? "")}</p>
@@ -761,20 +774,20 @@ function K(t) {
         </div>
         ${U()}
       </div>
-      <div class="space-y-3">${e.map(te).join("")}</div>
+      <div class="space-y-3">${e.map(se).join("")}</div>
       ${O(t.page_info, "source-comment-page")}
     </div>
   `;
 }
-function Ce(t) {
+function Me(t) {
   const e = t.applied_query ?? {}, s = !!(e.provider_kind || e.status || e.result_kind || e.relationship_state || e.comment_sync_status || e.revision_hint || e.has_comments);
   return `
-    <div class="${Y}">
+    <div class="${X}">
       <form data-runtime-form="source-search">
         <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div class="relative max-w-2xl w-full flex flex-col gap-2">
             <div class="flex gap-2">
-              ${ee("toggle-search-filters", "Filter", s)}
+              ${te("toggle-search-filters", "Filter", s)}
               <div class="relative flex-1">
                 <label class="sr-only" for="search-query">Search</label>
                 <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -782,14 +795,14 @@ function Ce(t) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                   </svg>
                 </div>
-                <input type="search" id="search-query" name="q" value="${o(e.query ?? "")}" placeholder="Search sources, revisions, comments..." class="${X}" />
+                <input type="search" id="search-query" name="q" value="${o(e.query ?? "")}" placeholder="Search sources, revisions, comments..." class="${Z}" />
               </div>
             </div>
             <div id="search-filter-panel" class="hidden border border-gray-200 rounded-lg bg-gray-50 p-4 space-y-4">
               <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div>
                   <label class="block text-xs font-medium text-gray-500 mb-1" for="search-provider-kind">Provider</label>
-                  <select id="search-provider-kind" name="provider_kind" class="${I}">
+                  <select id="search-provider-kind" name="provider_kind" class="${B}">
                     <option value="">All providers</option>
                     <option value="google_docs" ${e.provider_kind === "google_docs" ? "selected" : ""}>Google Docs</option>
                     <option value="google_drive" ${e.provider_kind === "google_drive" ? "selected" : ""}>Google Drive</option>
@@ -797,7 +810,7 @@ function Ce(t) {
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-500 mb-1" for="search-status">Status</label>
-                  <select id="search-status" name="status" class="${I}">
+                  <select id="search-status" name="status" class="${B}">
                     <option value="">All statuses</option>
                     <option value="active" ${e.status === "active" ? "selected" : ""}>Active</option>
                     <option value="pending" ${e.status === "pending" ? "selected" : ""}>Pending</option>
@@ -806,14 +819,14 @@ function Ce(t) {
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-500 mb-1" for="search-result-kind">Type</label>
-                  <select id="search-result-kind" name="result_kind" class="${I}">
+                  <select id="search-result-kind" name="result_kind" class="${B}">
                     <option value="">All types</option>
                     <option value="${k.SOURCE_DOCUMENT}" ${e.result_kind === k.SOURCE_DOCUMENT ? "selected" : ""}>Sources</option>
                     <option value="${k.SOURCE_REVISION}" ${e.result_kind === k.SOURCE_REVISION ? "selected" : ""}>Revisions</option>
                   </select>
                 </div>
                 <div class="flex items-end">
-                  <label class="${Z}">
+                  <label class="${ee}">
                     <input type="checkbox" name="has_comments" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" ${e.has_comments ? "checked" : ""} />
                     <span>Has comments</span>
                   </label>
@@ -843,17 +856,17 @@ function Ce(t) {
     </div>
   `;
 }
-function Re(t, e, s, n) {
+function Pe(t, e, s, n) {
   const r = t.map((i) => {
-    const a = ye(i, n, {
+    const a = _e(i, n, {
       base_path: s.base_path,
       api_base_path: s.api_base_path,
       routes: e
-    }) || be(i, {
+    }) || $e(i, {
       base_path: s.base_path,
       api_base_path: s.api_base_path,
       routes: e
-    }), l = i.matched_fields ?? [], d = String(i.source?.id ?? "").trim(), m = String(i.revision?.id ?? "").trim(), u = Number(i.comment_count ?? 0), R = [d, m].filter(($) => $.length > 0);
+    }), c = i.matched_fields ?? [], d = String(i.source?.id ?? "").trim(), m = String(i.revision?.id ?? "").trim(), u = Number(i.comment_count ?? 0), R = [d, m].filter(($) => $.length > 0);
     return `
         <tr class="hover:bg-gray-50">
           <td class="${f}">
@@ -867,7 +880,7 @@ function Re(t, e, s, n) {
             ${p(i.provider?.kind)}
           </td>
           <td class="${f}">
-            ${l.length > 0 ? `<div class="flex flex-wrap gap-1">${l.map(($) => `<span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">Matched: ${o($)}</span>`).join("")}</div>` : '<span class="text-gray-400">-</span>'}
+            ${c.length > 0 ? `<div class="flex flex-wrap gap-1">${c.map(($) => `<span class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">Matched: ${o($)}</span>`).join("")}</div>` : '<span class="text-gray-400">-</span>'}
           </td>
           <td class="${f}">
             ${u > 0 ? `<span class="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">${u} comment${u !== 1 ? "s" : ""}</span>` : '<span class="text-gray-400">-</span>'}
@@ -899,7 +912,7 @@ function Re(t, e, s, n) {
   `;
 }
 function J(t, e, s, n) {
-  const r = Ce(t), i = t.items ?? [];
+  const r = Me(t), i = t.items ?? [];
   if (i.length === 0) {
     const a = t.empty_state;
     return `
@@ -915,7 +928,7 @@ function J(t, e, s, n) {
   }
   return `
     ${r}
-    ${Re(i, e, s, n)}
+    ${Pe(i, e, s, n)}
     ${O(t.page_info, "source-search-page")}
   `;
 }
@@ -923,7 +936,7 @@ function O(t, e) {
   const s = Number(t?.page ?? 1), n = Number(t?.total_count ?? 0), r = Number(t?.page_size ?? 20);
   if (n <= 0 || n <= r)
     return "";
-  const i = r > 0 ? Math.ceil(n / r) : 1, a = (s - 1) * r + 1, l = Math.min(s * r, n);
+  const i = r > 0 ? Math.ceil(n / r) : 1, a = (s - 1) * r + 1, c = Math.min(s * r, n);
   return `
     <div class="mt-4 bg-white border border-gray-200 rounded-xl shadow-sm p-4">
       <div class="flex items-center justify-between gap-4">
@@ -931,7 +944,7 @@ function O(t, e) {
         <div class="flex-shrink-0">
           <p class="text-sm text-gray-600">
             Showing <span class="font-medium">${a}</span> to
-            <span class="font-medium">${l}</span> of
+            <span class="font-medium">${c}</span> of
             <span class="font-medium">${n}</span>
           </p>
         </div>
@@ -982,7 +995,7 @@ function O(t, e) {
     </div>
   `;
 }
-class Me {
+class Le {
   constructor(e) {
     this.liveController = null, this.hasLiveContract = !1, this.abortController = new AbortController(), this.page = e.page, this.config = e.config, this.model = e.model, this.marker = e.marker, this.root = e.root;
   }
@@ -1032,11 +1045,11 @@ class Me {
           this.goToPage(n, i);
         }
         const r = e.target instanceof Element ? e.target.closest("[data-runtime-workspace-link]") : null;
-        if (r && this.liveController instanceof re) {
+        if (r && this.liveController instanceof ne) {
           const i = String(r.getAttribute("href") ?? "").trim();
           if (i) {
-            const a = C(window.location.href), l = C(i);
-            a === l && (e.preventDefault(), this.liveController.navigateToHref(i));
+            const a = S(window.location.href), c = S(i);
+            a === c && (e.preventDefault(), this.liveController.navigateToHref(i));
           }
         }
       },
@@ -1092,7 +1105,7 @@ class Me {
   }
   bootstrapLiveController() {
     const e = String(this.config.api_base_path ?? "").trim(), s = x(this.config.context?.source_document_id), n = x(this.config.context?.source_revision_id), r = (i, a = this.page) => {
-      this.liveController = i, de(a, i);
+      this.liveController = i, ue(a, i);
     };
     switch (this.page) {
       case "admin.sources.browser":
@@ -1129,7 +1142,7 @@ class Me {
         if (!n)
           return;
         r(
-          ae({
+          le({
             apiBasePath: e,
             sourceRevisionId: n,
             onStateChange: (i) => this.renderRevisionState(i)
@@ -1140,7 +1153,7 @@ class Me {
         if (!n)
           return;
         r(
-          oe({
+          ae({
             apiBasePath: e,
             sourceRevisionId: n,
             onStateChange: (i) => this.renderCommentState(i)
@@ -1151,7 +1164,7 @@ class Me {
         if (!n)
           return;
         r(
-          ie({
+          oe({
             apiBasePath: e,
             sourceRevisionId: n,
             onStateChange: (i) => this.renderArtifactState(i)
@@ -1160,7 +1173,7 @@ class Me {
         break;
       case "admin.sources.search":
         r(
-          ne({
+          ie({
             apiBasePath: e,
             onStateChange: (i) => this.renderSearchState(i)
           })
@@ -1293,14 +1306,14 @@ class Me {
     }
   }
   async goToPage(e, s) {
-    e === "source-browser-page" && this.liveController instanceof H && await this.liveController.goToPage(s), e === "source-comment-page" && this.liveController instanceof le && await this.liveController.goToPage(s), e === "source-search-page" && this.liveController instanceof j && await this.liveController.goToPage(s);
+    e === "source-browser-page" && this.liveController instanceof A && await this.liveController.goToPage(s), e === "source-comment-page" && this.liveController instanceof de && await this.liveController.goToPage(s), e === "source-search-page" && this.liveController instanceof j && await this.liveController.goToPage(s);
   }
   /**
    * Clear all browser filters - explicitly sets all filter values to undefined
    * to ensure they are removed from the URL and reset.
    */
   async clearBrowserFilters() {
-    this.liveController instanceof H && await this.liveController.applyFilters({
+    this.liveController instanceof A && await this.liveController.applyFilters({
       query: void 0,
       provider_kind: void 0,
       status: void 0,
@@ -1326,20 +1339,20 @@ class Me {
     });
   }
   async applyBrowserFilters(e) {
-    this.liveController instanceof H && await this.liveController.applyFilters(e);
+    this.liveController instanceof A && await this.liveController.applyFilters(e);
   }
   async applySearchFilters(e) {
     this.liveController instanceof j && await this.liveController.applyFilters(e);
   }
   async changePageSize(e, s) {
-    e === "source-browser" && this.liveController instanceof H && await this.liveController.applyFilters({ page_size: s, page: 1 }), e === "source-search" && this.liveController instanceof j && await this.liveController.applyFilters({ page_size: s, page: 1 });
+    e === "source-browser" && this.liveController instanceof A && await this.liveController.applyFilters({ page_size: s, page: 1 }), e === "source-search" && this.liveController instanceof j && await this.liveController.applyFilters({ page_size: s, page: 1 });
   }
 }
 function x(t) {
   const e = String(t ?? "").trim();
   return e || void 0;
 }
-function Pe(t = document) {
+function Te(t = document) {
   const e = Array.from(t.querySelectorAll("[data-admin-action-menu]"));
   if (e.length === 0)
     return;
@@ -1355,16 +1368,16 @@ function Pe(t = document) {
       continue;
     r.dataset.adminActionMenuInit = "true";
     const i = r.querySelector("[data-admin-action-menu-trigger]"), a = r.querySelector("[data-admin-action-menu-content]");
-    !i || !a || (i.addEventListener("click", (l) => {
-      l.preventDefault(), l.stopPropagation();
+    !i || !a || (i.addEventListener("click", (c) => {
+      c.preventDefault(), c.stopPropagation();
       const d = i.getAttribute("aria-expanded") === "true";
       if (n(r), d) {
         s(r);
         return;
       }
       a.classList.remove("hidden"), i.setAttribute("aria-expanded", "true");
-    }), r.addEventListener("keydown", (l) => {
-      l.key === "Escape" && (s(r), i.focus());
+    }), r.addEventListener("keydown", (c) => {
+      c.key === "Escape" && (s(r), i.focus());
     }));
   }
   typeof document < "u" && document.body?.dataset.adminActionMenusInit !== "true" && (document.body.dataset.adminActionMenusInit = "true", document.addEventListener("click", (r) => {
@@ -1379,15 +1392,15 @@ function Pe(t = document) {
     n();
   }));
 }
-function se() {
+function re() {
   const t = document.querySelector('[data-esign-page^="admin.sources."]'), e = document.querySelector("[data-source-management-runtime-root]");
   if (!t || !e)
     return null;
-  Pe(document);
+  Te(document);
   const s = N("esign-page-config"), n = N("source-management-page-model"), r = String(s?.page ?? t.dataset.esignPage ?? "").trim();
   if (!r)
     return null;
-  const i = new Me({
+  const i = new Le({
     page: r,
     config: s ?? {},
     model: n ?? {},
@@ -1396,7 +1409,7 @@ function se() {
   });
   return i.init(), i;
 }
-function Le() {
+function He() {
   const t = {
     success: !1,
     page: null,
@@ -1424,15 +1437,15 @@ function Le() {
   ];
   for (const d of a)
     n && d in n && t.issues.push(`Forbidden client-side bootstrap shim detected: ${d}`), r && d in r && t.issues.push(`Forbidden client-side bootstrap shim detected: ${d}`);
-  const l = se();
-  return t.controllerMounted = l !== null, t.controllerMounted || t.issues.push("Runtime controller failed to mount"), t.success = t.hasBackendConfig && t.hasBackendPageModel && t.hasBackendRoutes && t.controllerMounted && t.issues.length === 0, t;
+  const c = re();
+  return t.controllerMounted = c !== null, t.controllerMounted || t.issues.push("Runtime controller failed to mount"), t.success = t.hasBackendConfig && t.hasBackendPageModel && t.hasBackendRoutes && t.controllerMounted && t.issues.length === 0, t;
 }
-function Ne() {
-  const t = Le();
+function Fe() {
+  const t = He();
   if (!t.success)
     throw new Error(`V2 runtime initialization failed: ${t.issues.join("; ")}`);
 }
-function Ee(t) {
+function ze(t) {
   if (console.group("V2 Source-Management Runtime Initialization"), console.log(`Success: ${t.success ? "YES" : "NO"}`), console.log(`Page: ${t.page ?? "unknown"}`), console.log(`Surface: ${t.surface ?? "unknown"}`), console.log(`Backend Config: ${t.hasBackendConfig ? "✓" : "✗"}`), console.log(`Backend Page Model: ${t.hasBackendPageModel ? "✓" : "✗"}`), console.log(`Backend Routes: ${t.hasBackendRoutes ? "✓" : "✗"}`), console.log(`Controller Mounted: ${t.controllerMounted ? "✓" : "✗"}`), t.issues.length > 0) {
     console.group("Issues");
     for (const e of t.issues)
@@ -1441,19 +1454,19 @@ function Ee(t) {
   }
   console.groupEnd();
 }
-typeof document < "u" && ue(() => {
-  document.querySelector('[data-esign-page^="admin.sources."]') && se();
+typeof document < "u" && me(() => {
+  document.querySelector('[data-esign-page^="admin.sources."]') && re();
 });
 export {
-  Me as S,
+  Le as S,
   y as a,
-  be as b,
-  je as c,
-  Le as d,
-  Ne as e,
-  se as i,
-  Ee as l,
-  xe as r,
-  A as t
+  $e as b,
+  Ue as c,
+  He as d,
+  Fe as e,
+  re as i,
+  ze as l,
+  ye as r,
+  I as t
 };
-//# sourceMappingURL=source-management-runtime-QHTGO-g4.js.map
+//# sourceMappingURL=source-management-runtime-BnOgD4NY.js.map

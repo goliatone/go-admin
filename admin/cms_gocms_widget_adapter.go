@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"sync"
@@ -297,7 +298,7 @@ func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID
 	input := cmswidgets.CreateInstanceInput{
 		DefinitionID:  defID,
 		Configuration: primitives.CloneAnyMap(instance.Config),
-		Placement:     widgetPlacementMetadata(instance),
+		Placement:     cmsadapter.WidgetPlacementMetadata(instance),
 		CreatedBy:     actorUUID(ctx),
 		UpdatedBy:     actorUUID(ctx),
 	}
@@ -317,7 +318,7 @@ func (a *GoCMSWidgetAdapter) createInstance(ctx context.Context, defID uuid.UUID
 			"operation": "create_instance",
 		})
 	}
-	converted := convertGoCMSWidgetInstance(created)
+	converted := cmsadapter.ConvertGoCMSWidgetInstance(created)
 	converted.DefinitionCode = strings.TrimSpace(instance.DefinitionCode)
 	return &converted, nil
 }
@@ -331,7 +332,7 @@ func (a *GoCMSWidgetAdapter) updateInstance(ctx context.Context, instance Widget
 	input := cmswidgets.UpdateInstanceInput{
 		InstanceID:    uid,
 		Configuration: primitives.CloneAnyMap(instance.Config),
-		Placement:     widgetPlacementMetadata(instance),
+		Placement:     cmsadapter.WidgetPlacementMetadata(instance),
 		UpdatedBy:     actorUUID(ctx),
 	}
 	if instance.Position > 0 {
@@ -350,7 +351,7 @@ func (a *GoCMSWidgetAdapter) updateInstance(ctx context.Context, instance Widget
 			"operation": "update_instance",
 		})
 	}
-	converted := convertGoCMSWidgetInstance(updated)
+	converted := cmsadapter.ConvertGoCMSWidgetInstance(updated)
 	converted.DefinitionCode = strings.TrimSpace(instance.DefinitionCode)
 	return &converted, nil
 }
@@ -378,7 +379,7 @@ func (a *GoCMSWidgetAdapter) ListInstances(ctx context.Context, filter WidgetIns
 	ctx = widgetCallContext(ctx)
 	a.refreshDefinitions(ctx)
 	if resolved, err := a.resolveAreaInstances(ctx, filter); err == nil && resolved != nil {
-		return filterWidgetInstances(resolved, filter), nil
+		return cmsadapter.FilterWidgetInstances(resolved, filter), nil
 	} else if err != nil && err != ErrNotFound {
 		return nil, err
 	}
@@ -398,7 +399,7 @@ func (a *GoCMSWidgetAdapter) ListInstances(ctx context.Context, filter WidgetIns
 
 	out := make([]WidgetInstance, 0, len(instances))
 	for _, item := range instances {
-		inst := convertGoCMSWidgetInstance(item)
+		inst := cmsadapter.ConvertGoCMSWidgetInstance(item)
 		if item != nil {
 			if code, ok := a.definitionCode(item.DefinitionID); ok {
 				inst.DefinitionCode = code
@@ -408,7 +409,7 @@ func (a *GoCMSWidgetAdapter) ListInstances(ctx context.Context, filter WidgetIns
 		}
 		out = append(out, inst)
 	}
-	return filterWidgetInstances(out, filter), nil
+	return cmsadapter.FilterWidgetInstances(out, filter), nil
 }
 
 // HasInstanceForDefinition reports whether at least one instance exists for the given definition code.
@@ -482,7 +483,7 @@ func (a *GoCMSWidgetAdapter) resolveAreaInstances(ctx context.Context, filter Wi
 	}
 	out := make([]WidgetInstance, 0, len(resolved))
 	for _, entry := range resolved {
-		inst := convertGoCMSResolvedWidget(entry)
+		inst := cmsadapter.ConvertGoCMSResolvedWidget(entry)
 		if entry != nil && entry.Instance != nil {
 			if code, ok := a.definitionCode(entry.Instance.DefinitionID); ok {
 				inst.DefinitionCode = code
@@ -505,7 +506,7 @@ func (a *GoCMSWidgetAdapter) hasInstanceByDefinitionID(ctx context.Context, defi
 		return false, err
 	}
 	for _, item := range instances {
-		inst := convertGoCMSWidgetInstance(item)
+		inst := cmsadapter.ConvertGoCMSWidgetInstance(item)
 		if filter.Area != "" && inst.Area != filter.Area {
 			continue
 		}
@@ -565,7 +566,7 @@ func (a *GoCMSWidgetAdapter) assignWidgetPlacement(ctx context.Context, updated 
 	if localeID, ok := a.resolveLocaleID(ctx, source.Locale); ok {
 		input.LocaleID = &localeID
 	}
-	if meta := widgetPlacementMetadata(source); len(meta) > 0 {
+	if meta := cmsadapter.WidgetPlacementMetadata(source); len(meta) > 0 {
 		input.Metadata = meta
 	}
 	placements, err := a.service.AssignWidgetToArea(widgetCallContext(ctx), input)
@@ -575,7 +576,7 @@ func (a *GoCMSWidgetAdapter) assignWidgetPlacement(ctx context.Context, updated 
 		}
 		return err
 	}
-	if pos := goCMSPlacementPositionForInstance(placements, uid); pos >= 0 {
+	if pos := cmsadapter.PlacementPositionForInstance(placements, uid); pos >= 0 {
 		updated.Position = pos
 	}
 	return nil

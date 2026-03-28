@@ -21,6 +21,11 @@ export interface RelativeTimeNaturalOptions {
   maxRelativeDays?: number;
 }
 
+export interface RelativeTimeVerbosePastOptions {
+  emptyFallback?: string;
+  invalidFallback?: string;
+}
+
 function resolveFallback(value: unknown, emptyFallback: string, invalidFallback: string): string {
   if (value === null || value === undefined || value === '') {
     return emptyFallback;
@@ -133,4 +138,29 @@ export function formatRelativeTimeNatural(
   if (absMs < month) return rtf.format(Math.round(diffMs / day), 'day');
   if (absMs < year) return rtf.format(Math.round(diffMs / month), 'month');
   return rtf.format(Math.round(diffMs / year), 'year');
+}
+
+export function formatRelativeTimeVerbosePast(
+  value: unknown,
+  options: RelativeTimeVerbosePastOptions = {}
+): string {
+  const {
+    emptyFallback = 'unknown',
+    invalidFallback = 'Invalid Date',
+  } = options;
+
+  const parsed = parseTimeValue(value);
+  if (!parsed) return resolveFallback(value, emptyFallback, invalidFallback);
+
+  const diffMs = Date.now() - parsed.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+
+  return parsed.toLocaleDateString();
 }

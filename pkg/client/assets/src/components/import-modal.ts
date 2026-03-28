@@ -19,6 +19,8 @@
  *   document.getElementById('import-btn')?.addEventListener('click', () => importModal.open());
  */
 
+import { formatByteSize } from '../shared/size-formatters.js';
+
 type ImportModalNotifier = {
   success: (message: string) => void;
   error: (message: string) => void;
@@ -39,11 +41,13 @@ type ImportModalOptions = {
  * @returns Formatted size string
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+  return formatByteSize(bytes, {
+    zeroFallback: '0 Bytes',
+    invalidFallback: '0 Bytes',
+    unitLabels: ['Bytes', 'KB', 'MB', 'GB'],
+    precisionByUnit: [0, 2, 2, 2],
+    trimTrailingZeros: true,
+  }) as string;
 }
 
 /**

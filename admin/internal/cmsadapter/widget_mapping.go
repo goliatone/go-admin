@@ -1,14 +1,15 @@
-package admin
+package cmsadapter
 
 import (
 	"strings"
 
+	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	"github.com/goliatone/go-admin/internal/primitives"
 	cmswidgets "github.com/goliatone/go-cms/widgets"
 	"github.com/google/uuid"
 )
 
-func widgetPlacementMetadata(instance WidgetInstance) map[string]any {
+func WidgetPlacementMetadata(instance dashinternal.WidgetInstance) map[string]any {
 	meta := map[string]any{}
 	if pageID := strings.TrimSpace(instance.PageID); pageID != "" {
 		meta["page_id"] = pageID
@@ -22,11 +23,11 @@ func widgetPlacementMetadata(instance WidgetInstance) map[string]any {
 	return meta
 }
 
-func convertGoCMSWidgetInstance(val *cmswidgets.Instance) WidgetInstance {
+func ConvertGoCMSWidgetInstance(val *cmswidgets.Instance) dashinternal.WidgetInstance {
 	if val == nil {
-		return WidgetInstance{}
+		return dashinternal.WidgetInstance{}
 	}
-	inst := WidgetInstance{
+	inst := dashinternal.WidgetInstance{
 		ID:             val.ID.String(),
 		DefinitionCode: val.DefinitionID.String(),
 		Config:         primitives.CloneAnyMap(val.Configuration),
@@ -46,11 +47,11 @@ func convertGoCMSWidgetInstance(val *cmswidgets.Instance) WidgetInstance {
 	return inst
 }
 
-func convertGoCMSResolvedWidget(entry *cmswidgets.ResolvedWidget) WidgetInstance {
+func ConvertGoCMSResolvedWidget(entry *cmswidgets.ResolvedWidget) dashinternal.WidgetInstance {
 	if entry == nil {
-		return WidgetInstance{}
+		return dashinternal.WidgetInstance{}
 	}
-	inst := convertGoCMSWidgetInstance(entry.Instance)
+	inst := ConvertGoCMSWidgetInstance(entry.Instance)
 	if entry.Placement != nil {
 		inst.Area = primitives.FirstNonEmptyRaw(entry.Placement.AreaCode, inst.Area)
 		inst.Position = entry.Placement.Position
@@ -70,7 +71,7 @@ func convertGoCMSResolvedWidget(entry *cmswidgets.ResolvedWidget) WidgetInstance
 	return inst
 }
 
-func filterWidgetInstances(instances []WidgetInstance, filter WidgetInstanceFilter) []WidgetInstance {
+func FilterWidgetInstances(instances []dashinternal.WidgetInstance, filter dashinternal.WidgetInstanceFilter) []dashinternal.WidgetInstance {
 	if len(instances) == 0 {
 		return instances
 	}
@@ -79,7 +80,7 @@ func filterWidgetInstances(instances []WidgetInstance, filter WidgetInstanceFilt
 	if pageID == "" && locale == "" {
 		return instances
 	}
-	out := make([]WidgetInstance, 0, len(instances))
+	out := make([]dashinternal.WidgetInstance, 0, len(instances))
 	for _, inst := range instances {
 		if pageID != "" && inst.PageID != pageID {
 			continue
@@ -92,7 +93,7 @@ func filterWidgetInstances(instances []WidgetInstance, filter WidgetInstanceFilt
 	return out
 }
 
-func goCMSPlacementPositionForInstance(placements []*cmswidgets.AreaPlacement, instanceID uuid.UUID) int {
+func PlacementPositionForInstance(placements []*cmswidgets.AreaPlacement, instanceID uuid.UUID) int {
 	for _, placement := range placements {
 		if placement == nil {
 			continue

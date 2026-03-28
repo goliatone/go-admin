@@ -19,6 +19,7 @@ import type { ProcessedTimelineItem, DateGroup, FilterStats } from './event-grou
 import { EventResolverContext, resolveActor, resolveMetadata } from './event-resolver.js';
 import { formatTimestamp, formatRelativeTime } from './formatters.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import { renderPanelLoadingState, renderPanelState } from '../../services/ui-states.js';
 
 /**
  * Escape HTML for safe rendering
@@ -211,15 +212,20 @@ export function renderDateGroup(
  * Render the empty state
  */
 export function renderEmptyState(): string {
-  return `
-    <div class="text-center py-8 text-gray-500">
-      <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  return renderPanelState({
+    containerClass: 'text-gray-500 py-8',
+    bodyClass: 'flex flex-col items-center text-center',
+    contentClass: '',
+    iconHtml: `
+      <svg class="w-12 h-12 mx-auto mb-3 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
       </svg>
-      <p class="font-medium">No activity yet</p>
-      <p class="text-sm">Timeline events will appear here as the agreement progresses.</p>
-    </div>
-  `;
+    `,
+    title: 'No activity yet',
+    titleClass: 'font-medium',
+    message: 'Timeline events will appear here as the agreement progresses.',
+    messageClass: 'text-sm',
+  });
 }
 
 /**
@@ -242,12 +248,13 @@ export function renderFilteredState(hiddenCount: number): string {
  * Render loading state
  */
 export function renderLoadingState(): string {
-  return `
-    <div class="timeline-loading flex items-center justify-center gap-3 py-8 text-gray-500">
-      <div class="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-      <span>Loading timeline...</span>
-    </div>
-  `;
+  return renderPanelLoadingState({
+    containerClass: 'timeline-loading text-gray-500',
+    bodyClass: 'flex items-center justify-center gap-3 py-8',
+    spinnerClass: 'w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin',
+    text: 'Loading timeline...',
+    textClass: '',
+  });
 }
 
 /**

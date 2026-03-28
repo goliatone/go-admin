@@ -1,6 +1,7 @@
 // Shared utility functions for debug panels
 // Used by both the full debug console and the debug toolbar
 
+import { formatByteSize } from '../../shared/size-formatters.js';
 import type { DurationResult } from './types.js';
 export { escapeHTML } from '../../shared/html.js';
 
@@ -234,11 +235,15 @@ export const getLevelClass = (level: string | undefined): string => {
  * Format a byte count as a human-readable string (e.g., "1.2 KB", "3.5 MB")
  */
 export const formatBytes = (bytes: number | undefined): string => {
-  if (bytes === undefined || bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB'];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / Math.pow(1024, i);
-  return `${i === 0 ? value : value.toFixed(1)} ${units[i]}`;
+  return (
+    formatByteSize(bytes, {
+      emptyFallback: '0 B',
+      zeroFallback: '0 B',
+      invalidFallback: '0 B',
+      unitLabels: ['B', 'KB', 'MB'],
+      precisionByUnit: [0, 1, 1],
+    }) ?? '0 B'
+  );
 };
 
 /**

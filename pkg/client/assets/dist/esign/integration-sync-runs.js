@@ -1,5 +1,5 @@
 import { b as n, h as f, s as v } from "../chunks/dom-helpers-cltCUiC5.js";
-import { m as B } from "../chunks/formatters-CxrdwABk.js";
+import { m as B } from "../chunks/formatters-DYQo8z6P.js";
 import { a as E, s as b } from "../chunks/page-feedback-CVdtgsKH.js";
 import { escapeHTML as l } from "../shared/html.js";
 import { onReady as L } from "../shared/dom-ready.js";

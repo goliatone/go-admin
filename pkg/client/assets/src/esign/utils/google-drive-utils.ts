@@ -26,6 +26,7 @@ export const IMPORTABLE_MIME_TYPES = [MIME_GOOGLE_DOC, MIME_PDF];
  */
 export const GOOGLE_ACCOUNT_STORAGE_KEY = 'esign.google.account_id';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import { formatByteSize } from '../../shared/size-formatters.js';
 import { formatGoogleDriveDate as formatDate } from './formatters.js';
 
 export { escapeHtml };
@@ -231,10 +232,12 @@ export function getFileIconConfig(file: NormalizedDriveFile): {
  * Format file size for display
  */
 export function formatFileSize(bytes: number): string {
-  if (!bytes || bytes <= 0) return '-';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  return formatByteSize(bytes, {
+    emptyFallback: '-',
+    zeroFallback: '-',
+    invalidFallback: '-',
+    precisionByUnit: [0, 1, 2, 2],
+  }) as string;
 }
 
 // --------------------------------------------------------------------------

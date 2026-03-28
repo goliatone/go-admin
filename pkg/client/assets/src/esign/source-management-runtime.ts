@@ -37,6 +37,7 @@ import {
   formatSourceManagementRelativeTime,
 } from './utils/formatters.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
 
 type SourceManagementRuntimePage =
   | 'admin.sources.browser'
@@ -440,48 +441,62 @@ function resolveModeledSearchResultHref(
 }
 
 function renderEmptyState(title: string, description: string, showRetry = false): string {
-  return `
-    <div class="flex flex-col items-center justify-center py-12 text-center">
-      <div class="rounded-full bg-gray-100 p-3 mb-4">
+  return renderPanelState({
+    containerClass: 'py-12',
+    bodyClass: 'flex flex-col items-center justify-center text-center',
+    contentClass: '',
+    iconHtml: `
+      <div class="rounded-full bg-gray-100 p-3 mb-4" aria-hidden="true">
         <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
         </svg>
       </div>
-      <h3 class="text-sm font-medium text-gray-900">${escapeHtml(title)}</h3>
-      <p class="mt-1 text-sm text-gray-500">${escapeHtml(description)}</p>
-      ${showRetry ? '<button type="button" data-runtime-action="refresh" class="mt-4 inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Try again</button>' : ''}
-    </div>
-  `;
+    `,
+    title,
+    titleTag: 'h3',
+    titleClass: 'text-sm font-medium text-gray-900',
+    message: description,
+    messageClass: 'mt-1 text-sm text-gray-500',
+    actionsHtml: showRetry
+      ? '<button type="button" data-runtime-action="refresh" class="mt-4 inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Try again</button>'
+      : '',
+  });
 }
 
 function renderLoadingState(): string {
-  return `
-    <div class="flex items-center justify-center py-12">
-      <div class="animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600"></div>
-      <span class="ml-3 text-sm text-gray-500">Loading...</span>
-    </div>
-  `;
+  return renderPanelLoadingState({
+    containerClass: 'py-12',
+    bodyClass: 'flex items-center justify-center',
+    spinnerClass: 'animate-spin rounded-full h-8 w-8 border-4 border-gray-200 border-t-blue-600',
+    text: 'Loading...',
+    textClass: 'ml-3 text-sm text-gray-500',
+  });
 }
 
 function renderErrorState(error: Error): string {
-  return `
-    <div class="rounded-lg border border-red-200 bg-red-50 p-4">
-      <div class="flex">
-        <div class="flex-shrink-0">
-          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/>
-          </svg>
-        </div>
-        <div class="ml-3">
-          <h3 class="text-sm font-medium text-red-800">Something went wrong</h3>
-          <p class="mt-1 text-sm text-red-700">${escapeHtml(error.message)}</p>
-          <button type="button" data-runtime-action="refresh" class="mt-3 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
-            Try again
-          </button>
-        </div>
+  return renderPanelState({
+    containerClass: 'rounded-lg border border-red-200 bg-red-50 p-4',
+    bodyClass: 'flex items-start',
+    contentClass: 'ml-3',
+    iconHtml: `
+      <div class="flex-shrink-0" aria-hidden="true">
+        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd"/>
+        </svg>
       </div>
-    </div>
-  `;
+    `,
+    title: 'Something went wrong',
+    titleTag: 'h3',
+    titleClass: 'text-sm font-medium text-red-800',
+    message: error.message,
+    messageClass: 'mt-1 text-sm text-red-700',
+    actionsHtml: `
+      <button type="button" data-runtime-action="refresh" class="mt-3 inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+        Try again
+      </button>
+    `,
+    role: 'alert',
+  });
 }
 
 const runtimeToolbarCardClass = 'bg-white border border-gray-200 rounded-xl mb-4 p-4 shadow-sm';

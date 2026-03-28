@@ -36,6 +36,7 @@ import { renderEntityHeader } from './shared/entity-header';
 import { renderFieldCard as renderFieldCardShared, renderFieldKebab, renderDropZone } from './shared/field-card';
 import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
 import { formatContentTypeDate } from './shared/date-formatters';
+import { nameToSlug, titleCaseIdentifier } from './shared/text';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
@@ -1834,7 +1835,7 @@ export class ContentTypeEditor {
         if (field.section && !tabsById.has(field.section)) {
           tabsById.set(field.section, {
             id: field.section,
-            label: titleCase(field.section),
+            label: titleCaseIdentifier(field.section),
             order: tabsById.size,
           });
         }
@@ -2005,7 +2006,7 @@ export class ContentTypeEditor {
                 : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>'
               }
             </span>
-            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${escapeHtml(titleCase(sectionName))}</span>
+            <span class="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">${escapeHtml(titleCaseIdentifier(sectionName))}</span>
             <span class="text-[10px] text-gray-400 dark:text-gray-500 ml-auto">${fields.length}</span>
           </button>
 
@@ -2341,25 +2342,6 @@ interface DragState {
 // =============================================================================
 // Utilities
 // =============================================================================
-
-
-function nameToSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-}
-
-function titleCase(str: string): string {
-  return str
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/[_-]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(' ');
-}
 
 // =============================================================================
 // Publish Confirmation Modal

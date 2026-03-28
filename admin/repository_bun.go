@@ -133,7 +133,7 @@ func (a *BunRepositoryAdapter[T]) List(ctx context.Context, opts ListOptions) ([
 	if err := a.ensureRepo(); err != nil {
 		return nil, 0, err
 	}
-	query := normalizeRepositoryListQuery(opts)
+	query := normalizeRepositoryAdapterListQuery(opts)
 	criteria := append([]repository.SelectCriteria{}, a.baseCriteria...)
 
 	criteria = append(criteria, repository.SelectPaginate(query.PerPage, query.Offset()))

@@ -1,4 +1,5 @@
-const _ = (t) => {
+import { formatByteSize as A } from "../shared/size-formatters.js";
+const $ = (t) => {
   if (!t)
     return "";
   if (typeof t == "number")
@@ -8,7 +9,7 @@ const _ = (t) => {
     return Number.isNaN(r.getTime()) ? t : r.toLocaleTimeString();
   }
   return "";
-}, $ = (t, r = 50) => {
+}, x = (t, r = 50) => {
   if (t == null)
     return { text: "0ms", isSlow: !1 };
   if (typeof t == "string") {
@@ -20,10 +21,10 @@ const _ = (t) => {
     return { text: "0ms", isSlow: !1 };
   const e = n / 1e6, s = e >= r;
   return e < 1 ? { text: `${(n / 1e3).toFixed(1)}µs`, isSlow: s } : e < 1e3 ? { text: `${e.toFixed(2)}ms`, isSlow: s } : { text: `${(e / 1e3).toFixed(2)}s`, isSlow: s };
-}, A = (t, r = 50) => {
-  const n = T(t);
+}, T = (t, r = 50) => {
+  const n = N(t);
   return n === null ? !1 : n >= r;
-}, M = (t, r) => {
+}, z = (t, r) => {
   const { nullAsEmptyObject: n = !0, indent: e = 2 } = r || {};
   if (t == null)
     return n ? "{}" : "null";
@@ -32,7 +33,7 @@ const _ = (t) => {
   } catch {
     return String(t ?? "");
   }
-}, x = (t, r) => t ? t.length > r ? t.substring(0, r) + "..." : t : "", w = (t) => {
+}, K = (t, r) => t ? t.length > r ? t.substring(0, r) + "..." : t : "", w = (t) => {
   const r = t.trim();
   if (!r)
     return null;
@@ -55,56 +56,58 @@ const _ = (t) => {
     default:
       return null;
   }
-}, T = (t) => {
+}, N = (t) => {
   if (t == null)
     return null;
   if (typeof t == "string")
     return w(t);
   const r = Number(t);
   return Number.isNaN(r) ? null : r / 1e6;
-}, F = (t) => {
+}, O = (t) => {
   if (t == null || t === "")
     return "0";
   const r = Number(t);
   return Number.isNaN(r) ? String(t) : r.toLocaleString();
-}, K = (t) => t == null ? 0 : Array.isArray(t) ? t.length : typeof t == "object" ? Object.keys(t).length : 1, O = (t) => t ? t >= 500 ? "error" : t >= 400 ? "warn" : "" : "", R = (t) => {
+}, R = (t) => t == null ? 0 : Array.isArray(t) ? t.length : typeof t == "object" ? Object.keys(t).length : 1, M = (t) => t ? t >= 500 ? "error" : t >= 400 ? "warn" : "" : "", U = (t) => {
   if (!t)
     return "info";
   const r = t.toLowerCase();
   return r === "error" || r === "fatal" ? "error" : r === "warn" || r === "warning" ? "warn" : r === "debug" || r === "trace" ? "debug" : "info";
-}, z = (t) => {
-  if (t === void 0 || t === 0) return "0 B";
-  const r = ["B", "KB", "MB"], n = Math.min(Math.floor(Math.log(t) / Math.log(1024)), r.length - 1), e = t / Math.pow(1024, n);
-  return `${n === 0 ? e : e.toFixed(1)} ${r[n]}`;
-}, G = (t) => Array.isArray(t) ? t : [];
+}, G = (t) => A(t, {
+  emptyFallback: "0 B",
+  zeroFallback: "0 B",
+  invalidFallback: "0 B",
+  unitLabels: ["B", "KB", "MB"],
+  precisionByUnit: [0, 1, 1]
+}) ?? "0 B", J = (t) => Array.isArray(t) ? t : [];
 function m(t) {
   return t.snapshotKey ?? t.id;
 }
 function y(t) {
   return t.eventTypes ? Array.isArray(t.eventTypes) ? t.eventTypes : [t.eventTypes] : [m(t)];
 }
-function N(t) {
+function q(t) {
   return Array.isArray(t) ? t.length : t && typeof t == "object" ? Object.keys(t).length : 0;
 }
-function q(t, r, n = 500) {
+function C(t, r, n = 500) {
   if (Array.isArray(t)) {
     const e = [...t, r];
     return n > 0 ? e.slice(-n) : e;
   }
   return t && typeof t == "object" && r && typeof r == "object" ? { ...t, ...r } : r;
 }
-function C(t, r) {
+function P(t, r) {
   const n = m(r);
   return t[n];
 }
-function J(t, r) {
-  const n = C(t, r);
-  return r.getCount ? r.getCount(n) : N(n);
+function Q(t, r) {
+  const n = P(t, r);
+  return r.getCount ? r.getCount(n) : q(n);
 }
-function Q(t, r, n, e, s) {
+function Y(t, r, n, e, s) {
   return s === "console" && t.renderConsole ? t.renderConsole(r, n, e) : s === "toolbar" && t.renderToolbar ? t.renderToolbar(r, n, e) : s === "toolbar" && t.supportsToolbar === !1 ? `<div class="${n.emptyState}">Panel "${t.label}" not available in toolbar</div>` : t.render(r, n, e);
 }
-class P {
+class k {
   constructor() {
     this.panels = /* @__PURE__ */ new Map(), this.listeners = /* @__PURE__ */ new Set();
   }
@@ -207,14 +210,14 @@ class P {
   }
 }
 const d = "__go_admin_panel_registry__";
-function E() {
+function B() {
   const t = globalThis;
-  return t[d] || (t[d] = new P()), t[d];
+  return t[d] || (t[d] = new k()), t[d];
 }
-const l = E(), k = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], b = ["requests", "sql", "logs", "routes", "config"], j = /* @__PURE__ */ new Set(["console", "shell"]), h = {
+const l = B(), E = ["template", "session", "requests", "sql", "logs", "config", "routes", "custom"], b = ["requests", "sql", "logs", "routes", "config"], j = /* @__PURE__ */ new Set(["console", "shell"]), h = {
   console: "Console",
   shell: "Shell"
-}, L = (t) => t ? t.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/gi, "SQL").replace(/\b([a-z])/g, (r) => r.toUpperCase()) : "", S = (t, r) => r <= 0 || t.length <= r ? t : t.slice(-r), g = (t, r, n) => S([...t || [], r], n), B = (t, r, n) => {
+}, L = (t) => t ? t.replace(/[-_.]/g, " ").replace(/\s+/g, " ").trim().replace(/\bsql\b/gi, "SQL").replace(/\b([a-z])/g, (r) => r.toUpperCase()) : "", S = (t, r) => r <= 0 || t.length <= r ? t : t.slice(-r), g = (t, r, n) => S([...t || [], r], n), D = (t, r, n) => {
   if (!t || !r)
     return;
   const e = r.split(".").map((o) => o.trim()).filter(Boolean);
@@ -227,11 +230,11 @@ const l = E(), k = ["template", "session", "requests", "sql", "logs", "config", 
   }
   s[e[e.length - 1]] = n;
 };
-function U() {
+function H() {
   const t = l.getSortedIds();
-  return t.length > 0 ? t : k;
+  return t.length > 0 ? t : E;
 }
-function Y() {
+function V() {
   const t = l.getToolbarPanels();
   if (t.length > 0) {
     const r = t.filter((n) => n.category === "core" || n.category === "system").map((n) => n.id);
@@ -239,29 +242,29 @@ function Y() {
   }
   return b;
 }
-function H(t) {
+function W(t) {
   return t === "sessions" || l.has(t) || j.has(t);
 }
-function V(t) {
+function X(t) {
   if (h[t])
     return h[t];
   const r = l.get(t);
   return r ? r.label : L(t);
 }
-function W(t) {
+function Z(t) {
   if (t === "sessions")
     return [];
   const r = l.get(t);
   return r ? y(r) : [t];
 }
-function X() {
+function I() {
   const t = {};
   for (const r of l.list())
     for (const n of y(r))
       t[n] = r.id;
   return t;
 }
-function Z(t) {
+function v(t) {
   if (!Array.isArray(t))
     return [];
   const r = [];
@@ -281,7 +284,7 @@ function Z(t) {
     });
   }), r;
 }
-async function I(t) {
+async function tt(t) {
   try {
     const r = await fetch(`${t}/api/snapshot`, {
       credentials: "same-origin"
@@ -291,7 +294,7 @@ async function I(t) {
     return null;
   }
 }
-function D(t, r, n = 500) {
+function _(t, r, n = 500) {
   const e = {
     data: { ...t?.data || {} },
     logs: [...t?.logs || []]
@@ -300,7 +303,7 @@ function D(t, r, n = 500) {
     return e;
   const s = r;
   if ("key" in s && "value" in s)
-    return B(e.data || (e.data = {}), String(s.key), s.value), e;
+    return D(e.data || (e.data = {}), String(s.key), s.value), e;
   if ("data" in s || "logs" in s) {
     const o = s;
     return o.data && typeof o.data == "object" && (e.data = {
@@ -310,12 +313,12 @@ function D(t, r, n = 500) {
   }
   return ("category" in s || "message" in s) && (e.logs = g(e.logs, s, n)), e;
 }
-function v(t, r, n = {}) {
+function rt(t, r, n = {}) {
   if (!r || !r.type || r.type === "snapshot")
     return null;
   const e = n.eventToPanel?.[r.type] || l.findByEventType(r.type)?.id || r.type, s = l.get(e);
   if (s) {
-    const o = m(s), i = t[o], c = s.handleEvent || ((f, a) => q(f, a, 500));
+    const o = m(s), i = t[o], c = s.handleEvent || ((f, a) => C(f, a, 500));
     return t[o] = c(i, r.payload), e;
   }
   switch (r.type) {
@@ -335,7 +338,7 @@ function v(t, r, n = {}) {
       t.session = r.payload || {};
       break;
     case "custom":
-      t.custom = D(t.custom, r.payload, 500);
+      t.custom = _(t.custom, r.payload, 500);
       break;
     default:
       n.storeUnknownEvents && (t[e] = r.payload);
@@ -343,12 +346,12 @@ function v(t, r, n = {}) {
   }
   return e;
 }
-function tt(t, r = 50) {
+function et(t, r = 50) {
   const n = t.requests?.length || 0, e = t.sql?.length || 0, s = t.logs?.length || 0, o = t.jserrors?.length || 0, i = (t.requests || []).filter((u) => (u.status || 0) >= 400).length, c = (t.sql || []).filter((u) => u.error).length, f = (t.logs || []).filter((u) => {
     const p = (u.level || "").toLowerCase();
     return p === "error" || p === "fatal";
   }).length, a = (t.sql || []).filter(
-    (u) => A(u.duration, r)
+    (u) => T(u.duration, r)
   ).length;
   return {
     requests: n,
@@ -360,36 +363,36 @@ function tt(t, r = 50) {
   };
 }
 export {
-  Y as A,
-  I as B,
-  v as C,
-  D,
-  z as E,
-  V as a,
-  X as b,
+  V as A,
+  tt as B,
+  rt as C,
+  _ as D,
+  G as E,
+  X as a,
+  I as b,
   m as c,
-  _ as d,
-  F as e,
-  M as f,
-  W as g,
-  J as h,
-  K as i,
-  q as j,
-  H as k,
-  G as l,
-  A as m,
-  Z as n,
-  U as o,
+  $ as d,
+  O as e,
+  z as f,
+  Z as g,
+  Q as h,
+  R as i,
+  C as j,
+  W as k,
+  J as l,
+  T as m,
+  v as n,
+  H as o,
   l as p,
   y as q,
   j as r,
-  N as s,
-  C as t,
-  Q as u,
-  $ as v,
-  x as w,
-  O as x,
-  R as y,
-  tt as z
+  q as s,
+  P as t,
+  Y as u,
+  x as v,
+  K as w,
+  M as x,
+  U as y,
+  et as z
 };
-//# sourceMappingURL=shared-helpers-an_E0Pab.js.map
+//# sourceMappingURL=shared-helpers-C0Ec_MtO.js.map

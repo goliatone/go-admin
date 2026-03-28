@@ -1,6 +1,7 @@
 import { onReady as Dt } from "../shared/dom-ready.js";
 import { l as jt, a as Gt } from "../chunks/runtime-bhSs9hEJ.js";
 import { escapeHTML as Ue } from "../shared/html.js";
+import { formatRelativeTimeVerbosePast as Wt } from "../shared/time-formatters.js";
 const $e = {
   DOCUMENT: 1,
   DETAILS: 2,
@@ -8,7 +9,7 @@ const $e = {
   FIELDS: 4,
   PLACEMENT: 5,
   REVIEW: 6
-}, mt = $e.REVIEW, en = {
+}, mt = $e.REVIEW, tn = {
   [$e.DOCUMENT]: "Details",
   [$e.DETAILS]: "Participants",
   [$e.PARTICIPANTS]: "Fields",
@@ -27,26 +28,26 @@ const $e = {
   THUMBNAIL_MAX_HEIGHT: 200
 };
 $e.DOCUMENT, $e.DETAILS, $e.PARTICIPANTS, $e.FIELDS, $e.REVIEW;
-const Ct = /* @__PURE__ */ new Map(), tn = 30 * 60 * 1e3;
-function nn() {
+const Ct = /* @__PURE__ */ new Map(), nn = 30 * 60 * 1e3;
+function rn() {
   return typeof window > "u" ? !1 : window.__ADMIN_DEBUG__ === !0 || window.ADMIN_DEBUG === !0 || document.body?.dataset?.debug === "true";
 }
-function rn(n) {
+function sn(n) {
   const e = Ct.get(n);
-  return e ? Date.now() - e.timestamp > tn ? (Ct.delete(n), null) : e : null;
+  return e ? Date.now() - e.timestamp > nn ? (Ct.delete(n), null) : e : null;
 }
-function sn(n, e, t) {
+function an(n, e, t) {
   Ct.set(n, {
     dataUrl: e,
     pageCount: t,
     timestamp: Date.now()
   });
 }
-async function an(n, e, t = bt.THUMBNAIL_MAX_WIDTH, i = bt.THUMBNAIL_MAX_HEIGHT) {
+async function on(n, e, t = bt.THUMBNAIL_MAX_WIDTH, i = bt.THUMBNAIL_MAX_HEIGHT) {
   const l = await Gt({
     url: n,
     withCredentials: !0
-  }).promise, m = l.numPages, y = await l.getPage(1), _ = y.getViewport({ scale: 1 }), F = t / _.width, x = i / _.height, P = Math.min(F, x, 1), T = y.getViewport({ scale: P }), w = document.createElement("canvas");
+  }).promise, p = l.numPages, y = await l.getPage(1), _ = y.getViewport({ scale: 1 }), F = t / _.width, x = i / _.height, P = Math.min(F, x, 1), T = y.getViewport({ scale: P }), w = document.createElement("canvas");
   w.width = T.width, w.height = T.height;
   const a = w.getContext("2d");
   if (!a)
@@ -54,9 +55,9 @@ async function an(n, e, t = bt.THUMBNAIL_MAX_WIDTH, i = bt.THUMBNAIL_MAX_HEIGHT)
   return await y.render({
     canvasContext: a,
     viewport: T
-  }).promise, { dataUrl: w.toDataURL("image/jpeg", 0.8), pageCount: m };
+  }).promise, { dataUrl: w.toDataURL("image/jpeg", 0.8), pageCount: p };
 }
-class on {
+class cn {
   constructor(e = {}) {
     this.requestVersion = 0, this.config = {
       apiBasePath: e.apiBasePath || "",
@@ -127,7 +128,7 @@ class on {
       }, this.render();
       return;
     }
-    const l = rn(e);
+    const l = sn(e);
     if (l) {
       this.state = {
         documentId: e,
@@ -147,19 +148,19 @@ class on {
       isLoading: !0,
       error: null
     }, this.render();
-    let m = "";
+    let p = "";
     try {
-      if (m = await this.fetchDocumentPdfUrl(e), s !== this.requestVersion)
+      if (p = await this.fetchDocumentPdfUrl(e), s !== this.requestVersion)
         return;
-      const { dataUrl: y, pageCount: _ } = await an(
-        m,
+      const { dataUrl: y, pageCount: _ } = await on(
+        p,
         e,
         this.config.thumbnailMaxWidth,
         this.config.thumbnailMaxHeight
       );
       if (s !== this.requestVersion)
         return;
-      sn(e, y, _), this.state = {
+      an(e, y, _), this.state = {
         documentId: e,
         documentTitle: t,
         pageCount: i ?? _,
@@ -173,7 +174,7 @@ class on {
       const _ = jt(y, {
         surface: "agreement-preview-card",
         documentId: e,
-        url: m
+        url: p
       }), F = _.rawMessage;
       this.state = {
         documentId: e,
@@ -200,9 +201,9 @@ class on {
    * Render the preview card based on current state
    */
   render() {
-    const { container: e, thumbnail: t, title: i, pageCount: s, loadingState: l, errorState: m, emptyState: y, contentState: _ } = this.elements;
+    const { container: e, thumbnail: t, title: i, pageCount: s, loadingState: l, errorState: p, emptyState: y, contentState: _ } = this.elements;
     if (e) {
-      if (l?.classList.add("hidden"), m?.classList.add("hidden"), y?.classList.add("hidden"), _?.classList.add("hidden"), !this.state.documentId) {
+      if (l?.classList.add("hidden"), p?.classList.add("hidden"), y?.classList.add("hidden"), _?.classList.add("hidden"), !this.state.documentId) {
         y?.classList.remove("hidden");
         return;
       }
@@ -211,7 +212,7 @@ class on {
         return;
       }
       if (this.state.error) {
-        m?.classList.remove("hidden"), this.elements.errorMessage && (this.elements.errorMessage.textContent = this.state.errorMessage || "Preview unavailable"), this.elements.errorSuggestion && (this.elements.errorSuggestion.textContent = this.state.errorSuggestion || "", this.elements.errorSuggestion.classList.toggle("hidden", !this.state.errorSuggestion)), this.elements.errorRetryBtn && this.elements.errorRetryBtn.classList.toggle("hidden", !this.state.errorRetryable), this.elements.errorDebugInfo && (nn() ? (this.elements.errorDebugInfo.textContent = this.state.error, this.elements.errorDebugInfo.classList.remove("hidden")) : this.elements.errorDebugInfo.classList.add("hidden"));
+        p?.classList.remove("hidden"), this.elements.errorMessage && (this.elements.errorMessage.textContent = this.state.errorMessage || "Preview unavailable"), this.elements.errorSuggestion && (this.elements.errorSuggestion.textContent = this.state.errorSuggestion || "", this.elements.errorSuggestion.classList.toggle("hidden", !this.state.errorSuggestion)), this.elements.errorRetryBtn && this.elements.errorRetryBtn.classList.toggle("hidden", !this.state.errorRetryable), this.elements.errorDebugInfo && (rn() ? (this.elements.errorDebugInfo.textContent = this.state.error, this.elements.errorDebugInfo.classList.remove("hidden")) : this.elements.errorDebugInfo.classList.add("hidden"));
         return;
       }
       _?.classList.remove("hidden"), t && this.state.thumbnailUrl && (t.src = this.state.thumbnailUrl, t.alt = `Preview of ${this.state.documentTitle || "document"}`), i && (i.textContent = this.state.documentTitle || "Untitled Document"), s && this.state.pageCount && (s.textContent = `${this.state.pageCount} page${this.state.pageCount !== 1 ? "s" : ""}`);
@@ -231,11 +232,11 @@ class on {
     }, this.render();
   }
 }
-function cn(n = {}) {
-  const e = new on(n);
+function ln(n = {}) {
+  const e = new cn(n);
   return e.init(), e;
 }
-function ln(n = {}) {
+function dn(n = {}) {
   let e = !1;
   return {
     start() {
@@ -246,9 +247,9 @@ function ln(n = {}) {
     }
   };
 }
-function dn(n) {
+function un(n) {
   const { context: e, hooks: t = {} } = n;
-  return ln({
+  return dn({
     renderInitialUI() {
       t.renderInitialUI?.();
     },
@@ -272,7 +273,7 @@ function lt(n, e, t) {
     throw new Error(`Agreement form boot failed: missing required ${t} element (#${e})`);
   return i;
 }
-function un(n = document) {
+function pn(n = document) {
   return {
     marker: He(n, "esign-page-config"),
     form: {
@@ -303,7 +304,7 @@ function un(n = document) {
     }
   };
 }
-function pn(n, e) {
+function mn(n, e) {
   return {
     render(t = {}) {
       const i = t?.coordinationAvailable !== !1, s = n.coordination.banner, l = n.coordination.message;
@@ -313,15 +314,15 @@ function pn(n, e) {
         s.classList.add("hidden");
         return;
       }
-      const m = t?.lastSeenAt ? e.formatRelativeTime(t.lastSeenAt) : "recently";
-      l.textContent = `Draft coordination updates are unavailable in this tab. Changes in another tab may not appear until you refresh. Last seen ${m}.`, s.classList.remove("hidden");
+      const p = t?.lastSeenAt ? e.formatRelativeTime(t.lastSeenAt) : "recently";
+      l.textContent = `Draft coordination updates are unavailable in this tab. Changes in another tab may not appear until you refresh. Last seen ${p}.`, s.classList.remove("hidden");
     },
     destroy() {
       n.coordination.banner?.classList.add("hidden");
     }
   };
 }
-class mn {
+class fn {
   constructor(e) {
     this.state = null, this.listeners = [], this.options = e;
   }
@@ -384,9 +385,9 @@ class mn {
       return this.createInitialState();
     const t = this.createInitialState(), i = { ...t, ...e }, s = Number.parseInt(String(e.currentStep ?? t.currentStep), 10);
     i.currentStep = Number.isFinite(s) ? Math.min(Math.max(s, 1), this.options.totalWizardSteps) : t.currentStep;
-    const l = e.document && typeof e.document == "object" ? e.document : {}, m = l.id;
+    const l = e.document && typeof e.document == "object" ? e.document : {}, p = l.id;
     i.document = {
-      id: m == null ? null : String(m).trim() || null,
+      id: p == null ? null : String(p).trim() || null,
       title: String(l.title ?? "").trim() || null,
       pageCount: this.options.parsePositiveInt(l.pageCount, 0) || null
     };
@@ -413,14 +414,14 @@ class mn {
     const t = e, i = String(t.kind ?? "").trim(), s = String(t.id ?? "").trim();
     if (i === "" || s === "")
       return null;
-    const l = t.scope, m = l && typeof l == "object" && !Array.isArray(l) ? Object.entries(l).reduce((y, [_, F]) => {
+    const l = t.scope, p = l && typeof l == "object" && !Array.isArray(l) ? Object.entries(l).reduce((y, [_, F]) => {
       const x = String(_ || "").trim();
       return x !== "" && (y[x] = String(F ?? "").trim()), y;
     }, {}) : void 0;
     return {
       kind: i,
       id: s,
-      scope: m && Object.keys(m).length > 0 ? m : void 0
+      scope: p && Object.keys(p).length > 0 ? p : void 0
     };
   }
   migrateState(e) {
@@ -513,7 +514,7 @@ class mn {
         notify: t.notify,
         syncPending: !0
       }), this.getState();
-    const l = e?.data && typeof e.data == "object" ? e.data : {}, m = this.normalizeLoadedState({
+    const l = e?.data && typeof e.data == "object" ? e.data : {}, p = this.normalizeLoadedState({
       ...l?.wizard_state && typeof l.wizard_state == "object" ? l.wizard_state : {},
       resourceRef: e.ref,
       serverDraftId: e.ref.id,
@@ -521,17 +522,17 @@ class mn {
       lastSyncedAt: e.updatedAt,
       syncPending: !1
     });
-    return this.setState(m, {
+    return this.setState(p, {
       save: t.save,
       notify: t.notify,
       syncPending: !1
     }), this.getState();
   }
   applyRemoteSync(e, t, i = {}) {
-    const s = this.getState(), l = s.syncPending === !0, m = String(e ?? "").trim() || null, y = this.options.parsePositiveInt(t, 0);
+    const s = this.getState(), l = s.syncPending === !0, p = String(e ?? "").trim() || null, y = this.options.parsePositiveInt(t, 0);
     return this.setState({
       ...s,
-      serverDraftId: m || s.serverDraftId,
+      serverDraftId: p || s.serverDraftId,
       serverRevision: y > 0 ? y : s.serverRevision,
       lastSyncedAt: String(i.lastSyncedAt || this.now()).trim() || s.lastSyncedAt,
       syncPending: l
@@ -611,13 +612,13 @@ class mn {
   }
 }
 const Et = /* @__PURE__ */ new Map();
-async function fn(n) {
+async function gn(n) {
   const e = String(n || "").trim().replace(/\/+$/, "");
   if (e === "")
     throw new Error("sync.client_base_path is required to load sync-core");
-  return typeof window < "u" && window.__esignSyncCoreModule ? At(window.__esignSyncCoreModule) : (Et.has(e) || Et.set(e, gn(e)), Et.get(e));
+  return typeof window < "u" && window.__esignSyncCoreModule ? At(window.__esignSyncCoreModule) : (Et.has(e) || Et.set(e, hn(e)), Et.get(e));
 }
-async function gn(n) {
+async function hn(n) {
   if (typeof window < "u" && typeof window.__esignSyncCoreLoader == "function")
     return At(await window.__esignSyncCoreLoader(n));
   const t = await import(`${n}/index.js`);
@@ -628,7 +629,7 @@ function At(n) {
     throw new TypeError("Invalid sync-core runtime module");
   return n;
 }
-class hn {
+class yn {
   constructor(e) {
     this.pendingSync = null, this.retryCount = 0, this.retryTimeout = null, this.syncModulePromise = null, this.syncModule = null, this.transport = null, this.cache = null, this.resource = null, this.resourceRef = null, this.stateManager = e.stateManager, this.requestHeaders = e.requestHeaders, this.fetchImpl = e.fetchImpl || fetch.bind(globalThis), this.syncConfig = e.syncConfig;
   }
@@ -791,7 +792,7 @@ class hn {
     };
   }
   async ensureRuntime() {
-    return this.syncModule ? this.syncModule : (this.syncModulePromise || (this.syncModulePromise = fn(this.syncConfig.client_base_path)), this.syncModule = await this.syncModulePromise, this.cache || (this.cache = this.syncModule.createInMemoryCache()), this.transport || (this.transport = this.syncModule.createFetchSyncTransport({
+    return this.syncModule ? this.syncModule : (this.syncModulePromise || (this.syncModulePromise = gn(this.syncConfig.client_base_path)), this.syncModule = await this.syncModulePromise, this.cache || (this.cache = this.syncModule.createInMemoryCache()), this.transport || (this.transport = this.syncModule.createFetchSyncTransport({
       baseURL: this.syncConfig.base_url,
       credentials: "same-origin",
       fetch: this.fetchImpl,
@@ -878,21 +879,21 @@ class hn {
     const t = e, i = String(t.kind || "").trim(), s = String(t.id || "").trim();
     if (i === "" || s === "")
       return null;
-    const l = t.scope, m = l && typeof l == "object" && !Array.isArray(l) ? Object.entries(l).reduce((y, [_, F]) => {
+    const l = t.scope, p = l && typeof l == "object" && !Array.isArray(l) ? Object.entries(l).reduce((y, [_, F]) => {
       const x = String(_ || "").trim();
       return x !== "" && (y[x] = String(F ?? "").trim()), y;
     }, {}) : void 0;
     return {
       kind: i,
       id: s,
-      scope: m && Object.keys(m).length > 0 ? m : void 0
+      scope: p && Object.keys(p).length > 0 ? p : void 0
     };
   }
   toRuntimeError(e) {
     return new Error(String(e || "sync_failed").trim() || "sync_failed");
   }
 }
-class yn {
+class Sn {
   constructor(e) {
     this.channel = null, this.cleanupFns = [], this.activeDraftId = "", this.coordinationAvailable = !1, this.options = e;
   }
@@ -981,7 +982,7 @@ class yn {
       }
   }
 }
-const Wt = "[esign-send]";
+const Vt = "[esign-send]";
 function nt(n) {
   const e = String(n ?? "").trim();
   return e === "" ? null : e;
@@ -990,7 +991,7 @@ function Tt(n) {
   const e = Number(n);
   return Number.isFinite(e) ? e : null;
 }
-function Sn() {
+function vn() {
   return `send_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 function Pe(n = {}) {
@@ -1018,12 +1019,12 @@ function Pe(n = {}) {
   };
 }
 function Ve(n, e = {}) {
-  console.info(Wt, n, e);
+  console.info(Vt, n, e);
 }
 function Ze(n, e = {}) {
-  console.warn(Wt, n, e);
+  console.warn(Vt, n, e);
 }
-class vn {
+class bn {
   constructor(e) {
     this.debounceTimer = null, this.retryTimer = null, this.retryCount = 0, this.isSyncing = !1, this.cleanupFns = [], this.options = e, this.stateManager = e.stateManager, this.syncService = e.syncService, this.activeTabController = e.activeTabController;
   }
@@ -1114,7 +1115,7 @@ class vn {
     e.addEventListener("visibilitychange", s), this.cleanupFns.push(() => e.removeEventListener("visibilitychange", s));
   }
 }
-function bn() {
+function wn() {
   return function(e, t = {}) {
     const i = String(e || "").trim();
     if (!i || typeof window > "u") return;
@@ -1137,21 +1138,21 @@ function ft(n, e, t = "") {
   const i = n.querySelector(e);
   return (i instanceof HTMLInputElement || i instanceof HTMLTextAreaElement || i instanceof HTMLSelectElement) && i.value || t;
 }
-function wn(n, e, t = !1) {
+function In(n, e, t = !1) {
   const i = n.querySelector(e);
   return i instanceof HTMLInputElement ? i.checked : t;
 }
 function xt(n, e) {
   n instanceof HTMLButtonElement && (n.disabled = e);
 }
-function In(n) {
+function _n(n) {
   const {
     documentIdInput: e,
     selectedDocumentTitle: t,
     participantsContainer: i,
     fieldDefinitionsContainer: s,
     submitBtn: l,
-    escapeHtml: m,
+    escapeHtml: p,
     getSignerParticipants: y,
     getCurrentDocumentPageCount: _,
     collectFieldRulesForState: F,
@@ -1160,19 +1161,19 @@ function In(n) {
     goToStep: T
   } = n;
   function w() {
-    const a = Ke("send-readiness-loading"), g = Ke("send-readiness-results"), d = Ke("send-validation-status"), p = Ke("send-validation-issues"), M = Ke("send-issues-list"), z = Ke("send-confirmation"), R = Ke("review-agreement-title"), b = Ke("review-document-title"), h = Ke("review-participant-count"), q = Ke("review-stage-count"), J = Ke("review-participants-list"), O = Ke("review-fields-summary"), N = document.getElementById("title");
-    if (!a || !g || !d || !p || !M || !z || !R || !b || !h || !q || !J || !O || !(N instanceof HTMLInputElement))
+    const a = Ke("send-readiness-loading"), h = Ke("send-readiness-results"), u = Ke("send-validation-status"), m = Ke("send-validation-issues"), $ = Ke("send-issues-list"), H = Ke("send-confirmation"), R = Ke("review-agreement-title"), b = Ke("review-document-title"), g = Ke("review-participant-count"), U = Ke("review-stage-count"), J = Ke("review-participants-list"), q = Ke("review-fields-summary"), M = document.getElementById("title");
+    if (!a || !h || !u || !m || !$ || !H || !R || !b || !g || !U || !J || !q || !(M instanceof HTMLInputElement))
       return;
-    const ie = N.value || "Untitled", G = t?.textContent || "No document", he = i.querySelectorAll(".participant-entry"), Se = s.querySelectorAll(".field-definition-entry"), X = x(F(), _()), de = y(), Q = /* @__PURE__ */ new Set();
-    he.forEach((ee) => {
-      const B = ee.querySelector(".signing-stage-input"), De = ee.querySelector('select[name*=".role"]');
-      De instanceof HTMLSelectElement && De.value === "signer" && B instanceof HTMLInputElement && B.value && Q.add(Number.parseInt(B.value, 10));
-    }), R.textContent = ie, b.textContent = G, h.textContent = `${he.length} (${de.length} signers)`, q.textContent = String(Q.size > 0 ? Q.size : 1), J.innerHTML = "", he.forEach((ee) => {
-      const B = ft(ee, 'input[name*=".name"]'), De = ft(ee, 'input[name*=".email"]'), _e = ft(ee, 'select[name*=".role"]', "signer"), ce = ft(ee, ".signing-stage-input"), me = wn(ee, ".notify-input", !0), Fe = document.createElement("div");
-      Fe.className = "flex items-center justify-between text-sm", Fe.innerHTML = `
+    const ie = M.value || "Untitled", G = t?.textContent || "No document", he = i.querySelectorAll(".participant-entry"), Se = s.querySelectorAll(".field-definition-entry"), X = x(F(), _()), de = y(), ee = /* @__PURE__ */ new Set();
+    he.forEach((Q) => {
+      const N = Q.querySelector(".signing-stage-input"), De = Q.querySelector('select[name*=".role"]');
+      De instanceof HTMLSelectElement && De.value === "signer" && N instanceof HTMLInputElement && N.value && ee.add(Number.parseInt(N.value, 10));
+    }), R.textContent = ie, b.textContent = G, g.textContent = `${he.length} (${de.length} signers)`, U.textContent = String(ee.size > 0 ? ee.size : 1), J.innerHTML = "", he.forEach((Q) => {
+      const N = ft(Q, 'input[name*=".name"]'), De = ft(Q, 'input[name*=".email"]'), _e = ft(Q, 'select[name*=".role"]', "signer"), ce = ft(Q, ".signing-stage-input"), me = In(Q, ".notify-input", !0), Me = document.createElement("div");
+      Me.className = "flex items-center justify-between text-sm", Me.innerHTML = `
         <div>
-          <span class="font-medium">${m(B || De)}</span>
-          <span class="text-gray-500 ml-2">${m(De)}</span>
+          <span class="font-medium">${p(N || De)}</span>
+          <span class="text-gray-500 ml-2">${p(De)}</span>
         </div>
         <div class="flex items-center gap-2">
           <span class="px-2 py-0.5 rounded text-xs ${_e === "signer" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}">
@@ -1183,22 +1184,22 @@ function In(n) {
           </span>
           ${_e === "signer" && ce ? `<span class="text-xs text-gray-500">Stage ${ce}</span>` : ""}
         </div>
-      `, J.appendChild(Fe);
+      `, J.appendChild(Me);
     });
     const ye = Se.length + X.length;
-    O.textContent = `${ye} field${ye !== 1 ? "s" : ""} defined (${Se.length} manual, ${X.length} generated)`;
+    q.textContent = `${ye} field${ye !== 1 ? "s" : ""} defined (${Se.length} manual, ${X.length} generated)`;
     const pe = [];
-    e?.value || pe.push({ severity: "error", message: "No document selected", action: "Go to Step 1", step: 1 }), de.length === 0 && pe.push({ severity: "error", message: "No signers added", action: "Go to Step 3", step: 3 }), P().forEach((ee) => {
+    e?.value || pe.push({ severity: "error", message: "No document selected", action: "Go to Step 1", step: 1 }), de.length === 0 && pe.push({ severity: "error", message: "No signers added", action: "Go to Step 3", step: 3 }), P().forEach((Q) => {
       pe.push({
         severity: "error",
-        message: `${ee.name} has no required signature field`,
+        message: `${Q.name} has no required signature field`,
         action: "Add signature field",
         step: 4
       });
     });
-    const Be = Array.from(Q).sort((ee, B) => ee - B);
-    for (let ee = 0; ee < Be.length; ee++)
-      if (Be[ee] !== ee + 1) {
+    const Be = Array.from(ee).sort((Q, N) => Q - N);
+    for (let Q = 0; Q < Be.length; Q++)
+      if (Be[Q] !== Q + 1) {
         pe.push({
           severity: "warning",
           message: "Signing stages should be sequential starting from 1",
@@ -1207,47 +1208,47 @@ function In(n) {
         });
         break;
       }
-    const xe = pe.some((ee) => ee.severity === "error"), Ae = pe.some((ee) => ee.severity === "warning");
-    xe ? (d.className = "p-4 rounded-lg bg-red-50 border border-red-200", d.innerHTML = `
+    const xe = pe.some((Q) => Q.severity === "error"), Ae = pe.some((Q) => Q.severity === "warning");
+    xe ? (u.className = "p-4 rounded-lg bg-red-50 border border-red-200", u.innerHTML = `
         <div class="flex items-center gap-2 text-red-800">
           <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           <span class="font-medium">Cannot send - issues must be resolved</span>
         </div>
-      `, z.classList.add("hidden"), xt(l, !0)) : Ae ? (d.className = "p-4 rounded-lg bg-amber-50 border border-amber-200", d.innerHTML = `
+      `, H.classList.add("hidden"), xt(l, !0)) : Ae ? (u.className = "p-4 rounded-lg bg-amber-50 border border-amber-200", u.innerHTML = `
         <div class="flex items-center gap-2 text-amber-800">
           <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
           <span class="font-medium">Ready with warnings - review before sending</span>
         </div>
-      `, z.classList.remove("hidden"), xt(l, !1)) : (d.className = "p-4 rounded-lg bg-green-50 border border-green-200", d.innerHTML = `
+      `, H.classList.remove("hidden"), xt(l, !1)) : (u.className = "p-4 rounded-lg bg-green-50 border border-green-200", u.innerHTML = `
         <div class="flex items-center gap-2 text-green-800">
           <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
           <span class="font-medium">All checks passed - ready to send</span>
         </div>
-      `, z.classList.remove("hidden"), xt(l, !1)), pe.length > 0 ? (p.classList.remove("hidden"), M.innerHTML = "", pe.forEach((ee) => {
-      const B = document.createElement("li");
-      B.className = `p-3 rounded-lg flex items-center justify-between ${ee.severity === "error" ? "bg-red-50" : "bg-amber-50"}`, B.innerHTML = `
+      `, H.classList.remove("hidden"), xt(l, !1)), pe.length > 0 ? (m.classList.remove("hidden"), $.innerHTML = "", pe.forEach((Q) => {
+      const N = document.createElement("li");
+      N.className = `p-3 rounded-lg flex items-center justify-between ${Q.severity === "error" ? "bg-red-50" : "bg-amber-50"}`, N.innerHTML = `
           <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 ${ee.severity === "error" ? "text-red-500" : "text-amber-500"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${ee.severity === "error" ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" : "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"}"/>
+            <svg class="w-4 h-4 ${Q.severity === "error" ? "text-red-500" : "text-amber-500"}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${Q.severity === "error" ? "M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" : "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"}"/>
             </svg>
-            <span class="text-sm">${m(ee.message)}</span>
+            <span class="text-sm">${p(Q.message)}</span>
           </div>
-          <button type="button" class="text-xs text-blue-600 hover:text-blue-800" data-go-to-step="${ee.step}">
-            ${m(ee.action)}
+          <button type="button" class="text-xs text-blue-600 hover:text-blue-800" data-go-to-step="${Q.step}">
+            ${p(Q.action)}
           </button>
-        `, M.appendChild(B);
-    }), M.querySelectorAll("[data-go-to-step]").forEach((ee) => {
-      ee.addEventListener("click", () => {
-        const B = Number(ee.getAttribute("data-go-to-step"));
-        Number.isFinite(B) && T(B);
+        `, $.appendChild(N);
+    }), $.querySelectorAll("[data-go-to-step]").forEach((Q) => {
+      Q.addEventListener("click", () => {
+        const N = Number(Q.getAttribute("data-go-to-step"));
+        Number.isFinite(N) && T(N);
       });
-    })) : p.classList.add("hidden"), a.classList.add("hidden"), g.classList.remove("hidden");
+    })) : m.classList.add("hidden"), a.classList.add("hidden"), h.classList.remove("hidden");
   }
   return {
     initSendReadinessCheck: w
@@ -1257,14 +1258,14 @@ function kt(n, e = 0) {
   const t = Number.parseInt(String(n || "").trim(), 10);
   return Number.isFinite(t) ? t : e;
 }
-function _n(n) {
+function En(n) {
   const {
     totalWizardSteps: e,
     wizardStep: t,
     nextStepLabels: i,
     submitBtn: s,
     previewCard: l,
-    updateCoordinationUI: m,
+    updateCoordinationUI: p,
     validateStep: y,
     onPlacementStep: _,
     onReviewStep: F,
@@ -1272,19 +1273,19 @@ function _n(n) {
     initialStep: P = 1
   } = n;
   let T = P;
-  const w = Array.from(document.querySelectorAll(".wizard-step-btn")), a = Array.from(document.querySelectorAll(".wizard-step")), g = Array.from(document.querySelectorAll(".wizard-connector")), d = document.getElementById("wizard-prev-btn"), p = document.getElementById("wizard-next-btn"), M = document.getElementById("wizard-save-btn");
-  function z() {
-    if (w.forEach((h, q) => {
-      const J = q + 1, O = h.querySelector(".wizard-step-number");
-      O instanceof HTMLElement && (J < T ? (h.classList.remove("text-gray-500", "text-blue-600"), h.classList.add("text-green-600"), O.classList.remove("bg-gray-300", "text-gray-600", "bg-blue-600", "text-white"), O.classList.add("bg-green-600", "text-white"), h.removeAttribute("aria-current")) : J === T ? (h.classList.remove("text-gray-500", "text-green-600"), h.classList.add("text-blue-600"), O.classList.remove("bg-gray-300", "text-gray-600", "bg-green-600"), O.classList.add("bg-blue-600", "text-white"), h.setAttribute("aria-current", "step")) : (h.classList.remove("text-blue-600", "text-green-600"), h.classList.add("text-gray-500"), O.classList.remove("bg-blue-600", "text-white", "bg-green-600"), O.classList.add("bg-gray-300", "text-gray-600"), h.removeAttribute("aria-current")));
-    }), g.forEach((h, q) => {
-      q < T - 1 ? (h.classList.remove("bg-gray-300"), h.classList.add("bg-green-600")) : (h.classList.remove("bg-green-600"), h.classList.add("bg-gray-300"));
-    }), a.forEach((h) => {
-      kt(h.dataset.step) === T ? h.classList.remove("hidden") : h.classList.add("hidden");
-    }), d?.classList.toggle("hidden", T === 1), p?.classList.toggle("hidden", T === e), M?.classList.toggle("hidden", T !== e), s.classList.toggle("hidden", T !== e), m(), T < e) {
-      const h = i[T] || "Next";
-      p && (p.innerHTML = `
-        ${h}
+  const w = Array.from(document.querySelectorAll(".wizard-step-btn")), a = Array.from(document.querySelectorAll(".wizard-step")), h = Array.from(document.querySelectorAll(".wizard-connector")), u = document.getElementById("wizard-prev-btn"), m = document.getElementById("wizard-next-btn"), $ = document.getElementById("wizard-save-btn");
+  function H() {
+    if (w.forEach((g, U) => {
+      const J = U + 1, q = g.querySelector(".wizard-step-number");
+      q instanceof HTMLElement && (J < T ? (g.classList.remove("text-gray-500", "text-blue-600"), g.classList.add("text-green-600"), q.classList.remove("bg-gray-300", "text-gray-600", "bg-blue-600", "text-white"), q.classList.add("bg-green-600", "text-white"), g.removeAttribute("aria-current")) : J === T ? (g.classList.remove("text-gray-500", "text-green-600"), g.classList.add("text-blue-600"), q.classList.remove("bg-gray-300", "text-gray-600", "bg-green-600"), q.classList.add("bg-blue-600", "text-white"), g.setAttribute("aria-current", "step")) : (g.classList.remove("text-blue-600", "text-green-600"), g.classList.add("text-gray-500"), q.classList.remove("bg-blue-600", "text-white", "bg-green-600"), q.classList.add("bg-gray-300", "text-gray-600"), g.removeAttribute("aria-current")));
+    }), h.forEach((g, U) => {
+      U < T - 1 ? (g.classList.remove("bg-gray-300"), g.classList.add("bg-green-600")) : (g.classList.remove("bg-green-600"), g.classList.add("bg-gray-300"));
+    }), a.forEach((g) => {
+      kt(g.dataset.step) === T ? g.classList.remove("hidden") : g.classList.add("hidden");
+    }), u?.classList.toggle("hidden", T === 1), m?.classList.toggle("hidden", T === e), $?.classList.toggle("hidden", T !== e), s.classList.toggle("hidden", T !== e), p(), T < e) {
+      const g = i[T] || "Next";
+      m && (m.innerHTML = `
+        ${g}
         <svg class="w-4 h-4 ml-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
         </svg>
@@ -1292,30 +1293,30 @@ function _n(n) {
     }
     T === t.PLACEMENT ? _?.() : T === t.REVIEW && F?.(), l.updateVisibility(T);
   }
-  function R(h) {
-    if (!(h < t.DOCUMENT || h > e)) {
-      if (h > T) {
-        for (let q = T; q < h; q++)
-          if (!y(q)) return;
+  function R(g) {
+    if (!(g < t.DOCUMENT || g > e)) {
+      if (g > T) {
+        for (let U = T; U < g; U++)
+          if (!y(U)) return;
       }
-      T = h, z(), x?.(h), document.querySelector(".wizard-step:not(.hidden)")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      T = g, H(), x?.(g), document.querySelector(".wizard-step:not(.hidden)")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }
   function b() {
-    w.forEach((h) => {
-      h.addEventListener("click", () => {
-        const q = kt(h.dataset.step);
-        R(q);
+    w.forEach((g) => {
+      g.addEventListener("click", () => {
+        const U = kt(g.dataset.step);
+        R(U);
       });
-    }), d?.addEventListener("click", () => R(T - 1)), p?.addEventListener("click", () => R(T + 1)), M?.addEventListener("click", () => {
-      const h = document.getElementById("agreement-form");
-      if (!(h instanceof HTMLFormElement)) return;
-      const q = document.createElement("input");
-      if (q.type = "hidden", q.name = "save_as_draft", q.value = "1", h.appendChild(q), typeof h.requestSubmit == "function") {
-        h.requestSubmit();
+    }), u?.addEventListener("click", () => R(T - 1)), m?.addEventListener("click", () => R(T + 1)), $?.addEventListener("click", () => {
+      const g = document.getElementById("agreement-form");
+      if (!(g instanceof HTMLFormElement)) return;
+      const U = document.createElement("input");
+      if (U.type = "hidden", U.name = "save_as_draft", U.value = "1", g.appendChild(U), typeof g.requestSubmit == "function") {
+        g.requestSubmit();
         return;
       }
-      h.submit();
+      g.submit();
     });
   }
   return {
@@ -1323,29 +1324,29 @@ function _n(n) {
     getCurrentStep() {
       return T;
     },
-    setCurrentStep(h) {
-      T = h;
+    setCurrentStep(g) {
+      T = g;
     },
     goToStep: R,
-    updateWizardUI: z
+    updateWizardUI: H
   };
 }
-function Mt(n) {
+function Ft(n) {
   return n.querySelector('select[name*=".role"]');
 }
-function En(n) {
+function xn(n) {
   return n.querySelector(".field-participant-select");
 }
 function yt(n) {
   return typeof n == "object" && n !== null;
 }
-function xn(n, e, t = {}) {
+function Ln(n, e, t = {}) {
   const i = new Error(e);
   return i.code = String(n).trim(), Number(t.status || 0) > 0 && (i.status = Number(t.status || 0)), Number(t.currentRevision || 0) > 0 && (i.currentRevision = Number(t.currentRevision || 0)), Number(t.conflict?.currentRevision || 0) > 0 && (i.conflict = {
     currentRevision: Number(t.conflict?.currentRevision || 0)
   }), i;
 }
-function Ln(n, e = 0) {
+function Rn(n, e = 0) {
   if (!yt(n))
     return Number(e || 0);
   const t = n, i = Number(t.currentRevision || 0);
@@ -1354,14 +1355,14 @@ function Ln(n, e = 0) {
   const s = Number(t.conflict?.currentRevision || 0);
   return s > 0 ? s : Number(e || 0);
 }
-function Rn(n) {
+function Cn(n) {
   const {
     config: e,
     form: t,
     submitBtn: i,
     documentIdInput: s,
     documentSearch: l,
-    participantsContainer: m,
+    participantsContainer: p,
     addParticipantBtn: y,
     fieldDefinitionsContainer: _,
     fieldRulesContainer: F,
@@ -1370,33 +1371,33 @@ function Rn(n) {
     fieldRulesJSONInput: T,
     storageKey: w,
     syncService: a,
-    syncOrchestrator: g,
-    stateManager: d,
-    submitMode: p,
-    totalWizardSteps: M,
-    wizardStep: z,
+    syncOrchestrator: h,
+    stateManager: u,
+    submitMode: m,
+    totalWizardSteps: $,
+    wizardStep: H,
     getCurrentStep: R,
     getPlacementState: b,
-    getCurrentDocumentPageCount: h,
-    ensureSelectedDocumentCompatibility: q,
+    getCurrentDocumentPageCount: g,
+    ensureSelectedDocumentCompatibility: U,
     collectFieldRulesForState: J,
-    collectFieldRulesForForm: O,
-    expandRulesForPreview: N,
+    collectFieldRulesForForm: q,
+    expandRulesForPreview: M,
     findSignersMissingRequiredSignatureField: ie,
     missingSignatureFieldMessage: G,
     getSignerParticipants: he,
     getReviewConfigForState: Se,
     isStartReviewEnabled: X,
     setPrimaryActionLabel: de,
-    buildCanonicalAgreementPayload: Q,
+    buildCanonicalAgreementPayload: ee,
     announceError: ye,
     emitWizardTelemetry: pe,
     parseAPIError: Ee,
     goToStep: Be,
     showSyncConflictDialog: xe,
     surfaceSyncOutcome: Ae,
-    updateSyncStatus: ee,
-    activeTabOwnershipRequiredCode: B = "ACTIVE_TAB_OWNERSHIP_REQUIRED",
+    updateSyncStatus: Q,
+    activeTabOwnershipRequiredCode: N = "ACTIVE_TAB_OWNERSHIP_REQUIRED",
     getActiveTabDebugState: De,
     addFieldBtn: _e
   } = n;
@@ -1404,7 +1405,7 @@ function Rn(n) {
   function me() {
     return De?.() || {};
   }
-  function Fe(ue, f = !1) {
+  function Me(ue, f = !1) {
     i.setAttribute("aria-busy", f ? "true" : "false"), i.innerHTML = f ? `
           <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -1420,15 +1421,15 @@ function Rn(n) {
   }
   async function We() {
     Ve("persist_latest_wizard_state_start", Pe({
-      state: d.getState(),
+      state: u.getState(),
       storageKey: w,
       ownership: me(),
       sendAttemptId: ce
-    })), d.updateState(d.collectFormState());
-    const ue = await g.forceSync();
+    })), u.updateState(u.collectFormState());
+    const ue = await h.forceSync();
     if (ue?.blocked && ue.reason === "passive_tab")
       throw Ze("persist_latest_wizard_state_blocked", Pe({
-        state: d.getState(),
+        state: u.getState(),
         storageKey: w,
         ownership: me(),
         sendAttemptId: ce,
@@ -1436,10 +1437,10 @@ function Rn(n) {
           reason: ue.reason
         }
       })), {
-        code: B,
+        code: N,
         message: "This agreement is active in another tab. Take control in this tab before saving or sending."
       };
-    const f = d.getState();
+    const f = u.getState();
     if (f?.syncPending)
       throw Ze("persist_latest_wizard_state_unsynced", Pe({
         state: f,
@@ -1456,7 +1457,7 @@ function Rn(n) {
   }
   async function qe() {
     Ve("ensure_draft_ready_for_send_start", Pe({
-      state: d.getState(),
+      state: u.getState(),
       storageKey: w,
       ownership: me(),
       sendAttemptId: ce
@@ -1472,9 +1473,9 @@ function Rn(n) {
           action: "create_draft"
         }
       }));
-      const u = await a.create(ue), I = String(u.id || "").trim(), A = Number(u.revision || 0);
-      return I && A > 0 && d.markSynced(I, A), Ve("ensure_draft_ready_for_send_created", Pe({
-        state: d.getState(),
+      const d = await a.create(ue), I = String(d.id || "").trim(), A = Number(d.revision || 0);
+      return I && A > 0 && u.markSynced(I, A), Ve("ensure_draft_ready_for_send_created", Pe({
+        state: u.getState(),
         storageKey: w,
         ownership: me(),
         sendAttemptId: ce,
@@ -1497,9 +1498,9 @@ function Rn(n) {
           targetDraftId: f
         }
       }));
-      const u = await a.load(f), I = String(u?.id || f).trim(), A = Number(u?.revision || ue?.serverRevision || 0);
-      return I && A > 0 && d.markSynced(I, A), Ve("ensure_draft_ready_for_send_loaded", Pe({
-        state: d.getState(),
+      const d = await a.load(f), I = String(d?.id || f).trim(), A = Number(d?.revision || ue?.serverRevision || 0);
+      return I && A > 0 && u.markSynced(I, A), Ve("ensure_draft_ready_for_send_loaded", Pe({
+        state: u.getState(),
         storageKey: w,
         ownership: me(),
         sendAttemptId: ce,
@@ -1511,17 +1512,17 @@ function Rn(n) {
         draftID: I,
         revision: A > 0 ? A : Number(ue?.serverRevision || 0)
       };
-    } catch (u) {
-      throw Number(yt(u) && u.status || 0) !== 404 ? (Ze("ensure_draft_ready_for_send_load_failed", Pe({
+    } catch (d) {
+      throw Number(yt(d) && d.status || 0) !== 404 ? (Ze("ensure_draft_ready_for_send_load_failed", Pe({
         state: ue,
         storageKey: w,
         ownership: me(),
         sendAttemptId: ce,
         extra: {
           targetDraftId: f,
-          status: Number(yt(u) && u.status || 0)
+          status: Number(yt(d) && d.status || 0)
         }
-      })), u) : (Ze("ensure_draft_ready_for_send_missing_remote_draft", Pe({
+      })), d) : (Ze("ensure_draft_ready_for_send_missing_remote_draft", Pe({
         state: ue,
         storageKey: w,
         ownership: me(),
@@ -1535,7 +1536,7 @@ function Rn(n) {
         status: 404,
         phase: "pre_send"
       }), await ze().catch(() => {
-      }), xn(
+      }), Ln(
         "DRAFT_SEND_NOT_FOUND",
         "Draft not found",
         { status: 404 }
@@ -1543,79 +1544,79 @@ function Rn(n) {
     }
   }
   async function ze() {
-    const ue = d.getState();
-    d.setState({
+    const ue = u.getState();
+    u.setState({
       ...ue,
       resourceRef: null,
       serverDraftId: null,
       serverRevision: 0,
       lastSyncedAt: null,
       syncPending: !0
-    }, { syncPending: !0 }), await g.forceSync();
+    }, { syncPending: !0 }), await h.forceSync();
   }
   function je() {
     t.addEventListener("submit", function(ue) {
-      if (Q(), !s.value) {
+      if (ee(), !s.value) {
         ue.preventDefault(), ye("Please select a document"), l.focus();
         return;
       }
-      if (!q()) {
+      if (!U()) {
         ue.preventDefault();
         return;
       }
-      const f = m.querySelectorAll(".participant-entry");
+      const f = p.querySelectorAll(".participant-entry");
       if (f.length === 0) {
         ue.preventDefault(), ye("Please add at least one participant"), y.focus();
         return;
       }
-      let u = !1;
-      if (f.forEach((U) => {
-        Mt(U)?.value === "signer" && (u = !0);
-      }), !u) {
+      let d = !1;
+      if (f.forEach((z) => {
+        Ft(z)?.value === "signer" && (d = !0);
+      }), !d) {
         ue.preventDefault(), ye("At least one signer is required");
-        const U = f[0] ? Mt(f[0]) : null;
-        U && U.focus();
+        const z = f[0] ? Ft(f[0]) : null;
+        z && z.focus();
         return;
       }
       const I = _.querySelectorAll(".field-definition-entry"), A = ie();
       if (A.length > 0) {
-        ue.preventDefault(), ye(G(A)), Be(z.FIELDS), _e.focus();
+        ue.preventDefault(), ye(G(A)), Be(H.FIELDS), _e.focus();
         return;
       }
       let W = !1;
-      if (I.forEach((U) => {
-        En(U)?.value || (W = !0);
+      if (I.forEach((z) => {
+        xn(z)?.value || (W = !0);
       }), W) {
         ue.preventDefault(), ye("Please assign all fields to a signer");
-        const U = _.querySelector('.field-participant-select:invalid, .field-participant-select[value=""]');
-        U && U.focus();
+        const z = _.querySelector('.field-participant-select:invalid, .field-participant-select[value=""]');
+        z && z.focus();
         return;
       }
-      if (J().some((U) => !U.participantId)) {
+      if (J().some((z) => !z.participantId)) {
         ue.preventDefault(), ye("Please assign all automation rules to a signer"), Array.from(F?.querySelectorAll(".field-rule-participant-select") || []).find((oe) => !oe.value)?.focus();
         return;
       }
       const se = !!t.querySelector('input[name="save_as_draft"]'), ne = typeof X == "function" ? X() : !1, K = () => {
-        const U = ne ? "Start Review" : "Send for Signature";
+        const z = ne ? "Start Review" : "Send for Signature";
         if (typeof de == "function") {
-          de(U);
+          de(z);
           return;
         }
-        Fe(U, !1);
-      }, j = R() === M && !se && ne, le = R() === M && !se && !j;
+        Me(z, !1);
+      }, j = R() === $ && !se && ne, le = R() === $ && !se && !j;
       if (le) {
-        let U = t.querySelector('input[name="send_for_signature"]');
-        U || (U = document.createElement("input"), U.type = "hidden", U.name = "send_for_signature", t.appendChild(U)), U.value = "1";
+        let z = t.querySelector('input[name="send_for_signature"]');
+        z || (z = document.createElement("input"), z.type = "hidden", z.name = "send_for_signature", t.appendChild(z)), z.value = "1";
       } else
         t.querySelector('input[name="send_for_signature"]')?.remove();
-      if (p === "json") {
-        ue.preventDefault(), i.disabled = !0, Fe(le ? "Sending..." : j ? "Starting Review..." : "Saving...", !0), (async () => {
+      if (m === "json") {
+        ue.preventDefault(), i.disabled = !0, Me(le ? "Sending..." : j ? "Starting Review..." : "Saving...", !0), (async () => {
           try {
-            Q();
-            const U = String(e.routes?.index || "").trim();
+            ee();
+            const z = String(e.routes?.index || "").trim();
             if (!le && !j) {
-              if (await We(), U) {
-                window.location.href = U;
+              if (await We(), z) {
+                window.location.href = z;
                 return;
               }
               window.location.reload();
@@ -1628,8 +1629,8 @@ function Rn(n) {
               if ((L.participants || []).length === 0)
                 throw new Error("Add at least one reviewer before starting review.");
             }
-            ce = Sn(), Ve("send_submit_start", Pe({
-              state: d.getState(),
+            ce = vn(), Ve("send_submit_start", Pe({
+              state: u.getState(),
               storageKey: w,
               ownership: me(),
               sendAttemptId: ce
@@ -1638,7 +1639,7 @@ function Rn(n) {
             if (!ae || r <= 0)
               throw new Error("Draft session not available. Please try again.");
             Ve("send_request_start", Pe({
-              state: d.getState(),
+              state: u.getState(),
               storageKey: w,
               ownership: me(),
               sendAttemptId: ce,
@@ -1652,7 +1653,7 @@ function Rn(n) {
               o?.agreement_id || o?.id || o?.data?.agreement_id || o?.data?.id || ""
             ).trim();
             if (Ve("send_request_success", Pe({
-              state: d.getState(),
+              state: u.getState(),
               storageKey: w,
               ownership: me(),
               sendAttemptId: ce,
@@ -1662,34 +1663,34 @@ function Rn(n) {
                 agreementId: c,
                 operation: j ? "start_review" : "send"
               }
-            })), d.clear(), g.broadcastStateUpdate(), g.broadcastDraftDisposed?.(ae, "send_completed"), ce = null, c && U) {
-              window.location.href = `${U}/${encodeURIComponent(c)}`;
+            })), u.clear(), h.broadcastStateUpdate(), h.broadcastDraftDisposed?.(ae, "send_completed"), ce = null, c && z) {
+              window.location.href = `${z}/${encodeURIComponent(c)}`;
               return;
             }
-            if (U) {
-              window.location.href = U;
+            if (z) {
+              window.location.href = z;
               return;
             }
             window.location.reload();
-          } catch (U) {
-            const oe = yt(U) ? U : {}, ae = String(oe.message || "Failed to process agreement").trim();
+          } catch (z) {
+            const oe = yt(z) ? z : {}, ae = String(oe.message || "Failed to process agreement").trim();
             let r = String(oe.code || "").trim();
             const o = Number(oe.status || 0);
             if (r.toUpperCase() === "STALE_REVISION") {
-              const c = Ln(U, Number(d.getState()?.serverRevision || 0));
-              ee?.("conflict"), xe?.(c), pe("wizard_send_conflict", {
-                draft_id: String(d.getState()?.serverDraftId || "").trim(),
+              const c = Rn(z, Number(u.getState()?.serverRevision || 0));
+              Q?.("conflict"), xe?.(c), pe("wizard_send_conflict", {
+                draft_id: String(u.getState()?.serverDraftId || "").trim(),
                 current_revision: c,
                 status: o || 409
               }), i.disabled = !1, K(), ce = null;
               return;
             }
             r.toUpperCase() === "NOT_FOUND" && (r = "DRAFT_SEND_NOT_FOUND", pe("wizard_send_not_found", {
-              draft_id: String(d.getState()?.serverDraftId || "").trim(),
+              draft_id: String(u.getState()?.serverDraftId || "").trim(),
               status: o || 404
             }), await ze().catch(() => {
             })), Ze("send_request_failed", Pe({
-              state: d.getState(),
+              state: u.getState(),
               storageKey: w,
               ownership: me(),
               sendAttemptId: ce,
@@ -1703,7 +1704,7 @@ function Rn(n) {
         })();
         return;
       }
-      i.disabled = !0, Fe(le ? "Sending..." : j ? "Starting Review..." : "Saving...", !0);
+      i.disabled = !0, Me(le ? "Sending..." : j ? "Starting Review..." : "Saving...", !0);
     });
   }
   return {
@@ -1713,16 +1714,16 @@ function Rn(n) {
     resyncAfterSendNotFound: ze
   };
 }
-const Ft = 150, Nt = 32;
+const Mt = 150, Nt = 32;
 function Ie(n) {
   return n == null ? "" : String(n).trim();
 }
-function Vt(n) {
+function Kt(n) {
   if (typeof n == "boolean") return n;
   const e = Ie(n).toLowerCase();
   return e === "" ? !1 : e === "1" || e === "true" || e === "on" || e === "yes";
 }
-function Cn(n) {
+function An(n) {
   return Ie(n).toLowerCase();
 }
 function ke(n, e = 0) {
@@ -1748,7 +1749,7 @@ function dt(n, e, t = 1) {
   const i = ke(t, 1), s = ke(n, i);
   return e > 0 ? St(s, 1, e) : s > 0 ? s : i;
 }
-function An(n, e, t) {
+function Dn(n, e, t) {
   const i = ke(t, 1);
   let s = ut(n, i), l = ut(e, i);
   return s <= 0 && (s = 1), l <= 0 && (l = i), l < s ? { start: l, end: s } : { start: s, end: l };
@@ -1762,82 +1763,82 @@ function wt(n) {
   }), Array.from(t).sort((i, s) => i - s);
 }
 function vt(n, e) {
-  const t = ke(e, 1), i = Ie(n.participantId ?? n.participant_id), s = wt(n.excludePages ?? n.exclude_pages), l = n.required, m = typeof l == "boolean" ? l : !["0", "false", "off", "no"].includes(Ie(l).toLowerCase());
+  const t = ke(e, 1), i = Ie(n.participantId ?? n.participant_id), s = wt(n.excludePages ?? n.exclude_pages), l = n.required, p = typeof l == "boolean" ? l : !["0", "false", "off", "no"].includes(Ie(l).toLowerCase());
   return {
     id: Ie(n.id),
-    type: Cn(n.type),
+    type: An(n.type),
     participantId: i,
     participantTempId: Ie(n.participantTempId) || i,
     fromPage: ut(n.fromPage ?? n.from_page, t),
     toPage: ut(n.toPage ?? n.to_page, t),
     page: ut(n.page, t),
-    excludeLastPage: Vt(n.excludeLastPage ?? n.exclude_last_page),
+    excludeLastPage: Kt(n.excludeLastPage ?? n.exclude_last_page),
     excludePages: s,
-    required: m
+    required: p
   };
 }
-function Dn(n, e) {
+function Pn(n, e) {
   const t = Ie(n?.id);
   return t !== "" ? t : `rule-${e + 1}`;
 }
-function Pn(n, e) {
+function Tn(n, e) {
   const t = ke(e, 1), i = [];
   return n.forEach((s, l) => {
-    const m = vt(s || {}, t);
-    if (m.type === "") return;
-    const y = Dn(m, l);
-    if (m.type === "initials_each_page") {
-      const _ = An(m.fromPage, m.toPage, t), F = /* @__PURE__ */ new Set();
-      wt(m.excludePages).forEach((x) => {
+    const p = vt(s || {}, t);
+    if (p.type === "") return;
+    const y = Pn(p, l);
+    if (p.type === "initials_each_page") {
+      const _ = Dn(p.fromPage, p.toPage, t), F = /* @__PURE__ */ new Set();
+      wt(p.excludePages).forEach((x) => {
         x <= t && F.add(x);
-      }), m.excludeLastPage && F.add(t);
+      }), p.excludeLastPage && F.add(t);
       for (let x = _.start; x <= _.end; x += 1)
         F.has(x) || i.push({
           id: `${y}-initials-${x}`,
           type: "initials",
           page: x,
-          participantId: Ie(m.participantId),
-          required: m.required !== !1,
+          participantId: Ie(p.participantId),
+          required: p.required !== !1,
           ruleId: y
           // Track rule ID for link group creation.
         });
       return;
     }
-    if (m.type === "signature_once") {
-      let _ = m.page > 0 ? m.page : m.toPage > 0 ? m.toPage : t;
+    if (p.type === "signature_once") {
+      let _ = p.page > 0 ? p.page : p.toPage > 0 ? p.toPage : t;
       _ <= 0 && (_ = 1), i.push({
         id: `${y}-signature-${_}`,
         type: "signature",
         page: _,
-        participantId: Ie(m.participantId),
-        required: m.required !== !1,
+        participantId: Ie(p.participantId),
+        required: p.required !== !1,
         ruleId: y
         // Track rule ID for link group creation.
       });
     }
   }), i.sort((s, l) => s.page !== l.page ? s.page - l.page : s.id.localeCompare(l.id)), i;
 }
-function Tn(n, e, t, i, s) {
+function kn(n, e, t, i, s) {
   const l = ke(t, 1);
-  let m = n > 0 ? n : 1, y = e > 0 ? e : l;
-  m = St(m, 1, l), y = St(y, 1, l), y < m && ([m, y] = [y, m]);
+  let p = n > 0 ? n : 1, y = e > 0 ? e : l;
+  p = St(p, 1, l), y = St(y, 1, l), y < p && ([p, y] = [y, p]);
   const _ = /* @__PURE__ */ new Set();
   s.forEach((x) => {
     const P = ke(x, 0);
     P > 0 && _.add(St(P, 1, l));
   }), i && _.add(l);
   const F = [];
-  for (let x = m; x <= y; x += 1)
+  for (let x = p; x <= y; x += 1)
     _.has(x) || F.push(x);
   return {
     pages: F,
-    rangeStart: m,
+    rangeStart: p,
     rangeEnd: y,
     excludedPages: Array.from(_).sort((x, P) => x - P),
     isEmpty: F.length === 0
   };
 }
-function kn(n) {
+function Fn(n) {
   if (n.isEmpty)
     return "(no pages - all excluded)";
   const { pages: e } = n;
@@ -1847,8 +1848,8 @@ function kn(n) {
   let i = 0;
   for (let s = 1; s <= e.length; s += 1)
     if (s === e.length || e[s] !== e[s - 1] + 1) {
-      const l = e[i], m = e[s - 1];
-      l === m ? t.push(String(l)) : m === l + 1 ? t.push(`${l}, ${m}`) : t.push(`${l}-${m}`), i = s;
+      const l = e[i], p = e[s - 1];
+      l === p ? t.push(String(l)) : p === l + 1 ? t.push(`${l}, ${p}`) : t.push(`${l}-${p}`), i = s;
     }
   return `pages ${t.join(", ")}`;
 }
@@ -1862,7 +1863,7 @@ function Lt(n) {
     compatibilityReason: Ie(e.pdf_compatibility_reason ?? e.pdfCompatibilityReason).toLowerCase()
   };
 }
-function Kt(n) {
+function Yt(n) {
   const e = Ie(n).toLowerCase();
   if (e === "") return Ge.MANUAL;
   switch (e) {
@@ -1876,7 +1877,7 @@ function Kt(n) {
   }
 }
 function pt(n, e = 0) {
-  const t = n || {}, i = Ie(t.id) || `fi_init_${e}`, s = Ie(t.definitionId || t.definition_id || t.field_definition_id) || i, l = ke(t.page ?? t.page_number, 1), m = gt(t.x ?? t.pos_x, 0), y = gt(t.y ?? t.pos_y, 0), _ = gt(t.width, Ft), F = gt(t.height, Nt);
+  const t = n || {}, i = Ie(t.id) || `fi_init_${e}`, s = Ie(t.definitionId || t.definition_id || t.field_definition_id) || i, l = ke(t.page ?? t.page_number, 1), p = gt(t.x ?? t.pos_x, 0), y = gt(t.y ?? t.pos_y, 0), _ = gt(t.width, Mt), F = gt(t.height, Nt);
   return {
     id: i,
     definitionId: s,
@@ -1884,14 +1885,14 @@ function pt(n, e = 0) {
     participantId: Ie(t.participantId || t.participant_id),
     participantName: Ie(t.participantName || t.participant_name) || "Unassigned",
     page: l > 0 ? l : 1,
-    x: m >= 0 ? m : 0,
+    x: p >= 0 ? p : 0,
     y: y >= 0 ? y : 0,
-    width: _ > 0 ? _ : Ft,
+    width: _ > 0 ? _ : Mt,
     height: F > 0 ? F : Nt,
-    placementSource: Kt(t.placementSource || t.placement_source),
+    placementSource: Yt(t.placementSource || t.placement_source),
     linkGroupId: Ie(t.linkGroupId || t.link_group_id),
     linkedFromFieldId: Ie(t.linkedFromFieldId || t.linked_from_field_id),
-    isUnlinked: Vt(t.isUnlinked ?? t.is_unlinked)
+    isUnlinked: Kt(t.isUnlinked ?? t.is_unlinked)
   };
 }
 function Mn(n, e = 0) {
@@ -1904,7 +1905,7 @@ function Mn(n, e = 0) {
     y: Math.round(t.y),
     width: Math.round(t.width),
     height: Math.round(t.height),
-    placement_source: Kt(t.placementSource),
+    placement_source: Yt(t.placementSource),
     link_group_id: Ie(t.linkGroupId),
     linked_from_field_id: Ie(t.linkedFromFieldId),
     is_unlinked: !!t.isUnlinked
@@ -1917,14 +1918,14 @@ function Re(n) {
 function it(n) {
   return typeof n == "object" && n !== null;
 }
-function Fn(n) {
+function Nn(n) {
   const {
     apiBase: e,
     apiVersionBase: t,
     documentsUploadURL: i,
     isEditMode: s,
     titleSource: l,
-    normalizeTitleSource: m,
+    normalizeTitleSource: p,
     stateManager: y,
     previewCard: _,
     parseAPIError: F,
@@ -1932,7 +1933,7 @@ function Fn(n) {
     showToast: P,
     mapUserFacingError: T,
     renderFieldRulePreview: w
-  } = n, a = Re("document_id"), g = Re("selected-document"), d = Re("document-picker"), p = Re("document-search"), M = Re("document-list"), z = Re("change-document-btn"), R = Re("selected-document-title"), b = Re("selected-document-info"), h = Re("document_page_count"), q = Re("document-remediation-panel"), J = Re("document-remediation-message"), O = Re("document-remediation-status"), N = Re("document-remediation-trigger-btn"), ie = Re("document-remediation-dismiss-btn"), G = Re("title"), he = 300, Se = 5, X = 10, de = Re("document-typeahead"), Q = Re("document-typeahead-dropdown"), ye = Re("document-recent-section"), pe = Re("document-recent-list"), Ee = Re("document-search-section"), Be = Re("document-search-list"), xe = Re("document-empty-state"), Ae = Re("document-dropdown-loading"), ee = Re("document-search-loading"), B = {
+  } = n, a = Re("document_id"), h = Re("selected-document"), u = Re("document-picker"), m = Re("document-search"), $ = Re("document-list"), H = Re("change-document-btn"), R = Re("selected-document-title"), b = Re("selected-document-info"), g = Re("document_page_count"), U = Re("document-remediation-panel"), J = Re("document-remediation-message"), q = Re("document-remediation-status"), M = Re("document-remediation-trigger-btn"), ie = Re("document-remediation-dismiss-btn"), G = Re("title"), he = 300, Se = 5, X = 10, de = Re("document-typeahead"), ee = Re("document-typeahead-dropdown"), ye = Re("document-recent-section"), pe = Re("document-recent-list"), Ee = Re("document-search-section"), Be = Re("document-search-list"), xe = Re("document-empty-state"), Ae = Re("document-dropdown-loading"), Q = Re("document-search-loading"), N = {
     isOpen: !1,
     query: "",
     recentDocuments: [],
@@ -1942,7 +1943,7 @@ function Fn(n) {
     isSearchMode: !1
   };
   let De = [], _e = null, ce = 0, me = null;
-  const Fe = /* @__PURE__ */ new Set(), We = /* @__PURE__ */ new Map();
+  const Me = /* @__PURE__ */ new Set(), We = /* @__PURE__ */ new Map();
   function qe(S) {
     return String(S || "").trim().toLowerCase();
   }
@@ -1957,10 +1958,10 @@ function Fn(n) {
   }
   function f(S) {
     const v = ke(S, 0);
-    h && (h.value = String(v));
+    g && (g.value = String(v));
   }
-  function u() {
-    const S = ke(h?.value || "0", 0);
+  function d() {
+    const S = ke(g?.value || "0", 0);
     if (S > 0) return S;
     const v = String(b?.textContent || "").match(/(\d+)\s+pages?/i);
     if (v) {
@@ -1981,31 +1982,31 @@ function Fn(n) {
     return E ? `${v} Reason: ${E}. Select another document or upload a remediated PDF.` : `${v} Select another document or upload a remediated PDF.`;
   }
   function W() {
-    _e = null, O && (O.textContent = "", O.className = "mt-2 text-xs text-amber-800"), q && q.classList.add("hidden"), N && (N.disabled = !1, N.textContent = "Remediate PDF");
+    _e = null, q && (q.textContent = "", q.className = "mt-2 text-xs text-amber-800"), U && U.classList.add("hidden"), M && (M.disabled = !1, M.textContent = "Remediate PDF");
   }
   function te(S, v = "info") {
-    if (!O) return;
+    if (!q) return;
     const E = String(S || "").trim();
-    O.textContent = E;
-    const $ = v === "error" ? "text-red-700" : v === "success" ? "text-green-700" : "text-amber-800";
-    O.className = `mt-2 text-xs ${$}`;
+    q.textContent = E;
+    const B = v === "error" ? "text-red-700" : v === "success" ? "text-green-700" : "text-amber-800";
+    q.className = `mt-2 text-xs ${B}`;
   }
   function fe(S, v = "") {
-    !S || !q || !J || (_e = {
+    !S || !U || !J || (_e = {
       id: String(S.id || "").trim(),
       title: String(S.title || "").trim(),
       pageCount: ke(S.pageCount, 0),
       compatibilityReason: ze(v || S.compatibilityReason || "")
-    }, _e.id && (J.textContent = A(_e.compatibilityReason), te("Run remediation to make this document signable."), q.classList.remove("hidden")));
+    }, _e.id && (J.textContent = A(_e.compatibilityReason), te("Run remediation to make this document signable."), U.classList.remove("hidden")));
   }
   function se(S) {
     const v = G;
     if (!v) return;
-    const E = y.getState(), $ = v.value.trim(), H = m(
+    const E = y.getState(), B = v.value.trim(), O = p(
       E?.titleSource,
-      $ === "" ? l.AUTOFILL : l.USER
+      B === "" ? l.AUTOFILL : l.USER
     );
-    if ($ && H === l.USER)
+    if (B && O === l.USER)
       return;
     const Y = String(S || "").trim();
     Y && (v.value = Y, y.updateDetails({
@@ -2014,41 +2015,41 @@ function Fn(n) {
     }, { titleSource: l.AUTOFILL }));
   }
   function ne(S, v, E) {
-    if (!a || !R || !b || !g || !d)
+    if (!a || !R || !b || !h || !u)
       return;
-    a.value = String(S || ""), R.textContent = v || "", b.textContent = `${E} pages`, f(E), g.classList.remove("hidden"), d.classList.add("hidden"), w(), se(v);
-    const $ = ke(E, 0);
+    a.value = String(S || ""), R.textContent = v || "", b.textContent = `${E} pages`, f(E), h.classList.remove("hidden"), u.classList.add("hidden"), w(), se(v);
+    const B = ke(E, 0);
     y.updateDocument({
       id: S,
       title: v,
-      pageCount: $
-    }), _.setDocument(S, v, $), W();
+      pageCount: B
+    }), _.setDocument(S, v, B), W();
   }
   function K(S) {
     const v = String(S || "").trim();
     if (v === "") return null;
     const E = De.find((Y) => String(Y.id || "").trim() === v);
     if (E) return E;
-    const $ = B.recentDocuments.find((Y) => String(Y.id || "").trim() === v);
-    if ($) return $;
-    const H = B.searchResults.find((Y) => String(Y.id || "").trim() === v);
-    return H || null;
+    const B = N.recentDocuments.find((Y) => String(Y.id || "").trim() === v);
+    if (B) return B;
+    const O = N.searchResults.find((Y) => String(Y.id || "").trim() === v);
+    return O || null;
   }
   function j() {
     const S = K(a?.value || "");
     if (!S) return !0;
     const v = qe(S.compatibilityTier);
-    return je(v) ? (fe(S, S.compatibilityReason || ""), I(), x(A(S.compatibilityReason || "")), g && g.classList.add("hidden"), d && d.classList.remove("hidden"), p?.focus(), !1) : (W(), !0);
+    return je(v) ? (fe(S, S.compatibilityReason || ""), I(), x(A(S.compatibilityReason || "")), h && h.classList.add("hidden"), u && u.classList.remove("hidden"), m?.focus(), !1) : (W(), !0);
   }
   function le() {
-    if (!R || !b || !g || !d)
+    if (!R || !b || !h || !u)
       return;
     const S = (a?.value || "").trim();
     if (!S) return;
     const v = De.find((E) => String(E.id || "").trim() === S);
-    v && (R.textContent.trim() || (R.textContent = v.title || "Untitled"), (!b.textContent.trim() || b.textContent.trim() === "pages") && (b.textContent = `${v.pageCount || 0} pages`), f(v.pageCount || 0), g.classList.remove("hidden"), d.classList.add("hidden"));
+    v && (R.textContent.trim() || (R.textContent = v.title || "Untitled"), (!b.textContent.trim() || b.textContent.trim() === "pages") && (b.textContent = `${v.pageCount || 0} pages`), f(v.pageCount || 0), h.classList.remove("hidden"), u.classList.add("hidden"));
   }
-  async function U() {
+  async function z() {
     try {
       const S = new URLSearchParams({
         per_page: "100",
@@ -2062,18 +2063,18 @@ function Fn(n) {
         throw await F(v, "Failed to load documents");
       const E = await v.json();
       De = (Array.isArray(E?.records) ? E.records : Array.isArray(E?.items) ? E.items : []).slice().sort((Y, ve) => {
-        const Me = Date.parse(String(Y?.created_at ?? Y?.createdAt ?? Y?.updated_at ?? Y?.updatedAt ?? "")), D = Date.parse(String(ve?.created_at ?? ve?.createdAt ?? ve?.updated_at ?? ve?.updatedAt ?? "")), re = Number.isFinite(Me) ? Me : 0;
+        const Fe = Date.parse(String(Y?.created_at ?? Y?.createdAt ?? Y?.updated_at ?? Y?.updatedAt ?? "")), D = Date.parse(String(ve?.created_at ?? ve?.createdAt ?? ve?.updated_at ?? ve?.updatedAt ?? "")), re = Number.isFinite(Fe) ? Fe : 0;
         return (Number.isFinite(D) ? D : 0) - re;
       }).map((Y) => Lt(Y)).filter((Y) => Y.id !== ""), oe(De), le();
     } catch (S) {
-      const v = it(S) ? String(S.message || "Failed to load documents") : "Failed to load documents", E = it(S) ? String(S.code || "") : "", $ = it(S) ? Number(S.status || 0) : 0, H = T(v, E, $);
-      M && (M.innerHTML = `<div class="p-4 text-center text-red-500 text-sm">${Ue(H)}</div>`);
+      const v = it(S) ? String(S.message || "Failed to load documents") : "Failed to load documents", E = it(S) ? String(S.code || "") : "", B = it(S) ? Number(S.status || 0) : 0, O = T(v, E, B);
+      $ && ($.innerHTML = `<div class="p-4 text-center text-red-500 text-sm">${Ue(O)}</div>`);
     }
   }
   function oe(S) {
-    if (!M) return;
+    if (!$) return;
     if (S.length === 0) {
-      M.innerHTML = `
+      $.innerHTML = `
         <div class="p-4 text-center text-gray-500 text-sm">
           No documents found.
           <a href="${Ue(i)}" class="text-blue-600 hover:underline">Upload one</a>
@@ -2081,14 +2082,14 @@ function Fn(n) {
       `;
       return;
     }
-    M.innerHTML = S.map((E, $) => {
-      const H = Ue(String(E.id || "").trim()), Y = Ue(String(E.title || "").trim()), ve = String(ke(E.pageCount, 0)), Me = qe(E.compatibilityTier), D = ze(E.compatibilityReason), re = Ue(Me), we = Ue(D), Qe = je(Me) ? '<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Unsupported</span>' : "";
+    $.innerHTML = S.map((E, B) => {
+      const O = Ue(String(E.id || "").trim()), Y = Ue(String(E.title || "").trim()), ve = String(ke(E.pageCount, 0)), Fe = qe(E.compatibilityTier), D = ze(E.compatibilityReason), re = Ue(Fe), we = Ue(D), Qe = je(Fe) ? '<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Unsupported</span>' : "";
       return `
         <button type="button" class="document-option w-full p-3 flex items-center gap-3 hover:bg-gray-50 border-b border-gray-100 last:border-0 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
                 role="option"
                 aria-selected="false"
-                tabindex="${$ === 0 ? "0" : "-1"}"
-                data-document-id="${H}"
+                tabindex="${B === 0 ? "0" : "-1"}"
+                data-document-id="${O}"
                 data-document-title="${Y}"
                 data-document-pages="${ve}"
                 data-document-compatibility-tier="${re}"
@@ -2105,43 +2106,43 @@ function Fn(n) {
         </button>
       `;
     }).join("");
-    const v = Array.from(M.querySelectorAll(".document-option"));
-    v.forEach((E, $) => {
-      E.addEventListener("click", () => ae(E)), E.addEventListener("keydown", (H) => {
-        let Y = $;
-        if (H.key === "ArrowDown")
-          H.preventDefault(), Y = Math.min($ + 1, v.length - 1);
-        else if (H.key === "ArrowUp")
-          H.preventDefault(), Y = Math.max($ - 1, 0);
-        else if (H.key === "Enter" || H.key === " ") {
-          H.preventDefault(), ae(E);
+    const v = Array.from($.querySelectorAll(".document-option"));
+    v.forEach((E, B) => {
+      E.addEventListener("click", () => ae(E)), E.addEventListener("keydown", (O) => {
+        let Y = B;
+        if (O.key === "ArrowDown")
+          O.preventDefault(), Y = Math.min(B + 1, v.length - 1);
+        else if (O.key === "ArrowUp")
+          O.preventDefault(), Y = Math.max(B - 1, 0);
+        else if (O.key === "Enter" || O.key === " ") {
+          O.preventDefault(), ae(E);
           return;
-        } else H.key === "Home" ? (H.preventDefault(), Y = 0) : H.key === "End" && (H.preventDefault(), Y = v.length - 1);
-        Y !== $ && (v[Y].focus(), v[Y].setAttribute("tabindex", "0"), E.setAttribute("tabindex", "-1"));
+        } else O.key === "Home" ? (O.preventDefault(), Y = 0) : O.key === "End" && (O.preventDefault(), Y = v.length - 1);
+        Y !== B && (v[Y].focus(), v[Y].setAttribute("tabindex", "0"), E.setAttribute("tabindex", "-1"));
       });
     });
   }
   function ae(S) {
-    const v = S.getAttribute("data-document-id"), E = S.getAttribute("data-document-title"), $ = S.getAttribute("data-document-pages"), H = qe(S.getAttribute("data-document-compatibility-tier")), Y = ze(S.getAttribute("data-document-compatibility-reason"));
-    if (je(H)) {
-      fe({ id: String(v || ""), title: String(E || ""), pageCount: ke($, 0), compatibilityReason: Y }), I(), x(A(Y)), p?.focus();
+    const v = S.getAttribute("data-document-id"), E = S.getAttribute("data-document-title"), B = S.getAttribute("data-document-pages"), O = qe(S.getAttribute("data-document-compatibility-tier")), Y = ze(S.getAttribute("data-document-compatibility-reason"));
+    if (je(O)) {
+      fe({ id: String(v || ""), title: String(E || ""), pageCount: ke(B, 0), compatibilityReason: Y }), I(), x(A(Y)), m?.focus();
       return;
     }
-    ne(v, E, $);
+    ne(v, E, B);
   }
   async function r(S, v, E) {
-    const $ = String(S || "").trim();
-    if (!$) return;
-    const H = Date.now(), Y = 12e4, ve = 1250;
-    for (; Date.now() - H < Y; ) {
-      const Me = await fetch($, {
+    const B = String(S || "").trim();
+    if (!B) return;
+    const O = Date.now(), Y = 12e4, ve = 1250;
+    for (; Date.now() - O < Y; ) {
+      const Fe = await fetch(B, {
         method: "GET",
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (!Me.ok)
-        throw await F(Me, "Failed to read remediation status");
-      const re = (await Me.json())?.dispatch || {}, we = String(re?.status || "").trim().toLowerCase();
+      if (!Fe.ok)
+        throw await F(Fe, "Failed to read remediation status");
+      const re = (await Fe.json())?.dispatch || {}, we = String(re?.status || "").trim().toLowerCase();
       if (we === "succeeded") {
         te("Remediation completed. Refreshing document compatibility...", "success");
         return;
@@ -2162,12 +2163,12 @@ function Fn(n) {
     const S = _e;
     if (!S || !S.id) return;
     const v = String(S.id || "").trim();
-    if (!(!v || Fe.has(v))) {
-      Fe.add(v), N && (N.disabled = !0, N.textContent = "Remediating...");
+    if (!(!v || Me.has(v))) {
+      Me.add(v), M && (M.disabled = !0, M.textContent = "Remediating...");
       try {
         let E = We.get(v) || "";
         E || (E = `esign-remediate-${v}-${Date.now()}`, We.set(v, E));
-        const $ = `${t}/esign/documents/${encodeURIComponent(v)}/remediate`, H = await fetch($, {
+        const B = `${t}/esign/documents/${encodeURIComponent(v)}/remediate`, O = await fetch(B, {
           method: "POST",
           credentials: "same-origin",
           headers: {
@@ -2175,11 +2176,11 @@ function Fn(n) {
             "Idempotency-Key": E
           }
         });
-        if (!H.ok)
-          throw await F(H, "Failed to trigger remediation");
-        const Y = await H.json(), ve = Y?.receipt || {}, Me = String(ve?.dispatch_id || Y?.dispatch_id || "").trim(), D = String(ve?.mode || Y?.mode || "").trim().toLowerCase();
+        if (!O.ok)
+          throw await F(O, "Failed to trigger remediation");
+        const Y = await O.json(), ve = Y?.receipt || {}, Fe = String(ve?.dispatch_id || Y?.dispatch_id || "").trim(), D = String(ve?.mode || Y?.mode || "").trim().toLowerCase();
         let re = String(Y?.dispatch_status_url || "").trim();
-        !re && Me && (re = `${t}/esign/dispatches/${encodeURIComponent(Me)}`), D === "queued" && Me && re && (te("Remediation queued. Monitoring progress..."), await r(re, Me, v)), await U();
+        !re && Fe && (re = `${t}/esign/dispatches/${encodeURIComponent(Fe)}`), D === "queued" && Fe && re && (te("Remediation queued. Monitoring progress..."), await r(re, Fe, v)), await z();
         const we = K(v);
         if (!we || je(we.compatibilityTier)) {
           te("Remediation finished, but this PDF is still incompatible.", "error"), x("Document remains incompatible after remediation. Upload another PDF.");
@@ -2187,18 +2188,18 @@ function Fn(n) {
         }
         ne(we.id, we.title, we.pageCount), window.toastManager ? window.toastManager.success("Document remediated successfully. You can continue.") : P("Document remediated successfully. You can continue.", "success");
       } catch (E) {
-        const $ = it(E) ? String(E.message || "Remediation failed").trim() : "Remediation failed", H = it(E) ? String(E.code || "") : "", Y = it(E) ? Number(E.status || 0) : 0;
-        te($, "error"), x($, H, Y);
+        const B = it(E) ? String(E.message || "Remediation failed").trim() : "Remediation failed", O = it(E) ? String(E.code || "") : "", Y = it(E) ? Number(E.status || 0) : 0;
+        te(B, "error"), x(B, O, Y);
       } finally {
-        Fe.delete(v), N && (N.disabled = !1, N.textContent = "Remediate PDF");
+        Me.delete(v), M && (M.disabled = !1, M.textContent = "Remediate PDF");
       }
     }
   }
   function c(S, v) {
     let E = null;
-    return (...$) => {
+    return (...B) => {
       E !== null && clearTimeout(E), E = setTimeout(() => {
-        S(...$), E = null;
+        S(...B), E = null;
       }, v);
     };
   }
@@ -2216,8 +2217,8 @@ function Fn(n) {
         console.warn("Failed to load recent documents:", v.status);
         return;
       }
-      const E = await v.json(), $ = Array.isArray(E?.records) ? E.records : Array.isArray(E?.items) ? E.items : [];
-      B.recentDocuments = $.map((H) => Lt(H)).filter((H) => H.id !== "").slice(0, Se);
+      const E = await v.json(), B = Array.isArray(E?.records) ? E.records : Array.isArray(E?.items) ? E.items : [];
+      N.recentDocuments = B.map((O) => Lt(O)).filter((O) => O.id !== "").slice(0, Se);
     } catch (S) {
       console.warn("Error loading recent documents:", S);
     }
@@ -2225,54 +2226,54 @@ function Fn(n) {
   async function C(S) {
     const v = S.trim();
     if (!v) {
-      me && (me.abort(), me = null), B.isSearchMode = !1, B.searchResults = [], ge();
+      me && (me.abort(), me = null), N.isSearchMode = !1, N.searchResults = [], ge();
       return;
     }
     const E = ++ce;
-    me && me.abort(), me = new AbortController(), B.isLoading = !0, B.isSearchMode = !0, ge();
+    me && me.abort(), me = new AbortController(), N.isLoading = !0, N.isSearchMode = !0, ge();
     try {
-      const $ = new URLSearchParams({
+      const B = new URLSearchParams({
         q: v,
         sort: "updated_at",
         sort_desc: "true",
         per_page: String(X)
-      }), H = await fetch(`${e}/panels/esign_documents?${$}`, {
+      }), O = await fetch(`${e}/panels/esign_documents?${B}`, {
         credentials: "same-origin",
         headers: { Accept: "application/json" },
         signal: me.signal
       });
       if (E !== ce) return;
-      if (!H.ok) {
-        console.warn("Failed to search documents:", H.status), B.searchResults = [], B.isLoading = !1, ge();
+      if (!O.ok) {
+        console.warn("Failed to search documents:", O.status), N.searchResults = [], N.isLoading = !1, ge();
         return;
       }
-      const Y = await H.json(), ve = Array.isArray(Y?.records) ? Y.records : Array.isArray(Y?.items) ? Y.items : [];
-      B.searchResults = ve.map((Me) => Lt(Me)).filter((Me) => Me.id !== "").slice(0, X);
-    } catch ($) {
-      if (it($) && $.name === "AbortError")
+      const Y = await O.json(), ve = Array.isArray(Y?.records) ? Y.records : Array.isArray(Y?.items) ? Y.items : [];
+      N.searchResults = ve.map((Fe) => Lt(Fe)).filter((Fe) => Fe.id !== "").slice(0, X);
+    } catch (B) {
+      if (it(B) && B.name === "AbortError")
         return;
-      console.warn("Error searching documents:", $), B.searchResults = [];
+      console.warn("Error searching documents:", B), N.searchResults = [];
     } finally {
-      E === ce && (B.isLoading = !1, ge());
+      E === ce && (N.isLoading = !1, ge());
     }
   }
   const k = c(C, he);
   function V() {
-    Q && (B.isOpen = !0, B.selectedIndex = -1, Q.classList.remove("hidden"), p?.setAttribute("aria-expanded", "true"), M?.classList.add("hidden"), ge());
+    ee && (N.isOpen = !0, N.selectedIndex = -1, ee.classList.remove("hidden"), m?.setAttribute("aria-expanded", "true"), $?.classList.add("hidden"), ge());
   }
   function Z() {
-    Q && (B.isOpen = !1, B.selectedIndex = -1, Q.classList.add("hidden"), p?.setAttribute("aria-expanded", "false"), M?.classList.remove("hidden"));
+    ee && (N.isOpen = !1, N.selectedIndex = -1, ee.classList.add("hidden"), m?.setAttribute("aria-expanded", "false"), $?.classList.remove("hidden"));
   }
   function be(S, v, E) {
-    S && (S.innerHTML = v.map(($, H) => {
-      const Y = H, ve = B.selectedIndex === Y, Me = Ue(String($.id || "").trim()), D = Ue(String($.title || "").trim()), re = String(ke($.pageCount, 0)), we = qe($.compatibilityTier), tt = ze($.compatibilityReason), Qe = Ue(we), Pt = Ue(tt), Qt = je(we) ? '<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Unsupported</span>' : "";
+    S && (S.innerHTML = v.map((B, O) => {
+      const Y = O, ve = N.selectedIndex === Y, Fe = Ue(String(B.id || "").trim()), D = Ue(String(B.title || "").trim()), re = String(ke(B.pageCount, 0)), we = qe(B.compatibilityTier), tt = ze(B.compatibilityReason), Qe = Ue(we), Pt = Ue(tt), en = je(we) ? '<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Unsupported</span>' : "";
       return `
         <button type="button"
           class="typeahead-option w-full px-3 py-2 flex items-center gap-3 hover:bg-blue-50 text-left focus:outline-none focus:bg-blue-50 ${ve ? "bg-blue-50" : ""}"
           role="option"
           aria-selected="${ve}"
           tabindex="-1"
-          data-document-id="${Me}"
+          data-document-id="${Fe}"
           data-document-title="${D}"
           data-document-pages="${re}"
           data-document-compatibility-tier="${Qe}"
@@ -2285,57 +2286,57 @@ function Fn(n) {
           </div>
           <div class="flex-1 min-w-0">
             <div class="font-medium text-gray-900 truncate text-sm">${D}</div>
-            <div class="text-xs text-gray-500">${re} pages ${Qt}</div>
+            <div class="text-xs text-gray-500">${re} pages ${en}</div>
           </div>
         </button>
       `;
-    }).join(""), S.querySelectorAll(".typeahead-option").forEach(($) => {
-      $.addEventListener("click", () => Ne($));
+    }).join(""), S.querySelectorAll(".typeahead-option").forEach((B) => {
+      B.addEventListener("click", () => Ne(B));
     }));
   }
   function ge() {
-    if (Q) {
-      if (B.isLoading) {
-        Ae?.classList.remove("hidden"), ye?.classList.add("hidden"), Ee?.classList.add("hidden"), xe?.classList.add("hidden"), ee?.classList.remove("hidden");
+    if (ee) {
+      if (N.isLoading) {
+        Ae?.classList.remove("hidden"), ye?.classList.add("hidden"), Ee?.classList.add("hidden"), xe?.classList.add("hidden"), Q?.classList.remove("hidden");
         return;
       }
-      Ae?.classList.add("hidden"), ee?.classList.add("hidden"), B.isSearchMode ? (ye?.classList.add("hidden"), B.searchResults.length > 0 ? (Ee?.classList.remove("hidden"), xe?.classList.add("hidden"), be(Be, B.searchResults)) : (Ee?.classList.add("hidden"), xe?.classList.remove("hidden"))) : (Ee?.classList.add("hidden"), B.recentDocuments.length > 0 ? (ye?.classList.remove("hidden"), xe?.classList.add("hidden"), be(pe, B.recentDocuments)) : (ye?.classList.add("hidden"), xe?.classList.remove("hidden"), xe && (xe.textContent = "No recent documents")));
+      Ae?.classList.add("hidden"), Q?.classList.add("hidden"), N.isSearchMode ? (ye?.classList.add("hidden"), N.searchResults.length > 0 ? (Ee?.classList.remove("hidden"), xe?.classList.add("hidden"), be(Be, N.searchResults)) : (Ee?.classList.add("hidden"), xe?.classList.remove("hidden"))) : (Ee?.classList.add("hidden"), N.recentDocuments.length > 0 ? (ye?.classList.remove("hidden"), xe?.classList.add("hidden"), be(pe, N.recentDocuments)) : (ye?.classList.add("hidden"), xe?.classList.remove("hidden"), xe && (xe.textContent = "No recent documents")));
     }
   }
   function Ne(S) {
-    const v = S.getAttribute("data-document-id"), E = S.getAttribute("data-document-title"), $ = S.getAttribute("data-document-pages"), H = qe(S.getAttribute("data-document-compatibility-tier")), Y = ze(S.getAttribute("data-document-compatibility-reason"));
+    const v = S.getAttribute("data-document-id"), E = S.getAttribute("data-document-title"), B = S.getAttribute("data-document-pages"), O = qe(S.getAttribute("data-document-compatibility-tier")), Y = ze(S.getAttribute("data-document-compatibility-reason"));
     if (v) {
-      if (je(H)) {
-        fe({ id: String(v || ""), title: String(E || ""), pageCount: ke($, 0), compatibilityReason: Y }), I(), x(A(Y)), p?.focus();
+      if (je(O)) {
+        fe({ id: String(v || ""), title: String(E || ""), pageCount: ke(B, 0), compatibilityReason: Y }), I(), x(A(Y)), m?.focus();
         return;
       }
-      ne(v, E, $), Z(), p && (p.value = ""), B.query = "", B.isSearchMode = !1, B.searchResults = [];
+      ne(v, E, B), Z(), m && (m.value = ""), N.query = "", N.isSearchMode = !1, N.searchResults = [];
     }
   }
   function Le() {
-    if (!Q) return;
-    const S = Q.querySelector(`[data-typeahead-index="${B.selectedIndex}"]`);
+    if (!ee) return;
+    const S = ee.querySelector(`[data-typeahead-index="${N.selectedIndex}"]`);
     S && S.scrollIntoView({ block: "nearest" });
   }
   function Ye(S) {
-    if (!B.isOpen) {
+    if (!N.isOpen) {
       (S.key === "ArrowDown" || S.key === "Enter") && (S.preventDefault(), V());
       return;
     }
-    const v = B.isSearchMode ? B.searchResults : B.recentDocuments, E = v.length - 1;
+    const v = N.isSearchMode ? N.searchResults : N.recentDocuments, E = v.length - 1;
     switch (S.key) {
       case "ArrowDown":
-        S.preventDefault(), B.selectedIndex = Math.min(B.selectedIndex + 1, E), ge(), Le();
+        S.preventDefault(), N.selectedIndex = Math.min(N.selectedIndex + 1, E), ge(), Le();
         break;
       case "ArrowUp":
-        S.preventDefault(), B.selectedIndex = Math.max(B.selectedIndex - 1, 0), ge(), Le();
+        S.preventDefault(), N.selectedIndex = Math.max(N.selectedIndex - 1, 0), ge(), Le();
         break;
       case "Enter":
-        if (S.preventDefault(), B.selectedIndex >= 0 && B.selectedIndex <= E) {
-          const $ = v[B.selectedIndex];
-          if ($) {
-            const H = document.createElement("button");
-            H.setAttribute("data-document-id", $.id), H.setAttribute("data-document-title", $.title), H.setAttribute("data-document-pages", String($.pageCount)), H.setAttribute("data-document-compatibility-tier", String($.compatibilityTier || "")), H.setAttribute("data-document-compatibility-reason", String($.compatibilityReason || "")), Ne(H);
+        if (S.preventDefault(), N.selectedIndex >= 0 && N.selectedIndex <= E) {
+          const B = v[N.selectedIndex];
+          if (B) {
+            const O = document.createElement("button");
+            O.setAttribute("data-document-id", B.id), O.setAttribute("data-document-title", B.title), O.setAttribute("data-document-pages", String(B.pageCount)), O.setAttribute("data-document-compatibility-tier", String(B.compatibilityTier || "")), O.setAttribute("data-document-compatibility-reason", String(B.compatibilityReason || "")), Ne(O);
           }
         }
         break;
@@ -2346,32 +2347,32 @@ function Fn(n) {
         Z();
         break;
       case "Home":
-        S.preventDefault(), B.selectedIndex = 0, ge(), Le();
+        S.preventDefault(), N.selectedIndex = 0, ge(), Le();
         break;
       case "End":
-        S.preventDefault(), B.selectedIndex = E, ge(), Le();
+        S.preventDefault(), N.selectedIndex = E, ge(), Le();
         break;
     }
   }
   function Te() {
-    z && z.addEventListener("click", () => {
-      g?.classList.add("hidden"), d?.classList.remove("hidden"), W(), p?.focus(), V();
-    }), N && N.addEventListener("click", () => {
+    H && H.addEventListener("click", () => {
+      h?.classList.add("hidden"), u?.classList.remove("hidden"), W(), m?.focus(), V();
+    }), M && M.addEventListener("click", () => {
       o();
     }), ie && ie.addEventListener("click", () => {
-      W(), p?.focus();
-    }), p && (p.addEventListener("input", (S) => {
+      W(), m?.focus();
+    }), m && (m.addEventListener("input", (S) => {
       const v = S.target;
       if (!(v instanceof HTMLInputElement)) return;
       const E = v.value;
-      B.query = E, B.isOpen || V(), E.trim() ? (B.isLoading = !0, ge(), k(E)) : (B.isSearchMode = !1, B.searchResults = [], ge());
-      const $ = De.filter(
-        (H) => String(H.title || "").toLowerCase().includes(E.toLowerCase())
+      N.query = E, N.isOpen || V(), E.trim() ? (N.isLoading = !0, ge(), k(E)) : (N.isSearchMode = !1, N.searchResults = [], ge());
+      const B = De.filter(
+        (O) => String(O.title || "").toLowerCase().includes(E.toLowerCase())
       );
-      oe($);
-    }), p.addEventListener("focus", () => {
+      oe(B);
+    }), m.addEventListener("focus", () => {
       V();
-    }), p.addEventListener("keydown", Ye)), document.addEventListener("click", (S) => {
+    }), m.addEventListener("keydown", Ye)), document.addEventListener("click", (S) => {
       const v = S.target;
       de && !(v instanceof Node && de.contains(v)) && Z();
     });
@@ -2379,20 +2380,20 @@ function Fn(n) {
   return {
     refs: {
       documentIdInput: a,
-      selectedDocument: g,
-      documentPicker: d,
-      documentSearch: p,
-      documentList: M,
+      selectedDocument: h,
+      documentPicker: u,
+      documentSearch: m,
+      documentList: $,
       selectedDocumentTitle: R,
       selectedDocumentInfo: b,
-      documentPageCountInput: h
+      documentPageCountInput: g
     },
     bindEvents: Te,
     initializeTitleSourceSeed: ue,
-    loadDocuments: U,
+    loadDocuments: z,
     loadRecentDocuments: L,
     ensureSelectedDocumentCompatibility: j,
-    getCurrentDocumentPageCount: u
+    getCurrentDocumentPageCount: d
   };
 }
 function Je(n, e) {
@@ -2403,46 +2404,46 @@ function Rt(n, e) {
   const t = n.querySelector(e);
   return t instanceof HTMLSelectElement ? t : null;
 }
-function Nn(n = {}) {
+function Bn(n = {}) {
   const {
     initialParticipants: e = [],
     onParticipantsChanged: t
   } = n, i = document.getElementById("participants-container"), s = document.getElementById("participant-template"), l = document.getElementById("add-participant-btn");
-  let m = 0, y = 0;
+  let p = 0, y = 0;
   function _() {
-    return `temp_${Date.now()}_${m++}`;
+    return `temp_${Date.now()}_${p++}`;
   }
-  function F(g = {}) {
+  function F(h = {}) {
     if (!(s instanceof HTMLTemplateElement) || !i)
       return;
-    const d = s.content.cloneNode(!0), p = d.querySelector(".participant-entry");
-    if (!(p instanceof HTMLElement)) return;
-    const M = g.id || _();
-    p.setAttribute("data-participant-id", M);
-    const z = Je(p, ".participant-id-input"), R = Je(p, 'input[name="participants[].name"]'), b = Je(p, 'input[name="participants[].email"]'), h = Rt(p, 'select[name="participants[].role"]'), q = Je(p, 'input[name="participants[].signing_stage"]'), J = Je(p, 'input[name="participants[].notify"]'), O = p.querySelector(".signing-stage-wrapper");
-    if (!z || !R || !b || !h) return;
-    const N = y++;
-    z.name = `participants[${N}].id`, z.value = M, R.name = `participants[${N}].name`, b.name = `participants[${N}].email`, h.name = `participants[${N}].role`, q && (q.name = `participants[${N}].signing_stage`), J && (J.name = `participants[${N}].notify`), g.name && (R.value = g.name), g.email && (b.value = g.email), g.role && (h.value = g.role), q && g.signing_stage && (q.value = String(g.signing_stage)), J && (J.checked = g.notify !== !1);
+    const u = s.content.cloneNode(!0), m = u.querySelector(".participant-entry");
+    if (!(m instanceof HTMLElement)) return;
+    const $ = h.id || _();
+    m.setAttribute("data-participant-id", $);
+    const H = Je(m, ".participant-id-input"), R = Je(m, 'input[name="participants[].name"]'), b = Je(m, 'input[name="participants[].email"]'), g = Rt(m, 'select[name="participants[].role"]'), U = Je(m, 'input[name="participants[].signing_stage"]'), J = Je(m, 'input[name="participants[].notify"]'), q = m.querySelector(".signing-stage-wrapper");
+    if (!H || !R || !b || !g) return;
+    const M = y++;
+    H.name = `participants[${M}].id`, H.value = $, R.name = `participants[${M}].name`, b.name = `participants[${M}].email`, g.name = `participants[${M}].role`, U && (U.name = `participants[${M}].signing_stage`), J && (J.name = `participants[${M}].notify`), h.name && (R.value = h.name), h.email && (b.value = h.email), h.role && (g.value = h.role), U && h.signing_stage && (U.value = String(h.signing_stage)), J && (J.checked = h.notify !== !1);
     const ie = () => {
-      if (!(O instanceof HTMLElement) || !q) return;
-      const G = h.value === "signer";
-      O.classList.toggle("hidden", !G), G ? q.value || (q.value = "1") : q.value = "";
+      if (!(q instanceof HTMLElement) || !U) return;
+      const G = g.value === "signer";
+      q.classList.toggle("hidden", !G), G ? U.value || (U.value = "1") : U.value = "";
     };
-    ie(), p.querySelector(".remove-participant-btn")?.addEventListener("click", () => {
-      p.remove(), t?.();
-    }), h.addEventListener("change", () => {
+    ie(), m.querySelector(".remove-participant-btn")?.addEventListener("click", () => {
+      m.remove(), t?.();
+    }), g.addEventListener("change", () => {
       ie(), t?.();
-    }), i.appendChild(d);
+    }), i.appendChild(u);
   }
   function x() {
-    i && (e.length > 0 ? e.forEach((g) => {
+    i && (e.length > 0 ? e.forEach((h) => {
       F({
-        id: String(g.id || "").trim(),
-        name: String(g.name || "").trim(),
-        email: String(g.email || "").trim(),
-        role: String(g.role || "signer").trim() || "signer",
-        notify: g.notify !== !1,
-        signing_stage: Number(g.signing_stage || g.signingStage || 1) || 1
+        id: String(h.id || "").trim(),
+        name: String(h.name || "").trim(),
+        email: String(h.email || "").trim(),
+        role: String(h.role || "signer").trim() || "signer",
+        notify: h.notify !== !1,
+        signing_stage: Number(h.signing_stage || h.signingStage || 1) || 1
       });
     }) : F());
   }
@@ -2450,50 +2451,50 @@ function Nn(n = {}) {
     if (!i) return;
     l?.addEventListener("click", () => F()), new MutationObserver(() => {
       t?.();
-    }).observe(i, { childList: !0, subtree: !0 }), i.addEventListener("change", (d) => {
-      const p = d.target;
-      p instanceof Element && (p.matches('select[name*=".role"]') || p.matches('input[name*=".name"]') || p.matches('input[name*=".email"]')) && t?.();
-    }), i.addEventListener("input", (d) => {
-      const p = d.target;
-      p instanceof Element && (p.matches('input[name*=".name"]') || p.matches('input[name*=".email"]')) && t?.();
+    }).observe(i, { childList: !0, subtree: !0 }), i.addEventListener("change", (u) => {
+      const m = u.target;
+      m instanceof Element && (m.matches('select[name*=".role"]') || m.matches('input[name*=".name"]') || m.matches('input[name*=".email"]')) && t?.();
+    }), i.addEventListener("input", (u) => {
+      const m = u.target;
+      m instanceof Element && (m.matches('input[name*=".name"]') || m.matches('input[name*=".email"]')) && t?.();
     });
   }
   function T() {
     if (!i) return [];
-    const g = i.querySelectorAll(".participant-entry"), d = [];
-    return g.forEach((p) => {
-      const M = p.getAttribute("data-participant-id"), z = Rt(p, 'select[name*=".role"]'), R = Je(p, 'input[name*=".name"]'), b = Je(p, 'input[name*=".email"]');
-      z?.value === "signer" && d.push({
-        id: String(M || ""),
+    const h = i.querySelectorAll(".participant-entry"), u = [];
+    return h.forEach((m) => {
+      const $ = m.getAttribute("data-participant-id"), H = Rt(m, 'select[name*=".role"]'), R = Je(m, 'input[name*=".name"]'), b = Je(m, 'input[name*=".email"]');
+      H?.value === "signer" && u.push({
+        id: String($ || ""),
         name: R?.value || b?.value || "Signer",
         email: b?.value || ""
       });
-    }), d;
+    }), u;
   }
   function w() {
     if (!i) return [];
-    const g = [];
-    return i.querySelectorAll(".participant-entry").forEach((d) => {
-      const p = d.getAttribute("data-participant-id"), M = Je(d, 'input[name*=".name"]')?.value || "", z = Je(d, 'input[name*=".email"]')?.value || "", R = Rt(d, 'select[name*=".role"]')?.value || "signer", b = Number.parseInt(Je(d, ".signing-stage-input")?.value || "1", 10), h = Je(d, ".notify-input")?.checked !== !1;
-      g.push({
-        tempId: String(p || ""),
-        name: M,
-        email: z,
+    const h = [];
+    return i.querySelectorAll(".participant-entry").forEach((u) => {
+      const m = u.getAttribute("data-participant-id"), $ = Je(u, 'input[name*=".name"]')?.value || "", H = Je(u, 'input[name*=".email"]')?.value || "", R = Rt(u, 'select[name*=".role"]')?.value || "signer", b = Number.parseInt(Je(u, ".signing-stage-input")?.value || "1", 10), g = Je(u, ".notify-input")?.checked !== !1;
+      h.push({
+        tempId: String(m || ""),
+        name: $,
+        email: H,
         role: R,
-        notify: h,
+        notify: g,
         signingStage: Number.isFinite(b) ? b : 1
       });
-    }), g;
+    }), h;
   }
-  function a(g) {
-    !i || !g?.participants || g.participants.length === 0 || (i.innerHTML = "", y = 0, g.participants.forEach((d) => {
+  function a(h) {
+    !i || !h?.participants || h.participants.length === 0 || (i.innerHTML = "", y = 0, h.participants.forEach((u) => {
       F({
-        id: d.tempId,
-        name: d.name,
-        email: d.email,
-        role: d.role,
-        notify: d.notify !== !1,
-        signing_stage: d.signingStage
+        id: u.tempId,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        notify: u.notify !== !1,
+        signing_stage: u.signingStage
       });
     }));
   }
@@ -2510,7 +2511,7 @@ function Nn(n = {}) {
     restoreFromState: a
   };
 }
-function Bn() {
+function $n() {
   return `link_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 function It() {
@@ -2520,16 +2521,16 @@ function It() {
     unlinkedDefinitions: /* @__PURE__ */ new Set()
   };
 }
-function $n(n, e) {
+function zn(n, e) {
   return {
-    id: Bn(),
+    id: $n(),
     name: e,
     memberDefinitionIds: [...n],
     sourceFieldId: void 0,
     isActive: !0
   };
 }
-function Yt(n, e) {
+function Jt(n, e) {
   const t = new Map(n.groups);
   t.set(e.id, e);
   const i = new Map(n.definitionToGroup);
@@ -2555,13 +2556,13 @@ function $t(n, e) {
     unlinkedDefinitions: t
   };
 }
-function Jt(n, e) {
+function Xt(n, e) {
   const t = n.definitionToGroup.get(e);
   if (t)
     return n.groups.get(t);
 }
-function zn(n, e) {
-  const t = Jt(n, e.definitionId);
+function Un(n, e) {
+  const t = Xt(n, e.definitionId);
   if (!t || !t.isActive || t.templatePosition) return null;
   const i = {
     x: e.x,
@@ -2575,12 +2576,12 @@ function zn(n, e) {
     templatePosition: i
   } };
 }
-function Un(n, e, t, i) {
+function qn(n, e, t, i) {
   const s = /* @__PURE__ */ new Set();
   for (const l of t)
     s.add(l.definitionId);
-  for (const [l, m] of i) {
-    if (m.page !== e || s.has(l) || n.unlinkedDefinitions.has(l)) continue;
+  for (const [l, p] of i) {
+    if (p.page !== e || s.has(l) || n.unlinkedDefinitions.has(l)) continue;
     const y = n.definitionToGroup.get(l);
     if (!y) continue;
     const _ = n.groups.get(y);
@@ -2588,9 +2589,9 @@ function Un(n, e, t, i) {
     return { newPlacement: {
       id: `linked_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       definitionId: l,
-      type: m.type,
-      participantId: m.participantId,
-      participantName: m.participantName,
+      type: p.type,
+      participantId: p.participantId,
+      participantName: p.participantName,
       page: e,
       x: _.templatePosition.x,
       y: _.templatePosition.y,
@@ -2623,42 +2624,42 @@ function rt(n, e) {
   const t = n.querySelector(e);
   return t instanceof HTMLElement ? t : null;
 }
-function qn(n) {
+function On(n) {
   const {
     initialFieldInstances: e = [],
     placementSource: t,
     getCurrentDocumentPageCount: i,
     getSignerParticipants: s,
     escapeHtml: l,
-    onDefinitionsChanged: m,
+    onDefinitionsChanged: p,
     onRulesChanged: y,
     onParticipantsChanged: _,
     getPlacementLinkGroupState: F,
     setPlacementLinkGroupState: x
-  } = n, P = Xe("field-definitions-container"), T = document.getElementById("field-definition-template"), w = Xe("add-field-btn"), a = Xe("add-field-btn-container"), g = Xe("add-field-definition-empty-btn"), d = Xe("field-definitions-empty-state"), p = Xe("field-rules-container"), M = document.getElementById("field-rule-template"), z = Xe("add-field-rule-btn"), R = Xe("field-rules-empty-state"), b = Xe("field-rules-preview"), h = Xe("field_rules_json"), q = Xe("field_placements_json");
-  let J = 0, O = 0, N = 0;
+  } = n, P = Xe("field-definitions-container"), T = document.getElementById("field-definition-template"), w = Xe("add-field-btn"), a = Xe("add-field-btn-container"), h = Xe("add-field-definition-empty-btn"), u = Xe("field-definitions-empty-state"), m = Xe("field-rules-container"), $ = document.getElementById("field-rule-template"), H = Xe("add-field-rule-btn"), R = Xe("field-rules-empty-state"), b = Xe("field-rules-preview"), g = Xe("field_rules_json"), U = Xe("field_placements_json");
+  let J = 0, q = 0, M = 0;
   function ie() {
     return `temp_field_${Date.now()}_${J++}`;
   }
   function G() {
-    return `rule_${Date.now()}_${N}`;
+    return `rule_${Date.now()}_${M}`;
   }
-  function he(f, u) {
+  function he(f, d) {
     const I = String(f || "").trim();
-    return I && u.some((A) => A.id === I) ? I : u.length === 1 ? u[0].id : "";
+    return I && d.some((A) => A.id === I) ? I : d.length === 1 ? d[0].id : "";
   }
-  function Se(f, u, I = "") {
+  function Se(f, d, I = "") {
     if (!f) return;
-    const A = he(I, u);
-    f.innerHTML = '<option value="">Select signer...</option>', u.forEach((W) => {
+    const A = he(I, d);
+    f.innerHTML = '<option value="">Select signer...</option>', d.forEach((W) => {
       const te = document.createElement("option");
       te.value = W.id, te.textContent = W.name, f.appendChild(te);
     }), f.value = A;
   }
   function X(f = s()) {
     if (!P) return;
-    const u = P.querySelectorAll(".field-participant-select"), I = p ? p.querySelectorAll(".field-rule-participant-select") : [];
-    u.forEach((A) => {
+    const d = P.querySelectorAll(".field-participant-select"), I = m ? m.querySelectorAll(".field-rule-participant-select") : [];
+    d.forEach((A) => {
       Se(
         A instanceof HTMLSelectElement ? A : null,
         f,
@@ -2673,19 +2674,19 @@ function qn(n) {
     });
   }
   function de() {
-    if (!P || !d) return;
-    P.querySelectorAll(".field-definition-entry").length === 0 ? (d.classList.remove("hidden"), a?.classList.add("hidden")) : (d.classList.add("hidden"), a?.classList.remove("hidden"));
+    if (!P || !u) return;
+    P.querySelectorAll(".field-definition-entry").length === 0 ? (u.classList.remove("hidden"), a?.classList.add("hidden")) : (u.classList.add("hidden"), a?.classList.remove("hidden"));
   }
-  function Q() {
-    if (!p || !R) return;
-    const f = p.querySelectorAll(".field-rule-entry");
+  function ee() {
+    if (!m || !R) return;
+    const f = m.querySelectorAll(".field-rule-entry");
     R.classList.toggle("hidden", f.length > 0);
   }
   function ye() {
     if (!P) return [];
     const f = [];
-    return P.querySelectorAll(".field-definition-entry").forEach((u) => {
-      const I = u.getAttribute("data-field-definition-id"), A = Oe(u, ".field-type-select")?.value || "signature", W = Oe(u, ".field-participant-select")?.value || "", te = Number.parseInt(Ce(u, 'input[name*=".page"]')?.value || "1", 10), fe = Ce(u, 'input[name*=".required"]')?.checked ?? !0;
+    return P.querySelectorAll(".field-definition-entry").forEach((d) => {
+      const I = d.getAttribute("data-field-definition-id"), A = Oe(d, ".field-type-select")?.value || "signature", W = Oe(d, ".field-participant-select")?.value || "", te = Number.parseInt(Ce(d, 'input[name*=".page"]')?.value || "1", 10), fe = Ce(d, 'input[name*=".required"]')?.checked ?? !0;
       f.push({
         tempId: String(I || ""),
         type: A,
@@ -2696,9 +2697,9 @@ function qn(n) {
     }), f;
   }
   function pe() {
-    if (!p) return [];
-    const f = i(), u = p.querySelectorAll(".field-rule-entry"), I = [];
-    return u.forEach((A) => {
+    if (!m) return [];
+    const f = i(), d = m.querySelectorAll(".field-rule-entry"), I = [];
+    return d.forEach((A) => {
       const W = vt({
         id: A.getAttribute("data-field-rule-id") || "",
         type: Oe(A, ".field-rule-type-select")?.value || "",
@@ -2726,13 +2727,13 @@ function qn(n) {
       required: f.required
     }));
   }
-  function Be(f, u) {
-    return Pn(f, u);
+  function Be(f, d) {
+    return Tn(f, d);
   }
   function xe() {
     if (!b) return;
-    const f = pe(), u = i(), I = Be(f, u), A = s(), W = new Map(A.map((ne) => [String(ne.id), ne.name]));
-    if (h && (h.value = JSON.stringify(Ee())), !I.length) {
+    const f = pe(), d = i(), I = Be(f, d), A = s(), W = new Map(A.map((ne) => [String(ne.id), ne.name]));
+    if (g && (g.value = JSON.stringify(Ee())), !I.length) {
       b.innerHTML = "<p>No rules configured.</p>";
       return;
     }
@@ -2753,45 +2754,45 @@ function qn(n) {
     const f = s();
     X(f), xe();
   }
-  function ee(f) {
-    const u = Oe(f, ".field-rule-type-select"), I = rt(f, ".field-rule-range-start-wrap"), A = rt(f, ".field-rule-range-end-wrap"), W = rt(f, ".field-rule-page-wrap"), te = rt(f, ".field-rule-exclude-last-wrap"), fe = rt(f, ".field-rule-exclude-pages-wrap"), se = rt(f, ".field-rule-summary"), ne = Ce(f, ".field-rule-from-page-input"), K = Ce(f, ".field-rule-to-page-input"), j = Ce(f, ".field-rule-page-input"), le = Ce(f, ".field-rule-exclude-last-input"), U = Ce(f, ".field-rule-exclude-pages-input");
-    if (!u || !I || !A || !W || !te || !fe || !se)
+  function Q(f) {
+    const d = Oe(f, ".field-rule-type-select"), I = rt(f, ".field-rule-range-start-wrap"), A = rt(f, ".field-rule-range-end-wrap"), W = rt(f, ".field-rule-page-wrap"), te = rt(f, ".field-rule-exclude-last-wrap"), fe = rt(f, ".field-rule-exclude-pages-wrap"), se = rt(f, ".field-rule-summary"), ne = Ce(f, ".field-rule-from-page-input"), K = Ce(f, ".field-rule-to-page-input"), j = Ce(f, ".field-rule-page-input"), le = Ce(f, ".field-rule-exclude-last-input"), z = Ce(f, ".field-rule-exclude-pages-input");
+    if (!d || !I || !A || !W || !te || !fe || !se)
       return;
     const oe = i(), ae = vt({
-      type: u?.value || "",
+      type: d?.value || "",
       fromPage: ne?.value || "",
       toPage: K?.value || "",
       page: j?.value || "",
       excludeLastPage: !!le?.checked,
-      excludePages: wt(U?.value || ""),
+      excludePages: wt(z?.value || ""),
       required: !0
-    }, oe), r = ae.fromPage > 0 ? ae.fromPage : 1, o = ae.toPage > 0 ? ae.toPage : oe, c = ae.page > 0 ? ae.page : ae.toPage > 0 ? ae.toPage : oe, L = ae.excludeLastPage, C = ae.excludePages.join(","), k = u?.value === "initials_each_page";
-    if (I.classList.toggle("hidden", !k), A.classList.toggle("hidden", !k), te.classList.toggle("hidden", !k), fe.classList.toggle("hidden", !k), W.classList.toggle("hidden", k), ne && (ne.value = String(r)), K && (K.value = String(o)), j && (j.value = String(c)), U && (U.value = C), le && (le.checked = L), k) {
-      const V = Tn(
+    }, oe), r = ae.fromPage > 0 ? ae.fromPage : 1, o = ae.toPage > 0 ? ae.toPage : oe, c = ae.page > 0 ? ae.page : ae.toPage > 0 ? ae.toPage : oe, L = ae.excludeLastPage, C = ae.excludePages.join(","), k = d?.value === "initials_each_page";
+    if (I.classList.toggle("hidden", !k), A.classList.toggle("hidden", !k), te.classList.toggle("hidden", !k), fe.classList.toggle("hidden", !k), W.classList.toggle("hidden", k), ne && (ne.value = String(r)), K && (K.value = String(o)), j && (j.value = String(c)), z && (z.value = C), le && (le.checked = L), k) {
+      const V = kn(
         r,
         o,
         oe,
         L,
         ae.excludePages
-      ), Z = kn(V);
+      ), Z = Fn(V);
       se.textContent = V.isEmpty ? `Warning: No initials fields will be generated ${Z}.` : `Generates initials fields on ${Z}.`;
     } else
       se.textContent = `Generates one signature field on page ${c}.`;
   }
-  function B(f = {}) {
-    if (!(M instanceof HTMLTemplateElement) || !p) return;
-    const u = M.content.cloneNode(!0), I = u.querySelector(".field-rule-entry");
+  function N(f = {}) {
+    if (!($ instanceof HTMLTemplateElement) || !m) return;
+    const d = $.content.cloneNode(!0), I = d.querySelector(".field-rule-entry");
     if (!(I instanceof HTMLElement)) return;
-    const A = f.id || G(), W = N++, te = i();
+    const A = f.id || G(), W = M++, te = i();
     I.setAttribute("data-field-rule-id", A);
-    const fe = Ce(I, ".field-rule-id-input"), se = Oe(I, ".field-rule-type-select"), ne = Oe(I, ".field-rule-participant-select"), K = Ce(I, ".field-rule-from-page-input"), j = Ce(I, ".field-rule-to-page-input"), le = Ce(I, ".field-rule-page-input"), U = Oe(I, ".field-rule-required-select"), oe = Ce(I, ".field-rule-exclude-last-input"), ae = Ce(I, ".field-rule-exclude-pages-input"), r = zt(I, ".remove-field-rule-btn");
-    if (!fe || !se || !ne || !K || !j || !le || !U || !oe || !ae || !r)
+    const fe = Ce(I, ".field-rule-id-input"), se = Oe(I, ".field-rule-type-select"), ne = Oe(I, ".field-rule-participant-select"), K = Ce(I, ".field-rule-from-page-input"), j = Ce(I, ".field-rule-to-page-input"), le = Ce(I, ".field-rule-page-input"), z = Oe(I, ".field-rule-required-select"), oe = Ce(I, ".field-rule-exclude-last-input"), ae = Ce(I, ".field-rule-exclude-pages-input"), r = zt(I, ".remove-field-rule-btn");
+    if (!fe || !se || !ne || !K || !j || !le || !z || !oe || !ae || !r)
       return;
-    fe.name = `field_rules[${W}].id`, fe.value = A, se.name = `field_rules[${W}].type`, ne.name = `field_rules[${W}].participant_id`, K.name = `field_rules[${W}].from_page`, j.name = `field_rules[${W}].to_page`, le.name = `field_rules[${W}].page`, U.name = `field_rules[${W}].required`, oe.name = `field_rules[${W}].exclude_last_page`, ae.name = `field_rules[${W}].exclude_pages`;
+    fe.name = `field_rules[${W}].id`, fe.value = A, se.name = `field_rules[${W}].type`, ne.name = `field_rules[${W}].participant_id`, K.name = `field_rules[${W}].from_page`, j.name = `field_rules[${W}].to_page`, le.name = `field_rules[${W}].page`, z.name = `field_rules[${W}].required`, oe.name = `field_rules[${W}].exclude_last_page`, ae.name = `field_rules[${W}].exclude_pages`;
     const o = vt(f, te);
-    se.value = o.type || "initials_each_page", Se(ne, s(), o.participantId), K.value = String(o.fromPage > 0 ? o.fromPage : 1), j.value = String(o.toPage > 0 ? o.toPage : te), le.value = String(o.page > 0 ? o.page : te), U.value = o.required ? "1" : "0", oe.checked = o.excludeLastPage, ae.value = o.excludePages.join(",");
+    se.value = o.type || "initials_each_page", Se(ne, s(), o.participantId), K.value = String(o.fromPage > 0 ? o.fromPage : 1), j.value = String(o.toPage > 0 ? o.toPage : te), le.value = String(o.page > 0 ? o.page : te), z.value = o.required ? "1" : "0", oe.checked = o.excludeLastPage, ae.value = o.excludePages.join(",");
     const c = () => {
-      ee(I), xe(), y?.();
+      Q(I), xe(), y?.();
     }, L = () => {
       const k = i();
       if (K) {
@@ -2809,43 +2810,43 @@ function qn(n) {
     }, C = () => {
       L(), c();
     };
-    se.addEventListener("change", c), ne.addEventListener("change", c), K.addEventListener("input", C), K.addEventListener("change", C), j.addEventListener("input", C), j.addEventListener("change", C), le.addEventListener("input", C), le.addEventListener("change", C), U.addEventListener("change", c), oe.addEventListener("change", () => {
+    se.addEventListener("change", c), ne.addEventListener("change", c), K.addEventListener("input", C), K.addEventListener("change", C), j.addEventListener("input", C), j.addEventListener("change", C), le.addEventListener("input", C), le.addEventListener("change", C), z.addEventListener("change", c), oe.addEventListener("change", () => {
       const k = i();
       j.value = String(oe.checked ? Math.max(1, k - 1) : k), c();
     }), ae.addEventListener("input", c), r.addEventListener("click", () => {
-      I.remove(), Q(), xe(), y?.();
-    }), p.appendChild(u), ee(p.lastElementChild || I), Q(), xe();
+      I.remove(), ee(), xe(), y?.();
+    }), m.appendChild(d), Q(m.lastElementChild || I), ee(), xe();
   }
   function De(f = {}) {
     if (!(T instanceof HTMLTemplateElement) || !P) return;
-    const u = T.content.cloneNode(!0), I = u.querySelector(".field-definition-entry");
+    const d = T.content.cloneNode(!0), I = d.querySelector(".field-definition-entry");
     if (!(I instanceof HTMLElement)) return;
     const A = String(f.id || ie()).trim() || ie();
     I.setAttribute("data-field-definition-id", A);
     const W = Ce(I, ".field-definition-id-input"), te = Oe(I, 'select[name="field_definitions[].type"]'), fe = Oe(I, 'select[name="field_definitions[].participant_id"]'), se = Ce(I, 'input[name="field_definitions[].page"]'), ne = Ce(I, 'input[name="field_definitions[].required"]'), K = rt(I, ".field-date-signed-info");
     if (!W || !te || !fe || !se || !ne || !K) return;
-    const j = O++;
+    const j = q++;
     W.name = `field_instances[${j}].id`, W.value = A, te.name = `field_instances[${j}].type`, fe.name = `field_instances[${j}].participant_id`, se.name = `field_instances[${j}].page`, ne.name = `field_instances[${j}].required`, f.type && (te.value = String(f.type)), f.page !== void 0 && (se.value = String(dt(f.page, i(), 1))), f.required !== void 0 && (ne.checked = !!f.required);
     const le = String(f.participant_id || f.participantId || "").trim();
     Se(fe, s(), le), te.addEventListener("change", () => {
       te.value === "date_signed" ? K.classList.remove("hidden") : K.classList.add("hidden");
     }), te.value === "date_signed" && K.classList.remove("hidden"), zt(I, ".remove-field-definition-btn")?.addEventListener("click", () => {
-      I.remove(), de(), m?.();
+      I.remove(), de(), p?.();
     });
-    const U = Ce(I, 'input[name*=".page"]'), oe = () => {
-      U && (U.value = String(dt(U.value, i(), 1)));
+    const z = Ce(I, 'input[name*=".page"]'), oe = () => {
+      z && (z.value = String(dt(z.value, i(), 1)));
     };
-    oe(), U?.addEventListener("input", oe), U?.addEventListener("change", oe), P.appendChild(u), de();
+    oe(), z?.addEventListener("input", oe), z?.addEventListener("change", oe), P.appendChild(d), de();
   }
   function _e() {
-    w?.addEventListener("click", () => De()), g?.addEventListener("click", () => De()), z?.addEventListener("click", () => B({ to_page: i() })), _?.();
+    w?.addEventListener("click", () => De()), h?.addEventListener("click", () => De()), H?.addEventListener("click", () => N({ to_page: i() })), _?.();
   }
   function ce() {
     const f = [];
-    window._initialFieldPlacementsData = f, e.forEach((u) => {
-      const I = String(u.id || "").trim();
+    window._initialFieldPlacementsData = f, e.forEach((d) => {
+      const I = String(d.id || "").trim();
       if (!I) return;
-      const A = String(u.type || "signature").trim() || "signature", W = String(u.participant_id || u.participantId || "").trim(), te = Number(u.page || 1) || 1, fe = !!u.required;
+      const A = String(d.type || "signature").trim() || "signature", W = String(d.participant_id || d.participantId || "").trim(), te = Number(d.page || 1) || 1, fe = !!d.required;
       De({
         id: I,
         type: A,
@@ -2857,30 +2858,30 @@ function qn(n) {
         definitionId: I,
         type: A,
         participantId: W,
-        participantName: String(u.participant_name || u.participantName || "").trim(),
+        participantName: String(d.participant_name || d.participantName || "").trim(),
         page: te,
-        x: Number(u.x || u.pos_x || 0) || 0,
-        y: Number(u.y || u.pos_y || 0) || 0,
-        width: Number(u.width || 150) || 150,
-        height: Number(u.height || 32) || 32,
-        placementSource: String(u.placement_source || u.placementSource || t.MANUAL).trim() || t.MANUAL
+        x: Number(d.x || d.pos_x || 0) || 0,
+        y: Number(d.y || d.pos_y || 0) || 0,
+        width: Number(d.width || 150) || 150,
+        height: Number(d.height || 32) || 32,
+        placementSource: String(d.placement_source || d.placementSource || t.MANUAL).trim() || t.MANUAL
       }, f.length));
-    }), de(), Ae(), Q(), xe();
+    }), de(), Ae(), ee(), xe();
   }
   function me() {
     const f = window._initialFieldPlacementsData;
-    return Array.isArray(f) ? f.map((u, I) => pt(u, I)) : [];
+    return Array.isArray(f) ? f.map((d, I) => pt(d, I)) : [];
   }
-  function Fe() {
+  function Me() {
     if (!P) return [];
-    const f = s(), u = new Map(f.map((K) => [String(K.id), K.name || K.email || "Signer"])), I = [];
+    const f = s(), d = new Map(f.map((K) => [String(K.id), K.name || K.email || "Signer"])), I = [];
     P.querySelectorAll(".field-definition-entry").forEach((K) => {
-      const j = String(K.getAttribute("data-field-definition-id") || "").trim(), le = Oe(K, ".field-type-select"), U = Oe(K, ".field-participant-select"), oe = Ce(K, 'input[name*=".page"]'), ae = String(le?.value || "text").trim() || "text", r = String(U?.value || "").trim(), o = parseInt(String(oe?.value || "1"), 10) || 1;
+      const j = String(K.getAttribute("data-field-definition-id") || "").trim(), le = Oe(K, ".field-type-select"), z = Oe(K, ".field-participant-select"), oe = Ce(K, 'input[name*=".page"]'), ae = String(le?.value || "text").trim() || "text", r = String(z?.value || "").trim(), o = parseInt(String(oe?.value || "1"), 10) || 1;
       I.push({
         definitionId: j,
         fieldType: ae,
         participantId: r,
-        participantName: u.get(r) || "Unassigned",
+        participantName: d.get(r) || "Unassigned",
         page: o
       });
     });
@@ -2888,26 +2889,26 @@ function qn(n) {
     W.forEach((K) => {
       const j = String(K.ruleId || "").trim(), le = String(K.id || "").trim();
       if (j && le) {
-        const U = te.get(j) || [];
-        U.push(le), te.set(j, U);
+        const z = te.get(j) || [];
+        z.push(le), te.set(j, z);
       }
     });
     let fe = F();
     te.forEach((K, j) => {
       if (K.length > 1 && !fe.groups.get(`rule_${j}`)) {
-        const U = $n(K, `Rule ${j}`);
-        U.id = `rule_${j}`, fe = Yt(fe, U);
+        const z = zn(K, `Rule ${j}`);
+        z.id = `rule_${j}`, fe = Jt(fe, z);
       }
     }), x(fe), W.forEach((K) => {
       const j = String(K.id || "").trim();
       if (!j) return;
-      const le = String(K.participantId || "").trim(), U = parseInt(String(K.page || "1"), 10) || 1, oe = String(K.ruleId || "").trim();
+      const le = String(K.participantId || "").trim(), z = parseInt(String(K.page || "1"), 10) || 1, oe = String(K.ruleId || "").trim();
       I.push({
         definitionId: j,
         fieldType: String(K.type || "text").trim() || "text",
         participantId: le,
-        participantName: u.get(le) || "Unassigned",
-        page: U,
+        participantName: d.get(le) || "Unassigned",
+        page: z,
         linkGroupId: oe ? `rule_${oe}` : void 0
       });
     });
@@ -2918,11 +2919,11 @@ function qn(n) {
     return ne.sort((K, j) => K.page !== j.page ? K.page - j.page : K.definitionId.localeCompare(j.definitionId)), ne;
   }
   function We(f) {
-    const u = String(f || "").trim();
-    if (!u) return null;
-    const A = Fe().find((W) => String(W.definitionId || "").trim() === u);
+    const d = String(f || "").trim();
+    if (!d) return null;
+    const A = Me().find((W) => String(W.definitionId || "").trim() === d);
     return A ? {
-      id: u,
+      id: d,
       type: String(A.fieldType || "text").trim() || "text",
       participant_id: String(A.participantId || "").trim(),
       participant_name: String(A.participantName || "Unassigned").trim() || "Unassigned",
@@ -2932,53 +2933,53 @@ function qn(n) {
   }
   function qe() {
     if (!P) return [];
-    const f = s(), u = /* @__PURE__ */ new Map();
-    return f.forEach((W) => u.set(W.id, !1)), P.querySelectorAll(".field-definition-entry").forEach((W) => {
+    const f = s(), d = /* @__PURE__ */ new Map();
+    return f.forEach((W) => d.set(W.id, !1)), P.querySelectorAll(".field-definition-entry").forEach((W) => {
       const te = Oe(W, ".field-type-select"), fe = Oe(W, ".field-participant-select"), se = Ce(W, 'input[name*=".required"]');
-      te?.value === "signature" && fe?.value && se?.checked && u.set(fe.value, !0);
+      te?.value === "signature" && fe?.value && se?.checked && d.set(fe.value, !0);
     }), Be(pe(), i()).forEach((W) => {
-      W.type === "signature" && W.participantId && W.required && u.set(W.participantId, !0);
-    }), f.filter((W) => !u.get(W.id));
+      W.type === "signature" && W.participantId && W.required && d.set(W.participantId, !0);
+    }), f.filter((W) => !d.get(W.id));
   }
   function ze(f) {
     if (!Array.isArray(f) || f.length === 0)
       return "Each signer requires at least one required signature field.";
-    const u = f.map((I) => I?.name?.trim()).filter(Boolean);
-    return u.length === 0 ? "Each signer requires at least one required signature field." : `Each signer requires at least one required signature field. Missing: ${u.join(", ")}`;
+    const d = f.map((I) => I?.name?.trim()).filter(Boolean);
+    return d.length === 0 ? "Each signer requires at least one required signature field." : `Each signer requires at least one required signature field. Missing: ${d.join(", ")}`;
   }
   function je(f) {
-    !P || !f?.fieldDefinitions || f.fieldDefinitions.length === 0 || (P.innerHTML = "", O = 0, f.fieldDefinitions.forEach((u) => {
+    !P || !f?.fieldDefinitions || f.fieldDefinitions.length === 0 || (P.innerHTML = "", q = 0, f.fieldDefinitions.forEach((d) => {
       De({
-        id: u.tempId,
-        type: u.type,
-        participant_id: u.participantTempId,
-        page: u.page,
-        required: u.required
+        id: d.tempId,
+        type: d.type,
+        participant_id: d.participantTempId,
+        page: d.page,
+        required: d.required
       });
     }), de());
   }
   function ue(f) {
-    !Array.isArray(f?.fieldRules) || f.fieldRules.length === 0 || p && (p.querySelectorAll(".field-rule-entry").forEach((u) => u.remove()), N = 0, f.fieldRules.forEach((u) => {
-      B({
-        id: u.id,
-        type: u.type,
-        participantId: u.participantId || u.participantTempId,
-        fromPage: u.fromPage,
-        toPage: u.toPage,
-        page: u.page,
-        excludeLastPage: u.excludeLastPage,
-        excludePages: u.excludePages,
-        required: u.required
+    !Array.isArray(f?.fieldRules) || f.fieldRules.length === 0 || m && (m.querySelectorAll(".field-rule-entry").forEach((d) => d.remove()), M = 0, f.fieldRules.forEach((d) => {
+      N({
+        id: d.id,
+        type: d.type,
+        participantId: d.participantId || d.participantTempId,
+        fromPage: d.fromPage,
+        toPage: d.toPage,
+        page: d.page,
+        excludeLastPage: d.excludeLastPage,
+        excludePages: d.excludePages,
+        required: d.required
       });
-    }), Q(), xe());
+    }), ee(), xe());
   }
   return {
     refs: {
       fieldDefinitionsContainer: P,
-      fieldRulesContainer: p,
+      fieldRulesContainer: m,
       addFieldBtn: w,
-      fieldPlacementsJSONInput: q,
-      fieldRulesJSONInput: h
+      fieldPlacementsJSONInput: U,
+      fieldRulesJSONInput: g
     },
     bindEvents: _e,
     initialize: ce,
@@ -2989,7 +2990,7 @@ function qn(n) {
     expandRulesForPreview: Be,
     renderFieldRulePreview: xe,
     updateFieldParticipantOptions: Ae,
-    collectPlacementFieldDefinitions: Fe,
+    collectPlacementFieldDefinitions: Me,
     getFieldDefinitionById: We,
     findSignersMissingRequiredSignatureField: qe,
     missingSignatureFieldMessage: ze,
@@ -2997,7 +2998,7 @@ function qn(n) {
     restoreFieldRulesFromState: ue
   };
 }
-function On(n) {
+function Hn(n) {
   return typeof n == "object" && n !== null && "run" in n;
 }
 const at = {
@@ -3015,14 +3016,14 @@ const at = {
   checkbox: { width: 24, height: 24 },
   initials: { width: 80, height: 40 }
 };
-function Hn(n) {
+function jn(n) {
   const {
     apiBase: e,
     apiVersionBase: t,
     documentIdInput: i,
     fieldPlacementsJSONInput: s,
     initialFieldInstances: l = [],
-    initialLinkGroupState: m = null,
+    initialLinkGroupState: p = null,
     collectPlacementFieldDefinitions: y,
     getFieldDefinitionById: _,
     parseAPIError: F,
@@ -3043,24 +3044,24 @@ function Hn(n) {
     uiHandlersBound: !1,
     autoPlaceBound: !1,
     loadRequestVersion: 0,
-    linkGroupState: m || It()
-  }, g = {
+    linkGroupState: p || It()
+  }, h = {
     currentRunId: null,
     suggestions: [],
     resolverScores: [],
     policy: null,
     isRunning: !1
   };
-  function d(r = "fi") {
+  function u(r = "fi") {
     return `${r}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
-  function p(r) {
+  function m(r) {
     return document.querySelector(`.placement-field-item[data-definition-id="${r}"]`);
   }
-  function M() {
+  function $() {
     return Array.from(document.querySelectorAll(".placement-field-item:not(.opacity-50)"));
   }
-  function z(r, o) {
+  function H(r, o) {
     return r.querySelector(o);
   }
   function R(r, o) {
@@ -3094,22 +3095,22 @@ function Hn(n) {
       fieldInstancesContainer: document.getElementById("field-instances-container")
     };
   }
-  function h() {
+  function g() {
     return a;
   }
-  function q() {
+  function U() {
     return a.linkGroupState;
   }
   function J(r) {
     a.linkGroupState = r || It();
   }
-  function O() {
+  function q() {
     return a.fieldInstances.map((r, o) => Mn(r, o));
   }
-  function N(r = {}) {
+  function M(r = {}) {
     const { silent: o = !1 } = r, c = b();
     c.fieldInstancesContainer && (c.fieldInstancesContainer.innerHTML = "");
-    const L = O();
+    const L = q();
     return s && (s.value = JSON.stringify(L)), o || w?.(), L;
   }
   function ie() {
@@ -3124,14 +3125,14 @@ function Hn(n) {
     r.totalFields && (r.totalFields.textContent = String(c)), r.placedCount && (r.placedCount.textContent = String(k)), r.unplacedCount && (r.unplacedCount.textContent = String(V));
   }
   function G(r, o = !1) {
-    const c = p(r);
+    const c = m(r);
     if (!c) return;
     c.classList.add("opacity-50"), c.draggable = !1;
     const L = c.querySelector(".placement-status");
     L && (L.textContent = "Placed", L.classList.remove("text-amber-600"), L.classList.add("text-green-600")), o && c.classList.add("just-linked");
   }
   function he(r) {
-    const o = p(r);
+    const o = m(r);
     if (!o) return;
     o.classList.remove("opacity-50"), o.draggable = !0;
     const c = o.querySelector(".placement-status");
@@ -3165,7 +3166,7 @@ function Hn(n) {
       (C.key === "Enter" || C.key === " ") && (C.preventDefault(), L());
     }), c;
   }
-  function Q() {
+  function ee() {
     const r = b();
     if (r.linkAllBtn && (r.linkAllBtn.disabled = a.linkGroupState.unlinkedDefinitions.size === 0), r.unlinkAllBtn) {
       let o = !1;
@@ -3191,7 +3192,7 @@ function Hn(n) {
       for (const c of a.linkGroupState.definitionToGroup.keys())
         a.linkGroupState.unlinkedDefinitions.has(c) || (a.linkGroupState = Bt(a.linkGroupState, c), o += 1);
       o > 0 && window.toastManager && window.toastManager.success(`Unlinked ${o} field${o > 1 ? "s" : ""}`), Be();
-    })), Q();
+    })), ee();
   }
   function pe() {
     return y().map((o) => {
@@ -3218,10 +3219,10 @@ function Hn(n) {
       v.className = "flex-1 text-xs";
       const E = document.createElement("div");
       E.className = "font-medium capitalize", E.textContent = k.replace(/_/g, " ");
-      const $ = document.createElement("div");
-      $.className = "text-gray-500", $.textContent = Z;
-      const H = document.createElement("span");
-      H.className = `placement-status text-xs ${Ye ? "text-green-600" : "text-amber-600"}`, H.textContent = Ye ? "Placed" : "Not placed", v.appendChild(E), v.appendChild($), Te.appendChild(S), Te.appendChild(v), Te.appendChild(H), Te.addEventListener("dragstart", (ve) => {
+      const B = document.createElement("div");
+      B.className = "text-gray-500", B.textContent = Z;
+      const O = document.createElement("span");
+      O.className = `placement-status text-xs ${Ye ? "text-green-600" : "text-amber-600"}`, O.textContent = Ye ? "Placed" : "Not placed", v.appendChild(E), v.appendChild(B), Te.appendChild(S), Te.appendChild(v), Te.appendChild(O), Te.addEventListener("dragstart", (ve) => {
         if (Ye) {
           ve.preventDefault();
           return;
@@ -3256,11 +3257,11 @@ function Hn(n) {
       viewport: k
     }).promise, c.currentPage && (c.currentPage.textContent = String(r)), _e();
   }
-  function ee(r) {
-    const o = zn(a.linkGroupState, r);
-    o && (a.linkGroupState = Yt(a.linkGroupState, o.updatedGroup));
+  function Q(r) {
+    const o = Un(a.linkGroupState, r);
+    o && (a.linkGroupState = Jt(a.linkGroupState, o.updatedGroup));
   }
-  function B(r) {
+  function N(r) {
     const o = /* @__PURE__ */ new Map();
     y().forEach((L) => {
       const C = String(L.definitionId || "").trim();
@@ -3274,7 +3275,7 @@ function Hn(n) {
     });
     let c = 0;
     for (; c < 10; ) {
-      const L = Un(
+      const L = qn(
         a.linkGroupState,
         r,
         a.fieldInstances,
@@ -3283,10 +3284,10 @@ function Hn(n) {
       if (!L || !L.newPlacement) break;
       a.fieldInstances.push(L.newPlacement), G(L.newPlacement.definitionId, !0), c += 1;
     }
-    c > 0 && (_e(), ie(), N(), X(c));
+    c > 0 && (_e(), ie(), M(), X(c));
   }
   function De(r) {
-    ee(r);
+    Q(r);
   }
   function _e() {
     const o = b().overlays;
@@ -3314,15 +3315,15 @@ function Hn(n) {
       Ne.type = "button", Ne.className = "absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600", Ne.innerHTML = "×", Ne.addEventListener("click", (Le) => {
         Le.stopPropagation(), qe(c.id);
       }), V.appendChild(Ne), V.addEventListener("mousedown", (Le) => {
-        Le.target === ge ? We(Le, c) : Le.target !== Ne && Fe(Le, c, V);
+        Le.target === ge ? We(Le, c) : Le.target !== Ne && Me(Le, c, V);
       }), V.addEventListener("click", () => {
         a.selectedFieldId = c.id, _e();
       }), o.appendChild(V);
     }));
   }
   function ce(r, o, c, L = {}) {
-    const C = ht[r.fieldType] || ht.text, k = L.placementSource || Ge.MANUAL, V = L.linkGroupId || Jt(a.linkGroupState, r.definitionId)?.id, Z = {
-      id: d("fi"),
+    const C = ht[r.fieldType] || ht.text, k = L.placementSource || Ge.MANUAL, V = L.linkGroupId || Xt(a.linkGroupState, r.definitionId)?.id, Z = {
+      id: u("fi"),
       definitionId: r.definitionId,
       type: r.fieldType,
       participantId: r.participantId,
@@ -3336,11 +3337,11 @@ function Hn(n) {
       linkGroupId: V,
       linkedFromFieldId: L.linkedFromFieldId
     };
-    a.fieldInstances.push(Z), G(r.definitionId), k === Ge.MANUAL && V && De(Z), _e(), ie(), N();
+    a.fieldInstances.push(Z), G(r.definitionId), k === Ge.MANUAL && V && De(Z), _e(), ie(), M();
   }
   function me(r, o) {
     const c = {
-      id: d("instance"),
+      id: u("instance"),
       definitionId: r.definitionId,
       type: r.fieldType,
       participantId: r.participantId,
@@ -3353,11 +3354,11 @@ function Hn(n) {
       placementSource: Ge.AUTO,
       resolverId: o.resolver_id,
       confidence: o.confidence,
-      placementRunId: g.currentRunId
+      placementRunId: h.currentRunId
     };
-    a.fieldInstances.push(c), G(r.definitionId), _e(), ie(), N();
+    a.fieldInstances.push(c), G(r.definitionId), _e(), ie(), M();
   }
-  function Fe(r, o, c) {
+  function Me(r, o, c) {
     r.preventDefault(), a.isDragging = !0, a.selectedFieldId = o.id;
     const L = r.clientX, C = r.clientY, k = o.x * a.scale, V = o.y * a.scale;
     function Z(ge) {
@@ -3365,7 +3366,7 @@ function Hn(n) {
       o.x = Math.max(0, (k + Ne) / a.scale), o.y = Math.max(0, (V + Le) / a.scale), o.placementSource = Ge.MANUAL, c.style.left = `${o.x * a.scale}px`, c.style.top = `${o.y * a.scale}px`;
     }
     function be() {
-      a.isDragging = !1, document.removeEventListener("mousemove", Z), document.removeEventListener("mouseup", be), N();
+      a.isDragging = !1, document.removeEventListener("mousemove", Z), document.removeEventListener("mouseup", be), M();
     }
     document.addEventListener("mousemove", Z), document.addEventListener("mouseup", be);
   }
@@ -3377,13 +3378,13 @@ function Hn(n) {
       o.width = Math.max(30, C + ge), o.height = Math.max(20, k + Ne), o.placementSource = Ge.MANUAL, _e();
     }
     function Z() {
-      a.isResizing = !1, document.removeEventListener("mousemove", V), document.removeEventListener("mouseup", Z), N();
+      a.isResizing = !1, document.removeEventListener("mousemove", V), document.removeEventListener("mouseup", Z), M();
     }
     document.addEventListener("mousemove", V), document.addEventListener("mouseup", Z);
   }
   function qe(r) {
     const o = a.fieldInstances.find((c) => c.id === r);
-    o && (a.fieldInstances = a.fieldInstances.filter((c) => c.id !== r), he(o.definitionId), _e(), ie(), N());
+    o && (a.fieldInstances = a.fieldInstances.filter((c) => c.id !== r), he(o.definitionId), _e(), ie(), M());
   }
   function ze(r, o) {
     const L = b().canvas;
@@ -3402,9 +3403,9 @@ function Hn(n) {
   function je() {
     const r = b();
     r.prevBtn?.addEventListener("click", async () => {
-      a.currentPage > 1 && (a.currentPage -= 1, B(a.currentPage), await Ae(a.currentPage));
+      a.currentPage > 1 && (a.currentPage -= 1, N(a.currentPage), await Ae(a.currentPage));
     }), r.nextBtn?.addEventListener("click", async () => {
-      a.currentPage < a.totalPages && (a.currentPage += 1, B(a.currentPage), await Ae(a.currentPage));
+      a.currentPage < a.totalPages && (a.currentPage += 1, N(a.currentPage), await Ae(a.currentPage));
     });
   }
   function ue() {
@@ -3422,7 +3423,7 @@ function Hn(n) {
   function f() {
     return b().policyPreset?.value || "balanced";
   }
-  function u(r) {
+  function d(r) {
     return r >= 0.8 ? "bg-green-100 text-green-800" : r >= 0.6 ? "bg-blue-100 text-blue-800" : r >= 0.4 ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-600";
   }
   function I(r) {
@@ -3454,11 +3455,11 @@ function Hn(n) {
     if (!r) return;
     const o = r.querySelectorAll('.suggestion-item[data-accepted="true"]');
     o.forEach((c) => {
-      const L = Number.parseInt(c.dataset.index || "", 10), C = g.suggestions[L];
+      const L = Number.parseInt(c.dataset.index || "", 10), C = h.suggestions[L];
       if (!C) return;
       const k = _(C.field_definition_id);
       if (!k) return;
-      const V = p(C.field_definition_id);
+      const V = m(C.field_definition_id);
       if (!V || V.classList.contains("opacity-50")) return;
       const Z = {
         definitionId: C.field_definition_id,
@@ -3467,7 +3468,7 @@ function Hn(n) {
         participantName: V.dataset.participantName || k.participant_name || "Unassigned"
       };
       a.currentPage = C.page_number, me(Z, C);
-    }), a.pdfDoc && Ae(a.currentPage), te(o.length, g.suggestions.length - o.length), P(`Applied ${o.length} placement${o.length !== 1 ? "s" : ""}`, "success");
+    }), a.pdfDoc && Ae(a.currentPage), te(o.length, h.suggestions.length - o.length), P(`Applied ${o.length} placement${o.length !== 1 ? "s" : ""}`, "success");
   }
   function se(r) {
     r.querySelectorAll(".accept-suggestion-btn").forEach((o) => {
@@ -3482,7 +3483,7 @@ function Hn(n) {
       });
     }), r.querySelectorAll(".preview-suggestion-btn").forEach((o) => {
       o.addEventListener("click", () => {
-        const c = Number.parseInt(o.dataset.index || "", 10), L = g.suggestions[c];
+        const c = Number.parseInt(o.dataset.index || "", 10), L = h.suggestions[c];
         L && W(L);
       });
     });
@@ -3548,21 +3549,21 @@ function Hn(n) {
           </button>
         </div>
       </div>
-    `, z(r, "#close-suggestions-modal")?.addEventListener("click", () => {
+    `, H(r, "#close-suggestions-modal")?.addEventListener("click", () => {
       r.classList.add("hidden");
     }), r.addEventListener("click", (o) => {
       o.target === r && r.classList.add("hidden");
-    }), z(r, "#accept-all-btn")?.addEventListener("click", () => {
+    }), H(r, "#accept-all-btn")?.addEventListener("click", () => {
       r.querySelectorAll(".suggestion-item").forEach((o) => {
         o.classList.add("border-green-500", "bg-green-50"), o.classList.remove("border-red-500", "bg-red-50"), o.dataset.accepted = "true";
       });
-    }), z(r, "#reject-all-btn")?.addEventListener("click", () => {
+    }), H(r, "#reject-all-btn")?.addEventListener("click", () => {
       r.querySelectorAll(".suggestion-item").forEach((o) => {
         o.classList.add("border-red-500", "bg-red-50"), o.classList.remove("border-green-500", "bg-green-50"), o.dataset.accepted = "false";
       });
-    }), z(r, "#apply-suggestions-btn")?.addEventListener("click", () => {
+    }), H(r, "#apply-suggestions-btn")?.addEventListener("click", () => {
       fe(), r.classList.add("hidden");
-    }), z(r, "#rerun-placement-btn")?.addEventListener("click", () => {
+    }), H(r, "#rerun-placement-btn")?.addEventListener("click", () => {
       r.classList.add("hidden");
       const o = R(r, "#placement-policy-preset-modal"), c = b().policyPreset;
       c && o && (c.value = o.value), b().autoPlaceBtn?.click();
@@ -3572,12 +3573,12 @@ function Hn(n) {
     let o = document.getElementById("placement-suggestions-modal");
     o || (o = ne(), document.body.appendChild(o));
     const c = R(o, "#suggestions-list"), L = R(o, "#resolver-info"), C = R(o, "#run-stats");
-    !c || !L || !C || (L.innerHTML = g.resolverScores.map((k) => `
+    !c || !L || !C || (L.innerHTML = h.resolverScores.map((k) => `
       <div class="flex items-center justify-between text-xs py-1 border-b border-gray-100 last:border-0">
         <span class="font-medium capitalize">${T(String(k?.resolver_id || "").replace(/_/g, " "))}</span>
         <div class="flex items-center gap-2">
           ${k.supported ? `
-            <span class="px-1.5 py-0.5 rounded text-xs ${u(Number(k.score || 0))}">
+            <span class="px-1.5 py-0.5 rounded text-xs ${d(Number(k.score || 0))}">
               ${(Number(k?.score || 0) * 100).toFixed(0)}%
             </span>
           ` : `
@@ -3591,7 +3592,7 @@ function Hn(n) {
         <span>Status: <span class="font-medium ${r.status === "completed" ? "text-green-600" : "text-amber-600"}">${T(String(r?.status || "unknown"))}</span></span>
         <span>Time: ${Math.max(0, Number(r?.elapsed_ms || 0))}ms</span>
       </div>
-    `, c.innerHTML = g.suggestions.map((k, V) => {
+    `, c.innerHTML = h.suggestions.map((k, V) => {
       const Z = _(k.field_definition_id), be = at[Z?.type || "text"] || at.text, ge = T(String(Z?.type || "field").replace(/_/g, " ")), Ne = T(String(k?.id || "")), Le = Math.max(1, Number(k?.page_number || 1)), Ye = Math.round(Number(k?.x || 0)), Te = Math.round(Number(k?.y || 0)), S = Math.max(0, Number(k?.confidence || 0)), v = T(A(String(k?.resolver_id || "")));
       return `
         <div class="suggestion-item p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors" data-index="${V}" data-suggestion-id="${Ne}">
@@ -3638,7 +3639,7 @@ function Hn(n) {
     }).join(""), se(o), o.classList.remove("hidden"));
   }
   function j() {
-    const r = M();
+    const r = $();
     let o = 100;
     r.forEach((c) => {
       const L = {
@@ -3652,8 +3653,8 @@ function Hn(n) {
   }
   async function le() {
     const r = b();
-    if (!r.autoPlaceBtn || g.isRunning) return;
-    if (M().length === 0) {
+    if (!r.autoPlaceBtn || h.isRunning) return;
+    if ($().length === 0) {
       P("All fields are already placed", "info");
       return;
     }
@@ -3662,7 +3663,7 @@ function Hn(n) {
       j();
       return;
     }
-    g.isRunning = !0, r.autoPlaceBtn.disabled = !0, r.autoPlaceBtn.innerHTML = `
+    h.isRunning = !0, r.autoPlaceBtn.disabled = !0, r.autoPlaceBtn.innerHTML = `
       <svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -3683,14 +3684,14 @@ function Hn(n) {
       });
       if (!L.ok)
         throw await F(L, "Auto-placement failed");
-      const C = await L.json(), k = On(C) ? C.run || {} : C;
-      g.currentRunId = k?.run_id || k?.id || null, g.suggestions = k?.suggestions || [], g.resolverScores = k?.resolver_scores || [], g.suggestions.length === 0 ? (P("No placement suggestions found. Try placing fields manually.", "warning"), j()) : K(k);
+      const C = await L.json(), k = Hn(C) ? C.run || {} : C;
+      h.currentRunId = k?.run_id || k?.id || null, h.suggestions = k?.suggestions || [], h.resolverScores = k?.resolver_scores || [], h.suggestions.length === 0 ? (P("No placement suggestions found. Try placing fields manually.", "warning"), j()) : K(k);
     } catch (L) {
       console.error("Auto-place error:", L);
       const C = L && typeof L == "object" ? L : {}, k = x(C.message || "Auto-placement failed", C.code || "", C.status || 0);
       P(`Auto-placement failed: ${k}`, "error"), j();
     } finally {
-      g.isRunning = !1, r.autoPlaceBtn.disabled = !1, r.autoPlaceBtn.innerHTML = `
+      h.isRunning = !1, r.autoPlaceBtn.disabled = !1, r.autoPlaceBtn.innerHTML = `
         <svg class="w-4 h-4 mr-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
@@ -3698,7 +3699,7 @@ function Hn(n) {
       `;
     }
   }
-  function U() {
+  function z() {
     const r = b();
     r.autoPlaceBtn && !a.autoPlaceBound && (r.autoPlaceBtn.addEventListener("click", () => {
       le();
@@ -3742,20 +3743,20 @@ function Hn(n) {
         be.status || void 0
       )}`);
     }
-    ie(), N({ silent: !0 });
+    ie(), M({ silent: !0 });
   }
   function ae(r) {
     const o = Array.isArray(r?.fieldPlacements) ? r.fieldPlacements : [];
-    a.fieldInstances = o.map((c, L) => pt(c, L)), N({ silent: !0 });
+    a.fieldInstances = o.map((c, L) => pt(c, L)), M({ silent: !0 });
   }
-  return N({ silent: !0 }), {
-    bindEvents: U,
+  return M({ silent: !0 }), {
+    bindEvents: z,
     initPlacementEditor: oe,
-    getState: h,
-    getLinkGroupState: q,
+    getState: g,
+    getLinkGroupState: U,
     setLinkGroupState: J,
-    buildPlacementFormEntries: O,
-    updateFieldInstancesFormData: N,
+    buildPlacementFormEntries: q,
+    updateFieldInstancesFormData: M,
     restoreFieldPlacementsFromState: ae
   };
 }
@@ -3780,75 +3781,75 @@ function Ut(n) {
     }))
   };
 }
-function jn(n) {
+function Gn(n) {
   const {
     getSignerParticipants: e,
     setPrimaryActionLabel: t,
     onChanged: i
-  } = n, s = document.getElementById("agreement-review-mode-send"), l = document.getElementById("agreement-review-mode-start"), m = document.getElementById("agreement-start-review-config"), y = document.getElementById("agreement-review-gate"), _ = document.getElementById("agreement-review-comments-enabled"), F = document.getElementById("agreement-review-recipient-reviewers"), x = document.getElementById("agreement-review-external-reviewers"), P = document.getElementById("agreement-review-external-reviewers-empty"), T = document.getElementById("agreement-review-external-reviewer-template"), w = document.getElementById("agreement-add-external-reviewer-btn");
+  } = n, s = document.getElementById("agreement-review-mode-send"), l = document.getElementById("agreement-review-mode-start"), p = document.getElementById("agreement-start-review-config"), y = document.getElementById("agreement-review-gate"), _ = document.getElementById("agreement-review-comments-enabled"), F = document.getElementById("agreement-review-recipient-reviewers"), x = document.getElementById("agreement-review-external-reviewers"), P = document.getElementById("agreement-review-external-reviewers-empty"), T = document.getElementById("agreement-review-external-reviewer-template"), w = document.getElementById("agreement-add-external-reviewer-btn");
   function a() {
     return l instanceof HTMLInputElement ? l.checked : !1;
   }
-  function g() {
+  function h() {
     t(a() ? "Start Review" : "Send for Signature");
   }
-  function d() {
+  function u() {
     const J = !!x?.querySelector("[data-review-external-row]");
     P?.classList.toggle("hidden", J);
   }
-  function p() {
-    m?.classList.toggle("hidden", !a()), g();
+  function m() {
+    p?.classList.toggle("hidden", !a()), h();
   }
-  function M(J) {
+  function $(J) {
     if (!(T instanceof HTMLTemplateElement) || !x)
       return;
-    const O = T.content.cloneNode(!0), N = O.querySelector("[data-review-external-row]");
-    if (!N)
+    const q = T.content.cloneNode(!0), M = q.querySelector("[data-review-external-row]");
+    if (!M)
       return;
-    const ie = N.querySelector("[data-review-external-name]"), G = N.querySelector("[data-review-external-email]"), he = N.querySelector("[data-review-external-comment]"), Se = N.querySelector("[data-review-external-approve]");
-    ie && (ie.value = String(J?.displayName || "").trim()), G && (G.value = String(J?.email || "").trim()), he && (he.checked = ct(J?.canComment, !0)), Se && (Se.checked = ct(J?.canApprove, !0)), x.appendChild(O), d();
+    const ie = M.querySelector("[data-review-external-name]"), G = M.querySelector("[data-review-external-email]"), he = M.querySelector("[data-review-external-comment]"), Se = M.querySelector("[data-review-external-approve]");
+    ie && (ie.value = String(J?.displayName || "").trim()), G && (G.value = String(J?.email || "").trim()), he && (he.checked = ct(J?.canComment, !0)), Se && (Se.checked = ct(J?.canApprove, !0)), x.appendChild(q), u();
   }
-  function z() {
+  function H() {
     const J = [];
-    F?.querySelectorAll("[data-review-recipient-row]").forEach((N) => {
-      N.querySelector("[data-review-recipient-enabled]")?.checked && J.push({
+    F?.querySelectorAll("[data-review-recipient-row]").forEach((M) => {
+      M.querySelector("[data-review-recipient-enabled]")?.checked && J.push({
         participantType: "recipient",
-        participantTempId: String(N.dataset.participantTempId || "").trim() || void 0,
-        recipientTempId: String(N.dataset.participantTempId || "").trim() || void 0,
-        email: String(N.dataset.email || "").trim() || void 0,
-        displayName: String(N.dataset.name || "").trim() || void 0,
-        canComment: N.querySelector("[data-review-recipient-comment]")?.checked !== !1,
-        canApprove: N.querySelector("[data-review-recipient-approve]")?.checked !== !1
+        participantTempId: String(M.dataset.participantTempId || "").trim() || void 0,
+        recipientTempId: String(M.dataset.participantTempId || "").trim() || void 0,
+        email: String(M.dataset.email || "").trim() || void 0,
+        displayName: String(M.dataset.name || "").trim() || void 0,
+        canComment: M.querySelector("[data-review-recipient-comment]")?.checked !== !1,
+        canApprove: M.querySelector("[data-review-recipient-approve]")?.checked !== !1
       });
     });
-    const O = [];
-    return x?.querySelectorAll("[data-review-external-row]").forEach((N) => {
-      const ie = String(N.querySelector("[data-review-external-email]")?.value || "").trim();
-      ie !== "" && O.push({
+    const q = [];
+    return x?.querySelectorAll("[data-review-external-row]").forEach((M) => {
+      const ie = String(M.querySelector("[data-review-external-email]")?.value || "").trim();
+      ie !== "" && q.push({
         participantType: "external",
         email: ie,
-        displayName: String(N.querySelector("[data-review-external-name]")?.value || "").trim() || void 0,
-        canComment: N.querySelector("[data-review-external-comment]")?.checked !== !1,
-        canApprove: N.querySelector("[data-review-external-approve]")?.checked !== !1
+        displayName: String(M.querySelector("[data-review-external-name]")?.value || "").trim() || void 0,
+        canComment: M.querySelector("[data-review-external-comment]")?.checked !== !1,
+        canApprove: M.querySelector("[data-review-external-approve]")?.checked !== !1
       });
     }), {
       enabled: a(),
       gate: String(y instanceof HTMLSelectElement ? y.value : "approve_before_send").trim() || "approve_before_send",
       commentsEnabled: _ instanceof HTMLInputElement ? _.checked : !1,
-      participants: [...J, ...O]
+      participants: [...J, ...q]
     };
   }
   function R(J) {
     if (!F)
       return;
-    const O = Ut(J), N = /* @__PURE__ */ new Map();
-    O.participants.filter((G) => String(G.participantType || "").trim() === "recipient").forEach((G) => {
+    const q = Ut(J), M = /* @__PURE__ */ new Map();
+    q.participants.filter((G) => String(G.participantType || "").trim() === "recipient").forEach((G) => {
       const he = String(G.participantTempId || G.recipientTempId || G.recipientId || "").trim();
-      he !== "" && N.set(he, G);
+      he !== "" && M.set(he, G);
     });
     const ie = e();
     F.innerHTML = ie.map((G) => {
-      const he = String(G.id || "").trim(), Se = N.get(he), X = !!Se, de = Se ? ct(Se.canComment, !0) : !0, Q = Se ? ct(Se.canApprove, !0) : !0;
+      const he = String(G.id || "").trim(), Se = M.get(he), X = !!Se, de = Se ? ct(Se.canComment, !0) : !0, ee = Se ? ct(Se.canApprove, !0) : !0;
       return `
         <div class="rounded-lg border border-gray-200 bg-white p-3" data-review-recipient-row data-participant-temp-id="${Ue(he)}" data-email="${Ue(G.email)}" data-name="${Ue(G.name)}">
           <div class="flex items-start justify-between gap-3">
@@ -3865,7 +3866,7 @@ function jn(n) {
                 <span class="text-gray-600">Comment</span>
               </label>
               <label class="flex items-center gap-2 cursor-pointer" title="Allow this reviewer to approve or request changes">
-                <input type="checkbox" class="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" data-review-recipient-approve ${Q ? "checked" : ""}>
+                <input type="checkbox" class="h-3.5 w-3.5 rounded border-gray-300 text-blue-600" data-review-recipient-approve ${ee ? "checked" : ""}>
                 <span class="text-gray-600">Approve</span>
               </label>
             </div>
@@ -3875,28 +3876,28 @@ function jn(n) {
     }).join("");
   }
   function b() {
-    R(z());
+    R(H());
   }
-  function h(J) {
-    const O = Ut(J?.review);
-    s instanceof HTMLInputElement && (s.checked = !O.enabled), l instanceof HTMLInputElement && (l.checked = O.enabled), y instanceof HTMLSelectElement && (y.value = O.gate), _ instanceof HTMLInputElement && (_.checked = O.commentsEnabled), R(O), x && (x.innerHTML = "", O.participants.filter((N) => String(N.participantType || "").trim() === "external").forEach((N) => M(N)), d()), p();
+  function g(J) {
+    const q = Ut(J?.review);
+    s instanceof HTMLInputElement && (s.checked = !q.enabled), l instanceof HTMLInputElement && (l.checked = q.enabled), y instanceof HTMLSelectElement && (y.value = q.gate), _ instanceof HTMLInputElement && (_.checked = q.commentsEnabled), R(q), x && (x.innerHTML = "", q.participants.filter((M) => String(M.participantType || "").trim() === "external").forEach((M) => $(M)), u()), m();
   }
-  function q() {
+  function U() {
     [s, l].forEach((J) => {
       J?.addEventListener("change", () => {
-        p(), i?.();
+        m(), i?.();
       });
     }), y?.addEventListener("change", () => i?.()), _?.addEventListener("change", () => i?.()), F?.addEventListener("change", () => i?.()), x?.addEventListener("input", () => i?.()), x?.addEventListener("change", () => i?.()), x?.addEventListener("click", (J) => {
-      const O = J.target;
-      !(O instanceof HTMLElement) || !O.matches("[data-review-external-remove]") || (O.closest("[data-review-external-row]")?.remove(), d(), i?.());
+      const q = J.target;
+      !(q instanceof HTMLElement) || !q.matches("[data-review-external-remove]") || (q.closest("[data-review-external-row]")?.remove(), u(), i?.());
     }), w?.addEventListener("click", () => {
-      M(), i?.();
-    }), p(), d();
+      $(), i?.();
+    }), m(), u();
   }
   return {
-    bindEvents: q,
-    collectReviewConfigForState: z,
-    restoreFromState: h,
+    bindEvents: U,
+    collectReviewConfigForState: H,
+    restoreFromState: g,
     refreshRecipientReviewers: b,
     isStartReviewEnabled: a
   };
@@ -3908,14 +3909,14 @@ function qt(n, e, t = !1) {
   const i = n.querySelector(e);
   return i ? i.checked : t;
 }
-function Gn(n) {
+function Wn(n) {
   const {
     documentIdInput: e,
     documentPageCountInput: t,
     titleInput: i,
     messageInput: s,
     participantsContainer: l,
-    fieldDefinitionsContainer: m,
+    fieldDefinitionsContainer: p,
     fieldPlacementsJSONInput: y,
     fieldRulesJSONInput: _,
     collectFieldRulesForForm: F,
@@ -3925,37 +3926,37 @@ function Gn(n) {
   } = n;
   function w() {
     const a = [];
-    l.querySelectorAll(".participant-entry").forEach((M) => {
-      const z = String(M.getAttribute("data-participant-id") || "").trim(), R = st(M, 'input[name*=".name"]'), b = st(M, 'input[name*=".email"]'), h = st(M, 'select[name*=".role"]', "signer"), q = qt(M, ".notify-input", !0), J = st(M, ".signing-stage-input"), O = Number(J || "1") || 1;
+    l.querySelectorAll(".participant-entry").forEach(($) => {
+      const H = String($.getAttribute("data-participant-id") || "").trim(), R = st($, 'input[name*=".name"]'), b = st($, 'input[name*=".email"]'), g = st($, 'select[name*=".role"]', "signer"), U = qt($, ".notify-input", !0), J = st($, ".signing-stage-input"), q = Number(J || "1") || 1;
       a.push({
-        id: z,
+        id: H,
         name: R,
         email: b,
-        role: h,
-        notify: q,
-        signing_stage: h === "signer" ? O : 0
+        role: g,
+        notify: U,
+        signing_stage: g === "signer" ? q : 0
       });
     });
-    const g = [];
-    m.querySelectorAll(".field-definition-entry").forEach((M) => {
-      const z = String(M.getAttribute("data-field-definition-id") || "").trim(), R = st(M, ".field-type-select", "signature"), b = st(M, ".field-participant-select"), h = Number(st(M, 'input[name*=".page"]', "1")) || 1, q = qt(M, 'input[name*=".required"]');
-      z && g.push({
-        id: z,
+    const h = [];
+    p.querySelectorAll(".field-definition-entry").forEach(($) => {
+      const H = String($.getAttribute("data-field-definition-id") || "").trim(), R = st($, ".field-type-select", "signature"), b = st($, ".field-participant-select"), g = Number(st($, 'input[name*=".page"]', "1")) || 1, U = qt($, 'input[name*=".required"]');
+      H && h.push({
+        id: H,
         type: R,
         participant_id: b,
-        page: h,
-        required: q
+        page: g,
+        required: U
       });
     });
-    const d = x(), p = JSON.stringify(d);
-    return y && (y.value = p), {
+    const u = x(), m = JSON.stringify(u);
+    return y && (y.value = m), {
       document_id: String(e?.value || "").trim(),
       title: String(i?.value || "").trim(),
       message: String(s?.value || "").trim(),
       participants: a,
-      field_instances: g,
-      field_placements: d,
-      field_placements_json: p,
+      field_instances: h,
+      field_placements: u,
+      field_placements_json: m,
       field_rules: F(),
       field_rules_json: String(_?.value || "[]"),
       send_for_signature: P() === T ? 1 : 0,
@@ -3969,14 +3970,14 @@ function Gn(n) {
     buildCanonicalAgreementPayload: w
   };
 }
-function Wn(n) {
+function Vn(n) {
   const {
     titleSource: e,
     stateManager: t,
     trackWizardStateChanges: i,
     participantsController: s,
     fieldDefinitionsController: l,
-    placementController: m,
+    placementController: p,
     reviewConfigController: y,
     updateFieldParticipantOptions: _,
     previewCard: F,
@@ -3985,70 +3986,70 @@ function Wn(n) {
     documentPageCountInput: T,
     selectedDocumentTitle: w,
     agreementRefs: a,
-    parsePositiveInt: g,
-    isEditMode: d
+    parsePositiveInt: h,
+    isEditMode: u
   } = n;
-  let p = null, M = !1;
-  function z(X) {
-    M = !0;
+  let m = null, $ = !1;
+  function H(X) {
+    $ = !0;
     try {
       return X();
     } finally {
-      M = !1;
+      $ = !1;
     }
   }
   function R(X) {
-    const de = X?.document, Q = document.getElementById("selected-document"), ye = document.getElementById("document-picker"), pe = document.getElementById("selected-document-info");
+    const de = X?.document, ee = document.getElementById("selected-document"), ye = document.getElementById("document-picker"), pe = document.getElementById("selected-document-info");
     if (P.value = String(de?.id || "").trim(), T) {
-      const Ee = g(de?.pageCount, 0) || 0;
+      const Ee = h(de?.pageCount, 0) || 0;
       T.value = Ee > 0 ? String(Ee) : "";
     }
     if (w && (w.textContent = String(de?.title || "").trim()), pe instanceof HTMLElement) {
-      const Ee = g(de?.pageCount, 0) || 0;
+      const Ee = h(de?.pageCount, 0) || 0;
       pe.textContent = Ee > 0 ? `${Ee} pages` : "";
     }
     if (P.value) {
-      Q?.classList.remove("hidden"), ye?.classList.add("hidden");
+      ee?.classList.remove("hidden"), ye?.classList.add("hidden");
       return;
     }
-    Q?.classList.add("hidden"), ye?.classList.remove("hidden");
+    ee?.classList.add("hidden"), ye?.classList.remove("hidden");
   }
   function b(X) {
     a.form.titleInput.value = String(X?.details?.title || ""), a.form.messageInput.value = String(X?.details?.message || "");
   }
-  function h() {
-    M || (p !== null && clearTimeout(p), p = setTimeout(() => {
+  function g() {
+    $ || (m !== null && clearTimeout(m), m = setTimeout(() => {
       i();
     }, 500));
   }
-  function q(X) {
+  function U(X) {
     s.restoreFromState(X);
   }
   function J(X) {
     l.restoreFieldDefinitionsFromState(X);
   }
-  function O(X) {
+  function q(X) {
     l.restoreFieldRulesFromState(X);
   }
-  function N(X) {
-    m.restoreFieldPlacementsFromState(X);
+  function M(X) {
+    p.restoreFieldPlacementsFromState(X);
   }
   function ie(X) {
     y?.restoreFromState?.(X);
   }
   function G() {
     P && new MutationObserver(() => {
-      M || i();
+      $ || i();
     }).observe(P, { attributes: !0, attributeFilter: ["value"] });
     const X = document.getElementById("title"), de = document.getElementById("message");
     X instanceof HTMLInputElement && X.addEventListener("input", () => {
-      const Q = String(X.value || "").trim() === "" ? e.AUTOFILL : e.USER;
-      t.setTitleSource(Q), h();
-    }), (de instanceof HTMLInputElement || de instanceof HTMLTextAreaElement) && de.addEventListener("input", h), s.refs.participantsContainer?.addEventListener("input", h), s.refs.participantsContainer?.addEventListener("change", h), l.refs.fieldDefinitionsContainer?.addEventListener("input", h), l.refs.fieldDefinitionsContainer?.addEventListener("change", h), l.refs.fieldRulesContainer?.addEventListener("input", h), l.refs.fieldRulesContainer?.addEventListener("change", h);
+      const ee = String(X.value || "").trim() === "" ? e.AUTOFILL : e.USER;
+      t.setTitleSource(ee), g();
+    }), (de instanceof HTMLInputElement || de instanceof HTMLTextAreaElement) && de.addEventListener("input", g), s.refs.participantsContainer?.addEventListener("input", g), s.refs.participantsContainer?.addEventListener("change", g), l.refs.fieldDefinitionsContainer?.addEventListener("input", g), l.refs.fieldDefinitionsContainer?.addEventListener("change", g), l.refs.fieldRulesContainer?.addEventListener("input", g), l.refs.fieldRulesContainer?.addEventListener("change", g);
   }
   function he(X, de = {}) {
-    z(() => {
-      if (R(X), b(X), q(X), J(X), O(X), _(), N(X), ie(X), de.updatePreview !== !1) {
+    H(() => {
+      if (R(X), b(X), U(X), J(X), q(X), _(), M(X), ie(X), de.updatePreview !== !1) {
         const ye = X?.document;
         ye?.id ? F.setDocument(
           ye.id,
@@ -4056,42 +4057,42 @@ function Wn(n) {
           ye.pageCount ?? null
         ) : F.clear();
       }
-      const Q = g(
+      const ee = h(
         de.step ?? X?.currentStep,
         x.getCurrentStep()
       ) || 1;
-      x.setCurrentStep(Q), x.updateWizardUI();
+      x.setCurrentStep(ee), x.updateWizardUI();
     });
   }
   function Se() {
     if (x.updateWizardUI(), P.value) {
-      const X = w?.textContent || null, de = g(T?.value, 0) || null;
+      const X = w?.textContent || null, de = h(T?.value, 0) || null;
       F.setDocument(P.value, X, de);
     } else
       F.clear();
-    d && a.sync.indicator?.classList.add("hidden");
+    u && a.sync.indicator?.classList.add("hidden");
   }
   return {
     bindChangeTracking: G,
-    debouncedTrackChanges: h,
+    debouncedTrackChanges: g,
     applyStateToUI: he,
     renderInitialWizardUI: Se
   };
 }
-function Vn(n) {
+function Kn(n) {
   return n.querySelector('select[name*=".role"]');
 }
-function Kn(n) {
+function Yn(n) {
   return n.querySelector(".field-participant-select");
 }
-function Yn(n) {
+function Jn(n) {
   const {
     documentIdInput: e,
     titleInput: t,
     participantsContainer: i,
     fieldDefinitionsContainer: s,
     fieldRulesContainer: l,
-    addFieldBtn: m,
+    addFieldBtn: p,
     ensureSelectedDocumentCompatibility: y,
     collectFieldRulesForState: _,
     findSignersMissingRequiredSignatureField: F,
@@ -4108,22 +4109,22 @@ function Yn(n) {
         const a = i.querySelectorAll(".participant-entry");
         if (a.length === 0)
           return P("Please add at least one participant"), !1;
-        let g = !1;
-        return a.forEach((d) => {
-          Vn(d)?.value === "signer" && (g = !0);
-        }), g ? !0 : (P("At least one signer is required"), !1);
+        let h = !1;
+        return a.forEach((u) => {
+          Kn(u)?.value === "signer" && (h = !0);
+        }), h ? !0 : (P("At least one signer is required"), !1);
       }
       case 4: {
         const a = s.querySelectorAll(".field-definition-entry");
-        for (const M of Array.from(a)) {
-          const z = Kn(M);
-          if (!z?.value)
-            return P("Please assign all fields to a signer"), z?.focus(), !1;
+        for (const $ of Array.from(a)) {
+          const H = Yn($);
+          if (!H?.value)
+            return P("Please assign all fields to a signer"), H?.focus(), !1;
         }
-        if (_().find((M) => !M.participantId))
+        if (_().find(($) => !$.participantId))
           return P("Please assign all automation rules to a signer"), l?.querySelector(".field-rule-participant-select")?.focus(), !1;
-        const p = F();
-        return p.length > 0 ? (P(x(p)), m.focus(), !1) : !0;
+        const m = F();
+        return m.length > 0 ? (P(x(m)), p.focus(), !1) : !0;
       }
       case 5:
         return !0;
@@ -4135,14 +4136,14 @@ function Yn(n) {
     validateStep: T
   };
 }
-function Jn(n) {
+function Xn(n) {
   const {
     isEditMode: e,
     storageKey: t,
     stateManager: i,
     syncOrchestrator: s,
     syncService: l,
-    applyResumedState: m,
+    applyResumedState: p,
     hasMeaningfulWizardProgress: y,
     formatRelativeTime: _,
     emitWizardTelemetry: F,
@@ -4181,13 +4182,13 @@ function Jn(n) {
     if (!b) {
       if (!y(R))
         try {
-          const h = await l.bootstrap();
+          const g = await l.bootstrap();
           return i.setState({
-            ...h.snapshot?.data?.wizard_state && typeof h.snapshot.data.wizard_state == "object" ? h.snapshot.data.wizard_state : {},
-            resourceRef: h.resourceRef,
-            serverDraftId: String(h.snapshot?.ref?.id || "").trim() || null,
-            serverRevision: Number(h.snapshot?.revision || 0),
-            lastSyncedAt: String(h.snapshot?.updatedAt || "").trim() || null,
+            ...g.snapshot?.data?.wizard_state && typeof g.snapshot.data.wizard_state == "object" ? g.snapshot.data.wizard_state : {},
+            resourceRef: g.resourceRef,
+            serverDraftId: String(g.snapshot?.ref?.id || "").trim() || null,
+            serverRevision: Number(g.snapshot?.revision || 0),
+            lastSyncedAt: String(g.snapshot?.updatedAt || "").trim() || null,
             syncPending: !1
           }, { syncPending: !1, notify: !1 }), i.getState();
         } catch {
@@ -4212,28 +4213,28 @@ function Jn(n) {
       })), i.getState();
     }
     try {
-      const h = await l.load(b), q = i.normalizeLoadedState({
-        ...h?.wizard_state && typeof h.wizard_state == "object" ? h.wizard_state : {},
-        resourceRef: h?.resource_ref || R.resourceRef || null,
-        serverDraftId: String(h?.id || b).trim() || b,
-        serverRevision: Number(h?.revision || 0),
-        lastSyncedAt: String(h?.updated_at || h?.updatedAt || "").trim() || R.lastSyncedAt,
+      const g = await l.load(b), U = i.normalizeLoadedState({
+        ...g?.wizard_state && typeof g.wizard_state == "object" ? g.wizard_state : {},
+        resourceRef: g?.resource_ref || R.resourceRef || null,
+        serverDraftId: String(g?.id || b).trim() || b,
+        serverRevision: Number(g?.revision || 0),
+        lastSyncedAt: String(g?.updated_at || g?.updatedAt || "").trim() || R.lastSyncedAt,
         syncPending: !1
-      }), J = String(R.serverDraftId || "").trim() === String(q.serverDraftId || "").trim(), O = J && R.syncPending === !0 ? P(R, q) : q;
-      return i.setState(O, { syncPending: !!O.syncPending, notify: !1 }), Ve("resume_reconcile_complete", Pe({
-        state: O,
+      }), J = String(R.serverDraftId || "").trim() === String(U.serverDraftId || "").trim(), q = J && R.syncPending === !0 ? P(R, U) : U;
+      return i.setState(q, { syncPending: !!q.syncPending, notify: !1 }), Ve("resume_reconcile_complete", Pe({
+        state: q,
         storageKey: t,
         ownership: x?.() || void 0,
         sendAttemptId: null,
         extra: {
           source: J && R.syncPending === !0 ? "merged_local_over_remote" : "remote_draft",
-          loadedDraftId: String(h?.id || b).trim() || null,
-          loadedRevision: Number(h?.revision || 0)
+          loadedDraftId: String(g?.id || b).trim() || null,
+          loadedRevision: Number(g?.revision || 0)
         }
       })), i.getState();
-    } catch (h) {
-      const q = typeof h == "object" && h !== null && "status" in h ? Number(h.status || 0) : 0;
-      if (q === 404) {
+    } catch (g) {
+      const U = typeof g == "object" && g !== null && "status" in g ? Number(g.status || 0) : 0;
+      if (U === 404) {
         const J = i.normalizeLoadedState({
           ...R,
           serverDraftId: null,
@@ -4248,7 +4249,7 @@ function Jn(n) {
           extra: {
             source: "remote_missing_reset_local",
             staleDraftId: b,
-            status: q
+            status: U
           }
         })), i.getState();
       }
@@ -4260,7 +4261,7 @@ function Jn(n) {
         extra: {
           source: "reconcile_failed_keep_local",
           staleDraftId: b,
-          status: q
+          status: U
         }
       })), i.getState();
     }
@@ -4269,22 +4270,22 @@ function Jn(n) {
     return document.getElementById(R);
   }
   function a() {
-    const R = document.getElementById("resume-dialog-modal"), b = i.getState(), h = String(b?.document?.title || "").trim() || String(b?.document?.id || "").trim() || "Unknown document", q = w("resume-draft-title"), J = w("resume-draft-document"), O = w("resume-draft-step"), N = w("resume-draft-time");
-    q && (q.textContent = b.details?.title || "Untitled Agreement"), J && (J.textContent = h), O && (O.textContent = String(b.currentStep || 1)), N && (N.textContent = _(b.updatedAt)), R?.classList.remove("hidden"), F("wizard_resume_prompt_shown", {
+    const R = document.getElementById("resume-dialog-modal"), b = i.getState(), g = String(b?.document?.title || "").trim() || String(b?.document?.id || "").trim() || "Unknown document", U = w("resume-draft-title"), J = w("resume-draft-document"), q = w("resume-draft-step"), M = w("resume-draft-time");
+    U && (U.textContent = b.details?.title || "Untitled Agreement"), J && (J.textContent = g), q && (q.textContent = String(b.currentStep || 1)), M && (M.textContent = _(b.updatedAt)), R?.classList.remove("hidden"), F("wizard_resume_prompt_shown", {
       step: Number(b.currentStep || 1),
       has_server_draft: !!b.serverDraftId
     });
   }
-  async function g(R = {}) {
-    const b = R.deleteServerDraft === !0, h = String(i.getState()?.serverDraftId || "").trim();
-    if (i.clear(), s.broadcastStateUpdate(), h && s.broadcastDraftDisposed?.(h, b ? "resume_clear_delete" : "resume_clear_local"), !(!b || !h))
+  async function h(R = {}) {
+    const b = R.deleteServerDraft === !0, g = String(i.getState()?.serverDraftId || "").trim();
+    if (i.clear(), s.broadcastStateUpdate(), g && s.broadcastDraftDisposed?.(g, b ? "resume_clear_delete" : "resume_clear_local"), !(!b || !g))
       try {
-        await l.dispose(h);
-      } catch (q) {
-        console.warn("Failed to delete server draft:", q);
+        await l.dispose(g);
+      } catch (U) {
+        console.warn("Failed to delete server draft:", U);
       }
   }
-  function d() {
+  function u() {
     return i.normalizeLoadedState({
       ...i.getState(),
       ...i.collectFormState(),
@@ -4294,47 +4295,47 @@ function Jn(n) {
       lastSyncedAt: null
     });
   }
-  async function p(R) {
+  async function m(R) {
     document.getElementById("resume-dialog-modal")?.classList.add("hidden");
-    const b = d();
+    const b = u();
     switch (R) {
       case "continue":
-        !String(i.getState()?.serverDraftId || "").trim() && y(b) && await l.create(b), m(i.getState());
+        !String(i.getState()?.serverDraftId || "").trim() && y(b) && await l.create(b), p(i.getState());
         return;
       case "start_new":
-        await g({ deleteServerDraft: !1 }), y(b) ? await l.create(b) : await T(), m(i.getState());
+        await h({ deleteServerDraft: !1 }), y(b) ? await l.create(b) : await T(), p(i.getState());
         return;
       case "proceed":
-        await g({ deleteServerDraft: !0 }), y(b) ? await l.create(b) : await T(), m(i.getState());
+        await h({ deleteServerDraft: !0 }), y(b) ? await l.create(b) : await T(), p(i.getState());
         return;
       case "discard":
-        await g({ deleteServerDraft: !0 }), await T(), m(i.getState());
+        await h({ deleteServerDraft: !0 }), await T(), p(i.getState());
         return;
       default:
         return;
     }
   }
-  function M() {
+  function $() {
     document.getElementById("resume-continue-btn")?.addEventListener("click", () => {
-      p("continue");
+      m("continue");
     }), document.getElementById("resume-proceed-btn")?.addEventListener("click", () => {
-      p("proceed");
+      m("proceed");
     }), document.getElementById("resume-new-btn")?.addEventListener("click", () => {
-      p("start_new");
+      m("start_new");
     }), document.getElementById("resume-discard-btn")?.addEventListener("click", () => {
-      p("discard");
+      m("discard");
     });
   }
-  async function z() {
+  async function H() {
     e || (await T(), i.hasResumableState() && a());
   }
   return {
-    bindEvents: M,
+    bindEvents: $,
     reconcileBootstrapState: T,
-    maybeShowResumeDialog: z
+    maybeShowResumeDialog: H
   };
 }
-function Xn(n) {
+function Zn(n) {
   const {
     agreementRefs: e,
     formAnnouncements: t,
@@ -4342,36 +4343,37 @@ function Xn(n) {
   } = n;
   let s = "saved";
   function l(w) {
-    if (!w) return "unknown";
-    const a = new Date(w), d = (/* @__PURE__ */ new Date()).getTime() - a.getTime(), p = Math.floor(d / 6e4), M = Math.floor(d / 36e5), z = Math.floor(d / 864e5);
-    return p < 1 ? "just now" : p < 60 ? `${p} minute${p !== 1 ? "s" : ""} ago` : M < 24 ? `${M} hour${M !== 1 ? "s" : ""} ago` : z < 7 ? `${z} day${z !== 1 ? "s" : ""} ago` : a.toLocaleDateString();
+    return Wt(w, {
+      emptyFallback: "unknown",
+      invalidFallback: "Invalid Date"
+    });
   }
-  function m() {
+  function p() {
     const w = i.getState();
     s === "paused" && y(w?.syncPending ? "pending" : "saved");
   }
   function y(w) {
     s = String(w || "").trim() || "saved";
-    const a = e.sync.indicator, g = e.sync.icon, d = e.sync.text, p = e.sync.retryBtn;
-    if (!(!a || !g || !d))
+    const a = e.sync.indicator, h = e.sync.icon, u = e.sync.text, m = e.sync.retryBtn;
+    if (!(!a || !h || !u))
       switch (a.classList.remove("hidden"), w) {
         case "saved":
-          g.className = "w-2 h-2 rounded-full bg-green-500", d.textContent = "Saved", d.className = "text-gray-600", p?.classList.add("hidden");
+          h.className = "w-2 h-2 rounded-full bg-green-500", u.textContent = "Saved", u.className = "text-gray-600", m?.classList.add("hidden");
           break;
         case "saving":
-          g.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse", d.textContent = "Saving...", d.className = "text-gray-600", p?.classList.add("hidden");
+          h.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse", u.textContent = "Saving...", u.className = "text-gray-600", m?.classList.add("hidden");
           break;
         case "pending":
-          g.className = "w-2 h-2 rounded-full bg-gray-400", d.textContent = "Unsaved changes", d.className = "text-gray-500", p?.classList.add("hidden");
+          h.className = "w-2 h-2 rounded-full bg-gray-400", u.textContent = "Unsaved changes", u.className = "text-gray-500", m?.classList.add("hidden");
           break;
         case "error":
-          g.className = "w-2 h-2 rounded-full bg-amber-500", d.textContent = "Not synced", d.className = "text-amber-600", p?.classList.remove("hidden");
+          h.className = "w-2 h-2 rounded-full bg-amber-500", u.textContent = "Not synced", u.className = "text-amber-600", m?.classList.remove("hidden");
           break;
         case "paused":
-          g.className = "w-2 h-2 rounded-full bg-slate-400", d.textContent = "Open in another tab", d.className = "text-slate-600", p?.classList.add("hidden");
+          h.className = "w-2 h-2 rounded-full bg-slate-400", u.textContent = "Open in another tab", u.className = "text-slate-600", m?.classList.add("hidden");
           break;
         case "conflict":
-          g.className = "w-2 h-2 rounded-full bg-red-500", d.textContent = "Conflict", d.className = "text-red-600", p?.classList.add("hidden");
+          h.className = "w-2 h-2 rounded-full bg-red-500", u.textContent = "Conflict", u.className = "text-red-600", m?.classList.add("hidden");
           break;
         default:
           a.classList.add("hidden");
@@ -4381,56 +4383,56 @@ function Xn(n) {
     const a = i.getState();
     e.conflict.localTime && (e.conflict.localTime.textContent = l(a.updatedAt)), e.conflict.serverRevision && (e.conflict.serverRevision.textContent = String(w || 0)), e.conflict.serverTime && (e.conflict.serverTime.textContent = "newer version"), e.conflict.modal?.classList.remove("hidden");
   }
-  function F(w, a = "", g = 0) {
-    const d = String(a || "").trim().toUpperCase(), p = String(w || "").trim().toLowerCase();
-    return d === "STALE_REVISION" ? "A newer version of this draft exists. Reload the latest draft or force your changes." : d === "DRAFT_SEND_NOT_FOUND" || d === "DRAFT_SESSION_STALE" ? "Your saved draft session was replaced or expired. Please review and click Send again." : d === "ACTIVE_TAB_OWNERSHIP_REQUIRED" ? "This agreement is active in another tab. Take control in this tab before saving or sending." : d === "SCOPE_DENIED" || p.includes("scope denied") ? "You don't have access to this organization's resources." : d === "TRANSPORT_SECURITY" || d === "TRANSPORT_SECURITY_REQUIRED" || p.includes("tls transport required") || Number(g) === 426 ? "This action requires a secure connection. Please access the app using HTTPS." : d === "PDF_UNSUPPORTED" || p === "pdf compatibility unsupported" ? "This document cannot be sent for signature because its PDF is incompatible. Select another document or upload a remediated PDF." : String(w || "").trim() !== "" ? String(w).trim() : "Something went wrong. Please try again.";
+  function F(w, a = "", h = 0) {
+    const u = String(a || "").trim().toUpperCase(), m = String(w || "").trim().toLowerCase();
+    return u === "STALE_REVISION" ? "A newer version of this draft exists. Reload the latest draft or force your changes." : u === "DRAFT_SEND_NOT_FOUND" || u === "DRAFT_SESSION_STALE" ? "Your saved draft session was replaced or expired. Please review and click Send again." : u === "ACTIVE_TAB_OWNERSHIP_REQUIRED" ? "This agreement is active in another tab. Take control in this tab before saving or sending." : u === "SCOPE_DENIED" || m.includes("scope denied") ? "You don't have access to this organization's resources." : u === "TRANSPORT_SECURITY" || u === "TRANSPORT_SECURITY_REQUIRED" || m.includes("tls transport required") || Number(h) === 426 ? "This action requires a secure connection. Please access the app using HTTPS." : u === "PDF_UNSUPPORTED" || m === "pdf compatibility unsupported" ? "This document cannot be sent for signature because its PDF is incompatible. Select another document or upload a remediated PDF." : String(w || "").trim() !== "" ? String(w).trim() : "Something went wrong. Please try again.";
   }
   async function x(w, a = "") {
-    const g = Number(w?.status || 0);
-    let d = "", p = "", M = {};
+    const h = Number(w?.status || 0);
+    let u = "", m = "", $ = {};
     try {
-      const z = await w.json();
-      d = String(z?.error?.code || z?.code || "").trim(), p = String(z?.error?.message || z?.message || "").trim(), M = z?.error?.details && typeof z.error.details == "object" ? z.error.details : {}, String(M?.entity || "").trim().toLowerCase() === "drafts" && String(d).trim().toUpperCase() === "NOT_FOUND" && (d = "DRAFT_SEND_NOT_FOUND", p === "" && (p = "Draft not found"));
+      const H = await w.json();
+      u = String(H?.error?.code || H?.code || "").trim(), m = String(H?.error?.message || H?.message || "").trim(), $ = H?.error?.details && typeof H.error.details == "object" ? H.error.details : {}, String($?.entity || "").trim().toLowerCase() === "drafts" && String(u).trim().toUpperCase() === "NOT_FOUND" && (u = "DRAFT_SEND_NOT_FOUND", m === "" && (m = "Draft not found"));
     } catch {
-      p = "";
+      m = "";
     }
-    return p === "" && (p = a || `Request failed (${g || "unknown"})`), {
-      status: g,
-      code: d,
-      details: M,
-      message: F(p, d, g)
+    return m === "" && (m = a || `Request failed (${h || "unknown"})`), {
+      status: h,
+      code: u,
+      details: $,
+      message: F(m, u, h)
     };
   }
-  function P(w, a = "", g = 0) {
-    const d = F(w, a, g);
-    t && (t.textContent = d), window.toastManager?.error ? window.toastManager.error(d) : alert(d);
+  function P(w, a = "", h = 0) {
+    const u = F(w, a, h);
+    t && (t.textContent = u), window.toastManager?.error ? window.toastManager.error(u) : alert(u);
   }
   async function T(w, a = {}) {
-    const g = await w;
-    return g?.blocked && g.reason === "passive_tab" ? (P(
+    const h = await w;
+    return h?.blocked && h.reason === "passive_tab" ? (P(
       "This agreement is active in another tab. Take control in this tab before saving or sending.",
       "ACTIVE_TAB_OWNERSHIP_REQUIRED"
-    ), g) : (g?.error && String(a.errorMessage || "").trim() !== "" && P(a.errorMessage || ""), g);
+    ), h) : (h?.error && String(a.errorMessage || "").trim() !== "" && P(a.errorMessage || ""), h);
   }
   return {
     announceError: P,
     formatRelativeTime: l,
     mapUserFacingError: F,
     parseAPIError: x,
-    restoreSyncStatusFromState: m,
+    restoreSyncStatusFromState: p,
     showSyncConflictDialog: _,
     surfaceSyncOutcome: T,
     updateSyncStatus: y
   };
 }
-function Zn(n) {
+function Qn(n) {
   const {
     createSuccess: e,
     enableServerSync: t = !0,
     stateManager: i,
     syncOrchestrator: s,
     syncService: l,
-    applyStateToUI: m,
+    applyStateToUI: p,
     surfaceSyncOutcome: y
   } = n;
   function _() {
@@ -4459,7 +4461,7 @@ function Zn(n) {
         errorMessage: "Unable to sync latest draft changes. Please try again."
       });
     }), document.getElementById("conflict-reload-btn")?.addEventListener("click", async () => {
-      s.refreshCurrentDraft && (await s.refreshCurrentDraft({ preserveDirty: !1, force: !0 }), m(i.getState())), document.getElementById("conflict-dialog-modal")?.classList.add("hidden");
+      s.refreshCurrentDraft && (await s.refreshCurrentDraft({ preserveDirty: !1, force: !0 }), p(i.getState())), document.getElementById("conflict-dialog-modal")?.classList.add("hidden");
     }), document.getElementById("conflict-force-btn")?.addEventListener("click", async () => {
       const P = parseInt(document.getElementById("conflict-server-revision")?.textContent || "0", 10);
       i.setState({
@@ -4486,42 +4488,42 @@ const et = {
   AUTOFILL: "autofill",
   SERVER_SEED: "server_seed"
 };
-function Xt(n, e = et.AUTOFILL) {
+function Zt(n, e = et.AUTOFILL) {
   const t = String(n || "").trim().toLowerCase();
   return t === et.USER ? et.USER : t === et.SERVER_SEED ? et.SERVER_SEED : t === et.AUTOFILL ? et.AUTOFILL : e;
 }
-function Qn(n, e = 0) {
+function ei(n, e = 0) {
   if (!n || typeof n != "object") return !1;
-  const t = n, i = String(t.name ?? "").trim(), s = String(t.email ?? "").trim(), l = String(t.role ?? "signer").trim().toLowerCase(), m = Number.parseInt(String(t.signingStage ?? t.signing_stage ?? 1), 10), y = t.notify !== !1;
-  return i !== "" || s !== "" || l !== "" && l !== "signer" || Number.isFinite(m) && m > 1 || !y ? !0 : e > 0;
+  const t = n, i = String(t.name ?? "").trim(), s = String(t.email ?? "").trim(), l = String(t.role ?? "signer").trim().toLowerCase(), p = Number.parseInt(String(t.signingStage ?? t.signing_stage ?? 1), 10), y = t.notify !== !1;
+  return i !== "" || s !== "" || l !== "" && l !== "signer" || Number.isFinite(p) && p > 1 || !y ? !0 : e > 0;
 }
 function Ot(n, e = {}) {
   const {
-    normalizeTitleSource: t = Xt,
+    normalizeTitleSource: t = Zt,
     titleSource: i = et
   } = e;
   if (!n || typeof n != "object") return !1;
   const s = Number.parseInt(String(n.currentStep ?? 1), 10);
   if (Number.isFinite(s) && s > 1 || String(n.document?.id ?? "").trim() !== "") return !0;
-  const m = String(n.details?.title ?? "").trim(), y = String(n.details?.message ?? "").trim(), _ = t(
+  const p = String(n.details?.title ?? "").trim(), y = String(n.details?.message ?? "").trim(), _ = t(
     n.titleSource,
-    m === "" ? i.AUTOFILL : i.USER
+    p === "" ? i.AUTOFILL : i.USER
   );
-  return !!(m !== "" && _ !== i.SERVER_SEED || y !== "" || (Array.isArray(n.participants) ? n.participants : []).some((P, T) => Qn(P, T)) || Array.isArray(n.fieldDefinitions) && n.fieldDefinitions.length > 0 || Array.isArray(n.fieldPlacements) && n.fieldPlacements.length > 0 || Array.isArray(n.fieldRules) && n.fieldRules.length > 0 || n.review?.enabled);
+  return !!(p !== "" && _ !== i.SERVER_SEED || y !== "" || (Array.isArray(n.participants) ? n.participants : []).some((P, T) => ei(P, T)) || Array.isArray(n.fieldDefinitions) && n.fieldDefinitions.length > 0 || Array.isArray(n.fieldPlacements) && n.fieldPlacements.length > 0 || Array.isArray(n.fieldRules) && n.fieldRules.length > 0 || n.review?.enabled);
 }
-function ei(n = {}) {
-  const e = n || {}, t = String(e.base_path || "").trim(), i = String(e.api_base_path || "").trim() || `${t}/api`, s = i.replace(/\/+$/, ""), l = /\/v\d+$/i.test(s) ? s : `${s}/v1`, m = !!e.is_edit, y = !!e.create_success, _ = String(e.submit_mode || "json").trim().toLowerCase(), F = String(e.agreement_id || "").trim(), x = String(e.active_agreement_id || "").trim(), P = String(e.routes?.documents_upload_url || "").trim() || `${t}/content/esign_documents/new`, T = Array.isArray(e.initial_participants) ? e.initial_participants : [], w = Array.isArray(e.initial_field_instances) ? e.initial_field_instances : [], a = e.sync && typeof e.sync == "object" ? e.sync : {}, g = Array.isArray(a.action_operations) ? a.action_operations.map((z) => String(z || "").trim()).filter(Boolean) : [], d = `${l}/esign`, p = {
-    base_url: String(a.base_url || "").trim() || d,
-    bootstrap_path: String(a.bootstrap_path || "").trim() || `${d}/sync/bootstrap/agreement-draft`,
+function ti(n = {}) {
+  const e = n || {}, t = String(e.base_path || "").trim(), i = String(e.api_base_path || "").trim() || `${t}/api`, s = i.replace(/\/+$/, ""), l = /\/v\d+$/i.test(s) ? s : `${s}/v1`, p = !!e.is_edit, y = !!e.create_success, _ = String(e.submit_mode || "json").trim().toLowerCase(), F = String(e.agreement_id || "").trim(), x = String(e.active_agreement_id || "").trim(), P = String(e.routes?.documents_upload_url || "").trim() || `${t}/content/esign_documents/new`, T = Array.isArray(e.initial_participants) ? e.initial_participants : [], w = Array.isArray(e.initial_field_instances) ? e.initial_field_instances : [], a = e.sync && typeof e.sync == "object" ? e.sync : {}, h = Array.isArray(a.action_operations) ? a.action_operations.map((H) => String(H || "").trim()).filter(Boolean) : [], u = `${l}/esign`, m = {
+    base_url: String(a.base_url || "").trim() || u,
+    bootstrap_path: String(a.bootstrap_path || "").trim() || `${u}/sync/bootstrap/agreement-draft`,
     client_base_path: String(a.client_base_path || "").trim() || `${t}/sync-client/sync-core`,
     resource_kind: String(a.resource_kind || "").trim() || "agreement_draft",
     storage_scope: String(a.storage_scope || "").trim(),
-    action_operations: g.length > 0 ? g : ["send", "start_review", "dispose"]
-  }, M = {
-    sync: p,
+    action_operations: h.length > 0 ? h : ["send", "start_review", "dispose"]
+  }, $ = {
+    sync: m,
     base_path: t,
     api_base_path: i,
-    is_edit: m,
+    is_edit: p,
     create_success: y,
     submit_mode: _,
     agreement_id: F,
@@ -4537,12 +4539,12 @@ function ei(n = {}) {
   };
   return {
     config: e,
-    normalizedConfig: M,
-    syncConfig: p,
+    normalizedConfig: $,
+    syncConfig: m,
     basePath: t,
     apiBase: i,
     apiVersionBase: l,
-    isEditMode: m,
+    isEditMode: p,
     createSuccess: y,
     submitMode: _,
     agreementID: F,
@@ -4552,11 +4554,11 @@ function ei(n = {}) {
     initialFieldInstances: w
   };
 }
-function ti(n = !0) {
+function ni(n = !0) {
   const e = { Accept: "application/json" };
   return n && (e["Content-Type"] = "application/json"), e;
 }
-function ni(n = {}) {
+function ii(n = {}) {
   const {
     config: e = {},
     isEditMode: t = !1
@@ -4587,74 +4589,77 @@ function ot(n, e) {
     throw new Error(`Agreement form boot failed: missing required ${e}`);
   return n;
 }
-function ii(n, e) {
+function ri(n, e) {
   if (!(n instanceof HTMLButtonElement))
     throw new Error(`Agreement form boot failed: missing required ${e}`);
   return n;
 }
-function ri(n = {}) {
+function si(n = {}) {
   const {
     config: e,
     normalizedConfig: t,
     syncConfig: i,
     basePath: s,
     apiBase: l,
-    apiVersionBase: m,
+    apiVersionBase: p,
     isEditMode: y,
     createSuccess: _,
     submitMode: F,
     documentsUploadURL: x,
     initialParticipants: P,
     initialFieldInstances: T
-  } = ei(n), w = un(document), {
+  } = ti(n), w = pn(document), {
     WIZARD_STATE_VERSION: a,
-    WIZARD_STORAGE_KEY: g,
-    WIZARD_CHANNEL_NAME: d,
-    SYNC_DEBOUNCE_MS: p,
-    SYNC_RETRY_DELAYS: M,
-    TITLE_SOURCE: z
-  } = ni({
+    WIZARD_STORAGE_KEY: h,
+    WIZARD_CHANNEL_NAME: u,
+    SYNC_DEBOUNCE_MS: m,
+    SYNC_RETRY_DELAYS: $,
+    TITLE_SOURCE: H
+  } = ii({
     config: e,
     isEditMode: y
-  }), R = bn(), b = (D, re = z.AUTOFILL) => Xt(D, re), h = (D) => Ot(D, {
+  }), R = wn(), b = (D, re = H.AUTOFILL) => Zt(D, re), g = (D) => Ot(D, {
     normalizeTitleSource: b,
-    titleSource: z
-  }), q = cn({
-    apiBasePath: m,
+    titleSource: H
+  }), U = ln({
+    apiBasePath: p,
     basePath: s
-  }), J = w.form.root, O = ii(w.form.submitBtn, "submit button"), N = w.form.announcements;
-  let ie = null, G = null, he = null, Se = null, X = null, de = null, Q = null, ye = null, pe = null, Ee = It();
+  }), J = w.form.root, q = ri(w.form.submitBtn, "submit button"), M = w.form.announcements;
+  let ie = null, G = null, he = null, Se = null, X = null, de = null, ee = null, ye = null, pe = null, Ee = It();
   const Be = (D, re = {}) => {
     Se?.applyStateToUI(D, re);
-  }, xe = () => Se?.debouncedTrackChanges?.(), Ae = () => ye?.trackWizardStateChanges?.(), ee = (D) => Q?.formatRelativeTime(D) || "unknown", B = () => Q?.restoreSyncStatusFromState(), De = (D) => Q?.updateSyncStatus(D), _e = (D) => Q?.showSyncConflictDialog(D), ce = (D, re = "", we = 0) => Q?.mapUserFacingError(D, re, we) || String(D || "").trim(), me = (D, re) => Q ? Q.parseAPIError(D, re) : Promise.resolve({ status: Number(D.status || 0), code: "", details: {}, message: re }), Fe = (D, re = "", we = 0) => Q?.announceError(D, re, we), We = (D, re = {}) => Q ? Q.surfaceSyncOutcome(D, re) : Promise.resolve({}), qe = () => null, ze = pn(w, {
-    formatRelativeTime: ee
+  }, xe = () => Se?.debouncedTrackChanges?.(), Ae = () => ye?.trackWizardStateChanges?.(), Q = (D) => Wt(D, {
+    emptyFallback: "unknown",
+    invalidFallback: "Invalid Date"
+  }), N = () => ee?.restoreSyncStatusFromState(), De = (D) => ee?.updateSyncStatus(D), _e = (D) => ee?.showSyncConflictDialog(D), ce = (D, re = "", we = 0) => ee?.mapUserFacingError(D, re, we) || String(D || "").trim(), me = (D, re) => ee ? ee.parseAPIError(D, re) : Promise.resolve({ status: Number(D.status || 0), code: "", details: {}, message: re }), Me = (D, re = "", we = 0) => ee?.announceError(D, re, we), We = (D, re = {}) => ee ? ee.surfaceSyncOutcome(D, re) : Promise.resolve({}), qe = () => null, ze = mn(w, {
+    formatRelativeTime: Q
   }), je = () => ze.render({ coordinationAvailable: !0 }), ue = async (D, re) => {
     const we = await me(D, re), tt = new Error(we.message);
     return tt.code = we.code, tt.status = we.status, tt;
   }, f = {
-    hasResumableState: () => u.hasResumableState(),
-    setTitleSource: (D, re) => u.setTitleSource(D, re),
-    updateDocument: (D) => u.updateDocument(D),
-    updateDetails: (D, re) => u.updateDetails(D, re),
+    hasResumableState: () => d.hasResumableState(),
+    setTitleSource: (D, re) => d.setTitleSource(D, re),
+    updateDocument: (D) => d.updateDocument(D),
+    updateDetails: (D, re) => d.updateDetails(D, re),
     getState: () => {
-      const D = u.getState();
+      const D = d.getState();
       return {
         titleSource: D.titleSource,
         details: D.details && typeof D.details == "object" ? D.details : {}
       };
     }
-  }, u = new mn({
-    storageKey: g,
+  }, d = new fn({
+    storageKey: h,
     stateVersion: a,
     totalWizardSteps: mt,
-    titleSource: z,
+    titleSource: H,
     normalizeTitleSource: b,
     parsePositiveInt: ke,
-    hasMeaningfulWizardProgress: h,
+    hasMeaningfulWizardProgress: g,
     collectFormState: () => {
       const D = w.form.documentIdInput?.value || null, re = document.getElementById("selected-document-title")?.textContent?.trim() || null, we = b(
-        u.getState()?.titleSource,
-        String(w.form.titleInput?.value || "").trim() === "" ? z.AUTOFILL : z.USER
+        d.getState()?.titleSource,
+        String(w.form.titleInput?.value || "").trim() === "" ? H.AUTOFILL : H.USER
       );
       return {
         document: {
@@ -4681,32 +4686,32 @@ function ri(n = {}) {
     },
     emitTelemetry: R
   });
-  u.start(), Q = Xn({
+  d.start(), ee = Zn({
     agreementRefs: w,
-    formAnnouncements: N,
-    stateManager: u
+    formAnnouncements: M,
+    stateManager: d
   });
-  const I = new hn({
-    stateManager: u,
-    requestHeaders: ti,
+  const I = new yn({
+    stateManager: d,
+    requestHeaders: ni,
     syncConfig: i
   });
   let A;
-  const W = new yn({
-    channelName: d,
+  const W = new Sn({
+    channelName: u,
     onCoordinationAvailabilityChange: (D) => {
-      B(), ze.render({ coordinationAvailable: D });
+      N(), ze.render({ coordinationAvailable: D });
     },
     onRemoteSync: (D) => {
-      String(u.getState()?.serverDraftId || "").trim() === String(D || "").trim() && (u.getState()?.syncPending || A?.refreshCurrentDraft({ preserveDirty: !0, force: !0 }).then(() => {
-        Be(u.getState(), {
-          step: Number(u.getState()?.currentStep || 1)
+      String(d.getState()?.serverDraftId || "").trim() === String(D || "").trim() && (d.getState()?.syncPending || A?.refreshCurrentDraft({ preserveDirty: !0, force: !0 }).then(() => {
+        Be(d.getState(), {
+          step: Number(d.getState()?.currentStep || 1)
         });
       }));
     },
     onRemoteDraftDisposed: (D) => {
-      String(u.getState()?.serverDraftId || "").trim() === String(D || "").trim() && (u.getState()?.syncPending || u.setState({
-        ...u.getState(),
+      String(d.getState()?.serverDraftId || "").trim() === String(D || "").trim() && (d.getState()?.syncPending || d.setState({
+        ...d.getState(),
         serverDraftId: null,
         serverRevision: 0,
         lastSyncedAt: null,
@@ -4727,28 +4732,28 @@ function ri(n = {}) {
       A?.forceSync();
     }
   });
-  A = new vn({
-    stateManager: u,
+  A = new bn({
+    stateManager: d,
     syncService: I,
     activeTabController: W,
-    storageKey: g,
+    storageKey: h,
     statusUpdater: De,
     showConflictDialog: _e,
-    syncDebounceMs: p,
-    syncRetryDelays: M,
+    syncDebounceMs: m,
+    syncRetryDelays: $,
     documentRef: document,
     windowRef: window
   });
-  const fe = dn({
+  const fe = un({
     context: {
       config: t,
       refs: w,
       basePath: s,
       apiBase: l,
-      apiVersionBase: m,
-      previewCard: q,
+      apiVersionBase: p,
+      previewCard: U,
       emitTelemetry: R,
-      stateManager: u,
+      stateManager: d,
       syncService: I,
       activeTabController: W,
       syncController: A
@@ -4761,32 +4766,32 @@ function ri(n = {}) {
         de?.maybeShowResumeDialog?.(), se.loadDocuments(), se.loadRecentDocuments();
       },
       destroy() {
-        ze.destroy(), u.destroy();
+        ze.destroy(), d.destroy();
       }
     }
-  }), se = Fn({
+  }), se = Nn({
     apiBase: l,
-    apiVersionBase: m,
+    apiVersionBase: p,
     documentsUploadURL: x,
     isEditMode: y,
-    titleSource: z,
+    titleSource: H,
     normalizeTitleSource: b,
     stateManager: f,
-    previewCard: q,
+    previewCard: U,
     parseAPIError: ue,
-    announceError: Fe,
+    announceError: Me,
     showToast: Ht,
     mapUserFacingError: ce,
     renderFieldRulePreview: () => G?.renderFieldRulePreview?.()
   });
   se.initializeTitleSourceSeed(), se.bindEvents();
-  const ne = ot(se.refs.documentIdInput, "document id input"), K = ot(se.refs.documentSearch, "document search input"), j = se.refs.selectedDocumentTitle, le = se.refs.documentPageCountInput, U = se.ensureSelectedDocumentCompatibility, oe = se.getCurrentDocumentPageCount;
-  ie = Nn({
+  const ne = ot(se.refs.documentIdInput, "document id input"), K = ot(se.refs.documentSearch, "document search input"), j = se.refs.selectedDocumentTitle, le = se.refs.documentPageCountInput, z = se.ensureSelectedDocumentCompatibility, oe = se.getCurrentDocumentPageCount;
+  ie = Bn({
     initialParticipants: P,
     onParticipantsChanged: () => G?.updateFieldParticipantOptions?.()
   }), ie.initialize(), ie.bindEvents();
   const ae = ot(ie.refs.participantsContainer, "participants container"), r = ot(ie.refs.addParticipantBtn, "add participant button"), o = () => ie?.getSignerParticipants() || [];
-  G = qn({
+  G = On({
     initialFieldInstances: T,
     placementSource: Ge,
     getCurrentDocumentPageCount: oe,
@@ -4800,34 +4805,34 @@ function ri(n = {}) {
       Ee = D || It(), he?.setLinkGroupState?.(Ee);
     }
   }), G.bindEvents(), G.initialize();
-  const c = ot(G.refs.fieldDefinitionsContainer, "field definitions container"), L = G.refs.fieldRulesContainer, C = ot(G.refs.addFieldBtn, "add field button"), k = G.refs.fieldPlacementsJSONInput, V = G.refs.fieldRulesJSONInput, Z = () => G?.collectFieldRulesForState() || [], be = () => G?.collectFieldRulesForState() || [], ge = () => G?.collectFieldRulesForForm() || [], Ne = (D, re) => G?.expandRulesForPreview(D, re) || [], Le = () => G?.updateFieldParticipantOptions(), Ye = () => G.collectPlacementFieldDefinitions(), Te = (D) => G?.getFieldDefinitionById(D) || null, S = () => G?.findSignersMissingRequiredSignatureField() || [], v = (D) => G?.missingSignatureFieldMessage(D) || "", E = In({
+  const c = ot(G.refs.fieldDefinitionsContainer, "field definitions container"), L = G.refs.fieldRulesContainer, C = ot(G.refs.addFieldBtn, "add field button"), k = G.refs.fieldPlacementsJSONInput, V = G.refs.fieldRulesJSONInput, Z = () => G?.collectFieldRulesForState() || [], be = () => G?.collectFieldRulesForState() || [], ge = () => G?.collectFieldRulesForForm() || [], Ne = (D, re) => G?.expandRulesForPreview(D, re) || [], Le = () => G?.updateFieldParticipantOptions(), Ye = () => G.collectPlacementFieldDefinitions(), Te = (D) => G?.getFieldDefinitionById(D) || null, S = () => G?.findSignersMissingRequiredSignatureField() || [], v = (D) => G?.missingSignatureFieldMessage(D) || "", E = _n({
     documentIdInput: ne,
     selectedDocumentTitle: j,
     participantsContainer: ae,
     fieldDefinitionsContainer: c,
-    submitBtn: O,
+    submitBtn: q,
     escapeHtml: Ue,
     getSignerParticipants: o,
     getCurrentDocumentPageCount: oe,
     collectFieldRulesForState: be,
     expandRulesForPreview: Ne,
     findSignersMissingRequiredSignatureField: S,
-    goToStep: (D) => H.goToStep(D)
-  }), $ = (D) => {
-    O.getAttribute("aria-busy") !== "true" && (O.innerHTML = `
+    goToStep: (D) => O.goToStep(D)
+  }), B = (D) => {
+    q.getAttribute("aria-busy") !== "true" && (q.innerHTML = `
       <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
       </svg>
       ${D}
     `);
   };
-  pe = jn({
+  pe = Gn({
     getSignerParticipants: o,
-    setPrimaryActionLabel: $,
+    setPrimaryActionLabel: B,
     onChanged: () => Ae()
-  }), pe.bindEvents(), he = Hn({
+  }), pe.bindEvents(), he = jn({
     apiBase: l,
-    apiVersionBase: m,
+    apiVersionBase: p,
     documentIdInput: ne,
     fieldPlacementsJSONInput: k,
     initialFieldInstances: G.buildInitialPlacementInstances(),
@@ -4840,12 +4845,12 @@ function ri(n = {}) {
     escapeHtml: Ue,
     onPlacementsChanged: () => Ae()
   }), he.bindEvents(), Ee = he.getLinkGroupState();
-  const H = _n({
+  const O = En({
     totalWizardSteps: mt,
     wizardStep: $e,
-    nextStepLabels: en,
-    submitBtn: O,
-    previewCard: q,
+    nextStepLabels: tn,
+    submitBtn: q,
+    previewCard: U,
     updateCoordinationUI: je,
     validateStep: (D) => X?.validateStep(D) !== !1,
     onPlacementStep() {
@@ -4855,13 +4860,13 @@ function ri(n = {}) {
       pe?.refreshRecipientReviewers(), E.initSendReadinessCheck();
     },
     onStepChanged(D) {
-      u.updateStep(D), Ae(), A.forceSync();
+      d.updateStep(D), Ae(), A.forceSync();
     }
   });
-  H.bindEvents(), ye = Zn({
+  O.bindEvents(), ye = Qn({
     createSuccess: _,
     enableServerSync: !y && F === "json",
-    stateManager: u,
+    stateManager: d,
     syncOrchestrator: A,
     syncService: I,
     applyStateToUI: (D) => Be(D, {
@@ -4870,7 +4875,7 @@ function ri(n = {}) {
     surfaceSyncOutcome: We,
     reviewStep: $e.REVIEW
   }), ye.handleCreateSuccessCleanup(), ye.bindRetryAndConflictHandlers();
-  const Y = Gn({
+  const Y = Wn({
     documentIdInput: ne,
     documentPageCountInput: le,
     titleInput: w.form.titleInput,
@@ -4881,55 +4886,55 @@ function ri(n = {}) {
     fieldRulesJSONInput: V,
     collectFieldRulesForForm: () => ge(),
     buildPlacementFormEntries: () => he?.buildPlacementFormEntries?.() || [],
-    getCurrentStep: () => H.getCurrentStep(),
+    getCurrentStep: () => O.getCurrentStep(),
     totalWizardSteps: mt
   }), ve = () => Y.buildCanonicalAgreementPayload();
-  return Se = Wn({
-    titleSource: z,
-    stateManager: u,
+  return Se = Vn({
+    titleSource: H,
+    stateManager: d,
     trackWizardStateChanges: Ae,
     participantsController: ie,
     fieldDefinitionsController: G,
     placementController: he,
     reviewConfigController: pe,
     updateFieldParticipantOptions: Le,
-    previewCard: q,
-    wizardNavigationController: H,
+    previewCard: U,
+    wizardNavigationController: O,
     documentIdInput: ne,
     documentPageCountInput: le,
     selectedDocumentTitle: j,
     agreementRefs: w,
     parsePositiveInt: ke,
     isEditMode: y
-  }), Se.bindChangeTracking(), X = Yn({
+  }), Se.bindChangeTracking(), X = Jn({
     documentIdInput: ne,
     titleInput: w.form.titleInput,
     participantsContainer: ae,
     fieldDefinitionsContainer: c,
     fieldRulesContainer: L,
     addFieldBtn: C,
-    ensureSelectedDocumentCompatibility: U,
+    ensureSelectedDocumentCompatibility: z,
     collectFieldRulesForState: Z,
     findSignersMissingRequiredSignatureField: S,
     missingSignatureFieldMessage: v,
-    announceError: Fe
-  }), de = Jn({
+    announceError: Me
+  }), de = Xn({
     isEditMode: y,
-    storageKey: g,
-    stateManager: u,
+    storageKey: h,
+    stateManager: d,
     syncOrchestrator: A,
     syncService: I,
     applyResumedState: (D) => Be(D, {
       step: Number(D?.currentStep || 1)
     }),
     hasMeaningfulWizardProgress: Ot,
-    formatRelativeTime: ee,
+    formatRelativeTime: Q,
     emitWizardTelemetry: (D, re) => R(D, re),
     getActiveTabDebugState: qe
-  }), de.bindEvents(), Rn({
+  }), de.bindEvents(), Cn({
     config: e,
     form: J,
-    submitBtn: O,
+    submitBtn: q,
     documentIdInput: ne,
     documentSearch: K,
     participantsContainer: ae,
@@ -4939,17 +4944,17 @@ function ri(n = {}) {
     documentPageCountInput: le,
     fieldPlacementsJSONInput: k,
     fieldRulesJSONInput: V,
-    storageKey: g,
+    storageKey: h,
     syncService: I,
     syncOrchestrator: A,
-    stateManager: u,
+    stateManager: d,
     submitMode: F,
     totalWizardSteps: mt,
     wizardStep: $e,
-    getCurrentStep: () => H.getCurrentStep(),
+    getCurrentStep: () => O.getCurrentStep(),
     getPlacementState: () => he.getState(),
     getCurrentDocumentPageCount: oe,
-    ensureSelectedDocumentCompatibility: U,
+    ensureSelectedDocumentCompatibility: z,
     collectFieldRulesForState: Z,
     collectFieldRulesForForm: ge,
     expandRulesForPreview: Ne,
@@ -4963,12 +4968,12 @@ function ri(n = {}) {
       participants: []
     },
     isStartReviewEnabled: () => pe?.isStartReviewEnabled?.() === !0,
-    setPrimaryActionLabel: $,
+    setPrimaryActionLabel: B,
     buildCanonicalAgreementPayload: ve,
-    announceError: Fe,
+    announceError: Me,
     emitWizardTelemetry: R,
     parseAPIError: me,
-    goToStep: (D) => H.goToStep(D),
+    goToStep: (D) => O.goToStep(D),
     showSyncConflictDialog: _e,
     surfaceSyncOutcome: We,
     updateSyncStatus: De,
@@ -4977,16 +4982,16 @@ function ri(n = {}) {
   }).bindEvents(), fe;
 }
 let _t = null;
-function si() {
+function ai() {
   _t?.destroy(), _t = null, typeof window < "u" && (delete window.__esignAgreementRuntime, delete window.__esignAgreementRuntimeInitialized);
 }
-function ai(n = {}) {
+function oi(n = {}) {
   if (_t)
     return;
-  const e = ri(n);
+  const e = si(n);
   e.start(), _t = e, typeof window < "u" && (window.__esignAgreementRuntime = e, window.__esignAgreementRuntimeInitialized = !0);
 }
-function oi(n = document) {
+function ci(n = document) {
   n.querySelectorAll(".collapsible-trigger[aria-controls]").forEach((t) => {
     const i = t.getAttribute("aria-controls");
     if (!i) return;
@@ -4997,7 +5002,7 @@ function oi(n = document) {
     });
   });
 }
-function ci(n) {
+function li(n) {
   return {
     sync: n.sync && typeof n.sync == "object" ? {
       base_url: String(n.sync.base_url || "").trim(),
@@ -5024,23 +5029,23 @@ function ci(n) {
     initial_field_instances: Array.isArray(n.initial_field_instances) ? n.initial_field_instances : []
   };
 }
-class Zt {
+class Qt {
   constructor(e) {
-    this.initialized = !1, this.config = ci(e);
+    this.initialized = !1, this.config = li(e);
   }
   init() {
-    this.initialized || (this.initialized = !0, oi(), ai(this.config));
+    this.initialized || (this.initialized = !0, ci(), oi(this.config));
   }
   destroy() {
-    si(), this.initialized = !1;
+    ai(), this.initialized = !1;
   }
 }
-function gi(n) {
-  const e = new Zt(n);
+function yi(n) {
+  const e = new Qt(n);
   return Dt(() => e.init()), e;
 }
-function li(n) {
-  const e = new Zt({
+function di(n) {
+  const e = new Qt({
     sync: n.sync,
     basePath: n.basePath,
     apiBasePath: n.apiBasePath,
@@ -5059,7 +5064,7 @@ function li(n) {
   });
   Dt(() => e.init()), typeof window < "u" && (window.esignAgreementFormController = e);
 }
-function di(n) {
+function ui(n) {
   const e = n.context && typeof n.context == "object" ? n.context : {}, t = n.routes && typeof n.routes == "object" ? n.routes : e.routes && typeof e.routes == "object" ? e.routes : {}, i = n.sync && typeof n.sync == "object" ? n.sync : e.sync && typeof e.sync == "object" ? e.sync : void 0, s = String(n.base_path || n.basePath || "").trim(), l = String(t.index || "").trim();
   return !s && !l ? null : {
     sync: i ? {
@@ -5068,7 +5073,7 @@ function di(n) {
       client_base_path: String(i.client_base_path || "").trim(),
       resource_kind: String(i.resource_kind || "").trim(),
       storage_scope: String(i.storage_scope || "").trim(),
-      action_operations: Array.isArray(i.action_operations) ? i.action_operations.map((m) => String(m || "").trim()).filter(Boolean) : []
+      action_operations: Array.isArray(i.action_operations) ? i.action_operations.map((p) => String(p || "").trim()).filter(Boolean) : []
     } : void 0,
     base_path: s || "/admin",
     api_base_path: String(n.api_base_path || n.apiBasePath || "").trim() || void 0,
@@ -5092,15 +5097,15 @@ typeof document < "u" && Dt(() => {
   const e = document.getElementById("esign-page-config");
   if (e)
     try {
-      const t = JSON.parse(e.textContent || "{}"), i = di(t);
-      i && li(i);
+      const t = JSON.parse(e.textContent || "{}"), i = ui(t);
+      i && di(i);
     } catch (t) {
       console.warn("Failed to parse agreement form page config:", t);
     }
 });
 export {
-  Zt as AgreementFormController,
-  li as bootstrapAgreementForm,
-  gi as initAgreementForm
+  Qt as AgreementFormController,
+  di as bootstrapAgreementForm,
+  yi as initAgreementForm
 };
 //# sourceMappingURL=agreement-form.js.map

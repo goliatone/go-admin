@@ -5,7 +5,7 @@
  */
 
 import { renderIcon } from '../shared/icon-renderer.js';
-import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { escapeAttribute, escapeHTML as escapeHtml } from '../shared/html.js';
 
 // =============================================================================
 // Types
@@ -71,6 +71,47 @@ export interface ForbiddenStateConfig extends UIStateConfig {
   resource?: string;
   /** Required permission */
   permission?: string;
+}
+
+export interface UIStateMarkupAttributes {
+  [attribute: string]: string | number | boolean | null | undefined;
+}
+
+export interface PanelLoadingStateConfig {
+  tag?: 'div' | 'section';
+  text?: string;
+  showSpinner?: boolean;
+  containerClass?: string;
+  bodyClass?: string;
+  spinnerClass?: string;
+  textClass?: string;
+  role?: string;
+  ariaLive?: 'off' | 'polite' | 'assertive';
+  ariaLabel?: string;
+  attributes?: UIStateMarkupAttributes;
+}
+
+export interface PanelStateConfig {
+  tag?: 'div' | 'section';
+  containerClass?: string;
+  bodyClass?: string;
+  contentClass?: string;
+  iconHtml?: string;
+  title?: string;
+  titleTag?: 'p' | 'h2' | 'h3';
+  titleClass?: string;
+  heading?: string;
+  headingTag?: 'p' | 'h2' | 'h3';
+  headingClass?: string;
+  message?: string;
+  messageClass?: string;
+  metadata?: string;
+  metadataClass?: string;
+  actionsHtml?: string;
+  role?: string;
+  ariaLive?: 'off' | 'polite' | 'assertive';
+  ariaLabel?: string;
+  attributes?: UIStateMarkupAttributes;
 }
 
 // =============================================================================
@@ -143,6 +184,95 @@ export function renderLoadingState(config: LoadingStateConfig = {}): string {
         <span class="${sizes.text}">${escapeHtml(text)}</span>
       </div>
     </div>
+  `;
+}
+
+export function renderPanelLoadingState(config: PanelLoadingStateConfig = {}): string {
+  const {
+    tag = 'div',
+    text = 'Loading...',
+    showSpinner = true,
+    containerClass = '',
+    bodyClass = 'flex items-center justify-center gap-3 py-8',
+    spinnerClass = 'w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin',
+    textClass = 'text-sm text-gray-500',
+    role = 'status',
+    ariaLive,
+    ariaLabel,
+    attributes = {},
+  } = config;
+
+  const stateAttributes = renderMarkupAttributes({
+    role,
+    'aria-busy': 'true',
+    'aria-live': ariaLive,
+    'aria-label': ariaLabel,
+    ...attributes,
+  });
+
+  return `
+    <${tag}${renderClassAttribute(containerClass)}${stateAttributes}>
+      <div${renderClassAttribute(bodyClass)}>
+        ${showSpinner ? `<div${renderClassAttribute(spinnerClass)} aria-hidden="true"></div>` : ''}
+        <span${renderClassAttribute(textClass)}>${escapeHtml(text)}</span>
+      </div>
+    </${tag}>
+  `;
+}
+
+export function renderPanelState(config: PanelStateConfig = {}): string {
+  const {
+    tag = 'div',
+    containerClass = '',
+    bodyClass = 'flex flex-col items-center gap-4 text-center max-w-md',
+    contentClass = '',
+    iconHtml = '',
+    title,
+    titleTag = 'p',
+    titleClass = 'text-lg font-medium text-gray-900',
+    heading,
+    headingTag = 'h2',
+    headingClass = 'mt-2 text-xl font-semibold text-gray-900',
+    message,
+    messageClass = 'text-sm text-gray-500 mt-1',
+    metadata,
+    metadataClass = 'mt-2 text-xs uppercase tracking-[0.16em] text-gray-500',
+    actionsHtml = '',
+    role = 'status',
+    ariaLive,
+    ariaLabel,
+    attributes = {},
+  } = config;
+
+  const stateAttributes = renderMarkupAttributes({
+    role,
+    'aria-live': ariaLive,
+    'aria-label': ariaLabel,
+    ...attributes,
+  });
+
+  const titleHtml = title
+    ? `<${titleTag}${renderClassAttribute(titleClass)}>${escapeHtml(title)}</${titleTag}>`
+    : '';
+  const headingHtml = heading
+    ? `<${headingTag}${renderClassAttribute(headingClass)}>${escapeHtml(heading)}</${headingTag}>`
+    : '';
+  const messageHtml = message
+    ? `<p${renderClassAttribute(messageClass)}>${escapeHtml(message)}</p>`
+    : '';
+  const metadataHtml = metadata
+    ? `<p${renderClassAttribute(metadataClass)}>${escapeHtml(metadata)}</p>`
+    : '';
+  const contentHtml = [titleHtml, headingHtml, messageHtml, metadataHtml].filter(Boolean).join('');
+
+  return `
+    <${tag}${renderClassAttribute(containerClass)}${stateAttributes}>
+      <div${renderClassAttribute(bodyClass)}>
+        ${iconHtml}
+        <div${renderClassAttribute(contentClass)}>${contentHtml}</div>
+        ${actionsHtml}
+      </div>
+    </${tag}>
   `;
 }
 
@@ -593,4 +723,21 @@ function renderActionButton(action: { text: string; onClick: () => void; variant
   `;
 }
 
+function renderClassAttribute(value: string): string {
+  return value ? ` class="${escapeAttribute(value)}"` : '';
+}
 
+function renderMarkupAttributes(attributes: UIStateMarkupAttributes): string {
+  const rendered = Object.entries(attributes)
+    .flatMap(([attribute, value]) => {
+      if (value === null || value === undefined || value === false) {
+        return [];
+      }
+      if (value === true) {
+        return [` ${attribute}="true"`];
+      }
+      return [` ${attribute}="${escapeAttribute(value)}"`];
+    })
+    .join('');
+  return rendered;
+}
