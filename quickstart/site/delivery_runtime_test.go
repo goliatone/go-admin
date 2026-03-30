@@ -9,13 +9,18 @@ import (
 
 type localeScopedContentListStub struct {
 	admin.CMSContentService
-	byLocale map[string][]admin.CMSContent
+	byLocale  map[string][]admin.CMSContent
+	listCalls map[string]int
 }
 
 func (s *localeScopedContentListStub) Contents(ctx context.Context, locale string) ([]admin.CMSContent, error) {
 	if s == nil {
 		return nil, nil
 	}
+	if s.listCalls == nil {
+		s.listCalls = map[string]int{}
+	}
+	s.listCalls[locale]++
 	if items, ok := s.byLocale[locale]; ok {
 		return append([]admin.CMSContent{}, items...), nil
 	}
@@ -134,7 +139,7 @@ func TestResolveLocalizedPathsByLocaleUsesLocaleVariants(t *testing.T) {
 		deliveryCapability{TypeSlug: "page", Kind: "page"},
 		record,
 		nil,
-		newLocaleContentCache(),
+		newSiteContentCache(),
 	)
 
 	if got["en"] != "/about" {
@@ -200,7 +205,7 @@ func TestResolvePageKindMatchesLocalizedAliasPath(t *testing.T) {
 		records,
 		state,
 		"/about",
-		newLocaleContentCache(),
+		newSiteContentCache(),
 	)
 	if !matched {
 		t.Fatalf("expected localized alias match for /about in es locale")
@@ -213,6 +218,104 @@ func TestResolvePageKindMatchesLocalizedAliasPath(t *testing.T) {
 	}
 	if resolution.Record.Locale != "es" {
 		t.Fatalf("expected resolved record locale es, got %+v", resolution.Record)
+	}
+}
+
+func TestLocalizedCapabilityRecordsFiltersVisibleRecordsByLocale(t *testing.T) {
+	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		DefaultLocale:    "en",
+		SupportedLocales: []string{"en", "es", "fr"},
+		Features: SiteFeatures{
+			EnableI18N: boolPtr(true),
+		},
+	})
+	stub := &localeScopedContentListStub{
+		CMSContentService: admin.NewInMemoryContentService(),
+		byLocale: map[string][]admin.CMSContent{
+			"es": {
+				{
+					ID:              "page-es",
+					Slug:            "hola",
+					Locale:          "es",
+					Status:          "published",
+					ContentType:     "page",
+					ContentTypeSlug: "page",
+				},
+				{
+					ID:              "post-es",
+					Slug:            "post",
+					Locale:          "es",
+					Status:          "published",
+					ContentType:     "post",
+					ContentTypeSlug: "post",
+				},
+			},
+			"en": {
+				{
+					ID:              "page-en",
+					Slug:            "home",
+					Locale:          "en",
+					Status:          "published",
+					ContentType:     "page",
+					ContentTypeSlug: "page",
+				},
+				{
+					ID:              "page-draft",
+					Slug:            "draft",
+					Locale:          "en",
+					Status:          "draft",
+					ContentType:     "page",
+					ContentTypeSlug: "page",
+				},
+			},
+			"fr": {
+				{
+					ID:              "page-fr",
+					Slug:            "bonjour",
+					Locale:          "fr",
+					Status:          "published",
+					ContentType:     "page",
+					ContentTypeSlug: "page",
+				},
+			},
+		},
+	}
+	runtime := &deliveryRuntime{
+		siteCfg:    cfg,
+		contentSvc: stub,
+	}
+	state := RequestState{
+		Locale:              "es",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en", "es"},
+		AllowLocaleFallback: true,
+	}
+
+	got := runtime.localizedCapabilityRecords(
+		context.Background(),
+		deliveryCapability{TypeSlug: "page", Kind: "page"},
+		state,
+		newSiteContentCache(),
+		state.SupportedLocales,
+		[]string{state.Locale},
+		[]string{state.DefaultLocale},
+		[]string{"fr"},
+	)
+
+	if len(got.locales) != 3 || got.locales[0] != "en" || got.locales[1] != "es" || got.locales[2] != "fr" {
+		t.Fatalf("expected locale order [en es fr], got %+v", got.locales)
+	}
+	if len(got.byLocale["es"]) != 1 || got.byLocale["es"][0].ID != "page-es" {
+		t.Fatalf("expected only visible page-es for es locale, got %+v", got.byLocale["es"])
+	}
+	if len(got.byLocale["en"]) != 1 || got.byLocale["en"][0].ID != "page-en" {
+		t.Fatalf("expected draft page filtered from en locale, got %+v", got.byLocale["en"])
+	}
+	if len(got.byLocale["fr"]) != 1 || got.byLocale["fr"][0].ID != "page-fr" {
+		t.Fatalf("expected page-fr included from extra locale, got %+v", got.byLocale["fr"])
+	}
+	if stub.listCalls["en"] != 1 || stub.listCalls["es"] != 1 || stub.listCalls["fr"] != 1 {
+		t.Fatalf("expected one cached load per locale, got %+v", stub.listCalls)
 	}
 }
 
@@ -340,7 +443,7 @@ func TestDeliveryRuntimeResolvesCapabilityKinds(t *testing.T) {
 
 	assertMode := func(path, expectedMode, expectedType string) {
 		t.Helper()
-		resolution, siteErr := runtime.resolve(context.Background(), state, path, newLocaleContentCache())
+		resolution, siteErr := runtime.resolve(context.Background(), state, path, newSiteContentCache())
 		if hasSiteRuntimeError(siteErr) {
 			t.Fatalf("resolve %s unexpected error %+v", path, siteErr)
 		}
@@ -426,7 +529,7 @@ func TestDeliveryRuntimePreviewFallbackResolvesByRecordIDWhenRoutePathMisses(t *
 		PreviewEntityType:   "pages",
 		PreviewContentID:    "page-draft-home",
 	}
-	resolution, siteErr := runtime.resolve(context.Background(), state, "/", newLocaleContentCache())
+	resolution, siteErr := runtime.resolve(context.Background(), state, "/", newSiteContentCache())
 	if hasSiteRuntimeError(siteErr) {
 		t.Fatalf("resolve / unexpected error %+v", siteErr)
 	}
@@ -542,7 +645,7 @@ func TestDeliveryRuntimeResolvesWithEnvironmentScopedContentTypes(t *testing.T) 
 		admin.WithEnvironment(context.Background(), "prod"),
 		state,
 		"/home",
-		newLocaleContentCache(),
+		newSiteContentCache(),
 	)
 	if hasSiteRuntimeError(siteErr) {
 		t.Fatalf("resolve /home unexpected error %+v", siteErr)

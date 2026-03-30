@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -106,6 +107,17 @@ func TestSiteDeliveryPreviewFidelityThroughRegisteredRoutes(t *testing.T) {
 	}
 	if !nestedBool(preview, "context", "is_preview") {
 		t.Fatalf("expected preview context flag true, got %+v", preview["context"])
+	}
+	switcherURL := localeSwitcherURLByLocale(preview, "es")
+	parsedSwitcherURL, err := url.Parse(switcherURL)
+	if err != nil {
+		t.Fatalf("parse locale switcher URL %q: %v", switcherURL, err)
+	}
+	if parsedSwitcherURL.Path != "/es/posts/hello-world" {
+		t.Fatalf("expected translated locale switcher path /es/posts/hello-world, got %q payload=%+v", parsedSwitcherURL.Path, preview)
+	}
+	if got := parsedSwitcherURL.Query().Get("preview_token"); got != validToken {
+		t.Fatalf("expected locale switcher to forward decoded preview token, got %q payload=%+v", got, preview)
 	}
 
 	invalid := performSiteRequest(t, server, basePath+"&preview_token=not-a-valid-token")

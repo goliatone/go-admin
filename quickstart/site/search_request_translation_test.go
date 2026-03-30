@@ -1,0 +1,100 @@
+package site
+
+import (
+	"context"
+	"testing"
+
+	"github.com/goliatone/go-admin/admin"
+	router "github.com/goliatone/go-router"
+)
+
+type recordingSearchFilterModule struct {
+	response map[string][]string
+	lastReq  SiteSearchFilterRequest
+}
+
+func (m *recordingSearchFilterModule) ID() string { return "recording-search-filter-module" }
+
+func (m *recordingSearchFilterModule) RegisterRoutes(SiteModuleContext) error { return nil }
+
+func (m *recordingSearchFilterModule) ViewContext(_ context.Context, in router.ViewContext) router.ViewContext {
+	return in
+}
+
+func (m *recordingSearchFilterModule) SearchFilters(_ context.Context, _ router.Context, req SiteSearchFilterRequest) map[string][]string {
+	m.lastReq = req
+	return cloneSearchFilters(m.response)
+}
+
+func TestInjectSearchRequestFiltersPreservesFlagsAndClonesInputs(t *testing.T) {
+	module := &recordingSearchFilterModule{
+		response: map[string][]string{
+			"module_scope": {"beta"},
+		},
+	}
+	runtime := &searchRuntime{modules: []SiteModule{module}}
+	seed := searchRequestTranslationSeed{
+		query:   "archive",
+		locale:  "en",
+		filters: map[string][]string{"content_type": {"post"}},
+	}
+	filters := map[string][]string{"content_type": {"post"}}
+	ranges := []admin.SearchRange{{Field: "published_year", GTE: 2024}}
+
+	out := runtime.injectSearchRequestFilters(context.Background(), nil, seed, filters, ranges, false)
+
+	if module.lastReq.Query != "archive" || module.lastReq.Locale != "en" {
+		t.Fatalf("unexpected injected request identity: %+v", module.lastReq)
+	}
+	if module.lastReq.IsSuggest {
+		t.Fatalf("expected IsSuggest false, got %+v", module.lastReq)
+	}
+	if len(module.lastReq.Ranges) != 1 || module.lastReq.Ranges[0].Field != "published_year" {
+		t.Fatalf("expected ranges to be forwarded to module injector, got %+v", module.lastReq.Ranges)
+	}
+	if got := out["module_scope"]; len(got) != 1 || got[0] != "beta" {
+		t.Fatalf("expected injected module_scope filter, got %+v", out)
+	}
+	module.lastReq.Filters["content_type"][0] = "page"
+	if filters["content_type"][0] != "post" {
+		t.Fatalf("expected input filters to remain cloned, got %+v", filters)
+	}
+	module.lastReq.Ranges[0].Field = "duration_seconds"
+	if ranges[0].Field != "published_year" {
+		t.Fatalf("expected input ranges to remain cloned, got %+v", ranges)
+	}
+}
+
+func TestInjectSearchRequestFiltersForSuggestMarksSuggestAndOmitsRanges(t *testing.T) {
+	module := &recordingSearchFilterModule{}
+	runtime := &searchRuntime{modules: []SiteModule{module}}
+	seed := searchRequestTranslationSeed{
+		query:  "archive",
+		locale: "es",
+	}
+
+	_ = runtime.injectSearchRequestFilters(context.Background(), nil, seed, map[string][]string{}, nil, true)
+
+	if !module.lastReq.IsSuggest {
+		t.Fatalf("expected IsSuggest true, got %+v", module.lastReq)
+	}
+	if len(module.lastReq.Ranges) != 0 {
+		t.Fatalf("expected no ranges for suggest path, got %+v", module.lastReq.Ranges)
+	}
+}
+
+func TestApplySearchLandingFiltersAddsTopicPresetFacetFilters(t *testing.T) {
+	filters := map[string][]string{
+		"content_type": {"post"},
+	}
+
+	applySearchLandingFilters(filters, &searchLandingState{Slug: "architecture"})
+
+	values := filters["topic_hierarchy"]
+	if len(values) != 1 || values[0] != "Teaching Topics > Architecture" {
+		t.Fatalf("expected topic_hierarchy landing filter, got %+v", filters)
+	}
+	if got := filters["content_type"]; len(got) != 1 || got[0] != "post" {
+		t.Fatalf("expected unrelated filters to remain intact, got %+v", filters)
+	}
+}

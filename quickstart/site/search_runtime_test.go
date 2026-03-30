@@ -15,19 +15,22 @@ import (
 )
 
 type recordingSiteSearchProvider struct {
-	searchResult  admin.SearchResultPage
-	suggestResult admin.SuggestResult
-	searchErr     error
-	suggestErr    error
-	lastSearch    admin.SearchRequest
-	lastSuggest   admin.SuggestRequest
-	searchCalls   int
-	suggestCalls  int
+	searchResult   admin.SearchResultPage
+	suggestResult  admin.SuggestResult
+	searchErr      error
+	suggestErr     error
+	lastSearch     admin.SearchRequest
+	lastSuggest    admin.SuggestRequest
+	searchHistory  []admin.SearchRequest
+	suggestHistory []admin.SuggestRequest
+	searchCalls    int
+	suggestCalls   int
 }
 
 func (s *recordingSiteSearchProvider) Search(_ context.Context, req admin.SearchRequest) (admin.SearchResultPage, error) {
 	s.searchCalls++
 	s.lastSearch = req
+	s.searchHistory = append(s.searchHistory, req)
 	if s.searchErr != nil {
 		return admin.SearchResultPage{}, s.searchErr
 	}
@@ -40,6 +43,7 @@ func (s *recordingSiteSearchProvider) Search(_ context.Context, req admin.Search
 func (s *recordingSiteSearchProvider) Suggest(_ context.Context, req admin.SuggestRequest) (admin.SuggestResult, error) {
 	s.suggestCalls++
 	s.lastSuggest = req
+	s.suggestHistory = append(s.suggestHistory, req)
 	if s.suggestErr != nil {
 		return admin.SuggestResult{}, s.suggestErr
 	}
@@ -256,6 +260,44 @@ func TestSiteSearchModuleFilterInjection(t *testing.T) {
 	values := provider.lastSearch.Filters["module_scope"]
 	if len(values) != 2 || !searchFilterContains(values, "module-default") || !searchFilterContains(values, "beta") {
 		t.Fatalf("expected module_scope filters to include module-default and beta, got %+v", values)
+	}
+}
+
+func TestSearchViewContextClonesRequestStateViewContext(t *testing.T) {
+	runtime := &searchRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			Search: SiteSearchConfig{
+				Endpoint: "/api/v1/site/search",
+			},
+		}),
+		baseRoute: "/search",
+	}
+	ctx := router.NewMockContext()
+	ctx.On("Path").Return("/search")
+
+	state := RequestState{
+		ViewContext: router.ViewContext{
+			"locale": "en",
+			"theme":  "admin",
+		},
+	}
+	req := admin.SearchRequest{Query: "welcome"}
+	result := admin.SearchResultPage{
+		Hits:    []admin.SearchHit{},
+		Page:    1,
+		PerPage: 10,
+		Total:   0,
+	}
+
+	view := runtime.searchViewContext(ctx, state, req, result, nil, nil, nil, nil)
+	if got := anyString(view["search_route"]); got != "/search" {
+		t.Fatalf("expected search_route /search, got %q", got)
+	}
+	if got := anyString(state.ViewContext["search_route"]); got != "" {
+		t.Fatalf("expected original request state view context to remain unchanged, got %q", got)
+	}
+	if got := anyString(view["theme"]); got != "admin" {
+		t.Fatalf("expected cloned base request view context to preserve theme, got %q", got)
 	}
 }
 

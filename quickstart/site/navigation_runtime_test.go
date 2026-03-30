@@ -510,6 +510,48 @@ func TestEnforceContributionLocalePolicyStrictFiltersFallbackContentTargets(t *t
 	}
 }
 
+func TestEnforceContributionLocalePolicyStrictSharesContentCacheAcrossDuplicateTargets(t *testing.T) {
+	contentSvc := &strictLocaleContentStub{
+		records: map[string]admin.CMSContent{
+			"content-es": {
+				ID:                     "content-es",
+				Locale:                 "es",
+				ResolvedLocale:         "es",
+				MissingRequestedLocale: false,
+			},
+		},
+	}
+	runtime := &navigationRuntime{contentSvc: contentSvc}
+	items := []admin.MenuItem{
+		{
+			ID:    "localized-a",
+			Label: "Localized A",
+			Target: map[string]any{
+				"type":       "content",
+				"content_id": "content-es",
+				"url":        "/es/a",
+			},
+		},
+		{
+			ID:    "localized-b",
+			Label: "Localized B",
+			Target: map[string]any{
+				"type":       "content",
+				"content_id": "content-es",
+				"url":        "/es/b",
+			},
+		},
+	}
+
+	filtered := runtime.enforceContributionLocalePolicy(context.Background(), items, "es", ContributionLocalePolicyStrict)
+	if len(filtered) != 2 {
+		t.Fatalf("expected both localized items to survive strict filtering, got %+v", filtered)
+	}
+	if contentSvc.contentCalls[siteContentRecordCacheKey("content-es", "es")] != 1 {
+		t.Fatalf("expected one cached content lookup for duplicate target, got %+v", contentSvc.contentCalls)
+	}
+}
+
 func seedDeliveryPageType(t *testing.T, content *admin.InMemoryContentService) {
 	t.Helper()
 	_, err := content.CreateContentType(context.Background(), admin.CMSContentType{
@@ -534,7 +576,8 @@ func seedDeliveryPageType(t *testing.T, content *admin.InMemoryContentService) {
 }
 
 type strictLocaleContentStub struct {
-	records map[string]admin.CMSContent
+	records      map[string]admin.CMSContent
+	contentCalls map[string]int
 }
 
 func (s *strictLocaleContentStub) Pages(context.Context, string) ([]admin.CMSPage, error) {
@@ -556,6 +599,10 @@ func (s *strictLocaleContentStub) Contents(context.Context, string) ([]admin.CMS
 	return nil, nil
 }
 func (s *strictLocaleContentStub) Content(_ context.Context, id, locale string) (*admin.CMSContent, error) {
+	if s.contentCalls == nil {
+		s.contentCalls = map[string]int{}
+	}
+	s.contentCalls[siteContentRecordCacheKey(id, locale)]++
 	record, ok := s.records[id]
 	if !ok {
 		return nil, admin.ErrNotFound

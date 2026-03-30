@@ -35,11 +35,6 @@ type deliveryPathPolicy struct {
 	allowedPrefixSet  bool
 }
 
-type localeContentCache struct {
-	loaded map[string]bool
-	items  map[string][]admin.CMSContent
-}
-
 func (c deliveryCapability) normalizedKind() string {
 	switch strings.ToLower(strings.TrimSpace(c.Kind)) {
 	case "page", "collection", "detail", "hybrid":
@@ -120,6 +115,11 @@ type deliveryResolution struct {
 	TemplateCandidates []string           `json:"template_candidates"`
 }
 
+type localizedCapabilityRecordSet struct {
+	locales  []string
+	byLocale map[string][]admin.CMSContent
+}
+
 type deliveryRuntime struct {
 	siteCfg        ResolvedSiteConfig
 	contentSvc     admin.CMSContentService
@@ -144,48 +144,11 @@ func newDeliveryRuntime(
 	}
 }
 
-func newLocaleContentCache() *localeContentCache {
-	return &localeContentCache{
-		loaded: map[string]bool{},
-		items:  map[string][]admin.CMSContent{},
-	}
-}
-
-func (r *deliveryRuntime) listSiteContentsCached(
-	ctx context.Context,
-	locale string,
-	cache *localeContentCache,
-) ([]admin.CMSContent, error) {
+func (r *deliveryRuntime) listSiteContentsCached(ctx context.Context, locale string, cache *siteContentCache) ([]admin.CMSContent, error) {
 	if r == nil || r.contentSvc == nil {
 		return nil, nil
 	}
-	locale = strings.ToLower(strings.TrimSpace(locale))
-	if cache == nil {
-		items, err := listSiteContents(ctx, r.contentSvc, locale)
-		if err != nil {
-			return nil, err
-		}
-		return cloneContentRecords(items), nil
-	}
-	if cache.loaded[locale] {
-		return cloneContentRecords(cache.items[locale]), nil
-	}
-	items, err := listSiteContents(ctx, r.contentSvc, locale)
-	cache.loaded[locale] = true
-	if err != nil {
-		return nil, err
-	}
-	cache.items[locale] = cloneContentRecords(items)
-	return cloneContentRecords(cache.items[locale]), nil
-}
-
-func cloneContentRecords(items []admin.CMSContent) []admin.CMSContent {
-	if len(items) == 0 {
-		return nil
-	}
-	out := make([]admin.CMSContent, len(items))
-	copy(out, items)
-	return out
+	return cache.List(ctx, r.contentSvc, locale)
 }
 
 func (r *deliveryRuntime) Handler() router.HandlerFunc {
@@ -196,28 +159,14 @@ func (r *deliveryRuntime) Handler() router.HandlerFunc {
 		if c == nil {
 			return nil
 		}
-		state, ok := RequestStateFromRequest(c)
-		if !ok {
-			state = RequestState{
-				Locale:              r.siteCfg.DefaultLocale,
-				DefaultLocale:       r.siteCfg.DefaultLocale,
-				SupportedLocales:    cloneStrings(r.siteCfg.SupportedLocales),
-				AllowLocaleFallback: r.siteCfg.AllowLocaleFallback,
-				Environment:         r.siteCfg.Environment,
-				ContentChannel:      r.siteCfg.ContentChannel,
-				BasePath:            r.siteCfg.BasePath,
-				AssetBasePath:       r.siteCfg.Views.AssetBasePath,
-				ActivePath:          c.Path(),
-				ViewContext:         router.ViewContext{},
-			}
-		}
+		state := fallbackRequestState(c, r.siteCfg, "/")
 		if strings.TrimSpace(state.ContentChannel) == "" {
 			state.ContentChannel = r.siteCfg.ContentChannel
 		}
 
 		path := r.requestPathForResolution(c)
-		cache := newLocaleContentCache()
-		requestCtx := c.Context()
+		cache := newSiteContentCache()
+		requestCtx := RequestContext(c)
 		if strings.TrimSpace(state.ContentChannel) != "" {
 			requestCtx = admin.WithContentChannel(requestCtx, state.ContentChannel)
 		}
@@ -256,7 +205,7 @@ func (r *deliveryRuntime) requestPathForResolution(c router.Context) string {
 	return normalizeLocalePath(path)
 }
 
-func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, requestPath string, cache *localeContentCache) (*deliveryResolution, SiteRuntimeError) {
+func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, requestPath string, cache *siteContentCache) (*deliveryResolution, SiteRuntimeError) {
 	capabilities, err := r.capabilities(ctx)
 	if err != nil {
 		return nil, SiteRuntimeError{Status: 500, Message: err.Error()}
@@ -407,7 +356,7 @@ func (r *deliveryRuntime) resolvePageKind(
 	records []admin.CMSContent,
 	state RequestState,
 	requestPath string,
-	cache *localeContentCache,
+	cache *siteContentCache,
 ) (*deliveryResolution, SiteRuntimeError, bool) {
 	candidates := []admin.CMSContent{}
 	for _, record := range records {
@@ -438,13 +387,59 @@ func (r *deliveryRuntime) resolvePageKind(
 	return resolution, SiteRuntimeError{}, true
 }
 
+func (r *deliveryRuntime) localizedCapabilityRecords(
+	ctx context.Context,
+	capability deliveryCapability,
+	state RequestState,
+	cache *siteContentCache,
+	localeGroups ...[]string,
+) localizedCapabilityRecordSet {
+	if r == nil || r.contentSvc == nil || !r.siteCfg.Features.EnableI18N {
+		return localizedCapabilityRecordSet{}
+	}
+
+	locales := uniqueLocaleOrder(localeGroups...)
+	if len(locales) == 0 {
+		return localizedCapabilityRecordSet{}
+	}
+
+	out := localizedCapabilityRecordSet{
+		locales:  locales,
+		byLocale: make(map[string][]admin.CMSContent, len(locales)),
+	}
+	for _, locale := range locales {
+		items, err := r.listSiteContentsCached(ctx, locale, cache)
+		if err != nil || len(items) == 0 {
+			continue
+		}
+
+		localeState := state
+		localeState.Locale = locale
+		filtered := make([]admin.CMSContent, 0, len(items))
+		for _, item := range items {
+			if !matchesCapabilityType(item, capability.TypeSlug) {
+				continue
+			}
+			if !recordVisibleForRequest(item, capability, localeState) {
+				continue
+			}
+			filtered = append(filtered, item)
+		}
+		if len(filtered) == 0 {
+			continue
+		}
+		out.byLocale[locale] = filtered
+	}
+	return out
+}
+
 func (r *deliveryRuntime) resolvePagePathAliasCandidates(
 	ctx context.Context,
 	capability deliveryCapability,
 	records []admin.CMSContent,
 	state RequestState,
 	requestPath string,
-	cache *localeContentCache,
+	cache *siteContentCache,
 ) []admin.CMSContent {
 	if r == nil || r.contentSvc == nil || len(records) == 0 || !r.siteCfg.Features.EnableI18N {
 		return nil
@@ -467,27 +462,18 @@ func (r *deliveryRuntime) resolvePagePathAliasCandidates(
 
 	matchedKeys := map[string]struct{}{}
 	requestPath = normalizeLocalePath(requestPath)
-	locales := uniqueLocaleOrder(
+	localized := r.localizedCapabilityRecords(
+		ctx,
+		capability,
+		state,
+		cache,
 		state.SupportedLocales,
 		[]string{state.Locale},
 		[]string{state.DefaultLocale},
 		[]string{r.siteCfg.DefaultLocale},
 	)
-	for _, locale := range locales {
-		items, err := r.listSiteContentsCached(ctx, locale, cache)
-		if err != nil || len(items) == 0 {
-			continue
-		}
-
-		localeState := state
-		localeState.Locale = locale
-		for _, item := range items {
-			if !matchesCapabilityType(item, capability.TypeSlug) {
-				continue
-			}
-			if !recordVisibleForRequest(item, capability, localeState) {
-				continue
-			}
+	for _, locale := range localized.locales {
+		for _, item := range localized.byLocale[locale] {
 			if !pathsMatch(recordDeliveryPath(item, capability), requestPath) {
 				continue
 			}
@@ -524,7 +510,7 @@ func (r *deliveryRuntime) resolveDetailKind(
 	records []admin.CMSContent,
 	state RequestState,
 	requestPath string,
-	cache *localeContentCache,
+	cache *siteContentCache,
 ) (*deliveryResolution, SiteRuntimeError, bool) {
 	params, ok := matchRoutePattern(capability.detailRoutePattern(), requestPath)
 	if !ok {
@@ -569,38 +555,30 @@ func (r *deliveryRuntime) resolveDetailPathAliasCandidates(
 	state RequestState,
 	requestPath string,
 	slug string,
-	cache *localeContentCache,
+	cache *siteContentCache,
 ) []admin.CMSContent {
 	if r == nil || r.contentSvc == nil || !r.siteCfg.Features.EnableI18N {
 		return nil
 	}
 
 	requestPath = normalizeLocalePath(requestPath)
-	locales := uniqueLocaleOrder(
+	localized := r.localizedCapabilityRecords(
+		ctx,
+		capability,
+		state,
+		cache,
 		state.SupportedLocales,
 		[]string{state.Locale},
 		[]string{state.DefaultLocale},
 		[]string{r.siteCfg.DefaultLocale},
 	)
-	if len(locales) == 0 {
+	if len(localized.locales) == 0 {
 		return nil
 	}
 
 	matchedIdentityKeys := map[string]struct{}{}
-	for _, locale := range locales {
-		items, err := r.listSiteContentsCached(ctx, locale, cache)
-		if err != nil || len(items) == 0 {
-			continue
-		}
-		localeState := state
-		localeState.Locale = locale
-		for _, item := range items {
-			if !matchesCapabilityType(item, capability.TypeSlug) {
-				continue
-			}
-			if !recordVisibleForRequest(item, capability, localeState) {
-				continue
-			}
+	for _, locale := range localized.locales {
+		for _, item := range localized.byLocale[locale] {
 			matches := false
 			if slug != "" {
 				matches = deliverySlugMatches(item, slug, capability)
@@ -623,20 +601,8 @@ func (r *deliveryRuntime) resolveDetailPathAliasCandidates(
 
 	seen := map[string]struct{}{}
 	out := []admin.CMSContent{}
-	for _, locale := range locales {
-		items, err := r.listSiteContentsCached(ctx, locale, cache)
-		if err != nil || len(items) == 0 {
-			continue
-		}
-		localeState := state
-		localeState.Locale = locale
-		for _, item := range items {
-			if !matchesCapabilityType(item, capability.TypeSlug) {
-				continue
-			}
-			if !recordVisibleForRequest(item, capability, localeState) {
-				continue
-			}
+	for _, locale := range localized.locales {
+		for _, item := range localized.byLocale[locale] {
 			key := strings.TrimSpace(contentIdentityKey(item, capability))
 			if _, ok := matchedIdentityKeys[key]; !ok {
 				continue
@@ -702,7 +668,7 @@ func (r *deliveryRuntime) resolvePreviewFallbackByRecordID(
 			if strings.TrimSpace(record.ID) != previewContentID {
 				continue
 			}
-			if !previewEntityMatchesContentType(state.PreviewEntityType, capability, record) {
+			if !previewRecordMatchesEntityType(state.PreviewEntityType, capability, record) {
 				continue
 			}
 			candidates = append(candidates, record)
@@ -830,19 +796,20 @@ func resolveLocaleRecordsForList(
 	return out
 }
 
-func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState, resolution *deliveryResolution, requestPath string, cache *localeContentCache) error {
+func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState, resolution *deliveryResolution, requestPath string, cache *siteContentCache) error {
 	if target := r.canonicalRedirectTarget(c, resolution); target != "" {
 		return c.Redirect(target, http.StatusPermanentRedirect)
 	}
 
-	viewCtx := cloneViewContext(state.ViewContext)
-	viewCtx["requested_locale"] = resolution.RequestedLocale
-	viewCtx["resolved_locale"] = resolution.ResolvedLocale
-	viewCtx["locale"] = resolution.ResolvedLocale
-	viewCtx["available_locales"] = cloneStrings(resolution.AvailableLocales)
-	viewCtx["content_type"] = resolution.Capability.TypeSlug
-	viewCtx["content_type_slug"] = resolution.Capability.TypeSlug
-	viewCtx["missing_requested_locale"] = resolution.MissingRequested
+	viewCtx := newRuntimeViewContext(state)
+	viewCtx = applyResolvedLocaleViewContext(
+		viewCtx,
+		resolution.RequestedLocale,
+		resolution.ResolvedLocale,
+		resolution.AvailableLocales,
+		resolution.MissingRequested,
+	)
+	viewCtx = applyContentTypeViewContext(viewCtx, resolution.Capability.TypeSlug)
 
 	switch strings.ToLower(strings.TrimSpace(resolution.Mode)) {
 	case "collection":
@@ -872,10 +839,6 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		}
 	}
 
-	switcherQuery := map[string]string{}
-	if token := strings.TrimSpace(state.PreviewToken); token != "" {
-		switcherQuery["preview_token"] = token
-	}
 	pathsByLocale := resolution.PathsByLocale
 	if resolution.Record != nil {
 		pathsByLocale = r.resolveLocalizedPathsByLocale(
@@ -887,7 +850,8 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 			cache,
 		)
 	}
-	viewCtx["locale_switcher"] = BuildLocaleSwitcherContract(
+	viewCtx = applyLocaleSwitcherViewContext(
+		viewCtx,
 		r.siteCfg,
 		requestPath,
 		resolution.RequestedLocale,
@@ -895,33 +859,24 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		resolution.FamilyID,
 		resolution.AvailableLocales,
 		pathsByLocale,
-		switcherQuery,
+		state,
 	)
 
-	if wantsJSONResponse(c) {
-		payload := map[string]any{
-			"mode":     resolution.Mode,
-			"template": firstTemplate(resolution.TemplateCandidates),
-			"context":  viewCtx,
-		}
-		return c.JSON(200, payload)
-	}
-
-	for _, templateName := range resolution.TemplateCandidates {
-		if strings.TrimSpace(templateName) == "" {
-			continue
-		}
-		if err := renderSiteTemplate(c, templateName, viewCtx); err == nil {
-			return nil
-		}
-	}
-	return renderSiteRuntimeError(c, state, r.siteCfg, SiteRuntimeError{
-		Status:          500,
-		Message:         "no site template could render the requested view",
-		RequestedLocale: resolution.RequestedLocale,
-		AvailableLocales: cloneStrings(
-			resolution.AvailableLocales,
-		),
+	return renderSiteTemplateResponse(c, state, r.siteCfg, siteTemplateResponse{
+		JSONStatus:    200,
+		TemplateNames: resolution.TemplateCandidates,
+		JSONPayload: siteTemplateResponsePayload(firstTemplate(resolution.TemplateCandidates), viewCtx, map[string]any{
+			"mode": resolution.Mode,
+		}),
+		ViewContext: viewCtx,
+		FallbackError: SiteRuntimeError{
+			Status:          500,
+			Message:         "no site template could render the requested view",
+			RequestedLocale: resolution.RequestedLocale,
+			AvailableLocales: cloneStrings(
+				resolution.AvailableLocales,
+			),
+		},
 	})
 }
 
@@ -1131,47 +1086,6 @@ func publishedStatus(status string) bool {
 	return strings.EqualFold(strings.TrimSpace(status), "published")
 }
 
-func previewAllowsRecord(record admin.CMSContent, capability deliveryCapability, state RequestState) bool {
-	if !state.PreviewTokenPresent || !state.PreviewTokenValid || !state.IsPreview {
-		return false
-	}
-	if strings.TrimSpace(state.PreviewContentID) == "" || strings.TrimSpace(record.ID) == "" {
-		return false
-	}
-	if strings.TrimSpace(state.PreviewContentID) != strings.TrimSpace(record.ID) {
-		return false
-	}
-	return previewEntityMatchesContentType(state.PreviewEntityType, capability, record)
-}
-
-func previewEntityMatchesContentType(entityType string, capability deliveryCapability, record admin.CMSContent) bool {
-	entityType = strings.ToLower(strings.TrimSpace(entityType))
-	if entityType == "" {
-		return false
-	}
-	tokenCandidates := []string{
-		entityType,
-		singularTypeSlug(entityType),
-		pluralTypeSlug(entityType),
-	}
-	targetCandidates := []string{
-		capability.TypeSlug,
-		singularTypeSlug(record.ContentTypeSlug),
-		pluralTypeSlug(record.ContentTypeSlug),
-		singularTypeSlug(record.ContentType),
-		pluralTypeSlug(record.ContentType),
-	}
-	for _, tokenCandidate := range tokenCandidates {
-		tokenCandidate = singularTypeSlug(tokenCandidate)
-		for _, targetCandidate := range targetCandidates {
-			if tokenCandidate == singularTypeSlug(targetCandidate) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func filterByLocale(records []admin.CMSContent, locale string) []admin.CMSContent {
 	locale = strings.ToLower(strings.TrimSpace(locale))
 	if locale == "" {
@@ -1194,7 +1108,7 @@ func pickPreferredRecord(records []admin.CMSContent, state RequestState, capabil
 	if state.PreviewTokenValid {
 		for _, record := range records {
 			if strings.TrimSpace(record.ID) == strings.TrimSpace(state.PreviewContentID) &&
-				previewEntityMatchesContentType(state.PreviewEntityType, capability, record) {
+				previewRecordMatchesEntityType(state.PreviewEntityType, capability, record) {
 				return record
 			}
 		}
@@ -1375,7 +1289,7 @@ func (r *deliveryRuntime) resolveLocalizedPathsByLocale(
 	capability deliveryCapability,
 	record admin.CMSContent,
 	existing map[string]string,
-	cache *localeContentCache,
+	cache *siteContentCache,
 ) map[string]string {
 	out := cloneLocalizedPaths(existing)
 	if r == nil || r.contentSvc == nil {
@@ -1393,32 +1307,24 @@ func (r *deliveryRuntime) resolveLocalizedPathsByLocale(
 		return out
 	}
 
-	for _, locale := range uniqueLocaleOrder(
+	localized := r.localizedCapabilityRecords(
+		ctx,
+		capability,
+		state,
+		cache,
 		state.SupportedLocales,
 		[]string{state.Locale},
 		[]string{state.DefaultLocale},
 		record.AvailableLocales,
-	) {
+	)
+	for _, locale := range localized.locales {
 		if locale == "" {
 			continue
 		}
 		if _, exists := out[locale]; exists {
 			continue
 		}
-		items, err := r.listSiteContentsCached(ctx, locale, cache)
-		if err != nil || len(items) == 0 {
-			continue
-		}
-
-		localeState := state
-		localeState.Locale = locale
-		for _, candidate := range items {
-			if !matchesCapabilityType(candidate, capability.TypeSlug) {
-				continue
-			}
-			if !recordVisibleForRequest(candidate, capability, localeState) {
-				continue
-			}
+		for _, candidate := range localized.byLocale[locale] {
 			if !strings.EqualFold(contentIdentityKey(candidate, capability), key) {
 				continue
 			}

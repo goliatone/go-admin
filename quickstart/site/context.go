@@ -71,6 +71,55 @@ func RequestStateFromRequest(c router.Context) (RequestState, bool) {
 	return RequestStateFromContext(c.Context())
 }
 
+// RequestContext returns the request context when available and falls back to a
+// background context for detached helpers and tests.
+func RequestContext(c router.Context) context.Context {
+	if c == nil {
+		return context.Background()
+	}
+	requestCtx := c.Context()
+	if requestCtx == nil {
+		return context.Background()
+	}
+	return requestCtx
+}
+
+// fallbackRequestState returns middleware-owned request state when present and
+// otherwise builds a minimal runtime-safe state from resolved site config.
+func fallbackRequestState(c router.Context, cfg ResolvedSiteConfig, fallbackActivePath string) RequestState {
+	if state, ok := RequestStateFromRequest(c); ok {
+		return state
+	}
+
+	assetBasePath := strings.TrimSpace(cfg.Views.AssetBasePath)
+	if assetBasePath == "" {
+		assetBasePath = cfg.BasePath
+	}
+
+	activePath := strings.TrimSpace(fallbackActivePath)
+	if c != nil {
+		if path := strings.TrimSpace(c.Path()); path != "" {
+			activePath = path
+		}
+	}
+	if activePath == "" {
+		activePath = "/"
+	}
+
+	return RequestState{
+		Locale:              cfg.DefaultLocale,
+		DefaultLocale:       cfg.DefaultLocale,
+		SupportedLocales:    cloneStrings(cfg.SupportedLocales),
+		Environment:         cfg.Environment,
+		ContentChannel:      cfg.ContentChannel,
+		AllowLocaleFallback: cfg.AllowLocaleFallback,
+		BasePath:            cfg.BasePath,
+		AssetBasePath:       assetBasePath,
+		ActivePath:          activePath,
+		ViewContext:         router.ViewContext{},
+	}
+}
+
 // ViewContextFromRequest returns site view context prepared by site middleware.
 func ViewContextFromRequest(c router.Context) router.ViewContext {
 	if c == nil {
@@ -219,11 +268,8 @@ func ResolveRequestState(
 			"token_valid":   state.PreviewTokenValid,
 		},
 	}
-	switcherQuery := map[string]string{}
-	if token := strings.TrimSpace(state.PreviewToken); token != "" {
-		switcherQuery["preview_token"] = token
-	}
-	viewCtx["locale_switcher"] = BuildLocaleSwitcherContract(
+	viewCtx = applyLocaleSwitcherViewContext(
+		viewCtx,
 		siteCfg,
 		state.ActivePath,
 		state.Locale,
@@ -231,7 +277,7 @@ func ResolveRequestState(
 		"",
 		state.SupportedLocales,
 		nil,
-		switcherQuery,
+		state,
 	)
 	if state.Theme != nil {
 		viewCtx["theme"] = cloneThemePayload(state.Theme)

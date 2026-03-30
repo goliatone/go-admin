@@ -100,8 +100,8 @@ func (r *navigationRuntime) context(c router.Context, state RequestState, active
 	activePath = normalizeLocalePath(activePath)
 	debugMode := navigationDebugEnabled(c)
 
-	main := r.resolveMenuForLocation(requestContext(c), state, r.siteCfg.Navigation.MainMenuLocation, activePath, opts, debugMode)
-	footer := r.resolveMenuForLocation(requestContext(c), state, r.siteCfg.Navigation.FooterMenuLocation, activePath, opts, debugMode)
+	main := r.resolveMenuForLocation(RequestContext(c), state, r.siteCfg.Navigation.MainMenuLocation, activePath, opts, debugMode)
+	footer := r.resolveMenuForLocation(RequestContext(c), state, r.siteCfg.Navigation.FooterMenuLocation, activePath, opts, debugMode)
 
 	mainItems := toMenuItemsContract(main["items"])
 	footerItems := toMenuItemsContract(footer["items"])
@@ -143,8 +143,7 @@ func (r *navigationRuntime) resolveReadOptions(c router.Context, state RequestSt
 		opts.DedupPolicy = menuDedupByURL
 	}
 
-	if state.PreviewTokenPresent &&
-		state.PreviewTokenValid &&
+	if previewStateAllowsDraft(state) &&
 		r.siteCfg.Features.EnableMenuDraftPreview &&
 		previewEntityAllowsMenuDrafts(state.PreviewEntityType) {
 		opts.IncludeDrafts = true
@@ -957,6 +956,16 @@ func contributionInfoFromTarget(target map[string]any) (bool, string) {
 }
 
 func (r *navigationRuntime) enforceContributionLocalePolicy(ctx context.Context, items []admin.MenuItem, locale, policy string) []admin.MenuItem {
+	return r.enforceContributionLocalePolicyWithCache(ctx, items, locale, policy, newSiteContentCache(), map[string]bool{})
+}
+
+func (r *navigationRuntime) enforceContributionLocalePolicyWithCache(
+	ctx context.Context,
+	items []admin.MenuItem,
+	locale, policy string,
+	contentCache *siteContentCache,
+	matchCache map[string]bool,
+) []admin.MenuItem {
 	if len(items) == 0 {
 		return nil
 	}
@@ -967,11 +976,10 @@ func (r *navigationRuntime) enforceContributionLocalePolicy(ctx context.Context,
 	if locale == "" {
 		return items
 	}
-	cache := map[string]bool{}
 	filtered := make([]admin.MenuItem, 0, len(items))
 	for _, item := range items {
-		item.Children = r.enforceContributionLocalePolicy(ctx, item.Children, locale, policy)
-		if !menuItemMatchesRequestedLocale(ctx, r.contentSvc, item, locale, cache) {
+		item.Children = r.enforceContributionLocalePolicyWithCache(ctx, item.Children, locale, policy, contentCache, matchCache)
+		if !menuItemMatchesRequestedLocale(ctx, r.contentSvc, item, locale, contentCache, matchCache) {
 			continue
 		}
 		filtered = append(filtered, item)
@@ -982,7 +990,14 @@ func (r *navigationRuntime) enforceContributionLocalePolicy(ctx context.Context,
 	return filtered
 }
 
-func menuItemMatchesRequestedLocale(ctx context.Context, contentSvc admin.CMSContentService, item admin.MenuItem, locale string, cache map[string]bool) bool {
+func menuItemMatchesRequestedLocale(
+	ctx context.Context,
+	contentSvc admin.CMSContentService,
+	item admin.MenuItem,
+	locale string,
+	contentCache *siteContentCache,
+	matchCache map[string]bool,
+) bool {
 	target := item.Target
 	if len(target) == 0 {
 		return true
@@ -995,12 +1010,13 @@ func menuItemMatchesRequestedLocale(ctx context.Context, contentSvc admin.CMSCon
 	if contentID == "" {
 		return true
 	}
-	if cached, ok := cache[contentID]; ok {
+	cacheKey := siteContentRecordCacheKey(contentID, locale)
+	if cached, ok := matchCache[cacheKey]; ok {
 		return cached
 	}
-	record, err := contentSvc.Content(ctx, contentID, locale)
+	record, err := contentCache.Content(ctx, contentSvc, contentID, locale)
 	if err != nil || record == nil {
-		cache[contentID] = false
+		matchCache[cacheKey] = false
 		return false
 	}
 	resolvedLocale := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmpty(
@@ -1011,7 +1027,7 @@ func menuItemMatchesRequestedLocale(ctx context.Context, contentSvc admin.CMSCon
 	)))
 	missingRequested := record.MissingRequestedLocale || targetBool(record.Data, "missing_requested_locale")
 	match := resolvedLocale == locale && !missingRequested
-	cache[contentID] = match
+	matchCache[cacheKey] = match
 	return match
 }
 
@@ -1034,19 +1050,6 @@ func normalizeDedupPolicy(raw string) string {
 		return menuDedupNone
 	default:
 		return menuDedupByURL
-	}
-}
-
-func previewEntityAllowsMenuDrafts(raw string) bool {
-	entityType := strings.ToLower(strings.TrimSpace(raw))
-	if entityType == "" {
-		return false
-	}
-	switch entityType {
-	case "menu", "menus", "navigation", "menu_binding", "menu_bindings", "menu_view_profile", "menu_view_profiles":
-		return true
-	default:
-		return false
 	}
 }
 
@@ -1180,13 +1183,6 @@ func queryValue(c router.Context, key string) string {
 
 func navigationDebugEnabled(c router.Context) bool {
 	return queryBoolValue(c, "nav_debug", false) || queryBoolValue(c, "debug_navigation", false)
-}
-
-func requestContext(c router.Context) context.Context {
-	if c == nil || c.Context() == nil {
-		return context.Background()
-	}
-	return c.Context()
 }
 
 func emptyResolvedMenu(location, code, activePath string) map[string]any {

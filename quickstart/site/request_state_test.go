@@ -2,6 +2,7 @@ package site
 
 import (
 	"context"
+	"net/url"
 	"testing"
 	"time"
 
@@ -56,6 +57,25 @@ func TestResolveRequestStateContextResolution(t *testing.T) {
 	if got := state.ViewContext["content_channel"]; got != "staging" {
 		t.Fatalf("expected content_channel staging, got %v", got)
 	}
+	switcher, ok := state.ViewContext["locale_switcher"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected locale_switcher contract, got %#v", state.ViewContext["locale_switcher"])
+	}
+	if items := localeSwitcherItems(t, switcher["items"]); len(items) != 2 {
+		t.Fatalf("expected two locale switcher items, got %#v", switcher["items"])
+	}
+	active := localeSwitcherItemByLocale(t, switcher["items"], "es")
+	activeURL := anyString(active["url"])
+	parsedActiveURL, err := url.Parse(activeURL)
+	if err != nil {
+		t.Fatalf("parse active locale switcher URL %q: %v", activeURL, err)
+	}
+	if parsedActiveURL.Path != "/es/home" {
+		t.Fatalf("expected active locale switcher path /es/home, got %q", parsedActiveURL.Path)
+	}
+	if got := parsedActiveURL.Query().Get("preview_token"); got != previewToken {
+		t.Fatalf("expected locale switcher to preserve decoded preview token, got %q", got)
+	}
 
 	if locale := admin.LocaleFromContext(requestCtx); locale != "es" {
 		t.Fatalf("expected locale on context es, got %q", locale)
@@ -73,6 +93,96 @@ func TestResolveRequestStateContextResolution(t *testing.T) {
 	}
 	if fromCtx.Locale != "es" {
 		t.Fatalf("expected context state locale es, got %q", fromCtx.Locale)
+	}
+}
+
+func TestRequestContextUsesRequestContextAndFallsBackToBackground(t *testing.T) {
+	expected := context.WithValue(context.Background(), contextKey("trace"), "request")
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(expected)
+
+	if got := RequestContext(ctx); got != expected {
+		t.Fatalf("expected request context passthrough, got %v", got)
+	}
+
+	nilCtx := router.NewMockContext()
+	nilCtx.On("Context").Return(nil)
+
+	if got := RequestContext(nilCtx); got == nil {
+		t.Fatalf("expected background context fallback for nil request context")
+	}
+	if got := RequestContext(nil); got == nil {
+		t.Fatalf("expected background context fallback for nil router context")
+	}
+}
+
+func TestFallbackRequestStateUsesExistingRequestState(t *testing.T) {
+	expected := RequestState{
+		Locale:           "es",
+		DefaultLocale:    "en",
+		SupportedLocales: []string{"en", "es"},
+		Environment:      "preview",
+		ContentChannel:   "staging",
+		BasePath:         "/site",
+		ActivePath:       "/existing",
+		ViewContext: router.ViewContext{
+			"source": "middleware",
+		},
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.WithValue(context.Background(), requestStateContextKey, expected))
+
+	got := fallbackRequestState(ctx, ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{}), "/search")
+	if got.Locale != expected.Locale || got.Environment != expected.Environment || got.ContentChannel != expected.ContentChannel {
+		t.Fatalf("expected existing request state preserved, got %+v", got)
+	}
+	if got.ViewContext["source"] != "middleware" {
+		t.Fatalf("expected existing request view context preserved, got %+v", got.ViewContext)
+	}
+}
+
+func TestFallbackRequestStateBuildsConfigDefaults(t *testing.T) {
+	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Environment:    "staging",
+		ContentChannel: "preview",
+		BasePath:       "/site",
+		SupportedLocales: []string{
+			"en", "es",
+		},
+		Views: SiteViewConfig{
+			AssetBasePath: "",
+		},
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Path").Return("/articles")
+
+	got := fallbackRequestState(ctx, siteCfg, "/search")
+	if got.Locale != "en" {
+		t.Fatalf("expected default locale en, got %q", got.Locale)
+	}
+	if got.Environment != "staging" {
+		t.Fatalf("expected environment staging, got %q", got.Environment)
+	}
+	if got.ContentChannel != "preview" {
+		t.Fatalf("expected content channel preview, got %q", got.ContentChannel)
+	}
+	if got.AssetBasePath != "/site" {
+		t.Fatalf("expected asset base path to fall back to base path /site, got %q", got.AssetBasePath)
+	}
+	if got.ActivePath != "/articles" {
+		t.Fatalf("expected active path from request, got %q", got.ActivePath)
+	}
+	if got.ViewContext == nil || len(got.ViewContext) != 0 {
+		t.Fatalf("expected empty fallback view context, got %+v", got.ViewContext)
+	}
+
+	got = fallbackRequestState(nil, siteCfg, siteCfg.Search.Route)
+	if got.ActivePath != siteCfg.Search.Route {
+		t.Fatalf("expected fallback active path %q, got %q", siteCfg.Search.Route, got.ActivePath)
 	}
 }
 
