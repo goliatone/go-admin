@@ -49,9 +49,15 @@ test('Phase 5 contract: normalization preserves linked placement metadata in pay
 
 test('Phase 5 contract: agreement runtime typeahead search uses q and stale request guards', () => {
   const source = read(documentSelectionPath);
+  assert.match(source, /from '\.\.\/\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
+  assert.match(source, /async function readDocumentListEnvelope\(/);
+  assert.match(source, /readHTTPJSON<\{ records\?: Record<string, unknown>\[\]; items\?: Record<string, unknown>\[\] \}>\(response\)/);
+  assert.match(source, /async function readDocumentDispatchEnvelope\(/);
+  assert.match(source, /readHTTPJSON<\{ dispatch\?: Record<string, unknown> \}>\(response\)/);
   assert.match(source, /typeaheadSearchRequestID/);
   assert.match(source, /typeaheadSearchAbortController/);
   assert.match(source, /q: trimmedQuery/);
+  assert.equal((source.match(/await response\.json\(\) as/g) || []).length, 0);
   assert.doesNotMatch(source, /filters\[title_contains\]/);
   assert.match(source, /requestID !== typeaheadSearchRequestID/);
 });

@@ -335,8 +335,8 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 			}
 		}
 	}
-		if out.ContentType == "" {
-			if typID, ok := extractUUID(val, "ContentTypeID"); ok && typID != uuid.Nil {
+	if out.ContentType == "" {
+		if typID, ok := extractUUID(val, "ContentTypeID"); ok && typID != uuid.Nil {
 			if ct := r.contentTypeByID(ctx, typID); ct != nil {
 				if ct.Slug != "" {
 					out.ContentTypeSlug = ct.Slug
