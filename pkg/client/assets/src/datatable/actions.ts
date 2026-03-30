@@ -13,6 +13,7 @@ import {
   isHandledActionError,
 } from '../toast/error-helpers.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { readHTTPJSONValue } from '../shared/transport/http-client.js';
 import { PayloadInputModal } from './payload-modal-lazy.js';
 import type { PayloadModalFieldOption } from './payload-modal.js';
 
@@ -410,10 +411,13 @@ export class ActionRenderer {
           'Accept': 'application/json',
         },
         body: JSON.stringify(requestPayload),
-      }, async (response) => ({
-        success: true,
-        data: await response.json().catch(() => undefined),
-      }));
+      }, async (response) => {
+        const payload = await readHTTPJSONValue<unknown>(response, undefined);
+        return {
+          success: true,
+          data: payload === undefined ? undefined : payload as Record<string, unknown>,
+        };
+      });
 
       if (!result.success) {
         const structuredError = result.error;

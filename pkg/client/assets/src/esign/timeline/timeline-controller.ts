@@ -12,6 +12,7 @@ import type {
   TimelineViewMode,
   TimelineControllerConfig,
   AgreementTimelineBootstrap,
+  TimelineActor,
 } from '../types.js';
 
 import { createResolverContext, EventResolverContext } from './event-resolver.js';
@@ -30,6 +31,7 @@ import {
   wireMetadataToggles,
   wireGroupToggles,
 } from './timeline-renderer.js';
+import { readJSONScriptValue, readJSONSelectorValue } from '../../shared/json-parse.js';
 
 /**
  * Timeline controller class
@@ -279,18 +281,19 @@ export class TimelineController {
    */
   private extractLegacyBootstrap(doc: Document): AgreementTimelineBootstrap | null {
     // Try to find timeline events from various sources
-    const reviewBootstrapScript = doc.getElementById('agreement-review-bootstrap');
+    const reviewData = readJSONScriptValue<Record<string, unknown>>(
+      'agreement-review-bootstrap',
+      null,
+      { root: doc }
+    );
     let actorMap: Record<string, any> = {};
     let participants: any[] = [];
 
-    if (reviewBootstrapScript?.textContent) {
-      try {
-        const reviewData = JSON.parse(reviewBootstrapScript.textContent);
-        actorMap = reviewData.actor_map || {};
-        participants = reviewData.participants || [];
-      } catch {
-        // Ignore parse errors
-      }
+    if (reviewData) {
+      actorMap = reviewData.actor_map && typeof reviewData.actor_map === 'object'
+        ? reviewData.actor_map as Record<string, any>
+        : {};
+      participants = Array.isArray(reviewData.participants) ? reviewData.participants : [];
     }
 
     // Return minimal bootstrap if we found any data
@@ -336,6 +339,25 @@ export function createTimelineController(
   return controller;
 }
 
+function normalizeTimelineBootstrapPayload(
+  parsed: Record<string, unknown> | null,
+  fallback: AgreementTimelineBootstrap
+): AgreementTimelineBootstrap {
+  if (!parsed || typeof parsed !== 'object') {
+    return fallback;
+  }
+  return {
+    agreement_id: String(parsed.agreement_id || fallback.agreement_id || '').trim(),
+    events: Array.isArray(parsed.events) ? parsed.events : fallback.events,
+    actors: parsed.actors && typeof parsed.actors === 'object'
+      ? parsed.actors as Record<string, TimelineActor>
+      : fallback.actors,
+    participants: Array.isArray(parsed.participants) ? parsed.participants : fallback.participants,
+    field_definitions: Array.isArray(parsed.field_definitions) ? parsed.field_definitions : fallback.field_definitions,
+    current_user_id: String(parsed.current_user_id || fallback.current_user_id || '').trim() || fallback.current_user_id,
+  };
+}
+
 /**
  * Parse timeline bootstrap from a script element
  */
@@ -343,7 +365,6 @@ export function parseTimelineBootstrap(
   scriptId: string,
   fallback?: Partial<AgreementTimelineBootstrap>
 ): AgreementTimelineBootstrap {
-  const script = document.getElementById(scriptId);
   const defaultBootstrap: AgreementTimelineBootstrap = {
     agreement_id: fallback?.agreement_id || '',
     events: fallback?.events || [],
@@ -352,25 +373,12 @@ export function parseTimelineBootstrap(
     field_definitions: fallback?.field_definitions || [],
     current_user_id: fallback?.current_user_id,
   };
-
-  if (!script?.textContent) {
-    return defaultBootstrap;
-  }
-
-  try {
-    const parsed = JSON.parse(script.textContent);
-    return {
-      agreement_id: parsed.agreement_id || defaultBootstrap.agreement_id,
-      events: Array.isArray(parsed.events) ? parsed.events : defaultBootstrap.events,
-      actors: parsed.actors && typeof parsed.actors === 'object' ? parsed.actors : defaultBootstrap.actors,
-      participants: Array.isArray(parsed.participants) ? parsed.participants : defaultBootstrap.participants,
-      field_definitions: Array.isArray(parsed.field_definitions) ? parsed.field_definitions : defaultBootstrap.field_definitions,
-      current_user_id: parsed.current_user_id || defaultBootstrap.current_user_id,
-    };
-  } catch (err) {
-    console.warn(`Failed to parse ${scriptId}:`, err);
-    return defaultBootstrap;
-  }
+  const parsed = readJSONScriptValue<Record<string, unknown>>(scriptId, null, {
+    onError: (error) => {
+      console.warn(`Failed to parse ${scriptId}:`, error);
+    },
+  });
+  return normalizeTimelineBootstrapPayload(parsed, defaultBootstrap);
 }
 
 /**
@@ -419,18 +427,17 @@ export function mergeReviewBootstrapIntoTimeline(
   reviewBootstrapId: string,
   root: Document | HTMLElement = document
 ): AgreementTimelineBootstrap {
-  const script = root.querySelector(`#${reviewBootstrapId}`);
-  if (!script?.textContent) {
-    return timelineBootstrap;
-  }
-
-  try {
-    const reviewData = JSON.parse(script.textContent);
-    return mergeReviewDataIntoTimeline(timelineBootstrap, reviewData);
-  } catch (err) {
-    console.warn(`Failed to parse ${reviewBootstrapId}:`, err);
-    return timelineBootstrap;
-  }
+  const reviewData = readJSONSelectorValue<Record<string, unknown>>(
+    `#${reviewBootstrapId}`,
+    null,
+    {
+      root,
+      onError: (error) => {
+        console.warn(`Failed to parse ${reviewBootstrapId}:`, error);
+      },
+    }
+  );
+  return mergeReviewDataIntoTimeline(timelineBootstrap, reviewData);
 }
 
 /**
@@ -450,24 +457,16 @@ export function parseMergedTimelineBootstrap(
     field_definitions: fallback?.field_definitions || [],
     current_user_id: fallback?.current_user_id,
   };
-  const script = root.querySelector(`#${timelineBootstrapId}`);
-
-  if (!script?.textContent) {
-    return mergeReviewBootstrapIntoTimeline(defaultBootstrap, reviewBootstrapId, root);
-  }
-
-  try {
-    const parsed = JSON.parse(script.textContent);
-    return mergeReviewBootstrapIntoTimeline({
-      agreement_id: parsed.agreement_id || defaultBootstrap.agreement_id,
-      events: Array.isArray(parsed.events) ? parsed.events : defaultBootstrap.events,
-      actors: parsed.actors && typeof parsed.actors === 'object' ? parsed.actors : defaultBootstrap.actors,
-      participants: Array.isArray(parsed.participants) ? parsed.participants : defaultBootstrap.participants,
-      field_definitions: Array.isArray(parsed.field_definitions) ? parsed.field_definitions : defaultBootstrap.field_definitions,
-      current_user_id: parsed.current_user_id || defaultBootstrap.current_user_id,
-    }, reviewBootstrapId, root);
-  } catch (err) {
-    console.warn(`Failed to parse ${timelineBootstrapId}:`, err);
-    return mergeReviewBootstrapIntoTimeline(defaultBootstrap, reviewBootstrapId, root);
-  }
+  const parsed = readJSONSelectorValue<Record<string, unknown>>(
+    `#${timelineBootstrapId}`,
+    null,
+    {
+      root,
+      onError: (error) => {
+        console.warn(`Failed to parse ${timelineBootstrapId}:`, error);
+      },
+    }
+  );
+  const timelineBootstrap = normalizeTimelineBootstrapPayload(parsed, defaultBootstrap);
+  return mergeReviewBootstrapIntoTimeline(timelineBootstrap, reviewBootstrapId, root);
 }

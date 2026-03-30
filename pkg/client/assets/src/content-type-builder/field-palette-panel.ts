@@ -12,6 +12,7 @@
 
 import type { FieldTypeMetadata, FieldTypeCategory } from './types';
 import { ContentTypeAPIClient } from './api-client';
+import { escapeHTML as esc } from '../shared/html';
 import { loadFieldTypeRegistry, FIELD_TYPE_REGISTRY_FALLBACK } from './shared/field-type-registry';
 
 // =============================================================================
@@ -380,14 +381,4 @@ export class FieldPalettePanel {
       });
     });
   }
-}
-
-// =============================================================================
-// Utilities
-// =============================================================================
-
-function esc(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }

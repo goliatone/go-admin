@@ -2,6 +2,16 @@ export function asString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+export function coerceString(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+  if (value == null) {
+    return fallback;
+  }
+  return String(value).trim();
+}
+
 export function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as Record<string, unknown>
@@ -22,6 +32,19 @@ export function asLooseBoolean(value: unknown): boolean {
 
 export function asNumber(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+export function coerceInteger(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value.trim(), 10);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return fallback;
 }
 
 export function asNumberish(value: unknown, fallback = 0): number {
@@ -51,6 +74,13 @@ export function asStringArray(value: unknown): string[] {
     return [];
   }
   return value.map((entry) => asString(entry)).filter(Boolean);
+}
+
+export function coerceStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((entry) => coerceString(entry)).filter(Boolean);
 }
 
 export function asUniqueStringArray(value: unknown): string[] {

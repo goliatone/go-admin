@@ -17,11 +17,13 @@ import { ContentTypeAPIClient, ContentTypeAPIError, fieldsToBlockSchema, generat
 import { BlockEditorPanel } from './block-editor-panel';
 import { FieldPalettePanel } from './field-palette-panel';
 import { ConfirmModal, TextPromptModal } from '../shared/modal';
+import { escapeHTML as esc } from '../shared/html';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
 import { resolveIcon } from './shared/icon-picker';
 import { resolveApiBasePath } from './shared/api-paths';
 import { renderBlockStatusDot } from './shared/status-badges';
 import { capitalizeLabel, nameToSlug } from './shared/text';
+import { parseJSONValue } from '../shared/json-parse.js';
 
 // =============================================================================
 // Types
@@ -863,15 +865,10 @@ export class BlockLibraryIDE {
   }
 
   private loadUserCategories(): string[] {
-    try {
-      const raw = sessionStorage.getItem('block-library-user-categories');
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as string[];
-      if (!Array.isArray(parsed)) return [];
-      return parsed.map((cat) => this.normalizeCategory(cat)).filter((cat) => cat.length > 0);
-    } catch {
-      return [];
-    }
+    const raw = sessionStorage.getItem('block-library-user-categories');
+    const parsed = parseJSONValue<unknown>(raw, []);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((cat) => this.normalizeCategory(cat)).filter((cat) => cat.length > 0);
   }
 
   private persistUserCategories(): void {
@@ -1863,16 +1860,6 @@ export class BlockLibraryIDE {
   }
 }
 
-
-// =============================================================================
-// Utilities
-// =============================================================================
-
-function esc(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
-}
 
 // Context menu icons (compact SVGs)
 const ICONS = {

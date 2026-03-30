@@ -1,10 +1,12 @@
-import { b as s, h as m, s as g } from "../chunks/dom-helpers-cltCUiC5.js";
-import { d as L } from "../chunks/async-helpers-D7xplkWe.js";
-import { m as N } from "../chunks/formatters-DYQo8z6P.js";
-import { a as w, s as x } from "../chunks/page-feedback-CVdtgsKH.js";
+import { b as s, h as m, s as h } from "../chunks/dom-helpers-Cd24RS2-.js";
+import { d as $ } from "../chunks/async-helpers-D7xplkWe.js";
+import { m as q } from "../chunks/formatters-DYQo8z6P.js";
+import { a as w, s as x } from "../chunks/page-feedback-GAI02g1h.js";
 import { escapeHTML as l } from "../shared/html.js";
-import { onReady as $ } from "../shared/dom-ready.js";
-class C {
+import { parseJSONValue as V } from "../shared/json-parse.js";
+import { readHTTPError as k } from "../shared/transport/http-client.js";
+import { onReady as C } from "../shared/dom-ready.js";
+class T {
   constructor(e) {
     this.mappings = [], this.editingMappingId = null, this.pendingPublishId = null, this.pendingDeleteId = null, this.currentPreviewMapping = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: s("#mappings-announcements"),
@@ -94,31 +96,31 @@ class C {
       addRuleBtn: d,
       validateBtn: a,
       mappingForm: u,
-      publishCancelBtn: h,
+      publishCancelBtn: g,
       publishConfirmBtn: b,
       deleteCancelBtn: c,
       deleteConfirmBtn: f,
-      closePreviewBtn: T,
-      loadSampleBtn: _,
-      runPreviewBtn: j,
-      clearPreviewBtn: B,
-      previewSourceInput: I,
+      closePreviewBtn: _,
+      loadSampleBtn: j,
+      runPreviewBtn: B,
+      clearPreviewBtn: I,
+      previewSourceInput: F,
       searchInput: R,
-      filterStatus: F,
-      filterProvider: D,
+      filterStatus: D,
+      filterProvider: H,
       mappingModal: M,
       publishModal: S,
-      deleteModal: P,
-      previewModal: E
+      deleteModal: E,
+      previewModal: P
     } = this.elements;
     e?.addEventListener("click", () => this.openCreateModal()), t?.addEventListener("click", () => this.openCreateModal()), i?.addEventListener("click", () => this.closeModal()), n?.addEventListener("click", () => this.closeModal()), r?.addEventListener("click", () => this.loadMappings()), o?.addEventListener("click", () => this.loadMappings()), p?.addEventListener("click", () => this.addSchemaField()), d?.addEventListener("click", () => this.addMappingRule()), a?.addEventListener("click", () => this.validateMapping()), u?.addEventListener("submit", (v) => {
       v.preventDefault(), this.saveMapping();
-    }), h?.addEventListener("click", () => this.closePublishModal()), b?.addEventListener("click", () => this.publishMapping()), c?.addEventListener("click", () => this.closeDeleteModal()), f?.addEventListener("click", () => this.deleteMapping()), T?.addEventListener("click", () => this.closePreviewModal()), _?.addEventListener("click", () => this.loadSamplePayload()), j?.addEventListener("click", () => this.runPreviewTransform()), B?.addEventListener("click", () => this.clearPreview()), I?.addEventListener("input", L(() => this.validateSourceJson(), 300)), R?.addEventListener("input", L(() => this.renderMappings(), 300)), F?.addEventListener("change", () => this.renderMappings()), D?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (v) => {
-      v.key === "Escape" && (M && !M.classList.contains("hidden") && this.closeModal(), S && !S.classList.contains("hidden") && this.closePublishModal(), P && !P.classList.contains("hidden") && this.closeDeleteModal(), E && !E.classList.contains("hidden") && this.closePreviewModal());
-    }), [M, S, P, E].forEach((v) => {
-      v?.addEventListener("click", (H) => {
-        const k = H.target;
-        (k === v || k.getAttribute("aria-hidden") === "true") && (v === M ? this.closeModal() : v === S ? this.closePublishModal() : v === P ? this.closeDeleteModal() : v === E && this.closePreviewModal());
+    }), g?.addEventListener("click", () => this.closePublishModal()), b?.addEventListener("click", () => this.publishMapping()), c?.addEventListener("click", () => this.closeDeleteModal()), f?.addEventListener("click", () => this.deleteMapping()), _?.addEventListener("click", () => this.closePreviewModal()), j?.addEventListener("click", () => this.loadSamplePayload()), B?.addEventListener("click", () => this.runPreviewTransform()), I?.addEventListener("click", () => this.clearPreview()), F?.addEventListener("input", $(() => this.validateSourceJson(), 300)), R?.addEventListener("input", $(() => this.renderMappings(), 300)), D?.addEventListener("change", () => this.renderMappings()), H?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (v) => {
+      v.key === "Escape" && (M && !M.classList.contains("hidden") && this.closeModal(), S && !S.classList.contains("hidden") && this.closePublishModal(), E && !E.classList.contains("hidden") && this.closeDeleteModal(), P && !P.classList.contains("hidden") && this.closePreviewModal());
+    }), [M, S, E, P].forEach((v) => {
+      v?.addEventListener("click", (N) => {
+        const L = N.target;
+        (L === v || L.getAttribute("aria-hidden") === "true") && (v === M ? this.closeModal() : v === S ? this.closePublishModal() : v === E ? this.closeDeleteModal() : v === P && this.closePreviewModal());
       });
     });
   }
@@ -129,16 +131,16 @@ class C {
     const { loadingState: t, emptyState: i, errorState: n, mappingsList: r } = this.elements;
     switch (m(t), m(i), m(n), m(r), e) {
       case "loading":
-        g(t);
+        h(t);
         break;
       case "empty":
-        g(i);
+        h(i);
         break;
       case "error":
-        g(n);
+        h(n);
         break;
       case "list":
-        g(r);
+        h(r);
         break;
     }
   }
@@ -165,7 +167,12 @@ class C {
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       });
-      if (!e.ok) throw new Error(`HTTP ${e.status}`);
+      if (!e.ok)
+        throw new Error(
+          await k(e, `HTTP ${e.status}`, {
+            appendStatusToFallback: !1
+          })
+        );
       const t = await e.json();
       this.mappings = t.mappings || [], this.populateProviderFilter(), this.renderMappings(), w(this.elements.announcements, `Loaded ${this.mappings.length} mappings`);
     } catch (e) {
@@ -204,7 +211,7 @@ class C {
         <td class="px-6 py-4 text-sm text-gray-700">${l(a.provider)}</td>
         <td class="px-6 py-4">${this.getStatusBadge(a.status)}</td>
         <td class="px-6 py-4 text-sm text-gray-700">v${a.version || 1}</td>
-        <td class="px-6 py-4 text-sm text-gray-500">${N(a.updated_at)}</td>
+        <td class="px-6 py-4 text-sm text-gray-500">${q(a.updated_at)}</td>
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
             <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${l(a.id)}" aria-label="Preview ${l(a.name)}">
@@ -318,21 +325,21 @@ class C {
       schemaFieldsContainer: p,
       mappingRulesContainer: d
     } = this.elements, a = [];
-    p?.querySelectorAll(".schema-field-row").forEach((h) => {
+    p?.querySelectorAll(".schema-field-row").forEach((g) => {
       a.push({
-        object: (h.querySelector(".field-object")?.value || "").trim(),
-        field: (h.querySelector(".field-name")?.value || "").trim(),
-        type: h.querySelector(".field-type")?.value || "string",
-        required: h.querySelector(".field-required")?.checked || !1
+        object: (g.querySelector(".field-object")?.value || "").trim(),
+        field: (g.querySelector(".field-name")?.value || "").trim(),
+        type: g.querySelector(".field-type")?.value || "string",
+        required: g.querySelector(".field-required")?.checked || !1
       });
     });
     const u = [];
-    return d?.querySelectorAll(".mapping-rule-row").forEach((h) => {
+    return d?.querySelectorAll(".mapping-rule-row").forEach((g) => {
       u.push({
-        source_object: (h.querySelector(".rule-source-object")?.value || "").trim(),
-        source_field: (h.querySelector(".rule-source-field")?.value || "").trim(),
-        target_entity: h.querySelector(".rule-target-entity")?.value || "participant",
-        target_path: (h.querySelector(".rule-target-path")?.value || "").trim()
+        source_object: (g.querySelector(".rule-source-object")?.value || "").trim(),
+        source_field: (g.querySelector(".rule-source-field")?.value || "").trim(),
+        target_entity: g.querySelector(".rule-target-entity")?.value || "participant",
+        target_path: (g.querySelector(".rule-target-path")?.value || "").trim()
       });
     }), {
       id: e?.value.trim() || void 0,
@@ -361,11 +368,11 @@ class C {
       schemaFieldsContainer: d,
       mappingRulesContainer: a,
       mappingStatusBadge: u,
-      formValidationStatus: h
+      formValidationStatus: g
     } = this.elements;
     t && (t.value = e.id || ""), i && (i.value = String(e.version || 0)), n && (n.value = e.name || ""), r && (r.value = e.provider || "");
     const b = e.external_schema || { object_type: "", fields: [] };
-    o && (o.value = b.object_type || ""), p && (p.value = b.version || ""), d && (d.innerHTML = "", (b.fields || []).forEach((c) => d.appendChild(this.createSchemaFieldRow(c)))), a && (a.innerHTML = "", (e.rules || []).forEach((c) => a.appendChild(this.createMappingRuleRow(c)))), e.status && u ? (u.innerHTML = this.getStatusBadge(e.status), u.classList.remove("hidden")) : u && u.classList.add("hidden"), m(h);
+    o && (o.value = b.object_type || ""), p && (p.value = b.version || ""), d && (d.innerHTML = "", (b.fields || []).forEach((c) => d.appendChild(this.createSchemaFieldRow(c)))), a && (a.innerHTML = "", (e.rules || []).forEach((c) => a.appendChild(this.createMappingRuleRow(c)))), e.status && u ? (u.innerHTML = this.getStatusBadge(e.status), u.classList.remove("hidden")) : u && u.classList.add("hidden"), m(g);
   }
   /**
    * Reset the form to initial state
@@ -388,7 +395,7 @@ class C {
    */
   openCreateModal() {
     const { mappingModal: e, mappingModalTitle: t, mappingNameInput: i } = this.elements;
-    this.resetForm(), t && (t.textContent = "New Mapping Specification"), this.addSchemaField({ field: "email", type: "string", required: !0 }), this.addMappingRule({ target_entity: "participant", target_path: "email" }), g(e), i?.focus();
+    this.resetForm(), t && (t.textContent = "New Mapping Specification"), this.addSchemaField({ field: "email", type: "string", required: !0 }), this.addMappingRule({ target_entity: "participant", target_path: "email" }), h(e), i?.focus();
   }
   /**
    * Open edit mapping modal
@@ -397,7 +404,7 @@ class C {
     const t = this.mappings.find((o) => o.id === e);
     if (!t) return;
     const { mappingModal: i, mappingModalTitle: n, mappingNameInput: r } = this.elements;
-    this.editingMappingId = e, n && (n.textContent = "Edit Mapping Specification"), this.populateForm(t), g(i), r?.focus();
+    this.editingMappingId = e, n && (n.textContent = "Edit Mapping Specification"), this.populateForm(t), h(i), r?.focus();
   }
   /**
    * Close mapping modal
@@ -413,7 +420,7 @@ class C {
     const t = this.mappings.find((o) => o.id === e);
     if (!t) return;
     const { publishModal: i, publishMappingName: n, publishMappingVersion: r } = this.elements;
-    this.pendingPublishId = e, n && (n.textContent = t.name), r && (r.textContent = `v${t.version || 1}`), g(i);
+    this.pendingPublishId = e, n && (n.textContent = t.name), r && (r.textContent = `v${t.version || 1}`), h(i);
   }
   /**
    * Close publish modal
@@ -425,7 +432,7 @@ class C {
    * Open delete confirmation modal
    */
   openDeleteModal(e) {
-    this.pendingDeleteId = e, g(this.elements.deleteModal);
+    this.pendingDeleteId = e, h(this.elements.deleteModal);
   }
   /**
    * Close delete modal
@@ -475,9 +482,9 @@ class C {
             </div>
           `, t.className = "rounded-lg p-4"), w(this.elements.announcements, "Validation failed");
       }
-      g(t);
+      h(t);
     } catch (n) {
-      console.error("Validation error:", n), t && (t.innerHTML = `<div class="text-red-600">Error: ${l(n instanceof Error ? n.message : "Unknown error")}</div>`, g(t));
+      console.error("Validation error:", n), t && (t.innerHTML = `<div class="text-red-600">Error: ${l(n instanceof Error ? n.message : "Unknown error")}</div>`, h(t));
     } finally {
       e.removeAttribute("disabled"), e.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Validate';
     }
@@ -497,10 +504,12 @@ class C {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(t)
       });
-      if (!o.ok) {
-        const p = await o.json();
-        throw new Error(p.error?.message || `HTTP ${o.status}`);
-      }
+      if (!o.ok)
+        throw new Error(
+          await k(o, `HTTP ${o.status}`, {
+            appendStatusToFallback: !1
+          })
+        );
       x(i ? "Mapping updated" : "Mapping created", "success"), w(
         this.elements.announcements,
         i ? "Mapping updated" : "Mapping created"
@@ -530,10 +539,12 @@ class C {
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ expected_version: e.version })
         });
-        if (!i.ok) {
-          const n = await i.json();
-          throw new Error(n.error?.message || `HTTP ${i.status}`);
-        }
+        if (!i.ok)
+          throw new Error(
+            await k(i, `HTTP ${i.status}`, {
+              appendStatusToFallback: !1
+            })
+          );
         x("Mapping published", "success"), w(this.elements.announcements, "Mapping published"), this.closePublishModal(), await this.loadMappings();
       } catch (i) {
         console.error("Publish error:", i);
@@ -558,10 +569,12 @@ class C {
           credentials: "same-origin",
           headers: { Accept: "application/json" }
         });
-        if (!t.ok) {
-          const i = await t.json();
-          throw new Error(i.error?.message || `HTTP ${t.status}`);
-        }
+        if (!t.ok)
+          throw new Error(
+            await k(t, `HTTP ${t.status}`, {
+              appendStatusToFallback: !1
+            })
+          );
         x("Mapping deleted", "success"), w(this.elements.announcements, "Mapping deleted"), this.closeDeleteModal(), await this.loadMappings();
       } catch (t) {
         console.error("Delete error:", t);
@@ -588,7 +601,7 @@ class C {
       previewSourceInput: d,
       sourceSyntaxError: a
     } = this.elements;
-    this.currentPreviewMapping = t, n && (n.textContent = t.name), r && (r.textContent = t.provider), o && (o.textContent = t.external_schema?.object_type || "-"), p && (p.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), d && (d.value = ""), m(a), g(i), d?.focus();
+    this.currentPreviewMapping = t, n && (n.textContent = t.name), r && (r.textContent = t.provider), o && (o.textContent = t.external_schema?.object_type || "-"), p && (p.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), d && (d.value = ""), m(a), h(i), d?.focus();
   }
   /**
    * Close preview modal
@@ -603,16 +616,16 @@ class C {
     const { previewEmpty: t, previewLoading: i, previewError: n, previewSuccess: r } = this.elements;
     switch (m(t), m(i), m(n), m(r), e) {
       case "empty":
-        g(t);
+        h(t);
         break;
       case "loading":
-        g(i);
+        h(i);
         break;
       case "error":
-        g(n);
+        h(n);
         break;
       case "success":
-        g(r);
+        h(r);
         break;
     }
   }
@@ -676,12 +689,13 @@ class C {
     const { previewSourceInput: e, sourceSyntaxError: t } = this.elements, i = e?.value.trim() || "";
     if (!i)
       return m(t), null;
-    try {
-      const n = JSON.parse(i);
-      return m(t), n;
-    } catch (n) {
-      return t && (t.textContent = `JSON Syntax Error: ${n instanceof Error ? n.message : "Invalid JSON"}`, g(t)), null;
-    }
+    let n = null;
+    const r = V(i, null, {
+      onError: (o) => {
+        n = o;
+      }
+    });
+    return n ? (t && (t.textContent = `JSON Syntax Error: ${n instanceof Error ? n.message : "Invalid JSON"}`, h(t)), null) : (m(t), r);
   }
   /**
    * Run preview transform
@@ -795,7 +809,7 @@ class C {
           </div>
         `
     ).join(""));
-    const h = e.agreement || {}, b = Object.entries(h);
+    const g = e.agreement || {}, b = Object.entries(g);
     o && (b.length === 0 ? o.innerHTML = '<p class="text-sm text-gray-500">No agreement metadata resolved</p>' : o.innerHTML = b.map(
       ([c, f]) => `
           <div class="flex items-center gap-2 text-sm">
@@ -816,20 +830,20 @@ class C {
     e && (e.value = ""), m(t), this.showPreviewState("empty"), this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
   }
 }
-function z(y) {
-  const e = new C(y);
-  return $(() => e.init()), e;
+function W(y) {
+  const e = new T(y);
+  return C(() => e.init()), e;
 }
-function G(y) {
+function X(y) {
   const e = {
     basePath: y.basePath,
     apiBasePath: y.apiBasePath || `${y.basePath}/api`
-  }, t = new C(e);
-  $(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
+  }, t = new T(e);
+  C(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
 }
 export {
-  C as IntegrationMappingsController,
-  G as bootstrapIntegrationMappings,
-  z as initIntegrationMappings
+  T as IntegrationMappingsController,
+  X as bootstrapIntegrationMappings,
+  W as initIntegrationMappings
 };
 //# sourceMappingURL=integration-mappings.js.map

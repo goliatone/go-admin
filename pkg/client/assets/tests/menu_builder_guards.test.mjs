@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 
 if (typeof globalThis.document === 'undefined') {
   globalThis.document = {
@@ -21,6 +22,9 @@ const {
 
 const fixturePath = fileURLToPath(new URL('./fixtures/menu_builder_contracts.json', import.meta.url));
 const fixture = JSON.parse(readFileSync(fixturePath, 'utf-8'));
+const testFileDir = path.dirname(fileURLToPath(import.meta.url));
+const menuBuilderGuardsSourcePath = path.resolve(testFileDir, '../src/menu-builder/guards.ts');
+const menuBuilderAPIClientSourcePath = path.resolve(testFileDir, '../src/menu-builder/api-client.ts');
 
 test('parseMenuContracts reads endpoint and error mappings from fixture payload', () => {
   const parsed = parseMenuContracts(fixture.contracts);
@@ -41,6 +45,19 @@ test('parseMenuRecord normalizes menu shape', () => {
   assert.equal(parsed.code, 'main');
   assert.equal(parsed.name, 'Main Menu');
   assert.equal(parsed.status, 'published');
+});
+
+test('menu-builder guards preserve strict coercion semantics through shared helpers', () => {
+  const parsed = parseMenuRecord({
+    id: 42,
+    code: 'main',
+    name: 17,
+    archived: 1,
+  });
+
+  assert.equal(parsed.id, '42');
+  assert.equal(parsed.name, '17');
+  assert.equal(parsed.archived, false);
 });
 
 test('parseNavigationOverrides validates values and allowed locations', () => {
@@ -220,6 +237,19 @@ test('MenuBuilderAPIClient accepts legacy profile response keys', async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test('menu-builder guard and api-client callers route shared-safe coercion through shared/coercion', () => {
+  const guardsSource = readFileSync(menuBuilderGuardsSourcePath, 'utf8');
+  const apiClientSource = readFileSync(menuBuilderAPIClientSourcePath, 'utf8');
+
+  assert.match(guardsSource, /from '\.\.\/shared\/coercion\.js'/);
+  assert.ok(!guardsSource.includes('function asString('));
+  assert.ok(!guardsSource.includes('function asNumber('));
+  assert.ok(!guardsSource.includes('function asStringArray('));
+
+  assert.match(apiClientSource, /from '\.\.\/shared\/coercion\.js'/);
+  assert.ok(!apiClientSource.includes('function asRecord('));
 });
 
 test('MenuBuilderStore clears preview_result when selected menu changes', async () => {

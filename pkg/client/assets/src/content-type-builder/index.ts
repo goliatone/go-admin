@@ -105,6 +105,7 @@ import { initBlockLibraryIDE } from './block-library-ide';
 import type { ContentTypeEditorConfig } from './types';
 import { deriveAdminBasePath, resolveApiBasePath } from './shared/api-paths';
 import { onReady } from '../shared/dom-ready.js';
+import { parseJSONValue } from '../shared/json-parse.js';
 
 /**
  * Initialize content type editors on elements matching [data-content-type-editor]
@@ -182,11 +183,7 @@ function parseConfig(root: HTMLElement): ContentTypeEditorConfig {
   let config: Partial<ContentTypeEditorConfig> = {};
   const configAttr = root.getAttribute('data-content-type-editor-config');
   if (configAttr) {
-    try {
-      config = JSON.parse(configAttr) as Partial<ContentTypeEditorConfig>;
-    } catch {
-      // Fall through to data attributes
-    }
+    config = parseJSONValue<Partial<ContentTypeEditorConfig>>(configAttr, {});
   }
 
   const apiBasePath = resolveApiBasePath(config.apiBasePath, root.dataset.apiBasePath, root.dataset.basePath);

@@ -7,6 +7,8 @@ import { qs, show, hide, onReady } from '../utils/dom-helpers.js';
 import { formatCompactDateTime } from '../utils/formatters.js';
 import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import { parseJSONValue } from '../../shared/json-parse.js';
+import { readHTTPError } from '../../shared/transport/http-client.js';
 
 /**
  * Configuration for the integration conflicts page
@@ -286,7 +288,13 @@ export class IntegrationConflictsController {
         headers: { Accept: 'application/json' },
       });
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        throw new Error(
+          await readHTTPError(response, `HTTP ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
+      }
 
       const data = await response.json();
       this.conflicts = data.conflicts || [];
@@ -457,14 +465,15 @@ export class IntegrationConflictsController {
 
     // Payload
     if (detailPayload) {
-      try {
-        const payload = conflict.payload_json
-          ? JSON.parse(conflict.payload_json)
-          : conflict.payload || {};
-        detailPayload.textContent = JSON.stringify(payload, null, 2);
-      } catch {
-        detailPayload.textContent = conflict.payload_json || '{}';
-      }
+      let payloadParseFailed = false;
+      const payload = parseJSONValue<unknown>(conflict.payload_json, conflict.payload || {}, {
+        onError: () => {
+          payloadParseFailed = true;
+        },
+      });
+      detailPayload.textContent = payloadParseFailed
+        ? (conflict.payload_json || '{}')
+        : JSON.stringify(payload, null, 2);
     }
 
     // Resolution section
@@ -483,14 +492,15 @@ export class IntegrationConflictsController {
           : '-';
       }
       if (detailResolution) {
-        try {
-          const resolution = conflict.resolution_json
-            ? JSON.parse(conflict.resolution_json)
-            : conflict.resolution || {};
-          detailResolution.textContent = JSON.stringify(resolution, null, 2);
-        } catch {
-          detailResolution.textContent = conflict.resolution_json || '{}';
-        }
+        let resolutionParseFailed = false;
+        const resolution = parseJSONValue<unknown>(conflict.resolution_json, conflict.resolution || {}, {
+          onError: () => {
+            resolutionParseFailed = true;
+          },
+        });
+        detailResolution.textContent = resolutionParseFailed
+          ? (conflict.resolution_json || '{}')
+          : JSON.stringify(resolution, null, 2);
       }
     } else {
       hide(resolutionSection);
@@ -543,10 +553,18 @@ export class IntegrationConflictsController {
 
     const resolutionData = formData.get('resolution') as string;
     if (resolutionData) {
-      try {
-        resolution = JSON.parse(resolutionData);
-      } catch {
+      let parseFailed = false;
+      const parsedResolution = parseJSONValue<unknown>(resolutionData, null, {
+        onError: () => {
+          parseFailed = true;
+        },
+      });
+      if (parseFailed) {
         resolution = { raw: resolutionData };
+      } else if (parsedResolution && typeof parsedResolution === 'object' && !Array.isArray(parsedResolution)) {
+        resolution = parsedResolution as Record<string, unknown>;
+      } else if (parsedResolution !== null) {
+        resolution = { value: parsedResolution };
       }
     }
 
@@ -576,8 +594,11 @@ export class IntegrationConflictsController {
       });
 
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error?.message || `HTTP ${response.status}`);
+        throw new Error(
+          await readHTTPError(response, `HTTP ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
       showPageToast('Conflict resolved', 'success');

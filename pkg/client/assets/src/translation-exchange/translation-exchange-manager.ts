@@ -1,4 +1,5 @@
 import { escapeHTML } from '../shared/html.js';
+import { readHTTPResponsePayload } from '../shared/transport/http-client.js';
 
 import type {
   ApplyRequest,
@@ -1169,9 +1170,7 @@ export class TranslationExchangeManager {
     init: RequestInit,
   ): Promise<Record<string, unknown>> {
     const response = await fetch(path, init);
-    const contentType = response.headers.get("content-type") ?? "";
-    const payload =
-      contentType.includes("json") ? await response.json() : await response.text();
+    const { payload } = await readHTTPResponsePayload(response);
     if (!response.ok) {
       if (payload && typeof payload === "object") {
         const message =

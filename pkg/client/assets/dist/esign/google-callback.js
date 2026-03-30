@@ -1,4 +1,5 @@
-import { b as r, h as l, s as c } from "../chunks/dom-helpers-cltCUiC5.js";
+import { b as r, h as l, s as c } from "../chunks/dom-helpers-Cd24RS2-.js";
+import { parseJSONValue as g } from "../shared/json-parse.js";
 import { onReady as h } from "../shared/dom-ready.js";
 const u = {
   access_denied: "You denied access to your Google account.",
@@ -51,13 +52,8 @@ class p {
     };
     if (!e)
       return t;
-    try {
-      const o = JSON.parse(e);
-      if (o && typeof o == "object")
-        return typeof o.user_id == "string" && (t.user_id = o.user_id.trim()), typeof o.account_id == "string" && (t.account_id = o.account_id.trim()), t;
-    } catch {
-    }
-    return t.user_id = String(e || "").trim(), t;
+    const o = g(e, null);
+    return o && typeof o == "object" ? (typeof o.user_id == "string" && (t.user_id = o.user_id.trim()), typeof o.account_id == "string" && (t.account_id = o.account_id.trim()), t) : (t.user_id = String(e || "").trim(), t);
   }
   /**
    * Show a specific state and hide others
@@ -126,14 +122,14 @@ class p {
     }
   }
 }
-function _(a) {
+function m(a) {
   const e = a || {
     basePath: "/admin",
     apiBasePath: "/admin/api"
   }, t = new p(e);
   return h(() => t.init()), t;
 }
-function f(a) {
+function S(a) {
   const e = {
     basePath: a,
     apiBasePath: `${a}/api`
@@ -142,7 +138,7 @@ function f(a) {
 }
 export {
   p as GoogleCallbackController,
-  f as bootstrapGoogleCallback,
-  _ as initGoogleCallback
+  S as bootstrapGoogleCallback,
+  m as initGoogleCallback
 };
 //# sourceMappingURL=google-callback.js.map

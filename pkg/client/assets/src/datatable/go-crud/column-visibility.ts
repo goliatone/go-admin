@@ -1,5 +1,6 @@
 import type { ColumnVisibilityBehavior } from '../behaviors/types.js';
 import type { DataGrid } from '../core.js';
+import { normalizeAPIBasePath, normalizeBasePath } from '../../shared/path-normalization.js';
 import { httpRequest } from '../../shared/transport/http-client.js';
 
 /**
@@ -14,18 +15,6 @@ interface ColumnPrefsV2 {
   version: 2;
   visibility: Record<string, boolean>;
   order?: string[];
-}
-
-function normalizeBasePath(basePath?: string): string {
-  const trimmed = (basePath || '').trim();
-  if (!trimmed || trimmed === '/') return '';
-  return '/' + trimmed.replace(/^\/+|\/+$/g, '');
-}
-
-function normalizeApiBasePath(apiBasePath?: string): string {
-  const trimmed = (apiBasePath || '').trim();
-  if (!trimmed || trimmed === '/') return '';
-  return trimmed.replace(/\/+$/, '');
 }
 
 /**
@@ -292,7 +281,7 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
 
     this.resource = config.resource;
     const basePath = normalizeBasePath(config.basePath);
-    const apiBasePath = normalizeApiBasePath(config.apiBasePath);
+    const apiBasePath = normalizeAPIBasePath(config.apiBasePath);
     if (config.preferencesEndpoint) {
       this.preferencesEndpoint = config.preferencesEndpoint;
     } else if (apiBasePath) {

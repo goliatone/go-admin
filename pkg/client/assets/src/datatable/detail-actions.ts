@@ -9,6 +9,7 @@ import { normalizeDetailActionStatePayload } from './action-contracts.js';
 import type { ActionButton } from './actions.js';
 import { SchemaActionBuilder, type SchemaAction } from './schema-actions.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { readHTTPJSONValue } from '../shared/transport/http-client.js';
 
 export interface DetailActionsMountConfig {
   mount: HTMLElement;
@@ -31,6 +32,9 @@ function resolveDefaultNotifier(): ToastNotifier {
   return new FallbackNotifier();
 }
 
+async function readDetailPayload(response: Response): Promise<unknown> {
+  return readHTTPJSONValue<unknown>(response, null);
+}
 
 function actionKey(action: ActionButton, index: number): string {
   const raw = typeof action.id === 'string' && action.id.trim()
@@ -390,7 +394,7 @@ export class DetailActionsController {
       this.notifier.error(`Actions unavailable (${response.status})`);
       return null;
     }
-    const payload = await response.json().catch(() => null);
+    const payload = await readDetailPayload(response);
     if (!payload || typeof payload !== 'object') {
       return null;
     }

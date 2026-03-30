@@ -22,6 +22,11 @@ async function loadFixture() {
   return JSON.parse(await readFile(fixtureURL, 'utf8'));
 }
 
+async function loadSource() {
+  const sourceURL = new URL('../src/datatable/detail-actions.ts', import.meta.url);
+  return readFile(sourceURL, 'utf8');
+}
+
 function setGlobals(win) {
   globalThis.window = win;
   globalThis.document = win.document;
@@ -149,6 +154,16 @@ test('renderDetailActions renders remediation link for disabled primary action',
   assert.match(html, /data-detail-action-remediation="edit"/);
   assert.match(html, /href="\/admin\/unlock\?doc_id=123"/);
   assert.match(html, />\s*Request unlock\s*</);
+});
+
+test('detail actions detail payload parsing routes through a single helper', async () => {
+  const source = await loadSource();
+
+  assert.match(source, /async function readDetailPayload\(response: Response\): Promise<unknown>/);
+  assert.match(source, /const payload = await readDetailPayload\(response\);/);
+  assert.match(source, /from '\.\.\/shared\/transport\/http-client\.js'/);
+  assert.match(source, /readHTTPJSONValue<unknown>\(response, null\)/);
+  assert.equal((source.match(/response\.json\(\)\.catch\(\(\) => null\)/g) || []).length, 0);
 });
 
 test('initPanelDetailActions renders canonical detail actions and keeps disabled actions non-clickable', async () => {

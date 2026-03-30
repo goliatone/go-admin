@@ -3,6 +3,13 @@ import {
   type TranslationActionState,
 } from '../translation-contracts/index.js';
 import { asNumber, asRecord, asString } from '../shared/coercion.js';
+import {
+  buildEndpointURL,
+  getStringSearchParam,
+  readLocationSearchParams,
+  setNumberSearchParam,
+  setSearchParam,
+} from '../shared/query-state/url-state.js';
 import { StatefulController } from '../shared/stateful-controller.js';
 import { normalizeNumberRecord } from '../shared/record-normalization.js';
 import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
@@ -488,25 +495,27 @@ export function normalizeAssignmentListMeta(value: unknown): AssignmentListMeta 
 
 export function buildAssignmentListQuery(state: AssignmentListQueryState = {}): string {
   const params = new URLSearchParams();
-  if (state.status) params.set('status', state.status);
-  if (state.assigneeId) params.set('assignee_id', state.assigneeId);
-  if (state.reviewerId) params.set('reviewer_id', state.reviewerId);
-  if (state.dueState) params.set('due_state', state.dueState);
-  if (state.locale) params.set('locale', state.locale);
-  if (state.priority) params.set('priority', state.priority);
-  if (state.reviewState) params.set('review_state', state.reviewState);
-  if (state.familyId) params.set('family_id', state.familyId);
-  if (state.page && state.page > 0) params.set('page', String(state.page));
-  if (state.perPage && state.perPage > 0) params.set('per_page', String(state.perPage));
-  if (state.sort) params.set('sort', state.sort);
-  if (state.order) params.set('order', state.order);
+  setSearchParam(params, 'status', state.status);
+  setSearchParam(params, 'assignee_id', state.assigneeId);
+  setSearchParam(params, 'reviewer_id', state.reviewerId);
+  setSearchParam(params, 'due_state', state.dueState);
+  setSearchParam(params, 'locale', state.locale);
+  setSearchParam(params, 'priority', state.priority);
+  setSearchParam(params, 'review_state', state.reviewState);
+  setSearchParam(params, 'family_id', state.familyId);
+  setNumberSearchParam(params, 'page', state.page, { min: 1 });
+  setNumberSearchParam(params, 'per_page', state.perPage, { min: 1 });
+  setSearchParam(params, 'sort', state.sort);
+  setSearchParam(params, 'order', state.order);
   return params.toString();
 }
 
 export function buildAssignmentListURL(endpoint: string, state: AssignmentListQueryState = {}): string {
   const query = buildAssignmentListQuery(state);
-  if (!query) return endpoint;
-  return `${endpoint}${endpoint.includes('?') ? '&' : '?'}${query}`;
+  if (!query) {
+    return endpoint;
+  }
+  return buildEndpointURL(endpoint, new URLSearchParams(query), { preserveAbsolute: true });
 }
 
 export function normalizeAssignmentListRow(value: unknown): AssignmentListRow {
@@ -2025,14 +2034,14 @@ export function initAssignmentQueueScreen(container: HTMLElement): AssignmentQue
   if (!endpoint) {
     return null;
   }
-  const locationSearch = typeof window !== 'undefined' && window?.location?.search
-    ? new URLSearchParams(window.location.search)
+  const locationSearch = typeof window !== 'undefined'
+    ? readLocationSearchParams(window.location)
     : null;
   return createAssignmentQueueScreen(container, {
     endpoint,
     editorBasePath: container.dataset.editorBasePath || '',
     title: container.dataset.title,
     description: container.dataset.description,
-    initialPresetId: container.dataset.initialPresetId || locationSearch?.get('preset') || '',
+    initialPresetId: container.dataset.initialPresetId || getStringSearchParam(locationSearch ?? new URLSearchParams(), 'preset') || '',
   });
 }

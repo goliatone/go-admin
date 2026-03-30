@@ -1,9 +1,10 @@
-import { b as n, h as f, s as v } from "../chunks/dom-helpers-cltCUiC5.js";
+import { b as n, h as f, s as v } from "../chunks/dom-helpers-Cd24RS2-.js";
 import { m as B } from "../chunks/formatters-DYQo8z6P.js";
-import { a as E, s as b } from "../chunks/page-feedback-CVdtgsKH.js";
+import { a as L, s as b } from "../chunks/page-feedback-GAI02g1h.js";
 import { escapeHTML as l } from "../shared/html.js";
-import { onReady as L } from "../shared/dom-ready.js";
-class C {
+import { readHTTPError as E } from "../shared/transport/http-client.js";
+import { onReady as C } from "../shared/dom-ready.js";
+class M {
   constructor(t) {
     this.syncRuns = [], this.mappings = [], this.currentRunId = null, this.config = t, this.apiBase = t.apiBasePath || `${t.basePath}/api`, this.syncRunsEndpoint = `${this.apiBase}/esign/integrations/sync-runs`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: n("#sync-announcements"),
@@ -69,7 +70,7 @@ class C {
       filterProvider: u,
       filterStatus: o,
       filterDirection: p,
-      actionResumeBtn: S,
+      actionResumeBtn: x,
       actionRetryBtn: w,
       actionCompleteBtn: k,
       actionFailBtn: g,
@@ -77,7 +78,7 @@ class C {
       startSyncModal: m,
       runDetailModal: y
     } = this.elements;
-    t?.addEventListener("click", () => this.openStartSyncModal()), e?.addEventListener("click", () => this.openStartSyncModal()), s?.addEventListener("click", () => this.closeStartSyncModal()), r?.addEventListener("submit", (d) => this.startSync(d)), c?.addEventListener("click", () => this.loadSyncRuns()), a?.addEventListener("click", () => this.loadSyncRuns()), i?.addEventListener("click", () => this.closeRunDetail()), u?.addEventListener("change", () => this.renderTimeline()), o?.addEventListener("change", () => this.renderTimeline()), p?.addEventListener("change", () => this.renderTimeline()), S?.addEventListener("click", () => this.runAction("resume")), w?.addEventListener("click", () => this.runAction("resume")), k?.addEventListener("click", () => this.runAction("complete")), g?.addEventListener("click", () => this.runAction("fail")), R?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (d) => {
+    t?.addEventListener("click", () => this.openStartSyncModal()), e?.addEventListener("click", () => this.openStartSyncModal()), s?.addEventListener("click", () => this.closeStartSyncModal()), r?.addEventListener("submit", (d) => this.startSync(d)), c?.addEventListener("click", () => this.loadSyncRuns()), a?.addEventListener("click", () => this.loadSyncRuns()), i?.addEventListener("click", () => this.closeRunDetail()), u?.addEventListener("change", () => this.renderTimeline()), o?.addEventListener("change", () => this.renderTimeline()), p?.addEventListener("change", () => this.renderTimeline()), x?.addEventListener("click", () => this.runAction("resume")), w?.addEventListener("click", () => this.runAction("resume")), k?.addEventListener("click", () => this.runAction("complete")), g?.addEventListener("click", () => this.runAction("fail")), R?.addEventListener("click", () => this.openDiagnostics()), document.addEventListener("keydown", (d) => {
       d.key === "Escape" && (m && !m.classList.contains("hidden") && this.closeStartSyncModal(), y && !y.classList.contains("hidden") && this.closeRunDetail());
     }), [m, y].forEach((d) => {
       d?.addEventListener("click", (h) => {
@@ -174,9 +175,14 @@ class C {
           headers: { Accept: "application/json" }
         }
       );
-      if (!s.ok) throw new Error(`HTTP ${s.status}`);
+      if (!s.ok)
+        throw new Error(
+          await E(s, `HTTP ${s.status}`, {
+            appendStatusToFallback: !1
+          })
+        );
       const r = await s.json();
-      this.syncRuns = r.runs || [], this.populateProviderFilter(), this.updateStats(), this.renderTimeline(), E(this.elements.announcements, `Loaded ${this.syncRuns.length} sync runs`);
+      this.syncRuns = r.runs || [], this.populateProviderFilter(), this.updateStats(), this.renderTimeline(), L(this.elements.announcements, `Loaded ${this.syncRuns.length} sync runs`);
     } catch (t) {
       console.error("Error loading sync runs:", t);
       const { errorMessage: e } = this.elements;
@@ -295,11 +301,13 @@ class C {
         },
         body: JSON.stringify(c)
       });
-      if (!a.ok) {
-        const i = await a.json();
-        throw new Error(i.error?.message || `HTTP ${a.status}`);
-      }
-      b("Sync run started", "success"), E(this.elements.announcements, "Sync run started"), this.closeStartSyncModal(), await this.loadSyncRuns();
+      if (!a.ok)
+        throw new Error(
+          await E(a, `HTTP ${a.status}`, {
+            appendStatusToFallback: !1
+          })
+        );
+      b("Sync run started", "success"), L(this.elements.announcements, "Sync run started"), this.closeStartSyncModal(), await this.loadSyncRuns();
     } catch (a) {
       console.error("Start sync error:", a);
       const i = a instanceof Error ? a.message : "Unknown error";
@@ -324,7 +332,7 @@ class C {
       detailStarted: u,
       detailCompleted: o,
       detailCursor: p,
-      detailAttempt: S,
+      detailAttempt: x,
       detailErrorSection: w,
       detailLastError: k,
       detailCheckpoints: g,
@@ -333,7 +341,7 @@ class C {
       actionCompleteBtn: y,
       actionFailBtn: d
     } = this.elements;
-    r && (r.textContent = e.id), c && (c.textContent = e.provider), a && (a.textContent = e.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), i && (i.innerHTML = this.getStatusBadge(e.status)), u && (u.textContent = B(e.started_at)), o && (o.textContent = e.completed_at ? B(e.completed_at) : "-"), p && (p.textContent = e.cursor || "-"), S && (S.textContent = String(e.attempt_count || 1)), e.last_error ? (k && (k.textContent = e.last_error), v(w)) : f(w), R && R.classList.toggle("hidden", e.status !== "running"), m && m.classList.toggle("hidden", e.status !== "failed"), y && y.classList.toggle("hidden", e.status !== "running"), d && d.classList.toggle("hidden", e.status !== "running"), g && (g.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), v(s);
+    r && (r.textContent = e.id), c && (c.textContent = e.provider), a && (a.textContent = e.direction === "inbound" ? "Inbound (Import)" : "Outbound (Export)"), i && (i.innerHTML = this.getStatusBadge(e.status)), u && (u.textContent = B(e.started_at)), o && (o.textContent = e.completed_at ? B(e.completed_at) : "-"), p && (p.textContent = e.cursor || "-"), x && (x.textContent = String(e.attempt_count || 1)), e.last_error ? (k && (k.textContent = e.last_error), v(w)) : f(w), R && R.classList.toggle("hidden", e.status !== "running"), m && m.classList.toggle("hidden", e.status !== "failed"), y && y.classList.toggle("hidden", e.status !== "running"), d && d.classList.toggle("hidden", e.status !== "running"), g && (g.innerHTML = '<p class="text-sm text-gray-500">Loading checkpoints...</p>'), v(s);
     try {
       const h = await fetch(`${this.syncRunsEndpoint}/${t}/checkpoints`, {
         credentials: "same-origin",
@@ -405,10 +413,12 @@ class C {
           t === "fail" ? { last_error: "Manually marked as failed" } : {}
         )
       });
-      if (!p.ok) {
-        const S = await p.json();
-        throw new Error(S.error?.message || `HTTP ${p.status}`);
-      }
+      if (!p.ok)
+        throw new Error(
+          await E(p, `HTTP ${p.status}`, {
+            appendStatusToFallback: !1
+          })
+        );
       b(`Sync run ${t} successful`, "success"), this.closeRunDetail(), await this.loadSyncRuns();
     } catch (o) {
       console.error(`${t} error:`, o);
@@ -440,20 +450,20 @@ class C {
       }
   }
 }
-function j(x) {
-  const t = new C(x);
-  return L(() => t.init()), t;
+function H(S) {
+  const t = new M(S);
+  return C(() => t.init()), t;
 }
-function H(x) {
+function I(S) {
   const t = {
-    basePath: x.basePath,
-    apiBasePath: x.apiBasePath || `${x.basePath}/api`
-  }, e = new C(t);
-  L(() => e.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = e);
+    basePath: S.basePath,
+    apiBasePath: S.apiBasePath || `${S.basePath}/api`
+  }, e = new M(t);
+  C(() => e.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = e);
 }
 export {
-  C as IntegrationSyncRunsController,
-  H as bootstrapIntegrationSyncRuns,
-  j as initIntegrationSyncRuns
+  M as IntegrationSyncRunsController,
+  I as bootstrapIntegrationSyncRuns,
+  H as initIntegrationSyncRuns
 };
 //# sourceMappingURL=integration-sync-runs.js.map

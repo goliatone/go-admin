@@ -1,6 +1,9 @@
+import { coerceString as l, coerceInteger as P, coerceStringArray as _, asRecord as g } from "../shared/coercion.js";
+import { normalizeMenuBuilderPath as D, normalizeMenuBuilderRoute as j, normalizeMenuBuilderAPIBasePath as R } from "./shared/path-helpers.js";
 import { escapeHTML as u } from "../shared/html.js";
-import { onReady as J } from "../shared/dom-ready.js";
-const W = /* @__PURE__ */ new Set(["inherit", "show", "hide"]), G = /* @__PURE__ */ new Set(["draft", "published"]), H = /* @__PURE__ */ new Set(["content", "route", "module", "external"]), K = /* @__PURE__ */ new Set([
+import { parseJSONValue as S } from "../shared/json-parse.js";
+import { onReady as G } from "../shared/dom-ready.js";
+const H = /* @__PURE__ */ new Set(["inherit", "show", "hide"]), J = /* @__PURE__ */ new Set(["draft", "published"]), W = /* @__PURE__ */ new Set(["content", "route", "module", "external"]), K = /* @__PURE__ */ new Set([
   "full",
   "top_level_limit",
   "max_depth",
@@ -8,204 +11,189 @@ const W = /* @__PURE__ */ new Set(["inherit", "show", "hide"]), G = /* @__PURE__
   "exclude_ids",
   "composed"
 ]);
-function g(a, e) {
-  if (!a || typeof a != "object" || Array.isArray(a))
+function v(s, e) {
+  const t = g(s);
+  if (!s || Array.isArray(s) || t !== s)
     throw new Error(`${e} must be an object`);
-  return a;
+  return t;
 }
-function d(a, e, t = "") {
-  return typeof a == "string" ? a.trim() : a == null ? t : String(a).trim();
+function M(s) {
+  return l(s).toLowerCase() === "true";
 }
-function P(a) {
-  return typeof a == "boolean" ? a : typeof a == "string" ? a.trim().toLowerCase() === "true" : !1;
+function T(s) {
+  const e = l(s, "draft").toLowerCase();
+  return J.has(e) ? e : "draft";
 }
-function M(a, e = 0) {
-  if (typeof a == "number" && Number.isFinite(a))
-    return a;
-  if (typeof a == "string") {
-    const t = Number.parseInt(a.trim(), 10);
-    if (Number.isFinite(t))
-      return t;
-  }
-  return e;
-}
-function w(a) {
-  return Array.isArray(a) ? a.map((e) => d(e)).filter((e) => e.length > 0) : [];
-}
-function T(a) {
-  const e = d(a, "status", "draft").toLowerCase();
-  return G.has(e) ? e : "draft";
-}
-function Q(a) {
-  const e = d(a, "mode", "full").toLowerCase();
+function Q(s) {
+  const e = l(s, "full").toLowerCase();
   return K.has(e) ? e : "full";
 }
-function X(a) {
-  const e = g(a, "menu contracts"), t = g(e.endpoints, "menu contracts endpoints"), r = e.error_codes ?? e.errorCode ?? {}, i = g(r, "menu contracts error codes"), s = {};
-  Object.entries(t).forEach(([l, c]) => {
-    const p = d(c);
-    p && (s[l] = p);
+function X(s) {
+  const e = v(s, "menu contracts"), t = v(e.endpoints, "menu contracts endpoints"), r = e.error_codes ?? e.errorCode ?? {}, i = v(r, "menu contracts error codes"), a = {};
+  Object.entries(t).forEach(([d, c]) => {
+    const p = l(c);
+    p && (a[d] = p);
   });
   const n = {};
-  Object.entries(i).forEach(([l, c]) => {
-    const p = d(c);
-    p && (n[l] = p);
+  Object.entries(i).forEach(([d, c]) => {
+    const p = l(c);
+    p && (n[d] = p);
   });
   const o = Y(e.content_navigation);
   return {
-    endpoints: s,
+    endpoints: a,
     error_codes: n,
     content_navigation: o
   };
 }
-function Y(a) {
-  if (!a || typeof a != "object" || Array.isArray(a))
+function Y(s) {
+  if (!s || typeof s != "object" || Array.isArray(s))
     return;
-  const e = a, t = e.endpoints, r = e.entry_navigation_overrides, i = e.validation, s = {};
-  t && typeof t == "object" && !Array.isArray(t) && Object.entries(t).forEach(([o, l]) => {
-    const c = d(l);
-    c && (s[o] = c);
+  const e = s, t = e.endpoints, r = e.entry_navigation_overrides, i = e.validation, a = {};
+  t && typeof t == "object" && !Array.isArray(t) && Object.entries(t).forEach(([o, d]) => {
+    const c = l(d);
+    c && (a[o] = c);
   });
   const n = {};
-  if (Object.keys(s).length > 0 && (n.endpoints = s), r && typeof r == "object" && !Array.isArray(r)) {
+  if (Object.keys(a).length > 0 && (n.endpoints = a), r && typeof r == "object" && !Array.isArray(r)) {
     const o = r;
     n.entry_navigation_overrides = {
-      value_enum: w(o.value_enum),
-      write_endpoint: d(o.write_endpoint)
+      value_enum: _(o.value_enum),
+      write_endpoint: l(o.write_endpoint)
     };
   }
   if (i && typeof i == "object" && !Array.isArray(i)) {
-    const o = i, l = o.invalid_location, c = o.invalid_value;
+    const o = i, d = o.invalid_location, c = o.invalid_value;
     n.validation = {
-      invalid_location: l && typeof l == "object" && !Array.isArray(l) ? {
-        field_pattern: d(l.field_pattern),
-        rule: d(l.rule),
-        hint: d(l.hint)
+      invalid_location: d && typeof d == "object" && !Array.isArray(d) ? {
+        field_pattern: l(d.field_pattern),
+        rule: l(d.rule),
+        hint: l(d.hint)
       } : void 0,
       invalid_value: c && typeof c == "object" && !Array.isArray(c) ? {
-        allowed_values: w(c.allowed_values)
+        allowed_values: _(c.allowed_values)
       } : void 0
     };
   }
   return n;
 }
-function y(a) {
-  const e = g(a, "menu record"), t = d(e.id, "menu.id", d(e.code, "menu.code")), r = d(e.code, "menu.code", t);
+function y(s) {
+  const e = v(s, "menu record"), t = l(e.id, l(e.code)), r = l(e.code, t);
   if (!t || !r)
     throw new Error("menu record requires id and code");
   return {
     id: t,
     code: r,
-    name: d(e.name, "menu.name", r),
-    description: d(e.description),
+    name: l(e.name, r),
+    description: l(e.description),
     status: T(e.status),
-    locale: d(e.locale),
-    family_id: d(e.family_id),
-    archived: P(e.archived),
-    created_at: d(e.created_at),
-    updated_at: d(e.updated_at),
-    published_at: d(e.published_at),
-    archived_at: d(e.archived_at)
+    locale: l(e.locale),
+    family_id: l(e.family_id),
+    archived: M(e.archived),
+    created_at: l(e.created_at),
+    updated_at: l(e.updated_at),
+    published_at: l(e.published_at),
+    archived_at: l(e.archived_at)
   };
 }
-function L(a) {
-  const e = g(a, "menu binding record"), t = d(e.location), r = d(e.menu_code);
+function L(s) {
+  const e = v(s, "menu binding record"), t = l(e.location), r = l(e.menu_code);
   if (!t || !r)
     throw new Error("menu binding requires location and menu_code");
   return {
-    id: d(e.id),
+    id: l(e.id),
     location: t,
     menu_code: r,
-    view_profile_code: d(e.view_profile_code),
-    locale: d(e.locale),
-    priority: M(e.priority, 0),
+    view_profile_code: l(e.view_profile_code),
+    locale: l(e.locale),
+    priority: P(e.priority, 0),
     status: T(e.status),
-    created_at: d(e.created_at),
-    updated_at: d(e.updated_at),
-    published_at: d(e.published_at)
+    created_at: l(e.created_at),
+    updated_at: l(e.updated_at),
+    published_at: l(e.published_at)
   };
 }
-function _(a) {
-  const e = g(a, "menu view profile"), t = d(e.code);
+function w(s) {
+  const e = v(s, "menu view profile"), t = l(e.code);
   if (!t)
     throw new Error("menu view profile requires code");
   return {
     code: t,
-    name: d(e.name, "profile.name", t),
+    name: l(e.name, t),
     mode: Q(e.mode),
-    max_top_level: M(e.max_top_level, 0) || void 0,
-    max_depth: M(e.max_depth, 0) || void 0,
-    include_item_ids: w(e.include_item_ids),
-    exclude_item_ids: w(e.exclude_item_ids),
+    max_top_level: P(e.max_top_level, 0) || void 0,
+    max_depth: P(e.max_depth, 0) || void 0,
+    include_item_ids: _(e.include_item_ids),
+    exclude_item_ids: _(e.exclude_item_ids),
     status: T(e.status),
-    created_at: d(e.created_at),
-    updated_at: d(e.updated_at),
-    published_at: d(e.published_at)
+    created_at: l(e.created_at),
+    updated_at: l(e.updated_at),
+    published_at: l(e.published_at)
   };
 }
-function Z(a) {
-  if (!a || typeof a != "object" || Array.isArray(a))
+function Z(s) {
+  if (!s || typeof s != "object" || Array.isArray(s))
     return;
-  const e = a, t = d(e.type).toLowerCase();
-  if (H.has(t))
+  const e = s, t = l(e.type).toLowerCase();
+  if (W.has(t))
     return {
       type: t,
-      id: d(e.id),
-      slug: d(e.slug),
-      content_type: d(e.content_type),
-      path: d(e.path),
-      route: d(e.route),
-      module: d(e.module),
-      url: d(e.url)
+      id: l(e.id),
+      slug: l(e.slug),
+      content_type: l(e.content_type),
+      path: l(e.path),
+      route: l(e.route),
+      module: l(e.module),
+      url: l(e.url)
     };
 }
-function S(a, e = "menu item") {
-  const t = g(a, e), r = d(t.id);
+function E(s, e = "menu item") {
+  const t = v(s, e), r = l(t.id);
   if (!r)
     throw new Error(`${e} requires id`);
-  const i = t.children ?? t.Items, s = Array.isArray(i) ? i.map((n, o) => S(n, `${e}.children[${o}]`)) : [];
+  const i = t.children ?? t.Items, a = Array.isArray(i) ? i.map((n, o) => E(n, `${e}.children[${o}]`)) : [];
   return {
     id: r,
-    label: d(t.label, `${e}.label`, r),
-    type: d(t.type),
-    parent_id: d(t.parent_id ?? t.parentID ?? t.ParentID),
+    label: l(t.label, r),
+    type: l(t.type),
+    parent_id: l(t.parent_id ?? t.parentID ?? t.ParentID),
     target: Z(t.target ?? t.Target),
-    children: s
+    children: a
   };
 }
-function ee(a) {
-  const e = g(a, "menu preview response"), t = g(e.menu ?? e.data, "menu preview menu"), r = t.items ?? t.Items, i = Array.isArray(r) ? r.map((s, n) => S(s, `preview.menu.items[${n}]`)) : [];
+function ee(s) {
+  const e = v(s, "menu preview response"), t = v(e.menu ?? e.data, "menu preview menu"), r = t.items ?? t.Items, i = Array.isArray(r) ? r.map((a, n) => E(a, `preview.menu.items[${n}]`)) : [];
   return {
     menu: {
-      code: d(t.code ?? t.Code),
+      code: l(t.code ?? t.Code),
       items: i
     },
     simulation: e.simulation && typeof e.simulation == "object" && !Array.isArray(e.simulation) ? {
-      requested_id: d(e.simulation.requested_id),
-      location: d(e.simulation.location),
-      locale: d(e.simulation.locale),
-      view_profile: d(e.simulation.view_profile),
-      include_drafts: P(e.simulation.include_drafts),
-      preview_token_present: P(e.simulation.preview_token_present),
+      requested_id: l(e.simulation.requested_id),
+      location: l(e.simulation.location),
+      locale: l(e.simulation.locale),
+      view_profile: l(e.simulation.view_profile),
+      include_drafts: M(e.simulation.include_drafts),
+      preview_token_present: M(e.simulation.preview_token_present),
       binding: e.simulation.binding && typeof e.simulation.binding == "object" ? L(e.simulation.binding) : void 0,
-      profile: e.simulation.profile && typeof e.simulation.profile == "object" ? _(e.simulation.profile) : void 0
+      profile: e.simulation.profile && typeof e.simulation.profile == "object" ? w(e.simulation.profile) : void 0
     } : void 0
   };
 }
-function te(a, e = []) {
-  if (!a || typeof a != "object" || Array.isArray(a))
+function te(s, e = []) {
+  if (!s || typeof s != "object" || Array.isArray(s))
     return {};
-  const t = a, r = new Set(e.map((s) => s.trim()).filter(Boolean)), i = {};
-  return Object.entries(t).forEach(([s, n]) => {
-    const o = s.trim();
+  const t = s, r = new Set(e.map((a) => a.trim()).filter(Boolean)), i = {};
+  return Object.entries(t).forEach(([a, n]) => {
+    const o = a.trim();
     if (!o)
       return;
     if (r.size > 0 && !r.has(o))
       throw new Error(`invalid navigation location: ${o}`);
-    const l = d(n).toLowerCase();
-    if (!W.has(l))
+    const d = l(n).toLowerCase();
+    if (!H.has(d))
       throw new Error(`invalid navigation value for ${o}: ${String(n)}`);
-    i[o] = l;
+    i[o] = d;
   }), i;
 }
 class $ extends Error {
@@ -213,19 +201,13 @@ class $ extends Error {
     super(e), this.name = "MenuBuilderAPIError", this.status = t, this.textCode = r, this.metadata = i;
   }
 }
-function b(a) {
-  return !a || typeof a != "object" || Array.isArray(a) ? {} : a;
-}
-function N(a, e) {
-  let t = a;
+function q(s, e) {
+  let t = s;
   return Object.entries(e).forEach(([r, i]) => {
     t = t.replace(`:${r}`, encodeURIComponent(String(i)));
   }), t;
 }
-function q(a, e) {
-  return e ? /^https?:\/\//i.test(e) || e.startsWith("/") ? e : `${a.replace(/\/+$/, "")}/${e.replace(/^\/+/, "")}` : a;
-}
-class R {
+class O {
   constructor(e) {
     this.contracts = null;
     const t = e.basePath.replace(/\/+$/, "");
@@ -239,7 +221,7 @@ class R {
   async loadContracts(e = !1) {
     if (this.contracts && !e)
       return this.contracts;
-    const t = await this.fetchJSON(this.config.contractsPath, { method: "GET" }), r = b(t), i = X(r.contracts ?? r);
+    const t = await this.fetchJSON(this.config.contractsPath, { method: "GET" }), r = g(t), i = X(r.contracts ?? r);
     return this.contracts = i, i;
   }
   async listMenus() {
@@ -250,8 +232,8 @@ class R {
     const t = await this.fetchFromEndpoint("menus.id", {
       method: "GET",
       params: { id: e }
-    }), r = y(t.menu ?? t.data ?? t), s = (Array.isArray(t.items) ? t.items : []).map((n, o) => S(n, `menu.items[${o}]`));
-    return { menu: r, items: s };
+    }), r = y(t.menu ?? t.data ?? t), a = (Array.isArray(t.items) ? t.items : []).map((n, o) => E(n, `menu.items[${o}]`));
+    return { menu: r, items: a };
   }
   async createMenu(e) {
     const t = await this.fetchFromEndpoint("menus", {
@@ -297,8 +279,8 @@ class R {
       method: "PUT",
       params: { id: e },
       body: { items: t }
-    }), i = b(r.menu ?? r.data ?? {});
-    return (Array.isArray(i.items) ? i.items : Array.isArray(i.Items) ? i.Items : []).map((n, o) => S(n, `menu.items[${o}]`));
+    }), i = g(r.menu ?? r.data ?? {});
+    return (Array.isArray(i.items) ? i.items : Array.isArray(i.Items) ? i.Items : []).map((n, o) => E(n, `menu.items[${o}]`));
   }
   async previewMenu(e) {
     const t = new URLSearchParams();
@@ -324,14 +306,14 @@ class R {
   }
   async listProfiles() {
     const e = await this.fetchFromEndpoint("menu.view_profiles", { method: "GET" });
-    return (Array.isArray(e.view_profiles) ? e.view_profiles : Array.isArray(e.profiles) ? e.profiles : Array.isArray(e.data) ? e.data : []).map((r) => _(r));
+    return (Array.isArray(e.view_profiles) ? e.view_profiles : Array.isArray(e.profiles) ? e.profiles : Array.isArray(e.data) ? e.data : []).map((r) => w(r));
   }
   async createProfile(e) {
     const t = await this.fetchFromEndpoint("menu.view_profiles", {
       method: "POST",
       body: e
     });
-    return _(t.view_profile ?? t.profile ?? t.data ?? t);
+    return w(t.view_profile ?? t.profile ?? t.data ?? t);
   }
   async updateProfile(e, t) {
     const r = await this.fetchFromEndpoint("menu.view_profiles.code", {
@@ -339,7 +321,7 @@ class R {
       params: { code: e },
       body: t
     });
-    return _(r.view_profile ?? r.profile ?? r.data ?? r);
+    return w(r.view_profile ?? r.profile ?? r.data ?? r);
   }
   async deleteProfile(e) {
     await this.fetchFromEndpoint("menu.view_profiles.code", {
@@ -353,38 +335,38 @@ class R {
       params: { code: e },
       body: { publish: t }
     });
-    return _(r.view_profile ?? r.profile ?? r.data ?? r);
+    return w(r.view_profile ?? r.profile ?? r.data ?? r);
   }
   async patchEntryNavigation(e, t, r, i = []) {
-    let s = `${this.config.basePath}/content/:type/:id/navigation`;
+    let a = `${this.config.basePath}/content/:type/:id/navigation`;
     try {
-      s = (await this.loadContracts()).content_navigation?.endpoints?.["content.navigation"] || s;
+      a = (await this.loadContracts()).content_navigation?.endpoints?.["content.navigation"] || a;
     } catch {
     }
-    const n = q(this.config.basePath, N(s, { type: e, id: t })), o = await this.fetchJSON(n, {
+    const n = D(this.config.basePath, q(a, { type: e, id: t })), o = await this.fetchJSON(n, {
       method: "PATCH",
       body: JSON.stringify({ _navigation: r }),
       headers: {
         "Content-Type": "application/json"
       }
-    }), l = b(o), c = b(l.data ?? l);
+    }), d = g(o), c = g(d.data ?? d);
     return {
       overrides: te(c._navigation, i),
-      effective_visibility: b(c.effective_navigation_visibility)
+      effective_visibility: g(c.effective_navigation_visibility)
     };
   }
   async fetchFromEndpoint(e, t) {
     const i = (await this.loadContracts()).endpoints[e];
     if (!i)
       throw new $(`missing endpoint contract for ${e}`, 500, "CONTRACT_MISSING");
-    const s = q(this.config.basePath, N(i, t.params ?? {})), n = String(t.query ?? "").trim(), o = n ? `?${n}` : "", l = await this.fetchJSON(`${s}${o}`, {
+    const a = D(this.config.basePath, q(i, t.params ?? {})), n = String(t.query ?? "").trim(), o = n ? `?${n}` : "", d = await this.fetchJSON(`${a}${o}`, {
       method: t.method,
       body: t.body ? JSON.stringify(t.body) : void 0,
       headers: t.body ? {
         "Content-Type": "application/json"
       } : void 0
     });
-    return b(l);
+    return g(d);
   }
   async fetchJSON(e, t) {
     const r = await fetch(e, {
@@ -402,8 +384,8 @@ class R {
       i = null;
     }
     if (!r.ok) {
-      const s = b(i?.error ?? i), n = String(s.message ?? (r.statusText || "request failed")).trim() || "request failed", o = String(s.text_code ?? "").trim(), l = b(s.metadata);
-      throw new $(n, r.status, o, l);
+      const a = g(i?.error ?? i), n = String(a.message ?? (r.statusText || "request failed")).trim() || "request failed", o = String(a.text_code ?? "").trim(), d = g(a.metadata);
+      throw new $(n, r.status, o, d);
     }
     return i;
   }
@@ -421,22 +403,22 @@ const re = {
   validation_issues: [],
   preview_result: null
 };
-function f(a) {
-  return a.map((e) => ({
+function f(s) {
+  return s.map((e) => ({
     ...e,
     target: e.target ? { ...e.target } : void 0,
     children: f(e.children || [])
   }));
 }
-function O(a, e = /* @__PURE__ */ new Set()) {
-  return a.forEach((t) => {
-    e.add(t.id), O(t.children || [], e);
+function k(s, e = /* @__PURE__ */ new Set()) {
+  return s.forEach((t) => {
+    e.add(t.id), k(t.children || [], e);
   }), e;
 }
-function C(a, e) {
+function C(s, e) {
   const t = [];
   let r = null;
-  return a.forEach((i) => {
+  return s.forEach((i) => {
     if (i.id === e) {
       r = {
         ...i,
@@ -445,11 +427,11 @@ function C(a, e) {
       };
       return;
     }
-    const s = C(i.children || [], e);
-    if (s.node && !r) {
-      r = s.node, t.push({
+    const a = C(i.children || [], e);
+    if (a.node && !r) {
+      r = a.node, t.push({
         ...i,
-        children: s.next
+        children: a.next
       });
       return;
     }
@@ -459,56 +441,56 @@ function C(a, e) {
     });
   }), { node: r, next: t };
 }
-function k(a, e, t) {
+function z(s, e, t) {
   const r = [];
   let i = !1;
-  return a.forEach((s) => {
-    !i && s.id === e && (r.push(t), i = !0);
-    const n = k(s.children || [], e, t);
+  return s.forEach((a) => {
+    !i && a.id === e && (r.push(t), i = !0);
+    const n = z(a.children || [], e, t);
     if (n.inserted) {
-      i = !0, r.push({ ...s, children: n.items });
+      i = !0, r.push({ ...a, children: n.items });
       return;
     }
-    r.push({ ...s, children: f(s.children || []) });
+    r.push({ ...a, children: f(a.children || []) });
   }), { inserted: i, items: r };
 }
-function F(a, e, t) {
+function F(s, e, t) {
   const r = [];
   let i = !1;
-  return a.forEach((s) => {
-    const n = F(s.children || [], e, t);
+  return s.forEach((a) => {
+    const n = F(a.children || [], e, t);
     if (n.inserted) {
-      i = !0, r.push({ ...s, children: n.items });
+      i = !0, r.push({ ...a, children: n.items });
       return;
     }
-    r.push({ ...s, children: f(s.children || []) }), !i && s.id === e && (r.push(t), i = !0);
+    r.push({ ...a, children: f(a.children || []) }), !i && a.id === e && (r.push(t), i = !0);
   }), { inserted: i, items: r };
 }
-function A(a, e, t) {
+function A(s, e, t) {
   let r = !1;
-  const i = a.map((s) => {
-    if (s.id === e)
+  const i = s.map((a) => {
+    if (a.id === e)
       return r = !0, {
-        ...s,
-        children: [...f(s.children || []), t]
+        ...a,
+        children: [...f(a.children || []), t]
       };
-    const n = A(s.children || [], e, t);
+    const n = A(a.children || [], e, t);
     return n.inserted ? (r = !0, {
-      ...s,
+      ...a,
       children: n.items
     }) : {
-      ...s,
-      children: f(s.children || [])
+      ...a,
+      children: f(a.children || [])
     };
   });
   return { inserted: r, items: i };
 }
-function ie(a) {
-  const e = a.target;
+function ie(s) {
+  const e = s.target;
   return !e || !e.type ? "" : e.type === "external" ? `external:${String(e.url || "").trim().toLowerCase()}` : e.type === "route" || e.type === "module" ? `${e.type}:${String(e.path || e.route || e.module || "").trim().toLowerCase()}` : `content:${String(e.content_type || "").trim().toLowerCase()}:${String(e.slug || e.id || "").trim().toLowerCase()}`;
 }
-function se(a) {
-  const e = a.target;
+function ae(s) {
+  const e = s.target;
   if (!e)
     return { url: "", valid: !1, message: "Target required" };
   switch (e.type) {
@@ -548,7 +530,7 @@ function se(a) {
       return { url: "", valid: !1, message: "Unsupported target type" };
   }
 }
-class z extends EventTarget {
+class U extends EventTarget {
   constructor(e) {
     super(), this.client = e, this.state = { ...re };
   }
@@ -576,15 +558,15 @@ class z extends EventTarget {
         this.client.listMenus(),
         this.client.listBindings(),
         this.client.listProfiles()
-      ]), s = t[0]?.id || "";
+      ]), a = t[0]?.id || "";
       this.setState({
         contracts: e,
         menus: t,
         bindings: r,
         profiles: i,
-        selected_menu_id: s,
+        selected_menu_id: a,
         loading: !1
-      }), s && await this.selectMenu(s);
+      }), a && await this.selectMenu(a);
     } catch (e) {
       this.setState({
         loading: !1,
@@ -701,23 +683,23 @@ class z extends EventTarget {
   moveItem(e, t, r) {
     if (!e || !t || e === t)
       return;
-    const i = O(this.state.draft_items);
+    const i = k(this.state.draft_items);
     if (!i.has(e) || !i.has(t))
       return;
-    const s = C(this.state.draft_items, e);
-    if (!s.node)
+    const a = C(this.state.draft_items, e);
+    if (!a.node)
       return;
     let n;
     switch (r) {
       case "before":
-        n = k(s.next, t, s.node);
+        n = z(a.next, t, a.node);
         break;
       case "after":
-        n = F(s.next, t, s.node);
+        n = F(a.next, t, a.node);
         break;
       case "inside":
       default:
-        n = A(s.next, t, s.node);
+        n = A(a.next, t, a.node);
         break;
     }
     n.inserted && this.setDraftItems(n.items);
@@ -762,7 +744,7 @@ class z extends EventTarget {
     return this.client.patchEntryNavigation(e, t, r, i);
   }
   resolveTarget(e) {
-    return se(e);
+    return ae(e);
   }
   mapItems(e, t, r) {
     return e.map((i) => i.id === t ? r({ ...i, children: f(i.children || []) }) : {
@@ -771,39 +753,39 @@ class z extends EventTarget {
     });
   }
   validateItems(e) {
-    const t = [], r = /* @__PURE__ */ new Map(), i = (s, n, o) => {
-      s.label.trim() || t.push({
+    const t = [], r = /* @__PURE__ */ new Map(), i = (a, n, o) => {
+      a.label.trim() || t.push({
         code: "label_required",
-        message: `Menu item ${s.id} requires a label`,
-        item_id: s.id
-      }), o.has(s.id) && t.push({
+        message: `Menu item ${a.id} requires a label`,
+        item_id: a.id
+      }), o.has(a.id) && t.push({
         code: "cycle",
-        message: `Cycle detected at menu item ${s.id}`,
-        item_id: s.id
+        message: `Cycle detected at menu item ${a.id}`,
+        item_id: a.id
       }), n > 8 && t.push({
         code: "depth",
-        message: `Menu depth exceeds max level at ${s.id}`,
-        item_id: s.id
+        message: `Menu depth exceeds max level at ${a.id}`,
+        item_id: a.id
       });
-      const l = this.resolveTarget(s);
-      l.valid || t.push({
+      const d = this.resolveTarget(a);
+      d.valid || t.push({
         code: "invalid_target",
-        message: `${s.label || s.id}: ${l.message}`,
-        item_id: s.id
+        message: `${a.label || a.id}: ${d.message}`,
+        item_id: a.id
       });
-      const c = ie(s);
+      const c = ie(a);
       if (c) {
         const h = r.get(c);
-        h && h !== s.id ? t.push({
+        h && h !== a.id ? t.push({
           code: "duplicate_target",
-          message: `Duplicate target detected between ${h} and ${s.id}`,
-          item_id: s.id
-        }) : r.set(c, s.id);
+          message: `Duplicate target detected between ${h} and ${a.id}`,
+          item_id: a.id
+        }) : r.set(c, a.id);
       }
       const p = new Set(o);
-      p.add(s.id), (s.children || []).forEach((h) => i(h, n + 1, p));
+      p.add(a.id), (a.children || []).forEach((h) => i(h, n + 1, p));
     };
-    return e.forEach((s) => i(s, 1, /* @__PURE__ */ new Set())), t;
+    return e.forEach((a) => i(a, 1, /* @__PURE__ */ new Set())), t;
   }
   setState(e) {
     const t = Object.prototype.hasOwnProperty.call(e, "selected_menu_id") && e.selected_menu_id !== this.state.selected_menu_id;
@@ -813,57 +795,41 @@ class z extends EventTarget {
     }, t && !Object.prototype.hasOwnProperty.call(e, "preview_result") && (this.state.preview_result = null), this.dispatchEvent(new CustomEvent("change", { detail: this.snapshot() }));
   }
 }
-function E(a, e) {
-  if (!a)
-    return e;
-  try {
-    return JSON.parse(a);
-  } catch {
-    return e;
-  }
+function B(s) {
+  return s.split(",").map((e) => e.trim()).filter(Boolean).filter((e, t, r) => r.indexOf(e) === t).sort();
 }
-function j(a) {
-  return a.split(",").map((e) => e.trim()).filter(Boolean).filter((e, t, r) => r.indexOf(e) === t).sort();
-}
-function I(a, e = "") {
-  const t = window.prompt(a, e);
+function I(s, e = "") {
+  const t = window.prompt(s, e);
   return String(t || "").trim();
 }
-function D(a, e) {
-  return e ? e.startsWith("/") ? e : `${a.replace(/\/+$/, "")}/${e.replace(/^\/+/, "")}` : "";
+function N(s) {
+  return l(s).toLowerCase() === "true";
 }
-function U(a, e) {
-  const t = D(a, e || `${a}/api`);
-  return /\/api(\/|$)/.test(t) ? t : `${t.replace(/\/+$/, "")}/api`;
-}
-function B(a) {
-  return String(a || "").trim().toLowerCase() === "true";
-}
-class ae {
+class se {
   constructor(e, t) {
     this.state = null, this.dragItemID = "", this.onClick = async (i) => {
-      const s = i.target, n = s.closest("[data-menu-select]");
+      const a = i.target, n = a.closest("[data-menu-select]");
       if (n) {
         const o = String(n.dataset.menuSelect || "").trim();
         o && await this.store.selectMenu(o);
         return;
       }
-      if (s.closest("[data-menu-create]")) {
+      if (a.closest("[data-menu-create]")) {
         const o = I("New menu code (example: site.main):", "site.main");
         if (!o) return;
         try {
           await this.store.createMenu({ code: o, name: o, status: "draft" });
-        } catch (l) {
-          this.showError(l);
+        } catch (d) {
+          this.showError(d);
         }
         return;
       }
-      if (s.closest("[data-menu-save-meta]")) {
-        const o = this.root.querySelector('[data-menu-meta="code"]'), l = this.root.querySelector('[data-menu-meta="name"]'), c = this.root.querySelector('[data-menu-meta="locale"]'), p = this.root.querySelector('[data-menu-meta="description"]');
+      if (a.closest("[data-menu-save-meta]")) {
+        const o = this.root.querySelector('[data-menu-meta="code"]'), d = this.root.querySelector('[data-menu-meta="name"]'), c = this.root.querySelector('[data-menu-meta="locale"]'), p = this.root.querySelector('[data-menu-meta="description"]');
         try {
           await this.store.updateMenu({
             code: String(o?.value || "").trim(),
-            name: String(l?.value || "").trim(),
+            name: String(d?.value || "").trim(),
             locale: String(c?.value || "").trim(),
             description: String(p?.value || "").trim()
           });
@@ -872,51 +838,51 @@ class ae {
         }
         return;
       }
-      if (s.closest("[data-menu-publish]")) {
-        const o = String(s.closest("[data-menu-publish]").dataset.menuPublish || "").trim();
+      if (a.closest("[data-menu-publish]")) {
+        const o = String(a.closest("[data-menu-publish]").dataset.menuPublish || "").trim();
         try {
           await this.store.setPublishState(o === "publish");
-        } catch (l) {
-          this.showError(l);
+        } catch (d) {
+          this.showError(d);
         }
         return;
       }
-      if (s.closest("[data-menu-clone]")) {
+      if (a.closest("[data-menu-clone]")) {
         const o = this.state?.selected_menu;
         if (!o) return;
-        const l = I("Clone menu code:", `${o.code}_clone`);
-        if (!l) return;
+        const d = I("Clone menu code:", `${o.code}_clone`);
+        if (!d) return;
         try {
-          await this.store.cloneSelectedMenu(l);
+          await this.store.cloneSelectedMenu(d);
         } catch (c) {
           this.showError(c);
         }
         return;
       }
-      if (s.closest("[data-menu-archive]")) {
-        const l = String(s.closest("[data-menu-archive]").dataset.menuArchive || "").trim() === "archive";
+      if (a.closest("[data-menu-archive]")) {
+        const d = String(a.closest("[data-menu-archive]").dataset.menuArchive || "").trim() === "archive";
         try {
-          await this.store.archiveSelectedMenu(l);
+          await this.store.archiveSelectedMenu(d);
         } catch (c) {
           this.showError(c);
         }
         return;
       }
-      if (s.closest("[data-menu-add-root]")) {
+      if (a.closest("[data-menu-add-root]")) {
         this.store.addRootItem();
         return;
       }
-      if (s.closest("[data-menu-add-child]")) {
-        const o = String(s.closest("[data-menu-add-child]").dataset.menuAddChild || "").trim();
+      if (a.closest("[data-menu-add-child]")) {
+        const o = String(a.closest("[data-menu-add-child]").dataset.menuAddChild || "").trim();
         o && this.store.addChild(o);
         return;
       }
-      if (s.closest("[data-menu-remove-item]")) {
-        const o = String(s.closest("[data-menu-remove-item]").dataset.menuRemoveItem || "").trim();
+      if (a.closest("[data-menu-remove-item]")) {
+        const o = String(a.closest("[data-menu-remove-item]").dataset.menuRemoveItem || "").trim();
         o && this.store.removeItem(o);
         return;
       }
-      if (s.closest("[data-menu-save-items]")) {
+      if (a.closest("[data-menu-save-items]")) {
         try {
           await this.store.saveItems();
         } catch (o) {
@@ -924,8 +890,8 @@ class ae {
         }
         return;
       }
-      if (s.closest("[data-binding-save]")) {
-        const o = this.root.querySelector('[data-binding-field="location"]'), l = this.root.querySelector('[data-binding-field="menu_code"]'), c = this.root.querySelector('[data-binding-field="view_profile_code"]'), p = this.root.querySelector('[data-binding-field="status"]'), h = this.root.querySelector('[data-binding-field="locale"]'), v = this.root.querySelector('[data-binding-field="priority"]'), m = String(o?.value || "").trim();
+      if (a.closest("[data-binding-save]")) {
+        const o = this.root.querySelector('[data-binding-field="location"]'), d = this.root.querySelector('[data-binding-field="menu_code"]'), c = this.root.querySelector('[data-binding-field="view_profile_code"]'), p = this.root.querySelector('[data-binding-field="status"]'), h = this.root.querySelector('[data-binding-field="locale"]'), b = this.root.querySelector('[data-binding-field="priority"]'), m = String(o?.value || "").trim();
         if (!m) {
           this.showError(new Error("Binding location is required"));
           return;
@@ -933,29 +899,29 @@ class ae {
         try {
           await this.store.upsertBinding(m, {
             location: m,
-            menu_code: String(l?.value || "").trim(),
+            menu_code: String(d?.value || "").trim(),
             view_profile_code: String(c?.value || "").trim(),
             status: String(p?.value || "draft").trim().toLowerCase(),
             locale: String(h?.value || "").trim(),
-            priority: Number.parseInt(String(v?.value || "0").trim(), 10) || 0
+            priority: Number.parseInt(String(b?.value || "0").trim(), 10) || 0
           });
         } catch (x) {
           this.showError(x);
         }
         return;
       }
-      if (s.closest("[data-profile-create]")) {
+      if (a.closest("[data-profile-create]")) {
         const o = I("Profile code:", "footer");
         if (!o) return;
         try {
           await this.store.createProfile({ code: o, name: o, mode: "full", status: "draft" });
-        } catch (l) {
-          this.showError(l);
+        } catch (d) {
+          this.showError(d);
         }
         return;
       }
-      if (s.closest("[data-profile-save]")) {
-        const o = this.root.querySelector('[data-profile-field="code"]'), l = this.root.querySelector('[data-profile-field="name"]'), c = this.root.querySelector('[data-profile-field="mode"]'), p = this.root.querySelector('[data-profile-field="max_top_level"]'), h = this.root.querySelector('[data-profile-field="max_depth"]'), v = this.root.querySelector('[data-profile-field="include_item_ids"]'), m = this.root.querySelector('[data-profile-field="exclude_item_ids"]'), x = String(o?.value || "").trim();
+      if (a.closest("[data-profile-save]")) {
+        const o = this.root.querySelector('[data-profile-field="code"]'), d = this.root.querySelector('[data-profile-field="name"]'), c = this.root.querySelector('[data-profile-field="mode"]'), p = this.root.querySelector('[data-profile-field="max_top_level"]'), h = this.root.querySelector('[data-profile-field="max_depth"]'), b = this.root.querySelector('[data-profile-field="include_item_ids"]'), m = this.root.querySelector('[data-profile-field="exclude_item_ids"]'), x = String(o?.value || "").trim();
         if (!x) {
           this.showError(new Error("Select a profile to update"));
           return;
@@ -963,35 +929,35 @@ class ae {
         try {
           await this.store.updateProfile(x, {
             code: x,
-            name: String(l?.value || "").trim(),
+            name: String(d?.value || "").trim(),
             mode: String(c?.value || "full").trim().toLowerCase(),
             max_top_level: Number.parseInt(String(p?.value || "").trim(), 10) || void 0,
             max_depth: Number.parseInt(String(h?.value || "").trim(), 10) || void 0,
-            include_item_ids: j(String(v?.value || "")),
-            exclude_item_ids: j(String(m?.value || ""))
+            include_item_ids: B(String(b?.value || "")),
+            exclude_item_ids: B(String(m?.value || ""))
           });
         } catch (V) {
           this.showError(V);
         }
         return;
       }
-      if (s.closest("[data-profile-delete]")) {
-        const o = this.root.querySelector('[data-profile-field="code"]'), l = String(o?.value || "").trim();
-        if (!l || l === "full") {
+      if (a.closest("[data-profile-delete]")) {
+        const o = this.root.querySelector('[data-profile-field="code"]'), d = String(o?.value || "").trim();
+        if (!d || d === "full") {
           this.showError(new Error("Select a non-default profile to delete"));
           return;
         }
-        if (!window.confirm(`Delete profile "${l}"?`))
+        if (!window.confirm(`Delete profile "${d}"?`))
           return;
         try {
-          await this.store.deleteProfile(l);
+          await this.store.deleteProfile(d);
         } catch (c) {
           this.showError(c);
         }
         return;
       }
-      if (s.closest("[data-profile-publish]")) {
-        const o = String(s.closest("[data-profile-publish]").dataset.profilePublish || "").trim(), l = this.root.querySelector('[data-profile-field="code"]'), c = String(l?.value || "").trim();
+      if (a.closest("[data-profile-publish]")) {
+        const o = String(a.closest("[data-profile-publish]").dataset.profilePublish || "").trim(), d = this.root.querySelector('[data-profile-field="code"]'), c = String(d?.value || "").trim();
         if (!c) {
           this.showError(new Error("Select a profile first"));
           return;
@@ -1003,37 +969,37 @@ class ae {
         }
         return;
       }
-      if (s.closest("[data-preview-run]")) {
+      if (a.closest("[data-preview-run]")) {
         const o = this.state?.selected_menu_id || "";
         if (!o) return;
-        const l = this.root.querySelector('[data-preview-field="location"]'), c = this.root.querySelector('[data-preview-field="locale"]'), p = this.root.querySelector('[data-preview-field="view_profile"]'), h = this.root.querySelector('[data-preview-field="include_drafts"]'), v = this.root.querySelector('[data-preview-field="preview_token"]');
+        const d = this.root.querySelector('[data-preview-field="location"]'), c = this.root.querySelector('[data-preview-field="locale"]'), p = this.root.querySelector('[data-preview-field="view_profile"]'), h = this.root.querySelector('[data-preview-field="include_drafts"]'), b = this.root.querySelector('[data-preview-field="preview_token"]');
         try {
           await this.store.preview({
             menuId: o,
-            location: String(l?.value || "").trim(),
+            location: String(d?.value || "").trim(),
             locale: String(c?.value || "").trim(),
             view_profile: String(p?.value || "").trim(),
             include_drafts: !!h?.checked,
-            preview_token: String(v?.value || "").trim()
+            preview_token: String(b?.value || "").trim()
           });
         } catch (m) {
           this.showError(m);
         }
       }
     }, this.onChange = (i) => {
-      const s = i.target, n = s.closest("[data-menu-item-field]");
+      const a = i.target, n = a.closest("[data-menu-item-field]");
       if (n) {
-        const l = String(n.dataset.menuItemField || "").trim(), c = s, p = String(c.dataset.itemField || "").trim();
-        if (!l || !p) return;
-        const h = this.findItemByID(this.state?.draft_items || [], l);
+        const d = String(n.dataset.menuItemField || "").trim(), c = a, p = String(c.dataset.itemField || "").trim();
+        if (!d || !p) return;
+        const h = this.findItemByID(this.state?.draft_items || [], d);
         if (!h) return;
         if (p === "label") {
-          this.store.updateItem(l, { label: String(c.value || "").trim() });
+          this.store.updateItem(d, { label: String(c.value || "").trim() });
           return;
         }
         if (p === "target.type") {
           const m = String(c.value || "route").trim().toLowerCase();
-          this.store.updateItem(l, {
+          this.store.updateItem(d, {
             target: {
               type: m,
               path: m === "route" || m === "module" ? "/" : void 0,
@@ -1044,16 +1010,16 @@ class ae {
           });
           return;
         }
-        const v = {
+        const b = {
           ...h.target || { type: "route" }
         };
         if (p.startsWith("target.")) {
           const m = p.replace("target.", "");
-          v[m] = String(c.value || "").trim(), this.store.updateItem(l, { target: v });
+          b[m] = String(c.value || "").trim(), this.store.updateItem(d, { target: b });
         }
         return;
       }
-      const o = s.closest('[data-profile-field="code"]');
+      const o = a.closest('[data-profile-field="code"]');
       o && this.syncSelectedProfile(o.value);
     }, this.onDragStart = (i) => {
       const n = i.target.closest("[data-menu-item-id]");
@@ -1072,15 +1038,15 @@ class ae {
       const n = i.target.closest("[data-drop-zone]");
       if (!n) return;
       i.preventDefault(), n.classList.remove("bg-blue-100");
-      const o = String(n.dataset.dropTarget || "").trim(), l = String(n.dataset.dropMode || "inside").trim(), c = this.dragItemID || String(i.dataTransfer?.getData("text/plain") || "").trim();
-      !c || !o || c === o || this.store.moveItem(c, o, l);
+      const o = String(n.dataset.dropTarget || "").trim(), d = String(n.dataset.dropMode || "inside").trim(), c = this.dragItemID || String(i.dataTransfer?.getData("text/plain") || "").trim();
+      !c || !o || c === o || this.store.moveItem(c, o, d);
     }, this.onDragEnd = (i) => {
       this.dragItemID = "";
       const n = i.target.closest("[data-menu-item-id]");
       n && n.classList.remove("opacity-60"), this.root.querySelectorAll("[data-drop-zone]").forEach((o) => o.classList.remove("bg-blue-100"));
     }, this.root = e, this.config = t;
-    const r = new R({ basePath: t.apiBasePath });
-    this.store = new z(r);
+    const r = new O({ basePath: t.apiBasePath });
+    this.store = new U(r);
   }
   async init() {
     this.root.addEventListener("click", this.onClick), this.root.addEventListener("change", this.onChange), this.root.addEventListener("dragstart", this.onDragStart), this.root.addEventListener("dragover", this.onDragOver), this.root.addEventListener("dragleave", this.onDragLeave), this.root.addEventListener("drop", this.onDrop), this.root.addEventListener("dragend", this.onDragEnd), this.store.addEventListener("change", (t) => {
@@ -1251,8 +1217,8 @@ class ae {
         </section>
       </div>
     `;
-    const s = this.root.querySelector('[data-profile-field="code"]');
-    s && s.value && this.syncSelectedProfile(s.value);
+    const a = this.root.querySelector('[data-profile-field="code"]');
+    a && a.value && this.syncSelectedProfile(a.value);
   }
   renderMenuCard(e, t) {
     const r = e.id === t;
@@ -1287,7 +1253,7 @@ class ae {
                 class="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
               />
               <select data-item-field="target.type" class="rounded border border-gray-300 px-2 py-1.5 text-sm">
-                ${["content", "route", "module", "external"].map((s) => `<option value="${s}" ${s === t ? "selected" : ""}>${s}</option>`).join("")}
+                ${["content", "route", "module", "external"].map((a) => `<option value="${a}" ${a === t ? "selected" : ""}>${a}</option>`).join("")}
               </select>
             </div>
             <div class="flex items-center gap-1">
@@ -1371,9 +1337,9 @@ class ae {
   syncSelectedProfile(e) {
     const t = (this.state?.profiles || []).find((i) => i.code === e);
     if (!t) return;
-    const r = (i, s) => {
+    const r = (i, a) => {
       const n = this.root.querySelector(i);
-      n && (n.value = s);
+      n && (n.value = a);
     };
     r('[data-profile-field="name"]', t.name || ""), r('[data-profile-field="mode"]', t.mode || "full"), r('[data-profile-field="max_top_level"]', t.max_top_level ? String(t.max_top_level) : ""), r('[data-profile-field="max_depth"]', t.max_depth ? String(t.max_depth) : ""), r('[data-profile-field="include_item_ids"]', (t.include_item_ids || []).join(",")), r('[data-profile-field="exclude_item_ids"]', (t.exclude_item_ids || []).join(","));
   }
@@ -1394,16 +1360,16 @@ class ae {
   }
 }
 class ne {
-  constructor(e, t, r, i, s, n) {
+  constructor(e, t, r, i, a, n) {
     this.onChange = (o) => {
-      const l = o.target;
-      if (!l.matches("[data-navigation-location]"))
+      const d = o.target;
+      if (!d.matches("[data-navigation-location]"))
         return;
-      const c = String(l.dataset.navigationLocation || "").trim(), p = String(l.value || "").trim().toLowerCase();
+      const c = String(d.dataset.navigationLocation || "").trim(), p = String(d.value || "").trim().toLowerCase();
       c && ["inherit", "show", "hide"].includes(p) && (this.state.overrides[c] = p);
     }, this.onClick = async (o) => {
       o.target.closest("[data-navigation-save]") && await this.saveOverrides();
-    }, this.root = e, this.store = t, this.contentType = r, this.recordID = i, this.config = s, this.state = n;
+    }, this.root = e, this.store = t, this.contentType = r, this.recordID = i, this.config = a, this.state = n;
   }
   init() {
     this.root.addEventListener("change", this.onChange), this.root.addEventListener("click", this.onClick), this.render("");
@@ -1444,7 +1410,7 @@ class ne {
   }
   render(e) {
     const t = this.config.eligible_locations.map((i) => {
-      const s = this.state.overrides[i] || "inherit", n = this.state.effective_visibility[i] === !0;
+      const a = this.state.overrides[i] || "inherit", n = this.state.effective_visibility[i] === !0;
       return `
           <div class="grid gap-2 md:grid-cols-[1fr,180px,120px] items-center">
             <div>
@@ -1452,9 +1418,9 @@ class ne {
               <div class="text-xs text-gray-500">Tri-state: inherit, show, hide</div>
             </div>
             <select data-navigation-location="${u(i)}" class="rounded border border-gray-300 px-2 py-1.5 text-sm" ${this.config.allow_instance_override ? "" : "disabled"}>
-              <option value="inherit" ${s === "inherit" ? "selected" : ""}>inherit</option>
-              <option value="show" ${s === "show" ? "selected" : ""}>show</option>
-              <option value="hide" ${s === "hide" ? "selected" : ""}>hide</option>
+              <option value="inherit" ${a === "inherit" ? "selected" : ""}>inherit</option>
+              <option value="show" ${a === "show" ? "selected" : ""}>show</option>
+              <option value="hide" ${a === "hide" ? "selected" : ""}>hide</option>
             </select>
             <span class="inline-flex justify-center rounded px-2 py-1 text-xs font-semibold ${n ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}">
               ${n ? "Visible" : "Hidden"}
@@ -1479,64 +1445,64 @@ class ne {
     `;
   }
 }
-function oe(a) {
+function oe(s) {
   return {
-    enabled: B(a.dataset.navigationEnabled),
-    eligible_locations: E(a.dataset.navigationEligibleLocations, []),
-    default_locations: E(a.dataset.navigationDefaultLocations, []),
-    allow_instance_override: B(a.dataset.navigationAllowInstanceOverride),
-    merge_mode: String(a.dataset.navigationMergeMode || "").trim()
+    enabled: N(s.dataset.navigationEnabled),
+    eligible_locations: S(s.dataset.navigationEligibleLocations, []),
+    default_locations: S(s.dataset.navigationDefaultLocations, []),
+    allow_instance_override: N(s.dataset.navigationAllowInstanceOverride),
+    merge_mode: String(s.dataset.navigationMergeMode || "").trim()
   };
 }
-function le(a) {
+function de(s) {
   return {
-    overrides: E(a.dataset.navigationOverrides, {}),
-    effective_visibility: E(a.dataset.navigationEffectiveVisibility, {})
+    overrides: S(s.dataset.navigationOverrides, {}),
+    effective_visibility: S(s.dataset.navigationEffectiveVisibility, {})
   };
 }
-async function de(a) {
-  const e = D("/", String(a.dataset.basePath || "/admin")), t = U(e, String(a.dataset.apiBasePath || `${e}/api`)), r = String(a.dataset.menuId || "").trim(), i = new ae(a, {
+async function le(s) {
+  const e = j("/", String(s.dataset.basePath || "/admin")), t = R(e, String(s.dataset.apiBasePath || `${e}/api`)), r = String(s.dataset.menuId || "").trim(), i = new se(s, {
     basePath: e,
     apiBasePath: t,
     initialMenuID: r
   });
   return await i.init(), i;
 }
-async function ce(a) {
-  const e = String(a.dataset.panelName || "").trim(), t = String(a.dataset.recordId || "").trim();
+async function ce(s) {
+  const e = String(s.dataset.panelName || "").trim(), t = String(s.dataset.recordId || "").trim();
   if (!e || !t)
     return null;
-  const r = D("/", String(a.dataset.basePath || "/admin")), i = U(r, String(a.dataset.apiBasePath || `${r}/api`)), s = new z(new R({ basePath: i })), n = oe(a), o = le(a), l = new ne(a, s, e, t, n, o);
-  return l.init(), l;
+  const r = j("/", String(s.dataset.basePath || "/admin")), i = R(r, String(s.dataset.apiBasePath || `${r}/api`)), a = new U(new O({ basePath: i })), n = oe(s), o = de(s), d = new ne(s, a, e, t, n, o);
+  return d.init(), d;
 }
-J(() => {
-  document.querySelectorAll("[data-menu-builder-root]").forEach((a) => {
-    a.dataset.initialized !== "true" && de(a).then(() => {
-      a.dataset.initialized = "true";
+G(() => {
+  document.querySelectorAll("[data-menu-builder-root]").forEach((s) => {
+    s.dataset.initialized !== "true" && le(s).then(() => {
+      s.dataset.initialized = "true";
     }).catch((e) => {
-      console.error("[menu-builder] failed to initialize", e), a.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
+      console.error("[menu-builder] failed to initialize", e), s.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
     });
-  }), document.querySelectorAll("[data-entry-navigation-root]").forEach((a) => {
-    a.dataset.initialized !== "true" && ce(a).then(() => {
-      a.dataset.initialized = "true";
+  }), document.querySelectorAll("[data-entry-navigation-root]").forEach((s) => {
+    s.dataset.initialized !== "true" && ce(s).then(() => {
+      s.dataset.initialized = "true";
     }).catch((e) => {
-      console.error("[entry-navigation] failed to initialize", e), a.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
+      console.error("[entry-navigation] failed to initialize", e), s.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
     });
   });
 });
 export {
   ne as EntryNavigationOverrideUI,
-  R as MenuBuilderAPIClient,
+  O as MenuBuilderAPIClient,
   $ as MenuBuilderAPIError,
-  z as MenuBuilderStore,
-  ae as MenuBuilderUI,
+  U as MenuBuilderStore,
+  se as MenuBuilderUI,
   ce as initEntryNavigationOverrides,
-  de as initMenuBuilder,
+  le as initMenuBuilder,
   L as parseMenuBindingRecord,
   X as parseMenuContracts,
-  S as parseMenuItemNode,
+  E as parseMenuItemNode,
   y as parseMenuRecord,
-  _ as parseMenuViewProfileRecord,
+  w as parseMenuViewProfileRecord,
   te as parseNavigationOverrides
 };
 //# sourceMappingURL=index.js.map

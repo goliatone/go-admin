@@ -1,6 +1,9 @@
 import { MenuBuilderAPIClient, MenuBuilderAPIError } from './api-client.js';
 import { MenuBuilderStore } from './store.js';
+import { coerceString } from '../shared/coercion.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { parseJSONValue } from '../shared/json-parse.js';
+import { normalizeMenuBuilderAPIBasePath, normalizeMenuBuilderRoute } from './shared/path-helpers.js';
 import type {
   EntryNavigationConfig,
   EntryNavigationState,
@@ -11,19 +14,6 @@ import type {
   MenuViewProfileRecord,
   NavigationOverrideValue,
 } from './types.js';
-
-
-function parseJSONData<T>(raw: string | undefined, fallback: T): T {
-  if (!raw) {
-    return fallback;
-  }
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 function normalizeCSV(raw: string): string[] {
   return raw
     .split(',')
@@ -38,22 +28,8 @@ function safePrompt(message: string, initial = ''): string {
   return String(value || '').trim();
 }
 
-function normalizeRoute(basePath: string, path: string): string {
-  if (!path) return '';
-  if (path.startsWith('/')) return path;
-  return `${basePath.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
-}
-
-function normalizeAPIBasePath(basePath: string, candidate: string): string {
-  const resolved = normalizeRoute(basePath, candidate || `${basePath}/api`);
-  if (/\/api(\/|$)/.test(resolved)) {
-    return resolved;
-  }
-  return `${resolved.replace(/\/+$/, '')}/api`;
-}
-
 function parseBool(raw: string | undefined): boolean {
-  return String(raw || '').trim().toLowerCase() === 'true';
+  return coerceString(raw).toLowerCase() === 'true';
 }
 
 type DropMode = 'before' | 'after' | 'inside';
@@ -945,8 +921,8 @@ export class EntryNavigationOverrideUI {
 function parseEntryNavigationConfig(root: HTMLElement): EntryNavigationConfig {
   return {
     enabled: parseBool(root.dataset.navigationEnabled),
-    eligible_locations: parseJSONData<string[]>(root.dataset.navigationEligibleLocations, []),
-    default_locations: parseJSONData<string[]>(root.dataset.navigationDefaultLocations, []),
+    eligible_locations: parseJSONValue<string[]>(root.dataset.navigationEligibleLocations, []),
+    default_locations: parseJSONValue<string[]>(root.dataset.navigationDefaultLocations, []),
     allow_instance_override: parseBool(root.dataset.navigationAllowInstanceOverride),
     merge_mode: String(root.dataset.navigationMergeMode || '').trim(),
   };
@@ -954,14 +930,14 @@ function parseEntryNavigationConfig(root: HTMLElement): EntryNavigationConfig {
 
 function parseEntryNavigationState(root: HTMLElement): EntryNavigationState {
   return {
-    overrides: parseJSONData<Record<string, NavigationOverrideValue>>(root.dataset.navigationOverrides, {}),
-    effective_visibility: parseJSONData<Record<string, boolean>>(root.dataset.navigationEffectiveVisibility, {}),
+    overrides: parseJSONValue<Record<string, NavigationOverrideValue>>(root.dataset.navigationOverrides, {}),
+    effective_visibility: parseJSONValue<Record<string, boolean>>(root.dataset.navigationEffectiveVisibility, {}),
   };
 }
 
 export async function initMenuBuilder(root: HTMLElement): Promise<MenuBuilderUI> {
-  const basePath = normalizeRoute('/', String(root.dataset.basePath || '/admin'));
-  const apiBase = normalizeAPIBasePath(basePath, String(root.dataset.apiBasePath || `${basePath}/api`));
+  const basePath = normalizeMenuBuilderRoute('/', String(root.dataset.basePath || '/admin'));
+  const apiBase = normalizeMenuBuilderAPIBasePath(basePath, String(root.dataset.apiBasePath || `${basePath}/api`));
   const initialMenuID = String(root.dataset.menuId || '').trim();
 
   const ui = new MenuBuilderUI(root, {
@@ -980,8 +956,8 @@ export async function initEntryNavigationOverrides(root: HTMLElement): Promise<E
     return null;
   }
 
-  const basePath = normalizeRoute('/', String(root.dataset.basePath || '/admin'));
-  const apiBase = normalizeAPIBasePath(basePath, String(root.dataset.apiBasePath || `${basePath}/api`));
+  const basePath = normalizeMenuBuilderRoute('/', String(root.dataset.basePath || '/admin'));
+  const apiBase = normalizeMenuBuilderAPIBasePath(basePath, String(root.dataset.apiBasePath || `${basePath}/api`));
   const store = new MenuBuilderStore(new MenuBuilderAPIClient({ basePath: apiBase }));
 
   const config = parseEntryNavigationConfig(root);

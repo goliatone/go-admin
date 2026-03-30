@@ -8,6 +8,8 @@ import { debounce } from '../utils/async-helpers.js';
 import { formatCompactDateTime } from '../utils/formatters.js';
 import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import { parseJSONValue } from '../../shared/json-parse.js';
+import { readHTTPError } from '../../shared/transport/http-client.js';
 
 /**
  * Configuration for the integration mappings page
@@ -374,7 +376,13 @@ export class IntegrationMappingsController {
         headers: { Accept: 'application/json' },
       });
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        throw new Error(
+          await readHTTPError(response, `HTTP ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
+      }
 
       const data = await response.json();
       this.mappings = data.mappings || [];
@@ -879,8 +887,11 @@ export class IntegrationMappingsController {
       });
 
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error?.message || `HTTP ${response.status}`);
+        throw new Error(
+          await readHTTPError(response, `HTTP ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
       showPageToast(isUpdate ? 'Mapping updated' : 'Mapping created', 'success');
@@ -925,8 +936,11 @@ export class IntegrationMappingsController {
       });
 
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error?.message || `HTTP ${response.status}`);
+        throw new Error(
+          await readHTTPError(response, `HTTP ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
       showPageToast('Mapping published', 'success');
@@ -963,8 +977,11 @@ export class IntegrationMappingsController {
       });
 
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error?.message || `HTTP ${response.status}`);
+        throw new Error(
+          await readHTTPError(response, `HTTP ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
       showPageToast('Mapping deleted', 'success');
@@ -1141,17 +1158,21 @@ export class IntegrationMappingsController {
       return null;
     }
 
-    try {
-      const parsed = JSON.parse(value);
+    let parseError: unknown = null;
+    const parsed = parseJSONValue<unknown | null>(value, null, {
+      onError: (error) => {
+        parseError = error;
+      },
+    });
+    if (!parseError) {
       hide(sourceSyntaxError);
       return parsed;
-    } catch (e) {
-      if (sourceSyntaxError) {
-        sourceSyntaxError.textContent = `JSON Syntax Error: ${e instanceof Error ? e.message : 'Invalid JSON'}`;
-        show(sourceSyntaxError);
-      }
-      return null;
     }
+    if (sourceSyntaxError) {
+      sourceSyntaxError.textContent = `JSON Syntax Error: ${parseError instanceof Error ? parseError.message : 'Invalid JSON'}`;
+      show(sourceSyntaxError);
+    }
+    return null;
   }
 
   /**

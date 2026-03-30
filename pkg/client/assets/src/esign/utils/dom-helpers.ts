@@ -4,6 +4,7 @@
  */
 
 import { onReady } from '../../shared/dom-ready.js';
+import { parseJSONValue, readJSONScriptValue, readJSONSelectorValue } from '../../shared/json-parse.js';
 
 export { onReady };
 
@@ -201,27 +202,51 @@ export function getPageConfig<T extends Record<string, unknown>>(
   // Try data attribute first
   const configStr = element.getAttribute(configAttr);
   if (configStr) {
-    try {
-      return JSON.parse(configStr) as T;
-    } catch {
-      console.warn('Failed to parse page config from attribute:', configStr);
+    const parsed = parseJSONValue<T | null>(configStr, null, {
+      onError: () => {
+        console.warn('Failed to parse page config from attribute:', configStr);
+      },
+    });
+    if (parsed) {
+      return parsed;
     }
   }
 
-  // Try script tag with type="application/json"
-  const scriptEl = qs<HTMLScriptElement>(
-    'script[type="application/json"]',
-    element
-  );
-  if (scriptEl?.textContent) {
-    try {
-      return JSON.parse(scriptEl.textContent) as T;
-    } catch {
-      console.warn('Failed to parse page config from script:', scriptEl.textContent);
-    }
-  }
+  return readJSONSelectorValue<T>('script[type="application/json"]', null, {
+    root: element,
+    onError: () => {
+      const scriptEl = qs<HTMLScriptElement>('script[type="application/json"]', element);
+      if (scriptEl?.textContent) {
+        console.warn('Failed to parse page config from script:', scriptEl.textContent);
+      }
+    },
+  });
+}
 
-  return null;
+export function getPageConfigFromScript<T extends Record<string, unknown>>(
+  scriptId = 'esign-page-config',
+  warningLabel = 'page config'
+): T | null {
+  return readJSONScriptValue<T>(scriptId, null, {
+    onError: (error) => {
+      console.warn(`Failed to parse ${warningLabel}:`, error);
+    },
+  });
+}
+
+export function getJSONScriptConfig<T>(
+  selector: string,
+  fallback: T,
+  root: Document | HTMLElement = document,
+  warningLabel = selector
+): T {
+  const parsed = readJSONSelectorValue<T>(`#${selector}`, null, {
+    root,
+    onError: (error) => {
+      console.warn(`Unable to parse ${warningLabel}`, error);
+    },
+  });
+  return parsed ?? fallback;
 }
 
 /**

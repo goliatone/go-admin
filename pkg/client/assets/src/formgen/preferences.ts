@@ -1,3 +1,5 @@
+import { parseJSONValue } from '../shared/json-parse.js';
+
 (() => {
   const ROOT_SELECTOR = '[data-preferences-form]';
   const INPUT_SELECTOR = 'textarea[name="raw_ui"]';
@@ -14,12 +16,17 @@
     if (!trimmed) {
       return { value: null, empty: true };
     }
-    try {
-      return { value: JSON.parse(trimmed), empty: false };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : INVALID_JSON_MESSAGE;
+    let parseError: unknown = null;
+    const value = parseJSONValue<unknown>(trimmed, null, {
+      onError: (error) => {
+        parseError = error;
+      },
+    });
+    if (parseError) {
+      const message = parseError instanceof Error ? parseError.message : INVALID_JSON_MESSAGE;
       return { value: null, empty: false, error: message };
     }
+    return { value, empty: false };
   };
 
   const setValidity = (input: HTMLTextAreaElement, root: HTMLElement | null, message: string) => {

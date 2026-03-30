@@ -609,9 +609,10 @@ export class ContentTypeAPIClient {
 // ===========================================================================
 
 import type { AdminExtension, BlocksFieldConfig, FieldDefinition, FieldType, FormgenExtension } from './types';
+import { deepCloneJSON } from '../shared/deep-clone.js';
 
 function cloneSchema<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+  return deepCloneJSON(value);
 }
 
 function mergeSchemaSection(base: Record<string, unknown>, next: Record<string, unknown>): Record<string, unknown> {

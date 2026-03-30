@@ -11,7 +11,7 @@ import {
 } from '../shared/coercion.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
-import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPError, readHTTPErrorResult } from '../shared/transport/http-client.js';
 import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
@@ -915,6 +915,20 @@ async function buildEditorRequestError(response: Response, fallback: string): Pr
   });
 }
 
+async function readEditorAutosaveConflictPayload(response: Response): Promise<Record<string, unknown>> {
+  const result = await readHTTPErrorResult(response, 'Autosave conflict', {
+    appendStatusToFallback: false,
+  });
+  if (result.payload && typeof result.payload === 'object') {
+    return result.payload as Record<string, unknown>;
+  }
+  return {
+    error: {
+      message: result.message,
+    },
+  };
+}
+
 export async function fetchTranslationEditorDetailState(endpoint: string): Promise<TranslationEditorLoadState> {
   const response = await httpRequest(endpoint, { method: 'GET' });
   const requestId = asString(response.headers.get('x-request-id')) || undefined;
@@ -1792,7 +1806,7 @@ export class TranslationEditorScreen {
     });
     if (!response.ok) {
       if (response.status === 409) {
-        const conflictPayload = await response.json().catch(async () => ({ error: { message: await readHTTPError(response, 'Autosave conflict') } }));
+        const conflictPayload = await readEditorAutosaveConflictPayload(response);
         this.editorState = applyEditorAutosaveConflict(this.editorState, conflictPayload);
         this.feedback = { kind: 'conflict', message: 'Autosave conflict detected. Reload the latest server draft.' };
         this.saving = false;

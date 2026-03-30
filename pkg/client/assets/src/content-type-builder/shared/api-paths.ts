@@ -1,42 +1,34 @@
-function trimTrailingSlash(value: string): string {
-  return value.replace(/\/+$/, '');
-}
-
-function normalizeApiBasePath(value: string): string {
-  const raw = value.trim();
-  if (!raw) return '';
-  const trimmed = trimTrailingSlash(raw);
-  if (!trimmed) return '/api';
-  if (/\/api(\/|$)/.test(trimmed)) return trimmed;
-  return `${trimmed}/api`;
-}
+import {
+  normalizeAPIBasePath as normalizeSharedAPIBasePath,
+  trimTrailingSlash,
+} from '../../shared/path-normalization.js';
 
 export function resolveApiBasePath(...candidates: Array<string | undefined>): string {
   for (const candidate of candidates) {
     const trimmed = (candidate || '').trim();
-    if (trimmed) return normalizeApiBasePath(trimmed);
+    if (trimmed) return normalizeSharedAPIBasePath(trimmed, { ensureAPISuffix: true });
   }
 
   const docBase =
     document.documentElement?.getAttribute('data-api-base-path') ||
     document.body?.getAttribute('data-api-base-path');
   if (docBase && docBase.trim()) {
-    return normalizeApiBasePath(docBase.trim());
+    return normalizeSharedAPIBasePath(docBase.trim(), { ensureAPISuffix: true });
   }
 
   const docAdminBase =
     document.documentElement?.getAttribute('data-base-path') ||
     document.body?.getAttribute('data-base-path');
   if (docAdminBase && docAdminBase.trim()) {
-    return normalizeApiBasePath(docAdminBase.trim());
+    return normalizeSharedAPIBasePath(docAdminBase.trim(), { ensureAPISuffix: true });
   }
 
   const debugConfig = (window as any)?.DEBUG_CONFIG;
   if (typeof debugConfig?.apiBasePath === 'string' && debugConfig.apiBasePath.trim()) {
-    return normalizeApiBasePath(debugConfig.apiBasePath.trim());
+    return normalizeSharedAPIBasePath(debugConfig.apiBasePath.trim(), { ensureAPISuffix: true });
   }
   if (typeof debugConfig?.basePath === 'string' && debugConfig.basePath.trim()) {
-    return normalizeApiBasePath(debugConfig.basePath.trim());
+    return normalizeSharedAPIBasePath(debugConfig.basePath.trim(), { ensureAPISuffix: true });
   }
 
   return '';

@@ -1,13 +1,16 @@
+import { parseJSONValue as O } from "../shared/json-parse.js";
 (() => {
-  const l = "[data-preferences-form]", c = 'textarea[name="raw_ui"]', f = '[data-json-editor="true"]', o = "raw_ui must be valid JSON", m = "raw_ui must be a JSON object", E = (e) => !!e && typeof e == "object" && !Array.isArray(e), S = (e) => {
+  const d = "[data-preferences-form]", c = 'textarea[name="raw_ui"]', f = '[data-json-editor="true"]', o = "raw_ui must be valid JSON", m = "raw_ui must be a JSON object", E = (e) => !!e && typeof e == "object" && !Array.isArray(e), S = (e) => {
     const r = e.trim();
     if (!r)
       return { value: null, empty: !0 };
-    try {
-      return { value: JSON.parse(r), empty: !1 };
-    } catch (t) {
-      return { value: null, empty: !1, error: t instanceof Error ? t.message : o };
-    }
+    let t = null;
+    const s = O(r, null, {
+      onError: (a) => {
+        t = a;
+      }
+    });
+    return t ? { value: null, empty: !1, error: t instanceof Error ? t.message : o } : { value: s, empty: !1 };
   }, n = (e, r, t) => {
     if (e.setCustomValidity(t), t) {
       e.setAttribute("aria-invalid", "true"), r && r.setAttribute("data-json-editor-state", "invalid");
@@ -31,9 +34,9 @@
     t.addEventListener("input", i), t.addEventListener("blur", i), r.addEventListener("submit", (y) => {
       !u(t, a, s, !0) && s && (y.preventDefault(), t.reportValidity());
     }), i();
-  }, d = () => {
-    document.querySelectorAll(l).forEach(v);
+  }, l = () => {
+    document.querySelectorAll(d).forEach(v);
   };
-  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", d) : d();
+  document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", l) : l();
 })();
 //# sourceMappingURL=preferences.js.map

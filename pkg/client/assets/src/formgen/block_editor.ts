@@ -1,4 +1,5 @@
 import { onReady } from '../shared/dom-ready.js';
+import { parseJSONArray, parseJSONValue } from '../shared/json-parse.js';
 
 type BlockEditorConfig = {
   sortable?: boolean;
@@ -76,14 +77,9 @@ type BlockEditorElements = {
 const templateRegistry = new WeakMap<HTMLElement, Map<string, BlockTemplate>>();
 
 function parseConfig(raw: string | null): BlockEditorConfig {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === 'object') {
-      return parsed as BlockEditorConfig;
-    }
-  } catch {
-    // ignore
+  const parsed = parseJSONValue<unknown>(raw, null);
+  if (parsed && typeof parsed === 'object') {
+    return parsed as BlockEditorConfig;
   }
   return {};
 }
@@ -1620,24 +1616,13 @@ export function initBlockEditor(root: HTMLElement): void {
   });
   observer.observe(list, { childList: true, subtree: true });
 
-  const initialValue = output.value?.trim();
-  let embeddedBlocks: any[] = [];
-  if (initialValue) {
-    try {
-      const parsed = JSON.parse(initialValue) as any;
-      if (Array.isArray(parsed)) {
-        embeddedBlocks = parsed;
-        parsed.forEach((entry) => {
-          const type = typeof entry === 'object' && entry ? (entry._type as string) : '';
-          if (type && templates.has(type)) {
-            addBlock(type, entry);
-          }
-        });
-      }
-    } catch {
-      // ignore malformed data
+  const embeddedBlocks = parseJSONArray<any>(output.value, []);
+  embeddedBlocks.forEach((entry) => {
+    const type = typeof entry === 'object' && entry ? (entry._type as string) : '';
+    if (type && templates.has(type)) {
+      addBlock(type, entry);
     }
-  }
+  });
 
   // Conflict detection
   const showConflicts = config.showConflicts ?? true;
@@ -1651,16 +1636,12 @@ export function initBlockEditor(root: HTMLElement): void {
   // Also check for legacy blocks from data attribute
   const legacyBlocksAttr = root.dataset.blockLegacy;
   if (showConflicts && legacyBlocksAttr) {
-    try {
-      const legacyBlocks = JSON.parse(legacyBlocksAttr);
-      if (Array.isArray(legacyBlocks)) {
-        const report = detectBlockConflicts(embeddedBlocks, legacyBlocks);
-        if (report.hasConflicts) {
-          showConflictReport(root, report);
-        }
+    const legacyBlocks = parseJSONArray<any>(legacyBlocksAttr, []);
+    if (legacyBlocks.length > 0) {
+      const report = detectBlockConflicts(embeddedBlocks, legacyBlocks);
+      if (report.hasConflicts) {
+        showConflictReport(root, report);
       }
-    } catch {
-      // ignore malformed legacy data
     }
   }
 

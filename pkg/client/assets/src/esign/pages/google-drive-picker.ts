@@ -15,6 +15,7 @@ import {
   syncAccountIdToUrl,
 } from '../utils/google-drive-utils.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import { readHTTPError } from '../../shared/transport/http-client.js';
 import {
   normalizeGoogleImportRunDetail,
   normalizeGoogleImportRunHandle,
@@ -420,7 +421,11 @@ export class GoogleDrivePickerController {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to load files: ${response.status}`);
+        throw new Error(
+          await readHTTPError(response, `Failed to load files: ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
       const data = await response.json();
@@ -915,8 +920,11 @@ export class GoogleDrivePickerController {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Import failed');
+        throw new Error(
+          await readHTTPError(response, 'Import failed', {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
       const payload = await response.json();

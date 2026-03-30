@@ -1,27 +1,29 @@
 import { onReady as ht } from "../shared/dom-ready.js";
-import { escapeHTML as P } from "../shared/html.js";
-import { a as jr, l as Or } from "../chunks/runtime-bhSs9hEJ.js";
-const Yr = "esign.signer.profile.v1", an = "esign.signer.profile.outbox.v1", pt = 90, on = 500 * 1024;
-class Wr {
+import { readJSONScriptValue as Wr, parseJSONValue as cn } from "../shared/json-parse.js";
+import { escapeHTML as L } from "../shared/html.js";
+import { readHTTPError as an, readHTTPErrorResult as Kr, readHTTPJSONObject as Xr } from "../shared/transport/http-client.js";
+import { a as Jr, l as Gr } from "../chunks/runtime-bhSs9hEJ.js";
+const Qr = "esign.signer.profile.v1", on = "esign.signer.profile.outbox.v1", pt = 90, sn = 500 * 1024;
+class Zr {
   constructor(d) {
     const f = Number.isFinite(d) && d > 0 ? d : pt;
     this.ttlMs = f * 24 * 60 * 60 * 1e3;
   }
   storageKey(d) {
-    return `${Yr}:${d}`;
+    return `${Qr}:${d}`;
   }
   async load(d) {
     try {
       const f = window.localStorage.getItem(this.storageKey(d));
       if (!f) return null;
-      const l = JSON.parse(f);
+      const l = cn(f, null);
       return !l || l.schemaVersion !== 1 ? (window.localStorage.removeItem(this.storageKey(d)), null) : typeof l.expiresAt == "number" && Date.now() > l.expiresAt ? (window.localStorage.removeItem(this.storageKey(d)), null) : l;
     } catch {
       return null;
     }
   }
   async save(d, f) {
-    const l = Date.now(), T = {
+    const l = Date.now(), E = {
       ...await this.load(d) || {
         schemaVersion: 1,
         key: d,
@@ -41,10 +43,10 @@ class Wr {
       expiresAt: l + this.ttlMs
     };
     try {
-      window.localStorage.setItem(this.storageKey(d), JSON.stringify(T));
+      window.localStorage.setItem(this.storageKey(d), JSON.stringify(E));
     } catch {
     }
-    return T;
+    return E;
   }
   async clear(d) {
     try {
@@ -53,12 +55,12 @@ class Wr {
     }
   }
 }
-class Kr {
+class ei {
   constructor(d, f) {
     this.endpointBasePath = d.replace(/\/$/, ""), this.token = f;
   }
   endpoint(d) {
-    const f = encodeURIComponent(this.token), l = encodeURIComponent(ai(d));
+    const f = encodeURIComponent(this.token), l = encodeURIComponent(ui(d));
     return `${this.endpointBasePath}/profile/${f}?key=${l}`;
   }
   async load(d) {
@@ -98,28 +100,28 @@ class Ue {
   }
   outboxLoad() {
     try {
-      const d = window.localStorage.getItem(an);
+      const d = window.localStorage.getItem(on);
       if (!d) return {};
-      const f = JSON.parse(d);
+      const f = cn(d, null);
       if (!f || typeof f != "object")
         return {};
       const l = {};
-      for (const [S, T] of Object.entries(f)) {
-        if (!T || typeof T != "object")
+      for (const [S, E] of Object.entries(f)) {
+        if (!E || typeof E != "object")
           continue;
-        const v = T;
-        if (v.op === "clear") {
+        const b = E;
+        if (b.op === "clear") {
           l[S] = {
             op: "clear",
-            updatedAt: Number(v.updatedAt) || Date.now()
+            updatedAt: Number(b.updatedAt) || Date.now()
           };
           continue;
         }
-        const a = v.op === "patch" ? v.patch : v;
+        const a = b.op === "patch" ? b.patch : b;
         l[S] = {
           op: "patch",
           patch: a && typeof a == "object" ? a : {},
-          updatedAt: Number(v.updatedAt) || Date.now()
+          updatedAt: Number(b.updatedAt) || Date.now()
         };
       }
       return l;
@@ -129,15 +131,15 @@ class Ue {
   }
   outboxSave(d) {
     try {
-      window.localStorage.setItem(an, JSON.stringify(d));
+      window.localStorage.setItem(on, JSON.stringify(d));
     } catch {
     }
   }
   queuePatch(d, f) {
-    const l = this.outboxLoad(), S = l[d], T = S?.op === "patch" ? S.patch || {} : {};
+    const l = this.outboxLoad(), S = l[d], E = S?.op === "patch" ? S.patch || {} : {};
     l[d] = {
       op: "patch",
-      patch: { ...T, ...f, updatedAt: Date.now() },
+      patch: { ...E, ...f, updatedAt: Date.now() },
       updatedAt: Date.now()
     }, this.outboxSave(l);
   }
@@ -173,8 +175,8 @@ class Ue {
       const [l, S] = await Promise.all([
         this.localStore.load(d),
         this.remoteStore.load(d).catch(() => null)
-      ]), T = this.pickLatest(l, S);
-      return T && await this.localStore.save(d, T), await this.flushOutboxForKey(d), T;
+      ]), E = this.pickLatest(l, S);
+      return E && await this.localStore.save(d, E), await this.flushOutboxForKey(d), E;
     }
     return this.localStore.load(d);
   }
@@ -205,8 +207,8 @@ class Ue {
     this.removeOutboxEntry(d);
   }
 }
-function Xr(s) {
-  const d = s.profile?.mode || "local_only", f = String(s.uiMode || "").trim().toLowerCase(), l = String(s.defaultTab || "").trim().toLowerCase(), S = String(s.viewerMode || "").trim().toLowerCase(), T = String(s.viewerBanner || "").trim().toLowerCase();
+function ti(s) {
+  const d = s.profile?.mode || "local_only", f = String(s.uiMode || "").trim().toLowerCase(), l = String(s.defaultTab || "").trim().toLowerCase(), S = String(s.viewerMode || "").trim().toLowerCase(), E = String(s.viewerBanner || "").trim().toLowerCase();
   return {
     token: String(s.token || "").trim(),
     apiBasePath: String(s.apiBasePath || "/api/v1/esign/signing").trim(),
@@ -220,7 +222,7 @@ function Xr(s) {
     uiMode: f || "sign",
     defaultTab: l || "sign",
     viewerMode: S,
-    viewerBanner: T,
+    viewerBanner: E,
     recipientId: String(s.recipientId || "").trim(),
     recipientEmail: String(s.recipientEmail || "").trim(),
     recipientName: String(s.recipientName || "").trim(),
@@ -258,7 +260,7 @@ function Xr(s) {
     }
   };
 }
-function Jr(s) {
+function ni(s) {
   return !s || typeof s != "object" ? null : {
     id: String(s.id || "").trim(),
     participant_type: String(s.participant_type || "").trim(),
@@ -274,7 +276,7 @@ function Jr(s) {
     approved_on_behalf_at: String(s.approved_on_behalf_at || "").trim()
   };
 }
-function Gr(s, d) {
+function ri(s, d) {
   if (!d || typeof d != "object") return null;
   const f = String(s || "").trim(), l = f.includes(":") ? f.split(":", 1)[0] : "", S = f.includes(":") ? f.slice(f.indexOf(":") + 1) : "";
   return {
@@ -285,17 +287,17 @@ function Gr(s, d) {
     actor_id: String(d.actor_id || S).trim()
   };
 }
-function Qr(s) {
+function ii(s) {
   if (!s || typeof s != "object") return {};
   const d = {};
   return Object.entries(s).forEach(([f, l]) => {
     const S = String(f || "").trim();
     if (!S) return;
-    const T = Gr(S, l);
-    T && (d[S] = T);
+    const E = ri(S, l);
+    E && (d[S] = E);
   }), d;
 }
-function sn(s, ...d) {
+function dn(s, ...d) {
   if (!(!s || typeof s != "object")) {
     for (const f of d)
       if (Object.prototype.hasOwnProperty.call(s, f) && s[f] != null)
@@ -303,14 +305,14 @@ function sn(s, ...d) {
   }
 }
 function I(s, ...d) {
-  const f = sn(s, ...d);
+  const f = dn(s, ...d);
   return f == null ? "" : String(f).trim();
 }
 function gt(s, ...d) {
-  const f = sn(s, ...d);
+  const f = dn(s, ...d);
   return f == null || f === "" ? 0 : Number(f) || 0;
 }
-function Zr(s) {
+function ai(s) {
   if (!s || typeof s != "object") return null;
   const d = s.thread && typeof s.thread == "object" ? s.thread : {}, f = Array.isArray(s.messages) ? s.messages : [];
   return {
@@ -344,7 +346,7 @@ function Zr(s) {
 }
 function ft(s) {
   if (!s || typeof s != "object") return null;
-  const d = Array.isArray(s.threads) ? s.threads.map(Zr).filter(Boolean) : [], f = Qr(s.actor_map || s.actorMap), l = Array.isArray(s.blockers) ? s.blockers.map((S) => String(S || "").trim()).filter(Boolean) : [];
+  const d = Array.isArray(s.threads) ? s.threads.map(ai).filter(Boolean) : [], f = ii(s.actor_map || s.actorMap), l = Array.isArray(s.blockers) ? s.blockers.map((S) => String(S || "").trim()).filter(Boolean) : [];
   return {
     review_id: String(s.review_id || "").trim(),
     status: String(s.status || "").trim(),
@@ -366,7 +368,7 @@ function ft(s) {
     sign_blocked: !!s.sign_blocked,
     sign_block_reason: String(s.sign_block_reason || "").trim(),
     blockers: l,
-    participant: Jr(s.participant),
+    participant: ni(s.participant),
     actor_map: f,
     open_thread_count: Number(s.open_thread_count || 0) || 0,
     resolved_thread_count: Number(s.resolved_thread_count || 0) || 0,
@@ -383,12 +385,12 @@ function mt(s) {
       return "Global Comment";
   }
 }
-function ei(s) {
+function oi(s) {
   const d = String(s?.thread?.anchor_type || "").trim();
   return d === "page" || d === "field";
 }
 function he(s) {
-  const d = be(s);
+  const d = ve(s);
   switch (d) {
     case "pending":
       return "Pending";
@@ -404,38 +406,38 @@ function he(s) {
       return d ? d.replace(/_/g, " ") : "Inactive";
   }
 }
-function be(s) {
+function ve(s) {
   return String(s || "").trim().toLowerCase();
 }
-function ve(s) {
-  return be(s?.participant_status || s?.participant?.effective_decision_status || s?.participant?.decision_status);
+function be(s) {
+  return ve(s?.participant_status || s?.participant?.effective_decision_status || s?.participant?.decision_status);
 }
-function ti(s) {
-  const d = ve(s);
+function si(s) {
+  const d = be(s);
   return d === "approved" || d === "changes_requested";
 }
-function ni(s) {
-  return !s || s.override_active || !s.can_approve && !s.can_request_changes ? !1 : !ti(s);
+function ci(s) {
+  return !s || s.override_active || !s.can_approve && !s.can_request_changes ? !1 : !si(s);
 }
-function ri(s) {
+function di(s) {
   if (!s || typeof s != "object")
     return "Track review status, comments, and decision actions.";
-  const d = be(s.status), f = ve(s), l = Number(s.approved_count || 0) || 0, S = Number(s.total_approvers || 0) || 0;
+  const d = ve(s.status), f = be(s), l = Number(s.approved_count || 0) || 0, S = Number(s.total_approvers || 0) || 0;
   if (s.override_active) {
-    const T = String(s.override_reason || "").trim(), v = String(s.override_by_display_name || "").trim(), a = v && !looksLikeUUID(v) ? v : "";
-    return T ? `Review was finalized by admin override${a ? ` by ${a}` : ""}. Reason: ${T}` : `Review was finalized by admin override${a ? ` by ${a}` : ""}.`;
+    const E = String(s.override_reason || "").trim(), b = String(s.override_by_display_name || "").trim(), a = b && !looksLikeUUID(b) ? b : "";
+    return E ? `Review was finalized by admin override${a ? ` by ${a}` : ""}. Reason: ${E}` : `Review was finalized by admin override${a ? ` by ${a}` : ""}.`;
   }
   if (s?.participant?.approved_on_behalf) {
-    const T = String(s.participant.approved_on_behalf_by_display_name || "").trim(), v = T && !looksLikeUUID(T) ? T : "";
-    return v ? `Your review decision was recorded on your behalf by ${v}.` : "Your review decision was recorded on your behalf by an admin.";
+    const E = String(s.participant.approved_on_behalf_by_display_name || "").trim(), b = E && !looksLikeUUID(E) ? E : "";
+    return b ? `Your review decision was recorded on your behalf by ${b}.` : "Your review decision was recorded on your behalf by an admin.";
   }
   return f === "approved" && d === "in_review" ? S > 0 ? `Your approval is recorded. ${l} of ${S} approvers have approved so far.` : "Your approval is recorded. Waiting for the remaining reviewers before this document can proceed." : f === "approved" && d === "approved" ? S > 0 ? `All approvers approved (${l} of ${S}). Review is complete.` : "All reviewers approved. Review is complete." : f === "changes_requested" ? "Your change request is recorded. The sender must resolve it before this document can proceed." : d === "in_review" && S > 0 ? `${l} of ${S} approvers have approved so far.` : s.gate ? `Gate: ${String(s.gate || "").replace(/_/g, " ")}` : "Track review status, comments, and decision actions.";
 }
-function ii(s) {
+function li(s) {
   const d = typeof window < "u" ? window.location.origin.toLowerCase() : "unknown", f = s.recipientEmail ? s.recipientEmail.trim().toLowerCase() : s.recipientId.trim().toLowerCase();
   return encodeURIComponent(`${d}:${f}`);
 }
-function ai(s) {
+function ui(s) {
   const d = String(s || "").trim();
   if (!d) return "";
   try {
@@ -444,29 +446,29 @@ function ai(s) {
     return d;
   }
 }
-function oi(s) {
+function gi(s) {
   const d = String(s || "").trim().toLowerCase();
   return d === "[drawn]" || d === "[drawn initials]";
 }
 function D(s) {
   const d = String(s || "").trim();
-  return oi(d) ? "" : d;
+  return gi(d) ? "" : d;
 }
-function si(s) {
-  const d = new Wr(s.profile.ttlDays);
+function mi(s) {
+  const d = new Zr(s.profile.ttlDays);
   if (!s.canSign || String(s.sessionKind).trim().toLowerCase() === "reviewer")
     return new Ue("local_only", d, null);
-  const f = new Kr(s.profile.endpointBasePath, s.token);
+  const f = new ei(s.profile.endpointBasePath, s.token);
   return s.profile.mode === "local_only" ? new Ue("local_only", d, null) : s.profile.mode === "remote_only" ? new Ue("remote_only", d, f) : new Ue("hybrid", d, f);
 }
-function ci(s) {
+function pi(s) {
   const d = document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]');
   if (!d) return;
   const f = d;
   if (f.dataset.esignBootstrapped === "true")
     return;
   f.dataset.esignBootstrapped = "true";
-  const l = Xr(s), S = ii(l), T = si(l), v = {
+  const l = ti(s), S = li(l), E = mi(l), b = {
     events: [],
     sessionId: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
     startTime: Date.now(),
@@ -644,7 +646,7 @@ function ci(s) {
      */
     async flush() {
       if (!l.telemetryEnabled || this.events.length === 0) return;
-      const e = hn();
+      const e = vn();
       if (!e) {
         this.events = [];
         return;
@@ -674,8 +676,8 @@ function ci(s) {
     }
   };
   window.addEventListener("beforeunload", () => {
-    v.track("session_end", v.getSessionSummary()), v.flush();
-  }), setInterval(() => v.flush(), 3e4);
+    b.track("session_end", b.getSessionSummary()), b.flush();
+  }), setInterval(() => b.flush(), 3e4);
   const a = {
     currentPage: 1,
     zoomLevel: 1,
@@ -722,7 +724,7 @@ function ci(s) {
     inlineComposerAnchor: null,
     activePanelTab: String(l.defaultTab).trim().toLowerCase() === "review" ? "review" : "sign"
   };
-  function M() {
+  function R() {
     a.overlayRenderFrameID || (a.overlayRenderFrameID = window.requestAnimationFrame(() => {
       a.overlayRenderFrameID = 0, le();
     }));
@@ -743,7 +745,7 @@ function ci(s) {
       i?.resolve?.();
     }));
   }
-  function dn(e, t = 4e3) {
+  function un(e, t = 4e3) {
     const n = Number(e || 0) || 0;
     return !n || qe(n) ? Promise.resolve() : new Promise((r, i) => {
       const o = window.setTimeout(() => {
@@ -757,12 +759,12 @@ function ci(s) {
     const t = a.fieldState.get(e);
     t && (delete t.previewValueText, delete t.previewValueBool, delete t.previewSignatureUrl);
   }
-  function ln() {
+  function gn() {
     a.fieldState.forEach((e) => {
       delete e.previewValueText, delete e.previewValueBool, delete e.previewSignatureUrl;
     });
   }
-  function vt(e, t) {
+  function bt(e, t) {
     const n = a.fieldState.get(e);
     if (!n) return;
     const r = D(String(t || ""));
@@ -772,7 +774,7 @@ function ci(s) {
     }
     n.previewValueText = r, delete n.previewValueBool, delete n.previewSignatureUrl;
   }
-  function bt(e, t) {
+  function vt(e, t) {
     const n = a.fieldState.get(e);
     n && (n.previewValueBool = !!t, delete n.previewValueText, delete n.previewSignatureUrl);
   }
@@ -793,7 +795,7 @@ function ci(s) {
     const e = String(l.uiMode).trim().toLowerCase();
     return e === "sign" || e === "review" || e === "sign_and_review" ? e : String(l.sessionKind).trim().toLowerCase() === "reviewer" ? "review" : $() ? "sign_and_review" : "sign";
   }
-  function un() {
+  function mn() {
     const e = String(l.defaultTab).trim().toLowerCase();
     return e === "sign" || e === "review" ? re() === "review" && e === "sign" ? "review" : re() === "sign" && e === "review" ? "sign" : e : re() === "review" ? "review" : "sign";
   }
@@ -815,7 +817,7 @@ function ci(s) {
   function He() {
     return !$() || !l.reviewMarkersVisible ? !1 : xe();
   }
-  function gn() {
+  function pn() {
     return !He() || !l.reviewMarkersInteractive ? !1 : yt();
   }
   function yt() {
@@ -824,11 +826,11 @@ function ci(s) {
   function Se() {
     return String(l.sessionKind).trim().toLowerCase() === "sender";
   }
-  function mn() {
+  function fn() {
     const e = String(l.viewerMode || "").trim().toLowerCase();
     return e === "review" || e === "sign" || e === "complete" || e === "read_only" ? e : "read_only";
   }
-  function pn() {
+  function hn() {
     const e = String(l.viewerBanner || "").trim().toLowerCase();
     switch (e) {
       case "sender_review":
@@ -837,7 +839,7 @@ function ci(s) {
       case "sender_read_only":
         return e;
       default:
-        switch (mn()) {
+        switch (fn()) {
           case "review":
             return "sender_review";
           case "sign":
@@ -859,7 +861,7 @@ function ci(s) {
   function St() {
     return xt();
   }
-  function fn() {
+  function bn() {
     const e = String(l.reviewApiPath || "").trim();
     return e || `${St()}/review`;
   }
@@ -869,7 +871,7 @@ function ci(s) {
     const t = String(l.token || "").trim();
     return !Se() && t ? `${l.apiBasePath}/assets/${encodeURIComponent(t)}` : `${xt()}/assets`;
   }
-  function hn() {
+  function vn() {
     const e = String(l.telemetryPath || "").trim();
     if (e) return e;
     const t = String(l.token || "").trim();
@@ -880,7 +882,7 @@ function ci(s) {
       e.preview_url || e.source_url || e.executed_url || e.certificate_url || ""
     ).trim();
   }
-  function Et(e, t) {
+  function Tt(e, t) {
     return (Array.isArray(e) ? e : []).filter((n) => String(n?.thread?.status || "").trim() === t).length;
   }
   function K(e, t) {
@@ -896,14 +898,14 @@ function ci(s) {
     const t = e.trim(), n = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, r = /^[0-9a-f]{24,32}$/i;
     return n.test(t) || r.test(t);
   }
-  function vn(e) {
+  function wn(e) {
     if (!e) return null;
     const t = a.reviewContext?.participant;
     if (!t) return null;
     const n = String(e).trim(), r = String(t.id || "").trim(), i = String(t.recipient_id || "").trim();
     return r === n || i === n ? t : null;
   }
-  function bn(e, t) {
+  function yn(e, t) {
     const n = a.reviewContext?.actor_map || {}, r = [], i = String(e || "").trim(), o = String(t || "").trim();
     i === "recipient" || i === "signer" ? r.push(K("recipient", t), K("signer", t)) : i === "user" || i === "sender" ? r.push(K("user", t), K("sender", t)) : i === "reviewer" || i === "external" ? r.push(K("reviewer", t), K("external", t)) : r.push(K(i, t));
     const c = r.map((p) => n[p]).find(Boolean);
@@ -914,7 +916,7 @@ function ci(s) {
       if (m && !N(m))
         return { ...c, name: m };
     }
-    const g = vn(o);
+    const g = wn(o);
     if (g) {
       const p = String(g.display_name || "").trim(), m = String(g.email || "").trim();
       if (p && !N(p))
@@ -949,7 +951,7 @@ function ci(s) {
     return r ? r.slice(0, 2) : n.replace(/[^a-z0-9]/ig, "").slice(0, 2).toUpperCase() || String(t || "P").trim().slice(0, 2).toUpperCase() || "P";
   }
   function je(e, t) {
-    const n = bn(e, t), r = String(n?.actor_type || e || "").trim();
+    const n = yn(e, t), r = String(n?.actor_type || e || "").trim();
     let i = "#64748b";
     (r === "user" || r === "sender") && (i = "#2563eb"), (r === "reviewer" || r === "external") && (i = "#7c3aed"), (r === "recipient" || r === "signer") && (i = "#059669");
     const o = String(n?.name || n?.email || Q(r)).trim() || "Participant", c = n?.name && !N(n.name) ? n.name : n?.email && !N(n.email) ? n.email : Q(r);
@@ -961,7 +963,7 @@ function ci(s) {
       color: i
     };
   }
-  function wn(e) {
+  function xn(e) {
     if (!e) return "";
     const t = String(e.display_name || "").trim(), n = String(e.email || "").trim();
     if (t && !N(t)) return t;
@@ -969,14 +971,14 @@ function ci(s) {
     const r = String(e.participant_type || "").trim();
     return r ? Q(r) : "Participant";
   }
-  function Tt(e) {
+  function Et(e) {
     const t = String(e || "").trim();
     if (!t) return "";
     const n = new Date(t);
     return Number.isNaN(n.getTime()) ? t : n.toLocaleString();
   }
-  function yn(e) {
-    a.reviewContext = ft(e), a.reviewContext && (Array.isArray(a.reviewContext.threads) || (a.reviewContext.threads = []), a.reviewContext.open_thread_count = Et(a.reviewContext.threads, "open"), a.reviewContext.resolved_thread_count = Et(a.reviewContext.threads, "resolved")), W() ? a.activePanelTab = "review" : $() ? ie() || (a.activePanelTab = un()) : a.activePanelTab = "sign", j(), M(), ce(), z();
+  function Sn(e) {
+    a.reviewContext = ft(e), a.reviewContext && (Array.isArray(a.reviewContext.threads) || (a.reviewContext.threads = []), a.reviewContext.open_thread_count = Tt(a.reviewContext.threads, "open"), a.reviewContext.resolved_thread_count = Tt(a.reviewContext.threads, "resolved")), W() ? a.activePanelTab = "review" : $() ? ie() || (a.activePanelTab = mn()) : a.activePanelTab = "sign", j(), R(), ce(), z();
   }
   async function ae() {
     const e = await fetch(St(), {
@@ -987,10 +989,13 @@ function ci(s) {
     if (!e.ok)
       throw await q(e, "Failed to reload review session");
     const t = await e.json(), n = t?.session && typeof t.session == "object" ? t.session : {};
-    return a.canSignSession = n.can_sign !== !1, yn(n.review || null), n;
+    return a.canSignSession = n.can_sign !== !1, Sn(n.review || null), n;
+  }
+  async function Cn(e) {
+    return Xr(e);
   }
   async function oe(e, t = {}, n = "Review request failed") {
-    const r = await fetch(`${fn()}${e}`, {
+    const r = await fetch(`${bn()}${e}`, {
       credentials: "same-origin",
       ...t,
       headers: {
@@ -1001,40 +1006,40 @@ function ci(s) {
     });
     if (!r.ok)
       throw await q(r, n);
-    return r.json().catch(() => ({}));
+    return Cn(r);
   }
   function Z() {
     const e = document.getElementById("review-thread-anchor");
     return String(e?.value || "agreement").trim() || "agreement";
   }
-  function Lt() {
+  function Pt() {
     a.highlightedReviewThreadID = "", a.highlightedReviewThreadTimer && (window.clearTimeout(a.highlightedReviewThreadTimer), a.highlightedReviewThreadTimer = null);
   }
-  function Pt(e) {
-    Lt(), a.highlightedReviewThreadID = String(e || "").trim(), a.highlightedReviewThreadID && (a.highlightedReviewThreadTimer = window.setTimeout(() => {
-      Lt(), $t(), M();
-    }, 2400), $t(), M());
+  function Lt(e) {
+    Pt(), a.highlightedReviewThreadID = String(e || "").trim(), a.highlightedReviewThreadID && (a.highlightedReviewThreadTimer = window.setTimeout(() => {
+      Pt(), $t(), R();
+    }, 2400), $t(), R());
   }
-  function xn(e) {
+  function _n(e) {
     {
-      a.reviewAnchorPointDraft = null, ee(), M();
+      a.reviewAnchorPointDraft = null, ee(), R();
       return;
     }
   }
-  function Sn(e) {
+  function Tn(e) {
     a.pickingReviewAnchorPoint = !!e && Z() === "page", document.getElementById("pdf-container")?.classList.toggle("review-anchor-picking", a.pickingReviewAnchorPoint), a.pickingReviewAnchorPoint ? w("Click on the document page to add a comment.") : (w("Comment pin placement cancelled."), se()), ee();
   }
-  function Cn(e, t, n) {
+  function En(e, t, n) {
     if (!$() || !a.reviewContext?.comments_enabled || !a.reviewContext?.can_comment)
       return;
     a.inlineComposerPosition = { x: e, y: t }, a.inlineComposerAnchor = n, a.inlineComposerVisible = !0;
     let r = document.getElementById("inline-comment-composer");
-    r || (r = _n(), document.body.appendChild(r));
+    r || (r = Pn(), document.body.appendChild(r));
     const i = window.innerWidth, o = window.innerHeight, c = 320, g = 200, u = 16;
     let p = e + 20, m = t - g / 2;
     p + c > i - u && (p = e - c - 20), p < u && (p = u), m < u && (m = u), m + g > o - u && (m = o - g - u), r.style.left = `${p}px`, r.style.top = `${m}px`, r.classList.remove("hidden");
-    const b = r.querySelector("textarea");
-    b && setTimeout(() => b.focus(), 100), w("Comment composer opened. Type your comment and press submit.");
+    const v = r.querySelector("textarea");
+    v && setTimeout(() => v.focus(), 100), w("Comment composer opened. Type your comment and press submit.");
   }
   function se() {
     a.inlineComposerVisible = !1, a.inlineComposerAnchor = null;
@@ -1045,7 +1050,7 @@ function ci(s) {
       t && (t.value = "");
     }
   }
-  function _n() {
+  function Pn() {
     const e = document.createElement("div");
     return e.id = "inline-comment-composer", e.className = "inline-comment-composer hidden", e.innerHTML = `
       <div class="inline-composer-header">
@@ -1063,7 +1068,7 @@ function ci(s) {
       </div>
     `, e.querySelector(".inline-composer-close")?.addEventListener("click", () => se()), e;
   }
-  async function En() {
+  async function Ln() {
     if (!a.inlineComposerAnchor) return;
     const e = document.getElementById("inline-comment-body"), t = String(e?.value || "").trim();
     if (!t) {
@@ -1115,7 +1120,7 @@ function ci(s) {
       e.classList.add("hidden");
       return;
     }
-    const t = a.reviewContext, n = be(t.status), r = ve(t);
+    const t = a.reviewContext, n = ve(t.status), r = be(t);
     e.classList.remove("hidden");
     const i = document.getElementById("review-step-draft"), o = document.getElementById("review-step-sent"), c = document.getElementById("review-step-review"), g = document.getElementById("review-step-decision"), u = e.querySelectorAll(".review-progress-line");
     if ([i, o, c, g].forEach((p) => {
@@ -1144,7 +1149,7 @@ function ci(s) {
       p && (p.className = "iconoir-check-circle text-xs");
     }
   }
-  function Tn() {
+  function kn() {
     const e = Z();
     if (e === "field" && a.activeFieldId) {
       const t = a.fieldState.get(a.activeFieldId);
@@ -1170,21 +1175,21 @@ function ci(s) {
       e.classList.add("hidden"), t?.classList.add("hidden"), ee(), Oe();
       return;
     }
-    const m = a.reviewContext, b = he(m.status), y = ve(m);
+    const m = a.reviewContext, v = he(m.status), y = be(m);
     if (!xe()) {
       e.classList.add("hidden"), t?.classList.add("hidden"), Oe();
       return;
     }
-    if (e.classList.remove("hidden"), Oe(), n && (n.textContent = b, n.className = "rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " + (m.status === "approved" ? "bg-emerald-100 text-emerald-700" : m.status === "changes_requested" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700")), r && (r.textContent = ri(m)), i) {
-      const _ = wn(m.participant);
+    if (e.classList.remove("hidden"), Oe(), n && (n.textContent = v, n.className = "rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide " + (m.status === "approved" ? "bg-emerald-100 text-emerald-700" : m.status === "changes_requested" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-700")), r && (r.textContent = di(m)), i) {
+      const _ = xn(m.participant);
       if (_ || y) {
         i.classList.remove("hidden"), i.className = "rounded-lg border px-3 py-2 text-xs", y === "approved" ? i.classList.add("border-emerald-200", "bg-emerald-50", "text-emerald-800") : y === "changes_requested" ? i.classList.add("border-amber-200", "bg-amber-50", "text-amber-800") : i.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
-        const x = String(m.participant?.approved_on_behalf_by_display_name || "").trim(), E = x && !N(x) ? x : "", k = m.participant?.approved_on_behalf ? ` • approved on behalf${E ? ` by ${E}` : ""}` : "";
+        const x = String(m.participant?.approved_on_behalf_by_display_name || "").trim(), T = x && !N(x) ? x : "", k = m.participant?.approved_on_behalf ? ` • approved on behalf${T ? ` by ${T}` : ""}` : "";
         i.textContent = _ ? `${_} • decision ${he(y || "pending")}${k}` : `Decision ${he(y || "pending")}${k}`;
       } else
         i.classList.add("hidden");
     }
-    if (o && o.classList.toggle("hidden", !ni(m)), c) {
+    if (o && o.classList.toggle("hidden", !ci(m)), c) {
       c.classList.remove("hidden");
       const _ = [];
       (Number(m.total_approvers || 0) || 0) > 0 && _.push(`${m.approved_count || 0} of ${m.total_approvers || 0} approvers approved`), _.push(`${m.open_thread_count || 0} open`), _.push(`${m.resolved_thread_count || 0} resolved`), c.textContent = _.join(" • ");
@@ -1196,35 +1201,35 @@ function ci(s) {
     if (t) {
       const _ = [];
       if (m.override_active) {
-        const x = String(m.override_reason || "").trim(), E = String(m.override_by_display_name || "").trim(), k = E && !N(E) ? E : "";
+        const x = String(m.override_reason || "").trim(), T = String(m.override_by_display_name || "").trim(), k = T && !N(T) ? T : "";
         _.push(x ? `Review finalized by admin override${k ? ` by ${k}` : ""}. ${x}` : `Review finalized by admin override${k ? ` by ${k}` : ""}.`);
       }
       m.sign_blocked && m.sign_block_reason && _.push(m.sign_block_reason), (Array.isArray(m.blockers) ? m.blockers : []).forEach((x) => {
-        const E = String(x || "").trim();
-        E && !_.includes(E) && _.push(E);
+        const T = String(x || "").trim();
+        T && !_.includes(T) && _.push(T);
       }), _.length ? (t.classList.remove("hidden"), t.className = "mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4", t.innerHTML = `
           <div class="flex items-start gap-3">
             <i class="iconoir-warning-circle mt-0.5 text-amber-600" aria-hidden="true"></i>
             <div class="min-w-0">
               <p class="text-sm font-semibold text-amber-900">Review Status</p>
-              <p class="mt-1 text-xs text-amber-800">${P(_.join(" "))}</p>
+              <p class="mt-1 text-xs text-amber-800">${L(_.join(" "))}</p>
             </div>
           </div>
         `) : t.classList.add("hidden");
     }
     Ye(), ee();
-    const L = Array.isArray(m.threads) ? m.threads : [];
-    if (!L.length) {
+    const P = Array.isArray(m.threads) ? m.threads : [];
+    if (!P.length) {
       u.innerHTML = '<div class="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">No review comments yet.</div>';
       return;
     }
-    const h = a.reviewThreadFilter || "all", C = L.filter((_) => {
+    const h = a.reviewThreadFilter || "all", C = P.filter((_) => {
       const x = String(_?.thread?.status || "").trim();
       return h === "open" ? x === "open" : h === "resolved" ? x === "resolved" : !0;
-    }), B = 5, A = Math.ceil(C.length / B), R = Math.min(a.reviewThreadPage || 1, A || 1), O = (R - 1) * B, G = C.slice(O, O + B), V = L.length > 0 ? `
+    }), B = 5, A = Math.ceil(C.length / B), M = Math.min(a.reviewThreadPage || 1, A || 1), O = (M - 1) * B, G = C.slice(O, O + B), V = P.length > 0 ? `
       <div class="flex items-center gap-2 mb-3 border-b border-gray-100 pb-2">
         <button type="button" data-esign-action="filter-review-threads" data-filter="all" class="review-thread-filter px-2 py-1 text-xs font-medium rounded transition-colors ${h === "all" ? "bg-slate-100 text-slate-800" : "text-gray-500 hover:text-gray-700"}">
-          All (${L.length})
+          All (${P.length})
         </button>
         <button type="button" data-esign-action="filter-review-threads" data-filter="open" class="review-thread-filter px-2 py-1 text-xs font-medium rounded transition-colors ${h === "open" ? "bg-blue-100 text-blue-700" : "text-gray-500 hover:text-gray-700"}">
           Open (${m.open_thread_count || 0})
@@ -1235,12 +1240,12 @@ function ci(s) {
       </div>
     ` : "", Y = A > 1 ? `
       <div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
-        <span class="text-xs text-gray-500">Page ${R} of ${A}</span>
+        <span class="text-xs text-gray-500">Page ${M} of ${A}</span>
         <div class="flex gap-2">
-          <button type="button" data-esign-action="page-review-threads" data-page="${R - 1}" class="px-2 py-1 text-xs font-medium rounded border ${R <= 1 ? "border-gray-200 text-gray-300 cursor-not-allowed" : "border-gray-300 text-gray-600 hover:bg-gray-50"}" ${R <= 1 ? "disabled" : ""}>
+          <button type="button" data-esign-action="page-review-threads" data-page="${M - 1}" class="px-2 py-1 text-xs font-medium rounded border ${M <= 1 ? "border-gray-200 text-gray-300 cursor-not-allowed" : "border-gray-300 text-gray-600 hover:bg-gray-50"}" ${M <= 1 ? "disabled" : ""}>
             <i class="iconoir-nav-arrow-left"></i> Prev
           </button>
-          <button type="button" data-esign-action="page-review-threads" data-page="${R + 1}" class="px-2 py-1 text-xs font-medium rounded border ${R >= A ? "border-gray-200 text-gray-300 cursor-not-allowed" : "border-gray-300 text-gray-600 hover:bg-gray-50"}" ${R >= A ? "disabled" : ""}>
+          <button type="button" data-esign-action="page-review-threads" data-page="${M + 1}" class="px-2 py-1 text-xs font-medium rounded border ${M >= A ? "border-gray-200 text-gray-300 cursor-not-allowed" : "border-gray-300 text-gray-600 hover:bg-gray-50"}" ${M >= A ? "disabled" : ""}>
             Next <i class="iconoir-nav-arrow-right"></i>
           </button>
         </div>
@@ -1256,57 +1261,57 @@ function ci(s) {
       return;
     }
     const H = G.map((_) => {
-      const x = _.thread || {}, E = Array.isArray(_.messages) ? _.messages : [], k = m.comments_enabled && m.can_comment, ne = k && String(x.status || "").trim() === "open", Re = k && String(x.status || "").trim() === "resolved", nn = mt(_), me = Tt(x.last_activity_at || ""), pe = `review-reply-${P(String(x.id || ""))}`, lt = `review-reply-composer-${P(String(x.id || ""))}`, zr = String(x.status || "").trim() === "resolved" ? "bg-emerald-50 border-emerald-200" : "bg-white border-gray-200", ut = je(E[0]?.created_by_type || x.created_by_type, E[0]?.created_by_id || x.created_by_id);
+      const x = _.thread || {}, T = Array.isArray(_.messages) ? _.messages : [], k = m.comments_enabled && m.can_comment, ne = k && String(x.status || "").trim() === "open", Me = k && String(x.status || "").trim() === "resolved", nn = mt(_), me = Et(x.last_activity_at || ""), pe = `review-reply-${L(String(x.id || ""))}`, lt = `review-reply-composer-${L(String(x.id || ""))}`, jr = String(x.status || "").trim() === "resolved" ? "bg-emerald-50 border-emerald-200" : "bg-white border-gray-200", ut = je(T[0]?.created_by_type || x.created_by_type, T[0]?.created_by_id || x.created_by_id);
       let De = "border-l-slate-300";
       ut.color === "#2563eb" && (De = "border-l-blue-400"), ut.color === "#7c3aed" && (De = "border-l-purple-400"), ut.color === "#059669" && (De = "border-l-emerald-400");
-      const Vr = String(x.id || "").trim() === String(a.highlightedReviewThreadID || "").trim(), Hr = String(x.visibility || "shared").trim() === "internal" ? '<span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700"><i class="iconoir-lock text-[10px]"></i>Internal</span>' : "", rn = ei(_);
+      const Or = String(x.id || "").trim() === String(a.highlightedReviewThreadID || "").trim(), Yr = String(x.visibility || "shared").trim() === "internal" ? '<span class="inline-flex items-center gap-1 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-purple-700"><i class="iconoir-lock text-[10px]"></i>Internal</span>' : "", rn = oi(_);
       return `
         <article
-          class="rounded-xl border ${zr} border-l-4 ${De} p-4 ${Vr ? "ring-2 ring-blue-200 shadow-sm" : ""} ${rn ? "cursor-pointer" : ""}"
-          data-review-thread-id="${P(String(x.id || ""))}"
+          class="rounded-xl border ${jr} border-l-4 ${De} p-4 ${Or ? "ring-2 ring-blue-200 shadow-sm" : ""} ${rn ? "cursor-pointer" : ""}"
+          data-review-thread-id="${L(String(x.id || ""))}"
           ${rn ? 'data-esign-action="highlight-review-marker"' : ""}
           tabindex="-1">
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <button type="button" data-esign-action="go-review-thread-anchor" data-thread-id="${P(String(x.id || ""))}" class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">${P(nn)}</button>
-                <span class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${String(x.status || "").trim() === "resolved" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}">${P(he(x.status || "open"))}</span>
-                ${Hr}
+                <button type="button" data-esign-action="go-review-thread-anchor" data-thread-id="${L(String(x.id || ""))}" class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">${L(nn)}</button>
+                <span class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${String(x.status || "").trim() === "resolved" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"}">${L(he(x.status || "open"))}</span>
+                ${Yr}
               </div>
-              ${me ? `<p class="mt-2 text-xs text-gray-500">Last activity ${P(me)}</p>` : ""}
+              ${me ? `<p class="mt-2 text-xs text-gray-500">Last activity ${L(me)}</p>` : ""}
             </div>
           </div>
           <div class="mt-3 space-y-3">
-            ${E.map((Fe) => {
+            ${T.map((Fe) => {
         const fe = je(Fe.created_by_type, Fe.created_by_id);
         let Ne = "bg-slate-50";
         return fe.color === "#2563eb" && (Ne = "bg-blue-50 border-l-2 border-l-blue-300"), fe.color === "#7c3aed" && (Ne = "bg-purple-50 border-l-2 border-l-purple-300"), fe.color === "#059669" && (Ne = "bg-emerald-50 border-l-2 border-l-emerald-300"), `
               <div class="rounded-lg ${Ne} px-3 py-2">
                 <div class="flex items-center justify-between gap-3">
                   <div class="min-w-0">
-                    <p class="text-xs font-semibold text-slate-700">${P(fe.name)}</p>
-                    <p class="text-[10px] uppercase tracking-wide text-slate-500">${P(fe.role)}</p>
+                    <p class="text-xs font-semibold text-slate-700">${L(fe.name)}</p>
+                    <p class="text-[10px] uppercase tracking-wide text-slate-500">${L(fe.role)}</p>
                   </div>
-                  <p class="text-[11px] text-slate-500">${P(Tt(Fe.created_at || ""))}</p>
+                  <p class="text-[11px] text-slate-500">${L(Et(Fe.created_at || ""))}</p>
                 </div>
-                <p class="mt-1 whitespace-pre-wrap text-sm text-slate-800">${P(String(Fe.body || ""))}</p>
+                <p class="mt-1 whitespace-pre-wrap text-sm text-slate-800">${L(String(Fe.body || ""))}</p>
               </div>
             `;
       }).join("")}
           </div>
           <div class="mt-3 flex flex-wrap items-center gap-3">
-            ${ne ? `<button type="button" data-esign-action="resolve-review-thread" data-thread-id="${P(String(x.id || ""))}" class="text-xs font-medium text-emerald-700 hover:text-emerald-800 underline underline-offset-2">Resolve</button>` : ""}
-            ${Re ? `<button type="button" data-esign-action="reopen-review-thread" data-thread-id="${P(String(x.id || ""))}" class="text-xs font-medium text-blue-700 hover:text-blue-800 underline underline-offset-2">Reopen</button>` : ""}
-            ${k ? `<button type="button" data-esign-action="toggle-reply-composer" data-thread-id="${P(String(x.id || ""))}" data-composer-id="${lt}" class="text-xs font-medium text-slate-600 hover:text-slate-800 flex items-center gap-1">
+            ${ne ? `<button type="button" data-esign-action="resolve-review-thread" data-thread-id="${L(String(x.id || ""))}" class="text-xs font-medium text-emerald-700 hover:text-emerald-800 underline underline-offset-2">Resolve</button>` : ""}
+            ${Me ? `<button type="button" data-esign-action="reopen-review-thread" data-thread-id="${L(String(x.id || ""))}" class="text-xs font-medium text-blue-700 hover:text-blue-800 underline underline-offset-2">Reopen</button>` : ""}
+            ${k ? `<button type="button" data-esign-action="toggle-reply-composer" data-thread-id="${L(String(x.id || ""))}" data-composer-id="${lt}" class="text-xs font-medium text-slate-600 hover:text-slate-800 flex items-center gap-1">
               <i class="iconoir-chat-bubble text-[10px]"></i> Reply
             </button>` : ""}
           </div>
           ${k ? `
-            <div id="${lt}" class="review-reply-composer mt-3 space-y-2 hidden" data-thread-id="${P(String(x.id || ""))}">
+            <div id="${lt}" class="review-reply-composer mt-3 space-y-2 hidden" data-thread-id="${L(String(x.id || ""))}">
               <textarea id="${pe}" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-y focus:border-blue-400 focus:ring-1 focus:ring-blue-400" rows="2" placeholder="Write your reply..."></textarea>
               <div class="flex justify-end gap-2">
                 <button type="button" data-esign-action="cancel-reply" data-composer-id="${lt}" class="px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-800 rounded border border-gray-200 hover:bg-gray-50 transition-colors">Cancel</button>
-                <button type="button" data-esign-action="reply-review-thread" data-thread-id="${P(String(x.id || ""))}" data-reply-input-id="${pe}" class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors">Send Reply</button>
+                <button type="button" data-esign-action="reply-review-thread" data-thread-id="${L(String(x.id || ""))}" data-reply-input-id="${pe}" class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded transition-colors">Send Reply</button>
               </div>
             </div>
           ` : ""}
@@ -1335,7 +1340,7 @@ function ci(s) {
       o.getAttribute("data-anchor-type") === e ? (o.classList.add("active", "border-blue-300", "bg-blue-50", "text-blue-700"), o.classList.remove("border-gray-200", "bg-white", "text-gray-600")) : (o.classList.remove("active", "border-blue-300", "bg-blue-50", "text-blue-700"), o.classList.add("border-gray-200", "bg-white", "text-gray-600"));
     }), r && (e === "field" && a.activeFieldId ? r.textContent = "Comment will be anchored to the active field." : r.textContent = "Global comment on the agreement. Click directly on the document to place a positioned comment."), a.pickingReviewAnchorPoint = !1, document.getElementById("pdf-container")?.classList.remove("review-anchor-picking"), se(), ee();
   }
-  function Ln() {
+  function In() {
     const e = document.getElementById("review-anchor-chips");
     e && e.addEventListener("click", (t) => {
       const n = t.target.closest(".review-anchor-chip");
@@ -1344,7 +1349,7 @@ function ci(s) {
       r && It(r);
     });
   }
-  function Pn() {
+  function An() {
     const e = document.getElementById("pdf-container");
     e && e.addEventListener("click", (t) => {
       if (!(t.target instanceof Element) || !yt() || t.target.closest(".review-thread-marker, .field-overlay") || t.target.closest("button, textarea, input, select, label, a")) return;
@@ -1357,14 +1362,14 @@ function ci(s) {
         t.clientX,
         t.clientY
       );
-      o && Cn(t.clientX, t.clientY, o);
+      o && En(t.clientX, t.clientY, o);
     });
   }
-  function kn(e) {
+  function $n(e) {
     const t = ["all", "open", "resolved"], n = String(e).trim().toLowerCase();
     a.reviewThreadFilter = t.includes(n) ? n : "all", a.reviewThreadPage = 1, j(), w(`Showing ${a.reviewThreadFilter === "all" ? "all" : a.reviewThreadFilter} comments.`);
   }
-  function In(e) {
+  function Bn(e) {
     const t = Math.max(1, parseInt(String(e), 10) || 1);
     a.reviewThreadPage = t, j(), document.getElementById("review-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -1390,7 +1395,7 @@ function ci(s) {
       e.classList.toggle("ring-2", t), e.classList.toggle("ring-blue-200", t), e.classList.toggle("shadow-sm", t);
     });
   }
-  function An(e) {
+  function Rn(e) {
     const t = String(e || "").trim();
     if (!t) return;
     const r = (Array.isArray(a.reviewContext?.threads) ? a.reviewContext.threads : []).find((u) => String(u?.thread?.id || "").trim() === t);
@@ -1405,23 +1410,23 @@ function ci(s) {
       const p = kt("all").findIndex((m) => String(m?.thread?.id || "").trim() === t);
       a.reviewThreadPage = p >= 0 ? Math.floor(p / 5) + 1 : 1;
     }
-    ie() && ye() !== "review" && We("review"), Pt(t), j(), requestAnimationFrame(() => {
+    ie() && ye() !== "review" && We("review"), Lt(t), j(), requestAnimationFrame(() => {
       const u = document.querySelector(`[data-review-thread-id="${CSS.escape(t)}"]`);
       u instanceof HTMLElement && (u.scrollIntoView({ behavior: "smooth", block: "nearest" }), u.focus({ preventScroll: !0 }));
     });
   }
   function We(e) {
-    e !== "sign" && e !== "review" || ie() && (e === "review" && !$() || (a.activePanelTab = e, j(), M(), ce(), z(), w(`${e === "sign" ? "Sign" : "Review"} tab selected.`)));
+    e !== "sign" && e !== "review" || ie() && (e === "review" && !$() || (a.activePanelTab = e, j(), R(), ce(), z(), w(`${e === "sign" ? "Sign" : "Review"} tab selected.`)));
   }
   function ce() {
-    const e = document.querySelector(".side-panel"), t = document.getElementById("panel-title-row"), n = document.getElementById("panel-title"), r = document.getElementById("panel-tabs"), i = document.getElementById("fields-status"), o = document.getElementById("fields-list"), c = document.getElementById("consent-notice"), g = document.getElementById("submit-btn"), u = document.getElementById("decline-btn"), p = document.getElementById("decline-container"), m = document.getElementById("panel-footer"), b = document.getElementById("panel-mobile-progress"), y = document.getElementById("review-submit-warning"), L = document.getElementById("review-submit-message"), h = document.getElementById("stage-state-banner"), C = document.getElementById("header-progress-group"), B = document.getElementById("session-identity-label"), A = document.getElementById("panel-sign-content"), R = document.getElementById("panel-review-content"), O = document.getElementById("panel-footer-sign"), G = document.getElementById("panel-footer-review"), V = document.getElementById("panel-tab-sign"), Y = document.getElementById("panel-tab-review"), H = W(), _ = ie(), x = Se(), E = wt(), k = xe(), ne = F(), Re = ye();
+    const e = document.querySelector(".side-panel"), t = document.getElementById("panel-title-row"), n = document.getElementById("panel-title"), r = document.getElementById("panel-tabs"), i = document.getElementById("fields-status"), o = document.getElementById("fields-list"), c = document.getElementById("consent-notice"), g = document.getElementById("submit-btn"), u = document.getElementById("decline-btn"), p = document.getElementById("decline-container"), m = document.getElementById("panel-footer"), v = document.getElementById("panel-mobile-progress"), y = document.getElementById("review-submit-warning"), P = document.getElementById("review-submit-message"), h = document.getElementById("stage-state-banner"), C = document.getElementById("header-progress-group"), B = document.getElementById("session-identity-label"), A = document.getElementById("panel-sign-content"), M = document.getElementById("panel-review-content"), O = document.getElementById("panel-footer-sign"), G = document.getElementById("panel-footer-review"), V = document.getElementById("panel-tab-sign"), Y = document.getElementById("panel-tab-review"), H = W(), _ = ie(), x = Se(), T = wt(), k = xe(), ne = F(), Me = ye();
     if (e?.classList.toggle("review-only-mode", H), e?.classList.toggle("combined-mode", _), V && Y) {
-      const me = (_ ? Re === "sign" : !H) && !H, pe = H || _ && Re === "review";
+      const me = (_ ? Me === "sign" : !H) && !H, pe = H || _ && Me === "review";
       V.setAttribute("aria-selected", String(me)), V.setAttribute("tabindex", me ? "0" : "-1"), Y.setAttribute("aria-selected", String(pe)), Y.setAttribute("tabindex", pe ? "0" : "-1"), V.hidden = H, Y.hidden = !$();
     }
-    A && (A.hidden = !E, A.classList.toggle("hidden", !E)), R && (R.hidden = !k, R.classList.toggle("hidden", !k)), O && (O.hidden = !E, O.classList.toggle("hidden", !E)), G && (G.hidden = !k, G.classList.toggle("hidden", !k)), r?.classList.toggle("active", _), t?.classList.remove("hidden"), B && (x ? B.textContent = "Viewing as" : B.textContent = k && !E ? "Reviewing as" : "Signing as"), C?.classList.toggle("review-only-hidden", !E), n && (x ? n.textContent = k && !E ? "Review & Comment" : "Document Preview" : n.textContent = k && !E ? "Review & Comment" : "Complete & Sign"), o?.classList.toggle("hidden", !E), i?.classList.toggle("hidden", !E), b?.classList.toggle("hidden", !E), c?.classList.toggle("hidden", !ne || a.hasConsented), h?.classList.toggle("hidden", !E), m?.classList.toggle("hidden", !E && !k), g?.classList.toggle("hidden", !ne), u?.classList.toggle("hidden", !ne), p?.classList.toggle("hidden", !ne), y && L && (k ? (y.classList.remove("hidden"), L.textContent = E ? "Switch to the Sign tab to submit your signature." : "Review actions are available above.") : E && $() && a.reviewContext.sign_blocked ? (y.classList.remove("hidden"), L.textContent = a.reviewContext.sign_block_reason || "Signing is blocked until review completes.") : y.classList.add("hidden"));
+    A && (A.hidden = !T, A.classList.toggle("hidden", !T)), M && (M.hidden = !k, M.classList.toggle("hidden", !k)), O && (O.hidden = !T, O.classList.toggle("hidden", !T)), G && (G.hidden = !k, G.classList.toggle("hidden", !k)), r?.classList.toggle("active", _), t?.classList.remove("hidden"), B && (x ? B.textContent = "Viewing as" : B.textContent = k && !T ? "Reviewing as" : "Signing as"), C?.classList.toggle("review-only-hidden", !T), n && (x ? n.textContent = k && !T ? "Review & Comment" : "Document Preview" : n.textContent = k && !T ? "Review & Comment" : "Complete & Sign"), o?.classList.toggle("hidden", !T), i?.classList.toggle("hidden", !T), v?.classList.toggle("hidden", !T), c?.classList.toggle("hidden", !ne || a.hasConsented), h?.classList.toggle("hidden", !T), m?.classList.toggle("hidden", !T && !k), g?.classList.toggle("hidden", !ne), u?.classList.toggle("hidden", !ne), p?.classList.toggle("hidden", !ne), y && P && (k ? (y.classList.remove("hidden"), P.textContent = T ? "Switch to the Sign tab to submit your signature." : "Review actions are available above.") : T && $() && a.reviewContext.sign_blocked ? (y.classList.remove("hidden"), P.textContent = a.reviewContext.sign_block_reason || "Signing is blocked until review completes.") : y.classList.add("hidden"));
   }
-  async function $n() {
+  async function Mn() {
     if (!$()) return;
     const e = document.getElementById("review-thread-body"), t = String(e?.value || "").trim();
     if (!t) {
@@ -1433,7 +1438,7 @@ function ci(s) {
         review_id: a.reviewContext.review_id,
         visibility: "shared",
         body: t,
-        ...Tn()
+        ...kn()
       }
     };
     await oe("/threads", {
@@ -1441,7 +1446,7 @@ function ci(s) {
       body: JSON.stringify(n)
     }, "Failed to create review thread"), e && (e.value = ""), await ae(), w("Review comment added.");
   }
-  async function Bn(e, t) {
+  async function Dn(e, t) {
     const n = document.getElementById(String(t || "").trim()), r = String(n?.value || "").trim();
     if (!e || !r) {
       w("Enter a reply before sending.", "assertive");
@@ -1460,18 +1465,18 @@ function ci(s) {
       body: JSON.stringify({})
     }, t ? "Failed to resolve review thread" : "Failed to reopen review thread"), await ae(), w(t ? "Review thread resolved." : "Review thread reopened.");
   }
-  async function Mn(e, t = "") {
+  async function Fn(e, t = "") {
     const n = e === "approve" ? "/approve" : "/request-changes", r = e === "approve" ? "Failed to approve review" : "Failed to request review changes", i = e === "request-changes" && t ? JSON.stringify({ comment: t }) : void 0;
     await oe(n, { method: "POST", body: i }, r), await ae();
     let o = e === "approve" ? "Review approved." : "Review changes requested.";
     if ($()) {
-      const c = be(a.reviewContext.status), g = ve(a.reviewContext), u = Number(a.reviewContext.approved_count || 0) || 0, p = Number(a.reviewContext.total_approvers || 0) || 0;
+      const c = ve(a.reviewContext.status), g = be(a.reviewContext), u = Number(a.reviewContext.approved_count || 0) || 0, p = Number(a.reviewContext.total_approvers || 0) || 0;
       e === "approve" && g === "approved" && c === "in_review" ? o = p > 0 ? `Your approval was recorded. ${u} of ${p} approvers have approved so far.` : "Your approval was recorded. Waiting for the remaining reviewers." : e === "approve" && g === "approved" ? o = "Review approved." : e === "request-changes" && g === "changes_requested" && (o = "Your change request was recorded.");
     }
     window.toastManager && window.toastManager.success(o), w(o);
   }
   let _e = "";
-  function Mt(e) {
+  function Rt(e) {
     const t = document.getElementById("review-decision-modal"), n = document.getElementById("review-decision-icon-container"), r = document.getElementById("review-decision-icon"), i = document.getElementById("review-decision-modal-title"), o = document.getElementById("review-decision-modal-description"), c = document.getElementById("review-decision-comment-section"), g = document.getElementById("review-decision-comment"), u = document.getElementById("review-decision-comment-error"), p = document.getElementById("review-decision-confirm-btn");
     if (!t) return;
     _e = e, e === "approve" ? (n?.classList.remove("bg-amber-100"), n?.classList.add("bg-emerald-100"), r?.classList.remove("iconoir-warning-circle", "text-amber-600"), r?.classList.add("iconoir-check-circle", "text-emerald-600"), i && (i.textContent = "Approve Review?"), o && (o.textContent = "This will mark the document as approved and notify the sender that the review is complete."), c?.classList.add("hidden"), p?.classList.remove("bg-amber-600", "hover:bg-amber-700"), p?.classList.add("btn-primary"), p && (p.textContent = "Approve")) : (n?.classList.remove("bg-emerald-100"), n?.classList.add("bg-amber-100"), r?.classList.remove("iconoir-check-circle", "text-emerald-600"), r?.classList.add("iconoir-warning-circle", "text-amber-600"), i && (i.textContent = "Request Changes?"), o && (o.textContent = "The sender will be notified that changes are needed before this document can proceed."), c?.classList.remove("hidden"), g && (g.value = ""), u?.classList.add("hidden"), p?.classList.remove("btn-primary"), p?.classList.add("bg-amber-600", "hover:bg-amber-700", "text-white"), p && (p.textContent = "Request Changes")), t.classList.add("active"), t.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden";
@@ -1482,9 +1487,9 @@ function ci(s) {
     const e = document.getElementById("review-decision-modal");
     if (!e) return;
     const t = e.querySelector(".field-editor");
-    t instanceof HTMLElement && Me(t), e.classList.remove("active"), e.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", _e = "";
+    t instanceof HTMLElement && Re(t), e.classList.remove("active"), e.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", _e = "";
   }
-  async function Rn() {
+  async function Nn() {
     if (!_e) return;
     const e = _e;
     let t = "";
@@ -1495,12 +1500,12 @@ function ci(s) {
         return;
       }
     }
-    Ke(), await Mn(e, t);
+    Ke(), await Fn(e, t);
   }
-  async function Rt(e) {
+  async function Mt(e) {
     const n = (Array.isArray(a.reviewContext?.threads) ? a.reviewContext.threads : []).find((o) => String(o?.thread?.id || "") === String(e || ""));
     if (!n) return "";
-    Pt(e);
+    Lt(e);
     const r = String(n?.thread?.anchor_type || "").trim();
     if (r === "field" && n.thread.field_id) {
       const o = a.fieldState.get(n.thread.field_id), c = Number(o?.page || n.thread.page_number || a.currentPage || 1) || 1;
@@ -1514,7 +1519,7 @@ function ci(s) {
     const n = document.querySelector(`.review-thread-marker[data-thread-id="${CSS.escape(t)}"]`);
     return n instanceof HTMLElement ? n : null;
   }
-  function Dn(e, t = 4e3) {
+  function Un(e, t = 4e3) {
     const n = String(e || "").trim(), r = Dt(n);
     return r ? Promise.resolve(r) : new Promise((i, o) => {
       const c = Date.now(), g = () => {
@@ -1532,13 +1537,13 @@ function ci(s) {
       window.requestAnimationFrame(g);
     });
   }
-  async function Fn(e) {
+  async function qn(e) {
     const t = String(e || "").trim();
     if (!t) return;
-    const n = await Rt(t);
+    const n = await Mt(t);
     if (!(n !== "page" && n !== "field"))
       try {
-        (await Dn(t)).scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        (await Un(t)).scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
       } catch {
       }
   }
@@ -1585,18 +1590,18 @@ function ci(s) {
      */
     pageToScreen(e, t) {
       const n = e.page, r = this.getPageMetadata(n), i = t.offsetWidth, o = t.offsetHeight, c = e.pageWidth || r.width, g = e.pageHeight || r.height, u = i / c, p = o / g;
-      let m = e.posX || 0, b = e.posY || 0;
-      l.viewer.origin === "bottom-left" && (b = g - b - (e.height || 30));
-      const y = m * u, L = b * p, h = (e.width || 150) * u, C = (e.height || 30) * p;
+      let m = e.posX || 0, v = e.posY || 0;
+      l.viewer.origin === "bottom-left" && (v = g - v - (e.height || 30));
+      const y = m * u, P = v * p, h = (e.width || 150) * u, C = (e.height || 30) * p;
       return {
         left: y,
-        top: L,
+        top: P,
         width: h,
         height: C,
         // Store original values for debugging
         _debug: {
           sourceX: m,
-          sourceY: b,
+          sourceY: v,
           sourceWidth: e.width,
           sourceHeight: e.height,
           pageWidth: c,
@@ -1626,15 +1631,15 @@ function ci(s) {
       const i = this.getPageMetadata(e), o = t.getBoundingClientRect();
       if (!o.width || !o.height)
         return null;
-      const c = Math.min(Math.max(n - o.left, 0), o.width), g = Math.min(Math.max(r - o.top, 0), o.height), u = i.width || o.width, p = i.height || o.height, m = u / o.width, b = p / o.height;
-      let y = c * m, L = g * b;
-      return l.viewer.origin === "bottom-left" && (L = p - L), {
+      const c = Math.min(Math.max(n - o.left, 0), o.width), g = Math.min(Math.max(r - o.top, 0), o.height), u = i.width || o.width, p = i.height || o.height, m = u / o.width, v = p / o.height;
+      let y = c * m, P = g * v;
+      return l.viewer.origin === "bottom-left" && (P = p - P), {
         page_number: Number(e || 1) || 1,
         anchor_x: Math.round(y * 100) / 100,
-        anchor_y: Math.round(L * 100) / 100
+        anchor_y: Math.round(P * 100) / 100
       };
     }
-  }, Nn = {
+  }, zn = {
     /**
      * Request signed upload bootstrap from backend
      */
@@ -1696,7 +1701,7 @@ function ci(s) {
      * Full drawn signature upload flow with signed URL
      */
     async uploadDrawnSignature(e, t) {
-      const n = this.dataUrlToBlob(t), r = n.size, i = "image/png", o = await Wn(n), c = await this.requestUploadBootstrap(
+      const n = this.dataUrlToBlob(t), r = n.size, i = "image/png", o = await Jn(n), c = await this.requestUploadBootstrap(
         e,
         o,
         i,
@@ -1722,10 +1727,12 @@ function ci(s) {
         headers: { Accept: "application/json" },
         credentials: "same-origin"
       });
-      if (!n.ok) {
-        const i = await n.json().catch(() => ({}));
-        throw new Error(i?.error?.message || "Failed to load saved signatures");
-      }
+      if (!n.ok)
+        throw new Error(
+          await an(n, "Failed to load saved signatures", {
+            appendStatusToFallback: !1
+          })
+        );
       const r = await n.json();
       return Array.isArray(r?.signatures) ? r.signatures : [];
     },
@@ -1741,8 +1748,10 @@ function ci(s) {
         })
       });
       if (!r.ok) {
-        const o = await r.json().catch(() => ({})), c = new Error(o?.error?.message || "Failed to save signature");
-        throw c.code = o?.error?.code || "", c;
+        const o = await Kr(r, "Failed to save signature", {
+          appendStatusToFallback: !1
+        }), c = new Error(o.message), g = o.payload && typeof o.payload == "object" ? o.payload : null;
+        throw c.code = typeof g?.error?.code == "string" ? g.error.code : "", c;
       }
       return (await r.json())?.signature || null;
     },
@@ -1752,73 +1761,75 @@ function ci(s) {
         headers: { Accept: "application/json" },
         credentials: "same-origin"
       });
-      if (!t.ok) {
-        const n = await t.json().catch(() => ({}));
-        throw new Error(n?.error?.message || "Failed to delete signature");
-      }
+      if (!t.ok)
+        throw new Error(
+          await an(t, "Failed to delete signature", {
+            appendStatusToFallback: !1
+          })
+        );
     }
   };
   function de(e) {
     const t = a.fieldState.get(e);
     return t && t.type === "initials" ? "initials" : "signature";
   }
-  function Ee(e) {
+  function Te(e) {
     return a.savedSignaturesByType.get(e) || [];
   }
-  async function Un(e, t = !1) {
+  async function Vn(e, t = !1) {
     const n = de(e);
     if (!t && a.savedSignaturesByType.has(n)) {
-      Te(e);
+      Ee(e);
       return;
     }
     const r = await Xe.list(n);
-    a.savedSignaturesByType.set(n, r), Te(e);
+    a.savedSignaturesByType.set(n, r), Ee(e);
   }
-  function Te(e) {
-    const t = de(e), n = Ee(t), r = document.getElementById("sig-saved-list");
+  function Ee(e) {
+    const t = de(e), n = Te(t), r = document.getElementById("sig-saved-list");
     if (r) {
       if (!n.length) {
         r.innerHTML = '<p class="text-xs text-gray-500">No saved signatures yet.</p>';
         return;
       }
       r.innerHTML = n.map((i) => {
-        const o = P(String(i?.thumbnail_data_url || i?.data_url || "")), c = P(String(i?.label || "Saved signature")), g = P(String(i?.id || ""));
+        const o = L(String(i?.thumbnail_data_url || i?.data_url || "")), c = L(String(i?.label || "Saved signature")), g = L(String(i?.id || ""));
         return `
       <div class="flex items-center gap-2 border border-gray-200 rounded-lg p-2">
         <img src="${o}" alt="${c}" class="w-16 h-10 object-contain bg-white border border-gray-100 rounded" />
         <div class="flex-1 min-w-0">
           <p class="text-xs text-gray-700 truncate">${c}</p>
         </div>
-        <button type="button" data-esign-action="select-saved-signature" data-field-id="${P(e)}" data-signature-id="${g}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">Use</button>
-        <button type="button" data-esign-action="delete-saved-signature" data-field-id="${P(e)}" data-signature-id="${g}" class="text-xs text-red-600 hover:text-red-700 underline underline-offset-2">Delete</button>
+        <button type="button" data-esign-action="select-saved-signature" data-field-id="${L(e)}" data-signature-id="${g}" class="text-xs text-blue-600 hover:text-blue-700 underline underline-offset-2">Use</button>
+        <button type="button" data-esign-action="delete-saved-signature" data-field-id="${L(e)}" data-signature-id="${g}" class="text-xs text-red-600 hover:text-red-700 underline underline-offset-2">Delete</button>
       </div>`;
       }).join("");
     }
   }
-  async function qn(e) {
+  async function Hn(e) {
     const t = a.signatureCanvases.get(e), n = de(e);
     if (!t || !it(e))
       throw new Error(`Please add your ${n === "initials" ? "initials" : "signature"} first`);
     const r = t.canvas.toDataURL("image/png"), i = await Xe.save(n, r, n === "initials" ? "Initials" : "Signature");
     if (!i)
       throw new Error("Failed to save signature");
-    const o = Ee(n);
-    o.unshift(i), a.savedSignaturesByType.set(n, o), Te(e), window.toastManager && window.toastManager.success("Saved to your signature library");
+    const o = Te(n);
+    o.unshift(i), a.savedSignaturesByType.set(n, o), Ee(e), window.toastManager && window.toastManager.success("Saved to your signature library");
   }
-  async function zn(e, t) {
-    const n = de(e), i = Ee(n).find((c) => String(c?.id || "") === String(t));
+  async function jn(e, t) {
+    const n = de(e), i = Te(n).find((c) => String(c?.id || "") === String(t));
     if (!i) return;
     requestAnimationFrame(() => $e(e)), await Ft(e);
     const o = String(i.data_url || i.thumbnail_data_url || "").trim();
-    o && (await rt(e, o, { clearStrokes: !0 }), Ve(e, o), M(), Ae("draw", e), w("Saved signature selected."));
+    o && (await rt(e, o, { clearStrokes: !0 }), Ve(e, o), R(), Ae("draw", e), w("Saved signature selected."));
   }
-  async function Vn(e, t) {
+  async function On(e, t) {
     const n = de(e);
     await Xe.delete(t);
-    const r = Ee(n).filter((i) => String(i?.id || "") !== String(t));
-    a.savedSignaturesByType.set(n, r), Te(e);
+    const r = Te(n).filter((i) => String(i?.id || "") !== String(t));
+    a.savedSignaturesByType.set(n, r), Ee(e);
   }
-  function Le(e) {
+  function Pe(e) {
     const t = String(e?.code || "").trim(), n = String(e?.message || "Unable to update saved signatures"), r = t === "SIGNATURE_LIBRARY_LIMIT_REACHED" ? "You reached your saved-signature limit for this type. Delete one to save a new one." : n;
     window.toastManager && window.toastManager.error(r), w(r, "assertive");
   }
@@ -1829,7 +1840,7 @@ function ci(s) {
     }
     return !1;
   }
-  async function Hn(e, t) {
+  async function Yn(e, t) {
     const n = String(t?.type || "").toLowerCase();
     if (!["image/png", "image/jpeg"].includes(n))
       throw new Error("Only PNG and JPEG images are supported");
@@ -1839,26 +1850,26 @@ function ci(s) {
     const r = a.signatureCanvases.get(e);
     if (!r)
       throw new Error("Signature canvas is not ready");
-    const i = await jn(t), o = n === "image/png" ? i : await Yn(i, r.drawWidth, r.drawHeight);
-    if (On(o) > on)
-      throw new Error(`Image exceeds ${Math.round(on / 1024)}KB limit after conversion`);
-    await rt(e, o, { clearStrokes: !0 }), Ve(e, o), M();
+    const i = await Wn(t), o = n === "image/png" ? i : await Xn(i, r.drawWidth, r.drawHeight);
+    if (Kn(o) > sn)
+      throw new Error(`Image exceeds ${Math.round(sn / 1024)}KB limit after conversion`);
+    await rt(e, o, { clearStrokes: !0 }), Ve(e, o), R();
     const g = document.getElementById("sig-upload-preview-wrap"), u = document.getElementById("sig-upload-preview");
     g && g.classList.remove("hidden"), u && u.setAttribute("src", o), w("Signature image uploaded. You can now insert it.");
   }
-  function jn(e) {
+  function Wn(e) {
     return new Promise((t, n) => {
       const r = new FileReader();
       r.onload = () => t(String(r.result || "")), r.onerror = () => n(new Error("Unable to read image file")), r.readAsDataURL(e);
     });
   }
-  function On(e) {
+  function Kn(e) {
     const t = String(e || "").split(",");
     if (t.length < 2) return 0;
     const n = t[1] || "", r = (n.match(/=+$/) || [""])[0].length;
     return Math.floor(n.length * 3 / 4) - r;
   }
-  async function Yn(e, t, n) {
+  async function Xn(e, t, n) {
     return await new Promise((r, i) => {
       const o = new Image();
       o.onload = () => {
@@ -1870,19 +1881,19 @@ function ci(s) {
           return;
         }
         p.clearRect(0, 0, g, u);
-        const m = Math.min(g / o.width, u / o.height), b = o.width * m, y = o.height * m, L = (g - b) / 2, h = (u - y) / 2;
-        p.drawImage(o, L, h, b, y), r(c.toDataURL("image/png"));
+        const m = Math.min(g / o.width, u / o.height), v = o.width * m, y = o.height * m, P = (g - v) / 2, h = (u - y) / 2;
+        p.drawImage(o, P, h, v, y), r(c.toDataURL("image/png"));
       }, o.onerror = () => i(new Error("Unable to decode image file")), o.src = e;
     });
   }
-  async function Wn(e) {
+  async function Jn(e) {
     if (window.crypto && window.crypto.subtle) {
       const t = await e.arrayBuffer(), n = await window.crypto.subtle.digest("SHA-256", t);
       return Array.from(new Uint8Array(n)).map((r) => r.toString(16).padStart(2, "0")).join("");
     }
     return crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Date.now().toString(16);
   }
-  function Kn() {
+  function Gn() {
     document.addEventListener("click", (e) => {
       const t = e.target;
       if (!(t instanceof Element)) return;
@@ -1896,22 +1907,22 @@ function ci(s) {
       }
       switch (r) {
         case "prev-page":
-          gr();
-          break;
-        case "next-page":
-          mr();
-          break;
-        case "zoom-out":
           fr();
           break;
-        case "zoom-in":
-          pr();
-          break;
-        case "fit-width":
+        case "next-page":
           hr();
           break;
+        case "zoom-out":
+          vr();
+          break;
+        case "zoom-in":
+          br();
+          break;
+        case "fit-width":
+          wr();
+          break;
         case "download-document":
-          Ur();
+          Vr();
           break;
         case "show-consent-modal":
           Qt();
@@ -1922,51 +1933,51 @@ function ci(s) {
           break;
         }
         case "submit-signature":
-          Rr();
+          Nr();
           break;
         case "show-decline-modal":
-          Dr();
+          Ur();
           break;
         case "close-field-editor":
           ot();
           break;
         case "save-field-editor":
-          Lr();
+          Ir();
           break;
         case "hide-consent-modal":
           dt();
           break;
         case "accept-consent":
-          Mr();
+          Fr();
           break;
         case "hide-decline-modal":
           Zt();
           break;
         case "confirm-decline":
-          Fr();
+          qr();
           break;
         case "approve-review":
-          Mt("approve");
+          Rt("approve");
           break;
         case "request-review-changes":
-          Mt("request-changes");
+          Rt("request-changes");
           break;
         case "hide-review-decision-modal":
           Ke();
           break;
         case "confirm-review-decision":
-          Rn().catch((i) => {
+          Nn().catch((i) => {
             window.toastManager && window.toastManager.error(i?.message || "Unable to complete review action"), w(`Error: ${i?.message || "Unable to complete review action"}`, "assertive");
           });
           break;
         case "create-review-thread":
-          $n().catch((i) => {
+          Mn().catch((i) => {
             window.toastManager && window.toastManager.error(i?.message || "Unable to add comment"), w(`Error: ${i?.message || "Unable to add comment"}`, "assertive");
           });
           break;
         case "reply-review-thread": {
           const i = n.getAttribute("data-thread-id"), o = n.getAttribute("data-reply-input-id");
-          Bn(i, o).catch((c) => {
+          Dn(i, o).catch((c) => {
             window.toastManager && window.toastManager.error(c?.message || "Unable to reply to thread"), w(`Error: ${c?.message || "Unable to reply to thread"}`, "assertive");
           });
           break;
@@ -1987,31 +1998,31 @@ function ci(s) {
         }
         case "go-review-thread-anchor": {
           const i = n.getAttribute("data-thread-id");
-          Rt(i).catch((o) => {
+          Mt(i).catch((o) => {
             window.toastManager && window.toastManager.error(o?.message || "Unable to navigate to comment anchor"), w(`Error: ${o?.message || "Unable to navigate to comment anchor"}`, "assertive");
           });
           break;
         }
         case "go-review-thread": {
           const i = n.getAttribute("data-thread-id");
-          An(i);
+          Rn(i);
           break;
         }
         case "highlight-review-marker": {
           const i = n.getAttribute("data-review-thread-id");
-          Fn(i).catch((o) => {
+          qn(i).catch((o) => {
             window.toastManager && window.toastManager.error(o?.message || "Unable to locate comment marker"), w(`Error: ${o?.message || "Unable to locate comment marker"}`, "assertive");
           });
           break;
         }
         case "filter-review-threads": {
           const i = n.getAttribute("data-filter") || "all";
-          kn(i);
+          $n(i);
           break;
         }
         case "page-review-threads": {
           const i = parseInt(n.getAttribute("data-page") || "1", 10);
-          In(i);
+          Bn(i);
           break;
         }
         case "toggle-reply-composer": {
@@ -2025,13 +2036,13 @@ function ci(s) {
           break;
         }
         case "pick-review-anchor-point":
-          Z() === "page" && Sn(!0);
+          Z() === "page" && Tn(!0);
           break;
         case "clear-review-anchor-point":
-          a.pickingReviewAnchorPoint = !1, document.getElementById("pdf-container")?.classList.remove("review-anchor-picking"), xn(), w("Pinned comment location cleared.");
+          a.pickingReviewAnchorPoint = !1, document.getElementById("pdf-container")?.classList.remove("review-anchor-picking"), _n(), w("Pinned comment location cleared.");
           break;
         case "submit-inline-comment":
-          En().catch((i) => {
+          Ln().catch((i) => {
             window.toastManager && window.toastManager.error(i?.message || "Unable to add comment"), w(`Error: ${i?.message || "Unable to add comment"}`, "assertive");
           });
           break;
@@ -2039,7 +2050,7 @@ function ci(s) {
           se();
           break;
         case "retry-load-pdf":
-          Pe();
+          Le();
           break;
         case "signature-tab": {
           const i = n.getAttribute("data-tab") || "draw", o = n.getAttribute("data-field-id");
@@ -2048,32 +2059,32 @@ function ci(s) {
         }
         case "clear-signature-canvas": {
           const i = n.getAttribute("data-field-id");
-          i && _r(i);
+          i && Pr(i);
           break;
         }
         case "undo-signature-canvas": {
           const i = n.getAttribute("data-field-id");
-          i && Sr(i);
+          i && Tr(i);
           break;
         }
         case "redo-signature-canvas": {
           const i = n.getAttribute("data-field-id");
-          i && Cr(i);
+          i && Er(i);
           break;
         }
         case "save-current-signature-library": {
           const i = n.getAttribute("data-field-id");
-          i && qn(i).catch(Le);
+          i && Hn(i).catch(Pe);
           break;
         }
         case "select-saved-signature": {
           const i = n.getAttribute("data-field-id"), o = n.getAttribute("data-signature-id");
-          i && o && zn(i, o).catch(Le);
+          i && o && jn(i, o).catch(Pe);
           break;
         }
         case "delete-saved-signature": {
           const i = n.getAttribute("data-field-id"), o = n.getAttribute("data-signature-id");
-          i && o && Vn(i, o).catch(Le);
+          i && o && On(i, o).catch(Pe);
           break;
         }
         case "clear-signer-profile":
@@ -2107,7 +2118,7 @@ function ci(s) {
         if (t.matches("#sig-upload-input")) {
           const n = t.getAttribute("data-field-id"), r = t.files?.[0];
           if (!n || !r) return;
-          Hn(n, r).catch((i) => {
+          Yn(n, r).catch((i) => {
             window.toastManager && window.toastManager.error(i?.message || "Unable to process uploaded image");
           });
           return;
@@ -2115,7 +2126,7 @@ function ci(s) {
         if (t.matches("#field-checkbox-input")) {
           const n = t.getAttribute("data-field-id") || a.activeFieldId;
           if (!n) return;
-          bt(n, t.checked), M();
+          vt(n, t.checked), R();
         }
       }
     }), document.addEventListener("input", (e) => {
@@ -2128,17 +2139,17 @@ function ci(s) {
           return;
         }
         if (t.matches("#field-text-input")) {
-          vt(n, t.value || ""), M();
+          bt(n, t.value || ""), R();
           return;
         }
-        t.matches("#field-checkbox-input") && t instanceof HTMLInputElement && (bt(n, t.checked), M());
+        t.matches("#field-checkbox-input") && t instanceof HTMLInputElement && (vt(n, t.checked), R());
       }
     });
   }
   ht(async () => {
-    Kn(), a.isLowMemory = or(), Qn(), Zn(), await tr(), er(), j(), Ln(), Pn(), ce(), ar(), Gt(), z(), await Pe(), le(), document.addEventListener("visibilitychange", Xn), "memory" in navigator && Jn(), J.init();
+    Gn(), a.isLowMemory = dr(), tr(), nr(), await ir(), rr(), j(), In(), An(), ce(), cr(), Gt(), z(), await Le(), le(), document.addEventListener("visibilitychange", Qn), "memory" in navigator && Zn(), J.init();
   });
-  function Xn() {
+  function Qn() {
     document.hidden && Nt();
   }
   function Nt() {
@@ -2153,7 +2164,7 @@ function ci(s) {
         break;
     }
   }
-  function Jn() {
+  function Zn() {
     setInterval(() => {
       if (navigator.memory) {
         const e = navigator.memory.usedJSHeapSize, t = navigator.memory.totalJSHeapSize;
@@ -2161,7 +2172,7 @@ function ci(s) {
       }
     }, 3e4);
   }
-  function Gn(e) {
+  function er(e) {
     switch (String(e || "").trim().toLowerCase()) {
       case "preview_fallback_forced":
         return "Preview is running in safe mode due to compatibility safeguards. You can continue signing.";
@@ -2175,7 +2186,7 @@ function ci(s) {
         return "This signing session is using a degraded preview mode for compatibility.";
     }
   }
-  function Qn() {
+  function tr() {
     const e = document.getElementById("pdf-compatibility-banner"), t = document.getElementById("pdf-compatibility-message"), n = document.getElementById("pdf-compatibility-title");
     if (!e || !t || !n) return;
     const r = String(l.viewer.compatibilityTier || "").trim().toLowerCase(), i = String(l.viewer.compatibilityReason || "").trim().toLowerCase();
@@ -2183,13 +2194,13 @@ function ci(s) {
       e.classList.add("hidden");
       return;
     }
-    n.textContent = "Preview Compatibility Notice", t.textContent = String(l.viewer.compatibilityMessage || "").trim() || Gn(i), e.classList.remove("hidden"), v.trackDegradedMode("pdf_preview_compatibility", { tier: r, reason: i });
+    n.textContent = "Preview Compatibility Notice", t.textContent = String(l.viewer.compatibilityMessage || "").trim() || er(i), e.classList.remove("hidden"), b.trackDegradedMode("pdf_preview_compatibility", { tier: r, reason: i });
   }
-  function Zn() {
+  function nr() {
     const e = document.getElementById("stage-state-banner"), t = document.getElementById("stage-state-icon"), n = document.getElementById("stage-state-title"), r = document.getElementById("stage-state-message"), i = document.getElementById("stage-state-meta");
     if (!e || !t || !n || !r || !i) return;
     if (Se()) {
-      const b = pn();
+      const v = hn();
       let y = {
         bgClass: "bg-slate-50",
         borderClass: "border-slate-200",
@@ -2200,7 +2211,7 @@ function ci(s) {
         message: "This document is available in read-only mode.",
         badges: []
       };
-      switch (b) {
+      switch (v) {
         case "sender_review":
           y = {
             hidden: !1,
@@ -2247,14 +2258,14 @@ function ci(s) {
           };
           break;
       }
-      e.classList.remove("hidden"), e.className = `mb-4 rounded-lg border p-4 ${y.bgClass} ${y.borderClass}`, t.className = `${y.iconClass} mt-0.5`, n.className = `text-sm font-semibold ${y.titleClass}`, n.textContent = y.title, r.className = `text-xs ${y.messageClass} mt-1`, r.textContent = y.message, i.innerHTML = "", y.badges.forEach((L) => {
+      e.classList.remove("hidden"), e.className = `mb-4 rounded-lg border p-4 ${y.bgClass} ${y.borderClass}`, t.className = `${y.iconClass} mt-0.5`, n.className = `text-sm font-semibold ${y.titleClass}`, n.textContent = y.title, r.className = `text-xs ${y.messageClass} mt-1`, r.textContent = y.message, i.innerHTML = "", y.badges.forEach((P) => {
         const h = document.createElement("span"), C = {
           blue: "bg-blue-100 text-blue-800",
           amber: "bg-amber-100 text-amber-800",
           green: "bg-green-100 text-green-800",
           slate: "bg-slate-100 text-slate-800"
         };
-        h.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${C[L.variant] || C.slate}`, h.innerHTML = `<i class="${L.icon} mr-1"></i>${L.text}`, i.appendChild(h);
+        h.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${C[P.variant] || C.slate}`, h.innerHTML = `<i class="${P.icon} mr-1"></i>${P.text}`, i.appendChild(h);
       });
       return;
     }
@@ -2333,16 +2344,16 @@ function ci(s) {
       e.classList.add("hidden");
       return;
     }
-    e.classList.remove("hidden"), e.className = `mb-4 rounded-lg border p-4 ${m.bgClass} ${m.borderClass}`, t.className = `${m.iconClass} mt-0.5`, n.className = `text-sm font-semibold ${m.titleClass}`, n.textContent = m.title, r.className = `text-xs ${m.messageClass} mt-1`, r.textContent = m.message, i.innerHTML = "", m.badges.forEach((b) => {
-      const y = document.createElement("span"), L = {
+    e.classList.remove("hidden"), e.className = `mb-4 rounded-lg border p-4 ${m.bgClass} ${m.borderClass}`, t.className = `${m.iconClass} mt-0.5`, n.className = `text-sm font-semibold ${m.titleClass}`, n.textContent = m.title, r.className = `text-xs ${m.messageClass} mt-1`, r.textContent = m.message, i.innerHTML = "", m.badges.forEach((v) => {
+      const y = document.createElement("span"), P = {
         blue: "bg-blue-100 text-blue-800",
         amber: "bg-amber-100 text-amber-800",
         green: "bg-green-100 text-green-800"
       };
-      y.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${L[b.variant] || L.blue}`, y.innerHTML = `<i class="${b.icon} mr-1"></i>${b.text}`, i.appendChild(y);
+      y.className = `inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${P[v.variant] || P.blue}`, y.innerHTML = `<i class="${v.icon} mr-1"></i>${v.text}`, i.appendChild(y);
     });
   }
-  function er() {
+  function rr() {
     l.fields.forEach((e) => {
       let t = null, n = !1;
       if (e.type === "checkbox")
@@ -2351,7 +2362,7 @@ function ci(s) {
         t = (/* @__PURE__ */ new Date()).toISOString().split("T")[0], n = !0;
       else {
         const r = String(e.value_text || "");
-        t = r || nr(e), n = !!r;
+        t = r || ar(e), n = !!r;
       }
       a.fieldState.set(e.id, {
         id: e.id,
@@ -2371,23 +2382,23 @@ function ci(s) {
       });
     });
   }
-  async function tr() {
+  async function ir() {
     try {
-      const e = await T.load(a.profileKey);
+      const e = await E.load(a.profileKey);
       e && (a.profileData = e, a.profileRemember = e.remember !== !1);
     } catch {
     }
   }
-  function nr(e) {
+  function ar(e) {
     const t = a.profileData;
     if (!t) return "";
     const n = String(e?.type || "").trim();
     return n === "name" ? D(t.fullName || "") : n === "initials" ? D(t.initials || "") || Ce(t.fullName || l.recipientName || "") : n === "signature" ? D(t.typedSignature || "") : "";
   }
-  function rr(e) {
+  function or(e) {
     return !l.profile.persistDrawnSignature || !a.profileData ? "" : e?.type === "initials" && String(a.profileData.drawnInitialsDataUrl || "").trim() || String(a.profileData.drawnSignatureDataUrl || "").trim();
   }
-  function ir(e) {
+  function sr(e) {
     const t = D(e?.value || "");
     return t || (a.profileData ? e?.type === "initials" ? D(a.profileData.initials || "") || Ce(a.profileData.fullName || l.recipientName || "") : e?.type === "signature" ? D(a.profileData.typedSignature || "") : "" : "");
   }
@@ -2398,7 +2409,7 @@ function ci(s) {
   async function qt(e = !1) {
     let t = null;
     try {
-      await T.clear(a.profileKey);
+      await E.clear(a.profileKey);
     } catch (n) {
       t = n;
     } finally {
@@ -2443,18 +2454,18 @@ function ci(s) {
     }
     if (!(Object.keys(r).length === 1 && r.remember === !0))
       try {
-        const o = await T.save(a.profileKey, r);
+        const o = await E.save(a.profileKey, r);
         a.profileData = o;
       } catch {
       }
   }
-  function ar() {
+  function cr() {
     const e = document.getElementById("consent-checkbox"), t = document.getElementById("consent-accept-btn");
     e && t && e.addEventListener("change", function() {
       t.disabled = !this.checked;
     });
   }
-  function or() {
+  function dr() {
     return !!(navigator.deviceMemory && navigator.deviceMemory < 4 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent));
   }
   function Je() {
@@ -2474,11 +2485,11 @@ function ci(s) {
     const t = [];
     e > 1 && t.push(e - 1), e < l.pageCount && t.push(e + 1), "requestIdleCallback" in window && requestIdleCallback(() => {
       t.forEach(async (n) => {
-        !a.renderedPages.has(n) && !a.pageRendering && await sr(n);
+        !a.renderedPages.has(n) && !a.pageRendering && await lr(n);
       });
     }, { timeout: 2e3 });
   }
-  async function sr(e) {
+  async function lr(e) {
     if (!(!a.pdfDoc || a.renderedPages.has(e)))
       try {
         const t = await a.pdfDoc.getPage(e), n = a.zoomLevel, r = t.getViewport({ scale: n * window.devicePixelRatio }), i = document.createElement("canvas"), o = i.getContext("2d");
@@ -2496,11 +2507,11 @@ function ci(s) {
         console.warn("Preload failed for page", e, t);
       }
   }
-  function cr() {
+  function ur() {
     const e = window.devicePixelRatio || 1;
     return a.isLowMemory ? Math.min(e, 1.5) : Math.min(e, 2);
   }
-  async function Pe() {
+  async function Le() {
     const e = document.getElementById("pdf-loading"), t = Date.now();
     let n = "";
     try {
@@ -2510,37 +2521,37 @@ function ci(s) {
       const o = (await r.json()).assets || {};
       if (n = _t(o), !n)
         throw new Error("Document preview is not available yet. The document may still be processing.");
-      const c = jr({
+      const c = Jr({
         url: n,
         surface: "signer-review",
         documentId: l.agreementId
       });
-      a.pdfDoc = await c.promise, l.pageCount = a.pdfDoc.numPages, document.getElementById("page-count").textContent = a.pdfDoc.numPages, await Ge(1), Qe(), v.trackViewerLoad(!0, Date.now() - t), v.trackPageView(1);
+      a.pdfDoc = await c.promise, l.pageCount = a.pdfDoc.numPages, document.getElementById("page-count").textContent = a.pdfDoc.numPages, await Ge(1), Qe(), b.trackViewerLoad(!0, Date.now() - t), b.trackPageView(1);
     } catch (r) {
-      const i = Or(r, {
+      const i = Gr(r, {
         surface: "signer-review",
         documentId: l.agreementId,
         url: typeof n == "string" ? n : null
       });
-      v.trackViewerLoad(!1, Date.now() - t, i.rawMessage), e && (e.innerHTML = `
+      b.trackViewerLoad(!1, Date.now() - t, i.rawMessage), e && (e.innerHTML = `
           <div class="text-center text-red-500">
             <i class="iconoir-warning-circle text-2xl mb-2"></i>
             <p class="text-sm">Failed to load document</p>
             <button type="button" data-esign-action="retry-load-pdf" class="mt-2 text-blue-600 hover:underline text-sm">Retry</button>
           </div>
-        `), Nr();
+        `), zr();
     }
   }
   async function Ge(e) {
     if (!a.pdfDoc) return;
     const t = a.renderedPages.get(e);
     if (t && t.scale === a.zoomLevel) {
-      dr(t), a.currentPage = e, document.getElementById("current-page").textContent = e, Qe(), Ye(), le(), we(e), Vt(e);
+      gr(t), a.currentPage = e, document.getElementById("current-page").textContent = e, Qe(), Ye(), le(), we(e), Vt(e);
       return;
     }
     a.pageRendering = !0;
     try {
-      const n = await a.pdfDoc.getPage(e), r = a.zoomLevel, i = cr(), o = n.getViewport({ scale: r * i }), c = n.getViewport({ scale: 1 });
+      const n = await a.pdfDoc.getPage(e), r = a.zoomLevel, i = ur(), o = n.getViewport({ scale: r * i }), c = n.getViewport({ scale: 1 });
       X.setPageViewport(e, {
         width: c.width,
         height: c.height,
@@ -2552,17 +2563,17 @@ function ci(s) {
       u.height = o.height, u.width = o.width, u.style.width = `${o.width / i}px`, u.style.height = `${o.height / i}px`, g.appendChild(u);
       const m = document.getElementById("pdf-container");
       m.style.width = `${o.width / i}px`;
-      const b = {
+      const v = {
         canvasContext: p,
         viewport: o
       };
-      await n.render(b).promise, a.renderedPages.set(e, {
+      await n.render(v).promise, a.renderedPages.set(e, {
         canvas: u.cloneNode(!0),
         scale: r,
         timestamp: Date.now(),
         displayWidth: o.width / i,
         displayHeight: o.height / i
-      }), a.renderedPages.get(e).canvas.getContext("2d").drawImage(u, 0, 0), Je(), a.currentPage = e, document.getElementById("current-page").textContent = e, Qe(), Ye(), le(), we(e), v.trackPageView(e), Vt(e);
+      }), a.renderedPages.get(e).canvas.getContext("2d").drawImage(u, 0, 0), Je(), a.currentPage = e, document.getElementById("current-page").textContent = e, Qe(), Ye(), le(), we(e), b.trackPageView(e), Vt(e);
     } catch (n) {
       we(e, n instanceof Error ? n : new Error("Page render failed.")), console.error("Page render error:", n);
     } finally {
@@ -2572,7 +2583,7 @@ function ci(s) {
       }
     }
   }
-  function dr(e, t) {
+  function gr(e, t) {
     const n = document.getElementById("pdf-page-1");
     n.innerHTML = "";
     const r = document.createElement("canvas");
@@ -2583,7 +2594,7 @@ function ci(s) {
   function te(e) {
     a.pageRendering ? a.pageNumPending = e : Ge(e);
   }
-  function lr(e) {
+  function mr(e) {
     return typeof e.previewValueText == "string" && e.previewValueText.trim() !== "" ? D(e.previewValueText) : typeof e.value == "string" && e.value.trim() !== "" ? D(e.value) : "";
   }
   function Ht(e, t, n, r = !1) {
@@ -2598,7 +2609,7 @@ function ci(s) {
     const n = document.createElement("span");
     n.className = "field-overlay-label", n.textContent = t, e.appendChild(n);
   }
-  function ur(e, t) {
+  function pr(e, t) {
     if (!t) return null;
     const n = e?.thread || {}, r = String(n.anchor_type || "").trim();
     if (r === "page") {
@@ -2629,9 +2640,9 @@ function ci(s) {
   }
   function Yt(e, t) {
     if ((Array.isArray(a.reviewContext?.threads) ? a.reviewContext.threads : []).forEach((r) => {
-      const i = r?.thread || {}, o = ur(r, t);
+      const i = r?.thread || {}, o = pr(r, t);
       if (!o) return;
-      const c = je(i.created_by_type, i.created_by_id), g = gn(), u = document.createElement(g ? "button" : "div");
+      const c = je(i.created_by_type, i.created_by_id), g = pn(), u = document.createElement(g ? "button" : "div");
       g && u instanceof HTMLButtonElement && (u.type = "button"), u.className = "review-thread-marker", String(i.status || "").trim() === "resolved" && u.classList.add("resolved"), String(i.visibility || "shared").trim() === "internal" && u.classList.add("internal"), String(i.id || "").trim() === String(a.highlightedReviewThreadID || "").trim() && u.classList.add("active"), g ? u.dataset.esignAction = "go-review-thread" : (u.setAttribute("aria-hidden", "true"), u.style.pointerEvents = "none"), u.dataset.threadId = String(i.id || "").trim(), u.style.left = `${Math.round(o.left)}px`, u.style.top = `${Math.round(o.top)}px`, u.style.background = c.color, u.style.borderColor = c.color, g && (u.title = `${mt(r)} comment by ${c.name}`, u.setAttribute("aria-label", `${mt(r)} comment by ${c.name}`)), u.textContent = c.initials, e.appendChild(u);
     }), Z() === "page" && a.reviewAnchorPointDraft && Number(a.reviewAnchorPointDraft.page_number || 0) === Number(a.currentPage || 0)) {
       const r = X.pageToScreen({
@@ -2658,25 +2669,25 @@ function ci(s) {
         if (n.page !== a.currentPage) return;
         const i = document.createElement("div");
         if (i.className = "field-overlay", i.dataset.fieldId = r, n.required && i.classList.add("required"), n.completed && i.classList.add("completed"), a.activeFieldId === r && i.classList.add("active"), n.posX != null && n.posY != null && n.width != null && n.height != null) {
-          const b = X.getOverlayStyles(n, t);
-          i.style.left = b.left, i.style.top = b.top, i.style.width = b.width, i.style.height = b.height, i.style.transform = b.transform, J.enabled && (i.dataset.debugCoords = JSON.stringify(
+          const v = X.getOverlayStyles(n, t);
+          i.style.left = v.left, i.style.top = v.top, i.style.width = v.width, i.style.height = v.height, i.style.transform = v.transform, J.enabled && (i.dataset.debugCoords = JSON.stringify(
             X.pageToScreen(n, t)._debug
           ));
         } else {
-          const b = Array.from(a.fieldState.keys()).indexOf(r);
-          i.style.left = "10px", i.style.top = `${100 + b * 50}px`, i.style.width = "150px", i.style.height = "30px";
+          const v = Array.from(a.fieldState.keys()).indexOf(r);
+          i.style.left = "10px", i.style.top = `${100 + v * 50}px`, i.style.width = "150px", i.style.height = "30px";
         }
-        const c = String(n.previewSignatureUrl || "").trim(), g = String(n.signaturePreviewUrl || "").trim(), u = lr(n), p = n.type === "signature" || n.type === "initials", m = typeof n.previewValueBool == "boolean";
+        const c = String(n.previewSignatureUrl || "").trim(), g = String(n.signaturePreviewUrl || "").trim(), u = mr(n), p = n.type === "signature" || n.type === "initials", m = typeof n.previewValueBool == "boolean";
         if (c)
           Ht(i, c, ue(n.type), !0);
         else if (n.completed && g)
           Ht(i, g, ue(n.type));
         else if (u) {
-          const b = typeof n.previewValueText == "string" && n.previewValueText.trim() !== "";
-          jt(i, u, p, b);
+          const v = typeof n.previewValueText == "string" && n.previewValueText.trim() !== "";
+          jt(i, u, p, v);
         } else n.type === "checkbox" && (m ? n.previewValueBool : !!n.value) ? jt(i, "Checked", !1, m) : Ot(i, ue(n.type));
-        i.setAttribute("tabindex", "0"), i.setAttribute("role", "button"), i.setAttribute("aria-label", `${ue(n.type)} field${n.required ? ", required" : ""}${n.completed ? ", completed" : ""}`), i.addEventListener("click", () => Ie(r)), i.addEventListener("keydown", (b) => {
-          (b.key === "Enter" || b.key === " ") && (b.preventDefault(), Ie(r));
+        i.setAttribute("tabindex", "0"), i.setAttribute("role", "button"), i.setAttribute("aria-label", `${ue(n.type)} field${n.required ? ", required" : ""}${n.completed ? ", completed" : ""}`), i.addEventListener("click", () => Ie(r)), i.addEventListener("keydown", (v) => {
+          (v.key === "Enter" || v.key === " ") && (v.preventDefault(), Ie(r));
         }), e.appendChild(i);
       }), t && He() && Yt(e, t);
     }
@@ -2691,28 +2702,28 @@ function ci(s) {
       checkbox: "Check"
     }[e] || e;
   }
-  function gr() {
+  function fr() {
     a.currentPage <= 1 || te(a.currentPage - 1);
   }
-  function mr() {
+  function hr() {
     a.currentPage >= l.pageCount || te(a.currentPage + 1);
   }
   function ke(e) {
     const t = Number(e || 0) || 0;
     if (t < 1 || t > l.pageCount) return Promise.resolve();
-    const n = dn(t);
+    const n = un(t);
     return qe(t) || te(t), n;
   }
   function Qe() {
     document.getElementById("prev-page-btn").disabled = a.currentPage <= 1, document.getElementById("next-page-btn").disabled = a.currentPage >= l.pageCount;
   }
-  function pr() {
+  function br() {
     a.zoomLevel = Math.min(a.zoomLevel + 0.25, 3), Ze(), te(a.currentPage);
   }
-  function fr() {
+  function vr() {
     a.zoomLevel = Math.max(a.zoomLevel - 0.25, 0.5), Ze(), te(a.currentPage);
   }
-  function hr() {
+  function wr() {
     const t = document.getElementById("viewer-content").offsetWidth - 32, n = 612;
     a.zoomLevel = t / n, Ze(), te(a.currentPage);
   }
@@ -2741,7 +2752,7 @@ function ci(s) {
         tt(e);
         return;
       }
-      n.type !== "date_signed" && vr(e);
+      n.type !== "date_signed" && yr(e);
     }
   }
   function tt(e) {
@@ -2749,11 +2760,11 @@ function ci(s) {
       document.querySelector(`.field-overlay[data-field-id="${e}"]`)?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
     });
   }
-  function vr(e) {
+  function yr(e) {
     const t = a.fieldState.get(e);
     if (!t) return;
     const n = document.getElementById("field-editor-overlay"), r = document.getElementById("field-editor-content"), i = document.getElementById("field-editor-title"), o = document.getElementById("field-editor-legal-disclaimer");
-    i.textContent = Wt(t.type), r.innerHTML = br(t), o?.classList.toggle("hidden", !(t.type === "signature" || t.type === "initials")), (t.type === "signature" || t.type === "initials") && yr(e), n.classList.add("active"), n.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", Be(n.querySelector(".field-editor")), w(`Editing ${Wt(t.type)}. Press Escape to cancel.`), setTimeout(() => {
+    i.textContent = Wt(t.type), r.innerHTML = xr(t), o?.classList.toggle("hidden", !(t.type === "signature" || t.type === "initials")), (t.type === "signature" || t.type === "initials") && Cr(e), n.classList.add("active"), n.setAttribute("aria-hidden", "false"), document.body.style.overflow = "hidden", Be(n.querySelector(".field-editor")), w(`Editing ${Wt(t.type)}. Press Escape to cancel.`), setTimeout(() => {
       const c = r.querySelector("input, textarea");
       c ? c.focus() : r.querySelector('.sig-editor-tab[aria-selected="true"]')?.focus();
     }, 100), U(a.writeCooldownUntil) > 0 && Xt(U(a.writeCooldownUntil));
@@ -2767,10 +2778,10 @@ function ci(s) {
       checkbox: "Confirmation"
     }[e] || "Edit Field";
   }
-  function br(e) {
-    const t = wr(e.type), n = P(String(e?.id || "")), r = P(String(e?.type || ""));
+  function xr(e) {
+    const t = Sr(e.type), n = L(String(e?.id || "")), r = L(String(e?.type || ""));
     if (e.type === "signature" || e.type === "initials") {
-      const i = e.type === "initials" ? "initials" : "signature", o = P(ir(e)), c = [
+      const i = e.type === "initials" ? "initials" : "signature", o = L(sr(e)), c = [
         { id: "draw", label: "Draw" },
         { id: "type", label: "Type" },
         { id: "upload", label: "Upload" },
@@ -2881,13 +2892,13 @@ function ci(s) {
           id="field-text-input"
           class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Enter your full legal name"
-          value="${P(String(e.value || ""))}"
+          value="${L(String(e.value || ""))}"
           data-field-id="${n}"
         />
         ${t}
       `;
     if (e.type === "text") {
-      const i = P(String(e.value || ""));
+      const i = L(String(e.value || ""));
       return `
         <textarea
           id="field-text-input"
@@ -2911,7 +2922,7 @@ function ci(s) {
         </label>
       ` : '<p class="text-gray-500">Unsupported field type</p>';
   }
-  function wr(e) {
+  function Sr(e) {
     return e === "name" || e === "initials" || e === "signature" ? `
       <div class="pt-3 border-t border-gray-100 space-y-2">
         <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -2937,7 +2948,7 @@ function ci(s) {
     const r = document.getElementById("sig-type-preview"), i = a.fieldState.get(e);
     if (!i) return;
     const o = D(String(t || "").trim());
-    if (n?.syncOverlay && (o ? vt(e, o) : ze(e), M()), !!r) {
+    if (n?.syncOverlay && (o ? bt(e, o) : ze(e), R()), !!r) {
       if (o) {
         r.textContent = o;
         return;
@@ -2959,9 +2970,9 @@ function ci(s) {
       const i = document.getElementById("sig-type-input");
       nt(t, i?.value || "");
     }
-    n === "saved" && Un(t).catch(Le);
+    n === "saved" && Vn(t).catch(Pe);
   }
-  function yr(e) {
+  function Cr(e) {
     a.signatureTabByField.set(e, "draw"), Ae("draw", e);
     const t = document.getElementById("sig-type-input");
     t && nt(e, t.value || "");
@@ -2984,7 +2995,7 @@ function ci(s) {
         y: A - C.top,
         timestamp: Date.now()
       };
-    }, b = (h) => {
+    }, v = (h) => {
       c = !0;
       const C = m(h);
       g = C.x, u = C.y, p = [{ x: C.x, y: C.y, t: C.timestamp, width: 2.5 }], n && n.classList.add("drawing");
@@ -2992,22 +3003,22 @@ function ci(s) {
       if (!c) return;
       const C = m(h);
       p.push({ x: C.x, y: C.y, t: C.timestamp, width: 2.5 });
-      const B = C.x - g, A = C.y - u, R = C.timestamp - (p[p.length - 2]?.t || C.timestamp), O = Math.sqrt(B * B + A * A) / Math.max(R, 1), G = 2.5, V = 1.5, Y = 4, H = Math.min(O / 5, 1), _ = Math.max(V, Math.min(Y, G - H * 1.5));
+      const B = C.x - g, A = C.y - u, M = C.timestamp - (p[p.length - 2]?.t || C.timestamp), O = Math.sqrt(B * B + A * A) / Math.max(M, 1), G = 2.5, V = 1.5, Y = 4, H = Math.min(O / 5, 1), _ = Math.max(V, Math.min(Y, G - H * 1.5));
       p[p.length - 1].width = _, r.lineWidth = _, r.beginPath(), r.moveTo(g, u), r.lineTo(C.x, C.y), r.stroke(), g = C.x, u = C.y;
-    }, L = () => {
+    }, P = () => {
       if (c = !1, p.length > 1) {
         const h = a.signatureCanvases.get(e);
         h && (h.strokes.push(p.map((C) => ({ ...C }))), h.redoStack = []), at(e);
       }
       p = [], n && n.classList.remove("drawing");
     };
-    t.addEventListener("mousedown", b), t.addEventListener("mousemove", y), t.addEventListener("mouseup", L), t.addEventListener("mouseout", L), t.addEventListener("touchstart", (h) => {
-      h.preventDefault(), h.stopPropagation(), b(h);
+    t.addEventListener("mousedown", v), t.addEventListener("mousemove", y), t.addEventListener("mouseup", P), t.addEventListener("mouseout", P), t.addEventListener("touchstart", (h) => {
+      h.preventDefault(), h.stopPropagation(), v(h);
     }, { passive: !1 }), t.addEventListener("touchmove", (h) => {
       h.preventDefault(), h.stopPropagation(), y(h);
     }, { passive: !1 }), t.addEventListener("touchend", (h) => {
-      h.preventDefault(), L();
-    }, { passive: !1 }), t.addEventListener("touchcancel", L), t.addEventListener("gesturestart", (h) => h.preventDefault()), t.addEventListener("gesturechange", (h) => h.preventDefault()), t.addEventListener("gestureend", (h) => h.preventDefault()), a.signatureCanvases.set(e, {
+      h.preventDefault(), P();
+    }, { passive: !1 }), t.addEventListener("touchcancel", P), t.addEventListener("gesturestart", (h) => h.preventDefault()), t.addEventListener("gesturechange", (h) => h.preventDefault()), t.addEventListener("gestureend", (h) => h.preventDefault()), a.signatureCanvases.set(e, {
       canvas: t,
       ctx: r,
       dpr: o,
@@ -3017,12 +3028,12 @@ function ci(s) {
       redoStack: [],
       baseImageDataUrl: "",
       baseImage: null
-    }), xr(e);
+    }), _r(e);
   }
-  function xr(e) {
+  function _r(e) {
     const t = a.signatureCanvases.get(e), n = a.fieldState.get(e);
     if (!t || !n) return;
-    const r = rr(n);
+    const r = or(n);
     r && rt(e, r, { clearStrokes: !0 }).catch(() => {
     });
   }
@@ -3044,8 +3055,8 @@ function ci(s) {
     if (!t) return;
     const { ctx: n, drawWidth: r, drawHeight: i, baseImage: o, strokes: c } = t;
     if (n.clearRect(0, 0, r, i), o) {
-      const g = Math.min(r / o.width, i / o.height), u = o.width * g, p = o.height * g, m = (r - u) / 2, b = (i - p) / 2;
-      n.drawImage(o, m, b, u, p);
+      const g = Math.min(r / o.width, i / o.height), u = o.width * g, p = o.height * g, m = (r - u) / 2, v = (i - p) / 2;
+      n.drawImage(o, m, v, u, p);
     }
     for (const g of c)
       for (let u = 1; u < g.length; u++) {
@@ -3053,13 +3064,13 @@ function ci(s) {
         n.lineWidth = Number(m.width || 2.5) || 2.5, n.beginPath(), n.moveTo(p.x, p.y), n.lineTo(m.x, m.y), n.stroke();
       }
   }
-  function Sr(e) {
+  function Tr(e) {
     const t = a.signatureCanvases.get(e);
     if (!t || t.strokes.length === 0) return;
     const n = t.strokes.pop();
     n && t.redoStack.push(n), ge(e), at(e);
   }
-  function Cr(e) {
+  function Er(e) {
     const t = a.signatureCanvases.get(e);
     if (!t || t.redoStack.length === 0) return;
     const n = t.redoStack.pop();
@@ -3074,29 +3085,29 @@ function ci(s) {
   }
   function at(e) {
     const t = a.signatureCanvases.get(e);
-    t && (it(e) ? Ve(e, t.canvas.toDataURL("image/png")) : ze(e), M());
+    t && (it(e) ? Ve(e, t.canvas.toDataURL("image/png")) : ze(e), R());
   }
-  function _r(e) {
+  function Pr(e) {
     const t = a.signatureCanvases.get(e);
-    t && (t.strokes = [], t.redoStack = [], t.baseImage = null, t.baseImageDataUrl = "", ge(e)), ze(e), M();
+    t && (t.strokes = [], t.redoStack = [], t.baseImage = null, t.baseImageDataUrl = "", ge(e)), ze(e), R();
     const n = document.getElementById("sig-upload-preview-wrap"), r = document.getElementById("sig-upload-preview");
     n && n.classList.add("hidden"), r && r.removeAttribute("src");
   }
   function ot() {
     const e = document.getElementById("field-editor-overlay"), t = e.querySelector(".field-editor");
-    if (Me(t), e.classList.remove("active"), e.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", a.activeFieldId) {
+    if (Re(t), e.classList.remove("active"), e.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", a.activeFieldId) {
       const n = document.querySelector(`.field-list-item[data-field-id="${a.activeFieldId}"]`);
       requestAnimationFrame(() => {
         n?.focus();
       });
     }
-    ln(), M(), a.activeFieldId = null, j(), a.signatureCanvases.clear(), w("Field editor closed.");
+    gn(), R(), a.activeFieldId = null, j(), a.signatureCanvases.clear(), w("Field editor closed.");
   }
   function U(e) {
     const t = Number(e) || 0;
     return t <= 0 ? 0 : Math.max(0, Math.ceil((t - Date.now()) / 1e3));
   }
-  function Er(e, t = {}) {
+  function Lr(e, t = {}) {
     const n = Number(t.retry_after_seconds);
     if (Number.isFinite(n) && n > 0)
       return Math.ceil(n);
@@ -3112,7 +3123,7 @@ function ci(s) {
     } catch {
       n = {};
     }
-    const r = n?.error || {}, i = r?.details && typeof r.details == "object" ? r.details : {}, o = Er(e, i), c = e?.status === 429, g = c ? o > 0 ? `Too many actions too quickly. Please wait ${o}s and try again.` : "Too many actions too quickly. Please wait and try again." : String(r?.message || t || "Request failed"), u = new Error(g);
+    const r = n?.error || {}, i = r?.details && typeof r.details == "object" ? r.details : {}, o = Lr(e, i), c = e?.status === 429, g = c ? o > 0 ? `Too many actions too quickly. Please wait ${o}s and try again.` : "Too many actions too quickly. Please wait and try again." : String(r?.message || t || "Request failed"), u = new Error(g);
     return u.status = e?.status || 0, u.code = String(r?.code || ""), u.details = i, u.rateLimited = c, u.retryAfterSeconds = o, u;
   }
   function Xt(e) {
@@ -3130,7 +3141,7 @@ function ci(s) {
     };
     n(), a.writeCooldownTimer = setInterval(n, 250);
   }
-  function Tr(e) {
+  function kr(e) {
     const t = Math.max(1, Number(e) || 1);
     a.submitCooldownUntil = Date.now() + t * 1e3, a.submitCooldownTimer && (clearInterval(a.submitCooldownTimer), a.submitCooldownTimer = null);
     const n = () => {
@@ -3139,7 +3150,7 @@ function ci(s) {
     };
     n(), a.submitCooldownTimer = setInterval(n, 250);
   }
-  async function Lr() {
+  async function Ir() {
     if (!F()) {
       w("This review session cannot modify signing fields.", "assertive");
       return;
@@ -3160,7 +3171,7 @@ function ci(s) {
       a.profileRemember = Ut();
       let i = !1;
       if (t.type === "signature" || t.type === "initials")
-        i = await Pr(e);
+        i = await Ar(e);
       else if (t.type === "checkbox") {
         const o = document.getElementById("field-checkbox-input");
         i = await st(e, null, o?.checked || !1);
@@ -3171,7 +3182,7 @@ function ci(s) {
         i = await st(e, c, null);
       }
       if (i) {
-        ot(), Gt(), z(), en(), le(), Ar(e), Br(e);
+        ot(), Gt(), z(), en(), le(), Rr(e), Dr(e);
         const o = tn();
         o.allRequiredComplete ? w("Field saved. All required fields complete. Ready to submit.") : w(`Field saved. ${o.remainingRequired} required field${o.remainingRequired > 1 ? "s" : ""} remaining.`);
       }
@@ -3185,7 +3196,7 @@ function ci(s) {
         r.disabled = !1, r.innerHTML = "Insert";
     }
   }
-  async function Pr(e) {
+  async function Ar(e) {
     const t = a.fieldState.get(e), n = document.getElementById("sig-type-input"), r = Kt(e);
     if (r === "draw" || r === "upload" || r === "saved") {
       const o = a.signatureCanvases.get(e);
@@ -3219,10 +3230,10 @@ function ci(s) {
       if (!o.ok)
         throw await q(o, "Failed to save field");
       const c = a.fieldState.get(e);
-      return c && (c.value = t ?? n, c.completed = !0, c.hasError = !1), await zt(c), window.toastManager && window.toastManager.success("Field saved"), v.trackFieldSave(e, c?.type, !0, Date.now() - r), !0;
+      return c && (c.value = t ?? n, c.completed = !0, c.hasError = !1), await zt(c), window.toastManager && window.toastManager.success("Field saved"), b.trackFieldSave(e, c?.type, !0, Date.now() - r), !0;
     } catch (o) {
       const c = a.fieldState.get(e);
-      throw c && (c.hasError = !0, c.lastError = o.message), v.trackFieldSave(e, i?.type, !1, Date.now() - r, o.message), o;
+      throw c && (c.hasError = !0, c.lastError = o.message), b.trackFieldSave(e, i?.type, !1, Date.now() - r, o.message), o;
     } finally {
       a.pendingSaves.delete(e);
     }
@@ -3235,7 +3246,7 @@ function ci(s) {
     try {
       let o;
       if (i === "drawn") {
-        const u = await Nn.uploadDrawnSignature(
+        const u = await zn.uploadDrawnSignature(
           e,
           t.dataUrl
         );
@@ -3248,7 +3259,7 @@ function ci(s) {
           upload_token: u.uploadToken
         };
       } else
-        o = await kr(e, n);
+        o = await $r(e, n);
       const c = await fetch(`${l.apiBasePath}/field-values/signature/${l.token}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3260,16 +3271,16 @@ function ci(s) {
       return g && (g.value = n, g.completed = !0, g.hasError = !1, t?.dataUrl && (g.signaturePreviewUrl = t.dataUrl)), await zt(g, {
         signatureType: i,
         signatureDataUrl: t?.dataUrl
-      }), window.toastManager && window.toastManager.success("Signature applied"), v.trackSignatureAttach(e, i, !0, Date.now() - r), !0;
+      }), window.toastManager && window.toastManager.success("Signature applied"), b.trackSignatureAttach(e, i, !0, Date.now() - r), !0;
     } catch (o) {
       const c = a.fieldState.get(e);
-      throw c && (c.hasError = !0, c.lastError = o.message), v.trackSignatureAttach(e, i, !1, Date.now() - r, o.message), o;
+      throw c && (c.hasError = !0, c.lastError = o.message), b.trackSignatureAttach(e, i, !1, Date.now() - r, o.message), o;
     } finally {
       a.pendingSaves.delete(e);
     }
   }
-  async function kr(e, t) {
-    const n = `${t}|${e}`, r = await Ir(n), i = `tenant/bootstrap/org/bootstrap/agreements/${l.agreementId}/signatures/${l.recipientId}/${e}-${Date.now()}.txt`;
+  async function $r(e, t) {
+    const n = `${t}|${e}`, r = await Br(n), i = `tenant/bootstrap/org/bootstrap/agreements/${l.agreementId}/signatures/${l.recipientId}/${e}-${Date.now()}.txt`;
     return {
       field_instance_id: e,
       type: "typed",
@@ -3279,7 +3290,7 @@ function ci(s) {
       // Note: typed signatures do not require upload_token (v2)
     };
   }
-  async function Ir(e) {
+  async function Br(e) {
     if (window.crypto && window.crypto.subtle && window.TextEncoder) {
       const t = new TextEncoder().encode(e), n = await window.crypto.subtle.digest("SHA-256", t);
       return Array.from(new Uint8Array(n)).map((r) => r.toString(16).padStart(2, "0")).join("");
@@ -3308,7 +3319,7 @@ function ci(s) {
     const c = !!a.reviewContext?.sign_blocked, g = a.canSignSession && a.hasConsented && i.length === 0 && !o && !c && a.pendingSaves.size === 0 && r === 0 && !a.isSubmitting;
     e.disabled = !g, !a.isSubmitting && r > 0 ? e.innerHTML = `<i class="iconoir-clock mr-2"></i> Retry in ${r}s` : !a.isSubmitting && r === 0 && (e.innerHTML = '<i class="iconoir-send mr-2"></i> Submit Signature'), a.hasConsented ? r > 0 ? (t.classList.remove("hidden"), n.textContent = `Please wait ${r}s before submitting again.`) : a.canSignSession ? c ? (t.classList.remove("hidden"), n.textContent = a.reviewContext?.sign_block_reason || "Signing is blocked until review completes.") : o ? (t.classList.remove("hidden"), n.textContent = "Some fields failed to save. Please retry.") : i.length > 0 ? (t.classList.remove("hidden"), n.textContent = `Complete ${i.length} required field${i.length > 1 ? "s" : ""}`) : t.classList.add("hidden") : (t.classList.remove("hidden"), n.textContent = "This session cannot submit signatures.") : (t.classList.remove("hidden"), n.textContent = "Please accept the consent agreement");
   }
-  function Ar(e) {
+  function Rr(e) {
     const t = a.fieldState.get(e), n = document.querySelector(`.field-list-item[data-field-id="${e}"]`);
     if (!(!n || !t)) {
       if (t.completed) {
@@ -3322,7 +3333,7 @@ function ci(s) {
       }
     }
   }
-  function $r() {
+  function Mr() {
     const e = Array.from(a.fieldState.values()).filter((t) => t.required);
     return e.sort((t, n) => {
       const r = Number(t.page || 0), i = Number(n.page || 0);
@@ -3339,10 +3350,10 @@ function ci(s) {
   function ct(e) {
     a.guidedTargetFieldId = e, document.querySelectorAll(".field-list-item").forEach((t) => t.classList.remove("guided-next-target")), document.querySelectorAll(".field-overlay").forEach((t) => t.classList.remove("guided-next-target")), document.querySelector(`.field-list-item[data-field-id="${e}"]`)?.classList.add("guided-next-target"), document.querySelector(`.field-overlay[data-field-id="${e}"]`)?.classList.add("guided-next-target");
   }
-  function Br(e) {
-    const t = $r(), n = t.filter((c) => !c.completed);
+  function Dr(e) {
+    const t = Mr(), n = t.filter((c) => !c.completed);
     if (n.length === 0) {
-      v.track("guided_next_none_remaining", { fromFieldId: e });
+      b.track("guided_next_none_remaining", { fromFieldId: e });
       const c = document.getElementById("submit-btn");
       c?.scrollIntoView({ behavior: "smooth", block: "nearest" }), c?.focus(), w("All required fields are complete. Review the document and submit when ready.");
       return;
@@ -3357,10 +3368,10 @@ function ci(s) {
         }
     }
     if (i || (i = n[0]), !i) return;
-    v.track("guided_next_started", { fromFieldId: e, toFieldId: i.id });
+    b.track("guided_next_started", { fromFieldId: e, toFieldId: i.id });
     const o = Number(i.page || 1);
     o !== a.currentPage && ke(o), et(i.id, { openEditor: !1 }), ct(i.id), setTimeout(() => {
-      ct(i.id), tt(i.id), v.track("guided_next_completed", { toFieldId: i.id, page: i.page }), w(`Next required field highlighted on page ${i.page}.`);
+      ct(i.id), tt(i.id), b.track("guided_next_completed", { toFieldId: i.id, page: i.page }), w(`Next required field highlighted on page ${i.page}.`);
     }, 120);
   }
   function Qt() {
@@ -3371,9 +3382,9 @@ function ci(s) {
   }
   function dt() {
     const e = document.getElementById("consent-modal"), t = e.querySelector(".field-editor");
-    Me(t), e.classList.remove("active"), e.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", w("Consent dialog closed.");
+    Re(t), e.classList.remove("active"), e.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", w("Consent dialog closed.");
   }
-  async function Mr() {
+  async function Fr() {
     if (!F())
       return;
     const e = document.getElementById("consent-accept-btn");
@@ -3386,14 +3397,14 @@ function ci(s) {
       });
       if (!t.ok)
         throw await q(t, "Failed to accept consent");
-      a.hasConsented = !0, document.getElementById("consent-notice").classList.add("hidden"), dt(), z(), en(), v.trackConsent(!0), window.toastManager && window.toastManager.success("Consent accepted"), w("Consent accepted. You can now complete the fields and submit.");
+      a.hasConsented = !0, document.getElementById("consent-notice").classList.add("hidden"), dt(), z(), en(), b.trackConsent(!0), window.toastManager && window.toastManager.success("Consent accepted"), w("Consent accepted. You can now complete the fields and submit.");
     } catch (t) {
       window.toastManager && window.toastManager.error(t.message), w(`Error: ${t.message}`, "assertive");
     } finally {
       e.disabled = !1, e.innerHTML = "Accept & Continue";
     }
   }
-  async function Rr() {
+  async function Nr() {
     if (!a.canSignSession || a.reviewContext?.sign_blocked) {
       z();
       return;
@@ -3411,14 +3422,14 @@ function ci(s) {
       });
       if (!r.ok)
         throw await q(r, "Failed to submit");
-      v.trackSubmit(!0), window.location.href = `${l.signerBasePath}/${l.token}/complete`;
+      b.trackSubmit(!0), window.location.href = `${l.signerBasePath}/${l.token}/complete`;
     } catch (n) {
-      v.trackSubmit(!1, n.message), n?.rateLimited && Tr(n.retryAfterSeconds), window.toastManager && window.toastManager.error(n.message);
+      b.trackSubmit(!1, n.message), n?.rateLimited && kr(n.retryAfterSeconds), window.toastManager && window.toastManager.error(n.message);
     } finally {
       a.isSubmitting = !1, z();
     }
   }
-  function Dr() {
+  function Ur() {
     if (!F())
       return;
     const e = document.getElementById("decline-modal");
@@ -3426,9 +3437,9 @@ function ci(s) {
   }
   function Zt() {
     const e = document.getElementById("decline-modal"), t = e.querySelector(".field-editor");
-    Me(t), e.classList.remove("active"), e.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", w("Decline dialog closed.");
+    Re(t), e.classList.remove("active"), e.setAttribute("aria-hidden", "true"), document.body.style.overflow = "", w("Decline dialog closed.");
   }
-  async function Fr() {
+  async function qr() {
     if (!F())
       return;
     const e = document.getElementById("decline-reason").value;
@@ -3445,8 +3456,8 @@ function ci(s) {
       window.toastManager && window.toastManager.error(t.message);
     }
   }
-  function Nr() {
-    v.trackDegradedMode("viewer_load_failure"), v.trackViewerCriticalError("viewer_load_failed"), window.toastManager && window.toastManager.error("Unable to load the document viewer. Please refresh the page or contact the sender for assistance.", {
+  function zr() {
+    b.trackDegradedMode("viewer_load_failure"), b.trackViewerCriticalError("viewer_load_failed"), window.toastManager && window.toastManager.error("Unable to load the document viewer. Please refresh the page or contact the sender for assistance.", {
       duration: 15e3,
       action: {
         label: "Refresh",
@@ -3454,7 +3465,7 @@ function ci(s) {
       }
     });
   }
-  async function Ur() {
+  async function Vr() {
     try {
       const e = await fetch(Ct());
       if (!e.ok) throw new Error("Document unavailable");
@@ -3565,7 +3576,7 @@ function ci(s) {
           </div>
           <div class="debug-section">
             <div class="debug-label">Session</div>
-            <div class="debug-value" id="debug-session-id">${v.sessionId}</div>
+            <div class="debug-value" id="debug-session-id">${b.sessionId}</div>
           </div>
           <div class="debug-section">
             <div class="debug-label">Consent</div>
@@ -3618,7 +3629,7 @@ function ci(s) {
       e?.forEach((r) => {
         r.completed && t++;
       }), document.getElementById("debug-consent").textContent = a.hasConsented ? "✓ Accepted" : "✗ Pending", document.getElementById("debug-consent").className = `debug-value ${a.hasConsented ? "" : "warning"}`, document.getElementById("debug-fields").textContent = `${t}/${e?.size || 0}`, document.getElementById("debug-cached").textContent = a.renderedPages?.size || 0, document.getElementById("debug-memory").textContent = a.isLowMemory ? "⚠ Low Memory" : "Normal", document.getElementById("debug-memory").className = `debug-value ${a.isLowMemory ? "warning" : ""}`;
-      const n = v.metrics.errorsEncountered;
+      const n = b.metrics.errorsEncountered;
       document.getElementById("debug-errors").textContent = n.length > 0 ? `${n.length} error(s)` : "None", document.getElementById("debug-errors").className = `debug-value ${n.length > 0 ? "error" : ""}`;
     },
     /**
@@ -3645,15 +3656,15 @@ function ci(s) {
             completed: t.completed,
             hasError: t.hasError
           })),
-          telemetry: v.getSessionSummary(),
-          errors: v.metrics.errorsEncountered
+          telemetry: b.getSessionSummary(),
+          errors: b.metrics.errorsEncountered
         }),
-        getEvents: () => v.events,
+        getEvents: () => b.events,
         forceError: (e) => {
-          v.track("debug_forced_error", { message: e }), console.error("[E-Sign Debug] Forced error:", e);
+          b.track("debug_forced_error", { message: e }), console.error("[E-Sign Debug] Forced error:", e);
         },
         reloadViewer: () => {
-          console.log("[E-Sign Debug] Reloading viewer..."), Pe();
+          console.log("[E-Sign Debug] Reloading viewer..."), Le();
         },
         setLowMemory: (e) => {
           a.isLowMemory = e, Je(), console.log(`[E-Sign Debug] Low memory mode: ${e}`);
@@ -3664,7 +3675,7 @@ function ci(s) {
      * Log session info to console
      */
     logSessionInfo() {
-      console.group("%c[E-Sign Debug] Session Info", "color: #3b82f6"), console.log("Flow Mode:", l.flowMode), console.log("Agreement ID:", l.agreementId), console.log("Session ID:", v.sessionId), console.log("Fields:", a.fieldState?.size || 0), console.log("Low Memory:", a.isLowMemory), console.groupEnd();
+      console.group("%c[E-Sign Debug] Session Info", "color: #3b82f6"), console.log("Flow Mode:", l.flowMode), console.log("Agreement ID:", l.agreementId), console.log("Session ID:", b.sessionId), console.log("Fields:", a.fieldState?.size || 0), console.log("Low Memory:", a.isLowMemory), console.groupEnd();
     },
     /**
      * Copy session info to clipboard
@@ -3681,7 +3692,7 @@ function ci(s) {
      * Reload the PDF viewer
      */
     reloadViewer() {
-      console.log("[E-Sign Debug] Reloading PDF viewer..."), Pe(), this.updatePanel();
+      console.log("[E-Sign Debug] Reloading PDF viewer..."), Le(), this.updatePanel();
     },
     /**
      * Clear page cache
@@ -3693,7 +3704,7 @@ function ci(s) {
      * Show telemetry events
      */
     showTelemetry() {
-      console.table(v.events), console.log("Session Summary:", v.getSessionSummary());
+      console.table(b.events), console.log("Session Summary:", b.getSessionSummary());
     }
   };
   function w(e, t = "polite") {
@@ -3712,7 +3723,7 @@ function ci(s) {
       r?.focus();
     });
   }
-  function Me(e) {
+  function Re(e) {
     e._focusTrapHandler && (e.removeEventListener("keydown", e._focusTrapHandler), delete e._focusTrapHandler);
     const t = e.dataset.previousFocus;
     if (t) {
@@ -3738,7 +3749,7 @@ function ci(s) {
       allRequiredComplete: n === 0
     };
   }
-  function qr(e, t = 1) {
+  function Hr(e, t = 1) {
     const n = Array.from(a.fieldState.keys()), r = n.indexOf(e);
     if (r === -1) return null;
     const i = r + t;
@@ -3772,7 +3783,7 @@ function ci(s) {
     if (e.target instanceof HTMLElement && e.target.classList.contains("field-list-item")) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
-        const t = e.target.dataset.fieldId, n = e.key === "ArrowDown" ? 1 : -1, r = qr(t, n);
+        const t = e.target.dataset.fieldId, n = e.key === "ArrowDown" ? 1 : -1, r = Hr(t, n);
         r && document.querySelector(`.field-list-item[data-field-id="${r}"]`)?.focus();
       }
       if (e.key === "Enter" || e.key === " ") {
@@ -3788,43 +3799,37 @@ function ci(s) {
     e.key === "Tab" && document.body.classList.remove("using-mouse");
   });
 }
-class cn {
+class ln {
   constructor(d) {
     this.config = d;
   }
   init() {
-    ci(this.config);
+    pi(this.config);
   }
   destroy() {
   }
 }
-function fi(s) {
-  const d = new cn(s);
+function Ci(s) {
+  const d = new ln(s);
   return ht(() => d.init()), d;
 }
-function di() {
-  const s = document.getElementById("esign-signer-review-config");
-  if (!s) return null;
-  try {
-    const d = JSON.parse(s.textContent || "{}");
-    return d && typeof d == "object" ? d : null;
-  } catch {
-    return null;
-  }
+function fi() {
+  const s = Wr("esign-signer-review-config", null);
+  return s && typeof s == "object" ? s : null;
 }
 typeof document < "u" && ht(() => {
   if (!document.querySelector('[data-esign-page="signer-review"], [data-esign-page="signer.review"]')) return;
-  const d = di();
+  const d = fi();
   if (!d) {
     console.warn("Missing signer review config script payload");
     return;
   }
-  const f = new cn(d);
+  const f = new ln(d);
   f.init(), window.esignSignerReviewController = f;
 });
 export {
-  cn as SignerReviewController,
-  ci as bootstrapSignerReview,
-  fi as initSignerReview
+  ln as SignerReviewController,
+  pi as bootstrapSignerReview,
+  Ci as initSignerReview
 };
 //# sourceMappingURL=signer-review.js.map

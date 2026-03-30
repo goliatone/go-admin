@@ -16,6 +16,8 @@ import type {
   MenuViewProfileRecord,
   NavigationOverrideValue,
 } from './types.js';
+import { normalizeMenuBuilderPath } from './shared/path-helpers.js';
+import { asRecord } from '../shared/coercion.js';
 
 export class MenuBuilderAPIError extends Error {
   readonly status: number;
@@ -47,32 +49,12 @@ export interface MenuPreviewRequest {
   preview_token?: string;
 }
 
-function asRecord(raw: unknown): Record<string, unknown> {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return {};
-  }
-  return raw as Record<string, unknown>;
-}
-
 function fillPath(pathTemplate: string, params: Record<string, string>): string {
   let resolved = pathTemplate;
   Object.entries(params).forEach(([key, value]) => {
     resolved = resolved.replace(`:${key}`, encodeURIComponent(String(value)));
   });
   return resolved;
-}
-
-function normalizePath(basePath: string, path: string): string {
-  if (!path) {
-    return basePath;
-  }
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-  if (path.startsWith('/')) {
-    return path;
-  }
-  return `${basePath.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
 }
 
 export class MenuBuilderAPIClient {
@@ -266,7 +248,7 @@ export class MenuBuilderAPIClient {
     } catch {
       // Fall back to canonical endpoint path when menu contracts are unavailable.
     }
-    const endpoint = normalizePath(this.config.basePath, fillPath(template, { type: contentType, id: recordID }));
+    const endpoint = normalizeMenuBuilderPath(this.config.basePath, fillPath(template, { type: contentType, id: recordID }));
     const payload = await this.fetchJSON(endpoint, {
       method: 'PATCH',
       body: JSON.stringify({ _navigation: overrides }),
@@ -298,7 +280,7 @@ export class MenuBuilderAPIClient {
       throw new MenuBuilderAPIError(`missing endpoint contract for ${key}`, 500, 'CONTRACT_MISSING');
     }
 
-    const endpoint = normalizePath(this.config.basePath, fillPath(template, options.params ?? {}));
+    const endpoint = normalizeMenuBuilderPath(this.config.basePath, fillPath(template, options.params ?? {}));
     const query = String(options.query ?? '').trim();
     const queryString = query ? `?${query}` : '';
 

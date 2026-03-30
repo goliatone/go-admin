@@ -39,26 +39,16 @@ export type RemoteDebugStreamOptions = Omit<DebugStreamOptions, 'basePath' | 'ur
   tokenParam?: string;
   appId?: string;
 };
+import { normalizeDebugBasePath } from './shared/path-helpers.js';
 
 const defaultReconnectDelayMs = 1000;
 const defaultMaxReconnectDelayMs = 12000;
 const defaultMaxReconnectAttempts = 8;
 const defaultTokenRefreshBufferMs = 30000;
 
-const normalizeBasePath = (basePath: string): string => {
-  const trimmed = (basePath || '').trim();
-  if (!trimmed) {
-    return '';
-  }
-  if (trimmed.startsWith('/')) {
-    return trimmed.replace(/\/+$/, '');
-  }
-  return `/${trimmed.replace(/\/+$/, '')}`;
-};
-
 const buildWebSocketURL = (basePath: string): string => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const normalized = normalizeBasePath(basePath);
+  const normalized = normalizeDebugBasePath(basePath);
   return `${protocol}//${window.location.host}${normalized}/ws`;
 };
 

@@ -9,6 +9,19 @@ import {
   asString,
   asUniqueStringArray as asStringArray,
 } from '../shared/coercion.js';
+import {
+  deriveBasePathFromAPIEndpoint,
+  trimTrailingSlash,
+} from '../shared/path-normalization.js';
+import {
+  buildEndpointURL,
+  getNumberSearchParam,
+  getStringSearchParam,
+  readLocationSearchParams,
+  setJoinedSearchParam,
+  setNumberSearchParam,
+  setSearchParam,
+} from '../shared/query-state/url-state.js';
 import { StatefulController } from '../shared/stateful-controller.js';
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
@@ -272,27 +285,12 @@ function asObjectArray(value: unknown): Record<string, unknown>[] {
     .filter((item) => Object.keys(item).length > 0);
 }
 
-function trimTrailingSlash(value: string): string {
-  return value.replace(/\/+$/, '');
-}
-
-function deriveBasePathFromEndpoint(endpoint: string): string {
-  const candidate = asString(endpoint);
-  if (!candidate) {
-    return '';
-  }
-  const pathname = candidate.startsWith('http://') || candidate.startsWith('https://')
-    ? new URL(candidate).pathname
-    : candidate;
-  return trimTrailingSlash(pathname.replace(/\/api(?:\/.*)?$/, ''));
-}
-
 function resolveMatrixBasePath(basePath: string, endpoint: string): string {
   const explicit = trimTrailingSlash(asString(basePath));
   if (explicit) {
     return explicit;
   }
-  const derived = deriveBasePathFromEndpoint(endpoint);
+  const derived = deriveBasePathFromAPIEndpoint(asString(endpoint));
   return derived || '/admin';
 }
 
@@ -606,21 +604,20 @@ export function normalizeTranslationMatrixBulkActionResponse(value: unknown): Tr
 }
 
 export function buildTranslationMatrixURL(endpoint: string, query: TranslationMatrixQuery = {}): string {
-  const url = new URL(endpoint, 'http://localhost');
-  const channel = asString(query.channel);
-  if (channel) url.searchParams.set('channel', channel);
-  if (query.tenantId) url.searchParams.set('tenant_id', query.tenantId);
-  if (query.orgId) url.searchParams.set('org_id', query.orgId);
-  if (query.familyId) url.searchParams.set('family_id', query.familyId);
-  if (query.contentType) url.searchParams.set('content_type', query.contentType);
-  if (query.readinessState) url.searchParams.set('readiness_state', query.readinessState);
-  if (query.blockerCode) url.searchParams.set('blocker_code', query.blockerCode);
-  if (query.locales && query.locales.length > 0) url.searchParams.set('locales', query.locales.join(','));
-  if (typeof query.page === 'number') url.searchParams.set('page', String(query.page));
-  if (typeof query.perPage === 'number') url.searchParams.set('per_page', String(query.perPage));
-  if (typeof query.localeOffset === 'number') url.searchParams.set('locale_offset', String(query.localeOffset));
-  if (typeof query.localeLimit === 'number') url.searchParams.set('locale_limit', String(query.localeLimit));
-  return `${url.pathname}${url.search}`;
+  const params = new URLSearchParams();
+  setSearchParam(params, 'channel', query.channel);
+  setSearchParam(params, 'tenant_id', query.tenantId);
+  setSearchParam(params, 'org_id', query.orgId);
+  setSearchParam(params, 'family_id', query.familyId);
+  setSearchParam(params, 'content_type', query.contentType);
+  setSearchParam(params, 'readiness_state', query.readinessState);
+  setSearchParam(params, 'blocker_code', query.blockerCode);
+  setJoinedSearchParam(params, 'locales', query.locales);
+  setNumberSearchParam(params, 'page', query.page);
+  setNumberSearchParam(params, 'per_page', query.perPage);
+  setNumberSearchParam(params, 'locale_offset', query.localeOffset, { min: 0 });
+  setNumberSearchParam(params, 'locale_limit', query.localeLimit, { min: 0 });
+  return buildEndpointURL(endpoint, params);
 }
 
 export function createTranslationMatrixSelectionState(
@@ -835,23 +832,23 @@ function parseLocaleInput(value: string): string[] {
 }
 
 function readQueryFromLocation(): TranslationMatrixQuery {
-  if (!globalThis.location) {
+  const params = readLocationSearchParams(globalThis.location);
+  if (!params) {
     return {};
   }
-  const params = new URLSearchParams(globalThis.location.search);
-  const locales = parseLocaleInput(params.get('locales') ?? params.get('locale') ?? '');
+  const locales = parseLocaleInput(getStringSearchParam(params, 'locales') ?? getStringSearchParam(params, 'locale') ?? '');
   return {
-    channel: asString(params.get('channel')),
-    tenantId: asString(params.get('tenant_id')),
-    orgId: asString(params.get('org_id')),
-    contentType: asString(params.get('content_type')),
-    readinessState: asString(params.get('readiness_state')),
-    blockerCode: asString(params.get('blocker_code')),
+    channel: getStringSearchParam(params, 'channel') ?? '',
+    tenantId: getStringSearchParam(params, 'tenant_id') ?? '',
+    orgId: getStringSearchParam(params, 'org_id') ?? '',
+    contentType: getStringSearchParam(params, 'content_type') ?? '',
+    readinessState: getStringSearchParam(params, 'readiness_state') ?? '',
+    blockerCode: getStringSearchParam(params, 'blocker_code') ?? '',
     locales,
-    page: params.get('page') ? asNumber(params.get('page')) : undefined,
-    perPage: params.get('per_page') ? asNumber(params.get('per_page')) : undefined,
-    localeLimit: params.get('locale_limit') ? asNumber(params.get('locale_limit')) : undefined,
-    localeOffset: params.get('locale_offset') ? asNumber(params.get('locale_offset')) : undefined,
+    page: getNumberSearchParam(params, 'page'),
+    perPage: getNumberSearchParam(params, 'per_page'),
+    localeLimit: getNumberSearchParam(params, 'locale_limit'),
+    localeOffset: getNumberSearchParam(params, 'locale_offset'),
   };
 }
 

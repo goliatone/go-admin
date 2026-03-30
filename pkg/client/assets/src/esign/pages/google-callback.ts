@@ -5,6 +5,7 @@
 
 import type { ESignPageConfig, GoogleOAuthCallbackData, GoogleOAuthState } from '../types.js';
 import { qs, show, hide, onReady } from '../utils/dom-helpers.js';
+import { parseJSONValue } from '../../shared/json-parse.js';
 
 export interface GoogleCallbackConfig extends ESignPageConfig {
   /** If popup not opened, redirect to this path on close */
@@ -113,19 +114,15 @@ export class GoogleCallbackController {
       return result;
     }
 
-    try {
-      const parsed = JSON.parse(rawState);
-      if (parsed && typeof parsed === 'object') {
-        if (typeof parsed.user_id === 'string') {
-          result.user_id = parsed.user_id.trim();
-        }
-        if (typeof parsed.account_id === 'string') {
-          result.account_id = parsed.account_id.trim();
-        }
-        return result;
+    const parsed = parseJSONValue<Record<string, unknown> | null>(rawState, null);
+    if (parsed && typeof parsed === 'object') {
+      if (typeof parsed.user_id === 'string') {
+        result.user_id = parsed.user_id.trim();
       }
-    } catch {
-      // Backward compatibility: older state payloads may contain only user ID
+      if (typeof parsed.account_id === 'string') {
+        result.account_id = parsed.account_id.trim();
+      }
+      return result;
     }
 
     // Fallback: treat raw state as user_id

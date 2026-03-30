@@ -10,8 +10,9 @@ import type {
   GoogleOAuthState,
   GoogleAccountInfo,
 } from '../types.js';
-import { qs, show, hide, onReady } from '../utils/dom-helpers.js';
+import { qs, show, hide, onReady, getPageConfigFromScript } from '../utils/dom-helpers.js';
 import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
+import { readHTTPError } from '../../shared/transport/http-client.js';
 import {
   resolveAccountId,
   normalizeAccountId,
@@ -508,16 +509,9 @@ export class GoogleIntegrationController {
           return;
         }
 
-        let message = `Failed to check status: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          if (errorData?.error?.message) {
-            message = errorData.error.message;
-          }
-        } catch {
-          // Ignore parse errors
-        }
-        throw new Error(message);
+        throw new Error(await readHTTPError(response, `Failed to check status: ${response.status}`, {
+          appendStatusToFallback: false,
+        }));
       }
 
       const data = await response.json();
@@ -1265,8 +1259,9 @@ export class GoogleIntegrationController {
         );
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || 'Failed to connect');
+          throw new Error(await readHTTPError(response, 'Failed to connect', {
+            appendStatusToFallback: false,
+          }));
         }
 
         showPageToast('Google Drive connected successfully', 'success');
@@ -1343,8 +1338,9 @@ export class GoogleIntegrationController {
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to disconnect');
+        throw new Error(await readHTTPError(response, 'Failed to disconnect', {
+          appendStatusToFallback: false,
+        }));
       }
 
       showPageToast('Google Drive disconnected', 'success');
@@ -1448,17 +1444,16 @@ if (typeof document !== 'undefined') {
     );
     if (!pageEl) return;
 
-    const configScript = document.getElementById('esign-page-config');
-    if (!configScript) return;
-
-    try {
-      const rawConfig = JSON.parse(configScript.textContent || '{}') as Record<string, unknown>;
-      const config = coerceGoogleIntegrationConfig(rawConfig);
-      if (config) {
-        bootstrapGoogleIntegration(config);
-      }
-    } catch (error) {
-      console.warn('Failed to parse Google integration page config:', error);
+    const rawConfig = getPageConfigFromScript<Record<string, unknown>>(
+      'esign-page-config',
+      'Google integration page config'
+    );
+    if (!rawConfig) {
+      return;
+    }
+    const config = coerceGoogleIntegrationConfig(rawConfig);
+    if (config) {
+      bootstrapGoogleIntegration(config);
     }
   });
 }

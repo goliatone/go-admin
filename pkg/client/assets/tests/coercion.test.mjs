@@ -6,6 +6,9 @@ const coercion = await import('../dist/shared/coercion.js');
 test('shared coercion helpers normalize primitive scalar values', () => {
   assert.equal(coercion.asString('  value  '), 'value');
   assert.equal(coercion.asString(10), '');
+  assert.equal(coercion.coerceString('  value  '), 'value');
+  assert.equal(coercion.coerceString(10), '10');
+  assert.equal(coercion.coerceString(null, 'fallback'), 'fallback');
 
   assert.equal(coercion.asBoolean(true), true);
   assert.equal(coercion.asBoolean('true'), false);
@@ -18,6 +21,9 @@ test('shared coercion helpers normalize primitive scalar values', () => {
 
   assert.equal(coercion.asNumber(12, 3), 12);
   assert.equal(coercion.asNumber('12', 3), 3);
+  assert.equal(coercion.coerceInteger(12, 3), 12);
+  assert.equal(coercion.coerceInteger('12px', 3), 12);
+  assert.equal(coercion.coerceInteger('bad', 3), 3);
 
   assert.equal(coercion.asNumberish(12, 3), 12);
   assert.equal(coercion.asNumberish('12', 3), 12);
@@ -30,6 +36,7 @@ test('shared coercion helpers normalize records and string arrays', () => {
   assert.deepEqual(coercion.asRecord(null), {});
 
   assert.deepEqual(coercion.asStringArray([' one ', '', 10, 'two ']), ['one', 'two']);
+  assert.deepEqual(coercion.coerceStringArray([' one ', '', 10, 'two ']), ['one', '10', 'two']);
   assert.deepEqual(coercion.asUniqueStringArray([' one ', 'two', 'one', ' two ']), ['one', 'two']);
 });
 

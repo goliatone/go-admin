@@ -24,6 +24,7 @@ import { inputClasses, selectClasses, textareaClasses, checkboxClasses, labelCla
 import { loadAvailableBlocks, blockKey as sharedBlockKey, normalizeBlockSelection } from './shared/block-picker';
 import { resolveApiBasePath } from './shared/api-paths';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { parseJSONValue } from '../shared/json-parse.js';
 
 // =============================================================================
 // Field Config Form Component
@@ -1067,7 +1068,7 @@ export class FieldConfigForm extends Modal {
   private async showBlockPicker(listType: 'allowed' | 'denied'): Promise<void> {
     // Get current selections
     const hiddenInput = this.container?.querySelector<HTMLInputElement>(`input[name="${listType}Blocks"]`);
-    const currentBlocks: string[] = hiddenInput?.value ? JSON.parse(hiddenInput.value) : [];
+    const currentBlocks = this.parseBlockListValue(hiddenInput?.value);
 
     // Create picker modal
     const apiBasePath = resolveApiBasePath(this.config.apiBasePath);
@@ -1120,9 +1121,17 @@ export class FieldConfigForm extends Modal {
     const hiddenInput = this.container?.querySelector<HTMLInputElement>(`input[name="${listType}Blocks"]`);
     if (!hiddenInput) return;
 
-    const blocks: string[] = hiddenInput.value ? JSON.parse(hiddenInput.value) : [];
+    const blocks = this.parseBlockListValue(hiddenInput.value);
     const updatedBlocks = blocks.filter((b) => b !== blockType);
     this.updateBlockList(listType, updatedBlocks);
+  }
+
+  private parseBlockListValue(raw: string | null | undefined): string[] {
+    const parsed = parseJSONValue<unknown>(raw, []);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.map((value) => String(value ?? '').trim()).filter(Boolean);
   }
 
   private handleSave(): void {
@@ -1338,10 +1347,11 @@ export class FieldConfigForm extends Modal {
         let deniedBlocks: string[] | undefined;
 
         if (allowedStr) {
-          try {
-            const parsed = JSON.parse(allowedStr);
-            allowedBlocks = Array.isArray(parsed) && parsed.length > 0 ? parsed : undefined;
-          } catch {
+          const parsed = parseJSONValue<unknown>(allowedStr, null);
+          if (Array.isArray(parsed)) {
+            const normalized = parsed.map((value) => String(value ?? '').trim()).filter(Boolean);
+            allowedBlocks = normalized.length > 0 ? normalized : undefined;
+          } else {
             // Fall back to comma-separated format
             allowedBlocks = allowedStr.split(',').map((s) => s.trim()).filter(Boolean);
             if (allowedBlocks.length === 0) allowedBlocks = undefined;
@@ -1349,10 +1359,11 @@ export class FieldConfigForm extends Modal {
         }
 
         if (deniedStr) {
-          try {
-            const parsed = JSON.parse(deniedStr);
-            deniedBlocks = Array.isArray(parsed) && parsed.length > 0 ? parsed : undefined;
-          } catch {
+          const parsed = parseJSONValue<unknown>(deniedStr, null);
+          if (Array.isArray(parsed)) {
+            const normalized = parsed.map((value) => String(value ?? '').trim()).filter(Boolean);
+            deniedBlocks = normalized.length > 0 ? normalized : undefined;
+          } else {
             // Fall back to comma-separated format
             deniedBlocks = deniedStr.split(',').map((s) => s.trim()).filter(Boolean);
             if (deniedBlocks.length === 0) deniedBlocks = undefined;

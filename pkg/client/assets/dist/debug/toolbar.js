@@ -1,9 +1,10 @@
-import { k as h, t as E, j as q, r as L, i as P, h as z, g as T, f as M, D as y, a as f, b as R, d as $, p as H, e as I } from "../chunks/builtin-panels-C4KcyKBA.js";
+import { k as h, t as E, j as q, r as L, i as P, h as z, g as T, f as M, D as y, a as f, b as R, d as H, p as $, e as I } from "../chunks/builtin-panels-BYfLbuKw.js";
 import { DebugReplPanel as A } from "./repl.js";
 import { escapeHTML as D } from "../shared/html.js";
 import { z as j, p, t as O, u as F, b, g as v, A as u, B as k, C as S, n as B, a as N, r as Q, h as _ } from "../chunks/shared-helpers-C0Ec_MtO.js";
-import { D as ot, o as st, k as rt } from "../chunks/shared-helpers-C0Ec_MtO.js";
-const G = `
+import { D as st, o as rt, k as nt } from "../chunks/shared-helpers-C0Ec_MtO.js";
+import { normalizeDebugBasePath as G } from "./shared/path-helpers.js";
+const Y = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -1297,7 +1298,7 @@ const c = class c extends HTMLElement {
         `;
     }).join(""), a = this.expanded ? "expanded" : "collapsed", o = this.useFab && !this.expanded ? "hidden" : "", s = this.expanded ? this.customHeight || c.DEFAULT_HEIGHT : 36, r = this.expanded ? `height: ${s}px;` : "";
     this.shadow.innerHTML = `
-      <style>${G}</style>
+      <style>${Y}</style>
       <div class="toolbar ${a} ${o}" style="${r}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
@@ -1502,10 +1503,10 @@ const c = class c extends HTMLElement {
     R(this.shadow);
   }
   attachCopyListeners() {
-    $(this.shadow, { useIconFeedback: !1 });
+    H(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    H(this.shadow, (t, e) => {
+    $(this.shadow, (t, e) => {
       this.panelSortOrder.set(t, e), this.saveState(), this.updateContent();
     });
   }
@@ -1516,7 +1517,7 @@ const c = class c extends HTMLElement {
 c.MIN_HEIGHT = 150, c.MAX_HEIGHT_RATIO = 0.8, c.DEFAULT_HEIGHT = 320;
 let w = c;
 customElements.get("debug-toolbar") || customElements.define("debug-toolbar", w);
-const Y = `
+const K = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1747,7 +1748,7 @@ const Y = `
     }
   }
 `;
-class K extends HTMLElement {
+class U extends HTMLElement {
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.eventToPanel = {}, this.unsubscribeRegistry = null, this.shadow = this.attachShadow({ mode: "open" });
   }
@@ -1845,7 +1846,7 @@ class K extends HTMLElement {
   render() {
     const t = g(this.snapshot), e = t.errors > 0, a = t.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${Y}</style>
+      <style>${K}</style>
       <div class="fab ${o}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
@@ -1931,11 +1932,7 @@ class K extends HTMLElement {
     }));
   }
 }
-customElements.get("debug-fab") || customElements.define("debug-fab", K);
-const U = (n) => {
-  const t = (n || "").trim();
-  return !t || t === "/" ? "" : "/" + t.replace(/^\/+|\/+$/g, "");
-};
+customElements.get("debug-fab") || customElements.define("debug-fab", U);
 class C {
   constructor(t = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
@@ -1944,7 +1941,7 @@ class C {
       container: document.body,
       ...t
     };
-    const e = U(this.options.basePath);
+    const e = G(this.options.basePath);
     e && (this.options.basePath = e), !this.options.debugPath && e && (this.options.debugPath = `${e}/debug`);
   }
   /**
@@ -2023,20 +2020,20 @@ function W() {
 window.DebugManager = C;
 window.initDebugManager = W;
 export {
-  K as DebugFab,
+  U as DebugFab,
   C as DebugManager,
   w as DebugToolbar,
-  ot as applyCustomEventPayload,
+  st as applyCustomEventPayload,
   S as applyDebugEventToSnapshot,
   b as buildEventToPanel,
   k as fetchDebugSnapshot,
   g as getCounts,
-  st as getDefaultPanels,
+  rt as getDefaultPanels,
   u as getDefaultToolbarPanels,
   v as getPanelEventTypes,
   N as getPanelLabel,
   W as initDebugManager,
-  rt as isKnownPanel,
+  nt as isKnownPanel,
   B as normalizeReplCommands,
   m as renderPanel,
   Q as replPanelIDs

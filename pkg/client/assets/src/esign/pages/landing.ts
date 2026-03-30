@@ -106,25 +106,9 @@ if (typeof document !== 'undefined') {
       '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
     );
     if (pageEl) {
-      const configScript = document.getElementById('esign-page-config');
-      const configAttr = pageEl.getAttribute('data-esign-config');
-      const rawConfig = (() => {
-        if (configScript?.textContent) {
-          try {
-            return JSON.parse(configScript.textContent) as Record<string, unknown>;
-          } catch (e) {
-            console.warn('Failed to parse landing page config script:', e);
-          }
-        }
-        if (configAttr) {
-          try {
-            return JSON.parse(configAttr) as Record<string, unknown>;
-          } catch (e) {
-            console.warn('Failed to parse landing page config attribute:', e);
-          }
-        }
-        return null;
-      })();
+      const rawConfig = getPageConfig<Record<string, unknown>>(
+        '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
+      );
       if (rawConfig) {
         const basePath = String(rawConfig.basePath || rawConfig.base_path || '/admin');
         const apiBasePath = String(

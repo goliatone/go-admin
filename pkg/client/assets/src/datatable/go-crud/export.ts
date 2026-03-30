@@ -1,6 +1,6 @@
 import type { ExportBehavior, ExportConcurrencyMode } from '../behaviors/types.js';
 import type { DataGrid } from '../core.js';
-import { httpRequest } from '../../shared/transport/http-client.js';
+import { httpRequest, readHTTPError, readHTTPJSONObject } from '../../shared/transport/http-client.js';
 
 type ExportFormat = 'csv' | 'json' | 'excel' | 'pdf';
 type DeliveryMode = 'sync' | 'async' | 'auto';
@@ -138,7 +138,7 @@ export class GoCrudExportBehavior implements ExportBehavior {
     }
 
     if (response.status === 202) {
-      const result = (await response.json().catch(() => ({}))) as ExportAsyncResponse;
+      const result = await readExportJSONRecord<ExportAsyncResponse>(response);
       notify(grid, 'info', 'Export queued. You can download it when ready.');
       const statusURL = result?.status_url || '';
       if (statusURL) {
@@ -256,6 +256,10 @@ function resolveDownloadURL(result: ExportAsyncResponse, statusURL: string): str
   return `${base}/download`;
 }
 
+async function readExportJSONRecord<T extends object>(response: Response): Promise<T> {
+  return (await readHTTPJSONObject(response)) as T;
+}
+
 async function pollExportStatus(
   statusURL: string,
   opts: { intervalMs: number; timeoutMs: number }
@@ -274,7 +278,7 @@ async function pollExportStatus(
       const message = await readErrorMessage(response);
       throw new Error(message);
     }
-    const record = (await response.json().catch(() => ({}))) as ExportStatusRecord;
+    const record = await readExportJSONRecord<ExportStatusRecord>(response);
     const state = String(record?.state || '').toLowerCase();
     if (state === 'completed') {
       return record;
@@ -453,21 +457,9 @@ function parseFilename(header: string): string | null {
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    const payload = await response.json().catch(() => ({}));
-    if (payload?.error?.message) {
-      return payload.error.message;
-    }
-    if (payload?.message) {
-      return payload.message;
-    }
-  }
-  const text = await response.text().catch(() => '');
-  if (text) {
-    return text;
-  }
-  return `Export failed (${response.status})`;
+  return readHTTPError(response, `Export failed (${response.status})`, {
+    appendStatusToFallback: false,
+  });
 }
 
 function notify(grid: DataGrid, type: 'info' | 'success' | 'error', message: string): void {

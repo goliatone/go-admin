@@ -2,6 +2,9 @@
  * Schema editor component.
  * Adds JSON formatting, validation, metadata helpers, and enhanced editing experience.
  */
+
+import { parseJSONValue } from '../shared/json-parse.js';
+
 (() => {
   const slugify = (value: string): string =>
     value
@@ -35,15 +38,19 @@
     if (!trimmed) {
       return { value: {} };
     }
-    try {
-      return { value: JSON.parse(trimmed) };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Invalid JSON';
-      // Try to extract line number from error message
+    let parseError: unknown = null;
+    const value = parseJSONValue<any>(trimmed, null, {
+      onError: (error) => {
+        parseError = error;
+      },
+    });
+    if (parseError) {
+      const msg = parseError instanceof Error ? parseError.message : 'Invalid JSON';
       const lineMatch = msg.match(/position (\d+)/i) || msg.match(/line (\d+)/i);
       const errorLine = lineMatch ? parseInt(lineMatch[1], 10) : undefined;
       return { value: null, error: msg, errorLine };
     }
+    return { value };
   };
 
   const formatPayload = (payload: any): string => JSON.stringify(payload, null, 2);

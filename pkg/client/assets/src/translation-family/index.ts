@@ -8,6 +8,13 @@ import {
 } from '../shared/coercion.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
+import { trimTrailingSlash } from '../shared/path-normalization.js';
+import {
+  buildURL,
+  setNumberSearchParam,
+  setSearchParam,
+} from '../shared/query-state/url-state.js';
+import { parseJSONValue } from '../shared/json-parse.js';
 import { extractStructuredError } from '../toast/error-helpers.js';
 import {
   BTN_PRIMARY,
@@ -320,29 +327,33 @@ export function createFamilyFilters(input: Partial<TranslationFamilyFilters> = {
 export function buildFamilyListQuery(input: Partial<TranslationFamilyFilters> = {}): URLSearchParams {
   const filters = createFamilyFilters(input);
   const params = new URLSearchParams();
-  if (filters.contentType) params.set('content_type', filters.contentType);
-  if (filters.readinessState) params.set('readiness_state', filters.readinessState);
-  if (filters.blockerCode) params.set('blocker_code', filters.blockerCode);
-  if (filters.missingLocale) params.set('missing_locale', filters.missingLocale);
-  if (filters.channel) params.set('channel', filters.channel);
-  params.set('page', String(filters.page));
-  params.set('per_page', String(filters.perPage));
+  setSearchParam(params, 'content_type', filters.contentType);
+  setSearchParam(params, 'readiness_state', filters.readinessState);
+  setSearchParam(params, 'blocker_code', filters.blockerCode);
+  setSearchParam(params, 'missing_locale', filters.missingLocale);
+  setSearchParam(params, 'channel', filters.channel);
+  setNumberSearchParam(params, 'page', filters.page, { min: 1 });
+  setNumberSearchParam(params, 'per_page', filters.perPage, { min: 1 });
   return params;
 }
 
+function buildFamilyPath(basePath: string, familyId = '', suffix = ''): string {
+  const normalizedBasePath = trimTrailingSlash(basePath);
+  if (!familyId) {
+    return `${normalizedBasePath}/translations/families`;
+  }
+  const encodedID = encodeURIComponent(asString(familyId));
+  return `${normalizedBasePath}/translations/families/${encodedID}${suffix}`;
+}
+
 export function buildFamilyListURL(basePath: string, filters: Partial<TranslationFamilyFilters> = {}): string {
-  const path = `${trimTrailingSlash(basePath)}/translations/families`;
-  const query = buildFamilyListQuery(filters).toString();
-  return query ? `${path}?${query}` : path;
+  return buildURL(buildFamilyPath(basePath), buildFamilyListQuery(filters));
 }
 
 export function buildFamilyDetailURL(basePath: string, familyId: string, channel = ''): string {
-  const id = encodeURIComponent(asString(familyId));
-  const path = `${trimTrailingSlash(basePath)}/translations/families/${id}`;
   const query = new URLSearchParams();
-  if (asString(channel)) query.set('channel', asString(channel));
-  const encoded = query.toString();
-  return encoded ? `${path}?${encoded}` : path;
+  setSearchParam(query, 'channel', channel);
+  return buildURL(buildFamilyPath(basePath, familyId), query);
 }
 
 export function createTranslationCreateLocaleRequest(
@@ -361,12 +372,9 @@ export function createTranslationCreateLocaleRequest(
 }
 
 export function buildCreateLocaleURL(basePath: string, familyId: string, channel = ''): string {
-  const id = encodeURIComponent(asString(familyId));
-  const path = `${trimTrailingSlash(basePath)}/translations/families/${id}/variants`;
   const query = new URLSearchParams();
-  if (asString(channel)) query.set('channel', asString(channel));
-  const encoded = query.toString();
-  return encoded ? `${path}?${encoded}` : path;
+  setSearchParam(query, 'channel', channel);
+  return buildURL(buildFamilyPath(basePath, familyId, '/variants'), query);
 }
 
 export function serializeCreateLocaleRequest(
@@ -1440,16 +1448,6 @@ function globalToast(kind: 'success' | 'error' | 'warning' | 'info', message: st
   }
 }
 
-function parseJSONAttribute<T>(value: string, fallback: T): T {
-  const normalized = asString(value);
-  if (!normalized) return fallback;
-  try {
-    return JSON.parse(normalized) as T;
-  } catch {
-    return fallback;
-  }
-}
-
 function createLocaleErrorMessage(error: TranslationCreateLocaleError, locale: string): string {
   switch (error.textCode) {
     case 'TRANSLATION_EXISTS':
@@ -1672,10 +1670,10 @@ function translationSummaryCardConfig(element: HTMLElement): TranslationSummaryC
     resolvedLocale: asString(element.dataset.resolvedLocale).toLowerCase(),
     apiBasePath: asString(element.dataset.apiBasePath || '/admin/api'),
     quickCreate: normalizeQuickCreateHints(
-      parseJSONAttribute<Record<string, unknown>>(element.dataset.quickCreate || '', {}),
+      parseJSONValue<Record<string, unknown>>(element.dataset.quickCreate, {}),
       {}
     ),
-    localeURLs: parseJSONAttribute<Record<string, string>>(element.dataset.localeUrls || '', {}),
+    localeURLs: parseJSONValue<Record<string, string>>(element.dataset.localeUrls, {}),
   };
 }
 
@@ -1819,10 +1817,4 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
       return normalizeCreateLocaleResult(payload);
     },
   };
-}
-
-function trimTrailingSlash(value: string): string {
-  const trimmed = asString(value);
-  if (!trimmed) return '';
-  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
 }

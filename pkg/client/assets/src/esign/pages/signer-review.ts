@@ -2,6 +2,8 @@
 
 import { onReady } from '../utils/dom-helpers.js';
 import { escapeHTML } from '../../shared/html.js';
+import { parseJSONValue, readJSONScriptValue } from '../../shared/json-parse.js';
+import { readHTTPError, readHTTPErrorResult, readHTTPJSONObject } from '../../shared/transport/http-client.js';
 import {
   loadPdfDocument as loadPdfSourceDocument,
   logPdfLoadError,
@@ -163,7 +165,7 @@ class LocalSignerProfileStore implements SignerProfileStore {
     try {
       const raw = window.localStorage.getItem(this.storageKey(key));
       if (!raw) return null;
-      const parsed = JSON.parse(raw);
+      const parsed = parseJSONValue<PersistedSignerProfile | null>(raw, null);
       if (!parsed || parsed.schemaVersion !== 1) {
         window.localStorage.removeItem(this.storageKey(key));
         return null;
@@ -287,7 +289,7 @@ class SignerProfileRepository {
     try {
       const raw = window.localStorage.getItem(SIGNER_PROFILE_OUTBOX_KEY);
       if (!raw) return {};
-      const parsed = JSON.parse(raw);
+      const parsed = parseJSONValue<Record<string, unknown> | null>(raw, null);
       if (!parsed || typeof parsed !== 'object') {
         return {};
       }
@@ -1636,6 +1638,10 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     return session;
   }
 
+  async function readReviewAPIResponseBody(response: Response): Promise<Record<string, unknown>> {
+    return readHTTPJSONObject(response);
+  }
+
   async function reviewAPIRequest(pathSuffix, options = {}, fallbackMessage = 'Review request failed') {
     const response = await fetch(`${reviewBasePath()}${pathSuffix}`, {
       credentials: 'same-origin',
@@ -1649,7 +1655,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     if (!response.ok) {
       throw await parseAPIErrorResponse(response, fallbackMessage);
     }
-    return response.json().catch(() => ({}));
+    return readReviewAPIResponseBody(response);
   }
 
   function currentReviewAnchorType() {
@@ -3155,8 +3161,11 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         credentials: 'same-origin',
       });
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error?.message || 'Failed to load saved signatures');
+        throw new Error(
+          await readHTTPError(response, 'Failed to load saved signatures', {
+            appendStatusToFallback: false,
+          })
+        );
       }
       const payload = await response.json();
       return Array.isArray(payload?.signatures) ? payload.signatures : [];
@@ -3174,9 +3183,14 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         }),
       });
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        const error = new Error(payload?.error?.message || 'Failed to save signature');
-        (error as any).code = payload?.error?.code || '';
+        const errorResult = await readHTTPErrorResult(response, 'Failed to save signature', {
+          appendStatusToFallback: false,
+        });
+        const error = new Error(errorResult.message);
+        const payload = errorResult.payload && typeof errorResult.payload === 'object'
+          ? errorResult.payload as { error?: { code?: unknown } }
+          : null;
+        (error as any).code = typeof payload?.error?.code === 'string' ? payload.error.code : '';
         throw error;
       }
       const payload = await response.json();
@@ -3190,8 +3204,11 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         credentials: 'same-origin',
       });
       if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error?.message || 'Failed to delete signature');
+        throw new Error(
+          await readHTTPError(response, 'Failed to delete signature', {
+            appendStatusToFallback: false,
+          })
+        );
       }
     },
   };
@@ -6980,14 +6997,8 @@ export function initSignerReview(config: SignerReviewConfig): SignerReviewContro
 }
 
 function parseSignerReviewConfigScript(): SignerReviewConfig | null {
-  const script = document.getElementById('esign-signer-review-config');
-  if (!script) return null;
-  try {
-    const raw = JSON.parse(script.textContent || '{}');
-    return (raw && typeof raw === 'object') ? (raw as SignerReviewConfig) : null;
-  } catch {
-    return null;
-  }
+  const raw = readJSONScriptValue<Record<string, unknown>>('esign-signer-review-config', null);
+  return raw && typeof raw === 'object' ? (raw as SignerReviewConfig) : null;
 }
 
 if (typeof document !== 'undefined') {

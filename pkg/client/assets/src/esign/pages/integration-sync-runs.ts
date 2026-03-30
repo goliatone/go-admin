@@ -7,6 +7,7 @@ import { qs, show, hide, onReady } from '../utils/dom-helpers.js';
 import { formatCompactDateTime } from '../utils/formatters.js';
 import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
+import { readHTTPError } from '../../shared/transport/http-client.js';
 
 /**
  * Configuration for the integration sync runs page
@@ -359,7 +360,13 @@ export class IntegrationSyncRunsController {
         }
       );
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        throw new Error(
+          await readHTTPError(response, `HTTP ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
+      }
 
       const data = await response.json();
       this.syncRuns = data.runs || [];
@@ -552,8 +559,11 @@ export class IntegrationSyncRunsController {
       });
 
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error?.message || `HTTP ${response.status}`);
+        throw new Error(
+          await readHTTPError(response, `HTTP ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
       showPageToast('Sync run started', 'success');
@@ -749,8 +759,11 @@ export class IntegrationSyncRunsController {
       });
 
       if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error?.message || `HTTP ${response.status}`);
+        throw new Error(
+          await readHTTPError(response, `HTTP ${response.status}`, {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
       showPageToast(`Sync run ${action} successful`, 'success');

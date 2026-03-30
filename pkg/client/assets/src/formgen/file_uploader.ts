@@ -1,5 +1,7 @@
 import { onReady } from '../shared/dom-ready.js';
 import { formatByteSize } from '../shared/size-formatters.js';
+import { parseJSONValue } from '../shared/json-parse.js';
+import { readHTTPError } from '../shared/transport/http-client.js';
 
 type FileUploaderConfig = {
   uploadEndpoint?: string;
@@ -20,14 +22,9 @@ type FileUploaderElements = {
 };
 
 function parseConfig(raw: string | null): FileUploaderConfig {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === 'object') {
-      return parsed as FileUploaderConfig;
-    }
-  } catch {
-    // ignore
+  const parsed = parseJSONValue<unknown>(raw, null);
+  if (parsed && typeof parsed === 'object') {
+    return parsed as FileUploaderConfig;
   }
   return {};
 }
@@ -123,16 +120,9 @@ async function uploadFile(elements: FileUploaderElements, endpoint: string, file
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    let message = `Upload failed (${response.status})`;
-    try {
-      const parsed = JSON.parse(text) as any;
-      if (parsed?.message && typeof parsed.message === 'string') message = parsed.message;
-      if (parsed?.error && typeof parsed.error === 'string') message = parsed.error;
-      if (parsed?.error?.message && typeof parsed.error.message === 'string') message = parsed.error.message;
-    } catch {
-      if (text) message = text;
-    }
+    const message = await readHTTPError(response, `Upload failed (${response.status})`, {
+      appendStatusToFallback: false,
+    });
     throw new Error(message);
   }
 

@@ -18,6 +18,7 @@ import {
   normalizeGoogleImportRunDetail,
   normalizeGoogleImportRunHandle,
 } from './lineage-contracts.js';
+import { readHTTPErrorResult, readHTTPJSON } from '../shared/transport/http-client.js';
 
 export interface ESignAPIClientConfig {
   basePath: string;
@@ -170,19 +171,11 @@ export class ESignAPIClient {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-      let error: APIError;
-      try {
-        const errorData = await response.json();
-        error = errorData.error || {
-          code: `HTTP_${response.status}`,
-          message: response.statusText,
-        };
-      } catch {
-        error = {
-          code: `HTTP_${response.status}`,
-          message: response.statusText,
-        };
-      }
+      const fallback = response.statusText || `HTTP ${response.status}`;
+      const error = toAPIError(
+        await readHTTPErrorResult(response, fallback, { appendStatusToFallback: false }),
+        response
+      );
       throw new ESignAPIError(error.code, error.message, error.details);
     }
 
@@ -190,8 +183,55 @@ export class ESignAPIClient {
       return undefined as T;
     }
 
-    return response.json() as Promise<T>;
+    return readHTTPJSON<T>(response);
   }
+}
+
+function toAPIError(
+  result: { message: string; payload: unknown },
+  response: Response
+): APIError {
+  const defaultCode = `HTTP_${response.status}`;
+  const defaultMessage = result.message || response.statusText || defaultCode;
+
+  if (!result.payload || typeof result.payload !== 'object') {
+    return {
+      code: defaultCode,
+      message: defaultMessage,
+    };
+  }
+
+  const payload = result.payload as {
+    error?: unknown;
+    code?: unknown;
+    details?: unknown;
+  };
+
+  if (payload.error && typeof payload.error === 'object') {
+    const errorPayload = payload.error as {
+      code?: unknown;
+      details?: unknown;
+    };
+    return {
+      code: typeof errorPayload.code === 'string' && errorPayload.code.trim()
+        ? errorPayload.code.trim()
+        : defaultCode,
+      message: defaultMessage,
+      details: isRecord(errorPayload.details) ? errorPayload.details : undefined,
+    };
+  }
+
+  return {
+    code: typeof payload.code === 'string' && payload.code.trim()
+      ? payload.code.trim()
+      : defaultCode,
+    message: defaultMessage,
+    details: isRecord(payload.details) ? payload.details : undefined,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
 export class ESignAPIError extends Error {

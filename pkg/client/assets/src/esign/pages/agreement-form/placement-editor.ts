@@ -20,6 +20,7 @@ import {
   logPdfLoadError,
   type PDFDocumentProxy,
 } from '../../pdf/runtime.js';
+import { parseJSONValue } from '../../../shared/json-parse.js';
 
 interface PlacementFieldDefinition {
   definitionId: string;
@@ -950,7 +951,8 @@ export function createPlacementEditorController(
       canvas.classList.remove('ring-2', 'ring-blue-500', 'ring-inset');
       const data = event.dataTransfer?.getData('application/json') || '';
       if (!data) return;
-      const fieldData = JSON.parse(data) as PlacementFieldData;
+      const fieldData = parseJSONValue<PlacementFieldData | null>(data, null);
+      if (!fieldData) return;
       const canvasRect = canvas.getBoundingClientRect();
       const x = (event.clientX - canvasRect.left) / state.scale;
       const y = (event.clientY - canvasRect.top) / state.scale;

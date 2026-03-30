@@ -1,5 +1,5 @@
-import { D as s, k as t, l as r, E as i, P as o, b as E, f as n, d as C, g, j as l, e as m, h as A, a as c, c as d, i as p } from "../chunks/provenance-card-BnOi6ubz.js";
-import { A as P, c as N, b as R, d as T, f, g as O, i as _, l as v, a as L, r as S, s as I, w as b } from "../chunks/agreement-detail-CdjFUGjt.js";
+import { D as s, k as t, l as r, E as i, P as o, b as E, f as n, d as C, g, j as l, e as m, h as A, a as c, c as d, i as p } from "../chunks/provenance-card-CtU9gMsB.js";
+import { A as P, c as N, b as R, d as T, f, g as O, i as _, l as v, a as L, r as S, s as I, w as b } from "../chunks/agreement-detail-BtBEURyJ.js";
 import { formatRelativeTime as V, formatTimestamp as y } from "./timeline-formatters.js";
 export {
   P as AgreementDetailPageController,

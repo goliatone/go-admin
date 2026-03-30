@@ -9,6 +9,7 @@ import {
   type SyncCoreResourceSnapshot,
   type SyncCoreTransport,
 } from './sync-core-loader';
+import { readHTTPError, readHTTPJSONObject } from '../../../shared/transport/http-client.js';
 
 export interface DraftSyncServiceOptions {
   stateManager: WizardStateManager;
@@ -260,10 +261,14 @@ export class DraftSyncService {
       credentials: 'same-origin',
       headers: this.requestHeaders(false),
     });
-    const payload = await response.json().catch(() => ({} as any));
     if (!response.ok) {
-      throw new Error(String(payload?.error?.message || `HTTP ${response.status}`));
+      throw new Error(
+        await readHTTPError(response, `HTTP ${response.status}`, {
+          appendStatusToFallback: false,
+        })
+      );
     }
+    const payload = await readHTTPJSONObject(response);
 
     const resourceRef = this.normalizeResourceRef(payload?.resource_ref);
     if (!resourceRef) {

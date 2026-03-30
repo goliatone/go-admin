@@ -17,12 +17,14 @@ import { PALETTE_DRAG_MIME, PALETTE_DRAG_META_MIME } from './field-palette-panel
 import { FieldConfigForm } from './field-config-form';
 import { inputClasses, selectClasses } from './shared/field-input-classes';
 import { ConfirmModal, TextPromptModal } from '../shared/modal';
+import { escapeHTML as esc } from '../shared/html';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { renderEntityHeader, renderSaveIndicator } from './shared/entity-header';
 import type { SaveState } from './shared/entity-header';
 import { renderFieldCard as renderFieldCardShared, renderDropZone } from './shared/field-card';
 import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, bindInlineBlockPickerEvents } from './shared/block-picker';
 import { titleCaseWords } from './shared/text';
+import { parseJSONValue } from '../shared/json-parse.js';
 
 // =============================================================================
 // Types
@@ -881,14 +883,10 @@ export class BlockEditorPanel {
         if (this.config.onFieldDrop) {
           const metaRaw = e.dataTransfer?.getData(PALETTE_DRAG_META_MIME);
           if (metaRaw) {
-            try {
-              const parsed = JSON.parse(metaRaw) as FieldTypeMetadata;
-              if (parsed && parsed.type) {
-                this.config.onFieldDrop(parsed);
-                return;
-              }
-            } catch {
-              // fall through to type-only handling
+            const parsed = parseJSONValue<FieldTypeMetadata | null>(metaRaw, null);
+            if (parsed && parsed.type) {
+              this.config.onFieldDrop(parsed);
+              return;
             }
           }
           const fieldType = e.dataTransfer?.getData(PALETTE_DRAG_MIME);
@@ -1505,14 +1503,4 @@ export class BlockEditorPanel {
   private notifySchemaChange(): void {
     this.config.onSchemaChange(this.block.id, [...this.fields]);
   }
-}
-
-// =============================================================================
-// Utilities
-// =============================================================================
-
-function esc(str: string): string {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }

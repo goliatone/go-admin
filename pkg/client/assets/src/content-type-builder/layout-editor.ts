@@ -8,6 +8,7 @@ import type { UISchemaOverlay, UILayoutConfig, UITab, FieldDefinition } from './
 import { Modal } from '../shared/modal';
 import { renderIconTrigger, bindIconTriggerEvents, closeIconPicker } from './shared/icon-picker';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { deepCloneJSON } from '../shared/deep-clone.js';
 
 export interface LayoutEditorConfig {
   layout: UILayoutConfig;
@@ -28,7 +29,7 @@ export class LayoutEditor extends Modal {
   constructor(config: LayoutEditorConfig) {
     super({ size: '3xl', backdropDataAttr: 'data-layout-editor-backdrop' });
     this.config = config;
-    this.layout = JSON.parse(JSON.stringify(config.layout ?? { type: 'flat', gridColumns: 12 }));
+    this.layout = deepCloneJSON(config.layout ?? { type: 'flat', gridColumns: 12 });
     if (!this.layout.tabs) {
       this.layout.tabs = [];
     }
@@ -548,4 +549,3 @@ export class LayoutEditor extends Modal {
 // =============================================================================
 // Utilities
 // =============================================================================
-

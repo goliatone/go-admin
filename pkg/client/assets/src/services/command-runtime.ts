@@ -6,6 +6,7 @@ import {
 } from '../toast/error-helpers.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import type { ToastNotifier } from '../toast/types.js';
+import { readHTTPJSONValue } from '../shared/transport/http-client.js';
 
 export type CommandTransport = 'action' | 'rpc';
 
@@ -278,6 +279,10 @@ function parseResponseEnvelope(data: unknown, fallbackMessage: string): Transpor
     success: false,
     error: parsed.error || normalizeStructuredError(null, fallbackMessage),
   };
+}
+
+async function readCommandResponseBody(response: Response): Promise<unknown> {
+  return readHTTPJSONValue<unknown>(response, null);
 }
 
 function collectStaticPayload(node: HTMLElement): Record<string, unknown> {
@@ -965,7 +970,7 @@ export class CommandRuntimeController {
       };
     }
 
-    const body = await response.json().catch(() => null);
+    const body = await readCommandResponseBody(response);
     return {
       ...parseResponseEnvelope(body, spec.fallbackMessage),
       correlationId: String(spec.payload.correlation_id || '').trim() || undefined,
@@ -1008,7 +1013,7 @@ export class CommandRuntimeController {
       };
     }
 
-    const body = await response.json().catch(() => null);
+    const body = await readCommandResponseBody(response);
     if (body && typeof body === 'object' && 'error' in body) {
       return {
         ...parseResponseEnvelope(body, spec.fallbackMessage),

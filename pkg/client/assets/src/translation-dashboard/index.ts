@@ -1,5 +1,6 @@
 import { escapeAttribute, escapeHTML } from '../shared/html.js';
 import { asNumberish as asNumber, asRecord, asString } from '../shared/coercion.js';
+import { buildEndpointURL } from '../shared/query-state/url-state.js';
 import { normalizeNumberRecord, normalizeStringRecord } from '../shared/record-normalization.js';
 import { StatefulController } from '../shared/stateful-controller.js';
 import { readHTTPError } from '../shared/transport/http-client.js';
@@ -499,14 +500,7 @@ export function normalizeTranslationDashboardResponse(value: unknown): Translati
 }
 
 export function buildTranslationDashboardURL(endpoint: string, query: TranslationDashboardQuery = {}): string {
-  const normalizedEndpoint = asString(endpoint);
-  if (!normalizedEndpoint) {
-    return '';
-  }
-  const base = normalizedEndpoint.startsWith('http://') || normalizedEndpoint.startsWith('https://')
-    ? undefined
-    : 'http://localhost';
-  const url = new URL(normalizedEndpoint, base);
+  const params = new URLSearchParams();
   const pairs: Array<[string, string]> = [
     ['channel', asString(query.channel)],
     ['tenant_id', asString(query.tenantId)],
@@ -516,10 +510,10 @@ export function buildTranslationDashboardURL(endpoint: string, query: Translatio
   ];
   for (const [key, value] of pairs) {
     if (value) {
-      url.searchParams.set(key, value);
+      params.set(key, value);
     }
   }
-  return base ? `${url.pathname}${url.search}` : url.toString();
+  return buildEndpointURL(endpoint, params, { preserveAbsolute: true });
 }
 
 export function createTranslationDashboardClient(options: TranslationDashboardClientOptions): TranslationDashboardClient {

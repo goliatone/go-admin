@@ -38,6 +38,7 @@ import { loadAvailableBlocks, normalizeBlockSelection, renderInlineBlockPicker, 
 import { formatContentTypeDate } from './shared/date-formatters';
 import { nameToSlug, titleCaseIdentifier } from './shared/text';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { parseJSONValue } from '../shared/json-parse.js';
 
 // =============================================================================
 // Content Type Editor Component
@@ -1580,13 +1581,11 @@ export class ContentTypeEditor {
         // Try full metadata first
         const metaRaw = e.dataTransfer?.getData(PALETTE_DRAG_META_MIME);
         if (metaRaw) {
-          try {
-            const parsed = JSON.parse(metaRaw);
-            if (parsed?.type) {
-              this.addField(parsed.type as FieldType);
-              return;
-            }
-          } catch { /* fall through */ }
+          const parsed = parseJSONValue<Record<string, unknown> | null>(metaRaw, null);
+          if (parsed?.type) {
+            this.addField(parsed.type as FieldType);
+            return;
+          }
         }
         // Fall back to type-only
         const fieldType = e.dataTransfer?.getData(PALETTE_DRAG_MIME);

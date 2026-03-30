@@ -1,5 +1,6 @@
 import type { AgreementFormRefs } from './refs';
 import { formatRelativeTimeVerbosePast } from '../../../shared/time-formatters.js';
+import { readHTTPStructuredErrorResult } from '../../../shared/transport/http-client.js';
 
 interface FeedbackStateShape {
   updatedAt?: string;
@@ -8,16 +9,6 @@ interface FeedbackStateShape {
 
 interface FeedbackStateManager {
   getState(): FeedbackStateShape;
-}
-
-interface FeedbackAPIErrorPayload {
-  error?: {
-    code?: unknown;
-    message?: unknown;
-    details?: Record<string, unknown>;
-  };
-  code?: unknown;
-  message?: unknown;
 }
 
 export interface AgreementFeedbackAPIError {
@@ -188,23 +179,20 @@ export function createAgreementFeedbackController(
 
   async function parseAPIError(response: Response, fallbackMessage = ''): Promise<AgreementFeedbackAPIError> {
     const status = Number(response?.status || 0);
-    let code = '';
-    let message = '';
-    let details: Record<string, unknown> = {};
-    try {
-      const payload = await response.json() as FeedbackAPIErrorPayload;
-      code = String(payload?.error?.code || payload?.code || '').trim();
-      message = String(payload?.error?.message || payload?.message || '').trim();
-      details = (payload?.error?.details && typeof payload.error.details === 'object') ? payload.error.details : {};
-      const entity = String(details?.entity || '').trim().toLowerCase();
-      if (entity === 'drafts' && String(code).trim().toUpperCase() === 'NOT_FOUND') {
-        code = 'DRAFT_SEND_NOT_FOUND';
-        if (message === '') {
-          message = 'Draft not found';
-        }
+    const parsed = await readHTTPStructuredErrorResult(
+      response,
+      fallbackMessage || `Request failed (${status || 'unknown'})`,
+      { appendStatusToFallback: false },
+    );
+    let code = parsed.code;
+    let message = parsed.message;
+    const details = parsed.details;
+    const entity = String(details?.entity || '').trim().toLowerCase();
+    if (entity === 'drafts' && String(code).trim().toUpperCase() === 'NOT_FOUND') {
+      code = 'DRAFT_SEND_NOT_FOUND';
+      if (message === '') {
+        message = 'Draft not found';
       }
-    } catch (_) {
-      message = '';
     }
     if (message === '') {
       message = fallbackMessage || `Request failed (${status || 'unknown'})`;

@@ -3,7 +3,7 @@
  * Handles PDF upload and Google Drive import for document ingestion
  */
 
-import { qs, qsa, show, hide, onReady, announce } from '../utils/dom-helpers.js';
+import { qs, qsa, show, hide, onReady, announce, getPageConfigFromScript } from '../utils/dom-helpers.js';
 import { debounce } from '../utils/async-helpers.js';
 import { formatFileSize, formatDateTime } from '../utils/formatters.js';
 import {
@@ -13,7 +13,7 @@ import {
   applyAccountIdToPath,
   syncAccountIdToUrl,
 } from '../utils/google-drive-utils.js';
-import { httpRequest } from '../../shared/transport/http-client.js';
+import { httpRequest, readHTTPError, readHTTPErrorResult, readHTTPJSONObject } from '../../shared/transport/http-client.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 import {
   normalizeGoogleImportRunDetail,
@@ -69,6 +69,10 @@ const MIME_PDF = 'application/pdf';
 const MIME_FOLDER = 'application/vnd.google-apps.folder';
 
 const IMPORTABLE_TYPES = [MIME_GOOGLE_DOC, MIME_PDF];
+
+async function readUploadResponseBody(response: Response): Promise<Record<string, unknown>> {
+  return readHTTPJSONObject(response);
+}
 
 /**
  * Document form page controller
@@ -859,13 +863,15 @@ export class DocumentFormController {
       credentials: 'same-origin',
     });
 
-    const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const message =
-        body?.error?.message || body?.message || 'Upload failed. Please try again.';
-      throw new Error(message);
+      throw new Error(
+        await readHTTPError(response, 'Upload failed. Please try again.', {
+          appendStatusToFallback: false,
+        })
+      );
     }
 
+    const body = await readUploadResponseBody(response);
     const objectKey = body?.object_key ? String(body.object_key).trim() : '';
     if (!objectKey) {
       throw new Error('Upload failed: missing source object key.');
@@ -1124,12 +1130,15 @@ export class DocumentFormController {
         headers: { Accept: 'application/json' },
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to load files');
+        throw new Error(
+          await readHTTPError(response, 'Failed to load files', {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
+      const data = await response.json();
       const files = Array.isArray(data.files)
         ? data.files.map((f: Record<string, unknown>) => this.normalizeDriveFile(f))
         : [];
@@ -1611,14 +1620,23 @@ export class DocumentFormController {
         }
       );
 
-      const payload = await response.json();
-
       if (!response.ok) {
-        const errorCode = payload.error?.code || '';
-        const message = payload.error?.message || 'Failed to start import';
+        const errorResult = await readHTTPErrorResult(response, 'Failed to start import', {
+          appendStatusToFallback: false,
+        });
+        const payload =
+          errorResult.payload && typeof errorResult.payload === 'object'
+            ? errorResult.payload as { error?: { code?: unknown } }
+            : null;
+        const errorCode =
+          payload?.error && typeof payload.error === 'object' && typeof payload.error.code === 'string'
+            ? payload.error.code
+            : '';
+        const message = errorResult.message || 'Failed to start import';
         throw { message, code: errorCode };
       }
 
+      const payload = await response.json();
       const handle = normalizeGoogleImportRunHandle(payload);
       this.currentImportRunId = handle.import_run_id;
       this.pollAttempts = 0;
@@ -1675,12 +1693,15 @@ export class DocumentFormController {
         headers: { Accept: 'application/json' },
       });
 
-      const payload = await response.json();
-
       if (!response.ok) {
-        throw new Error(payload.error?.message || 'Failed to check import status');
+        throw new Error(
+          await readHTTPError(response, 'Failed to check import status', {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
+      const payload = await response.json();
       const detail = normalizeGoogleImportRunDetail(payload);
       const status = detail.status;
 
@@ -1846,19 +1867,15 @@ if (typeof document !== 'undefined') {
       '[data-esign-page="admin.documents.ingestion"], [data-esign-page="document-form"]'
     );
     if (pageEl) {
-      const configScript = document.getElementById('esign-page-config');
-      if (configScript) {
-        try {
-          const rawConfig = JSON.parse(
-            configScript.textContent || '{}'
-          ) as Record<string, unknown>;
-          const config = coerceDocumentFormConfig(rawConfig);
-          if (config) {
-            const controller = new DocumentFormController(config);
-            controller.init();
-          }
-        } catch (e) {
-          console.warn('Failed to parse document form page config:', e);
+      const rawConfig = getPageConfigFromScript<Record<string, unknown>>(
+        'esign-page-config',
+        'document form page config'
+      );
+      if (rawConfig) {
+        const config = coerceDocumentFormConfig(rawConfig);
+        if (config) {
+          const controller = new DocumentFormController(config);
+          controller.init();
         }
       }
     }

@@ -1,5 +1,5 @@
 import { S as $ } from "../chunks/sortable.esm-DOKudrbz.js";
-import { h as S } from "../chunks/http-client-DZnuedzQ.js";
+import { httpRequest as S } from "../shared/transport/http-client.js";
 class _ {
   constructor() {
     this.sortableInstances = [];

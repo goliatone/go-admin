@@ -37,6 +37,7 @@ import {
   formatSourceManagementRelativeTime,
 } from './utils/formatters.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { readJSONScriptValue } from '../shared/json-parse.js';
 import { renderPanelLoadingState, renderPanelState } from '../services/ui-states.js';
 
 type SourceManagementRuntimePage =
@@ -89,19 +90,6 @@ type SourceManagementRuntimeLiveController =
   | SourceArtifactInspectorPageController
   | SourceSearchPageController;
 
-function parseJSONScript<T>(id: string): T | null {
-  const element = document.getElementById(id);
-  const payload = element?.textContent?.trim();
-  if (!payload) {
-    return null;
-  }
-  try {
-    return JSON.parse(payload) as T;
-  } catch (error) {
-    console.warn(`[SourceManagementRuntime] Failed to parse ${id}:`, error);
-    return null;
-  }
-}
 function badgeClass(value: string): string {
   switch (value) {
     case 'active':
@@ -1987,8 +1975,12 @@ export function initSourceManagementRuntimePage(): SourceManagementRuntimeContro
 
   initAdminActionMenus(document);
 
-  const config = parseJSONScript<SourceManagementRuntimePageConfig>('esign-page-config');
-  const model = parseJSONScript<SourceManagementRuntimePageModel>('source-management-page-model');
+  const config = readJSONScriptValue<SourceManagementRuntimePageConfig>('esign-page-config', null, {
+    onError: (error) => console.warn('[SourceManagementRuntime] Failed to parse esign-page-config:', error),
+  });
+  const model = readJSONScriptValue<SourceManagementRuntimePageModel>('source-management-page-model', null, {
+    onError: (error) => console.warn('[SourceManagementRuntime] Failed to parse source-management-page-model:', error),
+  });
   const page = String(config?.page ?? marker.dataset.esignPage ?? '').trim() as SourceManagementRuntimePage;
   if (!page) {
     return null;
@@ -2055,8 +2047,12 @@ export function initV2SourceManagementRuntime(): V2RuntimeInitResult {
   }
 
   // Parse backend-provided configuration
-  const config = parseJSONScript<SourceManagementRuntimePageConfig>('esign-page-config');
-  const model = parseJSONScript<SourceManagementRuntimePageModel>('source-management-page-model');
+  const config = readJSONScriptValue<SourceManagementRuntimePageConfig>('esign-page-config', null, {
+    onError: (error) => console.warn('[SourceManagementRuntime] Failed to parse esign-page-config:', error),
+  });
+  const model = readJSONScriptValue<SourceManagementRuntimePageModel>('source-management-page-model', null, {
+    onError: (error) => console.warn('[SourceManagementRuntime] Failed to parse source-management-page-model:', error),
+  });
 
   // Validate backend config is present
   result.hasBackendConfig = config !== null && typeof config.api_base_path === 'string';

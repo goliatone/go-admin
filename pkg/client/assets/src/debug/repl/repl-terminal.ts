@@ -1,6 +1,7 @@
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import xtermCss from 'xterm/css/xterm.css?inline';
+import { normalizeDebugBasePath } from '../shared/path-helpers.js';
 
 export type DebugReplKind = 'shell' | 'console';
 export type DebugReplStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
@@ -17,24 +18,13 @@ const defaultReconnectDelayMs = 1000;
 const defaultMaxReconnectDelayMs = 12000;
 const defaultMaxReconnectAttempts = 8;
 
-const normalizeBasePath = (basePath: string): string => {
-  const trimmed = (basePath || '').trim();
-  if (!trimmed) {
-    return '';
-  }
-  if (trimmed.startsWith('/')) {
-    return trimmed.replace(/\/+$/, '');
-  }
-  return `/${trimmed.replace(/\/+$/, '')}`;
-};
-
 const replSocketSuffix = (kind: DebugReplKind): string => {
   return kind === 'shell' ? 'repl/shell/ws' : 'repl/app/ws';
 };
 
 const buildWebSocketURL = (basePath: string, kind: DebugReplKind): string => {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const normalized = normalizeBasePath(basePath);
+  const normalized = normalizeDebugBasePath(basePath);
   const suffix = replSocketSuffix(kind);
   return `${protocol}//${window.location.host}${normalized}/${suffix}`;
 };

@@ -18,6 +18,7 @@ import { createCrudResolver } from '../searchbox/resolvers/api-resolver.js';
 import { UserRenderer } from '../searchbox/renderers/user-renderer.js';
 import { EntityRenderer } from '../searchbox/renderers/entity-renderer.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { readHTTPError } from '../shared/transport/http-client.js';
 
 const DEFAULT_SELECTORS: FeatureFlagsSelectors = {
   scopeSelect: '#flag-scope',
@@ -264,8 +265,10 @@ export class FeatureFlagsManager {
       const response = await fetch(url, { headers: { Accept: 'application/json' } });
 
       if (!response.ok) {
-        const text = await response.text();
-        this.toast?.error(text || 'Failed to load flags.');
+        const message = await readHTTPError(response, 'Failed to load flags.', {
+          appendStatusToFallback: false,
+        });
+        this.toast?.error(message);
         return;
       }
 
@@ -312,8 +315,10 @@ export class FeatureFlagsManager {
       });
 
       if (!response.ok) {
-        const text = await response.text();
-        this.toast?.error(text || 'Failed to update flag.');
+        const message = await readHTTPError(response, 'Failed to update flag.', {
+          appendStatusToFallback: false,
+        });
+        this.toast?.error(message);
       } else {
         this.toast?.success('Flag updated.');
       }

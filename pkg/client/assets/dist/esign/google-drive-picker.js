@@ -1,25 +1,26 @@
-import { b as r, s as g, h as m, a as b, q as S } from "../chunks/dom-helpers-cltCUiC5.js";
-import { d as P } from "../chunks/async-helpers-D7xplkWe.js";
-import { d as y } from "../chunks/formatters-DYQo8z6P.js";
-import { s as F } from "../chunks/page-feedback-CVdtgsKH.js";
-import { r as B, t as M, s as A, p as C } from "../chunks/google-drive-utils-DVyZvmUh.js";
+import { b as r, s as g, h as p, a as b, q as P } from "../chunks/dom-helpers-Cd24RS2-.js";
+import { d as B } from "../chunks/async-helpers-D7xplkWe.js";
+import { d as F } from "../chunks/formatters-DYQo8z6P.js";
+import { s as y } from "../chunks/page-feedback-GAI02g1h.js";
+import { r as M, t as A, s as C, p as E } from "../chunks/google-drive-utils-DVyZvmUh.js";
 import { escapeHTML as x } from "../shared/html.js";
-import { g as E, h as $, r as R } from "../chunks/lineage-contracts-BR7-TggW.js";
-import { onReady as k } from "../shared/dom-ready.js";
-const I = {
+import { readHTTPError as I } from "../shared/transport/http-client.js";
+import { g as $, h as R, r as H } from "../chunks/lineage-contracts-BR7-TggW.js";
+import { onReady as T } from "../shared/dom-ready.js";
+const L = {
   "application/vnd.google-apps.folder": "folder",
   "application/vnd.google-apps.document": "doc",
   "application/vnd.google-apps.spreadsheet": "sheet",
   "application/vnd.google-apps.presentation": "slide",
   "application/pdf": "pdf",
   default: "file"
-}, L = [
+}, k = [
   "application/vnd.google-apps.document",
   "application/pdf"
 ];
-class T {
+class S {
   constructor(e) {
-    this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.isListView = !0, this.isLoading = !1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = B(
+    this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.isListView = !0, this.isLoading = !1, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = M(
       new URLSearchParams(window.location.search),
       this.config.googleAccountId
     ), this.elements = {
@@ -86,33 +87,33 @@ class T {
       viewGridBtn: f
     } = this.elements;
     if (e) {
-      const p = P(() => this.handleSearch(), 300);
-      e.addEventListener("input", p), e.addEventListener("keydown", (v) => {
+      const u = B(() => this.handleSearch(), 300);
+      e.addEventListener("input", u), e.addEventListener("keydown", (v) => {
         v.key === "Enter" && (v.preventDefault(), this.handleSearch());
       });
     }
-    t && t.addEventListener("click", () => this.clearSearch()), i && i.addEventListener("click", () => this.refresh()), n && n.addEventListener("click", () => this.loadMore()), s && s.addEventListener("click", () => this.showImportModal()), o && o.addEventListener("click", () => this.clearSelection()), c && c.addEventListener("click", () => this.hideImportModal()), h && a && a.addEventListener("submit", (p) => {
-      p.preventDefault(), this.handleImport();
-    }), l && l.addEventListener("click", (p) => {
-      const v = p.target;
+    t && t.addEventListener("click", () => this.clearSearch()), i && i.addEventListener("click", () => this.refresh()), n && n.addEventListener("click", () => this.loadMore()), s && s.addEventListener("click", () => this.showImportModal()), o && o.addEventListener("click", () => this.clearSelection()), c && c.addEventListener("click", () => this.hideImportModal()), h && a && a.addEventListener("submit", (u) => {
+      u.preventDefault(), this.handleImport();
+    }), l && l.addEventListener("click", (u) => {
+      const v = u.target;
       (v === l || v.getAttribute("aria-hidden") === "true") && this.hideImportModal();
-    }), d && d.addEventListener("click", () => this.setViewMode("list")), f && f.addEventListener("click", () => this.setViewMode("grid")), document.addEventListener("keydown", (p) => {
-      p.key === "Escape" && l && !l.classList.contains("hidden") && this.hideImportModal();
+    }), d && d.addEventListener("click", () => this.setViewMode("list")), f && f.addEventListener("click", () => this.setViewMode("grid")), document.addEventListener("keydown", (u) => {
+      u.key === "Escape" && l && !l.classList.contains("hidden") && this.hideImportModal();
     });
     const { fileList: w } = this.elements;
-    w && w.addEventListener("click", (p) => this.handleFileListClick(p));
+    w && w.addEventListener("click", (u) => this.handleFileListClick(u));
   }
   /**
    * Update UI elements with account scope
    */
   updateScopedUI() {
-    M(this.currentAccountId), A(this.currentAccountId);
+    A(this.currentAccountId), C(this.currentAccountId);
     const { accountScopeHelp: e, connectGoogleLink: t } = this.elements;
-    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, g(e)) : m(e)), t) {
+    if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, g(e)) : p(e)), t) {
       const i = t.dataset.baseHref || t.getAttribute("href");
       i && t.setAttribute(
         "href",
-        C(i, this.currentAccountId)
+        E(i, this.currentAccountId)
       );
     }
   }
@@ -174,7 +175,11 @@ class T {
         headers: { Accept: "application/json" }
       });
       if (!o.ok)
-        throw new Error(`Failed to load files: ${o.status}`);
+        throw new Error(
+          await I(o, `Failed to load files: ${o.status}`, {
+            appendStatusToFallback: !1
+          })
+        );
       const c = await o.json(), h = Array.isArray(c.files) ? c.files.map((a) => this.normalizeDriveFile(a)) : [];
       e ? this.currentFiles = [...this.currentFiles, ...h] : this.currentFiles = h, this.nextPageToken = c.next_page_token || null, this.renderFiles(), this.updateResultCount(), this.updatePagination(), b(
         this.searchQuery ? `Found ${this.currentFiles.length} files` : `Loaded ${this.currentFiles.length} files`
@@ -182,7 +187,7 @@ class T {
     } catch (n) {
       console.error("Error loading files:", n), this.renderError(n instanceof Error ? n.message : "Failed to load files"), b("Error loading files");
     } finally {
-      this.isLoading = !1, t && m(t);
+      this.isLoading = !1, t && p(t);
     }
   }
   /**
@@ -191,7 +196,7 @@ class T {
   renderFiles() {
     const { fileList: e, loadingState: t } = this.elements;
     if (!e) return;
-    if (t && m(t), this.currentFiles.length === 0) {
+    if (t && p(t), this.currentFiles.length === 0) {
       e.innerHTML = `
         <div class="p-8 text-center">
           <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -216,7 +221,7 @@ class T {
    * Render a single file item
    */
   renderFileItem(e) {
-    const t = e.mimeType === "application/vnd.google-apps.folder", i = L.includes(e.mimeType), n = this.selectedFile?.id === e.id, s = I[e.mimeType] || I.default, o = this.getFileIcon(s);
+    const t = e.mimeType === "application/vnd.google-apps.folder", i = k.includes(e.mimeType), n = this.selectedFile?.id === e.id, s = L[e.mimeType] || L.default, o = this.getFileIcon(s);
     return `
       <div
         class="file-item flex items-center gap-4 px-4 py-3 hover:bg-gray-50 cursor-pointer ${n ? "bg-blue-50 border-l-2 border-blue-500" : ""}"
@@ -234,7 +239,7 @@ class T {
             ${x(e.name)}
           </p>
           <p class="text-xs text-gray-500">
-            ${y(e.modifiedTime)}
+            ${F(e.modifiedTime)}
           </p>
         </div>
         ${i ? '<span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">Importable</span>' : ""}
@@ -301,12 +306,12 @@ class T {
       openInGoogleBtn: l
     } = this.elements;
     if (!this.selectedFile) {
-      e && g(e), t && m(t);
+      e && g(e), t && p(t);
       return;
     }
-    e && m(e), t && g(t);
-    const d = this.selectedFile, f = L.includes(d.mimeType);
-    n && (n.textContent = d.name), s && (s.textContent = this.getMimeTypeLabel(d.mimeType)), o && (o.textContent = d.id), c && d.owners.length > 0 && (c.textContent = d.owners[0].emailAddress || "-"), h && (h.textContent = y(d.modifiedTime)), a && (f ? (a.removeAttribute("disabled"), a.classList.remove("opacity-50", "cursor-not-allowed")) : (a.setAttribute("disabled", "true"), a.classList.add("opacity-50", "cursor-not-allowed"))), l && d.webViewLink && (l.href = d.webViewLink);
+    e && p(e), t && g(t);
+    const d = this.selectedFile, f = k.includes(d.mimeType);
+    n && (n.textContent = d.name), s && (s.textContent = this.getMimeTypeLabel(d.mimeType)), o && (o.textContent = d.id), c && d.owners.length > 0 && (c.textContent = d.owners[0].emailAddress || "-"), h && (h.textContent = F(d.modifiedTime)), a && (f ? (a.removeAttribute("disabled"), a.classList.remove("opacity-50", "cursor-not-allowed")) : (a.setAttribute("disabled", "true"), a.classList.add("opacity-50", "cursor-not-allowed"))), l && d.webViewLink && (l.href = d.webViewLink);
   }
   /**
    * Get human-readable mime type label
@@ -327,7 +332,7 @@ class T {
     const { breadcrumb: e, listTitle: t } = this.elements;
     if (!e) return;
     if (this.searchQuery) {
-      m(e), t && (t.textContent = "Search Results");
+      p(e), t && (t.textContent = "Search Results");
       return;
     }
     g(e);
@@ -348,7 +353,7 @@ class T {
           </button>
         </li>
       `
-    ).join(""), S(".breadcrumb-item", n).forEach((s) => {
+    ).join(""), P(".breadcrumb-item", n).forEach((s) => {
       s.addEventListener("click", () => {
         const o = parseInt(s.dataset.folderIndex || "0", 10);
         this.navigateToBreadcrumb(o);
@@ -373,7 +378,7 @@ class T {
    */
   updatePagination() {
     const { pagination: e, loadMoreBtn: t } = this.elements;
-    e && (this.nextPageToken ? g(e) : m(e));
+    e && (this.nextPageToken ? g(e) : p(e));
   }
   /**
    * Handle search
@@ -382,14 +387,14 @@ class T {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
     if (!e) return;
     const i = e.value.trim();
-    this.searchQuery = i, t && (i ? g(t) : m(t)), this.clearSelection(), this.loadFiles();
+    this.searchQuery = i, t && (i ? g(t) : p(t)), this.clearSelection(), this.loadFiles();
   }
   /**
    * Clear search
    */
   clearSearch() {
     const { searchInput: e, clearSearchBtn: t } = this.elements;
-    e && (e.value = ""), t && m(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
+    e && (e.value = ""), t && p(t), this.searchQuery = "", this.clearSelection(), this.updateBreadcrumb(), this.loadFiles();
   }
   /**
    * Refresh file list
@@ -427,7 +432,7 @@ class T {
    */
   hideImportModal() {
     const { importModal: e } = this.elements;
-    e && m(e);
+    e && p(e);
   }
   /**
    * Handle import form submission
@@ -456,13 +461,15 @@ class T {
           agreement_title: h || void 0
         })
       });
-      if (!a.ok) {
-        const p = await a.json();
-        throw new Error(p.error?.message || "Import failed");
-      }
-      const l = await a.json(), d = E(l), f = $(l);
-      if (F("Import started successfully", "success", { alertFallback: !0 }), b("Import started"), this.hideImportModal(), f.status === "succeeded" && this.config.pickerRoutes?.documents) {
-        window.location.href = R(f, {
+      if (!a.ok)
+        throw new Error(
+          await I(a, "Import failed", {
+            appendStatusToFallback: !1
+          })
+        );
+      const l = await a.json(), d = $(l), f = R(l);
+      if (y("Import started successfully", "success", { alertFallback: !0 }), b("Import started"), this.hideImportModal(), f.status === "succeeded" && this.config.pickerRoutes?.documents) {
+        window.location.href = H(f, {
           agreements: this.config.pickerRoutes.agreements,
           documents: this.config.pickerRoutes.documents,
           fallback: this.config.pickerRoutes.documents
@@ -474,9 +481,9 @@ class T {
     } catch (a) {
       console.error("Import error:", a);
       const l = a instanceof Error ? a.message : "Import failed";
-      F(l, "error", { alertFallback: !0 }), b(`Error: ${l}`);
+      y(l, "error", { alertFallback: !0 }), b(`Error: ${l}`);
     } finally {
-      e && e.removeAttribute("disabled"), t && m(t), i && (i.textContent = "Import");
+      e && e.removeAttribute("disabled"), t && p(t), i && (i.textContent = "Import");
     }
   }
   /**
@@ -510,24 +517,24 @@ class T {
    * Escape HTML
    */
 }
-function Q(u) {
-  const e = new T(u);
-  return k(() => e.init()), e;
+function q(m) {
+  const e = new S(m);
+  return T(() => e.init()), e;
 }
-function O(u) {
+function N(m) {
   const e = {
-    basePath: u.basePath,
-    apiBasePath: u.apiBasePath || `${u.basePath}/api`,
-    userId: u.userId,
-    googleAccountId: u.googleAccountId,
-    googleConnected: u.googleConnected !== !1,
-    pickerRoutes: u.pickerRoutes
-  }, t = new T(e);
-  k(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
+    basePath: m.basePath,
+    apiBasePath: m.apiBasePath || `${m.basePath}/api`,
+    userId: m.userId,
+    googleAccountId: m.googleAccountId,
+    googleConnected: m.googleConnected !== !1,
+    pickerRoutes: m.pickerRoutes
+  }, t = new S(e);
+  T(() => t.init()), typeof window < "u" && (window.esignGoogleDrivePickerController = t);
 }
 export {
-  T as GoogleDrivePickerController,
-  O as bootstrapGoogleDrivePicker,
-  Q as initGoogleDrivePicker
+  S as GoogleDrivePickerController,
+  N as bootstrapGoogleDrivePicker,
+  q as initGoogleDrivePicker
 };
 //# sourceMappingURL=google-drive-picker.js.map

@@ -1,6 +1,6 @@
 import { e as h, E as R } from "../chunks/index-YiVxcMWC.js";
 import { R as I, b as A, a0 as q, a1 as b, a2 as C, c as N } from "../chunks/style-constants-i2xRoO1L.js";
-import { h as w } from "../chunks/http-client-DZnuedzQ.js";
+import { httpRequest as w } from "../shared/transport/http-client.js";
 import { extractStructuredError as P } from "../toast/error-helpers.js";
 import { escapeHTML as d } from "../shared/html.js";
 const U = {

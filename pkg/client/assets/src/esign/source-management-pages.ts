@@ -56,6 +56,7 @@ import type {
 
 import { validatePageComposition } from './source-management-composition.js';
 import { StatefulController } from '../shared/stateful-controller.js';
+import { readHTTPError, readHTTPJSON } from '../shared/transport/http-client.js';
 
 type SourceManagementControllerConfig<TContracts> = {
   apiBasePath: string;
@@ -136,11 +137,17 @@ async function fetchJSON<T>(url: string, options: FetchOptions = {}): Promise<T>
   const response = await fetch(url, config);
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`HTTP ${response.status}: ${errorText}`);
+    const message = await readHTTPError(response, `HTTP ${response.status}`, {
+      appendStatusToFallback: false,
+    });
+    throw new Error(
+      message.startsWith(`HTTP ${response.status}`)
+        ? message
+        : `HTTP ${response.status}: ${message}`
+    );
   }
 
-  return response.json() as Promise<T>;
+  return readHTTPJSON<T>(response);
 }
 
 // ============================================================================

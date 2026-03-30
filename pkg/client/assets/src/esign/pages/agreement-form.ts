@@ -1,4 +1,4 @@
-import { onReady } from '../utils/dom-helpers.js';
+import { getPageConfigFromScript, onReady } from '../utils/dom-helpers.js';
 import {
   destroyAgreementFormRuntime,
   initAgreementFormRuntime,
@@ -215,17 +215,16 @@ if (typeof document !== 'undefined') {
   onReady(() => {
     const pageEl = document.querySelector('[data-esign-page="agreement-form"]');
     if (!pageEl) return;
-    const configScript = document.getElementById('esign-page-config');
-    if (!configScript) return;
-
-    try {
-      const rawConfig = JSON.parse(configScript.textContent || '{}') as Record<string, unknown>;
-      const config = coerceAgreementFormConfig(rawConfig);
-      if (config) {
-        bootstrapAgreementForm(config);
-      }
-    } catch (error) {
-      console.warn('Failed to parse agreement form page config:', error);
+    const rawConfig = getPageConfigFromScript<Record<string, unknown>>(
+      'esign-page-config',
+      'agreement form page config'
+    );
+    if (!rawConfig) {
+      return;
+    }
+    const config = coerceAgreementFormConfig(rawConfig);
+    if (config) {
+      bootstrapAgreementForm(config);
     }
   });
 }

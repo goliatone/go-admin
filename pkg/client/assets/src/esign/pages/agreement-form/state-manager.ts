@@ -2,6 +2,7 @@ import type {
   SyncCoreResourceRef,
   SyncCoreResourceSnapshot,
 } from './sync-core-loader';
+import { parseJSONValue } from '../../../shared/json-parse.js';
 
 export interface WizardStateManagerOptions {
   storageKey: string;
@@ -84,19 +85,19 @@ export class WizardStateManager {
     const storage = this.storage();
     if (!storage) return null;
 
-    try {
-      const stored = storage.getItem(this.options.storageKey);
-      if (!stored) return null;
+    const stored = storage.getItem(this.options.storageKey);
+    if (!stored) return null;
 
-      const state = JSON.parse(stored);
-      if (state.version !== this.options.stateVersion) {
-        return this.migrateState(state);
-      }
-
-      return this.normalizeLoadedState(state);
-    } catch {
+    const state = parseJSONValue<Record<string, unknown> | null>(stored, null);
+    if (!state) {
       return null;
     }
+
+    if (state.version !== this.options.stateVersion) {
+      return this.migrateState(state);
+    }
+
+    return this.normalizeLoadedState(state);
   }
 
   normalizeLoadedState(state: any): Record<string, any> {

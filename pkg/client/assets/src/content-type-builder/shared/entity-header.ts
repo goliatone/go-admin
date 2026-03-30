@@ -11,6 +11,7 @@
  */
 
 import { badge } from '../../shared/badge';
+import { escapeHTML as esc } from '../../shared/html';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,18 +38,6 @@ export interface EntityHeaderConfig {
   actions?: string;
   /** Compact mode: smaller padding, h2 title (block editor vs content type) */
   compact?: boolean;
-}
-
-// ---------------------------------------------------------------------------
-// Escape Helper
-// ---------------------------------------------------------------------------
-
-function esc(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 // ---------------------------------------------------------------------------

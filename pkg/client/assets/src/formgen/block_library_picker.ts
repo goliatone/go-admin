@@ -1,5 +1,7 @@
 import { escapeHTML } from '../shared/html.js';
 import { onReady } from '../shared/dom-ready.js';
+import { parseJSONArray, parseJSONValue } from '../shared/json-parse.js';
+import { readHTTPJSON } from '../shared/transport/http-client.js';
 
 import {
   initBlockEditor,
@@ -67,20 +69,13 @@ type BlockTemplateResponse = {
 // =============================================================================
 
 function parsePickerConfig(raw: string | null): BlockLibraryPickerConfig {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === 'object') return parsed as BlockLibraryPickerConfig;
-  } catch { /* ignore */ }
+  const parsed = parseJSONValue<unknown>(raw, null);
+  if (parsed && typeof parsed === 'object') return parsed as BlockLibraryPickerConfig;
   return {};
 }
 
 function parseJSONAttr<T>(value: string | null | undefined, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch { /* ignore */ }
-  return fallback;
+  return parseJSONValue<T>(value, fallback);
 }
 
 function blockSlugAliases(value: string): string[] {
@@ -170,7 +165,7 @@ function renderPickerLoadError(root: HTMLElement, message: string): void {
 async function fetchJSON<T>(url: string): Promise<T> {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error(`fetch ${url}: ${resp.status}`);
-  return resp.json() as Promise<T>;
+  return readHTTPJSON<T>(resp);
 }
 
 // =============================================================================
@@ -814,13 +809,7 @@ async function initPicker(root: HTMLElement): Promise<void> {
 
   // -- 5.3.2: Parse existing blocks from hidden input --
   const output = root.querySelector<HTMLInputElement>('input[data-block-output]');
-  let existingBlocks: any[] = [];
-  if (output?.value) {
-    try {
-      const parsed = JSON.parse(output.value);
-      if (Array.isArray(parsed)) existingBlocks = parsed;
-    } catch { /* ignore */ }
-  }
+  const existingBlocks = parseJSONArray<any>(output?.value, []);
 
   // -- 5.3.3: Collect unique slugs from existing blocks --
   const existingSlugs = [

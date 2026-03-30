@@ -1,8 +1,9 @@
+import { normalizeDebugBasePath as Ce } from "./shared/path-helpers.js";
 import { escapeHTML as ve } from "../shared/html.js";
 var pe = { exports: {} };
-(function(Z, B) {
+(function(Q, T) {
   (function($, j) {
-    Z.exports = j();
+    Q.exports = j();
   })(self, () => (() => {
     var $ = { 4567: function(I, r, o) {
       var c = this && this.__decorate || function(i, a, l, v) {
@@ -444,36 +445,36 @@ WARNING: This link could potentially be dangerous`)) {
           return this._onWillOpen.event;
         }
         constructor(S = {}) {
-          super(S), this.browser = M, this._keyDownHandled = !1, this._keyDownSeen = !1, this._keyPressHandled = !1, this._unprocessedDeadKey = !1, this._accessibilityManager = this.register(new R.MutableDisposable()), this._onCursorMove = this.register(new k.EventEmitter()), this.onCursorMove = this._onCursorMove.event, this._onKey = this.register(new k.EventEmitter()), this.onKey = this._onKey.event, this._onRender = this.register(new k.EventEmitter()), this.onRender = this._onRender.event, this._onSelectionChange = this.register(new k.EventEmitter()), this.onSelectionChange = this._onSelectionChange.event, this._onTitleChange = this.register(new k.EventEmitter()), this.onTitleChange = this._onTitleChange.event, this._onBell = this.register(new k.EventEmitter()), this.onBell = this._onBell.event, this._onFocus = this.register(new k.EventEmitter()), this._onBlur = this.register(new k.EventEmitter()), this._onA11yCharEmitter = this.register(new k.EventEmitter()), this._onA11yTabEmitter = this.register(new k.EventEmitter()), this._onWillOpen = this.register(new k.EventEmitter()), this._setup(), this.linkifier2 = this.register(this._instantiationService.createInstance(n.Linkifier2)), this.linkifier2.registerLinkProvider(this._instantiationService.createInstance(f.OscLinkProvider)), this._decorationService = this._instantiationService.createInstance(E.DecorationService), this._instantiationService.setService(x.IDecorationService, this._decorationService), this.register(this._inputHandler.onRequestBell(() => this._onBell.fire())), this.register(this._inputHandler.onRequestRefreshRows((D, T) => this.refresh(D, T))), this.register(this._inputHandler.onRequestSendFocus(() => this._reportFocus())), this.register(this._inputHandler.onRequestReset(() => this.reset())), this.register(this._inputHandler.onRequestWindowsOptionsReport((D) => this._reportWindowsOptions(D))), this.register(this._inputHandler.onColor((D) => this._handleColorEvent(D))), this.register((0, k.forwardEvent)(this._inputHandler.onCursorMove, this._onCursorMove)), this.register((0, k.forwardEvent)(this._inputHandler.onTitleChange, this._onTitleChange)), this.register((0, k.forwardEvent)(this._inputHandler.onA11yChar, this._onA11yCharEmitter)), this.register((0, k.forwardEvent)(this._inputHandler.onA11yTab, this._onA11yTabEmitter)), this.register(this._bufferService.onResize((D) => this._afterResize(D.cols, D.rows))), this.register((0, R.toDisposable)(() => {
-            var D, T;
-            this._customKeyEventHandler = void 0, (T = (D = this.element) === null || D === void 0 ? void 0 : D.parentNode) === null || T === void 0 || T.removeChild(this.element);
+          super(S), this.browser = M, this._keyDownHandled = !1, this._keyDownSeen = !1, this._keyPressHandled = !1, this._unprocessedDeadKey = !1, this._accessibilityManager = this.register(new R.MutableDisposable()), this._onCursorMove = this.register(new k.EventEmitter()), this.onCursorMove = this._onCursorMove.event, this._onKey = this.register(new k.EventEmitter()), this.onKey = this._onKey.event, this._onRender = this.register(new k.EventEmitter()), this.onRender = this._onRender.event, this._onSelectionChange = this.register(new k.EventEmitter()), this.onSelectionChange = this._onSelectionChange.event, this._onTitleChange = this.register(new k.EventEmitter()), this.onTitleChange = this._onTitleChange.event, this._onBell = this.register(new k.EventEmitter()), this.onBell = this._onBell.event, this._onFocus = this.register(new k.EventEmitter()), this._onBlur = this.register(new k.EventEmitter()), this._onA11yCharEmitter = this.register(new k.EventEmitter()), this._onA11yTabEmitter = this.register(new k.EventEmitter()), this._onWillOpen = this.register(new k.EventEmitter()), this._setup(), this.linkifier2 = this.register(this._instantiationService.createInstance(n.Linkifier2)), this.linkifier2.registerLinkProvider(this._instantiationService.createInstance(f.OscLinkProvider)), this._decorationService = this._instantiationService.createInstance(E.DecorationService), this._instantiationService.setService(x.IDecorationService, this._decorationService), this.register(this._inputHandler.onRequestBell(() => this._onBell.fire())), this.register(this._inputHandler.onRequestRefreshRows((D, B) => this.refresh(D, B))), this.register(this._inputHandler.onRequestSendFocus(() => this._reportFocus())), this.register(this._inputHandler.onRequestReset(() => this.reset())), this.register(this._inputHandler.onRequestWindowsOptionsReport((D) => this._reportWindowsOptions(D))), this.register(this._inputHandler.onColor((D) => this._handleColorEvent(D))), this.register((0, k.forwardEvent)(this._inputHandler.onCursorMove, this._onCursorMove)), this.register((0, k.forwardEvent)(this._inputHandler.onTitleChange, this._onTitleChange)), this.register((0, k.forwardEvent)(this._inputHandler.onA11yChar, this._onA11yCharEmitter)), this.register((0, k.forwardEvent)(this._inputHandler.onA11yTab, this._onA11yTabEmitter)), this.register(this._bufferService.onResize((D) => this._afterResize(D.cols, D.rows))), this.register((0, R.toDisposable)(() => {
+            var D, B;
+            this._customKeyEventHandler = void 0, (B = (D = this.element) === null || D === void 0 ? void 0 : D.parentNode) === null || B === void 0 || B.removeChild(this.element);
           }));
         }
         _handleColorEvent(S) {
           if (this._themeService) for (const D of S) {
-            let T, A = "";
+            let B, A = "";
             switch (D.index) {
               case 256:
-                T = "foreground", A = "10";
+                B = "foreground", A = "10";
                 break;
               case 257:
-                T = "background", A = "11";
+                B = "background", A = "11";
                 break;
               case 258:
-                T = "cursor", A = "12";
+                B = "cursor", A = "12";
                 break;
               default:
-                T = "ansi", A = "4;" + D.index;
+                B = "ansi", A = "4;" + D.index;
             }
             switch (D.type) {
               case 0:
-                const z = L.color.toColorRGB(T === "ansi" ? this._themeService.colors.ansi[D.index] : this._themeService.colors[T]);
+                const z = L.color.toColorRGB(B === "ansi" ? this._themeService.colors.ansi[D.index] : this._themeService.colors[B]);
                 this.coreService.triggerDataEvent(`${O.C0.ESC}]${A};${(0, w.toRgbString)(z)}${O.C1_ESCAPED.ST}`);
                 break;
               case 1:
-                if (T === "ansi") this._themeService.modifyColors((W) => W.ansi[D.index] = L.rgba.toColor(...D.color));
+                if (B === "ansi") this._themeService.modifyColors((W) => W.ansi[D.index] = L.rgba.toColor(...D.color));
                 else {
-                  const W = T;
+                  const W = B;
                   this._themeService.modifyColors((V) => V[W] = L.rgba.toColor(...D.color));
                 }
                 break;
@@ -508,7 +509,7 @@ WARNING: This link could potentially be dangerous`)) {
           if (!this.textarea || !this.buffer.isCursorInViewport || this._compositionHelper.isComposing || !this._renderService) return;
           const S = this.buffer.ybase + this.buffer.y, D = this.buffer.lines.get(S);
           if (!D) return;
-          const T = Math.min(this.buffer.x, this.cols - 1), A = this._renderService.dimensions.css.cell.height, z = D.getWidth(T), W = this._renderService.dimensions.css.cell.width * z, V = this.buffer.y * this._renderService.dimensions.css.cell.height, J = T * this._renderService.dimensions.css.cell.width;
+          const B = Math.min(this.buffer.x, this.cols - 1), A = this._renderService.dimensions.css.cell.height, z = D.getWidth(B), W = this._renderService.dimensions.css.cell.width * z, V = this.buffer.y * this._renderService.dimensions.css.cell.height, J = B * this._renderService.dimensions.css.cell.width;
           this.textarea.style.left = J + "px", this.textarea.style.top = V + "px", this.textarea.style.width = W + "px", this.textarea.style.height = A + "px", this.textarea.style.lineHeight = A + "px", this.textarea.style.zIndex = "-5";
         }
         _initGlobal() {
@@ -531,8 +532,8 @@ WARNING: This link could potentially be dangerous`)) {
           var D;
           if (!S) throw new Error("Terminal requires a parent element.");
           S.isConnected || this._logService.debug("Terminal.open was called on an element that was not attached to the DOM"), this._document = S.ownerDocument, this.element = this._document.createElement("div"), this.element.dir = "ltr", this.element.classList.add("terminal"), this.element.classList.add("xterm"), S.appendChild(this.element);
-          const T = U.createDocumentFragment();
-          this._viewportElement = U.createElement("div"), this._viewportElement.classList.add("xterm-viewport"), T.appendChild(this._viewportElement), this._viewportScrollArea = U.createElement("div"), this._viewportScrollArea.classList.add("xterm-scroll-area"), this._viewportElement.appendChild(this._viewportScrollArea), this.screenElement = U.createElement("div"), this.screenElement.classList.add("xterm-screen"), this._helperContainer = U.createElement("div"), this._helperContainer.classList.add("xterm-helpers"), this.screenElement.appendChild(this._helperContainer), T.appendChild(this.screenElement), this.textarea = U.createElement("textarea"), this.textarea.classList.add("xterm-helper-textarea"), this.textarea.setAttribute("aria-label", d.promptLabel), M.isChromeOS || this.textarea.setAttribute("aria-multiline", "false"), this.textarea.setAttribute("autocorrect", "off"), this.textarea.setAttribute("autocapitalize", "off"), this.textarea.setAttribute("spellcheck", "false"), this.textarea.tabIndex = 0, this._coreBrowserService = this._instantiationService.createInstance(l.CoreBrowserService, this.textarea, (D = this._document.defaultView) !== null && D !== void 0 ? D : window), this._instantiationService.setService(p.ICoreBrowserService, this._coreBrowserService), this.register((0, _.addDisposableDomListener)(this.textarea, "focus", (A) => this._handleTextAreaFocus(A))), this.register((0, _.addDisposableDomListener)(this.textarea, "blur", () => this._handleTextAreaBlur())), this._helperContainer.appendChild(this.textarea), this._charSizeService = this._instantiationService.createInstance(i.CharSizeService, this._document, this._helperContainer), this._instantiationService.setService(p.ICharSizeService, this._charSizeService), this._themeService = this._instantiationService.createInstance(b.ThemeService), this._instantiationService.setService(p.IThemeService, this._themeService), this._characterJoinerService = this._instantiationService.createInstance(a.CharacterJoinerService), this._instantiationService.setService(p.ICharacterJoinerService, this._characterJoinerService), this._renderService = this.register(this._instantiationService.createInstance(m.RenderService, this.rows, this.screenElement)), this._instantiationService.setService(p.IRenderService, this._renderService), this.register(this._renderService.onRenderedViewportChange((A) => this._onRender.fire(A))), this.onResize((A) => this._renderService.resize(A.cols, A.rows)), this._compositionView = U.createElement("div"), this._compositionView.classList.add("composition-view"), this._compositionHelper = this._instantiationService.createInstance(s.CompositionHelper, this.textarea, this._compositionView), this._helperContainer.appendChild(this._compositionView), this.element.appendChild(T);
+          const B = U.createDocumentFragment();
+          this._viewportElement = U.createElement("div"), this._viewportElement.classList.add("xterm-viewport"), B.appendChild(this._viewportElement), this._viewportScrollArea = U.createElement("div"), this._viewportScrollArea.classList.add("xterm-scroll-area"), this._viewportElement.appendChild(this._viewportScrollArea), this.screenElement = U.createElement("div"), this.screenElement.classList.add("xterm-screen"), this._helperContainer = U.createElement("div"), this._helperContainer.classList.add("xterm-helpers"), this.screenElement.appendChild(this._helperContainer), B.appendChild(this.screenElement), this.textarea = U.createElement("textarea"), this.textarea.classList.add("xterm-helper-textarea"), this.textarea.setAttribute("aria-label", d.promptLabel), M.isChromeOS || this.textarea.setAttribute("aria-multiline", "false"), this.textarea.setAttribute("autocorrect", "off"), this.textarea.setAttribute("autocapitalize", "off"), this.textarea.setAttribute("spellcheck", "false"), this.textarea.tabIndex = 0, this._coreBrowserService = this._instantiationService.createInstance(l.CoreBrowserService, this.textarea, (D = this._document.defaultView) !== null && D !== void 0 ? D : window), this._instantiationService.setService(p.ICoreBrowserService, this._coreBrowserService), this.register((0, _.addDisposableDomListener)(this.textarea, "focus", (A) => this._handleTextAreaFocus(A))), this.register((0, _.addDisposableDomListener)(this.textarea, "blur", () => this._handleTextAreaBlur())), this._helperContainer.appendChild(this.textarea), this._charSizeService = this._instantiationService.createInstance(i.CharSizeService, this._document, this._helperContainer), this._instantiationService.setService(p.ICharSizeService, this._charSizeService), this._themeService = this._instantiationService.createInstance(b.ThemeService), this._instantiationService.setService(p.IThemeService, this._themeService), this._characterJoinerService = this._instantiationService.createInstance(a.CharacterJoinerService), this._instantiationService.setService(p.ICharacterJoinerService, this._characterJoinerService), this._renderService = this.register(this._instantiationService.createInstance(m.RenderService, this.rows, this.screenElement)), this._instantiationService.setService(p.IRenderService, this._renderService), this.register(this._renderService.onRenderedViewportChange((A) => this._onRender.fire(A))), this.onResize((A) => this._renderService.resize(A.cols, A.rows)), this._compositionView = U.createElement("div"), this._compositionView.classList.add("composition-view"), this._compositionHelper = this._instantiationService.createInstance(s.CompositionHelper, this.textarea, this._compositionView), this._helperContainer.appendChild(this._compositionView), this.element.appendChild(B);
           try {
             this._onWillOpen.fire(this.element);
           } catch {
@@ -552,47 +553,47 @@ WARNING: This link could potentially be dangerous`)) {
         }
         bindMouse() {
           const S = this, D = this.element;
-          function T(W) {
+          function B(W) {
             const V = S._mouseService.getMouseReportCoords(W, S.screenElement);
             if (!V) return !1;
-            let J, Q;
+            let J, Z;
             switch (W.overrideType || W.type) {
               case "mousemove":
-                Q = 32, W.buttons === void 0 ? (J = 3, W.button !== void 0 && (J = W.button < 3 ? W.button : 3)) : J = 1 & W.buttons ? 0 : 4 & W.buttons ? 1 : 2 & W.buttons ? 2 : 3;
+                Z = 32, W.buttons === void 0 ? (J = 3, W.button !== void 0 && (J = W.button < 3 ? W.button : 3)) : J = 1 & W.buttons ? 0 : 4 & W.buttons ? 1 : 2 & W.buttons ? 2 : 3;
                 break;
               case "mouseup":
-                Q = 0, J = W.button < 3 ? W.button : 3;
+                Z = 0, J = W.button < 3 ? W.button : 3;
                 break;
               case "mousedown":
-                Q = 1, J = W.button < 3 ? W.button : 3;
+                Z = 1, J = W.button < 3 ? W.button : 3;
                 break;
               case "wheel":
                 if (S.viewport.getLinesScrolled(W) === 0) return !1;
-                Q = W.deltaY < 0 ? 0 : 1, J = 4;
+                Z = W.deltaY < 0 ? 0 : 1, J = 4;
                 break;
               default:
                 return !1;
             }
-            return !(Q === void 0 || J === void 0 || J > 4) && S.coreMouseService.triggerMouseEvent({ col: V.col, row: V.row, x: V.x, y: V.y, button: J, action: Q, ctrl: W.ctrlKey, alt: W.altKey, shift: W.shiftKey });
+            return !(Z === void 0 || J === void 0 || J > 4) && S.coreMouseService.triggerMouseEvent({ col: V.col, row: V.row, x: V.x, y: V.y, button: J, action: Z, ctrl: W.ctrlKey, alt: W.altKey, shift: W.shiftKey });
           }
-          const A = { mouseup: null, wheel: null, mousedrag: null, mousemove: null }, z = { mouseup: (W) => (T(W), W.buttons || (this._document.removeEventListener("mouseup", A.mouseup), A.mousedrag && this._document.removeEventListener("mousemove", A.mousedrag)), this.cancel(W)), wheel: (W) => (T(W), this.cancel(W, !0)), mousedrag: (W) => {
-            W.buttons && T(W);
+          const A = { mouseup: null, wheel: null, mousedrag: null, mousemove: null }, z = { mouseup: (W) => (B(W), W.buttons || (this._document.removeEventListener("mouseup", A.mouseup), A.mousedrag && this._document.removeEventListener("mousemove", A.mousedrag)), this.cancel(W)), wheel: (W) => (B(W), this.cancel(W, !0)), mousedrag: (W) => {
+            W.buttons && B(W);
           }, mousemove: (W) => {
-            W.buttons || T(W);
+            W.buttons || B(W);
           } };
           this.register(this.coreMouseService.onProtocolChange((W) => {
             W ? (this.optionsService.rawOptions.logLevel === "debug" && this._logService.debug("Binding to mouse events:", this.coreMouseService.explainEvents(W)), this.element.classList.add("enable-mouse-events"), this._selectionService.disable()) : (this._logService.debug("Unbinding from mouse events."), this.element.classList.remove("enable-mouse-events"), this._selectionService.enable()), 8 & W ? A.mousemove || (D.addEventListener("mousemove", z.mousemove), A.mousemove = z.mousemove) : (D.removeEventListener("mousemove", A.mousemove), A.mousemove = null), 16 & W ? A.wheel || (D.addEventListener("wheel", z.wheel, { passive: !1 }), A.wheel = z.wheel) : (D.removeEventListener("wheel", A.wheel), A.wheel = null), 2 & W ? A.mouseup || (D.addEventListener("mouseup", z.mouseup), A.mouseup = z.mouseup) : (this._document.removeEventListener("mouseup", A.mouseup), D.removeEventListener("mouseup", A.mouseup), A.mouseup = null), 4 & W ? A.mousedrag || (A.mousedrag = z.mousedrag) : (this._document.removeEventListener("mousemove", A.mousedrag), A.mousedrag = null);
           })), this.coreMouseService.activeProtocol = this.coreMouseService.activeProtocol, this.register((0, _.addDisposableDomListener)(D, "mousedown", (W) => {
-            if (W.preventDefault(), this.focus(), this.coreMouseService.areMouseEventsActive && !this._selectionService.shouldForceSelection(W)) return T(W), A.mouseup && this._document.addEventListener("mouseup", A.mouseup), A.mousedrag && this._document.addEventListener("mousemove", A.mousedrag), this.cancel(W);
+            if (W.preventDefault(), this.focus(), this.coreMouseService.areMouseEventsActive && !this._selectionService.shouldForceSelection(W)) return B(W), A.mouseup && this._document.addEventListener("mouseup", A.mouseup), A.mousedrag && this._document.addEventListener("mousemove", A.mousedrag), this.cancel(W);
           })), this.register((0, _.addDisposableDomListener)(D, "wheel", (W) => {
             if (!A.wheel) {
               if (!this.buffer.hasScrollback) {
                 const V = this.viewport.getLinesScrolled(W);
                 if (V === 0) return;
                 const J = O.C0.ESC + (this.coreService.decPrivateModes.applicationCursorKeys ? "O" : "[") + (W.deltaY < 0 ? "A" : "B");
-                let Q = "";
-                for (let re = 0; re < Math.abs(V); re++) Q += J;
-                return this.coreService.triggerDataEvent(Q, !0), this.cancel(W, !0);
+                let Z = "";
+                for (let re = 0; re < Math.abs(V); re++) Z += J;
+                return this.coreService.triggerDataEvent(Z, !0), this.cancel(W, !0);
               }
               return this.viewport.handleWheel(W) ? this.cancel(W) : void 0;
             }
@@ -603,8 +604,8 @@ WARNING: This link could potentially be dangerous`)) {
           }, { passive: !1 }));
         }
         refresh(S, D) {
-          var T;
-          (T = this._renderService) === null || T === void 0 || T.refreshRows(S, D);
+          var B;
+          (B = this._renderService) === null || B === void 0 || B.refreshRows(S, D);
         }
         updateCursorStyle(S) {
           var D;
@@ -613,9 +614,9 @@ WARNING: This link could potentially be dangerous`)) {
         _showCursor() {
           this.coreService.isCursorInitialized || (this.coreService.isCursorInitialized = !0, this.refresh(this.buffer.y, this.buffer.y));
         }
-        scrollLines(S, D, T = 0) {
+        scrollLines(S, D, B = 0) {
           var A;
-          T === 1 ? (super.scrollLines(S, D, T), this.refresh(0, this.rows - 1)) : (A = this.viewport) === null || A === void 0 || A.scrollLines(S);
+          B === 1 ? (super.scrollLines(S, D, B), this.refresh(0, this.rows - 1)) : (A = this.viewport) === null || A === void 0 || A.scrollLines(S);
         }
         paste(S) {
           (0, c.paste)(S, this.textarea, this.coreService, this.optionsService);
@@ -647,8 +648,8 @@ WARNING: This link could potentially be dangerous`)) {
         hasSelection() {
           return !!this._selectionService && this._selectionService.hasSelection;
         }
-        select(S, D, T) {
-          this._selectionService.setSelection(S, D, T);
+        select(S, D, B) {
+          this._selectionService.setSelection(S, D, B);
         }
         getSelection() {
           return this._selectionService ? this._selectionService.selectionText : "";
@@ -665,24 +666,24 @@ WARNING: This link could potentially be dangerous`)) {
           (S = this._selectionService) === null || S === void 0 || S.selectAll();
         }
         selectLines(S, D) {
-          var T;
-          (T = this._selectionService) === null || T === void 0 || T.selectLines(S, D);
+          var B;
+          (B = this._selectionService) === null || B === void 0 || B.selectLines(S, D);
         }
         _keyDown(S) {
           if (this._keyDownHandled = !1, this._keyDownSeen = !0, this._customKeyEventHandler && this._customKeyEventHandler(S) === !1) return !1;
           const D = this.browser.isMac && this.options.macOptionIsMeta && S.altKey;
           if (!D && !this._compositionHelper.keydown(S)) return this.options.scrollOnUserInput && this.buffer.ybase !== this.buffer.ydisp && this.scrollToBottom(), !1;
           D || S.key !== "Dead" && S.key !== "AltGraph" || (this._unprocessedDeadKey = !0);
-          const T = (0, C.evaluateKeyboardEvent)(S, this.coreService.decPrivateModes.applicationCursorKeys, this.browser.isMac, this.options.macOptionIsMeta);
-          if (this.updateCursorStyle(S), T.type === 3 || T.type === 2) {
+          const B = (0, C.evaluateKeyboardEvent)(S, this.coreService.decPrivateModes.applicationCursorKeys, this.browser.isMac, this.options.macOptionIsMeta);
+          if (this.updateCursorStyle(S), B.type === 3 || B.type === 2) {
             const A = this.rows - 1;
-            return this.scrollLines(T.type === 2 ? -A : A), this.cancel(S, !0);
+            return this.scrollLines(B.type === 2 ? -A : A), this.cancel(S, !0);
           }
-          return T.type === 1 && this.selectAll(), !!this._isThirdLevelShift(this.browser, S) || (T.cancel && this.cancel(S, !0), !T.key || !!(S.key && !S.ctrlKey && !S.altKey && !S.metaKey && S.key.length === 1 && S.key.charCodeAt(0) >= 65 && S.key.charCodeAt(0) <= 90) || (this._unprocessedDeadKey ? (this._unprocessedDeadKey = !1, !0) : (T.key !== O.C0.ETX && T.key !== O.C0.CR || (this.textarea.value = ""), this._onKey.fire({ key: T.key, domEvent: S }), this._showCursor(), this.coreService.triggerDataEvent(T.key, !0), !this.optionsService.rawOptions.screenReaderMode || S.altKey || S.ctrlKey ? this.cancel(S, !0) : void (this._keyDownHandled = !0))));
+          return B.type === 1 && this.selectAll(), !!this._isThirdLevelShift(this.browser, S) || (B.cancel && this.cancel(S, !0), !B.key || !!(S.key && !S.ctrlKey && !S.altKey && !S.metaKey && S.key.length === 1 && S.key.charCodeAt(0) >= 65 && S.key.charCodeAt(0) <= 90) || (this._unprocessedDeadKey ? (this._unprocessedDeadKey = !1, !0) : (B.key !== O.C0.ETX && B.key !== O.C0.CR || (this.textarea.value = ""), this._onKey.fire({ key: B.key, domEvent: S }), this._showCursor(), this.coreService.triggerDataEvent(B.key, !0), !this.optionsService.rawOptions.screenReaderMode || S.altKey || S.ctrlKey ? this.cancel(S, !0) : void (this._keyDownHandled = !0))));
         }
         _isThirdLevelShift(S, D) {
-          const T = S.isMac && !this.options.macOptionIsMeta && D.altKey && !D.ctrlKey && !D.metaKey || S.isWindows && D.altKey && D.ctrlKey && !D.metaKey || S.isWindows && D.getModifierState("AltGraph");
-          return D.type === "keypress" ? T : T && (!D.keyCode || D.keyCode > 47);
+          const B = S.isMac && !this.options.macOptionIsMeta && D.altKey && !D.ctrlKey && !D.metaKey || S.isWindows && D.altKey && D.ctrlKey && !D.metaKey || S.isWindows && D.getModifierState("AltGraph");
+          return D.type === "keypress" ? B : B && (!D.keyCode || D.keyCode > 47);
         }
         _keyUp(S) {
           this._keyDownSeen = !1, this._customKeyEventHandler && this._customKeyEventHandler(S) === !1 || (function(D) {
@@ -713,8 +714,8 @@ WARNING: This link could potentially be dangerous`)) {
           S !== this.cols || D !== this.rows ? super.resize(S, D) : this._charSizeService && !this._charSizeService.hasValidSize && this._charSizeService.measure();
         }
         _afterResize(S, D) {
-          var T, A;
-          (T = this._charSizeService) === null || T === void 0 || T.measure(), (A = this.viewport) === null || A === void 0 || A.syncScrollArea(!0);
+          var B, A;
+          (B = this._charSizeService) === null || B === void 0 || B.measure(), (A = this.viewport) === null || A === void 0 || A.syncScrollArea(!0);
         }
         clear() {
           var S;
@@ -727,8 +728,8 @@ WARNING: This link could potentially be dangerous`)) {
         reset() {
           var S, D;
           this.options.rows = this.rows, this.options.cols = this.cols;
-          const T = this._customKeyEventHandler;
-          this._setup(), super.reset(), (S = this._selectionService) === null || S === void 0 || S.reset(), this._decorationService.reset(), (D = this.viewport) === null || D === void 0 || D.reset(), this._customKeyEventHandler = T, this.refresh(0, this.rows - 1);
+          const B = this._customKeyEventHandler;
+          this._setup(), super.reset(), (S = this._selectionService) === null || S === void 0 || S.reset(), this._decorationService.reset(), (D = this.viewport) === null || D === void 0 || D.reset(), this._customKeyEventHandler = B, this.refresh(0, this.rows - 1);
         }
         clearTextureAtlas() {
           var S;
@@ -741,8 +742,8 @@ WARNING: This link could potentially be dangerous`)) {
         _reportWindowsOptions(S) {
           if (this._renderService) switch (S) {
             case H.WindowsOptionsReportType.GET_WIN_SIZE_PIXELS:
-              const D = this._renderService.dimensions.css.canvas.width.toFixed(0), T = this._renderService.dimensions.css.canvas.height.toFixed(0);
-              this.coreService.triggerDataEvent(`${O.C0.ESC}[4;${T};${D}t`);
+              const D = this._renderService.dimensions.css.canvas.width.toFixed(0), B = this._renderService.dimensions.css.canvas.height.toFixed(0);
+              this.coreService.triggerDataEvent(`${O.C0.ESC}[4;${B};${D}t`);
               break;
             case H.WindowsOptionsReportType.GET_CELL_SIZE_PIXELS:
               const A = this._renderService.dimensions.css.cell.width.toFixed(0), z = this._renderService.dimensions.css.cell.height.toFixed(0);
@@ -1351,15 +1352,15 @@ WARNING: This link could potentially be dangerous`)) {
           const O = [], C = this._characterJoinerService.getJoinedCharacters(m), w = this._themeService.colors;
           let E, x = v.getNoBgTrimmedLength();
           h && x < L + 1 && (x = L + 1);
-          let H = 0, F = "", U = 0, N = 0, G = 0, S = !1, D = 0, T = !1, A = 0;
+          let H = 0, F = "", U = 0, N = 0, G = 0, S = !1, D = 0, B = !1, A = 0;
           const z = [], W = M !== -1 && P !== -1;
           for (let V = 0; V < x; V++) {
             v.loadCell(V, this._workCell);
             let J = this._workCell.getWidth();
             if (J === 0) continue;
-            let Q = !1, re = V, K = this._workCell;
+            let Z = !1, re = V, K = this._workCell;
             if (C.length > 0 && V === C[0][0]) {
-              Q = !0;
+              Z = !0;
               const X = C.shift();
               K = new s.JoinedCellData(this._workCell, v.translateToString(!0, X[0], X[1]), X[1] - X[0]), re = X[1] - 1, J = K.getWidth();
             }
@@ -1370,13 +1371,13 @@ WARNING: This link could potentially be dangerous`)) {
             });
             let le = K.getChars() || d.WHITESPACE_CELL_CHAR;
             if (le === " " && (K.isUnderline() || K.isOverline()) && (le = " "), A = J * k - R.get(le, K.isBold(), K.isItalic()), E) {
-              if (H && (ne && T || !ne && !T && K.bg === U) && (ne && T && w.selectionForeground || K.fg === N) && K.extended.ext === G && de === S && A === D && !ce && !Q && !ue) {
+              if (H && (ne && B || !ne && !B && K.bg === U) && (ne && B && w.selectionForeground || K.fg === N) && K.extended.ext === G && de === S && A === D && !ce && !Z && !ue) {
                 F += le, H++;
                 continue;
               }
               H && (E.textContent = F), E = this._document.createElement("span"), H = 0, F = "";
             } else E = this._document.createElement("span");
-            if (U = K.bg, N = K.fg, G = K.extended.ext, S = de, D = A, T = ne, Q && L >= V && L <= re && (L = V), !this._coreService.isCursorHidden && ce) {
+            if (U = K.bg, N = K.fg, G = K.extended.ext, S = de, D = A, B = ne, Z && L >= V && L <= re && (L = V), !this._coreService.isCursorHidden && ce) {
               if (z.push("xterm-cursor"), this._coreBrowserService.isFocused) y && z.push("xterm-cursor-blink"), z.push(p === "bar" ? "xterm-cursor-bar" : p === "underline" ? "xterm-cursor-underline" : "xterm-cursor-block");
               else if (b) switch (b) {
                 case "outline":
@@ -1432,7 +1433,7 @@ WARNING: This link could potentially be dangerous`)) {
               default:
                 this._applyMinimumContrast(E, se, w.foreground, K, ie, void 0) || _e && z.push(`xterm-fg-${n.INVERTED_DEFAULT_COLOR}`);
             }
-            z.length && (E.className = z.join(" "), z.length = 0), ce || Q || ue ? E.textContent = F : H++, A !== this.defaultSpacing && (E.style.letterSpacing = `${A}px`), O.push(E), V = re;
+            z.length && (E.className = z.join(" "), z.length = 0), ce || Z || ue ? E.textContent = F : H++, A !== this.defaultSpacing && (E.style.letterSpacing = `${A}px`), O.push(E), V = re;
           }
           return E && H && (E.textContent = F), O;
         }
@@ -2586,11 +2587,11 @@ WARNING: This link could potentially be dangerous`)) {
             this._logService.debug("Unknown ESC code: ", { identifier: this._parser.identToString(S) });
           }), this._parser.setExecuteHandlerFallback((S) => {
             this._logService.debug("Unknown EXECUTE code: ", { code: S });
-          }), this._parser.setOscHandlerFallback((S, D, T) => {
-            this._logService.debug("Unknown OSC code: ", { identifier: S, action: D, data: T });
-          }), this._parser.setDcsHandlerFallback((S, D, T) => {
-            D === "HOOK" && (T = T.toArray()), this._logService.debug("Unknown DCS code: ", { identifier: this._parser.identToString(S), action: D, payload: T });
-          }), this._parser.setPrintHandler((S, D, T) => this.print(S, D, T)), this._parser.registerCsiHandler({ final: "@" }, (S) => this.insertChars(S)), this._parser.registerCsiHandler({ intermediates: " ", final: "@" }, (S) => this.scrollLeft(S)), this._parser.registerCsiHandler({ final: "A" }, (S) => this.cursorUp(S)), this._parser.registerCsiHandler({ intermediates: " ", final: "A" }, (S) => this.scrollRight(S)), this._parser.registerCsiHandler({ final: "B" }, (S) => this.cursorDown(S)), this._parser.registerCsiHandler({ final: "C" }, (S) => this.cursorForward(S)), this._parser.registerCsiHandler({ final: "D" }, (S) => this.cursorBackward(S)), this._parser.registerCsiHandler({ final: "E" }, (S) => this.cursorNextLine(S)), this._parser.registerCsiHandler({ final: "F" }, (S) => this.cursorPrecedingLine(S)), this._parser.registerCsiHandler({ final: "G" }, (S) => this.cursorCharAbsolute(S)), this._parser.registerCsiHandler({ final: "H" }, (S) => this.cursorPosition(S)), this._parser.registerCsiHandler({ final: "I" }, (S) => this.cursorForwardTab(S)), this._parser.registerCsiHandler({ final: "J" }, (S) => this.eraseInDisplay(S, !1)), this._parser.registerCsiHandler({ prefix: "?", final: "J" }, (S) => this.eraseInDisplay(S, !0)), this._parser.registerCsiHandler({ final: "K" }, (S) => this.eraseInLine(S, !1)), this._parser.registerCsiHandler({ prefix: "?", final: "K" }, (S) => this.eraseInLine(S, !0)), this._parser.registerCsiHandler({ final: "L" }, (S) => this.insertLines(S)), this._parser.registerCsiHandler({ final: "M" }, (S) => this.deleteLines(S)), this._parser.registerCsiHandler({ final: "P" }, (S) => this.deleteChars(S)), this._parser.registerCsiHandler({ final: "S" }, (S) => this.scrollUp(S)), this._parser.registerCsiHandler({ final: "T" }, (S) => this.scrollDown(S)), this._parser.registerCsiHandler({ final: "X" }, (S) => this.eraseChars(S)), this._parser.registerCsiHandler({ final: "Z" }, (S) => this.cursorBackwardTab(S)), this._parser.registerCsiHandler({ final: "`" }, (S) => this.charPosAbsolute(S)), this._parser.registerCsiHandler({ final: "a" }, (S) => this.hPositionRelative(S)), this._parser.registerCsiHandler({ final: "b" }, (S) => this.repeatPrecedingCharacter(S)), this._parser.registerCsiHandler({ final: "c" }, (S) => this.sendDeviceAttributesPrimary(S)), this._parser.registerCsiHandler({ prefix: ">", final: "c" }, (S) => this.sendDeviceAttributesSecondary(S)), this._parser.registerCsiHandler({ final: "d" }, (S) => this.linePosAbsolute(S)), this._parser.registerCsiHandler({ final: "e" }, (S) => this.vPositionRelative(S)), this._parser.registerCsiHandler({ final: "f" }, (S) => this.hVPosition(S)), this._parser.registerCsiHandler({ final: "g" }, (S) => this.tabClear(S)), this._parser.registerCsiHandler({ final: "h" }, (S) => this.setMode(S)), this._parser.registerCsiHandler({ prefix: "?", final: "h" }, (S) => this.setModePrivate(S)), this._parser.registerCsiHandler({ final: "l" }, (S) => this.resetMode(S)), this._parser.registerCsiHandler({ prefix: "?", final: "l" }, (S) => this.resetModePrivate(S)), this._parser.registerCsiHandler({ final: "m" }, (S) => this.charAttributes(S)), this._parser.registerCsiHandler({ final: "n" }, (S) => this.deviceStatus(S)), this._parser.registerCsiHandler({ prefix: "?", final: "n" }, (S) => this.deviceStatusPrivate(S)), this._parser.registerCsiHandler({ intermediates: "!", final: "p" }, (S) => this.softReset(S)), this._parser.registerCsiHandler({ intermediates: " ", final: "q" }, (S) => this.setCursorStyle(S)), this._parser.registerCsiHandler({ final: "r" }, (S) => this.setScrollRegion(S)), this._parser.registerCsiHandler({ final: "s" }, (S) => this.saveCursor(S)), this._parser.registerCsiHandler({ final: "t" }, (S) => this.windowOptions(S)), this._parser.registerCsiHandler({ final: "u" }, (S) => this.restoreCursor(S)), this._parser.registerCsiHandler({ intermediates: "'", final: "}" }, (S) => this.insertColumns(S)), this._parser.registerCsiHandler({ intermediates: "'", final: "~" }, (S) => this.deleteColumns(S)), this._parser.registerCsiHandler({ intermediates: '"', final: "q" }, (S) => this.selectProtected(S)), this._parser.registerCsiHandler({ intermediates: "$", final: "p" }, (S) => this.requestMode(S, !0)), this._parser.registerCsiHandler({ prefix: "?", intermediates: "$", final: "p" }, (S) => this.requestMode(S, !1)), this._parser.setExecuteHandler(n.C0.BEL, () => this.bell()), this._parser.setExecuteHandler(n.C0.LF, () => this.lineFeed()), this._parser.setExecuteHandler(n.C0.VT, () => this.lineFeed()), this._parser.setExecuteHandler(n.C0.FF, () => this.lineFeed()), this._parser.setExecuteHandler(n.C0.CR, () => this.carriageReturn()), this._parser.setExecuteHandler(n.C0.BS, () => this.backspace()), this._parser.setExecuteHandler(n.C0.HT, () => this.tab()), this._parser.setExecuteHandler(n.C0.SO, () => this.shiftOut()), this._parser.setExecuteHandler(n.C0.SI, () => this.shiftIn()), this._parser.setExecuteHandler(n.C1.IND, () => this.index()), this._parser.setExecuteHandler(n.C1.NEL, () => this.nextLine()), this._parser.setExecuteHandler(n.C1.HTS, () => this.tabSet()), this._parser.registerOscHandler(0, new v.OscHandler((S) => (this.setTitle(S), this.setIconName(S), !0))), this._parser.registerOscHandler(1, new v.OscHandler((S) => this.setIconName(S))), this._parser.registerOscHandler(2, new v.OscHandler((S) => this.setTitle(S))), this._parser.registerOscHandler(4, new v.OscHandler((S) => this.setOrReportIndexedColor(S))), this._parser.registerOscHandler(8, new v.OscHandler((S) => this.setHyperlink(S))), this._parser.registerOscHandler(10, new v.OscHandler((S) => this.setOrReportFgColor(S))), this._parser.registerOscHandler(11, new v.OscHandler((S) => this.setOrReportBgColor(S))), this._parser.registerOscHandler(12, new v.OscHandler((S) => this.setOrReportCursorColor(S))), this._parser.registerOscHandler(104, new v.OscHandler((S) => this.restoreIndexedColor(S))), this._parser.registerOscHandler(110, new v.OscHandler((S) => this.restoreFgColor(S))), this._parser.registerOscHandler(111, new v.OscHandler((S) => this.restoreBgColor(S))), this._parser.registerOscHandler(112, new v.OscHandler((S) => this.restoreCursorColor(S))), this._parser.registerEscHandler({ final: "7" }, () => this.saveCursor()), this._parser.registerEscHandler({ final: "8" }, () => this.restoreCursor()), this._parser.registerEscHandler({ final: "D" }, () => this.index()), this._parser.registerEscHandler({ final: "E" }, () => this.nextLine()), this._parser.registerEscHandler({ final: "H" }, () => this.tabSet()), this._parser.registerEscHandler({ final: "M" }, () => this.reverseIndex()), this._parser.registerEscHandler({ final: "=" }, () => this.keypadApplicationMode()), this._parser.registerEscHandler({ final: ">" }, () => this.keypadNumericMode()), this._parser.registerEscHandler({ final: "c" }, () => this.fullReset()), this._parser.registerEscHandler({ final: "n" }, () => this.setgLevel(2)), this._parser.registerEscHandler({ final: "o" }, () => this.setgLevel(3)), this._parser.registerEscHandler({ final: "|" }, () => this.setgLevel(3)), this._parser.registerEscHandler({ final: "}" }, () => this.setgLevel(2)), this._parser.registerEscHandler({ final: "~" }, () => this.setgLevel(1)), this._parser.registerEscHandler({ intermediates: "%", final: "@" }, () => this.selectDefaultCharset()), this._parser.registerEscHandler({ intermediates: "%", final: "G" }, () => this.selectDefaultCharset());
+          }), this._parser.setOscHandlerFallback((S, D, B) => {
+            this._logService.debug("Unknown OSC code: ", { identifier: S, action: D, data: B });
+          }), this._parser.setDcsHandlerFallback((S, D, B) => {
+            D === "HOOK" && (B = B.toArray()), this._logService.debug("Unknown DCS code: ", { identifier: this._parser.identToString(S), action: D, payload: B });
+          }), this._parser.setPrintHandler((S, D, B) => this.print(S, D, B)), this._parser.registerCsiHandler({ final: "@" }, (S) => this.insertChars(S)), this._parser.registerCsiHandler({ intermediates: " ", final: "@" }, (S) => this.scrollLeft(S)), this._parser.registerCsiHandler({ final: "A" }, (S) => this.cursorUp(S)), this._parser.registerCsiHandler({ intermediates: " ", final: "A" }, (S) => this.scrollRight(S)), this._parser.registerCsiHandler({ final: "B" }, (S) => this.cursorDown(S)), this._parser.registerCsiHandler({ final: "C" }, (S) => this.cursorForward(S)), this._parser.registerCsiHandler({ final: "D" }, (S) => this.cursorBackward(S)), this._parser.registerCsiHandler({ final: "E" }, (S) => this.cursorNextLine(S)), this._parser.registerCsiHandler({ final: "F" }, (S) => this.cursorPrecedingLine(S)), this._parser.registerCsiHandler({ final: "G" }, (S) => this.cursorCharAbsolute(S)), this._parser.registerCsiHandler({ final: "H" }, (S) => this.cursorPosition(S)), this._parser.registerCsiHandler({ final: "I" }, (S) => this.cursorForwardTab(S)), this._parser.registerCsiHandler({ final: "J" }, (S) => this.eraseInDisplay(S, !1)), this._parser.registerCsiHandler({ prefix: "?", final: "J" }, (S) => this.eraseInDisplay(S, !0)), this._parser.registerCsiHandler({ final: "K" }, (S) => this.eraseInLine(S, !1)), this._parser.registerCsiHandler({ prefix: "?", final: "K" }, (S) => this.eraseInLine(S, !0)), this._parser.registerCsiHandler({ final: "L" }, (S) => this.insertLines(S)), this._parser.registerCsiHandler({ final: "M" }, (S) => this.deleteLines(S)), this._parser.registerCsiHandler({ final: "P" }, (S) => this.deleteChars(S)), this._parser.registerCsiHandler({ final: "S" }, (S) => this.scrollUp(S)), this._parser.registerCsiHandler({ final: "T" }, (S) => this.scrollDown(S)), this._parser.registerCsiHandler({ final: "X" }, (S) => this.eraseChars(S)), this._parser.registerCsiHandler({ final: "Z" }, (S) => this.cursorBackwardTab(S)), this._parser.registerCsiHandler({ final: "`" }, (S) => this.charPosAbsolute(S)), this._parser.registerCsiHandler({ final: "a" }, (S) => this.hPositionRelative(S)), this._parser.registerCsiHandler({ final: "b" }, (S) => this.repeatPrecedingCharacter(S)), this._parser.registerCsiHandler({ final: "c" }, (S) => this.sendDeviceAttributesPrimary(S)), this._parser.registerCsiHandler({ prefix: ">", final: "c" }, (S) => this.sendDeviceAttributesSecondary(S)), this._parser.registerCsiHandler({ final: "d" }, (S) => this.linePosAbsolute(S)), this._parser.registerCsiHandler({ final: "e" }, (S) => this.vPositionRelative(S)), this._parser.registerCsiHandler({ final: "f" }, (S) => this.hVPosition(S)), this._parser.registerCsiHandler({ final: "g" }, (S) => this.tabClear(S)), this._parser.registerCsiHandler({ final: "h" }, (S) => this.setMode(S)), this._parser.registerCsiHandler({ prefix: "?", final: "h" }, (S) => this.setModePrivate(S)), this._parser.registerCsiHandler({ final: "l" }, (S) => this.resetMode(S)), this._parser.registerCsiHandler({ prefix: "?", final: "l" }, (S) => this.resetModePrivate(S)), this._parser.registerCsiHandler({ final: "m" }, (S) => this.charAttributes(S)), this._parser.registerCsiHandler({ final: "n" }, (S) => this.deviceStatus(S)), this._parser.registerCsiHandler({ prefix: "?", final: "n" }, (S) => this.deviceStatusPrivate(S)), this._parser.registerCsiHandler({ intermediates: "!", final: "p" }, (S) => this.softReset(S)), this._parser.registerCsiHandler({ intermediates: " ", final: "q" }, (S) => this.setCursorStyle(S)), this._parser.registerCsiHandler({ final: "r" }, (S) => this.setScrollRegion(S)), this._parser.registerCsiHandler({ final: "s" }, (S) => this.saveCursor(S)), this._parser.registerCsiHandler({ final: "t" }, (S) => this.windowOptions(S)), this._parser.registerCsiHandler({ final: "u" }, (S) => this.restoreCursor(S)), this._parser.registerCsiHandler({ intermediates: "'", final: "}" }, (S) => this.insertColumns(S)), this._parser.registerCsiHandler({ intermediates: "'", final: "~" }, (S) => this.deleteColumns(S)), this._parser.registerCsiHandler({ intermediates: '"', final: "q" }, (S) => this.selectProtected(S)), this._parser.registerCsiHandler({ intermediates: "$", final: "p" }, (S) => this.requestMode(S, !0)), this._parser.registerCsiHandler({ prefix: "?", intermediates: "$", final: "p" }, (S) => this.requestMode(S, !1)), this._parser.setExecuteHandler(n.C0.BEL, () => this.bell()), this._parser.setExecuteHandler(n.C0.LF, () => this.lineFeed()), this._parser.setExecuteHandler(n.C0.VT, () => this.lineFeed()), this._parser.setExecuteHandler(n.C0.FF, () => this.lineFeed()), this._parser.setExecuteHandler(n.C0.CR, () => this.carriageReturn()), this._parser.setExecuteHandler(n.C0.BS, () => this.backspace()), this._parser.setExecuteHandler(n.C0.HT, () => this.tab()), this._parser.setExecuteHandler(n.C0.SO, () => this.shiftOut()), this._parser.setExecuteHandler(n.C0.SI, () => this.shiftIn()), this._parser.setExecuteHandler(n.C1.IND, () => this.index()), this._parser.setExecuteHandler(n.C1.NEL, () => this.nextLine()), this._parser.setExecuteHandler(n.C1.HTS, () => this.tabSet()), this._parser.registerOscHandler(0, new v.OscHandler((S) => (this.setTitle(S), this.setIconName(S), !0))), this._parser.registerOscHandler(1, new v.OscHandler((S) => this.setIconName(S))), this._parser.registerOscHandler(2, new v.OscHandler((S) => this.setTitle(S))), this._parser.registerOscHandler(4, new v.OscHandler((S) => this.setOrReportIndexedColor(S))), this._parser.registerOscHandler(8, new v.OscHandler((S) => this.setHyperlink(S))), this._parser.registerOscHandler(10, new v.OscHandler((S) => this.setOrReportFgColor(S))), this._parser.registerOscHandler(11, new v.OscHandler((S) => this.setOrReportBgColor(S))), this._parser.registerOscHandler(12, new v.OscHandler((S) => this.setOrReportCursorColor(S))), this._parser.registerOscHandler(104, new v.OscHandler((S) => this.restoreIndexedColor(S))), this._parser.registerOscHandler(110, new v.OscHandler((S) => this.restoreFgColor(S))), this._parser.registerOscHandler(111, new v.OscHandler((S) => this.restoreBgColor(S))), this._parser.registerOscHandler(112, new v.OscHandler((S) => this.restoreCursorColor(S))), this._parser.registerEscHandler({ final: "7" }, () => this.saveCursor()), this._parser.registerEscHandler({ final: "8" }, () => this.restoreCursor()), this._parser.registerEscHandler({ final: "D" }, () => this.index()), this._parser.registerEscHandler({ final: "E" }, () => this.nextLine()), this._parser.registerEscHandler({ final: "H" }, () => this.tabSet()), this._parser.registerEscHandler({ final: "M" }, () => this.reverseIndex()), this._parser.registerEscHandler({ final: "=" }, () => this.keypadApplicationMode()), this._parser.registerEscHandler({ final: ">" }, () => this.keypadNumericMode()), this._parser.registerEscHandler({ final: "c" }, () => this.fullReset()), this._parser.registerEscHandler({ final: "n" }, () => this.setgLevel(2)), this._parser.registerEscHandler({ final: "o" }, () => this.setgLevel(3)), this._parser.registerEscHandler({ final: "|" }, () => this.setgLevel(3)), this._parser.registerEscHandler({ final: "}" }, () => this.setgLevel(2)), this._parser.registerEscHandler({ final: "~" }, () => this.setgLevel(1)), this._parser.registerEscHandler({ intermediates: "%", final: "@" }, () => this.selectDefaultCharset()), this._parser.registerEscHandler({ intermediates: "%", final: "G" }, () => this.selectDefaultCharset());
           for (const S in d.CHARSETS) this._parser.registerEscHandler({ intermediates: "(", final: S }, () => this.selectCharset("(" + S)), this._parser.registerEscHandler({ intermediates: ")", final: S }, () => this.selectCharset(")" + S)), this._parser.registerEscHandler({ intermediates: "*", final: S }, () => this.selectCharset("*" + S)), this._parser.registerEscHandler({ intermediates: "+", final: S }, () => this.selectCharset("+" + S)), this._parser.registerEscHandler({ intermediates: "-", final: S }, () => this.selectCharset("-" + S)), this._parser.registerEscHandler({ intermediates: ".", final: S }, () => this.selectCharset("." + S)), this._parser.registerEscHandler({ intermediates: "/", final: S }, () => this.selectCharset("/" + S));
           this._parser.registerEscHandler({ intermediates: "#", final: "8" }, () => this.screenAlignmentPattern()), this._parser.setErrorHandler((S) => (this._logService.error("Parsing error: ", S), S)), this._parser.registerDcsHandler({ intermediates: "$", final: "q" }, new m.DcsHandler((S, D) => this.requestStatusString(S, D)));
         }
@@ -2626,8 +2627,8 @@ WARNING: This link could potentially be dangerous`)) {
         print(C, w, E) {
           let x, H;
           const F = this._charsetService.charset, U = this._optionsService.rawOptions.screenReaderMode, N = this._bufferService.cols, G = this._coreService.decPrivateModes.wraparound, S = this._coreService.modes.insertMode, D = this._curAttrData;
-          let T = this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y);
-          this._dirtyRowTracker.markDirty(this._activeBuffer.y), this._activeBuffer.x && E - w > 0 && T.getWidth(this._activeBuffer.x - 1) === 2 && T.setCellFromCodePoint(this._activeBuffer.x - 1, 0, 1, D.fg, D.bg, D.extended);
+          let B = this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y);
+          this._dirtyRowTracker.markDirty(this._activeBuffer.y), this._activeBuffer.x && E - w > 0 && B.getWidth(this._activeBuffer.x - 1) === 2 && B.setCellFromCodePoint(this._activeBuffer.x - 1, 0, 1, D.fg, D.bg, D.extended);
           for (let A = w; A < E; ++A) {
             if (x = C[A], H = this._unicodeService.wcwidth(x), x < 127 && F) {
               const z = F[String.fromCharCode(x)];
@@ -2636,14 +2637,14 @@ WARNING: This link could potentially be dangerous`)) {
             if (U && this._onA11yChar.fire((0, u.stringFromCodePoint)(x)), this._getCurrentLinkId() && this._oscLinkService.addLineToLink(this._getCurrentLinkId(), this._activeBuffer.ybase + this._activeBuffer.y), H || !this._activeBuffer.x) {
               if (this._activeBuffer.x + H - 1 >= N) {
                 if (G) {
-                  for (; this._activeBuffer.x < N; ) T.setCellFromCodePoint(this._activeBuffer.x++, 0, 1, D.fg, D.bg, D.extended);
-                  this._activeBuffer.x = 0, this._activeBuffer.y++, this._activeBuffer.y === this._activeBuffer.scrollBottom + 1 ? (this._activeBuffer.y--, this._bufferService.scroll(this._eraseAttrData(), !0)) : (this._activeBuffer.y >= this._bufferService.rows && (this._activeBuffer.y = this._bufferService.rows - 1), this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y).isWrapped = !0), T = this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y);
+                  for (; this._activeBuffer.x < N; ) B.setCellFromCodePoint(this._activeBuffer.x++, 0, 1, D.fg, D.bg, D.extended);
+                  this._activeBuffer.x = 0, this._activeBuffer.y++, this._activeBuffer.y === this._activeBuffer.scrollBottom + 1 ? (this._activeBuffer.y--, this._bufferService.scroll(this._eraseAttrData(), !0)) : (this._activeBuffer.y >= this._bufferService.rows && (this._activeBuffer.y = this._bufferService.rows - 1), this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y).isWrapped = !0), B = this._activeBuffer.lines.get(this._activeBuffer.ybase + this._activeBuffer.y);
                 } else if (this._activeBuffer.x = N - 1, H === 2) continue;
               }
-              if (S && (T.insertCells(this._activeBuffer.x, H, this._activeBuffer.getNullCell(D), D), T.getWidth(N - 1) === 2 && T.setCellFromCodePoint(N - 1, t.NULL_CELL_CODE, t.NULL_CELL_WIDTH, D.fg, D.bg, D.extended)), T.setCellFromCodePoint(this._activeBuffer.x++, x, H, D.fg, D.bg, D.extended), H > 0) for (; --H; ) T.setCellFromCodePoint(this._activeBuffer.x++, 0, 0, D.fg, D.bg, D.extended);
-            } else T.getWidth(this._activeBuffer.x - 1) ? T.addCodepointToCell(this._activeBuffer.x - 1, x) : T.addCodepointToCell(this._activeBuffer.x - 2, x);
+              if (S && (B.insertCells(this._activeBuffer.x, H, this._activeBuffer.getNullCell(D), D), B.getWidth(N - 1) === 2 && B.setCellFromCodePoint(N - 1, t.NULL_CELL_CODE, t.NULL_CELL_WIDTH, D.fg, D.bg, D.extended)), B.setCellFromCodePoint(this._activeBuffer.x++, x, H, D.fg, D.bg, D.extended), H > 0) for (; --H; ) B.setCellFromCodePoint(this._activeBuffer.x++, 0, 0, D.fg, D.bg, D.extended);
+            } else B.getWidth(this._activeBuffer.x - 1) ? B.addCodepointToCell(this._activeBuffer.x - 1, x) : B.addCodepointToCell(this._activeBuffer.x - 2, x);
           }
-          E - w > 0 && (T.loadCell(this._activeBuffer.x - 1, this._workCell), this._workCell.getWidth() === 2 || this._workCell.getCode() > 65535 ? this._parser.precedingCodepoint = 0 : this._workCell.isCombined() ? this._parser.precedingCodepoint = this._workCell.getChars().charCodeAt(0) : this._parser.precedingCodepoint = this._workCell.content), this._activeBuffer.x < N && E - w > 0 && T.getWidth(this._activeBuffer.x) === 0 && !T.hasContent(this._activeBuffer.x) && T.setCellFromCodePoint(this._activeBuffer.x, 0, 1, D.fg, D.bg, D.extended), this._dirtyRowTracker.markDirty(this._activeBuffer.y);
+          E - w > 0 && (B.loadCell(this._activeBuffer.x - 1, this._workCell), this._workCell.getWidth() === 2 || this._workCell.getCode() > 65535 ? this._parser.precedingCodepoint = 0 : this._workCell.isCombined() ? this._parser.precedingCodepoint = this._workCell.getChars().charCodeAt(0) : this._parser.precedingCodepoint = this._workCell.content), this._activeBuffer.x < N && E - w > 0 && B.getWidth(this._activeBuffer.x) === 0 && !B.hasContent(this._activeBuffer.x) && B.setCellFromCodePoint(this._activeBuffer.x, 0, 1, D.fg, D.bg, D.extended), this._dirtyRowTracker.markDirty(this._activeBuffer.y);
         }
         registerCsiHandler(C, w) {
           return C.final !== "t" || C.prefix || C.intermediates ? this._parser.registerCsiHandler(C, w) : this._parser.registerCsiHandler(C, (E) => !L(E.params[0], this._optionsService.rawOptions.windowOptions) || w(E));
@@ -3042,8 +3043,8 @@ WARNING: This link could potentially be dangerous`)) {
           return !0;
         }
         requestMode(C, w) {
-          const E = this._coreService.decPrivateModes, { activeProtocol: x, activeEncoding: H } = this._coreMouseService, F = this._coreService, { buffers: U, cols: N } = this._bufferService, { active: G, alt: S } = U, D = this._optionsService.rawOptions, T = (V) => V ? 1 : 2, A = C.params[0];
-          return z = A, W = w ? A === 2 ? 4 : A === 4 ? T(F.modes.insertMode) : A === 12 ? 3 : A === 20 ? T(D.convertEol) : 0 : A === 1 ? T(E.applicationCursorKeys) : A === 3 ? D.windowOptions.setWinLines ? N === 80 ? 2 : N === 132 ? 1 : 0 : 0 : A === 6 ? T(E.origin) : A === 7 ? T(E.wraparound) : A === 8 ? 3 : A === 9 ? T(x === "X10") : A === 12 ? T(D.cursorBlink) : A === 25 ? T(!F.isCursorHidden) : A === 45 ? T(E.reverseWraparound) : A === 66 ? T(E.applicationKeypad) : A === 67 ? 4 : A === 1e3 ? T(x === "VT200") : A === 1002 ? T(x === "DRAG") : A === 1003 ? T(x === "ANY") : A === 1004 ? T(E.sendFocus) : A === 1005 ? 4 : A === 1006 ? T(H === "SGR") : A === 1015 ? 4 : A === 1016 ? T(H === "SGR_PIXELS") : A === 1048 ? 1 : A === 47 || A === 1047 || A === 1049 ? T(G === S) : A === 2004 ? T(E.bracketedPasteMode) : 0, F.triggerDataEvent(`${n.C0.ESC}[${w ? "" : "?"}${z};${W}$y`), !0;
+          const E = this._coreService.decPrivateModes, { activeProtocol: x, activeEncoding: H } = this._coreMouseService, F = this._coreService, { buffers: U, cols: N } = this._bufferService, { active: G, alt: S } = U, D = this._optionsService.rawOptions, B = (V) => V ? 1 : 2, A = C.params[0];
+          return z = A, W = w ? A === 2 ? 4 : A === 4 ? B(F.modes.insertMode) : A === 12 ? 3 : A === 20 ? B(D.convertEol) : 0 : A === 1 ? B(E.applicationCursorKeys) : A === 3 ? D.windowOptions.setWinLines ? N === 80 ? 2 : N === 132 ? 1 : 0 : 0 : A === 6 ? B(E.origin) : A === 7 ? B(E.wraparound) : A === 8 ? 3 : A === 9 ? B(x === "X10") : A === 12 ? B(D.cursorBlink) : A === 25 ? B(!F.isCursorHidden) : A === 45 ? B(E.reverseWraparound) : A === 66 ? B(E.applicationKeypad) : A === 67 ? 4 : A === 1e3 ? B(x === "VT200") : A === 1002 ? B(x === "DRAG") : A === 1003 ? B(x === "ANY") : A === 1004 ? B(E.sendFocus) : A === 1005 ? 4 : A === 1006 ? B(H === "SGR") : A === 1015 ? 4 : A === 1016 ? B(H === "SGR_PIXELS") : A === 1048 ? 1 : A === 47 || A === 1047 || A === 1049 ? B(G === S) : A === 2004 ? B(E.bracketedPasteMode) : 0, F.triggerDataEvent(`${n.C0.ESC}[${w ? "" : "?"}${z};${W}$y`), !0;
           var z, W;
         }
         _updateAttrColor(C, w, E, x, H) {
@@ -5922,10 +5923,10 @@ WARNING: This link could potentially be dangerous`)) {
     })(), Y;
   })());
 })(pe);
-var Ce = pe.exports, me = { exports: {} };
-(function(Z, B) {
+var be = pe.exports, me = { exports: {} };
+(function(Q, T) {
   (function($, j) {
-    Z.exports = j();
+    Q.exports = j();
   })(self, () => (() => {
     var $ = {};
     return (() => {
@@ -5953,8 +5954,8 @@ var Ce = pe.exports, me = { exports: {} };
     })(), $;
   })());
 })(me);
-var be = me.exports;
-const ye = `/**
+var ye = me.exports;
+const we = `/**
  * Copyright (c) 2014 The xterm.js authors. All rights reserved.
  * Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)
  * https://github.com/chjj/term.js
@@ -5985,24 +5986,21 @@ const ye = `/**
  *   The original design remains. The terminal itself
  *   has been extended to include xterm CSI codes, among
  *   other features.
- */.xterm{cursor:text;position:relative;-moz-user-select:none;user-select:none;-ms-user-select:none;-webkit-user-select:none}.xterm.focus,.xterm:focus{outline:none}.xterm .xterm-helpers{position:absolute;top:0;z-index:5}.xterm .xterm-helper-textarea{padding:0;border:0;margin:0;position:absolute;opacity:0;left:-9999em;top:0;width:0;height:0;z-index:-5;white-space:nowrap;overflow:hidden;resize:none}.xterm .composition-view{background:#000;color:#fff;display:none;position:absolute;white-space:nowrap;z-index:1}.xterm .composition-view.active{display:block}.xterm .xterm-viewport{background-color:#000;overflow-y:scroll;cursor:default;position:absolute;inset:0}.xterm .xterm-screen{position:relative}.xterm .xterm-screen canvas{position:absolute;left:0;top:0}.xterm .xterm-scroll-area{visibility:hidden}.xterm-char-measure-element{display:inline-block;visibility:hidden;position:absolute;top:0;left:-9999em;line-height:normal}.xterm.enable-mouse-events{cursor:default}.xterm.xterm-cursor-pointer,.xterm .xterm-cursor-pointer{cursor:pointer}.xterm.column-select.focus{cursor:crosshair}.xterm .xterm-accessibility,.xterm .xterm-message{position:absolute;inset:0;z-index:10;color:transparent;pointer-events:none}.xterm .live-region{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}.xterm-dim{opacity:1!important}.xterm-underline-1{text-decoration:underline}.xterm-underline-2{-webkit-text-decoration:double underline;text-decoration:double underline}.xterm-underline-3{-webkit-text-decoration:wavy underline;text-decoration:wavy underline}.xterm-underline-4{-webkit-text-decoration:dotted underline;text-decoration:dotted underline}.xterm-underline-5{-webkit-text-decoration:dashed underline;text-decoration:dashed underline}.xterm-overline{text-decoration:overline}.xterm-overline.xterm-underline-1{text-decoration:overline underline}.xterm-overline.xterm-underline-2{-webkit-text-decoration:overline double underline;text-decoration:overline double underline}.xterm-overline.xterm-underline-3{-webkit-text-decoration:overline wavy underline;text-decoration:overline wavy underline}.xterm-overline.xterm-underline-4{-webkit-text-decoration:overline dotted underline;text-decoration:overline dotted underline}.xterm-overline.xterm-underline-5{-webkit-text-decoration:overline dashed underline;text-decoration:overline dashed underline}.xterm-strikethrough{text-decoration:line-through}.xterm-screen .xterm-decoration-container .xterm-decoration{z-index:6;position:absolute}.xterm-screen .xterm-decoration-container .xterm-decoration.xterm-decoration-top-layer{z-index:7}.xterm-decoration-overview-ruler{z-index:8;position:absolute;top:0;right:0;pointer-events:none}.xterm-decoration-top{z-index:2;position:relative}`, we = 1e3, Ee = 12e3, ke = 8, Le = (Z) => {
-  const B = (Z || "").trim();
-  return B ? B.startsWith("/") ? B.replace(/\/+$/, "") : `/${B.replace(/\/+$/, "")}` : "";
-}, xe = (Z) => Z === "shell" ? "repl/shell/ws" : "repl/app/ws", De = (Z, B) => {
-  const $ = window.location.protocol === "https:" ? "wss:" : "ws:", j = Le(Z), q = xe(B);
+ */.xterm{cursor:text;position:relative;-moz-user-select:none;user-select:none;-ms-user-select:none;-webkit-user-select:none}.xterm.focus,.xterm:focus{outline:none}.xterm .xterm-helpers{position:absolute;top:0;z-index:5}.xterm .xterm-helper-textarea{padding:0;border:0;margin:0;position:absolute;opacity:0;left:-9999em;top:0;width:0;height:0;z-index:-5;white-space:nowrap;overflow:hidden;resize:none}.xterm .composition-view{background:#000;color:#fff;display:none;position:absolute;white-space:nowrap;z-index:1}.xterm .composition-view.active{display:block}.xterm .xterm-viewport{background-color:#000;overflow-y:scroll;cursor:default;position:absolute;inset:0}.xterm .xterm-screen{position:relative}.xterm .xterm-screen canvas{position:absolute;left:0;top:0}.xterm .xterm-scroll-area{visibility:hidden}.xterm-char-measure-element{display:inline-block;visibility:hidden;position:absolute;top:0;left:-9999em;line-height:normal}.xterm.enable-mouse-events{cursor:default}.xterm.xterm-cursor-pointer,.xterm .xterm-cursor-pointer{cursor:pointer}.xterm.column-select.focus{cursor:crosshair}.xterm .xterm-accessibility,.xterm .xterm-message{position:absolute;inset:0;z-index:10;color:transparent;pointer-events:none}.xterm .live-region{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}.xterm-dim{opacity:1!important}.xterm-underline-1{text-decoration:underline}.xterm-underline-2{-webkit-text-decoration:double underline;text-decoration:double underline}.xterm-underline-3{-webkit-text-decoration:wavy underline;text-decoration:wavy underline}.xterm-underline-4{-webkit-text-decoration:dotted underline;text-decoration:dotted underline}.xterm-underline-5{-webkit-text-decoration:dashed underline;text-decoration:dashed underline}.xterm-overline{text-decoration:overline}.xterm-overline.xterm-underline-1{text-decoration:overline underline}.xterm-overline.xterm-underline-2{-webkit-text-decoration:overline double underline;text-decoration:overline double underline}.xterm-overline.xterm-underline-3{-webkit-text-decoration:overline wavy underline;text-decoration:overline wavy underline}.xterm-overline.xterm-underline-4{-webkit-text-decoration:overline dotted underline;text-decoration:overline dotted underline}.xterm-overline.xterm-underline-5{-webkit-text-decoration:overline dashed underline;text-decoration:overline dashed underline}.xterm-strikethrough{text-decoration:line-through}.xterm-screen .xterm-decoration-container .xterm-decoration{z-index:6;position:absolute}.xterm-screen .xterm-decoration-container .xterm-decoration.xterm-decoration-top-layer{z-index:7}.xterm-decoration-overview-ruler{z-index:8;position:absolute;top:0;right:0;pointer-events:none}.xterm-decoration-top{z-index:2;position:relative}`, Ee = 1e3, ke = 12e3, Le = 8, xe = (Q) => Q === "shell" ? "repl/shell/ws" : "repl/app/ws", De = (Q, T) => {
+  const $ = window.location.protocol === "https:" ? "wss:" : "ws:", j = Ce(Q), q = xe(T);
   return `${$}//${window.location.host}${j}/${q}`;
 }, Re = /* @__PURE__ */ (() => {
-  let Z = !1;
+  let Q = !1;
   return () => {
-    if (Z)
+    if (Q)
       return;
-    const B = document.createElement("style");
-    B.setAttribute("data-debug-repl-xterm", "true"), B.textContent = ye, document.head.appendChild(B), Z = !0;
+    const T = document.createElement("style");
+    T.setAttribute("data-debug-repl-xterm", "true"), T.textContent = we, document.head.appendChild(T), Q = !0;
   };
 })();
 class Ae {
-  constructor(B) {
-    this.socket = null, this.status = "disconnected", this.reconnectAttempts = 0, this.reconnectTimer = null, this.manualClose = !1, this.resetOnOpen = !1, this.resizeObserver = null, this.lineBuffer = "", this.skipEscape = !1, this.prompt = ">>> ", this.awaitingPrompt = !0, this.options = B, Re(), this.terminal = new Ce.Terminal({
+  constructor(T) {
+    this.socket = null, this.status = "disconnected", this.reconnectAttempts = 0, this.reconnectTimer = null, this.manualClose = !1, this.resetOnOpen = !1, this.resizeObserver = null, this.lineBuffer = "", this.skipEscape = !1, this.prompt = ">>> ", this.awaitingPrompt = !0, this.options = T, Re(), this.terminal = new be.Terminal({
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       fontSize: 12,
       lineHeight: 1.3,
@@ -6015,14 +6013,14 @@ class Ae {
         cursor: "#f5e0dc",
         selectionBackground: "rgba(137, 180, 250, 0.35)"
       }
-    }), this.fitAddon = new be.FitAddon(), this.terminal.loadAddon(this.fitAddon), this.terminal.open(B.container), this.fitAddon.fit(), this.terminal.focus(), this.bindTerminal(), this.observeResize(B.container), B.autoConnect !== !1 && this.connect();
+    }), this.fitAddon = new ye.FitAddon(), this.terminal.loadAddon(this.fitAddon), this.terminal.open(T.container), this.fitAddon.fit(), this.terminal.focus(), this.bindTerminal(), this.observeResize(T.container), T.autoConnect !== !1 && this.connect();
   }
   connect() {
     if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING))
       return;
     this.manualClose = !1, this.setStatus("connecting");
-    const B = De(this.options.debugPath, this.options.kind);
-    this.socket = new WebSocket(B), this.socket.onopen = () => {
+    const T = De(this.options.debugPath, this.options.kind);
+    this.socket = new WebSocket(T), this.socket.onopen = () => {
       this.reconnectAttempts = 0, this.resetOnOpen && (this.resetOnOpen = !1, this.resetTerminal()), this.setStatus("connected"), this.awaitingPrompt = !0, this.options.kind === "console" && this.writePrompt(), this.sendResize();
     }, this.socket.onmessage = ($) => {
       !$ || typeof $.data != "string" || this.handleMessage($.data);
@@ -6054,43 +6052,43 @@ class Ae {
   focus() {
     this.terminal.focus();
   }
-  paste(B) {
-    B && (this.handlePaste(B), this.terminal.focus());
+  paste(T) {
+    T && (this.handlePaste(T), this.terminal.focus());
   }
   bindTerminal() {
-    if (this.terminal.attachCustomKeyEventHandler((B) => this.handleKeyEvent(B)), this.options.kind === "shell") {
-      this.terminal.onData((B) => {
-        this.sendCommand({ type: "input", data: B });
+    if (this.terminal.attachCustomKeyEventHandler((T) => this.handleKeyEvent(T)), this.options.kind === "shell") {
+      this.terminal.onData((T) => {
+        this.sendCommand({ type: "input", data: T });
       });
       return;
     }
-    this.terminal.onData((B) => this.handleConsoleInput(B));
+    this.terminal.onData((T) => this.handleConsoleInput(T));
   }
-  handleKeyEvent(B) {
-    if (!B)
+  handleKeyEvent(T) {
+    if (!T)
       return !0;
-    const $ = B.metaKey || B.ctrlKey;
-    if ($ && B.shiftKey && B.code === "KeyC") {
+    const $ = T.metaKey || T.ctrlKey;
+    if ($ && T.shiftKey && T.code === "KeyC") {
       const j = this.terminal.getSelection();
       return j ? (navigator.clipboard?.writeText(j).catch(() => null), !1) : !0;
     }
-    return $ && B.shiftKey && B.code === "KeyV" ? (navigator.clipboard?.readText().then((j) => {
+    return $ && T.shiftKey && T.code === "KeyV" ? (navigator.clipboard?.readText().then((j) => {
       j && this.handlePaste(j);
     }).catch(() => null), !1) : !0;
   }
-  handlePaste(B) {
-    if (B) {
+  handlePaste(T) {
+    if (T) {
       if (this.options.kind === "shell") {
-        this.sendCommand({ type: "input", data: B });
+        this.sendCommand({ type: "input", data: T });
         return;
       }
-      this.handleConsoleInput(B);
+      this.handleConsoleInput(T);
     }
   }
-  handleConsoleInput(B) {
-    if (!B)
+  handleConsoleInput(T) {
+    if (!T)
       return;
-    const $ = B.replace(/\r\n/g, `
+    const $ = T.replace(/\r\n/g, `
 `);
     for (const j of $) {
       if (this.skipEscape) {
@@ -6119,9 +6117,9 @@ class Ae {
     }
   }
   submitLine() {
-    const B = this.lineBuffer.trim();
+    const T = this.lineBuffer.trim();
     if (this.lineBuffer = "", this.terminal.write(`\r
-`), !B) {
+`), !T) {
       this.writePrompt(!0);
       return;
     }
@@ -6130,67 +6128,67 @@ class Ae {
 `), this.writePrompt(!0);
       return;
     }
-    this.sendCommand({ type: "eval", code: B }), this.awaitingPrompt = !0;
+    this.sendCommand({ type: "eval", code: T }), this.awaitingPrompt = !0;
   }
-  handleMessage(B) {
+  handleMessage(T) {
     let $;
     try {
-      $ = JSON.parse(B);
+      $ = JSON.parse(T);
     } catch {
       return;
     }
     !$ || !$.type || (this.options.kind === "shell" ? this.handleShellEvent($) : this.handleConsoleEvent($));
   }
-  handleShellEvent(B) {
-    if (B.type === "output" && typeof B.data == "string") {
-      this.terminal.write(B.data);
+  handleShellEvent(T) {
+    if (T.type === "output" && typeof T.data == "string") {
+      this.terminal.write(T.data);
       return;
     }
-    if (B.type === "exit") {
-      const $ = Number(B.code ?? 0);
+    if (T.type === "exit") {
+      const $ = Number(T.code ?? 0);
       this.terminal.write(`\r
 [session closed: ${$}]\r
 `);
     }
   }
-  handleConsoleEvent(B) {
-    if (B.type === "result") {
-      const $ = typeof B.output == "string" ? B.output : String(B.output ?? "");
+  handleConsoleEvent(T) {
+    if (T.type === "result") {
+      const $ = typeof T.output == "string" ? T.output : String(T.output ?? "");
       $ && this.writeLine($), this.writePrompt();
       return;
     }
-    if (B.type === "error") {
-      const $ = typeof B.output == "string" ? B.output : String(B.output ?? "");
+    if (T.type === "error") {
+      const $ = typeof T.output == "string" ? T.output : String(T.output ?? "");
       $ && this.terminal.write(`\x1B[31m${$}\x1B[0m\r
 `), this.writePrompt();
     }
   }
-  writeLine(B) {
-    const $ = B.replace(/\r?\n/g, `\r
+  writeLine(T) {
+    const $ = T.replace(/\r?\n/g, `\r
 `);
     this.terminal.write(`${$}\r
 `);
   }
-  writePrompt(B = !1) {
-    this.options.kind === "console" && (!B && !this.awaitingPrompt || (this.awaitingPrompt = !1, this.terminal.write(this.prompt)));
+  writePrompt(T = !1) {
+    this.options.kind === "console" && (!T && !this.awaitingPrompt || (this.awaitingPrompt = !1, this.terminal.write(this.prompt)));
   }
   sendResize() {
     this.options.kind === "shell" && (!this.socket || this.socket.readyState !== WebSocket.OPEN || !this.terminal.cols || !this.terminal.rows || this.sendCommand({ type: "resize", cols: this.terminal.cols, rows: this.terminal.rows }));
   }
-  sendCommand(B) {
-    !B || !B.type || !this.socket || this.socket.readyState !== WebSocket.OPEN || this.socket.send(JSON.stringify(B));
+  sendCommand(T) {
+    !T || !T.type || !this.socket || this.socket.readyState !== WebSocket.OPEN || this.socket.send(JSON.stringify(T));
   }
-  setStatus(B) {
-    this.status !== B && (this.status = B, this.options.onStatusChange?.(B));
+  setStatus(T) {
+    this.status !== T && (this.status = T, this.options.onStatusChange?.(T));
   }
   scheduleReconnect() {
     if (this.manualClose)
       return;
-    if (this.reconnectAttempts >= ke) {
+    if (this.reconnectAttempts >= Le) {
       this.setStatus("disconnected");
       return;
     }
-    const B = this.reconnectAttempts, $ = Math.min(we * Math.pow(2, B), Ee), j = $ * (0.2 + Math.random() * 0.3);
+    const T = this.reconnectAttempts, $ = Math.min(Ee * Math.pow(2, T), ke), j = $ * (0.2 + Math.random() * 0.3);
     this.reconnectAttempts += 1, this.resetOnOpen = !0, this.reconnectTimer = window.setTimeout(() => {
       this.connect();
     }, $ + j);
@@ -6198,10 +6196,10 @@ class Ae {
   resetTerminal() {
     this.lineBuffer = "", this.skipEscape = !1, this.awaitingPrompt = !0, this.terminal.reset();
   }
-  observeResize(B) {
-    !B || typeof ResizeObserver > "u" || (this.resizeObserver = new ResizeObserver(() => {
+  observeResize(T) {
+    !T || typeof ResizeObserver > "u" || (this.resizeObserver = new ResizeObserver(() => {
       this.fitAddon.fit(), this.sendResize();
-    }), this.resizeObserver.observe(B));
+    }), this.resizeObserver.observe(T));
   }
 }
 const Be = {
@@ -6217,14 +6215,14 @@ const Be = {
   reconnecting: "reconnecting",
   error: "error"
 }, Oe = '<i class="iconoir-terminal debug-repl__overlay-icon"></i>', Pe = '<span class="debug-repl__overlay-text">Session not connected. Click the button below to start a terminal session.</span>', Ie = '<button class="debug-repl__overlay-btn" data-overlay-connect><i class="iconoir-play"></i> Connect</button>';
-class Fe {
-  constructor(B) {
-    this.commandsEl = null, this.connectButton = null, this.options = B, this.commands = Array.isArray(B.commands) ? B.commands : [], this.root = document.createElement("section"), this.root.className = "debug-repl", this.root.dataset.replKind = B.kind;
-    const $ = B.kind === "console" ? this.renderCommands() : "";
+class We {
+  constructor(T) {
+    this.commandsEl = null, this.connectButton = null, this.options = T, this.commands = Array.isArray(T.commands) ? T.commands : [], this.root = document.createElement("section"), this.root.className = "debug-repl", this.root.dataset.replKind = T.kind;
+    const $ = T.kind === "console" ? this.renderCommands() : "";
     this.root.innerHTML = `
       <div class="debug-repl__header">
         <div class="debug-repl__title">
-          <span class="debug-repl__label">${Be[B.kind]}</span>
+          <span class="debug-repl__label">${Be[T.kind]}</span>
           <div class="debug-repl__status" data-repl-status="disconnected">
             <span class="debug-repl__dot"></span>
             <span data-repl-status-text>disconnected</span>
@@ -6247,22 +6245,22 @@ class Fe {
         ${$}
       </div>
       <div class="debug-repl__footer">
-        <span class="debug-repl__hint">${Te[B.kind]}</span>
+        <span class="debug-repl__hint">${Te[T.kind]}</span>
       </div>
     `, this.statusEl = this.requireElement("[data-repl-status]", this.root), this.statusTextEl = this.requireElement("[data-repl-status-text]", this.root), this.terminalEl = this.requireElement("[data-repl-terminal]", this.root), this.overlayEl = this.requireElement("[data-repl-overlay]", this.root), this.actionsEl = this.requireElement(".debug-repl__actions", this.root), this.commandsEl = this.root.querySelector("[data-repl-commands]"), this.connectButton = this.actionsEl.querySelector('[data-repl-action="reconnect"]'), this.terminal = new Ae({
-      kind: B.kind,
-      debugPath: B.debugPath,
+      kind: T.kind,
+      debugPath: T.debugPath,
       container: this.terminalEl,
       autoConnect: !1,
       onStatusChange: (j) => this.updateStatus(j)
     }), this.bindActions(), this.bindCommandActions(), this.bindOverlayConnect(), this.updateStatus("disconnected");
   }
-  attach(B) {
-    B && (B.innerHTML = "", B.appendChild(this.root), this.terminal.refresh(), this.terminal.focus());
+  attach(T) {
+    T && (T.innerHTML = "", T.appendChild(this.root), this.terminal.refresh(), this.terminal.focus());
   }
   bindActions() {
-    this.actionsEl.addEventListener("click", (B) => {
-      const $ = B.target;
+    this.actionsEl.addEventListener("click", (T) => {
+      const $ = T.target;
       if (!$)
         return;
       const j = $.closest("[data-repl-action]");
@@ -6282,8 +6280,8 @@ class Fe {
     });
   }
   bindCommandActions() {
-    !this.commandsEl || this.options.kind !== "console" || this.commandsEl.addEventListener("click", (B) => {
-      const $ = B.target;
+    !this.commandsEl || this.options.kind !== "console" || this.commandsEl.addEventListener("click", (T) => {
+      const $ = T.target;
       if (!$)
         return;
       const j = $.closest("[data-repl-command]");
@@ -6294,15 +6292,15 @@ class Fe {
     });
   }
   bindOverlayConnect() {
-    const B = this.overlayEl.querySelector("[data-overlay-connect]");
-    B && B.addEventListener("click", () => {
+    const T = this.overlayEl.querySelector("[data-overlay-connect]");
+    T && T.addEventListener("click", () => {
       this.terminal.connect();
     });
   }
-  updateStatus(B) {
-    const $ = Me[B] || B;
-    this.statusEl.dataset.replStatus = B, this.statusTextEl.textContent = $;
-    const j = B === "disconnected" || B === "error";
+  updateStatus(T) {
+    const $ = Me[T] || T;
+    this.statusEl.dataset.replStatus = T, this.statusTextEl.textContent = $;
+    const j = T === "disconnected" || T === "error";
     if (this.overlayEl.hidden = !j, this.terminalEl.dataset.terminalDisconnected = j ? "true" : "false", this.connectButton) {
       const q = j ? "Connect" : "Reconnect";
       this.connectButton.innerHTML = `<i class="iconoir-refresh"></i> ${q}`;
@@ -6311,7 +6309,7 @@ class Fe {
   renderCommands() {
     if (this.options.kind !== "console")
       return "";
-    const B = this.commands, $ = B.length, j = B.map((Y) => {
+    const T = this.commands, $ = T.length, j = T.map((Y) => {
       const I = ve(Y.command), r = Y.description ? `<div class="debug-repl__command-desc">${ve(Y.description)}</div>` : "", o = Array.isArray(Y.tags) && Y.tags.length > 0 ? `<div class="debug-repl__command-tags">${Y.tags.map((n) => `<span class="debug-repl__command-tag">${ve(n)}</span>`).join("")}</div>` : "", c = Y.mutates ? "debug-repl__command-badge--exec" : "", _ = Y.mutates ? "exec" : "read-only";
       return `
           <button class="debug-repl__command" type="button" data-repl-command="${I}">
@@ -6336,15 +6334,15 @@ class Fe {
       </aside>
     `;
   }
-  requireElement(B, $) {
-    const j = $.querySelector(B);
+  requireElement(T, $) {
+    const j = $.querySelector(T);
     if (!j)
-      throw new Error(`Missing debug repl element: ${B}`);
+      throw new Error(`Missing debug repl element: ${T}`);
     return j;
   }
 }
 export {
-  Fe as DebugReplPanel,
+  We as DebugReplPanel,
   Ae as DebugReplTerminal
 };
 //# sourceMappingURL=repl.js.map

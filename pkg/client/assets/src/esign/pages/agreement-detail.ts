@@ -49,6 +49,7 @@ import {
   executeActionRequest,
   formatStructuredErrorForDisplay,
 } from '../../toast/error-helpers.js';
+import { getJSONScriptConfig } from '../utils/dom-helpers.js';
 
 // =============================================================================
 // Types
@@ -283,16 +284,7 @@ export function safeParseJSONScript<T>(
   fallback: T,
   root: Document | HTMLElement = document
 ): T {
-  const node = root.querySelector(`#${id}`) as HTMLScriptElement | null;
-  if (!node?.textContent) {
-    return fallback;
-  }
-  try {
-    return JSON.parse(node.textContent) as T;
-  } catch (error) {
-    console.warn(`Unable to parse ${id}`, error);
-    return fallback;
-  }
+  return getJSONScriptConfig<T>(id, fallback, root, id);
 }
 
 // =============================================================================

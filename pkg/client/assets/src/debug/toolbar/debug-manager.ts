@@ -4,6 +4,7 @@
 import { DebugFab } from './debug-fab.js';
 import { DebugToolbar } from './debug-toolbar.js';
 import type { DebugSnapshot } from './panel-renderers.js';
+import { normalizeDebugBasePath } from '../shared/path-helpers.js';
 
 export interface DebugManagerOptions {
   basePath?: string;
@@ -12,12 +13,6 @@ export interface DebugManagerOptions {
   slowThresholdMs?: number;
   container?: HTMLElement;
 }
-
-const normalizeBasePath = (basePath?: string): string => {
-  const trimmed = (basePath || '').trim();
-  if (!trimmed || trimmed === '/') return '';
-  return '/' + trimmed.replace(/^\/+|\/+$/g, '');
-};
 
 export class DebugManager {
   private fab: DebugFab | null = null;
@@ -33,7 +28,7 @@ export class DebugManager {
       ...options,
     };
 
-    const normalizedBasePath = normalizeBasePath(this.options.basePath);
+    const normalizedBasePath = normalizeDebugBasePath(this.options.basePath);
     if (normalizedBasePath) {
       this.options.basePath = normalizedBasePath;
     }

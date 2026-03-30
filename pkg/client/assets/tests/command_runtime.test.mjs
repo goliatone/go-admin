@@ -18,6 +18,7 @@ async function loadJSDOM() {
 const { JSDOM } = await loadJSDOM();
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const sourceRoot = path.resolve(testFileDir, '../src/services');
+const commandRuntimeSourcePath = path.resolve(sourceRoot, 'command-runtime.ts');
 const compiledModuleCache = new Map();
 
 async function importSourceModule(relativePath) {
@@ -264,4 +265,14 @@ test('CommandRuntimeController serializes forms for panel actions', async () => 
   assert.equal(actionPayload.id, 'agreement-1');
   assert.equal(actionPayload.review_id, 'review-1');
   assert.equal(actionPayload.body, 'hello world');
+});
+
+test('CommandRuntimeController routes duplicate success-body parsing through one local helper', () => {
+  const source = fs.readFileSync(commandRuntimeSourcePath, 'utf8');
+
+  assert.match(source, /async function readCommandResponseBody\(response: Response\): Promise<unknown>/);
+  assert.match(source, /const body = await readCommandResponseBody\(response\);/);
+  assert.match(source, /from '\.\.\/shared\/transport\/http-client\.js'/);
+  assert.match(source, /readHTTPJSONValue<unknown>\(response, null\)/);
+  assert.equal((source.match(/response\.json\(\)\.catch\(\(\) => null\)/g) || []).length, 0);
 });

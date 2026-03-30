@@ -5,6 +5,7 @@
 
 import type { ESignPageConfig } from '../types.js';
 import { onReady, qs, show, hide } from '../utils/dom-helpers.js';
+import { readHTTPError } from '../../shared/transport/http-client.js';
 
 export interface SignerCompleteConfig extends ESignPageConfig {
   token: string;
@@ -184,7 +185,11 @@ export class SignerCompletePageController {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to load artifacts');
+        throw new Error(
+          await readHTTPError(response, 'Failed to load artifacts', {
+            appendStatusToFallback: false,
+          })
+        );
       }
 
       const payload = await response.json();

@@ -11,6 +11,7 @@
 import type { FieldDefinition } from '../types';
 import { getFieldTypeMetadata } from '../field-type-picker';
 import { badge } from '../../shared/badge';
+import { escapeHTML as esc } from '../../shared/html';
 import { dragHandleIcon } from './field-input-classes';
 
 // ---------------------------------------------------------------------------
@@ -48,18 +49,6 @@ export interface FieldCardConfig {
   sectionName?: string;
   /** Index for data-field-index attribute */
   index?: number;
-}
-
-// ---------------------------------------------------------------------------
-// Escape Helper
-// ---------------------------------------------------------------------------
-
-function esc(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 // ---------------------------------------------------------------------------

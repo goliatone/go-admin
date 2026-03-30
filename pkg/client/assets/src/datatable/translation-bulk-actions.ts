@@ -13,6 +13,7 @@
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
+import { readHTTPError } from '../shared/transport/http-client.js';
 
 // ============================================================================
 // Types
@@ -123,20 +124,9 @@ export async function executeBulkCreateMissing(
     });
 
     if (!response.ok) {
-      const errorBody = await response.text();
-      let errorMessage = `Request failed: ${response.status}`;
-
-      try {
-        const errorJson = JSON.parse(errorBody);
-        errorMessage = errorJson.error || errorJson.message || errorMessage;
-      } catch {
-        // Use text error
-        if (errorBody) {
-          errorMessage = errorBody;
-        }
-      }
-
-      throw new Error(errorMessage);
+      throw new Error(await readHTTPError(response, `Request failed: ${response.status}`, {
+        appendStatusToFallback: false,
+      }));
     }
 
     const data: BulkCreateMissingResponse = await response.json();
@@ -353,4 +343,3 @@ export function createBulkCreateMissingHandler(
 // ============================================================================
 // Helper Functions
 // ============================================================================
-

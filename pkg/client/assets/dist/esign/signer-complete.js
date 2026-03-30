@@ -1,10 +1,11 @@
-import { b as s, s as r, h as f } from "../chunks/dom-helpers-cltCUiC5.js";
+import { b as s, s as r, h as f } from "../chunks/dom-helpers-Cd24RS2-.js";
+import { readHTTPError as h } from "../shared/transport/http-client.js";
 import { onReady as l } from "../shared/dom-ready.js";
-const h = 3 * 60 * 1e3, u = 10 * 60 * 1e3, g = 2e3, p = 15e3, m = 15e3, w = 6e4;
-function A(e) {
+const u = 3 * 60 * 1e3, g = 10 * 60 * 1e3, p = 2e3, m = 15e3, w = 15e3, A = 6e4;
+function S(e) {
   return String(e || "").trim().toLowerCase();
 }
-function S(e) {
+function E(e) {
   if (!e || typeof e != "object")
     return null;
   const t = {
@@ -14,26 +15,26 @@ function S(e) {
   };
   return !!(t.executed || t.source || t.certificate) ? t : null;
 }
-function E(e, t = !1) {
-  const i = e && typeof e == "object" && e.contract && typeof e.contract == "object" ? e.contract : {}, o = e && typeof e == "object" && e.assets && typeof e.assets == "object" ? e.assets : {}, n = S(o), a = A(i.agreement_status) === "completed" || t, d = a && !!n?.executed && !!n?.certificate;
+function P(e, t = !1) {
+  const i = e && typeof e == "object" && e.contract && typeof e.contract == "object" ? e.contract : {}, o = e && typeof e == "object" && e.assets && typeof e.assets == "object" ? e.assets : {}, n = E(o), a = S(i.agreement_status) === "completed" || t, d = a && !!n?.executed && !!n?.certificate;
   return {
     artifacts: n,
     agreementCompleted: a,
     completionPackageReady: d
   };
 }
-function P(e, t) {
+function y(e, t) {
   const i = Math.max(1, Math.floor(e || 1));
   return t ? Math.min(
-    Math.round(g * Math.pow(1.6, i - 1)),
-    m
-  ) : Math.min(
-    Math.round(p * Math.pow(1.5, i - 1)),
+    Math.round(p * Math.pow(1.6, i - 1)),
     w
+  ) : Math.min(
+    Math.round(m * Math.pow(1.5, i - 1)),
+    A
   );
 }
-function y(e) {
-  return e ? h : u;
+function M(e) {
+  return e ? u : g;
 }
 class c {
   constructor(t) {
@@ -77,8 +78,12 @@ class c {
           }
         );
         if (!i.ok)
-          throw new Error("Failed to load artifacts");
-        const o = await i.json(), n = E(
+          throw new Error(
+            await h(i, "Failed to load artifacts", {
+              appendStatusToFallback: !1
+            })
+          );
+        const o = await i.json(), n = P(
           o && typeof o == "object" ? o : null,
           this.config.agreementCompleted
         ), a = n.artifacts;
@@ -111,7 +116,7 @@ class c {
       return;
     }
     this.pollStartedAt == null && (this.pollStartedAt = Date.now()), this.state.retryCount += 1, this.state.autoPolling = !0;
-    const t = P(
+    const t = y(
       this.state.retryCount,
       this.state.agreementCompleted
     );
@@ -120,7 +125,7 @@ class c {
     }, t);
   }
   shouldContinuePolling() {
-    const t = this.pollStartedAt ?? Date.now(), i = Date.now() - t, o = y(this.state.agreementCompleted);
+    const t = this.pollStartedAt ?? Date.now(), i = Date.now() - t, o = M(this.state.agreementCompleted);
     return i < o && !this.state.completionPackageReady;
   }
   clearScheduledPoll() {
@@ -153,20 +158,20 @@ class c {
     return { ...this.state };
   }
 }
-function C(e) {
+function L(e) {
   const t = new c(e);
   return l(() => t.init()), t;
 }
-function L(e) {
+function D(e) {
   const t = new c(e);
   l(() => t.init()), typeof window < "u" && (window.esignCompletionController = t, window.loadArtifacts = () => t.loadArtifacts());
 }
 export {
   c as SignerCompletePageController,
-  L as bootstrapSignerCompletePage,
-  P as getSignerCompletionPollDelayMs,
-  C as initSignerCompletePage,
-  S as resolveSignerCompleteArtifacts,
-  E as resolveSignerCompletePayloadState
+  D as bootstrapSignerCompletePage,
+  y as getSignerCompletionPollDelayMs,
+  L as initSignerCompletePage,
+  E as resolveSignerCompleteArtifacts,
+  P as resolveSignerCompletePayloadState
 };
 //# sourceMappingURL=signer-complete.js.map
