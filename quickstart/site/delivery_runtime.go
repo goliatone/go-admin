@@ -232,49 +232,6 @@ func capabilityFromContentType(contentType admin.CMSContentType) (deliveryCapabi
 	return out, true
 }
 
-func (r *deliveryRuntime) resolvePreviewFallbackByRecordID(
-	capabilities []deliveryCapability,
-	recordsByType map[string][]admin.CMSContent,
-	state RequestState,
-) (*deliveryResolution, SiteRuntimeError, bool) {
-	if !state.PreviewTokenPresent || !state.PreviewTokenValid || !state.IsPreview {
-		return nil, SiteRuntimeError{}, false
-	}
-	previewContentID := strings.TrimSpace(state.PreviewContentID)
-	if previewContentID == "" {
-		return nil, SiteRuntimeError{}, false
-	}
-
-	for _, capability := range capabilities {
-		records := recordsByType[capability.TypeSlug]
-		candidates := make([]admin.CMSContent, 0, len(records))
-		for _, record := range records {
-			if strings.TrimSpace(record.ID) != previewContentID {
-				continue
-			}
-			if !previewRecordMatchesEntityType(state.PreviewEntityType, capability, record) {
-				continue
-			}
-			candidates = append(candidates, record)
-		}
-		if len(candidates) == 0 {
-			continue
-		}
-
-		selected, missing, available, fallbackUsed := resolveLocaleRecord(candidates, state, capability, r.siteCfg.AllowLocaleFallback, r.siteCfg.DefaultLocale)
-		if !missing && selected.ID == "" {
-			continue
-		}
-		if missing && !r.siteCfg.AllowLocaleFallback {
-			return nil, translationMissingSiteError(state.Locale, available, capability.TypeSlug, previewContentID), true
-		}
-		resolution := resolutionFromDetailRecord(capability, selected, state.Locale, available, fallbackUsed, candidates)
-		return resolution, SiteRuntimeError{}, true
-	}
-
-	return nil, SiteRuntimeError{}, false
-}
-
 func (r *deliveryRuntime) strictLocalizedPathsEnabled() bool {
 	if r == nil {
 		return false

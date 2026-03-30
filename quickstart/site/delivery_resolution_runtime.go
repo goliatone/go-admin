@@ -22,42 +22,25 @@ func (r *deliveryRuntime) resolve(ctx context.Context, state RequestState, reque
 	}
 	recordsByType := r.recordsByType(capabilities, contents, state)
 
-	for _, capability := range capabilities {
-		if capability.normalizedKind() != "page" {
-			continue
+	if resolution, siteErr, matched := r.resolvePageCapabilities(ctx, capabilities, recordsByType, state, requestPath, cache); matched {
+		if hasSiteRuntimeError(siteErr) {
+			return nil, siteErr
 		}
-		if resolution, siteErr, matched := r.resolvePageKind(ctx, capability, recordsByType[capability.TypeSlug], state, requestPath, cache); matched {
-			if siteErr.Status > 0 || strings.TrimSpace(siteErr.Code) != "" {
-				return nil, siteErr
-			}
-			return resolution, SiteRuntimeError{}
-		}
+		return resolution, SiteRuntimeError{}
 	}
 
-	for _, capability := range capabilities {
-		kind := capability.normalizedKind()
-		if kind != "detail" && kind != "hybrid" {
-			continue
+	if resolution, siteErr, matched := r.resolveDetailCapabilities(ctx, capabilities, recordsByType, state, requestPath, cache); matched {
+		if hasSiteRuntimeError(siteErr) {
+			return nil, siteErr
 		}
-		if resolution, siteErr, matched := r.resolveDetailKind(ctx, capability, recordsByType[capability.TypeSlug], state, requestPath, cache); matched {
-			if siteErr.Status > 0 || strings.TrimSpace(siteErr.Code) != "" {
-				return nil, siteErr
-			}
-			return resolution, SiteRuntimeError{}
-		}
+		return resolution, SiteRuntimeError{}
 	}
 
-	for _, capability := range capabilities {
-		kind := capability.normalizedKind()
-		if kind != "collection" && kind != "hybrid" {
-			continue
-		}
-		if resolution, matched := r.resolveCollectionKind(capability, recordsByType[capability.TypeSlug], state, requestPath); matched {
-			return resolution, SiteRuntimeError{}
-		}
+	if resolution, matched := r.resolveCollectionCapabilities(capabilities, recordsByType, state, requestPath); matched {
+		return resolution, SiteRuntimeError{}
 	}
 
-	if resolution, siteErr, matched := r.resolvePreviewFallbackByRecordID(capabilities, recordsByType, state); matched {
+	if resolution, siteErr, matched := r.resolvePreviewFallback(capabilities, recordsByType, state); matched {
 		if hasSiteRuntimeError(siteErr) {
 			return nil, siteErr
 		}

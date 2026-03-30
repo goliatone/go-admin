@@ -7,6 +7,74 @@ import (
 	"github.com/goliatone/go-admin/admin"
 )
 
+func TestResolvePageKindMatchesLocalizedAliasPath(t *testing.T) {
+	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+		Features: SiteFeatures{
+			EnableI18N: boolPtr(true),
+		},
+	})
+	stub := &localeScopedContentListStub{
+		CMSContentService: admin.NewInMemoryContentService(),
+		byLocale: map[string][]admin.CMSContent{
+			"en": {
+				{
+					ID:              "about-record",
+					Slug:            "about",
+					Locale:          "en",
+					Status:          "published",
+					ContentType:     "page",
+					ContentTypeSlug: "page",
+					Data:            map[string]any{"path": "/about"},
+				},
+			},
+			"es": {
+				{
+					ID:              "about-record",
+					Slug:            "about",
+					Locale:          "es",
+					Status:          "published",
+					ContentType:     "page",
+					ContentTypeSlug: "page",
+					Data:            map[string]any{"path": "/sobre-nosotros"},
+				},
+			},
+		},
+	}
+	runtime := &deliveryRuntime{
+		siteCfg:    cfg,
+		contentSvc: stub,
+	}
+	state := RequestState{
+		Locale:              "es",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en", "es"},
+		AllowLocaleFallback: true,
+	}
+	records := append([]admin.CMSContent{}, stub.byLocale["es"]...)
+	resolution, siteErr, matched := runtime.resolvePageKind(
+		context.Background(),
+		deliveryCapability{TypeSlug: "page", Kind: "page"},
+		records,
+		state,
+		"/about",
+		newSiteContentCache(),
+	)
+	if !matched {
+		t.Fatalf("expected localized alias match for /about in es locale")
+	}
+	if hasSiteRuntimeError(siteErr) {
+		t.Fatalf("unexpected site error %+v", siteErr)
+	}
+	if resolution == nil || resolution.Record == nil {
+		t.Fatalf("expected detail resolution with record")
+	}
+	if resolution.Record.Locale != "es" {
+		t.Fatalf("expected resolved record locale es, got %+v", resolution.Record)
+	}
+}
+
 func TestResolveDetailKindMatchesLocalizedAliasPath(t *testing.T) {
 	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
 		SupportedLocales: []string{"en", "es"},
