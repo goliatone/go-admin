@@ -3,6 +3,7 @@ import type { AgreementDocumentOption, DocumentSummary, DocumentTypeaheadState, 
 import type { DocumentPreviewCard } from './preview-card';
 import { normalizeDocumentOption, parsePositiveInt } from './normalization';
 import { escapeHTML as escapeHtml } from '../../../shared/html.js';
+import { readHTTPJSON } from '../../../shared/transport/http-client.js';
 
 declare global {
   interface Window {
@@ -80,6 +81,18 @@ function elementById<T extends HTMLElement>(id: string): T | null {
 
 function isDocumentSelectionError(error: unknown): error is { message?: unknown; code?: unknown; status?: unknown; name?: unknown } {
   return typeof error === 'object' && error !== null;
+}
+
+async function readDocumentListEnvelope(
+  response: Response,
+): Promise<{ records?: Record<string, unknown>[]; items?: Record<string, unknown>[] }> {
+  return readHTTPJSON<{ records?: Record<string, unknown>[]; items?: Record<string, unknown>[] }>(response);
+}
+
+async function readDocumentDispatchEnvelope(
+  response: Response,
+): Promise<{ dispatch?: Record<string, unknown> }> {
+  return readHTTPJSON<{ dispatch?: Record<string, unknown> }>(response);
 }
 
 export function createDocumentSelectionController(
@@ -363,7 +376,7 @@ export function createDocumentSelectionController(
         const apiError = await parseAPIError(response, 'Failed to load documents');
         throw apiError;
       }
-      const data = await response.json() as { records?: Record<string, unknown>[]; items?: Record<string, unknown>[] };
+      const data = await readDocumentListEnvelope(response);
       const rawDocuments = Array.isArray(data?.records)
         ? data.records
         : (Array.isArray(data?.items) ? data.items : []);
@@ -501,7 +514,7 @@ export function createDocumentSelectionController(
         const apiError = await parseAPIError(response, 'Failed to read remediation status');
         throw apiError;
       }
-      const payload = await response.json() as { dispatch?: Record<string, unknown> };
+      const payload = await readDocumentDispatchEnvelope(response);
       const dispatch = payload?.dispatch || {};
       const rawStatus = String(dispatch?.status || '').trim().toLowerCase();
       if (rawStatus === 'succeeded') {
@@ -640,7 +653,7 @@ export function createDocumentSelectionController(
         console.warn('Failed to load recent documents:', response.status);
         return;
       }
-      const data = await response.json() as { records?: Record<string, unknown>[]; items?: Record<string, unknown>[] };
+      const data = await readDocumentListEnvelope(response);
       const rawDocuments = Array.isArray(data?.records)
         ? data.records
         : (Array.isArray(data?.items) ? data.items : []);
@@ -696,7 +709,7 @@ export function createDocumentSelectionController(
         renderTypeaheadDropdown();
         return;
       }
-      const data = await response.json() as { records?: Record<string, unknown>[]; items?: Record<string, unknown>[] };
+      const data = await readDocumentListEnvelope(response);
       const rawDocuments = Array.isArray(data?.records)
         ? data.records
         : (Array.isArray(data?.items) ? data.items : []);
