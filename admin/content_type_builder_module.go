@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/admin/routing"
 	"github.com/goliatone/go-admin/internal/primitives"
 
@@ -804,7 +805,7 @@ func (m *ContentTypeBuilderModule) blockDefinitionChannels(defaultDefs, effectiv
 	}
 	addEnvFromDefs := func(defs []CMSBlockDefinition, fallback string) {
 		for _, def := range defs {
-			env := strings.ToLower(strings.TrimSpace(cmsBlockDefinitionChannel(def)))
+			env := strings.ToLower(strings.TrimSpace(cmsadapter.BlockDefinitionChannel(def)))
 			if env == "" {
 				env = fallback
 			}

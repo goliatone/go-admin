@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"strings"
 
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -115,7 +116,7 @@ func (a *Admin) resolveContentNavigationPanel(ctx context.Context, typeKey strin
 		candidates = append(candidates, name)
 	}
 
-	env := strings.TrimSpace(resolveCMSContentChannel("", ctx))
+	env := strings.TrimSpace(cmsContentChannelFromContext(ctx, ""))
 	if contentType, ok := a.resolveContentNavigationType(ctx, typeKey); ok {
 		panelSlug := strings.TrimSpace(panelSlugForContentType(contentType))
 		if panelSlug == "" {
@@ -124,7 +125,7 @@ func (a *Admin) resolveContentNavigationPanel(ctx context.Context, typeKey strin
 		if env != "" {
 			addCandidate(panelSlug + "@" + env)
 		}
-		if channel := strings.TrimSpace(cmsContentTypeChannel(*contentType)); channel != "" {
+		if channel := strings.TrimSpace(cmsadapter.ContentTypeChannel(*contentType)); channel != "" {
 			addCandidate(panelSlug + "@" + channel)
 		}
 		addCandidate(panelSlug)

@@ -199,35 +199,12 @@ func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
 }
 
 func collectGoCMSBlockDefinitionCacheEntries(target map[string]uuid.UUID, names map[uuid.UUID]string, ctx context.Context, def CMSBlockDefinition, id uuid.UUID, includeGlobal bool) {
-	if id == uuid.Nil {
-		return
-	}
-	env := blockDefinitionCacheEnv(ctx, def)
-	primary := strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Slug, def.ID, def.Name))
-	if primary != "" {
-		storeGoCMSBlockDefinitionCacheKey(target, env, primary, id)
-		if includeGlobal {
-			storeGoCMSBlockDefinitionCacheKey(target, "", primary, id)
-		}
-		names[id] = primary
-	}
-	for _, key := range []string{def.Name, def.Slug} {
-		if strings.TrimSpace(key) == "" {
-			continue
-		}
-		storeGoCMSBlockDefinitionCacheKey(target, env, key, id)
-		if includeGlobal {
-			storeGoCMSBlockDefinitionCacheKey(target, "", key, id)
-		}
-	}
-}
-
-func storeGoCMSBlockDefinitionCacheKey(target map[string]uuid.UUID, env, key string, id uuid.UUID) {
-	cacheKey := blockDefinitionCacheKey(env, key)
-	if cacheKey == "" {
-		return
-	}
-	target[cacheKey] = id
+	cmsadapter.CollectBlockDefinitionCacheEntry(target, names, cmsadapter.NewBlockDefinitionCacheEntry(
+		def,
+		id,
+		cmsadapter.ResolveBlockDefinitionCacheEnv(def, cmsContentChannelFromContext(ctx, "")),
+		includeGlobal,
+	))
 }
 
 func (a *GoCMSContentAdapter) publishBlockDefinitionCache(defs map[string]uuid.UUID, names map[uuid.UUID]string) {
@@ -241,8 +218,8 @@ func (a *GoCMSContentAdapter) lookupBlockDefinitionID(ctx context.Context, id st
 	if a == nil {
 		return uuid.Nil, false
 	}
-	envKey := blockDefinitionCacheKey(resolveCMSContentChannel("", ctx), id)
-	globalKey := blockDefinitionCacheKey("", id)
+	envKey := cmsadapter.CacheKey(cmsContentChannelFromContext(ctx, ""), id)
+	globalKey := cmsadapter.CacheKey("", id)
 	return a.blockDefinitionCache.Lookup(envKey, globalKey)
 }
 
@@ -450,12 +427,12 @@ func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
 	if status := strings.TrimSpace(stringField(val, "MigrationStatus")); status != "" {
 		def.MigrationStatus = status
 	}
-	channel := strings.TrimSpace(firstNonEmptyRaw(
+	channel := strings.TrimSpace(primitives.FirstNonEmptyRaw(
 		stringField(val, "Channel"),
 		stringField(val, "Environment"),
 		stringField(val, "Env"),
 	))
-	setCMSBlockDefinitionChannel(&def, channel)
+	cmsadapter.SetBlockDefinitionChannel(&def, channel)
 	if def.MigrationStatus == "" {
 		def.MigrationStatus = schemaMigrationStatusFromSchema(def.Schema)
 	}
@@ -499,25 +476,6 @@ func convertBlockDefinitionVersion(value reflect.Value) CMSBlockDefinitionVersio
 	out.CreatedAt = timeField(val, "CreatedAt")
 	out.UpdatedAt = timeField(val, "UpdatedAt")
 	return out
-}
-
-func blockDefinitionCacheKey(env, key string) string {
-	normalized := strings.ToLower(strings.TrimSpace(key))
-	if normalized == "" {
-		return ""
-	}
-	env = strings.TrimSpace(env)
-	if env == "" {
-		return normalized
-	}
-	return env + "::" + normalized
-}
-
-func blockDefinitionCacheEnv(ctx context.Context, def CMSBlockDefinition) string {
-	if channel := strings.TrimSpace(cmsBlockDefinitionChannel(def)); channel != "" {
-		return channel
-	}
-	return strings.TrimSpace(resolveCMSContentChannel("", ctx))
 }
 
 func adapterResolvedFamilyID(groupID string, maps ...map[string]any) string {

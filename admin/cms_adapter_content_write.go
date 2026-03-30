@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	cmsblocks "github.com/goliatone/go-cms/blocks"
 	cmscontent "github.com/goliatone/go-cms/content"
@@ -177,7 +178,7 @@ func (r goCMSContentWriteBoundary) CreateBlockDefinition(ctx context.Context, de
 		Status: strings.TrimSpace(def.Status),
 		Schema: primitives.CloneAnyMap(def.Schema),
 	}
-	if channel := strings.TrimSpace(cmsBlockDefinitionChannel(def)); channel != "" {
+	if channel := strings.TrimSpace(cmsadapter.BlockDefinitionChannel(def)); channel != "" {
 		req.EnvironmentKey = channel
 	}
 	if def.DescriptionSet {
@@ -244,7 +245,7 @@ func (r goCMSContentWriteBoundary) UpdateBlockDefinition(ctx context.Context, de
 	if status := strings.TrimSpace(def.Status); status != "" {
 		req.Status = &status
 	}
-	if channel := strings.TrimSpace(cmsBlockDefinitionChannel(def)); channel != "" {
+	if channel := strings.TrimSpace(cmsadapter.BlockDefinitionChannel(def)); channel != "" {
 		req.EnvironmentKey = &channel
 	}
 	if len(def.Schema) > 0 {

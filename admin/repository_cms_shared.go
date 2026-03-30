@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"strings"
@@ -757,7 +758,7 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 	} else if value, ok := record["env"].(string); ok {
 		channel = value
 	}
-	setCMSContentTypeChannel(&ct, channel)
+	cmsadapter.SetContentTypeChannel(&ct, channel)
 	if schema, ok := record["schema"].(map[string]any); ok {
 		ct.Schema = stripUnsupportedSchemaKeywords(primitives.CloneAnyMap(schema))
 	} else if raw, ok := record["schema"].(string); ok && raw != "" {
@@ -918,7 +919,7 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 	} else if value, ok := record["env"].(string); ok {
 		channel = value
 	}
-	setCMSBlockDefinitionChannel(&def, channel)
+	cmsadapter.SetBlockDefinitionChannel(&def, channel)
 	if schema, ok := record["schema"].(map[string]any); ok {
 		def.Schema = primitives.CloneAnyMap(schema)
 	} else if raw, ok := record["schema"].(string); ok && raw != "" {

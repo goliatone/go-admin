@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 	"strings"
@@ -35,7 +36,7 @@ func (a *GoCMSContentTypeAdapter) ContentTypes(ctx context.Context) ([]CMSConten
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
-	channel := resolveCMSContentChannel("", ctx)
+	channel := cmsContentChannelFromContext(ctx, "")
 	items, err := a.service.List(ctx, channel)
 	if err != nil {
 		return nil, normalizeContentTypeAdapterError(err)
@@ -46,9 +47,7 @@ func (a *GoCMSContentTypeAdapter) ContentTypes(ctx context.Context) ([]CMSConten
 			continue
 		}
 		converted := convertGoCMSContentType(item)
-		if cmsContentTypeChannel(converted) == "" {
-			setCMSContentTypeChannel(&converted, channel)
-		}
+		cmsadapter.SetContentTypeChannel(&converted, cmsadapter.ResolveContentTypeChannel(converted, channel))
 		out = append(out, converted)
 	}
 	return out, nil
@@ -70,9 +69,7 @@ func (a *GoCMSContentTypeAdapter) ContentType(ctx context.Context, id string) (*
 		return nil, ErrNotFound
 	}
 	converted := convertGoCMSContentType(record)
-	if cmsContentTypeChannel(converted) == "" {
-		setCMSContentTypeChannel(&converted, resolveCMSContentChannel("", ctx))
-	}
+	cmsadapter.SetContentTypeChannel(&converted, cmsadapter.ResolveContentTypeChannel(converted, cmsContentChannelFromContext(ctx, "")))
 	if converted.ID == "" && converted.Slug == "" && converted.Name == "" {
 		return nil, ErrNotFound
 	}
@@ -83,7 +80,7 @@ func (a *GoCMSContentTypeAdapter) ContentTypeBySlug(ctx context.Context, slug st
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
-	channel := resolveCMSContentChannel("", ctx)
+	channel := cmsContentChannelFromContext(ctx, "")
 	record, err := a.service.GetBySlug(ctx, strings.TrimSpace(slug), channel)
 	if err != nil {
 		normalized := normalizeContentTypeAdapterError(err)
@@ -96,9 +93,7 @@ func (a *GoCMSContentTypeAdapter) ContentTypeBySlug(ctx context.Context, slug st
 		return a.contentTypeByPanelSlug(ctx, slug)
 	}
 	converted := convertGoCMSContentType(record)
-	if cmsContentTypeChannel(converted) == "" {
-		setCMSContentTypeChannel(&converted, channel)
-	}
+	cmsadapter.SetContentTypeChannel(&converted, cmsadapter.ResolveContentTypeChannel(converted, channel))
 	if converted.ID == "" && converted.Slug == "" && converted.Name == "" {
 		return a.contentTypeByPanelSlug(ctx, slug)
 	}
@@ -150,7 +145,7 @@ func (a *GoCMSContentTypeAdapter) CreateContentType(ctx context.Context, content
 		iconCopy := contentType.Icon
 		req.Icon = &iconCopy
 	}
-	if channel := strings.TrimSpace(cmsContentTypeChannel(contentType)); channel != "" {
+	if channel := strings.TrimSpace(cmsadapter.ContentTypeChannel(contentType)); channel != "" {
 		req.EnvironmentKey = channel
 	}
 	record, err := a.service.Create(ctx, req)
@@ -200,7 +195,7 @@ func (a *GoCMSContentTypeAdapter) UpdateContentType(ctx context.Context, content
 	if status := strings.TrimSpace(contentType.Status); status != "" {
 		req.Status = &status
 	}
-	if channel := strings.TrimSpace(cmsContentTypeChannel(contentType)); channel != "" {
+	if channel := strings.TrimSpace(cmsadapter.ContentTypeChannel(contentType)); channel != "" {
 		req.EnvironmentKey = channel
 	}
 	record, err := a.service.Update(ctx, req)
@@ -262,12 +257,12 @@ func convertGoCMSContentType(value *cmscontent.ContentType) CMSContentType {
 	if value.Icon != nil {
 		contentType.Icon = strings.TrimSpace(*value.Icon)
 	}
-	channel := strings.TrimSpace(firstNonEmptyRaw(
+	channel := strings.TrimSpace(primitives.FirstNonEmptyRaw(
 		stringField(reflect.ValueOf(value), "Channel"),
 		stringField(reflect.ValueOf(value), "Environment"),
 		stringField(reflect.ValueOf(value), "EnvironmentKey"),
 	))
-	setCMSContentTypeChannel(&contentType, channel)
+	cmsadapter.SetContentTypeChannel(&contentType, channel)
 	return contentType
 }
 

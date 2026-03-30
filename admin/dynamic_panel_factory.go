@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"net/url"
 	"path"
@@ -97,11 +98,11 @@ func WithDynamicPanelMenu(basePath, menuCode, menuParent, locale string) Dynamic
 
 func (f *DynamicPanelFactory) resolveChannel(ctx context.Context, contentType *CMSContentType) string {
 	if contentType != nil {
-		if channel := strings.TrimSpace(cmsContentTypeChannel(*contentType)); channel != "" {
+		if channel := strings.TrimSpace(cmsadapter.ContentTypeChannel(*contentType)); channel != "" {
 			return channel
 		}
 	}
-	return strings.TrimSpace(resolveCMSContentChannel("", ctx))
+	return strings.TrimSpace(cmsContentChannelFromContext(ctx, ""))
 }
 
 func (f *DynamicPanelFactory) resolveEnvironment(ctx context.Context, contentType *CMSContentType) string {
@@ -1318,9 +1319,9 @@ func persistedWorkflowResolutionForContentType(ctx context.Context, admin *Admin
 	if contentTypeRef == "" {
 		contentTypeRef = strings.TrimSpace(contentType.ID)
 	}
-	environment := strings.TrimSpace(cmsContentTypeChannel(*contentType))
+	environment := strings.TrimSpace(cmsadapter.ContentTypeChannel(*contentType))
 	if environment == "" {
-		environment = strings.TrimSpace(resolveCMSContentChannel("", ctx))
+		environment = strings.TrimSpace(cmsContentChannelFromContext(ctx, ""))
 	}
 	resolution, err := admin.workflowRuntime.ResolveBinding(ctx, WorkflowBindingResolveInput{
 		ContentType: contentTypeRef,

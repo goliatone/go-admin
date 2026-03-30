@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 )
@@ -30,7 +31,7 @@ func (r *CMSContentTypeRepository) List(ctx context.Context, opts ListOptions) (
 	channel := ""
 	hasChannelFilter := false
 	if opts.Filters != nil {
-		channel = strings.TrimSpace(firstNonEmptyRaw(
+		channel = strings.TrimSpace(primitives.FirstNonEmptyRaw(
 			toString(opts.Filters[ContentChannelScopeQueryParam]),
 			toString(opts.Filters["channel"]),
 			toString(opts.Filters["content_channel"]),
@@ -38,14 +39,14 @@ func (r *CMSContentTypeRepository) List(ctx context.Context, opts ListOptions) (
 		))
 	}
 	if channel == "" {
-		channel = resolveCMSContentChannel("", ctx)
+		channel = cmsContentChannelFromContext(ctx, "")
 	}
 	if channel != "" {
 		hasChannelFilter = true
 	}
 	filtered := make([]CMSContentType, 0, len(types))
 	for _, ct := range types {
-		if hasChannelFilter && !cmsChannelMatches(cmsContentTypeChannel(ct), channel) {
+		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.ContentTypeChannel(ct), channel) {
 			continue
 		}
 		if search != "" && !strings.Contains(strings.ToLower(ct.Name), search) &&
@@ -81,9 +82,7 @@ func (r *CMSContentTypeRepository) Create(ctx context.Context, record map[string
 		return nil, ErrNotFound
 	}
 	ct := mapToCMSContentType(record)
-	if cmsContentTypeChannel(ct) == "" {
-		setCMSContentTypeChannel(&ct, resolveCMSContentChannel("", ctx))
-	}
+	cmsadapter.SetContentTypeChannel(&ct, cmsadapter.ResolveContentTypeChannel(ct, cmsContentChannelFromContext(ctx, "")))
 	if ct.Slug == "" {
 		ct.Slug = strings.TrimSpace(ct.ID)
 	}
@@ -109,9 +108,7 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 	capsProvided := recordHasKey(record, "capabilities")
 	replaceCapabilities := capabilitiesReplaceRequested(record)
 	ct := mapToCMSContentType(record)
-	if cmsContentTypeChannel(ct) == "" {
-		setCMSContentTypeChannel(&ct, resolveCMSContentChannel("", ctx))
-	}
+	cmsadapter.SetContentTypeChannel(&ct, cmsadapter.ResolveContentTypeChannel(ct, cmsContentChannelFromContext(ctx, "")))
 	if ct.ID == "" {
 		ct.ID = id
 	}
@@ -139,9 +136,7 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 		if ct.Slug == "" {
 			ct.Slug = existing.Slug
 		}
-		if cmsContentTypeChannel(ct) == "" {
-			setCMSContentTypeChannel(&ct, cmsContentTypeChannel(*existing))
-		}
+		cmsadapter.SetContentTypeChannel(&ct, cmsadapter.ResolveContentTypeChannel(ct, cmsadapter.ContentTypeChannel(*existing)))
 		if strings.TrimSpace(ct.Name) == "" {
 			ct.Name = existing.Name
 		}
@@ -211,7 +206,7 @@ func (r *CMSContentTypeRepository) resolveContentType(ctx context.Context, id st
 
 func mapFromCMSContentType(ct CMSContentType) map[string]any {
 	contracts := ReadContentTypeCapabilityContracts(ct)
-	channel := cmsContentTypeChannel(ct)
+	channel := cmsadapter.ContentTypeChannel(ct)
 	id := strings.TrimSpace(ct.ID)
 	if id == "" {
 		id = strings.TrimSpace(ct.Slug)

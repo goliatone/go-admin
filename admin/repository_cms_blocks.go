@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 )
@@ -34,7 +35,7 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 	if opts.Filters != nil {
 		categoryFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["category"])))
 		statusFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["status"])))
-		channel = strings.TrimSpace(firstNonEmptyRaw(
+		channel = strings.TrimSpace(primitives.FirstNonEmptyRaw(
 			toString(opts.Filters[ContentChannelScopeQueryParam]),
 			toString(opts.Filters["channel"]),
 			toString(opts.Filters["content_channel"]),
@@ -42,14 +43,14 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 		))
 	}
 	if channel == "" {
-		channel = resolveCMSContentChannel("", ctx)
+		channel = cmsContentChannelFromContext(ctx, "")
 	}
 	if channel != "" {
 		hasChannelFilter = true
 	}
 	filtered := []CMSBlockDefinition{}
 	for _, def := range defs {
-		if hasChannelFilter && !cmsChannelMatches(cmsBlockDefinitionChannel(def), channel) {
+		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), channel) {
 			continue
 		}
 		if search != "" &&
@@ -147,8 +148,8 @@ func (r *CMSBlockDefinitionRepository) List(ctx context.Context, opts ListOption
 			"icon":             def.Icon,
 			"category":         category,
 			"status":           status,
-			"channel":          cmsBlockDefinitionChannel(def),
-			"environment":      cmsBlockDefinitionChannel(def),
+			"channel":          cmsadapter.BlockDefinitionChannel(def),
+			"environment":      cmsadapter.BlockDefinitionChannel(def),
 			"schema":           primitives.CloneAnyMap(def.Schema),
 			"ui_schema":        primitives.CloneAnyMap(def.UISchema),
 			"schema_version":   schemaVersion,
@@ -172,10 +173,10 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 	if err != nil {
 		return nil, err
 	}
-	channel := resolveCMSContentChannel("", ctx)
+	channel := cmsContentChannelFromContext(ctx, "")
 	hasChannelFilter := channel != ""
 	for _, def := range defs {
-		if hasChannelFilter && !cmsChannelMatches(cmsBlockDefinitionChannel(def), channel) {
+		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), channel) {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
@@ -220,8 +221,8 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 				"icon":             def.Icon,
 				"category":         category,
 				"status":           status,
-				"channel":          cmsBlockDefinitionChannel(def),
-				"environment":      cmsBlockDefinitionChannel(def),
+				"channel":          cmsadapter.BlockDefinitionChannel(def),
+				"environment":      cmsadapter.BlockDefinitionChannel(def),
 				"schema":           primitives.CloneAnyMap(def.Schema),
 				"ui_schema":        primitives.CloneAnyMap(def.UISchema),
 				"schema_version":   schemaVersion,
@@ -248,7 +249,7 @@ func (r *CMSBlockDefinitionRepository) findBlockDefinition(ctx context.Context, 
 	channel = strings.TrimSpace(channel)
 	hasChannelFilter := channel != ""
 	for _, def := range defs {
-		if hasChannelFilter && !cmsChannelMatches(cmsBlockDefinitionChannel(def), channel) {
+		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), channel) {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
@@ -267,8 +268,8 @@ func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[st
 		return nil, ErrNotFound
 	}
 	def := mapToCMSBlockDefinition(record)
-	if cmsBlockDefinitionChannel(def) == "" {
-		setCMSBlockDefinitionChannel(&def, resolveCMSContentChannel("", ctx))
+	if cmsadapter.BlockDefinitionChannel(def) == "" {
+		cmsadapter.SetBlockDefinitionChannel(&def, cmsContentChannelFromContext(ctx, ""))
 	}
 	applyBlockDefinitionDefaults(&def)
 	created, err := r.content.CreateBlockDefinition(ctx, def)
@@ -286,8 +287,8 @@ func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[st
 		"icon":             created.Icon,
 		"category":         created.Category,
 		"status":           created.Status,
-		"channel":          cmsBlockDefinitionChannel(*created),
-		"environment":      cmsBlockDefinitionChannel(*created),
+		"channel":          cmsadapter.BlockDefinitionChannel(*created),
+		"environment":      cmsadapter.BlockDefinitionChannel(*created),
 		"schema":           primitives.CloneAnyMap(created.Schema),
 		"ui_schema":        primitives.CloneAnyMap(created.UISchema),
 		"schema_version":   schemaVersion,
@@ -302,11 +303,11 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 		return nil, ErrNotFound
 	}
 	def := mapToCMSBlockDefinition(record)
-	if cmsBlockDefinitionChannel(def) == "" {
-		setCMSBlockDefinitionChannel(&def, resolveCMSContentChannel("", ctx))
+	if cmsadapter.BlockDefinitionChannel(def) == "" {
+		cmsadapter.SetBlockDefinitionChannel(&def, cmsContentChannelFromContext(ctx, ""))
 	}
 	def.ID = id
-	if existing, err := r.findBlockDefinition(ctx, id, cmsBlockDefinitionChannel(def)); err == nil && existing != nil {
+	if existing, err := r.findBlockDefinition(ctx, id, cmsadapter.BlockDefinitionChannel(def)); err == nil && existing != nil {
 		if strings.TrimSpace(def.Name) == "" {
 			def.Name = existing.Name
 		}
@@ -351,8 +352,8 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 		"icon":             updated.Icon,
 		"category":         updated.Category,
 		"status":           updated.Status,
-		"channel":          cmsBlockDefinitionChannel(*updated),
-		"environment":      cmsBlockDefinitionChannel(*updated),
+		"channel":          cmsadapter.BlockDefinitionChannel(*updated),
+		"environment":      cmsadapter.BlockDefinitionChannel(*updated),
 		"schema":           primitives.CloneAnyMap(updated.Schema),
 		"ui_schema":        primitives.CloneAnyMap(updated.UISchema),
 		"schema_version":   schemaVersion,

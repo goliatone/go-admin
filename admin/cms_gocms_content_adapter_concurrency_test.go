@@ -135,3 +135,34 @@ func TestGoCMSContentAdapterBlockDefinitionCacheSupportsConcurrentReads(t *testi
 	}
 	wg.Wait()
 }
+
+func TestGoCMSContentAdapterBlockDefinitionCacheUsesEnvironmentFallback(t *testing.T) {
+	blockSvc := blockDefinitionCacheBlockServiceStub{
+		defs: []*cmsblocks.Definition{
+			{
+				ID:     uuid.New(),
+				Name:   "hero",
+				Slug:   "hero-banner",
+				Schema: map[string]any{"x-block-type": "hero"},
+			},
+		},
+	}
+
+	service := newGoCMSContentAdapter(blockDefinitionCacheContentServiceStub{}, nil, blockSvc, nil, nil)
+	adapter, ok := service.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected concrete GoCMS adapter")
+	}
+
+	ctx := WithEnvironment(context.Background(), "preview")
+	defs, err := adapter.BlockDefinitions(ctx)
+	if err != nil {
+		t.Fatalf("BlockDefinitions failed: %v", err)
+	}
+	if len(defs) != 1 {
+		t.Fatalf("expected 1 block definition, got %d", len(defs))
+	}
+	if got, err := adapter.resolveBlockDefinitionID(ctx, "hero-banner"); err != nil || got != blockSvc.defs[0].ID {
+		t.Fatalf("expected hero-banner id %s, got %s (err=%v)", blockSvc.defs[0].ID, got, err)
+	}
+}

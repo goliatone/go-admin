@@ -972,6 +972,26 @@ func TestCMSContentTypeRepositoryListTreatsBlankEnvironmentAsDefault(t *testing.
 	}
 }
 
+func TestCMSContentTypeRepositoryCreateUsesEnvironmentFallbackForChannel(t *testing.T) {
+	content := NewInMemoryContentService()
+	repo := NewCMSContentTypeRepository(content)
+
+	record, err := repo.Create(WithEnvironment(context.Background(), "preview"), map[string]any{
+		"name":   "Article",
+		"slug":   "article",
+		"schema": map[string]any{"type": "object"},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	if got := toString(record["channel"]); got != "preview" {
+		t.Fatalf("expected preview channel fallback, got %#v", record["channel"])
+	}
+	if got := toString(record["environment"]); got != "preview" {
+		t.Fatalf("expected preview environment fallback, got %#v", record["environment"])
+	}
+}
+
 func TestCMSBlockDefinitionRepositoryListIncludesEnvironmentScopedRecordsWithoutFilter(t *testing.T) {
 	content := &blockDefinitionListServiceStub{
 		defs: []CMSBlockDefinition{
