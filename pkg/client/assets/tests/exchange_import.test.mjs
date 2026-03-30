@@ -6,6 +6,12 @@
  */
 import { describe, it, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const testFileDir = path.dirname(fileURLToPath(import.meta.url));
+const exchangeImportSourcePath = path.resolve(testFileDir, '../src/datatable/exchange-import.ts');
 
 // ============================================================================
 // Mock Implementations (to avoid bundled dist dependency)
@@ -828,6 +834,16 @@ describe('ExchangeImport', () => {
       assert.equal(component.container, null);
     });
   });
+});
+
+it('source contract routes typed response readers through one local shared-transport helper', () => {
+  const source = fs.readFileSync(exchangeImportSourcePath, 'utf8');
+
+  assert.match(source, /readHTTPJSON } from '\.\.\/shared\/transport\/http-client\.js'/);
+  assert.match(source, /async function readExchangeImportResult\(response: Response\): Promise<ExchangeImportResult>/);
+  assert.match(source, /return readHTTPJSON<ExchangeImportResult>\(response\);/);
+  assert.equal((source.match(/readExchangeImportResult\(response\)/g) || []).length, 3);
+  assert.equal((source.match(/response\.json\(\) as ExchangeImportResult/g) || []).length, 0);
 });
 
 describe('Preview Row State', () => {

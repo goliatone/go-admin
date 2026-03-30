@@ -21,6 +21,7 @@ import {
   type PDFDocumentProxy,
 } from '../../pdf/runtime.js';
 import { parseJSONValue } from '../../../shared/json-parse.js';
+import { readHTTPJSON } from '../../../shared/transport/http-client.js';
 
 interface PlacementFieldDefinition {
   definitionId: string;
@@ -110,6 +111,12 @@ interface AddFieldInstanceOptions {
 
 function isPlacementApiResponse(value: PlacementApiResponse | PlacementRunResult): value is PlacementApiResponse {
   return typeof value === 'object' && value !== null && 'run' in value;
+}
+
+async function readPlacementRunResponse(
+  response: Response,
+): Promise<PlacementApiResponse | PlacementRunResult> {
+  return readHTTPJSON<PlacementApiResponse | PlacementRunResult>(response);
 }
 
 interface PlacementEditorRefs {
@@ -1395,7 +1402,7 @@ export function createPlacementEditorController(
         throw await parseAPIError(response, 'Auto-placement failed');
       }
 
-      const result = await response.json() as PlacementApiResponse | PlacementRunResult;
+      const result = await readPlacementRunResponse(response);
       const run: PlacementRunResult = isPlacementApiResponse(result)
         ? (result.run || {})
         : result;

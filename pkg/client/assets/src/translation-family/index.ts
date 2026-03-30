@@ -6,7 +6,7 @@ import {
   asString,
   asStringArray,
 } from '../shared/coercion.js';
-import { httpRequest } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPJSON } from '../shared/transport/http-client.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { trimTrailingSlash } from '../shared/path-normalization.js';
 import {
@@ -1782,12 +1782,16 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
   }
   const basePath = trimTrailingSlash(options.basePath || '/admin/api');
 
+  async function readTranslationFamilyClientRecord(response: Response): Promise<Record<string, unknown>> {
+    return readHTTPJSON<Record<string, unknown>>(response);
+  }
+
   return {
     async list(filters = {}) {
       const response = await fetchImpl(buildFamilyListURL(basePath, filters), {
         headers: { Accept: 'application/json' },
       });
-      const payload = await response.json() as Record<string, unknown>;
+      const payload = await readTranslationFamilyClientRecord(response);
       return normalizeFamilyListResponse(payload);
     },
 
@@ -1795,7 +1799,7 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
       const response = await fetchImpl(buildFamilyDetailURL(basePath, familyId, channel), {
         headers: { Accept: 'application/json' },
       });
-      const payload = await response.json() as Record<string, unknown>;
+      const payload = await readTranslationFamilyClientRecord(response);
       return normalizeFamilyDetail(payload);
     },
 
@@ -1813,7 +1817,7 @@ export function createTranslationFamilyClient(options: TranslationFamilyClientOp
       if (!response.ok) {
         throw await createLocaleErrorFromResponse(response);
       }
-      const payload = await response.json() as Record<string, unknown>;
+      const payload = await readTranslationFamilyClientRecord(response);
       return normalizeCreateLocaleResult(payload);
     },
   };

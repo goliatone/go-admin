@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const {
   buildFamilyDetailURL,
@@ -12,6 +15,9 @@ const {
   normalizeFamilyListResponse,
   renderReadinessChip,
 } = await import('../dist/translation-family/index.js');
+
+const testFileDir = path.dirname(fileURLToPath(import.meta.url));
+const translationFamilySourcePath = path.resolve(testFileDir, '../src/translation-family/index.ts');
 
 test('translation-family contracts: normalize list payloads and filter query state', () => {
   const filters = createFamilyFilters({
@@ -171,4 +177,14 @@ test('translation-family contracts: client builds canonical endpoints for list a
   assert.equal(requests[1], buildFamilyDetailURL('/admin/api', 'tg-page-1', 'production'));
   assert.equal(list.items[0].familyId, 'tg-page-1');
   assert.equal(detail.familyId, 'tg-page-1');
+});
+
+test('translation-family contracts: client routes typed response readers through shared transport helper', () => {
+  const source = fs.readFileSync(translationFamilySourcePath, 'utf8');
+
+  assert.match(source, /from '\.\.\/shared\/transport\/http-client\.js'/);
+  assert.match(source, /async function readTranslationFamilyClientRecord\(response: Response\): Promise<Record<string, unknown>>/);
+  assert.match(source, /return readHTTPJSON<Record<string, unknown>>\(response\)/);
+  assert.equal((source.match(/readTranslationFamilyClientRecord\(response\)/g) || []).length, 3);
+  assert.equal((source.match(/response\.json\(\) as Record<string, unknown>/g) || []).length, 0);
 });

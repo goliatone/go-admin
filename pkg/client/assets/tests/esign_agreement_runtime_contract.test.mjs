@@ -64,6 +64,10 @@ test('Phase 5 contract: agreement runtime typeahead search uses q and stale requ
 
 test('Phase 5 contract: agreement runtime uses canonical PDF route and no object-key asset fallback', () => {
   const source = read(placementEditorPath);
+  assert.match(source, /from '\.\.\/\.\.\/\.\.\/shared\/transport\/http-client\.js'/);
+  assert.match(source, /async function readPlacementRunResponse\(/);
+  assert.match(source, /readHTTPJSON<PlacementApiResponse \| PlacementRunResult>\(response\)/);
+  assert.equal((source.match(/await response\.json\(\) as PlacementApiResponse \| PlacementRunResult/g) || []).length, 0);
   assert.match(source, /\/panels\/esign_documents\/\$\{encodedDocumentID\}\/source\/pdf/);
   assert.match(source, /loadPdfDocument\(\{/);
   assert.match(source, /surface: 'agreement-placement-editor'/);

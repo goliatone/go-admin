@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const {
   buildTranslationDashboardURL,
@@ -13,6 +15,8 @@ const {
 const dashboardFixtures = JSON.parse(
   await readFile(new URL('../../../../admin/testdata/translation_dashboard_contract_fixtures.json', import.meta.url), 'utf8')
 );
+const testFileDir = path.dirname(fileURLToPath(import.meta.url));
+const translatorDashboardSourcePath = path.resolve(testFileDir, '../src/datatable/translator-dashboard.ts');
 
 function fixtureState(name) {
   return JSON.parse(JSON.stringify(dashboardFixtures.states[name]));
@@ -101,6 +105,16 @@ test('translation dashboard contracts: client requests canonical endpoint and no
   );
   assert.equal(payload.data.cards[0].label, 'My Tasks');
   assert.equal(payload.data.alerts[0].state, 'critical');
+});
+
+test('translation dashboard contracts: client routes typed response reader through shared transport helper', async () => {
+  const source = await readFile(translatorDashboardSourcePath, 'utf8');
+
+  assert.match(source, /readHTTPJSON } from '\.\.\/shared\/transport\/http-client\.js'/);
+  assert.match(source, /async function readTranslatorDashboardResponse\(response: Response\): Promise<MyWorkResponse>/);
+  assert.match(source, /return readHTTPJSON<MyWorkResponse>\(response\);/);
+  assert.equal((source.match(/readTranslatorDashboardResponse\(response\)/g) || []).length, 1);
+  assert.equal((source.match(/response\.json\(\) as MyWorkResponse/g) || []).length, 0);
 });
 
 test('translation dashboard contracts: refresh controller de-duplicates overlapping refresh calls', async () => {

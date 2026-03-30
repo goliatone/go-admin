@@ -11,6 +11,7 @@ import { renderVocabularyStatusBadge } from './translation-status-vocabulary.js'
 import { escapeHTML as escapeHtml } from '../shared/html.js';
 import { escapeAttribute as escapeAttr } from '../shared/html.js';
 import { StatefulController } from '../shared/stateful-controller.js';
+import { readHTTPJSON } from '../shared/transport/http-client.js';
 
 // ============================================================================
 // Types
@@ -121,6 +122,10 @@ export interface QueueResponse {
   page: number;
   per_page: number;
   updated_at: string;
+}
+
+async function readTranslatorDashboardResponse(response: Response): Promise<MyWorkResponse> {
+  return readHTTPJSON<MyWorkResponse>(response);
 }
 
 /**
@@ -405,7 +410,7 @@ export class TranslatorDashboard extends StatefulController<DashboardState> {
         throw new Error(`Failed to load: ${response.status}`);
       }
 
-      this.data = await response.json() as MyWorkResponse;
+      this.data = await readTranslatorDashboardResponse(response);
       this.state = this.data.assignments.length === 0 ? 'empty' : 'loaded';
       this.error = null;
     } catch (err) {

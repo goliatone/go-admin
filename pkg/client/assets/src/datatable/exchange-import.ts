@@ -8,6 +8,7 @@
  * - Permission-gated apply action
  */
 
+import { readHTTPJSON } from '../shared/transport/http-client.js';
 import type { GateResult, CapabilityGate } from './capability-gate.js';
 import type {
   ExchangeRowResult,
@@ -120,6 +121,10 @@ export interface ImportLabels {
   allowCreateMissing: string;
   continueOnError: string;
   dryRun: string;
+}
+
+async function readExchangeImportResult(response: Response): Promise<ExchangeImportResult> {
+  return readHTTPJSON<ExchangeImportResult>(response);
 }
 
 const DEFAULT_LABELS: ImportLabels = {
@@ -293,7 +298,7 @@ export class ExchangeImport extends StatefulController<ImportPreviewState> {
           throw new Error(`Validation failed: ${response.status}`);
         }
 
-        const result = await response.json() as ExchangeImportResult;
+        const result = await readExchangeImportResult(response);
         this.handleValidationResult(result);
         return result;
       } else {
@@ -309,7 +314,7 @@ export class ExchangeImport extends StatefulController<ImportPreviewState> {
         throw new Error(`Validation failed: ${response.status}`);
       }
 
-      const result = await response.json() as ExchangeImportResult;
+      const result = await readExchangeImportResult(response);
       this.handleValidationResult(result);
       return result;
     } catch (err) {
@@ -385,7 +390,7 @@ export class ExchangeImport extends StatefulController<ImportPreviewState> {
         throw new Error(`Apply failed: ${response.status}`);
       }
 
-      const result = await response.json() as ExchangeImportResult;
+      const result = await readExchangeImportResult(response);
       this.state = 'applied';
       this.config.onApplyComplete?.(result);
       this.render();
