@@ -4,6 +4,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	cms "github.com/goliatone/go-cms"
 )
 
@@ -60,7 +61,7 @@ type GoCMSContainerAdapter struct {
 	widgetSvc      CMSWidgetService
 	contentSvc     CMSContentService
 	contentTypeSvc CMSContentTypeService
-	localeResolver goCMSLocaleResolver
+	localeResolver gocmsutil.LocaleResolver
 }
 
 // NewGoCMSContainerAdapter inspects a go-cms module or container and wraps available services.
@@ -93,7 +94,7 @@ func (c *GoCMSContainerAdapter) ActiveLocales(ctx context.Context) ([]string, er
 	if c == nil {
 		return nil, nil
 	}
-	return resolveActiveGoCMSLocaleCodes(ctx, c.localeResolver)
+	return gocmsutil.ResolveActiveLocaleCodes(ctx, c.localeResolver)
 }
 
 func resolveGoCMSMenuService(container any) CMSMenuService {
@@ -326,7 +327,7 @@ func resolveGoCMSWidgetService(container any) CMSWidgetService {
 	return nil
 }
 
-func resolveGoCMSLocaleResolver(container any) goCMSLocaleResolver {
+func resolveGoCMSLocaleResolver(container any) gocmsutil.LocaleResolver {
 	if container == nil {
 		return nil
 	}
@@ -336,7 +337,7 @@ func resolveGoCMSLocaleResolver(container any) goCMSLocaleResolver {
 		}
 	}
 	if provider, ok := container.(interface{ Locales() any }); ok {
-		if svc, ok := provider.Locales().(goCMSLocaleResolver); ok && svc != nil {
+		if svc, ok := provider.Locales().(gocmsutil.LocaleResolver); ok && svc != nil {
 			return svc
 		}
 	}
@@ -346,7 +347,7 @@ func resolveGoCMSLocaleResolver(container any) goCMSLocaleResolver {
 		}
 	}
 	if provider, ok := container.(interface{ LocaleService() any }); ok {
-		if svc, ok := provider.LocaleService().(goCMSLocaleResolver); ok && svc != nil {
+		if svc, ok := provider.LocaleService().(gocmsutil.LocaleResolver); ok && svc != nil {
 			return svc
 		}
 	}

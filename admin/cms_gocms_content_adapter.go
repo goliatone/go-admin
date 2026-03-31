@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+
+	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
@@ -43,7 +45,7 @@ type GoCMSContentAdapter struct {
 	translations any
 	blocks       goCMSBlockService
 	contentTypes CMSContentTypeService
-	locales      *goCMSLocaleIDCache
+	locales      *gocmsutil.LocaleIDCache
 
 	blockDefinitionCache *cmsadapter.BlockDefinitionCache
 }
@@ -53,7 +55,7 @@ func NewGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSCont
 	return newGoCMSContentAdapter(contentSvc, nil, blockSvc, contentTypeSvc, nil)
 }
 
-func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, contentTypeSvc CMSContentTypeService, localeResolver goCMSLocaleResolver) CMSContentService {
+func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, contentTypeSvc CMSContentTypeService, localeResolver gocmsutil.LocaleResolver) CMSContentService {
 	if contentSvc == nil {
 		return nil
 	}
@@ -70,7 +72,7 @@ func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, co
 		translations:         translationSvc,
 		blocks:               typedBlocks,
 		contentTypes:         contentTypeSvc,
-		locales:              newGoCMSLocaleIDCache(localeResolver),
+		locales:              gocmsutil.NewLocaleIDCache(localeResolver),
 		blockDefinitionCache: cmsadapter.NewBlockDefinitionCache(),
 	}
 }
@@ -377,7 +379,7 @@ func (a *GoCMSContentAdapter) deletePageFromContent(ctx context.Context, id stri
 }
 
 func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
-	val := deref(value)
+	val := gocmsutil.Deref(value)
 	def := CMSBlockDefinition{}
 	if name := strings.TrimSpace(stringField(val, "Name")); name != "" {
 		def.Name = name
@@ -387,7 +389,7 @@ func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
 	}
 	def.ID = strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Slug, def.Name))
 	if def.ID == "" {
-		if id, ok := extractUUID(val, "ID"); ok {
+		if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
 			def.ID = id.String()
 		}
 	}
@@ -443,12 +445,12 @@ func convertBlockDefinition(value reflect.Value) CMSBlockDefinition {
 }
 
 func convertBlockDefinitionVersion(value reflect.Value) CMSBlockDefinitionVersion {
-	val := deref(value)
+	val := gocmsutil.Deref(value)
 	out := CMSBlockDefinitionVersion{}
-	if id, ok := extractUUID(val, "ID"); ok && id != uuid.Nil {
+	if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok && id != uuid.Nil {
 		out.ID = id.String()
 	}
-	if defID, ok := extractUUID(val, "DefinitionID"); ok && defID != uuid.Nil {
+	if defID, ok := gocmsutil.ExtractUUID(val, "DefinitionID"); ok && defID != uuid.Nil {
 		out.DefinitionID = defID.String()
 	}
 	if out.ID == "" {
@@ -625,7 +627,7 @@ func stringSliceField(val reflect.Value, field string) []string {
 	if !f.IsValid() {
 		return nil
 	}
-	f = deref(f)
+	f = gocmsutil.Deref(f)
 	switch f.Kind() {
 	case reflect.Slice:
 		out := []string{}

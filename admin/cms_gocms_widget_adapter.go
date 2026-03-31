@@ -3,10 +3,12 @@ package admin
 import (
 	"context"
 	"errors"
-	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"sync"
+
+	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
+	"github.com/goliatone/go-admin/internal/primitives"
 
 	cmswidgets "github.com/goliatone/go-cms/widgets"
 	"github.com/google/uuid"
@@ -37,7 +39,7 @@ type GoCMSWidgetAdapter struct {
 	service     goCMSWidgetService
 	definitions map[string]uuid.UUID
 	idToCode    map[uuid.UUID]string
-	locales     *goCMSLocaleIDCache
+	locales     *gocmsutil.LocaleIDCache
 	mu          sync.RWMutex
 }
 
@@ -46,7 +48,7 @@ func NewGoCMSWidgetAdapter(service any) *GoCMSWidgetAdapter {
 	return newGoCMSWidgetAdapter(service, nil)
 }
 
-func newGoCMSWidgetAdapter(service any, localeResolver goCMSLocaleResolver) *GoCMSWidgetAdapter {
+func newGoCMSWidgetAdapter(service any, localeResolver gocmsutil.LocaleResolver) *GoCMSWidgetAdapter {
 	if service == nil {
 		return nil
 	}
@@ -58,7 +60,7 @@ func newGoCMSWidgetAdapter(service any, localeResolver goCMSLocaleResolver) *GoC
 		service:     svc,
 		definitions: map[string]uuid.UUID{},
 		idToCode:    map[uuid.UUID]string{},
-		locales:     newGoCMSLocaleIDCache(localeResolver),
+		locales:     gocmsutil.NewLocaleIDCache(localeResolver),
 	}
 }
 

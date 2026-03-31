@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	"github.com/goliatone/go-admin/internal/primitives"
 	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
@@ -315,16 +316,16 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 
 func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value reflect.Value, locale string) CMSContent {
 	a := r.adapter
-	val := deref(value)
+	val := gocmsutil.Deref(value)
 	out := CMSContent{Data: map[string]any{}}
-	if id, ok := extractUUID(val, "ID"); ok {
+	if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
 		out.ID = id.String()
 	}
 	out.Slug = stringField(val, "Slug")
 	out.Status = stringField(val, "Status")
 
 	if typ := val.FieldByName("Type"); typ.IsValid() {
-		typeVal := deref(typ)
+		typeVal := gocmsutil.Deref(typ)
 		if slug := stringField(typeVal, "Slug"); slug != "" {
 			out.ContentTypeSlug = slug
 			out.ContentType = slug
@@ -336,7 +337,7 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 		}
 	}
 	if out.ContentType == "" {
-		if typID, ok := extractUUID(val, "ContentTypeID"); ok && typID != uuid.Nil {
+		if typID, ok := gocmsutil.ExtractUUID(val, "ContentTypeID"); ok && typID != uuid.Nil {
 			if ct := r.contentTypeByID(ctx, typID); ct != nil {
 				if ct.Slug != "" {
 					out.ContentTypeSlug = ct.Slug
@@ -357,7 +358,7 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 	if schema := strings.TrimSpace(toString(out.Data["_schema"])); schema != "" {
 		out.SchemaVersion = schema
 	}
-	if meta := mapFieldAny(val, "Metadata"); meta != nil {
+	if meta := gocmsutil.MapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = primitives.CloneAnyMap(meta)
 	}
 	out.FamilyID = adapterResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
@@ -388,12 +389,12 @@ func (a *GoCMSContentAdapter) convertBlockInstance(ctx context.Context, value re
 
 func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, value reflect.Value, locale string) CMSBlock {
 	a := r.adapter
-	val := deref(value)
+	val := gocmsutil.Deref(value)
 	block := CMSBlock{Data: map[string]any{}}
-	if id, ok := extractUUID(val, "ID"); ok {
+	if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
 		block.ID = id.String()
 	}
-	if defID, ok := extractUUID(val, "DefinitionID"); ok {
+	if defID, ok := gocmsutil.ExtractUUID(val, "DefinitionID"); ok {
 		if name := a.blockDefinitionName(defID); name != "" {
 			block.DefinitionID = name
 			block.BlockType = name
@@ -402,11 +403,11 @@ func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, valu
 			block.DefinitionID = defID.String()
 		}
 	}
-	if pageID, ok := extractUUID(val, "PageID"); ok {
+	if pageID, ok := gocmsutil.ExtractUUID(val, "PageID"); ok {
 		block.ContentID = pageID.String()
 	}
 	block.Region = stringField(val, "Region")
-	if pos, ok := getIntField(val, "Position"); ok {
+	if pos, ok := gocmsutil.GetIntField(val, "Position"); ok {
 		block.Position = pos
 	}
 	if pub := val.FieldByName("PublishedVersion"); pub.IsValid() && pub.Kind() == reflect.Pointer && !pub.IsNil() {
@@ -415,18 +416,18 @@ func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, valu
 		block.Status = "draft"
 	}
 
-	translations := deref(val.FieldByName("Translations"))
+	translations := gocmsutil.Deref(val.FieldByName("Translations"))
 	var chosen reflect.Value
 	localeID, hasLocaleID := a.resolveLocaleID(ctx, locale)
 	for i := 0; translations.IsValid() && i < translations.Len(); i++ {
-		current := deref(translations.Index(i))
+		current := gocmsutil.Deref(translations.Index(i))
 		if !chosen.IsValid() {
 			chosen = current
 		}
 		if !hasLocaleID {
 			continue
 		}
-		if trID, ok := extractUUID(current, "LocaleID"); ok && trID == localeID {
+		if trID, ok := gocmsutil.ExtractUUID(current, "LocaleID"); ok && trID == localeID {
 			chosen = current
 			break
 		}

@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	"github.com/goliatone/go-admin/internal/primitives"
 
 	cmscontent "github.com/goliatone/go-cms/content"
@@ -114,32 +115,32 @@ func applyCreateTranslationRequestFields(req reflect.Value, input TranslationCre
 	setUUIDFieldByName(req, "SourceID", sourceID)
 	setUUIDFieldByName(req, "ID", sourceID)
 
-	setStringField(req, "Locale", input.Locale)
-	setStringField(req, "TargetLocale", input.Locale)
+	gocmsutil.SetStringField(req, "Locale", input.Locale)
+	gocmsutil.SetStringField(req, "TargetLocale", input.Locale)
 
 	env := strings.TrimSpace(input.Environment)
 	if env != "" {
-		setStringField(req, "Environment", env)
-		setStringField(req, "EnvironmentKey", env)
+		gocmsutil.SetStringField(req, "Environment", env)
+		gocmsutil.SetStringField(req, "EnvironmentKey", env)
 	}
 
 	if contentType := strings.TrimSpace(input.ContentType); contentType != "" {
-		setStringField(req, "ContentType", contentType)
-		setStringField(req, "ContentTypeSlug", contentType)
-		setStringField(req, "EntityType", contentType)
+		gocmsutil.SetStringField(req, "ContentType", contentType)
+		gocmsutil.SetStringField(req, "ContentTypeSlug", contentType)
+		gocmsutil.SetStringField(req, "EntityType", contentType)
 	}
 	if status := strings.TrimSpace(input.Status); status != "" {
-		setStringField(req, "Status", status)
+		gocmsutil.SetStringField(req, "Status", status)
 	}
 	if len(input.Metadata) > 0 {
-		setMapField(req, "Metadata", cloneAnyMap(input.Metadata))
+		gocmsutil.SetMapField(req, "Metadata", cloneAnyMap(input.Metadata))
 	}
 	setUUIDFieldByName(req, "CreatedBy", uuid.Nil)
 	setUUIDFieldByName(req, "UpdatedBy", uuid.Nil)
 }
 
 func setUUIDFieldByName(target reflect.Value, fieldName string, value uuid.UUID) {
-	target = deref(target)
+	target = gocmsutil.Deref(target)
 	if !target.IsValid() || target.Kind() != reflect.Struct {
 		return
 	}
@@ -160,7 +161,7 @@ func setUUIDFieldByName(target reflect.Value, fieldName string, value uuid.UUID)
 }
 
 func buildGoCMSTranslationProjection(val reflect.Value, locale string) goCMSTranslationProjection {
-	translations := deref(val.FieldByName("Translations"))
+	translations := gocmsutil.Deref(val.FieldByName("Translations"))
 	availableLocales := stringSliceFieldAny(val, "AvailableLocales", "Locales")
 	var chosen reflect.Value
 	localeLower := strings.ToLower(strings.TrimSpace(locale))
@@ -171,7 +172,7 @@ func buildGoCMSTranslationProjection(val reflect.Value, locale string) goCMSTran
 		}
 	}
 	for i := 0; translations.IsValid() && i < translations.Len(); i++ {
-		current := deref(translations.Index(i))
+		current := gocmsutil.Deref(translations.Index(i))
 		rawCode := strings.TrimSpace(localeCodeFromTranslation(current))
 		code := strings.ToLower(rawCode)
 		if rawCode != "" && !seenLocales[code] {
@@ -269,7 +270,7 @@ func localeCodeFromTranslation(val reflect.Value) string {
 	if code := stringField(val, "LocaleCode"); code != "" {
 		return code
 	}
-	localeVal := deref(val.FieldByName("Locale"))
+	localeVal := gocmsutil.Deref(val.FieldByName("Locale"))
 	if localeVal.IsValid() {
 		if code := stringField(localeVal, "Code"); code != "" {
 			return code
@@ -283,7 +284,7 @@ func translationContentMap(val reflect.Value) map[string]any {
 	if !contentField.IsValid() {
 		return nil
 	}
-	contentField = deref(contentField)
+	contentField = gocmsutil.Deref(contentField)
 	if !contentField.IsValid() {
 		return nil
 	}

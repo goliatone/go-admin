@@ -1,19 +1,21 @@
 package admin
 
-// CMSContentListOption represents list option tokens understood by go-cms List.
-// It is a string alias so options can be forwarded without importing go-cms internals.
-type CMSContentListOption = string
+import cmscontracts "github.com/goliatone/go-admin/admin/cms/contracts"
 
-const cmsContentListWithTranslations CMSContentListOption = "content:list:with_translations"
-const cmsContentListWithDerivedFields CMSContentListOption = "content:list:projection:derived_fields"
+// CMSContentListOption represents list option tokens understood by go-cms List.
+// It remains re-exported from the root package for compatibility.
+type CMSContentListOption = cmscontracts.CMSContentListOption
+
+const cmsContentListWithTranslations CMSContentListOption = cmscontracts.ContentListWithTranslations
+const cmsContentListWithDerivedFields CMSContentListOption = cmscontracts.ContentListWithDerivedFields
 
 // WithTranslations requests that list operations preload translations for CMS content.
 // This opt-in token mirrors the go-cms list option of the same name.
 func WithTranslations() CMSContentListOption {
-	return cmsContentListWithTranslations
+	return cmscontracts.WithTranslations()
 }
 
 // WithDerivedFields requests canonical top-level derived content fields from go-cms.
 func WithDerivedFields() CMSContentListOption {
-	return cmsContentListWithDerivedFields
+	return cmscontracts.WithDerivedFields()
 }

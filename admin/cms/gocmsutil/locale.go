@@ -1,4 +1,4 @@
-package admin
+package gocmsutil
 
 import (
 	"context"
@@ -10,32 +10,32 @@ import (
 	"github.com/google/uuid"
 )
 
-type goCMSLocaleResolver interface {
+type LocaleResolver interface {
 	ResolveByCode(ctx context.Context, code string) (cms.LocaleInfo, error)
 }
 
-type goCMSActiveLocaleResolver interface {
+type ActiveLocaleResolver interface {
 	ActiveLocales(ctx context.Context) ([]cms.LocaleInfo, error)
 }
 
-type goCMSLocaleIDCache struct {
-	resolver goCMSLocaleResolver
+type LocaleIDCache struct {
+	resolver LocaleResolver
 
 	mu  sync.RWMutex
 	ids map[string]uuid.UUID
 }
 
-func newGoCMSLocaleIDCache(resolver goCMSLocaleResolver) *goCMSLocaleIDCache {
+func NewLocaleIDCache(resolver LocaleResolver) *LocaleIDCache {
 	if resolver == nil {
 		return nil
 	}
-	return &goCMSLocaleIDCache{
+	return &LocaleIDCache{
 		resolver: resolver,
 		ids:      map[string]uuid.UUID{},
 	}
 }
 
-func (c *goCMSLocaleIDCache) Resolve(ctx context.Context, localeCode string) (uuid.UUID, bool) {
+func (c *LocaleIDCache) Resolve(ctx context.Context, localeCode string) (uuid.UUID, bool) {
 	if c == nil || c.resolver == nil {
 		return uuid.Nil, false
 	}
@@ -62,11 +62,11 @@ func (c *goCMSLocaleIDCache) Resolve(ctx context.Context, localeCode string) (uu
 	return record.ID, true
 }
 
-func resolveActiveGoCMSLocaleCodes(ctx context.Context, resolver goCMSLocaleResolver) ([]string, error) {
+func ResolveActiveLocaleCodes(ctx context.Context, resolver LocaleResolver) ([]string, error) {
 	if resolver == nil {
 		return nil, nil
 	}
-	provider, ok := resolver.(goCMSActiveLocaleResolver)
+	provider, ok := resolver.(ActiveLocaleResolver)
 	if !ok || provider == nil {
 		return nil, nil
 	}
@@ -80,5 +80,29 @@ func resolveActiveGoCMSLocaleCodes(ctx context.Context, resolver goCMSLocaleReso
 			codes = append(codes, code)
 		}
 	}
-	return normalizeLocaleCandidates(codes...), nil
+	return normalizeLocaleCodes(codes...), nil
+}
+
+func normalizeLocaleCodes(values ...string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		normalized := i18n.NormalizeLocale(value)
+		if normalized == "" {
+			continue
+		}
+		key := strings.ToLower(normalized)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

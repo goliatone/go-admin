@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	"github.com/google/uuid"
 	"reflect"
 )
@@ -59,7 +60,7 @@ func (a *GoCMSContentAdapter) createTranslationRecord(ctx context.Context, input
 		}
 		return reflect.Value{}, ErrNotFound
 	}
-	record := deref(results[0])
+	record := gocmsutil.Deref(results[0])
 	if !record.IsValid() {
 		return reflect.Value{}, ErrNotFound
 	}
