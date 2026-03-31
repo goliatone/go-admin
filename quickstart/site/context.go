@@ -3,7 +3,6 @@ package site
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
@@ -80,110 +79,6 @@ func RequestContext(c router.Context) context.Context {
 		return context.Background()
 	}
 	return requestCtx
-}
-
-// fallbackRequestState returns middleware-owned request state when present and
-// otherwise builds a minimal runtime-safe state from resolved site config.
-func fallbackRequestState(c router.Context, cfg ResolvedSiteConfig, fallbackActivePath string) RequestState {
-	if state, ok := RequestStateFromRequest(c); ok {
-		return state
-	}
-
-	assetBasePath := strings.TrimSpace(cfg.Views.AssetBasePath)
-	if assetBasePath == "" {
-		assetBasePath = cfg.BasePath
-	}
-
-	activePath := strings.TrimSpace(fallbackActivePath)
-	if c != nil {
-		if path := strings.TrimSpace(c.Path()); path != "" {
-			activePath = path
-		}
-	}
-	if activePath == "" {
-		activePath = "/"
-	}
-
-	return RequestState{
-		Locale:              cfg.DefaultLocale,
-		DefaultLocale:       cfg.DefaultLocale,
-		SupportedLocales:    cloneStrings(cfg.SupportedLocales),
-		Environment:         cfg.Environment,
-		ContentChannel:      cfg.ContentChannel,
-		AllowLocaleFallback: cfg.AllowLocaleFallback,
-		BasePath:            cfg.BasePath,
-		AssetBasePath:       assetBasePath,
-		ActivePath:          activePath,
-		ViewContext:         router.ViewContext{},
-	}
-}
-
-// ViewContextFromRequest returns site view context prepared by site middleware.
-func ViewContextFromRequest(c router.Context) router.ViewContext {
-	if c == nil {
-		return router.ViewContext{}
-	}
-	if raw := c.Locals(viewContextLocalsKey); raw != nil {
-		if typed, ok := raw.(router.ViewContext); ok && typed != nil {
-			return cloneViewContext(typed)
-		}
-	}
-	if state, ok := RequestStateFromContext(c.Context()); ok {
-		return cloneViewContext(state.ViewContext)
-	}
-	return router.ViewContext{}
-}
-
-// MergeViewContext overlays request-level site context onto an existing view context.
-func MergeViewContext(in router.ViewContext, c router.Context) router.ViewContext {
-	if in == nil {
-		in = router.ViewContext{}
-	}
-	for key, value := range ViewContextFromRequest(c) {
-		in[key] = value
-	}
-	return in
-}
-
-func requestContextMiddleware(adm *admin.Admin, cfg admin.Config, siteCfg ResolvedSiteConfig, modules []SiteModule) router.MiddlewareFunc {
-	return func(next router.HandlerFunc) router.HandlerFunc {
-		return func(c router.Context) error {
-			if c == nil {
-				return next(c)
-			}
-			requestCtx, state := ResolveRequestState(c.Context(), c, adm, cfg, siteCfg, modules)
-			c.SetContext(requestCtx)
-			c.Locals(requestStateLocalsKey, state)
-			c.Locals(viewContextLocalsKey, cloneViewContext(state.ViewContext))
-			persistLocaleCookie(c, siteCfg, state)
-			return next(c)
-		}
-	}
-}
-
-func persistLocaleCookie(c router.Context, siteCfg ResolvedSiteConfig, state RequestState) {
-	if c == nil || !siteCfg.Features.EnableI18N {
-		return
-	}
-	locale := matchSupportedLocale(state.Locale, siteCfg.SupportedLocales)
-	if locale == "" {
-		return
-	}
-	current := matchSupportedLocale(c.Cookies(defaultLocaleCookieName), siteCfg.SupportedLocales)
-	if current == locale {
-		return
-	}
-	path := normalizeLocalePath(siteCfg.BasePath)
-	if path == "" {
-		path = "/"
-	}
-	cookie := router.FirstPartySessionCookie(defaultLocaleCookieName, locale)
-	cookie.Path = path
-	cookie.MaxAge = int((365 * 24 * time.Hour).Seconds())
-	cookie.Expires = time.Now().Add(365 * 24 * time.Hour)
-	cookie.SessionOnly = false
-	cookie.HTTPOnly = false
-	c.Cookie(&cookie)
 }
 
 // ResolveRequestState computes the normalized request context + view context.
@@ -300,69 +195,4 @@ func ResolveRequestState(
 	state.ViewContext = cloneViewContext(viewCtx)
 	requestCtx = context.WithValue(requestCtx, requestStateContextKey, state)
 	return requestCtx, state
-}
-
-type previewResolution struct {
-	Present    bool   `json:"present"`
-	Valid      bool   `json:"valid"`
-	Token      string `json:"token"`
-	EntityType string `json:"entity_type"`
-	ContentID  string `json:"content_id"`
-	Channel    string `json:"channel"`
-}
-
-func resolveRequestPreview(c router.Context, adm *admin.Admin, enabled bool) previewResolution {
-	if c == nil || !enabled {
-		return previewResolution{}
-	}
-	token := strings.TrimSpace(c.Query("preview_token"))
-	if token == "" {
-		return previewResolution{}
-	}
-	out := previewResolution{Present: true, Token: token}
-	if adm == nil || adm.Preview() == nil {
-		return out
-	}
-	validated, err := adm.Preview().Validate(token)
-	if err != nil || validated == nil {
-		return out
-	}
-	entityType, entityChannel := splitPreviewEntityType(validated.EntityType)
-	contentID := strings.TrimSpace(validated.ContentID)
-	if entityType == "" || contentID == "" {
-		return out
-	}
-	out.Valid = true
-	out.EntityType = entityType
-	out.ContentID = contentID
-	entityChannel = strings.TrimSpace(entityChannel)
-	if entityChannel != "" {
-		out.Channel = normalizeContentChannel(entityChannel)
-	}
-	return out
-}
-
-func splitPreviewEntityType(raw string) (string, string) {
-	raw = strings.TrimSpace(strings.ToLower(raw))
-	if raw == "" {
-		return "", ""
-	}
-	idx := strings.LastIndex(raw, "@")
-	if idx <= 0 || idx+1 >= len(raw) {
-		return raw, ""
-	}
-	entityType := strings.TrimSpace(raw[:idx])
-	channel := strings.TrimSpace(raw[idx+1:])
-	return entityType, channel
-}
-
-func cloneViewContext(input router.ViewContext) router.ViewContext {
-	if input == nil {
-		return router.ViewContext{}
-	}
-	out := make(router.ViewContext, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
-	return out
 }
