@@ -2,7 +2,6 @@ package site
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
@@ -105,106 +104,8 @@ func RegisterSiteRoutes[T any](
 		return fmt.Errorf("site router is required")
 	}
 
-	resolved := ResolveSiteConfig(cfg, siteCfg)
-	modules := compactModules(resolved.Modules)
-
-	options := siteRegisterOptions{}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&options)
-		}
-	}
-	if options.contentHandler == nil {
-		contentSvc := options.contentService
-		contentTypeSvc := options.contentTypeSvc
-		if contentSvc == nil && adm != nil {
-			contentSvc = adm.ContentService()
-		}
-		if contentTypeSvc == nil && adm != nil {
-			contentTypeSvc = adm.ContentTypeService()
-		}
-		if runtime := newDeliveryRuntime(resolved, adm, contentSvc, contentTypeSvc); runtime != nil {
-			options.contentHandler = runtime.Handler()
-		}
-	}
-	if options.contentHandler == nil {
-		options.contentHandler = defaultNotFoundHandler
-	}
-
-	var searchRuntime *searchRuntime
-	if options.searchProvider != nil {
-		if runtime := newSearchRuntime(resolved, options.searchProvider, modules); runtime != nil {
-			searchRuntime = runtime
-			if options.searchHandler == nil {
-				options.searchHandler = searchRuntime.PageHandler()
-			}
-			if options.searchAPIHandler == nil {
-				options.searchAPIHandler = searchRuntime.APIHandler()
-			}
-			if options.suggestAPIHandler == nil {
-				options.suggestAPIHandler = searchRuntime.SuggestAPIHandler()
-			}
-		}
-	}
-	if options.searchHandler == nil {
-		options.searchHandler = defaultNotFoundHandler
-	}
-	if options.searchAPIHandler == nil {
-		options.searchAPIHandler = defaultNotFoundHandler
-	}
-	if options.suggestAPIHandler == nil {
-		options.suggestAPIHandler = defaultNotFoundHandler
-	}
-
-	r.Use(requestContextMiddleware(adm, cfg, resolved, modules))
-
-	moduleCtx := SiteModuleContext{
-		Admin:          adm,
-		Router:         siteAdminRouter[T]{router: r},
-		BasePath:       resolved.BasePath,
-		DefaultLocale:  resolved.DefaultLocale,
-		ThemeEnabled:   resolved.Features.EnableTheme,
-		SearchProvider: options.searchProvider,
-		SearchOps:      options.searchOperations,
-	}
-	for _, module := range modules {
-		if module == nil {
-			continue
-		}
-		if err := module.RegisterRoutes(moduleCtx); err != nil {
-			moduleID := strings.TrimSpace(module.ID())
-			if moduleID == "" {
-				moduleID = "unknown"
-			}
-			return fmt.Errorf("register site module %q routes: %w", moduleID, err)
-		}
-	}
-
-	if resolved.Features.EnableSearch && options.searchProvider != nil {
-		searchPath := prefixedRoutePath(resolved.BasePath, resolved.Search.Route)
-		searchTopicPath := strings.TrimSuffix(searchPath, "/") + "/topics/:topic_slug"
-		searchAPIPath := prefixedRoutePath("", resolved.Search.Endpoint)
-		suggestAPIPath := prefixedRoutePath("", searchSuggestRoute(resolved.Search.Endpoint))
-		r.Get(searchPath, options.searchHandler)
-		if searchRuntime != nil {
-			r.Get(searchTopicPath, searchRuntime.TopicPageHandler())
-		}
-		r.Get(searchAPIPath, options.searchAPIHandler)
-		r.Get(suggestAPIPath, options.suggestAPIHandler)
-	}
-
-	baseRoutePath := prefixedRoutePath(resolved.BasePath, "/")
-	r.Get(baseRoutePath, options.contentHandler)
-
-	if isHTTPRouterAdapter(r) {
-		r.Get(prefixedRoutePath(resolved.BasePath, "/:path"), options.contentHandler)
-		r.Get(prefixedRoutePath(resolved.BasePath, "/:path/*rest"), options.contentHandler)
-	} else {
-		catchAllPath := siteCatchAllRoutePath(r, resolved.BasePath)
-		r.Get(catchAllPath, options.contentHandler)
-	}
-
-	return nil
+	flow := resolveSiteRegisterFlow[T](adm, cfg, siteCfg, opts)
+	return flow.register(r, adm, cfg)
 }
 
 func defaultNotFoundHandler(c router.Context) error {
@@ -212,60 +113,6 @@ func defaultNotFoundHandler(c router.Context) error {
 		return nil
 	}
 	return c.SendStatus(404)
-}
-
-func prefixedRoutePath(basePath, routePath string) string {
-	routePath = strings.TrimSpace(routePath)
-	if routePath == "" {
-		routePath = "/"
-	}
-	if strings.HasPrefix(routePath, "http://") || strings.HasPrefix(routePath, "https://") || strings.HasPrefix(routePath, "//") {
-		return routePath
-	}
-	if basePath == "" || basePath == "/" {
-		if strings.HasPrefix(routePath, "/") {
-			return routePath
-		}
-		return "/" + routePath
-	}
-	return admin.PrefixBasePath(basePath, routePath)
-}
-
-func siteCatchAllRoutePath[T any](r router.Router[T], basePath string) string {
-	// go-router uses adapter-specific catch-all syntax:
-	// - Fiber: "/*"
-	// - HTTPRouter: "/*param"
-	// Keep registration explicit so public site routes resolve across adapters.
-	switch any(r).(type) {
-	case *router.FiberRouter:
-		return prefixedRoutePath(basePath, "/*")
-	default:
-		return prefixedRoutePath(basePath, "/*path")
-	}
-}
-
-func isHTTPRouterAdapter[T any](r router.Router[T]) bool {
-	switch any(r).(type) {
-	case *router.HTTPRouter:
-		return true
-	default:
-		return false
-	}
-}
-
-func searchSuggestRoute(searchEndpoint string) string {
-	searchEndpoint = strings.TrimSpace(searchEndpoint)
-	if searchEndpoint == "" {
-		searchEndpoint = DefaultSearchEndpoint
-	}
-	searchEndpoint = strings.TrimSuffix(searchEndpoint, "/")
-	if searchEndpoint == "" {
-		searchEndpoint = DefaultSearchEndpoint
-	}
-	if strings.HasSuffix(searchEndpoint, "/suggest") {
-		return searchEndpoint
-	}
-	return searchEndpoint + "/suggest"
 }
 
 type siteAdminRouter[T any] struct {

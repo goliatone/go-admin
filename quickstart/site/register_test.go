@@ -2,6 +2,7 @@ package site
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -131,12 +132,16 @@ func (r *recordingRouter) WithLogger(logger router.Logger) router.Router[*fiber.
 type moduleStub struct {
 	id            string
 	registerRoute string
+	registerErr   error
 	viewContextFn func(context.Context, router.ViewContext) router.ViewContext
 }
 
 func (m moduleStub) ID() string { return m.id }
 
 func (m moduleStub) RegisterRoutes(ctx SiteModuleContext) error {
+	if m.registerErr != nil {
+		return m.registerErr
+	}
 	if m.registerRoute != "" {
 		ctx.Router.Get(m.registerRoute, defaultNotFoundHandler)
 	}
@@ -357,6 +362,22 @@ func TestRegisterSiteRoutesUsesHTTPRouterSegmentFallbackRoutes(t *testing.T) {
 	}
 	if indexOfRouteDef(routes, router.GET, "/*path") != -1 {
 		t.Fatalf("did not expect conflicting httprouter catch-all /*path, got %+v", routes)
+	}
+}
+
+func TestSiteRegisterFlowWrapsModuleErrors(t *testing.T) {
+	flow := resolveSiteRegisterFlow[*fiber.App](nil, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Modules: []SiteModule{
+			moduleStub{id: "broken", registerErr: errors.New("boom")},
+		},
+	}, nil)
+
+	err := flow.register(&recordingRouter{}, nil, admin.Config{DefaultLocale: "en"})
+	if err == nil {
+		t.Fatalf("expected module registration error")
+	}
+	if err.Error() != `register site module "broken" routes: boom` {
+		t.Fatalf("unexpected wrapped error: %v", err)
 	}
 }
 
