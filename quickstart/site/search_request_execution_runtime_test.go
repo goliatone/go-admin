@@ -9,7 +9,7 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
-func TestExecuteSearchReturnsEmptyDefaultsForBlankQuery(t *testing.T) {
+func TestSearchRequestExecutionRuntimeExecuteSearchReturnsEmptyDefaultsForBlankQuery(t *testing.T) {
 	provider := &recordingSiteSearchProvider{}
 	runtime := &searchRuntime{provider: provider}
 
@@ -25,7 +25,7 @@ func TestExecuteSearchReturnsEmptyDefaultsForBlankQuery(t *testing.T) {
 	}
 }
 
-func TestExecuteSearchNormalizesProviderResultDefaults(t *testing.T) {
+func TestSearchRequestExecutionRuntimeExecuteSearchNormalizesProviderResultDefaults(t *testing.T) {
 	provider := &recordingSiteSearchProvider{
 		searchResult: admin.SearchResultPage{
 			Page:    0,
@@ -50,7 +50,7 @@ func TestExecuteSearchNormalizesProviderResultDefaults(t *testing.T) {
 	}
 }
 
-func TestTranslateSearchRequestBuildsRuntimeCoreRequest(t *testing.T) {
+func TestSearchRequestExecutionRuntimeTranslateSearchRequestBuildsCoreRequest(t *testing.T) {
 	module := &recordingSearchFilterModule{
 		response: map[string][]string{
 			"module_scope": {"module-default", "beta"},
@@ -133,7 +133,7 @@ func TestTranslateSearchRequestBuildsRuntimeCoreRequest(t *testing.T) {
 	}
 }
 
-func TestTranslateSuggestRequestBuildsRuntimeCoreRequest(t *testing.T) {
+func TestSearchRequestExecutionRuntimeTranslateSuggestRequestBuildsCoreRequest(t *testing.T) {
 	module := &recordingSearchFilterModule{
 		response: map[string][]string{
 			"module_scope": {"suggested"},

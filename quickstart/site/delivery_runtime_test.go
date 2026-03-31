@@ -253,18 +253,6 @@ func TestDeliveryRuntimeResolvesCapabilityKinds(t *testing.T) {
 	assertMode("/blog/hello", "detail", "post")
 }
 
-func TestRecordDeliveryPathPrefersCanonicalContentPathFromMetadata(t *testing.T) {
-	capability := deliveryCapability{TypeSlug: "page", Kind: "page"}
-	record := admin.CMSContent{
-		Slug:     "home",
-		Data:     map[string]any{},
-		Metadata: map[string]any{"path": "/"},
-	}
-	if got := recordDeliveryPath(record, capability); got != "/" {
-		t.Fatalf("expected canonical metadata path /, got %q", got)
-	}
-}
-
 func TestDeliveryRuntimePreviewFallbackResolvesByRecordIDWhenRoutePathMisses(t *testing.T) {
 	content := admin.NewInMemoryContentService()
 	_, err := content.CreateContentType(context.Background(), admin.CMSContentType{
@@ -332,52 +320,6 @@ func TestDeliveryRuntimePreviewFallbackResolvesByRecordIDWhenRoutePathMisses(t *
 	}
 	if resolution.Record == nil || resolution.Record.ID != "page-draft-home" {
 		t.Fatalf("expected preview fallback to resolve page-draft-home, got %+v", resolution.Record)
-	}
-}
-
-func TestRecordDeliveryPathAppliesContentTypePathPolicy(t *testing.T) {
-	capability, ok := capabilityFromContentType(admin.CMSContentType{
-		Name: "news",
-		Slug: "news",
-		Capabilities: map[string]any{
-			"delivery": map[string]any{
-				"enabled": true,
-				"kind":    "detail",
-				"routes": map[string]any{
-					"detail": "/news/:slug",
-				},
-				"path_policy": map[string]any{
-					"allow_root":       false,
-					"allowed_prefixes": []string{"/news"},
-				},
-			},
-		},
-	})
-	if !ok {
-		t.Fatalf("expected delivery capability to resolve")
-	}
-
-	externalPath := admin.CMSContent{
-		Slug: "site-runtime-rollout",
-		Data: map[string]any{"path": "https://example.com/phish"},
-	}
-	if got := recordDeliveryPath(externalPath, capability); got != "/news/site-runtime-rollout" {
-		t.Fatalf("expected external URL path to be ignored and fallback to route path, got %q", got)
-	}
-
-	offPrefixPath := admin.CMSContent{
-		Slug: "site-runtime-rollout",
-		Data: map[string]any{"path": "/admin/secret"},
-	}
-	if got := recordDeliveryPath(offPrefixPath, capability); got != "/news/site-runtime-rollout" {
-		t.Fatalf("expected disallowed prefix path to fallback to route path, got %q", got)
-	}
-
-	unrecoverable := admin.CMSContent{
-		Data: map[string]any{"path": "/admin/secret"},
-	}
-	if got := recordDeliveryPath(unrecoverable, capability); got != "" {
-		t.Fatalf("expected unrecoverable invalid path to be dropped, got %q", got)
 	}
 }
 

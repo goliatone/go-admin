@@ -6,30 +6,7 @@ import (
 	"github.com/goliatone/go-admin/admin"
 )
 
-func TestLocalizedPathRespectsPrefixModes(t *testing.T) {
-	if got := LocalizedPath("/about", "en", "en", LocalePrefixNonDefault); got != "/about" {
-		t.Fatalf("expected default locale to remain unprefixed, got %q", got)
-	}
-	if got := LocalizedPath("/about", "es", "en", LocalePrefixNonDefault); got != "/es/about" {
-		t.Fatalf("expected non-default locale prefix, got %q", got)
-	}
-	if got := LocalizedPath("/about", "en", "en", LocalePrefixAlways); got != "/en/about" {
-		t.Fatalf("expected always-prefixed path, got %q", got)
-	}
-}
-
-func TestStripSupportedLocalePrefix(t *testing.T) {
-	path, locale := StripSupportedLocalePrefix("/es/about", []string{"en", "es"})
-	if path != "/about" || locale != "es" {
-		t.Fatalf("expected /about + es, got %q + %q", path, locale)
-	}
-	path, locale = StripSupportedLocalePrefix("/about", []string{"en", "es"})
-	if path != "/about" || locale != "" {
-		t.Fatalf("expected unchanged path with empty locale, got %q + %q", path, locale)
-	}
-}
-
-func TestBuildLocaleSwitcherContractPreservesTranslationIdentity(t *testing.T) {
+func TestLocaleSwitcherRuntimeBuildLocaleSwitcherContractPreservesTranslationIdentity(t *testing.T) {
 	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
 		SupportedLocales: []string{"en", "es", "fr"},
 		LocalePrefixMode: LocalePrefixNonDefault,
@@ -66,7 +43,7 @@ func TestBuildLocaleSwitcherContractPreservesTranslationIdentity(t *testing.T) {
 	}
 }
 
-func TestBuildLocaleSwitcherContractAvoidsDoubleLocalePrefix(t *testing.T) {
+func TestLocaleSwitcherRuntimeAvoidsDoubleLocalePrefix(t *testing.T) {
 	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
 		SupportedLocales: []string{"en", "es", "fr"},
 		LocalePrefixMode: LocalePrefixNonDefault,
@@ -101,7 +78,7 @@ func TestBuildLocaleSwitcherContractAvoidsDoubleLocalePrefix(t *testing.T) {
 	}
 }
 
-func TestBuildLocaleSwitcherContractSanitizesUnsafeLocalizedPaths(t *testing.T) {
+func TestLocaleSwitcherRuntimeSanitizesUnsafeLocalizedPaths(t *testing.T) {
 	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
 		SupportedLocales: []string{"en", "es"},
 		LocalePrefixMode: LocalePrefixNonDefault,
@@ -129,6 +106,23 @@ func TestBuildLocaleSwitcherContractSanitizesUnsafeLocalizedPaths(t *testing.T) 
 	}
 	if items[1]["url"] != "/es/about" {
 		t.Fatalf("expected unsafe es path to fallback to localized current path, got %+v", items[1])
+	}
+}
+
+func TestLocaleSwitcherRuntimeQueryAndDefaultLocalePolicy(t *testing.T) {
+	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	})
+	if !localeSwitcherRequiresExplicitDefaultLocale(cfg, "en") {
+		t.Fatalf("expected default locale to require explicit query under non-default prefix mode")
+	}
+	if localeSwitcherRequiresExplicitDefaultLocale(cfg, "es") {
+		t.Fatalf("expected non-default locale not to require explicit query")
+	}
+	got := localeSwitcherQuery(map[string]string{"locale": "es", "preview_token": " abc "}, cfg, "en")
+	if got["locale"] != "en" || got["preview_token"] != "abc" {
+		t.Fatalf("expected locale switcher query to normalize explicit default locale, got %+v", got)
 	}
 }
 

@@ -4,8 +4,6 @@ import (
 	"path"
 	"sort"
 	"strings"
-
-	"github.com/goliatone/go-admin/admin"
 )
 
 const (
@@ -95,44 +93,6 @@ func (c deliveryCapability) listTemplateCandidates() []string {
 	appendTemplate("site/" + pluralTypeSlug(c.TypeSlug))
 	appendTemplate(defaultDeliveryListTemplate)
 	return out
-}
-
-func capabilityFromContentType(contentType admin.CMSContentType) (deliveryCapability, bool) {
-	slug := strings.TrimSpace(contentType.Slug)
-	if slug == "" {
-		slug = strings.TrimSpace(contentType.Name)
-	}
-	if slug == "" {
-		return deliveryCapability{}, false
-	}
-	slug = strings.ToLower(slug)
-
-	contracts := admin.ReadContentTypeCapabilityContracts(contentType)
-	delivery := anyMap(contracts.Delivery)
-	if len(delivery) == 0 {
-		return deliveryCapability{}, false
-	}
-
-	enabled := true
-	if raw, ok := delivery["enabled"]; ok {
-		enabled = anyBool(raw)
-	}
-	if !enabled {
-		return deliveryCapability{}, false
-	}
-
-	routes := anyMap(delivery["routes"])
-	templates := anyMap(delivery["templates"])
-	out := deliveryCapability{
-		TypeSlug:       slug,
-		Kind:           strings.ToLower(strings.TrimSpace(anyString(delivery["kind"]))),
-		ListRoute:      strings.TrimSpace(anyString(routes["list"])),
-		DetailRoute:    strings.TrimSpace(anyString(routes["detail"])),
-		ListTemplate:   strings.TrimSpace(anyString(templates["list"])),
-		DetailTemplate: strings.TrimSpace(anyString(templates["detail"])),
-	}
-	out.PathPolicy = deliveryPathPolicyFromContract(delivery, out)
-	return out, true
 }
 
 func singularTypeSlug(value string) string {

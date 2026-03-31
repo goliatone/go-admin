@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
 
@@ -26,7 +27,60 @@ func (m *recordingSearchFilterModule) SearchFilters(_ context.Context, _ router.
 	return cloneSearchFilters(m.response)
 }
 
-func TestInjectSearchRequestFiltersPreservesFlagsAndClonesInputs(t *testing.T) {
+func TestSearchRequestTranslationSupportBuildSearchRequestTranslationSeedBuildsNormalizedSeed(t *testing.T) {
+	runtime := &searchRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			Search: SiteSearchConfig{
+				Indexes: []string{"media", "docs"},
+			},
+		}),
+	}
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(auth.WithActorContext(context.Background(), &auth.ActorContext{
+		Subject: "user-42",
+		Role:    "editor",
+	}))
+	ctx.On("Method").Return("GET")
+	ctx.On("Path").Return("/search")
+	ctx.On("IP").Return("127.0.0.1")
+	ctx.HeadersM["User-Agent"] = "test-agent"
+	ctx.HeadersM["Accept-Language"] = "es-MX"
+	ctx.QueriesM = map[string]string{
+		"q":            "archive",
+		"locale":       "es",
+		"facet":        "content_type,category",
+		"collection":   "media,docs",
+		"content_type": "post",
+		"tag":          "go",
+	}
+
+	seed := runtime.buildSearchRequestTranslationSeed(ctx, RequestState{Locale: "en"})
+
+	if seed.locale != "es" || seed.query != "archive" {
+		t.Fatalf("unexpected seed identity: %+v", seed)
+	}
+	if len(seed.indexes) != 2 || seed.indexes[0] != "media" || seed.indexes[1] != "docs" {
+		t.Fatalf("expected indexes [media docs], got %+v", seed.indexes)
+	}
+	if len(seed.facets) != 2 || seed.facets[0] != "content_type" || seed.facets[1] != "category" {
+		t.Fatalf("expected facets [content_type category], got %+v", seed.facets)
+	}
+	if got := seed.filters["content_type"]; len(got) != 1 || got[0] != "post" {
+		t.Fatalf("expected content_type filter to be preserved, got %+v", seed.filters)
+	}
+	if got := seed.filters["tag"]; len(got) != 1 || got[0] != "go" {
+		t.Fatalf("expected tag filter to be preserved, got %+v", seed.filters)
+	}
+	actorID := anyString(nestedMapFromAny(seed.actor)["actor_id"])
+	if actorID != "user-42" {
+		t.Fatalf("expected actor payload to include user-42, got %+v", seed.actor)
+	}
+	if seed.acceptLanguage != "es-MX" {
+		t.Fatalf("expected accept-language es-MX, got %+v", seed)
+	}
+}
+
+func TestSearchRequestTranslationSupportInjectSearchRequestFiltersPreservesFlagsAndClonesInputs(t *testing.T) {
 	module := &recordingSearchFilterModule{
 		response: map[string][]string{
 			"module_scope": {"beta"},
@@ -65,7 +119,7 @@ func TestInjectSearchRequestFiltersPreservesFlagsAndClonesInputs(t *testing.T) {
 	}
 }
 
-func TestInjectSearchRequestFiltersForSuggestMarksSuggestAndOmitsRanges(t *testing.T) {
+func TestSearchRequestTranslationSupportInjectSearchRequestFiltersForSuggestMarksSuggestAndOmitsRanges(t *testing.T) {
 	module := &recordingSearchFilterModule{}
 	runtime := &searchRuntime{modules: []SiteModule{module}}
 	seed := searchRequestTranslationSeed{
@@ -83,7 +137,7 @@ func TestInjectSearchRequestFiltersForSuggestMarksSuggestAndOmitsRanges(t *testi
 	}
 }
 
-func TestApplySearchLandingFiltersAddsTopicPresetFacetFilters(t *testing.T) {
+func TestSearchRequestTranslationSupportApplySearchLandingFiltersAddsTopicPresetFacetFilters(t *testing.T) {
 	filters := map[string][]string{
 		"content_type": {"post"},
 	}

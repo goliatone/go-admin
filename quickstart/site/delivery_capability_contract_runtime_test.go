@@ -7,28 +7,24 @@ import (
 	"github.com/goliatone/go-admin/admin"
 )
 
-func TestDeliveryCapabilityDefaultsAndTemplateCandidates(t *testing.T) {
-	capability := deliveryCapability{
-		TypeSlug:       "pages",
-		ListTemplate:   "site/pages",
-		DetailTemplate: "site/page",
+func TestDeliveryCapabilityContractRuntimeTypeSlugUsesSlugThenName(t *testing.T) {
+	if got := deliveryCapabilityTypeSlug(admin.CMSContentType{Slug: " Posts "}); got != "posts" {
+		t.Fatalf("expected slug-based type slug posts, got %q", got)
 	}
+	if got := deliveryCapabilityTypeSlug(admin.CMSContentType{Name: " News "}); got != "news" {
+		t.Fatalf("expected name fallback type slug news, got %q", got)
+	}
+	if got := deliveryCapabilityTypeSlug(admin.CMSContentType{}); got != "" {
+		t.Fatalf("expected blank type slug for empty content type, got %q", got)
+	}
+}
 
-	if got := capability.normalizedKind(); got != "page" {
-		t.Fatalf("expected page fallback kind, got %q", got)
+func TestDeliveryCapabilityContractRuntimeEnabledDefaultsAndOverrides(t *testing.T) {
+	if !deliveryCapabilityContractEnabled(map[string]any{"kind": "detail"}) {
+		t.Fatalf("expected delivery contract without enabled flag to default to true")
 	}
-	if got := capability.listRoutePattern(); got != "/pages" {
-		t.Fatalf("expected default list route /pages, got %q", got)
-	}
-	if got := capability.detailRoutePattern(); got != "/pages/:slug" {
-		t.Fatalf("expected default detail route /pages/:slug, got %q", got)
-	}
-
-	if got, want := capability.listTemplateCandidates(), []string{"site/pages", defaultDeliveryListTemplate}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("expected list templates %v, got %v", want, got)
-	}
-	if got, want := capability.detailTemplateCandidates(), []string{"site/page", defaultDeliveryDetailTemplate}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("expected detail templates %v, got %v", want, got)
+	if deliveryCapabilityContractEnabled(map[string]any{"enabled": false}) {
+		t.Fatalf("expected explicit disabled contract to be rejected")
 	}
 }
 
@@ -127,14 +123,5 @@ func TestCapabilityFromContentTypeSkipsMissingOrDisabledContracts(t *testing.T) 
 		if capability, ok := capabilityFromContentType(test); ok {
 			t.Fatalf("expected capability to be skipped, got %+v", capability)
 		}
-	}
-}
-
-func TestSingularTypeSlugFallsBackToContentForBlankValues(t *testing.T) {
-	if got := singularTypeSlug(""); got != "content" {
-		t.Fatalf("expected blank singular slug to fall back to content, got %q", got)
-	}
-	if got := pluralTypeSlug(""); got != "contents" {
-		t.Fatalf("expected blank plural slug to fall back to contents, got %q", got)
 	}
 }
