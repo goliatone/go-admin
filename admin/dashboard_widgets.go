@@ -186,7 +186,7 @@ func (a *Admin) registerDashboardProviders() error {
 					for _, point := range points {
 						chartPoints = append(chartPoints, ChartPointWidgetPayload{
 							Label: toString(point["label"]),
-							Value: numericToInt(point["value"]),
+							Value: dashinternal.NumericToInt(point["value"]),
 						})
 					}
 					return WidgetPayloadOf(LegacyChartSampleWidgetPayload{

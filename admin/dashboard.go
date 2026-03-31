@@ -3,28 +3,17 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"maps"
-	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
-	uiplacement "github.com/goliatone/go-admin/ui/placement"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 )
 
 // WidgetProvider produces data for a widget given viewer context/config.
 // Providers must return a canonical WidgetPayload.
 type WidgetProvider func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error)
-
-var dashboardPayloadBlockedPattern = regexp.MustCompile(`(?is)<\s*(!doctype|html|head|body|script)\b`)
-
-var dashboardPayloadBlockedKeys = map[string]struct{}{
-	"chart_html":          {},
-	"chart_html_fragment": {},
-}
 
 // DashboardWidgetInstance represents a widget placed in an area.
 type DashboardWidgetInstance = dashinternal.DashboardWidgetInstance
@@ -370,9 +359,9 @@ func (d *Dashboard) registerProviderDependencies(spec DashboardProviderSpec) {
 		d.registry.RegisterDashboardProvider(spec)
 	}
 	if d.components != nil {
-		d.logger.Warn("dashboard provider registered after initialization; updating live registry",
+		d.logger.Warn("dashboard provider registered after initialization; invalidating dashboard components for rebuild",
 			"provider", spec.Code)
-		d.registerProviderInComponents(spec, spec.Handler)
+		d.components = nil
 	}
 	d.registerWidgetDefinition(spec)
 }
@@ -482,52 +471,6 @@ func (d *Dashboard) persistDefaultProviderInstance(spec DashboardProviderSpec, a
 			"definition", spec.Code,
 			"area", area,
 			"error", err)
-	}
-}
-
-func (d *Dashboard) registerProviderInComponents(spec DashboardProviderSpec, handler WidgetProvider) {
-	if d == nil || d.components == nil || d.components.providers == nil || handler == nil {
-		return
-	}
-	def := dashcmp.WidgetDefinition{
-		Code:   spec.Code,
-		Name:   spec.Name,
-		Schema: spec.Schema,
-	}
-	if err := d.components.providers.RegisterDefinition(def); err != nil {
-		d.logger.Warn("failed to register dashboard provider definition in live registry",
-			"definition", spec.Code,
-			"error", err)
-		return
-	}
-	if err := d.components.providers.RegisterProvider(spec.Code, dashcmp.ProviderFunc(func(ctx context.Context, meta dashcmp.WidgetContext) (dashcmp.WidgetData, error) {
-		cfg := cloneAny(spec.DefaultConfig)
-		if cfg == nil {
-			cfg = map[string]any{}
-		}
-		maps.Copy(cfg, meta.Instance.Configuration)
-		adminCtx := AdminContext{
-			Context: ctx,
-			UserID:  meta.Viewer.UserID,
-			Locale:  meta.Viewer.Locale,
-		}
-		payload, err := handler(adminCtx, cfg)
-		if err != nil {
-			return nil, err
-		}
-		data, err := encodeWidgetPayload(payload)
-		if err != nil {
-			return nil, err
-		}
-		return dashcmp.WidgetData(data), nil
-	})); err != nil {
-		d.logger.Warn("failed to register dashboard provider in live registry",
-			"provider", spec.Code,
-			"error", err)
-		return
-	}
-	if d.components.specs != nil {
-		d.components.specs[spec.Code] = spec
 	}
 }
 
@@ -689,35 +632,16 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 	} else {
 		prefStore = dashcmp.NewInMemoryPreferenceStore()
 	}
-	refresh := dashcmp.NewBroadcastHook()
-	renderer := d.renderer
-	if renderer == nil {
-		renderer = noopDashboardRenderer{}
-	}
-	opts := dashcmp.Options{
-		WidgetStore:     store,
-		Authorizer:      dashboardAuthorizerAdapter{authorizer: d.authorizer, specs: specs},
-		PreferenceStore: prefStore,
-		Providers:       registry,
-		RefreshHook:     refresh,
-	}
-	if areas := d.areaCodesForServiceLocked(); len(areas) > 0 {
-		opts.Areas = areas
-	}
-	service := dashcmp.NewService(opts)
-	controller := dashcmp.NewController(dashcmp.ControllerOptions{
-		Service:  service,
-		Renderer: renderer,
-		Template: "dashboard_ssr.html",
+	d.components = buildDashboardComponents(dashboardComponentBuildOptions{
+		store:       store,
+		authorizer:  dashboardAuthorizerAdapter{authorizer: d.authorizer, specs: specs},
+		preferences: prefStore,
+		providers:   registry,
+		specs:       specs,
+		renderer:    d.renderer,
+		template:    "dashboard_ssr.html",
+		areas:       d.areaCodesForServiceLocked(),
 	})
-	d.components = &dashboardComponents{
-		service:    service,
-		controller: controller,
-		executor:   serviceExecutor{svc: service},
-		broadcast:  refresh,
-		providers:  registry,
-		specs:      specs,
-	}
 	return d.components, nil
 }
 
@@ -847,29 +771,8 @@ func viewerFromAdminContext(ctx AdminContext) dashcmp.ViewerContext {
 	}
 }
 
-func orderedAreaCodes(areaMap map[string][]dashcmp.WidgetInstance) []string {
-	preferred := uiplacement.PreferredDashboardAreaCodes()
-	seen := map[string]bool{}
-	order := []string{}
-	for _, code := range preferred {
-		if _, ok := areaMap[code]; ok {
-			order = append(order, code)
-			seen[code] = true
-		}
-	}
-	extras := []string{}
-	for code := range areaMap {
-		if seen[code] {
-			continue
-		}
-		extras = append(extras, code)
-	}
-	sort.Strings(extras)
-	return append(order, extras...)
-}
-
 func flattenWidgets(layout dashcmp.Layout) []map[string]any {
-	areas := orderedAreaCodes(layout.Areas)
+	areas := dashinternal.OrderedAreaCodes(layout.Areas)
 	out := []map[string]any{}
 	for _, code := range areas {
 		for _, inst := range layout.Areas[code] {
@@ -877,7 +780,7 @@ func flattenWidgets(layout dashcmp.Layout) []map[string]any {
 				"definition": inst.DefinitionID,
 				"area":       inst.AreaCode,
 				"config":     cloneAny(inst.Configuration),
-				"data":       extractWidgetData(inst.Metadata),
+				"data":       dashinternal.ExtractWidgetData(inst.Metadata),
 			})
 		}
 	}
@@ -885,18 +788,18 @@ func flattenWidgets(layout dashcmp.Layout) []map[string]any {
 }
 
 func buildDashboardLayout(layout dashcmp.Layout, theme *ThemeSelection, basePath string, viewer dashcmp.ViewerContext) *DashboardLayout {
-	areas := orderedAreaCodes(layout.Areas)
+	areas := dashinternal.OrderedAreaCodes(layout.Areas)
 	resolvedAreas := make([]*WidgetArea, 0, len(areas))
 	for _, code := range areas {
 		widgets := layout.Areas[code]
 		resolved := make([]*ResolvedWidget, 0, len(widgets))
 		for idx, inst := range widgets {
 			meta := inst.Metadata
-			span := spanFromMetadata(meta)
+			span := dashinternal.SpanFromMetadata(meta)
 			if span <= 0 {
 				span = 12
 			}
-			order := orderFromMetadata(meta)
+			order := dashinternal.OrderFromMetadata(meta)
 			if order < 0 {
 				order = idx
 			}
@@ -904,9 +807,9 @@ func buildDashboardLayout(layout dashcmp.Layout, theme *ThemeSelection, basePath
 				ID:         inst.ID,
 				Definition: inst.DefinitionID,
 				Area:       inst.AreaCode,
-				Data:       extractWidgetData(meta),
+				Data:       dashinternal.ExtractWidgetData(meta),
 				Config:     cloneAny(inst.Configuration),
-				Hidden:     hiddenFromMetadata(meta),
+				Hidden:     dashinternal.HiddenFromMetadata(meta),
 				Span:       span,
 				Metadata: &WidgetMetadata{
 					Layout: &WidgetLayout{Width: span},
@@ -932,17 +835,17 @@ func buildDashboardLayout(layout dashcmp.Layout, theme *ThemeSelection, basePath
 }
 
 func instancesFromLayout(layout dashcmp.Layout, viewer dashcmp.ViewerContext) []DashboardWidgetInstance {
-	areas := orderedAreaCodes(layout.Areas)
+	areas := dashinternal.OrderedAreaCodes(layout.Areas)
 	out := []DashboardWidgetInstance{}
 	position := 0
 	for _, code := range areas {
 		for _, inst := range layout.Areas[code] {
 			meta := inst.Metadata
-			order := orderFromMetadata(meta)
+			order := dashinternal.OrderFromMetadata(meta)
 			if order < 0 {
 				order = position
 			}
-			locale := localeFromMetadata(meta)
+			locale := dashinternal.LocaleFromMetadata(meta)
 			if locale == "" {
 				locale = viewer.Locale
 			}
@@ -952,95 +855,14 @@ func instancesFromLayout(layout dashcmp.Layout, viewer dashcmp.ViewerContext) []
 				AreaCode:       inst.AreaCode,
 				Config:         cloneAny(inst.Configuration),
 				Position:       order,
-				Span:           spanFromMetadata(meta),
-				Hidden:         hiddenFromMetadata(meta),
+				Span:           dashinternal.SpanFromMetadata(meta),
+				Hidden:         dashinternal.HiddenFromMetadata(meta),
 				Locale:         locale,
 			})
 			position++
 		}
 	}
 	return out
-}
-
-func extractWidgetData(meta map[string]any) map[string]any {
-	if meta == nil {
-		return nil
-	}
-	switch data := meta["data"].(type) {
-	case map[string]any:
-		return data
-	case dashcmp.WidgetData:
-		return map[string]any(data)
-	}
-	return nil
-}
-
-func spanFromMetadata(meta map[string]any) int {
-	if meta == nil {
-		return 0
-	}
-	if layout, ok := meta["layout"].(map[string]any); ok {
-		if width := numericToInt(layout["width"]); width > 0 {
-			return width
-		}
-	}
-	return numericToInt(meta["width"])
-}
-
-func hiddenFromMetadata(meta map[string]any) bool {
-	if meta == nil {
-		return false
-	}
-	if hidden, ok := meta["hidden"].(bool); ok {
-		return hidden
-	}
-	return false
-}
-
-func orderFromMetadata(meta map[string]any) int {
-	if meta == nil {
-		return -1
-	}
-	return numericToInt(meta["order"])
-}
-
-func localeFromMetadata(meta map[string]any) string {
-	if meta == nil {
-		return ""
-	}
-	if locale, ok := meta["locale"].(string); ok {
-		return locale
-	}
-	return ""
-}
-
-func numericToInt(val any) int {
-	switch v := val.(type) {
-	case int:
-		return v
-	case int32:
-		return int(v)
-	case int64:
-		return int(v)
-	case float32:
-		if v == 0 {
-			return 0
-		}
-		return int(v)
-	case float64:
-		if v == 0 {
-			return 0
-		}
-		return int(v)
-	case string:
-		if strings.TrimSpace(v) == "" {
-			return -1
-		}
-		if parsed, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			return parsed
-		}
-	}
-	return -1
 }
 
 func convertDashboardTheme(theme *dashcmp.ThemeSelection) *ThemeSelection {
@@ -1132,44 +954,4 @@ func (d *Dashboard) provider(code string) (registeredProvider, bool) {
 	defer d.mu.RUnlock()
 	provider, ok := d.providers[strings.TrimSpace(code)]
 	return provider, ok
-}
-
-func sanitizeDashboardWidgetData(data map[string]any) map[string]any {
-	if data == nil {
-		return map[string]any{}
-	}
-	out := map[string]any{}
-	for key, value := range data {
-		if _, blocked := dashboardPayloadBlockedKeys[strings.ToLower(strings.TrimSpace(key))]; blocked {
-			continue
-		}
-		out[key] = sanitizeDashboardWidgetValue(value)
-	}
-	return out
-}
-
-func sanitizeDashboardWidgetValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return sanitizeDashboardWidgetData(typed)
-	case []any:
-		out := make([]any, 0, len(typed))
-		for _, item := range typed {
-			out = append(out, sanitizeDashboardWidgetValue(item))
-		}
-		return out
-	case []map[string]any:
-		out := make([]any, 0, len(typed))
-		for _, item := range typed {
-			out = append(out, sanitizeDashboardWidgetData(item))
-		}
-		return out
-	case string:
-		if dashboardPayloadBlockedPattern.MatchString(typed) {
-			return ""
-		}
-		return typed
-	default:
-		return value
-	}
 }

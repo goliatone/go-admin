@@ -9,7 +9,6 @@ import (
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
-	dashcmd "github.com/goliatone/go-dashboard/components/dashboard/commands"
 	dashapi "github.com/goliatone/go-dashboard/components/dashboard/httpapi"
 )
 
@@ -18,8 +17,20 @@ type dashboardComponents struct {
 	controller *dashcmp.Controller
 	executor   dashapi.Executor
 	broadcast  *dashcmp.BroadcastHook
-	providers  dashcmp.ProviderRegistry
 	specs      map[string]DashboardProviderSpec
+}
+
+type dashboardComponentBuildOptions struct {
+	store         dashcmp.WidgetStore
+	authorizer    dashcmp.Authorizer
+	preferences   dashcmp.PreferenceStore
+	providers     dashcmp.ProviderRegistry
+	specs         map[string]DashboardProviderSpec
+	renderer      dashcmp.Renderer
+	template      string
+	areas         []string
+	themeProvider dashcmp.ThemeProvider
+	themeSelector func(context.Context, dashcmp.ViewerContext) dashcmp.ThemeSelector
 }
 
 func (d *Dashboard) setComponents(comp *dashboardComponents) {
@@ -29,6 +40,43 @@ func (d *Dashboard) setComponents(comp *dashboardComponents) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.components = comp
+}
+
+func buildDashboardComponents(opts dashboardComponentBuildOptions) *dashboardComponents {
+	refresh := dashcmp.NewBroadcastHook()
+	renderer := opts.renderer
+	if renderer == nil {
+		renderer = noopDashboardRenderer{}
+	}
+	template := strings.TrimSpace(opts.template)
+	if template == "" {
+		template = "dashboard_ssr.html"
+	}
+	serviceOpts := dashcmp.Options{
+		WidgetStore:     opts.store,
+		Authorizer:      opts.authorizer,
+		PreferenceStore: opts.preferences,
+		Providers:       opts.providers,
+		RefreshHook:     refresh,
+		ThemeProvider:   opts.themeProvider,
+		ThemeSelector:   opts.themeSelector,
+	}
+	if len(opts.areas) > 0 {
+		serviceOpts.Areas = append([]string{}, opts.areas...)
+	}
+	service := dashcmp.NewService(serviceOpts)
+	controller := dashcmp.NewController(dashcmp.ControllerOptions{
+		Service:  service,
+		Renderer: renderer,
+		Template: template,
+	})
+	return &dashboardComponents{
+		service:    service,
+		controller: controller,
+		executor:   dashapi.NewServiceExecutor(service),
+		broadcast:  refresh,
+		specs:      opts.specs,
+	}
 }
 
 type activityRecorderAdapter struct {
@@ -72,40 +120,25 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 	}
 	prefStore := a.buildDashboardPreferenceStore(store)
 	themeProvider := a.dashboardThemeProvider()
-	refresh := dashcmp.NewBroadcastHook()
-
 	renderer := a.dashboardRenderer()
-	opts := dashcmp.Options{
-		WidgetStore:     store,
-		Authorizer:      authorizer,
-		PreferenceStore: prefStore,
-		Providers:       providerRegistry,
-		RefreshHook:     refresh,
-		ThemeProvider:   themeProvider,
-		ThemeSelector: func(ctx context.Context, _ dashcmp.ViewerContext) dashcmp.ThemeSelector {
+	components := buildDashboardComponents(dashboardComponentBuildOptions{
+		store:         store,
+		authorizer:    authorizer,
+		preferences:   prefStore,
+		providers:     providerRegistry,
+		specs:         specs,
+		renderer:      renderer,
+		template:      "dashboard_ssr.html",
+		themeProvider: themeProvider,
+		themeSelector: func(ctx context.Context, _ dashcmp.ViewerContext) dashcmp.ThemeSelector {
 			selector := mergeSelector(ThemeSelector{
 				Name:    a.config.Theme,
 				Variant: a.config.ThemeVariant,
 			}, ThemeSelectorFromContext(ctx))
 			return dashcmp.ThemeSelector{Name: selector.Name, Variant: selector.Variant}
 		},
-	}
-	service := dashcmp.NewService(opts)
-	controller := dashcmp.NewController(dashcmp.ControllerOptions{
-		Service:  service,
-		Renderer: renderer,
-		Template: "dashboard_ssr.html",
 	})
-	executor := serviceExecutor{svc: service}
-
-	a.dash = &dashboardComponents{
-		service:    service,
-		controller: controller,
-		executor:   executor,
-		broadcast:  refresh,
-		providers:  providerRegistry,
-		specs:      specs,
-	}
+	a.dash = components
 	a.dashboard.setComponents(a.dash)
 	return nil
 }
@@ -197,54 +230,6 @@ type noopDashboardRenderer struct{}
 
 func (noopDashboardRenderer) Render(_ string, _ any, _ ...io.Writer) (string, error) {
 	return "", nil
-}
-
-type serviceExecutor struct{ svc *dashcmp.Service }
-
-func (e serviceExecutor) Assign(ctx context.Context, req dashcmp.AddWidgetRequest) error {
-	if e.svc == nil {
-		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
-	}
-	return e.svc.AddWidget(ctx, req)
-}
-
-func (e serviceExecutor) Remove(ctx context.Context, input dashcmd.RemoveWidgetInput) error {
-	if e.svc == nil {
-		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
-	}
-	ctx = dashcmp.ContextWithActivity(ctx, dashcmp.ActivityContext{
-		ActorID:  input.ActorID,
-		UserID:   input.UserID,
-		TenantID: input.TenantID,
-	})
-	return e.svc.RemoveWidget(ctx, input.WidgetID)
-}
-
-func (e serviceExecutor) Reorder(ctx context.Context, input dashcmd.ReorderWidgetsInput) error {
-	if e.svc == nil {
-		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
-	}
-	return e.svc.ReorderWidgets(ctx, input.AreaCode, input.WidgetIDs)
-}
-
-func (e serviceExecutor) Refresh(ctx context.Context, input dashcmd.RefreshWidgetInput) error {
-	if e.svc == nil {
-		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
-	}
-	return e.svc.NotifyWidgetUpdated(ctx, input.Event)
-}
-
-func (e serviceExecutor) Preferences(ctx context.Context, input dashcmd.SaveLayoutPreferencesInput) error {
-	if e.svc == nil {
-		return serviceNotConfiguredDomainError("dashboard service", map[string]any{"component": "dashboard"})
-	}
-	overrides := dashcmp.LayoutOverrides{
-		AreaOrder:     cloneStringSliceMap(input.AreaOrder),
-		AreaRows:      convertLayoutRows(input.LayoutRows),
-		HiddenWidgets: toHiddenWidgetMap(input.HiddenWidgets),
-		Locale:        input.Viewer.Locale,
-	}
-	return e.svc.SavePreferences(ctx, input.Viewer, overrides)
 }
 
 type dashboardPreferenceStore struct {
@@ -473,35 +458,6 @@ func cloneHiddenWidgetMap(in map[string]bool) map[string]bool {
 	for key, val := range in {
 		if val {
 			out[key] = true
-		}
-	}
-	return out
-}
-
-func convertLayoutRows(rows map[string][]dashcmd.LayoutRowInput) map[string][]dashcmp.LayoutRow {
-	out := map[string][]dashcmp.LayoutRow{}
-	for area, areaRows := range rows {
-		mapped := []dashcmp.LayoutRow{}
-		for _, row := range areaRows {
-			if len(row.Widgets) == 0 {
-				continue
-			}
-			slots := []dashcmp.WidgetSlot{}
-			for _, slot := range row.Widgets {
-				if slot.ID == "" {
-					continue
-				}
-				slots = append(slots, dashcmp.WidgetSlot{
-					ID:    slot.ID,
-					Width: slot.Width,
-				})
-			}
-			if len(slots) > 0 {
-				mapped = append(mapped, dashcmp.LayoutRow{Widgets: slots})
-			}
-		}
-		if len(mapped) > 0 {
-			out[area] = mapped
 		}
 	}
 	return out

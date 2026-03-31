@@ -95,7 +95,7 @@ func TestDashboardLateProviderRegistrationLogsWarningViaInjectedLogger(t *testin
 		},
 	})
 
-	if got := logger.count("warn", "dashboard provider registered after initialization; updating live registry"); got == 0 {
+	if got := logger.count("warn", "dashboard provider registered after initialization; invalidating dashboard components for rebuild"); got == 0 {
 		t.Fatalf("expected late provider registration warning to be logged via injected logger")
 	}
 }

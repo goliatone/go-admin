@@ -503,11 +503,11 @@ func (r goCMSContentWriteBoundary) prepareContentMetadata(ctx context.Context, c
 	if existing != nil {
 		content.FamilyID = strings.TrimSpace(primitives.FirstNonEmptyRaw(content.FamilyID, existing.FamilyID))
 	}
-	groupID := adapterRequestedFamilyID(content.FamilyID, data, metadata)
+	groupID := cmsadapter.RequestedFamilyID(content.FamilyID, data, metadata)
 	if existing != nil {
-		groupID = adapterRequestedFamilyID(groupID, existing.Data, existing.Metadata)
+		groupID = cmsadapter.RequestedFamilyID(groupID, existing.Data, existing.Metadata)
 	}
-	data, metadata = adapterPersistTranslationGroupMetadata(groupID, data, metadata)
+	data, metadata = cmsadapter.PersistTranslationGroupMetadata(groupID, data, metadata)
 	if existing != nil {
 		if content.ContentType == "" {
 			content.ContentType = existing.ContentType
@@ -518,15 +518,15 @@ func (r goCMSContentWriteBoundary) prepareContentMetadata(ctx context.Context, c
 	}
 	applyStructural := r.shouldApplyStructuralMetadata(ctx, content, existing)
 	if applyStructural {
-		extracted, cleaned := extractStructuralMetadata(data)
+		extracted, cleaned := cmsadapter.ExtractStructuralMetadata(data)
 		data = cleaned
 		var base map[string]any
 		if existing != nil && existing.Metadata != nil {
 			base = primitives.CloneAnyMap(existing.Metadata)
 		}
-		metadata = mergeMetadata(base, metadata)
-		metadata = mergeMetadata(metadata, extracted)
-		metadata = normalizeStructuralMetadata(metadata)
+		metadata = cmsadapter.MergeMetadata(base, metadata)
+		metadata = cmsadapter.MergeMetadata(metadata, extracted)
+		metadata = cmsadapter.NormalizeStructuralMetadata(metadata)
 		metadata = pruneNilMapValues(metadata)
 		if metadata == nil {
 			metadata = map[string]any{}
@@ -596,8 +596,8 @@ func (r goCMSContentWriteBoundary) createPageFromContent(ctx context.Context, pa
 	} else if embedded, present := embeddedBlocksFromData(data); present {
 		data["blocks"] = embedded
 	}
-	groupID := adapterRequestedFamilyID(page.FamilyID, data, page.Metadata)
-	data, metadata := adapterPersistTranslationGroupMetadata(groupID, data, page.Metadata)
+	groupID := cmsadapter.RequestedFamilyID(page.FamilyID, data, page.Metadata)
+	data, metadata := cmsadapter.PersistTranslationGroupMetadata(groupID, data, page.Metadata)
 
 	created, err := r.CreateContent(ctx, CMSContent{
 		Title:       page.Title,
@@ -660,9 +660,9 @@ func (r goCMSContentWriteBoundary) updatePageFromContent(ctx context.Context, pa
 	} else if embedded, present := embeddedBlocksFromData(data); present {
 		data["blocks"] = embedded
 	}
-	metadata := mergeMetadata(primitives.CloneAnyMap(existing.Metadata), primitives.CloneAnyMap(page.Metadata))
-	groupID := adapterRequestedFamilyID(primitives.FirstNonEmptyRaw(page.FamilyID, existing.FamilyID), data, metadata)
-	data, metadata = adapterPersistTranslationGroupMetadata(groupID, data, metadata)
+	metadata := cmsadapter.MergeMetadata(primitives.CloneAnyMap(existing.Metadata), primitives.CloneAnyMap(page.Metadata))
+	groupID := cmsadapter.RequestedFamilyID(primitives.FirstNonEmptyRaw(page.FamilyID, existing.FamilyID), data, metadata)
+	data, metadata = cmsadapter.PersistTranslationGroupMetadata(groupID, data, metadata)
 
 	title := strings.TrimSpace(page.Title)
 	if title == "" {

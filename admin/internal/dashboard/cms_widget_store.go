@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"sort"
-	"strconv"
 
 	"github.com/goliatone/go-admin/internal/primitives"
 	godash "github.com/goliatone/go-dashboard/components/dashboard"
@@ -82,9 +81,9 @@ func (s *CMSWidgetStore) CreateInstance(ctx context.Context, input godash.Create
 	instance := WidgetInstance{
 		DefinitionCode: input.DefinitionID,
 		Config:         primitives.CloneAnyMap(input.Configuration),
-		Span:           spanFromMetadata(input.Metadata),
-		Hidden:         hiddenFromMetadata(input.Metadata),
-		Locale:         localeFromMetadata(input.Metadata),
+		Span:           SpanFromMetadata(input.Metadata),
+		Hidden:         HiddenFromMetadata(input.Metadata),
+		Locale:         LocaleFromMetadata(input.Metadata),
 	}
 	created, err := s.svc.SaveInstance(ctx, instance)
 	if err != nil || created == nil {
@@ -117,9 +116,9 @@ func (s *CMSWidgetStore) UpdateInstance(ctx context.Context, input godash.Update
 		current.Config = primitives.CloneAnyMap(input.Configuration)
 	}
 	if input.Metadata != nil {
-		current.Span = spanFromMetadata(input.Metadata)
-		current.Hidden = hiddenFromMetadata(input.Metadata)
-		if loc := localeFromMetadata(input.Metadata); loc != "" {
+		current.Span = SpanFromMetadata(input.Metadata)
+		current.Hidden = HiddenFromMetadata(input.Metadata)
+		if loc := LocaleFromMetadata(input.Metadata); loc != "" {
 			current.Locale = loc
 		}
 	}
@@ -262,53 +261,4 @@ func (s *CMSWidgetStore) record(ctx context.Context, action string, inst godash.
 		return
 	}
 	s.activity.RecordWidgetEvent(ctx, action, inst)
-}
-
-func spanFromMetadata(meta map[string]any) int {
-	if meta == nil {
-		return 0
-	}
-	if layout, ok := meta["layout"].(map[string]any); ok {
-		if width, ok := layout["width"].(int); ok {
-			return width
-		}
-		if widthStr := toString(layout["width"]); widthStr != "" {
-			if parsed, err := strconv.Atoi(widthStr); err == nil {
-				return parsed
-			}
-		}
-	}
-	if widthStr := toString(meta["width"]); widthStr != "" {
-		if parsed, err := strconv.Atoi(widthStr); err == nil {
-			return parsed
-		}
-	}
-	return 0
-}
-
-func hiddenFromMetadata(meta map[string]any) bool {
-	if meta == nil {
-		return false
-	}
-	if hidden, ok := meta["hidden"].(bool); ok {
-		return hidden
-	}
-	return false
-}
-
-func localeFromMetadata(meta map[string]any) string {
-	if meta == nil {
-		return ""
-	}
-	if locale, ok := meta["locale"].(string); ok {
-		return locale
-	}
-	return ""
-}
-
-func toString(val any) string {
-	if value, ok := val.(float64); ok && value == 0 {
-		return ""
-	}
-	return primitives.StringFromAny(val)
 }

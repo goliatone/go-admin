@@ -100,6 +100,33 @@ func TestCMSWidgetStoreEnsure(t *testing.T) {
 	}
 }
 
+func TestCMSWidgetStoreUsesSharedMetadataHelpers(t *testing.T) {
+	ctx := context.Background()
+	svc := newInMemoryWidgetService()
+	store := NewCMSWidgetStore(svc)
+
+	created, err := store.CreateInstance(ctx, godash.CreateWidgetInstanceInput{
+		DefinitionID: "stat",
+		Metadata: map[string]any{
+			"layout": map[string]any{"width": "8"},
+			"hidden": true,
+			"locale": "es",
+		},
+	})
+	if err != nil {
+		t.Fatalf("create instance: %v", err)
+	}
+	if got := created.Metadata["layout"].(map[string]any)["width"]; got != 8 {
+		t.Fatalf("expected shared width normalization to yield 8, got %#v", got)
+	}
+	if got := created.Metadata["hidden"]; got != true {
+		t.Fatalf("expected hidden metadata true, got %#v", got)
+	}
+	if got := created.Metadata["locale"]; got != "es" {
+		t.Fatalf("expected locale es, got %#v", got)
+	}
+}
+
 func TestCMSWidgetStoreMissingService(t *testing.T) {
 	store := NewCMSWidgetStore(nil)
 	if store != nil {

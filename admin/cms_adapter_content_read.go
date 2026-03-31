@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
@@ -361,7 +362,7 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 	if meta := gocmsutil.MapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = primitives.CloneAnyMap(meta)
 	}
-	out.FamilyID = adapterResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
+	out.FamilyID = cmsadapter.ResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
 	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
 	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
 	if len(out.Navigation) > 0 {
@@ -372,13 +373,13 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 	}
 	if a.shouldApplyStructuralMetadata(ctx, out, nil) {
 		if len(out.Metadata) == 0 {
-			if derived := structuralMetadataFromData(out.Data); len(derived) > 0 {
+			if derived := cmsadapter.StructuralMetadataFromData(out.Data); len(derived) > 0 {
 				out.Metadata = derived
 			}
 		} else {
-			out.Metadata = normalizeStructuralMetadata(out.Metadata)
+			out.Metadata = cmsadapter.NormalizeStructuralMetadata(out.Metadata)
 		}
-		out.Data = injectStructuralMetadata(out.Metadata, out.Data)
+		out.Data = cmsadapter.InjectStructuralMetadata(out.Metadata, out.Data)
 	}
 	return out
 }
@@ -473,9 +474,9 @@ func (r goCMSContentReadBoundary) contentTypeByID(ctx context.Context, id uuid.U
 
 func pageFromContent(content CMSContent) CMSPage {
 	data := primitives.CloneAnyMap(content.Data)
-	meta := normalizeStructuralMetadata(content.Metadata)
+	meta := cmsadapter.NormalizeStructuralMetadata(content.Metadata)
 	if meta != nil {
-		data = injectStructuralMetadata(meta, data)
+		data = cmsadapter.InjectStructuralMetadata(meta, data)
 	}
 	path := strings.TrimSpace(asString(data["path"], asString(meta["path"], "")))
 	parentID := strings.TrimSpace(asString(data["parent_id"], asString(meta["parent_id"], "")))
@@ -495,7 +496,7 @@ func pageFromContent(content CMSContent) CMSPage {
 		Slug:       content.Slug,
 		TemplateID: templateID,
 		Locale:     content.Locale,
-		FamilyID: adapterResolvedFamilyID(
+		FamilyID: cmsadapter.ResolvedFamilyID(
 			content.FamilyID,
 			data,
 			content.Metadata,

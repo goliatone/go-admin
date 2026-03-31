@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 	"slices"
@@ -13,6 +12,8 @@ import (
 type CMSContentRepository struct {
 	content      CMSContentService
 	contentTypes CMSContentTypeService
+	read         AdminContentReadService
+	write        AdminContentWriteService
 }
 
 // NewCMSContentRepository builds a content repository.
@@ -21,242 +22,47 @@ func NewCMSContentRepository(content CMSContentService) *CMSContentRepository {
 	if typed, ok := content.(CMSContentTypeService); ok {
 		repository.contentTypes = typed
 	}
+	repository.read = newAdminContentReadService(content, repository.contentTypes)
+	repository.write = newAdminContentWriteService(content, repository.contentTypes)
 	return repository
 }
 
 // List returns content filtered by locale and search query.
 func (r *CMSContentRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
-	if r.content == nil {
-		return nil, 0, ErrNotFound
-	}
-	locale := extractLocale(opts, "")
-	contents, err := r.content.Contents(ctx, locale)
-	if err != nil {
-		return nil, 0, err
-	}
-	records := make([]map[string]any, 0, len(contents))
-	for _, item := range contents {
-		if contentRecordRequiresCanonicalTopLevelFields(item) {
-			if err := ensureCanonicalTopLevelFields(item); err != nil {
-				return nil, 0, err
-			}
-		}
-		item = normalizeCMSContentLocaleState(item, locale)
-		record := cmsContentRecord(item, cmsContentRecordOptions{
-			includeBlocks:   true,
-			includeData:     true,
-			includeMetadata: true,
-		})
-		if policy, ok := r.resolveContentNavigationPolicy(ctx, primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)); ok {
-			record = applyContentEntryNavigationReadContract(record, policy)
-		}
-		records = append(records, record)
-	}
-	listOpts := opts
-	if strings.TrimSpace(listOpts.SortBy) == "" {
-		listOpts.SortBy = "id"
-	}
-	list, total := applyListOptionsToRecordMaps(records, listOpts, listRecordOptions{
-		PredicateMatcher: cmsContentRecordPredicateMatcher,
-		SearchMatcher:    cmsContentRecordSearchMatcher,
-	})
-	return list, total, nil
+	return r.readService().List(ctx, opts)
 }
 
 // Get retrieves content by id.
 func (r *CMSContentRepository) Get(ctx context.Context, id string) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	item, err := r.content.Content(ctx, id, localeFromContext(ctx))
-	if err != nil && errors.Is(err, ErrNotFound) {
-		if locale := r.resolveContentLocale(ctx, id); locale != "" {
-			item, err = r.content.Content(ctx, id, locale)
-		}
-	}
-	if err != nil {
-		return nil, err
-	}
-	if item == nil {
-		return nil, ErrNotFound
-	}
-	if contentRecordRequiresCanonicalTopLevelFields(*item) {
-		if err := ensureCanonicalTopLevelFields(*item); err != nil {
-			return nil, err
-		}
-	}
-	requested := strings.TrimSpace(primitives.FirstNonEmptyRaw(localeFromContext(ctx), item.RequestedLocale))
-	normalized := normalizeCMSContentLocaleState(*item, requested)
-	if requested != "" && normalized.MissingRequestedLocale && !localeFallbackAllowed(ctx) {
-		return nil, translationMissingNotFoundError(requested, normalized.AvailableLocales, map[string]any{
-			"entity":       "content",
-			"id":           normalized.ID,
-			"slug":         normalized.Slug,
-			"content_type": primitives.FirstNonEmptyRaw(normalized.ContentTypeSlug, normalized.ContentType),
-			"locale":       normalized.Locale,
-		})
-	}
-	item = &normalized
-	record := cmsContentRecord(*item, cmsContentRecordOptions{
-		includeBlocks:   true,
-		includeData:     true,
-		includeMetadata: true,
-	})
-	if policy, ok := r.resolveContentNavigationPolicy(ctx, primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)); ok {
-		record = applyContentEntryNavigationReadContract(record, policy)
-	}
-	return record, nil
+	return r.readService().Get(ctx, id)
 }
 
 // Create inserts new content.
 func (r *CMSContentRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	if record == nil {
-		record = map[string]any{}
-	}
-	contentTypeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-		toString(record["content_type_slug"]),
-		toString(record["content_type"]),
-		toString(record["content_type_id"]),
-	))
-	if policy, ok := r.resolveContentNavigationPolicy(ctx, contentTypeKey); ok {
-		if err := applyContentEntryNavigationWrite(record, policy, true); err != nil {
-			return nil, err
-		}
-	}
-	content := mapToCMSContent(record)
-	created, err := r.content.CreateContent(ctx, content)
-	if err != nil {
-		return nil, err
-	}
-	result := cmsContentRecord(*created, cmsContentRecordOptions{
-		includeBlocks:   true,
-		includeData:     true,
-		includeMetadata: true,
-	})
-	if policy, ok := r.resolveContentNavigationPolicy(ctx, primitives.FirstNonEmptyRaw(created.ContentTypeSlug, created.ContentType)); ok {
-		result = applyContentEntryNavigationReadContract(result, policy)
-	}
-	return result, nil
+	return r.writeService().Create(ctx, record)
 }
 
 // CreateTranslation creates a locale variant through a first-class translation command.
 func (r *CMSContentRepository) CreateTranslation(ctx context.Context, input TranslationCreateInput) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	input = normalizeTranslationCreateInput(input)
-	if input.SourceID == "" {
-		return nil, validationDomainError("translation requires a single id", map[string]any{
-			"field": "id",
-		})
-	}
-	if input.Locale == "" {
-		return nil, validationDomainError("translation locale required", map[string]any{
-			"field": "locale",
-		})
-	}
-	creator, ok := r.content.(CMSContentTranslationCreator)
-	if !ok || creator == nil {
-		return nil, ErrTranslationCreateUnsupported
-	}
-	created, err := creator.CreateTranslation(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-	if created == nil {
-		return nil, ErrNotFound
-	}
-	return cmsContentRecord(*created, cmsContentRecordOptions{
-		includeBlocks:   true,
-		includeData:     true,
-		includeMetadata: true,
-	}), nil
+	return r.writeService().CreateTranslation(ctx, input)
 }
 
 // Update modifies content.
 func (r *CMSContentRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	if record == nil {
-		record = map[string]any{}
-	}
-	if err := r.ensureContentTranslationIntent(ctx, id, record); err != nil {
-		return nil, err
-	}
-	content := mapToCMSContent(record)
-	content.ID = id
-	if strings.TrimSpace(content.Locale) == "" {
-		if locale := localeFromContext(ctx); locale != "" {
-			content.Locale = locale
-		}
-		if locale := r.resolveContentLocale(ctx, id); locale != "" {
-			content.Locale = locale
-		}
-	}
-	var existing *CMSContent
-	if content.Locale != "" {
-		if current, err := r.content.Content(ctx, id, content.Locale); err == nil {
-			existing = current
-		}
-	}
-	if existing == nil {
-		if locale := r.resolveContentLocale(ctx, id); locale != "" {
-			content.Locale = locale
-			if current, err := r.content.Content(ctx, id, locale); err == nil {
-				existing = current
-			}
-		}
-	}
-	if existing != nil {
-		contentTypeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-			toString(record["content_type_slug"]),
-			toString(record["content_type"]),
-			toString(record["content_type_id"]),
-			primitives.FirstNonEmptyRaw(existing.ContentTypeSlug, existing.ContentType),
-		))
-		if policy, ok := r.resolveContentNavigationPolicy(ctx, contentTypeKey); ok {
-			if err := applyContentEntryNavigationWrite(record, policy, false); err != nil {
-				return nil, err
-			}
-			content = mapToCMSContent(record)
-			content.ID = id
-			if strings.TrimSpace(content.Locale) == "" {
-				content.Locale = existing.Locale
-			}
-		}
-		content = mergeCMSContentUpdate(*existing, content, record)
-	}
-	updated, err := r.content.UpdateContent(ctx, content)
-	if err != nil {
-		return nil, err
-	}
-	result := cmsContentRecord(*updated, cmsContentRecordOptions{
-		includeBlocks:   true,
-		includeData:     true,
-		includeMetadata: true,
-	})
-	if policy, ok := r.resolveContentNavigationPolicy(ctx, primitives.FirstNonEmptyRaw(updated.ContentTypeSlug, updated.ContentType)); ok {
-		result = applyContentEntryNavigationReadContract(result, policy)
-	}
-	return result, nil
+	return r.writeService().Update(ctx, id, record)
 }
 
 // Delete removes a content item.
 func (r *CMSContentRepository) Delete(ctx context.Context, id string) error {
-	if r.content == nil {
-		return ErrNotFound
-	}
-	return r.content.DeleteContent(ctx, id)
+	return r.writeService().Delete(ctx, id)
 }
 
 // CMSContentTypeEntryRepository scopes content CRUD to a specific content type.
 type CMSContentTypeEntryRepository struct {
 	content     CMSContentService
 	contentType CMSContentType
+	read        AdminContentReadService
+	write       AdminContentWriteService
 }
 
 type cmsContentListOptionsService interface {
@@ -265,55 +71,17 @@ type cmsContentListOptionsService interface {
 
 // NewCMSContentTypeEntryRepository builds a content repository scoped to the supplied content type.
 func NewCMSContentTypeEntryRepository(content CMSContentService, contentType CMSContentType) *CMSContentTypeEntryRepository {
-	return &CMSContentTypeEntryRepository{content: content, contentType: contentType}
+	return &CMSContentTypeEntryRepository{
+		content:     content,
+		contentType: contentType,
+		read:        newAdminContentReadService(content),
+		write:       newAdminContentWriteService(content),
+	}
 }
 
 // List returns content filtered by the bound content type.
 func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
-	if r.content == nil {
-		return nil, 0, ErrNotFound
-	}
-	locale := extractLocale(opts, "")
-	contents, err := r.listContents(ctx, locale)
-	if err != nil {
-		return nil, 0, err
-	}
-	typeKey := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(r.contentType.Slug, r.contentType.Name, r.contentType.ID)))
-	navigationPolicy := contentEntryNavigationPolicyFromContentType(r.contentType)
-	translationEnabled := contentTypeWantsTranslations(r.contentType)
-	records := make([]map[string]any, 0, len(contents))
-	for _, item := range contents {
-		contentType := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)))
-		if typeKey != "" && contentType != typeKey {
-			continue
-		}
-		if translationEnabled {
-			item.FamilyID = canonicalFamilyIDForContent(item)
-			if strings.TrimSpace(item.FamilyID) == "" {
-				return nil, 0, validationDomainError("translation-enabled content missing canonical family_id", map[string]any{
-					"content_type": contentType,
-					"record_id":    strings.TrimSpace(item.ID),
-					"locale":       strings.TrimSpace(item.Locale),
-				})
-			}
-			if err := ensureCanonicalTopLevelFields(item); err != nil {
-				return nil, 0, err
-			}
-		}
-		item = normalizeCMSContentLocaleState(item, locale)
-		record := cmsContentRecord(item, cmsContentRecordOptions{
-			includeBlocks:   true,
-			includeData:     true,
-			includeMetadata: true,
-		})
-		record = applyContentEntryNavigationReadContract(record, navigationPolicy)
-		records = append(records, record)
-	}
-	list, total := applyListOptionsToRecordMaps(records, opts, listRecordOptions{
-		PredicateMatcher: cmsContentRecordPredicateMatcher,
-		SearchMatcher:    cmsContentRecordSearchMatcher,
-	})
-	return list, total, nil
+	return r.readService().ListForContentType(ctx, r.contentType, opts)
 }
 
 func (r *CMSContentTypeEntryRepository) listContents(ctx context.Context, locale string) ([]CMSContent, error) {
@@ -804,149 +572,74 @@ func missingCanonicalTopLevelFields(data map[string]any) []string {
 
 // Get retrieves content by id, enforcing content type membership.
 func (r *CMSContentTypeEntryRepository) Get(ctx context.Context, id string) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	base := NewCMSContentRepository(r.content)
-	record, err := base.Get(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	typeKey := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(r.contentType.Slug, r.contentType.Name, r.contentType.ID)))
-	if typeKey == "" {
-		return record, nil
-	}
-	recordType := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["content_type_slug"]), toString(record["content_type"]))))
-	if recordType != typeKey {
-		return nil, ErrNotFound
-	}
-	if contentTypeWantsTranslations(r.contentType) {
-		familyID := translationFamilyIDFromRecord(record)
-		if strings.TrimSpace(familyID) == "" {
-			return nil, validationDomainError("translation-enabled content missing canonical family_id", map[string]any{
-				"content_type": recordType,
-				"record_id":    strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["id"]), id)),
-				"locale":       strings.TrimSpace(toString(record["locale"])),
-			})
-		}
-		record = primitives.CloneAnyMap(record)
-		record["family_id"] = familyID
-	}
-	record = applyContentEntryNavigationReadContract(record, contentEntryNavigationPolicyFromContentType(r.contentType))
-	return record, nil
+	return r.readService().GetForContentType(ctx, r.contentType, id)
 }
 
 // Create inserts new content with the bound content type.
 func (r *CMSContentTypeEntryRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	base := NewCMSContentRepository(r.content)
-	if record == nil {
-		record = map[string]any{}
-	}
-	typeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(r.contentType.Slug, r.contentType.Name, r.contentType.ID))
-	if typeKey != "" {
-		record["content_type"] = typeKey
-		record["content_type_slug"] = typeKey
-	}
-	if err := applyContentEntryNavigationWrite(record, contentEntryNavigationPolicyFromContentType(r.contentType), true); err != nil {
-		return nil, err
-	}
-	created, err := base.Create(ctx, record)
-	if err != nil {
-		return nil, err
-	}
-	return applyContentEntryNavigationReadContract(created, contentEntryNavigationPolicyFromContentType(r.contentType)), nil
+	return r.writeService().CreateForContentType(ctx, r.contentType, record)
 }
 
 // CreateTranslation creates a locale variant through a first-class translation command.
 func (r *CMSContentTypeEntryRepository) CreateTranslation(ctx context.Context, input TranslationCreateInput) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	input = normalizeTranslationCreateInput(input)
-	if input.SourceID == "" {
-		return nil, validationDomainError("translation requires a single id", map[string]any{
-			"field": "id",
-		})
-	}
-	if input.Locale == "" {
-		return nil, validationDomainError("translation locale required", map[string]any{
-			"field": "locale",
-		})
-	}
-	creator, ok := r.content.(CMSContentTranslationCreator)
-	if !ok || creator == nil {
-		return nil, ErrTranslationCreateUnsupported
-	}
-	typeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(r.contentType.Slug, r.contentType.Name, r.contentType.ID))
-	if typeKey != "" && input.ContentType == "" {
-		input.ContentType = typeKey
-	}
-	created, err := creator.CreateTranslation(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-	if created == nil {
-		return nil, ErrNotFound
-	}
-	normalizedTypeKey := strings.ToLower(strings.TrimSpace(typeKey))
-	createdType := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(created.ContentTypeSlug, created.ContentType)))
-	if normalizedTypeKey != "" && createdType != "" && createdType != normalizedTypeKey {
-		return nil, ErrNotFound
-	}
-	return cmsContentRecord(*created, cmsContentRecordOptions{
-		includeBlocks:   true,
-		includeData:     true,
-		includeMetadata: true,
-	}), nil
+	return r.writeService().CreateTranslationForContentType(ctx, r.contentType, input)
 }
 
 // Update modifies content with the bound content type.
 func (r *CMSContentTypeEntryRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	base := NewCMSContentRepository(r.content)
-	if record == nil {
-		record = map[string]any{}
-	}
-	typeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(r.contentType.Slug, r.contentType.Name, r.contentType.ID))
-	if typeKey != "" {
-		record["content_type"] = typeKey
-		record["content_type_slug"] = typeKey
-	}
-	if err := applyContentEntryNavigationWrite(record, contentEntryNavigationPolicyFromContentType(r.contentType), false); err != nil {
-		return nil, err
-	}
-	updated, err := base.Update(ctx, id, record)
-	if err != nil {
-		return nil, err
-	}
-	return applyContentEntryNavigationReadContract(updated, contentEntryNavigationPolicyFromContentType(r.contentType)), nil
+	return r.writeService().UpdateForContentType(ctx, r.contentType, id, record)
 }
 
 // Delete removes a content item after validating its type.
 func (r *CMSContentTypeEntryRepository) Delete(ctx context.Context, id string) error {
-	if r.content == nil {
-		return ErrNotFound
-	}
-	record, err := r.Get(ctx, id)
-	if err != nil {
-		return err
-	}
-	if toString(record["id"]) == "" {
-		return ErrNotFound
-	}
-	return r.content.DeleteContent(ctx, id)
+	return r.writeService().DeleteForContentType(ctx, r.contentType, id)
 }
 
-func (r *CMSContentRepository) resolveContentLocale(ctx context.Context, id string) string {
-	if r == nil || r.content == nil || strings.TrimSpace(id) == "" {
+func (r *CMSContentRepository) readService() AdminContentReadService {
+	if r == nil {
+		return nil
+	}
+	if r.read != nil {
+		return r.read
+	}
+	return newAdminContentReadService(r.content, r.contentTypes)
+}
+
+func (r *CMSContentRepository) writeService() AdminContentWriteService {
+	if r == nil {
+		return nil
+	}
+	if r.write != nil {
+		return r.write
+	}
+	return newAdminContentWriteService(r.content, r.contentTypes)
+}
+
+func (r *CMSContentTypeEntryRepository) readService() AdminContentReadService {
+	if r == nil {
+		return nil
+	}
+	if r.read != nil {
+		return r.read
+	}
+	return newAdminContentReadService(r.content)
+}
+
+func (r *CMSContentTypeEntryRepository) writeService() AdminContentWriteService {
+	if r == nil {
+		return nil
+	}
+	if r.write != nil {
+		return r.write
+	}
+	return newAdminContentWriteService(r.content)
+}
+
+func resolveContentLocaleFromService(ctx context.Context, content CMSContentService, id string) string {
+	if content == nil || strings.TrimSpace(id) == "" {
 		return ""
 	}
-	items, err := r.content.Contents(ctx, "")
+	items, err := content.Contents(ctx, "")
 	if err != nil {
 		return ""
 	}
@@ -958,85 +651,12 @@ func (r *CMSContentRepository) resolveContentLocale(ctx context.Context, id stri
 	return ""
 }
 
-func (r *CMSContentRepository) ensureContentTranslationIntent(ctx context.Context, id string, record map[string]any) error {
-	if r == nil || r.content == nil {
-		return ErrNotFound
+func contentTypeServiceFromServices(content CMSContentService, contentTypes CMSContentTypeService) CMSContentTypeService {
+	if contentTypes != nil {
+		return contentTypes
 	}
-	if record == nil {
-		return nil
-	}
-	requested := requestedLocaleFromPayload(record, localeFromContext(ctx))
-	if requested == "" {
-		return nil
-	}
-	missing, err := r.contentTranslationMissing(ctx, id, requested)
-	if err != nil {
-		return err
-	}
-	if missing {
-		if !createTranslationRequested(record) {
-			return translationCreateRequiredError(requested)
-		}
-		record["locale"] = requested
-	}
-	return nil
-}
-
-func (r *CMSContentRepository) contentTranslationMissing(ctx context.Context, id, requested string) (bool, error) {
-	if strings.TrimSpace(requested) == "" {
-		return false, nil
-	}
-	content, err := r.content.Content(ctx, id, requested)
-	if err != nil {
-		if IsTranslationMissing(err) {
-			return true, nil
-		}
-		if errors.Is(err, ErrNotFound) {
-			existing, err := r.content.Content(ctx, id, "")
-			if err == nil && existing != nil {
-				return true, nil
-			}
-			if err != nil && !errors.Is(err, ErrNotFound) {
-				return false, err
-			}
-			return false, ErrNotFound
-		}
-		return false, err
-	}
-	if content == nil {
-		return false, ErrNotFound
-	}
-	if content.MissingRequestedLocale {
-		return true, nil
-	}
-	if len(content.AvailableLocales) > 0 {
-		found := false
-		for _, loc := range content.AvailableLocales {
-			if strings.EqualFold(loc, requested) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return true, nil
-		}
-	}
-	return false, nil
-}
-
-func (r *CMSContentRepository) contentTypeService() CMSContentTypeService {
-	if r == nil {
-		return nil
-	}
-	if r.contentTypes != nil {
-		return r.contentTypes
-	}
-	if typed, ok := r.content.(CMSContentTypeService); ok {
+	if typed, ok := content.(CMSContentTypeService); ok {
 		return typed
 	}
 	return nil
-}
-
-func (r *CMSContentRepository) resolveContentNavigationPolicy(ctx context.Context, contentTypeKey string) (contentEntryNavigationPolicy, bool) {
-	return resolveContentEntryNavigationPolicy(ctx, r.contentTypeService(), contentTypeKey)
 }

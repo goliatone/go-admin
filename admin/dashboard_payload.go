@@ -7,6 +7,7 @@ import (
 	"io"
 	"reflect"
 
+	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	router "github.com/goliatone/go-router"
 )
 
@@ -78,7 +79,7 @@ func encodeWidgetPayload(payload WidgetPayload) (map[string]any, error) {
 	if err := ensureDashboardJSONEOF(dec); err != nil {
 		return nil, fmt.Errorf("decode widget payload trailing data: %w", err)
 	}
-	out = sanitizeDashboardWidgetData(out)
+	out = dashinternal.SanitizeWidgetData(out)
 	serialized, err := router.SerializeAsContext(out)
 	if err != nil {
 		return nil, fmt.Errorf("serialize widget payload context: %w", err)
