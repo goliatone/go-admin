@@ -3,6 +3,8 @@ package admin
 import (
 	"context"
 	"strings"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 func buildWorkflowApplyRequest(
@@ -29,7 +31,7 @@ func buildWorkflowApplyRequest(
 			EntityType:   machineID,
 			CurrentState: currentState,
 			TargetState:  targetState,
-			Payload:      normalizeActionPayloadMap(cloneWorkflowTransitionMetadata(payload)),
+			Payload:      normalizeActionPayloadMap(primitives.CloneAnyMapNilOnEmpty(payload)),
 		},
 		IdempotencyKey: workflowIdempotencyKey(payload),
 		Metadata:       metadata,
@@ -62,7 +64,7 @@ func workflowSnapshotTransitions(
 			EntityID:     entityID,
 			EntityType:   machineID,
 			CurrentState: normalizeWorkflowState(currentState),
-			Payload:      normalizeActionPayloadMap(cloneWorkflowTransitionMetadata(payload)),
+			Payload:      normalizeActionPayloadMap(primitives.CloneAnyMapNilOnEmpty(payload)),
 		},
 		ExecCtx:        workflowExecutionContextFromContext(ctx),
 		EvaluateGuards: true,
@@ -150,7 +152,7 @@ func workflowTransitionMetadata(
 	targetState string,
 	payload map[string]any,
 ) map[string]any {
-	metadata := normalizeActionPayloadMap(cloneWorkflowTransitionMetadata(payload))
+	metadata := normalizeActionPayloadMap(primitives.CloneAnyMapNilOnEmpty(payload))
 	if metadata == nil {
 		metadata = map[string]any{}
 	}

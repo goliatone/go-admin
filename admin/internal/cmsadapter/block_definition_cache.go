@@ -83,7 +83,7 @@ func CacheKey(env, key string) string {
 
 func BlockDefinitionChannel(def cmsboot.CMSBlockDefinition) string {
 	//lint:ignore SA1019 compatibility bridge for legacy CMS block definitions that still populate Environment.
-	return strings.TrimSpace(firstNonEmptyRaw(def.Channel, def.Environment))
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Channel, def.Environment))
 }
 
 func SetBlockDefinitionChannel(def *cmsboot.CMSBlockDefinition, channel string) {
@@ -142,13 +142,4 @@ func storeBlockDefinitionCacheKey(target map[string]uuid.UUID, env, key string, 
 		return
 	}
 	target[cacheKey] = id
-}
-
-func firstNonEmptyRaw(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
-		}
-	}
-	return ""
 }

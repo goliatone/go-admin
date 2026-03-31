@@ -1483,7 +1483,7 @@ func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any,
 	if err != nil {
 		return nil, err
 	}
-	return cloneActionResponseMap(response.Data), nil
+	return primitives.CloneAnyMapNilOnEmpty(response.Data), nil
 }
 
 // RunBulkAction dispatches a command-backed bulk action.
@@ -1721,7 +1721,7 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 					EntityType:   panelName,
 					CurrentState: currentState,
 					TargetState:  targetState,
-					Payload:      cloneWorkflowTransitionMetadata(record),
+					Payload:      primitives.CloneAnyMapNilOnEmpty(record),
 				},
 				ExecCtx:        input.ExecCtx,
 				EvaluateGuards: true,

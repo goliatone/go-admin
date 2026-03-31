@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"sort"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 // DoctorSeverity describes diagnostic severity levels.
@@ -223,14 +224,14 @@ func (a *Admin) RunDoctorAction(ctx context.Context, checkID string, input map[s
 		return DoctorActionExecution{}, ErrDoctorActionNotRunnable
 	}
 
-	payload := cloneDoctorMetadata(input)
+	payload := primitives.CloneAnyMapNilOnEmpty(input)
 	exec, err := action.Run(ctx, a, result, payload)
 	if err != nil {
 		return DoctorActionExecution{}, err
 	}
 	exec.CheckID = result.ID
 	exec.Snapshot = result
-	exec.Metadata = cloneDoctorMetadata(exec.Metadata)
+	exec.Metadata = primitives.CloneAnyMapNilOnEmpty(exec.Metadata)
 	if strings.TrimSpace(exec.Status) == "" {
 		exec.Status = "ok"
 	}
@@ -311,7 +312,7 @@ func runDoctorCheck(ctx context.Context, adm *Admin, check DoctorCheck) DoctorCh
 		Description: strings.TrimSpace(check.Description),
 		Help:        normalizeDoctorHelp(check.Help, check.Description, check.Label),
 		DurationMS:  time.Since(start).Milliseconds(),
-		Metadata:    cloneDoctorMetadata(output.Metadata),
+		Metadata:    primitives.CloneAnyMapNilOnEmpty(output.Metadata),
 	}
 	if panicErr != nil {
 		output.Findings = append(output.Findings, DoctorFinding{
@@ -446,7 +447,7 @@ func normalizeDoctorAction(action *DoctorAction) *DoctorAction {
 		}
 		out.AllowedStatuses = allowed
 	}
-	out.Metadata = cloneDoctorMetadata(out.Metadata)
+	out.Metadata = primitives.CloneAnyMapNilOnEmpty(out.Metadata)
 	return &out
 }
 
@@ -466,7 +467,7 @@ func doctorActionState(action *DoctorAction, status DoctorSeverity) *DoctorActio
 		ConfirmText:          normalized.ConfirmText,
 		Applicable:           applicable,
 		Runnable:             applicable && normalized.Run != nil,
-		Metadata:             cloneDoctorMetadata(normalized.Metadata),
+		Metadata:             primitives.CloneAnyMapNilOnEmpty(normalized.Metadata),
 	}
 }
 
@@ -495,7 +496,7 @@ func normalizeDoctorFindings(checkID string, findings []DoctorFinding) []DoctorF
 		finding.Component = strings.TrimSpace(finding.Component)
 		finding.Message = strings.TrimSpace(finding.Message)
 		finding.Hint = strings.TrimSpace(finding.Hint)
-		finding.Metadata = cloneDoctorMetadata(finding.Metadata)
+		finding.Metadata = primitives.CloneAnyMapNilOnEmpty(finding.Metadata)
 		if finding.Message == "" {
 			continue
 		}
@@ -504,15 +505,6 @@ func normalizeDoctorFindings(checkID string, findings []DoctorFinding) []DoctorF
 	if len(out) == 0 {
 		return nil
 	}
-	return out
-}
-
-func cloneDoctorMetadata(in map[string]any) map[string]any {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(in))
-	maps.Copy(out, in)
 	return out
 }
 

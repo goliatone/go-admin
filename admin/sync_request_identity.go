@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
@@ -57,13 +58,13 @@ func ResolveAuthenticatedRequestIdentity(c router.Context, defaults Authenticate
 	ctx := c.Context()
 	actor := actorFromRouterOrClaims(c, ctx)
 	if actor != nil {
-		identity.Subject = firstNonEmptyTrimmed(actor.Subject, actor.ActorID)
-		identity.ActorID = firstNonEmptyTrimmed(actor.Subject, actor.ActorID)
-		identity.TenantID = firstNonEmptyTrimmed(
+		identity.Subject = primitives.FirstNonEmpty(actor.Subject, actor.ActorID)
+		identity.ActorID = primitives.FirstNonEmpty(actor.Subject, actor.ActorID)
+		identity.TenantID = primitives.FirstNonEmpty(
 			actor.TenantID,
 			authMetadataString(actor.Metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id"),
 		)
-		identity.OrgID = firstNonEmptyTrimmed(
+		identity.OrgID = primitives.FirstNonEmpty(
 			actor.OrganizationID,
 			authMetadataString(actor.Metadata, "organization_id", "org_id", "org", "default_org_id"),
 		)
@@ -71,31 +72,31 @@ func ResolveAuthenticatedRequestIdentity(c router.Context, defaults Authenticate
 
 	if claims, ok := auth.GetClaims(ctx); ok && claims != nil {
 		metadata := claimsMetadata(claims)
-		identity.ActorID = firstNonEmptyTrimmed(identity.ActorID, claims.Subject(), claims.UserID())
-		identity.Subject = firstNonEmptyTrimmed(identity.Subject, claims.Subject(), claims.UserID())
-		identity.TenantID = firstNonEmptyTrimmed(identity.TenantID, authMetadataString(metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id"))
-		identity.OrgID = firstNonEmptyTrimmed(identity.OrgID, authMetadataString(metadata, "organization_id", "org_id", "org", "default_org_id"))
+		identity.ActorID = primitives.FirstNonEmpty(identity.ActorID, claims.Subject(), claims.UserID())
+		identity.Subject = primitives.FirstNonEmpty(identity.Subject, claims.Subject(), claims.UserID())
+		identity.TenantID = primitives.FirstNonEmpty(identity.TenantID, authMetadataString(metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id"))
+		identity.OrgID = primitives.FirstNonEmpty(identity.OrgID, authMetadataString(metadata, "organization_id", "org_id", "org", "default_org_id"))
 	}
 
 	if defaults.Enabled {
-		identity.TenantID = firstNonEmptyTrimmed(identity.TenantID, defaults.TenantID)
-		identity.OrgID = firstNonEmptyTrimmed(identity.OrgID, defaults.OrgID)
+		identity.TenantID = primitives.FirstNonEmpty(identity.TenantID, defaults.TenantID)
+		identity.OrgID = primitives.FirstNonEmpty(identity.OrgID, defaults.OrgID)
 	}
 
-	identity.RequestID = firstNonEmptyTrimmed(
+	identity.RequestID = primitives.FirstNonEmpty(
 		requestIDFromContext(ctx),
 		c.Header("X-Request-ID"),
 		c.Header("X-Request-Id"),
 		c.Header("x-request-id"),
 	)
-	identity.CorrelationID = firstNonEmptyTrimmed(
+	identity.CorrelationID = primitives.FirstNonEmpty(
 		correlationIDFromContext(ctx),
 		c.Header("X-Correlation-ID"),
 		c.Header("X-Correlation-Id"),
 		c.Header("x-correlation-id"),
 		identity.RequestID,
 	)
-	identity.TraceID = firstNonEmptyTrimmed(
+	identity.TraceID = primitives.FirstNonEmpty(
 		traceIDFromContext(ctx),
 		c.Header("X-Trace-ID"),
 		c.Header("X-Trace-Id"),
@@ -138,15 +139,6 @@ func authMetadataString(metadata map[string]any, keys ...string) string {
 			if trimmed := strings.TrimSpace(fmt.Sprint(value)); trimmed != "" && trimmed != "<nil>" {
 				return trimmed
 			}
-		}
-	}
-	return ""
-}
-
-func firstNonEmptyTrimmed(values ...string) string {
-	for _, value := range values {
-		if trimmed := strings.TrimSpace(value); trimmed != "" {
-			return trimmed
 		}
 	}
 	return ""

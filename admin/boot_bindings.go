@@ -816,7 +816,7 @@ func bootActionResponse(response ActionResponse) boot.ActionResponse {
 	response = normalizeActionResponse(response)
 	return boot.ActionResponse{
 		StatusCode: response.StatusCode,
-		Data:       cloneActionResponseMap(response.Data),
+		Data:       primitives.CloneAnyMapNilOnEmpty(response.Data),
 	}
 }
 

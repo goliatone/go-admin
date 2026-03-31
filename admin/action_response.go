@@ -2,8 +2,9 @@ package admin
 
 import (
 	"context"
-	"maps"
 	"sync"
+
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 type actionResponseContextKey struct{}
@@ -50,7 +51,7 @@ func (c *ActionResponseCollector) Store(response ActionResponse) {
 	defer c.mu.Unlock()
 	c.value = ActionResponse{
 		StatusCode: response.StatusCode,
-		Data:       cloneActionResponseMap(response.Data),
+		Data:       primitives.CloneAnyMapNilOnEmpty(response.Data),
 	}
 	c.stored = true
 }
@@ -67,15 +68,6 @@ func (c *ActionResponseCollector) Load() (ActionResponse, bool) {
 	}
 	return ActionResponse{
 		StatusCode: c.value.StatusCode,
-		Data:       cloneActionResponseMap(c.value.Data),
+		Data:       primitives.CloneAnyMapNilOnEmpty(c.value.Data),
 	}, true
-}
-
-func cloneActionResponseMap(in map[string]any) map[string]any {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(in))
-	maps.Copy(out, in)
-	return out
 }

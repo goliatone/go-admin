@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
 	"strings"
 	"sync"
 
@@ -547,7 +546,7 @@ func compileWorkflowMachineDefinition(definition WorkflowDefinition) (*flow.Mach
 			addState(to, false)
 		}
 
-		metadata := cloneWorkflowTransitionMetadata(transition.Metadata)
+		metadata := primitives.CloneAnyMapNilOnEmpty(transition.Metadata)
 		if metadata == nil {
 			metadata = map[string]any{}
 		}
@@ -598,7 +597,7 @@ func normalizeWorkflowApplyRequest(machineID string, input WorkflowApplyEventReq
 	req.EntityID = strings.TrimSpace(req.EntityID)
 	req.Event = normalizeWorkflowEvent(req.Event)
 	req.ExpectedState = normalizeWorkflowState(req.ExpectedState)
-	req.Metadata = cloneWorkflowTransitionMetadata(req.Metadata)
+	req.Metadata = primitives.CloneAnyMapNilOnEmpty(req.Metadata)
 	req.Msg = normalizeWorkflowMessage(req.Msg, req.EntityID, machineID, req.Event, req.ExpectedState, req.Metadata)
 	return req
 }
@@ -626,7 +625,7 @@ func normalizeWorkflowMessage(
 		msg.CurrentState = normalizeWorkflowState(expectedState)
 	}
 	if msg.Payload == nil && len(metadata) > 0 {
-		msg.Payload = cloneWorkflowTransitionMetadata(metadata)
+		msg.Payload = primitives.CloneAnyMapNilOnEmpty(metadata)
 	}
 	return msg
 }
@@ -684,15 +683,6 @@ func normalizeWorkflowEvent(value string) string {
 
 func normalizeWorkflowState(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
-}
-
-func cloneWorkflowTransitionMetadata(in map[string]any) map[string]any {
-	if len(in) == 0 {
-		return nil
-	}
-	out := make(map[string]any, len(in))
-	maps.Copy(out, in)
-	return out
 }
 
 func metadataString(metadata map[string]any, key string) string {

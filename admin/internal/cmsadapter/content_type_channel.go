@@ -4,11 +4,12 @@ import (
 	"strings"
 
 	cmsboot "github.com/goliatone/go-admin/admin/internal/cmsboot"
+	"github.com/goliatone/go-admin/internal/primitives"
 )
 
 func ContentTypeChannel(ct cmsboot.CMSContentType) string {
 	//lint:ignore SA1019 compatibility bridge for legacy CMS content type records that still populate Environment.
-	return strings.TrimSpace(firstNonEmptyRaw(ct.Channel, ct.Environment))
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(ct.Channel, ct.Environment))
 }
 
 func SetContentTypeChannel(ct *cmsboot.CMSContentType, channel string) {

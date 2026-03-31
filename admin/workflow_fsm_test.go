@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-command/flow"
 	goerrors "github.com/goliatone/go-errors"
 )
@@ -261,9 +262,9 @@ func testWorkflowApplyRequest(machineID, entityID, event, currentState, targetSt
 			Event:        event,
 			CurrentState: currentState,
 			TargetState:  targetState,
-			Payload:      cloneWorkflowTransitionMetadata(metadata),
+			Payload:      primitives.CloneAnyMapNilOnEmpty(metadata),
 		},
-		Metadata: cloneWorkflowTransitionMetadata(metadata),
+		Metadata: primitives.CloneAnyMapNilOnEmpty(metadata),
 	}
 }
 
