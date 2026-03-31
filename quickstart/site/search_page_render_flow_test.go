@@ -10,7 +10,45 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
-func TestSearchViewContextIncludesErrorPayloadWithoutStatus(t *testing.T) {
+func TestSearchPageRenderFlowSearchViewContextClonesRequestStateViewContext(t *testing.T) {
+	runtime := &searchRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			Search: SiteSearchConfig{
+				Endpoint: "/api/v1/site/search",
+			},
+		}),
+		baseRoute: "/search",
+	}
+	ctx := router.NewMockContext()
+	ctx.On("Path").Return("/search")
+
+	state := RequestState{
+		ViewContext: router.ViewContext{
+			"locale": "en",
+			"theme":  "admin",
+		},
+	}
+	req := admin.SearchRequest{Query: "welcome"}
+	result := admin.SearchResultPage{
+		Hits:    []admin.SearchHit{},
+		Page:    1,
+		PerPage: 10,
+		Total:   0,
+	}
+
+	view := runtime.searchViewContext(ctx, state, req, result, nil, nil, nil, nil)
+	if got := anyString(view["search_route"]); got != "/search" {
+		t.Fatalf("expected search_route /search, got %q", got)
+	}
+	if got := anyString(state.ViewContext["search_route"]); got != "" {
+		t.Fatalf("expected original request state view context to remain unchanged, got %q", got)
+	}
+	if got := anyString(view["theme"]); got != "admin" {
+		t.Fatalf("expected cloned base request view context to preserve theme, got %q", got)
+	}
+}
+
+func TestSearchPageRenderFlowSearchViewContextIncludesErrorPayloadWithoutStatus(t *testing.T) {
 	runtime := &searchRuntime{
 		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
 			Search: SiteSearchConfig{
@@ -42,7 +80,7 @@ func TestSearchViewContextIncludesErrorPayloadWithoutStatus(t *testing.T) {
 	}
 }
 
-func TestRenderPageReturnsUnavailableJSONEnvelope(t *testing.T) {
+func TestSearchPageRenderFlowRenderPageReturnsUnavailableJSONEnvelope(t *testing.T) {
 	provider := &recordingSiteSearchProvider{searchErr: errors.New("provider offline")}
 	server := router.NewHTTPServer(
 		router.WithHTTPRouterConflictPolicy(router.HTTPRouterConflictLogAndSkip),
