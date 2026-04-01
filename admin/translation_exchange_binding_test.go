@@ -1285,6 +1285,48 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 	}
 }
 
+func TestDebugTranslationExchangeRecordedHistoryJob(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	executor := &stubTranslationExchangeExecutor{
+		exportResult: TranslationExportResult{
+			RowCount: 1,
+			Format:   "json",
+			Rows: []TranslationExchangeRow{
+				{Resource: "pages", EntityID: "page_1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
+			},
+		},
+	}
+	binding := newTranslationExchangeBinding(adm)
+	binding.executor = executor
+	app := newTranslationExchangeTestApp(t, binding)
+
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "owner-user")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("create request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("create status=%d want=200", resp.StatusCode)
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+	_ = resp.Body.Close()
+
+	jobs, total, err := binding.runtime.ListJobs(context.Background(), translationExchangeJobQuery{
+		Identity: translationTransportIdentity{ActorID: "owner-user"},
+		Page:     1,
+		PerPage:  100,
+	})
+	if err != nil {
+		t.Fatalf("list jobs: %v", err)
+	}
+	t.Fatalf("payload=%+v total=%d jobs=%+v", payload, total, jobs)
+}
+
 func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 	executor := &stubTranslationExchangeExecutor{
