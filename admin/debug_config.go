@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	router "github.com/goliatone/go-router"
 )
 
@@ -204,7 +205,7 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	if cfg.Panels == nil {
 		cfg.Panels = append([]string{}, defaultDebugPanels...)
 	}
-	cfg.Panels = normalizePanelIDs(cfg.Panels)
+	cfg.Panels = debugpanels.NormalizePanelIDs(cfg.Panels)
 	cfg.MaskFieldTypes = normalizeMaskFieldTypes(cfg.MaskFieldTypes)
 	cfg.MaskPlaceholder = strings.TrimSpace(cfg.MaskPlaceholder)
 	if cfg.MaskPlaceholder == "" {
@@ -214,7 +215,7 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	if cfg.ToolbarMode && len(cfg.ToolbarPanels) == 0 {
 		cfg.ToolbarPanels = append([]string{}, defaultToolbarPanels...)
 	}
-	cfg.ToolbarPanels = normalizePanelIDs(cfg.ToolbarPanels)
+	cfg.ToolbarPanels = debugpanels.NormalizePanelIDs(cfg.ToolbarPanels)
 	cfg.ToolbarExcludePaths = normalizeDebugToolbarExcludePaths(cfg.ToolbarExcludePaths, cfg.BasePath)
 	cfg.SessionCookieName = strings.TrimSpace(cfg.SessionCookieName)
 	if cfg.SessionCookieName == "" {
@@ -279,27 +280,6 @@ func normalizeDebugOrigins(origins []string) []string {
 
 func debugConfigEnabled(cfg DebugConfig) bool {
 	return cfg.Enabled && len(cfg.Panels) > 0
-}
-
-func normalizePanelID(panel string) string {
-	return strings.ToLower(strings.TrimSpace(panel))
-}
-
-func normalizePanelIDs(panels []string) []string {
-	if len(panels) == 0 {
-		return nil
-	}
-	seen := map[string]bool{}
-	out := make([]string, 0, len(panels))
-	for _, panel := range panels {
-		normalized := normalizePanelID(panel)
-		if normalized == "" || seen[normalized] {
-			continue
-		}
-		seen[normalized] = true
-		out = append(out, normalized)
-	}
-	return out
 }
 
 func normalizeMaskFieldTypes(fields map[string]string) map[string]string {

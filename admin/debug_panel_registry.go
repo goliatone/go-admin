@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	debugregistry "github.com/goliatone/go-admin/debug"
 )
 
@@ -50,7 +51,7 @@ func ensureDebugBuiltinPanels() {
 }
 
 func registerBuiltinDebugPanel(id string, config debugregistry.PanelConfig) {
-	normalized := normalizePanelID(id)
+	normalized := debugpanels.NormalizePanelID(id)
 	if normalized == "" {
 		return
 	}
@@ -66,7 +67,7 @@ func registerBuiltinDebugPanel(id string, config debugregistry.PanelConfig) {
 		}
 	}
 	if config.Label == "" {
-		config.Label = debugPanelLabel(normalized)
+		config.Label = debugpanels.PanelLabel(normalized)
 	}
 	if strings.TrimSpace(config.SnapshotKey) == "" {
 		config.SnapshotKey = normalized
@@ -78,7 +79,7 @@ func registerDebugPanelFromInterface(panel DebugPanel) {
 	if panel == nil {
 		return
 	}
-	id := normalizePanelID(panel.ID())
+	id := debugpanels.NormalizePanelID(panel.ID())
 	if id == "" {
 		return
 	}
@@ -98,7 +99,7 @@ func registerDebugPanelFromInterface(panel DebugPanel) {
 
 func debugPanelDefinitionFor(panelID string) debugregistry.PanelDefinition {
 	ensureDebugBuiltinPanels()
-	normalized := normalizePanelID(panelID)
+	normalized := debugpanels.NormalizePanelID(panelID)
 	if normalized == "" {
 		return debugregistry.PanelDefinition{}
 	}
@@ -106,7 +107,7 @@ func debugPanelDefinitionFor(panelID string) debugregistry.PanelDefinition {
 	if !ok {
 		def = debugregistry.PanelDefinition{
 			ID:              normalized,
-			Label:           debugPanelLabel(normalized),
+			Label:           debugpanels.PanelLabel(normalized),
 			SnapshotKey:     normalized,
 			EventTypes:      debugPanelEventTypes(normalized),
 			SupportsToolbar: true,
@@ -123,7 +124,7 @@ func debugPanelDefinitionFor(panelID string) debugregistry.PanelDefinition {
 			}
 		}
 		if def.Label == "" {
-			def.Label = debugPanelLabel(normalized)
+			def.Label = debugpanels.PanelLabel(normalized)
 		}
 		if def.Span == 0 {
 			def.Span = debugPanelDefaultSpan
@@ -131,7 +132,7 @@ func debugPanelDefinitionFor(panelID string) debugregistry.PanelDefinition {
 		return def
 	}
 	if def.Label == "" {
-		def.Label = debugPanelLabel(normalized)
+		def.Label = debugpanels.PanelLabel(normalized)
 	}
 	if def.SnapshotKey == "" {
 		def.SnapshotKey = normalized
@@ -145,14 +146,14 @@ func debugPanelDefinitionFor(panelID string) debugregistry.PanelDefinition {
 		}
 	}
 	if def.Label == "" {
-		def.Label = debugPanelLabel(normalized)
+		def.Label = debugpanels.PanelLabel(normalized)
 	}
 	return def
 }
 
 func debugPanelSnapshotKey(panelID string) string {
 	ensureDebugBuiltinPanels()
-	normalized := normalizePanelID(panelID)
+	normalized := debugpanels.NormalizePanelID(panelID)
 	if normalized == "" {
 		return ""
 	}

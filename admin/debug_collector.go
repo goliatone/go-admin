@@ -3,8 +3,9 @@ package admin
 import (
 	"context"
 	"fmt"
+	debugcollector "github.com/goliatone/go-admin/admin/internal/debugcollector"
+	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	"github.com/goliatone/go-admin/internal/primitives"
-	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -146,7 +147,7 @@ func NewDebugCollector(cfg DebugConfig) *DebugCollector {
 	debugMasker(cfg)
 	panelSet := map[string]bool{}
 	for _, panel := range cfg.Panels {
-		panelSet[normalizePanelID(panel)] = true
+		panelSet[debugpanels.NormalizePanelID(panel)] = true
 	}
 	return &DebugCollector{
 		config:              cfg,
@@ -230,7 +231,7 @@ func (c *DebugCollector) RegisterPanel(panel DebugPanel) {
 	if c == nil || panel == nil {
 		return
 	}
-	id := normalizePanelID(panel.ID())
+	id := debugpanels.NormalizePanelID(panel.ID())
 	if id == "" {
 		return
 	}
@@ -249,7 +250,7 @@ func (c *DebugCollector) panelMeta(panelID string) (debugPanelMeta, bool) {
 	if c == nil {
 		return debugPanelMeta{}, false
 	}
-	panelID = normalizePanelID(panelID)
+	panelID = debugpanels.NormalizePanelID(panelID)
 	if panelID == "" {
 		return debugPanelMeta{}, false
 	}
@@ -261,7 +262,7 @@ func (c *DebugCollector) panelMeta(panelID string) (debugPanelMeta, bool) {
 			Span:  def.Span,
 		}
 		if meta.Label == "" {
-			meta.Label = debugPanelLabel(panelID)
+			meta.Label = debugpanels.PanelLabel(panelID)
 		}
 		if meta.Span <= 0 {
 			meta.Span = debugPanelDefaultSpan
@@ -428,7 +429,7 @@ func (c *DebugCollector) PublishPanel(panelID string, payload any) {
 	if c == nil {
 		return
 	}
-	panelID = normalizePanelID(panelID)
+	panelID = debugpanels.NormalizePanelID(panelID)
 	if panelID == "" || !c.panelEnabled(panelID) {
 		return
 	}
@@ -437,7 +438,7 @@ func (c *DebugCollector) PublishPanel(panelID string, payload any) {
 		return
 	}
 	masked := debugMaskValue(c.config, payload)
-	stored := clonePanelPayload(masked)
+	stored := debugcollector.ClonePanelPayload(masked)
 	c.mu.Lock()
 	if c.panelData == nil {
 		c.panelData = map[string]debugPanelSnapshot{}
@@ -464,12 +465,12 @@ func (c *DebugCollector) PublishEvent(eventType string, payload any) {
 	if c == nil {
 		return
 	}
-	eventType = normalizePanelID(eventType)
+	eventType = debugpanels.NormalizePanelID(eventType)
 	if eventType == "" || !c.eventTypeEnabled(eventType) {
 		return
 	}
 	masked := debugMaskValue(c.config, payload)
-	stored := clonePanelPayload(masked)
+	stored := debugcollector.ClonePanelPayload(masked)
 	c.publish(eventType, stored)
 }
 
@@ -487,7 +488,7 @@ func (c *DebugCollector) Set(key string, value any) {
 	if c.customData == nil {
 		c.customData = map[string]any{}
 	}
-	setNestedValue(c.customData, key, value)
+	debugcollector.SetNestedValue(c.customData, key, value)
 	c.mu.Unlock()
 	c.publish(DebugPanelCustom, map[string]any{"key": key, "value": value})
 }
@@ -503,7 +504,7 @@ func (c *DebugCollector) Get(key string) (any, bool) {
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return getNestedValue(c.customData, key)
+	return debugcollector.GetNestedValue(c.customData, key)
 }
 
 // Log adds a custom debug message.
@@ -511,7 +512,7 @@ func (c *DebugCollector) Log(category, message string, fields ...any) {
 	if c == nil || !c.panelEnabled(DebugPanelCustom) {
 		return
 	}
-	payload := fieldsToMap(fields)
+	payload := debugcollector.FieldsToMap(fields, toString)
 	if len(payload) > 0 {
 		payload = debugMaskMap(c.config, payload)
 	}
@@ -675,7 +676,7 @@ func (c *DebugCollector) collectPanelDataSnapshot(snapshot map[string]any, panel
 
 func (c *DebugCollector) collectRegisteredPanelSnapshots(ctx context.Context, snapshot map[string]any) {
 	for _, registration := range debugregistry.PanelRegistrations() {
-		id := normalizePanelID(registration.Definition.ID)
+		id := debugpanels.NormalizePanelID(registration.Definition.ID)
 		if id == "" || !c.panelEnabled(id) || registration.Snapshot == nil {
 			continue
 		}
@@ -686,7 +687,7 @@ func (c *DebugCollector) collectRegisteredPanelSnapshots(ctx context.Context, sn
 		if _, exists := snapshot[key]; exists {
 			continue
 		}
-		snapshot[key] = clonePanelPayload(debugMaskValue(c.config, registration.Snapshot(ctx)))
+		snapshot[key] = debugcollector.ClonePanelPayload(debugMaskValue(c.config, registration.Snapshot(ctx)))
 	}
 }
 
@@ -695,14 +696,14 @@ func (c *DebugCollector) collectCustomPanelSnapshots(ctx context.Context, snapsh
 		if panel == nil {
 			continue
 		}
-		id := normalizePanelID(panel.ID())
+		id := debugpanels.NormalizePanelID(panel.ID())
 		if id == "" || !c.panelEnabled(id) {
 			continue
 		}
 		if _, exists := snapshot[id]; exists {
 			continue
 		}
-		snapshot[id] = clonePanelPayload(debugMaskValue(c.config, panel.Collect(ctx)))
+		snapshot[id] = debugcollector.ClonePanelPayload(debugMaskValue(c.config, panel.Collect(ctx)))
 	}
 }
 
@@ -724,13 +725,13 @@ func (c *DebugCollector) SessionSnapshot(sessionID string, opts DebugSessionSnap
 
 	snapshot := map[string]any{}
 	if c.panelEnabled(DebugPanelRequests) && c.requestLog != nil {
-		snapshot[DebugPanelRequests] = filterRequestEntriesBySession(c.requestLog.Values(), sessionID)
+		snapshot[DebugPanelRequests] = debugcollector.FilterBySession(c.requestLog.Values(), sessionID, func(entry RequestEntry) string { return entry.SessionID })
 	}
 	if c.panelEnabled(DebugPanelSQL) && c.sqlLog != nil {
-		snapshot[DebugPanelSQL] = filterSQLEntriesBySession(c.sqlLog.Values(), sessionID)
+		snapshot[DebugPanelSQL] = debugcollector.FilterBySession(c.sqlLog.Values(), sessionID, func(entry SQLEntry) string { return entry.SessionID })
 	}
 	if c.panelEnabled(DebugPanelLogs) && c.serverLog != nil {
-		snapshot[DebugPanelLogs] = filterLogEntriesBySession(c.serverLog.Values(), sessionID)
+		snapshot[DebugPanelLogs] = debugcollector.FilterBySession(c.serverLog.Values(), sessionID, func(entry LogEntry) string { return entry.SessionID })
 	}
 
 	if opts.IncludeGlobalPanels {
@@ -745,54 +746,6 @@ func (c *DebugCollector) SessionSnapshot(sessionID string, opts DebugSessionSnap
 		}
 	}
 	return snapshot
-}
-
-func filterRequestEntriesBySession(entries []RequestEntry, sessionID string) []RequestEntry {
-	if sessionID == "" || len(entries) == 0 {
-		return nil
-	}
-	out := make([]RequestEntry, 0, len(entries))
-	for _, entry := range entries {
-		if entry.SessionID == sessionID {
-			out = append(out, entry)
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func filterSQLEntriesBySession(entries []SQLEntry, sessionID string) []SQLEntry {
-	if sessionID == "" || len(entries) == 0 {
-		return nil
-	}
-	out := make([]SQLEntry, 0, len(entries))
-	for _, entry := range entries {
-		if entry.SessionID == sessionID {
-			out = append(out, entry)
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-func filterLogEntriesBySession(entries []LogEntry, sessionID string) []LogEntry {
-	if sessionID == "" || len(entries) == 0 {
-		return nil
-	}
-	out := make([]LogEntry, 0, len(entries))
-	for _, entry := range entries {
-		if entry.SessionID == sessionID {
-			out = append(out, entry)
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }
 
 // PanelDefinitions returns metadata for enabled panels.
@@ -846,7 +799,7 @@ func (c *DebugCollector) Clear() {
 	}
 	ctx := context.Background()
 	for _, registration := range debugregistry.PanelRegistrations() {
-		id := normalizePanelID(registration.Definition.ID)
+		id := debugpanels.NormalizePanelID(registration.Definition.ID)
 		if id == "" || !c.panelEnabled(id) {
 			continue
 		}
@@ -861,7 +814,7 @@ func (c *DebugCollector) ClearPanel(panelID string) bool {
 	if c == nil {
 		return false
 	}
-	panelID = normalizePanelID(panelID)
+	panelID = debugpanels.NormalizePanelID(panelID)
 	if panelID == "" || !c.panelEnabled(panelID) {
 		return false
 	}
@@ -936,7 +889,7 @@ func (c *DebugCollector) panelEnabled(id string) bool {
 	if c == nil {
 		return false
 	}
-	id = normalizePanelID(id)
+	id = debugpanels.NormalizePanelID(id)
 	if id == "" {
 		return false
 	}
@@ -950,7 +903,7 @@ func (c *DebugCollector) eventTypeEnabled(eventType string) bool {
 	if c == nil {
 		return false
 	}
-	eventType = normalizePanelID(eventType)
+	eventType = debugpanels.NormalizePanelID(eventType)
 	if eventType == "" {
 		return false
 	}
@@ -1025,69 +978,6 @@ func (c *DebugCollector) removeSubscriberChannel(id string, ch chan DebugEvent) 
 	}
 }
 
-func setNestedValue(dest map[string]any, key string, value any) {
-	parts := splitKeyPath(key)
-	if len(parts) == 0 {
-		return
-	}
-	current := dest
-	for i := 0; i < len(parts)-1; i++ {
-		part := parts[i]
-		next, ok := current[part]
-		if !ok {
-			child := map[string]any{}
-			current[part] = child
-			current = child
-			continue
-		}
-		child, ok := next.(map[string]any)
-		if !ok {
-			child = map[string]any{}
-			current[part] = child
-		}
-		current = child
-	}
-	current[parts[len(parts)-1]] = value
-}
-
-func getNestedValue(src map[string]any, key string) (any, bool) {
-	if len(src) == 0 {
-		return nil, false
-	}
-	parts := splitKeyPath(key)
-	if len(parts) == 0 {
-		return nil, false
-	}
-	current := src
-	for i := 0; i < len(parts)-1; i++ {
-		part := parts[i]
-		next, ok := current[part]
-		if !ok {
-			return nil, false
-		}
-		child, ok := next.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		current = child
-	}
-	val, ok := current[parts[len(parts)-1]]
-	return val, ok
-}
-
-func splitKeyPath(key string) []string {
-	raw := strings.FieldsFunc(key, func(r rune) bool {
-		return r == '.' || r == '/' || r == ':'
-	})
-	parts := make([]string, 0, len(raw))
-	for _, part := range raw {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			parts = append(parts, trimmed)
-		}
-	}
-	return parts
-}
-
 func clonePanelData(input map[string]debugPanelSnapshot) map[string]debugPanelSnapshot {
 	if len(input) == 0 {
 		return nil
@@ -1096,51 +986,8 @@ func clonePanelData(input map[string]debugPanelSnapshot) map[string]debugPanelSn
 	for key, value := range input {
 		out[key] = debugPanelSnapshot{
 			snapshotKey: value.snapshotKey,
-			payload:     clonePanelPayload(value.payload),
+			payload:     debugcollector.ClonePanelPayload(value.payload),
 		}
-	}
-	return out
-}
-
-func clonePanelPayload(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return primitives.CloneAnyMap(typed)
-	case map[string]string:
-		out := make(map[string]string, len(typed))
-		maps.Copy(out, typed)
-		return out
-	case []any:
-		out := make([]any, len(typed))
-		copy(out, typed)
-		return out
-	case []string:
-		out := make([]string, len(typed))
-		copy(out, typed)
-		return out
-	default:
-		return value
-	}
-}
-
-func fieldsToMap(fields []any) map[string]any {
-	if len(fields) == 0 {
-		return nil
-	}
-	out := map[string]any{}
-	for i := 0; i < len(fields); i += 2 {
-		key := toString(fields[i])
-		if key == "" {
-			continue
-		}
-		if i+1 < len(fields) {
-			out[key] = fields[i+1]
-		} else {
-			out[key] = true
-		}
-	}
-	if len(out) == 0 {
-		return nil
 	}
 	return out
 }

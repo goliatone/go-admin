@@ -1,6 +1,7 @@
 package admin
 
 import (
+	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	"github.com/goliatone/go-admin/admin/routing"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	"strings"
@@ -41,11 +42,7 @@ const (
 	debugPanelDefaultSpan         = 12
 )
 
-type debugPanelMeta struct {
-	Label string `json:"label"`
-	Icon  string `json:"icon"`
-	Span  int    `json:"span"`
-}
+type debugPanelMeta = debugpanels.PanelMeta
 
 var debugPanelDefaults = map[string]debugPanelMeta{
 	DebugPanelTemplate:    {Label: "Template Context", Span: debugPanelDefaultSpan},
@@ -455,39 +452,9 @@ func relativeRoutePath(basePath, fullPath string) string {
 }
 
 func debugPanelMetaFor(panelID string) debugPanelMeta {
-	normalized := normalizePanelID(panelID)
-	if meta, ok := debugPanelDefaults[normalized]; ok {
-		if meta.Span <= 0 {
-			meta.Span = debugPanelDefaultSpan
-		}
-		return meta
-	}
-	return debugPanelMeta{
-		Label: debugPanelLabel(panelID),
-		Span:  debugPanelDefaultSpan,
-	}
+	return debugpanels.PanelMetaFor(panelID, debugPanelDefaults, debugPanelDefaultSpan)
 }
 
 func debugPanelLabel(panelID string) string {
-	trimmed := strings.TrimSpace(panelID)
-	if trimmed == "" {
-		return ""
-	}
-	replacer := strings.NewReplacer("-", " ", "_", " ", ".", " ", "/", " ")
-	parts := strings.Fields(replacer.Replace(trimmed))
-	for i, part := range parts {
-		lower := strings.ToLower(part)
-		switch lower {
-		case "sql":
-			parts[i] = "SQL"
-		case "id":
-			parts[i] = "ID"
-		default:
-			parts[i] = titleCase(lower)
-		}
-	}
-	if len(parts) == 0 {
-		return titleCase(trimmed)
-	}
-	return strings.Join(parts, " ")
+	return debugpanels.PanelLabel(panelID)
 }

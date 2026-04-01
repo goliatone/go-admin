@@ -213,7 +213,7 @@ func (a *Admin) buildDashboardPreferenceStore(store dashcmp.WidgetStore) dashcmp
 	if a.preferences == nil {
 		return dashcmp.NewInMemoryPreferenceStore()
 	}
-	return &dashboardPreferenceStore{prefs: a.preferences, store: store}
+	return newDashboardPreferenceStore(a.preferences, store)
 }
 
 func (a *Admin) dashboardThemeProvider() dashcmp.ThemeProvider {
@@ -232,124 +232,129 @@ func (noopDashboardRenderer) Render(_ string, _ any, _ ...io.Writer) (string, er
 	return "", nil
 }
 
-type dashboardPreferenceStore struct {
+type dashboardPreferenceBackend struct {
 	prefs *PreferencesService
-	store dashcmp.WidgetStore
 }
 
-func (s *dashboardPreferenceStore) LayoutOverrides(ctx context.Context, viewer dashcmp.ViewerContext) (dashcmp.LayoutOverrides, error) {
-	overrides := dashcmp.LayoutOverrides{
-		Locale:        viewer.Locale,
-		AreaOrder:     map[string][]string{},
-		AreaRows:      map[string][]dashcmp.LayoutRow{},
-		HiddenWidgets: map[string]bool{},
+func newDashboardPreferenceStore(prefs *PreferencesService, store dashcmp.WidgetStore) dashcmp.PreferenceStore {
+	if prefs == nil {
+		return dashcmp.NewInMemoryPreferenceStore()
 	}
-	if s == nil || s.prefs == nil || viewer.UserID == "" {
-		return overrides, nil
-	}
-	stored := s.prefs.DashboardOverrides(ctx, viewer.UserID)
-	if stored.Locale != "" {
-		overrides.Locale = stored.Locale
-	}
-	overrides.AreaOrder = cloneStringSliceMap(stored.AreaOrder)
-	overrides.AreaRows = convertDashboardRows(stored.AreaRows)
-	overrides.HiddenWidgets = cloneHiddenWidgetMap(stored.HiddenWidgets)
-	return overrides, nil
+	return dashinternal.NewGoDashPreferenceStore(
+		dashboardPreferenceBackend{prefs: prefs},
+		store,
+		dashinternal.WithMissingViewerUserIDError(func() error {
+			return requiredFieldDomainError("viewer user id", map[string]any{"scope": "dashboard_preferences"})
+		}),
+	)
 }
 
-func (s *dashboardPreferenceStore) SaveLayoutOverrides(ctx context.Context, viewer dashcmp.ViewerContext, overrides dashcmp.LayoutOverrides) error {
-	if s == nil || s.prefs == nil {
-		return nil
+func (b dashboardPreferenceBackend) LoadDashboardLayoutOverrides(ctx context.Context, userID string) dashinternal.StoredLayoutOverrides {
+	if b.prefs == nil || userID == "" {
+		return dashinternal.StoredLayoutOverrides{}
 	}
-	if viewer.UserID == "" {
-		return requiredFieldDomainError("viewer user id", map[string]any{"scope": "dashboard_preferences"})
+	stored := b.prefs.DashboardOverrides(ctx, userID)
+	areaOrder := map[string][]string{}
+	for area, ids := range stored.AreaOrder {
+		copied := make([]string, len(ids))
+		copy(copied, ids)
+		areaOrder[area] = copied
 	}
-	if overrides.Locale == "" {
-		overrides.Locale = viewer.Locale
-	}
-	adminOverrides := DashboardLayoutOverrides{
-		Locale:        overrides.Locale,
-		AreaOrder:     cloneStringSliceMap(overrides.AreaOrder),
-		AreaRows:      convertRowsToAdmin(overrides.AreaRows),
-		HiddenWidgets: cloneHiddenWidgetMap(overrides.HiddenWidgets),
-	}
-	_, err := s.prefs.SaveDashboardOverrides(ctx, viewer.UserID, adminOverrides)
-	if err != nil {
-		return err
-	}
-	layout := s.buildLayoutFromOverrides(ctx, overrides, adminOverrides)
-	if len(layout) > 0 {
-		if _, err := s.prefs.SaveDashboardLayout(ctx, viewer.UserID, layout); err != nil {
-			return err
+	hiddenWidgets := map[string]bool{}
+	for id, hidden := range stored.HiddenWidgets {
+		if hidden {
+			hiddenWidgets[id] = true
 		}
 	}
-	return nil
+	areaRows := map[string][]dashinternal.StoredLayoutRow{}
+	for area, rows := range stored.AreaRows {
+		converted := make([]dashinternal.StoredLayoutRow, 0, len(rows))
+		for _, row := range rows {
+			if len(row.Widgets) == 0 {
+				continue
+			}
+			slots := make([]dashinternal.StoredLayoutSlot, 0, len(row.Widgets))
+			for _, slot := range row.Widgets {
+				if slot.ID == "" {
+					continue
+				}
+				slots = append(slots, dashinternal.StoredLayoutSlot{
+					ID:    slot.ID,
+					Width: slot.Width,
+				})
+			}
+			if len(slots) > 0 {
+				converted = append(converted, dashinternal.StoredLayoutRow{Widgets: slots})
+			}
+		}
+		if len(converted) > 0 {
+			areaRows[area] = converted
+		}
+	}
+	return dashinternal.StoredLayoutOverrides{
+		Locale:        stored.Locale,
+		AreaOrder:     areaOrder,
+		AreaRows:      areaRows,
+		HiddenWidgets: hiddenWidgets,
+	}
 }
 
-func (s *dashboardPreferenceStore) buildLayoutFromOverrides(ctx context.Context, overrides dashcmp.LayoutOverrides, adminOverrides DashboardLayoutOverrides) []DashboardWidgetInstance {
-	if s == nil || s.store == nil {
+func (b dashboardPreferenceBackend) SaveDashboardLayoutOverrides(ctx context.Context, userID string, overrides dashinternal.StoredLayoutOverrides) error {
+	if b.prefs == nil || userID == "" {
 		return nil
 	}
-	type slot struct {
-		area     string
-		id       string
-		width    int
-		position int
+	areaOrder := map[string][]string{}
+	for area, ids := range overrides.AreaOrder {
+		copied := make([]string, len(ids))
+		copy(copied, ids)
+		areaOrder[area] = copied
 	}
-	slots := []slot{}
+	hiddenWidgets := map[string]bool{}
+	for id, hidden := range overrides.HiddenWidgets {
+		if hidden {
+			hiddenWidgets[id] = true
+		}
+	}
+	areaRows := map[string][]DashboardLayoutRow{}
 	for area, rows := range overrides.AreaRows {
-		for rowIdx, row := range rows {
-			for colIdx, widget := range row.Widgets {
-				id := strings.TrimSpace(widget.ID)
-				if id == "" {
+		converted := make([]DashboardLayoutRow, 0, len(rows))
+		for _, row := range rows {
+			if len(row.Widgets) == 0 {
+				continue
+			}
+			slots := make([]DashboardLayoutSlot, 0, len(row.Widgets))
+			for _, slot := range row.Widgets {
+				if slot.ID == "" {
 					continue
 				}
-				width := widget.Width
-				if width <= 0 {
-					width = 12
-				}
-				slots = append(slots, slot{
-					area:     area,
-					id:       id,
-					width:    width,
-					position: rowIdx*100 + colIdx,
+				slots = append(slots, DashboardLayoutSlot{
+					ID:    slot.ID,
+					Width: slot.Width,
 				})
 			}
-		}
-	}
-	if len(slots) == 0 {
-		for area, order := range overrides.AreaOrder {
-			for idx, id := range order {
-				id = strings.TrimSpace(id)
-				if id == "" {
-					continue
-				}
-				slots = append(slots, slot{
-					area:     area,
-					id:       id,
-					position: idx,
-				})
+			if len(slots) > 0 {
+				converted = append(converted, DashboardLayoutRow{Widgets: slots})
 			}
 		}
-	}
-	layout := []DashboardWidgetInstance{}
-	for _, sl := range slots {
-		inst, err := s.store.GetInstance(ctx, sl.id)
-		if err != nil || inst.ID == "" {
-			continue
+		if len(converted) > 0 {
+			areaRows[area] = converted
 		}
-		layout = append(layout, DashboardWidgetInstance{
-			ID:             inst.ID,
-			DefinitionCode: inst.DefinitionID,
-			AreaCode:       sl.area,
-			Config:         cloneAny(inst.Configuration),
-			Position:       sl.position,
-			Span:           sl.width,
-			Hidden:         adminOverrides.HiddenWidgets[inst.ID],
-			Locale:         adminOverrides.Locale,
-		})
 	}
-	return layout
+	_, err := b.prefs.SaveDashboardOverrides(ctx, userID, DashboardLayoutOverrides{
+		Locale:        overrides.Locale,
+		AreaOrder:     areaOrder,
+		AreaRows:      areaRows,
+		HiddenWidgets: hiddenWidgets,
+	})
+	return err
+}
+
+func (b dashboardPreferenceBackend) SaveDashboardLayout(ctx context.Context, userID string, layout []dashinternal.DashboardWidgetInstance) error {
+	if b.prefs == nil || userID == "" {
+		return nil
+	}
+	_, err := b.prefs.SaveDashboardLayout(ctx, userID, layout)
+	return err
 }
 
 type dashboardAuthorizerAdapter struct {
@@ -434,99 +439,5 @@ func cloneAny(m map[string]any) map[string]any {
 	}
 	out := make(map[string]any, len(m))
 	maps.Copy(out, m)
-	return out
-}
-
-func cloneStringSliceMap(in map[string][]string) map[string][]string {
-	if in == nil {
-		return map[string][]string{}
-	}
-	out := make(map[string][]string, len(in))
-	for key, vals := range in {
-		copied := make([]string, len(vals))
-		copy(copied, vals)
-		out[key] = copied
-	}
-	return out
-}
-
-func cloneHiddenWidgetMap(in map[string]bool) map[string]bool {
-	if in == nil {
-		return map[string]bool{}
-	}
-	out := make(map[string]bool, len(in))
-	for key, val := range in {
-		if val {
-			out[key] = true
-		}
-	}
-	return out
-}
-
-func convertDashboardRows(rows map[string][]DashboardLayoutRow) map[string][]dashcmp.LayoutRow {
-	out := map[string][]dashcmp.LayoutRow{}
-	for area, areaRows := range rows {
-		converted := []dashcmp.LayoutRow{}
-		for _, row := range areaRows {
-			if len(row.Widgets) == 0 {
-				continue
-			}
-			slots := []dashcmp.WidgetSlot{}
-			for _, widget := range row.Widgets {
-				if widget.ID == "" {
-					continue
-				}
-				slots = append(slots, dashcmp.WidgetSlot{
-					ID:    widget.ID,
-					Width: widget.Width,
-				})
-			}
-			if len(slots) > 0 {
-				converted = append(converted, dashcmp.LayoutRow{Widgets: slots})
-			}
-		}
-		if len(converted) > 0 {
-			out[area] = converted
-		}
-	}
-	return out
-}
-
-func convertRowsToAdmin(rows map[string][]dashcmp.LayoutRow) map[string][]DashboardLayoutRow {
-	out := map[string][]DashboardLayoutRow{}
-	for area, areaRows := range rows {
-		converted := []DashboardLayoutRow{}
-		for _, row := range areaRows {
-			if len(row.Widgets) == 0 {
-				continue
-			}
-			slots := []DashboardLayoutSlot{}
-			for _, slot := range row.Widgets {
-				if slot.ID == "" {
-					continue
-				}
-				slots = append(slots, DashboardLayoutSlot{
-					ID:    slot.ID,
-					Width: slot.Width,
-				})
-			}
-			if len(slots) > 0 {
-				converted = append(converted, DashboardLayoutRow{Widgets: slots})
-			}
-		}
-		if len(converted) > 0 {
-			out[area] = converted
-		}
-	}
-	return out
-}
-
-func toHiddenWidgetMap(ids []string) map[string]bool {
-	out := map[string]bool{}
-	for _, id := range ids {
-		if id != "" {
-			out[id] = true
-		}
-	}
 	return out
 }

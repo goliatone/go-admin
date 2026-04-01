@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	workflowcore "github.com/goliatone/go-admin/admin/internal/workflowcore"
 	"github.com/goliatone/go-command/flow"
 	cmdrpc "github.com/goliatone/go-command/rpc"
 )
@@ -650,9 +651,9 @@ func syncPublishedMachineToRuntime(ctx context.Context, adm *Admin, machineID st
 		return err
 	}
 	projected.Status = WorkflowStatusActive
-	projected.Definition.EntityType = canonicalMachineIDForWorkflow(projected)
-	projected.MachineID = canonicalMachineIDForWorkflow(projected)
-	projected.MachineVersion = canonicalMachineVersionForWorkflow(projected)
+	projected.Definition.EntityType = workflowcore.CanonicalMachineIDForWorkflow(projected)
+	projected.MachineID = workflowcore.CanonicalMachineIDForWorkflow(projected)
+	projected.MachineVersion = workflowcore.CanonicalMachineVersionForWorkflow(projected)
 
 	current, getErr := runtime.workflows.Get(ctx, projected.ID)
 	if getErr == nil {
@@ -792,7 +793,7 @@ func persistedWorkflowToDraft(workflow PersistedWorkflow) flow.DraftMachineDocum
 }
 
 func persistedWorkflowToMachineDefinition(workflow PersistedWorkflow) (*flow.MachineDefinition, error) {
-	definition := cloneWorkflowDefinition(workflow.Definition)
+	definition := workflowcore.CloneWorkflowDefinition(workflow.Definition)
 	if strings.TrimSpace(definition.EntityType) == "" {
 		definition.EntityType = strings.TrimSpace(firstNonEmpty(workflow.MachineID, workflow.ID))
 	}

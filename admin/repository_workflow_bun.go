@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	workflowcore "github.com/goliatone/go-admin/admin/internal/workflowcore"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 )
@@ -145,7 +146,7 @@ func (r *BunWorkflowDefinitionRepository) Create(ctx context.Context, workflow P
 	if r == nil || r.db == nil {
 		return PersistedWorkflow{}, serviceNotConfiguredDomainError("workflow definition repository", nil)
 	}
-	next := normalizePersistedWorkflow(workflow)
+	next := workflowcore.NormalizePersistedWorkflow(workflow)
 	if next.ID == "" {
 		next.ID = "wf_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	}
@@ -177,7 +178,7 @@ func (r *BunWorkflowDefinitionRepository) Create(ctx context.Context, workflow P
 	}); err != nil {
 		return PersistedWorkflow{}, err
 	}
-	return clonePersistedWorkflow(created), nil
+	return workflowcore.ClonePersistedWorkflow(created), nil
 }
 
 func (r *BunWorkflowDefinitionRepository) Update(ctx context.Context, workflow PersistedWorkflow, expectedVersion int) (PersistedWorkflow, error) {
@@ -213,7 +214,7 @@ func (r *BunWorkflowDefinitionRepository) Update(ctx context.Context, workflow P
 			}
 		}
 
-		next := normalizePersistedWorkflow(workflow)
+		next := workflowcore.NormalizePersistedWorkflow(workflow)
 		next.ID = current.ID
 		next.CreatedAt = current.CreatedAt
 		next.UpdatedAt = time.Now().UTC()
@@ -228,7 +229,7 @@ func (r *BunWorkflowDefinitionRepository) Update(ctx context.Context, workflow P
 			next.Environment = current.Environment
 		}
 		if strings.TrimSpace(next.Definition.InitialState) == "" && len(next.Definition.Transitions) == 0 {
-			next.Definition = cloneWorkflowDefinition(current.Definition)
+			next.Definition = workflowcore.CloneWorkflowDefinition(current.Definition)
 		}
 
 		record, err := workflowToBunRecord(next)
@@ -245,7 +246,7 @@ func (r *BunWorkflowDefinitionRepository) Update(ctx context.Context, workflow P
 		if err := insertWorkflowRevisionTx(ctx, tx, next); err != nil {
 			return err
 		}
-		updated = clonePersistedWorkflow(next)
+		updated = workflowcore.ClonePersistedWorkflow(next)
 		return nil
 	}); err != nil {
 		return PersistedWorkflow{}, err
@@ -337,7 +338,7 @@ func (r *BunWorkflowBindingRepository) Create(ctx context.Context, binding Workf
 	if r == nil || r.db == nil {
 		return WorkflowBinding{}, serviceNotConfiguredDomainError("workflow binding repository", nil)
 	}
-	next := normalizeWorkflowBinding(binding)
+	next := workflowcore.NormalizeWorkflowBinding(binding)
 	if next.ID == "" {
 		next.ID = "wfb_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	}
@@ -392,7 +393,7 @@ func (r *BunWorkflowBindingRepository) Create(ctx context.Context, binding Workf
 	}); err != nil {
 		return WorkflowBinding{}, err
 	}
-	return cloneWorkflowBinding(created), nil
+	return workflowcore.CloneWorkflowBinding(created), nil
 }
 
 func (r *BunWorkflowBindingRepository) Update(ctx context.Context, binding WorkflowBinding, expectedVersion int) (WorkflowBinding, error) {
@@ -425,7 +426,7 @@ func (r *BunWorkflowBindingRepository) Update(ctx context.Context, binding Workf
 			}
 		}
 
-		next := normalizeWorkflowBinding(binding)
+		next := workflowcore.NormalizeWorkflowBinding(binding)
 		next.ID = current.ID
 		next.CreatedAt = current.CreatedAt
 		next.UpdatedAt = time.Now().UTC()
@@ -483,7 +484,7 @@ func (r *BunWorkflowBindingRepository) Update(ctx context.Context, binding Workf
 			}
 			return err
 		}
-		updated = cloneWorkflowBinding(next)
+		updated = workflowcore.CloneWorkflowBinding(next)
 		return nil
 	}); err != nil {
 		return WorkflowBinding{}, err
@@ -511,7 +512,7 @@ func (r *BunWorkflowBindingRepository) Delete(ctx context.Context, id string) er
 }
 
 func workflowToBunRecord(workflow PersistedWorkflow) (bunWorkflowRecord, error) {
-	definitionJSON, err := json.Marshal(cloneWorkflowDefinition(workflow.Definition))
+	definitionJSON, err := json.Marshal(workflowcore.CloneWorkflowDefinition(workflow.Definition))
 	if err != nil {
 		return bunWorkflowRecord{}, err
 	}
@@ -537,14 +538,14 @@ func workflowFromBunRecord(row bunWorkflowRecord) (PersistedWorkflow, error) {
 	out := PersistedWorkflow{
 		ID:          strings.TrimSpace(row.ID),
 		Name:        strings.TrimSpace(row.Name),
-		Definition:  cloneWorkflowDefinition(definition),
+		Definition:  workflowcore.CloneWorkflowDefinition(definition),
 		Status:      PersistedWorkflowStatus(strings.ToLower(strings.TrimSpace(row.Status))),
 		Version:     row.Version,
 		Environment: strings.ToLower(strings.TrimSpace(row.Environment)),
 		CreatedAt:   row.CreatedAt,
 		UpdatedAt:   row.UpdatedAt,
 	}
-	return normalizePersistedWorkflow(out), nil
+	return workflowcore.NormalizePersistedWorkflow(out), nil
 }
 
 func workflowFromRevisionRecord(row bunWorkflowRevisionRecord) (PersistedWorkflow, error) {
@@ -557,18 +558,18 @@ func workflowFromRevisionRecord(row bunWorkflowRevisionRecord) (PersistedWorkflo
 	out := PersistedWorkflow{
 		ID:          strings.TrimSpace(row.WorkflowID),
 		Name:        strings.TrimSpace(row.Name),
-		Definition:  cloneWorkflowDefinition(definition),
+		Definition:  workflowcore.CloneWorkflowDefinition(definition),
 		Status:      PersistedWorkflowStatus(strings.ToLower(strings.TrimSpace(row.Status))),
 		Version:     row.Version,
 		Environment: strings.ToLower(strings.TrimSpace(row.Environment)),
 		CreatedAt:   row.CreatedAt,
 		UpdatedAt:   row.UpdatedAt,
 	}
-	return normalizePersistedWorkflow(out), nil
+	return workflowcore.NormalizePersistedWorkflow(out), nil
 }
 
 func insertWorkflowRevisionTx(ctx context.Context, tx bun.Tx, workflow PersistedWorkflow) error {
-	definitionJSON, err := json.Marshal(cloneWorkflowDefinition(workflow.Definition))
+	definitionJSON, err := json.Marshal(workflowcore.CloneWorkflowDefinition(workflow.Definition))
 	if err != nil {
 		return err
 	}
@@ -622,7 +623,7 @@ func bindingFromBunRecord(row bunWorkflowBindingRecord) WorkflowBinding {
 		CreatedAt:   row.CreatedAt,
 		UpdatedAt:   row.UpdatedAt,
 	}
-	return normalizeWorkflowBinding(out)
+	return workflowcore.NormalizeWorkflowBinding(out)
 }
 
 func findWorkflowBindingConflict(ctx context.Context, db bun.IDB, binding WorkflowBinding, skipID string) (string, error) {

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	workflowcore "github.com/goliatone/go-admin/admin/internal/workflowcore"
 	"github.com/goliatone/go-command/flow"
 )
 
@@ -108,7 +109,7 @@ func (s *WorkflowRuntimeService) UpdateWorkflow(ctx context.Context, workflow Pe
 		return PersistedWorkflow{}, err
 	}
 
-	next := normalizePersistedWorkflow(workflow)
+	next := workflowcore.NormalizePersistedWorkflow(workflow)
 	next.ID = current.ID
 	if next.Name == "" {
 		next.Name = current.Name
@@ -120,7 +121,7 @@ func (s *WorkflowRuntimeService) UpdateWorkflow(ctx context.Context, workflow Pe
 		next.Environment = current.Environment
 	}
 	if strings.TrimSpace(next.Definition.InitialState) == "" && len(next.Definition.Transitions) == 0 {
-		next.Definition = cloneWorkflowDefinition(current.Definition)
+		next.Definition = workflowcore.CloneWorkflowDefinition(current.Definition)
 	}
 
 	next, validationErr := s.normalizeAndValidateWorkflow(next)
@@ -166,7 +167,7 @@ func (s *WorkflowRuntimeService) RollbackWorkflow(ctx context.Context, id string
 
 	restored := current
 	restored.Name = target.Name
-	restored.Definition = cloneWorkflowDefinition(target.Definition)
+	restored.Definition = workflowcore.CloneWorkflowDefinition(target.Definition)
 	restored.Status = target.Status
 	restored.Environment = target.Environment
 
@@ -253,7 +254,7 @@ func (s *WorkflowRuntimeService) ResolveBinding(ctx context.Context, input Workf
 	}
 	contentType := strings.ToLower(strings.TrimSpace(input.ContentType))
 	environment := strings.ToLower(strings.TrimSpace(input.Environment))
-	traits := normalizeBindingTraits(input.Traits)
+	traits := workflowcore.NormalizeBindingTraits(input.Traits)
 
 	activeBindings, _, err := s.bindings.List(ctx, WorkflowBindingListOptions{
 		Status: WorkflowBindingStatusActive,
@@ -263,23 +264,23 @@ func (s *WorkflowRuntimeService) ResolveBinding(ctx context.Context, input Workf
 	}
 
 	if contentType != "" {
-		candidates := bindingCandidates(activeBindings, WorkflowBindingScopeContentType, contentType, environment)
-		if resolution, ok, err := s.resolveFirstActiveBinding(ctx, candidates, workflowResolutionSourceBindingContentType); err != nil {
+		candidates := workflowcore.BindingCandidates(activeBindings, WorkflowBindingScopeContentType, contentType, environment)
+		if resolution, ok, err := s.resolveFirstActiveBinding(ctx, candidates, workflowcore.ResolutionSourceBindingContentType); err != nil {
 			return WorkflowBindingResolution{}, err
 		} else if ok {
 			return resolution, nil
 		}
 	}
 	for _, trait := range traits {
-		candidates := bindingCandidates(activeBindings, WorkflowBindingScopeTrait, trait, environment)
-		if resolution, ok, err := s.resolveFirstActiveBinding(ctx, candidates, workflowResolutionSourceBindingTrait); err != nil {
+		candidates := workflowcore.BindingCandidates(activeBindings, WorkflowBindingScopeTrait, trait, environment)
+		if resolution, ok, err := s.resolveFirstActiveBinding(ctx, candidates, workflowcore.ResolutionSourceBindingTrait); err != nil {
 			return WorkflowBindingResolution{}, err
 		} else if ok {
 			return resolution, nil
 		}
 	}
-	if candidates := bindingCandidates(activeBindings, WorkflowBindingScopeGlobal, "", environment); len(candidates) > 0 {
-		if resolution, ok, err := s.resolveFirstActiveBinding(ctx, candidates, workflowResolutionSourceBindingGlobal); err != nil {
+	if candidates := workflowcore.BindingCandidates(activeBindings, WorkflowBindingScopeGlobal, "", environment); len(candidates) > 0 {
+		if resolution, ok, err := s.resolveFirstActiveBinding(ctx, candidates, workflowcore.ResolutionSourceBindingGlobal); err != nil {
 			return WorkflowBindingResolution{}, err
 		} else if ok {
 			return resolution, nil
@@ -325,22 +326,22 @@ func (s *WorkflowRuntimeService) registerActiveWorkflow(workflow PersistedWorkfl
 	if s == nil || s.registrar == nil || workflow.Status != WorkflowStatusActive {
 		return
 	}
-	def := cloneWorkflowDefinition(workflow.Definition)
-	def.EntityType = canonicalMachineIDForWorkflow(workflow)
-	def.MachineVersion = canonicalMachineVersionForWorkflow(workflow)
+	def := workflowcore.CloneWorkflowDefinition(workflow.Definition)
+	def.EntityType = workflowcore.CanonicalMachineIDForWorkflow(workflow)
+	def.MachineVersion = workflowcore.CanonicalMachineVersionForWorkflow(workflow)
 	_ = s.registrar.RegisterWorkflow(def.EntityType, def)
 }
 
 func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow PersistedWorkflow) (PersistedWorkflow, error) {
-	next := normalizePersistedWorkflow(workflow)
+	next := workflowcore.NormalizePersistedWorkflow(workflow)
 	if next.Status == "" {
 		next.Status = WorkflowStatusDraft
 	}
 	if next.Version <= 0 {
 		next.Version = 1
 	}
-	next.MachineID = canonicalMachineIDForWorkflow(next)
-	next.MachineVersion = canonicalMachineVersionForWorkflow(next)
+	next.MachineID = workflowcore.CanonicalMachineIDForWorkflow(next)
+	next.MachineVersion = workflowcore.CanonicalMachineVersionForWorkflow(next)
 	next.Definition.EntityType = next.MachineID
 	next.Definition.MachineVersion = next.MachineVersion
 
@@ -397,7 +398,7 @@ func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow Persisted
 }
 
 func (s *WorkflowRuntimeService) normalizeAndValidateBinding(ctx context.Context, binding WorkflowBinding) (WorkflowBinding, error) {
-	next := normalizeWorkflowBinding(binding)
+	next := workflowcore.NormalizeWorkflowBinding(binding)
 	if next.Status == "" {
 		next.Status = WorkflowBindingStatusActive
 	}
@@ -443,44 +444,6 @@ func (s *WorkflowRuntimeService) normalizeAndValidateBinding(ctx context.Context
 	return next, nil
 }
 
-func bindingCandidates(bindings []WorkflowBinding, scopeType WorkflowBindingScopeType, scopeRef string, environment string) []WorkflowBinding {
-	scopeRef = strings.ToLower(strings.TrimSpace(scopeRef))
-	environment = strings.ToLower(strings.TrimSpace(environment))
-
-	out := make([]WorkflowBinding, 0, len(bindings))
-	for _, binding := range bindings {
-		if binding.ScopeType != scopeType {
-			continue
-		}
-		if scopeType == WorkflowBindingScopeGlobal {
-			if !bindingMatchesEnvironment(binding, environment) {
-				continue
-			}
-			out = append(out, binding)
-			continue
-		}
-		if strings.ToLower(strings.TrimSpace(binding.ScopeRef)) != scopeRef {
-			continue
-		}
-		if !bindingMatchesEnvironment(binding, environment) {
-			continue
-		}
-		out = append(out, binding)
-	}
-	return out
-}
-
-func bindingMatchesEnvironment(binding WorkflowBinding, environment string) bool {
-	bindingEnv := strings.ToLower(strings.TrimSpace(binding.Environment))
-	if bindingEnv == "" {
-		return true
-	}
-	if environment == "" {
-		return false
-	}
-	return bindingEnv == environment
-}
-
 func (s *WorkflowRuntimeService) resolveFirstActiveBinding(ctx context.Context, candidates []WorkflowBinding, source string) (WorkflowBindingResolution, bool, error) {
 	for _, binding := range candidates {
 		workflow, err := s.workflows.Get(ctx, binding.WorkflowID)
@@ -493,70 +456,7 @@ func (s *WorkflowRuntimeService) resolveFirstActiveBinding(ctx context.Context, 
 		if workflow.Status != WorkflowStatusActive {
 			continue
 		}
-		return bindingResolutionFrom(binding, workflow, source), true, nil
+		return workflowcore.BindingResolutionFrom(binding, workflow, source), true, nil
 	}
 	return WorkflowBindingResolution{}, false, nil
-}
-
-func bindingResolutionFrom(binding WorkflowBinding, workflow PersistedWorkflow, source string) WorkflowBindingResolution {
-	return WorkflowBindingResolution{
-		WorkflowID:      binding.WorkflowID,
-		WorkflowVersion: workflow.Version,
-		MachineID:       canonicalMachineIDForWorkflow(workflow),
-		MachineVersion:  canonicalMachineVersionForWorkflow(workflow),
-		Source:          source,
-		BindingID:       binding.ID,
-		ScopeType:       binding.ScopeType,
-		ScopeRef:        binding.ScopeRef,
-		Priority:        binding.Priority,
-		Environment:     binding.Environment,
-	}
-}
-
-func canonicalMachineIDForWorkflow(workflow PersistedWorkflow) string {
-	machineID := strings.TrimSpace(workflow.MachineID)
-	if machineID != "" {
-		return machineID
-	}
-	if machineID = strings.TrimSpace(workflow.Definition.EntityType); machineID != "" {
-		return machineID
-	}
-	return strings.TrimSpace(workflow.ID)
-}
-
-func canonicalMachineVersionForWorkflow(workflow PersistedWorkflow) string {
-	machineVersion := strings.TrimSpace(workflow.MachineVersion)
-	if machineVersion != "" {
-		return machineVersion
-	}
-	if machineVersion = strings.TrimSpace(workflow.Definition.MachineVersion); machineVersion != "" {
-		return machineVersion
-	}
-	if workflow.Version > 0 {
-		return strconv.Itoa(workflow.Version)
-	}
-	return "1"
-}
-
-func normalizeBindingTraits(raw []string) []string {
-	if len(raw) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(raw))
-	seen := map[string]struct{}{}
-	for _, trait := range raw {
-		normalized := strings.ToLower(strings.TrimSpace(trait))
-		if normalized == "" {
-			continue
-		}
-		if _, exists := seen[normalized]; exists {
-			continue
-		}
-		seen[normalized] = struct{}{}
-		out = append(out, normalized)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
 }

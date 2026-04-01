@@ -1,11 +1,21 @@
-package admin
+package workflowcore
 
 import (
 	"errors"
 	"strconv"
 	"strings"
 	"time"
+
+	cmsboot "github.com/goliatone/go-admin/admin/internal/cmsboot"
 )
+
+// WorkflowDefinition describes a state machine for a specific entity type.
+type WorkflowDefinition struct {
+	EntityType     string                       `json:"entity_type"`
+	MachineVersion string                       `json:"machine_version"`
+	InitialState   string                       `json:"initial_state"`
+	Transitions    []cmsboot.WorkflowTransition `json:"transitions"`
+}
 
 // PersistedWorkflowStatus controls rollout state for stored workflow definitions.
 type PersistedWorkflowStatus string
@@ -34,9 +44,9 @@ const (
 )
 
 const (
-	workflowResolutionSourceBindingContentType = "binding_content_type"
-	workflowResolutionSourceBindingTrait       = "binding_trait"
-	workflowResolutionSourceBindingGlobal      = "binding_global"
+	ResolutionSourceBindingContentType = "binding_content_type"
+	ResolutionSourceBindingTrait       = "binding_trait"
+	ResolutionSourceBindingGlobal      = "binding_global"
 )
 
 var (

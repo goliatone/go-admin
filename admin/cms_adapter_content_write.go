@@ -153,7 +153,7 @@ func (r goCMSContentWriteBoundary) BlockDefinitions(ctx context.Context) ([]CMSB
 		if record == nil {
 			continue
 		}
-		def := convertBlockDefinition(reflect.ValueOf(record))
+		def := cmsadapter.ConvertBlockDefinition(reflect.ValueOf(record))
 		if def.ID != "" {
 			collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, def, record.ID, false)
 		}
@@ -209,7 +209,7 @@ func (r goCMSContentWriteBoundary) CreateBlockDefinition(ctx context.Context, de
 	if created == nil {
 		return nil, ErrNotFound
 	}
-	converted := convertBlockDefinition(reflect.ValueOf(created))
+	converted := cmsadapter.ConvertBlockDefinition(reflect.ValueOf(created))
 	defCache := map[string]uuid.UUID{}
 	defNames := map[uuid.UUID]string{}
 	collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, converted, created.ID, true)
@@ -261,7 +261,7 @@ func (r goCMSContentWriteBoundary) UpdateBlockDefinition(ctx context.Context, de
 	if updated == nil {
 		return nil, ErrNotFound
 	}
-	converted := convertBlockDefinition(reflect.ValueOf(updated))
+	converted := cmsadapter.ConvertBlockDefinition(reflect.ValueOf(updated))
 	defCache := map[string]uuid.UUID{}
 	defNames := map[uuid.UUID]string{}
 	collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, converted, updated.ID, true)
@@ -299,7 +299,7 @@ func (r goCMSContentWriteBoundary) BlockDefinitionVersions(ctx context.Context, 
 		if version == nil {
 			continue
 		}
-		out = append(out, convertBlockDefinitionVersion(reflect.ValueOf(version)))
+		out = append(out, cmsadapter.ConvertBlockDefinitionVersion(reflect.ValueOf(version)))
 	}
 	return out, nil
 }

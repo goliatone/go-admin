@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	workflowcore "github.com/goliatone/go-admin/admin/internal/workflowcore"
 )
 
 // WorkflowDefinitionRepository stores persisted workflow definitions.
@@ -63,7 +65,7 @@ func (r *InMemoryWorkflowDefinitionRepository) List(_ context.Context, opts Pers
 		if environment != "" && strings.ToLower(strings.TrimSpace(workflow.Environment)) != environment {
 			continue
 		}
-		out = append(out, clonePersistedWorkflow(workflow))
+		out = append(out, workflowcore.ClonePersistedWorkflow(workflow))
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
@@ -93,7 +95,7 @@ func (r *InMemoryWorkflowDefinitionRepository) Get(_ context.Context, id string)
 	if !ok {
 		return PersistedWorkflow{}, ErrNotFound
 	}
-	return clonePersistedWorkflow(workflow), nil
+	return workflowcore.ClonePersistedWorkflow(workflow), nil
 }
 
 func (r *InMemoryWorkflowDefinitionRepository) GetVersion(_ context.Context, id string, version int) (PersistedWorkflow, error) {
@@ -118,7 +120,7 @@ func (r *InMemoryWorkflowDefinitionRepository) GetVersion(_ context.Context, id 
 	if !ok {
 		return PersistedWorkflow{}, ErrNotFound
 	}
-	return clonePersistedWorkflow(workflow), nil
+	return workflowcore.ClonePersistedWorkflow(workflow), nil
 }
 
 func (r *InMemoryWorkflowDefinitionRepository) Create(_ context.Context, workflow PersistedWorkflow) (PersistedWorkflow, error) {
@@ -129,7 +131,7 @@ func (r *InMemoryWorkflowDefinitionRepository) Create(_ context.Context, workflo
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	next := normalizePersistedWorkflow(workflow)
+	next := workflowcore.NormalizePersistedWorkflow(workflow)
 	if next.ID == "" {
 		next.ID = "wf_" + strconv.FormatInt(r.nextID, 10)
 		r.nextID++
@@ -149,10 +151,10 @@ func (r *InMemoryWorkflowDefinitionRepository) Create(_ context.Context, workflo
 	if next.Status == "" {
 		next.Status = WorkflowStatusDraft
 	}
-	next.Definition = cloneWorkflowDefinition(next.Definition)
-	r.byID[next.ID] = clonePersistedWorkflow(next)
+	next.Definition = workflowcore.CloneWorkflowDefinition(next.Definition)
+	r.byID[next.ID] = workflowcore.ClonePersistedWorkflow(next)
 	r.recordRevisionLocked(next)
-	return clonePersistedWorkflow(next), nil
+	return workflowcore.ClonePersistedWorkflow(next), nil
 }
 
 func (r *InMemoryWorkflowDefinitionRepository) Update(_ context.Context, workflow PersistedWorkflow, expectedVersion int) (PersistedWorkflow, error) {
@@ -182,7 +184,7 @@ func (r *InMemoryWorkflowDefinitionRepository) Update(_ context.Context, workflo
 		}
 	}
 
-	next := normalizePersistedWorkflow(workflow)
+	next := workflowcore.NormalizePersistedWorkflow(workflow)
 	next.ID = current.ID
 	next.CreatedAt = current.CreatedAt
 	next.UpdatedAt = time.Now().UTC()
@@ -197,12 +199,12 @@ func (r *InMemoryWorkflowDefinitionRepository) Update(_ context.Context, workflo
 		next.Environment = current.Environment
 	}
 	if strings.TrimSpace(next.Definition.InitialState) == "" && len(next.Definition.Transitions) == 0 {
-		next.Definition = cloneWorkflowDefinition(current.Definition)
+		next.Definition = workflowcore.CloneWorkflowDefinition(current.Definition)
 	}
 
-	r.byID[id] = clonePersistedWorkflow(next)
+	r.byID[id] = workflowcore.ClonePersistedWorkflow(next)
 	r.recordRevisionLocked(next)
-	return clonePersistedWorkflow(next), nil
+	return workflowcore.ClonePersistedWorkflow(next), nil
 }
 
 func (r *InMemoryWorkflowDefinitionRepository) recordRevisionLocked(workflow PersistedWorkflow) {
@@ -212,7 +214,7 @@ func (r *InMemoryWorkflowDefinitionRepository) recordRevisionLocked(workflow Per
 	if r.revisions[workflow.ID] == nil {
 		r.revisions[workflow.ID] = map[int]PersistedWorkflow{}
 	}
-	r.revisions[workflow.ID][workflow.Version] = clonePersistedWorkflow(workflow)
+	r.revisions[workflow.ID][workflow.Version] = workflowcore.ClonePersistedWorkflow(workflow)
 }
 
 // InMemoryWorkflowBindingRepository stores scope bindings with active uniqueness.
@@ -256,10 +258,10 @@ func (r *InMemoryWorkflowBindingRepository) List(_ context.Context, opts Workflo
 		if status != "" && binding.Status != status {
 			continue
 		}
-		out = append(out, cloneWorkflowBinding(binding))
+		out = append(out, workflowcore.CloneWorkflowBinding(binding))
 	}
 
-	sortWorkflowBindingsForResolution(out)
+	workflowcore.SortWorkflowBindingsForResolution(out)
 	return out, len(out), nil
 }
 
@@ -285,9 +287,9 @@ func (r *InMemoryWorkflowBindingRepository) ListByScope(_ context.Context, scope
 		if status != "" && binding.Status != status {
 			continue
 		}
-		out = append(out, cloneWorkflowBinding(binding))
+		out = append(out, workflowcore.CloneWorkflowBinding(binding))
 	}
-	sortWorkflowBindingsForResolution(out)
+	workflowcore.SortWorkflowBindingsForResolution(out)
 	return out, nil
 }
 
@@ -305,7 +307,7 @@ func (r *InMemoryWorkflowBindingRepository) Get(_ context.Context, id string) (W
 	if !ok {
 		return WorkflowBinding{}, ErrNotFound
 	}
-	return cloneWorkflowBinding(binding), nil
+	return workflowcore.CloneWorkflowBinding(binding), nil
 }
 
 func (r *InMemoryWorkflowBindingRepository) Create(_ context.Context, binding WorkflowBinding) (WorkflowBinding, error) {
@@ -315,7 +317,7 @@ func (r *InMemoryWorkflowBindingRepository) Create(_ context.Context, binding Wo
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	next := normalizeWorkflowBinding(binding)
+	next := workflowcore.NormalizeWorkflowBinding(binding)
 	if next.ID == "" {
 		next.ID = "wfb_" + strconv.FormatInt(r.nextID, 10)
 		r.nextID++
@@ -338,8 +340,8 @@ func (r *InMemoryWorkflowBindingRepository) Create(_ context.Context, binding Wo
 	if next.Status == "" {
 		next.Status = WorkflowBindingStatusActive
 	}
-	r.byID[next.ID] = cloneWorkflowBinding(next)
-	return cloneWorkflowBinding(next), nil
+	r.byID[next.ID] = workflowcore.CloneWorkflowBinding(next)
+	return workflowcore.CloneWorkflowBinding(next), nil
 }
 
 func (r *InMemoryWorkflowBindingRepository) Update(_ context.Context, binding WorkflowBinding, expectedVersion int) (WorkflowBinding, error) {
@@ -369,7 +371,7 @@ func (r *InMemoryWorkflowBindingRepository) Update(_ context.Context, binding Wo
 		}
 	}
 
-	next := normalizeWorkflowBinding(binding)
+	next := workflowcore.NormalizeWorkflowBinding(binding)
 	next.ID = current.ID
 	next.CreatedAt = current.CreatedAt
 	next.UpdatedAt = time.Now().UTC()
@@ -396,8 +398,8 @@ func (r *InMemoryWorkflowBindingRepository) Update(_ context.Context, binding Wo
 	if err := r.ensureNoActiveBindingConflictLocked(next, current.ID); err != nil {
 		return WorkflowBinding{}, err
 	}
-	r.byID[id] = cloneWorkflowBinding(next)
-	return cloneWorkflowBinding(next), nil
+	r.byID[id] = workflowcore.CloneWorkflowBinding(next)
+	return workflowcore.CloneWorkflowBinding(next), nil
 }
 
 func (r *InMemoryWorkflowBindingRepository) Delete(_ context.Context, id string) error {
@@ -421,7 +423,7 @@ func (r *InMemoryWorkflowBindingRepository) ensureNoActiveBindingConflictLocked(
 	if binding.Status != WorkflowBindingStatusActive {
 		return nil
 	}
-	key := workflowBindingConflictKey(binding)
+	key := workflowcore.WorkflowBindingConflictKey(binding)
 	for id, existing := range r.byID {
 		if id == skipID {
 			continue
@@ -429,7 +431,7 @@ func (r *InMemoryWorkflowBindingRepository) ensureNoActiveBindingConflictLocked(
 		if existing.Status != WorkflowBindingStatusActive {
 			continue
 		}
-		if workflowBindingConflictKey(existing) != key {
+		if workflowcore.WorkflowBindingConflictKey(existing) != key {
 			continue
 		}
 		return WorkflowBindingConflictError{
@@ -442,110 +444,4 @@ func (r *InMemoryWorkflowBindingRepository) ensureNoActiveBindingConflictLocked(
 		}
 	}
 	return nil
-}
-
-func workflowBindingConflictKey(binding WorkflowBinding) string {
-	return strings.Join([]string{
-		strings.ToLower(strings.TrimSpace(string(binding.ScopeType))),
-		strings.ToLower(strings.TrimSpace(binding.ScopeRef)),
-		strings.ToLower(strings.TrimSpace(binding.Environment)),
-		strconv.Itoa(binding.Priority),
-	}, "::")
-}
-
-func normalizePersistedWorkflow(in PersistedWorkflow) PersistedWorkflow {
-	in.ID = strings.TrimSpace(in.ID)
-	in.MachineID = strings.TrimSpace(in.MachineID)
-	in.MachineVersion = strings.TrimSpace(in.MachineVersion)
-	in.Name = strings.TrimSpace(in.Name)
-	in.Environment = strings.TrimSpace(strings.ToLower(in.Environment))
-	in.Status = PersistedWorkflowStatus(strings.ToLower(strings.TrimSpace(string(in.Status))))
-	in.Definition = cloneWorkflowDefinition(in.Definition)
-	in.Definition.EntityType = strings.TrimSpace(in.Definition.EntityType)
-	in.Definition.MachineVersion = strings.TrimSpace(in.Definition.MachineVersion)
-	if in.MachineID == "" {
-		in.MachineID = strings.TrimSpace(in.Definition.EntityType)
-	}
-	if in.MachineID == "" {
-		in.MachineID = strings.TrimSpace(in.ID)
-	}
-	if in.MachineID == "" {
-		in.MachineID = in.ID
-	}
-	if in.MachineID != "" {
-		in.Definition.EntityType = in.MachineID
-	}
-	if in.MachineVersion == "" {
-		in.MachineVersion = strings.TrimSpace(in.Definition.MachineVersion)
-	}
-	if in.MachineVersion == "" && in.Version > 0 {
-		in.MachineVersion = strconv.Itoa(in.Version)
-	}
-	if in.MachineVersion == "" {
-		in.MachineVersion = "1"
-	}
-	in.Definition.MachineVersion = in.MachineVersion
-	in.Definition.InitialState = strings.TrimSpace(in.Definition.InitialState)
-	for i := range in.Definition.Transitions {
-		in.Definition.Transitions[i].Name = strings.TrimSpace(in.Definition.Transitions[i].Name)
-		in.Definition.Transitions[i].Description = strings.TrimSpace(in.Definition.Transitions[i].Description)
-		in.Definition.Transitions[i].From = strings.TrimSpace(in.Definition.Transitions[i].From)
-		in.Definition.Transitions[i].To = strings.TrimSpace(in.Definition.Transitions[i].To)
-	}
-	return in
-}
-
-func normalizeWorkflowBinding(in WorkflowBinding) WorkflowBinding {
-	in.ID = strings.TrimSpace(in.ID)
-	in.ScopeType = WorkflowBindingScopeType(strings.ToLower(strings.TrimSpace(string(in.ScopeType))))
-	in.ScopeRef = strings.ToLower(strings.TrimSpace(in.ScopeRef))
-	in.WorkflowID = strings.TrimSpace(in.WorkflowID)
-	in.Environment = strings.TrimSpace(strings.ToLower(in.Environment))
-	in.Status = WorkflowBindingStatus(strings.ToLower(strings.TrimSpace(string(in.Status))))
-	if in.Priority == 0 {
-		in.Priority = 100
-	}
-	if in.ScopeType == WorkflowBindingScopeGlobal && in.ScopeRef == "" {
-		in.ScopeRef = "global"
-	}
-	return in
-}
-
-func clonePersistedWorkflow(in PersistedWorkflow) PersistedWorkflow {
-	copy := in
-	copy.Definition = cloneWorkflowDefinition(in.Definition)
-	return copy
-}
-
-func cloneWorkflowDefinition(in WorkflowDefinition) WorkflowDefinition {
-	copy := in
-	copy.Transitions = append([]WorkflowTransition{}, in.Transitions...)
-	return copy
-}
-
-func cloneWorkflowBinding(in WorkflowBinding) WorkflowBinding {
-	return in
-}
-
-func sortWorkflowBindingsForResolution(bindings []WorkflowBinding) {
-	sort.SliceStable(bindings, func(i, j int) bool {
-		left := bindings[i]
-		right := bindings[j]
-		leftEnv := strings.TrimSpace(left.Environment)
-		rightEnv := strings.TrimSpace(right.Environment)
-		// Environment-specific bindings are preferred over environment-agnostic ones.
-		if (leftEnv == "") != (rightEnv == "") {
-			return leftEnv != ""
-		}
-		if left.Priority != right.Priority {
-			return left.Priority < right.Priority
-		}
-		if left.ScopeType != right.ScopeType {
-			return left.ScopeType < right.ScopeType
-		}
-		if left.ScopeRef != right.ScopeRef {
-			return left.ScopeRef < right.ScopeRef
-		}
-		return left.ID < right.ID
-	})
 }

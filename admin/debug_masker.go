@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	debugcollector "github.com/goliatone/go-admin/admin/internal/debugcollector"
 	"github.com/goliatone/go-masker"
 )
 
@@ -133,7 +134,7 @@ func debugMaskSlice(cfg DebugConfig, data []any) []any {
 }
 
 func debugMaskFieldValue(cfg DebugConfig, key string, value any) any {
-	parts := splitKeyPath(key)
+	parts := debugcollector.SplitKeyPath(key)
 	if len(parts) == 0 {
 		return debugMaskValue(cfg, value)
 	}

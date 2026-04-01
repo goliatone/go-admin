@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	workflowcore "github.com/goliatone/go-admin/admin/internal/workflowcore"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-command/flow"
 	goerrors "github.com/goliatone/go-errors"
@@ -135,7 +136,7 @@ func (e *FSMWorkflowEngine) AttachActivitySink(sink ActivitySink) error {
 	e.lifecycleHooks = append(e.lifecycleHooks, hook)
 	definitions := make(map[string]WorkflowDefinition, len(e.definitions))
 	for entityType, definition := range e.definitions {
-		definitions[entityType] = cloneWorkflowDefinition(definition)
+		definitions[entityType] = workflowcore.CloneWorkflowDefinition(definition)
 	}
 	e.mu.Unlock()
 
@@ -294,7 +295,7 @@ func (e *FSMWorkflowEngine) RegisterWorkflow(entityType string, definition Workf
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	e.definitions[entityType] = cloneWorkflowDefinition(definition)
+	e.definitions[entityType] = workflowcore.CloneWorkflowDefinition(definition)
 	e.machines[entityType] = machine
 	e.machineVersions[entityType] = strings.TrimSpace(machineDef.Version)
 	return nil
@@ -349,7 +350,7 @@ func (e *FSMWorkflowEngine) WorkflowDefinition(entityType string) (WorkflowDefin
 	if !ok {
 		return WorkflowDefinition{}, false
 	}
-	return cloneWorkflowDefinition(def), true
+	return workflowcore.CloneWorkflowDefinition(def), true
 }
 
 // ApplyEvent applies an event using canonical FSM envelopes.

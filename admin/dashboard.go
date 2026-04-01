@@ -628,7 +628,7 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 	registry, specs := d.buildDashboardProvidersLocked()
 	var prefStore dashcmp.PreferenceStore
 	if d.prefService != nil {
-		prefStore = &dashboardPreferenceStore{prefs: d.prefService, store: store}
+		prefStore = newDashboardPreferenceStore(d.prefService, store)
 	} else {
 		prefStore = dashcmp.NewInMemoryPreferenceStore()
 	}

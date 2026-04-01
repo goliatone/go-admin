@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	debugregistry "github.com/goliatone/go-admin/debug"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
@@ -69,7 +70,7 @@ func (s *debugSubscription) subscribe(panels []string) {
 	if s == nil {
 		return
 	}
-	for _, panel := range normalizePanelIDs(panels) {
+	for _, panel := range debugpanels.NormalizePanelIDs(panels) {
 		for _, event := range debugPanelEventTypes(panel) {
 			if event == "" {
 				continue
@@ -83,7 +84,7 @@ func (s *debugSubscription) unsubscribe(panels []string) {
 	if s == nil {
 		return
 	}
-	for _, panel := range normalizePanelIDs(panels) {
+	for _, panel := range debugpanels.NormalizePanelIDs(panels) {
 		for _, event := range debugPanelEventTypes(panel) {
 			delete(s.events, event)
 		}
@@ -631,7 +632,7 @@ func (m *DebugModule) clearDebugPanels(panels []string) {
 	if m == nil || m.collector == nil {
 		return
 	}
-	normalized := normalizePanelIDs(panels)
+	normalized := debugpanels.NormalizePanelIDs(panels)
 	if len(normalized) == 0 {
 		m.collector.Clear()
 		m.publishSnapshot()

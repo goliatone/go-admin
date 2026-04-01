@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
+	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
 
@@ -20,7 +21,7 @@ func TestDashboardPreferenceStorePersistsOverrides(t *testing.T) {
 		"w1": {ID: "w1", DefinitionID: "admin.widget.stats", Configuration: map[string]any{"color": "blue"}},
 		"w2": {ID: "w2", DefinitionID: "admin.widget.activity", Configuration: map[string]any{"limit": 5}},
 	})
-	preferenceStore := &dashboardPreferenceStore{prefs: prefs, store: widgetStore}
+	preferenceStore := newDashboardPreferenceStore(prefs, widgetStore)
 
 	overrides := dashcmp.LayoutOverrides{
 		Locale:    "en",
@@ -38,7 +39,7 @@ func TestDashboardPreferenceStorePersistsOverrides(t *testing.T) {
 	}
 
 	reloadedPrefs := NewPreferencesService(store)
-	reloadedStore := &dashboardPreferenceStore{prefs: reloadedPrefs, store: widgetStore}
+	reloadedStore := newDashboardPreferenceStore(reloadedPrefs, widgetStore)
 	reloaded, err := reloadedStore.LayoutOverrides(ctx, viewer)
 	if err != nil {
 		t.Fatalf("load layout overrides: %v", err)
@@ -119,7 +120,7 @@ func TestDashboardPreferenceStoreSaveLayoutOverridesReturnsLayoutPersistenceErro
 	widgetStore := newStubWidgetStore(map[string]dashcmp.WidgetInstance{
 		"w1": {ID: "w1", DefinitionID: "admin.widget.stats", Configuration: map[string]any{"color": "blue"}},
 	})
-	preferenceStore := &dashboardPreferenceStore{prefs: prefs, store: widgetStore}
+	preferenceStore := newDashboardPreferenceStore(prefs, widgetStore)
 
 	overrides := dashcmp.LayoutOverrides{
 		Locale:    "en",
@@ -141,6 +142,33 @@ func TestDashboardPreferenceStoreSaveLayoutOverridesReturnsLayoutPersistenceErro
 	}
 	if layout := prefs.DashboardLayout(ctx, viewer.UserID); len(layout) != 0 {
 		t.Fatalf("expected derived layout persistence to fail, got %+v", layout)
+	}
+}
+
+func TestDashboardPreferenceStoreSaveLayoutOverridesRequiresViewerUserID(t *testing.T) {
+	ctx := context.Background()
+	prefs := NewPreferencesService(NewInMemoryPreferencesStore())
+	preferenceStore := newDashboardPreferenceStore(prefs, newStubWidgetStore(nil))
+
+	err := preferenceStore.SaveLayoutOverrides(ctx, dashcmp.ViewerContext{Locale: "en"}, dashcmp.LayoutOverrides{
+		AreaOrder: map[string][]string{"admin.dashboard.main": {"w1"}},
+	})
+	if err == nil {
+		t.Fatalf("expected missing viewer user id error")
+	}
+
+	var domErr *goerrors.Error
+	if !errors.As(err, &domErr) {
+		t.Fatalf("expected domain error, got %T", err)
+	}
+	if domErr.TextCode != TextCodeValidationError {
+		t.Fatalf("expected %s, got %s", TextCodeValidationError, domErr.TextCode)
+	}
+	if got := domErr.Metadata["scope"]; got != "dashboard_preferences" {
+		t.Fatalf("expected dashboard_preferences scope, got %#v", got)
+	}
+	if got := domErr.Metadata["field"]; got != "viewer user id" {
+		t.Fatalf("expected field metadata, got %#v", got)
 	}
 }
 
