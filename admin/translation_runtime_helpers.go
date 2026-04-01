@@ -1,51 +1,42 @@
 package admin
 
 import (
-	"maps"
 	"strings"
 
+	translationruntime "github.com/goliatone/go-admin/admin/internal/translationruntime"
 	router "github.com/goliatone/go-router"
 )
 
 func translationChannel(values ...string) string {
-	return strings.TrimSpace(firstNonEmpty(values...))
+	return translationruntime.Channel(values...)
 }
 
 func translationChannelFromRequest(c router.Context, adminCtx AdminContext, body map[string]any, values ...string) string {
-	resolved := make([]string, 0, len(values)+3)
-	resolved = append(resolved, values...)
+	bodyChannel := ""
+	queryChannel := ""
 	if len(body) > 0 {
-		resolved = append(resolved, toString(body["channel"]))
+		bodyChannel = toString(body["channel"])
 	}
 	if c != nil {
-		resolved = append(resolved, c.Query("channel"))
+		queryChannel = c.Query("channel")
 	}
-	resolved = append(resolved, adminCtx.Channel)
-	return translationChannel(resolved...)
+	return translationruntime.ChannelFromResolvedInputs(bodyChannel, queryChannel, adminCtx.Channel, values...)
 }
 
 func translationChannelContract(channel string) map[string]any {
-	channel = strings.TrimSpace(channel)
-	return map[string]any{
-		"channel": channel,
-	}
+	return translationruntime.ChannelContract(channel)
 }
 
 func mergeTranslationChannelContract(payload map[string]any, channel string) map[string]any {
-	if payload == nil {
-		payload = map[string]any{}
-	}
-	maps.Copy(payload, translationChannelContract(channel))
-	return payload
+	return translationruntime.MergeChannelContract(payload, channel)
 }
 
 func requireCanonicalFamilyID(familyID, entityType, recordID string) error {
-	familyID = strings.TrimSpace(familyID)
-	if familyID != "" {
+	if !translationruntime.MissingCanonicalFamilyID(familyID) {
 		return nil
 	}
 	return validationDomainError("translation-enabled record missing canonical family_id", map[string]any{
-		"family_id":   familyID,
+		"family_id":   strings.TrimSpace(familyID),
 		"entity_type": strings.TrimSpace(entityType),
 		"record_id":   strings.TrimSpace(recordID),
 	})

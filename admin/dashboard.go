@@ -48,11 +48,6 @@ func NewInMemoryDashboardPreferences() *InMemoryDashboardPreferences {
 	return dashinternal.NewInMemoryDashboardPreferences()
 }
 
-type registeredProvider struct {
-	spec    DashboardProviderSpec
-	handler WidgetProvider
-}
-
 type widgetInstanceExistenceChecker interface {
 	HasInstanceForDefinition(ctx context.Context, definitionCode string, filter WidgetInstanceFilter) (bool, error)
 }
@@ -60,7 +55,8 @@ type widgetInstanceExistenceChecker interface {
 // Dashboard orchestrates widget providers and instances.
 type Dashboard struct {
 	mu               sync.RWMutex
-	providers        map[string]registeredProvider
+	providers        map[string]DashboardProviderSpec
+	providerRegistry *dashcmp.Registry
 	providerCommands map[string]string
 	defaultInstances []DashboardWidgetInstance
 	logger           Logger
@@ -90,7 +86,8 @@ func cloneDashboardProviderSpec(spec DashboardProviderSpec) DashboardProviderSpe
 // NewDashboard constructs a dashboard registry with in-memory defaults.
 func NewDashboard() *Dashboard {
 	return &Dashboard{
-		providers:        make(map[string]registeredProvider),
+		providers:        make(map[string]DashboardProviderSpec),
+		providerRegistry: dashcmp.NewRegistry(),
 		providerCommands: make(map[string]string),
 		defaultInstances: []DashboardWidgetInstance{},
 		logger:           ensureLogger(nil),
@@ -298,7 +295,7 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	d.releaseProviderCommand(spec)
 	d.removeDefaultInstancesForCode(spec.Code)
 	hasPersistedInstance := d.hasPersistedInstance(spec)
-	d.providers[spec.Code] = registeredProvider{spec: spec, handler: spec.Handler}
+	d.providers[spec.Code] = spec
 	d.registerProviderDependencies(spec)
 	if !d.registerProviderCommand(spec) {
 		return
@@ -311,7 +308,7 @@ func (d *Dashboard) releaseProviderCommand(spec DashboardProviderSpec) {
 	if !hadPrevious {
 		return
 	}
-	prevCommand := strings.TrimSpace(previous.spec.CommandName)
+	prevCommand := strings.TrimSpace(previous.CommandName)
 	if prevCommand == "" || prevCommand == spec.CommandName {
 		return
 	}
@@ -355,6 +352,7 @@ func (d *Dashboard) hasPersistedInstance(spec DashboardProviderSpec) bool {
 }
 
 func (d *Dashboard) registerProviderDependencies(spec DashboardProviderSpec) {
+	registerDashboardProviderWithRegistry(d.providerRegistry, spec)
 	if d.registry != nil {
 		d.registry.RegisterDashboardProvider(spec)
 	}
@@ -625,23 +623,25 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 	if store == nil {
 		return nil, serviceNotConfiguredDomainError("dashboard cms widget service", map[string]any{"component": "dashboard"})
 	}
-	registry, specs := d.buildDashboardProvidersLocked()
+	registry, specs := d.providerSnapshotLocked()
 	var prefStore dashcmp.PreferenceStore
 	if d.prefService != nil {
 		prefStore = newDashboardPreferenceStore(d.prefService, store)
 	} else {
 		prefStore = dashcmp.NewInMemoryPreferenceStore()
 	}
-	d.components = buildDashboardComponents(dashboardComponentBuildOptions{
-		store:       store,
-		authorizer:  dashboardAuthorizerAdapter{authorizer: d.authorizer, specs: specs},
-		preferences: prefStore,
-		providers:   registry,
-		specs:       specs,
-		renderer:    d.renderer,
-		template:    "dashboard_ssr.html",
-		areas:       d.areaCodesForServiceLocked(),
-	})
+	d.components = &dashboardComponents{
+		runtime: dashcmp.NewRuntime(buildDashboardRuntimeOptions(dashboardRuntimeBuildOptions{
+			store:       store,
+			authorizer:  dashboardAuthorizerAdapter{authorizer: d.authorizer, specs: specs},
+			preferences: prefStore,
+			providers:   registry,
+			renderer:    d.renderer,
+			template:    "dashboard_ssr.html",
+			areas:       d.areaCodesForServiceLocked(),
+		})),
+		specs: specs,
+	}
 	return d.components, nil
 }
 
@@ -692,8 +692,8 @@ func (d *Dashboard) Providers() []DashboardProviderSpec {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 	out := []DashboardProviderSpec{}
-	for _, p := range d.providers {
-		out = append(out, cloneDashboardProviderSpec(p.spec))
+	for _, spec := range d.providers {
+		out = append(out, cloneDashboardProviderSpec(spec))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Code < out[j].Code })
 	return out
@@ -721,7 +721,7 @@ func (d *Dashboard) Resolve(ctx AdminContext) ([]map[string]any, error) {
 		return nil, err
 	}
 	viewer := viewerFromAdminContext(ctx)
-	layout, err := comp.service.ConfigureLayout(ctx.Context, viewer)
+	layout, err := comp.runtime.Service.ConfigureLayout(ctx.Context, viewer)
 	if err != nil {
 		return nil, err
 	}
@@ -736,7 +736,7 @@ func (d *Dashboard) RenderLayout(ctx AdminContext, theme *ThemeSelection, basePa
 		return nil, err
 	}
 	viewer := viewerFromAdminContext(ctx)
-	layout, err := comp.service.ConfigureLayout(ctx.Context, viewer)
+	layout, err := comp.runtime.Service.ConfigureLayout(ctx.Context, viewer)
 	if err != nil {
 		return nil, err
 	}
@@ -753,7 +753,7 @@ func (d *Dashboard) resolvedInstances(ctx AdminContext) []DashboardWidgetInstanc
 		return nil
 	}
 	viewer := viewerFromAdminContext(ctx)
-	layout, err := comp.service.ConfigureLayout(ctx.Context, viewer)
+	layout, err := comp.runtime.Service.ConfigureLayout(ctx.Context, viewer)
 	if err != nil {
 		return nil
 	}
@@ -911,19 +911,26 @@ func (c *dashboardProviderCommand) Execute(ctx context.Context, msg DashboardPro
 	if adminCtx.Locale == "" {
 		adminCtx.Locale = "en"
 	}
-	provider, ok := c.dashboard.provider(code)
-	if !ok || provider.handler == nil {
+	spec, provider, ok := c.dashboard.provider(code)
+	if !ok || provider == nil {
 		return ErrNotFound
 	}
 	cfg := primitives.CloneAnyMap(msg.Config)
 	if len(cfg) == 0 {
-		cfg = primitives.CloneAnyMap(provider.spec.DefaultConfig)
+		cfg = primitives.CloneAnyMap(spec.DefaultConfig)
 	}
-	payload, err := provider.handler(adminCtx, cfg)
-	if err != nil {
-		return err
-	}
-	_, err = encodeWidgetPayload(payload)
+	_, err := provider.Fetch(ctx, dashcmp.WidgetContext{
+		Instance: dashcmp.WidgetInstance{
+			ID:            code,
+			DefinitionID:  code,
+			AreaCode:      spec.DefaultArea,
+			Configuration: cfg,
+		},
+		Viewer: dashcmp.ViewerContext{
+			UserID: adminCtx.UserID,
+			Locale: adminCtx.Locale,
+		},
+	})
 	return err
 }
 
@@ -937,7 +944,7 @@ func (d *Dashboard) providerCodeForCommand(name string) string {
 		return code
 	}
 	for code, provider := range d.providers {
-		if provider.spec.CommandName == name {
+		if provider.CommandName == name {
 			d.mu.RUnlock()
 			return code
 		}
@@ -946,12 +953,20 @@ func (d *Dashboard) providerCodeForCommand(name string) string {
 	return ""
 }
 
-func (d *Dashboard) provider(code string) (registeredProvider, bool) {
+func (d *Dashboard) provider(code string) (DashboardProviderSpec, dashcmp.Provider, bool) {
 	if d == nil {
-		return registeredProvider{}, false
+		return DashboardProviderSpec{}, nil, false
 	}
+	code = strings.TrimSpace(code)
 	d.mu.RLock()
 	defer d.mu.RUnlock()
-	provider, ok := d.providers[strings.TrimSpace(code)]
-	return provider, ok
+	spec, ok := d.providers[code]
+	if !ok || d.providerRegistry == nil {
+		return DashboardProviderSpec{}, nil, false
+	}
+	provider, ok := d.providerRegistry.Provider(code)
+	if !ok {
+		return DashboardProviderSpec{}, nil, false
+	}
+	return cloneDashboardProviderSpec(spec), provider, true
 }

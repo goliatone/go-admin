@@ -3,6 +3,8 @@ package admin
 import (
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	"github.com/goliatone/go-command/dispatcher"
+	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
+	dashapi "github.com/goliatone/go-dashboard/components/dashboard/httpapi"
 	router "github.com/goliatone/go-router"
 )
 
@@ -30,23 +32,22 @@ func (d *dashboardBinding) RenderHTML(c router.Context, locale string) (string, 
 		return "", nil
 	}
 	ctx := d.admin.adminContextFromRequest(c, locale)
-	theme := d.admin.resolveTheme(ctx.Context)
+	if err := d.admin.ensureDashboard(ctx.Context); err != nil {
+		return "", err
+	}
+	if d.admin.dash == nil || d.admin.dash.runtime == nil {
+		return "", nil
+	}
 	basePath := d.admin.config.BasePath
 	if basePath == "" {
 		basePath = "/"
-	}
-	layout, err := d.admin.dashboard.RenderLayout(ctx, theme, basePath)
-	if err != nil {
-		return "", err
 	}
 	viewCtx := buildAdminLayoutViewContext(d.admin, c, router.ViewContext{
 		"title":           d.admin.config.Title,
 		"base_path":       basePath,
 		"asset_base_path": basePath,
 	}, "dashboard")
-	if layout.Metadata == nil {
-		layout.Metadata = map[string]any{}
-	}
+	metadata := map[string]any{}
 	for _, key := range []string{
 		"title",
 		"base_path",
@@ -64,10 +65,18 @@ func (d *dashboardBinding) RenderHTML(c router.Context, locale string) (string, 
 		"nav_items_json",
 	} {
 		if value, ok := viewCtx[key]; ok && value != nil {
-			layout.Metadata[key] = value
+			metadata[key] = value
 		}
 	}
-	return d.admin.dashboard.renderer.Render("dashboard_ssr.html", layout)
+	renderCtx := withDashboardPayloadMetadata(ctx.Context, metadata)
+	html, err := dashapi.RenderHTML(renderCtx, d.admin.dash.runtime.Controller, dashcmp.ViewerContext{
+		UserID: ctx.UserID,
+		Locale: ctx.Locale,
+	})
+	if err != nil {
+		return "", err
+	}
+	return string(html), nil
 }
 
 func (d *dashboardBinding) Widgets(c router.Context, locale string) (map[string]any, error) {
@@ -75,12 +84,21 @@ func (d *dashboardBinding) Widgets(c router.Context, locale string) (map[string]
 		return nil, nil
 	}
 	ctx := d.admin.adminContextFromRequest(c, locale)
-	widgets, err := d.admin.dashboard.Resolve(ctx)
+	if err := d.admin.ensureDashboard(ctx.Context); err != nil {
+		return nil, err
+	}
+	if d.admin.dash == nil || d.admin.dash.runtime == nil {
+		return nil, nil
+	}
+	payload, err := dashapi.Layout(ctx.Context, d.admin.dash.runtime.Controller, dashcmp.ViewerContext{
+		UserID: ctx.UserID,
+		Locale: ctx.Locale,
+	})
 	if err != nil {
 		return nil, err
 	}
 	return map[string]any{
-		"widgets": widgets,
+		"widgets": dashboardWidgetsFromLayoutPayload(payload),
 		"theme":   d.admin.themePayload(ctx.Context),
 	}, nil
 }
@@ -107,128 +125,62 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 		return nil, nil
 	}
 	adminCtx := d.admin.adminContextFromRequest(c, d.admin.config.DefaultLocale)
-
-	if adminCtx.UserID != "" && d.admin.preferences != nil {
-		overrides := expandDashboardOverrides(body)
-		if _, err := d.admin.preferences.SaveDashboardOverrides(adminCtx.Context, adminCtx.UserID, overrides); err != nil {
-			return nil, err
+	if err := d.admin.ensureDashboard(adminCtx.Context); err != nil {
+		return nil, err
+	}
+	if d.admin.dash == nil || d.admin.dash.runtime == nil {
+		return nil, nil
+	}
+	if adminCtx.UserID == "" {
+		return nil, requiredFieldDomainError("viewer user id", map[string]any{"scope": "dashboard_preferences"})
+	}
+	if layout, ok := body["layout"]; ok && !dashboardOverridesPayload(body) {
+		instances := expandDashboardLayout(layout)
+		if len(instances) == 0 {
+			return nil, validationDomainError("layout must be an array or valid preferences object", map[string]any{
+				"field": "layout",
+			})
 		}
+		d.admin.dashboard.SetUserLayoutWithContext(adminCtx, instances)
+		return map[string]any{"layout": instances}, nil
 	}
 
-	if _, ok := body["layout_rows"]; ok {
-		type widgetSlot struct {
-			ID    string `json:"id"`
-			Width int    `json:"width"`
-		}
-		type widgetLayoutRow struct {
-			Widgets []widgetSlot `json:"widgets"`
-		}
-		rows := map[string][]widgetLayoutRow{}
-		if rawRows, ok := body["layout_rows"].(map[string]any); ok {
-			for area, areaRows := range rawRows {
-				parsedRows := []widgetLayoutRow{}
-				if rawAreaRows, ok := areaRows.([]any); ok {
-					for _, r := range rawAreaRows {
-						if rowMap, ok := r.(map[string]any); ok {
-							wSlots := []widgetSlot{}
-							if rawWidgets, ok := rowMap["widgets"].([]any); ok {
-								for _, w := range rawWidgets {
-									if wMap, ok := w.(map[string]any); ok {
-										wSlots = append(wSlots, widgetSlot{
-											ID:    toString(wMap["id"]),
-											Width: atoiDefault(toString(wMap["width"]), 12),
-										})
-									}
-								}
-							}
-							parsedRows = append(parsedRows, widgetLayoutRow{Widgets: wSlots})
-						}
-					}
-				}
-				rows[area] = parsedRows
-			}
-		}
-
-		hiddenIDs := []string{}
-		if rawHidden, ok := body["hidden_widget_ids"].([]any); ok {
-			for _, id := range rawHidden {
-				hiddenIDs = append(hiddenIDs, toString(id))
-			}
-		}
-
-		currentLayout := d.admin.dashboard.resolvedInstances(adminCtx)
-		byID := map[string]DashboardWidgetInstance{}
-		for _, inst := range currentLayout {
-			byID[inst.ID] = inst
-		}
-
-		newLayout := []DashboardWidgetInstance{}
-		seenIDs := map[string]bool{}
-
-		for areaCode, areaRows := range rows {
-			for _, row := range areaRows {
-				for _, slot := range row.Widgets {
-					if inst, ok := byID[slot.ID]; ok {
-						inst.AreaCode = areaCode
-						inst.Span = slot.Width
-						inst.Position = len(newLayout)
-						inst.Hidden = false
-						newLayout = append(newLayout, inst)
-						seenIDs[slot.ID] = true
-					}
-				}
-			}
-		}
-
-		for _, id := range hiddenIDs {
-			if inst, ok := byID[id]; ok {
-				inst.Hidden = true
-				inst.Position = len(newLayout)
-				newLayout = append(newLayout, inst)
-				seenIDs[id] = true
-			}
-		}
-
-		for _, inst := range currentLayout {
-			if !seenIDs[inst.ID] {
-				inst.Hidden = true
-				inst.Position = len(newLayout)
-				newLayout = append(newLayout, inst)
-			}
-		}
-
-		if len(newLayout) > 0 {
-			d.admin.dashboard.SetUserLayoutWithContext(adminCtx, newLayout)
-		}
-		return map[string]any{"status": "ok", "layout": newLayout}, nil
-	}
-
-	rawLayout, ok := body["layout"].([]any)
-	if !ok {
+	input, err := dashapi.PreferencesInputFromMap(body, dashcmp.ViewerContext{
+		UserID: adminCtx.UserID,
+		Locale: adminCtx.Locale,
+	})
+	if err != nil {
 		return nil, validationDomainError("layout must be an array or valid preferences object", map[string]any{
 			"field": "layout",
 		})
 	}
-	layout := []DashboardWidgetInstance{}
-	for _, item := range rawLayout {
-		obj, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		layout = append(layout, DashboardWidgetInstance{
-			DefinitionCode: toString(obj["definition"]),
-			AreaCode:       toString(obj["area"]),
-			Config:         extractMap(obj["config"]),
-			Position:       atoiDefault(toString(obj["position"]), 0),
-			Span:           atoiDefault(toString(obj["span"]), 0),
-			Hidden:         toBool(obj["hidden"]),
-			Locale:         toString(obj["locale"]),
-		})
+	reply, err := dashapi.Preferences(adminCtx.Context, d.admin.dash.runtime.API, input)
+	if err != nil {
+		return nil, err
 	}
-	if len(layout) > 0 {
-		d.admin.dashboard.SetUserLayoutWithContext(adminCtx, layout)
+	if payload, ok := reply.Payload.(map[string]string); ok {
+		return map[string]any{"status": payload["status"]}, nil
 	}
-	return map[string]any{"layout": layout}, nil
+	return map[string]any{"status": "saved"}, nil
+}
+
+func dashboardOverridesPayload(body map[string]any) bool {
+	if len(body) == 0 {
+		return false
+	}
+	if _, ok := body["area_order"]; ok {
+		return true
+	}
+	if _, ok := body["layout_rows"]; ok {
+		return true
+	}
+	if _, ok := body["hidden_widget_ids"]; ok {
+		return true
+	}
+	if _, ok := body["viewer"]; ok {
+		return true
+	}
+	return false
 }
 
 func (d *dashboardBinding) RequirePreferencesPermission(c router.Context, locale string) error {
@@ -274,4 +226,48 @@ func (d *dashboardBinding) Diagnostics(c router.Context, locale string) (map[str
 		"widget_service":     report.WidgetService,
 		"has_widget_service": report.HasWidgetService,
 	}, nil
+}
+
+func dashboardWidgetsFromLayoutPayload(payload map[string]any) []map[string]any {
+	areas := orderedDashboardAreasPayload(payload["ordered_areas"])
+	if len(areas) == 0 {
+		areas = orderedDashboardAreasPayload(payload["areas"])
+	}
+	out := make([]map[string]any, 0)
+	for _, area := range areas {
+		areaCode := toString(area["code"])
+		for _, widget := range dashboardAreaWidgets(area["widgets"]) {
+			out = append(out, map[string]any{
+				"definition": toString(widget["definition"]),
+				"area":       defaultString(toString(widget["area"]), areaCode),
+				"config":     extractMap(widget["config"]),
+				"data":       extractMap(widget["data"]),
+			})
+		}
+	}
+	return out
+}
+
+func dashboardAreaWidgets(raw any) []map[string]any {
+	switch typed := raw.(type) {
+	case []map[string]any:
+		return typed
+	case []any:
+		out := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			if mapped, ok := item.(map[string]any); ok {
+				out = append(out, mapped)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func defaultString(primary, fallback string) string {
+	if primary != "" {
+		return primary
+	}
+	return fallback
 }

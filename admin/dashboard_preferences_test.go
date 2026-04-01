@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http/httptest"
 	"testing"
 
@@ -108,6 +109,83 @@ func TestDashboardPreferencesEndpointPersistsLayout(t *testing.T) {
 	}
 }
 
+func TestDashboardPreferencesEndpointPreservesLegacyLayoutPayload(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS, FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	body := `{"layout":[{"id":"w1","definition":"admin.widget.user_stats","area":"admin.dashboard.main","config":{"metric":"total"},"position":1,"span":8,"hidden":true,"locale":"es"}]}`
+	req := httptest.NewRequest("POST", "/admin/api/dashboard/preferences", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 from legacy preferences payload, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	layout := adm.PreferencesService().DashboardLayout(context.Background(), "user-1")
+	if len(layout) != 1 {
+		t.Fatalf("expected one persisted layout widget, got %+v", layout)
+	}
+	if layout[0].ID != "w1" || layout[0].DefinitionCode != "admin.widget.user_stats" {
+		t.Fatalf("expected legacy layout widget to round-trip, got %+v", layout[0])
+	}
+	if layout[0].Span != 8 || !layout[0].Hidden || layout[0].Locale != "es" {
+		t.Fatalf("expected legacy layout metadata to persist, got %+v", layout[0])
+	}
+}
+
+func TestDashboardHTMLRouteUsesUpstreamControllerPayload(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS, FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
+	renderer := &captureDashboardRenderer{}
+	adm.Dashboard().WithRenderer(renderer)
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/admin/dashboard?locale=es", nil)
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 from dashboard html route, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	payload, ok := renderer.lastData.(map[string]any)
+	if !ok {
+		t.Fatalf("expected upstream controller render payload map, got %T", renderer.lastData)
+	}
+	if payload["base_path"] != "/admin" {
+		t.Fatalf("expected base_path propagated through decorator, got %#v", payload["base_path"])
+	}
+	if _, ok := payload["layout_json"].(string); !ok {
+		t.Fatalf("expected layout_json on render payload, got %#v", payload["layout_json"])
+	}
+	areas := orderedDashboardAreasPayload(payload["areas"])
+	if len(areas) == 0 {
+		t.Fatalf("expected ordered dashboard areas in render payload, got %+v", payload["areas"])
+	}
+	if _, ok := payload["theme"].(map[string]map[string]string); !ok {
+		t.Fatalf("expected admin theme payload in render payload, got %T", payload["theme"])
+	}
+}
+
 func TestDashboardPreferenceStoreSaveLayoutOverridesReturnsLayoutPersistenceError(t *testing.T) {
 	ctx := context.Background()
 	expectedErr := errors.New("layout persistence failed")
@@ -174,6 +252,20 @@ func TestDashboardPreferenceStoreSaveLayoutOverridesRequiresViewerUserID(t *test
 
 type stubWidgetStore struct {
 	instances map[string]dashcmp.WidgetInstance
+}
+
+type captureDashboardRenderer struct {
+	lastTemplate string
+	lastData     any
+}
+
+func (r *captureDashboardRenderer) Render(name string, data any, out ...io.Writer) (string, error) {
+	r.lastTemplate = name
+	r.lastData = data
+	if len(out) > 0 && out[0] != nil {
+		_, _ = out[0].Write([]byte("<html></html>"))
+	}
+	return "<html></html>", nil
 }
 
 func newStubWidgetStore(instances map[string]dashcmp.WidgetInstance) *stubWidgetStore {

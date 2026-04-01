@@ -2,35 +2,31 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
-	"maps"
 	"strings"
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
-	dashapi "github.com/goliatone/go-dashboard/components/dashboard/httpapi"
 )
 
 type dashboardComponents struct {
-	service    *dashcmp.Service
-	controller *dashcmp.Controller
-	executor   dashapi.Executor
-	broadcast  *dashcmp.BroadcastHook
-	specs      map[string]DashboardProviderSpec
+	runtime *dashcmp.Runtime
+	specs   map[string]DashboardProviderSpec
 }
 
-type dashboardComponentBuildOptions struct {
+type dashboardRuntimeBuildOptions struct {
 	store         dashcmp.WidgetStore
 	authorizer    dashcmp.Authorizer
 	preferences   dashcmp.PreferenceStore
-	providers     dashcmp.ProviderRegistry
-	specs         map[string]DashboardProviderSpec
+	providers     *dashcmp.Registry
 	renderer      dashcmp.Renderer
 	template      string
 	areas         []string
 	themeProvider dashcmp.ThemeProvider
 	themeSelector func(context.Context, dashcmp.ViewerContext) dashcmp.ThemeSelector
+	decorator     dashcmp.PayloadDecorator
 }
 
 func (d *Dashboard) setComponents(comp *dashboardComponents) {
@@ -42,7 +38,7 @@ func (d *Dashboard) setComponents(comp *dashboardComponents) {
 	d.components = comp
 }
 
-func buildDashboardComponents(opts dashboardComponentBuildOptions) *dashboardComponents {
+func buildDashboardRuntimeOptions(opts dashboardRuntimeBuildOptions) dashcmp.RuntimeOptions {
 	refresh := dashcmp.NewBroadcastHook()
 	renderer := opts.renderer
 	if renderer == nil {
@@ -64,18 +60,14 @@ func buildDashboardComponents(opts dashboardComponentBuildOptions) *dashboardCom
 	if len(opts.areas) > 0 {
 		serviceOpts.Areas = append([]string{}, opts.areas...)
 	}
-	service := dashcmp.NewService(serviceOpts)
-	controller := dashcmp.NewController(dashcmp.ControllerOptions{
-		Service:  service,
-		Renderer: renderer,
-		Template: template,
-	})
-	return &dashboardComponents{
-		service:    service,
-		controller: controller,
-		executor:   dashapi.NewServiceExecutor(service),
-		broadcast:  refresh,
-		specs:      opts.specs,
+	return dashcmp.RuntimeOptions{
+		Service:   serviceOpts,
+		Broadcast: refresh,
+		Controller: dashcmp.ControllerOptions{
+			Renderer:         renderer,
+			Template:         template,
+			PayloadDecorator: opts.decorator,
+		},
 	}
 }
 
@@ -113,7 +105,7 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 		return serviceNotConfiguredDomainError("dashboard cms widget service", map[string]any{"component": "dashboard"})
 	}
 
-	providerRegistry, specs := a.dashboard.buildDashboardProviders()
+	providerRegistry, specs := a.dashboard.providerSnapshot()
 	authorizer := dashboardAuthorizerAdapter{
 		authorizer: a.authorizer,
 		specs:      specs,
@@ -121,12 +113,11 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 	prefStore := a.buildDashboardPreferenceStore(store)
 	themeProvider := a.dashboardThemeProvider()
 	renderer := a.dashboardRenderer()
-	components := buildDashboardComponents(dashboardComponentBuildOptions{
+	runtime := dashcmp.NewRuntime(buildDashboardRuntimeOptions(dashboardRuntimeBuildOptions{
 		store:         store,
 		authorizer:    authorizer,
 		preferences:   prefStore,
 		providers:     providerRegistry,
-		specs:         specs,
 		renderer:      renderer,
 		template:      "dashboard_ssr.html",
 		themeProvider: themeProvider,
@@ -137,7 +128,9 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 			}, ThemeSelectorFromContext(ctx))
 			return dashcmp.ThemeSelector{Name: selector.Name, Variant: selector.Variant}
 		},
-	})
+		decorator: decorateDashboardControllerPayload,
+	}))
+	components := &dashboardComponents{runtime: runtime, specs: specs}
 	a.dash = components
 	a.dashboard.setComponents(a.dash)
 	return nil
@@ -150,63 +143,71 @@ func (a *Admin) dashboardRenderer() dashcmp.Renderer {
 	return noopDashboardRenderer{}
 }
 
-func (d *Dashboard) buildDashboardProviders() (dashcmp.ProviderRegistry, map[string]DashboardProviderSpec) {
+func (d *Dashboard) providerSnapshot() (*dashcmp.Registry, map[string]DashboardProviderSpec) {
 	if d == nil {
 		return dashcmp.NewRegistry(), map[string]DashboardProviderSpec{}
 	}
 	d.mu.RLock()
-	providers := make(map[string]registeredProvider, len(d.providers))
-	maps.Copy(providers, d.providers)
-	d.mu.RUnlock()
-	return buildDashboardProviders(providers)
+	defer d.mu.RUnlock()
+	return d.providerSnapshotLocked()
 }
 
-func (d *Dashboard) buildDashboardProvidersLocked() (dashcmp.ProviderRegistry, map[string]DashboardProviderSpec) {
+func (d *Dashboard) providerSnapshotLocked() (*dashcmp.Registry, map[string]DashboardProviderSpec) {
 	if d == nil {
 		return dashcmp.NewRegistry(), map[string]DashboardProviderSpec{}
 	}
-	providers := make(map[string]registeredProvider, len(d.providers))
-	maps.Copy(providers, d.providers)
-	return buildDashboardProviders(providers)
-}
-
-func buildDashboardProviders(providers map[string]registeredProvider) (dashcmp.ProviderRegistry, map[string]DashboardProviderSpec) {
 	registry := dashcmp.NewRegistry()
-	specs := map[string]DashboardProviderSpec{}
-	for code, provider := range providers {
-		spec := provider.spec
-		specs[code] = cloneDashboardProviderSpec(spec)
-		def := dashcmp.WidgetDefinition{
-			Code:   spec.Code,
-			Name:   spec.Name,
-			Schema: spec.Schema,
+	if d.providerRegistry != nil {
+		if snapshot := d.providerRegistry.Clone(); snapshot != nil {
+			registry = snapshot
 		}
-		_ = registry.RegisterDefinition(def)
-		handler := provider.handler
-		defaultCfg := cloneAny(spec.DefaultConfig)
-		_ = registry.RegisterProvider(spec.Code, dashcmp.ProviderFunc(func(ctx context.Context, meta dashcmp.WidgetContext) (dashcmp.WidgetData, error) {
-			cfg := cloneAny(defaultCfg)
-			if cfg == nil {
-				cfg = map[string]any{}
-			}
-			maps.Copy(cfg, meta.Instance.Configuration)
-			adminCtx := AdminContext{
-				Context: ctx,
-				UserID:  meta.Viewer.UserID,
-				Locale:  meta.Viewer.Locale,
-			}
-			payload, err := handler(adminCtx, cfg)
-			if err != nil {
-				return nil, err
-			}
-			data, err := encodeWidgetPayload(payload)
-			if err != nil {
-				return nil, err
-			}
-			return dashcmp.WidgetData(data), nil
-		}))
+	}
+	specs := map[string]DashboardProviderSpec{}
+	for code, spec := range d.providers {
+		specs[code] = cloneDashboardProviderSpec(spec)
 	}
 	return registry, specs
+}
+
+func registerDashboardProviderWithRegistry(registry *dashcmp.Registry, spec DashboardProviderSpec) {
+	if registry == nil || spec.Code == "" || spec.Handler == nil {
+		return
+	}
+	name := strings.TrimSpace(spec.Name)
+	if name == "" {
+		name = spec.Code
+	}
+	_ = registry.RegisterDefinition(dashcmp.WidgetDefinition{
+		Code:   spec.Code,
+		Name:   name,
+		Schema: primitives.CloneAnyMap(spec.Schema),
+	})
+	defaultCfg := cloneAny(spec.DefaultConfig)
+	_ = registry.RegisterProvider(spec.Code, dashcmp.ProviderFunc(func(ctx context.Context, meta dashcmp.WidgetContext) (dashcmp.WidgetData, error) {
+		cfg := cloneAny(defaultCfg)
+		if cfg == nil {
+			cfg = map[string]any{}
+		}
+		if meta.Instance.Configuration != nil {
+			for key, val := range meta.Instance.Configuration {
+				cfg[key] = val
+			}
+		}
+		adminCtx := AdminContext{
+			Context: ctx,
+			UserID:  meta.Viewer.UserID,
+			Locale:  meta.Viewer.Locale,
+		}
+		payload, err := spec.Handler(adminCtx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		data, err := encodeWidgetPayload(payload)
+		if err != nil {
+			return nil, err
+		}
+		return dashcmp.WidgetData(data), nil
+	}))
 }
 
 func (a *Admin) buildDashboardPreferenceStore(store dashcmp.WidgetStore) dashcmp.PreferenceStore {
@@ -438,6 +439,66 @@ func cloneAny(m map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(m))
-	maps.Copy(out, m)
+	for key, val := range m {
+		out[key] = val
+	}
 	return out
+}
+
+type dashboardPayloadContextKey struct{}
+
+func withDashboardPayloadMetadata(ctx context.Context, metadata map[string]any) context.Context {
+	if len(metadata) == 0 {
+		return ctx
+	}
+	return context.WithValue(ctx, dashboardPayloadContextKey{}, cloneAny(metadata))
+}
+
+func dashboardPayloadMetadataFromContext(ctx context.Context) map[string]any {
+	if ctx == nil {
+		return nil
+	}
+	raw, _ := ctx.Value(dashboardPayloadContextKey{}).(map[string]any)
+	return cloneAny(raw)
+}
+
+func decorateDashboardControllerPayload(ctx context.Context, _ dashcmp.ViewerContext, payload map[string]any) (map[string]any, error) {
+	metadata := dashboardPayloadMetadataFromContext(ctx)
+	if len(metadata) == 0 {
+		return payload, nil
+	}
+	ordered := orderedDashboardAreasPayload(payload["ordered_areas"])
+	if len(ordered) > 0 {
+		payload["areas"] = ordered
+		if _, ok := metadata["layout_json"]; !ok {
+			raw, err := json.Marshal(map[string]any{"areas": ordered})
+			if err != nil {
+				return nil, err
+			}
+			metadata["layout_json"] = string(raw)
+		}
+	}
+	for key, val := range metadata {
+		if val != nil {
+			payload[key] = val
+		}
+	}
+	return payload, nil
+}
+
+func orderedDashboardAreasPayload(raw any) []map[string]any {
+	switch typed := raw.(type) {
+	case []map[string]any:
+		return typed
+	case []any:
+		out := make([]map[string]any, 0, len(typed))
+		for _, item := range typed {
+			if mapped, ok := item.(map[string]any); ok {
+				out = append(out, mapped)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }

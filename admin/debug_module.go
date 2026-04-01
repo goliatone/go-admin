@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	debugpanels "github.com/goliatone/go-admin/admin/internal/debugpanels"
 	"github.com/goliatone/go-admin/admin/routing"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
@@ -288,7 +289,13 @@ func (m *DebugModule) registerDashboardProviders(admin *Admin) {
 }
 
 func (a *Admin) registerDebugDashboardRoutes() error {
-	if a == nil || a.router == nil || a.dash == nil || a.debugCollector == nil {
+	if a == nil || a.router == nil || a.debugCollector == nil {
+		return nil
+	}
+	if err := a.ensureDashboard(context.Background()); err != nil {
+		return err
+	}
+	if a.dash == nil || a.dash.runtime == nil {
 		return nil
 	}
 	cfg := a.debugCollector.config
@@ -347,10 +354,14 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 		return nil
 	}
 	captureRoutesSnapshotForCollector(a.debugCollector, a.router)
-	controller := a.dash.controller
-	if cfg.DashboardTemplate != "" && cfg.DashboardTemplate != debugDefaultDashboardTemplate && a.dash.service != nil {
+	controller := dashcmp.NewController(dashcmp.ControllerOptions{
+		Service:  a.dash.runtime.Service,
+		Renderer: a.dashboardRenderer(),
+		Template: debugDefaultDashboardTemplate,
+	})
+	if cfg.DashboardTemplate != "" && cfg.DashboardTemplate != debugDefaultDashboardTemplate && a.dash.runtime.Service != nil {
 		controller = dashcmp.NewController(dashcmp.ControllerOptions{
-			Service:  a.dash.service,
+			Service:  a.dash.runtime.Service,
 			Renderer: a.dashboardRenderer(),
 			Template: cfg.DashboardTemplate,
 		})
@@ -364,7 +375,7 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 			if err := dashboardrouter.Register(dashboardrouter.Config[*httprouter.Router]{
 				Router:         group,
 				Controller:     controller,
-				API:            a.dash.executor,
+				API:            a.dash.runtime.API,
 				Broadcast:      nil,
 				ViewerResolver: viewerResolver,
 				BasePath:       "/",
@@ -372,7 +383,7 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 			}); err != nil {
 				return err
 			}
-			registerDebugDashboardWebSocket(group, routes.WebSocket, a.dash.broadcast, authHandler)
+			registerDebugDashboardWebSocket(group, routes.WebSocket, a.dash.runtime.Broadcast, authHandler)
 			return nil
 		},
 	})
