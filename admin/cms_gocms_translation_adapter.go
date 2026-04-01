@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
+	cms "github.com/goliatone/go-cms"
 	"github.com/google/uuid"
 	"reflect"
 )
@@ -22,6 +23,27 @@ func (a *GoCMSContentAdapter) CreateTranslation(ctx context.Context, input Trans
 		return nil, validationDomainError("translation locale required", map[string]any{
 			"field": "locale",
 		})
+	}
+	if a.adminWrite != nil && shouldUseAdminContentTranslationCreate(input) {
+		sourceID := uuidFromString(input.SourceID)
+		if sourceID == uuid.Nil {
+			return nil, ErrNotFound
+		}
+		record, err := a.adminWrite.CreateTranslation(ctx, cms.AdminContentCreateTranslationRequest{
+			SourceID:       sourceID,
+			TargetLocale:   input.Locale,
+			EnvironmentKey: input.Environment,
+			ActorID:        actorUUID(ctx),
+			Status:         input.Status,
+		})
+		if err != nil {
+			return nil, normalizeGoCMSTranslationCreateError(err, input)
+		}
+		if record == nil {
+			return nil, ErrNotFound
+		}
+		converted := a.convertAdminContentRecord(ctx, *record)
+		return &converted, nil
 	}
 	record, err := a.createTranslationRecord(ctx, input)
 	if err != nil {
@@ -65,4 +87,8 @@ func (a *GoCMSContentAdapter) createTranslationRecord(ctx context.Context, input
 		return reflect.Value{}, ErrNotFound
 	}
 	return record, nil
+}
+
+func shouldUseAdminContentTranslationCreate(input TranslationCreateInput) bool {
+	return input.PolicyEntity == "" && input.ContentType == "" && len(input.Metadata) == 0
 }

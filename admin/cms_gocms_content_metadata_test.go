@@ -474,7 +474,7 @@ func TestGoCMSContentAdapterCreateTranslationUsesDedicatedTranslationCapability(
 			},
 		},
 	}
-	svc := newGoCMSContentAdapter(contentSvc, translationSvc, nil, typeSvc, nil)
+	svc := newGoCMSContentAdapter(contentSvc, translationSvc, nil, typeSvc, nil, nil, nil, nil, nil)
 	adapter, ok := svc.(*GoCMSContentAdapter)
 	if !ok || adapter == nil {
 		t.Fatalf("expected GoCMSContentAdapter, got %T", svc)

@@ -143,6 +143,10 @@ func resolveGoCMSContentService(container any) CMSContentService {
 	}
 	localeResolver := resolveGoCMSLocaleResolver(container)
 	translationSvc := resolveGoCMSContentTranslationService(container)
+	adminRead := resolveGoCMSAdminContentReadService(container)
+	adminWrite := resolveGoCMSAdminContentWriteService(container)
+	adminBlocks := resolveGoCMSAdminBlockReadService(container)
+	adminBlockWrite := resolveGoCMSAdminBlockWriteService(container)
 	if svc, ok := container.(CMSContentService); ok && svc != nil {
 		return svc
 	}
@@ -157,7 +161,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.Blocks()
 			}
 		}
-		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
 			return adapted
 		}
 	}
@@ -172,7 +176,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.BlockService()
 			}
 		}
-		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
 			return adapted
 		}
 	}
@@ -187,7 +191,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.BlockService()
 			}
 		}
-		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
 			return adapted
 		}
 	}
@@ -202,7 +206,7 @@ func resolveGoCMSContentService(container any) CMSContentService {
 				blockSvc = blockProvider.BlockService()
 			}
 		}
-		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver); adapted != nil {
+		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
 			return adapted
 		}
 	}
@@ -211,6 +215,74 @@ func resolveGoCMSContentService(container any) CMSContentService {
 		if adapted := resolveGoCMSContentService(inner); adapted != nil {
 			return adapted
 		}
+	}
+	return nil
+}
+
+func resolveGoCMSAdminContentReadService(container any) cms.AdminContentReadService {
+	if container == nil {
+		return nil
+	}
+	if provider, ok := container.(interface {
+		AdminContentRead() cms.AdminContentReadService
+	}); ok {
+		if svc := provider.AdminContentRead(); svc != nil {
+			return svc
+		}
+	}
+	if provider, ok := container.(interface{ Container() any }); ok {
+		return resolveGoCMSAdminContentReadService(provider.Container())
+	}
+	return nil
+}
+
+func resolveGoCMSAdminContentWriteService(container any) cms.AdminContentWriteService {
+	if container == nil {
+		return nil
+	}
+	if provider, ok := container.(interface {
+		AdminContentWrite() cms.AdminContentWriteService
+	}); ok {
+		if svc := provider.AdminContentWrite(); svc != nil {
+			return svc
+		}
+	}
+	if provider, ok := container.(interface{ Container() any }); ok {
+		return resolveGoCMSAdminContentWriteService(provider.Container())
+	}
+	return nil
+}
+
+func resolveGoCMSAdminBlockReadService(container any) cms.AdminBlockReadService {
+	if container == nil {
+		return nil
+	}
+	if provider, ok := container.(interface {
+		AdminBlockRead() cms.AdminBlockReadService
+	}); ok {
+		if svc := provider.AdminBlockRead(); svc != nil {
+			return svc
+		}
+	}
+	if provider, ok := container.(interface{ Container() any }); ok {
+		return resolveGoCMSAdminBlockReadService(provider.Container())
+	}
+	return nil
+}
+
+func resolveGoCMSAdminBlockWriteService(container any) cms.AdminBlockWriteService {
+	if container == nil {
+		return nil
+	}
+	if provider, ok := container.(interface {
+		AdminBlockWrite() cms.AdminBlockWriteService
+	}); ok {
+		if svc := provider.AdminBlockWrite(); svc != nil {
+			return svc
+		}
+	}
+	if provider, ok := container.(interface{ Container() any }); ok {
+		return resolveGoCMSAdminBlockWriteService(provider.Container())
 	}
 	return nil
 }

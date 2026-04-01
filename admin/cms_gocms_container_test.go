@@ -31,6 +31,34 @@ func TestResolveGoCMSWidgetServicePrefersTypedWidgetsProvider(t *testing.T) {
 	}
 }
 
+func TestResolveGoCMSContentServiceWiresOptionalAdminContentServices(t *testing.T) {
+	provider := testGoCMSContentProvider{
+		content:     &stubGoCMSContentService{},
+		adminRead:   &stubGoCMSAdminContentReadService{},
+		adminWrite:  &stubGoCMSAdminContentWriteService{},
+		adminBlock:  &stubGoCMSAdminBlockReadService{},
+		adminBlockW: &stubGoCMSAdminBlockWriteService{},
+	}
+
+	resolved := resolveGoCMSContentService(provider)
+	adapter, ok := resolved.(*GoCMSContentAdapter)
+	if !ok || adapter == nil {
+		t.Fatalf("expected GoCMSContentAdapter, got %T", resolved)
+	}
+	if adapter.adminRead == nil {
+		t.Fatalf("expected admin read service to be wired")
+	}
+	if adapter.adminWrite == nil {
+		t.Fatalf("expected admin write service to be wired")
+	}
+	if adapter.adminBlocks == nil {
+		t.Fatalf("expected admin block read service to be wired")
+	}
+	if adapter.adminBlockW == nil {
+		t.Fatalf("expected admin block write service to be wired")
+	}
+}
+
 type typedWidgetServiceProviderWithIncompatibleWidgets struct {
 	svc cms.WidgetService
 }
@@ -53,6 +81,28 @@ func (p typedWidgetsProviderWithIncompatibleWidgetService) Widgets() cms.WidgetS
 
 func (typedWidgetsProviderWithIncompatibleWidgetService) WidgetService(_ string) cms.WidgetService {
 	panic("resolveGoCMSWidgetService should not call reflective WidgetService() fallback")
+}
+
+type testGoCMSContentProvider struct {
+	content     any
+	adminRead   cms.AdminContentReadService
+	adminWrite  cms.AdminContentWriteService
+	adminBlock  cms.AdminBlockReadService
+	adminBlockW cms.AdminBlockWriteService
+}
+
+func (p testGoCMSContentProvider) ContentService() any { return p.content }
+func (p testGoCMSContentProvider) AdminContentRead() cms.AdminContentReadService {
+	return p.adminRead
+}
+func (p testGoCMSContentProvider) AdminContentWrite() cms.AdminContentWriteService {
+	return p.adminWrite
+}
+func (p testGoCMSContentProvider) AdminBlockRead() cms.AdminBlockReadService {
+	return p.adminBlock
+}
+func (p testGoCMSContentProvider) AdminBlockWrite() cms.AdminBlockWriteService {
+	return p.adminBlockW
 }
 
 // testPublicWidgetService implements the public go-cms widgets.Service contract.

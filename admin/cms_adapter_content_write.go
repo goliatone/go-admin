@@ -8,6 +8,7 @@ import (
 
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
+	cms "github.com/goliatone/go-cms"
 	cmsblocks "github.com/goliatone/go-cms/blocks"
 	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
@@ -50,15 +51,36 @@ func (r goCMSContentWriteBoundary) CreateContent(ctx context.Context, content CM
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
-	contentTypeID, err := r.resolveContentTypeID(ctx, content)
-	if err != nil {
-		return nil, err
-	}
 	actor := actorUUID(ctx)
 	meta, cleaned, includeMeta := r.prepareContentMetadata(ctx, content, nil)
 	content.Data = cleaned
 	applySchemaVersionToContent(&content)
 	applyEmbeddedBlocksToContent(&content)
+	if a.adminWrite != nil {
+		contentTypeID, err := r.resolveAdminContentTypeID(ctx, content)
+		if err != nil {
+			return nil, err
+		}
+		req := cmsadapter.CMSContentToAdminContentCreateRequest(content, contentTypeID, actor, true)
+		if includeMeta {
+			req.Metadata = meta
+		} else {
+			req.Metadata = nil
+		}
+		created, err := a.adminWrite.Create(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if created == nil {
+			return nil, ErrNotFound
+		}
+		rec := a.convertAdminContentRecord(ctx, *created)
+		return &rec, nil
+	}
+	contentTypeID, err := r.resolveContentTypeID(ctx, content)
+	if err != nil {
+		return nil, err
+	}
 	req := cmscontent.CreateContentRequest{
 		ContentTypeID:            contentTypeID,
 		Slug:                     content.Slug,
@@ -97,6 +119,30 @@ func (r goCMSContentWriteBoundary) UpdateContent(ctx context.Context, content CM
 	content.Data = cleaned
 	applySchemaVersionToContent(&content)
 	applyEmbeddedBlocksToContent(&content)
+	if a.adminWrite != nil {
+		contentTypeID, err := r.resolveAdminContentTypeID(ctx, content)
+		if err != nil {
+			return nil, err
+		}
+		req := cmsadapter.CMSContentToAdminContentUpdateRequest(content, contentTypeID, actorUUID(ctx), true)
+		if req.ID == uuid.Nil {
+			return nil, ErrNotFound
+		}
+		if includeMeta {
+			req.Metadata = meta
+		} else {
+			req.Metadata = nil
+		}
+		updated, err := a.adminWrite.Update(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if updated == nil {
+			return nil, ErrNotFound
+		}
+		rec := a.convertAdminContentRecord(ctx, *updated)
+		return &rec, nil
+	}
 	req := cmscontent.UpdateContentRequest{
 		ID:                       uuidFromString(content.ID),
 		Status:                   content.Status,
@@ -126,6 +172,17 @@ func (r goCMSContentWriteBoundary) DeleteContent(ctx context.Context, id string)
 	if a == nil || a.content == nil {
 		return ErrNotFound
 	}
+	if a.adminWrite != nil {
+		req := cms.AdminContentDeleteRequest{
+			ID:         uuidFromString(id),
+			DeletedBy:  actorUUID(ctx),
+			HardDelete: true,
+		}
+		if req.ID == uuid.Nil {
+			return ErrNotFound
+		}
+		return a.adminWrite.Delete(ctx, req)
+	}
 	req := cmscontent.DeleteContentRequest{
 		ID:         uuidFromString(id),
 		DeletedBy:  actorUUID(ctx),
@@ -137,9 +194,66 @@ func (r goCMSContentWriteBoundary) DeleteContent(ctx context.Context, id string)
 	return a.content.Delete(ctx, req)
 }
 
+func (r goCMSContentWriteBoundary) resolveAdminContentTypeID(ctx context.Context, content CMSContent) (uuid.UUID, error) {
+	for _, candidate := range []string{content.ContentType, content.ContentTypeSlug} {
+		if id := uuidFromString(candidate); id != uuid.Nil {
+			return id, nil
+		}
+	}
+	a := r.adapter
+	if a != nil && a.contentTypes != nil {
+		if slug := strings.TrimSpace(content.ContentTypeSlug); slug != "" {
+			if ct, err := a.contentTypes.ContentTypeBySlug(ctx, slug); err == nil && ct != nil {
+				if id := uuidFromString(ct.ID); id != uuid.Nil {
+					return id, nil
+				}
+			}
+		}
+		if key := strings.TrimSpace(content.ContentType); key != "" {
+			if ct, err := a.contentTypes.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
+				if id := uuidFromString(ct.ID); id != uuid.Nil {
+					return id, nil
+				}
+			}
+			if ct, err := a.contentTypes.ContentType(ctx, key); err == nil && ct != nil {
+				if id := uuidFromString(ct.ID); id != uuid.Nil {
+					return id, nil
+				}
+			}
+		}
+	}
+	if strings.TrimSpace(primitives.FirstNonEmptyRaw(content.ContentTypeSlug, content.ContentType)) != "" {
+		return uuid.Nil, nil
+	}
+	return uuid.Nil, notFoundDomainError("content type not found", map[string]any{"component": "content_adapter", "content_type": content.ContentType})
+}
+
 func (r goCMSContentWriteBoundary) BlockDefinitions(ctx context.Context) ([]CMSBlockDefinition, error) {
 	a := r.adapter
-	if a == nil || a.blocks == nil {
+	if a == nil {
+		return nil, ErrNotFound
+	}
+	if a.adminBlocks != nil {
+		records, _, err := a.adminBlocks.ListDefinitions(ctx, cms.AdminBlockDefinitionListOptions{
+			EnvironmentKey: cmsContentChannelFromContext(ctx, ""),
+		})
+		if err != nil {
+			return nil, err
+		}
+		defs := make([]CMSBlockDefinition, 0, len(records))
+		defCache := map[string]uuid.UUID{}
+		defNames := map[uuid.UUID]string{}
+		for _, record := range records {
+			def := cmsadapter.AdminBlockDefinitionRecordToCMSBlockDefinition(record)
+			if record.ID != uuid.Nil {
+				collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, def, record.ID, false)
+			}
+			defs = append(defs, def)
+		}
+		a.publishBlockDefinitionCache(defCache, defNames)
+		return defs, nil
+	}
+	if a.blocks == nil {
 		return nil, ErrNotFound
 	}
 	records, err := a.blocks.ListDefinitions(ctx)
@@ -165,12 +279,34 @@ func (r goCMSContentWriteBoundary) BlockDefinitions(ctx context.Context) ([]CMSB
 
 func (r goCMSContentWriteBoundary) CreateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {
 	a := r.adapter
-	if a == nil || a.blocks == nil {
+	if a == nil {
 		return nil, ErrNotFound
 	}
 	name := strings.TrimSpace(primitives.FirstNonEmptyRaw(def.ID, def.Name))
 	if name == "" {
 		return nil, requiredFieldDomainError("block definition name", map[string]any{"component": "content_adapter"})
+	}
+	if a.adminBlockW != nil {
+		req := cmsadapter.CMSBlockDefinitionToAdminBlockDefinitionCreateRequest(def, cmsContentChannelFromContext(ctx, ""))
+		created, err := a.adminBlockW.CreateDefinition(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if created == nil {
+			return nil, ErrNotFound
+		}
+		converted := cmsadapter.AdminBlockDefinitionRecordToCMSBlockDefinition(*created)
+		preserveBlockDefinitionSetFlags(&converted, def)
+		defCache := map[string]uuid.UUID{}
+		defNames := map[uuid.UUID]string{}
+		if created.ID != uuid.Nil {
+			collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, converted, created.ID, true)
+		}
+		a.publishBlockDefinitionCache(defCache, defNames)
+		return &converted, nil
+	}
+	if a.blocks == nil {
+		return nil, ErrNotFound
 	}
 	req := cmsblocks.RegisterDefinitionInput{
 		Name:   name,
@@ -219,12 +355,34 @@ func (r goCMSContentWriteBoundary) CreateBlockDefinition(ctx context.Context, de
 
 func (r goCMSContentWriteBoundary) UpdateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {
 	a := r.adapter
-	if a == nil || a.blocks == nil {
+	if a == nil {
 		return nil, ErrNotFound
 	}
 	defID, err := r.resolveBlockDefinitionID(ctx, def.ID)
 	if err != nil {
 		return nil, err
+	}
+	if a.adminBlockW != nil {
+		req := cmsadapter.CMSBlockDefinitionToAdminBlockDefinitionUpdateRequest(def, defID, cmsContentChannelFromContext(ctx, ""))
+		updated, err := a.adminBlockW.UpdateDefinition(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if updated == nil {
+			return nil, ErrNotFound
+		}
+		converted := cmsadapter.AdminBlockDefinitionRecordToCMSBlockDefinition(*updated)
+		preserveBlockDefinitionSetFlags(&converted, def)
+		defCache := map[string]uuid.UUID{}
+		defNames := map[uuid.UUID]string{}
+		if updated.ID != uuid.Nil {
+			collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, converted, updated.ID, true)
+		}
+		a.publishBlockDefinitionCache(defCache, defNames)
+		return &converted, nil
+	}
+	if a.blocks == nil {
+		return nil, ErrNotFound
 	}
 	req := cmsblocks.UpdateDefinitionInput{ID: defID}
 	if name := strings.TrimSpace(def.Name); name != "" {
@@ -271,19 +429,39 @@ func (r goCMSContentWriteBoundary) UpdateBlockDefinition(ctx context.Context, de
 
 func (r goCMSContentWriteBoundary) DeleteBlockDefinition(ctx context.Context, id string) error {
 	a := r.adapter
-	if a == nil || a.blocks == nil {
+	if a == nil {
 		return ErrNotFound
 	}
 	defID, err := r.resolveBlockDefinitionID(ctx, id)
 	if err != nil {
 		return err
 	}
+	if a.adminBlockW != nil {
+		return a.adminBlockW.DeleteDefinition(ctx, cms.AdminBlockDefinitionDeleteRequest{ID: defID, HardDelete: true})
+	}
+	if a.blocks == nil {
+		return ErrNotFound
+	}
 	return a.blocks.DeleteDefinition(ctx, cmsblocks.DeleteDefinitionRequest{ID: defID, HardDelete: true})
 }
 
 func (r goCMSContentWriteBoundary) BlockDefinitionVersions(ctx context.Context, id string) ([]CMSBlockDefinitionVersion, error) {
 	a := r.adapter
-	if a == nil || a.blocks == nil {
+	if a == nil {
+		return nil, ErrNotFound
+	}
+	if a.adminBlocks != nil {
+		versions, err := a.adminBlocks.ListDefinitionVersions(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]CMSBlockDefinitionVersion, 0, len(versions))
+		for _, version := range versions {
+			out = append(out, cmsadapter.AdminBlockDefinitionVersionRecordToCMSBlockDefinitionVersion(version))
+		}
+		return out, nil
+	}
+	if a.blocks == nil {
 		return nil, ErrNotFound
 	}
 	defID, err := r.resolveBlockDefinitionID(ctx, id)
@@ -306,30 +484,62 @@ func (r goCMSContentWriteBoundary) BlockDefinitionVersions(ctx context.Context, 
 
 func (r goCMSContentWriteBoundary) SaveBlock(ctx context.Context, block CMSBlock) (*CMSBlock, error) {
 	a := r.adapter
-	if a == nil || a.blocks == nil {
+	if a == nil {
 		return nil, ErrNotFound
 	}
 	defID, err := r.resolveBlockDefinitionID(ctx, block.DefinitionID)
 	if err != nil {
 		return nil, err
 	}
-	pageID := a.resolvePageID(ctx, block.ContentID)
-	if pageID == uuid.Nil {
+	contentID := a.resolvePageID(ctx, block.ContentID)
+	if contentID == uuid.Nil {
+		return nil, ErrNotFound
+	}
+	if a.adminBlockW != nil {
+		actor := actorUUID(ctx)
+		req := cmsadapter.CMSBlockToAdminBlockSaveRequest(block, defID, contentID, actor, actor)
+		saved, err := a.adminBlockW.SaveBlock(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if saved == nil {
+			return nil, ErrNotFound
+		}
+		converted := cmsadapter.AdminBlockRecordToCMSBlock(*saved)
+		if len(converted.Data) == 0 && len(block.Data) > 0 {
+			converted.Data = primitives.CloneAnyMap(block.Data)
+		}
+		if converted.Locale == "" {
+			converted.Locale = block.Locale
+		}
+		return &converted, nil
+	}
+	if a.blocks == nil {
 		return nil, ErrNotFound
 	}
 	if strings.TrimSpace(block.ID) == "" {
-		return r.createBlockInstance(ctx, defID, pageID, block)
+		return r.createBlockInstance(ctx, defID, contentID, block)
 	}
-	return r.updateBlockInstance(ctx, defID, pageID, block)
+	return r.updateBlockInstance(ctx, defID, contentID, block)
 }
 
 func (r goCMSContentWriteBoundary) DeleteBlock(ctx context.Context, id string) error {
 	a := r.adapter
-	if a == nil || a.blocks == nil {
+	if a == nil {
 		return ErrNotFound
 	}
 	uid := uuidFromString(id)
 	if uid == uuid.Nil {
+		return ErrNotFound
+	}
+	if a.adminBlockW != nil {
+		return a.adminBlockW.DeleteBlock(ctx, cms.AdminBlockDeleteRequest{
+			ID:         uid,
+			DeletedBy:  actorUUID(ctx),
+			HardDelete: true,
+		})
+	}
+	if a.blocks == nil {
 		return ErrNotFound
 	}
 	return a.blocks.DeleteInstance(ctx, cmsblocks.DeleteInstanceRequest{
@@ -479,6 +689,21 @@ func (r goCMSContentWriteBoundary) resolveContentTypeID(ctx context.Context, con
 		}
 	}
 	return uuid.Nil, notFoundDomainError("content type not found", map[string]any{"component": "content_adapter", "content_type": content.ContentType})
+}
+
+func preserveBlockDefinitionSetFlags(target *CMSBlockDefinition, requested CMSBlockDefinition) {
+	if target == nil {
+		return
+	}
+	if requested.DescriptionSet && strings.TrimSpace(target.Description) == "" {
+		target.DescriptionSet = true
+	}
+	if requested.IconSet && strings.TrimSpace(target.Icon) == "" {
+		target.IconSet = true
+	}
+	if requested.CategorySet && strings.TrimSpace(target.Category) == "" {
+		target.CategorySet = true
+	}
 }
 
 func (r goCMSContentWriteBoundary) resolveBlockDefinitionID(ctx context.Context, id string) (uuid.UUID, error) {

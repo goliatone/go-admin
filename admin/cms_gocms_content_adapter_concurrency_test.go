@@ -98,7 +98,7 @@ func TestGoCMSContentAdapterBlockDefinitionCacheSupportsConcurrentReads(t *testi
 		},
 	}
 
-	service := newGoCMSContentAdapter(blockDefinitionCacheContentServiceStub{}, nil, blockSvc, nil, nil)
+	service := newGoCMSContentAdapter(blockDefinitionCacheContentServiceStub{}, nil, blockSvc, nil, nil, nil, nil, nil, nil)
 	adapter, ok := service.(*GoCMSContentAdapter)
 	if !ok || adapter == nil {
 		t.Fatalf("expected concrete GoCMS adapter")
@@ -148,7 +148,7 @@ func TestGoCMSContentAdapterBlockDefinitionCacheUsesEnvironmentFallback(t *testi
 		},
 	}
 
-	service := newGoCMSContentAdapter(blockDefinitionCacheContentServiceStub{}, nil, blockSvc, nil, nil)
+	service := newGoCMSContentAdapter(blockDefinitionCacheContentServiceStub{}, nil, blockSvc, nil, nil, nil, nil, nil, nil)
 	adapter, ok := service.(*GoCMSContentAdapter)
 	if !ok || adapter == nil {
 		t.Fatalf("expected concrete GoCMS adapter")

@@ -9,6 +9,7 @@ import (
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
+	cms "github.com/goliatone/go-cms"
 	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
 )
@@ -129,6 +130,26 @@ func (r goCMSContentReadBoundary) listContents(ctx context.Context, locale strin
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
+	if a.adminRead != nil {
+		records, _, err := a.adminRead.List(ctx, cms.AdminContentListOptions{
+			Locale:                   locale,
+			AllowMissingTranslations: true,
+			IncludeData:              true,
+			IncludeMetadata:          true,
+			IncludeBlocks:            true,
+		})
+		if err != nil {
+			return nil, err
+		}
+		out := make([]CMSContent, 0, len(records))
+		for _, record := range records {
+			converted := r.convertAdminContentRecord(ctx, record)
+			applySchemaVersionToContent(&converted)
+			applyEmbeddedBlocksToContent(&converted)
+			out = append(out, converted)
+		}
+		return out, nil
+	}
 	listOpts := ensureDerivedFieldsProjection(opts...)
 	listed, err := a.content.List(ctx, toGoCMSContentListOptions(listOpts...)...)
 	if err != nil {
@@ -164,6 +185,37 @@ func (r goCMSContentReadBoundary) fetchContent(ctx context.Context, id, locale s
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
+	if a.adminRead != nil {
+		record, err := a.adminRead.Get(ctx, id, cms.AdminContentGetOptions{
+			Locale:                   locale,
+			AllowMissingTranslations: true,
+			IncludeData:              true,
+			IncludeMetadata:          true,
+			IncludeBlocks:            true,
+		})
+		if err != nil {
+			return nil, err
+		}
+		if record == nil {
+			return nil, ErrNotFound
+		}
+		rec := r.convertAdminContentRecord(ctx, *record)
+		applySchemaVersionToContent(&rec)
+		embeddedPresent := applyEmbeddedBlocksToContent(&rec)
+		if !embeddedPresent && allowLegacy && (a.adminBlocks != nil || a.blocks != nil) {
+			if legacy, err := a.legacyBlocksForContent(ctx, rec.ID, rec.Locale); err == nil && len(legacy) > 0 {
+				rec.Blocks = blockTypesFromLegacy(legacy)
+				rec.EmbeddedBlocks = embeddedBlocksFromLegacy(legacy)
+				if rec.Data == nil {
+					rec.Data = map[string]any{}
+				}
+				if rec.EmbeddedBlocks != nil {
+					rec.Data["blocks"] = cloneEmbeddedBlocks(rec.EmbeddedBlocks)
+				}
+			}
+		}
+		return &rec, nil
+	}
 	uid := uuidFromString(id)
 	if uid == uuid.Nil {
 		return nil, ErrNotFound
@@ -178,7 +230,7 @@ func (r goCMSContentReadBoundary) fetchContent(ctx context.Context, id, locale s
 	rec := a.convertContent(ctx, reflect.ValueOf(record), locale)
 	applySchemaVersionToContent(&rec)
 	embeddedPresent := applyEmbeddedBlocksToContent(&rec)
-	if !embeddedPresent && allowLegacy && a.blocks != nil {
+	if !embeddedPresent && allowLegacy && (a.adminBlocks != nil || a.blocks != nil) {
 		if legacy, err := a.legacyBlocksForContent(ctx, rec.ID, rec.Locale); err == nil && len(legacy) > 0 {
 			rec.Blocks = blockTypesFromLegacy(legacy)
 			rec.EmbeddedBlocks = embeddedBlocksFromLegacy(legacy)
@@ -211,7 +263,7 @@ func (r goCMSContentReadBoundary) BlocksForContent(ctx context.Context, contentI
 			return embeddedBlocksToCMSBlocks(contentID, loc, content.EmbeddedBlocks), nil
 		}
 	}
-	if a.blocks == nil {
+	if a.adminBlocks == nil && a.blocks == nil {
 		return nil, ErrNotFound
 	}
 	return r.legacyBlocksForContent(ctx, contentID, locale)
@@ -231,7 +283,27 @@ func (a *GoCMSContentAdapter) legacyBlocksForContent(ctx context.Context, conten
 
 func (r goCMSContentReadBoundary) legacyBlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
 	a := r.adapter
-	if a == nil || a.blocks == nil {
+	if a == nil {
+		return nil, ErrNotFound
+	}
+	if uuidFromString(contentID) == uuid.Nil {
+		return nil, nil
+	}
+	if a.adminBlocks != nil {
+		records, err := a.adminBlocks.ListContentBlocks(ctx, contentID, cms.AdminBlockListOptions{
+			Locale:         locale,
+			EnvironmentKey: cmsContentChannelFromContext(ctx, ""),
+		})
+		if err != nil {
+			return nil, err
+		}
+		blocks := make([]CMSBlock, 0, len(records))
+		for _, record := range records {
+			blocks = append(blocks, cmsadapter.AdminBlockRecordToCMSBlock(record))
+		}
+		return blocks, nil
+	}
+	if a.blocks == nil {
 		return nil, ErrNotFound
 	}
 	pageID := a.resolvePageID(ctx, contentID)
@@ -313,6 +385,26 @@ func applyEmbeddedBlocksToPage(page *CMSPage) bool {
 
 func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.Value, locale string) CMSContent {
 	return a.contentReader().convertContent(ctx, value, locale)
+}
+
+func (a *GoCMSContentAdapter) convertAdminContentRecord(ctx context.Context, record cms.AdminContentRecord) CMSContent {
+	return a.contentReader().convertAdminContentRecord(ctx, record)
+}
+
+func (r goCMSContentReadBoundary) convertAdminContentRecord(ctx context.Context, record cms.AdminContentRecord) CMSContent {
+	a := r.adapter
+	out := cmsadapter.AdminContentRecordToCMSContent(record)
+	if a != nil && a.shouldApplyStructuralMetadata(ctx, out, nil) {
+		if len(out.Metadata) == 0 {
+			if derived := cmsadapter.StructuralMetadataFromData(out.Data); len(derived) > 0 {
+				out.Metadata = derived
+			}
+		} else {
+			out.Metadata = cmsadapter.NormalizeStructuralMetadata(out.Metadata)
+		}
+		out.Data = cmsadapter.InjectStructuralMetadata(out.Metadata, out.Data)
+	}
+	return out
 }
 
 func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value reflect.Value, locale string) CMSContent {

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 
+	cms "github.com/goliatone/go-cms"
 	cmsblocks "github.com/goliatone/go-cms/blocks"
 	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
@@ -44,16 +45,20 @@ type GoCMSContentAdapter struct {
 	blocks       goCMSBlockService
 	contentTypes CMSContentTypeService
 	locales      *gocmsutil.LocaleIDCache
+	adminRead    cms.AdminContentReadService
+	adminWrite   cms.AdminContentWriteService
+	adminBlocks  cms.AdminBlockReadService
+	adminBlockW  cms.AdminBlockWriteService
 
 	blockDefinitionCache *cmsadapter.BlockDefinitionCache
 }
 
 // NewGoCMSContentAdapter wraps go-cms services into the admin CMSContentService contract.
 func NewGoCMSContentAdapter(contentSvc any, blockSvc any, contentTypeSvc CMSContentTypeService) CMSContentService {
-	return newGoCMSContentAdapter(contentSvc, nil, blockSvc, contentTypeSvc, nil)
+	return newGoCMSContentAdapter(contentSvc, nil, blockSvc, contentTypeSvc, nil, nil, nil, nil, nil)
 }
 
-func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, contentTypeSvc CMSContentTypeService, localeResolver gocmsutil.LocaleResolver) CMSContentService {
+func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, contentTypeSvc CMSContentTypeService, localeResolver gocmsutil.LocaleResolver, adminRead cms.AdminContentReadService, adminWrite cms.AdminContentWriteService, adminBlocks cms.AdminBlockReadService, adminBlockWrite cms.AdminBlockWriteService) CMSContentService {
 	if contentSvc == nil {
 		return nil
 	}
@@ -71,6 +76,10 @@ func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, co
 		blocks:               typedBlocks,
 		contentTypes:         contentTypeSvc,
 		locales:              gocmsutil.NewLocaleIDCache(localeResolver),
+		adminRead:            adminRead,
+		adminWrite:           adminWrite,
+		adminBlocks:          adminBlocks,
+		adminBlockW:          adminBlockWrite,
 		blockDefinitionCache: cmsadapter.NewBlockDefinitionCache(),
 	}
 }
@@ -176,24 +185,41 @@ func (a *GoCMSContentAdapter) blockDefinitionName(id uuid.UUID) string {
 }
 
 func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
-	if a == nil || a.blocks == nil {
-		return
-	}
-	definitions, err := a.blocks.ListDefinitions(ctx)
-	if err != nil {
+	if a == nil {
 		return
 	}
 	defCache := map[string]uuid.UUID{}
 	defNames := map[uuid.UUID]string{}
-	for _, definition := range definitions {
-		if definition == nil {
-			continue
+	usedAdminBlocks := false
+	if a.adminBlocks != nil {
+		definitions, _, err := a.adminBlocks.ListDefinitions(ctx, cms.AdminBlockDefinitionListOptions{
+			EnvironmentKey: cmsContentChannelFromContext(ctx, ""),
+		})
+		if err == nil {
+			usedAdminBlocks = true
+			for _, definition := range definitions {
+				if definition.ID == uuid.Nil {
+					continue
+				}
+				collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, cmsadapter.AdminBlockDefinitionRecordToCMSBlockDefinition(definition), definition.ID, true)
+			}
 		}
-		id := definition.ID
-		if id == uuid.Nil {
-			continue
+	}
+	if !usedAdminBlocks && a.blocks != nil {
+		definitions, err := a.blocks.ListDefinitions(ctx)
+		if err != nil {
+			return
 		}
-		collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, cmsadapter.ConvertBlockDefinition(reflect.ValueOf(definition)), id, true)
+		for _, definition := range definitions {
+			if definition == nil {
+				continue
+			}
+			id := definition.ID
+			if id == uuid.Nil {
+				continue
+			}
+			collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, cmsadapter.ConvertBlockDefinition(reflect.ValueOf(definition)), id, true)
+		}
 	}
 	a.publishBlockDefinitionCache(defCache, defNames)
 }
