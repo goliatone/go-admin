@@ -1,5 +1,66 @@
 # Changelog
 
+# [0.32.0](https://github.com/goliatone/go-admin/compare/v0.31.0...v0.32.0) - (2026-04-01)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Seed registration ([75371fd](https://github.com/goliatone/go-admin/commit/75371fd3f79a462c13461eab38a912ce3a6a0f9f))  - (goliatone)
+- Error meta ([f67f83b](https://github.com/goliatone/go-admin/commit/f67f83b19296e05571b6b141db77c4724c1f6b36))  - (goliatone)
+- Require authorizer ([13ddb71](https://github.com/goliatone/go-admin/commit/13ddb71bd78fabc461216b63f454cfbc6a7025af))  - (goliatone)
+- Better CSRF implementation ([440ef8c](https://github.com/goliatone/go-admin/commit/440ef8c7007f625bc46bb3bb2df7163c34b6fecb))  - (goliatone)
+- Use logger ([a994170](https://github.com/goliatone/go-admin/commit/a994170541e1914358bc8f1e5c93d3311dd0353c))  - (goliatone)
+- Use string split seq ([f1c86b3](https://github.com/goliatone/go-admin/commit/f1c86b34991b7da51638b1aa0cacf0ad3d82f3ef))  - (goliatone)
+- Auth redirect resolver ([370232a](https://github.com/goliatone/go-admin/commit/370232a89de0a5cbe284b0e930f907ed1992b865))  - (goliatone)
+- CSRF in translation exchange ([424ff50](https://github.com/goliatone/go-admin/commit/424ff5030fc1ff90e5e66c9e5a3591a90a1de2a5))  - (goliatone)
+- Translation exchange handle failing job ([087bebe](https://github.com/goliatone/go-admin/commit/087bebe75761904a113f929566d81396cb3bdb14))  - (goliatone)
+- SiteViewProfileOverrideAllowed check ([19f886b](https://github.com/goliatone/go-admin/commit/19f886b6cbe4ea7c52a65e68e2c2922df185232e))  - (goliatone)
+- Handle errors properly ([c8e1a54](https://github.com/goliatone/go-admin/commit/c8e1a54fa7329546af4d0f782f7552a9bec8a261))  - (goliatone)
+- Data race in dashboard wiring ([38e8d03](https://github.com/goliatone/go-admin/commit/38e8d032199e122835b348c0373b18cb16c0ec6c))  - (goliatone)
+- Admin user role management ([6787af0](https://github.com/goliatone/go-admin/commit/6787af0dfb11cbc1a731e0da03d658b2be597846))  - (goliatone)
+- Init hooks run after running ooks ([11d7b52](https://github.com/goliatone/go-admin/commit/11d7b5289b757d7c9f39eda670b32eea0942d418))  - (goliatone)
+- Bind workflow error handling ([d7d94e6](https://github.com/goliatone/go-admin/commit/d7d94e64058d8d4f6812cdd9b907faa1f08cb7ce))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.32.0 ([b49ff29](https://github.com/goliatone/go-admin/commit/b49ff292116edc9103ed5addaba4cf3ec8ffe89b))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Translation runtime ([f75ec8c](https://github.com/goliatone/go-admin/commit/f75ec8c7f52161e109ac305b2df24fbd927401b9))  - (goliatone)
+- Activity feature gates ([74d541c](https://github.com/goliatone/go-admin/commit/74d541c59e1e190b591ff911c8b9c647f16e6448))  - (goliatone)
+- Debug perms ([be25053](https://github.com/goliatone/go-admin/commit/be250530fca20aaa8879534b303a2627f84e145b))  - (goliatone)
+- Command registry initializer ([201f109](https://github.com/goliatone/go-admin/commit/201f109c27adb3636af745a407d3a4200d3bf510))  - (goliatone)
+- Admin permission policy ([78397c7](https://github.com/goliatone/go-admin/commit/78397c71c87468f571cb54a53c613d286041257f))  - (goliatone)
+- Internal url util ([0d8be28](https://github.com/goliatone/go-admin/commit/0d8be281371508e2630d652b9d125328671de94a))  - (goliatone)
+- Staging router ([9a863b1](https://github.com/goliatone/go-admin/commit/9a863b15f7be783855a963b9e0bb51c1c419d730))  - (goliatone)
+- Use golangci-lint ([781419f](https://github.com/goliatone/go-admin/commit/781419fe7f33abd6253eeac96c87ec3e5a943918))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Simplify code. fix: security issues ([d8bc54e](https://github.com/goliatone/go-admin/commit/d8bc54e967cb40473fc5487936709065e6f9cf45))  - (goliatone)
+- Simplify code ([b04a642](https://github.com/goliatone/go-admin/commit/b04a6426a7dc6d88d60d1ca0af3ce5ca335cd0b5))  - (goliatone)
+- Remove printf ([f77688c](https://github.com/goliatone/go-admin/commit/f77688c41ce6874cd8869acf4107fbbccb25f054))  - (goliatone)
+- Remove runtime start from translation exchange ([2c69162](https://github.com/goliatone/go-admin/commit/2c6916238023f0e92dbd14ace32a1f80eb0ddcce))  - (goliatone)
+- Frontend code ([8202d42](https://github.com/goliatone/go-admin/commit/8202d42a41a50c950c138ff6bb920680d542bd6b))  - (goliatone)
+- Client code simplifiation ([296fe43](https://github.com/goliatone/go-admin/commit/296fe434ddee3e640f58c142bcd6d04a9cfdf9bd))  - (goliatone)
+- Code quality improvements ([4f533c3](https://github.com/goliatone/go-admin/commit/4f533c3bf3b9c184e706275e5aa9de112711a943))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.31.0 ([605c6f6](https://github.com/goliatone/go-admin/commit/605c6f6d54cce86a8cca0495a0b164d77e365b43))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([e65135b](https://github.com/goliatone/go-admin/commit/e65135bf3a24f5d54735862b333f6502ef2add4a))  - (goliatone)
+- Fix code ([d7dc950](https://github.com/goliatone/go-admin/commit/d7dc950fbebc45746551c59ad33bddbe342ed68e))  - (goliatone)
+- Update deps ([dbb7045](https://github.com/goliatone/go-admin/commit/dbb7045abb0a9e1a56679c305f1d4a63ac891d9b))  - (goliatone)
+- Update docs ([2ae38ff](https://github.com/goliatone/go-admin/commit/2ae38ff686e73acf2f113764f2cead00fb24c824))  - (goliatone)
+- Ignore staging cnofig file ([23d9b12](https://github.com/goliatone/go-admin/commit/23d9b12c5c89017a1c34a02b9ff4c1b503bbe32d))  - (goliatone)
+- Update examples ([ecb1b48](https://github.com/goliatone/go-admin/commit/ecb1b48dd54319dae06d1a42d3d1e4d66e3a37a3))  - (goliatone)
+- Udpate tests ([8d3bc6d](https://github.com/goliatone/go-admin/commit/8d3bc6d1bbf802ce3cf6ad73b967a394ae5b25f3))  - (goliatone)
+- Update validation tasks ([f725374](https://github.com/goliatone/go-admin/commit/f725374fe544b7485c4479757318e828a2422244))  - (goliatone)
+- Udpate docs ([a8154f3](https://github.com/goliatone/go-admin/commit/a8154f3805b7391c19e5aad5afbf143cbbae8613))  - (goliatone)
+
 # [0.31.0](https://github.com/goliatone/go-admin/compare/v0.30.0...v0.31.0) - (2026-03-25)
 
 ## <!-- 1 -->🐛 Bug Fixes
