@@ -181,8 +181,8 @@ github.com/goliatone/go-crud v0.23.0 h1:9lyh/p4RjP5AMoiyITm/88kIWekhu3dYda+emvoI
 github.com/goliatone/go-crud v0.23.0/go.mod h1:+xogUsH4Mkg37IaB+DW8zfAq3fKJeVjxdqE0e2dOisc=
 github.com/goliatone/go-crud/gql v0.23.0 h1:WNAeYVHWw5A/j5b0/qfFHfSYzm/0tuQ3dbJyRwG2DM4=
 github.com/goliatone/go-crud/gql v0.23.0/go.mod h1:HKRrsSToF+sAKaSJltWMi60q7rr0MiVjEsSc5GmBFeU=
-github.com/goliatone/go-dashboard v0.7.0 h1:3G+WhQhhogW/pIbhVMEelcbbOYVK780ZOjeQywIauBA=
-github.com/goliatone/go-dashboard v0.7.0/go.mod h1:Q736LIy/0Rbnwe+36nKSUF82JvUinnw3tM8qUgYZb0c=
+github.com/goliatone/go-dashboard v0.9.0 h1:ZD0MU5JXy98THKqcfKtgFSfb9/Jgr1ON/UqDdTciML8=
+github.com/goliatone/go-dashboard v0.9.0/go.mod h1:Q736LIy/0Rbnwe+36nKSUF82JvUinnw3tM8qUgYZb0c=
 github.com/goliatone/go-errors v0.10.0 h1:qVmOXKq6aa3cHbygI5VHGCosuA0CLAXso0BlinboYJE=
 github.com/goliatone/go-errors v0.10.0/go.mod h1:FiZEC2z5a8SBdRyljC9wFt+IzqZDfrst2dPoqWARbr4=
 github.com/goliatone/go-export v0.7.0 h1:rwArUrlCIXqZVoDU1mDAcYnuETnMo0B07yPylKFpS48=
