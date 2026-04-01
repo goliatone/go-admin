@@ -2,13 +2,11 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	workflowauthoring "github.com/goliatone/go-admin/admin/internal/workflowauthoring"
 	workflowcore "github.com/goliatone/go-admin/admin/internal/workflowcore"
 	"github.com/goliatone/go-command/flow"
 	cmdrpc "github.com/goliatone/go-command/rpc"
@@ -291,24 +289,14 @@ func workflowAuthoringListVersionsEndpoint(adm *Admin) cmdrpc.EndpointDefinition
 			if req.Data.Limit != nil && *req.Data.Limit > 0 {
 				limit = *req.Data.Limit
 			}
-			offset := parseCursorOffset(req.Data.Cursor)
+			offset := workflowauthoring.ParseCursorOffset(req.Data.Cursor)
 			records, hasMore, err := store.ListVersions(ctx, machineID, limit, offset)
 			if err != nil {
 				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringListVersionsResponse]{}, err
 			}
 			items := make([]flow.FSMAuthoringVersionSummary, 0, len(records))
 			for _, record := range records {
-				publishedAt := ""
-				if record.PublishedAt != nil {
-					publishedAt = record.PublishedAt.UTC().Format(time.RFC3339)
-				}
-				items = append(items, flow.FSMAuthoringVersionSummary{
-					Version:     strings.TrimSpace(record.Version),
-					ETag:        strings.TrimSpace(record.ETag),
-					UpdatedAt:   record.UpdatedAt.UTC().Format(time.RFC3339),
-					PublishedAt: publishedAt,
-					IsDraft:     record.PublishedDefinition == nil || record.DeletedAt != nil,
-				})
+				items = append(items, workflowauthoring.VersionSummary(record))
 			}
 			nextCursor := ""
 			if hasMore {
@@ -411,7 +399,7 @@ func workflowAuthoringDiffVersionsEndpoint(adm *Admin) cmdrpc.EndpointDefinition
 				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringDiffVersionsResponse]{}, flow.ErrAuthoringNotFound
 			}
 
-			changes := diffMachineDefinitions(
+			changes := workflowauthoring.DiffMachineDefinitions(
 				baseWorkflow.Draft.Definition,
 				targetWorkflow.Draft.Definition,
 			)
@@ -576,7 +564,7 @@ func workflowBindingsResolveEndpoint(adm *Admin) cmdrpc.EndpointDefinition {
 func resolveFSMAuthoringService(adm *Admin) *flow.AuthoringService {
 	store := workflowAuthoringStore(adm)
 	if store == nil {
-		store = unavailableAuthoringStore{}
+		store = workflowauthoring.NewUnavailableStore(serviceNotConfiguredDomainError("workflow authoring store", nil))
 	}
 	return flow.NewAuthoringService(store, nil)
 }
@@ -607,24 +595,6 @@ func workflowAuthoringVersionStore(adm *Admin) WorkflowAuthoringVersionStore {
 		return typed
 	}
 	return nil
-}
-
-type unavailableAuthoringStore struct{}
-
-func (unavailableAuthoringStore) List(context.Context, flow.AuthoringListOptions) (*flow.AuthoringListResult, error) {
-	return nil, serviceNotConfiguredDomainError("workflow authoring store", nil)
-}
-
-func (unavailableAuthoringStore) Load(context.Context, string) (*flow.AuthoringMachineRecord, error) {
-	return nil, serviceNotConfiguredDomainError("workflow authoring store", nil)
-}
-
-func (unavailableAuthoringStore) Save(context.Context, *flow.AuthoringMachineRecord, string) (*flow.AuthoringMachineRecord, error) {
-	return nil, serviceNotConfiguredDomainError("workflow authoring store", nil)
-}
-
-func (unavailableAuthoringStore) Delete(context.Context, string, string, bool) (bool, error) {
-	return false, serviceNotConfiguredDomainError("workflow authoring store", nil)
 }
 
 func syncPublishedMachineToRuntime(ctx context.Context, adm *Admin, machineID string) error {
@@ -717,7 +687,7 @@ func authoringRecordToPersistedWorkflow(rec *flow.AuthoringMachineRecord) (Persi
 	if err != nil {
 		return PersistedWorkflow{}, err
 	}
-	version := parseAuthoringVersion(rec.Version)
+	version := workflowauthoring.ParseAuthoringVersion(rec.Version)
 	if version <= 0 {
 		version = 1
 	}
@@ -755,13 +725,14 @@ func persistedWorkflowToAuthoringRecord(workflow PersistedWorkflow) (*flow.Autho
 		MachineID: strings.TrimSpace(workflow.ID),
 		Name:      strings.TrimSpace(firstNonEmpty(workflow.Name, workflow.ID)),
 		Version:   version,
-		ETag:      authoringRecordETag(workflow.ID, version),
+		ETag:      workflowauthoring.AuthoringRecordETag(workflow.ID, version),
 		Draft:     draft,
 		UpdatedAt: updatedAt,
 	}
 	if workflow.Status == WorkflowStatusActive {
 		def := draft.Definition
-		record.PublishedAt = pointerToTime(publishedAtForPersistedWorkflow(workflow))
+		publishedAt := publishedAtForPersistedWorkflow(workflow)
+		record.PublishedAt = workflowauthoring.CloneTimePtr(&publishedAt)
 		record.PublishedDefinition = def
 	}
 	if workflow.Status == WorkflowStatusDeprecated {
@@ -856,105 +827,10 @@ func machineDefinitionToWorkflowDefinition(def *flow.MachineDefinition) (Workflo
 	return out, nil
 }
 
-func parseAuthoringVersion(value string) int {
-	parsed, _ := strconv.Atoi(strings.TrimSpace(value))
-	return parsed
-}
-
-func parseCursorOffset(cursor string) int {
-	offset, err := strconv.Atoi(strings.TrimSpace(cursor))
-	if err != nil || offset < 0 {
-		return 0
-	}
-	return offset
-}
-
 func publishedAtForPersistedWorkflow(workflow PersistedWorkflow) time.Time {
 	value := workflow.UpdatedAt.UTC()
 	if value.IsZero() {
 		value = time.Now().UTC()
 	}
 	return value
-}
-
-func pointerToTime(value time.Time) *time.Time {
-	normalized := value.UTC()
-	return &normalized
-}
-
-func authoringRecordETag(machineID, version string) string {
-	return fmt.Sprintf("%s:%s", strings.TrimSpace(machineID), strings.TrimSpace(version))
-}
-
-func diffMachineDefinitions(base, target *flow.MachineDefinition) []flow.FSMAuthoringDiffChange {
-	baseRaw, _ := json.Marshal(base)
-	targetRaw, _ := json.Marshal(target)
-	baseMap := map[string]any{}
-	targetMap := map[string]any{}
-	_ = json.Unmarshal(baseRaw, &baseMap)
-	_ = json.Unmarshal(targetRaw, &targetMap)
-	changes := []flow.FSMAuthoringDiffChange{}
-	collectDiffChanges("$", baseMap, targetMap, &changes)
-	sort.SliceStable(changes, func(i, j int) bool {
-		return changes[i].Path < changes[j].Path
-	})
-	return changes
-}
-
-func collectDiffChanges(path string, base, target any, changes *[]flow.FSMAuthoringDiffChange) {
-	switch b := base.(type) {
-	case map[string]any:
-		t, ok := target.(map[string]any)
-		if !ok {
-			*changes = append(*changes, flow.FSMAuthoringDiffChange{Path: path, ChangeType: "modified"})
-			return
-		}
-		keys := map[string]struct{}{}
-		for key := range b {
-			keys[key] = struct{}{}
-		}
-		for key := range t {
-			keys[key] = struct{}{}
-		}
-		names := make([]string, 0, len(keys))
-		for key := range keys {
-			names = append(names, key)
-		}
-		sort.Strings(names)
-		for _, key := range names {
-			collectDiffChanges(path+"."+key, b[key], t[key], changes)
-		}
-	case []any:
-		t, ok := target.([]any)
-		if !ok {
-			*changes = append(*changes, flow.FSMAuthoringDiffChange{Path: path, ChangeType: "modified"})
-			return
-		}
-		maxLen := max(len(t), len(b))
-		for index := range maxLen {
-			var left any
-			if index < len(b) {
-				left = b[index]
-			}
-			var right any
-			if index < len(t) {
-				right = t[index]
-			}
-			collectDiffChanges(fmt.Sprintf("%s[%d]", path, index), left, right, changes)
-		}
-	default:
-		if fmt.Sprint(base) == fmt.Sprint(target) {
-			return
-		}
-		changeType := "modified"
-		if base == nil {
-			changeType = "added"
-		} else if target == nil {
-			changeType = "removed"
-		}
-		*changes = append(*changes, flow.FSMAuthoringDiffChange{
-			Path:       path,
-			ChangeType: changeType,
-		})
-	}
 }

@@ -75,13 +75,6 @@ func widgetCallContext(ctx context.Context) context.Context {
 	return ctx
 }
 
-func (a *GoCMSWidgetAdapter) resolveLocaleID(ctx context.Context, localeCode string) (uuid.UUID, bool) {
-	if a == nil || a.locales == nil {
-		return uuid.Nil, false
-	}
-	return a.locales.Resolve(widgetCallContext(ctx), localeCode)
-}
-
 func normalizeWidgetDefinition(def WidgetDefinition) (code string, displayName string, schema map[string]any) {
 	code = strings.TrimSpace(def.Code)
 	if code == "" {
@@ -471,7 +464,7 @@ func (a *GoCMSWidgetAdapter) resolveAreaInstances(ctx context.Context, filter Wi
 	}
 	ctx = widgetCallContext(ctx)
 	input := cmswidgets.ResolveAreaInput{AreaCode: strings.TrimSpace(filter.Area)}
-	if localeID, ok := a.resolveLocaleID(ctx, filter.Locale); ok {
+	if localeID, ok := gocmsutil.ResolveLocaleID(ctx, a.locales, filter.Locale); ok {
 		input.LocaleID = &localeID
 	} else if strings.TrimSpace(filter.Locale) != "" {
 		return []WidgetInstance{}, nil
@@ -565,7 +558,7 @@ func (a *GoCMSWidgetAdapter) assignWidgetPlacement(ctx context.Context, updated 
 	if source.Position > 0 {
 		input.Position = &source.Position
 	}
-	if localeID, ok := a.resolveLocaleID(ctx, source.Locale); ok {
+	if localeID, ok := gocmsutil.ResolveLocaleID(ctx, a.locales, source.Locale); ok {
 		input.LocaleID = &localeID
 	}
 	if meta := cmsadapter.WidgetPlacementMetadata(source); len(meta) > 0 {

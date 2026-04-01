@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 	cms "github.com/goliatone/go-cms"
@@ -473,7 +474,7 @@ func (r goCMSContentWriteBoundary) SaveBlock(ctx context.Context, block CMSBlock
 	if err != nil {
 		return nil, err
 	}
-	contentID := a.resolvePageID(ctx, block.ContentID)
+	contentID := resolveContentPageID(block.ContentID)
 	if contentID == uuid.Nil {
 		return nil, ErrNotFound
 	}
@@ -619,7 +620,7 @@ func (r goCMSContentWriteBoundary) upsertBlockTranslation(ctx context.Context, i
 	if payload == nil {
 		payload = map[string]any{}
 	}
-	localeID, ok := a.resolveLocaleID(ctx, locale)
+	localeID, ok := gocmsutil.ResolveLocaleID(ctx, a.locales, locale)
 	if !ok {
 		return nil
 	}
@@ -689,7 +690,6 @@ func preserveBlockDefinitionSetFlags(target *CMSBlockDefinition, requested CMSBl
 }
 
 func (r goCMSContentWriteBoundary) resolveBlockDefinitionID(ctx context.Context, id string) (uuid.UUID, error) {
-	a := r.adapter
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return uuid.Nil, ErrNotFound
@@ -697,8 +697,8 @@ func (r goCMSContentWriteBoundary) resolveBlockDefinitionID(ctx context.Context,
 	if parsed := cmsadapter.UUIDFromString(id); parsed != uuid.Nil {
 		return parsed, nil
 	}
-	a.refreshBlockDefinitions(ctx)
-	if defID, ok := a.lookupBlockDefinitionID(ctx, id); ok {
+	r.refreshBlockDefinitions(ctx)
+	if defID, ok := r.lookupBlockDefinitionID(ctx, id); ok {
 		return defID, nil
 	}
 	return uuid.Nil, ErrNotFound
@@ -748,7 +748,6 @@ func (r goCMSContentWriteBoundary) prepareContentMetadata(ctx context.Context, c
 }
 
 func (r goCMSContentWriteBoundary) shouldApplyStructuralMetadata(ctx context.Context, content CMSContent, existing *CMSContent) bool {
-	a := r.adapter
 	if existing != nil {
 		if content.ContentType == "" {
 			content.ContentType = existing.ContentType
@@ -757,7 +756,7 @@ func (r goCMSContentWriteBoundary) shouldApplyStructuralMetadata(ctx context.Con
 			content.ContentTypeSlug = existing.ContentTypeSlug
 		}
 	}
-	ct := a.contentTypeForMetadata(ctx, content)
+	ct := r.contentTypeForMetadata(ctx, content)
 	if ct != nil {
 		if enabled, ok := capabilityFlag(ct.Capabilities, "structural_fields", "structuralFields", "entry_metadata", "entryMetadata", "entry-metadata"); ok {
 			return enabled

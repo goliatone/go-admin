@@ -118,15 +118,15 @@ func TestGoCMSContentAdapterBlockDefinitionCacheSupportsConcurrentReads(t *testi
 					t.Errorf("expected 2 block definitions, got %d", len(defs))
 					return
 				}
-				if got, err := adapter.resolveBlockDefinitionID(ctx, "hero-banner"); err != nil || got != blockSvc.defs[0].ID {
+				if got, err := adapter.contentWriter().resolveBlockDefinitionID(ctx, "hero-banner"); err != nil || got != blockSvc.defs[0].ID {
 					t.Errorf("expected hero-banner id %s, got %s (err=%v)", blockSvc.defs[0].ID, got, err)
 					return
 				}
-				if got, err := adapter.resolveBlockDefinitionID(ctx, "rich_text"); err != nil || got != blockSvc.defs[1].ID {
+				if got, err := adapter.contentWriter().resolveBlockDefinitionID(ctx, "rich_text"); err != nil || got != blockSvc.defs[1].ID {
 					t.Errorf("expected rich_text id %s, got %s (err=%v)", blockSvc.defs[1].ID, got, err)
 					return
 				}
-				if got := adapter.blockDefinitionName(blockSvc.defs[0].ID); got != "hero-banner" {
+				if got := adapter.contentReader().blockDefinitionName(blockSvc.defs[0].ID); got != "hero-banner" {
 					t.Errorf("expected hero-banner name, got %q", got)
 					return
 				}
@@ -162,7 +162,7 @@ func TestGoCMSContentAdapterBlockDefinitionCacheUsesEnvironmentFallback(t *testi
 	if len(defs) != 1 {
 		t.Fatalf("expected 1 block definition, got %d", len(defs))
 	}
-	if got, err := adapter.resolveBlockDefinitionID(ctx, "hero-banner"); err != nil || got != blockSvc.defs[0].ID {
+	if got, err := adapter.contentWriter().resolveBlockDefinitionID(ctx, "hero-banner"); err != nil || got != blockSvc.defs[0].ID {
 		t.Fatalf("expected hero-banner id %s, got %s (err=%v)", blockSvc.defs[0].ID, got, err)
 	}
 }

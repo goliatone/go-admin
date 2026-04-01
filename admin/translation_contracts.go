@@ -1,11 +1,9 @@
 package admin
 
 import (
-	"github.com/goliatone/go-admin/internal/primitives"
+	translationcontracts "github.com/goliatone/go-admin/admin/internal/translationcontracts"
 	translationcore "github.com/goliatone/go-admin/translations/core"
 	translationui "github.com/goliatone/go-admin/translations/ui"
-	"sort"
-	"strings"
 )
 
 const translationSharedContractSchemaVersionCurrent = 6
@@ -66,51 +64,13 @@ func translationFlowVocabularyPayload() map[string]any {
 // TranslationStatusEnumContract returns stable status enums shared across
 // core translation readiness, queue, and exchange payloads.
 func TranslationStatusEnumContract() map[string]any {
-	coreReadiness := translationCoreReadinessStates()
-	queueStates := translationQueueStates()
-	queueContentStates := translationQueueContentStates()
-	queueDueStates := translationQueueDueStates()
-	exchangeRowStates := translationExchangeRowStates()
-	exchangeJobStates := translationExchangeJobStates()
-	return map[string]any{
-		"core": map[string]any{
-			"readiness_state": coreReadiness,
-		},
-		"queue": map[string]any{
-			"queue_state":   queueStates,
-			"content_state": queueContentStates,
-			"due_state":     queueDueStates,
-		},
-		"exchange": map[string]any{
-			"row_status": exchangeRowStates,
-			"job_status": exchangeJobStates,
-		},
-		"all": translationStatusUnion(
-			coreReadiness,
-			queueStates,
-			queueContentStates,
-			queueDueStates,
-			exchangeRowStates,
-			exchangeJobStates,
-		),
-	}
+	return translationcontracts.StatusEnumContract()
 }
 
 // TranslationSourceTargetDriftContract documents the source-target drift metadata
 // contract expected by side-by-side editor surfaces.
 func TranslationSourceTargetDriftContract() map[string]any {
-	return map[string]any{
-		"key": translationSourceTargetDriftKey,
-		"required_fields": []string{
-			translationSourceTargetDriftSourceHashKey,
-			translationSourceTargetDriftSourceVersionKey,
-			translationSourceTargetDriftChangedSummaryKey,
-		},
-		"summary_fields": []string{
-			translationSourceTargetDriftSummaryCountKey,
-			translationSourceTargetDriftSummaryFieldsKey,
-		},
-	}
+	return translationcontracts.SourceTargetDriftContract()
 }
 
 // TranslationEditorContractPayload documents the editor-side field and assist
@@ -180,242 +140,65 @@ func TranslationEditorContractPayload() map[string]any {
 }
 
 func translationCoreReadinessStates() []string {
-	return []string{
-		translationReadinessStateReady,
-		translationReadinessStateMissingLocales,
-		translationReadinessStateMissingFields,
-		translationReadinessStateMissingLocalesFields,
-	}
+	return translationcontracts.CoreReadinessStates()
 }
 
 func translationQueueStates() []string {
-	return []string{
-		string(AssignmentStatusOpen),
-		string(AssignmentStatusAssigned),
-		string(AssignmentStatusInProgress),
-		string(AssignmentStatusInReview),
-		string(AssignmentStatusChangesRequested),
-		string(AssignmentStatusApproved),
-		string(AssignmentStatusArchived),
-	}
+	return translationcontracts.QueueStates()
 }
 
 func translationQueueContentStates() []string {
-	return []string{
-		translationQueueContentStateDraft,
-		translationQueueContentStateReview,
-		translationQueueContentStateReady,
-		translationQueueContentStateArchived,
-	}
+	return translationcontracts.QueueContentStates()
 }
 
 func translationQueueDueStates() []string {
-	return []string{
-		translationQueueDueStateOverdue,
-		translationQueueDueStateSoon,
-		translationQueueDueStateOnTrack,
-		translationQueueDueStateNone,
-	}
+	return translationcontracts.QueueDueStates()
 }
 
 func translationExchangeRowStates() []string {
-	return []string{
-		translationExchangeRowStatusSuccess,
-		translationExchangeRowStatusError,
-		translationExchangeRowStatusConflict,
-		translationExchangeRowStatusSkipped,
-	}
+	return translationcontracts.ExchangeRowStates()
 }
 
 func translationExchangeJobStates() []string {
-	return []string{
-		translationExchangeAsyncJobStatusRunning,
-		translationExchangeAsyncJobStatusCompleted,
-		translationExchangeAsyncJobStatusFailed,
-	}
+	return translationcontracts.ExchangeJobStates()
 }
 
 func translationStatusUnion(groups ...[]string) []string {
-	out := []string{}
-	seen := map[string]struct{}{}
-	for _, group := range groups {
-		for _, raw := range group {
-			value := strings.TrimSpace(raw)
-			if value == "" {
-				continue
-			}
-			key := strings.ToLower(value)
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			out = append(out, value)
-		}
-	}
-	return out
+	return translationcontracts.StatusUnion(groups...)
 }
 
 func normalizeTranslationReadinessState(state string) string {
-	switch strings.ToLower(strings.TrimSpace(state)) {
-	case translationReadinessStateReady:
-		return translationReadinessStateReady
-	case translationReadinessStateMissingLocales:
-		return translationReadinessStateMissingLocales
-	case translationReadinessStateMissingFields:
-		return translationReadinessStateMissingFields
-	case translationReadinessStateMissingLocalesFields:
-		return translationReadinessStateMissingLocalesFields
-	default:
-		return translationReadinessStateReady
-	}
+	return translationcontracts.NormalizeReadinessState(state)
 }
 
 func normalizeTranslationQueueState(state string) string {
-	normalized := normalizeTranslationAssignmentStatus(AssignmentStatus(state))
-	if normalized == "" {
-		return string(AssignmentStatusOpen)
-	}
-	return string(normalized)
+	return translationcontracts.NormalizeQueueState(state)
 }
 
 func normalizeTranslationQueueDueState(state string) string {
-	switch strings.ToLower(strings.TrimSpace(state)) {
-	case translationQueueDueStateOverdue:
-		return translationQueueDueStateOverdue
-	case translationQueueDueStateSoon:
-		return translationQueueDueStateSoon
-	case translationQueueDueStateOnTrack:
-		return translationQueueDueStateOnTrack
-	case translationQueueDueStateNone:
-		return translationQueueDueStateNone
-	default:
-		return translationQueueDueStateNone
-	}
+	return translationcontracts.NormalizeQueueDueState(state)
 }
 
 func normalizeTranslationExchangeRowStatus(status string) string {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case translationExchangeRowStatusSuccess:
-		return translationExchangeRowStatusSuccess
-	case translationExchangeRowStatusError:
-		return translationExchangeRowStatusError
-	case translationExchangeRowStatusConflict:
-		return translationExchangeRowStatusConflict
-	case translationExchangeRowStatusSkipped:
-		return translationExchangeRowStatusSkipped
-	default:
-		return translationExchangeRowStatusError
-	}
+	return translationcontracts.NormalizeExchangeRowStatus(status)
 }
 
 func normalizeTranslationExchangeJobStatus(status string) string {
-	switch strings.ToLower(strings.TrimSpace(status)) {
-	case translationExchangeAsyncJobStatusRunning:
-		return translationExchangeAsyncJobStatusRunning
-	case translationExchangeAsyncJobStatusCompleted:
-		return translationExchangeAsyncJobStatusCompleted
-	case translationExchangeAsyncJobStatusFailed:
-		return translationExchangeAsyncJobStatusFailed
-	default:
-		return translationExchangeAsyncJobStatusFailed
-	}
+	return translationcontracts.NormalizeExchangeJobStatus(status)
 }
 
 func applySourceTargetDriftContract(record map[string]any) {
-	if len(record) == 0 {
-		return
-	}
-	drift := sourceTargetDriftPayload(record)
-	if len(drift) == 0 {
-		return
-	}
-	record[translationSourceTargetDriftKey] = drift
+	translationcontracts.ApplySourceTargetDriftContract(record)
 }
 
 func sourceTargetDriftPayload(record map[string]any) map[string]any {
-	if len(record) == 0 || !hasSourceTargetDriftInput(record) {
-		return nil
-	}
-	existing := extractMap(record[translationSourceTargetDriftKey])
-	sourceHash := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-		toString(existing[translationSourceTargetDriftSourceHashKey]),
-		toString(record[translationSourceTargetDriftSourceHashKey]),
-		toString(record[translationSourceTargetDriftCurrentSourceHashKey]),
-	))
-	sourceVersion := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-		toString(existing[translationSourceTargetDriftSourceVersionKey]),
-		toString(record[translationSourceTargetDriftSourceVersionKey]),
-	))
-
-	summary := primitives.CloneAnyMap(extractMap(existing[translationSourceTargetDriftChangedSummaryKey]))
-	if len(summary) == 0 {
-		summary = primitives.CloneAnyMap(extractMap(record[translationSourceTargetDriftChangedSummaryKey]))
-	}
-	if summary == nil {
-		summary = map[string]any{}
-	}
-
-	changedFields := normalizeDriftFields(
-		toStringSlice(existing[translationSourceTargetDriftChangedFieldsKey]),
-		toStringSlice(record[translationSourceTargetDriftChangedFieldsKey]),
-		toStringSlice(record["source_changed_fields"]),
-		toStringSlice(summary[translationSourceTargetDriftSummaryFieldsKey]),
-		toStringSlice(summary[translationSourceTargetDriftChangedFieldsKey]),
-	)
-	summary[translationSourceTargetDriftSummaryFieldsKey] = changedFields
-	delete(summary, translationSourceTargetDriftChangedFieldsKey)
-	count := max(atoiDefault(toString(summary[translationSourceTargetDriftSummaryCountKey]), len(changedFields)), len(changedFields))
-	summary[translationSourceTargetDriftSummaryCountKey] = count
-
-	return map[string]any{
-		translationSourceTargetDriftSourceHashKey:     sourceHash,
-		translationSourceTargetDriftSourceVersionKey:  sourceVersion,
-		translationSourceTargetDriftChangedSummaryKey: summary,
-	}
+	return translationcontracts.SourceTargetDriftPayload(record)
 }
 
 func hasSourceTargetDriftInput(record map[string]any) bool {
-	if len(record) == 0 {
-		return false
-	}
-	if len(extractMap(record[translationSourceTargetDriftKey])) > 0 {
-		return true
-	}
-	if strings.TrimSpace(toString(record[translationSourceTargetDriftSourceHashKey])) != "" {
-		return true
-	}
-	if strings.TrimSpace(toString(record[translationSourceTargetDriftCurrentSourceHashKey])) != "" {
-		return true
-	}
-	if strings.TrimSpace(toString(record[translationSourceTargetDriftSourceVersionKey])) != "" {
-		return true
-	}
-	if len(toStringSlice(record[translationSourceTargetDriftChangedFieldsKey])) > 0 {
-		return true
-	}
-	if len(toStringSlice(record["source_changed_fields"])) > 0 {
-		return true
-	}
-	return len(extractMap(record[translationSourceTargetDriftChangedSummaryKey])) > 0
+	return translationcontracts.HasSourceTargetDriftInput(record)
 }
 
 func normalizeDriftFields(groups ...[]string) []string {
-	out := []string{}
-	seen := map[string]struct{}{}
-	for _, group := range groups {
-		for _, raw := range group {
-			field := strings.TrimSpace(raw)
-			if field == "" {
-				continue
-			}
-			key := strings.ToLower(field)
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			out = append(out, field)
-		}
-	}
-	sort.Strings(out)
-	return out
+	return translationcontracts.NormalizeDriftFields(groups...)
 }

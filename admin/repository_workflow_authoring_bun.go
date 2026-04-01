@@ -4,12 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	workflowauthoring "github.com/goliatone/go-admin/admin/internal/workflowauthoring"
 	"github.com/goliatone/go-command/flow"
 	"github.com/uptrace/bun"
 )
@@ -21,35 +22,9 @@ const (
 	workflowAuthoringCutoverMarker = "fsm_authoring_v1_cutover"
 )
 
-type bunWorkflowAuthoringMachineRecord struct {
-	bun.BaseModel `bun:"table:workflow_authoring_machines"`
+type bunWorkflowAuthoringMachineRecord = workflowauthoring.MachineRow
 
-	MachineID           string     `bun:"machine_id,pk" json:"machine_id"`
-	Name                string     `bun:"name,notnull" json:"name"`
-	Version             string     `bun:"version,notnull" json:"version"`
-	ETag                string     `bun:"etag,notnull" json:"e_tag"`
-	Draft               string     `bun:"draft,notnull" json:"draft"`
-	Diagnostics         string     `bun:"diagnostics,notnull" json:"diagnostics"`
-	UpdatedAt           time.Time  `bun:"updated_at,notnull" json:"updated_at"`
-	PublishedAt         *time.Time `bun:"published_at" json:"published_at"`
-	PublishedDefinition string     `bun:"published_definition" json:"published_definition"`
-	DeletedAt           *time.Time `bun:"deleted_at" json:"deleted_at"`
-}
-
-type bunWorkflowAuthoringVersionRecord struct {
-	bun.BaseModel `bun:"table:workflow_authoring_versions"`
-
-	MachineID           string     `bun:"machine_id,pk" json:"machine_id"`
-	Version             string     `bun:"version,pk" json:"version"`
-	Name                string     `bun:"name,notnull" json:"name"`
-	ETag                string     `bun:"etag,notnull" json:"e_tag"`
-	Draft               string     `bun:"draft,notnull" json:"draft"`
-	Diagnostics         string     `bun:"diagnostics,notnull" json:"diagnostics"`
-	UpdatedAt           time.Time  `bun:"updated_at,notnull" json:"updated_at"`
-	PublishedAt         *time.Time `bun:"published_at" json:"published_at"`
-	PublishedDefinition string     `bun:"published_definition" json:"published_definition"`
-	DeletedAt           *time.Time `bun:"deleted_at" json:"deleted_at"`
-}
+type bunWorkflowAuthoringVersionRecord = workflowauthoring.VersionRow
 
 type bunWorkflowMigrationMarkerRecord struct {
 	bun.BaseModel `bun:"table:workflow_migration_markers"`
@@ -87,7 +62,7 @@ func (s *BunWorkflowAuthoringStore) List(ctx context.Context, opts flow.Authorin
 	if opts.Limit != nil && *opts.Limit > 0 {
 		limit = *opts.Limit
 	}
-	offset := parseCursorOffset(opts.Cursor)
+	offset := workflowauthoring.ParseCursorOffset(opts.Cursor)
 	query := strings.ToLower(strings.TrimSpace(opts.Query))
 
 	rows := []bunWorkflowAuthoringMachineRecord{}
@@ -118,7 +93,7 @@ func (s *BunWorkflowAuthoringStore) List(ctx context.Context, opts flow.Authorin
 
 	items := make([]*flow.AuthoringMachineRecord, 0, len(rows))
 	for _, row := range rows {
-		rec, convErr := authoringMachineFromBunRow(row)
+		rec, convErr := workflowauthoring.MachineFromRow(row)
 		if convErr != nil {
 			return nil, convErr
 		}
@@ -152,7 +127,7 @@ func (s *BunWorkflowAuthoringStore) Load(ctx context.Context, machineID string) 
 	if row.DeletedAt != nil {
 		return nil, nil
 	}
-	return authoringMachineFromBunRow(row)
+	return workflowauthoring.MachineFromRow(row)
 }
 
 func (s *BunWorkflowAuthoringStore) Save(ctx context.Context, rec *flow.AuthoringMachineRecord, expectedVersion string) (*flow.AuthoringMachineRecord, error) {
@@ -349,7 +324,7 @@ func (s *BunWorkflowAuthoringStore) ListVersions(ctx context.Context, machineID 
 
 	items := make([]*flow.AuthoringMachineRecord, 0, len(rows))
 	for _, row := range rows {
-		rec, convErr := authoringVersionFromBunRow(row)
+		rec, convErr := workflowauthoring.VersionFromRow(row)
 		if convErr != nil {
 			return nil, false, convErr
 		}
@@ -377,7 +352,7 @@ func (s *BunWorkflowAuthoringStore) LoadVersion(ctx context.Context, machineID s
 		}
 		return nil, err
 	}
-	return authoringVersionFromBunRow(row)
+	return workflowauthoring.VersionFromRow(row)
 }
 
 func (s *BunWorkflowAuthoringStore) LoadAny(ctx context.Context, machineID string) (*flow.AuthoringMachineRecord, error) {
@@ -609,207 +584,33 @@ func workflowCutoverMarkerExists(ctx context.Context, db bun.IDB) (bool, error) 
 	return count > 0, nil
 }
 
+func normalizeAuthoringMachineRecord(rec *flow.AuthoringMachineRecord) (*flow.AuthoringMachineRecord, error) {
+	next, err := workflowauthoring.NormalizeMachineRecord(rec)
+	if err == nil {
+		return next, nil
+	}
+	switch {
+	case errors.Is(err, workflowauthoring.ErrAuthoringRecordRequired):
+		return nil, validationDomainError("authoring record required", nil)
+	case errors.Is(err, workflowauthoring.ErrMachineIDRequired):
+		return nil, requiredFieldDomainError("machine_id", nil)
+	default:
+		return nil, err
+	}
+}
+
 func bunAuthoringMachineRowFromRecord(rec *flow.AuthoringMachineRecord) (bunWorkflowAuthoringMachineRecord, error) {
-	if rec == nil {
+	row, err := workflowauthoring.MachineRowFromRecord(rec)
+	if errors.Is(err, workflowauthoring.ErrAuthoringRecordRequired) {
 		return bunWorkflowAuthoringMachineRecord{}, validationDomainError("authoring record required", nil)
 	}
-	draftRaw, err := json.Marshal(rec.Draft)
-	if err != nil {
-		return bunWorkflowAuthoringMachineRecord{}, err
-	}
-	diagsRaw, err := json.Marshal(rec.Diagnostics)
-	if err != nil {
-		return bunWorkflowAuthoringMachineRecord{}, err
-	}
-	publishedRaw := ""
-	if rec.PublishedDefinition != nil {
-		publishedBytes, publishedErr := json.Marshal(rec.PublishedDefinition)
-		if publishedErr != nil {
-			return bunWorkflowAuthoringMachineRecord{}, publishedErr
-		}
-		publishedRaw = string(publishedBytes)
-	}
-	return bunWorkflowAuthoringMachineRecord{
-		MachineID:           strings.TrimSpace(rec.MachineID),
-		Name:                strings.TrimSpace(rec.Name),
-		Version:             strings.TrimSpace(rec.Version),
-		ETag:                strings.TrimSpace(rec.ETag),
-		Draft:               string(draftRaw),
-		Diagnostics:         string(diagsRaw),
-		UpdatedAt:           rec.UpdatedAt.UTC(),
-		PublishedAt:         cloneAuthoringTimePtr(rec.PublishedAt),
-		PublishedDefinition: publishedRaw,
-		DeletedAt:           cloneAuthoringTimePtr(rec.DeletedAt),
-	}, nil
+	return row, err
 }
 
 func bunAuthoringVersionRowFromRecord(rec *flow.AuthoringMachineRecord) (bunWorkflowAuthoringVersionRecord, error) {
-	if rec == nil {
+	row, err := workflowauthoring.VersionRowFromRecord(rec)
+	if errors.Is(err, workflowauthoring.ErrAuthoringRecordRequired) {
 		return bunWorkflowAuthoringVersionRecord{}, validationDomainError("authoring record required", nil)
 	}
-	draftRaw, err := json.Marshal(rec.Draft)
-	if err != nil {
-		return bunWorkflowAuthoringVersionRecord{}, err
-	}
-	diagsRaw, err := json.Marshal(rec.Diagnostics)
-	if err != nil {
-		return bunWorkflowAuthoringVersionRecord{}, err
-	}
-	publishedRaw := ""
-	if rec.PublishedDefinition != nil {
-		publishedBytes, publishedErr := json.Marshal(rec.PublishedDefinition)
-		if publishedErr != nil {
-			return bunWorkflowAuthoringVersionRecord{}, publishedErr
-		}
-		publishedRaw = string(publishedBytes)
-	}
-	return bunWorkflowAuthoringVersionRecord{
-		MachineID:           strings.TrimSpace(rec.MachineID),
-		Version:             strings.TrimSpace(rec.Version),
-		Name:                strings.TrimSpace(rec.Name),
-		ETag:                strings.TrimSpace(rec.ETag),
-		Draft:               string(draftRaw),
-		Diagnostics:         string(diagsRaw),
-		UpdatedAt:           rec.UpdatedAt.UTC(),
-		PublishedAt:         cloneAuthoringTimePtr(rec.PublishedAt),
-		PublishedDefinition: publishedRaw,
-		DeletedAt:           cloneAuthoringTimePtr(rec.DeletedAt),
-	}, nil
-}
-
-func authoringMachineFromBunRow(row bunWorkflowAuthoringMachineRecord) (*flow.AuthoringMachineRecord, error) {
-	draft := flow.DraftMachineDocument{}
-	if err := json.Unmarshal([]byte(row.Draft), &draft); err != nil {
-		return nil, err
-	}
-	diags := []flow.ValidationDiagnostic{}
-	if strings.TrimSpace(row.Diagnostics) != "" {
-		if err := json.Unmarshal([]byte(row.Diagnostics), &diags); err != nil {
-			return nil, err
-		}
-	}
-	var published *flow.MachineDefinition
-	if strings.TrimSpace(row.PublishedDefinition) != "" {
-		value := &flow.MachineDefinition{}
-		if err := json.Unmarshal([]byte(row.PublishedDefinition), value); err != nil {
-			return nil, err
-		}
-		published = value
-	}
-	return &flow.AuthoringMachineRecord{
-		MachineID:           strings.TrimSpace(row.MachineID),
-		Name:                strings.TrimSpace(row.Name),
-		Version:             strings.TrimSpace(row.Version),
-		ETag:                strings.TrimSpace(row.ETag),
-		Draft:               draft,
-		Diagnostics:         append([]flow.ValidationDiagnostic(nil), diags...),
-		UpdatedAt:           row.UpdatedAt.UTC(),
-		PublishedAt:         cloneAuthoringTimePtr(row.PublishedAt),
-		PublishedDefinition: published,
-		DeletedAt:           cloneAuthoringTimePtr(row.DeletedAt),
-	}, nil
-}
-
-func authoringVersionFromBunRow(row bunWorkflowAuthoringVersionRecord) (*flow.AuthoringMachineRecord, error) {
-	draft := flow.DraftMachineDocument{}
-	if err := json.Unmarshal([]byte(row.Draft), &draft); err != nil {
-		return nil, err
-	}
-	diags := []flow.ValidationDiagnostic{}
-	if strings.TrimSpace(row.Diagnostics) != "" {
-		if err := json.Unmarshal([]byte(row.Diagnostics), &diags); err != nil {
-			return nil, err
-		}
-	}
-	var published *flow.MachineDefinition
-	if strings.TrimSpace(row.PublishedDefinition) != "" {
-		value := &flow.MachineDefinition{}
-		if err := json.Unmarshal([]byte(row.PublishedDefinition), value); err != nil {
-			return nil, err
-		}
-		published = value
-	}
-	return &flow.AuthoringMachineRecord{
-		MachineID:           strings.TrimSpace(row.MachineID),
-		Name:                strings.TrimSpace(row.Name),
-		Version:             strings.TrimSpace(row.Version),
-		ETag:                strings.TrimSpace(row.ETag),
-		Draft:               draft,
-		Diagnostics:         append([]flow.ValidationDiagnostic(nil), diags...),
-		UpdatedAt:           row.UpdatedAt.UTC(),
-		PublishedAt:         cloneAuthoringTimePtr(row.PublishedAt),
-		PublishedDefinition: published,
-		DeletedAt:           cloneAuthoringTimePtr(row.DeletedAt),
-	}, nil
-}
-
-func normalizeAuthoringMachineRecord(rec *flow.AuthoringMachineRecord) (*flow.AuthoringMachineRecord, error) {
-	next, err := cloneAuthoringMachine(rec)
-	if err != nil {
-		return nil, err
-	}
-	if next == nil {
-		return nil, validationDomainError("authoring record required", nil)
-	}
-	next.MachineID = strings.TrimSpace(next.MachineID)
-	if next.MachineID == "" {
-		return nil, requiredFieldDomainError("machine_id", nil)
-	}
-	next.Version = strings.TrimSpace(next.Version)
-	if next.Version == "" {
-		next.Version = "1"
-	}
-	next.Name = strings.TrimSpace(next.Name)
-	if next.Name == "" {
-		if next.Draft.Definition != nil {
-			next.Name = strings.TrimSpace(next.Draft.Definition.Name)
-		}
-	}
-	if next.Name == "" {
-		next.Name = next.MachineID
-	}
-	next.ETag = strings.TrimSpace(next.ETag)
-	if next.ETag == "" {
-		next.ETag = authoringRecordETag(next.MachineID, next.Version)
-	}
-	if next.UpdatedAt.IsZero() {
-		next.UpdatedAt = time.Now().UTC()
-	} else {
-		next.UpdatedAt = next.UpdatedAt.UTC()
-	}
-	if next.PublishedAt != nil {
-		value := next.PublishedAt.UTC()
-		next.PublishedAt = &value
-	}
-	if next.DeletedAt != nil {
-		value := next.DeletedAt.UTC()
-		next.DeletedAt = &value
-	}
-	sort.SliceStable(next.Diagnostics, func(i, j int) bool {
-		return strings.TrimSpace(next.Diagnostics[i].Path) < strings.TrimSpace(next.Diagnostics[j].Path)
-	})
-	return next, nil
-}
-
-func cloneAuthoringMachine(rec *flow.AuthoringMachineRecord) (*flow.AuthoringMachineRecord, error) {
-	if rec == nil {
-		return nil, nil
-	}
-	raw, err := json.Marshal(rec)
-	if err != nil {
-		return nil, err
-	}
-	out := &flow.AuthoringMachineRecord{}
-	if err := json.Unmarshal(raw, out); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func cloneAuthoringTimePtr(value *time.Time) *time.Time {
-	if value == nil {
-		return nil
-	}
-	normalized := value.UTC()
-	return &normalized
+	return row, err
 }

@@ -96,3 +96,20 @@ func TestResolveActiveLocaleCodesIgnoresResolversWithoutActiveLocaleSupport(t *t
 		t.Fatalf("expected nil codes when active locale support is absent, got %#v", codes)
 	}
 }
+
+func TestResolveLocaleIDHandlesNilContextAndCache(t *testing.T) {
+	localeID := uuid.New()
+	resolver := &localeResolverStub{
+		resolved: map[string]cms.LocaleInfo{
+			"fr": {ID: localeID, Code: "fr"},
+		},
+	}
+	cache := NewLocaleIDCache(resolver)
+
+	if got, ok := ResolveLocaleID(nil, cache, "fr"); !ok || got != localeID {
+		t.Fatalf("expected helper to resolve locale id %s with nil context, got %s ok=%v", localeID, got, ok)
+	}
+	if got, ok := ResolveLocaleID(context.Background(), nil, "fr"); ok || got != uuid.Nil {
+		t.Fatalf("expected nil cache to return nil uuid/false, got %s ok=%v", got, ok)
+	}
+}

@@ -306,7 +306,7 @@ func (r goCMSContentReadBoundary) legacyBlocksForContent(ctx context.Context, co
 	if a.blocks == nil {
 		return nil, ErrNotFound
 	}
-	pageID := a.resolvePageID(ctx, contentID)
+	pageID := resolveContentPageID(contentID)
 	if pageID == uuid.Nil {
 		return nil, nil
 	}
@@ -394,7 +394,7 @@ func (a *GoCMSContentAdapter) convertAdminContentRecord(ctx context.Context, rec
 func (r goCMSContentReadBoundary) convertAdminContentRecord(ctx context.Context, record cms.AdminContentRecord) CMSContent {
 	a := r.adapter
 	out := cmsadapter.AdminContentRecordToCMSContent(record)
-	if a != nil && a.shouldApplyStructuralMetadata(ctx, out, nil) {
+	if a != nil && a.contentWriter().shouldApplyStructuralMetadata(ctx, out, nil) {
 		if len(out.Metadata) == 0 {
 			if derived := cmsadapter.StructuralMetadataFromData(out.Data); len(derived) > 0 {
 				out.Metadata = derived
@@ -463,7 +463,7 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 	if len(out.EffectiveMenuLocations) > 0 {
 		out.Data["effective_menu_locations"] = append([]string{}, out.EffectiveMenuLocations...)
 	}
-	if a.shouldApplyStructuralMetadata(ctx, out, nil) {
+	if a != nil && a.contentWriter().shouldApplyStructuralMetadata(ctx, out, nil) {
 		if len(out.Metadata) == 0 {
 			if derived := cmsadapter.StructuralMetadataFromData(out.Data); len(derived) > 0 {
 				out.Metadata = derived
@@ -488,7 +488,7 @@ func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, valu
 		block.ID = id.String()
 	}
 	if defID, ok := gocmsutil.ExtractUUID(val, "DefinitionID"); ok {
-		if name := a.blockDefinitionName(defID); name != "" {
+		if name := r.blockDefinitionName(defID); name != "" {
 			block.DefinitionID = name
 			block.BlockType = name
 			block.BlockSchemaKey = name
@@ -511,7 +511,7 @@ func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, valu
 
 	translations := gocmsutil.Deref(val.FieldByName("Translations"))
 	var chosen reflect.Value
-	localeID, hasLocaleID := a.resolveLocaleID(ctx, locale)
+	localeID, hasLocaleID := gocmsutil.ResolveLocaleID(ctx, a.locales, locale)
 	for i := 0; translations.IsValid() && i < translations.Len(); i++ {
 		current := gocmsutil.Deref(translations.Index(i))
 		if !chosen.IsValid() {

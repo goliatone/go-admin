@@ -62,6 +62,16 @@ func (c *LocaleIDCache) Resolve(ctx context.Context, localeCode string) (uuid.UU
 	return record.ID, true
 }
 
+func ResolveLocaleID(ctx context.Context, cache *LocaleIDCache, localeCode string) (uuid.UUID, bool) {
+	if cache == nil {
+		return uuid.Nil, false
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return cache.Resolve(ctx, localeCode)
+}
+
 func ResolveActiveLocaleCodes(ctx context.Context, resolver LocaleResolver) ([]string, error) {
 	if resolver == nil {
 		return nil, nil

@@ -5,8 +5,6 @@ import (
 
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
-	"reflect"
-	"strings"
 
 	cms "github.com/goliatone/go-cms"
 	cmsblocks "github.com/goliatone/go-cms/blocks"
@@ -83,13 +81,6 @@ func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, co
 	}
 }
 
-func (a *GoCMSContentAdapter) resolveLocaleID(ctx context.Context, localeCode string) (uuid.UUID, bool) {
-	if a == nil || a.locales == nil {
-		return uuid.Nil, false
-	}
-	return a.locales.Resolve(ctx, localeCode)
-}
-
 func (a *GoCMSContentAdapter) CreatePage(ctx context.Context, page CMSPage) (*CMSPage, error) {
 	return a.contentWriter().CreatePage(ctx, page)
 }
@@ -141,139 +132,4 @@ func (a *GoCMSContentAdapter) SaveBlock(ctx context.Context, block CMSBlock) (*C
 
 func (a *GoCMSContentAdapter) DeleteBlock(ctx context.Context, id string) error {
 	return a.contentWriter().DeleteBlock(ctx, id)
-}
-
-func (a *GoCMSContentAdapter) createBlockInstance(ctx context.Context, defID, pageID uuid.UUID, block CMSBlock) (*CMSBlock, error) {
-	return a.contentWriter().createBlockInstance(ctx, defID, pageID, block)
-}
-
-func (a *GoCMSContentAdapter) updateBlockInstance(ctx context.Context, defID, pageID uuid.UUID, block CMSBlock) (*CMSBlock, error) {
-	return a.contentWriter().updateBlockInstance(ctx, defID, pageID, block)
-}
-
-func (a *GoCMSContentAdapter) upsertBlockTranslation(ctx context.Context, instanceID uuid.UUID, block CMSBlock, allowCreate bool) error {
-	return a.contentWriter().upsertBlockTranslation(ctx, instanceID, block, allowCreate)
-}
-
-func (a *GoCMSContentAdapter) resolveContentTypeID(ctx context.Context, content CMSContent) (uuid.UUID, error) {
-	return a.contentWriter().resolveContentTypeID(ctx, content)
-}
-
-func (a *GoCMSContentAdapter) resolveBlockDefinitionID(ctx context.Context, id string) (uuid.UUID, error) {
-	return a.contentWriter().resolveBlockDefinitionID(ctx, id)
-}
-
-func (a *GoCMSContentAdapter) blockDefinitionName(id uuid.UUID) string {
-	if a == nil {
-		return ""
-	}
-	return a.blockDefinitionCache.Name(id)
-}
-
-func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
-	if a == nil {
-		return
-	}
-	usedAdminBlocks := false
-	if a.adminBlocks != nil {
-		definitions, _, err := a.adminBlocks.ListDefinitions(ctx, cms.AdminBlockDefinitionListOptions{
-			EnvironmentKey: cmsContentChannelFromContext(ctx, ""),
-		})
-		if err == nil {
-			usedAdminBlocks = true
-			for _, definition := range definitions {
-				if definition.ID == uuid.Nil {
-					continue
-				}
-				a.blockDefinitionCache.PublishDefinition(
-					cmsadapter.AdminBlockDefinitionRecordToCMSBlockDefinition(definition),
-					definition.ID,
-					cmsContentChannelFromContext(ctx, ""),
-					true,
-				)
-			}
-		}
-	}
-	if !usedAdminBlocks && a.blocks != nil {
-		definitions, err := a.blocks.ListDefinitions(ctx)
-		if err != nil {
-			return
-		}
-		for _, definition := range definitions {
-			if definition == nil {
-				continue
-			}
-			id := definition.ID
-			if id == uuid.Nil {
-				continue
-			}
-			a.blockDefinitionCache.PublishDefinition(
-				cmsadapter.ConvertBlockDefinition(reflect.ValueOf(definition)),
-				id,
-				cmsContentChannelFromContext(ctx, ""),
-				true,
-			)
-		}
-	}
-}
-
-func (a *GoCMSContentAdapter) lookupBlockDefinitionID(ctx context.Context, id string) (uuid.UUID, bool) {
-	if a == nil {
-		return uuid.Nil, false
-	}
-	return a.blockDefinitionCache.LookupName(cmsContentChannelFromContext(ctx, ""), id)
-}
-
-func (a *GoCMSContentAdapter) resolvePageID(ctx context.Context, contentID string) uuid.UUID {
-	parsed := cmsadapter.UUIDFromString(contentID)
-	if parsed == uuid.Nil {
-		return uuid.Nil
-	}
-	return parsed
-}
-
-func (a *GoCMSContentAdapter) prepareContentMetadata(ctx context.Context, content CMSContent, existing *CMSContent) (map[string]any, map[string]any, bool) {
-	return a.contentWriter().prepareContentMetadata(ctx, content, existing)
-}
-
-func (a *GoCMSContentAdapter) shouldApplyStructuralMetadata(ctx context.Context, content CMSContent, existing *CMSContent) bool {
-	return a.contentWriter().shouldApplyStructuralMetadata(ctx, content, existing)
-}
-
-func (a *GoCMSContentAdapter) contentTypeForMetadata(ctx context.Context, content CMSContent) *CMSContentType {
-	if a == nil || a.contentTypes == nil {
-		return nil
-	}
-	for _, slug := range []string{content.ContentTypeSlug, content.ContentType} {
-		if key := strings.TrimSpace(slug); key != "" {
-			if ct, err := a.contentTypes.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
-				return ct
-			}
-		}
-	}
-	for _, key := range []string{content.ContentType, content.ContentTypeSlug} {
-		if id := cmsadapter.UUIDFromString(key); id != uuid.Nil {
-			if ct, err := a.contentTypes.ContentType(ctx, id.String()); err == nil && ct != nil {
-				return ct
-			}
-		}
-	}
-	if key := strings.TrimSpace(content.ContentType); key != "" {
-		if ct, err := a.contentTypes.ContentType(ctx, key); err == nil && ct != nil {
-			return ct
-		}
-	}
-	return nil
-}
-
-func (a *GoCMSContentAdapter) createPageFromContent(ctx context.Context, page CMSPage) (*CMSPage, error) {
-	return a.contentWriter().createPageFromContent(ctx, page)
-}
-
-func (a *GoCMSContentAdapter) updatePageFromContent(ctx context.Context, page CMSPage) (*CMSPage, error) {
-	return a.contentWriter().updatePageFromContent(ctx, page)
-}
-
-func (a *GoCMSContentAdapter) deletePageFromContent(ctx context.Context, id string) error {
-	return a.contentWriter().deletePageFromContent(ctx, id)
 }

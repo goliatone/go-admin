@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	translationqueue "github.com/goliatone/go-admin/admin/internal/translationqueue"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"sort"
 	"strings"
@@ -17,8 +18,8 @@ import (
 )
 
 const translationQueueDueSoonWindow = 48 * time.Hour
-const translationQueueMissingActorFilterToken = "__missing_actor__"
-const translationQueueReviewStateQABlocked = "qa_blocked"
+const translationQueueMissingActorFilterToken = translationqueue.MissingActorFilterToken
+const translationQueueReviewStateQABlocked = translationqueue.ReviewStateQABlocked
 
 var translationQueuePrioritySortRank = map[string]int{
 	"low":    0,
@@ -481,53 +482,15 @@ func (b *translationQueueBinding) prepareAssignmentRequest(c router.Context) (Ad
 
 func (b *translationQueueBinding) assignmentFilterFromRequest(adminCtx AdminContext, c router.Context) translationAssignmentListFilter {
 	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
-	filter := translationAssignmentListFilter{
-		Status:      strings.TrimSpace(strings.ToLower(c.Query("status"))),
-		AssigneeID:  translationQueueResolveActorFilter(c.Query("assignee_id"), actorID),
-		ReviewerID:  translationQueueResolveActorFilter(c.Query("reviewer_id"), actorID),
-		DueState:    strings.TrimSpace(strings.ToLower(c.Query("due_state"))),
-		Locale:      strings.TrimSpace(strings.ToLower(primitives.FirstNonEmptyRaw(c.Query("locale"), c.Query("target_locale")))),
-		Priority:    strings.TrimSpace(strings.ToLower(c.Query("priority"))),
-		ReviewState: normalizeTranslationQueueReviewState(c.Query("review_state")),
-		FamilyID:    strings.TrimSpace(c.Query("family_id")),
-		SortBy:      strings.TrimSpace(strings.ToLower(c.Query("sort"))),
-		SortDesc:    strings.EqualFold(strings.TrimSpace(c.Query("order")), "desc"),
-		TenantID:    strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.TenantID, tenantIDFromContext(adminCtx.Context))),
-		OrgID:       strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.OrgID, orgIDFromContext(adminCtx.Context))),
-	}
-	if !filter.SortDesc && strings.EqualFold(strings.TrimSpace(c.Query("direction")), "desc") {
-		filter.SortDesc = true
-	}
-	if filter.DueState != "" {
-		filter.DueState = normalizeTranslationQueueDueState(filter.DueState)
-	}
-	if filter.SortBy == "" {
-		filter.SortBy = strings.TrimSpace(strings.ToLower(c.Query("sort_by")))
-	}
-	if filter.SortBy == "" {
-		filter.SortBy = "updated_at"
-		filter.SortDesc = true
-	}
-	if reviewOnly := strings.TrimSpace(strings.ToLower(c.Query("review"))); reviewOnly == "1" || reviewOnly == "true" {
-		filter.Status = string(AssignmentStatusInReview)
-	}
-	return filter
+	return translationqueue.AssignmentFilterFromQuery(
+		func(key string) string { return c.Query(key) },
+		actorID,
+		strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.TenantID, tenantIDFromContext(adminCtx.Context))),
+		strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.OrgID, orgIDFromContext(adminCtx.Context))),
+	)
 }
 
-type translationAssignmentListFilter struct {
-	Status      string `json:"status"`
-	AssigneeID  string `json:"assignee_id"`
-	ReviewerID  string `json:"reviewer_id"`
-	DueState    string `json:"due_state"`
-	Locale      string `json:"locale"`
-	Priority    string `json:"priority"`
-	ReviewState string `json:"review_state"`
-	FamilyID    string `json:"family_id"`
-	SortBy      string `json:"sort_by"`
-	SortDesc    bool   `json:"sort_desc"`
-	TenantID    string `json:"tenant_id"`
-	OrgID       string `json:"org_id"`
-}
+type translationAssignmentListFilter = translationqueue.AssignmentListFilter
 
 func (b *translationQueueBinding) filterAssignments(ctx context.Context, assignments []TranslationAssignment, filter translationAssignmentListFilter, page, perPage int, environment string, now time.Time) ([]TranslationAssignment, int) {
 	matched := b.matchAssignments(assignments, filter, now)
@@ -613,48 +576,23 @@ func matchesAssignmentListFilter(assignment TranslationAssignment, filter transl
 }
 
 func translationQueueResolveActorFilter(value, actorID string) string {
-	value = strings.TrimSpace(value)
-	if strings.EqualFold(value, "__me__") {
-		if actorID = strings.TrimSpace(actorID); actorID != "" {
-			return actorID
-		}
-		return translationQueueMissingActorFilterToken
-	}
-	return value
+	return translationqueue.ResolveActorFilter(value, actorID)
 }
 
 func translationQueueListFilterMatches(filterValue, candidate string, normalize func(string) string) bool {
-	filterValue = strings.TrimSpace(filterValue)
-	if filterValue == "" {
-		return true
-	}
-	candidate = normalize(candidate)
-	if candidate == "" {
-		return false
-	}
-	for item := range strings.SplitSeq(filterValue, ",") {
-		if normalize(item) == candidate {
-			return true
-		}
-	}
-	return false
+	return translationqueue.ListFilterMatches(filterValue, candidate, normalize)
 }
 
 func normalizeTranslationQueuePriorityFilterValue(value string) string {
-	return strings.TrimSpace(strings.ToLower(value))
+	return translationqueue.NormalizePriorityFilterValue(value)
 }
 
 func normalizeTranslationQueueLocaleFilterValue(value string) string {
-	return strings.TrimSpace(strings.ToLower(value))
+	return translationqueue.NormalizeLocaleFilterValue(value)
 }
 
 func normalizeTranslationQueueReviewState(value string) string {
-	switch strings.TrimSpace(strings.ToLower(value)) {
-	case translationQueueReviewStateQABlocked:
-		return translationQueueReviewStateQABlocked
-	default:
-		return ""
-	}
+	return translationqueue.NormalizeReviewState(value)
 }
 
 func sortAssignments(assignments []TranslationAssignment, sortBy string, sortDesc bool, now time.Time) {
@@ -1715,186 +1653,42 @@ func (b *translationQueueBinding) translationPolicyForPanel(panel *Panel) Transl
 }
 
 func translationQueueSourceRecordOption(record map[string]any, panelName string) map[string]any {
-	id := strings.TrimSpace(toString(record["id"]))
-	if id == "" {
-		return nil
-	}
-	label := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-		toString(record["source_title"]),
-		toString(record["title"]),
-		toString(record["name"]),
-		toString(record["slug"]),
-		id,
-	))
-	previewParts := []string{}
-	if path := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["source_path"]), toString(record["path"]), toString(record["slug"]))); path != "" {
-		previewParts = append(previewParts, path)
-	}
-	if locale := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["locale"]), toString(record["resolved_locale"]), toString(record["source_locale"]))); locale != "" {
-		previewParts = append(previewParts, strings.ToUpper(locale))
-	}
-	if len(previewParts) > 0 {
-		label = label + " • " + strings.Join(previewParts, " • ")
-	}
-	descriptionParts := []string{}
-	if path := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["source_path"]), toString(record["path"]), toString(record["slug"]))); path != "" {
-		descriptionParts = append(descriptionParts, path)
-	}
-	if locale := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["locale"]), toString(record["resolved_locale"]), toString(record["source_locale"]))); locale != "" {
-		descriptionParts = append(descriptionParts, strings.ToUpper(locale))
-	}
-	if status := strings.TrimSpace(toString(record["status"])); status != "" {
-		descriptionParts = append(descriptionParts, status)
-	}
-	description := strings.Join(descriptionParts, " • ")
-
-	option := map[string]any{
-		"value": id,
-		"label": label,
-	}
-	if locale := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["source_locale"]), toString(record["locale"]), toString(record["resolved_locale"]))); locale != "" {
-		option["source_locale"] = strings.ToLower(locale)
-	}
-	if description != "" {
-		option["description"] = description
-	}
-	if groupID := strings.TrimSpace(translationFamilyIDFromRecord(record)); groupID != "" {
-		option["family_id"] = groupID
-	}
-	if panelName != "" {
-		option["entity_type"] = normalizeTranslationQueueEntityType(panelName)
-	}
-	return option
+	return translationqueue.SourceRecordOption(record, panelName)
 }
 
 func translationQueueAssigneeOption(record map[string]any) map[string]any {
-	id := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-		toString(record["id"]),
-		toString(record["user_id"]),
-		toString(record["assignee_id"]),
-	))
-	if id == "" {
-		return nil
-	}
-	displayName := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-		toString(record["display_name"]),
-		toString(record["full_name"]),
-		toString(record["name"]),
-		toString(record["username"]),
-		toString(record["email"]),
-		id,
-	))
-	label := displayName
-	descriptionParts := []string{}
-	if email := strings.TrimSpace(toString(record["email"])); email != "" && !strings.EqualFold(email, label) {
-		descriptionParts = append(descriptionParts, email)
-	}
-	if role := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(record["role"]), toString(record["role_key"]))); role != "" {
-		descriptionParts = append(descriptionParts, role)
-	}
-	if status := strings.TrimSpace(toString(record["status"])); status != "" {
-		descriptionParts = append(descriptionParts, status)
-	}
-	option := map[string]any{
-		"value":        id,
-		"label":        label,
-		"display_name": displayName,
-	}
-	if avatarURL := translationQueueAssigneeAvatarURL(record); avatarURL != "" {
-		option["avatar_url"] = avatarURL
-	}
-	if len(descriptionParts) > 0 {
-		option["description"] = strings.Join(descriptionParts, " • ")
-	}
-	return option
+	return translationqueue.AssigneeOption(record)
 }
 
 func translationQueueAssigneeAvatarURL(record map[string]any) string {
-	return strings.TrimSpace(primitives.FirstNonEmptyRaw(
-		toString(record["avatar_url"]),
-		toString(record["avatar"]),
-		toString(record["profile_avatar_url"]),
-		toString(record["profile_picture"]),
-		toString(record["picture"]),
-		toString(record["image_url"]),
-		toString(record["photo_url"]),
-	))
+	return translationqueue.AssigneeAvatarURL(record)
 }
 
 func translationQueueOptionsSearch(c router.Context) string {
 	if c == nil {
 		return ""
 	}
-	return strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("search"), c.Query("q")))
+	return translationqueue.OptionsSearch(func(key string) string { return c.Query(key) })
 }
 
 func translationQueueFilterOptionsBySearch(options []map[string]any, search string) []map[string]any {
-	search = strings.ToLower(strings.TrimSpace(search))
-	if search == "" || len(options) == 0 {
-		return options
-	}
-	out := make([]map[string]any, 0, len(options))
-	for _, option := range options {
-		if translationQueueOptionMatchesSearch(option, search) {
-			out = append(out, option)
-		}
-	}
-	return out
+	return translationqueue.FilterOptionsBySearch(options, search)
 }
 
 func translationQueueOptionMatchesSearch(option map[string]any, search string) bool {
-	search = strings.ToLower(strings.TrimSpace(search))
-	if search == "" {
-		return true
-	}
-	for _, key := range []string{"label", "value", "description"} {
-		if strings.Contains(strings.ToLower(strings.TrimSpace(toString(option[key]))), search) {
-			return true
-		}
-	}
-	return false
+	return translationqueue.OptionMatchesSearch(option, search)
 }
 
 func sortTranslationQueueOptions(options []map[string]any) {
-	if len(options) == 0 {
-		return
-	}
-	sort.SliceStable(options, func(i, j int) bool {
-		left := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(options[i]["label"]), toString(options[i]["value"]))))
-		right := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(options[j]["label"]), toString(options[j]["value"]))))
-		if left == right {
-			return strings.ToLower(strings.TrimSpace(toString(options[i]["value"]))) < strings.ToLower(strings.TrimSpace(toString(options[j]["value"])))
-		}
-		return left < right
-	})
+	translationqueue.SortOptions(options)
 }
 
 func normalizeTranslationQueueEntityType(raw string) string {
-	value := strings.TrimSpace(raw)
-	if value == "" {
-		return ""
-	}
-	if idx := strings.Index(value, "@"); idx > 0 {
-		value = strings.TrimSpace(value[:idx])
-	}
-	return strings.ToLower(value)
+	return translationqueue.NormalizeEntityType(raw)
 }
 
 func translationQueueEntityTypeLabel(entityType string) string {
-	entityType = normalizeTranslationQueueEntityType(entityType)
-	if entityType == "" {
-		return ""
-	}
-	entityType = strings.ReplaceAll(entityType, "-", " ")
-	entityType = strings.ReplaceAll(entityType, "_", " ")
-	parts := strings.Fields(entityType)
-	for i, part := range parts {
-		if part == "" {
-			continue
-		}
-		parts[i] = strings.ToUpper(part[:1]) + part[1:]
-	}
-	return strings.Join(parts, " ")
+	return translationqueue.EntityTypeLabel(entityType)
 }
 
 func clampInt(value, minValue, maxValue int) int {

@@ -56,12 +56,13 @@ func (s *stubContentTypeService) DeleteContentType(_ context.Context, id string)
 }
 
 type stubCMSContainer struct {
-	types admin.CMSContentTypeService
+	types   admin.CMSContentTypeService
+	content admin.CMSContentService
 }
 
 func (s stubCMSContainer) WidgetService() admin.CMSWidgetService   { return nil }
 func (s stubCMSContainer) MenuService() admin.CMSMenuService       { return nil }
-func (s stubCMSContainer) ContentService() admin.CMSContentService { return nil }
+func (s stubCMSContainer) ContentService() admin.CMSContentService { return s.content }
 func (s stubCMSContainer) ContentTypeService() admin.CMSContentTypeService {
 	return s.types
 }
