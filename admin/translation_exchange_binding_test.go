@@ -1324,7 +1324,40 @@ func TestDebugTranslationExchangeRecordedHistoryJob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list jobs: %v", err)
 	}
-	t.Fatalf("payload=%+v total=%d jobs=%+v", payload, total, jobs)
+
+	otherReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
+	otherReq.Header.Set("Content-Type", "application/json")
+	otherReq.Header.Set("X-User-ID", "other-user")
+	otherResp, err := app.Test(otherReq)
+	if err != nil {
+		t.Fatalf("other request error: %v", err)
+	}
+	if otherResp.StatusCode != http.StatusOK {
+		t.Fatalf("other create status=%d want=200", otherResp.StatusCode)
+	}
+	_ = otherResp.Body.Close()
+
+	ownerJobs, ownerTotal, err := binding.runtime.ListJobs(context.Background(), translationExchangeJobQuery{
+		Identity: translationTransportIdentity{ActorID: "owner-user"},
+		Page:     1,
+		PerPage:  100,
+	})
+	if err != nil {
+		t.Fatalf("list owner jobs: %v", err)
+	}
+	allHistoryReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs?include_examples=true&kind=export", nil)
+	allHistoryReq.Header.Set("X-User-ID", "owner-user")
+	allHistoryResp, err := app.Test(allHistoryReq)
+	if err != nil {
+		t.Fatalf("history request error: %v", err)
+	}
+	var historyPayload map[string]any
+	if err := json.NewDecoder(allHistoryResp.Body).Decode(&historyPayload); err != nil {
+		t.Fatalf("decode history response: %v", err)
+	}
+	_ = allHistoryResp.Body.Close()
+
+	t.Fatalf("create=%+v total=%d jobs=%+v ownerTotal=%d ownerJobs=%+v history=%+v", payload, total, jobs, ownerTotal, ownerJobs, historyPayload)
 }
 
 func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testing.T) {
