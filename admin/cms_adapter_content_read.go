@@ -216,7 +216,7 @@ func (r goCMSContentReadBoundary) fetchContent(ctx context.Context, id, locale s
 		}
 		return &rec, nil
 	}
-	uid := uuidFromString(id)
+	uid := cmsadapter.UUIDFromString(id)
 	if uid == uuid.Nil {
 		return nil, ErrNotFound
 	}
@@ -286,7 +286,7 @@ func (r goCMSContentReadBoundary) legacyBlocksForContent(ctx context.Context, co
 	if a == nil {
 		return nil, ErrNotFound
 	}
-	if uuidFromString(contentID) == uuid.Nil {
+	if cmsadapter.UUIDFromString(contentID) == uuid.Nil {
 		return nil, nil
 	}
 	if a.adminBlocks != nil {
@@ -414,17 +414,17 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 	if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
 		out.ID = id.String()
 	}
-	out.Slug = stringField(val, "Slug")
-	out.Status = stringField(val, "Status")
+	out.Slug = cmsadapter.StringField(val, "Slug")
+	out.Status = cmsadapter.StringField(val, "Status")
 
 	if typ := val.FieldByName("Type"); typ.IsValid() {
 		typeVal := gocmsutil.Deref(typ)
-		if slug := stringField(typeVal, "Slug"); slug != "" {
+		if slug := cmsadapter.StringField(typeVal, "Slug"); slug != "" {
 			out.ContentTypeSlug = slug
 			out.ContentType = slug
 		}
 		if out.ContentType == "" {
-			if name := stringField(typeVal, "Name"); name != "" {
+			if name := cmsadapter.StringField(typeVal, "Name"); name != "" {
 				out.ContentType = name
 			}
 		}
@@ -499,7 +499,7 @@ func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, valu
 	if pageID, ok := gocmsutil.ExtractUUID(val, "PageID"); ok {
 		block.ContentID = pageID.String()
 	}
-	block.Region = stringField(val, "Region")
+	block.Region = cmsadapter.StringField(val, "Region")
 	if pos, ok := gocmsutil.GetIntField(val, "Position"); ok {
 		block.Position = pos
 	}
@@ -570,15 +570,15 @@ func pageFromContent(content CMSContent) CMSPage {
 	if meta != nil {
 		data = cmsadapter.InjectStructuralMetadata(meta, data)
 	}
-	path := strings.TrimSpace(asString(data["path"], asString(meta["path"], "")))
-	parentID := strings.TrimSpace(asString(data["parent_id"], asString(meta["parent_id"], "")))
-	templateID := strings.TrimSpace(asString(data["template_id"], asString(meta["template_id"], asString(data["template"], ""))))
+	path := strings.TrimSpace(cmsadapter.AsString(data["path"], cmsadapter.AsString(meta["path"], "")))
+	parentID := strings.TrimSpace(cmsadapter.AsString(data["parent_id"], cmsadapter.AsString(meta["parent_id"], "")))
+	templateID := strings.TrimSpace(cmsadapter.AsString(data["template_id"], cmsadapter.AsString(meta["template_id"], cmsadapter.AsString(data["template"], ""))))
 
 	seo := map[string]any{}
-	if mt := strings.TrimSpace(asString(data["meta_title"], "")); mt != "" {
+	if mt := strings.TrimSpace(cmsadapter.AsString(data["meta_title"], "")); mt != "" {
 		seo["title"] = mt
 	}
-	if md := strings.TrimSpace(asString(data["meta_description"], "")); md != "" {
+	if md := strings.TrimSpace(cmsadapter.AsString(data["meta_description"], "")); md != "" {
 		seo["description"] = md
 	}
 

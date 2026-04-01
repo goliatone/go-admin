@@ -57,7 +57,7 @@ func (a *GoCMSContentTypeAdapter) ContentType(ctx context.Context, id string) (*
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
-	uid := uuidFromString(id)
+	uid := cmsadapter.UUIDFromString(id)
 	if uid == uuid.Nil {
 		return nil, ErrNotFound
 	}
@@ -168,7 +168,7 @@ func (a *GoCMSContentTypeAdapter) UpdateContentType(ctx context.Context, content
 		return nil, err
 	}
 	req := cmscontent.UpdateContentTypeRequest{
-		ID:                   uuidFromString(contentType.ID),
+		ID:                   cmsadapter.UUIDFromString(contentType.ID),
 		Schema:               primitives.CloneAnyMap(contentType.Schema),
 		UISchema:             primitives.CloneAnyMap(contentType.UISchema),
 		Capabilities:         primitives.CloneAnyMap(normalizedCaps),
@@ -214,7 +214,7 @@ func (a *GoCMSContentTypeAdapter) DeleteContentType(ctx context.Context, id stri
 		return ErrNotFound
 	}
 	req := cmscontent.DeleteContentTypeRequest{
-		ID:         uuidFromString(id),
+		ID:         cmsadapter.UUIDFromString(id),
 		DeletedBy:  actorUUID(ctx),
 		HardDelete: true,
 	}
@@ -258,9 +258,9 @@ func convertGoCMSContentType(value *cmscontent.ContentType) CMSContentType {
 		contentType.Icon = strings.TrimSpace(*value.Icon)
 	}
 	channel := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-		stringField(reflect.ValueOf(value), "Channel"),
-		stringField(reflect.ValueOf(value), "Environment"),
-		stringField(reflect.ValueOf(value), "EnvironmentKey"),
+		cmsadapter.StringField(reflect.ValueOf(value), "Channel"),
+		cmsadapter.StringField(reflect.ValueOf(value), "Environment"),
+		cmsadapter.StringField(reflect.ValueOf(value), "EnvironmentKey"),
 	))
 	cmsadapter.SetContentTypeChannel(&contentType, channel)
 	return contentType

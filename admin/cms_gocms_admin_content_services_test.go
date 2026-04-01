@@ -236,7 +236,7 @@ func TestGoCMSContentAdapterContentAppliesLegacyFallbackAfterAdminRead(t *testin
 	}
 	svc := newGoCMSContentAdapter(contentSvc, nil, blockSvc, nil, nil, adminRead, nil, nil, nil)
 	adapter := svc.(*GoCMSContentAdapter)
-	adapter.publishBlockDefinitionCache(map[string]uuid.UUID{"hero": defID}, map[uuid.UUID]string{defID: "hero"})
+	adapter.blockDefinitionCache.Publish(map[string]uuid.UUID{"hero": defID}, map[uuid.UUID]string{defID: "hero"})
 
 	item, err := adapter.Content(ctx, contentID.String(), "en")
 	if err != nil {

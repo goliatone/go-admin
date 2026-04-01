@@ -171,6 +171,27 @@ func TestResolveBlockDefinitionCacheEnvPrefersDefinitionChannel(t *testing.T) {
 	}
 }
 
+func TestBlockDefinitionCachePublishDefinitionAndLookupName(t *testing.T) {
+	cache := NewBlockDefinitionCache()
+	id := uuid.New()
+	def := cmsboot.CMSBlockDefinition{
+		Name: "Hero Banner",
+		Slug: "hero-banner",
+	}
+
+	cache.PublishDefinition(def, id, "preview", true)
+
+	if got, ok := cache.LookupName("preview", "hero-banner"); !ok || got != id {
+		t.Fatalf("expected preview hero-banner lookup to resolve %s, got %s ok=%v", id, got, ok)
+	}
+	if got, ok := cache.LookupName("", "Hero Banner"); !ok || got != id {
+		t.Fatalf("expected global Hero Banner alias lookup to resolve %s, got %s ok=%v", id, got, ok)
+	}
+	if got := cache.Name(id); got != "hero-banner" {
+		t.Fatalf("expected primary name hero-banner, got %q", got)
+	}
+}
+
 func TestBlockDefinitionCacheSupportsConcurrentReadWrite(t *testing.T) {
 	cache := NewBlockDefinitionCache()
 	heroID := uuid.New()

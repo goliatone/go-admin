@@ -69,6 +69,25 @@ func (c *BlockDefinitionCache) Name(id uuid.UUID) string {
 	return c.names[id]
 }
 
+func (c *BlockDefinitionCache) PublishDefinition(def cmsboot.CMSBlockDefinition, id uuid.UUID, env string, includeGlobal bool) {
+	if c == nil || id == uuid.Nil {
+		return
+	}
+	defs := map[string]uuid.UUID{}
+	names := map[uuid.UUID]string{}
+	CollectBlockDefinitionCacheEntry(defs, names, NewBlockDefinitionCacheEntry(
+		def,
+		id,
+		ResolveBlockDefinitionCacheEnv(def, env),
+		includeGlobal,
+	))
+	c.Publish(defs, names)
+}
+
+func (c *BlockDefinitionCache) LookupName(env, key string) (uuid.UUID, bool) {
+	return c.Lookup(CacheKey(env, key), CacheKey("", key))
+}
+
 func CacheKey(env, key string) string {
 	normalized := strings.ToLower(strings.TrimSpace(key))
 	if normalized == "" {

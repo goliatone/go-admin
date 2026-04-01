@@ -84,7 +84,7 @@ func CMSContentToAdminContentCreateRequest(content cmsboot.CMSContent, contentTy
 
 func CMSContentToAdminContentUpdateRequest(content cmsboot.CMSContent, contentTypeID, actor uuid.UUID, allowMissing bool) cms.AdminContentUpdateRequest {
 	return cms.AdminContentUpdateRequest{
-		ID:                       uuidFromString(content.ID),
+		ID:                       UUIDFromString(content.ID),
 		ContentTypeID:            contentTypeID,
 		ContentType:              strings.TrimSpace(content.ContentType),
 		ContentTypeSlug:          strings.TrimSpace(content.ContentTypeSlug),
@@ -153,20 +153,12 @@ func nonNilUUIDString(value uuid.UUID) string {
 }
 
 func uuidPointer(raw string) *uuid.UUID {
-	value := uuidFromString(raw)
+	value := UUIDFromString(raw)
 	if value == uuid.Nil {
 		return nil
 	}
 	copy := value
 	return &copy
-}
-
-func uuidFromString(value string) uuid.UUID {
-	parsed, err := uuid.Parse(strings.TrimSpace(value))
-	if err != nil {
-		return uuid.Nil
-	}
-	return parsed
 }
 
 func cloneTimeValue(value *time.Time) time.Time {

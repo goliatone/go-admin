@@ -14,10 +14,10 @@ import (
 func ConvertBlockDefinition(value reflect.Value) cmsboot.CMSBlockDefinition {
 	val := gocmsutil.Deref(value)
 	def := cmsboot.CMSBlockDefinition{}
-	if name := strings.TrimSpace(stringField(val, "Name")); name != "" {
+	if name := strings.TrimSpace(StringField(val, "Name")); name != "" {
 		def.Name = name
 	}
-	if slug := strings.TrimSpace(stringField(val, "Slug")); slug != "" {
+	if slug := strings.TrimSpace(StringField(val, "Slug")); slug != "" {
 		def.Slug = slug
 	}
 	def.ID = strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Slug, def.Name))
@@ -26,19 +26,19 @@ func ConvertBlockDefinition(value reflect.Value) cmsboot.CMSBlockDefinition {
 			def.ID = id.String()
 		}
 	}
-	if desc := strings.TrimSpace(stringField(val, "Description")); desc != "" {
+	if desc := strings.TrimSpace(StringField(val, "Description")); desc != "" {
 		def.Description = desc
 		def.DescriptionSet = true
 	}
-	if icon := strings.TrimSpace(stringField(val, "Icon")); icon != "" {
+	if icon := strings.TrimSpace(StringField(val, "Icon")); icon != "" {
 		def.Icon = icon
 		def.IconSet = true
 	}
-	if category := strings.TrimSpace(stringField(val, "Category")); category != "" {
+	if category := strings.TrimSpace(StringField(val, "Category")); category != "" {
 		def.Category = category
 		def.CategorySet = true
 	}
-	if status := strings.TrimSpace(stringField(val, "Status")); status != "" {
+	if status := strings.TrimSpace(StringField(val, "Status")); status != "" {
 		def.Status = status
 	}
 	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
@@ -56,19 +56,19 @@ func ConvertBlockDefinition(value reflect.Value) cmsboot.CMSBlockDefinition {
 			def.UISchema = primitives.CloneAnyMap(uiSchema)
 		}
 	}
-	if version := strings.TrimSpace(stringField(val, "SchemaVersion")); version != "" {
+	if version := strings.TrimSpace(StringField(val, "SchemaVersion")); version != "" {
 		def.SchemaVersion = version
 	}
 	if def.SchemaVersion == "" {
 		def.SchemaVersion = schemaVersionFromSchema(def.Schema)
 	}
-	if status := strings.TrimSpace(stringField(val, "MigrationStatus")); status != "" {
+	if status := strings.TrimSpace(StringField(val, "MigrationStatus")); status != "" {
 		def.MigrationStatus = status
 	}
 	channel := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-		stringField(val, "Channel"),
-		stringField(val, "Environment"),
-		stringField(val, "Env"),
+		StringField(val, "Channel"),
+		StringField(val, "Environment"),
+		StringField(val, "Env"),
 	))
 	SetBlockDefinitionChannel(&def, channel)
 	if def.MigrationStatus == "" {
@@ -90,12 +90,12 @@ func ConvertBlockDefinitionVersion(value reflect.Value) cmsboot.CMSBlockDefiniti
 		out.DefinitionID = defID.String()
 	}
 	if out.ID == "" {
-		out.ID = strings.TrimSpace(stringField(val, "ID"))
+		out.ID = strings.TrimSpace(StringField(val, "ID"))
 	}
 	if out.DefinitionID == "" {
-		out.DefinitionID = strings.TrimSpace(stringField(val, "DefinitionID"))
+		out.DefinitionID = strings.TrimSpace(StringField(val, "DefinitionID"))
 	}
-	if version := strings.TrimSpace(stringField(val, "SchemaVersion")); version != "" {
+	if version := strings.TrimSpace(StringField(val, "SchemaVersion")); version != "" {
 		out.SchemaVersion = version
 	}
 	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
@@ -114,30 +114,6 @@ func ConvertBlockDefinitionVersion(value reflect.Value) cmsboot.CMSBlockDefiniti
 	out.CreatedAt = timeField(val, "CreatedAt")
 	out.UpdatedAt = timeField(val, "UpdatedAt")
 	return out
-}
-
-func stringField(val reflect.Value, field string) string {
-	if val.Kind() == reflect.Pointer {
-		if val.IsNil() {
-			return ""
-		}
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Struct {
-		return ""
-	}
-	f := val.FieldByName(field)
-	if f.IsValid() {
-		switch f.Kind() {
-		case reflect.String:
-			return f.String()
-		case reflect.Pointer:
-			if !f.IsNil() && f.Elem().Kind() == reflect.String {
-				return f.Elem().String()
-			}
-		}
-	}
-	return ""
 }
 
 func timeField(val reflect.Value, field string) time.Time {

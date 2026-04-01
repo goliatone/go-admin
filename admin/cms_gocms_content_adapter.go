@@ -5,7 +5,6 @@ import (
 
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"reflect"
 	"strings"
 
@@ -82,19 +81,6 @@ func newGoCMSContentAdapter(contentSvc any, translationSvc any, blockSvc any, co
 		adminBlockW:          adminBlockWrite,
 		blockDefinitionCache: cmsadapter.NewBlockDefinitionCache(),
 	}
-}
-
-func buildGoCMSContentTranslations(content CMSContent) []cmscontent.ContentTranslationInput {
-	tr := cmscontent.ContentTranslationInput{
-		Locale:  content.Locale,
-		Title:   content.Title,
-		Content: primitives.CloneAnyMap(content.Data),
-	}
-	if summary := strings.TrimSpace(asString(content.Data["excerpt"], "")); summary != "" {
-		s := summary
-		tr.Summary = &s
-	}
-	return []cmscontent.ContentTranslationInput{tr}
 }
 
 func (a *GoCMSContentAdapter) resolveLocaleID(ctx context.Context, localeCode string) (uuid.UUID, bool) {
@@ -188,8 +174,6 @@ func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
 	if a == nil {
 		return
 	}
-	defCache := map[string]uuid.UUID{}
-	defNames := map[uuid.UUID]string{}
 	usedAdminBlocks := false
 	if a.adminBlocks != nil {
 		definitions, _, err := a.adminBlocks.ListDefinitions(ctx, cms.AdminBlockDefinitionListOptions{
@@ -201,7 +185,12 @@ func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
 				if definition.ID == uuid.Nil {
 					continue
 				}
-				collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, cmsadapter.AdminBlockDefinitionRecordToCMSBlockDefinition(definition), definition.ID, true)
+				a.blockDefinitionCache.PublishDefinition(
+					cmsadapter.AdminBlockDefinitionRecordToCMSBlockDefinition(definition),
+					definition.ID,
+					cmsContentChannelFromContext(ctx, ""),
+					true,
+				)
 			}
 		}
 	}
@@ -218,39 +207,25 @@ func (a *GoCMSContentAdapter) refreshBlockDefinitions(ctx context.Context) {
 			if id == uuid.Nil {
 				continue
 			}
-			collectGoCMSBlockDefinitionCacheEntries(defCache, defNames, ctx, cmsadapter.ConvertBlockDefinition(reflect.ValueOf(definition)), id, true)
+			a.blockDefinitionCache.PublishDefinition(
+				cmsadapter.ConvertBlockDefinition(reflect.ValueOf(definition)),
+				id,
+				cmsContentChannelFromContext(ctx, ""),
+				true,
+			)
 		}
 	}
-	a.publishBlockDefinitionCache(defCache, defNames)
-}
-
-func collectGoCMSBlockDefinitionCacheEntries(target map[string]uuid.UUID, names map[uuid.UUID]string, ctx context.Context, def CMSBlockDefinition, id uuid.UUID, includeGlobal bool) {
-	cmsadapter.CollectBlockDefinitionCacheEntry(target, names, cmsadapter.NewBlockDefinitionCacheEntry(
-		def,
-		id,
-		cmsadapter.ResolveBlockDefinitionCacheEnv(def, cmsContentChannelFromContext(ctx, "")),
-		includeGlobal,
-	))
-}
-
-func (a *GoCMSContentAdapter) publishBlockDefinitionCache(defs map[string]uuid.UUID, names map[uuid.UUID]string) {
-	if a == nil {
-		return
-	}
-	a.blockDefinitionCache.Publish(defs, names)
 }
 
 func (a *GoCMSContentAdapter) lookupBlockDefinitionID(ctx context.Context, id string) (uuid.UUID, bool) {
 	if a == nil {
 		return uuid.Nil, false
 	}
-	envKey := cmsadapter.CacheKey(cmsContentChannelFromContext(ctx, ""), id)
-	globalKey := cmsadapter.CacheKey("", id)
-	return a.blockDefinitionCache.Lookup(envKey, globalKey)
+	return a.blockDefinitionCache.LookupName(cmsContentChannelFromContext(ctx, ""), id)
 }
 
 func (a *GoCMSContentAdapter) resolvePageID(ctx context.Context, contentID string) uuid.UUID {
-	parsed := uuidFromString(contentID)
+	parsed := cmsadapter.UUIDFromString(contentID)
 	if parsed == uuid.Nil {
 		return uuid.Nil
 	}
@@ -277,7 +252,7 @@ func (a *GoCMSContentAdapter) contentTypeForMetadata(ctx context.Context, conten
 		}
 	}
 	for _, key := range []string{content.ContentType, content.ContentTypeSlug} {
-		if id := uuidFromString(key); id != uuid.Nil {
+		if id := cmsadapter.UUIDFromString(key); id != uuid.Nil {
 			if ct, err := a.contentTypes.ContentType(ctx, id.String()); err == nil && ct != nil {
 				return ct
 			}
@@ -301,164 +276,4 @@ func (a *GoCMSContentAdapter) updatePageFromContent(ctx context.Context, page CM
 
 func (a *GoCMSContentAdapter) deletePageFromContent(ctx context.Context, id string) error {
 	return a.contentWriter().deletePageFromContent(ctx, id)
-}
-
-func uuidFromString(id string) uuid.UUID {
-	if parsed, err := uuid.Parse(strings.TrimSpace(id)); err == nil {
-		return parsed
-	}
-	return uuid.Nil
-}
-
-func uuidStringField(val reflect.Value, name string) string {
-	if val.Kind() == reflect.Pointer {
-		if val.IsNil() {
-			return ""
-		}
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Struct {
-		return ""
-	}
-	field := val.FieldByName(name)
-	if !field.IsValid() {
-		return ""
-	}
-	if field.CanInterface() {
-		switch v := field.Interface().(type) {
-		case uuid.UUID:
-			if v != uuid.Nil {
-				return v.String()
-			}
-		}
-	}
-	if field.Kind() == reflect.Pointer && !field.IsNil() && field.Elem().CanInterface() {
-		if v, ok := field.Elem().Interface().(uuid.UUID); ok && v != uuid.Nil {
-			return v.String()
-		}
-	}
-	return ""
-}
-
-func stringField(val reflect.Value, field string) string {
-	if val.Kind() == reflect.Pointer {
-		if val.IsNil() {
-			return ""
-		}
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Struct {
-		return ""
-	}
-	f := val.FieldByName(field)
-	if f.IsValid() {
-		switch f.Kind() {
-		case reflect.String:
-			return f.String()
-		case reflect.Pointer:
-			if !f.IsNil() && f.Elem().Kind() == reflect.String {
-				return f.Elem().String()
-			}
-		}
-	}
-	return ""
-}
-
-func stringFieldAny(val reflect.Value, fields ...string) string {
-	for _, field := range fields {
-		if out := strings.TrimSpace(stringField(val, field)); out != "" {
-			return out
-		}
-	}
-	return ""
-}
-
-func boolField(val reflect.Value, field string) (bool, bool) {
-	if val.Kind() == reflect.Pointer {
-		if val.IsNil() {
-			return false, false
-		}
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Struct {
-		return false, false
-	}
-	f := val.FieldByName(field)
-	if !f.IsValid() {
-		return false, false
-	}
-	switch f.Kind() {
-	case reflect.Bool:
-		return f.Bool(), true
-	case reflect.Pointer:
-		if !f.IsNil() && f.Elem().Kind() == reflect.Bool {
-			return f.Elem().Bool(), true
-		}
-	}
-	return false, false
-}
-
-func boolFieldAny(val reflect.Value, fields ...string) (bool, bool) {
-	for _, field := range fields {
-		if out, ok := boolField(val, field); ok {
-			return out, true
-		}
-	}
-	return false, false
-}
-
-func stringSliceField(val reflect.Value, field string) []string {
-	f := val.FieldByName(field)
-	if !f.IsValid() {
-		return nil
-	}
-	f = gocmsutil.Deref(f)
-	switch f.Kind() {
-	case reflect.Slice:
-		out := []string{}
-		for i := 0; i < f.Len(); i++ {
-			item := f.Index(i)
-			if item.Kind() == reflect.String {
-				if trimmed := strings.TrimSpace(item.String()); trimmed != "" {
-					out = append(out, trimmed)
-				}
-				continue
-			}
-			if item.CanInterface() {
-				if trimmed := strings.TrimSpace(toString(item.Interface())); trimmed != "" {
-					out = append(out, trimmed)
-				}
-			}
-		}
-		if len(out) > 0 {
-			return out
-		}
-	}
-	return nil
-}
-
-func stringSliceFieldAny(val reflect.Value, fields ...string) []string {
-	for _, field := range fields {
-		if out := stringSliceField(val, field); len(out) > 0 {
-			return out
-		}
-	}
-	return nil
-}
-
-func asString(val any, fallback string) string {
-	if val == nil {
-		return fallback
-	}
-	switch v := val.(type) {
-	case string:
-		if strings.TrimSpace(v) == "" {
-			return fallback
-		}
-		return v
-	case []byte:
-		return string(v)
-	default:
-		return fallback
-	}
 }

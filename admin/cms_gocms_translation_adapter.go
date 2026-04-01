@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	cms "github.com/goliatone/go-cms"
 	"github.com/google/uuid"
 	"reflect"
@@ -25,7 +26,7 @@ func (a *GoCMSContentAdapter) CreateTranslation(ctx context.Context, input Trans
 		})
 	}
 	if a.adminWrite != nil && shouldUseAdminContentTranslationCreate(input) {
-		sourceID := uuidFromString(input.SourceID)
+		sourceID := cmsadapter.UUIDFromString(input.SourceID)
 		if sourceID == uuid.Nil {
 			return nil, ErrNotFound
 		}
@@ -64,7 +65,7 @@ func (a *GoCMSContentAdapter) createTranslationRecord(ctx context.Context, input
 	if !method.IsValid() {
 		return reflect.Value{}, ErrTranslationCreateUnsupported
 	}
-	sourceID := uuidFromString(input.SourceID)
+	sourceID := cmsadapter.UUIDFromString(input.SourceID)
 	if sourceID == uuid.Nil {
 		return reflect.Value{}, ErrNotFound
 	}

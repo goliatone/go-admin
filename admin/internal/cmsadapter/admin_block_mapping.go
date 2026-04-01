@@ -132,7 +132,7 @@ func CMSBlockDefinitionToAdminBlockDefinitionUpdateRequest(def cmsboot.CMSBlockD
 // admin block write-service save request.
 func CMSBlockToAdminBlockSaveRequest(block cmsboot.CMSBlock, definitionID, contentID, createdBy, updatedBy uuid.UUID) cms.AdminBlockSaveRequest {
 	return cms.AdminBlockSaveRequest{
-		ID:             uuidFromString(block.ID),
+		ID:             UUIDFromString(block.ID),
 		DefinitionID:   definitionID,
 		ContentID:      contentID,
 		Region:         strings.TrimSpace(block.Region),

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
 
 	cmscontent "github.com/goliatone/go-cms/content"
@@ -162,7 +163,7 @@ func setUUIDFieldByName(target reflect.Value, fieldName string, value uuid.UUID)
 
 func buildGoCMSTranslationProjection(val reflect.Value, locale string) goCMSTranslationProjection {
 	translations := gocmsutil.Deref(val.FieldByName("Translations"))
-	availableLocales := stringSliceFieldAny(val, "AvailableLocales", "Locales")
+	availableLocales := cmsadapter.StringSliceFieldAny(val, "AvailableLocales", "Locales")
 	var chosen reflect.Value
 	localeLower := strings.ToLower(strings.TrimSpace(locale))
 	seenLocales := map[string]bool{}
@@ -201,14 +202,14 @@ func applyGoCMSTranslationProjection(out *CMSContent, projection goCMSTranslatio
 	}
 	chosen := projection.chosen
 	if chosen.IsValid() {
-		if groupID := uuidStringField(chosen, "FamilyID"); groupID != "" {
+		if groupID := cmsadapter.UUIDStringField(chosen, "FamilyID"); groupID != "" {
 			out.FamilyID = groupID
 		}
 		if code := localeCodeFromTranslation(chosen); code != "" {
 			out.Locale = code
 		}
-		out.Title = stringField(chosen, "Title")
-		if summary := stringField(chosen, "Summary"); summary != "" {
+		out.Title = cmsadapter.StringField(chosen, "Title")
+		if summary := cmsadapter.StringField(chosen, "Summary"); summary != "" {
 			out.Data["excerpt"] = summary
 		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Pointer && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
 			out.Data["excerpt"] = summaryPtr.Elem().String()
@@ -234,19 +235,19 @@ func applyGoCMSTranslationLocaleState(out *CMSContent, source reflect.Value, cho
 	}
 	requestedLocale = strings.TrimSpace(requestedLocale)
 	if requestedLocale == "" {
-		requestedLocale = strings.TrimSpace(stringFieldAny(source, "RequestedLocale"))
+		requestedLocale = strings.TrimSpace(cmsadapter.StringFieldAny(source, "RequestedLocale"))
 	}
 	out.RequestedLocale = requestedLocale
-	resolvedLocale := strings.TrimSpace(stringFieldAny(source, "ResolvedLocale"))
+	resolvedLocale := strings.TrimSpace(cmsadapter.StringFieldAny(source, "ResolvedLocale"))
 	if resolvedLocale == "" && chosen.IsValid() {
-		resolvedLocale = strings.TrimSpace(stringFieldAny(chosen, "ResolvedLocale"))
+		resolvedLocale = strings.TrimSpace(cmsadapter.StringFieldAny(chosen, "ResolvedLocale"))
 	}
 	if resolvedLocale == "" {
 		resolvedLocale = out.Locale
 	}
 	out.ResolvedLocale = resolvedLocale
 	missing := false
-	if ok, set := boolFieldAny(source, "MissingRequestedLocale"); set {
+	if ok, set := cmsadapter.BoolFieldAny(source, "MissingRequestedLocale"); set {
 		missing = ok
 	} else if requestedLocale != "" {
 		found := false
@@ -264,15 +265,15 @@ func applyGoCMSTranslationLocaleState(out *CMSContent, source reflect.Value, cho
 }
 
 func localeCodeFromTranslation(val reflect.Value) string {
-	if code := stringField(val, "Locale"); code != "" {
+	if code := cmsadapter.StringField(val, "Locale"); code != "" {
 		return code
 	}
-	if code := stringField(val, "LocaleCode"); code != "" {
+	if code := cmsadapter.StringField(val, "LocaleCode"); code != "" {
 		return code
 	}
 	localeVal := gocmsutil.Deref(val.FieldByName("Locale"))
 	if localeVal.IsValid() {
-		if code := stringField(localeVal, "Code"); code != "" {
+		if code := cmsadapter.StringField(localeVal, "Code"); code != "" {
 			return code
 		}
 	}

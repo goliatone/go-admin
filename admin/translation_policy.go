@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
 	"github.com/google/uuid"
 )
@@ -105,7 +106,7 @@ func (p GoCMSTranslationPolicy) Validate(ctx context.Context, input TranslationP
 	if len(required) == 0 {
 		return nil
 	}
-	entityID := uuidFromString(input.EntityID)
+	entityID := cmsadapter.UUIDFromString(input.EntityID)
 	if entityID == uuid.Nil {
 		return validationDomainError("translation policy requires a valid entity id", map[string]any{
 			"field":     "entity_id",
