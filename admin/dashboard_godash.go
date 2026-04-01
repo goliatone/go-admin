@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
+	"maps"
 	"strings"
 
 	dashinternal "github.com/goliatone/go-admin/admin/internal/dashboard"
@@ -189,9 +190,7 @@ func registerDashboardProviderWithRegistry(registry *dashcmp.Registry, spec Dash
 			cfg = map[string]any{}
 		}
 		if meta.Instance.Configuration != nil {
-			for key, val := range meta.Instance.Configuration {
-				cfg[key] = val
-			}
+			maps.Copy(cfg, meta.Instance.Configuration)
 		}
 		adminCtx := AdminContext{
 			Context: ctx,
@@ -439,9 +438,7 @@ func cloneAny(m map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(m))
-	for key, val := range m {
-		out[key] = val
-	}
+	maps.Copy(out, m)
 	return out
 }
 

@@ -79,7 +79,7 @@ func TestAdminBlockReadServiceGetBlockScansAllBlocksWithoutPaginationCap(t *test
 	stub := &adminBlockReadContentStub{
 		blocks: map[string][]CMSBlock{},
 	}
-	for idx := 0; idx < 1001; idx++ {
+	for idx := range 1001 {
 		contentID := fmt.Sprintf("content-%d", idx)
 		blockID := fmt.Sprintf("block-%d", idx)
 		stub.items = append(stub.items, CMSContent{ID: contentID})

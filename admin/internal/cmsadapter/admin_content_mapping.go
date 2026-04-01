@@ -1,6 +1,7 @@
 package cmsadapter
 
 import (
+	"maps"
 	"strings"
 	"time"
 
@@ -121,9 +122,7 @@ func cloneStringMap(value map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(value))
-	for key, item := range value {
-		out[key] = item
-	}
+	maps.Copy(out, value)
 	return out
 }
 
