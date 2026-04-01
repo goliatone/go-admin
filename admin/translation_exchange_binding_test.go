@@ -1207,17 +1207,18 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 	}
 	_ = createResp.Body.Close()
 
-	otherReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
-	otherReq.Header.Set("Content-Type", "application/json")
-	otherReq.Header.Set("X-User-ID", "other-user")
-	otherResp, err := app.Test(otherReq)
-	if err != nil {
-		t.Fatalf("other request error: %v", err)
+	otherJobID := defaultTranslationExchangeRuntimeJobID()
+	if _, err = binding.runtime.RecordCompletedJob(context.Background(), translationExchangeAsyncJob{
+		ID:           otherJobID,
+		Kind:         translationExchangeJobKindExport,
+		Status:       translationExchangeAsyncJobStatusCompleted,
+		Permission:   translationExchangePermissionExport,
+		CreatedBy:    "other-user",
+		Request:      translationExchangeExportRequestPayload(TranslationExportFilter{Resources: []string{"pages"}}),
+		PollEndpoint: binding.jobStatusEndpoint(otherJobID),
+	}, nil, translationExchangeExportResultPayload(executor.exportResult)); err != nil {
+		t.Fatalf("record other-user export job: %v", err)
 	}
-	if otherResp.StatusCode != http.StatusOK {
-		t.Fatalf("other create status=%d want=200", otherResp.StatusCode)
-	}
-	_ = otherResp.Body.Close()
 
 	var history map[string]any
 	var meta map[string]any
@@ -1278,86 +1279,14 @@ func TestTranslationExchangeBindingHistoryListsActorJobsAndFixtureExamples(t *te
 		if file := extractMap(item["file"]); !strings.Contains(strings.ToLower(toString(file["name"])), "translation_exchange_export") {
 			t.Fatalf("expected export file metadata, got %+v", file)
 		}
+		if toString(item["id"]) == strings.TrimSpace(otherJobID) {
+			t.Fatalf("expected other-user job to be filtered out, got %+v", item)
+		}
 		runtimeCount++
 	}
 	if !fixtureFound || runtimeCount == 0 {
 		t.Fatalf("expected fixture and runtime jobs, got %+v", items)
 	}
-}
-
-func TestDebugTranslationExchangeRecordedHistoryJob(t *testing.T) {
-	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
-	executor := &stubTranslationExchangeExecutor{
-		exportResult: TranslationExportResult{
-			RowCount: 1,
-			Format:   "json",
-			Rows: []TranslationExchangeRow{
-				{Resource: "pages", EntityID: "page_1", FamilyID: "tg_1", TargetLocale: "es", FieldPath: "title"},
-			},
-		},
-	}
-	binding := newTranslationExchangeBinding(adm)
-	binding.executor = executor
-	app := newTranslationExchangeTestApp(t, binding)
-
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-ID", "owner-user")
-	resp, err := app.Test(req)
-	if err != nil {
-		t.Fatalf("create request error: %v", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("create status=%d want=200", resp.StatusCode)
-	}
-	var payload map[string]any
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode create response: %v", err)
-	}
-	_ = resp.Body.Close()
-
-	jobs, total, err := binding.runtime.ListJobs(context.Background(), translationExchangeJobQuery{
-		Identity: translationTransportIdentity{ActorID: "owner-user"},
-		Page:     1,
-		PerPage:  100,
-	})
-	if err != nil {
-		t.Fatalf("list jobs: %v", err)
-	}
-
-	otherReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/export", bytes.NewReader([]byte(`{"filter":{"resources":["pages"]}}`)))
-	otherReq.Header.Set("Content-Type", "application/json")
-	otherReq.Header.Set("X-User-ID", "other-user")
-	otherResp, err := app.Test(otherReq)
-	if err != nil {
-		t.Fatalf("other request error: %v", err)
-	}
-	if otherResp.StatusCode != http.StatusOK {
-		t.Fatalf("other create status=%d want=200", otherResp.StatusCode)
-	}
-	_ = otherResp.Body.Close()
-
-	ownerJobs, ownerTotal, err := binding.runtime.ListJobs(context.Background(), translationExchangeJobQuery{
-		Identity: translationTransportIdentity{ActorID: "owner-user"},
-		Page:     1,
-		PerPage:  100,
-	})
-	if err != nil {
-		t.Fatalf("list owner jobs: %v", err)
-	}
-	allHistoryReq := httptest.NewRequest(http.MethodGet, "/admin/api/translations/exchange/jobs?include_examples=true&kind=export", nil)
-	allHistoryReq.Header.Set("X-User-ID", "owner-user")
-	allHistoryResp, err := app.Test(allHistoryReq)
-	if err != nil {
-		t.Fatalf("history request error: %v", err)
-	}
-	var historyPayload map[string]any
-	if err := json.NewDecoder(allHistoryResp.Body).Decode(&historyPayload); err != nil {
-		t.Fatalf("decode history response: %v", err)
-	}
-	_ = allHistoryResp.Body.Close()
-
-	t.Fatalf("create=%+v total=%d jobs=%+v ownerTotal=%d ownerJobs=%+v history=%+v", payload, total, jobs, ownerTotal, ownerJobs, historyPayload)
 }
 
 func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testing.T) {
