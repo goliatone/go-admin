@@ -15,8 +15,8 @@ require (
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.12
 	github.com/goliatone/go-admin v0.31.0
-	github.com/goliatone/go-auth v0.39.0
-	github.com/goliatone/go-auth/adapters/featuregate v0.36.0
+	github.com/goliatone/go-auth v0.40.0
+	github.com/goliatone/go-auth/adapters/featuregate v0.40.0
 	github.com/goliatone/go-cms v0.45.0
 	github.com/goliatone/go-command v0.18.0
 	github.com/goliatone/go-dashboard v0.9.0
