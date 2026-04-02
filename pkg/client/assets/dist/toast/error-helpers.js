@@ -1,4 +1,5 @@
-async function p(t) {
+import { httpRequest as p } from "../shared/transport/http-client.js";
+async function m(t) {
   const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => ""), i = {
     textCode: null,
     message: `Request failed (${t.status})`,
@@ -48,7 +49,7 @@ async function p(t) {
   const n = s.match(/\|\s*([^|]+)$/);
   return n ? (i.message = n[1].trim(), i) : (s.trim().length > 0 && s.length < 200 && (i.message = s.trim()), i);
 }
-function R(t) {
+function S(t) {
   if (t.textCode !== "TRANSLATION_MISSING")
     return null;
   const e = t.metadata || {};
@@ -72,10 +73,10 @@ function R(t) {
     channel: a
   };
 }
-function O(t) {
+function I(t) {
   return t.textCode === "TRANSLATION_MISSING";
 }
-function m(t) {
+function y(t) {
   if (!t || typeof t != "object")
     return {
       success: !1,
@@ -123,7 +124,7 @@ function m(t) {
     }
   };
 }
-function y(t) {
+function g(t) {
   return {
     textCode: null,
     message: t instanceof Error ? t.message : "Network error",
@@ -132,7 +133,7 @@ function y(t) {
     validationErrors: null
   };
 }
-async function g(t) {
+async function _(t) {
   const e = await t.text().catch(() => "");
   if (e.trim())
     try {
@@ -142,33 +143,33 @@ async function g(t) {
     } catch {
     }
 }
-async function _(t, e, r) {
+async function h(t, e, r) {
   try {
-    const s = await fetch(t, e);
-    return s.ok ? r ? { ...await r(s), status: s.status } : { success: !0, data: await g(s), status: s.status } : { success: !1, error: await p(s), status: s.status };
+    const s = await p(t, e);
+    return s.ok ? r ? { ...await r(s), status: s.status } : { success: !0, data: await _(s), status: s.status } : { success: !1, error: await m(s), status: s.status };
   } catch (s) {
     return {
       success: !1,
-      error: y(s),
+      error: g(s),
       status: 0
     };
   }
 }
-function S(t, e = "Request failed", r = !1) {
-  const s = new Error(h(t, e));
+function T(t, e = "Request failed", r = !1) {
+  const s = new Error(b(t, e));
   return s.structuredError = t, s.handled = r, s;
 }
-function I(t) {
+function C(t) {
   if (!t || typeof t != "object")
     return null;
   const e = t.structuredError;
   return !e || typeof e != "object" ? null : e;
 }
-function T(t) {
+function $(t) {
   return !!t && typeof t == "object" && t.handled === !0;
 }
-async function C(t, e, r) {
-  const s = await _(t, {
+async function N(t, e, r) {
+  const s = await h(t, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -176,10 +177,10 @@ async function C(t, e, r) {
     },
     ...r,
     body: JSON.stringify(e)
-  }, async (i) => m(await i.json()));
+  }, async (i) => y(await i.json()));
   return s.success ? { success: !0, data: s.data } : { success: !1, error: s.error };
 }
-async function $(t) {
+async function v(t) {
   const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => "");
   if (s) {
     if (r || s.trim().startsWith("{"))
@@ -220,10 +221,10 @@ async function $(t) {
   }
   return `Request failed (${t.status})`;
 }
-function N(t) {
+function k(t) {
   return t instanceof Error ? t.message : typeof t == "string" ? t : "An unexpected error occurred";
 }
-function h(t, e = "Request failed") {
+function b(t, e = "Request failed") {
   const r = (t.message || "").trim() || e, s = typeof t.metadata?.cause == "string" ? String(t.metadata.cause || "").trim() : "", i = [], n = /* @__PURE__ */ new Set(), o = (c, l) => {
     const f = c.trim(), u = l.trim();
     if (!f || !u) return;
@@ -239,7 +240,7 @@ function h(t, e = "Request failed") {
   const a = i.length > 0 ? `: ${i.join("; ")}` : "";
   return s && /^rpc invocation failed$/i.test(r) ? `${r}: ${s}${a}` : t.textCode && !r.includes(t.textCode) ? `${t.textCode}: ${r}${a}` : `${r}${a}`;
 }
-function b(t) {
+function j(t) {
   const e = [
     "IMPORT_VALIDATION_FAILED",
     "IMPORT_CONFLICT",
@@ -251,8 +252,8 @@ function b(t) {
   ];
   return t.textCode !== null && e.includes(t.textCode);
 }
-function v(t) {
-  if (!b(t))
+function M(t) {
+  if (!j(t))
     return null;
   const e = t.metadata || {}, r = {
     code: t.textCode,
@@ -262,11 +263,11 @@ function v(t) {
   };
   if (e.import_result && typeof e.import_result == "object") {
     const s = e.import_result;
-    r.importResult = j(s);
+    r.importResult = x(s);
   }
   return r;
 }
-function j(t) {
+function x(t) {
   const e = {
     summary: {
       processed: 0,
@@ -288,9 +289,9 @@ function j(t) {
       skipped: typeof r.skipped == "number" ? r.skipped : 0
     };
   }
-  return Array.isArray(t.results) && (e.results = t.results.filter((r) => r !== null && typeof r == "object").map((r) => x(r))), typeof t.truncated == "boolean" && (e.truncated = t.truncated), typeof t.total_rows == "number" && (e.totalRows = t.total_rows), e;
+  return Array.isArray(t.results) && (e.results = t.results.filter((r) => r !== null && typeof r == "object").map((r) => E(r))), typeof t.truncated == "boolean" && (e.truncated = t.truncated), typeof t.total_rows == "number" && (e.totalRows = t.total_rows), e;
 }
-function x(t) {
+function E(t) {
   const e = {
     index: typeof t.index == "number" ? t.index : 0,
     resource: typeof t.resource == "string" ? t.resource : "",
@@ -298,12 +299,12 @@ function x(t) {
     familyId: typeof t.family_id == "string" ? t.family_id : "",
     targetLocale: typeof t.target_locale == "string" ? t.target_locale : "",
     fieldPath: typeof t.field_path == "string" ? t.field_path : "",
-    status: E(t.status)
+    status: A(t.status)
   };
   if (typeof t.error == "string" && (e.error = t.error), t.conflict && typeof t.conflict == "object") {
     const r = t.conflict;
     e.conflict = {
-      type: A(r.type),
+      type: R(r.type),
       expectedHash: typeof r.expected_hash == "string" ? r.expected_hash : void 0,
       actualHash: typeof r.actual_hash == "string" ? r.actual_hash : void 0,
       details: typeof r.details == "string" ? r.details : void 0
@@ -311,13 +312,13 @@ function x(t) {
   }
   return e;
 }
-function E(t) {
+function A(t) {
   return t === "success" || t === "error" || t === "conflict" || t === "skipped" ? t : "error";
 }
-function A(t) {
+function R(t) {
   return t === "stale_source" || t === "missing_linkage" || t === "duplicate" || t === "invalid_locale" ? t : "missing_linkage";
 }
-function k(t) {
+function L(t) {
   return {
     success: t.filter((e) => e.status === "success"),
     error: t.filter((e) => e.status === "error"),
@@ -325,7 +326,7 @@ function k(t) {
     skipped: t.filter((e) => e.status === "skipped")
   };
 }
-function M(t, e = "json") {
+function P(t, e = "json") {
   if (e === "json") {
     const n = JSON.stringify(t, null, 2);
     return new Blob([n], { type: "application/json" });
@@ -348,22 +349,22 @@ function M(t, e = "json") {
   return new Blob([i], { type: "text/csv" });
 }
 export {
-  S as createStructuredActionError,
-  C as executeActionRequest,
-  _ as executeStructuredRequest,
-  $ as extractErrorMessage,
-  v as extractExchangeError,
-  p as extractStructuredError,
-  R as extractTranslationBlocker,
-  h as formatStructuredErrorForDisplay,
-  M as generateExchangeReport,
-  N as getErrorMessage,
-  I as getStructuredActionError,
-  k as groupRowResultsByStatus,
-  b as isExchangeError,
-  T as isHandledActionError,
-  O as isTranslationBlocker,
-  m as parseActionResponse,
-  j as parseImportResult
+  T as createStructuredActionError,
+  N as executeActionRequest,
+  h as executeStructuredRequest,
+  v as extractErrorMessage,
+  M as extractExchangeError,
+  m as extractStructuredError,
+  S as extractTranslationBlocker,
+  b as formatStructuredErrorForDisplay,
+  P as generateExchangeReport,
+  k as getErrorMessage,
+  C as getStructuredActionError,
+  L as groupRowResultsByStatus,
+  j as isExchangeError,
+  $ as isHandledActionError,
+  I as isTranslationBlocker,
+  y as parseActionResponse,
+  x as parseImportResult
 };
 //# sourceMappingURL=error-helpers.js.map

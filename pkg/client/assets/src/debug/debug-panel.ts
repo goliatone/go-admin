@@ -52,6 +52,7 @@ import {
   normalizeReplCommands,
   replPanelIDs,
 } from './shared/runtime-helpers.js';
+import { httpRequest } from '../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
 import './shared/builtin-panels.js';
 
@@ -1525,7 +1526,7 @@ export class DebugPanel {
     if (this.activeSessionId) {
       return;
     }
-    fetch(`${this.debugPath}/api/clear`, { method: 'POST', credentials: 'same-origin' }).catch(() => {
+    httpRequest(`${this.debugPath}/api/clear`, { method: 'POST', credentials: 'same-origin' }).catch(() => {
       // ignore
     });
   }
@@ -1539,7 +1540,7 @@ export class DebugPanel {
     if (this.activeSessionId) {
       return;
     }
-    fetch(`${this.debugPath}/api/clear/${panel}`, { method: 'POST', credentials: 'same-origin' }).catch(() => {
+    httpRequest(`${this.debugPath}/api/clear/${panel}`, { method: 'POST', credentials: 'same-origin' }).catch(() => {
       // ignore
     });
   }
@@ -1663,7 +1664,7 @@ export class DebugPanel {
     }
 
     try {
-      const response = await fetch(`${this.debugPath}/api/doctor/${encodeURIComponent(normalized)}/action`, {
+      const response = await httpRequest(`${this.debugPath}/api/doctor/${encodeURIComponent(normalized)}/action`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {

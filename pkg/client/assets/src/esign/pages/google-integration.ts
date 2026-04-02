@@ -12,7 +12,7 @@ import type {
 } from '../types.js';
 import { qs, show, hide, onReady, getPageConfigFromScript } from '../utils/dom-helpers.js';
 import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
-import { readHTTPError } from '../../shared/transport/http-client.js';
+import { httpRequest, readHTTPError } from '../../shared/transport/http-client.js';
 import {
   resolveAccountId,
   normalizeAccountId,
@@ -1241,7 +1241,7 @@ export class GoogleIntegrationController {
           this.setCurrentAccountId(accountIdForConnect, false);
         }
 
-        const response = await fetch(
+        const response = await httpRequest(
           this.buildScopedAPIURL('/esign/integrations/google/connect', accountIdForConnect),
           {
             method: 'POST',
@@ -1328,7 +1328,7 @@ export class GoogleIntegrationController {
     const accountIdToDisconnect = this.pendingDisconnectAccountId ?? this.currentAccountId;
 
     try {
-      const response = await fetch(
+      const response = await httpRequest(
         this.buildScopedAPIURL('/esign/integrations/google/disconnect', accountIdToDisconnect),
         {
           method: 'POST',

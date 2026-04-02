@@ -2,9 +2,9 @@ import { b as n, h as f, s as v } from "../chunks/dom-helpers-Cd24RS2-.js";
 import { m as B } from "../chunks/formatters-DYQo8z6P.js";
 import { a as L, s as b } from "../chunks/page-feedback-GAI02g1h.js";
 import { escapeHTML as l } from "../shared/html.js";
-import { readHTTPError as E } from "../shared/transport/http-client.js";
-import { onReady as C } from "../shared/dom-ready.js";
-class M {
+import { readHTTPError as E, httpRequest as C } from "../shared/transport/http-client.js";
+import { onReady as M } from "../shared/dom-ready.js";
+class T {
   constructor(t) {
     this.syncRuns = [], this.mappings = [], this.currentRunId = null, this.config = t, this.apiBase = t.apiBasePath || `${t.basePath}/api`, this.syncRunsEndpoint = `${this.apiBase}/esign/integrations/sync-runs`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: n("#sync-announcements"),
@@ -291,7 +291,7 @@ class M {
     };
     s.setAttribute("disabled", "true"), s.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Starting...';
     try {
-      const a = await fetch(this.syncRunsEndpoint, {
+      const a = await C(this.syncRunsEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -401,7 +401,7 @@ class M {
     const u = a.innerHTML;
     a.innerHTML = '<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
     try {
-      const o = `${this.syncRunsEndpoint}/${this.currentRunId}/${t}`, p = await fetch(o, {
+      const o = `${this.syncRunsEndpoint}/${this.currentRunId}/${t}`, p = await C(o, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -450,20 +450,20 @@ class M {
       }
   }
 }
-function H(S) {
-  const t = new M(S);
-  return C(() => t.init()), t;
-}
 function I(S) {
+  const t = new T(S);
+  return M(() => t.init()), t;
+}
+function _(S) {
   const t = {
     basePath: S.basePath,
     apiBasePath: S.apiBasePath || `${S.basePath}/api`
-  }, e = new M(t);
-  C(() => e.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = e);
+  }, e = new T(t);
+  M(() => e.init()), typeof window < "u" && (window.esignIntegrationSyncRunsController = e);
 }
 export {
-  M as IntegrationSyncRunsController,
-  I as bootstrapIntegrationSyncRuns,
-  H as initIntegrationSyncRuns
+  T as IntegrationSyncRunsController,
+  _ as bootstrapIntegrationSyncRuns,
+  I as initIntegrationSyncRuns
 };
 //# sourceMappingURL=integration-sync-runs.js.map

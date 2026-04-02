@@ -56,7 +56,7 @@ import type {
 
 import { validatePageComposition } from './source-management-composition.js';
 import { StatefulController } from '../shared/stateful-controller.js';
-import { readHTTPError, readHTTPJSON } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPError, readHTTPJSON } from '../shared/transport/http-client.js';
 
 type SourceManagementControllerConfig<TContracts> = {
   apiBasePath: string;
@@ -134,7 +134,7 @@ async function fetchJSON<T>(url: string, options: FetchOptions = {}): Promise<T>
     config.body = JSON.stringify(options.body);
   }
 
-  const response = await fetch(url, config);
+  const response = await httpRequest(url, config);
 
   if (!response.ok) {
     const message = await readHTTPError(response, `HTTP ${response.status}`, {

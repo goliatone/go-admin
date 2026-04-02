@@ -1,5 +1,5 @@
 import { escapeHTML } from '../shared/html.js';
-import { readHTTPResponsePayload } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPResponsePayload } from '../shared/transport/http-client.js';
 
 import type {
   ApplyRequest,
@@ -1169,7 +1169,7 @@ export class TranslationExchangeManager {
     path: string,
     init: RequestInit,
   ): Promise<Record<string, unknown>> {
-    const response = await fetch(path, init);
+    const response = await httpRequest(path, init);
     const { payload } = await readHTTPResponsePayload(response);
     if (!response.ok) {
       if (payload && typeof payload === "object") {

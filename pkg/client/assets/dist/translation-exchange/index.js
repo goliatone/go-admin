@@ -1,9 +1,9 @@
 import { escapeHTML as o } from "../shared/html.js";
-import { readHTTPResponsePayload as U } from "../shared/transport/http-client.js";
-import { n as x, a as k, b as C, c as V } from "../chunks/index-YiVxcMWC.js";
-import { C as B, H as W, T as z, a as q, B as f, R as $, b as _, c as E, d as F, I as j, e as v, f as R, g as G } from "../chunks/style-constants-i2xRoO1L.js";
+import { httpRequest as U, readHTTPResponsePayload as V } from "../shared/transport/http-client.js";
+import { n as x, a as k, b as C, c as B } from "../chunks/index-YiVxcMWC.js";
+import { C as W, H as q, T as z, a as G, B as f, R as $, b as _, c as E, d as F, I as j, e as v, f as R, g as K } from "../chunks/style-constants-i2xRoO1L.js";
 import { formatTranslationShortDateTime as D } from "../translation-shared/formatters.js";
-const K = {
+const Y = {
   root: "#translation-exchange-app"
 };
 function L(l) {
@@ -31,10 +31,10 @@ function S(l) {
   }
 }
 function y(l) {
-  return `rounded-full px-3 py-1 text-xs font-medium ${G(l)}`;
+  return `rounded-full px-3 py-1 text-xs font-medium ${K(l)}`;
 }
-const m = `${F} p-5`, Y = `${F} p-4`, I = `${$} border ${_} ${E} p-5`, A = `${$} border ${_} ${E} p-4`, H = `${$} border ${_} ${E} px-4 py-3`, O = `${$} border ${_} ${E} px-6 py-10 text-center text-sm text-gray-600`, b = "text-xs uppercase tracking-wider text-gray-500", X = `mt-2 text-2xl font-bold ${z}`;
-function Q(l, t) {
+const m = `${F} p-5`, X = `${F} p-4`, I = `${$} border ${_} ${E} p-5`, A = `${$} border ${_} ${E} p-4`, H = `${$} border ${_} ${E} px-4 py-3`, O = `${$} border ${_} ${E} px-6 py-10 text-center text-sm text-gray-600`, b = "text-xs uppercase tracking-wider text-gray-500", Q = `mt-2 text-2xl font-bold ${z}`;
+function Z(l, t) {
   const e = typeof window < "u" && typeof window.btoa == "function" ? window.btoa.bind(window) : typeof globalThis.btoa == "function" ? globalThis.btoa.bind(globalThis) : null;
   return e ? `data:${l};base64,${e(
     encodeURIComponent(t).replace(
@@ -43,7 +43,7 @@ function Q(l, t) {
     )
   )}` : `data:${l},${encodeURIComponent(t)}`;
 }
-function Z(l) {
+function tt(l) {
   return new Promise((t) => setTimeout(t, Math.max(0, l)));
 }
 function J(l) {
@@ -52,17 +52,17 @@ function J(l) {
     Math.min(100, Math.round(l.progress.processed / l.progress.total * 100))
   );
 }
-function tt(l, t) {
+function et(l, t) {
   return l?.downloads ? l.downloads[t]?.href ?? l.downloads.artifact?.href ?? "" : "";
 }
-function et(l, t) {
+function st(l, t) {
   return l?.downloads ? l.downloads[t]?.label ?? l.downloads.artifact?.label ?? "Download artifact" : "";
 }
 function P(l) {
   const t = [];
   return l.resources.length === 0 && t.push("Select at least one resource."), l.targetLocales.length === 0 && t.push("Select at least one target locale."), l.targetLocales.includes(l.sourceLocale) && t.push("Target locales cannot include the source locale."), l.includeSourceHash || t.push("Conflict detection is weaker when source hashes are excluded."), t;
 }
-function st(l) {
+function at(l) {
   const t = {};
   if (!l) return t;
   for (const e of l.results)
@@ -93,7 +93,7 @@ function T(l) {
     job: l
   } : null;
 }
-function at(l) {
+function rt(l) {
   const e = String(l ?? "").match(/^data:([^,]*?),(.*)$/i);
   if (!e) return "";
   const [, a, s] = e;
@@ -113,7 +113,7 @@ function w(l, t) {
     index: typeof l.index == "number" ? l.index : t
   };
 }
-class dt {
+class ct {
   constructor(t, e = {}, a) {
     this.root = null, this.step = "export", this.exportState = {
       draft: {
@@ -246,7 +246,7 @@ class dt {
         }
         i.matches('[data-apply-form="true"]') && (s.preventDefault(), this.submitApply());
       }
-    }, this.config = t, this.selectors = { ...K, ...e }, this.toast = a ?? window.toastManager ?? null;
+    }, this.config = t, this.selectors = { ...Y, ...e }, this.toast = a ?? window.toastManager ?? null;
   }
   init() {
     this.root = document.querySelector(this.selectors.root), this.root && (this.root.addEventListener("click", this.handleClick), this.root.addEventListener("change", this.handleChange), this.root.addEventListener("submit", this.handleSubmit), this.render(), this.loadHistory());
@@ -330,7 +330,7 @@ class dt {
         }), d;
       if (Date.now() - n >= i)
         throw new Error("Polling timed out.");
-      r += 1, await Z(s);
+      r += 1, await tt(s);
     }
   }
   readExportDraft(t) {
@@ -372,7 +372,7 @@ class dt {
         });
         this.exportState.job = c;
       }
-      this.exportState.downloadHref = tt(this.exportState.job, "artifact") || this.createRowsDownload(n), this.exportState.downloadLabel = et(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? s.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
+      this.exportState.downloadHref = et(this.exportState.job, "artifact") || this.createRowsDownload(n), this.exportState.downloadLabel = st(this.exportState.job, "artifact") || "Download export JSON", this.exportState.status = "completed", this.exportState.message = `${this.exportState.job?.summary?.row_count ?? s.row_count ?? 0} rows ready for handoff.`, this.toast?.success(this.exportState.message), this.loadHistory(!0);
     } catch (s) {
       const i = s instanceof Error ? s.message : "Export failed.";
       this.exportState.status = "error", this.exportState.message = i, this.toast?.error(i);
@@ -427,7 +427,7 @@ class dt {
       const t = new FormData();
       t.set("file", this.validateState.file);
       const e = await this.postForm(`${this.config.apiPath}/import/validate`, t), a = k(e);
-      this.validateState.result = a, this.validateState.decisions = st(a), this.validateState.upload = x({
+      this.validateState.result = a, this.validateState.decisions = at(a), this.validateState.upload = x({
         state: "validated",
         filename: this.validateState.file.name,
         format: this.validateState.file.name.endsWith(".csv") ? "csv" : "json",
@@ -505,7 +505,7 @@ class dt {
         const e = new URL(this.historyEndpoint, window.location.origin);
         this.includeExamples && e.searchParams.set("include_examples", "true");
         const a = await this.fetchJSON(e.pathname + e.search);
-        this.historyState.response = V(a), this.historyState.status = "ready", this.historyState.message = "", this.historyState.selectedJobId || (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? ""), this.historyState.selectedJobId && !this.historyState.response.history.items.some(
+        this.historyState.response = B(a), this.historyState.status = "ready", this.historyState.message = "", this.historyState.selectedJobId || (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? ""), this.historyState.selectedJobId && !this.historyState.response.history.items.some(
           (s) => s.id === this.historyState.selectedJobId
         ) && (this.historyState.selectedJobId = this.historyState.response.history.items[0]?.id ?? "");
       } catch (e) {
@@ -531,7 +531,7 @@ class dt {
       return;
     }
     try {
-      const s = at(a);
+      const s = rt(a);
       let n = String(t.file?.format ?? "json").toLowerCase() === "csv" ? this.parseCSVText(s) : this.parseJSONRows(s);
       n = n.map(w);
       const r = T(t);
@@ -568,7 +568,7 @@ class dt {
   }
   createRowsDownload(t) {
     const e = JSON.stringify(t, null, 2);
-    return Q("application/json", e);
+    return Z("application/json", e);
   }
   async parseImportFile(t) {
     const e = await this.readFileText(t);
@@ -676,7 +676,7 @@ class dt {
     return this.request(t, { method: "GET" });
   }
   async request(t, e) {
-    const a = await fetch(t, e), { payload: s } = await U(a);
+    const a = await U(t, e), { payload: s } = await V(a);
     if (!a.ok) {
       if (s && typeof s == "object") {
         const i = s.error?.message ?? s.message;
@@ -702,13 +702,13 @@ class dt {
       (n) => n === "rejected"
     ).length, s = this.historyExamples(), i = this.filteredHistoryItems();
     this.root.innerHTML = `
-      <section class="${B} overflow-hidden">
+      <section class="${W} overflow-hidden">
         <header class="px-6 py-5 border-b border-gray-200 bg-gray-50">
           <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p class="${W}">Translation Exchange</p>
-              <h1 class="${X}">Translation Exchange Wizard</h1>
-              <p class="${q}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
+              <p class="${q}">Translation Exchange</p>
+              <h1 class="${Q}">Translation Exchange Wizard</h1>
+              <p class="${G}">Prepare external translation files, validate row-level conflicts, apply imports with explicit create and conflict controls, and inspect retained job history for retries and audits.</p>
             </div>
             <a class="${f}" href="${o(
       `${this.config.apiPath}/template?format=json`
@@ -845,7 +845,7 @@ class dt {
             </ul>
           </div>
           ${a ? `
-              <div class="${Y}">
+              <div class="${X}">
                 <div class="flex items-center justify-between gap-3">
                   <div>
                     <p class="text-sm font-semibold text-gray-900">Latest export job</p>
@@ -1238,8 +1238,8 @@ class dt {
   }
 }
 export {
-  dt as TranslationExchangeManager,
-  V as normalizeTranslationExchangeHistoryResponse,
+  ct as TranslationExchangeManager,
+  B as normalizeTranslationExchangeHistoryResponse,
   C as normalizeTranslationExchangeJob,
   x as normalizeTranslationExchangeUploadDescriptor,
   k as normalizeTranslationExchangeValidationResult

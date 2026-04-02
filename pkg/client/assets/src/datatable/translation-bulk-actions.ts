@@ -13,7 +13,7 @@
 import type { ToastNotifier } from '../toast/types.js';
 import { FallbackNotifier } from '../toast/toast-manager.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
-import { readHTTPError } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 
 // ============================================================================
 // Types
@@ -111,7 +111,7 @@ export async function executeBulkCreateMissing(
   const endpoint = `${apiEndpoint}/bulk/create-missing-translations`;
 
   try {
-    const response = await fetch(endpoint, {
+    const response = await httpRequest(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -15,7 +15,7 @@ import {
   syncAccountIdToUrl,
 } from '../utils/google-drive-utils.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
-import { readHTTPError } from '../../shared/transport/http-client.js';
+import { httpRequest, readHTTPError } from '../../shared/transport/http-client.js';
 import {
   normalizeGoogleImportRunDetail,
   normalizeGoogleImportRunHandle,
@@ -905,7 +905,7 @@ export class GoogleDrivePickerController {
     if (importBtnText) importBtnText.textContent = 'Importing...';
 
     try {
-      const response = await fetch(this.buildScopedAPIURL('/esign/google-drive/imports'), {
+      const response = await httpRequest(this.buildScopedAPIURL('/esign/google-drive/imports'), {
         method: 'POST',
         credentials: 'same-origin',
         headers: {

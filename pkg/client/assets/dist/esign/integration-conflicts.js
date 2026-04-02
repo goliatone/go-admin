@@ -3,7 +3,7 @@ import { m as w } from "../chunks/formatters-DYQo8z6P.js";
 import { a as P, s as L } from "../chunks/page-feedback-GAI02g1h.js";
 import { escapeHTML as b } from "../shared/html.js";
 import { parseJSONValue as S } from "../shared/json-parse.js";
-import { readHTTPError as M } from "../shared/transport/http-client.js";
+import { readHTTPError as M, httpRequest as D } from "../shared/transport/http-client.js";
 import { onReady as I } from "../shared/dom-ready.js";
 class _ {
   constructor(e) {
@@ -317,7 +317,7 @@ class _ {
     };
     n.setAttribute("disabled", "true"), n.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Submitting...';
     try {
-      const s = await fetch(`${this.conflictsEndpoint}/${this.currentConflictId}/resolve`, {
+      const s = await D(`${this.conflictsEndpoint}/${this.currentConflictId}/resolve`, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -343,11 +343,11 @@ class _ {
     }
   }
 }
-function J(m) {
+function N(m) {
   const e = new _(m);
   return I(() => e.init()), e;
 }
-function N(m) {
+function V(m) {
   const e = {
     basePath: m.basePath,
     apiBasePath: m.apiBasePath || `${m.basePath}/api`
@@ -356,7 +356,7 @@ function N(m) {
 }
 export {
   _ as IntegrationConflictsController,
-  N as bootstrapIntegrationConflicts,
-  J as initIntegrationConflicts
+  V as bootstrapIntegrationConflicts,
+  N as initIntegrationConflicts
 };
 //# sourceMappingURL=integration-conflicts.js.map

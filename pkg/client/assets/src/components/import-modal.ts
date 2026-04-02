@@ -20,6 +20,7 @@
  */
 
 import { formatByteSize } from '../shared/size-formatters.js';
+import { httpRequest } from '../shared/transport/http-client.js';
 
 type ImportModalNotifier = {
   success: (message: string) => void;
@@ -560,7 +561,7 @@ export class ImportModal {
     let payload: any = null;
 
     try {
-      response = await fetch(this.endpoint, {
+      response = await httpRequest(this.endpoint, {
         method: 'POST',
         body: formData
       });

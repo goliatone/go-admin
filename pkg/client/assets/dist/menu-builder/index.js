@@ -1,9 +1,10 @@
 import { coerceString as l, coerceInteger as P, coerceStringArray as _, asRecord as g } from "../shared/coercion.js";
 import { normalizeMenuBuilderPath as D, normalizeMenuBuilderRoute as j, normalizeMenuBuilderAPIBasePath as R } from "./shared/path-helpers.js";
+import { httpRequest as G } from "../shared/transport/http-client.js";
 import { escapeHTML as u } from "../shared/html.js";
 import { parseJSONValue as S } from "../shared/json-parse.js";
-import { onReady as G } from "../shared/dom-ready.js";
-const H = /* @__PURE__ */ new Set(["inherit", "show", "hide"]), J = /* @__PURE__ */ new Set(["draft", "published"]), W = /* @__PURE__ */ new Set(["content", "route", "module", "external"]), K = /* @__PURE__ */ new Set([
+import { onReady as H } from "../shared/dom-ready.js";
+const J = /* @__PURE__ */ new Set(["inherit", "show", "hide"]), W = /* @__PURE__ */ new Set(["draft", "published"]), K = /* @__PURE__ */ new Set(["content", "route", "module", "external"]), Q = /* @__PURE__ */ new Set([
   "full",
   "top_level_limit",
   "max_depth",
@@ -22,13 +23,13 @@ function M(s) {
 }
 function T(s) {
   const e = l(s, "draft").toLowerCase();
-  return J.has(e) ? e : "draft";
-}
-function Q(s) {
-  const e = l(s, "full").toLowerCase();
-  return K.has(e) ? e : "full";
+  return W.has(e) ? e : "draft";
 }
 function X(s) {
+  const e = l(s, "full").toLowerCase();
+  return Q.has(e) ? e : "full";
+}
+function Y(s) {
   const e = v(s, "menu contracts"), t = v(e.endpoints, "menu contracts endpoints"), r = e.error_codes ?? e.errorCode ?? {}, i = v(r, "menu contracts error codes"), a = {};
   Object.entries(t).forEach(([d, c]) => {
     const p = l(c);
@@ -39,14 +40,14 @@ function X(s) {
     const p = l(c);
     p && (n[d] = p);
   });
-  const o = Y(e.content_navigation);
+  const o = Z(e.content_navigation);
   return {
     endpoints: a,
     error_codes: n,
     content_navigation: o
   };
 }
-function Y(s) {
+function Z(s) {
   if (!s || typeof s != "object" || Array.isArray(s))
     return;
   const e = s, t = e.endpoints, r = e.entry_navigation_overrides, i = e.validation, a = {};
@@ -120,7 +121,7 @@ function w(s) {
   return {
     code: t,
     name: l(e.name, t),
-    mode: Q(e.mode),
+    mode: X(e.mode),
     max_top_level: P(e.max_top_level, 0) || void 0,
     max_depth: P(e.max_depth, 0) || void 0,
     include_item_ids: _(e.include_item_ids),
@@ -131,11 +132,11 @@ function w(s) {
     published_at: l(e.published_at)
   };
 }
-function Z(s) {
+function ee(s) {
   if (!s || typeof s != "object" || Array.isArray(s))
     return;
   const e = s, t = l(e.type).toLowerCase();
-  if (W.has(t))
+  if (K.has(t))
     return {
       type: t,
       id: l(e.id),
@@ -157,11 +158,11 @@ function E(s, e = "menu item") {
     label: l(t.label, r),
     type: l(t.type),
     parent_id: l(t.parent_id ?? t.parentID ?? t.ParentID),
-    target: Z(t.target ?? t.Target),
+    target: ee(t.target ?? t.Target),
     children: a
   };
 }
-function ee(s) {
+function te(s) {
   const e = v(s, "menu preview response"), t = v(e.menu ?? e.data, "menu preview menu"), r = t.items ?? t.Items, i = Array.isArray(r) ? r.map((a, n) => E(a, `preview.menu.items[${n}]`)) : [];
   return {
     menu: {
@@ -180,7 +181,7 @@ function ee(s) {
     } : void 0
   };
 }
-function te(s, e = []) {
+function re(s, e = []) {
   if (!s || typeof s != "object" || Array.isArray(s))
     return {};
   const t = s, r = new Set(e.map((a) => a.trim()).filter(Boolean)), i = {};
@@ -191,7 +192,7 @@ function te(s, e = []) {
     if (r.size > 0 && !r.has(o))
       throw new Error(`invalid navigation location: ${o}`);
     const d = l(n).toLowerCase();
-    if (!H.has(d))
+    if (!J.has(d))
       throw new Error(`invalid navigation value for ${o}: ${String(n)}`);
     i[o] = d;
   }), i;
@@ -221,7 +222,7 @@ class O {
   async loadContracts(e = !1) {
     if (this.contracts && !e)
       return this.contracts;
-    const t = await this.fetchJSON(this.config.contractsPath, { method: "GET" }), r = g(t), i = X(r.contracts ?? r);
+    const t = await this.fetchJSON(this.config.contractsPath, { method: "GET" }), r = g(t), i = Y(r.contracts ?? r);
     return this.contracts = i, i;
   }
   async listMenus() {
@@ -290,7 +291,7 @@ class O {
       params: { id: e.menuId },
       query: t
     });
-    return ee(r);
+    return te(r);
   }
   async listBindings() {
     const e = await this.fetchFromEndpoint("menu.bindings", { method: "GET" });
@@ -351,7 +352,7 @@ class O {
       }
     }), d = g(o), c = g(d.data ?? d);
     return {
-      overrides: te(c._navigation, i),
+      overrides: re(c._navigation, i),
       effective_visibility: g(c.effective_navigation_visibility)
     };
   }
@@ -369,7 +370,7 @@ class O {
     return g(d);
   }
   async fetchJSON(e, t) {
-    const r = await fetch(e, {
+    const r = await G(e, {
       ...t,
       credentials: this.config.credentials,
       headers: {
@@ -390,7 +391,7 @@ class O {
     return i;
   }
 }
-const re = {
+const ie = {
   loading: !1,
   error: "",
   contracts: null,
@@ -485,11 +486,11 @@ function A(s, e, t) {
   });
   return { inserted: r, items: i };
 }
-function ie(s) {
+function ae(s) {
   const e = s.target;
   return !e || !e.type ? "" : e.type === "external" ? `external:${String(e.url || "").trim().toLowerCase()}` : e.type === "route" || e.type === "module" ? `${e.type}:${String(e.path || e.route || e.module || "").trim().toLowerCase()}` : `content:${String(e.content_type || "").trim().toLowerCase()}:${String(e.slug || e.id || "").trim().toLowerCase()}`;
 }
-function ae(s) {
+function se(s) {
   const e = s.target;
   if (!e)
     return { url: "", valid: !1, message: "Target required" };
@@ -532,7 +533,7 @@ function ae(s) {
 }
 class U extends EventTarget {
   constructor(e) {
-    super(), this.client = e, this.state = { ...re };
+    super(), this.client = e, this.state = { ...ie };
   }
   snapshot() {
     return {
@@ -744,7 +745,7 @@ class U extends EventTarget {
     return this.client.patchEntryNavigation(e, t, r, i);
   }
   resolveTarget(e) {
-    return ae(e);
+    return se(e);
   }
   mapItems(e, t, r) {
     return e.map((i) => i.id === t ? r({ ...i, children: f(i.children || []) }) : {
@@ -773,7 +774,7 @@ class U extends EventTarget {
         message: `${a.label || a.id}: ${d.message}`,
         item_id: a.id
       });
-      const c = ie(a);
+      const c = ae(a);
       if (c) {
         const h = r.get(c);
         h && h !== a.id ? t.push({
@@ -805,7 +806,7 @@ function I(s, e = "") {
 function N(s) {
   return l(s).toLowerCase() === "true";
 }
-class se {
+class ne {
   constructor(e, t) {
     this.state = null, this.dragItemID = "", this.onClick = async (i) => {
       const a = i.target, n = a.closest("[data-menu-select]");
@@ -1359,7 +1360,7 @@ class se {
     return e instanceof Error ? e.message : String(e);
   }
 }
-class ne {
+class oe {
   constructor(e, t, r, i, a, n) {
     this.onChange = (o) => {
       const d = o.target;
@@ -1445,7 +1446,7 @@ class ne {
     `;
   }
 }
-function oe(s) {
+function de(s) {
   return {
     enabled: N(s.dataset.navigationEnabled),
     eligible_locations: S(s.dataset.navigationEligibleLocations, []),
@@ -1454,36 +1455,36 @@ function oe(s) {
     merge_mode: String(s.dataset.navigationMergeMode || "").trim()
   };
 }
-function de(s) {
+function le(s) {
   return {
     overrides: S(s.dataset.navigationOverrides, {}),
     effective_visibility: S(s.dataset.navigationEffectiveVisibility, {})
   };
 }
-async function le(s) {
-  const e = j("/", String(s.dataset.basePath || "/admin")), t = R(e, String(s.dataset.apiBasePath || `${e}/api`)), r = String(s.dataset.menuId || "").trim(), i = new se(s, {
+async function ce(s) {
+  const e = j("/", String(s.dataset.basePath || "/admin")), t = R(e, String(s.dataset.apiBasePath || `${e}/api`)), r = String(s.dataset.menuId || "").trim(), i = new ne(s, {
     basePath: e,
     apiBasePath: t,
     initialMenuID: r
   });
   return await i.init(), i;
 }
-async function ce(s) {
+async function ue(s) {
   const e = String(s.dataset.panelName || "").trim(), t = String(s.dataset.recordId || "").trim();
   if (!e || !t)
     return null;
-  const r = j("/", String(s.dataset.basePath || "/admin")), i = R(r, String(s.dataset.apiBasePath || `${r}/api`)), a = new U(new O({ basePath: i })), n = oe(s), o = de(s), d = new ne(s, a, e, t, n, o);
+  const r = j("/", String(s.dataset.basePath || "/admin")), i = R(r, String(s.dataset.apiBasePath || `${r}/api`)), a = new U(new O({ basePath: i })), n = de(s), o = le(s), d = new oe(s, a, e, t, n, o);
   return d.init(), d;
 }
-G(() => {
+H(() => {
   document.querySelectorAll("[data-menu-builder-root]").forEach((s) => {
-    s.dataset.initialized !== "true" && le(s).then(() => {
+    s.dataset.initialized !== "true" && ce(s).then(() => {
       s.dataset.initialized = "true";
     }).catch((e) => {
       console.error("[menu-builder] failed to initialize", e), s.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
     });
   }), document.querySelectorAll("[data-entry-navigation-root]").forEach((s) => {
-    s.dataset.initialized !== "true" && ce(s).then(() => {
+    s.dataset.initialized !== "true" && ue(s).then(() => {
       s.dataset.initialized = "true";
     }).catch((e) => {
       console.error("[entry-navigation] failed to initialize", e), s.innerHTML = `<div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">${e instanceof Error ? e.message : String(e)}</div>`;
@@ -1491,18 +1492,18 @@ G(() => {
   });
 });
 export {
-  ne as EntryNavigationOverrideUI,
+  oe as EntryNavigationOverrideUI,
   O as MenuBuilderAPIClient,
   $ as MenuBuilderAPIError,
   U as MenuBuilderStore,
-  se as MenuBuilderUI,
-  ce as initEntryNavigationOverrides,
-  le as initMenuBuilder,
+  ne as MenuBuilderUI,
+  ue as initEntryNavigationOverrides,
+  ce as initMenuBuilder,
   L as parseMenuBindingRecord,
-  X as parseMenuContracts,
+  Y as parseMenuContracts,
   E as parseMenuItemNode,
   y as parseMenuRecord,
   w as parseMenuViewProfileRecord,
-  te as parseNavigationOverrides
+  re as parseNavigationOverrides
 };
 //# sourceMappingURL=index.js.map

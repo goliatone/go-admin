@@ -4,8 +4,8 @@ import { d as F } from "../chunks/formatters-DYQo8z6P.js";
 import { s as y } from "../chunks/page-feedback-GAI02g1h.js";
 import { r as M, t as A, s as C, p as E } from "../chunks/google-drive-utils-DVyZvmUh.js";
 import { escapeHTML as x } from "../shared/html.js";
-import { readHTTPError as I } from "../shared/transport/http-client.js";
-import { g as $, h as R, r as H } from "../chunks/lineage-contracts-BR7-TggW.js";
+import { readHTTPError as I, httpRequest as R } from "../shared/transport/http-client.js";
+import { g as $, h as H, r as V } from "../chunks/lineage-contracts-BR7-TggW.js";
 import { onReady as T } from "../shared/dom-ready.js";
 const L = {
   "application/vnd.google-apps.folder": "folder",
@@ -448,7 +448,7 @@ class S {
     } = this.elements, o = this.selectedFile.id, c = n?.value.trim() || this.selectedFile.name, h = s?.value.trim() || "";
     e && e.setAttribute("disabled", "true"), t && g(t), i && (i.textContent = "Importing...");
     try {
-      const a = await fetch(this.buildScopedAPIURL("/esign/google-drive/imports"), {
+      const a = await R(this.buildScopedAPIURL("/esign/google-drive/imports"), {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -467,9 +467,9 @@ class S {
             appendStatusToFallback: !1
           })
         );
-      const l = await a.json(), d = $(l), f = R(l);
+      const l = await a.json(), d = $(l), f = H(l);
       if (y("Import started successfully", "success", { alertFallback: !0 }), b("Import started"), this.hideImportModal(), f.status === "succeeded" && this.config.pickerRoutes?.documents) {
-        window.location.href = H(f, {
+        window.location.href = V(f, {
           agreements: this.config.pickerRoutes.agreements,
           documents: this.config.pickerRoutes.documents,
           fallback: this.config.pickerRoutes.documents
@@ -517,11 +517,11 @@ class S {
    * Escape HTML
    */
 }
-function q(m) {
+function N(m) {
   const e = new S(m);
   return T(() => e.init()), e;
 }
-function N(m) {
+function Y(m) {
   const e = {
     basePath: m.basePath,
     apiBasePath: m.apiBasePath || `${m.basePath}/api`,
@@ -534,7 +534,7 @@ function N(m) {
 }
 export {
   S as GoogleDrivePickerController,
-  N as bootstrapGoogleDrivePicker,
-  q as initGoogleDrivePicker
+  Y as bootstrapGoogleDrivePicker,
+  N as initGoogleDrivePicker
 };
 //# sourceMappingURL=google-drive-picker.js.map

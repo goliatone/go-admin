@@ -18,7 +18,7 @@ import {
   normalizeGoogleImportRunDetail,
   normalizeGoogleImportRunHandle,
 } from './lineage-contracts.js';
-import { readHTTPErrorResult, readHTTPJSON } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPErrorResult, readHTTPJSON } from '../shared/transport/http-client.js';
 
 export interface ESignAPIClientConfig {
   basePath: string;
@@ -136,7 +136,7 @@ export class ESignAPIClient {
 
   // Generic HTTP methods
   private async get<T>(path: string): Promise<T> {
-    const response = await fetch(`${this.apiBasePath}${path}`, {
+    const response = await httpRequest(`${this.apiBasePath}${path}`, {
       method: 'GET',
       headers: this.defaultHeaders,
     });
@@ -144,7 +144,7 @@ export class ESignAPIClient {
   }
 
   private async post<T>(path: string, body?: unknown): Promise<T> {
-    const response = await fetch(`${this.apiBasePath}${path}`, {
+    const response = await httpRequest(`${this.apiBasePath}${path}`, {
       method: 'POST',
       headers: this.defaultHeaders,
       body: body ? JSON.stringify(body) : undefined,
@@ -153,7 +153,7 @@ export class ESignAPIClient {
   }
 
   private async put<T>(path: string, body: unknown): Promise<T> {
-    const response = await fetch(`${this.apiBasePath}${path}`, {
+    const response = await httpRequest(`${this.apiBasePath}${path}`, {
       method: 'PUT',
       headers: this.defaultHeaders,
       body: JSON.stringify(body),
@@ -162,7 +162,7 @@ export class ESignAPIClient {
   }
 
   private async delete<T>(path: string): Promise<T> {
-    const response = await fetch(`${this.apiBasePath}${path}`, {
+    const response = await httpRequest(`${this.apiBasePath}${path}`, {
       method: 'DELETE',
       headers: this.defaultHeaders,
     });

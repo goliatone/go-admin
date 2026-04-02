@@ -18,7 +18,7 @@ import { createCrudResolver } from '../searchbox/resolvers/api-resolver.js';
 import { UserRenderer } from '../searchbox/renderers/user-renderer.js';
 import { EntityRenderer } from '../searchbox/renderers/entity-renderer.js';
 import { escapeHTML as escapeHtml } from '../shared/html.js';
-import { readHTTPError } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 
 const DEFAULT_SELECTORS: FeatureFlagsSelectors = {
   scopeSelect: '#flag-scope',
@@ -262,7 +262,7 @@ export class FeatureFlagsManager {
     const url = `${this.config.apiPath}?${params.toString()}`;
 
     try {
-      const response = await fetch(url, { headers: { Accept: 'application/json' } });
+      const response = await httpRequest(url, { headers: { Accept: 'application/json' } });
 
       if (!response.ok) {
         const message = await readHTTPError(response, 'Failed to load flags.', {
@@ -308,7 +308,7 @@ export class FeatureFlagsManager {
     }
 
     try {
-      const response = await fetch(this.config.apiPath, {
+      const response = await httpRequest(this.config.apiPath, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

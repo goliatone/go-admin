@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -125,7 +124,15 @@ func resolveProtectedRouteMiddleware(
 	protectedBrowserRoute := resolveProtectedAdminBrowserRouteMiddleware(routeAuth, cfg, handler)
 	return func(next router.HandlerFunc) router.HandlerFunc {
 		browserHandler := protectedBrowserRoute(next)
-		routeHandler := protectedRoute(next)
+		routeHandler := protectedRoute(func(c router.Context) error {
+			if err := enforceAdminAPIBrowserCSRF(c, cfg); err != nil {
+				if c == nil {
+					return err
+				}
+				return writeError(c, err)
+			}
+			return next(c)
+		})
 		return func(c router.Context) error {
 			if c != nil {
 				c.SetContext(WithResolvedPermissionsCache(c.Context()))
@@ -216,14 +223,14 @@ func (a *GoAuthAuthenticator) UsesBrowserSession(c router.Context) bool {
 	if a == nil || a.authConfig == nil {
 		return false
 	}
-	return translationExchangeUsesCookieAuth(c, a.authConfig)
+	return adminUsesCookieAuth(c, a.authConfig)
 }
 
 func (a *GoAuthAuthenticator) EnforceBrowserCSRF(c router.Context) error {
 	if a == nil || a.authConfig == nil {
-		return errors.New("csrf configuration unavailable")
+		return newAdminBrowserCSRFError(nil)
 	}
-	return translationExchangeValidateCSRFMiddleware(c, a.authConfig)
+	return validateAdminBrowserCSRF(c, a.authConfig)
 }
 
 func (a *GoAuthAuthenticator) resolveErrorHandler() func(router.Context, error) error {

@@ -1,8 +1,8 @@
 import { onReady as w } from "../shared/dom-ready.js";
 import { formatByteSize as h } from "../shared/size-formatters.js";
 import { parseJSONValue as v } from "../shared/json-parse.js";
-import { readHTTPError as g } from "../shared/transport/http-client.js";
-function E(e) {
+import { httpRequest as g, readHTTPError as E } from "../shared/transport/http-client.js";
+function b(e) {
   const t = v(e, null);
   return t && typeof t == "object" ? t : {};
 }
@@ -17,7 +17,7 @@ function u(e) {
 function s(e, t) {
   e.errorEl.textContent = t, e.errorEl.classList.remove("hidden"), e.statusEl.textContent = "", e.statusEl.classList.add("hidden");
 }
-function b(e) {
+function x(e) {
   e.errorEl.textContent = "", e.errorEl.classList.add("hidden");
 }
 function c(e, t) {
@@ -35,7 +35,7 @@ function f(e, t, r) {
   const a = document.createElement("p");
   return a.className = r, e.appendChild(a), a;
 }
-function x(e) {
+function I(e) {
   const t = e.querySelector("input[data-file-uploader-url]"), r = e.querySelector("input[data-file-uploader-file]");
   if (!t || !r) return null;
   const i = f(e, "[data-file-uploader-error]", "text-sm text-red-600 hidden");
@@ -53,17 +53,17 @@ function x(e) {
     statusEl: a
   };
 }
-async function I(e, t, r) {
+async function S(e, t, r) {
   const i = new FormData();
   i.append("file", r, r.name);
-  const a = await fetch(t, {
+  const a = await g(t, {
     method: "POST",
     body: i,
     credentials: "same-origin",
     headers: { Accept: "application/json" }
   });
   if (!a.ok) {
-    const l = await g(a, `Upload failed (${a.status})`, {
+    const l = await E(a, `Upload failed (${a.status})`, {
       appendStatusToFallback: !1
     });
     throw new Error(l);
@@ -73,16 +73,16 @@ async function I(e, t, r) {
     throw new Error("Upload succeeded but response did not include a url");
   return n.url;
 }
-function S(e) {
-  const t = x(e);
+function L(e) {
+  const t = I(e);
   if (!t) return;
-  const r = E(e.getAttribute("data-component-config"));
+  const r = b(e.getAttribute("data-component-config"));
   if (Array.isArray(r.allowedTypes) && r.allowedTypes.length > 0 && t.fileInput.setAttribute("accept", r.allowedTypes.join(",")), r.preview !== !1) {
     const i = t.urlInput.value?.trim();
     i && d(t, i);
   }
   t.fileInput.addEventListener("change", async () => {
-    b(t), p(t);
+    x(t), p(t);
     const i = t.fileInput.files?.[0];
     if (!i) return;
     if (Array.isArray(r.allowedTypes) && r.allowedTypes.length > 0 && !r.allowedTypes.includes(i.type)) {
@@ -103,7 +103,7 @@ function S(e) {
     let l = null;
     try {
       r.preview !== !1 && (l = URL.createObjectURL(i), d(t, l)), c(t, "Uploading…");
-      const o = await I(t, a, i);
+      const o = await S(t, a, i);
       t.urlInput.value = o, r.preview !== !1 && d(t, o), c(t, "Uploaded"), window.setTimeout(() => p(t), 1500);
     } catch (o) {
       const m = o instanceof Error ? o.message : "Upload failed";
@@ -116,11 +116,11 @@ function S(e) {
     }
   });
 }
-function L(e = document) {
-  Array.from(e.querySelectorAll('[data-component="file_uploader"], [data-file-uploader]')).forEach((r) => S(r));
+function U(e = document) {
+  Array.from(e.querySelectorAll('[data-component="file_uploader"], [data-file-uploader]')).forEach((r) => L(r));
 }
-w(() => L());
+w(() => U());
 export {
-  L as initFileUploaders
+  U as initFileUploaders
 };
 //# sourceMappingURL=file_uploader.js.map

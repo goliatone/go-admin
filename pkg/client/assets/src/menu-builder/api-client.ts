@@ -18,6 +18,7 @@ import type {
 } from './types.js';
 import { normalizeMenuBuilderPath } from './shared/path-helpers.js';
 import { asRecord } from '../shared/coercion.js';
+import { httpRequest } from '../shared/transport/http-client.js';
 
 export class MenuBuilderAPIError extends Error {
   readonly status: number;
@@ -298,7 +299,7 @@ export class MenuBuilderAPIClient {
   }
 
   private async fetchJSON(path: string, options: RequestInit): Promise<unknown> {
-    const response = await fetch(path, {
+    const response = await httpRequest(path, {
       ...options,
       credentials: this.config.credentials,
       headers: {

@@ -1,18 +1,18 @@
-import { j as M, b as a, q as E, h as d, s as p, a as v } from "../chunks/dom-helpers-Cd24RS2-.js";
-import { d as R } from "../chunks/async-helpers-D7xplkWe.js";
-import { b as S, d as B } from "../chunks/formatters-DYQo8z6P.js";
-import { r as z, o as I, t as U, s as $, p as k } from "../chunks/google-drive-utils-DVyZvmUh.js";
-import { httpRequest as j, readHTTPError as y, readHTTPErrorResult as H, readHTTPJSONObject as O } from "../shared/transport/http-client.js";
+import { j as R, b as a, q as E, h as d, s as p, a as v } from "../chunks/dom-helpers-Cd24RS2-.js";
+import { d as B } from "../chunks/async-helpers-D7xplkWe.js";
+import { b as S, d as z } from "../chunks/formatters-DYQo8z6P.js";
+import { r as U, o as I, t as $, s as j, p as k } from "../chunks/google-drive-utils-DVyZvmUh.js";
+import { httpRequest as C, readHTTPError as y, readHTTPErrorResult as H, readHTTPJSONObject as O } from "../shared/transport/http-client.js";
 import { escapeHTML as x } from "../shared/html.js";
 import { g as q, h as G, r as N } from "../chunks/lineage-contracts-BR7-TggW.js";
 import { onReady as L } from "../shared/dom-ready.js";
-const V = 25 * 1024 * 1024, Q = 2e3, C = 60, F = "application/vnd.google-apps.document", P = "application/pdf", D = "application/vnd.google-apps.folder", W = [F, P];
+const V = 25 * 1024 * 1024, Q = 2e3, D = 60, F = "application/vnd.google-apps.document", P = "application/pdf", _ = "application/vnd.google-apps.folder", W = [F, P];
 async function K(l) {
   return O(l);
 }
 class A {
   constructor(e) {
-    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || V, this.currentAccountId = z(
+    this.isSubmitting = !1, this.currentSource = "upload", this.currentFiles = [], this.nextPageToken = null, this.currentFolderPath = [{ id: "root", name: "My Drive" }], this.selectedFile = null, this.searchQuery = "", this.searchTimeout = null, this.pollTimeout = null, this.pollAttempts = 0, this.currentImportRunId = null, this.connectedAccounts = [], this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api/v1`, this.maxFileSize = e.maxFileSize || V, this.currentAccountId = U(
       new URLSearchParams(window.location.search),
       this.config.googleAccountId
     ), this.elements = {
@@ -141,7 +141,7 @@ class A {
       driveAccountDropdown: c
     } = this.elements;
     if (e) {
-      const u = R(() => this.handleSearch(), 300);
+      const u = B(() => this.handleSearch(), 300);
       e.addEventListener("input", u);
     }
     t && t.addEventListener("click", () => this.clearSearch()), o && o.addEventListener("click", () => this.loadMoreFiles()), s && s.addEventListener("click", () => this.refreshFiles()), c && c.addEventListener("change", () => {
@@ -221,7 +221,7 @@ class A {
    * Update account scope UI elements
    */
   updateAccountScopeUI() {
-    U(this.currentAccountId), $(this.currentAccountId);
+    $(this.currentAccountId), j(this.currentAccountId);
     const { accountScopeHelp: e, connectGoogleLink: t, driveAccountDropdown: o } = this.elements;
     if (e && (this.currentAccountId ? (e.textContent = `Account scope: ${this.currentAccountId}`, p(e)) : d(e)), t) {
       const s = t.dataset.baseHref || t.getAttribute("href");
@@ -372,7 +372,7 @@ class A {
     o && r.searchParams.set("tenant_id", o), s && r.searchParams.set("org_id", s);
     const i = new FormData();
     i.append("file", e);
-    const n = await j(r.toString(), {
+    const n = await C(r.toString(), {
       method: "POST",
       body: i,
       credentials: "same-origin"
@@ -455,7 +455,7 @@ class A {
    * Check if file is a folder
    */
   isFolder(e) {
-    return e.mimeType === D;
+    return e.mimeType === _;
   }
   /**
    * Check if file is importable
@@ -468,7 +468,7 @@ class A {
    */
   getFileTypeName(e) {
     const t = String(e || "").trim().toLowerCase();
-    return t === F ? "Google Document" : t === P ? "PDF Document" : t === "application/vnd.google-apps.spreadsheet" ? "Google Spreadsheet" : t === "application/vnd.google-apps.presentation" ? "Google Slides" : t === D ? "Folder" : "File";
+    return t === F ? "Google Document" : t === P ? "PDF Document" : t === "application/vnd.google-apps.spreadsheet" ? "Google Spreadsheet" : t === "application/vnd.google-apps.presentation" ? "Google Slides" : t === _ ? "Folder" : "File";
   }
   /**
    * Get file icon HTML
@@ -593,7 +593,7 @@ class A {
             <p class="font-medium text-gray-900 truncate">${x(s.name || "Untitled")}</p>
             <p class="text-xs text-gray-500">
               ${this.getFileTypeName(s.mimeType)}
-              ${s.modifiedTime ? " • " + B(s.modifiedTime) : ""}
+              ${s.modifiedTime ? " • " + z(s.modifiedTime) : ""}
               ${h ? " • Not importable" : ""}
             </p>
           </div>
@@ -658,8 +658,8 @@ class A {
     this.selectedFile = e;
     const t = this.getFileIcon(e), o = this.getImportTypeInfo(e), { fileList: s } = this.elements;
     s && s.querySelectorAll(".file-item").forEach((w) => {
-      const _ = parseInt(w.dataset.fileIndex || "0", 10);
-      this.currentFiles[_].id === e.id ? (w.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "true")) : (w.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "false"));
+      const M = parseInt(w.dataset.fileIndex || "0", 10);
+      this.currentFiles[M].id === e.id ? (w.classList.add("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "true")) : (w.classList.remove("bg-blue-50", "border-l-2", "border-l-blue-500"), w.setAttribute("aria-selected", "false"));
     });
     const {
       noSelection: r,
@@ -801,7 +801,7 @@ class A {
     try {
       const i = new URL(window.location.href);
       i.searchParams.delete("import_run_id"), window.history.replaceState({}, "", i.toString());
-      const n = await fetch(
+      const n = await C(
         this.buildScopedAPIURL("/esign/google-drive/imports").toString(),
         {
           method: "POST",
@@ -844,7 +844,7 @@ class A {
    */
   async pollImportStatus() {
     if (this.currentImportRunId) {
-      if (this.pollTimeout = null, this.pollAttempts++, this.pollAttempts > C) {
+      if (this.pollTimeout = null, this.pollAttempts++, this.pollAttempts > D) {
         this.showImportError(
           "Import is taking too long. Please check the documents list.",
           ""
@@ -892,7 +892,7 @@ class A {
             this.startPolling();
         }
       } catch (e) {
-        console.error("Poll error:", e), this.pollAttempts < C ? this.startPolling() : this.showImportError("Unable to check import status", "");
+        console.error("Poll error:", e), this.pollAttempts < D ? this.startPolling() : this.showImportError("Unable to check import status", "");
       }
     }
   }
@@ -950,7 +950,7 @@ typeof document < "u" && L(() => {
   if (document.querySelector(
     '[data-esign-page="admin.documents.ingestion"], [data-esign-page="document-form"]'
   )) {
-    const e = M(
+    const e = R(
       "esign-page-config",
       "document form page config"
     );

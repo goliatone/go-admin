@@ -1,7 +1,7 @@
 import { onReady } from '../shared/dom-ready.js';
 import { formatByteSize } from '../shared/size-formatters.js';
 import { parseJSONValue } from '../shared/json-parse.js';
-import { readHTTPError } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPError } from '../shared/transport/http-client.js';
 
 type FileUploaderConfig = {
   uploadEndpoint?: string;
@@ -112,7 +112,7 @@ async function uploadFile(elements: FileUploaderElements, endpoint: string, file
   const formData = new FormData();
   formData.append('file', file, file.name);
 
-  const response = await fetch(endpoint, {
+  const response = await httpRequest(endpoint, {
     method: 'POST',
     body: formData,
     credentials: 'same-origin',

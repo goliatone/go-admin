@@ -17,8 +17,6 @@ import (
 	"strings"
 	"time"
 
-	auth "github.com/goliatone/go-auth"
-	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	"github.com/goliatone/go-command/dispatcher"
 	router "github.com/goliatone/go-router"
 )
@@ -1671,13 +1669,13 @@ func enforceTranslationExchangeCSRF(c router.Context, admin *Admin) error {
 	if c == nil {
 		return nil
 	}
-	if !translationExchangeMethodRequiresCSRF(c.Method()) {
+	if !adminMethodRequiresCSRF(c.Method()) {
 		return nil
 	}
-	protector := translationExchangeCSRFProtector(admin)
+	protector := adminBrowserCSRFProtector(admin)
 	if protector == nil {
-		if translationExchangeRequestUsesCookies(c) {
-			return permissionDenied("csrf", "translations")
+		if adminRequestUsesCookies(c) {
+			return newAdminBrowserCSRFError(nil)
 		}
 		return nil
 	}
@@ -1685,112 +1683,9 @@ func enforceTranslationExchangeCSRF(c router.Context, admin *Admin) error {
 		return nil
 	}
 	if err := protector.EnforceBrowserCSRF(c); err != nil {
-		return permissionDenied("csrf", "translations")
+		return newAdminBrowserCSRFError(err)
 	}
 	return nil
-}
-
-func translationExchangeCSRFProtector(admin *Admin) BrowserCSRFProtector {
-	if admin == nil {
-		return nil
-	}
-	protector, _ := admin.authenticator.(BrowserCSRFProtector)
-	return protector
-}
-
-func translationExchangeRequestUsesCookies(c router.Context) bool {
-	if c == nil {
-		return false
-	}
-	return strings.TrimSpace(c.Header("Cookie")) != ""
-}
-
-func translationExchangeMethodRequiresCSRF(method string) bool {
-	switch strings.ToUpper(strings.TrimSpace(method)) {
-	case "GET", "HEAD", "OPTIONS", "TRACE":
-		return false
-	default:
-		return true
-	}
-}
-
-func translationExchangeUsesCookieAuth(c router.Context, cfg auth.Config) bool {
-	if c == nil || cfg == nil {
-		return false
-	}
-	cookieName := translationExchangeAuthCookieName(cfg)
-	if cookieName == "" {
-		return false
-	}
-	return strings.TrimSpace(c.Cookies(cookieName)) != ""
-}
-
-func translationExchangeAuthCookieName(cfg auth.Config) string {
-	if cfg == nil {
-		return ""
-	}
-	for part := range strings.SplitSeq(cfg.GetTokenLookup(), ",") {
-		part = strings.TrimSpace(part)
-		if after, ok := strings.CutPrefix(part, "cookie:"); ok {
-			return strings.TrimSpace(after)
-		}
-	}
-	return ""
-}
-
-func translationExchangeValidateCSRFMiddleware(c router.Context, cfg auth.Config) error {
-	if c == nil || cfg == nil {
-		return errors.New("csrf configuration unavailable")
-	}
-	middleware := csrfmw.New(csrfmw.Config{
-		SecureKey:          translationExchangeCSRFSecureKey(cfg),
-		SessionKeyResolver: translationExchangeCSRFSessionKeyResolver,
-		ErrorHandler: func(_ router.Context, err error) error {
-			return err
-		},
-		SuccessHandler: func(router.Context) error { return nil },
-	})
-	return middleware(func(router.Context) error { return nil })(c)
-}
-
-func translationExchangeCSRFSecureKey(cfg auth.Config) []byte {
-	if cfg == nil {
-		return nil
-	}
-	// Mirror go-auth's browser CSRF secure-key derivation so API writes can
-	// validate the same token emitted by protected browser routes.
-	sum := sha256.Sum256([]byte("go-auth-browser-csrf:" + cfg.GetSigningKey() + ":" + cfg.GetContextKey()))
-	return sum[:]
-}
-
-func translationExchangeCSRFSessionKeyResolver(c router.Context) (string, bool) {
-	// Mirror go-auth's browser CSRF session binding so the same cookie-backed
-	// session can authorize both browser pages and translation exchange writes.
-	if c == nil {
-		return "", false
-	}
-	if sessionID := strings.TrimSpace(c.GetString("session_id", "")); sessionID != "" {
-		return "csrf_" + sessionID, true
-	}
-	if userID := strings.TrimSpace(c.GetString("user_id", "")); userID != "" {
-		return "csrf_user_" + userID, true
-	}
-	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
-		if tokenIDer, ok := claims.(interface{ TokenID() string }); ok {
-			if tokenID := strings.TrimSpace(tokenIDer.TokenID()); tokenID != "" {
-				return "csrf_session_" + tokenID, true
-			}
-		}
-		if userID := strings.TrimSpace(claims.UserID()); userID != "" {
-			return "csrf_user_" + userID, true
-		}
-	}
-	if actor, ok := auth.ActorFromContext(c.Context()); ok && actor != nil {
-		if actorID := strings.TrimSpace(actor.ActorID); actorID != "" {
-			return "csrf_user_" + actorID, true
-		}
-	}
-	return "", false
 }
 
 func parseOptionalJSONMap(raw []byte) (map[string]any, error) {

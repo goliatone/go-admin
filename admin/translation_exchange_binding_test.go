@@ -675,8 +675,12 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutCSRFToken(t *te
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+	errPayload := decodeResponseErrorBody(t, resp)
+	if got := strings.TrimSpace(toString(errPayload["text_code"])); got != TextCodeAdminCSRFInvalid {
+		t.Fatalf("expected csrf text_code %q, got %q", TextCodeAdminCSRFInvalid, got)
 	}
 	if called, _ := executor.exportSnapshot(); called != 0 {
 		t.Fatalf("expected export executor not to run when csrf validation fails")
@@ -721,8 +725,12 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithBogusCSRFToken(t *
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+	errPayload := decodeResponseErrorBody(t, resp)
+	if got := strings.TrimSpace(toString(errPayload["text_code"])); got != TextCodeAdminCSRFInvalid {
+		t.Fatalf("expected csrf text_code %q, got %q", TextCodeAdminCSRFInvalid, got)
 	}
 	if called, _ := executor.exportSnapshot(); called != 0 {
 		t.Fatalf("expected export executor not to run when csrf validation fails")
@@ -814,8 +822,12 @@ func TestTranslationExchangeBindingExportRejectsCookieAuthWithoutBrowserCSRFProt
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+	errPayload := decodeResponseErrorBody(t, resp)
+	if got := strings.TrimSpace(toString(errPayload["text_code"])); got != TextCodeAdminCSRFInvalid {
+		t.Fatalf("expected csrf text_code %q, got %q", TextCodeAdminCSRFInvalid, got)
 	}
 	if called, _ := executor.exportSnapshot(); called != 0 {
 		t.Fatalf("expected export executor not to run without csrf-capable browser authenticator")
@@ -854,8 +866,12 @@ func TestTranslationExchangeBindingDeleteJobRejectsCookieAuthWithoutCSRFToken(t 
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	if resp.StatusCode != http.StatusForbidden {
-		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusForbidden)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
+	}
+	errPayload := decodeResponseErrorBody(t, resp)
+	if got := strings.TrimSpace(toString(errPayload["text_code"])); got != TextCodeAdminCSRFInvalid {
+		t.Fatalf("expected csrf text_code %q, got %q", TextCodeAdminCSRFInvalid, got)
 	}
 }
 
@@ -1433,6 +1449,20 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 			t.Fatalf("expected deleted job to be absent from history, got %+v", items)
 		}
 	}
+}
+
+func decodeResponseErrorBody(t *testing.T, resp *http.Response) map[string]any {
+	t.Helper()
+	defer resp.Body.Close()
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response payload: %v", err)
+	}
+	errPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %#v", payload)
+	}
+	return errPayload
 }
 
 func newTranslationExchangeTestApp(t *testing.T, binding *translationExchangeBinding) *fiber.App {

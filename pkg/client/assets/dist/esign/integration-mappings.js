@@ -1,12 +1,12 @@
-import { b as s, h as m, s as h } from "../chunks/dom-helpers-Cd24RS2-.js";
-import { d as $ } from "../chunks/async-helpers-D7xplkWe.js";
-import { m as q } from "../chunks/formatters-DYQo8z6P.js";
+import { b as s, h as m, s as g } from "../chunks/dom-helpers-Cd24RS2-.js";
+import { d as C } from "../chunks/async-helpers-D7xplkWe.js";
+import { m as V } from "../chunks/formatters-DYQo8z6P.js";
 import { a as w, s as x } from "../chunks/page-feedback-GAI02g1h.js";
 import { escapeHTML as l } from "../shared/html.js";
-import { parseJSONValue as V } from "../shared/json-parse.js";
-import { readHTTPError as k } from "../shared/transport/http-client.js";
-import { onReady as C } from "../shared/dom-ready.js";
-class T {
+import { parseJSONValue as A } from "../shared/json-parse.js";
+import { readHTTPError as k, httpRequest as L } from "../shared/transport/http-client.js";
+import { onReady as T } from "../shared/dom-ready.js";
+class _ {
   constructor(e) {
     this.mappings = [], this.editingMappingId = null, this.pendingPublishId = null, this.pendingDeleteId = null, this.currentPreviewMapping = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.mappingsEndpoint = `${this.apiBase}/esign/integrations/mappings`, this.elements = {
       announcements: s("#mappings-announcements"),
@@ -96,18 +96,18 @@ class T {
       addRuleBtn: d,
       validateBtn: a,
       mappingForm: u,
-      publishCancelBtn: g,
+      publishCancelBtn: h,
       publishConfirmBtn: b,
       deleteCancelBtn: c,
       deleteConfirmBtn: f,
-      closePreviewBtn: _,
-      loadSampleBtn: j,
-      runPreviewBtn: B,
-      clearPreviewBtn: I,
-      previewSourceInput: F,
-      searchInput: R,
-      filterStatus: D,
-      filterProvider: H,
+      closePreviewBtn: j,
+      loadSampleBtn: B,
+      runPreviewBtn: I,
+      clearPreviewBtn: F,
+      previewSourceInput: R,
+      searchInput: D,
+      filterStatus: H,
+      filterProvider: N,
       mappingModal: M,
       publishModal: S,
       deleteModal: E,
@@ -115,12 +115,12 @@ class T {
     } = this.elements;
     e?.addEventListener("click", () => this.openCreateModal()), t?.addEventListener("click", () => this.openCreateModal()), i?.addEventListener("click", () => this.closeModal()), n?.addEventListener("click", () => this.closeModal()), r?.addEventListener("click", () => this.loadMappings()), o?.addEventListener("click", () => this.loadMappings()), p?.addEventListener("click", () => this.addSchemaField()), d?.addEventListener("click", () => this.addMappingRule()), a?.addEventListener("click", () => this.validateMapping()), u?.addEventListener("submit", (v) => {
       v.preventDefault(), this.saveMapping();
-    }), g?.addEventListener("click", () => this.closePublishModal()), b?.addEventListener("click", () => this.publishMapping()), c?.addEventListener("click", () => this.closeDeleteModal()), f?.addEventListener("click", () => this.deleteMapping()), _?.addEventListener("click", () => this.closePreviewModal()), j?.addEventListener("click", () => this.loadSamplePayload()), B?.addEventListener("click", () => this.runPreviewTransform()), I?.addEventListener("click", () => this.clearPreview()), F?.addEventListener("input", $(() => this.validateSourceJson(), 300)), R?.addEventListener("input", $(() => this.renderMappings(), 300)), D?.addEventListener("change", () => this.renderMappings()), H?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (v) => {
+    }), h?.addEventListener("click", () => this.closePublishModal()), b?.addEventListener("click", () => this.publishMapping()), c?.addEventListener("click", () => this.closeDeleteModal()), f?.addEventListener("click", () => this.deleteMapping()), j?.addEventListener("click", () => this.closePreviewModal()), B?.addEventListener("click", () => this.loadSamplePayload()), I?.addEventListener("click", () => this.runPreviewTransform()), F?.addEventListener("click", () => this.clearPreview()), R?.addEventListener("input", C(() => this.validateSourceJson(), 300)), D?.addEventListener("input", C(() => this.renderMappings(), 300)), H?.addEventListener("change", () => this.renderMappings()), N?.addEventListener("change", () => this.renderMappings()), document.addEventListener("keydown", (v) => {
       v.key === "Escape" && (M && !M.classList.contains("hidden") && this.closeModal(), S && !S.classList.contains("hidden") && this.closePublishModal(), E && !E.classList.contains("hidden") && this.closeDeleteModal(), P && !P.classList.contains("hidden") && this.closePreviewModal());
     }), [M, S, E, P].forEach((v) => {
-      v?.addEventListener("click", (N) => {
-        const L = N.target;
-        (L === v || L.getAttribute("aria-hidden") === "true") && (v === M ? this.closeModal() : v === S ? this.closePublishModal() : v === E ? this.closeDeleteModal() : v === P && this.closePreviewModal());
+      v?.addEventListener("click", (q) => {
+        const $ = q.target;
+        ($ === v || $.getAttribute("aria-hidden") === "true") && (v === M ? this.closeModal() : v === S ? this.closePublishModal() : v === E ? this.closeDeleteModal() : v === P && this.closePreviewModal());
       });
     });
   }
@@ -131,16 +131,16 @@ class T {
     const { loadingState: t, emptyState: i, errorState: n, mappingsList: r } = this.elements;
     switch (m(t), m(i), m(n), m(r), e) {
       case "loading":
-        h(t);
+        g(t);
         break;
       case "empty":
-        h(i);
+        g(i);
         break;
       case "error":
-        h(n);
+        g(n);
         break;
       case "list":
-        h(r);
+        g(r);
         break;
     }
   }
@@ -211,7 +211,7 @@ class T {
         <td class="px-6 py-4 text-sm text-gray-700">${l(a.provider)}</td>
         <td class="px-6 py-4">${this.getStatusBadge(a.status)}</td>
         <td class="px-6 py-4 text-sm text-gray-700">v${a.version || 1}</td>
-        <td class="px-6 py-4 text-sm text-gray-500">${q(a.updated_at)}</td>
+        <td class="px-6 py-4 text-sm text-gray-500">${V(a.updated_at)}</td>
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
             <button type="button" class="preview-mapping-btn text-purple-600 hover:text-purple-700 text-sm font-medium" data-id="${l(a.id)}" aria-label="Preview ${l(a.name)}">
@@ -325,21 +325,21 @@ class T {
       schemaFieldsContainer: p,
       mappingRulesContainer: d
     } = this.elements, a = [];
-    p?.querySelectorAll(".schema-field-row").forEach((g) => {
+    p?.querySelectorAll(".schema-field-row").forEach((h) => {
       a.push({
-        object: (g.querySelector(".field-object")?.value || "").trim(),
-        field: (g.querySelector(".field-name")?.value || "").trim(),
-        type: g.querySelector(".field-type")?.value || "string",
-        required: g.querySelector(".field-required")?.checked || !1
+        object: (h.querySelector(".field-object")?.value || "").trim(),
+        field: (h.querySelector(".field-name")?.value || "").trim(),
+        type: h.querySelector(".field-type")?.value || "string",
+        required: h.querySelector(".field-required")?.checked || !1
       });
     });
     const u = [];
-    return d?.querySelectorAll(".mapping-rule-row").forEach((g) => {
+    return d?.querySelectorAll(".mapping-rule-row").forEach((h) => {
       u.push({
-        source_object: (g.querySelector(".rule-source-object")?.value || "").trim(),
-        source_field: (g.querySelector(".rule-source-field")?.value || "").trim(),
-        target_entity: g.querySelector(".rule-target-entity")?.value || "participant",
-        target_path: (g.querySelector(".rule-target-path")?.value || "").trim()
+        source_object: (h.querySelector(".rule-source-object")?.value || "").trim(),
+        source_field: (h.querySelector(".rule-source-field")?.value || "").trim(),
+        target_entity: h.querySelector(".rule-target-entity")?.value || "participant",
+        target_path: (h.querySelector(".rule-target-path")?.value || "").trim()
       });
     }), {
       id: e?.value.trim() || void 0,
@@ -368,11 +368,11 @@ class T {
       schemaFieldsContainer: d,
       mappingRulesContainer: a,
       mappingStatusBadge: u,
-      formValidationStatus: g
+      formValidationStatus: h
     } = this.elements;
     t && (t.value = e.id || ""), i && (i.value = String(e.version || 0)), n && (n.value = e.name || ""), r && (r.value = e.provider || "");
     const b = e.external_schema || { object_type: "", fields: [] };
-    o && (o.value = b.object_type || ""), p && (p.value = b.version || ""), d && (d.innerHTML = "", (b.fields || []).forEach((c) => d.appendChild(this.createSchemaFieldRow(c)))), a && (a.innerHTML = "", (e.rules || []).forEach((c) => a.appendChild(this.createMappingRuleRow(c)))), e.status && u ? (u.innerHTML = this.getStatusBadge(e.status), u.classList.remove("hidden")) : u && u.classList.add("hidden"), m(g);
+    o && (o.value = b.object_type || ""), p && (p.value = b.version || ""), d && (d.innerHTML = "", (b.fields || []).forEach((c) => d.appendChild(this.createSchemaFieldRow(c)))), a && (a.innerHTML = "", (e.rules || []).forEach((c) => a.appendChild(this.createMappingRuleRow(c)))), e.status && u ? (u.innerHTML = this.getStatusBadge(e.status), u.classList.remove("hidden")) : u && u.classList.add("hidden"), m(h);
   }
   /**
    * Reset the form to initial state
@@ -395,7 +395,7 @@ class T {
    */
   openCreateModal() {
     const { mappingModal: e, mappingModalTitle: t, mappingNameInput: i } = this.elements;
-    this.resetForm(), t && (t.textContent = "New Mapping Specification"), this.addSchemaField({ field: "email", type: "string", required: !0 }), this.addMappingRule({ target_entity: "participant", target_path: "email" }), h(e), i?.focus();
+    this.resetForm(), t && (t.textContent = "New Mapping Specification"), this.addSchemaField({ field: "email", type: "string", required: !0 }), this.addMappingRule({ target_entity: "participant", target_path: "email" }), g(e), i?.focus();
   }
   /**
    * Open edit mapping modal
@@ -404,7 +404,7 @@ class T {
     const t = this.mappings.find((o) => o.id === e);
     if (!t) return;
     const { mappingModal: i, mappingModalTitle: n, mappingNameInput: r } = this.elements;
-    this.editingMappingId = e, n && (n.textContent = "Edit Mapping Specification"), this.populateForm(t), h(i), r?.focus();
+    this.editingMappingId = e, n && (n.textContent = "Edit Mapping Specification"), this.populateForm(t), g(i), r?.focus();
   }
   /**
    * Close mapping modal
@@ -420,7 +420,7 @@ class T {
     const t = this.mappings.find((o) => o.id === e);
     if (!t) return;
     const { publishModal: i, publishMappingName: n, publishMappingVersion: r } = this.elements;
-    this.pendingPublishId = e, n && (n.textContent = t.name), r && (r.textContent = `v${t.version || 1}`), h(i);
+    this.pendingPublishId = e, n && (n.textContent = t.name), r && (r.textContent = `v${t.version || 1}`), g(i);
   }
   /**
    * Close publish modal
@@ -432,7 +432,7 @@ class T {
    * Open delete confirmation modal
    */
   openDeleteModal(e) {
-    this.pendingDeleteId = e, h(this.elements.deleteModal);
+    this.pendingDeleteId = e, g(this.elements.deleteModal);
   }
   /**
    * Close delete modal
@@ -450,7 +450,7 @@ class T {
     const i = this.collectFormData();
     e.setAttribute("disabled", "true"), e.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Validating...';
     try {
-      const n = await fetch(this.mappingsEndpoint, {
+      const n = await L(this.mappingsEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -482,9 +482,9 @@ class T {
             </div>
           `, t.className = "rounded-lg p-4"), w(this.elements.announcements, "Validation failed");
       }
-      h(t);
+      g(t);
     } catch (n) {
-      console.error("Validation error:", n), t && (t.innerHTML = `<div class="text-red-600">Error: ${l(n instanceof Error ? n.message : "Unknown error")}</div>`, h(t));
+      console.error("Validation error:", n), t && (t.innerHTML = `<div class="text-red-600">Error: ${l(n instanceof Error ? n.message : "Unknown error")}</div>`, g(t));
     } finally {
       e.removeAttribute("disabled"), e.innerHTML = '<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Validate';
     }
@@ -498,7 +498,7 @@ class T {
     const t = this.collectFormData();
     e.setAttribute("disabled", "true"), e.innerHTML = '<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Saving...';
     try {
-      const i = !!t.id, n = i ? `${this.mappingsEndpoint}/${t.id}` : this.mappingsEndpoint, o = await fetch(n, {
+      const i = !!t.id, n = i ? `${this.mappingsEndpoint}/${t.id}` : this.mappingsEndpoint, o = await L(n, {
         method: i ? "PUT" : "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -533,7 +533,7 @@ class T {
     if (t) {
       t.setAttribute("disabled", "true"), t.textContent = "Publishing...";
       try {
-        const i = await fetch(`${this.mappingsEndpoint}/${this.pendingPublishId}/publish`, {
+        const i = await L(`${this.mappingsEndpoint}/${this.pendingPublishId}/publish`, {
           method: "POST",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -564,7 +564,7 @@ class T {
     if (e) {
       e.setAttribute("disabled", "true"), e.textContent = "Deleting...";
       try {
-        const t = await fetch(`${this.mappingsEndpoint}/${this.pendingDeleteId}`, {
+        const t = await L(`${this.mappingsEndpoint}/${this.pendingDeleteId}`, {
           method: "DELETE",
           credentials: "same-origin",
           headers: { Accept: "application/json" }
@@ -601,7 +601,7 @@ class T {
       previewSourceInput: d,
       sourceSyntaxError: a
     } = this.elements;
-    this.currentPreviewMapping = t, n && (n.textContent = t.name), r && (r.textContent = t.provider), o && (o.textContent = t.external_schema?.object_type || "-"), p && (p.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), d && (d.value = ""), m(a), h(i), d?.focus();
+    this.currentPreviewMapping = t, n && (n.textContent = t.name), r && (r.textContent = t.provider), o && (o.textContent = t.external_schema?.object_type || "-"), p && (p.innerHTML = this.getStatusBadge(t.status)), this.renderPreviewRules(t.rules || []), this.showPreviewState("empty"), d && (d.value = ""), m(a), g(i), d?.focus();
   }
   /**
    * Close preview modal
@@ -616,16 +616,16 @@ class T {
     const { previewEmpty: t, previewLoading: i, previewError: n, previewSuccess: r } = this.elements;
     switch (m(t), m(i), m(n), m(r), e) {
       case "empty":
-        h(t);
+        g(t);
         break;
       case "loading":
-        h(i);
+        g(i);
         break;
       case "error":
-        h(n);
+        g(n);
         break;
       case "success":
-        h(r);
+        g(r);
         break;
     }
   }
@@ -690,12 +690,12 @@ class T {
     if (!i)
       return m(t), null;
     let n = null;
-    const r = V(i, null, {
+    const r = A(i, null, {
       onError: (o) => {
         n = o;
       }
     });
-    return n ? (t && (t.textContent = `JSON Syntax Error: ${n instanceof Error ? n.message : "Invalid JSON"}`, h(t)), null) : (m(t), r);
+    return n ? (t && (t.textContent = `JSON Syntax Error: ${n instanceof Error ? n.message : "Invalid JSON"}`, g(t)), null) : (m(t), r);
   }
   /**
    * Run preview transform
@@ -809,7 +809,7 @@ class T {
           </div>
         `
     ).join(""));
-    const g = e.agreement || {}, b = Object.entries(g);
+    const h = e.agreement || {}, b = Object.entries(h);
     o && (b.length === 0 ? o.innerHTML = '<p class="text-sm text-gray-500">No agreement metadata resolved</p>' : o.innerHTML = b.map(
       ([c, f]) => `
           <div class="flex items-center gap-2 text-sm">
@@ -830,20 +830,20 @@ class T {
     e && (e.value = ""), m(t), this.showPreviewState("empty"), this.renderPreviewRules(this.currentPreviewMapping?.rules || []);
   }
 }
-function W(y) {
-  const e = new T(y);
-  return C(() => e.init()), e;
-}
 function X(y) {
+  const e = new _(y);
+  return T(() => e.init()), e;
+}
+function Y(y) {
   const e = {
     basePath: y.basePath,
     apiBasePath: y.apiBasePath || `${y.basePath}/api`
-  }, t = new T(e);
-  C(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
+  }, t = new _(e);
+  T(() => t.init()), typeof window < "u" && (window.esignIntegrationMappingsController = t);
 }
 export {
-  T as IntegrationMappingsController,
-  X as bootstrapIntegrationMappings,
-  W as initIntegrationMappings
+  _ as IntegrationMappingsController,
+  Y as bootstrapIntegrationMappings,
+  X as initIntegrationMappings
 };
 //# sourceMappingURL=integration-mappings.js.map

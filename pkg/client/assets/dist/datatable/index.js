@@ -2,7 +2,7 @@ import { F as O } from "../chunks/toast-manager-BXE4J35T.js";
 import { executeStructuredRequest as Ve, formatStructuredErrorForDisplay as q, createStructuredActionError as W, isHandledActionError as R, getStructuredActionError as F, extractErrorMessage as Gt, executeActionRequest as we, isTranslationBlocker as Ut, extractTranslationBlocker as Ht } from "../toast/error-helpers.js";
 import { extractExchangeError as pl, generateExchangeReport as hl, groupRowResultsByStatus as fl, isExchangeError as ml, parseImportResult as gl } from "../toast/error-helpers.js";
 import { escapeHTML as u, escapeAttribute as b } from "../shared/html.js";
-import { readHTTPJSONValue as Ke, httpRequest as $, readHTTPJSONObject as Vt, readHTTPError as xe, readHTTPJSON as Je } from "../shared/transport/http-client.js";
+import { readHTTPJSONValue as Ke, httpRequest as S, readHTTPJSONObject as Vt, readHTTPError as xe, readHTTPJSON as Je } from "../shared/transport/http-client.js";
 import { b as X, a as Kt } from "../chunks/badge-CH1Zu3Xp.js";
 import { p as Z } from "../chunks/date-utils-Ch6PxlHn.js";
 import { r as Jt } from "../chunks/icon-renderer-FL11lsYV.js";
@@ -757,15 +757,15 @@ function ur(r, e = {}) {
     return '<span class="text-gray-400">-</span>';
   const d = new Set(a), p = pr(l), h = c.slice(0, n).map((m) => {
     const y = d.has(m), v = y && p.has(m), g = y && !v;
-    let x, I, C;
-    g ? (x = "bg-green-100 text-green-700 border-green-300", I = "●", C = "Complete") : v ? (x = "bg-amber-100 text-amber-700 border-amber-300", I = "◐", C = "Incomplete") : (x = "bg-white text-gray-400 border-gray-300 border-dashed", I = "○", C = "Missing");
+    let x, I, $;
+    g ? (x = "bg-green-100 text-green-700 border-green-300", I = "●", $ = "Complete") : v ? (x = "bg-amber-100 text-amber-700 border-amber-300", I = "◐", $ = "Incomplete") : (x = "bg-white text-gray-400 border-gray-300 border-dashed", I = "○", $ = "Missing");
     const w = t === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1", z = s ? `<span class="font-medium">${m.toUpperCase()}</span>` : "";
     return `
         <span class="inline-flex items-center gap-0.5 ${w} rounded border ${x}"
-              title="${m.toUpperCase()}: ${C}"
-              aria-label="${m.toUpperCase()}: ${C}"
+              title="${m.toUpperCase()}: ${$}"
+              aria-label="${m.toUpperCase()}: ${$}"
               data-locale="${m}"
-              data-state="${C.toLowerCase()}">
+              data-state="${$.toLowerCase()}">
           ${z}
           <span aria-hidden="true">${I}</span>
         </span>
@@ -1315,7 +1315,7 @@ class Tr extends lt {
   }
   async syncToServer(e) {
     try {
-      await $(this.preferencesEndpoint, {
+      await S(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         json: {
@@ -1329,7 +1329,7 @@ class Tr extends lt {
   }
   async clearServerState() {
     try {
-      await $(this.preferencesEndpoint, {
+      await S(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         json: {
@@ -2115,7 +2115,7 @@ function fn(r, e = {}) {
 async function mn(r) {
   console.log("[DataGrid] ===== refresh() CALLED ====="), console.log("[DataGrid] Current sort state:", JSON.stringify(r.state.sort)), r.abortController && r.abortController.abort(), r.abortController = new AbortController();
   try {
-    const e = r.buildApiUrl(), t = await $(e, {
+    const e = r.buildApiUrl(), t = await S(e, {
       signal: r.abortController.signal,
       method: "GET",
       accept: "application/json"
@@ -2193,7 +2193,7 @@ function wn(r, e) {
   return o && (r.state.perPage = t, r.state.currentPage = s, r.pushStateToURL()), e === 0 ? !1 : o;
 }
 async function xn(r, e) {
-  const t = await $(`${r.config.apiEndpoint}/${e}`, {
+  const t = await S(`${r.config.apiEndpoint}/${e}`, {
     method: "GET",
     accept: "application/json"
   });
@@ -3059,7 +3059,7 @@ async function ms(r) {
   r.bulkActionStateAbortController && r.bulkActionStateAbortController.abort(), r.bulkActionStateAbortController = new AbortController(), r.bulkActionStateRequestSeq += 1;
   const s = r.bulkActionStateRequestSeq, o = typeof r.buildQueryString == "function" ? r.buildQueryString() : "", i = o ? `${t}${t.includes("?") ? "&" : "?"}${o}` : t;
   try {
-    const a = await $(i, {
+    const a = await S(i, {
       method: "POST",
       signal: r.bulkActionStateAbortController.signal,
       json: { ids: n }
@@ -3297,7 +3297,7 @@ function Ts(r, e, t, n) {
     e.appendChild(d);
   });
 }
-const S = class S {
+const C = class C {
   constructor(e) {
     this.tableEl = null, this.searchTimeout = null, this.abortController = null, this.dropdownAbortController = null, this.didRestoreColumnOrder = !1, this.shouldReorderDOMOnRestore = !1, this.recordsById = {}, this.columnManager = null, this.lastSchema = null, this.lastForm = null, this.bulkActionState = {}, this.bulkActionStateConfig = null, this.bulkActionStateDebounce = null, this.bulkActionStateAbortController = null, this.bulkActionStateRequestSeq = 0, this.hasURLStateOverrides = !1, this.hasPersistedHiddenColumnState = !1, this.hasPersistedColumnOrderState = !1, this.config = {
       perPage: 10,
@@ -3341,7 +3341,7 @@ const S = class S {
       m
     ), g = new Set(
       (n?.expandedGroups || Array.from(y)).map((w) => String(w).trim()).filter(Boolean)
-    ), x = this.config.enableGroupedMode ? n?.expandMode !== void 0 || g.size > 0 || h : !1, C = (this.config.enableGroupedMode ? n?.viewMode || f : null) || this.config.defaultViewMode || "flat";
+    ), x = this.config.enableGroupedMode ? n?.expandMode !== void 0 || g.size > 0 || h : !1, $ = (this.config.enableGroupedMode ? n?.viewMode || f : null) || this.config.defaultViewMode || "flat";
     this.state = {
       currentPage: 1,
       perPage: this.config.perPage || 10,
@@ -3352,7 +3352,7 @@ const S = class S {
       selectedRows: /* @__PURE__ */ new Set(),
       hiddenColumns: i ? a : o,
       columnOrder: p,
-      viewMode: C,
+      viewMode: $,
       expandMode: v,
       groupedData: null,
       expandedGroups: g,
@@ -3616,8 +3616,8 @@ const S = class S {
     this.columnManager && (this.columnManager.destroy(), this.columnManager = null), this.dropdownAbortController && (this.dropdownAbortController.abort(), this.dropdownAbortController = null), this.abortController && (this.abortController.abort(), this.abortController = null), this.bulkActionStateAbortController && (this.bulkActionStateAbortController.abort(), this.bulkActionStateAbortController = null), this.searchTimeout && (clearTimeout(this.searchTimeout), this.searchTimeout = null), this.bulkActionStateDebounce && (clearTimeout(this.bulkActionStateDebounce), this.bulkActionStateDebounce = null), console.log("[DataGrid] Instance destroyed");
   }
 };
-S.URL_KEY_SEARCH = U, S.URL_KEY_PAGE = H, S.URL_KEY_PER_PAGE = V, S.URL_KEY_FILTERS = K, S.URL_KEY_SORT = J, S.URL_KEY_STATE = re, S.URL_KEY_HIDDEN_COLUMNS = Ae, S.URL_KEY_VIEW_MODE = ne, S.URL_KEY_EXPANDED_GROUPS = ee, S.MANAGED_URL_KEYS = Ee, S.DEFAULT_MAX_URL_LENGTH = wt, S.DEFAULT_MAX_FILTERS_LENGTH = xt;
-let be = S;
+C.URL_KEY_SEARCH = U, C.URL_KEY_PAGE = H, C.URL_KEY_PER_PAGE = V, C.URL_KEY_FILTERS = K, C.URL_KEY_SORT = J, C.URL_KEY_STATE = re, C.URL_KEY_HIDDEN_COLUMNS = Ae, C.URL_KEY_VIEW_MODE = ne, C.URL_KEY_EXPANDED_GROUPS = ee, C.MANAGED_URL_KEYS = Ee, C.DEFAULT_MAX_URL_LENGTH = wt, C.DEFAULT_MAX_FILTERS_LENGTH = xt;
+let be = C;
 typeof window < "u" && (window.DataGrid = be);
 const Fe = {
   text: [
@@ -4380,7 +4380,7 @@ class aa {
     n.delivery = Ds(this.config, e);
     let s;
     try {
-      s = await $(this.getEndpoint(), {
+      s = await S(this.getEndpoint(), {
         method: "POST",
         json: n,
         headers: {
@@ -4402,7 +4402,7 @@ class aa {
             intervalMs: Fs(this.config),
             timeoutMs: qs(this.config)
           });
-          const l = await $(a, {
+          const l = await S(a, {
             method: "GET",
             headers: {
               Accept: "application/octet-stream"
@@ -4464,7 +4464,7 @@ async function At(r) {
 async function js(r, e) {
   const t = Date.now(), n = Math.max(250, e.intervalMs);
   for (; ; ) {
-    const s = await $(r, {
+    const s = await S(r, {
       method: "GET",
       headers: {
         Accept: "application/json"
@@ -4598,7 +4598,7 @@ class la {
     return this.baseEndpoint.endsWith("s") ? this.baseEndpoint : `${this.baseEndpoint}s`;
   }
   async execute(e, t, n) {
-    const s = this.getActionEndpoint(e), o = await $(s, {
+    const s = this.getActionEndpoint(e), o = await S(s, {
       method: "POST",
       json: { ids: t },
       accept: "application/json"
@@ -4761,7 +4761,7 @@ class ca extends Ws {
    */
   async loadFromServer() {
     try {
-      const e = await $(this.preferencesEndpoint, {
+      const e = await S(this.preferencesEndpoint, {
         method: "GET",
         credentials: "same-origin",
         headers: {
@@ -4826,7 +4826,7 @@ class ca extends Ws {
       order: e.state.columnOrder.length > 0 ? e.state.columnOrder : void 0
     };
     try {
-      const s = await $(this.preferencesEndpoint, {
+      const s = await S(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -4860,7 +4860,7 @@ class ca extends Ws {
    */
   async clearServerPrefs() {
     try {
-      const e = await $(this.preferencesEndpoint, {
+      const e = await S(this.preferencesEndpoint, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -5381,9 +5381,9 @@ class Lt {
       if (!g || m.has(g))
         continue;
       m.add(g);
-      const x = d?.toLowerCase() === g, I = p.includes(g), C = [];
-      I && C.push("Required for publishing"), h.length > 0 && C.push(`${h.length} translation${h.length > 1 ? "s" : ""} exist`);
-      const w = C.length > 0 ? C.join(" • ") : void 0, z = f[g] || this.localeLabel(g);
+      const x = d?.toLowerCase() === g, I = p.includes(g), $ = [];
+      I && $.push("Required for publishing"), h.length > 0 && $.push(`${h.length} translation${h.length > 1 ? "s" : ""} exist`);
+      const w = $.length > 0 ? $.join(" • ") : void 0, z = f[g] || this.localeLabel(g);
       let Ie = `${g.toUpperCase()} - ${z}`;
       x && (Ie += " (recommended)"), y.push({
         value: g,
@@ -6686,7 +6686,7 @@ function ya(r) {
 async function ho(r, e, t = {}) {
   const { apiEndpoint: n, notifier: s = new O(), maxFailuresToShow: o = 5 } = r, i = `${n}/bulk/create-missing-translations`;
   try {
-    const a = await fetch(i, {
+    const a = await S(i, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -10182,7 +10182,7 @@ class ri extends rt {
       if (this.file)
         e.append("file", this.file);
       else if (this.rawData) {
-        const s = await fetch(this.config.validateEndpoint, {
+        const s = await S(this.config.validateEndpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -10196,7 +10196,7 @@ class ri extends rt {
         return this.handleValidationResult(o), o;
       } else
         throw new Error("No file or data to validate");
-      const t = await fetch(this.config.validateEndpoint, {
+      const t = await S(this.config.validateEndpoint, {
         method: "POST",
         body: e
       });
@@ -10237,7 +10237,7 @@ class ri extends rt {
         continue_on_error: t.continueOnError,
         dry_run: t.dryRun,
         async: t.async
-      }, a = await fetch(this.config.applyEndpoint, {
+      }, a = await S(this.config.applyEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

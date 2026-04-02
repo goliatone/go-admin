@@ -1603,7 +1603,7 @@ export class DocumentFormController {
       pendingURL.searchParams.delete('import_run_id');
       window.history.replaceState({}, '', pendingURL.toString());
 
-      const response = await fetch(
+      const response = await httpRequest(
         this.buildScopedAPIURL('/esign/google-drive/imports').toString(),
         {
           method: 'POST',

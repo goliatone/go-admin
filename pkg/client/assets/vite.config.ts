@@ -55,6 +55,7 @@ export default defineConfig({
         'shared/stateful-controller': resolve(__dirname, 'src/shared/stateful-controller.ts'),
         'shared/time-formatters': resolve(__dirname, 'src/shared/time-formatters.ts'),
         'shared/transport/http-client': resolve(__dirname, 'src/shared/transport/http-client.ts'),
+        'shared/transport/browser-globals': resolve(__dirname, 'src/shared/transport/browser-globals.ts'),
         // E-Sign module entries
         'esign/index': resolve(__dirname, 'src/esign/index.ts'),
         'esign/admin-landing': resolve(__dirname, 'src/esign/entries/admin-landing.ts'),

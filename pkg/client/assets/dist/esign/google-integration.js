@@ -1,10 +1,10 @@
-import { j as L, b as r, s as m, h as u } from "../chunks/dom-helpers-Cd24RS2-.js";
+import { j as E, b as r, s as m, h as u } from "../chunks/dom-helpers-Cd24RS2-.js";
 import { s as w, a as f } from "../chunks/page-feedback-GAI02g1h.js";
-import { readHTTPError as C } from "../shared/transport/http-client.js";
-import { r as E, o as I, s as O, t as D, p as R } from "../chunks/google-drive-utils-DVyZvmUh.js";
+import { readHTTPError as C, httpRequest as k } from "../shared/transport/http-client.js";
+import { r as O, o as I, s as D, t as R, p as $ } from "../chunks/google-drive-utils-DVyZvmUh.js";
 import { escapeHTML as S } from "../shared/html.js";
 import { onReady as _ } from "../shared/dom-ready.js";
-const $ = {
+const F = {
   "https://www.googleapis.com/auth/drive.readonly": {
     label: "Drive (Read Only)",
     description: "View files in your Google Drive"
@@ -34,9 +34,9 @@ const $ = {
     description: "Access files opened with this app"
   }
 };
-class k {
+class L {
   constructor(e) {
-    this.accounts = [], this.oauthWindow = null, this.oauthTimeout = null, this.pendingOAuthAccountId = null, this.pendingDisconnectAccountId = null, this.messageHandler = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = E(
+    this.accounts = [], this.oauthWindow = null, this.oauthTimeout = null, this.pendingOAuthAccountId = null, this.pendingDisconnectAccountId = null, this.messageHandler = null, this.config = e, this.apiBase = e.apiBasePath || `${e.basePath}/api`, this.currentAccountId = O(
       new URLSearchParams(window.location.search),
       this.config.googleAccountId
     ), this.elements = {
@@ -166,7 +166,7 @@ class k {
    */
   updateAccountScopeUI() {
     const { accountIdInput: e, connectedAccountId: t, importDriveLink: n, integrationSettingsLink: o } = this.elements;
-    e && document.activeElement !== e && (e.value = this.currentAccountId), t && (t.textContent = this.currentAccountId ? `Account ID: ${this.currentAccountId}` : "Account ID: default"), O(this.currentAccountId), D(this.currentAccountId), this.updateScopedLinks([n, o]), this.renderAccountDropdown(), this.renderAccountsGrid();
+    e && document.activeElement !== e && (e.value = this.currentAccountId), t && (t.textContent = this.currentAccountId ? `Account ID: ${this.currentAccountId}` : "Account ID: default"), D(this.currentAccountId), R(this.currentAccountId), this.updateScopedLinks([n, o]), this.renderAccountDropdown(), this.renderAccountsGrid();
   }
   /**
    * Update scoped links with current account ID
@@ -175,7 +175,7 @@ class k {
     e.forEach((t) => {
       if (!t) return;
       const n = t.dataset.baseHref || t.getAttribute("href");
-      n && t.setAttribute("href", R(n, this.currentAccountId));
+      n && t.setAttribute("href", $(n, this.currentAccountId));
     });
   }
   /**
@@ -347,7 +347,7 @@ class k {
         return;
       }
       t.innerHTML = e.map((n) => {
-        const o = $[n] || { label: n, description: "" };
+        const o = F[n] || { label: n, description: "" };
         return `
         <li class="flex items-start gap-2">
           <svg class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -658,7 +658,7 @@ class k {
       try {
         const o = this.resolveOAuthRedirectURI(), s = (typeof t.account_id == "string" ? I(t.account_id) : null) ?? this.pendingOAuthAccountId ?? this.currentAccountId;
         s !== this.currentAccountId && this.setCurrentAccountId(s, !1);
-        const i = await fetch(
+        const i = await k(
           this.buildScopedAPIURL("/esign/integrations/google/connect", s),
           {
             method: "POST",
@@ -723,7 +723,7 @@ class k {
     e && u(e);
     const t = this.pendingDisconnectAccountId ?? this.currentAccountId;
     try {
-      const n = await fetch(
+      const n = await k(
         this.buildScopedAPIURL("/esign/integrations/google/disconnect", t),
         {
           method: "POST",
@@ -745,11 +745,11 @@ class k {
     }
   }
 }
-function z(a) {
-  const e = new k(a);
+function N(a) {
+  const e = new L(a);
   return _(() => e.init()), e;
 }
-function F(a) {
+function P(a) {
   const e = {
     basePath: a.basePath,
     apiBasePath: a.apiBasePath || `${a.basePath}/api`,
@@ -758,10 +758,10 @@ function F(a) {
     googleRedirectUri: a.googleRedirectUri,
     googleClientId: a.googleClientId,
     googleEnabled: a.googleEnabled !== !1
-  }, t = new k(e);
+  }, t = new L(e);
   _(() => t.init()), typeof window < "u" && (window.esignGoogleIntegrationController = t);
 }
-function P(a) {
+function B(a) {
   const e = a.features && typeof a.features == "object" ? a.features : {}, t = a.context && typeof a.context == "object" ? a.context : {}, n = String(a.basePath || a.base_path || "").trim();
   return n ? {
     basePath: n,
@@ -783,18 +783,18 @@ typeof document < "u" && _(() => {
   if (!document.querySelector(
     '[data-esign-page="admin.integrations.google"], [data-esign-page="google-integration"]'
   )) return;
-  const e = L(
+  const e = E(
     "esign-page-config",
     "Google integration page config"
   );
   if (!e)
     return;
-  const t = P(e);
-  t && F(t);
+  const t = B(e);
+  t && P(t);
 });
 export {
-  k as GoogleIntegrationController,
-  F as bootstrapGoogleIntegration,
-  z as initGoogleIntegration
+  L as GoogleIntegrationController,
+  P as bootstrapGoogleIntegration,
+  N as initGoogleIntegration
 };
 //# sourceMappingURL=google-integration.js.map

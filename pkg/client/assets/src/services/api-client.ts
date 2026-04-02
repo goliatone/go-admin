@@ -97,6 +97,7 @@ import type {
   // Error types
   ServiceErrorResponse,
 } from './types.js';
+import { httpRequest } from '../shared/transport/http-client.js';
 import { ServicesAPIError } from './types.js';
 
 // =============================================================================
@@ -960,7 +961,7 @@ export class ServicesAPIClient {
     }, this.config.timeout);
 
     try {
-      return await fetch(url, options);
+      return await httpRequest(url, options);
     } finally {
       clearTimeout(timeoutId);
     }

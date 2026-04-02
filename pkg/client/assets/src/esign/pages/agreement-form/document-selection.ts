@@ -3,7 +3,7 @@ import type { AgreementDocumentOption, DocumentSummary, DocumentTypeaheadState, 
 import type { DocumentPreviewCard } from './preview-card';
 import { normalizeDocumentOption, parsePositiveInt } from './normalization';
 import { escapeHTML as escapeHtml } from '../../../shared/html.js';
-import { readHTTPJSON } from '../../../shared/transport/http-client.js';
+import { httpRequest, readHTTPJSON } from '../../../shared/transport/http-client.js';
 
 declare global {
   interface Window {
@@ -568,7 +568,7 @@ export function createDocumentSelectionController(
         remediationIdempotencyByDocument.set(documentID, idempotencyKey);
       }
       const triggerURL = `${apiVersionBase}/esign/documents/${encodeURIComponent(documentID)}/remediate`;
-      const triggerResponse = await fetch(triggerURL, {
+      const triggerResponse = await httpRequest(triggerURL, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {

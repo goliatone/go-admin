@@ -1,10 +1,11 @@
-import { D as q, r as K, c as w, a as H, b as Q, d as X, e as z, f as Y, g as G, h as V, i as W, j as Z, k as J } from "../chunks/builtin-panels-BYfLbuKw.js";
-import { n as Ue, I as Ke, R as He, m as Qe, l as Xe, o as ze, t as Ye } from "../chunks/builtin-panels-BYfLbuKw.js";
-import { DebugReplPanel as ee } from "./repl.js";
-import { n as te, r as se, b as F, p as P, g as re, a as N, c as L, f as ie, d as ne, e as k, h as ae, i as v, j as oe, k as le, l as T, m as he, o as ce } from "../chunks/shared-helpers-C0Ec_MtO.js";
-import { s as Ve, v as We, y as Ze, t as Je, x as et, q as tt, u as st, w as rt } from "../chunks/shared-helpers-C0Ec_MtO.js";
+import { D as F, r as H, c as w, a as Q, b as X, d as z, e as Y, f as G, g as V, h as W, i as Z, j as J, k as ee } from "../chunks/builtin-panels-BYfLbuKw.js";
+import { n as He, I as Qe, R as Xe, m as ze, l as Ye, o as Ge, t as Ve } from "../chunks/builtin-panels-BYfLbuKw.js";
+import { DebugReplPanel as te } from "./repl.js";
+import { n as se, r as re, b as N, p as P, g as ie, a as M, c as L, f as ne, d as ae, e as k, h as oe, i as v, j as le, k as he, l as T, m as ce, o as ue } from "../chunks/shared-helpers-C0Ec_MtO.js";
+import { s as Ze, v as Je, y as et, t as tt, x as st, q as rt, u as it, w as nt } from "../chunks/shared-helpers-C0Ec_MtO.js";
+import { httpRequest as D } from "../shared/transport/http-client.js";
 import { escapeHTML as m } from "../shared/html.js";
-class ue {
+class de {
   /**
    * @callback HookCallback
    * @this {*|Jsep} this
@@ -47,7 +48,7 @@ class ue {
     });
   }
 }
-class de {
+class fe {
   constructor(e) {
     this.jsep = e, this.registered = {};
   }
@@ -620,10 +621,10 @@ class o {
     };
   }
 }
-const fe = new ue();
+const pe = new de();
 Object.assign(o, {
-  hooks: fe,
-  plugins: new de(o),
+  hooks: pe,
+  plugins: new fe(o),
   // Node Types
   // ----------
   // This is the full set of types that any JSEP node can be.
@@ -719,14 +720,14 @@ Object.assign(o, {
 });
 o.max_unop_len = o.getMaxKeyLen(o.unary_ops);
 o.max_binop_len = o.getMaxKeyLen(o.binary_ops);
-const S = (i) => new o(i).parse(), pe = Object.getOwnPropertyNames(class {
+const S = (i) => new o(i).parse(), ge = Object.getOwnPropertyNames(class {
 });
-Object.getOwnPropertyNames(o).filter((i) => !pe.includes(i) && S[i] === void 0).forEach((i) => {
+Object.getOwnPropertyNames(o).filter((i) => !ge.includes(i) && S[i] === void 0).forEach((i) => {
   S[i] = o[i];
 });
 S.Jsep = o;
-const ge = "ConditionalExpression";
-var be = {
+const be = "ConditionalExpression";
+var ye = {
   name: "ternary",
   init(i) {
     i.hooks.add("after-expression", function(t) {
@@ -737,7 +738,7 @@ var be = {
           this.index++;
           const n = this.gobbleExpression();
           if (n || this.throwError("Expected expression"), t.node = {
-            type: ge,
+            type: be,
             test: r,
             consequent: s,
             alternate: n
@@ -753,17 +754,17 @@ var be = {
     });
   }
 };
-S.plugins.register(be);
-const M = 47, ye = 92;
-var Ee = {
+S.plugins.register(ye);
+const j = 47, Ee = 92;
+var me = {
   name: "regex",
   init(i) {
     i.hooks.add("gobble-token", function(t) {
-      if (this.code === M) {
+      if (this.code === j) {
         const r = ++this.index;
         let s = !1;
         for (; this.index < this.expr.length; ) {
-          if (this.code === M && !s) {
+          if (this.code === j && !s) {
             const n = this.expr.slice(r, this.index);
             let a = "";
             for (; ++this.index < this.expr.length; ) {
@@ -785,17 +786,17 @@ var Ee = {
               raw: this.expr.slice(r - 1, this.index)
             }, t.node = this.gobbleTokenProperty(t.node), t.node;
           }
-          this.code === i.OBRACK_CODE ? s = !0 : s && this.code === i.CBRACK_CODE && (s = !1), this.index += this.code === ye ? 2 : 1;
+          this.code === i.OBRACK_CODE ? s = !0 : s && this.code === i.CBRACK_CODE && (s = !1), this.index += this.code === Ee ? 2 : 1;
         }
         this.throwError("Unclosed Regex");
       }
     });
   }
 };
-const D = 43, me = 45, A = {
+const _ = 43, Se = 45, A = {
   name: "assignment",
   assignmentOperators: /* @__PURE__ */ new Set(["=", "*=", "**=", "/=", "%=", "+=", "-=", "<<=", ">>=", ">>>=", "&=", "^=", "|=", "||=", "&&=", "??="]),
-  updateOperators: [D, me],
+  updateOperators: [_, Se],
   assignmentPrecedence: 0.9,
   init(i) {
     const e = [i.IDENTIFIER, i.MEMBER_EXP];
@@ -803,7 +804,7 @@ const D = 43, me = 45, A = {
       const n = this.code;
       A.updateOperators.some((a) => a === n && a === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, s.node = {
         type: "UpdateExpression",
-        operator: n === D ? "++" : "--",
+        operator: n === _ ? "++" : "--",
         argument: this.gobbleTokenProperty(this.gobbleIdentifier()),
         prefix: !0
       }, (!s.node.argument || !e.includes(s.node.argument.type)) && this.throwError(`Unexpected ${s.node.operator}`));
@@ -812,7 +813,7 @@ const D = 43, me = 45, A = {
         const n = this.code;
         A.updateOperators.some((a) => a === n && a === this.expr.charCodeAt(this.index + 1)) && (e.includes(s.node.type) || this.throwError(`Unexpected ${s.node.operator}`), this.index += 2, s.node = {
           type: "UpdateExpression",
-          operator: n === D ? "++" : "--",
+          operator: n === _ ? "++" : "--",
           argument: s.node,
           prefix: !1
         });
@@ -827,11 +828,11 @@ const D = 43, me = 45, A = {
     }
   }
 };
-S.plugins.register(Ee, A);
+S.plugins.register(me, A);
 S.addUnaryOp("typeof");
 S.addLiteral("null", null);
 S.addLiteral("undefined", void 0);
-const Se = /* @__PURE__ */ new Set(["constructor", "__proto__", "__defineGetter__", "__defineSetter__"]), p = {
+const we = /* @__PURE__ */ new Set(["constructor", "__proto__", "__defineGetter__", "__defineSetter__"]), p = {
   /**
    * @param {jsep.Expression} ast
    * @param {Record<string, any>} subs
@@ -920,7 +921,7 @@ const Se = /* @__PURE__ */ new Set(["constructor", "__proto__", "__defineGetter_
     ), r = p.evalAst(i.object, e);
     if (r == null)
       throw TypeError(`Cannot read properties of ${r} (reading '${t}')`);
-    if (!Object.hasOwn(r, t) && Se.has(t))
+    if (!Object.hasOwn(r, t) && we.has(t))
       throw TypeError(`Cannot read properties of ${r} (reading '${t}')`);
     const s = r[t];
     return typeof s == "function" ? s.bind(r) : s;
@@ -949,7 +950,7 @@ const Se = /* @__PURE__ */ new Set(["constructor", "__proto__", "__defineGetter_
     return e[t] = r, e[t];
   }
 };
-class we {
+class xe {
   /**
    * @param {string} expr Expression to evaluate
    */
@@ -969,10 +970,10 @@ class we {
 function x(i, e) {
   return i = i.slice(), i.push(e), i;
 }
-function $(i, e) {
+function R(i, e) {
   return e = e.slice(), e.unshift(i), e;
 }
-class xe extends Error {
+class Ce extends Error {
   /**
    * @param {AnyResult} value The evaluated scalar value
    */
@@ -1000,7 +1001,7 @@ function f(i, e, t, r, s) {
     n ? "json" in i && (a.json = i.json) : a.json = t;
     const l = this.evaluate(a);
     if (!l || typeof l != "object")
-      throw new xe(l);
+      throw new Ce(l);
     return l;
   }
 }
@@ -1112,7 +1113,7 @@ f.prototype._trace = function(i, e, t, r, s, n, a, l) {
     } else if (c[0] === "(") {
       if (this.currEval === !1)
         throw new Error("Eval [(expr)] prevented in JSONPath expression.");
-      b(this._trace($(this._eval(c, e, t.at(-1), t.slice(0, -1), r, s), d), e, t, r, s, n, a));
+      b(this._trace(R(this._eval(c, e, t.at(-1), t.slice(0, -1), r, s), d), e, t, r, s, n, a));
     } else if (c[0] === "@") {
       let u = !1;
       const y = c.slice(1, -2);
@@ -1163,7 +1164,7 @@ f.prototype._trace = function(i, e, t, r, s, n, a, l) {
     } else if (c.includes(",")) {
       const u = c.split(",");
       for (const y of u)
-        b(this._trace($(y, d), e, t, r, s, n, !0));
+        b(this._trace(R(y, d), e, t, r, s, n, !0));
     } else !l && e && Object.hasOwn(e, c) && b(this._trace(d, e[c], x(t, c), e, c, n, a, !0));
   }
   if (this._hasParentSelector)
@@ -1199,7 +1200,7 @@ f.prototype._slice = function(i, e, t, r, s, n, a) {
   d = d < 0 ? Math.max(0, d + l) : Math.min(l, d), g = g < 0 ? Math.max(0, g + l) : Math.min(l, g);
   const b = [];
   for (let u = d; u < g; u += c)
-    this._trace($(u, e), t, r, s, n, a, !0).forEach((E) => {
+    this._trace(R(u, e), t, r, s, n, a, !0).forEach((E) => {
       b.push(E);
     });
   return b;
@@ -1267,16 +1268,16 @@ f.toPathArray = function(i) {
   return e[i] = s, e[i].concat();
 };
 f.prototype.safeVm = {
-  Script: we
+  Script: xe
 };
-const Ce = function(i, e, t) {
+const Pe = function(i, e, t) {
   const r = i.length;
   for (let s = 0; s < r; s++) {
     const n = i[s];
     t(n) && e.push(i.splice(s--, 1)[0]);
   }
 };
-class Pe {
+class Ae {
   /**
    * @param {string} expr Expression to evaluate
    */
@@ -1291,7 +1292,7 @@ class Pe {
   runInNewContext(e) {
     let t = this.code;
     const r = Object.keys(e), s = [];
-    Ce(r, s, (c) => typeof e[c] == "function");
+    Pe(r, s, (c) => typeof e[c] == "function");
     const n = r.map((c) => e[c]);
     t = s.reduce((c, d) => {
       let g = e[d].toString();
@@ -1302,18 +1303,18 @@ class Pe {
   }
 }
 f.prototype.vm = {
-  Script: Pe
+  Script: Ae
 };
-function Ae(i) {
+function Oe(i) {
   return i ? !!(i.startsWith("$") || /\[\d+\]/.test(i) || /\[['"]/.test(i) || /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(i) || i.includes("..") || i.includes("*")) : !1;
 }
-function Oe(i) {
+function ve(i) {
   return i ? i.startsWith("$") ? i : `$.${i}` : "$";
 }
-function ve(i, e) {
+function Te(i, e) {
   if (!i || !e) return [];
   try {
-    const t = Oe(e);
+    const t = ve(e);
     return (f({
       path: t,
       json: i,
@@ -1326,39 +1327,39 @@ function ve(i, e) {
     return [];
   }
 }
-function Te(i, e) {
+function ke(i, e) {
   if (!e || !i)
     return i || {};
-  const t = Ae(e);
+  const t = Oe(e);
   if (console.log("[jsonpath-search] search:", e, "isJsonPath:", t), t) {
-    const s = Le(i, e);
+    const s = De(i, e);
     return console.log("[jsonpath-search] JSONPath result:", s), s;
   }
-  const r = ke(i, e);
+  const r = Le(i, e);
   return console.log("[jsonpath-search] key match result:", r), r;
 }
-function ke(i, e) {
+function Le(i, e) {
   const t = e.toLowerCase(), r = {};
   for (const [s, n] of Object.entries(i || {}))
     s.toLowerCase().includes(t) && (r[s] = n);
   return r;
 }
-function Le(i, e) {
-  const t = ve(i, e);
+function De(i, e) {
+  const t = Te(i, e);
   if (t.length === 0)
     return {};
   if (t.length === 1) {
     const { path: s, value: n } = t[0];
-    return s === "$" && typeof n == "object" && n !== null || typeof n == "object" && n !== null && !Array.isArray(n) ? n : { [j(s)]: n };
+    return s === "$" && typeof n == "object" && n !== null || typeof n == "object" && n !== null && !Array.isArray(n) ? n : { [B(s)]: n };
   }
   const r = {};
   for (const { path: s, value: n } of t) {
-    const a = j(s) || `result_${Object.keys(r).length}`;
+    const a = B(s) || `result_${Object.keys(r).length}`;
     a in r ? r[`${a}_${Object.keys(r).length}`] = n : r[a] = n;
   }
   return r;
 }
-function j(i) {
+function B(i) {
   if (!i) return "";
   const e = i.match(/\[['"]?([^'"[\]]+)['"]?\]$/);
   if (e)
@@ -1366,7 +1367,7 @@ function j(i) {
   const t = i.match(/\.([^.[\]]+)$/);
   return t ? t[1] : i.replace(/^\$\.?/, "");
 }
-const B = (i) => {
+const U = (i) => {
   if (!i)
     return null;
   try {
@@ -1374,7 +1375,7 @@ const B = (i) => {
   } catch {
     return null;
   }
-}, De = (i) => Array.isArray(i) && i.length > 0 ? i.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : ce(), _ = (i, e) => Te(i, e), _e = (i, e, t) => {
+}, _e = (i) => Array.isArray(i) && i.length > 0 ? i.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : ue(), I = (i, e) => ke(i, e), Ie = (i, e, t) => {
   if (!i || !e)
     return;
   const r = e.split(".").map((n) => n.trim()).filter(Boolean);
@@ -1386,17 +1387,17 @@ const B = (i) => {
     (!s[a] || typeof s[a] != "object") && (s[a] = {}), s = s[a];
   }
   s[r[r.length - 1]] = t;
-}, I = (i, e) => {
+}, $ = (i, e) => {
   if (!i)
     return e;
   const t = Number(i);
   return Number.isNaN(t) ? e : t;
 };
-class Ie {
+class $e {
   constructor(e) {
     this.customFilterState = {}, this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.container = e;
-    const t = B(e.dataset.panels);
-    this.panels = De(t), this.panels.includes("sessions") || this.panels.push("sessions"), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = I(e.dataset.maxLogEntries, 500), this.maxSQLQueries = I(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = I(e.dataset.slowThresholdMs, 50), this.replCommands = te(B(e.dataset.replCommands)), this.state = {
+    const t = U(e.dataset.panels);
+    this.panels = _e(t), this.panels.includes("sessions") || this.panels.push("sessions"), this.activePanel = this.panels[0] || "template", this.debugPath = e.dataset.debugPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = $(e.dataset.maxLogEntries, 500), this.maxSQLQueries = $(e.dataset.maxSqlQueries, 200), this.slowThresholdMs = $(e.dataset.slowThresholdMs, 50), this.replCommands = se(U(e.dataset.replCommands)), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -1414,12 +1415,12 @@ class Ie {
       sessions: { search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), se.forEach((r) => {
+    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), re.forEach((r) => {
       this.panelRenderers.set(r, {
         render: () => this.renderReplPanel(r),
         filters: () => '<span class="timestamp">REPL controls are in the panel header.</span>'
       });
-    }), this.eventToPanel = F(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.updateSessionBanner(), this.stream = new q({
+    }), this.eventToPanel = N(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.updateSessionBanner(), this.stream = new F({
       basePath: this.streamBasePath,
       onEvent: (r) => this.handleEvent(r),
       onStatusChange: (r) => this.updateConnectionStatus(r)
@@ -1431,7 +1432,7 @@ class Ie {
   subscribeToEvents() {
     const e = /* @__PURE__ */ new Set();
     for (const t of this.panels)
-      for (const r of re(t))
+      for (const r of ie(t))
         e.add(r);
     this.stream.subscribe(Array.from(e));
   }
@@ -1439,7 +1440,7 @@ class Ie {
    * Handle registry changes (panel registered/unregistered)
    */
   handleRegistryChange(e) {
-    this.eventToPanel = F(), e.type === "register" ? (this.panels.includes(e.panelId) || this.panels.push(e.panelId), e.panel && e.panel.defaultFilters !== void 0 && !(e.panelId in this.customFilterState) && (this.customFilterState[e.panelId] = this.cloneFilterState(e.panel.defaultFilters))) : e.type === "unregister" && delete this.customFilterState[e.panelId], this.subscribeToEvents(), this.renderTabs(), e.panelId === this.activePanel && this.renderActivePanel();
+    this.eventToPanel = N(), e.type === "register" ? (this.panels.includes(e.panelId) || this.panels.push(e.panelId), e.panel && e.panel.defaultFilters !== void 0 && !(e.panelId in this.customFilterState) && (this.customFilterState[e.panelId] = this.cloneFilterState(e.panel.defaultFilters))) : e.type === "unregister" && delete this.customFilterState[e.panelId], this.subscribeToEvents(), this.renderTabs(), e.panelId === this.activePanel && this.renderActivePanel();
   }
   requireElement(e, t = this.container) {
     const r = t.querySelector(e);
@@ -1488,7 +1489,7 @@ class Ie {
   renderTabs() {
     const e = this.panels.map((t) => `
           <button class="debug-tab ${t === this.activePanel ? "debug-tab--active" : ""}" data-panel="${m(t)}">
-            <span class="debug-tab__label">${m(N(t))}</span>
+            <span class="debug-tab__label">${m(M(t))}</span>
             <span class="debug-tab__count" data-panel-count="${m(t)}">0</span>
           </button>
         `).join("");
@@ -1725,7 +1726,7 @@ class Ie {
     else if (e === "custom")
       r = this.renderCustom();
     else if (e === "jserrors")
-      r = K(this.state.extra.jserrors || [], w, {
+      r = H(this.state.extra.jserrors || [], w, {
         newestFirst: this.filters.logs.newestFirst,
         showSortToggle: !0
       });
@@ -1739,29 +1740,29 @@ class Ie {
           a = s.applyFilters(a, h);
         } else if (!s.renderFilters && s.showFilters !== !1) {
           const h = this.filters.objects.search.trim();
-          h && a && typeof a == "object" && !Array.isArray(a) && (a = _(a, h));
+          h && a && typeof a == "object" && !Array.isArray(a) && (a = I(a, h));
         }
         r = (s.renderConsole || s.render)(a, w, {
           newestFirst: this.filters.logs.newestFirst
         });
       } else
-        r = this.renderJSONPanel(N(e), this.state.extra[e], this.filters.objects.search);
+        r = this.renderJSONPanel(M(e), this.state.extra[e], this.filters.objects.search);
     }
-    this.panelEl.innerHTML = r, e === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), e === "requests" && H(this.panelEl, this.expandedRequests), e === "sql" && this.attachSQLSelectionListeners(), e === "sessions" && this.attachSessionActions();
+    this.panelEl.innerHTML = r, e === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), e === "requests" && Q(this.panelEl, this.expandedRequests), e === "sql" && this.attachSQLSelectionListeners(), e === "sessions" && this.attachSessionActions();
   }
   attachExpandableRowListeners() {
-    Q(this.panelEl);
+    X(this.panelEl);
   }
   attachCopyButtonListeners() {
-    X(this.panelEl, { useIconFeedback: !0 });
+    z(this.panelEl, { useIconFeedback: !0 });
   }
   attachSQLSelectionListeners() {
-    z(this.panelEl, this.state.sql, { useIconFeedback: !0 });
+    Y(this.panelEl, this.state.sql, { useIconFeedback: !0 });
   }
   renderReplPanel(e) {
     this.panelEl.classList.add("debug-content--repl");
     let t = this.replPanels.get(e);
-    t || (t = new ee({
+    t || (t = new te({
       kind: e === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: e === "console" ? this.replCommands : []
@@ -1777,7 +1778,7 @@ class Ie {
   }
   renderRequests() {
     const { method: e, status: t, search: r, newestFirst: s, hasBody: n, contentType: a } = this.filters.requests, l = r.toLowerCase(), h = this.state.requests.filter((c) => !(e !== "all" && (c.method || "").toUpperCase() !== e || t !== "all" && String(c.status || "") !== t || l && !(c.path || "").toLowerCase().includes(l) || n && !c.request_body || a !== "all" && (c.content_type || "").split(";")[0].trim() !== a));
-    return h.length === 0 ? this.renderEmptyState("No requests captured yet.") : Y(h, w, {
+    return h.length === 0 ? this.renderEmptyState("No requests captured yet.") : G(h, w, {
       newestFirst: s,
       slowThresholdMs: this.slowThresholdMs,
       showSortToggle: !1,
@@ -1789,7 +1790,7 @@ class Ie {
   }
   renderSQL() {
     const { search: e, slowOnly: t, errorOnly: r, newestFirst: s } = this.filters.sql, n = e.toLowerCase(), a = this.state.sql.filter((l) => !(r && !l.error || t && !this.isSlowQuery(l) || n && !(l.query || "").toLowerCase().includes(n)));
-    return a.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : G(a, w, {
+    return a.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : V(a, w, {
       newestFirst: s,
       slowThresholdMs: this.slowThresholdMs,
       maxEntries: this.maxSQLQueries,
@@ -1803,10 +1804,10 @@ class Ie {
     const { level: e, search: t, newestFirst: r } = this.filters.logs, s = t.toLowerCase(), n = this.state.logs.filter((a) => {
       if (e !== "all" && (a.level || "").toLowerCase() !== e)
         return !1;
-      const l = `${a.message || ""} ${a.source || ""} ${ie(a.fields || {})}`.toLowerCase();
+      const l = `${a.message || ""} ${a.source || ""} ${ne(a.fields || {})}`.toLowerCase();
       return !(s && !l.includes(s));
     });
-    return n.length === 0 ? this.renderEmptyState("No logs captured yet.") : V(n, w, {
+    return n.length === 0 ? this.renderEmptyState("No logs captured yet.") : W(n, w, {
       newestFirst: r,
       maxEntries: this.maxLogEntries,
       showSortToggle: !1,
@@ -1824,7 +1825,7 @@ class Ie {
       const a = `${n.path || ""} ${n.handler || ""} ${n.summary || ""}`.toLowerCase();
       return !(r && !a.includes(r));
     });
-    return s.length === 0 ? this.renderEmptyState("No routes captured yet.") : W(s, w, {
+    return s.length === 0 ? this.renderEmptyState("No routes captured yet.") : Z(s, w, {
       showName: !0
       // Console shows name column
     });
@@ -1848,7 +1849,7 @@ class Ie {
     if (r.length === 0)
       return e === !1 ? this.renderEmptyState("Session tracking is disabled. Enable it to list active sessions.") : this.renderEmptyState("No active sessions yet.");
     const s = r.map((l) => {
-      const h = l.session_id || "", c = l.username || l.user_id || "Unknown", d = ne(l.last_activity || l.started_at), g = k(l.request_count ?? 0), b = !!h && h === this.activeSessionId, u = b ? "detach" : "attach", y = b ? "Detach" : "Attach", E = b ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", O = b ? "debug-session-row debug-session-row--active" : "debug-session-row", C = l.current_page || "-", R = l.ip || "-";
+      const h = l.session_id || "", c = l.username || l.user_id || "Unknown", d = ae(l.last_activity || l.started_at), g = k(l.request_count ?? 0), b = !!h && h === this.activeSessionId, u = b ? "detach" : "attach", y = b ? "Detach" : "Attach", E = b ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", O = b ? "debug-session-row debug-session-row--active" : "debug-session-row", C = l.current_page || "-", q = l.ip || "-";
       return `
           <tr class="${O}">
             <td>
@@ -1857,7 +1858,7 @@ class Ie {
                 <span class="debug-session-id">${m(h || "-")}</span>
               </div>
             </td>
-            <td>${m(R)}</td>
+            <td>${m(q)}</td>
             <td>
               <span class="debug-session-path">${m(C)}</span>
             </td>
@@ -1899,21 +1900,21 @@ class Ie {
   }
   renderCustom() {
     const { search: e } = this.filters.custom, t = Object.keys(this.state.custom.data).length > 0, r = this.state.custom.logs.length > 0;
-    return !t && !r ? this.renderEmptyState("No custom data captured yet.") : Z(this.state.custom, w, {
+    return !t && !r ? this.renderEmptyState("No custom data captured yet.") : J(this.state.custom, w, {
       maxLogEntries: this.maxLogEntries,
       useIconCopyButton: !0,
       // Console uses iconoir icons
       showCount: !0,
-      dataFilterFn: e ? (s) => _(s, e) : void 0
+      dataFilterFn: e ? (s) => I(s, e) : void 0
     });
   }
   renderJSONPanel(e, t, r) {
     const s = t && typeof t == "object" && !Array.isArray(t), n = Array.isArray(t);
-    return s && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !s && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : J(e, t, w, {
+    return s && Object.keys(t || {}).length === 0 || n && (t || []).length === 0 || !s && !n && !t ? this.renderEmptyState(`No ${e.toLowerCase()} data available.`) : ee(e, t, w, {
       useIconCopyButton: !0,
       // Console uses iconoir icons
       showCount: !0,
-      filterFn: r ? (l) => _(l, r) : void 0
+      filterFn: r ? (l) => I(l, r) : void 0
     });
   }
   attachSessionActions() {
@@ -1972,7 +1973,7 @@ class Ie {
     this.activeSessionId && (this.activeSessionId = null, this.activeSession = null, this.streamBasePath = this.debugPath, this.resetDebugState(), this.updateSessionBanner(), this.rebuildStream("global"), this.renderPanel());
   }
   rebuildStream(e) {
-    this.stream.close(), this.stream = new q({
+    this.stream.close(), this.stream = new F({
       basePath: this.streamBasePath,
       onEvent: (t) => this.handleEvent(t),
       onStatusChange: (t) => this.updateConnectionStatus(t)
@@ -2018,7 +2019,7 @@ class Ie {
       const t = P.get(e);
       if (t) {
         const r = L(t), s = { [r]: this.getStateForKey(r) };
-        return ae(s, t);
+        return oe(s, t);
       }
     }
     switch (e) {
@@ -2080,7 +2081,7 @@ class Ie {
       return;
     const t = this.eventToPanel[e.type] || e.type, r = P.get(t);
     if (r) {
-      const s = L(r), n = this.getStateForKey(s), l = (r.handleEvent || ((h, c) => oe(h, c, this.maxLogEntries)))(n, e.payload);
+      const s = L(r), n = this.getStateForKey(s), l = (r.handleEvent || ((h, c) => le(h, c, this.maxLogEntries)))(n, e.payload);
       this.setStateForKey(s, l);
     } else
       switch (e.type) {
@@ -2103,7 +2104,7 @@ class Ie {
           this.handleCustomEvent(e.payload);
           break;
         default:
-          le(t) || (this.state.extra[t] = e.payload);
+          he(t) || (this.state.extra[t] = e.payload);
           break;
       }
     this.updateTabCounts(), t === this.activePanel && this.renderPanel();
@@ -2111,7 +2112,7 @@ class Ie {
   handleCustomEvent(e) {
     if (e) {
       if (typeof e == "object" && "key" in e && "value" in e) {
-        _e(this.state.custom.data, String(e.key), e.value);
+        Ie(this.state.custom.data, String(e.key), e.value);
         return;
       }
       if (typeof e == "object" && ("category" in e || "message" in e)) {
@@ -2207,7 +2208,7 @@ class Ie {
         e.shift();
   }
   isSlowQuery(e) {
-    return he(e?.duration, this.slowThresholdMs);
+    return ce(e?.duration, this.slowThresholdMs);
   }
   async fetchSnapshot() {
     if (this.debugPath && !this.activeSessionId)
@@ -2223,14 +2224,14 @@ class Ie {
       }
   }
   clearAll() {
-    this.debugPath && (this.stream.clear(), !this.activeSessionId && fetch(`${this.debugPath}/api/clear`, { method: "POST", credentials: "same-origin" }).catch(() => {
+    this.debugPath && (this.stream.clear(), !this.activeSessionId && D(`${this.debugPath}/api/clear`, { method: "POST", credentials: "same-origin" }).catch(() => {
     }));
   }
   clearActivePanel() {
     if (!this.debugPath)
       return;
     const e = this.activePanel;
-    this.stream.clear([e]), !this.activeSessionId && fetch(`${this.debugPath}/api/clear/${e}`, { method: "POST", credentials: "same-origin" }).catch(() => {
+    this.stream.clear([e]), !this.activeSessionId && D(`${this.debugPath}/api/clear/${e}`, { method: "POST", credentials: "same-origin" }).catch(() => {
     });
   }
   async parseJSONResponse(e) {
@@ -2291,7 +2292,7 @@ class Ie {
         return;
     }
     try {
-      const l = await fetch(`${this.debugPath}/api/doctor/${encodeURIComponent(s)}/action`, {
+      const l = await D(`${this.debugPath}/api/doctor/${encodeURIComponent(s)}/action`, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -2316,50 +2317,50 @@ class Ie {
     this.paused = !this.paused, e.textContent = this.paused ? "Resume" : "Pause", this.paused || this.stream.requestSnapshot();
   }
 }
-const $e = (i) => {
+const Re = (i) => {
   const e = i || document.querySelector("[data-debug-console]");
-  return e ? new Ie(e) : null;
-}, U = () => {
-  $e();
+  return e ? new $e(e) : null;
+}, K = () => {
+  Re();
 };
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", U) : U();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", K) : K();
 export {
-  Ue as DATA_ATTRS,
-  Ie as DebugPanel,
-  q as DebugStream,
-  Ke as INTERACTION_CLASSES,
-  He as RemoteDebugStream,
-  X as attachCopyListeners,
-  Q as attachExpandableRowListeners,
+  He as DATA_ATTRS,
+  $e as DebugPanel,
+  F as DebugStream,
+  Qe as INTERACTION_CLASSES,
+  Xe as RemoteDebugStream,
+  z as attachCopyListeners,
+  X as attachExpandableRowListeners,
   w as consoleStyles,
-  Qe as copyToClipboard,
+  ze as copyToClipboard,
   v as countPayload,
-  Ve as defaultGetCount,
-  oe as defaultHandleEvent,
+  Ze as defaultGetCount,
+  le as defaultHandleEvent,
   m as escapeHTML,
-  We as formatDuration,
-  ie as formatJSON,
+  Je as formatDuration,
+  ne as formatJSON,
   k as formatNumber,
-  ne as formatTimestamp,
-  Ze as getLevelClass,
-  ae as getPanelCount,
-  Je as getPanelData,
+  ae as formatTimestamp,
+  et as getLevelClass,
+  oe as getPanelCount,
+  tt as getPanelData,
   L as getSnapshotKey,
-  et as getStatusClass,
-  Xe as getStyleConfig,
-  $e as initDebugPanel,
-  he as isSlowDuration,
-  tt as normalizeEventTypes,
+  st as getStatusClass,
+  Ye as getStyleConfig,
+  Re as initDebugPanel,
+  ce as isSlowDuration,
+  rt as normalizeEventTypes,
   P as panelRegistry,
-  Z as renderCustomPanel,
-  J as renderJSONPanel,
-  ze as renderJSONViewer,
-  V as renderLogsPanel,
-  st as renderPanelContent,
-  Y as renderRequestsPanel,
-  W as renderRoutesPanel,
-  G as renderSQLPanel,
-  Ye as toolbarStyles,
-  rt as truncate
+  J as renderCustomPanel,
+  ee as renderJSONPanel,
+  Ge as renderJSONViewer,
+  W as renderLogsPanel,
+  it as renderPanelContent,
+  G as renderRequestsPanel,
+  Z as renderRoutesPanel,
+  V as renderSQLPanel,
+  Ve as toolbarStyles,
+  nt as truncate
 };
 //# sourceMappingURL=index.js.map

@@ -1,9 +1,9 @@
-import { j as sn } from "../chunks/dom-helpers-Cd24RS2-.js";
+import { j as an } from "../chunks/dom-helpers-Cd24RS2-.js";
 import { l as Wt, a as Vt } from "../chunks/runtime-bhSs9hEJ.js";
 import { parseJSONValue as Kt } from "../shared/json-parse.js";
-import { readHTTPError as an, readHTTPJSONObject as on, readHTTPJSON as Pt, readHTTPStructuredErrorResult as cn } from "../shared/transport/http-client.js";
+import { readHTTPError as on, readHTTPJSONObject as cn, readHTTPJSON as Pt, httpRequest as Yt, readHTTPStructuredErrorResult as ln } from "../shared/transport/http-client.js";
 import { escapeHTML as Ue } from "../shared/html.js";
-import { formatRelativeTimeVerbosePast as Yt } from "../shared/time-formatters.js";
+import { formatRelativeTimeVerbosePast as Jt } from "../shared/time-formatters.js";
 import { onReady as Tt } from "../shared/dom-ready.js";
 const $e = {
   DOCUMENT: 1,
@@ -12,7 +12,7 @@ const $e = {
   FIELDS: 4,
   PLACEMENT: 5,
   REVIEW: 6
-}, mt = $e.REVIEW, ln = {
+}, mt = $e.REVIEW, dn = {
   [$e.DOCUMENT]: "Details",
   [$e.DETAILS]: "Participants",
   [$e.PARTICIPANTS]: "Fields",
@@ -31,22 +31,22 @@ const $e = {
   THUMBNAIL_MAX_HEIGHT: 200
 };
 $e.DOCUMENT, $e.DETAILS, $e.PARTICIPANTS, $e.FIELDS, $e.REVIEW;
-const At = /* @__PURE__ */ new Map(), dn = 30 * 60 * 1e3;
-function un() {
+const At = /* @__PURE__ */ new Map(), un = 30 * 60 * 1e3;
+function pn() {
   return typeof window > "u" ? !1 : window.__ADMIN_DEBUG__ === !0 || window.ADMIN_DEBUG === !0 || document.body?.dataset?.debug === "true";
 }
-function pn(n) {
+function mn(n) {
   const e = At.get(n);
-  return e ? Date.now() - e.timestamp > dn ? (At.delete(n), null) : e : null;
+  return e ? Date.now() - e.timestamp > un ? (At.delete(n), null) : e : null;
 }
-function mn(n, e, t) {
+function fn(n, e, t) {
   At.set(n, {
     dataUrl: e,
     pageCount: t,
     timestamp: Date.now()
   });
 }
-async function fn(n, e, t = bt.THUMBNAIL_MAX_WIDTH, i = bt.THUMBNAIL_MAX_HEIGHT) {
+async function gn(n, e, t = bt.THUMBNAIL_MAX_WIDTH, i = bt.THUMBNAIL_MAX_HEIGHT) {
   const l = await Vt({
     url: n,
     withCredentials: !0
@@ -60,7 +60,7 @@ async function fn(n, e, t = bt.THUMBNAIL_MAX_WIDTH, i = bt.THUMBNAIL_MAX_HEIGHT)
     viewport: T
   }).promise, { dataUrl: w.toDataURL("image/jpeg", 0.8), pageCount: p };
 }
-class gn {
+class hn {
   constructor(e = {}) {
     this.requestVersion = 0, this.config = {
       apiBasePath: e.apiBasePath || "",
@@ -131,7 +131,7 @@ class gn {
       }, this.render();
       return;
     }
-    const l = pn(e);
+    const l = mn(e);
     if (l) {
       this.state = {
         documentId: e,
@@ -155,7 +155,7 @@ class gn {
     try {
       if (p = await this.fetchDocumentPdfUrl(e), s !== this.requestVersion)
         return;
-      const { dataUrl: y, pageCount: _ } = await fn(
+      const { dataUrl: y, pageCount: _ } = await gn(
         p,
         e,
         this.config.thumbnailMaxWidth,
@@ -163,7 +163,7 @@ class gn {
       );
       if (s !== this.requestVersion)
         return;
-      mn(e, y, _), this.state = {
+      fn(e, y, _), this.state = {
         documentId: e,
         documentTitle: t,
         pageCount: i ?? _,
@@ -215,7 +215,7 @@ class gn {
         return;
       }
       if (this.state.error) {
-        p?.classList.remove("hidden"), this.elements.errorMessage && (this.elements.errorMessage.textContent = this.state.errorMessage || "Preview unavailable"), this.elements.errorSuggestion && (this.elements.errorSuggestion.textContent = this.state.errorSuggestion || "", this.elements.errorSuggestion.classList.toggle("hidden", !this.state.errorSuggestion)), this.elements.errorRetryBtn && this.elements.errorRetryBtn.classList.toggle("hidden", !this.state.errorRetryable), this.elements.errorDebugInfo && (un() ? (this.elements.errorDebugInfo.textContent = this.state.error, this.elements.errorDebugInfo.classList.remove("hidden")) : this.elements.errorDebugInfo.classList.add("hidden"));
+        p?.classList.remove("hidden"), this.elements.errorMessage && (this.elements.errorMessage.textContent = this.state.errorMessage || "Preview unavailable"), this.elements.errorSuggestion && (this.elements.errorSuggestion.textContent = this.state.errorSuggestion || "", this.elements.errorSuggestion.classList.toggle("hidden", !this.state.errorSuggestion)), this.elements.errorRetryBtn && this.elements.errorRetryBtn.classList.toggle("hidden", !this.state.errorRetryable), this.elements.errorDebugInfo && (pn() ? (this.elements.errorDebugInfo.textContent = this.state.error, this.elements.errorDebugInfo.classList.remove("hidden")) : this.elements.errorDebugInfo.classList.add("hidden"));
         return;
       }
       _?.classList.remove("hidden"), t && this.state.thumbnailUrl && (t.src = this.state.thumbnailUrl, t.alt = `Preview of ${this.state.documentTitle || "document"}`), i && (i.textContent = this.state.documentTitle || "Untitled Document"), s && this.state.pageCount && (s.textContent = `${this.state.pageCount} page${this.state.pageCount !== 1 ? "s" : ""}`);
@@ -235,11 +235,11 @@ class gn {
     }, this.render();
   }
 }
-function hn(n = {}) {
-  const e = new gn(n);
+function yn(n = {}) {
+  const e = new hn(n);
   return e.init(), e;
 }
-function yn(n = {}) {
+function Sn(n = {}) {
   let e = !1;
   return {
     start() {
@@ -250,9 +250,9 @@ function yn(n = {}) {
     }
   };
 }
-function Sn(n) {
+function vn(n) {
   const { context: e, hooks: t = {} } = n;
-  return yn({
+  return Sn({
     renderInitialUI() {
       t.renderInitialUI?.();
     },
@@ -276,7 +276,7 @@ function lt(n, e, t) {
     throw new Error(`Agreement form boot failed: missing required ${t} element (#${e})`);
   return i;
 }
-function vn(n = document) {
+function bn(n = document) {
   return {
     marker: He(n, "esign-page-config"),
     form: {
@@ -307,7 +307,7 @@ function vn(n = document) {
     }
   };
 }
-function bn(n, e) {
+function wn(n, e) {
   return {
     render(t = {}) {
       const i = t?.coordinationAvailable !== !1, s = n.coordination.banner, l = n.coordination.message;
@@ -325,7 +325,7 @@ function bn(n, e) {
     }
   };
 }
-class wn {
+class In {
   constructor(e) {
     this.state = null, this.listeners = [], this.options = e;
   }
@@ -611,13 +611,13 @@ class wn {
   }
 }
 const Et = /* @__PURE__ */ new Map();
-async function In(n) {
+async function _n(n) {
   const e = String(n || "").trim().replace(/\/+$/, "");
   if (e === "")
     throw new Error("sync.client_base_path is required to load sync-core");
-  return typeof window < "u" && window.__esignSyncCoreModule ? Dt(window.__esignSyncCoreModule) : (Et.has(e) || Et.set(e, _n(e)), Et.get(e));
+  return typeof window < "u" && window.__esignSyncCoreModule ? Dt(window.__esignSyncCoreModule) : (Et.has(e) || Et.set(e, En(e)), Et.get(e));
 }
-async function _n(n) {
+async function En(n) {
   if (typeof window < "u" && typeof window.__esignSyncCoreLoader == "function")
     return Dt(await window.__esignSyncCoreLoader(n));
   const t = await import(`${n}/index.js`);
@@ -628,7 +628,7 @@ function Dt(n) {
     throw new TypeError("Invalid sync-core runtime module");
   return n;
 }
-class En {
+class xn {
   constructor(e) {
     this.pendingSync = null, this.retryCount = 0, this.retryTimeout = null, this.syncModulePromise = null, this.syncModule = null, this.transport = null, this.cache = null, this.resource = null, this.resourceRef = null, this.stateManager = e.stateManager, this.requestHeaders = e.requestHeaders, this.fetchImpl = e.fetchImpl || fetch.bind(globalThis), this.syncConfig = e.syncConfig;
   }
@@ -780,11 +780,11 @@ class En {
     });
     if (!t.ok)
       throw new Error(
-        await an(t, `HTTP ${t.status}`, {
+        await on(t, `HTTP ${t.status}`, {
           appendStatusToFallback: !1
         })
       );
-    const i = await on(t), s = this.normalizeResourceRef(i?.resource_ref);
+    const i = await cn(t), s = this.normalizeResourceRef(i?.resource_ref);
     if (!s)
       throw new Error("Invalid agreement draft bootstrap response");
     const l = e.parseReadEnvelope(s, i?.draft || {});
@@ -795,7 +795,7 @@ class En {
     };
   }
   async ensureRuntime() {
-    return this.syncModule ? this.syncModule : (this.syncModulePromise || (this.syncModulePromise = In(this.syncConfig.client_base_path)), this.syncModule = await this.syncModulePromise, this.cache || (this.cache = this.syncModule.createInMemoryCache()), this.transport || (this.transport = this.syncModule.createFetchSyncTransport({
+    return this.syncModule ? this.syncModule : (this.syncModulePromise || (this.syncModulePromise = _n(this.syncConfig.client_base_path)), this.syncModule = await this.syncModulePromise, this.cache || (this.cache = this.syncModule.createInMemoryCache()), this.transport || (this.transport = this.syncModule.createFetchSyncTransport({
       baseURL: this.syncConfig.base_url,
       credentials: "same-origin",
       fetch: this.fetchImpl,
@@ -896,7 +896,7 @@ class En {
     return new Error(String(e || "sync_failed").trim() || "sync_failed");
   }
 }
-class xn {
+class Rn {
   constructor(e) {
     this.channel = null, this.cleanupFns = [], this.activeDraftId = "", this.coordinationAvailable = !1, this.options = e;
   }
@@ -985,7 +985,7 @@ class xn {
       }
   }
 }
-const Jt = "[esign-send]";
+const Xt = "[esign-send]";
 function nt(n) {
   const e = String(n ?? "").trim();
   return e === "" ? null : e;
@@ -994,7 +994,7 @@ function Ft(n) {
   const e = Number(n);
   return Number.isFinite(e) ? e : null;
 }
-function Rn() {
+function Ln() {
   return `send_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 function Pe(n = {}) {
@@ -1022,12 +1022,12 @@ function Pe(n = {}) {
   };
 }
 function Ve(n, e = {}) {
-  console.info(Jt, n, e);
+  console.info(Xt, n, e);
 }
 function Ze(n, e = {}) {
-  console.warn(Jt, n, e);
+  console.warn(Xt, n, e);
 }
-class Ln {
+class Cn {
   constructor(e) {
     this.debounceTimer = null, this.retryTimer = null, this.retryCount = 0, this.isSyncing = !1, this.cleanupFns = [], this.options = e, this.stateManager = e.stateManager, this.syncService = e.syncService, this.activeTabController = e.activeTabController;
   }
@@ -1118,7 +1118,7 @@ class Ln {
     e.addEventListener("visibilitychange", s), this.cleanupFns.push(() => e.removeEventListener("visibilitychange", s));
   }
 }
-function Cn() {
+function An() {
   return function(e, t = {}) {
     const i = String(e || "").trim();
     if (!i || typeof window > "u") return;
@@ -1141,14 +1141,14 @@ function ft(n, e, t = "") {
   const i = n.querySelector(e);
   return (i instanceof HTMLInputElement || i instanceof HTMLTextAreaElement || i instanceof HTMLSelectElement) && i.value || t;
 }
-function An(n, e, t = !1) {
+function Dn(n, e, t = !1) {
   const i = n.querySelector(e);
   return i instanceof HTMLInputElement ? i.checked : t;
 }
 function xt(n, e) {
   n instanceof HTMLButtonElement && (n.disabled = e);
 }
-function Dn(n) {
+function Pn(n) {
   const {
     documentIdInput: e,
     selectedDocumentTitle: t,
@@ -1172,7 +1172,7 @@ function Dn(n) {
       const B = Q.querySelector(".signing-stage-input"), De = Q.querySelector('select[name*=".role"]');
       De instanceof HTMLSelectElement && De.value === "signer" && B instanceof HTMLInputElement && B.value && ee.add(Number.parseInt(B.value, 10));
     }), L.textContent = ie, b.textContent = j, g.textContent = `${he.length} (${de.length} signers)`, U.textContent = String(ee.size > 0 ? ee.size : 1), J.innerHTML = "", he.forEach((Q) => {
-      const B = ft(Q, 'input[name*=".name"]'), De = ft(Q, 'input[name*=".email"]'), _e = ft(Q, 'select[name*=".role"]', "signer"), ce = ft(Q, ".signing-stage-input"), me = An(Q, ".notify-input", !0), Me = document.createElement("div");
+      const B = ft(Q, 'input[name*=".name"]'), De = ft(Q, 'input[name*=".email"]'), _e = ft(Q, 'select[name*=".role"]', "signer"), ce = ft(Q, ".signing-stage-input"), me = Dn(Q, ".notify-input", !0), Me = document.createElement("div");
       Me.className = "flex items-center justify-between text-sm", Me.innerHTML = `
         <div>
           <span class="font-medium">${p(B || De)}</span>
@@ -1261,7 +1261,7 @@ function Mt(n, e = 0) {
   const t = Number.parseInt(String(n || "").trim(), 10);
   return Number.isFinite(t) ? t : e;
 }
-function Pn(n) {
+function Tn(n) {
   const {
     totalWizardSteps: e,
     wizardStep: t,
@@ -1337,19 +1337,19 @@ function Pn(n) {
 function Nt(n) {
   return n.querySelector('select[name*=".role"]');
 }
-function Tn(n) {
+function kn(n) {
   return n.querySelector(".field-participant-select");
 }
 function yt(n) {
   return typeof n == "object" && n !== null;
 }
-function kn(n, e, t = {}) {
+function Fn(n, e, t = {}) {
   const i = new Error(e);
   return i.code = String(n).trim(), Number(t.status || 0) > 0 && (i.status = Number(t.status || 0)), Number(t.currentRevision || 0) > 0 && (i.currentRevision = Number(t.currentRevision || 0)), Number(t.conflict?.currentRevision || 0) > 0 && (i.conflict = {
     currentRevision: Number(t.conflict?.currentRevision || 0)
   }), i;
 }
-function Fn(n, e = 0) {
+function Mn(n, e = 0) {
   if (!yt(n))
     return Number(e || 0);
   const t = n, i = Number(t.currentRevision || 0);
@@ -1358,7 +1358,7 @@ function Fn(n, e = 0) {
   const s = Number(t.conflict?.currentRevision || 0);
   return s > 0 ? s : Number(e || 0);
 }
-function Mn(n) {
+function Nn(n) {
   const {
     config: e,
     form: t,
@@ -1539,7 +1539,7 @@ function Mn(n) {
         status: 404,
         phase: "pre_send"
       }), await ze().catch(() => {
-      }), kn(
+      }), Fn(
         "DRAFT_SEND_NOT_FOUND",
         "Draft not found",
         { status: 404 }
@@ -1588,7 +1588,7 @@ function Mn(n) {
       }
       let G = !1;
       if (I.forEach((z) => {
-        Tn(z)?.value || (G = !0);
+        kn(z)?.value || (G = !0);
       }), G) {
         ue.preventDefault(), ye("Please assign all fields to a signer");
         const z = _.querySelector('.field-participant-select:invalid, .field-participant-select[value=""]');
@@ -1632,7 +1632,7 @@ function Mn(n) {
               if ((R.participants || []).length === 0)
                 throw new Error("Add at least one reviewer before starting review.");
             }
-            ce = Rn(), Ve("send_submit_start", Pe({
+            ce = Ln(), Ve("send_submit_start", Pe({
               state: u.getState(),
               storageKey: w,
               ownership: me(),
@@ -1680,7 +1680,7 @@ function Mn(n) {
             let r = String(oe.code || "").trim();
             const o = Number(oe.status || 0);
             if (r.toUpperCase() === "STALE_REVISION") {
-              const c = Fn(z, Number(u.getState()?.serverRevision || 0));
+              const c = Mn(z, Number(u.getState()?.serverRevision || 0));
               Q?.("conflict"), xe?.(c), pe("wizard_send_conflict", {
                 draft_id: String(u.getState()?.serverDraftId || "").trim(),
                 current_revision: c,
@@ -1721,12 +1721,12 @@ const Bt = 150, $t = 32;
 function Ie(n) {
   return n == null ? "" : String(n).trim();
 }
-function Xt(n) {
+function Zt(n) {
   if (typeof n == "boolean") return n;
   const e = Ie(n).toLowerCase();
   return e === "" ? !1 : e === "1" || e === "true" || e === "on" || e === "yes";
 }
-function Nn(n) {
+function Bn(n) {
   return Ie(n).toLowerCase();
 }
 function ke(n, e = 0) {
@@ -1752,7 +1752,7 @@ function dt(n, e, t = 1) {
   const i = ke(t, 1), s = ke(n, i);
   return e > 0 ? St(s, 1, e) : s > 0 ? s : i;
 }
-function Bn(n, e, t) {
+function $n(n, e, t) {
   const i = ke(t, 1);
   let s = ut(n, i), l = ut(e, i);
   return s <= 0 && (s = 1), l <= 0 && (l = i), l < s ? { start: l, end: s } : { start: s, end: l };
@@ -1769,29 +1769,29 @@ function vt(n, e) {
   const t = ke(e, 1), i = Ie(n.participantId ?? n.participant_id), s = wt(n.excludePages ?? n.exclude_pages), l = n.required, p = typeof l == "boolean" ? l : !["0", "false", "off", "no"].includes(Ie(l).toLowerCase());
   return {
     id: Ie(n.id),
-    type: Nn(n.type),
+    type: Bn(n.type),
     participantId: i,
     participantTempId: Ie(n.participantTempId) || i,
     fromPage: ut(n.fromPage ?? n.from_page, t),
     toPage: ut(n.toPage ?? n.to_page, t),
     page: ut(n.page, t),
-    excludeLastPage: Xt(n.excludeLastPage ?? n.exclude_last_page),
+    excludeLastPage: Zt(n.excludeLastPage ?? n.exclude_last_page),
     excludePages: s,
     required: p
   };
 }
-function $n(n, e) {
+function zn(n, e) {
   const t = Ie(n?.id);
   return t !== "" ? t : `rule-${e + 1}`;
 }
-function zn(n, e) {
+function Un(n, e) {
   const t = ke(e, 1), i = [];
   return n.forEach((s, l) => {
     const p = vt(s || {}, t);
     if (p.type === "") return;
-    const y = $n(p, l);
+    const y = zn(p, l);
     if (p.type === "initials_each_page") {
-      const _ = Bn(p.fromPage, p.toPage, t), F = /* @__PURE__ */ new Set();
+      const _ = $n(p.fromPage, p.toPage, t), F = /* @__PURE__ */ new Set();
       wt(p.excludePages).forEach((x) => {
         x <= t && F.add(x);
       }), p.excludeLastPage && F.add(t);
@@ -1821,7 +1821,7 @@ function zn(n, e) {
     }
   }), i.sort((s, l) => s.page !== l.page ? s.page - l.page : s.id.localeCompare(l.id)), i;
 }
-function Un(n, e, t, i, s) {
+function qn(n, e, t, i, s) {
   const l = ke(t, 1);
   let p = n > 0 ? n : 1, y = e > 0 ? e : l;
   p = St(p, 1, l), y = St(y, 1, l), y < p && ([p, y] = [y, p]);
@@ -1841,7 +1841,7 @@ function Un(n, e, t, i, s) {
     isEmpty: F.length === 0
   };
 }
-function qn(n) {
+function On(n) {
   if (n.isEmpty)
     return "(no pages - all excluded)";
   const { pages: e } = n;
@@ -1866,7 +1866,7 @@ function Rt(n) {
     compatibilityReason: Ie(e.pdf_compatibility_reason ?? e.pdfCompatibilityReason).toLowerCase()
   };
 }
-function Zt(n) {
+function Qt(n) {
   const e = Ie(n).toLowerCase();
   if (e === "") return Ge.MANUAL;
   switch (e) {
@@ -1892,13 +1892,13 @@ function pt(n, e = 0) {
     y: y >= 0 ? y : 0,
     width: _ > 0 ? _ : Bt,
     height: F > 0 ? F : $t,
-    placementSource: Zt(t.placementSource || t.placement_source),
+    placementSource: Qt(t.placementSource || t.placement_source),
     linkGroupId: Ie(t.linkGroupId || t.link_group_id),
     linkedFromFieldId: Ie(t.linkedFromFieldId || t.linked_from_field_id),
-    isUnlinked: Xt(t.isUnlinked ?? t.is_unlinked)
+    isUnlinked: Zt(t.isUnlinked ?? t.is_unlinked)
   };
 }
-function On(n, e = 0) {
+function Hn(n, e = 0) {
   const t = pt(n, e);
   return {
     id: t.id,
@@ -1908,7 +1908,7 @@ function On(n, e = 0) {
     y: Math.round(t.y),
     width: Math.round(t.width),
     height: Math.round(t.height),
-    placement_source: Zt(t.placementSource),
+    placement_source: Qt(t.placementSource),
     link_group_id: Ie(t.linkGroupId),
     linked_from_field_id: Ie(t.linkedFromFieldId),
     is_unlinked: !!t.isUnlinked
@@ -1924,10 +1924,10 @@ function it(n) {
 async function Lt(n) {
   return Pt(n);
 }
-async function Hn(n) {
+async function jn(n) {
   return Pt(n);
 }
-function jn(n) {
+function Gn(n) {
   const {
     apiBase: e,
     apiVersionBase: t,
@@ -2151,7 +2151,7 @@ function jn(n) {
       });
       if (!Fe.ok)
         throw await F(Fe, "Failed to read remediation status");
-      const re = (await Hn(Fe))?.dispatch || {}, we = String(re?.status || "").trim().toLowerCase();
+      const re = (await jn(Fe))?.dispatch || {}, we = String(re?.status || "").trim().toLowerCase();
       if (we === "succeeded") {
         te("Remediation completed. Refreshing document compatibility...", "success");
         return;
@@ -2177,7 +2177,7 @@ function jn(n) {
       try {
         let E = We.get(v) || "";
         E || (E = `esign-remediate-${v}-${Date.now()}`, We.set(v, E));
-        const $ = `${t}/esign/documents/${encodeURIComponent(v)}/remediate`, O = await fetch($, {
+        const $ = `${t}/esign/documents/${encodeURIComponent(v)}/remediate`, O = await Yt($, {
           method: "POST",
           credentials: "same-origin",
           headers: {
@@ -2275,7 +2275,7 @@ function jn(n) {
   }
   function be(S, v, E) {
     S && (S.innerHTML = v.map(($, O) => {
-      const K = O, ve = B.selectedIndex === K, Fe = Ue(String($.id || "").trim()), D = Ue(String($.title || "").trim()), re = String(ke($.pageCount, 0)), we = qe($.compatibilityTier), tt = ze($.compatibilityReason), Qe = Ue(we), kt = Ue(tt), rn = je(we) ? '<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Unsupported</span>' : "";
+      const K = O, ve = B.selectedIndex === K, Fe = Ue(String($.id || "").trim()), D = Ue(String($.title || "").trim()), re = String(ke($.pageCount, 0)), we = qe($.compatibilityTier), tt = ze($.compatibilityReason), Qe = Ue(we), kt = Ue(tt), sn = je(we) ? '<span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">Unsupported</span>' : "";
       return `
         <button type="button"
           class="typeahead-option w-full px-3 py-2 flex items-center gap-3 hover:bg-blue-50 text-left focus:outline-none focus:bg-blue-50 ${ve ? "bg-blue-50" : ""}"
@@ -2295,7 +2295,7 @@ function jn(n) {
           </div>
           <div class="flex-1 min-w-0">
             <div class="font-medium text-gray-900 truncate text-sm">${D}</div>
-            <div class="text-xs text-gray-500">${re} pages ${rn}</div>
+            <div class="text-xs text-gray-500">${re} pages ${sn}</div>
           </div>
         </button>
       `;
@@ -2413,7 +2413,7 @@ function Ct(n, e) {
   const t = n.querySelector(e);
   return t instanceof HTMLSelectElement ? t : null;
 }
-function Gn(n = {}) {
+function Wn(n = {}) {
   const {
     initialParticipants: e = [],
     onParticipantsChanged: t
@@ -2520,7 +2520,7 @@ function Gn(n = {}) {
     restoreFromState: a
   };
 }
-function Wn() {
+function Vn() {
   return `link_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 function It() {
@@ -2530,16 +2530,16 @@ function It() {
     unlinkedDefinitions: /* @__PURE__ */ new Set()
   };
 }
-function Vn(n, e) {
+function Kn(n, e) {
   return {
-    id: Wn(),
+    id: Vn(),
     name: e,
     memberDefinitionIds: [...n],
     sourceFieldId: void 0,
     isActive: !0
   };
 }
-function Qt(n, e) {
+function en(n, e) {
   const t = new Map(n.groups);
   t.set(e.id, e);
   const i = new Map(n.definitionToGroup);
@@ -2565,13 +2565,13 @@ function Ut(n, e) {
     unlinkedDefinitions: t
   };
 }
-function en(n, e) {
+function tn(n, e) {
   const t = n.definitionToGroup.get(e);
   if (t)
     return n.groups.get(t);
 }
-function Kn(n, e) {
-  const t = en(n, e.definitionId);
+function Yn(n, e) {
+  const t = tn(n, e.definitionId);
   if (!t || !t.isActive || t.templatePosition) return null;
   const i = {
     x: e.x,
@@ -2585,7 +2585,7 @@ function Kn(n, e) {
     templatePosition: i
   } };
 }
-function Yn(n, e, t, i) {
+function Jn(n, e, t, i) {
   const s = /* @__PURE__ */ new Set();
   for (const l of t)
     s.add(l.definitionId);
@@ -2633,7 +2633,7 @@ function rt(n, e) {
   const t = n.querySelector(e);
   return t instanceof HTMLElement ? t : null;
 }
-function Jn(n) {
+function Xn(n) {
   const {
     initialFieldInstances: e = [],
     placementSource: t,
@@ -2737,7 +2737,7 @@ function Jn(n) {
     }));
   }
   function Be(m, d) {
-    return zn(m, d);
+    return Un(m, d);
   }
   function xe() {
     if (!b) return;
@@ -2777,13 +2777,13 @@ function Jn(n) {
       required: !0
     }, oe), r = ae.fromPage > 0 ? ae.fromPage : 1, o = ae.toPage > 0 ? ae.toPage : oe, c = ae.page > 0 ? ae.page : ae.toPage > 0 ? ae.toPage : oe, R = ae.excludeLastPage, C = ae.excludePages.join(","), k = d?.value === "initials_each_page";
     if (I.classList.toggle("hidden", !k), A.classList.toggle("hidden", !k), te.classList.toggle("hidden", !k), fe.classList.toggle("hidden", !k), G.classList.toggle("hidden", k), ne && (ne.value = String(r)), V && (V.value = String(o)), H && (H.value = String(c)), z && (z.value = C), le && (le.checked = R), k) {
-      const W = Un(
+      const W = qn(
         r,
         o,
         oe,
         R,
         ae.excludePages
-      ), Z = qn(W);
+      ), Z = On(W);
       se.textContent = W.isEmpty ? `Warning: No initials fields will be generated ${Z}.` : `Generates initials fields on ${Z}.`;
     } else
       se.textContent = `Generates one signature field on page ${c}.`;
@@ -2905,8 +2905,8 @@ function Jn(n) {
     let fe = F();
     te.forEach((V, H) => {
       if (V.length > 1 && !fe.groups.get(`rule_${H}`)) {
-        const z = Vn(V, `Rule ${H}`);
-        z.id = `rule_${H}`, fe = Qt(fe, z);
+        const z = Kn(V, `Rule ${H}`);
+        z.id = `rule_${H}`, fe = en(fe, z);
       }
     }), x(fe), G.forEach((V) => {
       const H = String(V.id || "").trim();
@@ -3007,10 +3007,10 @@ function Jn(n) {
     restoreFieldRulesFromState: ue
   };
 }
-function Xn(n) {
+function Zn(n) {
   return typeof n == "object" && n !== null && "run" in n;
 }
-async function Zn(n) {
+async function Qn(n) {
   return Pt(n);
 }
 const at = {
@@ -3028,7 +3028,7 @@ const at = {
   checkbox: { width: 24, height: 24 },
   initials: { width: 80, height: 40 }
 };
-function Qn(n) {
+function ei(n) {
   const {
     apiBase: e,
     apiVersionBase: t,
@@ -3117,7 +3117,7 @@ function Qn(n) {
     a.linkGroupState = r || It();
   }
   function q() {
-    return a.fieldInstances.map((r, o) => On(r, o));
+    return a.fieldInstances.map((r, o) => Hn(r, o));
   }
   function N(r = {}) {
     const { silent: o = !1 } = r, c = b();
@@ -3270,8 +3270,8 @@ function Qn(n) {
     }).promise, c.currentPage && (c.currentPage.textContent = String(r)), _e();
   }
   function Q(r) {
-    const o = Kn(a.linkGroupState, r);
-    o && (a.linkGroupState = Qt(a.linkGroupState, o.updatedGroup));
+    const o = Yn(a.linkGroupState, r);
+    o && (a.linkGroupState = en(a.linkGroupState, o.updatedGroup));
   }
   function B(r) {
     const o = /* @__PURE__ */ new Map();
@@ -3287,7 +3287,7 @@ function Qn(n) {
     });
     let c = 0;
     for (; c < 10; ) {
-      const R = Yn(
+      const R = Jn(
         a.linkGroupState,
         r,
         a.fieldInstances,
@@ -3334,7 +3334,7 @@ function Qn(n) {
     }));
   }
   function ce(r, o, c, R = {}) {
-    const C = ht[r.fieldType] || ht.text, k = R.placementSource || Ge.MANUAL, W = R.linkGroupId || en(a.linkGroupState, r.definitionId)?.id, Z = {
+    const C = ht[r.fieldType] || ht.text, k = R.placementSource || Ge.MANUAL, W = R.linkGroupId || tn(a.linkGroupState, r.definitionId)?.id, Z = {
       id: u("fi"),
       definitionId: r.definitionId,
       type: r.fieldType,
@@ -3685,7 +3685,7 @@ function Qn(n) {
       Analyzing...
     `;
     try {
-      const R = await fetch(`${t}/esign/agreements/${c}/auto-place`, {
+      const R = await Yt(`${t}/esign/agreements/${c}/auto-place`, {
         method: "POST",
         credentials: "same-origin",
         headers: {
@@ -3698,7 +3698,7 @@ function Qn(n) {
       });
       if (!R.ok)
         throw await F(R, "Auto-placement failed");
-      const C = await Zn(R), k = Xn(C) ? C.run || {} : C;
+      const C = await Qn(R), k = Zn(C) ? C.run || {} : C;
       f.currentRunId = k?.run_id || k?.id || null, f.suggestions = k?.suggestions || [], f.resolverScores = k?.resolver_scores || [], f.suggestions.length === 0 ? (P("No placement suggestions found. Try placing fields manually.", "warning"), H()) : V(k);
     } catch (R) {
       console.error("Auto-place error:", R);
@@ -3795,7 +3795,7 @@ function Ot(n) {
     }))
   };
 }
-function ei(n) {
+function ti(n) {
   const {
     getSignerParticipants: e,
     setPrimaryActionLabel: t,
@@ -3923,7 +3923,7 @@ function Ht(n, e, t = !1) {
   const i = n.querySelector(e);
   return i ? i.checked : t;
 }
-function ti(n) {
+function ni(n) {
   const {
     documentIdInput: e,
     documentPageCountInput: t,
@@ -3984,7 +3984,7 @@ function ti(n) {
     buildCanonicalAgreementPayload: w
   };
 }
-function ni(n) {
+function ii(n) {
   const {
     titleSource: e,
     stateManager: t,
@@ -4093,13 +4093,13 @@ function ni(n) {
     renderInitialWizardUI: Se
   };
 }
-function ii(n) {
+function ri(n) {
   return n.querySelector('select[name*=".role"]');
 }
-function ri(n) {
+function si(n) {
   return n.querySelector(".field-participant-select");
 }
-function si(n) {
+function ai(n) {
   const {
     documentIdInput: e,
     titleInput: t,
@@ -4125,13 +4125,13 @@ function si(n) {
           return P("Please add at least one participant"), !1;
         let f = !1;
         return a.forEach((u) => {
-          ii(u)?.value === "signer" && (f = !0);
+          ri(u)?.value === "signer" && (f = !0);
         }), f ? !0 : (P("At least one signer is required"), !1);
       }
       case 4: {
         const a = s.querySelectorAll(".field-definition-entry");
         for (const M of Array.from(a)) {
-          const Y = ri(M);
+          const Y = si(M);
           if (!Y?.value)
             return P("Please assign all fields to a signer"), Y?.focus(), !1;
         }
@@ -4150,7 +4150,7 @@ function si(n) {
     validateStep: T
   };
 }
-function ai(n) {
+function oi(n) {
   const {
     isEditMode: e,
     storageKey: t,
@@ -4349,7 +4349,7 @@ function ai(n) {
     maybeShowResumeDialog: Y
   };
 }
-function oi(n) {
+function ci(n) {
   const {
     agreementRefs: e,
     formAnnouncements: t,
@@ -4357,7 +4357,7 @@ function oi(n) {
   } = n;
   let s = "saved";
   function l(w) {
-    return Yt(w, {
+    return Jt(w, {
       emptyFallback: "unknown",
       invalidFallback: "Invalid Date"
     });
@@ -4402,7 +4402,7 @@ function oi(n) {
     return u === "STALE_REVISION" ? "A newer version of this draft exists. Reload the latest draft or force your changes." : u === "DRAFT_SEND_NOT_FOUND" || u === "DRAFT_SESSION_STALE" ? "Your saved draft session was replaced or expired. Please review and click Send again." : u === "ACTIVE_TAB_OWNERSHIP_REQUIRED" ? "This agreement is active in another tab. Take control in this tab before saving or sending." : u === "SCOPE_DENIED" || h.includes("scope denied") ? "You don't have access to this organization's resources." : u === "TRANSPORT_SECURITY" || u === "TRANSPORT_SECURITY_REQUIRED" || h.includes("tls transport required") || Number(f) === 426 ? "This action requires a secure connection. Please access the app using HTTPS." : u === "PDF_UNSUPPORTED" || h === "pdf compatibility unsupported" ? "This document cannot be sent for signature because its PDF is incompatible. Select another document or upload a remediated PDF." : String(w || "").trim() !== "" ? String(w).trim() : "Something went wrong. Please try again.";
   }
   async function x(w, a = "") {
-    const f = Number(w?.status || 0), u = await cn(
+    const f = Number(w?.status || 0), u = await ln(
       w,
       a || `Request failed (${f || "unknown"})`,
       { appendStatusToFallback: !1 }
@@ -4438,7 +4438,7 @@ function oi(n) {
     updateSyncStatus: y
   };
 }
-function ci(n) {
+function li(n) {
   const {
     createSuccess: e,
     enableServerSync: t = !0,
@@ -4501,18 +4501,18 @@ const et = {
   AUTOFILL: "autofill",
   SERVER_SEED: "server_seed"
 };
-function tn(n, e = et.AUTOFILL) {
+function nn(n, e = et.AUTOFILL) {
   const t = String(n || "").trim().toLowerCase();
   return t === et.USER ? et.USER : t === et.SERVER_SEED ? et.SERVER_SEED : t === et.AUTOFILL ? et.AUTOFILL : e;
 }
-function li(n, e = 0) {
+function di(n, e = 0) {
   if (!n || typeof n != "object") return !1;
   const t = n, i = String(t.name ?? "").trim(), s = String(t.email ?? "").trim(), l = String(t.role ?? "signer").trim().toLowerCase(), p = Number.parseInt(String(t.signingStage ?? t.signing_stage ?? 1), 10), y = t.notify !== !1;
   return i !== "" || s !== "" || l !== "" && l !== "signer" || Number.isFinite(p) && p > 1 || !y ? !0 : e > 0;
 }
 function jt(n, e = {}) {
   const {
-    normalizeTitleSource: t = tn,
+    normalizeTitleSource: t = nn,
     titleSource: i = et
   } = e;
   if (!n || typeof n != "object") return !1;
@@ -4522,9 +4522,9 @@ function jt(n, e = {}) {
     n.titleSource,
     p === "" ? i.AUTOFILL : i.USER
   );
-  return !!(p !== "" && _ !== i.SERVER_SEED || y !== "" || (Array.isArray(n.participants) ? n.participants : []).some((P, T) => li(P, T)) || Array.isArray(n.fieldDefinitions) && n.fieldDefinitions.length > 0 || Array.isArray(n.fieldPlacements) && n.fieldPlacements.length > 0 || Array.isArray(n.fieldRules) && n.fieldRules.length > 0 || n.review?.enabled);
+  return !!(p !== "" && _ !== i.SERVER_SEED || y !== "" || (Array.isArray(n.participants) ? n.participants : []).some((P, T) => di(P, T)) || Array.isArray(n.fieldDefinitions) && n.fieldDefinitions.length > 0 || Array.isArray(n.fieldPlacements) && n.fieldPlacements.length > 0 || Array.isArray(n.fieldRules) && n.fieldRules.length > 0 || n.review?.enabled);
 }
-function di(n = {}) {
+function ui(n = {}) {
   const e = n || {}, t = String(e.base_path || "").trim(), i = String(e.api_base_path || "").trim() || `${t}/api`, s = i.replace(/\/+$/, ""), l = /\/v\d+$/i.test(s) ? s : `${s}/v1`, p = !!e.is_edit, y = !!e.create_success, _ = String(e.submit_mode || "json").trim().toLowerCase(), F = String(e.agreement_id || "").trim(), x = String(e.active_agreement_id || "").trim(), P = String(e.routes?.documents_upload_url || "").trim() || `${t}/content/esign_documents/new`, T = Array.isArray(e.initial_participants) ? e.initial_participants : [], w = Array.isArray(e.initial_field_instances) ? e.initial_field_instances : [], a = e.sync && typeof e.sync == "object" ? e.sync : {}, f = Array.isArray(a.action_operations) ? a.action_operations.map((Y) => String(Y || "").trim()).filter(Boolean) : [], u = `${l}/esign`, h = {
     base_url: String(a.base_url || "").trim() || u,
     bootstrap_path: String(a.bootstrap_path || "").trim() || `${u}/sync/bootstrap/agreement-draft`,
@@ -4567,11 +4567,11 @@ function di(n = {}) {
     initialFieldInstances: w
   };
 }
-function ui(n = !0) {
+function pi(n = !0) {
   const e = { Accept: "application/json" };
   return n && (e["Content-Type"] = "application/json"), e;
 }
-function pi(n = {}) {
+function mi(n = {}) {
   const {
     config: e = {},
     isEditMode: t = !1
@@ -4602,12 +4602,12 @@ function ot(n, e) {
     throw new Error(`Agreement form boot failed: missing required ${e}`);
   return n;
 }
-function mi(n, e) {
+function fi(n, e) {
   if (!(n instanceof HTMLButtonElement))
     throw new Error(`Agreement form boot failed: missing required ${e}`);
   return n;
 }
-function fi(n = {}) {
+function gi(n = {}) {
   const {
     config: e,
     normalizedConfig: t,
@@ -4621,30 +4621,30 @@ function fi(n = {}) {
     documentsUploadURL: x,
     initialParticipants: P,
     initialFieldInstances: T
-  } = di(n), w = vn(document), {
+  } = ui(n), w = bn(document), {
     WIZARD_STATE_VERSION: a,
     WIZARD_STORAGE_KEY: f,
     WIZARD_CHANNEL_NAME: u,
     SYNC_DEBOUNCE_MS: h,
     SYNC_RETRY_DELAYS: M,
     TITLE_SOURCE: Y
-  } = pi({
+  } = mi({
     config: e,
     isEditMode: y
-  }), L = Cn(), b = (D, re = Y.AUTOFILL) => tn(D, re), g = (D) => jt(D, {
+  }), L = An(), b = (D, re = Y.AUTOFILL) => nn(D, re), g = (D) => jt(D, {
     normalizeTitleSource: b,
     titleSource: Y
-  }), U = hn({
+  }), U = yn({
     apiBasePath: p,
     basePath: s
-  }), J = w.form.root, q = mi(w.form.submitBtn, "submit button"), N = w.form.announcements;
+  }), J = w.form.root, q = fi(w.form.submitBtn, "submit button"), N = w.form.announcements;
   let ie = null, j = null, he = null, Se = null, X = null, de = null, ee = null, ye = null, pe = null, Ee = It();
   const Be = (D, re = {}) => {
     Se?.applyStateToUI(D, re);
-  }, xe = () => Se?.debouncedTrackChanges?.(), Ae = () => ye?.trackWizardStateChanges?.(), Q = (D) => Yt(D, {
+  }, xe = () => Se?.debouncedTrackChanges?.(), Ae = () => ye?.trackWizardStateChanges?.(), Q = (D) => Jt(D, {
     emptyFallback: "unknown",
     invalidFallback: "Invalid Date"
-  }), B = () => ee?.restoreSyncStatusFromState(), De = (D) => ee?.updateSyncStatus(D), _e = (D) => ee?.showSyncConflictDialog(D), ce = (D, re = "", we = 0) => ee?.mapUserFacingError(D, re, we) || String(D || "").trim(), me = (D, re) => ee ? ee.parseAPIError(D, re) : Promise.resolve({ status: Number(D.status || 0), code: "", details: {}, message: re }), Me = (D, re = "", we = 0) => ee?.announceError(D, re, we), We = (D, re = {}) => ee ? ee.surfaceSyncOutcome(D, re) : Promise.resolve({}), qe = () => null, ze = bn(w, {
+  }), B = () => ee?.restoreSyncStatusFromState(), De = (D) => ee?.updateSyncStatus(D), _e = (D) => ee?.showSyncConflictDialog(D), ce = (D, re = "", we = 0) => ee?.mapUserFacingError(D, re, we) || String(D || "").trim(), me = (D, re) => ee ? ee.parseAPIError(D, re) : Promise.resolve({ status: Number(D.status || 0), code: "", details: {}, message: re }), Me = (D, re = "", we = 0) => ee?.announceError(D, re, we), We = (D, re = {}) => ee ? ee.surfaceSyncOutcome(D, re) : Promise.resolve({}), qe = () => null, ze = wn(w, {
     formatRelativeTime: Q
   }), je = () => ze.render({ coordinationAvailable: !0 }), ue = async (D, re) => {
     const we = await me(D, re), tt = new Error(we.message);
@@ -4661,7 +4661,7 @@ function fi(n = {}) {
         details: D.details && typeof D.details == "object" ? D.details : {}
       };
     }
-  }, d = new wn({
+  }, d = new In({
     storageKey: f,
     stateVersion: a,
     totalWizardSteps: mt,
@@ -4699,18 +4699,18 @@ function fi(n = {}) {
     },
     emitTelemetry: L
   });
-  d.start(), ee = oi({
+  d.start(), ee = ci({
     agreementRefs: w,
     formAnnouncements: N,
     stateManager: d
   });
-  const I = new En({
+  const I = new xn({
     stateManager: d,
-    requestHeaders: ui,
+    requestHeaders: pi,
     syncConfig: i
   });
   let A;
-  const G = new xn({
+  const G = new Rn({
     channelName: u,
     onCoordinationAvailabilityChange: (D) => {
       B(), ze.render({ coordinationAvailable: D });
@@ -4745,7 +4745,7 @@ function fi(n = {}) {
       A?.forceSync();
     }
   });
-  A = new Ln({
+  A = new Cn({
     stateManager: d,
     syncService: I,
     activeTabController: G,
@@ -4757,7 +4757,7 @@ function fi(n = {}) {
     documentRef: document,
     windowRef: window
   });
-  const fe = Sn({
+  const fe = vn({
     context: {
       config: t,
       refs: w,
@@ -4782,7 +4782,7 @@ function fi(n = {}) {
         ze.destroy(), d.destroy();
       }
     }
-  }), se = jn({
+  }), se = Gn({
     apiBase: l,
     apiVersionBase: p,
     documentsUploadURL: x,
@@ -4799,12 +4799,12 @@ function fi(n = {}) {
   });
   se.initializeTitleSourceSeed(), se.bindEvents();
   const ne = ot(se.refs.documentIdInput, "document id input"), V = ot(se.refs.documentSearch, "document search input"), H = se.refs.selectedDocumentTitle, le = se.refs.documentPageCountInput, z = se.ensureSelectedDocumentCompatibility, oe = se.getCurrentDocumentPageCount;
-  ie = Gn({
+  ie = Wn({
     initialParticipants: P,
     onParticipantsChanged: () => j?.updateFieldParticipantOptions?.()
   }), ie.initialize(), ie.bindEvents();
   const ae = ot(ie.refs.participantsContainer, "participants container"), r = ot(ie.refs.addParticipantBtn, "add participant button"), o = () => ie?.getSignerParticipants() || [];
-  j = Jn({
+  j = Xn({
     initialFieldInstances: T,
     placementSource: Ge,
     getCurrentDocumentPageCount: oe,
@@ -4818,7 +4818,7 @@ function fi(n = {}) {
       Ee = D || It(), he?.setLinkGroupState?.(Ee);
     }
   }), j.bindEvents(), j.initialize();
-  const c = ot(j.refs.fieldDefinitionsContainer, "field definitions container"), R = j.refs.fieldRulesContainer, C = ot(j.refs.addFieldBtn, "add field button"), k = j.refs.fieldPlacementsJSONInput, W = j.refs.fieldRulesJSONInput, Z = () => j?.collectFieldRulesForState() || [], be = () => j?.collectFieldRulesForState() || [], ge = () => j?.collectFieldRulesForForm() || [], Ne = (D, re) => j?.expandRulesForPreview(D, re) || [], Re = () => j?.updateFieldParticipantOptions(), Ye = () => j.collectPlacementFieldDefinitions(), Te = (D) => j?.getFieldDefinitionById(D) || null, S = () => j?.findSignersMissingRequiredSignatureField() || [], v = (D) => j?.missingSignatureFieldMessage(D) || "", E = Dn({
+  const c = ot(j.refs.fieldDefinitionsContainer, "field definitions container"), R = j.refs.fieldRulesContainer, C = ot(j.refs.addFieldBtn, "add field button"), k = j.refs.fieldPlacementsJSONInput, W = j.refs.fieldRulesJSONInput, Z = () => j?.collectFieldRulesForState() || [], be = () => j?.collectFieldRulesForState() || [], ge = () => j?.collectFieldRulesForForm() || [], Ne = (D, re) => j?.expandRulesForPreview(D, re) || [], Re = () => j?.updateFieldParticipantOptions(), Ye = () => j.collectPlacementFieldDefinitions(), Te = (D) => j?.getFieldDefinitionById(D) || null, S = () => j?.findSignersMissingRequiredSignatureField() || [], v = (D) => j?.missingSignatureFieldMessage(D) || "", E = Pn({
     documentIdInput: ne,
     selectedDocumentTitle: H,
     participantsContainer: ae,
@@ -4839,11 +4839,11 @@ function fi(n = {}) {
       ${D}
     `);
   };
-  pe = ei({
+  pe = ti({
     getSignerParticipants: o,
     setPrimaryActionLabel: $,
     onChanged: () => Ae()
-  }), pe.bindEvents(), he = Qn({
+  }), pe.bindEvents(), he = ei({
     apiBase: l,
     apiVersionBase: p,
     documentIdInput: ne,
@@ -4858,10 +4858,10 @@ function fi(n = {}) {
     escapeHtml: Ue,
     onPlacementsChanged: () => Ae()
   }), he.bindEvents(), Ee = he.getLinkGroupState();
-  const O = Pn({
+  const O = Tn({
     totalWizardSteps: mt,
     wizardStep: $e,
-    nextStepLabels: ln,
+    nextStepLabels: dn,
     submitBtn: q,
     previewCard: U,
     updateCoordinationUI: je,
@@ -4876,7 +4876,7 @@ function fi(n = {}) {
       d.updateStep(D), Ae(), A.forceSync();
     }
   });
-  O.bindEvents(), ye = ci({
+  O.bindEvents(), ye = li({
     createSuccess: _,
     enableServerSync: !y && F === "json",
     stateManager: d,
@@ -4888,7 +4888,7 @@ function fi(n = {}) {
     surfaceSyncOutcome: We,
     reviewStep: $e.REVIEW
   }), ye.handleCreateSuccessCleanup(), ye.bindRetryAndConflictHandlers();
-  const K = ti({
+  const K = ni({
     documentIdInput: ne,
     documentPageCountInput: le,
     titleInput: w.form.titleInput,
@@ -4902,7 +4902,7 @@ function fi(n = {}) {
     getCurrentStep: () => O.getCurrentStep(),
     totalWizardSteps: mt
   }), ve = () => K.buildCanonicalAgreementPayload();
-  return Se = ni({
+  return Se = ii({
     titleSource: Y,
     stateManager: d,
     trackWizardStateChanges: Ae,
@@ -4919,7 +4919,7 @@ function fi(n = {}) {
     agreementRefs: w,
     parsePositiveInt: ke,
     isEditMode: y
-  }), Se.bindChangeTracking(), X = si({
+  }), Se.bindChangeTracking(), X = ai({
     documentIdInput: ne,
     titleInput: w.form.titleInput,
     participantsContainer: ae,
@@ -4931,7 +4931,7 @@ function fi(n = {}) {
     findSignersMissingRequiredSignatureField: S,
     missingSignatureFieldMessage: v,
     announceError: Me
-  }), de = ai({
+  }), de = oi({
     isEditMode: y,
     storageKey: f,
     stateManager: d,
@@ -4944,7 +4944,7 @@ function fi(n = {}) {
     formatRelativeTime: Q,
     emitWizardTelemetry: (D, re) => L(D, re),
     getActiveTabDebugState: qe
-  }), de.bindEvents(), Mn({
+  }), de.bindEvents(), Nn({
     config: e,
     form: J,
     submitBtn: q,
@@ -4995,16 +4995,16 @@ function fi(n = {}) {
   }).bindEvents(), fe;
 }
 let _t = null;
-function gi() {
+function hi() {
   _t?.destroy(), _t = null, typeof window < "u" && (delete window.__esignAgreementRuntime, delete window.__esignAgreementRuntimeInitialized);
 }
-function hi(n = {}) {
+function yi(n = {}) {
   if (_t)
     return;
-  const e = fi(n);
+  const e = gi(n);
   e.start(), _t = e, typeof window < "u" && (window.__esignAgreementRuntime = e, window.__esignAgreementRuntimeInitialized = !0);
 }
-function yi(n = document) {
+function Si(n = document) {
   n.querySelectorAll(".collapsible-trigger[aria-controls]").forEach((t) => {
     const i = t.getAttribute("aria-controls");
     if (!i) return;
@@ -5015,7 +5015,7 @@ function yi(n = document) {
     });
   });
 }
-function Si(n) {
+function vi(n) {
   return {
     sync: n.sync && typeof n.sync == "object" ? {
       base_url: String(n.sync.base_url || "").trim(),
@@ -5042,23 +5042,23 @@ function Si(n) {
     initial_field_instances: Array.isArray(n.initial_field_instances) ? n.initial_field_instances : []
   };
 }
-class nn {
+class rn {
   constructor(e) {
-    this.initialized = !1, this.config = Si(e);
+    this.initialized = !1, this.config = vi(e);
   }
   init() {
-    this.initialized || (this.initialized = !0, yi(), hi(this.config));
+    this.initialized || (this.initialized = !0, Si(), yi(this.config));
   }
   destroy() {
-    gi(), this.initialized = !1;
+    hi(), this.initialized = !1;
   }
 }
-function Ai(n) {
-  const e = new nn(n);
+function Di(n) {
+  const e = new rn(n);
   return Tt(() => e.init()), e;
 }
-function vi(n) {
-  const e = new nn({
+function bi(n) {
+  const e = new rn({
     sync: n.sync,
     basePath: n.basePath,
     apiBasePath: n.apiBasePath,
@@ -5077,7 +5077,7 @@ function vi(n) {
   });
   Tt(() => e.init()), typeof window < "u" && (window.esignAgreementFormController = e);
 }
-function bi(n) {
+function wi(n) {
   const e = n.context && typeof n.context == "object" ? n.context : {}, t = n.routes && typeof n.routes == "object" ? n.routes : e.routes && typeof e.routes == "object" ? e.routes : {}, i = n.sync && typeof n.sync == "object" ? n.sync : e.sync && typeof e.sync == "object" ? e.sync : void 0, s = String(n.base_path || n.basePath || "").trim(), l = String(t.index || "").trim();
   return !s && !l ? null : {
     sync: i ? {
@@ -5107,18 +5107,18 @@ function bi(n) {
 }
 typeof document < "u" && Tt(() => {
   if (!document.querySelector('[data-esign-page="agreement-form"]')) return;
-  const e = sn(
+  const e = an(
     "esign-page-config",
     "agreement form page config"
   );
   if (!e)
     return;
-  const t = bi(e);
-  t && vi(t);
+  const t = wi(e);
+  t && bi(t);
 });
 export {
-  nn as AgreementFormController,
-  vi as bootstrapAgreementForm,
-  Ai as initAgreementForm
+  rn as AgreementFormController,
+  bi as bootstrapAgreementForm,
+  Di as initAgreementForm
 };
 //# sourceMappingURL=agreement-form.js.map

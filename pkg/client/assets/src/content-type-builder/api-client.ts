@@ -25,6 +25,7 @@ import type {
 } from './types';
 import type { BackendFieldTypeCategoryGroup } from './block-field-type-registry';
 import { extractErrorMessage } from '../toast/error-helpers';
+import { httpRequest } from '../shared/transport/http-client.js';
 import { titleCaseIdentifier } from './shared/text';
 
 export interface ContentTypeAPIConfig {
@@ -547,7 +548,7 @@ export class ContentTypeAPIClient {
       url = this.appendQueryParamIfMissing(url, 'channel', this.channel);
     }
 
-    const response = await fetch(url, {
+    const response = await httpRequest(url, {
       ...options,
       headers,
       credentials: this.config.credentials,

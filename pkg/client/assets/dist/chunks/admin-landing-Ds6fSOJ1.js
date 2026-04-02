@@ -1,8 +1,8 @@
-import { g as m, h as P } from "./lineage-contracts-BR7-TggW.js";
-import { readHTTPErrorResult as y, readHTTPJSON as S } from "../shared/transport/http-client.js";
-import { i as u, u as d } from "./dom-helpers-Cd24RS2-.js";
-import { onReady as g } from "../shared/dom-ready.js";
-class w {
+import { g as P, h as y } from "./lineage-contracts-BR7-TggW.js";
+import { httpRequest as d, readHTTPErrorResult as S, readHTTPJSON as w } from "../shared/transport/http-client.js";
+import { i as f, u as c } from "./dom-helpers-Cd24RS2-.js";
+import { onReady as l } from "../shared/dom-ready.js";
+class E {
   constructor(t) {
     this.basePath = t.basePath, this.apiBasePath = t.apiBasePath || `${t.basePath}/api`, this.defaultHeaders = {
       Accept: "application/json",
@@ -32,7 +32,7 @@ class w {
       const o = String(r?.status || "").trim().toLowerCase();
       o && (s[o] = (s[o] || 0) + 1);
     }
-    const p = (s.sent || 0) + (s.in_progress || 0), f = p + (s.declined || 0);
+    const u = (s.sent || 0) + (s.in_progress || 0), m = u + (s.declined || 0);
     return {
       draft: s.draft || 0,
       sent: s.sent || 0,
@@ -41,8 +41,8 @@ class w {
       voided: s.voided || 0,
       declined: s.declined || 0,
       expired: s.expired || 0,
-      pending: p,
-      action_required: f
+      pending: u,
+      action_required: m
     };
   }
   // Document endpoints
@@ -58,22 +58,22 @@ class w {
   }
   async startGoogleImport(t) {
     const e = await this.post("/esign/google-drive/imports", t);
-    return m(e);
+    return P(e);
   }
   async getGoogleImportStatus(t) {
     const e = await this.get(`/esign/google-drive/imports/${t}`);
-    return P(e);
+    return y(e);
   }
   // Generic HTTP methods
   async get(t) {
-    const e = await fetch(`${this.apiBasePath}${t}`, {
+    const e = await d(`${this.apiBasePath}${t}`, {
       method: "GET",
       headers: this.defaultHeaders
     });
     return this.handleResponse(e);
   }
   async post(t, e) {
-    const a = await fetch(`${this.apiBasePath}${t}`, {
+    const a = await d(`${this.apiBasePath}${t}`, {
       method: "POST",
       headers: this.defaultHeaders,
       body: e ? JSON.stringify(e) : void 0
@@ -81,7 +81,7 @@ class w {
     return this.handleResponse(a);
   }
   async put(t, e) {
-    const a = await fetch(`${this.apiBasePath}${t}`, {
+    const a = await d(`${this.apiBasePath}${t}`, {
       method: "PUT",
       headers: this.defaultHeaders,
       body: JSON.stringify(e)
@@ -89,7 +89,7 @@ class w {
     return this.handleResponse(a);
   }
   async delete(t) {
-    const e = await fetch(`${this.apiBasePath}${t}`, {
+    const e = await d(`${this.apiBasePath}${t}`, {
       method: "DELETE",
       headers: this.defaultHeaders
     });
@@ -97,17 +97,17 @@ class w {
   }
   async handleResponse(t) {
     if (!t.ok) {
-      const e = t.statusText || `HTTP ${t.status}`, a = E(
-        await y(t, e, { appendStatusToFallback: !1 }),
+      const e = t.statusText || `HTTP ${t.status}`, a = _(
+        await S(t, e, { appendStatusToFallback: !1 }),
         t
       );
-      throw new _(a.code, a.message, a.details);
+      throw new b(a.code, a.message, a.details);
     }
     if (t.status !== 204)
-      return S(t);
+      return w(t);
   }
 }
-function E(n, t) {
+function _(n, t) {
   const e = `HTTP_${t.status}`, a = n.message || t.statusText || e;
   if (!n.payload || typeof n.payload != "object")
     return {
@@ -132,27 +132,27 @@ function E(n, t) {
 function h(n) {
   return !!n && typeof n == "object" && !Array.isArray(n);
 }
-class _ extends Error {
+class b extends Error {
   constructor(t, e, a) {
     super(e), this.code = t, this.details = a, this.name = "ESignAPIError";
   }
 }
-let c = null;
+let g = null;
 function B() {
-  if (!c)
+  if (!g)
     throw new Error("ESign API client not initialized. Call setESignClient first.");
-  return c;
-}
-function b(n) {
-  c = n;
+  return g;
 }
 function T(n) {
-  const t = new w(n);
-  return b(t), t;
+  g = n;
 }
-class l {
+function $(n) {
+  const t = new E(n);
+  return T(t), t;
+}
+class p {
   constructor(t) {
-    this.config = t, this.client = T({
+    this.config = t, this.client = $({
       basePath: t.basePath,
       apiBasePath: t.apiBasePath
     });
@@ -172,7 +172,7 @@ class l {
    */
   async loadStats() {
     const t = await this.client.getAgreementStats();
-    d('count="draft"', t.draft), d('count="pending"', t.pending), d('count="completed"', t.completed), d('count="action_required"', t.action_required), this.updateStatElement("draft", t.draft), this.updateStatElement("pending", t.pending), this.updateStatElement("completed", t.completed), this.updateStatElement("action_required", t.action_required);
+    c('count="draft"', t.draft), c('count="pending"', t.pending), c('count="completed"', t.completed), c('count="action_required"', t.action_required), this.updateStatElement("draft", t.draft), this.updateStatElement("pending", t.pending), this.updateStatElement("completed", t.completed), this.updateStatElement("action_required", t.action_required);
   }
   /**
    * Update a stat element by key
@@ -183,44 +183,44 @@ class l {
   }
 }
 function H(n) {
-  const t = n || u(
+  const t = n || f(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   );
   if (!t)
     throw new Error('Landing page config not found. Add data-esign-page="landing" with config.');
-  const e = new l(t);
-  return g(() => e.init()), e;
+  const e = new p(t);
+  return l(() => e.init()), e;
 }
-function q(n, t) {
+function I(n, t) {
   const e = {
     basePath: n,
     apiBasePath: t || `${n}/api`
-  }, a = new l(e);
-  g(() => a.init());
+  }, a = new p(e);
+  l(() => a.init());
 }
-typeof document < "u" && g(() => {
+typeof document < "u" && l(() => {
   if (document.querySelector(
     '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
   )) {
-    const t = u(
+    const t = f(
       '[data-esign-page="admin.landing"], [data-esign-page="landing"]'
     );
     if (t) {
       const e = String(t.basePath || t.base_path || "/admin"), a = String(
         t.apiBasePath || t.api_base_path || `${e}/api`
       );
-      new l({ basePath: e, apiBasePath: a }).init();
+      new p({ basePath: e, apiBasePath: a }).init();
     }
   }
 });
 export {
-  w as E,
-  l as L,
-  _ as a,
-  q as b,
-  T as c,
+  E,
+  p as L,
+  b as a,
+  I as b,
+  $ as c,
   B as g,
   H as i,
-  b as s
+  T as s
 };
-//# sourceMappingURL=admin-landing-Us8yS3xI.js.map
+//# sourceMappingURL=admin-landing-Ds6fSOJ1.js.map

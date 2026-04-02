@@ -7,7 +7,7 @@ import { qs, show, hide, onReady } from '../utils/dom-helpers.js';
 import { formatCompactDateTime } from '../utils/formatters.js';
 import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
-import { readHTTPError } from '../../shared/transport/http-client.js';
+import { httpRequest, readHTTPError } from '../../shared/transport/http-client.js';
 
 /**
  * Configuration for the integration sync runs page
@@ -547,7 +547,7 @@ export class IntegrationSyncRunsController {
     submitSyncBtn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Starting...`;
 
     try {
-      const response = await fetch(this.syncRunsEndpoint, {
+      const response = await httpRequest(this.syncRunsEndpoint, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
@@ -745,7 +745,7 @@ export class IntegrationSyncRunsController {
 
     try {
       const endpoint = `${this.syncRunsEndpoint}/${this.currentRunId}/${action}`;
-      const response = await fetch(endpoint, {
+      const response = await httpRequest(endpoint, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {

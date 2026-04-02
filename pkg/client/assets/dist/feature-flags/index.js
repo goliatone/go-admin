@@ -1,7 +1,7 @@
-import { S as B, E as d, c, U as u } from "../chunks/entity-renderer-DxPxigz0.js";
+import { S as C, E as d, c, U as u } from "../chunks/entity-renderer-DxPxigz0.js";
 import { escapeHTML as l } from "../shared/html.js";
-import { readHTTPError as g } from "../shared/transport/http-client.js";
-class v {
+import { httpRequest as g, readHTTPError as f } from "../shared/transport/http-client.js";
+class b {
   constructor(e) {
     if (this.searchBox = null, this.scopeConfigs = /* @__PURE__ */ new Map(), this.currentScope = "system", this.selectedResult = null, this.config = e, typeof e.input == "string") {
       const t = document.querySelector(e.input);
@@ -88,7 +88,7 @@ class v {
     }
     this.input.disabled = !1, this.input.value = "";
     const t = this.scopeConfigs.get(e);
-    t ? (this.searchBox = new B({
+    t ? (this.searchBox = new C({
       input: this.input,
       container: this.container,
       resolver: t.resolver,
@@ -113,7 +113,7 @@ class v {
     return this.config.defaultPlaceholder || t[e] || "Enter ID...";
   }
 }
-function E(n) {
+function P(n) {
   const e = (n || "").trim().replace(/\/+$/, ""), t = /\/api(\/|$)/.test(e) ? e : `${e || ""}/api`;
   return [
     {
@@ -155,7 +155,7 @@ function E(n) {
     }
   ];
 }
-function P(n) {
+function q(n) {
   const t = [
     {
       scope: "tenant",
@@ -198,7 +198,7 @@ function P(n) {
     const r = n.customConfigs?.[s.scope];
     return r ? { ...s, ...r } : s;
   });
-  return new v({
+  return new b({
     input: n.inputSelector,
     scopeSelect: n.scopeSelectSelector,
     container: n.containerSelector,
@@ -207,7 +207,7 @@ function P(n) {
     onScopeChange: n.onScopeChange
   });
 }
-const C = {
+const I = {
   scopeSelect: "#flag-scope",
   scopeIdInput: "#flag-scope-id",
   applyScopeBtn: "#apply-scope",
@@ -216,11 +216,11 @@ const C = {
   mutableState: "#mutable-state",
   tableBody: "#flags-table",
   emptyState: "#flags-empty"
-}, f = [
+}, y = [
   { value: "unset", label: "Default", icon: "minus" },
   { value: "enabled", label: "Enabled", icon: "check" },
   { value: "disabled", label: "Disabled", icon: "x" }
-], y = {
+], v = {
   check: '<svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>',
   x: '<svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
   minus: '<svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>',
@@ -228,7 +228,7 @@ const C = {
 };
 class L {
   constructor(e, t = {}, s) {
-    this.scopeSelect = null, this.scopeIdInput = null, this.applyScopeBtn = null, this.refreshBtn = null, this.searchInput = null, this.mutableStateEl = null, this.tableBody = null, this.emptyState = null, this.allFlags = [], this.isMutable = !1, this.documentClickHandler = null, this.scopeSearchBox = null, this.config = e, this.selectors = { ...C, ...t }, this.toast = s || window.toastManager || null;
+    this.scopeSelect = null, this.scopeIdInput = null, this.applyScopeBtn = null, this.refreshBtn = null, this.searchInput = null, this.mutableStateEl = null, this.tableBody = null, this.emptyState = null, this.allFlags = [], this.isMutable = !1, this.documentClickHandler = null, this.scopeSearchBox = null, this.config = e, this.selectors = { ...I, ...t }, this.toast = s || window.toastManager || null;
   }
   /**
    * Initialize the feature flags manager
@@ -253,7 +253,7 @@ class L {
   initScopeSearch() {
     if (!this.scopeSelect || !this.scopeIdInput) return;
     const e = this.buildScopeConfigs(), t = this.scopeIdInput.parentElement;
-    t && (t.style.position = "relative", this.scopeSearchBox = new v({
+    t && (t.style.position = "relative", this.scopeSearchBox = new b({
       input: this.scopeIdInput,
       scopeSelect: this.scopeSelect,
       container: t,
@@ -332,9 +332,9 @@ class L {
     this.syncUrl();
     const t = `${this.config.apiPath}?${e.toString()}`;
     try {
-      const s = await fetch(t, { headers: { Accept: "application/json" } });
+      const s = await g(t, { headers: { Accept: "application/json" } });
       if (!s.ok) {
-        const o = await g(s, "Failed to load flags.", {
+        const o = await f(s, "Failed to load flags.", {
           appendStatusToFallback: !1
         });
         this.toast?.error(o);
@@ -357,7 +357,7 @@ class L {
     let a = "POST";
     t === "unset" ? a = "DELETE" : o.enabled = t === "enabled";
     try {
-      const i = await fetch(this.config.apiPath, {
+      const i = await g(this.config.apiPath, {
         method: a,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(o)
@@ -365,7 +365,7 @@ class L {
       if (i.ok)
         this.toast?.success("Flag updated.");
       else {
-        const h = await g(i, "Failed to update flag.", {
+        const h = await f(i, "Failed to update flag.", {
           appendStatusToFallback: !1
         });
         this.toast?.error(h);
@@ -389,20 +389,20 @@ class L {
     }), this.wireActionMenus();
   }
   createFlagRow(e, t) {
-    const s = e.effective ? "Enabled" : "Disabled", r = this.badge(s, e.effective ? "on" : "off"), o = e.source || "unknown", a = e.default && e.default.set ? e.default.value ? "Enabled" : "Disabled" : "—", i = this.normalizeOverrideState(e), h = e.override && e.override.value !== void 0 ? e.override.value ? "Enabled" : "Disabled" : "—", b = i === "enabled" || i === "disabled" ? h : "Default", w = this.badge(
-      b,
+    const s = e.effective ? "Enabled" : "Disabled", r = this.badge(s, e.effective ? "on" : "off"), o = e.source || "unknown", a = e.default && e.default.set ? e.default.value ? "Enabled" : "Disabled" : "—", i = this.normalizeOverrideState(e), h = e.override && e.override.value !== void 0 ? e.override.value ? "Enabled" : "Disabled" : "—", w = i === "enabled" || i === "disabled" ? h : "Default", x = this.badge(
+      w,
       i === "enabled" ? "on" : i === "disabled" ? "off" : "neutral"
-    ), x = this.currentOverrideValue(e), p = e.key || "", S = e.description ? l(e.description) : "", F = S ? `<div class="mt-1 text-xs text-gray-500">${S}</div>` : "", m = document.createElement("tr");
+    ), F = this.currentOverrideValue(e), p = e.key || "", S = e.description ? l(e.description) : "", B = S ? `<div class="mt-1 text-xs text-gray-500">${S}</div>` : "", m = document.createElement("tr");
     return m.innerHTML = `
       <td class="px-5 py-4 text-sm">
         <div class="text-gray-900 font-mono">${l(p)}</div>
-        ${F}
+        ${B}
       </td>
       <td class="px-5 py-4 text-sm">${r}</td>
       <td class="px-5 py-4 text-sm text-gray-600 capitalize">${l(o)}</td>
       <td class="px-5 py-4 text-sm text-gray-600">${a}</td>
-      <td class="px-5 py-4 text-sm">${w}</td>
-      <td class="px-5 py-4 text-sm">${this.renderActionMenu(p, x, !t)}</td>
+      <td class="px-5 py-4 text-sm">${x}</td>
+      <td class="px-5 py-4 text-sm">${this.renderActionMenu(p, F, !t)}</td>
     `, m;
   }
   badge(e, t) {
@@ -417,18 +417,18 @@ class L {
     return t === "enabled" ? "enabled" : t === "disabled" ? "disabled" : "unset";
   }
   renderActionMenu(e, t, s) {
-    const r = s ? "opacity-50 pointer-events-none" : "", o = f.find((a) => a.value === t);
+    const r = s ? "opacity-50 pointer-events-none" : "", o = y.find((a) => a.value === t);
     return `
       <div class="relative action-menu ${r}" data-flag-key="${l(e)}">
         <button type="button" class="action-menu-trigger inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-0" ${s ? "disabled" : ""}>
           <span class="action-menu-label">${o?.label || "Default"}</span>
-          ${y.chevronDown}
+          ${v.chevronDown}
         </button>
         <div class="action-menu-dropdown hidden absolute right-0 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
-          ${f.map(
+          ${y.map(
       (a) => `
             <button type="button" data-value="${a.value}" class="action-menu-item w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 ${a.value === t ? "bg-gray-50 font-medium" : ""}">
-              ${y[a.icon] || ""}
+              ${v[a.icon] || ""}
               ${a.label}
             </button>
           `
@@ -456,8 +456,8 @@ class L {
 }
 export {
   L as FeatureFlagsManager,
-  v as ScopeSearchBox,
-  E as createDefaultScopeConfigs,
-  P as createScopeSearchBox
+  b as ScopeSearchBox,
+  P as createDefaultScopeConfigs,
+  q as createScopeSearchBox
 };
 //# sourceMappingURL=index.js.map

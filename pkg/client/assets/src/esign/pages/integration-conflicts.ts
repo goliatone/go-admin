@@ -8,7 +8,7 @@ import { formatCompactDateTime } from '../utils/formatters.js';
 import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 import { parseJSONValue } from '../../shared/json-parse.js';
-import { readHTTPError } from '../../shared/transport/http-client.js';
+import { httpRequest, readHTTPError } from '../../shared/transport/http-client.js';
 
 /**
  * Configuration for the integration conflicts page
@@ -582,7 +582,7 @@ export class IntegrationConflictsController {
     submitResolveBtn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Submitting...`;
 
     try {
-      const response = await fetch(`${this.conflictsEndpoint}/${this.currentConflictId}/resolve`, {
+      const response = await httpRequest(`${this.conflictsEndpoint}/${this.currentConflictId}/resolve`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {

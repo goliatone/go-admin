@@ -21,7 +21,7 @@ import {
   type PDFDocumentProxy,
 } from '../../pdf/runtime.js';
 import { parseJSONValue } from '../../../shared/json-parse.js';
-import { readHTTPJSON } from '../../../shared/transport/http-client.js';
+import { httpRequest, readHTTPJSON } from '../../../shared/transport/http-client.js';
 
 interface PlacementFieldDefinition {
   definitionId: string;
@@ -1386,7 +1386,7 @@ export function createPlacementEditorController(
     `;
 
     try {
-      const response = await fetch(`${apiVersionBase}/esign/agreements/${agreementId}/auto-place`, {
+      const response = await httpRequest(`${apiVersionBase}/esign/agreements/${agreementId}/auto-place`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {

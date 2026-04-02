@@ -1,7 +1,7 @@
 import { n as S } from "./lineage-contracts-BR7-TggW.js";
 import { StatefulController as v } from "../shared/stateful-controller.js";
-import { readHTTPError as P, readHTTPJSON as w } from "../shared/transport/http-client.js";
-function O(t) {
+import { httpRequest as P, readHTTPError as w, readHTTPJSON as y } from "../shared/transport/http-client.js";
+function W(t) {
   return {
     workspaceId: t,
     panels: {
@@ -71,7 +71,7 @@ function O(t) {
     error: null
   };
 }
-function W() {
+function B() {
   return {
     workspaceId: "source-search",
     panels: {
@@ -110,7 +110,7 @@ function W() {
     error: null
   };
 }
-function y(t, e) {
+function _(t, e) {
   const n = [], s = [];
   return e.includes(t.endpointFamily) || n.push(
     `Page ${t.pageId} consumes unapproved endpoint family: ${t.endpointFamily}. Allowed: ${e.join(", ")}`
@@ -120,7 +120,7 @@ function y(t, e) {
     warnings: s
   };
 }
-function B(t) {
+function G(t) {
   const e = [
     "SourceListPage",
     "SourceDetail",
@@ -135,7 +135,7 @@ function B(t) {
   ], n = ["DocumentLineageDetail", "AgreementLineageDetail"], s = t.some((r) => e.includes(r)), a = t.some((r) => n.includes(r));
   return s && a;
 }
-const G = {
+const H = {
   version: 1,
   enforcementLevel: "strict",
   approvedContracts: [
@@ -161,7 +161,7 @@ const G = {
     "No client-side lineage computation",
     "Provider-neutral by default"
   ]
-}, H = {
+}, V = {
   version: 1,
   phase: 13,
   enforcementLevel: "strict",
@@ -232,7 +232,7 @@ const G = {
       orchestrationMode: "search-driven"
     }
   }
-}, V = {
+}, j = {
   version: 2,
   phase: 14,
   documentationDate: "2025-03-22",
@@ -420,7 +420,7 @@ class c extends v {
       endpointFamily: n.endpointFamily,
       contractVersion: 1
     };
-    const s = y(this.metadata, n.dependencies);
+    const s = _(this.metadata, n.dependencies);
     s.valid || console.error(`[${n.label}] Composition validation failed:`, s.errors), n.logWarnings && s.warnings.length > 0 && console.warn(`[${n.label}] Composition warnings:`, s.warnings);
   }
 }
@@ -433,16 +433,16 @@ async function l(t, e = {}) {
     headers: n
   };
   e.body && (s.body = JSON.stringify(e.body));
-  const a = await fetch(t, s);
+  const a = await P(t, s);
   if (!a.ok) {
-    const r = await P(a, `HTTP ${a.status}`, {
+    const r = await w(a, `HTTP ${a.status}`, {
       appendStatusToFallback: !1
     });
     throw new Error(
       r.startsWith(`HTTP ${a.status}`) ? r : `HTTP ${a.status}: ${r}`
     );
   }
-  return w(a);
+  return y(a);
 }
 function o() {
   return typeof window > "u" ? new URLSearchParams() : new URLSearchParams(window.location.search);
@@ -467,7 +467,7 @@ function p(t) {
     page_size: t.page_size
   };
 }
-function _(t) {
+function b(t) {
   const e = Number.parseInt(t.get("page") ?? "1", 10), n = Number.parseInt(t.get("page_size") ?? "20", 10);
   return {
     query: t.get("q") ?? t.get("query") ?? void 0,
@@ -479,7 +479,7 @@ function _(t) {
     page_size: n > 0 ? n : 20
   };
 }
-function b(t) {
+function k(t) {
   const e = Number.parseInt(t.get("page") ?? "1", 10), n = Number.parseInt(t.get("page_size") ?? "20", 10);
   return {
     sort: t.get("sort") ?? void 0,
@@ -512,15 +512,15 @@ function m(t) {
     has_comments: t.get("has_comments") === "true" ? !0 : void 0
   };
 }
-function k(t) {
+function C(t) {
   const e = new URLSearchParams();
   return t.query && e.set("q", t.query), t.provider_kind && e.set("provider_kind", t.provider_kind), t.status && e.set("status", t.status), t.has_pending_candidates !== void 0 && e.set("has_pending_candidates", String(t.has_pending_candidates)), t.sort && e.set("sort", t.sort), t.page && t.page !== 1 && e.set("page", String(t.page)), t.page_size && t.page_size !== 20 && e.set("page_size", String(t.page_size)), e.toString();
 }
-function C(t) {
+function I(t) {
   const e = new URLSearchParams();
   return t.sort && e.set("sort", t.sort), t.page && t.page !== 1 && e.set("page", String(t.page)), t.page_size && t.page_size !== 20 && e.set("page_size", String(t.page_size)), e.toString();
 }
-function I(t) {
+function R(t) {
   const e = new URLSearchParams();
   return t.status && e.set("status", t.status), t.sync_status && e.set("sync_status", t.sync_status), t.page && t.page !== 1 && e.set("page", String(t.page)), t.page_size && t.page_size !== 20 && e.set("page_size", String(t.page_size)), e.toString();
 }
@@ -540,7 +540,7 @@ function h(t) {
     page_size: t.page_size
   };
 }
-function R(t) {
+function T(t) {
   const e = new URLSearchParams();
   return t.query && e.set("q", t.query), t.provider_kind && e.set("provider_kind", t.provider_kind), t.status && e.set("status", t.status), t.result_kind && e.set("result_kind", t.result_kind), t.relationship_state && e.set("relationship_state", t.relationship_state), t.comment_sync_status && e.set("comment_sync_status", t.comment_sync_status), t.revision_hint && e.set("revision_hint", t.revision_hint), t.has_comments !== void 0 && e.set("has_comments", String(t.has_comments)), t.sort && e.set("sort", t.sort), t.page && t.page !== 1 && e.set("page", String(t.page)), t.page_size && t.page_size !== 20 && e.set("page_size", String(t.page_size)), e.toString();
 }
@@ -550,17 +550,17 @@ function d(t) {
     anchor: t.get("anchor") ?? void 0
   };
 }
-function T(t) {
+function z(t) {
   return {
     panel: t.panel,
     anchor: t.anchor
   };
 }
-function z(t) {
+function L(t) {
   const e = new URLSearchParams();
   return t.panel && e.set("panel", t.panel), t.anchor && e.set("anchor", t.anchor), e.toString();
 }
-class L extends c {
+class A extends c {
   constructor(e) {
     super(e, {
       pageId: "source-browser",
@@ -574,7 +574,7 @@ class L extends c {
    * Initialize page from current URL state.
    */
   async init() {
-    const e = o(), n = _(e);
+    const e = o(), n = b(e);
     await this.fetchSources(n);
   }
   /**
@@ -583,7 +583,7 @@ class L extends c {
   async fetchSources(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = k(e), s = `${this.config.apiBasePath}/sources?${n}`, a = await l(s), r = {
+      const n = C(e), s = `${this.config.apiBasePath}/sources?${n}`, a = await l(s), r = {
         listSources: a,
         query: e,
         permissions: a.permissions
@@ -612,13 +612,13 @@ class L extends c {
     i(p(s)), await this.fetchSources(s);
   }
 }
-function j(t) {
-  const e = new L(t);
+function Y(t) {
+  const e = new A(t);
   return e.init().catch((n) => {
     console.error("[SourceBrowserPage] Initialization failed:", n);
   }), e;
 }
-class A extends c {
+class D extends c {
   constructor(e) {
     super(e, {
       pageId: "source-detail",
@@ -660,13 +660,13 @@ class A extends c {
     await this.fetchSource();
   }
 }
-function Y(t) {
-  const e = new A(t);
+function J(t) {
+  const e = new D(t);
   return e.init().catch((n) => {
     console.error("[SourceDetailPage] Initialization failed:", n);
   }), e;
 }
-class D extends c {
+class Q extends c {
   constructor(e) {
     super(e, {
       pageId: "source-workspace",
@@ -682,7 +682,7 @@ class D extends c {
   async fetchWorkspace(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = z(e), s = n ? `?${n}` : "", a = `${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/workspace${s}`, r = S(await l(a)), f = {
+      const n = L(e), s = n ? `?${n}` : "", a = `${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/workspace${s}`, r = S(await l(a)), f = {
         workspace: r,
         query: e,
         links: r.links,
@@ -711,16 +711,16 @@ class D extends c {
       return;
     }
     const r = d(a.searchParams);
-    i(T(r)), await this.fetchWorkspace(r);
+    i(z(r)), await this.fetchWorkspace(r);
   }
 }
-function J(t) {
-  const e = new D(t);
+function K(t) {
+  const e = new Q(t);
   return e.init().catch((n) => {
     console.error("[SourceWorkspacePage] Initialization failed:", n);
   }), e;
 }
-class Q extends c {
+class E extends c {
   constructor(e) {
     super(e, {
       pageId: "source-revision-timeline",
@@ -733,7 +733,7 @@ class Q extends c {
    * Initialize page from current URL state.
    */
   async init() {
-    const e = o(), n = b(e);
+    const e = o(), n = k(e);
     await this.fetchRevisions(n);
   }
   /**
@@ -742,7 +742,7 @@ class Q extends c {
   async fetchRevisions(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = C(e), s = `${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/revisions?${n}`, a = await l(s), r = {
+      const n = I(e), s = `${this.config.apiBasePath}/sources/${encodeURIComponent(this.config.sourceId)}/revisions?${n}`, a = await l(s), r = {
         revisionPage: a,
         query: e,
         links: a.links
@@ -771,13 +771,13 @@ class Q extends c {
     i({ sort: e, page: 1 }), await this.fetchRevisions(s);
   }
 }
-function K(t) {
-  const e = new Q(t);
+function X(t) {
+  const e = new E(t);
   return e.init().catch((n) => {
     console.error("[SourceRevisionTimelinePage] Initialization failed:", n);
   }), e;
 }
-class E extends c {
+class x extends c {
   constructor(e) {
     super(e, {
       pageId: "source-revision-inspector",
@@ -810,13 +810,13 @@ class E extends c {
     await this.fetchRevision();
   }
 }
-function X(t) {
-  const e = new E(t);
+function Z(t) {
+  const e = new x(t);
   return e.init().catch((n) => {
     console.error("[SourceRevisionInspectorPage] Initialization failed:", n);
   }), e;
 }
-class x extends c {
+class F extends c {
   constructor(e) {
     super(e, {
       pageId: "source-comment-inspector",
@@ -832,7 +832,7 @@ class x extends c {
   async fetchComments(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = I(e), s = `${this.config.apiBasePath}/source-revisions/${encodeURIComponent(this.config.sourceRevisionId)}/comments?${n}`, a = await l(s), r = {
+      const n = R(e), s = `${this.config.apiBasePath}/source-revisions/${encodeURIComponent(this.config.sourceRevisionId)}/comments?${n}`, a = await l(s), r = {
         commentPage: a,
         links: a.links
       };
@@ -854,13 +854,13 @@ class x extends c {
     await this.fetchComments(e);
   }
 }
-function Z(t) {
-  const e = new x(t);
+function q(t) {
+  const e = new F(t);
   return e.init().catch((n) => {
     console.error("[SourceCommentInspectorPage] Initialization failed:", n);
   }), e;
 }
-class F extends c {
+class $ extends c {
   constructor(e) {
     super(e, {
       pageId: "source-artifact-inspector",
@@ -892,13 +892,13 @@ class F extends c {
     await this.fetchArtifacts();
   }
 }
-function q(t) {
-  const e = new F(t);
+function ee(t) {
+  const e = new $(t);
   return e.init().catch((n) => {
     console.error("[SourceArtifactInspectorPage] Initialization failed:", n);
   }), e;
 }
-class $ extends c {
+class N extends c {
   constructor(e) {
     super(e, {
       pageId: "source-search",
@@ -914,7 +914,7 @@ class $ extends c {
   async search(e) {
     this.setState({ loading: !0, error: null, contracts: null });
     try {
-      const n = R(e), s = `${this.config.apiBasePath}/source-search?${n}`, a = await l(s), r = {
+      const n = T(e), s = `${this.config.apiBasePath}/source-search?${n}`, a = await l(s), r = {
         searchResults: a,
         query: e,
         links: a.links
@@ -941,48 +941,48 @@ class $ extends c {
     await this.search(e);
   }
 }
-function ee(t) {
-  const e = new $(t);
+function te(t) {
+  const e = new N(t);
   return e.init().catch((n) => {
     console.error("[SourceSearchPage] Initialization failed:", n);
   }), e;
 }
 const g = /* @__PURE__ */ new Map();
-function te(t, e) {
+function ne(t, e) {
   g.set(t, e);
 }
-function ne(t) {
+function se(t) {
   return g.get(t);
 }
-function se() {
+function ae() {
   return Array.from(g.keys());
 }
 export {
-  H as P,
-  L as S,
-  V,
-  x as a,
-  A as b,
-  D as c,
-  B as d,
-  E as e,
-  Q as f,
-  F as g,
-  $ as h,
-  j as i,
-  Z as j,
-  Y as k,
-  J as l,
-  X as m,
-  K as n,
-  q as o,
-  ee as p,
-  ne as q,
-  te as r,
-  se as s,
-  O as t,
-  W as u,
-  y as v,
-  G as w
+  V as P,
+  A as S,
+  j as V,
+  F as a,
+  D as b,
+  Q as c,
+  G as d,
+  x as e,
+  E as f,
+  $ as g,
+  N as h,
+  Y as i,
+  q as j,
+  J as k,
+  K as l,
+  Z as m,
+  X as n,
+  ee as o,
+  te as p,
+  se as q,
+  ne as r,
+  ae as s,
+  W as t,
+  B as u,
+  _ as v,
+  H as w
 };
-//# sourceMappingURL=source-management-pages-B-3gKlZR.js.map
+//# sourceMappingURL=source-management-pages-sYyJ6Mld.js.map

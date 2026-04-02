@@ -9,7 +9,7 @@ import { formatCompactDateTime } from '../utils/formatters.js';
 import { announcePageMessage, showPageToast } from '../utils/page-feedback.js';
 import { escapeHTML as escapeHtml } from '../../shared/html.js';
 import { parseJSONValue } from '../../shared/json-parse.js';
-import { readHTTPError } from '../../shared/transport/http-client.js';
+import { httpRequest, readHTTPError } from '../../shared/transport/http-client.js';
 
 /**
  * Configuration for the integration mappings page
@@ -805,7 +805,7 @@ export class IntegrationMappingsController {
     validateBtn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg> Validating...`;
 
     try {
-      const response = await fetch(this.mappingsEndpoint, {
+      const response = await httpRequest(this.mappingsEndpoint, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -879,7 +879,7 @@ export class IntegrationMappingsController {
       const url = isUpdate ? `${this.mappingsEndpoint}/${data.id}` : this.mappingsEndpoint;
       const method = isUpdate ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await httpRequest(url, {
         method,
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -928,7 +928,7 @@ export class IntegrationMappingsController {
     publishConfirmBtn.textContent = 'Publishing...';
 
     try {
-      const response = await fetch(`${this.mappingsEndpoint}/${this.pendingPublishId}/publish`, {
+      const response = await httpRequest(`${this.mappingsEndpoint}/${this.pendingPublishId}/publish`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -970,7 +970,7 @@ export class IntegrationMappingsController {
     deleteConfirmBtn.textContent = 'Deleting...';
 
     try {
-      const response = await fetch(`${this.mappingsEndpoint}/${this.pendingDeleteId}`, {
+      const response = await httpRequest(`${this.mappingsEndpoint}/${this.pendingDeleteId}`, {
         method: 'DELETE',
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },

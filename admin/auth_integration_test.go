@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -384,11 +385,43 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 
 	apiReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
 	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set("Origin", "http://example.com")
 	apiReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 	apiRes := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(apiRes, apiReq)
-	if apiRes.Code != http.StatusOK {
-		t.Fatalf("expected api route status 200, got %d body=%s", apiRes.Code, apiRes.Body.String())
+	if apiRes.Code != http.StatusBadRequest {
+		t.Fatalf("expected api route without csrf status 400, got %d body=%s", apiRes.Code, apiRes.Body.String())
+	}
+	apiErrPayload := map[string]any{}
+	if err := json.Unmarshal(apiRes.Body.Bytes(), &apiErrPayload); err != nil {
+		t.Fatalf("decode api csrf error: %v", err)
+	}
+	apiErrBody, ok := apiErrPayload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected api error body, got %#v", apiErrPayload)
+	}
+	if got := strings.TrimSpace(toString(apiErrBody["text_code"])); got != TextCodeAdminCSRFInvalid {
+		t.Fatalf("expected api csrf error text_code %q, got %q", TextCodeAdminCSRFInvalid, got)
+	}
+
+	apiPostReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
+	apiPostReq.Header.Set("Content-Type", "application/json")
+	apiPostReq.Header.Set("Origin", "http://example.com")
+	apiPostReq.Header.Set(csrfmw.DefaultHeaderName, browserToken)
+	apiPostReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	apiPostRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(apiPostRes, apiPostReq)
+	if apiPostRes.Code != http.StatusOK {
+		t.Fatalf("expected api route with csrf status 200, got %d body=%s", apiPostRes.Code, apiPostRes.Body.String())
+	}
+
+	bearerReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/api/dashboard/config", strings.NewReader(`{}`))
+	bearerReq.Header.Set("Content-Type", "application/json")
+	bearerReq.Header.Set("Authorization", "Bearer "+token)
+	bearerRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(bearerRes, bearerReq)
+	if bearerRes.Code != http.StatusOK {
+		t.Fatalf("expected bearer api route status 200, got %d body=%s", bearerRes.Code, bearerRes.Body.String())
 	}
 }
 
@@ -424,12 +457,33 @@ func TestGoAuthAuthenticatorUsesConfiguredAdminAPIRoot(t *testing.T) {
 	}
 
 	server := router.NewHTTPServer()
+	server.Router().Get("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
+		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		if strings.TrimSpace(token) == "" {
+			t.Fatalf("expected csrf token in browser route context")
+		}
+		return c.SendString(token)
+	}))
 	server.Router().Post("/admin/internal/v2/dashboard/config", authenticator.WrapHandler(func(c router.Context) error {
 		return c.SendStatus(http.StatusOK)
 	}))
 
+	tokenReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/preferences", nil)
+	tokenReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	tokenRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(tokenRes, tokenReq)
+	if tokenRes.Code != http.StatusOK {
+		t.Fatalf("expected browser token route status 200, got %d body=%s", tokenRes.Code, tokenRes.Body.String())
+	}
+	csrfToken := strings.TrimSpace(tokenRes.Body.String())
+	if csrfToken == "" {
+		t.Fatalf("expected csrf token from browser route")
+	}
+
 	req := httptest.NewRequest(http.MethodPost, "http://example.com/admin/internal/v2/dashboard/config", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://example.com")
+	req.Header.Set(csrfmw.DefaultHeaderName, csrfToken)
 	req.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
 	res := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(res, req)

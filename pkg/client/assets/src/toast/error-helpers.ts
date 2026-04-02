@@ -3,6 +3,8 @@
  * Matches the repository's actual backend error formats
  */
 
+import { httpRequest } from '../shared/transport/http-client.js';
+
 // ============================================================================
 // Structured Error Types
 // ============================================================================
@@ -415,7 +417,7 @@ export async function executeStructuredRequest(
   }>
 ): Promise<StructuredRequestResult> {
   try {
-    const response = await fetch(endpoint, options);
+    const response = await httpRequest(endpoint, options);
 
     if (!response.ok) {
       const error = await extractStructuredError(response);

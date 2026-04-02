@@ -8,7 +8,7 @@
  * - Permission-gated apply action
  */
 
-import { readHTTPJSON } from '../shared/transport/http-client.js';
+import { httpRequest, readHTTPJSON } from '../shared/transport/http-client.js';
 import type { GateResult, CapabilityGate } from './capability-gate.js';
 import type {
   ExchangeRowResult,
@@ -285,7 +285,7 @@ export class ExchangeImport extends StatefulController<ImportPreviewState> {
         formData.append('file', this.file);
       } else if (this.rawData) {
         // Send as JSON body
-        const response = await fetch(this.config.validateEndpoint, {
+        const response = await httpRequest(this.config.validateEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -305,7 +305,7 @@ export class ExchangeImport extends StatefulController<ImportPreviewState> {
         throw new Error('No file or data to validate');
       }
 
-      const response = await fetch(this.config.validateEndpoint, {
+      const response = await httpRequest(this.config.validateEndpoint, {
         method: 'POST',
         body: formData,
       });
@@ -377,7 +377,7 @@ export class ExchangeImport extends StatefulController<ImportPreviewState> {
         async: mergedOptions.async,
       };
 
-      const response = await fetch(this.config.applyEndpoint, {
+      const response = await httpRequest(this.config.applyEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

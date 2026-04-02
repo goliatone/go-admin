@@ -47,6 +47,7 @@
       </div>
       {% endif %}
       <form id="register-request-form" class="space-y-3" action="{{ api_base_path }}/onboarding/register" method="post">
+        {{ csrf_field|safe }}
         <input
           type="email"
           name="email"
@@ -80,6 +81,7 @@
         <p class="text-sm text-zinc-500">Paste the token from your email to set a password.</p>
       </div>
       <form id="register-confirm-form" class="space-y-3" action="{{ api_base_path }}/onboarding/register/confirm" method="post">
+        {{ csrf_field|safe }}
         <input
           id="register-token"
           type="text"

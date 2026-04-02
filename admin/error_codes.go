@@ -11,6 +11,7 @@ import (
 
 const (
 	TextCodeValidationError                      = string(translationcore.ErrorValidation)
+	TextCodeAdminCSRFInvalid                     = "ADMIN_CSRF_INVALID"
 	TextCodeInvalidFeatureConfig                 = "INVALID_FEATURE_CONFIG"
 	TextCodeForbidden                            = "FORBIDDEN"
 	TextCodeNotFound                             = string(translationcore.ErrorNotFound)
@@ -70,6 +71,7 @@ type DomainErrorCode struct {
 
 var defaultDomainErrorCodes = []DomainErrorCode{
 	{Code: TextCodeValidationError, Description: "Validation failed for the submitted payload.", Category: goerrors.CategoryValidation, HTTPStatus: 400},
+	{Code: TextCodeAdminCSRFInvalid, Description: "The request is missing a valid CSRF token for a cookie-authenticated admin session.", Category: goerrors.CategoryBadInput, HTTPStatus: 400},
 	{Code: string(translationcore.ErrorPermissionDenied), Description: "The request is not authorized for the current translation operation.", Category: goerrors.CategoryAuthz, HTTPStatus: 403},
 	{Code: string(translationcore.ErrorVersionConflict), Description: "The request version or idempotency state conflicts with the current server state.", Category: goerrors.CategoryConflict, HTTPStatus: 409},
 	{Code: string(translationcore.ErrorInvalidStatus), Description: "The requested action is invalid for the current resource state.", Category: goerrors.CategoryConflict, HTTPStatus: 409},

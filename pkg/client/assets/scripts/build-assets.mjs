@@ -68,6 +68,19 @@ function stageRuntimeAssets() {
   // Build JS bundles into a staging directory first to avoid exposing partial outputs.
   run('vite', ['build', '--outDir', distStagingDir, '--emptyOutDir']);
 
+  const esbuildArgs = [
+    'src/shared/transport/browser-globals.ts',
+    '--bundle',
+    '--format=iife',
+    '--platform=browser',
+    '--target=es2020',
+    `--outfile=${resolve(distStagingDir, 'runtime/go-admin-browser.js')}`,
+  ];
+  if (process.env.NODE_ENV === 'production') {
+    esbuildArgs.push('--sourcemap');
+  }
+  run('esbuild', esbuildArgs);
+
   // Keep declaration artifacts outside dist so Go embed only tracks runtime assets.
   run('tsc', ['--emitDeclarationOnly', '--outDir', distTypesDir, '--declarationDir', distTypesDir]);
 
