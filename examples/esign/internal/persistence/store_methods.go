@@ -355,6 +355,28 @@ func (s *StoreAdapter) SaveReviewSessionToken(ctx context.Context, scope stores.
 	})
 }
 
+func (s *StoreAdapter) GetPublicSignerSessionToken(ctx context.Context, scope stores.Scope, id string) (stores.PublicSignerSessionTokenRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, err
+	}
+	return loadPublicSignerSessionTokenRecord(ctx, idb, scope, id)
+}
+
+func (s *StoreAdapter) ListPublicSignerSessionTokens(ctx context.Context, scope stores.Scope, agreementID, recipientID, participantID string) ([]stores.PublicSignerSessionTokenRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return nil, err
+	}
+	return listPublicSignerSessionTokenRecords(ctx, idb, scope, agreementID, recipientID, participantID)
+}
+
+func (s *StoreAdapter) SavePublicSignerSessionToken(ctx context.Context, scope stores.Scope, record stores.PublicSignerSessionTokenRecord) (stores.PublicSignerSessionTokenRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.PublicSignerSessionTokenRecord, error) {
+		return tx.SavePublicSignerSessionToken(ctx, scope, record)
+	})
+}
+
 func (s *StoreAdapter) CreateDraftSession(ctx context.Context, scope stores.Scope, record stores.DraftRecord) (stores.DraftRecord, bool, error) {
 	var (
 		out    stores.DraftRecord
@@ -515,9 +537,29 @@ func (s *StoreAdapter) RevokeActiveSigningTokens(ctx context.Context, scope stor
 	})
 }
 
+func (s *StoreAdapter) CreatePublicSignerSessionToken(ctx context.Context, scope stores.Scope, record stores.PublicSignerSessionTokenRecord) (stores.PublicSignerSessionTokenRecord, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (stores.PublicSignerSessionTokenRecord, error) {
+		return tx.CreatePublicSignerSessionToken(ctx, scope, record)
+	})
+}
+
+func (s *StoreAdapter) GetPublicSignerSessionTokenByHash(ctx context.Context, scope stores.Scope, tokenHash string) (stores.PublicSignerSessionTokenRecord, error) {
+	idb, err := requireAdapterIDB(s)
+	if err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, err
+	}
+	return loadPublicSignerSessionTokenByHashRecord(ctx, idb, scope, tokenHash)
+}
+
 func (s *StoreAdapter) RevokeActiveReviewSessionTokens(ctx context.Context, scope stores.Scope, agreementID, participantID string, revokedAt time.Time) (int, error) {
 	return writeWithTx(ctx, s, func(tx stores.TxStore) (int, error) {
 		return tx.RevokeActiveReviewSessionTokens(ctx, scope, agreementID, participantID, revokedAt)
+	})
+}
+
+func (s *StoreAdapter) RevokeActivePublicSignerSessionTokens(ctx context.Context, scope stores.Scope, agreementID, recipientID, participantID string, revokedAt time.Time) (int, error) {
+	return writeWithTx(ctx, s, func(tx stores.TxStore) (int, error) {
+		return tx.RevokeActivePublicSignerSessionTokens(ctx, scope, agreementID, recipientID, participantID, revokedAt)
 	})
 }
 

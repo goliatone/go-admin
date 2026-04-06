@@ -1,10 +1,9 @@
-import { b as a, k as o, r as t } from "../chunks/source-management-pages-sYyJ6Mld.js";
-import { a as s, v as i } from "../chunks/source-search-vFKPgv3t.js";
+import { S as r, _ as a } from "../chunks/source-management-rendering-states-BtlxXRKI.js";
+import { f as t, i, y as l } from "../chunks/source-management-pages-DQyM2WtD.js";
 export {
-  a as SourceDetailPageController,
-  s as adaptSourceDetail,
-  o as bootstrapSourceDetailPage,
-  t as registerPageController,
-  i as resolveSourceDetailRenderingState
+  i as SourceDetailPageController,
+  r as adaptSourceDetail,
+  t as bootstrapSourceDetailPage,
+  l as registerPageController,
+  a as resolveSourceDetailRenderingState
 };
-//# sourceMappingURL=source-detail.js.map

@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"mime/multipart"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -240,14 +239,15 @@ func createRuntimeWebSyncDocument(t *testing.T, app *fiber.App, authCookie *http
 		t.Fatalf("close upload writer: %v", err)
 	}
 
-	uploadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload", &uploadBody)
-	prepareRuntimeTestRequest(uploadReq)
-	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
-	uploadReq.AddCookie(authCookie)
-	uploadResp, err := app.Test(uploadReq, -1)
-	if err != nil {
-		t.Fatalf("upload request failed: %v", err)
-	}
+	uploadResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/api/v1/esign/documents/upload",
+		uploadWriter.FormDataContentType(),
+		&uploadBody,
+	)
 	defer uploadResp.Body.Close()
 	if uploadResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(uploadResp.Body)

@@ -1,10 +1,9 @@
-import { asRecord as f, asString as l, asNumber as u } from "./coercion.js";
+import { asNumber as l, asRecord as f, asString as u } from "./coercion.js";
 function d(n, o = {}) {
   const { trimKeys: r = !1, omitBlankKeys: i = !1, omitEmptyValues: s = !1 } = o, e = {};
   for (const [t, a] of Object.entries(f(n))) {
-    if (i && t.trim() === "")
-      continue;
-    const c = r ? t.trim() : t, m = l(a);
+    if (i && t.trim() === "") continue;
+    const c = r ? t.trim() : t, m = u(a);
     s && m === "" || (e[c] = m);
   }
   return e;
@@ -12,10 +11,9 @@ function d(n, o = {}) {
 function K(n, o = {}) {
   const { trimKeys: r = !1, omitBlankKeys: i = !1, fallback: s = 0 } = o, e = {};
   for (const [t, a] of Object.entries(f(n))) {
-    if (i && t.trim() === "")
-      continue;
+    if (i && t.trim() === "") continue;
     const c = r ? t.trim() : t;
-    e[c] = u(a, s);
+    e[c] = l(a, s);
   }
   return e;
 }
@@ -23,4 +21,5 @@ export {
   K as normalizeNumberRecord,
   d as normalizeStringRecord
 };
+
 //# sourceMappingURL=record-normalization.js.map

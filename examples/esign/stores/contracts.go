@@ -143,6 +143,15 @@ type ReviewSessionTokenStore interface {
 	RevokeActiveReviewSessionTokens(ctx context.Context, scope Scope, agreementID, participantID string, revokedAt time.Time) (int, error)
 }
 
+type PublicSignerSessionTokenStore interface {
+	CreatePublicSignerSessionToken(ctx context.Context, scope Scope, record PublicSignerSessionTokenRecord) (PublicSignerSessionTokenRecord, error)
+	GetPublicSignerSessionToken(ctx context.Context, scope Scope, id string) (PublicSignerSessionTokenRecord, error)
+	GetPublicSignerSessionTokenByHash(ctx context.Context, scope Scope, tokenHash string) (PublicSignerSessionTokenRecord, error)
+	ListPublicSignerSessionTokens(ctx context.Context, scope Scope, agreementID, recipientID, participantID string) ([]PublicSignerSessionTokenRecord, error)
+	SavePublicSignerSessionToken(ctx context.Context, scope Scope, record PublicSignerSessionTokenRecord) (PublicSignerSessionTokenRecord, error)
+	RevokeActivePublicSignerSessionTokens(ctx context.Context, scope Scope, agreementID, recipientID, participantID string, revokedAt time.Time) (int, error)
+}
+
 // AuditEventStore defines append-only audit event persistence.
 type AuditEventStore interface {
 	Append(ctx context.Context, scope Scope, event AuditEventRecord) (AuditEventRecord, error)
@@ -277,6 +286,7 @@ type TxStore interface {
 	DraftAuditEventStore
 	SigningTokenStore
 	ReviewSessionTokenStore
+	PublicSignerSessionTokenStore
 	AuditEventStore
 	AgreementArtifactStore
 	EmailLogStore

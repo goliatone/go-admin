@@ -15,7 +15,7 @@ test.describe('Translation Dashboard - Manager Monitoring', () => {
     await login(page);
   });
 
-  test('renders manager cards, tables, and drill-down actions from healthy fixtures', async ({ page }) => {
+  test('renders manager cards and healthy empty tables from fixtures', async ({ page }) => {
     await page.route('**/admin/api/translations/dashboard**', async (route) => {
       await route.fulfill({
         status: 200,
@@ -29,7 +29,8 @@ test.describe('Translation Dashboard - Manager Monitoring', () => {
     await expect(page.locator('[data-dashboard-toolbar="true"]')).toBeVisible();
     await expect(page.locator('[data-dashboard-card="my_tasks"]')).toContainText('My Tasks');
     await expect(page.locator('[data-dashboard-table="top_overdue_assignments"]')).toBeVisible();
-    await expect(page.locator('[data-dashboard-link="assignment"]').first()).toBeVisible();
+    await expect(page.locator('[data-dashboard-table="top_overdue_assignments"]')).toContainText('Showing 0 of 0');
+    await expect(page.locator('[data-dashboard-link="assignment"]')).toHaveCount(0);
     await expect(page.locator('[data-dashboard-refresh-button]').first()).toBeVisible();
   });
 

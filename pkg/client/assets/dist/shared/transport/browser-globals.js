@@ -1,4 +1,4 @@
-import { readCSRFToken as t, appendCSRFHeader as d } from "./http-client.js";
+import { appendCSRFHeader as d, readCSRFToken as t } from "./http-client.js";
 function s(e) {
   return typeof e == "string" ? e : e instanceof URL ? e.toString() : typeof Request < "u" && e instanceof Request || e && typeof e == "object" && "url" in e && typeof e.url == "string" ? e.url : "";
 }
@@ -25,4 +25,5 @@ export {
   h as goAdminFetch,
   R as installBrowserCSRFGlobals
 };
+
 //# sourceMappingURL=browser-globals.js.map

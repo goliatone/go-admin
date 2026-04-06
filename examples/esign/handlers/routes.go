@@ -124,24 +124,43 @@ type RouteSet struct {
 	AdminAgreementViewerThreadResolve string `json:"admin_agreement_viewer_thread_resolve"`
 	AdminAgreementViewerThreadReopen  string `json:"admin_agreement_viewer_thread_reopen"`
 	SignerSession                     string `json:"signer_session"`
+	SignerBootstrap                   string `json:"signer_bootstrap"`
+	SignerSessionAuth                 string `json:"signer_session_auth"`
 	SignerReviewThreads               string `json:"signer_review_threads"`
+	SignerReviewThreadsAuth           string `json:"signer_review_threads_auth"`
 	SignerReviewThreadReplies         string `json:"signer_review_thread_replies"`
+	SignerReviewThreadRepliesAuth     string `json:"signer_review_thread_replies_auth"`
 	SignerReviewThreadResolve         string `json:"signer_review_thread_resolve"`
+	SignerReviewThreadResolveAuth     string `json:"signer_review_thread_resolve_auth"`
 	SignerReviewThreadReopen          string `json:"signer_review_thread_reopen"`
+	SignerReviewThreadReopenAuth      string `json:"signer_review_thread_reopen_auth"`
 	SignerReviewApprove               string `json:"signer_review_approve"`
+	SignerReviewApproveAuth           string `json:"signer_review_approve_auth"`
 	SignerReviewRequestChanges        string `json:"signer_review_request_changes"`
+	SignerReviewRequestChangesAuth    string `json:"signer_review_request_changes_auth"`
 	SignerConsent                     string `json:"signer_consent"`
+	SignerConsentAuth                 string `json:"signer_consent_auth"`
 	SignerFieldValues                 string `json:"signer_field_values"`
+	SignerFieldValuesAuth             string `json:"signer_field_values_auth"`
 	SignerSignature                   string `json:"signer_signature"`
+	SignerSignatureAuth               string `json:"signer_signature_auth"`
 	SignerSignatureUpload             string `json:"signer_signature_upload"`
+	SignerSignatureUploadAuth         string `json:"signer_signature_upload_auth"`
 	SignerSignatureObject             string `json:"signer_signature_object"`
 	SignerTelemetry                   string `json:"signer_telemetry"`
+	SignerTelemetryAuth               string `json:"signer_telemetry_auth"`
 	SignerSubmit                      string `json:"signer_submit"`
+	SignerSubmitAuth                  string `json:"signer_submit_auth"`
 	SignerDecline                     string `json:"signer_decline"`
+	SignerDeclineAuth                 string `json:"signer_decline_auth"`
 	SignerAssets                      string `json:"signer_assets"`
+	SignerAssetsAuth                  string `json:"signer_assets_auth"`
 	SignerProfile                     string `json:"signer_profile"`
+	SignerProfileAuth                 string `json:"signer_profile_auth"`
 	SignerSavedSignatures             string `json:"signer_saved_signatures"`
+	SignerSavedSignaturesAuth         string `json:"signer_saved_signatures_auth"`
 	SignerSavedSignature              string `json:"signer_saved_signature"`
+	SignerSavedSignatureAuth          string `json:"signer_saved_signature_auth"`
 
 	AdminGoogleOAuthConnect      string `json:"admin_google_o_auth_connect"`
 	AdminGoogleOAuthDisconnect   string `json:"admin_google_o_auth_disconnect"`
@@ -183,6 +202,7 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 	adminAPIBase := deriveAdminAPIBase(urls, adminAPIGroup, adminBase)
 	publicAPIBase := derivePublicAPIBase(urls)
 	signingBase := joinPath(publicAPIBase, esignSegment, signingSegment)
+	signingReviewBase := joinPath(signingBase, reviewSegment)
 
 	return RouteSet{
 		AdminBasePath:                     adminBase,
@@ -224,24 +244,43 @@ func BuildRouteSet(urls urlkit.Resolver, adminBasePath, adminAPIGroup string) Ro
 		AdminAgreementViewerThreadResolve: joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", viewerSegment, reviewSegment, threadsSegment, ":thread_id", "resolve"),
 		AdminAgreementViewerThreadReopen:  joinPath(adminAPIBase, esignSegment, agreementsSegment, ":agreement_id", viewerSegment, reviewSegment, threadsSegment, ":thread_id", "reopen"),
 		SignerSession:                     joinPath(signingBase, sessionSegment, ":token"),
+		SignerBootstrap:                   joinPath(signingBase, bootstrapSegment, ":token"),
+		SignerSessionAuth:                 joinPath(signingBase, sessionSegment),
 		SignerReviewThreads:               joinPath(signingBase, sessionSegment, ":token", reviewSegment, threadsSegment),
+		SignerReviewThreadsAuth:           joinPath(signingReviewBase, threadsSegment),
 		SignerReviewThreadReplies:         joinPath(signingBase, sessionSegment, ":token", reviewSegment, threadsSegment, ":thread_id", repliesSegment),
+		SignerReviewThreadRepliesAuth:     joinPath(signingReviewBase, threadsSegment, ":thread_id", repliesSegment),
 		SignerReviewThreadResolve:         joinPath(signingBase, sessionSegment, ":token", reviewSegment, threadsSegment, ":thread_id", "resolve"),
+		SignerReviewThreadResolveAuth:     joinPath(signingReviewBase, threadsSegment, ":thread_id", "resolve"),
 		SignerReviewThreadReopen:          joinPath(signingBase, sessionSegment, ":token", reviewSegment, threadsSegment, ":thread_id", "reopen"),
+		SignerReviewThreadReopenAuth:      joinPath(signingReviewBase, threadsSegment, ":thread_id", "reopen"),
 		SignerReviewApprove:               joinPath(signingBase, sessionSegment, ":token", reviewSegment, "approve"),
+		SignerReviewApproveAuth:           joinPath(signingReviewBase, "approve"),
 		SignerReviewRequestChanges:        joinPath(signingBase, sessionSegment, ":token", reviewSegment, requestChangesSegment),
+		SignerReviewRequestChangesAuth:    joinPath(signingReviewBase, requestChangesSegment),
 		SignerConsent:                     joinPath(signingBase, consentSegment, ":token"),
+		SignerConsentAuth:                 joinPath(signingBase, consentSegment),
 		SignerFieldValues:                 joinPath(signingBase, fieldValuesSegment, ":token"),
+		SignerFieldValuesAuth:             joinPath(signingBase, fieldValuesSegment),
 		SignerSignature:                   joinPath(signingBase, fieldValuesSegment, signatureSegment, ":token"),
+		SignerSignatureAuth:               joinPath(signingBase, fieldValuesSegment, signatureSegment),
 		SignerSignatureUpload:             joinPath(signingBase, signatureUploadSegment, ":token"),
+		SignerSignatureUploadAuth:         joinPath(signingBase, signatureUploadSegment),
 		SignerSignatureObject:             joinPath(signingBase, signatureUploadSegment, objectSegment),
 		SignerTelemetry:                   joinPath(signingBase, telemetrySegment, ":token"),
+		SignerTelemetryAuth:               joinPath(signingBase, telemetrySegment),
 		SignerSubmit:                      joinPath(signingBase, submitSegment, ":token"),
+		SignerSubmitAuth:                  joinPath(signingBase, submitSegment),
 		SignerDecline:                     joinPath(signingBase, declineSegment, ":token"),
+		SignerDeclineAuth:                 joinPath(signingBase, declineSegment),
 		SignerAssets:                      joinPath(signingBase, assetsSegment, ":token"),
+		SignerAssetsAuth:                  joinPath(signingBase, assetsSegment),
 		SignerProfile:                     joinPath(signingBase, profileSegment, ":token"),
+		SignerProfileAuth:                 joinPath(signingBase, profileSegment),
 		SignerSavedSignatures:             joinPath(signingBase, signaturesSegment, ":token"),
+		SignerSavedSignaturesAuth:         joinPath(signingBase, signaturesSegment),
 		SignerSavedSignature:              joinPath(signingBase, signaturesSegment, ":token", ":id"),
+		SignerSavedSignatureAuth:          joinPath(signingBase, signaturesSegment, ":id"),
 
 		AdminGoogleOAuthConnect:      joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, connectSegment),
 		AdminGoogleOAuthDisconnect:   joinPath(adminAPIBase, esignSegment, integrationsSegment, googleSegment, disconnectSegment),

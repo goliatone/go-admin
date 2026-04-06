@@ -8,68 +8,70 @@ import (
 )
 
 type inMemoryStoreSnapshot struct {
-	Documents                   map[string]DocumentRecord                   `json:"documents"`
-	SourceDocuments             map[string]SourceDocumentRecord             `json:"source_documents"`
-	SourceHandles               map[string]SourceHandleRecord               `json:"source_handles"`
-	SourceRevisions             map[string]SourceRevisionRecord             `json:"source_revisions"`
-	SourceArtifacts             map[string]SourceArtifactRecord             `json:"source_artifacts"`
-	SourceFingerprints          map[string]SourceFingerprintRecord          `json:"source_fingerprints"`
-	SourceRelationships         map[string]SourceRelationshipRecord         `json:"source_relationships"`
-	SourceCommentThreads        map[string]SourceCommentThreadRecord        `json:"source_comment_threads"`
-	SourceCommentMessages       map[string]SourceCommentMessageRecord       `json:"source_comment_messages"`
-	SourceCommentSyncStates     map[string]SourceCommentSyncStateRecord     `json:"source_comment_sync_states"`
-	SourceSearchDocuments       map[string]SourceSearchDocumentRecord       `json:"source_search_documents"`
-	Agreements                  map[string]AgreementRecord                  `json:"agreements"`
-	AgreementRevisionRequests   map[string]AgreementRevisionRequestRecord   `json:"agreement_revision_requests"`
-	AgreementRevisionReqIndex   map[string]string                           `json:"agreement_revision_request_index"`
-	AgreementReviews            map[string]AgreementReviewRecord            `json:"agreement_reviews"`
-	AgreementReviewIndex        map[string]string                           `json:"agreement_review_index"`
-	AgreementReviewParticipants map[string]AgreementReviewParticipantRecord `json:"agreement_review_participants"`
-	AgreementCommentThreads     map[string]AgreementCommentThreadRecord     `json:"agreement_comment_threads"`
-	AgreementCommentMessages    map[string]AgreementCommentMessageRecord    `json:"agreement_comment_messages"`
-	Drafts                      map[string]DraftRecord                      `json:"drafts"`
-	DraftWizardIndex            map[string]string                           `json:"draft_wizard_index"`
-	Participants                map[string]ParticipantRecord                `json:"participants"`
-	FieldDefinitions            map[string]FieldDefinitionRecord            `json:"field_definitions"`
-	FieldInstances              map[string]FieldInstanceRecord              `json:"field_instances"`
-	Recipients                  map[string]RecipientRecord                  `json:"recipients"`
-	Fields                      map[string]FieldRecord                      `json:"fields"`
-	SigningTokens               map[string]SigningTokenRecord               `json:"signing_tokens"`
-	TokenHashIndex              map[string]string                           `json:"token_hash_index"`
-	ReviewSessionTokens         map[string]ReviewSessionTokenRecord         `json:"review_session_tokens"`
-	ReviewSessionTokenHashIndex map[string]string                           `json:"review_session_token_hash_index"`
-	SignatureArtifacts          map[string]SignatureArtifactRecord          `json:"signature_artifacts"`
-	SignerProfiles              map[string]SignerProfileRecord              `json:"signer_profiles"`
-	SignerProfileIndex          map[string]string                           `json:"signer_profile_index"`
-	SavedSignerSignatures       map[string]SavedSignerSignatureRecord       `json:"saved_signatures"`
-	FieldValues                 map[string]FieldValueRecord                 `json:"field_values"`
-	DraftAuditEvents            map[string]DraftAuditEventRecord            `json:"draft_audit_events"`
-	AuditEvents                 map[string]AuditEventRecord                 `json:"audit_events"`
-	AgreementArtifacts          map[string]AgreementArtifactRecord          `json:"agreement_artifacts"`
-	EmailLogs                   map[string]EmailLogRecord                   `json:"email_logs"`
-	JobRuns                     map[string]JobRunRecord                     `json:"job_runs"`
-	JobRunDedupeIndex           map[string]string                           `json:"job_run_dedupe_index"`
-	GoogleImportRuns            map[string]GoogleImportRunRecord            `json:"google_import_runs"`
-	GoogleImportRunDedupeIndex  map[string]string                           `json:"google_import_run_dedupe_index"`
-	DocumentRemediationLeases   map[string]DocumentRemediationLeaseRecord   `json:"document_remediation_leases"`
-	RemediationDispatches       map[string]RemediationDispatchRecord        `json:"remediation_dispatches"`
-	RemediationDispatchIndex    map[string]string                           `json:"remediation_dispatch_index"`
-	GuardedEffects              map[string]guardedeffects.Record            `json:"guarded_effects"`
-	GuardedEffectIndex          map[string]string                           `json:"guarded_effect_index"`
-	AgreementReminderStates     map[string]AgreementReminderStateRecord     `json:"agreement_reminder_states"`
-	OutboxMessages              map[string]OutboxMessageRecord              `json:"outbox_messages"`
-	IntegrationCredentials      map[string]IntegrationCredentialRecord      `json:"integration_credentials"`
-	IntegrationCredentialIndex  map[string]string                           `json:"integration_credential_index"`
-	MappingSpecs                map[string]MappingSpecRecord                `json:"mapping_specs"`
-	IntegrationBindings         map[string]IntegrationBindingRecord         `json:"integration_bindings"`
-	IntegrationBindingIndex     map[string]string                           `json:"integration_binding_index"`
-	IntegrationSyncRuns         map[string]IntegrationSyncRunRecord         `json:"integration_sync_runs"`
-	IntegrationCheckpoints      map[string]IntegrationCheckpointRecord      `json:"integration_checkpoints"`
-	IntegrationCheckpointIndex  map[string]string                           `json:"integration_checkpoint_index"`
-	IntegrationConflicts        map[string]IntegrationConflictRecord        `json:"integration_conflicts"`
-	IntegrationChangeEvents     map[string]IntegrationChangeEventRecord     `json:"integration_change_events"`
-	IntegrationMutationClaims   map[string]time.Time                        `json:"integration_mutation_claims"`
-	PlacementRuns               map[string]PlacementRunRecord               `json:"placement_runs"`
+	Documents                    map[string]DocumentRecord                   `json:"documents"`
+	SourceDocuments              map[string]SourceDocumentRecord             `json:"source_documents"`
+	SourceHandles                map[string]SourceHandleRecord               `json:"source_handles"`
+	SourceRevisions              map[string]SourceRevisionRecord             `json:"source_revisions"`
+	SourceArtifacts              map[string]SourceArtifactRecord             `json:"source_artifacts"`
+	SourceFingerprints           map[string]SourceFingerprintRecord          `json:"source_fingerprints"`
+	SourceRelationships          map[string]SourceRelationshipRecord         `json:"source_relationships"`
+	SourceCommentThreads         map[string]SourceCommentThreadRecord        `json:"source_comment_threads"`
+	SourceCommentMessages        map[string]SourceCommentMessageRecord       `json:"source_comment_messages"`
+	SourceCommentSyncStates      map[string]SourceCommentSyncStateRecord     `json:"source_comment_sync_states"`
+	SourceSearchDocuments        map[string]SourceSearchDocumentRecord       `json:"source_search_documents"`
+	Agreements                   map[string]AgreementRecord                  `json:"agreements"`
+	AgreementRevisionRequests    map[string]AgreementRevisionRequestRecord   `json:"agreement_revision_requests"`
+	AgreementRevisionReqIndex    map[string]string                           `json:"agreement_revision_request_index"`
+	AgreementReviews             map[string]AgreementReviewRecord            `json:"agreement_reviews"`
+	AgreementReviewIndex         map[string]string                           `json:"agreement_review_index"`
+	AgreementReviewParticipants  map[string]AgreementReviewParticipantRecord `json:"agreement_review_participants"`
+	AgreementCommentThreads      map[string]AgreementCommentThreadRecord     `json:"agreement_comment_threads"`
+	AgreementCommentMessages     map[string]AgreementCommentMessageRecord    `json:"agreement_comment_messages"`
+	Drafts                       map[string]DraftRecord                      `json:"drafts"`
+	DraftWizardIndex             map[string]string                           `json:"draft_wizard_index"`
+	Participants                 map[string]ParticipantRecord                `json:"participants"`
+	FieldDefinitions             map[string]FieldDefinitionRecord            `json:"field_definitions"`
+	FieldInstances               map[string]FieldInstanceRecord              `json:"field_instances"`
+	Recipients                   map[string]RecipientRecord                  `json:"recipients"`
+	Fields                       map[string]FieldRecord                      `json:"fields"`
+	SigningTokens                map[string]SigningTokenRecord               `json:"signing_tokens"`
+	TokenHashIndex               map[string]string                           `json:"token_hash_index"`
+	ReviewSessionTokens          map[string]ReviewSessionTokenRecord         `json:"review_session_tokens"`
+	ReviewSessionTokenHashIndex  map[string]string                           `json:"review_session_token_hash_index"`
+	PublicSignerSessionTokens    map[string]PublicSignerSessionTokenRecord   `json:"public_signer_session_tokens"`
+	PublicSignerSessionHashIndex map[string]string                           `json:"public_signer_session_hash_index"`
+	SignatureArtifacts           map[string]SignatureArtifactRecord          `json:"signature_artifacts"`
+	SignerProfiles               map[string]SignerProfileRecord              `json:"signer_profiles"`
+	SignerProfileIndex           map[string]string                           `json:"signer_profile_index"`
+	SavedSignerSignatures        map[string]SavedSignerSignatureRecord       `json:"saved_signatures"`
+	FieldValues                  map[string]FieldValueRecord                 `json:"field_values"`
+	DraftAuditEvents             map[string]DraftAuditEventRecord            `json:"draft_audit_events"`
+	AuditEvents                  map[string]AuditEventRecord                 `json:"audit_events"`
+	AgreementArtifacts           map[string]AgreementArtifactRecord          `json:"agreement_artifacts"`
+	EmailLogs                    map[string]EmailLogRecord                   `json:"email_logs"`
+	JobRuns                      map[string]JobRunRecord                     `json:"job_runs"`
+	JobRunDedupeIndex            map[string]string                           `json:"job_run_dedupe_index"`
+	GoogleImportRuns             map[string]GoogleImportRunRecord            `json:"google_import_runs"`
+	GoogleImportRunDedupeIndex   map[string]string                           `json:"google_import_run_dedupe_index"`
+	DocumentRemediationLeases    map[string]DocumentRemediationLeaseRecord   `json:"document_remediation_leases"`
+	RemediationDispatches        map[string]RemediationDispatchRecord        `json:"remediation_dispatches"`
+	RemediationDispatchIndex     map[string]string                           `json:"remediation_dispatch_index"`
+	GuardedEffects               map[string]guardedeffects.Record            `json:"guarded_effects"`
+	GuardedEffectIndex           map[string]string                           `json:"guarded_effect_index"`
+	AgreementReminderStates      map[string]AgreementReminderStateRecord     `json:"agreement_reminder_states"`
+	OutboxMessages               map[string]OutboxMessageRecord              `json:"outbox_messages"`
+	IntegrationCredentials       map[string]IntegrationCredentialRecord      `json:"integration_credentials"`
+	IntegrationCredentialIndex   map[string]string                           `json:"integration_credential_index"`
+	MappingSpecs                 map[string]MappingSpecRecord                `json:"mapping_specs"`
+	IntegrationBindings          map[string]IntegrationBindingRecord         `json:"integration_bindings"`
+	IntegrationBindingIndex      map[string]string                           `json:"integration_binding_index"`
+	IntegrationSyncRuns          map[string]IntegrationSyncRunRecord         `json:"integration_sync_runs"`
+	IntegrationCheckpoints       map[string]IntegrationCheckpointRecord      `json:"integration_checkpoints"`
+	IntegrationCheckpointIndex   map[string]string                           `json:"integration_checkpoint_index"`
+	IntegrationConflicts         map[string]IntegrationConflictRecord        `json:"integration_conflicts"`
+	IntegrationChangeEvents      map[string]IntegrationChangeEventRecord     `json:"integration_change_events"`
+	IntegrationMutationClaims    map[string]time.Time                        `json:"integration_mutation_claims"`
+	PlacementRuns                map[string]PlacementRunRecord               `json:"placement_runs"`
 }
 
 func ensureDocumentMap(in map[string]DocumentRecord) map[string]DocumentRecord {
@@ -243,6 +245,13 @@ func ensureSigningTokenMap(in map[string]SigningTokenRecord) map[string]SigningT
 func ensureReviewSessionTokenMap(in map[string]ReviewSessionTokenRecord) map[string]ReviewSessionTokenRecord {
 	if in == nil {
 		return map[string]ReviewSessionTokenRecord{}
+	}
+	return in
+}
+
+func ensurePublicSignerSessionTokenMap(in map[string]PublicSignerSessionTokenRecord) map[string]PublicSignerSessionTokenRecord {
+	if in == nil {
+		return map[string]PublicSignerSessionTokenRecord{}
 	}
 	return in
 }

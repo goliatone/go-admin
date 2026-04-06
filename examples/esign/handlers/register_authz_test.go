@@ -439,6 +439,124 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 	return app, scope, issued.Token, field.ID, signatureField.ID
 }
 
+func setupPublicSignerSessionApp(t *testing.T) (*fiber.App, stores.Scope, string) {
+	t.Helper()
+
+	ctx := context.Background()
+	scope := stores.Scope{TenantID: "tenant-1", OrgID: "org-1"}
+	store := stores.NewInMemoryStore()
+	objectStore := &memorySignerObjectStore{objects: map[string][]byte{}}
+
+	docSvc := services.NewDocumentService(
+		store,
+		services.WithDocumentClock(func() time.Time {
+			return time.Date(2026, 2, 2, 9, 0, 0, 0, time.UTC)
+		}),
+		services.WithDocumentObjectStore(objectStore),
+	)
+	doc, err := docSvc.Upload(ctx, scope, services.DocumentUploadInput{
+		Title:              "Agreement Source",
+		ObjectKey:          "tenant/tenant-1/org/org-1/docs/doc-1/original.pdf",
+		SourceOriginalName: "source.pdf",
+		PDF:                services.GenerateDeterministicPDF(1),
+	})
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+
+	agreementSvc := services.NewAgreementService(store)
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           "Signer Flow",
+		CreatedByUserID: "user-1",
+	})
+	if err != nil {
+		t.Fatalf("CreateDraft: %v", err)
+	}
+	signerRole := stores.RecipientRoleSigner
+	order := 1
+	signer, err := agreementSvc.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+		Email:        new("signer@example.com"),
+		Name:         new("Signer"),
+		Role:         &signerRole,
+		SigningOrder: &order,
+	}, 0)
+	if err != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}
+	fieldType := stores.FieldTypeText
+	page := 1
+	required := true
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        &fieldType,
+		PageNumber:  &page,
+		Required:    &required,
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft: %v", err)
+	}
+	signatureType := stores.FieldTypeSignature
+	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		RecipientID: &signer.ID,
+		Type:        &signatureType,
+		PageNumber:  &page,
+		Required:    &required,
+	}); err != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	}
+	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "public-signer-bootstrap"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	signingTokenService := stores.NewTokenService(store)
+	issued, err := signingTokenService.Issue(ctx, scope, agreement.ID, signer.ID)
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	signingSvc := newTestSigningService(store,
+		services.WithSigningObjectStore(objectStore),
+		services.WithSigningPreviewFallbackEnabled(true),
+	)
+	publicResolver := services.NewPublicReviewTokenResolver(signingTokenService, nil)
+	publicSessionTokens := stores.NewPublicSignerSessionTokenService(store)
+	publicSessionAuth := services.NewPublicSignerSessionAuthService(publicSessionTokens, store, store)
+	app := setupRegisterTestApp(t,
+		WithSignerTokenValidator(signingTokenService),
+		WithPublicReviewTokenValidator(publicResolver),
+		WithSignerSessionService(signingSvc),
+		WithPublicReviewSessionService(signingSvc),
+		WithPublicSignerSessionAuthService(publicSessionAuth),
+		WithDefaultScope(scope),
+	)
+	return app, scope, issued.Token
+}
+
+func bootstrapPublicSignerSession(t *testing.T, app *fiber.App, token string) string {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/bootstrap/"+url.PathEscape(token), nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("bootstrap request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected bootstrap status 200, got %d body=%s", resp.StatusCode, string(body))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode bootstrap payload: %v", err)
+	}
+	authPayload, _ := payload["auth"].(map[string]any)
+	bearer := strings.TrimSpace(fmt.Sprint(authPayload["token"]))
+	if bearer == "" {
+		t.Fatalf("expected bootstrap bearer token, got %+v", payload)
+	}
+	return bearer
+}
+
 func TestRegisterAdminRoutesRequirePermission(t *testing.T) {
 	app := setupRegisterTestApp(t, WithAuthorizer(mapAuthorizer{allowed: map[string]bool{}}))
 
@@ -552,6 +670,79 @@ func TestRegisterSignerRoutesRemainPublic(t *testing.T) {
 	}
 	if !strings.Contains(string(body), "test-token") {
 		t.Fatalf("expected token echo, got %s", string(body))
+	}
+}
+
+func TestSignerBootstrapIssuesBearerSession(t *testing.T) {
+	app, _, token := setupPublicSignerSessionApp(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/esign/signing/bootstrap/"+url.PathEscape(token), nil)
+	resp, err := app.Test(req, -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
+	}
+
+	var payload map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode bootstrap response: %v", err)
+	}
+	authPayload, _ := payload["auth"].(map[string]any)
+	routesPayload, _ := payload["routes"].(map[string]any)
+	if strings.TrimSpace(fmt.Sprint(authPayload["type"])) != "bearer" {
+		t.Fatalf("expected bearer auth payload, got %+v", authPayload)
+	}
+	if strings.TrimSpace(fmt.Sprint(authPayload["token"])) == "" {
+		t.Fatalf("expected auth token in bootstrap payload, got %+v", authPayload)
+	}
+	if strings.TrimSpace(fmt.Sprint(routesPayload["session"])) != "/api/v1/esign/signing/session" {
+		t.Fatalf("expected session auth route in bootstrap payload, got %+v", routesPayload)
+	}
+	if strings.TrimSpace(fmt.Sprint(routesPayload["profile"])) != "/api/v1/esign/signing/profile" {
+		t.Fatalf("expected profile auth route in bootstrap payload, got %+v", routesPayload)
+	}
+}
+
+func TestSignerAuthSessionRouteRequiresBearerAndIgnoresCookies(t *testing.T) {
+	app, _, token := setupPublicSignerSessionApp(t)
+	bearer := bootstrapPublicSignerSession(t, app, token)
+
+	missingReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session", nil)
+	missingReq.Header.Set("Cookie", "esign_admin_user=admin-cookie")
+	missingResp, err := app.Test(missingReq, -1)
+	if err != nil {
+		t.Fatalf("missing bearer request failed: %v", err)
+	}
+	defer missingResp.Body.Close()
+	if missingResp.StatusCode != http.StatusUnauthorized {
+		body, _ := io.ReadAll(missingResp.Body)
+		t.Fatalf("expected 401 without bearer token, got %d body=%s", missingResp.StatusCode, string(body))
+	}
+
+	authReq := httptest.NewRequest(http.MethodGet, "/api/v1/esign/signing/session", nil)
+	authReq.Header.Set("Authorization", "Bearer "+bearer)
+	authReq.Header.Set("Cookie", "esign_admin_user=admin-cookie")
+	authResp, err := app.Test(authReq, -1)
+	if err != nil {
+		t.Fatalf("authorized request failed: %v", err)
+	}
+	defer authResp.Body.Close()
+	if authResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(authResp.Body)
+		t.Fatalf("expected 200 with bearer token, got %d body=%s", authResp.StatusCode, string(body))
+	}
+	var payload map[string]any
+	if err := json.NewDecoder(authResp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode auth response: %v", err)
+	}
+	sessionPayload, _ := payload["session"].(map[string]any)
+	if strings.TrimSpace(fmt.Sprint(sessionPayload["agreement_id"])) == "" {
+		t.Fatalf("expected session payload from auth route, got %+v", payload)
 	}
 }
 

@@ -7,40 +7,40 @@ async function m(t) {
     fields: null,
     validationErrors: null
   };
-  if (!s)
-    return i;
-  if (r || s.trim().startsWith("{"))
-    try {
-      const o = JSON.parse(s);
-      if (o.error && typeof o.error == "object") {
-        const a = o.error;
-        if (typeof a.text_code == "string" && (i.textCode = a.text_code), typeof a.message == "string" && a.message.trim() && (i.message = a.message.trim()), a.metadata && typeof a.metadata == "object" && (i.metadata = a.metadata), Array.isArray(a.validation_errors)) {
-          const c = [], l = {};
-          for (const f of a.validation_errors) {
-            if (!f || typeof f != "object") continue;
-            const u = f.field, d = f.message;
-            typeof u == "string" && typeof d == "string" && (c.push({ field: u, message: d }), l[u] = d);
-          }
-          c.length > 0 && (i.validationErrors = c, i.fields = l);
+  if (!s) return i;
+  if (r || s.trim().startsWith("{")) try {
+    const o = JSON.parse(s);
+    if (o.error && typeof o.error == "object") {
+      const a = o.error;
+      if (typeof a.text_code == "string" && (i.textCode = a.text_code), typeof a.message == "string" && a.message.trim() && (i.message = a.message.trim()), a.metadata && typeof a.metadata == "object" && (i.metadata = a.metadata), Array.isArray(a.validation_errors)) {
+        const c = [], l = {};
+        for (const f of a.validation_errors) {
+          if (!f || typeof f != "object") continue;
+          const u = f.field, d = f.message;
+          typeof u == "string" && typeof d == "string" && (c.push({
+            field: u,
+            message: d
+          }), l[u] = d);
         }
-        if (i.metadata?.fields && typeof i.metadata.fields == "object" && !Array.isArray(i.metadata.fields)) {
-          const c = i.metadata.fields;
-          i.fields || (i.fields = {});
-          for (const [l, f] of Object.entries(c))
-            typeof f == "string" && (i.fields[l] = f);
-        }
-        return i;
+        c.length > 0 && (i.validationErrors = c, i.fields = l);
       }
-      if (typeof o.error == "string" && o.error.trim())
-        return i.message = o.error.trim(), i;
-      if (typeof o.detail == "string" && o.detail.trim())
-        return i.message = o.detail.trim(), i;
-      if (typeof o.title == "string" && o.title.trim())
-        return i.message = o.title.trim(), i;
-      if (typeof o.message == "string" && o.message.trim())
-        return i.message = o.message.trim(), i;
-    } catch {
+      if (i.metadata?.fields && typeof i.metadata.fields == "object" && !Array.isArray(i.metadata.fields)) {
+        const c = i.metadata.fields;
+        i.fields || (i.fields = {});
+        for (const [l, f] of Object.entries(c)) typeof f == "string" && (i.fields[l] = f);
+      }
+      return i;
     }
+    if (typeof o.error == "string" && o.error.trim())
+      return i.message = o.error.trim(), i;
+    if (typeof o.detail == "string" && o.detail.trim())
+      return i.message = o.detail.trim(), i;
+    if (typeof o.title == "string" && o.title.trim())
+      return i.message = o.title.trim(), i;
+    if (typeof o.message == "string" && o.message.trim())
+      return i.message = o.message.trim(), i;
+  } catch {
+  }
   if (s.includes("go-users:")) {
     const o = s.match(/go-users:\s*([^|]+)/);
     if (o)
@@ -50,8 +50,7 @@ async function m(t) {
   return n ? (i.message = n[1].trim(), i) : (s.trim().length > 0 && s.length < 200 && (i.message = s.trim()), i);
 }
 function S(t) {
-  if (t.textCode !== "TRANSLATION_MISSING")
-    return null;
+  if (t.textCode !== "TRANSLATION_MISSING") return null;
   const e = t.metadata || {};
   let r = [];
   Array.isArray(e.missing_locales) && (r = e.missing_locales.filter((c) => typeof c == "string"));
@@ -59,8 +58,7 @@ function S(t) {
   if (e.missing_fields_by_locale && typeof e.missing_fields_by_locale == "object") {
     s = {};
     const c = e.missing_fields_by_locale;
-    for (const [l, f] of Object.entries(c))
-      Array.isArray(f) && (s[l] = f.filter((u) => typeof u == "string"));
+    for (const [l, f] of Object.entries(c)) Array.isArray(f) && (s[l] = f.filter((u) => typeof u == "string"));
     Object.keys(s).length === 0 && (s = null);
   }
   const i = typeof e.transition == "string" ? e.transition : null, n = typeof e.entity_type == "string" ? e.entity_type : typeof e.policy_entity == "string" ? e.policy_entity : null, o = typeof e.requested_locale == "string" ? e.requested_locale : null, a = typeof e.channel == "string" ? e.channel : null;
@@ -77,17 +75,16 @@ function I(t) {
   return t.textCode === "TRANSLATION_MISSING";
 }
 function y(t) {
-  if (!t || typeof t != "object")
-    return {
-      success: !1,
-      error: {
-        textCode: null,
-        message: "Invalid response format",
-        metadata: null,
-        fields: null,
-        validationErrors: null
-      }
-    };
+  if (!t || typeof t != "object") return {
+    success: !1,
+    error: {
+      textCode: null,
+      message: "Invalid response format",
+      metadata: null,
+      fields: null,
+      validationErrors: null
+    }
+  };
   const e = t;
   if (e.status === "ok") {
     const s = { success: !0 };
@@ -106,11 +103,17 @@ function y(t) {
       for (const a of s.validation_errors) {
         if (!a || typeof a != "object") continue;
         const c = a.field, l = a.message;
-        typeof c == "string" && typeof l == "string" && (n.push({ field: c, message: l }), o[c] = l);
+        typeof c == "string" && typeof l == "string" && (n.push({
+          field: c,
+          message: l
+        }), o[c] = l);
       }
       n.length > 0 && (i.validationErrors = n, i.fields = o);
     }
-    return { success: !1, error: i };
+    return {
+      success: !1,
+      error: i
+    };
   }
   let r = "Unknown response format";
   return typeof e.message == "string" ? r = e.message : typeof e.error == "string" && (r = e.error), {
@@ -138,15 +141,25 @@ async function _(t) {
   if (e.trim())
     try {
       const r = JSON.parse(e);
-      if (r && typeof r == "object" && !Array.isArray(r))
-        return r;
+      if (r && typeof r == "object" && !Array.isArray(r)) return r;
     } catch {
     }
 }
 async function h(t, e, r) {
   try {
     const s = await p(t, e);
-    return s.ok ? r ? { ...await r(s), status: s.status } : { success: !0, data: await _(s), status: s.status } : { success: !1, error: await m(s), status: s.status };
+    return s.ok ? r ? {
+      ...await r(s),
+      status: s.status
+    } : {
+      success: !0,
+      data: await _(s),
+      status: s.status
+    } : {
+      success: !1,
+      error: await m(s),
+      status: s.status
+    };
   } catch (s) {
     return {
       success: !1,
@@ -159,13 +172,12 @@ function T(t, e = "Request failed", r = !1) {
   const s = new Error(b(t, e));
   return s.structuredError = t, s.handled = r, s;
 }
-function C(t) {
-  if (!t || typeof t != "object")
-    return null;
+function $(t) {
+  if (!t || typeof t != "object") return null;
   const e = t.structuredError;
   return !e || typeof e != "object" ? null : e;
 }
-function $(t) {
+function C(t) {
   return !!t && typeof t == "object" && t.handled === !0;
 }
 async function N(t, e, r) {
@@ -178,39 +190,41 @@ async function N(t, e, r) {
     ...r,
     body: JSON.stringify(e)
   }, async (i) => y(await i.json()));
-  return s.success ? { success: !0, data: s.data } : { success: !1, error: s.error };
+  return s.success ? {
+    success: !0,
+    data: s.data
+  } : {
+    success: !1,
+    error: s.error
+  };
 }
-async function v(t) {
+async function k(t) {
   const e = t.headers.get("content-type") || "", r = e.includes("application/json") || e.includes("application/problem+json"), s = await t.clone().text().catch(() => "");
   if (s) {
-    if (r || s.trim().startsWith("{"))
-      try {
-        const n = JSON.parse(s);
-        if (typeof n.error == "string" && n.error.trim()) return n.error.trim();
-        if (n.error && typeof n.error == "object") {
-          const o = n.error, a = typeof o.message == "string" ? o.message.trim() : "", c = [];
-          if (Array.isArray(o.validation_errors))
-            for (const f of o.validation_errors) {
-              if (!f || typeof f != "object") continue;
-              const u = f.field, d = f.message;
-              typeof u == "string" && typeof d == "string" && c.push(`${u}: ${d}`);
-            }
-          const l = o.metadata;
-          if (l && typeof l == "object") {
-            const f = l.fields;
-            if (f && typeof f == "object" && !Array.isArray(f))
-              for (const [u, d] of Object.entries(f))
-                typeof d == "string" && c.push(`${u}: ${d}`);
-          }
-          if (c.length > 0)
-            return `${a && a.toLowerCase() !== "validation failed" ? `${a}: ` : "Validation failed: "}${c.join("; ")}`;
-          if (a) return a;
+    if (r || s.trim().startsWith("{")) try {
+      const n = JSON.parse(s);
+      if (typeof n.error == "string" && n.error.trim()) return n.error.trim();
+      if (n.error && typeof n.error == "object") {
+        const o = n.error, a = typeof o.message == "string" ? o.message.trim() : "", c = [];
+        if (Array.isArray(o.validation_errors)) for (const f of o.validation_errors) {
+          if (!f || typeof f != "object") continue;
+          const u = f.field, d = f.message;
+          typeof u == "string" && typeof d == "string" && c.push(`${u}: ${d}`);
         }
-        if (typeof n.detail == "string" && n.detail.trim()) return n.detail.trim();
-        if (typeof n.title == "string" && n.title.trim()) return n.title.trim();
-        if (typeof n.message == "string" && n.message.trim()) return n.message.trim();
-      } catch {
+        const l = o.metadata;
+        if (l && typeof l == "object") {
+          const f = l.fields;
+          if (f && typeof f == "object" && !Array.isArray(f))
+            for (const [u, d] of Object.entries(f)) typeof d == "string" && c.push(`${u}: ${d}`);
+        }
+        if (c.length > 0) return `${a && a.toLowerCase() !== "validation failed" ? `${a}: ` : "Validation failed: "}${c.join("; ")}`;
+        if (a) return a;
       }
+      if (typeof n.detail == "string" && n.detail.trim()) return n.detail.trim();
+      if (typeof n.title == "string" && n.title.trim()) return n.title.trim();
+      if (typeof n.message == "string" && n.message.trim()) return n.message.trim();
+    } catch {
+    }
     if (s.includes("go-users:")) {
       const n = s.match(/go-users:\s*([^|]+)/);
       if (n) return n[1].trim();
@@ -221,7 +235,7 @@ async function v(t) {
   }
   return `Request failed (${t.status})`;
 }
-function k(t) {
+function v(t) {
   return t instanceof Error ? t.message : typeof t == "string" ? t : "An unexpected error occurred";
 }
 function b(t, e = "Request failed") {
@@ -232,16 +246,14 @@ function b(t, e = "Request failed") {
     n.has(d) || (n.add(d), i.push(d));
   };
   if (t.fields)
-    for (const [c, l] of Object.entries(t.fields))
-      typeof l == "string" && o(c, l);
+    for (const [c, l] of Object.entries(t.fields)) typeof l == "string" && o(c, l);
   if (t.metadata?.fields && typeof t.metadata.fields == "object" && !Array.isArray(t.metadata.fields))
-    for (const [c, l] of Object.entries(t.metadata.fields))
-      typeof l == "string" && o(c, l);
+    for (const [c, l] of Object.entries(t.metadata.fields)) typeof l == "string" && o(c, l);
   const a = i.length > 0 ? `: ${i.join("; ")}` : "";
   return s && /^rpc invocation failed$/i.test(r) ? `${r}: ${s}${a}` : t.textCode && !r.includes(t.textCode) ? `${t.textCode}: ${r}${a}` : `${r}${a}`;
 }
 function j(t) {
-  const e = [
+  return t.textCode !== null && [
     "IMPORT_VALIDATION_FAILED",
     "IMPORT_CONFLICT",
     "IMPORT_LINKAGE_ERROR",
@@ -249,12 +261,10 @@ function j(t) {
     "IMPORT_STALE_SOURCE",
     "EXPORT_FAILED",
     "EXCHANGE_PERMISSION_DENIED"
-  ];
-  return t.textCode !== null && e.includes(t.textCode);
+  ].includes(t.textCode);
 }
 function M(t) {
-  if (!j(t))
-    return null;
+  if (!j(t)) return null;
   const e = t.metadata || {}, r = {
     code: t.textCode,
     message: t.message,
@@ -331,7 +341,17 @@ function P(t, e = "json") {
     const n = JSON.stringify(t, null, 2);
     return new Blob([n], { type: "application/json" });
   }
-  const r = ["index", "resource", "entity_id", "family_id", "target_locale", "field_path", "status", "error", "conflict_type"], s = t.results.map((n) => [
+  const r = [
+    "index",
+    "resource",
+    "entity_id",
+    "family_id",
+    "target_locale",
+    "field_path",
+    "status",
+    "error",
+    "conflict_type"
+  ], s = t.results.map((n) => [
     String(n.index),
     n.resource,
     n.entityId,
@@ -341,10 +361,7 @@ function P(t, e = "json") {
     n.status,
     n.error || "",
     n.conflict?.type || ""
-  ]), i = [
-    r.join(","),
-    ...s.map((n) => n.map((o) => `"${o.replace(/"/g, '""')}"`).join(","))
-  ].join(`
+  ]), i = [r.join(","), ...s.map((n) => n.map((o) => `"${o.replace(/"/g, '""')}"`).join(","))].join(`
 `);
   return new Blob([i], { type: "text/csv" });
 }
@@ -352,19 +369,20 @@ export {
   T as createStructuredActionError,
   N as executeActionRequest,
   h as executeStructuredRequest,
-  v as extractErrorMessage,
+  k as extractErrorMessage,
   M as extractExchangeError,
   m as extractStructuredError,
   S as extractTranslationBlocker,
   b as formatStructuredErrorForDisplay,
   P as generateExchangeReport,
-  k as getErrorMessage,
-  C as getStructuredActionError,
+  v as getErrorMessage,
+  $ as getStructuredActionError,
   L as groupRowResultsByStatus,
   j as isExchangeError,
-  $ as isHandledActionError,
+  C as isHandledActionError,
   I as isTranslationBlocker,
   y as parseActionResponse,
   x as parseImportResult
 };
+
 //# sourceMappingURL=error-helpers.js.map

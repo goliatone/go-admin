@@ -1,25 +1,23 @@
-function n(r) {
+function i(r) {
   return r.replace(/\/+$/, "");
 }
-function i(r) {
+function n(r) {
   const t = (r || "").trim();
   return !t || t === "/" ? "" : `/${t.replace(/^\/+|\/+$/g, "")}`;
 }
 function a(r, t = {}) {
-  const e = n((r || "").trim());
+  const e = i((r || "").trim());
   return e ? t.ensureAPISuffix && !/\/api(\/|$)/.test(e) ? `${e}/api` : e : t.ensureAPISuffix ? "/api" : "";
 }
 function u(r) {
   const t = r.trim();
-  if (!t)
-    return "";
-  const e = t.startsWith("http://") || t.startsWith("https://") ? new URL(t).pathname : t;
-  return n(e.replace(/\/api(?:\/.*)?$/, ""));
+  return t ? i((t.startsWith("http://") || t.startsWith("https://") ? new URL(t).pathname : t).replace(/\/api(?:\/.*)?$/, "")) : "";
 }
 export {
   u as deriveBasePathFromAPIEndpoint,
   a as normalizeAPIBasePath,
-  i as normalizeBasePath,
-  n as trimTrailingSlash
+  n as normalizeBasePath,
+  i as trimTrailingSlash
 };
+
 //# sourceMappingURL=path-normalization.js.map

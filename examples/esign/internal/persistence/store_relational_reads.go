@@ -511,6 +511,86 @@ func listReviewSessionTokenRecords(ctx context.Context, idb bun.IDB, scope store
 	return records, nil
 }
 
+func loadPublicSignerSessionTokenByHashRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, tokenHash string) (stores.PublicSignerSessionTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, err
+	}
+	tokenHash = strings.TrimSpace(tokenHash)
+	if tokenHash == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "token_hash", "required")
+	}
+	record := stores.PublicSignerSessionTokenRecord{}
+	err = idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("token_hash = ?", tokenHash).
+		Scan(ctx)
+	if err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, mapSQLNotFound(err, "public_signer_session_tokens", tokenHash)
+	}
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return stores.PublicSignerSessionTokenRecord{}, relationalScopeDeniedError()
+	}
+	return record, nil
+}
+
+func loadPublicSignerSessionTokenRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.PublicSignerSessionTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, err
+	}
+	id = normalizeRelationalID(id)
+	if id == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "id", "required")
+	}
+	record := stores.PublicSignerSessionTokenRecord{}
+	if err := idb.NewSelect().
+		Model(&record).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("id = ?", id).
+		Limit(1).
+		Scan(ctx); err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, mapSQLNotFound(err, "public_signer_session_tokens", id)
+	}
+	return record, nil
+}
+
+func listPublicSignerSessionTokenRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID, recipientID, participantID string) ([]stores.PublicSignerSessionTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	recipientID = normalizeRelationalID(recipientID)
+	participantID = normalizeRelationalID(participantID)
+	if agreementID == "" {
+		return nil, relationalInvalidRecordError("public_signer_session_tokens", "agreement_id", "required")
+	}
+	if recipientID == "" && participantID == "" {
+		return nil, relationalInvalidRecordError("public_signer_session_tokens", "recipient_id|participant_id", "required")
+	}
+	records := make([]stores.PublicSignerSessionTokenRecord, 0)
+	query := idb.NewSelect().
+		Model(&records).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		OrderExpr("created_at ASC, id ASC")
+	if recipientID != "" {
+		query = query.Where("recipient_id = ?", recipientID)
+	}
+	if participantID != "" {
+		query = query.Where("participant_id = ?", participantID)
+	}
+	if err := query.Scan(ctx); err != nil {
+		return nil, err
+	}
+	return records, nil
+}
+
 func listAuditEventRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID string, query stores.AuditEventQuery) ([]stores.AuditEventRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {

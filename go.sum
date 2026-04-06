@@ -180,6 +180,8 @@ github.com/goliatone/go-cms v0.45.0 h1:g1/TWvP7Vxc42Jf+CyLubQgDuK1JXN7Y3nt8SrjvW
 github.com/goliatone/go-cms v0.45.0/go.mod h1:d+TpdpXi8zTDWtn9v0i779tGZDhfhc5bMTZI+AZNXC8=
 github.com/goliatone/go-command v0.18.0 h1:jcuL0B5IZDz6nDLin9k0+inAY1pwA3T77QH/fDYQDUc=
 github.com/goliatone/go-command v0.18.0/go.mod h1:tWBQypgZxIk//4NBOEqFZiV4mgtWsEcvrqHPFo5eGv8=
+github.com/goliatone/go-command v0.19.0 h1:8OTGKo6P6/QhR2zGe/shcEzJd81YrXMNMHD9/W0hScs=
+github.com/goliatone/go-command v0.19.0/go.mod h1:tWBQypgZxIk//4NBOEqFZiV4mgtWsEcvrqHPFo5eGv8=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
 github.com/goliatone/go-composite-fs v0.3.0/go.mod h1:soZ1AneoCf50zh28NYag/HozxlvqgvmePsZo2tv1TRk=
 github.com/goliatone/go-config v0.13.0 h1:PjaVEqnQvlC3Nqq66vKL5yEFGiqLMinoQ4vqLfCVxyw=
@@ -210,6 +212,8 @@ github.com/goliatone/go-masker v0.1.0 h1:YiNxBRC7AXpGKtUlXIoU4oj3DUfE+M2fvcDRyYC
 github.com/goliatone/go-masker v0.1.0/go.mod h1:n+AV93IO1rNI35kjbjfV1gMkjuIOSDVEzfhABTlCf4U=
 github.com/goliatone/go-notifications v0.13.0 h1:XS79b8LBx+9OjxdvQaRf+ZXdcB5U/8eQEoWSc0YU+fk=
 github.com/goliatone/go-notifications v0.13.0/go.mod h1:zqZRRu9wqKk2dtn++2PbnHqFiwdJTtl/7ANda7Fy8W0=
+github.com/goliatone/go-notifications v0.14.0 h1:csMzXqUb/GhZXkOngGLV5NxFqBk0KI5xDDVqmDOlrO0=
+github.com/goliatone/go-notifications v0.14.0/go.mod h1:eztJLbQ3nc1DnBX6A3b9UUgh+jCXA5mpT5mcq4nXIw8=
 github.com/goliatone/go-options v0.7.1 h1:K4Xkfg2YaHq+BVumznw1LkASCrj6xvg421J5q+7h7jk=
 github.com/goliatone/go-options v0.7.1/go.mod h1:+wfLAu54YP2wbJK/D4ceez8Ot+pbibnL5Ku67LnOl8U=
 github.com/goliatone/go-persistence-bun v0.13.0 h1:7GLuvIlSqbZG1Bvypl1c/o7q2WOvLK2JpWH4onE+skc=

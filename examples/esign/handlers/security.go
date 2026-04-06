@@ -57,6 +57,7 @@ type registerConfig struct {
 	adminRouteAuth        router.MiddlewareFunc
 	tokenValidator        SignerTokenValidator
 	publicTokenValidator  PublicReviewTokenValidator
+	publicSignerSessions  PublicSignerSessionAuthService
 	signerSession         SignerSessionService
 	publicReviewSession   PublicReviewSessionService
 	signerProfile         SignerProfileService
@@ -146,6 +147,13 @@ type supersededSignerLinkTokenService interface {
 
 type PublicReviewTokenValidator interface {
 	Validate(ctx context.Context, scope stores.Scope, rawToken string) (services.PublicReviewToken, error)
+}
+
+type PublicSignerSessionAuthService interface {
+	Issue(ctx context.Context, scope stores.Scope, token services.PublicReviewToken) (stores.IssuedPublicSignerSessionToken, error)
+	Resolve(ctx context.Context, scope stores.Scope, rawToken string) (services.PublicSignerSessionPrincipal, error)
+	RevokeSigner(ctx context.Context, scope stores.Scope, agreementID, recipientID string) error
+	RevokeReviewer(ctx context.Context, scope stores.Scope, agreementID, participantID string) error
 }
 
 // SignerSessionService handles signer session and field-value lifecycle operations.
@@ -431,6 +439,15 @@ func WithPublicReviewTokenValidator(validator PublicReviewTokenValidator) Regist
 			return
 		}
 		cfg.publicTokenValidator = validator
+	}
+}
+
+func WithPublicSignerSessionAuthService(service PublicSignerSessionAuthService) RegisterOption {
+	return func(cfg *registerConfig) {
+		if cfg == nil {
+			return
+		}
+		cfg.publicSignerSessions = service
 	}
 }
 
@@ -1053,6 +1070,77 @@ func resolvePublicReviewTokenWithRedirect(c router.Context, cfg registerConfig, 
 		return services.PublicReviewToken{}, err
 	}
 	return services.PublicReviewTokenFromSigning(signingToken), nil
+}
+
+func resolvePublicSignerSessionPrincipal(c router.Context, cfg registerConfig) (services.PublicSignerSessionPrincipal, error) {
+	if cfg.publicSignerSessions == nil {
+		return services.PublicSignerSessionPrincipal{}, rejectSignerToken(c, cfg, goerrors.New("public signer sessions not configured", goerrors.CategoryAuthz).
+			WithCode(http.StatusUnauthorized).
+			WithTextCode(string(services.ErrorCodeTokenInvalid)))
+	}
+	raw := strings.TrimSpace(c.Header("Authorization"))
+	if raw == "" {
+		return services.PublicSignerSessionPrincipal{}, rejectSignerToken(c, cfg, goerrors.New("missing bearer token", goerrors.CategoryAuthz).
+			WithCode(http.StatusUnauthorized).
+			WithTextCode(string(services.ErrorCodeTokenInvalid)))
+	}
+	if len(raw) < len("Bearer ")+1 || !strings.EqualFold(raw[:len("Bearer ")], "Bearer ") {
+		return services.PublicSignerSessionPrincipal{}, rejectSignerToken(c, cfg, goerrors.New("invalid bearer token", goerrors.CategoryAuthz).
+			WithCode(http.StatusUnauthorized).
+			WithTextCode(string(services.ErrorCodeTokenInvalid)))
+	}
+	tokenValue := strings.TrimSpace(raw[len("Bearer "):])
+	if tokenValue == "" {
+		return services.PublicSignerSessionPrincipal{}, rejectSignerToken(c, cfg, goerrors.New("missing bearer token", goerrors.CategoryAuthz).
+			WithCode(http.StatusUnauthorized).
+			WithTextCode(string(services.ErrorCodeTokenInvalid)))
+	}
+	principal, err := cfg.publicSignerSessions.Resolve(c.Context(), cfg.resolveScope(c), tokenValue)
+	if err != nil {
+		return services.PublicSignerSessionPrincipal{}, rejectSignerToken(c, cfg, err)
+	}
+	return principal, nil
+}
+
+func resolveRequestSigningToken(c router.Context, cfg registerConfig, routePattern string) (stores.SigningTokenRecord, error) {
+	rawToken := strings.TrimSpace(c.Param("token"))
+	if rawToken != "" {
+		if strings.TrimSpace(routePattern) != "" {
+			return resolveSignerTokenWithRedirect(c, cfg, rawToken, routePattern)
+		}
+		return resolveSignerToken(c, cfg, rawToken)
+	}
+	principal, err := resolvePublicSignerSessionPrincipal(c, cfg)
+	if err != nil {
+		return stores.SigningTokenRecord{}, err
+	}
+	if principal.PublicToken.SigningToken == nil {
+		_ = writeAPIError(
+			c,
+			nil,
+			http.StatusForbidden,
+			string(services.ErrorCodeInvalidSignerState),
+			"signer session is required",
+			nil,
+		)
+		return stores.SigningTokenRecord{}, errResponseHandled
+	}
+	return *principal.PublicToken.SigningToken, nil
+}
+
+func resolveRequestPublicReviewToken(c router.Context, cfg registerConfig, routePattern string) (services.PublicReviewToken, error) {
+	rawToken := strings.TrimSpace(c.Param("token"))
+	if rawToken != "" {
+		if strings.TrimSpace(routePattern) != "" {
+			return resolvePublicReviewTokenWithRedirect(c, cfg, rawToken, routePattern)
+		}
+		return resolvePublicReviewToken(c, cfg, rawToken)
+	}
+	principal, err := resolvePublicSignerSessionPrincipal(c, cfg)
+	if err != nil {
+		return services.PublicReviewToken{}, err
+	}
+	return principal.PublicToken, nil
 }
 
 func rejectSignerToken(c router.Context, cfg registerConfig, err error) error {

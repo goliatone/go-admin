@@ -13,4 +13,5 @@ export {
   t as normalizeMenuBuilderPath,
   u as normalizeMenuBuilderRoute
 };
+
 //# sourceMappingURL=path-helpers.js.map

@@ -1,31 +1,23 @@
-var S = (e) => {
-  throw TypeError(e);
-};
-var l = (e, t, s) => t.has(e) || S("Cannot " + s);
-var h = (e, t, s) => (l(e, t, "read from private field"), s ? s.call(e) : t.get(e)), n = (e, t, s) => t.has(e) ? S("Cannot add the same private member more than once") : t instanceof WeakSet ? t.add(e) : t.set(e, s), i = (e, t, s, o) => (l(e, t, "write to private field"), o ? o.call(e, s) : t.set(e, s), s);
-var a, r;
-class c {
-  constructor(t, s) {
-    n(this, a);
-    n(this, r);
-    i(this, a, t), i(this, r, s);
+import { i as r, n as s, t as a } from "../chunks/classPrivateFieldGet2-dZB8y7sE.js";
+var e = /* @__PURE__ */ new WeakMap(), i = /* @__PURE__ */ new WeakMap(), n = class {
+  constructor(t, l) {
+    r(this, e, void 0), r(this, i, void 0), s(e, this, t), s(i, this, l);
   }
   getState() {
-    return h(this, a);
+    return a(e, this);
   }
   setState(t) {
-    var s;
-    i(this, a, t), (s = h(this, r)) == null || s.call(this, t);
+    s(e, this, t), a(i, this)?.call(this, t);
   }
   get state() {
-    return h(this, a);
+    return a(e, this);
   }
   set state(t) {
     this.setState(t);
   }
-}
-a = new WeakMap(), r = new WeakMap();
-export {
-  c as StatefulController
 };
+export {
+  n as StatefulController
+};
+
 //# sourceMappingURL=stateful-controller.js.map

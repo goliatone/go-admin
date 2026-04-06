@@ -1,37 +1,32 @@
+import { httpRequest as A } from "../shared/transport/http-client.js";
 import { formatByteSize as N } from "../shared/size-formatters.js";
-import { httpRequest as z } from "../shared/transport/http-client.js";
-function P(C) {
-  return N(C, {
+function z(e) {
+  return N(e, {
     zeroFallback: "0 Bytes",
     invalidFallback: "0 Bytes",
-    unitLabels: ["Bytes", "KB", "MB", "GB"],
-    precisionByUnit: [0, 2, 2, 2],
+    unitLabels: [
+      "Bytes",
+      "KB",
+      "MB",
+      "GB"
+    ],
+    precisionByUnit: [
+      0,
+      2,
+      2,
+      2
+    ],
     trimTrailingZeros: !0
   });
 }
-class M {
-  /**
-   * @param options - Configuration options
-   * @param options.modalId - ID of the modal element
-   * @param options.endpoint - API endpoint for file upload
-   * @param options.onSuccess - Callback when import succeeds (receives summary)
-   * @param options.notifier - Toast notification manager (with success/error methods)
-   * @param options.resourceName - Name of resource being imported (default: 'items')
-   */
+var M = class {
   constructor(e = {}) {
-    if (this.modalId = e.modalId || "import-modal", e.endpoint)
-      this.endpoint = e.endpoint;
-    else if (e.apiBasePath) {
-      const s = e.apiBasePath.trim().replace(/\/+$/, "");
-      this.endpoint = `${s}/import`;
-    } else
-      this.endpoint = "/api/import";
-    this.onSuccess = e.onSuccess || (() => {
-    }), this.notifier = e.notifier || { success: console.log, error: console.error }, this.resourceName = e.resourceName || "items", this.elements = {}, this.isFullscreen = !1, this.currentFilter = "all", this.resultItems = [], this.bindElements(), this.bindEvents();
+    this.modalId = e.modalId || "import-modal", e.endpoint ? this.endpoint = e.endpoint : e.apiBasePath ? this.endpoint = `${e.apiBasePath.trim().replace(/\/+$/, "")}/import` : this.endpoint = "/api/import", this.onSuccess = e.onSuccess || (() => {
+    }), this.notifier = e.notifier || {
+      success: console.log,
+      error: console.error
+    }, this.resourceName = e.resourceName || "items", this.elements = {}, this.isFullscreen = !1, this.currentFilter = "all", this.resultItems = [], this.bindElements(), this.bindEvents();
   }
-  /**
-   * Bind DOM elements
-   */
   bindElements() {
     const e = this.modalId.replace("-modal", "");
     this.elements = {
@@ -66,22 +61,16 @@ class M {
       totalCount: document.getElementById(`${e}-total-count`)
     };
   }
-  /**
-   * Bind event listeners
-   */
   bindEvents() {
     const { modal: e, backdrop: s, closeBtn: t, cancelBtn: i, fileInput: n, fileRemove: l, anotherBtn: r, submitBtn: a, fullscreenBtn: c } = this.elements;
-    t && t.addEventListener("click", () => this.close()), i && i.addEventListener("click", () => this.close()), s && s.addEventListener("click", () => this.close()), n && n.addEventListener("change", () => this.updateFilePreview()), l && l.addEventListener("click", (o) => {
-      o.preventDefault(), o.stopPropagation();
+    t && t.addEventListener("click", () => this.close()), i && i.addEventListener("click", () => this.close()), s && s.addEventListener("click", () => this.close()), n && n.addEventListener("change", () => this.updateFilePreview()), l && l.addEventListener("click", (d) => {
+      d.preventDefault(), d.stopPropagation();
       const m = this.elements.fileInput;
       m && (m.value = ""), this.updateFilePreview();
-    }), r && r.addEventListener("click", () => this.reset()), a && a.addEventListener("click", (o) => this.handleSubmit(o)), c && c.addEventListener("click", () => this.toggleFullscreen()), this.bindDragAndDrop(), this.bindFilterButtons(), document.addEventListener("keydown", (o) => {
-      o.key === "Escape" && e && !e.classList.contains("hidden") && (this.isFullscreen ? this.toggleFullscreen() : this.close());
+    }), r && r.addEventListener("click", () => this.reset()), a && a.addEventListener("click", (d) => this.handleSubmit(d)), c && c.addEventListener("click", () => this.toggleFullscreen()), this.bindDragAndDrop(), this.bindFilterButtons(), document.addEventListener("keydown", (d) => {
+      d.key === "Escape" && e && !e.classList.contains("hidden") && (this.isFullscreen ? this.toggleFullscreen() : this.close());
     });
   }
-  /**
-   * Bind filter button events
-   */
   bindFilterButtons() {
     const { modal: e } = this.elements;
     if (!e) return;
@@ -95,16 +84,9 @@ class M {
       });
     });
   }
-  /**
-   * Set the current filter and update display
-   * @param filter - 'all', 'succeeded', or 'failed'
-   */
   setFilter(e) {
     this.currentFilter = e, this.applyFilter();
   }
-  /**
-   * Apply the current filter to results
-   */
   applyFilter() {
     const { resultsBody: e, visibleCount: s } = this.elements;
     if (!e) return;
@@ -116,16 +98,10 @@ class M {
       this.currentFilter === "succeeded" ? r = l === "succeeded" : this.currentFilter === "failed" && (r = l === "failed"), n.style.display = r ? "" : "none", r && i++;
     }), s && (s.textContent = String(i));
   }
-  /**
-   * Toggle fullscreen mode
-   */
   toggleFullscreen() {
     const { container: e, expandIcon: s, collapseIcon: t, tableScroll: i } = this.elements;
     e && (this.isFullscreen = !this.isFullscreen, this.isFullscreen ? (e.classList.remove("max-w-3xl", "max-h-[90vh]"), e.classList.add("w-full", "h-full", "m-0"), e.style.maxWidth = "none", e.style.maxHeight = "none", e.style.borderRadius = "0", s && s.classList.add("hidden"), t && t.classList.remove("hidden"), i && (i.style.maxHeight = "60vh")) : (e.classList.add("w-full", "max-w-3xl", "max-h-[90vh]"), e.classList.remove("h-full", "m-0"), e.style.maxWidth = "", e.style.maxHeight = "", e.style.borderRadius = "", s && s.classList.remove("hidden"), t && t.classList.add("hidden"), i && (i.style.maxHeight = "40vh")));
   }
-  /**
-   * Bind drag and drop events
-   */
   bindDragAndDrop() {
     const { dropzone: e } = this.elements, s = this.elements.fileInput;
     e && (["dragenter", "dragover"].forEach((t) => {
@@ -137,91 +113,61 @@ class M {
         i.preventDefault(), i.stopPropagation(), e.classList.remove("border-blue-400", "bg-blue-50");
       });
     }), e.addEventListener("drop", (t) => {
-      const n = t.dataTransfer?.files;
-      if (n && n.length > 0 && s) {
-        const l = new DataTransfer();
-        l.items.add(n[0]), s.files = l.files, this.updateFilePreview();
+      const i = t.dataTransfer?.files;
+      if (i && i.length > 0 && s) {
+        const n = new DataTransfer();
+        n.items.add(i[0]), s.files = n.files, this.updateFilePreview();
       }
     }));
   }
-  /**
-   * Update the file preview display
-   */
   updateFilePreview() {
     const e = this.elements.fileInput, { dropzoneEmpty: s, dropzoneSelected: t, fileName: i, fileSize: n, submitBtn: l } = this.elements, r = e?.files?.[0] ?? null;
-    !!r ? (r && i && (i.textContent = r.name), r && n && (n.textContent = P(r.size)), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), l && (l.disabled = !1)) : (s && s.classList.remove("hidden"), t && t.classList.add("hidden"), l && (l.disabled = !0));
+    r ? (r && i && (i.textContent = r.name), r && n && (n.textContent = z(r.size)), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), l && (l.disabled = !1)) : (s && s.classList.remove("hidden"), t && t.classList.add("hidden"), l && (l.disabled = !0));
   }
-  /**
-   * Reset the modal to initial state
-   */
   reset() {
-    const { fileInput: e, results: s, form: t, errorBanner: i, error: n, resultsBody: l, submitBtn: r, anotherBtn: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: b, totalCount: B, modal: h } = this.elements;
-    e && (e.value = ""), this.updateFilePreview(), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), i && i.classList.add("hidden"), n && (n.textContent = ""), l && (l.innerHTML = ""), r && (r.classList.remove("hidden"), r.disabled = !0), a && a.classList.add("hidden"), c && (c.textContent = "0"), o && (o.textContent = "0"), m && (m.textContent = "0"), b && (b.textContent = "0"), B && (B.textContent = "0"), this.currentFilter = "all", this.resultItems = [], h && h.querySelectorAll(".import-filter-btn").forEach((f) => {
+    const { fileInput: e, results: s, form: t, errorBanner: i, error: n, resultsBody: l, submitBtn: r, anotherBtn: a, statProcessed: c, statSucceeded: d, statFailed: m, visibleCount: b, totalCount: x, modal: h } = this.elements;
+    e && (e.value = ""), this.updateFilePreview(), s && s.classList.add("hidden"), t && t.classList.remove("hidden"), i && i.classList.add("hidden"), n && (n.textContent = ""), l && (l.innerHTML = ""), r && (r.classList.remove("hidden"), r.disabled = !0), a && a.classList.add("hidden"), c && (c.textContent = "0"), d && (d.textContent = "0"), m && (m.textContent = "0"), b && (b.textContent = "0"), x && (x.textContent = "0"), this.currentFilter = "all", this.resultItems = [], h && h.querySelectorAll(".import-filter-btn").forEach((f) => {
       const p = f.getAttribute("data-filter") === "all";
       f.classList.toggle("active", p), f.classList.toggle("bg-gray-100", p), f.classList.toggle("text-gray-700", p), f.classList.toggle("text-gray-500", !p);
     }), this.isFullscreen && this.toggleFullscreen();
   }
-  /**
-   * Set loading state
-   * @param isLoading - Whether loading is in progress
-   */
   setLoading(e) {
     const { submitBtn: s, cancelBtn: t, spinner: i } = this.elements;
     s && (s.disabled = e, s.classList.toggle("opacity-50", e)), t && (t.disabled = e), i && (i.classList.toggle("hidden", !e), i.classList.toggle("flex", e));
   }
-  /**
-   * Open the modal
-   */
   open() {
     const { modal: e } = this.elements;
     e && (this.reset(), e.classList.remove("hidden"), document.body.classList.add("overflow-hidden"));
   }
-  /**
-   * Close the modal
-   */
   close() {
     const { modal: e } = this.elements;
     e && (e.classList.add("hidden"), document.body.classList.remove("overflow-hidden"));
   }
-  /**
-   * Build a table cell element
-   * @param value - Cell content
-   * @param className - CSS classes
-   */
   buildCell(e, s) {
     const t = document.createElement("td");
     return t.className = s, t.textContent = e, t;
   }
-  /**
-   * Render import results
-   * @param payload - API response payload
-   */
   renderResults(e) {
-    const { results: s, resultsBody: t, form: i, submitBtn: n, anotherBtn: l, errorBanner: r, error: a, statProcessed: c, statSucceeded: o, statFailed: m, visibleCount: b, totalCount: B } = this.elements;
+    const { results: s, resultsBody: t, form: i, submitBtn: n, anotherBtn: l, errorBanner: r, error: a, statProcessed: c, statSucceeded: d, statFailed: m, visibleCount: b, totalCount: x } = this.elements;
     if (!s || !t) return;
-    const h = e && e.summary ? e.summary : {}, S = Number(h.processed) || 0, f = Number(h.succeeded) || 0, p = Number(h.failed) || 0, x = Array.isArray(e && e.results) ? e.results : [], F = e && e.error ? String(e.error).trim() : "";
-    if (this.resultItems = x, c && (c.textContent = String(S)), o && (o.textContent = String(f)), m && (m.textContent = String(p)), B && (B.textContent = String(x.length)), b && (b.textContent = String(x.length)), F && r && a && (a.textContent = F, r.classList.remove("hidden")), t.innerHTML = "", x.length === 0) {
-      const d = document.createElement("tr"), E = this.buildCell("No results to display", "px-4 py-4 text-gray-500 text-center");
-      E.colSpan = 5, d.appendChild(E), t.appendChild(d);
-    } else
-      x.forEach((d, E) => {
-        const u = document.createElement("tr"), $ = typeof d.index == "number" ? d.index + 1 : E + 1, w = d.email ? String(d.email) : "-", k = d.user_id ? String(d.user_id) : "-", g = d.error && String(d.error).trim() !== "", A = g ? "Failed" : d.status ? String(d.status) : "Created";
-        u.className = g ? "bg-red-50" : "bg-green-50", u.setAttribute("data-status", g ? "failed" : "succeeded"), u.appendChild(this.buildCell(String($), "px-4 py-2 text-gray-700 font-medium")), u.appendChild(this.buildCell(w, "px-4 py-2 text-gray-900")), u.appendChild(this.buildCell(k, "px-4 py-2 text-gray-500 font-mono text-xs"));
-        const L = document.createElement("td");
-        L.className = "px-4 py-2";
-        const I = document.createElement("span");
-        I.className = g ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700";
-        const y = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        y.setAttribute("class", "w-3 h-3"), y.setAttribute("fill", "none"), y.setAttribute("stroke", "currentColor"), y.setAttribute("viewBox", "0 0 24 24");
-        const v = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        v.setAttribute("stroke-linecap", "round"), v.setAttribute("stroke-linejoin", "round"), v.setAttribute("stroke-width", "2"), v.setAttribute("d", g ? "M6 18L18 6M6 6l12 12" : "M5 13l4 4L19 7"), y.appendChild(v), I.appendChild(y), I.appendChild(document.createTextNode(A)), L.appendChild(I), u.appendChild(L), u.appendChild(this.buildCell(g ? String(d.error) : "-", "px-4 py-2 text-gray-600 text-xs")), t.appendChild(u);
-      });
+    const h = e && e.summary ? e.summary : {}, f = Number(h.processed) || 0, p = Number(h.succeeded) || 0, S = Number(h.failed) || 0, B = Array.isArray(e && e.results) ? e.results : [], C = e && e.error ? String(e.error).trim() : "";
+    if (this.resultItems = B, c && (c.textContent = String(f)), d && (d.textContent = String(p)), m && (m.textContent = String(S)), x && (x.textContent = String(B.length)), b && (b.textContent = String(B.length)), C && r && a && (a.textContent = C, r.classList.remove("hidden")), t.innerHTML = "", B.length === 0) {
+      const o = document.createElement("tr"), E = this.buildCell("No results to display", "px-4 py-4 text-gray-500 text-center");
+      E.colSpan = 5, o.appendChild(E), t.appendChild(o);
+    } else B.forEach((o, E) => {
+      const u = document.createElement("tr"), F = typeof o.index == "number" ? o.index + 1 : E + 1, $ = o.email ? String(o.email) : "-", w = o.user_id ? String(o.user_id) : "-", g = o.error && String(o.error).trim() !== "", k = g ? "Failed" : o.status ? String(o.status) : "Created";
+      u.className = g ? "bg-red-50" : "bg-green-50", u.setAttribute("data-status", g ? "failed" : "succeeded"), u.appendChild(this.buildCell(String(F), "px-4 py-2 text-gray-700 font-medium")), u.appendChild(this.buildCell($, "px-4 py-2 text-gray-900")), u.appendChild(this.buildCell(w, "px-4 py-2 text-gray-500 font-mono text-xs"));
+      const L = document.createElement("td");
+      L.className = "px-4 py-2";
+      const I = document.createElement("span");
+      I.className = g ? "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700" : "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700";
+      const y = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      y.setAttribute("class", "w-3 h-3"), y.setAttribute("fill", "none"), y.setAttribute("stroke", "currentColor"), y.setAttribute("viewBox", "0 0 24 24");
+      const v = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      v.setAttribute("stroke-linecap", "round"), v.setAttribute("stroke-linejoin", "round"), v.setAttribute("stroke-width", "2"), v.setAttribute("d", g ? "M6 18L18 6M6 6l12 12" : "M5 13l4 4L19 7"), y.appendChild(v), I.appendChild(y), I.appendChild(document.createTextNode(k)), L.appendChild(I), u.appendChild(L), u.appendChild(this.buildCell(g ? String(o.error) : "-", "px-4 py-2 text-gray-600 text-xs")), t.appendChild(u);
+    });
     i && i.classList.add("hidden"), s.classList.remove("hidden"), n && n.classList.add("hidden"), l && l.classList.remove("hidden"), this.applyFilter();
   }
-  /**
-   * Handle form submission
-   * @param event - Submit event
-   */
   async handleSubmit(e) {
     e.preventDefault();
     const s = this.elements.fileInput;
@@ -233,30 +179,30 @@ class M {
     i.append("file", t), this.setLoading(!0);
     let n = null, l = null;
     try {
-      n = await z(this.endpoint, {
+      n = await A(this.endpoint, {
         method: "POST",
         body: i
       }), (n.headers.get("Content-Type") || "").includes("application/json") ? l = await n.json() : l = { error: "Import failed" };
-    } catch (o) {
-      console.error("Import failed:", o), this.notifier.error("Import failed.");
+    } catch (d) {
+      console.error("Import failed:", d), this.notifier.error("Import failed.");
     } finally {
       this.setLoading(!1);
     }
     if (!l) return;
     this.renderResults(l);
     const r = l.summary || {}, a = Number(r.succeeded) || 0, c = Number(r.failed) || 0;
-    if (n && n.ok && c === 0)
-      this.notifier.success(`${this.resourceName} imported successfully.`);
+    if (n && n.ok && c === 0) this.notifier.success(`${this.resourceName} imported successfully.`);
     else {
-      const o = l.error ? String(l.error) : "Import completed with errors.";
-      this.notifier.error(o);
+      const d = l.error ? String(l.error) : "Import completed with errors.";
+      this.notifier.error(d);
     }
     a > 0 && this.onSuccess(r);
   }
-}
+};
 export {
   M as ImportModal,
   M as default,
-  P as formatFileSize
+  z as formatFileSize
 };
+
 //# sourceMappingURL=import-modal.js.map

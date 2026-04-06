@@ -26,134 +26,138 @@ const (
 type InMemoryStore struct {
 	mu sync.RWMutex
 
-	documents                   map[string]DocumentRecord
-	sourceDocuments             map[string]SourceDocumentRecord
-	sourceHandles               map[string]SourceHandleRecord
-	sourceRevisions             map[string]SourceRevisionRecord
-	sourceArtifacts             map[string]SourceArtifactRecord
-	sourceFingerprints          map[string]SourceFingerprintRecord
-	sourceRelationships         map[string]SourceRelationshipRecord
-	sourceCommentThreads        map[string]SourceCommentThreadRecord
-	sourceCommentMessages       map[string]SourceCommentMessageRecord
-	sourceCommentSyncStates     map[string]SourceCommentSyncStateRecord
-	sourceSearchDocuments       map[string]SourceSearchDocumentRecord
-	agreements                  map[string]AgreementRecord
-	agreementRevisionRequests   map[string]AgreementRevisionRequestRecord
-	agreementRevisionReqIndex   map[string]string
-	agreementReviews            map[string]AgreementReviewRecord
-	agreementReviewIndex        map[string]string
-	agreementReviewParticipants map[string]AgreementReviewParticipantRecord
-	agreementCommentThreads     map[string]AgreementCommentThreadRecord
-	agreementCommentMessages    map[string]AgreementCommentMessageRecord
-	drafts                      map[string]DraftRecord
-	draftWizardIndex            map[string]string
-	participants                map[string]ParticipantRecord
-	fieldDefinitions            map[string]FieldDefinitionRecord
-	fieldInstances              map[string]FieldInstanceRecord
-	recipients                  map[string]RecipientRecord
-	fields                      map[string]FieldRecord
-	signingTokens               map[string]SigningTokenRecord
-	tokenHashIndex              map[string]string
-	reviewSessionTokens         map[string]ReviewSessionTokenRecord
-	reviewSessionTokenHashIndex map[string]string
-	signatureArtifacts          map[string]SignatureArtifactRecord
-	signerProfiles              map[string]SignerProfileRecord
-	signerProfileIndex          map[string]string
-	savedSignerSignatures       map[string]SavedSignerSignatureRecord
-	fieldValues                 map[string]FieldValueRecord
-	draftAuditEvents            map[string]DraftAuditEventRecord
-	auditEvents                 map[string]AuditEventRecord
-	agreementArtifacts          map[string]AgreementArtifactRecord
-	emailLogs                   map[string]EmailLogRecord
-	jobRuns                     map[string]JobRunRecord
-	jobRunDedupeIndex           map[string]string
-	googleImportRuns            map[string]GoogleImportRunRecord
-	googleImportRunDedupeIndex  map[string]string
-	documentRemediationLeases   map[string]DocumentRemediationLeaseRecord
-	remediationDispatches       map[string]RemediationDispatchRecord
-	remediationDispatchIndex    map[string]string
-	guardedEffects              map[string]guardedeffects.Record
-	guardedEffectIndex          map[string]string
-	agreementReminderStates     map[string]AgreementReminderStateRecord
-	outboxMessages              map[string]OutboxMessageRecord
-	integrationCredentials      map[string]IntegrationCredentialRecord
-	integrationCredentialIndex  map[string]string
-	mappingSpecs                map[string]MappingSpecRecord
-	integrationBindings         map[string]IntegrationBindingRecord
-	integrationBindingIndex     map[string]string
-	integrationSyncRuns         map[string]IntegrationSyncRunRecord
-	integrationCheckpoints      map[string]IntegrationCheckpointRecord
-	integrationCheckpointIndex  map[string]string
-	integrationConflicts        map[string]IntegrationConflictRecord
-	integrationChangeEvents     map[string]IntegrationChangeEventRecord
-	integrationMutationClaims   map[string]time.Time
-	placementRuns               map[string]PlacementRunRecord
+	documents                    map[string]DocumentRecord
+	sourceDocuments              map[string]SourceDocumentRecord
+	sourceHandles                map[string]SourceHandleRecord
+	sourceRevisions              map[string]SourceRevisionRecord
+	sourceArtifacts              map[string]SourceArtifactRecord
+	sourceFingerprints           map[string]SourceFingerprintRecord
+	sourceRelationships          map[string]SourceRelationshipRecord
+	sourceCommentThreads         map[string]SourceCommentThreadRecord
+	sourceCommentMessages        map[string]SourceCommentMessageRecord
+	sourceCommentSyncStates      map[string]SourceCommentSyncStateRecord
+	sourceSearchDocuments        map[string]SourceSearchDocumentRecord
+	agreements                   map[string]AgreementRecord
+	agreementRevisionRequests    map[string]AgreementRevisionRequestRecord
+	agreementRevisionReqIndex    map[string]string
+	agreementReviews             map[string]AgreementReviewRecord
+	agreementReviewIndex         map[string]string
+	agreementReviewParticipants  map[string]AgreementReviewParticipantRecord
+	agreementCommentThreads      map[string]AgreementCommentThreadRecord
+	agreementCommentMessages     map[string]AgreementCommentMessageRecord
+	drafts                       map[string]DraftRecord
+	draftWizardIndex             map[string]string
+	participants                 map[string]ParticipantRecord
+	fieldDefinitions             map[string]FieldDefinitionRecord
+	fieldInstances               map[string]FieldInstanceRecord
+	recipients                   map[string]RecipientRecord
+	fields                       map[string]FieldRecord
+	signingTokens                map[string]SigningTokenRecord
+	tokenHashIndex               map[string]string
+	reviewSessionTokens          map[string]ReviewSessionTokenRecord
+	reviewSessionTokenHashIndex  map[string]string
+	publicSignerSessionTokens    map[string]PublicSignerSessionTokenRecord
+	publicSignerSessionHashIndex map[string]string
+	signatureArtifacts           map[string]SignatureArtifactRecord
+	signerProfiles               map[string]SignerProfileRecord
+	signerProfileIndex           map[string]string
+	savedSignerSignatures        map[string]SavedSignerSignatureRecord
+	fieldValues                  map[string]FieldValueRecord
+	draftAuditEvents             map[string]DraftAuditEventRecord
+	auditEvents                  map[string]AuditEventRecord
+	agreementArtifacts           map[string]AgreementArtifactRecord
+	emailLogs                    map[string]EmailLogRecord
+	jobRuns                      map[string]JobRunRecord
+	jobRunDedupeIndex            map[string]string
+	googleImportRuns             map[string]GoogleImportRunRecord
+	googleImportRunDedupeIndex   map[string]string
+	documentRemediationLeases    map[string]DocumentRemediationLeaseRecord
+	remediationDispatches        map[string]RemediationDispatchRecord
+	remediationDispatchIndex     map[string]string
+	guardedEffects               map[string]guardedeffects.Record
+	guardedEffectIndex           map[string]string
+	agreementReminderStates      map[string]AgreementReminderStateRecord
+	outboxMessages               map[string]OutboxMessageRecord
+	integrationCredentials       map[string]IntegrationCredentialRecord
+	integrationCredentialIndex   map[string]string
+	mappingSpecs                 map[string]MappingSpecRecord
+	integrationBindings          map[string]IntegrationBindingRecord
+	integrationBindingIndex      map[string]string
+	integrationSyncRuns          map[string]IntegrationSyncRunRecord
+	integrationCheckpoints       map[string]IntegrationCheckpointRecord
+	integrationCheckpointIndex   map[string]string
+	integrationConflicts         map[string]IntegrationConflictRecord
+	integrationChangeEvents      map[string]IntegrationChangeEventRecord
+	integrationMutationClaims    map[string]time.Time
+	placementRuns                map[string]PlacementRunRecord
 }
 
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		documents:                   map[string]DocumentRecord{},
-		sourceDocuments:             map[string]SourceDocumentRecord{},
-		sourceHandles:               map[string]SourceHandleRecord{},
-		sourceRevisions:             map[string]SourceRevisionRecord{},
-		sourceArtifacts:             map[string]SourceArtifactRecord{},
-		sourceFingerprints:          map[string]SourceFingerprintRecord{},
-		sourceRelationships:         map[string]SourceRelationshipRecord{},
-		sourceCommentThreads:        map[string]SourceCommentThreadRecord{},
-		sourceCommentMessages:       map[string]SourceCommentMessageRecord{},
-		sourceCommentSyncStates:     map[string]SourceCommentSyncStateRecord{},
-		sourceSearchDocuments:       map[string]SourceSearchDocumentRecord{},
-		agreements:                  map[string]AgreementRecord{},
-		agreementRevisionRequests:   map[string]AgreementRevisionRequestRecord{},
-		agreementRevisionReqIndex:   map[string]string{},
-		agreementReviews:            map[string]AgreementReviewRecord{},
-		agreementReviewIndex:        map[string]string{},
-		agreementReviewParticipants: map[string]AgreementReviewParticipantRecord{},
-		agreementCommentThreads:     map[string]AgreementCommentThreadRecord{},
-		agreementCommentMessages:    map[string]AgreementCommentMessageRecord{},
-		drafts:                      map[string]DraftRecord{},
-		draftWizardIndex:            map[string]string{},
-		participants:                map[string]ParticipantRecord{},
-		fieldDefinitions:            map[string]FieldDefinitionRecord{},
-		fieldInstances:              map[string]FieldInstanceRecord{},
-		recipients:                  map[string]RecipientRecord{},
-		fields:                      map[string]FieldRecord{},
-		signingTokens:               map[string]SigningTokenRecord{},
-		tokenHashIndex:              map[string]string{},
-		reviewSessionTokens:         map[string]ReviewSessionTokenRecord{},
-		reviewSessionTokenHashIndex: map[string]string{},
-		signatureArtifacts:          map[string]SignatureArtifactRecord{},
-		signerProfiles:              map[string]SignerProfileRecord{},
-		signerProfileIndex:          map[string]string{},
-		savedSignerSignatures:       map[string]SavedSignerSignatureRecord{},
-		fieldValues:                 map[string]FieldValueRecord{},
-		draftAuditEvents:            map[string]DraftAuditEventRecord{},
-		auditEvents:                 map[string]AuditEventRecord{},
-		agreementArtifacts:          map[string]AgreementArtifactRecord{},
-		emailLogs:                   map[string]EmailLogRecord{},
-		jobRuns:                     map[string]JobRunRecord{},
-		jobRunDedupeIndex:           map[string]string{},
-		googleImportRuns:            map[string]GoogleImportRunRecord{},
-		googleImportRunDedupeIndex:  map[string]string{},
-		documentRemediationLeases:   map[string]DocumentRemediationLeaseRecord{},
-		remediationDispatches:       map[string]RemediationDispatchRecord{},
-		remediationDispatchIndex:    map[string]string{},
-		guardedEffects:              map[string]guardedeffects.Record{},
-		guardedEffectIndex:          map[string]string{},
-		agreementReminderStates:     map[string]AgreementReminderStateRecord{},
-		outboxMessages:              map[string]OutboxMessageRecord{},
-		integrationCredentials:      map[string]IntegrationCredentialRecord{},
-		integrationCredentialIndex:  map[string]string{},
-		mappingSpecs:                map[string]MappingSpecRecord{},
-		integrationBindings:         map[string]IntegrationBindingRecord{},
-		integrationBindingIndex:     map[string]string{},
-		integrationSyncRuns:         map[string]IntegrationSyncRunRecord{},
-		integrationCheckpoints:      map[string]IntegrationCheckpointRecord{},
-		integrationCheckpointIndex:  map[string]string{},
-		integrationConflicts:        map[string]IntegrationConflictRecord{},
-		integrationChangeEvents:     map[string]IntegrationChangeEventRecord{},
-		integrationMutationClaims:   map[string]time.Time{},
-		placementRuns:               map[string]PlacementRunRecord{},
+		documents:                    map[string]DocumentRecord{},
+		sourceDocuments:              map[string]SourceDocumentRecord{},
+		sourceHandles:                map[string]SourceHandleRecord{},
+		sourceRevisions:              map[string]SourceRevisionRecord{},
+		sourceArtifacts:              map[string]SourceArtifactRecord{},
+		sourceFingerprints:           map[string]SourceFingerprintRecord{},
+		sourceRelationships:          map[string]SourceRelationshipRecord{},
+		sourceCommentThreads:         map[string]SourceCommentThreadRecord{},
+		sourceCommentMessages:        map[string]SourceCommentMessageRecord{},
+		sourceCommentSyncStates:      map[string]SourceCommentSyncStateRecord{},
+		sourceSearchDocuments:        map[string]SourceSearchDocumentRecord{},
+		agreements:                   map[string]AgreementRecord{},
+		agreementRevisionRequests:    map[string]AgreementRevisionRequestRecord{},
+		agreementRevisionReqIndex:    map[string]string{},
+		agreementReviews:             map[string]AgreementReviewRecord{},
+		agreementReviewIndex:         map[string]string{},
+		agreementReviewParticipants:  map[string]AgreementReviewParticipantRecord{},
+		agreementCommentThreads:      map[string]AgreementCommentThreadRecord{},
+		agreementCommentMessages:     map[string]AgreementCommentMessageRecord{},
+		drafts:                       map[string]DraftRecord{},
+		draftWizardIndex:             map[string]string{},
+		participants:                 map[string]ParticipantRecord{},
+		fieldDefinitions:             map[string]FieldDefinitionRecord{},
+		fieldInstances:               map[string]FieldInstanceRecord{},
+		recipients:                   map[string]RecipientRecord{},
+		fields:                       map[string]FieldRecord{},
+		signingTokens:                map[string]SigningTokenRecord{},
+		tokenHashIndex:               map[string]string{},
+		reviewSessionTokens:          map[string]ReviewSessionTokenRecord{},
+		reviewSessionTokenHashIndex:  map[string]string{},
+		publicSignerSessionTokens:    map[string]PublicSignerSessionTokenRecord{},
+		publicSignerSessionHashIndex: map[string]string{},
+		signatureArtifacts:           map[string]SignatureArtifactRecord{},
+		signerProfiles:               map[string]SignerProfileRecord{},
+		signerProfileIndex:           map[string]string{},
+		savedSignerSignatures:        map[string]SavedSignerSignatureRecord{},
+		fieldValues:                  map[string]FieldValueRecord{},
+		draftAuditEvents:             map[string]DraftAuditEventRecord{},
+		auditEvents:                  map[string]AuditEventRecord{},
+		agreementArtifacts:           map[string]AgreementArtifactRecord{},
+		emailLogs:                    map[string]EmailLogRecord{},
+		jobRuns:                      map[string]JobRunRecord{},
+		jobRunDedupeIndex:            map[string]string{},
+		googleImportRuns:             map[string]GoogleImportRunRecord{},
+		googleImportRunDedupeIndex:   map[string]string{},
+		documentRemediationLeases:    map[string]DocumentRemediationLeaseRecord{},
+		remediationDispatches:        map[string]RemediationDispatchRecord{},
+		remediationDispatchIndex:     map[string]string{},
+		guardedEffects:               map[string]guardedeffects.Record{},
+		guardedEffectIndex:           map[string]string{},
+		agreementReminderStates:      map[string]AgreementReminderStateRecord{},
+		outboxMessages:               map[string]OutboxMessageRecord{},
+		integrationCredentials:       map[string]IntegrationCredentialRecord{},
+		integrationCredentialIndex:   map[string]string{},
+		mappingSpecs:                 map[string]MappingSpecRecord{},
+		integrationBindings:          map[string]IntegrationBindingRecord{},
+		integrationBindingIndex:      map[string]string{},
+		integrationSyncRuns:          map[string]IntegrationSyncRunRecord{},
+		integrationCheckpoints:       map[string]IntegrationCheckpointRecord{},
+		integrationCheckpointIndex:   map[string]string{},
+		integrationConflicts:         map[string]IntegrationConflictRecord{},
+		integrationChangeEvents:      map[string]IntegrationChangeEventRecord{},
+		integrationMutationClaims:    map[string]time.Time{},
+		placementRuns:                map[string]PlacementRunRecord{},
 	}
 }
 
@@ -212,68 +216,70 @@ func (s *InMemoryStore) snapshot() (inMemoryStoreSnapshot, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	payload := inMemoryStoreSnapshot{
-		Documents:                   s.documents,
-		SourceDocuments:             s.sourceDocuments,
-		SourceHandles:               s.sourceHandles,
-		SourceRevisions:             s.sourceRevisions,
-		SourceArtifacts:             s.sourceArtifacts,
-		SourceFingerprints:          s.sourceFingerprints,
-		SourceRelationships:         s.sourceRelationships,
-		SourceCommentThreads:        s.sourceCommentThreads,
-		SourceCommentMessages:       s.sourceCommentMessages,
-		SourceCommentSyncStates:     s.sourceCommentSyncStates,
-		SourceSearchDocuments:       s.sourceSearchDocuments,
-		Agreements:                  s.agreements,
-		AgreementRevisionRequests:   s.agreementRevisionRequests,
-		AgreementRevisionReqIndex:   s.agreementRevisionReqIndex,
-		AgreementReviews:            s.agreementReviews,
-		AgreementReviewIndex:        s.agreementReviewIndex,
-		AgreementReviewParticipants: s.agreementReviewParticipants,
-		AgreementCommentThreads:     s.agreementCommentThreads,
-		AgreementCommentMessages:    s.agreementCommentMessages,
-		Drafts:                      s.drafts,
-		DraftWizardIndex:            s.draftWizardIndex,
-		Participants:                s.participants,
-		FieldDefinitions:            s.fieldDefinitions,
-		FieldInstances:              s.fieldInstances,
-		Recipients:                  s.recipients,
-		Fields:                      s.fields,
-		SigningTokens:               s.signingTokens,
-		TokenHashIndex:              s.tokenHashIndex,
-		ReviewSessionTokens:         s.reviewSessionTokens,
-		ReviewSessionTokenHashIndex: s.reviewSessionTokenHashIndex,
-		SignatureArtifacts:          s.signatureArtifacts,
-		SignerProfiles:              s.signerProfiles,
-		SignerProfileIndex:          s.signerProfileIndex,
-		SavedSignerSignatures:       s.savedSignerSignatures,
-		FieldValues:                 s.fieldValues,
-		DraftAuditEvents:            s.draftAuditEvents,
-		AuditEvents:                 s.auditEvents,
-		AgreementArtifacts:          s.agreementArtifacts,
-		EmailLogs:                   s.emailLogs,
-		JobRuns:                     s.jobRuns,
-		JobRunDedupeIndex:           s.jobRunDedupeIndex,
-		GoogleImportRuns:            s.googleImportRuns,
-		GoogleImportRunDedupeIndex:  s.googleImportRunDedupeIndex,
-		DocumentRemediationLeases:   s.documentRemediationLeases,
-		RemediationDispatches:       s.remediationDispatches,
-		RemediationDispatchIndex:    s.remediationDispatchIndex,
-		GuardedEffects:              s.guardedEffects,
-		GuardedEffectIndex:          s.guardedEffectIndex,
-		AgreementReminderStates:     s.agreementReminderStates,
-		OutboxMessages:              s.outboxMessages,
-		IntegrationCredentials:      s.integrationCredentials,
-		IntegrationCredentialIndex:  s.integrationCredentialIndex,
-		MappingSpecs:                s.mappingSpecs,
-		IntegrationBindings:         s.integrationBindings,
-		IntegrationBindingIndex:     s.integrationBindingIndex,
-		IntegrationSyncRuns:         s.integrationSyncRuns,
-		IntegrationCheckpoints:      s.integrationCheckpoints,
-		IntegrationCheckpointIndex:  s.integrationCheckpointIndex,
-		IntegrationConflicts:        s.integrationConflicts,
-		IntegrationChangeEvents:     s.integrationChangeEvents,
-		IntegrationMutationClaims:   s.integrationMutationClaims,
-		PlacementRuns:               s.placementRuns,
+		Documents:                    s.documents,
+		SourceDocuments:              s.sourceDocuments,
+		SourceHandles:                s.sourceHandles,
+		SourceRevisions:              s.sourceRevisions,
+		SourceArtifacts:              s.sourceArtifacts,
+		SourceFingerprints:           s.sourceFingerprints,
+		SourceRelationships:          s.sourceRelationships,
+		SourceCommentThreads:         s.sourceCommentThreads,
+		SourceCommentMessages:        s.sourceCommentMessages,
+		SourceCommentSyncStates:      s.sourceCommentSyncStates,
+		SourceSearchDocuments:        s.sourceSearchDocuments,
+		Agreements:                   s.agreements,
+		AgreementRevisionRequests:    s.agreementRevisionRequests,
+		AgreementRevisionReqIndex:    s.agreementRevisionReqIndex,
+		AgreementReviews:             s.agreementReviews,
+		AgreementReviewIndex:         s.agreementReviewIndex,
+		AgreementReviewParticipants:  s.agreementReviewParticipants,
+		AgreementCommentThreads:      s.agreementCommentThreads,
+		AgreementCommentMessages:     s.agreementCommentMessages,
+		Drafts:                       s.drafts,
+		DraftWizardIndex:             s.draftWizardIndex,
+		Participants:                 s.participants,
+		FieldDefinitions:             s.fieldDefinitions,
+		FieldInstances:               s.fieldInstances,
+		Recipients:                   s.recipients,
+		Fields:                       s.fields,
+		SigningTokens:                s.signingTokens,
+		TokenHashIndex:               s.tokenHashIndex,
+		ReviewSessionTokens:          s.reviewSessionTokens,
+		ReviewSessionTokenHashIndex:  s.reviewSessionTokenHashIndex,
+		PublicSignerSessionTokens:    s.publicSignerSessionTokens,
+		PublicSignerSessionHashIndex: s.publicSignerSessionHashIndex,
+		SignatureArtifacts:           s.signatureArtifacts,
+		SignerProfiles:               s.signerProfiles,
+		SignerProfileIndex:           s.signerProfileIndex,
+		SavedSignerSignatures:        s.savedSignerSignatures,
+		FieldValues:                  s.fieldValues,
+		DraftAuditEvents:             s.draftAuditEvents,
+		AuditEvents:                  s.auditEvents,
+		AgreementArtifacts:           s.agreementArtifacts,
+		EmailLogs:                    s.emailLogs,
+		JobRuns:                      s.jobRuns,
+		JobRunDedupeIndex:            s.jobRunDedupeIndex,
+		GoogleImportRuns:             s.googleImportRuns,
+		GoogleImportRunDedupeIndex:   s.googleImportRunDedupeIndex,
+		DocumentRemediationLeases:    s.documentRemediationLeases,
+		RemediationDispatches:        s.remediationDispatches,
+		RemediationDispatchIndex:     s.remediationDispatchIndex,
+		GuardedEffects:               s.guardedEffects,
+		GuardedEffectIndex:           s.guardedEffectIndex,
+		AgreementReminderStates:      s.agreementReminderStates,
+		OutboxMessages:               s.outboxMessages,
+		IntegrationCredentials:       s.integrationCredentials,
+		IntegrationCredentialIndex:   s.integrationCredentialIndex,
+		MappingSpecs:                 s.mappingSpecs,
+		IntegrationBindings:          s.integrationBindings,
+		IntegrationBindingIndex:      s.integrationBindingIndex,
+		IntegrationSyncRuns:          s.integrationSyncRuns,
+		IntegrationCheckpoints:       s.integrationCheckpoints,
+		IntegrationCheckpointIndex:   s.integrationCheckpointIndex,
+		IntegrationConflicts:         s.integrationConflicts,
+		IntegrationChangeEvents:      s.integrationChangeEvents,
+		IntegrationMutationClaims:    s.integrationMutationClaims,
+		PlacementRuns:                s.placementRuns,
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
@@ -317,6 +323,8 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.tokenHashIndex = ensureStringMap(snapshot.TokenHashIndex)
 	s.reviewSessionTokens = ensureReviewSessionTokenMap(snapshot.ReviewSessionTokens)
 	s.reviewSessionTokenHashIndex = ensureStringMap(snapshot.ReviewSessionTokenHashIndex)
+	s.publicSignerSessionTokens = ensurePublicSignerSessionTokenMap(snapshot.PublicSignerSessionTokens)
+	s.publicSignerSessionHashIndex = ensureStringMap(snapshot.PublicSignerSessionHashIndex)
 	s.signatureArtifacts = ensureSignatureArtifactMap(snapshot.SignatureArtifacts)
 	s.signerProfiles = ensureSignerProfileMap(snapshot.SignerProfiles)
 	s.signerProfileIndex = ensureStringMap(snapshot.SignerProfileIndex)
@@ -427,6 +435,13 @@ func cloneSigningTokenRecord(record SigningTokenRecord) SigningTokenRecord {
 }
 
 func cloneReviewSessionTokenRecord(record ReviewSessionTokenRecord) ReviewSessionTokenRecord {
+	record.RevokedAt = cloneTimePtr(record.RevokedAt)
+	record.ExpiresAt = normalizeRecordTime(record.ExpiresAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	return record
+}
+
+func clonePublicSignerSessionTokenRecord(record PublicSignerSessionTokenRecord) PublicSignerSessionTokenRecord {
 	record.RevokedAt = cloneTimePtr(record.RevokedAt)
 	record.ExpiresAt = normalizeRecordTime(record.ExpiresAt)
 	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
@@ -3368,6 +3383,276 @@ func (s *InMemoryStore) RevokeActiveReviewSessionTokens(ctx context.Context, sco
 		token.Status = ReviewSessionTokenStatusRevoked
 		token.RevokedAt = cloneTimePtr(&revokedAt)
 		s.reviewSessionTokens[key] = token
+		revoked++
+	}
+	return revoked, nil
+}
+
+func (s *InMemoryStore) CreatePublicSignerSessionToken(ctx context.Context, scope Scope, record PublicSignerSessionTokenRecord) (PublicSignerSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return PublicSignerSessionTokenRecord{}, err
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.SubjectKind = NormalizePublicSignerSessionSubjectKind(record.SubjectKind)
+	record.AgreementID = normalizeID(record.AgreementID)
+	record.RecipientID = normalizeID(record.RecipientID)
+	record.ReviewID = normalizeID(record.ReviewID)
+	record.ParticipantID = normalizeID(record.ParticipantID)
+	record.SigningTokenID = normalizeID(record.SigningTokenID)
+	record.ReviewTokenID = normalizeID(record.ReviewTokenID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.SubjectKind == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "subject_kind", "required")
+	}
+	if record.AgreementID == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "agreement_id", "required")
+	}
+	if record.TokenHash == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "token_hash", "required")
+	}
+	switch record.SubjectKind {
+	case PublicSignerSessionSubjectKindSigning:
+		if record.RecipientID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "recipient_id", "required")
+		}
+		if record.SigningTokenID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "signing_token_id", "required")
+		}
+	case PublicSignerSessionSubjectKindReview:
+		if record.ReviewID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "review_id", "required")
+		}
+		if record.ParticipantID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "participant_id", "required")
+		}
+		if record.ReviewTokenID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "review_token_id", "required")
+		}
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Status = NormalizePublicSignerSessionTokenStatus(record.Status)
+	if record.Status == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "status", "unsupported public signer session token status")
+	}
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+
+	key := scopedKey(scope, record.ID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.publicSignerSessionTokens[key]; exists {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "id", "already exists")
+	}
+	if _, exists := s.publicSignerSessionHashIndex[record.TokenHash]; exists {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "token_hash", "already exists")
+	}
+	record = clonePublicSignerSessionTokenRecord(record)
+	s.publicSignerSessionTokens[key] = record
+	s.publicSignerSessionHashIndex[record.TokenHash] = key
+	return record, nil
+}
+
+func (s *InMemoryStore) GetPublicSignerSessionToken(ctx context.Context, scope Scope, id string) (PublicSignerSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return PublicSignerSessionTokenRecord{}, err
+	}
+	id = normalizeID(id)
+	if id == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "id", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	record, ok := s.publicSignerSessionTokens[scopedKey(scope, id)]
+	if !ok {
+		return PublicSignerSessionTokenRecord{}, notFoundError("public_signer_session_tokens", id)
+	}
+	return clonePublicSignerSessionTokenRecord(record), nil
+}
+
+func (s *InMemoryStore) GetPublicSignerSessionTokenByHash(ctx context.Context, scope Scope, tokenHash string) (PublicSignerSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return PublicSignerSessionTokenRecord{}, err
+	}
+	tokenHash = strings.TrimSpace(tokenHash)
+	if tokenHash == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "token_hash", "required")
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	key, ok := s.publicSignerSessionHashIndex[tokenHash]
+	if !ok {
+		return PublicSignerSessionTokenRecord{}, notFoundError("public_signer_session_tokens", tokenHash)
+	}
+	record, ok := s.publicSignerSessionTokens[key]
+	if !ok {
+		return PublicSignerSessionTokenRecord{}, notFoundError("public_signer_session_tokens", tokenHash)
+	}
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return PublicSignerSessionTokenRecord{}, scopeDeniedError()
+	}
+	return clonePublicSignerSessionTokenRecord(record), nil
+}
+
+func (s *InMemoryStore) ListPublicSignerSessionTokens(ctx context.Context, scope Scope, agreementID, recipientID, participantID string) ([]PublicSignerSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	agreementID = normalizeID(agreementID)
+	recipientID = normalizeID(recipientID)
+	participantID = normalizeID(participantID)
+	if agreementID == "" {
+		return nil, invalidRecordError("public_signer_session_tokens", "agreement_id", "required")
+	}
+	if recipientID == "" && participantID == "" {
+		return nil, invalidRecordError("public_signer_session_tokens", "recipient_id|participant_id", "required")
+	}
+	out := make([]PublicSignerSessionTokenRecord, 0)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, record := range s.publicSignerSessionTokens {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.AgreementID != agreementID {
+			continue
+		}
+		if recipientID != "" && record.RecipientID != recipientID {
+			continue
+		}
+		if participantID != "" && record.ParticipantID != participantID {
+			continue
+		}
+		out = append(out, clonePublicSignerSessionTokenRecord(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].CreatedAt.Before(out[j].CreatedAt)
+	})
+	return out, nil
+}
+
+func (s *InMemoryStore) SavePublicSignerSessionToken(ctx context.Context, scope Scope, record PublicSignerSessionTokenRecord) (PublicSignerSessionTokenRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return PublicSignerSessionTokenRecord{}, err
+	}
+	record.ID = normalizeID(record.ID)
+	record.SubjectKind = NormalizePublicSignerSessionSubjectKind(record.SubjectKind)
+	record.AgreementID = normalizeID(record.AgreementID)
+	record.RecipientID = normalizeID(record.RecipientID)
+	record.ReviewID = normalizeID(record.ReviewID)
+	record.ParticipantID = normalizeID(record.ParticipantID)
+	record.SigningTokenID = normalizeID(record.SigningTokenID)
+	record.ReviewTokenID = normalizeID(record.ReviewTokenID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.ID == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "id", "required")
+	}
+	if record.SubjectKind == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "subject_kind", "required")
+	}
+	if record.AgreementID == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "agreement_id", "required")
+	}
+	if record.TokenHash == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "token_hash", "required")
+	}
+	switch record.SubjectKind {
+	case PublicSignerSessionSubjectKindSigning:
+		if record.RecipientID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "recipient_id", "required")
+		}
+		if record.SigningTokenID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "signing_token_id", "required")
+		}
+	case PublicSignerSessionSubjectKindReview:
+		if record.ReviewID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "review_id", "required")
+		}
+		if record.ParticipantID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "participant_id", "required")
+		}
+		if record.ReviewTokenID == "" {
+			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "review_token_id", "required")
+		}
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Status = NormalizePublicSignerSessionTokenStatus(record.Status)
+	if record.Status == "" {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "status", "unsupported public signer session token status")
+	}
+	record = clonePublicSignerSessionTokenRecord(record)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := scopedKey(scope, record.ID)
+	if _, ok := s.publicSignerSessionTokens[key]; !ok {
+		return PublicSignerSessionTokenRecord{}, notFoundError("public_signer_session_tokens", record.ID)
+	}
+	if existingKey, ok := s.publicSignerSessionHashIndex[record.TokenHash]; ok && existingKey != key {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "token_hash", "already exists")
+	}
+	s.publicSignerSessionTokens[key] = record
+	s.publicSignerSessionHashIndex[record.TokenHash] = key
+	return clonePublicSignerSessionTokenRecord(record), nil
+}
+
+func (s *InMemoryStore) RevokeActivePublicSignerSessionTokens(ctx context.Context, scope Scope, agreementID, recipientID, participantID string, revokedAt time.Time) (int, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return 0, err
+	}
+	agreementID = normalizeID(agreementID)
+	recipientID = normalizeID(recipientID)
+	participantID = normalizeID(participantID)
+	if agreementID == "" {
+		return 0, invalidRecordError("public_signer_session_tokens", "agreement_id", "required")
+	}
+	if recipientID == "" && participantID == "" {
+		return 0, invalidRecordError("public_signer_session_tokens", "recipient_id|participant_id", "required")
+	}
+	if revokedAt.IsZero() {
+		revokedAt = time.Now().UTC()
+	}
+	revokedAt = revokedAt.UTC()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	revoked := 0
+	for key, token := range s.publicSignerSessionTokens {
+		if token.TenantID != scope.TenantID || token.OrgID != scope.OrgID {
+			continue
+		}
+		if token.AgreementID != agreementID {
+			continue
+		}
+		if recipientID != "" && token.RecipientID != recipientID {
+			continue
+		}
+		if participantID != "" && token.ParticipantID != participantID {
+			continue
+		}
+		if token.Status != PublicSignerSessionTokenStatusActive {
+			continue
+		}
+		token.Status = PublicSignerSessionTokenStatusRevoked
+		token.RevokedAt = cloneTimePtr(&revokedAt)
+		s.publicSignerSessionTokens[key] = token
 		revoked++
 	}
 	return revoked, nil

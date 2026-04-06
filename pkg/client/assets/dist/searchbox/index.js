@@ -1,92 +1,84 @@
-import { A as x, E as b, S as F, U as S, c as C } from "../chunks/entity-renderer-DxPxigz0.js";
-import { escapeHTML as a } from "../shared/html.js";
-const d = {
+import { escapeHTML as i } from "../shared/html.js";
+import { a as f, i as g, n as u, r as v, t as p } from "../chunks/entity-renderer-GXMu3Nhg.js";
+var l = {
   searchFields: ["label", "description"],
   caseSensitive: !1
-};
-class h {
+}, o = class {
   constructor(e) {
-    this.config = { ...d, ...e }, this.items = e.items;
+    this.config = {
+      ...l,
+      ...e
+    }, this.items = e.items;
   }
-  async search(e, t) {
-    const i = this.config.caseSensitive ? e : e.toLowerCase();
-    return this.items.filter((r) => this.config.searchFields.some((s) => {
-      const c = r[s];
-      if (c == null) return !1;
-      const n = String(c);
-      return (this.config.caseSensitive ? n : n.toLowerCase()).includes(i);
+  async search(e, s) {
+    const r = this.config.caseSensitive ? e : e.toLowerCase();
+    return this.items.filter((a) => this.config.searchFields.some((t) => {
+      const n = a[t];
+      if (n == null) return !1;
+      const c = String(n);
+      return (this.config.caseSensitive ? c : c.toLowerCase()).includes(r);
     }));
   }
-  /**
-   * Update the items to search
-   */
   setItems(e) {
     this.items = e;
   }
-  /**
-   * Add items to the list
-   */
   addItems(e) {
     this.items = [...this.items, ...e];
   }
-  /**
-   * Remove an item by ID
-   */
   removeItem(e) {
-    this.items = this.items.filter((t) => t.id !== e);
+    this.items = this.items.filter((s) => s.id !== e);
   }
-  /**
-   * Get all items
-   */
   getItems() {
     return [...this.items];
   }
+};
+function x(e, s) {
+  const r = s?.labelField || "name", a = s?.idField || "id";
+  return new o({ items: e.map((t) => ({
+    id: String(t[a] || ""),
+    label: String(t[r] || t.label || ""),
+    description: s?.descriptionField ? String(t[s.descriptionField] || "") : void 0,
+    data: t
+  })) });
 }
-function u(l, e) {
-  const t = e?.labelField || "name", i = e?.idField || "id", r = l.map((s) => ({
-    id: String(s[i] || ""),
-    label: String(s[t] || s.label || ""),
-    description: e?.descriptionField ? String(s[e.descriptionField] || "") : void 0,
-    data: s
-  }));
-  return new h({ items: r });
-}
-const m = {
+var d = {
   showDescription: !0,
   showIcon: !0,
   itemClass: "px-4 py-3 hover:bg-gray-50",
   selectedClass: "bg-blue-50"
-};
-class p {
+}, F = class {
   constructor(e = {}) {
-    this.config = { ...m, ...e };
+    this.config = {
+      ...d,
+      ...e
+    };
   }
-  render(e, t) {
-    const i = this.config.itemClass || "", r = t && this.config.selectedClass || "", s = `${i} ${r}`.trim(), c = this.config.showIcon && e.icon ? this.renderIcon(e.icon) : "", n = a(e.label), o = this.config.showDescription && e.description ? `<p class="text-xs text-gray-500 mt-0.5">${a(e.description)}</p>` : "";
+  render(e, s) {
     return `
-      <div class="${s}">
+      <div class="${`${this.config.itemClass || ""} ${s && this.config.selectedClass || ""}`.trim()}">
         <div class="flex items-center gap-3">
-          ${c}
+          ${this.config.showIcon && e.icon ? this.renderIcon(e.icon) : ""}
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-gray-900 truncate">${n}</p>
-            ${o}
+            <p class="text-sm font-medium text-gray-900 truncate">${i(e.label)}</p>
+            ${this.config.showDescription && e.description ? `<p class="text-xs text-gray-500 mt-0.5">${i(e.description)}</p>` : ""}
           </div>
         </div>
       </div>
     `;
   }
   renderIcon(e) {
-    return e.startsWith("http") || e.startsWith("/") || e.startsWith("data:") ? `<img src="${a(e)}" class="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />` : `<span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-500">${a(e)}</span>`;
+    return e.startsWith("http") || e.startsWith("/") || e.startsWith("data:") ? `<img src="${i(e)}" class="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />` : `<span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-gray-500">${i(e)}</span>`;
   }
-}
-export {
-  x as ApiResolver,
-  b as EntityRenderer,
-  F as SearchBox,
-  p as SimpleRenderer,
-  h as StaticResolver,
-  S as UserRenderer,
-  C as createCrudResolver,
-  u as createStaticResolver
 };
+export {
+  v as ApiResolver,
+  p as EntityRenderer,
+  f as SearchBox,
+  F as SimpleRenderer,
+  o as StaticResolver,
+  u as UserRenderer,
+  g as createCrudResolver,
+  x as createStaticResolver
+};
+
 //# sourceMappingURL=index.js.map

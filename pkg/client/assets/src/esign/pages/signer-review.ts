@@ -138,6 +138,8 @@ interface SignerProfileStore {
   clear(key: string): Promise<void>;
 }
 
+type SignerRequestExecutor = (input: string, init?: RequestInit) => Promise<Response>;
+
 const SIGNER_PROFILE_STORAGE_PREFIX = 'esign.signer.profile.v1';
 const SIGNER_PROFILE_OUTBOX_KEY = 'esign.signer.profile.outbox.v1';
 const DEFAULT_PROFILE_TTL_DAYS = 90;
@@ -222,25 +224,37 @@ class LocalSignerProfileStore implements SignerProfileStore {
 }
 
 class RemoteSignerProfileStore implements SignerProfileStore {
-  private readonly endpointBasePath: string;
+  private readonly endpointPath: string;
   private readonly token: string;
+  private readonly request: SignerRequestExecutor;
+  private readonly requiresTokenPath: boolean;
 
-  constructor(endpointBasePath: string, token: string) {
-    this.endpointBasePath = endpointBasePath.replace(/\/$/, '');
+  constructor(
+    endpointPath: string,
+    token: string,
+    request: SignerRequestExecutor = (input, init) => fetch(input, init),
+    requiresTokenPath = true,
+  ) {
+    this.endpointPath = endpointPath.replace(/\/$/, '');
     this.token = token;
+    this.request = request;
+    this.requiresTokenPath = requiresTokenPath;
   }
 
   private endpoint(key: string): string {
-    const encodedToken = encodeURIComponent(this.token);
     const encodedKey = encodeURIComponent(normalizeSignerProfileKeyForTransport(key));
-    return `${this.endpointBasePath}/profile/${encodedToken}?key=${encodedKey}`;
+    if (!this.requiresTokenPath) {
+      return `${this.endpointPath}?key=${encodedKey}`;
+    }
+    const encodedToken = encodeURIComponent(this.token);
+    return `${this.endpointPath}/profile/${encodedToken}?key=${encodedKey}`;
   }
 
   async load(key: string): Promise<PersistedSignerProfile | null> {
-    const response = await fetch(this.endpoint(key), {
+    const response = await this.request(this.endpoint(key), {
       method: 'GET',
       headers: { Accept: 'application/json' },
-      credentials: 'same-origin',
+      credentials: this.requiresTokenPath ? 'same-origin' : 'omit',
     });
     if (!response.ok) return null;
     const payload = await response.json();
@@ -249,10 +263,10 @@ class RemoteSignerProfileStore implements SignerProfileStore {
   }
 
   async save(key: string, patch: Partial<PersistedSignerProfile>): Promise<PersistedSignerProfile> {
-    const response = await fetch(this.endpoint(key), {
+    const response = await this.request(this.endpoint(key), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
+      credentials: this.requiresTokenPath ? 'same-origin' : 'omit',
       body: JSON.stringify({ patch }),
     });
     if (!response.ok) {
@@ -263,10 +277,10 @@ class RemoteSignerProfileStore implements SignerProfileStore {
   }
 
   async clear(key: string): Promise<void> {
-    const response = await fetch(this.endpoint(key), {
+    const response = await this.request(this.endpoint(key), {
       method: 'DELETE',
       headers: { Accept: 'application/json' },
-      credentials: 'same-origin',
+      credentials: this.requiresTokenPath ? 'same-origin' : 'omit',
     });
     if (!response.ok && response.status !== 404) {
       throw new Error('remote profile clear failed');
@@ -802,12 +816,24 @@ function sanitizeProfileText(value: string): string {
   return isDrawnPlaceholder(normalized) ? '' : normalized;
 }
 
-function createProfileRepository(config: Required<SignerReviewConfig>): SignerProfileRepository {
+function createProfileRepository(
+  config: Required<SignerReviewConfig>,
+  options: {
+    endpointPath?: string;
+    request?: SignerRequestExecutor | null;
+    requiresTokenPath?: boolean;
+  } = {},
+): SignerProfileRepository {
   const localStore = new LocalSignerProfileStore(config.profile.ttlDays);
   if (!config.canSign || String(config.sessionKind || '').trim().toLowerCase() === 'reviewer') {
     return new SignerProfileRepository('local_only', localStore, null);
   }
-  const remoteStore = new RemoteSignerProfileStore(config.profile.endpointBasePath, config.token);
+  const remoteStore = new RemoteSignerProfileStore(
+    String(options.endpointPath || config.profile.endpointBasePath || '').trim(),
+    config.token,
+    options.request || undefined,
+    options.requiresTokenPath !== false,
+  );
   if (config.profile.mode === 'local_only') {
     return new SignerProfileRepository('local_only', localStore, null);
   }
@@ -829,7 +855,15 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
 
   const unifiedConfig = normalizeSignerReviewConfig(config);
   const signerProfileKey = toSignerProfileKey(unifiedConfig);
-  const signerProfileRepository = createProfileRepository(unifiedConfig);
+  let signerProfileRepository: SignerProfileRepository | null = null;
+  const publicSession = {
+    initialized: false,
+    bootstrapPromise: null as Promise<void> | null,
+    bearerToken: '',
+    expiresAt: '',
+    routes: {} as Record<string, string>,
+    previewObjectUrl: '',
+  };
   // ============================================
   // Client Telemetry Module
   // ============================================
@@ -1059,25 +1093,15 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
       this.events = [];
 
       try {
-        // Use sendBeacon for reliability during page unload
-        if (navigator.sendBeacon) {
-          const payload = JSON.stringify({
+        await signerSessionFetch(telemetryPath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             events: eventsToSend,
             summary: this.getSessionSummary()
-          });
-          navigator.sendBeacon(telemetryPath, payload);
-        } else {
-          // Fallback to fetch
-          await fetch(telemetryPath, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              events: eventsToSend,
-              summary: this.getSessionSummary()
-            }),
-            keepalive: true
-          });
-        }
+          }),
+          keepalive: true
+        });
       } catch (error) {
         // Re-add events if send failed
         this.events = [...eventsToSend, ...this.events];
@@ -1358,11 +1382,138 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     }
   }
 
+  function isPublicSignerSession() {
+    return !isSenderSession() && String(unifiedConfig.token || '').trim() !== '';
+  }
+
+  function bootstrapEndpointPath() {
+    return `${String(unifiedConfig.apiBasePath || '/api/v1/esign/signing').replace(/\/$/, '')}/bootstrap/${encodeURIComponent(unifiedConfig.token)}`;
+  }
+
+  function publicSessionRoute(routeKey) {
+    return String(publicSession.routes?.[routeKey] || '').trim();
+  }
+
+  function resolveTemplatedRoute(routeTemplate, params = {}) {
+    let resolved = String(routeTemplate || '').trim();
+    if (!resolved) return '';
+    Object.entries(params || {}).forEach(([key, value]) => {
+      resolved = resolved.replace(`:${key}`, encodeURIComponent(String(value ?? '').trim()));
+    });
+    return resolved;
+  }
+
+  function applySessionPayload(sessionPayload) {
+    if (!sessionPayload || typeof sessionPayload !== 'object') {
+      return null;
+    }
+    const nextConfig = normalizeSignerReviewConfig({
+      ...unifiedConfig,
+      agreementId: readNormalizedRecordString(sessionPayload, 'agreement_id', 'agreementId', 'AgreementID') || unifiedConfig.agreementId,
+      sessionKind: readNormalizedRecordString(sessionPayload, 'session_kind', 'sessionKind', 'SessionKind') || unifiedConfig.sessionKind,
+      uiMode: readNormalizedRecordString(sessionPayload, 'ui_mode', 'uiMode', 'UIMode') || unifiedConfig.uiMode,
+      defaultTab: readNormalizedRecordString(sessionPayload, 'default_tab', 'defaultTab', 'DefaultTab') || unifiedConfig.defaultTab,
+      viewerMode: readNormalizedRecordString(sessionPayload, 'viewer_mode', 'viewerMode', 'ViewerMode') || unifiedConfig.viewerMode,
+      viewerBanner: readNormalizedRecordString(sessionPayload, 'viewer_banner', 'viewerBanner', 'ViewerBanner') || unifiedConfig.viewerBanner,
+      recipientId: readNormalizedRecordString(sessionPayload, 'recipient_id', 'recipientId', 'RecipientID') || unifiedConfig.recipientId,
+      recipientEmail: readNormalizedRecordString(sessionPayload, 'recipient_email', 'recipientEmail', 'RecipientEmail') || unifiedConfig.recipientEmail,
+      recipientName: readNormalizedRecordString(sessionPayload, 'recipient_name', 'recipientName', 'RecipientName') || unifiedConfig.recipientName,
+      pageCount: readNormalizedRecordNumber(sessionPayload, 'page_count', 'pageCount', 'PageCount') || unifiedConfig.pageCount,
+      hasConsented: Boolean(readNormalizedRecordValue(sessionPayload, 'has_consented', 'hasConsented')) || unifiedConfig.hasConsented,
+      canSign: readNormalizedRecordValue(sessionPayload, 'can_sign', 'canSign', 'CanSign') !== false,
+      reviewMarkersVisible: readNormalizedRecordValue(sessionPayload, 'review_markers_visible', 'reviewMarkersVisible') !== false,
+      reviewMarkersInteractive: readNormalizedRecordValue(sessionPayload, 'review_markers_interactive', 'reviewMarkersInteractive') !== false,
+      fields: Array.isArray(sessionPayload.fields) ? sessionPayload.fields : unifiedConfig.fields,
+      review: sessionPayload.review || null,
+      viewer: {
+        ...unifiedConfig.viewer,
+        ...(sessionPayload.viewer && typeof sessionPayload.viewer === 'object' ? sessionPayload.viewer : {}),
+      },
+      signerState: readNormalizedRecordString(sessionPayload, 'state', 'signerState', 'State') || unifiedConfig.signerState,
+      recipientStage: readNormalizedRecordNumber(sessionPayload, 'recipient_stage', 'recipientStage', 'RecipientStage') || unifiedConfig.recipientStage,
+      activeStage: readNormalizedRecordNumber(sessionPayload, 'active_stage', 'activeStage', 'ActiveStage') || unifiedConfig.activeStage,
+      activeRecipientIds: Array.isArray(readNormalizedRecordValue(sessionPayload, 'active_recipient_ids', 'activeRecipientIds'))
+        ? readNormalizedRecordValue(sessionPayload, 'active_recipient_ids', 'activeRecipientIds')
+        : unifiedConfig.activeRecipientIds,
+      waitingForRecipientIds: Array.isArray(readNormalizedRecordValue(sessionPayload, 'waiting_for_recipient_ids', 'waitingForRecipientIds'))
+        ? readNormalizedRecordValue(sessionPayload, 'waiting_for_recipient_ids', 'waitingForRecipientIds')
+        : unifiedConfig.waitingForRecipientIds,
+    });
+    Object.assign(unifiedConfig, nextConfig);
+    return nextConfig;
+  }
+
+  async function ensurePublicSignerSession() {
+    if (!isPublicSignerSession()) {
+      return;
+    }
+    if (publicSession.initialized) {
+      return;
+    }
+    if (publicSession.bootstrapPromise) {
+      await publicSession.bootstrapPromise;
+      return;
+    }
+    publicSession.bootstrapPromise = (async () => {
+      const response = await fetch(bootstrapEndpointPath(), {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        credentials: 'omit',
+      });
+      if (!response.ok) {
+        throw await parseAPIErrorResponse(response, 'Failed to initialize signer session');
+      }
+      const payload = await response.json();
+      const authPayload = payload?.auth && typeof payload.auth === 'object' ? payload.auth : {};
+      const routePayload = payload?.routes && typeof payload.routes === 'object' ? payload.routes : {};
+      publicSession.bearerToken = String(authPayload.token || '').trim();
+      publicSession.expiresAt = String(authPayload.expires_at || '').trim();
+      publicSession.routes = Object.fromEntries(
+        Object.entries(routePayload).map(([key, value]) => [String(key || '').trim(), String(value || '').trim()])
+      );
+      applySessionPayload(payload?.session || {});
+      publicSession.initialized = Boolean(publicSession.bearerToken);
+      if (!publicSession.initialized) {
+        throw new Error('Failed to initialize signer session');
+      }
+    })();
+    try {
+      await publicSession.bootstrapPromise;
+    } finally {
+      publicSession.bootstrapPromise = null;
+    }
+  }
+
+  async function signerSessionFetch(input, init = {}) {
+    if (isPublicSignerSession()) {
+      await ensurePublicSignerSession();
+      const headers = new Headers(init?.headers || {});
+      if (publicSession.bearerToken) {
+        headers.set('Authorization', `Bearer ${publicSession.bearerToken}`);
+      }
+      const response = await fetch(input, {
+        ...init,
+        headers,
+        credentials: 'omit',
+      });
+      if (response.status === 401 || response.status === 410) {
+        window.setTimeout(() => window.location.reload(), 0);
+      }
+      return response;
+    }
+    return fetch(input, {
+      ...init,
+      credentials: init?.credentials || 'same-origin',
+    });
+  }
+
   function signingInteractionsEnabled() {
     return !isSenderSession() && !isReviewOnlySession() && signTabVisible();
   }
 
   function resolvedResourceBasePath() {
+    const sessionRoute = publicSessionRoute('session');
+    if (sessionRoute) return sessionRoute;
     const configured = String(unifiedConfig.resourceBasePath || '').trim();
     if (configured) return configured;
     return `${unifiedConfig.apiBasePath}/session/${encodeURIComponent(unifiedConfig.token)}`;
@@ -1379,6 +1530,8 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   function assetsContractPath() {
+    const route = publicSessionRoute('assets');
+    if (route) return route;
     const configured = String(unifiedConfig.assetContractPath || '').trim();
     if (configured) return configured;
     const publicToken = String(unifiedConfig.token || '').trim();
@@ -1389,11 +1542,44 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   function telemetryEndpointPath() {
+    const route = publicSessionRoute('telemetry');
+    if (route) return route;
     const configured = String(unifiedConfig.telemetryPath || '').trim();
     if (configured) return configured;
     const publicToken = String(unifiedConfig.token || '').trim();
     if (!publicToken) return '';
     return `${unifiedConfig.apiBasePath}/telemetry/${encodeURIComponent(publicToken)}`;
+  }
+
+  async function fetchAssetContractPayload() {
+    const response = await signerSessionFetch(assetsContractPath(), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) {
+      throw await parseAPIErrorResponse(response, 'Failed to load document');
+    }
+    return response.json();
+  }
+
+  function replacePreviewObjectUrl(nextUrl) {
+    if (publicSession.previewObjectUrl) {
+      URL.revokeObjectURL(publicSession.previewObjectUrl);
+      publicSession.previewObjectUrl = '';
+    }
+    publicSession.previewObjectUrl = String(nextUrl || '').trim();
+  }
+
+  async function createAuthorizedAssetObjectUrl(assetUrl) {
+    const response = await signerSessionFetch(String(assetUrl || '').trim(), {
+      method: 'GET',
+      headers: { Accept: 'application/pdf' },
+    });
+    if (!response.ok) {
+      throw await parseAPIErrorResponse(response, 'Document asset is unavailable');
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
   }
 
   function resolveBinaryAssetUrl(assets) {
@@ -1623,17 +1809,18 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function reloadReviewSessionContext() {
-    const response = await fetch(reviewSessionPath(), {
+    const response = await signerSessionFetch(reviewSessionPath(), {
       method: 'GET',
       headers: { Accept: 'application/json' },
-      credentials: 'same-origin',
     });
     if (!response.ok) {
       throw await parseAPIErrorResponse(response, 'Failed to reload review session');
     }
     const payload = await response.json();
     const session = payload?.session && typeof payload.session === 'object' ? payload.session : {};
-    state.canSignSession = session.can_sign !== false;
+    applySessionPayload(session);
+    state.hasConsented = unifiedConfig.hasConsented;
+    state.canSignSession = unifiedConfig.canSign;
     syncReviewContext(session.review || null);
     return session;
   }
@@ -1643,8 +1830,29 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function reviewAPIRequest(pathSuffix, options = {}, fallbackMessage = 'Review request failed') {
-    const response = await fetch(`${reviewBasePath()}${pathSuffix}`, {
-      credentials: 'same-origin',
+    let targetPath = `${reviewBasePath()}${pathSuffix}`;
+    if (isPublicSignerSession()) {
+      const suffix = String(pathSuffix || '').trim();
+      if (suffix === '/threads') {
+        targetPath = publicSessionRoute('review_threads') || targetPath;
+      } else if (suffix === '/approve') {
+        targetPath = publicSessionRoute('review_approve') || targetPath;
+      } else if (suffix === '/request-changes') {
+        targetPath = publicSessionRoute('review_request_changes') || targetPath;
+      } else {
+        const replyMatch = suffix.match(/^\/threads\/([^/]+)\/replies$/);
+        const stateMatch = suffix.match(/^\/threads\/([^/]+)\/(resolve|reopen)$/);
+        if (replyMatch) {
+          targetPath = resolveTemplatedRoute(publicSessionRoute('review_thread_replies'), { thread_id: replyMatch[1] }) || targetPath;
+        } else if (stateMatch) {
+          targetPath = resolveTemplatedRoute(
+            publicSessionRoute(stateMatch[2] === 'resolve' ? 'review_thread_resolve' : 'review_thread_reopen'),
+            { thread_id: stateMatch[1] },
+          ) || targetPath;
+        }
+      }
+    }
+    const response = await signerSessionFetch(targetPath, {
       ...options,
       headers: {
         Accept: 'application/json',
@@ -3026,20 +3234,18 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
      * Request signed upload bootstrap from backend
      */
     async requestUploadBootstrap(fieldId, sha256, contentType, sizeBytes) {
-      const response = await fetch(
-        `${unifiedConfig.apiBasePath}/signature-upload/${unifiedConfig.token}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'omit',
-          body: JSON.stringify({
-            field_instance_id: fieldId,
-            sha256: sha256,
-            content_type: contentType,
-            size_bytes: sizeBytes
-          })
-        }
-      );
+      const targetPath = publicSessionRoute('signature_upload') || `${unifiedConfig.apiBasePath}/signature-upload/${unifiedConfig.token}`;
+      const response = await signerSessionFetch(targetPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify({
+          field_instance_id: fieldId,
+          sha256: sha256,
+          content_type: contentType,
+          size_bytes: sizeBytes
+        })
+      });
 
       if (!response.ok) {
         throw await parseAPIErrorResponse(response, 'Failed to get upload contract');
@@ -3146,19 +3352,22 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   };
 
   const signatureLibraryAPI = {
-    endpoint(token, signatureID = '') {
-      const encodedToken = encodeURIComponent(token);
+    endpoint(signatureID = '') {
       const suffix = signatureID ? `/${encodeURIComponent(signatureID)}` : '';
+      const sessionRoute = signatureID
+        ? resolveTemplatedRoute(publicSessionRoute('saved_signature'), { id: signatureID })
+        : publicSessionRoute('saved_signatures');
+      if (sessionRoute) return sessionRoute;
+      const encodedToken = encodeURIComponent(unifiedConfig.token);
       return `${unifiedConfig.apiBasePath}/signatures/${encodedToken}${suffix}`;
     },
 
     async list(fieldType) {
-      const url = new URL(this.endpoint(unifiedConfig.token), window.location.origin);
+      const url = new URL(this.endpoint(), window.location.origin);
       url.searchParams.set('type', fieldType);
-      const response = await fetch(url.toString(), {
+      const response = await signerSessionFetch(url.toString(), {
         method: 'GET',
         headers: { Accept: 'application/json' },
-        credentials: 'same-origin',
       });
       if (!response.ok) {
         throw new Error(
@@ -3172,10 +3381,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     },
 
     async save(fieldType, dataUrl, label = '') {
-      const response = await fetch(this.endpoint(unifiedConfig.token), {
+      const response = await signerSessionFetch(this.endpoint(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        credentials: 'same-origin',
         body: JSON.stringify({
           type: fieldType,
           label,
@@ -3198,10 +3406,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     },
 
     async delete(signatureID) {
-      const response = await fetch(this.endpoint(unifiedConfig.token, signatureID), {
+      const response = await signerSessionFetch(this.endpoint(signatureID), {
         method: 'DELETE',
         headers: { Accept: 'application/json' },
-        credentials: 'same-origin',
       });
       if (!response.ok) {
         throw new Error(
@@ -3715,6 +3922,18 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   onReady(async () => {
+    if (isPublicSignerSession()) {
+      await ensurePublicSignerSession();
+      state.hasConsented = unifiedConfig.hasConsented;
+      state.canSignSession = unifiedConfig.canSign;
+      state.reviewContext = unifiedConfig.review ? normalizeReviewContext(unifiedConfig.review) : null;
+      state.activePanelTab = String(unifiedConfig.defaultTab || '').trim().toLowerCase() === 'review' ? 'review' : 'sign';
+    }
+    signerProfileRepository = createProfileRepository(unifiedConfig, {
+      endpointPath: publicSessionRoute('profile') || unifiedConfig.profile.endpointBasePath,
+      request: signerSessionFetch,
+      requiresTokenPath: !isPublicSignerSession(),
+    });
     bindActionHandlers();
 
     // Detect device capabilities for performance optimization
@@ -4110,6 +4329,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function initializeSignerProfile() {
+    if (!signerProfileRepository) {
+      return;
+    }
     try {
       const profile = await signerProfileRepository.load(state.profileKey);
       if (profile) {
@@ -4175,6 +4397,11 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function clearPersistedSignerProfile(silent = false) {
+    if (!signerProfileRepository) {
+      state.profileData = null;
+      state.profileRemember = unifiedConfig.profile.rememberByDefault;
+      return;
+    }
     let clearError = null;
     try {
       await signerProfileRepository.clear(state.profileKey);
@@ -4201,6 +4428,9 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   }
 
   async function persistProfileFromField(fieldData, options = {}) {
+    if (!signerProfileRepository) {
+      return;
+    }
     const remember = readRememberPreferenceFromEditor();
     state.profileRemember = remember;
 
@@ -4436,17 +4666,17 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     let documentUrl = '';
 
     try {
-      // Fetch document URL from assets endpoint
-      const assetsResponse = await fetch(assetsContractPath());
-      if (!assetsResponse.ok) {
-        throw new Error('Failed to load document');
-      }
-
-      const assetsData = await assetsResponse.json();
+      const assetsData = await fetchAssetContractPayload();
       const assets = assetsData.assets || {};
 
       // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
-      documentUrl = resolveBinaryAssetUrl(assets);
+      const previewUrl = resolveBinaryAssetUrl(assets);
+      if (isPublicSignerSession() && previewUrl) {
+        documentUrl = await createAuthorizedAssetObjectUrl(previewUrl);
+        replacePreviewObjectUrl(documentUrl);
+      } else {
+        documentUrl = previewUrl;
+      }
 
       if (!documentUrl) {
         throw new Error('Document preview is not available yet. The document may still be processing.');
@@ -5871,7 +6101,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const fieldData = state.fieldState.get(fieldId);
 
     try {
-      const response = await fetch(`${unifiedConfig.apiBasePath}/field-values/${unifiedConfig.token}`, {
+      const response = await signerSessionFetch(publicSessionRoute('field_values') || `${unifiedConfig.apiBasePath}/field-values/${unifiedConfig.token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -5953,7 +6183,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
         payload = await buildTypedSignaturePayload(fieldId, valueText);
       }
 
-      const response = await fetch(`${unifiedConfig.apiBasePath}/field-values/signature/${unifiedConfig.token}`, {
+      const response = await signerSessionFetch(publicSessionRoute('field_values_signature') || `${unifiedConfig.apiBasePath}/field-values/signature/${unifiedConfig.token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -6279,7 +6509,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     acceptBtn.innerHTML = '<i class="iconoir-refresh animate-spin mr-2"></i> Processing...';
 
     try {
-      const response = await fetch(`${unifiedConfig.apiBasePath}/consent/${unifiedConfig.token}`, {
+      const response = await signerSessionFetch(publicSessionRoute('consent') || `${unifiedConfig.apiBasePath}/consent/${unifiedConfig.token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accepted: true })
@@ -6341,7 +6571,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     try {
       const idempotencyKey = `submit-${unifiedConfig.recipientId}-${Date.now()}`;
 
-      const response = await fetch(`${unifiedConfig.apiBasePath}/submit/${unifiedConfig.token}`, {
+      const response = await signerSessionFetch(publicSessionRoute('submit') || `${unifiedConfig.apiBasePath}/submit/${unifiedConfig.token}`, {
         method: 'POST',
         headers: { 'Idempotency-Key': idempotencyKey }
       });
@@ -6409,7 +6639,7 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
     const reason = document.getElementById('decline-reason').value;
 
     try {
-      const response = await fetch(`${unifiedConfig.apiBasePath}/decline/${unifiedConfig.token}`, {
+      const response = await signerSessionFetch(publicSessionRoute('decline') || `${unifiedConfig.apiBasePath}/decline/${unifiedConfig.token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason })
@@ -6449,17 +6679,25 @@ export function bootstrapSignerReview(config: SignerReviewConfig): void {
   // Download document - only use binary asset URLs, never contract_url (which returns JSON)
   async function downloadDocument() {
     try {
-      const assetsResponse = await fetch(assetsContractPath());
-      if (!assetsResponse.ok) throw new Error('Document unavailable');
-
-      const assetsData = await assetsResponse.json();
+      const assetsData = await fetchAssetContractPayload();
       const assets = assetsData.assets || {};
 
       // Only use concrete binary asset URLs - never fall back to contract_url which is JSON
       const downloadUrl = resolveBinaryAssetUrl(assets);
 
       if (downloadUrl) {
-        window.open(downloadUrl, '_blank');
+        if (isPublicSignerSession()) {
+          const objectUrl = await createAuthorizedAssetObjectUrl(downloadUrl);
+          const link = document.createElement('a');
+          link.href = objectUrl;
+          link.download = `${String(unifiedConfig.agreementId || 'agreement').trim() || 'agreement'}.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+        } else {
+          window.open(downloadUrl, '_blank');
+        }
       } else {
         throw new Error('Document download is not available yet. The document may still be processing.');
       }

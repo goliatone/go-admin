@@ -3656,6 +3656,178 @@ func (s *relationalTxStore) RevokeActiveReviewSessionTokens(ctx context.Context,
 	return int(rows), nil
 }
 
+func (s *relationalTxStore) CreatePublicSignerSessionToken(ctx context.Context, scope stores.Scope, record stores.PublicSignerSessionTokenRecord) (stores.PublicSignerSessionTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, err
+	}
+	record.ID = normalizeRelationalID(record.ID)
+	if record.ID == "" {
+		record.ID = uuid.NewString()
+	}
+	record.SubjectKind = stores.NormalizePublicSignerSessionSubjectKind(record.SubjectKind)
+	record.AgreementID = normalizeRelationalID(record.AgreementID)
+	record.RecipientID = normalizeRelationalID(record.RecipientID)
+	record.ReviewID = normalizeRelationalID(record.ReviewID)
+	record.ParticipantID = normalizeRelationalID(record.ParticipantID)
+	record.SigningTokenID = normalizeRelationalID(record.SigningTokenID)
+	record.ReviewTokenID = normalizeRelationalID(record.ReviewTokenID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.SubjectKind == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "subject_kind", "required")
+	}
+	if record.AgreementID == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "agreement_id", "required")
+	}
+	if record.TokenHash == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "token_hash", "required")
+	}
+	switch record.SubjectKind {
+	case stores.PublicSignerSessionSubjectKindSigning:
+		if record.RecipientID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "recipient_id", "required")
+		}
+		if record.SigningTokenID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "signing_token_id", "required")
+		}
+	case stores.PublicSignerSessionSubjectKindReview:
+		if record.ReviewID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "review_id", "required")
+		}
+		if record.ParticipantID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "participant_id", "required")
+		}
+		if record.ReviewTokenID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "review_token_id", "required")
+		}
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Status = stores.NormalizePublicSignerSessionTokenStatus(record.Status)
+	if record.Status == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "status", "unsupported public signer session token status")
+	}
+	record.RevokedAt = cloneRelationalTimePtr(record.RevokedAt)
+	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
+	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, relationalUniqueConstraintError(err, "public_signer_session_tokens", "id|token_hash")
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) GetPublicSignerSessionToken(ctx context.Context, scope stores.Scope, id string) (stores.PublicSignerSessionTokenRecord, error) {
+	return loadPublicSignerSessionTokenRecord(ctx, s.tx, scope, id)
+}
+
+func (s *relationalTxStore) GetPublicSignerSessionTokenByHash(ctx context.Context, scope stores.Scope, tokenHash string) (stores.PublicSignerSessionTokenRecord, error) {
+	return loadPublicSignerSessionTokenByHashRecord(ctx, s.tx, scope, tokenHash)
+}
+
+func (s *relationalTxStore) ListPublicSignerSessionTokens(ctx context.Context, scope stores.Scope, agreementID, recipientID, participantID string) ([]stores.PublicSignerSessionTokenRecord, error) {
+	return listPublicSignerSessionTokenRecords(ctx, s.tx, scope, agreementID, recipientID, participantID)
+}
+
+func (s *relationalTxStore) SavePublicSignerSessionToken(ctx context.Context, scope stores.Scope, record stores.PublicSignerSessionTokenRecord) (stores.PublicSignerSessionTokenRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, err
+	}
+	record.ID = normalizeRelationalID(record.ID)
+	record.SubjectKind = stores.NormalizePublicSignerSessionSubjectKind(record.SubjectKind)
+	record.AgreementID = normalizeRelationalID(record.AgreementID)
+	record.RecipientID = normalizeRelationalID(record.RecipientID)
+	record.ReviewID = normalizeRelationalID(record.ReviewID)
+	record.ParticipantID = normalizeRelationalID(record.ParticipantID)
+	record.SigningTokenID = normalizeRelationalID(record.SigningTokenID)
+	record.ReviewTokenID = normalizeRelationalID(record.ReviewTokenID)
+	record.TokenHash = strings.TrimSpace(record.TokenHash)
+	if record.ID == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "id", "required")
+	}
+	if record.SubjectKind == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "subject_kind", "required")
+	}
+	if record.AgreementID == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "agreement_id", "required")
+	}
+	if record.TokenHash == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "token_hash", "required")
+	}
+	switch record.SubjectKind {
+	case stores.PublicSignerSessionSubjectKindSigning:
+		if record.RecipientID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "recipient_id", "required")
+		}
+		if record.SigningTokenID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "signing_token_id", "required")
+		}
+	case stores.PublicSignerSessionSubjectKindReview:
+		if record.ReviewID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "review_id", "required")
+		}
+		if record.ParticipantID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "participant_id", "required")
+		}
+		if record.ReviewTokenID == "" {
+			return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "review_token_id", "required")
+		}
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Status = stores.NormalizePublicSignerSessionTokenStatus(record.Status)
+	if record.Status == "" {
+		return stores.PublicSignerSessionTokenRecord{}, relationalInvalidRecordError("public_signer_session_tokens", "status", "unsupported public signer session token status")
+	}
+	record.RevokedAt = cloneRelationalTimePtr(record.RevokedAt)
+	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
+	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.PublicSignerSessionTokenRecord{}, err
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) RevokeActivePublicSignerSessionTokens(ctx context.Context, scope stores.Scope, agreementID, recipientID, participantID string, revokedAt time.Time) (int, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return 0, err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	recipientID = normalizeRelationalID(recipientID)
+	participantID = normalizeRelationalID(participantID)
+	if agreementID == "" {
+		return 0, relationalInvalidRecordError("public_signer_session_tokens", "agreement_id", "required")
+	}
+	if recipientID == "" && participantID == "" {
+		return 0, relationalInvalidRecordError("public_signer_session_tokens", "recipient_id|participant_id", "required")
+	}
+	if revokedAt.IsZero() {
+		revokedAt = time.Now().UTC()
+	}
+	query := s.tx.NewUpdate().
+		Model((*stores.PublicSignerSessionTokenRecord)(nil)).
+		Set("status = ?", stores.PublicSignerSessionTokenStatusRevoked).
+		Set("revoked_at = ?", revokedAt.UTC()).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		Where("status = ?", stores.PublicSignerSessionTokenStatusActive)
+	if recipientID != "" {
+		query = query.Where("recipient_id = ?", recipientID)
+	}
+	if participantID != "" {
+		query = query.Where("participant_id = ?", participantID)
+	}
+	result, err := query.Exec(ctx)
+	if err != nil {
+		return 0, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return int(rows), nil
+}
+
 func (s *relationalTxStore) AppendDraftEvent(ctx context.Context, scope stores.Scope, event stores.DraftAuditEventRecord) (stores.DraftAuditEventRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {

@@ -1,29 +1,27 @@
-function u(t, e, r = {}) {
-  const n = typeof t == "string" ? t.trim() : "";
-  if (!n)
-    return e;
+function u(e, t, r = {}) {
+  const n = typeof e == "string" ? e.trim() : "";
+  if (!n) return t;
   try {
     return JSON.parse(n);
   } catch (o) {
-    return r.onError?.(o), e;
+    return r.onError?.(o), t;
   }
 }
-function c(t, e, r = {}) {
-  const n = u(t, null, r);
-  return Array.isArray(n) ? n : e;
+function c(e, t, r = {}) {
+  const n = u(e, null, r);
+  return Array.isArray(n) ? n : t;
 }
-function l(t, e = null, r = {}) {
-  const o = (r.root ?? document).getElementById(t);
-  return u(o?.textContent, e, r);
+function a(e, t = null, r = {}) {
+  return u((r.root ?? document).getElementById(e)?.textContent, t, r);
 }
-function a(t, e = null, r = {}) {
-  const o = (r.root ?? document).querySelector(t);
-  return u(o?.textContent, e, r);
+function l(e, t = null, r = {}) {
+  return u((r.root ?? document).querySelector(e)?.textContent, t, r);
 }
 export {
   c as parseJSONArray,
   u as parseJSONValue,
-  l as readJSONScriptValue,
-  a as readJSONSelectorValue
+  a as readJSONScriptValue,
+  l as readJSONSelectorValue
 };
+
 //# sourceMappingURL=json-parse.js.map

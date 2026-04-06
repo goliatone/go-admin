@@ -33,6 +33,7 @@ import (
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 )
@@ -509,19 +510,15 @@ func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testin
 		t.Fatalf("expected google_connected=false before oauth connect")
 	}
 
-	connectReq := httptest.NewRequest(
+	connectResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
 		http.MethodPost,
 		"/admin/api/v1/esign/integrations/google/connect?user_id="+url.QueryEscape(defaultESignDemoAdminID),
+		"application/json",
 		strings.NewReader(`{"auth_code":"oauth-doc-form"}`),
 	)
-	connectReq.Header.Set("Content-Type", "application/json")
-	connectReq.Header.Set("X-Forwarded-Proto", "https")
-	connectReq.Host = "localhost:8082"
-	connectReq.AddCookie(authCookie)
-	connectResp, err := app.Test(connectReq, -1)
-	if err != nil {
-		t.Fatalf("google connect request failed: %v", err)
-	}
 	defer connectResp.Body.Close()
 	if connectResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(connectResp.Body)
@@ -612,14 +609,15 @@ func TestRuntimeDocumentUploadFlowSupportsCanonicalBrowserRoute(t *testing.T) {
 		t.Fatalf("close upload writer: %v", err)
 	}
 
-	uploadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload?"+query, &uploadBody)
-	prepareRuntimeTestRequest(uploadReq)
-	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
-	uploadReq.AddCookie(authCookie)
-	uploadResp, err := app.Test(uploadReq, -1)
-	if err != nil {
-		t.Fatalf("upload request failed: %v", err)
-	}
+	uploadResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/api/v1/esign/documents/upload?"+query,
+		uploadWriter.FormDataContentType(),
+		&uploadBody,
+	)
 	defer uploadResp.Body.Close()
 	if uploadResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(uploadResp.Body)
@@ -635,15 +633,15 @@ func TestRuntimeDocumentUploadFlowSupportsCanonicalBrowserRoute(t *testing.T) {
 	createForm.Set("title", "Canonical Upload Test")
 	createForm.Set("source_object_key", strings.TrimSpace(fmt.Sprint(uploadPayload["object_key"])))
 	createForm.Set("source_original_name", strings.TrimSpace(fmt.Sprint(uploadPayload["source_original_name"])))
-	createReq := httptest.NewRequest(http.MethodPost, "/admin/content/documents?"+query, strings.NewReader(createForm.Encode()))
-	prepareRuntimeTestRequest(createReq)
-	createReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	createReq.Header.Set("Origin", "http://localhost:8082")
-	createReq.AddCookie(authCookie)
-	createResp, err := app.Test(createReq, -1)
-	if err != nil {
-		t.Fatalf("create request failed: %v", err)
-	}
+	createResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/content/documents?"+query,
+		"application/x-www-form-urlencoded",
+		strings.NewReader(createForm.Encode()),
+	)
 	defer createResp.Body.Close()
 	if createResp.StatusCode != http.StatusFound {
 		body, _ := io.ReadAll(createResp.Body)
@@ -1449,15 +1447,15 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 		t.Fatalf("close multipart writer: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload", &body)
-	req.Host = "localhost:8082"
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.AddCookie(authCookie)
-
-	resp, err := app.Test(req, -1)
-	if err != nil {
-		t.Fatalf("upload request failed: %v", err)
-	}
+	resp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/api/v1/esign/documents/upload",
+		writer.FormDataContentType(),
+		&body,
+	)
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(resp.Body)
@@ -1592,14 +1590,15 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		t.Fatalf("close upload writer: %v", err)
 	}
 
-	uploadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload?"+query, &uploadBody)
-	uploadReq.Host = "localhost:8082"
-	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
-	uploadReq.AddCookie(authCookie)
-	uploadResp, err := app.Test(uploadReq, -1)
-	if err != nil {
-		t.Fatalf("upload request failed: %v", err)
-	}
+	uploadResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/api/v1/esign/documents/upload?"+query,
+		uploadWriter.FormDataContentType(),
+		&uploadBody,
+	)
 	defer uploadResp.Body.Close()
 	if uploadResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(uploadResp.Body)
@@ -1874,14 +1873,15 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		t.Fatalf("close upload writer: %v", err)
 	}
 
-	uploadReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/documents/upload?"+query, &uploadBody)
-	uploadReq.Host = "localhost:8082"
-	uploadReq.Header.Set("Content-Type", uploadWriter.FormDataContentType())
-	uploadReq.AddCookie(authCookie)
-	uploadResp, err := app.Test(uploadReq, -1)
-	if err != nil {
-		t.Fatalf("upload request failed: %v", err)
-	}
+	uploadResp := doRequestWithCookieAndBody(
+		t,
+		app,
+		authCookie,
+		http.MethodPost,
+		"/admin/api/v1/esign/documents/upload?"+query,
+		uploadWriter.FormDataContentType(),
+		&uploadBody,
+	)
 	defer uploadResp.Body.Close()
 	if uploadResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(uploadResp.Body)
@@ -2690,17 +2690,21 @@ func doRequestWithCookieAndBody(t *testing.T, app *fiber.App, cookie *http.Cooki
 			t.Fatalf("read request body (%s %s): %v", method, endpoint, err)
 		}
 	}
-	attachBrowserCSRF := shouldAttachRuntimeBrowserFormCSRF(method, endpoint, contentType, payload)
+	attachBrowserCSRF := shouldAttachRuntimeBrowserCSRF(method, endpoint, cookie)
+	csrfToken := ""
 	formCookies := []*http.Cookie(nil)
 	if attachBrowserCSRF {
-		csrfToken, cookies := fetchRuntimeBrowserFormCSRFState(t, app, cookie, endpoint)
-		values, err := url.ParseQuery(string(payload))
-		if err != nil {
-			t.Fatalf("parse browser form payload: %v", err)
-		}
-		values.Set("_token", csrfToken)
-		payload = []byte(values.Encode())
+		var cookies []*http.Cookie
+		csrfToken, cookies = fetchRuntimeBrowserCSRFState(t, app, cookie, endpoint)
 		formCookies = cookies
+		if strings.Contains(strings.TrimSpace(contentType), "application/x-www-form-urlencoded") && !strings.Contains(string(payload), "_token=") {
+			values, err := url.ParseQuery(string(payload))
+			if err != nil {
+				t.Fatalf("parse browser form payload: %v", err)
+			}
+			values.Set("_token", csrfToken)
+			payload = []byte(values.Encode())
+		}
 	}
 	req := httptest.NewRequest(method, endpoint, bytes.NewReader(payload))
 	prepareRuntimeTestRequest(req)
@@ -2718,6 +2722,7 @@ func doRequestWithCookieAndBody(t *testing.T, app *fiber.App, cookie *http.Cooki
 	}
 	if attachBrowserCSRF {
 		req.Header.Set("Origin", "http://localhost:8082")
+		req.Header.Set(csrfmw.DefaultHeaderName, csrfToken)
 	}
 	resp, err := app.Test(req, -1)
 	if err != nil {
@@ -2726,28 +2731,26 @@ func doRequestWithCookieAndBody(t *testing.T, app *fiber.App, cookie *http.Cooki
 	return resp
 }
 
-func shouldAttachRuntimeBrowserFormCSRF(method, endpoint, contentType string, payload []byte) bool {
-	if !strings.EqualFold(strings.TrimSpace(method), http.MethodPost) {
+func shouldAttachRuntimeBrowserCSRF(method, endpoint string, cookie *http.Cookie) bool {
+	if cookie == nil {
 		return false
 	}
-	if !strings.Contains(strings.TrimSpace(contentType), "application/x-www-form-urlencoded") {
-		return false
-	}
-	if strings.Contains(string(payload), "_token=") {
+	switch strings.ToUpper(strings.TrimSpace(method)) {
+	case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodTrace:
 		return false
 	}
 	path := strings.TrimSpace(endpoint)
 	if idx := strings.Index(path, "?"); idx >= 0 {
 		path = path[:idx]
 	}
-	if !strings.HasPrefix(path, "/admin/content/") {
+	path = strings.TrimSpace(path)
+	if !strings.HasPrefix(path, "/admin/") {
 		return false
 	}
-	segments := strings.Split(strings.Trim(path, "/"), "/")
-	return len(segments) == 3
+	return path != "/admin/login"
 }
 
-func fetchRuntimeBrowserFormCSRFState(t *testing.T, app *fiber.App, cookie *http.Cookie, endpoint string) (string, []*http.Cookie) {
+func fetchRuntimeBrowserCSRFState(t *testing.T, app *fiber.App, cookie *http.Cookie, endpoint string) (string, []*http.Cookie) {
 	t.Helper()
 
 	pagePath := runtimeBrowserFormCSRFPagePath(endpoint)
@@ -2764,7 +2767,13 @@ func fetchRuntimeBrowserFormCSRFState(t *testing.T, app *fiber.App, cookie *http
 	if err != nil {
 		t.Fatalf("read browser form page body: %v", err)
 	}
-	csrfToken := extractHiddenInputValue(t, string(pageBody), "_token")
+	csrfToken := strings.TrimSpace(pageResp.Header.Get(csrfmw.DefaultHeaderName))
+	if csrfToken == "" {
+		csrfToken = extractHiddenInputValue(t, string(pageBody), "_token")
+	}
+	if csrfToken == "" {
+		csrfToken = extractMetaContentValue(t, string(pageBody), "csrf-token")
+	}
 	if csrfToken == "" {
 		t.Fatalf("expected browser form page %q to include csrf token", pagePath)
 	}
@@ -2781,18 +2790,26 @@ func runtimeBrowserFormCSRFPagePath(endpoint string) string {
 		return ""
 	}
 	path := strings.TrimSpace(parsed.Path)
+	switch {
+	case strings.HasPrefix(path, "/admin/api/v1/esign/documents/"),
+		strings.HasPrefix(path, "/admin/api/v1/panels/esign_documents"),
+		strings.HasPrefix(path, "/admin/api/v1/esign/integrations/google/"):
+		return appendRawQuery("/admin/content/documents/new", parsed.RawQuery)
+	case strings.HasPrefix(path, "/admin/api/v1/panels/esign_agreements"),
+		strings.HasPrefix(path, "/admin/api/v1/esign/sync/"):
+		return appendRawQuery("/admin/content/agreements/new", parsed.RawQuery)
+	case path == "/admin" || path == "/admin/":
+		return "/admin"
+	}
 	segments := strings.Split(strings.Trim(path, "/"), "/")
 	if len(segments) != 3 || segments[0] != "admin" || segments[1] != "content" {
-		return ""
+		return appendRawQuery("/admin", parsed.RawQuery)
 	}
 	pagePath := path
 	if !strings.HasSuffix(pagePath, "/new") {
 		pagePath = strings.TrimRight(pagePath, "/") + "/new"
 	}
-	if parsed.RawQuery == "" {
-		return pagePath
-	}
-	return pagePath + "?" + parsed.RawQuery
+	return appendRawQuery(pagePath, parsed.RawQuery)
 }
 
 func doRequestWithBody(t *testing.T, app *fiber.App, method, endpoint, contentType string, body io.Reader, headers map[string]string) *http.Response {
@@ -2835,6 +2852,25 @@ func extractHiddenInputValue(t *testing.T, body, fieldName string) string {
 		return ""
 	}
 	return strings.TrimSpace(matches[1])
+}
+
+func extractMetaContentValue(t *testing.T, body, metaName string) string {
+	t.Helper()
+	re := regexp.MustCompile(`<meta\s+name="` + regexp.QuoteMeta(metaName) + `"\s+content="([^"]+)"`)
+	matches := re.FindStringSubmatch(body)
+	if len(matches) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(matches[1])
+}
+
+func appendRawQuery(path, rawQuery string) string {
+	path = strings.TrimSpace(path)
+	rawQuery = strings.TrimSpace(rawQuery)
+	if path == "" || rawQuery == "" {
+		return path
+	}
+	return path + "?" + rawQuery
 }
 
 func loginESignRuntimeBrowserUser(t *testing.T, app *fiber.App) *http.Cookie {

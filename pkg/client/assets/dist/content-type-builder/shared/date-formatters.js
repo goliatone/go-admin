@@ -1,11 +1,16 @@
-function n(t) {
+function e(t) {
   try {
-    return new Date(t).toLocaleDateString(void 0, { month: "short", day: "numeric", year: "numeric" });
+    return new Date(t).toLocaleDateString(void 0, {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
   } catch {
     return t;
   }
 }
 export {
-  n as formatContentTypeDate
+  e as formatContentTypeDate
 };
+
 //# sourceMappingURL=date-formatters.js.map

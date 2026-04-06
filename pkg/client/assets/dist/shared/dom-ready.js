@@ -8,4 +8,5 @@ function n(e) {
 export {
   n as onReady
 };
+
 //# sourceMappingURL=dom-ready.js.map

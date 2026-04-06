@@ -1,183 +1,170 @@
-const d = /* @__PURE__ */ new Set(["POST", "PUT", "PATCH", "DELETE"]);
+var d = /* @__PURE__ */ new Set([
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE"
+]);
 function T() {
   return typeof document > "u" || !document?.querySelector ? "" : document.querySelector('meta[name="csrf-token"]')?.getAttribute("content")?.trim() || "";
 }
-function y(t) {
-  const e = String(t || "GET").trim().toUpperCase() || "GET";
-  return d.has(e);
+function y(e) {
+  const t = String(e || "GET").trim().toUpperCase() || "GET";
+  return d.has(t);
 }
-function m(t) {
-  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(t))
-    return !0;
-  if (typeof location > "u" || !location?.origin)
-    return !1;
+function m(e) {
+  if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(e)) return !0;
+  if (typeof location > "u" || !location?.origin) return !1;
   try {
-    return new URL(t, location.origin).origin === location.origin;
+    return new URL(e, location.origin).origin === location.origin;
   } catch {
     return !1;
   }
 }
-function l(t, e, r) {
-  if (!y(e.method) || r.has("X-CSRF-Token") || !m(t))
-    return;
+function l(e, t, r) {
+  if (!y(t.method) || r.has("X-CSRF-Token") || !m(e)) return;
   const n = T();
   n && r.set("X-CSRF-Token", n);
 }
-async function p(t, e = {}) {
-  const {
-    json: r,
-    idempotencyKey: n,
-    accept: i,
-    headers: c,
-    ...s
-  } = e, o = new Headers(c || {});
-  i ? o.set("Accept", i) : o.has("Accept") || o.set("Accept", "application/json"), n && n.trim() && o.set("X-Idempotency-Key", n.trim());
-  let a = s.body;
-  return r !== void 0 && (o.has("Content-Type") || o.set("Content-Type", "application/json"), a = JSON.stringify(r)), l(t, s, o), fetch(t, {
-    ...s,
-    headers: o,
+async function p(e, t = {}) {
+  const { json: r, idempotencyKey: n, accept: o, headers: s, ...c } = t, i = new Headers(s || {});
+  o ? i.set("Accept", o) : i.has("Accept") || i.set("Accept", "application/json"), n && n.trim() && i.set("X-Idempotency-Key", n.trim());
+  let a = c.body;
+  return r !== void 0 && (i.has("Content-Type") || i.set("Content-Type", "application/json"), a = JSON.stringify(r)), l(e, c, i), fetch(e, {
+    ...c,
+    headers: i,
     body: a
   });
 }
-function g(t) {
-  if (!t || typeof t != "object")
-    return "";
-  if (typeof t.error == "string" && t.error.trim())
-    return t.error.trim();
-  if (t.error && typeof t.error == "object") {
-    const e = t.error.message;
-    if (typeof e == "string" && e.trim())
-      return e.trim();
+function g(e) {
+  if (!e || typeof e != "object") return "";
+  if (typeof e.error == "string" && e.error.trim()) return e.error.trim();
+  if (e.error && typeof e.error == "object") {
+    const t = e.error.message;
+    if (typeof t == "string" && t.trim()) return t.trim();
   }
-  return typeof t.message == "string" && t.message.trim() ? t.message.trim() : "";
+  return typeof e.message == "string" && e.message.trim() ? e.message.trim() : "";
 }
-function w(t) {
-  if (!t || typeof t != "object")
-    return "";
-  if (t.error && typeof t.error == "object") {
-    const e = t.error.code;
-    if (typeof e == "string" && e.trim())
-      return e.trim();
+function w(e) {
+  if (!e || typeof e != "object") return "";
+  if (e.error && typeof e.error == "object") {
+    const t = e.error.code;
+    if (typeof t == "string" && t.trim()) return t.trim();
   }
-  return typeof t.code == "string" && t.code.trim() ? t.code.trim() : "";
+  return typeof e.code == "string" && e.code.trim() ? e.code.trim() : "";
 }
-function S(t) {
-  if (!t || typeof t != "object" || !t.error || typeof t.error != "object")
-    return {};
-  const e = t.error.details;
-  return e && typeof e == "object" && !Array.isArray(e) ? e : {};
+function S(e) {
+  if (!e || typeof e != "object" || !e.error || typeof e.error != "object") return {};
+  const t = e.error.details;
+  return t && typeof t == "object" && !Array.isArray(t) ? t : {};
 }
-function u(t) {
+function u(e) {
   try {
-    return JSON.parse(t);
+    return JSON.parse(e);
   } catch {
     return null;
   }
 }
-async function P(t) {
-  const e = t.headers.get("content-type") ?? "";
+async function H(e) {
+  const t = e.headers.get("content-type") ?? "";
   try {
-    const n = (await t.text()).trim();
-    if (!n)
-      return {
-        payload: null,
-        rawText: "",
-        contentType: e
+    const r = (await e.text()).trim();
+    if (!r) return {
+      payload: null,
+      rawText: "",
+      contentType: t
+    };
+    if (t.includes("json")) {
+      const n = u(r);
+      if (n !== null) return {
+        payload: n,
+        rawText: r,
+        contentType: t
       };
-    if (e.includes("json")) {
-      const i = u(n);
-      if (i !== null)
-        return {
-          payload: i,
-          rawText: n,
-          contentType: e
-        };
     }
     return {
-      payload: n,
-      rawText: n,
-      contentType: e
+      payload: r,
+      rawText: r,
+      contentType: t
     };
   } catch {
     return {
       payload: null,
       rawText: "",
-      contentType: e
+      contentType: t
     };
   }
 }
-async function h(t, e) {
+async function h(e, t) {
   try {
-    const r = await t.json();
-    return r === void 0 ? e : r;
+    const r = await e.json();
+    return r === void 0 ? t : r;
   } catch {
-    return e;
+    return t;
   }
 }
-async function x(t) {
-  return await t.json();
+async function j(e) {
+  return await e.json();
 }
-async function H(t) {
-  const e = await h(t, {});
-  return !e || typeof e != "object" || Array.isArray(e) ? {} : e;
+async function b(e) {
+  const t = await h(e, {});
+  return !t || typeof t != "object" || Array.isArray(t) ? {} : t;
 }
-async function f(t, e = "Request failed", r = {}) {
+async function f(e, t = "Request failed", r = {}) {
   const n = r.appendStatusToFallback !== !1;
   try {
-    const c = (await t.text()).trim();
-    if (c) {
-      const s = u(c);
+    const o = (await e.text()).trim();
+    if (o) {
+      const s = u(o);
       if (s && typeof s == "object") {
-        const o = g(s);
-        if (o)
-          return {
-            message: o,
-            payload: s,
-            rawText: c
-          };
+        const c = g(s);
+        if (c) return {
+          message: c,
+          payload: s,
+          rawText: o
+        };
       }
       return {
-        message: c,
+        message: o,
         payload: s,
-        rawText: c
+        rawText: o
       };
     }
   } catch {
   }
   return {
-    message: n ? `${e}: ${t.status}` : e,
+    message: n ? `${t}: ${e.status}` : t,
     payload: null,
     rawText: ""
   };
 }
-async function j(t, e = "Request failed", r = {}) {
-  return (await f(t, e, r)).message;
+async function P(e, t = "Request failed", r = {}) {
+  return (await f(e, t, r)).message;
 }
-async function b(t, e = "Request failed", r = {}) {
-  const n = await f(t, e, r), i = n.payload && typeof n.payload == "object" ? n.payload : null;
+async function x(e, t = "Request failed", r = {}) {
+  const n = await f(e, t, r), o = n.payload && typeof n.payload == "object" ? n.payload : null;
   return {
     ...n,
-    code: w(i),
-    details: S(i)
+    code: w(o),
+    details: S(o)
   };
 }
-async function E(t, e = {}) {
-  const r = await p(t, e);
-  if (!r.ok)
-    throw new Error(await j(r));
-  return x(r);
+async function E(e, t = {}) {
+  const r = await p(e, t);
+  if (!r.ok) throw new Error(await P(r));
+  return j(r);
 }
 export {
   l as appendCSRFHeader,
   E as httpJSON,
   p as httpRequest,
   T as readCSRFToken,
-  j as readHTTPError,
+  P as readHTTPError,
   f as readHTTPErrorResult,
-  x as readHTTPJSON,
-  H as readHTTPJSONObject,
+  j as readHTTPJSON,
+  b as readHTTPJSONObject,
   h as readHTTPJSONValue,
-  P as readHTTPResponsePayload,
-  b as readHTTPStructuredErrorResult
+  H as readHTTPResponsePayload,
+  x as readHTTPStructuredErrorResult
 };
+
 //# sourceMappingURL=http-client.js.map

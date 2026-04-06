@@ -147,32 +147,65 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.SignerSession != "/api/v1/esign/signing/session/:token" {
 		t.Fatalf("expected signer route fallback /api/v1/esign/signing/session/:token, got %q", routes.SignerSession)
 	}
+	if routes.SignerBootstrap != "/api/v1/esign/signing/bootstrap/:token" {
+		t.Fatalf("expected signer bootstrap route /api/v1/esign/signing/bootstrap/:token, got %q", routes.SignerBootstrap)
+	}
+	if routes.SignerSessionAuth != "/api/v1/esign/signing/session" {
+		t.Fatalf("expected signer session auth route /api/v1/esign/signing/session, got %q", routes.SignerSessionAuth)
+	}
 	if routes.SignerReviewThreads != "/api/v1/esign/signing/session/:token/review/threads" {
 		t.Fatalf("expected signer review threads route fallback /api/v1/esign/signing/session/:token/review/threads, got %q", routes.SignerReviewThreads)
+	}
+	if routes.SignerReviewThreadsAuth != "/api/v1/esign/signing/review/threads" {
+		t.Fatalf("expected signer review threads auth route /api/v1/esign/signing/review/threads, got %q", routes.SignerReviewThreadsAuth)
 	}
 	if routes.SignerReviewThreadReplies != "/api/v1/esign/signing/session/:token/review/threads/:thread_id/replies" {
 		t.Fatalf("expected signer review replies route fallback /api/v1/esign/signing/session/:token/review/threads/:thread_id/replies, got %q", routes.SignerReviewThreadReplies)
 	}
+	if routes.SignerReviewThreadRepliesAuth != "/api/v1/esign/signing/review/threads/:thread_id/replies" {
+		t.Fatalf("expected signer review replies auth route /api/v1/esign/signing/review/threads/:thread_id/replies, got %q", routes.SignerReviewThreadRepliesAuth)
+	}
 	if routes.SignerReviewThreadResolve != "/api/v1/esign/signing/session/:token/review/threads/:thread_id/resolve" {
 		t.Fatalf("expected signer review resolve route fallback /api/v1/esign/signing/session/:token/review/threads/:thread_id/resolve, got %q", routes.SignerReviewThreadResolve)
+	}
+	if routes.SignerReviewThreadResolveAuth != "/api/v1/esign/signing/review/threads/:thread_id/resolve" {
+		t.Fatalf("expected signer review resolve auth route /api/v1/esign/signing/review/threads/:thread_id/resolve, got %q", routes.SignerReviewThreadResolveAuth)
 	}
 	if routes.SignerReviewThreadReopen != "/api/v1/esign/signing/session/:token/review/threads/:thread_id/reopen" {
 		t.Fatalf("expected signer review reopen route fallback /api/v1/esign/signing/session/:token/review/threads/:thread_id/reopen, got %q", routes.SignerReviewThreadReopen)
 	}
+	if routes.SignerReviewThreadReopenAuth != "/api/v1/esign/signing/review/threads/:thread_id/reopen" {
+		t.Fatalf("expected signer review reopen auth route /api/v1/esign/signing/review/threads/:thread_id/reopen, got %q", routes.SignerReviewThreadReopenAuth)
+	}
 	if routes.SignerReviewApprove != "/api/v1/esign/signing/session/:token/review/approve" {
 		t.Fatalf("expected signer review approve route fallback /api/v1/esign/signing/session/:token/review/approve, got %q", routes.SignerReviewApprove)
+	}
+	if routes.SignerReviewApproveAuth != "/api/v1/esign/signing/review/approve" {
+		t.Fatalf("expected signer review approve auth route /api/v1/esign/signing/review/approve, got %q", routes.SignerReviewApproveAuth)
 	}
 	if routes.SignerReviewRequestChanges != "/api/v1/esign/signing/session/:token/review/request-changes" {
 		t.Fatalf("expected signer review request-changes route fallback /api/v1/esign/signing/session/:token/review/request-changes, got %q", routes.SignerReviewRequestChanges)
 	}
+	if routes.SignerReviewRequestChangesAuth != "/api/v1/esign/signing/review/request-changes" {
+		t.Fatalf("expected signer review request-changes auth route /api/v1/esign/signing/review/request-changes, got %q", routes.SignerReviewRequestChangesAuth)
+	}
 	if routes.SignerFieldValues != "/api/v1/esign/signing/field-values/:token" {
 		t.Fatalf("expected signer field-values route fallback /api/v1/esign/signing/field-values/:token, got %q", routes.SignerFieldValues)
+	}
+	if routes.SignerFieldValuesAuth != "/api/v1/esign/signing/field-values" {
+		t.Fatalf("expected signer field-values auth route /api/v1/esign/signing/field-values, got %q", routes.SignerFieldValuesAuth)
 	}
 	if routes.SignerSignature != "/api/v1/esign/signing/field-values/signature/:token" {
 		t.Fatalf("expected signer signature route fallback /api/v1/esign/signing/field-values/signature/:token, got %q", routes.SignerSignature)
 	}
+	if routes.SignerSignatureAuth != "/api/v1/esign/signing/field-values/signature" {
+		t.Fatalf("expected signer signature auth route /api/v1/esign/signing/field-values/signature, got %q", routes.SignerSignatureAuth)
+	}
 	if routes.SignerSignatureUpload != "/api/v1/esign/signing/signature-upload/:token" {
 		t.Fatalf("expected signer signature-upload route fallback /api/v1/esign/signing/signature-upload/:token, got %q", routes.SignerSignatureUpload)
+	}
+	if routes.SignerSignatureUploadAuth != "/api/v1/esign/signing/signature-upload" {
+		t.Fatalf("expected signer signature-upload auth route /api/v1/esign/signing/signature-upload, got %q", routes.SignerSignatureUploadAuth)
 	}
 	if routes.SignerSignatureObject != "/api/v1/esign/signing/signature-upload/object" {
 		t.Fatalf("expected signer signature-upload object route fallback /api/v1/esign/signing/signature-upload/object, got %q", routes.SignerSignatureObject)
@@ -180,23 +213,44 @@ func TestBuildRouteSetUsesResolverNamespaces(t *testing.T) {
 	if routes.SignerTelemetry != "/api/v1/esign/signing/telemetry/:token" {
 		t.Fatalf("expected signer telemetry route fallback /api/v1/esign/signing/telemetry/:token, got %q", routes.SignerTelemetry)
 	}
+	if routes.SignerTelemetryAuth != "/api/v1/esign/signing/telemetry" {
+		t.Fatalf("expected signer telemetry auth route /api/v1/esign/signing/telemetry, got %q", routes.SignerTelemetryAuth)
+	}
 	if routes.SignerSubmit != "/api/v1/esign/signing/submit/:token" {
 		t.Fatalf("expected signer submit route fallback /api/v1/esign/signing/submit/:token, got %q", routes.SignerSubmit)
+	}
+	if routes.SignerSubmitAuth != "/api/v1/esign/signing/submit" {
+		t.Fatalf("expected signer submit auth route /api/v1/esign/signing/submit, got %q", routes.SignerSubmitAuth)
 	}
 	if routes.SignerDecline != "/api/v1/esign/signing/decline/:token" {
 		t.Fatalf("expected signer decline route fallback /api/v1/esign/signing/decline/:token, got %q", routes.SignerDecline)
 	}
+	if routes.SignerDeclineAuth != "/api/v1/esign/signing/decline" {
+		t.Fatalf("expected signer decline auth route /api/v1/esign/signing/decline, got %q", routes.SignerDeclineAuth)
+	}
 	if routes.SignerAssets != "/api/v1/esign/signing/assets/:token" {
 		t.Fatalf("expected signer assets route fallback /api/v1/esign/signing/assets/:token, got %q", routes.SignerAssets)
+	}
+	if routes.SignerAssetsAuth != "/api/v1/esign/signing/assets" {
+		t.Fatalf("expected signer assets auth route /api/v1/esign/signing/assets, got %q", routes.SignerAssetsAuth)
 	}
 	if routes.SignerProfile != "/api/v1/esign/signing/profile/:token" {
 		t.Fatalf("expected signer profile route fallback /api/v1/esign/signing/profile/:token, got %q", routes.SignerProfile)
 	}
+	if routes.SignerProfileAuth != "/api/v1/esign/signing/profile" {
+		t.Fatalf("expected signer profile auth route /api/v1/esign/signing/profile, got %q", routes.SignerProfileAuth)
+	}
 	if routes.SignerSavedSignatures != "/api/v1/esign/signing/signatures/:token" {
 		t.Fatalf("expected signer saved signatures route fallback /api/v1/esign/signing/signatures/:token, got %q", routes.SignerSavedSignatures)
 	}
+	if routes.SignerSavedSignaturesAuth != "/api/v1/esign/signing/signatures" {
+		t.Fatalf("expected signer saved signatures auth route /api/v1/esign/signing/signatures, got %q", routes.SignerSavedSignaturesAuth)
+	}
 	if routes.SignerSavedSignature != "/api/v1/esign/signing/signatures/:token/:id" {
 		t.Fatalf("expected signer saved signature route fallback /api/v1/esign/signing/signatures/:token/:id, got %q", routes.SignerSavedSignature)
+	}
+	if routes.SignerSavedSignatureAuth != "/api/v1/esign/signing/signatures/:id" {
+		t.Fatalf("expected signer saved signature auth route /api/v1/esign/signing/signatures/:id, got %q", routes.SignerSavedSignatureAuth)
 	}
 	if routes.AdminGoogleOAuthStatus != "/suite/api/v9/esign/integrations/google/status" {
 		t.Fatalf("expected google oauth status route /suite/api/v9/esign/integrations/google/status, got %q", routes.AdminGoogleOAuthStatus)

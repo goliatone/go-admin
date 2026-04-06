@@ -87,34 +87,36 @@ type ESignModule struct {
 	googleEnabled bool
 	uploadDir     string
 
-	store              eSignStore
-	services           *servicesmodule.Module
-	documents          services.DocumentService
-	tokens             stores.TokenService
-	reviewTokens       stores.ReviewSessionTokenService
-	publicReviewTokens services.PublicReviewTokenResolver
-	agreements         services.AgreementService
-	reminders          services.AgreementReminderService
-	drafts             services.DraftService
-	draftSync          synccore.SyncService
-	draftSyncBootstrap *esignsync.AgreementDraftBootstrapper
-	signing            services.SigningService
-	signerProfiles     services.SignerProfileService
-	savedSignatures    services.SignerSavedSignatureService
-	artifacts          services.ArtifactPipelineService
-	google             googleIntegrationService
-	durableJobs        *jobs.DurableJobRuntime
-	sourceReadModels   services.SourceReadModelService
-	sourceDiagnostics  services.LineageDiagnosticsService
-	reconciliation     services.SourceReconciliationService
-	emailOutbox        scopedAsyncTrigger
-	signingWorkflows   scopedAsyncTrigger
-	integrations       services.IntegrationFoundationService
-	activityMap        *AuditActivityProjector
-	agreementEvents    commands.AgreementEventPublisher
-	uploadProvider     uploader.Uploader
-	uploadManager      *uploader.Manager
-	remediationStatus  jobqueue.DispatchStatusReader
+	store                eSignStore
+	services             *servicesmodule.Module
+	documents            services.DocumentService
+	tokens               stores.TokenService
+	reviewTokens         stores.ReviewSessionTokenService
+	publicSignerSessions stores.PublicSignerSessionTokenService
+	publicReviewTokens   services.PublicReviewTokenResolver
+	publicSessionAuth    services.PublicSignerSessionAuthService
+	agreements           services.AgreementService
+	reminders            services.AgreementReminderService
+	drafts               services.DraftService
+	draftSync            synccore.SyncService
+	draftSyncBootstrap   *esignsync.AgreementDraftBootstrapper
+	signing              services.SigningService
+	signerProfiles       services.SignerProfileService
+	savedSignatures      services.SignerSavedSignatureService
+	artifacts            services.ArtifactPipelineService
+	google               googleIntegrationService
+	durableJobs          *jobs.DurableJobRuntime
+	sourceReadModels     services.SourceReadModelService
+	sourceDiagnostics    services.LineageDiagnosticsService
+	reconciliation       services.SourceReconciliationService
+	emailOutbox          scopedAsyncTrigger
+	signingWorkflows     scopedAsyncTrigger
+	integrations         services.IntegrationFoundationService
+	activityMap          *AuditActivityProjector
+	agreementEvents      commands.AgreementEventPublisher
+	uploadProvider       uploader.Uploader
+	uploadManager        *uploader.Manager
+	remediationStatus    jobqueue.DispatchStatusReader
 }
 
 func NewESignModule(basePath, defaultLocale, menuCode string) *ESignModule {
@@ -400,25 +402,44 @@ func esignAPIRoutes() map[string]string {
 
 func esignPublicAPIRoutes() map[string]string {
 	return map[string]string{
-		"esign.signing.session":                 "/signing/session/:token",
-		"esign.signing.review.threads":          "/signing/session/:token/review/threads",
-		"esign.signing.review.threads.replies":  "/signing/session/:token/review/threads/:thread_id/replies",
-		"esign.signing.review.threads.resolve":  "/signing/session/:token/review/threads/:thread_id/resolve",
-		"esign.signing.review.threads.reopen":   "/signing/session/:token/review/threads/:thread_id/reopen",
-		"esign.signing.review.approve":          "/signing/session/:token/review/approve",
-		"esign.signing.review.request_changes":  "/signing/session/:token/review/request-changes",
-		"esign.signing.consent":                 "/signing/consent/:token",
-		"esign.signing.field_values":            "/signing/field-values/:token",
-		"esign.signing.field_values.signature":  "/signing/field-values/signature/:token",
-		"esign.signing.signature_upload":        "/signing/signature-upload/:token",
-		"esign.signing.signature_upload.object": "/signing/signature-upload/object",
-		"esign.signing.telemetry":               "/signing/telemetry/:token",
-		"esign.signing.submit":                  "/signing/submit/:token",
-		"esign.signing.decline":                 "/signing/decline/:token",
-		"esign.signing.assets":                  "/signing/assets/:token",
-		"esign.signing.profile":                 "/signing/profile/:token",
-		"esign.signing.signatures":              "/signing/signatures/:token",
-		"esign.signing.signatures.id":           "/signing/signatures/:token/:id",
+		"esign.signing.session":                     "/signing/session/:token",
+		"esign.signing.bootstrap":                   "/signing/bootstrap/:token",
+		"esign.signing.session.auth":                "/signing/session",
+		"esign.signing.review.threads":              "/signing/session/:token/review/threads",
+		"esign.signing.review.threads.auth":         "/signing/review/threads",
+		"esign.signing.review.threads.replies":      "/signing/session/:token/review/threads/:thread_id/replies",
+		"esign.signing.review.threads.replies.auth": "/signing/review/threads/:thread_id/replies",
+		"esign.signing.review.threads.resolve":      "/signing/session/:token/review/threads/:thread_id/resolve",
+		"esign.signing.review.threads.resolve.auth": "/signing/review/threads/:thread_id/resolve",
+		"esign.signing.review.threads.reopen":       "/signing/session/:token/review/threads/:thread_id/reopen",
+		"esign.signing.review.threads.reopen.auth":  "/signing/review/threads/:thread_id/reopen",
+		"esign.signing.review.approve":              "/signing/session/:token/review/approve",
+		"esign.signing.review.approve.auth":         "/signing/review/approve",
+		"esign.signing.review.request_changes":      "/signing/session/:token/review/request-changes",
+		"esign.signing.review.request_changes.auth": "/signing/review/request-changes",
+		"esign.signing.consent":                     "/signing/consent/:token",
+		"esign.signing.consent.auth":                "/signing/consent",
+		"esign.signing.field_values":                "/signing/field-values/:token",
+		"esign.signing.field_values.auth":           "/signing/field-values",
+		"esign.signing.field_values.signature":      "/signing/field-values/signature/:token",
+		"esign.signing.field_values.signature.auth": "/signing/field-values/signature",
+		"esign.signing.signature_upload":            "/signing/signature-upload/:token",
+		"esign.signing.signature_upload.auth":       "/signing/signature-upload",
+		"esign.signing.signature_upload.object":     "/signing/signature-upload/object",
+		"esign.signing.telemetry":                   "/signing/telemetry/:token",
+		"esign.signing.telemetry.auth":              "/signing/telemetry",
+		"esign.signing.submit":                      "/signing/submit/:token",
+		"esign.signing.submit.auth":                 "/signing/submit",
+		"esign.signing.decline":                     "/signing/decline/:token",
+		"esign.signing.decline.auth":                "/signing/decline",
+		"esign.signing.assets":                      "/signing/assets/:token",
+		"esign.signing.assets.auth":                 "/signing/assets",
+		"esign.signing.profile":                     "/signing/profile/:token",
+		"esign.signing.profile.auth":                "/signing/profile",
+		"esign.signing.signatures":                  "/signing/signatures/:token",
+		"esign.signing.signatures.auth":             "/signing/signatures",
+		"esign.signing.signatures.id":               "/signing/signatures/:token/:id",
+		"esign.signing.signatures.id.auth":          "/signing/signatures/:id",
 	}
 }
 
@@ -483,7 +504,9 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	)
 	m.tokens = stores.NewTokenService(m.store, stores.WithTokenTTL(tokenTTL))
 	m.reviewTokens = stores.NewReviewSessionTokenService(m.store, stores.WithReviewSessionTokenTTL(tokenTTL))
+	m.publicSignerSessions = stores.NewPublicSignerSessionTokenService(m.store)
 	m.publicReviewTokens = services.NewPublicReviewTokenResolver(m.tokens, m.reviewTokens)
+	m.publicSessionAuth = services.NewPublicSignerSessionAuthService(m.publicSignerSessions, m.store, m.store)
 	artifactRenderer := services.NewReadableArtifactRenderer(
 		m.store,
 		m.store,
@@ -903,6 +926,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithPermissions(handlers.DefaultPermissions),
 		handlers.WithSignerTokenValidator(m.tokens),
 		handlers.WithPublicReviewTokenValidator(m.publicReviewTokens),
+		handlers.WithPublicSignerSessionAuthService(m.publicSessionAuth),
 		handlers.WithSignerSessionService(m.signing),
 		handlers.WithSignerProfileService(m.signerProfiles),
 		handlers.WithSignerSavedSignatureService(m.savedSignatures),

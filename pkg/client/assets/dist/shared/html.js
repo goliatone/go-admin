@@ -1,11 +1,12 @@
-function t(e) {
+function r(e) {
   return String(e ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function c(e) {
-  return t(e).replace(/`/g, "&#96;");
+function t(e) {
+  return r(e).replace(/`/g, "&#96;");
 }
 export {
-  c as escapeAttribute,
-  t as escapeHTML
+  t as escapeAttribute,
+  r as escapeHTML
 };
+
 //# sourceMappingURL=html.js.map

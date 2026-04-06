@@ -1,5 +1,5 @@
-import { b as n } from "../../chunks/badge-CH1Zu3Xp.js";
-const r = {
+import { t as n } from "../../chunks/badge-DT04uHwZ.js";
+var a = {
   draft: {
     label: "Draft",
     dotClass: "bg-yellow-400"
@@ -13,20 +13,21 @@ const r = {
     dotClass: "bg-red-400"
   }
 };
-function l(e) {
+function r(e) {
   return e === "draft" || e === "deprecated" ? e : "active";
 }
-function s(e) {
-  const t = l(e), a = r[t];
-  return n(a.label, "status", t);
+function d(e) {
+  const t = r(e), l = a[t];
+  return n(l.label, "status", t);
 }
-function c(e) {
-  const t = l(e), a = r[t];
-  return `<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full ${a.dotClass}" title="${a.label}"></span>`;
+function s(e) {
+  const t = a[r(e)];
+  return `<span class="flex-shrink-0 w-1.5 h-1.5 rounded-full ${t.dotClass}" title="${t.label}"></span>`;
 }
 export {
-  l as normalizeBlockStatus,
-  s as renderBlockStatusBadge,
-  c as renderBlockStatusDot
+  r as normalizeBlockStatus,
+  d as renderBlockStatusBadge,
+  s as renderBlockStatusDot
 };
+
 //# sourceMappingURL=status-badges.js.map

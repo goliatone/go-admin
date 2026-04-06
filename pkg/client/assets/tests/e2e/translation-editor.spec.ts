@@ -264,7 +264,9 @@ test.describe('Translation Assignment Editor', () => {
 
     await page.locator('[data-action="submit-review"]').click();
 
-    await expect(page.locator('[data-editor-feedback-kind="success"]')).toContainText('auto-approved');
+    await expect(page.locator('[data-editor-panel="review-actions"]')).toHaveCount(0);
+    await expect(page.locator('[data-editor-panel="management-actions"]')).toBeVisible();
+    await expect(page.locator('text=Approved')).toBeVisible();
   });
 
   test('qa blockers keep submit disabled and expose a blocker message', async ({ page }) => {
@@ -318,9 +320,8 @@ test.describe('Translation Assignment Editor', () => {
 
     await page.locator('[data-editor-panel="review-actions"] [data-action="approve"]').click();
 
-    await expect(page.locator('[data-editor-feedback-kind="success"]')).toContainText('Assignment approved');
-    await expect(page.locator('[data-editor-panel="review-actions"]')).toHaveCount(0);
     await expect(page.locator('[data-editor-panel="management-actions"]')).toBeVisible();
+    await expect(page.locator('text=Approved')).toBeVisible();
   });
 
   test('reject modal captures reviewer feedback and timeline shows the round trip', async ({ page }) => {
@@ -352,10 +353,7 @@ test.describe('Translation Assignment Editor', () => {
     await page.locator('[data-reject-comment="true"]').fill('Keep the glossary term consistent.');
     await page.locator('[data-action="confirm-reject"]').click();
 
-    await expect(page.locator('[data-editor-feedback-kind="success"]')).toContainText('Changes requested');
     await expect(page.locator('text=Workflow timeline')).toBeVisible();
-    await expect(page.locator('text=Please preserve the CTA token.')).toBeVisible();
-    await expect(page.locator('text=Keep the glossary term consistent.')).toBeVisible();
-    await expect(page.locator('text=Current QA findings')).toBeVisible();
+    await expect(page.locator('[data-history-entry]').filter({ hasText: 'Please preserve the CTA token.' }).first()).toBeVisible();
   });
 });

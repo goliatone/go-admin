@@ -18,7 +18,7 @@ require (
 	github.com/goliatone/go-auth v0.40.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.40.0
 	github.com/goliatone/go-cms v0.45.0
-	github.com/goliatone/go-command v0.18.0
+	github.com/goliatone/go-command v0.19.0
 	github.com/goliatone/go-dashboard v0.9.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.7.0
@@ -28,7 +28,7 @@ require (
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-job v0.19.0
 	github.com/goliatone/go-logger v0.8.0
-	github.com/goliatone/go-notifications v0.13.0
+	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.13.0
 	github.com/goliatone/go-router v0.55.0
 	github.com/goliatone/go-search v0.2.0

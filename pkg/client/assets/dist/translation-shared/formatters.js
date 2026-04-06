@@ -25,4 +25,5 @@ export {
   a as formatTranslationTimestampUTC,
   s as sentenceCaseToken
 };
+
 //# sourceMappingURL=formatters.js.map

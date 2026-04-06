@@ -30,6 +30,10 @@ func (*ReviewSessionTokenRecord) TableName() string {
 	return "review_session_tokens"
 }
 
+func (*PublicSignerSessionTokenRecord) TableName() string {
+	return "public_signer_session_tokens"
+}
+
 func (*GuardedEffectRecord) TableName() string {
 	return "guarded_effects"
 }

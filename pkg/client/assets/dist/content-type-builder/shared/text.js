@@ -16,4 +16,5 @@ export {
   t as titleCaseIdentifier,
   a as titleCaseWords
 };
+
 //# sourceMappingURL=text.js.map
