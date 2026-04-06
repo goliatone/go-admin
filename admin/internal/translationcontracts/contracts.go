@@ -421,10 +421,3 @@ func intFromAny(value any) int {
 		return 0
 	}
 }
-
-func max(left, right int) int {
-	if left > right {
-		return left
-	}
-	return right
-}
