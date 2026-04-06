@@ -138,3 +138,15 @@ backend_tests: go test ./examples/esign/release ./examples/esign/services ./exam
 frontend_tests: N/A (no frontend contract payload change in this guard refresh)
 contract_hash: 3dcfd3d3bd2074a8033a28fd8e6be984267cc08ffb27f6aec03feb0df73aaeb3
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+
+## TC-2026-04-02-010
+
+date: 2026-04-02
+owner: backend
+breaking_change_rationale: refresh the Track C guard after the reviewed store, service, and panel repository contract set changed again, so the enforced snapshot matches the current accepted backend contract shape.
+measurable_gain: full-repo verification no longer fails on a stale Track C hash, while preserving a dated audit checkpoint for the current reviewed contract boundary.
+impacted_endpoints: no intended externally visible endpoint payload change; reviewed Track C files remain examples/esign/stores/contracts.go, examples/esign/stores/models.go, examples/esign/stores/memory.go, examples/esign/services/agreement_service.go, and examples/esign/modules/panel_repositories.go.
+backend_tests: go test ./examples/esign/release ./examples/esign/services ./examples/esign/modules ./examples/esign/stores -count=1 && go test ./...
+frontend_tests: N/A (no frontend contract payload change in this guard refresh)
+contract_hash: f21b6e88d398ba5ef01cb43a42573b42cea71bcd46bed3947e5bb78a7e8a5e75
+related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
