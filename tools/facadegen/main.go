@@ -202,6 +202,9 @@ func buildFacade(corePath string) ([]byte, facadeSummary, error) {
 			if !ok {
 				return nil, facadeSummary{}, fmt.Errorf("expected function signature for %s", name)
 			}
+			if !isFacadeExportableSignature(sig, corePath) {
+				continue
+			}
 			decl, err := renderFuncDecl(name, sig, renderType)
 			if err != nil {
 				return nil, facadeSummary{}, err
@@ -417,6 +420,121 @@ func sanitizeParamName(name string, index int) string {
 		return fmt.Sprintf("%sArg", name)
 	}
 	return name
+}
+
+func isFacadeExportableSignature(sig *types.Signature, corePath string) bool {
+	if sig == nil {
+		return true
+	}
+	seen := map[types.Type]bool{}
+	return isFacadeExportableTuple(sig.Params(), corePath, seen) &&
+		isFacadeExportableTuple(sig.Results(), corePath, seen) &&
+		isFacadeExportableTypeParams(sig.TypeParams(), corePath, seen)
+}
+
+func isFacadeExportableTuple(tuple *types.Tuple, corePath string, seen map[types.Type]bool) bool {
+	if tuple == nil {
+		return true
+	}
+	for v := range tuple.Variables() {
+		if !isFacadeExportableType(v.Type(), corePath, seen) {
+			return false
+		}
+	}
+	return true
+}
+
+func isFacadeExportableTypeParams(params *types.TypeParamList, corePath string, seen map[types.Type]bool) bool {
+	if params == nil {
+		return true
+	}
+	for tparam := range params.TypeParams() {
+		if !isFacadeExportableType(tparam.Constraint(), corePath, seen) {
+			return false
+		}
+	}
+	return true
+}
+
+func isFacadeExportableType(t types.Type, corePath string, seen map[types.Type]bool) bool {
+	if t == nil {
+		return true
+	}
+	if seen[t] {
+		return true
+	}
+	seen[t] = true
+
+	switch typed := t.(type) {
+	case *types.Alias:
+		if obj := typed.Obj(); obj != nil && obj.Pkg() != nil && obj.Pkg().Path() == corePath && !obj.Exported() {
+			return false
+		}
+		return isFacadeExportableType(typed.Rhs(), corePath, seen)
+	case *types.Array:
+		return isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Basic:
+		return true
+	case *types.Chan:
+		return isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Interface:
+		for etyp := range typed.EmbeddedTypes() {
+			if !isFacadeExportableType(etyp, corePath, seen) {
+				return false
+			}
+		}
+		for method := range typed.Methods() {
+			method, ok := method.Type().(*types.Signature)
+			if !ok {
+				return false
+			}
+			if !isFacadeExportableSignature(method, corePath) {
+				return false
+			}
+		}
+		return true
+	case *types.Map:
+		return isFacadeExportableType(typed.Key(), corePath, seen) &&
+			isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Named:
+		if obj := typed.Obj(); obj != nil && obj.Pkg() != nil && obj.Pkg().Path() == corePath && !obj.Exported() {
+			return false
+		}
+		if args := typed.TypeArgs(); args != nil {
+			for t := range args.Types() {
+				if !isFacadeExportableType(t, corePath, seen) {
+					return false
+				}
+			}
+		}
+		return true
+	case *types.Pointer:
+		return isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Signature:
+		return isFacadeExportableSignature(typed, corePath)
+	case *types.Slice:
+		return isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Struct:
+		for field := range typed.Fields() {
+			if !isFacadeExportableType(field.Type(), corePath, seen) {
+				return false
+			}
+		}
+		return true
+	case *types.Tuple:
+		return isFacadeExportableTuple(typed, corePath, seen)
+	case *types.TypeParam:
+		return isFacadeExportableType(typed.Constraint(), corePath, seen)
+	case *types.Union:
+		for term := range typed.Terms() {
+			if !isFacadeExportableType(term.Type(), corePath, seen) {
+				return false
+			}
+		}
+		return true
+	default:
+		return true
+	}
 }
 
 func sanitizeIdent(s string) string {
