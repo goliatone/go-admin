@@ -10,6 +10,7 @@ import (
 	cms "github.com/goliatone/go-cms"
 	command "github.com/goliatone/go-command"
 	"github.com/goliatone/go-command/dispatcher"
+	"github.com/goliatone/go-command/flow"
 	"github.com/goliatone/go-command/runner"
 	crud "github.com/goliatone/go-crud"
 	"github.com/goliatone/go-crud/gql/registrar"
@@ -28,220 +29,260 @@ import (
 )
 
 const (
-	ActionDisabledReasonCodeFeatureDisabled      = core.ActionDisabledReasonCodeFeatureDisabled
-	ActionDisabledReasonCodeInvalidStatus        = core.ActionDisabledReasonCodeInvalidStatus
-	ActionDisabledReasonCodeMissingContext       = core.ActionDisabledReasonCodeMissingContext
-	ActionDisabledReasonCodePermissionDenied     = core.ActionDisabledReasonCodePermissionDenied
-	ActionDisabledReasonCodeTranslationMissing   = core.ActionDisabledReasonCodeTranslationMissing
-	ActionScopeAny                               = core.ActionScopeAny
-	ActionScopeBulk                              = core.ActionScopeBulk
-	ActionScopeDetail                            = core.ActionScopeDetail
-	ActionScopeRow                               = core.ActionScopeRow
-	ActivityActorTypeJob                         = core.ActivityActorTypeJob
-	ActivityActorTypeKey                         = core.ActivityActorTypeKey
-	ActivityActorTypeKeyLegacy                   = core.ActivityActorTypeKeyLegacy
-	ActivityActorTypeSystem                      = core.ActivityActorTypeSystem
-	ActivityActorTypeTask                        = core.ActivityActorTypeTask
-	ActivityActorTypeUser                        = core.ActivityActorTypeUser
-	ActivityObjectTypeBlock                      = core.ActivityObjectTypeBlock
-	ActivityObjectTypeBlockDefinition            = core.ActivityObjectTypeBlockDefinition
-	ActivityObjectTypeContent                    = core.ActivityObjectTypeContent
-	ActivityObjectTypeDashboard                  = core.ActivityObjectTypeDashboard
-	ActivityObjectTypeJob                        = core.ActivityObjectTypeJob
-	ActivityObjectTypeMenu                       = core.ActivityObjectTypeMenu
-	ActivityObjectTypeMenuItem                   = core.ActivityObjectTypeMenuItem
-	ActivityObjectTypeNotification               = core.ActivityObjectTypeNotification
-	ActivityObjectTypeOrganization               = core.ActivityObjectTypeOrganization
-	ActivityObjectTypePage                       = core.ActivityObjectTypePage
-	ActivityObjectTypePanel                      = core.ActivityObjectTypePanel
-	ActivityObjectTypePreferences                = core.ActivityObjectTypePreferences
-	ActivityObjectTypeProfile                    = core.ActivityObjectTypeProfile
-	ActivityObjectTypeRole                       = core.ActivityObjectTypeRole
-	ActivityObjectTypeSettings                   = core.ActivityObjectTypeSettings
-	ActivityObjectTypeTenant                     = core.ActivityObjectTypeTenant
-	ActivityObjectTypeUser                       = core.ActivityObjectTypeUser
-	ActivityObjectTypeWidgetArea                 = core.ActivityObjectTypeWidgetArea
-	ActivityObjectTypeWidgetDefinition           = core.ActivityObjectTypeWidgetDefinition
-	ActivityObjectTypeWidgetInstance             = core.ActivityObjectTypeWidgetInstance
-	AssignmentStatusApproved                     = core.AssignmentStatusApproved
-	AssignmentStatusArchived                     = core.AssignmentStatusArchived
-	AssignmentStatusAssigned                     = core.AssignmentStatusAssigned
-	AssignmentStatusInProgress                   = core.AssignmentStatusInProgress
-	AssignmentStatusPending                      = core.AssignmentStatusPending
-	AssignmentStatusPublished                    = core.AssignmentStatusPublished
-	AssignmentStatusRejected                     = core.AssignmentStatusRejected
-	AssignmentStatusReview                       = core.AssignmentStatusReview
-	AssignmentTypeDirect                         = core.AssignmentTypeDirect
-	AssignmentTypeOpenPool                       = core.AssignmentTypeOpenPool
-	CreateRoleOperation                          = core.CreateRoleOperation
-	CreateTranslationKey                         = core.CreateTranslationKey
-	DebugLayoutAdmin                             = core.DebugLayoutAdmin
-	DebugLayoutStandalone                        = core.DebugLayoutStandalone
-	DebugPanelConfig                             = core.DebugPanelConfig
-	DebugPanelConsole                            = core.DebugPanelConsole
-	DebugPanelCustom                             = core.DebugPanelCustom
-	DebugPanelDoctor                             = core.DebugPanelDoctor
-	DebugPanelJSErrors                           = core.DebugPanelJSErrors
-	DebugPanelLogs                               = core.DebugPanelLogs
-	DebugPanelPermissions                        = core.DebugPanelPermissions
-	DebugPanelRequests                           = core.DebugPanelRequests
-	DebugPanelRoutes                             = core.DebugPanelRoutes
-	DebugPanelSQL                                = core.DebugPanelSQL
-	DebugPanelSession                            = core.DebugPanelSession
-	DebugPanelShell                              = core.DebugPanelShell
-	DebugPanelTemplate                           = core.DebugPanelTemplate
-	DebugREPLKindApp                             = core.DebugREPLKindApp
-	DebugREPLKindShell                           = core.DebugREPLKindShell
-	DebugREPLOverrideKeyMetadata                 = core.DebugREPLOverrideKeyMetadata
-	DebugREPLOverrideTokenMetadata               = core.DebugREPLOverrideTokenMetadata
-	DefaultIconLibrary                           = core.DefaultIconLibrary
-	DefaultPreviewHTMLMaxSizeBytes               = core.DefaultPreviewHTMLMaxSizeBytes
-	DefaultSchemaMaxDepth                        = core.DefaultSchemaMaxDepth
-	DefaultSchemaMaxFields                       = core.DefaultSchemaMaxFields
-	DefaultSchemaMaxSizeBytes                    = core.DefaultSchemaMaxSizeBytes
-	DefaultUISchemaMaxSizeBytes                  = core.DefaultUISchemaMaxSizeBytes
-	DoctorActionKindAuto                         = core.DoctorActionKindAuto
-	DoctorActionKindManual                       = core.DoctorActionKindManual
-	DoctorSeverityError                          = core.DoctorSeverityError
-	DoctorSeverityInfo                           = core.DoctorSeverityInfo
-	DoctorSeverityOK                             = core.DoctorSeverityOK
-	DoctorSeverityWarn                           = core.DoctorSeverityWarn
-	FeatureActivity                              = core.FeatureActivity
-	FeatureBulk                                  = core.FeatureBulk
-	FeatureCMS                                   = core.FeatureCMS
-	FeatureCommands                              = core.FeatureCommands
-	FeatureDashboard                             = core.FeatureDashboard
-	FeatureExport                                = core.FeatureExport
-	FeatureJobs                                  = core.FeatureJobs
-	FeatureMedia                                 = core.FeatureMedia
-	FeatureNotifications                         = core.FeatureNotifications
-	FeatureOrganizations                         = core.FeatureOrganizations
-	FeaturePreferences                           = core.FeaturePreferences
-	FeaturePreview                               = core.FeaturePreview
-	FeatureProfile                               = core.FeatureProfile
-	FeatureSearch                                = core.FeatureSearch
-	FeatureSettings                              = core.FeatureSettings
-	FeatureTenants                               = core.FeatureTenants
-	FeatureTranslationExchange                   = core.FeatureTranslationExchange
-	FeatureTranslationQueue                      = core.FeatureTranslationQueue
-	FeatureUsers                                 = core.FeatureUsers
-	IconRenderModeCSS                            = core.IconRenderModeCSS
-	IconRenderModeImg                            = core.IconRenderModeImg
-	IconRenderModeSVG                            = core.IconRenderModeSVG
-	IconRenderModeSpan                           = core.IconRenderModeSpan
-	IconRenderModeUnknown                        = core.IconRenderModeUnknown
-	IconTypeEmoji                                = core.IconTypeEmoji
-	IconTypeLibrary                              = core.IconTypeLibrary
-	IconTypeSVG                                  = core.IconTypeSVG
-	IconTypeURL                                  = core.IconTypeURL
-	IconTypeUnknown                              = core.IconTypeUnknown
-	MenuItemTypeGroup                            = core.MenuItemTypeGroup
-	MenuItemTypeItem                             = core.MenuItemTypeItem
-	MenuItemTypeSeparator                        = core.MenuItemTypeSeparator
-	ModuleStartupPolicyEnforce                   = core.ModuleStartupPolicyEnforce
-	ModuleStartupPolicyWarn                      = core.ModuleStartupPolicyWarn
-	NotificationMarkCommandName                  = core.NotificationMarkCommandName
-	PanelEntryModeDetailCurrentUser              = core.PanelEntryModeDetailCurrentUser
-	PanelEntryModeList                           = core.PanelEntryModeList
-	PanelActionDefaultsModeConservative          = core.PanelActionDefaultsModeConservative
-	PanelActionDefaultsModeCRUD                  = core.PanelActionDefaultsModeCRUD
-	PanelActionDefaultsModeNone                  = core.PanelActionDefaultsModeNone
-	PanelTabScopeDetail                          = core.PanelTabScopeDetail
-	PanelTabScopeForm                            = core.PanelTabScopeForm
-	PanelTabScopeList                            = core.PanelTabScopeList
-	PanelUIRouteModeCanonical                    = core.PanelUIRouteModeCanonical
-	PanelUIRouteModeCustom                       = core.PanelUIRouteModeCustom
-	PermAdminTranslationsApprove                 = core.PermAdminTranslationsApprove
-	PermAdminTranslationsAssign                  = core.PermAdminTranslationsAssign
-	PermAdminTranslationsClaim                   = core.PermAdminTranslationsClaim
-	PermAdminTranslationsEdit                    = core.PermAdminTranslationsEdit
-	PermAdminTranslationsExport                  = core.PermAdminTranslationsExport
-	PermAdminTranslationsImportApply             = core.PermAdminTranslationsImportApply
-	PermAdminTranslationsImportValidate          = core.PermAdminTranslationsImportValidate
-	PermAdminTranslationsImportView              = core.PermAdminTranslationsImportView
-	PermAdminTranslationsManage                  = core.PermAdminTranslationsManage
-	PermAdminTranslationsView                    = core.PermAdminTranslationsView
-	PreferenceLevelOrg                           = core.PreferenceLevelOrg
-	PreferenceLevelSystem                        = core.PreferenceLevelSystem
-	PreferenceLevelTenant                        = core.PreferenceLevelTenant
-	PreferenceLevelUser                          = core.PreferenceLevelUser
-	PriorityHigh                                 = core.PriorityHigh
-	PriorityLow                                  = core.PriorityLow
-	PriorityNormal                               = core.PriorityNormal
-	PriorityUrgent                               = core.PriorityUrgent
-	RequiredFieldsValidationError                = core.RequiredFieldsValidationError
-	RequiredFieldsValidationIgnore               = core.RequiredFieldsValidationIgnore
-	RequiredFieldsValidationWarn                 = core.RequiredFieldsValidationWarn
-	RolesOpenAPISource                           = core.RolesOpenAPISource
-	SchemaFormatJSONSchema                       = core.SchemaFormatJSONSchema
-	SchemaFormatOpenAPI                          = core.SchemaFormatOpenAPI
-	SettingsScopeDefault                         = core.SettingsScopeDefault
-	SettingsScopeSite                            = core.SettingsScopeSite
-	SettingsScopeSystem                          = core.SettingsScopeSystem
-	SettingsScopeUser                            = core.SettingsScopeUser
-	TextCodeActivityActorContextInvalid          = core.TextCodeActivityActorContextInvalid
-	TextCodeAutosaveConflict                     = core.TextCodeAutosaveConflict
-	TextCodeClearKeysNotSupported                = core.TextCodeClearKeysNotSupported
-	TextCodeConflict                             = core.TextCodeConflict
-	TextCodeContentTypeSchemaBreaking            = core.TextCodeContentTypeSchemaBreaking
-	TextCodeFeatureAliasDisabled                 = core.TextCodeFeatureAliasDisabled
-	TextCodeFeatureDisabled                      = core.TextCodeFeatureDisabled
-	TextCodeFeatureEnabledRequired               = core.TextCodeFeatureEnabledRequired
-	TextCodeForbidden                            = core.TextCodeForbidden
-	TextCodeInvalidFeatureConfig                 = core.TextCodeInvalidFeatureConfig
-	TextCodeMissingPanel                         = core.TextCodeMissingPanel
-	TextCodeNotFound                             = core.TextCodeNotFound
-	TextCodePathConflict                         = core.TextCodePathConflict
-	TextCodeRawUINotSupported                    = core.TextCodeRawUINotSupported
-	TextCodeReplAppDisabled                      = core.TextCodeReplAppDisabled
-	TextCodeReplDebugDisabled                    = core.TextCodeReplDebugDisabled
-	TextCodeReplDisabled                         = core.TextCodeReplDisabled
-	TextCodeReplExecPermissionDenied             = core.TextCodeReplExecPermissionDenied
-	TextCodeReplIPDenied                         = core.TextCodeReplIPDenied
-	TextCodeReplOverrideDenied                   = core.TextCodeReplOverrideDenied
-	TextCodeReplPermissionDenied                 = core.TextCodeReplPermissionDenied
-	TextCodeReplReadOnly                         = core.TextCodeReplReadOnly
-	TextCodeReplRoleDenied                       = core.TextCodeReplRoleDenied
-	TextCodeReplSessionLimit                     = core.TextCodeReplSessionLimit
-	TextCodeReplShellDisabled                    = core.TextCodeReplShellDisabled
-	TextCodeServiceUnavailable                   = core.TextCodeServiceUnavailable
-	TextCodeTranslationExchangeInvalidPayload    = core.TextCodeTranslationExchangeInvalidPayload
-	TextCodeTranslationExchangeMissingLinkage    = core.TextCodeTranslationExchangeMissingLinkage
-	TextCodeTranslationExchangeStaleSourceHash   = core.TextCodeTranslationExchangeStaleSourceHash
-	TextCodeTranslationExchangeUnsupportedFormat = core.TextCodeTranslationExchangeUnsupportedFormat
-	TextCodeTranslationExists                    = core.TextCodeTranslationExists
-	TextCodeTranslationMissing                   = core.TextCodeTranslationMissing
-	TextCodeTranslationQueueConflict             = core.TextCodeTranslationQueueConflict
-	TextCodeTranslationQueueVersionConflict      = core.TextCodeTranslationQueueVersionConflict
-	TextCodeValidationError                      = core.TextCodeValidationError
-	TextCodeWorkflowInvalidTransition            = core.TextCodeWorkflowInvalidTransition
-	TextCodeWorkflowNotFound                     = core.TextCodeWorkflowNotFound
-	UpdateRoleOperation                          = core.UpdateRoleOperation
-	WidgetActivityFeed                           = core.WidgetActivityFeed
-	WidgetBarChart                               = core.WidgetBarChart
-	WidgetChartSample                            = core.WidgetChartSample
-	WidgetContentStats                           = core.WidgetContentStats
-	WidgetGaugeChart                             = core.WidgetGaugeChart
-	WidgetLineChart                              = core.WidgetLineChart
-	WidgetNotifications                          = core.WidgetNotifications
-	WidgetPieChart                               = core.WidgetPieChart
-	WidgetQuickActions                           = core.WidgetQuickActions
-	WidgetScatterChart                           = core.WidgetScatterChart
-	WidgetSettingsOverview                       = core.WidgetSettingsOverview
-	WidgetStorageStats                           = core.WidgetStorageStats
-	WidgetSystemHealth                           = core.WidgetSystemHealth
-	WidgetTranslationProgress                    = core.WidgetTranslationProgress
-	WidgetUserActivityFeed                       = core.WidgetUserActivityFeed
-	WidgetUserProfileOverview                    = core.WidgetUserProfileOverview
-	WidgetUserStats                              = core.WidgetUserStats
-	WorkflowBindingScopeContentType              = core.WorkflowBindingScopeContentType
-	WorkflowBindingScopeGlobal                   = core.WorkflowBindingScopeGlobal
-	WorkflowBindingScopeTrait                    = core.WorkflowBindingScopeTrait
-	WorkflowBindingStatusActive                  = core.WorkflowBindingStatusActive
-	WorkflowBindingStatusInactive                = core.WorkflowBindingStatusInactive
-	WorkflowStatusActive                         = core.WorkflowStatusActive
-	WorkflowStatusDeprecated                     = core.WorkflowStatusDeprecated
-	WorkflowStatusDraft                          = core.WorkflowStatusDraft
+	ActionDisabledReasonCodeFeatureDisabled        = core.ActionDisabledReasonCodeFeatureDisabled
+	ActionDisabledReasonCodeInvalidSelection       = core.ActionDisabledReasonCodeInvalidSelection
+	ActionDisabledReasonCodeInvalidStatus          = core.ActionDisabledReasonCodeInvalidStatus
+	ActionDisabledReasonCodeMissingContext         = core.ActionDisabledReasonCodeMissingContext
+	ActionDisabledReasonCodePermissionDenied       = core.ActionDisabledReasonCodePermissionDenied
+	ActionDisabledReasonCodePreconditionFailed     = core.ActionDisabledReasonCodePreconditionFailed
+	ActionDisabledReasonCodeRateLimited            = core.ActionDisabledReasonCodeRateLimited
+	ActionDisabledReasonCodeResourceInUse          = core.ActionDisabledReasonCodeResourceInUse
+	ActionDisabledReasonCodeTemporarilyUnavailable = core.ActionDisabledReasonCodeTemporarilyUnavailable
+	ActionDisabledReasonCodeTranslationMissing     = core.ActionDisabledReasonCodeTranslationMissing
+	ActionScopeAny                                 = core.ActionScopeAny
+	ActionScopeBulk                                = core.ActionScopeBulk
+	ActionScopeDetail                              = core.ActionScopeDetail
+	ActionScopeRow                                 = core.ActionScopeRow
+	ActivityActorTypeJob                           = core.ActivityActorTypeJob
+	ActivityActorTypeKey                           = core.ActivityActorTypeKey
+	ActivityActorTypeKeyLegacy                     = core.ActivityActorTypeKeyLegacy
+	ActivityActorTypeSystem                        = core.ActivityActorTypeSystem
+	ActivityActorTypeTask                          = core.ActivityActorTypeTask
+	ActivityActorTypeUser                          = core.ActivityActorTypeUser
+	ActivityObjectTypeBlock                        = core.ActivityObjectTypeBlock
+	ActivityObjectTypeBlockDefinition              = core.ActivityObjectTypeBlockDefinition
+	ActivityObjectTypeContent                      = core.ActivityObjectTypeContent
+	ActivityObjectTypeDashboard                    = core.ActivityObjectTypeDashboard
+	ActivityObjectTypeJob                          = core.ActivityObjectTypeJob
+	ActivityObjectTypeMenu                         = core.ActivityObjectTypeMenu
+	ActivityObjectTypeMenuItem                     = core.ActivityObjectTypeMenuItem
+	ActivityObjectTypeNotification                 = core.ActivityObjectTypeNotification
+	ActivityObjectTypeOrganization                 = core.ActivityObjectTypeOrganization
+	ActivityObjectTypePage                         = core.ActivityObjectTypePage
+	ActivityObjectTypePanel                        = core.ActivityObjectTypePanel
+	ActivityObjectTypePreferences                  = core.ActivityObjectTypePreferences
+	ActivityObjectTypeProfile                      = core.ActivityObjectTypeProfile
+	ActivityObjectTypeRole                         = core.ActivityObjectTypeRole
+	ActivityObjectTypeSettings                     = core.ActivityObjectTypeSettings
+	ActivityObjectTypeTenant                       = core.ActivityObjectTypeTenant
+	ActivityObjectTypeUser                         = core.ActivityObjectTypeUser
+	ActivityObjectTypeWidgetArea                   = core.ActivityObjectTypeWidgetArea
+	ActivityObjectTypeWidgetDefinition             = core.ActivityObjectTypeWidgetDefinition
+	ActivityObjectTypeWidgetInstance               = core.ActivityObjectTypeWidgetInstance
+	AssignmentStatusApproved                       = core.AssignmentStatusApproved
+	AssignmentStatusArchived                       = core.AssignmentStatusArchived
+	AssignmentStatusAssigned                       = core.AssignmentStatusAssigned
+	AssignmentStatusChangesRequested               = core.AssignmentStatusChangesRequested
+	AssignmentStatusInProgress                     = core.AssignmentStatusInProgress
+	AssignmentStatusInReview                       = core.AssignmentStatusInReview
+	AssignmentStatusOpen                           = core.AssignmentStatusOpen
+	AssignmentStatusPending                        = core.AssignmentStatusPending
+	AssignmentStatusPublished                      = core.AssignmentStatusPublished
+	AssignmentStatusRejected                       = core.AssignmentStatusRejected
+	AssignmentStatusReview                         = core.AssignmentStatusReview
+	AssignmentTypeDirect                           = core.AssignmentTypeDirect
+	AssignmentTypeOpenPool                         = core.AssignmentTypeOpenPool
+	ContentChannelScopeQueryParam                  = core.ContentChannelScopeQueryParam
+	CreateRoleOperation                            = core.CreateRoleOperation
+	CreateTranslationKey                           = core.CreateTranslationKey
+	DebugLayoutAdmin                               = core.DebugLayoutAdmin
+	DebugLayoutStandalone                          = core.DebugLayoutStandalone
+	DebugPanelActions                              = core.DebugPanelActions
+	DebugPanelConfig                               = core.DebugPanelConfig
+	DebugPanelConsole                              = core.DebugPanelConsole
+	DebugPanelCustom                               = core.DebugPanelCustom
+	DebugPanelDoctor                               = core.DebugPanelDoctor
+	DebugPanelJSErrors                             = core.DebugPanelJSErrors
+	DebugPanelLogs                                 = core.DebugPanelLogs
+	DebugPanelPermissions                          = core.DebugPanelPermissions
+	DebugPanelRequests                             = core.DebugPanelRequests
+	DebugPanelRoutes                               = core.DebugPanelRoutes
+	DebugPanelSQL                                  = core.DebugPanelSQL
+	DebugPanelSession                              = core.DebugPanelSession
+	DebugPanelShell                                = core.DebugPanelShell
+	DebugPanelTemplate                             = core.DebugPanelTemplate
+	DebugREPLKindApp                               = core.DebugREPLKindApp
+	DebugREPLKindShell                             = core.DebugREPLKindShell
+	DebugREPLOverrideKeyMetadata                   = core.DebugREPLOverrideKeyMetadata
+	DebugREPLOverrideTokenMetadata                 = core.DebugREPLOverrideTokenMetadata
+	DefaultIconLibrary                             = core.DefaultIconLibrary
+	DefaultPreviewHTMLMaxSizeBytes                 = core.DefaultPreviewHTMLMaxSizeBytes
+	DefaultSchemaMaxDepth                          = core.DefaultSchemaMaxDepth
+	DefaultSchemaMaxFields                         = core.DefaultSchemaMaxFields
+	DefaultSchemaMaxSizeBytes                      = core.DefaultSchemaMaxSizeBytes
+	DefaultUISchemaMaxSizeBytes                    = core.DefaultUISchemaMaxSizeBytes
+	DoctorActionKindAuto                           = core.DoctorActionKindAuto
+	DoctorActionKindManual                         = core.DoctorActionKindManual
+	DoctorSeverityError                            = core.DoctorSeverityError
+	DoctorSeverityInfo                             = core.DoctorSeverityInfo
+	DoctorSeverityOK                               = core.DoctorSeverityOK
+	DoctorSeverityWarn                             = core.DoctorSeverityWarn
+	FeatureActivity                                = core.FeatureActivity
+	FeatureBulk                                    = core.FeatureBulk
+	FeatureCMS                                     = core.FeatureCMS
+	FeatureCommands                                = core.FeatureCommands
+	FeatureDashboard                               = core.FeatureDashboard
+	FeatureExport                                  = core.FeatureExport
+	FeatureJobs                                    = core.FeatureJobs
+	FeatureMedia                                   = core.FeatureMedia
+	FeatureNotifications                           = core.FeatureNotifications
+	FeatureOrganizations                           = core.FeatureOrganizations
+	FeaturePreferences                             = core.FeaturePreferences
+	FeaturePreview                                 = core.FeaturePreview
+	FeatureProfile                                 = core.FeatureProfile
+	FeatureSearch                                  = core.FeatureSearch
+	FeatureSettings                                = core.FeatureSettings
+	FeatureTenants                                 = core.FeatureTenants
+	FeatureTranslationExchange                     = core.FeatureTranslationExchange
+	FeatureTranslationQAStyle                      = core.FeatureTranslationQAStyle
+	FeatureTranslationQATerms                      = core.FeatureTranslationQATerms
+	FeatureTranslationQueue                        = core.FeatureTranslationQueue
+	FeatureUsers                                   = core.FeatureUsers
+	IconRenderModeCSS                              = core.IconRenderModeCSS
+	IconRenderModeImg                              = core.IconRenderModeImg
+	IconRenderModeSVG                              = core.IconRenderModeSVG
+	IconRenderModeSpan                             = core.IconRenderModeSpan
+	IconRenderModeUnknown                          = core.IconRenderModeUnknown
+	IconTypeEmoji                                  = core.IconTypeEmoji
+	IconTypeLibrary                                = core.IconTypeLibrary
+	IconTypeSVG                                    = core.IconTypeSVG
+	IconTypeURL                                    = core.IconTypeURL
+	IconTypeUnknown                                = core.IconTypeUnknown
+	MenuItemTypeGroup                              = core.MenuItemTypeGroup
+	MenuItemTypeItem                               = core.MenuItemTypeItem
+	MenuItemTypeSeparator                          = core.MenuItemTypeSeparator
+	MenuRecordStatusDraft                          = core.MenuRecordStatusDraft
+	MenuRecordStatusPublished                      = core.MenuRecordStatusPublished
+	ModuleStartupPolicyEnforce                     = core.ModuleStartupPolicyEnforce
+	ModuleStartupPolicyWarn                        = core.ModuleStartupPolicyWarn
+	NavigationOverrideHide                         = core.NavigationOverrideHide
+	NavigationOverrideInherit                      = core.NavigationOverrideInherit
+	NavigationOverrideShow                         = core.NavigationOverrideShow
+	NotificationMarkCommandName                    = core.NotificationMarkCommandName
+	PanelActionDefaultsModeCRUD                    = core.PanelActionDefaultsModeCRUD
+	PanelActionDefaultsModeConservative            = core.PanelActionDefaultsModeConservative
+	PanelActionDefaultsModeNone                    = core.PanelActionDefaultsModeNone
+	PanelEntryModeDetailCurrentUser                = core.PanelEntryModeDetailCurrentUser
+	PanelEntryModeList                             = core.PanelEntryModeList
+	PanelTabScopeDetail                            = core.PanelTabScopeDetail
+	PanelTabScopeForm                              = core.PanelTabScopeForm
+	PanelTabScopeList                              = core.PanelTabScopeList
+	PanelUIRouteModeCanonical                      = core.PanelUIRouteModeCanonical
+	PanelUIRouteModeCustom                         = core.PanelUIRouteModeCustom
+	PermAdminTranslationsApprove                   = core.PermAdminTranslationsApprove
+	PermAdminTranslationsAssign                    = core.PermAdminTranslationsAssign
+	PermAdminTranslationsClaim                     = core.PermAdminTranslationsClaim
+	PermAdminTranslationsEdit                      = core.PermAdminTranslationsEdit
+	PermAdminTranslationsExport                    = core.PermAdminTranslationsExport
+	PermAdminTranslationsImportApply               = core.PermAdminTranslationsImportApply
+	PermAdminTranslationsImportValidate            = core.PermAdminTranslationsImportValidate
+	PermAdminTranslationsImportView                = core.PermAdminTranslationsImportView
+	PermAdminTranslationsManage                    = core.PermAdminTranslationsManage
+	PermAdminTranslationsView                      = core.PermAdminTranslationsView
+	PreferenceLevelOrg                             = core.PreferenceLevelOrg
+	PreferenceLevelSystem                          = core.PreferenceLevelSystem
+	PreferenceLevelTenant                          = core.PreferenceLevelTenant
+	PreferenceLevelUser                            = core.PreferenceLevelUser
+	PriorityHigh                                   = core.PriorityHigh
+	PriorityLow                                    = core.PriorityLow
+	PriorityNormal                                 = core.PriorityNormal
+	PriorityUrgent                                 = core.PriorityUrgent
+	RPCMethodCommandDispatch                       = core.RPCMethodCommandDispatch
+	RPCMethodCommandList                           = core.RPCMethodCommandList
+	RPCMethodWorkflowBindingsDelete                = core.RPCMethodWorkflowBindingsDelete
+	RPCMethodWorkflowBindingsList                  = core.RPCMethodWorkflowBindingsList
+	RPCMethodWorkflowBindingsResolve               = core.RPCMethodWorkflowBindingsResolve
+	RPCMethodWorkflowBindingsUpsert                = core.RPCMethodWorkflowBindingsUpsert
+	RequiredFieldsValidationError                  = core.RequiredFieldsValidationError
+	RequiredFieldsValidationIgnore                 = core.RequiredFieldsValidationIgnore
+	RequiredFieldsValidationWarn                   = core.RequiredFieldsValidationWarn
+	RolesOpenAPISource                             = core.RolesOpenAPISource
+	SchemaFormatJSONSchema                         = core.SchemaFormatJSONSchema
+	SchemaFormatOpenAPI                            = core.SchemaFormatOpenAPI
+	SettingsScopeDefault                           = core.SettingsScopeDefault
+	SettingsScopeSite                              = core.SettingsScopeSite
+	SettingsScopeSystem                            = core.SettingsScopeSystem
+	SettingsScopeUser                              = core.SettingsScopeUser
+	SiteRouteContentDetail                         = core.SiteRouteContentDetail
+	SiteRouteContentList                           = core.SiteRouteContentList
+	SiteRouteMenuByCode                            = core.SiteRouteMenuByCode
+	SiteRouteMenuByLocation                        = core.SiteRouteMenuByLocation
+	SiteRouteNavigationLegacy                      = core.SiteRouteNavigationLegacy
+	TextCodeActivityActorContextInvalid            = core.TextCodeActivityActorContextInvalid
+	TextCodeAdminCSRFInvalid                       = core.TextCodeAdminCSRFInvalid
+	TextCodeAutosaveConflict                       = core.TextCodeAutosaveConflict
+	TextCodeClearKeysNotSupported                  = core.TextCodeClearKeysNotSupported
+	TextCodeConflict                               = core.TextCodeConflict
+	TextCodeContentTypeSchemaBreaking              = core.TextCodeContentTypeSchemaBreaking
+	TextCodeFeatureAliasDisabled                   = core.TextCodeFeatureAliasDisabled
+	TextCodeFeatureDisabled                        = core.TextCodeFeatureDisabled
+	TextCodeFeatureEnabledRequired                 = core.TextCodeFeatureEnabledRequired
+	TextCodeForbidden                              = core.TextCodeForbidden
+	TextCodeInvalidFeatureConfig                   = core.TextCodeInvalidFeatureConfig
+	TextCodeInvalidSelection                       = core.TextCodeInvalidSelection
+	TextCodeInvalidStatus                          = core.TextCodeInvalidStatus
+	TextCodeMenuValidationCycle                    = core.TextCodeMenuValidationCycle
+	TextCodeMenuValidationDepth                    = core.TextCodeMenuValidationDepth
+	TextCodeMenuValidationInvalidTarget            = core.TextCodeMenuValidationInvalidTarget
+	TextCodeMissingContext                         = core.TextCodeMissingContext
+	TextCodeMissingPanel                           = core.TextCodeMissingPanel
+	TextCodeNotFound                               = core.TextCodeNotFound
+	TextCodePathConflict                           = core.TextCodePathConflict
+	TextCodePreconditionFailed                     = core.TextCodePreconditionFailed
+	TextCodeRateLimited                            = core.TextCodeRateLimited
+	TextCodeRawUINotSupported                      = core.TextCodeRawUINotSupported
+	TextCodeReplAppDisabled                        = core.TextCodeReplAppDisabled
+	TextCodeReplDebugDisabled                      = core.TextCodeReplDebugDisabled
+	TextCodeReplDisabled                           = core.TextCodeReplDisabled
+	TextCodeReplExecPermissionDenied               = core.TextCodeReplExecPermissionDenied
+	TextCodeReplIPDenied                           = core.TextCodeReplIPDenied
+	TextCodeReplOverrideDenied                     = core.TextCodeReplOverrideDenied
+	TextCodeReplPermissionDenied                   = core.TextCodeReplPermissionDenied
+	TextCodeReplReadOnly                           = core.TextCodeReplReadOnly
+	TextCodeReplRoleDenied                         = core.TextCodeReplRoleDenied
+	TextCodeReplSessionLimit                       = core.TextCodeReplSessionLimit
+	TextCodeReplShellDisabled                      = core.TextCodeReplShellDisabled
+	TextCodeResourceInUse                          = core.TextCodeResourceInUse
+	TextCodeServiceUnavailable                     = core.TextCodeServiceUnavailable
+	TextCodeTemporarilyUnavailable                 = core.TextCodeTemporarilyUnavailable
+	TextCodeTranslationExchangeDuplicateRow        = core.TextCodeTranslationExchangeDuplicateRow
+	TextCodeTranslationExchangeInvalidPayload      = core.TextCodeTranslationExchangeInvalidPayload
+	TextCodeTranslationExchangeMissingLinkage      = core.TextCodeTranslationExchangeMissingLinkage
+	TextCodeTranslationExchangeStaleSourceHash     = core.TextCodeTranslationExchangeStaleSourceHash
+	TextCodeTranslationExchangeUnsupportedFormat   = core.TextCodeTranslationExchangeUnsupportedFormat
+	TextCodeTranslationExists                      = core.TextCodeTranslationExists
+	TextCodeTranslationMissing                     = core.TextCodeTranslationMissing
+	TextCodeTranslationQueueConflict               = core.TextCodeTranslationQueueConflict
+	TextCodeTranslationQueueVersionConflict        = core.TextCodeTranslationQueueVersionConflict
+	TextCodeValidationError                        = core.TextCodeValidationError
+	TextCodeWorkflowInvalidTransition              = core.TextCodeWorkflowInvalidTransition
+	TextCodeWorkflowNotFound                       = core.TextCodeWorkflowNotFound
+	UpdateRoleOperation                            = core.UpdateRoleOperation
+	WidgetActivityFeed                             = core.WidgetActivityFeed
+	WidgetBarChart                                 = core.WidgetBarChart
+	WidgetChartSample                              = core.WidgetChartSample
+	WidgetContentStats                             = core.WidgetContentStats
+	WidgetGaugeChart                               = core.WidgetGaugeChart
+	WidgetLineChart                                = core.WidgetLineChart
+	WidgetNotifications                            = core.WidgetNotifications
+	WidgetPieChart                                 = core.WidgetPieChart
+	WidgetQuickActions                             = core.WidgetQuickActions
+	WidgetScatterChart                             = core.WidgetScatterChart
+	WidgetSettingsOverview                         = core.WidgetSettingsOverview
+	WidgetStorageStats                             = core.WidgetStorageStats
+	WidgetSystemHealth                             = core.WidgetSystemHealth
+	WidgetTranslationProgress                      = core.WidgetTranslationProgress
+	WidgetUserActivityFeed                         = core.WidgetUserActivityFeed
+	WidgetUserProfileOverview                      = core.WidgetUserProfileOverview
+	WidgetUserStats                                = core.WidgetUserStats
+	WorkflowBindingScopeContentType                = core.WorkflowBindingScopeContentType
+	WorkflowBindingScopeGlobal                     = core.WorkflowBindingScopeGlobal
+	WorkflowBindingScopeTrait                      = core.WorkflowBindingScopeTrait
+	WorkflowBindingStatusActive                    = core.WorkflowBindingStatusActive
+	WorkflowBindingStatusInactive                  = core.WorkflowBindingStatusInactive
+	WorkflowStatusActive                           = core.WorkflowStatusActive
+	WorkflowStatusDeprecated                       = core.WorkflowStatusDeprecated
+	WorkflowStatusDraft                            = core.WorkflowStatusDraft
 )
 
 var (
@@ -254,6 +295,7 @@ var (
 	ErrInvalidDependencies                  = core.ErrInvalidDependencies
 	ErrInvalidFeatureConfig                 = core.ErrInvalidFeatureConfig
 	ErrMenuSlugConflict                     = core.ErrMenuSlugConflict
+	ErrMenuTargetNotFound                   = core.ErrMenuTargetNotFound
 	ErrMissingTranslations                  = core.ErrMissingTranslations
 	ErrNotFound                             = core.ErrNotFound
 	ErrPathConflict                         = core.ErrPathConflict
@@ -280,7 +322,17 @@ var (
 
 type (
 	Action                                    = core.Action
+	ActionDiagnosticEntry                     = core.ActionDiagnosticEntry
+	ActionDiagnosticSink                      = core.ActionDiagnosticSink
+	ActionDiagnosticsDebugPanel               = core.ActionDiagnosticsDebugPanel
+	ActionDiagnosticsStore                    = core.ActionDiagnosticsStore
+	ActionGuard                               = core.ActionGuard
+	ActionGuardContext                        = core.ActionGuardContext
+	ActionRemediation                         = core.ActionRemediation
+	ActionResponse                            = core.ActionResponse
+	ActionResponseCollector                   = core.ActionResponseCollector
 	ActionScope                               = core.ActionScope
+	ActionState                               = core.ActionState
 	ActivityEntry                             = core.ActivityEntry
 	ActivityFeed                              = core.ActivityFeed
 	ActivityFeedQuerier                       = core.ActivityFeedQuerier
@@ -295,7 +347,16 @@ type (
 	Admin                                     = core.Admin
 	AdminActivityEnricherConfig               = core.AdminActivityEnricherConfig
 	AdminActorResolver                        = core.AdminActorResolver
+	AdminBlockReadService                     = core.AdminBlockReadService
+	AdminBlockWriteService                    = core.AdminBlockWriteService
+	AdminContentReadService                   = core.AdminContentReadService
+	AdminContentWriteService                  = core.AdminContentWriteService
 	AdminContext                              = core.AdminContext
+	AdminMenuBindingRecord                    = core.AdminMenuBindingRecord
+	AdminMenuContracts                        = core.AdminMenuContracts
+	AdminMenuPreviewSimulation                = core.AdminMenuPreviewSimulation
+	AdminMenuRecord                           = core.AdminMenuRecord
+	AdminMenuViewProfileRecord                = core.AdminMenuViewProfileRecord
 	AdminObjectResolverConfig                 = core.AdminObjectResolverConfig
 	AdminPageGetOptions                       = core.AdminPageGetOptions
 	AdminPageListOptions                      = core.AdminPageListOptions
@@ -306,10 +367,16 @@ type (
 	AssignmentStatus                          = core.AssignmentStatus
 	AssignmentType                            = core.AssignmentType
 	AuthConfig                                = core.AuthConfig
+	AuthenticatedRequestIdentity              = core.AuthenticatedRequestIdentity
+	AuthenticatedRequestScopeDefaults         = core.AuthenticatedRequestScopeDefaults
 	Authenticator                             = core.Authenticator
 	Authorizer                                = core.Authorizer
 	AutosaveConflictError                     = core.AutosaveConflictError
+	BatchActionStateResolver                  = core.BatchActionStateResolver
 	BatchAuthorizer                           = core.BatchAuthorizer
+	BrowserCSRFProtector                      = core.BrowserCSRFProtector
+	BulkActionStateConfig                     = core.BulkActionStateConfig
+	BulkActionStateResolver                   = core.BulkActionStateResolver
 	BulkCommand                               = core.BulkCommand
 	BulkConfig                                = core.BulkConfig
 	BulkJob                                   = core.BulkJob
@@ -325,6 +392,10 @@ type (
 	BunRepositoryAdapter[T any]               = core.BunRepositoryAdapter[T]
 	BunRepositoryOption[T any]                = core.BunRepositoryOption[T]
 	BunSettingsAdapter                        = core.BunSettingsAdapter
+	BunTranslationAssignmentRepository        = core.BunTranslationAssignmentRepository
+	BunTranslationExchangeRuntimeStore        = core.BunTranslationExchangeRuntimeStore
+	BunTranslationFamilyStore                 = core.BunTranslationFamilyStore
+	BunWorkflowAuthoringStore                 = core.BunWorkflowAuthoringStore
 	BunWorkflowBindingRepository              = core.BunWorkflowBindingRepository
 	BunWorkflowDefinitionRepository           = core.BunWorkflowDefinitionRepository
 	CLIConfig                                 = core.CLIConfig
@@ -354,12 +425,16 @@ type (
 	CMSPageRepository                         = core.CMSPageRepository
 	CMSWidgetService                          = core.CMSWidgetService
 	CRUDRepositoryAdapter                     = core.CRUDRepositoryAdapter
+	CanonicalURLResolver                      = core.CanonicalURLResolver
 	ChartPointWidgetPayload                   = core.ChartPointWidgetPayload
 	CommandBus                                = core.CommandBus
+	CommandConfig                             = core.CommandConfig
+	CommandExecutionPolicy                    = core.CommandExecutionPolicy
 	Config                                    = core.Config
 	ContentTranslation                        = core.ContentTranslation
 	ContentTypeBuilderModule                  = core.ContentTypeBuilderModule
 	ContentTypeBuilderOption                  = core.ContentTypeBuilderOption
+	ContentTypeCapabilityContracts            = core.ContentTypeCapabilityContracts
 	ContentTypeCreateMsg                      = core.ContentTypeCreateMsg
 	ContentTypeDeleteMsg                      = core.ContentTypeDeleteMsg
 	ContentTypePublishMsg                     = core.ContentTypePublishMsg
@@ -397,6 +472,7 @@ type (
 	DebugREPLSession                          = core.DebugREPLSession
 	DebugREPLSessionManager                   = core.DebugREPLSessionManager
 	DebugREPLSessionStore                     = core.DebugREPLSessionStore
+	DebugSecureRequestResolver                = core.DebugSecureRequestResolver
 	DebugSessionSnapshotOptions               = core.DebugSessionSnapshotOptions
 	DebugUserSession                          = core.DebugUserSession
 	DebugUserSessionStore                     = core.DebugUserSessionStore
@@ -447,6 +523,9 @@ type (
 	ExportRegistry                            = core.ExportRegistry
 	ExportRouteOptions                        = core.ExportRouteOptions
 	ExportRouteWrapper                        = core.ExportRouteWrapper
+	FSMLifecycleActivitySinkAdapter           = core.FSMLifecycleActivitySinkAdapter
+	FSMWorkflowEngine                         = core.FSMWorkflowEngine
+	FSMWorkflowEngineOption                   = core.FSMWorkflowEngineOption
 	FeatureDependencyError                    = core.FeatureDependencyError
 	FeatureDisabledError                      = core.FeatureDisabledError
 	FeatureFlagsModule                        = core.FeatureFlagsModule
@@ -470,6 +549,11 @@ type (
 	GoCMSTranslationPolicy                    = core.GoCMSTranslationPolicy
 	GoCMSWidgetAdapter                        = core.GoCMSWidgetAdapter
 	GoOptionsSettingsAdapter                  = core.GoOptionsSettingsAdapter
+	GoSearchGlobalAdapter                     = core.GoSearchGlobalAdapter
+	GoSearchGlobalAdapterConfig               = core.GoSearchGlobalAdapterConfig
+	GoSearchOperations                        = core.GoSearchOperations
+	GoSearchSiteProvider                      = core.GoSearchSiteProvider
+	GoSearchSiteProviderConfig                = core.GoSearchSiteProviderConfig
 	GoUsersProfileStore                       = core.GoUsersProfileStore
 	GoUsersRoleRepository                     = core.GoUsersRoleRepository
 	GoUsersUserRepository                     = core.GoUsersUserRepository
@@ -528,7 +612,9 @@ type (
 	MediaItem                                 = core.MediaItem
 	MediaLibrary                              = core.MediaLibrary
 	MemoryRepository                          = core.MemoryRepository
+	MemoryTranslationExchangeRuntimeStore     = core.MemoryTranslationExchangeRuntimeStore
 	Menu                                      = core.Menu
+	MenuBuilderService                        = core.MenuBuilderService
 	MenuContributor                           = core.MenuContributor
 	MenuHandle                                = core.MenuHandle
 	MenuItem                                  = core.MenuItem
@@ -567,8 +653,9 @@ type (
 	PageReadOptions                           = core.PageReadOptions
 	PageTranslation                           = core.PageTranslation
 	Panel                                     = core.Panel
-	PanelBuilder                              = core.PanelBuilder
 	PanelActionDefaultsMode                   = core.PanelActionDefaultsMode
+	PanelBreadcrumbConfig                     = core.PanelBreadcrumbConfig
+	PanelBuilder                              = core.PanelBuilder
 	PanelEntryMode                            = core.PanelEntryMode
 	PanelFormAdapter                          = core.PanelFormAdapter
 	PanelFormRequest                          = core.PanelFormRequest
@@ -616,6 +703,13 @@ type (
 	ProfileStore                              = core.ProfileStore
 	QuickActionWidgetPayload                  = core.QuickActionWidgetPayload
 	QuickActionsWidgetPayload                 = core.QuickActionsWidgetPayload
+	RPCCommandConfig                          = core.RPCCommandConfig
+	RPCCommandDispatchRequest                 = core.RPCCommandDispatchRequest
+	RPCCommandDispatchResponse                = core.RPCCommandDispatchResponse
+	RPCCommandListResponse                    = core.RPCCommandListResponse
+	RPCCommandPolicyHook                      = core.RPCCommandPolicyHook
+	RPCCommandPolicyInput                     = core.RPCCommandPolicyInput
+	RPCCommandRule                            = core.RPCCommandRule
 	RateLimiter                               = core.RateLimiter
 	Registry                                  = core.Registry
 	Repository                                = core.Repository
@@ -633,6 +727,7 @@ type (
 	RoleRepositoryLookup                      = core.RoleRepositoryLookup
 	RoleWorkflowAuthorizer                    = core.RoleWorkflowAuthorizer
 	RoleWorkflowAuthorizerOption              = core.RoleWorkflowAuthorizerOption
+	RouteContractProvider                     = core.RouteContractProvider
 	RouteEntry                                = core.RouteEntry
 	RouterContext                             = core.RouterContext
 	SQLEntry                                  = core.SQLEntry
@@ -653,16 +748,10 @@ type (
 	SearchFacetTerm                           = core.SearchFacetTerm
 	SearchHit                                 = core.SearchHit
 	SearchProvider                            = core.SearchProvider
+	SearchRange                               = core.SearchRange
 	SearchRequest                             = core.SearchRequest
 	SearchResult                              = core.SearchResult
 	SearchResultPage                          = core.SearchResultPage
-	SuggestRequest                            = core.SuggestRequest
-	SuggestResult                             = core.SuggestResult
-	GoSearchGlobalAdapter                     = core.GoSearchGlobalAdapter
-	GoSearchGlobalAdapterConfig               = core.GoSearchGlobalAdapterConfig
-	GoSearchOperations                        = core.GoSearchOperations
-	GoSearchSiteProvider                      = core.GoSearchSiteProvider
-	GoSearchSiteProviderConfig                = core.GoSearchSiteProviderConfig
 	SettingDefinition                         = core.SettingDefinition
 	SettingFieldEnricher                      = core.SettingFieldEnricher
 	SettingOption                             = core.SettingOption
@@ -681,11 +770,27 @@ type (
 	SettingsUpdateMsg                         = core.SettingsUpdateMsg
 	SettingsValidationErrors                  = core.SettingsValidationErrors
 	SignedTokenStrategy                       = core.SignedTokenStrategy
-	FSMWorkflowEngine                         = core.FSMWorkflowEngine
+	SiteAPIClient                             = core.SiteAPIClient
+	SiteAPIError                              = core.SiteAPIError
+	SiteAPIErrorResponse                      = core.SiteAPIErrorResponse
+	SiteConfig                                = core.SiteConfig
+	SiteContentDetailResponse                 = core.SiteContentDetailResponse
+	SiteContentListResponse                   = core.SiteContentListResponse
+	SiteMenuReadOptions                       = core.SiteMenuReadOptions
+	SiteMenuResponse                          = core.SiteMenuResponse
+	SiteQuery                                 = core.SiteQuery
+	SiteResponseMeta                          = core.SiteResponseMeta
+	SiteTranslationMissingDetails             = core.SiteTranslationMissingDetails
+	SiteURLResolver                           = core.SiteURLResolver
 	SourceContext                             = core.SourceContext
 	SourceLine                                = core.SourceLine
 	StackFrameInfo                            = core.StackFrameInfo
 	StaticKeyStrategy                         = core.StaticKeyStrategy
+	SuggestRequest                            = core.SuggestRequest
+	SuggestResult                             = core.SuggestResult
+	SyncTransportAdapter                      = core.SyncTransportAdapter
+	SyncTransportRequestMetadata              = core.SyncTransportRequestMetadata
+	SyncTransportScopeResolver                = core.SyncTransportScopeResolver
 	TenantMember                              = core.TenantMember
 	TenantPanelRepository                     = core.TenantPanelRepository
 	TenantRecord                              = core.TenantRecord
@@ -695,8 +800,6 @@ type (
 	ThemeProvider                             = core.ThemeProvider
 	ThemeSelection                            = core.ThemeSelection
 	ThemeSelector                             = core.ThemeSelector
-	WorkflowApplyEventRequest                 = core.WorkflowApplyEventRequest
-	WorkflowApplyEventResponse                = core.WorkflowApplyEventResponse
 	TranslationAlreadyExistsError             = core.TranslationAlreadyExistsError
 	TranslationAssignment                     = core.TranslationAssignment
 	TranslationAssignmentConflictError        = core.TranslationAssignmentConflictError
@@ -710,6 +813,7 @@ type (
 	TranslationExchangeApplyRequest           = core.TranslationExchangeApplyRequest
 	TranslationExchangeConflictError          = core.TranslationExchangeConflictError
 	TranslationExchangeConflictInfo           = core.TranslationExchangeConflictInfo
+	TranslationExchangeConflictResolution     = core.TranslationExchangeConflictResolution
 	TranslationExchangeExporter               = core.TranslationExchangeExporter
 	TranslationExchangeInvalidPayloadError    = core.TranslationExchangeInvalidPayloadError
 	TranslationExchangeLinkage                = core.TranslationExchangeLinkage
@@ -717,7 +821,10 @@ type (
 	TranslationExchangeResult                 = core.TranslationExchangeResult
 	TranslationExchangeRow                    = core.TranslationExchangeRow
 	TranslationExchangeRowResult              = core.TranslationExchangeRowResult
+	TranslationExchangeRuntime                = core.TranslationExchangeRuntime
+	TranslationExchangeRuntimeStore           = core.TranslationExchangeRuntimeStore
 	TranslationExchangeService                = core.TranslationExchangeService
+	TranslationExchangeServiceOption          = core.TranslationExchangeServiceOption
 	TranslationExchangeStore                  = core.TranslationExchangeStore
 	TranslationExchangeSummary                = core.TranslationExchangeSummary
 	TranslationExchangeUnsupportedFormatError = core.TranslationExchangeUnsupportedFormatError
@@ -808,6 +915,10 @@ type (
 	WidgetMetadata                            = core.WidgetMetadata
 	WidgetPayload                             = core.WidgetPayload
 	WidgetProvider                            = core.WidgetProvider
+	WorkflowActionFunc                        = core.WorkflowActionFunc
+	WorkflowApplyEventRequest                 = core.WorkflowApplyEventRequest
+	WorkflowApplyEventResponse                = core.WorkflowApplyEventResponse
+	WorkflowAuthoringVersionStore             = core.WorkflowAuthoringVersionStore
 	WorkflowAuthorizer                        = core.WorkflowAuthorizer
 	WorkflowBinding                           = core.WorkflowBinding
 	WorkflowBindingConflictError              = core.WorkflowBindingConflictError
@@ -820,12 +931,23 @@ type (
 	WorkflowBindingVersionConflictError       = core.WorkflowBindingVersionConflictError
 	WorkflowDefinition                        = core.WorkflowDefinition
 	WorkflowDefinitionChecker                 = core.WorkflowDefinitionChecker
+	WorkflowDefinitionProvider                = core.WorkflowDefinitionProvider
 	WorkflowDefinitionRepository              = core.WorkflowDefinitionRepository
+	WorkflowDynamicTargetResolver             = core.WorkflowDynamicTargetResolver
 	WorkflowEngine                            = core.WorkflowEngine
+	WorkflowExecutionContext                  = core.WorkflowExecutionContext
+	WorkflowGuardFunc                         = core.WorkflowGuardFunc
+	WorkflowGuardRejection                    = core.WorkflowGuardRejection
+	WorkflowMessage                           = core.WorkflowMessage
 	WorkflowRegistrar                         = core.WorkflowRegistrar
 	WorkflowRuntime                           = core.WorkflowRuntime
 	WorkflowRuntimeService                    = core.WorkflowRuntimeService
+	WorkflowSnapshot                          = core.WorkflowSnapshot
+	WorkflowSnapshotRequest                   = core.WorkflowSnapshotRequest
 	WorkflowTransition                        = core.WorkflowTransition
+	WorkflowTransitionInfo                    = core.WorkflowTransitionInfo
+	WorkflowTransitionResult                  = core.WorkflowTransitionResult
+	WorkflowUnregistrar                       = core.WorkflowUnregistrar
 	WorkflowValidationErrors                  = core.WorkflowValidationErrors
 	WorkflowVersionConflictError              = core.WorkflowVersionConflictError
 )
@@ -834,8 +956,16 @@ func ActionDisabledReasonCodes() []string {
 	return core.ActionDisabledReasonCodes()
 }
 
+func ActionResponseCollectorFromContext(ctx context.Context) *ActionResponseCollector {
+	return core.ActionResponseCollectorFromContext(ctx)
+}
+
 func AttachErrorContext(err error, mapped *errors.Error) *errors.Error {
 	return core.AttachErrorContext(err, mapped)
+}
+
+func BackfillContentTypeNavigationDefaults(ctx context.Context, service CMSContentTypeService) (int, error) {
+	return core.BackfillContentTypeNavigationDefaults(ctx, service)
 }
 
 func BlockEditorDescriptor(basePath string) components.Descriptor {
@@ -874,12 +1004,28 @@ func BuiltinLucideLibrary() IconLibrary {
 	return core.BuiltinLucideLibrary()
 }
 
+func CMSContentTypeChannel(ct CMSContentType) string {
+	return core.CMSContentTypeChannel(ct)
+}
+
 func CanAll(authorizer Authorizer, ctx context.Context, resource string, permissions ...string) bool {
 	return core.CanAll(authorizer, ctx, resource, permissions...)
 }
 
 func CanAny(authorizer Authorizer, ctx context.Context, resource string, permissions ...string) bool {
 	return core.CanAny(authorizer, ctx, resource, permissions...)
+}
+
+func CanonicalContentPath(contentType string, slug string) string {
+	return core.CanonicalContentPath(contentType, slug)
+}
+
+func CanonicalContentURL(baseURL string, contentType string, slug string) string {
+	return core.CanonicalContentURL(baseURL, contentType, slug)
+}
+
+func CanonicalPath(path string, fallback string) string {
+	return core.CanonicalPath(path, fallback)
 }
 
 func CanonicalPolicyEntityKey(value string) string {
@@ -900,6 +1046,18 @@ func CaptureViewContextForRequest(collector *DebugCollector, c router.Context, v
 
 func CollectIconContributions(contributor IconContributor, callbacks IconContributorCallbacks) error {
 	return core.CollectIconContributions(contributor, callbacks)
+}
+
+func ContentChannelFromContext(ctx context.Context) string {
+	return core.ContentChannelFromContext(ctx)
+}
+
+func ContextWithActionDiagnostics(ctx context.Context, sink ActionDiagnosticSink) context.Context {
+	return core.ContextWithActionDiagnostics(ctx, sink)
+}
+
+func ContextWithActionResponseCollector(ctx context.Context, collector *ActionResponseCollector) context.Context {
+	return core.ContextWithActionResponseCollector(ctx, collector)
 }
 
 func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
@@ -966,12 +1124,16 @@ func EnsureMenuParents(ctx context.Context, opts EnsureMenuParentsOptions) error
 	return core.EnsureMenuParents(ctx, opts)
 }
 
+func EnsureWorkflowAuthoringCutover(ctx context.Context, db *bun.DB) error {
+	return core.EnsureWorkflowAuthoringCutover(ctx, db)
+}
+
 func EnvironmentFromContext(ctx context.Context) string {
 	return core.EnvironmentFromContext(ctx)
 }
 
-func ContentChannelFromContext(ctx context.Context) string {
-	return core.ContentChannelFromContext(ctx)
+func ExtractContentPath(data map[string]any, metadata map[string]any, fallback string) string {
+	return core.ExtractContentPath(data, metadata, fallback)
 }
 
 func ExtractSourceContext(filePath string, errorLine int, contextLines int) *SourceContext {
@@ -986,12 +1148,24 @@ func GetTranslationAssignmentMigrationsFS() fs.FS {
 	return core.GetTranslationAssignmentMigrationsFS()
 }
 
+func GetTranslationFlowMigrationsFS() fs.FS {
+	return core.GetTranslationFlowMigrationsFS()
+}
+
+func GetTranslationFlowSQLiteMigrationsFS() fs.FS {
+	return core.GetTranslationFlowSQLiteMigrationsFS()
+}
+
 func GetWorkflowRuntimeMigrationsFS() fs.FS {
 	return core.GetWorkflowRuntimeMigrationsFS()
 }
 
 func IsTranslationMissing(err error) bool {
 	return core.IsTranslationMissing(err)
+}
+
+func LocaleFallbackAllowed(ctx context.Context) bool {
+	return core.LocaleFallbackAllowed(ctx)
 }
 
 func LocaleFromContext(ctx context.Context) string {
@@ -1010,6 +1184,14 @@ func New(cfg Config, deps Dependencies) (*Admin, error) {
 	return core.New(cfg, deps)
 }
 
+func NewActionDiagnosticsDebugPanel(admin *Admin) *ActionDiagnosticsDebugPanel {
+	return core.NewActionDiagnosticsDebugPanel(admin)
+}
+
+func NewActionDiagnosticsStore(capacity int) *ActionDiagnosticsStore {
+	return core.NewActionDiagnosticsStore(capacity)
+}
+
 func NewActivityFeed(opts ...func(*ActivityFeed)) *ActivityFeed {
 	return core.NewActivityFeed(opts...)
 }
@@ -1026,6 +1208,22 @@ func NewAdminActivityEnricher(cfg AdminActivityEnricherConfig) activity.Activity
 	return core.NewAdminActivityEnricher(cfg)
 }
 
+func NewAdminBlockReadService(content CMSContentService, types ...CMSContentTypeService) AdminBlockReadService {
+	return core.NewAdminBlockReadService(content, types...)
+}
+
+func NewAdminBlockWriteService(content CMSContentService) AdminBlockWriteService {
+	return core.NewAdminBlockWriteService(content)
+}
+
+func NewAdminContentReadService(content CMSContentService, contentTypes ...CMSContentTypeService) AdminContentReadService {
+	return core.NewAdminContentReadService(content, contentTypes...)
+}
+
+func NewAdminContentWriteService(content CMSContentService, contentTypes ...CMSContentTypeService) AdminContentWriteService {
+	return core.NewAdminContentWriteService(content, contentTypes...)
+}
+
 func NewAdminObjectResolver(cfg AdminObjectResolverConfig) activity.ObjectResolver {
 	return core.NewAdminObjectResolver(cfg)
 }
@@ -1036,6 +1234,22 @@ func NewBunRepositoryAdapter[T any](repo repository.Repository[T], opts ...BunRe
 
 func NewBunSettingsAdapter(db *bun.DB, repoOptions ...repository.Option) (*BunSettingsAdapter, error) {
 	return core.NewBunSettingsAdapter(db, repoOptions...)
+}
+
+func NewBunTranslationAssignmentRepository(db *bun.DB) *BunTranslationAssignmentRepository {
+	return core.NewBunTranslationAssignmentRepository(db)
+}
+
+func NewBunTranslationExchangeRuntimeStore(db *bun.DB) *BunTranslationExchangeRuntimeStore {
+	return core.NewBunTranslationExchangeRuntimeStore(db)
+}
+
+func NewBunTranslationFamilyStore(db *bun.DB) *BunTranslationFamilyStore {
+	return core.NewBunTranslationFamilyStore(db)
+}
+
+func NewBunWorkflowAuthoringStore(db *bun.DB) *BunWorkflowAuthoringStore {
+	return core.NewBunWorkflowAuthoringStore(db)
 }
 
 func NewBunWorkflowBindingRepository(db *bun.DB) *BunWorkflowBindingRepository {
@@ -1166,6 +1380,14 @@ func NewErrorPresenter(cfg ErrorConfig, mappers ...errors.ErrorMapper) ErrorPres
 	return core.NewErrorPresenter(cfg, mappers...)
 }
 
+func NewFSMLifecycleActivitySinkAdapter(sink ActivitySink) *FSMLifecycleActivitySinkAdapter {
+	return core.NewFSMLifecycleActivitySinkAdapter(sink)
+}
+
+func NewFSMWorkflowEngine(opts ...FSMWorkflowEngineOption) *FSMWorkflowEngine {
+	return core.NewFSMWorkflowEngine(opts...)
+}
+
 func NewFeatureFlagsModule() *FeatureFlagsModule {
 	return core.NewFeatureFlagsModule()
 }
@@ -1220,6 +1442,14 @@ func NewGoCMSWidgetAdapter(service any) *GoCMSWidgetAdapter {
 
 func NewGoOptionsSettingsAdapter() *GoOptionsSettingsAdapter {
 	return core.NewGoOptionsSettingsAdapter()
+}
+
+func NewGoSearchGlobalAdapter(cfg GoSearchGlobalAdapterConfig) *GoSearchGlobalAdapter {
+	return core.NewGoSearchGlobalAdapter(cfg)
+}
+
+func NewGoSearchSiteProvider(cfg GoSearchSiteProviderConfig) *GoSearchSiteProvider {
+	return core.NewGoSearchSiteProvider(cfg)
 }
 
 func NewGoUsersProfileStore(repo types.ProfileRepository, scopeResolver func(context.Context) types.ScopeFilter) *GoUsersProfileStore {
@@ -1346,16 +1576,20 @@ func NewMemoryRepository() *MemoryRepository {
 	return core.NewMemoryRepository()
 }
 
+func NewMemoryTranslationExchangeRuntimeStore(nowFn func() time.Time) *MemoryTranslationExchangeRuntimeStore {
+	return core.NewMemoryTranslationExchangeRuntimeStore(nowFn)
+}
+
+func NewMenuBuilderService() *MenuBuilderService {
+	return core.NewMenuBuilderService()
+}
+
 func NewNavigation(menuSvc CMSMenuService, authorizer Authorizer) *Navigation {
 	return core.NewNavigation(menuSvc, authorizer)
 }
 
 func NewNoopCMSContainer() *NoopCMSContainer {
 	return core.NewNoopCMSContainer()
-}
-
-func NewOrganizationPanelRepository(service *OrganizationService) *OrganizationPanelRepository {
-	return core.NewOrganizationPanelRepository(service)
 }
 
 func NewOrganizationService(repo OrganizationRepository) *OrganizationService {
@@ -1418,10 +1652,6 @@ func NewRoleFormGenerator(cfg Config) (*orchestrator.Orchestrator, error) {
 	return core.NewRoleFormGenerator(cfg)
 }
 
-func NewRolePanelRepository(service *UserManagementService) *RolePanelRepository {
-	return core.NewRolePanelRepository(service)
-}
-
 func NewRoleWorkflowAuthorizer(minRole string, opts ...RoleWorkflowAuthorizerOption) WorkflowAuthorizer {
 	return core.NewRoleWorkflowAuthorizer(minRole, opts...)
 }
@@ -1438,28 +1668,12 @@ func NewSearchEngine(authorizer Authorizer) *SearchEngine {
 	return core.NewSearchEngine(authorizer)
 }
 
-func NewGoSearchGlobalAdapter(cfg GoSearchGlobalAdapterConfig) *GoSearchGlobalAdapter {
-	return core.NewGoSearchGlobalAdapter(cfg)
-}
-
-func NewGoSearchSiteProvider(cfg GoSearchSiteProviderConfig) *GoSearchSiteProvider {
-	return core.NewGoSearchSiteProvider(cfg)
-}
-
 func NewSettingsFormAdapter(service *SettingsService, theme string, tokens map[string]string) *SettingsFormAdapter {
 	return core.NewSettingsFormAdapter(service, theme, tokens)
 }
 
 func NewSettingsService() *SettingsService {
 	return core.NewSettingsService()
-}
-
-func NewFSMWorkflowEngine() *FSMWorkflowEngine {
-	return core.NewFSMWorkflowEngine()
-}
-
-func NewTenantPanelRepository(service *TenantService) *TenantPanelRepository {
-	return core.NewTenantPanelRepository(service)
 }
 
 func NewTenantService(repo TenantRepository) *TenantService {
@@ -1474,8 +1688,12 @@ func NewTranslationAssignmentPanelRepository(repo TranslationAssignmentRepositor
 	return core.NewTranslationAssignmentPanelRepository(repo)
 }
 
-func NewTranslationExchangeService(store TranslationExchangeStore) *TranslationExchangeService {
-	return core.NewTranslationExchangeService(store)
+func NewTranslationExchangeRuntime(store TranslationExchangeRuntimeStore, exporter TranslationExchangeExporter, applyService *TranslationExchangeService) *TranslationExchangeRuntime {
+	return core.NewTranslationExchangeRuntime(store, exporter, applyService)
+}
+
+func NewTranslationExchangeService(store TranslationExchangeStore, opts ...TranslationExchangeServiceOption) *TranslationExchangeService {
+	return core.NewTranslationExchangeService(store, opts...)
 }
 
 func NewTranslationQueuePanel(repo Repository) *PanelBuilder {
@@ -1488,10 +1706,6 @@ func NewUserManagementModule(opts ...UserManagementModuleOption) *UserManagement
 
 func NewUserManagementService(users UserRepository, roles RoleRepository) *UserManagementService {
 	return core.NewUserManagementService(users, roles)
-}
-
-func NewUserPanelRepository(service *UserManagementService) *UserPanelRepository {
-	return core.NewUserPanelRepository(service)
 }
 
 func NewUserProfilesPanelRepository(users *UserManagementService, profiles ProfileStore, defaultLocale string) *UserProfilesPanelRepository {
@@ -1514,6 +1728,10 @@ func NormalizeBasePath(basePath string) string {
 	return core.NormalizeBasePath(basePath)
 }
 
+func NormalizeContentTypeCapabilities(capabilities map[string]any) (map[string]any, map[string]string) {
+	return core.NormalizeContentTypeCapabilities(capabilities)
+}
+
 func NormalizeFilterType(raw string) string {
 	return core.NormalizeFilterType(raw)
 }
@@ -1534,6 +1752,10 @@ func NormalizeMenuSlug(raw string) string {
 	return core.NormalizeMenuSlug(raw)
 }
 
+func ParseContentTypeCapabilityContracts(capabilities map[string]any) ContentTypeCapabilityContracts {
+	return core.ParseContentTypeCapabilityContracts(capabilities)
+}
+
 func ParseIconReference(value string) IconReference {
 	return core.ParseIconReference(value)
 }
@@ -1552,6 +1774,14 @@ func PrefixBasePath(basePath string, routePath string) string {
 
 func RateLimitError() error {
 	return core.RateLimitError()
+}
+
+func ReadContentTypeCapabilityContracts(contentType CMSContentType) ContentTypeCapabilityContracts {
+	return core.ReadContentTypeCapabilityContracts(contentType)
+}
+
+func RegisterActionDiagnosticsDebugPanel(admin *Admin) {
+	core.RegisterActionDiagnosticsDebugPanel(admin)
 }
 
 func RegisterBuiltinIconLibraries(svc *IconService) error {
@@ -1638,6 +1868,18 @@ func RenderOptionsForTemplate() IconRenderOptions {
 	return core.RenderOptionsForTemplate()
 }
 
+func RequestIPFromContext(ctx context.Context) string {
+	return core.RequestIPFromContext(ctx)
+}
+
+func ResolveAuthenticatedRequestIdentity(c router.Context, defaults AuthenticatedRequestScopeDefaults) AuthenticatedRequestIdentity {
+	return core.ResolveAuthenticatedRequestIdentity(c, defaults)
+}
+
+func ResolveContentPath(content CMSContent, fallback string) string {
+	return core.ResolveContentPath(content, fallback)
+}
+
 func ResolveTranslationExchangeLinkageKey(row TranslationExchangeRow) (TranslationExchangeLinkageKey, error) {
 	return core.ResolveTranslationExchangeLinkageKey(row)
 }
@@ -1654,6 +1896,10 @@ func SetDefaultErrorPresenter(presenter ErrorPresenter) {
 	core.SetDefaultErrorPresenter(presenter)
 }
 
+func SyncTranslationFamilyStore(ctx context.Context, adm *Admin, environment string) error {
+	return core.SyncTranslationFamilyStore(ctx, adm, environment)
+}
+
 func ThemeSelectorFromContext(ctx context.Context) ThemeSelector {
 	return core.ThemeSelectorFromContext(ctx)
 }
@@ -1666,6 +1912,58 @@ func TranslationCapabilitiesForContext(adm *Admin, reqCtx context.Context) map[s
 	return core.TranslationCapabilitiesForContext(adm, reqCtx)
 }
 
+func TranslationDashboardContractPayload() map[string]any {
+	return core.TranslationDashboardContractPayload()
+}
+
+func TranslationDashboardQueryModels() map[string]any {
+	return core.TranslationDashboardQueryModels()
+}
+
+func TranslationEditorContractPayload() map[string]any {
+	return core.TranslationEditorContractPayload()
+}
+
+func TranslationExchangeContractPayload() map[string]any {
+	return core.TranslationExchangeContractPayload()
+}
+
+func TranslationMatrixContractPayload() map[string]any {
+	return core.TranslationMatrixContractPayload()
+}
+
+func TranslationMatrixQueryModel() map[string]any {
+	return core.TranslationMatrixQueryModel()
+}
+
+func TranslationQueueContractPayload() map[string]any {
+	return core.TranslationQueueContractPayload()
+}
+
+func TranslationQueueReviewAggregateCountKeys() []string {
+	return core.TranslationQueueReviewAggregateCountKeys()
+}
+
+func TranslationQueueSavedFilterPresets() []map[string]any {
+	return core.TranslationQueueSavedFilterPresets()
+}
+
+func TranslationQueueSavedReviewFilterPresets() []map[string]any {
+	return core.TranslationQueueSavedReviewFilterPresets()
+}
+
+func TranslationQueueSupportedFilterKeys() []string {
+	return core.TranslationQueueSupportedFilterKeys()
+}
+
+func TranslationQueueSupportedReviewStates() []string {
+	return core.TranslationQueueSupportedReviewStates()
+}
+
+func TranslationQueueSupportedSortKeys() []string {
+	return core.TranslationQueueSupportedSortKeys()
+}
+
 func TranslationSharedContractsPayload() map[string]any {
 	return core.TranslationSharedContractsPayload()
 }
@@ -1676,6 +1974,10 @@ func TranslationSourceTargetDriftContract() map[string]any {
 
 func TranslationStatusEnumContract() map[string]any {
 	return core.TranslationStatusEnumContract()
+}
+
+func ValidateAndNormalizeContentTypeCapabilities(capabilities map[string]any) (map[string]any, error) {
+	return core.ValidateAndNormalizeContentTypeCapabilities(capabilities)
 }
 
 func ValidateJSONPointerFormat(pointer string) bool {
@@ -1692,6 +1994,10 @@ func WithActivityRetention(limit int) func(*ActivityFeed) {
 
 func WithAuthErrorHandler(handler func(router.Context, error) error) GoAuthAuthenticatorOption {
 	return core.WithAuthErrorHandler(handler)
+}
+
+func WithAuthenticatedRequest(ctx context.Context) context.Context {
+	return core.WithAuthenticatedRequest(ctx)
 }
 
 func WithBunBaseCriteria[T any](criteria ...repository.SelectCriteria) BunRepositoryOption[T] {
@@ -1720,6 +2026,10 @@ func WithBunSearchColumns[T any](columns ...string) BunRepositoryOption[T] {
 
 func WithBunUpdateCriteria[T any](criteria ...repository.UpdateCriteria) BunRepositoryOption[T] {
 	return core.WithBunUpdateCriteria[T](criteria...)
+}
+
+func WithContentChannel(ctx context.Context, channel string) context.Context {
+	return core.WithContentChannel(ctx, channel)
 }
 
 func WithContentTypeBuilderBasePath(path string) ContentTypeBuilderOption {
@@ -1802,8 +2112,32 @@ func WithEnvironment(ctx context.Context, environment string) context.Context {
 	return core.WithEnvironment(ctx, environment)
 }
 
-func WithContentChannel(ctx context.Context, channel string) context.Context {
-	return core.WithContentChannel(ctx, channel)
+func WithFSMWorkflowActivitySink(sink ActivitySink) FSMWorkflowEngineOption {
+	return core.WithFSMWorkflowActivitySink(sink)
+}
+
+func WithFSMWorkflowExecutionPolicy(policy flow.ExecutionPolicy) FSMWorkflowEngineOption {
+	return core.WithFSMWorkflowExecutionPolicy(policy)
+}
+
+func WithFSMWorkflowHookFailureMode(mode flow.HookFailureMode) FSMWorkflowEngineOption {
+	return core.WithFSMWorkflowHookFailureMode(mode)
+}
+
+func WithFSMWorkflowIdempotencyStore(store flow.IdempotencyStore[WorkflowMessage]) FSMWorkflowEngineOption {
+	return core.WithFSMWorkflowIdempotencyStore(store)
+}
+
+func WithFSMWorkflowLifecycleHooks(hooks ...flow.TransitionLifecycleHook[WorkflowMessage]) FSMWorkflowEngineOption {
+	return core.WithFSMWorkflowLifecycleHooks(hooks...)
+}
+
+func WithFSMWorkflowLogger(logger flow.Logger) FSMWorkflowEngineOption {
+	return core.WithFSMWorkflowLogger(logger)
+}
+
+func WithFSMWorkflowStateStore(store flow.StateStore) FSMWorkflowEngineOption {
+	return core.WithFSMWorkflowStateStore(store)
 }
 
 func WithFallbackIcon(icon string) IconServiceOption {
@@ -1830,12 +2164,20 @@ func WithLocale(ctx context.Context, locale string) context.Context {
 	return core.WithLocale(ctx, locale)
 }
 
+func WithLocaleFallback(ctx context.Context, allow bool) context.Context {
+	return core.WithLocaleFallback(ctx, allow)
+}
+
 func WithMenuPositions(usersPos *int, rolesPos *int) UserManagementModuleOption {
 	return core.WithMenuPositions(usersPos, rolesPos)
 }
 
 func WithOptionalAuth(optional bool) GoAuthAuthenticatorOption {
 	return core.WithOptionalAuth(optional)
+}
+
+func WithRequestIP(ctx context.Context, requestIP string) context.Context {
+	return core.WithRequestIP(ctx, requestIP)
 }
 
 func WithResolvedPermissionsCache(ctx context.Context) context.Context {
