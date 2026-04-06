@@ -90,7 +90,9 @@ run_sqlite_checks() {
 
   export APP_RUNTIME__PROFILE=development
   export APP_RUNTIME__REPOSITORY_DIALECT=sqlite
-  export APP_SQLITE__DSN="${sqlite_dsn}"
+  export APP_PERSISTENCE__SQLITE__DSN="${sqlite_dsn}"
+  export APP_PERSISTENCE__POSTGRES__DSN=""
+  export APP_SQLITE__DSN=""
   export APP_POSTGRES__DSN=""
 
   echo "[persistence-ci] sqlite: validate local dev flow"
@@ -118,7 +120,10 @@ run_postgres_checks() {
 
   export APP_RUNTIME__PROFILE=production
   export APP_RUNTIME__REPOSITORY_DIALECT=postgres
-  export APP_POSTGRES__DSN="${dsn}"
+  export APP_PERSISTENCE__POSTGRES__DSN="${dsn}"
+  export APP_PERSISTENCE__SQLITE__DSN=""
+  export APP_SQLITE__DSN=""
+  export APP_POSTGRES__DSN=""
 
   echo "[persistence-ci] postgres: validate staging/prod-like flow"
   export ESIGN_TEST_POSTGRES_DSN="${dsn}"
@@ -128,7 +133,7 @@ run_postgres_checks() {
   create_isolated_postgres_schema "${dsn}" "${cli_schema}"
   trap "drop_isolated_postgres_schema '${dsn}' '${cli_schema}'" RETURN
   cli_dsn="$(postgres_schema_dsn "${dsn}" "${cli_schema}")"
-  export APP_POSTGRES__DSN="${cli_dsn}"
+  export APP_PERSISTENCE__POSTGRES__DSN="${cli_dsn}"
 
   echo "[persistence-ci] postgres: migration contract gates"
   run_migrate validate-dialects
