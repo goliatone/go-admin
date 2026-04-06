@@ -1,5 +1,34 @@
 # Changelog
 
+# [0.33.0](https://github.com/goliatone/go-admin/compare/v0.32.0...v0.33.0) - (2026-04-06)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- CSRF token handling for api calls from browser client ([7633772](https://github.com/goliatone/go-admin/commit/7633772e1b0068b0971c176b56189da7273394a6))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.33.0 ([0d66c8f](https://github.com/goliatone/go-admin/commit/0d66c8fadd64c66e7db4a9643160da23a448ebb0))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Updated pacakge facace ([60b2b25](https://github.com/goliatone/go-admin/commit/60b2b25ae9dd05ba54768adee8fb384f2449b5e0))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Simplify code. fix: security issues ([05a679f](https://github.com/goliatone/go-admin/commit/05a679f4f550284ca1df0eb38595f67bf249096c))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.32.0 ([502df89](https://github.com/goliatone/go-admin/commit/502df8964cc350bacb33382552f71576a7200750))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Fix code ([18b78a9](https://github.com/goliatone/go-admin/commit/18b78a9b920e533f54849e54859869d24d94f633))  - (goliatone)
+- Update CI setup ([8392bbc](https://github.com/goliatone/go-admin/commit/8392bbcd214d9d88e04ca983192097bfb1cb4bdf))  - (goliatone)
+- Update docs ([56d3f23](https://github.com/goliatone/go-admin/commit/56d3f233e712df5b78f07f2cc46f426185340667))  - (goliatone)
+- Update deps ([4b572f4](https://github.com/goliatone/go-admin/commit/4b572f48a611b775c004f9ed55618487e5a19da9))  - (goliatone)
+
 # [0.32.0](https://github.com/goliatone/go-admin/compare/v0.31.0...v0.32.0) - (2026-04-01)
 
 ## <!-- 1 -->🐛 Bug Fixes
