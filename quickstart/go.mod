@@ -14,7 +14,7 @@ require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.12
-	github.com/goliatone/go-admin v0.32.0
+	github.com/goliatone/go-admin v0.33.0
 	github.com/goliatone/go-auth v0.40.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.40.0
 	github.com/goliatone/go-cms v0.45.0
