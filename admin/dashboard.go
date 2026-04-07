@@ -636,8 +636,8 @@ func (d *Dashboard) ensureComponents(ctx context.Context) (*dashboardComponents,
 			authorizer:  dashboardAuthorizerAdapter{authorizer: d.authorizer, specs: specs},
 			preferences: prefStore,
 			providers:   registry,
-			renderer:    d.renderer,
-			template:    "dashboard_ssr.html",
+			renderer:    adaptDashboardRenderer(d.renderer),
+			template:    dashboardSSRTemplateName,
 			areas:       d.areaCodesForServiceLocked(),
 		})),
 		specs: specs,
@@ -728,23 +728,18 @@ func (d *Dashboard) Resolve(ctx AdminContext) ([]map[string]any, error) {
 	return flattenWidgets(layout), nil
 }
 
-// RenderLayout builds a DashboardLayout with resolved widgets grouped by area.
-// This is used for server-side rendering via the configured DashboardRenderer.
-func (d *Dashboard) RenderLayout(ctx AdminContext, theme *ThemeSelection, basePath string) (*DashboardLayout, error) {
+// Page resolves the canonical typed dashboard page for the current viewer.
+func (d *Dashboard) Page(ctx AdminContext) (dashcmp.Page, error) {
 	comp, err := d.ensureComponents(ctx.Context)
 	if err != nil || comp == nil {
-		return nil, err
+		return dashcmp.Page{}, err
 	}
 	viewer := viewerFromAdminContext(ctx)
 	layout, err := comp.runtime.Service.ConfigureLayout(ctx.Context, viewer)
 	if err != nil {
-		return nil, err
+		return dashcmp.Page{}, err
 	}
-	renderTheme := theme
-	if layout.Theme != nil {
-		renderTheme = convertDashboardTheme(layout.Theme)
-	}
-	return buildDashboardLayout(layout, renderTheme, basePath, viewer), nil
+	return dashboardPageFromLayout(layout, viewer), nil
 }
 
 func (d *Dashboard) resolvedInstances(ctx AdminContext) []DashboardWidgetInstance {
@@ -787,51 +782,72 @@ func flattenWidgets(layout dashcmp.Layout) []map[string]any {
 	return out
 }
 
-func buildDashboardLayout(layout dashcmp.Layout, theme *ThemeSelection, basePath string, viewer dashcmp.ViewerContext) *DashboardLayout {
+func dashboardPageFromLayout(layout dashcmp.Layout, viewer dashcmp.ViewerContext) dashcmp.Page {
 	areas := dashinternal.OrderedAreaCodes(layout.Areas)
-	resolvedAreas := make([]*WidgetArea, 0, len(areas))
-	for _, code := range areas {
-		widgets := layout.Areas[code]
-		resolved := make([]*ResolvedWidget, 0, len(widgets))
-		for idx, inst := range widgets {
-			meta := inst.Metadata
-			span := dashinternal.SpanFromMetadata(meta)
-			if span <= 0 {
-				span = 12
-			}
-			order := dashinternal.OrderFromMetadata(meta)
-			if order < 0 {
-				order = idx
-			}
-			resolved = append(resolved, &ResolvedWidget{
-				ID:         inst.ID,
-				Definition: inst.DefinitionID,
-				Area:       inst.AreaCode,
-				Data:       dashinternal.ExtractWidgetData(meta),
-				Config:     cloneAny(inst.Configuration),
-				Hidden:     dashinternal.HiddenFromMetadata(meta),
-				Span:       span,
-				Metadata: &WidgetMetadata{
-					Layout: &WidgetLayout{Width: span},
-					Order:  order,
-				},
-			})
-		}
-		resolvedAreas = append(resolvedAreas, &WidgetArea{
+	page := dashcmp.Page{
+		Title:       "Dashboard",
+		Description: "Admin overview",
+		Locale:      viewer.Locale,
+		Theme:       layout.Theme,
+		Areas:       make([]dashcmp.PageArea, 0, len(areas)),
+	}
+	for idx, code := range areas {
+		page.Areas = append(page.Areas, dashcmp.PageArea{
+			Slot:    code,
 			Code:    code,
 			Title:   code,
-			Widgets: resolved,
+			Order:   idx + 1,
+			Widgets: dashboardWidgetFramesFromInstances(code, layout.Areas[code]),
 		})
 	}
-	return &DashboardLayout{
-		Areas:    resolvedAreas,
-		Theme:    theme,
-		BasePath: basePath,
-		Metadata: map[string]any{
-			"user_id": viewer.UserID,
-			"locale":  viewer.Locale,
-		},
+	return page
+}
+
+func dashboardWidgetFramesFromInstances(areaCode string, instances []dashcmp.WidgetInstance) []dashcmp.WidgetFrame {
+	if len(instances) == 0 {
+		return nil
 	}
+	frames := make([]dashcmp.WidgetFrame, 0, len(instances))
+	for idx, inst := range instances {
+		span := dashinternal.SpanFromMetadata(inst.Metadata)
+		if span <= 0 {
+			span = 12
+		}
+		order := dashinternal.OrderFromMetadata(inst.Metadata)
+		if order < 0 {
+			order = idx
+		}
+		frameArea := strings.TrimSpace(inst.AreaCode)
+		if frameArea == "" {
+			frameArea = areaCode
+		}
+		frames = append(frames, dashcmp.WidgetFrame{
+			ID:         inst.ID,
+			Definition: inst.DefinitionID,
+			Template:   dashboardWidgetTemplatePath(inst.DefinitionID),
+			Area:       frameArea,
+			Span:       span,
+			Hidden:     dashinternal.HiddenFromMetadata(inst.Metadata),
+			Config:     cloneAny(inst.Configuration),
+			Data:       dashinternal.ExtractWidgetData(inst.Metadata),
+			Meta: dashcmp.WidgetMeta{
+				Order: order,
+				Layout: &dashcmp.WidgetLayout{
+					Width: span,
+				},
+			},
+		})
+	}
+	return frames
+}
+
+func dashboardWidgetTemplatePath(definition string) string {
+	if definition == "" {
+		return "widgets/unknown.html"
+	}
+	parts := strings.Split(definition, ".")
+	name := parts[len(parts)-1]
+	return "widgets/" + name + ".html"
 }
 
 func instancesFromLayout(layout dashcmp.Layout, viewer dashcmp.ViewerContext) []DashboardWidgetInstance {
