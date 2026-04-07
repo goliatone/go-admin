@@ -14,7 +14,7 @@ require (
 	github.com/goliatone/go-command v0.19.0
 	github.com/goliatone/go-crud v0.23.0
 	github.com/goliatone/go-crud/gql v0.23.0
-	github.com/goliatone/go-dashboard v0.9.0
+	github.com/goliatone/go-dashboard v0.10.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.7.0
 	github.com/goliatone/go-featuregate v0.6.0
@@ -28,8 +28,8 @@ require (
 	github.com/goliatone/go-persistence-bun v0.13.0
 	github.com/goliatone/go-repository-bun v0.15.1
 	github.com/goliatone/go-router v0.55.0
-	github.com/goliatone/go-search v0.2.0
-	github.com/goliatone/go-search/adapters/goadmin v0.2.0
+	github.com/goliatone/go-search v0.4.0
+	github.com/goliatone/go-search/adapters/goadmin v0.4.0
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.6.0
@@ -209,8 +209,8 @@ require (
 	golang.org/x/sys v0.42.0
 	golang.org/x/text v0.35.0
 	golang.org/x/time v0.15.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251213004720-97cd9d5aeac2 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251213004720-97cd9d5aeac2 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	modernc.org/libc v1.68.0 // indirect
@@ -227,3 +227,7 @@ replace github.com/goliatone/go-admin/quickstart => ./quickstart
 // replace github.com/goliatone/go-search => ../go-search
 
 // replace github.com/goliatone/go-dashboard => ../go-dashboard
+
+replace github.com/goliatone/go-search => ../go-search
+
+replace github.com/goliatone/go-search/adapters/goadmin => ../go-search/adapters/goadmin

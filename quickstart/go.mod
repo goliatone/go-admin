@@ -19,7 +19,7 @@ require (
 	github.com/goliatone/go-auth/adapters/featuregate v0.40.0
 	github.com/goliatone/go-cms v0.45.0
 	github.com/goliatone/go-command v0.19.0
-	github.com/goliatone/go-dashboard v0.9.0
+	github.com/goliatone/go-dashboard v0.10.0
 	github.com/goliatone/go-errors v0.10.0
 	github.com/goliatone/go-export v0.7.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.7.0
@@ -31,7 +31,7 @@ require (
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.13.0
 	github.com/goliatone/go-router v0.55.0
-	github.com/goliatone/go-search v0.2.0
+	github.com/goliatone/go-search v0.4.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
@@ -126,7 +126,7 @@ require (
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.15.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
-	github.com/goliatone/go-search/adapters/goadmin v0.2.0 // indirect
+	github.com/goliatone/go-search/adapters/goadmin v0.4.0 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect
@@ -209,8 +209,8 @@ require (
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251213004720-97cd9d5aeac2 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251213004720-97cd9d5aeac2 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	modernc.org/libc v1.68.0 // indirect
