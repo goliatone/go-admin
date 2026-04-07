@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"encoding/json"
 	"sort"
 	"strconv"
 	"strings"
@@ -8,6 +9,8 @@ import (
 	uiplacement "github.com/goliatone/go-admin/ui/placement"
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 )
+
+const widgetViewModelMetadataKey = "dashboard.widget.view_model"
 
 // OrderedAreaCodes returns dashboard layout areas in preferred order with extras sorted.
 func OrderedAreaCodes(areaMap map[string][]dashcmp.WidgetInstance) []string {
@@ -36,6 +39,16 @@ func ExtractWidgetData(meta map[string]any) map[string]any {
 	if meta == nil {
 		return nil
 	}
+	if rawView, ok := meta[widgetViewModelMetadataKey]; ok {
+		if view, ok := rawView.(dashcmp.WidgetViewModel); ok {
+			serialized, err := view.Serialize()
+			if err != nil {
+				return nil
+			}
+			return normalizeWidgetData(serialized)
+		}
+		return normalizeWidgetData(rawView)
+	}
 	switch data := meta["data"].(type) {
 	case map[string]any:
 		return data
@@ -43,6 +56,27 @@ func ExtractWidgetData(meta map[string]any) map[string]any {
 		return map[string]any(data)
 	}
 	return nil
+}
+
+func normalizeWidgetData(data any) map[string]any {
+	switch typed := data.(type) {
+	case nil:
+		return nil
+	case map[string]any:
+		return typed
+	case dashcmp.WidgetData:
+		return map[string]any(typed)
+	}
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return nil
+	}
+	var decoded any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		return nil
+	}
+	mapped, _ := decoded.(map[string]any)
+	return mapped
 }
 
 // SpanFromMetadata extracts the widget width/span from layout metadata.
