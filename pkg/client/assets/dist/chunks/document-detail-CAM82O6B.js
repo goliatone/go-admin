@@ -1,7 +1,7 @@
 import { onReady as c } from "../shared/dom-ready.js";
 import { a as u, i as h } from "./formatters-oZ3pO-Hk.js";
 import { c as o, d as l, p as d, u as s } from "./dom-helpers-PJrpTqcW.js";
-import { n as g, t as p } from "./runtime-CmD8_aZj.js";
+import { n as g, t as p } from "./runtime-ChgMkM3p.js";
 function m(t = document) {
   l("[data-size-bytes]", t).forEach((e) => {
     const i = e.getAttribute("data-size-bytes");
@@ -150,4 +150,4 @@ export {
   f as t
 };
 
-//# sourceMappingURL=document-detail-DnEeA15w.js.map
+//# sourceMappingURL=document-detail-CAM82O6B.js.map

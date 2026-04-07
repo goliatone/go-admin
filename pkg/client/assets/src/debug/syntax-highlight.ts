@@ -2,9 +2,34 @@
 // Provides SQL and JSON highlighting with Catppuccin Mocha theme
 
 import Prism from 'prismjs';
-import 'prismjs/components/prism-sql.js';
-import 'prismjs/components/prism-json.js';
+import loadLanguages from 'prismjs/components/index.js';
 import { format } from 'sql-formatter';
+
+type PrismLanguageId = 'json' | 'sql';
+type PrismGlobal = typeof globalThis & { Prism?: typeof Prism };
+
+let prismLanguagesReady = false;
+
+function hasPrismLanguage(language: PrismLanguageId): boolean {
+  return Object.prototype.hasOwnProperty.call(Prism.languages, language);
+}
+
+function ensurePrismLanguages(): void {
+  if (prismLanguagesReady) {
+    return;
+  }
+
+  const prismGlobal = globalThis as PrismGlobal;
+  if (prismGlobal.Prism !== Prism) {
+    prismGlobal.Prism = Prism;
+  }
+
+  if (!hasPrismLanguage('sql') || !hasPrismLanguage('json')) {
+    loadLanguages(['sql', 'json']);
+  }
+
+  prismLanguagesReady = hasPrismLanguage('sql') && hasPrismLanguage('json');
+}
 
 /**
  * Pretty-print SQL query with proper indentation using sql-formatter
@@ -35,6 +60,7 @@ export function highlightSQL(sql: string, prettyPrint = false): string {
     return '';
   }
 
+  ensurePrismLanguages();
   const source = prettyPrint ? formatSQL(sql) : sql;
   return Prism.highlight(source, Prism.languages.sql, 'sql');
 }
@@ -61,6 +87,7 @@ export function highlightJSON(data: unknown, prettyPrint = true): string {
     }
   }
 
+  ensurePrismLanguages();
   return Prism.highlight(json, Prism.languages.json, 'json');
 }
 

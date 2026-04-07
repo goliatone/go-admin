@@ -15,6 +15,8 @@ type TemplateRenderer struct {
 	renderer admin.DashboardRenderer
 }
 
+var _ admin.DashboardRenderer = (*TemplateRenderer)(nil)
+
 // NewTemplateRenderer creates a renderer with Pongo2 templates.
 func NewTemplateRenderer(templatesFS fs.FS) (*TemplateRenderer, error) {
 	if templatesFS == nil {
@@ -31,20 +33,10 @@ func NewTemplateRenderer(templatesFS fs.FS) (*TemplateRenderer, error) {
 	return &TemplateRenderer{renderer: renderer}, nil
 }
 
-// RenderLayout keeps the legacy go-admin contract by delegating to the
-// go-dashboard compatible Render method with the default template.
-func (r *TemplateRenderer) RenderLayout(layout *admin.DashboardLayout) (string, error) {
-	return r.Render("dashboard_ssr.html", layout)
-}
-
-// Render implements go-dashboard's Renderer interface.
-func (r *TemplateRenderer) Render(name string, data any, out ...io.Writer) (string, error) {
+// RenderPage implements go-admin's typed dashboard renderer contract.
+func (r *TemplateRenderer) RenderPage(name string, page admin.AdminDashboardPage, out ...io.Writer) (string, error) {
 	if r == nil || r.renderer == nil {
 		return "", fmt.Errorf("template renderer not initialized")
 	}
-	return r.renderer.Render(name, data, out...)
-}
-
-func (r *TemplateRenderer) normalizeData(data any) (map[string]any, error) {
-	return quickstart.NormalizeDashboardTemplateData(data)
+	return r.renderer.RenderPage(name, page, out...)
 }

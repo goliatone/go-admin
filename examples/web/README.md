@@ -549,6 +549,7 @@ The example demonstrates hybrid server-side rendering with client-side hydration
 - **Client Hydration**: JavaScript attaches behaviors to existing DOM without re-rendering
 - **Zero API Fetches**: Initial page load requires no additional API calls
 - **Canonical Contract**: Widget providers return typed `WidgetPayload` view-models
+- **Typed Renderer Boundary**: `examples/web/setup.NewDashboardRenderer()` returns a typed `admin.DashboardRenderer` and renders `admin.AdminDashboardPage` directly
 
 ### How It Works
 
@@ -582,7 +583,8 @@ if err != nil {
 ```
 
 Template: `pkg/client/templates/dashboard_ssr.html`
-Renderer: `quickstart/dashboard_renderer.go` (wired via `examples/web/setup/dashboard_renderer.go`)
+Renderer: `quickstart/dashboard_renderer.go` via `examples/web/setup/dashboard_renderer.go`
+Typed page wrapper: `admin.AdminDashboardPage` (`dashboard.Page` + admin chrome state)
 Hydration: `assets/src/dashboard/widget-grid.ts`
 
 ### Routes
@@ -614,6 +616,7 @@ Notes:
 - Root `map[string]any` payloads are rejected.
 - Unsafe keys/content (`chart_html`, full-document/script blobs) are sanitized centrally.
 - Both SSR and client hydration consume the same canonical payload shape.
+- The example-web renderer path no longer uses `DashboardLayout` or payload-shape normalization adapters.
 
 ### Customizing Templates
 

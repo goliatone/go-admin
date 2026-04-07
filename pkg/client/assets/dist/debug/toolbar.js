@@ -1,7 +1,7 @@
 import { escapeHTML as q } from "../shared/html.js";
 import { normalizeDebugBasePath as L } from "./shared/path-helpers.js";
-import { _ as P, a as z, b as w, c as T, d as M, g as f, h as R, m as H, n as $, o as I, r as c, s as A, t as D, v as O } from "../chunks/builtin-panels-BPd3cTPy.js";
-import { t as j } from "../chunks/repl-panel-So0Od67n.js";
+import { _ as P, a as z, b as w, c as T, d as M, g as f, h as R, m as H, n as $, o as I, r as c, s as A, t as D, v as O } from "../chunks/builtin-panels-BKjPg2R2.js";
+import { t as j } from "../chunks/repl-panel-7Cc12h6s.js";
 import { a as at, b as F, c as B, d as N, f as Q, g as _, h as G, i as y, l as Y, n as k, o as h, r as p, s as v, t as ot, u as st, y as b } from "../chunks/runtime-helpers-73DjiyO0.js";
 var K = `
   :host {

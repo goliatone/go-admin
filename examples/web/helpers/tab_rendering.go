@@ -6,6 +6,7 @@ import (
 
 	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/admin"
+	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 )
 
 // TabContentKind identifies how tab content should be resolved by the host app.
@@ -133,12 +134,11 @@ func ResolveTabWidgets(ctx admin.AdminContext, adm *admin.Admin, basePath, areaC
 	if adm == nil || adm.Dashboard() == nil || areaCode == "" {
 		return nil, nil
 	}
-	theme := adm.Theme(ctx.Context)
-	layout, err := adm.Dashboard().RenderLayout(ctx, theme, basePath)
+	page, err := adm.Dashboard().Page(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return widgetsForArea(layout, areaCode), nil
+	return widgetFramesForArea(admin.DashboardPageWidgetsForAreaCode(page, areaCode)), nil
 }
 
 // ProfileFieldType defines the rendering type for a profile field.
@@ -357,35 +357,42 @@ func toBool(v any) bool {
 	return value
 }
 
-func widgetsForArea(layout *admin.DashboardLayout, areaCode string) []map[string]any {
-	if layout == nil || areaCode == "" {
+func widgetFramesForArea(widgets []dashcmp.WidgetFrame) []map[string]any {
+	if len(widgets) == 0 {
 		return nil
 	}
-	for _, area := range layout.Areas {
-		if area == nil || area.Code != areaCode {
-			continue
+	filtered := make([]map[string]any, 0, len(widgets))
+	for _, widget := range widgets {
+		span := widget.Span
+		if span <= 0 {
+			span = 12
 		}
-		out := make([]map[string]any, 0, len(area.Widgets))
-		for _, widget := range area.Widgets {
-			if widget == nil {
-				continue
-			}
-			span := widget.Span
-			if span <= 0 {
-				span = 12
-			}
-			out = append(out, map[string]any{
-				"id":         widget.ID,
-				"definition": widget.Definition,
-				"area":       widget.Area,
-				"data":       widget.Data,
-				"config":     widget.Config,
-				"metadata":   widget.Metadata,
-				"hidden":     widget.Hidden,
-				"span":       span,
-			})
-		}
-		return out
+		filtered = append(filtered, map[string]any{
+			"id":         widget.ID,
+			"definition": widget.Definition,
+			"area":       widget.Area,
+			"data":       widget.Data,
+			"config":     widget.Config,
+			"metadata":   widgetMetadataPayload(widget),
+			"hidden":     widget.Hidden,
+			"span":       span,
+		})
 	}
-	return nil
+	return filtered
+}
+
+func widgetMetadataPayload(widget dashcmp.WidgetFrame) map[string]any {
+	metadata := map[string]any{}
+	if widget.Meta.Layout != nil {
+		metadata["layout"] = map[string]any{
+			"row":     widget.Meta.Layout.Row,
+			"column":  widget.Meta.Layout.Column,
+			"width":   widget.Meta.Layout.Width,
+			"columns": widget.Meta.Layout.Columns,
+		}
+	}
+	if len(metadata) == 0 {
+		return nil
+	}
+	return metadata
 }

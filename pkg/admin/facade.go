@@ -14,6 +14,7 @@ import (
 	"github.com/goliatone/go-command/runner"
 	crud "github.com/goliatone/go-crud"
 	"github.com/goliatone/go-crud/gql/registrar"
+	dashboard "github.com/goliatone/go-dashboard/components/dashboard"
 	errors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-formgen/pkg/orchestrator"
 	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
@@ -442,10 +443,11 @@ type (
 	ConvertedFields                           = core.ConvertedFields
 	CustomLogEntry                            = core.CustomLogEntry
 	Dashboard                                 = core.Dashboard
+	AdminChromeState                          = core.AdminChromeState
+	AdminDashboardPage                        = core.AdminDashboardPage
 	DashboardDiagnosticsMsg                   = core.DashboardDiagnosticsMsg
 	DashboardDiagnosticsReport                = core.DashboardDiagnosticsReport
 	DashboardHandle                           = core.DashboardHandle
-	DashboardLayout                           = core.DashboardLayout
 	DashboardLayoutOverrides                  = core.DashboardLayoutOverrides
 	DashboardLayoutRow                        = core.DashboardLayoutRow
 	DashboardLayoutSlot                       = core.DashboardLayoutSlot
@@ -718,7 +720,6 @@ type (
 	RequestInfo                               = core.RequestInfo
 	RequiredFieldsValidationStrategy          = core.RequiredFieldsValidationStrategy
 	ResolvedSetting                           = core.ResolvedSetting
-	ResolvedWidget                            = core.ResolvedWidget
 	RingBuffer[T any]                         = core.RingBuffer[T]
 	RoleAssignmentLookup                      = core.RoleAssignmentLookup
 	RolePanelRepository                       = core.RolePanelRepository
@@ -904,15 +905,12 @@ type (
 	UserRepository                            = core.UserRepository
 	UserStatsWidgetPayload                    = core.UserStatsWidgetPayload
 	UserSuspendMsg                            = core.UserSuspendMsg
-	WidgetArea                                = core.WidgetArea
 	WidgetAreaDefinition                      = core.WidgetAreaDefinition
 	WidgetDefinition                          = core.WidgetDefinition
 	WidgetDefinitionRepository                = core.WidgetDefinitionRepository
 	WidgetInstance                            = core.WidgetInstance
 	WidgetInstanceFilter                      = core.WidgetInstanceFilter
 	WidgetInstanceRepository                  = core.WidgetInstanceRepository
-	WidgetLayout                              = core.WidgetLayout
-	WidgetMetadata                            = core.WidgetMetadata
 	WidgetPayload                             = core.WidgetPayload
 	WidgetProvider                            = core.WidgetProvider
 	WorkflowActionFunc                        = core.WorkflowActionFunc
@@ -1066,6 +1064,14 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 
 func DecodeWidgetConfig[T any](cfg map[string]any) (T, error) {
 	return core.DecodeWidgetConfig[T](cfg)
+}
+
+func DashboardPageAreaByCode(page dashboard.Page, areaCode string) (dashboard.PageArea, bool) {
+	return core.DashboardPageAreaByCode(page, areaCode)
+}
+
+func DashboardPageWidgetsForAreaCode(page dashboard.Page, areaCode string) []dashboard.WidgetFrame {
+	return core.DashboardPageWidgetsForAreaCode(page, areaCode)
 }
 
 func DefaultBlockFieldTypeRegistry() *FieldTypeRegistry {

@@ -2,7 +2,7 @@ import { escapeHTML as L } from "../shared/html.js";
 import { readHTTPError as gr, readHTTPErrorResult as ii, readHTTPJSONObject as ai } from "../shared/transport/http-client.js";
 import { onReady as xt } from "../shared/dom-ready.js";
 import { parseJSONValue as hr, readJSONScriptValue as oi } from "../shared/json-parse.js";
-import { n as si, t as di } from "./runtime-CmD8_aZj.js";
+import { n as si, t as di } from "./runtime-ChgMkM3p.js";
 var ci = "esign.signer.profile.v1", mr = "esign.signer.profile.outbox.v1", St = 90, pr = 500 * 1024, li = class {
   constructor(o) {
     this.ttlMs = (Number.isFinite(o) && o > 0 ? o : St) * 24 * 60 * 60 * 1e3;
@@ -3811,4 +3811,4 @@ export {
   vr as t
 };
 
-//# sourceMappingURL=signer-review-Dg7dCCwa.js.map
+//# sourceMappingURL=signer-review-CzdWyisI.js.map
