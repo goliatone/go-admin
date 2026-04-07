@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"io"
 	"maps"
@@ -17,6 +16,8 @@ type dashboardComponents struct {
 	specs   map[string]DashboardProviderSpec
 }
 
+const dashboardSSRTemplateName = "dashboard_ssr.html"
+
 type dashboardRuntimeBuildOptions struct {
 	store         dashcmp.WidgetStore
 	authorizer    dashcmp.Authorizer
@@ -27,7 +28,7 @@ type dashboardRuntimeBuildOptions struct {
 	areas         []string
 	themeProvider dashcmp.ThemeProvider
 	themeSelector func(context.Context, dashcmp.ViewerContext) dashcmp.ThemeSelector
-	decorator     dashcmp.PayloadDecorator
+	pageDecorator dashcmp.PageDecorator
 }
 
 func (d *Dashboard) setComponents(comp *dashboardComponents) {
@@ -43,11 +44,11 @@ func buildDashboardRuntimeOptions(opts dashboardRuntimeBuildOptions) dashcmp.Run
 	refresh := dashcmp.NewBroadcastHook()
 	renderer := opts.renderer
 	if renderer == nil {
-		renderer = noopDashboardRenderer{}
+		renderer = adaptDashboardRenderer(noopDashboardRenderer{})
 	}
 	template := strings.TrimSpace(opts.template)
 	if template == "" {
-		template = "dashboard_ssr.html"
+		template = dashboardSSRTemplateName
 	}
 	serviceOpts := dashcmp.Options{
 		WidgetStore:     opts.store,
@@ -65,9 +66,9 @@ func buildDashboardRuntimeOptions(opts dashboardRuntimeBuildOptions) dashcmp.Run
 		Service:   serviceOpts,
 		Broadcast: refresh,
 		Controller: dashcmp.ControllerOptions{
-			Renderer:         renderer,
-			Template:         template,
-			PayloadDecorator: opts.decorator,
+			Renderer:      renderer,
+			Template:      template,
+			PageDecorator: opts.pageDecorator,
 		},
 	}
 }
@@ -120,7 +121,7 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 		preferences:   prefStore,
 		providers:     providerRegistry,
 		renderer:      renderer,
-		template:      "dashboard_ssr.html",
+		template:      dashboardSSRTemplateName,
 		themeProvider: themeProvider,
 		themeSelector: func(ctx context.Context, _ dashcmp.ViewerContext) dashcmp.ThemeSelector {
 			selector := mergeSelector(ThemeSelector{
@@ -129,7 +130,7 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 			}, ThemeSelectorFromContext(ctx))
 			return dashcmp.ThemeSelector{Name: selector.Name, Variant: selector.Variant}
 		},
-		decorator: decorateDashboardControllerPayload,
+		pageDecorator: decorateDashboardControllerPage,
 	}))
 	components := &dashboardComponents{runtime: runtime, specs: specs}
 	a.dash = components
@@ -139,9 +140,9 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 
 func (a *Admin) dashboardRenderer() dashcmp.Renderer {
 	if a.dashboard != nil && a.dashboard.renderer != nil {
-		return a.dashboard.renderer
+		return adaptDashboardRenderer(a.dashboard.renderer)
 	}
-	return noopDashboardRenderer{}
+	return adaptDashboardRenderer(noopDashboardRenderer{})
 }
 
 func (d *Dashboard) providerSnapshot() (*dashcmp.Registry, map[string]DashboardProviderSpec) {
@@ -228,7 +229,7 @@ func (a *Admin) dashboardThemeProvider() dashcmp.ThemeProvider {
 
 type noopDashboardRenderer struct{}
 
-func (noopDashboardRenderer) Render(_ string, _ any, _ ...io.Writer) (string, error) {
+func (noopDashboardRenderer) RenderPage(_ string, _ AdminDashboardPage, _ ...io.Writer) (string, error) {
 	return "", nil
 }
 
@@ -444,58 +445,21 @@ func cloneAny(m map[string]any) map[string]any {
 
 type dashboardPayloadContextKey struct{}
 
-func withDashboardPayloadMetadata(ctx context.Context, metadata map[string]any) context.Context {
-	if len(metadata) == 0 {
+func withAdminDashboardChrome(ctx context.Context, state AdminChromeState) context.Context {
+	if state.Empty() {
 		return ctx
 	}
-	return context.WithValue(ctx, dashboardPayloadContextKey{}, cloneAny(metadata))
+	return context.WithValue(ctx, dashboardPayloadContextKey{}, cloneAdminChromeState(state))
 }
 
-func dashboardPayloadMetadataFromContext(ctx context.Context) map[string]any {
+func adminDashboardChromeFromContext(ctx context.Context) AdminChromeState {
 	if ctx == nil {
-		return nil
+		return AdminChromeState{}
 	}
-	raw, _ := ctx.Value(dashboardPayloadContextKey{}).(map[string]any)
-	return cloneAny(raw)
+	raw, _ := ctx.Value(dashboardPayloadContextKey{}).(AdminChromeState)
+	return cloneAdminChromeState(raw)
 }
 
-func decorateDashboardControllerPayload(ctx context.Context, _ dashcmp.ViewerContext, payload map[string]any) (map[string]any, error) {
-	metadata := dashboardPayloadMetadataFromContext(ctx)
-	if len(metadata) == 0 {
-		return payload, nil
-	}
-	ordered := orderedDashboardAreasPayload(payload["ordered_areas"])
-	if len(ordered) > 0 {
-		payload["areas"] = ordered
-		if _, ok := metadata["layout_json"]; !ok {
-			raw, err := json.Marshal(map[string]any{"areas": ordered})
-			if err != nil {
-				return nil, err
-			}
-			metadata["layout_json"] = string(raw)
-		}
-	}
-	for key, val := range metadata {
-		if val != nil {
-			payload[key] = val
-		}
-	}
-	return payload, nil
-}
-
-func orderedDashboardAreasPayload(raw any) []map[string]any {
-	switch typed := raw.(type) {
-	case []map[string]any:
-		return typed
-	case []any:
-		out := make([]map[string]any, 0, len(typed))
-		for _, item := range typed {
-			if mapped, ok := item.(map[string]any); ok {
-				out = append(out, mapped)
-			}
-		}
-		return out
-	default:
-		return nil
-	}
+func decorateDashboardControllerPage(ctx context.Context, _ dashcmp.ViewerContext, page dashcmp.Page) (dashcmp.Page, error) {
+	return withAdminChromeState(page, adminDashboardChromeFromContext(ctx))
 }
