@@ -2,7 +2,6 @@ package quickstart
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -11,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/internal/templateview"
+	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	router "github.com/goliatone/go-router"
 	gotemplate "github.com/goliatone/go-template"
 )
@@ -135,8 +135,8 @@ func newDashboardTemplateRenderer(opts ...DashboardRendererOption) (*dashboardTe
 	return &dashboardTemplateRenderer{renderer: renderer}, nil
 }
 
-// Render renders the dashboard template with the provided data.
-func (r *dashboardTemplateRenderer) Render(name string, data any, out ...io.Writer) (string, error) {
+// RenderPage renders the dashboard template with the typed admin wrapper.
+func (r *dashboardTemplateRenderer) RenderPage(name string, page admin.AdminDashboardPage, out ...io.Writer) (string, error) {
 	if r == nil || r.renderer == nil {
 		return "", fmt.Errorf("dashboard renderer not initialized")
 	}
@@ -144,7 +144,7 @@ func (r *dashboardTemplateRenderer) Render(name string, data any, out ...io.Writ
 	if templateName == "" {
 		templateName = "dashboard_ssr.html"
 	}
-	normalized, err := normalizeDashboardTemplateData(data)
+	normalized, err := normalizeDashboardTemplateData(page)
 	if err != nil {
 		return "", err
 	}
@@ -158,13 +158,9 @@ func (r *dashboardTemplateRenderer) Render(name string, data any, out ...io.Writ
 	return html, nil
 }
 
-// RenderLayout keeps legacy callers compatible with the default template.
-func (r *dashboardTemplateRenderer) RenderLayout(layout *admin.DashboardLayout) (string, error) {
-	return r.Render("dashboard_ssr.html", layout)
-}
-
-// NormalizeDashboardTemplateData converts a dashboard payload into the
-// serialized template context used by the default dashboard renderer.
+// NormalizeDashboardTemplateData converts a typed go-dashboard page or typed
+// admin host wrapper into the serialized template context used by the default
+// dashboard renderer.
 func NormalizeDashboardTemplateData(data any) (map[string]any, error) {
 	renderer := &dashboardTemplateRenderer{}
 	normalized, err := renderer.normalizeData(data)
@@ -185,19 +181,29 @@ func normalizeDashboardTemplateData(data any) (map[string]any, error) {
 
 func (r *dashboardTemplateRenderer) normalizeData(data any) (map[string]any, error) {
 	switch v := data.(type) {
-	case *admin.DashboardLayout:
+	case *admin.AdminDashboardPage:
+		if v == nil {
+			return r.buildTemplateData(admin.AdminDashboardPage{}), nil
+		}
+		return r.buildTemplateData(*v), nil
+	case admin.AdminDashboardPage:
 		return r.buildTemplateData(v), nil
-	case admin.DashboardLayout:
-		return r.buildTemplateData(&v), nil
+	case *dashcmp.Page:
+		if v == nil {
+			return r.buildTemplateData(admin.AdminDashboardPage{}), nil
+		}
+		return r.buildTemplateData(admin.ComposeAdminDashboardPage(*v)), nil
+	case dashcmp.Page:
+		return r.buildTemplateData(admin.ComposeAdminDashboardPage(v)), nil
 	case nil:
-		return map[string]any{}, nil
+		return r.buildTemplateData(admin.AdminDashboardPage{}), nil
 	default:
 		return nil, fmt.Errorf("unsupported dashboard payload type: %T", data)
 	}
 }
 
-func (r *dashboardTemplateRenderer) buildTemplateData(layout *admin.DashboardLayout) map[string]any {
-	if layout == nil {
+func (r *dashboardTemplateRenderer) buildTemplateData(page admin.AdminDashboardPage) map[string]any {
+	if len(page.Dashboard.Areas) == 0 && page.Chrome.Empty() {
 		return map[string]any{
 			"title":             "Dashboard",
 			"base_path":         "",
@@ -210,59 +216,63 @@ func (r *dashboardTemplateRenderer) buildTemplateData(layout *admin.DashboardLay
 		}
 	}
 
-	areas := make([]map[string]any, 0, len(layout.Areas))
-	for _, area := range layout.Areas {
+	areas := make([]map[string]any, 0, len(page.Dashboard.Areas))
+	for _, area := range page.Dashboard.Areas {
 		widgets := make([]map[string]any, 0, len(area.Widgets))
 		for _, widget := range area.Widgets {
 			widgets = append(widgets, map[string]any{
 				"id":         widget.ID,
 				"definition": widget.Definition,
+				"name":       widget.Name,
+				"template":   widget.Template,
 				"area":       widget.Area,
 				"data":       widget.Data,
 				"config":     widget.Config,
-				"metadata":   widget.Metadata,
+				"meta":       widget.Meta,
 				"hidden":     widget.Hidden,
 				"span":       normalizeSpan(widget.Span),
 			})
 		}
 		areas = append(areas, map[string]any{
+			"slot":    area.Slot,
 			"code":    area.Code,
 			"title":   area.Title,
 			"widgets": widgets,
 		})
 	}
 
-	layoutJSON, _ := json.Marshal(map[string]any{
-		"areas":    areas,
-		"basePath": layout.BasePath,
-	})
-
-	title := any("Dashboard")
-	if layout.Metadata != nil {
-		if metaTitle, ok := layout.Metadata["title"]; ok {
-			title = metaTitle
-		}
-	}
-	view := baseTemplateContext(layout.BasePath, title)
-	if layout.Metadata != nil {
-		overlayOptionalContext(view, layout.Metadata,
-			"asset_base_path",
-			"api_base_path",
-			"body_classes",
-			"nav_items",
-			"nav_utility_items",
-			"nav_debug",
-			"nav_items_json",
-			"session_user",
-			"translation_capabilities",
-			"users_import_available",
-			"users_import_enabled",
-		)
-	}
+	view := baseTemplateContext(page.Chrome.BasePath, page.Title())
+	overlayOptionalContext(view, map[string]any{
+		"asset_base_path":          page.Chrome.AssetBasePath,
+		"api_base_path":            page.Chrome.APIBasePath,
+		"body_classes":             page.Chrome.BodyClasses,
+		"nav_items":                page.Chrome.NavItems,
+		"nav_utility_items":        page.Chrome.NavUtilityItems,
+		"nav_debug":                page.Chrome.NavDebug,
+		"nav_items_json":           page.Chrome.NavItemsJSON,
+		"session_user":             page.Chrome.SessionUser,
+		"theme":                    page.Chrome.Theme,
+		"translation_capabilities": page.Chrome.TranslationCapabilities,
+		"users_import_available":   page.Chrome.UsersImportAvailable,
+		"users_import_enabled":     page.Chrome.UsersImportEnabled,
+		"locale":                   page.Dashboard.Locale,
+	}, "asset_base_path",
+		"api_base_path",
+		"body_classes",
+		"nav_items",
+		"nav_utility_items",
+		"nav_debug",
+		"nav_items_json",
+		"session_user",
+		"theme",
+		"translation_capabilities",
+		"users_import_available",
+		"users_import_enabled",
+		"locale",
+	)
 	view["areas"] = areas
-	view["base_path"] = layout.BasePath
-	view["theme"] = layout.Theme
-	view["layout_json"] = string(layoutJSON)
+	view["base_path"] = page.Chrome.BasePath
+	view["layout_json"] = page.LayoutJSON()
 	return view
 }
 
