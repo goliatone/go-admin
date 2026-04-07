@@ -3,6 +3,7 @@ package admin
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -144,7 +145,7 @@ func TestDashboardPreferencesEndpointPreservesLegacyLayoutPayload(t *testing.T) 
 	}
 }
 
-func TestDashboardHTMLRouteUsesUpstreamControllerPayload(t *testing.T) {
+func TestDashboardHTMLRouteUsesTypedAdminDashboardPage(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
 		DefaultLocale: "en",
@@ -167,22 +168,241 @@ func TestDashboardHTMLRouteUsesUpstreamControllerPayload(t *testing.T) {
 		t.Fatalf("expected 200 from dashboard html route, got %d body=%s", rr.Code, rr.Body.String())
 	}
 
-	payload, ok := renderer.lastData.(map[string]any)
+	page := renderer.lastPage
+	if page.Chrome.BasePath != "/admin" {
+		t.Fatalf("expected base_path propagated through typed host wrapper, got %#v", page.Chrome.BasePath)
+	}
+	if page.Title() != cfg.Title && page.Title() != "Dashboard" {
+		t.Fatalf("expected typed page title to be composed, got %q", page.Title())
+	}
+	if got := page.LayoutJSON(); got == "" || got == "{}" {
+		t.Fatalf("expected layout_json derived from typed page, got %q", got)
+	}
+	if len(page.Dashboard.Areas) == 0 {
+		t.Fatalf("expected dashboard areas in typed page, got %+v", page.Dashboard.Areas)
+	}
+	if len(page.Chrome.Theme) == 0 {
+		t.Fatalf("expected admin theme payload in typed host wrapper, got %+v", page.Chrome.Theme)
+	}
+	if len(page.Chrome.SessionUser) == 0 {
+		t.Fatalf("expected session user in typed host wrapper, got %+v", page.Chrome.SessionUser)
+	}
+}
+
+func TestDashboardAPIRouteUsesTypedPageSource(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS, FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
+	renderer := &captureDashboardRenderer{}
+	adm.Dashboard().WithRenderer(renderer)
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	htmlReq := httptest.NewRequest("GET", "/admin/dashboard?locale=es", nil)
+	htmlReq.Header.Set("X-User-ID", "user-1")
+	htmlRR := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(htmlRR, htmlReq)
+	if htmlRR.Code != 200 {
+		t.Fatalf("expected 200 from dashboard html route, got %d body=%s", htmlRR.Code, htmlRR.Body.String())
+	}
+
+	apiReq := httptest.NewRequest("GET", "/admin/api/dashboard?locale=es", nil)
+	apiReq.Header.Set("X-User-ID", "user-1")
+	apiRR := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(apiRR, apiReq)
+	if apiRR.Code != 200 {
+		t.Fatalf("expected 200 from dashboard api route, got %d body=%s", apiRR.Code, apiRR.Body.String())
+	}
+
+	payload := decodeDashboardJSONMap(t, apiRR.Body.Bytes())
+	chrome := nestedMap(t, payload, "chrome")
+	if chrome["base_path"] != "/admin" {
+		t.Fatalf("expected api chrome base_path /admin, got %#v", chrome["base_path"])
+	}
+	dashboard := nestedMap(t, payload, "dashboard")
+	if dashboard["locale"] != "es" {
+		t.Fatalf("expected api dashboard locale es, got %#v", dashboard["locale"])
+	}
+	areas, ok := dashboard["areas"].([]any)
 	if !ok {
-		t.Fatalf("expected upstream controller render payload map, got %T", renderer.lastData)
+		t.Fatalf("expected api dashboard areas array, got %T", dashboard["areas"])
 	}
-	if payload["base_path"] != "/admin" {
-		t.Fatalf("expected base_path propagated through decorator, got %#v", payload["base_path"])
+	if len(areas) != len(renderer.lastPage.Dashboard.Areas) {
+		t.Fatalf("expected api/html routes to share area count %d, got %d", len(renderer.lastPage.Dashboard.Areas), len(areas))
 	}
-	if _, ok := payload["layout_json"].(string); !ok {
-		t.Fatalf("expected layout_json on render payload, got %#v", payload["layout_json"])
+	widgets, ok := payload["widgets"].([]any)
+	if !ok || len(widgets) == 0 {
+		t.Fatalf("expected api widgets array, got %#v", payload["widgets"])
 	}
-	areas := orderedDashboardAreasPayload(payload["areas"])
-	if len(areas) == 0 {
-		t.Fatalf("expected ordered dashboard areas in render payload, got %+v", payload["areas"])
+	theme := nestedMap(t, payload, "theme")
+	if len(theme) == 0 {
+		t.Fatalf("expected api theme payload, got %+v", theme)
 	}
-	if _, ok := payload["theme"].(map[string]map[string]string); !ok {
-		t.Fatalf("expected admin theme payload in render payload, got %T", payload["theme"])
+}
+
+func TestAdminChromeStateFromViewContextPreservesNavigationSlices(t *testing.T) {
+	state := adminChromeStateFromViewContext(router.ViewContext{
+		"nav_items": []map[string]any{
+			{"label": "Dashboard", "href": "/admin/dashboard"},
+		},
+		"nav_utility_items": []map[string]any{
+			{"label": "Profile", "href": "/admin/profile"},
+		},
+	})
+
+	if len(state.NavItems) != 1 {
+		t.Fatalf("expected one nav item, got %+v", state.NavItems)
+	}
+	if len(state.NavUtilityItems) != 1 {
+		t.Fatalf("expected one utility nav item, got %+v", state.NavUtilityItems)
+	}
+	item, ok := state.NavItems[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected nav item map, got %T", state.NavItems[0])
+	}
+	if item["label"] != "Dashboard" {
+		t.Fatalf("expected nav item label to round-trip, got %+v", item)
+	}
+}
+
+func TestDashboardPreferenceRoutesExposeTypedTransport(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS, FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	body := `{"area_order":{"admin.dashboard.main":["w1"]},"layout_rows":{"admin.dashboard.main":[{"widgets":[{"id":"w1","width":12}]}]},"hidden_widget_ids":["w1"]}`
+	postReq := httptest.NewRequest("POST", "/admin/api/dashboard/preferences", bytes.NewBufferString(body))
+	postReq.Header.Set("Content-Type", "application/json")
+	postReq.Header.Set("X-User-ID", "user-1")
+	postRR := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(postRR, postReq)
+	if postRR.Code != 200 {
+		t.Fatalf("expected 200 from preferences post route, got %d body=%s", postRR.Code, postRR.Body.String())
+	}
+
+	for _, path := range []string{"/admin/api/dashboard/preferences", "/admin/api/dashboard/config"} {
+		req := httptest.NewRequest("GET", path, nil)
+		req.Header.Set("X-User-ID", "user-1")
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != 200 {
+			t.Fatalf("expected 200 from %s, got %d body=%s", path, rr.Code, rr.Body.String())
+		}
+
+		payload := decodeDashboardJSONMap(t, rr.Body.Bytes())
+		if _, exists := payload["layout"]; exists {
+			t.Fatalf("expected typed preference transport from %s, got legacy layout payload %+v", path, payload["layout"])
+		}
+		areaOrder := nestedMap(t, payload, "area_order")
+		mainOrder, ok := areaOrder["admin.dashboard.main"].([]any)
+		if !ok || len(mainOrder) != 1 || mainOrder[0] != "w1" {
+			t.Fatalf("expected typed area order from %s, got %+v payload=%+v", path, areaOrder, payload)
+		}
+		layoutRows := nestedMap(t, payload, "layout_rows")
+		rows, ok := layoutRows["admin.dashboard.main"].([]any)
+		if !ok || len(rows) != 1 {
+			t.Fatalf("expected typed layout rows from %s, got %+v", path, layoutRows)
+		}
+		hidden, ok := payload["hidden_widget_ids"].([]any)
+		if !ok || len(hidden) != 1 || hidden[0] != "w1" {
+			t.Fatalf("expected hidden_widget_ids from %s, got %+v", path, payload["hidden_widget_ids"])
+		}
+		catalog := nestedMap(t, payload, "catalog")
+		if _, ok := catalog["areas"].([]any); !ok {
+			t.Fatalf("expected typed catalog areas from %s, got %#v", path, catalog["areas"])
+		}
+	}
+}
+
+func TestDashboardConfigRoutePersistsTypedPreferences(t *testing.T) {
+	ctx := context.Background()
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS, FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	body := `{"area_order":{"admin.dashboard.main":["w1"]},"layout_rows":{"admin.dashboard.main":[{"widgets":[{"id":"w1","width":6}]}]},"hidden_widget_ids":["w1"]}`
+	req := httptest.NewRequest("POST", "/admin/api/dashboard/config", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 from config alias post route, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	stored := adm.PreferencesService().DashboardOverrides(ctx, "user-1")
+	rows := stored.AreaRows["admin.dashboard.main"]
+	if len(rows) != 1 || len(rows[0].Widgets) != 1 || rows[0].Widgets[0].ID != "w1" || rows[0].Widgets[0].Width != 6 {
+		t.Fatalf("expected config alias to persist typed overrides, got %+v", stored.AreaRows)
+	}
+	if !stored.HiddenWidgets["w1"] {
+		t.Fatalf("expected config alias hidden widget flag to persist, got %+v", stored.HiddenWidgets)
+	}
+}
+
+func TestDashboardDebugRouteUsesTypedDiagnostics(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureCMS, FeaturePreferences)})
+	adm.WithAuthorizer(allowAll{})
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/admin/api/dashboard/debug?locale=es", nil)
+	req.Header.Set("X-User-ID", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("expected 200 from debug route, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	payload := decodeDashboardJSONMap(t, rr.Body.Bytes())
+	viewer := nestedMap(t, payload, "viewer")
+	if viewer["locale"] != "es" {
+		t.Fatalf("expected debug viewer locale es, got %#v", viewer["locale"])
+	}
+	preferences := nestedMap(t, payload, "preferences")
+	if _, ok := preferences["layout_rows"].(map[string]any); !ok {
+		t.Fatalf("expected typed debug preferences payload, got %#v", preferences["layout_rows"])
+	}
+	if _, ok := payload["layout"].(map[string]any); !ok {
+		t.Fatalf("expected typed debug layout payload, got %T", payload["layout"])
+	}
+	catalog := nestedMap(t, payload, "catalog")
+	if _, ok := catalog["providers"].([]any); !ok {
+		t.Fatalf("expected typed catalog providers, got %#v", catalog["providers"])
+	}
+	page := nestedMap(t, payload, "page")
+	pageChrome := nestedMap(t, page, "chrome")
+	if pageChrome["base_path"] != "/admin" {
+		t.Fatalf("expected debug page chrome base_path /admin, got %#v", pageChrome["base_path"])
 	}
 }
 
@@ -256,12 +476,12 @@ type stubWidgetStore struct {
 
 type captureDashboardRenderer struct {
 	lastTemplate string
-	lastData     any
+	lastPage     AdminDashboardPage
 }
 
-func (r *captureDashboardRenderer) Render(name string, data any, out ...io.Writer) (string, error) {
+func (r *captureDashboardRenderer) RenderPage(name string, page AdminDashboardPage, out ...io.Writer) (string, error) {
 	r.lastTemplate = name
-	r.lastData = data
+	r.lastPage = page
 	if len(out) > 0 && out[0] != nil {
 		_, _ = out[0].Write([]byte("<html></html>"))
 	}
@@ -324,4 +544,22 @@ func (s *stubWidgetStore) ReorderArea(context.Context, dashcmp.ReorderAreaInput)
 
 func (s *stubWidgetStore) ResolveArea(context.Context, dashcmp.ResolveAreaInput) (dashcmp.ResolvedArea, error) {
 	return dashcmp.ResolvedArea{}, nil
+}
+
+func decodeDashboardJSONMap(t *testing.T, raw []byte) map[string]any {
+	t.Helper()
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("decode json: %v body=%s", err, string(raw))
+	}
+	return payload
+}
+
+func nestedMap(t *testing.T, payload map[string]any, key string) map[string]any {
+	t.Helper()
+	value, ok := payload[key].(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s map, got %T", key, payload[key])
+	}
+	return value
 }
