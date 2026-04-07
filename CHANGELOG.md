@@ -1,5 +1,31 @@
 # Changelog
 
+# [0.34.0](https://github.com/goliatone/go-admin/compare/v0.33.0...v0.34.0) - (2026-04-07)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.34.0 ([e647a9f](https://github.com/goliatone/go-admin/commit/e647a9ff6a1d5104990c0b768b4838b1312af323))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Boot dash bindings ([40b7d0f](https://github.com/goliatone/go-admin/commit/40b7d0f1ebc800c16ca25c40349c7b837232d13d))  - (goliatone)
+- Dashboard page helpers ([b2b19a0](https://github.com/goliatone/go-admin/commit/b2b19a0926f176fadf63d6e7fd9974ff773be4f7))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Dashboard rendering use new setup ([ca885a5](https://github.com/goliatone/go-admin/commit/ca885a59088ca1edd57c7a88d7e49c0b3d8a6151))  - (goliatone)
+- Dashboard build up using typed structs ([e6b7dc4](https://github.com/goliatone/go-admin/commit/e6b7dc42b47fd147c4bf6c6dc2d790bd1b549006))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.33.0 ([295f95f](https://github.com/goliatone/go-admin/commit/295f95f7c39441aedea5b602f50aba9a93d9ce85))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([345beb9](https://github.com/goliatone/go-admin/commit/345beb9b91c870af0e936cc79de33b382db48d59))  - (goliatone)
+- Update tests ([8691436](https://github.com/goliatone/go-admin/commit/86914369bf3618ae655953c3d85150819fa586b1))  - (goliatone)
+- Update examples ([24c302c](https://github.com/goliatone/go-admin/commit/24c302c193708028555e094a7fc7699ed551e49a))  - (goliatone)
+
 # [0.33.0](https://github.com/goliatone/go-admin/compare/v0.32.0...v0.33.0) - (2026-04-06)
 
 ## <!-- 1 -->🐛 Bug Fixes
