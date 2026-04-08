@@ -1,0 +1,1 @@
+{"version":3,"file":"deep-clone.js","names":[],"sources":["../../src/shared/deep-clone.ts"],"sourcesContent":["export function deepCloneJSON<T>(value: T): T {\n  return JSON.parse(JSON.stringify(value)) as T;\n}\n"],"mappings":"AAAA,SAAgB,EAAiB,GAAa;AAC5C,SAAO,KAAK,MAAM,KAAK,UAAU,CAAA,CAAM"}
