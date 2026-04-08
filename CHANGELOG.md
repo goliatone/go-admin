@@ -1,5 +1,28 @@
 # Changelog
 
+# [0.35.0](https://github.com/goliatone/go-admin/compare/v0.34.0...v0.35.0) - (2026-04-08)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Dashboard rendering widgets ([5b8e98d](https://github.com/goliatone/go-admin/commit/5b8e98ddef6c6737f69f8818fc622c216ca40868))  - (goliatone)
+- Built asset include all libs ([944e195](https://github.com/goliatone/go-admin/commit/944e195d06d632c90a148bb2473274f0c1911f5a))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.35.0 ([a80ec78](https://github.com/goliatone/go-admin/commit/a80ec78e156ba1f9d633fbf605123bcf6780304c))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Dashboard diagnostic definition ([33ce6a1](https://github.com/goliatone/go-admin/commit/33ce6a1aa065ecd0b9bb1ceb13427a644e19d888))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.34.0 ([5822206](https://github.com/goliatone/go-admin/commit/5822206607fb96ef13fdbee50e487cbd6b58910b))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([d2a90e3](https://github.com/goliatone/go-admin/commit/d2a90e395025d2c14ef88ee5a92cce3875baa935))  - (goliatone)
+
 # [0.34.0](https://github.com/goliatone/go-admin/compare/v0.33.0...v0.34.0) - (2026-04-07)
 
 ## <!-- 13 -->📦 Bumps
