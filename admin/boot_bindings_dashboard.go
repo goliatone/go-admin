@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"sort"
 	"strings"
 
@@ -577,8 +578,6 @@ func cloneDashboardIntMap(in map[string]int) map[string]int {
 		return nil
 	}
 	out := make(map[string]int, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 	return out
 }

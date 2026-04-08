@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"io"
+	"maps"
 	"strings"
 
 	dashcmp "github.com/goliatone/go-dashboard/components/dashboard"
@@ -44,7 +45,7 @@ func (adapter dashboardRendererAdapter) RenderPage(name string, page dashcmp.Pag
 // typed go-dashboard page.
 type AdminDashboardPage struct {
 	Dashboard dashcmp.Page     `json:"dashboard"`
-	Chrome    AdminChromeState `json:"chrome,omitempty"`
+	Chrome    AdminChromeState `json:"chrome"`
 }
 
 // ComposeAdminDashboardPage rebuilds the typed admin route wrapper from the raw
@@ -169,9 +170,7 @@ func cloneNestedStringMap(input map[string]map[string]string) map[string]map[str
 			continue
 		}
 		nested := make(map[string]string, len(value))
-		for nestedKey, nestedValue := range value {
-			nested[nestedKey] = nestedValue
-		}
+		maps.Copy(nested, value)
 		out[key] = nested
 	}
 	return out

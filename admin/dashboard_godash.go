@@ -12,8 +12,9 @@ import (
 )
 
 type dashboardComponents struct {
-	runtime *dashcmp.Runtime
-	specs   map[string]DashboardProviderSpec
+	runtime        *dashcmp.Runtime
+	specs          map[string]DashboardProviderSpec
+	hostConfigured bool
 }
 
 const dashboardSSRTemplateName = "dashboard_ssr.html"
@@ -29,6 +30,16 @@ type dashboardRuntimeBuildOptions struct {
 	themeProvider dashcmp.ThemeProvider
 	themeSelector func(context.Context, dashcmp.ViewerContext) dashcmp.ThemeSelector
 	pageDecorator dashcmp.PageDecorator
+}
+
+type dashboardRuntimeHostOptions struct {
+	themeProvider dashcmp.ThemeProvider
+	themeSelector func(context.Context, dashcmp.ViewerContext) dashcmp.ThemeSelector
+	pageDecorator dashcmp.PageDecorator
+}
+
+func (opts dashboardRuntimeHostOptions) configured() bool {
+	return opts.themeProvider != nil || opts.themeSelector != nil || opts.pageDecorator != nil
 }
 
 func (d *Dashboard) setComponents(comp *dashboardComponents) {
@@ -68,8 +79,46 @@ func buildDashboardRuntimeOptions(opts dashboardRuntimeBuildOptions) dashcmp.Run
 		Controller: dashcmp.ControllerOptions{
 			Renderer:      renderer,
 			Template:      template,
+			Areas:         dashboardControllerAreaSlots(opts.areas),
 			PageDecorator: opts.pageDecorator,
 		},
+	}
+}
+
+func dashboardControllerAreaSlots(areaCodes []string) []dashcmp.AreaSlot {
+	if len(areaCodes) == 0 {
+		return nil
+	}
+	slots := make([]dashcmp.AreaSlot, 0, len(areaCodes))
+	seen := map[string]struct{}{}
+	for _, code := range areaCodes {
+		code = strings.TrimSpace(code)
+		if code == "" {
+			continue
+		}
+		slot := dashboardControllerSlotName(code)
+		if _, exists := seen[slot]; exists {
+			slot = code
+		}
+		if _, exists := seen[slot]; exists {
+			continue
+		}
+		seen[slot] = struct{}{}
+		slots = append(slots, dashcmp.AreaSlot{Slot: slot, Code: code})
+	}
+	return slots
+}
+
+func dashboardControllerSlotName(areaCode string) string {
+	switch strings.TrimSpace(areaCode) {
+	case "admin.dashboard.main":
+		return "main"
+	case "admin.dashboard.sidebar":
+		return "sidebar"
+	case "admin.dashboard.footer":
+		return "footer"
+	default:
+		return areaCode
 	}
 }
 
@@ -102,27 +151,11 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 	if !featureEnabled(a.featureGate, FeatureDashboard) {
 		return nil
 	}
-	store := dashinternal.NewCMSWidgetStoreWithActivity(a.widgetServiceAdapter(), activityRecorderAdapter{sink: a.activity})
-	if store == nil {
-		return serviceNotConfiguredDomainError("dashboard cms widget service", map[string]any{"component": "dashboard"})
+	if a.dashboard == nil {
+		return nil
 	}
-
-	providerRegistry, specs := a.dashboard.providerSnapshot()
-	authorizer := dashboardAuthorizerAdapter{
-		authorizer: a.authorizer,
-		specs:      specs,
-	}
-	prefStore := a.buildDashboardPreferenceStore(store)
-	themeProvider := a.dashboardThemeProvider()
-	renderer := a.dashboardRenderer()
-	runtime := dashcmp.NewRuntime(buildDashboardRuntimeOptions(dashboardRuntimeBuildOptions{
-		store:         store,
-		authorizer:    authorizer,
-		preferences:   prefStore,
-		providers:     providerRegistry,
-		renderer:      renderer,
-		template:      dashboardSSRTemplateName,
-		themeProvider: themeProvider,
+	components, err := a.dashboard.ensureComponentsWithHostOptions(dashboardRuntimeHostOptions{
+		themeProvider: a.dashboardThemeProvider(),
 		themeSelector: func(ctx context.Context, _ dashcmp.ViewerContext) dashcmp.ThemeSelector {
 			selector := mergeSelector(ThemeSelector{
 				Name:    a.config.Theme,
@@ -131,10 +164,11 @@ func (a *Admin) ensureDashboard(ctx context.Context) error {
 			return dashcmp.ThemeSelector{Name: selector.Name, Variant: selector.Variant}
 		},
 		pageDecorator: decorateDashboardControllerPage,
-	}))
-	components := &dashboardComponents{runtime: runtime, specs: specs}
+	})
+	if err != nil {
+		return err
+	}
 	a.dash = components
-	a.dashboard.setComponents(a.dash)
 	return nil
 }
 
