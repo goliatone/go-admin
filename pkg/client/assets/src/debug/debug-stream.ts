@@ -17,6 +17,7 @@ export type DebugStreamOptions = {
   basePath?: string;
   url?: string;
   maxReconnectAttempts?: number;
+  maxInitialReconnectAttempts?: number;
   reconnectDelayMs?: number;
   maxReconnectDelayMs?: number;
   onEvent?: (event: DebugEvent) => void;
@@ -44,6 +45,7 @@ import { normalizeDebugBasePath } from './shared/path-helpers.js';
 const defaultReconnectDelayMs = 1000;
 const defaultMaxReconnectDelayMs = 12000;
 const defaultMaxReconnectAttempts = 8;
+const defaultMaxInitialReconnectAttempts = 1;
 const defaultTokenRefreshBufferMs = 30000;
 
 const buildWebSocketURL = (basePath: string): string => {
@@ -129,6 +131,7 @@ export class DebugStream {
   protected manualClose = false;
   protected pendingCommands: DebugCommand[] = [];
   protected status: DebugStreamStatus = 'disconnected';
+  protected hasConnected = false;
 
   constructor(options: DebugStreamOptions) {
     this.options = options;
@@ -146,6 +149,10 @@ export class DebugStream {
       return;
     }
 
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.manualClose = false;
     const url = this.getWebSocketURL();
     if (!url) {
@@ -155,6 +162,7 @@ export class DebugStream {
     this.ws = new WebSocket(url);
 
     this.ws.onopen = () => {
+      this.hasConnected = true;
       this.reconnectAttempts = 0;
       this.setStatus('connected');
       this.flushPending();
@@ -253,7 +261,9 @@ export class DebugStream {
   }
 
   protected scheduleReconnect(): void {
-    const maxAttempts = this.options.maxReconnectAttempts ?? defaultMaxReconnectAttempts;
+    const maxAttempts = this.hasConnected
+      ? (this.options.maxReconnectAttempts ?? defaultMaxReconnectAttempts)
+      : (this.options.maxInitialReconnectAttempts ?? defaultMaxInitialReconnectAttempts);
     const baseDelay = this.options.reconnectDelayMs ?? defaultReconnectDelayMs;
     const maxDelay = this.options.maxReconnectDelayMs ?? defaultMaxReconnectDelayMs;
     if (this.reconnectAttempts >= maxAttempts) {
@@ -265,6 +275,7 @@ export class DebugStream {
     const jitter = backoff * (0.2 + Math.random() * 0.3);
     this.reconnectAttempts += 1;
     this.reconnectTimer = window.setTimeout(() => {
+      this.reconnectTimer = null;
       this.connect();
     }, backoff + jitter);
   }

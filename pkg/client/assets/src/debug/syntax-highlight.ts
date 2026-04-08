@@ -2,33 +2,94 @@
 // Provides SQL and JSON highlighting with Catppuccin Mocha theme
 
 import Prism from 'prismjs';
-import loadLanguages from 'prismjs/components/index.js';
 import { format } from 'sql-formatter';
 
 type PrismLanguageId = 'json' | 'sql';
-type PrismGlobal = typeof globalThis & { Prism?: typeof Prism };
 
-let prismLanguagesReady = false;
+function registerPrismLanguages(): void {
+  if (!hasPrismLanguage('json')) {
+    Prism.languages.json = {
+      property: {
+        pattern: /(^|[^\\])"(?:\\.|[^\\"\r\n])*"(?=\s*:)/,
+        lookbehind: true,
+        greedy: true,
+      },
+      string: {
+        pattern: /(^|[^\\])"(?:\\.|[^\\"\r\n])*"(?!\s*:)/,
+        lookbehind: true,
+        greedy: true,
+      },
+      comment: {
+        pattern: /\/\/.*|\/\*[\s\S]*?(?:\*\/|$)/,
+        greedy: true,
+      },
+      number: /-?\b\d+(?:\.\d+)?(?:e[+-]?\d+)?\b/i,
+      punctuation: /[{}[\],]/,
+      operator: /:/,
+      boolean: /\b(?:false|true)\b/,
+      null: {
+        pattern: /\bnull\b/,
+        alias: 'keyword',
+      },
+    };
+    Prism.languages.webmanifest = Prism.languages.json;
+  }
+
+  if (!hasPrismLanguage('sql')) {
+    Prism.languages.sql = {
+      comment: {
+        pattern: /(^|[^\\])(?:\/\*[\s\S]*?\*\/|(?:--|\/\/|#).*)/,
+        lookbehind: true,
+      },
+      variable: [
+        {
+          pattern: /@(["'`])(?:\\[\s\S]|(?!\1)[^\\])+\1/,
+          greedy: true,
+        },
+        /@[\w.$]+/,
+      ],
+      string: {
+        pattern: /(^|[^@\\])("|')(?:\\[\s\S]|(?!\2)[^\\]|\2\2)*\2/,
+        greedy: true,
+        lookbehind: true,
+      },
+      identifier: {
+        pattern: /(^|[^@\\])`(?:\\[\s\S]|[^`\\]|``)*`/,
+        greedy: true,
+        lookbehind: true,
+        inside: {
+          punctuation: /^`|`$/,
+        },
+      },
+      function: /\b(?:AVG|COUNT|FIRST|FORMAT|LAST|LCASE|LEN|MAX|MID|MIN|MOD|NOW|ROUND|SUM|UCASE)(?=\s*\()/i,
+      keyword: /\b(?:ACTION|ADD|AFTER|ALGORITHM|ALL|ALTER|ANALYZE|ANY|APPLY|AS|ASC|AUTHORIZATION|AUTO_INCREMENT|BACKUP|BDB|BEGIN|BERKELEYDB|BIGINT|BINARY|BIT|BLOB|BOOL|BOOLEAN|BREAK|BROWSE|BTREE|BULK|BY|CALL|CASCADED?|CASE|CHAIN|CHAR(?:ACTER|SET)?|CHECK(?:POINT)?|CLOSE|CLUSTERED|COALESCE|COLLATE|COLUMNS?|COMMENT|COMMIT(?:TED)?|COMPUTE|CONNECT|CONSISTENT|CONSTRAINT|CONTAINS(?:TABLE)?|CONTINUE|CONVERT|CREATE|CROSS|CURRENT(?:_DATE|_TIME|_TIMESTAMP|_USER)?|CURSOR|CYCLE|DATA(?:BASES?)?|DATE(?:TIME)?|DAY|DBCC|DEALLOCATE|DEC|DECIMAL|DECLARE|DEFAULT|DEFINER|DELAYED|DELETE|DELIMITERS?|DENY|DESC|DESCRIBE|DETERMINISTIC|DISABLE|DISCARD|DISK|DISTINCT|DISTINCTROW|DISTRIBUTED|DO|DOUBLE|DROP|DUMMY|DUMP(?:FILE)?|DUPLICATE|ELSE(?:IF)?|ENABLE|ENCLOSED|END|ENGINE|ENUM|ERRLVL|ERRORS|ESCAPED?|EXCEPT|EXEC(?:UTE)?|EXISTS|EXIT|EXPLAIN|EXTENDED|FETCH|FIELDS|FILE|FILLFACTOR|FIRST|FIXED|FLOAT|FOLLOWING|FOR(?: EACH ROW)?|FORCE|FOREIGN|FREETEXT(?:TABLE)?|FROM|FULL|FUNCTION|GEOMETRY(?:COLLECTION)?|GLOBAL|GOTO|GRANT|GROUP|HANDLER|HASH|HAVING|HOLDLOCK|HOUR|IDENTITY(?:COL|_INSERT)?|IF|IGNORE|IMPORT|INDEX|INFILE|INNER|INNODB|INOUT|INSERT|INT|INTEGER|INTERSECT|INTERVAL|INTO|INVOKER|ISOLATION|ITERATE|JOIN|KEYS?|KILL|LANGUAGE|LAST|LEAVE|LEFT|LEVEL|LIMIT|LINENO|LINES|LINESTRING|LOAD|LOCAL|LOCK|LONG(?:BLOB|TEXT)|LOOP|MATCH(?:ED)?|MEDIUM(?:BLOB|INT|TEXT)|MERGE|MIDDLEINT|MINUTE|MODE|MODIFIES|MODIFY|MONTH|MULTI(?:LINESTRING|POINT|POLYGON)|NATIONAL|NATURAL|NCHAR|NEXT|NO|NONCLUSTERED|NULLIF|NUMERIC|OFF?|OFFSETS?|ON|OPEN(?:DATASOURCE|QUERY|ROWSET)?|OPTIMIZE|OPTION(?:ALLY)?|ORDER|OUT(?:ER|FILE)?|OVER|PARTIAL|PARTITION|PERCENT|PIVOT|PLAN|POINT|POLYGON|PRECEDING|PRECISION|PREPARE|PREV|PRIMARY|PRINT|PRIVILEGES|PROC(?:EDURE)?|PUBLIC|PURGE|QUICK|RAISERROR|READS?|REAL|RECONFIGURE|REFERENCES|RELEASE|RENAME|REPEAT(?:ABLE)?|REPLACE|REPLICATION|REQUIRE|RESIGNAL|RESTORE|RESTRICT|RETURN(?:ING|S)?|REVOKE|RIGHT|ROLLBACK|ROUTINE|ROW(?:COUNT|GUIDCOL|S)?|RTREE|RULE|SAVE(?:POINT)?|SCHEMA|SECOND|SELECT|SERIAL(?:IZABLE)?|SESSION(?:_USER)?|SET(?:USER)?|SHARE|SHOW|SHUTDOWN|SIMPLE|SMALLINT|SNAPSHOT|SOME|SONAME|SQL|START(?:ING)?|STATISTICS|STATUS|STRIPED|SYSTEM_USER|TABLES?|TABLESPACE|TEMP(?:ORARY|TABLE)?|TERMINATED|TEXT(?:SIZE)?|THEN|TIME(?:STAMP)?|TINY(?:BLOB|INT|TEXT)|TOP?|TRAN(?:SACTIONS?)?|TRIGGER|TRUNCATE|TSEQUAL|TYPES?|UNBOUNDED|UNCOMMITTED|UNDEFINED|UNION|UNIQUE|UNLOCK|UNPIVOT|UNSIGNED|UPDATE(?:TEXT)?|USAGE|USE|USER|USING|VALUES?|VAR(?:BINARY|CHAR|CHARACTER|YING)|VIEW|WAITFOR|WARNINGS|WHEN|WHERE|WHILE|WITH(?: ROLLUP|IN)?|WORK|WRITE(?:TEXT)?|YEAR)\b/i,
+      boolean: /\b(?:FALSE|NULL|TRUE)\b/i,
+      number: /\b0x[\da-f]+\b|\b\d+(?:\.\d*)?|\B\.\d+\b/i,
+      operator: /[-+*\/=%^~]|&&?|\|\|?|!=?|<(?:=>?|<|>)?|>[>=]?|\b(?:AND|BETWEEN|DIV|ILIKE|IN|IS|LIKE|NOT|OR|REGEXP|RLIKE|SOUNDS LIKE|XOR)\b/i,
+      punctuation: /[;[\]()`,.]/,
+    };
+  }
+}
 
 function hasPrismLanguage(language: PrismLanguageId): boolean {
   return Object.prototype.hasOwnProperty.call(Prism.languages, language);
 }
 
-function ensurePrismLanguages(): void {
-  if (prismLanguagesReady) {
-    return;
-  }
+function escapeHighlightHTML(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
-  const prismGlobal = globalThis as PrismGlobal;
-  if (prismGlobal.Prism !== Prism) {
-    prismGlobal.Prism = Prism;
+function highlightWithFallback(source: string, language: PrismLanguageId): string {
+  registerPrismLanguages();
+  if (!hasPrismLanguage(language)) {
+    return escapeHighlightHTML(source);
   }
-
-  if (!hasPrismLanguage('sql') || !hasPrismLanguage('json')) {
-    loadLanguages(['sql', 'json']);
-  }
-
-  prismLanguagesReady = hasPrismLanguage('sql') && hasPrismLanguage('json');
+  return Prism.highlight(source, Prism.languages[language], language);
 }
 
 /**
@@ -60,9 +121,8 @@ export function highlightSQL(sql: string, prettyPrint = false): string {
     return '';
   }
 
-  ensurePrismLanguages();
   const source = prettyPrint ? formatSQL(sql) : sql;
-  return Prism.highlight(source, Prism.languages.sql, 'sql');
+  return highlightWithFallback(source, 'sql');
 }
 
 /**
@@ -87,8 +147,7 @@ export function highlightJSON(data: unknown, prettyPrint = true): string {
     }
   }
 
-  ensurePrismLanguages();
-  return Prism.highlight(json, Prism.languages.json, 'json');
+  return highlightWithFallback(json, 'json');
 }
 
 /**
