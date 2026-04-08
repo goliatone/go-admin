@@ -399,6 +399,24 @@ func TestDashboardDebugRouteUsesTypedDiagnostics(t *testing.T) {
 	if _, ok := catalog["providers"].([]any); !ok {
 		t.Fatalf("expected typed catalog providers, got %#v", catalog["providers"])
 	}
+	if _, ok := payload["providers"].([]any); !ok {
+		t.Fatalf("expected typed top-level providers payload, got %#v", payload["providers"])
+	}
+	if _, ok := payload["definitions"].([]any); !ok {
+		t.Fatalf("expected typed top-level definitions payload, got %#v", payload["definitions"])
+	}
+	if _, ok := payload["provider_count"]; !ok {
+		t.Fatalf("expected provider_count, got %#v", payload)
+	}
+	if _, ok := payload["definition_count"]; !ok {
+		t.Fatalf("expected definition_count, got %#v", payload)
+	}
+	if _, ok := payload["instance_count"]; !ok {
+		t.Fatalf("expected instance_count, got %#v", payload)
+	}
+	if _, exists := payload["resolved_by_area"]; exists {
+		t.Fatalf("expected resolved_by_area alias to be removed, got %#v", payload["resolved_by_area"])
+	}
 	page := nestedMap(t, payload, "page")
 	pageChrome := nestedMap(t, page, "chrome")
 	if pageChrome["base_path"] != "/admin" {

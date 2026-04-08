@@ -76,6 +76,15 @@ func (s *stubWebSocketRouter) routeForSuffix(suffix string) *stubWebSocketRoute 
 	return nil
 }
 
+func (s *stubWebSocketRouter) routeForPath(path string) *stubWebSocketRoute {
+	for i := range s.routes {
+		if s.routes[i].path == path {
+			return &s.routes[i]
+		}
+	}
+	return nil
+}
+
 type mapAuthorizer struct {
 	allowed map[string]bool
 }
