@@ -1,0 +1,48 @@
+<header class="site-header border-b border-slate-200 bg-slate-900 text-white shadow-lg">
+  <div class="mx-auto grid max-w-6xl gap-4 px-4 py-4 md:grid-cols-[auto_1fr_auto] md:items-center">
+    <div class="flex items-center justify-between gap-3">
+      <a href="{{ base_path|default:'/' }}" class="inline-flex items-center gap-3 no-underline">
+        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/10">
+          <i class="iconoir-community text-lg"></i>
+        </span>
+        <span class="leading-tight">
+          <span class="block text-xs uppercase tracking-[0.2em] text-slate-300">Site Runtime</span>
+          <span class="block text-base font-semibold">{{ site_theme.name|default:theme_name|default:"default" }} · {{ site_theme.variant|default:theme_variant|default:"default" }}</span>
+        </span>
+      </a>
+      <button
+        type="button"
+        class="inline-flex items-center justify-center rounded-lg border border-white/30 p-2 text-white md:hidden"
+        data-site-nav-toggle
+        aria-expanded="false"
+        aria-controls="site-nav-panel"
+      >
+        <span class="sr-only">Toggle navigation</span>
+        <i class="iconoir-menu"></i>
+      </button>
+    </div>
+
+    <nav id="site-nav-panel" class="hidden md:block" data-site-nav-panel>
+      {% if site_theme and site_theme.partials and site_theme.partials.main_nav %}
+        {% include site_theme.partials.main_nav %}
+      {% else %}
+        {% include "site/partials/menu_main.html" %}
+      {% endif %}
+    </nav>
+
+    {% set locale_items = siteLocaleItems(locale_switcher) %}
+    {% if locale_switcher and locale_switcher.items and locale_items %}
+      <div class="flex flex-wrap items-center justify-start gap-2 text-xs md:justify-end">
+        {% for item in locale_items %}
+          <a
+            href="{{ siteLocaleURL(locale_switcher, item.locale) }}"
+            class="rounded-full border px-2 py-1 transition-colors {% if item.active %}border-white bg-white text-slate-900{% elif item.available %}border-white/30 text-slate-100 hover:bg-white/10{% else %}border-white/20 text-slate-300 opacity-70{% endif %}"
+            data-locale="{{ item.locale }}"
+          >
+            {{ item.locale|upper }}
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</header>

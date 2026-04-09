@@ -3,6 +3,9 @@
 {% block title %}{{ content_type_slug|default:"content"|title }} · Site Runtime{% endblock %}
 
 {% block content %}
+{% if site_theme and site_theme.partials and site_theme.partials.content_list %}
+  {% include site_theme.partials.content_list %}
+{% else %}
 <section class="space-y-6">
   <header class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
     <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Collection</p>
@@ -42,4 +45,5 @@
     </div>
   {% endif %}
 </section>
+{% endif %}
 {% endblock %}

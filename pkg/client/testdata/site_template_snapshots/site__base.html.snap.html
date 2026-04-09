@@ -1,8 +1,8 @@
 <!doctype html>
 <html
   lang="{{ resolved_locale|default:locale|default:default_locale|default:'en' }}"
-  data-theme-name="{{ theme_name|default:'default' }}"
-  data-theme-variant="{{ theme_variant|default:'default' }}"
+  data-theme-name="{{ site_theme.name|default:theme_name|default:'default' }}"
+  data-theme-variant="{{ site_theme.variant|default:theme_variant|default:'default' }}"
   data-base-path="{{ base_path|default:'/' }}"
   data-asset-base-path="{{ asset_base_path|default:base_path|default:'/' }}"
 >
@@ -18,15 +18,24 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/iconoir@7.10.1/css/iconoir.css">
   <link rel="stylesheet" href="{{ asset_base_path|default:base_path|default:'/admin' }}/assets/output.css">
   <link rel="stylesheet" href="{{ asset_base_path|default:base_path|default:'/admin' }}/assets/dist/styles/site-runtime.css">
+  {% if site_theme and site_theme.bundle_urls and site_theme.bundle_urls.tokens_css %}
+    <link rel="stylesheet" href="{{ site_theme.bundle_urls.tokens_css }}">
+  {% endif %}
+  {% if site_theme and site_theme.bundle_urls and site_theme.bundle_urls.site_css %}
+    <link rel="stylesheet" href="{{ site_theme.bundle_urls.site_css }}">
+  {% endif %}
   {% include "partials/jserror-collector.html" %}
 
   <style>
     :root {
-      --site-theme-name: "{{ theme_name|default:'default' }}";
-      --site-theme-variant: "{{ theme_variant|default:'default' }}";
-      --site-color-primary: {{ theme.tokens.primary|default:'#0f766e' }};
-      --site-color-accent: {{ theme.tokens.accent|default:'#f59e0b' }};
-      --site-color-surface: {{ theme.tokens.surface|default:'#ffffff' }};
+      --site-theme-name: "{{ site_theme.name|default:theme_name|default:'default' }}";
+      --site-theme-variant: "{{ site_theme.variant|default:theme_variant|default:'default' }}";
+{% if site_theme and site_theme.css_vars_style %}
+{{ site_theme.css_vars_style|safe }}
+{% endif %}
+      --site-color-primary: {{ site_theme.shell_vars.site_color_primary|default:theme.tokens.primary|default:'#0f766e' }};
+      --site-color-accent: {{ site_theme.shell_vars.site_color_accent|default:theme.tokens.accent|default:'#f59e0b' }};
+      --site-color-surface: {{ site_theme.shell_vars.site_color_surface|default:theme.tokens.surface|default:'#ffffff' }};
     }
   </style>
 
@@ -54,66 +63,26 @@
     </div>
   {% endif %}
 
-  <header class="site-header border-b border-slate-200 bg-slate-900 text-white shadow-lg">
-    <div class="mx-auto grid max-w-6xl gap-4 px-4 py-4 md:grid-cols-[auto_1fr_auto] md:items-center">
-      <div class="flex items-center justify-between gap-3">
-        <a href="{{ base_path|default:'/' }}" class="inline-flex items-center gap-3 no-underline">
-          <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/10">
-            <i class="iconoir-community text-lg"></i>
-          </span>
-          <span class="leading-tight">
-            <span class="block text-xs uppercase tracking-[0.2em] text-slate-300">Site Runtime</span>
-            <span class="block text-base font-semibold">{{ theme_name|default:"default" }} · {{ theme_variant|default:"default" }}</span>
-          </span>
-        </a>
-        <button
-          type="button"
-          class="inline-flex items-center justify-center rounded-lg border border-white/30 p-2 text-white md:hidden"
-          data-site-nav-toggle
-          aria-expanded="false"
-          aria-controls="site-nav-panel"
-        >
-          <span class="sr-only">Toggle navigation</span>
-          <i class="iconoir-menu"></i>
-        </button>
-      </div>
-
-      <nav id="site-nav-panel" class="hidden md:block" data-site-nav-panel>
-        {% include "site/partials/menu_main.html" %}
-      </nav>
-
-      {% set locale_items = siteLocaleItems(locale_switcher) %}
-      {% if locale_switcher and locale_switcher.items and locale_items %}
-        <div class="flex flex-wrap items-center justify-start gap-2 text-xs md:justify-end">
-          {% for item in locale_items %}
-            <a
-              href="{{ siteLocaleURL(locale_switcher, item.locale) }}"
-              class="rounded-full border px-2 py-1 transition-colors {% if item.active %}border-white bg-white text-slate-900{% elif item.available %}border-white/30 text-slate-100 hover:bg-white/10{% else %}border-white/20 text-slate-300 opacity-70{% endif %}"
-              data-locale="{{ item.locale }}"
-            >
-              {{ item.locale|upper }}
-            </a>
-          {% endfor %}
-        </div>
-      {% endif %}
-    </div>
-  </header>
+  {% if site_theme and site_theme.partials and site_theme.partials.header %}
+    {% include site_theme.partials.header %}
+  {% else %}
+    {% include "site/partials/header.html" %}
+  {% endif %}
 
   <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8" data-active-path="{{ active_path|default:'/' }}">
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="mx-auto mb-10 flex w-full max-w-6xl flex-col gap-4 border-t border-slate-200 px-4 pt-6 text-sm text-slate-600">
-    {% include "site/partials/menu_footer.html" %}
-    <div class="grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
-      <span>Theme: {{ theme_name|default:"default" }} / {{ theme_variant|default:"default" }}</span>
-      <span>Locale: {{ resolved_locale|default:locale|default:default_locale|default:"en" }} · Supported: {{ supported_locales|join:", " }}</span>
-      <span>Base path: {{ base_path|default:"/" }} · Assets: {{ asset_base_path|default:base_path|default:"/" }}</span>
-      <span>Active path: {{ active_path|default:"/" }}</span>
-    </div>
-  </footer>
+  {% if site_theme and site_theme.partials and site_theme.partials.footer %}
+    {% include site_theme.partials.footer %}
+  {% else %}
+    {% include "site/partials/footer.html" %}
+  {% endif %}
 
   <script defer src="{{ asset_base_path|default:base_path|default:'/admin' }}/assets/dist/runtime/site-runtime.js"></script>
+  {% if site_theme and site_theme.bundle_urls and site_theme.bundle_urls.site_js %}
+    <script defer src="{{ site_theme.bundle_urls.site_js }}"></script>
+  {% endif %}
   {% block scripts %}{% endblock %}
 </body>
 </html>

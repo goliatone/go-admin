@@ -12,6 +12,8 @@ const updateSiteTemplateSnapshotsEnv = "UPDATE_SITE_TEMPLATE_SNAPSHOTS"
 
 var siteTemplateVisualRegressionTargets = []string{
 	"site/base.html",
+	"site/partials/header.html",
+	"site/partials/footer.html",
 	"site/partials/menu_main.html",
 	"site/partials/menu_footer.html",
 	"site/error.html",

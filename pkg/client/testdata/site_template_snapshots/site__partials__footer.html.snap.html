@@ -1,0 +1,13 @@
+<footer class="mx-auto mb-10 flex w-full max-w-6xl flex-col gap-4 border-t border-slate-200 px-4 pt-6 text-sm text-slate-600">
+  {% if site_theme and site_theme.partials and site_theme.partials.footer_nav %}
+    {% include site_theme.partials.footer_nav %}
+  {% else %}
+    {% include "site/partials/menu_footer.html" %}
+  {% endif %}
+  <div class="grid gap-1 text-xs text-slate-500 sm:grid-cols-2">
+    <span>Theme: {{ site_theme.name|default:theme_name|default:"default" }} / {{ site_theme.variant|default:theme_variant|default:"default" }}</span>
+    <span>Locale: {{ resolved_locale|default:locale|default:default_locale|default:"en" }} · Supported: {{ supported_locales|join:", " }}</span>
+    <span>Base path: {{ base_path|default:"/" }} · Assets: {{ asset_base_path|default:base_path|default:"/" }}</span>
+    <span>Active path: {{ active_path|default:"/" }}</span>
+  </div>
+</footer>

@@ -3,6 +3,9 @@
 {% block title %}{{ record.title|default:record.slug|default:"Content" }} · Site Runtime{% endblock %}
 
 {% block content %}
+{% if site_theme and site_theme.partials and site_theme.partials.content_detail %}
+  {% include site_theme.partials.content_detail %}
+{% else %}
 <section class="space-y-6">
   <article class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
     <header class="space-y-3 border-b border-slate-100 pb-4">
@@ -36,4 +39,5 @@
     </div>
   </article>
 </section>
+{% endif %}
 {% endblock %}
