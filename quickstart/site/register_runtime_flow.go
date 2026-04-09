@@ -91,6 +91,9 @@ func resolveSiteRegisterOptions(
 }
 
 func (f siteRegisterFlow[T]) register(r router.Router[T], adm *admin.Admin, cfg admin.Config) error {
+	if err := f.registerRoutingOwnership(adm); err != nil {
+		return err
+	}
 	r.Use(requestContextMiddleware(adm, cfg, f.resolved, f.modules))
 	if err := f.registerModules(r, adm); err != nil {
 		return err
