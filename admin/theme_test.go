@@ -256,6 +256,10 @@ func TestThemeOverrideViaGoThemeSelector(t *testing.T) {
 		if len(themeMap) == 0 {
 			t.Fatalf("[%s] expected theme payload", tc.label)
 		}
+		cssVars := mapFromAny(themeMap["css_vars"])
+		if cssVars["--primary"] != "#0f172a" || cssVars["--accent"] != "#ffaa00" {
+			t.Fatalf("[%s] expected merged css_vars payload, got %+v", tc.label, cssVars)
+		}
 		if expected == nil {
 			expected = themeMap
 			continue

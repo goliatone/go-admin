@@ -226,11 +226,12 @@ func quickstartDoctorRoutingCheck() admin.DoctorCheck {
 			}
 
 			summary := fmt.Sprintf(
-				"admin=%s api=%s public_api=%s modules=%d conflicts=%d",
+				"admin=%s api=%s public_api=%s modules=%d fallbacks=%d conflicts=%d",
 				roots["admin"],
 				roots["api"],
 				roots["public_api"],
 				len(report.Modules),
+				len(report.Fallbacks),
 				len(report.Conflicts),
 			)
 
@@ -241,6 +242,7 @@ func quickstartDoctorRoutingCheck() admin.DoctorCheck {
 					"roots":       roots,
 					"summary":     routingDoctorSummaryMetadata(report.RouteSummary),
 					"modules":     routingDoctorModuleMetadata(report.Modules),
+					"fallbacks":   routingDoctorFallbackMetadata(report.Fallbacks),
 					"conflicts":   routingDoctorConflictMetadata(report.Conflicts),
 					"warnings":    append([]string{}, report.Warnings...),
 					"report_text": routing.FormatStartupReport(report),
@@ -546,10 +548,11 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 
 func routingDoctorSummaryMetadata(summary routing.RouteSummary) map[string]any {
 	return map[string]any{
-		"total_routes":  summary.TotalRoutes,
-		"host_routes":   summary.HostRoutes,
-		"module_routes": summary.ModuleRoutes,
-		"modules":       append([]string{}, summary.Modules...),
+		"total_routes":    summary.TotalRoutes,
+		"host_routes":     summary.HostRoutes,
+		"module_routes":   summary.ModuleRoutes,
+		"fallback_routes": summary.FallbackRoutes,
+		"modules":         append([]string{}, summary.Modules...),
 	}
 }
 
@@ -585,6 +588,29 @@ func routingDoctorConflictMetadata(conflicts []routing.Conflict) []map[string]an
 			"path":       strings.TrimSpace(conflict.Path),
 			"route_name": strings.TrimSpace(conflict.RouteName),
 			"message":    strings.TrimSpace(conflict.Message),
+		})
+	}
+	return entries
+}
+
+func routingDoctorFallbackMetadata(fallbacks []routing.FallbackEntry) []map[string]any {
+	if len(fallbacks) == 0 {
+		return nil
+	}
+	entries := make([]map[string]any, 0, len(fallbacks))
+	for _, fallback := range fallbacks {
+		fallback = routing.NormalizeFallbackEntry(fallback)
+		entries = append(entries, map[string]any{
+			"owner":                 strings.TrimSpace(fallback.Owner),
+			"surface":               strings.TrimSpace(fallback.Surface),
+			"domain":                strings.TrimSpace(fallback.Domain),
+			"base_path":             strings.TrimSpace(fallback.BasePath),
+			"mode":                  strings.TrimSpace(fallback.Mode),
+			"allow_root":            fallback.AllowRoot,
+			"allowed_methods":       append([]string{}, fallback.AllowedMethods...),
+			"allowed_exact_paths":   append([]string{}, fallback.AllowedExactPaths...),
+			"allowed_path_prefixes": append([]string{}, fallback.AllowedPathPrefixes...),
+			"reserved_prefixes":     append([]string{}, fallback.ReservedPrefixes...),
 		})
 	}
 	return entries

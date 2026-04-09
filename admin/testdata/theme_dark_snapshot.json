@@ -7,6 +7,11 @@
   "chart": {
     "theme": "dark"
   },
+  "css_vars": {
+    "--accent": "#ffaa00",
+    "--primary": "#0f172a",
+    "--surface": "#0b1221"
+  },
   "partials": {
     "forms.input": "templates/forms/input.html",
     "layout.header": "templates/dark/header.html"

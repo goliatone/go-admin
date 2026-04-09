@@ -25,6 +25,7 @@ type ThemeSelection struct {
 	Name        string            `json:"name"`
 	Variant     string            `json:"variant"`
 	Tokens      map[string]string `json:"tokens"`
+	CSSVars     map[string]string `json:"css_vars"`
 	Assets      map[string]string `json:"assets"`
 	Partials    map[string]string `json:"partials"`
 	ChartTheme  string            `json:"chart_theme"`
@@ -71,6 +72,7 @@ func cloneThemeSelection(sel *ThemeSelection) *ThemeSelection {
 		Name:        sel.Name,
 		Variant:     sel.Variant,
 		Tokens:      primitives.CloneStringMapNilOnEmpty(sel.Tokens),
+		CSSVars:     primitives.CloneStringMapNilOnEmpty(sel.CSSVars),
 		Assets:      primitives.CloneStringMapNilOnEmpty(sel.Assets),
 		Partials:    primitives.CloneStringMapNilOnEmpty(sel.Partials),
 		ChartTheme:  sel.ChartTheme,
@@ -134,6 +136,12 @@ func mergeThemeSelections(base, override *ThemeSelection) *ThemeSelection {
 		}
 		maps.Copy(result.Tokens, override.Tokens)
 	}
+	if len(override.CSSVars) > 0 {
+		if result.CSSVars == nil {
+			result.CSSVars = map[string]string{}
+		}
+		maps.Copy(result.CSSVars, override.CSSVars)
+	}
 	if len(override.Assets) > 0 {
 		if result.Assets == nil {
 			result.Assets = map[string]string{}
@@ -172,6 +180,9 @@ func (t *ThemeSelection) payload() map[string]map[string]string {
 	}
 	if len(t.Tokens) > 0 {
 		out["tokens"] = primitives.CloneStringMapNilOnEmpty(t.Tokens)
+	}
+	if len(t.CSSVars) > 0 {
+		out["css_vars"] = primitives.CloneStringMapNilOnEmpty(t.CSSVars)
 	}
 	assets := primitives.CloneStringMapNilOnEmpty(t.Assets)
 	if t.AssetPrefix != "" {

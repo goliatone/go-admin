@@ -25,6 +25,7 @@ func (a *Admin) WithGoTheme(selector gotheme.ThemeSelector) *Admin {
 			Name:        snapshot.Theme,
 			Variant:     snapshot.Variant,
 			Tokens:      primitives.CloneStringMapNilOnEmpty(snapshot.Tokens),
+			CSSVars:     primitives.CloneStringMapNilOnEmpty(selection.CSSVariables("")),
 			Assets:      primitives.CloneStringMapNilOnEmpty(snapshot.Assets),
 			Partials:    primitives.CloneStringMapNilOnEmpty(snapshot.Templates),
 			ChartTheme:  snapshot.Variant,
