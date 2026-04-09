@@ -85,6 +85,7 @@ func resolveSiteRegisterOptions(
 	if options.suggestAPIHandler == nil {
 		options.suggestAPIHandler = defaultNotFoundHandler
 	}
+	options.fallbackPolicy = mergeSiteFallbackPolicy(resolved.Fallback, options.fallbackOverlay)
 
 	return options, searchRuntime
 }
@@ -134,23 +135,51 @@ func (f siteRegisterFlow[T]) registerSearchRoutes(r router.Router[T]) {
 	searchAPIPath := prefixedRoutePath("", f.resolved.Search.Endpoint)
 	suggestAPIPath := prefixedRoutePath("", searchSuggestRoute(f.resolved.Search.Endpoint))
 	r.Get(searchPath, f.options.searchHandler)
+	r.Head(searchPath, f.options.searchHandler)
 	if f.searchRuntime != nil {
 		r.Get(searchTopicPath, f.searchRuntime.TopicPageHandler())
+		r.Head(searchTopicPath, f.searchRuntime.TopicPageHandler())
 	}
 	r.Get(searchAPIPath, f.options.searchAPIHandler)
+	r.Head(searchAPIPath, f.options.searchAPIHandler)
 	r.Get(suggestAPIPath, f.options.suggestAPIHandler)
+	r.Head(suggestAPIPath, f.options.suggestAPIHandler)
 }
 
 func (f siteRegisterFlow[T]) registerContentRoutes(r router.Router[T]) {
+	policy := f.options.fallbackPolicy
+	handler := fallbackContentHandler(f.resolved, policy, f.options.contentHandler)
 	baseRoutePath := prefixedRoutePath(f.resolved.BasePath, "/")
-	r.Get(baseRoutePath, f.options.contentHandler)
 
-	if isHTTPRouterAdapter(r) {
-		r.Get(prefixedRoutePath(f.resolved.BasePath, "/:path"), f.options.contentHandler)
-		r.Get(prefixedRoutePath(f.resolved.BasePath, "/:path/*rest"), f.options.contentHandler)
+	switch policy.Mode {
+	case SiteFallbackModeDisabled:
 		return
+	case SiteFallbackModePublicContentOnly:
+		if registerSiteFallbackMissHandlers(r, fallbackMissHandler(f.resolved, policy, f.options.contentHandler)) {
+			return
+		}
+		if policy.AllowRoot {
+			registerSiteFallbackRouteMethods(r, policy, baseRoutePath, handler)
+		}
+		for _, routePath := range siteFallbackRoutePaths(r, f.resolved.BasePath) {
+			registerSiteFallbackRouteMethods(r, policy, routePath, handler)
+		}
+	case SiteFallbackModeExplicitPathsOnly:
+		contentPaths := make([]string, 0, len(policy.AllowedExactPaths)+len(policy.AllowedPathPrefixes)*3+1)
+		if policy.AllowRoot {
+			contentPaths = append(contentPaths, baseRoutePath)
+		}
+		for _, exactPath := range policy.AllowedExactPaths {
+			if normalizePath(exactPath) == "/" {
+				continue
+			}
+			contentPaths = append(contentPaths, prefixedRoutePath(f.resolved.BasePath, exactPath))
+		}
+		for _, prefix := range policy.AllowedPathPrefixes {
+			contentPaths = append(contentPaths, sitePrefixRoutePaths(r, f.resolved.BasePath, prefix)...)
+		}
+		for _, routePath := range uniqueRoutePaths(contentPaths) {
+			registerSiteFallbackRouteMethods(r, policy, routePath, handler)
+		}
 	}
-
-	catchAllPath := siteCatchAllRoutePath(r, f.resolved.BasePath)
-	r.Get(catchAllPath, f.options.contentHandler)
 }

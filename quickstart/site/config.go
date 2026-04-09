@@ -55,6 +55,7 @@ type SiteConfig struct {
 	Modules    []SiteModule         `json:"modules"`
 	Features   SiteFeatures         `json:"features"`
 	Theme      SiteThemeConfig      `json:"theme"`
+	Fallback   SiteFallbackPolicy   `json:"fallback"`
 }
 
 // SiteNavigationConfig defines site menu defaults.
@@ -73,6 +74,8 @@ const (
 
 // SiteViewConfig controls template contract defaults.
 type SiteViewConfig struct {
+	// TemplateFS contains overlay/override template filesystems. The host application's
+	// base template filesystem is still passed separately to quickstart.NewViewEngine.
 	TemplateFS []fs.FS `json:"template_fs"`
 
 	BaseTemplate  string `json:"base_template"`
@@ -109,8 +112,19 @@ type SiteFeatures struct {
 
 // SiteThemeConfig controls site-level theme defaults.
 type SiteThemeConfig struct {
-	Name    string `json:"name"`
-	Variant string `json:"variant"`
+	Name                        string `json:"name"`
+	Variant                     string `json:"variant"`
+	AllowRequestNameOverride    *bool  `json:"allow_request_name_override"`
+	AllowRequestVariantOverride *bool  `json:"allow_request_variant_override"`
+}
+
+// ResolvedSiteThemeConfig contains normalized site theme defaults and request
+// override policy.
+type ResolvedSiteThemeConfig struct {
+	Name                        string `json:"name"`
+	Variant                     string `json:"variant"`
+	AllowRequestNameOverride    bool   `json:"allow_request_name_override"`
+	AllowRequestVariantOverride bool   `json:"allow_request_variant_override"`
 }
 
 // ResolvedSiteConfig is a normalized SiteConfig with concrete defaults.
@@ -123,16 +137,19 @@ type ResolvedSiteConfig struct {
 	Environment         string           `json:"environment"`
 	ContentChannel      string           `json:"content_channel"`
 
-	Navigation SiteNavigationConfig   `json:"navigation"`
-	Views      ResolvedSiteViewConfig `json:"views"`
-	Search     SiteSearchConfig       `json:"search"`
-	Modules    []SiteModule           `json:"modules"`
-	Features   ResolvedSiteFeatures   `json:"features"`
-	Theme      SiteThemeConfig        `json:"theme"`
+	Navigation SiteNavigationConfig    `json:"navigation"`
+	Views      ResolvedSiteViewConfig  `json:"views"`
+	Search     SiteSearchConfig        `json:"search"`
+	Modules    []SiteModule            `json:"modules"`
+	Features   ResolvedSiteFeatures    `json:"features"`
+	Theme      ResolvedSiteThemeConfig `json:"theme"`
+	Fallback   SiteFallbackPolicy      `json:"fallback"`
 }
 
 // ResolvedSiteViewConfig contains normalized view/runtime defaults.
 type ResolvedSiteViewConfig struct {
+	// TemplateFS contains overlay/override template filesystems with higher
+	// precedence than the base host template filesystem when building a view engine.
 	TemplateFS []fs.FS `json:"template_fs"`
 
 	BaseTemplate  string `json:"base_template"`

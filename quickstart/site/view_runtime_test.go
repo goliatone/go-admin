@@ -1,9 +1,17 @@
 package site
 
 import (
+	"io"
 	"io/fs"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"testing/fstest"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/quickstart"
 )
 
 func TestReadTemplateFromStackHonorsFSOrder(t *testing.T) {
@@ -31,7 +39,7 @@ func TestReadTemplateFromStackHonorsFSOrder(t *testing.T) {
 	}
 }
 
-func TestTemplateFSStackIncludesDefaultsThenOverrides(t *testing.T) {
+func TestTemplateFSStackPrefersOverridesBeforeDefaults(t *testing.T) {
 	base := fstest.MapFS{"site/base.html": &fstest.MapFile{Data: []byte("base")}}
 	override := fstest.MapFS{"site/base.html": &fstest.MapFile{Data: []byte("override")}}
 
@@ -43,8 +51,8 @@ func TestTemplateFSStackIncludesDefaultsThenOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read template from stack: %v", err)
 	}
-	if string(content) != "base" {
-		t.Fatalf("expected default stack precedence, got %q", string(content))
+	if string(content) != "override" {
+		t.Fatalf("expected override stack precedence, got %q", string(content))
 	}
 }
 
@@ -77,4 +85,71 @@ func TestResolveViewRuntime(t *testing.T) {
 	if len(runtime.TemplateFS) != 1 {
 		t.Fatalf("expected one fs entry, got %d", len(runtime.TemplateFS))
 	}
+}
+
+func TestViewEngineOptionsResolvedProjectsTemplateFSAndReload(t *testing.T) {
+	override := fstest.MapFS{
+		"site/partials/header.html": &fstest.MapFile{Data: []byte(`<header data-test="override">override</header>`)},
+	}
+	options := ViewEngineOptionsResolved(ResolvedSiteConfig{
+		Environment: "dev",
+		Views: ResolvedSiteViewConfig{
+			TemplateFS:          []fs.FS{override},
+			ReloadInDevelopment: true,
+		},
+	})
+
+	body := mustRenderViewWithOptions(t, fstest.MapFS{
+		"templates/site/base.html": &fstest.MapFile{Data: []byte(`{% include "site/partials/header.html" %}`)},
+	}, options...)
+	if !strings.Contains(body, `data-test="override"`) {
+		t.Fatalf("expected override header to render, got %s", body)
+	}
+}
+
+func TestViewEngineOptionsResolvesFromSiteConfig(t *testing.T) {
+	override := fstest.MapFS{
+		"site/partials/header.html": &fstest.MapFile{Data: []byte(`<header data-test="site-config">site-config</header>`)},
+	}
+	options := ViewEngineOptions(admin.Config{Debug: admin.DebugConfig{Enabled: true}}, SiteConfig{
+		Views: SiteViewConfig{
+			TemplateFS: []fs.FS{override},
+		},
+	})
+
+	body := mustRenderViewWithOptions(t, fstest.MapFS{
+		"templates/site/base.html": &fstest.MapFile{Data: []byte(`{% include "site/partials/header.html" %}`)},
+	}, options...)
+	if !strings.Contains(body, `data-test="site-config"`) {
+		t.Fatalf("expected site config header to render, got %s", body)
+	}
+}
+
+func mustRenderViewWithOptions(t *testing.T, base fs.FS, options ...quickstart.ViewEngineOption) string {
+	t.Helper()
+
+	views, err := quickstart.NewViewEngine(base, options...)
+	if err != nil {
+		t.Fatalf("new view engine: %v", err)
+	}
+
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.Render("site/base", map[string]any{})
+	})
+
+	res, err := app.Test(httptest.NewRequest(http.MethodGet, "/", nil))
+	if err != nil {
+		t.Fatalf("render request: %v", err)
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d body=%s", res.StatusCode, string(body))
+	}
+	return string(body)
 }

@@ -19,5 +19,8 @@ func registerSiteRoutes[T any](
 	}
 
 	flow := resolveSiteRegisterFlow[T](adm, cfg, siteCfg, opts)
+	if err := ValidateSiteFallbackPolicy(flow.options.fallbackPolicy); err != nil {
+		return fmt.Errorf("invalid site fallback policy: %w", err)
+	}
 	return flow.register(r, adm, cfg)
 }

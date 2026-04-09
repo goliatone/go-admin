@@ -120,9 +120,17 @@ func TestResolveSiteViewSearchFeaturesAndThemeConfigsPreserveExistingContracts(t
 		t.Fatalf("expected sticky canonical redirect mode, got %q", features.CanonicalRedirectMode)
 	}
 
-	theme := resolveSiteThemeConfig(SiteThemeConfig{Name: " editorial ", Variant: " night "})
+	theme := resolveSiteThemeConfig(SiteThemeConfig{
+		Name:                        " editorial ",
+		Variant:                     " night ",
+		AllowRequestNameOverride:    boolPtr(false),
+		AllowRequestVariantOverride: boolPtr(true),
+	})
 	if theme.Name != "editorial" || theme.Variant != "night" {
 		t.Fatalf("expected trimmed theme config, got %+v", theme)
+	}
+	if theme.AllowRequestNameOverride || !theme.AllowRequestVariantOverride {
+		t.Fatalf("expected theme request override policy preserved, got %+v", theme)
 	}
 }
 
@@ -141,6 +149,11 @@ func TestResolveSiteConfigFlowAssemblesResolvedConfigFromSectionBuilders(t *test
 		},
 		Search: SiteSearchConfig{
 			Indexes: []string{"pages"},
+		},
+		Fallback: SiteFallbackPolicy{
+			Mode:              SiteFallbackModeExplicitPathsOnly,
+			AllowRoot:         true,
+			AllowedExactPaths: []string{"/search", "landing"},
 		},
 		Modules: []SiteModule{moduleStub{id: "site"}},
 		Theme:   SiteThemeConfig{Name: "editorial", Variant: "night"},
@@ -164,7 +177,13 @@ func TestResolveSiteConfigFlowAssemblesResolvedConfigFromSectionBuilders(t *test
 	if len(resolved.Modules) != 1 || resolved.Modules[0].ID() != "site" {
 		t.Fatalf("expected module compaction preserved site module, got %#v", resolved.Modules)
 	}
+	if resolved.Fallback.Mode != SiteFallbackModeExplicitPathsOnly || len(resolved.Fallback.AllowedExactPaths) != 2 {
+		t.Fatalf("expected fallback builder values preserved, got %+v", resolved.Fallback)
+	}
 	if resolved.Theme.Name != "editorial" || resolved.Theme.Variant != "night" {
 		t.Fatalf("expected theme builder values preserved, got %+v", resolved.Theme)
+	}
+	if !resolved.Theme.AllowRequestNameOverride || !resolved.Theme.AllowRequestVariantOverride {
+		t.Fatalf("expected default request override policy enabled, got %+v", resolved.Theme)
 	}
 }

@@ -207,11 +207,15 @@ func resolveRequestTheme(c router.Context, adm *admin.Admin, requestCtx context.
 		Variant: strings.TrimSpace(siteCfg.Theme.Variant),
 	}
 	if c != nil && environmentAllowsThemeOverride(environment) {
-		if value := strings.TrimSpace(c.Query("theme")); value != "" {
-			selector.Name = value
+		if siteCfg.Theme.AllowRequestNameOverride {
+			if value := strings.TrimSpace(c.Query("theme")); value != "" {
+				selector.Name = value
+			}
 		}
-		if value := strings.TrimSpace(c.Query("variant")); value != "" {
-			selector.Variant = value
+		if siteCfg.Theme.AllowRequestVariantOverride {
+			if value := strings.TrimSpace(c.Query("variant")); value != "" {
+				selector.Variant = value
+			}
 		}
 	}
 

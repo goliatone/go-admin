@@ -29,7 +29,8 @@ type viewEngineOptions struct {
 	urls                 urlkit.Resolver
 }
 
-// WithViewTemplatesFS appends template fallbacks.
+// WithViewTemplatesFS appends template overlays in precedence order. Earlier
+// entries win over later overlays and the host base templates.
 func WithViewTemplatesFS(fsys ...fs.FS) ViewEngineOption {
 	return func(opts *viewEngineOptions) {
 		if opts == nil || len(fsys) == 0 {
@@ -199,10 +200,11 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 		assetsDir = "."
 	}
 
-	templateStack := []fs.FS{templateFS}
+	templateStack := make([]fs.FS, 0, len(options.templateFS)+2)
 	for _, fsys := range options.templateFS {
 		templateStack = append(templateStack, normalizeTemplatesFS(fsys))
 	}
+	templateStack = append(templateStack, templateFS)
 	if qsTemplates := SidebarTemplatesFS(); qsTemplates != nil {
 		templateStack = append(templateStack, qsTemplates)
 	}

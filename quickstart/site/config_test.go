@@ -77,6 +77,9 @@ func TestResolveSiteConfigDefaults(t *testing.T) {
 	if resolved.Features.CanonicalRedirectMode != CanonicalRedirectResolvedLocale {
 		t.Fatalf("expected canonical redirect mode %q by default, got %q", CanonicalRedirectResolvedLocale, resolved.Features.CanonicalRedirectMode)
 	}
+	if !resolved.Theme.AllowRequestNameOverride || !resolved.Theme.AllowRequestVariantOverride {
+		t.Fatalf("expected theme request overrides enabled by default, got %+v", resolved.Theme)
+	}
 }
 
 func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {

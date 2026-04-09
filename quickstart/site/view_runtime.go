@@ -19,16 +19,17 @@ func ResolveViewRuntime(viewCfg ResolvedSiteViewConfig, environment string, defa
 	}
 }
 
-// TemplateFSStack returns a deterministic template fallback stack.
+// TemplateFSStack returns a deterministic template overlay stack. Entries from
+// viewCfg.TemplateFS have higher precedence than the host defaults.
 func TemplateFSStack(viewCfg ResolvedSiteViewConfig, defaults ...fs.FS) []fs.FS {
 	out := make([]fs.FS, 0, len(defaults)+len(viewCfg.TemplateFS))
-	for _, item := range defaults {
+	for _, item := range viewCfg.TemplateFS {
 		if item == nil {
 			continue
 		}
 		out = append(out, item)
 	}
-	for _, item := range viewCfg.TemplateFS {
+	for _, item := range defaults {
 		if item == nil {
 			continue
 		}

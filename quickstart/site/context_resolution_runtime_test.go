@@ -126,3 +126,32 @@ func TestResolveRequestThemeHonorsEnvironmentOverrideAndFallbackBehavior(t *test
 		t.Fatalf("expected configured theme payload selection, got %+v", payload)
 	}
 }
+
+func TestResolveRequestThemeHonorsPerFieldRequestOverridePolicy(t *testing.T) {
+	siteCfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Features: SiteFeatures{
+			EnableTheme: boolPtr(true),
+		},
+		Theme: SiteThemeConfig{
+			Name:                        "docs",
+			Variant:                     "light",
+			AllowRequestNameOverride:    boolPtr(false),
+			AllowRequestVariantOverride: boolPtr(true),
+		},
+	})
+
+	ctx := router.NewMockContext()
+	ctx.QueriesM["theme"] = "custom"
+	ctx.QueriesM["variant"] = "dark"
+
+	requestCtx, payload, name, variant := resolveRequestTheme(ctx, nil, context.Background(), siteCfg, "staging")
+	if selection := admin.ThemeSelectorFromContext(requestCtx); selection.Name != "docs" || selection.Variant != "dark" {
+		t.Fatalf("expected name override blocked and variant override allowed, got %+v", selection)
+	}
+	if name != "docs" || variant != "dark" {
+		t.Fatalf("expected resolved selection docs/dark, got %q/%q", name, variant)
+	}
+	if payload["selection"]["name"] != "docs" || payload["selection"]["variant"] != "dark" {
+		t.Fatalf("expected payload to preserve filtered override policy, got %+v", payload)
+	}
+}

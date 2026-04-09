@@ -34,6 +34,7 @@ type RequestState struct {
 	ThemeName    string                       `json:"theme_name"`
 	ThemeVariant string                       `json:"theme_variant"`
 	Theme        map[string]map[string]string `json:"theme"`
+	SiteTheme    map[string]any               `json:"site_theme"`
 
 	BasePath      string `json:"base_path"`
 	AssetBasePath string `json:"asset_base_path"`

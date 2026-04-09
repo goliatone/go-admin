@@ -56,6 +56,7 @@ func resolveSiteConfigFlow(cfg admin.Config, input SiteConfig) ResolvedSiteConfi
 		Modules:             compactModules(input.Modules),
 		Features:            resolveSiteFeatures(input.Features),
 		Theme:               resolveSiteThemeConfig(input.Theme),
+		Fallback:            ResolveSiteFallbackPolicy(input.Fallback),
 	}
 }
 
@@ -163,9 +164,11 @@ func resolveSiteFeatures(input SiteFeatures) ResolvedSiteFeatures {
 	}
 }
 
-func resolveSiteThemeConfig(input SiteThemeConfig) SiteThemeConfig {
-	return SiteThemeConfig{
-		Name:    strings.TrimSpace(input.Name),
-		Variant: strings.TrimSpace(input.Variant),
+func resolveSiteThemeConfig(input SiteThemeConfig) ResolvedSiteThemeConfig {
+	return ResolvedSiteThemeConfig{
+		Name:                        strings.TrimSpace(input.Name),
+		Variant:                     strings.TrimSpace(input.Variant),
+		AllowRequestNameOverride:    boolValue(input.AllowRequestNameOverride, true),
+		AllowRequestVariantOverride: boolValue(input.AllowRequestVariantOverride, true),
 	}
 }

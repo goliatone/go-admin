@@ -14,6 +14,16 @@ func TestSiteTemplateContractsForPhase14(t *testing.T) {
 		t.Fatalf("read base template: %v", err)
 	}
 	base := string(baseRaw)
+	headerTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "header.html")
+	headerRaw, err := os.ReadFile(headerTemplatePath)
+	if err != nil {
+		t.Fatalf("read header partial: %v", err)
+	}
+	footerTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "footer.html")
+	footerRaw, err := os.ReadFile(footerTemplatePath)
+	if err != nil {
+		t.Fatalf("read footer partial: %v", err)
+	}
 	mainMenuPartialPath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_main.html")
 	mainMenuRaw, err := os.ReadFile(mainMenuPartialPath)
 	if err != nil {
@@ -24,7 +34,7 @@ func TestSiteTemplateContractsForPhase14(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read footer menu partial: %v", err)
 	}
-	navigationTemplates := base + "\n" + string(mainMenuRaw) + "\n" + string(footerMenuRaw)
+	navigationTemplates := base + "\n" + string(headerRaw) + "\n" + string(footerRaw) + "\n" + string(mainMenuRaw) + "\n" + string(footerMenuRaw)
 	for _, required := range []string{
 		"preview_banner",
 		"locale_switcher",

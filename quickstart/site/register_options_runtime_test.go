@@ -40,6 +40,15 @@ func TestSiteRegisterOptionsApplyExplicitOverrides(t *testing.T) {
 	WithContentHandler(contentHandler)(&options)
 	WithSearchHandlers(searchHandler, searchAPIHandler)(&options)
 	WithSuggestHandler(suggestHandler)(&options)
+	WithFallbackPolicy(SiteFallbackPolicy{
+		Mode:              SiteFallbackModeExplicitPathsOnly,
+		AllowRoot:         true,
+		AllowedExactPaths: []string{"/search"},
+	})(&options)
+	WithReservedPrefixes("/admin", "api")(&options)
+	WithAllowedExactPaths("/search", "landing")(&options)
+	WithAllowedPathPrefixes("blog", "/docs")(&options)
+	WithAllowedFallbackMethods(router.HEAD, router.GET, router.POST)(&options)
 
 	if options.searchProvider != provider {
 		t.Fatalf("expected search provider to be preserved")
@@ -64,6 +73,25 @@ func TestSiteRegisterOptionsApplyExplicitOverrides(t *testing.T) {
 	}
 	if err := options.suggestAPIHandler(nil); err != nil {
 		t.Fatalf("invoke suggest handler: %v", err)
+	}
+	mergedFallback := mergeSiteFallbackPolicy(DefaultSiteFallbackPolicy(), options.fallbackOverlay)
+	if mergedFallback.Mode != SiteFallbackModeExplicitPathsOnly {
+		t.Fatalf("expected explicit_paths_only fallback mode, got %+v", mergedFallback)
+	}
+	if got := mergedFallback.AllowedMethods; len(got) != 3 || got[0] != router.GET || got[1] != router.HEAD || got[2] != router.POST {
+		t.Fatalf("expected normalized fallback methods with unsupported entries preserved for validation, got %v", got)
+	}
+	if err := ValidateSiteFallbackPolicy(mergedFallback); err == nil {
+		t.Fatalf("expected unsupported fallback methods to fail validation")
+	}
+	if got := mergedFallback.AllowedExactPaths; len(got) != 2 || got[0] != "/landing" || got[1] != "/search" {
+		t.Fatalf("expected normalized fallback exact paths, got %v", got)
+	}
+	if got := mergedFallback.AllowedPathPrefixes; len(got) != 2 || got[0] != "/blog" || got[1] != "/docs" {
+		t.Fatalf("expected normalized fallback path prefixes, got %v", got)
+	}
+	if got := mergedFallback.ReservedPrefixes; len(got) != 2 || got[0] != "/admin" || got[1] != "/api" {
+		t.Fatalf("expected normalized reserved prefixes, got %v", got)
 	}
 	if contentCalls != 1 || searchCalls != 1 || apiCalls != 1 || suggestCalls != 1 {
 		t.Fatalf("expected explicit handlers to be preserved, got content=%d search=%d api=%d suggest=%d", contentCalls, searchCalls, apiCalls, suggestCalls)

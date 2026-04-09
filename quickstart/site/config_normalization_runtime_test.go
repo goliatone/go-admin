@@ -178,4 +178,7 @@ func TestResolveSiteConfigUsesExtractedNormalizationHelpers(t *testing.T) {
 	if got, want := resolved.Search.Indexes, []string{"pages", "posts"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("expected collection fallback indexes %v, got %v", want, got)
 	}
+	if resolved.Fallback.Mode != SiteFallbackModePublicContentOnly || !resolved.Fallback.AllowRoot {
+		t.Fatalf("expected default fallback policy to be resolved, got %+v", resolved.Fallback)
+	}
 }

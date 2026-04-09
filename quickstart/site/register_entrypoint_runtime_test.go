@@ -49,3 +49,18 @@ func TestRegisterSiteRoutesEntrypointDelegatesToResolvedFlow(t *testing.T) {
 		t.Fatalf("expected one request-context middleware, got %d", len(recorder.middlewares))
 	}
 }
+
+func TestRegisterSiteRoutesEntrypointRejectsInvalidFallbackPolicy(t *testing.T) {
+	recorder := &recordingRouter{}
+	err := registerSiteRoutes[*fiber.App](recorder, nil, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		Fallback: SiteFallbackPolicy{
+			Mode: SiteFallbackMode("typo_mode"),
+		},
+	}, nil)
+	if err == nil {
+		t.Fatalf("expected invalid fallback policy to fail")
+	}
+	if !strings.Contains(err.Error(), "invalid site fallback policy") {
+		t.Fatalf("expected invalid fallback policy error, got %v", err)
+	}
+}

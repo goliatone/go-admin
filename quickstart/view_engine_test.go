@@ -85,6 +85,33 @@ func TestViewEngineTemplateStackAlignsRoots(t *testing.T) {
 	}
 }
 
+func TestViewEngineTemplateStackPrefersOverlayOverHostBase(t *testing.T) {
+	baseFS := fstest.MapFS{
+		"templates/site/base.html": {
+			Data: []byte("base template"),
+		},
+	}
+	overrideFS := fstest.MapFS{
+		"templates/site/base.html": {
+			Data: []byte("override template"),
+		},
+	}
+
+	cfg, err := newViewEngineConfig(baseFS, WithViewTemplatesFS(overrideFS))
+	if err != nil {
+		t.Fatalf("newViewEngineConfig error: %v", err)
+	}
+
+	stack := WithFallbackFS(cfg.templateFS[0], cfg.templateFS[1:]...)
+	data, err := fs.ReadFile(stack, "site/base.html")
+	if err != nil {
+		t.Fatalf("read overridden base template: %v", err)
+	}
+	if string(data) != "override template" {
+		t.Fatalf("expected overlay template to win, got %q", string(data))
+	}
+}
+
 func TestSidebarTemplatePrefersThemeLogoAsset(t *testing.T) {
 	hostFS := fstest.MapFS{
 		"templates/home.html": {

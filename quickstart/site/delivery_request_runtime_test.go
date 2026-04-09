@@ -26,7 +26,7 @@ func TestDeliveryRequestPathForResolutionStripsBasePathAndLocalePrefix(t *testin
 	}
 }
 
-func TestDeliveryRequestPathForResolutionUsesRoutePathAndRestParams(t *testing.T) {
+func TestDeliveryRequestPathForResolutionUsesRequestPathInsteadOfRouteParams(t *testing.T) {
 	runtime := &deliveryRuntime{
 		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
 			BasePath:         "/site",
@@ -38,12 +38,12 @@ func TestDeliveryRequestPathForResolutionUsesRoutePathAndRestParams(t *testing.T
 	}
 
 	ctx := router.NewMockContext()
-	ctx.On("Path").Return("/ignored")
+	ctx.On("Path").Return("/site/es/articles/launch")
 	ctx.ParamsM["path"] = "articles"
 	ctx.ParamsM["rest"] = "launch"
 
 	if got := runtime.requestPathForResolution(ctx); got != "/articles/launch" {
-		t.Fatalf("expected route-param request path /articles/launch, got %q", got)
+		t.Fatalf("expected request path /articles/launch after base/locale normalization, got %q", got)
 	}
 }
 

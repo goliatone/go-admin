@@ -17,6 +17,8 @@ type siteRegisterOptions struct {
 	searchHandler     router.HandlerFunc
 	searchAPIHandler  router.HandlerFunc
 	suggestAPIHandler router.HandlerFunc
+	fallbackPolicy    SiteFallbackPolicy
+	fallbackOverlay   siteFallbackPolicyOverlay
 }
 
 // WithSearchProvider sets the search provider for optional search route wiring.
@@ -87,6 +89,52 @@ func WithSuggestHandler(handler router.HandlerFunc) SiteOption {
 			return
 		}
 		opts.suggestAPIHandler = handler
+	}
+}
+
+func WithFallbackPolicy(policy SiteFallbackPolicy) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil {
+			return
+		}
+		policyCopy := policy
+		opts.fallbackOverlay.override = &policyCopy
+	}
+}
+
+func WithReservedPrefixes(prefixes ...string) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil {
+			return
+		}
+		opts.fallbackOverlay.reservedPrefixes = cloneStrings(prefixes)
+	}
+}
+
+func WithAllowedExactPaths(paths ...string) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil {
+			return
+		}
+		opts.fallbackOverlay.allowedExactPaths = cloneStrings(paths)
+	}
+}
+
+func WithAllowedPathPrefixes(prefixes ...string) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil {
+			return
+		}
+		opts.fallbackOverlay.allowedPathPrefixes = cloneStrings(prefixes)
+	}
+}
+
+func WithAllowedFallbackMethods(methods ...router.HTTPMethod) SiteOption {
+	return func(opts *siteRegisterOptions) {
+		if opts == nil {
+			return
+		}
+		opts.fallbackOverlay.allowedMethods = cloneHTTPMethods(methods)
 	}
 }
 

@@ -20,6 +20,9 @@ func renderSiteTemplate(c router.Context, templateName string, viewCtx router.Vi
 
 func siteTemplateContext(c router.Context, viewCtx router.ViewContext) router.ViewContext {
 	ctx := MergeViewContext(cloneViewContext(viewCtx), c)
+	if raw, ok := ctx["site_theme"].(map[string]any); ok && raw != nil {
+		ctx["site_theme"] = cloneSiteThemeContract(raw)
+	}
 	ctx["site_runtime"] = map[string]any{
 		"theme_name":            strings.TrimSpace(anyString(ctx["theme_name"])),
 		"theme_variant":         strings.TrimSpace(anyString(ctx["theme_variant"])),

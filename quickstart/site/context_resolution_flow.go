@@ -42,6 +42,7 @@ func buildResolvedRequestState(siteCfg ResolvedSiteConfig, c router.Context, inp
 	if assetBasePath == "" {
 		assetBasePath = siteCfg.BasePath
 	}
+	siteTheme := buildSiteThemeContract(inputs.ThemePayload, assetBasePath)
 
 	return RequestState{
 		Locale:              inputs.Locale,
@@ -59,6 +60,7 @@ func buildResolvedRequestState(siteCfg ResolvedSiteConfig, c router.Context, inp
 		ThemeName:           inputs.ThemeName,
 		ThemeVariant:        inputs.ThemeVariant,
 		Theme:               inputs.ThemePayload,
+		SiteTheme:           siteTheme,
 		BasePath:            siteCfg.BasePath,
 		AssetBasePath:       assetBasePath,
 		ActivePath:          resolveRequestActivePath(c),
@@ -116,6 +118,9 @@ func buildResolvedRequestViewContext(siteCfg ResolvedSiteConfig, state RequestSt
 	}
 	if state.ThemeVariant != "" {
 		viewCtx["theme_variant"] = state.ThemeVariant
+	}
+	if state.SiteTheme != nil {
+		viewCtx["site_theme"] = cloneSiteThemeContract(state.SiteTheme)
 	}
 
 	return viewCtx

@@ -11,24 +11,7 @@ import (
 )
 
 func (r *deliveryRuntime) requestPathForResolution(c router.Context) string {
-	path := strings.TrimSpace(c.Path())
-	if routePath := strings.TrimSpace(c.Param("path", "")); routePath != "" {
-		path = "/" + strings.Trim(routePath, "/")
-		if rest := strings.TrimSpace(c.Param("rest", "")); rest != "" {
-			path = path + "/" + strings.Trim(rest, "/")
-		}
-	}
-	path = normalizeLocalePath(path)
-	basePath := normalizeLocalePath(r.siteCfg.BasePath)
-	if basePath != "/" && strings.HasPrefix(path, basePath) {
-		path = normalizeLocalePath(strings.TrimPrefix(path, basePath))
-	}
-	if r.siteCfg.Features.EnableI18N {
-		if stripped, _ := StripSupportedLocalePrefix(path, r.siteCfg.SupportedLocales); stripped != "" {
-			path = stripped
-		}
-	}
-	return normalizeLocalePath(path)
+	return requestPathForSiteResolution(c, r.siteCfg)
 }
 
 func (r *deliveryRuntime) canonicalRedirectTarget(c router.Context, resolution *deliveryResolution) string {
