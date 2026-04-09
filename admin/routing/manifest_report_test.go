@@ -40,8 +40,14 @@ func TestNormalizeManifestSortsEntriesAndFillsMethodMetadata(t *testing.T) {
 	if manifest.Entries[0].Method != "GET" {
 		t.Fatalf("expected GET method normalization, got %q", manifest.Entries[0].Method)
 	}
+	if manifest.Entries[0].Domain != RouteDomainAdminUI {
+		t.Fatalf("expected ui surface to map to admin_ui domain, got %q", manifest.Entries[0].Domain)
+	}
 	if manifest.Entries[1].Method != ManifestMethodUnknown {
 		t.Fatalf("expected unknown method placeholder, got %q", manifest.Entries[1].Method)
+	}
+	if manifest.Entries[1].Domain != RouteDomainAdminAPI {
+		t.Fatalf("expected api surface to map to admin_api domain, got %q", manifest.Entries[1].Domain)
 	}
 }
 
@@ -119,8 +125,8 @@ func TestBuildStartupReportAggregatesCountsConflictsAndWarnings(t *testing.T) {
 		},
 		Manifest{
 			Entries: []ManifestEntry{
-				{Owner: "host", Surface: SurfaceUI, RouteKey: "dashboard", RouteName: "admin.dashboard", Method: "GET", Path: "/admin", GroupPath: "admin"},
-				{Owner: "module:alpha", Surface: SurfaceUI, RouteKey: "alpha.home", RouteName: "admin.alpha.home", Path: "/admin/alpha", GroupPath: "admin"},
+				{Owner: "host", Surface: SurfaceUI, Domain: RouteDomainAdminUI, RouteKey: "dashboard", RouteName: "admin.dashboard", Method: "GET", Path: "/admin", GroupPath: "admin"},
+				{Owner: "module:alpha", Surface: SurfaceUI, Domain: RouteDomainAdminUI, RouteKey: "alpha.home", RouteName: "admin.alpha.home", Path: "/admin/alpha", GroupPath: "admin"},
 			},
 		},
 		[]Conflict{
@@ -144,6 +150,12 @@ func TestBuildStartupReportAggregatesCountsConflictsAndWarnings(t *testing.T) {
 	if report.RouteSummary.Modules[0] != "alpha" || report.RouteSummary.Modules[1] != "zeta" {
 		t.Fatalf("expected module names sorted alphabetically, got %+v", report.RouteSummary.Modules)
 	}
+	if len(report.RouteSummary.Domains) != 1 || report.RouteSummary.Domains[0] != RouteDomainAdminUI {
+		t.Fatalf("expected one admin_ui domain, got %+v", report.RouteSummary.Domains)
+	}
+	if report.RouteSummary.DomainCounts[RouteDomainAdminUI] != 2 {
+		t.Fatalf("expected admin_ui domain count 2, got %+v", report.RouteSummary.DomainCounts)
+	}
 	if len(report.Conflicts) != 1 || report.Conflicts[0].Kind != ConflictKindPathConflict {
 		t.Fatalf("expected aggregated conflict, got %+v", report.Conflicts)
 	}
@@ -165,6 +177,8 @@ func TestFormatStartupReportProducesReadableOutput(t *testing.T) {
 			TotalRoutes:  3,
 			HostRoutes:   1,
 			ModuleRoutes: 2,
+			Domains:      []string{RouteDomainAdminUI, RouteDomainSystem},
+			DomainCounts: map[string]int{RouteDomainAdminUI: 2, RouteDomainSystem: 1},
 		},
 		Conflicts: []Conflict{
 			{Kind: ConflictKindOwnershipViolation, Message: "ui mount cannot claim root"},
@@ -176,6 +190,7 @@ func TestFormatStartupReportProducesReadableOutput(t *testing.T) {
 		"routing report",
 		"roots: admin=/admin api=/admin/api public_api=-",
 		"modules:",
+		"domains: admin_ui=2 system=1",
 		"translations ui=/admin/translations api=/admin/api/translations",
 		"ownership_violation: ui mount cannot claim root",
 		"using local preflight checks",
@@ -183,6 +198,33 @@ func TestFormatStartupReportProducesReadableOutput(t *testing.T) {
 		if !strings.Contains(output, fragment) {
 			t.Fatalf("expected report output to contain %q, got:\n%s", fragment, output)
 		}
+	}
+}
+
+func TestRouteDomainsExposeCanonicalVocabulary(t *testing.T) {
+	got := RouteDomains()
+	want := []string{
+		RouteDomainAdminAPI,
+		RouteDomainAdminUI,
+		RouteDomainInternalOps,
+		RouteDomainPublicAPI,
+		RouteDomainPublicSite,
+		RouteDomainStatic,
+		RouteDomainSystem,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected %d route domains, got %v", len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected route domains %v, got %v", want, got)
+		}
+	}
+	if got := DefaultRouteDomainForSurface(SurfaceUI); got != RouteDomainAdminUI {
+		t.Fatalf("expected ui surface to resolve admin_ui domain, got %q", got)
+	}
+	if got := NormalizeRouteDomain(" API "); got != RouteDomainAdminAPI {
+		t.Fatalf("expected api alias normalization to admin_api, got %q", got)
 	}
 }
 

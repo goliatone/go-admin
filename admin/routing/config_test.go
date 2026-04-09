@@ -26,6 +26,9 @@ func TestDefaultConfigAppliesCanonicalDefaults(t *testing.T) {
 	if !cfg.Manifest.IncludeModuleRoutes {
 		t.Fatalf("expected module routes included by default")
 	}
+	if !cfg.Manifest.IncludeFallbacks {
+		t.Fatalf("expected fallback entries included by default")
+	}
 	if cfg.Modules == nil {
 		t.Fatalf("expected module config map initialized")
 	}

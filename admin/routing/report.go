@@ -18,15 +18,19 @@ type StartupReport struct {
 	EffectiveRoots RootsConfig      `json:"effective_roots"`
 	Modules        []ResolvedModule `json:"modules,omitempty"`
 	RouteSummary   RouteSummary     `json:"route_summary"`
+	Fallbacks      []FallbackEntry  `json:"fallbacks,omitempty"`
 	Conflicts      []Conflict       `json:"conflicts,omitempty"`
 	Warnings       []string         `json:"warnings,omitempty"`
 }
 
 type RouteSummary struct {
-	TotalRoutes  int      `json:"total_routes"`
-	HostRoutes   int      `json:"host_routes"`
-	ModuleRoutes int      `json:"module_routes"`
-	Modules      []string `json:"modules,omitempty"`
+	TotalRoutes    int            `json:"total_routes"`
+	HostRoutes     int            `json:"host_routes"`
+	ModuleRoutes   int            `json:"module_routes"`
+	FallbackRoutes int            `json:"fallback_routes"`
+	Modules        []string       `json:"modules,omitempty"`
+	Domains        []string       `json:"domains,omitempty"`
+	DomainCounts   map[string]int `json:"domain_counts,omitempty"`
 }
 
 type Conflict struct {
@@ -86,13 +90,27 @@ func BuildStartupReport(roots RootsConfig, modules []ResolvedModule, manifest Ma
 	normalizedManifest := NormalizeManifest(manifest)
 	hostRoutes := 0
 	moduleRoutes := 0
+	domainCounts := map[string]int{}
 	for _, entry := range normalizedManifest.Entries {
 		if strings.HasPrefix(entry.Owner, "module:") {
 			moduleRoutes++
-			continue
+		} else {
+			hostRoutes++
 		}
-		hostRoutes++
+		domain := NormalizeRouteDomain(entry.Domain)
+		if domain == "" {
+			domain = DefaultRouteDomainForSurface(entry.Surface)
+		}
+		if domain != "" {
+			domainCounts[domain]++
+		}
 	}
+	domains := make([]string, 0, len(domainCounts))
+	for domain := range domainCounts {
+		domains = append(domains, domain)
+	}
+	sort.Strings(domains)
+	fallbacks := append([]FallbackEntry{}, normalizedManifest.Fallbacks...)
 
 	conflictsCopy := append([]Conflict{}, conflicts...)
 	warningsCopy := append([]string{}, warnings...)
@@ -103,11 +121,15 @@ func BuildStartupReport(roots RootsConfig, modules []ResolvedModule, manifest Ma
 		EffectiveRoots: NormalizeRoots(roots),
 		Modules:        modulesCopy,
 		RouteSummary: RouteSummary{
-			TotalRoutes:  len(normalizedManifest.Entries),
-			HostRoutes:   hostRoutes,
-			ModuleRoutes: moduleRoutes,
-			Modules:      moduleNames,
+			TotalRoutes:    len(normalizedManifest.Entries),
+			HostRoutes:     hostRoutes,
+			ModuleRoutes:   moduleRoutes,
+			FallbackRoutes: len(fallbacks),
+			Modules:        moduleNames,
+			Domains:        domains,
+			DomainCounts:   domainCounts,
 		},
+		Fallbacks: fallbacks,
 		Conflicts: conflictsCopy,
 		Warnings:  warningsCopy,
 	}
@@ -121,7 +143,15 @@ func FormatStartupReport(report StartupReport) string {
 			" public_api=" + printablePath(report.EffectiveRoots.PublicAPIRoot),
 		"summary: total=" + strconv.Itoa(report.RouteSummary.TotalRoutes) +
 			" host=" + strconv.Itoa(report.RouteSummary.HostRoutes) +
-			" module=" + strconv.Itoa(report.RouteSummary.ModuleRoutes),
+			" module=" + strconv.Itoa(report.RouteSummary.ModuleRoutes) +
+			" fallback=" + strconv.Itoa(report.RouteSummary.FallbackRoutes),
+	}
+	if len(report.RouteSummary.Domains) > 0 {
+		parts := make([]string, 0, len(report.RouteSummary.Domains))
+		for _, domain := range report.RouteSummary.Domains {
+			parts = append(parts, domain+"="+strconv.Itoa(report.RouteSummary.DomainCounts[domain]))
+		}
+		lines = append(lines, "domains: "+strings.Join(parts, " "))
 	}
 
 	if len(report.Modules) == 0 {
@@ -133,6 +163,27 @@ func FormatStartupReport(report StartupReport) string {
 				" ui="+printablePath(module.UIMountBase)+
 				" api="+printablePath(module.APIMountBase)+
 				" public_api="+printablePath(module.PublicAPIMountBase))
+		}
+	}
+
+	if len(report.Fallbacks) == 0 {
+		lines = append(lines, "fallbacks: none")
+	} else {
+		lines = append(lines, "fallbacks:")
+		for _, fallback := range report.Fallbacks {
+			fallback = NormalizeFallbackEntry(fallback)
+			lines = append(lines,
+				"  - owner="+printablePath(fallback.Owner)+
+					" surface="+printablePath(fallback.Surface)+
+					" domain="+printablePath(fallback.Domain)+
+					" base="+printablePath(fallbackBaseRoot(fallback))+
+					" mode="+printablePath(fallback.Mode)+
+					" allow_root="+strconv.FormatBool(fallback.AllowRoot)+
+					" methods="+printableList(fallback.AllowedMethods)+
+					" exact="+printableList(fallback.AllowedExactPaths)+
+					" prefixes="+printableList(fallback.AllowedPathPrefixes)+
+					" reserved="+printableList(fallback.ReservedPrefixes),
+			)
 		}
 	}
 
@@ -163,6 +214,13 @@ func printablePath(value string) string {
 		return "-"
 	}
 	return value
+}
+
+func printableList(values []string) string {
+	if len(values) == 0 {
+		return "-"
+	}
+	return strings.Join(values, ",")
 }
 
 func sortConflicts(conflicts []Conflict) {

@@ -45,6 +45,43 @@ func NewValidator(roots RootsConfig) *Validator {
 	}
 }
 
+func (v *Validator) ValidateHostRoutes(entries []ManifestEntry) error {
+	conflicts := make([]Conflict, 0)
+	for _, entry := range entries {
+		normalized := normalizeManifestEntry(entry)
+		if strings.TrimSpace(normalized.Owner) == "" {
+			conflicts = append(conflicts, Conflict{
+				Kind:    ConflictKindOwnershipViolation,
+				Message: "host route owner is required",
+			})
+			continue
+		}
+		if strings.TrimSpace(normalized.Surface) == "" {
+			conflicts = append(conflicts, Conflict{
+				Kind:    ConflictKindOwnershipViolation,
+				Module:  moduleFromOwner(normalized.Owner),
+				Path:    normalized.Path,
+				Message: fmt.Sprintf("host route %q must declare a known surface", normalized.Path),
+			})
+			continue
+		}
+		if strings.TrimSpace(normalized.Path) == "" {
+			conflicts = append(conflicts, Conflict{
+				Kind:    ConflictKindOwnershipViolation,
+				Module:  moduleFromOwner(normalized.Owner),
+				Message: fmt.Sprintf("host route on surface %q must declare an absolute path", normalized.Surface),
+			})
+			continue
+		}
+		conflicts = append(conflicts, v.registry.TrackManifestEntry(normalized)...)
+	}
+	if len(conflicts) > 0 {
+		v.conflicts = append(v.conflicts, conflicts...)
+		return conflictError(conflicts)
+	}
+	return nil
+}
+
 func (v *Validator) ValidateModule(contract ModuleContract, resolved ResolvedModule, entries []ManifestEntry) error {
 	conflicts := make([]Conflict, 0)
 	conflicts = append(conflicts, validateOwnership(contract, resolved, entries, v.roots)...)
@@ -59,6 +96,65 @@ func (v *Validator) ValidateModule(contract ModuleContract, resolved ResolvedMod
 		return conflictError(conflicts)
 	}
 
+	return nil
+}
+
+func (v *Validator) ValidateFallbacks(entries []ManifestEntry, fallbacks []FallbackEntry) error {
+	conflicts := make([]Conflict, 0)
+	seen := map[string]FallbackEntry{}
+	for _, entry := range fallbacks {
+		fallback := NormalizeFallbackEntry(entry)
+		switch fallback.Mode {
+		case FallbackModeDisabled, FallbackModePublicContentOnly, FallbackModeExplicitPathsOnly:
+		default:
+			conflicts = append(conflicts, Conflict{
+				Kind:    ConflictKindOwnershipViolation,
+				Module:  moduleFromOwner(fallback.Owner),
+				Message: fmt.Sprintf("unsupported fallback mode %q", fallback.Mode),
+			})
+			continue
+		}
+		if fallback.Surface != SurfacePublicSite {
+			conflicts = append(conflicts, Conflict{
+				Kind:    ConflictKindOwnershipViolation,
+				Module:  moduleFromOwner(fallback.Owner),
+				Message: fmt.Sprintf("fallback surface %q is not supported", fallback.Surface),
+			})
+			continue
+		}
+		if fallback.Domain != RouteDomainPublicSite {
+			conflicts = append(conflicts, Conflict{
+				Kind:    ConflictKindOwnershipViolation,
+				Module:  moduleFromOwner(fallback.Owner),
+				Message: fmt.Sprintf("fallback domain %q must be %q", fallback.Domain, RouteDomainPublicSite),
+			})
+			continue
+		}
+		key := fallbackIdentityKey(fallback)
+		if existing, ok := seen[key]; ok && !fallbackEntriesEqual(existing, fallback) {
+			conflicts = append(conflicts, Conflict{
+				Kind:   ConflictKindOwnershipViolation,
+				Module: moduleFromOwner(fallback.Owner),
+				Existing: map[string]string{
+					"owner": existing.Owner,
+					"mode":  existing.Mode,
+				},
+				Incoming: map[string]string{
+					"owner": fallback.Owner,
+					"mode":  fallback.Mode,
+				},
+				Message: fmt.Sprintf("only one fallback owner may exist for surface %q", fallback.Surface),
+			})
+			continue
+		}
+		seen[key] = fallback
+		conflicts = append(conflicts, validateFallbackReservedPrefixes(fallback)...)
+		conflicts = append(conflicts, validateFallbackShadowing(entries, fallback)...)
+	}
+	if len(conflicts) > 0 {
+		v.conflicts = append(v.conflicts, conflicts...)
+		return conflictError(conflicts)
+	}
 	return nil
 }
 
@@ -304,6 +400,86 @@ func validateRouteNameOwnership(contract ModuleContract, resolved ResolvedModule
 				Message: fmt.Sprintf("route key %q must be owned by slug %q", entry.RouteKey, contract.Slug),
 			})
 		}
+	}
+	return conflicts
+}
+
+func validateFallbackReservedPrefixes(fallback FallbackEntry) []Conflict {
+	conflicts := make([]Conflict, 0)
+	for _, path := range fallback.AllowedExactPaths {
+		if fallbackReservesPath(fallback, path) {
+			conflicts = append(conflicts, Conflict{
+				Kind:   ConflictKindOwnershipViolation,
+				Module: moduleFromOwner(fallback.Owner),
+				Path:   path,
+				Existing: map[string]string{
+					"owner":    fallback.Owner,
+					"reserved": strings.Join(fallback.ReservedPrefixes, ","),
+				},
+				Incoming: map[string]string{
+					"path": path,
+				},
+				Message: fmt.Sprintf("public-site fallback exact path %q overlaps a reserved prefix", path),
+			})
+		}
+	}
+	for _, prefix := range fallback.AllowedPathPrefixes {
+		if fallbackReservesPath(fallback, prefix) {
+			conflicts = append(conflicts, Conflict{
+				Kind:   ConflictKindOwnershipViolation,
+				Module: moduleFromOwner(fallback.Owner),
+				Path:   prefix,
+				Existing: map[string]string{
+					"owner":    fallback.Owner,
+					"reserved": strings.Join(fallback.ReservedPrefixes, ","),
+				},
+				Incoming: map[string]string{
+					"path_prefix": prefix,
+				},
+				Message: fmt.Sprintf("public-site fallback path prefix %q overlaps a reserved prefix", prefix),
+			})
+		}
+	}
+	return conflicts
+}
+
+func validateFallbackShadowing(entries []ManifestEntry, fallback FallbackEntry) []Conflict {
+	conflicts := make([]Conflict, 0)
+	for _, raw := range entries {
+		entry := normalizeManifestEntry(raw)
+		if entry.Path == "" {
+			continue
+		}
+		if entry.Owner == fallback.Owner && NormalizeRouteDomain(entry.Domain) == RouteDomainPublicSite {
+			continue
+		}
+		methodAllowed := entry.Method == "" || entry.Method == ManifestMethodUnknown || fallbackAllowsMethod(fallback, entry.Method)
+		if !methodAllowed {
+			continue
+		}
+		if !fallbackClaimsPath(fallback, entry.Path) {
+			continue
+		}
+		conflicts = append(conflicts, Conflict{
+			Kind:      ConflictKindOwnershipViolation,
+			Module:    moduleFromOwner(fallback.Owner),
+			Method:    entry.Method,
+			Path:      entry.Path,
+			RouteName: entry.RouteName,
+			Existing: map[string]string{
+				"owner":      entry.Owner,
+				"surface":    entry.Surface,
+				"domain":     entry.Domain,
+				"route_name": entry.RouteName,
+				"path":       entry.Path,
+			},
+			Incoming: map[string]string{
+				"owner":   fallback.Owner,
+				"surface": fallback.Surface,
+				"mode":    fallback.Mode,
+			},
+			Message: fmt.Sprintf("public-site fallback for %q would shadow %s-owned path %q", fallback.Owner, entry.Domain, entry.Path),
+		})
 	}
 	return conflicts
 }

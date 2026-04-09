@@ -38,6 +38,7 @@ type ManifestConfig struct {
 	Enabled             bool `json:"enabled"`
 	IncludeHostRoutes   bool `json:"include_host_routes"`
 	IncludeModuleRoutes bool `json:"include_module_routes"`
+	IncludeFallbacks    bool `json:"include_fallbacks"`
 }
 
 type URLNamespaceConfig struct {
@@ -67,6 +68,7 @@ func DefaultConfig() Config {
 			Enabled:             true,
 			IncludeHostRoutes:   true,
 			IncludeModuleRoutes: true,
+			IncludeFallbacks:    true,
 		},
 	}
 }
@@ -104,6 +106,7 @@ func normalizeManifestConfig(cfg ManifestConfig) ManifestConfig {
 	cfg.Enabled = true
 	cfg.IncludeHostRoutes = true
 	cfg.IncludeModuleRoutes = true
+	cfg.IncludeFallbacks = true
 	return cfg
 }
 

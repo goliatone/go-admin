@@ -17,6 +17,8 @@ type URLKitAdapter interface {
 
 type Planner interface {
 	RegisterModule(contract ModuleContract) error
+	RegisterHostRoutes(entries ...ManifestEntry) error
+	RegisterFallback(entry FallbackEntry) error
 	ResolvedModule(slug string) (ResolvedModule, bool)
 	Validate() error
 	Manifest() Manifest
@@ -27,6 +29,10 @@ const (
 	SurfaceUI        = "ui"
 	SurfaceAPI       = "api"
 	SurfacePublicAPI = "public_api"
+	SurfacePublicSite = "public_site"
+	SurfaceSystem     = "system"
+	SurfaceInternalOps = "internal_ops"
+	SurfaceStatic      = "static"
 )
 
 type planner struct {
@@ -34,6 +40,8 @@ type planner struct {
 	urls     URLKitAdapter
 	modules  map[string]modulePlan
 	order    []string
+	hostEntries []ManifestEntry
+	fallbacks []FallbackEntry
 	manifest Manifest
 	report   StartupReport
 }
@@ -54,6 +62,8 @@ func NewPlanner(cfg Config, urls URLKitAdapter) (Planner, error) {
 		urls:    urls,
 		modules: map[string]modulePlan{},
 		order:   []string{},
+		hostEntries: nil,
+		fallbacks: nil,
 	}
 	planner.rebuildViews()
 
@@ -81,11 +91,11 @@ func (p *planner) RegisterModule(contract ModuleContract) error {
 	}
 
 	if err := p.validateCandidate(candidate); err != nil {
-		p.refreshCandidateFailureReport(candidate, err)
+		p.refreshModuleCandidateFailureReport(candidate, err)
 		return err
 	}
 	if err := p.applyModuleRoutes(candidate); err != nil {
-		p.refreshCandidateFailureReport(candidate, err)
+		p.refreshModuleCandidateFailureReport(candidate, err)
 		return err
 	}
 
@@ -106,21 +116,64 @@ func (p *planner) ResolvedModule(slug string) (ResolvedModule, bool) {
 	return plan.resolved, true
 }
 
+func (p *planner) RegisterHostRoutes(entries ...ManifestEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	candidate := append([]ManifestEntry{}, p.hostEntries...)
+	for _, entry := range entries {
+		normalized := normalizeManifestEntry(entry)
+		if hostRouteExists(candidate, normalized) {
+			continue
+		}
+		candidate = append(candidate, normalized)
+	}
+	if err := p.validateState(p.modules, p.order, candidate, p.fallbacks); err != nil {
+		p.refreshCandidateFailureReport(candidate, p.fallbacks, err)
+		return err
+	}
+	p.hostEntries = candidate
+	p.rebuildViews()
+	return nil
+}
+
+func (p *planner) RegisterFallback(entry FallbackEntry) error {
+	normalized := NormalizeFallbackEntry(entry)
+	candidate := append([]FallbackEntry{}, p.fallbacks...)
+	for idx, existing := range candidate {
+		if fallbackIdentityKey(existing) != fallbackIdentityKey(normalized) {
+			continue
+		}
+		if fallbackEntriesEqual(existing, normalized) {
+			return nil
+		}
+		candidate[idx] = normalized
+		if err := p.validateState(p.modules, p.order, p.hostEntries, candidate); err != nil {
+			p.refreshCandidateFailureReport(p.hostEntries, candidate, err)
+			return err
+		}
+		p.fallbacks = candidate
+		p.rebuildViews()
+		return nil
+	}
+	candidate = append(candidate, normalized)
+	if err := p.validateState(p.modules, p.order, p.hostEntries, candidate); err != nil {
+		p.refreshCandidateFailureReport(p.hostEntries, candidate, err)
+		return err
+	}
+	p.fallbacks = candidate
+	p.rebuildViews()
+	return nil
+}
+
 func (p *planner) Validate() error {
 	if err := validatePlannerRoots(p.cfg.Roots); err != nil {
 		return err
 	}
-
-	validator := NewValidator(p.cfg.Roots)
-	for _, slug := range p.order {
-		plan := p.modules[slug]
-		if err := validator.ValidateModule(plan.contract, plan.resolved, plan.entries); err != nil {
-			p.refreshReport(validator.Conflicts())
-			return err
-		}
+	if err := p.validateState(p.modules, p.order, p.hostEntries, p.fallbacks); err != nil {
+		return err
 	}
-	p.refreshReport(validator.Conflicts())
-
 	return nil
 }
 
@@ -132,6 +185,14 @@ func (p *planner) Report() StartupReport {
 	report := p.report
 	report.Modules = append([]ResolvedModule{}, p.report.Modules...)
 	report.RouteSummary.Modules = append([]string{}, p.report.RouteSummary.Modules...)
+	report.RouteSummary.Domains = append([]string{}, p.report.RouteSummary.Domains...)
+	if len(p.report.RouteSummary.DomainCounts) > 0 {
+		report.RouteSummary.DomainCounts = make(map[string]int, len(p.report.RouteSummary.DomainCounts))
+		for key, value := range p.report.RouteSummary.DomainCounts {
+			report.RouteSummary.DomainCounts[key] = value
+		}
+	}
+	report.Fallbacks = append([]FallbackEntry{}, p.report.Fallbacks...)
 	report.Conflicts = append([]Conflict{}, p.report.Conflicts...)
 	report.Warnings = append([]string{}, p.report.Warnings...)
 	return report
@@ -180,6 +241,7 @@ func (p *planner) resolveModule(contract ModuleContract) (ResolvedModule, []Mani
 func (p *planner) rebuildViews() {
 	modules := make([]ResolvedModule, 0, len(p.order))
 	entries := make([]ManifestEntry, 0)
+	fallbacks := make([]FallbackEntry, 0)
 
 	for _, slug := range p.order {
 		plan := p.modules[slug]
@@ -188,24 +250,107 @@ func (p *planner) rebuildViews() {
 			entries = append(entries, plan.entries...)
 		}
 	}
+	if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeHostRoutes {
+		entries = append(entries, p.hostEntries...)
+	}
+	if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeFallbacks {
+		fallbacks = append(fallbacks, p.fallbacks...)
+	}
 
 	sortManifestEntries(entries)
-	p.manifest = Manifest{Entries: entries}
+	sortFallbackEntries(fallbacks)
+	p.manifest = Manifest{
+		Entries:   entries,
+		Fallbacks: fallbacks,
+	}
 	p.report = BuildStartupReport(p.cfg.Roots, modules, p.manifest, nil, plannerWarnings(p.cfg, p.urls))
 }
 
 func (p *planner) validateCandidate(candidate modulePlan) error {
+	modules := make(map[string]modulePlan, len(p.modules)+1)
+	for slug, plan := range p.modules {
+		modules[slug] = plan
+	}
+	modules[candidate.contract.Slug] = candidate
+	order := append([]string{}, p.order...)
+	order = append(order, candidate.contract.Slug)
+	sort.Strings(order)
+	return p.validateState(modules, order, p.hostEntries, p.fallbacks)
+}
+
+func (p *planner) validateState(modules map[string]modulePlan, order []string, hostEntries []ManifestEntry, fallbacks []FallbackEntry) error {
+	if err := validatePlannerRoots(p.cfg.Roots); err != nil {
+		return err
+	}
+
 	validator := NewValidator(p.cfg.Roots)
-	for _, slug := range p.order {
-		plan := p.modules[slug]
+	if err := validator.ValidateHostRoutes(hostEntries); err != nil {
+		p.refreshReport(validator.Conflicts())
+		return err
+	}
+	for _, slug := range order {
+		plan, ok := modules[slug]
+		if !ok {
+			continue
+		}
 		if err := validator.ValidateModule(plan.contract, plan.resolved, plan.entries); err != nil {
+			p.refreshReport(validator.Conflicts())
 			return err
 		}
 	}
-	if err := validator.ValidateModule(candidate.contract, candidate.resolved, candidate.entries); err != nil {
+
+	concreteEntries := make([]ManifestEntry, 0, len(hostEntries)+len(order)*4)
+	concreteEntries = append(concreteEntries, hostEntries...)
+	for _, slug := range order {
+		plan, ok := modules[slug]
+		if !ok {
+			continue
+		}
+		concreteEntries = append(concreteEntries, plan.entries...)
+	}
+	if err := validator.ValidateFallbacks(concreteEntries, fallbacks); err != nil {
+		p.refreshReport(validator.Conflicts())
 		return err
 	}
+	p.refreshReport(validator.Conflicts())
 	return nil
+}
+
+func hostRouteExists(entries []ManifestEntry, candidate ManifestEntry) bool {
+	for _, existing := range entries {
+		if manifestEntriesEqual(existing, candidate) {
+			return true
+		}
+	}
+	return false
+}
+
+func manifestEntriesEqual(left, right ManifestEntry) bool {
+	return left.Owner == right.Owner &&
+		left.Surface == right.Surface &&
+		left.Domain == right.Domain &&
+		left.RouteKey == right.RouteKey &&
+		left.RouteName == right.RouteName &&
+		left.Method == right.Method &&
+		left.Path == right.Path &&
+		left.GroupPath == right.GroupPath
+}
+
+func fallbackEntriesEqual(left, right FallbackEntry) bool {
+	left = NormalizeFallbackEntry(left)
+	right = NormalizeFallbackEntry(right)
+	if left.Owner != right.Owner ||
+		left.Surface != right.Surface ||
+		left.Domain != right.Domain ||
+		left.BasePath != right.BasePath ||
+		left.Mode != right.Mode ||
+		left.AllowRoot != right.AllowRoot {
+		return false
+	}
+	return slices.Equal(left.AllowedMethods, right.AllowedMethods) &&
+		slices.Equal(left.AllowedExactPaths, right.AllowedExactPaths) &&
+		slices.Equal(left.AllowedPathPrefixes, right.AllowedPathPrefixes) &&
+		slices.Equal(left.ReservedPrefixes, right.ReservedPrefixes)
 }
 
 func (p *planner) applyModuleRoutes(candidate modulePlan) error {
@@ -322,15 +467,66 @@ func (p *planner) refreshReport(conflicts []Conflict) {
 	p.report = BuildStartupReport(p.cfg.Roots, modules, p.manifest, conflicts, plannerWarnings(p.cfg, p.urls))
 }
 
-func (p *planner) refreshCandidateFailureReport(candidate modulePlan, err error) {
+func (p *planner) refreshCandidateFailureReport(candidateHostEntries []ManifestEntry, candidateFallbacks []FallbackEntry, err error) {
 	modules := make([]ResolvedModule, 0, len(p.order))
 	for _, slug := range p.order {
 		modules = append(modules, p.modules[slug].resolved)
 	}
+	entries := make([]ManifestEntry, 0)
+	for _, slug := range p.order {
+		plan := p.modules[slug]
+		if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeModuleRoutes {
+			entries = append(entries, plan.entries...)
+		}
+	}
+	if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeHostRoutes {
+		entries = append(entries, candidateHostEntries...)
+	}
+	fallbacks := make([]FallbackEntry, 0)
+	if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeFallbacks {
+		fallbacks = append(fallbacks, candidateFallbacks...)
+	}
 	p.report = BuildStartupReport(
 		p.cfg.Roots,
 		modules,
-		p.manifest,
+		Manifest{
+			Entries:   entries,
+			Fallbacks: fallbacks,
+		},
+		plannerConflictsFromError(err),
+		plannerWarnings(p.cfg, p.urls),
+	)
+}
+
+func (p *planner) refreshModuleCandidateFailureReport(candidate modulePlan, err error) {
+	modules := make([]ResolvedModule, 0, len(p.order))
+	for _, slug := range p.order {
+		modules = append(modules, p.modules[slug].resolved)
+	}
+	entries := make([]ManifestEntry, 0)
+	if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeHostRoutes {
+		entries = append(entries, p.hostEntries...)
+	}
+	for _, slug := range p.order {
+		plan := p.modules[slug]
+		if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeModuleRoutes {
+			entries = append(entries, plan.entries...)
+		}
+	}
+	if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeModuleRoutes {
+		entries = append(entries, candidate.entries...)
+	}
+	fallbacks := make([]FallbackEntry, 0)
+	if p.cfg.Manifest.Enabled && p.cfg.Manifest.IncludeFallbacks {
+		fallbacks = append(fallbacks, p.fallbacks...)
+	}
+	p.report = BuildStartupReport(
+		p.cfg.Roots,
+		modules,
+		Manifest{
+			Entries:   entries,
+			Fallbacks: fallbacks,
+		},
 		plannerConflictsFromError(err),
 		plannerWarnings(p.cfg, p.urls),
 	)
