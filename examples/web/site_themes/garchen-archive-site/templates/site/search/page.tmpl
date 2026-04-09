@@ -1,0 +1,236 @@
+<section class="site-search-page ui-section">
+  <div class="ui-container">
+    <header class="site-search-page__header">
+      <div class="site-search-page__header-copy">
+        <p class="ui-eyebrow">Search</p>
+        <h1 class="ui-heading-display">{{ search_landing.page_title|default:"Site Search" }}</h1>
+        <p class="site-search-page__copy">{{ search_landing.title|default:"Canonical site search backed by the configured search provider." }}</p>
+        {% if search_landing and search_landing.title %}
+          <div class="site-search-page__chip-row">
+            <span class="ui-badge ui-badge--default">{{ search_landing.breadcrumb|default:"Topic" }}</span>
+            <span class="ui-badge ui-badge--default">{{ search_landing.title }}</span>
+          </div>
+        {% endif %}
+      </div>
+      <button
+        type="button"
+        class="ui-button ui-button--secondary ui-button--md site-search-page__filters-toggle"
+        data-site-search-toggle
+        aria-expanded="false"
+        aria-controls="site-search-facets"
+      >
+        <span class="ui-button__label">Filters</span>
+      </button>
+    </header>
+
+    <form class="site-search-page__toolbar" method="get" action="{{ search_route|default:'/search' }}">
+      <label class="site-visually-hidden" for="site-search-query">Search query</label>
+      <div class="site-search-page__field">
+        <div class="ui-input">
+          <input
+            class="ui-input__field"
+            id="site-search-query"
+            type="text"
+            name="q"
+            value="{{ search_query|default:search.query }}"
+            placeholder="Search content"
+            autocomplete="off"
+            data-site-search-input
+            data-site-search-suggest-endpoint="{{ search_suggest_endpoint|default:'/api/v1/site/search/suggest' }}"
+          >
+        </div>
+        <div data-site-search-suggestions class="site-search-page__suggestions" hidden></div>
+      </div>
+      <div class="site-search-page__field">
+        <div class="ui-input">
+          <input
+            class="ui-input__field"
+            type="text"
+            name="locale"
+            value="{{ search.locale|default:locale|default:default_locale|default:'en' }}"
+            placeholder="Locale"
+          >
+        </div>
+      </div>
+      <div class="site-search-page__field">
+        <select class="ui-select-menu-item" name="sort">
+          {% for option in search_sort_options %}
+            <option value="{{ option.value }}" {% if option.active %}selected{% endif %}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="ui-button ui-button--primary ui-button--md" type="submit">
+        <span class="ui-button__label">Search</span>
+      </button>
+    </form>
+
+    {% if search_filter_chips %}
+      <div class="site-search-page__chip-row">
+        {% for chip in search_filter_chips %}
+          <a href="{{ chip.remove_url|default:'#' }}" class="ui-badge ui-badge--default">
+            {{ chip.label|default:chip.key }} ×
+          </a>
+        {% endfor %}
+        <a href="{{ search_clear_url|default:'#' }}" class="ui-badge ui-badge--default">Clear all</a>
+      </div>
+    {% endif %}
+
+    <div class="site-search-page__layout">
+      <aside id="site-search-facets" class="site-search-page__facets" data-site-search-panel>
+        <form method="get" action="{{ search_route|default:'/search' }}" class="site-search-page__filters-form">
+          <input type="hidden" name="q" value="{{ search_query|default:search.query }}">
+          <input type="hidden" name="locale" value="{{ search.locale|default:locale|default:default_locale|default:'en' }}">
+          <input type="hidden" name="sort" value="{{ search.sort|default:'' }}">
+
+          <div class="site-search-page__filters-header">
+            <h2>Filters</h2>
+            <a href="{{ search_clear_url|default:'#' }}">Reset</a>
+          </div>
+
+          <article class="site-search-page__filter-card">
+            <h3>Ranges</h3>
+            <div class="site-search-page__range-grid">
+              <div>
+                <label>Published year</label>
+                <div class="site-search-page__range-inputs">
+                  <input type="number" name="published_year_gte" value="{{ search_range_values.published_year.gte|default:'' }}" placeholder="From">
+                  <input type="number" name="published_year_lte" value="{{ search_range_values.published_year.lte|default:'' }}" placeholder="To">
+                </div>
+              </div>
+              <div>
+                <label>Duration seconds</label>
+                <div class="site-search-page__range-inputs">
+                  <input type="number" name="duration_seconds_gte" value="{{ search_range_values.duration_seconds.gte|default:'' }}" placeholder="Min">
+                  <input type="number" name="duration_seconds_lte" value="{{ search_range_values.duration_seconds.lte|default:'' }}" placeholder="Max">
+                </div>
+              </div>
+            </div>
+          </article>
+
+          {% if search_facets %}
+            <div class="site-search-page__facet-groups">
+              {% for facet in search_facets %}
+                <article class="site-search-page__filter-card">
+                  <div class="site-search-page__facet-heading">
+                    <h3>{{ facet.name }}</h3>
+                    {% if facet.kind %}
+                      <span class="ui-badge ui-badge--default">{{ facet.kind }}</span>
+                    {% endif %}
+                  </div>
+                  <ul class="site-search-page__facet-list">
+                    {% for bucket in facet.buckets %}
+                      <li>
+                        <label class="site-search-page__facet-option">
+                          <input type="checkbox" name="facet_{{ facet.name }}" value="{{ bucket.value }}" {% if bucket.active or bucket.selected %}checked{% endif %}>
+                          <span style="padding-left: {{ bucket.indent_px|default:0 }}px;">{{ bucket.label|default:bucket.value }}</span>
+                          <span class="ui-badge ui-badge--default">{{ bucket.count }}</span>
+                        </label>
+                      </li>
+                    {% endfor %}
+                  </ul>
+                </article>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <button class="ui-button ui-button--primary ui-button--md site-search-page__apply" type="submit">
+            <span class="ui-button__label">Apply filters</span>
+          </button>
+        </form>
+
+        <section class="site-search-page__runtime">
+          <h2>Runtime</h2>
+          <ul>
+            <li>theme_name: {{ theme_name|default:"default" }}</li>
+            <li>theme_variant: {{ theme_variant|default:"default" }}</li>
+            <li>base_path: {{ base_path|default:"/" }}</li>
+            <li>asset_base_path: {{ asset_base_path|default:base_path|default:"/" }}</li>
+            <li>active_path: {{ active_path|default:"/" }}</li>
+            <li>locale: {{ locale|default:default_locale|default:"en" }}</li>
+            <li>supported_locales: {{ supported_locales|join:", " }}</li>
+            <li>indexes: {{ search_indexes|join:", " }}</li>
+          </ul>
+        </section>
+      </aside>
+
+      <div class="site-search-page__results">
+        {% if search_state and search_state.has_error %}
+          <section class="site-results-empty">
+            <h2>Search is unavailable</h2>
+            <p>{{ search_error.message|default:"Please try again in a moment." }}</p>
+          </section>
+        {% elif search_results %}
+          <div class="site-results-grid">
+            {% for hit in search_results %}
+            <article class="content-card">
+              <div class="content-card__content">
+                <div class="card-meta">
+                  <p class="card-meta__eyebrow">{{ hit.type|default:"content" }}</p>
+                  {% if hit.badge %}
+                    <span class="ui-badge ui-badge--default">{{ hit.badge }}</span>
+                  {% endif %}
+                  {% if hit.locale %}
+                    <span class="ui-badge ui-badge--default">{{ hit.locale }}</span>
+                  {% endif %}
+                </div>
+                <div class="content-card__heading">
+                  <a class="content-card__title" href="{{ hit.url|default:'#' }}">{{ hit.title|default:hit.id }}</a>
+                  <a class="ui-icon-button ui-icon-button--muted content-card__icon" href="{{ hit.url|default:'#' }}" aria-label="Open {{ hit.title|default:'item' }}">
+                    <span class="ui-icon-button__icon" aria-hidden="true">↗</span>
+                  </a>
+                </div>
+                {% if hit.parent_title %}
+                  <p class="card-meta__text">Parent · {{ hit.parent_title }}</p>
+                {% endif %}
+                {% if hit.highlighted %}
+                  <p class="content-card__summary">{{ hit.highlighted|safe }}</p>
+                {% elif hit.snippet %}
+                  <p class="content-card__summary">{{ hit.snippet }}</p>
+                {% elif hit.summary %}
+                  <p class="content-card__summary">{{ hit.summary }}</p>
+                {% endif %}
+                <div class="card-meta content-card__badges">
+                  {% if hit.parent_summary %}
+                    <span>{{ hit.parent_summary }}</span>
+                  {% endif %}
+                  {% if hit.score %}
+                    <span>Score {{ hit.score }}</span>
+                  {% endif %}
+                  {% if hit.anchor and hit.anchor.url %}
+                    <a class="ui-link ui-link--default" href="{{ hit.anchor.url }}">Jump to segment</a>
+                  {% endif %}
+                </div>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        {% elif search_state and search_state.zero_results %}
+          <section class="site-results-empty">
+            <h2>No results found</h2>
+            <p>Try broadening your terms or removing one of the filter chips.</p>
+          </section>
+        {% else %}
+          <section class="site-results-empty">
+            <p>Enter a query to view search results.</p>
+          </section>
+        {% endif %}
+
+        {% if search_pagination %}
+          <nav class="site-search-page__pagination">
+            <a href="{{ search_pagination.prev_url|default:'#' }}"
+               class="{% if not search_pagination.has_prev %}is-disabled{% endif %}">
+              Previous
+            </a>
+            <span>
+              Page {{ search_pagination.page|default:1 }} · Total {{ search_pagination.total|default:0 }}
+            </span>
+            <a href="{{ search_pagination.next_url|default:'#' }}"
+               class="{% if not search_pagination.has_next %}is-disabled{% endif %}">
+              Next
+            </a>
+          </nav>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>

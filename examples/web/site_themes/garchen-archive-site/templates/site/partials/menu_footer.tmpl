@@ -1,0 +1,16 @@
+{% if footer_menu and footer_menu.items %}
+  {% set footer_items = footer_menu.items %}
+{% else %}
+  {% set footer_items = siteMenuItems(footer_menu) %}
+{% endif %}
+
+<section class="footer-link-group site-footer__group" aria-label="Footer links">
+  <h2 class="footer-link-group__title">Explore</h2>
+  <ul class="footer-link-group__list">
+    {% for item in footer_items %}
+    <li class="footer-link-group__item">
+      <a class="ui-link ui-link--prominent footer-link-group__link" href="{{ item.href|default:'#' }}">{{ item.label|default:item.group_title|default:item.key|default:"Link" }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>

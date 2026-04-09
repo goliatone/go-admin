@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	quickstart "github.com/goliatone/go-admin/quickstart"
+	quicksite "github.com/goliatone/go-admin/quickstart/site"
 	goconfig "github.com/goliatone/go-config/config"
 )
 
@@ -104,21 +106,41 @@ type AdminAuthzConfig struct {
 }
 
 type SiteConfig struct {
-	BasePath                 string   `koanf:"base_path" json:"base_path" yaml:"base_path"`
-	RuntimeEnv               string   `koanf:"runtime_env" json:"runtime_env" yaml:"runtime_env"`
-	ContentChannel           string   `koanf:"content_channel" json:"content_channel" yaml:"content_channel"`
-	SupportedLocales         []string `koanf:"supported_locales" json:"supported_locales" yaml:"supported_locales"`
-	LocalePrefixMode         string   `koanf:"locale_prefix_mode" json:"locale_prefix_mode" yaml:"locale_prefix_mode"`
-	AllowLocaleFallback      bool     `koanf:"allow_locale_fallback" json:"allow_locale_fallback" yaml:"allow_locale_fallback"`
-	ContributionLocalePolicy string   `koanf:"contribution_locale_policy" json:"contribution_locale_policy" yaml:"contribution_locale_policy"`
-	EnableGeneratedFallback  bool     `koanf:"enable_generated_fallback" json:"enable_generated_fallback" yaml:"enable_generated_fallback"`
-	EnableSearch             bool     `koanf:"enable_search" json:"enable_search" yaml:"enable_search"`
-	EnableCanonicalRedirect  bool     `koanf:"enable_canonical_redirect" json:"enable_canonical_redirect" yaml:"enable_canonical_redirect"`
-	CanonicalRedirectMode    string   `koanf:"canonical_redirect_mode" json:"canonical_redirect_mode" yaml:"canonical_redirect_mode"`
-	StrictLocalizedPaths     bool     `koanf:"strict_localized_paths" json:"strict_localized_paths" yaml:"strict_localized_paths"`
-	EnvironmentStrict        bool     `koanf:"environment_strict" json:"environment_strict" yaml:"environment_strict"`
-	Theme                    string   `koanf:"theme" json:"theme" yaml:"theme"`
-	ThemeVariant             string   `koanf:"theme_variant" json:"theme_variant" yaml:"theme_variant"`
+	BasePath                  string                `koanf:"base_path" json:"base_path" yaml:"base_path"`
+	RuntimeEnv                string                `koanf:"runtime_env" json:"runtime_env" yaml:"runtime_env"`
+	ContentChannel            string                `koanf:"content_channel" json:"content_channel" yaml:"content_channel"`
+	SupportedLocales          []string              `koanf:"supported_locales" json:"supported_locales" yaml:"supported_locales"`
+	LocalePrefixMode          string                `koanf:"locale_prefix_mode" json:"locale_prefix_mode" yaml:"locale_prefix_mode"`
+	AllowLocaleFallback       bool                  `koanf:"allow_locale_fallback" json:"allow_locale_fallback" yaml:"allow_locale_fallback"`
+	ContributionLocalePolicy  string                `koanf:"contribution_locale_policy" json:"contribution_locale_policy" yaml:"contribution_locale_policy"`
+	EnableGeneratedFallback   bool                  `koanf:"enable_generated_fallback" json:"enable_generated_fallback" yaml:"enable_generated_fallback"`
+	EnableSearch              bool                  `koanf:"enable_search" json:"enable_search" yaml:"enable_search"`
+	EnableCanonicalRedirect   bool                  `koanf:"enable_canonical_redirect" json:"enable_canonical_redirect" yaml:"enable_canonical_redirect"`
+	CanonicalRedirectMode     string                `koanf:"canonical_redirect_mode" json:"canonical_redirect_mode" yaml:"canonical_redirect_mode"`
+	StrictLocalizedPaths      bool                  `koanf:"strict_localized_paths" json:"strict_localized_paths" yaml:"strict_localized_paths"`
+	EnvironmentStrict         bool                  `koanf:"environment_strict" json:"environment_strict" yaml:"environment_strict"`
+	Theme                     string                `koanf:"theme" json:"theme" yaml:"theme"`
+	ThemeVariant              string                `koanf:"theme_variant" json:"theme_variant" yaml:"theme_variant"`
+	AllowThemeNameOverride    bool                  `koanf:"allow_theme_name_override" json:"allow_theme_name_override" yaml:"allow_theme_name_override"`
+	AllowThemeVariantOverride bool                  `koanf:"allow_theme_variant_override" json:"allow_theme_variant_override" yaml:"allow_theme_variant_override"`
+	Fallback                  SiteFallbackConfig    `koanf:"fallback" json:"fallback" yaml:"fallback"`
+	InternalOps               SiteInternalOpsConfig `koanf:"internal_ops" json:"internal_ops" yaml:"internal_ops"`
+}
+
+type SiteFallbackConfig struct {
+	Mode                string   `koanf:"mode" json:"mode" yaml:"mode"`
+	AllowRoot           bool     `koanf:"allow_root" json:"allow_root" yaml:"allow_root"`
+	AllowedMethods      []string `koanf:"allowed_methods" json:"allowed_methods" yaml:"allowed_methods"`
+	AllowedExactPaths   []string `koanf:"allowed_exact_paths" json:"allowed_exact_paths" yaml:"allowed_exact_paths"`
+	AllowedPathPrefixes []string `koanf:"allowed_path_prefixes" json:"allowed_path_prefixes" yaml:"allowed_path_prefixes"`
+	ReservedPrefixes    []string `koanf:"reserved_prefixes" json:"reserved_prefixes" yaml:"reserved_prefixes"`
+}
+
+type SiteInternalOpsConfig struct {
+	EnableHealthz bool   `koanf:"enable_healthz" json:"enable_healthz" yaml:"enable_healthz"`
+	EnableStatus  bool   `koanf:"enable_status" json:"enable_status" yaml:"enable_status"`
+	HealthzPath   string `koanf:"healthz_path" json:"healthz_path" yaml:"healthz_path"`
+	StatusPath    string `koanf:"status_path" json:"status_path" yaml:"status_path"`
 }
 
 type FeatureConfig struct {
@@ -308,21 +330,35 @@ func Defaults() *Config {
 			},
 		},
 		Site: SiteConfig{
-			BasePath:                 "/",
-			RuntimeEnv:               "dev",
-			ContentChannel:           "default",
-			SupportedLocales:         []string{"en", "es", "fr"},
-			LocalePrefixMode:         "non_default",
-			AllowLocaleFallback:      true,
-			ContributionLocalePolicy: "fallback",
-			EnableGeneratedFallback:  false,
-			EnableSearch:             true,
-			EnableCanonicalRedirect:  true,
-			CanonicalRedirectMode:    "requested_locale_sticky",
-			StrictLocalizedPaths:     false,
-			EnvironmentStrict:        false,
-			Theme:                    "",
-			ThemeVariant:             "",
+			BasePath:                  "/",
+			RuntimeEnv:                "dev",
+			ContentChannel:            "default",
+			SupportedLocales:          []string{"en", "es", "fr"},
+			LocalePrefixMode:          "non_default",
+			AllowLocaleFallback:       true,
+			ContributionLocalePolicy:  "fallback",
+			EnableGeneratedFallback:   false,
+			EnableSearch:              true,
+			EnableCanonicalRedirect:   true,
+			CanonicalRedirectMode:     "requested_locale_sticky",
+			StrictLocalizedPaths:      false,
+			EnvironmentStrict:         false,
+			Theme:                     "garchen-archive-site",
+			ThemeVariant:              "",
+			AllowThemeNameOverride:    false,
+			AllowThemeVariantOverride: true,
+			Fallback: SiteFallbackConfig{
+				Mode:              string(quicksite.SiteFallbackModePublicContentOnly),
+				AllowRoot:         true,
+				AllowedMethods:    []string{"GET", "HEAD"},
+				AllowedExactPaths: []string{quicksite.DefaultSearchRoute},
+			},
+			InternalOps: SiteInternalOpsConfig{
+				EnableHealthz: false,
+				EnableStatus:  false,
+				HealthzPath:   quickstart.DefaultInternalOpsHealthzPath,
+				StatusPath:    quickstart.DefaultInternalOpsStatusPath,
+			},
 		},
 		Features: FeatureConfig{
 			PersistentCMS:    true,

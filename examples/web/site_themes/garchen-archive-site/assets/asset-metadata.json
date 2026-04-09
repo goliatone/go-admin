@@ -1,0 +1,17 @@
+{
+  "tokens.css": {
+    "path": "static/tokens.css",
+    "size": 2037
+  },
+  "site.css": {
+    "path": "static/site.css",
+    "size": 30053
+  },
+  "site.js": {
+    "path": "static/site.js",
+    "size": 7273
+  },
+  "assets.manifest": {
+    "path": "assets/manifest.json"
+  }
+}

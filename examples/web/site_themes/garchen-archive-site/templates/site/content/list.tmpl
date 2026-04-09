@@ -1,0 +1,54 @@
+<section class="site-content-list ui-section">
+  <div class="ui-container">
+    <div class="site-content-list__header">
+      <p class="ui-eyebrow">Archive</p>
+      <h1 class="ui-heading-display">{{ content_type_slug|default:"Browse teachings and guides"|title }}</h1>
+      <p class="site-content-list__copy">Entry-point list view for archive content, suitable for topics, guides, and browse pages.</p>
+      {% if missing_requested_locale %}
+        <p class="site-content-list__copy">Requested locale content is unavailable; fallback entries are rendered.</p>
+      {% endif %}
+    </div>
+
+    <div class="site-card-grid">
+      {% for item in records %}
+      <article class="content-card">
+        {% if item.image %}
+        <a class="content-card__image-link" href="{{ item.path|default:'#' }}">
+          <img class="content-card__image" src="{{ item.image }}" alt="{{ item.title|default:'Content item' }}">
+        </a>
+        {% endif %}
+        <div class="content-card__content">
+          <div class="card-meta">
+            <p class="card-meta__eyebrow">{{ item.locale|default:resolved_locale|default:locale|default:"en"|upper }}</p>
+            {% if item.updated_at %}
+              <p class="card-meta__text">{{ item.updated_at }}</p>
+            {% endif %}
+          </div>
+          <div class="content-card__heading">
+            <a class="content-card__title" href="{{ item.path|default:'#' }}">{{ item.title|default:item.slug|default:item.id|default:"Untitled" }}</a>
+            <a class="ui-icon-button ui-icon-button--muted content-card__icon" href="{{ item.path|default:'#' }}" aria-label="Open {{ item.title|default:'item' }}">
+              <span class="ui-icon-button__icon" aria-hidden="true">↗</span>
+            </a>
+          </div>
+          {% if item.summary %}
+          <p class="content-card__summary">{{ item.summary }}</p>
+          {% elif item.data.summary %}
+          <p class="content-card__summary">{{ item.data.summary }}</p>
+          {% endif %}
+          {% if missing_requested_locale %}
+          <div class="card-meta content-card__badges">
+            <span class="ui-badge ui-badge--default">Fallback locale</span>
+          </div>
+          {% endif %}
+        </div>
+      </article>
+      {% empty %}
+      <article class="content-card">
+        <div class="content-card__content">
+          <p class="content-card__summary">No records are available for this collection.</p>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>

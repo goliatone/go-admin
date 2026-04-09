@@ -1,0 +1,79 @@
+<!doctype html>
+<html
+  lang="{{ resolved_locale|default:locale|default:default_locale|default:'en' }}"
+  data-theme-name="{{ site_theme.name|default:theme_name|default:'default' }}"
+  data-theme-variant="{{ site_theme.variant|default:theme_variant|default:'default' }}"
+  data-base-path="{{ base_path|default:'/' }}"
+  data-asset-base-path="{{ asset_base_path|default:base_path|default:'/' }}"
+>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="site-active-path" content="{{ active_path|default:'/' }}">
+    <meta name="site-runtime-active-path" content="{{ site_runtime.active_path|default:active_path|default:'/' }}">
+    <meta name="site-locale" content="{{ resolved_locale|default:locale|default:default_locale|default:'en' }}">
+    <meta name="site-supported-locales" content="{{ supported_locales|join:',' }}">
+    <title>{% block title %}{{ title|default:"Garchen Archive" }}{% endblock %}</title>
+    {% if meta_description %}
+      <meta name="description" content="{{ meta_description }}">
+    {% endif %}
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/iconoir@7.10.1/css/iconoir.css">
+    {% if site_theme and site_theme.bundle_urls and site_theme.bundle_urls.tokens_css %}
+      <link rel="stylesheet" href="{{ site_theme.bundle_urls.tokens_css }}">
+    {% endif %}
+    {% if site_theme and site_theme.bundle_urls and site_theme.bundle_urls.site_css %}
+      <link rel="stylesheet" href="{{ site_theme.bundle_urls.site_css }}">
+    {% endif %}
+
+    <style>
+      :root {
+        --site-theme-name: "{{ site_theme.name|default:theme_name|default:'default' }}";
+        --site-theme-variant: "{{ site_theme.variant|default:theme_variant|default:'default' }}";
+{% if site_theme and site_theme.css_vars_style %}
+{{ site_theme.css_vars_style|safe }}
+{% endif %}
+        --site-color-primary: {{ site_theme.shell_vars.site_color_primary|default:theme.tokens.primary|default:'#0f766e' }};
+        --site-color-accent: {{ site_theme.shell_vars.site_color_accent|default:theme.tokens.accent|default:'#f59e0b' }};
+        --site-color-surface: {{ site_theme.shell_vars.site_color_surface|default:theme.tokens.surface|default:'#ffffff' }};
+      }
+    </style>
+
+    {% block head_extra %}{% endblock %}
+  </head>
+  <body class="site-shell site-shell--{{ site_theme.variant|default:theme_variant|default:'default' }} min-h-screen">
+    {% set preview_state = sitePreviewState(preview_banner) %}
+    {% if preview_banner and preview_state.token_present %}
+      <div class="site-preview-banner" data-preview-state="{{ preview_state.status }}">
+        <div class="site-preview-banner__inner ui-container">
+          <div class="site-preview-banner__copy">
+            <i class="iconoir-eye" aria-hidden="true"></i>
+            <span>
+              {% if preview_state.is_preview %}
+                Preview mode active. Draft content is visible for this request.
+              {% else %}
+                Preview token present but not valid for this content.
+              {% endif %}
+            </span>
+          </div>
+          <span class="site-preview-banner__status">
+            {{ preview_state.status }}
+          </span>
+        </div>
+      </div>
+    {% endif %}
+
+    {% include "site/partials/header.tmpl" %}
+
+    <main class="site-shell__main">
+      {% block content %}{% endblock %}
+    </main>
+
+    {% include "site/partials/footer.tmpl" %}
+
+    {% if site_theme and site_theme.bundle_urls and site_theme.bundle_urls.site_js %}
+      <script defer src="{{ site_theme.bundle_urls.site_js }}"></script>
+    {% endif %}
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

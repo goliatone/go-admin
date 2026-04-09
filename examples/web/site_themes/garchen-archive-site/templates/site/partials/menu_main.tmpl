@@ -1,0 +1,39 @@
+{% if main_menu and main_menu.items %}
+  {% set main_items = main_menu.items %}
+{% elif nav_items %}
+  {% set main_items = nav_items %}
+{% else %}
+  {% set main_items = siteMenuItems(main_menu) %}
+{% endif %}
+
+<ul class="site-header__nav-list">
+  {% for item in main_items %}
+    {% set item_children = siteMenuChildren(item) %}
+    {% if item_children %}
+  <li class="site-header__menu" data-site-header-menu data-open="false">
+    <button
+      class="site-header__nav-button"
+      type="button"
+      aria-expanded="false"
+      data-site-header-trigger
+    >
+      <span>{{ item.label|default:item.group_title|default:item.key|default:"Link" }}</span>
+      <span class="site-header__nav-caret" aria-hidden="true">⌄</span>
+    </button>
+    <div class="site-header__menu-panel">
+      <ul class="site-header__menu-list">
+        {% for child in item_children %}
+        <li class="site-header__menu-item">
+          <a class="ui-link ui-link--default site-header__nav-link" href="{{ child.href|default:'#' }}">{{ child.label|default:child.key|default:"Link" }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </li>
+    {% else %}
+  <li class="site-header__menu-item">
+    <a class="ui-link ui-link--default site-header__nav-link" href="{{ item.href|default:'#' }}">{{ item.label|default:item.group_title|default:item.key|default:"Link" }}</a>
+  </li>
+    {% endif %}
+  {% endfor %}
+</ul>

@@ -1,0 +1,53 @@
+<section class="site-content-detail ui-section">
+  <div class="ui-container">
+    <div class="site-content-detail__header">
+      <p class="ui-eyebrow">{{ content_type_slug|default:content_type|default:"Teaching"|title }}</p>
+      <h1 class="ui-heading-display">{{ record.title|default:record.slug|default:"Untitled" }}</h1>
+      <div class="site-content-detail__meta">
+        <span class="ui-badge ui-badge--default">{{ resolved_locale|default:locale|default:default_locale|default:"en"|upper }}</span>
+        {% if family_id %}
+        <span class="ui-badge ui-badge--default">{{ family_id }}</span>
+        {% endif %}
+        {% if missing_requested_locale %}
+        <span class="ui-badge ui-badge--default">Fallback locale</span>
+        {% endif %}
+      </div>
+      <p class="site-content-detail__copy">{{ record.summary|default:record.data.summary|default:"Detail page shell for a teaching, guide, or transcript entry." }}</p>
+    </div>
+
+    <div class="site-content-detail__layout">
+      <article class="site-content-detail__prose">
+        {% if record.data.content %}
+          <div class="site-content-detail__body">{{ record.data.content|safe }}</div>
+        {% elif record.data.body %}
+          <div class="site-content-detail__body">{{ record.data.body|safe }}</div>
+        {% elif record.summary %}
+          <p class="site-content-detail__body">{{ record.summary }}</p>
+        {% else %}
+          <p class="site-content-detail__body">No rich content field is available for this entry.</p>
+        {% endif %}
+      </article>
+
+      <aside class="site-content-detail__aside">
+        <section class="site-related-list">
+          <h2>Related content</h2>
+          {% if record.path %}
+          <article class="content-card">
+            <div class="content-card__content">
+              <div class="content-card__heading">
+                <a class="content-card__title" href="{{ record.path }}">{{ record.title|default:"Current entry" }}</a>
+                <a class="ui-icon-button ui-icon-button--muted content-card__icon" href="{{ record.path }}" aria-label="Open {{ record.title|default:'item' }}">
+                  <span class="ui-icon-button__icon" aria-hidden="true">↗</span>
+                </a>
+              </div>
+              <p class="content-card__summary">{{ slug_path|default:active_path|default:"/" }}</p>
+            </div>
+          </article>
+          {% else %}
+          <p class="content-card__summary">No related content links are available yet.</p>
+          {% endif %}
+        </section>
+      </aside>
+    </div>
+  </div>
+</section>

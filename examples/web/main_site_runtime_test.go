@@ -49,6 +49,24 @@ func TestResolveSiteRuntimeConfigDefaults(t *testing.T) {
 	if siteCfg.Features.StrictLocalizedPaths == nil || *siteCfg.Features.StrictLocalizedPaths {
 		t.Fatalf("expected strict localized paths feature disabled by default")
 	}
+	if siteCfg.Theme.Name != defaultEmbeddedSiteThemeName {
+		t.Fatalf("expected default site theme %q, got %q", defaultEmbeddedSiteThemeName, siteCfg.Theme.Name)
+	}
+	if siteCfg.Theme.AllowRequestNameOverride == nil || *siteCfg.Theme.AllowRequestNameOverride {
+		t.Fatalf("expected example site theme name override disabled by default")
+	}
+	if siteCfg.Theme.AllowRequestVariantOverride == nil || !*siteCfg.Theme.AllowRequestVariantOverride {
+		t.Fatalf("expected example site theme variant override enabled by default")
+	}
+	if siteCfg.Fallback.Mode != quicksite.SiteFallbackModePublicContentOnly || !siteCfg.Fallback.AllowRoot {
+		t.Fatalf("expected typed fallback defaults to be wired, got %+v", siteCfg.Fallback)
+	}
+	if got := siteCfg.Fallback.AllowedMethods; len(got) != 2 || got[0] != "GET" || got[1] != "HEAD" {
+		t.Fatalf("expected GET/HEAD fallback methods, got %v", got)
+	}
+	if got := siteCfg.Fallback.ReservedPrefixes; len(got) != 6 || got[0] != "/.well-known" || got[1] != "/admin" || got[2] != "/api" || got[3] != "/api/v1" || got[4] != "/assets" || got[5] != "/static" {
+		t.Fatalf("expected config-derived reserved prefixes, got %v", got)
+	}
 }
 
 func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
@@ -67,6 +85,15 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	runtimeSite.ContentChannel = "qa"
 	runtimeSite.Theme = "marketing"
 	runtimeSite.ThemeVariant = "clean"
+	runtimeSite.AllowThemeNameOverride = true
+	runtimeSite.AllowThemeVariantOverride = false
+	runtimeSite.Fallback.Mode = string(quicksite.SiteFallbackModeExplicitPathsOnly)
+	runtimeSite.Fallback.AllowRoot = false
+	runtimeSite.Fallback.AllowedMethods = []string{"HEAD", "GET"}
+	runtimeSite.Fallback.AllowedExactPaths = []string{"/search", "landing"}
+	runtimeSite.Fallback.ReservedPrefixes = []string{"/admin", "/api"}
+	runtimeSite.InternalOps.EnableHealthz = true
+	runtimeSite.InternalOps.HealthzPath = "/readyz"
 	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeSite, false)
 
 	if siteCfg.AllowLocaleFallback == nil || *siteCfg.AllowLocaleFallback {
@@ -105,6 +132,21 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	if siteCfg.Theme.Name != "marketing" || siteCfg.Theme.Variant != "clean" {
 		t.Fatalf("expected theme override marketing/clean, got %s/%s", siteCfg.Theme.Name, siteCfg.Theme.Variant)
 	}
+	if siteCfg.Theme.AllowRequestNameOverride == nil || !*siteCfg.Theme.AllowRequestNameOverride {
+		t.Fatalf("expected theme name request override enabled, got %+v", siteCfg.Theme)
+	}
+	if siteCfg.Theme.AllowRequestVariantOverride == nil || *siteCfg.Theme.AllowRequestVariantOverride {
+		t.Fatalf("expected theme override policy to follow env config, got %+v", siteCfg.Theme)
+	}
+	if siteCfg.Fallback.Mode != quicksite.SiteFallbackModeExplicitPathsOnly || siteCfg.Fallback.AllowRoot {
+		t.Fatalf("expected explicit fallback override without root ownership, got %+v", siteCfg.Fallback)
+	}
+	if got := siteCfg.Fallback.AllowedMethods; len(got) != 2 || got[0] != "GET" || got[1] != "HEAD" {
+		t.Fatalf("expected GET/HEAD normalization for fallback methods, got %v", got)
+	}
+	if got := siteCfg.Fallback.ReservedPrefixes; len(got) != 7 || got[0] != "/.well-known" || got[1] != "/admin" || got[2] != "/api" || got[3] != "/api/v1" || got[4] != "/assets" || got[5] != "/readyz" || got[6] != "/static" {
+		t.Fatalf("expected derived defaults + explicit overrides + internal ops to become reserved, got %v", got)
+	}
 }
 
 func TestResolveSiteRuntimeConfigContentChannelFallbacksToDefault(t *testing.T) {
@@ -119,5 +161,29 @@ func TestResolveSiteRuntimeConfigContentChannelFallbacksToDefault(t *testing.T) 
 	}
 	if siteCfg.ContentChannel != defaultSiteContentChannel {
 		t.Fatalf("expected content channel fallback %q, got %q", defaultSiteContentChannel, siteCfg.ContentChannel)
+	}
+}
+
+func TestResolveSiteRuntimeConfigDerivesSearchEndpointAndReservedPrefixesFromURLConfig(t *testing.T) {
+	cfg := admin.Config{
+		DefaultLocale: "en",
+		BasePath:      "/admin",
+		URLs: admin.URLConfig{
+			Admin: admin.URLNamespaceConfig{BasePath: "/control"},
+			Public: admin.URLNamespaceConfig{
+				BasePath:   "/public",
+				APIPrefix:  "content",
+				APIVersion: "v3",
+			},
+		},
+	}
+	runtimeSite := appcfg.Defaults().Site
+	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeSite, true)
+
+	if siteCfg.Search.Endpoint != "/public/content/v3/site/search" {
+		t.Fatalf("expected config-derived search endpoint, got %q", siteCfg.Search.Endpoint)
+	}
+	if got := siteCfg.Fallback.ReservedPrefixes; len(got) != 6 || got[0] != "/.well-known" || got[1] != "/assets" || got[2] != "/control" || got[3] != "/public/content" || got[4] != "/public/content/v3" || got[5] != "/static" {
+		t.Fatalf("expected config-derived reserved prefixes, got %v", got)
 	}
 }

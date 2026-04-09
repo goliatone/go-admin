@@ -270,6 +270,8 @@ Useful config toggles:
 - `site.content_channel` (`APP_SITE__CONTENT_CHANNEL=default|dev|staging|prod|<channel>`)
 - `site.theme` (`APP_SITE__THEME=<theme-name>`)
 - `site.theme_variant` (`APP_SITE__THEME_VARIANT=<variant>`)
+- `site.allow_theme_name_override` (`APP_SITE__ALLOW_THEME_NAME_OVERRIDE=true|false`)
+- `site.allow_theme_variant_override` (`APP_SITE__ALLOW_THEME_VARIANT_OVERRIDE=true|false`)
 
 Canonical redirect mode behavior:
 - `requested_locale_sticky`: when fallback content is served (for example ES request resolves EN record), keep the requested locale URL prefix to preserve navigation locale continuity.
@@ -278,8 +280,16 @@ Canonical redirect mode behavior:
 - in `LocalePrefixMode=non_default`, locale switcher links to default locale include `?locale=<default>` (for example `?locale=en`) so explicit EN switches are not shadowed by a non-default `site_locale` cookie.
 
 Theme override behavior:
-- In runtime `dev|staging`, request query overrides are allowed: `?theme=<name>&variant=<variant>`.
+- In runtime `dev|staging`, request query overrides follow host policy.
+- The example app disables request-time theme-name swaps by default because its template overlays are mounted at startup from a single embedded package.
+- The example app keeps request-time variant swaps enabled by default, so `?variant=<variant>` still works in `dev|staging`.
 - In runtime `prod`, query overrides are ignored and configured defaults are used.
+- The public-site runtime now defaults to the embedded `garchen-archive-site` package under `examples/web/site_themes/garchen-archive-site`.
+- `site.theme` should point to an embedded site theme package that the example app can mount at startup.
+- Theme static bundles are mounted at `/static/themes/garchen-archive-site/static/*`, matching the generated package manifest paths.
+- Swap variants with `APP_SITE__THEME_VARIANT=<variant>` or use `?variant=<variant>` in non-production runtime modes.
+- The embedded package is a generated site-theme snapshot, including renderer-compatible base, navigation, search, and content templates.
+- The example app uses the generated `site.search.page` template while preserving the runtime search contract for suggestions, filters, pagination, and query state.
 
 Search UI state demos:
 - Normal results: `/search?q=go`

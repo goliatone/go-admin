@@ -1,0 +1,64 @@
+<header class="site-header" data-site-header>
+  <div class="site-header__container ui-container">
+    <div class="site-header__brand-row">
+      <a class="site-header__brand" href="{{ base_path|default:'/' }}">
+        <span class="site-header__brand-mark" aria-hidden="true">GA</span>
+        <span class="site-header__brand-label">{{ title|default:"Garchen Archive" }}</span>
+      </a>
+      <button
+        type="button"
+        class="site-header__mobile-toggle"
+        data-site-nav-toggle
+        aria-expanded="false"
+        aria-controls="site-nav-panel"
+      >
+        <span class="site-visually-hidden">Toggle navigation</span>
+        <span class="site-header__mobile-toggle-label" aria-hidden="true">Menu</span>
+      </button>
+    </div>
+
+    <form class="site-header__search" action="{{ search_route|default:'/search' }}" method="get" role="search">
+      <label class="site-header__search-field">
+        <span class="site-header__search-icon" aria-hidden="true">○</span>
+        <div class="ui-input site-header__search-control">
+          <input
+            class="ui-input__field site-header__search-input"
+            id="site-header-search"
+            name="q"
+            type="search"
+            placeholder="Search archive"
+            value="{{ search_query|default:search.query }}"
+          >
+        </div>
+      </label>
+      <span class="site-header__search-mode">In transcript</span>
+    </form>
+
+    <div class="site-header__actions">
+      <nav id="site-nav-panel" class="site-header__nav-panel" data-site-nav-panel aria-label="Primary">
+        {% include "site/partials/menu_main.tmpl" %}
+      </nav>
+
+      {% set locale_items = siteLocaleItems(locale_switcher) %}
+      {% if locale_switcher and locale_switcher.items and locale_items %}
+        <div class="site-header__auth">
+          {% for item in locale_items %}
+            <a
+              class="site-header__locale {% if item.active %}site-header__locale--active{% elif item.available %}site-header__locale--available{% else %}site-header__locale--unavailable{% endif %}"
+              href="{{ siteLocaleURL(locale_switcher, item.locale) }}"
+              data-locale="{{ item.locale }}"
+              {% if item.active %}aria-current="page"{% endif %}
+              {% if not item.available %}aria-disabled="true" tabindex="-1"{% endif %}
+            >
+              <span class="site-header__locale-icon" aria-hidden="true">◌</span>
+              <span>{{ item.locale|upper }}</span>
+              {% if item.active %}
+                <span class="site-header__nav-caret" aria-hidden="true">●</span>
+              {% endif %}
+            </a>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</header>

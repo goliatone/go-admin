@@ -1,0 +1,25 @@
+<footer class="site-footer">
+  <div class="site-footer__container ui-container">
+    <div class="site-footer__top">
+      <a class="site-footer__brand" href="{{ base_path|default:'/' }}">
+        <span class="site-footer__brand-mark" aria-hidden="true">GA</span>
+        <span class="site-footer__brand-label">{{ title|default:"Garchen Archive" }}</span>
+      </a>
+      <div class="site-footer__groups">
+        {% include "site/partials/menu_footer.tmpl" %}
+      </div>
+      <p class="site-footer__copyright">© 2026 Garchen Archive</p>
+    </div>
+    <div class="site-footer__bottom">
+      <div class="site-footer__utility-links">
+        <span class="ui-link ui-link--prominent site-footer__utility-link">Theme: {{ site_theme.name|default:theme_name|default:"default" }}</span>
+        <span class="ui-link ui-link--prominent site-footer__utility-link">Variant: {{ site_theme.variant|default:theme_variant|default:"default" }}</span>
+      </div>
+      <div class="site-footer__social-links">
+        <span class="ui-icon-button ui-icon-button--muted site-footer__social-link" aria-label="Locale">
+          <span class="ui-icon-button__icon" aria-hidden="true">{{ resolved_locale|default:locale|default:default_locale|default:"en"|upper }}</span>
+        </span>
+      </div>
+    </div>
+  </div>
+</footer>

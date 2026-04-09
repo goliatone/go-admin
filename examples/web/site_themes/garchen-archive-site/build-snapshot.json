@@ -1,0 +1,38 @@
+{
+  "theme": "garchen-archive-site",
+  "version": "0.1.0",
+  "generatedAt": "2026-04-08T19:40:14.232Z",
+  "outputDir": "generated/go-theme-site/garchen-archive-site",
+  "templateKeys": [
+    "site.layout.base",
+    "site.layout.header",
+    "site.layout.footer",
+    "site.nav.main",
+    "site.nav.footer",
+    "site.search.page",
+    "site.content.list",
+    "site.content.detail"
+  ],
+  "bundleKeys": [
+    "tokens.css",
+    "site.css",
+    "site.js"
+  ],
+  "assetMetadata": {
+    "tokens.css": {
+      "path": "static/tokens.css",
+      "size": 2037
+    },
+    "site.css": {
+      "path": "static/site.css",
+      "size": 30053
+    },
+    "site.js": {
+      "path": "static/site.js",
+      "size": 7273
+    },
+    "assets.manifest": {
+      "path": "assets/manifest.json"
+    }
+  }
+}

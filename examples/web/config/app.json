@@ -74,7 +74,26 @@
     "strict_localized_paths": false,
     "environment_strict": false,
     "theme": "",
-    "theme_variant": ""
+    "theme_variant": "",
+    "fallback": {
+      "mode": "public_content_only",
+      "allow_root": true,
+      "allowed_methods": [
+        "GET",
+        "HEAD"
+      ],
+      "allowed_exact_paths": [
+        "/search"
+      ],
+      "allowed_path_prefixes": [],
+      "reserved_prefixes": []
+    },
+    "internal_ops": {
+      "enable_healthz": false,
+      "enable_status": false,
+      "healthz_path": "/healthz",
+      "status_path": "/status"
+    }
   },
   "features": {
     "persistent_cms": true,

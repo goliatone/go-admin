@@ -51,7 +51,7 @@ import (
 	"github.com/google/uuid"
 )
 
-//go:embed openapi/* templates/**
+//go:embed openapi/* templates/** site_themes/**
 var webFS embed.FS
 
 const (
@@ -60,6 +60,7 @@ const (
 	exportPipelinePublishInterval = 750 * time.Millisecond
 	authzPreflightDefaultRolesCSV = "superadmin,owner"
 	defaultSiteContentChannel     = "default"
+	exampleAppInfoPath            = "/.well-known/app-info"
 )
 
 func main() {
@@ -688,10 +689,21 @@ func main() {
 		wrapAuthed = quickstart.ScopeDebugWrap(authn, &cfg, scopeDebugBuffer)
 	}
 
+	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeConfig.Site, isDev)
+	if err := quicksite.ValidateSiteFallbackPolicy(siteCfg.Fallback); err != nil {
+		fatalf("invalid site fallback policy: %v", err)
+	}
+	siteThemePackage, err := loadEmbeddedSiteThemePackage(siteCfg.Theme.Name)
+	if err != nil {
+		fatalf("failed to load embedded site theme package %q: %v", siteCfg.Theme.Name, err)
+	}
+
 	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme.
 	// Assets support light/dark variants: icon.light.svg, icon.dark.svg, logo.light.svg, logo.dark.svg
 	themeAssetPrefix := path.Join(cfg.BasePath, "assets")
+	themeRegistry := gotheme.NewRegistry()
 	themeSelector, _, err := quickstart.NewThemeSelector(cfg.Theme, cfg.ThemeVariant, cfg.ThemeTokens,
+		quickstart.WithThemeRegistry(themeRegistry),
 		quickstart.WithThemeAssets(themeAssetPrefix, map[string]string{
 			"logo":    "logo.light.svg", // Default to light variant
 			"icon":    "icon.light.svg",
@@ -726,6 +738,9 @@ func main() {
 	if err != nil {
 		fatalf("failed to register theme: %v", err)
 	}
+	if err := registerEmbeddedSiteTheme(themeRegistry, siteThemePackage); err != nil {
+		fatalf("failed to register embedded site theme package %q: %v", siteThemePackage.Name, err)
+	}
 	adm.WithGoTheme(themeSelector)
 
 	// Initialize form generator
@@ -752,9 +767,10 @@ func main() {
 		fatalf("failed to initialize form generator: %v", err)
 	}
 
+	siteCfg = attachEmbeddedSiteThemeTemplateFS(siteCfg, siteThemePackage)
+
 	// Initialize view engine
-	viewEngine, err := quickstart.NewViewEngine(
-		client.FS(),
+	viewEngineOptions := []quickstart.ViewEngineOption{
 		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
 			append(
 				helpers.TemplateFuncOptions(),
@@ -763,9 +779,10 @@ func main() {
 				quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
 			)...,
 		)),
-		quickstart.WithViewTemplatesFS(webFS),
 		quickstart.WithViewDebug(cfg.Debug.Enabled),
-	)
+	}
+	viewEngineOptions = append(viewEngineOptions, quicksite.ViewEngineOptions(cfg, siteCfg)...)
+	viewEngine, err := quickstart.NewViewEngine(client.FS(), viewEngineOptions...)
 	if err != nil {
 		fatalf("failed to initialize view engine: %v", err)
 	}
@@ -813,6 +830,9 @@ func main() {
 	}
 	embeddedAssetsFS := client.Assets()
 	quickstart.NewStaticAssets(r, cfg, embeddedAssetsFS, quickstart.WithDiskAssetsDir(diskAssetsDir))
+	if err := mountEmbeddedSiteThemeAssets(r, siteThemePackage); err != nil {
+		fatalf("failed to mount embedded site theme assets: %v", err)
+	}
 
 	if debugEnabled {
 		r.Use(func(next router.HandlerFunc) router.HandlerFunc {
@@ -1271,8 +1291,11 @@ func main() {
 	r.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), wrapAuthed(userHandlers.TabHTML))
 	r.Get(path.Join(adminAPIBasePath, "users", ":id", "tabs", ":tab"), wrapAuthed(userHandlers.TabJSON))
 
-	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeConfig.Site, isDev)
 	siteSearchProvider := newExampleSiteSearchProvider(cmsContentSvc, cfg.DefaultLocale)
+	internalOpsCfg, err := registerExampleHostOwnedRoutes(r, runtimeConfig)
+	if err != nil {
+		fatalf("failed to register host-owned reserved routes: %v", err)
+	}
 	if err := quicksite.RegisterSiteRoutes(
 		r,
 		adm,
@@ -1304,6 +1327,13 @@ func main() {
 	infof("  Settings backend: %s (features.go_options=%t)", settingsBackend, adapterResult.Flags.UseGoOptions)
 	infof("  Search API: %s?query=...", path.Join(adminAPIBasePath, "search"))
 	infof("  Site Runtime: / (search: %s, search api: %s)", siteCfg.Search.Route, siteCfg.Search.Endpoint)
+	infof("  App info: %s", exampleAppInfoPath)
+	if internalOpsCfg.EnableHealthz {
+		infof("  Healthz: %s", internalOpsCfg.HealthzPath)
+	}
+	if internalOpsCfg.EnableStatus {
+		infof("  Status: %s", internalOpsCfg.StatusPath)
+	}
 
 	if err := server.Serve(listenAddr); err != nil {
 		fatalf("server stopped: %v", err)
@@ -1376,7 +1406,6 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 		},
 		Views: quicksite.SiteViewConfig{
 			TemplateFS: []fs.FS{
-				client.FS(),
 				webFS,
 			},
 			BaseTemplate:  "site/base",
@@ -1392,7 +1421,7 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 		},
 		Search: quicksite.SiteSearchConfig{
 			Route:    "/search",
-			Endpoint: "/api/v1/site/search",
+			Endpoint: quicksite.DefaultSiteSearchEndpointForAdminConfig(cfg),
 			Indexes:  []string{"page", "post", "news"},
 		},
 		Features: quicksite.SiteFeatures{
@@ -1406,10 +1435,71 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 			StrictLocalizedPaths:    new(siteRuntime.StrictLocalizedPaths),
 		},
 		Theme: quicksite.SiteThemeConfig{
-			Name:    themeName,
-			Variant: themeVariant,
+			Name:                        themeName,
+			Variant:                     themeVariant,
+			AllowRequestNameOverride:    new(siteRuntime.AllowThemeNameOverride),
+			AllowRequestVariantOverride: new(siteRuntime.AllowThemeVariantOverride),
 		},
+		Fallback: resolveSiteFallbackPolicy(cfg, siteRuntime),
 	}
+}
+
+func registerExampleHostOwnedRoutes[T any](r router.Router[T], cfg *appcfg.Config) (quickstart.ResolvedInternalOpsConfig, error) {
+	internalOpsCfg, err := quickstart.RegisterInternalOpsRoutes(r, resolveSiteInternalOpsConfig(cfg.Site.InternalOps))
+	if err != nil {
+		return internalOpsCfg, err
+	}
+	r.Get(exampleAppInfoPath, func(c router.Context) error {
+		return c.JSON(200, map[string]any{
+			"app":    strings.TrimSpace(cfg.App.Name),
+			"status": "ok",
+		})
+	})
+	return internalOpsCfg, nil
+}
+
+func resolveSiteFallbackPolicy(cfg admin.Config, siteRuntime appcfg.SiteConfig) quicksite.SiteFallbackPolicy {
+	internalOps := resolveSiteInternalOpsConfig(siteRuntime.InternalOps)
+	reservedPrefixes := quicksite.SiteReservedPrefixesForAdminConfig(cfg)
+	reservedPrefixes = append(reservedPrefixes, siteRuntime.Fallback.ReservedPrefixes...)
+	reservedPrefixes = append(reservedPrefixes, quickstart.InternalOpsReservedPrefixes(internalOps)...)
+	return quicksite.ResolveSiteFallbackPolicy(quicksite.SiteFallbackPolicy{
+		Mode:                quicksite.SiteFallbackMode(strings.TrimSpace(siteRuntime.Fallback.Mode)),
+		AllowRoot:           siteRuntime.Fallback.AllowRoot,
+		AllowedMethods:      resolveSiteFallbackMethods(siteRuntime.Fallback.AllowedMethods),
+		AllowedExactPaths:   append([]string{}, siteRuntime.Fallback.AllowedExactPaths...),
+		AllowedPathPrefixes: append([]string{}, siteRuntime.Fallback.AllowedPathPrefixes...),
+		ReservedPrefixes:    reservedPrefixes,
+	})
+}
+
+func resolveSiteInternalOpsConfig(cfg appcfg.SiteInternalOpsConfig) quickstart.InternalOpsConfig {
+	return quickstart.InternalOpsConfig{
+		EnableHealthz: cfg.EnableHealthz,
+		EnableStatus:  cfg.EnableStatus,
+		HealthzPath:   strings.TrimSpace(cfg.HealthzPath),
+		StatusPath:    strings.TrimSpace(cfg.StatusPath),
+	}
+}
+
+func resolveSiteFallbackMethods(values []string) []router.HTTPMethod {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]router.HTTPMethod, 0, len(values))
+	for _, value := range values {
+		value = strings.ToUpper(strings.TrimSpace(value))
+		switch router.HTTPMethod(value) {
+		case router.GET, router.HEAD:
+		default:
+			continue
+		}
+		out = append(out, router.HTTPMethod(value))
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 type menuByLocationWithOptions interface {
