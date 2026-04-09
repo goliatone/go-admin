@@ -62,12 +62,14 @@ func (a *Admin) logRoutingStartupReport(stage string, err error) {
 		"api_root", strings.TrimSpace(report.EffectiveRoots.APIRoot),
 		"public_api_root", strings.TrimSpace(report.EffectiveRoots.PublicAPIRoot),
 		"summary", map[string]any{
-			"total_routes":  report.RouteSummary.TotalRoutes,
-			"host_routes":   report.RouteSummary.HostRoutes,
-			"module_routes": report.RouteSummary.ModuleRoutes,
-			"modules":       append([]string{}, report.RouteSummary.Modules...),
+			"total_routes":    report.RouteSummary.TotalRoutes,
+			"host_routes":     report.RouteSummary.HostRoutes,
+			"module_routes":   report.RouteSummary.ModuleRoutes,
+			"fallback_routes": report.RouteSummary.FallbackRoutes,
+			"modules":         append([]string{}, report.RouteSummary.Modules...),
 		},
 		"modules", routingLogModules(report.Modules),
+		"fallbacks", routingLogFallbacks(report.Fallbacks),
 		"conflicts", routingLogConflicts(report.Conflicts),
 		"warnings", append([]string{}, report.Warnings...),
 		"report", routing.FormatStartupReport(report),
@@ -112,6 +114,29 @@ func routingLogConflicts(conflicts []routing.Conflict) []map[string]any {
 			"path":       strings.TrimSpace(conflict.Path),
 			"route_name": strings.TrimSpace(conflict.RouteName),
 			"message":    strings.TrimSpace(conflict.Message),
+		})
+	}
+	return out
+}
+
+func routingLogFallbacks(fallbacks []routing.FallbackEntry) []map[string]any {
+	if len(fallbacks) == 0 {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(fallbacks))
+	for _, fallback := range fallbacks {
+		fallback = routing.NormalizeFallbackEntry(fallback)
+		out = append(out, map[string]any{
+			"owner":                 strings.TrimSpace(fallback.Owner),
+			"surface":               strings.TrimSpace(fallback.Surface),
+			"domain":                strings.TrimSpace(fallback.Domain),
+			"base_path":             strings.TrimSpace(fallback.BasePath),
+			"mode":                  strings.TrimSpace(fallback.Mode),
+			"allow_root":            fallback.AllowRoot,
+			"allowed_methods":       append([]string{}, fallback.AllowedMethods...),
+			"allowed_exact_paths":   append([]string{}, fallback.AllowedExactPaths...),
+			"allowed_path_prefixes": append([]string{}, fallback.AllowedPathPrefixes...),
+			"reserved_prefixes":     append([]string{}, fallback.ReservedPrefixes...),
 		})
 	}
 	return out
@@ -222,6 +247,15 @@ func (a *Admin) refreshRoutingReport() {
 		base.Conflicts,
 		warnings,
 	)
+}
+
+// RefreshRoutingReport recomputes the cached routing report after planner mutations.
+func (a *Admin) RefreshRoutingReport() routing.StartupReport {
+	if a == nil {
+		return routing.StartupReport{}
+	}
+	a.refreshRoutingReport()
+	return a.RoutingReport()
 }
 
 func mergeRoutingWarnings(groups ...[]string) []string {
