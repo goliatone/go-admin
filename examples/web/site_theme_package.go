@@ -88,7 +88,7 @@ func attachEmbeddedSiteThemeTemplateFS(siteCfg quicksite.SiteConfig, pkg *embedd
 		return siteCfg
 	}
 	views := siteCfg.Views
-	views.TemplateFS = append(views.TemplateFS, pkg.RootFS)
+	views.TemplateFS = append(views.TemplateFS, quicksite.LabelTemplateFS(pkg.RootFS, pkg.Name, quicksite.TemplateSourcePackagedTheme))
 	siteCfg.Views = views
 	return siteCfg
 }

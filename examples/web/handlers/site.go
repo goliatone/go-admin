@@ -109,6 +109,9 @@ func (h *SiteHandlers) Page(c router.Context) error {
 			WithCode(goerrors.CodeInternal).
 			WithTextCode("CMS_UNAVAILABLE")
 	}
+	if h.shouldSkipLegacyAdminPath(c.Path()) {
+		return siteNotFoundError("page")
+	}
 
 	// Handle preview token if present
 	previewToken := c.Query("preview_token")
@@ -122,9 +125,6 @@ func (h *SiteHandlers) Page(c router.Context) error {
 	}
 
 	path := normalizeSitePath(c.Path())
-	if h.shouldSkip(path) {
-		return goerrors.New("not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
-	}
 	locale := h.localeFromRequest(c)
 	path = stripLocalePrefix(path, locale)
 
@@ -169,10 +169,10 @@ func (h *SiteHandlers) PostsIndex(c router.Context) error {
 			WithCode(goerrors.CodeInternal).
 			WithTextCode("CMS_UNAVAILABLE")
 	}
-	path := normalizeSitePath(c.Path())
-	if h.shouldSkip(path) {
-		return goerrors.New("not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
+	if h.shouldSkipLegacyAdminPath(c.Path()) {
+		return siteNotFoundError("page")
 	}
+	path := normalizeSitePath(c.Path())
 	locale := h.localeFromRequest(c)
 	path = stripLocalePrefix(path, locale)
 	posts, err := h.listPosts(c.Context(), locale)
@@ -199,6 +199,9 @@ func (h *SiteHandlers) PostDetail(c router.Context) error {
 			WithCode(goerrors.CodeInternal).
 			WithTextCode("CMS_UNAVAILABLE")
 	}
+	if h.shouldSkipLegacyAdminPath(c.Path()) {
+		return siteNotFoundError("post")
+	}
 
 	previewToken := c.Query("preview_token")
 	var previewData *admin.PreviewToken
@@ -211,9 +214,6 @@ func (h *SiteHandlers) PostDetail(c router.Context) error {
 	}
 
 	path := normalizeSitePath(c.Path())
-	if h.shouldSkip(path) {
-		return goerrors.New("not found", goerrors.CategoryNotFound).WithCode(goerrors.CodeNotFound)
-	}
 	locale := h.localeFromRequest(c)
 	path = stripLocalePrefix(path, locale)
 	var post *sitePost
@@ -352,6 +352,30 @@ func (h *SiteHandlers) menuCode() string {
 	return setup.SiteNavigationMenuCode
 }
 
+func (h *SiteHandlers) shouldSkipLegacyAdminPath(requestPath string) bool {
+	if h == nil {
+		return false
+	}
+	adminBasePath := normalizeSitePath(h.AdminBasePath)
+	if adminBasePath == "" || adminBasePath == "/" {
+		return false
+	}
+	requestPath = normalizeSitePath(requestPath)
+	if requestPath == adminBasePath {
+		return true
+	}
+	return strings.HasPrefix(requestPath, adminBasePath+"/")
+}
+
+func siteNotFoundError(kind string) error {
+	kind = strings.TrimSpace(kind)
+	if kind == "" {
+		kind = "page"
+	}
+	return goerrors.New(kind+" not found", goerrors.CategoryNotFound).
+		WithCode(goerrors.CodeNotFound)
+}
+
 func (h *SiteHandlers) localeFromRequest(c router.Context) string {
 	if c == nil {
 		return h.DefaultLocale
@@ -364,15 +388,6 @@ func (h *SiteHandlers) localeFromRequest(c router.Context) string {
 		return h.DefaultLocale
 	}
 	return strings.ToLower(locale)
-}
-
-func (h *SiteHandlers) shouldSkip(path string) bool {
-	base := strings.TrimSpace(h.AdminBasePath)
-	if base == "" {
-		return false
-	}
-	base = normalizeSitePath(base)
-	return base != "/" && strings.HasPrefix(path, base)
 }
 
 func convertNavItems(items []admin.NavigationItem, activePath string) []SiteNavItem {

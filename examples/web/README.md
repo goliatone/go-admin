@@ -286,6 +286,7 @@ Theme override behavior:
 - In runtime `prod`, query overrides are ignored and configured defaults are used.
 - The public-site runtime now defaults to the embedded `garchen-archive-site` package under `examples/web/site_themes/garchen-archive-site`.
 - `site.theme` should point to an embedded site theme package that the example app can mount at startup.
+- Admin theme resolution is attached separately from the public-site package, so site theme assets and partials do not leak into `/admin/*` unless the host opts into sharing explicitly.
 - Theme static bundles are mounted at `/static/themes/garchen-archive-site/static/*`, matching the generated package manifest paths.
 - Swap variants with `APP_SITE__THEME_VARIANT=<variant>` or use `?variant=<variant>` in non-production runtime modes.
 - The embedded package is a generated site-theme snapshot, including renderer-compatible base, navigation, search, and content templates.
@@ -295,6 +296,27 @@ Search UI state demos:
 - Normal results: `/search?q=go`
 - Zero results: `/search?q=zzzzzz`
 - Error state (simulated): `/search?q=error`
+
+Routing/theme QA after migration:
+- `GET /search` should render the public-site theme bundles (`/static/themes/garchen-archive-site/static/*`) and never pull admin error-page assets
+- an allowed unknown public content path such as `/teachings/foundations-of-refuge` should resolve through the public-site fallback surface
+- `GET /missing-page` should render the site 404 template and keep the public-site theme output
+- `GET /admin/missing` should render the admin 404 page and keep `/admin/assets/*` ownership
+- `GET /.well-known/app-info` should return host-owned JSON, and unknown `/.well-known/*` paths should bypass site templates entirely
+- if `site.internal_ops` is enabled, `GET /healthz` and `GET /status` (or configured replacements) should stay on the internal-ops surface
+
+Routing ownership model in the example host:
+- `quickstart.NewHostRouter(...)` is the root registration boundary for `system`, `internal_ops`, `admin_ui`, `admin_api`, `public_api`, `public_site`, and `static`
+- `site.fallback.mode` uses the typed `quicksite.SiteFallbackMode*` constants; the example default is `public_content_only`
+- site fallback keeps `GET` and `HEAD` only, reserves `/admin`, `/api`, `/.well-known`, `/static`, `/assets`, and extends that set with enabled internal-ops paths
+- startup diagnostics are the source of truth for ownership: inspect `adm.RoutingReport()`, `adm.RoutingPlanner().Manifest()`, or quickstart doctor output instead of inferring behavior from registration order
+
+Migration notes:
+- the example host now uses `quickstart.NewHostRouter(...)` for grouped route ownership instead of relying on registration order
+- site fallback is configured through the typed `quicksite.SiteFallbackPolicy` contract exposed in config, not callback matchers or magic strings
+- admin and public-site themes are attached separately; old shared `WithGoTheme(...)` usage migrates to `adm.WithAdminTheme(...)` plus the site theme provider/selector
+- internal ops routes (`/healthz`, `/status`) stay host-owned and are added to the reserved-prefix set when enabled
+- the router surfaces and fallback policy are now the primary ownership boundary; handler-level guards remain a defensive fallback, not the ownership mechanism
 
 ## Stage 1 quickstart helpers
 

@@ -20,6 +20,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	coreadmin "github.com/goliatone/go-admin/admin"
+	adminrouting "github.com/goliatone/go-admin/admin/routing"
 	debugregistry "github.com/goliatone/go-admin/debug"
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
 	"github.com/goliatone/go-admin/examples/web/handlers"
@@ -690,7 +691,7 @@ func main() {
 	}
 
 	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeConfig.Site, isDev)
-	if err := quicksite.ValidateSiteFallbackPolicy(siteCfg.Fallback); err != nil {
+	if err := quicksite.ValidateSiteFallbackPolicy(quicksite.ResolveSiteConfig(cfg, siteCfg).Fallback); err != nil {
 		fatalf("invalid site fallback policy: %v", err)
 	}
 	siteThemePackage, err := loadEmbeddedSiteThemePackage(siteCfg.Theme.Name)
@@ -698,13 +699,14 @@ func main() {
 		fatalf("failed to load embedded site theme package %q: %v", siteCfg.Theme.Name, err)
 	}
 
-	// Setup go-theme registry/selector so dashboard, CMS, and forms share the same theme.
+	// Keep admin theme resolution scoped to dashboard, CMS, and forms.
+	// Public-site theme resolution is attached separately below.
 	// Assets support light/dark variants: icon.light.svg, icon.dark.svg, logo.light.svg, logo.dark.svg
-	themeAssetPrefix := path.Join(cfg.BasePath, "assets")
-	themeRegistry := gotheme.NewRegistry()
-	themeSelector, _, err := quickstart.NewThemeSelector(cfg.Theme, cfg.ThemeVariant, cfg.ThemeTokens,
-		quickstart.WithThemeRegistry(themeRegistry),
-		quickstart.WithThemeAssets(themeAssetPrefix, map[string]string{
+	adminThemeAssetPrefix := path.Join(cfg.BasePath, "assets")
+	adminThemeRegistry := gotheme.NewRegistry()
+	adminThemeSelector, _, err := quickstart.NewThemeSelector(cfg.Theme, cfg.ThemeVariant, cfg.ThemeTokens,
+		quickstart.WithThemeRegistry(adminThemeRegistry),
+		quickstart.WithThemeAssets(adminThemeAssetPrefix, map[string]string{
 			"logo":    "logo.light.svg", // Default to light variant
 			"icon":    "icon.light.svg",
 			"favicon": "logo.svg",
@@ -712,7 +714,7 @@ func main() {
 		quickstart.WithThemeVariants(map[string]gotheme.Variant{
 			"light": {
 				Assets: gotheme.Assets{
-					Prefix: themeAssetPrefix,
+					Prefix: adminThemeAssetPrefix,
 					Files: map[string]string{
 						"logo": "logo.light.svg",
 						"icon": "icon.light.svg",
@@ -726,7 +728,7 @@ func main() {
 					"surface": "#0b1221",
 				},
 				Assets: gotheme.Assets{
-					Prefix: themeAssetPrefix,
+					Prefix: adminThemeAssetPrefix,
 					Files: map[string]string{
 						"logo": "logo.dark.svg",
 						"icon": "icon.dark.svg",
@@ -736,12 +738,21 @@ func main() {
 		}),
 	)
 	if err != nil {
-		fatalf("failed to register theme: %v", err)
+		fatalf("failed to register admin theme: %v", err)
 	}
-	if err := registerEmbeddedSiteTheme(themeRegistry, siteThemePackage); err != nil {
+	adm.WithAdminTheme(adminThemeSelector)
+
+	siteThemeRegistry := gotheme.NewRegistry()
+	if err := registerEmbeddedSiteTheme(siteThemeRegistry, siteThemePackage); err != nil {
 		fatalf("failed to register embedded site theme package %q: %v", siteThemePackage.Name, err)
 	}
-	adm.WithGoTheme(themeSelector)
+	// Site theme selection stays on the public-site runtime so admin routes do
+	// not inherit public-site templates or bundles accidentally.
+	siteCfg.ThemeProvider = quicksite.ThemeProviderFromSelector(gotheme.Selector{
+		Registry:       siteThemeRegistry,
+		DefaultTheme:   strings.TrimSpace(siteCfg.Theme.Name),
+		DefaultVariant: strings.TrimSpace(siteCfg.Theme.Variant),
+	})
 
 	// Initialize form generator
 	openapiFS := helpers.MustSubFS(webFS, "openapi")
@@ -795,6 +806,13 @@ func main() {
 		isDev,
 		quickstart.WithFiberRuntimeConfig(resolveFiberRuntimeConfig(runtimeConfig.Fiber)),
 	)
+	// Register root-level surfaces through the grouped host router so ownership
+	// does not depend on registration order.
+	host := quickstart.NewHostRouter(r, cfg)
+	adminUI := host.AdminUI()
+	adminAPI := host.AdminAPI()
+	publicSite := host.PublicSite()
+	staticRoutes := host.Static()
 
 	// Static assets
 	// Prefer serving assets from disk when available (dev flow), and fall back to embedded assets.
@@ -829,9 +847,13 @@ func main() {
 		}
 	}
 	embeddedAssetsFS := client.Assets()
-	quickstart.NewStaticAssets(r, cfg, embeddedAssetsFS, quickstart.WithDiskAssetsDir(diskAssetsDir))
-	if err := mountEmbeddedSiteThemeAssets(r, siteThemePackage); err != nil {
+	quickstart.NewStaticAssets(staticRoutes, cfg, embeddedAssetsFS, quickstart.WithDiskAssetsDir(diskAssetsDir))
+	if err := mountEmbeddedSiteThemeAssets(staticRoutes, siteThemePackage); err != nil {
 		fatalf("failed to mount embedded site theme assets: %v", err)
+	}
+	siteSearchProvider := newExampleSiteSearchProvider(cmsContentSvc, cfg.DefaultLocale)
+	if err := registerExampleRoutingOwnership(adm, cfg, runtimeConfig, siteCfg, siteSearchProvider); err != nil {
+		fatalf("failed to register example routing ownership: %v", err)
 	}
 
 	if debugEnabled {
@@ -953,7 +975,7 @@ func main() {
 	}
 
 	// Initialize admin
-	if err := adm.Initialize(r); err != nil {
+	if err := adm.Initialize(host.Admin()); err != nil {
 		fatalf("failed to initialize admin: %v", err)
 	}
 	if err := setup.RemovePrimarySettingsMenuItems(context.Background(), adm.MenuService(), cfg.NavMenuCode, cfg.DefaultLocale); err != nil {
@@ -1027,7 +1049,7 @@ func main() {
 		crud.WithErrorEncoder[*stores.User](crudErrorEncoder),
 		crud.WithScopeGuard[*stores.User](userCRUDScopeGuard()),
 	)
-	crudAPI := r.Group(path.Join(cfg.BasePath, "crud"))
+	crudAPI := adminAPI.Group(path.Join(cfg.BasePath, "crud"))
 	crudAPI.Use(func(next router.HandlerFunc) router.HandlerFunc {
 		return wrapAuthed(next)
 	})
@@ -1047,27 +1069,27 @@ func main() {
 	)
 	mediaController.RegisterRoutes(crudAdapter)
 
-	r.Get(path.Join(adminAPIBasePath, "session"), wrapAuthed(func(c router.Context) error {
+	adminAPI.Get(path.Join(adminAPIBasePath, "session"), wrapAuthed(func(c router.Context) error {
 		session := helpers.FilterSessionUser(helpers.BuildSessionUser(c.Context()), adm.FeatureGate())
 		return c.JSON(fiber.StatusOK, session)
 	}))
-	r.Get(path.Join(adminAPIBasePath, "debug", "permissions"), wrapAuthed(permissionDiagnosticsHandler(adm, authzPreflightMode)))
+	adminAPI.Get(path.Join(adminAPIBasePath, "debug", "permissions"), wrapAuthed(permissionDiagnosticsHandler(adm, authzPreflightMode)))
 	if scopeDebugEnabled {
-		r.Get(path.Join(adminAPIBasePath, "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
+		adminAPI.Get(path.Join(adminAPIBasePath, "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 	}
 	if debugEnabled {
-		if err := registerDebugCompatibilityRoutes(r, adm, adminAPIBasePath); err != nil {
+		if err := registerDebugCompatibilityRoutes(adminAPI, adm, adminAPIBasePath); err != nil {
 			warnf("failed to register debug compatibility routes: %v", err)
 		}
 	}
 
 	// Test error route for dev error page testing (only in dev mode)
 	if isDev {
-		r.Get(path.Join(cfg.BasePath, "test-error"), func(c router.Context) error {
+		adminUI.Get(path.Join(cfg.BasePath, "test-error"), func(c router.Context) error {
 			errorType := c.Query("type", "internal")
 			return triggerTestError(errorType)
 		})
-		r.Get(path.Join(cfg.BasePath, "test-error/:type"), func(c router.Context) error {
+		adminUI.Get(path.Join(cfg.BasePath, "test-error/:type"), func(c router.Context) error {
 			errorType := c.Param("type")
 			if errorType == "" {
 				errorType = "internal"
@@ -1076,8 +1098,8 @@ func main() {
 		})
 	}
 
-	r.Get(path.Join(adminAPIBasePath, "timezones"), wrapAuthed(handlers.ListTimezones))
-	r.Get(path.Join(adminAPIBasePath, "templates"), wrapAuthed(handlers.ListTemplates(dataStores.Templates)))
+	adminAPI.Get(path.Join(adminAPIBasePath, "timezones"), wrapAuthed(handlers.ListTimezones))
+	adminAPI.Get(path.Join(adminAPIBasePath, "templates"), wrapAuthed(handlers.ListTemplates(dataStores.Templates)))
 
 	onboardingHandlers := handlers.OnboardingHandlers{
 		UsersService: usersService,
@@ -1092,19 +1114,19 @@ func main() {
 	}
 
 	onboardingBase := path.Join(adminAPIBasePath, "onboarding")
-	r.Post(path.Join(onboardingBase, "invite"), wrapAuthed(onboardingHandlers.Invite))
-	r.Get(path.Join(onboardingBase, "invite", "verify"), onboardingHandlers.VerifyInvite)
-	r.Post(path.Join(onboardingBase, "invite", "accept"), onboardingHandlers.AcceptInvite)
-	r.Post(path.Join(onboardingBase, "register"), onboardingHandlers.SelfRegister)
-	r.Post(path.Join(onboardingBase, "register", "confirm"), onboardingHandlers.ConfirmRegistration)
-	r.Post(path.Join(onboardingBase, "password", "reset", "request"), onboardingHandlers.RequestPasswordReset)
-	r.Post(path.Join(onboardingBase, "password", "reset", "confirm"), onboardingHandlers.ConfirmPasswordReset)
-	r.Get(path.Join(onboardingBase, "token", "metadata"), onboardingHandlers.TokenMetadata)
+	adminAPI.Post(path.Join(onboardingBase, "invite"), wrapAuthed(onboardingHandlers.Invite))
+	adminAPI.Get(path.Join(onboardingBase, "invite", "verify"), onboardingHandlers.VerifyInvite)
+	adminAPI.Post(path.Join(onboardingBase, "invite", "accept"), onboardingHandlers.AcceptInvite)
+	adminAPI.Post(path.Join(onboardingBase, "register"), onboardingHandlers.SelfRegister)
+	adminAPI.Post(path.Join(onboardingBase, "register", "confirm"), onboardingHandlers.ConfirmRegistration)
+	adminAPI.Post(path.Join(onboardingBase, "password", "reset", "request"), onboardingHandlers.RequestPasswordReset)
+	adminAPI.Post(path.Join(onboardingBase, "password", "reset", "confirm"), onboardingHandlers.ConfirmPasswordReset)
+	adminAPI.Get(path.Join(onboardingBase, "token", "metadata"), onboardingHandlers.TokenMetadata)
 
 	uploadsBase := path.Join(adminAPIBasePath, "uploads", "users")
-	r.Post(path.Join(uploadsBase, "profile-picture"), wrapAuthed(handlers.ProfilePictureUploadHandler(cfg.BasePath, diskAssetsDir)))
+	adminAPI.Post(path.Join(uploadsBase, "profile-picture"), wrapAuthed(handlers.ProfilePictureUploadHandler(cfg.BasePath, diskAssetsDir)))
 	uploadsMediaBase := path.Join(adminAPIBasePath, "uploads", "media")
-	r.Post(path.Join(uploadsMediaBase, "featured-image"), wrapAuthed(handlers.FeaturedImageUploadHandler(cfg.BasePath, diskAssetsDir)))
+	adminAPI.Post(path.Join(uploadsMediaBase, "featured-image"), wrapAuthed(handlers.FeaturedImageUploadHandler(cfg.BasePath, diskAssetsDir)))
 
 	userActions := &handlers.UserActionHandlers{
 		Service:     usersService,
@@ -1113,12 +1135,12 @@ func main() {
 		FeatureGate: adm.FeatureGate(),
 	}
 	for _, base := range []string{path.Join(adminAPIBasePath, "users"), path.Join(cfg.BasePath, "crud", "users")} {
-		r.Post(path.Join(base, ":id", "activate"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateActive)))
-		r.Post(path.Join(base, ":id", "suspend"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateSuspended)))
-		r.Post(path.Join(base, ":id", "disable"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateDisabled)))
-		r.Post(path.Join(base, ":id", "archive"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateArchived)))
-		r.Post(path.Join(base, ":id", "reset-password"), wrapAuthed(userActions.ResetPassword))
-		r.Post(path.Join(base, ":id", "invite"), wrapAuthed(userActions.InviteByID))
+		adminAPI.Post(path.Join(base, ":id", "activate"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateActive)))
+		adminAPI.Post(path.Join(base, ":id", "suspend"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateSuspended)))
+		adminAPI.Post(path.Join(base, ":id", "disable"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateDisabled)))
+		adminAPI.Post(path.Join(base, ":id", "archive"), wrapAuthed(userActions.Lifecycle(userstypes.LifecycleStateArchived)))
+		adminAPI.Post(path.Join(base, ":id", "reset-password"), wrapAuthed(userActions.ResetPassword))
+		adminAPI.Post(path.Join(base, ":id", "invite"), wrapAuthed(userActions.InviteByID))
 
 	}
 
@@ -1128,16 +1150,16 @@ func main() {
 	usersBase := path.Join(cfg.BasePath, "users")
 
 	// Optional metadata endpoint for frontend DataGrid column definitions.
-	r.Get(path.Join(adminAPIBasePath, "users", "columns"), wrapAuthed(userHandlers.Columns))
-	r.Get(path.Join(adminAPIBasePath, "user-profiles", "columns"), wrapAuthed(userProfileHandlers.Columns))
+	adminAPI.Get(path.Join(adminAPIBasePath, "users", "columns"), wrapAuthed(userHandlers.Columns))
+	adminAPI.Get(path.Join(adminAPIBasePath, "user-profiles", "columns"), wrapAuthed(userProfileHandlers.Columns))
 	// Users UI routes are custom and intentionally separate from generic content-entry handlers.
-	r.Get(usersBase, wrapAuthed(userHandlers.List))
-	r.Get(path.Join(usersBase, "new"), wrapAuthed(userHandlers.New))
-	r.Post(usersBase, wrapAuthed(userHandlers.Create))
-	r.Get(path.Join(usersBase, ":id"), wrapAuthed(userHandlers.Detail))
-	r.Get(path.Join(usersBase, ":id", "edit"), wrapAuthed(userHandlers.Edit))
-	r.Post(path.Join(usersBase, ":id"), wrapAuthed(userHandlers.Update))
-	r.Post(path.Join(usersBase, ":id", "delete"), wrapAuthed(userHandlers.Delete))
+	adminUI.Get(usersBase, wrapAuthed(userHandlers.List))
+	adminUI.Get(path.Join(usersBase, "new"), wrapAuthed(userHandlers.New))
+	adminUI.Post(usersBase, wrapAuthed(userHandlers.Create))
+	adminUI.Get(path.Join(usersBase, ":id"), wrapAuthed(userHandlers.Detail))
+	adminUI.Get(path.Join(usersBase, ":id", "edit"), wrapAuthed(userHandlers.Edit))
+	adminUI.Post(path.Join(usersBase, ":id"), wrapAuthed(userHandlers.Update))
+	adminUI.Post(path.Join(usersBase, ":id", "delete"), wrapAuthed(userHandlers.Delete))
 	// Build UI route options with conditional translation module routes.
 	// When translation exchange is enabled via feature gate (profile or explicit toggle),
 	// register the translation exchange UI route for import/export operations.
@@ -1161,7 +1183,7 @@ func main() {
 		infof("Translation exchange UI route enabled (/admin/translations/exchange) with export, validate, apply, retained history, and retry flows")
 	}
 	if err := quickstart.RegisterAdminUIRoutes(
-		r,
+		adminUI,
 		cfg,
 		adm,
 		authn,
@@ -1170,16 +1192,16 @@ func main() {
 		fatalf("failed to register admin UI routes: %v", err)
 	}
 	dashboardPath := path.Join(cfg.BasePath, "dashboard")
-	r.Get(cfg.BasePath, wrapAuthed(func(c router.Context) error {
+	adminUI.Get(cfg.BasePath, wrapAuthed(func(c router.Context) error {
 		return c.Redirect(dashboardPath, fiber.StatusFound)
 	}))
-	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
+	if err := quickstart.RegisterSettingsUIRoutes(adminUI, cfg, adm, authn); err != nil {
 		fatalf("failed to register settings UI routes: %v", err)
 	}
-	if err := quickstart.RegisterContentTypeBuilderUIRoutes(r, cfg, adm, authn); err != nil {
+	if err := quickstart.RegisterContentTypeBuilderUIRoutes(adminUI, cfg, adm, authn); err != nil {
 		fatalf("failed to register content type builder UI routes: %v", err)
 	}
-	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(r, cfg, adm, authn); err != nil {
+	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(adminAPI, cfg, adm, authn); err != nil {
 		fatalf("failed to register content type builder API routes: %v", err)
 	}
 	contentEntryUIOpts := []quickstart.ContentEntryUIOption{
@@ -1212,7 +1234,7 @@ func main() {
 		contentEntryUIOpts = append(contentEntryUIOpts, quickstart.WithContentEntryDataGridURLState(urlStateCfg))
 	}
 	if err := quickstart.RegisterContentEntryUIRoutes(
-		r,
+		adminUI,
 		cfg,
 		adm,
 		authn,
@@ -1249,7 +1271,7 @@ func main() {
 	authThemeAssetPrefix := path.Join(cfg.BasePath, "assets")
 
 	if err := quickstart.RegisterAuthUIRoutes(
-		r,
+		adminUI,
 		cfg,
 		routeAuth,
 		quickstart.WithAuthUITitles("Login", "Password Reset"),
@@ -1263,7 +1285,7 @@ func main() {
 		fatalf("failed to register auth UI routes: %v", err)
 	}
 
-	r.Get(registerPath, func(c router.Context) error {
+	adminUI.Get(registerPath, func(c router.Context) error {
 		if !featureEnabled(adm.FeatureGate(), setup.FeatureSelfRegistration) {
 			return goerrors.New("registration disabled", goerrors.CategoryAuthz).
 				WithCode(fiber.StatusForbidden).
@@ -1288,16 +1310,15 @@ func main() {
 	})
 
 	// User tab routes are custom and not part of canonical panel route wiring.
-	r.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), wrapAuthed(userHandlers.TabHTML))
-	r.Get(path.Join(adminAPIBasePath, "users", ":id", "tabs", ":tab"), wrapAuthed(userHandlers.TabJSON))
+	adminUI.Get(path.Join(cfg.BasePath, "users/:id/tabs/:tab"), wrapAuthed(userHandlers.TabHTML))
+	adminAPI.Get(path.Join(adminAPIBasePath, "users", ":id", "tabs", ":tab"), wrapAuthed(userHandlers.TabJSON))
 
-	siteSearchProvider := newExampleSiteSearchProvider(cmsContentSvc, cfg.DefaultLocale)
-	internalOpsCfg, err := registerExampleHostOwnedRoutes(r, runtimeConfig)
+	internalOpsCfg, err := registerExampleHostOwnedRoutes(host, runtimeConfig)
 	if err != nil {
 		fatalf("failed to register host-owned reserved routes: %v", err)
 	}
 	if err := quicksite.RegisterSiteRoutes(
-		r,
+		publicSite,
 		adm,
 		cfg,
 		siteCfg,
@@ -1328,6 +1349,8 @@ func main() {
 	infof("  Search API: %s?query=...", path.Join(adminAPIBasePath, "search"))
 	infof("  Site Runtime: / (search: %s, search api: %s)", siteCfg.Search.Route, siteCfg.Search.Endpoint)
 	infof("  App info: %s", exampleAppInfoPath)
+	infof("  Routing QA: %s -> system JSON, /admin/missing -> admin 404, /missing-page -> site 404", exampleAppInfoPath)
+	infof("  Routing ownership: /search -> site theme, /admin/* -> admin surface, /.well-known/* -> system, /healthz|/status -> internal ops when enabled")
 	if internalOpsCfg.EnableHealthz {
 		infof("  Healthz: %s", internalOpsCfg.HealthzPath)
 	}
@@ -1377,19 +1400,16 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 
 	themeName := strings.TrimSpace(siteRuntime.Theme)
 	if themeName == "" {
-		themeName = strings.TrimSpace(cfg.Theme)
+		themeName = defaultEmbeddedSiteThemeName
 	}
 	themeVariant := strings.TrimSpace(siteRuntime.ThemeVariant)
-	if themeVariant == "" {
-		themeVariant = strings.TrimSpace(cfg.ThemeVariant)
-	}
 
 	siteBasePath := strings.TrimSpace(siteRuntime.BasePath)
 	if siteBasePath == "" {
 		siteBasePath = "/"
 	}
 
-	return quicksite.SiteConfig{
+	siteCfg := quicksite.SiteConfig{
 		BasePath:            siteBasePath,
 		DefaultLocale:       defaultLocale,
 		SupportedLocales:    resolveSiteSupportedLocales(defaultLocale, siteRuntime.SupportedLocales),
@@ -1440,16 +1460,31 @@ func resolveSiteRuntimeConfig(cfg admin.Config, siteRuntime appcfg.SiteConfig, i
 			AllowRequestNameOverride:    new(siteRuntime.AllowThemeNameOverride),
 			AllowRequestVariantOverride: new(siteRuntime.AllowThemeVariantOverride),
 		},
-		Fallback: resolveSiteFallbackPolicy(cfg, siteRuntime),
+		InternalOps: quicksite.SiteInternalOpsConfig{
+			EnableHealthz: siteRuntime.InternalOps.EnableHealthz,
+			EnableStatus:  siteRuntime.InternalOps.EnableStatus,
+			HealthzPath:   strings.TrimSpace(siteRuntime.InternalOps.HealthzPath),
+			StatusPath:    strings.TrimSpace(siteRuntime.InternalOps.StatusPath),
+		},
+		Fallback: quicksite.SiteFallbackPolicy{
+			Mode:                quicksite.SiteFallbackMode(strings.TrimSpace(siteRuntime.Fallback.Mode)),
+			AllowRoot:           siteRuntime.Fallback.AllowRoot,
+			AllowedMethods:      resolveSiteFallbackMethods(siteRuntime.Fallback.AllowedMethods),
+			AllowedExactPaths:   append([]string{}, siteRuntime.Fallback.AllowedExactPaths...),
+			AllowedPathPrefixes: append([]string{}, siteRuntime.Fallback.AllowedPathPrefixes...),
+			ReservedPrefixes:    append([]string{}, siteRuntime.Fallback.ReservedPrefixes...),
+		},
 	}
+	siteCfg.Fallback = quicksite.ResolveSiteConfig(cfg, siteCfg).Fallback
+	return siteCfg
 }
 
-func registerExampleHostOwnedRoutes[T any](r router.Router[T], cfg *appcfg.Config) (quickstart.ResolvedInternalOpsConfig, error) {
-	internalOpsCfg, err := quickstart.RegisterInternalOpsRoutes(r, resolveSiteInternalOpsConfig(cfg.Site.InternalOps))
+func registerExampleHostOwnedRoutes[T any](host quickstart.HostRouter[T], cfg *appcfg.Config) (quickstart.ResolvedInternalOpsConfig, error) {
+	internalOpsCfg, err := quickstart.RegisterInternalOpsRoutes(host.InternalOps(), resolveSiteInternalOpsConfig(cfg.Site.InternalOps))
 	if err != nil {
 		return internalOpsCfg, err
 	}
-	r.Get(exampleAppInfoPath, func(c router.Context) error {
+	host.System().Get(exampleAppInfoPath, func(c router.Context) error {
 		return c.JSON(200, map[string]any{
 			"app":    strings.TrimSpace(cfg.App.Name),
 			"status": "ok",
@@ -1458,19 +1493,157 @@ func registerExampleHostOwnedRoutes[T any](r router.Router[T], cfg *appcfg.Confi
 	return internalOpsCfg, nil
 }
 
-func resolveSiteFallbackPolicy(cfg admin.Config, siteRuntime appcfg.SiteConfig) quicksite.SiteFallbackPolicy {
-	internalOps := resolveSiteInternalOpsConfig(siteRuntime.InternalOps)
-	reservedPrefixes := quicksite.SiteReservedPrefixesForAdminConfig(cfg)
-	reservedPrefixes = append(reservedPrefixes, siteRuntime.Fallback.ReservedPrefixes...)
-	reservedPrefixes = append(reservedPrefixes, quickstart.InternalOpsReservedPrefixes(internalOps)...)
-	return quicksite.ResolveSiteFallbackPolicy(quicksite.SiteFallbackPolicy{
-		Mode:                quicksite.SiteFallbackMode(strings.TrimSpace(siteRuntime.Fallback.Mode)),
-		AllowRoot:           siteRuntime.Fallback.AllowRoot,
-		AllowedMethods:      resolveSiteFallbackMethods(siteRuntime.Fallback.AllowedMethods),
-		AllowedExactPaths:   append([]string{}, siteRuntime.Fallback.AllowedExactPaths...),
-		AllowedPathPrefixes: append([]string{}, siteRuntime.Fallback.AllowedPathPrefixes...),
-		ReservedPrefixes:    reservedPrefixes,
-	})
+func exampleRoutingOwnershipManifestEntries(
+	cfg admin.Config,
+	runtimeCfg *appcfg.Config,
+) []adminrouting.ManifestEntry {
+	if runtimeCfg == nil {
+		return nil
+	}
+
+	internalOps := quickstart.ResolveInternalOpsConfig(resolveSiteInternalOpsConfig(runtimeCfg.Site.InternalOps))
+	entries := []adminrouting.ManifestEntry{
+		{
+			Owner:     "host:example.system",
+			Surface:   adminrouting.SurfaceSystem,
+			Domain:    adminrouting.RouteDomainSystem,
+			RouteKey:  "example.app_info",
+			RouteName: "example.app_info",
+			Method:    http.MethodGet,
+			Path:      exampleAppInfoPath,
+		},
+	}
+	entries = append(entries, exampleStaticOwnershipManifestEntries(cfg, runtimeCfg)...)
+	if internalOps.EnableHealthz {
+		entries = append(entries, adminrouting.ManifestEntry{
+			Owner:     "host:example.internal_ops",
+			Surface:   adminrouting.SurfaceInternalOps,
+			Domain:    adminrouting.RouteDomainInternalOps,
+			RouteKey:  "example.healthz",
+			RouteName: "example.healthz",
+			Method:    http.MethodGet,
+			Path:      internalOps.HealthzPath,
+		})
+	}
+	if internalOps.EnableStatus {
+		entries = append(entries, adminrouting.ManifestEntry{
+			Owner:     "host:example.internal_ops",
+			Surface:   adminrouting.SurfaceInternalOps,
+			Domain:    adminrouting.RouteDomainInternalOps,
+			RouteKey:  "example.status",
+			RouteName: "example.status",
+			Method:    http.MethodGet,
+			Path:      internalOps.StatusPath,
+		})
+	}
+	return entries
+}
+
+func exampleStaticOwnershipManifestEntries(
+	cfg admin.Config,
+	runtimeCfg *appcfg.Config,
+) []adminrouting.ManifestEntry {
+	prefixes := append([]string{"/static"}, quickstart.ResolveStaticAssetPrefixes(cfg)...)
+	prefixes = append(prefixes, resolveExampleSiteThemeStaticPrefixes(runtimeCfg)...)
+	prefixes = uniqueExampleRoutePaths(prefixes)
+	if len(prefixes) == 0 {
+		return nil
+	}
+
+	entries := make([]adminrouting.ManifestEntry, 0, len(prefixes))
+	for _, prefix := range prefixes {
+		routeKey := exampleStaticRouteKey(prefix)
+		entries = append(entries, adminrouting.ManifestEntry{
+			Owner:     "host:example.static",
+			Surface:   adminrouting.SurfaceStatic,
+			Domain:    adminrouting.RouteDomainStatic,
+			RouteKey:  routeKey,
+			RouteName: routeKey,
+			Method:    http.MethodGet,
+			Path:      path.Join(prefix, "*"),
+		})
+	}
+	return entries
+}
+
+func resolveExampleSiteThemeStaticPrefixes(runtimeCfg *appcfg.Config) []string {
+	if runtimeCfg == nil {
+		return nil
+	}
+
+	themeName := strings.TrimSpace(runtimeCfg.Site.Theme)
+	if themeName == "" {
+		themeName = defaultEmbeddedSiteThemeName
+	}
+	pkg, err := loadEmbeddedSiteThemePackage(themeName)
+	if err != nil || pkg == nil || pkg.Manifest == nil {
+		return nil
+	}
+
+	prefix := strings.TrimSpace(pkg.Manifest.Assets.Prefix)
+	if prefix == "" {
+		return nil
+	}
+	return []string{path.Join(prefix, "static")}
+}
+
+func uniqueExampleRoutePaths(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
+}
+
+func exampleStaticRouteKey(prefix string) string {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" || prefix == "/" {
+		return "example.static.root"
+	}
+
+	replacer := strings.NewReplacer("/", ".", "-", "_", ":", "_")
+	key := strings.Trim(replacer.Replace(prefix), ".")
+	if key == "" {
+		key = "root"
+	}
+	return "example.static." + key
+}
+
+func registerExampleRoutingOwnership(
+	adm *coreadmin.Admin,
+	cfg admin.Config,
+	runtimeCfg *appcfg.Config,
+	siteCfg quicksite.SiteConfig,
+	searchProvider coreadmin.SearchProvider,
+) error {
+	if adm == nil || adm.RoutingPlanner() == nil || runtimeCfg == nil {
+		return nil
+	}
+
+	hostEntries := exampleRoutingOwnershipManifestEntries(cfg, runtimeCfg)
+	if err := adm.RoutingPlanner().RegisterHostRoutes(hostEntries...); err != nil {
+		adm.RefreshRoutingReport()
+		return err
+	}
+	if err := quicksite.RegisterSiteRoutingOwnership(adm, cfg, siteCfg, quicksite.WithSearchProvider(searchProvider)); err != nil {
+		adm.RefreshRoutingReport()
+		return err
+	}
+	adm.RefreshRoutingReport()
+	return nil
 }
 
 func resolveSiteInternalOpsConfig(cfg appcfg.SiteInternalOpsConfig) quickstart.InternalOpsConfig {

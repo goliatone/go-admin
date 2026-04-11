@@ -1,0 +1,13 @@
+{% extends "site/base.html" %}
+
+{% block title %}{{ home_meta.title|default:"Garchen Archive" }}{% endblock %}
+
+{% block content %}
+<section class="site-home-page">
+  {% include "site/home/hero.tmpl" %}
+  {% include "site/home/quote.tmpl" %}
+  {% include "site/home/highlights.tmpl" %}
+  {% include "site/home/news.tmpl" %}
+  {% include "site/home/newsletter.tmpl" %}
+</section>
+{% endblock %}

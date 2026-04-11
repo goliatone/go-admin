@@ -2,6 +2,7 @@
   "name": "garchen-archive-site",
   "version": "0.1.0",
   "description": "Public-site theme package generated from the standalone design-system workflow.",
+  "defaultVariant": "light",
   "tokens": {
     "color-bg-primary": "#fffffa",
     "color-bg-secondary": "#f4efe7",
@@ -80,6 +81,12 @@
     "site.layout.footer": "templates/site/partials/footer.tmpl",
     "site.nav.main": "templates/site/partials/menu_main.tmpl",
     "site.nav.footer": "templates/site/partials/menu_footer.tmpl",
+    "site.home.page": "templates/site/home/page.tmpl",
+    "site.home.hero": "templates/site/home/hero.tmpl",
+    "site.home.quote": "templates/site/home/quote.tmpl",
+    "site.home.highlights": "templates/site/home/highlights.tmpl",
+    "site.home.news": "templates/site/home/news.tmpl",
+    "site.home.newsletter": "templates/site/home/newsletter.tmpl",
     "site.search.page": "templates/site/search/page.tmpl",
     "site.content.list": "templates/site/content/list.tmpl",
     "site.content.detail": "templates/site/content/detail.tmpl"

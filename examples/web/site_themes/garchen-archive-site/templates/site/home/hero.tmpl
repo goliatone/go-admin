@@ -1,0 +1,15 @@
+<section class="site-home-hero ui-section" data-site-home-hero="true">
+  <div class="ui-container">
+    <p class="ui-eyebrow">{{ home_hero.eyebrow|default:"A living archive of practice and teaching" }}</p>
+    <h1 class="ui-heading-display">{{ home_hero.title|default:"Learn, search, and study Garchen Rinpoche's teachings in one place." }}</h1>
+    <p class="site-home-hero__copy">{{ home_hero.copy|default:"Browse curated guides, discover teaching topics, and search across transcripts, recordings, and editorial context designed for everyday study." }}</p>
+    <div class="site-home-hero__actions">
+      <a class="ui-button ui-button--primary ui-button--md" href="{{ home_hero.primary_href|default:'/teaching-topics' }}">
+        <span class="ui-button__label">{{ home_hero.primary_label|default:"Explore teaching topics" }}</span>
+      </a>
+      <a class="ui-button ui-button--secondary ui-button--md" href="{{ home_hero.secondary_href|default:'/guides' }}">
+        <span class="ui-button__label">{{ home_hero.secondary_label|default:"Browse guides" }}</span>
+      </a>
+    </div>
+  </div>
+</section>
