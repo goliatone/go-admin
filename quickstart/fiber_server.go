@@ -142,6 +142,7 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 		options.errorHandler = NewFiberErrorHandler(adm, cfg, isDev)
 	}
 	options.config.ErrorHandler = options.errorHandler
+	routeDomains := newHostRouteDomainResolver(cfg)
 
 	adapter := router.NewFiberAdapterWithConfig(options.routerConfig, func(_ *fiber.App) *fiber.App {
 		app := fiber.New(options.config)
@@ -157,6 +158,7 @@ func NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, 
 				app.Use(handler)
 			}
 		}
+		app.Use(newFiberOwned404Middleware(routeDomains, options.errorHandler))
 		return app
 	})
 
