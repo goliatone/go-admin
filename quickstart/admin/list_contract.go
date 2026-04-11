@@ -3,6 +3,7 @@ package admincontract
 import (
 	"context"
 	"fmt"
+	"maps"
 	"testing"
 )
 
@@ -166,9 +167,7 @@ func cloneMap(in map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 	return out
 }
 

@@ -28,6 +28,22 @@ type staticAssetsOptions struct {
 	sidebarAssets fs.FS
 }
 
+func resolveStaticAssetsOptions(cfg admin.Config, opts []StaticAssetsOption) staticAssetsOptions {
+	options := staticAssetsOptions{
+		assetsPrefix:  path.Join(cfg.BasePath, "assets"),
+		formgenPrefix: path.Join(cfg.BasePath, "formgen"),
+		runtimePrefix: path.Join(cfg.BasePath, "runtime"),
+		echartsPrefix: strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
+		sidebarAssets: SidebarAssetsFS(),
+	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&options)
+		}
+	}
+	return options
+}
+
 // WithDiskAssetsDir configures a disk-backed asset directory (for dev overrides).
 func WithDiskAssetsDir(dir string) StaticAssetsOption {
 	return func(opts *staticAssetsOptions) {
@@ -108,24 +124,29 @@ func WithSidebarAssetsFS(fsys fs.FS) StaticAssetsOption {
 	}
 }
 
+// ResolveStaticAssetPrefixes returns the static URL prefixes that
+// NewStaticAssets will mount for the given config and options.
+func ResolveStaticAssetPrefixes(cfg admin.Config, opts ...StaticAssetsOption) []string {
+	options := resolveStaticAssetsOptions(cfg, opts)
+	prefixes := []string{
+		options.assetsPrefix,
+		options.runtimePrefix,
+		options.formgenPrefix,
+		options.echartsPrefix,
+	}
+	if needsRuntimeRootAlias(options.runtimePrefix) {
+		prefixes = append(prefixes, "/runtime")
+	}
+	return uniqueHostPrefixes(prefixes)
+}
+
 // NewStaticAssets registers static asset routes with quickstart defaults.
 func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption) {
 	if r == nil {
 		return
 	}
 
-	options := staticAssetsOptions{
-		assetsPrefix:  path.Join(cfg.BasePath, "assets"),
-		formgenPrefix: path.Join(cfg.BasePath, "formgen"),
-		runtimePrefix: path.Join(cfg.BasePath, "runtime"),
-		echartsPrefix: strings.TrimSuffix(dashboardcmp.DefaultEChartsAssetsPath, "/"),
-		sidebarAssets: SidebarAssetsFS(),
-	}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(&options)
-		}
-	}
+	options := resolveStaticAssetsOptions(cfg, opts)
 
 	if options.diskAssetsFS == nil && options.diskAssetsDir != "" {
 		if _, err := os.Stat(options.diskAssetsDir); err == nil {
