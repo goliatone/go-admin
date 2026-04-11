@@ -71,7 +71,7 @@ Each helper is optional and composable.
 - `BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOptions) router.ViewContext` - Inputs: admin config and panel capability options. Outputs: template capability context including `export_config` and `datagrid_config`.
 - `PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: config + path resolver hints. Outputs: normalized `base_path`, `api_base_path`, `asset_base_path`, `preferences_api_path`.
 - `WithPathViewContext(ctx router.ViewContext, cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: existing context + path resolver hints. Outputs: merged context with canonical path keys.
-- `WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption` - Inputs: go-theme selector + manifest; outputs: option that wires theme selection + manifest into `NewAdmin` (including Preferences variant options).
+- `WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption` - Inputs: admin go-theme selector + manifest; outputs: option that wires admin theme selection + manifest into `NewAdmin` (including Preferences variant options).
 - `NewFiberServer(viewEngine fiber.Views, cfg admin.Config, adm *admin.Admin, isDev bool, opts ...FiberServerOption) (router.Server[*fiber.App], router.Router[*fiber.App])` - Inputs: views, config, admin, dev flag, server options. Outputs: go-router server adapter and router.
 - `NewThemeSelector(name, variant string, tokenOverrides map[string]string, opts ...ThemeOption) (theme.Selector, *theme.Manifest, error)` - Inputs: theme name/variant, token overrides, theme options. Outputs: selector, manifest, error.
 - `NewStaticAssets(r router.Router[T], cfg admin.Config, assetsFS fs.FS, opts ...StaticAssetsOption)` - Inputs: router, config, host assets FS, asset options. Outputs: none (registers static routes).
@@ -126,7 +126,7 @@ Release policy for quickstart matches core:
   `adm.RoutingPlanner().Manifest()`, startup logs, and the `quickstart.routing`
   doctor check
 
-See `../GUIDE_ROUTING.md` for the published external-module contract,
+See `../docs/GUIDE_ROUTING.md` for the published external-module contract,
 manifest-diff workflow, and PR review guidance.
 
 ```go
@@ -1067,7 +1067,44 @@ if err != nil {
 _ = adm
 ```
 
-If you build the admin manually, call `adm.WithGoTheme(selector)` and `adm.WithThemeManifest(manifest)` after initialization.
+If you build the admin manually, call `adm.WithAdminTheme(selector)` and `adm.WithThemeManifest(manifest)` after initialization. Public-site theme selection is separate; attach it with `quicksite.WithSiteTheme(selector)` or `SiteConfig.ThemeProvider`.
+
+## Public-site theme precedence
+
+For `quickstart/site`, the packaged theme should be the primary public-site HTML source and host-local wrappers should stay limited to compatibility glue. The supported diagnostics surfaces are:
+
+- `site_theme.manifest_partials` plus `site_theme.partials` in request/view context
+- `site_theme.baseline` for selected-versus-approved variant checks
+- `site.ResolveSiteThemeTemplateDiagnostics(...)` for concrete template winner and shadowed-source reporting
+
+When mounting template filesystems, label them so precedence diagnostics stay readable:
+
+```go
+siteCfg.Views.TemplateFS = []fs.FS{
+	site.LabelTemplateFS(themeFS, "garchen-archive-site", site.TemplateSourcePackagedTheme),
+	site.LabelTemplateFS(hostOverlayFS, "host-overlay", site.TemplateSourceHostOverlay),
+}
+```
+
+Use `site.home.page` when the public root route needs a dedicated homepage. If the host leaves `SiteThemeConfig.Variant` empty, the selector resolves the theme package `defaultVariant`; use `SiteThemeConfig.BaselineVariant` to warn when a downstream app forces a non-approved public baseline.
+
+## Routing migration notes
+
+When migrating a host from the old shared-root quickstart/site setup to the explicit ownership model:
+
+- register system, internal-ops, admin UI, admin API, public API, public site, and static routes through `quickstart.NewHostRouter(...)`; do not rely on calling `RegisterSiteRoutes(...)` before or after admin wiring to make ownership work
+- replace callback matchers or magic fallback mode strings with `quicksite.SiteFallbackPolicy` plus the exported mode constants (`SiteFallbackModeDisabled`, `SiteFallbackModePublicContentOnly`, `SiteFallbackModeExplicitPathsOnly`)
+- remove handler-level prefix guards for `/admin`, `/api`, `/.well-known`, `/assets`, and `/static`; reserved-prefix enforcement now belongs in the grouped router surfaces and the declarative fallback policy
+- migrate old shared theme wiring from `adm.WithGoTheme(...)` to `adm.WithAdminTheme(...)`, and attach the public-site selector separately with `quicksite.WithSiteTheme(...)` or `SiteConfig.ThemeProvider`
+- keep `/healthz` and `/status` on the internal-ops surface when enabled so those endpoints never resolve through site fallback
+
+Recommended QA after migration:
+
+- `GET /search` renders with the site theme surface
+- an allowed unknown public content path resolves through site fallback
+- `GET /admin/missing` returns the admin 404 behavior rather than a site page
+- `GET /.well-known/...` bypasses site templates entirely
+- enabled `/healthz` and `/status` endpoints return host-owned diagnostics payloads
 
 ## Onboarding + secure links
 

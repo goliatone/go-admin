@@ -664,10 +664,13 @@ selector, _, err := quickstart.NewThemeSelector(
 if err != nil {
 	return err
 }
-adm.WithGoTheme(selector)
+adm.WithAdminTheme(selector)
 ```
 
-Preferences can optionally override theme/variant at runtime (see `docs/GUIDE_MOD_PREFERENCES.md`).
+Preferences can optionally override theme/variant at runtime (see
+`docs/GUIDE_MOD_PREFERENCES.md`). Public-site theme selection is separate; wire
+that with `quicksite.WithSiteTheme(...)` or `SiteConfig.ThemeProvider` instead
+of sharing the admin selector implicitly.
 
 When rendering custom views, use the helper to inject theme payloads (supports query overrides):
 

@@ -2,6 +2,25 @@
 
 # [0.35.0](https://github.com/goliatone/go-admin/compare/v0.34.0...v0.35.0) - (2026-04-08)
 
+## Routing Ownership Upgrade Notes
+
+- Public-site routing is now an explicit host-owned surface. Migrate shared-root
+  `quickstart/site` catch-all setups to `quickstart.NewHostRouter(...)` plus a
+  declarative `quicksite.SiteFallbackPolicy`.
+- The default fallback posture is `quicksite.SiteFallbackModePublicContentOnly`
+  with `AllowRoot=true`, methods `GET`/`HEAD`, and reserved prefixes `/admin`,
+  `/api`, `/.well-known`, `/static`, and `/assets` plus enabled internal-ops
+  paths.
+- Startup validation remains strict fail-fast in every environment. Route
+  ownership conflicts, reserved-prefix overlap, and invalid site fallback
+  policies are rollout blockers, not warnings.
+- `adm.WithGoTheme(...)` has been removed. Use `adm.WithAdminTheme(...)` for the
+  admin runtime and attach public-site theme selection separately with
+  `quicksite.WithSiteTheme(...)` or `SiteConfig.ThemeProvider`.
+- This is a clean-break migration. There is no compatibility bridge for legacy
+  shared-root site catch-all wiring, callback fallback matchers, or the removed
+  shared theme hook.
+
 ## <!-- 1 -->🐛 Bug Fixes
 
 - Dashboard rendering widgets ([5b8e98d](https://github.com/goliatone/go-admin/commit/5b8e98ddef6c6737f69f8818fc622c216ca40868))  - (goliatone)
@@ -2157,5 +2176,4 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
 

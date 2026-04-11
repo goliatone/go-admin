@@ -112,7 +112,7 @@ A stable HTTP JSON routing report endpoint is not part of the first release of
 the clean-break routing API. Use the in-process report/manifest APIs or
 quickstart doctor output instead.
 
-See `GUIDE_ROUTING.md` for the external-module contract, release policy,
+See `docs/GUIDE_ROUTING.md` for the external-module contract, release policy,
 and CI manifest-review guidance.
 
 ## Panel Entry Modes
@@ -220,10 +220,10 @@ Mapping behavior:
 ## References
 
 - Quickstart API and helpers: `quickstart/README.md`
-- Routing policy contract and CI review workflow: `GUIDE_ROUTING.md`
-- Routing incidents and operational context: `REPORT_ROUTES.md`
+- Routing policy contract and CI review workflow: `docs/GUIDE_ROUTING.md`
+- Routing execution/signoff chain: `ROUTING_ARD.md`, `ROUTING_TSK.md`, `docs/ROUTING_RELEASE_CHECKLIST.md`
 - Example runtime config conventions: `examples/web/config/app.json` and `examples/web/README.md`
 - CMS and translation workflow guide: `docs/GUIDE_CMS.md`
-- Background command routing observability: `GUIDE_BKG_CMD_OBSERVABILITY.md`
+- Background command routing observability: `docs/GUIDE_BKG_CMD_OBSERVABILITY.md`
 - Persisted workflow runtime: `docs/WORKFLOW_PERSISTENCE.md`
 - End-to-end examples: `examples/web/main.go`, `examples/esign/main.go`

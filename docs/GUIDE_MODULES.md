@@ -118,7 +118,7 @@ type TranslatorAware interface {
 MenuContributor is separate from Module; your module should implement Module and optionally MenuContributor/TranslatorAware.
 
 Mounted modules should also implement `RouteContractProvider`; module routing is
-no longer inferred. See `GUIDE_ROUTING.md` for the published slug, route
+no longer inferred. See `docs/GUIDE_ROUTING.md` for the published slug, route
 ownership, mount, and manifest-review contract.
 
 ### Repository Interface
