@@ -36,7 +36,13 @@ func (r *deliveryRuntime) canonicalRedirectTarget(c router.Context, resolution *
 	)
 	publicPath := canonical
 	if r.siteCfg.Features.EnableI18N {
-		publicPath = LocalizedPath(publicPath, resolvedLocale, r.siteCfg.DefaultLocale, r.siteCfg.LocalePrefixMode)
+		publicPath = localizedPublicPathForStoredPath(
+			publicPath,
+			resolvedLocale,
+			r.siteCfg.DefaultLocale,
+			r.siteCfg.LocalePrefixMode,
+			r.siteCfg.SupportedLocales,
+		)
 	}
 	publicPath = normalizeLocalePath(admin.PrefixBasePath(r.siteCfg.BasePath, publicPath))
 	if publicPath == "" {

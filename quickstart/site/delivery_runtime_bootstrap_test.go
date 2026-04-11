@@ -96,12 +96,12 @@ func TestDeliveryRuntimeBootstrapStrictLocalizedPathsEnabledRequiresBothFlags(t 
 		t.Fatalf("expected strict localized paths disabled by default")
 	}
 	if (&deliveryRuntime{siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
-		Features: SiteFeatures{EnableI18N: boolPtr(true), StrictLocalizedPaths: boolPtr(false)},
+		Features: SiteFeatures{EnableI18N: new(true), StrictLocalizedPaths: new(false)},
 	})}).strictLocalizedPathsEnabled() {
 		t.Fatalf("expected strict localized paths to stay disabled without strict flag")
 	}
 	if !(&deliveryRuntime{siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
-		Features: SiteFeatures{EnableI18N: boolPtr(true), StrictLocalizedPaths: boolPtr(true)},
+		Features: SiteFeatures{EnableI18N: new(true), StrictLocalizedPaths: new(true)},
 	})}).strictLocalizedPathsEnabled() {
 		t.Fatalf("expected strict localized paths when both flags are enabled")
 	}

@@ -28,7 +28,7 @@ func (f siteRegisterFlow[T]) registerRoutingOwnership(adm *admin.Admin) error {
 	}
 
 	planner := adm.RoutingPlanner()
-	if entries := f.routingManifestEntries(); len(entries) > 0 {
+	if entries := f.routingManifestEntries(adm); len(entries) > 0 {
 		if err := planner.RegisterHostRoutes(entries...); err != nil {
 			adm.RefreshRoutingReport()
 			return err
@@ -44,56 +44,55 @@ func (f siteRegisterFlow[T]) registerRoutingOwnership(adm *admin.Admin) error {
 	return nil
 }
 
-func (f siteRegisterFlow[T]) routingManifestEntries() []routing.ManifestEntry {
+func (f siteRegisterFlow[T]) routingManifestEntries(adm *admin.Admin) []routing.ManifestEntry {
 	entries := make([]routing.ManifestEntry, 0, 4)
-	if !f.resolved.Features.EnableSearch || f.options.searchProvider == nil {
-		return nil
+	if f.resolved.Features.EnableSearch && f.options.searchProvider != nil {
+		searchPath := prefixedRoutePath(f.resolved.BasePath, f.resolved.Search.Route)
+		searchTopicPath := strings.TrimSuffix(searchPath, "/") + "/topics/:topic_slug"
+		searchAPIPath := prefixedRoutePath("", f.resolved.Search.Endpoint)
+		suggestAPIPath := prefixedRoutePath("", searchSuggestRoute(f.resolved.Search.Endpoint))
+
+		entries = append(entries,
+			routing.ManifestEntry{
+				Owner:     siteRoutingOwner,
+				Surface:   routing.SurfacePublicSite,
+				Domain:    routing.RouteDomainPublicSite,
+				RouteKey:  "site.search.page",
+				RouteName: "site.search.page",
+				Method:    "GET",
+				Path:      searchPath,
+			},
+			routing.ManifestEntry{
+				Owner:     siteRoutingOwner,
+				Surface:   routing.SurfacePublicSite,
+				Domain:    routing.RouteDomainPublicSite,
+				RouteKey:  "site.search.topic",
+				RouteName: "site.search.topic",
+				Method:    "GET",
+				Path:      searchTopicPath,
+			},
+			routing.ManifestEntry{
+				Owner:     siteRoutingOwner,
+				Surface:   routing.SurfacePublicAPI,
+				Domain:    routing.RouteDomainPublicAPI,
+				RouteKey:  "site.search.api",
+				RouteName: "site.search.api",
+				Method:    "GET",
+				Path:      searchAPIPath,
+			},
+			routing.ManifestEntry{
+				Owner:     siteRoutingOwner,
+				Surface:   routing.SurfacePublicAPI,
+				Domain:    routing.RouteDomainPublicAPI,
+				RouteKey:  "site.search.suggest",
+				RouteName: "site.search.suggest",
+				Method:    "GET",
+				Path:      suggestAPIPath,
+			},
+		)
 	}
-
-	searchPath := prefixedRoutePath(f.resolved.BasePath, f.resolved.Search.Route)
-	searchTopicPath := strings.TrimSuffix(searchPath, "/") + "/topics/:topic_slug"
-	searchAPIPath := prefixedRoutePath("", f.resolved.Search.Endpoint)
-	suggestAPIPath := prefixedRoutePath("", searchSuggestRoute(f.resolved.Search.Endpoint))
-
-	entries = append(entries,
-		routing.ManifestEntry{
-			Owner:     siteRoutingOwner,
-			Surface:   routing.SurfacePublicSite,
-			Domain:    routing.RouteDomainPublicSite,
-			RouteKey:  "site.search.page",
-			RouteName: "site.search.page",
-			Method:    "GET",
-			Path:      searchPath,
-		},
-		routing.ManifestEntry{
-			Owner:     siteRoutingOwner,
-			Surface:   routing.SurfacePublicSite,
-			Domain:    routing.RouteDomainPublicSite,
-			RouteKey:  "site.search.topic",
-			RouteName: "site.search.topic",
-			Method:    "GET",
-			Path:      searchTopicPath,
-		},
-		routing.ManifestEntry{
-			Owner:     siteRoutingOwner,
-			Surface:   routing.SurfacePublicAPI,
-			Domain:    routing.RouteDomainPublicAPI,
-			RouteKey:  "site.search.api",
-			RouteName: "site.search.api",
-			Method:    "GET",
-			Path:      searchAPIPath,
-		},
-		routing.ManifestEntry{
-			Owner:     siteRoutingOwner,
-			Surface:   routing.SurfacePublicAPI,
-			Domain:    routing.RouteDomainPublicAPI,
-			RouteKey:  "site.search.suggest",
-			RouteName: "site.search.suggest",
-			Method:    "GET",
-			Path:      suggestAPIPath,
-		},
-	)
-	return entries
+	entries = append(entries, f.moduleRoutingManifestEntries(adm)...)
+	return uniqueManifestEntries(entries)
 }
 
 func (f siteRegisterFlow[T]) routingFallbackEntry() (routing.FallbackEntry, bool) {
@@ -149,4 +148,71 @@ func policyMethodStrings(values []router.HTTPMethod) []string {
 		return nil
 	}
 	return out
+}
+
+func (f siteRegisterFlow[T]) moduleRoutingManifestEntries(adm *admin.Admin) []routing.ManifestEntry {
+	ctx := SiteRoutingOwnershipContext{
+		Admin:            adm,
+		SiteConfig:       f.resolved,
+		SearchProvider:   f.options.searchProvider,
+		SearchOperations: f.options.searchOperations,
+	}
+
+	out := make([]routing.ManifestEntry, 0, len(f.modules))
+	for _, module := range f.modules {
+		provider, ok := module.(SiteRoutingOwnershipProvider)
+		if !ok || provider == nil {
+			continue
+		}
+		out = append(out, provider.RoutingOwnership(ctx)...)
+	}
+	return out
+}
+
+func uniqueManifestEntries(entries []routing.ManifestEntry) []routing.ManifestEntry {
+	if len(entries) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]routing.ManifestEntry, 0, len(entries))
+	for _, entry := range entries {
+		normalized := normalizeRoutingOwnershipEntry(entry)
+		key := strings.Join([]string{
+			normalized.Owner,
+			normalized.Surface,
+			normalized.Domain,
+			normalized.RouteKey,
+			normalized.RouteName,
+			normalized.Method,
+			normalized.Path,
+			normalized.GroupPath,
+		}, "|")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, normalized)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeRoutingOwnershipEntry(entry routing.ManifestEntry) routing.ManifestEntry {
+	entry.Owner = strings.TrimSpace(entry.Owner)
+	entry.Surface = routing.NormalizeRouteSurface(entry.Surface)
+	entry.Domain = routing.NormalizeRouteDomain(entry.Domain)
+	if entry.Surface == "" {
+		entry.Surface = routing.DefaultRouteSurfaceForDomain(entry.Domain)
+	}
+	if entry.Domain == "" {
+		entry.Domain = routing.DefaultRouteDomainForSurface(entry.Surface)
+	}
+	entry.RouteKey = strings.TrimSpace(entry.RouteKey)
+	entry.RouteName = strings.TrimSpace(entry.RouteName)
+	entry.Method = strings.ToUpper(strings.TrimSpace(entry.Method))
+	entry.Path = normalizePath(entry.Path)
+	entry.GroupPath = strings.TrimSpace(entry.GroupPath)
+	return entry
 }

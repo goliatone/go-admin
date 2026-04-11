@@ -1,6 +1,7 @@
 package site
 
 import (
+	"maps"
 	"sort"
 	"strings"
 )
@@ -11,6 +12,7 @@ const (
 	siteThemeTemplateKeyFooter        = "site.layout.footer"
 	siteThemeTemplateKeyMainNav       = "site.nav.main"
 	siteThemeTemplateKeyFooterNav     = "site.nav.footer"
+	siteThemeTemplateKeyHomePage      = "site.home.page"
 	siteThemeTemplateKeySearchPage    = "site.search.page"
 	siteThemeTemplateKeyContentList   = "site.content.list"
 	siteThemeTemplateKeyContentDetail = "site.content.detail"
@@ -61,9 +63,7 @@ func cloneThemePayloadSection(payload map[string]map[string]string, key string) 
 		return nil
 	}
 	out := make(map[string]string, len(values))
-	for subKey, subValue := range values {
-		out[subKey] = subValue
-	}
+	maps.Copy(out, values)
 	return out
 }
 
@@ -215,17 +215,7 @@ func buildSiteThemePartialAliases(raw map[string]string) map[string]string {
 		return nil
 	}
 	out := map[string]string{}
-	aliases := map[string]string{
-		"base":           siteThemeTemplateKeyBase,
-		"header":         siteThemeTemplateKeyHeader,
-		"footer":         siteThemeTemplateKeyFooter,
-		"main_nav":       siteThemeTemplateKeyMainNav,
-		"footer_nav":     siteThemeTemplateKeyFooterNav,
-		"search_page":    siteThemeTemplateKeySearchPage,
-		"content_list":   siteThemeTemplateKeyContentList,
-		"content_detail": siteThemeTemplateKeyContentDetail,
-	}
-	for alias, rawKey := range aliases {
+	for alias, rawKey := range siteThemeTemplateAliases() {
 		value := normalizeSiteThemeTemplatePath(raw[rawKey])
 		if value != "" {
 			out[alias] = value
@@ -275,6 +265,65 @@ func normalizeSiteThemeTemplatePath(path string) string {
 	return strings.TrimPrefix(path, "/")
 }
 
+func siteThemeTemplateAliases() map[string]string {
+	return map[string]string{
+		"base":           siteThemeTemplateKeyBase,
+		"header":         siteThemeTemplateKeyHeader,
+		"footer":         siteThemeTemplateKeyFooter,
+		"main_nav":       siteThemeTemplateKeyMainNav,
+		"footer_nav":     siteThemeTemplateKeyFooterNav,
+		"home_page":      siteThemeTemplateKeyHomePage,
+		"search_page":    siteThemeTemplateKeySearchPage,
+		"content_list":   siteThemeTemplateKeyContentList,
+		"content_detail": siteThemeTemplateKeyContentDetail,
+	}
+}
+
+func siteThemeTemplateAlias(key string) string {
+	for alias, templateKey := range siteThemeTemplateAliases() {
+		if strings.EqualFold(strings.TrimSpace(templateKey), strings.TrimSpace(key)) {
+			return alias
+		}
+	}
+	return ""
+}
+
+func buildSiteThemeBaselineContract(baselineVariant *string, selectedVariant string) map[string]any {
+	if baselineVariant == nil {
+		return nil
+	}
+	baseline := strings.TrimSpace(*baselineVariant)
+	selected := strings.TrimSpace(selectedVariant)
+	matches := selected == baseline
+
+	out := map[string]any{
+		"baseline_variant": baseline,
+		"selected_variant": selected,
+		"matches_baseline": matches,
+	}
+	if warning := siteThemeBaselineWarning(selected, baseline); warning != "" {
+		out["warning"] = warning
+	}
+	return out
+}
+
+func siteThemeBaselineWarning(selectedVariant, baselineVariant string) string {
+	selectedVariant = strings.TrimSpace(selectedVariant)
+	baselineVariant = strings.TrimSpace(baselineVariant)
+	if selectedVariant == baselineVariant {
+		return ""
+	}
+	selectedLabel := "base"
+	if selectedVariant != "" {
+		selectedLabel = selectedVariant
+	}
+	baselineLabel := "base"
+	if baselineVariant != "" {
+		baselineLabel = baselineVariant
+	}
+	return "selected public-site variant does not match the configured baseline: selected=" + selectedLabel + " baseline=" + baselineLabel
+}
+
 func cloneSiteThemeContract(input map[string]any) map[string]any {
 	if len(input) == 0 {
 		return nil
@@ -284,15 +333,11 @@ func cloneSiteThemeContract(input map[string]any) map[string]any {
 		switch typed := value.(type) {
 		case map[string]string:
 			dup := make(map[string]string, len(typed))
-			for childKey, childValue := range typed {
-				dup[childKey] = childValue
-			}
+			maps.Copy(dup, typed)
 			out[key] = dup
 		case map[string]any:
 			dup := make(map[string]any, len(typed))
-			for childKey, childValue := range typed {
-				dup[childKey] = childValue
-			}
+			maps.Copy(dup, typed)
 			out[key] = dup
 		case []string:
 			out[key] = cloneStrings(typed)

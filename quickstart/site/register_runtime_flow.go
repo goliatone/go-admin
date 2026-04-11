@@ -24,6 +24,9 @@ func resolveSiteRegisterFlow[T any](
 	resolved := ResolveSiteConfig(cfg, siteCfg)
 	modules := compactModules(resolved.Modules)
 	options, searchRuntime := resolveSiteRegisterOptions(adm, resolved, modules, opts)
+	if options.themeProvider != nil {
+		resolved.ThemeProvider = options.themeProvider
+	}
 	return siteRegisterFlow[T]{
 		resolved:      resolved,
 		modules:       modules,
@@ -94,12 +97,17 @@ func (f siteRegisterFlow[T]) register(r router.Router[T], adm *admin.Admin, cfg 
 	if err := f.registerRoutingOwnership(adm); err != nil {
 		return err
 	}
-	r.Use(requestContextMiddleware(adm, cfg, f.resolved, f.modules))
-	if err := f.registerModules(r, adm); err != nil {
+	targets := resolveSiteRouteTargets(r)
+	requestContext := requestContextMiddleware(adm, cfg, f.resolved, f.modules)
+	targets.site.Use(requestContext)
+	if targets.hasDedicatedPublicAPI {
+		targets.publicAPI.Use(requestContext)
+	}
+	if err := f.registerModules(targets.site, adm); err != nil {
 		return err
 	}
-	f.registerSearchRoutes(r)
-	f.registerContentRoutes(r)
+	f.registerSearchRoutes(targets.site, targets.publicAPI)
+	f.registerContentRoutes(targets.site)
 	return nil
 }
 
@@ -128,25 +136,32 @@ func (f siteRegisterFlow[T]) registerModules(r router.Router[T], adm *admin.Admi
 	return nil
 }
 
-func (f siteRegisterFlow[T]) registerSearchRoutes(r router.Router[T]) {
+func (f siteRegisterFlow[T]) registerSearchRoutes(siteRouter, publicAPIRouter router.Router[T]) {
 	if !f.resolved.Features.EnableSearch || f.options.searchProvider == nil {
 		return
+	}
+	if siteRouter == nil {
+		return
+	}
+	apiRouter := siteRouter
+	if publicAPIRouter != nil {
+		apiRouter = publicAPIRouter
 	}
 
 	searchPath := prefixedRoutePath(f.resolved.BasePath, f.resolved.Search.Route)
 	searchTopicPath := strings.TrimSuffix(searchPath, "/") + "/topics/:topic_slug"
 	searchAPIPath := prefixedRoutePath("", f.resolved.Search.Endpoint)
 	suggestAPIPath := prefixedRoutePath("", searchSuggestRoute(f.resolved.Search.Endpoint))
-	r.Get(searchPath, f.options.searchHandler)
-	r.Head(searchPath, f.options.searchHandler)
+	siteRouter.Get(searchPath, f.options.searchHandler)
+	siteRouter.Head(searchPath, f.options.searchHandler)
 	if f.searchRuntime != nil {
-		r.Get(searchTopicPath, f.searchRuntime.TopicPageHandler())
-		r.Head(searchTopicPath, f.searchRuntime.TopicPageHandler())
+		siteRouter.Get(searchTopicPath, f.searchRuntime.TopicPageHandler())
+		siteRouter.Head(searchTopicPath, f.searchRuntime.TopicPageHandler())
 	}
-	r.Get(searchAPIPath, f.options.searchAPIHandler)
-	r.Head(searchAPIPath, f.options.searchAPIHandler)
-	r.Get(suggestAPIPath, f.options.suggestAPIHandler)
-	r.Head(suggestAPIPath, f.options.suggestAPIHandler)
+	apiRouter.Get(searchAPIPath, f.options.searchAPIHandler)
+	apiRouter.Head(searchAPIPath, f.options.searchAPIHandler)
+	apiRouter.Get(suggestAPIPath, f.options.suggestAPIHandler)
+	apiRouter.Head(suggestAPIPath, f.options.suggestAPIHandler)
 }
 
 func (f siteRegisterFlow[T]) registerContentRoutes(r router.Router[T]) {

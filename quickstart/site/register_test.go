@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 )
 
@@ -22,8 +23,31 @@ type recordingRouter struct {
 	middlewares []router.MiddlewareFunc
 }
 
+type splitRecordingRouter struct {
+	*recordingRouter
+	site      *recordingRouter
+	publicAPI *recordingRouter
+}
+
 func (r *recordingRouter) record(method, path string) {
 	r.routes = append(r.routes, recordedRoute{Method: method, Path: path})
+}
+
+func newSplitRecordingRouter() *splitRecordingRouter {
+	site := &recordingRouter{}
+	return &splitRecordingRouter{
+		recordingRouter: site,
+		site:            site,
+		publicAPI:       &recordingRouter{},
+	}
+}
+
+func (r *splitRecordingRouter) PublicSiteRouter() router.Router[*fiber.App] {
+	return r.site
+}
+
+func (r *splitRecordingRouter) PublicAPIRouter() router.Router[*fiber.App] {
+	return r.publicAPI
 }
 
 func (r *recordingRouter) Handle(method router.HTTPMethod, path string, handler router.HandlerFunc, middlewares ...router.MiddlewareFunc) router.RouteInfo {
@@ -133,6 +157,7 @@ type moduleStub struct {
 	id            string
 	registerRoute string
 	registerErr   error
+	ownership     []routing.ManifestEntry
 	viewContextFn func(context.Context, router.ViewContext) router.ViewContext
 }
 
@@ -153,6 +178,11 @@ func (m moduleStub) ViewContext(ctx context.Context, in router.ViewContext) rout
 		return in
 	}
 	return m.viewContextFn(ctx, in)
+}
+
+func (m moduleStub) RoutingOwnership(ctx SiteRoutingOwnershipContext) []routing.ManifestEntry {
+	_ = ctx
+	return append([]routing.ManifestEntry{}, m.ownership...)
 }
 
 type searchProviderStub struct{}
@@ -217,7 +247,7 @@ func TestRegisterSiteRoutesFeatureFlagGating(t *testing.T) {
 
 	routerDisabledFeature := &recordingRouter{}
 	if err := RegisterSiteRoutes(routerDisabledFeature, nil, cfg, SiteConfig{
-		Features: SiteFeatures{EnableSearch: boolPtr(false)},
+		Features: SiteFeatures{EnableSearch: new(false)},
 	}, WithSearchProvider(searchProviderStub{})); err != nil {
 		t.Fatalf("register disabled search: %v", err)
 	}
@@ -240,6 +270,75 @@ func TestRegisterSiteRoutesFeatureFlagGating(t *testing.T) {
 	}
 	if indexOfRoute(routerEnabled.routes, "GET", "/api/v1/site/search/suggest") == -1 {
 		t.Fatalf("expected search suggest route when search feature enabled")
+	}
+}
+
+func TestRegisterSiteRoutesSplitPublicSiteAndPublicAPISurfaces(t *testing.T) {
+	cfg := admin.Config{DefaultLocale: "en"}
+	recorder := newSplitRecordingRouter()
+
+	if err := RegisterSiteRoutes(recorder, nil, cfg, SiteConfig{
+		BasePath: "/site",
+		Features: SiteFeatures{
+			EnableSearch: new(true),
+			EnableI18N:   new(false),
+		},
+	}, WithSearchProvider(searchProviderStub{})); err != nil {
+		t.Fatalf("register split site routes: %v", err)
+	}
+
+	if indexOfRoute(recorder.site.routes, "GET", "/site/search") == -1 {
+		t.Fatalf("expected search page route on public site surface, got %+v", recorder.site.routes)
+	}
+	if indexOfRoute(recorder.site.routes, "GET", "/site/search/topics/:topic_slug") == -1 {
+		t.Fatalf("expected search topic route on public site surface, got %+v", recorder.site.routes)
+	}
+	if indexOfRoute(recorder.site.routes, "GET", "/site") == -1 {
+		t.Fatalf("expected site content route on public site surface, got %+v", recorder.site.routes)
+	}
+	if indexOfRoute(recorder.publicAPI.routes, "GET", DefaultSearchEndpoint) == -1 {
+		t.Fatalf("expected search api route on public api surface, got %+v", recorder.publicAPI.routes)
+	}
+	if indexOfRoute(recorder.publicAPI.routes, "GET", DefaultSearchSuggestRoute) == -1 {
+		t.Fatalf("expected search suggest route on public api surface, got %+v", recorder.publicAPI.routes)
+	}
+	if indexOfRoute(recorder.site.routes, "GET", DefaultSearchEndpoint) != -1 {
+		t.Fatalf("did not expect search api route on public site surface, got %+v", recorder.site.routes)
+	}
+	if len(recorder.site.middlewares) != 1 || len(recorder.publicAPI.middlewares) != 1 {
+		t.Fatalf("expected request-context middleware on both surfaces, got site=%d public_api=%d", len(recorder.site.middlewares), len(recorder.publicAPI.middlewares))
+	}
+}
+
+func TestResolveSiteRoutingOwnershipIncludesModuleOwnershipProviders(t *testing.T) {
+	flow := resolveSiteRegisterFlow[*fiber.App](
+		nil,
+		admin.Config{DefaultLocale: "en"},
+		SiteConfig{
+			BasePath: "/site",
+			Modules: []SiteModule{
+				moduleStub{
+					id: "marketing",
+					ownership: []routing.ManifestEntry{
+						{
+							Owner:     "host:marketing_site",
+							Surface:   routing.SurfacePublicSite,
+							Domain:    routing.RouteDomainPublicSite,
+							RouteKey:  "site.landing",
+							RouteName: "site.landing",
+							Method:    "GET",
+							Path:      "/landing",
+						},
+					},
+				},
+			},
+		},
+		nil,
+	)
+
+	entries := flow.routingManifestEntries(nil)
+	if indexOfManifestEntry(entries, "host:marketing_site", "/landing") == -1 {
+		t.Fatalf("expected module ownership entry to be included, got %+v", entries)
 	}
 }
 
@@ -281,6 +380,15 @@ func TestResolveRequestStateThemePriority(t *testing.T) {
 	}
 }
 
+func indexOfManifestEntry(entries []routing.ManifestEntry, owner, path string) int {
+	for idx, entry := range entries {
+		if entry.Owner == owner && entry.Path == path {
+			return idx
+		}
+	}
+	return -1
+}
+
 func TestRegisterSiteRoutesUsesSingleCatchAllForLocaleModes(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en"}
 
@@ -314,7 +422,7 @@ func TestRegisterSiteRoutesUsesSingleCatchAllForLocaleModes(t *testing.T) {
 
 	i18nDisabled := &recordingRouter{}
 	if err := RegisterSiteRoutes(i18nDisabled, nil, cfg, SiteConfig{
-		Features: SiteFeatures{EnableI18N: boolPtr(false)},
+		Features: SiteFeatures{EnableI18N: new(false)},
 	}); err != nil {
 		t.Fatalf("register i18n disabled: %v", err)
 	}
@@ -326,42 +434,48 @@ func TestRegisterSiteRoutesUsesSingleCatchAllForLocaleModes(t *testing.T) {
 	}
 }
 
-func TestRegisterSiteRoutesUsesFiberCatchAllSyntax(t *testing.T) {
+func TestRegisterSiteRoutesUsesFiberMissHandlersForPublicContentFallback(t *testing.T) {
 	adapter := router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
 		PathConflictMode: router.PathConflictModePreferStatic,
 		StrictRoutes:     true,
 	})
-	if err := RegisterSiteRoutes(adapter.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}); err != nil {
+	if err := RegisterSiteRoutes(adapter.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}, WithContentHandler(func(c router.Context) error {
+		return c.JSON(200, map[string]any{"handler": "site"})
+	})); err != nil {
 		t.Fatalf("register site routes on fiber adapter: %v", err)
 	}
+	adapter.Init()
 
 	routes := adapter.Router().Routes()
-	if indexOfRouteDef(routes, router.GET, "/*") == -1 {
-		t.Fatalf("expected fiber catch-all route /*, got %+v", routes)
+	if indexOfRouteDef(routes, router.GET, "/*") != -1 || indexOfRouteDef(routes, router.GET, "/*path") != -1 {
+		t.Fatalf("did not expect explicit catch-all routes when miss handlers are available, got %+v", routes)
 	}
-	if indexOfRouteDef(routes, router.GET, "/*path") != -1 {
-		t.Fatalf("did not expect httprouter-style catch-all on fiber, got %+v", routes)
+	if rec := performSiteTestRequest(t, adapter, "GET", "/"); rec.Code != 200 {
+		t.Fatalf("expected root fallback to resolve through miss handler, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	if rec := performSiteTestRequest(t, adapter, "GET", "/posts/welcome"); rec.Code != 200 {
+		t.Fatalf("expected nested fallback to resolve through miss handler, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
-func TestRegisterSiteRoutesUsesHTTPRouterSegmentFallbackRoutes(t *testing.T) {
+func TestRegisterSiteRoutesUsesHTTPRouterMissHandlersForPublicContentFallback(t *testing.T) {
 	adapter := router.NewHTTPServer()
-	if err := RegisterSiteRoutes(adapter.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}); err != nil {
+	if err := RegisterSiteRoutes(adapter.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{}, WithContentHandler(func(c router.Context) error {
+		return c.JSON(200, map[string]any{"handler": "site"})
+	})); err != nil {
 		t.Fatalf("register site routes on httprouter adapter: %v", err)
 	}
+	adapter.Init()
 
 	routes := adapter.Router().Routes()
-	if indexOfRouteDef(routes, router.GET, "/") == -1 {
-		t.Fatalf("expected httprouter root route /, got %+v", routes)
+	if indexOfRouteDef(routes, router.GET, "/") != -1 || indexOfRouteDef(routes, router.GET, "/:path") != -1 || indexOfRouteDef(routes, router.GET, "/:path/*rest") != -1 || indexOfRouteDef(routes, router.GET, "/*path") != -1 {
+		t.Fatalf("did not expect explicit fallback wildcard routes when miss handlers are available, got %+v", routes)
 	}
-	if indexOfRouteDef(routes, router.GET, "/:path") == -1 {
-		t.Fatalf("expected httprouter single-segment fallback route /:path, got %+v", routes)
+	if rec := performSiteTestRequest(t, adapter, "GET", "/"); rec.Code != 200 {
+		t.Fatalf("expected root fallback to resolve through miss handler, got %d body=%s", rec.Code, rec.Body.String())
 	}
-	if indexOfRouteDef(routes, router.GET, "/:path/*rest") == -1 {
-		t.Fatalf("expected httprouter nested fallback route /:path/*rest, got %+v", routes)
-	}
-	if indexOfRouteDef(routes, router.GET, "/*path") != -1 {
-		t.Fatalf("did not expect conflicting httprouter catch-all /*path, got %+v", routes)
+	if rec := performSiteTestRequest(t, adapter, "GET", "/posts/welcome"); rec.Code != 200 {
+		t.Fatalf("expected nested fallback to resolve through miss handler, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

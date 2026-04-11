@@ -16,7 +16,7 @@ func TestNavigationResolveReadOptionsDelegatesToRuntimeHelper(t *testing.T) {
 				ContributionLocalePolicy: ContributionLocalePolicyFallback,
 			},
 			Features: SiteFeatures{
-				EnableMenuDraftPreview: boolPtr(true),
+				EnableMenuDraftPreview: new(true),
 			},
 		}),
 	}
@@ -58,7 +58,7 @@ func TestNavigationResolveMenuForLocationDelegatesToResolutionHelper(t *testing.
 					Code:     "main_code",
 					Location: "site.main",
 					Items: []admin.MenuItem{
-						{ID: "home", Label: "Home", Position: intPtr(1), Target: map[string]any{"url": "/home"}},
+						{ID: "home", Label: "Home", Position: new(1), Target: map[string]any{"url": "/home"}},
 					},
 				},
 			},
@@ -95,14 +95,14 @@ func TestNavigationContextDelegatesToResolutionHelper(t *testing.T) {
 					Code:     "main_code",
 					Location: "site.main",
 					Items: []admin.MenuItem{
-						{ID: "home", Label: "Home", Position: intPtr(1), Target: map[string]any{"url": "/home"}},
+						{ID: "home", Label: "Home", Position: new(1), Target: map[string]any{"url": "/home"}},
 					},
 				},
 				"site.footer": {
 					Code:     "footer_code",
 					Location: "site.footer",
 					Items: []admin.MenuItem{
-						{ID: "legal", Label: "Legal", Position: intPtr(1), Target: map[string]any{"url": "/legal"}},
+						{ID: "legal", Label: "Legal", Position: new(1), Target: map[string]any{"url": "/legal"}},
 					},
 				},
 			},

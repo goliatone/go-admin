@@ -21,8 +21,8 @@ func matchRoutePattern(pattern, requestPath string) (map[string]string, bool) {
 	params := map[string]string{}
 	for i, segment := range patternSegments {
 		value := requestSegments[i]
-		if strings.HasPrefix(segment, ":") {
-			key := strings.TrimPrefix(segment, ":")
+		if after, ok := strings.CutPrefix(segment, ":"); ok {
+			key := after
 			if key == "" {
 				return nil, false
 			}

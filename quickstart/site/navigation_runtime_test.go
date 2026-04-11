@@ -21,17 +21,17 @@ func TestSiteNavigationProfilesByLocation(t *testing.T) {
 				Code:     "site_primary",
 				Location: "site.main",
 				Items: []admin.MenuItem{
-					{ID: "main.home", Label: "Home", Position: intPtr(1), Target: map[string]any{"url": "/home", "active_match": "exact"}},
-					{ID: "main.products", Label: "Products", Position: intPtr(2), Target: map[string]any{"url": "/products", "active_match": "prefix"}},
-					{ID: "main.company", Label: "Company", Position: intPtr(3), Target: map[string]any{"url": "/company", "active_match": "prefix"}},
+					{ID: "main.home", Label: "Home", Position: new(1), Target: map[string]any{"url": "/home", "active_match": "exact"}},
+					{ID: "main.products", Label: "Products", Position: new(2), Target: map[string]any{"url": "/products", "active_match": "prefix"}},
+					{ID: "main.company", Label: "Company", Position: new(3), Target: map[string]any{"url": "/company", "active_match": "prefix"}},
 				},
 			},
 			"site.footer": {
 				Code:     "site_primary",
 				Location: "site.footer",
 				Items: []admin.MenuItem{
-					{ID: "footer.home", Label: "Home", Position: intPtr(1), Target: map[string]any{"url": "/home", "active_match": "exact"}},
-					{ID: "footer.company", Label: "Company", Position: intPtr(2), Target: map[string]any{"url": "/company", "active_match": "prefix"}},
+					{ID: "footer.home", Label: "Home", Position: new(1), Target: map[string]any{"url": "/home", "active_match": "exact"}},
+					{ID: "footer.company", Label: "Company", Position: new(2), Target: map[string]any{"url": "/company", "active_match": "prefix"}},
 				},
 			},
 		},
@@ -83,8 +83,8 @@ func TestSiteNavigationFiltersByPermissionsBeforeProjection(t *testing.T) {
 				Code:     "site_primary",
 				Location: "site.main",
 				Items: []admin.MenuItem{
-					{ID: "public", Label: "Public", Position: intPtr(1), Target: map[string]any{"url": "/home"}},
-					{ID: "secret", Label: "Secret", Position: intPtr(2), Permissions: []string{"nav.secret"}, Target: map[string]any{"url": "/secret"}},
+					{ID: "public", Label: "Public", Position: new(1), Target: map[string]any{"url": "/home"}},
+					{ID: "secret", Label: "Secret", Position: new(2), Permissions: []string{"nav.secret"}, Target: map[string]any{"url": "/secret"}},
 				},
 			},
 		},
@@ -123,7 +123,7 @@ func TestSiteNavigationPreviewTokenEnablesDraftMenuReads(t *testing.T) {
 				Code:     "site_primary",
 				Location: "site.main",
 				Items: []admin.MenuItem{
-					{ID: "home", Label: "Home", Position: intPtr(1), Target: map[string]any{"url": "/home"}},
+					{ID: "home", Label: "Home", Position: new(1), Target: map[string]any{"url": "/home"}},
 				},
 			},
 		},
@@ -161,7 +161,7 @@ func TestSiteNavigationIgnoresNonMenuPreviewTokenForDraftReads(t *testing.T) {
 				Code:     "site_primary",
 				Location: "site.main",
 				Items: []admin.MenuItem{
-					{ID: "home", Label: "Home", Position: intPtr(1), Target: map[string]any{"url": "/home"}},
+					{ID: "home", Label: "Home", Position: new(1), Target: map[string]any{"url": "/home"}},
 				},
 			},
 		},
@@ -285,7 +285,7 @@ func TestSiteNavigationDebugIncludesContributionOrigin(t *testing.T) {
 					{
 						ID:       "home",
 						Label:    "Home",
-						Position: intPtr(1),
+						Position: new(1),
 						Target: map[string]any{
 							"url":                 "/home",
 							"contribution":        true,
@@ -688,6 +688,7 @@ func stringsTrimSpace(value string) string {
 	return strings.TrimSpace(value)
 }
 
+//go:fix inline
 func intPtr(value int) *int {
-	return &value
+	return new(value)
 }

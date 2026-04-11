@@ -12,7 +12,7 @@ func TestRenderResolutionJSONProjectsDetailRecordAndLocalizedSwitcher(t *testing
 		SupportedLocales: []string{"en", "es"},
 		LocalePrefixMode: LocalePrefixNonDefault,
 		Features: SiteFeatures{
-			EnableI18N: boolPtr(true),
+			EnableI18N: new(true),
 		},
 	})
 	contentSvc := &localeScopedContentListStub{

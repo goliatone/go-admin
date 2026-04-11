@@ -88,6 +88,7 @@ func TestSiteTemplateContractsForPhase14(t *testing.T) {
 	for _, path := range []string{
 		filepath.Join("..", "..", "pkg", "client", "templates", "site", "error", "404.html"),
 		filepath.Join("..", "..", "pkg", "client", "templates", "site", "error", "missing_translation.html"),
+		filepath.Join("..", "..", "pkg", "client", "templates", "site", "home", "page.html"),
 		filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_main.html"),
 		filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_footer.html"),
 	} {
@@ -119,6 +120,25 @@ func TestSiteTemplateContractsForPhase14(t *testing.T) {
 	} {
 		if !strings.Contains(searchTemplate, required) {
 			t.Fatalf("expected search template to include %q contract", required)
+		}
+	}
+
+	homepageTemplatePath := filepath.Join("..", "..", "pkg", "client", "templates", "site", "home", "page.html")
+	homepageRaw, err := os.ReadFile(homepageTemplatePath)
+	if err != nil {
+		t.Fatalf("read homepage template: %v", err)
+	}
+	homepageTemplate := string(homepageRaw)
+	for _, required := range []string{
+		"data-site-homepage",
+		"record.title",
+		"record.summary",
+		"record.data.content",
+		"requested_locale",
+		"resolved_locale",
+	} {
+		if !strings.Contains(homepageTemplate, required) {
+			t.Fatalf("expected homepage template to include %q contract", required)
 		}
 	}
 }

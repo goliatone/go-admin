@@ -65,8 +65,9 @@ examples/web/assets/uploads/users/profile-pictures
 .envset
 .taskenv
 
-docs/
+docs/*
 !docs/GUIDES_*.md
+!docs/ROUTING_RELEASE_CHECKLIST.md
 pkg/client/assets/tenant/
 pkg/client/assets/tenant/tenant-bootstrap/
 pkg/client/assets/tenant/tenant-runtime/*

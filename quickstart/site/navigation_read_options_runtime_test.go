@@ -14,7 +14,7 @@ func TestResolveNavigationReadOptionsIncludesPreviewDraftsAndPolicies(t *testing
 				ContributionLocalePolicy: ContributionLocalePolicyFallback,
 			},
 			Features: SiteFeatures{
-				EnableMenuDraftPreview: boolPtr(true),
+				EnableMenuDraftPreview: new(true),
 			},
 		}),
 	}
@@ -62,7 +62,7 @@ func TestResolveNavigationReadOptionsDefaultsDedupPolicyAndDisablesPreviewDrafts
 				ContributionLocalePolicy: ContributionLocalePolicyFallback,
 			},
 			Features: SiteFeatures{
-				EnableMenuDraftPreview: boolPtr(false),
+				EnableMenuDraftPreview: new(false),
 			},
 		}),
 	}

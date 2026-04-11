@@ -9,10 +9,14 @@ import (
 )
 
 func TestBuildResolvedRequestStateUsesResolvedInputsAndPathFallbacks(t *testing.T) {
+	baseline := ""
 	siteCfg := ResolveSiteConfig(adminConfigWithDefaultLocale("en"), SiteConfig{
 		BasePath:         "/site",
 		SupportedLocales: []string{"en", "es"},
 		ContentChannel:   "default",
+		Theme: SiteThemeConfig{
+			BaselineVariant: &baseline,
+		},
 		Views: SiteViewConfig{
 			AssetBasePath: "",
 		},
@@ -47,6 +51,13 @@ func TestBuildResolvedRequestStateUsesResolvedInputsAndPathFallbacks(t *testing.
 	}
 	if state.ThemeName != "editorial" || state.ThemeVariant != "night" {
 		t.Fatalf("expected theme metadata to be preserved, got %+v", state)
+	}
+	baselineInfo, ok := state.SiteTheme["baseline"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected site theme baseline diagnostics, got %+v", state.SiteTheme)
+	}
+	if anyBool(baselineInfo["matches_baseline"]) {
+		t.Fatalf("expected named variant to fail the empty baseline validation, got %+v", baselineInfo)
 	}
 
 	state = buildResolvedRequestState(siteCfg, nil, requestStateFlowInputs{Locale: "en"})

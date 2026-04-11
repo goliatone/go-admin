@@ -78,6 +78,76 @@ func TestLocaleSwitcherRuntimeAvoidsDoubleLocalePrefix(t *testing.T) {
 	}
 }
 
+func TestLocaleSwitcherRuntimeAvoidsDoubleLocalePrefixForLocalizedRoots(t *testing.T) {
+	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
+		SupportedLocales: []string{"en", "bo", "zh"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	})
+	contract := BuildLocaleSwitcherContract(
+		cfg,
+		"/bo",
+		"bo",
+		"bo",
+		"tg-home-1",
+		[]string{"en", "bo", "zh"},
+		map[string]string{
+			"en": "/",
+			"bo": "/bo",
+			"zh": "/zh",
+		},
+		nil,
+	)
+
+	items, ok := contract["items"].([]map[string]any)
+	if !ok || len(items) != 3 {
+		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
+	}
+	if items[0]["locale"] != "en" || items[0]["url"] != "/?locale=en" {
+		t.Fatalf("expected en root URL /?locale=en, got %+v", items[0])
+	}
+	if items[1]["locale"] != "bo" || items[1]["url"] != "/bo" {
+		t.Fatalf("expected bo root URL /bo without double prefix, got %+v", items[1])
+	}
+	if items[2]["locale"] != "zh" || items[2]["url"] != "/zh" {
+		t.Fatalf("expected zh root URL /zh without double prefix, got %+v", items[2])
+	}
+}
+
+func TestLocaleSwitcherRuntimePreservesCanonicalPathsThatLookLikeLocaleCodes(t *testing.T) {
+	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
+		SupportedLocales: []string{"en", "bo", "zh"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	})
+	contract := BuildLocaleSwitcherContract(
+		cfg,
+		"/bo",
+		"en",
+		"en",
+		"tg-bo-1",
+		[]string{"en", "bo", "zh"},
+		map[string]string{
+			"en": "/bo",
+			"bo": "/bo",
+			"zh": "/bo",
+		},
+		nil,
+	)
+
+	items, ok := contract["items"].([]map[string]any)
+	if !ok || len(items) != 3 {
+		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
+	}
+	if items[0]["locale"] != "en" || items[0]["url"] != "/bo?locale=en" {
+		t.Fatalf("expected en canonical locale-like slug URL /bo?locale=en, got %+v", items[0])
+	}
+	if items[1]["locale"] != "bo" || items[1]["url"] != "/bo" {
+		t.Fatalf("expected bo canonical locale-like slug URL /bo, got %+v", items[1])
+	}
+	if items[2]["locale"] != "zh" || items[2]["url"] != "/zh/bo" {
+		t.Fatalf("expected zh canonical locale-like slug URL /zh/bo, got %+v", items[2])
+	}
+}
+
 func TestLocaleSwitcherRuntimeSanitizesUnsafeLocalizedPaths(t *testing.T) {
 	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
 		SupportedLocales: []string{"en", "es"},

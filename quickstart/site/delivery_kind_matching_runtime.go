@@ -41,6 +41,10 @@ func (r *deliveryRuntime) resolvePageKind(
 		return nil, translationMissingSiteError(state.Locale, available, capability.TypeSlug, requestPath), true
 	}
 	resolution := resolutionFromDetailRecord(capability, selected, state.Locale, available, fallbackUsed, candidates)
+	if isHomepageRequestPath(requestPath) {
+		resolution.Mode = "homepage"
+		resolution.TemplateCandidates = capability.homeTemplateCandidates(state.SiteTheme)
+	}
 	return resolution, SiteRuntimeError{}, true
 }
 
@@ -114,4 +118,8 @@ func (r *deliveryRuntime) resolveCollectionKind(
 		AvailableLocales:   available,
 		TemplateCandidates: capability.listTemplateCandidates(),
 	}, true
+}
+
+func isHomepageRequestPath(requestPath string) bool {
+	return normalizeLocalePath(requestPath) == "/"
 }

@@ -25,6 +25,24 @@ func TestLocalePathSupportStripSupportedLocalePrefix(t *testing.T) {
 	}
 }
 
+func TestLocalePathSupportLocalizedPublicPathForStoredPath(t *testing.T) {
+	if got := localizedPublicPathForStoredPath("/about", "bo", "en", LocalePrefixNonDefault, []string{"en", "bo", "zh"}); got != "/bo/about" {
+		t.Fatalf("expected canonical path /about to localize to /bo/about, got %q", got)
+	}
+	if got := localizedPublicPathForStoredPath("/bo/about", "bo", "en", LocalePrefixNonDefault, []string{"en", "bo", "zh"}); got != "/bo/about" {
+		t.Fatalf("expected legacy localized detail /bo/about to stay /bo/about, got %q", got)
+	}
+	if got := localizedPublicPathForStoredPath("/en/about", "en", "en", LocalePrefixNonDefault, []string{"en", "bo", "zh"}); got != "/about" {
+		t.Fatalf("expected default-locale prefixed path /en/about to normalize to /about, got %q", got)
+	}
+	if got := localizedPublicPathForStoredPath("/bo", "en", "en", LocalePrefixNonDefault, []string{"en", "bo", "zh"}); got != "/bo" {
+		t.Fatalf("expected canonical locale-like slug /bo for en to remain /bo, got %q", got)
+	}
+	if got := localizedPublicPathForStoredPath("/bo", "bo", "en", LocalePrefixNonDefault, []string{"en", "bo", "zh"}); got != "/bo" {
+		t.Fatalf("expected locale-like slug /bo for bo to remain /bo, got %q", got)
+	}
+}
+
 func TestLocalePathSupportLocalizedPathWithQueryAndNormalization(t *testing.T) {
 	if got := LocalizedPathWithQuery("/about", "es", "en", LocalePrefixNonDefault, map[string]string{"preview_token": "abc", "": "skip"}); got != "/es/about?preview_token=abc" {
 		t.Fatalf("expected localized path with query, got %q", got)

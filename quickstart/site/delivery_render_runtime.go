@@ -1,6 +1,7 @@
 package site
 
 import (
+	"maps"
 	"net/http"
 	"strings"
 
@@ -42,12 +43,16 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 			))
 		}
 	}
+	viewCtx = mergeSiteContentViewContext(viewCtx, map[string]any{
+		"kind":                deliveryResolutionContentKind(resolution),
+		"mode":                strings.ToLower(strings.TrimSpace(resolution.Mode)),
+		"family_id":           strings.TrimSpace(resolution.FamilyID),
+		"template_candidates": cloneStrings(resolution.TemplateCandidates),
+	})
 
 	if r.navigation != nil {
 		menus := r.navigation.context(c, state, requestPath)
-		for key, value := range menus {
-			viewCtx[key] = value
-		}
+		maps.Copy(viewCtx, menus)
 	}
 
 	pathsByLocale := resolution.PathsByLocale
@@ -72,6 +77,7 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		pathsByLocale,
 		state,
 	)
+	viewCtx = applySiteContentAwareViewContext(viewCtx)
 
 	return renderSiteTemplateResponse(c, state, r.siteCfg, siteTemplateResponse{
 		JSONStatus:    200,

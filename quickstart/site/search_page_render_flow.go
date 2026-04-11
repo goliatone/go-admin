@@ -66,5 +66,8 @@ func (r *searchRuntime) searchViewContext(
 	view["search_endpoint"] = strings.TrimSpace(r.siteCfg.Search.Endpoint)
 	view["search_suggest_endpoint"] = strings.TrimSpace(searchSuggestRoute(r.siteCfg.Search.Endpoint))
 	projection.apply(view)
-	return view
+	return mergeSiteContentViewContext(view, map[string]any{
+		"kind": "search",
+		"mode": "search",
+	})
 }

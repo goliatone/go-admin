@@ -18,9 +18,6 @@ func BuildLocaleSwitcherContract(
 	query map[string]string,
 ) map[string]any {
 	currentPath = normalizeLocalePath(currentPath)
-	if stripped, _ := StripSupportedLocalePrefix(currentPath, cfg.SupportedLocales); stripped != "" {
-		currentPath = stripped
-	}
 	requestedLocale = normalizeRequestedLocale(requestedLocale, cfg.DefaultLocale, cfg.SupportedLocales)
 	resolvedLocale = normalizeRequestedLocale(resolvedLocale, requestedLocale, cfg.SupportedLocales)
 	availableSet := toLocaleSet(availableLocales)
@@ -32,18 +29,28 @@ func BuildLocaleSwitcherContract(
 			continue
 		}
 		path := currentPath
+		usedExplicitPath := false
 		if localizedPath := strings.TrimSpace(pathsByLocale[locale]); localizedPath != "" {
 			if localePathUnsafe(localizedPath) {
 				// Ignore unsafe translated paths and keep the current in-site route.
 			} else if candidate := normalizeLocalePath(localizedPath); candidate != "" {
-				path = candidate
-				if stripped, _ := StripSupportedLocalePrefix(path, cfg.SupportedLocales); stripped != "" {
-					path = stripped
-				}
+				path = localizedPublicPathForStoredPath(
+					candidate,
+					locale,
+					cfg.DefaultLocale,
+					cfg.LocalePrefixMode,
+					cfg.SupportedLocales,
+				)
+				usedExplicitPath = true
 			}
 		}
 		switcherQuery := localeSwitcherQuery(query, cfg, locale)
-		url := LocalizedPathWithQuery(path, locale, cfg.DefaultLocale, cfg.LocalePrefixMode, switcherQuery)
+		url := path
+		if !usedExplicitPath {
+			url = LocalizedPathWithQuery(path, locale, cfg.DefaultLocale, cfg.LocalePrefixMode, switcherQuery)
+		} else if len(switcherQuery) > 0 {
+			url = LocalizedPathWithQuery(path, "", cfg.DefaultLocale, cfg.LocalePrefixMode, switcherQuery)
+		}
 		item := map[string]any{
 			"locale":    locale,
 			"url":       url,

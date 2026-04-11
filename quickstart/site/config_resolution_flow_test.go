@@ -1,6 +1,7 @@
 package site
 
 import (
+	"context"
 	"io/fs"
 	"testing"
 	"testing/fstest"
@@ -12,7 +13,7 @@ func TestResolveSiteLocaleDefaultsHonorsConfigFallbackAndDeduplicatesSupportedLo
 	defaults := resolveSiteLocaleDefaults(admin.Config{DefaultLocale: "en"}, SiteConfig{
 		DefaultLocale:       " es ",
 		SupportedLocales:    []string{"fr", "ES", "fr"},
-		AllowLocaleFallback: boolPtr(false),
+		AllowLocaleFallback: new(false),
 		LocalePrefixMode:    LocalePrefixAlways,
 	})
 
@@ -74,8 +75,8 @@ func TestResolveSiteViewSearchFeaturesAndThemeConfigsPreserveExistingContracts(t
 			"translation_missing": " site/error/custom_missing ",
 		},
 		AssetBasePath:       "assets",
-		Reload:              boolPtr(true),
-		ReloadInDevelopment: boolPtr(false),
+		Reload:              new(true),
+		ReloadInDevelopment: new(false),
 	})
 
 	if len(views.TemplateFS) != 1 {
@@ -107,11 +108,11 @@ func TestResolveSiteViewSearchFeaturesAndThemeConfigsPreserveExistingContracts(t
 	}
 
 	features := resolveSiteFeatures(SiteFeatures{
-		EnableSearch:            boolPtr(false),
-		EnableTheme:             boolPtr(false),
-		EnableCanonicalRedirect: boolPtr(false),
+		EnableSearch:            new(false),
+		EnableTheme:             new(false),
+		EnableCanonicalRedirect: new(false),
 		CanonicalRedirectMode:   CanonicalRedirectRequestedLocaleSticky,
-		StrictLocalizedPaths:    boolPtr(true),
+		StrictLocalizedPaths:    new(true),
 	})
 	if features.EnableSearch || features.EnableTheme || features.EnableCanonicalRedirect || !features.StrictLocalizedPaths {
 		t.Fatalf("expected feature toggles preserved, got %+v", features)
@@ -123,11 +124,15 @@ func TestResolveSiteViewSearchFeaturesAndThemeConfigsPreserveExistingContracts(t
 	theme := resolveSiteThemeConfig(SiteThemeConfig{
 		Name:                        " editorial ",
 		Variant:                     " night ",
-		AllowRequestNameOverride:    boolPtr(false),
-		AllowRequestVariantOverride: boolPtr(true),
+		BaselineVariant:             new(" "),
+		AllowRequestNameOverride:    new(false),
+		AllowRequestVariantOverride: new(true),
 	})
 	if theme.Name != "editorial" || theme.Variant != "night" {
 		t.Fatalf("expected trimmed theme config, got %+v", theme)
+	}
+	if theme.BaselineVariant == nil || *theme.BaselineVariant != "" {
+		t.Fatalf("expected baseline variant to preserve explicit base selection, got %+v", theme)
 	}
 	if theme.AllowRequestNameOverride || !theme.AllowRequestVariantOverride {
 		t.Fatalf("expected theme request override policy preserved, got %+v", theme)
@@ -136,6 +141,10 @@ func TestResolveSiteViewSearchFeaturesAndThemeConfigsPreserveExistingContracts(t
 
 func TestResolveSiteConfigFlowAssemblesResolvedConfigFromSectionBuilders(t *testing.T) {
 	fsA := fstest.MapFS{"a.txt": {Data: []byte("a")}}
+	baseline := ""
+	provider := SiteThemeProvider(func(ctx context.Context, request SiteThemeRequest) (*admin.ThemeSelection, error) {
+		return &admin.ThemeSelection{Name: request.Selector.Name, Variant: request.Selector.Variant}, nil
+	})
 	resolved := resolveSiteConfigFlow(admin.Config{DefaultLocale: "en"}, SiteConfig{
 		BasePath:         "site",
 		DefaultLocale:    "fr",
@@ -155,8 +164,9 @@ func TestResolveSiteConfigFlowAssemblesResolvedConfigFromSectionBuilders(t *test
 			AllowRoot:         true,
 			AllowedExactPaths: []string{"/search", "landing"},
 		},
-		Modules: []SiteModule{moduleStub{id: "site"}},
-		Theme:   SiteThemeConfig{Name: "editorial", Variant: "night"},
+		Modules:       []SiteModule{moduleStub{id: "site"}},
+		Theme:         SiteThemeConfig{Name: "editorial", Variant: "night", BaselineVariant: &baseline},
+		ThemeProvider: provider,
 	})
 
 	if resolved.BasePath != "/site" {
@@ -183,7 +193,50 @@ func TestResolveSiteConfigFlowAssemblesResolvedConfigFromSectionBuilders(t *test
 	if resolved.Theme.Name != "editorial" || resolved.Theme.Variant != "night" {
 		t.Fatalf("expected theme builder values preserved, got %+v", resolved.Theme)
 	}
+	if resolved.Theme.BaselineVariant == nil || *resolved.Theme.BaselineVariant != "" {
+		t.Fatalf("expected baseline variant metadata preserved, got %+v", resolved.Theme)
+	}
+	if resolved.ThemeProvider == nil {
+		t.Fatalf("expected site theme provider to be preserved")
+	}
 	if !resolved.Theme.AllowRequestNameOverride || !resolved.Theme.AllowRequestVariantOverride {
 		t.Fatalf("expected default request override policy enabled, got %+v", resolved.Theme)
 	}
+}
+
+func TestResolveSiteConfigFlowAddsEnabledInternalOpsPathsToReservedPrefixes(t *testing.T) {
+	resolved := resolveSiteConfigFlow(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		InternalOps: SiteInternalOpsConfig{
+			EnableHealthz: true,
+			EnableStatus:  true,
+			HealthzPath:   "/readyz",
+			StatusPath:    "ops/status",
+		},
+		Fallback: SiteFallbackPolicy{
+			ReservedPrefixes: []string{"/admin", "/custom"},
+		},
+	})
+
+	if !resolved.InternalOps.EnableHealthz || !resolved.InternalOps.EnableStatus {
+		t.Fatalf("expected internal ops enablement preserved, got %+v", resolved.InternalOps)
+	}
+	if resolved.InternalOps.HealthzPath != "/readyz" || resolved.InternalOps.StatusPath != "/ops/status" {
+		t.Fatalf("expected internal ops paths normalized, got %+v", resolved.InternalOps)
+	}
+
+	want := []string{"/.well-known", "/admin", "/api", "/api/v1", "/assets", "/custom", "/ops/status", "/readyz", "/static"}
+	got := resolved.Fallback.ReservedPrefixes
+	if len(got) != len(want) {
+		t.Fatalf("expected reserved prefixes %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected reserved prefixes %v, got %v", want, got)
+		}
+	}
+}
+
+//go:fix inline
+func stringPtr(value string) *string {
+	return new(value)
 }

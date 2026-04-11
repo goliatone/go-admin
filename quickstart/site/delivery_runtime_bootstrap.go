@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	router "github.com/goliatone/go-router"
 )
 
 type deliveryRuntime struct {
@@ -86,6 +87,13 @@ func anyMap(raw any) map[string]any {
 	}
 	if typed, ok := raw.(map[string]any); ok {
 		return typed
+	}
+	if typed, ok := raw.(router.ViewContext); ok {
+		out := map[string]any{}
+		for key, value := range typed {
+			out[key] = value
+		}
+		return out
 	}
 	if typed, ok := raw.(map[string]string); ok {
 		out := map[string]any{}

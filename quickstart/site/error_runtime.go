@@ -2,6 +2,7 @@ package site
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	router "github.com/goliatone/go-router"
@@ -57,10 +58,8 @@ func ResolveErrorTemplateCandidates(cfg ResolvedSiteViewConfig, code string, sta
 		if name == "" {
 			return
 		}
-		for _, existing := range candidates {
-			if existing == name {
-				return
-			}
+		if slices.Contains(candidates, name) {
+			return
 		}
 		candidates = append(candidates, name)
 	}

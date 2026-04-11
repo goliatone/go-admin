@@ -12,7 +12,7 @@ func TestResolvePageKindMatchesLocalizedAliasPath(t *testing.T) {
 		SupportedLocales: []string{"en", "es"},
 		LocalePrefixMode: LocalePrefixNonDefault,
 		Features: SiteFeatures{
-			EnableI18N: boolPtr(true),
+			EnableI18N: new(true),
 		},
 	})
 	stub := &localeScopedContentListStub{
@@ -80,7 +80,7 @@ func TestResolveDetailKindMatchesLocalizedAliasPath(t *testing.T) {
 		SupportedLocales: []string{"en", "es"},
 		LocalePrefixMode: LocalePrefixNonDefault,
 		Features: SiteFeatures{
-			EnableI18N: boolPtr(true),
+			EnableI18N: new(true),
 		},
 	})
 	stub := &localeScopedContentListStub{

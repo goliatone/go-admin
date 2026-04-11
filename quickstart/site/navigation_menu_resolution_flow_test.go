@@ -63,7 +63,7 @@ func TestNavigationResolvedMenuPayloadBuildsProjectedContract(t *testing.T) {
 				EnableGeneratedFallback:  true,
 			},
 			Features: SiteFeatures{
-				EnableI18N: boolPtr(true),
+				EnableI18N: new(true),
 			},
 		}),
 		authorizer: siteAuthorizerStub{
@@ -78,7 +78,7 @@ func TestNavigationResolvedMenuPayloadBuildsProjectedContract(t *testing.T) {
 		Location: "site.main",
 		Items: []admin.MenuItem{
 			{ID: "secret", Label: "Secret", Permissions: []string{"nav.secret"}, Target: map[string]any{"url": "/secret"}},
-			{ID: "public", Label: "Public", Position: intPtr(1), Target: map[string]any{"url": "/home"}},
+			{ID: "public", Label: "Public", Position: new(1), Target: map[string]any{"url": "/home"}},
 		},
 	}
 

@@ -27,6 +27,13 @@ func TestDeliveryCapabilitySupportDefaultsAndTemplateCandidates(t *testing.T) {
 	if got, want := capability.detailTemplateCandidates(), []string{"site/page", defaultDeliveryDetailTemplate}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected detail templates %v, got %v", want, got)
 	}
+	if got, want := capability.homeTemplateCandidates(map[string]any{
+		"manifest_partials": map[string]any{
+			siteThemeTemplateKeyHomePage: "templates/site/home/page.html",
+		},
+	}), []string{"site/home/page", "site/page", defaultDeliveryDetailTemplate}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected homepage templates %v, got %v", want, got)
+	}
 }
 
 func TestDeliveryCapabilitySupportPathPolicyHelpers(t *testing.T) {

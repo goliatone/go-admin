@@ -35,5 +35,5 @@ func applyContentTypeViewContext(viewCtx router.ViewContext, typeSlug string) ro
 	typeSlug = strings.TrimSpace(typeSlug)
 	viewCtx["content_type"] = typeSlug
 	viewCtx["content_type_slug"] = typeSlug
-	return viewCtx
+	return applySiteContentAwareViewContext(viewCtx)
 }

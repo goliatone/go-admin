@@ -2,6 +2,7 @@ package site
 
 import (
 	"path"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -9,6 +10,7 @@ import (
 const (
 	defaultDeliveryListTemplate   = "site/content/list"
 	defaultDeliveryDetailTemplate = "site/content/detail"
+	defaultDeliveryHomeTemplate   = "site/home/page"
 )
 
 type deliveryCapability struct {
@@ -62,16 +64,34 @@ func (c deliveryCapability) detailTemplateCandidates() []string {
 		if name == "" {
 			return
 		}
-		for _, existing := range out {
-			if existing == name {
-				return
-			}
+		if slices.Contains(out, name) {
+			return
 		}
 		out = append(out, name)
 	}
 	appendTemplate(c.DetailTemplate)
 	appendTemplate("site/" + singularTypeSlug(c.TypeSlug))
 	appendTemplate(defaultDeliveryDetailTemplate)
+	return out
+}
+
+func (c deliveryCapability) homeTemplateCandidates(siteTheme map[string]any) []string {
+	out := []string{}
+	appendTemplate := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if slices.Contains(out, name) {
+			return
+		}
+		out = append(out, name)
+	}
+	appendTemplate(siteThemeRenderTemplateName(siteThemeTemplatePath(siteTheme, siteThemeTemplateKeyHomePage)))
+	appendTemplate(defaultDeliveryHomeTemplate)
+	for _, candidate := range c.detailTemplateCandidates() {
+		appendTemplate(candidate)
+	}
 	return out
 }
 
@@ -82,10 +102,8 @@ func (c deliveryCapability) listTemplateCandidates() []string {
 		if name == "" {
 			return
 		}
-		for _, existing := range out {
-			if existing == name {
-				return
-			}
+		if slices.Contains(out, name) {
+			return
 		}
 		out = append(out, name)
 	}
@@ -196,6 +214,34 @@ func staticRoutePrefix(pattern string) string {
 	return normalizeLocalePath("/" + strings.Join(prefix, "/"))
 }
 
+func siteThemeTemplatePath(siteTheme map[string]any, key string) string {
+	if len(siteTheme) == 0 {
+		return ""
+	}
+	if raw := anyMap(siteTheme["manifest_partials"]); len(raw) > 0 {
+		if value := normalizeSiteThemeTemplatePath(anyString(raw[key])); value != "" {
+			return value
+		}
+	}
+	alias := siteThemeTemplateAlias(key)
+	if alias == "" {
+		return ""
+	}
+	if raw := anyMap(siteTheme["partials"]); len(raw) > 0 {
+		if value := normalizeSiteThemeTemplatePath(anyString(raw[alias])); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func siteThemeRenderTemplateName(path string) string {
+	path = normalizeSiteThemeTemplatePath(path)
+	path = strings.TrimSuffix(path, ".html")
+	path = strings.TrimSuffix(path, ".tmpl")
+	return strings.TrimSpace(path)
+}
+
 func normalizePolicyPrefixes(items []string) []string {
 	if len(items) == 0 {
 		return nil
@@ -243,7 +289,7 @@ func sanitizeDeliveryPath(raw string, policy deliveryPathPolicy) string {
 	if !strings.HasPrefix(raw, "/") {
 		raw = "/" + strings.TrimLeft(raw, "/")
 	}
-	for _, segment := range strings.Split(strings.Trim(raw, "/"), "/") {
+	for segment := range strings.SplitSeq(strings.Trim(raw, "/"), "/") {
 		if segment == "." || segment == ".." {
 			return ""
 		}

@@ -68,7 +68,7 @@ func ResolveRequestState(
 	requestCtx = admin.WithLocale(requestCtx, locale)
 	requestCtx = admin.WithLocaleFallback(requestCtx, siteCfg.AllowLocaleFallback)
 
-	requestCtx, themePayload, themeName, themeVariant := resolveRequestTheme(c, adm, requestCtx, siteCfg, environment)
+	requestCtx, themePayload, themeName, themeVariant := resolveRequestTheme(c, requestCtx, siteCfg, environment)
 	return resolveRequestStateFlow(requestCtx, c, siteCfg, modules, requestStateFlowInputs{
 		Environment:    environment,
 		ContentChannel: contentChannel,

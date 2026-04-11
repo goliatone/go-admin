@@ -43,6 +43,12 @@ func buildResolvedRequestState(siteCfg ResolvedSiteConfig, c router.Context, inp
 		assetBasePath = siteCfg.BasePath
 	}
 	siteTheme := buildSiteThemeContract(inputs.ThemePayload, assetBasePath)
+	if baseline := buildSiteThemeBaselineContract(siteCfg.Theme.BaselineVariant, inputs.ThemeVariant); baseline != nil {
+		if siteTheme == nil {
+			siteTheme = map[string]any{}
+		}
+		siteTheme["baseline"] = baseline
+	}
 
 	return RequestState{
 		Locale:              inputs.Locale,
@@ -123,7 +129,7 @@ func buildResolvedRequestViewContext(siteCfg ResolvedSiteConfig, state RequestSt
 		viewCtx["site_theme"] = cloneSiteThemeContract(state.SiteTheme)
 	}
 
-	return viewCtx
+	return applySiteContentAwareViewContext(viewCtx)
 }
 
 func applyRequestStateModuleViewContext(requestCtx context.Context, viewCtx router.ViewContext, modules []SiteModule) router.ViewContext {

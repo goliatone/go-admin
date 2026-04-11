@@ -90,7 +90,7 @@ func TestPrepareDeliveryFlowPropagatesResolvedContentChannelAndPath(t *testing.T
 			ContentChannel:   "default",
 			SupportedLocales: []string{"en", "es"},
 			Features: SiteFeatures{
-				EnableI18N: boolPtr(true),
+				EnableI18N: new(true),
 			},
 		}),
 		contentSvc:     contentSvc,

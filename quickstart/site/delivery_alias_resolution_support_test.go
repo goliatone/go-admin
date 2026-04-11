@@ -11,7 +11,7 @@ func TestLocalizedCapabilityRecordsFiltersByTypeVisibilityAndLocaleOrder(t *test
 	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
 		SupportedLocales: []string{"en", "es", "fr"},
 		Features: SiteFeatures{
-			EnableI18N: boolPtr(true),
+			EnableI18N: new(true),
 		},
 	})
 	stub := &localeScopedContentListStub{
@@ -108,7 +108,7 @@ func TestResolvePagePathAliasCandidatesMatchesIdentityAcrossLocales(t *testing.T
 	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
 		SupportedLocales: []string{"en", "es"},
 		Features: SiteFeatures{
-			EnableI18N: boolPtr(true),
+			EnableI18N: new(true),
 		},
 	})
 	stub := &localeScopedContentListStub{
@@ -178,7 +178,7 @@ func TestResolveDetailPathAliasCandidatesDeduplicatesMatchedIdentity(t *testing.
 	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
 		SupportedLocales: []string{"en", "es"},
 		Features: SiteFeatures{
-			EnableI18N: boolPtr(true),
+			EnableI18N: new(true),
 		},
 	})
 	stub := &localeScopedContentListStub{

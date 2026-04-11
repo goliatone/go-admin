@@ -1,6 +1,7 @@
 package site
 
 import (
+	"maps"
 	"strings"
 
 	router "github.com/goliatone/go-router"
@@ -17,9 +18,7 @@ type siteTemplateResponse struct {
 
 func siteTemplateResponsePayload(templateName string, viewCtx router.ViewContext, extra map[string]any) map[string]any {
 	out := map[string]any{}
-	for key, value := range extra {
-		out[key] = value
-	}
+	maps.Copy(out, extra)
 	out["template"] = strings.TrimSpace(templateName)
 	out["context"] = cloneViewContext(viewCtx)
 	return out

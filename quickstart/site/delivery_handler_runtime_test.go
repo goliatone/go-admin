@@ -80,8 +80,8 @@ func TestDeliveryHandlerRuntimeRespondDeliveryRendersResolvedContent(t *testing.
 	})
 
 	payload := performSiteRequest(t, server, "/?format=json")
-	if got := nestedString(payload, "template"); got != "site/page" {
-		t.Fatalf("expected delivery template site/page, got %q", got)
+	if got := nestedString(payload, "template"); got != "site/home/page" {
+		t.Fatalf("expected delivery template site/home/page, got %q", got)
 	}
 	if nestedString(payload, "context", "page", "title") != "Home" {
 		t.Fatalf("expected rendered home content in payload, got %+v", nestedAny(payload, "context"))

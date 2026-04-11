@@ -2,6 +2,7 @@ package site
 
 import (
 	"context"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -194,7 +195,7 @@ func matchSupportedLocale(candidate string, supported []string) string {
 	return ""
 }
 
-func resolveRequestTheme(c router.Context, adm *admin.Admin, requestCtx context.Context, siteCfg ResolvedSiteConfig, environment string) (context.Context, map[string]map[string]string, string, string) {
+func resolveRequestTheme(c router.Context, requestCtx context.Context, siteCfg ResolvedSiteConfig, environment string) (context.Context, map[string]map[string]string, string, string) {
 	if requestCtx == nil {
 		requestCtx = context.Background()
 	}
@@ -202,44 +203,35 @@ func resolveRequestTheme(c router.Context, adm *admin.Admin, requestCtx context.
 		return requestCtx, nil, "", ""
 	}
 
-	selector := admin.ThemeSelector{
+	configured := SiteThemeSelector{
 		Name:    strings.TrimSpace(siteCfg.Theme.Name),
 		Variant: strings.TrimSpace(siteCfg.Theme.Variant),
 	}
+	requested := SiteThemeSelector{}
+	selector := configured
 	if c != nil && environmentAllowsThemeOverride(environment) {
+		requested = SiteThemeSelector{
+			Name:    strings.TrimSpace(c.Query("theme")),
+			Variant: strings.TrimSpace(c.Query("variant")),
+		}
 		if siteCfg.Theme.AllowRequestNameOverride {
-			if value := strings.TrimSpace(c.Query("theme")); value != "" {
-				selector.Name = value
+			if requested.Name != "" {
+				selector.Name = requested.Name
 			}
 		}
 		if siteCfg.Theme.AllowRequestVariantOverride {
-			if value := strings.TrimSpace(c.Query("variant")); value != "" {
-				selector.Variant = value
+			if requested.Variant != "" {
+				selector.Variant = requested.Variant
 			}
 		}
 	}
 
-	themeCtx := requestCtx
-	if selector.Name != "" || selector.Variant != "" {
-		themeCtx = admin.WithThemeSelection(themeCtx, selector)
-	}
-
-	if adm == nil {
-		payload := map[string]map[string]string{}
-		selection := map[string]string{}
-		if selector.Name != "" {
-			selection["name"] = selector.Name
-		}
-		if selector.Variant != "" {
-			selection["variant"] = selector.Variant
-		}
-		if len(selection) > 0 {
-			payload["selection"] = selection
-		}
-		return themeCtx, payload, selection["name"], selection["variant"]
-	}
-
-	payload := cloneThemePayload(adm.ThemePayload(themeCtx))
+	themeCtx := WithSiteThemeSelection(requestCtx, selector)
+	payload, selector := resolveSiteThemePayload(themeCtx, siteCfg.ThemeProvider, SiteThemeRequest{
+		Configured: configured,
+		Requested:  requested,
+		Selector:   selector,
+	})
 	name := ""
 	variant := ""
 	if selection, ok := payload["selection"]; ok {
@@ -265,10 +257,102 @@ func cloneThemePayload(input map[string]map[string]string) map[string]map[string
 			continue
 		}
 		dup := make(map[string]string, len(values))
-		for subKey, subValue := range values {
-			dup[subKey] = subValue
-		}
+		maps.Copy(dup, values)
 		out[key] = dup
 	}
 	return out
+}
+
+func siteThemeSelectionPayload(selector SiteThemeSelector) map[string]map[string]string {
+	selection := map[string]string{}
+	if selector.Name != "" {
+		selection["name"] = selector.Name
+	}
+	if selector.Variant != "" {
+		selection["variant"] = selector.Variant
+	}
+	if len(selection) == 0 {
+		return nil
+	}
+	return map[string]map[string]string{"selection": selection}
+}
+
+func ensureThemeSelectionPayload(payload map[string]map[string]string, selector SiteThemeSelector) map[string]map[string]string {
+	if selector.Name == "" && selector.Variant == "" {
+		return payload
+	}
+	if payload == nil {
+		payload = map[string]map[string]string{}
+	}
+	selection := cloneThemePayloadSection(payload, "selection")
+	if selection == nil {
+		selection = map[string]string{}
+	}
+	if selector.Name != "" && strings.TrimSpace(selection["name"]) == "" {
+		selection["name"] = selector.Name
+	}
+	if selector.Variant != "" && strings.TrimSpace(selection["variant"]) == "" {
+		selection["variant"] = selector.Variant
+	}
+	payload["selection"] = selection
+	return payload
+}
+
+func resolveSiteThemePayload(
+	ctx context.Context,
+	provider SiteThemeProvider,
+	request SiteThemeRequest,
+) (map[string]map[string]string, SiteThemeSelector) {
+	if provider == nil {
+		payload := siteThemeSelectionPayload(request.Selector)
+		return ensureThemeSelectionPayload(payload, request.Selector), request.Selector
+	}
+
+	basePayload, baseSelector := resolveSiteThemeProviderSelection(ctx, provider, SiteThemeRequest{
+		Configured: request.Configured,
+		Requested:  request.Requested,
+		Selector:   request.Configured,
+	})
+	if sameSiteThemeSelector(request.Selector, request.Configured) {
+		return basePayload, baseSelector
+	}
+
+	requestedPayload, requestedSelector := resolveSiteThemeProviderSelection(ctx, provider, request)
+	if len(requestedPayload) > 0 {
+		return requestedPayload, requestedSelector
+	}
+	if len(basePayload) > 0 {
+		return basePayload, baseSelector
+	}
+	payload := siteThemeSelectionPayload(request.Configured)
+	if len(payload) == 0 {
+		payload = siteThemeSelectionPayload(request.Selector)
+	}
+	return ensureThemeSelectionPayload(payload, request.Configured), request.Configured
+}
+
+func resolveSiteThemeProviderSelection(
+	ctx context.Context,
+	provider SiteThemeProvider,
+	request SiteThemeRequest,
+) (map[string]map[string]string, SiteThemeSelector) {
+	selection, err := provider(ctx, request)
+	if err != nil || selection == nil {
+		return nil, SiteThemeSelector{}
+	}
+	resolved := request.Selector
+	if name := strings.TrimSpace(selection.Name); name != "" {
+		resolved.Name = name
+	}
+	if variant := strings.TrimSpace(selection.Variant); variant != "" {
+		resolved.Variant = variant
+	}
+	payload := cloneThemePayload(selection.Payload())
+	payload = ensureThemeSelectionPayload(payload, resolved)
+	return payload, resolved
+}
+
+func sameSiteThemeSelector(left, right SiteThemeSelector) bool {
+	return strings.TrimSpace(left.Name) == strings.TrimSpace(right.Name) &&
+		strings.TrimSpace(left.Variant) == strings.TrimSpace(right.Variant)
 }

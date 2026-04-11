@@ -17,6 +17,7 @@ type siteRegisterOptions struct {
 	searchHandler     router.HandlerFunc
 	searchAPIHandler  router.HandlerFunc
 	suggestAPIHandler router.HandlerFunc
+	themeProvider     SiteThemeProvider
 	fallbackPolicy    SiteFallbackPolicy
 	fallbackOverlay   siteFallbackPolicyOverlay
 }

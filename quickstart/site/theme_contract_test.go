@@ -31,6 +31,7 @@ func TestBuildSiteThemeContractResolvesBundleURLsAndAliases(t *testing.T) {
 		"partials": {
 			siteThemeTemplateKeyHeader:        "templates/site/partials/header.html",
 			siteThemeTemplateKeyMainNav:       "templates/site/partials/menu_main.html",
+			siteThemeTemplateKeyHomePage:      "templates/site/home/page.html",
 			siteThemeTemplateKeySearchPage:    "templates/site/search/page.html",
 			siteThemeTemplateKeyContentDetail: "templates/site/content/detail.html",
 		},
@@ -63,6 +64,9 @@ func TestBuildSiteThemeContractResolvesBundleURLsAndAliases(t *testing.T) {
 	}
 	if partials["main_nav"] != "site/partials/menu_main.html" {
 		t.Fatalf("expected main_nav alias, got %+v", partials)
+	}
+	if partials["home_page"] != "site/home/page.html" {
+		t.Fatalf("expected home_page alias, got %+v", partials)
 	}
 	if partials["search_page"] != "site/search/page.html" {
 		t.Fatalf("expected search_page alias, got %+v", partials)

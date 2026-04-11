@@ -393,6 +393,90 @@ func TestSiteDeliveryRedirectsToCanonicalLocalizedPath(t *testing.T) {
 	}
 }
 
+func TestSiteDeliveryCanonicalRedirectToleratesLegacyLocalizedStoredRootPaths(t *testing.T) {
+	adm := mustAdminWithTheme(t, "admin", "light")
+	content := admin.NewInMemoryContentService()
+
+	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
+		ID:          "page-type",
+		Name:        "Page",
+		Slug:        "page",
+		Environment: "default",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "page",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+
+	for _, record := range []admin.CMSContent{
+		{
+			ID:              "home-en",
+			Title:           "Home",
+			Slug:            "home",
+			Locale:          "en",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			Data:            map[string]any{"path": "/"},
+		},
+		{
+			ID:              "home-bo",
+			Title:           "Home (BO)",
+			Slug:            "home",
+			Locale:          "bo",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			Data:            map[string]any{"path": "/bo"},
+		},
+		{
+			ID:              "home-zh",
+			Title:           "Home (ZH)",
+			Slug:            "home",
+			Locale:          "zh",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			Data:            map[string]any{"path": "/zh"},
+		},
+	} {
+		if _, err := content.CreateContent(t.Context(), record); err != nil {
+			t.Fatalf("create content %s: %v", record.ID, err)
+		}
+	}
+
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "bo", "zh"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+		Features: SiteFeatures{
+			EnableCanonicalRedirect: new(true),
+		},
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	rec := performSiteRequestRaw(t, server, "/bo/bo?locale=en", "text/html")
+	if rec.Code != http.StatusPermanentRedirect {
+		t.Fatalf("expected canonical redirect status %d, got %d body=%s", http.StatusPermanentRedirect, rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != "/bo?locale=en" {
+		t.Fatalf("expected canonical redirect location /bo?locale=en, got %q", got)
+	}
+	if got := rec.Header().Get("Location"); strings.Contains(got, "/bo/bo") {
+		t.Fatalf("expected legacy localized root redirect to avoid double prefix, got %q", got)
+	}
+}
+
 func TestSiteDeliveryPersistsLocaleCookieAndRedirectsUnscopedFallbackRequest(t *testing.T) {
 	adm := mustAdminWithTheme(t, "admin", "light")
 	content := admin.NewInMemoryContentService()
@@ -618,7 +702,7 @@ func TestSiteDeliveryStrictLocalizedPathsDisablesAliasResolution(t *testing.T) {
 	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
 		SupportedLocales: []string{"en", "es"},
 		Features: SiteFeatures{
-			StrictLocalizedPaths: coreBoolPtr(true),
+			StrictLocalizedPaths: new(true),
 		},
 	}, WithDeliveryServices(content, content)); err != nil {
 		t.Fatalf("register site routes: %v", err)
@@ -630,8 +714,9 @@ func TestSiteDeliveryStrictLocalizedPathsDisablesAliasResolution(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func coreBoolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }
 
 func performSiteRequest[T interface {

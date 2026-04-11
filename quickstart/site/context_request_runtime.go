@@ -1,6 +1,7 @@
 package site
 
 import (
+	"maps"
 	"strings"
 	"time"
 
@@ -65,9 +66,7 @@ func MergeViewContext(in router.ViewContext, c router.Context) router.ViewContex
 	if in == nil {
 		in = router.ViewContext{}
 	}
-	for key, value := range ViewContextFromRequest(c) {
-		in[key] = value
-	}
+	maps.Copy(in, ViewContextFromRequest(c))
 	return in
 }
 
@@ -117,8 +116,6 @@ func cloneViewContext(input router.ViewContext) router.ViewContext {
 		return router.ViewContext{}
 	}
 	out := make(router.ViewContext, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }

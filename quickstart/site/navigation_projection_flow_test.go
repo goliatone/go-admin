@@ -13,19 +13,19 @@ func TestNavigationProjectMenuItemsIsDeterministic(t *testing.T) {
 		{
 			ID:       "c",
 			Label:    "C",
-			Position: intPtr(3),
+			Position: new(3),
 			Target:   map[string]any{"url": "/c"},
 		},
 		{
 			ID:       "a",
 			Label:    "A",
-			Position: intPtr(1),
+			Position: new(1),
 			Target:   map[string]any{"url": "/a"},
 		},
 		{
 			ID:       "b",
 			Label:    "B",
-			Position: intPtr(2),
+			Position: new(2),
 			Target:   map[string]any{"url": "/b"},
 		},
 	}
@@ -48,9 +48,9 @@ func TestNavigationProjectMenuItemsIsDeterministic(t *testing.T) {
 func TestNavigationProjectMenuItemsDedupesByURL(t *testing.T) {
 	runtime := &navigationRuntime{}
 	items := []admin.MenuItem{
-		{ID: "home-primary", Label: "Home", Position: intPtr(1), Target: map[string]any{"url": "/home"}},
-		{ID: "home-secondary", Label: "Home Copy", Position: intPtr(2), Target: map[string]any{"url": "/home"}},
-		{ID: "about", Label: "About", Position: intPtr(3), Target: map[string]any{"url": "/about"}},
+		{ID: "home-primary", Label: "Home", Position: new(1), Target: map[string]any{"url": "/home"}},
+		{ID: "home-secondary", Label: "Home Copy", Position: new(2), Target: map[string]any{"url": "/home"}},
+		{ID: "about", Label: "About", Position: new(3), Target: map[string]any{"url": "/about"}},
 	}
 
 	projected := projectNavigationMenuItems(runtime, items, "/home", "en", menuDedupByURL, false)

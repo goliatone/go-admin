@@ -85,21 +85,21 @@ func TestResolveSiteConfigDefaults(t *testing.T) {
 func TestResolveSiteConfigHonorsFeatureAndFallbackOverrides(t *testing.T) {
 	cfg := admin.Config{DefaultLocale: "en", Debug: admin.DebugConfig{Enabled: true}}
 	resolved := ResolveSiteConfig(cfg, SiteConfig{
-		AllowLocaleFallback: boolPtr(false),
+		AllowLocaleFallback: new(false),
 		Environment:         "staging",
 		ContentChannel:      "prod",
 		Features: SiteFeatures{
-			EnableSearch:            boolPtr(false),
-			EnableTheme:             boolPtr(false),
-			EnableCanonicalRedirect: boolPtr(false),
+			EnableSearch:            new(false),
+			EnableTheme:             new(false),
+			EnableCanonicalRedirect: new(false),
 			CanonicalRedirectMode:   CanonicalRedirectRequestedLocaleSticky,
-			StrictLocalizedPaths:    boolPtr(true),
+			StrictLocalizedPaths:    new(true),
 		},
 		Navigation: SiteNavigationConfig{
 			ContributionLocalePolicy: ContributionLocalePolicyStrict,
 		},
 		Views: SiteViewConfig{
-			Reload: boolPtr(true),
+			Reload: new(true),
 			ErrorTemplatesByStatus: map[int]string{
 				418: "site/error/teapot",
 			},
@@ -236,6 +236,7 @@ func TestResolveSiteConfigFallsBackToCollectionsWhenIndexesUnset(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func boolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }

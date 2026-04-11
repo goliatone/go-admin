@@ -5,7 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -453,7 +453,7 @@ func TestSiteSearchEndpointPerformanceP95(t *testing.T) {
 
 	samples := 120
 	durations := make([]time.Duration, 0, samples)
-	for i := 0; i < samples; i++ {
+	for range samples {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/site/search?q=perf&page=1&per_page=10", nil)
 		req.Header.Set("Accept", "application/json")
 		rec := httptest.NewRecorder()
@@ -465,7 +465,7 @@ func TestSiteSearchEndpointPerformanceP95(t *testing.T) {
 		}
 	}
 
-	sort.Slice(durations, func(i, j int) bool { return durations[i] < durations[j] })
+	slices.Sort(durations)
 	p95Index := (95*samples + 99) / 100
 	if p95Index >= samples {
 		p95Index = samples - 1

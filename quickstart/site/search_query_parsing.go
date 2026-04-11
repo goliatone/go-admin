@@ -218,7 +218,7 @@ func searchQueryValues(c router.Context, key string) []string {
 	}
 	out := []string{}
 	for _, value := range values {
-		for _, part := range strings.Split(value, ",") {
+		for part := range strings.SplitSeq(value, ",") {
 			trimmed := strings.TrimSpace(part)
 			if trimmed != "" {
 				out = append(out, trimmed)

@@ -32,6 +32,37 @@ func LocalizedPath(path, locale, defaultLocale string, mode LocalePrefixMode) st
 	}
 }
 
+// localizedPublicPathForStoredPath derives the public URL path for a stored
+// record path without assuming storage is always canonical/unlocalized.
+// If the stored path is already prefixed for the target locale, keep it as-is
+// to avoid double-prefixing. Prefixes for other locales are ambiguous and are
+// treated as ordinary path segments so canonical paths like /bo remain valid.
+func localizedPublicPathForStoredPath(path, targetLocale, defaultLocale string, mode LocalePrefixMode, supported []string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	path = normalizeLocalePath(path)
+
+	targetLocale = strings.ToLower(strings.TrimSpace(targetLocale))
+	defaultLocale = strings.ToLower(strings.TrimSpace(defaultLocale))
+	if targetLocale == "" {
+		return path
+	}
+
+	canonical, prefixLocale := StripSupportedLocalePrefix(path, supported)
+	if prefixLocale == "" {
+		return LocalizedPath(path, targetLocale, defaultLocale, mode)
+	}
+	if prefixLocale != targetLocale {
+		return LocalizedPath(path, targetLocale, defaultLocale, mode)
+	}
+	if normalizeLocalePrefixMode(mode) == LocalePrefixNonDefault && targetLocale == defaultLocale {
+		return LocalizedPath(canonical, targetLocale, defaultLocale, mode)
+	}
+	return path
+}
+
 // StripSupportedLocalePrefix removes a locale segment prefix from path when it
 // matches one of the configured locales.
 func StripSupportedLocalePrefix(path string, supported []string) (string, string) {
@@ -100,7 +131,7 @@ func normalizeLocalePath(value string) string {
 	} else {
 		value = "/" + strings.TrimLeft(value, "/")
 	}
-	for _, segment := range strings.Split(strings.Trim(value, "/"), "/") {
+	for segment := range strings.SplitSeq(strings.Trim(value, "/"), "/") {
 		if segment == "." || segment == ".." {
 			return "/"
 		}
@@ -133,7 +164,7 @@ func localePathUnsafe(value string) bool {
 	if strings.Contains(value, "\\") {
 		return true
 	}
-	for _, segment := range strings.Split(strings.Trim(value, "/"), "/") {
+	for segment := range strings.SplitSeq(strings.Trim(value, "/"), "/") {
 		if segment == "." || segment == ".." {
 			return true
 		}

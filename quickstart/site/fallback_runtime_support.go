@@ -114,6 +114,9 @@ func sitePrefixRoutePaths[T any](r router.Router[T], basePath, prefix string) []
 
 func registerSiteFallbackMissHandlers[T any](r router.Router[T], handler router.HandlerFunc) bool {
 	registrar, ok := any(r).(router.MissHandlerRegistrar)
+	if !ok {
+		registrar, ok = unwrapRouterAdapter(any(r)).(router.MissHandlerRegistrar)
+	}
 	if !ok || handler == nil {
 		return false
 	}

@@ -23,6 +23,9 @@ func siteTemplateContext(c router.Context, viewCtx router.ViewContext) router.Vi
 	if raw, ok := ctx["site_theme"].(map[string]any); ok && raw != nil {
 		ctx["site_theme"] = cloneSiteThemeContract(raw)
 	}
+	ctx = applySiteContentAwareViewContext(ctx)
+	siteContent := anyMap(ctx["site_content"])
+	sitePage := anyMap(ctx["site_page"])
 	ctx["site_runtime"] = map[string]any{
 		"theme_name":            strings.TrimSpace(anyString(ctx["theme_name"])),
 		"theme_variant":         strings.TrimSpace(anyString(ctx["theme_variant"])),
@@ -35,6 +38,9 @@ func siteTemplateContext(c router.Context, viewCtx router.ViewContext) router.Vi
 		"is_preview":            anyBool(ctx["is_preview"]),
 		"preview_token_present": anyBool(ctx["preview_token_present"]),
 		"preview_token_valid":   anyBool(ctx["preview_token_valid"]),
+		"content_kind":          strings.TrimSpace(anyString(siteContent["kind"])),
+		"page_kind":             strings.TrimSpace(anyString(sitePage["kind"])),
+		"template_candidates":   cloneStrings(anyStringSlice(sitePage["template_candidates"])),
 	}
 	return ctx
 }

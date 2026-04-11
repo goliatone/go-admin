@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 )
 
@@ -37,6 +38,21 @@ type SiteSearchFilterRequest struct {
 // into search and suggest provider requests.
 type SiteSearchFilterInjector interface {
 	SearchFilters(ctx context.Context, c router.Context, req SiteSearchFilterRequest) map[string][]string
+}
+
+// SiteRoutingOwnershipContext contains stable inputs for modules that declare
+// planner-visible public-site ownership.
+type SiteRoutingOwnershipContext struct {
+	Admin            *admin.Admin              `json:"admin"`
+	SiteConfig       ResolvedSiteConfig        `json:"site_config"`
+	SearchProvider   admin.SearchProvider      `json:"search_provider"`
+	SearchOperations *admin.GoSearchOperations `json:"search_ops"`
+}
+
+// SiteRoutingOwnershipProvider allows site modules to expose exact public-site
+// and public-api routes to the shared routing planner without mutating the router.
+type SiteRoutingOwnershipProvider interface {
+	RoutingOwnership(ctx SiteRoutingOwnershipContext) []routing.ManifestEntry
 }
 
 // SiteModuleContext contains stable dependencies for module route registration.

@@ -76,10 +76,7 @@ func normalizeSearchResults(
 	perPage := searchPositiveOrFallback(result.PerPage, 10)
 	hasPrev := page > 1
 	hasNext := result.Total > page*perPage
-	prevPage := page - 1
-	if prevPage < 1 {
-		prevPage = 1
-	}
+	prevPage := max(page-1, 1)
 	nextPage := page + 1
 	prevQuery := cloneSearchFilters(currentQuery)
 	prevQuery["page"] = []string{strconv.Itoa(prevPage)}

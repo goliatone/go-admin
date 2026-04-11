@@ -41,21 +41,23 @@ const (
 
 // SiteConfig controls quickstart/site registration behavior.
 type SiteConfig struct {
-	BasePath            string           `json:"base_path"`
-	DefaultLocale       string           `json:"default_locale"`
-	SupportedLocales    []string         `json:"supported_locales"`
-	AllowLocaleFallback *bool            `json:"allow_locale_fallback"`
-	LocalePrefixMode    LocalePrefixMode `json:"locale_prefix_mode"`
-	Environment         string           `json:"environment"`
-	ContentChannel      string           `json:"content_channel"`
+	BasePath            string                `json:"base_path"`
+	DefaultLocale       string                `json:"default_locale"`
+	SupportedLocales    []string              `json:"supported_locales"`
+	AllowLocaleFallback *bool                 `json:"allow_locale_fallback"`
+	LocalePrefixMode    LocalePrefixMode      `json:"locale_prefix_mode"`
+	Environment         string                `json:"environment"`
+	ContentChannel      string                `json:"content_channel"`
+	InternalOps         SiteInternalOpsConfig `json:"internal_ops"`
 
-	Navigation SiteNavigationConfig `json:"navigation"`
-	Views      SiteViewConfig       `json:"views"`
-	Search     SiteSearchConfig     `json:"search"`
-	Modules    []SiteModule         `json:"modules"`
-	Features   SiteFeatures         `json:"features"`
-	Theme      SiteThemeConfig      `json:"theme"`
-	Fallback   SiteFallbackPolicy   `json:"fallback"`
+	Navigation    SiteNavigationConfig `json:"navigation"`
+	Views         SiteViewConfig       `json:"views"`
+	Search        SiteSearchConfig     `json:"search"`
+	Modules       []SiteModule         `json:"modules"`
+	Features      SiteFeatures         `json:"features"`
+	Theme         SiteThemeConfig      `json:"theme"`
+	ThemeProvider SiteThemeProvider    `json:"-"`
+	Fallback      SiteFallbackPolicy   `json:"fallback"`
 }
 
 // SiteNavigationConfig defines site menu defaults.
@@ -112,38 +114,60 @@ type SiteFeatures struct {
 
 // SiteThemeConfig controls site-level theme defaults.
 type SiteThemeConfig struct {
-	Name                        string `json:"name"`
-	Variant                     string `json:"variant"`
-	AllowRequestNameOverride    *bool  `json:"allow_request_name_override"`
-	AllowRequestVariantOverride *bool  `json:"allow_request_variant_override"`
+	Name                        string  `json:"name"`
+	Variant                     string  `json:"variant"`
+	BaselineVariant             *string `json:"baseline_variant"`
+	AllowRequestNameOverride    *bool   `json:"allow_request_name_override"`
+	AllowRequestVariantOverride *bool   `json:"allow_request_variant_override"`
+}
+
+// SiteInternalOpsConfig describes host-owned internal-ops endpoints that the
+// public-site fallback must reserve when enabled.
+type SiteInternalOpsConfig struct {
+	EnableHealthz bool   `json:"enable_healthz"`
+	EnableStatus  bool   `json:"enable_status"`
+	HealthzPath   string `json:"healthz_path"`
+	StatusPath    string `json:"status_path"`
+}
+
+// ResolvedSiteInternalOpsConfig contains normalized internal-ops paths used for
+// fallback reserved-prefix derivation.
+type ResolvedSiteInternalOpsConfig struct {
+	EnableHealthz bool   `json:"enable_healthz"`
+	EnableStatus  bool   `json:"enable_status"`
+	HealthzPath   string `json:"healthz_path"`
+	StatusPath    string `json:"status_path"`
 }
 
 // ResolvedSiteThemeConfig contains normalized site theme defaults and request
 // override policy.
 type ResolvedSiteThemeConfig struct {
-	Name                        string `json:"name"`
-	Variant                     string `json:"variant"`
-	AllowRequestNameOverride    bool   `json:"allow_request_name_override"`
-	AllowRequestVariantOverride bool   `json:"allow_request_variant_override"`
+	Name                        string  `json:"name"`
+	Variant                     string  `json:"variant"`
+	BaselineVariant             *string `json:"baseline_variant"`
+	AllowRequestNameOverride    bool    `json:"allow_request_name_override"`
+	AllowRequestVariantOverride bool    `json:"allow_request_variant_override"`
 }
 
 // ResolvedSiteConfig is a normalized SiteConfig with concrete defaults.
 type ResolvedSiteConfig struct {
-	BasePath            string           `json:"base_path"`
-	DefaultLocale       string           `json:"default_locale"`
-	SupportedLocales    []string         `json:"supported_locales"`
-	AllowLocaleFallback bool             `json:"allow_locale_fallback"`
-	LocalePrefixMode    LocalePrefixMode `json:"locale_prefix_mode"`
-	Environment         string           `json:"environment"`
-	ContentChannel      string           `json:"content_channel"`
+	BasePath            string                        `json:"base_path"`
+	DefaultLocale       string                        `json:"default_locale"`
+	SupportedLocales    []string                      `json:"supported_locales"`
+	AllowLocaleFallback bool                          `json:"allow_locale_fallback"`
+	LocalePrefixMode    LocalePrefixMode              `json:"locale_prefix_mode"`
+	Environment         string                        `json:"environment"`
+	ContentChannel      string                        `json:"content_channel"`
+	InternalOps         ResolvedSiteInternalOpsConfig `json:"internal_ops"`
 
-	Navigation SiteNavigationConfig    `json:"navigation"`
-	Views      ResolvedSiteViewConfig  `json:"views"`
-	Search     SiteSearchConfig        `json:"search"`
-	Modules    []SiteModule            `json:"modules"`
-	Features   ResolvedSiteFeatures    `json:"features"`
-	Theme      ResolvedSiteThemeConfig `json:"theme"`
-	Fallback   SiteFallbackPolicy      `json:"fallback"`
+	Navigation    SiteNavigationConfig    `json:"navigation"`
+	Views         ResolvedSiteViewConfig  `json:"views"`
+	Search        SiteSearchConfig        `json:"search"`
+	Modules       []SiteModule            `json:"modules"`
+	Features      ResolvedSiteFeatures    `json:"features"`
+	Theme         ResolvedSiteThemeConfig `json:"theme"`
+	ThemeProvider SiteThemeProvider       `json:"-"`
+	Fallback      SiteFallbackPolicy      `json:"fallback"`
 }
 
 // ResolvedSiteViewConfig contains normalized view/runtime defaults.

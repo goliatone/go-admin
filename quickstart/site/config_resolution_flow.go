@@ -29,9 +29,46 @@ type resolvedSiteRuntimeDefaults struct {
 	ContentChannel string
 }
 
+func resolveSiteInternalOpsConfig(input SiteInternalOpsConfig) ResolvedSiteInternalOpsConfig {
+	return ResolvedSiteInternalOpsConfig{
+		EnableHealthz: input.EnableHealthz,
+		EnableStatus:  input.EnableStatus,
+		HealthzPath:   normalizePathOrDefault(input.HealthzPath, "/healthz"),
+		StatusPath:    normalizePathOrDefault(input.StatusPath, "/status"),
+	}
+}
+
+func resolveSiteFallbackPolicy(
+	cfg admin.Config,
+	policy SiteFallbackPolicy,
+	internalOps ResolvedSiteInternalOpsConfig,
+) SiteFallbackPolicy {
+	policy.ReservedPrefixes = append(
+		SiteReservedPrefixesForAdminConfig(cfg),
+		policy.ReservedPrefixes...,
+	)
+	policy.ReservedPrefixes = append(policy.ReservedPrefixes, internalOpsReservedPrefixes(internalOps)...)
+	return ResolveSiteFallbackPolicy(policy)
+}
+
+func internalOpsReservedPrefixes(cfg ResolvedSiteInternalOpsConfig) []string {
+	out := make([]string, 0, 2)
+	if cfg.EnableHealthz {
+		out = append(out, cfg.HealthzPath)
+	}
+	if cfg.EnableStatus {
+		out = append(out, cfg.StatusPath)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func resolveSiteConfigFlow(cfg admin.Config, input SiteConfig) ResolvedSiteConfig {
 	localeDefaults := resolveSiteLocaleDefaults(cfg, input)
 	runtimeDefaults := resolveSiteRuntimeDefaults(cfg, input)
+	internalOpsDefaults := resolveSiteInternalOpsConfig(input.InternalOps)
 	inputs := resolvedSiteConfigInputs{
 		BasePath:            runtimeDefaults.BasePath,
 		DefaultLocale:       localeDefaults.DefaultLocale,
@@ -50,13 +87,15 @@ func resolveSiteConfigFlow(cfg admin.Config, input SiteConfig) ResolvedSiteConfi
 		LocalePrefixMode:    inputs.LocalePrefixMode,
 		Environment:         inputs.Environment,
 		ContentChannel:      inputs.ContentChannel,
+		InternalOps:         internalOpsDefaults,
 		Navigation:          resolveSiteNavigationConfig(input.Navigation),
 		Views:               resolveSiteViewConfig(input.Views),
 		Search:              resolveSiteSearchConfig(input.Search),
 		Modules:             compactModules(input.Modules),
 		Features:            resolveSiteFeatures(input.Features),
 		Theme:               resolveSiteThemeConfig(input.Theme),
-		Fallback:            ResolveSiteFallbackPolicy(input.Fallback),
+		ThemeProvider:       input.ThemeProvider,
+		Fallback:            resolveSiteFallbackPolicy(cfg, input.Fallback, internalOpsDefaults),
 	}
 }
 
@@ -168,7 +207,16 @@ func resolveSiteThemeConfig(input SiteThemeConfig) ResolvedSiteThemeConfig {
 	return ResolvedSiteThemeConfig{
 		Name:                        strings.TrimSpace(input.Name),
 		Variant:                     strings.TrimSpace(input.Variant),
+		BaselineVariant:             normalizeOptionalSiteThemeVariant(input.BaselineVariant),
 		AllowRequestNameOverride:    boolValue(input.AllowRequestNameOverride, true),
 		AllowRequestVariantOverride: boolValue(input.AllowRequestVariantOverride, true),
 	}
+}
+
+func normalizeOptionalSiteThemeVariant(input *string) *string {
+	if input == nil {
+		return nil
+	}
+	value := strings.TrimSpace(*input)
+	return &value
 }

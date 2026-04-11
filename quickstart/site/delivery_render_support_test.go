@@ -30,7 +30,7 @@ func TestResolveLocalizedPathsByLocaleClonesAndCompletesMissingLocales(t *testin
 	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
 		SupportedLocales: []string{"en", "es"},
 		Features: SiteFeatures{
-			EnableI18N: boolPtr(true),
+			EnableI18N: new(true),
 		},
 	})
 	stub := &localeScopedContentListStub{

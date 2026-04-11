@@ -85,6 +85,14 @@ func TestSiteRegisterFlowGuardsReservedPrefixesAcrossAdapters(t *testing.T) {
 	}))
 }
 
+func TestSiteRegisterFlowReservesInternalOpsPathsAcrossAdapters(t *testing.T) {
+	runInternalOpsReservedPrefixMatrix(t, router.NewHTTPServer())
+	runInternalOpsReservedPrefixMatrix(t, router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
+		PathConflictMode: router.PathConflictModePreferStatic,
+		StrictRoutes:     true,
+	}))
+}
+
 func runExplicitPathsOnlyFallbackMatrix[T any](t *testing.T, server router.Server[T]) {
 	t.Helper()
 
@@ -168,6 +176,33 @@ func runPublicContentFallbackGuardMatrix[T any](t *testing.T, server router.Serv
 	assertStatusCode(t, server, http.MethodGet, "/api/posts", http.StatusNotFound)
 	assertStatusCode(t, server, http.MethodGet, "/assets/logo.svg", http.StatusNotFound)
 	assertStatusCode(t, server, http.MethodPost, "/posts/welcome", http.StatusMethodNotAllowed)
+}
+
+func runInternalOpsReservedPrefixMatrix[T any](t *testing.T, server router.Server[T]) {
+	t.Helper()
+
+	handler := func(c router.Context) error {
+		return c.JSON(http.StatusOK, map[string]any{
+			"handler": "site",
+			"path":    c.Path(),
+		})
+	}
+
+	if err := RegisterSiteRoutes(server.Router(), nil, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		InternalOps: SiteInternalOpsConfig{
+			EnableHealthz: true,
+			EnableStatus:  true,
+			HealthzPath:   "/readyz",
+			StatusPath:    "/ops/status",
+		},
+	}, WithContentHandler(handler)); err != nil {
+		t.Fatalf("register site routes with internal ops reservations: %v", err)
+	}
+	server.Init()
+
+	assertJSONHandler(t, server, http.MethodGet, "/posts/welcome", http.StatusOK, "site")
+	assertStatusCode(t, server, http.MethodGet, "/readyz", http.StatusNotFound)
+	assertStatusCode(t, server, http.MethodGet, "/ops/status", http.StatusNotFound)
 }
 
 func assertJSONHandler[T any](t *testing.T, server router.Server[T], method, path string, status int, wantHandler string) {

@@ -87,6 +87,34 @@ func TestResolveViewRuntime(t *testing.T) {
 	}
 }
 
+func TestResolveSiteThemeTemplateDiagnosticsDetectsPackagedThemeShadowing(t *testing.T) {
+	hostOverlay := LabelTemplateFS(fstest.MapFS{
+		"templates/site/home/page.html": &fstest.MapFile{Data: []byte("host-home")},
+	}, "host-overlay", TemplateSourceHostOverlay)
+	packagedTheme := LabelTemplateFS(fstest.MapFS{
+		"templates/site/home/page.html": &fstest.MapFile{Data: []byte("theme-home")},
+	}, "garchen-archive-site", TemplateSourcePackagedTheme)
+	builtIn := LabelTemplateFS(fstest.MapFS{
+		"templates/site/home/page.html": &fstest.MapFile{Data: []byte("builtin-home")},
+	}, "go-admin-builtins", TemplateSourceBuiltIn)
+
+	diagnostics := ResolveSiteThemeTemplateDiagnostics(map[string]any{
+		"manifest_partials": map[string]any{
+			siteThemeTemplateKeyHomePage: "templates/site/home/page.html",
+		},
+	}, hostOverlay, packagedTheme, builtIn)
+	diag, ok := diagnostics[siteThemeTemplateKeyHomePage]
+	if !ok {
+		t.Fatalf("expected homepage diagnostics entry, got %+v", diagnostics)
+	}
+	if diag.Winner == nil || diag.Winner.Label != "host-overlay" {
+		t.Fatalf("expected host overlay to win, got %+v", diag)
+	}
+	if !diag.PackagedThemeShadowed {
+		t.Fatalf("expected diagnostics to flag shadowed packaged theme, got %+v", diag)
+	}
+}
+
 func TestViewEngineOptionsResolvedProjectsTemplateFSAndReload(t *testing.T) {
 	override := fstest.MapFS{
 		"site/partials/header.html": &fstest.MapFile{Data: []byte(`<header data-test="override">override</header>`)},
