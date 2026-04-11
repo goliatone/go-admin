@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	commandregistry "github.com/goliatone/go-command/registry"
 	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	"github.com/goliatone/go-featuregate/resolver"
@@ -45,6 +47,12 @@ func TestRegisterDebugCompatibilityRoutesRedirectsAdminAPIDebugSessionsAlias(t *
 
 func newDebugCompatibilityTestServer(t *testing.T) (http.Handler, string) {
 	t.Helper()
+	if err := commandregistry.Stop(context.Background()); err != nil {
+		t.Fatalf("stop command registry before test: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = commandregistry.Stop(context.Background())
+	})
 
 	cfg := coreadmin.Config{
 		BasePath:      "/admin",

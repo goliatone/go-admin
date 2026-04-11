@@ -1,7 +1,7 @@
 {
   "tracked_files": [
     "examples/esign/release/v2_source_management_contract_manifest.json",
-    "pkg/client/assets/tests/fixtures/esign_lineage_phase11/contract_fixtures.json",
+    "pkg/client/assets/tests/fixtures/source_management_contracts/contract_fixtures.json",
     "examples/esign/services/lineage_contracts.go",
     "examples/esign/handlers/register_lineage_routes.go"
   ],

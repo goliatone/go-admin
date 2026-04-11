@@ -27,7 +27,7 @@ func TestESignActionContractsPhase6FixtureSnapshot(t *testing.T) {
 	data, err := json.MarshalIndent(fixture, "", "  ")
 	require.NoError(t, err, "marshal phase 6 fixture")
 
-	path := filepath.Join("..", "..", "..", "pkg", "client", "assets", "tests", "fixtures", "examples_esign_action_contracts", "esign_actions_phase6.json")
+	path := filepath.Join("..", "..", "..", "pkg", "client", "assets", "tests", "fixtures", "examples_esign_action_contracts", "esign_actions.json")
 	if os.Getenv("UPDATE_FIXTURES") == "1" {
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755), "create phase 6 fixture directory")
 		require.NoError(t, os.WriteFile(path, append(data, '\n'), 0o644), "write phase 6 fixture snapshot")

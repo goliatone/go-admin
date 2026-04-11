@@ -11,11 +11,17 @@ import (
 
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/pkg/admin"
+	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/require"
 )
 
 func TestExampleCMSPreviewAndPublicAPI(t *testing.T) {
+	require.NoError(t, commandregistry.Stop(context.Background()))
+	t.Cleanup(func() {
+		_ = commandregistry.Stop(context.Background())
+	})
+
 	dsn := testSQLiteDSN(t)
 	cmsOpts, err := setup.SetupPersistentCMS(context.Background(), "en", dsn)
 	require.NoError(t, err)

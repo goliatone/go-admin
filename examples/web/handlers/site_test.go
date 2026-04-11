@@ -8,6 +8,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/web/setup"
 	"github.com/goliatone/go-admin/pkg/admin"
+	router "github.com/goliatone/go-router"
 )
 
 func TestNavUsesCMSMenuWhenEnabled(t *testing.T) {
@@ -132,14 +133,82 @@ func TestResolvePostMatchesSlugAndPath(t *testing.T) {
 	}
 }
 
+func TestSiteHandlersLegacyAdminBasePathGuardSkipsReservedRoutes(t *testing.T) {
+	t.Helper()
+
+	pageRepo := &stubPageRepo{pages: []map[string]any{
+		{"title": "About", "path": "/about", "status": "published"},
+	}}
+	postRepo := &stubPostRepo{posts: []map[string]any{
+		{"title": "Hello World", "slug": "hello-world", "path": "/posts/hello-world", "status": "published", "published_at": time.Now()},
+	}}
+	h := NewSiteHandlers(SiteHandlersConfig{
+		Pages:         pageRepo,
+		Posts:         postRepo,
+		DefaultLocale: "en",
+		AdminBasePath: "/admin",
+		AssetBasePath: "/admin",
+	})
+
+	cases := []struct {
+		name string
+		path string
+		call func(*SiteHandlers, router.Context) error
+	}{
+		{
+			name: "page",
+			path: "/admin/reports",
+			call: func(h *SiteHandlers, c router.Context) error {
+				return h.Page(c)
+			},
+		},
+		{
+			name: "posts index",
+			path: "/admin/posts",
+			call: func(h *SiteHandlers, c router.Context) error {
+				return h.PostsIndex(c)
+			},
+		},
+		{
+			name: "post detail",
+			path: "/admin/posts/hello-world",
+			call: func(h *SiteHandlers, c router.Context) error {
+				return h.PostDetail(c)
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := router.NewMockContext()
+			ctx.On("Context").Return(context.Background())
+			ctx.On("Path").Return(tc.path)
+
+			err := tc.call(h, ctx)
+			if err == nil {
+				t.Fatalf("expected not found error for %s", tc.path)
+			}
+		})
+	}
+
+	if pageRepo.listCalls != 0 {
+		t.Fatalf("expected page repo not to be queried for reserved admin paths, got %d calls", pageRepo.listCalls)
+	}
+	if postRepo.listCalls != 0 {
+		t.Fatalf("expected post repo not to be queried for reserved admin paths, got %d calls", postRepo.listCalls)
+	}
+}
+
 type stubPageRepo struct {
 	pages        []map[string]any
 	lastListOpts admin.ListOptions
+	listCalls    int
 }
 
 func (s *stubPageRepo) Seed()                               {}
 func (s *stubPageRepo) WithActivitySink(admin.ActivitySink) {}
 func (s *stubPageRepo) List(_ context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {
+	s.listCalls++
 	s.lastListOpts = opts
 	out := make([]map[string]any, 0, len(s.pages))
 	for _, p := range s.pages {
@@ -167,11 +236,13 @@ func (s *stubPageRepo) Unpublish(context.Context, []string) ([]map[string]any, e
 type stubPostRepo struct {
 	posts        []map[string]any
 	lastListOpts admin.ListOptions
+	listCalls    int
 }
 
 func (s *stubPostRepo) Seed()                               {}
 func (s *stubPostRepo) WithActivitySink(admin.ActivitySink) {}
 func (s *stubPostRepo) List(_ context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {
+	s.listCalls++
 	s.lastListOpts = opts
 	out := make([]map[string]any, 0, len(s.posts))
 	for _, p := range s.posts {

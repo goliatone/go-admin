@@ -137,7 +137,7 @@ func TestPanelSchemaIncludesThemePayload(t *testing.T) {
 	}
 }
 
-func TestThemeOverrideViaGoThemeSelector(t *testing.T) {
+func TestThemeOverrideViaAdminThemeSelector(t *testing.T) {
 	manifest := &theme.Manifest{
 		Name:    "brand",
 		Version: "1.0.0",
@@ -188,7 +188,7 @@ func TestThemeOverrideViaGoThemeSelector(t *testing.T) {
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureDashboard, FeatureSettings)})
 	adm.WithAuthorizer(allowAll{})
-	adm.WithGoTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
+	adm.WithAdminTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
 
 	repo := NewMemoryRepository()
 	builder := (&PanelBuilder{}).WithRepository(repo)

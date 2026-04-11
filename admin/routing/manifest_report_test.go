@@ -112,6 +112,43 @@ func TestDiffManifestsClassifiesAddedRemovedAndChangedEntries(t *testing.T) {
 	}
 }
 
+func TestDiffManifestsTracksFallbackOwnershipChangesBySurface(t *testing.T) {
+	before := Manifest{
+		Fallbacks: []FallbackEntry{{
+			Owner:            "host:public_site",
+			Surface:          SurfacePublicSite,
+			Domain:           RouteDomainPublicSite,
+			Mode:             FallbackModePublicContentOnly,
+			AllowRoot:        true,
+			AllowedMethods:   []string{"GET", "HEAD"},
+			ReservedPrefixes: []string{"/admin", "/api/v1"},
+		}},
+	}
+	after := Manifest{
+		Fallbacks: []FallbackEntry{{
+			Owner:               "host:marketing_site",
+			Surface:             SurfacePublicSite,
+			Domain:              RouteDomainPublicSite,
+			Mode:                FallbackModeExplicitPathsOnly,
+			AllowedMethods:      []string{"GET", "HEAD"},
+			AllowedExactPaths:   []string{"/search"},
+			AllowedPathPrefixes: []string{"/posts"},
+			ReservedPrefixes:    []string{"/admin", "/api/v1"},
+		}},
+	}
+
+	diff := DiffManifests(before, after)
+	if len(diff.FallbackChanged) != 1 {
+		t.Fatalf("expected one changed fallback, got %+v", diff)
+	}
+	if diff.FallbackChanged[0].Key != "public_site|public_site" {
+		t.Fatalf("expected fallback diff keyed by surface scope, got %+v", diff.FallbackChanged)
+	}
+	if len(diff.FallbackAdded) != 0 || len(diff.FallbackRemoved) != 0 {
+		t.Fatalf("expected fallback owner handoff to stay a change, got %+v", diff)
+	}
+}
+
 func TestBuildStartupReportAggregatesCountsConflictsAndWarnings(t *testing.T) {
 	report := BuildStartupReport(
 		RootsConfig{
@@ -161,6 +198,40 @@ func TestBuildStartupReportAggregatesCountsConflictsAndWarnings(t *testing.T) {
 	}
 	if len(report.Warnings) != 2 || report.Warnings[0] != "adapter warning" {
 		t.Fatalf("expected sorted warnings, got %+v", report.Warnings)
+	}
+}
+
+func TestBuildStartupReportIncludesFallbackDomains(t *testing.T) {
+	report := BuildStartupReport(
+		RootsConfig{
+			AdminRoot:     "/admin",
+			APIRoot:       "/admin/api",
+			PublicAPIRoot: "/api/v1",
+		},
+		nil,
+		Manifest{
+			Fallbacks: []FallbackEntry{{
+				Owner:            "host:public_site",
+				Surface:          SurfacePublicSite,
+				Domain:           RouteDomainPublicSite,
+				Mode:             FallbackModePublicContentOnly,
+				AllowRoot:        true,
+				AllowedMethods:   []string{"GET", "HEAD"},
+				ReservedPrefixes: []string{"/admin", "/api/v1"},
+			}},
+		},
+		nil,
+		nil,
+	)
+
+	if report.RouteSummary.FallbackRoutes != 1 {
+		t.Fatalf("expected one fallback route, got %+v", report.RouteSummary)
+	}
+	if len(report.RouteSummary.Domains) != 1 || report.RouteSummary.Domains[0] != RouteDomainPublicSite {
+		t.Fatalf("expected public_site domain in report, got %+v", report.RouteSummary.Domains)
+	}
+	if report.RouteSummary.DomainCounts[RouteDomainPublicSite] != 1 {
+		t.Fatalf("expected public_site domain count 1, got %+v", report.RouteSummary.DomainCounts)
 	}
 }
 

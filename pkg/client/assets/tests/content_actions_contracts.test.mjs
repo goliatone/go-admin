@@ -18,7 +18,7 @@ const {
 } = await importDatatableModule();
 
 async function loadFixture() {
-  const fixtureURL = new URL('./fixtures/examples_web_action_contracts/content_actions_phase5.json', import.meta.url);
+  const fixtureURL = new URL('./fixtures/examples_web_action_contracts/content_actions.json', import.meta.url);
   return JSON.parse(await readFile(fixtureURL, 'utf8'));
 }
 

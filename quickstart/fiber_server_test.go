@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -181,6 +182,122 @@ func TestNewFiberServerRecoversHandlerPanics(t *testing.T) {
 	if resp.StatusCode != http.StatusInternalServerError {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected panic recovery status 500, got %d body=%s", resp.StatusCode, string(body))
+	}
+}
+
+func TestNewFiberServerRoutesUnmatchedAdminUI404ThroughErrorHandler(t *testing.T) {
+	cfg := admin.Config{
+		BasePath: "/admin",
+		Errors: admin.ErrorConfig{
+			InternalMessage: "An unexpected error occurred",
+		},
+	}
+	server, _ := NewFiberServer(
+		nil,
+		cfg,
+		nil,
+		false,
+		WithFiberLogger(false),
+		WithFiberErrorHandler(func(c *fiber.Ctx, _ error) error {
+			return c.Status(http.StatusNotFound).SendString("admin-ui-404")
+		}),
+	)
+
+	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/missing", nil), -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d body=%s", resp.StatusCode, string(body))
+	}
+	if got := string(body); got != "admin-ui-404" {
+		t.Fatalf("expected custom admin 404 body, got %q", got)
+	}
+}
+
+func TestNewFiberServerRoutesUnmatchedAdminAPI404ThroughErrorHandler(t *testing.T) {
+	cfg := admin.Config{
+		BasePath: "/admin",
+		Errors: admin.ErrorConfig{
+			InternalMessage: "An unexpected error occurred",
+		},
+	}
+	server, _ := NewFiberServer(
+		nil,
+		cfg,
+		nil,
+		false,
+		WithFiberLogger(false),
+		WithFiberErrorHandler(func(c *fiber.Ctx, _ error) error {
+			return c.Status(http.StatusNotFound).JSON(map[string]any{
+				"error": map[string]any{
+					"code": 404,
+					"path": c.Path(),
+				},
+			})
+		}),
+	)
+
+	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/api/missing", nil), -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d body=%s", resp.StatusCode, string(body))
+	}
+
+	payload := map[string]any{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode response payload: %v body=%s", err, string(body))
+	}
+	errPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error envelope, got %+v", payload)
+	}
+	if code := fmt.Sprint(errPayload["code"]); code != "404" {
+		t.Fatalf("expected error code 404, got %q payload=%+v", code, errPayload)
+	}
+}
+
+func TestNewFiberServerPreservesExplicitAdmin404Responses(t *testing.T) {
+	cfg := admin.Config{
+		BasePath: "/admin",
+		Errors: admin.ErrorConfig{
+			InternalMessage: "An unexpected error occurred",
+		},
+	}
+	server, r := NewFiberServer(nil, cfg, nil, false, WithFiberLogger(false))
+	r.Get("/admin/reports", func(c gorouter.Context) error {
+		return c.Status(http.StatusNotFound).SendString("handled 404")
+	})
+
+	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/reports", nil), -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d body=%s", resp.StatusCode, string(body))
+	}
+	if got := string(body); got != "handled 404" {
+		t.Fatalf("expected explicit handler body to survive, got %q", got)
 	}
 }
 

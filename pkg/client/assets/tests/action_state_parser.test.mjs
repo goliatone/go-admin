@@ -10,7 +10,7 @@ const {
 } = await importDatatableModule();
 
 async function loadFixture() {
-  const fixtureURL = new URL('./fixtures/action_contracts_phase1/canonical_contracts.json', import.meta.url);
+  const fixtureURL = new URL('./fixtures/action_contracts/canonical_contracts.json', import.meta.url);
   return JSON.parse(await readFile(fixtureURL, 'utf8'));
 }
 

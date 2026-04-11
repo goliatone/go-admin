@@ -29,8 +29,10 @@ func TestLoadEmbeddedSiteThemePackage(t *testing.T) {
 	if pkg.Manifest.Name != defaultEmbeddedSiteThemeName {
 		t.Fatalf("expected embedded site theme name %q, got %q", defaultEmbeddedSiteThemeName, pkg.Manifest.Name)
 	}
-	if got := pkg.Manifest.Templates["site.search.page"]; got == "" {
-		t.Fatalf("expected embedded site theme to include site.search.page, got %+v", pkg.Manifest.Templates)
+	for _, key := range []string{"site.search.page", "site.home.page"} {
+		if got := pkg.Manifest.Templates[key]; got == "" {
+			t.Fatalf("expected embedded site theme to include %s, got %+v", key, pkg.Manifest.Templates)
+		}
 	}
 }
 
@@ -78,9 +80,9 @@ func TestAttachEmbeddedSiteThemeTemplateFSPreservesHostOverridePrecedence(t *tes
 		t.Fatalf("load embedded site theme package: %v", err)
 	}
 
-	hostOverride := fstest.MapFS{
+	hostOverride := quicksite.LabelTemplateFS(fstest.MapFS{
 		"templates/site/base.html": &fstest.MapFile{Data: []byte("host override")},
-	}
+	}, "host-override", quicksite.TemplateSourceHostOverlay)
 
 	siteCfg := attachEmbeddedSiteThemeTemplateFS(quicksite.SiteConfig{
 		Views: quicksite.SiteViewConfig{
@@ -98,6 +100,22 @@ func TestAttachEmbeddedSiteThemeTemplateFSPreservesHostOverridePrecedence(t *tes
 	if string(content) != "host override" {
 		t.Fatalf("expected host override to retain precedence, got %q", string(content))
 	}
+
+	diagnostics := quicksite.ResolveSiteThemeTemplateDiagnostics(map[string]any{
+		"manifest_partials": map[string]any{
+			"site.layout.base": pkg.Manifest.Templates["site.layout.base"],
+		},
+	}, siteCfg.Views.TemplateFS...)
+	diag, ok := diagnostics["site.layout.base"]
+	if !ok {
+		t.Fatalf("expected diagnostics for packaged base template, got %+v", diagnostics)
+	}
+	if diag.Winner == nil || diag.Winner.Label != "host-override" {
+		t.Fatalf("expected host override to win diagnostics, got %+v", diag)
+	}
+	if !diag.PackagedThemeShadowed {
+		t.Fatalf("expected diagnostics to report shadowed packaged template, got %+v", diag)
+	}
 }
 
 func TestEmbeddedSiteThemeRendersInitialSlice(t *testing.T) {
@@ -111,6 +129,18 @@ func TestEmbeddedSiteThemeRendersInitialSlice(t *testing.T) {
 		want         []string
 		notWant      []string
 	}{
+		{
+			templateName: "site/home/page",
+			want: []string{
+				"data-site-homepage",
+				"Foundations of Refuge",
+				"Context, commentary, and practice notes for entering refuge.",
+				"Teachings unfold through practice, commentary, and service.",
+			},
+			notWant: []string{
+				"partials/jserror-collector.html",
+			},
+		},
 		{
 			templateName: "site/search",
 			want: []string{
@@ -336,7 +366,8 @@ func themedSiteTemplateContext(t *testing.T, pkg *embeddedSiteThemePackage, vari
 				"site_css":   mustThemeAsset(t, selection, "site.css"),
 				"site_js":    mustThemeAsset(t, selection, "site.js"),
 			},
-			"partials": normalizeThemePartials(selection.Snapshot().Templates),
+			"partials":          normalizeThemePartials(selection.Snapshot().Templates),
+			"manifest_partials": selection.Snapshot().Templates,
 		},
 		"locale_switcher": map[string]any{
 			"items": []map[string]any{
@@ -459,13 +490,19 @@ func themedSiteTemplateContext(t *testing.T, pkg *embeddedSiteThemePackage, vari
 
 func normalizeThemePartials(raw map[string]string) map[string]string {
 	aliases := map[string]string{
-		"header":         "site.layout.header",
-		"footer":         "site.layout.footer",
-		"main_nav":       "site.nav.main",
-		"footer_nav":     "site.nav.footer",
-		"search_page":    "site.search.page",
-		"content_list":   "site.content.list",
-		"content_detail": "site.content.detail",
+		"header":          "site.layout.header",
+		"footer":          "site.layout.footer",
+		"main_nav":        "site.nav.main",
+		"footer_nav":      "site.nav.footer",
+		"home_page":       "site.home.page",
+		"home_hero":       "site.home.hero",
+		"home_quote":      "site.home.quote",
+		"home_highlights": "site.home.highlights",
+		"home_news":       "site.home.news",
+		"home_newsletter": "site.home.newsletter",
+		"search_page":     "site.search.page",
+		"content_list":    "site.content.list",
+		"content_detail":  "site.content.detail",
 	}
 	out := map[string]string{}
 	for alias, key := range aliases {

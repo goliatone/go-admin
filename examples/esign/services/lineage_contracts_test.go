@@ -125,7 +125,7 @@ func TestPhase11SourceManagementContractFixtureSnapshot(t *testing.T) {
 		t.Fatalf("marshal phase 11 source management fixture: %v", err)
 	}
 
-	path := filepath.Join("..", "..", "..", "pkg", "client", "assets", "tests", "fixtures", "esign_lineage_phase11", "contract_fixtures.json")
+	path := filepath.Join("..", "..", "..", "pkg", "client", "assets", "tests", "fixtures", "source_management_contracts", "contract_fixtures.json")
 	if os.Getenv("UPDATE_FIXTURES") == "1" {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatalf("mkdir fixture dir: %v", err)

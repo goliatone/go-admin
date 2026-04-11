@@ -164,6 +164,21 @@ func TestResolveSiteRuntimeConfigContentChannelFallbacksToDefault(t *testing.T) 
 	}
 }
 
+func TestResolveSiteRuntimeConfigDoesNotInheritAdminThemeDefaults(t *testing.T) {
+	cfg := admin.Config{DefaultLocale: "en", BasePath: "/admin", Theme: "admin-demo", ThemeVariant: "light"}
+	runtimeSite := appcfg.Defaults().Site
+	runtimeSite.Theme = ""
+	runtimeSite.ThemeVariant = ""
+
+	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeSite, true)
+	if siteCfg.Theme.Name != defaultEmbeddedSiteThemeName {
+		t.Fatalf("expected site runtime to keep embedded site theme default, got %q", siteCfg.Theme.Name)
+	}
+	if siteCfg.Theme.Variant != "" {
+		t.Fatalf("expected site runtime to keep site variant independent from admin default, got %q", siteCfg.Theme.Variant)
+	}
+}
+
 func TestResolveSiteRuntimeConfigDerivesSearchEndpointAndReservedPrefixesFromURLConfig(t *testing.T) {
 	cfg := admin.Config{
 		DefaultLocale: "en",

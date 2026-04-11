@@ -19,7 +19,7 @@ func TestPhase7AgreementDraftFixtures(t *testing.T) {
 	fixtures := []fixtureCheck{
 		{
 			name: "bootstrap",
-			path: filepath.Join("..", "testdata", "sync", "phase7_agreement_draft_bootstrap.json"),
+			path: filepath.Join("..", "testdata", "sync", "agreement_draft_bootstrap.json"),
 			assert: func(t *testing.T, payload map[string]any) {
 				resourceRef := mustMapField(t, payload, "resource_ref")
 				if got := toString(resourceRef["kind"]); got != "agreement_draft" {
@@ -33,7 +33,7 @@ func TestPhase7AgreementDraftFixtures(t *testing.T) {
 		},
 		{
 			name: "autosave_success",
-			path: filepath.Join("..", "testdata", "sync", "phase7_agreement_draft_autosave_success.json"),
+			path: filepath.Join("..", "testdata", "sync", "agreement_draft_autosave_success.json"),
 			assert: func(t *testing.T, payload map[string]any) {
 				if got := toString(payload["applied"]); got != "true" {
 					t.Fatalf("expected autosave applied=true, got %q", got)
@@ -49,7 +49,7 @@ func TestPhase7AgreementDraftFixtures(t *testing.T) {
 		},
 		{
 			name: "stale_conflict",
-			path: filepath.Join("..", "testdata", "sync", "phase7_agreement_draft_stale_conflict.json"),
+			path: filepath.Join("..", "testdata", "sync", "agreement_draft_stale_conflict.json"),
 			assert: func(t *testing.T, payload map[string]any) {
 				errorPayload := mustMapField(t, payload, "error")
 				if got := toString(errorPayload["code"]); got != "STALE_REVISION" {
@@ -63,7 +63,7 @@ func TestPhase7AgreementDraftFixtures(t *testing.T) {
 		},
 		{
 			name: "send_replay",
-			path: filepath.Join("..", "testdata", "sync", "phase7_agreement_draft_send_replay.json"),
+			path: filepath.Join("..", "testdata", "sync", "agreement_draft_send_replay.json"),
 			assert: func(t *testing.T, payload map[string]any) {
 				if got := toString(payload["replay"]); got != "true" {
 					t.Fatalf("expected send replay replay=true, got %q", got)

@@ -113,7 +113,7 @@ func TestValidateV2ContractFreezeGuardRequiresContractSourceInputs(t *testing.T)
 	}
 	guard.TrackedFiles = []string{
 		"examples/esign/release/v2_source_management_contract_manifest.json",
-		"pkg/client/assets/tests/fixtures/esign_lineage_phase11/contract_fixtures.json",
+		"pkg/client/assets/tests/fixtures/source_management_contracts/contract_fixtures.json",
 	}
 
 	issues, err := ValidateV2ContractFreezeGuard(repoRoot, guard, time.Date(2026, 3, 22, 0, 0, 0, 0, time.UTC))

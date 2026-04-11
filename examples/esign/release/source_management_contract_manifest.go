@@ -104,7 +104,7 @@ func DefaultV2SourceManagementContractManifestPath(repoRoot string) string {
 }
 
 func DefaultV2SourceManagementFixtureSnapshotPath(repoRoot string) string {
-	return filepath.Join(strings.TrimSpace(repoRoot), "pkg/client/assets/tests/fixtures/esign_lineage_phase11/contract_fixtures.json")
+	return filepath.Join(strings.TrimSpace(repoRoot), "pkg/client/assets/tests/fixtures/source_management_contracts/contract_fixtures.json")
 }
 
 func DefaultV2SourceManagementRunbookPath(repoRoot string) string {

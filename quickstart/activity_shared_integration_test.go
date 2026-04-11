@@ -3,6 +3,7 @@ package quickstart_test
 import (
 	"context"
 	"fmt"
+	"maps"
 	"testing"
 	"time"
 
@@ -24,9 +25,7 @@ type staticActivityEnricher struct {
 
 func (e staticActivityEnricher) Enrich(_ context.Context, record userstypes.ActivityRecord) (userstypes.ActivityRecord, error) {
 	data := map[string]any{}
-	for key, value := range record.Data {
-		data[key] = value
-	}
+	maps.Copy(data, record.Data)
 	if e.actorDisplay != "" {
 		if _, ok := data[usersactivity.DataKeyActorDisplay]; !ok {
 			data[usersactivity.DataKeyActorDisplay] = e.actorDisplay

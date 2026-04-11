@@ -190,6 +190,9 @@ func newExampleTranslationAdmin(
 	translationCfg appcfg.TranslationConfig,
 ) (*coreadmin.Admin, coreadmin.Config) {
 	t.Helper()
+	if err := commandregistry.Stop(context.Background()); err != nil {
+		t.Fatalf("stop command registry before test: %v", err)
+	}
 	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
 
 	cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")

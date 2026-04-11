@@ -93,6 +93,88 @@ func TestPlannerValidationTypicalModuleCountMeetsStartupBudget(t *testing.T) {
 	}
 }
 
+func TestFallbackValidationAndReportGenerationTypicalModuleCountMeetsStartupBudget(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping startup budget check in short mode")
+	}
+
+	planner := mustPlanner(t, Config{
+		Roots: RootsConfig{
+			AdminRoot:     "/admin",
+			APIRoot:       "/admin/api",
+			PublicAPIRoot: "/api/v1",
+		},
+	})
+	for _, contract := range typicalPlannerContracts(12) {
+		if err := planner.RegisterModule(contract); err != nil {
+			t.Fatalf("register module %q: %v", contract.Slug, err)
+		}
+	}
+	if err := planner.RegisterHostRoutes(
+		ManifestEntry{
+			Owner:     "host:system",
+			Surface:   SurfaceSystem,
+			Domain:    RouteDomainSystem,
+			RouteKey:  "host.app_info",
+			RouteName: "host.app_info",
+			Method:    "GET",
+			Path:      "/.well-known/app-info",
+		},
+		ManifestEntry{
+			Owner:     "host:internal_ops",
+			Surface:   SurfaceInternalOps,
+			Domain:    RouteDomainInternalOps,
+			RouteKey:  "host.healthz",
+			RouteName: "host.healthz",
+			Method:    "GET",
+			Path:      "/healthz",
+		},
+		ManifestEntry{
+			Owner:     "host:internal_ops",
+			Surface:   SurfaceInternalOps,
+			Domain:    RouteDomainInternalOps,
+			RouteKey:  "host.status",
+			RouteName: "host.status",
+			Method:    "GET",
+			Path:      "/status",
+		},
+	); err != nil {
+		t.Fatalf("register host routes: %v", err)
+	}
+
+	start := time.Now()
+	if err := planner.RegisterFallback(FallbackEntry{
+		Owner:            "host:public_site",
+		Surface:          SurfacePublicSite,
+		Domain:           RouteDomainPublicSite,
+		Mode:             FallbackModePublicContentOnly,
+		AllowRoot:        true,
+		AllowedMethods:   []string{"HEAD", "GET"},
+		ReservedPrefixes: []string{"/.well-known", "/admin", "/admin/api", "/api/v1", "/assets", "/healthz", "/status", "/static"},
+	}); err != nil {
+		t.Fatalf("register fallback: %v", err)
+	}
+	if err := planner.Validate(); err != nil {
+		t.Fatalf("validate planner: %v", err)
+	}
+	manifest := planner.Manifest()
+	report := planner.Report()
+	elapsed := time.Since(start)
+
+	if elapsed > 20*time.Millisecond {
+		t.Fatalf("expected fallback validation plus manifest/report generation under 20ms, got %s", elapsed)
+	}
+	if len(manifest.Fallbacks) != 1 {
+		t.Fatalf("expected one fallback in manifest, got %+v", manifest.Fallbacks)
+	}
+	if report.RouteSummary.FallbackRoutes != 1 {
+		t.Fatalf("expected one fallback in report summary, got %+v", report.RouteSummary)
+	}
+	if report.RouteSummary.DomainCounts[RouteDomainPublicSite] != 1 {
+		t.Fatalf("expected public_site fallback counted in report domains, got %+v", report.RouteSummary.DomainCounts)
+	}
+}
+
 func BenchmarkPlannerValidationTypicalModuleCount(b *testing.B) {
 	contracts := typicalPlannerContracts(12)
 	cfg := Config{
@@ -114,6 +196,74 @@ func BenchmarkPlannerValidationTypicalModuleCount(b *testing.B) {
 		if err := planner.Validate(); err != nil {
 			b.Fatalf("validate planner: %v", err)
 		}
+	}
+}
+
+func BenchmarkFallbackValidationAndReportGenerationTypicalModuleCount(b *testing.B) {
+	contracts := typicalPlannerContracts(12)
+	cfg := Config{
+		Roots: RootsConfig{
+			AdminRoot:     "/admin",
+			APIRoot:       "/admin/api",
+			PublicAPIRoot: "/api/v1",
+		},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		planner := mustPlannerForBenchmark(b, cfg)
+		for _, contract := range contracts {
+			if err := planner.RegisterModule(contract); err != nil {
+				b.Fatalf("register module %q: %v", contract.Slug, err)
+			}
+		}
+		if err := planner.RegisterHostRoutes(
+			ManifestEntry{
+				Owner:     "host:system",
+				Surface:   SurfaceSystem,
+				Domain:    RouteDomainSystem,
+				RouteKey:  "host.app_info",
+				RouteName: "host.app_info",
+				Method:    "GET",
+				Path:      "/.well-known/app-info",
+			},
+			ManifestEntry{
+				Owner:     "host:internal_ops",
+				Surface:   SurfaceInternalOps,
+				Domain:    RouteDomainInternalOps,
+				RouteKey:  "host.healthz",
+				RouteName: "host.healthz",
+				Method:    "GET",
+				Path:      "/healthz",
+			},
+			ManifestEntry{
+				Owner:     "host:internal_ops",
+				Surface:   SurfaceInternalOps,
+				Domain:    RouteDomainInternalOps,
+				RouteKey:  "host.status",
+				RouteName: "host.status",
+				Method:    "GET",
+				Path:      "/status",
+			},
+		); err != nil {
+			b.Fatalf("register host routes: %v", err)
+		}
+		if err := planner.RegisterFallback(FallbackEntry{
+			Owner:            "host:public_site",
+			Surface:          SurfacePublicSite,
+			Domain:           RouteDomainPublicSite,
+			Mode:             FallbackModePublicContentOnly,
+			AllowRoot:        true,
+			AllowedMethods:   []string{"HEAD", "GET"},
+			ReservedPrefixes: []string{"/.well-known", "/admin", "/admin/api", "/api/v1", "/assets", "/healthz", "/status", "/static"},
+		}); err != nil {
+			b.Fatalf("register fallback: %v", err)
+		}
+		if err := planner.Validate(); err != nil {
+			b.Fatalf("validate planner: %v", err)
+		}
+		_ = planner.Manifest()
+		_ = planner.Report()
 	}
 }
 

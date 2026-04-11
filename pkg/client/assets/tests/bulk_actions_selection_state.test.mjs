@@ -15,7 +15,7 @@ const { JSDOM } = await loadJSDOM();
 const { DataGrid } = await importDatatableModule();
 
 async function loadFixture() {
-  const fixtureURL = new URL('./fixtures/action_bulk_phase7/canonical_bulk_contracts.json', import.meta.url);
+  const fixtureURL = new URL('./fixtures/bulk_action_contracts/canonical_bulk_contracts.json', import.meta.url);
   return JSON.parse(await readFile(fixtureURL, 'utf8'));
 }
 

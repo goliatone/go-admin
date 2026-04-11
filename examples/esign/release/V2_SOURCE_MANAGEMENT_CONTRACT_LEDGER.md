@@ -48,7 +48,7 @@ backend_tests:
 - TestGoSearchSourceProjectorPublishesSourceAndRevisionDocumentsWithPhase16Fields
 - TestGoSearchSourceProjectorParityMatchesInMemoryAndSQLiteFixtures
 fixtures:
-- pkg/client/assets/tests/fixtures/esign_lineage_phase11/contract_fixtures.json
+- pkg/client/assets/tests/fixtures/source_management_contracts/contract_fixtures.json
 - examples/esign/fixtures/lineage_runtime.go
 runbook:
 - examples/esign/release/V2_SOURCE_MANAGEMENT_RUNBOOK.md
