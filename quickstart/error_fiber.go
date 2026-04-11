@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
 	"runtime"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	adminrouting "github.com/goliatone/go-admin/admin/routing"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 )
@@ -55,6 +55,7 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 		errorCfg.InternalMessage = "An unexpected error occurred"
 	}
 	presenter := admin.NewErrorPresenter(errorCfg, options.errorMappers...)
+	routeDomains := newHostRouteDomainResolver(cfg)
 
 	return func(c *fiber.Ctx, err error) error {
 		code := fiber.StatusInternalServerError
@@ -86,9 +87,7 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 			message = "forbidden"
 		}
 
-		apiPrefix := path.Join(cfg.BasePath, "api")
-		crudPrefix := path.Join(cfg.BasePath, "crud")
-		isAPI := strings.HasPrefix(c.Path(), apiPrefix) || strings.HasPrefix(c.Path(), crudPrefix)
+		isAPI := routeDomains.classify(c.Path(), hostRouteStandard) == adminrouting.RouteDomainAdminAPI
 
 		if isAPI {
 			mapped, status := presenter.Present(err)

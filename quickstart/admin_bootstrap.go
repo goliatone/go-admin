@@ -184,7 +184,7 @@ func WithWorkflowRuntime(runtime admin.WorkflowRuntime) AdminOption {
 	}
 }
 
-// WithThemeSelector wires a go-theme selector + manifest into admin.
+// WithThemeSelector wires an admin go-theme selector + manifest into quickstart admin bootstrap.
 func WithThemeSelector(selector theme.ThemeSelector, manifest *theme.Manifest) AdminOption {
 	return func(opts *adminOptions) {
 		if opts == nil {
@@ -361,7 +361,7 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		}
 	}
 	if options.themeSelector != nil {
-		adm.WithGoTheme(options.themeSelector)
+		adm.WithAdminTheme(options.themeSelector)
 	}
 	if options.themeManifest != nil {
 		adm.WithThemeManifest(options.themeManifest)
