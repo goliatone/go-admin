@@ -1,0 +1,107 @@
+{
+  "manifest": {
+    "entries": [
+      {
+        "owner": "host:internal_ops",
+        "surface": "internal_ops",
+        "domain": "internal_ops",
+        "route_key": "host.healthz",
+        "route_name": "host.healthz",
+        "method": "GET",
+        "path": "/healthz",
+        "group_path": ""
+      },
+      {
+        "owner": "host:static",
+        "surface": "static",
+        "domain": "static",
+        "route_key": "host.static",
+        "route_name": "host.static",
+        "method": "GET",
+        "path": "/static/*",
+        "group_path": ""
+      },
+      {
+        "owner": "host:system",
+        "surface": "system",
+        "domain": "system",
+        "route_key": "host.app_info",
+        "route_name": "host.app_info",
+        "method": "GET",
+        "path": "/.well-known/app-info",
+        "group_path": ""
+      }
+    ],
+    "fallbacks": [
+      {
+        "owner": "host:public_site",
+        "surface": "public_site",
+        "domain": "public_site",
+        "mode": "public_content_only",
+        "allow_root": true,
+        "allowed_methods": [
+          "GET",
+          "HEAD"
+        ],
+        "reserved_prefixes": [
+          "/.well-known",
+          "/admin",
+          "/api/v1",
+          "/assets",
+          "/healthz",
+          "/static"
+        ]
+      }
+    ]
+  },
+  "report": {
+    "effective_roots": {
+      "admin_root": "/admin",
+      "api_root": "/admin/api",
+      "public_api_root": "/api/v1"
+    },
+    "route_summary": {
+      "total_routes": 3,
+      "host_routes": 3,
+      "module_routes": 0,
+      "fallback_routes": 1,
+      "domains": [
+        "internal_ops",
+        "public_site",
+        "static",
+        "system"
+      ],
+      "domain_counts": {
+        "internal_ops": 1,
+        "public_site": 1,
+        "static": 1,
+        "system": 1
+      }
+    },
+    "fallbacks": [
+      {
+        "owner": "host:public_site",
+        "surface": "public_site",
+        "domain": "public_site",
+        "mode": "public_content_only",
+        "allow_root": true,
+        "allowed_methods": [
+          "GET",
+          "HEAD"
+        ],
+        "reserved_prefixes": [
+          "/.well-known",
+          "/admin",
+          "/api/v1",
+          "/assets",
+          "/healthz",
+          "/static"
+        ]
+      }
+    ],
+    "warnings": [
+      "urlkit adapter does not advertise native manifest support; using local manifest assembly",
+      "urlkit adapter does not advertise native strict mutation support; using local preflight checks"
+    ]
+  }
+}
