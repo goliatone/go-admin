@@ -3,6 +3,7 @@ package routing
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -26,24 +27,24 @@ type Planner interface {
 }
 
 const (
-	SurfaceUI        = "ui"
-	SurfaceAPI       = "api"
-	SurfacePublicAPI = "public_api"
-	SurfacePublicSite = "public_site"
-	SurfaceSystem     = "system"
+	SurfaceUI          = "ui"
+	SurfaceAPI         = "api"
+	SurfacePublicAPI   = "public_api"
+	SurfacePublicSite  = "public_site"
+	SurfaceSystem      = "system"
 	SurfaceInternalOps = "internal_ops"
 	SurfaceStatic      = "static"
 )
 
 type planner struct {
-	cfg      Config
-	urls     URLKitAdapter
-	modules  map[string]modulePlan
-	order    []string
+	cfg         Config
+	urls        URLKitAdapter
+	modules     map[string]modulePlan
+	order       []string
 	hostEntries []ManifestEntry
-	fallbacks []FallbackEntry
-	manifest Manifest
-	report   StartupReport
+	fallbacks   []FallbackEntry
+	manifest    Manifest
+	report      StartupReport
 }
 
 type modulePlan struct {
@@ -58,12 +59,12 @@ func NewPlanner(cfg Config, urls URLKitAdapter) (Planner, error) {
 	cfg.Manifest = normalizeManifestConfig(cfg.Manifest)
 
 	planner := &planner{
-		cfg:     cfg,
-		urls:    urls,
-		modules: map[string]modulePlan{},
-		order:   []string{},
+		cfg:         cfg,
+		urls:        urls,
+		modules:     map[string]modulePlan{},
+		order:       []string{},
 		hostEntries: nil,
-		fallbacks: nil,
+		fallbacks:   nil,
 	}
 	planner.rebuildViews()
 
@@ -188,9 +189,7 @@ func (p *planner) Report() StartupReport {
 	report.RouteSummary.Domains = append([]string{}, p.report.RouteSummary.Domains...)
 	if len(p.report.RouteSummary.DomainCounts) > 0 {
 		report.RouteSummary.DomainCounts = make(map[string]int, len(p.report.RouteSummary.DomainCounts))
-		for key, value := range p.report.RouteSummary.DomainCounts {
-			report.RouteSummary.DomainCounts[key] = value
-		}
+		maps.Copy(report.RouteSummary.DomainCounts, p.report.RouteSummary.DomainCounts)
 	}
 	report.Fallbacks = append([]FallbackEntry{}, p.report.Fallbacks...)
 	report.Conflicts = append([]Conflict{}, p.report.Conflicts...)
@@ -268,9 +267,7 @@ func (p *planner) rebuildViews() {
 
 func (p *planner) validateCandidate(candidate modulePlan) error {
 	modules := make(map[string]modulePlan, len(p.modules)+1)
-	for slug, plan := range p.modules {
-		modules[slug] = plan
-	}
+	maps.Copy(modules, p.modules)
 	modules[candidate.contract.Slug] = candidate
 	order := append([]string{}, p.order...)
 	order = append(order, candidate.contract.Slug)

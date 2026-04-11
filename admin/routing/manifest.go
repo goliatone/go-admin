@@ -30,12 +30,12 @@ type ManifestEntry struct {
 }
 
 type ManifestDiff struct {
-	Added           []ManifestDiffEntry  `json:"added,omitempty"`
-	Removed         []ManifestDiffEntry  `json:"removed,omitempty"`
-	Changed         []ManifestDiffEntry  `json:"changed,omitempty"`
-	FallbackAdded   []FallbackDiffEntry  `json:"fallback_added,omitempty"`
-	FallbackRemoved []FallbackDiffEntry  `json:"fallback_removed,omitempty"`
-	FallbackChanged []FallbackDiffEntry  `json:"fallback_changed,omitempty"`
+	Added           []ManifestDiffEntry `json:"added,omitempty"`
+	Removed         []ManifestDiffEntry `json:"removed,omitempty"`
+	Changed         []ManifestDiffEntry `json:"changed,omitempty"`
+	FallbackAdded   []FallbackDiffEntry `json:"fallback_added,omitempty"`
+	FallbackRemoved []FallbackDiffEntry `json:"fallback_removed,omitempty"`
+	FallbackChanged []FallbackDiffEntry `json:"fallback_changed,omitempty"`
 }
 
 type ManifestDiffEntry struct {
@@ -95,10 +95,10 @@ func DiffManifests(before, after Manifest) ManifestDiff {
 		rightMap[manifestIdentityKey(entry)] = entry
 	}
 	for _, entry := range left.Fallbacks {
-		leftFallbacks[fallbackIdentityKey(entry)] = entry
+		leftFallbacks[fallbackScopeKey(entry)] = entry
 	}
 	for _, entry := range right.Fallbacks {
-		rightFallbacks[fallbackIdentityKey(entry)] = entry
+		rightFallbacks[fallbackScopeKey(entry)] = entry
 	}
 
 	diff := ManifestDiff{}

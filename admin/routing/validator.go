@@ -130,7 +130,7 @@ func (v *Validator) ValidateFallbacks(entries []ManifestEntry, fallbacks []Fallb
 			})
 			continue
 		}
-		key := fallbackIdentityKey(fallback)
+		key := fallback.Surface
 		if existing, ok := seen[key]; ok && !fallbackEntriesEqual(existing, fallback) {
 			conflicts = append(conflicts, Conflict{
 				Kind:   ConflictKindOwnershipViolation,

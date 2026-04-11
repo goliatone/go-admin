@@ -155,9 +155,14 @@ func fallbackBaseRoot(entry FallbackEntry) string {
 	return entry.BasePath
 }
 
+func fallbackScopeKey(entry FallbackEntry) string {
+	entry = NormalizeFallbackEntry(entry)
+	return entry.Surface + "|" + entry.Domain
+}
+
 func fallbackIdentityKey(entry FallbackEntry) string {
 	entry = NormalizeFallbackEntry(entry)
-	return entry.Owner + "|" + entry.Surface
+	return entry.Owner + "|" + fallbackScopeKey(entry)
 }
 
 func fallbackAllowsMethod(entry FallbackEntry, method string) bool {
@@ -166,12 +171,7 @@ func fallbackAllowsMethod(entry FallbackEntry, method string) bool {
 	if method == "" || len(entry.AllowedMethods) == 0 {
 		return false
 	}
-	for _, candidate := range entry.AllowedMethods {
-		if candidate == method {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(entry.AllowedMethods, method)
 }
 
 func fallbackReservesPath(entry FallbackEntry, requestPath string) bool {
@@ -214,10 +214,8 @@ func fallbackClaimsPath(entry FallbackEntry, requestPath string) bool {
 		if requestPath == root {
 			return entry.AllowRoot
 		}
-		for _, exactPath := range entry.AllowedExactPaths {
-			if requestPath == exactPath {
-				return true
-			}
+		if slices.Contains(entry.AllowedExactPaths, requestPath) {
+			return true
 		}
 		for _, prefix := range entry.AllowedPathPrefixes {
 			if requestPath == prefix || strings.HasPrefix(requestPath, strings.TrimSuffix(prefix, "/")+"/") {

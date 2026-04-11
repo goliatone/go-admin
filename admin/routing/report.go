@@ -105,6 +105,15 @@ func BuildStartupReport(roots RootsConfig, modules []ResolvedModule, manifest Ma
 			domainCounts[domain]++
 		}
 	}
+	for _, fallback := range normalizedManifest.Fallbacks {
+		domain := NormalizeRouteDomain(fallback.Domain)
+		if domain == "" {
+			domain = DefaultRouteDomainForSurface(fallback.Surface)
+		}
+		if domain != "" {
+			domainCounts[domain]++
+		}
+	}
 	domains := make([]string, 0, len(domainCounts))
 	for domain := range domainCounts {
 		domains = append(domains, domain)

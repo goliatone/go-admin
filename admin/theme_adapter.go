@@ -7,12 +7,12 @@ import (
 	gotheme "github.com/goliatone/go-theme"
 )
 
-// WithGoTheme wires a go-theme selector so CMS templates, dashboard widgets, and forms share the same selection.
-func (a *Admin) WithGoTheme(selector gotheme.ThemeSelector) *Admin {
+// ThemeProviderFromGoThemeSelector adapts a go-theme selector into the admin theme provider contract.
+func ThemeProviderFromGoThemeSelector(selector gotheme.ThemeSelector) ThemeProvider {
 	if selector == nil {
-		return a
+		return nil
 	}
-	a.themeProvider = func(ctx context.Context, sel ThemeSelector) (*ThemeSelection, error) {
+	return func(ctx context.Context, sel ThemeSelector) (*ThemeSelection, error) {
 		selection, err := selector.Select(sel.Name, sel.Variant)
 		if err != nil {
 			return nil, err
@@ -32,5 +32,13 @@ func (a *Admin) WithGoTheme(selector gotheme.ThemeSelector) *Admin {
 			AssetPrefix: snapshot.AssetPrefix,
 		}, nil
 	}
+}
+
+// WithAdminTheme wires a go-theme selector so CMS templates, dashboard widgets, and forms share the admin selection.
+func (a *Admin) WithAdminTheme(selector gotheme.ThemeSelector) *Admin {
+	if selector == nil {
+		return a
+	}
+	a.themeProvider = ThemeProviderFromGoThemeSelector(selector)
 	return a
 }

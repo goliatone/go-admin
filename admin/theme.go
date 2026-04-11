@@ -205,3 +205,8 @@ func (t *ThemeSelection) payload() map[string]map[string]string {
 	}
 	return out
 }
+
+// Payload returns a cloned theme payload suitable for JSON/view contexts.
+func (t *ThemeSelection) Payload() map[string]map[string]string {
+	return t.payload()
+}
