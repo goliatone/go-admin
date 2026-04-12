@@ -1,5 +1,23 @@
 # Changelog
 
+# [0.43.0](https://github.com/goliatone/go-admin/compare/v0.42.0...v0.43.0) - (2026-04-12)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Admin translation grouping ([3b4c1fc](https://github.com/goliatone/go-admin/commit/3b4c1fcbf1ebf60b7cefd9f1346d048842d86cd2))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.43.0 ([ba38e29](https://github.com/goliatone/go-admin/commit/ba38e299d141b68312db3f84c88033a3c29c6fd2))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- New go cms page reader ([a34294c](https://github.com/goliatone/go-admin/commit/a34294cc7f94c9d6ad37a4199f9d36722866bb7a))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.42.0 ([36c7987](https://github.com/goliatone/go-admin/commit/36c7987dadf65507583d919d41fdad8b7e029cf1))  - (goliatone)
+
 # [0.42.0](https://github.com/goliatone/go-admin/compare/v0.41.0...v0.42.0) - (2026-04-12)
 
 ## <!-- 1 -->🐛 Bug Fixes
