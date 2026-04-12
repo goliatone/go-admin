@@ -45,6 +45,15 @@
                 "fr"
               ]
             },
+            "path": {
+              "type": "string",
+              "title": "Path"
+            },
+            "route_key": {
+              "type": "string",
+              "title": "Route Key",
+              "x-hidden": true
+            },
             "missing_locales": {
               "type": "array",
               "items": {
