@@ -86,6 +86,25 @@ func cloneLocalizedPaths(input map[string]string) map[string]string {
 	return out
 }
 
+func localizedAvailableLocales(existing []string, pathsByLocale map[string]string, supportedLocales []string) []string {
+	set := toLocaleSet(existing)
+	for locale, path := range pathsByLocale {
+		locale = strings.ToLower(strings.TrimSpace(locale))
+		path = strings.TrimSpace(path)
+		if locale == "" || path == "" {
+			continue
+		}
+		if len(supportedLocales) > 0 && !localeInSet(locale, supportedLocales) {
+			continue
+		}
+		if set == nil {
+			set = map[string]struct{}{}
+		}
+		set[locale] = struct{}{}
+	}
+	return mapKeysSorted(set)
+}
+
 func mapDeliveryRecord(record admin.CMSContent, capability deliveryCapability) map[string]any {
 	data := cloneAnyMap(record.Data)
 	path := recordDeliveryPath(record, capability)

@@ -61,12 +61,18 @@ func ViewContextFromRequest(c router.Context) router.ViewContext {
 	return router.ViewContext{}
 }
 
-// MergeViewContext overlays request-level site context onto an existing view context.
+// MergeViewContext fills missing keys from request-level site context without
+// overwriting explicitly resolved render values.
 func MergeViewContext(in router.ViewContext, c router.Context) router.ViewContext {
 	if in == nil {
 		in = router.ViewContext{}
 	}
-	maps.Copy(in, ViewContextFromRequest(c))
+	for key, value := range ViewContextFromRequest(c) {
+		if _, exists := in[key]; exists {
+			continue
+		}
+		in[key] = value
+	}
 	return in
 }
 

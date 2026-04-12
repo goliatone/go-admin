@@ -13,12 +13,30 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		return c.Redirect(target, http.StatusPermanentRedirect)
 	}
 
+	availableLocales := cloneStrings(resolution.AvailableLocales)
+	pathsByLocale := resolution.PathsByLocale
+	if resolution.Record != nil {
+		pathsByLocale = r.resolveLocalizedPathsByLocale(
+			c.Context(),
+			state,
+			resolution.Capability,
+			*resolution.Record,
+			pathsByLocale,
+			cache,
+		)
+		availableLocales = localizedAvailableLocales(availableLocales, pathsByLocale, state.SupportedLocales)
+		record := *resolution.Record
+		record.AvailableLocales = cloneStrings(availableLocales)
+		resolution.Record = &record
+	}
+	resolution.AvailableLocales = cloneStrings(availableLocales)
+
 	viewCtx := newRuntimeViewContext(state)
 	viewCtx = applyResolvedLocaleViewContext(
 		viewCtx,
 		resolution.RequestedLocale,
 		resolution.ResolvedLocale,
-		resolution.AvailableLocales,
+		availableLocales,
 		resolution.MissingRequested,
 	)
 	viewCtx = applyContentTypeViewContext(viewCtx, resolution.Capability.TypeSlug)
@@ -55,17 +73,6 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		maps.Copy(viewCtx, menus)
 	}
 
-	pathsByLocale := resolution.PathsByLocale
-	if resolution.Record != nil {
-		pathsByLocale = r.resolveLocalizedPathsByLocale(
-			c.Context(),
-			state,
-			resolution.Capability,
-			*resolution.Record,
-			pathsByLocale,
-			cache,
-		)
-	}
 	viewCtx = applyLocaleSwitcherViewContext(
 		viewCtx,
 		r.siteCfg,
@@ -73,7 +80,7 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		resolution.RequestedLocale,
 		resolution.ResolvedLocale,
 		resolution.FamilyID,
-		resolution.AvailableLocales,
+		availableLocales,
 		pathsByLocale,
 		state,
 	)
