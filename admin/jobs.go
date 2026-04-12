@@ -150,6 +150,11 @@ func (j *JobRegistry) WithGoJob(registry gojob.Registry, scheduler goJobSchedule
 
 // WithActivitySink records job triggers to the shared activity sink.
 func (j *JobRegistry) WithActivitySink(sink ActivitySink) {
+	if j == nil {
+		return
+	}
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	j.activity = sink
 }
 
@@ -158,12 +163,20 @@ func (j *JobRegistry) Enable(enabled bool) {
 	if j == nil {
 		return
 	}
+	j.mu.Lock()
+	defer j.mu.Unlock()
 	j.enabled = enabled
 }
 
 // Sync registers cron-capable commands with the go-job dispatcher and scheduler.
 func (j *JobRegistry) Sync(ctx context.Context) error {
-	if j == nil || !j.enabled {
+	if j == nil {
+		return nil
+	}
+	j.mu.Lock()
+	enabled := j.enabled
+	j.mu.Unlock()
+	if !enabled {
 		return nil
 	}
 	if ctx == nil {
@@ -174,65 +187,98 @@ func (j *JobRegistry) Sync(ctx context.Context) error {
 	}
 
 	j.mu.Lock()
-	defer j.mu.Unlock()
-
-	if j.registry == nil || (!j.registryProvided && j.synced) {
-		j.registry = gojob.NewMemoryRegistry()
-	}
-	if j.scheduler == nil {
-		j.scheduler = gocron.NewScheduler()
-	}
-
+	registryInst := j.registry
+	registryProvided := j.registryProvided
+	scheduler := j.scheduler
+	schedulerStarted := j.schedulerStarted
+	synced := j.synced
+	existingSubs := make([]gocron.Subscription, 0, len(j.cronSubs))
 	for _, sub := range j.cronSubs {
 		if sub != nil {
-			sub.Unsubscribe()
+			existingSubs = append(existingSubs, sub)
 		}
 	}
-	j.cronSubs = map[string]gocron.Subscription{}
-	j.states = map[string]*jobState{}
-	j.tasks = map[string]gojob.Task{}
-	j.commanders = map[string]*gojob.TaskCommander{}
-
+	cronCommands := make(map[string]*jobRegistration, len(j.cronCommands))
 	for name, reg := range j.cronCommands {
+		cronCommands[name] = reg
+	}
+	j.mu.Unlock()
+
+	if registryInst == nil || (!registryProvided && synced) {
+		registryInst = gojob.NewMemoryRegistry()
+	}
+	if scheduler == nil {
+		scheduler = gocron.NewScheduler()
+	}
+
+	for _, sub := range existingSubs {
+		sub.Unsubscribe()
+	}
+
+	tasks := map[string]gojob.Task{}
+	commanders := map[string]*gojob.TaskCommander{}
+	states := map[string]*jobState{}
+	cronSubs := map[string]gocron.Subscription{}
+
+	for name, reg := range cronCommands {
 		task := newJobTask(name, reg)
 		if task == nil {
 			continue
 		}
-		_ = j.registry.Add(task)
-		j.tasks[name] = task
-		j.commanders[name] = gojob.NewTaskCommander(task)
+		_ = registryInst.Add(task)
+		tasks[name] = task
+		commanders[name] = gojob.NewTaskCommander(task)
 
 		if spec := strings.TrimSpace(reg.handlerConfig.Expression); spec != "" {
-			j.states[name] = &jobState{schedule: spec}
-			if err := j.registerScheduleLocked(name, reg.handlerConfig, j.commanders[name]); err != nil {
+			states[name] = &jobState{schedule: spec}
+			sub, err := j.registerSchedule(name, reg.handlerConfig, commanders[name], scheduler)
+			if err != nil {
 				return err
+			}
+			if sub != nil {
+				cronSubs[name] = sub
 			}
 		}
 	}
-	j.ensureStateForTasksLocked()
+	ensureJobStateForTasks(states, commanders)
 
-	if j.scheduler != nil && !j.schedulerStarted {
-		if err := j.scheduler.Start(ctx); err != nil {
+	if scheduler != nil && !schedulerStarted {
+		if err := scheduler.Start(ctx); err != nil {
 			return err
 		}
-		j.schedulerStarted = true
+		schedulerStarted = true
 	}
 
+	j.mu.Lock()
+	j.registry = registryInst
+	j.scheduler = scheduler
+	j.cronSubs = cronSubs
+	j.states = states
+	j.tasks = tasks
+	j.commanders = commanders
+	j.schedulerStarted = schedulerStarted
 	j.synced = true
+	j.mu.Unlock()
 	return nil
 }
 
 // List returns registered cron jobs.
 func (j *JobRegistry) List() []Job {
 	empty := []Job{}
-	if j == nil || !j.enabled {
+	if j == nil {
+		return empty
+	}
+	j.mu.Lock()
+	enabled := j.enabled
+	j.mu.Unlock()
+	if !enabled {
 		return empty
 	}
 	_ = j.ensureSynced(context.Background())
 
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.ensureStateForTasksLocked()
+	ensureJobStateForTasks(j.states, j.commanders)
 
 	out := []Job{}
 	for name, state := range j.states {
@@ -256,7 +302,13 @@ func (j *JobRegistry) List() []Job {
 
 // Trigger dispatches a job by name through the go-job dispatcher.
 func (j *JobRegistry) Trigger(ctx AdminContext, name string) error {
-	if j == nil || !j.enabled {
+	if j == nil {
+		return FeatureDisabledError{Feature: string(FeatureJobs)}
+	}
+	j.mu.Lock()
+	enabled := j.enabled
+	j.mu.Unlock()
+	if !enabled {
 		return FeatureDisabledError{Feature: string(FeatureJobs)}
 	}
 	if err := j.ensureSynced(ctx.Context); err != nil {
@@ -266,21 +318,20 @@ func (j *JobRegistry) Trigger(ctx AdminContext, name string) error {
 	j.mu.Lock()
 	task := j.tasks[name]
 	commander := j.commanders[name]
-	state := j.stateLocked(name)
 	j.mu.Unlock()
-	if task == nil || commander == nil || state == nil {
+	if task == nil || commander == nil {
 		return ErrNotFound
 	}
 
 	msg := &gojob.ExecutionMessage{JobID: name, ScriptPath: task.GetPath()}
 	err := commander.Execute(ctx.Context, msg)
-	j.recordJobRun(ctx, name, state, err)
+	j.recordJobRun(ctx, name, err)
 	return err
 }
 
-func (j *JobRegistry) registerScheduleLocked(name string, opts command.HandlerConfig, commander *gojob.TaskCommander) error {
-	if j == nil || j.scheduler == nil || strings.TrimSpace(opts.Expression) == "" {
-		return nil
+func (j *JobRegistry) registerSchedule(name string, opts command.HandlerConfig, commander *gojob.TaskCommander, scheduler goJobScheduler) (gocron.Subscription, error) {
+	if j == nil || scheduler == nil || strings.TrimSpace(opts.Expression) == "" {
+		return nil, nil
 	}
 
 	handler := func() error {
@@ -288,25 +339,24 @@ func (j *JobRegistry) registerScheduleLocked(name string, opts command.HandlerCo
 			JobID:      name,
 			ScriptPath: commander.Task.GetPath(),
 		})
-		j.recordJobRun(AdminContext{Context: context.Background(), UserID: ActivityActorTypeSystem}, name, j.stateLocked(name), err)
+		j.recordJobRun(AdminContext{Context: context.Background(), UserID: ActivityActorTypeSystem}, name, err)
 		return err
 	}
 
-	sub, err := j.scheduler.AddHandler(opts, handler)
+	sub, err := scheduler.AddHandler(opts, handler)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	j.cronSubs[name] = sub
-	return nil
+	return sub, nil
 }
 
-func (j *JobRegistry) ensureStateForTasksLocked() {
-	if j.states == nil {
-		j.states = map[string]*jobState{}
+func ensureJobStateForTasks(states map[string]*jobState, commanders map[string]*gojob.TaskCommander) {
+	if states == nil {
+		return
 	}
-	for name := range j.commanders {
-		if _, ok := j.states[name]; !ok {
-			j.states[name] = &jobState{}
+	for name := range commanders {
+		if _, ok := states[name]; !ok {
+			states[name] = &jobState{}
 		}
 	}
 }
@@ -333,28 +383,31 @@ func (j *JobRegistry) stateLocked(name string) *jobState {
 	return state
 }
 
-func (j *JobRegistry) recordJobRun(ctx AdminContext, name string, state *jobState, execErr error) {
-	if j == nil || state == nil {
+func (j *JobRegistry) recordJobRun(ctx AdminContext, name string, execErr error) {
+	if j == nil {
 		return
 	}
 	j.mu.Lock()
+	state := j.stateLocked(name)
 	state.lastRun = time.Now()
 	if execErr != nil {
 		state.lastErr = execErr.Error()
 	} else {
 		state.lastErr = ""
 	}
+	schedule := state.schedule
+	activity := j.activity
 	j.mu.Unlock()
-	j.recordActivity(ctx, name, state, execErr)
+	recordJobActivity(activity, ctx, name, schedule, execErr)
 }
 
-func (j *JobRegistry) recordActivity(ctx AdminContext, name string, state *jobState, execErr error) {
-	if j == nil || j.activity == nil {
+func recordJobActivity(activity ActivitySink, ctx AdminContext, name string, schedule string, execErr error) {
+	if activity == nil {
 		return
 	}
 	meta := map[string]any{"job": name}
-	if state != nil && state.schedule != "" {
-		meta["schedule"] = state.schedule
+	if schedule != "" {
+		meta["schedule"] = schedule
 	}
 	if execErr != nil {
 		meta["error"] = execErr.Error()
@@ -370,7 +423,7 @@ func (j *JobRegistry) recordActivity(ctx AdminContext, name string, state *jobSt
 			actor = ActivityActorTypeSystem
 		}
 	}
-	_ = j.activity.Record(ctx.Context, ActivityEntry{
+	_ = activity.Record(ctx.Context, ActivityEntry{
 		Actor:    actor,
 		Action:   "job.trigger",
 		Object:   name,
