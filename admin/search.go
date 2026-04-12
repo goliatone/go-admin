@@ -50,6 +50,14 @@ func (s *SearchEngine) Register(key string, adapter SearchAdapter) {
 	s.adapters[key] = adapter
 }
 
+// Unregister removes a search adapter by key.
+func (s *SearchEngine) Unregister(key string) {
+	if s == nil || key == "" {
+		return
+	}
+	delete(s.adapters, key)
+}
+
 // SetPrimary installs the canonical search adapter. When configured, Query
 // routes all requests through the primary adapter instead of fanout across the
 // legacy registry.
