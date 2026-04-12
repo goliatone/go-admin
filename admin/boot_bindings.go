@@ -140,6 +140,7 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 		err     error
 	)
 	if groupedByTranslationGroup {
+		ctx.Context = withTranslationFamilyExpansion(ctx.Context)
 		records, total, err = p.listGroupedByTranslationGroup(ctx, baseListOpts, requestedListOpts, readinessPredicates)
 		if err != nil {
 			return nil, 0, nil, nil, nil, err
