@@ -45,6 +45,7 @@ func (s goCMSAdminBlockReadService) ListDefinitions(ctx context.Context, opts Li
 	search := strings.ToLower(extractSearch(opts))
 	categoryFilter := ""
 	statusFilter := ""
+	localeFilter := strings.ToLower(strings.TrimSpace(resolveListRequestedLocale(ctx, opts, "")))
 	channel := ""
 	hasChannelFilter := false
 	if opts.Filters != nil {
@@ -66,6 +67,9 @@ func (s goCMSAdminBlockReadService) ListDefinitions(ctx context.Context, opts Li
 	filtered := []CMSBlockDefinition{}
 	for _, def := range defs {
 		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), channel) {
+			continue
+		}
+		if localeFilter != "" && strings.ToLower(strings.TrimSpace(def.Locale)) != localeFilter {
 			continue
 		}
 		if search != "" &&
@@ -143,8 +147,12 @@ func (s goCMSAdminBlockReadService) GetDefinition(ctx context.Context, id string
 	}
 	channel := cmsContentChannelFromContext(ctx, "")
 	hasChannelFilter := channel != ""
+	localeFilter := strings.ToLower(strings.TrimSpace(localeFromContext(ctx)))
 	for _, def := range defs {
 		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), channel) {
+			continue
+		}
+		if localeFilter != "" && strings.ToLower(strings.TrimSpace(def.Locale)) != localeFilter {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
@@ -186,7 +194,7 @@ func (s goCMSAdminBlockReadService) listBlocks(ctx context.Context, opts ListOpt
 	if err := ensureCMSContentService(s.content); err != nil {
 		return nil, err
 	}
-	locale := extractLocale(opts, "")
+	locale := resolveListRequestedLocale(ctx, opts, "")
 	contentIDs := []string{}
 	if opts.Filters != nil {
 		if cid, ok := opts.Filters["content_id"].(string); ok && cid != "" {
