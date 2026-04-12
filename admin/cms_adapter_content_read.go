@@ -20,6 +20,9 @@ func toGoCMSContentListOptions(opts ...CMSContentListOption) []cmscontent.Conten
 	}
 	out := make([]cmscontent.ContentListOption, 0, len(opts))
 	for _, opt := range opts {
+		if isInternalCMSContentListOption(opt) {
+			continue
+		}
 		out = append(out, cmscontent.ContentListOption(opt))
 	}
 	return out
@@ -52,6 +55,21 @@ func hasCMSProjectionOption(opts []CMSContentListOption) bool {
 		}
 	}
 	return false
+}
+
+func isInternalCMSContentListOption(opt CMSContentListOption) bool {
+	return opt == WithLocaleVariants()
+}
+
+func hasLocaleVariantsOption(opts []CMSContentListOption) bool {
+	return hasCMSContentListOption(opts, WithLocaleVariants())
+}
+
+func normalizeCMSRequestedListLocale(locale string) string {
+	if isTranslationLocaleWildcard(locale) {
+		return ""
+	}
+	return strings.TrimSpace(locale)
 }
 
 type goCMSContentReadBoundary struct {
@@ -130,7 +148,7 @@ func (r goCMSContentReadBoundary) listContents(ctx context.Context, locale strin
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
-	if a.adminRead != nil {
+	if a.adminRead != nil && !hasLocaleVariantsOption(opts) {
 		records, _, err := a.adminRead.List(ctx, cms.AdminContentListOptions{
 			Locale:                   locale,
 			AllowMissingTranslations: true,
@@ -151,6 +169,7 @@ func (r goCMSContentReadBoundary) listContents(ctx context.Context, locale strin
 		return out, nil
 	}
 	listOpts := ensureDerivedFieldsProjection(opts...)
+	requestedLocale := strings.TrimSpace(locale)
 	listed, err := a.content.List(ctx, toGoCMSContentListOptions(listOpts...)...)
 	if err != nil {
 		return nil, err
@@ -160,7 +179,16 @@ func (r goCMSContentReadBoundary) listContents(ctx context.Context, locale strin
 		if item == nil {
 			continue
 		}
-		converted := a.convertContent(ctx, reflect.ValueOf(item), locale)
+		value := reflect.ValueOf(item)
+		if hasLocaleVariantsOption(listOpts) {
+			variants := r.convertContentVariants(ctx, value, requestedLocale)
+			if len(variants) == 0 {
+				continue
+			}
+			out = append(out, variants...)
+			continue
+		}
+		converted := a.convertContent(ctx, value, normalizeCMSRequestedListLocale(requestedLocale))
 		applySchemaVersionToContent(&converted)
 		applyEmbeddedBlocksToContent(&converted)
 		out = append(out, converted)
@@ -387,6 +415,10 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 	return a.contentReader().convertContent(ctx, value, locale)
 }
 
+func (a *GoCMSContentAdapter) convertContentVariants(ctx context.Context, value reflect.Value, requestedLocale string) []CMSContent {
+	return a.contentReader().convertContentVariants(ctx, value, requestedLocale)
+}
+
 func (a *GoCMSContentAdapter) convertAdminContentRecord(ctx context.Context, record cms.AdminContentRecord) CMSContent {
 	return a.contentReader().convertAdminContentRecord(ctx, record)
 }
@@ -403,6 +435,25 @@ func (r goCMSContentReadBoundary) convertAdminContentRecord(ctx context.Context,
 			out.Metadata = cmsadapter.NormalizeStructuralMetadata(out.Metadata)
 		}
 		out.Data = cmsadapter.InjectStructuralMetadata(out.Metadata, out.Data)
+	}
+	return out
+}
+
+func (r goCMSContentReadBoundary) convertContentVariants(ctx context.Context, value reflect.Value, requestedLocale string) []CMSContent {
+	val := gocmsutil.Deref(value)
+	variants := buildGoCMSTranslationVariants(val)
+	if len(variants) == 0 {
+		converted := r.convertContent(ctx, value, normalizeCMSRequestedListLocale(requestedLocale))
+		applySchemaVersionToContent(&converted)
+		applyEmbeddedBlocksToContent(&converted)
+		return []CMSContent{converted}
+	}
+	out := make([]CMSContent, 0, len(variants))
+	for _, variant := range variants {
+		converted := r.convertContentVariant(ctx, val, requestedLocale, variant)
+		applySchemaVersionToContent(&converted)
+		applyEmbeddedBlocksToContent(&converted)
+		out = append(out, converted)
 	}
 	return out
 }
@@ -448,6 +499,88 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 		out.Locale = locale
 	}
 	applyGoCMSTranslationLocaleState(&out, val, projection.chosen, strings.TrimSpace(locale))
+	if schema := strings.TrimSpace(toString(out.Data["_schema"])); schema != "" {
+		out.SchemaVersion = schema
+	}
+	if meta := gocmsutil.MapFieldAny(val, "Metadata"); meta != nil {
+		out.Metadata = primitives.CloneAnyMap(meta)
+	}
+	out.FamilyID = cmsadapter.ResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
+	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
+	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
+	if len(out.Navigation) > 0 {
+		out.Data["_navigation"] = navigationVisibilityMapAny(out.Navigation)
+	}
+	if len(out.EffectiveMenuLocations) > 0 {
+		out.Data["effective_menu_locations"] = append([]string{}, out.EffectiveMenuLocations...)
+	}
+	if a != nil && a.contentWriter().shouldApplyStructuralMetadata(ctx, out, nil) {
+		if len(out.Metadata) == 0 {
+			if derived := cmsadapter.StructuralMetadataFromData(out.Data); len(derived) > 0 {
+				out.Metadata = derived
+			}
+		} else {
+			out.Metadata = cmsadapter.NormalizeStructuralMetadata(out.Metadata)
+		}
+		out.Data = cmsadapter.InjectStructuralMetadata(out.Metadata, out.Data)
+	}
+	return out
+}
+
+func (r goCMSContentReadBoundary) convertContentVariant(ctx context.Context, val reflect.Value, requestedLocale string, variant goCMSTranslationVariant) CMSContent {
+	a := r.adapter
+	out := CMSContent{Data: map[string]any{}}
+	if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
+		out.ID = id.String()
+	}
+	out.Slug = cmsadapter.StringField(val, "Slug")
+	out.Status = cmsadapter.StringField(val, "Status")
+
+	if typ := val.FieldByName("Type"); typ.IsValid() {
+		typeVal := gocmsutil.Deref(typ)
+		if slug := cmsadapter.StringField(typeVal, "Slug"); slug != "" {
+			out.ContentTypeSlug = slug
+			out.ContentType = slug
+		}
+		if out.ContentType == "" {
+			if name := cmsadapter.StringField(typeVal, "Name"); name != "" {
+				out.ContentType = name
+			}
+		}
+	}
+	if out.ContentType == "" {
+		if typID, ok := gocmsutil.ExtractUUID(val, "ContentTypeID"); ok && typID != uuid.Nil {
+			if ct := r.contentTypeByID(ctx, typID); ct != nil {
+				if ct.Slug != "" {
+					out.ContentTypeSlug = ct.Slug
+					out.ContentType = ct.Slug
+				} else if ct.Name != "" {
+					out.ContentType = ct.Name
+				}
+			}
+		}
+	}
+
+	applyGoCMSTranslationVariant(&out, variant)
+	if out.Locale == "" {
+		out.Locale = strings.TrimSpace(variant.locale)
+	}
+	if out.Locale == "" {
+		out.Locale = normalizeCMSRequestedListLocale(requestedLocale)
+	}
+	out.RequestedLocale = strings.TrimSpace(requestedLocale)
+	if out.RequestedLocale == "" {
+		out.RequestedLocale = strings.TrimSpace(cmsadapter.StringFieldAny(val, "RequestedLocale"))
+	}
+	out.ResolvedLocale = strings.TrimSpace(variant.locale)
+	if out.ResolvedLocale == "" {
+		out.ResolvedLocale = strings.TrimSpace(out.Locale)
+	}
+	if ok, set := cmsadapter.BoolFieldAny(val, "MissingRequestedLocale"); set && !isTranslationLocaleWildcard(out.RequestedLocale) {
+		out.MissingRequestedLocale = ok
+	} else {
+		out.MissingRequestedLocale = false
+	}
 	if schema := strings.TrimSpace(toString(out.Data["_schema"])); schema != "" {
 		out.SchemaVersion = schema
 	}

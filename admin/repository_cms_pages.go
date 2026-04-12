@@ -284,7 +284,7 @@ func normalizeCMSPageLocaleState(page CMSPage, requested string) CMSPage {
 	}
 	available = dedupeStrings(available)
 	missing := page.MissingRequestedLocale
-	if requested != "" && len(available) > 0 && !containsStringInsensitive(available, requested) {
+	if requested != "" && !isTranslationLocaleWildcard(requested) && len(available) > 0 && !containsStringInsensitive(available, requested) {
 		missing = true
 	}
 	page.RequestedLocale = requested

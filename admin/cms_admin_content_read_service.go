@@ -123,7 +123,7 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 		return nil, 0, ErrNotFound
 	}
 	locale := extractLocale(opts, "")
-	contents, err := s.listContentsForContentType(ctx, contentType, locale)
+	contents, err := s.listContentsForContentType(ctx, contentType, locale, opts)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -158,7 +158,8 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 		record = applyContentEntryNavigationReadContract(record, navigationPolicy)
 		records = append(records, record)
 	}
-	list, total := applyListOptionsToRecordMaps(records, opts, listRecordOptions{
+	listOpts := normalizeCMSContentListOptionsForFiltering(opts)
+	list, total := applyListOptionsToRecordMaps(records, listOpts, listRecordOptions{
 		PredicateMatcher: cmsContentRecordPredicateMatcher,
 		SearchMatcher:    cmsContentRecordSearchMatcher,
 	})
@@ -196,16 +197,99 @@ func (s goCMSAdminContentReadService) GetForContentType(ctx context.Context, con
 	return applyContentEntryNavigationReadContract(record, contentEntryNavigationPolicyFromContentType(contentType)), nil
 }
 
-func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Context, contentType CMSContentType, locale string) ([]CMSContent, error) {
+func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Context, contentType CMSContentType, locale string, opts ListOptions) ([]CMSContent, error) {
 	if s.content == nil {
 		return nil, ErrNotFound
 	}
 	if contentTypeWantsTranslations(contentType) {
 		if svc, ok := s.content.(cmsContentListOptionsService); ok && svc != nil {
-			return svc.ContentsWithOptions(ctx, locale, WithTranslations(), WithDerivedFields())
+			listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
+			if shouldExpandCMSContentTranslationFamilies(opts) {
+				listOpts = append(listOpts, WithLocaleVariants())
+			}
+			return svc.ContentsWithOptions(ctx, locale, listOpts...)
 		}
 	}
 	return s.content.Contents(ctx, locale)
+}
+
+func shouldExpandCMSContentTranslationFamilies(opts ListOptions) bool {
+	requestedLocale, hasLocaleFilter := cmsContentRequestedLocaleFromListOptions(opts)
+	if hasLocaleFilter && requestedLocale != "" && !isTranslationLocaleWildcard(requestedLocale) {
+		return false
+	}
+	return isTranslationLocaleWildcard(requestedLocale) || listOptionsGroupByFamilyID(opts) || listOptionsHaveFamilyIDFilter(opts)
+}
+
+func cmsContentRequestedLocaleFromListOptions(opts ListOptions) (string, bool) {
+	if opts.Filters != nil {
+		if loc, ok := opts.Filters["locale"].(string); ok && strings.TrimSpace(loc) != "" {
+			return strings.TrimSpace(loc), true
+		}
+		if loc, ok := opts.Filters["Locale"].(string); ok && strings.TrimSpace(loc) != "" {
+			return strings.TrimSpace(loc), true
+		}
+	}
+	for _, predicate := range NormalizeListPredicates(opts) {
+		if !strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
+			continue
+		}
+		if len(predicate.Values) == 0 {
+			continue
+		}
+		return strings.TrimSpace(predicate.Values[0]), true
+	}
+	return "", false
+}
+
+func listOptionsGroupByFamilyID(opts ListOptions) bool {
+	for _, predicate := range NormalizeListPredicates(opts) {
+		field := strings.ToLower(strings.TrimSpace(predicate.Field))
+		if field != "group_by" && field != "groupby" {
+			continue
+		}
+		for _, value := range predicate.Values {
+			if strings.EqualFold(strings.TrimSpace(value), listGroupByFamilyID) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func listOptionsHaveFamilyIDFilter(opts ListOptions) bool {
+	for _, predicate := range NormalizeListPredicates(opts) {
+		if strings.EqualFold(strings.TrimSpace(predicate.Field), "family_id") && len(predicate.Values) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeCMSContentListOptionsForFiltering(opts ListOptions) ListOptions {
+	normalized := cloneListOptions(opts)
+	requestedLocale, hasLocaleFilter := cmsContentRequestedLocaleFromListOptions(normalized)
+	if !hasLocaleFilter || !isTranslationLocaleWildcard(requestedLocale) {
+		return normalized
+	}
+	if len(normalized.Filters) > 0 {
+		delete(normalized.Filters, "locale")
+		delete(normalized.Filters, "Locale")
+		if len(normalized.Filters) == 0 {
+			normalized.Filters = nil
+		}
+	}
+	if len(normalized.Predicates) > 0 {
+		filtered := make([]ListPredicate, 0, len(normalized.Predicates))
+		for _, predicate := range normalized.Predicates {
+			if strings.EqualFold(strings.TrimSpace(predicate.Field), "locale") {
+				continue
+			}
+			filtered = append(filtered, predicate)
+		}
+		normalized.Predicates = filtered
+	}
+	return normalized
 }
 
 func (s goCMSAdminContentReadService) resolveContentLocale(ctx context.Context, id string) string {

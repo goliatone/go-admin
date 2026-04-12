@@ -6,6 +6,7 @@ type CMSContentListOption = string
 
 const ContentListWithTranslations CMSContentListOption = "content:list:with_translations"
 const ContentListWithDerivedFields CMSContentListOption = "content:list:projection:derived_fields"
+const ContentListWithLocaleVariants CMSContentListOption = "content:list:with_locale_variants"
 
 func WithTranslations() CMSContentListOption {
 	return ContentListWithTranslations
@@ -13,4 +14,8 @@ func WithTranslations() CMSContentListOption {
 
 func WithDerivedFields() CMSContentListOption {
 	return ContentListWithDerivedFields
+}
+
+func WithLocaleVariants() CMSContentListOption {
+	return ContentListWithLocaleVariants
 }

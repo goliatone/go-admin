@@ -197,7 +197,7 @@ func normalizeCMSContentLocaleState(item CMSContent, requested string) CMSConten
 	}
 	available = dedupeStrings(available)
 	missing := item.MissingRequestedLocale
-	if requested != "" && len(available) > 0 && !containsStringInsensitive(available, requested) {
+	if requested != "" && !isTranslationLocaleWildcard(requested) && len(available) > 0 && !containsStringInsensitive(available, requested) {
 		missing = true
 	}
 	item.RequestedLocale = requested
@@ -205,6 +205,10 @@ func normalizeCMSContentLocaleState(item CMSContent, requested string) CMSConten
 	item.AvailableLocales = available
 	item.MissingRequestedLocale = missing
 	return item
+}
+
+func isTranslationLocaleWildcard(locale string) bool {
+	return strings.EqualFold(strings.TrimSpace(locale), "all")
 }
 
 func isSupportedCMSFilterOperator(operator string) bool {

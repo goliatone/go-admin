@@ -22,6 +22,12 @@ type goCMSTranslationProjection struct {
 	availableLocales []string
 }
 
+type goCMSTranslationVariant struct {
+	translation      reflect.Value
+	locale           string
+	availableLocales []string
+}
+
 func normalizeGoCMSTranslationCreateError(err error, input TranslationCreateInput) error {
 	if err == nil {
 		return nil
@@ -251,7 +257,7 @@ func applyGoCMSTranslationLocaleState(out *CMSContent, source reflect.Value, cho
 	missing := false
 	if ok, set := cmsadapter.BoolFieldAny(source, "MissingRequestedLocale"); set {
 		missing = ok
-	} else if requestedLocale != "" {
+	} else if requestedLocale != "" && !isTranslationLocaleWildcard(requestedLocale) {
 		found := false
 		for _, code := range out.AvailableLocales {
 			if strings.EqualFold(code, requestedLocale) {
@@ -264,6 +270,94 @@ func applyGoCMSTranslationLocaleState(out *CMSContent, source reflect.Value, cho
 		}
 	}
 	out.MissingRequestedLocale = missing
+}
+
+func buildGoCMSTranslationVariants(val reflect.Value) []goCMSTranslationVariant {
+	translations := gocmsutil.Deref(val.FieldByName("Translations"))
+	if !translations.IsValid() {
+		return nil
+	}
+	availableLocales := cmsadapter.StringSliceFieldAny(val, "AvailableLocales", "Locales")
+	seenLocales := map[string]bool{}
+	for _, code := range availableLocales {
+		if trimmed := strings.ToLower(strings.TrimSpace(code)); trimmed != "" {
+			seenLocales[trimmed] = true
+		}
+	}
+	for i := 0; translations.IsValid() && i < translations.Len(); i++ {
+		current := gocmsutil.Deref(translations.Index(i))
+		rawCode := strings.TrimSpace(localeCodeFromTranslation(current))
+		if rawCode == "" {
+			continue
+		}
+		code := strings.ToLower(rawCode)
+		if !seenLocales[code] {
+			availableLocales = append(availableLocales, rawCode)
+			seenLocales[code] = true
+		}
+	}
+	out := make([]goCMSTranslationVariant, 0, translations.Len())
+	for i := 0; i < translations.Len(); i++ {
+		current := gocmsutil.Deref(translations.Index(i))
+		rawCode := strings.TrimSpace(localeCodeFromTranslation(current))
+		if rawCode == "" {
+			continue
+		}
+		out = append(out, goCMSTranslationVariant{
+			translation:      current,
+			locale:           rawCode,
+			availableLocales: append([]string{}, availableLocales...),
+		})
+	}
+	return out
+}
+
+func applyGoCMSTranslationVariant(out *CMSContent, variant goCMSTranslationVariant) {
+	if out == nil {
+		return
+	}
+	chosen := variant.translation
+	if chosen.IsValid() {
+		if groupID := cmsadapter.UUIDStringField(chosen, "FamilyID"); groupID != "" {
+			out.FamilyID = groupID
+		}
+		if variant.locale != "" {
+			out.Locale = variant.locale
+		} else if code := localeCodeFromTranslation(chosen); code != "" {
+			out.Locale = code
+		}
+		out.Title = cmsadapter.StringField(chosen, "Title")
+		if summary := cmsadapter.StringField(chosen, "Summary"); summary != "" {
+			out.Data["excerpt"] = summary
+		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Pointer && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
+			out.Data["excerpt"] = summaryPtr.Elem().String()
+		}
+		if contentData := translationContentMap(chosen); len(contentData) > 0 {
+			maps.Copy(contentData, out.Data)
+			out.Data = contentData
+		}
+		if out.Title == "" {
+			if title := strings.TrimSpace(toString(out.Data["title"])); title != "" {
+				out.Title = title
+			}
+		}
+	}
+	if len(variant.availableLocales) > 0 {
+		out.AvailableLocales = append([]string{}, variant.availableLocales...)
+	}
+}
+
+func translationVariantForLocale(variants []goCMSTranslationVariant, locale string) (goCMSTranslationVariant, bool) {
+	locale = strings.ToLower(strings.TrimSpace(locale))
+	if locale == "" {
+		return goCMSTranslationVariant{}, false
+	}
+	for _, variant := range variants {
+		if strings.EqualFold(strings.TrimSpace(variant.locale), locale) {
+			return variant, true
+		}
+	}
+	return goCMSTranslationVariant{}, false
 }
 
 func localeCodeFromTranslation(val reflect.Value) string {
