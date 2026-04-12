@@ -145,7 +145,7 @@ func (f *DynamicPanelFactory) CreatePanelFromContentType(ctx context.Context, co
 		}
 		return nil, nil
 	}
-	return f.createPanel(ctx, contentType, f.hooks.BeforeCreate, f.hooks.AfterCreate, nil)
+	return f.createPanel(ctx, contentType, f.hooks.BeforeCreate, f.hooks.AfterCreate, nil, false)
 }
 
 // RefreshPanel updates an existing panel when the content type changes.
@@ -168,24 +168,35 @@ func (f *DynamicPanelFactory) RefreshPanel(ctx context.Context, contentType *CMS
 	panelSlug := panelSlugForContentType(contentType)
 	panelName := f.panelName(panelSlug, env)
 	var navPosition *int
+	replaceExisting := false
+	previous := ""
 	if f.admin != nil {
-		if previous := f.storedSlug(env, contentType.ID); previous != "" && previous != panelSlug {
+		previous = f.storedSlug(env, contentType.ID)
+		if previous != "" && previous != panelSlug {
 			navPosition = f.resolveMenuItemPosition(ctx, previous, env)
-			previousName := f.panelName(previous, env)
-			if err := f.admin.UnregisterPanel(previousName); err != nil && !errors.Is(err, ErrNotFound) {
-				return err
-			}
-			if err := f.removeFromNavigation(ctx, previous, env); err != nil && !isMenuTargetMissing(err) {
-				return err
-			}
 		}
-		if err := f.admin.UnregisterPanel(panelName); err != nil && !errors.Is(err, ErrNotFound) {
-			return err
+		if previous == panelSlug && previous != "" {
+			replaceExisting = true
+		}
+		if registry := f.admin.Registry(); registry != nil {
+			if _, exists := registry.Panel(panelName); exists {
+				replaceExisting = true
+			}
 		}
 	}
-	panel, err := f.createPanel(ctx, contentType, nil, nil, navPosition)
+	panel, err := f.createPanel(ctx, contentType, nil, nil, navPosition, replaceExisting)
 	if err != nil {
 		return err
+	}
+	if f.admin != nil && previous != "" && previous != panelSlug {
+		previousName := f.panelName(previous, env)
+		f.unregisterPanelSearchAdapter(previousName)
+		if err := f.admin.UnregisterPanel(previousName); err != nil && !errors.Is(err, ErrNotFound) {
+			return err
+		}
+		if err := f.removeFromNavigation(ctx, previous, env); err != nil && !isMenuTargetMissing(err) {
+			return err
+		}
 	}
 	if f.hooks.AfterUpdate != nil {
 		return f.hooks.AfterUpdate(ctx, panel)
@@ -205,16 +216,18 @@ func (f *DynamicPanelFactory) RemovePanel(ctx context.Context, slugOrID string) 
 	env := f.resolveEnvironment(ctx, nil)
 	slug = f.resolveSlug(env, slug)
 	panelName := f.panelName(slug, env)
+	f.unregisterPanelSearchAdapter(panelName)
 	if err := f.admin.UnregisterPanel(panelName); err != nil && !errors.Is(err, ErrNotFound) {
 		return err
 	}
 	if err := f.removeFromNavigation(ctx, slug, env); err != nil && !isMenuTargetMissing(err) {
 		return err
 	}
+	f.deleteStoredSlug(env, slugOrID)
 	return nil
 }
 
-func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSContentType, before func(context.Context, *CMSContentType) error, after func(context.Context, *Panel) error, navPosition *int) (*Panel, error) {
+func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSContentType, before func(context.Context, *CMSContentType) error, after func(context.Context, *Panel) error, navPosition *int, replaceExisting bool) (*Panel, error) {
 	if f == nil || f.admin == nil {
 		return nil, serviceNotConfiguredDomainError("admin", nil)
 	}
@@ -245,6 +258,7 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 	panelName := f.panelName(panelSlug, env)
 	repo := NewCMSContentTypeEntryRepository(f.admin.contentSvc, *contentType)
 	fields := f.schemaConverter.Convert(contentType.Schema, contentType.UISchema)
+	fields.Form = ensureFormField(fields.Form, hiddenRouteKeyField())
 	panelTraits := panelTraitsForContentType(contentType.Capabilities)
 	if hasPanelTrait(panelTraits, "editorial") {
 		fields = applyEditorialPanelTrait(fields)
@@ -287,8 +301,19 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 		builder.Tabs(tabs...)
 	}
 
-	panel, err := f.admin.RegisterPanel(panelName, builder)
+	var (
+		panel *Panel
+		err   error
+	)
+	if replaceExisting {
+		panel, err = f.admin.replacePanel(panelName, builder, true)
+	} else {
+		panel, err = f.admin.RegisterPanel(panelName, builder)
+	}
 	if err != nil {
+		return nil, err
+	}
+	if err := f.admin.syncPanelUIRoutes(panelName, panel); err != nil {
 		return nil, err
 	}
 
@@ -334,6 +359,13 @@ func (f *DynamicPanelFactory) registerPanelSearchAdapter(panel *Panel, panelSlug
 	f.admin.search.Register(panel.name, adapter)
 }
 
+func (f *DynamicPanelFactory) unregisterPanelSearchAdapter(panelName string) {
+	if f == nil || f.admin == nil || f.admin.search == nil {
+		return
+	}
+	f.admin.search.Unregister(strings.TrimSpace(panelName))
+}
+
 func (f *DynamicPanelFactory) cleanupPanel(ctx context.Context, contentType *CMSContentType, env string) error {
 	if f == nil || f.admin == nil || contentType == nil {
 		return nil
@@ -352,6 +384,7 @@ func (f *DynamicPanelFactory) cleanupPanel(ctx context.Context, contentType *CMS
 	}
 	for _, slug := range slugs {
 		panelName := f.panelName(slug, env)
+		f.unregisterPanelSearchAdapter(panelName)
 		if err := f.admin.UnregisterPanel(panelName); err != nil && !errors.Is(err, ErrNotFound) {
 			return err
 		}
@@ -359,6 +392,7 @@ func (f *DynamicPanelFactory) cleanupPanel(ctx context.Context, contentType *CMS
 			return err
 		}
 	}
+	f.deleteStoredSlug(env, contentType.ID)
 	return nil
 }
 
@@ -391,6 +425,19 @@ func (f *DynamicPanelFactory) storeSlug(contentType *CMSContentType, env string,
 		f.slugByID = map[string]string{}
 	}
 	f.slugByID[f.envKey(env, id)] = slug
+}
+
+func (f *DynamicPanelFactory) deleteStoredSlug(env, id string) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.slugByID == nil {
+		return
+	}
+	delete(f.slugByID, f.envKey(env, id))
 }
 
 func (f *DynamicPanelFactory) storedSlug(env, id string) string {
