@@ -120,6 +120,43 @@ single source of truth. To keep the legacy Pages/Posts experience:
   names. For example, `blog_post` with `panel_slug=posts` renders the Posts
   panel and inherits `/admin/content/posts` routes.
 
+### Boot-Time Dynamic Panel Reconciliation
+
+If the host application creates or repairs CMS content types at startup, register
+that work with `adm.AddCMSBootstrapHook(...)` before calling `adm.Initialize(...)`.
+`Initialize(...)` now runs CMS bootstrap hooks during prepare, then reconciles
+dynamic CMS panels before boot materializes alias routes or before quickstart UI
+helpers snapshot the panel registry.
+
+Example:
+
+```go
+adm.AddCMSBootstrapHook(func(ctx context.Context, adm *admin.Admin) error {
+	_, err := adm.ContentTypeService().CreateContentType(ctx, admin.CMSContentType{
+		Name:         "Quote",
+		Slug:         "quote",
+		Status:       "active",
+		Schema: map[string]any{
+			"$schema":    "https://json-schema.org/draft/2020-12/schema",
+			"type":       "object",
+			"properties": map[string]any{"title": map[string]any{"type": "string"}},
+		},
+		Capabilities: map[string]any{"panel_slug": "quotes"},
+	})
+	return err
+})
+
+if err := adm.Initialize(router); err != nil {
+	return err
+}
+```
+
+You can also call `adm.ReconcileDynamicCMS(ctx)` explicitly when you need to
+re-run the same reconciliation logic after startup, but boot-time canonical
+quickstart routes are still snapshot-based. Register
+`quickstart.RegisterContentEntryUIRoutes(...)` after `Initialize(...)` so routes
+like `/admin/quotes` and `/admin/news` see the reconciled panel registry.
+
 ---
 
 ## 4. Schema Validation
@@ -600,6 +637,11 @@ go-admin also registers alias routes for Pages/Posts when CMS is enabled:
 Alias resolution uses the `panel_slug` capability, so a content type like
 `blog_post` with `panel_slug=posts` is served by the Posts panel. Query
 parameters (including `env`) are preserved during the redirect.
+
+Boot-time reconciliation means host-created content types such as `quote` with
+`panel_slug=quotes` also participate in alias and canonical route materialization
+as long as they are created through a CMS bootstrap hook before `Initialize(...)`
+finishes.
 
 ### Content Entry List/Detail Rendering Mechanics
 
