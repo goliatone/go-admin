@@ -153,6 +153,7 @@ func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]
 		"id":                              item.ID,
 		"title":                           item.Title,
 		"slug":                            item.Slug,
+		"route_key":                       strings.TrimSpace(item.RouteKey),
 		"locale":                          item.Locale,
 		"family_id":                       canonicalFamilyIDForContent(item),
 		"requested_locale":                item.RequestedLocale,

@@ -60,6 +60,7 @@ func widgetInstanceRecord(instance WidgetInstance) map[string]any {
 type cmsCommonRecordFields struct {
 	ID       string `json:"id"`
 	FamilyID string `json:"family_id"`
+	RouteKey string `json:"route_key"`
 	Title    string `json:"title"`
 	Slug     string `json:"slug"`
 	Locale   string `json:"locale"`
@@ -86,6 +87,7 @@ func extractCMSCommonRecordFields(record map[string]any) cmsCommonRecordFields {
 	fields := cmsCommonRecordFields{}
 	assignStringIfPresent(record, "id", &fields.ID)
 	assignStringIfPresent(record, "family_id", &fields.FamilyID)
+	assignStringIfPresent(record, "route_key", &fields.RouteKey)
 	assignStringIfPresent(record, "title", &fields.Title)
 	assignStringIfPresent(record, "slug", &fields.Slug)
 	assignStringIfPresent(record, "locale", &fields.Locale)
@@ -303,6 +305,7 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	common := extractCMSCommonRecordFields(record)
 	page.ID = common.ID
 	page.FamilyID = common.FamilyID
+	page.RouteKey = common.RouteKey
 	page.Title = common.Title
 	page.Slug = common.Slug
 	page.Locale = common.Locale
@@ -353,6 +356,12 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	if meta, ok := record["metadata"].(map[string]any); ok {
 		page.Metadata = primitives.CloneAnyMap(meta)
 	}
+	if page.RouteKey == "" {
+		page.RouteKey = strings.TrimSpace(toString(page.Data["route_key"]))
+	}
+	if page.RouteKey == "" {
+		page.RouteKey = strings.TrimSpace(toString(page.Metadata["route_key"]))
+	}
 	return page
 }
 
@@ -364,6 +373,7 @@ func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) C
 	preserveStringField(record, "slug", &page.Slug, existing.Slug)
 	preserveStringField(record, "locale", &page.Locale, existing.Locale)
 	preserveStringField(record, "family_id", &page.FamilyID, existing.FamilyID)
+	preserveStringField(record, "route_key", &page.RouteKey, existing.RouteKey)
 	preserveStringField(record, "status", &page.Status, existing.Status)
 	preserveStringField(record, "parent_id", &page.ParentID, existing.ParentID)
 	if !recordHasKey(record, "preview_url") {
@@ -413,6 +423,7 @@ func cmsPageDataUpdated(record map[string]any) bool {
 	}
 	return recordHasKey(record, "data") ||
 		recordHasKey(record, "path") ||
+		recordHasKey(record, "route_key") ||
 		recordHasKey(record, "blocks") ||
 		recordHasKey(record, "_schema") ||
 		recordHasKey(record, "_navigation") ||
@@ -430,6 +441,7 @@ var cmsContentReservedKeys = map[string]struct{}{
 	"content_type_slug":               {},
 	"content_type_id":                 {},
 	"family_id":                       {},
+	"route_key":                       {},
 	"requested_locale":                {},
 	"resolved_locale":                 {},
 	"available_locales":               {},
@@ -454,6 +466,7 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	common := extractCMSCommonRecordFields(record)
 	content.ID = common.ID
 	content.FamilyID = common.FamilyID
+	content.RouteKey = common.RouteKey
 	content.Title = common.Title
 	content.Slug = common.Slug
 	content.Locale = common.Locale
@@ -522,6 +535,12 @@ func mapToCMSContent(record map[string]any) CMSContent {
 		}
 		content.Data[key] = val
 	}
+	if content.RouteKey == "" {
+		content.RouteKey = strings.TrimSpace(toString(content.Data["route_key"]))
+	}
+	if content.RouteKey == "" {
+		content.RouteKey = strings.TrimSpace(toString(content.Metadata["route_key"]))
+	}
 	return content
 }
 
@@ -533,6 +552,7 @@ func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[s
 	preserveStringField(record, "slug", &content.Slug, existing.Slug)
 	preserveStringField(record, "locale", &content.Locale, existing.Locale)
 	preserveStringField(record, "family_id", &content.FamilyID, existing.FamilyID)
+	preserveStringField(record, "route_key", &content.RouteKey, existing.RouteKey)
 	preserveStringField(record, "status", &content.Status, existing.Status)
 	mergeCMSBlocksUpdate(record, &content.Blocks, &content.EmbeddedBlocks, existing.Blocks, existing.EmbeddedBlocks)
 	if !recordHasKey(record, "content_type") && !recordHasKey(record, "content_type_slug") && !recordHasKey(record, "content_type_id") {

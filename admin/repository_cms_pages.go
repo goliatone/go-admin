@@ -93,6 +93,9 @@ func (r *CMSPageRepository) Create(ctx context.Context, record map[string]any) (
 	if err := r.ensureUniqueSlug(ctx, page.Slug, "", page.Locale); err != nil {
 		return nil, err
 	}
+	if err := r.ensureUniqueLocalizedPath(ctx, page, ""); err != nil {
+		return nil, err
+	}
 	if page.PreviewURL == "" {
 		page.PreviewURL = page.Slug
 	}
@@ -141,6 +144,9 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 	if err := r.ensureUniqueSlug(ctx, page.Slug, id, page.Locale); err != nil {
 		return nil, err
 	}
+	if err := r.ensureUniqueLocalizedPath(ctx, page, id); err != nil {
+		return nil, err
+	}
 	if page.PreviewURL == "" {
 		page.PreviewURL = page.Slug
 	}
@@ -180,6 +186,40 @@ func (r *CMSPageRepository) ensureUniqueSlug(ctx context.Context, slug, skipID, 
 	return nil
 }
 
+func (r *CMSPageRepository) ensureUniqueLocalizedPath(ctx context.Context, page CMSPage, skipID string) error {
+	if r == nil || r.content == nil {
+		return ErrNotFound
+	}
+	path := normalizeCMSLocalizedPath(resolveCMSPagePath(page))
+	if path == "" {
+		return nil
+	}
+	pages, err := r.content.Pages(ctx, page.Locale)
+	if err != nil {
+		return err
+	}
+	for _, candidate := range pages {
+		if strings.TrimSpace(candidate.ID) == strings.TrimSpace(skipID) {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(candidate.Locale), strings.TrimSpace(page.Locale)) {
+			continue
+		}
+		candidatePath := normalizeCMSLocalizedPath(resolveCMSPagePath(candidate))
+		if candidatePath == "" || candidatePath != path {
+			continue
+		}
+		return pathConflictDomainError(map[string]any{
+			"path":      path,
+			"skip_id":   skipID,
+			"candidate": candidate.ID,
+			"locale":    page.Locale,
+			"scope":     "page",
+		})
+	}
+	return nil
+}
+
 type cmsPageRecordOptions struct {
 	includeTemplateID bool
 }
@@ -205,6 +245,7 @@ func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
 		"title":                           page.Title,
 		"slug":                            page.Slug,
 		"path":                            path,
+		"route_key":                       strings.TrimSpace(page.RouteKey),
 		"locale":                          page.Locale,
 		"family_id":                       page.FamilyID,
 		"requested_locale":                page.RequestedLocale,
