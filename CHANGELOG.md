@@ -1,5 +1,27 @@
 # Changelog
 
+# [0.45.0](https://github.com/goliatone/go-admin/compare/v0.44.0...v0.45.0) - (2026-04-12)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Resolve list requested locale ([ce77646](https://github.com/goliatone/go-admin/commit/ce7764611a22d567f1652c633ec91a0f041f3128))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.45.0 ([63bb2f7](https://github.com/goliatone/go-admin/commit/63bb2f7a665cf3d8c47dd28661bc33f84ed51675))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Locale filter in cms admin ([6ffc320](https://github.com/goliatone/go-admin/commit/6ffc320c5cade7700929675a72a4a73cebe9b656))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.44.0 ([c57a7f0](https://github.com/goliatone/go-admin/commit/c57a7f02531854126a90326017bceaabdaf6b87f))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([e50ec5d](https://github.com/goliatone/go-admin/commit/e50ec5dc579d49dd9e9278bdf64fd7cdd005c5d5))  - (goliatone)
+
 # [0.44.0](https://github.com/goliatone/go-admin/compare/v0.43.0...v0.44.0) - (2026-04-12)
 
 ## <!-- 1 -->🐛 Bug Fixes
