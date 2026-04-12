@@ -14,12 +14,13 @@ import (
 	"github.com/goliatone/go-command/runner"
 	crud "github.com/goliatone/go-crud"
 	"github.com/goliatone/go-crud/gql/registrar"
-	dashboard "github.com/goliatone/go-dashboard/components/dashboard"
+	"github.com/goliatone/go-dashboard/components/dashboard"
 	errors "github.com/goliatone/go-errors"
 	"github.com/goliatone/go-formgen/pkg/orchestrator"
 	"github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
 	repository "github.com/goliatone/go-repository-bun"
 	router "github.com/goliatone/go-router"
+	theme "github.com/goliatone/go-theme"
 	urlkit "github.com/goliatone/go-urlkit"
 	"github.com/goliatone/go-users/activity"
 	"github.com/goliatone/go-users/pkg/types"
@@ -350,9 +351,11 @@ type (
 	AdminActorResolver                        = core.AdminActorResolver
 	AdminBlockReadService                     = core.AdminBlockReadService
 	AdminBlockWriteService                    = core.AdminBlockWriteService
+	AdminChromeState                          = core.AdminChromeState
 	AdminContentReadService                   = core.AdminContentReadService
 	AdminContentWriteService                  = core.AdminContentWriteService
 	AdminContext                              = core.AdminContext
+	AdminDashboardPage                        = core.AdminDashboardPage
 	AdminMenuBindingRecord                    = core.AdminMenuBindingRecord
 	AdminMenuContracts                        = core.AdminMenuContracts
 	AdminMenuPreviewSimulation                = core.AdminMenuPreviewSimulation
@@ -407,6 +410,7 @@ type (
 	CMSBlockDefinitionRepository              = core.CMSBlockDefinitionRepository
 	CMSBlockDefinitionVersion                 = core.CMSBlockDefinitionVersion
 	CMSBlockRepository                        = core.CMSBlockRepository
+	CMSBootstrapHook                          = core.CMSBootstrapHook
 	CMSContainer                              = core.CMSContainer
 	CMSContainerBuilder                       = core.CMSContainerBuilder
 	CMSContent                                = core.CMSContent
@@ -443,8 +447,6 @@ type (
 	ConvertedFields                           = core.ConvertedFields
 	CustomLogEntry                            = core.CustomLogEntry
 	Dashboard                                 = core.Dashboard
-	AdminChromeState                          = core.AdminChromeState
-	AdminDashboardPage                        = core.AdminDashboardPage
 	DashboardDiagnosticsMsg                   = core.DashboardDiagnosticsMsg
 	DashboardDiagnosticsReport                = core.DashboardDiagnosticsReport
 	DashboardHandle                           = core.DashboardHandle
@@ -456,6 +458,7 @@ type (
 	DashboardProviderMsg                      = core.DashboardProviderMsg
 	DashboardProviderSpec                     = core.DashboardProviderSpec
 	DashboardRenderer                         = core.DashboardRenderer
+	DashboardRendererFunc                     = core.DashboardRendererFunc
 	DashboardWidgetInstance                   = core.DashboardWidgetInstance
 	DebugCollector                            = core.DebugCollector
 	DebugConfig                               = core.DebugConfig
@@ -1046,6 +1049,10 @@ func CollectIconContributions(contributor IconContributor, callbacks IconContrib
 	return core.CollectIconContributions(contributor, callbacks)
 }
 
+func ComposeAdminDashboardPage(page dashboard.Page) AdminDashboardPage {
+	return core.ComposeAdminDashboardPage(page)
+}
+
 func ContentChannelFromContext(ctx context.Context) string {
 	return core.ContentChannelFromContext(ctx)
 }
@@ -1058,20 +1065,20 @@ func ContextWithActionResponseCollector(ctx context.Context, collector *ActionRe
 	return core.ContextWithActionResponseCollector(ctx, collector)
 }
 
-func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
-	return core.DebugRequestMiddleware(collector)
-}
-
-func DecodeWidgetConfig[T any](cfg map[string]any) (T, error) {
-	return core.DecodeWidgetConfig[T](cfg)
-}
-
 func DashboardPageAreaByCode(page dashboard.Page, areaCode string) (dashboard.PageArea, bool) {
 	return core.DashboardPageAreaByCode(page, areaCode)
 }
 
 func DashboardPageWidgetsForAreaCode(page dashboard.Page, areaCode string) []dashboard.WidgetFrame {
 	return core.DashboardPageWidgetsForAreaCode(page, areaCode)
+}
+
+func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
+	return core.DebugRequestMiddleware(collector)
+}
+
+func DecodeWidgetConfig[T any](cfg map[string]any) (T, error) {
+	return core.DecodeWidgetConfig[T](cfg)
 }
 
 func DefaultBlockFieldTypeRegistry() *FieldTypeRegistry {
@@ -1904,6 +1911,10 @@ func SetDefaultErrorPresenter(presenter ErrorPresenter) {
 
 func SyncTranslationFamilyStore(ctx context.Context, adm *Admin, environment string) error {
 	return core.SyncTranslationFamilyStore(ctx, adm, environment)
+}
+
+func ThemeProviderFromGoThemeSelector(selector theme.ThemeSelector) ThemeProvider {
+	return core.ThemeProviderFromGoThemeSelector(selector)
 }
 
 func ThemeSelectorFromContext(ctx context.Context) ThemeSelector {
