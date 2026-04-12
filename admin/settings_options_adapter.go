@@ -71,14 +71,15 @@ func (a *GoOptionsSettingsAdapter) Apply(ctx context.Context, bundle SettingsBun
 		return requiredFieldDomainError("user id", map[string]any{"scope": string(SettingsScopeUser)})
 	}
 
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.mu.RLock()
+	definitions := cloneSettingDefinitions(a.definitions)
+	a.mu.RUnlock()
 
 	errs := SettingsValidationErrors{Fields: map[string]string{}, Scope: scope}
 	sanitized := map[string]any{}
 
 	for key, val := range bundle.Values {
-		def, ok := a.definitions[key]
+		def, ok := definitions[key]
 		if !ok {
 			errs.Fields[key] = "unknown setting"
 			continue
@@ -98,6 +99,8 @@ func (a *GoOptionsSettingsAdapter) Apply(ctx context.Context, bundle SettingsBun
 		return errs
 	}
 
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	for key, val := range sanitized {
 		switch scope {
 		case SettingsScopeSystem:
