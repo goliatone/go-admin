@@ -707,6 +707,12 @@ func (r goCMSContentWriteBoundary) resolveBlockDefinitionID(ctx context.Context,
 func (r goCMSContentWriteBoundary) prepareContentMetadata(ctx context.Context, content CMSContent, existing *CMSContent) (map[string]any, map[string]any, bool) {
 	data := primitives.CloneAnyMap(content.Data)
 	metadata := primitives.CloneAnyMap(content.Metadata)
+	if strings.TrimSpace(content.RouteKey) != "" {
+		if data == nil {
+			data = map[string]any{}
+		}
+		data["route_key"] = strings.TrimSpace(content.RouteKey)
+	}
 	if existing != nil {
 		content.FamilyID = strings.TrimSpace(primitives.FirstNonEmptyRaw(content.FamilyID, existing.FamilyID))
 	}
@@ -787,6 +793,9 @@ func (r goCMSContentWriteBoundary) createPageFromContent(ctx context.Context, pa
 	if strings.TrimSpace(page.TemplateID) != "" {
 		data["template_id"] = page.TemplateID
 	}
+	if strings.TrimSpace(page.RouteKey) != "" {
+		data["route_key"] = strings.TrimSpace(page.RouteKey)
+	}
 	path := strings.TrimSpace(cmsadapter.AsString(data["path"], page.PreviewURL))
 	if path == "" {
 		path = "/" + strings.TrimPrefix(page.Slug, "/")
@@ -850,6 +859,9 @@ func (r goCMSContentWriteBoundary) updatePageFromContent(ctx context.Context, pa
 	}
 	if strings.TrimSpace(page.TemplateID) != "" {
 		data["template_id"] = page.TemplateID
+	}
+	if strings.TrimSpace(page.RouteKey) != "" {
+		data["route_key"] = strings.TrimSpace(page.RouteKey)
 	}
 	path := strings.TrimSpace(cmsadapter.AsString(data["path"], page.PreviewURL))
 	if path == "" {

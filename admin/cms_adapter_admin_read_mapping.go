@@ -33,6 +33,7 @@ func mapCMSAdminPageRecord(record cms.AdminPageRecord) AdminPageRecord {
 		CreatedAt:          record.CreatedAt,
 		UpdatedAt:          record.UpdatedAt,
 	}
+	out.RouteKey = strings.TrimSpace(routeKeyFromMaps(out.Data, nil))
 
 	if record.FamilyID != nil {
 		out.FamilyID = record.FamilyID.String()
@@ -41,4 +42,18 @@ func mapCMSAdminPageRecord(record cms.AdminPageRecord) AdminPageRecord {
 		out.ParentID = record.ParentID.String()
 	}
 	return out
+}
+
+func routeKeyFromMaps(data, metadata map[string]any) string {
+	if len(data) > 0 {
+		if value := strings.TrimSpace(primitives.StringFromAny(data["route_key"])); value != "" {
+			return value
+		}
+	}
+	if len(metadata) > 0 {
+		if value := strings.TrimSpace(primitives.StringFromAny(metadata["route_key"])); value != "" {
+			return value
+		}
+	}
+	return ""
 }

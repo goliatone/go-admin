@@ -4,9 +4,11 @@ import (
 	"context"
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
+	"github.com/goliatone/go-admin/internal/primitives"
 	cms "github.com/goliatone/go-cms"
 	"github.com/google/uuid"
 	"reflect"
+	"strings"
 )
 
 // CreateTranslation attempts to use a first-class go-cms translation command when available.
@@ -91,5 +93,15 @@ func (a *GoCMSContentAdapter) createTranslationRecord(ctx context.Context, input
 }
 
 func shouldUseAdminContentTranslationCreate(input TranslationCreateInput) bool {
-	return input.PolicyEntity == "" && input.ContentType == "" && len(input.Metadata) == 0
+	if strings.TrimSpace(input.PolicyEntity) != "" ||
+		strings.TrimSpace(input.ContentType) != "" ||
+		strings.TrimSpace(input.Path) != "" {
+		return false
+	}
+	metadata := primitives.CloneAnyMap(input.Metadata)
+	if len(metadata) > 0 {
+		delete(metadata, "route_key")
+		delete(metadata, "path")
+	}
+	return len(metadata) == 0
 }

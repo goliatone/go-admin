@@ -118,6 +118,8 @@ func applyCreateTranslationRequestFields(req reflect.Value, input TranslationCre
 
 	gocmsutil.SetStringField(req, "Locale", input.Locale)
 	gocmsutil.SetStringField(req, "TargetLocale", input.Locale)
+	gocmsutil.SetStringField(req, "Path", input.Path)
+	gocmsutil.SetStringField(req, "RouteKey", input.RouteKey)
 
 	env := strings.TrimSpace(input.Environment)
 	if env != "" {

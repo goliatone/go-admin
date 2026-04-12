@@ -59,3 +59,31 @@ func TestPageFromContentFallsBackToSlugPreviewPath(t *testing.T) {
 		t.Fatalf("expected slug-based preview path, got %q", page.PreviewURL)
 	}
 }
+
+func TestPageFromContentPreservesTranslationLocaleState(t *testing.T) {
+	page := pageFromContent(CMSContent{
+		ID:                     "page-3",
+		Title:                  "Contact",
+		Slug:                   "contact",
+		Status:                 "published",
+		Locale:                 "en",
+		RequestedLocale:        "all",
+		ResolvedLocale:         "en",
+		AvailableLocales:       []string{"en", "bo", "zh"},
+		MissingRequestedLocale: true,
+		Data:                   map[string]any{},
+	})
+
+	if page.RequestedLocale != "all" {
+		t.Fatalf("expected requested locale to be preserved, got %q", page.RequestedLocale)
+	}
+	if page.ResolvedLocale != "en" {
+		t.Fatalf("expected resolved locale to be preserved, got %q", page.ResolvedLocale)
+	}
+	if len(page.AvailableLocales) != 3 {
+		t.Fatalf("expected available locales to be preserved, got %+v", page.AvailableLocales)
+	}
+	if !page.MissingRequestedLocale {
+		t.Fatalf("expected missing requested locale flag to be preserved")
+	}
+}

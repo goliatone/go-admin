@@ -79,6 +79,7 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 				{Value: "published", Label: "Published"},
 			}},
 			Field{Name: "locale", Label: "Locale", Type: "text", Required: true},
+			hiddenRouteKeyField(),
 		).
 		DetailFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -122,6 +123,7 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			}},
 			Field{Name: "locale", Label: "Locale", Type: "text", Required: true},
 			Field{Name: "parent_id", Label: "Parent", Type: "text"},
+			hiddenRouteKeyField(),
 			Field{Name: "preview_url", Label: "Preview URL", Type: "text", ReadOnly: true},
 		).
 		DetailFields(

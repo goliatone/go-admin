@@ -58,6 +58,9 @@ func (s goCMSAdminContentWriteService) Create(ctx context.Context, record map[st
 		}
 	}
 	content := mapToCMSContent(record)
+	if err := s.ensureUniqueLocalizedPath(ctx, content, ""); err != nil {
+		return nil, err
+	}
 	created, err := s.content.CreateContent(ctx, content)
 	if err != nil {
 		return nil, err
@@ -126,6 +129,9 @@ func (s goCMSAdminContentWriteService) Update(ctx context.Context, id string, re
 		}
 		content = mergeCMSContentUpdate(*existing, content, record)
 	}
+	if err := s.ensureUniqueLocalizedPath(ctx, content, id); err != nil {
+		return nil, err
+	}
 	updated, err := s.content.UpdateContent(ctx, content)
 	if err != nil {
 		return nil, err
@@ -166,6 +172,11 @@ func (s goCMSAdminContentWriteService) CreateTranslation(ctx context.Context, in
 	creator, ok := s.content.(CMSContentTranslationCreator)
 	if !ok || creator == nil {
 		return nil, ErrTranslationCreateUnsupported
+	}
+	if prepared, err := s.prepareTranslationCreateInput(ctx, input); err != nil {
+		return nil, err
+	} else {
+		input = prepared
 	}
 	created, err := creator.CreateTranslation(ctx, input)
 	if err != nil {
@@ -225,6 +236,11 @@ func (s goCMSAdminContentWriteService) CreateTranslationForContentType(ctx conte
 	typeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Slug, contentType.Name, contentType.ID))
 	if typeKey != "" && input.ContentType == "" {
 		input.ContentType = typeKey
+	}
+	if prepared, err := s.prepareTranslationCreateInput(ctx, input); err != nil {
+		return nil, err
+	} else {
+		input = prepared
 	}
 	created, err := creator.CreateTranslation(ctx, input)
 	if err != nil {
@@ -363,4 +379,127 @@ func (s goCMSAdminContentWriteService) contentTranslationMissing(ctx context.Con
 		}
 	}
 	return false, nil
+}
+
+func (s goCMSAdminContentWriteService) prepareTranslationCreateInput(ctx context.Context, input TranslationCreateInput) (TranslationCreateInput, error) {
+	if s.content == nil {
+		return input, ErrNotFound
+	}
+	source, err := s.content.Content(ctx, input.SourceID, "")
+	if err != nil {
+		return input, err
+	}
+	if source == nil {
+		return input, ErrNotFound
+	}
+	if strings.TrimSpace(input.RouteKey) == "" {
+		input.RouteKey = strings.TrimSpace(primitives.FirstNonEmptyRaw(
+			source.RouteKey,
+			toString(source.Data["route_key"]),
+			toString(source.Metadata["route_key"]),
+		))
+	}
+	if strings.TrimSpace(input.ContentType) == "" {
+		input.ContentType = strings.TrimSpace(primitives.FirstNonEmptyRaw(source.ContentTypeSlug, source.ContentType))
+	}
+	if strings.TrimSpace(input.Path) != "" {
+		path := normalizeCMSLocalizedPath(input.Path)
+		if path != "" {
+			input.Path = path
+		}
+	}
+	if err := s.ensureUniqueTranslationLocalizedPath(ctx, source, input); err != nil {
+		return input, err
+	}
+	return normalizeTranslationCreateInput(input), nil
+}
+
+func (s goCMSAdminContentWriteService) ensureUniqueTranslationLocalizedPath(ctx context.Context, source *CMSContent, input TranslationCreateInput) error {
+	if s.content == nil {
+		return ErrNotFound
+	}
+	path := normalizeCMSLocalizedPath(input.Path)
+	if path == "" {
+		return nil
+	}
+	contentType := strings.TrimSpace(primitives.FirstNonEmptyRaw(input.ContentType, input.PolicyEntity))
+	if source != nil {
+		contentType = strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType, source.ContentTypeSlug, source.ContentType))
+	}
+	contents, err := s.content.Contents(ctx, input.Locale)
+	if err != nil {
+		return err
+	}
+	for _, candidate := range contents {
+		if strings.TrimSpace(candidate.ID) == strings.TrimSpace(input.SourceID) {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(candidate.Locale), strings.TrimSpace(input.Locale)) {
+			continue
+		}
+		if contentType != "" && !strings.EqualFold(strings.TrimSpace(primitives.FirstNonEmptyRaw(candidate.ContentTypeSlug, candidate.ContentType)), contentType) {
+			continue
+		}
+		candidatePath := normalizeCMSLocalizedPath(ExtractContentPath(candidate.Data, candidate.Metadata, ""))
+		if candidatePath == "" || candidatePath != path {
+			continue
+		}
+		return pathConflictDomainError(map[string]any{
+			"path":      path,
+			"candidate": candidate.ID,
+			"locale":    input.Locale,
+			"scope":     contentType,
+			"source_id": input.SourceID,
+		})
+	}
+	return nil
+}
+
+func (s goCMSAdminContentWriteService) ensureUniqueLocalizedPath(ctx context.Context, content CMSContent, skipID string) error {
+	if s.content == nil {
+		return ErrNotFound
+	}
+	path := normalizeCMSLocalizedPath(ExtractContentPath(content.Data, content.Metadata, ""))
+	if path == "" {
+		return nil
+	}
+	contentType := strings.TrimSpace(primitives.FirstNonEmptyRaw(content.ContentTypeSlug, content.ContentType))
+	contents, err := s.content.Contents(ctx, content.Locale)
+	if err != nil {
+		return err
+	}
+	for _, candidate := range contents {
+		if strings.TrimSpace(candidate.ID) == strings.TrimSpace(skipID) {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(candidate.Locale), strings.TrimSpace(content.Locale)) {
+			continue
+		}
+		if contentType != "" && !strings.EqualFold(strings.TrimSpace(primitives.FirstNonEmptyRaw(candidate.ContentTypeSlug, candidate.ContentType)), contentType) {
+			continue
+		}
+		candidatePath := normalizeCMSLocalizedPath(ExtractContentPath(candidate.Data, candidate.Metadata, ""))
+		if candidatePath == "" || candidatePath != path {
+			continue
+		}
+		return pathConflictDomainError(map[string]any{
+			"path":      path,
+			"skip_id":   skipID,
+			"candidate": candidate.ID,
+			"locale":    content.Locale,
+			"scope":     contentType,
+		})
+	}
+	return nil
+}
+
+func normalizeCMSLocalizedPath(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return ""
+	}
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		return path
+	}
+	return "/" + strings.TrimLeft(path, "/")
 }
