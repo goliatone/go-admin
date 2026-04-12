@@ -1429,6 +1429,10 @@ func NewGoCMSAdminPageReadAdapter(service cms.AdminPageReadService) AdminPageRea
 	return core.NewGoCMSAdminPageReadAdapter(service)
 }
 
+func NewGoCMSAdminPageReadAdapterWithContent(service cms.AdminPageReadService, content CMSContentService) AdminPageReadService {
+	return core.NewGoCMSAdminPageReadAdapterWithContent(service, content)
+}
+
 func NewGoCMSContainerAdapter(container any) *GoCMSContainerAdapter {
 	return core.NewGoCMSContainerAdapter(container)
 }
