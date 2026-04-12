@@ -132,9 +132,12 @@ func NewSettingsService() *SettingsService {
 
 // WithRegistry wires the shared registry so definitions are discoverable.
 func (s *SettingsService) WithRegistry(reg *Registry) {
-	if reg != nil {
-		s.registry = reg
+	if s == nil || reg == nil {
+		return
 	}
+	s.mu.Lock()
+	s.registry = reg
+	s.mu.Unlock()
 }
 
 // WithSchemaOptions appends options used when generating schemas from go-options.
@@ -153,9 +156,12 @@ func (s *SettingsService) WithSchemaOptions(opts ...opts.Option) {
 
 // WithActivitySink wires a shared activity sink for settings mutations.
 func (s *SettingsService) WithActivitySink(sink ActivitySink) {
-	if sink != nil {
-		s.activity = sink
+	if s == nil || sink == nil {
+		return
 	}
+	s.mu.Lock()
+	s.activity = sink
+	s.mu.Unlock()
 }
 
 // Enable toggles whether settings are available.
@@ -163,7 +169,9 @@ func (s *SettingsService) Enable(enabled bool) {
 	if s == nil {
 		return
 	}
+	s.mu.Lock()
 	s.enabled = enabled
+	s.mu.Unlock()
 }
 
 // UseAdapter delegates settings persistence and resolution to an external adapter.
@@ -216,7 +224,16 @@ func (s *SettingsService) Definitions() []SettingDefinition {
 
 // Apply validates and persists a bundle of settings.
 func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) error {
-	if s == nil || !s.enabled {
+	if s == nil {
+		return FeatureDisabledError{Feature: string(FeatureSettings)}
+	}
+	s.mu.RLock()
+	enabled := s.enabled
+	adapter := s.adapter
+	definitions := cloneSettingDefinitions(s.definitions)
+	activity := s.activity
+	s.mu.RUnlock()
+	if !enabled {
 		return FeatureDisabledError{Feature: string(FeatureSettings)}
 	}
 	scope := bundle.Scope
@@ -228,25 +245,19 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 		return requiredFieldDomainError("user id", map[string]any{"scope": string(SettingsScopeUser)})
 	}
 
-	s.mu.RLock()
-	adapter := s.adapter
-	s.mu.RUnlock()
 	if adapter != nil {
 		if err := adapter.Apply(ctx, bundle); err != nil {
 			return err
 		}
-		s.recordActivity(ctx, scope, bundle, bundle.Values)
+		recordSettingsActivity(activity, ctx, scope, bundle, bundle.Values)
 		return nil
 	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	errs := SettingsValidationErrors{Fields: map[string]string{}, Scope: scope}
 	sanitized := map[string]any{}
 
 	for key, val := range bundle.Values {
-		def, ok := s.definitions[key]
+		def, ok := definitions[key]
 		if !ok {
 			errs.Fields[key] = "unknown setting"
 			continue
@@ -266,6 +277,7 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 		return errs
 	}
 
+	s.mu.Lock()
 	for key, val := range sanitized {
 		switch scope {
 		case SettingsScopeSystem:
@@ -278,16 +290,18 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 			}
 			s.userValues[bundle.UserID][key] = val
 		default:
+			s.mu.Unlock()
 			return unsupportedScopeDomainError(string(scope), nil)
 		}
 	}
-	s.recordActivity(ctx, scope, bundle, sanitized)
+	s.mu.Unlock()
+	recordSettingsActivity(activity, ctx, scope, bundle, sanitized)
 	return nil
 }
 
 // Resolve returns a setting value with provenance.
 func (s *SettingsService) Resolve(key, userID string) ResolvedSetting {
-	if s == nil || !s.enabled {
+	if s == nil {
 		return ResolvedSetting{
 			Key:        key,
 			Scope:      SettingsScopeDefault,
@@ -295,8 +309,16 @@ func (s *SettingsService) Resolve(key, userID string) ResolvedSetting {
 		}
 	}
 	s.mu.RLock()
+	enabled := s.enabled
 	adapter := s.adapter
 	s.mu.RUnlock()
+	if !enabled {
+		return ResolvedSetting{
+			Key:        key,
+			Scope:      SettingsScopeDefault,
+			Provenance: string(SettingsScopeDefault),
+		}
+	}
 	if adapter != nil {
 		return adapter.Resolve(key, userID)
 	}
@@ -307,12 +329,16 @@ func (s *SettingsService) Resolve(key, userID string) ResolvedSetting {
 
 // ResolveAll returns all settings with provenance.
 func (s *SettingsService) ResolveAll(userID string) map[string]ResolvedSetting {
-	if s == nil || !s.enabled {
+	if s == nil {
 		return map[string]ResolvedSetting{}
 	}
 	s.mu.RLock()
+	enabled := s.enabled
 	adapter := s.adapter
 	s.mu.RUnlock()
+	if !enabled {
+		return map[string]ResolvedSetting{}
+	}
 	if adapter != nil {
 		return adapter.ResolveAll(userID)
 	}
@@ -340,12 +366,16 @@ func (s *SettingsService) ResolveAll(userID string) map[string]ResolvedSetting {
 
 // Schema returns the go-options schema document for the current settings stack.
 func (s *SettingsService) Schema(ctx context.Context, userID string) (opts.SchemaDocument, error) {
-	if s == nil || !s.enabled {
+	if s == nil {
 		return opts.SchemaDocument{}, FeatureDisabledError{Feature: string(FeatureSettings)}
 	}
 	s.mu.RLock()
+	enabled := s.enabled
 	adapter := s.adapter
 	s.mu.RUnlock()
+	if !enabled {
+		return opts.SchemaDocument{}, FeatureDisabledError{Feature: string(FeatureSettings)}
+	}
 	if adapter != nil {
 		return adapter.Schema(ctx, userID)
 	}
@@ -579,8 +609,8 @@ func buildOptionsStack(definitions map[string]SettingDefinition, systemValues, s
 	return stack.Merge(mergeOpts...)
 }
 
-func (s *SettingsService) recordActivity(ctx context.Context, scope SettingsScope, bundle SettingsBundle, values map[string]any) {
-	if s == nil || s.activity == nil || len(values) == 0 {
+func recordSettingsActivity(activity ActivitySink, ctx context.Context, scope SettingsScope, bundle SettingsBundle, values map[string]any) {
+	if activity == nil || len(values) == 0 {
 		return
 	}
 	actor := userIDFromContext(ctx)
@@ -598,7 +628,7 @@ func (s *SettingsService) recordActivity(ctx context.Context, scope SettingsScop
 	if bundle.UserID != "" {
 		meta["user_id"] = bundle.UserID
 	}
-	_ = s.activity.Record(ctx, ActivityEntry{
+	_ = activity.Record(ctx, ActivityEntry{
 		Actor:    actor,
 		Action:   "settings.update",
 		Object:   "settings",
