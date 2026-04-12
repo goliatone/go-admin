@@ -1,5 +1,27 @@
 # Changelog
 
+# [0.44.0](https://github.com/goliatone/go-admin/compare/v0.43.0...v0.44.0) - (2026-04-12)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Translation family from context ([f1a19d6](https://github.com/goliatone/go-admin/commit/f1a19d6b8e5eaac8049b7806c8219bbe8c74fca0))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.44.0 ([96da527](https://github.com/goliatone/go-admin/commit/96da5277e5a465acea039dc26bb5338f99d5824c))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Translation context ([e54b748](https://github.com/goliatone/go-admin/commit/e54b7485d0098cf056ac0f11e7f26954f77c6579))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.43.0 ([f04c9e2](https://github.com/goliatone/go-admin/commit/f04c9e2d9fc75af3ed172169c8d175ba9e592313))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([b2cdfdc](https://github.com/goliatone/go-admin/commit/b2cdfdca1069b0e6f486af11a61541702c65962f))  - (goliatone)
+
 # [0.43.0](https://github.com/goliatone/go-admin/compare/v0.42.0...v0.43.0) - (2026-04-12)
 
 ## <!-- 1 -->🐛 Bug Fixes
