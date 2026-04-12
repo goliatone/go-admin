@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/goliatone/go-command"
 	gocron "github.com/goliatone/go-command/cron"
@@ -100,6 +101,39 @@ func TestJobTriggerUsesDispatcherAndUpdatesState(t *testing.T) {
 	})
 }
 
+func TestJobRegistrySyncHandlesSynchronousSchedulerCallbacks(t *testing.T) {
+	registry.WithTestRegistry(func() {
+		cmdReg := NewCommandBus(true)
+		defer cmdReg.Reset()
+		cmd := &countingCronCommand{}
+		if _, err := RegisterCommand(cmdReg, cmd); err != nil {
+			t.Fatalf("register command: %v", err)
+		}
+
+		jr := NewJobRegistry()
+		scheduler := &eagerGoJobScheduler{}
+		jr.WithGoJob(nil, scheduler)
+
+		done := make(chan error, 1)
+		go func() {
+			done <- jr.Sync(context.Background())
+		}()
+
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("sync: %v", err)
+			}
+		case <-time.After(200 * time.Millisecond):
+			t.Fatalf("sync deadlocked when scheduler executed callback synchronously")
+		}
+
+		if cmd.calls == 0 {
+			t.Fatalf("expected eager scheduler to execute cron handler")
+		}
+	})
+}
+
 type stubGoJobScheduler struct {
 	added   []command.HandlerConfig
 	started bool
@@ -123,6 +157,27 @@ func (s *stubGoJobScheduler) Stop(context.Context) error {
 type stubCronSubscription struct{}
 
 func (stubCronSubscription) Unsubscribe() {}
+
+type eagerGoJobScheduler struct {
+	stubGoJobScheduler
+	handler func() error
+}
+
+func (s *eagerGoJobScheduler) AddHandler(cfg command.HandlerConfig, handler any) (gocron.Subscription, error) {
+	s.added = append(s.added, cfg)
+	if h, ok := handler.(func() error); ok {
+		s.handler = h
+	}
+	return stubCronSubscription{}, nil
+}
+
+func (s *eagerGoJobScheduler) Start(context.Context) error {
+	s.started = true
+	if s.handler != nil {
+		return s.handler()
+	}
+	return nil
+}
 
 type countingCronCommand struct {
 	calls int

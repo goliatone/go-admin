@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
@@ -58,6 +59,52 @@ type failingPreferencesStore struct {
 	failLayout    bool
 	failOverrides bool
 	err           error
+}
+
+type reentrantDashboardWidgetService struct {
+	dash *Dashboard
+}
+
+func (s *reentrantDashboardWidgetService) RegisterAreaDefinition(context.Context, WidgetAreaDefinition) error {
+	return nil
+}
+
+func (s *reentrantDashboardWidgetService) Areas() []WidgetAreaDefinition {
+	return nil
+}
+
+func (s *reentrantDashboardWidgetService) RegisterDefinition(context.Context, WidgetDefinition) error {
+	if s.dash != nil {
+		_ = s.dash.Areas()
+	}
+	return nil
+}
+
+func (s *reentrantDashboardWidgetService) DeleteDefinition(context.Context, string) error {
+	return nil
+}
+
+func (s *reentrantDashboardWidgetService) Definitions() []WidgetDefinition {
+	return nil
+}
+
+func (s *reentrantDashboardWidgetService) SaveInstance(context.Context, WidgetInstance) (*WidgetInstance, error) {
+	return nil, nil
+}
+
+func (s *reentrantDashboardWidgetService) DeleteInstance(context.Context, string) error {
+	return nil
+}
+
+func (s *reentrantDashboardWidgetService) ListInstances(context.Context, WidgetInstanceFilter) ([]WidgetInstance, error) {
+	return nil, nil
+}
+
+func (s *reentrantDashboardWidgetService) HasInstanceForDefinition(context.Context, string, WidgetInstanceFilter) (bool, error) {
+	if s.dash != nil {
+		_ = s.dash.Areas()
+	}
+	return false, nil
 }
 
 func (f *failingPreferencesStore) Resolve(ctx context.Context, input PreferencesResolveInput) (PreferenceSnapshot, error) {
@@ -140,6 +187,34 @@ func TestDashboardProviderRegistersCommandAndResolvesInstances(t *testing.T) {
 			t.Fatalf("expected provider handler to be invoked by command")
 		}
 	})
+}
+
+func TestDashboardRegisterProviderAllowsReentrantWidgetServiceCallbacks(t *testing.T) {
+	dash := NewDashboard()
+	widgetSvc := &reentrantDashboardWidgetService{dash: dash}
+	dash.WithWidgetService(widgetSvc)
+	dash.RegisterArea(WidgetAreaDefinition{Code: "admin.dashboard.main"})
+
+	done := make(chan struct{})
+	go func() {
+		dash.RegisterProvider(DashboardProviderSpec{
+			Code:        "reentrant.widget",
+			Name:        "Reentrant",
+			DefaultArea: "admin.dashboard.main",
+			Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+				_ = ctx
+				_ = cfg
+				return WidgetPayloadOf(map[string]any{"ok": true}), nil
+			},
+		})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("register provider deadlocked on reentrant widget service callback")
+	}
 }
 
 func TestDashboardProviderCommandRegistrationIsIdempotent(t *testing.T) {

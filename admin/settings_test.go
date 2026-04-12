@@ -8,11 +8,27 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	navinternal "github.com/goliatone/go-admin/admin/internal/navigation"
 	opts "github.com/goliatone/go-options"
 	router "github.com/goliatone/go-router"
 )
+
+type callbackActivitySink struct {
+	record func(context.Context, ActivityEntry) error
+}
+
+func (s callbackActivitySink) Record(ctx context.Context, entry ActivityEntry) error {
+	if s.record != nil {
+		return s.record(ctx, entry)
+	}
+	return nil
+}
+
+func (callbackActivitySink) List(context.Context, int, ...ActivityFilter) ([]ActivityEntry, error) {
+	return nil, nil
+}
 
 func TestSettingsResolutionWithProvenance(t *testing.T) {
 	svc := NewSettingsService()
@@ -190,6 +206,101 @@ func TestSettingsValidationWithOptionsAndValidator(t *testing.T) {
 	}
 	if validation.Fields["features.mode"] != "advanced mode unavailable" {
 		t.Fatalf("expected validator message propagated, got %v", validation.Fields["features.mode"])
+	}
+}
+
+func TestSettingsApplyValidatorCanReenterService(t *testing.T) {
+	svc := NewSettingsService()
+	svc.RegisterDefinition(SettingDefinition{Key: "features.enabled", Default: true, Type: "boolean"})
+	svc.RegisterDefinition(SettingDefinition{
+		Key:  "features.mode",
+		Type: "string",
+		Validator: func(ctx context.Context, value any) error {
+			resolved := svc.Resolve("features.enabled", "")
+			if resolved.Value != true {
+				return fmt.Errorf("unexpected resolved value: %+v", resolved)
+			}
+			return nil
+		},
+	})
+
+	done := make(chan error, 1)
+	go func() {
+		done <- svc.Apply(context.Background(), SettingsBundle{
+			Scope:  SettingsScopeSite,
+			Values: map[string]any{"features.mode": "advanced"},
+		})
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("apply deadlocked on validator reentry")
+	}
+}
+
+func TestSettingsApplyActivitySinkCanReenterService(t *testing.T) {
+	svc := NewSettingsService()
+	svc.RegisterDefinition(SettingDefinition{Key: "admin.title", Default: "Admin", Type: "string"})
+	svc.WithActivitySink(callbackActivitySink{record: func(ctx context.Context, entry ActivityEntry) error {
+		resolved := svc.Resolve("admin.title", "")
+		if resolved.Value != "Updated" {
+			return fmt.Errorf("unexpected resolved value: %+v", resolved)
+		}
+		return nil
+	}})
+
+	done := make(chan error, 1)
+	go func() {
+		done <- svc.Apply(context.Background(), SettingsBundle{
+			Scope:  SettingsScopeSite,
+			Values: map[string]any{"admin.title": "Updated"},
+		})
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("apply deadlocked on activity sink reentry")
+	}
+}
+
+func TestGoOptionsSettingsAdapterValidatorCanReenterAdapter(t *testing.T) {
+	adapter := NewGoOptionsSettingsAdapter()
+	adapter.RegisterDefinition(SettingDefinition{Key: "features.enabled", Default: true, Type: "boolean"})
+	adapter.RegisterDefinition(SettingDefinition{
+		Key:  "features.mode",
+		Type: "string",
+		Validator: func(ctx context.Context, value any) error {
+			resolved := adapter.Resolve("features.enabled", "")
+			if resolved.Value != true {
+				return fmt.Errorf("unexpected resolved value: %+v", resolved)
+			}
+			return nil
+		},
+	})
+
+	done := make(chan error, 1)
+	go func() {
+		done <- adapter.Apply(context.Background(), SettingsBundle{
+			Scope:  SettingsScopeSite,
+			Values: map[string]any{"features.mode": "advanced"},
+		})
+	}()
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatalf("adapter apply deadlocked on validator reentry")
 	}
 }
 

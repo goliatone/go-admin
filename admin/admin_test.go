@@ -510,7 +510,7 @@ func TestBootWithContextNestedCallsInheritAndRestoreLifecycleContext(t *testing.
 
 	err := adm.BootWithContext(outerCtx, func(ctx boot.BootCtx) error {
 		seen = append(seen, ctx.LifecycleContext())
-		return adm.BootWithContext(nil, func(inner boot.BootCtx) error {
+		return adm.BootWithContext(ctx.LifecycleContext(), func(inner boot.BootCtx) error {
 			seen = append(seen, inner.LifecycleContext())
 			return nil
 		})
@@ -526,6 +526,23 @@ func TestBootWithContextNestedCallsInheritAndRestoreLifecycleContext(t *testing.
 	}
 	if adm.bootContext != nil {
 		t.Fatalf("expected boot context to be cleared after boot completion")
+	}
+}
+
+func TestBootWithContextNestedNilContextReturnsError(t *testing.T) {
+	outerCtx := t.Context()
+	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
+
+	err := adm.BootWithContext(outerCtx, func(ctx boot.BootCtx) error {
+		return adm.BootWithContext(nil, func(inner boot.BootCtx) error {
+			return nil
+		})
+	})
+	if err == nil {
+		t.Fatalf("expected nested nil lifecycle context to return an error")
+	}
+	if !strings.Contains(err.Error(), "explicit lifecycle context") {
+		t.Fatalf("expected explicit lifecycle context error, got %v", err)
 	}
 }
 
