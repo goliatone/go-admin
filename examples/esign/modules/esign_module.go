@@ -1131,6 +1131,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 				Permission:      permissions.AdminESignEdit,
 				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
 				PayloadRequired: []string{"gate", "review_participants"},
+				PayloadSchema:   agreementReviewActionPayloadSchema(true),
 				Idempotent:      true,
 			}),
 			withAgreementActionGuard(coreadmin.Action{
@@ -1141,6 +1142,7 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 				Permission:      permissions.AdminESignEdit,
 				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
 				PayloadRequired: []string{"gate"},
+				PayloadSchema:   agreementReviewActionPayloadSchema(false),
 				Idempotent:      true,
 			}),
 			withAgreementActionGuard(coreadmin.Action{
@@ -1735,4 +1737,59 @@ func (m *ESignModule) validateLineageRuntimeWiring(ctx context.Context) error {
 
 func resolveESignStrictStartup() bool {
 	return appcfg.Active().Runtime.StrictStartup
+}
+
+func agreementReviewActionPayloadSchema(includeParticipants bool) map[string]any {
+	properties := map[string]any{
+		"gate": map[string]any{
+			"type":  "string",
+			"title": "Gate",
+		},
+		"comments_enabled": map[string]any{
+			"type":  "boolean",
+			"title": "Comments Enabled",
+		},
+	}
+	if includeParticipants {
+		properties["review_participants"] = map[string]any{
+			"type":  "array",
+			"title": "Review Participants",
+			"items": map[string]any{
+				"type":                 "object",
+				"additionalProperties": false,
+				"properties": map[string]any{
+					"participant_type": map[string]any{
+						"type":  "string",
+						"title": "Participant Type",
+						"enum":  []string{"recipient", "external"},
+					},
+					"recipient_id": map[string]any{
+						"type":  "string",
+						"title": "Recipient ID",
+					},
+					"email": map[string]any{
+						"type":  "string",
+						"title": "Email",
+					},
+					"display_name": map[string]any{
+						"type":  "string",
+						"title": "Display Name",
+					},
+					"can_comment": map[string]any{
+						"type":  "boolean",
+						"title": "Can Comment",
+					},
+					"can_approve": map[string]any{
+						"type":  "boolean",
+						"title": "Can Approve",
+					},
+				},
+				"required": []string{"participant_type"},
+			},
+		}
+	}
+	return map[string]any{
+		"type":       "object",
+		"properties": properties,
+	}
 }
