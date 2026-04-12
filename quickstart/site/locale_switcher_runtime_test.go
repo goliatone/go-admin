@@ -224,6 +224,68 @@ func TestLocaleSwitcherRuntimeUsesDefaultLocalePathAsInheritedFallback(t *testin
 	}
 }
 
+func TestLocaleSwitcherRuntimeCanonicalizesLocalizedCurrentPathFallback(t *testing.T) {
+	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
+		SupportedLocales: []string{"en", "bo", "zh"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	})
+	contract := BuildLocaleSwitcherContract(
+		cfg,
+		"/zh/contact",
+		"zh",
+		"zh",
+		"tg-contact-1",
+		[]string{"en", "bo", "zh"},
+		nil,
+		nil,
+	)
+
+	items, ok := contract["items"].([]map[string]any)
+	if !ok || len(items) != 3 {
+		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
+	}
+	if items[0]["locale"] != "en" || items[0]["url"] != "/contact?locale=en" {
+		t.Fatalf("expected en fallback URL /contact?locale=en, got %+v", items[0])
+	}
+	if items[1]["locale"] != "bo" || items[1]["url"] != "/bo/contact" {
+		t.Fatalf("expected bo fallback URL /bo/contact, got %+v", items[1])
+	}
+	if items[2]["locale"] != "zh" || items[2]["url"] != "/zh/contact" {
+		t.Fatalf("expected zh fallback URL /zh/contact without double prefix, got %+v", items[2])
+	}
+}
+
+func TestLocaleSwitcherRuntimeCanonicalizesStickyRequestedLocaleFallback(t *testing.T) {
+	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
+		SupportedLocales: []string{"en", "fr", "zh"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	})
+	contract := BuildLocaleSwitcherContract(
+		cfg,
+		"/fr/contact",
+		"fr",
+		"en",
+		"tg-contact-1",
+		[]string{"en", "fr"},
+		nil,
+		nil,
+	)
+
+	items, ok := contract["items"].([]map[string]any)
+	if !ok || len(items) != 3 {
+		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
+	}
+	if items[0]["locale"] != "en" || items[0]["url"] != "/contact?locale=en" {
+		t.Fatalf("expected en fallback URL /contact?locale=en, got %+v", items[0])
+	}
+	if items[1]["locale"] != "fr" || items[1]["url"] != "/fr/contact" {
+		t.Fatalf("expected fr fallback URL /fr/contact, got %+v", items[1])
+	}
+	if items[2]["locale"] != "zh" || items[2]["url"] != "/zh/contact" {
+		t.Fatalf("expected zh fallback URL /zh/contact, got %+v", items[2])
+	}
+}
+
 func TestLocaleSwitcherRuntimeStrictLocalizedPathsDoesNotSynthesizeFallbackURL(t *testing.T) {
 	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
 		SupportedLocales: []string{"en", "es", "fr"},

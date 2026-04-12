@@ -20,6 +20,7 @@ func BuildLocaleSwitcherContract(
 	currentPath = normalizeLocalePath(currentPath)
 	requestedLocale = normalizeRequestedLocale(requestedLocale, cfg.DefaultLocale, cfg.SupportedLocales)
 	resolvedLocale = normalizeRequestedLocale(resolvedLocale, requestedLocale, cfg.SupportedLocales)
+	fallbackCurrentPath := localeSwitcherFallbackCurrentPath(cfg, currentPath, requestedLocale, resolvedLocale)
 	availableSet := toLocaleSet(availableLocales)
 
 	items := make([]map[string]any, 0, len(cfg.SupportedLocales))
@@ -30,7 +31,7 @@ func BuildLocaleSwitcherContract(
 		}
 		path, usedExplicitPath := localizedPublicPathForLocale(
 			cfg,
-			currentPath,
+			fallbackCurrentPath,
 			locale,
 			pathsByLocale,
 		)
@@ -62,6 +63,24 @@ func BuildLocaleSwitcherContract(
 		out["available_locales"] = mapKeysSorted(availableSet)
 	}
 	return out
+}
+
+func localeSwitcherFallbackCurrentPath(cfg ResolvedSiteConfig, currentPath, requestedLocale, resolvedLocale string) string {
+	currentPath = normalizeLocalePath(currentPath)
+	canonicalPath, prefixLocale := StripSupportedLocalePrefix(currentPath, cfg.SupportedLocales)
+	if prefixLocale == "" {
+		return currentPath
+	}
+
+	requestedLocale = normalizeRequestedLocale(requestedLocale, cfg.DefaultLocale, cfg.SupportedLocales)
+	resolvedLocale = normalizeRequestedLocale(resolvedLocale, requestedLocale, cfg.SupportedLocales)
+	if prefixLocale != requestedLocale && prefixLocale != resolvedLocale {
+		return currentPath
+	}
+	if canonicalPath == "" {
+		return "/"
+	}
+	return canonicalPath
 }
 
 func localizedPublicPathForLocale(cfg ResolvedSiteConfig, currentPath, targetLocale string, pathsByLocale map[string]string) (string, bool) {
