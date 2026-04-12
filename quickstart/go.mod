@@ -14,7 +14,7 @@ require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.12
-	github.com/goliatone/go-admin v0.36.0
+	github.com/goliatone/go-admin v0.37.0
 	github.com/goliatone/go-auth v0.40.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.40.0
 	github.com/goliatone/go-cms v0.45.0
@@ -30,7 +30,7 @@ require (
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.13.0
-	github.com/goliatone/go-router v0.55.0
+	github.com/goliatone/go-router v0.56.0
 	github.com/goliatone/go-search v0.4.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
