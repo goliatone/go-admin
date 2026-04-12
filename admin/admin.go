@@ -98,6 +98,8 @@ type Admin struct {
 	iconService                  *IconService
 	menuBuilder                  *MenuBuilderService
 	bootContext                  context.Context
+	lifecycleMu                  sync.Mutex
+	cmsBootstrapHooks            []CMSBootstrapHook
 	doctorMu                     sync.RWMutex
 	doctorChecks                 map[string]DoctorCheck
 	menuBuilderRoutesRegistered  bool
@@ -760,6 +762,17 @@ func (a *Admin) Jobs() *JobRegistry {
 
 // RegisterPanel registers a built panel with the admin.
 func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error) {
+	panel, err := a.buildPanel(name, builder)
+	if err != nil {
+		return nil, err
+	}
+	if err := a.registerBuiltPanel(name, panel); err != nil {
+		return nil, err
+	}
+	return panel, nil
+}
+
+func (a *Admin) buildPanel(name string, builder *PanelBuilder) (*Panel, error) {
 	if builder == nil {
 		return nil, validationDomainError("panel builder is nil", map[string]any{
 			"component": "admin",
@@ -784,15 +797,87 @@ func (a *Admin) RegisterPanel(name string, builder *PanelBuilder) (*Panel, error
 	if err != nil {
 		return nil, err
 	}
+	return panel, nil
+}
+
+func (a *Admin) registerBuiltPanel(name string, panel *Panel) error {
+	if a == nil || a.registry == nil {
+		return nil
+	}
+	if err := a.registry.RegisterPanel(name, panel); err != nil {
+		return err
+	}
+	return syncTranslationQueueTabForPanel(a, name, panel)
+}
+
+func (a *Admin) replacePanel(name string, builder *PanelBuilder, resetTabs bool) (*Panel, error) {
+	panel, err := a.buildPanel(name, builder)
+	if err != nil {
+		return nil, err
+	}
 	if a.registry != nil {
-		if err := a.registry.RegisterPanel(name, panel); err != nil {
+		if err := a.registry.UpsertPanel(name, panel); err != nil {
 			return nil, err
+		}
+		if resetTabs {
+			if err := a.registry.resetPanelTabs(name); err != nil {
+				return nil, err
+			}
 		}
 		if err := syncTranslationQueueTabForPanel(a, name, panel); err != nil {
 			return nil, err
 		}
 	}
 	return panel, nil
+}
+
+func (a *Admin) syncPanelUIRoutes(name string, panel *Panel) error {
+	if a == nil || a.urlManager == nil || panel == nil {
+		return nil
+	}
+	if panel.UIRouteMode() == PanelUIRouteModeCustom {
+		return nil
+	}
+
+	routeName := canonicalPanelRouteName(name)
+	if routeName == "" {
+		return nil
+	}
+	basePath := joinBasePath(adminBasePath(a.config), canonicalPanelRoutePathSegment(routeName))
+	detailPath := joinBasePath(basePath, ":id")
+
+	routes := map[string]string{}
+	if existing := routePathRaw(a.urlManager, "admin", routeName); existing == "" {
+		routes[routeName] = basePath
+	}
+	if existing := routePathRaw(a.urlManager, "admin", routeName+".id"); existing == "" {
+		routes[routeName+".id"] = detailPath
+	}
+	if len(routes) == 0 {
+		return nil
+	}
+
+	_, _, err := a.urlManager.AddRoutes("admin", routes)
+	return err
+}
+
+func canonicalPanelRouteName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+	if at := strings.Index(name, "@"); at > 0 {
+		name = strings.TrimSpace(name[:at])
+	}
+	return name
+}
+
+func canonicalPanelRoutePathSegment(name string) string {
+	name = canonicalPanelRouteName(name)
+	if name == "" {
+		return ""
+	}
+	return strings.ReplaceAll(name, "_", "-")
 }
 
 // UnregisterPanel removes a previously registered panel.
