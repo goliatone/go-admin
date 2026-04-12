@@ -69,7 +69,8 @@ func (s goCMSAdminBlockReadService) ListDefinitions(ctx context.Context, opts Li
 		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), channel) {
 			continue
 		}
-		if localeFilter != "" && strings.ToLower(strings.TrimSpace(def.Locale)) != localeFilter {
+		defLocale := strings.ToLower(strings.TrimSpace(def.Locale))
+		if localeFilter != "" && defLocale != "" && defLocale != localeFilter {
 			continue
 		}
 		if search != "" &&
@@ -152,7 +153,8 @@ func (s goCMSAdminBlockReadService) GetDefinition(ctx context.Context, id string
 		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), channel) {
 			continue
 		}
-		if localeFilter != "" && strings.ToLower(strings.TrimSpace(def.Locale)) != localeFilter {
+		defLocale := strings.ToLower(strings.TrimSpace(def.Locale))
+		if localeFilter != "" && defLocale != "" && defLocale != localeFilter {
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
