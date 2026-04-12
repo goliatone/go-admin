@@ -28,7 +28,7 @@ func (r *CMSMenuRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 			code = c
 		}
 	}
-	locale := extractLocale(opts, "")
+	locale := resolveListRequestedLocale(ctx, opts, "")
 	menu, err := r.menu.Menu(ctx, code, locale)
 	if err != nil {
 		return nil, 0, err
@@ -221,7 +221,7 @@ func (r *WidgetInstanceRepository) List(ctx context.Context, opts ListOptions) (
 	filter := WidgetInstanceFilter{
 		Area:   stringFromFilter(opts.Filters, "area"),
 		PageID: stringFromFilter(opts.Filters, "page_id"),
-		Locale: extractLocale(opts, ""),
+		Locale: resolveListRequestedLocale(ctx, opts, ""),
 	}
 	instances, err := r.widgets.ListInstances(ctx, filter)
 	if err != nil {
