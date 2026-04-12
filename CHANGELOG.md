@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.39.0](https://github.com/goliatone/go-admin/compare/v0.38.0...v0.39.0) - (2026-04-12)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Locale switcher ([6c5c546](https://github.com/goliatone/go-admin/commit/6c5c54649e36d07f6ac24ac445c6ffe39a01c507))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.39.0 ([47ded3c](https://github.com/goliatone/go-admin/commit/47ded3c4a27e3a3da2a4dae77390efc5f64e36f4))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.38.0 ([ab33787](https://github.com/goliatone/go-admin/commit/ab3378766b48e6ffc3be51569110cd3eaf970791))  - (goliatone)
+
 # [0.38.0](https://github.com/goliatone/go-admin/compare/v0.37.0...v0.38.0) - (2026-04-12)
 
 ## <!-- 13 -->📦 Bumps
