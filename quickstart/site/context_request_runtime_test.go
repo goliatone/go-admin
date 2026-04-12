@@ -42,16 +42,26 @@ func TestViewContextFromRequestPrefersLocalsAndFallsBackToRequestState(t *testin
 	}
 }
 
-func TestMergeViewContextOverlaysRequestValues(t *testing.T) {
+func TestMergeViewContextUsesRequestValuesAsFallbackOnly(t *testing.T) {
 	ctx := router.NewMockContext()
 	ctx.LocalsMock[viewContextLocalsKey] = router.ViewContext{
 		"request_only": "yes",
 		"shared":       "request",
+		"locale_switcher": map[string]any{
+			"items": []any{
+				map[string]any{"locale": "en", "url": "/zh?locale=en"},
+			},
+		},
 	}
 
 	merged := MergeViewContext(router.ViewContext{
 		"base":   "present",
 		"shared": "base",
+		"locale_switcher": map[string]any{
+			"items": []any{
+				map[string]any{"locale": "en", "url": "/?locale=en"},
+			},
+		},
 	}, ctx)
 
 	if got := merged["base"]; got != "present" {
@@ -60,8 +70,23 @@ func TestMergeViewContextOverlaysRequestValues(t *testing.T) {
 	if got := merged["request_only"]; got != "yes" {
 		t.Fatalf("expected request view context to be merged, got %v", got)
 	}
-	if got := merged["shared"]; got != "request" {
-		t.Fatalf("expected request view context to override shared key, got %v", got)
+	if got := merged["shared"]; got != "base" {
+		t.Fatalf("expected existing render value to win over request fallback, got %v", got)
+	}
+	switcher, ok := merged["locale_switcher"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected merged locale switcher map, got %#v", merged["locale_switcher"])
+	}
+	items, ok := switcher["items"].([]any)
+	if !ok || len(items) != 1 {
+		t.Fatalf("expected merged locale switcher items, got %#v", switcher["items"])
+	}
+	first, ok := items[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected merged locale switcher item map, got %#v", items[0])
+	}
+	if got := first["url"]; got != "/?locale=en" {
+		t.Fatalf("expected resolved locale switcher URL to remain canonical, got %v", got)
 	}
 }
 

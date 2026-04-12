@@ -26,6 +26,7 @@ type translationActionRepoStub struct {
 	records                 map[string]map[string]any
 	created                 []map[string]any
 	list                    []map[string]any
+	listContexts            []context.Context
 	listOptions             []ListOptions
 	listErr                 error
 	nextID                  int
@@ -35,7 +36,8 @@ type translationActionRepoStub struct {
 	createTranslationErr    error
 }
 
-func (s *translationActionRepoStub) List(_ context.Context, opts ListOptions) ([]map[string]any, int, error) {
+func (s *translationActionRepoStub) List(ctx context.Context, opts ListOptions) ([]map[string]any, int, error) {
+	s.listContexts = append(s.listContexts, ctx)
 	s.listOptions = append(s.listOptions, cloneListOptions(opts))
 	if s.listErr != nil {
 		return nil, 0, s.listErr
@@ -2153,6 +2155,9 @@ func TestPanelBindingListGroupedByTranslationGroupDoesNotInjectLocaleScope(t *te
 	if len(repo.listOptions) == 0 {
 		t.Fatalf("expected repository list to be called")
 	}
+	if len(repo.listContexts) == 0 || !translationFamilyExpansionFromContext(repo.listContexts[0]) {
+		t.Fatalf("expected grouped listing to signal translation family expansion via context")
+	}
 	firstFilters := repo.listOptions[0].Filters
 	if got := strings.TrimSpace(toString(firstFilters["locale"])); got != "" {
 		t.Fatalf("expected no implicit locale filter for grouped listing, got %q", got)
@@ -2791,6 +2796,88 @@ func TestPanelBindingListGroupedByTranslationGroupUsesExpandedCMSContentSiblings
 	locales := []string{toString(children[0]["locale"]), toString(children[1]["locale"]), toString(children[2]["locale"])}
 	if strings.Join(locales, ",") != "en,bo,zh" {
 		t.Fatalf("expected grouped child locales en,bo,zh, got %v", locales)
+	}
+}
+
+func TestPanelBindingListGroupedByTranslationGroupExpandsCMSContentSiblingsWithoutLocaleFilter(t *testing.T) {
+	contentID := uuid.New()
+	familyID := uuid.New()
+	newsType := CMSContentType{
+		Slug:         "news",
+		Capabilities: map[string]any{"translations": true},
+	}
+	contentRecord := &cmscontent.Content{
+		ID:   contentID,
+		Slug: "breaking-news",
+		Type: &cmscontent.ContentType{Slug: "news"},
+		Translations: []*cmscontent.ContentTranslation{
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "en"},
+				FamilyID: &familyID,
+				Title:    "Breaking News",
+				Content:  map[string]any{"body": "english", "path": "/en/breaking-news"},
+			},
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "bo"},
+				FamilyID: &familyID,
+				Title:    "Breaking News BO",
+				Content:  map[string]any{"body": "tibetan", "path": "/bo/breaking-news"},
+			},
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "zh"},
+				FamilyID: &familyID,
+				Title:    "Breaking News ZH",
+				Content:  map[string]any{"body": "chinese", "path": "/zh/breaking-news"},
+			},
+		},
+	}
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{contentRecord},
+		getWithDerived:  contentRecord,
+	}
+	adapter := NewGoCMSContentAdapter(contentSvc, nil, newStubContentTypeService(newsType))
+	repo := NewCMSContentTypeEntryRepository(adapter, newsType)
+	panel := &Panel{name: "news", repo: repo}
+	binding := &panelBinding{
+		admin: mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{}),
+		name:  "news",
+		panel: panel,
+	}
+	c := newPanelBindingMockContext()
+
+	rows, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"group_by": "family_id",
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped list failed: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one grouped family row, got total=%d len=%d", total, len(rows))
+	}
+	if got := strings.TrimSpace(toString(rows[0]["family_id"])); got != familyID.String() {
+		t.Fatalf("expected grouped family_id %q, got %q", familyID.String(), got)
+	}
+	children, ok := rows[0]["children"].([]map[string]any)
+	if !ok || len(children) != 3 {
+		t.Fatalf("expected 3 grouped children, got %#v", rows[0]["children"])
+	}
+	locales := []string{toString(children[0]["locale"]), toString(children[1]["locale"]), toString(children[2]["locale"])}
+	if strings.Join(locales, ",") != "en,bo,zh" {
+		t.Fatalf("expected grouped child locales en,bo,zh, got %v", locales)
+	}
+	summary := extractMap(rows[0]["family_summary"])
+	if count, _ := summary["available_count"].(int); count != 3 {
+		t.Fatalf("expected family_summary.available_count=3, got %#v", summary["available_count"])
 	}
 }
 

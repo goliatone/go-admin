@@ -100,3 +100,44 @@ func TestSiteTemplateContextPromotesRootTemplateCandidatesFromViewContext(t *tes
 		t.Fatalf("expected root template candidates promoted into page context, got %+v", candidates)
 	}
 }
+
+func TestSiteTemplateContextPrefersResolvedLocaleSwitcherOverRequestFallback(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.LocalsMock[viewContextLocalsKey] = router.ViewContext{
+		"locale_switcher": map[string]any{
+			"items": []any{
+				map[string]any{"locale": "en", "url": "/zh/about?locale=en"},
+				map[string]any{"locale": "bo", "url": "/bo/zh/about"},
+				map[string]any{"locale": "zh", "url": "/zh/zh/about"},
+			},
+		},
+	}
+
+	out := siteTemplateContext(ctx, router.ViewContext{
+		"locale_switcher": map[string]any{
+			"items": []any{
+				map[string]any{"locale": "en", "url": "/about?locale=en"},
+				map[string]any{"locale": "bo", "url": "/bo/about"},
+				map[string]any{"locale": "zh", "url": "/zh/about"},
+			},
+		},
+	})
+
+	switcher, ok := out["locale_switcher"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected locale_switcher map, got %#v", out["locale_switcher"])
+	}
+	items, ok := switcher["items"].([]any)
+	if !ok || len(items) != 3 {
+		t.Fatalf("expected locale switcher items, got %#v", switcher["items"])
+	}
+	for idx, want := range []string{"/about?locale=en", "/bo/about", "/zh/about"} {
+		item, ok := items[idx].(map[string]any)
+		if !ok {
+			t.Fatalf("expected locale switcher item map, got %#v", items[idx])
+		}
+		if got := anyString(item["url"]); got != want {
+			t.Fatalf("expected locale switcher item %d to keep resolved URL %q, got %q", idx, want, got)
+		}
+	}
+}

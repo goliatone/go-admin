@@ -39,6 +39,7 @@ const requestIPContextKey adminContextKey = "admin.request_ip"
 const queryParamsContextKey adminContextKey = "admin.query_params"
 const localeFallbackContextKey adminContextKey = "admin.locale_fallback_allowed"
 const authenticatedRequestContextKey adminContextKey = "admin.authenticated_request"
+const translationFamilyExpansionContextKey adminContextKey = "admin.translation_family_expansion"
 
 // Authorizer determines whether a subject can perform an action on a resource.
 type Authorizer interface {
@@ -115,6 +116,21 @@ func WithAuthenticatedRequest(ctx context.Context) context.Context {
 		ctx = context.Background()
 	}
 	return context.WithValue(ctx, authenticatedRequestContextKey, true)
+}
+
+func withTranslationFamilyExpansion(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return context.WithValue(ctx, translationFamilyExpansionContextKey, true)
+}
+
+func translationFamilyExpansionFromContext(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	enabled, _ := ctx.Value(translationFamilyExpansionContextKey).(bool)
+	return enabled
 }
 
 func authenticatedRequestFromContext(ctx context.Context) bool {

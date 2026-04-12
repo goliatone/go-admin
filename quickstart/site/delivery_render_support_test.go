@@ -97,6 +97,24 @@ func TestResolveLocalizedPathsByLocaleClonesAndCompletesMissingLocales(t *testin
 	}
 }
 
+func TestLocalizedAvailableLocalesIncludesLocalizedPathLocales(t *testing.T) {
+	got := localizedAvailableLocales(
+		[]string{"zh"},
+		map[string]string{
+			"en": "/?locale=en",
+			"bo": "/bo",
+			"zh": "/zh",
+			"fr": "/fr",
+			"es": "",
+		},
+		[]string{"en", "bo", "zh"},
+	)
+
+	if len(got) != 3 || got[0] != "bo" || got[1] != "en" || got[2] != "zh" {
+		t.Fatalf("expected available locales enriched from localized paths, got %#v", got)
+	}
+}
+
 func TestMapDeliveryRecordProjectsFieldsAndClonesData(t *testing.T) {
 	record := admin.CMSContent{
 		ID:                     "post-1",

@@ -102,6 +102,20 @@ func TestRenderResolutionJSONProjectsDetailRecordAndLocalizedSwitcher(t *testing
 	if got := localeSwitcherURLByLocale(payload, "es"); got != "/es/sobre-nosotros" {
 		t.Fatalf("expected locale switcher to use localized es path, got %q payload=%+v", got, payload)
 	}
+	availableLocales, ok := nestedAny(payload, "context", "record", "available_locales").([]any)
+	if !ok || len(availableLocales) != 2 {
+		t.Fatalf("expected projected record available_locales to include enriched locales, got %+v", nestedAny(payload, "context", "record", "available_locales"))
+	}
+	if got := anyString(availableLocales[0]); got != "en" {
+		t.Fatalf("expected first available locale en, got %+v", availableLocales)
+	}
+	if got := anyString(availableLocales[1]); got != "es" {
+		t.Fatalf("expected second available locale es, got %+v", availableLocales)
+	}
+	contextAvailableLocales, ok := nestedAny(payload, "context", "available_locales").([]any)
+	if !ok || len(contextAvailableLocales) != 2 {
+		t.Fatalf("expected context available_locales projection, got %+v", nestedAny(payload, "context", "available_locales"))
+	}
 	if got := resolution.PathsByLocale["en"]; got != " /about " {
 		t.Fatalf("expected original resolution paths map unchanged, got %#v", resolution.PathsByLocale)
 	}
