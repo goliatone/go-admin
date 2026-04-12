@@ -198,7 +198,7 @@ func TestResolveSiteRuntimeConfigDerivesSearchEndpointAndReservedPrefixesFromURL
 	if siteCfg.Search.Endpoint != "/public/content/v3/site/search" {
 		t.Fatalf("expected config-derived search endpoint, got %q", siteCfg.Search.Endpoint)
 	}
-	if got := siteCfg.Fallback.ReservedPrefixes; len(got) != 6 || got[0] != "/.well-known" || got[1] != "/assets" || got[2] != "/control" || got[3] != "/public/content" || got[4] != "/public/content/v3" || got[5] != "/static" {
+	if got := siteCfg.Fallback.ReservedPrefixes; len(got) != 8 || got[0] != "/.well-known" || got[1] != "/admin" || got[2] != "/api" || got[3] != "/assets" || got[4] != "/control" || got[5] != "/public/content" || got[6] != "/public/content/v3" || got[7] != "/static" {
 		t.Fatalf("expected config-derived reserved prefixes, got %v", got)
 	}
 }

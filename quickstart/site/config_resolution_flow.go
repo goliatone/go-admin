@@ -43,12 +43,13 @@ func resolveSiteFallbackPolicy(
 	policy SiteFallbackPolicy,
 	internalOps ResolvedSiteInternalOpsConfig,
 ) SiteFallbackPolicy {
+	policy = ResolveSiteFallbackPolicy(policy)
 	policy.ReservedPrefixes = append(
 		SiteReservedPrefixesForAdminConfig(cfg),
 		policy.ReservedPrefixes...,
 	)
 	policy.ReservedPrefixes = append(policy.ReservedPrefixes, internalOpsReservedPrefixes(internalOps)...)
-	return ResolveSiteFallbackPolicy(policy)
+	return NormalizeSiteFallbackPolicy(policy)
 }
 
 func internalOpsReservedPrefixes(cfg ResolvedSiteInternalOpsConfig) []string {
