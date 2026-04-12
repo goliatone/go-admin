@@ -27,7 +27,7 @@ require (
 	github.com/goliatone/go-options v0.7.1
 	github.com/goliatone/go-persistence-bun v0.13.0
 	github.com/goliatone/go-repository-bun v0.15.1
-	github.com/goliatone/go-router v0.55.0
+	github.com/goliatone/go-router v0.56.0
 	github.com/goliatone/go-search v0.4.0
 	github.com/goliatone/go-search/adapters/goadmin v0.4.0
 	github.com/goliatone/go-theme v0.3.0
@@ -220,14 +220,3 @@ require (
 )
 
 replace github.com/goliatone/go-admin/quickstart => ./quickstart
-
-// REMOVE
-// replace github.com/goliatone/go-search/adapters/goadmin => ../go-search/adapters/goadmin
-
-// replace github.com/goliatone/go-search => ../go-search
-
-// replace github.com/goliatone/go-dashboard => ../go-dashboard
-
-replace github.com/goliatone/go-search => ../go-search
-
-replace github.com/goliatone/go-search/adapters/goadmin => ../go-search/adapters/goadmin
