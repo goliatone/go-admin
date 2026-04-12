@@ -52,6 +52,17 @@ func (a *Admin) Initialize(r AdminRouter) error {
 
 // InitializeWithContext attaches the router, bootstraps, and mounts base routes with a lifecycle context.
 func (a *Admin) InitializeWithContext(ctx context.Context, r AdminRouter) error {
+	if a == nil {
+		return serviceUnavailableDomainError("admin is nil", map[string]any{
+			"service": "admin",
+		})
+	}
+	a.lifecycleMu.Lock()
+	defer a.lifecycleMu.Unlock()
+	return a.initializeWithContext(ctx, r)
+}
+
+func (a *Admin) initializeWithContext(ctx context.Context, r AdminRouter) error {
 	if r == nil {
 		return requiredFieldDomainError("router", map[string]any{"component": "bootstrap"})
 	}
@@ -59,7 +70,7 @@ func (a *Admin) InitializeWithContext(ctx context.Context, r AdminRouter) error 
 	if err := a.runInitHooks(); err != nil {
 		return err
 	}
-	return a.BootWithContext(ctx)
+	return a.bootWithContext(ctx)
 }
 
 func (a *Admin) validateMountAuthBoundary() error {
@@ -102,6 +113,15 @@ func (a *Admin) runInitHooks() error {
 
 // Prepare runs the pre-route initialization pipeline (bootstrap, module loading).
 func (a *Admin) Prepare(ctx context.Context) error {
+	if a == nil {
+		return nil
+	}
+	a.lifecycleMu.Lock()
+	defer a.lifecycleMu.Unlock()
+	return a.prepare(ctx)
+}
+
+func (a *Admin) prepare(ctx context.Context) error {
 	a.prepareCoreServices()
 	if err := a.validateRouting(); err != nil {
 		a.logRoutingStartupReport("validate", err)
@@ -137,6 +157,9 @@ func (a *Admin) prepareCoreServices() {
 
 func (a *Admin) runPrepareLifecycle(ctx context.Context) error {
 	if err := a.Bootstrap(ctx); err != nil {
+		return err
+	}
+	if err := a.runCMSBootstrapHooks(ctx); err != nil {
 		return err
 	}
 	if err := a.loadPrepareModules(ctx); err != nil {
