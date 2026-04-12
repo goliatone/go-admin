@@ -99,6 +99,7 @@ type Admin struct {
 	menuBuilder                  *MenuBuilderService
 	bootContext                  context.Context
 	lifecycleMu                  sync.Mutex
+	lifecycleStateMu             sync.RWMutex
 	cmsBootstrapHooks            []CMSBootstrapHook
 	doctorMu                     sync.RWMutex
 	doctorChecks                 map[string]DoctorCheck
