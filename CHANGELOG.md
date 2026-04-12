@@ -1,5 +1,24 @@
 # Changelog
 
+# [0.42.0](https://github.com/goliatone/go-admin/compare/v0.41.0...v0.42.0) - (2026-04-12)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Repo translation grouping ([5831ead](https://github.com/goliatone/go-admin/commit/5831eadd7423f05c0da94b8da20a35af2d096634))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.42.0 ([888989f](https://github.com/goliatone/go-admin/commit/888989fe84860c4d55ac2e4af3566228730e2ac5))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.41.0 ([f2f9770](https://github.com/goliatone/go-admin/commit/f2f97700c82bd3dbb9d8abeb9e88aa7ae53453bd))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Udpate tests ([9f0b804](https://github.com/goliatone/go-admin/commit/9f0b8047c60fff9782917878a4e20ec6879a5d3b))  - (goliatone)
+- Update tests ([d0819b3](https://github.com/goliatone/go-admin/commit/d0819b3d2bbbf5576a1dc60b47783da316dbf931))  - (goliatone)
+
 # [0.41.0](https://github.com/goliatone/go-admin/compare/v0.40.0...v0.41.0) - (2026-04-12)
 
 ## <!-- 13 -->📦 Bumps
