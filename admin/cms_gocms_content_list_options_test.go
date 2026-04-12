@@ -282,6 +282,69 @@ func TestGoCMSContentAdapterContentsWithLocaleVariantsExpandsTranslationFamilies
 	}
 }
 
+func TestGoCMSContentAdapterPagesWithLocaleVariantsExpandsTranslationFamilies(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	familyID := uuid.New()
+	typeSvc := newStubContentTypeService(CMSContentType{ID: uuid.New().String(), Slug: "page"})
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{
+			{
+				ID:   contentID,
+				Slug: "home",
+				Type: &cmscontent.ContentType{Slug: "page"},
+				Translations: []*cmscontent.ContentTranslation{
+					{
+						Locale:   &cmscontent.Locale{Code: "en"},
+						FamilyID: &familyID,
+						Title:    "Home",
+						Content:  map[string]any{"path": "/home", "summary": "english"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "bo"},
+						FamilyID: &familyID,
+						Title:    "Home BO",
+						Content:  map[string]any{"path": "/bo/home", "summary": "tibetan"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "zh"},
+						FamilyID: &familyID,
+						Title:    "Home ZH",
+						Content:  map[string]any{"path": "/zh/home", "summary": "chinese"},
+					},
+				},
+			},
+		},
+	}
+	adapter := NewGoCMSContentAdapter(contentSvc, nil, typeSvc).(*GoCMSContentAdapter)
+
+	items, err := adapter.PagesWithOptions(ctx, "all", WithTranslations(), WithLocaleVariants())
+	if err != nil {
+		t.Fatalf("list pages with locale variants: %v", err)
+	}
+	if len(items) != 3 {
+		t.Fatalf("expected 3 locale variants, got %d", len(items))
+	}
+	locales := []string{items[0].Locale, items[1].Locale, items[2].Locale}
+	if !slices.Equal(locales, []string{"en", "bo", "zh"}) {
+		t.Fatalf("expected locales [en bo zh], got %v", locales)
+	}
+	for _, item := range items {
+		if item.FamilyID != familyID.String() {
+			t.Fatalf("expected family id %q, got %q", familyID.String(), item.FamilyID)
+		}
+		if item.RequestedLocale != "all" {
+			t.Fatalf("expected requested locale all, got %q", item.RequestedLocale)
+		}
+		if item.ResolvedLocale != item.Locale {
+			t.Fatalf("expected resolved locale %q, got %q", item.Locale, item.ResolvedLocale)
+		}
+		if item.MissingRequestedLocale {
+			t.Fatalf("expected wildcard locale not to mark missing_requested_locale for %+v", item)
+		}
+	}
+}
+
 func TestAdminContentReadServiceAndRepositoryExpandTranslationFamiliesForWildcardAndFamilyFilters(t *testing.T) {
 	ctx := context.Background()
 	familyID := uuid.New()
@@ -352,5 +415,68 @@ func TestAdminContentReadServiceAndRepositoryExpandTranslationFamiliesForWildcar
 	}
 	if strings.TrimSpace(toString(enRows[0]["locale"])) != "en" {
 		t.Fatalf("expected english row, got %#v", enRows[0])
+	}
+}
+
+func TestCMSPageRepositoryExpandTranslationFamiliesForWildcardAndFamilyFilters(t *testing.T) {
+	ctx := context.Background()
+	familyID := uuid.New()
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{
+			{
+				ID:   uuid.New(),
+				Slug: "home",
+				Type: &cmscontent.ContentType{Slug: "page"},
+				Translations: []*cmscontent.ContentTranslation{
+					{
+						Locale:   &cmscontent.Locale{Code: "en"},
+						FamilyID: &familyID,
+						Title:    "Home",
+						Content:  map[string]any{"path": "/home"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "bo"},
+						FamilyID: &familyID,
+						Title:    "Home BO",
+						Content:  map[string]any{"path": "/bo/home"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "zh"},
+						FamilyID: &familyID,
+						Title:    "Home ZH",
+						Content:  map[string]any{"path": "/zh/home"},
+					},
+				},
+			},
+		},
+	}
+	adapter := NewGoCMSContentAdapter(contentSvc, nil, newStubContentTypeService(CMSContentType{Slug: "page"}))
+	repo := NewCMSPageRepository(adapter)
+
+	items, total, err := repo.List(ctx, ListOptions{Filters: map[string]any{"locale": "all"}})
+	if err != nil {
+		t.Fatalf("list pages with locale all: %v", err)
+	}
+	if total != 3 || len(items) != 3 {
+		t.Fatalf("expected 3 page sibling rows, got total=%d len=%d", total, len(items))
+	}
+
+	familyRows, familyTotal, err := repo.List(ctx, ListOptions{Filters: map[string]any{"family_id": familyID.String()}})
+	if err != nil {
+		t.Fatalf("list pages with family filter: %v", err)
+	}
+	if familyTotal != 3 || len(familyRows) != 3 {
+		t.Fatalf("expected 3 page sibling rows for family filter, got total=%d len=%d", familyTotal, len(familyRows))
+	}
+
+	englishOnly, englishTotal, err := repo.List(ctx, ListOptions{Filters: map[string]any{"locale": "en"}})
+	if err != nil {
+		t.Fatalf("list pages with explicit locale: %v", err)
+	}
+	if englishTotal != 1 || len(englishOnly) != 1 {
+		t.Fatalf("expected 1 page row for explicit locale, got total=%d len=%d", englishTotal, len(englishOnly))
+	}
+	if got := strings.TrimSpace(toString(englishOnly[0]["locale"])); got != "en" {
+		t.Fatalf("expected english row locale en, got %q", got)
 	}
 }

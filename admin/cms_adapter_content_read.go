@@ -85,11 +85,25 @@ func (a *GoCMSContentAdapter) Pages(ctx context.Context, locale string) ([]CMSPa
 }
 
 func (r goCMSContentReadBoundary) Pages(ctx context.Context, locale string) ([]CMSPage, error) {
+	return r.PagesWithOptions(ctx, locale, WithTranslations())
+}
+
+func (a *GoCMSContentAdapter) PagesWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSPage, error) {
+	return a.contentReader().PagesWithOptions(ctx, locale, opts...)
+}
+
+func (r goCMSContentReadBoundary) PagesWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSPage, error) {
 	a := r.adapter
 	if a == nil || a.content == nil {
 		return nil, ErrNotFound
 	}
-	contents, err := a.listContents(ctx, locale, WithTranslations())
+	pageOpts := append([]CMSContentListOption{}, opts...)
+	if len(pageOpts) == 0 {
+		pageOpts = append(pageOpts, WithTranslations())
+	} else if hasLocaleVariantsOption(pageOpts) && !hasCMSContentListOption(pageOpts, WithTranslations()) {
+		pageOpts = append(pageOpts, WithTranslations())
+	}
+	contents, err := a.listContents(ctx, locale, pageOpts...)
 	if err != nil {
 		return nil, err
 	}

@@ -2,9 +2,11 @@ package admin
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	cms "github.com/goliatone/go-cms"
+	cmscontent "github.com/goliatone/go-cms/content"
 	cmsinterfaces "github.com/goliatone/go-cms/pkg/interfaces"
 	"github.com/google/uuid"
 )
@@ -15,9 +17,11 @@ type stubAdminPageReadService struct {
 	listRecords  []cms.AdminPageRecord
 	listTotal    int
 	getRecord    *cms.AdminPageRecord
+	listCalls    int
 }
 
 func (s *stubAdminPageReadService) List(ctx context.Context, opts cms.AdminPageListOptions) ([]cms.AdminPageRecord, int, error) {
+	s.listCalls++
 	s.lastListOpts = opts
 	if !opts.AllowMissingTranslations {
 		return nil, 0, cmsinterfaces.ErrTranslationMissing
@@ -209,5 +213,70 @@ func TestGoCMSAdminPageReadAdapterDoesNotDeriveCoreFieldsFromData(t *testing.T) 
 	}
 	if got.Status != "" {
 		t.Fatalf("expected status not derived from Data, got %q", got.Status)
+	}
+}
+
+func TestGoCMSAdminPageReadAdapterWithContentExpandsTranslationFamilies(t *testing.T) {
+	ctx := context.Background()
+	familyID := uuid.New()
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{
+			{
+				ID:   uuid.New(),
+				Slug: "home",
+				Type: &cmscontent.ContentType{Slug: "page"},
+				Translations: []*cmscontent.ContentTranslation{
+					{
+						Locale:   &cmscontent.Locale{Code: "en"},
+						FamilyID: &familyID,
+						Title:    "Home",
+						Content:  map[string]any{"path": "/home", "summary": "english"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "bo"},
+						FamilyID: &familyID,
+						Title:    "Home BO",
+						Content:  map[string]any{"path": "/bo/home", "summary": "tibetan"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "zh"},
+						FamilyID: &familyID,
+						Title:    "Home ZH",
+						Content:  map[string]any{"path": "/zh/home", "summary": "chinese"},
+					},
+				},
+			},
+		},
+	}
+	contentAdapter := NewGoCMSContentAdapter(contentSvc, nil, newStubContentTypeService(CMSContentType{Slug: "page"}))
+	svc := &stubAdminPageReadService{}
+	adapter := NewGoCMSAdminPageReadAdapterWithContent(svc, contentAdapter)
+
+	items, total, err := adapter.List(ctx, AdminPageListOptions{
+		Locale:                    "all",
+		ExpandTranslationFamilies: true,
+		IncludeData:               true,
+		Filters:                   map[string]any{"family_id": familyID.String()},
+	})
+	if err != nil {
+		t.Fatalf("list expanded translation families: %v", err)
+	}
+	if svc.listCalls != 0 {
+		t.Fatalf("expected content-backed expansion path to bypass admin read service, got %d calls", svc.listCalls)
+	}
+	if total != 3 || len(items) != 3 {
+		t.Fatalf("expected 3 sibling records, got total=%d len=%d", total, len(items))
+	}
+	locales := []string{items[0].ResolvedLocale, items[1].ResolvedLocale, items[2].ResolvedLocale}
+	if !slices.Equal(locales, []string{"en", "bo", "zh"}) {
+		t.Fatalf("expected resolved locales [en bo zh], got %v", locales)
+	}
+	for _, item := range items {
+		if item.FamilyID != familyID.String() {
+			t.Fatalf("expected family id %q, got %q", familyID.String(), item.FamilyID)
+		}
+		if item.Translation.Resolved == nil || item.Translation.Resolved.Locale != item.ResolvedLocale {
+			t.Fatalf("expected resolved page translation for %+v", item)
+		}
 	}
 }

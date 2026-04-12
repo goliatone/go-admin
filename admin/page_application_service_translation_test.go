@@ -191,6 +191,38 @@ func TestPageApplicationServiceGetAllowsMissingTranslations(t *testing.T) {
 	}
 }
 
+func TestPageApplicationServiceListRequestsExpandedTranslationFamiliesForWildcardGroupedLists(t *testing.T) {
+	ctx := context.Background()
+	read := &stubAppPageReadService{}
+	service := PageApplicationService{Read: read}
+
+	_, _, err := service.List(ctx, PageListOptions{
+		PageReadOptions: PageReadOptions{Locale: "all"},
+		Filters: map[string]any{
+			"group_by": "family_id",
+		},
+	})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if !read.lastListOpts.ExpandTranslationFamilies {
+		t.Fatalf("expected wildcard grouped page list to request expanded translation families")
+	}
+
+	_, _, err = service.List(ctx, PageListOptions{
+		PageReadOptions: PageReadOptions{Locale: "en"},
+		Filters: map[string]any{
+			"group_by": "family_id",
+		},
+	})
+	if err != nil {
+		t.Fatalf("list explicit locale: %v", err)
+	}
+	if read.lastListOpts.ExpandTranslationFamilies {
+		t.Fatalf("expected explicit locale page list to remain locale-scoped")
+	}
+}
+
 func TestPageApplicationServicePublishBlockedByTranslationPolicy(t *testing.T) {
 	ctx := context.Background()
 	id := uuid.New().String()

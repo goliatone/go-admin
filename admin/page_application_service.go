@@ -49,19 +49,20 @@ type AdminPageRecord struct {
 
 // AdminPageListOptions configures admin page list reads.
 type AdminPageListOptions struct {
-	Locale                   string         `json:"locale"`
-	FallbackLocale           string         `json:"fallback_locale"`
-	AllowMissingTranslations bool           `json:"allow_missing_translations"`
-	IncludeContent           bool           `json:"include_content"`
-	IncludeBlocks            bool           `json:"include_blocks"`
-	IncludeData              bool           `json:"include_data"`
-	EnvironmentKey           string         `json:"environment_key"`
-	Page                     int            `json:"page"`
-	PerPage                  int            `json:"per_page"`
-	SortBy                   string         `json:"sort_by"`
-	SortDesc                 bool           `json:"sort_desc"`
-	Search                   string         `json:"search"`
-	Filters                  map[string]any `json:"filters"`
+	Locale                    string         `json:"locale"`
+	FallbackLocale            string         `json:"fallback_locale"`
+	AllowMissingTranslations  bool           `json:"allow_missing_translations"`
+	ExpandTranslationFamilies bool           `json:"expand_translation_families"`
+	IncludeContent            bool           `json:"include_content"`
+	IncludeBlocks             bool           `json:"include_blocks"`
+	IncludeData               bool           `json:"include_data"`
+	EnvironmentKey            string         `json:"environment_key"`
+	Page                      int            `json:"page"`
+	PerPage                   int            `json:"per_page"`
+	SortBy                    string         `json:"sort_by"`
+	SortDesc                  bool           `json:"sort_desc"`
+	Search                    string         `json:"search"`
+	Filters                   map[string]any `json:"filters"`
 }
 
 // AdminPageGetOptions configures admin page detail reads.
@@ -158,6 +159,16 @@ func (s PageApplicationService) List(ctx context.Context, opts PageListOptions) 
 		Search:                   opts.Search,
 		Filters:                  opts.Filters,
 	}
+	expansionFilters := primitives.CloneAnyMap(opts.Filters)
+	if expansionFilters == nil {
+		expansionFilters = map[string]any{}
+	}
+	if strings.TrimSpace(readOpts.Locale) != "" {
+		expansionFilters["locale"] = readOpts.Locale
+	}
+	readOpts.ExpandTranslationFamilies = shouldExpandTranslationFamilyRows(ListOptions{
+		Filters: expansionFilters,
+	})
 	includes := s.applyIncludeDefaults(true, opts.PageReadOptions)
 	readOpts.IncludeContent = includes.IncludeContent
 	readOpts.IncludeBlocks = includes.IncludeBlocks

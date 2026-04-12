@@ -69,6 +69,10 @@ type cmsContentListOptionsService interface {
 	ContentsWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSContent, error)
 }
 
+type cmsPageListOptionsService interface {
+	PagesWithOptions(ctx context.Context, locale string, opts ...CMSContentListOption) ([]CMSPage, error)
+}
+
 // NewCMSContentTypeEntryRepository builds a content repository scoped to the supplied content type.
 func NewCMSContentTypeEntryRepository(content CMSContentService, contentType CMSContentType) *CMSContentTypeEntryRepository {
 	return &CMSContentTypeEntryRepository{

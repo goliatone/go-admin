@@ -27,8 +27,8 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 	if r.content == nil {
 		return nil, 0, ErrNotFound
 	}
-	locale := extractLocale(opts, "")
-	pages, err := r.content.Pages(ctx, locale)
+	locale := normalizeCMSRequestedListLocale(extractLocale(opts, ""))
+	pages, err := r.listPages(ctx, locale, opts)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -43,11 +43,26 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 	if strings.TrimSpace(listOpts.SortBy) == "" {
 		listOpts.SortBy = "id"
 	}
+	listOpts = normalizeListOptionsForTranslationWildcard(listOpts)
 	list, total := applyListOptionsToRecordMaps(records, listOpts, listRecordOptions{
 		PredicateMatcher: cmsContentRecordPredicateMatcher,
 		SearchMatcher:    cmsPageRecordSearchMatcher,
 	})
 	return list, total, nil
+}
+
+func (r *CMSPageRepository) listPages(ctx context.Context, locale string, opts ListOptions) ([]CMSPage, error) {
+	if r == nil || r.content == nil {
+		return nil, ErrNotFound
+	}
+	if svc, ok := r.content.(cmsPageListOptionsService); ok && svc != nil {
+		listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
+		if shouldExpandTranslationFamilyRows(opts) {
+			listOpts = append(listOpts, WithLocaleVariants())
+		}
+		return svc.PagesWithOptions(ctx, locale, listOpts...)
+	}
+	return r.content.Pages(ctx, locale)
 }
 
 // Get returns a page by id.
