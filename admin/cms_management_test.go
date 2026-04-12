@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/goliatone/go-admin/admin/internal/boot"
 	router "github.com/goliatone/go-router"
 )
 
@@ -145,5 +146,173 @@ func TestWidgetInstanceRepositoryConfigRoundTrip(t *testing.T) {
 	cfg, ok := list[0]["config"].(map[string]any)
 	if !ok || cfg["title"] != "Stats" {
 		t.Fatalf("expected config to round trip, got %+v", list[0]["config"])
+	}
+}
+
+func TestPanelBindingListUsesRouteLocaleForBlockDefinitionPanel(t *testing.T) {
+	repo := NewCMSBlockDefinitionRepository(&adminBlockReadContentStub{
+		defs: []CMSBlockDefinition{
+			{ID: "hero-en", Name: "Hero EN", Type: "hero", Locale: "en"},
+			{ID: "hero-es", Name: "Hero ES", Type: "hero", Locale: "es"},
+		},
+	}, nil)
+	panel := &Panel{name: "block_definitions", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "block_definitions",
+		panel: panel,
+	}
+
+	rows, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "es", boot.ListOptions{Page: 1, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one locale-scoped block definition, got total=%d len=%d", total, len(rows))
+	}
+	if rows[0]["locale"] != "es" {
+		t.Fatalf("expected spanish block definition, got %+v", rows[0])
+	}
+}
+
+func TestPanelBindingListUsesRouteLocaleForBlocksPanel(t *testing.T) {
+	repo := NewCMSBlockRepository(&adminBlockReadContentStub{
+		items: []CMSContent{
+			{ID: "content-en", Locale: "en"},
+			{ID: "content-es", Locale: "es"},
+		},
+		blocks: map[string][]CMSBlock{
+			"content-en": {{
+				ID:           "block-en",
+				ContentID:    "content-en",
+				DefinitionID: "hero",
+				BlockType:    "hero",
+				Locale:       "en",
+			}},
+			"content-es": {{
+				ID:           "block-es",
+				ContentID:    "content-es",
+				DefinitionID: "hero",
+				BlockType:    "hero",
+				Locale:       "es",
+			}},
+		},
+	})
+	panel := &Panel{name: "blocks", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "blocks",
+		panel: panel,
+	}
+
+	rows, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "es", boot.ListOptions{Page: 1, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one locale-scoped block, got total=%d len=%d", total, len(rows))
+	}
+	if rows[0]["locale"] != "es" || rows[0]["id"] != "block-es" {
+		t.Fatalf("expected spanish block, got %+v", rows[0])
+	}
+}
+
+func TestPanelBindingListUsesRouteLocaleForBlockConflictPanel(t *testing.T) {
+	repo := NewCMSBlockConflictRepository(&adminBlockReadContentStub{
+		items: []CMSContent{
+			{
+				ID:          "content-en",
+				Title:       "Article EN",
+				Slug:        "article-en",
+				ContentType: "article",
+				Locale:      "en",
+				Data: map[string]any{
+					"blocks": []map[string]any{{"type": "hero", "title": "embedded en"}},
+				},
+			},
+			{
+				ID:          "content-es",
+				Title:       "Article ES",
+				Slug:        "article-es",
+				ContentType: "article",
+				Locale:      "es",
+				Data: map[string]any{
+					"blocks": []map[string]any{{"type": "hero", "title": "embedded es"}},
+				},
+			},
+		},
+		blocks: map[string][]CMSBlock{
+			"content-en": {{
+				ID:           "legacy-en",
+				ContentID:    "content-en",
+				DefinitionID: "hero",
+				BlockType:    "hero",
+				Locale:       "en",
+				Position:     1,
+				Data:         map[string]any{"title": "legacy en"},
+			}},
+			"content-es": {{
+				ID:           "legacy-es",
+				ContentID:    "content-es",
+				DefinitionID: "hero",
+				BlockType:    "hero",
+				Locale:       "es",
+				Position:     1,
+				Data:         map[string]any{"title": "legacy es"},
+			}},
+		},
+	})
+	panel := &Panel{name: "block_conflicts", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "block_conflicts",
+		panel: panel,
+	}
+
+	rows, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "es", boot.ListOptions{Page: 1, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one locale-scoped conflict, got total=%d len=%d", total, len(rows))
+	}
+	if rows[0]["locale"] != "es" || rows[0]["entity_id"] != "content-es" {
+		t.Fatalf("expected spanish conflict, got %+v", rows[0])
+	}
+}
+
+func TestPanelBindingListUsesRouteLocaleForWidgetInstancesPanel(t *testing.T) {
+	svc := NewInMemoryWidgetService()
+	repo := NewWidgetInstanceRepository(svc)
+	if _, err := repo.Create(context.Background(), map[string]any{
+		"definition_code": "stats",
+		"area":            "admin.dashboard.main",
+		"locale":          "en",
+	}); err != nil {
+		t.Fatalf("create english widget failed: %v", err)
+	}
+	if _, err := repo.Create(context.Background(), map[string]any{
+		"definition_code": "stats",
+		"area":            "admin.dashboard.main",
+		"locale":          "es",
+	}); err != nil {
+		t.Fatalf("create spanish widget failed: %v", err)
+	}
+	panel := &Panel{name: "widget_instances", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "widget_instances",
+		panel: panel,
+	}
+
+	rows, total, _, _, _, err := binding.List(newPanelBindingMockContext(), "es", boot.ListOptions{Page: 1, PerPage: 10})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one locale-scoped widget instance, got total=%d len=%d", total, len(rows))
+	}
+	if rows[0]["locale"] != "es" {
+		t.Fatalf("expected spanish widget instance, got %+v", rows[0])
 	}
 }

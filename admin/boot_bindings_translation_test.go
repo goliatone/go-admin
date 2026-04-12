@@ -2881,6 +2881,73 @@ func TestPanelBindingListGroupedByTranslationGroupExpandsCMSContentSiblingsWitho
 	}
 }
 
+func TestPanelBindingListUsesRouteLocaleForFlatCMSContentPanels(t *testing.T) {
+	contentID := uuid.New()
+	familyID := uuid.New()
+	newsType := CMSContentType{
+		Slug:         "news",
+		Capabilities: map[string]any{"translations": true},
+	}
+	contentRecord := &cmscontent.Content{
+		ID:   contentID,
+		Slug: "breaking-news",
+		Type: &cmscontent.ContentType{Slug: "news"},
+		Translations: []*cmscontent.ContentTranslation{
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "en"},
+				FamilyID: &familyID,
+				Title:    "Breaking News",
+				Content:  map[string]any{"body": "english", "path": "/en/breaking-news"},
+			},
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "bo"},
+				FamilyID: &familyID,
+				Title:    "Breaking News BO",
+				Content:  map[string]any{"body": "tibetan", "path": "/bo/breaking-news"},
+			},
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "zh"},
+				FamilyID: &familyID,
+				Title:    "Breaking News ZH",
+				Content:  map[string]any{"body": "chinese", "path": "/zh/breaking-news"},
+			},
+		},
+	}
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{contentRecord},
+		getWithDerived:  contentRecord,
+	}
+	adapter := NewGoCMSContentAdapter(contentSvc, nil, newStubContentTypeService(newsType))
+	repo := NewCMSContentTypeEntryRepository(adapter, newsType)
+	panel := &Panel{name: "news", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "news",
+		panel: panel,
+	}
+	c := newPanelBindingMockContext()
+
+	rows, total, _, _, _, err := binding.List(c, "bo", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+	})
+	if err != nil {
+		t.Fatalf("flat list failed: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one locale-scoped row, got total=%d len=%d", total, len(rows))
+	}
+	if got := strings.TrimSpace(toString(rows[0]["locale"])); got != "bo" {
+		t.Fatalf("expected tibetan row, got locale %q", got)
+	}
+	if got := strings.TrimSpace(toString(rows[0]["title"])); got != "Breaking News BO" {
+		t.Fatalf("expected tibetan title, got %q", got)
+	}
+}
+
 func TestPanelBindingDetailIncludesExpandedTranslationSiblingsFromCMSRepository(t *testing.T) {
 	contentID := uuid.New()
 	familyID := uuid.New()

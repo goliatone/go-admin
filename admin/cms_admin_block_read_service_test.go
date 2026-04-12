@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -56,21 +57,36 @@ func (s *adminBlockReadContentStub) BlockDefinitions(_ context.Context) ([]CMSBl
 	return out, nil
 }
 
-func (s *adminBlockReadContentStub) Contents(_ context.Context, _ string) ([]CMSContent, error) {
+func (s *adminBlockReadContentStub) Contents(_ context.Context, locale string) ([]CMSContent, error) {
 	out := make([]CMSContent, 0, len(s.items))
-	out = append(out, s.items...)
+	for _, item := range s.items {
+		if strings.TrimSpace(locale) != "" && strings.TrimSpace(item.Locale) != strings.TrimSpace(locale) {
+			continue
+		}
+		out = append(out, item)
+	}
 	return out, nil
 }
 
-func (s *adminBlockReadContentStub) Pages(_ context.Context, _ string) ([]CMSPage, error) {
+func (s *adminBlockReadContentStub) Pages(_ context.Context, locale string) ([]CMSPage, error) {
 	out := make([]CMSPage, 0, len(s.pages))
-	out = append(out, s.pages...)
+	for _, page := range s.pages {
+		if strings.TrimSpace(locale) != "" && strings.TrimSpace(page.Locale) != strings.TrimSpace(locale) {
+			continue
+		}
+		out = append(out, page)
+	}
 	return out, nil
 }
 
-func (s *adminBlockReadContentStub) BlocksForContent(_ context.Context, contentID, _ string) ([]CMSBlock, error) {
+func (s *adminBlockReadContentStub) BlocksForContent(_ context.Context, contentID, locale string) ([]CMSBlock, error) {
 	out := make([]CMSBlock, 0, len(s.blocks[contentID]))
-	out = append(out, s.blocks[contentID]...)
+	for _, block := range s.blocks[contentID] {
+		if strings.TrimSpace(locale) != "" && strings.TrimSpace(block.Locale) != strings.TrimSpace(locale) {
+			continue
+		}
+		out = append(out, block)
+	}
 	return out, nil
 }
 
