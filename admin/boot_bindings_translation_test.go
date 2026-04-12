@@ -15,9 +15,11 @@ import (
 	"time"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
+	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/goliatone/go-command/flow"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
+	"github.com/google/uuid"
 )
 
 type translationActionRepoStub struct {
@@ -2710,6 +2712,151 @@ func assertGroupedTranslationRecord(t *testing.T, record map[string]any, expecte
 	}
 	if strings.TrimSpace(toString(summary["last_updated_at"])) == "" {
 		t.Fatalf("expected non-empty last_updated_at in summary: %#v", summary)
+	}
+}
+
+func TestPanelBindingListGroupedByTranslationGroupUsesExpandedCMSContentSiblings(t *testing.T) {
+	contentID := uuid.New()
+	familyID := uuid.New()
+	newsType := CMSContentType{
+		Slug:         "news",
+		Capabilities: map[string]any{"translations": true},
+	}
+	contentRecord := &cmscontent.Content{
+		ID:   contentID,
+		Slug: "breaking-news",
+		Type: &cmscontent.ContentType{Slug: "news"},
+		Translations: []*cmscontent.ContentTranslation{
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "en"},
+				FamilyID: &familyID,
+				Title:    "Breaking News",
+				Content:  map[string]any{"body": "english", "path": "/en/breaking-news"},
+			},
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "bo"},
+				FamilyID: &familyID,
+				Title:    "Breaking News BO",
+				Content:  map[string]any{"body": "tibetan", "path": "/bo/breaking-news"},
+			},
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "zh"},
+				FamilyID: &familyID,
+				Title:    "Breaking News ZH",
+				Content:  map[string]any{"body": "chinese", "path": "/zh/breaking-news"},
+			},
+		},
+	}
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{contentRecord},
+		getWithDerived:  contentRecord,
+	}
+	adapter := NewGoCMSContentAdapter(contentSvc, nil, newStubContentTypeService(newsType))
+	repo := NewCMSContentTypeEntryRepository(adapter, newsType)
+	panel := &Panel{name: "news", repo: repo}
+	binding := &panelBinding{
+		admin: mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{}),
+		name:  "news",
+		panel: panel,
+	}
+	c := newPanelBindingMockContext()
+
+	rows, total, _, _, _, err := binding.List(c, "en", boot.ListOptions{
+		Page:    1,
+		PerPage: 10,
+		Filters: map[string]any{
+			"group_by": "family_id",
+			"locale":   "all",
+		},
+		Predicates: []boot.ListPredicate{
+			{Field: "group_by", Operator: "eq", Values: []string{"family_id"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("grouped list failed: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one grouped family row, got total=%d len=%d", total, len(rows))
+	}
+	if got := strings.TrimSpace(toString(rows[0]["family_id"])); got != familyID.String() {
+		t.Fatalf("expected grouped family_id %q, got %q", familyID.String(), got)
+	}
+	children, ok := rows[0]["children"].([]map[string]any)
+	if !ok || len(children) != 3 {
+		t.Fatalf("expected 3 grouped children, got %#v", rows[0]["children"])
+	}
+	locales := []string{toString(children[0]["locale"]), toString(children[1]["locale"]), toString(children[2]["locale"])}
+	if strings.Join(locales, ",") != "en,bo,zh" {
+		t.Fatalf("expected grouped child locales en,bo,zh, got %v", locales)
+	}
+}
+
+func TestPanelBindingDetailIncludesExpandedTranslationSiblingsFromCMSRepository(t *testing.T) {
+	contentID := uuid.New()
+	familyID := uuid.New()
+	pageType := CMSContentType{
+		Slug:         "pages",
+		Capabilities: map[string]any{"translations": true},
+	}
+	contentRecord := &cmscontent.Content{
+		ID:   contentID,
+		Slug: "home",
+		Type: &cmscontent.ContentType{Slug: "pages"},
+		Translations: []*cmscontent.ContentTranslation{
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "en"},
+				FamilyID: &familyID,
+				Title:    "Home",
+				Content:  map[string]any{"body": "english", "path": "/en/home"},
+			},
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "bo"},
+				FamilyID: &familyID,
+				Title:    "Home BO",
+				Content:  map[string]any{"body": "tibetan", "path": "/bo/home"},
+			},
+			{
+				ID:       uuid.New(),
+				Locale:   &cmscontent.Locale{Code: "zh"},
+				FamilyID: &familyID,
+				Title:    "Home ZH",
+				Content:  map[string]any{"body": "chinese", "path": "/zh/home"},
+			},
+		},
+	}
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{contentRecord},
+		getWithDerived:  contentRecord,
+	}
+	adapter := NewGoCMSContentAdapter(contentSvc, nil, newStubContentTypeService(pageType))
+	repo := NewCMSContentTypeEntryRepository(adapter, pageType)
+	panel := &Panel{name: "pages", repo: repo}
+	binding := &panelBinding{
+		admin: mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{}),
+		name:  "pages",
+		panel: panel,
+	}
+	c := newPanelBindingMockContext()
+
+	detail, err := binding.Detail(c, "en", contentID.String())
+	if err != nil {
+		t.Fatalf("detail failed: %v", err)
+	}
+	siblings, ok := detail["siblings"].([]map[string]any)
+	if !ok {
+		t.Fatalf("expected typed siblings payload, got %#v", detail["siblings"])
+	}
+	if len(siblings) != 3 {
+		t.Fatalf("expected 3 siblings, got %#v", siblings)
+	}
+	locales := []string{toString(siblings[0]["locale"]), toString(siblings[1]["locale"]), toString(siblings[2]["locale"])}
+	if strings.Join(locales, ",") != "bo,en,zh" {
+		t.Fatalf("expected sibling locales bo,en,zh, got %v", locales)
 	}
 }
 

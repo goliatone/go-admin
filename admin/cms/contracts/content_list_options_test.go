@@ -9,4 +9,7 @@ func TestContentListOptionsExposeCanonicalTokens(t *testing.T) {
 	if WithDerivedFields() != ContentListWithDerivedFields {
 		t.Fatalf("expected derived-fields token %q, got %q", ContentListWithDerivedFields, WithDerivedFields())
 	}
+	if WithLocaleVariants() != ContentListWithLocaleVariants {
+		t.Fatalf("expected locale-variants token %q, got %q", ContentListWithLocaleVariants, WithLocaleVariants())
+	}
 }
