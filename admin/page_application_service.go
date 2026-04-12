@@ -166,7 +166,7 @@ func (s PageApplicationService) List(ctx context.Context, opts PageListOptions) 
 	if strings.TrimSpace(readOpts.Locale) != "" {
 		expansionFilters["locale"] = readOpts.Locale
 	}
-	readOpts.ExpandTranslationFamilies = shouldExpandTranslationFamilyRows(ListOptions{
+	readOpts.ExpandTranslationFamilies = shouldExpandTranslationFamilyRowsForContext(ctx, ListOptions{
 		Filters: expansionFilters,
 	})
 	includes := s.applyIncludeDefaults(true, opts.PageReadOptions)
