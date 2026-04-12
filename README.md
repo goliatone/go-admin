@@ -16,9 +16,10 @@ The repo provides two modules:
 1. Build `admin.Config` (title/base path, locales, URLs, permissions, feature-related config).
 2. Construct `*admin.Admin` with `admin.New(cfg, deps)`.
 3. Optionally register custom modules before boot with `adm.RegisterModule(...)`.
-4. Call `adm.Initialize(router)` once to run prepare + boot steps and mount routes.
+4. Optionally register CMS bootstrap hooks with `adm.AddCMSBootstrapHook(...)` to create or repair host-defined content types before route snapshots are taken.
+5. Call `adm.Initialize(router)` once to run prepare + boot steps, reconcile dynamic CMS panels, and mount routes.
 
-`Initialize` runs the boot pipeline (panels, dashboard, search, settings, jobs, notifications, translation routes, etc.) and auto-registers built-in modules according to feature gates.
+`Initialize` runs the boot pipeline (panels, dashboard, search, settings, jobs, notifications, translation routes, etc.), auto-registers built-in modules according to feature gates, and reconciles dynamic CMS panels before alias routes and any later quickstart content-entry UI binding snapshot panel state.
 
 Quickstart follows the same lifecycle, but uses `quickstart.NewAdminConfig(...)` and `quickstart.NewAdmin(...)` to preload defaults and adapter wiring.
 
@@ -39,6 +40,27 @@ if err := adm.Initialize(server.Router()); err != nil {
 	panic(err)
 }
 ```
+
+When your host owns additional content types, register them through a bootstrap hook instead of manually reordering startup:
+
+```go
+adm.AddCMSBootstrapHook(func(ctx context.Context, adm *admin.Admin) error {
+	_, err := adm.ContentTypeService().CreateContentType(ctx, admin.CMSContentType{
+		Name:         "Quote",
+		Slug:         "quote",
+		Status:       "active",
+		Schema: map[string]any{
+			"$schema":    "https://json-schema.org/draft/2020-12/schema",
+			"type":       "object",
+			"properties": map[string]any{"title": map[string]any{"type": "string"}},
+		},
+		Capabilities: map[string]any{"panel_slug": "quotes"},
+	})
+	return err
+})
+```
+
+If you bind quickstart content-entry UI routes, do that after `Initialize(...)` so canonical routes such as `/admin/quotes` are derived from the reconciled registry snapshot.
 
 Core-only wiring is the same shape, but you construct directly from `admin.New`:
 
