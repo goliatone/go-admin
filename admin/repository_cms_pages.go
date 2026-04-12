@@ -27,7 +27,7 @@ func (r *CMSPageRepository) List(ctx context.Context, opts ListOptions) ([]map[s
 	if r.content == nil {
 		return nil, 0, ErrNotFound
 	}
-	locale := normalizeCMSRequestedListLocale(extractLocale(opts, ""))
+	locale := normalizeCMSRequestedListLocale(resolveListRequestedLocale(ctx, opts, ""))
 	pages, err := r.listPages(ctx, locale, opts)
 	if err != nil {
 		return nil, 0, err

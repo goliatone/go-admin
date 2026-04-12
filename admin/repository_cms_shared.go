@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -1193,6 +1194,16 @@ func extractLocale(opts ListOptions, fallback string) string {
 		return fallback
 	}
 	return ""
+}
+
+func resolveListRequestedLocale(ctx context.Context, opts ListOptions, fallback string) string {
+	if locale := strings.TrimSpace(extractLocale(opts, "")); locale != "" {
+		return locale
+	}
+	if locale := strings.TrimSpace(localeFromContext(ctx)); locale != "" {
+		return locale
+	}
+	return strings.TrimSpace(fallback)
 }
 
 func extractSearch(opts ListOptions) string {
