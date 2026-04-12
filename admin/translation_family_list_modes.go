@@ -1,6 +1,9 @@
 package admin
 
-import "strings"
+import (
+	"context"
+	"strings"
+)
 
 func translationFamilyRequestedLocaleFromListOptions(opts ListOptions) (string, bool) {
 	if opts.Filters != nil {
@@ -29,6 +32,13 @@ func shouldExpandTranslationFamilyRows(opts ListOptions) bool {
 		return false
 	}
 	return isTranslationLocaleWildcard(requestedLocale) || listOptionsGroupByFamilyID(opts) || listOptionsHaveFamilyIDFilter(opts)
+}
+
+func shouldExpandTranslationFamilyRowsForContext(ctx context.Context, opts ListOptions) bool {
+	if translationFamilyExpansionFromContext(ctx) {
+		return true
+	}
+	return shouldExpandTranslationFamilyRows(opts)
 }
 
 func listOptionsGroupByFamilyID(opts ListOptions) bool {
