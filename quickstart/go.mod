@@ -14,7 +14,7 @@ require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.12
-	github.com/goliatone/go-admin v0.35.0
+	github.com/goliatone/go-admin v0.36.0
 	github.com/goliatone/go-auth v0.40.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.40.0
 	github.com/goliatone/go-cms v0.45.0
@@ -39,6 +39,7 @@ require (
 	github.com/goliatone/go-users v0.18.0
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/inflection v1.0.0
+	github.com/julienschmidt/httprouter v1.3.0
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.18
 	github.com/uptrace/bun/driver/sqliteshim v1.2.18
@@ -136,7 +137,6 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/jszwec/s3fs/v2 v2.0.0 // indirect
-	github.com/julienschmidt/httprouter v1.3.0 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/knadh/koanf/maps v0.1.1 // indirect
 	github.com/knadh/koanf/parsers/json v0.1.0 // indirect
