@@ -56,9 +56,9 @@ func (a *Admin) ReconcileDynamicCMS(ctx context.Context) error {
 	if a == nil {
 		return nil
 	}
-	a.lifecycleMu.Lock()
-	defer a.lifecycleMu.Unlock()
-	return a.reconcileDynamicCMS(ctx)
+	return a.runWithLifecycleContext(ctx, func(lifecycle context.Context) error {
+		return a.reconcileDynamicCMS(lifecycle)
+	})
 }
 
 func (a *Admin) reconcileDynamicCMS(ctx context.Context) error {
