@@ -45,6 +45,8 @@ type TranslationExchangeApplyRequest struct {
 	TranslatedText    string                        `json:"translated_text"`
 	CreateTranslation bool                          `json:"create_translation"`
 	WorkflowStatus    string                        `json:"workflow_status"`
+	Path              string                        `json:"path,omitempty"`
+	RouteKey          string                        `json:"route_key,omitempty"`
 }
 
 // TranslationExchangeStore abstracts deterministic linkage resolution and row writes.
@@ -326,7 +328,7 @@ func (s *TranslationExchangeService) ApplyImport(ctx context.Context, input Tran
 		}
 
 		createTranslation := !linkage.TargetExists
-		payloadHash := translationExchangeApplyPayloadHash(strings.TrimSpace(row.TranslatedText), createTranslation, translationExchangeWorkflowDraft)
+		payloadHash := translationExchangeApplyPayloadHash(strings.TrimSpace(row.TranslatedText), createTranslation, translationExchangeWorkflowDraft, row.Path, row.RouteKey)
 		allowCreateMissing := row.CreateTranslation ||
 			input.AllowCreateMissing ||
 			translationExchangeResolutionAllows(rowResolution, translationExchangeResolutionCreateMissing)
@@ -370,6 +372,8 @@ func (s *TranslationExchangeService) ApplyImport(ctx context.Context, input Tran
 			TranslatedText:    strings.TrimSpace(row.TranslatedText),
 			CreateTranslation: createTranslation,
 			WorkflowStatus:    translationExchangeWorkflowDraft,
+			Path:              strings.TrimSpace(row.Path),
+			RouteKey:          strings.TrimSpace(row.RouteKey),
 		}
 		record, replay, err := s.applyTranslationIdempotently(ctx, applyReq, payloadHash)
 		if err != nil {
@@ -547,7 +551,7 @@ func (s *TranslationExchangeService) applyImportRow(
 	}
 
 	createTranslation := !linkage.TargetExists
-	payloadHash := translationExchangeApplyPayloadHash(strings.TrimSpace(row.TranslatedText), createTranslation, translationExchangeWorkflowDraft)
+	payloadHash := translationExchangeApplyPayloadHash(strings.TrimSpace(row.TranslatedText), createTranslation, translationExchangeWorkflowDraft, row.Path, row.RouteKey)
 	allowCreateMissing := row.CreateTranslation ||
 		input.AllowCreateMissing ||
 		translationExchangeResolutionAllows(rowResolution, translationExchangeResolutionCreateMissing)
@@ -595,6 +599,8 @@ func (s *TranslationExchangeService) applyImportRow(
 		TranslatedText:    strings.TrimSpace(row.TranslatedText),
 		CreateTranslation: createTranslation,
 		WorkflowStatus:    translationExchangeWorkflowDraft,
+		Path:              strings.TrimSpace(row.Path),
+		RouteKey:          strings.TrimSpace(row.RouteKey),
 	}
 	record, replay, err := s.applyTranslationIdempotently(ctx, applyReq, payloadHash)
 	if err != nil {
@@ -667,15 +673,17 @@ func translationExchangeSourceHash(sourceText string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func translationExchangeApplyPayloadHash(translatedText string, createTranslation bool, workflowStatus string) string {
+func translationExchangeApplyPayloadHash(translatedText string, createTranslation bool, workflowStatus, path, routeKey string) string {
 	payload := map[string]any{
 		"translated_text":    strings.TrimSpace(translatedText),
 		"create_translation": createTranslation,
 		"workflow_status":    strings.TrimSpace(workflowStatus),
+		"path":               strings.TrimSpace(path),
+		"route_key":          strings.TrimSpace(routeKey),
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
-		return translationExchangeSourceHash(strings.TrimSpace(translatedText) + "|" + workflowStatus)
+		return translationExchangeSourceHash(strings.TrimSpace(translatedText) + "|" + workflowStatus + "|" + path + "|" + routeKey)
 	}
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])

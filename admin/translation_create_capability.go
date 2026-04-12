@@ -18,6 +18,8 @@ type TranslationCreateInput struct {
 	PolicyEntity string         `json:"policy_entity"`
 	ContentType  string         `json:"content_type"`
 	Status       string         `json:"status"`
+	Path         string         `json:"path"`
+	RouteKey     string         `json:"route_key"`
 	Metadata     map[string]any `json:"metadata"`
 }
 
@@ -40,8 +42,27 @@ func normalizeTranslationCreateInput(input TranslationCreateInput) TranslationCr
 	input.PolicyEntity = strings.TrimSpace(input.PolicyEntity)
 	input.ContentType = strings.TrimSpace(input.ContentType)
 	input.Status = strings.TrimSpace(input.Status)
+	input.Path = strings.TrimSpace(input.Path)
+	input.RouteKey = strings.TrimSpace(input.RouteKey)
 	if len(input.Metadata) > 0 {
 		input.Metadata = cloneAnyMap(input.Metadata)
+	}
+	if input.Path == "" {
+		input.Path = strings.TrimSpace(toString(input.Metadata["path"]))
+	}
+	if input.RouteKey == "" {
+		input.RouteKey = strings.TrimSpace(toString(input.Metadata["route_key"]))
+	}
+	if input.Path != "" || input.RouteKey != "" {
+		if input.Metadata == nil {
+			input.Metadata = map[string]any{}
+		}
+		if input.Path != "" {
+			input.Metadata["path"] = input.Path
+		}
+		if input.RouteKey != "" {
+			input.Metadata["route_key"] = input.RouteKey
+		}
 	}
 	return input
 }

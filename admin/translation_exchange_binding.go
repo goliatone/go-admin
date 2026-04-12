@@ -249,6 +249,7 @@ func (b *translationExchangeBinding) Template(c router.Context) error {
 				"source_hash":        "0123456789abcdef",
 				"create_translation": false,
 				"path":               "/example",
+				"route_key":          "content/example",
 				"title":              "Example",
 				"status":             "draft",
 				"notes":              "",
@@ -258,8 +259,8 @@ func (b *translationExchangeBinding) Template(c router.Context) error {
 		c.SetHeader("Content-Type", "text/csv")
 		c.SetHeader("Content-Disposition", "attachment; filename=translation_exchange_template.csv")
 		template := strings.Join([]string{
-			"resource,entity_id,family_id,source_locale,target_locale,field_path,source_text,translated_text,source_hash,create_translation,path,title,status,notes",
-			"content_items,item_123,tg_123,en,es,title,Hello world,Hola mundo,0123456789abcdef,false,/example,Example,draft,",
+			"resource,entity_id,family_id,source_locale,target_locale,field_path,source_text,translated_text,source_hash,create_translation,path,route_key,title,status,notes",
+			"content_items,item_123,tg_123,en,es,title,Hello world,Hola mundo,0123456789abcdef,false,/example,content/example,Example,draft,",
 		}, "\n")
 		return c.SendString(template)
 	}
@@ -1420,6 +1421,7 @@ func parseTranslationImportCSV(reader io.Reader, requireTranslatedText bool) ([]
 			SourceHash:        csvCell(record, headerIndex, "source_hash"),
 			CreateTranslation: toBool(csvCell(record, headerIndex, "create_translation")),
 			Path:              csvCell(record, headerIndex, "path"),
+			RouteKey:          csvCell(record, headerIndex, "route_key"),
 			Title:             csvCell(record, headerIndex, "title"),
 			Status:            csvCell(record, headerIndex, "status"),
 			Notes:             csvCell(record, headerIndex, "notes"),
@@ -1582,6 +1584,7 @@ func validateTranslationExchangeJSONRows(rows []map[string]any) error {
 		"translated_text":    {},
 		"source_hash":        {},
 		"path":               {},
+		"route_key":          {},
 		"title":              {},
 		"status":             {},
 		"notes":              {},
