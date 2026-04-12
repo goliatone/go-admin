@@ -204,7 +204,7 @@ func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Con
 	if contentTypeWantsTranslations(contentType) {
 		if svc, ok := s.content.(cmsContentListOptionsService); ok && svc != nil {
 			listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
-			if shouldExpandTranslationFamilyRows(opts) {
+			if shouldExpandTranslationFamilyRowsForContext(ctx, opts) {
 				listOpts = append(listOpts, WithLocaleVariants())
 			}
 			return svc.ContentsWithOptions(ctx, locale, listOpts...)
