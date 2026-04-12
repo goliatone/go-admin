@@ -571,6 +571,7 @@ func pageFromContent(content CMSContent) CMSPage {
 		data = cmsadapter.InjectStructuralMetadata(meta, data)
 	}
 	path := strings.TrimSpace(cmsadapter.AsString(data["path"], cmsadapter.AsString(meta["path"], "")))
+	routeKey := strings.TrimSpace(cmsadapter.AsString(data["route_key"], cmsadapter.AsString(meta["route_key"], "")))
 	parentID := strings.TrimSpace(cmsadapter.AsString(data["parent_id"], cmsadapter.AsString(meta["parent_id"], "")))
 	templateID := strings.TrimSpace(cmsadapter.AsString(data["template_id"], cmsadapter.AsString(meta["template_id"], cmsadapter.AsString(data["template"], ""))))
 
@@ -583,11 +584,18 @@ func pageFromContent(content CMSContent) CMSPage {
 	}
 
 	out := CMSPage{
-		ID:         content.ID,
-		Title:      content.Title,
-		Slug:       content.Slug,
-		TemplateID: templateID,
-		Locale:     content.Locale,
+		ID:              content.ID,
+		Title:           content.Title,
+		Slug:            content.Slug,
+		RouteKey:        routeKey,
+		TemplateID:      templateID,
+		Locale:          content.Locale,
+		RequestedLocale: content.RequestedLocale,
+		ResolvedLocale:  content.ResolvedLocale,
+		AvailableLocales: append([]string{},
+			content.AvailableLocales...,
+		),
+		MissingRequestedLocale: content.MissingRequestedLocale,
 		FamilyID: cmsadapter.ResolvedFamilyID(
 			content.FamilyID,
 			data,
