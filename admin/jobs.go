@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"maps"
 	"sort"
 	"strings"
 	"sync"
@@ -199,9 +200,7 @@ func (j *JobRegistry) Sync(ctx context.Context) error {
 		}
 	}
 	cronCommands := make(map[string]*jobRegistration, len(j.cronCommands))
-	for name, reg := range j.cronCommands {
-		cronCommands[name] = reg
-	}
+	maps.Copy(cronCommands, j.cronCommands)
 	j.mu.Unlock()
 
 	if registryInst == nil || (!registryProvided && synced) {

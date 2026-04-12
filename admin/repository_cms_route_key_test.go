@@ -4,11 +4,11 @@ import "testing"
 
 func TestCMSPageRecordIncludesRouteKey(t *testing.T) {
 	record := cmsPageRecord(CMSPage{
-		ID:       "page-1",
-		Title:    "Home",
-		Slug:     "home",
-		RouteKey: "pages/home",
-		Locale:   "en",
+		ID:         "page-1",
+		Title:      "Home",
+		Slug:       "home",
+		RouteKey:   "pages/home",
+		Locale:     "en",
 		PreviewURL: "/home",
 		Data: map[string]any{
 			"path": "/home",

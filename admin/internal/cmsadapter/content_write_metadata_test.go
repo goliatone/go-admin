@@ -53,9 +53,9 @@ func TestNormalizeAndInjectStructuralMetadataPreserveCanonicalKeys(t *testing.T)
 	t.Parallel()
 
 	normalized := NormalizeStructuralMetadata(map[string]any{
-		"template": "landing",
-		"order":    3,
-		"path":     "/docs",
+		"template":  "landing",
+		"order":     3,
+		"path":      "/docs",
 		"route_key": "docs-page",
 	})
 
