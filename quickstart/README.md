@@ -532,6 +532,23 @@ Job wrapper:
 - `examples/web/jobs.NewTranslationImportRunJob(...)` builds a cron trigger
   command that dispatches the same typed run message contract.
 
+### Grouped translation-family lists
+
+Quickstart grouped translation UX expects sibling locale rows to exist as real
+list records.
+
+Behavior:
+- `locale=en` stays locale-scoped.
+- `locale=all` requests wildcard list reads for translation-enabled panels.
+- `group_by=family_id` groups already-expanded sibling rows into one family row
+  with locale children.
+- `family_id=<id>` without an explicit locale returns all siblings for that
+  family.
+
+This contract applies to both structured content panels and page-backed panels
+when their repositories/read adapters use the CMS translation-family expansion
+path.
+
 ## Translation queue (opt-in)
 Translation queue is disabled by default in quickstart. Enable it with
 `WithTranslationQueueConfig(...)`.

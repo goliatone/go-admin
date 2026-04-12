@@ -939,6 +939,28 @@ Admin list and detail reads should use a single contract, `AdminPageRecord`, exp
 - `ResolvedLocale` is the locale actually used (requested locale if available, otherwise `FallbackLocale`).
 - When `AllowMissingTranslations` is true and no translation exists, localized fields can be empty while identifiers/status still return. When false, missing translations may be treated as not found.
 
+### Translation-family list expansion
+
+Translation-enabled list surfaces support a family-expanded read mode for grouped
+datagrid UX.
+
+Rules:
+- Explicit locale filters such as `locale=en` remain locale-scoped and return
+  only that locale.
+- `locale=all` is treated as a wildcard list request, not a literal locale code.
+- `group_by=family_id`, `locale=all`, and `family_id=<id>` sibling lookups
+  enable family expansion and emit one real row per locale sibling.
+- Grouped panel responses keep the existing grouped-row shape (`children`,
+  `records`, `family_summary`); the backend change is that the source record set
+  now contains sibling locale rows.
+
+This applies to:
+- `CMSContentTypeEntryRepository` / `AdminContentReadService` for
+  translation-enabled structured content.
+- `CMSPageRepository` for page-backed panels.
+- `PageApplicationService.List` when the read adapter supports expanded family
+  reads.
+
 ### Blocks payload contract
 
 - `Blocks` prefers embedded blocks arrays (objects with `_type` + fields).
@@ -949,6 +971,13 @@ Admin list and detail reads should use a single contract, `AdminPageRecord`, exp
 
 - Preferred: use the go-cms admin read service when your CMS container exposes `AdminPageReadService` (or a compatible method) via `Config.CMS.Container`, `Config.CMS.ContainerBuilder`, or `Config.CMS.GoCMSConfig`.
 - Fallback: a view-backed adapter (for example, `examples/web/stores.AdminPageStoreAdapter`) can read from `admin_page_records` for list performance and hydrate missing fields from the CMS store for detail/edit.
+
+For page list surfaces that require grouped translation-family UX, prefer
+`NewGoCMSAdminPageReadAdapterWithContent(adminReadSvc, contentSvc)` over the
+projection-only `NewGoCMSAdminPageReadAdapter(adminReadSvc)`. The
+content-backed constructor can expand sibling locale rows for
+`locale=all` / `group_by=family_id` / `family_id` list requests while leaving
+detail reads unchanged.
 
 ---
 

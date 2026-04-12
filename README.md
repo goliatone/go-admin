@@ -157,6 +157,14 @@ complementary to `PanelUIRouteMode`:
 
 Admin page CRUD now uses an explicit admin read model (`AdminPageRecord`) plus split read/write services. List and detail reads go through `AdminPageReadService`, while writes (create/update/delete/publish) use `AdminPageWriteService` via `PageApplicationService` so HTML and JSON paths stay aligned.
 
+For translation-enabled page/content lists, grouped translation-family UX is backed by real sibling rows, not only `available_locales` metadata:
+
+- Explicit locale filters such as `locale=en` remain locale-scoped and return only that locale.
+- `locale=all`, `group_by=family_id`, and `family_id=<id>` sibling lookups switch list reads into translation-family expansion mode and emit one row per locale sibling.
+- Grouped panel responses keep the existing `children` / `records` family-group contract; the change is upstream row production.
+
+If you bridge go-cms page admin reads through `NewGoCMSAdminPageReadAdapter(...)`, the adapter remains projection-oriented unless the underlying service already expands siblings. Use `NewGoCMSAdminPageReadAdapterWithContent(...)` when grouped translation-family page lists must expand locale siblings through the CMS content service.
+
 See `docs/GUIDE_CMS.md` for include flags, locale resolution, blocks payload rules, and view-backed fallback guidance. Migration notes live in `CHANGELOG.md`.
 
 ## Commands (go-command)
