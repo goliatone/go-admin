@@ -22,6 +22,7 @@ type AdminPageRecord struct {
 	ID                 string                                `json:"id"`
 	ContentID          string                                `json:"content_id"`
 	FamilyID           string                                `json:"family_id"`
+	RouteKey           string                                `json:"route_key"`
 	TemplateID         string                                `json:"template_id"`
 	Title              string                                `json:"title"`
 	Slug               string                                `json:"slug"`
@@ -373,6 +374,11 @@ func (DefaultPageMapper) ToFormValues(record AdminPageRecord) map[string]any {
 	setValue(values, "template_id", strings.TrimSpace(record.TemplateID))
 	setValue(values, "parent_id", strings.TrimSpace(record.ParentID))
 	setValue(values, "family_id", strings.TrimSpace(record.FamilyID))
+	routeKey := strings.TrimSpace(record.RouteKey)
+	if routeKey == "" {
+		routeKey = strings.TrimSpace(toString(extractDataValue(record.Data, "route_key")))
+	}
+	setValue(values, "route_key", routeKey)
 	setValue(values, "preview_url", strings.TrimSpace(record.PreviewURL))
 	if record.PublishedAt != nil {
 		values["published_at"] = record.PublishedAt
@@ -625,6 +631,11 @@ func applyRecordDefaults(payload map[string]any, record AdminPageRecord) {
 	setIfBlank(payload, "template_id", strings.TrimSpace(record.TemplateID))
 	setIfBlank(payload, "parent_id", strings.TrimSpace(record.ParentID))
 	setIfBlank(payload, "family_id", strings.TrimSpace(record.FamilyID))
+	routeKey := strings.TrimSpace(record.RouteKey)
+	if routeKey == "" {
+		routeKey = strings.TrimSpace(toString(extractDataValue(record.Data, "route_key")))
+	}
+	setIfBlank(payload, "route_key", routeKey)
 	setIfBlank(payload, "content_id", strings.TrimSpace(record.ContentID))
 
 	if _, ok := payload["summary"]; !ok && record.Summary != nil {
