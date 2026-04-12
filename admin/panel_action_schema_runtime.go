@@ -10,7 +10,7 @@ import (
 func (p *Panel) Schema() Schema {
 	formSchema := buildFormSchema(p.formFields)
 	if len(p.formSchema) > 0 {
-		formSchema = primitives.CloneAnyMap(p.formSchema)
+		formSchema = mergeFormSchemaWithFields(p.formSchema, p.formFields)
 	}
 	actions := normalizePanelActionsForSchema(p.actions, p.permissions, p.actionDefaultsMode)
 	bulkActions := normalizeBulkActionsForSchema(p.bulkActions, p.permissions, p.actionDefaultsMode)
@@ -390,6 +390,19 @@ func ensureCreateTranslationPayloadSchemaContract(schema map[string]any) map[str
 		localeProp["title"] = "Locale"
 	}
 	props["locale"] = localeProp
+	if _, exists := props["path"]; !exists {
+		props["path"] = map[string]any{
+			"type":  "string",
+			"title": "Path",
+		}
+	}
+	if _, exists := props["route_key"]; !exists {
+		props["route_key"] = map[string]any{
+			"type":     "string",
+			"title":    "Route Key",
+			"x-hidden": true,
+		}
+	}
 	delete(props, "available_locales")
 
 	requiredForPublishDefault := actionSchemaLocaleEnum(localeProp["enum"])
@@ -508,21 +521,7 @@ func buildFormSchema(fields []Field) map[string]any {
 	required := []string{}
 	props := schema["properties"].(map[string]any)
 	for _, f := range fields {
-		prop := map[string]any{
-			"type":         mapFieldType(f.Type),
-			"title":        f.Label,
-			"readOnly":     f.ReadOnly,
-			"read_only":    f.ReadOnly,
-			"x-hidden":     f.Hidden,
-			"x-options":    f.Options,
-			"x-validation": f.Validation,
-		}
-		if widget := mapWidget(f.Type); widget != "" {
-			prop["x-formgen:widget"] = widget
-		}
-		if f.Validation != "" {
-			prop["x-validation-source"] = "panel"
-		}
+		prop := formFieldSchemaProperty(f)
 		props[f.Name] = prop
 		if f.Required {
 			required = append(required, f.Name)
@@ -532,6 +531,92 @@ func buildFormSchema(fields []Field) map[string]any {
 		schema["required"] = required
 	}
 	return schema
+}
+
+func mergeFormSchemaWithFields(schema map[string]any, fields []Field) map[string]any {
+	out := primitives.CloneAnyMap(schema)
+	if out == nil {
+		return buildFormSchema(fields)
+	}
+	if existingType, ok := out["type"].(string); !ok || strings.TrimSpace(existingType) == "" {
+		out["type"] = "object"
+	}
+	props, _ := out["properties"].(map[string]any)
+	if props == nil {
+		props = map[string]any{}
+		out["properties"] = props
+	}
+	required := ensureActionPayloadRequiredFields(out["required"])
+	for _, field := range fields {
+		prop, _ := props[field.Name].(map[string]any)
+		if prop == nil {
+			prop = formFieldSchemaProperty(field)
+		} else {
+			mergeFormFieldSchemaProperty(prop, field)
+		}
+		props[field.Name] = prop
+		if field.Required {
+			required = ensureActionPayloadRequiredFields(required, field.Name)
+		}
+	}
+	if len(required) > 0 {
+		out["required"] = required
+	}
+	return out
+}
+
+func formFieldSchemaProperty(f Field) map[string]any {
+	prop := map[string]any{
+		"type":         mapFieldType(f.Type),
+		"title":        f.Label,
+		"readOnly":     f.ReadOnly,
+		"read_only":    f.ReadOnly,
+		"x-hidden":     f.Hidden,
+		"x-options":    f.Options,
+		"x-validation": f.Validation,
+	}
+	if widget := mapWidget(f.Type); widget != "" {
+		prop["x-formgen:widget"] = widget
+	}
+	if f.Validation != "" {
+		prop["x-validation-source"] = "panel"
+	}
+	return prop
+}
+
+func mergeFormFieldSchemaProperty(prop map[string]any, field Field) {
+	if prop == nil {
+		return
+	}
+	if existingType, ok := prop["type"].(string); !ok || strings.TrimSpace(existingType) == "" {
+		prop["type"] = mapFieldType(field.Type)
+	}
+	if existingTitle, ok := prop["title"].(string); !ok || strings.TrimSpace(existingTitle) == "" {
+		prop["title"] = field.Label
+	}
+	if _, ok := prop["readOnly"]; !ok && field.ReadOnly {
+		prop["readOnly"] = true
+	}
+	if _, ok := prop["read_only"]; !ok && field.ReadOnly {
+		prop["read_only"] = true
+	}
+	if _, ok := prop["x-hidden"]; !ok && field.Hidden {
+		prop["x-hidden"] = true
+	}
+	if _, ok := prop["x-options"]; !ok && len(field.Options) > 0 {
+		prop["x-options"] = field.Options
+	}
+	if _, ok := prop["x-validation"]; !ok && field.Validation != "" {
+		prop["x-validation"] = field.Validation
+	}
+	if _, ok := prop["x-validation-source"]; !ok && field.Validation != "" {
+		prop["x-validation-source"] = "panel"
+	}
+	if _, ok := prop["x-formgen:widget"]; !ok {
+		if widget := mapWidget(field.Type); widget != "" {
+			prop["x-formgen:widget"] = widget
+		}
+	}
 }
 
 func mapFieldType(t string) string {
