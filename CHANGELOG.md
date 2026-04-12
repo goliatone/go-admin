@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.38.0](https://github.com/goliatone/go-admin/compare/v0.37.0...v0.38.0) - (2026-04-12)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.38.0 ([059939a](https://github.com/goliatone/go-admin/commit/059939a536d89c2d1ab5253584d9f1977d042d93))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Canonical quickstart routes ([45a9f78](https://github.com/goliatone/go-admin/commit/45a9f78257ee72e403c9bc0429eef35f6052c2ec))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.37.0 ([b0dafb2](https://github.com/goliatone/go-admin/commit/b0dafb27ccf61aed83c87e9a798e5007cb128400))  - (goliatone)
+
 # [0.37.0](https://github.com/goliatone/go-admin/compare/v0.36.0...v0.37.0) - (2026-04-12)
 
 ## <!-- 13 -->📦 Bumps
