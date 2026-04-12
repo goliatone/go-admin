@@ -113,7 +113,7 @@ func (r *CMSBlockConflictRepository) collectConflicts(ctx context.Context, opts 
 	if r == nil || r.content == nil {
 		return nil, ErrNotFound
 	}
-	locale := extractLocale(opts, "")
+	locale := resolveListRequestedLocale(ctx, opts, "")
 	filters := opts.Filters
 	if filters == nil {
 		filters = map[string]any{}
