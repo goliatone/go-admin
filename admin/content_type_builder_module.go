@@ -207,7 +207,7 @@ func (m *ContentTypeBuilderModule) Register(ctx ModuleContext) error {
 		return err
 	}
 	m.registerBuilderRoutes(ctx.Admin)
-	return m.loadExistingContentTypes(ctx.Admin)
+	return nil
 }
 
 func (m *ContentTypeBuilderModule) initializeModule(ctx ModuleContext) error {
@@ -506,11 +506,14 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionsPanel(ctx ModuleConte
 	return err
 }
 
-func (m *ContentTypeBuilderModule) loadExistingContentTypes(admin *Admin) error {
+func (m *ContentTypeBuilderModule) loadExistingContentTypes(ctx context.Context, admin *Admin) error {
 	if admin == nil || admin.contentTypeSvc == nil || m.panelFactory == nil {
 		return nil
 	}
-	types, err := admin.contentTypeSvc.ContentTypes(context.Background())
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	types, err := admin.contentTypeSvc.ContentTypes(ctx)
 	if err != nil {
 		return err
 	}
@@ -536,7 +539,7 @@ func (m *ContentTypeBuilderModule) loadExistingContentTypes(admin *Admin) error 
 	})
 	for _, ct := range types {
 		contentType := ct
-		if err := m.panelFactory.RefreshPanel(context.Background(), &contentType); err != nil {
+		if err := m.panelFactory.RefreshPanel(ctx, &contentType); err != nil {
 			return err
 		}
 	}
@@ -544,8 +547,12 @@ func (m *ContentTypeBuilderModule) loadExistingContentTypes(admin *Admin) error 
 }
 
 // AfterMenuSeed refreshes panels/navigation after menu seeding.
-func (m *ContentTypeBuilderModule) AfterMenuSeed(_ context.Context, admin *Admin) error {
-	return m.loadExistingContentTypes(admin)
+func (m *ContentTypeBuilderModule) AfterMenuSeed(ctx context.Context, admin *Admin) error {
+	return m.loadExistingContentTypes(ctx, admin)
+}
+
+func (m *ContentTypeBuilderModule) reconcileDynamicCMS(ctx context.Context, admin *Admin) error {
+	return m.loadExistingContentTypes(ctx, admin)
 }
 
 func (m *ContentTypeBuilderModule) resolveContentType(ctx context.Context, record map[string]any) (*CMSContentType, error) {
