@@ -20,12 +20,16 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 	if r == nil || adm == nil || handlers == nil || adm.Registry() == nil {
 		return
 	}
+	routes := r.Routes()
 	bindings := canonicalPanelRouteBindings(adm.URLs(), adm.Registry().Panels())
 	for _, binding := range bindings {
 		panelName := strings.TrimSpace(binding.Panel)
 		listPath := strings.TrimSpace(binding.Path)
 		entryMode := binding.EntryMode
 		if panelName == "" || listPath == "" {
+			continue
+		}
+		if canonicalPanelRouteOwned(routes, listPath) {
 			continue
 		}
 		newPath := path.Join(listPath, "new")
@@ -55,6 +59,22 @@ func registerCanonicalContentEntryPanelRoutes[T any](
 			return handlers.deleteForPanel(c, panelName)
 		}))
 	}
+}
+
+func canonicalPanelRouteOwned(routes []router.RouteDefinition, listPath string) bool {
+	listPath = strings.TrimSpace(listPath)
+	if listPath == "" || len(routes) == 0 {
+		return false
+	}
+	for _, route := range routes {
+		if route.Method != router.GET {
+			continue
+		}
+		if strings.TrimSpace(route.Path) == listPath {
+			return true
+		}
+	}
+	return false
 }
 
 type panelRouteBinding struct {
