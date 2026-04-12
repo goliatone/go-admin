@@ -58,6 +58,21 @@ func (r *Registry) RegisterPanel(name string, panel *Panel) error {
 	return nil
 }
 
+// UpsertPanel stores or replaces a panel by name.
+func (r *Registry) UpsertPanel(name string, panel *Panel) error {
+	if panel == nil {
+		return validationDomainError("panel cannot be nil", map[string]any{"field": "panel"})
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return requiredFieldDomainError("panel name", nil)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.panels[name] = panel
+	return nil
+}
+
 // UnregisterPanel removes a panel by name and clears associated tab registrations.
 func (r *Registry) UnregisterPanel(name string) error {
 	name = strings.TrimSpace(name)
@@ -70,6 +85,19 @@ func (r *Registry) UnregisterPanel(name string) error {
 		return ErrNotFound
 	}
 	delete(r.panels, name)
+	if r.panelTabs != nil {
+		delete(r.panelTabs, name)
+	}
+	return nil
+}
+
+func (r *Registry) resetPanelTabs(name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return requiredFieldDomainError("panel name", nil)
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.panelTabs != nil {
 		delete(r.panelTabs, name)
 	}
