@@ -582,6 +582,8 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 				PolicyEntity: resolvePolicyEntity(body, p.name),
 				ContentType:  p.name,
 				Status:       "draft",
+				Path:         strings.TrimSpace(toString(body["path"])),
+				RouteKey:     strings.TrimSpace(toString(body["route_key"])),
 			}))
 			if createErr == nil {
 				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
@@ -635,11 +637,15 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 				return boot.ActionResponse{}, createErr
 			}
 		}
-		translationExists := translationLocaleExists(record, targetLocale)
+		translationExists := strings.EqualFold(strings.TrimSpace(toString(record["locale"])), targetLocale)
 		if !translationExists && groupID != "" {
-			if exists, err := translationLocaleExistsInRepositoryGroup(ctx.Context, p.panel.repo, groupID, targetLocale, primaryID); err == nil && exists {
+			if exists, err := translationLocaleExistsInRepositoryGroup(ctx.Context, p.panel.repo, groupID, targetLocale, primaryID); err == nil {
+				translationExists = exists
+			} else if translationLocaleExists(record, targetLocale) {
 				translationExists = true
 			}
+		} else if !translationExists {
+			translationExists = translationLocaleExists(record, targetLocale)
 		}
 		if translationExists {
 			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
@@ -672,6 +678,17 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 		clone["family_id"] = groupID
 		clone["status"] = "draft"
 		prepareCreateTranslationClone(clone, record, targetLocale)
+		if localizedPath := strings.TrimSpace(toString(body["path"])); localizedPath != "" {
+			clone["path"] = localizedPath
+		} else {
+			delete(clone, "path")
+			if data, ok := clone["data"].(map[string]any); ok && data != nil {
+				delete(data, "path")
+			}
+		}
+		if routeKey := strings.TrimSpace(toString(body["route_key"])); routeKey != "" {
+			clone["route_key"] = routeKey
+		}
 		created, err := p.panel.Create(ctx, clone)
 		if err != nil {
 			err = mapCreateTranslationPersistenceError(err, p.name, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, groupID)

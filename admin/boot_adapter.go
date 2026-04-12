@@ -16,6 +16,15 @@ func (a *Admin) Boot(steps ...boot.Step) error {
 
 // BootWithContext runs the admin boot pipeline with the given lifecycle context and steps.
 func (a *Admin) BootWithContext(ctx context.Context, steps ...boot.Step) error {
+	if a == nil {
+		return nil
+	}
+	a.lifecycleMu.Lock()
+	defer a.lifecycleMu.Unlock()
+	return a.bootWithContext(ctx, steps...)
+}
+
+func (a *Admin) bootWithContext(ctx context.Context, steps ...boot.Step) error {
 	if a != nil && a.router != nil {
 		if err := a.validateMountAuthBoundary(); err != nil {
 			return err
@@ -35,7 +44,7 @@ func (a *Admin) BootWithContext(ctx context.Context, steps ...boot.Step) error {
 		a.bootContext = ctx
 		defer func() { a.bootContext = previousCtx }()
 	}
-	if err := boot.Run(a, steps...); err != nil {
+	if err := boot.Run(lifecycleBootCtx{Admin: a}, steps...); err != nil {
 		return err
 	}
 

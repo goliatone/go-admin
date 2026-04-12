@@ -901,95 +901,9 @@ func prepareCreateTranslationClone(clone, source map[string]any, targetLocale st
 		delete(clone, key)
 	}
 
-	sourceLocale := normalizeCreateTranslationLocale(toString(source["locale"]))
-	if sourceLocale == "" {
-		sourceLocale = normalizeCreateTranslationLocale(toString(clone["locale"]))
-	}
-	targetLocale = normalizeCreateTranslationLocale(targetLocale)
-	if targetLocale == "" {
+	if normalizeCreateTranslationLocale(targetLocale) == "" {
 		return
 	}
-
-	if slug := strings.TrimSpace(toString(clone["slug"])); slug != "" {
-		clone["slug"] = withCreateTranslationLocaleSuffix(slug, sourceLocale, targetLocale)
-	}
-	if path := strings.TrimSpace(toString(clone["path"])); path != "" {
-		clone["path"] = withCreateTranslationPathSuffix(path, sourceLocale, targetLocale)
-	}
-
-	if data, ok := clone["data"].(map[string]any); ok && data != nil {
-		if slug := strings.TrimSpace(toString(data["slug"])); slug != "" {
-			data["slug"] = withCreateTranslationLocaleSuffix(slug, sourceLocale, targetLocale)
-		}
-		if path := strings.TrimSpace(toString(data["path"])); path != "" {
-			data["path"] = withCreateTranslationPathSuffix(path, sourceLocale, targetLocale)
-		}
-	}
-}
-
-func withCreateTranslationLocaleSuffix(value, sourceLocale, targetLocale string) string {
-	base := strings.TrimSpace(value)
-	if base == "" {
-		return base
-	}
-	sourceLocale = normalizeCreateTranslationLocale(sourceLocale)
-	targetLocale = normalizeCreateTranslationLocale(targetLocale)
-	if targetLocale == "" {
-		return base
-	}
-	if sourceLocale != "" {
-		base = stripCreateTranslationLocaleSuffix(base, sourceLocale)
-	}
-	if strings.EqualFold(base, "/") {
-		return "/" + targetLocale
-	}
-	if strings.HasSuffix(strings.ToLower(base), "-"+targetLocale) {
-		return base
-	}
-	return strings.TrimRight(base, "-") + "-" + targetLocale
-}
-
-func withCreateTranslationPathSuffix(path, sourceLocale, targetLocale string) string {
-	trimmed := strings.TrimSpace(path)
-	if trimmed == "" {
-		return trimmed
-	}
-
-	sourceLocale = normalizeCreateTranslationLocale(sourceLocale)
-	targetLocale = normalizeCreateTranslationLocale(targetLocale)
-	if targetLocale == "" {
-		return trimmed
-	}
-
-	if strings.EqualFold(trimmed, "/") {
-		return "/" + targetLocale
-	}
-	if sourceLocale != "" {
-		if strings.EqualFold(trimmed, "/"+sourceLocale) {
-			return "/" + targetLocale
-		}
-		prefix := "/" + sourceLocale + "/"
-		if strings.HasPrefix(strings.ToLower(trimmed), strings.ToLower(prefix)) {
-			return "/" + targetLocale + trimmed[len(prefix)-1:]
-		}
-	}
-	return withCreateTranslationLocaleSuffix(trimmed, sourceLocale, targetLocale)
-}
-
-func stripCreateTranslationLocaleSuffix(value, locale string) string {
-	base := strings.TrimSpace(value)
-	if base == "" {
-		return base
-	}
-	locale = normalizeCreateTranslationLocale(locale)
-	if locale == "" {
-		return base
-	}
-	suffix := "-" + locale
-	if strings.HasSuffix(strings.ToLower(base), suffix) {
-		return strings.TrimSpace(base[:len(base)-len(suffix)])
-	}
-	return base
 }
 
 func buildCreateTranslationResponse(created map[string]any, locale, groupID string) map[string]any {
