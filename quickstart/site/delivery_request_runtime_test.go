@@ -108,6 +108,174 @@ func TestCanonicalRedirectTargetBuildsLocalizedBasePathAndSortedQuery(t *testing
 	}
 }
 
+func TestCanonicalRedirectTargetPrefersTargetLocalePublicPathFromResolutionMap(t *testing.T) {
+	runtime := &deliveryRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			SupportedLocales: []string{"en", "es"},
+			LocalePrefixMode: LocalePrefixNonDefault,
+			Features: SiteFeatures{
+				EnableI18N:              new(true),
+				EnableCanonicalRedirect: new(true),
+			},
+		}),
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Path").Return("/es/about")
+	ctx.On("Method").Return("GET")
+
+	resolution := &deliveryResolution{
+		RequestedLocale: "es",
+		ResolvedLocale:  "es",
+		Capability:      deliveryCapability{TypeSlug: "page", Kind: "page"},
+		Record: &admin.CMSContent{
+			ID:              "about-es",
+			Slug:            "about-es",
+			Locale:          "es",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			RouteKey:        "pages/about",
+			Data:            map[string]any{"path": "/sobre-nosotros"},
+		},
+		PathsByLocale: map[string]string{
+			"en": "/about",
+			"es": "/sobre-nosotros",
+		},
+	}
+
+	if got := runtime.canonicalRedirectTarget(ctx, resolution); got != "/es/sobre-nosotros" {
+		t.Fatalf("expected canonical redirect target /es/sobre-nosotros, got %q", got)
+	}
+}
+
+func TestCanonicalRedirectTargetUsesDefaultLocalePathAsInheritedFallbackWhenTargetPathMissing(t *testing.T) {
+	runtime := &deliveryRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			SupportedLocales: []string{"en", "es"},
+			LocalePrefixMode: LocalePrefixNonDefault,
+			Features: SiteFeatures{
+				EnableI18N:              new(true),
+				EnableCanonicalRedirect: new(true),
+				CanonicalRedirectMode:   CanonicalRedirectRequestedLocaleSticky,
+			},
+		}),
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Path").Return("/about")
+	ctx.On("Method").Return("GET")
+
+	resolution := &deliveryResolution{
+		RequestedLocale:  "es",
+		ResolvedLocale:   "en",
+		MissingRequested: true,
+		Capability:       deliveryCapability{TypeSlug: "page", Kind: "page"},
+		Record: &admin.CMSContent{
+			ID:              "about-en",
+			Slug:            "about",
+			Locale:          "en",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			RouteKey:        "pages/about",
+			Data:            map[string]any{"path": "/about"},
+		},
+		PathsByLocale: map[string]string{
+			"en": "/about",
+		},
+	}
+
+	if got := runtime.canonicalRedirectTarget(ctx, resolution); got != "/es/about" {
+		t.Fatalf("expected inherited fallback canonical redirect /es/about, got %q", got)
+	}
+}
+
+func TestCanonicalRedirectTargetUsesResolvedLocaleCanonicalPathWhenMissingTranslationModeIsResolved(t *testing.T) {
+	runtime := &deliveryRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			SupportedLocales: []string{"en", "es"},
+			LocalePrefixMode: LocalePrefixNonDefault,
+			Features: SiteFeatures{
+				EnableI18N:              new(true),
+				EnableCanonicalRedirect: new(true),
+				CanonicalRedirectMode:   CanonicalRedirectResolvedLocale,
+			},
+		}),
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Path").Return("/es/about")
+	ctx.On("Method").Return("GET")
+
+	resolution := &deliveryResolution{
+		RequestedLocale:  "es",
+		ResolvedLocale:   "en",
+		MissingRequested: true,
+		Capability:       deliveryCapability{TypeSlug: "page", Kind: "page"},
+		Record: &admin.CMSContent{
+			ID:              "about-en",
+			Slug:            "about",
+			Locale:          "en",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			RouteKey:        "pages/about",
+			Data:            map[string]any{"path": "/about"},
+		},
+		PathsByLocale: map[string]string{
+			"en": "/about",
+		},
+	}
+
+	if got := runtime.canonicalRedirectTarget(ctx, resolution); got != "/about" {
+		t.Fatalf("expected resolved-locale canonical redirect /about, got %q", got)
+	}
+}
+
+func TestCanonicalRedirectTargetSkipsInheritedFallbackWhenStrictLocalizedPathsEnabled(t *testing.T) {
+	runtime := &deliveryRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			SupportedLocales: []string{"en", "es"},
+			LocalePrefixMode: LocalePrefixNonDefault,
+			Features: SiteFeatures{
+				EnableI18N:              new(true),
+				EnableCanonicalRedirect: new(true),
+				CanonicalRedirectMode:   CanonicalRedirectRequestedLocaleSticky,
+				StrictLocalizedPaths:    new(true),
+			},
+		}),
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Path").Return("/about")
+	ctx.On("Method").Return("GET")
+
+	resolution := &deliveryResolution{
+		RequestedLocale:  "es",
+		ResolvedLocale:   "en",
+		MissingRequested: true,
+		Capability:       deliveryCapability{TypeSlug: "page", Kind: "page"},
+		Record: &admin.CMSContent{
+			ID:              "about-en",
+			Slug:            "about",
+			Locale:          "en",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			RouteKey:        "pages/about",
+			Data:            map[string]any{"path": "/about"},
+		},
+		PathsByLocale: map[string]string{
+			"en": "/about",
+		},
+	}
+
+	if got := runtime.canonicalRedirectTarget(ctx, resolution); got != "" {
+		t.Fatalf("expected strict localized paths to skip inherited fallback redirect, got %q", got)
+	}
+}
+
 func TestCanonicalRedirectTargetCanonicalizesLegacyLocalizedStoredPaths(t *testing.T) {
 	runtime := &deliveryRuntime{
 		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{

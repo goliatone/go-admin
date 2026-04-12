@@ -187,6 +187,74 @@ func TestAdminContentWriteServiceUpdateRequiresCreateTranslationIntent(t *testin
 	}
 }
 
+func TestAdminContentWriteServiceCreateTranslationBackfillsRouteKeyAndRejectsLocalizedPathConflict(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	translationStub := &translationCreatorContentServiceStub{CMSContentService: content}
+	service := newAdminContentWriteService(translationStub)
+
+	source, err := content.CreateContent(ctx, CMSContent{
+		Title:           "About",
+		Slug:            "about",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		RouteKey:        "pages/about",
+		Data:            map[string]any{"path": "/about"},
+	})
+	if err != nil {
+		t.Fatalf("create source failed: %v", err)
+	}
+	if _, err := content.CreateContent(ctx, CMSContent{
+		Title:           "Existing French",
+		Slug:            "a-propos",
+		Locale:          "fr",
+		Status:          "draft",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		RouteKey:        "pages/existing",
+		Data:            map[string]any{"path": "/a-propos"},
+	}); err != nil {
+		t.Fatalf("seed existing locale failed: %v", err)
+	}
+	translationStub.result = &CMSContent{
+		ID:              "translated-1",
+		Title:           "A propos nous",
+		Slug:            "about",
+		Locale:          "fr",
+		Status:          "draft",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		RouteKey:        "pages/about",
+		Data:            map[string]any{"path": "/a-propos-nous"},
+	}
+
+	_, err = service.CreateTranslation(ctx, TranslationCreateInput{
+		SourceID: source.ID,
+		Locale:   "fr",
+		Path:     "/a-propos",
+	})
+	if !errors.Is(err, ErrPathConflict) {
+		t.Fatalf("expected path conflict for duplicate localized path, got %v", err)
+	}
+
+	translated, err := service.CreateTranslation(ctx, TranslationCreateInput{
+		SourceID: source.ID,
+		Locale:   "fr",
+		Path:     "/a-propos-nous",
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if got := toString(translated["route_key"]); got != "pages/about" {
+		t.Fatalf("expected route_key backfilled from source, got %q", got)
+	}
+	if got := toString(translated["path"]); got != "/a-propos-nous" {
+		t.Fatalf("expected localized path preserved, got %q", got)
+	}
+}
+
 func TestCMSContentRepositoryDelegatesWritePathToAdminContentWriteService(t *testing.T) {
 	ctx := context.Background()
 	repo := &CMSContentRepository{

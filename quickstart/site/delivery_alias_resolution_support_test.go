@@ -291,3 +291,69 @@ func TestResolutionFromDetailRecordProjectsLocaleMetadataAndFamilyPaths(t *testi
 		t.Fatalf("expected detail template candidates preserved, got %+v", resolution.TemplateCandidates)
 	}
 }
+
+func TestResolvePagePathAliasCandidatesMatchesRouteKeyAcrossDifferentSlugs(t *testing.T) {
+	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "es"},
+		Features: SiteFeatures{
+			EnableI18N: new(true),
+		},
+	})
+	stub := &localeScopedContentListStub{
+		CMSContentService: admin.NewInMemoryContentService(),
+		byLocale: map[string][]admin.CMSContent{
+			"en": {{
+				ID:              "page-en",
+				Slug:            "about",
+				Locale:          "en",
+				Status:          "published",
+				ContentType:     "page",
+				ContentTypeSlug: "page",
+				RouteKey:        "pages/about",
+				Data:            map[string]any{"path": "/about"},
+			}},
+			"es": {{
+				ID:              "page-es",
+				Slug:            "sobre-nosotros",
+				Locale:          "es",
+				Status:          "published",
+				ContentType:     "page",
+				ContentTypeSlug: "page",
+				RouteKey:        "pages/about",
+				Data:            map[string]any{"path": "/sobre-nosotros"},
+			}},
+		},
+	}
+	runtime := &deliveryRuntime{
+		siteCfg:    cfg,
+		contentSvc: stub,
+	}
+	state := RequestState{
+		Locale:           "es",
+		DefaultLocale:    "en",
+		SupportedLocales: []string{"en", "es"},
+	}
+	records := []admin.CMSContent{{
+		ID:              "page-es",
+		Slug:            "sobre-nosotros",
+		Locale:          "es",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		RouteKey:        "pages/about",
+		Data:            map[string]any{"path": "/sobre-nosotros"},
+	}}
+
+	got := runtime.resolvePagePathAliasCandidates(
+		context.Background(),
+		deliveryCapability{TypeSlug: "page", Kind: "page"},
+		records,
+		state,
+		"/about",
+		newSiteContentCache(),
+	)
+
+	if len(got) != 1 || got[0].ID != "page-es" {
+		t.Fatalf("expected es page matched by route_key alias, got %+v", got)
+	}
+}

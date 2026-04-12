@@ -196,6 +196,65 @@ func TestLocaleSwitcherRuntimeQueryAndDefaultLocalePolicy(t *testing.T) {
 	}
 }
 
+func TestLocaleSwitcherRuntimeUsesDefaultLocalePathAsInheritedFallback(t *testing.T) {
+	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
+		SupportedLocales: []string{"en", "es", "fr"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	})
+	contract := BuildLocaleSwitcherContract(
+		cfg,
+		"/sobre-nosotros",
+		"es",
+		"es",
+		"tg-about-1",
+		[]string{"en", "es", "fr"},
+		map[string]string{
+			"en": "/about",
+			"es": "/sobre-nosotros",
+		},
+		nil,
+	)
+
+	items, ok := contract["items"].([]map[string]any)
+	if !ok || len(items) != 3 {
+		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
+	}
+	if items[2]["locale"] != "fr" || items[2]["url"] != "/fr/about" {
+		t.Fatalf("expected inherited fr fallback url /fr/about, got %+v", items[2])
+	}
+}
+
+func TestLocaleSwitcherRuntimeStrictLocalizedPathsDoesNotSynthesizeFallbackURL(t *testing.T) {
+	cfg := ResolveSiteConfig(adminConfig("en"), SiteConfig{
+		SupportedLocales: []string{"en", "es", "fr"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+		Features: SiteFeatures{
+			StrictLocalizedPaths: new(true),
+		},
+	})
+	contract := BuildLocaleSwitcherContract(
+		cfg,
+		"/sobre-nosotros",
+		"es",
+		"es",
+		"tg-about-1",
+		[]string{"en", "es", "fr"},
+		map[string]string{
+			"en": "/about",
+			"es": "/sobre-nosotros",
+		},
+		nil,
+	)
+
+	items, ok := contract["items"].([]map[string]any)
+	if !ok || len(items) != 3 {
+		t.Fatalf("expected switcher items for all supported locales, got %#v", contract["items"])
+	}
+	if items[2]["locale"] != "fr" || items[2]["url"] != "" {
+		t.Fatalf("expected strict localized paths to avoid synthesized fr url, got %+v", items[2])
+	}
+}
+
 func adminConfig(locale string) admin.Config {
 	return admin.Config{DefaultLocale: locale}
 }

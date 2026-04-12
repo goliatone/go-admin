@@ -411,6 +411,16 @@ func (s *translationExchangePageStore) ApplyTranslation(ctx context.Context, req
 		if strings.TrimSpace(item.FamilyID) == "" {
 			item.FamilyID = groupID
 		}
+		if routeKey := strings.TrimSpace(req.RouteKey); routeKey != "" {
+			item.RouteKey = routeKey
+		}
+		if path := strings.TrimSpace(req.Path); path != "" {
+			if item.Data == nil {
+				item.Data = map[string]any{}
+			}
+			item.Data["path"] = path
+			item.PreviewURL = path
+		}
 		_, err := s.content.UpdatePage(ctx, item)
 		return err
 	}
@@ -419,13 +429,19 @@ func (s *translationExchangePageStore) ApplyTranslation(ctx context.Context, req
 		return coreadmin.ErrTranslationExchangeLinkageNotFound
 	}
 
-	_, err = s.content.CreatePage(ctx, coreadmin.CMSPage{
+	created := coreadmin.CMSPage{
 		Title:    strings.TrimSpace(req.TranslatedText),
 		Slug:     targetSlug,
 		Locale:   targetLocale,
 		Status:   strings.TrimSpace(req.WorkflowStatus),
 		FamilyID: groupID,
-	})
+		RouteKey: strings.TrimSpace(req.RouteKey),
+	}
+	if path := strings.TrimSpace(req.Path); path != "" {
+		created.Data = map[string]any{"path": path}
+		created.PreviewURL = path
+	}
+	_, err = s.content.CreatePage(ctx, created)
 	return err
 }
 

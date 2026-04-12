@@ -43,6 +43,27 @@ func TestLocalePathSupportLocalizedPublicPathForStoredPath(t *testing.T) {
 	}
 }
 
+func TestLocalePathSupportLocalizedPublicPathDiagnostics(t *testing.T) {
+	events := []LocalePathBridgeDiagnostic{}
+	restore := SetLocalePathBridgeDiagnosticSink(func(diag LocalePathBridgeDiagnostic) {
+		events = append(events, diag)
+	})
+	defer restore()
+
+	if got := localizedPublicPathForStoredPath("/fr/about", "fr", "en", LocalePrefixNonDefault, []string{"en", "fr"}); got != "/fr/about" {
+		t.Fatalf("expected legacy localized path to stay /fr/about, got %q", got)
+	}
+	if got := localizedPublicPathForStoredPath("/about", "fr", "en", LocalePrefixNonDefault, []string{"en", "fr"}); got != "/fr/about" {
+		t.Fatalf("expected canonical path to localize without diagnostics, got %q", got)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected one bridge diagnostic, got %+v", events)
+	}
+	if events[0].StoredPath != "/fr/about" || events[0].TargetLocale != "fr" {
+		t.Fatalf("unexpected diagnostic payload: %+v", events[0])
+	}
+}
+
 func TestLocalePathSupportLocalizedPathWithQueryAndNormalization(t *testing.T) {
 	if got := LocalizedPathWithQuery("/about", "es", "en", LocalePrefixNonDefault, map[string]string{"preview_token": "abc", "": "skip"}); got != "/es/about?preview_token=abc" {
 		t.Fatalf("expected localized path with query, got %q", got)

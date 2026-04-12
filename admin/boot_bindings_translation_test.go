@@ -45,6 +45,13 @@ func (s *translationActionRepoStub) List(_ context.Context, opts ListOptions) ([
 		}
 		return out, len(out), nil
 	}
+	if len(s.records) > 0 {
+		out := make([]map[string]any, 0, len(s.records))
+		for _, record := range s.records {
+			out = append(out, primitives.CloneAnyMap(record))
+		}
+		return out, len(out), nil
+	}
 	return nil, 0, nil
 }
 
@@ -396,8 +403,10 @@ func TestPanelBindingCreateTranslationFallsBackToCloneWhenRepositoryCommandUnsup
 	c := newPanelBindingMockContext()
 
 	response, err := binding.Action(c, "en", "create_translation", map[string]any{
-		"id":     "post_123",
-		"locale": "fr",
+		"id":        "post_123",
+		"locale":    "fr",
+		"path":      "/bonjour",
+		"route_key": "posts/post",
 	})
 	if err != nil {
 		t.Fatalf("expected clone fallback to succeed, got %v", err)
@@ -411,6 +420,88 @@ func TestPanelBindingCreateTranslationFallsBackToCloneWhenRepositoryCommandUnsup
 	}
 	if data["locale"] != "fr" {
 		t.Fatalf("expected locale fr, got %v", data["locale"])
+	}
+	if got := toString(repo.created[0]["path"]); got != "/bonjour" {
+		t.Fatalf("expected clone fallback to keep localized path, got %q", got)
+	}
+	if got := toString(repo.created[0]["route_key"]); got != "posts/post" {
+		t.Fatalf("expected clone fallback to keep route_key, got %q", got)
+	}
+}
+
+func TestPanelBindingCreateTranslationCloneFallbackClearsInheritedPathWhenTargetPathMissing(t *testing.T) {
+	repo := &translationActionRepoStub{
+		records: map[string]map[string]any{
+			"post_123": {
+				"id":                "post_123",
+				"title":             "Post",
+				"slug":              "post",
+				"path":              "/posts/post",
+				"locale":            "en",
+				"status":            "draft",
+				"family_id":         "tg_123",
+				"route_key":         "posts/post",
+				"data":              map[string]any{"path": "/posts/post"},
+				"available_locales": []string{"en"},
+			},
+		},
+	}
+	panel := &Panel{name: "posts", repo: repo}
+	binding := &panelBinding{
+		admin: &Admin{config: Config{DefaultLocale: "en"}},
+		name:  "posts",
+		panel: panel,
+	}
+	c := newPanelBindingMockContext()
+
+	response, err := binding.Action(c, "en", "create_translation", map[string]any{
+		"id":     "post_123",
+		"locale": "fr",
+	})
+	if err != nil {
+		t.Fatalf("expected clone fallback to succeed, got %v", err)
+	}
+	if got := toString(response.Data["locale"]); got != "fr" {
+		t.Fatalf("expected locale fr, got %q", got)
+	}
+	if _, ok := repo.created[0]["path"]; ok {
+		t.Fatalf("expected inherited path to be cleared, got %#v", repo.created[0]["path"])
+	}
+	if data := extractMap(repo.created[0]["data"]); len(data) > 0 {
+		if _, ok := data["path"]; ok {
+			t.Fatalf("expected nested inherited path to be cleared, got %#v", data["path"])
+		}
+	}
+}
+
+func TestPrepareCreateTranslationClonePreservesSlugAndPathForInheritedFallback(t *testing.T) {
+	clone := map[string]any{
+		"slug":   "about",
+		"path":   "/about",
+		"locale": "en",
+		"data": map[string]any{
+			"slug": "about",
+			"path": "/about",
+		},
+	}
+	source := map[string]any{
+		"locale": "en",
+	}
+
+	prepareCreateTranslationClone(clone, source, "fr")
+
+	if got := toString(clone["slug"]); got != "about" {
+		t.Fatalf("expected slug to stay canonical for inherited fallback, got %q", got)
+	}
+	if got := toString(clone["path"]); got != "/about" {
+		t.Fatalf("expected path to stay unchanged for inherited fallback, got %q", got)
+	}
+	data := extractMap(clone["data"])
+	if got := toString(data["slug"]); got != "about" {
+		t.Fatalf("expected nested slug to stay canonical, got %q", got)
+	}
+	if got := toString(data["path"]); got != "/about" {
+		t.Fatalf("expected nested path to stay unchanged, got %q", got)
 	}
 }
 
@@ -458,6 +549,8 @@ func TestPanelBindingCreateTranslationAcceptsStrictSchemaWithContextFields(t *te
 	response, err := binding.Action(c, "en", "create_translation", map[string]any{
 		"id":            "page_123",
 		"locale":        "es",
+		"path":          "/sobre-nosotros",
+		"route_key":     "pages/about",
 		"policy_entity": "pages",
 	})
 	if err != nil {
@@ -466,6 +559,12 @@ func TestPanelBindingCreateTranslationAcceptsStrictSchemaWithContextFields(t *te
 	data := response.Data
 	if data["locale"] != "es" {
 		t.Fatalf("expected locale es, got %v", data["locale"])
+	}
+	if repo.createTranslationInput.Path != "/sobre-nosotros" {
+		t.Fatalf("expected localized path forwarded, got %q", repo.createTranslationInput.Path)
+	}
+	if repo.createTranslationInput.RouteKey != "pages/about" {
+		t.Fatalf("expected route_key forwarded, got %q", repo.createTranslationInput.RouteKey)
 	}
 }
 
@@ -477,6 +576,11 @@ func TestPanelBindingCreateTranslationDuplicateReturnsTypedError(t *testing.T) {
 				"locale":            "en",
 				"family_id":         "tg_123",
 				"available_locales": []string{"en", "es"},
+			},
+			"page_456": {
+				"id":        "page_456",
+				"locale":    "es",
+				"family_id": "tg_123",
 			},
 		},
 	}

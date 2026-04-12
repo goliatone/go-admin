@@ -410,9 +410,9 @@ func TestGoCMSContentAdapterCreateTranslationFallsBackForLocalOnlyFields(t *test
 	adapter := svc.(*GoCMSContentAdapter)
 
 	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
-		SourceID:    sourceID.String(),
-		Locale:      "fr",
-		ContentType: "posts",
+		SourceID: sourceID.String(),
+		Locale:   "fr",
+		Path:     "/bonjour",
 	})
 	if err != nil {
 		t.Fatalf("create translation failed: %v", err)
@@ -422,5 +422,42 @@ func TestGoCMSContentAdapterCreateTranslationFallsBackForLocalOnlyFields(t *test
 	}
 	if contentSvc.createTranslationCnt != 1 {
 		t.Fatalf("expected reflective path used once, got %d", contentSvc.createTranslationCnt)
+	}
+}
+
+func TestGoCMSContentAdapterCreateTranslationKeepsAdminWritePathForRouteKeyOnly(t *testing.T) {
+	ctx := context.Background()
+	sourceID := uuid.New()
+	familyID := uuid.New()
+	adminWrite := &stubGoCMSAdminContentWriteService{
+		createTranslationResp: &cms.AdminContentRecord{
+			ID:              uuid.New(),
+			FamilyID:        &familyID,
+			Title:           "Bonjour",
+			Slug:            "bonjour",
+			Locale:          "fr",
+			ContentType:     "posts",
+			ContentTypeSlug: "posts",
+			Status:          "draft",
+			Data:            map[string]any{"body": "bonjour", "route_key": "posts/about"},
+		},
+	}
+	contentSvc := &stubGoCMSContentService{}
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, nil, adminWrite, nil, nil)
+	adapter := svc.(*GoCMSContentAdapter)
+
+	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
+		SourceID: sourceID.String(),
+		Locale:   "fr",
+		RouteKey: "posts/about",
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if adminWrite.createTranslationCnt != 1 {
+		t.Fatalf("expected admin write path used for route_key-only translation, got %d calls", adminWrite.createTranslationCnt)
+	}
+	if contentSvc.createTranslationCnt != 0 {
+		t.Fatalf("expected reflective path to stay unused, got %d calls", contentSvc.createTranslationCnt)
 	}
 }

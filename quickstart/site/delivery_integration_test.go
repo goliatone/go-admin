@@ -714,6 +714,91 @@ func TestSiteDeliveryStrictLocalizedPathsDisablesAliasResolution(t *testing.T) {
 	}
 }
 
+func TestSiteDeliveryHandlesMixedRouteKeyFamiliesWithLegacyAndTranslatedPaths(t *testing.T) {
+	adm := mustAdminWithTheme(t, "admin", "light")
+	content := admin.NewInMemoryContentService()
+
+	_, err := content.CreateContentType(t.Context(), admin.CMSContentType{
+		ID:          "page-type",
+		Name:        "Page",
+		Slug:        "page",
+		Environment: "default",
+		Schema: map[string]any{
+			"type":       "object",
+			"properties": map[string]any{},
+		},
+		Capabilities: map[string]any{
+			"delivery": map[string]any{
+				"enabled": true,
+				"kind":    "page",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content type: %v", err)
+	}
+
+	for _, record := range []admin.CMSContent{
+		{
+			ID:              "about-en",
+			Title:           "About",
+			Slug:            "about",
+			Locale:          "en",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			RouteKey:        "pages/about",
+			Data:            map[string]any{"path": "/about"},
+		},
+		{
+			ID:              "about-bo",
+			Title:           "BO About",
+			Slug:            "about-bo",
+			Locale:          "bo",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			RouteKey:        "pages/about",
+			Data:            map[string]any{"path": "/bo/about"},
+		},
+		{
+			ID:              "about-zh",
+			Title:           "ZH About",
+			Slug:            "guanyu",
+			Locale:          "zh",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			RouteKey:        "pages/about",
+			Data:            map[string]any{"path": "/guanyu"},
+		},
+	} {
+		if _, err := content.CreateContent(t.Context(), record); err != nil {
+			t.Fatalf("create content %s: %v", record.ID, err)
+		}
+	}
+
+	server := router.NewHTTPServer()
+	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+		SupportedLocales: []string{"en", "bo", "zh"},
+		LocalePrefixMode: LocalePrefixNonDefault,
+	}, WithDeliveryServices(content, content)); err != nil {
+		t.Fatalf("register site routes: %v", err)
+	}
+
+	rec := performSiteRequestRaw(t, server, "/bo/about?format=json", "application/json")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected mixed-family request to resolve, got %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeSitePayload(t, "/bo/about?format=json", rec)
+	if got := localeSwitcherURLByLocale(payload, "en"); got != "/about?locale=en" {
+		t.Fatalf("expected en locale switcher url /about?locale=en, got %q payload=%+v", got, payload)
+	}
+	if got := localeSwitcherURLByLocale(payload, "zh"); got != "/zh/guanyu" {
+		t.Fatalf("expected zh locale switcher url /zh/guanyu, got %q payload=%+v", got, payload)
+	}
+}
+
 //go:fix inline
 func coreBoolPtr(value bool) *bool {
 	return new(value)

@@ -225,8 +225,25 @@ func TestDynamicPanelFactoryAddsCreateTranslationActionForEditorialPanels(t *tes
 					t.Fatalf("expected create_translation payload schema to include %q", key)
 				}
 			}
+			for _, key := range []string{"path", "route_key"} {
+				if _, exists := properties[key]; !exists {
+					t.Fatalf("expected create_translation payload schema to include %q", key)
+				}
+			}
 			if _, exists := properties["available_locales"]; exists {
 				t.Fatalf("expected create_translation payload schema not to include available_locales")
+			}
+			routeKeyProp, ok := properties["route_key"].(map[string]any)
+			if !ok || !toBool(routeKeyProp["x-hidden"]) {
+				t.Fatalf("expected create_translation route_key to stay hidden, got %+v", properties["route_key"])
+			}
+			formProps, ok := panel.Schema().FormSchema["properties"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected form schema properties, got %+v", panel.Schema().FormSchema)
+			}
+			routeKeyField, ok := formProps["route_key"].(map[string]any)
+			if !ok || !toBool(routeKeyField["x-hidden"]) {
+				t.Fatalf("expected hidden route_key field in form schema, got %+v", formProps["route_key"])
 			}
 			if !hasAction(actions, "submit_for_approval") || !hasAction(actions, "publish") {
 				t.Fatalf("expected workflow actions on %s panel, got %+v", tt.expectedSlug, actions)
@@ -775,6 +792,87 @@ func TestDynamicPanelFactorySkipsUnknownWorkflowAndLogs(t *testing.T) {
 	}
 	if got := logger.count("warn", "workflow not found"); got == 0 {
 		t.Fatalf("expected workflow warning to be logged via injected logger")
+	}
+}
+
+func TestDynamicPanelFactoryRefreshPanelReplacesPanelInPlace(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	factory := NewDynamicPanelFactory(adm)
+
+	contentType := &CMSContentType{
+		ID:           "ct-quote",
+		Name:         "Quote",
+		Slug:         "quote",
+		Status:       "active",
+		Schema:       minimalContentTypeSchema(),
+		Capabilities: map[string]any{"panel_slug": "quotes"},
+	}
+	panel, err := factory.CreatePanelFromContentType(context.Background(), contentType)
+	if err != nil {
+		t.Fatalf("create panel: %v", err)
+	}
+
+	updated := *contentType
+	updated.Schema = map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"title":  map[string]any{"type": "string"},
+			"author": map[string]any{"type": "string"},
+		},
+	}
+	if err := adm.RegisterPanelTab("quotes", PanelTab{
+		ID:     "external",
+		Label:  "External",
+		Target: PanelTabTarget{Type: "panel", Panel: "external"},
+	}); err != nil {
+		t.Fatalf("register external tab: %v", err)
+	}
+	if err := factory.RefreshPanel(context.Background(), &updated); err != nil {
+		t.Fatalf("refresh panel: %v", err)
+	}
+
+	refreshed, ok := adm.Registry().Panel("quotes")
+	if !ok || refreshed == nil {
+		t.Fatalf("expected refreshed panel to remain registered")
+	}
+	if refreshed == panel {
+		t.Fatalf("expected refresh to replace the panel instance")
+	}
+	if len(refreshed.Schema().FormFields) < 2 {
+		t.Fatalf("expected refreshed schema fields to be rebuilt, got %+v", refreshed.Schema().FormFields)
+	}
+	if got := len(adm.Registry().PanelTabs("quotes")); got != 0 {
+		t.Fatalf("expected registry-managed tabs to be reset during replace, got %d", got)
+	}
+}
+
+func TestDynamicPanelFactoryRefreshPanelRenamesPanelAfterNewPanelIsReady(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	factory := NewDynamicPanelFactory(adm)
+
+	contentType := &CMSContentType{
+		ID:           "ct-quote",
+		Name:         "Quote",
+		Slug:         "quote",
+		Status:       "active",
+		Schema:       minimalContentTypeSchema(),
+		Capabilities: map[string]any{"panel_slug": "quotes"},
+	}
+	if _, err := factory.CreatePanelFromContentType(context.Background(), contentType); err != nil {
+		t.Fatalf("create panel: %v", err)
+	}
+
+	updated := *contentType
+	updated.Capabilities = map[string]any{"panel_slug": "sayings"}
+	if err := factory.RefreshPanel(context.Background(), &updated); err != nil {
+		t.Fatalf("refresh renamed panel: %v", err)
+	}
+
+	if _, ok := adm.Registry().Panel("quotes"); ok {
+		t.Fatalf("expected previous panel name to be removed after rename")
+	}
+	if panel, ok := adm.Registry().Panel("sayings"); !ok || panel == nil {
+		t.Fatalf("expected renamed panel to be registered")
 	}
 }
 

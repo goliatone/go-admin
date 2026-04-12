@@ -177,6 +177,11 @@ func TestPanelBindingCreateTranslationRecordsMetricOutcomes(t *testing.T) {
 					"family_id":         "tg_123",
 					"available_locales": []string{"en", "es"},
 				},
+				"page_456": {
+					"id":        "page_456",
+					"locale":    "es",
+					"family_id": "tg_123",
+				},
 			},
 		}
 		panel := &Panel{name: "pages", repo: repo}

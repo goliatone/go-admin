@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin/routing"
@@ -130,6 +131,39 @@ func TestDefaultURLKitConfigPaths(t *testing.T) {
 	}
 	if translationsDashboardAPI != "/admin/api/translations/dashboard" {
 		t.Fatalf("expected /admin/api/translations/dashboard, got %q", translationsDashboardAPI)
+	}
+}
+
+func TestRegisterPanelSyncsCanonicalUIRoutesIntoURLManager(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
+	factory := NewDynamicPanelFactory(adm)
+	if _, err := factory.CreatePanelFromContentType(context.Background(), &CMSContentType{
+		ID:     "ct-quotes",
+		Name:   "Quote",
+		Slug:   "quote",
+		Status: "active",
+		Schema: minimalContentTypeSchema(),
+		Capabilities: map[string]any{
+			"panel_slug": "quotes",
+		},
+	}); err != nil {
+		t.Fatalf("create quotes panel: %v", err)
+	}
+
+	listPath, err := adm.URLs().Resolve("admin", "quotes", nil, nil)
+	if err != nil {
+		t.Fatalf("resolve quotes route: %v", err)
+	}
+	if listPath != "/admin/quotes" {
+		t.Fatalf("expected /admin/quotes, got %q", listPath)
+	}
+
+	detailPath, err := adm.URLs().Resolve("admin", "quotes.id", urlkit.Params{"id": "quote-1"}, nil)
+	if err != nil {
+		t.Fatalf("resolve quotes detail route: %v", err)
+	}
+	if detailPath != "/admin/quotes/quote-1" {
+		t.Fatalf("expected /admin/quotes/quote-1, got %q", detailPath)
 	}
 }
 

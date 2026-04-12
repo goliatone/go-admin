@@ -82,6 +82,51 @@ func TestAdminRegisterPanelUsesRegistry(t *testing.T) {
 	}
 }
 
+func TestRegistryUpsertPanelReplacesExistingPanel(t *testing.T) {
+	reg := NewRegistry()
+	first := &Panel{name: "items"}
+	second := &Panel{name: "items.v2"}
+
+	if err := reg.RegisterPanel("items", first); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+	if err := reg.UpsertPanel("items", second); err != nil {
+		t.Fatalf("upsert panel: %v", err)
+	}
+
+	got, ok := reg.Panel("items")
+	if !ok || got != second {
+		t.Fatalf("expected upsert to replace the panel, got %#v", got)
+	}
+}
+
+func TestAdminReplacePanelResetsRegistryTabsBeforeResync(t *testing.T) {
+	adm := mustNewAdmin(t, Config{}, Dependencies{})
+	builder := (&PanelBuilder{}).WithRepository(NewMemoryRepository())
+
+	if _, err := adm.RegisterPanel("items", builder); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+	if err := adm.RegisterPanelTab("items", PanelTab{
+		ID:     "custom",
+		Label:  "Custom",
+		Target: PanelTabTarget{Type: "panel", Panel: "custom"},
+	}); err != nil {
+		t.Fatalf("register panel tab: %v", err)
+	}
+
+	if _, err := adm.replacePanel("items", (&PanelBuilder{}).WithRepository(NewMemoryRepository()), true); err != nil {
+		t.Fatalf("replace panel: %v", err)
+	}
+
+	if panel, ok := adm.Registry().Panel("items"); !ok || panel == nil {
+		t.Fatalf("expected replaced panel to remain registered")
+	}
+	if got := len(adm.Registry().PanelTabs("items")); got != 0 {
+		t.Fatalf("expected registry-managed tabs to be reset on replace, got %d", got)
+	}
+}
+
 func TestRegistryPanelTabsOrderingAndDedupe(t *testing.T) {
 	reg := NewRegistry()
 

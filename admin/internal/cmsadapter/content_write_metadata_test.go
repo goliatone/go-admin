@@ -10,6 +10,7 @@ func TestExtractStructuralMetadataSeparatesStructuralKeys(t *testing.T) {
 
 	input := map[string]any{
 		"path":        "/hello",
+		"route_key":   "hello-page",
 		"template":    "page",
 		"parent_id":   "parent-1",
 		"order":       7,
@@ -22,11 +23,17 @@ func TestExtractStructuralMetadataSeparatesStructuralKeys(t *testing.T) {
 	if got, want := meta["template_id"], "page-explicit"; got != want {
 		t.Fatalf("expected template_id %q, got %#v", want, got)
 	}
+	if got, want := meta["route_key"], "hello-page"; got != want {
+		t.Fatalf("expected route_key %q, got %#v", want, got)
+	}
 	if got, want := meta["sort_order"], 7; got != want {
 		t.Fatalf("expected sort_order %#v, got %#v", want, got)
 	}
 	if _, ok := cleaned["path"]; ok {
 		t.Fatalf("expected path to be removed from cleaned data: %+v", cleaned)
+	}
+	if _, ok := cleaned["route_key"]; ok {
+		t.Fatalf("expected route_key to be removed from cleaned data: %+v", cleaned)
 	}
 	if _, ok := cleaned["template"]; ok {
 		t.Fatalf("expected template to be removed from cleaned data: %+v", cleaned)
@@ -49,6 +56,7 @@ func TestNormalizeAndInjectStructuralMetadataPreserveCanonicalKeys(t *testing.T)
 		"template": "landing",
 		"order":    3,
 		"path":     "/docs",
+		"route_key": "docs-page",
 	})
 
 	if _, ok := normalized["template"]; ok {
@@ -67,6 +75,9 @@ func TestNormalizeAndInjectStructuralMetadataPreserveCanonicalKeys(t *testing.T)
 	data := InjectStructuralMetadata(normalized, map[string]any{"body": "text"})
 	if got, want := data["path"], "/docs"; got != want {
 		t.Fatalf("expected path %q, got %#v", want, got)
+	}
+	if got, want := data["route_key"], "docs-page"; got != want {
+		t.Fatalf("expected route_key %q, got %#v", want, got)
 	}
 	if got, want := data["template_id"], "landing"; got != want {
 		t.Fatalf("expected template_id %q, got %#v", want, got)

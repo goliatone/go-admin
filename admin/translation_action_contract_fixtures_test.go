@@ -173,6 +173,8 @@ func assertCreateTranslationPayloadSchemaContract(t *testing.T, action map[strin
 	}
 	for _, field := range []string{
 		"locale",
+		"path",
+		"route_key",
 		"missing_locales",
 		"existing_locales",
 		"recommended_locale",

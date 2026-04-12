@@ -74,6 +74,8 @@ type stubCreateTranslationRequest struct {
 	SourceID        uuid.UUID
 	ID              uuid.UUID
 	Locale          string
+	Path            string
+	RouteKey        string
 	TargetLocale    string
 	EnvironmentKey  string
 	ContentType     string
@@ -561,6 +563,55 @@ func TestGoCMSContentAdapterCreateTranslationUsesCanonicalMetadataOnly(t *testin
 	}
 	if len(contentSvc.createTranslationReq.Meta) != 0 {
 		t.Fatalf("expected legacy Meta field to remain empty, got %v", contentSvc.createTranslationReq.Meta)
+	}
+}
+
+func TestGoCMSContentAdapterCreateTranslationPromotesFirstClassPathAndRouteKeyIntoMetadata(t *testing.T) {
+	ctx := context.Background()
+	sourceID := uuid.New()
+	typeSvc := newStubContentTypeService(CMSContentType{
+		ID:   uuid.New().String(),
+		Slug: "posts",
+	})
+	contentSvc := &stubGoCMSContentService{
+		createTranslationRes: &cmscontent.Content{
+			ID:     uuid.New(),
+			Slug:   "hello-fr",
+			Status: "draft",
+			Type:   &cmscontent.ContentType{Slug: "posts"},
+			Translations: []*cmscontent.ContentTranslation{{
+				Locale:  &cmscontent.Locale{Code: "fr"},
+				Title:   "Bonjour",
+				Content: map[string]any{"body": "bonjour"},
+			}},
+		},
+	}
+	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
+	adapter := svc.(*GoCMSContentAdapter)
+
+	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
+		SourceID:    sourceID.String(),
+		Locale:      "fr",
+		Environment: "staging",
+		ContentType: "posts",
+		Status:      "draft",
+		Path:        "/bonjour",
+		RouteKey:    "posts/hello",
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if contentSvc.createTranslationReq.Path != "/bonjour" {
+		t.Fatalf("expected first-class path on request, got %q", contentSvc.createTranslationReq.Path)
+	}
+	if contentSvc.createTranslationReq.RouteKey != "posts/hello" {
+		t.Fatalf("expected first-class route_key on request, got %q", contentSvc.createTranslationReq.RouteKey)
+	}
+	if got := toString(contentSvc.createTranslationReq.Metadata["path"]); got != "/bonjour" {
+		t.Fatalf("expected metadata path /bonjour, got %q", got)
+	}
+	if got := toString(contentSvc.createTranslationReq.Metadata["route_key"]); got != "posts/hello" {
+		t.Fatalf("expected metadata route_key posts/hello, got %q", got)
 	}
 }
 

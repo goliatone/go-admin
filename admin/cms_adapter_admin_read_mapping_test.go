@@ -26,7 +26,7 @@ func TestMapCMSAdminPageRecordClonesCoreReadFields(t *testing.T) {
 		MetaDescription: " Description ",
 		Tags:            []string{"one", "two"},
 		SchemaVersion:   " page/v1 ",
-		Data:            map[string]any{"path": "/home"},
+		Data:            map[string]any{"path": "/home", "route_key": "pages/home"},
 		PreviewURL:      " /preview ",
 		PublishedAt:     &now,
 		CreatedAt:       &now,
@@ -50,6 +50,9 @@ func TestMapCMSAdminPageRecordClonesCoreReadFields(t *testing.T) {
 	}
 	if mapped.PreviewURL != "/preview" {
 		t.Fatalf("expected trimmed preview url, got %q", mapped.PreviewURL)
+	}
+	if mapped.RouteKey != "pages/home" {
+		t.Fatalf("expected route key pages/home, got %q", mapped.RouteKey)
 	}
 	record.Data["path"] = "/mutated"
 	if got := toString(mapped.Data["path"]); got != "/home" {

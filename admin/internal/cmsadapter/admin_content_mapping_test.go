@@ -31,7 +31,7 @@ func TestAdminContentRecordToCMSContentPreservesAdminFields(t *testing.T) {
 		EmbeddedBlocks:         []map[string]any{{"type": "hero"}},
 		SchemaVersion:          "post/v1",
 		Data:                   map[string]any{"body": "bonjour"},
-		Metadata:               map[string]any{"path": "/bonjour"},
+		Metadata:               map[string]any{"path": "/bonjour", "route_key": "posts/hello"},
 	}
 
 	converted := AdminContentRecordToCMSContent(record)
@@ -40,6 +40,9 @@ func TestAdminContentRecordToCMSContentPreservesAdminFields(t *testing.T) {
 	}
 	if converted.FamilyID != familyID.String() {
 		t.Fatalf("expected family id %s, got %s", familyID.String(), converted.FamilyID)
+	}
+	if converted.RouteKey != "posts/hello" {
+		t.Fatalf("expected route key posts/hello, got %q", converted.RouteKey)
 	}
 	if converted.Data["_schema"] != "post/v1" {
 		t.Fatalf("expected schema version injected into data, got %v", converted.Data["_schema"])
@@ -89,6 +92,7 @@ func TestCMSContentToAdminContentRequestsPreserveWriteFields(t *testing.T) {
 		SchemaVersion:          "post/v1",
 		Data:                   map[string]any{"body": "hello"},
 		Metadata:               map[string]any{"path": "/hello"},
+		RouteKey:               "posts/hello",
 	}
 
 	createReq := CMSContentToAdminContentCreateRequest(content, typeID, actor, true)
@@ -100,6 +104,12 @@ func TestCMSContentToAdminContentRequestsPreserveWriteFields(t *testing.T) {
 	}
 	if createReq.FamilyID == nil || *createReq.FamilyID != familyID {
 		t.Fatalf("expected family id on create request")
+	}
+	if got := createReq.Metadata["route_key"]; got != "posts/hello" {
+		t.Fatalf("expected route_key in create metadata, got %#v", got)
+	}
+	if got := createReq.Data["route_key"]; got != "posts/hello" {
+		t.Fatalf("expected route_key in create data, got %#v", got)
 	}
 	content.Navigation["header"] = "hide"
 	content.Data["body"] = "mutated"
@@ -119,5 +129,8 @@ func TestCMSContentToAdminContentRequestsPreserveWriteFields(t *testing.T) {
 	}
 	if updateReq.ContentTypeSlug != "posts" {
 		t.Fatalf("expected content type slug posts, got %q", updateReq.ContentTypeSlug)
+	}
+	if got := updateReq.Metadata["route_key"]; got != "posts/hello" {
+		t.Fatalf("expected route_key in update metadata, got %#v", got)
 	}
 }

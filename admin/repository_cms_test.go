@@ -279,6 +279,38 @@ func TestCMSPageRepositoryPreventsSlugCollision(t *testing.T) {
 	}
 }
 
+func TestCMSPageRepositoryPreventsLocalizedPathCollisionWithinLocale(t *testing.T) {
+	content := NewInMemoryContentService()
+	repo := NewCMSPageRepository(content)
+	if _, err := repo.Create(context.Background(), map[string]any{
+		"title":  "About",
+		"slug":   "about",
+		"locale": "en",
+		"path":   "/about",
+	}); err != nil {
+		t.Fatalf("seed page failed: %v", err)
+	}
+
+	_, err := repo.Create(context.Background(), map[string]any{
+		"title":  "About Duplicate",
+		"slug":   "about-duplicate",
+		"locale": "en",
+		"path":   "/about",
+	})
+	if !errors.Is(err, ErrPathConflict) {
+		t.Fatalf("expected localized path conflict, got %v", err)
+	}
+
+	if _, err := repo.Create(context.Background(), map[string]any{
+		"title":  "Acerca",
+		"slug":   "acerca",
+		"locale": "es",
+		"path":   "/about",
+	}); err != nil {
+		t.Fatalf("expected same path to be allowed across locales, got %v", err)
+	}
+}
+
 func TestBlockAndWidgetDefinitionRoundTrip(t *testing.T) {
 	content := NewInMemoryContentService()
 	blockRepo := NewCMSBlockDefinitionRepository(content, content)
@@ -365,21 +397,41 @@ func TestCMSContentRepositoryEmbeddedBlocksAndSchema(t *testing.T) {
 }
 
 func TestCMSContentRepositoryCreateTranslationDelegatesToContentCommand(t *testing.T) {
+	base := NewInMemoryContentService()
+	source, err := base.CreateContent(context.Background(), CMSContent{
+		ID:              "post_123",
+		Title:           "Hello",
+		Slug:            "hello",
+		Locale:          "en",
+		Status:          "draft",
+		FamilyID:        "tg_123",
+		ContentType:     "posts",
+		ContentTypeSlug: "posts",
+		RouteKey:        "posts/hello",
+		Data:            map[string]any{"path": "/hello"},
+	})
+	if err != nil {
+		t.Fatalf("seed source failed: %v", err)
+	}
 	service := &translationCreatorContentServiceStub{
-		CMSContentService: NewInMemoryContentService(),
+		CMSContentService: base,
 		result: &CMSContent{
 			ID:              "post_456",
 			Locale:          "fr",
 			Status:          "draft",
-			FamilyID:        "tg_123",
+			FamilyID:        source.FamilyID,
 			ContentTypeSlug: "posts",
+			RouteKey:        "posts/hello",
+			Data:            map[string]any{"path": "/bonjour"},
 		},
 	}
 	repo := NewCMSContentRepository(service)
 
 	record, err := repo.CreateTranslation(context.Background(), TranslationCreateInput{
-		SourceID: "post_123",
+		SourceID: source.ID,
 		Locale:   "fr",
+		Path:     "/bonjour",
+		RouteKey: "posts/hello",
 	})
 	if err != nil {
 		t.Fatalf("create translation failed: %v", err)
@@ -396,23 +448,51 @@ func TestCMSContentRepositoryCreateTranslationDelegatesToContentCommand(t *testi
 	if service.lastInput.Locale != "fr" {
 		t.Fatalf("expected locale fr, got %q", service.lastInput.Locale)
 	}
+	if service.lastInput.Path != "/bonjour" {
+		t.Fatalf("expected path /bonjour, got %q", service.lastInput.Path)
+	}
+	if service.lastInput.RouteKey != "posts/hello" {
+		t.Fatalf("expected route_key posts/hello, got %q", service.lastInput.RouteKey)
+	}
+	if got := toString(record["route_key"]); got != "posts/hello" {
+		t.Fatalf("expected route_key posts/hello on record, got %q", got)
+	}
+	if got := toString(record["path"]); got != "/bonjour" {
+		t.Fatalf("expected localized path /bonjour on record, got %q", got)
+	}
 }
 
 func TestCMSContentTypeEntryRepositoryCreateTranslationDelegatesToContentCommand(t *testing.T) {
+	base := NewInMemoryContentService()
+	source, err := base.CreateContent(context.Background(), CMSContent{
+		ID:              "post_123",
+		Title:           "Hello",
+		Slug:            "hello",
+		Locale:          "en",
+		Status:          "draft",
+		FamilyID:        "tg_123",
+		ContentType:     "posts",
+		ContentTypeSlug: "posts",
+		RouteKey:        "posts/hello",
+		Data:            map[string]any{"path": "/hello"},
+	})
+	if err != nil {
+		t.Fatalf("seed source failed: %v", err)
+	}
 	service := &translationCreatorContentServiceStub{
-		CMSContentService: NewInMemoryContentService(),
+		CMSContentService: base,
 		result: &CMSContent{
 			ID:              "post_456",
 			Locale:          "fr",
 			Status:          "draft",
-			FamilyID:        "tg_123",
+			FamilyID:        source.FamilyID,
 			ContentTypeSlug: "posts",
 		},
 	}
 	repo := NewCMSContentTypeEntryRepository(service, CMSContentType{Slug: "posts"})
 
 	record, err := repo.CreateTranslation(context.Background(), TranslationCreateInput{
-		SourceID: "post_123",
+		SourceID: source.ID,
 		Locale:   "fr",
 	})
 	if err != nil {
@@ -423,6 +503,147 @@ func TestCMSContentTypeEntryRepositoryCreateTranslationDelegatesToContentCommand
 	}
 	if service.lastInput.ContentType != "posts" {
 		t.Fatalf("expected content type posts, got %q", service.lastInput.ContentType)
+	}
+}
+
+func TestCMSPageRepositoryPreservesRouteKeyAndLocalizedPathAcrossCRUD(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSPageRepository(content)
+
+	created, err := repo.Create(ctx, map[string]any{
+		"title":     "About",
+		"locale":    "en",
+		"path":      "/about",
+		"route_key": "pages/about",
+		"status":    "draft",
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	id := toString(created["id"])
+	if got := toString(created["route_key"]); got != "pages/about" {
+		t.Fatalf("expected route_key pages/about on create, got %q", got)
+	}
+	if got := toString(created["path"]); got != "/about" {
+		t.Fatalf("expected localized path /about on create, got %q", got)
+	}
+
+	updated, err := repo.Update(WithLocale(ctx, "en"), id, map[string]any{
+		"path": "/about-us",
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if got := toString(updated["route_key"]); got != "pages/about" {
+		t.Fatalf("expected route_key preserved on update, got %q", got)
+	}
+	if got := toString(updated["path"]); got != "/about-us" {
+		t.Fatalf("expected updated localized path /about-us, got %q", got)
+	}
+
+	record, err := repo.Get(WithLocale(ctx, "en"), id)
+	if err != nil {
+		t.Fatalf("get failed: %v", err)
+	}
+	if got := toString(record["route_key"]); got != "pages/about" {
+		t.Fatalf("expected route_key on get, got %q", got)
+	}
+	if got := toString(record["path"]); got != "/about-us" {
+		t.Fatalf("expected localized path /about-us on get, got %q", got)
+	}
+
+	list, _, err := repo.List(ctx, ListOptions{Filters: map[string]any{"locale": "en"}})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected one list record, got %d", len(list))
+	}
+	if got := toString(list[0]["route_key"]); got != "pages/about" {
+		t.Fatalf("expected route_key on list, got %q", got)
+	}
+}
+
+func TestCMSPageRepositoryAllowsSameLocalizedPathAcrossLocales(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSPageRepository(content)
+
+	if _, err := repo.Create(ctx, map[string]any{
+		"title":  "About",
+		"locale": "en",
+		"path":   "/about",
+	}); err != nil {
+		t.Fatalf("create en failed: %v", err)
+	}
+	if _, err := repo.Create(ctx, map[string]any{
+		"title":  "About ES",
+		"locale": "es",
+		"path":   "/about",
+	}); err != nil {
+		t.Fatalf("expected same localized path across locales to be allowed, got %v", err)
+	}
+}
+
+func TestCMSContentRepositoryPreservesRouteKeyAndLocalizedPathAcrossCRUD(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	repo := NewCMSContentRepository(content)
+
+	created, err := repo.Create(ctx, map[string]any{
+		"title":        "About",
+		"locale":       "fr",
+		"content_type": "posts",
+		"status":       "draft",
+		"path":         "/a-propos",
+		"route_key":    "posts/about",
+		"body":         "bonjour",
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+	id := toString(created["id"])
+	if got := toString(created["route_key"]); got != "posts/about" {
+		t.Fatalf("expected route_key posts/about on create, got %q", got)
+	}
+	if got := toString(created["path"]); got != "/a-propos" {
+		t.Fatalf("expected localized path /a-propos on create, got %q", got)
+	}
+
+	updated, err := repo.Update(WithLocale(ctx, "fr"), id, map[string]any{
+		"path": "/a-propos-nous",
+	})
+	if err != nil {
+		t.Fatalf("update failed: %v", err)
+	}
+	if got := toString(updated["route_key"]); got != "posts/about" {
+		t.Fatalf("expected route_key preserved on update, got %q", got)
+	}
+	if got := toString(updated["path"]); got != "/a-propos-nous" {
+		t.Fatalf("expected localized path /a-propos-nous on update, got %q", got)
+	}
+
+	record, err := repo.Get(WithLocale(ctx, "fr"), id)
+	if err != nil {
+		t.Fatalf("get failed: %v", err)
+	}
+	if got := toString(record["route_key"]); got != "posts/about" {
+		t.Fatalf("expected route_key on get, got %q", got)
+	}
+	if got := toString(record["path"]); got != "/a-propos-nous" {
+		t.Fatalf("expected localized path /a-propos-nous on get, got %q", got)
+	}
+
+	list, _, err := repo.List(ctx, ListOptions{Filters: map[string]any{"locale": "fr"}})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected one list record, got %d", len(list))
+	}
+	if got := toString(list[0]["route_key"]); got != "posts/about" {
+		t.Fatalf("expected route_key on list, got %q", got)
 	}
 }
 

@@ -14,6 +14,7 @@ func TestPageFromContentInjectsStructuralMetadataAndFallbackPath(t *testing.T) {
 		SchemaVersion: "page/v1",
 		Metadata: map[string]any{
 			"path":        "/home",
+			"route_key":   "pages/home",
 			"parent_id":   "parent-1",
 			"template_id": "tmpl-1",
 		},
@@ -32,6 +33,12 @@ func TestPageFromContentInjectsStructuralMetadataAndFallbackPath(t *testing.T) {
 	}
 	if got := toString(page.Data["path"]); got != "/home" {
 		t.Fatalf("expected path copied into data, got %q", got)
+	}
+	if page.RouteKey != "pages/home" {
+		t.Fatalf("expected route key pages/home, got %q", page.RouteKey)
+	}
+	if got := toString(page.Data["route_key"]); got != "pages/home" {
+		t.Fatalf("expected route_key copied into data, got %q", got)
 	}
 	if page.SEO["title"] != "Meta Title" || page.SEO["description"] != "Meta Description" {
 		t.Fatalf("expected SEO fields derived from data, got %+v", page.SEO)

@@ -411,3 +411,144 @@ func TestExampleTranslationExchangeStoreResolvesAndAppliesDeterministicLinkage(t
 	require.NoError(t, err)
 	require.True(t, linkageAfter.TargetExists)
 }
+
+func TestExampleTranslationExchangeStoreAppliesTranslatedLocalizedPagePath(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+
+	contentSvc := cmsOpts.Container.ContentService()
+	source, err := contentSvc.CreatePage(ctx, coreadmin.CMSPage{
+		Title:    "About Locale Paths",
+		Slug:     "about-locale-paths",
+		Locale:   "en",
+		Status:   "draft",
+		RouteKey: "pages/about-locale-paths",
+		Data:     map[string]any{"path": "/about-locale-paths"},
+	})
+	require.NoError(t, err)
+
+	store := newExampleTranslationExchangeStore(func() coreadmin.CMSContentService { return contentSvc })
+	groupID := normalizeFamilyID(source.FamilyID, source.ID)
+	linkage, err := store.ResolveLinkage(ctx, coreadmin.TranslationExchangeLinkageKey{
+		Resource:     "pages",
+		EntityID:     source.ID,
+		FamilyID:     groupID,
+		TargetLocale: "es",
+		FieldPath:    "title",
+	})
+	require.NoError(t, err)
+	require.False(t, linkage.TargetExists)
+
+	err = store.ApplyTranslation(ctx, coreadmin.TranslationExchangeApplyRequest{
+		Key:               linkage.Key,
+		TranslatedText:    "Sobre nosotros",
+		CreateTranslation: true,
+		WorkflowStatus:    "draft",
+		Path:              "/sobre-nosotros",
+		RouteKey:          "pages/about-locale-paths",
+	})
+	require.NoError(t, err)
+
+	target, err := findPageLocaleVariantForSource(ctx, contentSvc, source, groupID, "es")
+	require.NoError(t, err)
+	require.NotNil(t, target)
+	require.Equal(t, "pages/about-locale-paths", strings.TrimSpace(target.RouteKey))
+	require.Equal(t, "/sobre-nosotros", strings.TrimSpace(target.Data["path"].(string)))
+	require.Equal(t, "about-locale-paths-es", strings.TrimSpace(target.Slug))
+}
+
+func TestExampleTranslationExchangeStorePreservesCanonicalHomepagePathForNonDefaultLocale(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+
+	contentSvc := cmsOpts.Container.ContentService()
+	source, err := contentSvc.CreatePage(ctx, coreadmin.CMSPage{
+		Title:    "Home Locale Paths",
+		Slug:     "home-locale-paths",
+		Locale:   "en",
+		Status:   "draft",
+		RouteKey: "pages/home-locale-paths",
+		Data:     map[string]any{"path": "/"},
+	})
+	require.NoError(t, err)
+
+	store := newExampleTranslationExchangeStore(func() coreadmin.CMSContentService { return contentSvc })
+	groupID := normalizeFamilyID(source.FamilyID, source.ID)
+	linkage, err := store.ResolveLinkage(ctx, coreadmin.TranslationExchangeLinkageKey{
+		Resource:     "pages",
+		EntityID:     source.ID,
+		FamilyID:     groupID,
+		TargetLocale: "fr",
+		FieldPath:    "title",
+	})
+	require.NoError(t, err)
+
+	err = store.ApplyTranslation(ctx, coreadmin.TranslationExchangeApplyRequest{
+		Key:               linkage.Key,
+		TranslatedText:    "Accueil",
+		CreateTranslation: true,
+		WorkflowStatus:    "draft",
+		Path:              "/",
+		RouteKey:          "pages/home-locale-paths",
+	})
+	require.NoError(t, err)
+
+	target, err := findPageLocaleVariantForSource(ctx, contentSvc, source, groupID, "fr")
+	require.NoError(t, err)
+	require.NotNil(t, target)
+	require.Equal(t, "/", strings.TrimSpace(target.Data["path"].(string)))
+	require.Equal(t, "home-locale-paths-fr", strings.TrimSpace(target.Slug))
+}
+
+func TestExampleLocalePathMigrationAuditFlagsLegacyPrefixedFixture(t *testing.T) {
+	ctx := context.Background()
+	dsn := fmt.Sprintf("file:%s?cache=shared&_fk=1", filepath.Join(t.TempDir(), strings.ToLower(t.Name())+".db"))
+
+	cmsOpts, err := setup.SetupPersistentCMS(ctx, "en", dsn)
+	require.NoError(t, err)
+
+	contentSvc := cmsOpts.Container.ContentService()
+	source, err := contentSvc.CreatePage(ctx, coreadmin.CMSPage{
+		Title:    "About Legacy Prefix",
+		Slug:     "about-legacy-prefix",
+		Locale:   "en",
+		Status:   "draft",
+		RouteKey: "pages/about-legacy-prefix",
+		Data:     map[string]any{"path": "/about-legacy-prefix"},
+	})
+	require.NoError(t, err)
+	_, err = contentSvc.CreatePage(ctx, coreadmin.CMSPage{
+		Title:    "About FR Legacy",
+		Slug:     "about-bo",
+		Locale:   "fr",
+		Status:   "draft",
+		FamilyID: normalizeFamilyID(source.FamilyID, source.ID),
+		Data:     map[string]any{"path": "/fr/about-legacy-prefix"},
+	})
+	require.NoError(t, err)
+
+	report, err := coreadmin.AuditLocalePathMigration(ctx, contentSvc, coreadmin.LocalePathMigrationOptions{
+		SupportedLocales: []string{"en", "fr"},
+		DefaultLocale:    "en",
+		IncludePages:     true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, report.Summary.LegacyPrefixedRecords)
+	var family *coreadmin.LocalePathMigrationFamilyPlan
+	targetFamilyID := normalizeFamilyID(source.FamilyID, source.ID)
+	for i := range report.Families {
+		if strings.EqualFold(strings.TrimSpace(report.Families[i].FamilyID), strings.TrimSpace(targetFamilyID)) {
+			family = &report.Families[i]
+			break
+		}
+	}
+	require.NotNil(t, family, "expected audit family for %s in %+v", targetFamilyID, report.Families)
+	require.NotEmpty(t, family.Rewrites)
+	require.Equal(t, "/about-legacy-prefix", family.Rewrites[0].PathTo)
+}

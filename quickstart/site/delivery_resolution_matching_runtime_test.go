@@ -222,3 +222,163 @@ func TestResolvePreviewFallbackReturnsMatchedPreviewResult(t *testing.T) {
 		t.Fatalf("expected preview fallback to resolve page-draft-home, got %+v", resolution)
 	}
 }
+
+func TestResolveDetailCapabilitiesMatchesLocalizedPublicPathBeforeSlugIdentity(t *testing.T) {
+	runtime := &deliveryRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			SupportedLocales: []string{"en", "es"},
+			Features: SiteFeatures{
+				EnableI18N: new(true),
+			},
+		}),
+	}
+	state := RequestState{
+		Locale:              "es",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en", "es"},
+		AllowLocaleFallback: true,
+	}
+	capabilities := []deliveryCapability{
+		{TypeSlug: "post", Kind: "detail", DetailRoute: "/posts/:slug"},
+	}
+	recordsByType := map[string][]admin.CMSContent{
+		"post": {{
+			ID:              "post-es",
+			Slug:            "about",
+			Locale:          "es",
+			Status:          "published",
+			ContentType:     "post",
+			ContentTypeSlug: "post",
+			RouteKey:        "posts/about",
+			Data:            map[string]any{"path": "/posts/sobre-nosotros"},
+		}},
+	}
+
+	resolution, siteErr, matched := runtime.resolveDetailCapabilities(
+		context.Background(),
+		capabilities,
+		recordsByType,
+		state,
+		"/posts/sobre-nosotros",
+		newSiteContentCache(),
+	)
+	if !matched {
+		t.Fatalf("expected detail capability to match localized public path")
+	}
+	if hasSiteRuntimeError(siteErr) {
+		t.Fatalf("unexpected site error %+v", siteErr)
+	}
+	if resolution == nil || resolution.Record == nil || resolution.Record.ID != "post-es" {
+		t.Fatalf("expected localized public path to resolve post-es, got %+v", resolution)
+	}
+}
+
+func TestResolvePageCapabilitiesReturnsNotFoundForAmbiguousLocalizedPath(t *testing.T) {
+	runtime := &deliveryRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			SupportedLocales: []string{"en", "es"},
+			Features: SiteFeatures{
+				EnableI18N: new(true),
+			},
+		}),
+	}
+	state := RequestState{
+		Locale:              "es",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en", "es"},
+		AllowLocaleFallback: true,
+	}
+	capabilities := []deliveryCapability{
+		{TypeSlug: "page", Kind: "page"},
+	}
+	recordsByType := map[string][]admin.CMSContent{
+		"page": {
+			{
+				ID:              "page-es-1",
+				Slug:            "about-one",
+				Locale:          "es",
+				Status:          "published",
+				ContentType:     "page",
+				ContentTypeSlug: "page",
+				RouteKey:        "pages/about-one",
+				Data:            map[string]any{"path": "/sobre"},
+			},
+			{
+				ID:              "page-es-2",
+				Slug:            "about-two",
+				Locale:          "es",
+				Status:          "published",
+				ContentType:     "page",
+				ContentTypeSlug: "page",
+				RouteKey:        "pages/about-two",
+				Data:            map[string]any{"path": "/sobre"},
+			},
+		},
+	}
+
+	resolution, siteErr, matched := runtime.resolvePageCapabilities(
+		context.Background(),
+		capabilities,
+		recordsByType,
+		state,
+		"/sobre",
+		newSiteContentCache(),
+	)
+	if !matched {
+		t.Fatalf("expected ambiguous localized path to be treated as matched error")
+	}
+	if resolution != nil {
+		t.Fatalf("expected no resolution for ambiguous localized path, got %+v", resolution)
+	}
+	if siteErr.Status != 404 {
+		t.Fatalf("expected ambiguous localized path to surface as 404, got %+v", siteErr)
+	}
+}
+
+func TestResolvePageCapabilitiesStrictLocalizedPathsRequiresExplicitLocalizedPath(t *testing.T) {
+	runtime := &deliveryRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			SupportedLocales: []string{"en", "es"},
+			LocalePrefixMode: LocalePrefixNonDefault,
+			Features: SiteFeatures{
+				EnableI18N:           new(true),
+				StrictLocalizedPaths: new(true),
+			},
+		}),
+	}
+	state := RequestState{
+		Locale:              "es",
+		DefaultLocale:       "en",
+		SupportedLocales:    []string{"en", "es"},
+		AllowLocaleFallback: true,
+	}
+	capabilities := []deliveryCapability{
+		{TypeSlug: "page", Kind: "page"},
+	}
+	recordsByType := map[string][]admin.CMSContent{
+		"page": {{
+			ID:              "page-es",
+			Slug:            "about",
+			Locale:          "es",
+			Status:          "published",
+			ContentType:     "page",
+			ContentTypeSlug: "page",
+			RouteKey:        "pages/about",
+		}},
+	}
+
+	resolution, siteErr, matched := runtime.resolvePageCapabilities(
+		context.Background(),
+		capabilities,
+		recordsByType,
+		state,
+		"/about",
+		newSiteContentCache(),
+	)
+	if matched {
+		t.Fatalf("expected strict localized paths to avoid matching synthesized locale path, got resolution=%+v err=%+v", resolution, siteErr)
+	}
+	if resolution != nil || hasSiteRuntimeError(siteErr) {
+		t.Fatalf("expected no resolution and no site error when strict path is missing, got resolution=%+v err=%+v", resolution, siteErr)
+	}
+}

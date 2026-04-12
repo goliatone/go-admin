@@ -110,7 +110,7 @@ func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActi
 	binding.executor = executor
 	app := newTranslationExchangeTestApp(t, binding)
 
-	csvPayload := "resource,entity_id,family_id,target_locale,field_path,source_text,source_hash\npages,page_123,tg_123,es,title,Hello world,abc123"
+	csvPayload := "resource,entity_id,family_id,target_locale,field_path,source_text,source_hash,route_key\npages,page_123,tg_123,es,title,Hello world,abc123,pages/about"
 	body, contentType := buildMultipartFile(t, "translations.csv", "text/csv", []byte(csvPayload))
 	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/exchange/import/validate", body)
 	req.Header.Set("Content-Type", contentType)
@@ -132,6 +132,9 @@ func TestTranslationExchangeBindingImportValidateParsesCSVAndRecordsConflictActi
 	row := validateInput.Rows[0]
 	if row.Resource != "pages" || row.EntityID != "page_123" || row.FamilyID != "tg_123" {
 		t.Fatalf("unexpected parsed row: %+v", row)
+	}
+	if row.RouteKey != "pages/about" {
+		t.Fatalf("expected route_key pages/about, got %+v", row)
 	}
 	entries, err := feed.List(context.Background(), 10)
 	if err != nil {
