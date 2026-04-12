@@ -40,7 +40,7 @@ func (s goCMSAdminContentReadService) List(ctx context.Context, opts ListOptions
 	if s.content == nil {
 		return nil, 0, ErrNotFound
 	}
-	locale := extractLocale(opts, "")
+	locale := resolveListRequestedLocale(ctx, opts, "")
 	contents, err := s.content.Contents(ctx, locale)
 	if err != nil {
 		return nil, 0, err
@@ -122,7 +122,7 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 	if s.content == nil {
 		return nil, 0, ErrNotFound
 	}
-	locale := extractLocale(opts, "")
+	locale := resolveListRequestedLocale(ctx, opts, "")
 	contents, err := s.listContentsForContentType(ctx, contentType, locale, opts)
 	if err != nil {
 		return nil, 0, err
