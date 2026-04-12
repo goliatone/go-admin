@@ -291,16 +291,35 @@ func (d *Dashboard) RegisterProvider(spec DashboardProviderSpec) {
 	spec = cloneDashboardProviderSpec(spec)
 	spec.CommandName = strings.TrimSpace(spec.CommandName)
 	d.mu.Lock()
-	defer d.mu.Unlock()
+	logger := ensureLogger(d.logger)
+	widgetSvc := d.widgetSvc
+	reg := d.registry
+	providerRegistry := d.providerRegistry
+	hadComponents := d.components != nil
+	enforceAreas := d.enforceAreas
+	hasArea := d.hasArea(strings.TrimSpace(spec.DefaultArea))
 	d.releaseProviderCommand(spec)
 	d.removeDefaultInstancesForCode(spec.Code)
-	hasPersistedInstance := d.hasPersistedInstance(spec)
 	d.providers[spec.Code] = spec
-	d.registerProviderDependencies(spec)
-	if !d.registerProviderCommand(spec) {
+	if hadComponents {
+		d.components = nil
+	}
+	d.mu.Unlock()
+
+	hasPersistedInstance := dashboardHasPersistedInstance(widgetSvc, spec)
+	registerDashboardProviderWithRegistry(providerRegistry, spec)
+	if reg != nil {
+		reg.RegisterDashboardProvider(spec)
+	}
+	if hadComponents {
+		logger.Warn("dashboard provider registered after initialization; invalidating dashboard components for rebuild",
+			"provider", spec.Code)
+	}
+	registerDashboardWidgetDefinition(widgetSvc, logger, spec)
+	if !d.registerProviderCommandUnlocked(spec, logger) {
 		return
 	}
-	d.seedDefaultProviderInstance(spec, hasPersistedInstance)
+	d.seedDefaultProviderInstanceUnlocked(widgetSvc, logger, spec, hasPersistedInstance, enforceAreas, hasArea)
 }
 
 func (d *Dashboard) releaseProviderCommand(spec DashboardProviderSpec) {
@@ -325,11 +344,11 @@ func (d *Dashboard) removeDefaultInstancesForCode(code string) {
 	d.defaultInstances = filtered
 }
 
-func (d *Dashboard) hasPersistedInstance(spec DashboardProviderSpec) bool {
-	if d.widgetSvc == nil {
+func dashboardHasPersistedInstance(widgetSvc CMSWidgetService, spec DashboardProviderSpec) bool {
+	if widgetSvc == nil {
 		return false
 	}
-	if checker, ok := d.widgetSvc.(widgetInstanceExistenceChecker); ok {
+	if checker, ok := widgetSvc.(widgetInstanceExistenceChecker); ok {
 		exists, err := checker.HasInstanceForDefinition(context.Background(), spec.Code, WidgetInstanceFilter{})
 		if err == nil && exists {
 			return true
@@ -339,7 +358,7 @@ func (d *Dashboard) hasPersistedInstance(spec DashboardProviderSpec) bool {
 	if area := strings.TrimSpace(spec.DefaultArea); area != "" {
 		filter.Area = area
 	}
-	instances, err := d.widgetSvc.ListInstances(context.Background(), filter)
+	instances, err := widgetSvc.ListInstances(context.Background(), filter)
 	if err != nil {
 		return false
 	}
@@ -351,21 +370,8 @@ func (d *Dashboard) hasPersistedInstance(spec DashboardProviderSpec) bool {
 	return false
 }
 
-func (d *Dashboard) registerProviderDependencies(spec DashboardProviderSpec) {
-	registerDashboardProviderWithRegistry(d.providerRegistry, spec)
-	if d.registry != nil {
-		d.registry.RegisterDashboardProvider(spec)
-	}
-	if d.components != nil {
-		d.logger.Warn("dashboard provider registered after initialization; invalidating dashboard components for rebuild",
-			"provider", spec.Code)
-		d.components = nil
-	}
-	d.registerWidgetDefinition(spec)
-}
-
-func (d *Dashboard) registerWidgetDefinition(spec DashboardProviderSpec) {
-	if d.widgetSvc == nil {
+func registerDashboardWidgetDefinition(widgetSvc CMSWidgetService, logger Logger, spec DashboardProviderSpec) {
+	if widgetSvc == nil {
 		return
 	}
 	schema := primitives.CloneAnyMap(spec.Schema)
@@ -376,72 +382,86 @@ func (d *Dashboard) registerWidgetDefinition(spec DashboardProviderSpec) {
 	if name == "" {
 		name = spec.Code
 	}
-	if err := d.widgetSvc.RegisterDefinition(context.Background(), WidgetDefinition{
+	if err := widgetSvc.RegisterDefinition(context.Background(), WidgetDefinition{
 		Code:   spec.Code,
 		Name:   name,
 		Schema: schema,
 	}); err != nil {
-		d.logger.Warn("failed to register dashboard widget definition",
+		logger.Warn("failed to register dashboard widget definition",
 			"definition", spec.Code,
 			"error", err)
 	}
 }
 
-func (d *Dashboard) registerProviderCommand(spec DashboardProviderSpec) bool {
-	if d.commandBus == nil || spec.CommandName == "" {
+func (d *Dashboard) registerProviderCommandUnlocked(spec DashboardProviderSpec, logger Logger) bool {
+	if d == nil {
+		return true
+	}
+	if strings.TrimSpace(spec.CommandName) == "" {
+		return true
+	}
+	d.mu.Lock()
+	commandBus := d.commandBus
+	if commandBus == nil {
+		d.mu.Unlock()
 		return true
 	}
 	if d.providerCommands == nil {
 		d.providerCommands = map[string]string{}
 	}
 	if existingCode, exists := d.providerCommands[spec.CommandName]; exists {
+		d.mu.Unlock()
 		if existingCode != spec.Code {
-			d.logger.Warn("dashboard command already mapped; skipping provider",
+			logger.Warn("dashboard command already mapped; skipping provider",
 				"command", spec.CommandName,
 				"existing_provider", existingCode,
 				"provider", spec.Code)
 		}
 		return true
 	}
-	if !d.ensureProviderCommandRegistered() {
-		return false
+	needsCommandRegistration := !d.providerCmdReady
+	d.providerCommands[spec.CommandName] = spec.Code
+	d.mu.Unlock()
+
+	if needsCommandRegistration {
+		if _, err := RegisterCommand(commandBus, &dashboardProviderCommand{dashboard: d}); err != nil {
+			d.mu.Lock()
+			delete(d.providerCommands, spec.CommandName)
+			d.mu.Unlock()
+			logger.Warn("failed to register dashboard provider command",
+				"command", dashboardProviderCommandName,
+				"error", err)
+			return false
+		}
+		d.mu.Lock()
+		d.providerCmdReady = true
+		d.mu.Unlock()
 	}
-	if err := RegisterDashboardProviderFactory(d.commandBus, spec.CommandName, spec.Code, spec.DefaultConfig); err != nil {
-		d.logger.Warn("failed to register dashboard command",
+	if err := RegisterDashboardProviderFactory(commandBus, spec.CommandName, spec.Code, spec.DefaultConfig); err != nil {
+		d.mu.Lock()
+		delete(d.providerCommands, spec.CommandName)
+		d.mu.Unlock()
+		logger.Warn("failed to register dashboard command",
 			"command", spec.CommandName,
 			"error", err)
 		return true
 	}
-	d.providerCommands[spec.CommandName] = spec.Code
 	return true
 }
 
-func (d *Dashboard) ensureProviderCommandRegistered() bool {
-	if d.providerCmdReady {
-		return true
-	}
-	if _, err := RegisterCommand(d.commandBus, &dashboardProviderCommand{dashboard: d}); err != nil {
-		d.logger.Warn("failed to register dashboard provider command",
-			"command", dashboardProviderCommandName,
-			"error", err)
-		return false
-	}
-	d.providerCmdReady = true
-	return true
-}
-
-func (d *Dashboard) seedDefaultProviderInstance(spec DashboardProviderSpec, hasPersistedInstance bool) {
+func (d *Dashboard) seedDefaultProviderInstanceUnlocked(widgetSvc CMSWidgetService, logger Logger, spec DashboardProviderSpec, hasPersistedInstance bool, enforceAreas bool, hasArea bool) {
 	area := strings.TrimSpace(spec.DefaultArea)
 	if area == "" || hasPersistedInstance {
 		return
 	}
-	if d.enforceAreas && !d.hasArea(area) {
+	if enforceAreas && !hasArea {
 		return
 	}
 	span := spec.DefaultSpan
 	if span <= 0 {
 		span = 12
 	}
+	d.mu.Lock()
 	d.defaultInstances = append(d.defaultInstances, DashboardWidgetInstance{
 		DefinitionCode: spec.Code,
 		AreaCode:       area,
@@ -450,22 +470,19 @@ func (d *Dashboard) seedDefaultProviderInstance(spec DashboardProviderSpec, hasP
 		Hidden:         false,
 		Locale:         "",
 	})
-	d.persistDefaultProviderInstance(spec, area, span)
-}
-
-func (d *Dashboard) persistDefaultProviderInstance(spec DashboardProviderSpec, area string, span int) {
-	if d.widgetSvc == nil {
+	d.mu.Unlock()
+	if widgetSvc == nil {
 		return
 	}
-	_ = d.widgetSvc.Definitions()
-	if _, err := d.widgetSvc.SaveInstance(context.Background(), WidgetInstance{
+	_ = widgetSvc.Definitions()
+	if _, err := widgetSvc.SaveInstance(context.Background(), WidgetInstance{
 		DefinitionCode: spec.Code,
 		Area:           area,
 		Config:         primitives.CloneAnyMap(spec.DefaultConfig),
 		Span:           span,
 		Locale:         "",
 	}); err != nil {
-		d.logger.Warn("failed to persist default widget instance",
+		logger.Warn("failed to persist default widget instance",
 			"definition", spec.Code,
 			"area", area,
 			"error", err)
