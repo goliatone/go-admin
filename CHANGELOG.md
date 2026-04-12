@@ -1,25 +1,64 @@
 # Changelog
 
+# [0.36.0](https://github.com/goliatone/go-admin/compare/v0.35.0...v0.36.0) - (2026-04-12)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Cms lifecycle deadlock ([21ac274](https://github.com/goliatone/go-admin/commit/21ac27440ff33e4391b2b6c3e4d852094252f206))  - (goliatone)
+- Data race ([463dd6d](https://github.com/goliatone/go-admin/commit/463dd6dcad3fbfedfa8bea406c40202bf035030f))  - (goliatone)
+- Preserve all value sin cms content to cms page ([140304c](https://github.com/goliatone/go-admin/commit/140304c779718bd6c3b4b3c516d966f3ac0e3073))  - (goliatone)
+- Remove phase from file names ([859a56c](https://github.com/goliatone/go-admin/commit/859a56cf245c467107df3493bc3c491a3c59edaf))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.36.0 ([7fe4219](https://github.com/goliatone/go-admin/commit/7fe421908462f1a3e362515aa481ad1652703d50))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Registration panel cycle ([ccd1882](https://github.com/goliatone/go-admin/commit/ccd1882d70dbb54213fe163f6e8f3cf22a517913))  - (goliatone)
+- Updated boot context ([b22cea1](https://github.com/goliatone/go-admin/commit/b22cea1c0e6dba0d1c1a49204007fdd9cef29de0))  - (goliatone)
+- Panel registration flow ([846bb1c](https://github.com/goliatone/go-admin/commit/846bb1ca86378c951191f70abb38b89a0a7c579e))  - (goliatone)
+- Page support routing key ([ee1e214](https://github.com/goliatone/go-admin/commit/ee1e214bd0925d2aedcdba8c99030eda1cdb0dac))  - (goliatone)
+- Upsert panels ([b7fd48f](https://github.com/goliatone/go-admin/commit/b7fd48f8e9178a4c0508953ca85c662d07de4ba5))  - (goliatone)
+- Unregister search adapter b key ([9dacc36](https://github.com/goliatone/go-admin/commit/9dacc361c551e17bd98a7757c7d2d15ff0840cf8))  - (goliatone)
+- Normalize panel actions for schema ([82ef7cc](https://github.com/goliatone/go-admin/commit/82ef7cc46ed0cd518f1bbdd8862218d4a16875cf))  - (goliatone)
+- Repository updates for routing and content ([25191d7](https://github.com/goliatone/go-admin/commit/25191d740ab091b57fbc8d62428c6fdb491e8877))  - (goliatone)
+- Admin translation handling ([b99304e](https://github.com/goliatone/go-admin/commit/b99304eb3f07e693553331b06feff08627e9d062))  - (goliatone)
+- Cms content wiring ([1b8a416](https://github.com/goliatone/go-admin/commit/1b8a416bcb7704f8362810ce60ae829ec260aa82))  - (goliatone)
+- Theme update facace ([7320738](https://github.com/goliatone/go-admin/commit/7320738ecfda259f0af67a3b7fbf9edd72cf4b20))  - (goliatone)
+- Key form support ([0551556](https://github.com/goliatone/go-admin/commit/0551556cd9048970151a440106a408cf956894f3))  - (goliatone)
+- Locale path migration ([cba7d3e](https://github.com/goliatone/go-admin/commit/cba7d3eb2c574406c29506e492d8099f35fa31c7))  - (goliatone)
+- Quickstart site registration handling ([5afc6b6](https://github.com/goliatone/go-admin/commit/5afc6b63eff4f0fd28c7f7c5512507e682c1aa75))  - (goliatone)
+- Reconcile route/panel/content registration ([d434e08](https://github.com/goliatone/go-admin/commit/d434e08a91e18792e40a48fcb632bf4a7a263914))  - (goliatone)
+- Dynamic cms lifecycle ([69df462](https://github.com/goliatone/go-admin/commit/69df462c3f63df59841fa3f7a9202affe4ff7a6f))  - (goliatone)
+- Support routing groups ([5ee7971](https://github.com/goliatone/go-admin/commit/5ee79710b853e8da713359d85ec60ab62296e2b1))  - (goliatone)
+- Support routing groups with sectioned error handling ([e9e09a0](https://github.com/goliatone/go-admin/commit/e9e09a006930708283b2193cc3255e7b6aa1d10c))  - (goliatone)
+- New routing handling with different locales ([03469aa](https://github.com/goliatone/go-admin/commit/03469aae107c2ca96f4b720e490ae2e92dc9777d))  - (goliatone)
+- Fiber owned 404 handler ([ee28a1a](https://github.com/goliatone/go-admin/commit/ee28a1afa089c7016eb1d22a7f5b1053d35098c2))  - (goliatone)
+- Admin routing testdata ([aaf15c8](https://github.com/goliatone/go-admin/commit/aaf15c8541e1770a85287c427a1c9164f3de34c1))  - (goliatone)
+- Quickstart host router ([6611bad](https://github.com/goliatone/go-admin/commit/6611bad9b6895b1d81936ca2379d90b821a67ebc))  - (goliatone)
+- Route domain for quickstart ([1b85cef](https://github.com/goliatone/go-admin/commit/1b85cef87013f745479727df00e4e17d779d3ae3))  - (goliatone)
+- Handle routing isolation per mount ([52f9f2e](https://github.com/goliatone/go-admin/commit/52f9f2e329c75f45067331d502b0dd9c2abf52cb))  - (goliatone)
+- Templates setup ([b52386c](https://github.com/goliatone/go-admin/commit/b52386cb2e6a5e9c7ab82d601e8c8b1c651548f9))  - (goliatone)
+- Site update theme support ([35cbf5e](https://github.com/goliatone/go-admin/commit/35cbf5ee282b96de23b7c5aac57bdf72d45d554e))  - (goliatone)
+- Update tests ([c89c22d](https://github.com/goliatone/go-admin/commit/c89c22d2e4149b4dd231421a09732040ea760d0d))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Site navigation and localization handling ([970c220](https://github.com/goliatone/go-admin/commit/970c220499b9d28d149b2714228de008c7f3b851))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.35.0 ([1c46f65](https://github.com/goliatone/go-admin/commit/1c46f65b19784716be8d36aa2c96c80d2707a0e2))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Fix code ([f6a1a9b](https://github.com/goliatone/go-admin/commit/f6a1a9b35b9f98bd2f736d8ff2011796b46d7468))  - (goliatone)
+- Update tests ([9df5bf2](https://github.com/goliatone/go-admin/commit/9df5bf27fd81438bfa6bb57500f6bba1fe11d7ce))  - (goliatone)
+- Update examples ([942ebce](https://github.com/goliatone/go-admin/commit/942ebce469832a6776127c8ea7f2c4ee466ac1e1))  - (goliatone)
+- Update docs ([41231dc](https://github.com/goliatone/go-admin/commit/41231dcd47fcd058df758fbc964787551c85457d))  - (goliatone)
+
 # [0.35.0](https://github.com/goliatone/go-admin/compare/v0.34.0...v0.35.0) - (2026-04-08)
-
-## Routing Ownership Upgrade Notes
-
-- Public-site routing is now an explicit host-owned surface. Migrate shared-root
-  `quickstart/site` catch-all setups to `quickstart.NewHostRouter(...)` plus a
-  declarative `quicksite.SiteFallbackPolicy`.
-- The default fallback posture is `quicksite.SiteFallbackModePublicContentOnly`
-  with `AllowRoot=true`, methods `GET`/`HEAD`, and reserved prefixes `/admin`,
-  `/api`, `/.well-known`, `/static`, and `/assets` plus enabled internal-ops
-  paths.
-- Startup validation remains strict fail-fast in every environment. Route
-  ownership conflicts, reserved-prefix overlap, and invalid site fallback
-  policies are rollout blockers, not warnings.
-- `adm.WithGoTheme(...)` has been removed. Use `adm.WithAdminTheme(...)` for the
-  admin runtime and attach public-site theme selection separately with
-  `quicksite.WithSiteTheme(...)` or `SiteConfig.ThemeProvider`.
-- This is a clean-break migration. There is no compatibility bridge for legacy
-  shared-root site catch-all wiring, callback fallback matchers, or the removed
-  shared theme hook.
 
 ## <!-- 1 -->🐛 Bug Fixes
 
@@ -2176,4 +2215,5 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
+
 
