@@ -17,7 +17,7 @@ func (r *deliveryRuntime) resolvePageKind(
 ) (*deliveryResolution, SiteRuntimeError, bool) {
 	candidates := []admin.CMSContent{}
 	for _, record := range records {
-		path := recordDeliveryPath(record, capability)
+		path := deliveryRequestMatchPath(r.strictLocalizedPathsEnabled(), record, capability)
 		if path == "" {
 			continue
 		}
@@ -31,6 +31,9 @@ func (r *deliveryRuntime) resolvePageKind(
 	}
 	if len(candidates) == 0 {
 		return nil, SiteRuntimeError{}, false
+	}
+	if ambiguousLocaleCandidates(candidates, state.Locale, r.siteCfg.DefaultLocale, state.SupportedLocales, capability) {
+		return nil, SiteRuntimeError{Status: 404, RequestedLocale: state.Locale}, true
 	}
 
 	selected, missing, available, fallbackUsed := resolveLocaleRecord(candidates, state, capability, r.siteCfg.AllowLocaleFallback, r.siteCfg.DefaultLocale)
@@ -63,15 +66,17 @@ func (r *deliveryRuntime) resolveDetailKind(
 	slug := strings.TrimSpace(params["slug"])
 	candidates := []admin.CMSContent{}
 	for _, record := range records {
+		path := deliveryRequestMatchPath(r.strictLocalizedPathsEnabled(), record, capability)
+		if path != "" && pathsMatch(path, requestPath) {
+			candidates = append(candidates, record)
+			continue
+		}
 		if slug != "" {
 			if !deliverySlugMatches(record, slug, capability) {
 				continue
 			}
-		} else {
-			path := recordDeliveryPath(record, capability)
-			if !pathsMatch(path, requestPath) {
-				continue
-			}
+		} else if path == "" || !pathsMatch(path, requestPath) {
+			continue
 		}
 		candidates = append(candidates, record)
 	}
@@ -80,6 +85,9 @@ func (r *deliveryRuntime) resolveDetailKind(
 	}
 	if len(candidates) == 0 {
 		return nil, SiteRuntimeError{}, false
+	}
+	if ambiguousLocaleCandidates(candidates, state.Locale, r.siteCfg.DefaultLocale, state.SupportedLocales, capability) {
+		return nil, SiteRuntimeError{Status: 404, RequestedLocale: state.Locale}, true
 	}
 
 	selected, missing, available, fallbackUsed := resolveLocaleRecord(candidates, state, capability, r.siteCfg.AllowLocaleFallback, r.siteCfg.DefaultLocale)

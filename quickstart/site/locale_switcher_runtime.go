@@ -28,25 +28,17 @@ func BuildLocaleSwitcherContract(
 		if locale == "" {
 			continue
 		}
-		path := currentPath
-		usedExplicitPath := false
-		if localizedPath := strings.TrimSpace(pathsByLocale[locale]); localizedPath != "" {
-			if localePathUnsafe(localizedPath) {
-				// Ignore unsafe translated paths and keep the current in-site route.
-			} else if candidate := normalizeLocalePath(localizedPath); candidate != "" {
-				path = localizedPublicPathForStoredPath(
-					candidate,
-					locale,
-					cfg.DefaultLocale,
-					cfg.LocalePrefixMode,
-					cfg.SupportedLocales,
-				)
-				usedExplicitPath = true
-			}
-		}
+		path, usedExplicitPath := localizedPublicPathForLocale(
+			cfg,
+			currentPath,
+			locale,
+			pathsByLocale,
+		)
 		switcherQuery := localeSwitcherQuery(query, cfg, locale)
 		url := path
-		if !usedExplicitPath {
+		if url == "" {
+			url = ""
+		} else if !usedExplicitPath {
 			url = LocalizedPathWithQuery(path, locale, cfg.DefaultLocale, cfg.LocalePrefixMode, switcherQuery)
 		} else if len(switcherQuery) > 0 {
 			url = LocalizedPathWithQuery(path, "", cfg.DefaultLocale, cfg.LocalePrefixMode, switcherQuery)
@@ -70,6 +62,58 @@ func BuildLocaleSwitcherContract(
 		out["available_locales"] = mapKeysSorted(availableSet)
 	}
 	return out
+}
+
+func localizedPublicPathForLocale(cfg ResolvedSiteConfig, currentPath, targetLocale string, pathsByLocale map[string]string) (string, bool) {
+	targetLocale = normalizeRequestedLocale(targetLocale, cfg.DefaultLocale, cfg.SupportedLocales)
+	if targetLocale == "" {
+		return "", false
+	}
+	if localizedPath := strings.TrimSpace(pathsByLocale[targetLocale]); localizedPath != "" {
+		if !localePathUnsafe(localizedPath) {
+			if candidate := normalizeLocalePath(localizedPath); candidate != "" {
+				return localizedPublicPathForStoredPath(
+					candidate,
+					targetLocale,
+					cfg.DefaultLocale,
+					cfg.LocalePrefixMode,
+					cfg.SupportedLocales,
+				), true
+			}
+		}
+	}
+	if cfg.Features.StrictLocalizedPaths {
+		return "", false
+	}
+	seed := localizedPublicPathFallbackSeed(cfg, currentPath, pathsByLocale)
+	if seed == "" {
+		return "", false
+	}
+	return seed, false
+}
+
+func localizedPublicPathFallbackSeed(cfg ResolvedSiteConfig, currentPath string, pathsByLocale map[string]string) string {
+	defaultLocale := normalizeRequestedLocale(cfg.DefaultLocale, cfg.DefaultLocale, cfg.SupportedLocales)
+	if defaultLocale != "" {
+		if candidate := strings.TrimSpace(pathsByLocale[defaultLocale]); candidate != "" && !localePathUnsafe(candidate) {
+			if normalizedPath := normalizeLocalePath(candidate); normalizedPath != "" {
+				return normalizedPath
+			}
+		}
+	}
+	if normalizedCurrent := normalizeLocalePath(currentPath); normalizedCurrent != "" {
+		return normalizedCurrent
+	}
+	for _, candidate := range pathsByLocale {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" || localePathUnsafe(candidate) {
+			continue
+		}
+		if normalized := normalizeLocalePath(candidate); normalized != "" {
+			return normalized
+		}
+	}
+	return ""
 }
 
 func localeSwitcherQuery(base map[string]string, cfg ResolvedSiteConfig, targetLocale string) map[string]string {

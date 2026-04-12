@@ -149,3 +149,45 @@ func uniqueLocaleOrder(groups ...[]string) []string {
 	}
 	return out
 }
+
+func deliveryRequestMatchPath(strict bool, record admin.CMSContent, capability deliveryCapability) string {
+	if strict {
+		return recordStoredDeliveryPath(record, capability)
+	}
+	return recordDeliveryPath(record, capability)
+}
+
+func ambiguousLocaleCandidates(candidates []admin.CMSContent, requestedLocale, defaultLocale string, supported []string, capability deliveryCapability) bool {
+	if len(candidates) < 2 {
+		return false
+	}
+	targets := []admin.CMSContent{}
+	requestedLocale = normalizeRequestedLocale(requestedLocale, defaultLocale, supported)
+	if requestedLocale != "" {
+		targets = filterByLocale(candidates, requestedLocale)
+	}
+	if len(targets) == 0 {
+		fallbackLocale := normalizeRequestedLocale(defaultLocale, requestedLocale, supported)
+		if fallbackLocale != "" {
+			targets = filterByLocale(candidates, fallbackLocale)
+		}
+	}
+	if len(targets) == 0 {
+		targets = candidates
+	}
+	identities := map[string]struct{}{}
+	for _, candidate := range targets {
+		key := strings.TrimSpace(contentIdentityKey(candidate, capability))
+		if key == "" {
+			key = strings.TrimSpace(candidate.ID)
+		}
+		if key == "" {
+			continue
+		}
+		identities[key] = struct{}{}
+		if len(identities) > 1 {
+			return true
+		}
+	}
+	return false
+}

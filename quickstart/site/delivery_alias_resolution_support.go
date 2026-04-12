@@ -156,10 +156,10 @@ func (r *deliveryRuntime) resolveDetailPathAliasCandidates(
 	for _, locale := range localized.locales {
 		for _, item := range localized.byLocale[locale] {
 			matches := false
-			if slug != "" {
+			if requestPath != "" && pathsMatch(recordDeliveryPath(item, capability), requestPath) {
+				matches = true
+			} else if slug != "" {
 				matches = deliverySlugMatches(item, slug, capability)
-			} else {
-				matches = pathsMatch(recordDeliveryPath(item, capability), requestPath)
 			}
 			if !matches {
 				continue

@@ -137,14 +137,29 @@ func contentIdentityKey(record admin.CMSContent, capability deliveryCapability) 
 	if groupID := strings.TrimSpace(firstNonEmpty(record.FamilyID, anyString(recordData["family_id"]))); groupID != "" {
 		return strings.ToLower(groupID)
 	}
+	if routeKey := recordRouteKey(record); routeKey != "" {
+		return strings.ToLower(singularTypeSlug(capability.TypeSlug) + ":" + routeKey)
+	}
 	if slug := strings.TrimSpace(record.Slug); slug != "" {
 		return strings.ToLower(singularTypeSlug(capability.TypeSlug) + ":" + slug)
 	}
+	// V1 compatibility fallback only: once route_key backfill is complete, path
+	// should no longer be used as cross-locale identity.
 	path := recordDeliveryPath(record, capability)
 	if path != "" {
 		return strings.ToLower(singularTypeSlug(capability.TypeSlug) + ":" + path)
 	}
 	return strings.ToLower(singularTypeSlug(capability.TypeSlug) + ":" + strings.TrimSpace(record.ID))
+}
+
+func recordRouteKey(record admin.CMSContent) string {
+	if routeKey := strings.TrimSpace(record.RouteKey); routeKey != "" {
+		return routeKey
+	}
+	if routeKey := strings.TrimSpace(anyString(record.Data["route_key"])); routeKey != "" {
+		return routeKey
+	}
+	return strings.TrimSpace(anyString(record.Metadata["route_key"]))
 }
 
 func localizedPathsFromGroup(group []admin.CMSContent, capability deliveryCapability) map[string]string {

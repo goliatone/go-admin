@@ -126,16 +126,24 @@ func mapDeliveryRecord(record admin.CMSContent, capability deliveryCapability) m
 
 func recordDeliveryPath(record admin.CMSContent, capability deliveryCapability) string {
 	policy := effectiveDeliveryPathPolicy(capability)
-	if value := strings.TrimSpace(admin.ResolveContentPath(record, "")); value != "" {
-		if sanitized := sanitizeDeliveryPath(value, policy); sanitized != "" {
-			return sanitized
-		}
+	if value := recordStoredDeliveryPath(record, capability); value != "" {
+		return value
 	}
 	generated := generatedDeliveryPath(record, capability)
 	if generated == "" {
 		return ""
 	}
 	return sanitizeDeliveryPath(generated, policy)
+}
+
+func recordStoredDeliveryPath(record admin.CMSContent, capability deliveryCapability) string {
+	policy := effectiveDeliveryPathPolicy(capability)
+	if value := strings.TrimSpace(admin.ExtractContentPath(record.Data, record.Metadata, "")); value != "" {
+		if sanitized := sanitizeDeliveryPath(value, policy); sanitized != "" {
+			return sanitized
+		}
+	}
+	return ""
 }
 
 func generatedDeliveryPath(record admin.CMSContent, capability deliveryCapability) string {

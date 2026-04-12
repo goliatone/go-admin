@@ -34,6 +34,12 @@ func LocalizedPath(path, locale, defaultLocale string, mode LocalePrefixMode) st
 
 // localizedPublicPathForStoredPath derives the public URL path for a stored
 // record path without assuming storage is always canonical/unlocalized.
+//
+// V1 compatibility note: this is temporary bridge logic for mixed datasets that
+// still persist legacy locale-prefixed public paths. V2 should remove this
+// compatibility branch once storage has been normalized and route identity no
+// longer relies on path heuristics.
+//
 // If the stored path is already prefixed for the target locale, keep it as-is
 // to avoid double-prefixing. Prefixes for other locales are ambiguous and are
 // treated as ordinary path segments so canonical paths like /bo remain valid.
@@ -57,6 +63,12 @@ func localizedPublicPathForStoredPath(path, targetLocale, defaultLocale string, 
 	if prefixLocale != targetLocale {
 		return LocalizedPath(path, targetLocale, defaultLocale, mode)
 	}
+	emitLocalePathBridgeDiagnostic(LocalePathBridgeDiagnostic{
+		StoredPath:     path,
+		TargetLocale:   targetLocale,
+		DetectedLocale: prefixLocale,
+		Reason:         "stored path already includes runtime locale prefix",
+	})
 	if normalizeLocalePrefixMode(mode) == LocalePrefixNonDefault && targetLocale == defaultLocale {
 		return LocalizedPath(canonical, targetLocale, defaultLocale, mode)
 	}
