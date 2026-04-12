@@ -14,10 +14,10 @@ require (
 	github.com/flosch/pongo2/v6 v6.0.0
 	github.com/gobuffalo/flect v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.12
-	github.com/goliatone/go-admin v0.40.0
+	github.com/goliatone/go-admin v0.41.0
 	github.com/goliatone/go-auth v0.40.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.40.0
-	github.com/goliatone/go-cms v0.45.0
+	github.com/goliatone/go-cms v0.46.0
 	github.com/goliatone/go-command v0.19.0
 	github.com/goliatone/go-dashboard v0.10.0
 	github.com/goliatone/go-errors v0.10.0
