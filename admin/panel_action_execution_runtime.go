@@ -125,8 +125,12 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 }
 
 func (p *Panel) findAction(name string) (Action, bool) {
-	for _, action := range p.actions {
-		if action.Name == name {
+	target := strings.TrimSpace(name)
+	if target == "" {
+		return Action{}, false
+	}
+	for _, action := range normalizePanelActionsForSchema(p.actions, p.permissions, p.actionDefaultsMode) {
+		if strings.EqualFold(strings.TrimSpace(action.Name), target) {
 			return action, true
 		}
 	}
