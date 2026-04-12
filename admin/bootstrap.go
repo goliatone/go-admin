@@ -57,9 +57,9 @@ func (a *Admin) InitializeWithContext(ctx context.Context, r AdminRouter) error 
 			"service": "admin",
 		})
 	}
-	a.lifecycleMu.Lock()
-	defer a.lifecycleMu.Unlock()
-	return a.initializeWithContext(ctx, r)
+	return a.runWithLifecycleContext(ctx, func(lifecycle context.Context) error {
+		return a.initializeWithContext(lifecycle, r)
+	})
 }
 
 func (a *Admin) initializeWithContext(ctx context.Context, r AdminRouter) error {
@@ -116,9 +116,9 @@ func (a *Admin) Prepare(ctx context.Context) error {
 	if a == nil {
 		return nil
 	}
-	a.lifecycleMu.Lock()
-	defer a.lifecycleMu.Unlock()
-	return a.prepare(ctx)
+	return a.runWithLifecycleContext(ctx, func(lifecycle context.Context) error {
+		return a.prepare(lifecycle)
+	})
 }
 
 func (a *Admin) prepare(ctx context.Context) error {

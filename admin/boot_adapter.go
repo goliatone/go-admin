@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"errors"
+	"reflect"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	"github.com/goliatone/go-admin/admin/routing"
@@ -9,19 +11,93 @@ import (
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
-// Boot runs the admin boot pipeline with the given steps or the defaults.
-func (a *Admin) Boot(steps ...boot.Step) error {
-	return a.BootWithContext(a.LifecycleContext(), steps...)
+func normalizeLifecycleContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
 }
 
-// BootWithContext runs the admin boot pipeline with the given lifecycle context and steps.
-func (a *Admin) BootWithContext(ctx context.Context, steps ...boot.Step) error {
+func sameLifecycleContext(a, b context.Context) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	left := reflect.TypeOf(a)
+	right := reflect.TypeOf(b)
+	if left == nil || right == nil || !left.Comparable() || !right.Comparable() {
+		return false
+	}
+	return a == b
+}
+
+func isAmbientLifecycleContext(ctx context.Context) bool {
+	return sameLifecycleContext(ctx, context.Background()) || sameLifecycleContext(ctx, context.TODO())
+}
+
+func (a *Admin) lifecycleState() context.Context {
 	if a == nil {
 		return nil
 	}
+	a.lifecycleStateMu.RLock()
+	defer a.lifecycleStateMu.RUnlock()
+	return a.bootContext
+}
+
+func (a *Admin) setLifecycleState(ctx context.Context) {
+	if a == nil {
+		return
+	}
+	a.lifecycleStateMu.Lock()
+	defer a.lifecycleStateMu.Unlock()
+	a.bootContext = ctx
+}
+
+func (a *Admin) isReentrantLifecycleContext(ctx context.Context) bool {
+	if isAmbientLifecycleContext(ctx) {
+		return false
+	}
+	return sameLifecycleContext(ctx, a.lifecycleState())
+}
+
+func (a *Admin) runWithLifecycleContext(ctx context.Context, fn func(context.Context) error) error {
+	if a == nil {
+		return nil
+	}
+	if ctx == nil {
+		if active := a.lifecycleState(); active != nil {
+			return errors.New("nested lifecycle calls require an explicit lifecycle context")
+		}
+	}
+	if a.isReentrantLifecycleContext(ctx) {
+		return fn(normalizeLifecycleContext(ctx))
+	}
+
 	a.lifecycleMu.Lock()
 	defer a.lifecycleMu.Unlock()
-	return a.bootWithContext(ctx, steps...)
+
+	if a.isReentrantLifecycleContext(ctx) {
+		return fn(normalizeLifecycleContext(ctx))
+	}
+
+	ctx = normalizeLifecycleContext(ctx)
+	previousCtx := a.lifecycleState()
+	a.setLifecycleState(ctx)
+	defer a.setLifecycleState(previousCtx)
+
+	return fn(ctx)
+}
+
+// Boot runs the admin boot pipeline with the given steps or the defaults.
+func (a *Admin) Boot(steps ...boot.Step) error {
+	return a.BootWithContext(context.Background(), steps...)
+}
+
+// BootWithContext runs the admin boot pipeline with the given lifecycle context and steps.
+// Nested lifecycle execution must pass the active lifecycle context explicitly.
+func (a *Admin) BootWithContext(ctx context.Context, steps ...boot.Step) error {
+	return a.runWithLifecycleContext(ctx, func(lifecycle context.Context) error {
+		return a.bootWithContext(lifecycle, steps...)
+	})
 }
 
 func (a *Admin) bootWithContext(ctx context.Context, steps ...boot.Step) error {
@@ -32,17 +108,6 @@ func (a *Admin) bootWithContext(ctx context.Context, steps ...boot.Step) error {
 	}
 	if len(steps) == 0 {
 		steps = boot.DefaultBootSteps()
-	}
-	if a != nil {
-		previousCtx := a.bootContext
-		if ctx == nil {
-			ctx = previousCtx
-		}
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		a.bootContext = ctx
-		defer func() { a.bootContext = previousCtx }()
 	}
 	if err := boot.Run(lifecycleBootCtx{Admin: a}, steps...); err != nil {
 		return err
@@ -62,10 +127,11 @@ func (a *Admin) bootWithContext(ctx context.Context, steps ...boot.Step) error {
 
 // LifecycleContext exposes the current boot lifecycle context to boot steps.
 func (a *Admin) LifecycleContext() context.Context {
-	if a == nil || a.bootContext == nil {
+	ctx := a.lifecycleState()
+	if ctx == nil {
 		return context.Background()
 	}
-	return a.bootContext
+	return ctx
 }
 
 // Router exposes the configured router for boot steps.
