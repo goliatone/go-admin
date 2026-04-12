@@ -158,6 +158,7 @@ type CMSPage struct {
 	ID                     string            `json:"id"`
 	Title                  string            `json:"title"`
 	Slug                   string            `json:"slug"`
+	RouteKey               string            `json:"route_key"`
 	TemplateID             string            `json:"template_id"`
 	Locale                 string            `json:"locale"`
 	FamilyID               string            `json:"family_id"`
@@ -183,6 +184,7 @@ type CMSContent struct {
 	ID                     string            `json:"id"`
 	Title                  string            `json:"title"`
 	Slug                   string            `json:"slug"`
+	RouteKey               string            `json:"route_key"`
 	Locale                 string            `json:"locale"`
 	FamilyID               string            `json:"family_id"`
 	RequestedLocale        string            `json:"requested_locale"`

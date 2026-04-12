@@ -17,6 +17,10 @@ func ExtractStructuralMetadata(data map[string]any) (map[string]any, map[string]
 		meta["path"] = val
 		delete(cleaned, "path")
 	}
+	if val, ok := cleaned["route_key"]; ok {
+		meta["route_key"] = val
+		delete(cleaned, "route_key")
+	}
 	if val, ok := cleaned["template_id"]; ok {
 		meta["template_id"] = val
 		delete(cleaned, "template_id")
@@ -83,6 +87,9 @@ func InjectStructuralMetadata(metadata map[string]any, data map[string]any) map[
 	}
 	if val, ok := metadata["path"]; ok {
 		data["path"] = val
+	}
+	if val, ok := metadata["route_key"]; ok {
+		data["route_key"] = val
 	}
 	if val, ok := metadata["template_id"]; ok {
 		data["template_id"] = val

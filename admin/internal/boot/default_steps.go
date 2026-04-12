@@ -4,6 +4,7 @@ package boot
 func DefaultBootSteps() []Step {
 	return []Step{
 		PrepareStep,
+		DynamicCMSReconcileStep,
 		HealthStep,
 		PanelStep,
 		SchemaRegistryStep,

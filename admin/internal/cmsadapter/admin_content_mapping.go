@@ -57,10 +57,15 @@ func AdminContentRecordToCMSContent(record cms.AdminContentRecord) cmsboot.CMSCo
 	if record.FamilyID != nil && *record.FamilyID != uuid.Nil {
 		out.FamilyID = record.FamilyID.String()
 	}
+	out.RouteKey = strings.TrimSpace(primitives.StringFromAny(out.Data["route_key"]))
+	if out.RouteKey == "" {
+		out.RouteKey = strings.TrimSpace(primitives.StringFromAny(out.Metadata["route_key"]))
+	}
 	return out
 }
 
 func CMSContentToAdminContentCreateRequest(content cmsboot.CMSContent, contentTypeID, actor uuid.UUID, allowMissing bool) cms.AdminContentCreateRequest {
+	data, metadata := ensureRouteKeyMapped(content)
 	return cms.AdminContentCreateRequest{
 		ContentTypeID:            contentTypeID,
 		ContentType:              strings.TrimSpace(content.ContentType),
@@ -75,8 +80,8 @@ func CMSContentToAdminContentCreateRequest(content cmsboot.CMSContent, contentTy
 		Blocks:                   cloneStringSlice(content.Blocks),
 		EmbeddedBlocks:           cloneAnyMapSlice(content.EmbeddedBlocks),
 		SchemaVersion:            strings.TrimSpace(content.SchemaVersion),
-		Data:                     primitives.CloneAnyMap(content.Data),
-		Metadata:                 primitives.CloneAnyMap(content.Metadata),
+		Data:                     data,
+		Metadata:                 metadata,
 		CreatedBy:                actor,
 		UpdatedBy:                actor,
 		AllowMissingTranslations: allowMissing,
@@ -84,6 +89,7 @@ func CMSContentToAdminContentCreateRequest(content cmsboot.CMSContent, contentTy
 }
 
 func CMSContentToAdminContentUpdateRequest(content cmsboot.CMSContent, contentTypeID, actor uuid.UUID, allowMissing bool) cms.AdminContentUpdateRequest {
+	data, metadata := ensureRouteKeyMapped(content)
 	return cms.AdminContentUpdateRequest{
 		ID:                       UUIDFromString(content.ID),
 		ContentTypeID:            contentTypeID,
@@ -99,11 +105,35 @@ func CMSContentToAdminContentUpdateRequest(content cmsboot.CMSContent, contentTy
 		Blocks:                   cloneStringSlice(content.Blocks),
 		EmbeddedBlocks:           cloneAnyMapSlice(content.EmbeddedBlocks),
 		SchemaVersion:            strings.TrimSpace(content.SchemaVersion),
-		Data:                     primitives.CloneAnyMap(content.Data),
-		Metadata:                 primitives.CloneAnyMap(content.Metadata),
+		Data:                     data,
+		Metadata:                 metadata,
 		UpdatedBy:                actor,
 		AllowMissingTranslations: allowMissing,
 	}
+}
+
+func ensureRouteKeyMapped(content cmsboot.CMSContent) (map[string]any, map[string]any) {
+	data := primitives.CloneAnyMap(content.Data)
+	metadata := primitives.CloneAnyMap(content.Metadata)
+	routeKey := strings.TrimSpace(content.RouteKey)
+	if routeKey == "" {
+		routeKey = strings.TrimSpace(primitives.StringFromAny(data["route_key"]))
+	}
+	if routeKey == "" {
+		routeKey = strings.TrimSpace(primitives.StringFromAny(metadata["route_key"]))
+	}
+	if routeKey == "" {
+		return data, metadata
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	metadata["route_key"] = routeKey
+	if data == nil {
+		data = map[string]any{}
+	}
+	data["route_key"] = routeKey
+	return data, metadata
 }
 
 func stringMapAny(value map[string]string) map[string]any {
