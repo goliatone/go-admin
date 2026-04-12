@@ -3,6 +3,7 @@ package stores
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"strings"
@@ -305,6 +306,86 @@ func (s *CMSPageStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+func (s *CMSPageStore) CreateTranslation(ctx context.Context, input admin.TranslationCreateInput) (map[string]any, error) {
+	if s == nil || s.content == nil {
+		return nil, admin.ErrNotFound
+	}
+	input = normalizeStoreTranslationCreateInput(input, "page")
+	repo := admin.NewCMSContentRepository(s.content)
+	created, err := repo.CreateTranslation(ctx, input)
+	if err != nil && !errors.Is(err, admin.ErrTranslationCreateUnsupported) {
+		return nil, err
+	}
+	if errors.Is(err, admin.ErrTranslationCreateUnsupported) {
+		page, fallbackErr := s.createTranslationFallback(ctx, input)
+		if fallbackErr != nil {
+			return nil, fallbackErr
+		}
+		created = map[string]any{"id": page.ID}
+	}
+	id := strings.TrimSpace(asString(created["id"], ""))
+	if id == "" {
+		return created, nil
+	}
+	record, getErr := s.Get(ctx, id)
+	if getErr != nil {
+		return created, nil
+	}
+	return record, nil
+}
+
+func (s *CMSPageStore) createTranslationFallback(ctx context.Context, input admin.TranslationCreateInput) (*admin.CMSPage, error) {
+	source, err := s.content.Page(ctx, input.SourceID, "")
+	if err != nil {
+		return nil, err
+	}
+	if source == nil {
+		return nil, admin.ErrNotFound
+	}
+	groupID := translationCreateGroupID(source.FamilyID, source.ID)
+	if groupID == "" || input.Locale == "" {
+		return nil, admin.ErrNotFound
+	}
+	if pages, err := s.content.Pages(ctx, input.Locale); err == nil {
+		for _, candidate := range pages {
+			candidateGroup := translationCreateGroupID(candidate.FamilyID, candidate.ID)
+			if candidateGroup == "" || !strings.EqualFold(candidateGroup, groupID) {
+				continue
+			}
+			if strings.EqualFold(strings.TrimSpace(candidate.Locale), input.Locale) {
+				return nil, admin.TranslationAlreadyExistsError{
+					Panel:        "page",
+					EntityID:     strings.TrimSpace(source.ID),
+					SourceLocale: strings.TrimSpace(source.Locale),
+					Locale:       input.Locale,
+					FamilyID:     groupID,
+				}
+			}
+		}
+	}
+
+	created := *source
+	created.ID = ""
+	created.Locale = input.Locale
+	created.Status = strings.TrimSpace(primitives.FirstNonEmptyRaw(input.Status, source.Status, "draft"))
+	created.FamilyID = groupID
+	created.RequestedLocale = ""
+	created.ResolvedLocale = ""
+	created.AvailableLocales = nil
+	created.MissingRequestedLocale = false
+	created.PreviewURL = ""
+	created.Data = primitives.CloneAnyMapEmptyOnEmpty(source.Data)
+	created.Metadata = primitives.CloneAnyMapEmptyOnEmpty(source.Metadata)
+	applyStoredTranslationPath(created.Data, created.Metadata, input.Path)
+	if input.Path != "" {
+		created.PreviewURL = input.Path
+	}
+	routeKey := translationCreateRouteKey(input, source.RouteKey, source.Data, source.Metadata)
+	created.RouteKey = routeKey
+	applyStoredTranslationRouteKey(created.Data, created.Metadata, routeKey)
+	return s.content.CreatePage(ctx, created)
+}
+
 // Publish marks matching pages as published.
 func (s *CMSPageStore) Publish(ctx context.Context, ids []string) ([]map[string]any, error) {
 	if s == nil || s.repo == nil {
@@ -517,11 +598,16 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 		payloadData := payload["data"].(map[string]any)
 		payloadData["seo"] = seoData
 	}
-	if path := asString(record["path"], asString(existing["path"], "")); path != "" {
+	if path, explicit := localizedPathOverride(record); explicit {
+		if path != "" {
+			payloadData := payload["data"].(map[string]any)
+			payloadData["path"] = path
+		}
+	} else if existingPath := inheritedLocalizedPathValue(existing); existingPath != "" {
 		payloadData := payload["data"].(map[string]any)
-		payloadData["path"] = path
+		payloadData["path"] = existingPath
 	}
-	if payloadData := payload["data"].(map[string]any); payloadData["path"] == nil || payloadData["path"] == "" {
+	if payloadData := payload["data"].(map[string]any); (payloadData["path"] == nil || payloadData["path"] == "") && !shouldPreserveBlankLocalizedPath(record, existing) {
 		if slug := asString(payload["slug"], ""); slug != "" {
 			payloadData["path"] = "/" + strings.TrimPrefix(slug, "/")
 		}
@@ -637,8 +723,10 @@ func (s *CMSPageStore) pageToRecord(page admin.CMSPage) map[string]any {
 		record["path"] = path
 	} else if page.PreviewURL != "" {
 		record["path"] = page.PreviewURL
+		record[inheritedLocalizedPathKey] = true
 	} else if page.Slug != "" {
 		record["path"] = "/" + strings.TrimPrefix(page.Slug, "/")
+		record[inheritedLocalizedPathKey] = true
 	}
 	if record["preview_url"] == "" && record["path"] != nil {
 		record["preview_url"] = record["path"]

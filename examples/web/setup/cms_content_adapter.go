@@ -113,6 +113,10 @@ func (b *goCMSContentBridge) DeletePage(ctx context.Context, id string) error {
 
 func (b *goCMSContentBridge) pageFromContent(content admin.CMSContent) admin.CMSPage {
 	data := primitives.CloneAnyMapEmptyOnEmpty(content.Data)
+	routeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(content.RouteKey, asString(data["route_key"], ""), asString(content.Metadata["route_key"], "")))
+	if routeKey != "" {
+		data["route_key"] = routeKey
+	}
 	path := strings.TrimSpace(asString(data["path"], ""))
 	if path == "" && strings.TrimSpace(content.Slug) != "" {
 		path = "/" + strings.TrimPrefix(content.Slug, "/")
@@ -157,6 +161,7 @@ func (b *goCMSContentBridge) pageFromContent(content admin.CMSContent) admin.CMS
 		ParentID:               parentID,
 		Blocks:                 append([]string{}, content.Blocks...),
 		SEO:                    seo,
+		RouteKey:               routeKey,
 		Status:                 content.Status,
 		Data:                   data,
 		PreviewURL:             path,
@@ -197,6 +202,10 @@ func (b *goCMSContentBridge) createPageFromContent(ctx context.Context, page adm
 		path = "/" + strings.TrimPrefix(page.Slug, "/")
 	}
 	data["path"] = path
+	if routeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(page.RouteKey, asString(data["route_key"], ""), asString(page.Metadata["route_key"], ""))); routeKey != "" {
+		page.RouteKey = routeKey
+		data["route_key"] = routeKey
+	}
 	groupID := bridgeRequestedFamilyID(page.FamilyID, data, page.Metadata)
 	data, metadata := bridgePersistTranslationGroupMetadata(groupID, data, page.Metadata)
 
@@ -206,6 +215,7 @@ func (b *goCMSContentBridge) createPageFromContent(ctx context.Context, page adm
 		Status:      page.Status,
 		Locale:      locale,
 		FamilyID:    groupID,
+		RouteKey:    page.RouteKey,
 		ContentType: "page",
 		Blocks:      append([]string{}, page.Blocks...),
 		Data:        data,
@@ -257,6 +267,10 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 		path = "/" + strings.TrimPrefix(asString(page.Slug, existing.Slug), "/")
 	}
 	data["path"] = path
+	if routeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(page.RouteKey, asString(data["route_key"], ""), existing.RouteKey, asString(existing.Metadata["route_key"], ""))); routeKey != "" {
+		page.RouteKey = routeKey
+		data["route_key"] = routeKey
+	}
 	metadata := primitives.CloneAnyMapEmptyOnEmpty(existing.Metadata)
 	maps.Copy(metadata, primitives.CloneAnyMapEmptyOnEmpty(page.Metadata))
 	groupID := bridgeRequestedFamilyID(primitives.FirstNonEmpty(page.FamilyID, existing.FamilyID), data, metadata)
@@ -286,6 +300,7 @@ func (b *goCMSContentBridge) updatePageFromContent(ctx context.Context, page adm
 		Status:      status,
 		Locale:      locale,
 		FamilyID:    groupID,
+		RouteKey:    page.RouteKey,
 		ContentType: "page",
 		Blocks:      blocks,
 		Data:        data,

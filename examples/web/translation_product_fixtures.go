@@ -89,6 +89,8 @@ func (s *exampleTranslationExchangeStore) ExportRows(ctx context.Context, filter
 						FieldPath:    fieldPath,
 						SourceText:   sourceText,
 						SourceHash:   exchangeRowSourceHash(sourceText),
+						Path:         strings.TrimSpace(exchangePagePath(page)),
+						RouteKey:     strings.TrimSpace(page.RouteKey),
 					})
 				}
 			}
@@ -136,6 +138,8 @@ func (s *exampleTranslationExchangeStore) ExportRows(ctx context.Context, filter
 						FieldPath:    fieldPath,
 						SourceText:   sourceText,
 						SourceHash:   exchangeRowSourceHash(sourceText),
+						Path:         strings.TrimSpace(fmt.Sprint(content.Data["path"])),
+						RouteKey:     strings.TrimSpace(content.RouteKey),
 					})
 				}
 			}
@@ -268,7 +272,21 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 			created.Status = workflowStatus
 			created.FamilyID = groupID
 			created.Slug = ensureLocaleSlug(created.Slug, targetLocale)
-			applyPagePathFallback(&created, targetLocale)
+			if routeKey := strings.TrimSpace(req.RouteKey); routeKey != "" {
+				created.RouteKey = routeKey
+			}
+			if path := strings.TrimSpace(req.Path); path != "" {
+				if created.Data == nil {
+					created.Data = map[string]any{}
+				}
+				created.Data["path"] = path
+				created.PreviewURL = path
+			} else {
+				if created.Data != nil {
+					delete(created.Data, "path")
+				}
+				created.PreviewURL = ""
+			}
 			setPageFieldValue(&created, fieldPath, translatedText)
 			_, err = contentSvc.CreatePage(ctx, created)
 			return err
@@ -277,6 +295,16 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 		updated := cloneCMSPage(*variant)
 		updated.Status = workflowStatus
 		updated.FamilyID = groupID
+		if routeKey := strings.TrimSpace(req.RouteKey); routeKey != "" {
+			updated.RouteKey = routeKey
+		}
+		if path := strings.TrimSpace(req.Path); path != "" {
+			if updated.Data == nil {
+				updated.Data = map[string]any{}
+			}
+			updated.Data["path"] = path
+			updated.PreviewURL = path
+		}
 		setPageFieldValue(&updated, fieldPath, translatedText)
 		_, err = contentSvc.UpdatePage(ctx, updated)
 		return err
@@ -308,6 +336,17 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 			created.Status = workflowStatus
 			created.FamilyID = groupID
 			created.Slug = ensureLocaleSlug(created.Slug, targetLocale)
+			if routeKey := strings.TrimSpace(req.RouteKey); routeKey != "" {
+				created.RouteKey = routeKey
+			}
+			if path := strings.TrimSpace(req.Path); path != "" {
+				if created.Data == nil {
+					created.Data = map[string]any{}
+				}
+				created.Data["path"] = path
+			} else if created.Data != nil {
+				delete(created.Data, "path")
+			}
 			setContentFieldValue(&created, fieldPath, translatedText)
 			_, err = contentSvc.CreateContent(ctx, created)
 			return err
@@ -316,6 +355,15 @@ func (s *exampleTranslationExchangeStore) ApplyTranslation(ctx context.Context, 
 		updated := cloneCMSContent(*variant)
 		updated.Status = workflowStatus
 		updated.FamilyID = groupID
+		if routeKey := strings.TrimSpace(req.RouteKey); routeKey != "" {
+			updated.RouteKey = routeKey
+		}
+		if path := strings.TrimSpace(req.Path); path != "" {
+			if updated.Data == nil {
+				updated.Data = map[string]any{}
+			}
+			updated.Data["path"] = path
+		}
 		setContentFieldValue(&updated, fieldPath, translatedText)
 		_, err = contentSvc.UpdateContent(ctx, updated)
 		return err

@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"errors"
 	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 	"time"
@@ -16,6 +17,8 @@ type CMSPostStore struct {
 	activity      admin.ActivitySink
 	defaultLocale string
 }
+
+const inheritedLocalizedPathKey = "__inherited_public_path"
 
 // NewCMSPostStore builds a content-backed post store. Returns nil when no content service is provided.
 func NewCMSPostStore(content admin.CMSContentService, defaultLocale string) *CMSPostStore {
@@ -298,6 +301,28 @@ func (s *CMSPostStore) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+func (s *CMSPostStore) CreateTranslation(ctx context.Context, input admin.TranslationCreateInput) (map[string]any, error) {
+	if s == nil || s.repo == nil {
+		return nil, admin.ErrNotFound
+	}
+	if strings.TrimSpace(input.ContentType) == "" {
+		input.ContentType = "post"
+	}
+	created, err := s.repo.CreateTranslation(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	id := strings.TrimSpace(asString(created["id"], ""))
+	if id == "" {
+		return created, nil
+	}
+	record, getErr := s.Get(ctx, id)
+	if getErr != nil {
+		return created, nil
+	}
+	return record, nil
+}
+
 // Publish marks matching posts as published and stamps published_at.
 func (s *CMSPostStore) Publish(ctx context.Context, ids []string) ([]map[string]any, error) {
 	return s.updateStatus(ctx, ids, "published", nil)
@@ -532,8 +557,14 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 	if len(seo) > 0 {
 		payloadData["seo"] = seo
 	}
-	if path := asString(record["path"], asString(existing["path"], "")); path != "" {
-		payloadData["path"] = path
+	if path, explicit := localizedPathOverride(record); explicit {
+		if path != "" {
+			payloadData["path"] = path
+		}
+	} else if existingPath := inheritedLocalizedPathValue(existing); existingPath != "" {
+		payloadData["path"] = existingPath
+	} else if shouldPreserveBlankLocalizedPath(record, existing) {
+		delete(payloadData, "path")
 	} else if slug := asString(payload["slug"], ""); slug != "" {
 		payloadData["path"] = "/posts/" + strings.TrimPrefix(slug, "/")
 	}
@@ -619,6 +650,7 @@ func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
 		record["path"] = path
 	} else if slug := strings.TrimPrefix(content.Slug, "/"); slug != "" {
 		record["path"] = "/posts/" + slug
+		record[inheritedLocalizedPathKey] = true
 	}
 
 	if embedded, ok := extractEmbeddedBlocks(data["blocks"]); ok {
@@ -640,6 +672,109 @@ func (s *CMSPostStore) postToRecord(content admin.CMSContent) map[string]any {
 	}
 
 	return record
+}
+
+func localizedPathOverride(record map[string]any) (string, bool) {
+	if record == nil {
+		return "", false
+	}
+	if raw, ok := record["path"]; ok {
+		return strings.TrimSpace(asString(raw, "")), true
+	}
+	data, _ := record["data"].(map[string]any)
+	if data == nil {
+		return "", false
+	}
+	raw, ok := data["path"]
+	if !ok {
+		return "", false
+	}
+	return strings.TrimSpace(asString(raw, "")), true
+}
+
+func normalizeStoreTranslationCreateInput(input admin.TranslationCreateInput, defaultContentType string) admin.TranslationCreateInput {
+	input.SourceID = strings.TrimSpace(input.SourceID)
+	input.Locale = strings.ToLower(strings.TrimSpace(input.Locale))
+	input.ContentType = strings.TrimSpace(input.ContentType)
+	input.Status = strings.TrimSpace(input.Status)
+	input.Path = strings.TrimSpace(input.Path)
+	input.RouteKey = strings.TrimSpace(input.RouteKey)
+	if input.ContentType == "" {
+		input.ContentType = strings.TrimSpace(defaultContentType)
+	}
+	if input.Metadata != nil {
+		if input.Path == "" {
+			input.Path = strings.TrimSpace(asString(input.Metadata["path"], ""))
+		}
+		if input.RouteKey == "" {
+			input.RouteKey = strings.TrimSpace(asString(input.Metadata["route_key"], ""))
+		}
+	}
+	return input
+}
+
+func translationCreateGroupID(familyID, id string) string {
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(familyID, id))
+}
+
+func translationCreateRouteKey(input admin.TranslationCreateInput, routeKey string, data, metadata map[string]any) string {
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(
+		input.RouteKey,
+		routeKey,
+		asString(data["route_key"], ""),
+		asString(metadata["route_key"], ""),
+	))
+}
+
+func applyStoredTranslationPath(data, metadata map[string]any, path string) {
+	path = strings.TrimSpace(path)
+	if data == nil || metadata == nil {
+		return
+	}
+	if path == "" {
+		delete(data, "path")
+		delete(metadata, "path")
+		return
+	}
+	data["path"] = path
+	metadata["path"] = path
+}
+
+func applyStoredTranslationRouteKey(data, metadata map[string]any, routeKey string) {
+	routeKey = strings.TrimSpace(routeKey)
+	if data == nil || metadata == nil {
+		return
+	}
+	if routeKey == "" {
+		delete(data, "route_key")
+		delete(metadata, "route_key")
+		return
+	}
+	data["route_key"] = routeKey
+	metadata["route_key"] = routeKey
+}
+
+func inheritedLocalizedPathValue(record map[string]any) string {
+	if record == nil {
+		return ""
+	}
+	if inherited, _ := record[inheritedLocalizedPathKey].(bool); inherited {
+		return ""
+	}
+	return strings.TrimSpace(asString(record["path"], ""))
+}
+
+func shouldPreserveBlankLocalizedPath(record map[string]any, existing map[string]any) bool {
+	if record == nil {
+		return false
+	}
+	if _, explicit := localizedPathOverride(record); explicit {
+		return true
+	}
+	if inherited, _ := existing[inheritedLocalizedPathKey].(bool); inherited {
+		return true
+	}
+	return existing == nil && strings.TrimSpace(asString(record["family_id"], "")) != ""
 }
 
 func (s *CMSPostStore) resolveLocale(opts admin.ListOptions) string {
@@ -819,14 +954,58 @@ func (f *filteredContentService) CreateTranslation(ctx context.Context, input ad
 	if f.inner == nil {
 		return nil, admin.ErrNotFound
 	}
-	creator, ok := f.inner.(admin.CMSContentTranslationCreator)
-	if !ok || creator == nil {
-		return nil, admin.ErrTranslationCreateUnsupported
+	input = normalizeStoreTranslationCreateInput(input, f.contentType)
+	if creator, ok := f.inner.(admin.CMSContentTranslationCreator); ok && creator != nil {
+		created, err := creator.CreateTranslation(ctx, input)
+		if err == nil || !errors.Is(err, admin.ErrTranslationCreateUnsupported) {
+			return created, err
+		}
 	}
-	if strings.TrimSpace(input.ContentType) == "" {
-		input.ContentType = f.contentType
+	source, err := f.inner.Content(ctx, input.SourceID, "")
+	if err != nil {
+		return nil, err
 	}
-	return creator.CreateTranslation(ctx, input)
+	if source == nil {
+		return nil, admin.ErrNotFound
+	}
+	groupID := translationCreateGroupID(source.FamilyID, source.ID)
+	targetLocale := input.Locale
+	if targetLocale == "" {
+		return nil, admin.ErrNotFound
+	}
+	if contents, err := f.inner.Contents(ctx, targetLocale); err == nil {
+		for _, candidate := range contents {
+			candidateGroup := strings.TrimSpace(primitives.FirstNonEmptyRaw(candidate.FamilyID, candidate.ID))
+			if candidateGroup == "" || !strings.EqualFold(candidateGroup, groupID) {
+				continue
+			}
+			if strings.EqualFold(strings.TrimSpace(candidate.Locale), targetLocale) {
+				return nil, admin.TranslationAlreadyExistsError{
+					Panel:        strings.TrimSpace(f.contentType),
+					EntityID:     strings.TrimSpace(source.ID),
+					SourceLocale: strings.TrimSpace(source.Locale),
+					Locale:       targetLocale,
+					FamilyID:     groupID,
+				}
+			}
+		}
+	}
+	created := *source
+	created.ID = ""
+	created.Locale = targetLocale
+	created.Status = strings.TrimSpace(primitives.FirstNonEmptyRaw(input.Status, source.Status, "draft"))
+	created.FamilyID = groupID
+	created.RequestedLocale = ""
+	created.ResolvedLocale = ""
+	created.AvailableLocales = nil
+	created.MissingRequestedLocale = false
+	created.Data = primitives.CloneAnyMapEmptyOnEmpty(source.Data)
+	created.Metadata = primitives.CloneAnyMapEmptyOnEmpty(source.Metadata)
+	applyStoredTranslationPath(created.Data, created.Metadata, input.Path)
+	routeKey := translationCreateRouteKey(input, source.RouteKey, source.Data, source.Metadata)
+	created.RouteKey = routeKey
+	applyStoredTranslationRouteKey(created.Data, created.Metadata, routeKey)
+	return f.inner.CreateContent(ctx, created)
 }
 
 func cmsContentFromMap(record map[string]any) admin.CMSContent {

@@ -808,6 +808,36 @@ func (c *UserActivateCommand) Execute(ctx admin.AdminContext) error {
   2. Call `GET /admin/api/navigation` and confirm menus load; stop the server, restart with the same DSN, and confirm the menu payload still resolves (data persisted).
   3. Optional: point `APP_DATABASES__CMS_DSN` to a different file path and confirm a fresh database is created with the same migrations applied.
 
+### CMS bootstrap hooks for host-defined content types
+
+If the host app needs to create or repair content types like `news` or `quote`
+before admin routes are finalized, register that work with
+`adm.AddCMSBootstrapHook(...)` and then call `adm.Initialize(...)`. The admin
+runtime now reconciles dynamic CMS panels during startup, so later
+`quickstart.RegisterContentEntryUIRoutes(...)` calls see canonical routes like
+`/admin/news` and `/admin/quotes` without extra host-side boot ordering.
+
+```go
+adm.AddCMSBootstrapHook(func(ctx context.Context, adm *admin.Admin) error {
+	_, err := adm.ContentTypeService().CreateContentType(ctx, admin.CMSContentType{
+		Name:         "Quote",
+		Slug:         "quote",
+		Status:       "active",
+		Schema: map[string]any{
+			"$schema":    "https://json-schema.org/draft/2020-12/schema",
+			"type":       "object",
+			"properties": map[string]any{"title": map[string]any{"type": "string"}},
+		},
+		Capabilities: map[string]any{"panel_slug": "quotes"},
+	})
+	return err
+})
+
+if err := adm.Initialize(server.Router()); err != nil {
+	return err
+}
+```
+
 ## Content (Pages + Posts)
 
 - Pages and Posts panels use the go-cms backend by default (container from `examples/web/setup/cms_persistent.go`).
