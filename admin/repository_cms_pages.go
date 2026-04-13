@@ -55,7 +55,7 @@ func (r *CMSPageRepository) listPages(ctx context.Context, locale string, opts L
 	if r == nil || r.content == nil {
 		return nil, ErrNotFound
 	}
-	if svc, ok := r.content.(cmsPageListOptionsService); ok && svc != nil {
+	if svc, ok := resolveCMSPageListOptionsService(r.content); ok && svc != nil {
 		listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
 		if shouldExpandTranslationFamilyRowsForContext(ctx, opts) {
 			listOpts = append(listOpts, WithLocaleVariants())

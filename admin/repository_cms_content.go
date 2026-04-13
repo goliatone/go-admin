@@ -19,7 +19,7 @@ type CMSContentRepository struct {
 // NewCMSContentRepository builds a content repository.
 func NewCMSContentRepository(content CMSContentService) *CMSContentRepository {
 	repository := &CMSContentRepository{content: content}
-	if typed, ok := content.(CMSContentTypeService); ok {
+	if typed := resolveCMSContentTypeCapability(content); typed != nil {
 		repository.contentTypes = typed
 	}
 	repository.read = newAdminContentReadService(content, repository.contentTypes)
@@ -93,8 +93,12 @@ func (r *CMSContentTypeEntryRepository) listContents(ctx context.Context, locale
 		return nil, ErrNotFound
 	}
 	if contentTypeWantsTranslations(r.contentType) {
-		if svc, ok := r.content.(cmsContentListOptionsService); ok && svc != nil {
-			return svc.ContentsWithOptions(ctx, locale, WithTranslations(), WithDerivedFields())
+		if svc, ok := resolveCMSContentListOptionsService(r.content); ok && svc != nil {
+			listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
+			if shouldExpandTranslationFamilyRowsForContext(ctx, ListOptions{Filters: map[string]any{"locale": locale}}) {
+				listOpts = append(listOpts, WithLocaleVariants())
+			}
+			return svc.ContentsWithOptions(ctx, locale, listOpts...)
 		}
 	}
 	return r.content.Contents(ctx, locale)
@@ -664,7 +668,7 @@ func contentTypeServiceFromServices(content CMSContentService, contentTypes CMSC
 	if contentTypes != nil {
 		return contentTypes
 	}
-	if typed, ok := content.(CMSContentTypeService); ok {
+	if typed := resolveCMSContentTypeCapability(content); typed != nil {
 		return typed
 	}
 	return nil
