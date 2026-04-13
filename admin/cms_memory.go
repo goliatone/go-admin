@@ -672,6 +672,9 @@ func (s *InMemoryContentService) WithActivitySink(sink ActivitySink) {
 func (s *InMemoryContentService) Pages(_ context.Context, locale string) ([]CMSPage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if isTranslationLocaleWildcard(locale) {
+		locale = ""
+	}
 	out := []CMSPage{}
 	for _, page := range s.pages {
 		if locale != "" && page.Locale != "" && page.Locale != locale {
@@ -686,6 +689,9 @@ func (s *InMemoryContentService) Pages(_ context.Context, locale string) ([]CMSP
 func (s *InMemoryContentService) Page(_ context.Context, id, locale string) (*CMSPage, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if isTranslationLocaleWildcard(locale) {
+		locale = ""
+	}
 	page, ok := s.pages[id]
 	if !ok {
 		return nil, ErrNotFound
@@ -1005,6 +1011,9 @@ func (s *InMemoryContentService) DeleteContentType(ctx context.Context, id strin
 func (s *InMemoryContentService) Contents(_ context.Context, locale string) ([]CMSContent, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if isTranslationLocaleWildcard(locale) {
+		locale = ""
+	}
 	out := []CMSContent{}
 	for _, content := range s.contents {
 		if locale != "" && content.Locale != "" && content.Locale != locale {
@@ -1019,6 +1028,9 @@ func (s *InMemoryContentService) Contents(_ context.Context, locale string) ([]C
 func (s *InMemoryContentService) Content(_ context.Context, id, locale string) (*CMSContent, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if isTranslationLocaleWildcard(locale) {
+		locale = ""
+	}
 	content, ok := s.contents[id]
 	if !ok {
 		return nil, ErrNotFound
