@@ -515,8 +515,8 @@ func (a *Admin) activeLocales(ctx context.Context) []string {
 	if a == nil || a.cms == nil {
 		return nil
 	}
-	provider, ok := a.cms.(adminLocaleCatalog)
-	if !ok || provider == nil {
+	provider := resolveAdminLocaleCatalog(a.cms)
+	if provider == nil {
 		return nil
 	}
 	locales, err := provider.ActiveLocales(ctx)
