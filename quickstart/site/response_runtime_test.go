@@ -32,6 +32,19 @@ func TestSiteTemplateResponsePayloadIncludesTemplateAndClonedContext(t *testing.
 	}
 }
 
+func TestSiteTemplateResponsePayloadPrefersExplicitResponseTemplateAlias(t *testing.T) {
+	viewCtx := router.ViewContext{
+		"site_response_template": "site/page",
+		"site_content": map[string]any{
+			"template_candidates": []string{"site/home/page", "site/page"},
+		},
+	}
+	payload := siteTemplateResponsePayload("site/home/page", viewCtx, nil)
+	if got := anyString(payload["template"]); got != "site/page" {
+		t.Fatalf("expected response template alias site/page, got %q", got)
+	}
+}
+
 func TestRenderSiteTemplateResponseJSONAndHTMLFallback(t *testing.T) {
 	server := router.NewHTTPServer()
 	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{})

@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	goerrors "github.com/goliatone/go-errors"
@@ -252,6 +253,66 @@ func TestAdminContentWriteServiceCreateTranslationBackfillsRouteKeyAndRejectsLoc
 	}
 	if got := toString(translated["path"]); got != "/a-propos-nous" {
 		t.Fatalf("expected localized path preserved, got %q", got)
+	}
+}
+
+func TestAdminContentWriteServiceCreateTranslationWithInMemoryContentServiceClonesLocaleVariant(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	service := newAdminContentWriteService(content)
+
+	source, err := content.CreateContent(ctx, CMSContent{
+		ID:              "home-en",
+		Title:           "Home",
+		Slug:            "home",
+		Locale:          "en",
+		FamilyID:        "family:home",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		RouteKey:        "pages/home",
+		Data:            map[string]any{"path": "/"},
+		Metadata:        map[string]any{"path": "/"},
+	})
+	if err != nil {
+		t.Fatalf("create source failed: %v", err)
+	}
+
+	translated, err := service.CreateTranslation(ctx, TranslationCreateInput{
+		SourceID: source.ID,
+		Locale:   "bo",
+		Path:     "/bo",
+		RouteKey: "pages/home",
+		Metadata: map[string]any{
+			"translation_create_locale": map[string]any{"idempotency_key": "home-bo"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if got := toString(translated["locale"]); got != "bo" {
+		t.Fatalf("expected locale bo, got %q", got)
+	}
+	if got := toString(translated["family_id"]); got != "family:home" {
+		t.Fatalf("expected family_id family:home, got %q", got)
+	}
+	if got := toString(translated["path"]); got != "/bo" {
+		t.Fatalf("expected localized path /bo, got %q", got)
+	}
+	if got := toString(translated["route_key"]); got != "pages/home" {
+		t.Fatalf("expected route_key pages/home, got %q", got)
+	}
+	metadata := extractMap(translated["metadata"])
+	if replay := extractMap(metadata["translation_create_locale"]); toString(replay["idempotency_key"]) != "home-bo" {
+		t.Fatalf("expected translation metadata to survive clone, got %+v", metadata)
+	}
+
+	sourceAfter, err := content.Content(ctx, source.ID, "en")
+	if err != nil || sourceAfter == nil {
+		t.Fatalf("fetch source after create translation: content=%+v err=%v", sourceAfter, err)
+	}
+	if got := strings.Join(sourceAfter.AvailableLocales, ","); got != "en,bo" {
+		t.Fatalf("expected source available locales en,bo, got %q", got)
 	}
 }
 

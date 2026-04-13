@@ -6,7 +6,6 @@ import (
 
 	cms "github.com/goliatone/go-cms"
 	cmsblocks "github.com/goliatone/go-cms/blocks"
-	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
 )
 
@@ -389,23 +388,24 @@ func TestGoCMSContentAdapterCreateTranslationUsesAdminContentWriteServiceForSupp
 	}
 }
 
-func TestGoCMSContentAdapterCreateTranslationFallsBackForLocalOnlyFields(t *testing.T) {
+func TestGoCMSContentAdapterCreateTranslationKeepsAdminWritePathForLocalizedPath(t *testing.T) {
 	ctx := context.Background()
 	sourceID := uuid.New()
-	adminWrite := &stubGoCMSAdminContentWriteService{}
-	contentSvc := &stubGoCMSContentService{
-		createTranslationRes: &cmscontent.Content{
-			ID:     uuid.New(),
-			Slug:   "bonjour",
-			Status: "draft",
-			Type:   &cmscontent.ContentType{Slug: "posts"},
-			Translations: []*cmscontent.ContentTranslation{{
-				Locale:  &cmscontent.Locale{Code: "fr"},
-				Title:   "Bonjour",
-				Content: map[string]any{"body": "bonjour"},
-			}},
+	familyID := uuid.New()
+	adminWrite := &stubGoCMSAdminContentWriteService{
+		createTranslationResp: &cms.AdminContentRecord{
+			ID:              uuid.New(),
+			FamilyID:        &familyID,
+			Title:           "Bonjour",
+			Slug:            "bonjour",
+			Locale:          "fr",
+			ContentType:     "posts",
+			ContentTypeSlug: "posts",
+			Status:          "draft",
+			Data:            map[string]any{"body": "bonjour", "path": "/bonjour"},
 		},
 	}
+	contentSvc := &stubGoCMSContentService{}
 	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, nil, adminWrite, nil, nil)
 	adapter := svc.(*GoCMSContentAdapter)
 
@@ -417,11 +417,14 @@ func TestGoCMSContentAdapterCreateTranslationFallsBackForLocalOnlyFields(t *test
 	if err != nil {
 		t.Fatalf("create translation failed: %v", err)
 	}
-	if adminWrite.createTranslationCnt != 0 {
-		t.Fatalf("expected admin write path skipped, got %d calls", adminWrite.createTranslationCnt)
+	if adminWrite.createTranslationCnt != 1 {
+		t.Fatalf("expected admin write path used once, got %d calls", adminWrite.createTranslationCnt)
 	}
-	if contentSvc.createTranslationCnt != 1 {
-		t.Fatalf("expected reflective path used once, got %d", contentSvc.createTranslationCnt)
+	if adminWrite.createTranslationReq.Path != "/bonjour" {
+		t.Fatalf("expected localized path forwarded to admin write request, got %q", adminWrite.createTranslationReq.Path)
+	}
+	if contentSvc.createTranslationCnt != 0 {
+		t.Fatalf("expected reflective path to stay unused, got %d", contentSvc.createTranslationCnt)
 	}
 }
 
@@ -459,5 +462,48 @@ func TestGoCMSContentAdapterCreateTranslationKeepsAdminWritePathForRouteKeyOnly(
 	}
 	if contentSvc.createTranslationCnt != 0 {
 		t.Fatalf("expected reflective path to stay unused, got %d calls", contentSvc.createTranslationCnt)
+	}
+}
+
+func TestGoCMSContentAdapterCreateTranslationUsesAdminWritePathForTranslationFamilyMetadata(t *testing.T) {
+	ctx := context.Background()
+	sourceID := uuid.New()
+	adminWrite := &stubGoCMSAdminContentWriteService{
+		createTranslationResp: &cms.AdminContentRecord{
+			ID:              uuid.New(),
+			Title:           "Bonjour",
+			Slug:            "bonjour",
+			Locale:          "fr",
+			ContentType:     "news",
+			ContentTypeSlug: "news",
+			Status:          "draft",
+		},
+	}
+	contentSvc := &stubGoCMSContentService{}
+	svc := newGoCMSContentAdapter(contentSvc, nil, nil, nil, nil, nil, adminWrite, nil, nil)
+	adapter := svc.(*GoCMSContentAdapter)
+
+	_, err := adapter.CreateTranslation(ctx, TranslationCreateInput{
+		SourceID:     sourceID.String(),
+		Locale:       "fr",
+		ContentType:  "news",
+		PolicyEntity: "news",
+		Metadata: map[string]any{
+			"translation_create_locale": map[string]any{"idempotency_key": "family-fr"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create translation failed: %v", err)
+	}
+	if adminWrite.createTranslationCnt != 1 {
+		t.Fatalf("expected admin write path used for family metadata, got %d calls", adminWrite.createTranslationCnt)
+	}
+	if contentSvc.createTranslationCnt != 0 {
+		t.Fatalf("expected reflective path to stay unused, got %d calls", contentSvc.createTranslationCnt)
+	}
+	metadata := adminWrite.createTranslationReq.Metadata
+	replay := extractMap(metadata["translation_create_locale"])
+	if got := toString(replay["idempotency_key"]); got != "family-fr" {
+		t.Fatalf("expected translation metadata forwarded to admin write request, got %+v", metadata)
 	}
 }

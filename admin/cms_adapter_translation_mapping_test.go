@@ -119,3 +119,9 @@ func TestApplyGoCMSTranslationLocaleStateMarksMissingRequestedLocale(t *testing.
 		t.Fatalf("expected missing requested locale")
 	}
 }
+
+func TestTranslationMetadataMapReturnsNilForZeroValue(t *testing.T) {
+	if meta := translationMetadataMap(reflect.Value{}); meta != nil {
+		t.Fatalf("expected nil metadata for zero value, got %#v", meta)
+	}
+}

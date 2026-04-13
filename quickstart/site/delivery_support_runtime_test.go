@@ -80,3 +80,22 @@ func TestUniqueLocaleOrderDeduplicatesAndNormalizesGroups(t *testing.T) {
 		}
 	}
 }
+
+func TestDeliveryRequestMatchPathCanonicalizesLegacyLocalizedStoredPaths(t *testing.T) {
+	record := admin.CMSContent{
+		ID:              "home-zh",
+		Slug:            "home",
+		Locale:          "zh",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/zh"},
+	}
+
+	if got := deliveryRequestMatchPath(false, record, deliveryCapability{TypeSlug: "page", Kind: "page"}, []string{"en", "bo", "zh"}); got != "/" {
+		t.Fatalf("expected canonical request match path / for localized root, got %q", got)
+	}
+	if got := deliveryRequestMatchPath(true, record, deliveryCapability{TypeSlug: "page", Kind: "page"}, []string{"en", "bo", "zh"}); got != "/zh" {
+		t.Fatalf("expected strict request match path to keep stored localized path, got %q", got)
+	}
+}

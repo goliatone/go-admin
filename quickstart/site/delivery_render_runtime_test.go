@@ -1,11 +1,28 @@
 package site
 
 import (
+	"context"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
 	router "github.com/goliatone/go-router"
 )
+
+type recordAwareModuleStub struct{}
+
+func (recordAwareModuleStub) ID() string { return "record-aware" }
+
+func (recordAwareModuleStub) RegisterRoutes(SiteModuleContext) error { return nil }
+
+func (recordAwareModuleStub) ViewContext(_ context.Context, viewCtx router.ViewContext) router.ViewContext {
+	record := anyMap(viewCtx["record"])
+	if viewCtx == nil {
+		viewCtx = router.ViewContext{}
+	}
+	viewCtx["module_record_title"] = anyString(record["title"])
+	viewCtx["module_resolved_locale"] = anyString(viewCtx["resolved_locale"])
+	return viewCtx
+}
 
 func TestRenderResolutionJSONProjectsDetailRecordAndLocalizedSwitcher(t *testing.T) {
 	cfg := ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
@@ -168,5 +185,55 @@ func TestRenderResolutionJSONProjectsCollectionRecords(t *testing.T) {
 	postList := nestedAny(payload, "context", "posts")
 	if records == nil || postList == nil {
 		t.Fatalf("expected collection projections in payload, got %+v", payload)
+	}
+}
+
+func TestRenderResolutionReappliesModulesAfterResolvedRecordProjection(t *testing.T) {
+	runtime := &deliveryRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			Modules: []SiteModule{recordAwareModuleStub{}},
+		}),
+		modules: []SiteModule{recordAwareModuleStub{}},
+	}
+	state := RequestState{
+		Locale:           "bo",
+		DefaultLocale:    "en",
+		SupportedLocales: []string{"en", "bo"},
+		ViewContext: router.ViewContext{
+			"module_record_title": "",
+		},
+	}
+	record := admin.CMSContent{
+		ID:              "home-bo",
+		Title:           "Tibetan Home",
+		Slug:            "home",
+		Locale:          "bo",
+		ResolvedLocale:  "bo",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data:            map[string]any{"path": "/bo"},
+	}
+	resolution := &deliveryResolution{
+		Mode:               "detail",
+		Capability:         deliveryCapability{TypeSlug: "page", Kind: "page"},
+		Record:             &record,
+		RequestedLocale:    "bo",
+		ResolvedLocale:     "bo",
+		AvailableLocales:   []string{"en", "bo"},
+		TemplateCandidates: []string{"site/page"},
+	}
+
+	server := router.NewHTTPServer()
+	server.Router().Get("/bo", func(c router.Context) error {
+		return runtime.renderResolution(c, state, resolution, "/bo", newSiteContentCache())
+	})
+
+	payload := performSiteRequest(t, server, "/bo?format=json")
+	if got := nestedString(payload, "context", "module_record_title"); got != "Tibetan Home" {
+		t.Fatalf("expected modules to see resolved record title, got %q payload=%+v", got, payload)
+	}
+	if got := nestedString(payload, "context", "module_resolved_locale"); got != "bo" {
+		t.Fatalf("expected modules to see resolved locale bo, got %q payload=%+v", got, payload)
 	}
 }
