@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -519,6 +520,12 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 	if meta := gocmsutil.MapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = primitives.CloneAnyMap(meta)
 	}
+	if meta := translationMetadataMap(projection.chosen); len(meta) > 0 {
+		if out.Metadata == nil {
+			out.Metadata = map[string]any{}
+		}
+		maps.Copy(out.Metadata, meta)
+	}
 	out.FamilyID = cmsadapter.ResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
 	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
 	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
@@ -600,6 +607,12 @@ func (r goCMSContentReadBoundary) convertContentVariant(ctx context.Context, val
 	}
 	if meta := gocmsutil.MapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = primitives.CloneAnyMap(meta)
+	}
+	if meta := translationMetadataMap(variant.translation); len(meta) > 0 {
+		if out.Metadata == nil {
+			out.Metadata = map[string]any{}
+		}
+		maps.Copy(out.Metadata, meta)
 	}
 	out.FamilyID = cmsadapter.ResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
 	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
