@@ -34,7 +34,7 @@ func newAdminContentWriteService(content CMSContentService, contentTypes ...CMSC
 	service := goCMSAdminContentWriteService{content: content}
 	if len(contentTypes) > 0 && contentTypes[0] != nil {
 		service.contentTypes = contentTypes[0]
-	} else if typed, ok := content.(CMSContentTypeService); ok && typed != nil {
+	} else if typed := resolveCMSContentTypeCapability(content); typed != nil {
 		service.contentTypes = typed
 	}
 	return service
@@ -169,7 +169,7 @@ func (s goCMSAdminContentWriteService) CreateTranslation(ctx context.Context, in
 			"field": "locale",
 		})
 	}
-	creator, ok := s.content.(CMSContentTranslationCreator)
+	creator, ok := resolveCMSContentTranslationCreator(s.content)
 	if !ok || creator == nil {
 		return nil, ErrTranslationCreateUnsupported
 	}
@@ -229,7 +229,7 @@ func (s goCMSAdminContentWriteService) CreateTranslationForContentType(ctx conte
 			"field": "locale",
 		})
 	}
-	creator, ok := s.content.(CMSContentTranslationCreator)
+	creator, ok := resolveCMSContentTranslationCreator(s.content)
 	if !ok || creator == nil {
 		return nil, ErrTranslationCreateUnsupported
 	}

@@ -30,7 +30,7 @@ func newAdminContentReadService(content CMSContentService, contentTypes ...CMSCo
 	service := goCMSAdminContentReadService{content: content}
 	if len(contentTypes) > 0 && contentTypes[0] != nil {
 		service.contentTypes = contentTypes[0]
-	} else if typed, ok := content.(CMSContentTypeService); ok && typed != nil {
+	} else if typed := resolveCMSContentTypeCapability(content); typed != nil {
 		service.contentTypes = typed
 	}
 	return service
@@ -202,7 +202,7 @@ func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Con
 		return nil, ErrNotFound
 	}
 	if contentTypeWantsTranslations(contentType) {
-		if svc, ok := s.content.(cmsContentListOptionsService); ok && svc != nil {
+		if svc, ok := resolveCMSContentListOptionsService(s.content); ok && svc != nil {
 			listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
 			if shouldExpandTranslationFamilyRowsForContext(ctx, opts) {
 				listOpts = append(listOpts, WithLocaleVariants())
