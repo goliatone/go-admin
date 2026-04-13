@@ -4,11 +4,9 @@ import (
 	"context"
 	"github.com/goliatone/go-admin/admin/cms/gocmsutil"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
-	"github.com/goliatone/go-admin/internal/primitives"
 	cms "github.com/goliatone/go-cms"
 	"github.com/google/uuid"
 	"reflect"
-	"strings"
 )
 
 // CreateTranslation attempts to use a first-class go-cms translation command when available.
@@ -38,6 +36,9 @@ func (a *GoCMSContentAdapter) CreateTranslation(ctx context.Context, input Trans
 			EnvironmentKey: input.Environment,
 			ActorID:        actorUUID(ctx),
 			Status:         input.Status,
+			Path:           input.Path,
+			RouteKey:       input.RouteKey,
+			Metadata:       cloneAnyMap(input.Metadata),
 		})
 		if err != nil {
 			return nil, normalizeGoCMSTranslationCreateError(err, input)
@@ -92,16 +93,6 @@ func (a *GoCMSContentAdapter) createTranslationRecord(ctx context.Context, input
 	return record, nil
 }
 
-func shouldUseAdminContentTranslationCreate(input TranslationCreateInput) bool {
-	if strings.TrimSpace(input.PolicyEntity) != "" ||
-		strings.TrimSpace(input.ContentType) != "" ||
-		strings.TrimSpace(input.Path) != "" {
-		return false
-	}
-	metadata := primitives.CloneAnyMap(input.Metadata)
-	if len(metadata) > 0 {
-		delete(metadata, "route_key")
-		delete(metadata, "path")
-	}
-	return len(metadata) == 0
+func shouldUseAdminContentTranslationCreate(TranslationCreateInput) bool {
+	return true
 }
