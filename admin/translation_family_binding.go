@@ -536,7 +536,7 @@ func (b *translationFamilyBinding) createFamilyVariant(ctx context.Context, acto
 	if b == nil || b.admin == nil || b.admin.contentSvc == nil {
 		return nil, serviceNotConfiguredDomainError("content service", map[string]any{"component": "translation_family_binding"})
 	}
-	creator, ok := b.admin.contentSvc.(CMSContentTranslationCreator)
+	creator, ok := resolveCMSContentTranslationCreator(b.admin.contentSvc)
 	if !ok || creator == nil {
 		return nil, serviceNotConfiguredDomainError("content translation creator", map[string]any{"component": "translation_family_binding"})
 	}

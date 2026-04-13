@@ -1105,6 +1105,116 @@ func (s *InMemoryContentService) UpdateContent(ctx context.Context, content CMSC
 	return &cp, nil
 }
 
+// CreateTranslation clones an existing content entry into a target locale.
+func (s *InMemoryContentService) CreateTranslation(ctx context.Context, input TranslationCreateInput) (*CMSContent, error) {
+	if s == nil {
+		return nil, ErrNotFound
+	}
+	input = normalizeTranslationCreateInput(input)
+	if input.SourceID == "" {
+		return nil, validationDomainError("translation requires a single id", map[string]any{
+			"field": "id",
+		})
+	}
+	if input.Locale == "" {
+		return nil, validationDomainError("translation locale required", map[string]any{
+			"field": "locale",
+		})
+	}
+
+	s.mu.Lock()
+	source, ok := s.contents[input.SourceID]
+	if !ok {
+		s.mu.Unlock()
+		return nil, ErrNotFound
+	}
+	source = cloneCMSContent(source)
+	familyID := strings.TrimSpace(canonicalFamilyIDForContent(source))
+	if familyID == "" {
+		familyID = strings.TrimSpace(source.ID)
+	}
+	if existing := s.findContentTranslationLocked(source.ID, familyID, input.Locale); existing != nil {
+		s.mu.Unlock()
+		return nil, TranslationAlreadyExistsError{
+			EntityID:     strings.TrimSpace(source.ID),
+			SourceLocale: strings.TrimSpace(source.Locale),
+			Locale:       input.Locale,
+			FamilyID:     familyID,
+		}
+	}
+
+	if familyID != "" {
+		source.FamilyID = familyID
+		source = applyContentFamilyProjection(source, familyID)
+		s.contents[source.ID] = cloneCMSContent(source)
+	}
+
+	created := cloneCMSContent(source)
+	created.ID = strconv.Itoa(s.nextCont)
+	s.nextCont++
+	created.Locale = input.Locale
+	created.RequestedLocale = input.Locale
+	created.ResolvedLocale = input.Locale
+	created.MissingRequestedLocale = false
+	if strings.TrimSpace(input.Status) != "" {
+		created.Status = input.Status
+	}
+	if familyID != "" {
+		created.FamilyID = familyID
+	}
+	if created.Data == nil {
+		created.Data = map[string]any{}
+	}
+	if created.Metadata == nil {
+		created.Metadata = map[string]any{}
+	}
+	if strings.TrimSpace(input.Path) != "" {
+		createdPath := normalizeCMSLocalizedPath(input.Path)
+		if createdPath != "" {
+			created.Data["path"] = createdPath
+			created.Metadata["path"] = createdPath
+		}
+	}
+	if strings.TrimSpace(input.RouteKey) != "" {
+		created.RouteKey = strings.TrimSpace(input.RouteKey)
+		created.Data["route_key"] = created.RouteKey
+		created.Metadata["route_key"] = created.RouteKey
+	}
+	if len(input.Metadata) > 0 {
+		created.Metadata = mergeAnyMap(created.Metadata, cloneAnyMap(input.Metadata))
+	}
+	if familyID != "" {
+		created = applyContentFamilyProjection(created, familyID)
+	}
+
+	availableLocales := s.translationLocalesLocked(source.ID, familyID, input.Locale)
+	source.AvailableLocales = append([]string{}, availableLocales...)
+	created.AvailableLocales = append([]string{}, availableLocales...)
+	s.contents[source.ID] = cloneCMSContent(source)
+	s.contents[created.ID] = cloneCMSContent(created)
+	if familyID != "" {
+		for _, memberID := range s.translationFamilyMemberIDsLocked(source.ID, familyID) {
+			member := cloneCMSContent(s.contents[memberID])
+			member.AvailableLocales = append([]string{}, availableLocales...)
+			s.contents[memberID] = cloneCMSContent(member)
+		}
+	}
+	cp := cloneCMSContent(created)
+	activity := s.activity
+	meta := map[string]any{
+		"title":        cp.Title,
+		"slug":         cp.Slug,
+		"locale":       cp.Locale,
+		"content_type": primitives.FirstNonEmptyRaw(cp.ContentTypeSlug, cp.ContentType),
+		"status":       cp.Status,
+		"source_id":    source.ID,
+		"family_id":    familyID,
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.content.translation.create", "content:"+cp.ID, meta)
+	return &cp, nil
+}
+
 // DeleteContent removes a content entry.
 func (s *InMemoryContentService) DeleteContent(ctx context.Context, id string) error {
 	s.mu.Lock()
@@ -1117,6 +1227,89 @@ func (s *InMemoryContentService) DeleteContent(ctx context.Context, id string) e
 	s.mu.Unlock()
 	recordCMSActivity(ctx, activity, "cms.content.delete", "content:"+id, nil)
 	return nil
+}
+
+func (s *InMemoryContentService) findContentTranslationLocked(sourceID, familyID, locale string) *CMSContent {
+	locale = strings.TrimSpace(locale)
+	if locale == "" {
+		return nil
+	}
+	for _, content := range s.contents {
+		if !strings.EqualFold(strings.TrimSpace(content.Locale), locale) {
+			continue
+		}
+		switch {
+		case strings.TrimSpace(content.ID) == strings.TrimSpace(sourceID):
+			copy := cloneCMSContent(content)
+			return &copy
+		case familyID != "" && strings.EqualFold(strings.TrimSpace(canonicalFamilyIDForContent(content)), familyID):
+			copy := cloneCMSContent(content)
+			return &copy
+		}
+	}
+	return nil
+}
+
+func (s *InMemoryContentService) translationFamilyMemberIDsLocked(sourceID, familyID string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(s.contents))
+	for _, candidate := range []string{strings.TrimSpace(sourceID)} {
+		if candidate == "" || seen[candidate] {
+			continue
+		}
+		if _, ok := s.contents[candidate]; ok {
+			seen[candidate] = true
+			out = append(out, candidate)
+		}
+	}
+	if familyID == "" {
+		return out
+	}
+	for id, content := range s.contents {
+		if !strings.EqualFold(strings.TrimSpace(canonicalFamilyIDForContent(content)), familyID) || seen[id] {
+			continue
+		}
+		seen[id] = true
+		out = append(out, id)
+	}
+	return out
+}
+
+func (s *InMemoryContentService) translationLocalesLocked(sourceID, familyID string, extraLocales ...string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(s.contents)+len(extraLocales))
+	appendLocale := func(locale string) {
+		locale = strings.TrimSpace(locale)
+		if locale == "" || seen[strings.ToLower(locale)] {
+			return
+		}
+		seen[strings.ToLower(locale)] = true
+		out = append(out, locale)
+	}
+	for _, id := range s.translationFamilyMemberIDsLocked(sourceID, familyID) {
+		appendLocale(s.contents[id].Locale)
+	}
+	for _, locale := range extraLocales {
+		appendLocale(locale)
+	}
+	return out
+}
+
+func applyContentFamilyProjection(content CMSContent, familyID string) CMSContent {
+	familyID = strings.TrimSpace(familyID)
+	if familyID == "" {
+		return content
+	}
+	content.FamilyID = familyID
+	if content.Data == nil {
+		content.Data = map[string]any{}
+	}
+	if content.Metadata == nil {
+		content.Metadata = map[string]any{}
+	}
+	content.Data["family_id"] = familyID
+	content.Metadata["family_id"] = familyID
+	return content
 }
 
 // BlockDefinitions returns registered block definitions.
