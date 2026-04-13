@@ -421,3 +421,28 @@ func translationContentMap(val reflect.Value) map[string]any {
 	}
 	return nil
 }
+
+func translationMetadataMap(val reflect.Value) map[string]any {
+	if !val.IsValid() {
+		return nil
+	}
+	val = gocmsutil.Deref(val)
+	if !val.IsValid() {
+		return nil
+	}
+	metadataField := val.FieldByName("Metadata")
+	if !metadataField.IsValid() {
+		return nil
+	}
+	metadataField = gocmsutil.Deref(metadataField)
+	if !metadataField.IsValid() {
+		return nil
+	}
+	switch metadataField.Kind() {
+	case reflect.Map:
+		if m, ok := metadataField.Interface().(map[string]any); ok {
+			return primitives.CloneAnyMap(m)
+		}
+	}
+	return nil
+}
