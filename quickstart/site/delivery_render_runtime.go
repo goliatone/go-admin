@@ -84,6 +84,9 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		pathsByLocale,
 		state,
 	)
+	if len(r.modules) > 0 {
+		viewCtx = applyRequestStateModuleViewContext(c.Context(), viewCtx, r.modules)
+	}
 	viewCtx = applySiteContentAwareViewContext(viewCtx)
 
 	return renderSiteTemplateResponse(c, state, r.siteCfg, siteTemplateResponse{

@@ -150,11 +150,15 @@ func uniqueLocaleOrder(groups ...[]string) []string {
 	return out
 }
 
-func deliveryRequestMatchPath(strict bool, record admin.CMSContent, capability deliveryCapability) string {
+func deliveryRequestMatchPath(strict bool, record admin.CMSContent, capability deliveryCapability, supportedLocales []string) string {
 	if strict {
 		return recordStoredDeliveryPath(record, capability)
 	}
-	return recordDeliveryPath(record, capability)
+	path := recordDeliveryPath(record, capability)
+	if canonical, locale := StripSupportedLocalePrefix(path, supportedLocales); locale != "" {
+		return canonical
+	}
+	return path
 }
 
 func ambiguousLocaleCandidates(candidates []admin.CMSContent, requestedLocale, defaultLocale string, supported []string, capability deliveryCapability) bool {

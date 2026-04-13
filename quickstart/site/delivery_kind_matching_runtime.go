@@ -17,7 +17,7 @@ func (r *deliveryRuntime) resolvePageKind(
 ) (*deliveryResolution, SiteRuntimeError, bool) {
 	candidates := []admin.CMSContent{}
 	for _, record := range records {
-		path := deliveryRequestMatchPath(r.strictLocalizedPathsEnabled(), record, capability)
+		path := deliveryRequestMatchPath(r.strictLocalizedPathsEnabled(), record, capability, r.siteCfg.SupportedLocales)
 		if path == "" {
 			continue
 		}
@@ -66,7 +66,7 @@ func (r *deliveryRuntime) resolveDetailKind(
 	slug := strings.TrimSpace(params["slug"])
 	candidates := []admin.CMSContent{}
 	for _, record := range records {
-		path := deliveryRequestMatchPath(r.strictLocalizedPathsEnabled(), record, capability)
+		path := deliveryRequestMatchPath(r.strictLocalizedPathsEnabled(), record, capability, r.siteCfg.SupportedLocales)
 		if path != "" && pathsMatch(path, requestPath) {
 			candidates = append(candidates, record)
 			continue

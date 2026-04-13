@@ -13,6 +13,7 @@ type deliveryRuntime struct {
 	contentSvc     admin.CMSContentService
 	contentTypeSvc admin.CMSContentTypeService
 	navigation     *navigationRuntime
+	modules        []SiteModule
 }
 
 func newDeliveryRuntime(
@@ -29,6 +30,7 @@ func newDeliveryRuntime(
 		contentSvc:     contentSvc,
 		contentTypeSvc: contentTypeSvc,
 		navigation:     newNavigationRuntime(siteCfg, adm, contentSvc, contentTypeSvc),
+		modules:        compactModules(siteCfg.Modules),
 	}
 }
 
