@@ -1,5 +1,33 @@
 # Changelog
 
+# [0.46.0](https://github.com/goliatone/go-admin/compare/v0.45.0...v0.46.0) - (2026-04-13)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Cms adapter content read translation metadata ([1438163](https://github.com/goliatone/go-admin/commit/1438163a609625bf96bd21a76e5980489945ab1d))  - (goliatone)
+- Resolve admin locale catalog ([a0afbca](https://github.com/goliatone/go-admin/commit/a0afbcaa08016d46ddc1b59ce810d27d694cfc81))  - (goliatone)
+- Reset locale code ([48e496c](https://github.com/goliatone/go-admin/commit/48e496c4a5e030a4d5f8ebf04107c52c39c467a4))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.46.0 ([15ce670](https://github.com/goliatone/go-admin/commit/15ce67033782e0698d246104d5f1010be0853c13))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Cms translation grouping ([d25bc0f](https://github.com/goliatone/go-admin/commit/d25bc0f1e9d14b6450867dbd28c6028d339b4d6e))  - (goliatone)
+- Route key in translation metadata ([2c1fe1f](https://github.com/goliatone/go-admin/commit/2c1fe1f4141db0fe096927f9d39d65c8a3613600))  - (goliatone)
+- Cms resolve content type ([b4f0eae](https://github.com/goliatone/go-admin/commit/b4f0eae209ebcde75e263340fb66731c7f02916a))  - (goliatone)
+- Cms capability unwrap ([e75abba](https://github.com/goliatone/go-admin/commit/e75abbabb7d6b424bd8738d1ffefe328671a73a0))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.45.0 ([7494e61](https://github.com/goliatone/go-admin/commit/7494e6196d4a22e120b6249959eae1fae1a736b4))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([681d9e2](https://github.com/goliatone/go-admin/commit/681d9e23570d00e7febea7d2e27531f9678e26a3))  - (goliatone)
+- Update tests ([6da05c2](https://github.com/goliatone/go-admin/commit/6da05c2ee0eb2f3f93ed6bb57bffe2e43b37d588))  - (goliatone)
+
 # [0.45.0](https://github.com/goliatone/go-admin/compare/v0.44.0...v0.45.0) - (2026-04-12)
 
 ## <!-- 1 -->🐛 Bug Fixes
