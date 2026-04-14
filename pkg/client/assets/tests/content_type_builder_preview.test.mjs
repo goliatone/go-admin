@@ -276,3 +276,94 @@ test('blocks allowed-block edits from ref-based schema keep oneOf refs', () => {
   assert.deepEqual(blocksSchema.items.oneOf, [{ $ref: '#/$defs/hero' }]);
   assert.equal(blocksSchema.items.required, undefined);
 });
+
+test('schemaToFields/fieldsToSchema preserves block-library-picker object-item blocks metadata', () => {
+  const inputSchema = {
+    type: 'object',
+    properties: {
+      blocks: {
+        type: 'array',
+        'x-formgen': {
+          widget: 'block-library-picker',
+          'component.name': 'block-library-picker',
+          'component.config': {
+            includeInactive: true,
+          },
+          sortable: true,
+        },
+        items: {
+          type: 'object',
+        },
+      },
+    },
+  };
+
+  const fields = schemaToFields(inputSchema);
+  assert.equal(fields[0].type, 'blocks');
+
+  const rebuilt = fieldsToSchema(fields, 'page');
+  const blocksSchema = rebuilt.properties.blocks;
+
+  assert.deepEqual(blocksSchema.items, { type: 'object' });
+  assert.equal(blocksSchema['x-formgen'].widget, 'block-library-picker');
+  assert.equal(blocksSchema['x-formgen']['component.name'], 'block-library-picker');
+  assert.deepEqual(blocksSchema['x-formgen']['component.config'], { includeInactive: true });
+});
+
+test('schemaToFields uses component.config.allowedBlocks fallback for block-library-picker', () => {
+  const inputSchema = {
+    type: 'object',
+    properties: {
+      blocks: {
+        type: 'array',
+        'x-formgen': {
+          widget: 'block-library-picker',
+          'component.config': {
+            allowedBlocks: ['hero'],
+            includeInactive: true,
+          },
+        },
+        items: {
+          type: 'object',
+        },
+      },
+    },
+  };
+
+  const fields = schemaToFields(inputSchema);
+  assert.equal(fields[0].type, 'blocks');
+  assert.deepEqual(fields[0].config.allowedBlocks, ['hero']);
+
+  const rebuilt = fieldsToSchema(fields, 'page');
+  const blocksSchema = rebuilt.properties.blocks;
+
+  assert.deepEqual(blocksSchema['x-formgen'].allowedBlocks, ['hero']);
+  assert.deepEqual(blocksSchema['x-formgen']['component.config'], {
+    allowedBlocks: ['hero'],
+    includeInactive: true,
+  });
+});
+
+test('schemaToFields recognizes block-library widget alias as blocks', () => {
+  const inputSchema = {
+    type: 'object',
+    properties: {
+      blocks: {
+        type: 'array',
+        'x-formgen': {
+          widget: 'block-library',
+          sortable: true,
+        },
+        items: {
+          type: 'object',
+        },
+      },
+    },
+  };
+
+  const fields = schemaToFields(inputSchema);
+  assert.equal(fields[0].type, 'blocks');
+
+  const rebuilt = fieldsToSchema(fields, 'page');
+  assert.equal(rebuilt.properties.blocks['x-formgen'].widget, 'block-library');
+});

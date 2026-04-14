@@ -1377,6 +1377,8 @@ export class FieldConfigForm extends Modal {
           __sourceRefPrefix: existingConfig?.__sourceRefPrefix,
           __sourceRepresentation: existingConfig?.__sourceRepresentation,
           __sourceWidget: existingConfig?.__sourceWidget,
+          __sourceComponentName: existingConfig?.__sourceComponentName,
+          __sourceComponentConfig: existingConfig?.__sourceComponentConfig,
           __sourceSortable: existingConfig?.__sourceSortable,
           __sourceHadAllowedBlocks: existingConfig?.__sourceHadAllowedBlocks,
           __sourceHadDeniedBlocks: existingConfig?.__sourceHadDeniedBlocks,

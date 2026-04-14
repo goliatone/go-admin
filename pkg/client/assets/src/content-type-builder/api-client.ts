@@ -966,6 +966,9 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
       const deniedBlocks = normalizeBlockTypeList(blocksConfig?.deniedBlocks);
       const sourceAllowed = normalizeBlockTypeList(blocksConfig?.__sourceAllowedBlocks);
       const sourceDenied = normalizeBlockTypeList(blocksConfig?.__sourceDeniedBlocks);
+      const sourceWidget = normalizeWidgetName(blocksConfig?.__sourceWidget) || 'block';
+      const sourceComponentName = normalizeWidgetName(blocksConfig?.__sourceComponentName);
+      const sourceComponentConfig = cloneComponentConfig(blocksConfig?.__sourceComponentConfig);
       const hasAllowedOverride = allowedBlocks.length > 0;
       const hasDeniedOverride = deniedBlocks.length > 0;
       const allowedChanged = !blockTypeListsEqual(allowedBlocks, sourceAllowed);
@@ -992,9 +995,34 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
       // Build x-formgen with blocks configuration
       const blocksFormgen: Record<string, unknown> = {
         ...formgen,
-        widget: blocksConfig?.__sourceWidget || 'block',
+        widget: sourceWidget,
         sortable: blocksConfig?.__sourceSortable ?? true,
       };
+      const componentName = sourceComponentName || (isBlockLibraryWidget(sourceWidget) ? sourceWidget : '');
+      if (componentName) {
+        blocksFormgen['component.name'] = componentName;
+      }
+      if (isBlockLibraryWidget(sourceWidget)) {
+        if (hasAllowedOverride) {
+          sourceComponentConfig.allowedBlocks = Array.from(allowedBlocks);
+        } else if (
+          blocksConfig?.__sourceHadAllowedBlocks ||
+          Array.isArray(sourceComponentConfig.allowedBlocks)
+        ) {
+          delete sourceComponentConfig.allowedBlocks;
+        }
+        if (hasDeniedOverride) {
+          sourceComponentConfig.deniedBlocks = Array.from(deniedBlocks);
+        } else if (
+          blocksConfig?.__sourceHadDeniedBlocks ||
+          Array.isArray(sourceComponentConfig.deniedBlocks)
+        ) {
+          delete sourceComponentConfig.deniedBlocks;
+        }
+      }
+      if (Object.keys(sourceComponentConfig).length > 0) {
+        blocksFormgen['component.config'] = sourceComponentConfig;
+      }
       if (
         hasAllowedOverride &&
         (blocksConfig?.__sourceHadAllowedBlocks || sourceMode !== 'refs' || allowedChanged)
@@ -1109,17 +1137,30 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
   if (field.type === 'blocks' && schema.type === 'array') {
     const blocksConfig: BlocksFieldConfig = {};
     const sourceItems = schema.items ? cloneSchema(schema.items as JSONSchema) : undefined;
+    const componentConfig = componentConfigObject(formgen?.['component.config']);
+    const componentAllowed = normalizeBlockTypeList(
+      Array.isArray(componentConfig?.allowedBlocks) ? (componentConfig.allowedBlocks as string[]) : undefined
+    );
+    const componentDenied = normalizeBlockTypeList(
+      Array.isArray(componentConfig?.deniedBlocks) ? (componentConfig.deniedBlocks as string[]) : undefined
+    );
     if (sourceItems) {
       blocksConfig.__sourceItemsSchema = sourceItems;
     }
     if (typeof formgen?.widget === 'string' && formgen.widget.trim()) {
       blocksConfig.__sourceWidget = formgen.widget.trim();
     }
+    if (typeof formgen?.['component.name'] === 'string' && formgen['component.name'].trim()) {
+      blocksConfig.__sourceComponentName = formgen['component.name'].trim();
+    }
+    if (componentConfig && Object.keys(componentConfig).length > 0) {
+      blocksConfig.__sourceComponentConfig = componentConfig;
+    }
     if (typeof formgen?.sortable === 'boolean') {
       blocksConfig.__sourceSortable = formgen.sortable;
     }
-    blocksConfig.__sourceHadAllowedBlocks = Array.isArray(formgen?.allowedBlocks);
-    blocksConfig.__sourceHadDeniedBlocks = Array.isArray(formgen?.deniedBlocks);
+    blocksConfig.__sourceHadAllowedBlocks = Array.isArray(formgen?.allowedBlocks) || componentAllowed.length > 0;
+    blocksConfig.__sourceHadDeniedBlocks = Array.isArray(formgen?.deniedBlocks) || componentDenied.length > 0;
 
     // Extract min/max from schema
     if (schema.minItems !== undefined) {
@@ -1144,6 +1185,9 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
       if (configured.length > 0) {
         blocksConfig.allowedBlocks = configured;
       }
+    } else if (componentAllowed.length > 0) {
+      sourceAllowedBlocks = parsedSource?.allowed.length ? parsedSource.allowed : componentAllowed;
+      blocksConfig.allowedBlocks = sourceAllowedBlocks;
     } else if (parsedSource?.allowed.length) {
       sourceAllowedBlocks = parsedSource.allowed;
       blocksConfig.allowedBlocks = parsedSource.allowed;
@@ -1162,6 +1206,9 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
         blocksConfig.deniedBlocks = denied;
       }
       blocksConfig.__sourceDeniedBlocks = denied;
+    } else if (componentDenied.length > 0) {
+      blocksConfig.deniedBlocks = componentDenied;
+      blocksConfig.__sourceDeniedBlocks = componentDenied;
     }
 
     if (Object.keys(blocksConfig).length > 0) {
@@ -1187,7 +1234,7 @@ function schemaToFieldType(schema: JSONSchema): FieldType {
         const itemsSchema = schema.items as JSONSchema;
         if (itemsSchema.oneOf) return 'blocks';
         if (itemsSchema.enum) return 'chips';
-        if (formgen?.widget === 'block') return 'blocks';
+        if (isBlocksWidget(formgen?.widget)) return 'blocks';
         if (formgen?.widget === 'chips') return 'chips';
         if (formgen?.widget === 'media-picker') return 'media-gallery';
         if (itemsSchema.format === 'uuid' || itemsSchema.format === 'uri') return 'references';
@@ -1211,6 +1258,8 @@ function schemaToFieldType(schema: JSONSchema): FieldType {
       'media-picker': 'media-picker',
       'file-upload': 'file-upload',
       block: 'blocks',
+      'block-library-picker': 'blocks',
+      'block-library': 'blocks',
       'json-editor': 'json',
       slug: 'slug',
       color: 'color',
@@ -1252,4 +1301,39 @@ function schemaToFieldType(schema: JSONSchema): FieldType {
  */
 export function generateFieldId(): string {
   return `field_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function normalizeWidgetName(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function isBlockLibraryWidget(value: unknown): boolean {
+  const normalized = normalizeWidgetName(value).toLowerCase();
+  return normalized === 'block-library-picker' || normalized === 'block-library';
+}
+
+function isBlocksWidget(value: unknown): boolean {
+  const normalized = normalizeWidgetName(value).toLowerCase();
+  return normalized === 'block' || isBlockLibraryWidget(normalized);
+}
+
+function componentConfigObject(value: unknown): Record<string, unknown> | undefined {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return cloneSchema(value as Record<string, unknown>);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return cloneSchema(parsed as Record<string, unknown>);
+      }
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+function cloneComponentConfig(value: unknown): Record<string, unknown> {
+  return componentConfigObject(value) ?? {};
 }

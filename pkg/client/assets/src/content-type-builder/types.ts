@@ -377,6 +377,8 @@ export interface BlocksFieldConfig {
   __sourceRefPrefix?: string;
   __sourceRepresentation?: 'refs' | 'inline';
   __sourceWidget?: string;
+  __sourceComponentName?: string;
+  __sourceComponentConfig?: Record<string, unknown>;
   __sourceSortable?: boolean;
   __sourceHadAllowedBlocks?: boolean;
   __sourceHadDeniedBlocks?: boolean;
