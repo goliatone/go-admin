@@ -6,20 +6,22 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/admin/routing"
+	sitereserved "github.com/goliatone/go-admin/quickstart/internal/sitereserved"
+	staticprefixes "github.com/goliatone/go-admin/quickstart/internal/staticprefixes"
 )
 
 // SiteReservedPrefixesForAdminConfig returns the structural reserved prefixes
 // that should be protected from site fallback for the provided admin config.
 func SiteReservedPrefixesForAdminConfig(cfg admin.Config) []string {
-	roots := siteRoutingRootsFromAdminConfig(cfg)
-	return normalizeSiteFallbackPaths([]string{
-		roots.AdminRoot,
-		sitePublicAPIPrefixFromAdminConfig(cfg),
-		roots.PublicAPIRoot,
-		DefaultReservedPrefixWellKnown,
-		DefaultReservedPrefixStatic,
-		DefaultReservedPrefixAssets,
-	})
+	return SiteReservedPrefixesForAdminConfigWithStaticInput(cfg, staticprefixes.DefaultInput(cfg))
+}
+
+// SiteReservedPrefixesForAdminConfigWithStaticInput returns the structural
+// reserved prefixes using the provided static mount input. Hosts that customize
+// static asset route prefixes should derive both the static mounts and site
+// fallback reservations from the same input.
+func SiteReservedPrefixesForAdminConfigWithStaticInput(cfg admin.Config, input staticprefixes.Input) []string {
+	return normalizeSiteFallbackPaths(sitereserved.ForAdminConfig(cfg, input))
 }
 
 // DefaultSiteSearchEndpointForAdminConfig derives the public site search API
