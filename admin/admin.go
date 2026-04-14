@@ -472,6 +472,7 @@ func (a *Admin) resolveTheme(ctx context.Context) *ThemeSelection {
 			result = mergeThemeSelections(base, selection)
 		}
 	}
+	result = overlayThemeSelections(result, configuredThemeOverrides(a.config))
 	if selector.Variant != "" && selector.Variant != a.config.ThemeVariant && result.ChartTheme == a.config.ThemeVariant {
 		result.ChartTheme = selector.Variant
 	}
