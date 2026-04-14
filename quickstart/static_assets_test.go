@@ -272,3 +272,28 @@ func TestResolveSiteFallbackReservedPrefixesTracksStaticAssetOverrides(t *testin
 		}
 	}
 }
+
+func TestResolveSiteFallbackStaticInputTracksStaticAssetOverrides(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin"}
+
+	got := ResolveSiteFallbackStaticInput(
+		cfg,
+		WithAssetsPrefix("/public-assets"),
+		WithRuntimePrefix("/ops/runtime"),
+		WithFormgenPrefix("/widgets/formgen"),
+		WithEChartsPrefix("/charts/echarts"),
+	)
+
+	if got.AssetsPrefix != "/public-assets" {
+		t.Fatalf("expected assets prefix override, got %+v", got)
+	}
+	if got.RuntimePrefix != "/ops/runtime" {
+		t.Fatalf("expected runtime prefix override, got %+v", got)
+	}
+	if got.FormgenPrefix != "/widgets/formgen" {
+		t.Fatalf("expected formgen prefix override, got %+v", got)
+	}
+	if got.EChartsPrefix != "/charts/echarts" {
+		t.Fatalf("expected echarts prefix override, got %+v", got)
+	}
+}

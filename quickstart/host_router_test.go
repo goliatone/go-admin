@@ -80,6 +80,35 @@ func TestHostRouterAdminSurfaceRejectsSiteRouteRegistration(t *testing.T) {
 	host.Admin().Get("/posts/welcome", jsonRouteHandler("site"))
 }
 
+func TestHostRouterAdminSurfacePreservesWebSocketRegistrationOnFiber(t *testing.T) {
+	cfg := quickstart.NewAdminConfig("/admin", "Host Router", "en")
+	server := router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
+		PathConflictMode: router.PathConflictModePreferStatic,
+		StrictRoutes:     true,
+	})
+	host := quickstart.NewHostRouter(server.Router(), cfg)
+
+	type wsRegistrar interface {
+		WebSocket(path string, config router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo
+	}
+
+	ws, ok := host.Admin().(wsRegistrar)
+	if !ok {
+		t.Fatalf("expected host admin surface to preserve websocket capability")
+	}
+
+	ws.WebSocket(path.Join(cfg.BasePath, "debug", "ws"), router.DefaultWebSocketConfig(), func(c router.WebSocketContext) error {
+		return c.Close()
+	})
+
+	server.Init()
+
+	routes := routeSet(server.Router())
+	if !slices.Contains(routes, "GET /admin/debug/ws") {
+		t.Fatalf("expected websocket route to register on admin host surface, routes=%v", routes)
+	}
+}
+
 func TestHostRouterSurfaceMiddlewareRemainsIsolated(t *testing.T) {
 	t.Run("fiber", func(t *testing.T) {
 		assertHostSurfaceMiddlewareIsolation(t, router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{

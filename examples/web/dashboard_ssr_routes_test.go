@@ -9,6 +9,7 @@ import (
 
 	coreadmin "github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/web/setup"
+	"github.com/goliatone/go-admin/quickstart"
 	commandregistry "github.com/goliatone/go-command/registry"
 	router "github.com/goliatone/go-router"
 )
@@ -40,7 +41,12 @@ func TestExampleDashboardSSRRouteUsesTypedRenderer(t *testing.T) {
 	adm.WithAuth(translationRuntimeHarnessPassthroughAuthenticator{}, nil)
 	adm.WithAuthorizer(translationRuntimeHarnessAllowAllAuthorizer{})
 
-	renderer, err := setup.NewDashboardRenderer()
+	renderer, err := setup.NewDashboardRenderer(
+		quickstart.WithDashboardTemplateFuncOptions(
+			quickstart.WithTemplateBasePath(cfg.BasePath),
+			quickstart.WithTemplateURLResolver(adm.URLs()),
+		),
+	)
 	if err != nil {
 		t.Fatalf("create dashboard renderer: %v", err)
 	}
@@ -69,6 +75,7 @@ func TestExampleDashboardSSRRouteUsesTypedRenderer(t *testing.T) {
 	if !containsAll(body,
 		`id="dashboard-state"`,
 		`/admin/assets/dist/dashboard/index.js`,
+		`/admin/formgen/formgen-vanilla.css`,
 	) {
 		t.Fatalf("expected typed SSR dashboard markup, got body=%s", body)
 	}

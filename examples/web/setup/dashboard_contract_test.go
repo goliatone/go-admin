@@ -127,3 +127,46 @@ func TestValidateCanonicalWidgetPayload_RejectsLegacyMarkup(t *testing.T) {
 		t.Fatalf("expected canonical validator to reject legacy chart_html payload")
 	}
 }
+
+func TestBuildChartOptions_UsesCanonicalCartesianAxes(t *testing.T) {
+	bar := buildChartOptions("bar", map[string]any{
+		"title":  "Monthly Content Creation",
+		"x_axis": []string{"Jan", "Feb"},
+		"series": []map[string]any{{"name": "Posts", "data": []float64{1, 2}}},
+	})
+	xAxis, ok := bar["xAxis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected bar xAxis object, got %T", bar["xAxis"])
+	}
+	if got := xAxis["type"]; got != "category" {
+		t.Fatalf("expected bar xAxis type=category, got %#v", got)
+	}
+	yAxis, ok := bar["yAxis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected bar yAxis object, got %T", bar["yAxis"])
+	}
+	if got := yAxis["type"]; got != "value" {
+		t.Fatalf("expected bar yAxis type=value, got %#v", got)
+	}
+
+	scatter := buildChartOptions("scatter", map[string]any{
+		"series": []map[string]any{{
+			"name": "Week 1",
+			"data": []map[string]any{{"x": 92, "y": 88}},
+		}},
+	})
+	scatterXAxis, ok := scatter["xAxis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected scatter xAxis object, got %T", scatter["xAxis"])
+	}
+	if got := scatterXAxis["type"]; got != "value" {
+		t.Fatalf("expected scatter xAxis type=value, got %#v", got)
+	}
+	scatterYAxis, ok := scatter["yAxis"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected scatter yAxis object, got %T", scatter["yAxis"])
+	}
+	if got := scatterYAxis["type"]; got != "value" {
+		t.Fatalf("expected scatter yAxis type=value, got %#v", got)
+	}
+}

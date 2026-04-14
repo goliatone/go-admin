@@ -17,7 +17,7 @@ import (
 )
 
 func TestRegisterDebugCompatibilityRoutesRedirectsRootSessionsAlias(t *testing.T) {
-	handler, _ := newDebugCompatibilityTestServer(t)
+	handler, _ := newDebugCompatibilityTestServer(t, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/sessions?source=compat", nil)
 	rec := httptest.NewRecorder()
@@ -32,7 +32,7 @@ func TestRegisterDebugCompatibilityRoutesRedirectsRootSessionsAlias(t *testing.T
 }
 
 func TestRegisterDebugCompatibilityRoutesRedirectsAdminAPIDebugSessionsAlias(t *testing.T) {
-	handler, adminAPIBasePath := newDebugCompatibilityTestServer(t)
+	handler, adminAPIBasePath := newDebugCompatibilityTestServer(t, nil)
 
 	req := httptest.NewRequest(http.MethodGet, adminAPIBasePath+"/debug/sessions", nil)
 	rec := httptest.NewRecorder()
@@ -46,7 +46,24 @@ func TestRegisterDebugCompatibilityRoutesRedirectsAdminAPIDebugSessionsAlias(t *
 	}
 }
 
-func newDebugCompatibilityTestServer(t *testing.T) (http.Handler, string) {
+func TestRegisterDebugCompatibilityRoutesUsesPublicAPISurfaceWhenRootMatchesAlias(t *testing.T) {
+	handler, _ := newDebugCompatibilityTestServer(t, func(cfg *coreadmin.Config) {
+		cfg.Routing.Roots.PublicAPIRoot = "/api"
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions?source=compat", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusPermanentRedirect {
+		t.Fatalf("expected permanent redirect, got %d", rec.Code)
+	}
+	if location := rec.Header().Get("Location"); location != "/admin/debug/api/sessions?source=compat" {
+		t.Fatalf("expected canonical debug sessions location, got %q", location)
+	}
+}
+
+func newDebugCompatibilityTestServer(t *testing.T, configure func(*coreadmin.Config)) (http.Handler, string) {
 	t.Helper()
 	if err := commandregistry.Stop(context.Background()); err != nil {
 		t.Fatalf("stop command registry before test: %v", err)
@@ -62,6 +79,9 @@ func newDebugCompatibilityTestServer(t *testing.T) (http.Handler, string) {
 		Debug: coreadmin.DebugConfig{
 			Enabled: true,
 		},
+	}
+	if configure != nil {
+		configure(&cfg)
 	}
 	adm, err := coreadmin.New(cfg, coreadmin.Dependencies{
 		FeatureGate: debugCompatibilityFeatureGate(map[string]bool{"debug": true}),
@@ -80,8 +100,8 @@ func newDebugCompatibilityTestServer(t *testing.T) (http.Handler, string) {
 		t.Fatalf("initialize admin: %v", err)
 	}
 
-	adminAPIBasePath := "/admin/api"
-	if err := registerDebugCompatibilityRoutes(host.AdminAPI(), host.PublicSite(), adm, adminAPIBasePath); err != nil {
+	adminAPIBasePath := quickstart.ResolveAdminAPIBasePath(adm.URLs(), cfg, cfg.BasePath)
+	if err := registerDebugCompatibilityRoutes(host.AdminAPI(), host.PublicAPI(), host.PublicSite(), cfg, adm, adminAPIBasePath); err != nil {
 		t.Fatalf("register debug compatibility routes: %v", err)
 	}
 
