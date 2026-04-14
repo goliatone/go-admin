@@ -51,6 +51,10 @@ type authUIOptions struct {
 	loginIdentifierQueryKey      string
 	loginRememberQueryKey        string
 	loginRedirectResolver        func(c router.Context, fallback string) string
+	themeAdmin                   *admin.Admin
+	loginRedirectStatus          int
+	logoutRedirectStatus         int
+	logoutGetEnabled             bool
 }
 
 var (
@@ -128,6 +132,33 @@ func WithAuthUILogoutRedirect(route string) AuthUIOption {
 	return func(opts *authUIOptions) {
 		if opts != nil {
 			opts.logoutRedirectPath = strings.TrimSpace(route)
+		}
+	}
+}
+
+// WithAuthUILoginRedirectStatus overrides the redirect status code after login.
+func WithAuthUILoginRedirectStatus(status int) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil && status >= 300 && status < 400 {
+			opts.loginRedirectStatus = status
+		}
+	}
+}
+
+// WithAuthUILogoutRedirectStatus overrides the redirect status code after logout.
+func WithAuthUILogoutRedirectStatus(status int) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil && status >= 300 && status < 400 {
+			opts.logoutRedirectStatus = status
+		}
+	}
+}
+
+// WithAuthUILogoutGET enables a compatibility GET logout route in addition to POST.
+func WithAuthUILogoutGET(enabled bool) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil {
+			opts.logoutGetEnabled = enabled
 		}
 	}
 }
@@ -263,6 +294,15 @@ func WithAuthUIThemeAssets(prefix string, assets map[string]string) AuthUIOption
 	}
 }
 
+// WithAuthUIAdminTheme injects the full admin theme payload into auth templates.
+func WithAuthUIAdminTheme(adm *admin.Admin) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil {
+			opts.themeAdmin = adm
+		}
+	}
+}
+
 // RegisterAuthUIRoutes registers login, logout, and password reset UI routes.
 func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth *auth.RouteAuthenticator, opts ...AuthUIOption) error {
 	if r == nil {
@@ -284,6 +324,8 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 		loginErrorQueryKey:           "error",
 		loginIdentifierQueryKey:      "identifier",
 		loginRememberQueryKey:        "remember",
+		loginRedirectStatus:          fiber.StatusFound,
+		logoutRedirectStatus:         fiber.StatusFound,
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -370,7 +412,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 			SelfRegistrationEnabled: resolveSelfRegistration(c),
 		}
 		authSnapshot := authUISnapshot(authState)
-		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, c, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, options.themeAdmin, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: confirmLinkPath,
@@ -422,7 +464,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 				redirectTarget = resolved
 			}
 		}
-		return c.Redirect(redirectTarget, fiber.StatusFound)
+		return c.Redirect(redirectTarget, options.loginRedirectStatus)
 	}, csrfMiddleware)
 
 	r.Get(options.passwordResetPath, func(c router.Context) error {
@@ -437,7 +479,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, c, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, options.themeAdmin, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: confirmLinkPath,
@@ -459,7 +501,7 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, c, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, options.themeAdmin, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: confirmLinkPath,
@@ -482,10 +524,15 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 		r.Get(confirmTokenPath, confirmHandler)
 	}
 
-	r.Post(options.logoutPath, func(c router.Context) error {
+	logoutHandler := func(c router.Context) error {
 		routeAuth.Logout(c)
-		return c.Redirect(options.logoutRedirectPath, fiber.StatusFound)
-	}, csrfMiddleware)
+		return c.Redirect(options.logoutRedirectPath, options.logoutRedirectStatus)
+	}
+
+	r.Post(options.logoutPath, logoutHandler, csrfMiddleware)
+	if options.logoutGetEnabled {
+		r.Get(options.logoutPath, logoutHandler)
+	}
 
 	return nil
 }
