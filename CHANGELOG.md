@@ -1,5 +1,29 @@
 # Changelog
 
+# [0.48.0](https://github.com/goliatone/go-admin/compare/v0.47.0...v0.48.0) - (2026-04-14)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Websocket same origin validation ([8bafe8f](https://github.com/goliatone/go-admin/commit/8bafe8fe730f52ad754668a90bd976cc263757ca))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.48.0 ([5d69652](https://github.com/goliatone/go-admin/commit/5d696525e6438d683f5f4ec546f881e9c2896cda))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Auth debug ws assets ([e82dd03](https://github.com/goliatone/go-admin/commit/e82dd03b59dfecacfce61272a556c7793b19530b))  - (goliatone)
+- Site reserved prefixes ([489f991](https://github.com/goliatone/go-admin/commit/489f9919273e4f080ca83311e8ddde1f213f957a))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.47.0 ([0a57831](https://github.com/goliatone/go-admin/commit/0a578316cd7935c648554d937761c01bdbb675fc))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([90a5652](https://github.com/goliatone/go-admin/commit/90a5652627ed87d9332ac761734b63b396237878))  - (goliatone)
+- Update deps ([9620e43](https://github.com/goliatone/go-admin/commit/9620e43e8c1ec8ffc539b78dba25006c40738139))  - (goliatone)
+
 # [0.47.0](https://github.com/goliatone/go-admin/compare/v0.46.0...v0.47.0) - (2026-04-14)
 
 ## <!-- 1 -->🐛 Bug Fixes
