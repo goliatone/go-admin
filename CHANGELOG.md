@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.47.0](https://github.com/goliatone/go-admin/compare/v0.46.0...v0.47.0) - (2026-04-14)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Content type builder to handle block library picker schema ([6ee2d34](https://github.com/goliatone/go-admin/commit/6ee2d345d4f8c6b4a73dec31dfeb53460a05b9b1))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.47.0 ([a1cc048](https://github.com/goliatone/go-admin/commit/a1cc048e7c884752f22b1c87ae384aaa803bf57b))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.46.0 ([fdf402c](https://github.com/goliatone/go-admin/commit/fdf402c76c4ac2361a9ab7f820ae9bbcc4df4f3c))  - (goliatone)
+
 # [0.46.0](https://github.com/goliatone/go-admin/compare/v0.45.0...v0.46.0) - (2026-04-13)
 
 ## <!-- 1 -->🐛 Bug Fixes
