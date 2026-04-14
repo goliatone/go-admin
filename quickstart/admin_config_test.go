@@ -53,6 +53,9 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 	if cfg.ThemeTokens["primary"] != "#000000" {
 		t.Fatalf("expected theme token override, got %+v", cfg.ThemeTokens)
 	}
+	if cfg.ThemeTokenOverrides["primary"] != "#000000" {
+		t.Fatalf("expected explicit theme token override tracking, got %+v", cfg.ThemeTokenOverrides)
+	}
 }
 
 func TestDefaultAdminFeatures(t *testing.T) {

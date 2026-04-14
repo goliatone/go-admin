@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
@@ -402,6 +403,210 @@ func TestAuthUIRoutesLogoutUsesRouteAuthenticatorCookieTemplate(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestAuthUIRoutesSupportLegacyLogoutGETAndSeeOtherRedirects(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(
+		auther,
+		stubAuthConfig{},
+		auth.WithAuthCookieTemplate(router.Cookie{
+			Path:     "/",
+			Domain:   ".example.test",
+			HTTPOnly: true,
+			Secure:   true,
+			SameSite: router.CookieSameSiteLaxMode,
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	if err := RegisterAuthUIRoutes(
+		r,
+		cfg,
+		routeAuth,
+		WithAuthUILogoutGET(true),
+		WithAuthUILoginRedirectStatus(fiber.StatusSeeOther),
+		WithAuthUILogoutRedirectStatus(fiber.StatusSeeOther),
+		WithAuthUILogoutRedirect("/admin"),
+	); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+
+	loginHandler := r.postHandlers["/admin/login"]
+	if loginHandler == nil {
+		t.Fatalf("expected login POST route")
+	}
+	logoutHandler := r.getHandlers["/admin/logout"]
+	if logoutHandler == nil {
+		t.Fatalf("expected logout GET route")
+	}
+
+	loginCtx := router.NewMockContext()
+	loginCtx.On("Bind", mock.AnythingOfType("*quickstart.loginPayload")).Run(func(args mock.Arguments) {
+		payload := args.Get(0).(*loginPayload)
+		payload.Identifier = "triage.admin"
+		payload.Password = "password"
+	}).Return(nil)
+	loginCtx.On("Context").Return(context.Background())
+	loginCtx.On("Cookie", mock.AnythingOfType("*router.Cookie")).Return()
+	loginCtx.On("Redirect", "/admin", []int{fiber.StatusSeeOther}).Return(nil)
+
+	if err := loginHandler(loginCtx); err != nil {
+		t.Fatalf("login handler error: %v", err)
+	}
+
+	logoutCtx := router.NewMockContext()
+	logoutCtx.On("Cookie", mock.MatchedBy(func(c *router.Cookie) bool {
+		return c.Name == "user" &&
+			c.Value == "" &&
+			c.Path == "/" &&
+			c.Domain == ".example.test" &&
+			c.HTTPOnly &&
+			c.Secure &&
+			c.SameSite == router.CookieSameSiteLaxMode
+	})).Return()
+	logoutCtx.On("Redirect", "/admin", []int{fiber.StatusSeeOther}).Return(nil)
+
+	if err := logoutHandler(logoutCtx); err != nil {
+		t.Fatalf("logout GET handler error: %v", err)
+	}
+
+	loginCtx.AssertExpectations(t)
+	logoutCtx.AssertExpectations(t)
+}
+
+func TestAuthUIRoutesIncludeAdminThemePayload(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.Theme = "archive-admin"
+	cfg.ThemeVariant = "light"
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+	selector, _, err := NewThemeSelector(
+		"archive-admin",
+		"light",
+		map[string]string{"primary": "#c1121f"},
+		WithThemeAssets("/admin/assets", map[string]string{
+			"logo":    "logo.png",
+			"icon":    "icon.png",
+			"favicon": "favicon.ico",
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new theme selector: %v", err)
+	}
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.WithAdminTheme(selector)
+
+	if err := RegisterAuthUIRoutes(r, cfg, routeAuth, WithAuthUIAdminTheme(adm)); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+
+	handler := r.getHandlers["/admin/login"]
+	if handler == nil {
+		t.Fatalf("expected login GET route")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Query", "theme").Return("")
+	ctx.On("Query", "variant").Return("")
+	var rendered any
+	ctx.On("Render", "login", mock.Anything).Run(func(args mock.Arguments) {
+		rendered = args.Get(1)
+	}).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("login handler error: %v", err)
+	}
+
+	viewCtx, ok := rendered.(router.ViewContext)
+	if !ok {
+		t.Fatalf("expected view context, got %T", rendered)
+	}
+	theme, ok := viewCtx["theme"].(map[string]map[string]string)
+	if !ok {
+		t.Fatalf("expected theme payload, got %T", viewCtx["theme"])
+	}
+	if got := theme["selection"]["name"]; got != "archive-admin" {
+		t.Fatalf("expected theme selection name archive-admin, got %q", got)
+	}
+	if got := theme["selection"]["variant"]; got != "light" {
+		t.Fatalf("expected theme selection variant light, got %q", got)
+	}
+	if got := theme["tokens"]["primary"]; got != "#c1121f" {
+		t.Fatalf("expected theme token primary #c1121f, got %q", got)
+	}
+	if got := theme["css_vars"]["--primary"]; got != "#c1121f" {
+		t.Fatalf("expected theme css var --primary #c1121f, got %q", got)
+	}
+	if got := theme["assets"]["logo"]; got != "/admin/assets/logo.png" {
+		t.Fatalf("expected themed logo asset, got %q", got)
+	}
+	if got := theme["assets"]["icon"]; got != "/admin/assets/icon.png" {
+		t.Fatalf("expected themed icon asset, got %q", got)
+	}
+}
+
+func TestAuthUIRoutesThemeAssetsRemainSupportedWithoutAdminTheme(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	if err := RegisterAuthUIRoutes(
+		r,
+		cfg,
+		routeAuth,
+		WithAuthUIThemeAssets("/admin/assets", map[string]string{"logo": "logo.png", "icon": "icon.png"}),
+	); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+
+	handler := r.getHandlers["/admin/login"]
+	if handler == nil {
+		t.Fatalf("expected login GET route")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	var rendered any
+	ctx.On("Render", "login", mock.Anything).Run(func(args mock.Arguments) {
+		rendered = args.Get(1)
+	}).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("login handler error: %v", err)
+	}
+
+	viewCtx, ok := rendered.(router.ViewContext)
+	if !ok {
+		t.Fatalf("expected view context, got %T", rendered)
+	}
+	theme, ok := viewCtx["theme"].(map[string]map[string]string)
+	if !ok {
+		t.Fatalf("expected theme payload, got %T", viewCtx["theme"])
+	}
+	if got := theme["assets"]["logo"]; got != "/admin/assets/logo.png" {
+		t.Fatalf("expected asset-only logo path, got %q", got)
+	}
+	if got := theme["assets"]["icon"]; got != "/admin/assets/icon.png" {
+		t.Fatalf("expected asset-only icon path, got %q", got)
+	}
+}
+
 func TestRegistrationUIRoutesRespectUsersSignupGate(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	gate := stubFeatureGate{
@@ -447,6 +652,76 @@ func TestRegistrationUIRoutesRespectUsersSignupGate(t *testing.T) {
 	}
 	if !featureSnapshotFlag(viewCtx["feature_snapshot"], "users.signup") {
 		t.Fatalf("expected feature snapshot to include users.signup true, got %v", viewCtx["feature_snapshot"])
+	}
+}
+
+func TestRegistrationUIRoutesIncludeAdminThemePayload(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	cfg.Theme = "archive-admin"
+	cfg.ThemeVariant = "light"
+	r := newCaptureRouter()
+	selector, _, err := NewThemeSelector(
+		"archive-admin",
+		"light",
+		map[string]string{"primary": "#0f766e"},
+		WithThemeAssets("/admin/assets", map[string]string{
+			"logo": "logo.png",
+			"icon": "icon.png",
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new theme selector: %v", err)
+	}
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	adm.WithAdminTheme(selector)
+
+	if err := RegisterRegistrationUIRoutes(
+		r,
+		cfg,
+		WithRegistrationUIAdminTheme(adm),
+		WithRegistrationUIEnabled(func(admin.Config) bool { return true }),
+	); err != nil {
+		t.Fatalf("register registration routes: %v", err)
+	}
+
+	handler := r.getHandlers["/admin/register"]
+	if handler == nil {
+		t.Fatalf("expected register route")
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Query", "theme").Return("")
+	ctx.On("Query", "variant").Return("")
+	var rendered any
+	ctx.On("Render", "register", mock.Anything).Run(func(args mock.Arguments) {
+		rendered = args.Get(1)
+	}).Return(nil)
+
+	if err := handler(ctx); err != nil {
+		t.Fatalf("register handler error: %v", err)
+	}
+
+	viewCtx, ok := rendered.(router.ViewContext)
+	if !ok {
+		t.Fatalf("expected view context, got %T", rendered)
+	}
+	theme, ok := viewCtx["theme"].(map[string]map[string]string)
+	if !ok {
+		t.Fatalf("expected theme payload, got %T", viewCtx["theme"])
+	}
+	if got := theme["selection"]["name"]; got != "archive-admin" {
+		t.Fatalf("expected theme selection name archive-admin, got %q", got)
+	}
+	if got := theme["selection"]["variant"]; got != "light" {
+		t.Fatalf("expected theme selection variant light, got %q", got)
+	}
+	if got := theme["assets"]["icon"]; got != "/admin/assets/icon.png" {
+		t.Fatalf("expected themed icon asset, got %q", got)
 	}
 }
 

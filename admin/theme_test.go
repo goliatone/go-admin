@@ -272,6 +272,57 @@ func TestThemeOverrideViaAdminThemeSelector(t *testing.T) {
 	assertGoldenTheme(t, expected, "testdata/theme_dark_snapshot.json")
 }
 
+func TestConfigThemeTokensOverrideProviderThemePayload(t *testing.T) {
+	registry := theme.NewRegistry()
+	if err := registry.Register(&theme.Manifest{
+		Name:    "brand",
+		Version: "1.0.0",
+		Tokens: map[string]string{
+			"primary": "#0044ff",
+			"accent":  "#ffaa00",
+		},
+		Assets: theme.Assets{
+			Prefix: "/themes/brand",
+			Files: map[string]string{
+				"logo": "logo.svg",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register manifest: %v", err)
+	}
+
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Theme:         "brand",
+		ThemeVariant:  "light",
+		ThemeTokens: map[string]string{
+			"primary": "#111111",
+			"accent":  "#222222",
+		},
+		ThemeTokenOverrides: map[string]string{
+			"primary": "#111111",
+			"accent":  "#222222",
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm.WithAdminTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
+
+	payload := adm.ThemePayload(nil)
+	if got := payload["tokens"]["primary"]; got != "#111111" {
+		t.Fatalf("expected config token primary to override provider, got %q", got)
+	}
+	if got := payload["tokens"]["accent"]; got != "#222222" {
+		t.Fatalf("expected config token accent to override provider, got %q", got)
+	}
+	if got := payload["css_vars"]["--primary"]; got != "#111111" {
+		t.Fatalf("expected css var --primary to reflect config override, got %q", got)
+	}
+	if got := payload["assets"]["logo"]; got != "/themes/brand/logo.svg" {
+		t.Fatalf("expected provider asset logo to remain intact, got %q", got)
+	}
+}
+
 func mapFromAny(val any) map[string]any {
 	if val == nil {
 		return nil
