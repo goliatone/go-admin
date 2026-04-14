@@ -8,10 +8,12 @@ import (
 )
 
 // NewDashboardRenderer creates a template-based dashboard renderer
-func NewDashboardRenderer() (admin.DashboardRenderer, error) {
-	return quickstart.NewDashboardTemplateRenderer(
+func NewDashboardRenderer(opts ...quickstart.DashboardRendererOption) (admin.DashboardRenderer, error) {
+	rendererOpts := []quickstart.DashboardRendererOption{
 		quickstart.WithDashboardEmbeddedTemplates(false),
 		quickstart.WithDashboardTemplatesFS(client.Templates()),
 		quickstart.WithDashboardTemplateFuncOptions(helpers.TemplateFuncOptions()...),
-	)
+	}
+	rendererOpts = append(rendererOpts, opts...)
+	return quickstart.NewDashboardTemplateRenderer(rendererOpts...)
 }

@@ -691,9 +691,6 @@ func main() {
 	}
 
 	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeConfig.Site, isDev)
-	if err := quicksite.ValidateSiteFallbackPolicy(quicksite.ResolveSiteConfig(cfg, siteCfg).Fallback); err != nil {
-		fatalf("invalid site fallback policy: %v", err)
-	}
 	siteThemePackage, err := loadEmbeddedSiteThemePackage(siteCfg.Theme.Name)
 	if err != nil {
 		fatalf("failed to load embedded site theme package %q: %v", siteCfg.Theme.Name, err)
@@ -811,6 +808,7 @@ func main() {
 	host := quickstart.NewHostRouter(r, cfg)
 	adminUI := host.AdminUI()
 	adminAPI := host.AdminAPI()
+	publicAPI := host.PublicAPI()
 	publicSite := host.PublicSite()
 	staticRoutes := host.Static()
 
@@ -847,12 +845,20 @@ func main() {
 		}
 	}
 	embeddedAssetsFS := client.Assets()
-	quickstart.NewStaticAssets(staticRoutes, cfg, embeddedAssetsFS, quickstart.WithDiskAssetsDir(diskAssetsDir))
+	staticAssetOptions := []quickstart.StaticAssetsOption{
+		quickstart.WithDiskAssetsDir(diskAssetsDir),
+	}
+	quickstart.NewStaticAssets(staticRoutes, cfg, embeddedAssetsFS, staticAssetOptions...)
+	siteCfg.Fallback.StaticInput = quickstart.ResolveSiteFallbackStaticInput(cfg, staticAssetOptions...)
+	siteCfg.Fallback = quicksite.ResolveSiteConfig(cfg, siteCfg).Fallback
+	if err := quicksite.ValidateSiteFallbackPolicy(siteCfg.Fallback); err != nil {
+		fatalf("invalid site fallback policy: %v", err)
+	}
 	if err := mountEmbeddedSiteThemeAssets(staticRoutes, siteThemePackage); err != nil {
 		fatalf("failed to mount embedded site theme assets: %v", err)
 	}
 	siteSearchProvider := newExampleSiteSearchProvider(cmsContentSvc, cfg.DefaultLocale)
-	if err := registerExampleRoutingOwnership(adm, cfg, runtimeConfig, siteCfg, siteSearchProvider); err != nil {
+	if err := registerExampleRoutingOwnership(adm, cfg, runtimeConfig, siteCfg, siteSearchProvider, staticAssetOptions...); err != nil {
 		fatalf("failed to register example routing ownership: %v", err)
 	}
 
@@ -964,7 +970,12 @@ func main() {
 	}
 
 	// Wire dashboard renderer for server-side rendering
-	dashboardRenderer, err := setup.NewDashboardRenderer()
+	dashboardRenderer, err := setup.NewDashboardRenderer(
+		quickstart.WithDashboardTemplateFuncOptions(
+			quickstart.WithTemplateBasePath(cfg.BasePath),
+			quickstart.WithTemplateURLResolver(adm.URLs()),
+		),
+	)
 	if err != nil {
 		warnf("failed to initialize dashboard renderer (falling back to JSON API): %v", err)
 	} else {
@@ -1078,7 +1089,7 @@ func main() {
 		adminAPI.Get(path.Join(adminAPIBasePath, "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 	}
 	if debugEnabled {
-		if err := registerDebugCompatibilityRoutes(adminAPI, publicSite, adm, adminAPIBasePath); err != nil {
+		if err := registerDebugCompatibilityRoutes(adminAPI, publicAPI, publicSite, cfg, adm, adminAPIBasePath); err != nil {
 			warnf("failed to register debug compatibility routes: %v", err)
 		}
 	}
@@ -1496,6 +1507,7 @@ func registerExampleHostOwnedRoutes[T any](host quickstart.HostRouter[T], cfg *a
 func exampleRoutingOwnershipManifestEntries(
 	cfg admin.Config,
 	runtimeCfg *appcfg.Config,
+	staticAssetOptions ...quickstart.StaticAssetsOption,
 ) []adminrouting.ManifestEntry {
 	if runtimeCfg == nil {
 		return nil
@@ -1513,7 +1525,7 @@ func exampleRoutingOwnershipManifestEntries(
 			Path:      exampleAppInfoPath,
 		},
 	}
-	entries = append(entries, exampleStaticOwnershipManifestEntries(cfg, runtimeCfg)...)
+	entries = append(entries, exampleStaticOwnershipManifestEntries(cfg, runtimeCfg, staticAssetOptions...)...)
 	if internalOps.EnableHealthz {
 		entries = append(entries, adminrouting.ManifestEntry{
 			Owner:     "host:example.internal_ops",
@@ -1542,8 +1554,9 @@ func exampleRoutingOwnershipManifestEntries(
 func exampleStaticOwnershipManifestEntries(
 	cfg admin.Config,
 	runtimeCfg *appcfg.Config,
+	opts ...quickstart.StaticAssetsOption,
 ) []adminrouting.ManifestEntry {
-	prefixes := append([]string{"/static"}, quickstart.ResolveStaticAssetPrefixes(cfg)...)
+	prefixes := append([]string{"/static"}, quickstart.ResolveStaticAssetPrefixes(cfg, opts...)...)
 	prefixes = append(prefixes, resolveExampleSiteThemeStaticPrefixes(runtimeCfg)...)
 	prefixes = uniqueExampleRoutePaths(prefixes)
 	if len(prefixes) == 0 {
@@ -1628,12 +1641,13 @@ func registerExampleRoutingOwnership(
 	runtimeCfg *appcfg.Config,
 	siteCfg quicksite.SiteConfig,
 	searchProvider coreadmin.SearchProvider,
+	staticAssetOptions ...quickstart.StaticAssetsOption,
 ) error {
 	if adm == nil || adm.RoutingPlanner() == nil || runtimeCfg == nil {
 		return nil
 	}
 
-	hostEntries := exampleRoutingOwnershipManifestEntries(cfg, runtimeCfg)
+	hostEntries := exampleRoutingOwnershipManifestEntries(cfg, runtimeCfg, staticAssetOptions...)
 	if err := adm.RoutingPlanner().RegisterHostRoutes(hostEntries...); err != nil {
 		adm.RefreshRoutingReport()
 		return err

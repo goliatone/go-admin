@@ -456,8 +456,10 @@ func buildCanonicalChartPayload(chartType string, cfg map[string]any, assetsHost
 
 func buildChartOptions(chartType string, cfg map[string]any) map[string]any {
 	kind := strings.TrimSpace(strings.ToLower(chartType))
+	title := chartString(cfg["title"], "")
+	subtitle := chartString(cfg["subtitle"], "")
 	options := map[string]any{
-		"title":   map[string]any{},
+		"title":   map[string]any{"show": title != "", "text": title, "subtext": subtitle},
 		"legend":  map[string]any{"show": true},
 		"tooltip": map[string]any{"show": true},
 		"toolbox": map[string]any{"show": true},
@@ -466,18 +468,19 @@ func buildChartOptions(chartType string, cfg map[string]any) map[string]any {
 	switch kind {
 	case "bar", "line":
 		options["series"] = buildCartesianSeries(kind, cfg["series"])
-		options["xAxis"] = []map[string]any{
-			{"data": toStringSlice(cfg["x_axis"])},
+		options["xAxis"] = map[string]any{
+			"type": "category",
+			"data": toStringSlice(cfg["x_axis"]),
 		}
-		options["yAxis"] = []map[string]any{{}}
+		options["yAxis"] = map[string]any{"type": "value"}
 	case "pie":
 		options["series"] = buildPieSeries(cfg["series"])
 	case "gauge":
 		options["series"] = buildGaugeSeries(cfg["series"])
 	case "scatter":
 		options["series"] = buildScatterSeries(cfg["series"])
-		options["xAxis"] = []map[string]any{{}}
-		options["yAxis"] = []map[string]any{{}}
+		options["xAxis"] = map[string]any{"type": "value"}
+		options["yAxis"] = map[string]any{"type": "value"}
 	default:
 		options["series"] = []map[string]any{}
 	}
