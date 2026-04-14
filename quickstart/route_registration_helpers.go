@@ -70,6 +70,7 @@ func renderQuickstartUIView(c router.Context, template, title, active, basePath 
 
 func buildQuickstartAuthTemplateViewContext(
 	cfg admin.Config,
+	adm *admin.Admin,
 	c router.Context,
 	state AuthUIState,
 	paths AuthUIPaths,
@@ -82,7 +83,12 @@ func buildQuickstartAuthTemplateViewContext(
 	viewCtx := AuthUIViewContext(cfg, state, paths)
 	viewCtx = mergeQuickstartCSRFViewContext(c, viewCtx)
 	viewCtx["title"] = title
-	viewCtx = WithAuthUIViewThemeAssets(viewCtx, assets, assetPrefix)
+	if adm != nil {
+		viewCtx = WithThemeContext(viewCtx, adm, c)
+		viewCtx = withAuthUIViewThemeAssets(viewCtx, assets, assetPrefix, false)
+	} else {
+		viewCtx = WithAuthUIViewThemeAssets(viewCtx, assets, assetPrefix)
+	}
 	return WithFeatureTemplateContext(viewCtx, c.Context(), scope, snapshot)
 }
 
