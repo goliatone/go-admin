@@ -30,6 +30,7 @@ type registrationUIOptions struct {
 	viewContext         RegistrationUIViewContextBuilder
 	themeAssets         map[string]string
 	themeAssetPrefix    string
+	themeAdmin          *admin.Admin
 	featureGate         fggate.FeatureGate
 }
 
@@ -134,6 +135,15 @@ func WithRegistrationUIThemeAssets(prefix string, assets map[string]string) Regi
 	}
 }
 
+// WithRegistrationUIAdminTheme injects the full admin theme payload into registration templates.
+func WithRegistrationUIAdminTheme(adm *admin.Admin) RegistrationUIOption {
+	return func(opts *registrationUIOptions) {
+		if opts != nil {
+			opts.themeAdmin = adm
+		}
+	}
+}
+
 // RegisterRegistrationUIRoutes registers the registration UI route.
 func RegisterRegistrationUIRoutes[T any](r router.Router[T], cfg admin.Config, opts ...RegistrationUIOption) error {
 	if r == nil {
@@ -184,7 +194,7 @@ func RegisterRegistrationUIRoutes[T any](r router.Router[T], cfg admin.Config, o
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, c, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, options.themeAdmin, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
 			PasswordResetConfirmPath: path.Join(options.passwordResetPath, "confirm"),
