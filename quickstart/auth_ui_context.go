@@ -84,6 +84,10 @@ func WithAuthUIViewContext(ctx router.ViewContext, cfg admin.Config, state AuthU
 // This function does not add query-string theme/variant handling; it only
 // provides static asset paths for auth UI templates.
 func WithAuthUIViewThemeAssets(ctx router.ViewContext, assets map[string]string, assetPrefix string) router.ViewContext {
+	return withAuthUIViewThemeAssets(ctx, assets, assetPrefix, true)
+}
+
+func withAuthUIViewThemeAssets(ctx router.ViewContext, assets map[string]string, assetPrefix string, overwrite bool) router.ViewContext {
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
@@ -109,11 +113,23 @@ func WithAuthUIViewThemeAssets(ctx router.ViewContext, assets map[string]string,
 
 	// Merge new assets, resolving paths with prefix
 	for key, filename := range assets {
+		if !overwrite {
+			if existing := strings.TrimSpace(assetsMap[key]); existing != "" {
+				continue
+			}
+		}
 		assetsMap[key] = joinAssetPath(assetPrefix, filename)
 	}
 
 	// Add prefix to assets map if provided
 	if assetPrefix != "" {
+		if !overwrite {
+			if existing := strings.TrimSpace(assetsMap["prefix"]); existing != "" {
+				theme["assets"] = assetsMap
+				ctx["theme"] = theme
+				return ctx
+			}
+		}
 		assetsMap["prefix"] = assetPrefix
 	}
 
