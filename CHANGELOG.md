@@ -1,5 +1,29 @@
 # Changelog
 
+# [0.49.0](https://github.com/goliatone/go-admin/compare/v0.48.0...v0.49.0) - (2026-04-14)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Static prefix config ([6903029](https://github.com/goliatone/go-admin/commit/69030296c0e11ac77ab10c328aecac194b4236bd))  - (goliatone)
+- Websocket surface in host router ([299e214](https://github.com/goliatone/go-admin/commit/299e2140a28fe7a70c7244184c9c5d90b08d8d88))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.49.0 ([e952583](https://github.com/goliatone/go-admin/commit/e952583c37f9be69c34e4374ced724e5d23510f1))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Site reserved prefixes ([4f68f86](https://github.com/goliatone/go-admin/commit/4f68f86e797fa093854e0b4b50cb63380c7ad681))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.48.0 ([46406a1](https://github.com/goliatone/go-admin/commit/46406a15a1ba6a9c01ffb52c3f9b4e563b7de9e6))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([a3f3ba8](https://github.com/goliatone/go-admin/commit/a3f3ba864a39ced120064738526f07e3418b9461))  - (goliatone)
+- Update tests ([6760d85](https://github.com/goliatone/go-admin/commit/6760d853cafe1eea63dde6b692ee9dea85f2c9c4))  - (goliatone)
+
 # [0.48.0](https://github.com/goliatone/go-admin/compare/v0.47.0...v0.48.0) - (2026-04-14)
 
 ## <!-- 1 -->🐛 Bug Fixes
