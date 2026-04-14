@@ -123,8 +123,12 @@ func WithThemeTokens(tokens map[string]string) AdminConfigOption {
 		if cfg.ThemeTokens == nil {
 			cfg.ThemeTokens = map[string]string{}
 		}
+		if cfg.ThemeTokenOverrides == nil {
+			cfg.ThemeTokenOverrides = map[string]string{}
+		}
 		for key, value := range tokens {
 			cfg.ThemeTokens[key] = value
+			cfg.ThemeTokenOverrides[key] = value
 		}
 	}
 }
