@@ -46,6 +46,9 @@ func TestDebugWebSocketUnauthenticatedUpgradeFailsWithoutRedirectHeaders(t *test
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
+	mod := NewDebugModule(cfg.Debug)
+	mod.collector = adm.Debug()
+	mod.registerDebugWebSocket(adm)
 
 	address, shutdown := startAdminFiberServer(t, server)
 	defer shutdown()
@@ -104,6 +107,9 @@ func TestDebugWebSocketAuthenticatedUpgradeSucceedsWithCookieAuth(t *testing.T) 
 	if err := adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize: %v", err)
 	}
+	mod := NewDebugModule(cfg.Debug)
+	mod.collector = adm.Debug()
+	mod.registerDebugWebSocket(adm)
 
 	address, shutdown := startAdminFiberServer(t, server)
 	defer shutdown()
