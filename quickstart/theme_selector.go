@@ -85,19 +85,18 @@ func NewThemeSelector(name, variant string, tokenOverrides map[string]string, op
 	}
 
 	manifest := options.manifest
+	registerManifest := false
+	if manifest == nil {
+		if existing, err := registry.Get(name); err == nil && existing != nil {
+			manifest = existing
+		}
+	}
 	if manifest == nil {
 		manifest = defaultThemeManifest(name, tokenOverrides, options)
+		registerManifest = true
 	} else {
 		if strings.TrimSpace(manifest.Name) == "" {
 			manifest.Name = name
-		}
-		if len(tokenOverrides) > 0 {
-			if manifest.Tokens == nil {
-				manifest.Tokens = map[string]string{}
-			}
-			for key, value := range tokenOverrides {
-				manifest.Tokens[key] = value
-			}
 		}
 		if strings.TrimSpace(options.assetsPrefix) != "" && strings.TrimSpace(manifest.Assets.Prefix) == "" {
 			manifest.Assets.Prefix = options.assetsPrefix
@@ -109,9 +108,13 @@ func NewThemeSelector(name, variant string, tokenOverrides map[string]string, op
 			manifest.Variants = options.variants
 		}
 	}
+	manifest.Assets.Files = normalizeThemeAssetFiles(manifest.Assets.Files)
+	manifest.Variants = normalizeThemeVariants(manifest.Variants)
 
-	if err := registry.Register(manifest); err != nil {
-		return theme.Selector{}, nil, fmt.Errorf("register theme: %w", err)
+	if registerManifest {
+		if err := registry.Register(manifest); err != nil {
+			return theme.Selector{}, nil, fmt.Errorf("register theme: %w", err)
+		}
 	}
 
 	selector := theme.Selector{
@@ -145,8 +148,11 @@ func defaultThemeManifest(name string, tokenOverrides map[string]string, options
 	if len(assetsFiles) == 0 {
 		assetsFiles = map[string]string{
 			"logo":    "logo.svg",
+			"icon":    "logo.svg",
 			"favicon": "logo.svg",
 		}
+	} else {
+		assetsFiles = normalizeThemeAssetFiles(assetsFiles)
 	}
 
 	variants := options.variants
@@ -162,10 +168,13 @@ func defaultThemeManifest(name string, tokenOverrides map[string]string, options
 					Prefix: assetsPrefix,
 					Files: map[string]string{
 						"logo": "logo.svg",
+						"icon": "logo.svg",
 					},
 				},
 			},
 		}
+	} else {
+		variants = normalizeThemeVariants(variants)
 	}
 
 	return &theme.Manifest{
@@ -179,4 +188,30 @@ func defaultThemeManifest(name string, tokenOverrides map[string]string, options
 		},
 		Variants: variants,
 	}
+}
+
+func normalizeThemeAssetFiles(files map[string]string) map[string]string {
+	out := cloneStringMap(files)
+	if len(out) == 0 {
+		return out
+	}
+	if strings.TrimSpace(out["icon"]) == "" {
+		if logo := strings.TrimSpace(out["logo"]); logo != "" {
+			out["icon"] = logo
+		}
+	}
+	return out
+}
+
+func normalizeThemeVariants(variants map[string]theme.Variant) map[string]theme.Variant {
+	if len(variants) == 0 {
+		return nil
+	}
+	out := make(map[string]theme.Variant, len(variants))
+	for key, variant := range variants {
+		clone := variant
+		clone.Assets.Files = normalizeThemeAssetFiles(clone.Assets.Files)
+		out[key] = clone
+	}
+	return out
 }
