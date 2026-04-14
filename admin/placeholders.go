@@ -21,6 +21,13 @@ type HandlerAuthenticator interface {
 	WrapHandler(handler router.HandlerFunc) router.HandlerFunc
 }
 
+// RequestAuthenticator performs request authentication without relying on
+// browser-oriented redirect handlers. This is required for transports like
+// WebSocket upgrades where redirects are not a valid auth response.
+type RequestAuthenticator interface {
+	AuthenticateRequest(c router.Context) error
+}
+
 // BrowserCSRFProtector exposes browser-session detection and CSRF enforcement
 // for mutating routes that need browser-grade CSRF semantics without depending
 // on a specific authenticator implementation.
@@ -31,11 +38,12 @@ type BrowserCSRFProtector interface {
 
 // GoAuthAuthenticator adapts a go-auth RouteAuthenticator to the Authenticator contract.
 type GoAuthAuthenticator struct {
-	middleware       router.MiddlewareFunc
-	routeAuth        *auth.RouteAuthenticator
-	authConfig       auth.Config
-	optionalAuth     bool
-	authErrorHandler func(router.Context, error) error
+	middleware        router.MiddlewareFunc
+	requestMiddleware router.MiddlewareFunc
+	routeAuth         *auth.RouteAuthenticator
+	authConfig        auth.Config
+	optionalAuth      bool
+	authErrorHandler  func(router.Context, error) error
 }
 
 type resolvedPermissionsCacheContextKey struct{}
@@ -109,6 +117,7 @@ func NewGoAuthAuthenticator(routeAuth *auth.RouteAuthenticator, cfg auth.Config,
 	}
 	handler := authenticator.resolveErrorHandler()
 	authenticator.middleware = resolveProtectedRouteMiddleware(routeAuth, cfg, handler)
+	authenticator.requestMiddleware = routeAuth.ProtectedRoute(cfg, authenticator.resolveRequestErrorHandler())
 	return authenticator
 }
 
@@ -219,6 +228,24 @@ func (a *GoAuthAuthenticator) Wrap(ctx router.Context) error {
 	})(ctx)
 }
 
+// AuthenticateRequest enforces authentication without browser redirects.
+// This is suitable for websocket upgrades and other non-HTML transports.
+func (a *GoAuthAuthenticator) AuthenticateRequest(ctx router.Context) error {
+	if a == nil {
+		return nil
+	}
+	if a.requestMiddleware == nil {
+		return a.Wrap(ctx)
+	}
+	return a.requestMiddleware(func(c router.Context) error {
+		if c != nil {
+			c.SetContext(WithResolvedPermissionsCache(c.Context()))
+			markAuthenticatedRequest(c)
+		}
+		return nil
+	})(ctx)
+}
+
 func (a *GoAuthAuthenticator) UsesBrowserSession(c router.Context) bool {
 	if a == nil || a.authConfig == nil {
 		return false
@@ -259,6 +286,26 @@ func (a *GoAuthAuthenticator) resolveErrorHandler() func(router.Context, error) 
 		}
 		return handler(ctx, err)
 	}
+}
+
+func (a *GoAuthAuthenticator) resolveRequestErrorHandler() func(router.Context, error) error {
+	if a == nil {
+		return func(router.Context, error) error { return nil }
+	}
+	return func(_ router.Context, err error) error {
+		return a.normalizeAuthError(err)
+	}
+}
+
+func (a *GoAuthAuthenticator) normalizeAuthError(err error) error {
+	presenter := DefaultErrorPresenter()
+	if err == nil {
+		return goerrors.New("unauthorized", goerrors.CategoryAuth).WithCode(goerrors.CodeUnauthorized)
+	}
+	if mapped, _ := presenter.Present(err); mapped != nil {
+		return mapped
+	}
+	return goerrors.New(err.Error(), goerrors.CategoryAuth).WithCode(goerrors.CodeUnauthorized)
 }
 
 // GoAuthAuthenticatorOption configures the go-auth authenticator adapter.

@@ -820,6 +820,9 @@ func debugAuthorizeRequestWithContext(admin *Admin, cfg DebugConfig, permission 
 	if err := debugCheckIP(cfg.AllowedIPs, c.IP()); err != nil {
 		return AdminContext{}, err
 	}
+	if err := debugAuthenticateRequest(admin, c); err != nil {
+		return AdminContext{}, err
+	}
 	locale := strings.TrimSpace(c.Query("locale"))
 	if locale == "" {
 		locale = admin.config.DefaultLocale
@@ -834,6 +837,26 @@ func debugAuthorizeRequestWithContext(admin *Admin, cfg DebugConfig, permission 
 		return adminCtx, err
 	}
 	return adminCtx, nil
+}
+
+func debugAuthenticateRequest(admin *Admin, c router.Context) error {
+	if admin == nil || c == nil || !debugHasAuthenticatedExposure(admin) {
+		return nil
+	}
+	if authenticatedAdminRequest(c.Context()) {
+		return nil
+	}
+	if requestAuth, ok := admin.authenticator.(RequestAuthenticator); ok && requestAuth != nil {
+		return requestAuth.AuthenticateRequest(c)
+	}
+	if admin.authenticator == nil {
+		return ErrForbidden
+	}
+	if err := admin.authenticator.Wrap(c); err != nil {
+		return err
+	}
+	markAuthenticatedRequest(c)
+	return nil
 }
 
 func debugCheckIP(allowed []string, ip string) error {
