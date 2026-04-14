@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	quickstart "github.com/goliatone/go-admin/quickstart"
 	router "github.com/goliatone/go-router"
 )
 
@@ -27,12 +28,13 @@ const (
 )
 
 type SiteFallbackPolicy struct {
-	Mode                SiteFallbackMode    `json:"mode"`
-	AllowRoot           bool                `json:"allow_root"`
-	AllowedMethods      []router.HTTPMethod `json:"allowed_methods,omitempty"`
-	AllowedExactPaths   []string            `json:"allowed_exact_paths,omitempty"`
-	AllowedPathPrefixes []string            `json:"allowed_path_prefixes,omitempty"`
-	ReservedPrefixes    []string            `json:"reserved_prefixes,omitempty"`
+	Mode                SiteFallbackMode                 `json:"mode"`
+	AllowRoot           bool                             `json:"allow_root"`
+	AllowedMethods      []router.HTTPMethod              `json:"allowed_methods,omitempty"`
+	AllowedExactPaths   []string                         `json:"allowed_exact_paths,omitempty"`
+	AllowedPathPrefixes []string                         `json:"allowed_path_prefixes,omitempty"`
+	ReservedPrefixes    []string                         `json:"reserved_prefixes,omitempty"`
+	StaticInput         quickstart.SiteStaticPrefixInput `json:"static_input,omitempty"`
 }
 
 type siteFallbackPolicyOverlay struct {
@@ -58,6 +60,7 @@ func NormalizeSiteFallbackPolicy(policy SiteFallbackPolicy) SiteFallbackPolicy {
 	policy.AllowedExactPaths = normalizeSiteFallbackPaths(policy.AllowedExactPaths)
 	policy.AllowedPathPrefixes = normalizeSiteFallbackPaths(policy.AllowedPathPrefixes)
 	policy.ReservedPrefixes = normalizeSiteFallbackPaths(policy.ReservedPrefixes)
+	policy.StaticInput = normalizeSiteStaticPrefixInput(policy.StaticInput)
 	if len(policy.AllowedMethods) == 0 {
 		policy.AllowedMethods = defaultSiteFallbackMethods()
 	}
@@ -178,6 +181,14 @@ func normalizeSiteFallbackPaths(paths []string) []string {
 		return nil
 	}
 	return out
+}
+
+func normalizeSiteStaticPrefixInput(input quickstart.SiteStaticPrefixInput) quickstart.SiteStaticPrefixInput {
+	input.AssetsPrefix = strings.TrimSpace(input.AssetsPrefix)
+	input.FormgenPrefix = strings.TrimSpace(input.FormgenPrefix)
+	input.RuntimePrefix = strings.TrimSpace(input.RuntimePrefix)
+	input.EChartsPrefix = strings.TrimSpace(input.EChartsPrefix)
+	return input
 }
 
 func mergeSiteFallbackPolicy(base SiteFallbackPolicy, overlay siteFallbackPolicyOverlay) SiteFallbackPolicy {
