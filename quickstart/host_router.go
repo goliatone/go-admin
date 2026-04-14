@@ -718,3 +718,7 @@ func (r hostAdminRouter[T]) Patch(path string, handler router.HandlerFunc, mw ..
 func (r hostAdminRouter[T]) Head(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	return r.surface.Head(path, handler, mw...)
 }
+
+func (r hostAdminRouter[T]) WebSocket(path string, config router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo {
+	return r.surface.WebSocket(path, config, handler)
+}
