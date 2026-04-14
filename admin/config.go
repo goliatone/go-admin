@@ -9,19 +9,20 @@ import (
 
 // Config holds core admin settings and feature flags.
 type Config struct {
-	Title            string            `json:"title"`
-	BasePath         string            `json:"base_path"`
-	URLs             URLConfig         `json:"urls"`
-	DefaultLocale    string            `json:"default_locale"`
-	Theme            string            `json:"theme"`
-	ThemeVariant     string            `json:"theme_variant"`
-	ThemeTokens      map[string]string `json:"theme_tokens"`
-	ThemeAssetPrefix string            `json:"theme_asset_prefix"`
-	PreviewSecret    string            `json:"preview_secret"`
-	CMSConfig        any               `json:"cms_config"`
-	CMS              CMSOptions        `json:"cms"`
-	Debug            DebugConfig       `json:"debug"`
-	Errors           ErrorConfig       `json:"errors"`
+	Title               string            `json:"title"`
+	BasePath            string            `json:"base_path"`
+	URLs                URLConfig         `json:"urls"`
+	DefaultLocale       string            `json:"default_locale"`
+	Theme               string            `json:"theme"`
+	ThemeVariant        string            `json:"theme_variant"`
+	ThemeTokens         map[string]string `json:"theme_tokens"`
+	ThemeTokenOverrides map[string]string `json:"theme_token_overrides,omitempty"`
+	ThemeAssetPrefix    string            `json:"theme_asset_prefix"`
+	PreviewSecret       string            `json:"preview_secret"`
+	CMSConfig           any               `json:"cms_config"`
+	CMS                 CMSOptions        `json:"cms"`
+	Debug               DebugConfig       `json:"debug"`
+	Errors              ErrorConfig       `json:"errors"`
 
 	LogoURL    string `json:"logo_url"`
 	FaviconURL string `json:"favicon_url"`
