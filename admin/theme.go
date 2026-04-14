@@ -163,6 +163,74 @@ func mergeThemeSelections(base, override *ThemeSelection) *ThemeSelection {
 	return result
 }
 
+func cssVarsFromTokens(tokens map[string]string) map[string]string {
+	if len(tokens) == 0 {
+		return nil
+	}
+	vars := make(map[string]string, len(tokens))
+	for key, value := range tokens {
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		vars["--"+key] = value
+	}
+	if len(vars) == 0 {
+		return nil
+	}
+	return vars
+}
+
+func overlayThemeSelections(result, overlay *ThemeSelection) *ThemeSelection {
+	out := cloneThemeSelection(result)
+	if overlay == nil {
+		return out
+	}
+	if len(overlay.Tokens) > 0 {
+		if out.Tokens == nil {
+			out.Tokens = map[string]string{}
+		}
+		maps.Copy(out.Tokens, overlay.Tokens)
+	}
+	if len(overlay.CSSVars) > 0 {
+		if out.CSSVars == nil {
+			out.CSSVars = map[string]string{}
+		}
+		maps.Copy(out.CSSVars, overlay.CSSVars)
+	}
+	if len(overlay.Assets) > 0 {
+		if out.Assets == nil {
+			out.Assets = map[string]string{}
+		}
+		maps.Copy(out.Assets, overlay.Assets)
+	}
+	if overlay.AssetPrefix != "" {
+		out.AssetPrefix = overlay.AssetPrefix
+	}
+	return out
+}
+
+func configuredThemeOverrides(cfg Config) *ThemeSelection {
+	overrides := &ThemeSelection{
+		Tokens:  primitives.CloneStringMapNilOnEmpty(cfg.ThemeTokenOverrides),
+		CSSVars: cssVarsFromTokens(cfg.ThemeTokenOverrides),
+		Assets:  map[string]string{},
+	}
+	if strings.TrimSpace(cfg.LogoURL) != "" {
+		overrides.Assets["logo"] = cfg.LogoURL
+	}
+	if strings.TrimSpace(cfg.FaviconURL) != "" {
+		overrides.Assets["favicon"] = cfg.FaviconURL
+	}
+	if strings.TrimSpace(cfg.ThemeAssetPrefix) != "" {
+		overrides.AssetPrefix = strings.TrimSpace(cfg.ThemeAssetPrefix)
+	}
+	if len(overrides.Tokens) == 0 && len(overrides.CSSVars) == 0 && len(overrides.Assets) == 0 && overrides.AssetPrefix == "" {
+		return nil
+	}
+	return overrides
+}
+
 func (t *ThemeSelection) payload() map[string]map[string]string {
 	if t == nil {
 		return nil
