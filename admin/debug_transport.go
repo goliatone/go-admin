@@ -775,10 +775,9 @@ func debugAuthHandler(admin *Admin, cfg DebugConfig, permission string) router.H
 	if admin == nil {
 		return func(c router.Context) error { return ErrForbidden }
 	}
-	wrap := admin.authWrapper()
-	return wrap(func(c router.Context) error {
+	return func(c router.Context) error {
 		return debugAuthorizeRequest(admin, cfg, permission, c)
-	})
+	}
 }
 
 func debugAuthorizeRequest(admin *Admin, cfg DebugConfig, permission string, c router.Context) error {
