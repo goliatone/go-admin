@@ -20,10 +20,11 @@ type debugCompatibilityRoute struct {
 }
 
 // registerDebugCompatibilityRoutes installs redirects for common debug API
-// guesses so the example remains usable even when callers target the admin API
-// surface instead of the debug module surface.
-func registerDebugCompatibilityRoutes[T any](r router.Router[T], adm *admin.Admin, adminAPIBasePath string) error {
-	if r == nil || adm == nil || adm.URLs() == nil {
+// guesses so the example remains usable even when callers target the wrong
+// surface. Versioned admin API aliases stay on the admin API surface while the
+// historical versionless alias remains an explicit public-site route.
+func registerDebugCompatibilityRoutes[T any](adminAPI, publicSite router.Router[T], adm *admin.Admin, adminAPIBasePath string) error {
+	if adm == nil || adm.URLs() == nil {
 		return nil
 	}
 
@@ -51,7 +52,18 @@ func registerDebugCompatibilityRoutes[T any](r router.Router[T], adm *admin.Admi
 		if target == "" || target == alias {
 			continue
 		}
-		r.Get(alias, debugCompatibilityRedirect(target))
+		switch alias {
+		case "/api/sessions":
+			if publicSite == nil {
+				continue
+			}
+			publicSite.Get(alias, debugCompatibilityRedirect(target))
+		default:
+			if adminAPI == nil {
+				continue
+			}
+			adminAPI.Get(alias, debugCompatibilityRedirect(target))
+		}
 	}
 
 	return nil

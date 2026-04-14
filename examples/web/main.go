@@ -1078,7 +1078,7 @@ func main() {
 		adminAPI.Get(path.Join(adminAPIBasePath, "debug", "scope"), wrapAuthed(quickstart.ScopeDebugHandler(scopeDebugBuffer)))
 	}
 	if debugEnabled {
-		if err := registerDebugCompatibilityRoutes(adminAPI, adm, adminAPIBasePath); err != nil {
+		if err := registerDebugCompatibilityRoutes(adminAPI, publicSite, adm, adminAPIBasePath); err != nil {
 			warnf("failed to register debug compatibility routes: %v", err)
 		}
 	}
