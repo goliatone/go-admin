@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	staticprefixes "github.com/goliatone/go-admin/quickstart/internal/staticprefixes"
 	dashboardcmp "github.com/goliatone/go-dashboard/components/dashboard"
 	formgen "github.com/goliatone/go-formgen"
 	formgenvanilla "github.com/goliatone/go-formgen/pkg/renderers/vanilla"
@@ -128,16 +129,12 @@ func WithSidebarAssetsFS(fsys fs.FS) StaticAssetsOption {
 // NewStaticAssets will mount for the given config and options.
 func ResolveStaticAssetPrefixes(cfg admin.Config, opts ...StaticAssetsOption) []string {
 	options := resolveStaticAssetsOptions(cfg, opts)
-	prefixes := []string{
-		options.assetsPrefix,
-		options.runtimePrefix,
-		options.formgenPrefix,
-		options.echartsPrefix,
-	}
-	if needsRuntimeRootAlias(options.runtimePrefix) {
-		prefixes = append(prefixes, "/runtime")
-	}
-	return uniqueHostPrefixes(prefixes)
+	return staticprefixes.Resolve(staticprefixes.Input{
+		AssetsPrefix:  options.assetsPrefix,
+		RuntimePrefix: options.runtimePrefix,
+		FormgenPrefix: options.formgenPrefix,
+		EChartsPrefix: options.echartsPrefix,
+	})
 }
 
 // NewStaticAssets registers static asset routes with quickstart defaults.
@@ -180,7 +177,7 @@ func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS
 		})
 		// go-formgen injects the relationships runtime at "/runtime/..." by default.
 		// Keep a root alias so forms work even when the admin is served under a base path.
-		if needsRuntimeRootAlias(options.runtimePrefix) {
+		if staticprefixes.NeedsRuntimeRootAlias(options.runtimePrefix) {
 			r.Static("/runtime", ".", router.Static{
 				FS:   formgen.RuntimeAssetsFS(),
 				Root: ".",
@@ -201,16 +198,6 @@ func NewStaticAssets[T any](r router.Router[T], cfg admin.Config, assetsFS fs.FS
 			Root: ".",
 		})
 	}
-}
-
-func needsRuntimeRootAlias(prefix string) bool {
-	trimmed := strings.TrimSpace(prefix)
-	if trimmed == "" {
-		return false
-	}
-	trimmed = strings.TrimSuffix(trimmed, "/")
-	trimmed = strings.TrimPrefix(trimmed, "/")
-	return trimmed != "runtime"
 }
 
 func resolveAssetsFS(base fs.FS) fs.FS {
