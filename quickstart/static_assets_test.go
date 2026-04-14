@@ -203,6 +203,7 @@ func TestNewStaticAssetsMountsExpectedRoutes(t *testing.T) {
 		"/admin/runtime":            false,
 		"/admin/formgen":            false,
 		"/dashboard/assets/echarts": false,
+		"/runtime":                  false,
 	}
 
 	for _, call := range r.staticCalls {
@@ -214,6 +215,60 @@ func TestNewStaticAssetsMountsExpectedRoutes(t *testing.T) {
 	for prefix, found := range expected {
 		if !found {
 			t.Fatalf("expected static mount for %s", prefix)
+		}
+	}
+}
+
+func TestResolveStaticAssetPrefixesIncludesRuntimeAliasAndSharedMounts(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin"}
+
+	got := ResolveStaticAssetPrefixes(cfg)
+	want := []string{
+		"/admin/assets",
+		"/admin/runtime",
+		"/admin/formgen",
+		"/dashboard/assets/echarts",
+		"/runtime",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected static prefixes %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected static prefixes %v, got %v", want, got)
+		}
+	}
+}
+
+func TestResolveSiteFallbackReservedPrefixesTracksStaticAssetOverrides(t *testing.T) {
+	cfg := admin.Config{BasePath: "/admin"}
+
+	got := ResolveSiteFallbackReservedPrefixes(
+		cfg,
+		WithAssetsPrefix("/public-assets"),
+		WithRuntimePrefix("/ops/runtime"),
+		WithFormgenPrefix("/widgets/formgen"),
+		WithEChartsPrefix("/charts/echarts"),
+	)
+	want := []string{
+		"/.well-known",
+		"/admin",
+		"/api",
+		"/api/v1",
+		"/assets",
+		"/charts/echarts",
+		"/ops/runtime",
+		"/public-assets",
+		"/runtime",
+		"/static",
+		"/widgets/formgen",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expected reserved prefixes %v, got %v", want, got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("expected reserved prefixes %v, got %v", want, got)
 		}
 	}
 }

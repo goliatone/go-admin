@@ -1,6 +1,7 @@
 package site
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
@@ -125,7 +126,20 @@ func TestSiteReservedPrefixesAndSearchEndpointFollowAdminConfigRoots(t *testing.
 	}
 
 	got := SiteReservedPrefixesForAdminConfig(cfg)
-	want := []string{"/.well-known", "/assets", "/control", "/public/content", "/public/content/v3", "/static"}
+	want := []string{
+		"/.well-known",
+		"/admin/assets",
+		"/admin/formgen",
+		"/admin/runtime",
+		"/assets",
+		"/control",
+		"/dashboard/assets/echarts",
+		"/public/content",
+		"/public/content/v3",
+		"/runtime",
+		"/static",
+	}
+	slices.Sort(want)
 	if len(got) != len(want) {
 		t.Fatalf("expected reserved prefixes %v, got %v", want, got)
 	}

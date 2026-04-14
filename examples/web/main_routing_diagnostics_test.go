@@ -114,3 +114,43 @@ func TestExampleRoutingDiagnosticsExposeFallbackOwnershipMetadata(t *testing.T) 
 		t.Fatalf("expected doctor fallback mode explicit_paths_only, got %#v", entry)
 	}
 }
+
+func TestExampleRoutingOwnershipDefaultsReserveSharedStaticPrefixes(t *testing.T) {
+	if err := commandregistry.Stop(context.Background()); err != nil {
+		t.Fatalf("stop command registry before test: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = commandregistry.Stop(context.Background())
+	})
+
+	runtimeCfg := appcfg.Defaults()
+	cfg := quickstart.NewAdminConfig(runtimeCfg.Admin.BasePath, runtimeCfg.Admin.Title, runtimeCfg.Admin.DefaultLocale)
+	cfg.AuthConfig = &admin.AuthConfig{AllowUnauthenticatedRoutes: true}
+	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeCfg.Site, true)
+
+	adm, _, err := quickstart.NewAdmin(
+		cfg,
+		quickstart.AdapterHooks{},
+		quickstart.WithFeatureDefaults(quickstart.DefaultMinimalFeatures()),
+	)
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	t.Cleanup(adm.Commands().Reset)
+
+	if err := registerExampleRoutingOwnership(adm, cfg, runtimeCfg, siteCfg, exampleSearchProviderStub{}); err != nil {
+		t.Fatalf("register routing ownership: %v", err)
+	}
+
+	report := adm.RefreshRoutingReport()
+	if len(report.Fallbacks) != 1 {
+		t.Fatalf("expected one fallback in routing report, got %+v", report.Fallbacks)
+	}
+	fallback := report.Fallbacks[0]
+	if !containsString(fallback.ReservedPrefixes, "/runtime") {
+		t.Fatalf("expected reserved prefixes to include /runtime, got %+v", fallback.ReservedPrefixes)
+	}
+	if !containsString(fallback.ReservedPrefixes, "/dashboard/assets/echarts") {
+		t.Fatalf("expected reserved prefixes to include /dashboard/assets/echarts, got %+v", fallback.ReservedPrefixes)
+	}
+}

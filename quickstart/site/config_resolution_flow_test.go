@@ -3,6 +3,7 @@ package site
 import (
 	"context"
 	"io/fs"
+	"slices"
 	"testing"
 	"testing/fstest"
 
@@ -205,7 +206,8 @@ func TestResolveSiteConfigFlowAssemblesResolvedConfigFromSectionBuilders(t *test
 }
 
 func TestResolveSiteConfigFlowAddsEnabledInternalOpsPathsToReservedPrefixes(t *testing.T) {
-	resolved := resolveSiteConfigFlow(admin.Config{DefaultLocale: "en"}, SiteConfig{
+	cfg := admin.Config{DefaultLocale: "en"}
+	resolved := resolveSiteConfigFlow(cfg, SiteConfig{
 		InternalOps: SiteInternalOpsConfig{
 			EnableHealthz: true,
 			EnableStatus:  true,
@@ -224,7 +226,11 @@ func TestResolveSiteConfigFlowAddsEnabledInternalOpsPathsToReservedPrefixes(t *t
 		t.Fatalf("expected internal ops paths normalized, got %+v", resolved.InternalOps)
 	}
 
-	want := []string{"/.well-known", "/admin", "/api", "/api/v1", "/assets", "/custom", "/ops/status", "/readyz", "/static"}
+	want := append([]string{}, DefaultSiteFallbackPolicy().ReservedPrefixes...)
+	want = append(want, SiteReservedPrefixesForAdminConfig(cfg)...)
+	want = append(want, "/admin", "/custom", "/ops/status", "/readyz")
+	slices.Sort(want)
+	want = slices.Compact(want)
 	got := resolved.Fallback.ReservedPrefixes
 	if len(got) != len(want) {
 		t.Fatalf("expected reserved prefixes %v, got %v", want, got)

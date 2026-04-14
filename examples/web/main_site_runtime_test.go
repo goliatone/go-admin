@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"testing"
 
 	appcfg "github.com/goliatone/go-admin/examples/web/config"
@@ -64,8 +65,9 @@ func TestResolveSiteRuntimeConfigDefaults(t *testing.T) {
 	if got := siteCfg.Fallback.AllowedMethods; len(got) != 2 || got[0] != "GET" || got[1] != "HEAD" {
 		t.Fatalf("expected GET/HEAD fallback methods, got %v", got)
 	}
-	if got := siteCfg.Fallback.ReservedPrefixes; len(got) != 6 || got[0] != "/.well-known" || got[1] != "/admin" || got[2] != "/api" || got[3] != "/api/v1" || got[4] != "/assets" || got[5] != "/static" {
-		t.Fatalf("expected config-derived reserved prefixes, got %v", got)
+	wantReserved := expectedResolvedSiteReservedPrefixes(cfg)
+	if got := siteCfg.Fallback.ReservedPrefixes; !slices.Equal(got, wantReserved) {
+		t.Fatalf("expected config-derived reserved prefixes %v, got %v", wantReserved, got)
 	}
 }
 
@@ -144,8 +146,9 @@ func TestResolveSiteRuntimeConfigEnvOverrides(t *testing.T) {
 	if got := siteCfg.Fallback.AllowedMethods; len(got) != 2 || got[0] != "GET" || got[1] != "HEAD" {
 		t.Fatalf("expected GET/HEAD normalization for fallback methods, got %v", got)
 	}
-	if got := siteCfg.Fallback.ReservedPrefixes; len(got) != 7 || got[0] != "/.well-known" || got[1] != "/admin" || got[2] != "/api" || got[3] != "/api/v1" || got[4] != "/assets" || got[5] != "/readyz" || got[6] != "/static" {
-		t.Fatalf("expected derived defaults + explicit overrides + internal ops to become reserved, got %v", got)
+	wantReserved := expectedResolvedSiteReservedPrefixes(cfg, "/admin", "/api", "/readyz")
+	if got := siteCfg.Fallback.ReservedPrefixes; !slices.Equal(got, wantReserved) {
+		t.Fatalf("expected derived defaults + explicit overrides + internal ops to become reserved, got %v want %v", got, wantReserved)
 	}
 }
 
@@ -198,7 +201,16 @@ func TestResolveSiteRuntimeConfigDerivesSearchEndpointAndReservedPrefixesFromURL
 	if siteCfg.Search.Endpoint != "/public/content/v3/site/search" {
 		t.Fatalf("expected config-derived search endpoint, got %q", siteCfg.Search.Endpoint)
 	}
-	if got := siteCfg.Fallback.ReservedPrefixes; len(got) != 8 || got[0] != "/.well-known" || got[1] != "/admin" || got[2] != "/api" || got[3] != "/assets" || got[4] != "/control" || got[5] != "/public/content" || got[6] != "/public/content/v3" || got[7] != "/static" {
-		t.Fatalf("expected config-derived reserved prefixes, got %v", got)
+	wantReserved := expectedResolvedSiteReservedPrefixes(cfg)
+	if got := siteCfg.Fallback.ReservedPrefixes; !slices.Equal(got, wantReserved) {
+		t.Fatalf("expected config-derived reserved prefixes %v, got %v", wantReserved, got)
 	}
+}
+
+func expectedResolvedSiteReservedPrefixes(cfg admin.Config, extra ...string) []string {
+	out := append([]string{}, quicksite.DefaultSiteFallbackPolicy().ReservedPrefixes...)
+	out = append(out, quicksite.SiteReservedPrefixesForAdminConfig(cfg)...)
+	out = append(out, extra...)
+	slices.Sort(out)
+	return slices.Compact(out)
 }

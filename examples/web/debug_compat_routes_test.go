@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	coreadmin "github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/quickstart"
 	commandregistry "github.com/goliatone/go-command/registry"
 	"github.com/goliatone/go-featuregate/adapters/configadapter"
 	fggate "github.com/goliatone/go-featuregate/gate"
@@ -74,12 +75,13 @@ func newDebugCompatibilityTestServer(t *testing.T) (http.Handler, string) {
 	}
 
 	server := router.NewHTTPServer()
-	if err := adm.Initialize(server.Router()); err != nil {
+	host := quickstart.NewHostRouter(server.Router(), cfg)
+	if err := adm.Initialize(host.Admin()); err != nil {
 		t.Fatalf("initialize admin: %v", err)
 	}
 
 	adminAPIBasePath := "/admin/api"
-	if err := registerDebugCompatibilityRoutes(server.Router(), adm, adminAPIBasePath); err != nil {
+	if err := registerDebugCompatibilityRoutes(host.AdminAPI(), host.PublicSite(), adm, adminAPIBasePath); err != nil {
 		t.Fatalf("register debug compatibility routes: %v", err)
 	}
 
