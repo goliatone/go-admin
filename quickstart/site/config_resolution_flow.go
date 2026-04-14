@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
+	staticprefixes "github.com/goliatone/go-admin/quickstart/internal/staticprefixes"
 )
 
 type resolvedSiteConfigInputs struct {
@@ -44,12 +45,30 @@ func resolveSiteFallbackPolicy(
 	internalOps ResolvedSiteInternalOpsConfig,
 ) SiteFallbackPolicy {
 	policy = ResolveSiteFallbackPolicy(policy)
+	staticInput := resolvedStaticPrefixInputForPolicy(cfg, policy)
 	policy.ReservedPrefixes = append(
-		SiteReservedPrefixesForAdminConfig(cfg),
+		SiteReservedPrefixesForAdminConfigWithStaticInput(cfg, staticInput),
 		policy.ReservedPrefixes...,
 	)
 	policy.ReservedPrefixes = append(policy.ReservedPrefixes, internalOpsReservedPrefixes(internalOps)...)
 	return NormalizeSiteFallbackPolicy(policy)
+}
+
+func resolvedStaticPrefixInputForPolicy(cfg admin.Config, policy SiteFallbackPolicy) staticprefixes.Input {
+	input := staticprefixes.DefaultInput(cfg)
+	if value := strings.TrimSpace(policy.StaticInput.AssetsPrefix); value != "" {
+		input.AssetsPrefix = value
+	}
+	if value := strings.TrimSpace(policy.StaticInput.FormgenPrefix); value != "" {
+		input.FormgenPrefix = value
+	}
+	if value := strings.TrimSpace(policy.StaticInput.RuntimePrefix); value != "" {
+		input.RuntimePrefix = value
+	}
+	if value := strings.TrimSpace(policy.StaticInput.EChartsPrefix); value != "" {
+		input.EChartsPrefix = value
+	}
+	return input
 }
 
 func internalOpsReservedPrefixes(cfg ResolvedSiteInternalOpsConfig) []string {
