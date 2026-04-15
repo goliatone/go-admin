@@ -12,10 +12,18 @@ func TestAdminDecorateSchemaAppliesFeatureMetadataAndMediaHints(t *testing.T) {
 	})
 
 	schema := &Schema{
-		FormFields: []Field{{Name: "asset", Label: "Asset", Type: "media"}},
+		FormFields: []Field{
+			{Name: "asset", Label: "Asset", Type: "media-picker"},
+			{Name: "gallery", Label: "Gallery", Type: "media-gallery"},
+		},
 		FormSchema: map[string]any{
 			"properties": map[string]any{
-				"asset": map[string]any{},
+				"asset": map[string]any{
+					"type": "string",
+				},
+				"gallery": map[string]any{
+					"type": "array",
+				},
 			},
 		},
 	}
@@ -58,6 +66,16 @@ func TestAdminDecorateSchemaAppliesFeatureMetadataAndMediaHints(t *testing.T) {
 	adminMedia, _ := adminMeta["media"].(map[string]any)
 	if got := adminMedia["capabilitiesPath"]; got != schema.Media.CapabilitiesPath {
 		t.Fatalf("expected nested media capabilities path %q, got %v", schema.Media.CapabilitiesPath, got)
+	}
+
+	gallery, _ := props["gallery"].(map[string]any)
+	if got := gallery["x-formgen:widget"]; got != "media-picker" {
+		t.Fatalf("expected gallery media widget hint, got %v", got)
+	}
+	galleryFormgen, _ := gallery["x-formgen"].(map[string]any)
+	galleryComponentOptions, _ := galleryFormgen["componentOptions"].(map[string]any)
+	if got := galleryComponentOptions["multiple"]; got != true {
+		t.Fatalf("expected gallery multiple=true, got %v", got)
 	}
 }
 
