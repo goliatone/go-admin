@@ -214,7 +214,10 @@ func configuredThemeOverrides(cfg Config) *ThemeSelection {
 	overrides := &ThemeSelection{
 		Tokens:  primitives.CloneStringMapNilOnEmpty(cfg.ThemeTokenOverrides),
 		CSSVars: cssVarsFromTokens(cfg.ThemeTokenOverrides),
-		Assets:  map[string]string{},
+		Assets:  primitives.CloneStringMapNilOnEmpty(cfg.ThemeAssets),
+	}
+	if overrides.Assets == nil {
+		overrides.Assets = map[string]string{}
 	}
 	if strings.TrimSpace(cfg.LogoURL) != "" {
 		overrides.Assets["logo"] = cfg.LogoURL
