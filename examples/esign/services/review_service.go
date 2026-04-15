@@ -165,7 +165,8 @@ func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, ag
 		if err != nil {
 			return err
 		}
-		if err := txSvc.replaceReviewParticipants(ctx, scope, review, participants, now); err != nil {
+		err = txSvc.replaceReviewParticipants(ctx, scope, review, participants, now)
+		if err != nil {
 			return err
 		}
 		storedParticipants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
@@ -181,21 +182,23 @@ func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, ag
 		if err != nil {
 			return err
 		}
-		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
+		_, err = txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus:    ptrString(review.Status),
 			ReviewGate:      ptrString(review.Gate),
 			CommentsEnabled: reviewPtrBool(input.CommentsEnabled),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_requested", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_requested", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
 			"review_id":            review.ID,
 			"review_gate":          review.Gate,
 			"review_status":        review.Status,
 			"comments_enabled":     input.CommentsEnabled,
 			"review_participants":  normalizeReviewParticipantMetadata(storedParticipants),
 			"requested_by_user_id": strings.TrimSpace(input.RequestedByUserID),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
@@ -229,11 +232,11 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 		}
 		participantsInput := input.ReviewParticipants
 		if len(participantsInput) == 0 && len(input.ReviewerIDs) == 0 {
-			participants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
-			if err != nil {
-				return err
+			storedParticipants, listErr := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+			if listErr != nil {
+				return listErr
 			}
-			participantsInput = reviewParticipantsFromRecords(participants)
+			participantsInput = reviewParticipantsFromRecords(storedParticipants)
 		}
 		input.ReviewParticipants = participantsInput
 		participants, err := txSvc.validateReviewParticipants(ctx, scope, agreementID, input)
@@ -249,7 +252,8 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 		if err != nil {
 			return err
 		}
-		if err := txSvc.replaceReviewParticipants(ctx, scope, review, participants, now); err != nil {
+		err = txSvc.replaceReviewParticipants(ctx, scope, review, participants, now)
+		if err != nil {
 			return err
 		}
 		storedParticipants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
@@ -269,19 +273,21 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 		if !commentsEnabled && agreement.CommentsEnabled {
 			commentsEnabled = agreement.CommentsEnabled
 		}
-		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
+		_, err = txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus:    ptrString(review.Status),
 			ReviewGate:      ptrString(review.Gate),
 			CommentsEnabled: reviewPtrBool(commentsEnabled),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_reopened", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_reopened", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
 			"review_id":           review.ID,
 			"review_gate":         review.Gate,
 			"review_status":       review.Status,
 			"review_participants": normalizeReviewParticipantMetadata(storedParticipants),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
@@ -313,7 +319,8 @@ func (s AgreementService) NotifyReviewers(ctx context.Context, scope stores.Scop
 		if err != nil {
 			return err
 		}
-		if err := ensureReviewCycleMutable(review, "agreement_reviews", "override_active"); err != nil {
+		err = ensureReviewCycleMutable(review, "agreement_reviews", "override_active")
+		if err != nil {
 			return err
 		}
 		if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
@@ -339,10 +346,11 @@ func (s AgreementService) NotifyReviewers(ctx context.Context, scope stores.Scop
 			return err
 		}
 		review.LastActivityAt = &now
-		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementReview(ctx, scope, review)
+		if err != nil {
 			return err
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_notified", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_notified", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
 			"review_id":            review.ID,
 			"review_status":        review.Status,
 			"source":               source,
@@ -350,7 +358,8 @@ func (s AgreementService) NotifyReviewers(ctx context.Context, scope stores.Scop
 			"requested_by_user_id": strings.TrimSpace(input.RequestedByID),
 			"notified_count":       len(targets),
 			"review_participants":  normalizeReviewParticipantMetadata(targets),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
@@ -383,20 +392,23 @@ func (s AgreementService) CloseReview(ctx context.Context, scope stores.Scope, a
 		review.Status = stores.AgreementReviewStatusClosed
 		review.ClosedAt = &now
 		review.LastActivityAt = &now
-		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementReview(ctx, scope, review)
+		if err != nil {
 			return err
 		}
-		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
+		_, err = txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus: ptrString(stores.AgreementReviewStatusClosed),
 			ReviewGate:   ptrString(review.Gate),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_closed", normalizeReviewActorType(actorType), strings.TrimSpace(actorID), ipAddress, map[string]any{
+		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_closed", normalizeReviewActorType(actorType), strings.TrimSpace(actorID), ipAddress, map[string]any{
 			"review_id":     review.ID,
 			"review_gate":   review.Gate,
 			"review_status": review.Status,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		if txSvc.reviewTokens != nil {
@@ -404,7 +416,8 @@ func (s AgreementService) CloseReview(ctx context.Context, scope stores.Scope, a
 				if strings.TrimSpace(participant.ID) == "" {
 					continue
 				}
-				if err := txSvc.reviewTokens.Revoke(ctx, scope, agreementID, participant.ID); err != nil {
+				err = txSvc.reviewTokens.Revoke(ctx, scope, agreementID, participant.ID)
+				if err != nil {
 					return err
 				}
 			}
@@ -445,7 +458,8 @@ func (s AgreementService) ForceApproveReview(ctx context.Context, scope stores.S
 		if reason == "" {
 			return domainValidationError("agreement_reviews", "reason", "override reason is required")
 		}
-		if err := requireReviewAdminActorIdentity("agreement_reviews", "override_by_user_id", input.ActorID); err != nil {
+		err = requireReviewAdminActorIdentity("agreement_reviews", "override_by_user_id", input.ActorID)
+		if err != nil {
 			return err
 		}
 		now := txSvc.now()
@@ -458,17 +472,19 @@ func (s AgreementService) ForceApproveReview(ctx context.Context, scope stores.S
 		review.OverrideAt = &now
 		review.ClosedAt = &now
 		review.LastActivityAt = &now
-		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementReview(ctx, scope, review)
+		if err != nil {
 			return err
 		}
-		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
+		_, err = txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus: ptrString(stores.AgreementReviewStatusApproved),
 			ReviewGate:   ptrString(review.Gate),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		approvedCount, totalApprovers := reviewApprovalCounts(participants)
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_force_approved", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_force_approved", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
 			"review_id":                review.ID,
 			"review_status":            review.Status,
 			"previous_status":          previousStatus,
@@ -480,10 +496,12 @@ func (s AgreementService) ForceApproveReview(ctx context.Context, scope stores.S
 			"override_by_display_name": strings.TrimSpace(input.ActorName),
 			"approved_count":           approvedCount,
 			"total_approvers":          totalApprovers,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		if err := txSvc.revokeReviewSessionTokens(ctx, scope, agreementID, participants...); err != nil {
+		err = txSvc.revokeReviewSessionTokens(ctx, scope, agreementID, participants...)
+		if err != nil {
 			return err
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
@@ -499,7 +517,8 @@ func (s AgreementService) ApproveReviewParticipantOnBehalf(ctx context.Context, 
 		if err != nil {
 			return err
 		}
-		if err := ensureReviewCycleMutable(review, "agreement_review_participants", "decision_status"); err != nil {
+		err = ensureReviewCycleMutable(review, "agreement_review_participants", "decision_status")
+		if err != nil {
 			return err
 		}
 		if !strings.EqualFold(strings.TrimSpace(review.Status), stores.AgreementReviewStatusInReview) {
@@ -523,7 +542,8 @@ func (s AgreementService) ApproveReviewParticipantOnBehalf(ctx context.Context, 
 		if reason == "" {
 			return domainValidationError("agreement_review_participants", "reason", "approval reason is required")
 		}
-		if err := requireReviewAdminActorIdentity("agreement_review_participants", "approved_on_behalf_by_user_id", input.ActorID); err != nil {
+		err = requireReviewAdminActorIdentity("agreement_review_participants", "approved_on_behalf_by_user_id", input.ActorID)
+		if err != nil {
 			return err
 		}
 		now := txSvc.now()
@@ -532,7 +552,8 @@ func (s AgreementService) ApproveReviewParticipantOnBehalf(ctx context.Context, 
 		participant.ApprovedOnBehalfByDisplayName = strings.TrimSpace(input.ActorName)
 		participant.ApprovedOnBehalfReason = reason
 		participant.ApprovedOnBehalfAt = &now
-		if _, err := txSvc.agreements.UpdateAgreementReviewParticipant(ctx, scope, participant); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementReviewParticipant(ctx, scope, participant)
+		if err != nil {
 			return err
 		}
 		participants = replaceParticipantSnapshot(participants, participant)
@@ -541,17 +562,19 @@ func (s AgreementService) ApproveReviewParticipantOnBehalf(ctx context.Context, 
 		if review.Status == stores.AgreementReviewStatusApproved {
 			review.ClosedAt = &now
 		}
-		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementReview(ctx, scope, review)
+		if err != nil {
 			return err
 		}
-		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
+		_, err = txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus: ptrString(review.Status),
 			ReviewGate:   ptrString(review.Gate),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		approvedCount, totalApprovers := reviewApprovalCounts(participants)
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_participant_approved_on_behalf", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_participant_approved_on_behalf", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
 			"review_id":                          review.ID,
 			"participant_id":                     participant.ID,
 			"recipient_id":                       participant.RecipientID,
@@ -564,10 +587,12 @@ func (s AgreementService) ApproveReviewParticipantOnBehalf(ctx context.Context, 
 			"approved_on_behalf_at":              now.UTC().Format(time.RFC3339Nano),
 			"approved_on_behalf_by_user_id":      strings.TrimSpace(input.ActorID),
 			"approved_on_behalf_by_display_name": strings.TrimSpace(input.ActorName),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
-		if err := txSvc.revokeReviewSessionTokens(ctx, scope, agreementID, participant); err != nil {
+		err = txSvc.revokeReviewSessionTokens(ctx, scope, agreementID, participant)
+		if err != nil {
 			return err
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
@@ -583,7 +608,8 @@ func (s AgreementService) CreateCommentThread(ctx context.Context, scope stores.
 		if err != nil {
 			return err
 		}
-		if err := ensureReviewCycleMutable(review, "agreement_comment_threads", "review_id"); err != nil {
+		err = ensureReviewCycleMutable(review, "agreement_comment_threads", "review_id")
+		if err != nil {
 			return err
 		}
 		if input.ReviewID != "" && strings.TrimSpace(input.ReviewID) != review.ID {
@@ -660,29 +686,33 @@ func (s AgreementService) ReplyCommentThread(ctx context.Context, scope stores.S
 		if thread.Visibility == stores.AgreementCommentVisibilityInternal && isRecipientActor(input.ActorType) {
 			return reviewVisibilityError()
 		}
-		if _, err := txSvc.agreements.CreateAgreementCommentMessage(ctx, scope, stores.AgreementCommentMessageRecord{
+		_, err = txSvc.agreements.CreateAgreementCommentMessage(ctx, scope, stores.AgreementCommentMessageRecord{
 			ThreadID:      thread.ID,
 			Body:          strings.TrimSpace(input.Body),
 			MessageKind:   stores.AgreementCommentMessageKindReply,
 			CreatedByType: normalizeReviewActorType(input.ActorType),
 			CreatedByID:   strings.TrimSpace(input.ActorID),
 			CreatedAt:     txSvc.now(),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		thread.LastActivityAt = reviewPtrTime(txSvc.now())
-		if _, err := txSvc.agreements.UpdateAgreementCommentThread(ctx, scope, thread); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementCommentThread(ctx, scope, thread)
+		if err != nil {
 			return err
 		}
 		review, err := txSvc.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
 		if err != nil {
 			return err
 		}
-		if err := ensureReviewCycleMutable(review, "agreement_comment_messages", "thread_id"); err != nil {
+		err = ensureReviewCycleMutable(review, "agreement_comment_messages", "thread_id")
+		if err != nil {
 			return err
 		}
 		review.LastActivityAt = thread.LastActivityAt
-		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementReview(ctx, scope, review)
+		if err != nil {
 			return err
 		}
 		messages, err := txSvc.agreements.ListAgreementCommentMessages(ctx, scope, thread.ID)
@@ -813,7 +843,8 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 		if err != nil {
 			return err
 		}
-		if err := ensureReviewCycleMutable(review, "agreement_reviews", "status"); err != nil {
+		err = ensureReviewCycleMutable(review, "agreement_reviews", "status")
+		if err != nil {
 			return err
 		}
 		participants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
@@ -833,7 +864,8 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 		now := txSvc.now()
 		participant.DecisionStatus = decisionStatus
 		participant.DecisionAt = &now
-		if _, err := txSvc.agreements.UpdateAgreementReviewParticipant(ctx, scope, participant); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementReviewParticipant(ctx, scope, participant)
+		if err != nil {
 			return err
 		}
 		participants = replaceParticipantSnapshot(participants, participant)
@@ -842,22 +874,24 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 		if review.Status == stores.AgreementReviewStatusApproved || review.Status == stores.AgreementReviewStatusChangesRequested {
 			review.ClosedAt = nil
 		}
-		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementReview(ctx, scope, review)
+		if err != nil {
 			return err
 		}
-		if _, err := txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
+		_, err = txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
 			ReviewStatus: ptrString(review.Status),
 			ReviewGate:   ptrString(review.Gate),
-		}); err != nil {
+		})
+		if err != nil {
 			return err
 		}
 		var decisionThreadID string
 		if decisionComment != "" {
-			thread, err := txSvc.appendReviewDecisionComment(ctx, scope, agreementID, review, decisionComment, input, now)
-			if err != nil {
-				return err
+			decisionThread, appendErr := txSvc.appendReviewDecisionComment(ctx, scope, agreementID, review, decisionComment, input, now)
+			if appendErr != nil {
+				return appendErr
 			}
-			decisionThreadID = strings.TrimSpace(thread.ID)
+			decisionThreadID = strings.TrimSpace(decisionThread.ID)
 		}
 		metadata := map[string]any{
 			"review_id":      review.ID,
@@ -872,7 +906,8 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 		if decisionThreadID != "" {
 			metadata["thread_id"] = decisionThreadID
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreementID, auditEvent, normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, metadata); err != nil {
+		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, auditEvent, normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, metadata)
+		if err != nil {
 			return err
 		}
 		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
@@ -950,11 +985,13 @@ func (s AgreementService) applyCommentThreadState(ctx context.Context, scope sto
 		if err != nil {
 			return err
 		}
-		if err := ensureReviewCycleMutable(review, "agreement_comment_threads", "thread_id"); err != nil {
+		err = ensureReviewCycleMutable(review, "agreement_comment_threads", "thread_id")
+		if err != nil {
 			return err
 		}
 		review.LastActivityAt = thread.LastActivityAt
-		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, review); err != nil {
+		_, err = txSvc.agreements.UpdateAgreementReview(ctx, scope, review)
+		if err != nil {
 			return err
 		}
 		messages, err := txSvc.agreements.ListAgreementCommentMessages(ctx, scope, thread.ID)

@@ -233,7 +233,8 @@ func TestAgreementServiceDraftLifecycleRecipientsAndFields(t *testing.T) {
 		t.Fatalf("expected 1 field, got %d", len(fields))
 	}
 
-	if err := svc.DeleteFieldDraft(ctx, scope, agreement.ID, field.ID); err != nil {
+	err = svc.DeleteFieldDraft(ctx, scope, agreement.ID, field.ID)
+	if err != nil {
 		t.Fatalf("DeleteFieldDraft: %v", err)
 	}
 	fields, err = store.ListFields(ctx, scope, agreement.ID)
@@ -244,7 +245,8 @@ func TestAgreementServiceDraftLifecycleRecipientsAndFields(t *testing.T) {
 		t.Fatalf("expected no fields after delete, got %d", len(fields))
 	}
 
-	if err := svc.RemoveRecipientDraft(ctx, scope, agreement.ID, cc.ID); err != nil {
+	err = svc.RemoveRecipientDraft(ctx, scope, agreement.ID, cc.ID)
+	if err != nil {
 		t.Fatalf("RemoveRecipientDraft: %v", err)
 	}
 	recipients, err := store.ListRecipients(ctx, scope, agreement.ID)
@@ -379,7 +381,7 @@ func TestAgreementServiceValidateBeforeSend(t *testing.T) {
 		t.Fatal("expected validation issues")
 	}
 
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -421,7 +423,7 @@ func TestAgreementServiceValidateBeforeSendFlagsOutOfBoundsPagePlacements(t *tes
 		t.Fatalf("UpsertFieldDefinitionDraft: %v", err)
 	}
 	pageNumber := 3 // Source document has 2 pages in setup fixture.
-	if _, err := store.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, stores.FieldInstanceDraftPatch{
+	if _, err = store.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, stores.FieldInstanceDraftPatch{
 		FieldDefinitionID: &definition.ID,
 		PageNumber:        &pageNumber,
 		X:                 new(float64(10)),
@@ -499,7 +501,7 @@ func TestAgreementServiceV2AuthoringCRUDAndGeometryBounds(t *testing.T) {
 		t.Fatalf("expected tab_index %d, got %d", tabIndex, instance.TabIndex)
 	}
 
-	if _, err := svc.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, stores.FieldInstanceDraftPatch{
+	if _, err = svc.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, stores.FieldInstanceDraftPatch{
 		FieldDefinitionID: &definition.ID,
 		PageNumber:        new(3),
 		X:                 new(float64(10)),
@@ -534,10 +536,12 @@ func TestAgreementServiceV2AuthoringCRUDAndGeometryBounds(t *testing.T) {
 		t.Fatalf("expected 1 instance, got %d", len(instances))
 	}
 
-	if err := svc.DeleteFieldInstanceDraft(ctx, scope, agreement.ID, instance.ID); err != nil {
+	err = svc.DeleteFieldInstanceDraft(ctx, scope, agreement.ID, instance.ID)
+	if err != nil {
 		t.Fatalf("DeleteFieldInstanceDraft: %v", err)
 	}
-	if err := svc.DeleteParticipantDraft(ctx, scope, agreement.ID, participant.ID); err != nil {
+	err = svc.DeleteParticipantDraft(ctx, scope, agreement.ID, participant.ID)
+	if err != nil {
 		t.Fatalf("DeleteParticipantDraft: %v", err)
 	}
 }
@@ -553,7 +557,7 @@ func TestAgreementServiceSendIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -597,7 +601,7 @@ func TestAgreementServiceSendDispatchesEmailWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -606,7 +610,7 @@ func TestAgreementServiceSendDispatchesEmailWorkflow(t *testing.T) {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
 
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-hook"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-hook"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	if workflow.sentCalls != 0 {
@@ -639,7 +643,7 @@ func TestAgreementServiceSendEnqueuesNotificationOutboxWhenConfigured(t *testing
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -648,7 +652,7 @@ func TestAgreementServiceSendEnqueuesNotificationOutboxWhenConfigured(t *testing
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
 
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-outbox"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-outbox"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	if workflow.sentCalls != 0 {
@@ -702,7 +706,7 @@ func TestAgreementServiceSendPersistsSentStatusWhenEmailWorkflowFails(t *testing
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -764,7 +768,7 @@ func TestAgreementServiceSendBlocksUnsupportedPDFCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -829,7 +833,7 @@ func TestAgreementServiceSendAuditsLimitedPDFCompatibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -838,7 +842,7 @@ func TestAgreementServiceSendAuditsLimitedPDFCompatibility(t *testing.T) {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
 
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-pdf-limited"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-pdf-limited"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	events, err := store.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
@@ -887,7 +891,7 @@ func TestAgreementServiceResendSequentialAndTokenRotation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer 2: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -895,7 +899,7 @@ func TestAgreementServiceResendSequentialAndTokenRotation(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signer 1: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -904,11 +908,11 @@ func TestAgreementServiceResendSequentialAndTokenRotation(t *testing.T) {
 		t.Fatalf("UpsertFieldDraft signer 2: %v", err)
 	}
 
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
-	if _, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{RecipientID: signerTwo.ID}); err == nil {
+	if _, err = svc.Resend(ctx, scope, agreement.ID, ResendInput{RecipientID: signerTwo.ID}); err == nil {
 		t.Fatal("expected sequential resend guard for out-of-order signer")
 	}
 
@@ -956,7 +960,7 @@ func TestAgreementServiceResendDispatchesEmailWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -964,10 +968,10 @@ func TestAgreementServiceResendDispatchesEmailWorkflow(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if _, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{IdempotencyKey: "resend-hook"}); err != nil {
+	if _, err = svc.Resend(ctx, scope, agreement.ID, ResendInput{IdempotencyKey: "resend-hook"}); err != nil {
 		t.Fatalf("Resend: %v", err)
 	}
 
@@ -1003,7 +1007,7 @@ func TestAgreementServiceResendEnqueuesNotificationOutboxWhenConfigured(t *testi
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -1011,7 +1015,7 @@ func TestAgreementServiceResendEnqueuesNotificationOutboxWhenConfigured(t *testi
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1068,7 +1072,7 @@ func TestAgreementServiceResendPersistsWhenEmailWorkflowFails(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -1076,7 +1080,7 @@ func TestAgreementServiceResendPersistsWhenEmailWorkflowFails(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1253,7 +1257,7 @@ func TestAgreementServiceVoidRevokesSignerTokens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -1262,7 +1266,7 @@ func TestAgreementServiceVoidRevokesSignerTokens(t *testing.T) {
 		t.Fatalf("UpsertFieldDraft signer: %v", err)
 	}
 
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	resent, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{})
@@ -1306,7 +1310,7 @@ func TestAgreementServiceVoidRevokesMixedStageTokens(t *testing.T) {
 		t.Fatalf("UpsertRecipientDraft stage two signer: %v", err)
 	}
 	for _, signer := range []stores.RecipientRecord{signerStageOne, signerStageTwo} {
-		if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
 			Type:        new(stores.FieldTypeSignature),
 			PageNumber:  new(1),
@@ -1316,7 +1320,7 @@ func TestAgreementServiceVoidRevokesMixedStageTokens(t *testing.T) {
 		}
 	}
 
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-mixed-stage-void"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-mixed-stage-void"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	if len(capturingTokens.issued) != 1 {
@@ -1367,7 +1371,7 @@ func TestAgreementServiceEmitsCanonicalAuditEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -1375,13 +1379,13 @@ func TestAgreementServiceEmitsCanonicalAuditEvents(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if _, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{RotateToken: true}); err != nil {
+	if _, err = svc.Resend(ctx, scope, agreement.ID, ResendInput{RotateToken: true}); err != nil {
 		t.Fatalf("Resend: %v", err)
 	}
-	if _, err := svc.Void(ctx, scope, agreement.ID, VoidInput{RevokeTokens: true}); err != nil {
+	if _, err = svc.Void(ctx, scope, agreement.ID, VoidInput{RevokeTokens: true}); err != nil {
 		t.Fatalf("Void: %v", err)
 	}
 
@@ -1426,7 +1430,7 @@ func TestAgreementServiceCreateCorrectionRevisionCopiesAuthoringStateAndSendSupe
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -1595,7 +1599,7 @@ func TestAgreementServiceCreateAmendmentRevisionPersistsParentExecutedHash(t *te
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -1617,7 +1621,7 @@ func TestAgreementServiceCreateAmendmentRevisionPersistsParentExecutedHash(t *te
 	}
 
 	executedSHA := strings.Repeat("f", 64)
-	if _, err := store.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
+	if _, err = store.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
 		AgreementID:       completed.ID,
 		TenantID:          scope.TenantID,
 		OrgID:             scope.OrgID,
@@ -1676,7 +1680,7 @@ func TestAgreementServiceCreateRevisionIdempotencyPersistsAcrossServiceRestart(t
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -1838,7 +1842,7 @@ func TestAgreementServicePersistsIPAddressForLifecycleAuditEvents(t *testing.T) 
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -1847,19 +1851,19 @@ func TestAgreementServicePersistsIPAddressForLifecycleAuditEvents(t *testing.T) 
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
 
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{
 		IdempotencyKey: "send-ip-lifecycle",
 		IPAddress:      "198.51.100.11",
 	}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if _, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{
+	if _, err = svc.Resend(ctx, scope, agreement.ID, ResendInput{
 		RotateToken: true,
 		IPAddress:   "198.51.100.12",
 	}); err != nil {
 		t.Fatalf("Resend: %v", err)
 	}
-	if _, err := svc.Void(ctx, scope, agreement.ID, VoidInput{
+	if _, err = svc.Void(ctx, scope, agreement.ID, VoidInput{
 		Reason:       "cancelled by sender",
 		RevokeTokens: true,
 		IPAddress:    "198.51.100.13",
@@ -1908,7 +1912,7 @@ func TestAgreementServiceExpireRevokesTokens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -1916,7 +1920,7 @@ func TestAgreementServiceExpireRevokesTokens(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signer: %v", err)
 	}
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-key"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	resent, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{})
@@ -1963,7 +1967,7 @@ func TestAgreementServiceExpireRevokesMixedStageTokens(t *testing.T) {
 		t.Fatalf("UpsertRecipientDraft stage two signer: %v", err)
 	}
 	for _, signer := range []stores.RecipientRecord{signerStageOne, signerStageTwo} {
-		if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &signer.ID,
 			Type:        new(stores.FieldTypeSignature),
 			PageNumber:  new(1),
@@ -1973,7 +1977,7 @@ func TestAgreementServiceExpireRevokesMixedStageTokens(t *testing.T) {
 		}
 	}
 
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-mixed-stage-expire"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "send-mixed-stage-expire"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	if len(capturingTokens.issued) != 1 {
@@ -2102,7 +2106,7 @@ func TestAgreementServiceCompletionDeliveryUsesNotifyFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft cc: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -2115,7 +2119,7 @@ func TestAgreementServiceCompletionDeliveryUsesNotifyFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
-	if _, err := svc.Resend(ctx, scope, agreement.ID, ResendInput{RecipientID: cc.ID}); err == nil {
+	if _, err = svc.Resend(ctx, scope, agreement.ID, ResendInput{RecipientID: cc.ID}); err == nil {
 		t.Fatal("expected resend to cc recipient to be rejected")
 	}
 	delivery, err := svc.CompletionDeliveryRecipients(ctx, scope, agreement.ID)
@@ -2126,7 +2130,7 @@ func TestAgreementServiceCompletionDeliveryUsesNotifyFlag(t *testing.T) {
 		t.Fatalf("expected no completion delivery recipients before completion, got %+v", delivery)
 	}
 
-	if _, err := store.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
+	if _, err = store.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
 		ToStatus:        stores.AgreementStatusCompleted,
 		ExpectedVersion: sent.Version,
 	}); err != nil {
@@ -2154,7 +2158,7 @@ func TestAgreementServiceValidateBeforeSendBlocksApproveBeforeSendReview(t *test
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -2248,7 +2252,7 @@ func TestAgreementServiceReviewApprovalCountsTrackApproversOnly(t *testing.T) {
 		t.Fatalf("UpsertRecipientDraft commentOnly: %v", err)
 	}
 	for _, recipientID := range []string{approverA.ID, approverB.ID, commentOnly.ID} {
-		if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &recipientID,
 			Type:        new(stores.FieldTypeSignature),
 			PageNumber:  new(1),
@@ -2343,7 +2347,7 @@ func TestAgreementServiceForceApproveReviewFinalizesCycleWithoutRewritingPartici
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &reviewer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -2422,7 +2426,7 @@ func TestAgreementServiceForceApproveReviewFinalizesCycleWithoutRewritingPartici
 		}
 	}
 
-	if _, err := svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+	if _, err = svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
 		ReviewID:   storedReview.ID,
 		Visibility: stores.AgreementCommentVisibilityShared,
 		AnchorType: stores.AgreementCommentAnchorAgreement,
@@ -2464,7 +2468,7 @@ func TestAgreementServiceApproveReviewParticipantOnBehalfCountsAndRevokesPartici
 		t.Fatalf("UpsertRecipientDraft approverB: %v", err)
 	}
 	for _, recipientID := range []string{approverA.ID, approverB.ID} {
-		if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+		if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 			RecipientID: &recipientID,
 			Type:        new(stores.FieldTypeSignature),
 			PageNumber:  new(1),
@@ -2535,7 +2539,7 @@ func TestAgreementServiceApproveReviewParticipantOnBehalfCountsAndRevokesPartici
 		}
 	}
 
-	if _, err := svc.NotifyReviewers(ctx, scope, agreement.ID, ReviewNotifyInput{
+	if _, err = svc.NotifyReviewers(ctx, scope, agreement.ID, ReviewNotifyInput{
 		RecipientID: approverA.ID,
 		ActorType:   "user",
 		ActorID:     "ops-admin",
@@ -2571,7 +2575,7 @@ func TestAgreementServiceOverrideActionsRequireActorID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &reviewer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -2579,7 +2583,7 @@ func TestAgreementServiceOverrideActionsRequireActorID(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft reviewer signature: %v", err)
 	}
-	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+	if _, err = svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
 		Gate:              stores.AgreementReviewGateApproveBeforeSend,
 		CommentsEnabled:   true,
 		ReviewerIDs:       []string{reviewer.ID},
@@ -2590,14 +2594,14 @@ func TestAgreementServiceOverrideActionsRequireActorID(t *testing.T) {
 		t.Fatalf("OpenReview: %v", err)
 	}
 
-	if _, err := svc.ForceApproveReview(ctx, scope, agreement.ID, ReviewOverrideInput{
+	if _, err = svc.ForceApproveReview(ctx, scope, agreement.ID, ReviewOverrideInput{
 		ActorType: "user",
 		Reason:    "Missing actor should fail",
 	}); err == nil {
 		t.Fatal("expected ForceApproveReview to require actor_id")
 	}
 
-	if _, err := svc.ApproveReviewParticipantOnBehalf(ctx, scope, agreement.ID, ReviewApproveOnBehalfInput{
+	if _, err = svc.ApproveReviewParticipantOnBehalf(ctx, scope, agreement.ID, ReviewApproveOnBehalfInput{
 		RecipientID: reviewer.ID,
 		ActorType:   "user",
 		Reason:      "Missing actor should fail",
@@ -2763,7 +2767,7 @@ func TestAgreementServiceCloseReviewRevokesReviewSessionTokens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Rotate review token: %v", err)
 	}
-	if _, err := reviewTokenService.Validate(ctx, scope, issued.Token); err != nil {
+	if _, err = reviewTokenService.Validate(ctx, scope, issued.Token); err != nil {
 		t.Fatalf("Validate review token before close: %v", err)
 	}
 
@@ -2797,7 +2801,7 @@ func TestAgreementServiceNotifyReviewersResendsOnlyPendingParticipants(t *testin
 		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
 	}
 
-	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+	if _, err = svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
 		Gate:            stores.AgreementReviewGateApproveBeforeSend,
 		CommentsEnabled: true,
 		ReviewParticipants: []ReviewParticipantInput{
@@ -2823,7 +2827,7 @@ func TestAgreementServiceNotifyReviewersResendsOnlyPendingParticipants(t *testin
 		t.Fatalf("OpenReview: %v", err)
 	}
 
-	if _, err := svc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
+	if _, err = svc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
 		RecipientID: reviewer.ID,
 		ActorType:   "recipient",
 		ActorID:     reviewer.ID,
@@ -2859,7 +2863,8 @@ func TestAgreementServiceNotifyReviewersResendsOnlyPendingParticipants(t *testin
 	var renotifyPayloads []EmailSendAgreementNotificationOutboxPayload
 	for _, record := range outbox {
 		var payload EmailSendAgreementNotificationOutboxPayload
-		if err := json.Unmarshal([]byte(record.PayloadJSON), &payload); err != nil {
+		err = json.Unmarshal([]byte(record.PayloadJSON), &payload)
+		if err != nil {
 			t.Fatalf("Unmarshal outbox payload: %v", err)
 		}
 		if strings.TrimSpace(payload.CorrelationID) == "review-notify-corr" {
@@ -2904,7 +2909,7 @@ func TestAgreementServiceRequestReviewChangesRequiresCommentAndPersistsRationale
 		t.Fatalf("UpsertRecipientDraft reviewer: %v", err)
 	}
 
-	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+	if _, err = svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
 		Gate:              stores.AgreementReviewGateApproveBeforeSend,
 		CommentsEnabled:   false,
 		ReviewerIDs:       []string{reviewer.ID},
@@ -2915,7 +2920,7 @@ func TestAgreementServiceRequestReviewChangesRequiresCommentAndPersistsRationale
 		t.Fatalf("OpenReview: %v", err)
 	}
 
-	if _, err := svc.RequestReviewChanges(ctx, scope, agreement.ID, ReviewDecisionInput{
+	if _, err = svc.RequestReviewChanges(ctx, scope, agreement.ID, ReviewDecisionInput{
 		RecipientID: reviewer.ID,
 		ActorType:   "recipient",
 		ActorID:     reviewer.ID,
@@ -3030,7 +3035,7 @@ func TestAgreementServiceReviewSummaryIncludesActorMapAndInternalThreads(t *test
 	if err != nil {
 		t.Fatalf("CreateCommentThread internal: %v", err)
 	}
-	if _, err := svc.ReplyCommentThread(ctx, scope, agreement.ID, ReviewCommentReplyInput{
+	if _, err = svc.ReplyCommentThread(ctx, scope, agreement.ID, ReviewCommentReplyInput{
 		ThreadID:  internalThread.Thread.ID,
 		Body:      "Follow-up on the internal note",
 		ActorType: "user",
@@ -3038,7 +3043,7 @@ func TestAgreementServiceReviewSummaryIncludesActorMapAndInternalThreads(t *test
 	}); err != nil {
 		t.Fatalf("ReplyCommentThread internal: %v", err)
 	}
-	if _, err := svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+	if _, err = svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
 		ReviewID:   summary.Review.ID,
 		Visibility: stores.AgreementCommentVisibilityShared,
 		AnchorType: stores.AgreementCommentAnchorAgreement,
@@ -3133,7 +3138,7 @@ func TestAgreementServiceReviewSummaryResolvesInternalUserActors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenReview: %v", err)
 	}
-	if _, err := svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
+	if _, err = svc.CreateCommentThread(ctx, scope, agreement.ID, ReviewCommentThreadInput{
 		ReviewID:   summary.Review.ID,
 		Visibility: stores.AgreementCommentVisibilityShared,
 		AnchorType: stores.AgreementCommentAnchorAgreement,
@@ -3191,7 +3196,7 @@ func TestAgreementServiceApproveReviewSupportsSentApproveBeforeSignAgreement(t *
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
@@ -3200,7 +3205,7 @@ func TestAgreementServiceApproveReviewSupportsSentApproveBeforeSignAgreement(t *
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
 
-	if _, err := svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+	if _, err = svc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
 		Gate:              stores.AgreementReviewGateApproveBeforeSign,
 		CommentsEnabled:   true,
 		ReviewerIDs:       []string{signer.ID},
@@ -3210,7 +3215,7 @@ func TestAgreementServiceApproveReviewSupportsSentApproveBeforeSignAgreement(t *
 	}); err != nil {
 		t.Fatalf("OpenReview: %v", err)
 	}
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "approve-before-sign-send"}); err != nil {
+	if _, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "approve-before-sign-send"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 

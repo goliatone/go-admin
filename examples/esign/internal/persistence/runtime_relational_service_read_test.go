@@ -36,8 +36,8 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			outboxFailedID    string
 		)
 
-		if err := store.WithTx(ctx, func(tx stores.TxStore) error {
-			if _, err := tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
+		err = store.WithTx(ctx, func(tx stores.TxStore) error {
+			if _, err = tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
 				DispatchID:     dispatchID,
 				DocumentID:     document.ID,
 				IdempotencyKey: "idem-" + suffix,
@@ -47,7 +47,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
+			if _, err = tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
 				DispatchID:     dispatchID,
 				DocumentID:     document.ID,
 				IdempotencyKey: "idem-" + suffix,
@@ -58,9 +58,9 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			dispatch, err := tx.GetRemediationDispatch(ctx, dispatchID)
-			if err != nil {
-				return err
+			dispatch, lookupErr := tx.GetRemediationDispatch(ctx, dispatchID)
+			if lookupErr != nil {
+				return lookupErr
 			}
 			if !dispatch.Accepted || dispatch.CommandID != "cmd-"+suffix {
 				t.Fatalf("unexpected tx remediation dispatch: %+v", dispatch)
@@ -73,7 +73,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 				t.Fatalf("unexpected tx remediation dispatch by key: %+v", dispatch)
 			}
 
-			if _, err := tx.UpsertSignerProfile(ctx, scope, stores.SignerProfileRecord{
+			if _, err = tx.UpsertSignerProfile(ctx, scope, stores.SignerProfileRecord{
 				Subject:        subject,
 				Key:            "default",
 				FullName:       "Signer One",
@@ -86,7 +86,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertSignerProfile(ctx, scope, stores.SignerProfileRecord{
+			if _, err = tx.UpsertSignerProfile(ctx, scope, stores.SignerProfileRecord{
 				Subject:        subject,
 				Key:            "default",
 				FullName:       "Signer Two",
@@ -98,7 +98,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.CreateSavedSignerSignature(ctx, scope, stores.SavedSignerSignatureRecord{
+			if _, err = tx.CreateSavedSignerSignature(ctx, scope, stores.SavedSignerSignatureRecord{
 				ID:               "sig-old-" + suffix,
 				Subject:          subject,
 				Type:             "signature",
@@ -109,7 +109,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.CreateSavedSignerSignature(ctx, scope, stores.SavedSignerSignatureRecord{
+			if _, err = tx.CreateSavedSignerSignature(ctx, scope, stores.SavedSignerSignatureRecord{
 				ID:               "sig-new-" + suffix,
 				Subject:          subject,
 				Type:             "signature",
@@ -127,7 +127,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			if profile.FullName != "Signer Two" || profile.Initials != "ST" {
 				t.Fatalf("unexpected tx signer profile: %+v", profile)
 			}
-			if _, err := tx.GetSignerProfile(ctx, scope, subject, "default", now.Add(72*time.Hour)); !relationalIsNotFoundError(err) {
+			if _, err = tx.GetSignerProfile(ctx, scope, subject, "default", now.Add(72*time.Hour)); !relationalIsNotFoundError(err) {
 				t.Fatalf("expected expired signer profile to be not found, got %v", err)
 			}
 			signatures, err := tx.ListSavedSignerSignatures(ctx, scope, subject, "signature")
@@ -145,7 +145,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 				t.Fatalf("expected tx saved signature count 2, got %d", count)
 			}
 
-			if _, err := tx.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
+			if _, err = tx.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
 				AgreementID:          agreement.ID,
 				ExecutedObjectKey:    "tenant/" + scope.TenantID + "/agreements/" + agreement.ID + "/executed.pdf",
 				ExecutedSHA256:       "sha-executed-" + suffix,
@@ -181,10 +181,10 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 				t.Fatalf("expected first google import run to be created")
 			}
 			googleSucceededID = run.ID
-			if _, err := tx.MarkGoogleImportRunRunning(ctx, scope, run.ID, now.Add(2*time.Minute)); err != nil {
+			if _, err = tx.MarkGoogleImportRunRunning(ctx, scope, run.ID, now.Add(2*time.Minute)); err != nil {
 				return err
 			}
-			if _, err := tx.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
+			if _, err = tx.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
 				DocumentID:     document.ID,
 				AgreementID:    agreement.ID,
 				SourceMimeType: "application/pdf",
@@ -209,7 +209,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 				t.Fatalf("expected second google import run to be created")
 			}
 			googleFailedID = run.ID
-			if _, err := tx.MarkGoogleImportRunFailed(ctx, scope, run.ID, stores.GoogleImportRunFailureInput{
+			if _, err = tx.MarkGoogleImportRunFailed(ctx, scope, run.ID, stores.GoogleImportRunFailureInput{
 				ErrorCode:        "google_failed",
 				ErrorMessage:     "quota exceeded",
 				ErrorDetailsJSON: `{"reason":"quota"}`,
@@ -258,10 +258,10 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 				return err
 			}
 			outboxFailedID = message.ID
-			if _, err := tx.MarkOutboxMessageFailed(ctx, scope, message.ID, "provider timeout", nil, now.Add(7*time.Minute)); err != nil {
+			if _, err = tx.MarkOutboxMessageFailed(ctx, scope, message.ID, "provider timeout", nil, now.Add(7*time.Minute)); err != nil {
 				return err
 			}
-			if _, err := tx.EnqueueOutboxMessage(ctx, scope, stores.OutboxMessageRecord{
+			if _, err = tx.EnqueueOutboxMessage(ctx, scope, stores.OutboxMessageRecord{
 				ID:          "outbox-pending-" + suffix,
 				Topic:       "email.send",
 				PayloadJSON: `{"kind":"pending"}`,
@@ -269,7 +269,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.EnqueueOutboxMessage(ctx, scope, stores.OutboxMessageRecord{
+			if _, err = tx.EnqueueOutboxMessage(ctx, scope, stores.OutboxMessageRecord{
 				ID:          "outbox-webhook-" + suffix,
 				Topic:       "webhook.send",
 				PayloadJSON: `{"kind":"webhook"}`,
@@ -292,7 +292,8 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 				t.Fatalf("unexpected tx failed outbox list: %+v", outboxRows)
 			}
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatalf("WithTx auxiliary read surfaces: %v", err)
 		}
 
@@ -318,7 +319,7 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 		if profile.FullName != "Signer Two" || profile.Initials != "ST" {
 			t.Fatalf("unexpected signer profile: %+v", profile)
 		}
-		if _, err := store.GetSignerProfile(ctx, scope, subject, "default", now.Add(72*time.Hour)); !relationalIsNotFoundError(err) {
+		if _, err = store.GetSignerProfile(ctx, scope, subject, "default", now.Add(72*time.Hour)); !relationalIsNotFoundError(err) {
 			t.Fatalf("expected expired signer profile to be not found, got %v", err)
 		}
 		signatures, err := store.ListSavedSignerSignatures(ctx, scope, subject, "signature")
@@ -429,8 +430,8 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			placementPrimaryID string
 		)
 
-		if err := store.WithTx(ctx, func(tx stores.TxStore) error {
-			if _, err := tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
+		err = store.WithTx(ctx, func(tx stores.TxStore) error {
+			if _, err = tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
 				Provider:              "google",
 				UserID:                baseUser,
 				EncryptedAccessToken:  "access-1",
@@ -438,7 +439,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
+			if _, err = tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
 				Provider:              "google",
 				UserID:                baseUser,
 				EncryptedAccessToken:  "access-2",
@@ -446,7 +447,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
+			if _, err = tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
 				Provider:              "google",
 				UserID:                scopedUser,
 				EncryptedAccessToken:  "access-scoped",
@@ -454,7 +455,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
+			if _, err = tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
 				Provider:              "google",
 				UserID:                otherPrefixUser,
 				EncryptedAccessToken:  "access-other",
@@ -462,7 +463,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
+			if _, err = tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
 				Provider:              "microsoft",
 				UserID:                baseUser,
 				EncryptedAccessToken:  "access-ms",
@@ -470,9 +471,9 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			credential, err := tx.GetIntegrationCredential(ctx, scope, "google", baseUser)
-			if err != nil {
-				return err
+			credential, lookupErr := tx.GetIntegrationCredential(ctx, scope, "google", baseUser)
+			if lookupErr != nil {
+				return lookupErr
 			}
 			if credential.EncryptedAccessToken != "access-2" {
 				t.Fatalf("unexpected tx integration credential: %+v", credential)
@@ -523,7 +524,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				t.Fatalf("unexpected tx mapping spec ordering: %+v", mappingSpecs)
 			}
 
-			if _, err := tx.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
+			if _, err = tx.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
 				Provider:       "hris",
 				EntityKind:     "agreement",
 				ExternalID:     "ext-primary-" + suffix,
@@ -532,7 +533,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
+			if _, err = tx.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
 				Provider:       "hris",
 				EntityKind:     "agreement",
 				ExternalID:     "ext-other-" + suffix,
@@ -604,7 +605,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				t.Fatalf("unexpected tx sync run ordering: %+v", syncRuns)
 			}
 
-			if _, err := tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
+			if _, err = tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
 				RunID:         runOlderID,
 				CheckpointKey: "cursor",
 				Cursor:        "cursor-1",
@@ -612,7 +613,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
+			if _, err = tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
 				RunID:         runOlderID,
 				CheckpointKey: "watermark",
 				Cursor:        "watermark-1",
@@ -620,7 +621,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
+			if _, err = tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
 				RunID:         runOlderID,
 				CheckpointKey: "cursor",
 				Cursor:        "cursor-2",
@@ -651,10 +652,10 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				return err
 			}
 			conflictResolvedID = conflict.ID
-			if _, err := tx.ResolveIntegrationConflict(ctx, scope, conflict.ID, stores.IntegrationConflictStatusResolved, `{"decision":"accept"}`, baseUser, now.Add(2*time.Minute), conflict.Version); err != nil {
+			if _, err = tx.ResolveIntegrationConflict(ctx, scope, conflict.ID, stores.IntegrationConflictStatusResolved, `{"decision":"accept"}`, baseUser, now.Add(2*time.Minute), conflict.Version); err != nil {
 				return err
 			}
-			if _, err := tx.CreateIntegrationConflict(ctx, scope, stores.IntegrationConflictRecord{
+			if _, err = tx.CreateIntegrationConflict(ctx, scope, stores.IntegrationConflictRecord{
 				ID:          "conflict-pending-" + suffix,
 				RunID:       runOlderID,
 				Provider:    "hris",
@@ -708,7 +709,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			if duplicateEvent.ID != firstEvent.ID {
 				t.Fatalf("expected duplicate integration event to return existing record")
 			}
-			if _, err := tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
+			if _, err = tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
 				AgreementID:    agreement.ID,
 				Provider:       "hris",
 				EventType:      "agreement.completed",
@@ -746,7 +747,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				return err
 			}
 			placementPrimaryID = placement.ID
-			if _, err := tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
+			if _, err = tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
 				ID:                  placement.ID,
 				AgreementID:         agreement.ID,
 				Status:              stores.PlacementRunStatusCompleted,
@@ -765,7 +766,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
+			if _, err = tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
 				ID:                  "placement-other-" + suffix,
 				AgreementID:         otherAgreement.ID,
 				Status:              stores.PlacementRunStatusFailed,
@@ -797,7 +798,8 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				t.Fatalf("unexpected tx placement list: %+v", placements)
 			}
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatalf("WithTx integration read surfaces: %v", err)
 		}
 

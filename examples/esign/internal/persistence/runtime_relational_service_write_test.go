@@ -175,7 +175,7 @@ func TestRuntimeRelationalAgreementSendAndReminderState(t *testing.T) {
 			t.Fatal("expected policy_version after send")
 		}
 
-		if _, err := agreementSvc.Resend(ctx, scope, sent.ID, services.ResendInput{
+		if _, err = agreementSvc.Resend(ctx, scope, sent.ID, services.ResendInput{
 			RecipientID:    signer.ID,
 			IdempotencyKey: "manual-resend-" + signer.ID,
 			Source:         services.ResendSourceManual,
@@ -330,7 +330,7 @@ func TestRuntimeRelationalReminderSweep(t *testing.T) {
 		state.LastSentAt = cloneRelationalTimePtr(&lastSentAt)
 		state.NextDueAt = cloneRelationalTimePtr(&nextDueAt)
 		state.UpdatedAt = now.Add(-90 * time.Minute)
-		if _, err := store.UpsertAgreementReminderState(ctx, scope, state); err != nil {
+		if _, err = store.UpsertAgreementReminderState(ctx, scope, state); err != nil {
 			t.Fatalf("UpsertAgreementReminderState: %v", err)
 		}
 
@@ -413,16 +413,16 @@ func TestRuntimeRelationalSigningSubmitFinalState(t *testing.T) {
 		if err != nil {
 			t.Fatalf("UpsertFieldDraft text: %v", err)
 		}
-		if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "signing-send-" + signer.ID}); err != nil {
+		if _, err = agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "signing-send-" + signer.ID}); err != nil {
 			t.Fatalf("Send: %v", err)
 		}
 
 		signingSvc := services.NewSigningService(store, services.WithSigningClock(func() time.Time { return now }))
 		token := stores.SigningTokenRecord{AgreementID: agreement.ID, RecipientID: signer.ID}
-		if _, err := signingSvc.CaptureConsent(ctx, scope, token, services.SignerConsentInput{Accepted: true}); err != nil {
+		if _, err = signingSvc.CaptureConsent(ctx, scope, token, services.SignerConsentInput{Accepted: true}); err != nil {
 			t.Fatalf("CaptureConsent: %v", err)
 		}
-		if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, services.SignerSignatureInput{
+		if _, err = signingSvc.AttachSignatureArtifact(ctx, scope, token, services.SignerSignatureInput{
 			FieldID:   signatureField.ID,
 			Type:      "typed",
 			ObjectKey: "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/signatures/" + signer.ID + ".png",
@@ -431,7 +431,7 @@ func TestRuntimeRelationalSigningSubmitFinalState(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("AttachSignatureArtifact: %v", err)
 		}
-		if _, err := signingSvc.UpsertFieldValue(ctx, scope, token, services.SignerFieldValueInput{
+		if _, err = signingSvc.UpsertFieldValue(ctx, scope, token, services.SignerFieldValueInput{
 			FieldID:   textField.ID,
 			ValueText: "Runtime Signer",
 		}); err != nil {
@@ -539,18 +539,19 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 		dispatchID := "dispatch-" + suffix
 		googleRunID := ""
 		googleFailedRunID := ""
+		var err error
 
-		if err := store.WithTx(ctx, func(tx stores.TxStore) error {
-			lease, err := tx.AcquireDocumentRemediationLease(ctx, scope, document.ID, stores.DocumentRemediationLeaseAcquireInput{
+		err = store.WithTx(ctx, func(tx stores.TxStore) error {
+			lease, acquireErr := tx.AcquireDocumentRemediationLease(ctx, scope, document.ID, stores.DocumentRemediationLeaseAcquireInput{
 				Now:           now,
 				TTL:           2 * time.Minute,
 				WorkerID:      "worker-a",
 				CorrelationID: "corr-a",
 			})
-			if err != nil {
-				return err
+			if acquireErr != nil {
+				return acquireErr
 			}
-			if _, err := tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
+			if _, err = tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
 				DispatchID:     dispatchID,
 				DocumentID:     document.ID,
 				IdempotencyKey: "idem-" + suffix,
@@ -560,7 +561,7 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
+			if _, err = tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
 				DispatchID:     dispatchID,
 				DocumentID:     document.ID,
 				IdempotencyKey: "idem-" + suffix,
@@ -573,22 +574,23 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			renewed, err := tx.RenewDocumentRemediationLease(ctx, scope, document.ID, stores.DocumentRemediationLeaseRenewInput{
+			renewed, renewErr := tx.RenewDocumentRemediationLease(ctx, scope, document.ID, stores.DocumentRemediationLeaseRenewInput{
 				Now:   now.Add(30 * time.Second),
 				TTL:   2 * time.Minute,
 				Lease: lease.Lease,
 			})
+			if renewErr != nil {
+				return renewErr
+			}
+			err = tx.ReleaseDocumentRemediationLease(ctx, scope, document.ID, stores.DocumentRemediationLeaseReleaseInput{
+				Now:   now.Add(time.Minute),
+				Lease: renewed.Lease,
+			})
 			if err != nil {
 				return err
 			}
-			if err := tx.ReleaseDocumentRemediationLease(ctx, scope, document.ID, stores.DocumentRemediationLeaseReleaseInput{
-				Now:   now.Add(time.Minute),
-				Lease: renewed.Lease,
-			}); err != nil {
-				return err
-			}
 
-			run, created, err := tx.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+			run, created, createImportErr := tx.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
 				UserID:            "user-" + suffix,
 				GoogleFileID:      "file-" + suffix,
 				SourceVersionHint: "v1",
@@ -597,28 +599,28 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 				AgreementTitle:    "Agreement Doc",
 				RequestedAt:       now,
 			})
-			if err != nil {
-				return err
+			if createImportErr != nil {
+				return createImportErr
 			}
 			if !created {
 				t.Fatalf("expected first BeginGoogleImportRun to create")
 			}
 			googleRunID = run.ID
-			if replayed, created, err := tx.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+			if replayed, replayCreated, replayErr := tx.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
 				UserID:            "user-" + suffix,
 				GoogleFileID:      "file-" + suffix,
 				SourceVersionHint: "v1",
 				CreatedByUserID:   "user-" + suffix,
 				RequestedAt:       now.Add(time.Minute),
-			}); err != nil {
-				return err
-			} else if created || replayed.ID != run.ID {
-				t.Fatalf("expected deduped google import run, got created=%v replayed=%+v", created, replayed)
+			}); replayErr != nil {
+				return replayErr
+			} else if replayCreated || replayed.ID != run.ID {
+				t.Fatalf("expected deduped google import run, got created=%v replayed=%+v", replayCreated, replayed)
 			}
-			if _, err := tx.MarkGoogleImportRunRunning(ctx, scope, run.ID, now.Add(2*time.Minute)); err != nil {
+			if _, err = tx.MarkGoogleImportRunRunning(ctx, scope, run.ID, now.Add(2*time.Minute)); err != nil {
 				return err
 			}
-			if _, err := tx.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
+			if _, err = tx.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
 				DocumentID:     document.ID,
 				AgreementID:    "agreement-" + suffix,
 				SourceMimeType: "application/pdf",
@@ -628,21 +630,21 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 				return err
 			}
 
-			failedRun, created, err := tx.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+			failedRun, created, createFailedImportErr := tx.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
 				UserID:            "user-" + suffix,
 				GoogleFileID:      "file-fail-" + suffix,
 				SourceVersionHint: "v2",
 				CreatedByUserID:   "user-" + suffix,
 				RequestedAt:       now,
 			})
-			if err != nil {
-				return err
+			if createFailedImportErr != nil {
+				return createFailedImportErr
 			}
 			if !created {
 				t.Fatalf("expected second BeginGoogleImportRun to create")
 			}
 			googleFailedRunID = failedRun.ID
-			if _, err := tx.MarkGoogleImportRunFailed(ctx, scope, failedRun.ID, stores.GoogleImportRunFailureInput{
+			if _, err = tx.MarkGoogleImportRunFailed(ctx, scope, failedRun.ID, stores.GoogleImportRunFailureInput{
 				ErrorCode:        "google_failed",
 				ErrorMessage:     "export failed",
 				ErrorDetailsJSON: `{"reason":"quota"}`,
@@ -651,7 +653,7 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 				return err
 			}
 
-			if _, err := tx.UpsertSignerProfile(ctx, scope, stores.SignerProfileRecord{
+			if _, err = tx.UpsertSignerProfile(ctx, scope, stores.SignerProfileRecord{
 				Subject:        "signer-" + suffix + "@example.com",
 				Key:            "default",
 				FullName:       "Signer One",
@@ -664,7 +666,7 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertSignerProfile(ctx, scope, stores.SignerProfileRecord{
+			if _, err = tx.UpsertSignerProfile(ctx, scope, stores.SignerProfileRecord{
 				Subject:        "signer-" + suffix + "@example.com",
 				Key:            "default",
 				FullName:       "Signer Updated",
@@ -676,7 +678,7 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.CreateSavedSignerSignature(ctx, scope, stores.SavedSignerSignatureRecord{
+			if _, err = tx.CreateSavedSignerSignature(ctx, scope, stores.SavedSignerSignatureRecord{
 				ID:               "sig-" + suffix,
 				Subject:          "signer-" + suffix + "@example.com",
 				Type:             "signature",
@@ -688,7 +690,8 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 				return err
 			}
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatalf("WithTx auxiliary writes: %v", err)
 		}
 
@@ -697,7 +700,7 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 			dispatchMaxAttempts int
 			dispatchCommandID   string
 		)
-		err := store.bunDB.NewSelect().
+		err = store.bunDB.NewSelect().
 			TableExpr("remediation_dispatches").
 			Column("accepted", "max_attempts", "command_id").
 			Where("tenant_id = ?", scope.TenantID).
@@ -711,20 +714,21 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 			t.Fatalf("unexpected remediation dispatch merge result: accepted=%v max_attempts=%d command_id=%q", dispatchAccepted, dispatchMaxAttempts, dispatchCommandID)
 		}
 
-		if err := store.WithTx(ctx, func(tx stores.TxStore) error {
-			reacquired, err := tx.AcquireDocumentRemediationLease(ctx, scope, document.ID, stores.DocumentRemediationLeaseAcquireInput{
+		err = store.WithTx(ctx, func(tx stores.TxStore) error {
+			reacquired, acquireErr := tx.AcquireDocumentRemediationLease(ctx, scope, document.ID, stores.DocumentRemediationLeaseAcquireInput{
 				Now:      now.Add(6 * time.Minute),
 				TTL:      time.Minute,
 				WorkerID: "worker-b",
 			})
-			if err != nil {
-				return err
+			if acquireErr != nil {
+				return acquireErr
 			}
 			if reacquired.Lease.WorkerID != "worker-b" {
 				t.Fatalf("expected worker-b reacquire, got %+v", reacquired)
 			}
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatalf("WithTx reacquire remediation lease: %v", err)
 		}
 
@@ -766,16 +770,18 @@ func TestRuntimeRelationalAuxiliaryWriteSurfaces(t *testing.T) {
 			t.Fatalf("expected saved signature count 1, got %d", count)
 		}
 
-		if err := store.WithTx(ctx, func(tx stores.TxStore) error {
-			if err := tx.DeleteSavedSignerSignature(ctx, scope, subject, "sig-"+suffix); err != nil {
+		err = store.WithTx(ctx, func(tx stores.TxStore) error {
+			err = tx.DeleteSavedSignerSignature(ctx, scope, subject, "sig-"+suffix)
+			if err != nil {
 				return err
 			}
 			return tx.DeleteSignerProfile(ctx, scope, subject, "default")
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatalf("WithTx delete signer data: %v", err)
 		}
 
-		if _, err := store.GetSignerProfile(ctx, scope, subject, "default", now.Add(2*time.Hour)); err == nil {
+		if _, err = store.GetSignerProfile(ctx, scope, subject, "default", now.Add(2*time.Hour)); err == nil {
 			t.Fatalf("expected signer profile deletion to persist")
 		}
 		count, err = store.CountSavedSignerSignatures(ctx, scope, subject, "signature")
@@ -810,8 +816,8 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 		conflictID := ""
 		placementID := ""
 
-		if err := store.WithTx(ctx, func(tx stores.TxStore) error {
-			if _, err := tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
+		err = store.WithTx(ctx, func(tx stores.TxStore) error {
+			if _, err = tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
 				Provider:              "google",
 				UserID:                "user-" + suffix,
 				EncryptedAccessToken:  "access-1",
@@ -821,7 +827,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
+			if _, err = tx.UpsertIntegrationCredential(ctx, scope, stores.IntegrationCredentialRecord{
 				Provider:              "google",
 				UserID:                "user-" + suffix,
 				EncryptedAccessToken:  "access-2",
@@ -832,9 +838,9 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				return err
 			}
 
-			claimed, err := tx.ClaimIntegrationMutation(ctx, scope, "mutation-"+suffix, now)
-			if err != nil {
-				return err
+			claimed, claimErr := tx.ClaimIntegrationMutation(ctx, scope, "mutation-"+suffix, now)
+			if claimErr != nil {
+				return claimErr
 			}
 			if !claimed {
 				t.Fatalf("expected first integration mutation claim to succeed")
@@ -847,7 +853,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				t.Fatalf("expected second integration mutation claim to be idempotent false")
 			}
 
-			spec, err := tx.UpsertMappingSpec(ctx, scope, stores.MappingSpecRecord{
+			spec, specErr := tx.UpsertMappingSpec(ctx, scope, stores.MappingSpecRecord{
 				Provider:        "hris",
 				Name:            "employees",
 				Status:          stores.MappingSpecStatusDraft,
@@ -856,8 +862,8 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				CreatedByUserID: "user-" + suffix,
 				UpdatedByUserID: "user-" + suffix,
 			})
-			if err != nil {
-				return err
+			if specErr != nil {
+				return specErr
 			}
 			mappingID = spec.ID
 			spec, err = tx.PublishMappingSpec(ctx, scope, spec.ID, spec.Version, now)
@@ -865,7 +871,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				return err
 			}
 
-			run, err := tx.CreateIntegrationSyncRun(ctx, scope, stores.IntegrationSyncRunRecord{
+			run, createRunErr := tx.CreateIntegrationSyncRun(ctx, scope, stores.IntegrationSyncRunRecord{
 				Provider:        "hris",
 				Direction:       "inbound",
 				MappingSpecID:   spec.ID,
@@ -873,8 +879,8 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				CreatedByUserID: "user-" + suffix,
 				StartedAt:       now,
 			})
-			if err != nil {
-				return err
+			if createRunErr != nil {
+				return createRunErr
 			}
 			runID = run.ID
 			run, err = tx.UpdateIntegrationSyncRunStatus(ctx, scope, run.ID, stores.IntegrationSyncRunStatusRunning, "", "cursor-1", nil, run.Version)
@@ -882,7 +888,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				return err
 			}
 
-			if _, err := tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
+			if _, err = tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
 				RunID:         run.ID,
 				CheckpointKey: "cursor",
 				Cursor:        "cursor-1",
@@ -890,7 +896,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
+			if _, err = tx.UpsertIntegrationCheckpoint(ctx, scope, stores.IntegrationCheckpointRecord{
 				RunID:         run.ID,
 				CheckpointKey: "cursor",
 				Cursor:        "cursor-2",
@@ -900,7 +906,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				return err
 			}
 
-			if _, err := tx.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
+			if _, err = tx.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
 				Provider:       "hris",
 				EntityKind:     "agreement",
 				ExternalID:     "ext-" + suffix,
@@ -909,7 +915,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			if _, err := tx.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
+			if _, err = tx.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
 				Provider:       "hris",
 				EntityKind:     "agreement",
 				ExternalID:     "ext-" + suffix,
@@ -920,7 +926,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				return err
 			}
 
-			conflict, err := tx.CreateIntegrationConflict(ctx, scope, stores.IntegrationConflictRecord{
+			conflict, createConflictErr := tx.CreateIntegrationConflict(ctx, scope, stores.IntegrationConflictRecord{
 				RunID:       run.ID,
 				Provider:    "hris",
 				EntityKind:  "agreement",
@@ -929,15 +935,15 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				Reason:      "ambiguous_match",
 				PayloadJSON: `{"candidate":1}`,
 			})
-			if err != nil {
-				return err
+			if createConflictErr != nil {
+				return createConflictErr
 			}
 			conflictID = conflict.ID
-			if _, err := tx.ResolveIntegrationConflict(ctx, scope, conflict.ID, stores.IntegrationConflictStatusResolved, `{"decision":"accept"}`, "user-"+suffix, now.Add(time.Minute), conflict.Version); err != nil {
+			if _, err = tx.ResolveIntegrationConflict(ctx, scope, conflict.ID, stores.IntegrationConflictStatusResolved, `{"decision":"accept"}`, "user-"+suffix, now.Add(time.Minute), conflict.Version); err != nil {
 				return err
 			}
 
-			firstEvent, err := tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
+			firstEvent, appendEventErr := tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
 				AgreementID:    agreement.ID,
 				Provider:       "hris",
 				EventType:      "agreement.updated",
@@ -946,10 +952,10 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				PayloadJSON:    `{"status":"updated"}`,
 				EmittedAt:      now,
 			})
-			if err != nil {
-				return err
+			if appendEventErr != nil {
+				return appendEventErr
 			}
-			secondEvent, err := tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
+			secondEvent, appendDuplicateEventErr := tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
 				AgreementID:    agreement.ID,
 				Provider:       "hris",
 				EventType:      "agreement.updated",
@@ -958,14 +964,14 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				PayloadJSON:    `{"status":"updated-again"}`,
 				EmittedAt:      now.Add(time.Minute),
 			})
-			if err != nil {
-				return err
+			if appendDuplicateEventErr != nil {
+				return appendDuplicateEventErr
 			}
 			if firstEvent.ID != secondEvent.ID {
 				t.Fatalf("expected integration change event dedupe, got %q vs %q", firstEvent.ID, secondEvent.ID)
 			}
 
-			runRecord, err := tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
+			runRecord, createPlacementErr := tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
 				AgreementID:         agreement.ID,
 				Status:              stores.PlacementRunStatusPartial,
 				ReasonCode:          "missing_optional",
@@ -980,11 +986,11 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				ManualOverrideCount: 1,
 				CreatedByUserID:     "user-" + suffix,
 			})
-			if err != nil {
-				return err
+			if createPlacementErr != nil {
+				return createPlacementErr
 			}
 			placementID = runRecord.ID
-			if _, err := tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
+			if _, err = tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
 				ID:                  runRecord.ID,
 				AgreementID:         agreement.ID,
 				Status:              stores.PlacementRunStatusCompleted,
@@ -1004,7 +1010,8 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 				return err
 			}
 			return nil
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatalf("WithTx integration/placement writes: %v", err)
 		}
 
@@ -1066,7 +1073,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 		}
 
 		err = store.WithTx(ctx, func(tx stores.TxStore) error {
-			if _, err := tx.PublishMappingSpec(ctx, scope, mappingID, 1, now.Add(2*time.Hour)); err != nil {
+			if _, err = tx.PublishMappingSpec(ctx, scope, mappingID, 1, now.Add(2*time.Hour)); err != nil {
 				return err
 			}
 			return nil
@@ -1076,7 +1083,7 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 		}
 
 		err = store.WithTx(ctx, func(tx stores.TxStore) error {
-			if _, err := tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
+			if _, err = tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
 				ID:          placementID,
 				AgreementID: agreement.ID,
 				Status:      stores.PlacementRunStatusFailed,
@@ -1090,12 +1097,13 @@ func TestRuntimeRelationalIntegrationAndPlacementWrites(t *testing.T) {
 			t.Fatalf("expected VERSION_CONFLICT for stale placement run, got %v", err)
 		}
 
-		if err := store.WithTx(ctx, func(tx stores.TxStore) error {
+		err = store.WithTx(ctx, func(tx stores.TxStore) error {
 			return tx.DeleteIntegrationCredential(ctx, scope, "google", "user-"+suffix)
-		}); err != nil {
+		})
+		if err != nil {
 			t.Fatalf("DeleteIntegrationCredential: %v", err)
 		}
-		if _, err := store.GetIntegrationCredential(ctx, scope, "google", "user-"+suffix); err == nil {
+		if _, err = store.GetIntegrationCredential(ctx, scope, "google", "user-"+suffix); err == nil {
 			t.Fatalf("expected integration credential deletion to persist")
 		}
 	})
