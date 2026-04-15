@@ -15,6 +15,7 @@ Each helper is optional and composable.
 - `WithDebugOptions(opt DebugOption) AdminConfigOption` - Inputs: explicit debug option overrides; outputs: option that applies targeted debug fields.
 - `WithErrorConfig(cfg admin.ErrorConfig) AdminConfigOption` - Inputs: error config; outputs: option that applies error presentation defaults.
 - `WithErrorOptions(opt ErrorOption) AdminConfigOption` - Inputs: explicit error option overrides; outputs: option that applies targeted error fields.
+- `WithThemeAssetURLs(assets map[string]string) AdminConfigOption` - Inputs: resolved asset URLs/paths keyed by theme asset name; outputs: option that overlays final admin theme assets such as `logo`, `icon`, and `favicon`.
 - `WithRoutingConfig(cfg routing.Config) AdminConfigOption` - Inputs: routing roots/module mount overrides; outputs: option that applies explicit routing policy overrides during quickstart config assembly.
 - `WithScopeConfig(scope ScopeConfig) AdminConfigOption` - Inputs: scope config; outputs: option that applies single/multi-tenant defaults.
 - `WithScopeMode(mode ScopeMode) AdminConfigOption` - Inputs: scope mode (`single` or `multi`); outputs: option that sets the mode.
@@ -766,10 +767,17 @@ Override the confirm route or template with `WithAuthUIPasswordResetConfirmPath`
 `WithAuthUIPasswordResetConfirmTemplate`.
 
 ### Theme assets for auth UI
-Auth and registration UI routes support theme assets (logo, favicon) via dedicated options. Assets are exposed in templates as `theme.assets.logo`, `theme.assets.favicon`, etc.
+Auth and registration UI routes support theme assets (`logo`, `icon`, `favicon`) via dedicated options. Assets are exposed in templates as `theme.assets.logo`, `theme.assets.icon`, `theme.assets.favicon`, etc.
+
+Reserved branding semantics:
+
+- `logo`: expanded sidebar / horizontal lockup
+- `icon`: compact sidebar mark and auth-card icon
+- `favicon`: browser/app icon
 
 ```go
 authThemeAssets := map[string]string{
+	"icon":    "icon.svg",
 	"logo":    "logo.svg",
 	"favicon": "favicon.svg",
 }
@@ -808,6 +816,8 @@ viewCtx = quickstart.WithPathViewContext(viewCtx, cfg, quickstart.PathViewContex
 viewCtx = quickstart.WithAuthUIViewThemeAssets(viewCtx, authThemeAssets, authThemeAssetPrefix)
 return c.Render("register", viewCtx)
 ```
+
+Auth templates prefer `theme.assets.icon` when it exists and fall back to `theme.assets.logo`.
 
 For non-auth/public handlers, prefer the same path helper before rendering templates that link JS/CSS assets:
 
@@ -1068,6 +1078,11 @@ selector, manifest, err := quickstart.NewThemeSelector(
 	cfg.Theme,
 	cfg.ThemeVariant,
 	cfg.ThemeTokens,
+	quickstart.WithThemeAssets(path.Join(cfg.BasePath, "assets"), map[string]string{
+		"logo":    "logo.light.svg",
+		"icon":    "icon.light.svg",
+		"favicon": "favicon.svg",
+	}),
 )
 if err != nil {
 	return err
@@ -1085,6 +1100,17 @@ _ = adm
 ```
 
 If you build the admin manually, call `adm.WithAdminTheme(selector)` and `adm.WithThemeManifest(manifest)` after initialization. Public-site theme selection is separate; attach it with `quicksite.WithSiteTheme(selector)` or `SiteConfig.ThemeProvider`.
+
+The default quickstart manifest also exposes these sidebar brand tokens:
+
+- `sidebar-brand-max-height`
+- `sidebar-brand-max-width`
+- `sidebar-brand-collapsed-size`
+- `sidebar-brand-align`
+
+Use `WithThemeAssets(...)` for manifest-relative theme assets and `WithThemeAssetURLs(...)` / `admin.Config.ThemeAssets` for final resolved URL overrides supplied by host config.
+
+If you have local CSS that forces the sidebar logo to `width: 100%`, remove that override and configure branding through `logo`, `icon`, and the sidebar brand tokens instead.
 
 ## Public-site theme precedence
 
