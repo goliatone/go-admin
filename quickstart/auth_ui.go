@@ -282,9 +282,9 @@ func WithAuthUIViewContextBuilder(builder AuthUIViewContextBuilder) AuthUIOption
 	}
 }
 
-// WithAuthUIThemeAssets sets theme assets (logo, favicon, etc.) for auth UI templates.
+// WithAuthUIThemeAssets sets theme assets (logo, icon, favicon, etc.) for auth UI templates.
 // The prefix is prepended to each asset filename to form the full URL path.
-// Assets are exposed in templates as theme.assets.logo, theme.assets.favicon, etc.
+// Assets are exposed in templates as theme.assets.logo, theme.assets.icon, theme.assets.favicon, etc.
 func WithAuthUIThemeAssets(prefix string, assets map[string]string) AuthUIOption {
 	return func(opts *authUIOptions) {
 		if opts != nil {

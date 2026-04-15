@@ -27,6 +27,64 @@
   background: var(--sidebar-bg-hover);
 }
 
+.sidebar-brand-link {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.sidebar-brand-expanded {
+  width: 100%;
+  justify-content: var(--sidebar-brand-align, flex-start);
+}
+
+.sidebar-brand-collapsed {
+  display: none;
+  width: 100%;
+  justify-content: center;
+}
+
+.sidebar-logo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: var(--sidebar-brand-max-width, 100%);
+  max-height: var(--sidebar-brand-max-height, 40px);
+  object-fit: contain;
+}
+
+.sidebar-logo-compact {
+  max-width: var(--sidebar-brand-collapsed-size, 32px);
+  max-height: var(--sidebar-brand-collapsed-size, 32px);
+}
+
+#sidebar[data-collapsed="true"] .sidebar-header {
+  flex-direction: column;
+  align-items: center;
+}
+
+#sidebar[data-collapsed="true"] .sidebar-brand-link {
+  flex: 0 0 auto;
+  width: auto;
+  overflow: visible;
+}
+
+#sidebar[data-collapsed="true"] .sidebar-brand-expanded {
+  display: none;
+}
+
+#sidebar[data-collapsed="true"] .sidebar-brand-collapsed {
+  display: flex;
+}
+
 .nav-item {
   display: inline-flex;
   align-items: center;

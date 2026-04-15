@@ -123,9 +123,9 @@ func WithRegistrationUIViewContextBuilder(builder RegistrationUIViewContextBuild
 	}
 }
 
-// WithRegistrationUIThemeAssets sets theme assets (logo, favicon, etc.) for registration UI templates.
+// WithRegistrationUIThemeAssets sets theme assets (logo, icon, favicon, etc.) for registration UI templates.
 // The prefix is prepended to each asset filename to form the full URL path.
-// Assets are exposed in templates as theme.assets.logo, theme.assets.favicon, etc.
+// Assets are exposed in templates as theme.assets.logo, theme.assets.icon, theme.assets.favicon, etc.
 func WithRegistrationUIThemeAssets(prefix string, assets map[string]string) RegistrationUIOption {
 	return func(opts *registrationUIOptions) {
 		if opts != nil {
