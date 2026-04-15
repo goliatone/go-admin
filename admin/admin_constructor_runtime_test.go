@@ -45,6 +45,30 @@ func TestResolveAdminConstructorStateBuildsRuntimeDefaults(t *testing.T) {
 	}
 }
 
+func TestResolveAdminConstructorStateCarriesThemeAssetOverrides(t *testing.T) {
+	state, err := resolveAdminConstructorState(Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		ThemeAssets: map[string]string{
+			"icon": "/brand/icon.svg",
+		},
+		LogoURL:    "/brand/logo.svg",
+		FaviconURL: "/brand/favicon.svg",
+	}, Dependencies{})
+	if err != nil {
+		t.Fatalf("resolveAdminConstructorState: %v", err)
+	}
+	if got := state.defaultTheme.Assets["logo"]; got != "/brand/logo.svg" {
+		t.Fatalf("expected default theme logo override, got %q", got)
+	}
+	if got := state.defaultTheme.Assets["icon"]; got != "/brand/icon.svg" {
+		t.Fatalf("expected default theme icon override, got %q", got)
+	}
+	if got := state.defaultTheme.Assets["favicon"]; got != "/brand/favicon.svg" {
+		t.Fatalf("expected default theme favicon override, got %q", got)
+	}
+}
+
 func TestInitializeConstructedAdminReturnsWorkflowBindErrors(t *testing.T) {
 	state, err := resolveAdminConstructorState(Config{
 		BasePath:      "/admin",

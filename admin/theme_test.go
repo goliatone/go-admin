@@ -324,6 +324,50 @@ func TestConfigThemeTokensOverrideProviderThemePayload(t *testing.T) {
 	}
 }
 
+func TestConfigThemeAssetsOverrideProviderBeforeLegacyURLs(t *testing.T) {
+	registry := theme.NewRegistry()
+	if err := registry.Register(&theme.Manifest{
+		Name:    "brand",
+		Version: "1.0.0",
+		Assets: theme.Assets{
+			Prefix: "/themes/brand",
+			Files: map[string]string{
+				"logo":    "logo.svg",
+				"icon":    "icon.svg",
+				"favicon": "favicon.ico",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register manifest: %v", err)
+	}
+
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Theme:         "brand",
+		ThemeVariant:  "light",
+		ThemeAssets: map[string]string{
+			"logo": "/overrides/logo.svg",
+			"icon": "/overrides/icon.svg",
+		},
+		LogoURL:    "/legacy/logo.svg",
+		FaviconURL: "/legacy/favicon.svg",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{})
+	adm.WithAdminTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
+
+	payload := adm.ThemePayload(nil)
+	if got := payload["assets"]["logo"]; got != "/legacy/logo.svg" {
+		t.Fatalf("expected legacy LogoURL to win for logo, got %q", got)
+	}
+	if got := payload["assets"]["icon"]; got != "/overrides/icon.svg" {
+		t.Fatalf("expected ThemeAssets icon override to win, got %q", got)
+	}
+	if got := payload["assets"]["favicon"]; got != "/legacy/favicon.svg" {
+		t.Fatalf("expected legacy FaviconURL to win for favicon, got %q", got)
+	}
+}
+
 func mapFromAny(val any) map[string]any {
 	if val == nil {
 		return nil

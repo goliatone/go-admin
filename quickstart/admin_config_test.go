@@ -38,6 +38,7 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 		"es",
 		WithTheme("custom", "dark"),
 		WithThemeTokens(map[string]string{"primary": "#000000"}),
+		WithThemeAssetURLs(map[string]string{"logo": "/brand/logo.svg", "icon": "/brand/icon.svg"}),
 		WithNavMenuCode("custom_menu"),
 	)
 
@@ -55,6 +56,9 @@ func TestNewAdminConfigOverrides(t *testing.T) {
 	}
 	if cfg.ThemeTokenOverrides["primary"] != "#000000" {
 		t.Fatalf("expected explicit theme token override tracking, got %+v", cfg.ThemeTokenOverrides)
+	}
+	if cfg.ThemeAssets["logo"] != "/brand/logo.svg" || cfg.ThemeAssets["icon"] != "/brand/icon.svg" {
+		t.Fatalf("expected theme asset URL overrides, got %+v", cfg.ThemeAssets)
 	}
 }
 

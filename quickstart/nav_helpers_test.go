@@ -112,8 +112,11 @@ func TestWithNavInjectsThemeAndSession(t *testing.T) {
 func TestWithNavCarriesConfiguredLogoURLIntoThemeAssets(t *testing.T) {
 	cfg := admin.Config{
 		DefaultLocale: "en",
-		LogoURL:       "/brand/logo.svg",
-		FaviconURL:    "/brand/favicon.svg",
+		ThemeAssets: map[string]string{
+			"icon": "/brand/icon.svg",
+		},
+		LogoURL:    "/brand/logo.svg",
+		FaviconURL: "/brand/favicon.svg",
 	}
 	adm, err := admin.New(cfg, admin.Dependencies{})
 	if err != nil {
@@ -128,6 +131,9 @@ func TestWithNavCarriesConfiguredLogoURLIntoThemeAssets(t *testing.T) {
 	assets := theme["assets"]
 	if assets["logo"] != "/brand/logo.svg" {
 		t.Fatalf("expected theme assets logo override, got %q", assets["logo"])
+	}
+	if assets["icon"] != "/brand/icon.svg" {
+		t.Fatalf("expected theme assets icon override, got %q", assets["icon"])
 	}
 	if assets["favicon"] != "/brand/favicon.svg" {
 		t.Fatalf("expected theme assets favicon override, got %q", assets["favicon"])

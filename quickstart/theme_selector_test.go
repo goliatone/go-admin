@@ -20,6 +20,18 @@ func TestNewThemeSelectorDefaultManifestIncludesIconAsset(t *testing.T) {
 	if got := manifest.Variants["dark"].Assets.Files["icon"]; got != "logo.svg" {
 		t.Fatalf("expected dark variant icon asset fallback logo.svg, got %q", got)
 	}
+	if got := manifest.Tokens["sidebar-brand-max-height"]; got != "40px" {
+		t.Fatalf("expected sidebar-brand-max-height default 40px, got %q", got)
+	}
+	if got := manifest.Tokens["sidebar-brand-max-width"]; got != "100%" {
+		t.Fatalf("expected sidebar-brand-max-width default 100%%, got %q", got)
+	}
+	if got := manifest.Tokens["sidebar-brand-collapsed-size"]; got != "32px" {
+		t.Fatalf("expected sidebar-brand-collapsed-size default 32px, got %q", got)
+	}
+	if got := manifest.Tokens["sidebar-brand-align"]; got != "flex-start" {
+		t.Fatalf("expected sidebar-brand-align default flex-start, got %q", got)
+	}
 }
 
 func TestNewThemeSelectorNormalizesIconAssetToLogoWhenMissing(t *testing.T) {
@@ -84,5 +96,23 @@ func TestNewThemeSelectorUsesRegisteredThemeWithoutOverwritingIt(t *testing.T) {
 	}
 	if got := manifest.Assets.Files["logo"]; got != "brand.svg" {
 		t.Fatalf("expected registered theme logo to stay intact, got %q", got)
+	}
+}
+
+func TestNewThemeSelectorPreservesExplicitIconAsset(t *testing.T) {
+	_, manifest, err := NewThemeSelector(
+		"admin",
+		"light",
+		nil,
+		WithThemeAssets("/admin/assets", map[string]string{
+			"logo": "logo.png",
+			"icon": "mark.png",
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new theme selector: %v", err)
+	}
+	if got := manifest.Assets.Files["icon"]; got != "mark.png" {
+		t.Fatalf("expected explicit icon asset to be preserved, got %q", got)
 	}
 }

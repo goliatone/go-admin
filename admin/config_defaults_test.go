@@ -18,6 +18,9 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.ThemeVariant != "default" {
 		t.Fatalf("expected default theme variant 'default', got %q", adm.config.ThemeVariant)
 	}
+	if adm.config.ThemeAssets == nil {
+		t.Fatalf("expected theme assets map to be initialized")
+	}
 	if adm.config.SettingsPermission != "admin.settings.view" {
 		t.Fatalf("expected settings permission default, got %q", adm.config.SettingsPermission)
 	}

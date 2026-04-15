@@ -8,6 +8,7 @@ import (
 	"testing/fstest"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-admin/pkg/client"
 )
 
 func TestViewEngineTemplateOverrides(t *testing.T) {
@@ -112,6 +113,22 @@ func TestViewEngineTemplateStackPrefersOverlayOverHostBase(t *testing.T) {
 	}
 }
 
+func TestSidebarTemplateCopiesExposeBrandVariants(t *testing.T) {
+	shared, err := fs.ReadFile(client.Templates(), "partials/sidebar.html")
+	if err != nil {
+		t.Fatalf("read shared sidebar template: %v", err)
+	}
+	embedded, err := fs.ReadFile(SidebarTemplatesFS(), "partials/sidebar.html")
+	if err != nil {
+		t.Fatalf("read quickstart sidebar template: %v", err)
+	}
+	for _, template := range [][]byte{shared, embedded} {
+		if !containsAll(string(template), `sidebar-brand-expanded`, `sidebar-brand-collapsed`, `sidebar-logo-compact`) {
+			t.Fatalf("expected sidebar template to expose expanded and compact brand variants, got %q", string(template))
+		}
+	}
+}
+
 func TestSidebarTemplatePrefersThemeLogoAsset(t *testing.T) {
 	hostFS := fstest.MapFS{
 		"templates/home.html": {
@@ -152,8 +169,186 @@ func TestSidebarTemplatePrefersThemeLogoAsset(t *testing.T) {
 		t.Fatalf("read response body: %v", err)
 	}
 	html := body.String()
-	if !containsAll(html, `/brand/logo.svg`, `class="sidebar-logo"`) {
+	if !containsAll(html, `/brand/logo.svg`, `sidebar-brand-expanded`, `sidebar-brand-collapsed`) {
 		t.Fatalf("expected rendered sidebar to use theme logo asset, got %q", html)
+	}
+}
+
+func TestSidebarTemplateUsesCompactIconWhenAvailable(t *testing.T) {
+	hostFS := fstest.MapFS{
+		"templates/home.html": {
+			Data: []byte(`{% include "partials/sidebar.html" %}`),
+		},
+	}
+
+	views, err := NewViewEngine(
+		hostFS,
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine error: %v", err)
+	}
+
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.Render("home", fiber.Map{
+			"title":           "Admin",
+			"base_path":       "/admin",
+			"asset_base_path": "/admin",
+			"theme": map[string]map[string]string{"assets": {
+				"logo": "/brand/logo.svg",
+				"icon": "/brand/icon.svg",
+			}},
+			"nav_items":         []map[string]any{},
+			"nav_utility_items": []map[string]any{},
+			"session_user":      map[string]any{},
+			"csrf_field":        "",
+		})
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body bytes.Buffer
+	if _, err := body.ReadFrom(resp.Body); err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	html := body.String()
+	if !containsAll(html, `/brand/logo.svg`, `/brand/icon.svg`, `sidebar-logo-compact`) {
+		t.Fatalf("expected rendered sidebar to include expanded logo and compact icon, got %q", html)
+	}
+}
+
+func TestSidebarTemplateFallsBackToLogoForCompactBrand(t *testing.T) {
+	hostFS := fstest.MapFS{
+		"templates/home.html": {
+			Data: []byte(`{% include "partials/sidebar.html" %}`),
+		},
+	}
+
+	views, err := NewViewEngine(
+		hostFS,
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine error: %v", err)
+	}
+
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.Render("home", fiber.Map{
+			"title":             "Admin",
+			"base_path":         "/admin",
+			"asset_base_path":   "/admin",
+			"theme":             map[string]map[string]string{"assets": {"logo": "/brand/logo.svg"}},
+			"nav_items":         []map[string]any{},
+			"nav_utility_items": []map[string]any{},
+			"session_user":      map[string]any{},
+			"csrf_field":        "",
+		})
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body bytes.Buffer
+	if _, err := body.ReadFrom(resp.Body); err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	html := body.String()
+	if bytes.Count(body.Bytes(), []byte(`/brand/logo.svg`)) != 2 {
+		t.Fatalf("expected expanded and compact brands to both use logo fallback, got %q", html)
+	}
+}
+
+func TestSidebarTemplateFallsBackToBuiltInBrandAsset(t *testing.T) {
+	hostFS := fstest.MapFS{
+		"templates/home.html": {
+			Data: []byte(`{% include "partials/sidebar.html" %}`),
+		},
+	}
+
+	views, err := NewViewEngine(
+		hostFS,
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine error: %v", err)
+	}
+
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.Render("home", fiber.Map{
+			"title":             "Admin",
+			"base_path":         "/admin",
+			"asset_base_path":   "/admin",
+			"nav_items":         []map[string]any{},
+			"nav_utility_items": []map[string]any{},
+			"session_user":      map[string]any{},
+			"csrf_field":        "",
+		})
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body bytes.Buffer
+	if _, err := body.ReadFrom(resp.Body); err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if bytes.Count(body.Bytes(), []byte(`/admin/assets/logo.svg`)) != 2 {
+		t.Fatalf("expected built-in brand asset fallback for both states, got %q", body.String())
+	}
+}
+
+func TestLoginTemplatePrefersThemeIconAsset(t *testing.T) {
+	views, err := NewViewEngine(
+		client.Templates(),
+		WithViewTemplateFuncs(DefaultTemplateFuncs(WithTemplateBasePath("/admin"))),
+	)
+	if err != nil {
+		t.Fatalf("NewViewEngine error: %v", err)
+	}
+
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.Render("login", fiber.Map{
+			"title":           "Admin",
+			"base_path":       "/admin",
+			"asset_base_path": "/admin",
+			"theme": map[string]map[string]string{"assets": {
+				"logo": "/brand/logo.svg",
+				"icon": "/brand/icon.svg",
+			}},
+			"csrf_field": "",
+		})
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	if err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var body bytes.Buffer
+	if _, err := body.ReadFrom(resp.Body); err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	html := body.String()
+	if !containsAll(html, `/brand/icon.svg`, `w-10 h-10 object-contain`) {
+		t.Fatalf("expected login template to prefer theme icon asset, got %q", html)
+	}
+	if bytes.Contains(body.Bytes(), []byte(`/brand/logo.svg`)) {
+		t.Fatalf("expected login template not to render logo when icon exists, got %q", html)
 	}
 }
 
