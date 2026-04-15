@@ -180,7 +180,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if err != nil {
 		t.Fatalf("action request failed: %v", err)
 	}
-	defer actionRes.Body.Close()
+	defer closeHTTPResponseBody(t, actionRes)
 	if actionRes.StatusCode != http.StatusAccepted {
 		payload, _ := io.ReadAll(actionRes.Body)
 		t.Fatalf("expected send action 202, got %d body=%s", actionRes.StatusCode, string(payload))
@@ -194,7 +194,7 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	if err != nil {
 		t.Fatalf("resend request failed: %v", err)
 	}
-	defer resendRes.Body.Close()
+	defer closeHTTPResponseBody(t, resendRes)
 	if resendRes.StatusCode != http.StatusAccepted {
 		payload, _ := io.ReadAll(resendRes.Body)
 		t.Fatalf("expected resend action 202, got %d body=%s", resendRes.StatusCode, string(payload))
@@ -376,7 +376,7 @@ func createPanelRecord(t *testing.T, server router.Server[*fiber.App], path stri
 	if err != nil {
 		t.Fatalf("create request failed: %v", err)
 	}
-	defer res.Body.Close()
+	defer closeHTTPResponseBody(t, res)
 	if res.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(res.Body)
 		t.Fatalf("expected create 200, got %d body=%s", res.StatusCode, string(payload))
@@ -401,7 +401,7 @@ func getPanelDetail(t *testing.T, server router.Server[*fiber.App], path string)
 	if err != nil {
 		t.Fatalf("detail request failed: %v", err)
 	}
-	defer res.Body.Close()
+	defer closeHTTPResponseBody(t, res)
 	if res.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(res.Body)
 		t.Fatalf("expected detail 200, got %d body=%s", res.StatusCode, string(payload))

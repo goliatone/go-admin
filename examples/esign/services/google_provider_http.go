@@ -183,7 +183,9 @@ func (p *GoogleHTTPProvider) HealthCheck(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("google provider health request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	if resp.StatusCode >= http.StatusBadRequest {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
 		return fmt.Errorf("google provider health status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -500,7 +502,9 @@ func (p *GoogleHTTPProvider) requestForm(ctx context.Context, method, endpoint s
 	if err != nil {
 		return nil, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	payload, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
 		return nil, 0, err
@@ -527,7 +531,9 @@ func (p *GoogleHTTPProvider) requestJSON(ctx context.Context, method, endpoint, 
 	if err != nil {
 		return nil, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 	payload, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
 		return nil, 0, err

@@ -41,7 +41,7 @@ func TestRegisterLineageDiagnosticsRoutesExposeDocumentAndAgreementDiagnostics(t
 	if err != nil {
 		t.Fatalf("document diagnostics request failed: %v", err)
 	}
-	defer documentResp.Body.Close()
+	defer closeHTTPResponseBody(t, documentResp)
 	if documentResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected document diagnostics 200, got %d", documentResp.StatusCode)
 	}
@@ -59,7 +59,7 @@ func TestRegisterLineageDiagnosticsRoutesExposeDocumentAndAgreementDiagnostics(t
 	if err != nil {
 		t.Fatalf("agreement diagnostics request failed: %v", err)
 	}
-	defer agreementResp.Body.Close()
+	defer closeHTTPResponseBody(t, agreementResp)
 	if agreementResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected agreement diagnostics 200, got %d", agreementResp.StatusCode)
 	}
@@ -97,7 +97,7 @@ func TestRegisterLineageDiagnosticsRoutesExposeCandidateListAndReviewAction(t *t
 	if err != nil {
 		t.Fatalf("candidate list request failed: %v", err)
 	}
-	defer listResp.Body.Close()
+	defer closeHTTPResponseBody(t, listResp)
 	if listResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected candidate list 200, got %d", listResp.StatusCode)
 	}
@@ -120,7 +120,7 @@ func TestRegisterLineageDiagnosticsRoutesExposeCandidateListAndReviewAction(t *t
 	if err != nil {
 		t.Fatalf("review request failed: %v", err)
 	}
-	defer reviewResp.Body.Close()
+	defer closeHTTPResponseBody(t, reviewResp)
 	if reviewResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected review action 200, got %d", reviewResp.StatusCode)
 	}
@@ -167,7 +167,7 @@ func TestRegisterLineageDiagnosticsReviewActionRequiresAuthenticatedAdminActor(t
 	if err != nil {
 		t.Fatalf("review request failed: %v", err)
 	}
-	defer reviewResp.Body.Close()
+	defer closeHTTPResponseBody(t, reviewResp)
 	if reviewResp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected review action without authenticated actor to be forbidden, got %d", reviewResp.StatusCode)
 	}
@@ -208,7 +208,7 @@ func TestRegisterReconciliationQueueRoutesExposeQueueDetailAndReviewAction(t *te
 	if err != nil {
 		t.Fatalf("queue request failed: %v", err)
 	}
-	defer queueResp.Body.Close()
+	defer closeHTTPResponseBody(t, queueResp)
 	if queueResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected queue status 200, got %d", queueResp.StatusCode)
 	}
@@ -223,7 +223,7 @@ func TestRegisterReconciliationQueueRoutesExposeQueueDetailAndReviewAction(t *te
 	if err != nil {
 		t.Fatalf("detail request failed: %v", err)
 	}
-	defer detailResp.Body.Close()
+	defer closeHTTPResponseBody(t, detailResp)
 	if detailResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected queue detail 200, got %d", detailResp.StatusCode)
 	}
@@ -243,7 +243,7 @@ func TestRegisterReconciliationQueueRoutesExposeQueueDetailAndReviewAction(t *te
 	if err != nil {
 		t.Fatalf("queue review request failed: %v", err)
 	}
-	defer reviewResp.Body.Close()
+	defer closeHTTPResponseBody(t, reviewResp)
 	if reviewResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected queue review 200, got %d", reviewResp.StatusCode)
 	}
@@ -284,14 +284,14 @@ func TestRegisterReconciliationQueueReviewReturnsConflictForResolvedCandidate(t 
 		}
 		if strings.Contains(body, "duplicate review") {
 			if resp.StatusCode != http.StatusConflict {
-				resp.Body.Close()
+				closeHTTPResponseBody(t, resp)
 				t.Fatalf("expected duplicate queue review to conflict, got %d", resp.StatusCode)
 			}
 		} else if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
+			closeHTTPResponseBody(t, resp)
 			t.Fatalf("expected initial queue review to succeed, got %d", resp.StatusCode)
 		}
-		resp.Body.Close()
+		closeHTTPResponseBody(t, resp)
 	}
 }
 
@@ -533,7 +533,7 @@ func TestRegisterSourceManagementRoutesExposeReadModelContracts(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s request failed: %v", tc.name, err)
 			}
-			defer resp.Body.Close()
+			defer closeHTTPResponseBody(t, resp)
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("expected %s status 200, got %d", tc.name, resp.StatusCode)
 			}
@@ -568,7 +568,7 @@ func TestRegisterSourceManagementRoutesApplyRequestScopedPermissions(t *testing.
 	if err != nil {
 		t.Fatalf("view-only source detail request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected view-only source detail status 200, got %d", resp.StatusCode)
 	}
@@ -589,7 +589,7 @@ func TestRegisterSourceManagementRoutesApplyRequestScopedPermissions(t *testing.
 	if err != nil {
 		t.Fatalf("view-only source relationships request failed: %v", err)
 	}
-	defer relationshipsResp.Body.Close()
+	defer closeHTTPResponseBody(t, relationshipsResp)
 	if relationshipsResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected view-only source relationships status 200, got %d", relationshipsResp.StatusCode)
 	}
@@ -607,7 +607,7 @@ func TestRegisterSourceManagementRoutesApplyRequestScopedPermissions(t *testing.
 	if err != nil {
 		t.Fatalf("view+edit source relationships request failed: %v", err)
 	}
-	defer editRelationshipsResp.Body.Close()
+	defer closeHTTPResponseBody(t, editRelationshipsResp)
 	if editRelationshipsResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected view+edit source relationships status 200, got %d", editRelationshipsResp.StatusCode)
 	}
@@ -654,7 +654,7 @@ func TestRegisterSourceManagementRoutesReturnNotFoundForMissingResources(t *test
 		if err != nil {
 			t.Fatalf("missing-resource request %q failed: %v", path, err)
 		}
-		resp.Body.Close()
+		closeHTTPResponseBody(t, resp)
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("expected %q to return 404, got %d", path, resp.StatusCode)
 		}
@@ -848,7 +848,7 @@ func TestRegisterSourceManagementRoutesWithRealReadModelServiceRemainConsistent(
 			if err != nil {
 				t.Fatalf("%s request failed: %v", tc.name, err)
 			}
-			defer resp.Body.Close()
+			defer closeHTTPResponseBody(t, resp)
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("expected %s status 200, got %d", tc.name, resp.StatusCode)
 			}
@@ -1029,7 +1029,7 @@ func TestRegisterSourceManagementRoutesRemainConsistentWithLineageProvenanceRead
 			if err != nil {
 				t.Fatalf("%s request failed: %v", tc.name, err)
 			}
-			defer resp.Body.Close()
+			defer closeHTTPResponseBody(t, resp)
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("expected %s status 200, got %d", tc.name, resp.StatusCode)
 			}

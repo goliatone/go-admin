@@ -217,20 +217,20 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			importRun, err := tx.GetGoogleImportRun(ctx, scope, googleSucceededID)
-			if err != nil {
-				return err
+			importRun, importRunErr := tx.GetGoogleImportRun(ctx, scope, googleSucceededID)
+			if importRunErr != nil {
+				return importRunErr
 			}
 			if importRun.Status != stores.GoogleImportRunStatusSucceeded {
 				t.Fatalf("unexpected tx google import run: %+v", importRun)
 			}
-			importRuns, nextCursor, err := tx.ListGoogleImportRuns(ctx, scope, stores.GoogleImportRunQuery{
+			importRuns, nextCursor, listRunsErr := tx.ListGoogleImportRuns(ctx, scope, stores.GoogleImportRunQuery{
 				UserID:   userID,
 				Limit:    1,
 				SortDesc: true,
 			})
-			if err != nil {
-				return err
+			if listRunsErr != nil {
+				return listRunsErr
 			}
 			if len(importRuns) != 1 || importRuns[0].ID != googleFailedID || nextCursor == "" {
 				t.Fatalf("unexpected tx google import list first page: runs=%+v next=%q", importRuns, nextCursor)
@@ -248,14 +248,14 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 				t.Fatalf("unexpected tx google import list second page: runs=%+v next=%q", importRuns, nextCursor)
 			}
 
-			message, err := tx.EnqueueOutboxMessage(ctx, scope, stores.OutboxMessageRecord{
+			message, enqueueErr := tx.EnqueueOutboxMessage(ctx, scope, stores.OutboxMessageRecord{
 				ID:          "outbox-failed-" + suffix,
 				Topic:       "email.send",
 				PayloadJSON: `{"kind":"failed"}`,
 				CreatedAt:   now.Add(6 * time.Minute),
 			})
-			if err != nil {
-				return err
+			if enqueueErr != nil {
+				return enqueueErr
 			}
 			outboxFailedID = message.ID
 			if _, err = tx.MarkOutboxMessageFailed(ctx, scope, message.ID, "provider timeout", nil, now.Add(7*time.Minute)); err != nil {
@@ -277,9 +277,9 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			outboxRows, err := tx.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: "email.send"})
-			if err != nil {
-				return err
+			outboxRows, listOutboxErr := tx.ListOutboxMessages(ctx, scope, stores.OutboxQuery{Topic: "email.send"})
+			if listOutboxErr != nil {
+				return listOutboxErr
 			}
 			if len(outboxRows) != 2 || outboxRows[0].ID != outboxFailedID {
 				t.Fatalf("unexpected tx outbox topic list: %+v", outboxRows)
@@ -557,7 +557,7 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				t.Fatalf("unexpected tx bindings list: %+v", bindings)
 			}
 
-			run, err := tx.CreateIntegrationSyncRun(ctx, scope, stores.IntegrationSyncRunRecord{
+			run, createRunErr := tx.CreateIntegrationSyncRun(ctx, scope, stores.IntegrationSyncRunRecord{
 				ID:              "sync-old-" + suffix,
 				Provider:        "hris",
 				Direction:       "inbound",
@@ -566,8 +566,8 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				CreatedByUserID: baseUser,
 				StartedAt:       now,
 			})
-			if err != nil {
-				return err
+			if createRunErr != nil {
+				return createRunErr
 			}
 			runOlderID = run.ID
 			run, err = tx.CreateIntegrationSyncRun(ctx, scope, stores.IntegrationSyncRunRecord{
@@ -590,16 +590,16 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			if run.Cursor != "cursor-old" {
 				t.Fatalf("unexpected updated tx sync run: %+v", run)
 			}
-			syncRun, err := tx.GetIntegrationSyncRun(ctx, scope, runOlderID)
-			if err != nil {
-				return err
+			syncRun, getRunErr := tx.GetIntegrationSyncRun(ctx, scope, runOlderID)
+			if getRunErr != nil {
+				return getRunErr
 			}
 			if syncRun.Cursor != "cursor-old" {
 				t.Fatalf("unexpected tx sync run load: %+v", syncRun)
 			}
-			syncRuns, err := tx.ListIntegrationSyncRuns(ctx, scope, "hris")
-			if err != nil {
-				return err
+			syncRuns, listRunsErr := tx.ListIntegrationSyncRuns(ctx, scope, "hris")
+			if listRunsErr != nil {
+				return listRunsErr
 			}
 			if len(syncRuns) != 2 || syncRuns[0].ID != runNewerID || syncRuns[1].ID != runOlderID {
 				t.Fatalf("unexpected tx sync run ordering: %+v", syncRuns)
@@ -630,15 +630,15 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			checkpoints, err := tx.ListIntegrationCheckpoints(ctx, scope, runOlderID)
-			if err != nil {
-				return err
+			checkpoints, listCheckpointsErr := tx.ListIntegrationCheckpoints(ctx, scope, runOlderID)
+			if listCheckpointsErr != nil {
+				return listCheckpointsErr
 			}
 			if len(checkpoints) != 2 || checkpoints[0].CheckpointKey != "watermark" || checkpoints[1].Cursor != "cursor-2" {
 				t.Fatalf("unexpected tx checkpoint ordering: %+v", checkpoints)
 			}
 
-			conflict, err := tx.CreateIntegrationConflict(ctx, scope, stores.IntegrationConflictRecord{
+			conflict, createConflictErr := tx.CreateIntegrationConflict(ctx, scope, stores.IntegrationConflictRecord{
 				ID:          "conflict-resolved-" + suffix,
 				RunID:       runOlderID,
 				Provider:    "hris",
@@ -648,8 +648,8 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				Reason:      "ambiguous_match",
 				PayloadJSON: `{"candidate":1}`,
 			})
-			if err != nil {
-				return err
+			if createConflictErr != nil {
+				return createConflictErr
 			}
 			conflictResolvedID = conflict.ID
 			if _, err = tx.ResolveIntegrationConflict(ctx, scope, conflict.ID, stores.IntegrationConflictStatusResolved, `{"decision":"accept"}`, baseUser, now.Add(2*time.Minute), conflict.Version); err != nil {
@@ -674,15 +674,15 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			if conflict.Status != stores.IntegrationConflictStatusResolved {
 				t.Fatalf("unexpected tx resolved conflict: %+v", conflict)
 			}
-			conflicts, err := tx.ListIntegrationConflicts(ctx, scope, runOlderID, stores.IntegrationConflictStatusResolved)
-			if err != nil {
-				return err
+			conflicts, listConflictsErr := tx.ListIntegrationConflicts(ctx, scope, runOlderID, stores.IntegrationConflictStatusResolved)
+			if listConflictsErr != nil {
+				return listConflictsErr
 			}
 			if len(conflicts) != 1 || conflicts[0].ID != conflictResolvedID {
 				t.Fatalf("unexpected tx resolved conflict list: %+v", conflicts)
 			}
 
-			firstEvent, err := tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
+			firstEvent, firstEventErr := tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
 				AgreementID:    agreement.ID,
 				Provider:       "hris",
 				EventType:      "agreement.updated",
@@ -691,10 +691,10 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				PayloadJSON:    `{"status":"updated"}`,
 				EmittedAt:      now,
 			})
-			if err != nil {
-				return err
+			if firstEventErr != nil {
+				return firstEventErr
 			}
-			duplicateEvent, err := tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
+			duplicateEvent, duplicateEventErr := tx.AppendIntegrationChangeEvent(ctx, scope, stores.IntegrationChangeEventRecord{
 				AgreementID:    agreement.ID,
 				Provider:       "hris",
 				EventType:      "agreement.updated",
@@ -703,8 +703,8 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				PayloadJSON:    `{"status":"ignored"}`,
 				EmittedAt:      now.Add(time.Minute),
 			})
-			if err != nil {
-				return err
+			if duplicateEventErr != nil {
+				return duplicateEventErr
 			}
 			if duplicateEvent.ID != firstEvent.ID {
 				t.Fatalf("expected duplicate integration event to return existing record")
@@ -720,15 +720,15 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			events, err := tx.ListIntegrationChangeEvents(ctx, scope, agreement.ID)
-			if err != nil {
-				return err
+			events, listEventsErr := tx.ListIntegrationChangeEvents(ctx, scope, agreement.ID)
+			if listEventsErr != nil {
+				return listEventsErr
 			}
 			if len(events) != 2 || events[0].IdempotencyKey != "event-1-"+suffix || events[1].IdempotencyKey != "event-2-"+suffix {
 				t.Fatalf("unexpected tx integration change events: %+v", events)
 			}
 
-			placement, err := tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
+			placement, placementErr := tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
 				ID:                  "placement-primary-" + suffix,
 				AgreementID:         agreement.ID,
 				Status:              stores.PlacementRunStatusPartial,
@@ -743,8 +743,8 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				ElapsedMS:           200,
 				ManualOverrideCount: 0,
 			})
-			if err != nil {
-				return err
+			if placementErr != nil {
+				return placementErr
 			}
 			placementPrimaryID = placement.ID
 			if _, err = tx.UpsertPlacementRun(ctx, scope, stores.PlacementRunRecord{
@@ -790,9 +790,9 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			if placement.Status != stores.PlacementRunStatusCompleted {
 				t.Fatalf("unexpected tx placement run: %+v", placement)
 			}
-			placements, err := tx.ListPlacementRuns(ctx, scope, agreement.ID)
-			if err != nil {
-				return err
+			placements, listPlacementsErr := tx.ListPlacementRuns(ctx, scope, agreement.ID)
+			if listPlacementsErr != nil {
+				return listPlacementsErr
 			}
 			if len(placements) != 1 || placements[0].ID != placementPrimaryID {
 				t.Fatalf("unexpected tx placement list: %+v", placements)
@@ -803,16 +803,16 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			t.Fatalf("WithTx integration read surfaces: %v", err)
 		}
 
-		credential, err := store.GetIntegrationCredential(ctx, scope, "google", baseUser)
-		if err != nil {
-			t.Fatalf("GetIntegrationCredential: %v", err)
+		credential, credentialErr := store.GetIntegrationCredential(ctx, scope, "google", baseUser)
+		if credentialErr != nil {
+			t.Fatalf("GetIntegrationCredential: %v", credentialErr)
 		}
 		if credential.EncryptedAccessToken != "access-2" {
 			t.Fatalf("unexpected integration credential: %+v", credential)
 		}
-		credentials, err := store.ListIntegrationCredentials(ctx, scope, "google", baseUser)
-		if err != nil {
-			t.Fatalf("ListIntegrationCredentials: %v", err)
+		credentials, credentialsErr := store.ListIntegrationCredentials(ctx, scope, "google", baseUser)
+		if credentialsErr != nil {
+			t.Fatalf("ListIntegrationCredentials: %v", credentialsErr)
 		}
 		if len(credentials) != 2 {
 			t.Fatalf("expected 2 filtered credentials, got %+v", credentials)
@@ -821,92 +821,92 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			t.Fatalf("unexpected prefix leak in credentials: %+v", credentials)
 		}
 
-		mappingSpec, err := store.GetMappingSpec(ctx, scope, mappingPublishedID)
-		if err != nil {
-			t.Fatalf("GetMappingSpec: %v", err)
+		mappingSpec, mappingSpecErr := store.GetMappingSpec(ctx, scope, mappingPublishedID)
+		if mappingSpecErr != nil {
+			t.Fatalf("GetMappingSpec: %v", mappingSpecErr)
 		}
 		if mappingSpec.Status != stores.MappingSpecStatusPublished {
 			t.Fatalf("unexpected mapping spec: %+v", mappingSpec)
 		}
-		mappingSpecs, err := store.ListMappingSpecs(ctx, scope, "hris")
-		if err != nil {
-			t.Fatalf("ListMappingSpecs: %v", err)
+		mappingSpecs, mappingSpecsErr := store.ListMappingSpecs(ctx, scope, "hris")
+		if mappingSpecsErr != nil {
+			t.Fatalf("ListMappingSpecs: %v", mappingSpecsErr)
 		}
 		if len(mappingSpecs) != 2 || mappingSpecs[0].ID != mappingDraftID || mappingSpecs[1].ID != mappingPublishedID {
 			t.Fatalf("unexpected mapping spec ordering: %+v", mappingSpecs)
 		}
 
-		binding, err := store.GetIntegrationBindingByExternal(ctx, scope, "hris", "agreement", "ext-primary-"+suffix)
-		if err != nil {
-			t.Fatalf("GetIntegrationBindingByExternal: %v", err)
+		binding, bindingErr := store.GetIntegrationBindingByExternal(ctx, scope, "hris", "agreement", "ext-primary-"+suffix)
+		if bindingErr != nil {
+			t.Fatalf("GetIntegrationBindingByExternal: %v", bindingErr)
 		}
 		if binding.InternalID != agreement.ID {
 			t.Fatalf("unexpected binding: %+v", binding)
 		}
-		bindings, err := store.ListIntegrationBindings(ctx, scope, "hris", "agreement", agreement.ID)
-		if err != nil {
-			t.Fatalf("ListIntegrationBindings: %v", err)
+		bindings, bindingsErr := store.ListIntegrationBindings(ctx, scope, "hris", "agreement", agreement.ID)
+		if bindingsErr != nil {
+			t.Fatalf("ListIntegrationBindings: %v", bindingsErr)
 		}
 		if len(bindings) != 1 || bindings[0].ExternalID != "ext-primary-"+suffix {
 			t.Fatalf("unexpected binding list: %+v", bindings)
 		}
 
-		syncRun, err := store.GetIntegrationSyncRun(ctx, scope, runOlderID)
-		if err != nil {
-			t.Fatalf("GetIntegrationSyncRun: %v", err)
+		syncRun, syncRunErr := store.GetIntegrationSyncRun(ctx, scope, runOlderID)
+		if syncRunErr != nil {
+			t.Fatalf("GetIntegrationSyncRun: %v", syncRunErr)
 		}
 		if syncRun.Cursor != "cursor-old" {
 			t.Fatalf("unexpected sync run: %+v", syncRun)
 		}
-		syncRuns, err := store.ListIntegrationSyncRuns(ctx, scope, "hris")
-		if err != nil {
-			t.Fatalf("ListIntegrationSyncRuns: %v", err)
+		syncRuns, syncRunsErr := store.ListIntegrationSyncRuns(ctx, scope, "hris")
+		if syncRunsErr != nil {
+			t.Fatalf("ListIntegrationSyncRuns: %v", syncRunsErr)
 		}
 		if len(syncRuns) != 2 || syncRuns[0].ID != runNewerID || syncRuns[1].ID != runOlderID {
 			t.Fatalf("unexpected sync run ordering: %+v", syncRuns)
 		}
 
-		checkpoints, err := store.ListIntegrationCheckpoints(ctx, scope, runOlderID)
-		if err != nil {
-			t.Fatalf("ListIntegrationCheckpoints: %v", err)
+		checkpoints, checkpointsErr := store.ListIntegrationCheckpoints(ctx, scope, runOlderID)
+		if checkpointsErr != nil {
+			t.Fatalf("ListIntegrationCheckpoints: %v", checkpointsErr)
 		}
 		if len(checkpoints) != 2 || checkpoints[0].CheckpointKey != "watermark" || checkpoints[1].Cursor != "cursor-2" {
 			t.Fatalf("unexpected checkpoints: %+v", checkpoints)
 		}
 
-		conflict, err := store.GetIntegrationConflict(ctx, scope, conflictResolvedID)
-		if err != nil {
-			t.Fatalf("GetIntegrationConflict: %v", err)
+		conflict, conflictErr := store.GetIntegrationConflict(ctx, scope, conflictResolvedID)
+		if conflictErr != nil {
+			t.Fatalf("GetIntegrationConflict: %v", conflictErr)
 		}
 		if conflict.Status != stores.IntegrationConflictStatusResolved {
 			t.Fatalf("unexpected resolved conflict: %+v", conflict)
 		}
-		conflicts, err := store.ListIntegrationConflicts(ctx, scope, runOlderID, stores.IntegrationConflictStatusResolved)
-		if err != nil {
-			t.Fatalf("ListIntegrationConflicts: %v", err)
+		conflicts, conflictsErr := store.ListIntegrationConflicts(ctx, scope, runOlderID, stores.IntegrationConflictStatusResolved)
+		if conflictsErr != nil {
+			t.Fatalf("ListIntegrationConflicts: %v", conflictsErr)
 		}
 		if len(conflicts) != 1 || conflicts[0].ID != conflictResolvedID {
 			t.Fatalf("unexpected resolved conflicts: %+v", conflicts)
 		}
 
-		events, err := store.ListIntegrationChangeEvents(ctx, scope, agreement.ID)
-		if err != nil {
-			t.Fatalf("ListIntegrationChangeEvents: %v", err)
+		events, eventsErr := store.ListIntegrationChangeEvents(ctx, scope, agreement.ID)
+		if eventsErr != nil {
+			t.Fatalf("ListIntegrationChangeEvents: %v", eventsErr)
 		}
 		if len(events) != 2 || events[0].IdempotencyKey != "event-1-"+suffix || events[1].IdempotencyKey != "event-2-"+suffix {
 			t.Fatalf("unexpected integration change events: %+v", events)
 		}
 
-		placement, err := store.GetPlacementRun(ctx, scope, agreement.ID, placementPrimaryID)
-		if err != nil {
-			t.Fatalf("GetPlacementRun: %v", err)
+		placement, placementGetErr := store.GetPlacementRun(ctx, scope, agreement.ID, placementPrimaryID)
+		if placementGetErr != nil {
+			t.Fatalf("GetPlacementRun: %v", placementGetErr)
 		}
 		if placement.Status != stores.PlacementRunStatusCompleted {
 			t.Fatalf("unexpected placement run: %+v", placement)
 		}
-		placements, err := store.ListPlacementRuns(ctx, scope, agreement.ID)
-		if err != nil {
-			t.Fatalf("ListPlacementRuns: %v", err)
+		placements, placementsErr := store.ListPlacementRuns(ctx, scope, agreement.ID)
+		if placementsErr != nil {
+			t.Fatalf("ListPlacementRuns: %v", placementsErr)
 		}
 		if len(placements) != 1 || placements[0].ID != placementPrimaryID {
 			t.Fatalf("unexpected placement runs: %+v", placements)

@@ -17,7 +17,7 @@ func TestTLSTransportGuardRejectsInsecureRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusUpgradeRequired {
 		t.Fatalf("expected status 426, got %d", resp.StatusCode)
@@ -39,7 +39,7 @@ func TestTLSTransportGuardAllowsHTTPSForwardedRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -60,7 +60,7 @@ func TestTLSTransportGuardIgnoresForwardedHTTPSWhenUntrusted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusUpgradeRequired {
 		t.Fatalf("expected status 426, got %d", resp.StatusCode)
@@ -95,7 +95,7 @@ func TestTLSTransportGuardIgnoresForwardedLocalhostWhenUntrusted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusUpgradeRequired {
 		t.Fatalf("expected status 426, got %d", resp.StatusCode)
@@ -111,7 +111,7 @@ func TestTLSTransportGuardAllowsLocalhostWhenPeerIsUnspecified(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)

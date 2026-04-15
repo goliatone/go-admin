@@ -148,7 +148,9 @@ func (r *ExternalPDFRemediationRunner) Run(ctx context.Context, input PDFRemedia
 	if err != nil {
 		return PDFRemediationRunResult{}, fmt.Errorf("create remediation temp dir: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		_ = os.RemoveAll(tempDir)
+	}()
 
 	inputPath := filepath.Join(tempDir, "input.pdf")
 	outputPath := filepath.Join(tempDir, "output.pdf")

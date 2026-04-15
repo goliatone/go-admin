@@ -304,7 +304,7 @@ func TestGoogleServicesIntegrationEnqueueLineageProcessingForwardsImportRunID(t 
 			PageCount: 3,
 		},
 	}
-	service.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
+	_ = service.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
 		ImportRunID:       runID,
 		UserID:            "ops-user",
 		AccountID:         "acct-1",

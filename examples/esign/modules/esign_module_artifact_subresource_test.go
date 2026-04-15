@@ -58,7 +58,7 @@ func TestESignModuleAgreementArtifactSubresourceAllowsAdminDownloadExecutedAndCe
 		if err != nil {
 			t.Fatalf("request %s failed: %v", asset, err)
 		}
-		defer resp.Body.Close()
+		defer closeHTTPResponseBody(t, resp)
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
 			t.Fatalf("expected status 200 for %s, got %d body=%s", asset, resp.StatusCode, strings.TrimSpace(string(body)))
@@ -122,7 +122,7 @@ func TestESignModuleAgreementArtifactSubresourceDeniesMissingDownloadPermission(
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusForbidden {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 403, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -174,7 +174,7 @@ func TestESignModuleAgreementArtifactSubresourceDoesNotMatchDynamicPanelAlias(t 
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 404 for non-canonical panel alias route, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -202,7 +202,7 @@ func TestESignModuleDocumentSourceSubresourceAllowsAdminView(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -242,7 +242,7 @@ func TestESignModuleDocumentSourceSubresourceDeniesMissingViewPermission(t *test
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusForbidden {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 403, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -293,7 +293,7 @@ func TestESignModuleDocumentSourceSubresourceDoesNotMatchDynamicPanelAlias(t *te
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 404 for non-canonical panel alias route, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))

@@ -40,7 +40,7 @@ func TestRegisterGoogleRoutesFeatureGatedWhenDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected status 404 when esign_google disabled, got %d", resp.StatusCode)
 	}
@@ -115,7 +115,7 @@ func TestRegisterAdminRouteMiddlewareInjectsClaimsForGoAuthAuthorizer(t *testing
 	if err != nil {
 		t.Fatalf("connect request without claims failed: %v", err)
 	}
-	defer noClaimsResp.Body.Close()
+	defer closeHTTPResponseBody(t, noClaimsResp)
 	if noClaimsResp.StatusCode != http.StatusForbidden {
 		body, _ := io.ReadAll(noClaimsResp.Body)
 		t.Fatalf("expected connect 403 without auth middleware claims, got %d body=%s", noClaimsResp.StatusCode, string(body))
@@ -134,7 +134,7 @@ func TestRegisterAdminRouteMiddlewareInjectsClaimsForGoAuthAuthorizer(t *testing
 	if err != nil {
 		t.Fatalf("connect request with claims failed: %v", err)
 	}
-	defer connectResp.Body.Close()
+	defer closeHTTPResponseBody(t, connectResp)
 	if connectResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(connectResp.Body)
 		t.Fatalf("expected connect 200 with admin route middleware claims, got %d body=%s", connectResp.StatusCode, string(body))
@@ -155,7 +155,7 @@ func TestRegisterAdminRouteMiddlewareDoesNotProtectSignerRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("signer session request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected signer session to remain public (200), got %d body=%s", resp.StatusCode, string(body))
@@ -187,7 +187,7 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect request failed: %v", err)
 	}
-	defer connectResp.Body.Close()
+	defer closeHTTPResponseBody(t, connectResp)
 	if connectResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(connectResp.Body)
 		t.Fatalf("expected connect 200, got %d body=%s", connectResp.StatusCode, string(body))
@@ -202,7 +202,7 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rotate request failed: %v", err)
 	}
-	defer rotateResp.Body.Close()
+	defer closeHTTPResponseBody(t, rotateResp)
 	if rotateResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(rotateResp.Body)
 		t.Fatalf("expected rotate 200, got %d body=%s", rotateResp.StatusCode, string(body))
@@ -217,7 +217,7 @@ func TestRegisterGoogleOAuthConnectAndStatusEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("status request failed: %v", err)
 	}
-	defer statusResp.Body.Close()
+	defer closeHTTPResponseBody(t, statusResp)
 	if statusResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(statusResp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", statusResp.StatusCode, string(body))
@@ -244,7 +244,7 @@ func TestRegisterGoogleOAuthStatusUnexpectedErrorReturnsInternalServerError(t *t
 	if err != nil {
 		t.Fatalf("status request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusInternalServerError {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 500, got %d body=%s", resp.StatusCode, string(body))
@@ -286,7 +286,7 @@ func TestRegisterGoogleImportRunDetailUsesSourceReadModelService(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import run detail request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected import run detail 200, got %d body=%s", resp.StatusCode, string(body))
@@ -511,7 +511,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("search request failed: %v", err)
 	}
-	defer searchResp.Body.Close()
+	defer closeHTTPResponseBody(t, searchResp)
 	if searchResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(searchResp.Body)
 		t.Fatalf("expected search 200, got %d body=%s", searchResp.StatusCode, string(body))
@@ -535,7 +535,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("browse request failed: %v", err)
 	}
-	defer browseResp.Body.Close()
+	defer closeHTTPResponseBody(t, browseResp)
 	if browseResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(browseResp.Body)
 		t.Fatalf("expected browse 200, got %d body=%s", browseResp.StatusCode, string(body))
@@ -547,7 +547,7 @@ func TestRegisterGoogleDriveSearchBrowseAndImportEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import request failed: %v", err)
 	}
-	defer importResp.Body.Close()
+	defer closeHTTPResponseBody(t, importResp)
 	if importResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(importResp.Body)
 		t.Fatalf("expected import 200, got %d body=%s", importResp.StatusCode, string(body))
@@ -599,7 +599,7 @@ func TestRegisterGoogleDriveImportEndpointReplaysSameIdempotentImport(t *testing
 	if err != nil {
 		t.Fatalf("first import request failed: %v", err)
 	}
-	defer firstResp.Body.Close()
+	defer closeHTTPResponseBody(t, firstResp)
 	if firstResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(firstResp.Body)
 		t.Fatalf("expected first import 200, got %d body=%s", firstResp.StatusCode, string(payload))
@@ -615,7 +615,7 @@ func TestRegisterGoogleDriveImportEndpointReplaysSameIdempotentImport(t *testing
 	if err != nil {
 		t.Fatalf("second import request failed: %v", err)
 	}
-	defer secondResp.Body.Close()
+	defer closeHTTPResponseBody(t, secondResp)
 	if secondResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(secondResp.Body)
 		t.Fatalf("expected second import 200, got %d body=%s", secondResp.StatusCode, string(payload))
@@ -681,7 +681,7 @@ func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("browse request failed: %v", err)
 	}
-	defer browseResp.Body.Close()
+	defer closeHTTPResponseBody(t, browseResp)
 	if browseResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(browseResp.Body)
 		t.Fatalf("expected browse 200, got %d body=%s", browseResp.StatusCode, string(body))
@@ -697,7 +697,7 @@ func TestRegisterGoogleDriveSharedDriveBrowseAndImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import request failed: %v", err)
 	}
-	defer importResp.Body.Close()
+	defer closeHTTPResponseBody(t, importResp)
 	if importResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(importResp.Body)
 		t.Fatalf("expected import 200, got %d body=%s", importResp.StatusCode, string(body))
@@ -746,7 +746,7 @@ func TestRegisterGoogleDriveImportPermissionDeniedReturnsTypedError(t *testing.T
 	if err != nil {
 		t.Fatalf("import request failed: %v", err)
 	}
-	defer importResp.Body.Close()
+	defer closeHTTPResponseBody(t, importResp)
 	if importResp.StatusCode != http.StatusForbidden {
 		body, _ := io.ReadAll(importResp.Body)
 		t.Fatalf("expected import 403 for permission denied, got %d body=%s", importResp.StatusCode, string(body))
@@ -784,7 +784,7 @@ func TestRegisterGoogleImportCreateAtomicallyPersistsRunAndDurableJob(t *testing
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected create 202, got %d body=%s", resp.StatusCode, string(body))
@@ -844,7 +844,7 @@ func TestRegisterGoogleImportCreateRollsBackRunWhenDurableEnqueueFails(t *testin
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected create 503 on enqueue failure, got %d body=%s", resp.StatusCode, string(body))

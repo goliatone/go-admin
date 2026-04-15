@@ -192,7 +192,9 @@ func (s *eSignActivityStore) List(ctx context.Context, limit int, filters ...cor
 	if err != nil {
 		return nil, fmt.Errorf("list esign activity records: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	out := make([]coreadmin.ActivityEntry, 0)
 	for rows.Next() {
@@ -233,7 +235,9 @@ func (s *eSignActivityStore) ListActivity(ctx context.Context, filter userstypes
 	if err != nil {
 		return userstypes.ActivityPage{}, fmt.Errorf("query esign activity records: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	records := make([]userstypes.ActivityRecord, 0)
 	for rows.Next() {
@@ -268,7 +272,9 @@ func (s *eSignActivityStore) ActivityStats(ctx context.Context, filter userstype
 	if err != nil {
 		return stats, fmt.Errorf("query esign activity stats: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	for rows.Next() {
 		var verb string

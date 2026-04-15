@@ -37,7 +37,7 @@ func TestSignerProfileRoutesRoundTripAndClear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("patch request failed: %v", err)
 	}
-	defer patchResp.Body.Close()
+	defer closeHTTPResponseBody(t, patchResp)
 	if patchResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected patch status 200, got %d", patchResp.StatusCode)
 	}
@@ -58,7 +58,7 @@ func TestSignerProfileRoutesRoundTripAndClear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get request failed: %v", err)
 	}
-	defer getResp.Body.Close()
+	defer closeHTTPResponseBody(t, getResp)
 	if getResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected get status 200, got %d", getResp.StatusCode)
 	}
@@ -76,7 +76,7 @@ func TestSignerProfileRoutesRoundTripAndClear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("delete request failed: %v", err)
 	}
-	defer deleteResp.Body.Close()
+	defer closeHTTPResponseBody(t, deleteResp)
 	if deleteResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected delete status 200, got %d", deleteResp.StatusCode)
 	}
@@ -86,7 +86,7 @@ func TestSignerProfileRoutesRoundTripAndClear(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get-after-delete request failed: %v", err)
 	}
-	defer getAfterDeleteResp.Body.Close()
+	defer closeHTTPResponseBody(t, getAfterDeleteResp)
 	if getAfterDeleteResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected get-after-delete status 200, got %d", getAfterDeleteResp.StatusCode)
 	}
@@ -114,7 +114,7 @@ func TestSignerProfileRoutesRequireKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected status 400 when key missing, got %d", resp.StatusCode)
 	}
@@ -135,7 +135,7 @@ func TestSignerProfileRoutesReturnNotImplementedWhenServiceMissing(t *testing.T)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotImplemented {
 		t.Fatalf("expected status 501 when service missing, got %d", resp.StatusCode)
 	}
@@ -164,7 +164,7 @@ func TestSignerProfileRoutesPatchRejectsEmptyPatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected status 400 for empty patch, got %d", resp.StatusCode)
 	}
@@ -194,7 +194,7 @@ func TestSignerProfileRoutesPatchRejectsOverlongKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected status 400 for overlong key, got %d", resp.StatusCode)
 	}

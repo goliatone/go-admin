@@ -540,7 +540,7 @@ func bootstrapPublicSignerSession(t *testing.T, app *fiber.App, token string) st
 	if err != nil {
 		t.Fatalf("bootstrap request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected bootstrap status 200, got %d body=%s", resp.StatusCode, string(body))
@@ -565,7 +565,7 @@ func TestRegisterAdminRoutesRequirePermission(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
@@ -580,7 +580,7 @@ func TestRegisterAdminRoutesAllowPermission(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -607,7 +607,7 @@ func TestRegisterAgreementStatsRouteAllowPermission(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -643,7 +643,7 @@ func TestRegisterAgreementStatsRouteRequiresPermission(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
@@ -658,7 +658,7 @@ func TestRegisterSignerRoutesRemainPublic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected signer route to stay reachable, got %d", resp.StatusCode)
@@ -681,7 +681,7 @@ func TestSignerBootstrapIssuesBearerSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -718,7 +718,7 @@ func TestSignerAuthSessionRouteRequiresBearerAndIgnoresCookies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("missing bearer request failed: %v", err)
 	}
-	defer missingResp.Body.Close()
+	defer closeHTTPResponseBody(t, missingResp)
 	if missingResp.StatusCode != http.StatusUnauthorized {
 		body, _ := io.ReadAll(missingResp.Body)
 		t.Fatalf("expected 401 without bearer token, got %d body=%s", missingResp.StatusCode, string(body))
@@ -731,7 +731,7 @@ func TestSignerAuthSessionRouteRequiresBearerAndIgnoresCookies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("authorized request failed: %v", err)
 	}
-	defer authResp.Body.Close()
+	defer closeHTTPResponseBody(t, authResp)
 	if authResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(authResp.Body)
 		t.Fatalf("expected 200 with bearer token, got %d body=%s", authResp.StatusCode, string(body))
@@ -774,7 +774,7 @@ func TestRegisterSignerSessionReturns410ForExpiredToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusGone {
 		t.Fatalf("expected status 410, got %d", resp.StatusCode)
@@ -810,7 +810,7 @@ func TestSignerTokenValidatorIsUsedByRoute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusGone {
 		t.Fatalf("expected status 410, got %d", resp.StatusCode)
@@ -841,7 +841,7 @@ func TestRegisterSignerSessionReturns410ForRevokedToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusGone {
 		t.Fatalf("expected status 410, got %d", resp.StatusCode)
@@ -949,7 +949,7 @@ func TestRegisterSignerAssetsRedirectsSupersededCorrectionToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusFound {
 		t.Fatalf("expected redirect status 302, got %d", resp.StatusCode)
@@ -995,7 +995,7 @@ func TestRegisterSignerSessionRedirectsSupersededCorrectionToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusFound {
 		t.Fatalf("expected redirect status 302, got %d", resp.StatusCode)
@@ -1049,7 +1049,7 @@ func TestRegisterSignerAssetsReturns410ForRevokedTokenWithoutSupersedingVersion(
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusGone {
 		t.Fatalf("expected status 410, got %d", resp.StatusCode)
@@ -1075,7 +1075,7 @@ func TestRegisterAdminRouteDeniesCrossTenantScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
@@ -1099,7 +1099,7 @@ func TestRegisterRemediationTriggerRequiresAdminEdit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
 	}
@@ -1117,7 +1117,7 @@ func TestRegisterRemediationTriggerModeOverrideRequiresAdminSettings(t *testing.
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
 	}
@@ -1143,7 +1143,7 @@ func TestRegisterRemediationTriggerModeOverrideAllowedWithAdminSettings(t *testi
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotImplemented {
 		t.Fatalf("expected status 501, got %d", resp.StatusCode)
 	}
@@ -1169,7 +1169,7 @@ func TestRegisterRemediationTriggerDeniesScopeMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
 	}
@@ -1205,7 +1205,7 @@ func TestRegisterRemediationTriggerReturnsQueuedReceiptAndStatusURL(t *testing.T
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusAccepted {
 		t.Fatalf("expected status 202, got %d", resp.StatusCode)
 	}
@@ -1263,7 +1263,7 @@ func TestRegisterRemediationTriggerMapsIdempotencyKeyAndRetries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request one failed: %v", err)
 	}
-	defer respOne.Body.Close()
+	defer closeHTTPResponseBody(t, respOne)
 	if respOne.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(respOne.Body)
 		t.Fatalf("expected request one status 202, got %d body=%s", respOne.StatusCode, body)
@@ -1280,7 +1280,7 @@ func TestRegisterRemediationTriggerMapsIdempotencyKeyAndRetries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request two failed: %v", err)
 	}
-	defer respTwo.Body.Close()
+	defer closeHTTPResponseBody(t, respTwo)
 	if respTwo.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(respTwo.Body)
 		t.Fatalf("expected request two status 202, got %d body=%s", respTwo.StatusCode, body)
@@ -1323,7 +1323,7 @@ func TestRegisterRemediationDispatchStatusRequiresAdminView(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
 	}
@@ -1349,7 +1349,7 @@ func TestRegisterRemediationDispatchStatusDeniesScopeMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
 	}
@@ -1387,7 +1387,7 @@ func TestRegisterRemediationDispatchStatusAllowsMatchingScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
@@ -1437,7 +1437,7 @@ func TestRegisterRemediationDispatchStatusNormalizesLifecycleStates(t *testing.T
 			if err != nil {
 				t.Fatalf("request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer closeHTTPResponseBody(t, resp)
 			if resp.StatusCode != tc.wantHTTPCode {
 				t.Fatalf("expected status %d, got %d", tc.wantHTTPCode, resp.StatusCode)
 			}
@@ -1578,7 +1578,7 @@ func TestRegisterDraftWorkflowUnsupportedThenRemediateThenSend(t *testing.T) {
 		if testErr != nil {
 			t.Fatalf("request %s %s failed: %v", method, path, testErr)
 		}
-		defer resp.Body.Close()
+		defer closeHTTPResponseBody(t, resp)
 		raw, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
 			t.Fatalf("read response body: %v", readErr)
@@ -1720,7 +1720,7 @@ func TestRegisterSignerRouteDeniesCrossTenantScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", resp.StatusCode)
@@ -1837,7 +1837,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -1866,7 +1866,7 @@ func TestRegisterSignerSessionIncludesUnifiedGeometryAndBootstrapMetadata(t *tes
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -1916,7 +1916,7 @@ func TestRegisterSignerSessionAcceptsExternalReviewToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, body)
@@ -2167,7 +2167,7 @@ func TestRegisterSignerAssetsAcceptsExternalReviewTokenForSourcePreview(t *testi
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, body)
@@ -2192,7 +2192,7 @@ func TestRegisterSignerAssetsAcceptsExternalReviewTokenForSourcePreview(t *testi
 	if err != nil {
 		t.Fatalf("binary request failed: %v", err)
 	}
-	defer binaryResp.Body.Close()
+	defer closeHTTPResponseBody(t, binaryResp)
 	if binaryResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(binaryResp.Body)
 		t.Fatalf("expected binary status 200, got %d body=%s", binaryResp.StatusCode, payload)
@@ -2232,7 +2232,7 @@ func TestRegisterAgreementViewerAssetsFilterProtectedArtifactsByPolicy(t *testin
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, body)
@@ -2258,7 +2258,7 @@ func TestRegisterAgreementViewerAssetsFilterProtectedArtifactsByPolicy(t *testin
 	if err != nil {
 		t.Fatalf("executed asset request failed: %v", err)
 	}
-	defer executedResp.Body.Close()
+	defer closeHTTPResponseBody(t, executedResp)
 	if executedResp.StatusCode != http.StatusForbidden {
 		body, _ := io.ReadAll(executedResp.Body)
 		t.Fatalf("expected status 403 for executed asset without download permission, got %d body=%s", executedResp.StatusCode, body)
@@ -2277,7 +2277,7 @@ func TestRegisterAgreementViewerThreadsUseEditAndViewPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("session request failed: %v", err)
 	}
-	defer sessionResp.Body.Close()
+	defer closeHTTPResponseBody(t, sessionResp)
 	if sessionResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(sessionResp.Body)
 		t.Fatalf("expected status 200 for sender session, got %d body=%s", sessionResp.StatusCode, body)
@@ -2297,7 +2297,7 @@ func TestRegisterAgreementViewerThreadsUseEditAndViewPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("thread create request failed: %v", err)
 	}
-	defer threadResp.Body.Close()
+	defer closeHTTPResponseBody(t, threadResp)
 	if threadResp.StatusCode != http.StatusForbidden {
 		body, _ := io.ReadAll(threadResp.Body)
 		t.Fatalf("expected status 403 without edit+view comment policy, got %d body=%s", threadResp.StatusCode, body)
@@ -2318,7 +2318,7 @@ func TestRegisterAgreementViewerThreadsAllowEditAndViewPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("thread create request failed: %v", err)
 	}
-	defer threadResp.Body.Close()
+	defer closeHTTPResponseBody(t, threadResp)
 	if threadResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(threadResp.Body)
 		t.Fatalf("expected status 200 with edit+view policy, got %d body=%s", threadResp.StatusCode, body)
@@ -2344,7 +2344,7 @@ func TestRegisterAgreementViewerThreadsRespectReviewCommentState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("session request failed: %v", err)
 	}
-	defer sessionResp.Body.Close()
+	defer closeHTTPResponseBody(t, sessionResp)
 	if sessionResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(sessionResp.Body)
 		t.Fatalf("expected status 200 for sender session, got %d body=%s", sessionResp.StatusCode, body)
@@ -2364,7 +2364,7 @@ func TestRegisterAgreementViewerThreadsRespectReviewCommentState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("thread create request failed: %v", err)
 	}
-	defer threadResp.Body.Close()
+	defer closeHTTPResponseBody(t, threadResp)
 	if threadResp.StatusCode != http.StatusForbidden {
 		body, _ := io.ReadAll(threadResp.Body)
 		t.Fatalf("expected status 403 when review comments are disabled, got %d body=%s", threadResp.StatusCode, body)
@@ -2382,7 +2382,7 @@ func TestRegisterSignerTelemetryAcceptsExternalReviewToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusAccepted {
 		payload, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 202, got %d body=%s", resp.StatusCode, payload)
@@ -2405,7 +2405,7 @@ func TestRegisterSignerAssetsRejectExternalReviewTokenAfterReviewClose(t *testin
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusGone {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 410 after closing review, got %d body=%s", resp.StatusCode, body)
@@ -2488,7 +2488,7 @@ func TestRegisterSignerSessionIncludesLimitedCompatibilityReasonWhenPreviewFallb
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer forcedResp.Body.Close()
+	defer closeHTTPResponseBody(t, forcedResp)
 	if forcedResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(forcedResp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", forcedResp.StatusCode, body)
@@ -2583,7 +2583,7 @@ func TestRegisterSignerSessionReturnsTypedUnsupportedForUnsupportedDocument(t *t
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusUnprocessableEntity {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 422, got %d body=%s", resp.StatusCode, body)
@@ -2690,7 +2690,7 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
@@ -2738,7 +2738,7 @@ func TestRegisterSignerConsentCapturesAcceptance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -2763,7 +2763,7 @@ func TestRegisterSignerFieldValuesUpsertRequiredValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("expected status 400, got %d", resp.StatusCode)
@@ -2788,7 +2788,7 @@ func TestRegisterSignerFieldValuesUpsertSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -2817,7 +2817,7 @@ func TestRegisterSignerSignatureAttachSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -2846,7 +2846,7 @@ func TestRegisterSignerSignatureUploadBootstrapSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(resp.Body)
@@ -2882,7 +2882,7 @@ func TestRegisterSignerTelemetryAcceptsBeaconPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusAccepted {
 		payload, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 202, got %d body=%s", resp.StatusCode, payload)
@@ -2909,7 +2909,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bootstrap request failed: %v", err)
 	}
-	defer bootstrapResp.Body.Close()
+	defer closeHTTPResponseBody(t, bootstrapResp)
 	if bootstrapResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(bootstrapResp.Body)
 		t.Fatalf("expected bootstrap status 200, got %d body=%s", bootstrapResp.StatusCode, body)
@@ -2937,7 +2937,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("upload request failed: %v", err)
 	}
-	defer uploadResp.Body.Close()
+	defer closeHTTPResponseBody(t, uploadResp)
 	if uploadResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(uploadResp.Body)
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, body)
@@ -2951,7 +2951,7 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(payload))
@@ -2978,7 +2978,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatalf("bootstrap request failed: %v", err)
 	}
-	defer bootstrapResp.Body.Close()
+	defer closeHTTPResponseBody(t, bootstrapResp)
 	if bootstrapResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(bootstrapResp.Body)
 		t.Fatalf("expected bootstrap status 200, got %d body=%s", bootstrapResp.StatusCode, body)
@@ -3006,7 +3006,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatalf("upload request failed: %v", err)
 	}
-	defer uploadResp.Body.Close()
+	defer closeHTTPResponseBody(t, uploadResp)
 	if uploadResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(uploadResp.Body)
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, body)
@@ -3019,7 +3019,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatalf("first attach request failed: %v", err)
 	}
-	defer firstResp.Body.Close()
+	defer closeHTTPResponseBody(t, firstResp)
 	if firstResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(firstResp.Body)
 		t.Fatalf("expected first attach status 200, got %d body=%s", firstResp.StatusCode, body)
@@ -3039,7 +3039,7 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 	if err != nil {
 		t.Fatalf("retry attach request failed: %v", err)
 	}
-	defer retryResp.Body.Close()
+	defer closeHTTPResponseBody(t, retryResp)
 	if retryResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(retryResp.Body)
 		t.Fatalf("expected retry attach status 200, got %d body=%s", retryResp.StatusCode, body)
@@ -3101,7 +3101,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("submit request failed: %v", err)
 	}
-	defer submitResp.Body.Close()
+	defer closeHTTPResponseBody(t, submitResp)
 	if submitResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected submit status 200, got %d", submitResp.StatusCode)
 	}
@@ -3119,7 +3119,7 @@ func TestRegisterSignerSubmitFlowWithIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("submit replay request failed: %v", err)
 	}
-	defer replayResp.Body.Close()
+	defer closeHTTPResponseBody(t, replayResp)
 	if replayResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected submit replay status 200, got %d", replayResp.StatusCode)
 	}
@@ -3265,7 +3265,7 @@ func TestRegisterSignerDeclineFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decline request failed: %v", err)
 	}
-	defer declineResp.Body.Close()
+	defer closeHTTPResponseBody(t, declineResp)
 	if declineResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected decline status 200, got %d", declineResp.StatusCode)
 	}

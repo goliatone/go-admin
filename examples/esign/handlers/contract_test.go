@@ -85,7 +85,7 @@ func TestAdminAPIStatusEnvelopeContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
@@ -138,7 +138,7 @@ func TestAdminAPIStatusIncludesPDFPolicyDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
@@ -211,7 +211,7 @@ func TestAdminGuardedEffectStatusRedactsSensitivePayloadFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
@@ -267,7 +267,7 @@ func TestAdminSmokeRecipientLinksReturnsCapturedInvitationLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
@@ -318,7 +318,7 @@ func TestAdminSmokeRecipientLinksReturnsCapturedReviewLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
@@ -351,7 +351,7 @@ func TestAdminSmokeRecipientLinksReturnsTyped404WhenUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected status 404, got %d", resp.StatusCode)
 	}
@@ -403,7 +403,7 @@ func TestGoogleImportEnvelopeAndMetadataContractWhenEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("google import request failed: %v", err)
 	}
-	defer importResp.Body.Close()
+	defer closeHTTPResponseBody(t, importResp)
 	if importResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected import status 200, got %d", importResp.StatusCode)
 	}
@@ -672,7 +672,7 @@ func TestSignerSessionRateLimitErrorEnvelopeContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rate limit request failed: %v", err)
 	}
-	defer limited.Body.Close()
+	defer closeHTTPResponseBody(t, limited)
 	if limited.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("expected status 429, got %d", limited.StatusCode)
 	}
@@ -715,7 +715,7 @@ func TestSignerSessionExpiredTokenErrorEnvelopeContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusGone {
 		t.Fatalf("expected status 410, got %d", resp.StatusCode)
@@ -742,7 +742,7 @@ func TestSignerAssetContractEnvelope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
@@ -776,7 +776,7 @@ func TestSignerAssetContractReturnsPDFBinaryWhenAssetQueryPresent(t *testing.T) 
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
@@ -856,7 +856,7 @@ func TestSignerAssetContractReturnsTyped404WhenAssetUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 404, got %d body=%s", resp.StatusCode, string(body))
@@ -892,7 +892,7 @@ func TestAdminAgreementArtifactDownloadRouteNotExposedByHandlersRegister(t *test
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 404 for non-canonical artifact route, got %d body=%s", resp.StatusCode, string(body))
@@ -923,7 +923,7 @@ func TestAdminAgreementArtifactDownloadRouteNotExposedByHandlersRegisterWithEnvS
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 404 for non-canonical artifact route, got %d body=%s", resp.StatusCode, string(body))
@@ -964,7 +964,7 @@ func TestSignerAssetContractEmitsAuditEventForAssetOpen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 200, got %d body=%s", resp.StatusCode, string(body))
@@ -1000,7 +1000,7 @@ func TestSignerSessionV2FieldIdentityContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", resp.StatusCode)
 	}
@@ -1064,7 +1064,7 @@ func TestSignerTypedSignatureAttachRequiresFieldInstanceID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer legacyResp.Body.Close()
+	defer closeHTTPResponseBody(t, legacyResp)
 	if legacyResp.StatusCode != http.StatusBadRequest {
 		payload, _ := io.ReadAll(legacyResp.Body)
 		t.Fatalf("expected status 400 for legacy field_id payload, got %d body=%s", legacyResp.StatusCode, payload)
@@ -1078,7 +1078,7 @@ func TestSignerTypedSignatureAttachRequiresFieldInstanceID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected status 200 for v2 typed signature attach, got %d body=%s", resp.StatusCode, payload)

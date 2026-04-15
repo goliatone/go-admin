@@ -215,7 +215,9 @@ func (p SMTPEmailProvider) sendMail(addr, host, from, to string, message []byte)
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+	defer func() {
+		_ = client.Close()
+	}()
 
 	if !p.cfg.DisableSTARTTLS {
 		if ok, _ := client.Extension("STARTTLS"); ok {

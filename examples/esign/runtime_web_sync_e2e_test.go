@@ -37,7 +37,7 @@ func TestRuntimeAgreementSyncE2ECreateAutosaveConflictRecoverAndReplaySend(t *te
 		"application/json",
 		bytes.NewReader(nil),
 	)
-	defer bootstrapResp.Body.Close()
+	defer closeHTTPResponseBody(t, bootstrapResp)
 	if bootstrapResp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(bootstrapResp.Body)
 		t.Fatalf("expected sync bootstrap status 201, got %d body=%s", bootstrapResp.StatusCode, strings.TrimSpace(string(body)))
@@ -74,7 +74,7 @@ func TestRuntimeAgreementSyncE2ECreateAutosaveConflictRecoverAndReplaySend(t *te
 	}
 
 	readResp := doRequestWithCookie(t, app, http.MethodGet, runtimeSyncResourcePath(draftID), authCookie)
-	defer readResp.Body.Close()
+	defer closeHTTPResponseBody(t, readResp)
 	if readResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(readResp.Body)
 		t.Fatalf("expected synced draft read status 200, got %d body=%s", readResp.StatusCode, strings.TrimSpace(string(body)))
@@ -100,7 +100,7 @@ func TestRuntimeAgreementSyncE2ECreateAutosaveConflictRecoverAndReplaySend(t *te
 			"payload":           runtimeSyncAutosavePayload(documentID, "Runtime Sync Agreement", "Stale write", 5),
 		}),
 	)
-	defer staleResp.Body.Close()
+	defer closeHTTPResponseBody(t, staleResp)
 	if staleResp.StatusCode != http.StatusConflict {
 		body, _ := io.ReadAll(staleResp.Body)
 		t.Fatalf("expected stale autosave status 409, got %d body=%s", staleResp.StatusCode, strings.TrimSpace(string(body)))
@@ -153,14 +153,14 @@ func TestRuntimeAgreementSyncE2ECreateAutosaveConflictRecoverAndReplaySend(t *te
 	}
 
 	agreementDetailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+agreementID, authCookie)
-	defer agreementDetailResp.Body.Close()
+	defer closeHTTPResponseBody(t, agreementDetailResp)
 	if agreementDetailResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(agreementDetailResp.Body)
 		t.Fatalf("expected created agreement detail status 200, got %d body=%s", agreementDetailResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	sentDraftResp := doRequestWithCookie(t, app, http.MethodGet, runtimeSyncResourcePath(draftID), authCookie)
-	defer sentDraftResp.Body.Close()
+	defer closeHTTPResponseBody(t, sentDraftResp)
 	if sentDraftResp.StatusCode != http.StatusNotFound {
 		body, _ := io.ReadAll(sentDraftResp.Body)
 		t.Fatalf("expected sent draft read status 404, got %d body=%s", sentDraftResp.StatusCode, strings.TrimSpace(string(body)))
@@ -172,7 +172,7 @@ func TestRuntimeAgreementSyncClientUsesEmbeddedPkgArtifactRoute(t *testing.T) {
 	authCookie := loginRuntimeWebAdmin(t, app)
 
 	agreementResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_agreements/new", authCookie)
-	defer agreementResp.Body.Close()
+	defer closeHTTPResponseBody(t, agreementResp)
 	if agreementResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(agreementResp.Body)
 		t.Fatalf("expected agreement form status 200, got %d body=%s", agreementResp.StatusCode, strings.TrimSpace(string(body)))
@@ -189,7 +189,7 @@ func TestRuntimeAgreementSyncClientUsesEmbeddedPkgArtifactRoute(t *testing.T) {
 	}
 
 	servedResp := doRequest(t, app, http.MethodGet, "/admin/sync-client/sync-core/index.js", "", nil)
-	defer servedResp.Body.Close()
+	defer closeHTTPResponseBody(t, servedResp)
 	if servedResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(servedResp.Body)
 		t.Fatalf("expected sync-core route status 200, got %d body=%s", servedResp.StatusCode, strings.TrimSpace(string(body)))
@@ -215,7 +215,7 @@ func loginRuntimeWebAdmin(t *testing.T, app *fiber.App) *http.Cookie {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer loginResp.Body.Close()
+	defer closeHTTPResponseBody(t, loginResp)
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -248,7 +248,7 @@ func createRuntimeWebSyncDocument(t *testing.T, app *fiber.App, authCookie *http
 		uploadWriter.FormDataContentType(),
 		&uploadBody,
 	)
-	defer uploadResp.Body.Close()
+	defer closeHTTPResponseBody(t, uploadResp)
 	if uploadResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(uploadResp.Body)
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, strings.TrimSpace(string(body)))
@@ -272,7 +272,7 @@ func createRuntimeWebSyncDocument(t *testing.T, app *fiber.App, authCookie *http
 		"application/x-www-form-urlencoded",
 		strings.NewReader(documentReqBody.Encode()),
 	)
-	defer createDocumentResp.Body.Close()
+	defer closeHTTPResponseBody(t, createDocumentResp)
 	if createDocumentResp.StatusCode != http.StatusFound {
 		body, _ := io.ReadAll(createDocumentResp.Body)
 		t.Fatalf("expected document create redirect 302, got %d body=%s", createDocumentResp.StatusCode, strings.TrimSpace(string(body)))
@@ -353,7 +353,7 @@ func doRuntimeWebSyncMutation(
 		"application/json",
 		mustJSONReader(t, payload),
 	)
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected %s %s status 200, got %d body=%s", method, path, resp.StatusCode, strings.TrimSpace(string(body)))

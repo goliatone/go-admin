@@ -285,7 +285,7 @@ func doPanelJSONRequestWithStatus(t *testing.T, server router.Server[*fiber.App]
 	}
 	res, err := server.WrappedRouter().Test(req, -1)
 	require.NoError(t, err, "request %s %s", method, requestPath)
-	defer res.Body.Close()
+	defer closeHTTPResponseBody(t, res)
 
 	out := map[string]any{}
 	if strings.TrimSpace(res.Status) != "" {

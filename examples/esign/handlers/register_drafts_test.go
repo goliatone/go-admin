@@ -56,7 +56,7 @@ func doLegacyDraftRequest(t *testing.T, app *fiber.App, method, path string, pay
 	if err != nil {
 		t.Fatalf("request %s %s failed: %v", method, path, err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read response: %v", err)

@@ -74,7 +74,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 				detailContract := assertCanonicalWorkspaceContract(t, detailModel)
 
 				resp := doRequestWithCookie(t, app, http.MethodGet, urls.SourceWorkspaceURL, authCookie)
-				defer resp.Body.Close()
+				defer closeHTTPResponseBody(t, resp)
 				if resp.StatusCode != http.StatusOK {
 					body, _ := io.ReadAll(resp.Body)
 					t.Fatalf("expected source workspace page status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
@@ -188,7 +188,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 						t.Fatalf("expected reachable result link href, got %+v", link)
 					}
 					resp := doRequestWithCookie(t, app, http.MethodGet, href, authCookie)
-					defer resp.Body.Close()
+					defer closeHTTPResponseBody(t, resp)
 					if resp.StatusCode != http.StatusOK {
 						body, _ := io.ReadAll(resp.Body)
 						t.Fatalf("expected translated result link %q to return 200, got %d body=%s", href, resp.StatusCode, strings.TrimSpace(string(body)))
@@ -201,7 +201,7 @@ func TestRuntimeSourceManagementPagesBootWithSeededContracts(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			resp := doRequestWithCookie(t, fixture.App, http.MethodGet, tc.endpoint, authCookie)
-			defer resp.Body.Close()
+			defer closeHTTPResponseBody(t, resp)
 			if resp.StatusCode != http.StatusOK {
 				body, _ := io.ReadAll(resp.Body)
 				t.Fatalf("expected %s status 200, got %d body=%s", tc.name, resp.StatusCode, strings.TrimSpace(string(body)))
@@ -256,7 +256,7 @@ func TestRuntimeSourceManagementPagesAreDiscoverableFromAdminRuntimeNavigation(t
 	authCookie := loginESignRuntimeAdmin(t, fixture.App)
 
 	landingResp := doRequestWithCookie(t, fixture.App, http.MethodGet, "/admin", authCookie)
-	defer landingResp.Body.Close()
+	defer closeHTTPResponseBody(t, landingResp)
 	if landingResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(landingResp.Body)
 		t.Fatalf("expected landing page status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
@@ -272,7 +272,7 @@ func TestRuntimeSourceManagementPagesAreDiscoverableFromAdminRuntimeNavigation(t
 	}
 
 	detailResp := doRequestWithCookie(t, fixture.App, http.MethodGet, urls.SourceDetailURL, authCookie)
-	defer detailResp.Body.Close()
+	defer closeHTTPResponseBody(t, detailResp)
 	if detailResp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(detailResp.Body)
 		t.Fatalf("expected source detail page status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
@@ -309,7 +309,7 @@ func TestRuntimeSourceSearchUsesGoSearchWhenLegacySearchStoreIsUnavailable(t *te
 	authCookie := loginESignRuntimeAdmin(t, fixture.App)
 
 	resp := doRequestWithCookie(t, fixture.App, http.MethodGet, urls.SourceSearchURL, authCookie)
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected source search status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))

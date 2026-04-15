@@ -75,7 +75,9 @@ func tableColumnNames(ctx context.Context, db *bun.DB, table string) ([]string, 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	cols := make([]string, 0)
 	for rows.Next() {
@@ -352,10 +354,14 @@ func TestMigrationsBackupAndRestoreSQLite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open restore sqlite: %v", err)
 	}
-	defer restoreSQLDB.Close()
+	defer func() {
+		_ = restoreSQLDB.Close()
+	}()
 
 	restoreDB := bun.NewDB(restoreSQLDB, sqlitedialect.New())
-	defer restoreDB.Close()
+	defer func() {
+		_ = restoreDB.Close()
+	}()
 
 	exists, err := tableExists(ctx, restoreDB, "documents")
 	if err != nil {
@@ -583,11 +589,15 @@ func TestV2MigrationBackfillPreservesAuditTerminalOutcomesAndArtifactPointers(t 
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	defer sqlDB.Close()
+	defer func() {
+		_ = sqlDB.Close()
+	}()
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 	db := bun.NewDB(sqlDB, sqlitedialect.New())
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	execSQLFile(t, db, "../data/sql/migrations/0001_esign_core.up.sql")
 	execSQLFile(t, db, "../data/sql/migrations/0003_esign_google_integration.up.sql")

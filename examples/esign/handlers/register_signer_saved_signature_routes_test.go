@@ -35,7 +35,7 @@ func TestSignerSavedSignatureRoutesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create request failed: %v", err)
 	}
-	defer createResp.Body.Close()
+	defer closeHTTPResponseBody(t, createResp)
 	if createResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", createResp.StatusCode)
 	}
@@ -54,7 +54,7 @@ func TestSignerSavedSignatureRoutesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list request failed: %v", err)
 	}
-	defer listResp.Body.Close()
+	defer closeHTTPResponseBody(t, listResp)
 	if listResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected status 200, got %d", listResp.StatusCode)
 	}
@@ -69,7 +69,7 @@ func TestSignerSavedSignatureRoutesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("delete request failed: %v", err)
 	}
-	defer deleteResp.Body.Close()
+	defer closeHTTPResponseBody(t, deleteResp)
 	if deleteResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected delete status 200, got %d", deleteResp.StatusCode)
 	}
@@ -99,7 +99,7 @@ func TestSignerSavedSignatureRoutesEnforceLimit(t *testing.T) {
 		if err != nil {
 			t.Fatalf("save request %d failed: %v", i+1, err)
 		}
-		defer resp.Body.Close()
+		defer closeHTTPResponseBody(t, resp)
 		if i == 0 && resp.StatusCode != http.StatusOK {
 			t.Fatalf("expected first save 200, got %d", resp.StatusCode)
 		}

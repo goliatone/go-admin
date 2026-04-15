@@ -2278,7 +2278,7 @@ func TestAgreementPanelRepositoryServePanelSubresourceReturnsPDFAndAppendsAuditE
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeHTTPResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

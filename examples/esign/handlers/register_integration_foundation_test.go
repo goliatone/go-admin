@@ -49,7 +49,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create mapping request failed: %v", err)
 	}
-	defer createResp.Body.Close()
+	defer closeHTTPResponseBody(t, createResp)
 	if createResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(createResp.Body)
 		t.Fatalf("expected create mapping status 200, got %d body=%s", createResp.StatusCode, payload)
@@ -72,7 +72,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("publish mapping request failed: %v", err)
 	}
-	defer publishResp.Body.Close()
+	defer closeHTTPResponseBody(t, publishResp)
 	if publishResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(publishResp.Body)
 		t.Fatalf("expected publish status 200, got %d body=%s", publishResp.StatusCode, payload)
@@ -83,7 +83,7 @@ func TestRegisterIntegrationMappingAndPublishEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get mapping request failed: %v", err)
 	}
-	defer getResp.Body.Close()
+	defer closeHTTPResponseBody(t, getResp)
 	if getResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(getResp.Body)
 		t.Fatalf("expected get mapping status 200, got %d body=%s", getResp.StatusCode, payload)
@@ -134,7 +134,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start sync run request failed: %v", err)
 	}
-	defer startResp.Body.Close()
+	defer closeHTTPResponseBody(t, startResp)
 	if startResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(startResp.Body)
 		t.Fatalf("expected start sync run status 200, got %d body=%s", startResp.StatusCode, payload)
@@ -157,7 +157,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("checkpoint request failed: %v", err)
 	}
-	defer checkpointResp.Body.Close()
+	defer closeHTTPResponseBody(t, checkpointResp)
 	if checkpointResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(checkpointResp.Body)
 		t.Fatalf("expected checkpoint status 200, got %d body=%s", checkpointResp.StatusCode, payload)
@@ -187,7 +187,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("diagnostics request failed: %v", err)
 	}
-	defer diagnosticsResp.Body.Close()
+	defer closeHTTPResponseBody(t, diagnosticsResp)
 	if diagnosticsResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(diagnosticsResp.Body)
 		t.Fatalf("expected diagnostics status 200, got %d body=%s", diagnosticsResp.StatusCode, payload)
@@ -212,7 +212,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve request failed: %v", err)
 	}
-	defer resolveResp.Body.Close()
+	defer closeHTTPResponseBody(t, resolveResp)
 	if resolveResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(resolveResp.Body)
 		t.Fatalf("expected resolve status 200, got %d body=%s", resolveResp.StatusCode, payload)
@@ -238,7 +238,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("inbound request failed: %v", err)
 	}
-	defer inboundResp.Body.Close()
+	defer closeHTTPResponseBody(t, inboundResp)
 	if inboundResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(inboundResp.Body)
 		t.Fatalf("expected inbound status 200, got %d body=%s", inboundResp.StatusCode, payload)
@@ -263,7 +263,7 @@ func TestRegisterIntegrationSyncConflictInboundOutboundEndpoints(t *testing.T) {
 	if err != nil {
 		t.Fatalf("outbound request failed: %v", err)
 	}
-	defer outboundResp.Body.Close()
+	defer closeHTTPResponseBody(t, outboundResp)
 	if outboundResp.StatusCode != http.StatusOK {
 		payload, _ := io.ReadAll(outboundResp.Body)
 		t.Fatalf("expected outbound status 200, got %d body=%s", outboundResp.StatusCode, payload)

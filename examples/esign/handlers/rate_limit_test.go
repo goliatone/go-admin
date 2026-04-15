@@ -49,7 +49,7 @@ func TestSignerEndpointsRateLimited(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first request failed: %v", err)
 	}
-	defer resp1.Body.Close()
+	defer closeHTTPResponseBody(t, resp1)
 
 	if resp1.StatusCode != http.StatusOK {
 		t.Fatalf("expected first status 200, got %d", resp1.StatusCode)
@@ -61,7 +61,7 @@ func TestSignerEndpointsRateLimited(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second request failed: %v", err)
 	}
-	defer resp2.Body.Close()
+	defer closeHTTPResponseBody(t, resp2)
 
 	if resp2.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("expected second status 429, got %d", resp2.StatusCode)
@@ -80,7 +80,7 @@ func TestSignerWriteUsesSeparateBucketFromSubmit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first submit request failed: %v", err)
 	}
-	defer submitResp1.Body.Close()
+	defer closeHTTPResponseBody(t, submitResp1)
 	if submitResp1.StatusCode != http.StatusNotImplemented {
 		t.Fatalf("expected first submit status 501 (service unavailable in test wiring), got %d", submitResp1.StatusCode)
 	}
@@ -91,7 +91,7 @@ func TestSignerWriteUsesSeparateBucketFromSubmit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write request failed: %v", err)
 	}
-	defer writeResp.Body.Close()
+	defer closeHTTPResponseBody(t, writeResp)
 	if writeResp.StatusCode == http.StatusTooManyRequests {
 		t.Fatalf("expected write request not to be blocked by submit bucket")
 	}
@@ -101,7 +101,7 @@ func TestSignerWriteUsesSeparateBucketFromSubmit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second submit request failed: %v", err)
 	}
-	defer submitResp2.Body.Close()
+	defer closeHTTPResponseBody(t, submitResp2)
 	if submitResp2.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("expected second submit status 429, got %d", submitResp2.StatusCode)
 	}
@@ -144,7 +144,7 @@ func TestRateLimitRulesCanBeOverriddenByPreferences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("limited request failed: %v", err)
 	}
-	defer limitedResp.Body.Close()
+	defer closeHTTPResponseBody(t, limitedResp)
 	if limitedResp.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("expected request 4 to be limited, got %d", limitedResp.StatusCode)
 	}
@@ -162,7 +162,7 @@ func TestRateLimiterIgnoresForwardedHeadersByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first request failed: %v", err)
 	}
-	defer resp1.Body.Close()
+	defer closeHTTPResponseBody(t, resp1)
 	if resp1.StatusCode != http.StatusOK {
 		t.Fatalf("expected first status 200, got %d", resp1.StatusCode)
 	}
@@ -173,7 +173,7 @@ func TestRateLimiterIgnoresForwardedHeadersByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second request failed: %v", err)
 	}
-	defer resp2.Body.Close()
+	defer closeHTTPResponseBody(t, resp2)
 	if resp2.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("expected second status 429 with forwarded headers ignored, got %d", resp2.StatusCode)
 	}
@@ -197,7 +197,7 @@ func TestRateLimiterCanTrustForwardedHeadersWhenEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first request failed: %v", err)
 	}
-	defer resp1.Body.Close()
+	defer closeHTTPResponseBody(t, resp1)
 	if resp1.StatusCode != http.StatusOK {
 		t.Fatalf("expected first status 200, got %d", resp1.StatusCode)
 	}
@@ -208,7 +208,7 @@ func TestRateLimiterCanTrustForwardedHeadersWhenEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second request failed: %v", err)
 	}
-	defer resp2.Body.Close()
+	defer closeHTTPResponseBody(t, resp2)
 	if resp2.StatusCode != http.StatusOK {
 		t.Fatalf("expected second status 200 with trusted forwarded headers, got %d", resp2.StatusCode)
 	}
