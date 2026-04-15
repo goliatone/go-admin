@@ -1,5 +1,30 @@
 # Changelog
 
+# [0.50.0](https://github.com/goliatone/go-admin/compare/v0.49.0...v0.50.0) - (2026-04-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Theme selector reuse registed selector ([d68a28c](https://github.com/goliatone/go-admin/commit/d68a28c18899fadc4447a5025f06521ae8e16375))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.50.0 ([7c1933f](https://github.com/goliatone/go-admin/commit/7c1933f931ccadffce12140a27e6c8684c94a310))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Centralize asset management ([96320fd](https://github.com/goliatone/go-admin/commit/96320fd6987342a16d0cb9d1f81d2bb2f40c87bf))  - (goliatone)
+- Overlay theme selections ([871eae9](https://github.com/goliatone/go-admin/commit/871eae9016349535111cdb87ca6849179a54165f))  - (goliatone)
+- Support config token override ([1360b5e](https://github.com/goliatone/go-admin/commit/1360b5edc426c696fa158a9efa9a9a5795d2b353))  - (goliatone)
+- Auth ui redirect customization ([2d91dd3](https://github.com/goliatone/go-admin/commit/2d91dd315ab8a9643909f1d64074207b10b7334a))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.49.0 ([21d0f65](https://github.com/goliatone/go-admin/commit/21d0f654319f39aa2f045df00e35f3574355f37f))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([7351f8e](https://github.com/goliatone/go-admin/commit/7351f8e015cc8a8284b09720c42de116edd8d968))  - (goliatone)
+
 # [0.49.0](https://github.com/goliatone/go-admin/compare/v0.48.0...v0.49.0) - (2026-04-14)
 
 ## <!-- 1 -->🐛 Bug Fixes
