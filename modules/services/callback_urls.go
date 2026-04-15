@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -231,17 +232,14 @@ func callbackRequestOrigin(c router.Context) string {
 		host = strings.TrimSpace(c.Header("Host"))
 	}
 
-	if httpCtx, ok := c.(router.HTTPContext); ok && httpCtx != nil {
+	if httpCtx := callbackURLHTTPContext(c); httpCtx != nil {
 		request := httpCtx.Request()
 		if request != nil {
 			if host == "" {
 				host = strings.TrimSpace(request.Host)
 			}
-			if scheme == "" && request.URL != nil {
-				scheme = strings.TrimSpace(request.URL.Scheme)
-			}
-			if scheme == "" && request.TLS != nil {
-				scheme = "https"
+			if scheme == "" {
+				scheme = callbackURLRequestScheme(request)
 			}
 		}
 	}
@@ -317,4 +315,25 @@ func joinURLPaths(basePath string, nextPath string) string {
 	default:
 		return "/" + basePath + "/" + nextPath
 	}
+}
+
+func callbackURLHTTPContext(c router.Context) router.HTTPContext {
+	httpCtx, ok := c.(router.HTTPContext)
+	if !ok || httpCtx == nil {
+		return nil
+	}
+	return httpCtx
+}
+
+func callbackURLRequestScheme(request *http.Request) string {
+	if request == nil {
+		return ""
+	}
+	if request.URL != nil && strings.TrimSpace(request.URL.Scheme) != "" {
+		return strings.TrimSpace(request.URL.Scheme)
+	}
+	if request.TLS != nil {
+		return "https"
+	}
+	return ""
 }
