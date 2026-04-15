@@ -311,15 +311,49 @@ func (m *Module) handleWorkflowPlanSyncRun(c router.Context, body map[string]any
 	if err != nil {
 		return 0, nil, err
 	}
-	payload := struct {
-		Binding          gocore.SyncBinding `json:"binding"`
-		Mode             string             `json:"mode"`
-		FromCheckpointID string             `json:"from_checkpoint_id"`
-		Limit            int                `json:"limit"`
-		Metadata         map[string]any     `json:"metadata"`
-	}{}
+	payload, err := workflowPlanSyncRunPayloadFromBody(body)
+	if err != nil {
+		return 0, nil, err
+	}
+	binding, err := workflowPlanSyncRunBinding(c, body, payload.Binding)
+	if err != nil {
+		return 0, nil, err
+	}
+	if binding.ProviderID == "" {
+		return 0, nil, validationError("binding.provider_id is required", map[string]any{"field": "binding.provider_id"})
+	}
+	binding, err = runtime.syncBindingStore.Upsert(c.Context(), binding)
+	if err != nil {
+		return 0, nil, err
+	}
+	plan, err := runtime.planner.PlanSyncRun(c.Context(), gocore.PlanSyncRunRequest{
+		Binding:          binding,
+		Mode:             workflowPlanSyncRunMode(payload.Mode),
+		FromCheckpointID: strings.TrimSpace(payload.FromCheckpointID),
+		Limit:            payload.Limit,
+		Metadata:         copyAnyMap(payload.Metadata),
+	})
+	if err != nil {
+		return 0, nil, err
+	}
+	return http.StatusOK, map[string]any{
+		"binding": workflowSyncBindingToMap(binding),
+		"plan":    workflowSyncRunPlanToMap(plan),
+	}, nil
+}
+
+type workflowPlanSyncRunPayload struct {
+	Binding          gocore.SyncBinding `json:"binding"`
+	Mode             string             `json:"mode"`
+	FromCheckpointID string             `json:"from_checkpoint_id"`
+	Limit            int                `json:"limit"`
+	Metadata         map[string]any     `json:"metadata"`
+}
+
+func workflowPlanSyncRunPayloadFromBody(body map[string]any) (workflowPlanSyncRunPayload, error) {
+	payload := workflowPlanSyncRunPayload{}
 	if decodeErr := decodeBodyMap(body, &payload); decodeErr != nil {
-		return 0, nil, validationError("invalid sync plan payload", map[string]any{"field": "body"})
+		return workflowPlanSyncRunPayload{}, validationError("invalid sync plan payload", map[string]any{"field": "body"})
 	}
 	if rawBinding, ok := body["binding"].(map[string]any); ok {
 		payload.Binding = workflowSyncBindingFromMap(rawBinding, payload.Binding)
@@ -336,48 +370,36 @@ func (m *Module) handleWorkflowPlanSyncRun(c router.Context, body map[string]any
 	if metadata := extractMap(body["metadata"]); len(metadata) > 0 {
 		payload.Metadata = metadata
 	}
-	if payload.Binding.Scope.Type == "" || payload.Binding.Scope.ID == "" {
-		scope, scopeErr := resolveScope(c.Context(), c, body)
-		if scopeErr != nil {
-			return 0, nil, scopeErr
+	return payload, nil
+}
+
+func workflowPlanSyncRunBinding(c router.Context, body map[string]any, binding gocore.SyncBinding) (gocore.SyncBinding, error) {
+	if binding.Scope.Type == "" || binding.Scope.ID == "" {
+		scope, err := resolveScope(c.Context(), c, body)
+		if err != nil {
+			return gocore.SyncBinding{}, err
 		}
-		payload.Binding.Scope = scope
+		binding.Scope = scope
 	}
-	payload.Binding.ProviderID = strings.TrimSpace(payload.Binding.ProviderID)
-	if payload.Binding.ProviderID == "" {
-		payload.Binding.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
+	binding.ProviderID = strings.TrimSpace(binding.ProviderID)
+	if binding.ProviderID == "" {
+		binding.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
 	}
-	if payload.Binding.ProviderID == "" {
-		return 0, nil, validationError("binding.provider_id is required", map[string]any{"field": "binding.provider_id"})
+	if binding.Status == "" {
+		binding.Status = gocore.SyncBindingStatusActive
 	}
-	if payload.Binding.Status == "" {
-		payload.Binding.Status = gocore.SyncBindingStatusActive
+	if binding.Direction == "" {
+		binding.Direction = gocore.SyncDirectionImport
 	}
-	if payload.Binding.Direction == "" {
-		payload.Binding.Direction = gocore.SyncDirectionImport
-	}
-	binding, err := runtime.syncBindingStore.Upsert(c.Context(), payload.Binding)
-	if err != nil {
-		return 0, nil, err
-	}
-	mode := workflowNormalizeSyncRunMode(payload.Mode, gocore.SyncRunModeDryRun)
+	return binding, nil
+}
+
+func workflowPlanSyncRunMode(raw string) gocore.SyncRunMode {
+	mode := workflowNormalizeSyncRunMode(raw, gocore.SyncRunModeDryRun)
 	if mode == "" {
-		mode = gocore.SyncRunModeDryRun
+		return gocore.SyncRunModeDryRun
 	}
-	plan, err := runtime.planner.PlanSyncRun(c.Context(), gocore.PlanSyncRunRequest{
-		Binding:          binding,
-		Mode:             mode,
-		FromCheckpointID: strings.TrimSpace(payload.FromCheckpointID),
-		Limit:            payload.Limit,
-		Metadata:         copyAnyMap(payload.Metadata),
-	})
-	if err != nil {
-		return 0, nil, err
-	}
-	return http.StatusOK, map[string]any{
-		"binding": workflowSyncBindingToMap(binding),
-		"plan":    workflowSyncRunPlanToMap(plan),
-	}, nil
+	return mode
 }
 
 func (m *Module) handleWorkflowRunSync(c router.Context, body map[string]any) (int, any, error) {
@@ -875,25 +897,9 @@ func (m *Module) handleWorkflowSetSchemaDriftBaseline(c router.Context, body map
 		return 0, nil, validationError("spec_id is required", map[string]any{"field": "spec_id"})
 	}
 	version := toInt(body["version"], 0)
-	var spec gocore.MappingSpec
-	if version > 0 {
-		row, found, getErr := runtime.mappingLifecycle.GetVersion(c.Context(), providerID, scope, specID, version)
-		if getErr != nil {
-			return 0, nil, getErr
-		}
-		if !found {
-			return 0, nil, missingResourceError("mapping_spec", map[string]any{"spec_id": specID, "version": version})
-		}
-		spec = row
-	} else {
-		row, found, getErr := runtime.mappingLifecycle.GetLatest(c.Context(), providerID, scope, specID)
-		if getErr != nil {
-			return 0, nil, getErr
-		}
-		if !found {
-			return 0, nil, missingResourceError("mapping_spec", map[string]any{"spec_id": specID})
-		}
-		spec = row
+	spec, err := workflowSchemaBaselineSpec(c.Context(), runtime, providerID, scope, specID, version)
+	if err != nil {
+		return 0, nil, err
 	}
 	schemaRef := strings.TrimSpace(firstNonEmptyString(body["schema_ref"], spec.SchemaRef))
 	if schemaRef == "" {
@@ -913,6 +919,27 @@ func (m *Module) handleWorkflowSetSchemaDriftBaseline(c router.Context, body map
 		"baseline": workflowSchemaBaselineToMap(baseline),
 		"drift":    workflowSchemaDriftItem(spec, baseline, true),
 	}, nil
+}
+
+func workflowSchemaBaselineSpec(ctx context.Context, runtime *workflowRuntime, providerID string, scope gocore.ScopeRef, specID string, version int) (gocore.MappingSpec, error) {
+	if version > 0 {
+		row, found, err := runtime.mappingLifecycle.GetVersion(ctx, providerID, scope, specID, version)
+		if err != nil {
+			return gocore.MappingSpec{}, err
+		}
+		if !found {
+			return gocore.MappingSpec{}, missingResourceError("mapping_spec", map[string]any{"spec_id": specID, "version": version})
+		}
+		return row, nil
+	}
+	row, found, err := runtime.mappingLifecycle.GetLatest(ctx, providerID, scope, specID)
+	if err != nil {
+		return gocore.MappingSpec{}, err
+	}
+	if !found {
+		return gocore.MappingSpec{}, missingResourceError("mapping_spec", map[string]any{"spec_id": specID})
+	}
+	return row, nil
 }
 
 func (m *Module) handleWorkflowListConflicts(c router.Context, _ map[string]any) (int, any, error) {

@@ -83,61 +83,103 @@ func (m *Module) wrapServiceRoute(permission string, mutating bool, skipClientId
 		if err := m.authorizeRoute(c, permission); err != nil {
 			return writeServiceError(c, err)
 		}
-
-		body := map[string]any{}
-		var rawBody []byte
-		if mutating {
-			rawBody = append([]byte(nil), c.Body()...)
-			if len(rawBody) > 0 {
-				parsedBody, err := parseJSONMap(rawBody)
-				if err != nil {
-					if !skipClientIdempotency {
-						return writeServiceError(c, validationError("invalid JSON payload", map[string]any{"field": "body"}))
-					}
-				} else {
-					body = parsedBody
-				}
-			}
+		body, rawBody, err := parseServiceRouteBody(c, mutating, skipClientIdempotency)
+		if err != nil {
+			return writeServiceError(c, err)
 		}
-
-		var (
-			idempotencyKey string
-			dedupeKey      string
-			payloadHash    string
-		)
-		if mutating && !skipClientIdempotency && m.config.API.RequireIdempotencyKey {
-			idempotencyKey = strings.TrimSpace(c.Header("Idempotency-Key"))
-			if idempotencyKey == "" {
-				return writeServiceError(c, validationError("Idempotency-Key header is required", map[string]any{"field": "Idempotency-Key"}))
-			}
-			dedupeKey = idempotencyScopeKey(c, idempotencyKey)
-			payloadHash = hashPayload(rawBody)
-			if status, replayBody, ok, conflict := m.idempotencyStore.ReplayIfMatch(dedupeKey, payloadHash); ok {
-				c.Status(status)
-				if len(replayBody) == 0 {
-					return c.Send([]byte("{}"))
-				}
-				return c.Send(replayBody)
-			} else if conflict {
-				return writeServiceError(c, conflictError("Idempotency key reuse with different payload", map[string]any{"idempotency_key": idempotencyKey}))
-			}
+		idempotency, err := m.resolveServiceRouteIdempotency(c, mutating, skipClientIdempotency, rawBody)
+		if err != nil {
+			return writeServiceError(c, err)
 		}
-
+		if handled, replayErr := writeServiceRouteReplay(c, idempotency); handled {
+			return replayErr
+		}
 		status, payload, err := handler(c, body)
 		if err != nil {
 			return writeServiceError(c, err)
 		}
-		if status <= 0 {
-			status = http.StatusOK
-		}
-		if payload == nil {
-			payload = map[string]any{}
-		}
-		if mutating && !skipClientIdempotency && dedupeKey != "" {
-			m.idempotencyStore.Store(dedupeKey, payloadHash, status, toBytesJSON(payload))
-		}
+		status, payload = normalizeServiceRouteResponse(status, payload)
+		m.storeServiceRouteIdempotency(mutating, skipClientIdempotency, idempotency, status, payload)
 		return c.JSON(status, payload)
 	}
+}
+
+type serviceRouteIdempotency struct {
+	dedupeKey   string
+	payloadHash string
+	replay      bool
+	status      int
+	body        []byte
+}
+
+func parseServiceRouteBody(c router.Context, mutating bool, skipClientIdempotency bool) (map[string]any, []byte, error) {
+	body := map[string]any{}
+	if !mutating {
+		return body, nil, nil
+	}
+	rawBody := append([]byte(nil), c.Body()...)
+	if len(rawBody) == 0 {
+		return body, rawBody, nil
+	}
+	parsedBody, err := parseJSONMap(rawBody)
+	if err != nil {
+		if skipClientIdempotency {
+			return body, rawBody, nil
+		}
+		return nil, nil, validationError("invalid JSON payload", map[string]any{"field": "body"})
+	}
+	return parsedBody, rawBody, nil
+}
+
+func (m *Module) resolveServiceRouteIdempotency(c router.Context, mutating bool, skipClientIdempotency bool, rawBody []byte) (serviceRouteIdempotency, error) {
+	if !mutating || skipClientIdempotency || !m.config.API.RequireIdempotencyKey {
+		return serviceRouteIdempotency{}, nil
+	}
+	idempotencyKey := strings.TrimSpace(c.Header("Idempotency-Key"))
+	if idempotencyKey == "" {
+		return serviceRouteIdempotency{}, validationError("Idempotency-Key header is required", map[string]any{"field": "Idempotency-Key"})
+	}
+	state := serviceRouteIdempotency{
+		dedupeKey:   idempotencyScopeKey(c, idempotencyKey),
+		payloadHash: hashPayload(rawBody),
+	}
+	if status, replayBody, ok, conflict := m.idempotencyStore.ReplayIfMatch(state.dedupeKey, state.payloadHash); ok {
+		state.replay = true
+		state.status = status
+		state.body = replayBody
+		return state, nil
+	} else if conflict {
+		return serviceRouteIdempotency{}, conflictError("Idempotency key reuse with different payload", map[string]any{"idempotency_key": idempotencyKey})
+	}
+	return state, nil
+}
+
+func writeServiceRouteReplay(c router.Context, state serviceRouteIdempotency) (bool, error) {
+	if !state.replay {
+		return false, nil
+	}
+	c.Status(state.status)
+	if len(state.body) == 0 {
+		return true, c.Send([]byte("{}"))
+	}
+	return true, c.Send(state.body)
+}
+
+func normalizeServiceRouteResponse(status int, payload any) (int, any) {
+	if status <= 0 {
+		status = http.StatusOK
+	}
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	return status, payload
+}
+
+func (m *Module) storeServiceRouteIdempotency(mutating bool, skipClientIdempotency bool, state serviceRouteIdempotency, status int, payload any) {
+	if !mutating || skipClientIdempotency || state.dedupeKey == "" {
+		return
+	}
+	m.idempotencyStore.Store(state.dedupeKey, state.payloadHash, status, toBytesJSON(payload))
 }
 
 func (m *Module) authorizeRoute(c router.Context, permission string) error {
