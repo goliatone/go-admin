@@ -151,19 +151,44 @@
     @apply text-[11px] px-1.5 py-0.5 rounded bg-sidebar-bg-hover text-sidebar-text-dimmed font-mono border border-sidebar-border;
   }
 
-  /* Sidebar logo - expand to fill available space */
-  .sidebar-header a {
-    display: block;
+  /* Sidebar brand contract */
+  .sidebar-brand-link {
+    display: flex;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .sidebar-brand-expanded {
     width: 100%;
-    max-width: 100%;
+    justify-content: var(--sidebar-brand-align, flex-start);
+  }
+
+  .sidebar-brand-collapsed {
+    display: none;
+    width: 100%;
+    justify-content: center;
   }
 
   .sidebar-logo {
     display: block;
-    width: 100%;
+    width: auto;
     height: auto;
-    min-width: 100%;
-    max-height: 40px;
+    max-width: var(--sidebar-brand-max-width, 100%);
+    max-height: var(--sidebar-brand-max-height, 40px);
+    object-fit: contain;
+  }
+
+  .sidebar-logo-compact {
+    max-width: var(--sidebar-brand-collapsed-size, 32px);
+    max-height: var(--sidebar-brand-collapsed-size, 32px);
   }
 
   .sidebar {
@@ -190,18 +215,26 @@
     @apply hidden;
   }
 
-  /* Hide logo link and center toggle button when collapsed */
-  .sidebar[data-collapsed="true"] .sidebar-header > a {
-    @apply hidden;
+  .sidebar[data-collapsed="true"] .sidebar-header {
+    @apply flex-col items-center;
   }
 
   .sidebar[data-collapsed="true"] .sidebar-toggle-btn {
-    margin-left: 5px;
+    margin-left: 0;
   }
 
-  /* Center logo when collapsed */
-  .sidebar[data-collapsed="true"] .sidebar-logo {
-    @apply mx-auto max-w-8;
+  .sidebar[data-collapsed="true"] .sidebar-brand-link {
+    flex: 0 0 auto;
+    width: auto;
+    overflow: visible;
+  }
+
+  .sidebar[data-collapsed="true"] .sidebar-brand-expanded {
+    display: none;
+  }
+
+  .sidebar[data-collapsed="true"] .sidebar-brand-collapsed {
+    display: flex;
   }
 
   /* Center nav items when collapsed */

@@ -1,11 +1,24 @@
 <aside id="sidebar" class="sidebar bg-sidebar-bg text-sidebar-text flex flex-col overflow-hidden" data-collapsed="false" style="width: var(--sidebar-width, 260px);">
   <div class="sidebar-header flex items-center gap-2" style="padding: var(--sidebar-padding-y, 12px) var(--sidebar-padding-x, 12px);">
-    <a href="{{ adminURL("") }}" class="flex items-center no-underline flex-1 min-w-0 overflow-hidden">
-      {% if theme and theme.assets and theme.assets.logo %}
-      <img src="{{ theme.assets.logo }}" alt="{{ title }}" class="sidebar-logo" />
-      {% else %}
-      <img src="{{ asset_base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo" />
-      {% endif %}
+    <a href="{{ adminURL("") }}" class="sidebar-brand-link flex items-center no-underline flex-1 min-w-0 overflow-hidden">
+      <span class="sidebar-brand sidebar-brand-expanded">
+        {% if theme and theme.assets and theme.assets.logo %}
+        <img src="{{ theme.assets.logo }}" alt="{{ title }}" class="sidebar-logo" />
+        {% elif theme and theme.assets and theme.assets.icon %}
+        <img src="{{ theme.assets.icon }}" alt="{{ title }}" class="sidebar-logo" />
+        {% else %}
+        <img src="{{ asset_base_path }}/assets/logo.svg" alt="{{ title }}" class="sidebar-logo" />
+        {% endif %}
+      </span>
+      <span class="sidebar-brand sidebar-brand-collapsed" aria-hidden="true">
+        {% if theme and theme.assets and theme.assets.icon %}
+        <img src="{{ theme.assets.icon }}" alt="" class="sidebar-logo sidebar-logo-compact" />
+        {% elif theme and theme.assets and theme.assets.logo %}
+        <img src="{{ theme.assets.logo }}" alt="" class="sidebar-logo sidebar-logo-compact" />
+        {% else %}
+        <img src="{{ asset_base_path }}/assets/logo.svg" alt="" class="sidebar-logo sidebar-logo-compact" />
+        {% endif %}
+      </span>
     </a>
     <button id="sidebar-toggle" class="sidebar-toggle-btn p-1.5 rounded hover:bg-sidebar-bg-hover flex-shrink-0" aria-label="Toggle sidebar">
       <i class="iconoir-menu text-lg text-sidebar-text-muted"></i>
