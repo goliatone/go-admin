@@ -54,7 +54,6 @@ linters:
           - nestif
       - path: ^(admin|modules)/
         linters:
-          - gocyclo
           - nestif
 formatters:
   enable:
