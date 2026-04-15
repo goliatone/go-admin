@@ -149,6 +149,7 @@ func main() {
 			"primary": "#2563eb",
 			"accent":  "#f59e0b",
 		}),
+		quickstart.WithThemeAssetURLs(runtimeConfig.Admin.ThemeAssets),
 		quickstart.WithScopeConfig(scopeCfg),
 		quickstart.WithDebugOptions(quickstart.DebugOption{
 			Enabled:      &debugEnabledOption,
@@ -698,6 +699,10 @@ func main() {
 
 	// Keep admin theme resolution scoped to dashboard, CMS, and forms.
 	// Public-site theme resolution is attached separately below.
+	// Branding contract:
+	// - logo: expanded sidebar / horizontal lockup
+	// - icon: compact sidebar mark and auth-card icon
+	// - favicon: browser/app icon
 	// Assets support light/dark variants: icon.light.svg, icon.dark.svg, logo.light.svg, logo.dark.svg
 	adminThemeAssetPrefix := path.Join(cfg.BasePath, "assets")
 	adminThemeRegistry := gotheme.NewRegistry()

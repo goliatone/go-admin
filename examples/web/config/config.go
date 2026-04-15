@@ -61,6 +61,7 @@ type AdminConfig struct {
 	FeatureCatalogPath          string            `koanf:"feature_catalog_path" json:"feature_catalog_path" yaml:"feature_catalog_path"`
 	WorkflowConfigPath          string            `koanf:"workflow_config_path" json:"workflow_config_path" yaml:"workflow_config_path"`
 	RegisterTemplate            string            `koanf:"register_template" json:"register_template" yaml:"register_template"`
+	ThemeAssets                 map[string]string `koanf:"theme_assets" json:"theme_assets" yaml:"theme_assets"`
 	Preferences                 PreferencesConfig `koanf:"preferences" json:"preferences" yaml:"preferences"`
 	Debug                       AdminDebugConfig  `koanf:"debug" json:"debug" yaml:"debug"`
 	Errors                      AdminErrorsConfig `koanf:"errors" json:"errors" yaml:"errors"`
@@ -294,6 +295,7 @@ func Defaults() *Config {
 			RegisterTemplate:   "register",
 			FeatureCatalogPath: "feature_catalog.yaml",
 			WorkflowConfigPath: "workflow_config.yaml",
+			ThemeAssets:        map[string]string{},
 			Preferences: PreferencesConfig{
 				SchemaPath: "",
 				JSONStrict: false,
