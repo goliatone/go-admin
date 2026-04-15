@@ -46,6 +46,7 @@ type adminConstructorState struct {
 	routingPlanner         routing.Planner
 	routingReport          routing.StartupReport
 	mediaLib               MediaLibrary
+	mediaActivityHook      MediaActivityHook
 	preferencesSvc         *PreferencesService
 	profileSvc             *ProfileService
 	userSvc                *UserManagementService
@@ -122,6 +123,7 @@ func resolveAdminRuntimeState(state adminConstructorState, deps Dependencies) (a
 		return state, err
 	}
 	state.mediaLib = resolveMediaLibrary(state.cfg, deps.MediaLibrary, state.featureGate, state.urlManager)
+	state.mediaActivityHook = deps.MediaActivityHook
 	state.preferencesSvc, state.profileSvc, state.userSvc, state.tenantSvc, state.orgSvc = resolveDomainServices(state.cfg, deps, state.activitySink)
 	state.jobReg = resolveJobRegistry(deps.JobRegistry, state.featureGate, state.activitySink)
 	if err = registerFeatureCommands(state.featureGate, state.commandBus, state.notifSvc, state.bulkSvc); err != nil {
@@ -192,6 +194,7 @@ func newAdminFromConstructorState(state adminConstructorState, deps Dependencies
 		exportMetadata:         state.exportMetadata,
 		bulkSvc:                state.bulkSvc,
 		mediaLibrary:           state.mediaLib,
+		mediaActivityHook:      state.mediaActivityHook,
 		moduleStartupPolicy:    ModuleStartupPolicyEnforce,
 		navMenuCode:            state.navMenuCode,
 		translator:             state.translator,

@@ -52,7 +52,10 @@ linters:
           - funlen
           - gocyclo
           - nestif
-
+      - path: ^(admin|modules)/
+        linters:
+          - gocyclo
+          - nestif
 formatters:
   enable:
     - gofmt

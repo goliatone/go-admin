@@ -42,78 +42,9 @@ func (s goCMSAdminBlockReadService) ListDefinitions(ctx context.Context, opts Li
 	if err != nil {
 		return nil, 0, err
 	}
-	search := strings.ToLower(extractSearch(opts))
-	categoryFilter := ""
-	statusFilter := ""
-	localeFilter := strings.ToLower(strings.TrimSpace(resolveListRequestedLocale(ctx, opts, "")))
-	channel := ""
-	hasChannelFilter := false
-	if opts.Filters != nil {
-		categoryFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["category"])))
-		statusFilter = strings.ToLower(strings.TrimSpace(toString(opts.Filters["status"])))
-		channel = strings.TrimSpace(primitives.FirstNonEmptyRaw(
-			toString(opts.Filters[ContentChannelScopeQueryParam]),
-			toString(opts.Filters["channel"]),
-			toString(opts.Filters["content_channel"]),
-			toString(opts.Filters["environment"]),
-		))
-	}
-	if channel == "" {
-		channel = cmsContentChannelFromContext(ctx, "")
-	}
-	if channel != "" {
-		hasChannelFilter = true
-	}
-	filtered := []CMSBlockDefinition{}
-	for _, def := range defs {
-		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), channel) {
-			continue
-		}
-		defLocale := strings.ToLower(strings.TrimSpace(def.Locale))
-		if localeFilter != "" && defLocale != "" && defLocale != localeFilter {
-			continue
-		}
-		if search != "" &&
-			!strings.Contains(strings.ToLower(def.Name), search) &&
-			!strings.Contains(strings.ToLower(def.Type), search) &&
-			!strings.Contains(strings.ToLower(def.Slug), search) {
-			continue
-		}
-		if categoryFilter != "" && strings.ToLower(strings.TrimSpace(def.Category)) != categoryFilter {
-			continue
-		}
-		if statusFilter != "" && strings.ToLower(strings.TrimSpace(def.Status)) != statusFilter {
-			continue
-		}
-		filtered = append(filtered, def)
-	}
-	allowedTypes := map[string]struct{}{}
-	restricted := false
-	if opts.Filters != nil && s.types != nil {
-		contentTypeKey := strings.TrimSpace(toString(opts.Filters["content_type"]))
-		if contentTypeKey == "" {
-			contentTypeKey = strings.TrimSpace(toString(opts.Filters["content_type_slug"]))
-		}
-		if contentTypeKey == "" {
-			contentTypeKey = strings.TrimSpace(toString(opts.Filters["content_type_id"]))
-		}
-		if contentTypeKey != "" {
-			if ct := s.resolveContentType(ctx, contentTypeKey); ct != nil {
-				if types, ok := blockTypesFromContentType(*ct); ok {
-					restricted = true
-					for _, t := range types {
-						for _, candidate := range blockTypeAliasCandidates(strings.ToLower(strings.TrimSpace(t))) {
-							trimmed := strings.ToLower(strings.TrimSpace(candidate))
-							if trimmed == "" {
-								continue
-							}
-							allowedTypes[trimmed] = struct{}{}
-						}
-					}
-				}
-			}
-		}
-	}
+	filters := blockDefinitionListFilters(ctx, opts)
+	filtered := filterBlockDefinitions(defs, filters)
+	allowedTypes, restricted := s.allowedBlockTypes(ctx, opts)
 	if restricted {
 		filteredDefs := make([]CMSBlockDefinition, 0, len(filtered))
 		for _, def := range filtered {
@@ -132,6 +63,107 @@ func (s goCMSAdminBlockReadService) ListDefinitions(ctx context.Context, opts Li
 		out = append(out, adminBlockDefinitionRecord(def))
 	}
 	return out, total, nil
+}
+
+type blockDefinitionFilters struct {
+	search           string
+	category         string
+	status           string
+	locale           string
+	channel          string
+	hasChannelFilter bool
+}
+
+func blockDefinitionListFilters(ctx context.Context, opts ListOptions) blockDefinitionFilters {
+	filters := blockDefinitionFilters{
+		search:   strings.ToLower(extractSearch(opts)),
+		locale:   strings.ToLower(strings.TrimSpace(resolveListRequestedLocale(ctx, opts, ""))),
+		category: "",
+		status:   "",
+	}
+	if opts.Filters != nil {
+		filters.category = strings.ToLower(strings.TrimSpace(toString(opts.Filters["category"])))
+		filters.status = strings.ToLower(strings.TrimSpace(toString(opts.Filters["status"])))
+		filters.channel = strings.TrimSpace(primitives.FirstNonEmptyRaw(
+			toString(opts.Filters[ContentChannelScopeQueryParam]),
+			toString(opts.Filters["channel"]),
+			toString(opts.Filters["content_channel"]),
+			toString(opts.Filters["environment"]),
+		))
+	}
+	if filters.channel == "" {
+		filters.channel = cmsContentChannelFromContext(ctx, "")
+	}
+	filters.hasChannelFilter = filters.channel != ""
+	return filters
+}
+
+func filterBlockDefinitions(defs []CMSBlockDefinition, filters blockDefinitionFilters) []CMSBlockDefinition {
+	filtered := make([]CMSBlockDefinition, 0, len(defs))
+	for _, def := range defs {
+		if !blockDefinitionMatchesFilters(def, filters) {
+			continue
+		}
+		filtered = append(filtered, def)
+	}
+	return filtered
+}
+
+func blockDefinitionMatchesFilters(def CMSBlockDefinition, filters blockDefinitionFilters) bool {
+	if filters.hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), filters.channel) {
+		return false
+	}
+	defLocale := strings.ToLower(strings.TrimSpace(def.Locale))
+	if filters.locale != "" && defLocale != "" && defLocale != filters.locale {
+		return false
+	}
+	if filters.search != "" &&
+		!strings.Contains(strings.ToLower(def.Name), filters.search) &&
+		!strings.Contains(strings.ToLower(def.Type), filters.search) &&
+		!strings.Contains(strings.ToLower(def.Slug), filters.search) {
+		return false
+	}
+	if filters.category != "" && strings.ToLower(strings.TrimSpace(def.Category)) != filters.category {
+		return false
+	}
+	if filters.status != "" && strings.ToLower(strings.TrimSpace(def.Status)) != filters.status {
+		return false
+	}
+	return true
+}
+
+func (s goCMSAdminBlockReadService) allowedBlockTypes(ctx context.Context, opts ListOptions) (map[string]struct{}, bool) {
+	allowedTypes := map[string]struct{}{}
+	if opts.Filters == nil || s.types == nil {
+		return allowedTypes, false
+	}
+	contentTypeKey := strings.TrimSpace(toString(opts.Filters["content_type"]))
+	if contentTypeKey == "" {
+		contentTypeKey = strings.TrimSpace(toString(opts.Filters["content_type_slug"]))
+	}
+	if contentTypeKey == "" {
+		contentTypeKey = strings.TrimSpace(toString(opts.Filters["content_type_id"]))
+	}
+	if contentTypeKey == "" {
+		return allowedTypes, false
+	}
+	ct := s.resolveContentType(ctx, contentTypeKey)
+	if ct == nil {
+		return allowedTypes, false
+	}
+	types, ok := blockTypesFromContentType(*ct)
+	if !ok {
+		return allowedTypes, false
+	}
+	for _, t := range types {
+		for _, candidate := range blockTypeAliasCandidates(strings.ToLower(strings.TrimSpace(t))) {
+			trimmed := strings.ToLower(strings.TrimSpace(candidate))
+			if trimmed != "" {
+				allowedTypes[trimmed] = struct{}{}
+			}
+		}
+	}
+	return allowedTypes, true
 }
 
 func (s goCMSAdminBlockReadService) GetDefinition(ctx context.Context, id string) (map[string]any, error) {

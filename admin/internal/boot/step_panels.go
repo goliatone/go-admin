@@ -16,10 +16,24 @@ func PanelStep(ctx BootCtx) error {
 	if responder == nil {
 		return nil
 	}
-	defaultLocale := ctx.DefaultLocale()
-	panelNames := make([]string, 0, len(ctx.Panels()))
-	seenPanels := map[string]struct{}{}
-	for _, binding := range ctx.Panels() {
+	panelNames := panelNames(ctx.Panels())
+	if len(panelNames) == 0 {
+		return nil
+	}
+	panelLookup := newPanelBindingLookup(ctx)
+	routes := make([]RouteSpec, 0, len(panelNames)*9)
+	for _, panelName := range panelNames {
+		routes = append(routes, panelRoutes(ctx, responder, panelLookup, panelName)...)
+	}
+	return applyRoutes(ctx, routes)
+}
+
+type panelBindingLookup func(string) (PanelBinding, error)
+
+func panelNames(bindings []PanelBinding) []string {
+	out := make([]string, 0, len(bindings))
+	seen := map[string]struct{}{}
+	for _, binding := range bindings {
 		if binding == nil {
 			continue
 		}
@@ -27,17 +41,17 @@ func PanelStep(ctx BootCtx) error {
 		if panelName == "" {
 			continue
 		}
-		if _, seen := seenPanels[panelName]; seen {
+		if _, ok := seen[panelName]; ok {
 			continue
 		}
-		seenPanels[panelName] = struct{}{}
-		panelNames = append(panelNames, panelName)
+		seen[panelName] = struct{}{}
+		out = append(out, panelName)
 	}
-	if len(panelNames) == 0 {
-		return nil
-	}
+	return out
+}
 
-	panelBindingByName := func(panelName string) (PanelBinding, error) {
+func newPanelBindingLookup(ctx BootCtx) panelBindingLookup {
+	return func(panelName string) (PanelBinding, error) {
 		panelName = strings.TrimSpace(panelName)
 		if panelName == "" {
 			return nil, bootValidationError("panel", "panel required")
@@ -55,320 +69,354 @@ func PanelStep(ctx BootCtx) error {
 			WithTextCode("NOT_FOUND").
 			WithMetadata(map[string]any{"panel": panelName})
 	}
-	localeFromRequest := func(c router.Context) string {
-		locale := c.Query("locale")
-		if locale == "" {
-			locale = defaultLocale
-		}
-		return locale
-	}
-	parseBody := func(c router.Context) (map[string]any, error) {
-		if raw := c.Body(); len(raw) > 0 {
-			return ctx.ParseBody(c)
-		}
-		return map[string]any{}, nil
-	}
-	subresourcesForPanel := func(panelName string) []PanelSubresourceSpec {
-		binding, err := panelBindingByName(panelName)
-		if err != nil || binding == nil {
-			return nil
-		}
-		declared := binding.Subresources()
-		if len(declared) == 0 {
-			return nil
-		}
-		out := make([]PanelSubresourceSpec, 0, len(declared))
-		seen := map[string]struct{}{}
-		for _, spec := range declared {
-			name := strings.TrimSpace(spec.Name)
-			if name == "" {
-				continue
-			}
-			key := strings.ToLower(name)
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			method := strings.ToUpper(strings.TrimSpace(spec.Method))
-			if method == "" {
-				method = "GET"
-			}
-			out = append(out, PanelSubresourceSpec{
-				Name:   name,
-				Method: method,
-			})
-		}
-		if len(out) == 0 {
-			return nil
-		}
-		return out
-	}
+}
 
-	routes := make([]RouteSpec, 0, len(panelNames)*9)
-	for _, panelName := range panelNames {
-		params := map[string]string{"panel": panelName}
-		base := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel", params)
-		detail := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.id", params)
-		action := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.action", params)
-		bulkState := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.bulk.state", params)
-		bulk := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.bulk", params)
-		preview := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.preview", params)
-
-		routes = append(routes,
-			RouteSpec{
-				Method: "GET",
-				Path:   base,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					records, total, schema, form, meta, err := binding.List(c, localeFromRequest(c), parseListOptions(c))
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					payload := map[string]any{
-						"total":   total,
-						"records": records,
-						"items":   records,
-						"schema":  schema,
-						"form":    form,
-					}
-					if len(meta) > 0 {
-						payload["$meta"] = meta
-					}
-					return responder.WriteJSON(c, payload)
-				},
-			},
-			RouteSpec{
-				Method: "GET",
-				Path:   detail,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					id := c.Param("id", "")
-					if id == "" {
-						return responder.WriteError(c, errMissingID)
-					}
-					rec, err := binding.Detail(c, localeFromRequest(c), id)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					return responder.WriteJSON(c, rec)
-				},
-			},
-			RouteSpec{
-				Method: "POST",
-				Path:   base,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					body, err := parseBody(c)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					created, err := binding.Create(c, localeFromRequest(c), body)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					return responder.WriteJSON(c, created)
-				},
-			},
-			RouteSpec{
-				Method: "PUT",
-				Path:   detail,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					id := c.Param("id", "")
-					if id == "" {
-						return responder.WriteError(c, errMissingID)
-					}
-					body, err := parseBody(c)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					updated, err := binding.Update(c, localeFromRequest(c), id, body)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					return responder.WriteJSON(c, updated)
-				},
-			},
-			RouteSpec{
-				Method: "DELETE",
-				Path:   base,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					id := c.Query("id")
-					if id == "" {
-						id = c.Param("id", "")
-					}
-					if id == "" {
-						return responder.WriteError(c, errMissingID)
-					}
-					if err := binding.Delete(c, localeFromRequest(c), id); err != nil {
-						return responder.WriteError(c, err)
-					}
-					return responder.WriteJSON(c, map[string]string{"status": "deleted"})
-				},
-			},
-			RouteSpec{
-				Method: "DELETE",
-				Path:   detail,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					id := c.Param("id", "")
-					if id == "" {
-						return responder.WriteError(c, errMissingID)
-					}
-					if err := binding.Delete(c, localeFromRequest(c), id); err != nil {
-						return responder.WriteError(c, err)
-					}
-					return responder.WriteJSON(c, map[string]string{"status": "deleted"})
-				},
-			},
-			RouteSpec{
-				Method: "POST",
-				Path:   action,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					actionName := c.Param("action", "")
-					if actionName == "" {
-						return responder.WriteError(c, errMissingAction)
-					}
-					body, err := parseBody(c)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					body = mergeActionContextFromRequest(c, body, localeFromRequest(c))
-					response, err := binding.Action(c, localeFromRequest(c), actionName, body)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					response = normalizeActionResponse(response)
-					payload := map[string]any{"status": "ok"}
-					if len(response.Data) > 0 {
-						payload["data"] = response.Data
-					}
-					return responder.WriteJSONStatus(c, response.StatusCode, payload)
-				},
-			},
-			RouteSpec{
-				Method: "POST",
-				Path:   bulkState,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					body, err := parseBody(c)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					data, err := binding.BulkActionState(c, localeFromRequest(c), body)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					return responder.WriteJSON(c, data)
-				},
-			},
-			RouteSpec{
-				Method: "POST",
-				Path:   bulk,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					actionName := c.Param("action", "")
-					if actionName == "" {
-						return responder.WriteError(c, errMissingAction)
-					}
-					body, err := parseBody(c)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					data, err := binding.Bulk(c, localeFromRequest(c), actionName, body)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					payload := map[string]any{"status": "ok"}
-					if len(data) > 0 {
-						payload["data"] = data
-					}
-					return responder.WriteJSON(c, payload)
-				},
-			},
-			RouteSpec{
-				Method: "GET",
-				Path:   preview,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					id := c.Param("id", "")
-					if id == "" {
-						return responder.WriteError(c, errMissingID)
-					}
-					res, err := binding.Preview(c, localeFromRequest(c), id)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					return responder.WriteJSON(c, res)
-				},
-			},
-		)
-
-		for _, spec := range subresourcesForPanel(panelName) {
-			subresourcePath := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.subresource", map[string]string{
-				"panel":       panelName,
-				"subresource": spec.Name,
-			})
-			if subresourcePath == "" {
-				continue
-			}
-			routes = append(routes, RouteSpec{
-				Method: spec.Method,
-				Path:   subresourcePath,
-				Handler: func(c router.Context) error {
-					binding, err := panelBindingByName(panelName)
-					if err != nil {
-						return responder.WriteError(c, err)
-					}
-					id := c.Param("id", "")
-					if id == "" {
-						return responder.WriteError(c, errMissingID)
-					}
-					value := c.Param("value", "")
-					if strings.TrimSpace(value) == "" {
-						return responder.WriteError(c, errMissingSubresourceValue)
-					}
-					if err := binding.HandleSubresource(c, localeFromRequest(c), id, spec.Name, value); err != nil {
-						return responder.WriteError(c, err)
-					}
-					return nil
-				},
-			})
-		}
+func panelRoutes(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName string) []RouteSpec {
+	params := map[string]string{"panel": panelName}
+	routes := []RouteSpec{
+		panelListRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel", params)),
+		panelDetailRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.id", params)),
+		panelCreateRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel", params)),
+		panelUpdateRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.id", params)),
+		panelDeleteBaseRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel", params)),
+		panelDeleteDetailRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.id", params)),
+		panelActionRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.action", params)),
+		panelBulkStateRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.bulk.state", params)),
+		panelBulkRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.bulk", params)),
+		panelPreviewRoute(ctx, responder, panelLookup, panelName, routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.preview", params)),
 	}
-	return applyRoutes(ctx, routes)
+	return append(routes, panelSubresourceRoutes(ctx, responder, panelLookup, panelName)...)
+}
+
+func panelLocale(ctx BootCtx, c router.Context) string {
+	locale := c.Query("locale")
+	if locale == "" {
+		locale = ctx.DefaultLocale()
+	}
+	return locale
+}
+
+func panelBody(ctx BootCtx, c router.Context) (map[string]any, error) {
+	if raw := c.Body(); len(raw) > 0 {
+		return ctx.ParseBody(c)
+	}
+	return map[string]any{}, nil
+}
+
+func panelListRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			records, total, schema, form, meta, err := binding.List(c, panelLocale(ctx, c), parseListOptions(c))
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			payload := map[string]any{
+				"total":   total,
+				"records": records,
+				"items":   records,
+				"schema":  schema,
+				"form":    form,
+			}
+			if len(meta) > 0 {
+				payload["$meta"] = meta
+			}
+			return responder.WriteJSON(c, payload)
+		},
+	}
+}
+
+func panelDetailRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			id := c.Param("id", "")
+			if id == "" {
+				return responder.WriteError(c, errMissingID)
+			}
+			rec, err := binding.Detail(c, panelLocale(ctx, c), id)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return responder.WriteJSON(c, rec)
+		},
+	}
+}
+
+func panelCreateRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "POST",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			body, err := panelBody(ctx, c)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			created, err := binding.Create(c, panelLocale(ctx, c), body)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return responder.WriteJSON(c, created)
+		},
+	}
+}
+
+func panelUpdateRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "PUT",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			id := c.Param("id", "")
+			if id == "" {
+				return responder.WriteError(c, errMissingID)
+			}
+			body, err := panelBody(ctx, c)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			updated, err := binding.Update(c, panelLocale(ctx, c), id, body)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return responder.WriteJSON(c, updated)
+		},
+	}
+}
+
+func panelDeleteBaseRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "DELETE",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			id := c.Query("id")
+			if id == "" {
+				id = c.Param("id", "")
+			}
+			return deletePanelRecord(ctx, responder, c, binding, id)
+		},
+	}
+}
+
+func panelDeleteDetailRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "DELETE",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return deletePanelRecord(ctx, responder, c, binding, c.Param("id", ""))
+		},
+	}
+}
+
+func deletePanelRecord(ctx BootCtx, responder Responder, c router.Context, binding PanelBinding, id string) error {
+	if id == "" {
+		return responder.WriteError(c, errMissingID)
+	}
+	if err := binding.Delete(c, panelLocale(ctx, c), id); err != nil {
+		return responder.WriteError(c, err)
+	}
+	return responder.WriteJSON(c, map[string]string{"status": "deleted"})
+}
+
+func panelActionRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "POST",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			actionName := c.Param("action", "")
+			if actionName == "" {
+				return responder.WriteError(c, errMissingAction)
+			}
+			body, err := panelBody(ctx, c)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			locale := panelLocale(ctx, c)
+			response, err := binding.Action(c, locale, actionName, mergeActionContextFromRequest(c, body, locale))
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			response = normalizeActionResponse(response)
+			payload := map[string]any{"status": "ok"}
+			if len(response.Data) > 0 {
+				payload["data"] = response.Data
+			}
+			return responder.WriteJSONStatus(c, response.StatusCode, payload)
+		},
+	}
+}
+
+func panelBulkStateRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "POST",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			body, err := panelBody(ctx, c)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			data, err := binding.BulkActionState(c, panelLocale(ctx, c), body)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return responder.WriteJSON(c, data)
+		},
+	}
+}
+
+func panelBulkRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "POST",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			actionName := c.Param("action", "")
+			if actionName == "" {
+				return responder.WriteError(c, errMissingAction)
+			}
+			body, err := panelBody(ctx, c)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			data, err := binding.Bulk(c, panelLocale(ctx, c), actionName, body)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			payload := map[string]any{"status": "ok"}
+			if len(data) > 0 {
+				payload["data"] = data
+			}
+			return responder.WriteJSON(c, payload)
+		},
+	}
+}
+
+func panelPreviewRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName, path string) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			binding, err := panelLookup(panelName)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			id := c.Param("id", "")
+			if id == "" {
+				return responder.WriteError(c, errMissingID)
+			}
+			res, err := binding.Preview(c, panelLocale(ctx, c), id)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return responder.WriteJSON(c, res)
+		},
+	}
+}
+
+func panelSubresourceRoutes(ctx BootCtx, responder Responder, panelLookup panelBindingLookup, panelName string) []RouteSpec {
+	binding, err := panelLookup(panelName)
+	if err != nil || binding == nil {
+		return nil
+	}
+	specs := panelSubresources(binding)
+	routes := make([]RouteSpec, 0, len(specs))
+	for _, spec := range specs {
+		subresourcePath := routePathWithParams(ctx, ctx.AdminAPIGroup(), "panel.subresource", map[string]string{
+			"panel":       panelName,
+			"subresource": spec.Name,
+		})
+		if subresourcePath == "" {
+			continue
+		}
+		routes = append(routes, RouteSpec{
+			Method: spec.Method,
+			Path:   subresourcePath,
+			Handler: func(c router.Context) error {
+				binding, err := panelLookup(panelName)
+				if err != nil {
+					return responder.WriteError(c, err)
+				}
+				id := c.Param("id", "")
+				if id == "" {
+					return responder.WriteError(c, errMissingID)
+				}
+				value := c.Param("value", "")
+				if strings.TrimSpace(value) == "" {
+					return responder.WriteError(c, errMissingSubresourceValue)
+				}
+				if err := binding.HandleSubresource(c, panelLocale(ctx, c), id, spec.Name, value); err != nil {
+					return responder.WriteError(c, err)
+				}
+				return nil
+			},
+		})
+	}
+	return routes
+}
+
+func panelSubresources(binding PanelBinding) []PanelSubresourceSpec {
+	if binding == nil {
+		return nil
+	}
+	declared := binding.Subresources()
+	if len(declared) == 0 {
+		return nil
+	}
+	out := make([]PanelSubresourceSpec, 0, len(declared))
+	seen := map[string]struct{}{}
+	for _, spec := range declared {
+		name := strings.TrimSpace(spec.Name)
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		method := strings.ToUpper(strings.TrimSpace(spec.Method))
+		if method == "" {
+			method = "GET"
+		}
+		out = append(out, PanelSubresourceSpec{Name: name, Method: method})
+	}
+	return out
 }
 
 func mergeActionContextFromRequest(c router.Context, body map[string]any, routeLocale string) map[string]any {

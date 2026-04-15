@@ -106,56 +106,8 @@ func (p *panelBinding) selectionAwareBulkActionStates(
 		return nil, err
 	}
 	workflowTransitionsByRecord, workflowTransitionErrByRecord := p.workflowTransitionsForRecords(ctx, records, actions)
-	recordByID := map[string]map[string]any{}
-	for _, record := range records {
-		recordID := strings.TrimSpace(toString(record["id"]))
-		if recordID == "" {
-			continue
-		}
-		recordByID[recordID] = record
-	}
-
-	candidatesByAction := map[string][]bulkSelectionActionCandidate{}
-	for _, id := range selection {
-		record, ok := recordByID[id]
-		if !ok {
-			missing := missingBulkSelectionState(id)
-			for _, action := range actions {
-				name := strings.TrimSpace(action.Name)
-				if name == "" {
-					continue
-				}
-				candidatesByAction[name] = append(candidatesByAction[name], bulkSelectionActionCandidate{
-					recordID: id,
-					state:    missing,
-				})
-			}
-			continue
-		}
-		recordState := p.actionStateForRecord(
-			ctx,
-			record,
-			actions,
-			ActionScopeBulk,
-			workflowTransitionsByRecord[id],
-			workflowTransitionErrByRecord[id],
-			resolverStates[id],
-		)
-		for _, action := range actions {
-			name := strings.TrimSpace(action.Name)
-			if name == "" {
-				continue
-			}
-			candidate, ok := recordState[name]
-			if !ok {
-				candidate = defaultEnabledActionState()
-			}
-			candidatesByAction[name] = append(candidatesByAction[name], bulkSelectionActionCandidate{
-				recordID: id,
-				state:    candidate,
-			})
-		}
-	}
+	recordByID := bulkSelectionRecordMap(records)
+	candidatesByAction := p.bulkSelectionCandidates(ctx, selection, actions, recordByID, workflowTransitionsByRecord, workflowTransitionErrByRecord, resolverStates)
 
 	out := map[string]ActionState{}
 	maps.Copy(out, base)
@@ -174,6 +126,78 @@ func (p *panelBinding) selectionAwareBulkActionStates(
 		return nil, nil
 	}
 	return out, nil
+}
+
+func bulkSelectionRecordMap(records []map[string]any) map[string]map[string]any {
+	recordByID := map[string]map[string]any{}
+	for _, record := range records {
+		recordID := strings.TrimSpace(toString(record["id"]))
+		if recordID != "" {
+			recordByID[recordID] = record
+		}
+	}
+	return recordByID
+}
+
+func (p *panelBinding) bulkSelectionCandidates(
+	ctx AdminContext,
+	selection []string,
+	actions []Action,
+	recordByID map[string]map[string]any,
+	workflowTransitionsByRecord map[string][]WorkflowTransitionInfo,
+	workflowTransitionErrByRecord map[string]error,
+	resolverStates map[string]map[string]ActionState,
+) map[string][]bulkSelectionActionCandidate {
+	candidatesByAction := map[string][]bulkSelectionActionCandidate{}
+	for _, id := range selection {
+		record, ok := recordByID[id]
+		if !ok {
+			appendMissingBulkSelectionCandidates(candidatesByAction, actions, id)
+			continue
+		}
+		recordState := p.actionStateForRecord(
+			ctx,
+			record,
+			actions,
+			ActionScopeBulk,
+			workflowTransitionsByRecord[id],
+			workflowTransitionErrByRecord[id],
+			resolverStates[id],
+		)
+		appendBulkSelectionCandidates(candidatesByAction, actions, id, recordState)
+	}
+	return candidatesByAction
+}
+
+func appendMissingBulkSelectionCandidates(candidatesByAction map[string][]bulkSelectionActionCandidate, actions []Action, id string) {
+	missing := missingBulkSelectionState(id)
+	for _, action := range actions {
+		name := strings.TrimSpace(action.Name)
+		if name == "" {
+			continue
+		}
+		candidatesByAction[name] = append(candidatesByAction[name], bulkSelectionActionCandidate{
+			recordID: id,
+			state:    missing,
+		})
+	}
+}
+
+func appendBulkSelectionCandidates(candidatesByAction map[string][]bulkSelectionActionCandidate, actions []Action, id string, recordState map[string]ActionState) {
+	for _, action := range actions {
+		name := strings.TrimSpace(action.Name)
+		if name == "" {
+			continue
+		}
+		candidate, ok := recordState[name]
+		if !ok {
+			candidate = defaultEnabledActionState()
+		}
+		candidatesByAction[name] = append(candidatesByAction[name], bulkSelectionActionCandidate{
+			recordID: id,
+			state:    candidate,
+		})
+	}
 }
 
 func (p *panelBinding) loadSelectedBulkRecords(ctx AdminContext, ids []string) ([]map[string]any, []string, error) {

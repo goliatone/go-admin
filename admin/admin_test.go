@@ -1413,6 +1413,7 @@ func TestMediaLibraryRoute(t *testing.T) {
 		DefaultLocale: "en",
 	}
 	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromKeys(FeatureMedia, FeatureCMS)})
+	adm.WithAuthorizer(allowAll{})
 	server := router.NewHTTPServer()
 	r := server.Router()
 	if err := adm.Initialize(r); err != nil {

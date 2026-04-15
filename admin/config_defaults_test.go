@@ -129,6 +129,18 @@ func TestNewAppliesPermissionAndFeatureDefaults(t *testing.T) {
 	if adm.config.MenuBuilderPublishPermission != "admin.menus.publish" {
 		t.Fatalf("expected menu builder publish permission default, got %q", adm.config.MenuBuilderPublishPermission)
 	}
+	if adm.config.MediaPermission != "admin.media.view" {
+		t.Fatalf("expected media view permission default, got %q", adm.config.MediaPermission)
+	}
+	if adm.config.MediaCreatePermission != "admin.media.create" {
+		t.Fatalf("expected media create permission default, got %q", adm.config.MediaCreatePermission)
+	}
+	if adm.config.MediaUpdatePermission != "admin.media.edit" {
+		t.Fatalf("expected media update permission default, got %q", adm.config.MediaUpdatePermission)
+	}
+	if adm.config.MediaDeletePermission != "admin.media.delete" {
+		t.Fatalf("expected media delete permission default, got %q", adm.config.MediaDeletePermission)
+	}
 	if adm.config.ThemeTokens == nil || adm.config.SettingsThemeTokens == nil {
 		t.Fatalf("expected theme token maps to be initialized")
 	}

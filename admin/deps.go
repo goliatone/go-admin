@@ -58,6 +58,7 @@ type Dependencies struct {
 	ExportMetadata      ExportMetadataProvider `json:"export_metadata"`
 	BulkService         BulkService            `json:"bulk_service"`
 	MediaLibrary        MediaLibrary           `json:"media_library"`
+	MediaActivityHook   MediaActivityHook      `json:"media_activity_hook"`
 
 	PreferencesStore PreferencesStore `json:"preferences_store"`
 	ProfileStore     ProfileStore     `json:"profile_store"`

@@ -75,137 +75,167 @@ func (a *Admin) registerDashboardProviders() error {
 	if a.commandBus != nil {
 		a.dashboard.WithCommandBus(a.commandBus)
 	}
-	features := dashinternal.FeatureFlags{
-		CMS:       featureEnabled(a.featureGate, FeatureCMS),
-		Dashboard: featureEnabled(a.featureGate, FeatureDashboard),
-		Settings:  featureEnabled(a.featureGate, FeatureSettings),
-	}
+	features := a.dashboardFeatureFlags()
 	return dashinternal.RegisterProviders(
 		a.providerHostAdapter(),
 		a.widgetServiceAdapter(),
 		a.authorizer,
 		features,
 		func() error {
-			statsSpec := DashboardProviderSpec{
-				Code:          WidgetUserStats,
-				Name:          "User Statistics",
-				DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementMain, ""),
-				DefaultConfig: map[string]any{"metric": "activity", "title": "Activity"},
-				DefaultSpan:   4,
-				Permission:    "",
-				CommandName:   "dashboard.provider.user_stats",
-				Handler: func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
-					resolvedCfg, err := DecodeWidgetConfig[userStatsWidgetConfig](cfg)
-					if err != nil {
-						return WidgetPayload{}, err
-					}
-					metric := strings.TrimSpace(resolvedCfg.Metric)
-					if metric == "" {
-						metric = "activity"
-					}
-					title := strings.TrimSpace(resolvedCfg.Title)
-					if title == "" {
-						title = "Statistic"
-					}
-					value := 0
-					switch metric {
-					case "notifications":
-						if a.notifications != nil {
-							items, _ := a.notifications.List(ctx.Context)
-							value = len(items)
-						}
-					case "activity":
-						if a.activity != nil {
-							items, _ := a.activity.List(ctx.Context, 100)
-							value = len(items)
-						}
-					default:
-						if a.settings != nil {
-							values := a.settings.ResolveAll(ctx.UserID)
-							if v, ok := values[metric]; ok && v.Value != nil {
-								if iv, ok := v.Value.(int); ok {
-									value = iv
-								}
-							}
-						}
-					}
-					return WidgetPayloadOf(UserStatsWidgetPayload{
-						Title:  title,
-						Metric: metric,
-						Value:  value,
-					}), nil
-				},
-			}
-
-			quickActionsSpec := DashboardProviderSpec{
-				Code:          WidgetQuickActions,
-				Name:          "Quick Actions",
-				DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementSidebar, ""),
-				DefaultConfig: map[string]any{},
-				Permission:    "admin.quick_actions.view",
-				Handler: func(_ AdminContext, cfg map[string]any) (WidgetPayload, error) {
-					resolvedCfg, err := DecodeWidgetConfig[quickActionsWidgetConfig](cfg)
-					if err != nil {
-						return WidgetPayload{}, err
-					}
-					actions := append([]QuickActionWidgetPayload{}, resolvedCfg.Actions...)
-					if len(actions) == 0 {
-						defaultActions := []QuickActionWidgetPayload{}
-						if cmsURL := resolveURLWith(a.urlManager, "admin", "content", nil, nil); cmsURL != "" {
-							defaultActions = append(defaultActions, QuickActionWidgetPayload{Label: "Go to CMS", URL: cmsURL, Icon: "file"})
-						}
-						if usersURL := resolveURLWith(a.urlManager, "admin", "users", nil, nil); usersURL != "" {
-							defaultActions = append(defaultActions, QuickActionWidgetPayload{Label: "View Users", URL: usersURL, Icon: "users"})
-						}
-						if len(defaultActions) > 0 {
-							actions = defaultActions
-						}
-					}
-					return WidgetPayloadOf(QuickActionsWidgetPayload{Actions: actions}), nil
-				},
-			}
-
-			chartSpec := DashboardProviderSpec{
-				Code:          WidgetChartSample,
-				Name:          "Sample Chart",
-				DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementMain, ""),
-				DefaultConfig: map[string]any{"title": "Weekly Totals", "type": "line"},
-				Handler: func(_ AdminContext, cfg map[string]any) (WidgetPayload, error) {
-					resolvedCfg, err := DecodeWidgetConfig[chartSampleWidgetConfig](cfg)
-					if err != nil {
-						return WidgetPayload{}, err
-					}
-					points := []map[string]any{
-						{"label": "Mon", "value": 10},
-						{"label": "Tue", "value": 15},
-						{"label": "Wed", "value": 7},
-						{"label": "Thu", "value": 20},
-						{"label": "Fri", "value": 12},
-					}
-					chartPoints := make([]ChartPointWidgetPayload, 0, len(points))
-					for _, point := range points {
-						chartPoints = append(chartPoints, ChartPointWidgetPayload{
-							Label: toString(point["label"]),
-							Value: dashinternal.NumericToInt(point["value"]),
-						})
-					}
-					return WidgetPayloadOf(LegacyChartSampleWidgetPayload{
-						Title: resolvedCfg.Title,
-						Type:  resolvedCfg.Type,
-						Data:  chartPoints,
-					}), nil
-				},
-			}
-
-			a.registerDefaultDashboardProvider(statsSpec)
-			a.registerDefaultDashboardProvider(quickActionsSpec)
-			a.registerDefaultDashboardProvider(chartSpec)
+			a.registerDefaultDashboardProvider(a.userStatsDashboardProvider())
+			a.registerDefaultDashboardProvider(a.quickActionsDashboardProvider())
+			a.registerDefaultDashboardProvider(a.chartSampleDashboardProvider())
 			if queueStats := translationQueueStatsServiceFromAdmin(a); queueStats != nil {
 				RegisterTranslationProgressWidget(a.dashboard, queueStats, a.urlManager)
 			}
 			return nil
 		},
 	)
+}
+
+func (a *Admin) dashboardFeatureFlags() dashinternal.FeatureFlags {
+	return dashinternal.FeatureFlags{
+		CMS:       featureEnabled(a.featureGate, FeatureCMS),
+		Dashboard: featureEnabled(a.featureGate, FeatureDashboard),
+		Settings:  featureEnabled(a.featureGate, FeatureSettings),
+	}
+}
+
+func (a *Admin) userStatsDashboardProvider() DashboardProviderSpec {
+	return DashboardProviderSpec{
+		Code:          WidgetUserStats,
+		Name:          "User Statistics",
+		DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementMain, ""),
+		DefaultConfig: map[string]any{"metric": "activity", "title": "Activity"},
+		DefaultSpan:   4,
+		CommandName:   "dashboard.provider.user_stats",
+		Handler:       a.userStatsDashboardHandler(),
+	}
+}
+
+func (a *Admin) userStatsDashboardHandler() WidgetProvider {
+	return func(ctx AdminContext, cfg map[string]any) (WidgetPayload, error) {
+		resolvedCfg, err := DecodeWidgetConfig[userStatsWidgetConfig](cfg)
+		if err != nil {
+			return WidgetPayload{}, err
+		}
+		metric := strings.TrimSpace(resolvedCfg.Metric)
+		if metric == "" {
+			metric = "activity"
+		}
+		title := strings.TrimSpace(resolvedCfg.Title)
+		if title == "" {
+			title = "Statistic"
+		}
+		return WidgetPayloadOf(UserStatsWidgetPayload{
+			Title:  title,
+			Metric: metric,
+			Value:  a.dashboardUserStatValue(ctx, metric),
+		}), nil
+	}
+}
+
+func (a *Admin) dashboardUserStatValue(ctx AdminContext, metric string) int {
+	switch metric {
+	case "notifications":
+		if a.notifications != nil {
+			items, _ := a.notifications.List(ctx.Context)
+			return len(items)
+		}
+	case "activity":
+		if a.activity != nil {
+			items, _ := a.activity.List(ctx.Context, 100)
+			return len(items)
+		}
+	default:
+		if a.settings != nil {
+			values := a.settings.ResolveAll(ctx.UserID)
+			if v, ok := values[metric]; ok && v.Value != nil {
+				if iv, ok := v.Value.(int); ok {
+					return iv
+				}
+			}
+		}
+	}
+	return 0
+}
+
+func (a *Admin) quickActionsDashboardProvider() DashboardProviderSpec {
+	return DashboardProviderSpec{
+		Code:          WidgetQuickActions,
+		Name:          "Quick Actions",
+		DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementSidebar, ""),
+		DefaultConfig: map[string]any{},
+		Permission:    "admin.quick_actions.view",
+		Handler:       a.quickActionsDashboardHandler(),
+	}
+}
+
+func (a *Admin) quickActionsDashboardHandler() WidgetProvider {
+	return func(_ AdminContext, cfg map[string]any) (WidgetPayload, error) {
+		resolvedCfg, err := DecodeWidgetConfig[quickActionsWidgetConfig](cfg)
+		if err != nil {
+			return WidgetPayload{}, err
+		}
+		actions := append([]QuickActionWidgetPayload{}, resolvedCfg.Actions...)
+		if len(actions) == 0 {
+			actions = a.defaultQuickActions()
+		}
+		return WidgetPayloadOf(QuickActionsWidgetPayload{Actions: actions}), nil
+	}
+}
+
+func (a *Admin) defaultQuickActions() []QuickActionWidgetPayload {
+	actions := []QuickActionWidgetPayload{}
+	if cmsURL := resolveURLWith(a.urlManager, "admin", "content", nil, nil); cmsURL != "" {
+		actions = append(actions, QuickActionWidgetPayload{Label: "Go to CMS", URL: cmsURL, Icon: "file"})
+	}
+	if usersURL := resolveURLWith(a.urlManager, "admin", "users", nil, nil); usersURL != "" {
+		actions = append(actions, QuickActionWidgetPayload{Label: "View Users", URL: usersURL, Icon: "users"})
+	}
+	return actions
+}
+
+func (a *Admin) chartSampleDashboardProvider() DashboardProviderSpec {
+	return DashboardProviderSpec{
+		Code:          WidgetChartSample,
+		Name:          "Sample Chart",
+		DefaultArea:   uiplacement.DashboardAreaCodeForPlacement(uiplacement.DashboardPlacementMain, ""),
+		DefaultConfig: map[string]any{"title": "Weekly Totals", "type": "line"},
+		Handler:       chartSampleDashboardHandler(),
+	}
+}
+
+func chartSampleDashboardHandler() WidgetProvider {
+	return func(_ AdminContext, cfg map[string]any) (WidgetPayload, error) {
+		resolvedCfg, err := DecodeWidgetConfig[chartSampleWidgetConfig](cfg)
+		if err != nil {
+			return WidgetPayload{}, err
+		}
+		return WidgetPayloadOf(LegacyChartSampleWidgetPayload{
+			Title: resolvedCfg.Title,
+			Type:  resolvedCfg.Type,
+			Data:  defaultChartSamplePoints(),
+		}), nil
+	}
+}
+
+func defaultChartSamplePoints() []ChartPointWidgetPayload {
+	points := []map[string]any{
+		{"label": "Mon", "value": 10},
+		{"label": "Tue", "value": 15},
+		{"label": "Wed", "value": 7},
+		{"label": "Thu", "value": 20},
+		{"label": "Fri", "value": 12},
+	}
+	out := make([]ChartPointWidgetPayload, 0, len(points))
+	for _, point := range points {
+		out = append(out, ChartPointWidgetPayload{
+			Label: toString(point["label"]),
+			Value: dashinternal.NumericToInt(point["value"]),
+		})
+	}
+	return out
 }
 
 func (a *Admin) registerDefaultDashboardProvider(spec DashboardProviderSpec) {

@@ -75,6 +75,10 @@ type Config struct {
 	MenuBuilderPermission                string            `json:"menu_builder_permission"`
 	MenuBuilderEditPermission            string            `json:"menu_builder_edit_permission"`
 	MenuBuilderPublishPermission         string            `json:"menu_builder_publish_permission"`
+	MediaPermission                      string            `json:"media_permission"`
+	MediaCreatePermission                string            `json:"media_create_permission"`
+	MediaUpdatePermission                string            `json:"media_update_permission"`
+	MediaDeletePermission                string            `json:"media_delete_permission"`
 
 	AuthConfig *AuthConfig `json:"auth_config"`
 

@@ -277,81 +277,117 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 		return nil
 	}
 	cmsEnabled := featureEnabled(a.featureGate, FeatureCMS)
-	// Track canonical keys per menu code to avoid inserting duplicates into persistent stores.
-	menuKeys := map[string]map[string]bool{}
 	fallbackItems := []MenuItem{}
 	if a.menuSvc != nil {
-		menuCodes := map[string]bool{}
-		for _, item := range items {
-			code := item.Menu
-			if code == "" {
-				code = a.navMenuCode
-			}
-			code = NormalizeMenuSlug(code)
-			if code == "" {
-				code = a.navMenuCode
-			}
-			item = normalizeMenuItem(item, code)
-			item.Permissions = normalizeMenuPermissions(item.Permissions)
-			keySet, ok := menuKeys[code]
-			if !ok {
-				keySet = map[string]bool{}
-				menuKeys[code] = keySet
-				if menu, err := a.menuSvc.Menu(ctx, code, item.Locale); err == nil && menu != nil {
-					addMenuKeys(menu.Items, keySet)
-				}
-			}
-			keys := canonicalMenuKeys(item)
-			if hasAnyKey(keySet, keys) {
-				if item.ID != "" && keySet["path:"+strings.TrimSpace(item.ID)] {
-					if err := a.menuSvc.UpdateMenuItem(ctx, code, item); err != nil {
-						if isMenuTargetMissing(err) {
-							if addErr := a.menuSvc.AddMenuItem(ctx, code, item); addErr != nil && !isMenuTargetMissing(addErr) {
-								return addErr
-							}
-							continue
-						}
-						return err
-					}
-				}
-				continue
-			}
-			if !menuCodes[code] {
-				if _, err := a.menuSvc.CreateMenu(ctx, code); err != nil {
-					errMsg := strings.ToLower(err.Error())
-					// Ignore duplicate menu errors - menu might already exist from previous runs or setup
-					if !strings.Contains(errMsg, "already exists") && !strings.Contains(errMsg, "code already exists") {
-						return err
-					}
-				}
-				menuCodes[code] = true
-			}
-			if err := a.menuSvc.AddMenuItem(ctx, code, item); err != nil {
-				if isMenuTargetMissing(err) {
-					continue
-				}
-				return err
-			}
-			for _, key := range keys {
-				keySet[key] = true
-			}
-			fallbackItems = append(fallbackItems, item)
+		items, err := a.persistMenuItems(ctx, items)
+		if err != nil {
+			return err
 		}
+		fallbackItems = items
 	}
 	if (!cmsEnabled || a.menuSvc == nil) && a.nav != nil {
-		if len(fallbackItems) == 0 {
-			fallbackItems = items
-		}
-		// Ensure fallback navigation also receives deduped items when CMS is disabled.
-		if len(fallbackItems) > 0 {
-			deduped := dedupeMenuItems(fallbackItems)
-			converted := navinternal.ConvertMenuItems(deduped, a.translator, a.config.DefaultLocale)
-			if len(converted) > 0 {
-				a.nav.AddFallback(converted...)
-			}
-		}
+		a.addFallbackMenuItems(items, fallbackItems)
 	}
 	return nil
+}
+
+func (a *Admin) persistMenuItems(ctx context.Context, items []MenuItem) ([]MenuItem, error) {
+	menuKeys := map[string]map[string]bool{}
+	menuCodes := map[string]bool{}
+	fallbackItems := []MenuItem{}
+	for _, item := range items {
+		code, normalized, keySet := a.normalizePersistedMenuItem(ctx, item, menuKeys)
+		keys := canonicalMenuKeys(normalized)
+		if hasAnyKey(keySet, keys) {
+			if err := a.updatePersistedMenuItem(code, normalized, keySet); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if err := a.ensurePersistentMenu(ctx, code, menuCodes); err != nil {
+			return nil, err
+		}
+		if err := a.menuSvc.AddMenuItem(ctx, code, normalized); err != nil {
+			if isMenuTargetMissing(err) {
+				continue
+			}
+			return nil, err
+		}
+		for _, key := range keys {
+			keySet[key] = true
+		}
+		fallbackItems = append(fallbackItems, normalized)
+	}
+	return fallbackItems, nil
+}
+
+func (a *Admin) normalizePersistedMenuItem(ctx context.Context, item MenuItem, menuKeys map[string]map[string]bool) (string, MenuItem, map[string]bool) {
+	code := item.Menu
+	if code == "" {
+		code = a.navMenuCode
+	}
+	code = NormalizeMenuSlug(code)
+	if code == "" {
+		code = a.navMenuCode
+	}
+	item = normalizeMenuItem(item, code)
+	item.Permissions = normalizeMenuPermissions(item.Permissions)
+	keySet, ok := menuKeys[code]
+	if !ok {
+		keySet = map[string]bool{}
+		menuKeys[code] = keySet
+		if menu, err := a.menuSvc.Menu(ctx, code, item.Locale); err == nil && menu != nil {
+			addMenuKeys(menu.Items, keySet)
+		}
+	}
+	return code, item, keySet
+}
+
+func (a *Admin) updatePersistedMenuItem(code string, item MenuItem, keySet map[string]bool) error {
+	if item.ID == "" || !keySet["path:"+strings.TrimSpace(item.ID)] {
+		return nil
+	}
+	if err := a.menuSvc.UpdateMenuItem(context.Background(), code, item); err != nil {
+		if isMenuTargetMissing(err) {
+			if addErr := a.menuSvc.AddMenuItem(context.Background(), code, item); addErr != nil && !isMenuTargetMissing(addErr) {
+				return addErr
+			}
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func (a *Admin) ensurePersistentMenu(ctx context.Context, code string, menuCodes map[string]bool) error {
+	if menuCodes[code] {
+		return nil
+	}
+	if _, err := a.menuSvc.CreateMenu(ctx, code); err != nil {
+		errMsg := strings.ToLower(err.Error())
+		if !strings.Contains(errMsg, "already exists") && !strings.Contains(errMsg, "code already exists") {
+			return err
+		}
+	}
+	menuCodes[code] = true
+	return nil
+}
+
+func (a *Admin) addFallbackMenuItems(items, fallbackItems []MenuItem) {
+	if a.nav == nil {
+		return
+	}
+	if len(fallbackItems) == 0 {
+		fallbackItems = items
+	}
+	if len(fallbackItems) == 0 {
+		return
+	}
+	deduped := dedupeMenuItems(fallbackItems)
+	converted := navinternal.ConvertMenuItems(deduped, a.translator, a.config.DefaultLocale)
+	if len(converted) > 0 {
+		a.nav.AddFallback(converted...)
+	}
 }
 
 func normalizeMenuPermissions(perms []string) []string {

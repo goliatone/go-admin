@@ -994,100 +994,14 @@ func (b *translationQueueBinding) LocalesOptions(c router.Context) (any, error) 
 	sourceRecordID := strings.TrimSpace(c.Query("source_record_id"))
 	excludeLocale := strings.ToLower(strings.TrimSpace(c.Query("source_locale")))
 	localeSet := map[string]struct{}{}
-
-	if defaultLocale := strings.ToLower(strings.TrimSpace(b.admin.config.DefaultLocale)); defaultLocale != "" {
-		localeSet[defaultLocale] = struct{}{}
-	}
-
-	var sourceRecord map[string]any
-	if entityType != "" && sourceRecordID != "" {
-		if panel, panelName, ok := b.panelForEntityType(entityType, adminCtx.Environment); ok && panel != nil {
-			record, err := panel.Get(adminCtx, sourceRecordID)
-			if err == nil && len(record) > 0 {
-				sourceRecord = record
-				for _, locale := range translationReadinessAvailableLocales(record) {
-					if locale = strings.ToLower(strings.TrimSpace(locale)); locale != "" {
-						localeSet[locale] = struct{}{}
-					}
-				}
-				for _, locale := range []string{
-					toString(record["locale"]),
-					toString(record["source_locale"]),
-					toString(record["target_locale"]),
-					toString(record["requested_locale"]),
-					toString(record["resolved_locale"]),
-				} {
-					if normalized := strings.ToLower(strings.TrimSpace(locale)); normalized != "" {
-						localeSet[normalized] = struct{}{}
-					}
-				}
-
-				if policy := b.translationPolicyForPanel(panel); policy != nil {
-					requiredLocales, _, resolved, _ := resolveReadinessRequirements(
-						adminCtx.Context,
-						policy,
-						panelName,
-						record,
-						map[string]any{"channel": adminCtx.Environment},
-					)
-					if resolved {
-						for _, locale := range requiredLocales {
-							if normalized := strings.ToLower(strings.TrimSpace(locale)); normalized != "" {
-								localeSet[normalized] = struct{}{}
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if repo, err := b.assignmentRepository(); err == nil && repo != nil {
-		filters := map[string]any{}
-		if entityType != "" {
-			filters["entity_type"] = entityType
-		}
-		if sourceRecordID != "" {
-			filters["source_record_id"] = sourceRecordID
-		}
-		assignments, listErr := b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", filters)
-		if listErr == nil {
-			for _, assignment := range assignments {
-				for _, locale := range []string{assignment.SourceLocale, assignment.TargetLocale} {
-					if normalized := strings.ToLower(strings.TrimSpace(locale)); normalized != "" {
-						localeSet[normalized] = struct{}{}
-					}
-				}
-			}
-		}
-	}
-
-	if sourceRecord != nil {
-		readiness, _ := sourceRecord["translation_readiness"].(map[string]any)
-		for _, locale := range toStringSlice(readiness["required_locales"]) {
-			if normalized := strings.ToLower(strings.TrimSpace(locale)); normalized != "" {
-				localeSet[normalized] = struct{}{}
-			}
-		}
-	}
-
-	delete(localeSet, "")
-	if excludeLocale != "" {
-		delete(localeSet, excludeLocale)
-	}
+	addTranslationLocale(localeSet, b.admin.config.DefaultLocale)
+	sourceRecord := b.collectLocaleOptionsSourceRecord(adminCtx, entityType, sourceRecordID, localeSet)
+	b.collectAssignmentLocales(adminCtx.Context, entityType, sourceRecordID, localeSet)
+	collectReadinessRequiredLocales(localeSet, sourceRecord)
+	normalizeLocaleSet(localeSet, excludeLocale)
 
 	search := strings.ToLower(strings.TrimSpace(translationQueueOptionsSearch(c)))
-	options := make([]map[string]any, 0, len(localeSet))
-	for locale := range localeSet {
-		option := map[string]any{
-			"value": locale,
-			"label": strings.ToUpper(locale),
-		}
-		if !translationQueueOptionMatchesSearch(option, search) {
-			continue
-		}
-		options = append(options, option)
-	}
+	options := translationQueueLocaleOptions(localeSet, search)
 	sortTranslationQueueOptions(options)
 	return options, nil
 }
@@ -1108,81 +1022,8 @@ func (b *translationQueueBinding) TranslationGroupsOptions(c router.Context) (an
 	search := strings.ToLower(strings.TrimSpace(translationQueueOptionsSearch(c)))
 
 	optionsByValue := map[string]map[string]any{}
-	appendOption := func(value, label, description string) {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			return
-		}
-		label = strings.TrimSpace(label)
-		if label == "" {
-			label = value
-		}
-		current, exists := optionsByValue[value]
-		if !exists {
-			current = map[string]any{
-				"value": value,
-				"label": label,
-			}
-			optionsByValue[value] = current
-		}
-		if strings.TrimSpace(toString(current["description"])) == "" && strings.TrimSpace(description) != "" {
-			current["description"] = strings.TrimSpace(description)
-		}
-	}
-
-	if entityType != "" && sourceRecordID != "" {
-		if panel, panelName, ok := b.panelForEntityType(entityType, adminCtx.Environment); ok && panel != nil {
-			if record, err := panel.Get(adminCtx, sourceRecordID); err == nil && len(record) > 0 {
-				groupID := strings.TrimSpace(translationFamilyIDFromRecord(record))
-				if groupID == "" {
-					groupID = strings.TrimSpace(toString(record["family_id"]))
-				}
-				label := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-					toString(record["source_title"]),
-					toString(record["title"]),
-					toString(record["name"]),
-					groupID,
-				))
-				description := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-					toString(record["source_path"]),
-					toString(record["path"]),
-					toString(record["slug"]),
-				))
-				if strings.TrimSpace(panelName) != "" {
-					if description != "" {
-						description = panelName + " • " + description
-					} else {
-						description = panelName
-					}
-				}
-				appendOption(groupID, label, description)
-			}
-		}
-	}
-
-	if repo, err := b.assignmentRepository(); err == nil && repo != nil {
-		filters := map[string]any{}
-		if entityType != "" {
-			filters["entity_type"] = entityType
-		}
-		if sourceRecordID != "" {
-			filters["source_record_id"] = sourceRecordID
-		}
-		assignments, listErr := b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", filters)
-		if listErr == nil {
-			for _, assignment := range assignments {
-				description := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-					assignment.SourcePath,
-					assignment.EntityType,
-				))
-				label := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-					assignment.SourceTitle,
-					assignment.FamilyID,
-				))
-				appendOption(assignment.FamilyID, label, description)
-			}
-		}
-	}
+	b.collectSourceTranslationGroup(adminCtx, entityType, sourceRecordID, optionsByValue)
+	b.collectAssignmentTranslationGroups(adminCtx.Context, entityType, sourceRecordID, optionsByValue)
 
 	options := make([]map[string]any, 0, len(optionsByValue))
 	for _, option := range optionsByValue {
@@ -1193,6 +1034,199 @@ func (b *translationQueueBinding) TranslationGroupsOptions(c router.Context) (an
 	}
 	sortTranslationQueueOptions(options)
 	return options, nil
+}
+
+func addTranslationLocale(localeSet map[string]struct{}, locale string) {
+	if normalized := strings.ToLower(strings.TrimSpace(locale)); normalized != "" {
+		localeSet[normalized] = struct{}{}
+	}
+}
+
+func (b *translationQueueBinding) collectLocaleOptionsSourceRecord(adminCtx AdminContext, entityType, sourceRecordID string, localeSet map[string]struct{}) map[string]any {
+	if entityType == "" || sourceRecordID == "" {
+		return nil
+	}
+	panel, panelName, ok := b.panelForEntityType(entityType, adminCtx.Environment)
+	if !ok || panel == nil {
+		return nil
+	}
+	record, err := panel.Get(adminCtx, sourceRecordID)
+	if err != nil || len(record) == 0 {
+		return nil
+	}
+	for _, locale := range translationReadinessAvailableLocales(record) {
+		addTranslationLocale(localeSet, locale)
+	}
+	for _, locale := range []string{
+		toString(record["locale"]),
+		toString(record["source_locale"]),
+		toString(record["target_locale"]),
+		toString(record["requested_locale"]),
+		toString(record["resolved_locale"]),
+	} {
+		addTranslationLocale(localeSet, locale)
+	}
+	b.collectPolicyLocales(adminCtx, panel, panelName, record, localeSet)
+	return record
+}
+
+func (b *translationQueueBinding) collectPolicyLocales(adminCtx AdminContext, panel *Panel, panelName string, record map[string]any, localeSet map[string]struct{}) {
+	policy := b.translationPolicyForPanel(panel)
+	if policy == nil {
+		return
+	}
+	requiredLocales, _, resolved, _ := resolveReadinessRequirements(
+		adminCtx.Context,
+		policy,
+		panelName,
+		record,
+		map[string]any{"channel": adminCtx.Environment},
+	)
+	if !resolved {
+		return
+	}
+	for _, locale := range requiredLocales {
+		addTranslationLocale(localeSet, locale)
+	}
+}
+
+func (b *translationQueueBinding) collectAssignmentLocales(ctx context.Context, entityType, sourceRecordID string, localeSet map[string]struct{}) {
+	repo, err := b.assignmentRepository()
+	if err != nil || repo == nil {
+		return
+	}
+	assignments, err := b.listAssignmentsForSummary(ctx, repo, "updated_at", translationQueueSummaryFilters(entityType, sourceRecordID))
+	if err != nil {
+		return
+	}
+	for _, assignment := range assignments {
+		addTranslationLocale(localeSet, assignment.SourceLocale)
+		addTranslationLocale(localeSet, assignment.TargetLocale)
+	}
+}
+
+func collectReadinessRequiredLocales(localeSet map[string]struct{}, sourceRecord map[string]any) {
+	if sourceRecord == nil {
+		return
+	}
+	readiness, _ := sourceRecord["translation_readiness"].(map[string]any)
+	for _, locale := range toStringSlice(readiness["required_locales"]) {
+		addTranslationLocale(localeSet, locale)
+	}
+}
+
+func normalizeLocaleSet(localeSet map[string]struct{}, excludeLocale string) {
+	delete(localeSet, "")
+	if excludeLocale != "" {
+		delete(localeSet, excludeLocale)
+	}
+}
+
+func translationQueueLocaleOptions(localeSet map[string]struct{}, search string) []map[string]any {
+	options := make([]map[string]any, 0, len(localeSet))
+	for locale := range localeSet {
+		option := map[string]any{
+			"value": locale,
+			"label": strings.ToUpper(locale),
+		}
+		if !translationQueueOptionMatchesSearch(option, search) {
+			continue
+		}
+		options = append(options, option)
+	}
+	return options
+}
+
+func translationQueueAppendDescribedOption(optionsByValue map[string]map[string]any, value, label, description string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	label = strings.TrimSpace(label)
+	if label == "" {
+		label = value
+	}
+	current, exists := optionsByValue[value]
+	if !exists {
+		current = map[string]any{
+			"value": value,
+			"label": label,
+		}
+		optionsByValue[value] = current
+	}
+	if strings.TrimSpace(toString(current["description"])) == "" && strings.TrimSpace(description) != "" {
+		current["description"] = strings.TrimSpace(description)
+	}
+}
+
+func (b *translationQueueBinding) collectSourceTranslationGroup(adminCtx AdminContext, entityType, sourceRecordID string, optionsByValue map[string]map[string]any) {
+	if entityType == "" || sourceRecordID == "" {
+		return
+	}
+	panel, panelName, ok := b.panelForEntityType(entityType, adminCtx.Environment)
+	if !ok || panel == nil {
+		return
+	}
+	record, err := panel.Get(adminCtx, sourceRecordID)
+	if err != nil || len(record) == 0 {
+		return
+	}
+	groupID := strings.TrimSpace(translationFamilyIDFromRecord(record))
+	if groupID == "" {
+		groupID = strings.TrimSpace(toString(record["family_id"]))
+	}
+	label := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+		toString(record["source_title"]),
+		toString(record["title"]),
+		toString(record["name"]),
+		groupID,
+	))
+	description := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+		toString(record["source_path"]),
+		toString(record["path"]),
+		toString(record["slug"]),
+	))
+	if strings.TrimSpace(panelName) != "" {
+		if description != "" {
+			description = panelName + " • " + description
+		} else {
+			description = panelName
+		}
+	}
+	translationQueueAppendDescribedOption(optionsByValue, groupID, label, description)
+}
+
+func (b *translationQueueBinding) collectAssignmentTranslationGroups(ctx context.Context, entityType, sourceRecordID string, optionsByValue map[string]map[string]any) {
+	repo, err := b.assignmentRepository()
+	if err != nil || repo == nil {
+		return
+	}
+	assignments, err := b.listAssignmentsForSummary(ctx, repo, "updated_at", translationQueueSummaryFilters(entityType, sourceRecordID))
+	if err != nil {
+		return
+	}
+	for _, assignment := range assignments {
+		description := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+			assignment.SourcePath,
+			assignment.EntityType,
+		))
+		label := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+			assignment.SourceTitle,
+			assignment.FamilyID,
+		))
+		translationQueueAppendDescribedOption(optionsByValue, assignment.FamilyID, label, description)
+	}
+}
+
+func translationQueueSummaryFilters(entityType, sourceRecordID string) map[string]any {
+	filters := map[string]any{}
+	if entityType != "" {
+		filters["entity_type"] = entityType
+	}
+	if sourceRecordID != "" {
+		filters["source_record_id"] = sourceRecordID
+	}
+	return filters
 }
 
 func (b *translationQueueBinding) AssigneesOptions(c router.Context) (any, error) {
@@ -1210,77 +1244,97 @@ func (b *translationQueueBinding) AssigneesOptions(c router.Context) (any, error
 	searchKey := strings.ToLower(strings.TrimSpace(search))
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 200)
 	optionsByValue := map[string]map[string]any{}
-	appendOption := func(option map[string]any) {
-		if len(option) == 0 {
-			return
-		}
-		value := strings.TrimSpace(toString(option["value"]))
-		if value == "" {
-			return
-		}
-		current, exists := optionsByValue[value]
-		if !exists {
-			current = map[string]any{
-				"value": value,
-				"label": strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(option["label"]), value)),
-			}
-			optionsByValue[value] = current
-		}
-		if strings.TrimSpace(toString(current["description"])) == "" && strings.TrimSpace(toString(option["description"])) != "" {
-			current["description"] = strings.TrimSpace(toString(option["description"]))
-		}
-		if strings.TrimSpace(toString(current["display_name"])) == "" {
-			displayName := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-				toString(option["display_name"]),
-				toString(option["label"]),
-			))
-			if displayName != "" {
-				current["display_name"] = displayName
-			}
-		}
-		if strings.TrimSpace(toString(current["avatar_url"])) == "" && strings.TrimSpace(toString(option["avatar_url"])) != "" {
-			current["avatar_url"] = strings.TrimSpace(toString(option["avatar_url"]))
-		}
-	}
-
-	if b.admin.registry != nil {
-		if usersPanel, ok := b.admin.registry.Panel(usersModuleID); ok && usersPanel != nil {
-			records, _, err := usersPanel.List(adminCtx, ListOptions{
-				Page:    1,
-				PerPage: perPage,
-				Search:  search,
-			})
-			if err == nil {
-				for _, record := range records {
-					appendOption(translationQueueAssigneeOption(record))
-				}
-			}
-		}
-	}
-
-	if repo, err := b.assignmentRepository(); err == nil && repo != nil {
-		assignments, listErr := b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", nil)
-		if listErr == nil {
-			for _, assignment := range assignments {
-				assigneeID := strings.TrimSpace(assignment.AssigneeID)
-				if assigneeID == "" {
-					continue
-				}
-				appendOption(map[string]any{
-					"value": assigneeID,
-					"label": assigneeID,
-				})
-			}
-		}
-	}
+	b.appendAssigneeUserOptions(adminCtx, search, perPage, optionsByValue)
+	b.appendAssigneeAssignmentOptions(adminCtx.Context, optionsByValue)
 
 	if selected := strings.TrimSpace(c.Query("assignee_id")); selected != "" {
-		appendOption(map[string]any{
+		appendAssigneeOption(optionsByValue, map[string]any{
 			"value": selected,
 			"label": selected,
 		})
 	}
 
+	options := translationQueueFilteredOptions(optionsByValue, searchKey)
+	sortTranslationQueueOptions(options)
+	return options, nil
+}
+
+func appendAssigneeOption(optionsByValue map[string]map[string]any, option map[string]any) {
+	if len(option) == 0 {
+		return
+	}
+	value := strings.TrimSpace(toString(option["value"]))
+	if value == "" {
+		return
+	}
+	current, exists := optionsByValue[value]
+	if !exists {
+		current = map[string]any{
+			"value": value,
+			"label": strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(option["label"]), value)),
+		}
+		optionsByValue[value] = current
+	}
+	if strings.TrimSpace(toString(current["description"])) == "" && strings.TrimSpace(toString(option["description"])) != "" {
+		current["description"] = strings.TrimSpace(toString(option["description"]))
+	}
+	if strings.TrimSpace(toString(current["display_name"])) == "" {
+		displayName := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+			toString(option["display_name"]),
+			toString(option["label"]),
+		))
+		if displayName != "" {
+			current["display_name"] = displayName
+		}
+	}
+	if strings.TrimSpace(toString(current["avatar_url"])) == "" && strings.TrimSpace(toString(option["avatar_url"])) != "" {
+		current["avatar_url"] = strings.TrimSpace(toString(option["avatar_url"]))
+	}
+}
+
+func (b *translationQueueBinding) appendAssigneeUserOptions(adminCtx AdminContext, search string, perPage int, optionsByValue map[string]map[string]any) {
+	if b.admin.registry == nil {
+		return
+	}
+	usersPanel, ok := b.admin.registry.Panel(usersModuleID)
+	if !ok || usersPanel == nil {
+		return
+	}
+	records, _, err := usersPanel.List(adminCtx, ListOptions{
+		Page:    1,
+		PerPage: perPage,
+		Search:  search,
+	})
+	if err != nil {
+		return
+	}
+	for _, record := range records {
+		appendAssigneeOption(optionsByValue, translationQueueAssigneeOption(record))
+	}
+}
+
+func (b *translationQueueBinding) appendAssigneeAssignmentOptions(ctx context.Context, optionsByValue map[string]map[string]any) {
+	repo, err := b.assignmentRepository()
+	if err != nil || repo == nil {
+		return
+	}
+	assignments, listErr := b.listAssignmentsForSummary(ctx, repo, "updated_at", nil)
+	if listErr != nil {
+		return
+	}
+	for _, assignment := range assignments {
+		assigneeID := strings.TrimSpace(assignment.AssigneeID)
+		if assigneeID == "" {
+			continue
+		}
+		appendAssigneeOption(optionsByValue, map[string]any{
+			"value": assigneeID,
+			"label": assigneeID,
+		})
+	}
+}
+
+func translationQueueFilteredOptions(optionsByValue map[string]map[string]any, searchKey string) []map[string]any {
 	options := make([]map[string]any, 0, len(optionsByValue))
 	for _, option := range optionsByValue {
 		if !translationQueueOptionMatchesSearch(option, searchKey) {
@@ -1288,8 +1342,7 @@ func (b *translationQueueBinding) AssigneesOptions(c router.Context) (any, error
 		}
 		options = append(options, option)
 	}
-	sortTranslationQueueOptions(options)
-	return options, nil
+	return options
 }
 
 func (b *translationQueueBinding) listAssignmentsForSummary(ctx context.Context, repo TranslationAssignmentRepository, sortBy string, filters map[string]any) ([]TranslationAssignment, error) {

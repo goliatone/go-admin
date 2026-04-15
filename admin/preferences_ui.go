@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -165,40 +166,10 @@ func (m *PreferencesModule) savePreferencesForm(admin *Admin, c router.Context, 
 		return err
 	}
 
-	prefs := UserPreferences{UserID: userID}
-	clearKeys := []string{}
-	rawUpdateNeeded := len(rawUI) > 0 || len(clearUIKeys) > 0
-	if rawUpdateNeeded {
-		existing, err := admin.preferences.Get(adminCtx.Context, userID)
-		if err != nil {
-			return err
-		}
-		mergedRaw := primitives.CloneAnyMap(existing.Raw)
-		if mergedRaw == nil {
-			mergedRaw = map[string]any{}
-		}
-		delete(mergedRaw, preferencesKeyTheme)
-		delete(mergedRaw, preferencesKeyThemeVariant)
-		for _, key := range clearUIKeys {
-			delete(mergedRaw, key)
-		}
-		maps.Copy(mergedRaw, rawUI)
-		prefs.Raw = mergedRaw
+	prefs, clearKeys, err := buildSavedPreferences(admin, adminCtx.Context, userID, theme, themeVariant, rawUI, clearUIKeys)
+	if err != nil {
+		return err
 	}
-	if theme == "" {
-		clearKeys = append(clearKeys, preferencesKeyTheme)
-	} else {
-		prefs.Theme = theme
-	}
-	if themeVariant == "" {
-		clearKeys = append(clearKeys, preferencesKeyThemeVariant)
-	} else {
-		prefs.ThemeVariant = themeVariant
-	}
-	if len(clearUIKeys) > 0 {
-		clearKeys = append(clearKeys, clearUIKeys...)
-	}
-	clearKeys = normalizePreferenceKeys(clearKeys)
 
 	if len(clearKeys) > 0 {
 		if _, err := admin.preferences.Clear(adminCtx.Context, userID, clearKeys); err != nil {
@@ -212,6 +183,54 @@ func (m *PreferencesModule) savePreferencesForm(admin *Admin, c router.Context, 
 	}
 
 	return c.Redirect(prefPath)
+}
+
+func buildSavedPreferences(admin *Admin, ctx context.Context, userID, theme, themeVariant string, rawUI map[string]any, clearUIKeys []string) (UserPreferences, []string, error) {
+	prefs := UserPreferences{UserID: userID}
+	if len(rawUI) > 0 || len(clearUIKeys) > 0 {
+		mergedRaw, err := mergedRawPreferences(admin, ctx, userID, rawUI, clearUIKeys)
+		if err != nil {
+			return UserPreferences{}, nil, err
+		}
+		prefs.Raw = mergedRaw
+	}
+	clearKeys := themePreferenceClearKeys(theme, themeVariant, clearUIKeys)
+	if theme != "" {
+		prefs.Theme = theme
+	}
+	if themeVariant != "" {
+		prefs.ThemeVariant = themeVariant
+	}
+	return prefs, clearKeys, nil
+}
+
+func mergedRawPreferences(admin *Admin, ctx context.Context, userID string, rawUI map[string]any, clearUIKeys []string) (map[string]any, error) {
+	existing, err := admin.preferences.Get(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	mergedRaw := primitives.CloneAnyMap(existing.Raw)
+	if mergedRaw == nil {
+		mergedRaw = map[string]any{}
+	}
+	delete(mergedRaw, preferencesKeyTheme)
+	delete(mergedRaw, preferencesKeyThemeVariant)
+	for _, key := range clearUIKeys {
+		delete(mergedRaw, key)
+	}
+	maps.Copy(mergedRaw, rawUI)
+	return mergedRaw, nil
+}
+
+func themePreferenceClearKeys(theme, themeVariant string, clearUIKeys []string) []string {
+	clearKeys := append([]string{}, clearUIKeys...)
+	if theme == "" {
+		clearKeys = append(clearKeys, preferencesKeyTheme)
+	}
+	if themeVariant == "" {
+		clearKeys = append(clearKeys, preferencesKeyThemeVariant)
+	}
+	return normalizePreferenceKeys(clearKeys)
 }
 
 func preferencesLayoutJSON(layout []DashboardWidgetInstance) string {

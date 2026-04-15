@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -18,33 +19,400 @@ type mediaBinding struct {
 }
 
 func newMediaBinding(a *Admin) boot.MediaBinding {
-	if a == nil || a.mediaLibrary == nil {
+	if a == nil {
 		return nil
 	}
 	return &mediaBinding{admin: a}
 }
 
-func (m *mediaBinding) List(c router.Context) (map[string]any, error) {
-	items, err := m.admin.mediaLibrary.List(c.Context())
+func (m *mediaBinding) List(c router.Context) (any, error) {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaPermission, "media"); err != nil {
+		return nil, err
+	}
+	if provider, ok := m.admin.mediaLibrary.(MediaQueryProvider); ok {
+		return provider.QueryMedia(adminCtx.Context, mediaQueryFromRequest(c))
+	}
+	items, err := m.admin.mediaLibrary.List(adminCtx.Context)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"items": items}, nil
+	return mediaPageFromLegacy(items, mediaQueryFromRequest(c)), nil
 }
 
 func (m *mediaBinding) Add(c router.Context, body map[string]any) (any, error) {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaCreatePermission, "media"); err != nil {
+		return nil, err
+	}
 	item := MediaItem{
 		ID:        toString(body["id"]),
 		Name:      toString(body["name"]),
 		URL:       toString(body["url"]),
 		Thumbnail: toString(body["thumbnail"]),
+		Type:      toString(body["type"]),
+		MIMEType:  toString(body["mime_type"]),
+		Status:    toString(body["status"]),
 		Metadata:  extractMap(body["metadata"]),
 	}
-	created, err := m.admin.mediaLibrary.Add(c.Context(), item)
+	created, err := m.admin.mediaLibrary.Add(adminCtx.Context, item)
 	if err != nil {
 		return nil, err
 	}
 	return created, nil
+}
+
+func (m *mediaBinding) Get(c router.Context, id string) (any, error) {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaPermission, "media"); err != nil {
+		return nil, err
+	}
+	return m.getMedia(adminCtx.Context, strings.TrimSpace(id))
+}
+
+func (m *mediaBinding) Resolve(c router.Context, body map[string]any) (any, error) {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaPermission, "media"); err != nil {
+		return nil, err
+	}
+	ref := MediaReference{
+		ID:   toString(body["id"]),
+		URL:  toString(body["url"]),
+		Name: toString(body["name"]),
+	}
+	if resolver, ok := m.admin.mediaLibrary.(MediaResolver); ok {
+		return resolver.ResolveMedia(adminCtx.Context, ref)
+	}
+	return m.resolveLegacyMedia(adminCtx.Context, ref)
+}
+
+func (m *mediaBinding) Upload(c router.Context, body map[string]any, file boot.MultipartFile) (any, error) {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaCreatePermission, "media"); err != nil {
+		return nil, err
+	}
+	uploader, ok := m.admin.mediaLibrary.(MediaUploader)
+	if !ok {
+		return nil, serviceUnavailableDomainError("media uploader not configured", map[string]any{
+			"component": "media",
+			"route":     "media.upload",
+		})
+	}
+	return uploader.UploadMedia(adminCtx.Context, MediaUploadInput{
+		MediaUploadRequest: MediaUploadRequest{
+			Name:        firstNonEmpty(toString(body["name"]), file.FileName),
+			FileName:    firstNonEmpty(toString(body["file_name"]), file.FileName),
+			ContentType: firstNonEmpty(toString(body["content_type"]), file.ContentType),
+			Size:        file.Size,
+			Metadata:    extractMap(body["metadata"]),
+		},
+		Reader: file.Reader,
+	})
+}
+
+func (m *mediaBinding) Presign(c router.Context, body map[string]any) (any, error) {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaCreatePermission, "media"); err != nil {
+		return nil, err
+	}
+	presigner, ok := m.admin.mediaLibrary.(MediaPresigner)
+	if !ok {
+		return nil, serviceUnavailableDomainError("media presigner not configured", map[string]any{
+			"component": "media",
+			"route":     "media.presign",
+		})
+	}
+	return presigner.PresignMedia(adminCtx.Context, MediaPresignRequest{
+		Name:        toString(body["name"]),
+		FileName:    toString(body["file_name"]),
+		ContentType: toString(body["content_type"]),
+		Size:        toInt64(body["size"]),
+		Metadata:    extractMap(body["metadata"]),
+	})
+}
+
+func (m *mediaBinding) Confirm(c router.Context, body map[string]any) (any, error) {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaCreatePermission, "media"); err != nil {
+		return nil, err
+	}
+	confirmer, ok := m.admin.mediaLibrary.(MediaConfirmer)
+	if !ok {
+		return nil, serviceUnavailableDomainError("media confirmer not configured", map[string]any{
+			"component": "media",
+			"route":     "media.confirm",
+		})
+	}
+	return confirmer.ConfirmMedia(adminCtx.Context, MediaConfirmRequest{
+		UploadID:    toString(body["upload_id"]),
+		Name:        toString(body["name"]),
+		URL:         toString(body["url"]),
+		FileName:    toString(body["file_name"]),
+		ContentType: toString(body["content_type"]),
+		Size:        toInt64(body["size"]),
+		Metadata:    extractMap(body["metadata"]),
+	})
+}
+
+func (m *mediaBinding) Update(c router.Context, id string, body map[string]any) (any, error) {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaUpdatePermission, "media"); err != nil {
+		return nil, err
+	}
+	updater, ok := m.admin.mediaLibrary.(MediaUpdater)
+	if !ok {
+		return nil, serviceUnavailableDomainError("media updater not configured", map[string]any{
+			"component": "media",
+			"route":     "media.item",
+		})
+	}
+	return updater.UpdateMedia(adminCtx.Context, strings.TrimSpace(id), MediaUpdateInput{
+		Name:           toString(body["name"]),
+		Thumbnail:      toString(body["thumbnail"]),
+		Type:           toString(body["type"]),
+		MIMEType:       toString(body["mime_type"]),
+		Status:         toString(body["status"]),
+		WorkflowStatus: toString(body["workflow_status"]),
+		WorkflowError:  toString(body["workflow_error"]),
+		Metadata:       extractMap(body["metadata"]),
+	})
+}
+
+func (m *mediaBinding) Delete(c router.Context, id string) error {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaDeletePermission, "media"); err != nil {
+		return err
+	}
+	deleter, ok := m.admin.mediaLibrary.(MediaDeleter)
+	if !ok {
+		return serviceUnavailableDomainError("media deleter not configured", map[string]any{
+			"component": "media",
+			"route":     "media.item",
+		})
+	}
+	return deleter.DeleteMedia(adminCtx.Context, strings.TrimSpace(id))
+}
+
+func (m *mediaBinding) Capabilities(c router.Context) (any, error) {
+	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
+	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaPermission, "media"); err != nil {
+		return nil, err
+	}
+	return m.effectiveCapabilities(adminCtx)
+}
+
+func (m *mediaBinding) getMedia(ctx context.Context, id string) (MediaItem, error) {
+	if getter, ok := m.admin.mediaLibrary.(MediaGetter); ok {
+		return getter.GetMedia(ctx, id)
+	}
+	return m.resolveLegacyMedia(ctx, MediaReference{ID: id})
+}
+
+func (m *mediaBinding) resolveLegacyMedia(ctx context.Context, ref MediaReference) (MediaItem, error) {
+	items, err := m.admin.mediaLibrary.List(ctx)
+	if err != nil {
+		return MediaItem{}, err
+	}
+	id := strings.TrimSpace(ref.ID)
+	url := strings.TrimSpace(ref.URL)
+	for _, item := range items {
+		if id != "" && strings.TrimSpace(item.ID) == id {
+			return item, nil
+		}
+		if url != "" && strings.TrimSpace(item.URL) == url {
+			return item, nil
+		}
+	}
+	return MediaItem{}, notFoundDomainError("media item not found", map[string]any{
+		"id":  id,
+		"url": url,
+	})
+}
+
+func (m *mediaBinding) effectiveCapabilities(adminCtx AdminContext) (MediaCapabilities, error) {
+	base := MediaCapabilities{
+		Operations: MediaOperationCapabilities{
+			List:         true,
+			Get:          true,
+			Resolve:      true,
+			Upload:       m.can(adminCtx, m.admin.config.MediaCreatePermission) && implementsMediaUploader(m.admin.mediaLibrary),
+			Presign:      m.can(adminCtx, m.admin.config.MediaCreatePermission) && implementsMediaPresigner(m.admin.mediaLibrary),
+			Confirm:      m.can(adminCtx, m.admin.config.MediaCreatePermission) && implementsMediaConfirmer(m.admin.mediaLibrary),
+			Update:       m.can(adminCtx, m.admin.config.MediaUpdatePermission) && implementsMediaUpdater(m.admin.mediaLibrary),
+			Delete:       m.can(adminCtx, m.admin.config.MediaDeletePermission) && implementsMediaDeleter(m.admin.mediaLibrary),
+			LegacyCreate: m.can(adminCtx, m.admin.config.MediaCreatePermission) && m.admin.mediaLibrary != nil,
+		},
+		Upload: MediaUploadCapabilities{
+			DirectUpload: implementsMediaUploader(m.admin.mediaLibrary),
+			Presign:      implementsMediaPresigner(m.admin.mediaLibrary),
+		},
+		Picker: MediaPickerCapabilities{
+			ValueModes:       []MediaValueMode{MediaValueModeURL, MediaValueModeID},
+			DefaultValueMode: MediaValueModeURL,
+		},
+	}
+	if provider, ok := m.admin.mediaLibrary.(MediaCapabilityProvider); ok {
+		override, err := provider.MediaCapabilities(adminCtx.Context)
+		if err != nil {
+			return MediaCapabilities{}, err
+		}
+		base = mergeMediaCapabilities(base, override)
+	}
+	if !base.Operations.Get && !base.Operations.Resolve {
+		base.Picker.ValueModes = []MediaValueMode{MediaValueModeURL}
+	}
+	base.Upload.DirectUpload = base.Upload.DirectUpload && base.Operations.Upload
+	base.Upload.Presign = base.Upload.Presign && base.Operations.Presign
+	return base, nil
+}
+
+func (m *mediaBinding) can(adminCtx AdminContext, permission string) bool {
+	return m.admin.requirePermission(adminCtx, permission, "media") == nil
+}
+
+func implementsMediaUploader(lib MediaLibrary) bool {
+	_, ok := lib.(MediaUploader)
+	return ok
+}
+
+func implementsMediaPresigner(lib MediaLibrary) bool {
+	_, ok := lib.(MediaPresigner)
+	return ok
+}
+
+func implementsMediaConfirmer(lib MediaLibrary) bool {
+	_, ok := lib.(MediaConfirmer)
+	return ok
+}
+
+func implementsMediaUpdater(lib MediaLibrary) bool {
+	_, ok := lib.(MediaUpdater)
+	return ok
+}
+
+func implementsMediaDeleter(lib MediaLibrary) bool {
+	_, ok := lib.(MediaDeleter)
+	return ok
+}
+
+func mergeMediaCapabilities(base, override MediaCapabilities) MediaCapabilities {
+	base.Operations.List = base.Operations.List && override.Operations.List
+	base.Operations.Get = base.Operations.Get && override.Operations.Get
+	base.Operations.Resolve = base.Operations.Resolve && override.Operations.Resolve
+	base.Operations.Upload = base.Operations.Upload && override.Operations.Upload
+	base.Operations.Presign = base.Operations.Presign && override.Operations.Presign
+	base.Operations.Confirm = base.Operations.Confirm && override.Operations.Confirm
+	base.Operations.Update = base.Operations.Update && override.Operations.Update
+	base.Operations.Delete = base.Operations.Delete && override.Operations.Delete
+	base.Operations.LegacyCreate = base.Operations.LegacyCreate && override.Operations.LegacyCreate
+
+	if override.Upload.MaxSize > 0 {
+		base.Upload.MaxSize = override.Upload.MaxSize
+	}
+	if len(override.Upload.AcceptedKinds) > 0 {
+		base.Upload.AcceptedKinds = append([]string{}, override.Upload.AcceptedKinds...)
+	}
+	if len(override.Upload.AcceptedMIMETypes) > 0 {
+		base.Upload.AcceptedMIMETypes = append([]string{}, override.Upload.AcceptedMIMETypes...)
+	}
+	base.Upload.DirectUpload = base.Upload.DirectUpload && override.Upload.DirectUpload
+	base.Upload.Presign = base.Upload.Presign && override.Upload.Presign
+
+	if len(override.Picker.ValueModes) > 0 {
+		base.Picker.ValueModes = append([]MediaValueMode{}, override.Picker.ValueModes...)
+	}
+	if override.Picker.DefaultValueMode != "" {
+		base.Picker.DefaultValueMode = override.Picker.DefaultValueMode
+	}
+	return base
+}
+
+func mediaQueryFromRequest(c router.Context) MediaQuery {
+	return MediaQuery{
+		Search:         strings.TrimSpace(c.Query("search")),
+		Type:           strings.TrimSpace(c.Query("type")),
+		MIMEFamily:     strings.TrimSpace(c.Query("mime_family")),
+		Status:         strings.TrimSpace(c.Query("status")),
+		WorkflowStatus: strings.TrimSpace(c.Query("workflow_status")),
+		Sort:           strings.TrimSpace(c.Query("sort")),
+		Limit:          intQuery(c, "limit"),
+		Offset:         intQuery(c, "offset"),
+	}
+}
+
+func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
+	filtered := make([]MediaItem, 0, len(items))
+	search := strings.ToLower(strings.TrimSpace(query.Search))
+	typeFilter := strings.ToLower(strings.TrimSpace(query.Type))
+	statusFilter := strings.ToLower(strings.TrimSpace(query.Status))
+	workflowFilter := strings.ToLower(strings.TrimSpace(query.WorkflowStatus))
+	mimeFamily := strings.ToLower(strings.TrimSpace(query.MIMEFamily))
+
+	for _, item := range items {
+		if search != "" {
+			haystack := strings.ToLower(strings.Join([]string{item.ID, item.Name, item.URL, item.Type, item.MIMEType}, " "))
+			if !strings.Contains(haystack, search) {
+				continue
+			}
+		}
+		if typeFilter != "" && strings.ToLower(strings.TrimSpace(item.Type)) != typeFilter {
+			continue
+		}
+		if statusFilter != "" && strings.ToLower(strings.TrimSpace(item.Status)) != statusFilter {
+			continue
+		}
+		if workflowFilter != "" && strings.ToLower(strings.TrimSpace(item.WorkflowStatus)) != workflowFilter {
+			continue
+		}
+		if mimeFamily != "" && !strings.HasPrefix(strings.ToLower(strings.TrimSpace(item.MIMEType)), mimeFamily+"/") {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+
+	total := len(filtered)
+	start := query.Offset
+	if start < 0 {
+		start = 0
+	}
+	if start > total {
+		start = total
+	}
+	end := total
+	if query.Limit > 0 && start+query.Limit < end {
+		end = start + query.Limit
+	}
+	return MediaPage{
+		Items:  append([]MediaItem{}, filtered[start:end]...),
+		Total:  total,
+		Limit:  query.Limit,
+		Offset: query.Offset,
+	}
+}
+
+func intQuery(c router.Context, key string) int {
+	raw := strings.TrimSpace(c.Query(key))
+	if raw == "" {
+		return 0
+	}
+	return int(toInt64(raw))
+}
+
+func toInt64(value any) int64 {
+	switch typed := value.(type) {
+	case int:
+		return int64(typed)
+	case int64:
+		return typed
+	case float64:
+		return int64(typed)
+	case string:
+		var result int64
+		fmt.Sscan(strings.TrimSpace(typed), &result)
+		return result
+	default:
+		return 0
+	}
 }
 
 type notificationsBinding struct {

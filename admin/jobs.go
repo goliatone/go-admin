@@ -186,79 +186,125 @@ func (j *JobRegistry) Sync(ctx context.Context) error {
 	if err := j.ensureRegistryInitialized(ctx); err != nil {
 		return err
 	}
+	snapshot := j.syncSnapshot()
+	registryInst, scheduler := j.syncRuntime(snapshot)
+	j.unsubscribeSyncSnapshot(snapshot.existingSubs)
+	state, err := j.syncTasks(registryInst, scheduler, snapshot.cronCommands)
+	if err != nil {
+		return err
+	}
+	if err := startScheduler(ctx, scheduler, snapshot.schedulerStarted); err != nil {
+		return err
+	}
+	j.applySyncState(registryInst, scheduler, state)
+	return nil
+}
 
+type jobSyncSnapshot struct {
+	registryInst     gojob.Registry
+	registryProvided bool
+	scheduler        goJobScheduler
+	schedulerStarted bool
+	synced           bool
+	existingSubs     []gocron.Subscription
+	cronCommands     map[string]*jobRegistration
+}
+
+type jobSyncState struct {
+	tasks      map[string]gojob.Task
+	commanders map[string]*gojob.TaskCommander
+	states     map[string]*jobState
+	cronSubs   map[string]gocron.Subscription
+}
+
+func (j *JobRegistry) syncSnapshot() jobSyncSnapshot {
 	j.mu.Lock()
-	registryInst := j.registry
-	registryProvided := j.registryProvided
-	scheduler := j.scheduler
-	schedulerStarted := j.schedulerStarted
-	synced := j.synced
-	existingSubs := make([]gocron.Subscription, 0, len(j.cronSubs))
+	defer j.mu.Unlock()
+	snapshot := jobSyncSnapshot{
+		registryInst:     j.registry,
+		registryProvided: j.registryProvided,
+		scheduler:        j.scheduler,
+		schedulerStarted: j.schedulerStarted,
+		synced:           j.synced,
+		existingSubs:     make([]gocron.Subscription, 0, len(j.cronSubs)),
+		cronCommands:     make(map[string]*jobRegistration, len(j.cronCommands)),
+	}
 	for _, sub := range j.cronSubs {
 		if sub != nil {
-			existingSubs = append(existingSubs, sub)
+			snapshot.existingSubs = append(snapshot.existingSubs, sub)
 		}
 	}
-	cronCommands := make(map[string]*jobRegistration, len(j.cronCommands))
-	maps.Copy(cronCommands, j.cronCommands)
-	j.mu.Unlock()
+	maps.Copy(snapshot.cronCommands, j.cronCommands)
+	return snapshot
+}
 
-	if registryInst == nil || (!registryProvided && synced) {
+func (j *JobRegistry) syncRuntime(snapshot jobSyncSnapshot) (gojob.Registry, goJobScheduler) {
+	registryInst := snapshot.registryInst
+	if registryInst == nil || (!snapshot.registryProvided && snapshot.synced) {
 		registryInst = gojob.NewMemoryRegistry()
 	}
+	scheduler := snapshot.scheduler
 	if scheduler == nil {
-		scheduler = gocron.NewScheduler()
+		scheduler = gocron.NewScheduler(gocron.WithParser(gocron.StandardParser))
 	}
+	return registryInst, scheduler
+}
 
-	for _, sub := range existingSubs {
+func (j *JobRegistry) unsubscribeSyncSnapshot(subs []gocron.Subscription) {
+	for _, sub := range subs {
 		sub.Unsubscribe()
 	}
+}
 
-	tasks := map[string]gojob.Task{}
-	commanders := map[string]*gojob.TaskCommander{}
-	states := map[string]*jobState{}
-	cronSubs := map[string]gocron.Subscription{}
-
+func (j *JobRegistry) syncTasks(registryInst gojob.Registry, scheduler goJobScheduler, cronCommands map[string]*jobRegistration) (jobSyncState, error) {
+	state := jobSyncState{
+		tasks:      map[string]gojob.Task{},
+		commanders: map[string]*gojob.TaskCommander{},
+		states:     map[string]*jobState{},
+		cronSubs:   map[string]gocron.Subscription{},
+	}
 	for name, reg := range cronCommands {
 		task := newJobTask(name, reg)
 		if task == nil {
 			continue
 		}
 		_ = registryInst.Add(task)
-		tasks[name] = task
-		commanders[name] = gojob.NewTaskCommander(task)
+		state.tasks[name] = task
+		state.commanders[name] = gojob.NewTaskCommander(task)
 
 		if spec := strings.TrimSpace(reg.handlerConfig.Expression); spec != "" {
-			states[name] = &jobState{schedule: spec}
-			sub, err := j.registerSchedule(name, reg.handlerConfig, commanders[name], scheduler)
+			state.states[name] = &jobState{schedule: spec}
+			sub, err := j.registerSchedule(name, reg.handlerConfig, state.commanders[name], scheduler)
 			if err != nil {
-				return err
+				return jobSyncState{}, err
 			}
 			if sub != nil {
-				cronSubs[name] = sub
+				state.cronSubs[name] = sub
 			}
 		}
 	}
-	ensureJobStateForTasks(states, commanders)
+	ensureJobStateForTasks(state.states, state.commanders)
+	return state, nil
+}
 
-	if scheduler != nil && !schedulerStarted {
-		if err := scheduler.Start(ctx); err != nil {
-			return err
-		}
-		schedulerStarted = true
+func startScheduler(ctx context.Context, scheduler goJobScheduler, started bool) error {
+	if scheduler == nil || started {
+		return nil
 	}
+	return scheduler.Start(ctx)
+}
 
+func (j *JobRegistry) applySyncState(registryInst gojob.Registry, scheduler goJobScheduler, state jobSyncState) {
 	j.mu.Lock()
+	defer j.mu.Unlock()
 	j.registry = registryInst
 	j.scheduler = scheduler
-	j.cronSubs = cronSubs
-	j.states = states
-	j.tasks = tasks
-	j.commanders = commanders
-	j.schedulerStarted = schedulerStarted
+	j.cronSubs = state.cronSubs
+	j.states = state.states
+	j.tasks = state.tasks
+	j.commanders = state.commanders
+	j.schedulerStarted = scheduler != nil
 	j.synced = true
-	j.mu.Unlock()
-	return nil
 }
 
 // List returns registered cron jobs.

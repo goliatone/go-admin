@@ -2,6 +2,7 @@ package boot
 
 import (
 	"context"
+	"io"
 
 	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
@@ -151,10 +152,26 @@ type BulkBinding interface {
 	Rollback(router.Context, string, map[string]any) (map[string]any, error)
 }
 
+// MultipartFile captures an uploaded file passed through a boot binding.
+type MultipartFile struct {
+	FileName    string
+	ContentType string
+	Size        int64
+	Reader      io.Reader
+}
+
 // MediaBinding exposes media operations.
 type MediaBinding interface {
-	List(router.Context) (map[string]any, error)
+	List(router.Context) (any, error)
 	Add(router.Context, map[string]any) (any, error)
+	Get(router.Context, string) (any, error)
+	Resolve(router.Context, map[string]any) (any, error)
+	Upload(router.Context, map[string]any, MultipartFile) (any, error)
+	Presign(router.Context, map[string]any) (any, error)
+	Confirm(router.Context, map[string]any) (any, error)
+	Update(router.Context, string, map[string]any) (any, error)
+	Delete(router.Context, string) error
+	Capabilities(router.Context) (any, error)
 }
 
 // UserImportBinding exposes user import operations.

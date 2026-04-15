@@ -256,60 +256,8 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 		return nil, err
 	}
 	panelName := f.panelName(panelSlug, env)
-	repo := NewCMSContentTypeEntryRepository(f.admin.contentSvc, *contentType)
-	fields := f.schemaConverter.Convert(contentType.Schema, contentType.UISchema)
-	fields.Form = ensureFormField(fields.Form, hiddenRouteKeyField())
-	panelTraits := panelTraitsForContentType(contentType.Capabilities)
-	if hasPanelTrait(panelTraits, "editorial") {
-		fields = applyEditorialPanelTrait(fields)
-	}
-	blocksEnabled, blocksConfigured := blocksCapability(contentType.Capabilities)
-	if !blocksConfigured {
-		blocksEnabled = hasBlocksField(contentType.Schema)
-	}
-	builder := f.admin.Panel(panelName).
-		WithRepository(repo).
-		WithActionDefaults(PanelActionDefaultsModeCRUD).
-		WithBreadcrumbs(PanelBreadcrumbConfig{
-			ListLabel:           dynamicPanelBreadcrumbLabel(contentType, panelSlug),
-			ShowCurrentOnDetail: false,
-		}).
-		ListFields(fields.List...).
-		FormFields(fields.Form...).
-		DetailFields(fields.Detail...).
-		Filters(fields.Filters...).
-		UseBlocks(blocksEnabled).
-		UseSEO(hasSEOCapability(contentType.Capabilities)).
-		TreeView(hasTreeCapability(contentType.Capabilities)).
-		Permissions(panelPermissionsForContentType(*contentType))
-
-	builder.WithWorkflow(nil)
-	if workflow := workflowEngineForContentType(ctx, f.admin, contentType); workflow != nil {
-		builder.WithWorkflow(workflow)
-	}
-	if hasPanelTrait(panelTraits, "editorial") {
-		if actions := resolveEditorialPanelActions(f.admin, builder.workflow, contentType.Capabilities); len(actions) > 0 {
-			builder.Actions(actions...)
-		}
-	}
-
-	if len(contentType.Schema) > 0 {
-		builder.FormSchema(primitives.CloneAnyMap(contentType.Schema))
-	}
-
-	if tabs := extractTabs(contentType.UISchema, panelName); len(tabs) > 0 {
-		builder.Tabs(tabs...)
-	}
-
-	var (
-		panel *Panel
-		err   error
-	)
-	if replaceExisting {
-		panel, err = f.admin.replacePanel(panelName, builder, true)
-	} else {
-		panel, err = f.admin.RegisterPanel(panelName, builder)
-	}
+	builder := f.panelBuilder(ctx, contentType, panelName, panelSlug)
+	panel, err := f.registerDynamicPanel(panelName, builder, replaceExisting)
 	if err != nil {
 		return nil, err
 	}
@@ -331,6 +279,72 @@ func (f *DynamicPanelFactory) createPanel(ctx context.Context, contentType *CMSC
 	}
 
 	return panel, nil
+}
+
+func (f *DynamicPanelFactory) panelBuilder(ctx context.Context, contentType *CMSContentType, panelName, panelSlug string) *PanelBuilder {
+	repo := NewCMSContentTypeEntryRepository(f.admin.contentSvc, *contentType)
+	fields := f.panelFields(contentType)
+	builder := f.admin.Panel(panelName).
+		WithRepository(repo).
+		WithActionDefaults(PanelActionDefaultsModeCRUD).
+		WithBreadcrumbs(PanelBreadcrumbConfig{
+			ListLabel:           dynamicPanelBreadcrumbLabel(contentType, panelSlug),
+			ShowCurrentOnDetail: false,
+		}).
+		ListFields(fields.List...).
+		FormFields(fields.Form...).
+		DetailFields(fields.Detail...).
+		Filters(fields.Filters...).
+		UseBlocks(f.blocksEnabled(contentType)).
+		UseSEO(hasSEOCapability(contentType.Capabilities)).
+		TreeView(hasTreeCapability(contentType.Capabilities)).
+		Permissions(panelPermissionsForContentType(*contentType))
+	f.configurePanelBuilder(ctx, builder, contentType, panelName)
+	return builder
+}
+
+func (f *DynamicPanelFactory) panelFields(contentType *CMSContentType) ConvertedFields {
+	fields := f.schemaConverter.Convert(contentType.Schema, contentType.UISchema)
+	fields.Form = ensureFormField(fields.Form, hiddenRouteKeyField())
+	panelTraits := panelTraitsForContentType(contentType.Capabilities)
+	if hasPanelTrait(panelTraits, "editorial") {
+		fields = applyEditorialPanelTrait(fields)
+	}
+	return fields
+}
+
+func (f *DynamicPanelFactory) blocksEnabled(contentType *CMSContentType) bool {
+	blocksEnabled, blocksConfigured := blocksCapability(contentType.Capabilities)
+	if !blocksConfigured {
+		blocksEnabled = hasBlocksField(contentType.Schema)
+	}
+	return blocksEnabled
+}
+
+func (f *DynamicPanelFactory) configurePanelBuilder(ctx context.Context, builder *PanelBuilder, contentType *CMSContentType, panelName string) {
+	panelTraits := panelTraitsForContentType(contentType.Capabilities)
+	builder.WithWorkflow(nil)
+	if workflow := workflowEngineForContentType(ctx, f.admin, contentType); workflow != nil {
+		builder.WithWorkflow(workflow)
+	}
+	if hasPanelTrait(panelTraits, "editorial") {
+		if actions := resolveEditorialPanelActions(f.admin, builder.workflow, contentType.Capabilities); len(actions) > 0 {
+			builder.Actions(actions...)
+		}
+	}
+	if len(contentType.Schema) > 0 {
+		builder.FormSchema(primitives.CloneAnyMap(contentType.Schema))
+	}
+	if tabs := extractTabs(contentType.UISchema, panelName); len(tabs) > 0 {
+		builder.Tabs(tabs...)
+	}
+}
+
+func (f *DynamicPanelFactory) registerDynamicPanel(panelName string, builder *PanelBuilder, replaceExisting bool) (*Panel, error) {
+	if replaceExisting {
+		return f.admin.replacePanel(panelName, builder, true)
+	}
+	return f.admin.RegisterPanel(panelName, builder)
 }
 
 func (f *DynamicPanelFactory) registerPanelSearchAdapter(panel *Panel, panelSlug, env string) {

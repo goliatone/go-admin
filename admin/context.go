@@ -242,100 +242,152 @@ func resolveAcceptLanguageLocale(header string, candidates ...string) string {
 	return ""
 }
 
+type adminRequestMetadata struct {
+	requestID     string
+	correlationID string
+	traceID       string
+	requestIP     string
+}
+
+func newAdminRequestMetadata(c router.Context) adminRequestMetadata {
+	if c == nil {
+		return adminRequestMetadata{}
+	}
+	meta := adminRequestMetadata{
+		requestID: strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Request-ID"), c.Header("X-Request-Id"), c.Header("x-request-id"))),
+		correlationID: strings.TrimSpace(primitives.FirstNonEmptyRaw(
+			c.Header("X-Correlation-ID"),
+			c.Header("X-Correlation-Id"),
+			c.Header("x-correlation-id"),
+		)),
+		traceID: strings.TrimSpace(primitives.FirstNonEmptyRaw(
+			c.Header("X-Trace-ID"),
+			c.Header("X-Trace-Id"),
+			c.Header("x-trace-id"),
+			c.Header("traceparent"),
+		)),
+		requestIP: strings.TrimSpace(c.IP()),
+	}
+	if meta.requestID == "" {
+		meta.requestID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("request_id"), c.Query("requestId")))
+	}
+	if meta.correlationID == "" {
+		meta.correlationID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("correlation_id"), c.Query("correlationId")))
+	}
+	if meta.traceID == "" {
+		meta.traceID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("trace_id"), c.Query("traceId"), meta.correlationID))
+	}
+	return meta
+}
+
+type adminRouterIdentity struct {
+	userID   string
+	tenantID string
+	orgID    string
+	actor    *auth.ActorContext
+}
+
+func newAdminRouterIdentity(c router.Context, ctx context.Context) adminRouterIdentity {
+	identity := adminRouterIdentity{
+		userID:   strings.TrimSpace(c.Header("X-User-ID")),
+		tenantID: strings.TrimSpace(c.Query("tenant_id")),
+		orgID:    strings.TrimSpace(c.Query("org_id")),
+		actor:    actorFromRouterOrClaims(c, ctx),
+	}
+	if identity.actor == nil {
+		return identity
+	}
+	if identity.actor.ActorID != "" {
+		identity.userID = identity.actor.ActorID
+	} else if identity.actor.Subject != "" {
+		identity.userID = identity.actor.Subject
+	}
+	if identity.actor.TenantID != "" {
+		identity.tenantID = identity.actor.TenantID
+	}
+	if identity.actor.OrganizationID != "" {
+		identity.orgID = identity.actor.OrganizationID
+	}
+	return identity
+}
+
+func ensureAdminRouterActor(identity adminRouterIdentity) adminRouterIdentity {
+	if identity.actor == nil && identity.userID != "" {
+		identity.actor = &auth.ActorContext{
+			ActorID:        identity.userID,
+			Subject:        identity.userID,
+			TenantID:       identity.tenantID,
+			OrganizationID: identity.orgID,
+		}
+	}
+	if identity.actor == nil {
+		return identity
+	}
+	if identity.actor.ActorID == "" {
+		identity.actor.ActorID = identity.userID
+	}
+	if identity.actor.Subject == "" {
+		identity.actor.Subject = identity.actor.ActorID
+	}
+	if identity.actor.TenantID == "" {
+		identity.actor.TenantID = identity.tenantID
+	}
+	if identity.actor.OrganizationID == "" {
+		identity.actor.OrganizationID = identity.orgID
+	}
+	if identity.userID == "" {
+		identity.userID = primitives.FirstNonEmptyRaw(identity.actor.ActorID, identity.actor.Subject)
+	}
+	return identity
+}
+
+func withAdminRouterIdentity(ctx context.Context, identity adminRouterIdentity) context.Context {
+	if identity.actor != nil {
+		ctx = auth.WithActorContext(ctx, identity.actor)
+	}
+	if identity.userID != "" {
+		ctx = context.WithValue(ctx, userIDContextKey, identity.userID)
+	}
+	if identity.tenantID != "" {
+		ctx = context.WithValue(ctx, tenantIDContextKey, identity.tenantID)
+	}
+	if identity.orgID != "" {
+		ctx = context.WithValue(ctx, orgIDContextKey, identity.orgID)
+	}
+	return ctx
+}
+
+func withAdminRequestMetadata(ctx context.Context, meta adminRequestMetadata) context.Context {
+	if meta.requestID != "" {
+		ctx = context.WithValue(ctx, requestIDContextKey, meta.requestID)
+	}
+	if meta.correlationID != "" {
+		ctx = context.WithValue(ctx, correlationIDContextKey, meta.correlationID)
+	}
+	if meta.traceID != "" {
+		ctx = context.WithValue(ctx, traceIDContextKey, meta.traceID)
+	}
+	if meta.requestIP != "" {
+		ctx = WithRequestIP(ctx, meta.requestIP)
+	}
+	return ctx
+}
+
 // newAdminContext builds an AdminContext from an HTTP request.
 func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	ctx := c.Context()
-	userID := strings.TrimSpace(c.Header("X-User-ID"))
-	tenantID := ""
-	orgID := ""
 	channel := resolveContentChannelFromRouter(c)
 	environment := channel
-	requestID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Request-ID"), c.Header("X-Request-Id"), c.Header("x-request-id")))
-	correlationID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Correlation-ID"), c.Header("X-Correlation-Id"), c.Header("x-correlation-id")))
-	traceID := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Header("X-Trace-ID"), c.Header("X-Trace-Id"), c.Header("x-trace-id"), c.Header("traceparent")))
-	if requestID == "" {
-		requestID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("request_id"), c.Query("requestId")))
-	}
-	if correlationID == "" {
-		correlationID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("correlation_id"), c.Query("correlationId")))
-	}
-	if traceID == "" {
-		traceID = strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("trace_id"), c.Query("traceId"), correlationID))
-	}
-	requestIP := strings.TrimSpace(c.IP())
-	actor := actorFromRouterOrClaims(c, ctx)
-	if actor != nil {
-		if actor.ActorID != "" {
-			userID = actor.ActorID
-		} else if actor.Subject != "" {
-			userID = actor.Subject
-		}
-		if actor.TenantID != "" {
-			tenantID = actor.TenantID
-		}
-		if actor.OrganizationID != "" {
-			orgID = actor.OrganizationID
-		}
-	}
-	if tenantID == "" {
-		tenantID = strings.TrimSpace(c.Query("tenant_id"))
-	}
-	if orgID == "" {
-		orgID = strings.TrimSpace(c.Query("org_id"))
-	}
-	if actor == nil && userID != "" {
-		actor = &auth.ActorContext{
-			ActorID:        userID,
-			Subject:        userID,
-			TenantID:       tenantID,
-			OrganizationID: orgID,
-		}
-	}
-	if actor != nil {
-		if actor.ActorID == "" {
-			actor.ActorID = userID
-		}
-		if actor.Subject == "" {
-			actor.Subject = actor.ActorID
-		}
-		if actor.TenantID == "" {
-			actor.TenantID = tenantID
-		}
-		if actor.OrganizationID == "" {
-			actor.OrganizationID = orgID
-		}
-		if userID == "" {
-			userID = primitives.FirstNonEmptyRaw(actor.ActorID, actor.Subject)
-		}
-		ctx = auth.WithActorContext(ctx, actor)
-	}
-	if userID != "" {
-		ctx = context.WithValue(ctx, userIDContextKey, userID)
-	}
-	if tenantID != "" {
-		ctx = context.WithValue(ctx, tenantIDContextKey, tenantID)
-	}
-	if orgID != "" {
-		ctx = context.WithValue(ctx, orgIDContextKey, orgID)
-	}
+	meta := newAdminRequestMetadata(c)
+	identity := ensureAdminRouterActor(newAdminRouterIdentity(c, ctx))
+	ctx = withAdminRouterIdentity(ctx, identity)
 	if channel != "" {
 		ctx = WithContentChannel(ctx, channel)
 	}
 	if environment != "" {
 		ctx = WithEnvironment(ctx, environment)
 	}
-	if requestID != "" {
-		ctx = context.WithValue(ctx, requestIDContextKey, requestID)
-	}
-	if correlationID != "" {
-		ctx = context.WithValue(ctx, correlationIDContextKey, correlationID)
-	}
-	if traceID != "" {
-		ctx = context.WithValue(ctx, traceIDContextKey, traceID)
-	}
-	if requestIP != "" {
-		ctx = WithRequestIP(ctx, requestIP)
-	}
+	ctx = withAdminRequestMetadata(ctx, meta)
 	locale = i18n.NormalizeLocale(locale)
 	if locale != "" {
 		ctx = context.WithValue(ctx, localeContextKey, locale)
@@ -345,9 +397,9 @@ func newAdminContextFromRouter(c router.Context, locale string) AdminContext {
 	}
 	return AdminContext{
 		Context:     ctx,
-		UserID:      userID,
-		TenantID:    tenantID,
-		OrgID:       orgID,
+		UserID:      identity.userID,
+		TenantID:    identity.tenantID,
+		OrgID:       identity.orgID,
 		Channel:     strings.TrimSpace(primitives.FirstNonEmptyRaw(channel, environment)),
 		Environment: environment,
 		Locale:      locale,

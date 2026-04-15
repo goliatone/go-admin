@@ -177,22 +177,7 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	if cfg.BasePath == "" {
 		cfg.BasePath = joinBasePath(basePath, debugDefaultPathSuffix)
 	}
-	cfg.StandaloneTemplate = strings.TrimSpace(cfg.StandaloneTemplate)
-	if cfg.StandaloneTemplate == "" {
-		cfg.StandaloneTemplate = debugDefaultPageTemplate
-	}
-	cfg.PageTemplate = strings.TrimSpace(cfg.PageTemplate)
-	if cfg.PageTemplate == "" {
-		if cfg.LayoutMode == DebugLayoutAdmin {
-			cfg.PageTemplate = debugDefaultAdminPageTemplate
-		} else {
-			cfg.PageTemplate = cfg.StandaloneTemplate
-		}
-	}
-	cfg.DashboardTemplate = strings.TrimSpace(cfg.DashboardTemplate)
-	if cfg.DashboardTemplate == "" {
-		cfg.DashboardTemplate = debugDefaultDashboardTemplate
-	}
+	cfg = normalizeDebugTemplates(cfg)
 	if cfg.MaxLogEntries <= 0 {
 		cfg.MaxLogEntries = debugDefaultMaxLogEntries
 	}
@@ -217,6 +202,31 @@ func normalizeDebugConfig(cfg DebugConfig, basePath string) DebugConfig {
 	}
 	cfg.ToolbarPanels = debugpanels.NormalizePanelIDs(cfg.ToolbarPanels)
 	cfg.ToolbarExcludePaths = normalizeDebugToolbarExcludePaths(cfg.ToolbarExcludePaths, cfg.BasePath)
+	cfg = normalizeDebugSessionConfig(cfg)
+	return cfg
+}
+
+func normalizeDebugTemplates(cfg DebugConfig) DebugConfig {
+	cfg.StandaloneTemplate = strings.TrimSpace(cfg.StandaloneTemplate)
+	if cfg.StandaloneTemplate == "" {
+		cfg.StandaloneTemplate = debugDefaultPageTemplate
+	}
+	cfg.PageTemplate = strings.TrimSpace(cfg.PageTemplate)
+	if cfg.PageTemplate == "" {
+		if cfg.LayoutMode == DebugLayoutAdmin {
+			cfg.PageTemplate = debugDefaultAdminPageTemplate
+		} else {
+			cfg.PageTemplate = cfg.StandaloneTemplate
+		}
+	}
+	cfg.DashboardTemplate = strings.TrimSpace(cfg.DashboardTemplate)
+	if cfg.DashboardTemplate == "" {
+		cfg.DashboardTemplate = debugDefaultDashboardTemplate
+	}
+	return cfg
+}
+
+func normalizeDebugSessionConfig(cfg DebugConfig) DebugConfig {
 	cfg.SessionCookieName = strings.TrimSpace(cfg.SessionCookieName)
 	if cfg.SessionCookieName == "" {
 		cfg.SessionCookieName = debugDefaultSessionCookieName

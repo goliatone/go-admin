@@ -147,6 +147,18 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.MenuBuilderPublishPermission == "" {
 		cfg.MenuBuilderPublishPermission = "admin.menus.publish"
 	}
+	if cfg.MediaPermission == "" {
+		cfg.MediaPermission = "admin.media.view"
+	}
+	if cfg.MediaCreatePermission == "" {
+		cfg.MediaCreatePermission = "admin.media.create"
+	}
+	if cfg.MediaUpdatePermission == "" {
+		cfg.MediaUpdatePermission = "admin.media.edit"
+	}
+	if cfg.MediaDeletePermission == "" {
+		cfg.MediaDeletePermission = "admin.media.delete"
+	}
 	if cfg.JobsPermission == "" {
 		cfg.JobsPermission = "admin.jobs.view"
 	}

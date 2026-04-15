@@ -69,6 +69,9 @@ func TestNewAppliesDependencyDefaults(t *testing.T) {
 	if adm.activity == nil {
 		t.Fatalf("expected activity sink default")
 	}
+	if adm.mediaActivityHook != nil {
+		t.Fatalf("expected media activity hook default nil")
+	}
 	res, _ := adm.translator.Translate("en", "key")
 	if adm.translator == nil || res != "key" {
 		t.Fatalf("expected noop translator default")
@@ -81,6 +84,25 @@ func TestNewAppliesDependencyDefaults(t *testing.T) {
 	}
 	if got := adm.loggerProvider.GetLogger("admin.test"); got != adm.logger {
 		t.Fatalf("expected provider logger to reuse resolved default logger")
+	}
+}
+
+func TestNewWiresMediaActivityHookDependency(t *testing.T) {
+	hook := func(context.Context, MediaMutationEvent) (MediaActivityDecision, error) {
+		return MediaActivityDecision{SuppressDefault: true}, nil
+	}
+
+	adm, err := New(Config{}, Dependencies{MediaActivityHook: hook})
+	if err != nil {
+		t.Fatalf("admin.New: %v", err)
+	}
+	if adm.mediaActivityHook == nil {
+		t.Fatalf("expected media activity hook to be wired")
+	}
+	if got, err := adm.mediaActivityHook(context.Background(), MediaMutationEvent{Operation: MediaMutationUpload}); err != nil {
+		t.Fatalf("media activity hook returned error: %v", err)
+	} else if !got.SuppressDefault {
+		t.Fatalf("expected hook decision to be preserved")
 	}
 }
 

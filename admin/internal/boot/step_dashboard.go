@@ -20,46 +20,48 @@ func DashboardStep(ctx BootCtx) error {
 	if responder == nil {
 		return nil
 	}
-	gates := ctx.Gates()
-	routes := []RouteSpec{}
-	defaultLocale := ctx.DefaultLocale()
+	routes := dashboardRoutes(ctx, binding, responder)
+	return applyRoutes(ctx, routes)
+}
 
-	if binding.HasRenderer() {
-		htmlPath := routePath(ctx, ctx.AdminUIGroup(), "dashboard.page")
-		routes = append(routes, RouteSpec{
-			Method: "GET",
-			Path:   htmlPath,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureDashboard); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
-				locale := c.Query("locale")
-				if locale == "" {
-					locale = defaultLocale
-				}
-				html, err := binding.RenderHTML(c, locale)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteHTML(c, html)
-			},
-		})
+func dashboardRoutes(ctx BootCtx, binding DashboardBinding, responder Responder) []RouteSpec {
+	routes := []RouteSpec{
+		dashboardWidgetsRoute(ctx, binding, responder),
+		dashboardDiagnosticsRoute(ctx, binding, responder),
 	}
+	if binding.HasRenderer() {
+		routes = append(routes, dashboardHTMLRoute(ctx, binding, responder))
+	}
+	routes = append(routes, dashboardPreferenceRoutes(ctx, binding, responder)...)
+	return routes
+}
 
-	routes = append(routes, RouteSpec{
+func dashboardHTMLRoute(ctx BootCtx, binding DashboardBinding, responder Responder) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   routePath(ctx, ctx.AdminUIGroup(), "dashboard.page"),
+		Handler: func(c router.Context) error {
+			locale, ok := dashboardLocale(ctx, responder, c)
+			if !ok {
+				return nil
+			}
+			html, err := binding.RenderHTML(c, locale)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return responder.WriteHTML(c, html)
+		},
+	}
+}
+
+func dashboardWidgetsRoute(ctx BootCtx, binding DashboardBinding, responder Responder) RouteSpec {
+	return RouteSpec{
 		Method: "GET",
 		Path:   routePath(ctx, ctx.AdminAPIGroup(), "dashboard"),
 		Handler: func(c router.Context) error {
-			if gates != nil {
-				if err := gates.Require(FeatureDashboard); err != nil {
-					return responder.WriteError(c, err)
-				}
-			}
-			locale := c.Query("locale")
-			if locale == "" {
-				locale = defaultLocale
+			locale, ok := dashboardLocale(ctx, responder, c)
+			if !ok {
+				return nil
 			}
 			payload, err := binding.Widgets(c, locale)
 			if err != nil {
@@ -67,85 +69,83 @@ func DashboardStep(ctx BootCtx) error {
 			}
 			return responder.WriteJSON(c, payload)
 		},
-	})
-
-	prefPath := routePath(ctx, ctx.AdminAPIGroup(), "dashboard.preferences")
-	configAlias := routePath(ctx, ctx.AdminAPIGroup(), "dashboard.config")
-	registerPref := func(path string) {
-		pathCopy := path
-		routes = append(routes, RouteSpec{
-			Method: "GET",
-			Path:   pathCopy,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureDashboard); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
-				locale := c.Query("locale")
-				if locale == "" {
-					locale = defaultLocale
-				}
-				if guard, ok := binding.(dashboardPreferencesPermissioner); ok {
-					if err := guard.RequirePreferencesPermission(c, locale); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
-				payload, err := binding.Preferences(c, locale)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
-		})
-
-		routes = append(routes, RouteSpec{
-			Method: "POST",
-			Path:   pathCopy,
-			Handler: func(c router.Context) error {
-				if gates != nil {
-					if err := gates.Require(FeatureDashboard); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
-				locale := c.Query("locale")
-				if locale == "" {
-					locale = defaultLocale
-				}
-				if guard, ok := binding.(dashboardPreferencesPermissioner); ok {
-					if err := guard.RequirePreferencesUpdatePermission(c, locale); err != nil {
-						return responder.WriteError(c, err)
-					}
-				}
-				body, err := ctx.ParseBody(c)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				payload, err := binding.SavePreferences(c, body)
-				if err != nil {
-					return responder.WriteError(c, err)
-				}
-				return responder.WriteJSON(c, payload)
-			},
-		})
 	}
+}
 
-	registerPref(prefPath)
-	registerPref(configAlias)
+func dashboardPreferenceRoutes(ctx BootCtx, binding DashboardBinding, responder Responder) []RouteSpec {
+	paths := []string{
+		routePath(ctx, ctx.AdminAPIGroup(), "dashboard.preferences"),
+		routePath(ctx, ctx.AdminAPIGroup(), "dashboard.config"),
+	}
+	routes := make([]RouteSpec, 0, len(paths)*2)
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		routes = append(routes, dashboardPreferencesGetRoute(ctx, binding, responder, path))
+		routes = append(routes, dashboardPreferencesPostRoute(ctx, binding, responder, path))
+	}
+	return routes
+}
 
-	// TODO: make configurable
-	routes = append(routes, RouteSpec{
+func dashboardPreferencesGetRoute(ctx BootCtx, binding DashboardBinding, responder Responder, path string) RouteSpec {
+	return RouteSpec{
 		Method: "GET",
-		Path:   routePath(ctx, ctx.AdminAPIGroup(), "dashboard.debug"),
+		Path:   path,
 		Handler: func(c router.Context) error {
-			if gates != nil {
-				if err := gates.Require(FeatureDashboard); err != nil {
+			locale, ok := dashboardLocale(ctx, responder, c)
+			if !ok {
+				return nil
+			}
+			if guard, ok := binding.(dashboardPreferencesPermissioner); ok {
+				if err := guard.RequirePreferencesPermission(c, locale); err != nil {
 					return responder.WriteError(c, err)
 				}
 			}
-			locale := c.Query("locale")
-			if locale == "" {
-				locale = defaultLocale
+			payload, err := binding.Preferences(c, locale)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return responder.WriteJSON(c, payload)
+		},
+	}
+}
+
+func dashboardPreferencesPostRoute(ctx BootCtx, binding DashboardBinding, responder Responder, path string) RouteSpec {
+	return RouteSpec{
+		Method: "POST",
+		Path:   path,
+		Handler: func(c router.Context) error {
+			locale, ok := dashboardLocale(ctx, responder, c)
+			if !ok {
+				return nil
+			}
+			if guard, ok := binding.(dashboardPreferencesPermissioner); ok {
+				if err := guard.RequirePreferencesUpdatePermission(c, locale); err != nil {
+					return responder.WriteError(c, err)
+				}
+			}
+			body, err := ctx.ParseBody(c)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			payload, err := binding.SavePreferences(c, body)
+			if err != nil {
+				return responder.WriteError(c, err)
+			}
+			return responder.WriteJSON(c, payload)
+		},
+	}
+}
+
+func dashboardDiagnosticsRoute(ctx BootCtx, binding DashboardBinding, responder Responder) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "dashboard.debug"),
+		Handler: func(c router.Context) error {
+			locale, ok := dashboardLocale(ctx, responder, c)
+			if !ok {
+				return nil
 			}
 			payload, err := binding.Diagnostics(c, locale)
 			if err != nil {
@@ -153,7 +153,21 @@ func DashboardStep(ctx BootCtx) error {
 			}
 			return responder.WriteJSON(c, payload)
 		},
-	})
+	}
+}
 
-	return applyRoutes(ctx, routes)
+func dashboardLocale(ctx BootCtx, responder Responder, c router.Context) (string, bool) {
+	if gates := ctx.Gates(); gates != nil {
+		if err := gates.Require(FeatureDashboard); err != nil {
+			if responder != nil {
+				_ = responder.WriteError(c, err)
+			}
+			return "", false
+		}
+	}
+	locale := c.Query("locale")
+	if locale == "" {
+		locale = ctx.DefaultLocale()
+	}
+	return locale, true
 }
