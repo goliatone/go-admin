@@ -43,12 +43,20 @@ func Ensure(ctx context.Context, opts EnsureOptions) (EnsureResult, error) {
 	if !opts.RequireCMS {
 		return res, nil
 	}
+	container, err := resolveEnsureContainer(ctx, opts, res)
+	if err != nil {
+		return res, err
+	}
+	hydrateEnsureServices(&res, container)
+	return res, nil
+}
 
+func resolveEnsureContainer(ctx context.Context, opts EnsureOptions, res EnsureResult) (CMSContainer, error) {
 	container := opts.Container
 	if (container == nil || opts.MenuService == nil || opts.WidgetService == nil) && opts.BuildContainer != nil {
 		built, err := opts.BuildContainer(ctx)
 		if err != nil {
-			return res, err
+			return nil, err
 		}
 		if built != nil {
 			container = built
@@ -57,22 +65,26 @@ func Ensure(ctx context.Context, opts EnsureOptions) (EnsureResult, error) {
 	if container == nil && opts.FallbackContainer != nil {
 		container = opts.FallbackContainer()
 	}
-	if container != nil {
-		res.Container = container
-		if res.WidgetService == nil {
-			res.WidgetService = container.WidgetService()
-		}
-		if res.MenuService == nil {
-			res.MenuService = container.MenuService()
-		}
-		if res.ContentService == nil {
-			res.ContentService = container.ContentService()
-		}
-		if res.ContentTypeService == nil {
-			res.ContentTypeService = container.ContentTypeService()
-		}
+	return container, nil
+}
+
+func hydrateEnsureServices(res *EnsureResult, container CMSContainer) {
+	if res == nil || container == nil {
+		return
 	}
-	return res, nil
+	res.Container = container
+	if res.WidgetService == nil {
+		res.WidgetService = container.WidgetService()
+	}
+	if res.MenuService == nil {
+		res.MenuService = container.MenuService()
+	}
+	if res.ContentService == nil {
+		res.ContentService = container.ContentService()
+	}
+	if res.ContentTypeService == nil {
+		res.ContentTypeService = container.ContentTypeService()
+	}
 }
 
 // BootstrapMenu ensures a menu exists for a given code.

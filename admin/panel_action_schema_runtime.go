@@ -218,18 +218,33 @@ func ensureActionPayloadSchemaContract(schema map[string]any, required []string)
 	if out == nil {
 		out = map[string]any{}
 	}
-
 	required = normalizeActionFieldList(required)
-	if existingType, ok := out["type"].(string); !ok || strings.TrimSpace(existingType) == "" {
-		out["type"] = "object"
+	ensureActionPayloadSchemaType(out)
+	props := ensureActionPayloadSchemaProperties(out)
+	requiredOut := actionPayloadRequiredFields(out["required"], required)
+	ensureActionPayloadRequiredProperties(props, requiredOut)
+	if len(requiredOut) > 0 {
+		out["required"] = requiredOut
 	}
+	return out
+}
 
-	props, ok := out["properties"].(map[string]any)
+func ensureActionPayloadSchemaType(schema map[string]any) {
+	if existingType, ok := schema["type"].(string); !ok || strings.TrimSpace(existingType) == "" {
+		schema["type"] = "object"
+	}
+}
+
+func ensureActionPayloadSchemaProperties(schema map[string]any) map[string]any {
+	props, ok := schema["properties"].(map[string]any)
 	if !ok || props == nil {
 		props = map[string]any{}
 	}
-	out["properties"] = props
+	schema["properties"] = props
+	return props
+}
 
+func actionPayloadRequiredFields(existing any, required []string) []string {
 	requiredSet := map[string]struct{}{}
 	requiredOut := []string{}
 	appendRequired := func(field string) {
@@ -243,21 +258,24 @@ func ensureActionPayloadSchemaContract(schema map[string]any, required []string)
 		requiredSet[normalized] = struct{}{}
 		requiredOut = append(requiredOut, normalized)
 	}
-	switch existing := out["required"].(type) {
+	switch current := existing.(type) {
 	case []string:
-		for _, field := range existing {
+		for _, field := range current {
 			appendRequired(field)
 		}
 	case []any:
-		for _, field := range existing {
+		for _, field := range current {
 			appendRequired(strings.TrimSpace(toString(field)))
 		}
 	}
 	for _, field := range required {
 		appendRequired(field)
 	}
+	return requiredOut
+}
 
-	for _, field := range requiredOut {
+func ensureActionPayloadRequiredProperties(props map[string]any, required []string) {
+	for _, field := range required {
 		prop, ok := props[field].(map[string]any)
 		if !ok || prop == nil {
 			prop = map[string]any{}
@@ -270,11 +288,6 @@ func ensureActionPayloadSchemaContract(schema map[string]any, required []string)
 		}
 		props[field] = prop
 	}
-
-	if len(requiredOut) > 0 {
-		out["required"] = requiredOut
-	}
-	return out
 }
 
 func actionFieldTitle(name string) string {
@@ -588,12 +601,22 @@ func mergeFormFieldSchemaProperty(prop map[string]any, field Field) {
 	if prop == nil {
 		return
 	}
+	mergeFormFieldSchemaBasics(prop, field)
+	mergeFormFieldSchemaFlags(prop, field)
+	mergeFormFieldSchemaValidation(prop, field)
+	mergeFormFieldSchemaWidget(prop, field)
+}
+
+func mergeFormFieldSchemaBasics(prop map[string]any, field Field) {
 	if existingType, ok := prop["type"].(string); !ok || strings.TrimSpace(existingType) == "" {
 		prop["type"] = mapFieldType(field.Type)
 	}
 	if existingTitle, ok := prop["title"].(string); !ok || strings.TrimSpace(existingTitle) == "" {
 		prop["title"] = field.Label
 	}
+}
+
+func mergeFormFieldSchemaFlags(prop map[string]any, field Field) {
 	if _, ok := prop["readOnly"]; !ok && field.ReadOnly {
 		prop["readOnly"] = true
 	}
@@ -606,16 +629,23 @@ func mergeFormFieldSchemaProperty(prop map[string]any, field Field) {
 	if _, ok := prop["x-options"]; !ok && len(field.Options) > 0 {
 		prop["x-options"] = field.Options
 	}
+}
+
+func mergeFormFieldSchemaValidation(prop map[string]any, field Field) {
 	if _, ok := prop["x-validation"]; !ok && field.Validation != "" {
 		prop["x-validation"] = field.Validation
 	}
 	if _, ok := prop["x-validation-source"]; !ok && field.Validation != "" {
 		prop["x-validation-source"] = "panel"
 	}
-	if _, ok := prop["x-formgen:widget"]; !ok {
-		if widget := mapWidget(field.Type); widget != "" {
-			prop["x-formgen:widget"] = widget
-		}
+}
+
+func mergeFormFieldSchemaWidget(prop map[string]any, field Field) {
+	if _, ok := prop["x-formgen:widget"]; ok {
+		return
+	}
+	if widget := mapWidget(field.Type); widget != "" {
+		prop["x-formgen:widget"] = widget
 	}
 }
 

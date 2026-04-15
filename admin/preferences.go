@@ -949,48 +949,63 @@ func flattenDashboardOverrides(overrides DashboardLayoutOverrides) map[string]an
 	if len(overrides.AreaOrder) > 0 {
 		out["area_order"] = overrides.AreaOrder
 	}
-	if len(overrides.AreaRows) > 0 {
-		rows := map[string]any{}
-		for area, areaRows := range overrides.AreaRows {
-			serialized := []map[string]any{}
-			for _, row := range areaRows {
-				if len(row.Widgets) == 0 {
-					continue
-				}
-				widgets := []map[string]any{}
-				for _, slot := range row.Widgets {
-					if slot.ID == "" {
-						continue
-					}
-					widget := map[string]any{"id": slot.ID}
-					if slot.Width > 0 {
-						widget["width"] = slot.Width
-					}
-					widgets = append(widgets, widget)
-				}
-				if len(widgets) > 0 {
-					serialized = append(serialized, map[string]any{"widgets": widgets})
-				}
-			}
-			if len(serialized) > 0 {
-				rows[area] = serialized
-			}
-		}
-		if len(rows) > 0 {
-			out["area_rows"] = rows
-		}
+	if rows := flattenDashboardAreaRows(overrides.AreaRows); len(rows) > 0 {
+		out["area_rows"] = rows
 	}
-	hidden := []string{}
-	for id, isHidden := range overrides.HiddenWidgets {
-		if isHidden {
-			hidden = append(hidden, id)
-		}
-	}
+	hidden := flattenHiddenDashboardWidgets(overrides.HiddenWidgets)
 	sort.Strings(hidden)
 	if len(hidden) > 0 {
 		out["hidden_widget_ids"] = hidden
 	}
 	return out
+}
+
+func flattenDashboardAreaRows(areaRows map[string][]DashboardLayoutRow) map[string]any {
+	if len(areaRows) == 0 {
+		return nil
+	}
+	rows := map[string]any{}
+	for area, rowSet := range areaRows {
+		if serialized := serializeDashboardAreaRows(rowSet); len(serialized) > 0 {
+			rows[area] = serialized
+		}
+	}
+	return rows
+}
+
+func serializeDashboardAreaRows(rowSet []DashboardLayoutRow) []map[string]any {
+	serialized := []map[string]any{}
+	for _, row := range rowSet {
+		if widgets := serializeDashboardRowWidgets(row.Widgets); len(widgets) > 0 {
+			serialized = append(serialized, map[string]any{"widgets": widgets})
+		}
+	}
+	return serialized
+}
+
+func serializeDashboardRowWidgets(slots []DashboardLayoutSlot) []map[string]any {
+	widgets := []map[string]any{}
+	for _, slot := range slots {
+		if slot.ID == "" {
+			continue
+		}
+		widget := map[string]any{"id": slot.ID}
+		if slot.Width > 0 {
+			widget["width"] = slot.Width
+		}
+		widgets = append(widgets, widget)
+	}
+	return widgets
+}
+
+func flattenHiddenDashboardWidgets(hiddenWidgets map[string]bool) []string {
+	hidden := []string{}
+	for id, isHidden := range hiddenWidgets {
+		if isHidden {
+			hidden = append(hidden, id)
+		}
+	}
+	return hidden
 }
 
 func expandDashboardOverrides(input any) DashboardLayoutOverrides {

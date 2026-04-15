@@ -88,12 +88,7 @@ func (r AdminActorResolver) resolveActor(ctx context.Context, id uuid.UUID) (use
 	if r.Profiles != nil && (display == "" || email == "") {
 		profile, err := r.Profiles.Get(ctx, userID)
 		if err == nil {
-			if display == "" {
-				display = strings.TrimSpace(profile.DisplayName)
-			}
-			if email == "" {
-				email = strings.TrimSpace(profile.Email)
-			}
+			applyProfileActorContact(&display, &email, profile)
 		}
 	}
 	if display == "" {
@@ -224,9 +219,7 @@ func newUserObjectResolver(users UserRepository, profiles ProfileStore) usersact
 				if errors.Is(err, ErrNotFound) {
 					display := metaDisplay
 					if profiles != nil && display == "" {
-						if profile, profileErr := profiles.Get(ctx, id); profileErr == nil {
-							display = formatObjectDisplay(label, strings.TrimSpace(profile.DisplayName), id)
-						}
+						display = profileObjectDisplay(ctx, profiles, label, id, display)
 					}
 					return tombstoneObjectInfo(objectType, id, display), true, nil
 				}
@@ -234,14 +227,41 @@ func newUserObjectResolver(users UserRepository, profiles ProfileStore) usersact
 			}
 			userDisplay := formatUserDisplay(user)
 			if profiles != nil && userDisplay == "" {
-				if profile, err := profiles.Get(ctx, id); err == nil {
-					userDisplay = strings.TrimSpace(profile.DisplayName)
-				}
+				userDisplay = profileDisplayName(ctx, profiles, id, userDisplay)
 			}
 			display := formatObjectDisplay(label, userDisplay, id)
 			return objectInfo(objectType, id, display), true, nil
 		})
 	})
+}
+
+func applyProfileActorContact(display, email *string, profile UserProfile) {
+	if display != nil && *display == "" {
+		*display = strings.TrimSpace(profile.DisplayName)
+	}
+	if email != nil && *email == "" {
+		*email = strings.TrimSpace(profile.Email)
+	}
+}
+
+func profileObjectDisplay(ctx context.Context, profiles ProfileStore, label, id, fallback string) string {
+	if profiles == nil || fallback != "" {
+		return fallback
+	}
+	if profile, err := profiles.Get(ctx, id); err == nil {
+		return formatObjectDisplay(label, strings.TrimSpace(profile.DisplayName), id)
+	}
+	return fallback
+}
+
+func profileDisplayName(ctx context.Context, profiles ProfileStore, id, fallback string) string {
+	if profiles == nil || fallback != "" {
+		return fallback
+	}
+	if profile, err := profiles.Get(ctx, id); err == nil {
+		return strings.TrimSpace(profile.DisplayName)
+	}
+	return fallback
 }
 
 func newRoleObjectResolver(roles RoleRepository) usersactivity.ObjectResolver {

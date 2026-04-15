@@ -91,12 +91,8 @@ func serializeBlockDefaults(value any) string {
 }
 
 func resolveBlockBool(config map[string]any, hints map[string]string, key string, fallback bool) bool {
-	if config != nil {
-		if raw, ok := config[key]; ok {
-			if value, ok := raw.(bool); ok {
-				return value
-			}
-		}
+	if value, ok := blockBoolConfigValue(config, key); ok {
+		return value
 	}
 	if hints != nil {
 		if raw, ok := hints[key]; ok {
@@ -113,14 +109,8 @@ func resolveBlockBool(config map[string]any, hints map[string]string, key string
 }
 
 func resolveBlockString(config map[string]any, hints map[string]string, key string, fallback string) string {
-	if config != nil {
-		if raw, ok := config[key]; ok {
-			if value, ok := raw.(string); ok {
-				if normalized, ok := normalizeBlockStringValue(value); ok {
-					return normalized
-				}
-			}
-		}
+	if normalized, ok := blockStringConfigValue(config, key); ok {
+		return normalized
 	}
 	if hints != nil {
 		if normalized, ok := normalizeBlockStringValue(hints[key]); ok {
@@ -128,6 +118,33 @@ func resolveBlockString(config map[string]any, hints map[string]string, key stri
 		}
 	}
 	return fallback
+}
+
+func blockBoolConfigValue(config map[string]any, key string) (bool, bool) {
+	if config == nil {
+		return false, false
+	}
+	raw, ok := config[key]
+	if !ok {
+		return false, false
+	}
+	value, ok := raw.(bool)
+	return value, ok
+}
+
+func blockStringConfigValue(config map[string]any, key string) (string, bool) {
+	if config == nil {
+		return "", false
+	}
+	raw, ok := config[key]
+	if !ok {
+		return "", false
+	}
+	value, ok := raw.(string)
+	if !ok {
+		return "", false
+	}
+	return normalizeBlockStringValue(value)
 }
 
 func normalizeBlockStringValue(raw string) (string, bool) {

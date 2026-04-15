@@ -56,36 +56,7 @@ func (m *TenantsModule) Register(ctx ModuleContext) error {
 	if ctx.Admin.tenants == nil {
 		return FeatureDisabledError{Feature: string(FeatureTenants)}
 	}
-	if m.basePath == "" {
-		m.basePath = ctx.Admin.config.BasePath
-	}
-	if m.menuCode == "" {
-		m.menuCode = ctx.Admin.navMenuCode
-	}
-	if m.defaultLocale == "" {
-		m.defaultLocale = ctx.Admin.config.DefaultLocale
-	}
-	if m.viewPerm == "" {
-		m.viewPerm = ctx.Admin.config.TenantsPermission
-	}
-	if m.createPerm == "" {
-		m.createPerm = ctx.Admin.config.TenantsCreatePermission
-	}
-	if m.updatePerm == "" {
-		m.updatePerm = ctx.Admin.config.TenantsUpdatePermission
-	}
-	if m.deletePerm == "" {
-		m.deletePerm = ctx.Admin.config.TenantsDeletePermission
-	}
-	if m.urls == nil {
-		m.urls = ctx.Admin.URLs()
-	}
-	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
-		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
-	}
-	if path := ctx.Routing.RoutePath(routing.SurfaceUI, tenantsRouteKey); path != "" {
-		m.basePath = path
-	}
+	m.applyDefaults(ctx)
 
 	repo := NewTenantPanelRepository(ctx.Admin.tenants)
 	builder := ctx.Admin.Panel(tenantsModuleID).
@@ -133,6 +104,39 @@ func (m *TenantsModule) Register(ctx ModuleContext) error {
 		})
 	}
 	return nil
+}
+
+func (m *TenantsModule) applyDefaults(ctx ModuleContext) {
+	if m.basePath == "" {
+		m.basePath = ctx.Admin.config.BasePath
+	}
+	if m.menuCode == "" {
+		m.menuCode = ctx.Admin.navMenuCode
+	}
+	if m.defaultLocale == "" {
+		m.defaultLocale = ctx.Admin.config.DefaultLocale
+	}
+	if m.viewPerm == "" {
+		m.viewPerm = ctx.Admin.config.TenantsPermission
+	}
+	if m.createPerm == "" {
+		m.createPerm = ctx.Admin.config.TenantsCreatePermission
+	}
+	if m.updatePerm == "" {
+		m.updatePerm = ctx.Admin.config.TenantsUpdatePermission
+	}
+	if m.deletePerm == "" {
+		m.deletePerm = ctx.Admin.config.TenantsDeletePermission
+	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
+	}
+	if groupPath := strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath); groupPath != "" {
+		m.uiGroupPath = groupPath
+	}
+	if routePath := ctx.Routing.RoutePath(routing.SurfaceUI, tenantsRouteKey); routePath != "" {
+		m.basePath = routePath
+	}
 }
 
 func (m *TenantsModule) RouteContract() routing.ModuleContract {
@@ -206,36 +210,7 @@ func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 	if ctx.Admin.organizations == nil {
 		return FeatureDisabledError{Feature: string(FeatureOrganizations)}
 	}
-	if m.basePath == "" {
-		m.basePath = ctx.Admin.config.BasePath
-	}
-	if m.menuCode == "" {
-		m.menuCode = ctx.Admin.navMenuCode
-	}
-	if m.defaultLocale == "" {
-		m.defaultLocale = ctx.Admin.config.DefaultLocale
-	}
-	if m.viewPerm == "" {
-		m.viewPerm = ctx.Admin.config.OrganizationsPermission
-	}
-	if m.createPerm == "" {
-		m.createPerm = ctx.Admin.config.OrganizationsCreatePermission
-	}
-	if m.updatePerm == "" {
-		m.updatePerm = ctx.Admin.config.OrganizationsUpdatePermission
-	}
-	if m.deletePerm == "" {
-		m.deletePerm = ctx.Admin.config.OrganizationsDeletePermission
-	}
-	if m.urls == nil {
-		m.urls = ctx.Admin.URLs()
-	}
-	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
-		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
-	}
-	if path := ctx.Routing.RoutePath(routing.SurfaceUI, organizationsRouteKey); path != "" {
-		m.basePath = path
-	}
+	m.applyDefaults(ctx)
 
 	repo := NewOrganizationPanelRepository(ctx.Admin.organizations)
 	builder := ctx.Admin.Panel(organizationsModuleID).
@@ -284,6 +259,39 @@ func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 		})
 	}
 	return nil
+}
+
+func (m *OrganizationsModule) applyDefaults(ctx ModuleContext) {
+	if m.basePath == "" {
+		m.basePath = ctx.Admin.config.BasePath
+	}
+	if m.menuCode == "" {
+		m.menuCode = ctx.Admin.navMenuCode
+	}
+	if m.defaultLocale == "" {
+		m.defaultLocale = ctx.Admin.config.DefaultLocale
+	}
+	if m.viewPerm == "" {
+		m.viewPerm = ctx.Admin.config.OrganizationsPermission
+	}
+	if m.createPerm == "" {
+		m.createPerm = ctx.Admin.config.OrganizationsCreatePermission
+	}
+	if m.updatePerm == "" {
+		m.updatePerm = ctx.Admin.config.OrganizationsUpdatePermission
+	}
+	if m.deletePerm == "" {
+		m.deletePerm = ctx.Admin.config.OrganizationsDeletePermission
+	}
+	if m.urls == nil {
+		m.urls = ctx.Admin.URLs()
+	}
+	if groupPath := strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath); groupPath != "" {
+		m.uiGroupPath = groupPath
+	}
+	if routePath := ctx.Routing.RoutePath(routing.SurfaceUI, organizationsRouteKey); routePath != "" {
+		m.basePath = routePath
+	}
 }
 
 func (m *OrganizationsModule) RouteContract() routing.ModuleContract {

@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	cmsboot "github.com/goliatone/go-admin/admin/internal/cmsboot"
 	workflowcore "github.com/goliatone/go-admin/admin/internal/workflowcore"
 	"github.com/goliatone/go-command/flow"
 )
@@ -334,17 +335,42 @@ func (s *WorkflowRuntimeService) registerActiveWorkflow(workflow PersistedWorkfl
 
 func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow PersistedWorkflow) (PersistedWorkflow, error) {
 	next := workflowcore.NormalizePersistedWorkflow(workflow)
+	normalizeWorkflowDefaults(&next)
+	fields := workflowValidationFieldErrors(next)
+	if len(fields) > 0 {
+		return PersistedWorkflow{}, WorkflowValidationErrors{Fields: fields}
+	}
+	return next, nil
+}
+
+func (s *WorkflowRuntimeService) normalizeAndValidateBinding(ctx context.Context, binding WorkflowBinding) (WorkflowBinding, error) {
+	next := workflowcore.NormalizeWorkflowBinding(binding)
+	normalizeWorkflowBindingDefaults(&next)
+	fields := workflowBindingValidationFieldErrors(next)
+	if len(fields) == 0 {
+		workflowBindingWorkflowFieldError(ctx, s, next, fields)
+	}
+
+	if len(fields) > 0 {
+		return WorkflowBinding{}, WorkflowValidationErrors{Fields: fields}
+	}
+	return next, nil
+}
+
+func normalizeWorkflowDefaults(next *PersistedWorkflow) {
 	if next.Status == "" {
 		next.Status = WorkflowStatusDraft
 	}
 	if next.Version <= 0 {
 		next.Version = 1
 	}
-	next.MachineID = workflowcore.CanonicalMachineIDForWorkflow(next)
-	next.MachineVersion = workflowcore.CanonicalMachineVersionForWorkflow(next)
+	next.MachineID = workflowcore.CanonicalMachineIDForWorkflow(*next)
+	next.MachineVersion = workflowcore.CanonicalMachineVersionForWorkflow(*next)
 	next.Definition.EntityType = next.MachineID
 	next.Definition.MachineVersion = next.MachineVersion
+}
 
+func workflowValidationFieldErrors(next PersistedWorkflow) map[string]string {
 	fields := map[string]string{}
 	if next.ID == "" {
 		fields["id"] = "required"
@@ -364,8 +390,13 @@ func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow Persisted
 	if len(next.Definition.Transitions) == 0 {
 		fields["definition.transitions"] = "must include at least one transition"
 	}
+	addWorkflowTransitionValidationErrors(fields, next.Definition.Transitions)
+	return fields
+}
+
+func addWorkflowTransitionValidationErrors(fields map[string]string, transitions []cmsboot.WorkflowTransition) {
 	names := map[string]struct{}{}
-	for i, transition := range next.Definition.Transitions {
+	for i, transition := range transitions {
 		prefix := "definition.transitions[" + strconv.Itoa(i) + "]"
 		if strings.TrimSpace(transition.Name) == "" {
 			fields[prefix+".name"] = "required"
@@ -373,14 +404,7 @@ func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow Persisted
 		if strings.TrimSpace(transition.From) == "" {
 			fields[prefix+".from"] = "required"
 		}
-		to := strings.TrimSpace(transition.To)
-		dynamicTo := strings.TrimSpace(transition.DynamicTo)
-		if to == "" && dynamicTo == "" {
-			fields[prefix+".to"] = "required when dynamic_to is empty"
-		}
-		if to != "" && dynamicTo != "" {
-			fields[prefix+".to"] = "cannot be set with dynamic_to"
-		}
+		addWorkflowTransitionTargetValidation(fields, prefix, transition)
 		name := strings.ToLower(strings.TrimSpace(transition.Name))
 		if name == "" {
 			continue
@@ -391,33 +415,40 @@ func (s *WorkflowRuntimeService) normalizeAndValidateWorkflow(workflow Persisted
 		}
 		names[name] = struct{}{}
 	}
-	if len(fields) > 0 {
-		return PersistedWorkflow{}, WorkflowValidationErrors{Fields: fields}
-	}
-	return next, nil
 }
 
-func (s *WorkflowRuntimeService) normalizeAndValidateBinding(ctx context.Context, binding WorkflowBinding) (WorkflowBinding, error) {
-	next := workflowcore.NormalizeWorkflowBinding(binding)
+func addWorkflowTransitionTargetValidation(fields map[string]string, prefix string, transition cmsboot.WorkflowTransition) {
+	to := strings.TrimSpace(transition.To)
+	dynamicTo := strings.TrimSpace(transition.DynamicTo)
+	if to == "" && dynamicTo == "" {
+		fields[prefix+".to"] = "required when dynamic_to is empty"
+	}
+	if to != "" && dynamicTo != "" {
+		fields[prefix+".to"] = "cannot be set with dynamic_to"
+	}
+}
+
+func normalizeWorkflowBindingDefaults(next *WorkflowBinding) {
 	if next.Status == "" {
 		next.Status = WorkflowBindingStatusActive
 	}
 	if next.Version <= 0 {
 		next.Version = 1
 	}
+	if next.ScopeType == WorkflowBindingScopeGlobal && strings.TrimSpace(next.ScopeRef) == "" {
+		next.ScopeRef = "global"
+	}
+}
+
+func workflowBindingValidationFieldErrors(next WorkflowBinding) map[string]string {
 	fields := map[string]string{}
 	if next.ScopeType == "" {
 		fields["scope_type"] = "required"
 	} else if !next.ScopeType.IsValid() {
 		fields["scope_type"] = "must be one of trait|content_type|global"
 	}
-	if next.ScopeType == WorkflowBindingScopeTrait || next.ScopeType == WorkflowBindingScopeContentType {
-		if strings.TrimSpace(next.ScopeRef) == "" {
-			fields["scope_ref"] = "required for scope_type " + string(next.ScopeType)
-		}
-	}
-	if next.ScopeType == WorkflowBindingScopeGlobal && strings.TrimSpace(next.ScopeRef) == "" {
-		next.ScopeRef = "global"
+	if needsWorkflowBindingScopeRef(next.ScopeType) && strings.TrimSpace(next.ScopeRef) == "" {
+		fields["scope_ref"] = "required for scope_type " + string(next.ScopeType)
 	}
 	if strings.TrimSpace(next.WorkflowID) == "" {
 		fields["workflow_id"] = "required"
@@ -428,20 +459,25 @@ func (s *WorkflowRuntimeService) normalizeAndValidateBinding(ctx context.Context
 	if !next.Status.IsValid() {
 		fields["status"] = "must be one of active|inactive"
 	}
+	return fields
+}
 
-	if len(fields) == 0 && strings.TrimSpace(next.WorkflowID) != "" {
-		workflow, err := s.workflows.Get(ctx, next.WorkflowID)
-		if err != nil {
-			fields["workflow_id"] = "unknown workflow id"
-		} else if next.Status == WorkflowBindingStatusActive && workflow.Status != WorkflowStatusActive {
-			fields["workflow_id"] = "must reference an active workflow for active bindings"
-		}
-	}
+func needsWorkflowBindingScopeRef(scopeType WorkflowBindingScopeType) bool {
+	return scopeType == WorkflowBindingScopeTrait || scopeType == WorkflowBindingScopeContentType
+}
 
-	if len(fields) > 0 {
-		return WorkflowBinding{}, WorkflowValidationErrors{Fields: fields}
+func workflowBindingWorkflowFieldError(ctx context.Context, s *WorkflowRuntimeService, next WorkflowBinding, fields map[string]string) {
+	if strings.TrimSpace(next.WorkflowID) == "" {
+		return
 	}
-	return next, nil
+	workflow, err := s.workflows.Get(ctx, next.WorkflowID)
+	if err != nil {
+		fields["workflow_id"] = "unknown workflow id"
+		return
+	}
+	if next.Status == WorkflowBindingStatusActive && workflow.Status != WorkflowStatusActive {
+		fields["workflow_id"] = "must reference an active workflow for active bindings"
+	}
 }
 
 func (s *WorkflowRuntimeService) resolveFirstActiveBinding(ctx context.Context, candidates []WorkflowBinding, source string) (WorkflowBindingResolution, bool, error) {

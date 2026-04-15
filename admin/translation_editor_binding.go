@@ -162,8 +162,8 @@ func (b *translationQueueBinding) prepareVariantUpdate(adminCtx AdminContext, va
 		return translationEditorContext{}, translationTransportIdentity{}, nil, nil, err
 	}
 	identity := translationIdentityFromAdminContext(adminCtx)
-	if err := b.ensureEditorScope(identity, editorCtx); err != nil {
-		return translationEditorContext{}, translationTransportIdentity{}, nil, nil, err
+	if scopeErr := b.ensureEditorScope(identity, editorCtx); scopeErr != nil {
+		return translationEditorContext{}, translationTransportIdentity{}, nil, nil, scopeErr
 	}
 	if !editorCtx.HasTarget {
 		return translationEditorContext{}, translationTransportIdentity{}, nil, nil, notFoundDomainError("translation variant not found", map[string]any{
@@ -1105,6 +1105,22 @@ func (b *translationQueueBinding) persistEditorVariantUpdate(ctx context.Context
 			"component": "translation_editor_binding",
 		})
 	}
+	state := b.editorVariantUpdateState(editorCtx, fields, sourceSyncState)
+	if strings.EqualFold(strings.TrimSpace(editorCtx.Family.ContentType), "pages") {
+		return b.persistEditorPageUpdate(ctx, editorCtx, state, metadata, actorID)
+	}
+	return b.persistEditorContentUpdate(ctx, editorCtx, state, metadata, actorID)
+}
+
+type editorVariantUpdateState struct {
+	fields     map[string]string
+	version    int64
+	syncHash   string
+	syncFields map[string]string
+	now        time.Time
+}
+
+func (b *translationQueueBinding) editorVariantUpdateState(editorCtx translationEditorContext, fields map[string]string, sourceSyncState translationEditorSourceSyncState) editorVariantUpdateState {
 	nextFields := cloneStringMap(editorCtx.TargetFields)
 	for key, value := range fields {
 		nextFields[strings.TrimSpace(key)] = strings.TrimSpace(value)
@@ -1113,47 +1129,63 @@ func (b *translationQueueBinding) persistEditorVariantUpdate(ctx context.Context
 	if nextVersion <= 0 {
 		nextVersion = translationEditorDefaultVersion
 	}
-	syncHash := strings.TrimSpace(sourceSyncState.SourceHash)
-	syncFields := cloneStringMap(sourceSyncState.SourceFields)
-	now := b.now().UTC()
-
-	if strings.EqualFold(strings.TrimSpace(editorCtx.Family.ContentType), "pages") {
-		record, err := b.admin.contentSvc.Page(ctx, strings.TrimSpace(editorCtx.TargetRecordID), "")
-		if err != nil || record == nil {
-			return nil, nil, 0, err
-		}
-		updated := cloneCMSPage(*record)
-		for key, value := range nextFields {
-			translationEditorSetPageField(&updated, key, value)
-		}
-		if updated.Status == "" || strings.EqualFold(updated.Status, string(translationcore.VariantStatusDraft)) {
-			updated.Status = string(translationcore.VariantStatusInProgress)
-		}
-		updated.Metadata = translationEditorMergeMetadata(updated.Metadata, metadata, nextVersion, syncHash, syncFields, actorID, now)
-		persisted, err := b.admin.contentSvc.UpdatePage(ctx, updated)
-		if err != nil {
-			return nil, nil, 0, err
-		}
-		return persisted, translationEditorPageFields(*persisted), nextVersion, nil
+	return editorVariantUpdateState{
+		fields:     nextFields,
+		version:    nextVersion,
+		syncHash:   strings.TrimSpace(sourceSyncState.SourceHash),
+		syncFields: cloneStringMap(sourceSyncState.SourceFields),
+		now:        b.now().UTC(),
 	}
+}
 
+func (b *translationQueueBinding) persistEditorPageUpdate(ctx context.Context, editorCtx translationEditorContext, state editorVariantUpdateState, metadata map[string]any, actorID string) (any, map[string]string, int64, error) {
+	record, err := b.admin.contentSvc.Page(ctx, strings.TrimSpace(editorCtx.TargetRecordID), "")
+	if err != nil || record == nil {
+		return nil, nil, 0, err
+	}
+	updated := preparePersistedEditorPage(*record, state, metadata, actorID)
+	persisted, err := b.admin.contentSvc.UpdatePage(ctx, updated)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return persisted, translationEditorPageFields(*persisted), state.version, nil
+}
+
+func (b *translationQueueBinding) persistEditorContentUpdate(ctx context.Context, editorCtx translationEditorContext, state editorVariantUpdateState, metadata map[string]any, actorID string) (any, map[string]string, int64, error) {
 	record, err := b.admin.contentSvc.Content(ctx, strings.TrimSpace(editorCtx.TargetRecordID), "")
 	if err != nil || record == nil {
 		return nil, nil, 0, err
 	}
-	updated := cloneCMSContent(*record)
-	for key, value := range nextFields {
+	updated := preparePersistedEditorContent(*record, state, metadata, actorID)
+	persisted, err := b.admin.contentSvc.UpdateContent(ctx, updated)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	return persisted, translationEditorContentFields(*persisted), state.version, nil
+}
+
+func preparePersistedEditorPage(record CMSPage, state editorVariantUpdateState, metadata map[string]any, actorID string) CMSPage {
+	updated := cloneCMSPage(record)
+	for key, value := range state.fields {
+		translationEditorSetPageField(&updated, key, value)
+	}
+	if updated.Status == "" || strings.EqualFold(updated.Status, string(translationcore.VariantStatusDraft)) {
+		updated.Status = string(translationcore.VariantStatusInProgress)
+	}
+	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, metadata, state.version, state.syncHash, state.syncFields, actorID, state.now)
+	return updated
+}
+
+func preparePersistedEditorContent(record CMSContent, state editorVariantUpdateState, metadata map[string]any, actorID string) CMSContent {
+	updated := cloneCMSContent(record)
+	for key, value := range state.fields {
 		translationEditorSetContentField(&updated, key, value)
 	}
 	if updated.Status == "" || strings.EqualFold(updated.Status, string(translationcore.VariantStatusDraft)) {
 		updated.Status = string(translationcore.VariantStatusInProgress)
 	}
-	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, metadata, nextVersion, syncHash, syncFields, actorID, now)
-	persisted, err := b.admin.contentSvc.UpdateContent(ctx, updated)
-	if err != nil {
-		return nil, nil, 0, err
-	}
-	return persisted, translationEditorContentFields(*persisted), nextVersion, nil
+	updated.Metadata = translationEditorMergeMetadata(updated.Metadata, metadata, state.version, state.syncHash, state.syncFields, actorID, state.now)
+	return updated
 }
 
 func (b *translationQueueBinding) runSubmitReviewAction(adminCtx AdminContext, service *DefaultTranslationQueueService, assignment TranslationAssignment, expectedVersion int64, body map[string]any) (TranslationAssignment, error) {

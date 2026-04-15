@@ -130,14 +130,30 @@ func (m *PreferencesModule) renderPreferencesForm(admin *Admin, c router.Context
 }
 
 func (m *PreferencesModule) savePreferencesForm(admin *Admin, c router.Context, prefPath string) error {
+	adminCtx, userID, err := resolvePreferencesSaveContext(admin, c)
+	if err != nil {
+		return err
+	}
+	theme, themeVariant, rawUI, clearUIKeys, err := readPreferencesSaveForm(c)
+	if err != nil {
+		return err
+	}
+	prefs, clearKeys, err := buildSavedPreferences(admin, adminCtx.Context, userID, theme, themeVariant, rawUI, clearUIKeys)
+	if err != nil {
+		return err
+	}
+	if err := persistSavedPreferences(admin, adminCtx.Context, userID, prefs, clearKeys); err != nil {
+		return err
+	}
+	return c.Redirect(prefPath)
+}
+
+func resolvePreferencesSaveContext(admin *Admin, c router.Context) (AdminContext, string, error) {
 	if admin == nil || c == nil {
-		return ErrNotFound
+		return AdminContext{}, "", ErrNotFound
 	}
-	if !featureEnabled(admin.featureGate, FeaturePreferences) {
-		return FeatureDisabledError{Feature: string(FeaturePreferences)}
-	}
-	if admin.preferences == nil {
-		return FeatureDisabledError{Feature: string(FeaturePreferences)}
+	if !featureEnabled(admin.featureGate, FeaturePreferences) || admin.preferences == nil {
+		return AdminContext{}, "", FeatureDisabledError{Feature: string(FeaturePreferences)}
 	}
 	locale := strings.TrimSpace(c.Query("locale"))
 	if locale == "" {
@@ -145,44 +161,42 @@ func (m *PreferencesModule) savePreferencesForm(admin *Admin, c router.Context, 
 	}
 	adminCtx := admin.adminContextFromRequest(c, locale)
 	if err := admin.requirePermission(adminCtx, admin.config.PreferencesUpdatePermission, preferencesModuleID); err != nil {
-		return err
+		return AdminContext{}, "", err
 	}
 	userID := strings.TrimSpace(adminCtx.UserID)
 	if userID == "" {
-		return ErrForbidden
+		return AdminContext{}, "", ErrForbidden
 	}
+	return adminCtx, userID, nil
+}
 
+func readPreferencesSaveForm(c router.Context) (string, string, map[string]any, []string, error) {
 	theme := strings.TrimSpace(c.FormValue(preferencesKeyTheme))
 	themeVariant := strings.TrimSpace(c.FormValue(preferencesKeyThemeVariant))
 	rawUIInput := strings.TrimSpace(c.FormValue("raw_ui"))
 	clearUIKeysInput := strings.TrimSpace(c.FormValue("clear_ui_keys"))
-
 	rawUI, err := parsePreferencesRawUI(rawUIInput)
 	if err != nil {
-		return err
+		return "", "", nil, nil, err
 	}
 	clearUIKeys, err := parsePreferencesClearUIKeys(clearUIKeysInput)
 	if err != nil {
-		return err
+		return "", "", nil, nil, err
 	}
+	return theme, themeVariant, rawUI, clearUIKeys, nil
+}
 
-	prefs, clearKeys, err := buildSavedPreferences(admin, adminCtx.Context, userID, theme, themeVariant, rawUI, clearUIKeys)
-	if err != nil {
-		return err
-	}
-
+func persistSavedPreferences(admin *Admin, ctx context.Context, userID string, prefs UserPreferences, clearKeys []string) error {
 	if len(clearKeys) > 0 {
-		if _, err := admin.preferences.Clear(adminCtx.Context, userID, clearKeys); err != nil {
+		if _, err := admin.preferences.Clear(ctx, userID, clearKeys); err != nil {
 			return err
 		}
 	}
-	if prefs.Theme != "" || prefs.ThemeVariant != "" || len(prefs.Raw) > 0 {
-		if _, err := admin.preferences.Save(adminCtx.Context, userID, prefs); err != nil {
-			return err
-		}
+	if prefs.Theme == "" && prefs.ThemeVariant == "" && len(prefs.Raw) == 0 {
+		return nil
 	}
-
-	return c.Redirect(prefPath)
+	_, err := admin.preferences.Save(ctx, userID, prefs)
+	return err
 }
 
 func buildSavedPreferences(admin *Admin, ctx context.Context, userID, theme, themeVariant string, rawUI map[string]any, clearUIKeys []string) (UserPreferences, []string, error) {

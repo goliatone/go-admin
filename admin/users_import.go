@@ -59,6 +59,15 @@ type bulkImportParseOutcome struct {
 	Processed   int                    `json:"processed"`
 }
 
+type bulkImportRequestError struct {
+	status  int
+	message string
+}
+
+func (e bulkImportRequestError) Error() string {
+	return e.message
+}
+
 type userImportBinding struct {
 	admin *Admin
 }
@@ -71,28 +80,14 @@ func newUserImportBinding(a *Admin) *userImportBinding {
 }
 
 func (b *userImportBinding) ImportUsers(c router.Context) error {
-	if b == nil || b.admin == nil {
-		return respondBulkImportError(c, http.StatusInternalServerError, "user service unavailable")
+	adminCtx, err := b.resolveImportUsersContext(c)
+	if err != nil {
+		return respondBulkImportRequestError(c, err)
 	}
-	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
-	if err := b.admin.requirePermission(adminCtx, b.admin.config.UsersImportPermission, "users"); err != nil {
-		return respondBulkImportError(c, http.StatusForbidden, "forbidden")
+	file, err := resolveImportUsersFile(c)
+	if err != nil {
+		return respondBulkImportRequestError(c, err)
 	}
-	if b.admin.bulkUserImport == nil {
-		return respondBulkImportError(c, http.StatusInternalServerError, "user service unavailable")
-	}
-
-	file, err := c.FormFile("file")
-	if err != nil || file == nil {
-		return respondBulkImportError(c, http.StatusBadRequest, "file required")
-	}
-	if strings.TrimSpace(file.Filename) == "" || file.Size == 0 {
-		return respondBulkImportError(c, http.StatusBadRequest, "file is empty")
-	}
-	if !isSupportedImportFile(file) {
-		return respondBulkImportError(c, http.StatusBadRequest, "invalid file type")
-	}
-
 	outcome, err := parseImportFile(file)
 	if err != nil {
 		return respondBulkImportError(c, http.StatusBadRequest, bulkImportErrorMessage(err))
@@ -104,30 +99,10 @@ func (b *userImportBinding) ImportUsers(c router.Context) error {
 	for _, result := range outcome.Results {
 		appendBulkImportResult(resultsByIndex, &order, result)
 	}
-
-	actorRef, actorCtx, err := authctx.ResolveActor(adminCtx.Context)
-	if err != nil || actorRef.ID == uuid.Nil {
-		return respondBulkImportError(c, http.StatusUnauthorized, "missing or invalid token")
+	execErr := b.executeImportedUsers(c, adminCtx, outcome, resultsByIndex, &order)
+	if requestErr := new(bulkImportRequestError); errors.As(execErr, requestErr) {
+		return respondBulkImportRequestError(c, execErr)
 	}
-	scope := authctx.ScopeFromActorContext(actorCtx)
-
-	var execErr error
-	if len(outcome.Users) > 0 {
-		cmdResults := []command.BulkUserImportResult{}
-		input := command.BulkUserImportInput{
-			Users:           outcome.Users,
-			Actor:           actorRef,
-			Scope:           scope,
-			DefaultStatus:   userstypes.LifecycleStateActive,
-			ContinueOnError: true,
-			Results:         &cmdResults,
-		}
-		execErr = b.admin.bulkUserImport.Execute(adminCtx.Context, input)
-		for _, result := range cmdResults {
-			appendBulkImportResult(resultsByIndex, &order, mapBulkImportCommandResult(result, outcome.UserIndexes))
-		}
-	}
-
 	response.Results = collectBulkImportResults(resultsByIndex, order)
 	response.Summary = bulkImportSummaryFromResults(outcome.Processed, response.Results)
 
@@ -136,6 +111,63 @@ func (b *userImportBinding) ImportUsers(c router.Context) error {
 		response.Error = message
 	}
 	return c.JSON(status, response)
+}
+
+func (b *userImportBinding) resolveImportUsersContext(c router.Context) (AdminContext, error) {
+	if b == nil || b.admin == nil || b.admin.bulkUserImport == nil {
+		return AdminContext{}, bulkImportRequestError{status: http.StatusInternalServerError, message: "user service unavailable"}
+	}
+	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	if err := b.admin.requirePermission(adminCtx, b.admin.config.UsersImportPermission, "users"); err != nil {
+		return AdminContext{}, bulkImportRequestError{status: http.StatusForbidden, message: "forbidden"}
+	}
+	return adminCtx, nil
+}
+
+func resolveImportUsersFile(c router.Context) (*multipart.FileHeader, error) {
+	file, err := c.FormFile("file")
+	if err != nil || file == nil {
+		return nil, bulkImportRequestError{status: http.StatusBadRequest, message: "file required"}
+	}
+	if !isSupportedImportFile(file) {
+		return nil, bulkImportRequestError{status: http.StatusBadRequest, message: "invalid file type"}
+	}
+	if strings.TrimSpace(file.Filename) == "" || file.Size == 0 {
+		return nil, bulkImportRequestError{status: http.StatusBadRequest, message: "file is empty"}
+	}
+	return file, nil
+}
+
+func (b *userImportBinding) executeImportedUsers(c router.Context, adminCtx AdminContext, outcome bulkImportParseOutcome, resultsByIndex map[int]bulkImportResult, order *[]int) error {
+	if len(outcome.Users) == 0 {
+		return nil
+	}
+	actorRef, actorCtx, err := authctx.ResolveActor(adminCtx.Context)
+	if err != nil || actorRef.ID == uuid.Nil {
+		return bulkImportRequestError{status: http.StatusUnauthorized, message: "missing or invalid token"}
+	}
+	cmdResults := []command.BulkUserImportResult{}
+	input := command.BulkUserImportInput{
+		Users:           outcome.Users,
+		Actor:           actorRef,
+		Scope:           authctx.ScopeFromActorContext(actorCtx),
+		DefaultStatus:   userstypes.LifecycleStateActive,
+		ContinueOnError: true,
+		Results:         &cmdResults,
+	}
+	err = b.admin.bulkUserImport.Execute(adminCtx.Context, input)
+	for _, result := range cmdResults {
+		appendBulkImportResult(resultsByIndex, order, mapBulkImportCommandResult(result, outcome.UserIndexes))
+	}
+	return err
+}
+
+func respondBulkImportRequestError(c router.Context, err error) error {
+	requestErr := bulkImportRequestError{}
+	if errors.As(err, &requestErr) {
+		return respondBulkImportError(c, requestErr.status, requestErr.message)
+	}
+	return err
 }
 
 func (b *userImportBinding) ImportTemplate(c router.Context) error {

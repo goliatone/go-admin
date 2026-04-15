@@ -114,7 +114,28 @@ func (r *CMSBlockConflictRepository) collectConflicts(ctx context.Context, opts 
 		return nil, ErrNotFound
 	}
 	locale := resolveListRequestedLocale(ctx, opts, "")
-	filters := opts.Filters
+	entityFilter, contentTypeFilter := blockConflictFilters(opts.Filters)
+	search := strings.ToLower(extractSearch(opts))
+	conflicts := []cmsBlockConflict{}
+	var err error
+	conflicts, err = r.collectContentConflicts(ctx, locale, entityFilter, contentTypeFilter, search, conflicts)
+	if err != nil {
+		return nil, err
+	}
+	conflicts, err = r.collectPageConflicts(ctx, locale, entityFilter, contentTypeFilter, search, conflicts)
+	if err != nil {
+		return nil, err
+	}
+	sort.SliceStable(conflicts, func(i, j int) bool {
+		if conflicts[i].EntityType == conflicts[j].EntityType {
+			return conflicts[i].Title < conflicts[j].Title
+		}
+		return conflicts[i].EntityType < conflicts[j].EntityType
+	})
+	return conflicts, nil
+}
+
+func blockConflictFilters(filters map[string]any) (string, string) {
 	if filters == nil {
 		filters = map[string]any{}
 	}
@@ -126,61 +147,75 @@ func (r *CMSBlockConflictRepository) collectConflicts(ctx context.Context, opts 
 	if contentTypeFilter == "" {
 		contentTypeFilter = strings.ToLower(strings.TrimSpace(toString(filters["content_type_id"])))
 	}
-	search := strings.ToLower(extractSearch(opts))
-	conflicts := []cmsBlockConflict{}
+	return entityFilter, contentTypeFilter
+}
 
-	if entityFilter == "" || entityFilter == "content" {
-		items, err := r.content.Contents(ctx, locale)
+func (r *CMSBlockConflictRepository) collectContentConflicts(ctx context.Context, locale, entityFilter, contentTypeFilter, search string, conflicts []cmsBlockConflict) ([]cmsBlockConflict, error) {
+	if entityFilter != "" && entityFilter != "content" {
+		return conflicts, nil
+	}
+	items, err := r.content.Contents(ctx, locale)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range items {
+		contentType := primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)
+		if !blockConflictMatchesContent(contentTypeFilter, search, item.Title, item.Slug, contentType) {
+			continue
+		}
+		conflict, ok, err := r.buildConflict(ctx, "content", item.ID, item.Title, contentType, item.Locale, item.EmbeddedBlocks, item.Data)
 		if err != nil {
 			return nil, err
 		}
-		for _, item := range items {
-			contentType := primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)
-			if contentTypeFilter != "" && strings.ToLower(contentType) != contentTypeFilter {
-				continue
-			}
-			if search != "" && !strings.Contains(strings.ToLower(item.Title), search) && !strings.Contains(strings.ToLower(item.Slug), search) {
-				continue
-			}
-			conflict, ok, err := r.buildConflict(ctx, "content", item.ID, item.Title, contentType, item.Locale, item.EmbeddedBlocks, item.Data)
-			if err != nil {
-				return nil, err
-			}
-			if ok {
-				conflicts = append(conflicts, conflict)
-			}
+		if ok {
+			conflicts = append(conflicts, conflict)
 		}
 	}
-
-	if entityFilter == "" || entityFilter == "page" {
-		pages, err := r.content.Pages(ctx, locale)
-		if err != nil {
-			return nil, err
-		}
-		for _, page := range pages {
-			if contentTypeFilter != "" && contentTypeFilter != "page" {
-				continue
-			}
-			if search != "" && !strings.Contains(strings.ToLower(page.Title), search) && !strings.Contains(strings.ToLower(page.Slug), search) {
-				continue
-			}
-			conflict, ok, err := r.buildConflict(ctx, "page", page.ID, page.Title, "page", page.Locale, page.EmbeddedBlocks, page.Data)
-			if err != nil {
-				return nil, err
-			}
-			if ok {
-				conflicts = append(conflicts, conflict)
-			}
-		}
-	}
-
-	sort.SliceStable(conflicts, func(i, j int) bool {
-		if conflicts[i].EntityType == conflicts[j].EntityType {
-			return conflicts[i].Title < conflicts[j].Title
-		}
-		return conflicts[i].EntityType < conflicts[j].EntityType
-	})
 	return conflicts, nil
+}
+
+func (r *CMSBlockConflictRepository) collectPageConflicts(ctx context.Context, locale, entityFilter, contentTypeFilter, search string, conflicts []cmsBlockConflict) ([]cmsBlockConflict, error) {
+	if entityFilter != "" && entityFilter != "page" {
+		return conflicts, nil
+	}
+	pages, err := r.content.Pages(ctx, locale)
+	if err != nil {
+		return nil, err
+	}
+	for _, page := range pages {
+		if !blockConflictMatchesPage(contentTypeFilter, search, page.Title, page.Slug) {
+			continue
+		}
+		conflict, ok, err := r.buildConflict(ctx, "page", page.ID, page.Title, "page", page.Locale, page.EmbeddedBlocks, page.Data)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			conflicts = append(conflicts, conflict)
+		}
+	}
+	return conflicts, nil
+}
+
+func blockConflictMatchesContent(contentTypeFilter, search, title, slug, contentType string) bool {
+	if contentTypeFilter != "" && strings.ToLower(contentType) != contentTypeFilter {
+		return false
+	}
+	return blockConflictMatchesSearch(search, title, slug)
+}
+
+func blockConflictMatchesPage(contentTypeFilter, search, title, slug string) bool {
+	if contentTypeFilter != "" && contentTypeFilter != "page" {
+		return false
+	}
+	return blockConflictMatchesSearch(search, title, slug)
+}
+
+func blockConflictMatchesSearch(search, title, slug string) bool {
+	if search == "" {
+		return true
+	}
+	return strings.Contains(strings.ToLower(title), search) || strings.Contains(strings.ToLower(slug), search)
 }
 
 func (r *CMSBlockConflictRepository) buildConflict(ctx context.Context, entityType, entityID, title, contentType, locale string, embedded []map[string]any, data map[string]any) (cmsBlockConflict, bool, error) {

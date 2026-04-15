@@ -343,37 +343,47 @@ func translationAssignmentMatchesFilters(assignment TranslationAssignment, filte
 
 func translationAssignmentMatchesFilter(assignment TranslationAssignment, key string, raw any, now time.Time) bool {
 	value := strings.TrimSpace(strings.ToLower(toString(raw)))
+	if key == "overdue" {
+		return !toBool(raw) || (assignment.DueDate != nil && !assignment.DueDate.After(now))
+	}
+	if key == "due_state" {
+		return value == "" || normalizeTranslationQueueDueState(value) == translationQueueDueState(assignment.DueDate, now)
+	}
+	expected, handled := translationAssignmentFilterStringValue(assignment, key)
+	if !handled {
+		return true
+	}
+	return value == "" || expected == value
+}
+
+func translationAssignmentFilterStringValue(assignment TranslationAssignment, key string) (string, bool) {
 	switch key {
 	case "status":
-		return value == "" || strings.ToLower(string(assignment.Status)) == value
+		return strings.ToLower(string(assignment.Status)), true
 	case "target_locale", "locale":
-		return value == "" || strings.ToLower(assignment.TargetLocale) == value
+		return strings.ToLower(assignment.TargetLocale), true
 	case "source_locale":
-		return value == "" || strings.ToLower(assignment.SourceLocale) == value
+		return strings.ToLower(assignment.SourceLocale), true
 	case "assignee_id":
-		return value == "" || strings.ToLower(assignment.AssigneeID) == value
+		return strings.ToLower(assignment.AssigneeID), true
 	case "reviewer_id":
-		return value == "" || strings.ToLower(strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))) == value
+		return strings.ToLower(strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))), true
 	case "assignment_type":
-		return value == "" || strings.ToLower(string(assignment.AssignmentType)) == value
+		return strings.ToLower(string(assignment.AssignmentType)), true
 	case "work_scope":
-		return value == "" || strings.ToLower(normalizeTranslationAssignmentWorkScope(assignment.WorkScope)) == value
+		return strings.ToLower(normalizeTranslationAssignmentWorkScope(assignment.WorkScope)), true
 	case "entity_type":
-		return value == "" || strings.ToLower(assignment.EntityType) == value
+		return strings.ToLower(assignment.EntityType), true
 	case "priority":
-		return value == "" || strings.ToLower(string(assignment.Priority)) == value
-	case "due_state":
-		return value == "" || normalizeTranslationQueueDueState(value) == translationQueueDueState(assignment.DueDate, now)
+		return strings.ToLower(string(assignment.Priority)), true
 	case "family_id":
-		return value == "" || strings.ToLower(assignment.FamilyID) == value
+		return strings.ToLower(assignment.FamilyID), true
 	case "tenant_id":
-		return value == "" || strings.ToLower(assignment.TenantID) == value
+		return strings.ToLower(assignment.TenantID), true
 	case "org_id":
-		return value == "" || strings.ToLower(assignment.OrgID) == value
-	case "overdue":
-		return !toBool(raw) || (assignment.DueDate != nil && !assignment.DueDate.After(now))
+		return strings.ToLower(assignment.OrgID), true
 	default:
-		return true
+		return "", false
 	}
 }
 

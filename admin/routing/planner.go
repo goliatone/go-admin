@@ -354,9 +354,30 @@ func (p *planner) applyModuleRoutes(candidate modulePlan) error {
 	if p.urls == nil {
 		return nil
 	}
+	grouped := collectModuleRoutesByGroup(candidate.entries)
+	groups := sortedRouteGroups(grouped)
+	sort.Strings(groups)
+	for _, group := range groups {
+		if err := p.urls.EnsureGroup(group); err != nil {
+			return err
+		}
+		pending, err := p.pendingModuleRoutes(candidate, group, grouped[group])
+		if err != nil {
+			return err
+		}
+		if len(pending) == 0 {
+			continue
+		}
+		if err := p.urls.AddRoutes(group, pending); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+func collectModuleRoutesByGroup(entries []ManifestEntry) map[string]map[string]string {
 	grouped := make(map[string]map[string]string)
-	for _, entry := range candidate.entries {
+	for _, entry := range entries {
 		if strings.TrimSpace(entry.GroupPath) == "" || strings.TrimSpace(entry.RouteKey) == "" || strings.TrimSpace(entry.Path) == "" {
 			continue
 		}
@@ -367,62 +388,57 @@ func (p *planner) applyModuleRoutes(candidate modulePlan) error {
 		}
 		routes[entry.RouteKey] = entry.Path
 	}
+	return grouped
+}
 
+func sortedRouteGroups(grouped map[string]map[string]string) []string {
 	groups := make([]string, 0, len(grouped))
 	for group := range grouped {
 		groups = append(groups, group)
 	}
-	sort.Strings(groups)
-	for _, group := range groups {
-		if err := p.urls.EnsureGroup(group); err != nil {
-			return err
-		}
-		pending := map[string]string{}
-		for routeKey, routePath := range grouped[group] {
-			templatePath, templateErr := p.urls.RouteTemplate(group, routeKey)
-			resolvedPath, resolvedErr := p.urls.RoutePath(group, routeKey)
-			if (templateErr == nil && strings.TrimSpace(templatePath) != "") || (resolvedErr == nil && strings.TrimSpace(resolvedPath) != "") {
-				if routePathsEquivalent(group, templatePath, routePath, p.cfg.Roots) || routePathsEquivalent(group, resolvedPath, routePath, p.cfg.Roots) {
-					continue
-				}
-				existingPath := strings.TrimSpace(resolvedPath)
-				if existingPath == "" {
-					existingPath = strings.TrimSpace(templatePath)
-				}
-				return conflictError([]Conflict{{
-					Kind:      ConflictKindRouteNameConflict,
-					Module:    candidate.contract.Slug,
-					Path:      routePath,
-					RouteName: buildSurfaceRouteName(group, routeKey, candidate.contract.Slug, candidate.contract.RouteNamePrefix),
-					Existing: map[string]string{
-						"group_path": group,
-						"route_key":  routeKey,
-						"path":       existingPath,
-					},
-					Incoming: map[string]string{
-						"group_path": group,
-						"route_key":  routeKey,
-						"path":       routePath,
-					},
-					Message: fmt.Sprintf(
-						"route conflict in group %q for route %q: existing=%q incoming=%q",
-						group,
-						routeKey,
-						existingPath,
-						routePath,
-					),
-				}})
+	return groups
+}
+
+func (p *planner) pendingModuleRoutes(candidate modulePlan, group string, routes map[string]string) (map[string]string, error) {
+	pending := map[string]string{}
+	for routeKey, routePath := range routes {
+		templatePath, templateErr := p.urls.RouteTemplate(group, routeKey)
+		resolvedPath, resolvedErr := p.urls.RoutePath(group, routeKey)
+		if (templateErr == nil && strings.TrimSpace(templatePath) != "") || (resolvedErr == nil && strings.TrimSpace(resolvedPath) != "") {
+			if routePathsEquivalent(group, templatePath, routePath, p.cfg.Roots) || routePathsEquivalent(group, resolvedPath, routePath, p.cfg.Roots) {
+				continue
 			}
-			pending[routeKey] = mutationRoutePath(routePath)
+			existingPath := strings.TrimSpace(resolvedPath)
+			if existingPath == "" {
+				existingPath = strings.TrimSpace(templatePath)
+			}
+			return nil, conflictError([]Conflict{{
+				Kind:      ConflictKindRouteNameConflict,
+				Module:    candidate.contract.Slug,
+				Path:      routePath,
+				RouteName: buildSurfaceRouteName(group, routeKey, candidate.contract.Slug, candidate.contract.RouteNamePrefix),
+				Existing: map[string]string{
+					"group_path": group,
+					"route_key":  routeKey,
+					"path":       existingPath,
+				},
+				Incoming: map[string]string{
+					"group_path": group,
+					"route_key":  routeKey,
+					"path":       routePath,
+				},
+				Message: fmt.Sprintf(
+					"route conflict in group %q for route %q: existing=%q incoming=%q",
+					group,
+					routeKey,
+					existingPath,
+					routePath,
+				),
+			}})
 		}
-		if len(pending) == 0 {
-			continue
-		}
-		if err := p.urls.AddRoutes(group, pending); err != nil {
-			return err
-		}
+		pending[routeKey] = mutationRoutePath(routePath)
 	}
-	return nil
+	return pending, nil
 }
 
 func routePathsEquivalent(groupPath, existingPath, incomingPath string, roots RootsConfig) bool {

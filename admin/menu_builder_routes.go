@@ -317,37 +317,9 @@ func (b *menuBuilderBinding) PreviewMenu(c router.Context) error {
 		return writeError(c, err)
 	}
 
-	locale := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("locale"), adminCtx.Locale, b.admin.config.DefaultLocale))
-	location := strings.TrimSpace(c.Query("location"))
-	viewProfile := strings.TrimSpace(c.Query("view_profile"))
-	includeDrafts := strings.EqualFold(strings.TrimSpace(c.Query("include_drafts")), "true")
-	previewToken := strings.TrimSpace(c.Query("preview_token"))
-	previewTokenPresent := previewToken != ""
-	if previewTokenPresent {
-		token, tokenErr := b.admin.previewTokenFromQuery(previewToken)
-		if tokenErr != nil {
-			return writeError(c, tokenErr)
-		}
-		_, env := splitPreviewEntityType(token.EntityType)
-		if env != "" {
-			adminCtx.Context = WithEnvironment(adminCtx.Context, env)
-		}
-		includeDrafts = true
-	}
-
-	binding := service.ResolveBinding(location, locale)
-	if location == "" && binding != nil {
-		location = binding.Location
-	}
-	if viewProfile == "" && binding != nil {
-		viewProfile = binding.ViewProfileCode
-	}
-	opts := SiteMenuReadOptions{
-		Locale:               locale,
-		IncludeDrafts:        includeDrafts,
-		IncludeContributions: true,
-		PreviewToken:         previewToken,
-		ViewProfile:          viewProfile,
+	opts, location, locale, viewProfile, includeDrafts, binding, previewTokenPresent, err := b.previewMenuOptions(c, &adminCtx, service)
+	if err != nil {
+		return writeError(c, err)
 	}
 
 	var menu *Menu
@@ -385,6 +357,40 @@ func (b *menuBuilderBinding) PreviewMenu(c router.Context) error {
 			Profile:             profile,
 		},
 	})
+}
+
+func (b *menuBuilderBinding) previewMenuOptions(c router.Context, adminCtx *AdminContext, service *MenuBuilderService) (SiteMenuReadOptions, string, string, string, bool, *AdminMenuBindingRecord, bool, error) {
+	locale := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("locale"), adminCtx.Locale, b.admin.config.DefaultLocale))
+	location := strings.TrimSpace(c.Query("location"))
+	viewProfile := strings.TrimSpace(c.Query("view_profile"))
+	includeDrafts := strings.EqualFold(strings.TrimSpace(c.Query("include_drafts")), "true")
+	previewToken := strings.TrimSpace(c.Query("preview_token"))
+	previewTokenPresent := previewToken != ""
+	if previewTokenPresent {
+		token, err := b.admin.previewTokenFromQuery(previewToken)
+		if err != nil {
+			return SiteMenuReadOptions{}, "", "", "", false, nil, false, err
+		}
+		_, env := splitPreviewEntityType(token.EntityType)
+		if env != "" {
+			adminCtx.Context = WithEnvironment(adminCtx.Context, env)
+		}
+		includeDrafts = true
+	}
+	binding := service.ResolveBinding(location, locale)
+	if location == "" && binding != nil {
+		location = binding.Location
+	}
+	if viewProfile == "" && binding != nil {
+		viewProfile = binding.ViewProfileCode
+	}
+	return SiteMenuReadOptions{
+		Locale:               locale,
+		IncludeDrafts:        includeDrafts,
+		IncludeContributions: true,
+		PreviewToken:         previewToken,
+		ViewProfile:          viewProfile,
+	}, location, locale, viewProfile, includeDrafts, binding, previewTokenPresent, nil
 }
 
 func (b *menuBuilderBinding) CloneMenu(c router.Context) error {

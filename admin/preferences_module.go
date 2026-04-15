@@ -359,17 +359,8 @@ func (r *PreferencesRepository) Create(ctx context.Context, record map[string]an
 func (r *PreferencesRepository) Update(ctx context.Context, id string, record map[string]any) (map[string]any, error) {
 	scope := preferenceScopeFromContext(ctx)
 	userID := scope.UserID
-	if r.service == nil {
-		return nil, FeatureDisabledError{Feature: string(FeaturePreferences)}
-	}
-	if userID == "" || (id != "" && id != userID) {
-		return nil, ErrForbidden
-	}
-	if _, ok := record["raw_ui"]; ok {
-		return nil, preferencesRawUINotSupportedError()
-	}
-	if _, ok := record["clear_keys"]; ok {
-		return nil, preferencesClearKeysNotSupportedError()
+	if err := r.validateUpdateRequest(userID, id, record); err != nil {
+		return nil, err
 	}
 	queryOpts, err := preferenceQueryOptionsFromContext(ctx)
 	if err != nil {
@@ -383,47 +374,14 @@ func (r *PreferencesRepository) Update(ctx context.Context, id string, record ma
 		return nil, permissionErr
 	}
 	prefs, clearKeys := r.preferencesFromRecord(record, level)
-	if toBool(record["clear"]) {
-		rawKeys, rawKeysErr := r.rawPreferenceKeysForLevel(ctx, scope, level)
-		if rawKeysErr != nil {
-			return nil, rawKeysErr
-		}
-		clearKeys = append(clearKeys, rawKeys...)
+	clearKeys, err = r.resolveUpdateClearKeys(ctx, scope, level, record, clearKeys)
+	if err != nil {
+		return nil, err
 	}
-	clearKeys = filterClearPreferenceKeys(clearKeys)
-	if len(clearKeys) > 0 {
-		if level == PreferenceLevelUser {
-			if _, clearErr := r.service.Clear(ctx, userID, clearKeys); clearErr != nil {
-				return nil, clearErr
-			}
-		} else {
-			if deleteErr := r.service.Store().Delete(ctx, PreferencesDeleteInput{
-				Scope: scope,
-				Level: level,
-				Keys:  clearKeys,
-			}); deleteErr != nil {
-				return nil, deleteErr
-			}
-		}
+	if clearErr := r.clearPreferenceKeys(ctx, scope, userID, level, clearKeys); clearErr != nil {
+		return nil, clearErr
 	}
-	updateValues := preferencesToMap(prefs)
-	var updated UserPreferences
-	if len(updateValues) == 0 {
-		updated, err = r.service.Get(ctx, userID)
-	} else {
-		if level == PreferenceLevelUser {
-			updated, err = r.service.Save(ctx, userID, prefs)
-		} else {
-			if _, upsertErr := r.service.Store().Upsert(ctx, PreferencesUpsertInput{
-				Scope:  scope,
-				Level:  level,
-				Values: updateValues,
-			}); upsertErr != nil {
-				return nil, upsertErr
-			}
-			updated, err = r.service.Get(ctx, userID)
-		}
-	}
+	updated, err := r.persistUpdatedPreferences(ctx, scope, userID, level, prefs)
 	if err != nil {
 		return nil, err
 	}
@@ -435,6 +393,66 @@ func (r *PreferencesRepository) Update(ctx context.Context, id string, record ma
 		return r.recordFromSnapshot(scope, snapshot, queryOpts), nil
 	}
 	return r.recordFromPreferences(updated), nil
+}
+
+func (r *PreferencesRepository) validateUpdateRequest(userID, id string, record map[string]any) error {
+	if r.service == nil {
+		return FeatureDisabledError{Feature: string(FeaturePreferences)}
+	}
+	if userID == "" || (id != "" && id != userID) {
+		return ErrForbidden
+	}
+	if _, ok := record["raw_ui"]; ok {
+		return preferencesRawUINotSupportedError()
+	}
+	if _, ok := record["clear_keys"]; ok {
+		return preferencesClearKeysNotSupportedError()
+	}
+	return nil
+}
+
+func (r *PreferencesRepository) resolveUpdateClearKeys(ctx context.Context, scope PreferenceScope, level PreferenceLevel, record map[string]any, clearKeys []string) ([]string, error) {
+	if !toBool(record["clear"]) {
+		return filterClearPreferenceKeys(clearKeys), nil
+	}
+	rawKeys, err := r.rawPreferenceKeysForLevel(ctx, scope, level)
+	if err != nil {
+		return nil, err
+	}
+	return filterClearPreferenceKeys(append(clearKeys, rawKeys...)), nil
+}
+
+func (r *PreferencesRepository) clearPreferenceKeys(ctx context.Context, scope PreferenceScope, userID string, level PreferenceLevel, clearKeys []string) error {
+	if len(clearKeys) == 0 {
+		return nil
+	}
+	if level == PreferenceLevelUser {
+		_, err := r.service.Clear(ctx, userID, clearKeys)
+		return err
+	}
+	return r.service.Store().Delete(ctx, PreferencesDeleteInput{
+		Scope: scope,
+		Level: level,
+		Keys:  clearKeys,
+	})
+}
+
+func (r *PreferencesRepository) persistUpdatedPreferences(ctx context.Context, scope PreferenceScope, userID string, level PreferenceLevel, prefs UserPreferences) (UserPreferences, error) {
+	updateValues := preferencesToMap(prefs)
+	if len(updateValues) == 0 {
+		return r.service.Get(ctx, userID)
+	}
+	if level == PreferenceLevelUser {
+		return r.service.Save(ctx, userID, prefs)
+	}
+	if _, err := r.service.Store().Upsert(ctx, PreferencesUpsertInput{
+		Scope:  scope,
+		Level:  level,
+		Values: updateValues,
+	}); err != nil {
+		return UserPreferences{}, err
+	}
+	return r.service.Get(ctx, userID)
 }
 
 func (r *PreferencesRepository) Delete(ctx context.Context, id string) error {
@@ -500,46 +518,81 @@ func (r *PreferencesRepository) preferencesFromRecord(record map[string]any, lev
 	if rawVal, ok := record["raw"]; ok {
 		prefs.Raw = filterAllowedRawPreferences(extractMap(rawVal))
 	}
-	clearKeys := filterRawPreferenceKeys(toStringSlice(record["clear_raw_keys"]))
-	if level == PreferenceLevelUser {
-		if val, ok := record["theme"]; ok && isEmptyPreferenceValue(val) {
-			clearKeys = append(clearKeys, preferencesKeyTheme)
-		}
-		if val, ok := record["theme_variant"]; ok && isEmptyPreferenceValue(val) {
-			clearKeys = append(clearKeys, preferencesKeyThemeVariant)
-		}
-	}
-	clearKeys = filterClearPreferenceKeys(clearKeys)
-	clearSet := map[string]bool{}
-	for _, key := range clearKeys {
-		clearSet[key] = true
-	}
-	if val, ok := record["theme"]; ok && !clearSet[preferencesKeyTheme] {
-		if level != PreferenceLevelUser || !isEmptyPreferenceValue(val) {
-			prefs.Theme = toString(val)
-			prefs.Raw[preferencesKeyTheme] = prefs.Theme
-		}
-	}
-	if val, ok := record["theme_variant"]; ok && !clearSet[preferencesKeyThemeVariant] {
-		if level != PreferenceLevelUser || !isEmptyPreferenceValue(val) {
-			prefs.ThemeVariant = toString(val)
-			prefs.Raw[preferencesKeyThemeVariant] = prefs.ThemeVariant
-		}
-	}
-	if val, ok := record["dashboard_layout"]; ok && !clearSet[preferencesKeyDashboardLayout] {
-		prefs.DashboardLayout = expandDashboardLayout(val)
-		prefs.Raw[preferencesKeyDashboardLayout] = flattenDashboardLayout(prefs.DashboardLayout)
-	}
-	if val, ok := record["dashboard_overrides"]; ok && !clearSet[preferencesKeyDashboardPrefs] {
-		prefs.DashboardPrefs = expandDashboardOverrides(val)
-		prefs.Raw[preferencesKeyDashboardPrefs] = flattenDashboardOverrides(prefs.DashboardPrefs)
-	}
+	clearKeys := preferenceClearKeysFromRecord(record, level)
+	clearSet := preferenceClearKeySet(clearKeys)
+	applyThemePreferenceRecord(record, level, clearSet, &prefs)
+	applyThemeVariantPreferenceRecord(record, level, clearSet, &prefs)
+	applyDashboardLayoutPreferenceRecord(record, clearSet, &prefs)
+	applyDashboardOverridesPreferenceRecord(record, clearSet, &prefs)
 	if len(clearSet) > 0 && len(prefs.Raw) > 0 {
 		for key := range clearSet {
 			delete(prefs.Raw, key)
 		}
 	}
 	return prefs, clearKeys
+}
+
+func preferenceClearKeysFromRecord(record map[string]any, level PreferenceLevel) []string {
+	clearKeys := filterRawPreferenceKeys(toStringSlice(record["clear_raw_keys"]))
+	if level == PreferenceLevelUser {
+		clearKeys = append(clearKeys, preferenceEmptyValueClearKeys(record)...)
+	}
+	return filterClearPreferenceKeys(clearKeys)
+}
+
+func preferenceEmptyValueClearKeys(record map[string]any) []string {
+	keys := []string{}
+	if val, ok := record["theme"]; ok && isEmptyPreferenceValue(val) {
+		keys = append(keys, preferencesKeyTheme)
+	}
+	if val, ok := record["theme_variant"]; ok && isEmptyPreferenceValue(val) {
+		keys = append(keys, preferencesKeyThemeVariant)
+	}
+	return keys
+}
+
+func preferenceClearKeySet(clearKeys []string) map[string]bool {
+	clearSet := map[string]bool{}
+	for _, key := range clearKeys {
+		clearSet[key] = true
+	}
+	return clearSet
+}
+
+func applyThemePreferenceRecord(record map[string]any, level PreferenceLevel, clearSet map[string]bool, prefs *UserPreferences) {
+	val, ok := record["theme"]
+	if !ok || clearSet[preferencesKeyTheme] || (level == PreferenceLevelUser && isEmptyPreferenceValue(val)) {
+		return
+	}
+	prefs.Theme = toString(val)
+	prefs.Raw[preferencesKeyTheme] = prefs.Theme
+}
+
+func applyThemeVariantPreferenceRecord(record map[string]any, level PreferenceLevel, clearSet map[string]bool, prefs *UserPreferences) {
+	val, ok := record["theme_variant"]
+	if !ok || clearSet[preferencesKeyThemeVariant] || (level == PreferenceLevelUser && isEmptyPreferenceValue(val)) {
+		return
+	}
+	prefs.ThemeVariant = toString(val)
+	prefs.Raw[preferencesKeyThemeVariant] = prefs.ThemeVariant
+}
+
+func applyDashboardLayoutPreferenceRecord(record map[string]any, clearSet map[string]bool, prefs *UserPreferences) {
+	val, ok := record["dashboard_layout"]
+	if !ok || clearSet[preferencesKeyDashboardLayout] {
+		return
+	}
+	prefs.DashboardLayout = expandDashboardLayout(val)
+	prefs.Raw[preferencesKeyDashboardLayout] = flattenDashboardLayout(prefs.DashboardLayout)
+}
+
+func applyDashboardOverridesPreferenceRecord(record map[string]any, clearSet map[string]bool, prefs *UserPreferences) {
+	val, ok := record["dashboard_overrides"]
+	if !ok || clearSet[preferencesKeyDashboardPrefs] {
+		return
+	}
+	prefs.DashboardPrefs = expandDashboardOverrides(val)
+	prefs.Raw[preferencesKeyDashboardPrefs] = flattenDashboardOverrides(prefs.DashboardPrefs)
 }
 
 func filterAllowedRawPreferences(raw map[string]any) map[string]any {
@@ -560,29 +613,46 @@ func isAllowedRawPreferenceKey(key string) bool {
 	if trimmed == "" || trimmed != key {
 		return false
 	}
-	if key == "id" || key == "raw" {
+	if isReservedPreferenceRawKey(key) {
 		return false
 	}
 	if !strings.HasPrefix(key, preferencesRawNamespacePrefix) {
 		return false
 	}
-	if key == preferencesRawNamespacePrefix ||
-		key == preferencesRawNamespacePrefix+"id" ||
-		key == preferencesRawNamespacePrefix+"raw" {
+	if isReservedPreferenceRawNamespaceKey(key) {
 		return false
 	}
 	for i := 0; i < len(key); i++ {
-		ch := key[i]
-		switch {
-		case ch >= 'a' && ch <= 'z':
-		case ch >= 'A' && ch <= 'Z':
-		case ch >= '0' && ch <= '9':
-		case ch == '.' || ch == '_' || ch == '-':
-		default:
+		if !isAllowedPreferenceRawKeyChar(key[i]) {
 			return false
 		}
 	}
 	return true
+}
+
+func isReservedPreferenceRawKey(key string) bool {
+	return key == "id" || key == "raw"
+}
+
+func isReservedPreferenceRawNamespaceKey(key string) bool {
+	return key == preferencesRawNamespacePrefix ||
+		key == preferencesRawNamespacePrefix+"id" ||
+		key == preferencesRawNamespacePrefix+"raw"
+}
+
+func isAllowedPreferenceRawKeyChar(ch byte) bool {
+	switch {
+	case ch >= 'a' && ch <= 'z':
+		return true
+	case ch >= 'A' && ch <= 'Z':
+		return true
+	case ch >= '0' && ch <= '9':
+		return true
+	case ch == '.' || ch == '_' || ch == '-':
+		return true
+	default:
+		return false
+	}
 }
 
 func filterClearPreferenceKeys(keys []string) []string {

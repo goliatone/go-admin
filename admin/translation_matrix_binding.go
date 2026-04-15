@@ -1253,19 +1253,49 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 	if err != nil {
 		return nil, err
 	}
+	familyBefore, err := b.translationMatrixCreateVariantFamily(adminCtx, runtime, scope, familyID, input)
+	if err != nil {
+		return nil, err
+	}
+	assignmentPlan, err := b.translationMatrixCreateVariantAssignmentPlan(adminCtx, familyBefore, input)
+	if err != nil {
+		return nil, err
+	}
+	createdVariant, err := b.createFamilyVariant(adminCtx.Context, translationIdentityFromAdminContext(adminCtx).ActorID, familyBefore, input)
+	if err != nil {
+		return nil, err
+	}
+	outcome, err := b.translationMatrixCreateVariantOutcome(adminCtx, familyBefore, input, assignmentPlan, createdVariant)
+	if err != nil {
+		return nil, err
+	}
+	if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); syncErr != nil {
+		return nil, syncErr
+	}
+	payloadMap, familyAfter, err := b.rebuildCreateVariantPayloadWithFamily(adminCtx.Context, scope, familyBefore.ID, input)
+	if err != nil {
+		return nil, err
+	}
+	translationFamilyAttachCreateVariantNavigation(payloadMap, createdVariant, b.admin.config.BasePath)
+	applyTranslationMatrixCreateVariantOutcome(payloadMap, outcome)
+	b.recordCreateVariantActivity(adminCtx.Context, translationIdentityFromAdminContext(adminCtx).ActorID, familyBefore, familyAfter, input, outcome)
+	return payloadMap, nil
+}
+
+func (b *translationFamilyBinding) translationMatrixCreateVariantFamily(adminCtx AdminContext, runtime *translationFamilyRuntime, scope translationservices.Scope, familyID string, input translationFamilyCreateVariantInput) (translationservices.FamilyRecord, error) {
 	familyBefore, ok, err := runtime.service.Detail(adminCtx.Context, translationservices.GetFamilyInput{
 		Scope:       scope,
 		Environment: input.Environment,
 		FamilyID:    strings.TrimSpace(familyID),
 	})
 	if err != nil {
-		return nil, err
+		return translationservices.FamilyRecord{}, err
 	}
 	if !ok {
-		return nil, notFoundDomainError("translation family not found", map[string]any{"family_id": strings.TrimSpace(familyID)})
+		return translationservices.FamilyRecord{}, notFoundDomainError("translation family not found", map[string]any{"family_id": strings.TrimSpace(familyID)})
 	}
 	if translationFamilyPolicyDenied(familyBefore) {
-		return nil, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", mergeTranslationChannelContract(map[string]any{
+		return translationservices.FamilyRecord{}, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", mergeTranslationChannelContract(map[string]any{
 			"family_id":        familyBefore.ID,
 			"content_type":     familyBefore.ContentType,
 			"requested_locale": input.Locale,
@@ -1273,7 +1303,7 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 	}
 	if translationFamilyHasLocale(familyBefore, input.Locale) {
 		source := translationFamilySourceVariant(familyBefore)
-		return nil, TranslationAlreadyExistsError{
+		return translationservices.FamilyRecord{}, TranslationAlreadyExistsError{
 			Panel:        familyBefore.ContentType,
 			EntityID:     strings.TrimSpace(source.SourceRecordID),
 			SourceLocale: familyBefore.SourceLocale,
@@ -1281,49 +1311,41 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 			FamilyID:     familyBefore.ID,
 		}
 	}
+	return familyBefore, nil
+}
 
-	var assignmentPlan translationFamilyCreateVariantAssignmentPlan
-	if input.AutoCreateAssignment {
-		assignmentPlan, err = b.planCreateVariantAssignment(adminCtx.Context, familyBefore, input)
-		if err != nil {
-			return nil, err
-		}
+func (b *translationFamilyBinding) translationMatrixCreateVariantAssignmentPlan(adminCtx AdminContext, familyBefore translationservices.FamilyRecord, input translationFamilyCreateVariantInput) (translationFamilyCreateVariantAssignmentPlan, error) {
+	if !input.AutoCreateAssignment {
+		return translationFamilyCreateVariantAssignmentPlan{}, nil
 	}
-	createdVariant, err := b.createFamilyVariant(adminCtx.Context, translationIdentityFromAdminContext(adminCtx).ActorID, familyBefore, input)
-	if err != nil {
-		return nil, err
-	}
+	return b.planCreateVariantAssignment(adminCtx.Context, familyBefore, input)
+}
 
-	outcome := translationFamilyCreateVariantOutcome{}
-	if input.AutoCreateAssignment {
-		outcome, err = b.applyCreateVariantAssignmentPlan(adminCtx.Context, familyBefore, input, assignmentPlan)
-		if err != nil {
-			if rollbackErr := b.deleteFamilyVariant(adminCtx.Context, createdVariant); rollbackErr != nil {
-				return nil, errors.Join(err, rollbackErr)
-			}
-			return nil, err
-		}
+func (b *translationFamilyBinding) translationMatrixCreateVariantOutcome(adminCtx AdminContext, familyBefore translationservices.FamilyRecord, input translationFamilyCreateVariantInput, assignmentPlan translationFamilyCreateVariantAssignmentPlan, createdVariant *CMSContent) (translationFamilyCreateVariantOutcome, error) {
+	if !input.AutoCreateAssignment {
+		return translationFamilyCreateVariantOutcome{}, nil
 	}
-	if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); syncErr != nil {
-		return nil, syncErr
+	outcome, err := b.applyCreateVariantAssignmentPlan(adminCtx.Context, familyBefore, input, assignmentPlan)
+	if err == nil {
+		return outcome, nil
 	}
+	if rollbackErr := b.deleteFamilyVariant(adminCtx.Context, createdVariant); rollbackErr != nil {
+		return translationFamilyCreateVariantOutcome{}, errors.Join(err, rollbackErr)
+	}
+	return translationFamilyCreateVariantOutcome{}, err
+}
 
-	payloadMap, familyAfter, err := b.rebuildCreateVariantPayloadWithFamily(adminCtx.Context, scope, familyBefore.ID, input)
-	if err != nil {
-		return nil, err
+func applyTranslationMatrixCreateVariantOutcome(payloadMap map[string]any, outcome translationFamilyCreateVariantOutcome) {
+	if outcome.Assignment == nil {
+		return
 	}
-	translationFamilyAttachCreateVariantNavigation(payloadMap, createdVariant, b.admin.config.BasePath)
-	if outcome.Assignment != nil {
-		data := extractMap(payloadMap["data"])
-		data["assignment"] = translationCreateVariantAssignmentPayload(*outcome.Assignment)
-		payloadMap["data"] = data
-		meta := extractMap(payloadMap["meta"])
-		meta["assignment_reused"] = outcome.AssignmentReused
-		if len(outcome.ArchivedAssignmentIDs) > 0 {
-			meta["archived_assignment_ids"] = append([]string{}, outcome.ArchivedAssignmentIDs...)
-		}
-		payloadMap["meta"] = meta
+	data := extractMap(payloadMap["data"])
+	data["assignment"] = translationCreateVariantAssignmentPayload(*outcome.Assignment)
+	payloadMap["data"] = data
+	meta := extractMap(payloadMap["meta"])
+	meta["assignment_reused"] = outcome.AssignmentReused
+	if len(outcome.ArchivedAssignmentIDs) > 0 {
+		meta["archived_assignment_ids"] = append([]string{}, outcome.ArchivedAssignmentIDs...)
 	}
-	b.recordCreateVariantActivity(adminCtx.Context, translationIdentityFromAdminContext(adminCtx).ActorID, familyBefore, familyAfter, input, outcome)
-	return payloadMap, nil
+	payloadMap["meta"] = meta
 }

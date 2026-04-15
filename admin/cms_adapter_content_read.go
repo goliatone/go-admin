@@ -229,36 +229,32 @@ func (r goCMSContentReadBoundary) fetchContent(ctx context.Context, id, locale s
 		return nil, ErrNotFound
 	}
 	if a.adminRead != nil {
-		record, err := a.adminRead.Get(ctx, id, cms.AdminContentGetOptions{
-			Locale:                   locale,
-			AllowMissingTranslations: true,
-			IncludeData:              true,
-			IncludeMetadata:          true,
-			IncludeBlocks:            true,
-		})
-		if err != nil {
-			return nil, err
-		}
-		if record == nil {
-			return nil, ErrNotFound
-		}
-		rec := r.convertAdminContentRecord(ctx, *record)
-		applySchemaVersionToContent(&rec)
-		embeddedPresent := applyEmbeddedBlocksToContent(&rec)
-		if !embeddedPresent && allowLegacy && (a.adminBlocks != nil || a.blocks != nil) {
-			if legacy, err := a.legacyBlocksForContent(ctx, rec.ID, rec.Locale); err == nil && len(legacy) > 0 {
-				rec.Blocks = blockTypesFromLegacy(legacy)
-				rec.EmbeddedBlocks = embeddedBlocksFromLegacy(legacy)
-				if rec.Data == nil {
-					rec.Data = map[string]any{}
-				}
-				if rec.EmbeddedBlocks != nil {
-					rec.Data["blocks"] = cloneEmbeddedBlocks(rec.EmbeddedBlocks)
-				}
-			}
-		}
-		return &rec, nil
+		return r.fetchAdminContent(ctx, id, locale, allowLegacy)
 	}
+	return r.fetchStoredContent(ctx, id, locale, allowLegacy)
+}
+
+func (r goCMSContentReadBoundary) fetchAdminContent(ctx context.Context, id, locale string, allowLegacy bool) (*CMSContent, error) {
+	record, err := r.adapter.adminRead.Get(ctx, id, cms.AdminContentGetOptions{
+		Locale:                   locale,
+		AllowMissingTranslations: true,
+		IncludeData:              true,
+		IncludeMetadata:          true,
+		IncludeBlocks:            true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if record == nil {
+		return nil, ErrNotFound
+	}
+	rec := r.convertAdminContentRecord(ctx, *record)
+	r.finalizeFetchedContent(ctx, &rec, allowLegacy)
+	return &rec, nil
+}
+
+func (r goCMSContentReadBoundary) fetchStoredContent(ctx context.Context, id, locale string, allowLegacy bool) (*CMSContent, error) {
+	a := r.adapter
 	uid := cmsadapter.UUIDFromString(id)
 	if uid == uuid.Nil {
 		return nil, ErrNotFound
@@ -271,21 +267,35 @@ func (r goCMSContentReadBoundary) fetchContent(ctx context.Context, id, locale s
 		return nil, ErrNotFound
 	}
 	rec := a.convertContent(ctx, reflect.ValueOf(record), locale)
-	applySchemaVersionToContent(&rec)
-	embeddedPresent := applyEmbeddedBlocksToContent(&rec)
-	if !embeddedPresent && allowLegacy && (a.adminBlocks != nil || a.blocks != nil) {
-		if legacy, err := a.legacyBlocksForContent(ctx, rec.ID, rec.Locale); err == nil && len(legacy) > 0 {
-			rec.Blocks = blockTypesFromLegacy(legacy)
-			rec.EmbeddedBlocks = embeddedBlocksFromLegacy(legacy)
-			if rec.Data == nil {
-				rec.Data = map[string]any{}
-			}
-			if rec.EmbeddedBlocks != nil {
-				rec.Data["blocks"] = cloneEmbeddedBlocks(rec.EmbeddedBlocks)
-			}
-		}
-	}
+	r.finalizeFetchedContent(ctx, &rec, allowLegacy)
 	return &rec, nil
+}
+
+func (r goCMSContentReadBoundary) finalizeFetchedContent(ctx context.Context, content *CMSContent, allowLegacy bool) {
+	applySchemaVersionToContent(content)
+	if applyEmbeddedBlocksToContent(content) || !allowLegacy {
+		return
+	}
+	r.applyLegacyBlocksToContent(ctx, content)
+}
+
+func (r goCMSContentReadBoundary) applyLegacyBlocksToContent(ctx context.Context, content *CMSContent) {
+	a := r.adapter
+	if content == nil || a == nil || (a.adminBlocks == nil && a.blocks == nil) {
+		return
+	}
+	legacy, err := r.legacyBlocksForContent(ctx, content.ID, content.Locale)
+	if err != nil || len(legacy) == 0 {
+		return
+	}
+	content.Blocks = blockTypesFromLegacy(legacy)
+	content.EmbeddedBlocks = embeddedBlocksFromLegacy(legacy)
+	if content.Data == nil {
+		content.Data = map[string]any{}
+	}
+	if content.EmbeddedBlocks != nil {
+		content.Data["blocks"] = cloneEmbeddedBlocks(content.EmbeddedBlocks)
+	}
 }
 
 func (a *GoCMSContentAdapter) BlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
@@ -318,10 +328,6 @@ func (a *GoCMSContentAdapter) LegacyBlocksForContent(ctx context.Context, conten
 
 func (r goCMSContentReadBoundary) LegacyBlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
 	return r.legacyBlocksForContent(ctx, contentID, locale)
-}
-
-func (a *GoCMSContentAdapter) legacyBlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
-	return a.contentReader().legacyBlocksForContent(ctx, contentID, locale)
 }
 
 func (r goCMSContentReadBoundary) legacyBlocksForContent(ctx context.Context, contentID, locale string) ([]CMSBlock, error) {
@@ -535,23 +541,27 @@ func applyGoCMSContentType(ctx context.Context, r goCMSContentReadBoundary, val 
 			out.ContentType = slug
 		}
 		if out.ContentType == "" {
-			if name := cmsadapter.StringField(typeVal, "Name"); name != "" {
-				out.ContentType = name
-			}
+			out.ContentType = cmsadapter.StringField(typeVal, "Name")
 		}
 	}
 	if out.ContentType == "" {
-		if typID, ok := gocmsutil.ExtractUUID(val, "ContentTypeID"); ok && typID != uuid.Nil {
-			if ct := r.contentTypeByID(ctx, typID); ct != nil {
-				if ct.Slug != "" {
-					out.ContentTypeSlug = ct.Slug
-					out.ContentType = ct.Slug
-				} else if ct.Name != "" {
-					out.ContentType = ct.Name
-				}
+		if ct := resolvedGoCMSContentType(ctx, r, val); ct != nil {
+			if ct.Slug != "" {
+				out.ContentTypeSlug = ct.Slug
+				out.ContentType = ct.Slug
+			} else if ct.Name != "" {
+				out.ContentType = ct.Name
 			}
 		}
 	}
+}
+
+func resolvedGoCMSContentType(ctx context.Context, r goCMSContentReadBoundary, val reflect.Value) *CMSContentType {
+	typID, ok := gocmsutil.ExtractUUID(val, "ContentTypeID")
+	if !ok || typID == uuid.Nil {
+		return nil
+	}
+	return r.contentTypeByID(ctx, typID)
 }
 
 func (r goCMSContentReadBoundary) applyContentMetadata(out *CMSContent, val reflect.Value, translation reflect.Value) {
@@ -602,6 +612,16 @@ func (a *GoCMSContentAdapter) convertBlockInstance(ctx context.Context, value re
 func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, value reflect.Value, locale string) CMSBlock {
 	a := r.adapter
 	val := gocmsutil.Deref(value)
+	block := r.baseCMSBlock(val)
+	block.Status = blockInstanceStatus(val, block.Status)
+	block.Data = blockTranslationContent(r.blockTranslationForLocale(ctx, a, val, locale))
+	if block.Locale == "" {
+		block.Locale = locale
+	}
+	return block
+}
+
+func (r goCMSContentReadBoundary) baseCMSBlock(val reflect.Value) CMSBlock {
 	block := CMSBlock{Data: map[string]any{}}
 	if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
 		block.ID = id.String()
@@ -622,12 +642,21 @@ func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, valu
 	if pos, ok := gocmsutil.GetIntField(val, "Position"); ok {
 		block.Position = pos
 	}
-	if pub := val.FieldByName("PublishedVersion"); pub.IsValid() && pub.Kind() == reflect.Pointer && !pub.IsNil() {
-		block.Status = "published"
-	} else if block.Status == "" {
-		block.Status = "draft"
-	}
+	return block
+}
 
+func blockInstanceStatus(val reflect.Value, fallback string) string {
+	pub := val.FieldByName("PublishedVersion")
+	if pub.IsValid() && pub.Kind() == reflect.Pointer && !pub.IsNil() {
+		return "published"
+	}
+	if fallback != "" {
+		return fallback
+	}
+	return "draft"
+}
+
+func (r goCMSContentReadBoundary) blockTranslationForLocale(ctx context.Context, a *GoCMSContentAdapter, val reflect.Value, locale string) reflect.Value {
 	translations := gocmsutil.Deref(val.FieldByName("Translations"))
 	var chosen reflect.Value
 	localeID, hasLocaleID := gocmsutil.ResolveLocaleID(ctx, a.locales, locale)
@@ -636,25 +665,28 @@ func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, valu
 		if !chosen.IsValid() {
 			chosen = current
 		}
-		if !hasLocaleID {
-			continue
-		}
-		if trID, ok := gocmsutil.ExtractUUID(current, "LocaleID"); ok && trID == localeID {
-			chosen = current
-			break
-		}
-	}
-	if chosen.IsValid() {
-		if contentField := chosen.FieldByName("Content"); contentField.IsValid() && contentField.Kind() == reflect.Map {
-			if m, ok := contentField.Interface().(map[string]any); ok {
-				block.Data = primitives.CloneAnyMap(m)
+		if hasLocaleID {
+			if trID, ok := gocmsutil.ExtractUUID(current, "LocaleID"); ok && trID == localeID {
+				return current
 			}
 		}
 	}
-	if block.Locale == "" {
-		block.Locale = locale
+	return chosen
+}
+
+func blockTranslationContent(translation reflect.Value) map[string]any {
+	if !translation.IsValid() {
+		return map[string]any{}
 	}
-	return block
+	contentField := translation.FieldByName("Content")
+	if !contentField.IsValid() || contentField.Kind() != reflect.Map {
+		return map[string]any{}
+	}
+	content, ok := contentField.Interface().(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
+	return primitives.CloneAnyMap(content)
 }
 
 func (r goCMSContentReadBoundary) contentTypeByID(ctx context.Context, id uuid.UUID) *CMSContentType {

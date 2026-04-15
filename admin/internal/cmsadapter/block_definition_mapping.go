@@ -14,48 +14,12 @@ import (
 func ConvertBlockDefinition(value reflect.Value) cmsboot.CMSBlockDefinition {
 	val := gocmsutil.Deref(value)
 	def := cmsboot.CMSBlockDefinition{}
-	if name := strings.TrimSpace(StringField(val, "Name")); name != "" {
-		def.Name = name
-	}
-	if slug := strings.TrimSpace(StringField(val, "Slug")); slug != "" {
-		def.Slug = slug
-	}
-	def.ID = strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Slug, def.Name))
-	if def.ID == "" {
-		if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
-			def.ID = id.String()
-		}
-	}
-	if desc := strings.TrimSpace(StringField(val, "Description")); desc != "" {
-		def.Description = desc
-		def.DescriptionSet = true
-	}
-	if icon := strings.TrimSpace(StringField(val, "Icon")); icon != "" {
-		def.Icon = icon
-		def.IconSet = true
-	}
-	if category := strings.TrimSpace(StringField(val, "Category")); category != "" {
-		def.Category = category
-		def.CategorySet = true
-	}
+	applyBlockDefinitionIdentity(&def, val)
+	applyBlockDefinitionMetadata(&def, val)
 	if status := strings.TrimSpace(StringField(val, "Status")); status != "" {
 		def.Status = status
 	}
-	if schemaField := val.FieldByName("Schema"); schemaField.IsValid() {
-		if schema, ok := schemaField.Interface().(map[string]any); ok {
-			def.Schema = primitives.CloneAnyMap(schema)
-			if def.Type == "" {
-				if t := strings.TrimSpace(stringValue(schema["x-block-type"])); t != "" {
-					def.Type = t
-				}
-			}
-		}
-	}
-	if uiSchemaField := val.FieldByName("UISchema"); uiSchemaField.IsValid() {
-		if uiSchema, ok := uiSchemaField.Interface().(map[string]any); ok {
-			def.UISchema = primitives.CloneAnyMap(uiSchema)
-		}
-	}
+	applyBlockDefinitionSchemas(&def, val)
 	if version := strings.TrimSpace(StringField(val, "SchemaVersion")); version != "" {
 		def.SchemaVersion = version
 	}
@@ -78,6 +42,60 @@ func ConvertBlockDefinition(value reflect.Value) cmsboot.CMSBlockDefinition {
 		def.Type = strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Slug, def.Name, def.ID))
 	}
 	return def
+}
+
+func applyBlockDefinitionIdentity(def *cmsboot.CMSBlockDefinition, val reflect.Value) {
+	if name := strings.TrimSpace(StringField(val, "Name")); name != "" {
+		def.Name = name
+	}
+	if slug := strings.TrimSpace(StringField(val, "Slug")); slug != "" {
+		def.Slug = slug
+	}
+	def.ID = strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Slug, def.Name))
+	if def.ID == "" {
+		if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
+			def.ID = id.String()
+		}
+	}
+}
+
+func applyBlockDefinitionMetadata(def *cmsboot.CMSBlockDefinition, val reflect.Value) {
+	if desc := strings.TrimSpace(StringField(val, "Description")); desc != "" {
+		def.Description = desc
+		def.DescriptionSet = true
+	}
+	if icon := strings.TrimSpace(StringField(val, "Icon")); icon != "" {
+		def.Icon = icon
+		def.IconSet = true
+	}
+	if category := strings.TrimSpace(StringField(val, "Category")); category != "" {
+		def.Category = category
+		def.CategorySet = true
+	}
+}
+
+func applyBlockDefinitionSchemas(def *cmsboot.CMSBlockDefinition, val reflect.Value) {
+	if schema := blockDefinitionSchemaField(val, "Schema"); schema != nil {
+		def.Schema = schema
+		if def.Type == "" {
+			def.Type = strings.TrimSpace(stringValue(schema["x-block-type"]))
+		}
+	}
+	if uiSchema := blockDefinitionSchemaField(val, "UISchema"); uiSchema != nil {
+		def.UISchema = uiSchema
+	}
+}
+
+func blockDefinitionSchemaField(val reflect.Value, fieldName string) map[string]any {
+	field := val.FieldByName(fieldName)
+	if !field.IsValid() {
+		return nil
+	}
+	schema, ok := field.Interface().(map[string]any)
+	if !ok {
+		return nil
+	}
+	return primitives.CloneAnyMap(schema)
 }
 
 func ConvertBlockDefinitionVersion(value reflect.Value) cmsboot.CMSBlockDefinitionVersion {

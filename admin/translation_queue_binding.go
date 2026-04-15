@@ -579,16 +579,17 @@ func matchesAssignmentListFilter(assignment TranslationAssignment, filter transl
 	if !translationQueueListFilterMatches(filter.Priority, string(assignment.Priority), normalizeTranslationQueuePriorityFilterValue) {
 		return false
 	}
+	return translationQueueAssignmentScopeMatches(assignment, filter)
+}
+
+func translationQueueAssignmentScopeMatches(assignment TranslationAssignment, filter translationAssignmentListFilter) bool {
 	if filter.FamilyID != "" && !strings.EqualFold(strings.TrimSpace(assignment.FamilyID), strings.TrimSpace(filter.FamilyID)) {
 		return false
 	}
 	if filter.TenantID != "" && !strings.EqualFold(strings.TrimSpace(assignment.TenantID), filter.TenantID) {
 		return false
 	}
-	if filter.OrgID != "" && !strings.EqualFold(strings.TrimSpace(assignment.OrgID), filter.OrgID) {
-		return false
-	}
-	return true
+	return filter.OrgID == "" || strings.EqualFold(strings.TrimSpace(assignment.OrgID), filter.OrgID)
 }
 
 func translationQueueListFilterMatches(filterValue, candidate string, normalize func(string) string) bool {
@@ -735,76 +736,27 @@ func (b *translationQueueBinding) requireAssignmentActionPermission(adminCtx Adm
 		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsClaim, "translations"); err != nil {
 			return err
 		}
-		actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
-		switch assignment.Status {
-		case AssignmentStatusOpen:
-			if assignment.AssignmentType == AssignmentTypeOpenPool {
-				return nil
-			}
-		case AssignmentStatusAssigned, AssignmentStatusChangesRequested:
-			if actorID != "" && strings.EqualFold(strings.TrimSpace(assignment.AssigneeID), actorID) {
-				return nil
-			}
-			return NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment is assigned to a different translator", map[string]any{
-				"assignment_id":        assignment.ID,
-				"assignee_id":          actorID,
-				"expected_assignee_id": assignment.AssigneeID,
-				"status":               assignment.Status,
-			})
-		}
-		return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be open pool or already assigned to you before it can be claimed", map[string]any{
-			"assignment_id": assignment.ID,
-			"status":        assignment.Status,
-		})
+		return validateClaimAssignmentPermission(adminCtx, assignment)
 	case "release":
 		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsAssign, "translations"); err != nil {
 			return err
 		}
-		if assignment.Status != AssignmentStatusAssigned && assignment.Status != AssignmentStatusInProgress && assignment.Status != AssignmentStatusChangesRequested {
-			return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be assigned or in progress before it can be released", map[string]any{
-				"assignment_id": assignment.ID,
-				"status":        assignment.Status,
-			})
-		}
+		return validateReleaseAssignmentPermission(assignment)
 	case "submit_review":
 		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); err != nil {
 			return err
 		}
-		if assignment.Status != AssignmentStatusInProgress {
-			return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be in progress before it can be submitted", map[string]any{
-				"assignment_id": assignment.ID,
-				"status":        assignment.Status,
-			})
-		}
+		return validateSubmitReviewAssignmentPermission(assignment)
 	case "approve", "reject":
 		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsApprove, "translations"); err != nil {
 			return err
 		}
-		if assignment.Status != AssignmentStatusInReview {
-			return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be in review before review actions can run", map[string]any{
-				"assignment_id": assignment.ID,
-				"status":        assignment.Status,
-			})
-		}
-		actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
-		expectedReviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
-		if expectedReviewerID != "" && actorID != "" && !strings.EqualFold(expectedReviewerID, actorID) {
-			return NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment is assigned to a different reviewer", map[string]any{
-				"assignment_id":        assignment.ID,
-				"reviewer_id":          actorID,
-				"expected_reviewer_id": expectedReviewerID,
-			})
-		}
+		return validateReviewAssignmentPermission(adminCtx, assignment)
 	case "archive":
 		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); err != nil {
 			return err
 		}
-		if assignment.Status == AssignmentStatusArchived {
-			return NewDomainError(string(translationcore.ErrorInvalidStatus), "archived assignments cannot be archived again", map[string]any{
-				"assignment_id": assignment.ID,
-				"status":        assignment.Status,
-			})
-		}
+		return validateArchiveAssignmentPermission(assignment)
 	default:
 		return validationDomainError("unsupported assignment action", map[string]any{
 			"field":  "action",
@@ -812,6 +764,79 @@ func (b *translationQueueBinding) requireAssignmentActionPermission(adminCtx Adm
 		})
 	}
 	return nil
+}
+
+func validateClaimAssignmentPermission(adminCtx AdminContext, assignment TranslationAssignment) error {
+	actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
+	switch assignment.Status {
+	case AssignmentStatusOpen:
+		if assignment.AssignmentType == AssignmentTypeOpenPool {
+			return nil
+		}
+	case AssignmentStatusAssigned, AssignmentStatusChangesRequested:
+		if actorID != "" && strings.EqualFold(strings.TrimSpace(assignment.AssigneeID), actorID) {
+			return nil
+		}
+		return NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment is assigned to a different translator", map[string]any{
+			"assignment_id":        assignment.ID,
+			"assignee_id":          actorID,
+			"expected_assignee_id": assignment.AssigneeID,
+			"status":               assignment.Status,
+		})
+	}
+	return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be open pool or already assigned to you before it can be claimed", map[string]any{
+		"assignment_id": assignment.ID,
+		"status":        assignment.Status,
+	})
+}
+
+func validateReleaseAssignmentPermission(assignment TranslationAssignment) error {
+	if assignment.Status == AssignmentStatusAssigned || assignment.Status == AssignmentStatusInProgress || assignment.Status == AssignmentStatusChangesRequested {
+		return nil
+	}
+	return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be assigned or in progress before it can be released", map[string]any{
+		"assignment_id": assignment.ID,
+		"status":        assignment.Status,
+	})
+}
+
+func validateSubmitReviewAssignmentPermission(assignment TranslationAssignment) error {
+	if assignment.Status == AssignmentStatusInProgress {
+		return nil
+	}
+	return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be in progress before it can be submitted", map[string]any{
+		"assignment_id": assignment.ID,
+		"status":        assignment.Status,
+	})
+}
+
+func validateReviewAssignmentPermission(adminCtx AdminContext, assignment TranslationAssignment) error {
+	if assignment.Status != AssignmentStatusInReview {
+		return NewDomainError(string(translationcore.ErrorInvalidStatus), "assignment must be in review before review actions can run", map[string]any{
+			"assignment_id": assignment.ID,
+			"status":        assignment.Status,
+		})
+	}
+	actorID := strings.TrimSpace(translationIdentityFromAdminContext(adminCtx).ActorID)
+	expectedReviewerID := strings.TrimSpace(firstNonEmpty(assignment.ReviewerID, assignment.LastReviewerID))
+	if expectedReviewerID == "" || actorID == "" || strings.EqualFold(expectedReviewerID, actorID) {
+		return nil
+	}
+	return NewDomainError(string(translationcore.ErrorPermissionDenied), "assignment is assigned to a different reviewer", map[string]any{
+		"assignment_id":        assignment.ID,
+		"reviewer_id":          actorID,
+		"expected_reviewer_id": expectedReviewerID,
+	})
+}
+
+func validateArchiveAssignmentPermission(assignment TranslationAssignment) error {
+	if assignment.Status != AssignmentStatusArchived {
+		return nil
+	}
+	return NewDomainError(string(translationcore.ErrorInvalidStatus), "archived assignments cannot be archived again", map[string]any{
+		"assignment_id": assignment.ID,
+		"status":        assignment.Status,
+	})
 }
 
 func (b *translationQueueBinding) lookupActionReplay(actorID, assignmentID, action, idempotencyKey string, payload map[string]any) (map[string]any, bool, error) {

@@ -818,20 +818,25 @@ func (a *Admin) replacePanel(name string, builder *PanelBuilder, resetTabs bool)
 	if err != nil {
 		return nil, err
 	}
-	if a.registry != nil {
-		if err := a.registry.UpsertPanel(name, panel); err != nil {
-			return nil, err
-		}
-		if resetTabs {
-			if err := a.registry.resetPanelTabs(name); err != nil {
-				return nil, err
-			}
-		}
-		if err := syncTranslationQueueTabForPanel(a, name, panel); err != nil {
-			return nil, err
-		}
+	if err := a.replaceRegisteredPanel(name, panel, resetTabs); err != nil {
+		return nil, err
 	}
 	return panel, nil
+}
+
+func (a *Admin) replaceRegisteredPanel(name string, panel *Panel, resetTabs bool) error {
+	if a.registry == nil {
+		return nil
+	}
+	if err := a.registry.UpsertPanel(name, panel); err != nil {
+		return err
+	}
+	if resetTabs {
+		if err := a.registry.resetPanelTabs(name); err != nil {
+			return err
+		}
+	}
+	return syncTranslationQueueTabForPanel(a, name, panel)
 }
 
 func (a *Admin) syncPanelUIRoutes(name string, panel *Panel) error {

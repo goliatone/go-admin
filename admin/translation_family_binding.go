@@ -239,68 +239,64 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation family binding", map[string]any{"component": "translation_family_binding"})
 	}
-	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
-	obsCtx = adminCtx.Context
-	setTranslationTraceHeaders(c, obsCtx)
-	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); permissionErr != nil {
-		return nil, permissionErr
-	}
-	request, cached, err := b.prepareCreateVariantRequest(c, id, adminCtx)
+	request, cached, err := b.prepareAuthorizedCreateVariantRequest(c, id)
 	if err != nil || cached != nil {
 		return cached, err
 	}
+	obsCtx = request.AdminCtx.Context
 	state, cached, err := b.loadCreateVariantState(strings.TrimSpace(id), request)
 	if err != nil || cached != nil {
 		return cached, err
 	}
-
-	var assignmentPlan translationFamilyCreateVariantAssignmentPlan
-	if request.Input.AutoCreateAssignment {
-		assignmentPlan, err = b.planCreateVariantAssignment(request.AdminCtx.Context, state.Family, request.Input)
-		if err != nil {
-			return nil, err
-		}
+	assignmentPlan, err := b.translationMatrixCreateVariantAssignmentPlan(request.AdminCtx, state.Family, request.Input)
+	if err != nil {
+		return nil, err
 	}
-
 	actorID := translationIdentityFromAdminContext(request.AdminCtx).ActorID
 	createdVariant, err := b.createFamilyVariant(request.AdminCtx.Context, actorID, state.Family, request.Input)
 	if err != nil {
-		if request.Input.IdempotencyKey != "" && isTranslationVariantAlreadyExists(err) {
-			replayed, replayedOK, replayErr := b.lookupCreateVariantReplayFromStore(request.AdminCtx, state.Scope, state.Family.ID, request.Input)
-			if replayErr == nil && replayedOK {
-				if storeErr := b.storeCreateVariantIdempotency(request.AdminCtx, state.Family.ID, request.Input, replayed); storeErr != nil {
-					return nil, storeErr
-				}
-				return replayed, nil
-			}
-		}
-		if isTranslationVariantAlreadyExists(err) {
-			recordTranslationCreateLocaleMetric(request.AdminCtx.Context, translationCreateLocaleEvent{
-				ContentType: state.Family.ContentType,
-				FamilyID:    state.Family.ID,
-				Locale:      request.Input.Locale,
-				Environment: request.Input.Environment,
-				Outcome:     "duplicate",
-				Err:         err,
-			})
-		}
-		return nil, err
+		return b.handleCreateVariantError(request, state, err)
 	}
-
-	outcome := translationFamilyCreateVariantOutcome{}
-	if request.Input.AutoCreateAssignment {
-		outcome, err = b.applyCreateVariantAssignmentPlan(request.AdminCtx.Context, state.Family, request.Input, assignmentPlan)
-		if err != nil {
-			if rollbackErr := b.deleteFamilyVariant(request.AdminCtx.Context, createdVariant); rollbackErr != nil {
-				return nil, errors.Join(err, rollbackErr)
-			}
-			return nil, err
-		}
+	outcome, err := b.translationMatrixCreateVariantOutcome(request.AdminCtx, state.Family, request.Input, assignmentPlan, createdVariant)
+	if err != nil {
+		return nil, err
 	}
 	if syncErr := SyncTranslationFamilyStore(request.AdminCtx.Context, b.admin, request.Input.Environment); syncErr != nil {
 		return nil, syncErr
 	}
 	return b.finalizeCreateVariantPayload(request, state, actorID, createdVariant, outcome)
+}
+
+func (b *translationFamilyBinding) prepareAuthorizedCreateVariantRequest(c router.Context, id string) (translationFamilyCreateVariantRequest, map[string]any, error) {
+	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
+	setTranslationTraceHeaders(c, adminCtx.Context)
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); permissionErr != nil {
+		return translationFamilyCreateVariantRequest{}, nil, permissionErr
+	}
+	return b.prepareCreateVariantRequest(c, id, adminCtx)
+}
+
+func (b *translationFamilyBinding) handleCreateVariantError(request translationFamilyCreateVariantRequest, state translationFamilyCreateVariantState, err error) (map[string]any, error) {
+	if request.Input.IdempotencyKey != "" && isTranslationVariantAlreadyExists(err) {
+		replayed, replayedOK, replayErr := b.lookupCreateVariantReplayFromStore(request.AdminCtx, state.Scope, state.Family.ID, request.Input)
+		if replayErr == nil && replayedOK {
+			if storeErr := b.storeCreateVariantIdempotency(request.AdminCtx, state.Family.ID, request.Input, replayed); storeErr != nil {
+				return nil, storeErr
+			}
+			return replayed, nil
+		}
+	}
+	if isTranslationVariantAlreadyExists(err) {
+		recordTranslationCreateLocaleMetric(request.AdminCtx.Context, translationCreateLocaleEvent{
+			ContentType: state.Family.ContentType,
+			FamilyID:    state.Family.ID,
+			Locale:      request.Input.Locale,
+			Environment: request.Input.Environment,
+			Outcome:     "duplicate",
+			Err:         err,
+		})
+	}
+	return nil, err
 }
 
 func (b *translationFamilyBinding) prepareCreateVariantRequest(c router.Context, familyID string, adminCtx AdminContext) (translationFamilyCreateVariantRequest, map[string]any, error) {
@@ -354,8 +350,8 @@ func (b *translationFamilyBinding) loadCreateVariantState(familyID string, reque
 	if !ok {
 		return translationFamilyCreateVariantState{}, nil, notFoundDomainError("translation family not found", map[string]any{"family_id": familyID})
 	}
-	if err := b.ensureCreateVariantAllowed(request, family); err != nil {
-		return translationFamilyCreateVariantState{}, nil, err
+	if allowErr := b.ensureCreateVariantAllowed(request, family); allowErr != nil {
+		return translationFamilyCreateVariantState{}, nil, allowErr
 	}
 	cached, err := b.lookupExistingCreateVariant(request, family)
 	if err != nil || cached != nil {

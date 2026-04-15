@@ -153,10 +153,8 @@ func (f *DynamicPanelFactory) RefreshPanel(ctx context.Context, contentType *CMS
 	if contentType == nil {
 		return validationDomainError("content type is nil", map[string]any{"field": "content_type"})
 	}
-	if f.hooks.BeforeUpdate != nil {
-		if err := f.hooks.BeforeUpdate(ctx, contentType); err != nil {
-			return err
-		}
+	if err := f.runBeforeUpdateHook(ctx, contentType); err != nil {
+		return err
 	}
 	env := f.resolveEnvironment(ctx, contentType)
 	if !contentTypePublished(contentType) {
@@ -165,41 +163,68 @@ func (f *DynamicPanelFactory) RefreshPanel(ctx context.Context, contentType *CMS
 		}
 		return f.cleanupPanel(ctx, contentType, env)
 	}
-	panelSlug := panelSlugForContentType(contentType)
-	panelName := f.panelName(panelSlug, env)
-	var navPosition *int
-	replaceExisting := false
-	previous := ""
-	if f.admin != nil {
-		previous = f.storedSlug(env, contentType.ID)
-		if previous != "" && previous != panelSlug {
-			navPosition = f.resolveMenuItemPosition(ctx, previous, env)
-		}
-		if previous == panelSlug && previous != "" {
-			replaceExisting = true
-		}
-		if registry := f.admin.Registry(); registry != nil {
-			if _, exists := registry.Panel(panelName); exists {
-				replaceExisting = true
-			}
-		}
-	}
-	panel, err := f.createPanel(ctx, contentType, nil, nil, navPosition, replaceExisting)
+	refresh := f.refreshPanelContext(ctx, contentType, env)
+	panel, err := f.createPanel(ctx, contentType, nil, nil, refresh.navPosition, refresh.replaceExisting)
 	if err != nil {
 		return err
 	}
-	if f.admin != nil && previous != "" && previous != panelSlug {
-		previousName := f.panelName(previous, env)
-		f.unregisterPanelSearchAdapter(previousName)
-		if err := f.admin.UnregisterPanel(previousName); err != nil && !errors.Is(err, ErrNotFound) {
-			return err
-		}
-		if err := f.removeFromNavigation(ctx, previous, env); err != nil && !isMenuTargetMissing(err) {
-			return err
-		}
+	if err := f.removePreviousPanel(ctx, env, refresh.previous, refresh.panelSlug); err != nil {
+		return err
 	}
 	if f.hooks.AfterUpdate != nil {
 		return f.hooks.AfterUpdate(ctx, panel)
+	}
+	return nil
+}
+
+type refreshPanelState struct {
+	panelSlug       string
+	previous        string
+	navPosition     *int
+	replaceExisting bool
+}
+
+func (f *DynamicPanelFactory) runBeforeUpdateHook(ctx context.Context, contentType *CMSContentType) error {
+	if f.hooks.BeforeUpdate == nil {
+		return nil
+	}
+	return f.hooks.BeforeUpdate(ctx, contentType)
+}
+
+func (f *DynamicPanelFactory) refreshPanelContext(ctx context.Context, contentType *CMSContentType, env string) refreshPanelState {
+	state := refreshPanelState{
+		panelSlug: panelSlugForContentType(contentType),
+	}
+	if f.admin == nil {
+		return state
+	}
+	panelName := f.panelName(state.panelSlug, env)
+	state.previous = f.storedSlug(env, contentType.ID)
+	if state.previous != "" && state.previous != state.panelSlug {
+		state.navPosition = f.resolveMenuItemPosition(ctx, state.previous, env)
+	}
+	if state.previous == state.panelSlug && state.previous != "" {
+		state.replaceExisting = true
+	}
+	if registry := f.admin.Registry(); registry != nil {
+		if _, exists := registry.Panel(panelName); exists {
+			state.replaceExisting = true
+		}
+	}
+	return state
+}
+
+func (f *DynamicPanelFactory) removePreviousPanel(ctx context.Context, env, previous, panelSlug string) error {
+	if f.admin == nil || previous == "" || previous == panelSlug {
+		return nil
+	}
+	previousName := f.panelName(previous, env)
+	f.unregisterPanelSearchAdapter(previousName)
+	if err := f.admin.UnregisterPanel(previousName); err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	if err := f.removeFromNavigation(ctx, previous, env); err != nil && !isMenuTargetMissing(err) {
+		return err
 	}
 	return nil
 }
@@ -1206,13 +1231,22 @@ func permissionsFromCapabilities(capabilities map[string]any) (PanelPermissions,
 	if len(capabilities) == 0 {
 		return PanelPermissions{}, false
 	}
-	raw, ok := capabilities["permissions"]
-	if !ok {
-		raw, ok = capabilities["permission"]
-	}
+	raw, ok := panelPermissionsCapability(capabilities)
 	if !ok {
 		return PanelPermissions{}, false
 	}
+	return panelPermissionsFromCapabilityValue(raw)
+}
+
+func panelPermissionsCapability(capabilities map[string]any) (any, bool) {
+	if raw, ok := capabilities["permissions"]; ok {
+		return raw, true
+	}
+	raw, ok := capabilities["permission"]
+	return raw, ok
+}
+
+func panelPermissionsFromCapabilityValue(raw any) (PanelPermissions, bool) {
 	switch value := raw.(type) {
 	case string:
 		base := strings.TrimSpace(value)

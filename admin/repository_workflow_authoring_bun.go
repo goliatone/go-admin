@@ -141,27 +141,13 @@ func (s *BunWorkflowAuthoringStore) Save(ctx context.Context, rec *flow.Authorin
 	expectedVersion = strings.TrimSpace(expectedVersion)
 
 	if err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		current := bunWorkflowAuthoringMachineRecord{MachineID: next.MachineID}
-		currentErr := tx.NewSelect().Model(&current).WherePK().Scan(ctx)
-		hasCurrent := currentErr == nil
-		if currentErr != nil && !workflowRepoNotFound(currentErr) {
-			return currentErr
+		current, hasCurrent, err := loadCurrentAuthoringMachineRow(ctx, tx, next.MachineID)
+		if err != nil {
+			return err
 		}
-
-		if expectedVersion != "" {
-			actualVersion := ""
-			if hasCurrent {
-				actualVersion = strings.TrimSpace(current.Version)
-			}
-			if !hasCurrent || actualVersion != expectedVersion {
-				return workflowRuntimeError(flow.ErrVersionConflict, "version conflict", nil, map[string]any{
-					"machineId":       next.MachineID,
-					"expectedVersion": expectedVersion,
-					"actualVersion":   actualVersion,
-				})
-			}
+		if err := validateExpectedAuthoringVersion(next.MachineID, expectedVersion, current, hasCurrent); err != nil {
+			return err
 		}
-
 		machineRow, convErr := bunAuthoringMachineRowFromRecord(next)
 		if convErr != nil {
 			return convErr
@@ -170,57 +156,92 @@ func (s *BunWorkflowAuthoringStore) Save(ctx context.Context, rec *flow.Authorin
 		if convErr != nil {
 			return convErr
 		}
-
-		if hasCurrent {
-			if _, execErr := tx.NewUpdate().
-				Model(&machineRow).
-				WherePK().
-				Column(
-					"name",
-					"version",
-					"etag",
-					"draft",
-					"diagnostics",
-					"updated_at",
-					"published_at",
-					"published_definition",
-					"deleted_at",
-				).
-				Exec(ctx); execErr != nil {
-				return execErr
-			}
-		} else {
-			if _, execErr := tx.NewInsert().Model(&machineRow).Exec(ctx); execErr != nil {
-				if workflowRepoUniqueConflict(execErr) {
-					return workflowRuntimeError(flow.ErrVersionConflict, "version conflict", execErr, map[string]any{
-						"machineId":       next.MachineID,
-						"expectedVersion": expectedVersion,
-					})
-				}
-				return execErr
-			}
+		if err := upsertAuthoringMachineRow(ctx, tx, machineRow, hasCurrent, expectedVersion); err != nil {
+			return err
 		}
-
-		if _, execErr := tx.NewInsert().
-			Model(&versionRow).
-			On("CONFLICT (machine_id, version) DO UPDATE").
-			Set("name = EXCLUDED.name").
-			Set("etag = EXCLUDED.etag").
-			Set("draft = EXCLUDED.draft").
-			Set("diagnostics = EXCLUDED.diagnostics").
-			Set("updated_at = EXCLUDED.updated_at").
-			Set("published_at = EXCLUDED.published_at").
-			Set("published_definition = EXCLUDED.published_definition").
-			Set("deleted_at = EXCLUDED.deleted_at").
-			Exec(ctx); execErr != nil {
-			return execErr
-		}
-		return nil
+		return upsertAuthoringVersionRow(ctx, tx, versionRow)
 	}); err != nil {
 		return nil, err
 	}
 
 	return s.LoadAny(ctx, next.MachineID)
+}
+
+func loadCurrentAuthoringMachineRow(ctx context.Context, tx bun.Tx, machineID string) (bunWorkflowAuthoringMachineRecord, bool, error) {
+	current := bunWorkflowAuthoringMachineRecord{MachineID: machineID}
+	err := tx.NewSelect().Model(&current).WherePK().Scan(ctx)
+	if err == nil {
+		return current, true, nil
+	}
+	if workflowRepoNotFound(err) {
+		return bunWorkflowAuthoringMachineRecord{}, false, nil
+	}
+	return bunWorkflowAuthoringMachineRecord{}, false, err
+}
+
+func validateExpectedAuthoringVersion(machineID, expectedVersion string, current bunWorkflowAuthoringMachineRecord, hasCurrent bool) error {
+	if expectedVersion == "" {
+		return nil
+	}
+	actualVersion := ""
+	if hasCurrent {
+		actualVersion = strings.TrimSpace(current.Version)
+	}
+	if hasCurrent && actualVersion == expectedVersion {
+		return nil
+	}
+	return workflowRuntimeError(flow.ErrVersionConflict, "version conflict", nil, map[string]any{
+		"machineId":       machineID,
+		"expectedVersion": expectedVersion,
+		"actualVersion":   actualVersion,
+	})
+}
+
+func upsertAuthoringMachineRow(ctx context.Context, tx bun.Tx, machineRow bunWorkflowAuthoringMachineRecord, hasCurrent bool, expectedVersion string) error {
+	if hasCurrent {
+		_, err := tx.NewUpdate().
+			Model(&machineRow).
+			WherePK().
+			Column(
+				"name",
+				"version",
+				"etag",
+				"draft",
+				"diagnostics",
+				"updated_at",
+				"published_at",
+				"published_definition",
+				"deleted_at",
+			).
+			Exec(ctx)
+		return err
+	}
+	if _, err := tx.NewInsert().Model(&machineRow).Exec(ctx); err != nil {
+		if workflowRepoUniqueConflict(err) {
+			return workflowRuntimeError(flow.ErrVersionConflict, "version conflict", err, map[string]any{
+				"machineId":       machineRow.MachineID,
+				"expectedVersion": expectedVersion,
+			})
+		}
+		return err
+	}
+	return nil
+}
+
+func upsertAuthoringVersionRow(ctx context.Context, tx bun.Tx, versionRow bunWorkflowAuthoringVersionRecord) error {
+	_, err := tx.NewInsert().
+		Model(&versionRow).
+		On("CONFLICT (machine_id, version) DO UPDATE").
+		Set("name = EXCLUDED.name").
+		Set("etag = EXCLUDED.etag").
+		Set("draft = EXCLUDED.draft").
+		Set("diagnostics = EXCLUDED.diagnostics").
+		Set("updated_at = EXCLUDED.updated_at").
+		Set("published_at = EXCLUDED.published_at").
+		Set("published_definition = EXCLUDED.published_definition").
+		Set("deleted_at = EXCLUDED.deleted_at").
+		Exec(ctx)
+	return err
 }
 
 func (s *BunWorkflowAuthoringStore) Delete(ctx context.Context, machineID string, expectedVersion string, hardDelete bool) (bool, error) {

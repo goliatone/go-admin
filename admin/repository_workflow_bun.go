@@ -195,14 +195,7 @@ func (r *BunWorkflowDefinitionRepository) Update(ctx context.Context, workflow P
 
 	updated := PersistedWorkflow{}
 	if err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		currentRec := bunWorkflowRecord{ID: id}
-		if err := tx.NewSelect().Model(&currentRec).WherePK().Scan(ctx); err != nil {
-			if workflowRepoNotFound(err) {
-				return ErrNotFound
-			}
-			return err
-		}
-		current, err := workflowFromBunRecord(currentRec)
+		current, err := loadCurrentWorkflowForUpdate(ctx, tx, id)
 		if err != nil {
 			return err
 		}
@@ -213,25 +206,7 @@ func (r *BunWorkflowDefinitionRepository) Update(ctx context.Context, workflow P
 				ActualVersion:   current.Version,
 			}
 		}
-
-		next := workflowcore.NormalizePersistedWorkflow(workflow)
-		next.ID = current.ID
-		next.CreatedAt = current.CreatedAt
-		next.UpdatedAt = time.Now().UTC()
-		next.Version = current.Version + 1
-		if next.Status == "" {
-			next.Status = current.Status
-		}
-		if next.Name == "" {
-			next.Name = current.Name
-		}
-		if strings.TrimSpace(next.Environment) == "" {
-			next.Environment = current.Environment
-		}
-		if strings.TrimSpace(next.Definition.InitialState) == "" && len(next.Definition.Transitions) == 0 {
-			next.Definition = workflowcore.CloneWorkflowDefinition(current.Definition)
-		}
-
+		next := normalizeUpdatedWorkflowRecord(current, workflow)
 		record, err := workflowToBunRecord(next)
 		if err != nil {
 			return err
@@ -252,6 +227,38 @@ func (r *BunWorkflowDefinitionRepository) Update(ctx context.Context, workflow P
 		return PersistedWorkflow{}, err
 	}
 	return updated, nil
+}
+
+func loadCurrentWorkflowForUpdate(ctx context.Context, tx bun.Tx, id string) (PersistedWorkflow, error) {
+	currentRec := bunWorkflowRecord{ID: id}
+	if err := tx.NewSelect().Model(&currentRec).WherePK().Scan(ctx); err != nil {
+		if workflowRepoNotFound(err) {
+			return PersistedWorkflow{}, ErrNotFound
+		}
+		return PersistedWorkflow{}, err
+	}
+	return workflowFromBunRecord(currentRec)
+}
+
+func normalizeUpdatedWorkflowRecord(current PersistedWorkflow, workflow PersistedWorkflow) PersistedWorkflow {
+	next := workflowcore.NormalizePersistedWorkflow(workflow)
+	next.ID = current.ID
+	next.CreatedAt = current.CreatedAt
+	next.UpdatedAt = time.Now().UTC()
+	next.Version = current.Version + 1
+	if next.Status == "" {
+		next.Status = current.Status
+	}
+	if next.Name == "" {
+		next.Name = current.Name
+	}
+	if strings.TrimSpace(next.Environment) == "" {
+		next.Environment = current.Environment
+	}
+	if strings.TrimSpace(next.Definition.InitialState) == "" && len(next.Definition.Transitions) == 0 {
+		next.Definition = workflowcore.CloneWorkflowDefinition(current.Definition)
+	}
+	return next
 }
 
 // BunWorkflowBindingRepository persists workflow bindings with active uniqueness checks.

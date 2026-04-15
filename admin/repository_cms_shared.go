@@ -758,91 +758,45 @@ func mapToCMSContentType(record map[string]any) CMSContentType {
 	if record == nil {
 		return ct
 	}
-	if id, ok := record["content_type_id"].(string); ok {
-		ct.ID = id
+	applyCMSContentTypeIdentity(record, &ct)
+	applyCMSContentTypeMetadata(record, &ct)
+	applyCMSContentTypeFlags(record, &ct)
+	cmsadapter.SetContentTypeChannel(&ct, mapCMSContentChannel(record))
+	ct.Schema = mapCMSRecordMap(record, "schema")
+	if ct.Schema != nil {
+		ct.Schema = stripUnsupportedSchemaKeywords(ct.Schema)
 	}
-	if id, ok := record["type_id"].(string); ok && ct.ID == "" {
-		ct.ID = id
-	}
-	if id, ok := record["id"].(string); ok && ct.ID == "" {
-		ct.ID = id
-	}
-	if name, ok := record["name"].(string); ok {
-		ct.Name = name
-	}
-	if slug, ok := record["slug"].(string); ok {
-		ct.Slug = slug
-	} else if slug, ok := record["content_type_slug"].(string); ok && ct.Slug == "" {
-		ct.Slug = slug
-	}
-	if desc, ok := record["description"].(string); ok {
-		ct.Description = desc
-	}
-	if _, ok := record["description"]; ok {
-		ct.DescriptionSet = true
-	}
-	if icon, ok := record["icon"].(string); ok {
-		ct.Icon = icon
-	}
-	if _, ok := record["icon"]; ok {
-		ct.IconSet = true
-	}
-	if status, ok := record["status"].(string); ok {
-		ct.Status = status
-	}
-	if raw, ok := record["allow_breaking_changes"]; ok {
-		ct.AllowBreakingChanges = toBool(raw)
-	} else if raw, ok := record["allow_breaking"]; ok {
-		ct.AllowBreakingChanges = toBool(raw)
-	} else if raw, ok := record["force"]; ok {
-		ct.AllowBreakingChanges = toBool(raw)
-	}
-	if raw, ok := record["replace_capabilities"]; ok {
-		ct.ReplaceCapabilities = toBool(raw)
-	} else if raw, ok := record["replaceCapabilities"]; ok {
-		ct.ReplaceCapabilities = toBool(raw)
-	}
-	channel := ""
-	if value, ok := record["channel"].(string); ok {
-		channel = value
-	} else if value, ok := record["content_channel"].(string); ok {
-		channel = value
-	} else if value, ok := record["environment"].(string); ok {
-		channel = value
-	} else if value, ok := record["env"].(string); ok {
-		channel = value
-	}
-	cmsadapter.SetContentTypeChannel(&ct, channel)
-	if schema, ok := record["schema"].(map[string]any); ok {
-		ct.Schema = stripUnsupportedSchemaKeywords(primitives.CloneAnyMap(schema))
-	} else if raw, ok := record["schema"].(string); ok && raw != "" {
-		var m map[string]any
-		if err := json.Unmarshal([]byte(raw), &m); err == nil {
-			ct.Schema = stripUnsupportedSchemaKeywords(m)
-		}
-	}
-	if uiSchema, ok := record["ui_schema"].(map[string]any); ok {
-		ct.UISchema = primitives.CloneAnyMap(uiSchema)
-	} else if uiSchema, ok := record["uiSchema"].(map[string]any); ok && ct.UISchema == nil {
-		ct.UISchema = primitives.CloneAnyMap(uiSchema)
-	} else if raw, ok := record["ui_schema"].(string); ok && raw != "" {
-		var m map[string]any
-		if err := json.Unmarshal([]byte(raw), &m); err == nil {
-			ct.UISchema = m
-		}
-	}
-	if caps, ok := record["capabilities"].(map[string]any); ok {
-		ct.Capabilities = primitives.CloneAnyMap(caps)
-	} else if raw, ok := record["capabilities"].(string); ok && raw != "" {
-		var m map[string]any
-		if err := json.Unmarshal([]byte(raw), &m); err == nil {
-			ct.Capabilities = m
-		}
-	}
+	ct.UISchema = mapCMSRecordMap(record, "ui_schema", "uiSchema")
+	ct.Capabilities = mapCMSRecordMap(record, "capabilities")
 	if normalized, _, _ := normalizeContentTypeCapabilitiesInternal(ct.Capabilities); normalized != nil {
 		ct.Capabilities = normalized
 	}
 	return ct
+}
+
+func applyCMSContentTypeIdentity(record map[string]any, ct *CMSContentType) {
+	ct.ID = firstRecordString(record, "content_type_id", "type_id", "id")
+	ct.Name = firstRecordString(record, "name")
+	ct.Slug = firstRecordString(record, "slug", "content_type_slug")
+}
+
+func applyCMSContentTypeMetadata(record map[string]any, ct *CMSContentType) {
+	if desc, ok := record["description"].(string); ok {
+		ct.Description = desc
+	}
+	_, ct.DescriptionSet = record["description"]
+	if icon, ok := record["icon"].(string); ok {
+		ct.Icon = icon
+	}
+	_, ct.IconSet = record["icon"]
+	if status, ok := record["status"].(string); ok {
+		ct.Status = status
+	}
+}
+
+func applyCMSContentTypeFlags(record map[string]any, ct *CMSContentType) {
+	ct.AllowBreakingChanges = firstRecordBool(record, "allow_breaking_changes", "allow_breaking", "force")
+	ct.ReplaceCapabilities = firstRecordBool(record, "replace_capabilities", "replaceCapabilities")
 }
 
 func capabilitiesReplaceRequested(record map[string]any) bool {
@@ -930,68 +884,11 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 	if record == nil {
 		return def
 	}
-	if id, ok := record["id"].(string); ok {
-		def.ID = id
-	}
-	if name, ok := record["name"].(string); ok {
-		def.Name = name
-	}
-	if slug, ok := record["slug"].(string); ok {
-		def.Slug = slug
-	}
-	if typ, ok := record["type"].(string); ok {
-		def.Type = typ
-	}
-	if desc, ok := record["description"].(string); ok {
-		def.Description = desc
-	}
-	if _, ok := record["description"]; ok {
-		def.DescriptionSet = true
-	}
-	if icon, ok := record["icon"].(string); ok {
-		def.Icon = icon
-	}
-	if _, ok := record["icon"]; ok {
-		def.IconSet = true
-	}
-	if category, ok := record["category"].(string); ok {
-		def.Category = category
-	}
-	if _, ok := record["category"]; ok {
-		def.CategorySet = true
-	}
-	if status, ok := record["status"].(string); ok {
-		def.Status = status
-	}
-	channel := ""
-	if value, ok := record["channel"].(string); ok {
-		channel = value
-	} else if value, ok := record["content_channel"].(string); ok {
-		channel = value
-	} else if value, ok := record["environment"].(string); ok {
-		channel = value
-	} else if value, ok := record["env"].(string); ok {
-		channel = value
-	}
-	cmsadapter.SetBlockDefinitionChannel(&def, channel)
-	if schema, ok := record["schema"].(map[string]any); ok {
-		def.Schema = primitives.CloneAnyMap(schema)
-	} else if raw, ok := record["schema"].(string); ok && raw != "" {
-		var m map[string]any
-		if err := json.Unmarshal([]byte(raw), &m); err == nil {
-			def.Schema = m
-		}
-	}
-	if uiSchema, ok := record["ui_schema"].(map[string]any); ok {
-		def.UISchema = primitives.CloneAnyMap(uiSchema)
-	} else if uiSchema, ok := record["uiSchema"].(map[string]any); ok && def.UISchema == nil {
-		def.UISchema = primitives.CloneAnyMap(uiSchema)
-	} else if raw, ok := record["ui_schema"].(string); ok && raw != "" {
-		var m map[string]any
-		if err := json.Unmarshal([]byte(raw), &m); err == nil {
-			def.UISchema = m
-		}
-	}
+	applyCMSBlockDefinitionIdentity(record, &def)
+	applyCMSBlockDefinitionMetadata(record, &def)
+	cmsadapter.SetBlockDefinitionChannel(&def, mapCMSContentChannel(record))
+	def.Schema = mapCMSRecordMap(record, "schema")
+	def.UISchema = mapCMSRecordMap(record, "ui_schema", "uiSchema")
 	if version, ok := record["schema_version"].(string); ok {
 		def.SchemaVersion = version
 	}
@@ -1002,6 +899,31 @@ func mapToCMSBlockDefinition(record map[string]any) CMSBlockDefinition {
 		def.Locale = locale
 	}
 	return def
+}
+
+func applyCMSBlockDefinitionIdentity(record map[string]any, def *CMSBlockDefinition) {
+	def.ID = firstRecordString(record, "id")
+	def.Name = firstRecordString(record, "name")
+	def.Slug = firstRecordString(record, "slug")
+	def.Type = firstRecordString(record, "type")
+}
+
+func applyCMSBlockDefinitionMetadata(record map[string]any, def *CMSBlockDefinition) {
+	if desc, ok := record["description"].(string); ok {
+		def.Description = desc
+	}
+	_, def.DescriptionSet = record["description"]
+	if icon, ok := record["icon"].(string); ok {
+		def.Icon = icon
+	}
+	_, def.IconSet = record["icon"]
+	if category, ok := record["category"].(string); ok {
+		def.Category = category
+	}
+	_, def.CategorySet = record["category"]
+	if status, ok := record["status"].(string); ok {
+		def.Status = status
+	}
 }
 
 func applyBlockDefinitionDefaults(def *CMSBlockDefinition) {
@@ -1067,19 +989,8 @@ func mapToCMSBlock(record map[string]any) CMSBlock {
 	if status, ok := record["status"].(string); ok {
 		block.Status = status
 	}
-	if pos, ok := record["position"].(int); ok {
-		block.Position = pos
-	} else if posf, ok := record["position"].(float64); ok {
-		block.Position = int(posf)
-	}
-	if data, ok := record["data"].(map[string]any); ok {
-		block.Data = primitives.CloneAnyMap(data)
-	} else if raw, ok := record["data"].(string); ok && raw != "" {
-		var parsed map[string]any
-		if err := json.Unmarshal([]byte(raw), &parsed); err == nil {
-			block.Data = parsed
-		}
-	}
+	block.Position = mapCMSBlockPosition(record["position"])
+	block.Data = mapCMSBlockData(record["data"])
 	if btype, ok := record["block_type"].(string); ok {
 		block.BlockType = btype
 	}
@@ -1087,6 +998,33 @@ func mapToCMSBlock(record map[string]any) CMSBlock {
 		block.BlockSchemaKey = key
 	}
 	return block
+}
+
+func mapCMSBlockPosition(raw any) int {
+	switch value := raw.(type) {
+	case int:
+		return value
+	case float64:
+		return int(value)
+	default:
+		return 0
+	}
+}
+
+func mapCMSBlockData(raw any) map[string]any {
+	switch value := raw.(type) {
+	case map[string]any:
+		return primitives.CloneAnyMap(value)
+	case string:
+		if strings.TrimSpace(value) == "" {
+			return map[string]any{}
+		}
+		var parsed map[string]any
+		if err := json.Unmarshal([]byte(value), &parsed); err == nil {
+			return parsed
+		}
+	}
+	return map[string]any{}
 }
 
 func mapToMenuItem(record map[string]any, defaultMenu string) (MenuItem, string) {
@@ -1104,11 +1042,7 @@ func mapToMenuItem(record map[string]any, defaultMenu string) (MenuItem, string)
 	if icon, ok := record["icon"].(string); ok {
 		item.Icon = icon
 	}
-	if pos, ok := record["position"].(int); ok {
-		item.Position = new(pos)
-	} else if posf, ok := record["position"].(float64); ok {
-		item.Position = new(int(posf))
-	}
+	item.Position = mapMenuItemPosition(record["position"])
 	if locale, ok := record["locale"].(string); ok {
 		item.Locale = locale
 	}
@@ -1118,34 +1052,9 @@ func mapToMenuItem(record map[string]any, defaultMenu string) (MenuItem, string)
 	if badge, ok := record["badge"].(map[string]any); ok {
 		item.Badge = primitives.CloneAnyMap(badge)
 	}
-	if perms, ok := record["permissions"].([]string); ok {
-		item.Permissions = append([]string{}, perms...)
-	} else if permsAny, ok := record["permissions"].([]any); ok {
-		for _, p := range permsAny {
-			if ps, ok := p.(string); ok {
-				item.Permissions = append(item.Permissions, ps)
-			}
-		}
-	}
-	if classes, ok := record["classes"].([]string); ok {
-		item.Classes = append([]string{}, classes...)
-	} else if classesAny, ok := record["classes"].([]any); ok {
-		for _, c := range classesAny {
-			if cs, ok := c.(string); ok {
-				item.Classes = append(item.Classes, cs)
-			}
-		}
-	}
-	if styles, ok := record["styles"].(map[string]string); ok {
-		item.Styles = primitives.CloneStringMapNilOnEmpty(styles)
-	} else if stylesAny, ok := record["styles"].(map[string]any); ok {
-		item.Styles = map[string]string{}
-		for k, v := range stylesAny {
-			if vs, ok := v.(string); ok {
-				item.Styles[k] = vs
-			}
-		}
-	}
+	item.Permissions = mapRecordStrings(record["permissions"])
+	item.Classes = mapRecordStrings(record["classes"])
+	item.Styles = mapMenuItemStyles(record["styles"])
 	if target, ok := record["target"].(map[string]any); ok {
 		item.Target = primitives.CloneAnyMap(target)
 	}
@@ -1154,6 +1063,94 @@ func mapToMenuItem(record map[string]any, defaultMenu string) (MenuItem, string)
 	}
 	item.Menu = menuCode
 	return item, menuCode
+}
+
+func firstRecordString(record map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := record[key].(string); ok && value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func firstRecordBool(record map[string]any, keys ...string) bool {
+	for _, key := range keys {
+		if raw, ok := record[key]; ok {
+			return toBool(raw)
+		}
+	}
+	return false
+}
+
+func mapCMSContentChannel(record map[string]any) string {
+	return firstRecordString(record, "channel", "content_channel", "environment", "env")
+}
+
+func mapCMSRecordMap(record map[string]any, keys ...string) map[string]any {
+	for _, key := range keys {
+		switch value := record[key].(type) {
+		case map[string]any:
+			return primitives.CloneAnyMap(value)
+		case string:
+			if strings.TrimSpace(value) == "" {
+				continue
+			}
+			var parsed map[string]any
+			if err := json.Unmarshal([]byte(value), &parsed); err == nil {
+				return parsed
+			}
+		}
+	}
+	return nil
+}
+
+func mapMenuItemPosition(raw any) *int {
+	switch value := raw.(type) {
+	case int:
+		return new(value)
+	case float64:
+		return new(int(value))
+	default:
+		return nil
+	}
+}
+
+func mapRecordStrings(raw any) []string {
+	switch value := raw.(type) {
+	case []string:
+		return append([]string{}, value...)
+	case []any:
+		out := []string{}
+		for _, item := range value {
+			if text, ok := item.(string); ok {
+				out = append(out, text)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func mapMenuItemStyles(raw any) map[string]string {
+	switch value := raw.(type) {
+	case map[string]string:
+		return primitives.CloneStringMapNilOnEmpty(value)
+	case map[string]any:
+		styles := map[string]string{}
+		for key, item := range value {
+			if text, ok := item.(string); ok {
+				styles[key] = text
+			}
+		}
+		if len(styles) == 0 {
+			return nil
+		}
+		return styles
+	default:
+		return nil
+	}
 }
 
 func mapToWidgetDefinition(record map[string]any) WidgetDefinition {

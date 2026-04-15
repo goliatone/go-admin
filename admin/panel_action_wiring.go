@@ -78,42 +78,43 @@ func validatePanelAction(panel *Panel, panelName, scope string, action Action, b
 	if actionName == "" {
 		return panelActionIssue(panelName, scope, action, "action_name_required")
 	}
-	if commandName != "" {
-		if !validateCommands {
-			return nil
-		}
-		if bus == nil || !bus.HasFactory(commandName) {
-			return panelActionIssue(panelName, scope, action, "command_factory_not_registered")
-		}
-		return nil
+	if issue := validatePanelActionCommand(panelName, scope, action, commandName, bus, validateCommands); issue != nil || commandName != "" {
+		return issue
 	}
-	if actionHasPassiveRouting(action) {
+	if panelActionUsesPassiveRouting(scope, actionName, action) {
 		return nil
-	}
-	if scope != "bulk" {
-		if _, ok := passivePanelActionNames[actionName]; ok {
-			return nil
-		}
-	} else {
-		if _, ok := passiveBulkPanelActionNames[actionName]; ok {
-			return nil
-		}
 	}
 	if actionName == strings.ToLower(CreateTranslationKey) {
 		return nil
 	}
-	if panel.workflow != nil {
-		resolvable, introspectable := workflowActionIsResolvable(panel, actionName)
-		if resolvable {
-			return nil
-		}
-		if _, ok := workflowActionNames[actionName]; ok {
-			if !introspectable {
-				return panelActionIssue(panelName, scope, action, "workflow_engine_not_introspectable")
-			}
-			return panelActionIssue(panelName, scope, action, "workflow_transition_not_registered")
-		}
+	return validatePanelWorkflowAction(panel, panelName, scope, action, actionName)
+}
+
+func validatePanelActionCommand(panelName, scope string, action Action, commandName string, bus *CommandBus, validateCommands bool) map[string]any {
+	if commandName == "" || !validateCommands {
 		return nil
+	}
+	if bus == nil || !bus.HasFactory(commandName) {
+		return panelActionIssue(panelName, scope, action, "command_factory_not_registered")
+	}
+	return nil
+}
+
+func panelActionUsesPassiveRouting(scope, actionName string, action Action) bool {
+	if actionHasPassiveRouting(action) {
+		return true
+	}
+	if scope == "bulk" {
+		_, ok := passiveBulkPanelActionNames[actionName]
+		return ok
+	}
+	_, ok := passivePanelActionNames[actionName]
+	return ok
+}
+
+func validatePanelWorkflowAction(panel *Panel, panelName, scope string, action Action, actionName string) map[string]any {
+	if panel.workflow != nil {
+		return validatePanelWorkflowTransition(panel, panelName, scope, action, actionName)
 	}
 	if _, ok := workflowActionNames[actionName]; ok {
 		return panelActionIssue(panelName, scope, action, "workflow_not_configured_for_action")
@@ -122,6 +123,20 @@ func validatePanelAction(panel *Panel, panelName, scope string, action Action, b
 		return panelActionIssue(panelName, scope, action, "bulk_action_missing_command")
 	}
 	return panelActionIssue(panelName, scope, action, "action_missing_command")
+}
+
+func validatePanelWorkflowTransition(panel *Panel, panelName, scope string, action Action, actionName string) map[string]any {
+	resolvable, introspectable := workflowActionIsResolvable(panel, actionName)
+	if resolvable {
+		return nil
+	}
+	if _, ok := workflowActionNames[actionName]; !ok {
+		return nil
+	}
+	if !introspectable {
+		return panelActionIssue(panelName, scope, action, "workflow_engine_not_introspectable")
+	}
+	return panelActionIssue(panelName, scope, action, "workflow_transition_not_registered")
 }
 
 func actionHasPassiveRouting(action Action) bool {

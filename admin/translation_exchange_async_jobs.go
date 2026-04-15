@@ -63,44 +63,15 @@ func translationExchangeAsyncJobPayload(job translationExchangeAsyncJob) map[str
 		"created_at":    job.CreatedAt,
 		"updated_at":    job.UpdatedAt,
 	}
-	if actorID := strings.TrimSpace(job.CreatedBy); actorID != "" {
-		payload["actor"] = map[string]any{
-			"id":    actorID,
-			"label": actorID,
-		}
-	}
+	applyTranslationExchangeActorPayload(payload, job)
 	if job.Fixture {
 		payload["fixture"] = true
 	}
-	if len(job.Request) > 0 {
-		payload["request"] = primitives.CloneAnyMap(job.Request)
-	}
-	if requestHash := strings.TrimSpace(job.RequestHash); requestHash != "" {
-		payload["request_hash"] = requestHash
-	}
-	if requestID := strings.TrimSpace(job.RequestID); requestID != "" {
-		payload["request_id"] = requestID
-	}
-	if traceID := strings.TrimSpace(job.TraceID); traceID != "" {
-		payload["trace_id"] = traceID
-	}
+	applyTranslationExchangeRequestPayload(payload, job)
 	if strings.TrimSpace(job.Error) != "" {
 		payload["error"] = strings.TrimSpace(job.Error)
 	}
-	resultPayload := primitives.CloneAnyMap(job.Result)
-	if len(resultPayload) == 0 && len(job.Summary) > 0 {
-		resultPayload = map[string]any{
-			"summary": primitives.CloneAnyMap(job.Summary),
-		}
-	}
-	if downloads := translationExchangeArtifactDownloadsPayload(job.Artifacts); len(downloads) > 0 {
-		if len(resultPayload) == 0 {
-			resultPayload = map[string]any{}
-		}
-		if len(extractMap(resultPayload["downloads"])) == 0 {
-			resultPayload["downloads"] = downloads
-		}
-	}
+	resultPayload := translationExchangeAsyncJobResultPayload(job)
 	if len(resultPayload) > 0 {
 		payload["result"] = primitives.CloneAnyMap(resultPayload)
 		if summary := extractMap(resultPayload["summary"]); len(summary) > 0 {
@@ -117,6 +88,52 @@ func translationExchangeAsyncJobPayload(job translationExchangeAsyncJob) map[str
 		payload["file"] = file
 	}
 	return payload
+}
+
+func applyTranslationExchangeActorPayload(payload map[string]any, job translationExchangeAsyncJob) {
+	actorID := strings.TrimSpace(job.CreatedBy)
+	if actorID == "" {
+		return
+	}
+	payload["actor"] = map[string]any{
+		"id":    actorID,
+		"label": actorID,
+	}
+}
+
+func applyTranslationExchangeRequestPayload(payload map[string]any, job translationExchangeAsyncJob) {
+	if len(job.Request) > 0 {
+		payload["request"] = primitives.CloneAnyMap(job.Request)
+	}
+	if requestHash := strings.TrimSpace(job.RequestHash); requestHash != "" {
+		payload["request_hash"] = requestHash
+	}
+	if requestID := strings.TrimSpace(job.RequestID); requestID != "" {
+		payload["request_id"] = requestID
+	}
+	if traceID := strings.TrimSpace(job.TraceID); traceID != "" {
+		payload["trace_id"] = traceID
+	}
+}
+
+func translationExchangeAsyncJobResultPayload(job translationExchangeAsyncJob) map[string]any {
+	resultPayload := primitives.CloneAnyMap(job.Result)
+	if len(resultPayload) == 0 && len(job.Summary) > 0 {
+		resultPayload = map[string]any{
+			"summary": primitives.CloneAnyMap(job.Summary),
+		}
+	}
+	downloads := translationExchangeArtifactDownloadsPayload(job.Artifacts)
+	if len(downloads) == 0 {
+		return resultPayload
+	}
+	if len(resultPayload) == 0 {
+		resultPayload = map[string]any{}
+	}
+	if len(extractMap(resultPayload["downloads"])) == 0 {
+		resultPayload["downloads"] = downloads
+	}
+	return resultPayload
 }
 
 func translationExchangeAsyncJobRequestKey(kind, actor, tenantID, orgID, requestHash string) string {
