@@ -458,8 +458,8 @@ func TestDefaultTranslationQueueServiceClaimDetectsOptimisticLockRace(t *testing
 	}
 
 	created.SourceTitle = "stale-write"
-	if _, err := repo.Update(ctx, created, created.Version); err != nil {
-		t.Fatalf("seed optimistic lock change: %v", err)
+	if _, updateErr := repo.Update(ctx, created, created.Version); updateErr != nil {
+		t.Fatalf("seed optimistic lock change: %v", updateErr)
 	}
 
 	_, err = svc.Claim(ctx, TranslationQueueClaimInput{

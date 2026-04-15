@@ -109,7 +109,7 @@ func TestTranslationQueueAssignmentsMetaPublishesPresetContracts(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -172,12 +172,12 @@ func TestTranslationQueueAssignmentsFiltersResolveActorPresetTokensAndMultiValue
 			ReviewerID:     "translator-1",
 		},
 	} {
-		if _, err := repo.Create(context.Background(), assignment); err != nil {
-			t.Fatalf("create assignment: %v", err)
+		if _, createErr := repo.Create(context.Background(), assignment); createErr != nil {
+			t.Fatalf("create assignment: %v", createErr)
 		}
 	}
-	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
-		t.Fatalf("register queue panel: %v", err)
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
 	}
 	binding := newTranslationQueueBinding(adm)
 	binding.now = func() time.Time { return now }
@@ -192,7 +192,7 @@ func TestTranslationQueueAssignmentsFiltersResolveActorPresetTokensAndMultiValue
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {

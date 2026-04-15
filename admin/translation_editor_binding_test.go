@@ -109,8 +109,8 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 	}
 	updatedSource.Title = "Translation publish guide"
 	updatedSource.Data["body"] = "Translation guide for publish workflows from the home page."
-	if _, err := base.content.UpdatePage(context.Background(), updatedSource); err != nil {
-		t.Fatalf("update source page: %v", err)
+	if _, updateSourceErr := base.content.UpdatePage(context.Background(), updatedSource); updateSourceErr != nil {
+		t.Fatalf("update source page: %v", updateSourceErr)
 	}
 	currentSourceFields := translationFamilyFields(updatedSource.Title, updatedSource.Slug, updatedSource.Data)
 	lastSyncedHash := translationEditorHashFields(options.LastSyncedSourceFields)
@@ -165,7 +165,7 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 	}
 	syncTranslationFamilyFixtureStore(t, base.admin, "production")
 
-	if err := base.activity.Record(context.Background(), ActivityEntry{
+	if recordErr := base.activity.Record(context.Background(), ActivityEntry{
 		ID:     "evt-editor-1",
 		Actor:  "translator-1",
 		Action: "translation.comment.added",
@@ -176,10 +176,10 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 			"source_hash": translationEditorHashFields(currentSourceFields),
 			"body":        "Homepage CTA should stay imperative in French.",
 		},
-	}); err != nil {
-		t.Fatalf("seed activity: %v", err)
+	}); recordErr != nil {
+		t.Fatalf("seed activity: %v", recordErr)
 	}
-	if err := base.activity.Record(context.Background(), ActivityEntry{
+	if recordErr := base.activity.Record(context.Background(), ActivityEntry{
 		ID:     "evt-editor-2",
 		Actor:  "translator-1",
 		Action: "translation.variant.saved",
@@ -187,8 +187,8 @@ func newTranslationEditorTestFixture(t *testing.T, options translationEditorTest
 		Metadata: map[string]any{
 			"variant_id": "page-1-fr",
 		},
-	}); err != nil {
-		t.Fatalf("seed second activity: %v", err)
+	}); recordErr != nil {
+		t.Fatalf("seed second activity: %v", recordErr)
 	}
 
 	binding := newTranslationQueueBinding(base.admin)
@@ -613,18 +613,18 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	reviewAssignment.ReviewerID = "reviewer-1"
 	reviewAssignment.LastReviewerID = "reviewer-1"
 	reviewAssignment.Version = 2
-	if _, err := rejectFixture.repo.Update(context.Background(), reviewAssignment, reviewAssignment.Version); err != nil {
-		t.Fatalf("update review assignment: %v", err)
+	if _, updateReviewErr := rejectFixture.repo.Update(context.Background(), reviewAssignment, reviewAssignment.Version); updateReviewErr != nil {
+		t.Fatalf("update review assignment: %v", updateReviewErr)
 	}
 
 	var rejectBody bytes.Buffer
-	if err := json.NewEncoder(&rejectBody).Encode(map[string]any{
+	if encodeRejectErr := json.NewEncoder(&rejectBody).Encode(map[string]any{
 		"channel":          "production",
 		"expected_version": 3,
 		"reason":           "Please align the CTA wording.",
 		"comment":          "Keep the glossary term consistent.",
-	}); err != nil {
-		t.Fatalf("encode reject body: %v", err)
+	}); encodeRejectErr != nil {
+		t.Fatalf("encode reject body: %v", encodeRejectErr)
 	}
 	rejectReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+rejectFixture.assignmentID+"/actions/reject?channel=production&tenant_id=tenant-1&org_id=org-1", &rejectBody)
 	rejectReq.Header.Set("Content-Type", "application/json")
@@ -633,7 +633,7 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reject request error: %v", err)
 	}
-	defer rejectResp.Body.Close()
+	defer mustClose(t, "response body", rejectResp.Body)
 	if rejectResp.StatusCode != http.StatusOK {
 		t.Fatalf("reject status=%d want=200", rejectResp.StatusCode)
 	}
@@ -663,17 +663,17 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	approveAssignment.ReviewerID = "reviewer-1"
 	approveAssignment.LastReviewerID = "reviewer-1"
 	approveAssignment.Version = 2
-	if _, err := approveFixture.repo.Update(context.Background(), approveAssignment, approveAssignment.Version); err != nil {
-		t.Fatalf("update approve assignment: %v", err)
+	if _, updateApproveErr := approveFixture.repo.Update(context.Background(), approveAssignment, approveAssignment.Version); updateApproveErr != nil {
+		t.Fatalf("update approve assignment: %v", updateApproveErr)
 	}
 
 	var approveBody bytes.Buffer
-	if err := json.NewEncoder(&approveBody).Encode(map[string]any{
+	if encodeApproveErr := json.NewEncoder(&approveBody).Encode(map[string]any{
 		"channel":          "production",
 		"expected_version": 3,
 		"comment":          "Looks good for publish.",
-	}); err != nil {
-		t.Fatalf("encode approve body: %v", err)
+	}); encodeApproveErr != nil {
+		t.Fatalf("encode approve body: %v", encodeApproveErr)
 	}
 	approveReq := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/"+approveFixture.assignmentID+"/actions/approve?channel=production&tenant_id=tenant-1&org_id=org-1", &approveBody)
 	approveReq.Header.Set("Content-Type", "application/json")
@@ -682,7 +682,7 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("approve request error: %v", err)
 	}
-	defer approveResp.Body.Close()
+	defer mustClose(t, "response body", approveResp.Body)
 	if approveResp.StatusCode != http.StatusOK {
 		t.Fatalf("approve status=%d want=200", approveResp.StatusCode)
 	}
@@ -773,7 +773,7 @@ func doTranslationEditorJSONRequest(t *testing.T, app *fiber.App, method, target
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	out := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -811,8 +811,8 @@ func enableTranslationEditorQAWithBlockers(t *testing.T, fixture translationEdit
 	updatedSource := cloneCMSPage(*source)
 	updatedSource.Title = "Translation publish guide {{cta}}"
 	updatedSource.Data["body"] = "Translation guide for publish workflows from the home page. Review https://example.com <strong>now</strong>."
-	if _, err := fixture.content.UpdatePage(context.Background(), updatedSource); err != nil {
-		t.Fatalf("update source page: %v", err)
+	if _, updateSourceErr := fixture.content.UpdatePage(context.Background(), updatedSource); updateSourceErr != nil {
+		t.Fatalf("update source page: %v", updateSourceErr)
 	}
 
 	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")

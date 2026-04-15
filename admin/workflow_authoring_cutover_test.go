@@ -34,7 +34,7 @@ func TestAdminNewFailsWhenWorkflowAuthoringCutoverSchemaMissing(t *testing.T) {
 
 func TestAdminNewSucceedsWhenWorkflowAuthoringCutoverSchemaReady(t *testing.T) {
 	db := setupWorkflowRuntimeBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 	runtime := NewWorkflowRuntimeService(NewBunWorkflowDefinitionRepository(db), NewBunWorkflowBindingRepository(db))
 
 	if _, err := New(Config{}, Dependencies{

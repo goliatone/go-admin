@@ -145,8 +145,8 @@ func TestGoCMSMenuAdapterReordersAndUpdates(t *testing.T) {
 	firstID := menu.Items[0].ID
 	secondID := menu.Items[1].ID
 
-	if err := adapter.ReorderMenu(ctx, "admin.main", []string{secondID, firstID}); err != nil {
-		t.Fatalf("reorder: %v", err)
+	if reorderErr := adapter.ReorderMenu(ctx, "admin.main", []string{secondID, firstID}); reorderErr != nil {
+		t.Fatalf("reorder: %v", reorderErr)
 	}
 	updated, err := adapter.Menu(ctx, "admin.main", "en")
 	if err != nil {
@@ -156,8 +156,8 @@ func TestGoCMSMenuAdapterReordersAndUpdates(t *testing.T) {
 		t.Fatalf("expected second item first after reorder, got %+v", updated.Items)
 	}
 
-	if err := adapter.UpdateMenuItem(ctx, "admin.main", MenuItem{ID: secondID, Label: "Second Updated", Locale: "en", Target: map[string]any{"slug": "second"}}); err != nil {
-		t.Fatalf("update: %v", err)
+	if updateErr := adapter.UpdateMenuItem(ctx, "admin.main", MenuItem{ID: secondID, Label: "Second Updated", Locale: "en", Target: map[string]any{"slug": "second"}}); updateErr != nil {
+		t.Fatalf("update: %v", updateErr)
 	}
 	menuAfterUpdate, err := adapter.Menu(ctx, "admin.main", "en")
 	if err != nil {

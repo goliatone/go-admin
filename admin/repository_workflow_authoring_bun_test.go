@@ -10,7 +10,7 @@ import (
 
 func TestBunWorkflowAuthoringStoreSaveLoadAndVersionHistory(t *testing.T) {
 	db := setupWorkflowRuntimeBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 	ctx := context.Background()
 
 	store := NewBunWorkflowAuthoringStore(db)
@@ -84,7 +84,7 @@ func TestBunWorkflowAuthoringStoreSaveLoadAndVersionHistory(t *testing.T) {
 
 func TestEnsureWorkflowAuthoringCutoverMigratesLegacyRowsAndWritesMarker(t *testing.T) {
 	db := setupWorkflowRuntimeBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 	ctx := context.Background()
 
 	workflows := NewBunWorkflowDefinitionRepository(db)
@@ -104,23 +104,23 @@ func TestEnsureWorkflowAuthoringCutoverMigratesLegacyRowsAndWritesMarker(t *test
 		t.Fatalf("seed workflow: %v", err)
 	}
 	created.Status = WorkflowStatusActive
-	if _, err := workflows.Update(ctx, created, created.Version); err != nil {
-		t.Fatalf("publish workflow: %v", err)
+	if _, updateErr := workflows.Update(ctx, created, created.Version); updateErr != nil {
+		t.Fatalf("publish workflow: %v", updateErr)
 	}
 
 	bindings := NewBunWorkflowBindingRepository(db)
-	if _, err := bindings.Create(ctx, WorkflowBinding{
+	if _, createErr := bindings.Create(ctx, WorkflowBinding{
 		ScopeType:  WorkflowBindingScopeTrait,
 		ScopeRef:   "editorial",
 		WorkflowID: "editorial.default",
 		Priority:   100,
 		Status:     WorkflowBindingStatusActive,
-	}); err != nil {
-		t.Fatalf("seed binding: %v", err)
+	}); createErr != nil {
+		t.Fatalf("seed binding: %v", createErr)
 	}
 
-	if err := EnsureWorkflowAuthoringCutover(ctx, db); err != nil {
-		t.Fatalf("run cutover: %v", err)
+	if cutoverErr := EnsureWorkflowAuthoringCutover(ctx, db); cutoverErr != nil {
+		t.Fatalf("run cutover: %v", cutoverErr)
 	}
 
 	markerExists, err := workflowCutoverMarkerExists(ctx, db)

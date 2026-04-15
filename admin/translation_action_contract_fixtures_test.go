@@ -38,8 +38,8 @@ func TestTranslationActionContractFixtures(t *testing.T) {
 			}
 			actionsByName := map[string]map[string]any{}
 			for _, raw := range rawActions {
-				action, ok := raw.(map[string]any)
-				if !ok {
+				action, actionOK := raw.(map[string]any)
+				if !actionOK {
 					t.Fatalf("expected action object in fixture %q", file)
 				}
 				name := strings.TrimSpace(toString(action["name"]))

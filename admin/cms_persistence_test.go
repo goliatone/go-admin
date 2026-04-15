@@ -23,15 +23,15 @@ func TestGoCMSContainerBackedNavigationAndDashboard(t *testing.T) {
 		CMS:           CMSOptions{Container: NewGoCMSContainerAdapter(module)},
 	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS, FeatureDashboard)})
 
-	if err := adm.Initialize(nilRouter{}); err != nil {
-		t.Fatalf("initialize: %v", err)
+	if initErr := adm.Initialize(nilRouter{}); initErr != nil {
+		t.Fatalf("initialize: %v", initErr)
 	}
 
-	if _, err := adm.MenuService().CreateMenu(ctx, adm.navMenuCode); err != nil && !strings.Contains(err.Error(), "exists") {
-		t.Fatalf("create menu: %v", err)
+	if _, createErr := adm.MenuService().CreateMenu(ctx, adm.navMenuCode); createErr != nil && !strings.Contains(createErr.Error(), "exists") {
+		t.Fatalf("create menu: %v", createErr)
 	}
-	if err := adm.MenuService().AddMenuItem(ctx, adm.navMenuCode, MenuItem{Label: "GoCMS", Locale: "en", Target: map[string]any{"type": "url", "url": "/persist"}}); err != nil {
-		t.Fatalf("add menu item: %v", err)
+	if addErr := adm.MenuService().AddMenuItem(ctx, adm.navMenuCode, MenuItem{Label: "GoCMS", Locale: "en", Target: map[string]any{"type": "url", "url": "/persist"}}); addErr != nil {
+		t.Fatalf("add menu item: %v", addErr)
 	}
 	items := adm.Menu().Resolve(ctx, "en")
 	found := false
@@ -55,8 +55,8 @@ func TestGoCMSContainerBackedNavigationAndDashboard(t *testing.T) {
 			}{Value: 1}), nil
 		},
 	})
-	if _, err := adm.widgetSvc.SaveInstance(ctx, WidgetInstance{DefinitionCode: "stat", Area: "admin.dashboard.main", Locale: "en", Config: map[string]any{"title": "Persisted"}}); err != nil {
-		t.Fatalf("save instance: %v", err)
+	if _, saveErr := adm.widgetSvc.SaveInstance(ctx, WidgetInstance{DefinitionCode: "stat", Area: "admin.dashboard.main", Locale: "en", Config: map[string]any{"title": "Persisted"}}); saveErr != nil {
+		t.Fatalf("save instance: %v", saveErr)
 	}
 	instances, err := adm.widgetSvc.ListInstances(ctx, WidgetInstanceFilter{})
 	if err != nil {

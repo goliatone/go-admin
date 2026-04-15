@@ -150,8 +150,8 @@ func TestTranslationAssignmentPanelRepositoryDeleteArchivesInsteadOfDeleting(t *
 	if id == "" {
 		t.Fatalf("expected created id")
 	}
-	if err := repo.Delete(ctx, id); err != nil {
-		t.Fatalf("delete should archive, got %v", err)
+	if deleteErr := repo.Delete(ctx, id); deleteErr != nil {
+		t.Fatalf("delete should archive, got %v", deleteErr)
 	}
 
 	after, err := repo.Get(ctx, id)

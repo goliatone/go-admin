@@ -30,8 +30,8 @@ func TestCMSWidgetStoreCRUD(t *testing.T) {
 		t.Fatalf("expected instance id")
 	}
 
-	if err := store.AssignInstance(ctx, godash.AssignWidgetInput{AreaCode: "admin.dashboard.main", InstanceID: created.ID, Position: new(1)}); err != nil {
-		t.Fatalf("assign instance: %v", err)
+	if assignErr := store.AssignInstance(ctx, godash.AssignWidgetInput{AreaCode: "admin.dashboard.main", InstanceID: created.ID, Position: new(1)}); assignErr != nil {
+		t.Fatalf("assign instance: %v", assignErr)
 	}
 	if len(recorder.events) == 0 {
 		t.Fatalf("expected activity recorded on assign")

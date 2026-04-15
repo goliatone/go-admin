@@ -490,14 +490,14 @@ func TestBunSettingsAdapterPersistsScopes(t *testing.T) {
 	ctx := context.Background()
 	userID := "user-123"
 
-	if err := svc.Apply(ctx, SettingsBundle{Scope: SettingsScopeSystem, Values: map[string]any{"admin.title": "System"}}); err != nil {
-		t.Fatalf("apply system: %v", err)
+	if applySystemErr := svc.Apply(ctx, SettingsBundle{Scope: SettingsScopeSystem, Values: map[string]any{"admin.title": "System"}}); applySystemErr != nil {
+		t.Fatalf("apply system: %v", applySystemErr)
 	}
-	if err := svc.Apply(ctx, SettingsBundle{Scope: SettingsScopeSite, Values: map[string]any{"admin.title": "Site"}}); err != nil {
-		t.Fatalf("apply site: %v", err)
+	if applySiteErr := svc.Apply(ctx, SettingsBundle{Scope: SettingsScopeSite, Values: map[string]any{"admin.title": "Site"}}); applySiteErr != nil {
+		t.Fatalf("apply site: %v", applySiteErr)
 	}
-	if err := svc.Apply(ctx, SettingsBundle{Scope: SettingsScopeUser, UserID: userID, Values: map[string]any{"admin.title": "Personal"}}); err != nil {
-		t.Fatalf("apply user: %v", err)
+	if applyUserErr := svc.Apply(ctx, SettingsBundle{Scope: SettingsScopeUser, UserID: userID, Values: map[string]any{"admin.title": "Personal"}}); applyUserErr != nil {
+		t.Fatalf("apply user: %v", applyUserErr)
 	}
 
 	userValue := svc.Resolve("admin.title", userID)

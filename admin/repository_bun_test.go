@@ -60,7 +60,7 @@ func setupTestBunDB(t *testing.T) *bun.DB {
 func TestBunRepositoryAdapterCRUD(t *testing.T) {
 	ctx := context.Background()
 	db := setupTestBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 
 	repo := newTestProductRepo(db)
 	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo, WithBunSearchColumns[*bunTestProduct]("name"))
@@ -109,7 +109,7 @@ func TestBunRepositoryAdapterCRUD(t *testing.T) {
 func TestBunRepositoryAdapterUpdatePatchAllowlist(t *testing.T) {
 	ctx := context.Background()
 	db := setupTestBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 
 	repo := newTestProductRepo(db)
 	adapter := NewBunRepositoryAdapter[*bunTestProduct](
@@ -123,8 +123,8 @@ func TestBunRepositoryAdapterUpdatePatchAllowlist(t *testing.T) {
 	}
 	id := fmt.Sprint(created["id"])
 
-	if _, err := adapter.Update(ctx, id, map[string]any{"status": "published"}); err != nil {
-		t.Fatalf("update status: %v", err)
+	if _, updateErr := adapter.Update(ctx, id, map[string]any{"status": "published"}); updateErr != nil {
+		t.Fatalf("update status: %v", updateErr)
 	}
 
 	_, err = adapter.Update(ctx, id, map[string]any{"name": "Renamed"})
@@ -139,7 +139,7 @@ func TestBunRepositoryAdapterUpdatePatchAllowlist(t *testing.T) {
 func TestBunRepositoryAdapterUpdateNotFoundMapsError(t *testing.T) {
 	ctx := context.Background()
 	db := setupTestBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 
 	repo := newTestProductRepo(db)
 	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo)
@@ -153,7 +153,7 @@ func TestBunRepositoryAdapterUpdateNotFoundMapsError(t *testing.T) {
 func TestBunRepositoryAdapterListUsesLegacySearchFilterWhenSearchEmpty(t *testing.T) {
 	ctx := context.Background()
 	db := setupTestBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 
 	repo := newTestProductRepo(db)
 	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo, WithBunSearchColumns[*bunTestProduct]("name"))
@@ -183,7 +183,7 @@ func TestBunRepositoryAdapterListUsesLegacySearchFilterWhenSearchEmpty(t *testin
 func TestBunRepositoryAdapterListHonorsExplicitPredicates(t *testing.T) {
 	ctx := context.Background()
 	db := setupTestBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 
 	repo := newTestProductRepo(db)
 	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo)
@@ -215,7 +215,7 @@ func TestBunRepositoryAdapterListHonorsExplicitPredicates(t *testing.T) {
 func TestBunRepositoryAdapterListSupportsInPredicate(t *testing.T) {
 	ctx := context.Background()
 	db := setupTestBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 
 	repo := newTestProductRepo(db)
 	adapter := NewBunRepositoryAdapter[*bunTestProduct](repo)

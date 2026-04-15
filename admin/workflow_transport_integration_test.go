@@ -81,8 +81,8 @@ func TestWorkflowTransportApplyEventPersistsStateProjectsActivityAndReturnsEnvel
 	}
 
 	var payload map[string]any
-	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode action payload: %v", err)
+	if decodeErr := json.Unmarshal(rr.Body.Bytes(), &payload); decodeErr != nil {
+		t.Fatalf("decode action payload: %v", decodeErr)
 	}
 	if payload["status"] != "ok" {
 		t.Fatalf("expected status=ok, got %+v", payload)
@@ -286,8 +286,8 @@ func TestWorkflowTransportApplyEventMapsCanonicalErrorDetails(t *testing.T) {
 	}
 
 	var payload map[string]any
-	if err := json.Unmarshal(rr.Body.Bytes(), &payload); err != nil {
-		t.Fatalf("decode error payload: %v", err)
+	if decodeErr := json.Unmarshal(rr.Body.Bytes(), &payload); decodeErr != nil {
+		t.Fatalf("decode error payload: %v", decodeErr)
 	}
 	errPayload, _ := payload["error"].(map[string]any)
 	if errPayload == nil {

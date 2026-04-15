@@ -39,8 +39,8 @@ func TestPreferencesSchemaResolutionOverride(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	schemaPath := filepath.Join(tmpDir, preferencesSchemaFileName)
-	if err := os.WriteFile(schemaPath, payload, 0o600); err != nil {
-		t.Fatalf("write override schema: %v", err)
+	if writeErr := os.WriteFile(schemaPath, payload, 0o600); writeErr != nil {
+		t.Fatalf("write override schema: %v", writeErr)
 	}
 
 	mod := NewPreferencesModule()

@@ -183,8 +183,8 @@ func TestCMSBlockRepositoriesDelegateWritePathToAdminBlockWriteService(t *testin
 		t.Fatalf("expected delegated definition update, got %#v", def)
 	}
 
-	if err := defRepo.Delete(ctx, "hero"); err != nil {
-		t.Fatalf("definition delete failed: %v", err)
+	if deleteErr := defRepo.Delete(ctx, "hero"); deleteErr != nil {
+		t.Fatalf("definition delete failed: %v", deleteErr)
 	}
 
 	block, err := blockRepo.Create(ctx, map[string]any{"content_id": "content-1"})

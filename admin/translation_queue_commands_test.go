@@ -127,19 +127,19 @@ func TestRegisterTranslationQueueCommandsDispatchesClaim(t *testing.T) {
 			t.Fatalf("create assignment: %v", err)
 		}
 
-		if err := RegisterTranslationQueueCommands(bus, svc); err != nil {
-			t.Fatalf("register queue commands: %v", err)
+		if registerErr := RegisterTranslationQueueCommands(bus, svc); registerErr != nil {
+			t.Fatalf("register queue commands: %v", registerErr)
 		}
-		if err := registry.Start(ctx); err != nil {
-			t.Fatalf("registry start: %v", err)
+		if startErr := registry.Start(ctx); startErr != nil {
+			t.Fatalf("registry start: %v", startErr)
 		}
 
-		if err := bus.DispatchByName(ctx, translationQueueClaimCommandName, map[string]any{
+		if dispatchErr := bus.DispatchByName(ctx, translationQueueClaimCommandName, map[string]any{
 			"assignment_id":    created.ID,
 			"claimer_id":       "translator_1",
 			"expected_version": created.Version,
-		}, nil); err != nil {
-			t.Fatalf("dispatch claim: %v", err)
+		}, nil); dispatchErr != nil {
+			t.Fatalf("dispatch claim: %v", dispatchErr)
 		}
 
 		updated, err := repo.Get(ctx, created.ID)

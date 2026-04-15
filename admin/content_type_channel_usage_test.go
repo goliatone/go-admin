@@ -58,11 +58,11 @@ func TestResolveContentNavigationPanelUsesContentTypeChannelCandidate(t *testing
 	}
 
 	repo := NewCMSContentTypeEntryRepository(adm.contentSvc, *record)
-	if _, err := adm.RegisterPanel("pages@preview", adm.Panel("pages@preview").
+	if _, registerErr := adm.RegisterPanel("pages@preview", adm.Panel("pages@preview").
 		WithRepository(repo).
 		ListFields(Field{Name: "title", Type: "text"}).
-		DetailFields(Field{Name: "title", Type: "text"})); err != nil {
-		t.Fatalf("register preview panel failed: %v", err)
+		DetailFields(Field{Name: "title", Type: "text"})); registerErr != nil {
+		t.Fatalf("register preview panel failed: %v", registerErr)
 	}
 
 	name, panel, err := adm.resolveContentNavigationPanel(WithEnvironment(context.Background(), "preview"), "page")

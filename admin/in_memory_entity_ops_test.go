@@ -161,8 +161,8 @@ func TestInMemoryUserStoreDeleteRoleUsesSharedDeleteHelper(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create system role: %v", err)
 	}
-	if err := store.Delete(context.Background(), systemRole.ID); err != ErrForbidden {
-		t.Fatalf("expected ErrForbidden for system role delete, got %v", err)
+	if deleteErr := store.Delete(context.Background(), systemRole.ID); deleteErr != ErrForbidden {
+		t.Fatalf("expected ErrForbidden for system role delete, got %v", deleteErr)
 	}
 
 	regularRole, err := store.Create(context.Background(), RoleRecord{Name: "Editor"})

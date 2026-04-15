@@ -105,8 +105,8 @@ func assertTranslationSharedContractsSnapshot(t *testing.T, payload map[string]a
 		t.Fatalf("marshal translation shared contracts payload: %v", err)
 	}
 	if os.Getenv("UPDATE_SNAPSHOTS") == "1" {
-		if err := os.WriteFile(snapshotPath, append(data, '\n'), 0o644); err != nil {
-			t.Fatalf("write snapshot %q: %v", snapshotPath, err)
+		if writeErr := os.WriteFile(snapshotPath, append(data, '\n'), 0o644); writeErr != nil {
+			t.Fatalf("write snapshot %q: %v", snapshotPath, writeErr)
 		}
 		return
 	}

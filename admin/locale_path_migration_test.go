@@ -20,7 +20,7 @@ func TestAuditLocalePathMigrationClassifiesLegacyPrefixedAndBackfillsRouteKey(t 
 	if err != nil {
 		t.Fatalf("seed english content: %v", err)
 	}
-	if _, err := svc.CreateContent(ctx, CMSContent{
+	if _, createErr := svc.CreateContent(ctx, CMSContent{
 		Title:           "A propos",
 		Slug:            "about",
 		Locale:          "fr",
@@ -28,8 +28,8 @@ func TestAuditLocalePathMigrationClassifiesLegacyPrefixedAndBackfillsRouteKey(t 
 		ContentTypeSlug: "posts",
 		FamilyID:        en.FamilyID,
 		Data:            map[string]any{"path": "/fr/about"},
-	}); err != nil {
-		t.Fatalf("seed french content: %v", err)
+	}); createErr != nil {
+		t.Fatalf("seed french content: %v", createErr)
 	}
 
 	report, err := AuditLocalePathMigration(ctx, svc, LocalePathMigrationOptions{

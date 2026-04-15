@@ -114,7 +114,7 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -252,7 +252,7 @@ func TestTranslationQueueBindingDashboardDegradesWhenFamilyRuntimeUnavailable(t 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {

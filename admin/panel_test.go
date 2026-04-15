@@ -831,8 +831,8 @@ func TestPanelRunBulkActionBuiltInDelete(t *testing.T) {
 		},
 	}
 	ctx := AdminContext{Context: context.Background()}
-	if err := panel.RunBulkAction(ctx, "delete", nil, []string{idA, idB}); err != nil {
-		t.Fatalf("bulk delete failed: %v", err)
+	if actionErr := panel.RunBulkAction(ctx, "delete", nil, []string{idA, idB}); actionErr != nil {
+		t.Fatalf("bulk delete failed: %v", actionErr)
 	}
 
 	list, total, err := repo.List(context.Background(), ListOptions{Page: 1, PerPage: 20})

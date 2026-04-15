@@ -244,8 +244,8 @@ func TestCMSPageRepositoryCreateUpdateDelete(t *testing.T) {
 		t.Fatalf("unexpected title: %+v", updated)
 	}
 
-	if err := repo.Delete(context.Background(), id); err != nil {
-		t.Fatalf("delete failed: %v", err)
+	if deleteErr := repo.Delete(context.Background(), id); deleteErr != nil {
+		t.Fatalf("delete failed: %v", deleteErr)
 	}
 	_, err = repo.Get(context.Background(), id)
 	if err == nil {

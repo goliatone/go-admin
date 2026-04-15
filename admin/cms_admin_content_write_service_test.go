@@ -207,7 +207,7 @@ func TestAdminContentWriteServiceCreateTranslationBackfillsRouteKeyAndRejectsLoc
 	if err != nil {
 		t.Fatalf("create source failed: %v", err)
 	}
-	if _, err := content.CreateContent(ctx, CMSContent{
+	if _, createErr := content.CreateContent(ctx, CMSContent{
 		Title:           "Existing French",
 		Slug:            "a-propos",
 		Locale:          "fr",
@@ -216,8 +216,8 @@ func TestAdminContentWriteServiceCreateTranslationBackfillsRouteKeyAndRejectsLoc
 		ContentTypeSlug: "page",
 		RouteKey:        "pages/existing",
 		Data:            map[string]any{"path": "/a-propos"},
-	}); err != nil {
-		t.Fatalf("seed existing locale failed: %v", err)
+	}); createErr != nil {
+		t.Fatalf("seed existing locale failed: %v", createErr)
 	}
 	translationStub.result = &CMSContent{
 		ID:              "translated-1",
@@ -366,8 +366,8 @@ func TestCMSContentRepositoryDelegatesWritePathToAdminContentWriteService(t *tes
 		t.Fatalf("expected delegated update result, got %#v", updated)
 	}
 
-	if err := repo.Delete(ctx, "content-1"); err != nil {
-		t.Fatalf("delete failed: %v", err)
+	if deleteErr := repo.Delete(ctx, "content-1"); deleteErr != nil {
+		t.Fatalf("delete failed: %v", deleteErr)
 	}
 
 	translated, err := repo.CreateTranslation(ctx, TranslationCreateInput{SourceID: "content-1", Locale: "es"})
@@ -428,8 +428,8 @@ func TestCMSContentTypeEntryRepositoryDelegatesWritePathToAdminContentWriteServi
 		t.Fatalf("expected delegated update result, got %#v", updated)
 	}
 
-	if err := repo.Delete(ctx, "page-1"); err != nil {
-		t.Fatalf("delete failed: %v", err)
+	if deleteErr := repo.Delete(ctx, "page-1"); deleteErr != nil {
+		t.Fatalf("delete failed: %v", deleteErr)
 	}
 
 	translated, err := repo.CreateTranslation(ctx, TranslationCreateInput{SourceID: "page-1", Locale: "es"})

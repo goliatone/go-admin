@@ -61,7 +61,7 @@ func applyWorkflowRuntimeMigrations(t *testing.T, db *bun.DB) {
 
 func TestBunWorkflowDefinitionRepositoryCreateUpdateAndVersionLookup(t *testing.T) {
 	db := setupWorkflowRuntimeBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 	ctx := context.Background()
 
 	workflows := NewBunWorkflowDefinitionRepository(db)
@@ -106,7 +106,7 @@ func TestBunWorkflowDefinitionRepositoryCreateUpdateAndVersionLookup(t *testing.
 
 func TestBunWorkflowBindingRepositoryCreateEnforcesActiveUniqueness(t *testing.T) {
 	db := setupWorkflowRuntimeBunDB(t)
-	defer db.Close()
+	defer mustClose(t, "db", db)
 	ctx := context.Background()
 
 	workflows := NewBunWorkflowDefinitionRepository(db)

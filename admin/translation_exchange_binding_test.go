@@ -278,7 +278,7 @@ func TestTranslationExchangeBindingImportValidateEchoesTraceHeaders(t *testing.T
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	if got := resp.Header.Get("X-Request-ID"); got != "req-exchange-1" {
 		t.Fatalf("expected X-Request-ID req-exchange-1, got %q", got)
@@ -309,7 +309,7 @@ func TestTranslationExchangeBindingImportValidateRejectsUnsupportedFormatWithTyp
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -487,7 +487,7 @@ func TestTranslationExchangeBindingImportValidateMalformedCSVReturnsTypedError(t
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusBadRequest)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -536,7 +536,7 @@ func TestTranslationExchangeBindingImportValidateMissingRequiredFieldsReturnsTyp
 	validateCalled, _ := executor.validateSnapshot()
 	if validateCalled != 0 && resp.StatusCode == http.StatusBadRequest {
 		// Validation happened in binding layer (before command dispatch)
-		defer resp.Body.Close()
+		defer mustClose(t, "response body", resp.Body)
 		respPayload := map[string]any{}
 		if err := json.NewDecoder(resp.Body).Decode(&respPayload); err != nil {
 			t.Fatalf("decode response: %v", err)
@@ -623,7 +623,7 @@ func TestTranslationExchangeBindingExportDispatchesCommandAndReturnsResult(t *te
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d, want %d", resp.StatusCode, http.StatusOK)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	respPayload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&respPayload); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -779,8 +779,8 @@ func TestTranslationExchangeBindingExportAcceptsCookieAuthWithValidCSRFToken(t *
 		t.Fatalf("token route status=%d, want %d", tokenResp.StatusCode, http.StatusOK)
 	}
 	var csrfTokenBody bytes.Buffer
-	if _, err := csrfTokenBody.ReadFrom(tokenResp.Body); err != nil {
-		t.Fatalf("read csrf token body: %v", err)
+	if _, readErr := csrfTokenBody.ReadFrom(tokenResp.Body); readErr != nil {
+		t.Fatalf("read csrf token body: %v", readErr)
 	}
 	csrfToken := strings.TrimSpace(csrfTokenBody.String())
 	if csrfToken == "" {
@@ -901,7 +901,7 @@ func TestTranslationExchangeBindingImportApplyEmptyRowsReturnsTypedError(t *test
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d, want %d for empty rows", resp.StatusCode, http.StatusBadRequest)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	respPayload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&respPayload); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -996,7 +996,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReturnsJobEnvelopeWithConflic
 	if applyCalled != 1 {
 		t.Fatalf("expected async apply dispatch, got %d", applyCalled)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	respPayload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&respPayload); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -1092,7 +1092,7 @@ func TestTranslationExchangeBindingExportAsyncReturnsJobEnvelope(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	respPayload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&respPayload); err != nil {
 		t.Fatalf("decode response: %v", err)
@@ -1158,10 +1158,10 @@ func TestTranslationExchangeBindingJobStatusRequiresJobOwner(t *testing.T) {
 	if createResp.StatusCode != http.StatusOK {
 		t.Fatalf("create status=%d want=200", createResp.StatusCode)
 	}
-	defer createResp.Body.Close()
+	defer mustClose(t, "response body", createResp.Body)
 	createPayload := map[string]any{}
-	if err := json.NewDecoder(createResp.Body).Decode(&createPayload); err != nil {
-		t.Fatalf("decode create payload: %v", err)
+	if decodeCreateErr := json.NewDecoder(createResp.Body).Decode(&createPayload); decodeCreateErr != nil {
+		t.Fatalf("decode create payload: %v", decodeCreateErr)
 	}
 	job, _ := createPayload["job"].(map[string]any)
 	pollEndpoint := toString(job["poll_endpoint"])
@@ -1338,10 +1338,10 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 	if err != nil {
 		t.Fatalf("first request error: %v", err)
 	}
-	defer firstResp.Body.Close()
+	defer mustClose(t, "response body", firstResp.Body)
 	firstPayload := map[string]any{}
-	if err := json.NewDecoder(firstResp.Body).Decode(&firstPayload); err != nil {
-		t.Fatalf("decode first payload: %v", err)
+	if decodeFirstErr := json.NewDecoder(firstResp.Body).Decode(&firstPayload); decodeFirstErr != nil {
+		t.Fatalf("decode first payload: %v", decodeFirstErr)
 	}
 	firstJob := extractMap(firstPayload["job"])
 	if toString(firstJob["id"]) == "" {
@@ -1355,7 +1355,7 @@ func TestTranslationExchangeBindingImportApplyAsyncReplaysByRequestHash(t *testi
 	if err != nil {
 		t.Fatalf("second request error: %v", err)
 	}
-	defer secondResp.Body.Close()
+	defer mustClose(t, "response body", secondResp.Body)
 	secondPayload := map[string]any{}
 	if err := json.NewDecoder(secondResp.Body).Decode(&secondPayload); err != nil {
 		t.Fatalf("decode second payload: %v", err)
@@ -1402,10 +1402,10 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 	if err != nil {
 		t.Fatalf("create request error: %v", err)
 	}
-	defer createResp.Body.Close()
+	defer mustClose(t, "response body", createResp.Body)
 	createPayload := map[string]any{}
-	if err := json.NewDecoder(createResp.Body).Decode(&createPayload); err != nil {
-		t.Fatalf("decode create payload: %v", err)
+	if decodeCreateErr := json.NewDecoder(createResp.Body).Decode(&createPayload); decodeCreateErr != nil {
+		t.Fatalf("decode create payload: %v", decodeCreateErr)
 	}
 	job := extractMap(createPayload["job"])
 	jobID := toString(job["id"])
@@ -1441,7 +1441,7 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 	if err != nil {
 		t.Fatalf("history request error: %v", err)
 	}
-	defer historyResp.Body.Close()
+	defer mustClose(t, "response body", historyResp.Body)
 	historyPayload := map[string]any{}
 	if err := json.NewDecoder(historyResp.Body).Decode(&historyPayload); err != nil {
 		t.Fatalf("decode history payload: %v", err)
@@ -1456,7 +1456,7 @@ func TestTranslationExchangeBindingDeleteJobRemovesJobFromStatusAndHistory(t *te
 
 func decodeResponseErrorBody(t *testing.T, resp *http.Response) map[string]any {
 	t.Helper()
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response payload: %v", err)

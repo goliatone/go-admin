@@ -1140,8 +1140,8 @@ func TestNotificationsRoutes(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	r := server.Router()
-	if err := adm.Initialize(r); err != nil {
-		t.Fatalf("init: %v", err)
+	if initErr := adm.Initialize(r); initErr != nil {
+		t.Fatalf("init: %v", initErr)
 	}
 
 	req := httptest.NewRequest("GET", "/admin/api/notifications", nil)

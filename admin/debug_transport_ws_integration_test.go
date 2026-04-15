@@ -43,8 +43,8 @@ func TestDebugWebSocketUnauthenticatedUpgradeFailsWithoutRedirectHeaders(t *test
 	adm.WithAuthorizer(allowAuthorizer{})
 
 	server := router.NewFiberAdapter().(*router.FiberAdapter)
-	if err := adm.Initialize(server.Router()); err != nil {
-		t.Fatalf("initialize: %v", err)
+	if initErr := adm.Initialize(server.Router()); initErr != nil {
+		t.Fatalf("initialize: %v", initErr)
 	}
 	mod := NewDebugModule(cfg.Debug)
 	mod.collector = NewDebugCollector(cfg.Debug)
@@ -104,8 +104,8 @@ func TestDebugWebSocketAuthenticatedUpgradeSucceedsWithCookieAuth(t *testing.T) 
 	adm.WithAuthorizer(allowAuthorizer{})
 
 	server := router.NewFiberAdapter().(*router.FiberAdapter)
-	if err := adm.Initialize(server.Router()); err != nil {
-		t.Fatalf("initialize: %v", err)
+	if initErr := adm.Initialize(server.Router()); initErr != nil {
+		t.Fatalf("initialize: %v", initErr)
 	}
 	mod := NewDebugModule(cfg.Debug)
 	mod.collector = NewDebugCollector(cfg.Debug)
@@ -131,7 +131,7 @@ func TestDebugWebSocketAuthenticatedUpgradeSucceedsWithCookieAuth(t *testing.T) 
 		}
 		t.Fatalf("expected authenticated websocket dial to succeed, got %v", err)
 	}
-	defer conn.Close()
+	defer mustClose(t, "conn", conn)
 
 	if resp == nil || resp.StatusCode != http.StatusSwitchingProtocols {
 		if resp == nil {

@@ -72,11 +72,11 @@ func TestUserManagementServiceBulkRoleChangeReplaceRemovesExistingRoles(t *testi
 	if err != nil {
 		t.Fatalf("save user: %v", err)
 	}
-	if err := svc.AssignRole(ctx, user.ID, firstRole.ID); err != nil {
-		t.Fatalf("assign first role: %v", err)
+	if firstAssignErr := svc.AssignRole(ctx, user.ID, firstRole.ID); firstAssignErr != nil {
+		t.Fatalf("assign first role: %v", firstAssignErr)
 	}
-	if err := svc.AssignRole(ctx, user.ID, secondRole.ID); err != nil {
-		t.Fatalf("assign second role: %v", err)
+	if secondAssignErr := svc.AssignRole(ctx, user.ID, secondRole.ID); secondAssignErr != nil {
+		t.Fatalf("assign second role: %v", secondAssignErr)
 	}
 
 	out, err := svc.BulkRoleChange(ctx, BulkRoleChangeRequest{

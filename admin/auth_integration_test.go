@@ -342,11 +342,11 @@ func TestGoAuthAuthenticatorSplitsBrowserAndAPIRoutes(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	server.Router().Get("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
-		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
-		if strings.TrimSpace(token) == "" {
+		csrfToken, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		if strings.TrimSpace(csrfToken) == "" {
 			t.Fatalf("expected csrf token in browser route context")
 		}
-		return c.SendString(token)
+		return c.SendString(csrfToken)
 	}))
 	server.Router().Post("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
 		return c.SendStatus(http.StatusOK)
@@ -458,11 +458,11 @@ func TestGoAuthAuthenticatorUsesConfiguredAdminAPIRoot(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	server.Router().Get("/admin/preferences", authenticator.WrapHandler(func(c router.Context) error {
-		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
-		if strings.TrimSpace(token) == "" {
+		csrfToken, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		if strings.TrimSpace(csrfToken) == "" {
 			t.Fatalf("expected csrf token in browser route context")
 		}
-		return c.SendString(token)
+		return c.SendString(csrfToken)
 	}))
 	server.Router().Post("/admin/internal/v2/dashboard/config", authenticator.WrapHandler(func(c router.Context) error {
 		return c.SendStatus(http.StatusOK)
@@ -514,8 +514,8 @@ func TestGoAuthAuthenticatorWrapHandlerRendersBrowserHTML(t *testing.T) {
 
 	server := router.NewHTTPServer()
 	server.Router().Get("/admin/activity", authenticator.WrapHandler(func(c router.Context) error {
-		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
-		if strings.TrimSpace(token) == "" {
+		csrfToken, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		if strings.TrimSpace(csrfToken) == "" {
 			t.Fatalf("expected csrf token in browser route context")
 		}
 		c.Set("Content-Type", "text/html; charset=utf-8")

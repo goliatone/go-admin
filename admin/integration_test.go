@@ -181,8 +181,8 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 		}
 		foundSettingsWidget := false
 		for _, raw := range rawWidgets {
-			widget, ok := raw.(map[string]any)
-			if !ok {
+			widget, widgetOK := raw.(map[string]any)
+			if !widgetOK {
 				continue
 			}
 			if toString(widget["definition"]) != WidgetSettingsOverview {
@@ -218,8 +218,8 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 		}
 		foundSettingsNav := false
 		for _, raw := range navItems {
-			item, ok := raw.(map[string]any)
-			if !ok {
+			item, itemOK := raw.(map[string]any)
+			if !itemOK {
 				continue
 			}
 			target, _ := item["target"].(map[string]any)
@@ -247,7 +247,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 		}
 		var jobEntry map[string]any
 		for _, raw := range jobs {
-			if j, ok := raw.(map[string]any); ok && toString(j["name"]) == "jobs.integration" {
+			if j, jobOK := raw.(map[string]any); jobOK && toString(j["name"]) == "jobs.integration" {
 				jobEntry = j
 				break
 			}
@@ -277,7 +277,7 @@ func TestEndToEndFlowCoversAuthDashboardSearchSettings(t *testing.T) {
 		afterList, _ := jobsAfter["jobs"].([]any)
 		var triggered map[string]any
 		for _, raw := range afterList {
-			if j, ok := raw.(map[string]any); ok && toString(j["name"]) == "jobs.integration" {
+			if j, jobOK := raw.(map[string]any); jobOK && toString(j["name"]) == "jobs.integration" {
 				triggered = j
 				break
 			}

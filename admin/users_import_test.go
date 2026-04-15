@@ -291,7 +291,7 @@ func buildMultipartFile(t *testing.T, filename, contentType string, payload []by
 
 func decodeBulkImportResponse(t *testing.T, resp *http.Response) bulkImportResponse {
 	t.Helper()
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	var payload bulkImportResponse
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response: %v", err)

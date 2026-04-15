@@ -43,7 +43,7 @@ func TestTranslationMatrixBindingQueryBuildsTypedRowsColumnsAndCellStates(t *tes
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -166,7 +166,7 @@ func TestTranslationMatrixBindingFiltersColumnsRowsAndScope(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -207,7 +207,7 @@ func TestTranslationMatrixBindingIncludesMissingCellFixtureState(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -395,7 +395,7 @@ func doTranslationMatrixJSONRequest(t *testing.T, app *fiber.App, method, path s
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	payload := map[string]any{}
 	_ = json.NewDecoder(resp.Body).Decode(&payload)
 	return resp.StatusCode, payload

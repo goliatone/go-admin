@@ -491,8 +491,8 @@ func TestUserLifecycleCommandTransitionsStatus(t *testing.T) {
 
 	cmd := newUserActivateCommand(svc)
 	ctx := context.Background()
-	if err := cmd.Execute(ctx, UserActivateMsg{IDs: []string{record.ID}}); err != nil {
-		t.Fatalf("execute lifecycle command: %v", err)
+	if executeErr := cmd.Execute(ctx, UserActivateMsg{IDs: []string{record.ID}}); executeErr != nil {
+		t.Fatalf("execute lifecycle command: %v", executeErr)
 	}
 
 	updated, err := svc.GetUser(ctx, record.ID)

@@ -34,8 +34,8 @@ func TestPreferencesServiceSavesThemeAndLayout(t *testing.T) {
 	layout := []DashboardWidgetInstance{
 		{DefinitionCode: WidgetQuickActions, AreaCode: "admin.dashboard.main", Position: 1},
 	}
-	if _, err := svc.SaveDashboardLayout(ctx, "user-1", layout); err != nil {
-		t.Fatalf("save dashboard layout: %v", err)
+	if _, saveErr := svc.SaveDashboardLayout(ctx, "user-1", layout); saveErr != nil {
+		t.Fatalf("save dashboard layout: %v", saveErr)
 	}
 	stored, err := svc.Get(ctx, "user-1")
 	if err != nil {

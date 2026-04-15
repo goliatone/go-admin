@@ -88,8 +88,8 @@ func TestTranslationQueueBindingMyWorkReturnsAssignmentsWithDueState(t *testing.
 		Priority:       PriorityLow,
 	})
 
-	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
-		t.Fatalf("register queue panel: %v", err)
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
 	}
 	binding := newTranslationQueueBinding(adm)
 	binding.now = func() time.Time { return now }
@@ -104,7 +104,7 @@ func TestTranslationQueueBindingMyWorkReturnsAssignmentsWithDueState(t *testing.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -149,8 +149,8 @@ func TestTranslationQueueBindingMyWorkRequiresViewPermission(t *testing.T) {
 	})
 	adm.WithAuthorizer(translationPermissionAuthorizer{allowed: map[string]bool{}})
 	repo := NewInMemoryTranslationAssignmentRepository()
-	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
-		t.Fatalf("register queue panel: %v", err)
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
 	}
 	binding := newTranslationQueueBinding(adm)
 	app := newTranslationQueueTestApp(t, binding)
@@ -224,7 +224,7 @@ func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -300,8 +300,8 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
 	}
-	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
-		t.Fatalf("register queue panel: %v", err)
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
 	}
 	binding := newTranslationQueueBinding(adm)
 	binding.now = func() time.Time { return now }
@@ -316,7 +316,7 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -380,8 +380,8 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	assignment.Status = AssignmentStatusInReview
 	assignment.ReviewerID = "reviewer-1"
 	assignment.LastReviewerID = "reviewer-1"
-	if _, err := fixture.repo.Update(context.Background(), assignment, assignment.Version); err != nil {
-		t.Fatalf("update assignment: %v", err)
+	if _, updateAssignmentErr := fixture.repo.Update(context.Background(), assignment, assignment.Version); updateAssignmentErr != nil {
+		t.Fatalf("update assignment: %v", updateAssignmentErr)
 	}
 
 	source, err := fixture.content.Page(context.Background(), "page-1", "")
@@ -391,8 +391,8 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	updatedSource := cloneCMSPage(*source)
 	updatedSource.Title = "Translation publish guide {{cta}}"
 	updatedSource.Data["body"] = "Translation guide for publish workflows from the home page. Review https://example.com <strong>now</strong>."
-	if _, err := fixture.content.UpdatePage(context.Background(), updatedSource); err != nil {
-		t.Fatalf("update source page: %v", err)
+	if _, updateSourceErr := fixture.content.UpdatePage(context.Background(), updatedSource); updateSourceErr != nil {
+		t.Fatalf("update source page: %v", updateSourceErr)
 	}
 
 	target, err := fixture.content.Page(context.Background(), fixture.targetRecordID, "")
@@ -402,8 +402,8 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	updatedTarget := cloneCMSPage(*target)
 	updatedTarget.Title = "Guide de contenu"
 	updatedTarget.Data["body"] = "Publier le contenu depuis l'accueil."
-	if _, err := fixture.content.UpdatePage(context.Background(), updatedTarget); err != nil {
-		t.Fatalf("update target page: %v", err)
+	if _, updateTargetErr := fixture.content.UpdatePage(context.Background(), updatedTarget); updateTargetErr != nil {
+		t.Fatalf("update target page: %v", updateTargetErr)
 	}
 	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
 
@@ -416,11 +416,11 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode response: %v", err)
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&payload); decodeErr != nil {
+		t.Fatalf("decode response: %v", decodeErr)
 	}
 	data, _ := payload["data"].([]any)
 	if len(data) != 1 {
@@ -474,11 +474,11 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	if respReviewer.StatusCode != http.StatusOK {
 		t.Fatalf("reviewer status=%d want=200", respReviewer.StatusCode)
 	}
-	defer respReviewer.Body.Close()
+	defer mustClose(t, "response body", respReviewer.Body)
 
 	reviewerPayload := map[string]any{}
-	if err := json.NewDecoder(respReviewer.Body).Decode(&reviewerPayload); err != nil {
-		t.Fatalf("decode reviewer payload: %v", err)
+	if reviewerDecodeErr := json.NewDecoder(respReviewer.Body).Decode(&reviewerPayload); reviewerDecodeErr != nil {
+		t.Fatalf("decode reviewer payload: %v", reviewerDecodeErr)
 	}
 	meta := extractMap(reviewerPayload["meta"])
 	if got := strings.TrimSpace(toString(meta["review_actor_id"])); got != "reviewer-1" {
@@ -500,7 +500,7 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	if respActorlessPreset.StatusCode != http.StatusOK {
 		t.Fatalf("actorless preset status=%d want=200", respActorlessPreset.StatusCode)
 	}
-	defer respActorlessPreset.Body.Close()
+	defer mustClose(t, "response body", respActorlessPreset.Body)
 
 	actorlessPresetPayload := map[string]any{}
 	if err := json.NewDecoder(respActorlessPreset.Body).Decode(&actorlessPresetPayload); err != nil {
@@ -531,12 +531,12 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	reviewAssignment.LastReviewerID = "reviewer-1"
 	reviewAssignment.FamilyID = "tg-page-1"
 	reviewAssignment.TargetRecordID = fixture.targetRecordID
-	if _, err := fixture.repo.Update(context.Background(), reviewAssignment, reviewAssignment.Version); err != nil {
-		t.Fatalf("update review assignment: %v", err)
+	if _, updateReviewErr := fixture.repo.Update(context.Background(), reviewAssignment, reviewAssignment.Version); updateReviewErr != nil {
+		t.Fatalf("update review assignment: %v", updateReviewErr)
 	}
 
 	otherDue := time.Date(2026, 3, 12, 14, 0, 0, 0, time.UTC)
-	if _, err := fixture.repo.Create(context.Background(), TranslationAssignment{
+	if _, createErr := fixture.repo.Create(context.Background(), TranslationAssignment{
 		ID:             "asg-clean-1",
 		FamilyID:       "tg-post-2",
 		EntityType:     "posts",
@@ -552,8 +552,8 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 		DueDate:        &otherDue,
 		TenantID:       "tenant-1",
 		OrgID:          "org-1",
-	}); err != nil {
-		t.Fatalf("create clean review assignment: %v", err)
+	}); createErr != nil {
+		t.Fatalf("create clean review assignment: %v", createErr)
 	}
 	syncTranslationFamilyFixtureStore(t, fixture.admin, "production")
 
@@ -566,7 +566,7 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -613,8 +613,8 @@ func TestTranslationQueueBindingRejectActionRequiresReason(t *testing.T) {
 	assignment.Status = AssignmentStatusInReview
 	assignment.ReviewerID = "reviewer-1"
 	assignment.LastReviewerID = "reviewer-1"
-	if _, err := fixture.repo.Update(context.Background(), assignment, assignment.Version); err != nil {
-		t.Fatalf("update assignment: %v", err)
+	if _, updateAssignmentErr := fixture.repo.Update(context.Background(), assignment, assignment.Version); updateAssignmentErr != nil {
+		t.Fatalf("update assignment: %v", updateAssignmentErr)
 	}
 
 	req := httptest.NewRequest(
@@ -631,7 +631,7 @@ func TestTranslationQueueBindingRejectActionRequiresReason(t *testing.T) {
 	if resp.StatusCode < 400 || resp.StatusCode >= 500 {
 		t.Fatalf("status=%d want=4xx", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -713,8 +713,8 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
 	}
-	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
-		t.Fatalf("register queue panel: %v", err)
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
 	}
 	binding := newTranslationQueueBinding(adm)
 	binding.now = func() time.Time { return now }
@@ -735,10 +735,10 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 	if firstResp.StatusCode != http.StatusOK {
 		t.Fatalf("first status=%d want=200", firstResp.StatusCode)
 	}
-	defer firstResp.Body.Close()
+	defer mustClose(t, "response body", firstResp.Body)
 	first := map[string]any{}
-	if err := json.NewDecoder(firstResp.Body).Decode(&first); err != nil {
-		t.Fatalf("decode first response: %v", err)
+	if firstDecodeErr := json.NewDecoder(firstResp.Body).Decode(&first); firstDecodeErr != nil {
+		t.Fatalf("decode first response: %v", firstDecodeErr)
 	}
 	firstMeta, _ := first["meta"].(map[string]any)
 	if hit, _ := firstMeta["idempotency_hit"].(bool); hit {
@@ -752,10 +752,10 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 	if secondResp.StatusCode != http.StatusOK {
 		t.Fatalf("second status=%d want=200", secondResp.StatusCode)
 	}
-	defer secondResp.Body.Close()
+	defer mustClose(t, "response body", secondResp.Body)
 	second := map[string]any{}
-	if err := json.NewDecoder(secondResp.Body).Decode(&second); err != nil {
-		t.Fatalf("decode second response: %v", err)
+	if secondDecodeErr := json.NewDecoder(secondResp.Body).Decode(&second); secondDecodeErr != nil {
+		t.Fatalf("decode second response: %v", secondDecodeErr)
 	}
 	secondMeta, _ := second["meta"].(map[string]any)
 	if hit, _ := secondMeta["idempotency_hit"].(bool); !hit {
@@ -796,8 +796,8 @@ func TestTranslationQueueBindingAssignmentActionRequiresPermission(t *testing.T)
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
 	}
-	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
-		t.Fatalf("register queue panel: %v", err)
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
 	}
 	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
 
@@ -838,8 +838,8 @@ func TestTranslationQueueBindingAssignmentActionEnforcesScopeIsolation(t *testin
 	if err != nil {
 		t.Fatalf("create assignment: %v", err)
 	}
-	if _, err := RegisterTranslationQueuePanel(adm, repo); err != nil {
-		t.Fatalf("register queue panel: %v", err)
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
 	}
 	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
 
@@ -875,7 +875,7 @@ func TestTranslationQueueBindingMyWorkEchoesTraceHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	if got := strings.TrimSpace(resp.Header.Get("X-Request-ID")); got != "req-queue-1" {
 		t.Fatalf("expected X-Request-ID req-queue-1, got %q", got)
@@ -964,7 +964,7 @@ func TestTranslationQueueBindingMyWorkSummaryIncludesAllFilteredAssignmentsAcros
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -1049,7 +1049,7 @@ func TestTranslationQueueBindingQueueSummaryIncludesAllFilteredAssignmentsAcross
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {

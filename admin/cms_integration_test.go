@@ -105,7 +105,9 @@ func TestUseCMSOverridesNavigationSource(t *testing.T) {
 	container := &stubCMSContainer{menu: menuSvc, widgets: stubWidgetService{}}
 	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
 	adm.UseCMS(container)
-	menuSvc.AddMenuItem(context.Background(), "admin.main", MenuItem{Label: "CMS Item"})
+	if err := menuSvc.AddMenuItem(context.Background(), "admin.main", MenuItem{Label: "CMS Item"}); err != nil {
+		t.Fatalf("add menu item: %v", err)
+	}
 	if len(menuSvc.items) != 1 {
 		t.Fatalf("expected item stored before init, got %d", len(menuSvc.items))
 	}

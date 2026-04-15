@@ -222,22 +222,22 @@ func TestWorkflowRuntimeServiceResolveBindingSkipsInactiveWorkflowDefinitions(t 
 		t.Fatalf("create active workflow: %v", err)
 	}
 
-	if _, err := runtime.CreateBinding(ctx, WorkflowBinding{
+	if _, inactiveBindingErr := runtime.CreateBinding(ctx, WorkflowBinding{
 		ScopeType:  WorkflowBindingScopeTrait,
 		ScopeRef:   "editorial",
 		WorkflowID: "editorial.inactive",
 		Priority:   10,
 		Status:     WorkflowBindingStatusInactive,
-	}); err != nil {
-		t.Fatalf("create inactive binding: %v", err)
+	}); inactiveBindingErr != nil {
+		t.Fatalf("create inactive binding: %v", inactiveBindingErr)
 	}
-	if _, err := runtime.CreateBinding(ctx, WorkflowBinding{
+	if _, activeBindingErr := runtime.CreateBinding(ctx, WorkflowBinding{
 		ScopeType:  WorkflowBindingScopeGlobal,
 		WorkflowID: "editorial.active",
 		Priority:   100,
 		Status:     WorkflowBindingStatusActive,
-	}); err != nil {
-		t.Fatalf("create active global binding: %v", err)
+	}); activeBindingErr != nil {
+		t.Fatalf("create active global binding: %v", activeBindingErr)
 	}
 
 	resolved, err := runtime.ResolveBinding(ctx, WorkflowBindingResolveInput{

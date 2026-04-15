@@ -22,8 +22,8 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 		NavMenuCode:   "admin_main",
 		CMS:           CMSOptions{Container: NewGoCMSContainerAdapter(module)},
 	}, Dependencies{FeatureGate: featureGateFromKeys(FeatureCMS)})
-	if err := adm.Initialize(nilRouter{}); err != nil {
-		t.Fatalf("initialize: %v", err)
+	if initErr := adm.Initialize(nilRouter{}); initErr != nil {
+		t.Fatalf("initialize: %v", initErr)
 	}
 
 	menuCode := adm.navMenuCode
@@ -76,11 +76,11 @@ func TestGoCMSNavigationPathsAndDedupe(t *testing.T) {
 		},
 	}
 
-	if err := adm.addMenuItems(ctx, items); err != nil {
-		t.Fatalf("first addMenuItems failed: %v", err)
+	if addErr := adm.addMenuItems(ctx, items); addErr != nil {
+		t.Fatalf("first addMenuItems failed: %v", addErr)
 	}
-	if err := adm.addMenuItems(ctx, items); err != nil {
-		t.Fatalf("second addMenuItems failed: %v", err)
+	if addErr := adm.addMenuItems(ctx, items); addErr != nil {
+		t.Fatalf("second addMenuItems failed: %v", addErr)
 	}
 
 	menu, err := adm.MenuService().Menu(ctx, menuCode, "en")

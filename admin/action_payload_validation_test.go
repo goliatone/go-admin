@@ -154,16 +154,16 @@ func TestEnsureActionPayloadSchemaContractCanonicalizesAliases(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected schema properties map, got %T", schema["properties"])
 	}
-	if _, ok := properties["policy_entity"]; !ok {
+	if _, exists := properties["policy_entity"]; !exists {
 		t.Fatalf("expected canonical policy_entity property")
 	}
-	if _, ok := properties["dry_run"]; !ok {
+	if _, exists := properties["dry_run"]; !exists {
 		t.Fatalf("expected canonical dry_run property")
 	}
-	if _, ok := properties["idempotency_key"]; !ok {
+	if _, exists := properties["idempotency_key"]; !exists {
 		t.Fatalf("expected required idempotency_key property to be synthesized")
 	}
-	if _, ok := properties["policyEntity"]; ok {
+	if _, exists := properties["policyEntity"]; exists {
 		t.Fatalf("expected camelCase policyEntity property to be removed")
 	}
 

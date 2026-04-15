@@ -570,8 +570,8 @@ func TestDebugCollectorRequestBodyMasking(t *testing.T) {
 	}
 
 	var responsePayload map[string]any
-	if err := json.Unmarshal([]byte(responseBody), &responsePayload); err != nil {
-		t.Fatalf("expected response body to unmarshal: %v", err)
+	if unmarshalErr := json.Unmarshal([]byte(responseBody), &responsePayload); unmarshalErr != nil {
+		t.Fatalf("expected response body to unmarshal: %v", unmarshalErr)
 	}
 	expectedResponse := debugMaskMap(cfg, responsePayload)
 	expectedResponseJSON, err := json.Marshal(expectedResponse)

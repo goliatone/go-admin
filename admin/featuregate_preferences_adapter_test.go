@@ -114,8 +114,8 @@ func TestPreferencesStoreAdapterSavePersistsAndDeletes(t *testing.T) {
 			"signup": false,
 		},
 	}
-	if _, err := adapter.Save(ctx, ref, second, state.Meta{}); err != nil {
-		t.Fatalf("save error: %v", err)
+	if _, saveErr := adapter.Save(ctx, ref, second, state.Meta{}); saveErr != nil {
+		t.Fatalf("save error: %v", saveErr)
 	}
 	loaded, _, ok, err = adapter.Load(ctx, ref)
 	if err != nil || !ok {

@@ -40,7 +40,7 @@ func TestTranslationFamilyBindingListAppliesFiltersAndScopeIsolation(t *testing.
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -109,7 +109,7 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -975,7 +975,7 @@ func doTranslationFamilyJSONRequest(t *testing.T, app *fiber.App, method, target
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer mustClose(t, "response body", resp.Body)
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response payload: %v", err)

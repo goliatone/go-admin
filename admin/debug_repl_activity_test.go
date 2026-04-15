@@ -50,13 +50,13 @@ func TestHandleDebugREPLShellCommandRecordsEval(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
-	defer reader.Close()
-	defer writer.Close()
+	defer mustClose(t, "reader", reader)
+	defer mustClose(t, "writer", writer)
 
 	cfg := DebugREPLConfig{ReadOnly: new(false)}
 	cmd := debugREPLShellCommand{Type: debugREPLShellCommandInput, Data: "ls\n"}
-	if err := handleDebugREPLShellCommand(adm, ctx, cfg, session, writer, cmd); err != nil {
-		t.Fatalf("handle shell command: %v", err)
+	if cmdErr := handleDebugREPLShellCommand(adm, ctx, cfg, session, writer, cmd); cmdErr != nil {
+		t.Fatalf("handle shell command: %v", cmdErr)
 	}
 
 	entries, err := feed.List(context.Background(), 1)
@@ -86,13 +86,13 @@ func TestHandleDebugREPLShellCommandSkipsReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pipe: %v", err)
 	}
-	defer reader.Close()
-	defer writer.Close()
+	defer mustClose(t, "reader", reader)
+	defer mustClose(t, "writer", writer)
 
 	cfg := DebugREPLConfig{ReadOnly: new(true)}
 	cmd := debugREPLShellCommand{Type: debugREPLShellCommandInput, Data: "whoami\n"}
-	if err := handleDebugREPLShellCommand(adm, context.Background(), cfg, DebugREPLSession{}, writer, cmd); err != nil {
-		t.Fatalf("handle shell command: %v", err)
+	if cmdErr := handleDebugREPLShellCommand(adm, context.Background(), cfg, DebugREPLSession{}, writer, cmd); cmdErr != nil {
+		t.Fatalf("handle shell command: %v", cmdErr)
 	}
 
 	entries, err := feed.List(context.Background(), 1)
