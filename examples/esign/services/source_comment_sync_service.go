@@ -109,11 +109,14 @@ func (s DefaultSourceCommentSyncService) syncSourceRevisionCommentsWithLineage(c
 	if err != nil {
 		return SourceCommentSyncResult{}, err
 	}
-	if err := s.reconcileDeletedThreads(ctx, lineage, scope, existingThreads, input, incomingThreadIDs, now); err != nil {
+	err = s.reconcileDeletedThreads(ctx, lineage, scope, existingThreads, input, incomingThreadIDs, now)
+	if err != nil {
 		return SourceCommentSyncResult{}, err
 	}
 	for _, threadInput := range input.Threads {
-		threadRecord, messageRecords, err := s.upsertThread(ctx, lineage, scope, sourceDocument, revision, providerKind, input, threadInput)
+		var threadRecord stores.SourceCommentThreadRecord
+		var messageRecords []stores.SourceCommentMessageRecord
+		threadRecord, messageRecords, err = s.upsertThread(ctx, lineage, scope, sourceDocument, revision, providerKind, input, threadInput)
 		if err != nil {
 			return SourceCommentSyncResult{}, err
 		}

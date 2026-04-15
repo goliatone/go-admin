@@ -698,7 +698,8 @@ func TestSigningServiceGetSessionSupportsPreviewFallbackKillSwitch(t *testing.T)
 	if err != nil {
 		t.Fatalf("Get document: %v", err)
 	}
-	if _, err := manager.UploadFile(ctx, document.SourceObjectKey, samplePDF(2), uploader.WithContentType("application/pdf")); err != nil {
+	_, err = manager.UploadFile(ctx, document.SourceObjectKey, samplePDF(2), uploader.WithContentType("application/pdf"))
+	if err != nil {
 		t.Fatalf("Upload source pdf: %v", err)
 	}
 
@@ -950,15 +951,17 @@ func TestSigningServiceGetSessionStrictModeReturnsUnsupportedWhenNormalizedUnava
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-slice4-strict-no-fallback"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-slice4-strict-no-fallback"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1001,7 +1004,7 @@ func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *
 	negativePosY := -12.0
 	oversizeWidth := 2000.0
 	oversizeHeight := 1600.0
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(2),
@@ -1010,10 +1013,12 @@ func TestSigningServiceGetSessionNormalizesFieldGeometryToCanonicalPageSpace(t *
 		Width:       &oversizeWidth,
 		Height:      &oversizeHeight,
 		Required:    new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-coordinate-normalization"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-coordinate-normalization"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1051,15 +1056,17 @@ func TestSigningServiceTracksRecipientViewLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-view"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-view"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1068,10 +1075,11 @@ func TestSigningServiceTracksRecipientViewLifecycle(t *testing.T) {
 		return viewTime
 	}))
 
-	if _, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+	_, err = signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("GetSession first view: %v", err)
 	}
 	recipients, err := store.ListRecipients(ctx, scope, agreement.ID)
@@ -1086,10 +1094,11 @@ func TestSigningServiceTracksRecipientViewLifecycle(t *testing.T) {
 	}
 
 	viewTime = viewTime.Add(15 * time.Minute)
-	if _, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+	_, err = signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("GetSession second view: %v", err)
 	}
 	recipients, err = store.ListRecipients(ctx, scope, agreement.ID)
@@ -1125,15 +1134,17 @@ func TestSigningServiceCaptureConsentAndUpsertFieldValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-consent-upsert"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-consent-upsert"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1151,10 +1162,11 @@ func TestSigningServiceCaptureConsentAndUpsertFieldValue(t *testing.T) {
 		t.Fatal("expected consent timestamp")
 	}
 
-	if _, err := signingSvc.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
+	_, err = signingSvc.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
 		FieldID:   requiredTextField.ID,
 		ValueText: "   ",
-	}); err == nil {
+	})
+	if err == nil {
 		t.Fatal("expected required field value validation error")
 	} else if !strings.Contains(err.Error(), "MISSING_REQUIRED_FIELDS") {
 		t.Fatalf("expected MISSING_REQUIRED_FIELDS error code, got %v", err)
@@ -1205,12 +1217,13 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDraft signer one signature: %v", err)
 	}
 	waitingField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
@@ -1222,15 +1235,17 @@ func TestSigningServiceRejectsWaitingSignerConsentAndFieldUpsert(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signer two text: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDraft signer two signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-waiting"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-waiting"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1276,7 +1291,8 @@ func TestSigningServiceAttachSignatureArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-signature-attach"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-signature-attach"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1344,7 +1360,8 @@ func TestSigningServiceIssueSignatureUploadBootstrap(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-bootstrap"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-bootstrap"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1409,7 +1426,8 @@ func TestSigningServiceIssueSignatureUploadRespectsConfiguredTTLPolicy(t *testin
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-ttl-policy"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-ttl-policy"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1499,15 +1517,17 @@ func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft initials: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-initials-drawn"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-initials-drawn"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1529,14 +1549,15 @@ func TestSigningServiceIssueAndAttachDrawnInitials(t *testing.T) {
 	if err != nil {
 		t.Fatalf("IssueSignatureUpload initials: %v", err)
 	}
-	if _, err := signingSvc.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
+	_, err = signingSvc.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
 		UploadToken: contract.UploadToken,
 		ObjectKey:   contract.ObjectKey,
 		SHA256:      uploadSHA,
 		ContentType: "image/png",
 		SizeBytes:   int64(len(uploadPayload)),
 		Payload:     uploadPayload,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("ConfirmSignatureUpload initials: %v", err)
 	}
 	result, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
@@ -1618,7 +1639,8 @@ func TestSigningServiceAttachSignatureArtifactDrawnVerifiesBootstrapAndRetries(t
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-verify"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-verify"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1636,13 +1658,14 @@ func TestSigningServiceAttachSignatureArtifactDrawnVerifiesBootstrapAndRetries(t
 	if err != nil {
 		t.Fatalf("IssueSignatureUpload: %v", err)
 	}
-	if _, err := signingSvc.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
+	_, err = signingSvc.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
 		UploadToken: contract.UploadToken,
 		ObjectKey:   contract.ObjectKey,
 		SHA256:      contract.SHA256,
 		ContentType: contract.ContentType,
 		SizeBytes:   contract.SizeBytes,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("ConfirmSignatureUpload: %v", err)
 	}
 
@@ -1705,7 +1728,8 @@ func TestSigningServiceConfirmSignatureUploadPersistsPayloadToObjectStore(t *tes
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-persist"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-persist"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1773,7 +1797,8 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromAudit(t *t
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-audit-recovery"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-audit-recovery"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1791,13 +1816,14 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromAudit(t *t
 	if err != nil {
 		t.Fatalf("IssueSignatureUpload: %v", err)
 	}
-	if _, err := signingSvcA.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
+	_, err = signingSvcA.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
 		UploadToken: contract.UploadToken,
 		ObjectKey:   contract.ObjectKey,
 		SHA256:      contract.SHA256,
 		ContentType: contract.ContentType,
 		SizeBytes:   contract.SizeBytes,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("ConfirmSignatureUpload: %v", err)
 	}
 
@@ -1838,7 +1864,8 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromObjectStor
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-object-recovery"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase19-signature-upload-object-recovery"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1861,14 +1888,15 @@ func TestSigningServiceAttachSignatureArtifactDrawnRecoversReceiptFromObjectStor
 	if err != nil {
 		t.Fatalf("IssueSignatureUpload: %v", err)
 	}
-	if _, err := signingSvcA.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
+	_, err = signingSvcA.ConfirmSignatureUpload(ctx, scope, SignerSignatureUploadCommitInput{
 		UploadToken: contract.UploadToken,
 		ObjectKey:   contract.ObjectKey,
 		SHA256:      uploadSHA,
 		ContentType: "image/png",
 		SizeBytes:   int64(len(uploadPayload)),
 		Payload:     uploadPayload,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("ConfirmSignatureUpload: %v", err)
 	}
 
@@ -1918,7 +1946,8 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-submit"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase4-submit"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -1927,22 +1956,25 @@ func TestSigningServiceSubmitWithIdempotencyAndCAS(t *testing.T) {
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
 	}
-	if _, err := signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+	_, err = signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true})
+	if err != nil {
 		t.Fatalf("CaptureConsent: %v", err)
 	}
-	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+	_, err = signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
 		FieldID:   signatureField.ID,
 		Type:      "typed",
 		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit.png",
 		SHA256:    strings.Repeat("c", 64),
 		ValueText: "Signer Name",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("AttachSignatureArtifact: %v", err)
 	}
-	if _, err := signingSvc.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
+	_, err = signingSvc.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
 		FieldID:   textField.ID,
 		ValueText: "Signer Name",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldValue: %v", err)
 	}
 
@@ -2007,28 +2039,32 @@ func TestSigningServiceSubmitAllowsConsentCapturedBeforeServiceRestart(t *testin
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-v2-consent-restart"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-v2-consent-restart"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
 	token := stores.SigningTokenRecord{AgreementID: agreement.ID, RecipientID: signer.ID}
 	firstService := NewSigningService(store)
-	if _, err := firstService.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+	_, err = firstService.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true})
+	if err != nil {
 		t.Fatalf("CaptureConsent: %v", err)
 	}
-	if _, err := firstService.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+	_, err = firstService.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
 		FieldID:   signatureField.ID,
 		Type:      "typed",
 		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-consent-restart.png",
 		SHA256:    strings.Repeat("a", 64),
 		ValueText: "Signer Name",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("AttachSignatureArtifact: %v", err)
 	}
-	if _, err := firstService.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
+	_, err = firstService.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
 		FieldID:   textField.ID,
 		ValueText: "Signer Name",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldValue: %v", err)
 	}
 
@@ -2072,28 +2108,32 @@ func TestSigningServiceSubmitReplayPersistsAcrossServiceRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-v2-submit-replay"}); err != nil {
+	_, err = agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "phase-v2-submit-replay"})
+	if err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
 	token := stores.SigningTokenRecord{AgreementID: agreement.ID, RecipientID: signer.ID}
 	firstService := NewSigningService(store)
-	if _, err := firstService.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
+	_, err = firstService.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true})
+	if err != nil {
 		t.Fatalf("CaptureConsent: %v", err)
 	}
-	if _, err := firstService.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+	_, err = firstService.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
 		FieldID:   signatureField.ID,
 		Type:      "typed",
 		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-submit-replay.png",
 		SHA256:    strings.Repeat("b", 64),
 		ValueText: "Signer Name",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("AttachSignatureArtifact: %v", err)
 	}
-	if _, err := firstService.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
+	_, err = firstService.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
 		FieldID:   textField.ID,
 		ValueText: "Signer Name",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldValue: %v", err)
 	}
 	first, err := firstService.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "submit-replay-key"})
@@ -2128,12 +2168,13 @@ func TestSigningServiceSignerTokenRejectedForDraftAgreement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
 

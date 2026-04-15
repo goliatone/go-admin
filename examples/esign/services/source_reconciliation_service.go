@@ -151,7 +151,8 @@ func (s DefaultSourceReconciliationService) evaluateCandidates(ctx context.Conte
 		}
 		if evaluation.band == stores.LineageConfidenceBandNone {
 			if strings.TrimSpace(existing.Status) == stores.SourceRelationshipStatusPendingReview {
-				if err := s.supersedeRelationshipPair(ctx, scope, sourceDocumentID, candidateDocument.ID, "reevaluated_below_threshold", strings.TrimSpace(input.ActorID)); err != nil {
+				err = s.supersedeRelationshipPair(ctx, scope, sourceDocumentID, candidateDocument.ID, "reevaluated_below_threshold", strings.TrimSpace(input.ActorID))
+				if err != nil {
 					return SourceReconciliationResult{}, err
 				}
 			}
@@ -162,7 +163,8 @@ func (s DefaultSourceReconciliationService) evaluateCandidates(ctx context.Conte
 			return SourceReconciliationResult{}, err
 		}
 		if relationship.Status == stores.SourceRelationshipStatusConfirmed && evaluation.exactArtifactMatch && s.policy.AttachHandlesOnAutoConfirm {
-			if _, _, err := s.attachHandlesForRelationship(ctx, scope, relationship); err != nil {
+			_, _, err = s.attachHandlesForRelationship(ctx, scope, relationship)
+			if err != nil {
 				return SourceReconciliationResult{}, err
 			}
 		}
@@ -193,9 +195,12 @@ func (s DefaultSourceReconciliationService) ApplyReviewAction(ctx context.Contex
 	if txManager, ok := any(s.lineage).(stores.TransactionManager); ok {
 		summary := CandidateWarningSummary{}
 		err := stores.WithTxHooksContext(ctx, txManager, func(txCtx context.Context, tx stores.TxStore, hooks *stores.TxHooks) error {
-			updated, impactedSourceIDs, err := s.forTx(tx).applyReviewAction(txCtx, scope, input)
-			if err != nil {
-				return err
+			var updated CandidateWarningSummary
+			var impactedSourceIDs []string
+			var txErr error
+			updated, impactedSourceIDs, txErr = s.forTx(tx).applyReviewAction(txCtx, scope, input)
+			if txErr != nil {
+				return txErr
 			}
 			summary = updated
 			impacted := append([]string(nil), impactedSourceIDs...)
@@ -203,8 +208,8 @@ func (s DefaultSourceReconciliationService) ApplyReviewAction(ctx context.Contex
 				hooks.AfterCommit(func() error {
 					return s.refreshSearchAfterReview(ctx, scope, impacted...)
 				})
-			} else if err := s.refreshSearchAfterReview(ctx, scope, impacted...); err != nil {
-				return err
+			} else if txErr = s.refreshSearchAfterReview(ctx, scope, impacted...); txErr != nil {
+				return txErr
 			}
 			return nil
 		})
@@ -255,7 +260,9 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 	case SourceRelationshipActionAttach:
 		relationship.Status = stores.SourceRelationshipStatusConfirmed
 		if s.policy.AttachHandlesOnConfirm {
-			canonicalID, attachedHandles, err := s.attachHandlesForRelationship(ctx, scope, relationship)
+			var canonicalID string
+			var attachedHandles int
+			canonicalID, attachedHandles, err = s.attachHandlesForRelationship(ctx, scope, relationship)
 			if err != nil {
 				return CandidateWarningSummary{}, nil, err
 			}
@@ -266,7 +273,9 @@ func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Contex
 		}
 	case SourceRelationshipActionMerge:
 		relationship.Status = stores.SourceRelationshipStatusConfirmed
-		canonicalID, mergedID, attachedHandles, err := s.mergeSourceDocumentsForRelationship(ctx, scope, relationship)
+		var canonicalID, mergedID string
+		var attachedHandles int
+		canonicalID, mergedID, attachedHandles, err = s.mergeSourceDocumentsForRelationship(ctx, scope, relationship)
 		if err != nil {
 			return CandidateWarningSummary{}, nil, err
 		}
@@ -906,26 +915,29 @@ func (s DefaultSourceReconciliationService) attachHandlesForRelationship(ctx con
 	attached := 0
 	now := s.now().UTC()
 	for _, handle := range handles {
-		if existing, err := s.lineage.GetActiveSourceHandle(ctx, scope, handle.ProviderKind, handle.ExternalFileID, handle.AccountID); err == nil {
+		existing, getErr := s.lineage.GetActiveSourceHandle(ctx, scope, handle.ProviderKind, handle.ExternalFileID, handle.AccountID)
+		if getErr == nil {
 			if strings.TrimSpace(existing.SourceDocumentID) == canonical.ID {
 				handle.HandleStatus = stores.SourceHandleStatusSuperseded
 				handle.ValidTo = &now
 				handle.UpdatedAt = now
-				if _, err := s.lineage.SaveSourceHandle(ctx, scope, handle); err != nil {
+				_, err = s.lineage.SaveSourceHandle(ctx, scope, handle)
+				if err != nil {
 					return "", attached, err
 				}
 				continue
 			}
-		} else if !isNotFound(err) {
-			return "", attached, err
+		} else if !isNotFound(getErr) {
+			return "", attached, getErr
 		}
 		handle.HandleStatus = stores.SourceHandleStatusSuperseded
 		handle.ValidTo = &now
 		handle.UpdatedAt = now
-		if _, err := s.lineage.SaveSourceHandle(ctx, scope, handle); err != nil {
+		_, err = s.lineage.SaveSourceHandle(ctx, scope, handle)
+		if err != nil {
 			return "", attached, err
 		}
-		if _, err := s.lineage.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
+		_, err = s.lineage.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
 			SourceDocumentID: canonical.ID,
 			ProviderKind:     handle.ProviderKind,
 			ExternalFileID:   handle.ExternalFileID,
@@ -936,7 +948,8 @@ func (s DefaultSourceReconciliationService) attachHandlesForRelationship(ctx con
 			ValidFrom:        &now,
 			CreatedAt:        now,
 			UpdatedAt:        now,
-		}); err != nil {
+		})
+		if err != nil {
 			return "", attached, err
 		}
 		attached++

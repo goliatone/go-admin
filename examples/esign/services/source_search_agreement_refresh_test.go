@@ -41,7 +41,8 @@ func TestSourceSearchAgreementRefreshServiceReindexesUpdatedAgreementTitle(t *te
 	}
 
 	refresh := NewSourceSearchAgreementRefreshService(store, store, store, search)
-	if err := refresh.RefreshAgreement(context.Background(), scope, updated.ID); err != nil {
+	err = refresh.RefreshAgreement(context.Background(), scope, updated.ID)
+	if err != nil {
 		t.Fatalf("RefreshAgreement: %v", err)
 	}
 

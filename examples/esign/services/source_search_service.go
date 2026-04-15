@@ -480,8 +480,8 @@ func sourceSearchSummaryText(resultKind string, commentCount int, relationshipSt
 func sourceSearchWorkspaceDrillIn(indexed stores.SourceSearchDocumentRecord) SourceWorkspaceDrillIn {
 	sourceDocumentID := strings.TrimSpace(indexed.SourceDocumentID)
 	sourceRevisionID := strings.TrimSpace(indexed.SourceRevisionID)
-	panel := SourceWorkspacePanelOverview
 	anchor := ""
+	panel := SourceWorkspacePanelOverview
 	switch {
 	case indexed.HasComments && sourceRevisionID != "":
 		panel = SourceWorkspacePanelComments
@@ -489,8 +489,6 @@ func sourceSearchWorkspaceDrillIn(indexed stores.SourceSearchDocumentRecord) Sou
 	case sourceRevisionID != "":
 		panel = SourceWorkspacePanelTimeline
 		anchor = "revision:" + sourceRevisionID
-	default:
-		panel = SourceWorkspacePanelOverview
 	}
 	return SourceWorkspaceDrillIn{
 		Panel:  panel,

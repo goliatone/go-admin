@@ -18,7 +18,8 @@ func (s *InMemoryStore) CreateSourceCommentThread(ctx context.Context, scope Sco
 	if record.ID == "" {
 		record.ID = uuid.NewString()
 	}
-	if err := s.ensureSourceRevisionForDocument(scope, record.SourceDocumentID, record.SourceRevisionID); err != nil {
+	err = s.ensureSourceRevisionForDocument(scope, record.SourceDocumentID, record.SourceRevisionID)
+	if err != nil {
 		return SourceCommentThreadRecord{}, err
 	}
 	record.TenantID = scope.TenantID
@@ -113,7 +114,8 @@ func (s *InMemoryStore) SaveSourceCommentThread(ctx context.Context, scope Scope
 	if record.ID == "" {
 		return SourceCommentThreadRecord{}, invalidRecordError("source_comment_threads", "id", "required")
 	}
-	if err := s.ensureSourceRevisionForDocument(scope, record.SourceDocumentID, record.SourceRevisionID); err != nil {
+	err = s.ensureSourceRevisionForDocument(scope, record.SourceDocumentID, record.SourceRevisionID)
+	if err != nil {
 		return SourceCommentThreadRecord{}, err
 	}
 	s.mu.Lock()
@@ -292,7 +294,8 @@ func (s *InMemoryStore) CreateSourceCommentSyncState(ctx context.Context, scope 
 	if record.ID == "" {
 		record.ID = uuid.NewString()
 	}
-	if err := s.ensureSourceRevisionForDocument(scope, record.SourceDocumentID, record.SourceRevisionID); err != nil {
+	err = s.ensureSourceRevisionForDocument(scope, record.SourceDocumentID, record.SourceRevisionID)
+	if err != nil {
 		return SourceCommentSyncStateRecord{}, err
 	}
 	record.TenantID = scope.TenantID
@@ -378,7 +381,8 @@ func (s *InMemoryStore) SaveSourceCommentSyncState(ctx context.Context, scope Sc
 	if record.ID == "" {
 		return SourceCommentSyncStateRecord{}, invalidRecordError("source_comment_sync_states", "id", "required")
 	}
-	if err := s.ensureSourceRevisionForDocument(scope, record.SourceDocumentID, record.SourceRevisionID); err != nil {
+	err = s.ensureSourceRevisionForDocument(scope, record.SourceDocumentID, record.SourceRevisionID)
+	if err != nil {
 		return SourceCommentSyncStateRecord{}, err
 	}
 	s.mu.Lock()
@@ -408,7 +412,8 @@ func (s *InMemoryStore) CreateSourceSearchDocument(ctx context.Context, scope Sc
 	if record.ID == "" {
 		record.ID = uuid.NewString()
 	}
-	if err := s.ensureSourceSearchDocumentScope(scope, record); err != nil {
+	err = s.ensureSourceSearchDocumentScope(scope, record)
+	if err != nil {
 		return SourceSearchDocumentRecord{}, err
 	}
 	record.TenantID = scope.TenantID
@@ -506,7 +511,8 @@ func (s *InMemoryStore) SaveSourceSearchDocument(ctx context.Context, scope Scop
 	if record.ID == "" {
 		return SourceSearchDocumentRecord{}, invalidRecordError("source_search_documents", "id", "required")
 	}
-	if err := s.ensureSourceSearchDocumentScope(scope, record); err != nil {
+	err = s.ensureSourceSearchDocumentScope(scope, record)
+	if err != nil {
 		return SourceSearchDocumentRecord{}, err
 	}
 	s.mu.Lock()

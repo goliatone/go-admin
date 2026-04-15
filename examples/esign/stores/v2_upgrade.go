@@ -74,7 +74,8 @@ func UpgradeDraftAgreementToV2(ctx context.Context, agreements AgreementStore, s
 			continue
 		}
 		stage := expectedStage
-		if _, err := agreements.UpsertParticipantDraft(ctx, scope, report.AgreementID, ParticipantDraftPatch{ID: signer.ID, SigningStage: &stage}, signer.Version); err != nil {
+		_, err = agreements.UpsertParticipantDraft(ctx, scope, report.AgreementID, ParticipantDraftPatch{ID: signer.ID, SigningStage: &stage}, signer.Version)
+		if err != nil {
 			return report, err
 		}
 		report.Actions = append(report.Actions, "updated participant signing_stage to contiguous ordering")

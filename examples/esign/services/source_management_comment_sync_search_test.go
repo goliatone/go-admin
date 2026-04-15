@@ -48,7 +48,7 @@ func TestPhase13SourceCommentSyncSearchAndReadModelsRemainDistinctFromAgreementC
 	if err != nil {
 		t.Fatalf("CreateAgreementReview: %v", err)
 	}
-	if _, err := store.CreateAgreementCommentThread(context.Background(), scope, stores.AgreementCommentThreadRecord{
+	_, err = store.CreateAgreementCommentThread(context.Background(), scope, stores.AgreementCommentThreadRecord{
 		ID:             "agreement-thread-phase13",
 		AgreementID:    fixtures.importedAgreementID,
 		ReviewID:       review.ID,
@@ -61,10 +61,11 @@ func TestPhase13SourceCommentSyncSearchAndReadModelsRemainDistinctFromAgreementC
 		LastActivityAt: &now,
 		CreatedAt:      now,
 		UpdatedAt:      now,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateAgreementCommentThread: %v", err)
 	}
-	if _, err := store.CreateAgreementCommentMessage(context.Background(), scope, stores.AgreementCommentMessageRecord{
+	_, err = store.CreateAgreementCommentMessage(context.Background(), scope, stores.AgreementCommentMessageRecord{
 		ID:            "agreement-message-phase13",
 		ThreadID:      "agreement-thread-phase13",
 		Body:          "Agreement-only comment",
@@ -72,7 +73,8 @@ func TestPhase13SourceCommentSyncSearchAndReadModelsRemainDistinctFromAgreementC
 		CreatedByType: "user",
 		CreatedByID:   "fixture-user",
 		CreatedAt:     now,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateAgreementCommentMessage: %v", err)
 	}
 
@@ -215,10 +217,11 @@ func TestPhase13SourceCommentSyncSearchAndReadModelsRemainDistinctFromAgreementC
 func TestPhase13SourceManagementReplayReplaysCommentSyncAndReindexesWithoutDuplication(t *testing.T) {
 	store, scope, fixtures := seedSourceReadModelFixtures(t)
 	now := time.Date(2026, 3, 21, 17, 0, 0, 0, time.UTC)
+	var err error
 
 	search := NewDefaultSourceSearchService(store)
 	sync := NewDefaultSourceCommentSyncService(store, WithSourceCommentSyncSearchService(search))
-	if _, err := sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
+	_, err = sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
 		SourceDocumentID: fixtures.sourceDocumentID,
 		SourceRevisionID: fixtures.secondSourceRevisionID,
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
@@ -243,12 +246,14 @@ func TestPhase13SourceManagementReplayReplaysCommentSyncAndReindexesWithoutDupli
 				UpdatedAt:         new(now),
 			}},
 		}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("initial SyncSourceRevisionComments: %v", err)
 	}
 
 	replay := NewDefaultSourceManagementReplayService(sync, search)
-	if err := store.DeleteSourceSearchDocuments(context.Background(), scope, stores.SourceSearchDocumentQuery{SourceDocumentID: fixtures.sourceDocumentID}); err != nil {
+	err = store.DeleteSourceSearchDocuments(context.Background(), scope, stores.SourceSearchDocumentQuery{SourceDocumentID: fixtures.sourceDocumentID})
+	if err != nil {
 		t.Fatalf("DeleteSourceSearchDocuments: %v", err)
 	}
 
@@ -340,8 +345,9 @@ func TestPhase13SourceCommentSyncFailurePreservesReplayablePayloadAndReplayRecov
 	store, scope, fixtures := seedSourceReadModelFixtures(t)
 	sync := NewDefaultSourceCommentSyncService(store)
 	now := time.Date(2026, 3, 21, 18, 30, 0, 0, time.UTC)
+	var err error
 
-	if _, err := sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
+	_, err = sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
 		SourceDocumentID: fixtures.sourceDocumentID,
 		SourceRevisionID: fixtures.secondSourceRevisionID,
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
@@ -361,18 +367,20 @@ func TestPhase13SourceCommentSyncFailurePreservesReplayablePayloadAndReplayRecov
 				UpdatedAt:         new(now),
 			}},
 		}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("initial SyncSourceRevisionComments: %v", err)
 	}
 
-	if _, err := sync.RecordSourceRevisionCommentSyncFailure(context.Background(), scope, SourceCommentSyncFailureInput{
+	_, err = sync.RecordSourceRevisionCommentSyncFailure(context.Background(), scope, SourceCommentSyncFailureInput{
 		SourceDocumentID: fixtures.sourceDocumentID,
 		SourceRevisionID: fixtures.secondSourceRevisionID,
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
 		AttemptedAt:      new(now.Add(30 * time.Minute)),
 		ErrorCode:        "google_comment_sync_failed",
 		ErrorMessage:     "provider temporarily unavailable",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("RecordSourceRevisionCommentSyncFailure: %v", err)
 	}
 
@@ -419,10 +427,11 @@ func TestPhase13SourceCommentSyncReplayFailsWhenOnlyFailurePayloadExists(t *test
 func TestPhase13SourceCommentSyncResyncConvergesDeletedThreadsAndMessages(t *testing.T) {
 	store, scope, fixtures := seedSourceReadModelFixtures(t)
 	now := time.Date(2026, 3, 21, 18, 0, 0, 0, time.UTC)
+	var err error
 
 	search := NewDefaultSourceSearchService(store)
 	sync := NewDefaultSourceCommentSyncService(store, WithSourceCommentSyncSearchService(search))
-	if _, err := sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
+	_, err = sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
 		SourceDocumentID: fixtures.sourceDocumentID,
 		SourceRevisionID: fixtures.secondSourceRevisionID,
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
@@ -457,11 +466,12 @@ func TestPhase13SourceCommentSyncResyncConvergesDeletedThreadsAndMessages(t *tes
 				},
 			},
 		}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("initial SyncSourceRevisionComments: %v", err)
 	}
 
-	if _, err := sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
+	_, err = sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
 		SourceDocumentID: fixtures.sourceDocumentID,
 		SourceRevisionID: fixtures.secondSourceRevisionID,
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
@@ -486,7 +496,8 @@ func TestPhase13SourceCommentSyncResyncConvergesDeletedThreadsAndMessages(t *tes
 				UpdatedAt:         new(now.Add(2 * time.Hour)),
 			}},
 		}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("resync SyncSourceRevisionComments: %v", err)
 	}
 
@@ -509,7 +520,7 @@ func TestPhase13SourceCommentSyncResyncConvergesDeletedThreadsAndMessages(t *tes
 		t.Fatalf("expected removed provider reply to be deleted on resync, got %+v", activeMessages)
 	}
 
-	if _, err := sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
+	_, err = sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
 		SourceDocumentID: fixtures.sourceDocumentID,
 		SourceRevisionID: fixtures.secondSourceRevisionID,
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
@@ -517,7 +528,8 @@ func TestPhase13SourceCommentSyncResyncConvergesDeletedThreadsAndMessages(t *tes
 		AttemptedAt:      new(now.Add(4 * time.Hour)),
 		SyncedAt:         new(now.Add(4 * time.Hour)),
 		Threads:          nil,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("deletion SyncSourceRevisionComments: %v", err)
 	}
 
@@ -556,6 +568,7 @@ func TestPhase13SourceCommentSyncResyncConvergesDeletedThreadsAndMessages(t *tes
 func TestPhase13SourceSearchSupportsFilterOnlyQueriesAndRefreshesChangedSources(t *testing.T) {
 	store, scope, fixtures := seedSourceReadModelFixtures(t)
 	search := NewDefaultSourceSearchService(store)
+	var err error
 
 	initialResults, err := search.Search(context.Background(), scope, SourceSearchQuery{
 		Query: "fixture-google-file-2",
@@ -569,7 +582,7 @@ func TestPhase13SourceSearchSupportsFilterOnlyQueriesAndRefreshesChangedSources(
 
 	sync := NewDefaultSourceCommentSyncService(store, WithSourceCommentSyncSearchService(search))
 	now := time.Date(2026, 3, 21, 19, 0, 0, 0, time.UTC)
-	if _, err := sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
+	_, err = sync.SyncSourceRevisionComments(context.Background(), scope, SourceCommentSyncInput{
 		SourceDocumentID: fixtures.sourceDocumentID,
 		SourceRevisionID: fixtures.secondSourceRevisionID,
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
@@ -594,7 +607,8 @@ func TestPhase13SourceSearchSupportsFilterOnlyQueriesAndRefreshesChangedSources(
 				UpdatedAt:         new(now),
 			}},
 		}},
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("SyncSourceRevisionComments for filter-only search: %v", err)
 	}
 
@@ -616,7 +630,8 @@ func TestPhase13SourceSearchSupportsFilterOnlyQueriesAndRefreshesChangedSources(
 	}
 	sourceDocument.CanonicalTitle = "Refreshed Search Title"
 	sourceDocument.UpdatedAt = time.Now().UTC().Add(time.Hour)
-	if _, err := store.SaveSourceDocument(context.Background(), scope, sourceDocument); err != nil {
+	_, err = store.SaveSourceDocument(context.Background(), scope, sourceDocument)
+	if err != nil {
 		t.Fatalf("SaveSourceDocument: %v", err)
 	}
 

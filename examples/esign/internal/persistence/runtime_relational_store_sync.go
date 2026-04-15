@@ -463,7 +463,7 @@ func (b *runtimeRelationalStoreSync) loadSnapshotWithIDB(ctx context.Context, id
 		if record == nil {
 			continue
 		}
-		snapshot.OutboxMessages[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = stores.OutboxMessageRecord(record.Message)
+		snapshot.OutboxMessages[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = record.Message
 	}
 
 	integrationCredentials, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationCredentials())

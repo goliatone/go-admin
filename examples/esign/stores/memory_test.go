@@ -248,7 +248,8 @@ func TestInMemorySignatureArtifactAndFieldValueAttachment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateSignatureArtifact: %v", err)
 	}
-	if _, err := store.GetSignatureArtifact(ctx, scope, artifact.ID); err != nil {
+	_, err = store.GetSignatureArtifact(ctx, scope, artifact.ID)
+	if err != nil {
 		t.Fatalf("GetSignatureArtifact: %v", err)
 	}
 
@@ -761,7 +762,8 @@ func TestInMemorySavedSignerSignaturesCRUD(t *testing.T) {
 		t.Fatalf("expected count 2, got %d", count)
 	}
 
-	if err := store.DeleteSavedSignerSignature(ctx, scope, "signer@example.com", createdOne.ID); err != nil {
+	err = store.DeleteSavedSignerSignature(ctx, scope, "signer@example.com", createdOne.ID)
+	if err != nil {
 		t.Fatalf("DeleteSavedSignerSignature: %v", err)
 	}
 	afterDelete, err := store.ListSavedSignerSignatures(ctx, scope, "signer@example.com", FieldTypeInitials)

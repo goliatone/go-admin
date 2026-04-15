@@ -341,18 +341,6 @@ func (s SigningService) forTx(tx stores.TxStore) SigningService {
 	return txSvc
 }
 
-func (s SigningService) withWriteTx(ctx context.Context, fn func(SigningService) error) error {
-	if fn == nil {
-		return nil
-	}
-	if s.tx == nil {
-		return fn(s)
-	}
-	return s.tx.WithTx(ctx, func(tx stores.TxStore) error {
-		return fn(s.forTx(tx))
-	})
-}
-
 func (s SigningService) notifyAgreementChanged(ctx context.Context, scope stores.Scope, notification AgreementChangeNotification) {
 	if s.agreementChanges == nil {
 		return
@@ -850,7 +838,7 @@ func (s SigningService) resolveSessionBootstrap(ctx context.Context, scope store
 		if s.objectStore == nil && strings.TrimSpace(fallbackReason) == signerViewerCompatibilityReasonSourceUnavailable {
 			requiresPreviewFallback = false
 		}
-		if requiresPreviewFallback && !(s.previewFallback || policy.PreviewFallbackEnabled) {
+		if requiresPreviewFallback && !s.previewFallback && !policy.PreviewFallbackEnabled {
 			return "", 0, SignerSessionViewerContext{}, pdfUnsupportedError("signer.bootstrap", signerViewerCompatibilityTierUnsupported, signerViewerCompatibilityReasonPreviewFallbackDisabled, map[string]any{
 				"reason": strings.TrimSpace(fallbackReason),
 			})
@@ -1451,7 +1439,6 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 	}
 	if signatureType == "drawn" {
 		s.markSignatureUploadGrantConsumed(uploadToken, s.now())
-		releaseReservation = func() {}
 	}
 	return SignerSignatureResult{
 		Artifact:   artifact,

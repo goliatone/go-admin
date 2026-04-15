@@ -145,7 +145,8 @@ func (s *InMemoryStore) CreateSourceHandle(ctx context.Context, scope Scope, rec
 	if record.ID == "" {
 		record.ID = uuid.NewString()
 	}
-	if _, err := s.GetSourceDocument(context.Background(), scope, record.SourceDocumentID); err != nil {
+	_, err = s.GetSourceDocument(context.Background(), scope, record.SourceDocumentID)
+	if err != nil {
 		return SourceHandleRecord{}, err
 	}
 	record.TenantID = scope.TenantID
@@ -315,7 +316,8 @@ func (s *InMemoryStore) CreateSourceRevision(ctx context.Context, scope Scope, r
 	if record.ID == "" {
 		record.ID = uuid.NewString()
 	}
-	if _, err := s.GetSourceDocument(context.Background(), scope, record.SourceDocumentID); err != nil {
+	_, err = s.GetSourceDocument(context.Background(), scope, record.SourceDocumentID)
+	if err != nil {
 		return SourceRevisionRecord{}, err
 	}
 	handle, err := s.GetSourceHandle(context.Background(), scope, record.SourceHandleID)
@@ -432,7 +434,8 @@ func (s *InMemoryStore) CreateSourceArtifact(ctx context.Context, scope Scope, r
 	if record.ID == "" {
 		record.ID = uuid.NewString()
 	}
-	if _, err := s.GetSourceRevision(context.Background(), scope, record.SourceRevisionID); err != nil {
+	_, err = s.GetSourceRevision(context.Background(), scope, record.SourceRevisionID)
+	if err != nil {
 		return SourceArtifactRecord{}, err
 	}
 	record.TenantID = scope.TenantID
@@ -554,7 +557,8 @@ func (s *InMemoryStore) CreateSourceFingerprint(ctx context.Context, scope Scope
 	if record.ID == "" {
 		record.ID = uuid.NewString()
 	}
-	if _, err := s.GetSourceRevision(context.Background(), scope, record.SourceRevisionID); err != nil {
+	_, err = s.GetSourceRevision(context.Background(), scope, record.SourceRevisionID)
+	if err != nil {
 		return SourceFingerprintRecord{}, err
 	}
 	artifact, err := s.GetSourceArtifact(context.Background(), scope, record.ArtifactID)
@@ -677,10 +681,12 @@ func (s *InMemoryStore) CreateSourceRelationship(ctx context.Context, scope Scop
 	if record.ID == "" {
 		record.ID = uuid.NewString()
 	}
-	if _, err := s.GetSourceDocument(context.Background(), scope, record.LeftSourceDocumentID); err != nil {
+	_, err = s.GetSourceDocument(context.Background(), scope, record.LeftSourceDocumentID)
+	if err != nil {
 		return SourceRelationshipRecord{}, err
 	}
-	if _, err := s.GetSourceDocument(context.Background(), scope, record.RightSourceDocumentID); err != nil {
+	_, err = s.GetSourceDocument(context.Background(), scope, record.RightSourceDocumentID)
+	if err != nil {
 		return SourceRelationshipRecord{}, err
 	}
 	record.TenantID = scope.TenantID

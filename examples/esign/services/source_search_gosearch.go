@@ -107,7 +107,8 @@ func (s *GoSearchSourceSearchService) Search(ctx context.Context, scope stores.S
 	if err != nil {
 		return results, err
 	}
-	if err := bundle.ensureBootstrapped(ctx); err != nil {
+	err = bundle.ensureBootstrapped(ctx)
+	if err != nil {
 		return results, err
 	}
 	page, err := bundle.search.Query(ctx, sourceSearchGoSearchRequest(s.indexName, scope, normalized))
@@ -291,7 +292,8 @@ func (s *GoSearchSourceSearchService) bundleForScope(ctx context.Context, scope 
 	if err != nil {
 		return nil, err
 	}
-	if err := ensureIndex.Execute(ctx, searchtypes.EnsureIndexInput{Definition: indexDef}); err != nil {
+	err = ensureIndex.Execute(ctx, searchtypes.EnsureIndexInput{Definition: indexDef})
+	if err != nil {
 		return nil, err
 	}
 

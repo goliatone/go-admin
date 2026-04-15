@@ -127,18 +127,20 @@ func TestAgreementServiceSendDoesNotRunPostCommitHooksWhenCommitFails(t *testing
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft: %v", err)
 	}
-	if _, err := svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, err = svc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
 
 	txErr := errors.New("commit flush sentinel")
 	store.err = txErr
-	if _, err := svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "tx-commit-fail-send"}); err != nil {
+	_, err = svc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "tx-commit-fail-send"})
+	if err != nil {
 		t.Fatalf("Send should recover via idempotent replay despite commit sentinel: %v", err)
 	}
 	if workflow.sentCalls != 0 {

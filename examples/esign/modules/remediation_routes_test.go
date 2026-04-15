@@ -277,7 +277,6 @@ func TestRemediationDispatchStatusLookupPersistsAcrossRelationalReopen(t *testin
 		if err := cleanup(); err != nil {
 			t.Fatalf("close relational store: %v", err)
 		}
-		cleanup = nil
 	}
 
 	reopened, reopenedCleanup, err := esignpersistence.OpenStore(ctx, cfg)

@@ -219,7 +219,7 @@ func (s TokenService) Revoke(ctx context.Context, scope Scope, agreementID, reci
 		return invalidRecordError("signing_tokens", "store", "not configured")
 	}
 	revoke := func(store SigningTokenStore) error {
-		scope, err := validateScope(scope)
+		validatedScope, err := validateScope(scope)
 		if err != nil {
 			return err
 		}
@@ -232,10 +232,11 @@ func (s TokenService) Revoke(ctx context.Context, scope Scope, agreementID, reci
 			return invalidRecordError("signing_tokens", "recipient_id", "required")
 		}
 		now := s.now().UTC()
-		if _, err := store.RevokeActiveSigningTokens(ctx, scope, agreementID, recipientID, now); err != nil {
-			return err
+		_, revokeErr := store.RevokeActiveSigningTokens(ctx, validatedScope, agreementID, recipientID, now)
+		if revokeErr != nil {
+			return revokeErr
 		}
-		tokens, err := store.ListSigningTokens(ctx, scope, agreementID, recipientID)
+		tokens, err := store.ListSigningTokens(ctx, validatedScope, agreementID, recipientID)
 		if err != nil {
 			return err
 		}

@@ -90,7 +90,8 @@ func (s DefaultSourceFingerprintService) BuildFingerprint(ctx context.Context, s
 	if err != nil {
 		return SourceFingerprintBuildResult{}, err
 	}
-	if err := validateSourceArtifactRevisionLink(sourceRevision, artifact); err != nil {
+	err = validateSourceArtifactRevisionLink(sourceRevision, artifact)
+	if err != nil {
 		return SourceFingerprintBuildResult{}, err
 	}
 	if strings.TrimSpace(artifact.ObjectKey) == "" {
@@ -289,7 +290,7 @@ func fingerprintTokens(normalizedText string) []string {
 		return nil
 	}
 	fields := strings.FieldsFunc(normalizedText, func(r rune) bool {
-		return !(unicode.IsLetter(r) || unicode.IsNumber(r))
+		return !unicode.IsLetter(r) && !unicode.IsNumber(r)
 	})
 	out := make([]string, 0, len(fields))
 	for _, field := range fields {

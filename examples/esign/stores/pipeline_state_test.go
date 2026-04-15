@@ -107,7 +107,8 @@ func TestInMemoryJobRunStoreSupportsRetryAndDedupe(t *testing.T) {
 	if !shouldRun || run.AttemptCount != 2 {
 		t.Fatalf("expected second attempt execution, got shouldRun=%t run=%+v", shouldRun, run)
 	}
-	if _, err := store.MarkJobRunSucceeded(ctx, scope, run.ID, nextRetry.Add(2*time.Second)); err != nil {
+	_, err = store.MarkJobRunSucceeded(ctx, scope, run.ID, nextRetry.Add(2*time.Second))
+	if err != nil {
 		t.Fatalf("MarkJobRunSucceeded: %v", err)
 	}
 

@@ -236,7 +236,8 @@ func (s DefaultSourceReadModelService) ListSourceRelationships(ctx context.Conte
 			if _, ok := seenContextIDs[candidateID]; ok {
 				continue
 			}
-			candidate, err := s.lineage.GetSourceDocument(ctx, scope, candidateID)
+			var candidate stores.SourceDocumentRecord
+			candidate, err = s.lineage.GetSourceDocument(ctx, scope, candidateID)
 			if err != nil {
 				return page, err
 			}

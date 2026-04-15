@@ -338,11 +338,12 @@ func TestDefaultSourceReconciliationServiceScoresHistoricalRevisions(t *testing.
 
 	fixture.buildFingerprint(t, canonical)
 	fixture.buildFingerprint(t, target)
-	if _, err := NewDefaultSourceFingerprintService(fixture.store, fixture.objects).BuildFingerprint(ctx, fixture.scope, SourceFingerprintBuildInput{
+	_, err = NewDefaultSourceFingerprintService(fixture.store, fixture.objects).BuildFingerprint(ctx, fixture.scope, SourceFingerprintBuildInput{
 		SourceRevisionID: secondRevision.ID,
 		ArtifactID:       secondArtifact.ID,
 		Metadata:         fixture.metadataBaseline(canonical),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("BuildFingerprint canonical v2: %v", err)
 	}
 
@@ -773,12 +774,13 @@ func TestDefaultSourceReconciliationServiceReviewActionsSuppressFutureCandidates
 				t.Fatalf("expected one candidate relationship, got %+v", relationships)
 			}
 
-			if _, err := service.ApplyReviewAction(ctx, fixture.scope, SourceRelationshipReviewInput{
+			_, err = service.ApplyReviewAction(ctx, fixture.scope, SourceRelationshipReviewInput{
 				RelationshipID: relationships[0].ID,
 				Action:         tc.action,
 				ActorID:        "ops-reviewer",
 				Reason:         "operator-reviewed",
-			}); err != nil {
+			})
+			if err != nil {
 				t.Fatalf("ApplyReviewAction %s: %v", tc.action, err)
 			}
 
@@ -944,12 +946,13 @@ func TestDefaultSourceReconciliationServiceRejectedCandidateReopensWhenExtractor
 	if len(relationships) != 1 {
 		t.Fatalf("expected one relationship before rejection, got %+v", relationships)
 	}
-	if _, err := service.ApplyReviewAction(ctx, fixture.scope, SourceRelationshipReviewInput{
+	_, err = service.ApplyReviewAction(ctx, fixture.scope, SourceRelationshipReviewInput{
 		RelationshipID: relationships[0].ID,
 		Action:         SourceRelationshipActionReject,
 		ActorID:        "ops-reviewer",
 		Reason:         "not enough evidence yet",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("ApplyReviewAction reject: %v", err)
 	}
 
@@ -983,7 +986,8 @@ func TestDefaultSourceReconciliationServiceRejectedCandidateReopensWhenExtractor
 	nextFingerprint.ExtractVersion = stores.SourceExtractVersionPDFTextV2
 	nextFingerprint.ExtractionMetadataJSON = `{"extract_version":"` + stores.SourceExtractVersionPDFTextV2 + `"}`
 	nextFingerprint.CreatedAt = now
-	if _, err := fixture.store.CreateSourceFingerprint(ctx, fixture.scope, nextFingerprint); err != nil {
+	_, err = fixture.store.CreateSourceFingerprint(ctx, fixture.scope, nextFingerprint)
+	if err != nil {
 		t.Fatalf("CreateSourceFingerprint v2: %v", err)
 	}
 

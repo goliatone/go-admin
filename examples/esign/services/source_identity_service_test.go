@@ -349,7 +349,7 @@ func TestDefaultSourceIdentityServiceReusesRevisionAcrossConfirmedContinuityHand
 		t.Fatalf("CreateSourceRevision: %v", err)
 	}
 	secondHandleAt := now.Add(30 * time.Minute)
-	if _, err := store.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
+	_, err = store.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
 		SourceDocumentID: document.ID,
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
 		ExternalFileID:   "google-file-2",
@@ -359,7 +359,8 @@ func TestDefaultSourceIdentityServiceReusesRevisionAcrossConfirmedContinuityHand
 		ValidFrom:        &secondHandleAt,
 		CreatedAt:        secondHandleAt,
 		UpdatedAt:        secondHandleAt,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateSourceHandle continuity: %v", err)
 	}
 
@@ -439,7 +440,7 @@ func TestDefaultSourceIdentityServiceConflictFallbackKeepsCanonicalHandleOwnersh
 	if err != nil {
 		t.Fatalf("CreateSourceDocument highConfidenceTarget: %v", err)
 	}
-	if _, err := baseStore.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
+	_, err = baseStore.CreateSourceHandle(ctx, scope, stores.SourceHandleRecord{
 		SourceDocumentID: highConfidenceTarget.ID,
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
 		ExternalFileID:   "other-google-file",
@@ -449,7 +450,8 @@ func TestDefaultSourceIdentityServiceConflictFallbackKeepsCanonicalHandleOwnersh
 		ValidFrom:        &now,
 		CreatedAt:        now,
 		UpdatedAt:        now,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateSourceHandle highConfidenceTarget: %v", err)
 	}
 

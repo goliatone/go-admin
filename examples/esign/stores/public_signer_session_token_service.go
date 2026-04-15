@@ -188,7 +188,7 @@ func (s PublicSignerSessionTokenService) Revoke(ctx context.Context, scope Scope
 		return invalidRecordError("public_signer_session_tokens", "store", "not configured")
 	}
 	revoke := func(store PublicSignerSessionTokenStore) error {
-		scope, err := validateScope(scope)
+		validatedScope, err := validateScope(scope)
 		if err != nil {
 			return err
 		}
@@ -202,10 +202,11 @@ func (s PublicSignerSessionTokenService) Revoke(ctx context.Context, scope Scope
 			return invalidRecordError("public_signer_session_tokens", "recipient_id|participant_id", "required")
 		}
 		now := s.now().UTC()
-		if _, err := store.RevokeActivePublicSignerSessionTokens(ctx, scope, agreementID, recipientID, participantID, now); err != nil {
-			return err
+		_, revokeErr := store.RevokeActivePublicSignerSessionTokens(ctx, validatedScope, agreementID, recipientID, participantID, now)
+		if revokeErr != nil {
+			return revokeErr
 		}
-		tokens, err := store.ListPublicSignerSessionTokens(ctx, scope, agreementID, recipientID, participantID)
+		tokens, err := store.ListPublicSignerSessionTokens(ctx, validatedScope, agreementID, recipientID, participantID)
 		if err != nil {
 			return err
 		}

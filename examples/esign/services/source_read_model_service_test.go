@@ -500,7 +500,7 @@ func TestSourceRelationshipSummariesUsePersistedDirectionInsteadOfLatestRevision
 	}
 
 	newer := time.Date(2026, time.March, 21, 20, 0, 0, 0, time.UTC)
-	if _, err := store.CreateSourceHandle(context.Background(), scope, stores.SourceHandleRecord{
+	_, err = store.CreateSourceHandle(context.Background(), scope, stores.SourceHandleRecord{
 		ID:               "src-handle-copy-newer",
 		SourceDocumentID: "src-doc-copy",
 		ProviderKind:     stores.SourceProviderKindGoogleDrive,
@@ -512,10 +512,11 @@ func TestSourceRelationshipSummariesUsePersistedDirectionInsteadOfLatestRevision
 		ValidFrom:        &newer,
 		CreatedAt:        newer,
 		UpdatedAt:        newer,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateSourceHandle newer counterpart: %v", err)
 	}
-	if _, err := store.CreateSourceRevision(context.Background(), scope, stores.SourceRevisionRecord{
+	_, err = store.CreateSourceRevision(context.Background(), scope, stores.SourceRevisionRecord{
 		ID:                   "src-rev-copy-newer",
 		SourceDocumentID:     "src-doc-copy",
 		SourceHandleID:       "src-handle-copy-newer",
@@ -527,7 +528,8 @@ func TestSourceRelationshipSummariesUsePersistedDirectionInsteadOfLatestRevision
 		MetadataJSON:         `{"external_file_id":"fixture-google-file-copy-newer","account_id":"fixture-account-copy","title_hint":"Imported Fixture Source Copy","source_version_hint":"copy-v2"}`,
 		CreatedAt:            newer,
 		UpdatedAt:            newer,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateSourceRevision newer counterpart: %v", err)
 	}
 

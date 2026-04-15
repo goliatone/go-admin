@@ -669,7 +669,7 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 	if executedCompletedIdx < 0 || executedSignedIdx < 0 || executedSentIdx < 0 {
 		t.Fatalf("expected executed timeline timestamps in payload")
 	}
-	if !(executedCompletedIdx < executedSignedIdx && executedSignedIdx < executedSentIdx) {
+	if executedCompletedIdx >= executedSignedIdx || executedSignedIdx >= executedSentIdx {
 		t.Fatalf("expected executed document history newest-first, got completed=%d signed=%d sent=%d", executedCompletedIdx, executedSignedIdx, executedSentIdx)
 	}
 	certificateCompletedIdx := strings.Index(certificateRaw, "02/12/2026 10:05:00 UTC")
@@ -678,7 +678,7 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 	if certificateCompletedIdx < 0 || certificateSignedIdx < 0 || certificateSentIdx < 0 {
 		t.Fatalf("expected certificate timeline timestamps in payload")
 	}
-	if !(certificateSentIdx < certificateSignedIdx && certificateSignedIdx < certificateCompletedIdx) {
+	if certificateSentIdx >= certificateSignedIdx || certificateSignedIdx >= certificateCompletedIdx {
 		t.Fatalf("expected certificate document history oldest-first, got sent=%d signed=%d completed=%d", certificateSentIdx, certificateSignedIdx, certificateCompletedIdx)
 	}
 	if strings.Contains(certificateRaw, "Document Hash: ") {

@@ -170,10 +170,11 @@ func TestInMemoryStoreDocumentRemediationLeaseReleaseOwnership(t *testing.T) {
 		t.Fatalf("expected DOCUMENT_REMEDIATION_LEASE_CONFLICT, got %v", err)
 	}
 
-	if err := store.ReleaseDocumentRemediationLease(context.Background(), scope, documentID, DocumentRemediationLeaseReleaseInput{
+	err = store.ReleaseDocumentRemediationLease(context.Background(), scope, documentID, DocumentRemediationLeaseReleaseInput{
 		Now:   now.Add(40 * time.Second),
 		Lease: renewed.Lease,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("ReleaseDocumentRemediationLease owner: %v", err)
 	}
 

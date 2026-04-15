@@ -67,7 +67,7 @@ func TestInMemoryLineageStoreCRUDAndUniqueness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateSourceArtifact: %v", err)
 	}
-	if _, err := store.CreateSourceFingerprint(ctx, scope, SourceFingerprintRecord{
+	_, err = store.CreateSourceFingerprint(ctx, scope, SourceFingerprintRecord{
 		SourceRevisionID:     revision.ID,
 		ArtifactID:           artifact.ID,
 		ExtractVersion:       SourceExtractVersionPDFTextV1,
@@ -75,10 +75,11 @@ func TestInMemoryLineageStoreCRUDAndUniqueness(t *testing.T) {
 		NormalizedTextSHA256: strings.Repeat("b", 64),
 		TokenCount:           42,
 		CreatedAt:            now,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateSourceFingerprint: %v", err)
 	}
-	if _, err := store.CreateSourceRelationship(ctx, scope, SourceRelationshipRecord{
+	_, err = store.CreateSourceRelationship(ctx, scope, SourceRelationshipRecord{
 		LeftSourceDocumentID:  document.ID,
 		RightSourceDocumentID: document.ID,
 		RelationshipType:      SourceRelationshipTypeSameLogicalDoc,
@@ -89,11 +90,13 @@ func TestInMemoryLineageStoreCRUDAndUniqueness(t *testing.T) {
 		CreatedByUserID:       "fixture-user",
 		CreatedAt:             now,
 		UpdatedAt:             now,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateSourceRelationship: %v", err)
 	}
 
-	if _, err := store.GetActiveSourceHandle(ctx, scope, SourceProviderKindGoogleDrive, "google-file-1", "account-1"); err != nil {
+	_, err = store.GetActiveSourceHandle(ctx, scope, SourceProviderKindGoogleDrive, "google-file-1", "account-1")
+	if err != nil {
 		t.Fatalf("GetActiveSourceHandle: %v", err)
 	}
 	revisions, err := store.ListSourceRevisions(ctx, scope, SourceRevisionQuery{SourceDocumentID: document.ID})
@@ -172,11 +175,12 @@ func TestInMemoryLineageStoreNormalizesDefaultsAndRejectsInvalidFingerprintCreat
 	if err != nil {
 		t.Fatalf("CreateSourceArtifact: %v", err)
 	}
-	if _, err := store.CreateSourceFingerprint(ctx, scope, SourceFingerprintRecord{
+	_, err = store.CreateSourceFingerprint(ctx, scope, SourceFingerprintRecord{
 		SourceRevisionID: revision.ID,
 		ArtifactID:       artifact.ID,
 		CreatedAt:        now,
-	}); err == nil {
+	})
+	if err == nil {
 		t.Fatalf("expected missing extract version rejection")
 	}
 	otherDocument, err := store.CreateSourceDocument(ctx, scope, SourceDocumentRecord{
@@ -214,12 +218,13 @@ func TestInMemoryLineageStoreNormalizesDefaultsAndRejectsInvalidFingerprintCreat
 	if err != nil {
 		t.Fatalf("CreateSourceArtifact other: %v", err)
 	}
-	if _, err := store.CreateSourceFingerprint(ctx, scope, SourceFingerprintRecord{
+	_, err = store.CreateSourceFingerprint(ctx, scope, SourceFingerprintRecord{
 		SourceRevisionID: revision.ID,
 		ArtifactID:       otherArtifact.ID,
 		ExtractVersion:   SourceExtractVersionPDFTextV1,
 		CreatedAt:        now,
-	}); err == nil {
+	})
+	if err == nil {
 		t.Fatalf("expected mismatched artifact/source revision rejection")
 	}
 
@@ -337,7 +342,7 @@ func TestInMemoryLineageStorePersistsDirectionalRelationshipEndpointsAndUsageAgg
 		t.Fatalf("expected persisted directional endpoints, got %+v", relationship)
 	}
 
-	if _, err := store.Create(ctx, scope, DocumentRecord{
+	_, err = store.Create(ctx, scope, DocumentRecord{
 		ID:                 "doc-pinned-successor",
 		Title:              "Pinned Successor",
 		SourceOriginalName: "pinned-successor.pdf",
@@ -350,10 +355,11 @@ func TestInMemoryLineageStorePersistsDirectionalRelationshipEndpointsAndUsageAgg
 		CreatedByUserID:    "fixture-user",
 		CreatedAt:          now,
 		UpdatedAt:          now,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("Create pinned document: %v", err)
 	}
-	if _, err := store.CreateDraft(ctx, scope, AgreementRecord{
+	_, err = store.CreateDraft(ctx, scope, AgreementRecord{
 		ID:               "agr-pinned-successor",
 		DocumentID:       "doc-pinned-successor",
 		Title:            "Pinned Successor Agreement",
@@ -364,7 +370,8 @@ func TestInMemoryLineageStorePersistsDirectionalRelationshipEndpointsAndUsageAgg
 		UpdatedByUserID:  "fixture-user",
 		CreatedAt:        now,
 		UpdatedAt:        now,
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateDraft pinned agreement: %v", err)
 	}
 
@@ -583,17 +590,20 @@ func TestPhase13InMemoryLineageStoreCRUDForSourceCommentsAndSearchDocuments(t *t
 
 	thread.MessageCount = 3
 	thread.UpdatedAt = now.Add(time.Minute)
-	if _, err := store.SaveSourceCommentThread(ctx, scope, thread); err != nil {
+	_, err = store.SaveSourceCommentThread(ctx, scope, thread)
+	if err != nil {
 		t.Fatalf("SaveSourceCommentThread: %v", err)
 	}
 	searchDoc.CommentCount = 3
 	searchDoc.UpdatedAt = now.Add(time.Minute)
-	if _, err := store.SaveSourceSearchDocument(ctx, scope, searchDoc); err != nil {
+	_, err = store.SaveSourceSearchDocument(ctx, scope, searchDoc)
+	if err != nil {
 		t.Fatalf("SaveSourceSearchDocument: %v", err)
 	}
 	thread.Status = SourceCommentThreadStatusDeleted
 	thread.UpdatedAt = now.Add(2 * time.Minute)
-	if _, err := store.SaveSourceCommentThread(ctx, scope, thread); err != nil {
+	_, err = store.SaveSourceCommentThread(ctx, scope, thread)
+	if err != nil {
 		t.Fatalf("SaveSourceCommentThread deleted: %v", err)
 	}
 	activeThreads, err := store.ListSourceCommentThreads(ctx, scope, SourceCommentThreadQuery{SourceRevisionID: revision.ID})
@@ -614,7 +624,8 @@ func TestPhase13InMemoryLineageStoreCRUDForSourceCommentsAndSearchDocuments(t *t
 	if len(deletedThreads) != 1 || deletedThreads[0].ID != thread.ID {
 		t.Fatalf("expected deleted thread query to return %q, got %+v", thread.ID, deletedThreads)
 	}
-	if err := store.DeleteSourceCommentMessages(ctx, scope, SourceCommentMessageQuery{SourceCommentThreadID: thread.ID}); err != nil {
+	err = store.DeleteSourceCommentMessages(ctx, scope, SourceCommentMessageQuery{SourceCommentThreadID: thread.ID})
+	if err != nil {
 		t.Fatalf("DeleteSourceCommentMessages: %v", err)
 	}
 	deletedMessages, err := store.ListSourceCommentMessages(ctx, scope, SourceCommentMessageQuery{SourceCommentThreadID: thread.ID})
@@ -624,7 +635,8 @@ func TestPhase13InMemoryLineageStoreCRUDForSourceCommentsAndSearchDocuments(t *t
 	if len(deletedMessages) != 0 {
 		t.Fatalf("expected deleted source comment messages, got %+v", deletedMessages)
 	}
-	if err := store.DeleteSourceSearchDocuments(ctx, scope, SourceSearchDocumentQuery{SourceDocumentID: document.ID}); err != nil {
+	err = store.DeleteSourceSearchDocuments(ctx, scope, SourceSearchDocumentQuery{SourceDocumentID: document.ID})
+	if err != nil {
 		t.Fatalf("DeleteSourceSearchDocuments: %v", err)
 	}
 	deletedSearchDocs, err := store.ListSourceSearchDocuments(ctx, scope, SourceSearchDocumentQuery{SourceDocumentID: document.ID})

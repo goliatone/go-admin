@@ -185,7 +185,7 @@ func (s ReviewSessionTokenService) Revoke(ctx context.Context, scope Scope, agre
 		return invalidRecordError("review_session_tokens", "store", "not configured")
 	}
 	revoke := func(store ReviewSessionTokenStore) error {
-		scope, err := validateScope(scope)
+		validatedScope, err := validateScope(scope)
 		if err != nil {
 			return err
 		}
@@ -198,10 +198,11 @@ func (s ReviewSessionTokenService) Revoke(ctx context.Context, scope Scope, agre
 			return invalidRecordError("review_session_tokens", "participant_id", "required")
 		}
 		now := s.now().UTC()
-		if _, err := store.RevokeActiveReviewSessionTokens(ctx, scope, agreementID, participantID, now); err != nil {
-			return err
+		_, revokeErr := store.RevokeActiveReviewSessionTokens(ctx, validatedScope, agreementID, participantID, now)
+		if revokeErr != nil {
+			return revokeErr
 		}
-		tokens, err := store.ListReviewSessionTokens(ctx, scope, agreementID, participantID)
+		tokens, err := store.ListReviewSessionTokens(ctx, validatedScope, agreementID, participantID)
 		if err != nil {
 			return err
 		}

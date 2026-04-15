@@ -47,20 +47,22 @@ func TestUpgradeDraftAgreementToV2NormalizesSignerStagesAndRequiredPlacements(t 
 	if err != nil {
 		t.Fatalf("UpsertParticipantDraft signerOne: %v", err)
 	}
-	if _, err := store.UpsertParticipantDraft(ctx, scope, agreement.ID, ParticipantDraftPatch{
+	_, err = store.UpsertParticipantDraft(ctx, scope, agreement.ID, ParticipantDraftPatch{
 		ID:           "participant-2",
 		Email:        new("signer2@example.com"),
 		Role:         new(RecipientRoleSigner),
 		SigningStage: new(3),
-	}, 0); err != nil {
+	}, 0)
+	if err != nil {
 		t.Fatalf("UpsertParticipantDraft signerTwo: %v", err)
 	}
-	if _, err := store.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, FieldDefinitionDraftPatch{
+	_, err = store.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, FieldDefinitionDraftPatch{
 		ID:            "field-def-upgrade",
 		ParticipantID: &signerOne.ID,
 		Type:          new(FieldTypeSignature),
 		Required:      new(true),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("UpsertFieldDefinitionDraft: %v", err)
 	}
 
@@ -125,7 +127,8 @@ func TestUpgradeDraftAgreementToV2RejectsNonDraftAgreement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateDraft: %v", err)
 	}
-	if _, err := store.Transition(ctx, scope, agreement.ID, AgreementTransitionInput{ToStatus: AgreementStatusSent, ExpectedVersion: agreement.Version}); err != nil {
+	_, err = store.Transition(ctx, scope, agreement.ID, AgreementTransitionInput{ToStatus: AgreementStatusSent, ExpectedVersion: agreement.Version})
+	if err != nil {
 		t.Fatalf("Transition: %v", err)
 	}
 

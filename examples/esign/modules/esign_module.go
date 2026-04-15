@@ -601,17 +601,6 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	}
 	if sourceSearch != nil && lineageStore != nil {
 		agreementSearchRefresh := services.NewSourceSearchAgreementRefreshService(m.store, m.store, lineageStore, sourceSearch)
-		baseJobAgreementChanges := jobAgreementChanges
-		jobAgreementChanges = func(ctx context.Context, scope stores.Scope, notification jobs.AgreementChangeNotification) error {
-			var firstErr error
-			if baseJobAgreementChanges != nil {
-				firstErr = baseJobAgreementChanges(ctx, scope, notification)
-			}
-			if refreshErr := agreementSearchRefresh.RefreshAgreement(ctx, scope, notification.AgreementID); firstErr == nil && refreshErr != nil {
-				firstErr = refreshErr
-			}
-			return firstErr
-		}
 		baseSigningAgreementChanges := signingAgreementChanges
 		signingAgreementChanges = func(ctx context.Context, scope stores.Scope, notification services.AgreementChangeNotification) error {
 			var firstErr error

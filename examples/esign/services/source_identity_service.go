@@ -85,12 +85,15 @@ func (s DefaultSourceIdentityService) ResolveSourceIdentity(ctx context.Context,
 		return SourceIdentityResolution{}, domainValidationError("lineage", "external_file_id", "required")
 	}
 
-	if active, err := s.store.GetActiveSourceHandle(ctx, scope, providerKind, metadata.ExternalFileID, metadata.AccountID); err == nil {
-		document, err := s.store.GetSourceDocument(ctx, scope, active.SourceDocumentID)
+	active, err := s.store.GetActiveSourceHandle(ctx, scope, providerKind, metadata.ExternalFileID, metadata.AccountID)
+	if err == nil {
+		var document stores.SourceDocumentRecord
+		document, err = s.store.GetSourceDocument(ctx, scope, active.SourceDocumentID)
 		if err != nil {
 			return SourceIdentityResolution{}, err
 		}
-		revision, err := s.resolveRevision(ctx, scope, document, active, metadata, input)
+		var revision stores.SourceRevisionRecord
+		revision, err = s.resolveRevision(ctx, scope, document, active, metadata, input)
 		if err != nil {
 			return SourceIdentityResolution{}, err
 		}
@@ -105,10 +108,15 @@ func (s DefaultSourceIdentityService) ResolveSourceIdentity(ctx context.Context,
 		return SourceIdentityResolution{}, err
 	}
 
-	if document, handle, ok, err := s.findHighConfidenceAttach(ctx, scope, providerKind, metadata); err != nil {
+	var document stores.SourceDocumentRecord
+	var handle stores.SourceHandleRecord
+	var ok bool
+	document, handle, ok, err = s.findHighConfidenceAttach(ctx, scope, providerKind, metadata)
+	if err != nil {
 		return SourceIdentityResolution{}, err
 	} else if ok {
-		revision, err := s.resolveRevision(ctx, scope, document, handle, metadata, input)
+		var revision stores.SourceRevisionRecord
+		revision, err = s.resolveRevision(ctx, scope, document, handle, metadata, input)
 		if err != nil {
 			return SourceIdentityResolution{}, err
 		}
@@ -126,7 +134,7 @@ func (s DefaultSourceIdentityService) ResolveSourceIdentity(ctx context.Context,
 		return SourceIdentityResolution{}, err
 	}
 
-	document, err := s.createSourceDocument(ctx, scope, providerKind, metadata.TitleHint, stores.LineageConfidenceBandMedium)
+	document, err = s.createSourceDocument(ctx, scope, providerKind, metadata.TitleHint, stores.LineageConfidenceBandMedium)
 	if err != nil {
 		return SourceIdentityResolution{}, err
 	}
@@ -140,7 +148,7 @@ func (s DefaultSourceIdentityService) ResolveSourceIdentity(ctx context.Context,
 		}
 	}
 	document = binding.Document
-	handle := binding.Handle
+	handle = binding.Handle
 	revision, err := s.resolveRevision(ctx, scope, document, handle, metadata, input)
 	if err != nil {
 		return SourceIdentityResolution{}, err

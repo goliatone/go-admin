@@ -208,13 +208,15 @@ func TestInMemoryStorePhase0AuditAppendOnlyBaseline(t *testing.T) {
 		t.Fatalf("Append: %v", err)
 	}
 
-	if err := store.UpdateAuditEvent(ctx, scope, event.ID, event); err == nil {
+	err = store.UpdateAuditEvent(ctx, scope, event.ID, event)
+	if err == nil {
 		t.Fatal("expected append-only update error")
 	} else if !strings.Contains(err.Error(), "AUDIT_EVENTS_APPEND_ONLY") {
 		t.Fatalf("expected AUDIT_EVENTS_APPEND_ONLY error, got %v", err)
 	}
 
-	if err := store.DeleteAuditEvent(ctx, scope, event.ID); err == nil {
+	err = store.DeleteAuditEvent(ctx, scope, event.ID)
+	if err == nil {
 		t.Fatal("expected append-only delete error")
 	} else if !strings.Contains(err.Error(), "AUDIT_EVENTS_APPEND_ONLY") {
 		t.Fatalf("expected AUDIT_EVENTS_APPEND_ONLY error, got %v", err)
@@ -383,7 +385,7 @@ func TestInMemoryStorePhase0SnapshotRoundTripBaseline(t *testing.T) {
 		t.Fatalf("expected completed agreement before restart, got %+v", completed)
 	}
 
-	if _, err := store.CreateSigningToken(ctx, scope, SigningTokenRecord{
+	_, err = store.CreateSigningToken(ctx, scope, SigningTokenRecord{
 		ID:          "token-restart",
 		AgreementID: agreement.ID,
 		RecipientID: "recipient-1",
@@ -391,25 +393,28 @@ func TestInMemoryStorePhase0SnapshotRoundTripBaseline(t *testing.T) {
 		Status:      SigningTokenStatusActive,
 		ExpiresAt:   base.Add(60 * time.Minute),
 		CreatedAt:   base.Add(2 * time.Minute),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("CreateSigningToken: %v", err)
 	}
-	if _, err := store.RevokeActiveSigningTokens(ctx, scope, agreement.ID, "recipient-1", base.Add(3*time.Minute)); err != nil {
+	_, err = store.RevokeActiveSigningTokens(ctx, scope, agreement.ID, "recipient-1", base.Add(3*time.Minute))
+	if err != nil {
 		t.Fatalf("RevokeActiveSigningTokens: %v", err)
 	}
 
-	if _, err := store.Append(ctx, scope, AuditEventRecord{
+	_, err = store.Append(ctx, scope, AuditEventRecord{
 		ID:          "event-restart",
 		AgreementID: agreement.ID,
 		EventType:   "agreement.completed",
 		ActorType:   "system",
 		ActorID:     "worker-1",
 		CreatedAt:   base.Add(4 * time.Minute),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("Append audit event: %v", err)
 	}
 
-	if _, err := store.EnqueueOutboxMessage(ctx, scope, OutboxMessageRecord{
+	_, err = store.EnqueueOutboxMessage(ctx, scope, OutboxMessageRecord{
 		ID:          "outbox-restart",
 		Topic:       "email.send",
 		MessageKey:  "agreement.completed.recipient-1",
@@ -417,7 +422,8 @@ func TestInMemoryStorePhase0SnapshotRoundTripBaseline(t *testing.T) {
 		CreatedAt:   base.Add(5 * time.Minute),
 		UpdatedAt:   base.Add(5 * time.Minute),
 		AvailableAt: base.Add(5 * time.Minute),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("EnqueueOutboxMessage: %v", err)
 	}
 
@@ -434,7 +440,8 @@ func TestInMemoryStorePhase0SnapshotRoundTripBaseline(t *testing.T) {
 	if !shouldRun {
 		t.Fatalf("expected initial restart-baseline job run to execute, got %+v", run)
 	}
-	if _, err := store.MarkJobRunSucceeded(ctx, scope, run.ID, base.Add(7*time.Minute)); err != nil {
+	_, err = store.MarkJobRunSucceeded(ctx, scope, run.ID, base.Add(7*time.Minute))
+	if err != nil {
 		t.Fatalf("MarkJobRunSucceeded: %v", err)
 	}
 
@@ -523,7 +530,7 @@ func TestInMemoryStorePhase0FixtureSnapshot(t *testing.T) {
 		t.Fatalf("CreateSigningToken token-fixture-b: %v", err)
 	}
 
-	if _, err := store.Append(ctx, scope, AuditEventRecord{
+	_, err = store.Append(ctx, scope, AuditEventRecord{
 		ID:           "event-fixture",
 		AgreementID:  agreement.ID,
 		EventType:    "agreement.created",
@@ -531,11 +538,12 @@ func TestInMemoryStorePhase0FixtureSnapshot(t *testing.T) {
 		ActorID:      "user-fixture",
 		MetadataJSON: `{"fixture":true}`,
 		CreatedAt:    base.Add(4 * time.Minute),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("Append fixture event: %v", err)
 	}
 
-	if _, err := store.EnqueueOutboxMessage(ctx, scope, OutboxMessageRecord{
+	_, err = store.EnqueueOutboxMessage(ctx, scope, OutboxMessageRecord{
 		ID:          "outbox-fixture",
 		Topic:       "email.send",
 		MessageKey:  "agreement.created.recipient-1",
@@ -543,7 +551,8 @@ func TestInMemoryStorePhase0FixtureSnapshot(t *testing.T) {
 		CreatedAt:   base.Add(5 * time.Minute),
 		UpdatedAt:   base.Add(5 * time.Minute),
 		AvailableAt: base.Add(5 * time.Minute),
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatalf("EnqueueOutboxMessage fixture: %v", err)
 	}
 
@@ -584,10 +593,12 @@ func TestInMemoryStorePhase0FixtureSnapshot(t *testing.T) {
 	actualCanonical := mustCanonicalJSON(t, snapshot)
 	goldenPath := filepath.Join("testdata", "store_fixture_snapshot.json")
 	if os.Getenv("UPDATE_PHASE0_FIXTURE") == "1" {
-		if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {
+		err = os.MkdirAll(filepath.Dir(goldenPath), 0o755)
+		if err != nil {
 			t.Fatalf("create fixture snapshot dir: %v", err)
 		}
-		if err := os.WriteFile(goldenPath, []byte(actualCanonical), 0o644); err != nil {
+		err = os.WriteFile(goldenPath, []byte(actualCanonical), 0o644)
+		if err != nil {
 			t.Fatalf("write fixture snapshot: %v", err)
 		}
 	}
@@ -609,7 +620,8 @@ func mustCanonicalJSON(t *testing.T, value any) string {
 		t.Fatalf("marshal canonical json: %v", err)
 	}
 	var decoded any
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
+	err = json.Unmarshal(encoded, &decoded)
+	if err != nil {
 		t.Fatalf("unmarshal canonical json: %v", err)
 	}
 	normalized, err := json.MarshalIndent(decoded, "", "  ")

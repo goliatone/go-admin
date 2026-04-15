@@ -119,7 +119,8 @@ func (s *AgreementDraftResourceStore) Get(ctx context.Context, ref gosynccore.Re
 	if err != nil {
 		return gosynccore.Snapshot{}, err
 	}
-	if err := validateResourceKind(ref.Kind); err != nil {
+	err = validateResourceKind(ref.Kind)
+	if err != nil {
 		return gosynccore.Snapshot{}, err
 	}
 
