@@ -156,14 +156,9 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 		Notifications: b.admin.NotificationService(),
 		URLs:          b.admin.URLs(),
 	}
-
-	action = strings.TrimSpace(strings.ToLower(action))
-	assignmentID = strings.TrimSpace(assignmentID)
-	if assignmentID == "" {
-		return nil, requiredFieldDomainError("assignment_id", nil)
-	}
-	if action == "" {
-		return nil, requiredFieldDomainError("action", nil)
+	action, assignmentID, err = normalizeAssignmentActionRequest(action, assignmentID)
+	if err != nil {
+		return nil, err
 	}
 
 	idempotencyKey := strings.TrimSpace(toString(body["idempotency_key"]))
@@ -187,68 +182,78 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 	if permissionErr := b.requireAssignmentActionPermission(adminCtx, action, current); permissionErr != nil {
 		return nil, permissionErr
 	}
+	updated, err := b.executeAssignmentAction(adminCtx, service, current, identity.ActorID, assignmentID, action, body)
+	if err != nil {
+		return nil, err
+	}
+	response := b.assignmentActionResponse(adminCtx, updated, assignmentID, channel, now)
+	b.storeActionReplay(identity.ActorID, assignmentID, action, idempotencyKey, body, response)
+	return response, nil
+}
 
-	var updated TranslationAssignment
+func normalizeAssignmentActionRequest(action, assignmentID string) (string, string, error) {
+	action = strings.TrimSpace(strings.ToLower(action))
+	assignmentID = strings.TrimSpace(assignmentID)
+	if assignmentID == "" {
+		return "", "", requiredFieldDomainError("assignment_id", nil)
+	}
+	if action == "" {
+		return "", "", requiredFieldDomainError("action", nil)
+	}
+	return action, assignmentID, nil
+}
+
+func queueActionExpectedVersion(current TranslationAssignment, body map[string]any) int64 {
+	expectedVersion := queueExpectedVersion(body)
+	if expectedVersion <= 0 {
+		expectedVersion = current.Version
+	}
+	return expectedVersion
+}
+
+func (b *translationQueueBinding) executeAssignmentAction(
+	adminCtx AdminContext,
+	service *DefaultTranslationQueueService,
+	current TranslationAssignment,
+	actorID, assignmentID, action string,
+	body map[string]any,
+) (TranslationAssignment, error) {
+	expectedVersion := queueActionExpectedVersion(current, body)
 	switch action {
 	case "claim":
-		expectedVersion := queueExpectedVersion(body)
-		if expectedVersion <= 0 {
-			expectedVersion = current.Version
-		}
-		updated, err = service.Claim(adminCtx.Context, TranslationQueueClaimInput{
+		return service.Claim(adminCtx.Context, TranslationQueueClaimInput{
 			AssignmentID:    assignmentID,
-			ClaimerID:       identity.ActorID,
+			ClaimerID:       actorID,
 			ExpectedVersion: expectedVersion,
 		})
 	case "release":
-		expectedVersion := queueExpectedVersion(body)
-		if expectedVersion <= 0 {
-			expectedVersion = current.Version
-		}
-		updated, err = service.Release(adminCtx.Context, TranslationQueueReleaseInput{
+		return service.Release(adminCtx.Context, TranslationQueueReleaseInput{
 			AssignmentID:    assignmentID,
-			ActorID:         identity.ActorID,
+			ActorID:         actorID,
 			ExpectedVersion: expectedVersion,
 		})
 	case "submit_review":
-		expectedVersion := queueExpectedVersion(body)
-		if expectedVersion <= 0 {
-			expectedVersion = current.Version
-		}
-		updated, err = b.runSubmitReviewAction(adminCtx, service, current, expectedVersion, body)
+		return b.runSubmitReviewAction(adminCtx, service, current, expectedVersion, body)
 	case "approve":
-		expectedVersion := queueExpectedVersion(body)
-		if expectedVersion <= 0 {
-			expectedVersion = current.Version
-		}
-		updated, err = b.runApproveAction(adminCtx, service, current, expectedVersion, body)
+		return b.runApproveAction(adminCtx, service, current, expectedVersion, body)
 	case "reject":
-		expectedVersion := queueExpectedVersion(body)
-		if expectedVersion <= 0 {
-			expectedVersion = current.Version
-		}
-		updated, err = b.runRejectAction(adminCtx, service, current, expectedVersion, body)
+		return b.runRejectAction(adminCtx, service, current, expectedVersion, body)
 	case "archive":
-		expectedVersion := queueExpectedVersion(body)
-		if expectedVersion <= 0 {
-			expectedVersion = current.Version
-		}
-		updated, err = service.Archive(adminCtx.Context, TranslationQueueArchiveInput{
+		return service.Archive(adminCtx.Context, TranslationQueueArchiveInput{
 			AssignmentID:    assignmentID,
-			ActorID:         identity.ActorID,
+			ActorID:         actorID,
 			ExpectedVersion: expectedVersion,
 		})
 	default:
-		return nil, validationDomainError("unsupported assignment action", map[string]any{
+		return TranslationAssignment{}, validationDomainError("unsupported assignment action", map[string]any{
 			"field":  "action",
 			"action": action,
 		})
 	}
-	if err != nil {
-		return nil, err
-	}
+}
 
-	response := map[string]any{
+func (b *translationQueueBinding) assignmentActionResponse(adminCtx AdminContext, updated TranslationAssignment, assignmentID, channel string, now time.Time) map[string]any {
+	return map[string]any{
 		"data": map[string]any{
 			"assignment_id": assignmentID,
 			"status":        normalizeTranslationQueueState(string(updated.Status)),
@@ -260,8 +265,6 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 			"idempotency_hit": false,
 		}, channel),
 	}
-	b.storeActionReplay(identity.ActorID, assignmentID, action, idempotencyKey, body, response)
-	return response, nil
 }
 
 func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err error) {

@@ -58,6 +58,19 @@ type translationFamilyCreateVariantOutcome struct {
 	ArchivedAssignmentIDs []string               `json:"archived_assignment_i_ds"`
 }
 
+type translationFamilyCreateVariantRequest struct {
+	AdminCtx AdminContext
+	Body     map[string]any
+	Input    translationFamilyCreateVariantInput
+	Scope    translationservices.Scope
+}
+
+type translationFamilyCreateVariantState struct {
+	Runtime *translationFamilyRuntime
+	Scope   translationservices.Scope
+	Family  translationservices.FamilyRecord
+}
+
 type translationFamilyIdempotencyRecord struct {
 	RequestHash string         `json:"request_hash"`
 	Payload     map[string]any `json:"payload"`
@@ -232,117 +245,41 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); permissionErr != nil {
 		return nil, permissionErr
 	}
-
-	body, err := parseOptionalJSONMap(c.Body())
-	if err != nil {
-		return nil, err
+	request, cached, err := b.prepareCreateVariantRequest(c, id, adminCtx)
+	if err != nil || cached != nil {
+		return cached, err
 	}
-	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
-		return nil, identityErr
-	}
-
-	channel := translationChannelFromRequest(c, adminCtx, body)
-	input, err := parseTranslationFamilyCreateVariantInput(c, body, channel)
-	if err != nil {
-		return nil, err
-	}
-	recordTranslationCreateLocaleMetric(adminCtx.Context, translationCreateLocaleEvent{
-		ContentType: familyContentTypeHint(body),
-		FamilyID:    strings.TrimSpace(id),
-		Locale:      input.Locale,
-		Environment: input.Environment,
-		Outcome:     "attempt",
-	})
-	if cached, hitErr := b.lookupCreateVariantIdempotency(adminCtx, strings.TrimSpace(id), input); hitErr != nil {
-		return nil, hitErr
-	} else if cached != nil {
-		return cached, nil
-	}
-
-	runtime, err := b.runtime(adminCtx.Context, input.Environment)
-	if err != nil {
-		return nil, err
-	}
-	scope := translationservices.Scope{
-		TenantID: translationIdentityFromAdminContext(adminCtx).TenantID,
-		OrgID:    translationIdentityFromAdminContext(adminCtx).OrgID,
-	}
-	familyBefore, ok, err := runtime.service.Detail(adminCtx.Context, translationservices.GetFamilyInput{
-		Scope:       scope,
-		Environment: input.Environment,
-		FamilyID:    strings.TrimSpace(id),
-	})
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, notFoundDomainError("translation family not found", map[string]any{"family_id": strings.TrimSpace(id)})
-	}
-	if translationFamilyPolicyDenied(familyBefore) {
-		recordTranslationCreateLocaleMetric(adminCtx.Context, translationCreateLocaleEvent{
-			ContentType: familyBefore.ContentType,
-			FamilyID:    familyBefore.ID,
-			Locale:      input.Locale,
-			Environment: input.Environment,
-			Outcome:     "policy_denied",
-		})
-		return nil, NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", mergeTranslationChannelContract(map[string]any{
-			"family_id":        familyBefore.ID,
-			"content_type":     familyBefore.ContentType,
-			"requested_locale": input.Locale,
-		}, input.Environment))
-	}
-	if translationFamilyHasLocale(familyBefore, input.Locale) {
-		if replayed, replayedOK, replayErr := b.lookupCreateVariantReplay(adminCtx, scope, familyBefore, input); replayErr != nil {
-			return nil, replayErr
-		} else if replayedOK {
-			if storeErr := b.storeCreateVariantIdempotency(adminCtx, familyBefore.ID, input, replayed); storeErr != nil {
-				return nil, storeErr
-			}
-			return replayed, nil
-		}
-		source := translationFamilySourceVariant(familyBefore)
-		recordTranslationCreateLocaleMetric(adminCtx.Context, translationCreateLocaleEvent{
-			ContentType: familyBefore.ContentType,
-			FamilyID:    familyBefore.ID,
-			Locale:      input.Locale,
-			Environment: input.Environment,
-			Outcome:     "duplicate",
-		})
-		return nil, TranslationAlreadyExistsError{
-			Panel:        familyBefore.ContentType,
-			EntityID:     strings.TrimSpace(source.SourceRecordID),
-			SourceLocale: familyBefore.SourceLocale,
-			Locale:       input.Locale,
-			FamilyID:     familyBefore.ID,
-		}
+	state, cached, err := b.loadCreateVariantState(strings.TrimSpace(id), request)
+	if err != nil || cached != nil {
+		return cached, err
 	}
 
 	var assignmentPlan translationFamilyCreateVariantAssignmentPlan
-	if input.AutoCreateAssignment {
-		assignmentPlan, err = b.planCreateVariantAssignment(adminCtx.Context, familyBefore, input)
+	if request.Input.AutoCreateAssignment {
+		assignmentPlan, err = b.planCreateVariantAssignment(request.AdminCtx.Context, state.Family, request.Input)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	createdVariant, err := b.createFamilyVariant(adminCtx.Context, translationIdentityFromAdminContext(adminCtx).ActorID, familyBefore, input)
+	actorID := translationIdentityFromAdminContext(request.AdminCtx).ActorID
+	createdVariant, err := b.createFamilyVariant(request.AdminCtx.Context, actorID, state.Family, request.Input)
 	if err != nil {
-		if input.IdempotencyKey != "" && isTranslationVariantAlreadyExists(err) {
-			replayed, replayedOK, replayErr := b.lookupCreateVariantReplayFromStore(adminCtx, scope, familyBefore.ID, input)
+		if request.Input.IdempotencyKey != "" && isTranslationVariantAlreadyExists(err) {
+			replayed, replayedOK, replayErr := b.lookupCreateVariantReplayFromStore(request.AdminCtx, state.Scope, state.Family.ID, request.Input)
 			if replayErr == nil && replayedOK {
-				if storeErr := b.storeCreateVariantIdempotency(adminCtx, familyBefore.ID, input, replayed); storeErr != nil {
+				if storeErr := b.storeCreateVariantIdempotency(request.AdminCtx, state.Family.ID, request.Input, replayed); storeErr != nil {
 					return nil, storeErr
 				}
 				return replayed, nil
 			}
 		}
 		if isTranslationVariantAlreadyExists(err) {
-			recordTranslationCreateLocaleMetric(adminCtx.Context, translationCreateLocaleEvent{
-				ContentType: familyBefore.ContentType,
-				FamilyID:    familyBefore.ID,
-				Locale:      input.Locale,
-				Environment: input.Environment,
+			recordTranslationCreateLocaleMetric(request.AdminCtx.Context, translationCreateLocaleEvent{
+				ContentType: state.Family.ContentType,
+				FamilyID:    state.Family.ID,
+				Locale:      request.Input.Locale,
+				Environment: request.Input.Environment,
 				Outcome:     "duplicate",
 				Err:         err,
 			})
@@ -351,56 +288,179 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 	}
 
 	outcome := translationFamilyCreateVariantOutcome{}
-	if input.AutoCreateAssignment {
-		outcome, err = b.applyCreateVariantAssignmentPlan(adminCtx.Context, familyBefore, input, assignmentPlan)
+	if request.Input.AutoCreateAssignment {
+		outcome, err = b.applyCreateVariantAssignmentPlan(request.AdminCtx.Context, state.Family, request.Input, assignmentPlan)
 		if err != nil {
-			if rollbackErr := b.deleteFamilyVariant(adminCtx.Context, createdVariant); rollbackErr != nil {
+			if rollbackErr := b.deleteFamilyVariant(request.AdminCtx.Context, createdVariant); rollbackErr != nil {
 				return nil, errors.Join(err, rollbackErr)
 			}
 			return nil, err
 		}
 	}
-	if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); syncErr != nil {
+	if syncErr := SyncTranslationFamilyStore(request.AdminCtx.Context, b.admin, request.Input.Environment); syncErr != nil {
 		return nil, syncErr
 	}
+	return b.finalizeCreateVariantPayload(request, state, actorID, createdVariant, outcome)
+}
 
-	payloadMap, familyAfter, err := b.rebuildCreateVariantPayloadWithFamily(adminCtx.Context, scope, familyBefore.ID, input)
+func (b *translationFamilyBinding) prepareCreateVariantRequest(c router.Context, familyID string, adminCtx AdminContext) (translationFamilyCreateVariantRequest, map[string]any, error) {
+	body, err := parseOptionalJSONMap(c.Body())
+	if err != nil {
+		return translationFamilyCreateVariantRequest{}, nil, err
+	}
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return translationFamilyCreateVariantRequest{}, nil, identityErr
+	}
+	channel := translationChannelFromRequest(c, adminCtx, body)
+	input, err := parseTranslationFamilyCreateVariantInput(c, body, channel)
+	if err != nil {
+		return translationFamilyCreateVariantRequest{}, nil, err
+	}
+	recordTranslationCreateLocaleMetric(adminCtx.Context, translationCreateLocaleEvent{
+		ContentType: familyContentTypeHint(body),
+		FamilyID:    strings.TrimSpace(familyID),
+		Locale:      input.Locale,
+		Environment: input.Environment,
+		Outcome:     "attempt",
+	})
+	cached, err := b.lookupCreateVariantIdempotency(adminCtx, strings.TrimSpace(familyID), input)
+	if err != nil || cached != nil {
+		return translationFamilyCreateVariantRequest{}, cached, err
+	}
+	return translationFamilyCreateVariantRequest{
+		AdminCtx: adminCtx,
+		Body:     body,
+		Input:    input,
+		Scope: translationservices.Scope{
+			TenantID: translationIdentityFromAdminContext(adminCtx).TenantID,
+			OrgID:    translationIdentityFromAdminContext(adminCtx).OrgID,
+		},
+	}, nil, nil
+}
+
+func (b *translationFamilyBinding) loadCreateVariantState(familyID string, request translationFamilyCreateVariantRequest) (translationFamilyCreateVariantState, map[string]any, error) {
+	runtime, err := b.runtime(request.AdminCtx.Context, request.Input.Environment)
+	if err != nil {
+		return translationFamilyCreateVariantState{}, nil, err
+	}
+	family, ok, err := runtime.service.Detail(request.AdminCtx.Context, translationservices.GetFamilyInput{
+		Scope:       request.Scope,
+		Environment: request.Input.Environment,
+		FamilyID:    familyID,
+	})
+	if err != nil {
+		return translationFamilyCreateVariantState{}, nil, err
+	}
+	if !ok {
+		return translationFamilyCreateVariantState{}, nil, notFoundDomainError("translation family not found", map[string]any{"family_id": familyID})
+	}
+	if err := b.ensureCreateVariantAllowed(request, family); err != nil {
+		return translationFamilyCreateVariantState{}, nil, err
+	}
+	cached, err := b.lookupExistingCreateVariant(request, family)
+	if err != nil || cached != nil {
+		return translationFamilyCreateVariantState{}, cached, err
+	}
+	return translationFamilyCreateVariantState{Runtime: runtime, Scope: request.Scope, Family: family}, nil, nil
+}
+
+func (b *translationFamilyBinding) ensureCreateVariantAllowed(request translationFamilyCreateVariantRequest, family translationservices.FamilyRecord) error {
+	if !translationFamilyPolicyDenied(family) {
+		return nil
+	}
+	recordTranslationCreateLocaleMetric(request.AdminCtx.Context, translationCreateLocaleEvent{
+		ContentType: family.ContentType,
+		FamilyID:    family.ID,
+		Locale:      request.Input.Locale,
+		Environment: request.Input.Environment,
+		Outcome:     "policy_denied",
+	})
+	return NewDomainError(string(translationcore.ErrorPolicyBlocked), "translation family is blocked by policy", mergeTranslationChannelContract(map[string]any{
+		"family_id":        family.ID,
+		"content_type":     family.ContentType,
+		"requested_locale": request.Input.Locale,
+	}, request.Input.Environment))
+}
+
+func (b *translationFamilyBinding) lookupExistingCreateVariant(request translationFamilyCreateVariantRequest, family translationservices.FamilyRecord) (map[string]any, error) {
+	if !translationFamilyHasLocale(family, request.Input.Locale) {
+		return nil, nil
+	}
+	replayed, replayedOK, replayErr := b.lookupCreateVariantReplay(request.AdminCtx, request.Scope, family, request.Input)
+	if replayErr != nil {
+		return nil, replayErr
+	}
+	if replayedOK {
+		if storeErr := b.storeCreateVariantIdempotency(request.AdminCtx, family.ID, request.Input, replayed); storeErr != nil {
+			return nil, storeErr
+		}
+		return replayed, nil
+	}
+	source := translationFamilySourceVariant(family)
+	recordTranslationCreateLocaleMetric(request.AdminCtx.Context, translationCreateLocaleEvent{
+		ContentType: family.ContentType,
+		FamilyID:    family.ID,
+		Locale:      request.Input.Locale,
+		Environment: request.Input.Environment,
+		Outcome:     "duplicate",
+	})
+	return nil, TranslationAlreadyExistsError{
+		Panel:        family.ContentType,
+		EntityID:     strings.TrimSpace(source.SourceRecordID),
+		SourceLocale: family.SourceLocale,
+		Locale:       request.Input.Locale,
+		FamilyID:     family.ID,
+	}
+}
+
+func (b *translationFamilyBinding) finalizeCreateVariantPayload(
+	request translationFamilyCreateVariantRequest,
+	state translationFamilyCreateVariantState,
+	actorID string,
+	createdVariant *CMSContent,
+	outcome translationFamilyCreateVariantOutcome,
+) (map[string]any, error) {
+	payloadMap, familyAfter, err := b.rebuildCreateVariantPayloadWithFamily(request.AdminCtx.Context, state.Scope, state.Family.ID, request.Input)
 	if err != nil {
 		return nil, err
 	}
 	translationFamilyAttachCreateVariantNavigation(payloadMap, createdVariant, b.admin.config.BasePath)
-	if outcome.Assignment != nil {
-		data, _ := payloadMap["data"].(map[string]any)
-		if data == nil {
-			data = map[string]any{}
-			payloadMap["data"] = data
-		}
-		data["assignment"] = translationCreateVariantAssignmentPayload(*outcome.Assignment)
-		meta, _ := payloadMap["meta"].(map[string]any)
-		if meta == nil {
-			meta = map[string]any{}
-			payloadMap["meta"] = meta
-		}
-		meta["assignment_reused"] = outcome.AssignmentReused
-		if len(outcome.ArchivedAssignmentIDs) > 0 {
-			meta["archived_assignment_ids"] = append([]string{}, outcome.ArchivedAssignmentIDs...)
-		}
-	}
-
-	if input.IdempotencyKey != "" {
-		if err := b.storeCreateVariantIdempotency(adminCtx, familyBefore.ID, input, payloadMap); err != nil {
+	translationFamilyAttachAssignmentOutcome(payloadMap, outcome)
+	if request.Input.IdempotencyKey != "" {
+		if err := b.storeCreateVariantIdempotency(request.AdminCtx, state.Family.ID, request.Input, payloadMap); err != nil {
 			return nil, err
 		}
 	}
-	recordTranslationCreateLocaleMetric(adminCtx.Context, translationCreateLocaleEvent{
+	recordTranslationCreateLocaleMetric(request.AdminCtx.Context, translationCreateLocaleEvent{
 		ContentType: familyAfter.ContentType,
 		FamilyID:    familyAfter.ID,
-		Locale:      input.Locale,
-		Environment: input.Environment,
+		Locale:      request.Input.Locale,
+		Environment: request.Input.Environment,
 		Outcome:     "success",
 	})
-	b.recordCreateVariantActivity(adminCtx.Context, translationIdentityFromAdminContext(adminCtx).ActorID, familyBefore, familyAfter, input, outcome)
+	b.recordCreateVariantActivity(request.AdminCtx.Context, actorID, state.Family, familyAfter, request.Input, outcome)
 	return payloadMap, nil
+}
+
+func translationFamilyAttachAssignmentOutcome(payloadMap map[string]any, outcome translationFamilyCreateVariantOutcome) {
+	if outcome.Assignment == nil {
+		return
+	}
+	data, _ := payloadMap["data"].(map[string]any)
+	if data == nil {
+		data = map[string]any{}
+		payloadMap["data"] = data
+	}
+	data["assignment"] = translationCreateVariantAssignmentPayload(*outcome.Assignment)
+	meta, _ := payloadMap["meta"].(map[string]any)
+	if meta == nil {
+		meta = map[string]any{}
+		payloadMap["meta"] = meta
+	}
+	meta["assignment_reused"] = outcome.AssignmentReused
+	if len(outcome.ArchivedAssignmentIDs) > 0 {
+		meta["archived_assignment_ids"] = append([]string{}, outcome.ArchivedAssignmentIDs...)
+	}
 }
 
 func familyContentTypeHint(body map[string]any) string {
@@ -641,70 +701,112 @@ func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.
 		return translationFamilyCreateVariantOutcome{}, err
 	}
 	outcome := translationFamilyCreateVariantOutcome{}
-	type archivedAssignmentSnapshot struct {
-		original TranslationAssignment
-		current  TranslationAssignment
+	archivedSnapshots, archivedIDs, err := b.archiveCreateVariantAssignments(ctx, repo, plan)
+	if err != nil {
+		return translationFamilyCreateVariantOutcome{}, err
 	}
-	archivedSnapshots := make([]archivedAssignmentSnapshot, 0, len(plan.ArchiveAssignments))
-	rollbackArchivedAssignments := func(cause error) error {
-		var rollbackErr error
-		for i := len(archivedSnapshots) - 1; i >= 0; i-- {
-			snapshot := archivedSnapshots[i]
-			if _, rollbackUpdateErr := repo.Update(ctx, snapshot.original, snapshot.current.Version); rollbackUpdateErr != nil {
-				rollbackErr = errors.Join(rollbackErr, rollbackUpdateErr)
-			}
-		}
-		if rollbackErr != nil {
-			return errors.Join(cause, rollbackErr)
-		}
-		return cause
-	}
-	for _, assignment := range plan.ArchiveAssignments {
-		original := cloneTranslationAssignment(assignment)
-		archived := assignment
-		archived.Status = AssignmentStatusArchived
-		now := b.now()
-		archived.ArchivedAt = &now
-		updated, updateErr := repo.Update(ctx, archived, assignment.Version)
-		if updateErr != nil {
-			return translationFamilyCreateVariantOutcome{}, updateErr
-		}
-		archivedSnapshots = append(archivedSnapshots, archivedAssignmentSnapshot{
-			original: original,
-			current:  updated,
-		})
-		outcome.ArchivedAssignmentIDs = append(outcome.ArchivedAssignmentIDs, strings.TrimSpace(updated.ID))
-	}
+	outcome.ArchivedAssignmentIDs = append(outcome.ArchivedAssignmentIDs, archivedIDs...)
 	if plan.ReuseAssignment != nil {
-		reused := cloneTranslationAssignment(*plan.ReuseAssignment)
-		reused.WorkScope = plan.WorkScope
-		if input.AssigneeID != "" && reused.AssigneeID == "" {
-			reused.AssigneeID = input.AssigneeID
-			reused.AssignmentType = AssignmentTypeDirect
-			reused.Status = AssignmentStatusAssigned
-		}
-		if input.Priority.IsValid() && input.Priority != reused.Priority {
-			reused.Priority = input.Priority
-		}
-		if input.DueDate != nil {
-			reused.DueDate = cloneTimePtr(input.DueDate)
-		}
-		if reused.Version != plan.ReuseAssignment.Version ||
-			reused.AssigneeID != plan.ReuseAssignment.AssigneeID ||
-			reused.Priority != plan.ReuseAssignment.Priority ||
-			reused.WorkScope != plan.ReuseAssignment.WorkScope ||
-			!timesEqual(reused.DueDate, plan.ReuseAssignment.DueDate) {
-			updated, updateErr := repo.Update(ctx, reused, plan.ReuseAssignment.Version)
-			if updateErr != nil {
-				return translationFamilyCreateVariantOutcome{}, rollbackArchivedAssignments(updateErr)
-			}
-			reused = updated
+		reused, reuseErr := b.reuseCreateVariantAssignment(ctx, repo, input, plan)
+		if reuseErr != nil {
+			return translationFamilyCreateVariantOutcome{}, b.rollbackArchivedAssignments(ctx, repo, archivedSnapshots, reuseErr)
 		}
 		outcome.Assignment = &reused
 		outcome.AssignmentReused = true
 		return outcome, nil
 	}
+	created, inserted, err := b.createVariantAssignment(ctx, repo, family, input, plan)
+	if err != nil {
+		return translationFamilyCreateVariantOutcome{}, b.rollbackArchivedAssignments(ctx, repo, archivedSnapshots, err)
+	}
+	outcome.Assignment = &created
+	outcome.AssignmentReused = !inserted
+	return outcome, nil
+}
 
+type archivedAssignmentSnapshot struct {
+	original TranslationAssignment
+	current  TranslationAssignment
+}
+
+func (b *translationFamilyBinding) archiveCreateVariantAssignments(
+	ctx context.Context,
+	repo TranslationAssignmentRepository,
+	plan translationFamilyCreateVariantAssignmentPlan,
+) ([]archivedAssignmentSnapshot, []string, error) {
+	snapshots := make([]archivedAssignmentSnapshot, 0, len(plan.ArchiveAssignments))
+	ids := make([]string, 0, len(plan.ArchiveAssignments))
+	for _, assignment := range plan.ArchiveAssignments {
+		original := cloneTranslationAssignment(assignment)
+		archived := assignment
+		now := b.now()
+		archived.Status = AssignmentStatusArchived
+		archived.ArchivedAt = &now
+		updated, err := repo.Update(ctx, archived, assignment.Version)
+		if err != nil {
+			return nil, nil, err
+		}
+		snapshots = append(snapshots, archivedAssignmentSnapshot{original: original, current: updated})
+		ids = append(ids, strings.TrimSpace(updated.ID))
+	}
+	return snapshots, ids, nil
+}
+
+func (b *translationFamilyBinding) rollbackArchivedAssignments(
+	ctx context.Context,
+	repo TranslationAssignmentRepository,
+	archivedSnapshots []archivedAssignmentSnapshot,
+	cause error,
+) error {
+	var rollbackErr error
+	for i := len(archivedSnapshots) - 1; i >= 0; i-- {
+		snapshot := archivedSnapshots[i]
+		if _, err := repo.Update(ctx, snapshot.original, snapshot.current.Version); err != nil {
+			rollbackErr = errors.Join(rollbackErr, err)
+		}
+	}
+	if rollbackErr != nil {
+		return errors.Join(cause, rollbackErr)
+	}
+	return cause
+}
+
+func (b *translationFamilyBinding) reuseCreateVariantAssignment(
+	ctx context.Context,
+	repo TranslationAssignmentRepository,
+	input translationFamilyCreateVariantInput,
+	plan translationFamilyCreateVariantAssignmentPlan,
+) (TranslationAssignment, error) {
+	reused := cloneTranslationAssignment(*plan.ReuseAssignment)
+	reused.WorkScope = plan.WorkScope
+	if input.AssigneeID != "" && reused.AssigneeID == "" {
+		reused.AssigneeID = input.AssigneeID
+		reused.AssignmentType = AssignmentTypeDirect
+		reused.Status = AssignmentStatusAssigned
+	}
+	if input.Priority.IsValid() && input.Priority != reused.Priority {
+		reused.Priority = input.Priority
+	}
+	if input.DueDate != nil {
+		reused.DueDate = cloneTimePtr(input.DueDate)
+	}
+	if reused.Version == plan.ReuseAssignment.Version &&
+		reused.AssigneeID == plan.ReuseAssignment.AssigneeID &&
+		reused.Priority == plan.ReuseAssignment.Priority &&
+		reused.WorkScope == plan.ReuseAssignment.WorkScope &&
+		timesEqual(reused.DueDate, plan.ReuseAssignment.DueDate) {
+		return reused, nil
+	}
+	return repo.Update(ctx, reused, plan.ReuseAssignment.Version)
+}
+
+func (b *translationFamilyBinding) createVariantAssignment(
+	ctx context.Context,
+	repo TranslationAssignmentRepository,
+	family translationservices.FamilyRecord,
+	input translationFamilyCreateVariantInput,
+	plan translationFamilyCreateVariantAssignmentPlan,
+) (TranslationAssignment, bool, error) {
 	source := translationFamilySourceVariant(family)
 	assignment := TranslationAssignment{
 		FamilyID:       family.ID,
@@ -727,13 +829,7 @@ func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.
 		assignment.AssignmentType = AssignmentTypeOpenPool
 		assignment.Status = AssignmentStatusOpen
 	}
-	created, inserted, err := repo.CreateOrReuseActive(ctx, assignment)
-	if err != nil {
-		return translationFamilyCreateVariantOutcome{}, rollbackArchivedAssignments(err)
-	}
-	outcome.Assignment = &created
-	outcome.AssignmentReused = !inserted
-	return outcome, nil
+	return repo.CreateOrReuseActive(ctx, assignment)
 }
 
 func translationCreateVariantAssignmentPayload(assignment TranslationAssignment) map[string]any {

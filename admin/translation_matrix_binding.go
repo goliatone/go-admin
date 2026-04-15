@@ -32,6 +32,20 @@ type translationMatrixRequest struct {
 	RequestedLocales []string
 }
 
+type translationMatrixBulkContext struct {
+	AdminCtx AdminContext
+	Scope    translationservices.Scope
+}
+
+type translationMatrixBulkAccumulator struct {
+	Summary     map[string]int
+	Results     []map[string]any
+	Resources   []string
+	EntityIDs   []string
+	Locales     []string
+	PreviewRows []map[string]any
+}
+
 func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err error) {
 	startedAt := time.Now()
 	obsCtx := c.Context()
@@ -176,151 +190,23 @@ func (b *translationFamilyBinding) CreateMissingBulk(c router.Context, body map[
 	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); permissionErr != nil {
 		return nil, permissionErr
 	}
-	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
-		return nil, identityErr
-	}
-
-	channel := translationChannelFromRequest(c, adminCtx, body)
-	input, err := parseTranslationMatrixCreateMissingInput(c, body, channel)
+	bulkCtx, input, familyIDs, err := b.prepareCreateMissingBulk(c, body, adminCtx)
 	if err != nil {
 		return nil, err
 	}
-	familyIDs := translationMatrixFamilyIDs(body["family_ids"])
-	if len(familyIDs) == 0 {
-		return nil, validationDomainError("matrix create missing requires family_ids", map[string]any{"field": "family_ids"})
-	}
-	scope := translationservices.Scope{
-		TenantID: translationIdentityFromAdminContext(adminCtx).TenantID,
-		OrgID:    translationIdentityFromAdminContext(adminCtx).OrgID,
-	}
-
-	summary := map[string]int{
+	accumulator := translationMatrixBulkAccumulator{Summary: map[string]int{
 		"families_processed": len(familyIDs),
 		"locales_requested":  0,
 		"created":            0,
 		"skipped":            0,
 		"failed":             0,
-	}
-	results := make([]map[string]any, 0, len(familyIDs))
+	}, Results: make([]map[string]any, 0, len(familyIDs))}
 	for _, familyID := range familyIDs {
-		runtime, runtimeErr := b.runtime(adminCtx.Context, input.Plan.Environment)
-		if runtimeErr != nil {
-			return nil, runtimeErr
+		if err := b.appendCreateMissingBulkResult(bulkCtx, input, familyID, &accumulator); err != nil {
+			return nil, err
 		}
-		family, ok, detailErr := runtime.service.Detail(adminCtx.Context, translationservices.GetFamilyInput{
-			Scope:       scope,
-			Environment: input.Plan.Environment,
-			FamilyID:    familyID,
-		})
-		if detailErr != nil {
-			return nil, detailErr
-		}
-
-		result := map[string]any{
-			"family_id":         familyID,
-			"requested_locales": append([]string{}, input.Locales...),
-			"created":           []map[string]any{},
-			"skipped":           []map[string]any{},
-			"failures":          []map[string]any{},
-		}
-		if !ok {
-			summary["failed"]++
-			result["status"] = translationMatrixBulkResultStatusFailed
-			result["failures"] = []map[string]any{{
-				"text_code": TextCodeNotFound,
-				"message":   "translation family not found",
-			}}
-			results = append(results, result)
-			continue
-		}
-		result["content_type"] = family.ContentType
-		result["source_record_id"] = translationFamilySourceVariant(family).SourceRecordID
-
-		targetLocales := input.Locales
-		if len(targetLocales) == 0 {
-			targetLocales = translationFamilyMissingLocales(family)
-		}
-		targetLocales = translationMatrixFilterMissingLocales(family, targetLocales)
-		summary["locales_requested"] += len(targetLocales)
-		if len(targetLocales) == 0 {
-			summary["skipped"]++
-			result["status"] = translationMatrixBulkResultStatusSkipped
-			result["skipped"] = []map[string]any{{
-				"reason_code": "NO_MISSING_LOCALES",
-				"reason":      "No missing locales matched the current selection.",
-			}}
-			results = append(results, result)
-			continue
-		}
-
-		created := []map[string]any{}
-		skipped := []map[string]any{}
-		failures := []map[string]any{}
-		for _, locale := range targetLocales {
-			perLocale := input.Plan
-			perLocale.Locale = locale
-			payloadMap, createErr := b.translationMatrixCreateVariant(adminCtx, scope, familyID, perLocale)
-			if createErr != nil {
-				mapped, _ := mapToGoError(createErr, nil)
-				entry := map[string]any{
-					"locale":  locale,
-					"message": createErr.Error(),
-				}
-				if mapped != nil {
-					entry["text_code"] = mapped.TextCode
-					if len(mapped.Metadata) > 0 {
-						entry["metadata"] = cloneAnyMap(mapped.Metadata)
-					}
-				}
-				if isTranslationVariantAlreadyExists(createErr) {
-					summary["skipped"]++
-					entry["reason_code"] = TextCodeTranslationExists
-					skipped = append(skipped, entry)
-					continue
-				}
-				summary["failed"]++
-				failures = append(failures, entry)
-				continue
-			}
-			summary["created"]++
-			data := extractMap(payloadMap["data"])
-			createdEntry := map[string]any{
-				"locale":     locale,
-				"variant_id": toString(data["variant_id"]),
-				"record_id":  toString(data["record_id"]),
-				"status":     toString(data["status"]),
-			}
-			if assignment := extractMap(data["assignment"]); len(assignment) > 0 {
-				createdEntry["assignment_id"] = toString(assignment["assignment_id"])
-				createdEntry["assignment_status"] = toString(assignment["status"])
-			}
-			created = append(created, createdEntry)
-		}
-
-		switch {
-		case len(failures) > 0 && len(created) == 0:
-			result["status"] = translationMatrixBulkResultStatusFailed
-		case len(created) > 0:
-			result["status"] = translationMatrixBulkResultStatusCreated
-		default:
-			result["status"] = translationMatrixBulkResultStatusSkipped
-		}
-		result["created"] = created
-		result["skipped"] = skipped
-		result["failures"] = failures
-		results = append(results, result)
 	}
-
-	return map[string]any{
-		"data": map[string]any{
-			"action":  translationMatrixBulkActionCreateMissing,
-			"summary": summary,
-			"results": results,
-		},
-		"meta": mergeTranslationChannelContract(map[string]any{
-			"contracts": TranslationMatrixContractPayload(),
-		}, input.Plan.Environment),
-	}, nil
+	return translationMatrixCreateMissingPayload(accumulator, input.Plan.Environment), nil
 }
 
 func (b *translationFamilyBinding) ExportSelectedBulk(c router.Context, body map[string]any) (payload any, err error) {
@@ -347,113 +233,292 @@ func (b *translationFamilyBinding) ExportSelectedBulk(c router.Context, body map
 	if permissionErr := b.admin.requirePermission(adminCtx, translationExchangePermissionExport, "translations"); permissionErr != nil {
 		return nil, permissionErr
 	}
-	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
-		return nil, identityErr
-	}
-
-	input := parseTranslationMatrixExportSelectedInput(c, body, adminCtx)
-	familyIDs := translationMatrixFamilyIDs(body["family_ids"])
-	if len(familyIDs) == 0 {
-		return nil, validationDomainError("matrix export selected requires family_ids", map[string]any{"field": "family_ids"})
-	}
-	scope := translationservices.Scope{
-		TenantID: translationIdentityFromAdminContext(adminCtx).TenantID,
-		OrgID:    translationIdentityFromAdminContext(adminCtx).OrgID,
-	}
-	runtime, err := b.runtime(adminCtx.Context, input.Environment)
+	bulkCtx, input, familyIDs, err := b.prepareExportSelectedBulk(c, body, adminCtx)
 	if err != nil {
 		return nil, err
 	}
-
-	results := make([]map[string]any, 0, len(familyIDs))
-	resources := []string{}
-	entityIDs := []string{}
-	targetLocales := []string{}
-	previewRows := []map[string]any{}
-	summary := map[string]int{
+	runtime, err := b.runtime(bulkCtx.AdminCtx.Context, input.Environment)
+	if err != nil {
+		return nil, err
+	}
+	accumulator := translationMatrixBulkAccumulator{Summary: map[string]int{
 		"families_processed": len(familyIDs),
 		"export_ready":       0,
 		"skipped":            0,
 		"failed":             0,
 		"estimated_rows":     0,
-	}
-
+	}, Results: make([]map[string]any, 0, len(familyIDs))}
 	for _, familyID := range familyIDs {
-		family, ok, detailErr := runtime.service.Detail(adminCtx.Context, translationservices.GetFamilyInput{
-			Scope:       scope,
-			Environment: input.Environment,
-			FamilyID:    familyID,
-		})
-		if detailErr != nil {
-			return nil, detailErr
+		if err := b.appendExportSelectedBulkResult(runtime, bulkCtx, input, familyID, &accumulator); err != nil {
+			return nil, err
 		}
-		result := map[string]any{
-			"family_id":         familyID,
-			"requested_locales": append([]string{}, input.Locales...),
-		}
-		if !ok {
-			summary["failed"]++
-			result["status"] = translationMatrixBulkResultStatusFailed
-			result["reason_code"] = TextCodeNotFound
-			result["reason"] = "translation family not found"
-			results = append(results, result)
-			continue
-		}
-
-		source := translationFamilySourceVariant(family)
-		result["content_type"] = family.ContentType
-		result["source_record_id"] = source.SourceRecordID
-		exportableLocales := translationMatrixExportableLocales(family, input.Locales)
-		if len(exportableLocales) == 0 || strings.TrimSpace(source.SourceRecordID) == "" {
-			summary["skipped"]++
-			result["status"] = translationMatrixBulkResultStatusSkipped
-			result["reason_code"] = "NO_EXPORTABLE_LOCALES"
-			result["reason"] = "No locales with exportable variants matched the current selection."
-			results = append(results, result)
-			continue
-		}
-
-		result["status"] = translationMatrixBulkResultStatusExportReady
-		result["exportable_locales"] = append([]string{}, exportableLocales...)
-		estimatedRows := len(source.Fields) * len(exportableLocales)
-		result["estimated_rows"] = estimatedRows
-		summary["export_ready"]++
-		summary["estimated_rows"] += estimatedRows
-		resources = append(resources, family.ContentType)
-		entityIDs = append(entityIDs, source.SourceRecordID)
-		targetLocales = append(targetLocales, exportableLocales...)
-		for _, locale := range exportableLocales {
-			for fieldPath, sourceText := range source.Fields {
-				if len(previewRows) >= 12 {
-					break
-				}
-				previewRows = append(previewRows, map[string]any{
-					"resource":      family.ContentType,
-					"entity_id":     source.SourceRecordID,
-					"family_id":     family.ID,
-					"source_locale": family.SourceLocale,
-					"target_locale": locale,
-					"field_path":    fieldPath,
-					"source_text":   sourceText,
-				})
-			}
-		}
-		results = append(results, result)
 	}
+	return b.translationMatrixExportSelectedPayload(accumulator, input, familyIDs), nil
+}
 
-	resources = dedupeAndSortStrings(resources)
-	entityIDs = dedupeAndSortStrings(entityIDs)
-	targetLocales = dedupeAndSortStrings(targetLocales)
+func (b *translationFamilyBinding) prepareCreateMissingBulk(c router.Context, body map[string]any, adminCtx AdminContext) (translationMatrixBulkContext, translationMatrixCreateMissingInput, []string, error) {
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return translationMatrixBulkContext{}, translationMatrixCreateMissingInput{}, nil, identityErr
+	}
+	channel := translationChannelFromRequest(c, adminCtx, body)
+	input, err := parseTranslationMatrixCreateMissingInput(c, body, channel)
+	if err != nil {
+		return translationMatrixBulkContext{}, translationMatrixCreateMissingInput{}, nil, err
+	}
+	familyIDs := translationMatrixFamilyIDs(body["family_ids"])
+	if len(familyIDs) == 0 {
+		return translationMatrixBulkContext{}, translationMatrixCreateMissingInput{}, nil, validationDomainError("matrix create missing requires family_ids", map[string]any{"field": "family_ids"})
+	}
+	return translationMatrixBulkContext{AdminCtx: adminCtx, Scope: translationMatrixScope(adminCtx)}, input, familyIDs, nil
+}
+
+func (b *translationFamilyBinding) appendCreateMissingBulkResult(ctx translationMatrixBulkContext, input translationMatrixCreateMissingInput, familyID string, accumulator *translationMatrixBulkAccumulator) error {
+	runtime, err := b.runtime(ctx.AdminCtx.Context, input.Plan.Environment)
+	if err != nil {
+		return err
+	}
+	family, ok, err := runtime.service.Detail(ctx.AdminCtx.Context, translationservices.GetFamilyInput{
+		Scope:       ctx.Scope,
+		Environment: input.Plan.Environment,
+		FamilyID:    familyID,
+	})
+	if err != nil {
+		return err
+	}
+	result := translationMatrixCreateMissingBaseResult(familyID, input.Locales)
+	if !ok {
+		accumulator.Summary["failed"]++
+		result["status"] = translationMatrixBulkResultStatusFailed
+		result["failures"] = []map[string]any{{"text_code": TextCodeNotFound, "message": "translation family not found"}}
+		accumulator.Results = append(accumulator.Results, result)
+		return nil
+	}
+	translationMatrixPopulateFamilyResult(result, family)
+	targetLocales := translationMatrixMissingTargetLocales(family, input.Locales)
+	accumulator.Summary["locales_requested"] += len(targetLocales)
+	if len(targetLocales) == 0 {
+		accumulator.Summary["skipped"]++
+		result["status"] = translationMatrixBulkResultStatusSkipped
+		result["skipped"] = []map[string]any{{"reason_code": "NO_MISSING_LOCALES", "reason": "No missing locales matched the current selection."}}
+		accumulator.Results = append(accumulator.Results, result)
+		return nil
+	}
+	created, skipped, failures := b.translationMatrixCreateMissingLocales(ctx, familyID, input.Plan, targetLocales, accumulator.Summary)
+	translationMatrixFinalizeCreateMissingResult(result, created, skipped, failures)
+	accumulator.Results = append(accumulator.Results, result)
+	return nil
+}
+
+func translationMatrixCreateMissingBaseResult(familyID string, locales []string) map[string]any {
+	return map[string]any{
+		"family_id":         familyID,
+		"requested_locales": append([]string{}, locales...),
+		"created":           []map[string]any{},
+		"skipped":           []map[string]any{},
+		"failures":          []map[string]any{},
+	}
+}
+
+func translationMatrixPopulateFamilyResult(result map[string]any, family translationservices.FamilyRecord) {
+	result["content_type"] = family.ContentType
+	result["source_record_id"] = translationFamilySourceVariant(family).SourceRecordID
+}
+
+func translationMatrixMissingTargetLocales(family translationservices.FamilyRecord, locales []string) []string {
+	targetLocales := locales
+	if len(targetLocales) == 0 {
+		targetLocales = translationFamilyMissingLocales(family)
+	}
+	return translationMatrixFilterMissingLocales(family, targetLocales)
+}
+
+func (b *translationFamilyBinding) translationMatrixCreateMissingLocales(
+	ctx translationMatrixBulkContext,
+	familyID string,
+	plan translationFamilyCreateVariantInput,
+	targetLocales []string,
+	summary map[string]int,
+) ([]map[string]any, []map[string]any, []map[string]any) {
+	created := []map[string]any{}
+	skipped := []map[string]any{}
+	failures := []map[string]any{}
+	for _, locale := range targetLocales {
+		perLocale := plan
+		perLocale.Locale = locale
+		payloadMap, createErr := b.translationMatrixCreateVariant(ctx.AdminCtx, ctx.Scope, familyID, perLocale)
+		if createErr != nil {
+			entry, skippedEntry := translationMatrixCreateMissingErrorEntry(locale, createErr)
+			if skippedEntry {
+				summary["skipped"]++
+				skipped = append(skipped, entry)
+				continue
+			}
+			summary["failed"]++
+			failures = append(failures, entry)
+			continue
+		}
+		summary["created"]++
+		created = append(created, translationMatrixCreatedEntry(locale, payloadMap))
+	}
+	return created, skipped, failures
+}
+
+func translationMatrixCreateMissingErrorEntry(locale string, createErr error) (map[string]any, bool) {
+	mapped, _ := mapToGoError(createErr, nil)
+	entry := map[string]any{"locale": locale, "message": createErr.Error()}
+	if mapped != nil {
+		entry["text_code"] = mapped.TextCode
+		if len(mapped.Metadata) > 0 {
+			entry["metadata"] = cloneAnyMap(mapped.Metadata)
+		}
+	}
+	if !isTranslationVariantAlreadyExists(createErr) {
+		return entry, false
+	}
+	entry["reason_code"] = TextCodeTranslationExists
+	return entry, true
+}
+
+func translationMatrixCreatedEntry(locale string, payloadMap map[string]any) map[string]any {
+	data := extractMap(payloadMap["data"])
+	entry := map[string]any{
+		"locale":     locale,
+		"variant_id": toString(data["variant_id"]),
+		"record_id":  toString(data["record_id"]),
+		"status":     toString(data["status"]),
+	}
+	if assignment := extractMap(data["assignment"]); len(assignment) > 0 {
+		entry["assignment_id"] = toString(assignment["assignment_id"])
+		entry["assignment_status"] = toString(assignment["status"])
+	}
+	return entry
+}
+
+func translationMatrixFinalizeCreateMissingResult(result map[string]any, created, skipped, failures []map[string]any) {
+	switch {
+	case len(failures) > 0 && len(created) == 0:
+		result["status"] = translationMatrixBulkResultStatusFailed
+	case len(created) > 0:
+		result["status"] = translationMatrixBulkResultStatusCreated
+	default:
+		result["status"] = translationMatrixBulkResultStatusSkipped
+	}
+	result["created"] = created
+	result["skipped"] = skipped
+	result["failures"] = failures
+}
+
+func translationMatrixCreateMissingPayload(accumulator translationMatrixBulkAccumulator, environment string) map[string]any {
+	return map[string]any{
+		"data": map[string]any{
+			"action":  translationMatrixBulkActionCreateMissing,
+			"summary": accumulator.Summary,
+			"results": accumulator.Results,
+		},
+		"meta": mergeTranslationChannelContract(map[string]any{
+			"contracts": TranslationMatrixContractPayload(),
+		}, environment),
+	}
+}
+
+func (b *translationFamilyBinding) prepareExportSelectedBulk(c router.Context, body map[string]any, adminCtx AdminContext) (translationMatrixBulkContext, translationMatrixExportSelectedInput, []string, error) {
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return translationMatrixBulkContext{}, translationMatrixExportSelectedInput{}, nil, identityErr
+	}
+	input := parseTranslationMatrixExportSelectedInput(c, body, adminCtx)
+	familyIDs := translationMatrixFamilyIDs(body["family_ids"])
+	if len(familyIDs) == 0 {
+		return translationMatrixBulkContext{}, translationMatrixExportSelectedInput{}, nil, validationDomainError("matrix export selected requires family_ids", map[string]any{"field": "family_ids"})
+	}
+	return translationMatrixBulkContext{AdminCtx: adminCtx, Scope: translationMatrixScope(adminCtx)}, input, familyIDs, nil
+}
+
+func (b *translationFamilyBinding) appendExportSelectedBulkResult(
+	runtime *translationFamilyRuntime,
+	ctx translationMatrixBulkContext,
+	input translationMatrixExportSelectedInput,
+	familyID string,
+	accumulator *translationMatrixBulkAccumulator,
+) error {
+	family, ok, err := runtime.service.Detail(ctx.AdminCtx.Context, translationservices.GetFamilyInput{
+		Scope:       ctx.Scope,
+		Environment: input.Environment,
+		FamilyID:    familyID,
+	})
+	if err != nil {
+		return err
+	}
+	result := map[string]any{
+		"family_id":         familyID,
+		"requested_locales": append([]string{}, input.Locales...),
+	}
+	if !ok {
+		accumulator.Summary["failed"]++
+		result["status"] = translationMatrixBulkResultStatusFailed
+		result["reason_code"] = TextCodeNotFound
+		result["reason"] = "translation family not found"
+		accumulator.Results = append(accumulator.Results, result)
+		return nil
+	}
+	source := translationFamilySourceVariant(family)
+	result["content_type"] = family.ContentType
+	result["source_record_id"] = source.SourceRecordID
+	exportableLocales := translationMatrixExportableLocales(family, input.Locales)
+	if len(exportableLocales) == 0 || strings.TrimSpace(source.SourceRecordID) == "" {
+		accumulator.Summary["skipped"]++
+		result["status"] = translationMatrixBulkResultStatusSkipped
+		result["reason_code"] = "NO_EXPORTABLE_LOCALES"
+		result["reason"] = "No locales with exportable variants matched the current selection."
+		accumulator.Results = append(accumulator.Results, result)
+		return nil
+	}
+	estimatedRows := len(source.Fields) * len(exportableLocales)
+	result["status"] = translationMatrixBulkResultStatusExportReady
+	result["exportable_locales"] = append([]string{}, exportableLocales...)
+	result["estimated_rows"] = estimatedRows
+	accumulator.Summary["export_ready"]++
+	accumulator.Summary["estimated_rows"] += estimatedRows
+	accumulator.Resources = append(accumulator.Resources, family.ContentType)
+	accumulator.EntityIDs = append(accumulator.EntityIDs, source.SourceRecordID)
+	accumulator.Locales = append(accumulator.Locales, exportableLocales...)
+	accumulator.PreviewRows = translationMatrixAppendPreviewRows(accumulator.PreviewRows, family, source, exportableLocales)
+	accumulator.Results = append(accumulator.Results, result)
+	return nil
+}
+
+func translationMatrixAppendPreviewRows(previewRows []map[string]any, family translationservices.FamilyRecord, source translationservices.FamilyVariant, exportableLocales []string) []map[string]any {
+	for _, locale := range exportableLocales {
+		for fieldPath, sourceText := range source.Fields {
+			if len(previewRows) >= 12 {
+				return previewRows
+			}
+			previewRows = append(previewRows, map[string]any{
+				"resource":      family.ContentType,
+				"entity_id":     source.SourceRecordID,
+				"family_id":     family.ID,
+				"source_locale": family.SourceLocale,
+				"target_locale": locale,
+				"field_path":    fieldPath,
+				"source_text":   sourceText,
+			})
+		}
+	}
+	return previewRows
+}
+
+func (b *translationFamilyBinding) translationMatrixExportSelectedPayload(accumulator translationMatrixBulkAccumulator, input translationMatrixExportSelectedInput, familyIDs []string) map[string]any {
+	resources := dedupeAndSortStrings(accumulator.Resources)
+	entityIDs := dedupeAndSortStrings(accumulator.EntityIDs)
+	targetLocales := dedupeAndSortStrings(accumulator.Locales)
 	format := input.Format
 	if format == "" {
 		format = "json"
 	}
-
 	return map[string]any{
 		"data": map[string]any{
 			"action":  translationMatrixBulkActionExportSelected,
-			"summary": summary,
-			"results": results,
+			"summary": accumulator.Summary,
+			"results": accumulator.Results,
 			"export_request": map[string]any{
 				"endpoint": resolveURLWith(b.admin.URLs(), b.admin.AdminAPIGroup(), "translations.export", nil, nil),
 				"method":   "POST",
@@ -468,12 +533,12 @@ func (b *translationFamilyBinding) ExportSelectedBulk(c router.Context, body map
 					},
 				},
 			},
-			"preview_rows": previewRows,
+			"preview_rows": accumulator.PreviewRows,
 		},
 		"meta": mergeTranslationChannelContract(map[string]any{
 			"contracts": TranslationMatrixContractPayload(),
 		}, input.Environment),
-	}, nil
+	}
 }
 
 func parseTranslationMatrixCreateMissingInput(c router.Context, body map[string]any, environment string) (translationMatrixCreateMissingInput, error) {

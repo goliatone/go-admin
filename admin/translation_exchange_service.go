@@ -263,182 +263,15 @@ func (s *TranslationExchangeService) ApplyImport(ctx context.Context, input Tran
 	resolutions := translationExchangeResolutionMap(input.Resolutions)
 
 	for i, row := range input.Rows {
-		rowResult := translationExchangeRowResult(i, row)
-		rowResolution := translationExchangeResolutionForRow(resolutions, rowResult.Index)
-		if rowResolution != nil && strings.TrimSpace(rowResolution.Decision) == translationExchangeResolutionSkip {
-			rowResult.Status = translationExchangeRowStatusSkipped
-			rowResult.Error = "skipped by explicit retry resolution"
-			rowResult.Metadata = map[string]any{
-				"resolution_decision": translationExchangeResolutionSkip,
-			}
-			result.Add(rowResult)
-			continue
-		}
-
-		key, err := ResolveTranslationExchangeLinkageKey(row)
+		outcome, err := s.applyImportRow(ctx, input, row, i, seen, resolutions)
 		if err != nil {
-			rowResult.Status = translationExchangeRowStatusError
-			rowResult.Error = err.Error()
-			rowResult.Metadata = map[string]any{
-				"error_code": TextCodeTranslationExchangeInvalidPayload,
-			}
-			result.Add(rowResult)
-			if !input.ContinueOnError {
-				appendSkippedRows(&result, input.Rows, i+1)
-				break
-			}
-			continue
+			return TranslationExchangeResult{}, err
 		}
-		keyString := key.String()
-		if firstIndex, duplicate := seen[keyString]; duplicate {
-			rowResult.Status = translationExchangeRowStatusConflict
-			rowResult.Error = "duplicate row linkage in import payload"
-			rowResult.Conflict = &TranslationExchangeConflictInfo{
-				Type:    translationExchangeConflictTypeDuplicateRow,
-				Message: "duplicate linkage key in import payload",
-			}
-			rowResult.Metadata = map[string]any{
-				"error_code":       TextCodeTranslationExchangeDuplicateRow,
-				"duplicate_of_row": firstIndex,
-			}
-			result.Add(rowResult)
-			if !input.ContinueOnError {
-				appendSkippedRows(&result, input.Rows, i+1)
-				break
-			}
-			continue
+		result.Add(outcome.RowResult)
+		if outcome.TerminalStop {
+			appendSkippedRows(&result, input.Rows, i+1)
+			break
 		}
-		seen[keyString] = rowResult.Index
-
-		linkage, err := s.store.ResolveLinkage(ctx, key)
-		if err != nil {
-			if errors.Is(err, ErrTranslationExchangeLinkageNotFound) || errors.Is(err, ErrNotFound) {
-				rowResult.Status = translationExchangeRowStatusConflict
-				rowResult.Error = "row linkage could not be resolved"
-				rowResult.Conflict = &TranslationExchangeConflictInfo{
-					Type:    translationExchangeConflictTypeMissingLinkage,
-					Message: "resource/entity linkage not found",
-				}
-				rowResult.Metadata = map[string]any{
-					"error_code": TextCodeTranslationExchangeMissingLinkage,
-				}
-			} else {
-				rowResult.Status = translationExchangeRowStatusError
-				rowResult.Error = err.Error()
-			}
-			result.Add(rowResult)
-			if !input.ContinueOnError {
-				appendSkippedRows(&result, input.Rows, i+1)
-				break
-			}
-			continue
-		}
-
-		allowSourceHashOverride := input.AllowSourceHashOverride ||
-			translationExchangeResolutionAllows(rowResolution, translationExchangeResolutionOverrideSourceHash)
-		if !allowSourceHashOverride && hasSourceHashConflict(row, linkage) {
-			rowResult.Status = translationExchangeRowStatusConflict
-			rowResult.Error = "source hash mismatch"
-			rowResult.Conflict = &TranslationExchangeConflictInfo{
-				Type:               translationExchangeConflictTypeStaleSource,
-				Message:            "source hash mismatch",
-				CurrentSourceHash:  strings.TrimSpace(linkage.SourceHash),
-				ProvidedSourceHash: normalizeProvidedSourceHash(row),
-			}
-			rowResult.Metadata = map[string]any{
-				"error_code":           TextCodeTranslationExchangeStaleSourceHash,
-				"current_source_hash":  strings.TrimSpace(linkage.SourceHash),
-				"provided_source_hash": normalizeProvidedSourceHash(row),
-			}
-			result.Add(rowResult)
-			if !input.ContinueOnError {
-				appendSkippedRows(&result, input.Rows, i+1)
-				break
-			}
-			continue
-		}
-
-		createTranslation := !linkage.TargetExists
-		payloadHash := translationExchangeApplyPayloadHash(strings.TrimSpace(row.TranslatedText), createTranslation, translationExchangeWorkflowDraft, row.Path, row.RouteKey)
-		allowCreateMissing := row.CreateTranslation ||
-			input.AllowCreateMissing ||
-			translationExchangeResolutionAllows(rowResolution, translationExchangeResolutionCreateMissing)
-		if createTranslation && !allowCreateMissing {
-			rowResult.Status = translationExchangeRowStatusError
-			rowResult.Error = "target locale record missing; explicit create intent required"
-			rowResult.Metadata = map[string]any{
-				"create_translation_required": true,
-				"error_code":                  TextCodeTranslationExchangeInvalidPayload,
-				"linkage_key":                 key.String(),
-				"payload_hash":                payloadHash,
-			}
-			result.Add(rowResult)
-			if !input.ContinueOnError {
-				appendSkippedRows(&result, input.Rows, i+1)
-				break
-			}
-			continue
-		}
-
-		if input.DryRun {
-			rowResult.Status = translationExchangeRowStatusSuccess
-			rowResult.Metadata = map[string]any{
-				"dry_run":         true,
-				"linkage_key":     key.String(),
-				"payload_hash":    payloadHash,
-				"no_auto_publish": true,
-			}
-			if allowSourceHashOverride && hasSourceHashConflict(row, linkage) {
-				rowResult.Metadata["source_hash_override"] = true
-			}
-			if allowCreateMissing && createTranslation {
-				rowResult.Metadata["resolution_decision"] = translationExchangeResolutionCreateMissing
-			}
-			result.Add(rowResult)
-			continue
-		}
-
-		applyReq := TranslationExchangeApplyRequest{
-			Key:               key,
-			TranslatedText:    strings.TrimSpace(row.TranslatedText),
-			CreateTranslation: createTranslation,
-			WorkflowStatus:    translationExchangeWorkflowDraft,
-			Path:              strings.TrimSpace(row.Path),
-			RouteKey:          strings.TrimSpace(row.RouteKey),
-		}
-		record, replay, err := s.applyTranslationIdempotently(ctx, applyReq, payloadHash)
-		if err != nil {
-			rowResult.Status = translationExchangeRowStatusError
-			rowResult.Error = err.Error()
-			rowResult.Metadata = map[string]any{
-				"linkage_key":  key.String(),
-				"payload_hash": payloadHash,
-			}
-			result.Add(rowResult)
-			if !input.ContinueOnError {
-				appendSkippedRows(&result, input.Rows, i+1)
-				break
-			}
-			continue
-		}
-
-		rowResult.Status = translationExchangeRowStatusSuccess
-		rowResult.Metadata = map[string]any{
-			"create_translation": record.Request.CreateTranslation,
-			"workflow_status":    record.Request.WorkflowStatus,
-			"idempotency_hit":    replay,
-			"linkage_key":        record.LinkageKey,
-			"payload_hash":       record.PayloadHash,
-			"applied_at":         record.AppliedAt.UTC().Format(time.RFC3339Nano),
-			"no_auto_publish":    true,
-		}
-		if allowSourceHashOverride && hasSourceHashConflict(row, linkage) {
-			rowResult.Metadata["source_hash_override"] = true
-		}
-		if rowResolution != nil && strings.TrimSpace(rowResolution.Decision) != "" {
-			rowResult.Metadata["resolution_decision"] = strings.TrimSpace(rowResolution.Decision)
-		}
-		result.Add(rowResult)
 	}
 
 	return result, nil
@@ -489,6 +322,17 @@ type translationExchangeApplyRowOutcome struct {
 	TerminalStop   bool                         `json:"terminal_stop"`
 }
 
+type translationExchangePreparedApplyRow struct {
+	RowResult               TranslationExchangeRowResult
+	RowResolution           *TranslationExchangeConflictResolution
+	Key                     TranslationExchangeLinkageKey
+	KeyString               string
+	Linkage                 TranslationExchangeLinkage
+	AllowSourceHashOverride bool
+	CreateTranslation       bool
+	PayloadHash             string
+}
+
 func (s *TranslationExchangeService) applyImportRow(
 	ctx context.Context,
 	input TranslationImportApplyInput,
@@ -500,14 +344,39 @@ func (s *TranslationExchangeService) applyImportRow(
 	rowResult := translationExchangeRowResult(rowIndex, row)
 	rowResolution := translationExchangeResolutionForRow(resolutions, rowResult.Index)
 	if rowResolution != nil && strings.TrimSpace(rowResolution.Decision) == translationExchangeResolutionSkip {
-		rowResult.Status = translationExchangeRowStatusSkipped
-		rowResult.Error = "skipped by explicit retry resolution"
-		rowResult.Metadata = map[string]any{
-			"resolution_decision": translationExchangeResolutionSkip,
-		}
-		return translationExchangeApplyRowOutcome{RowResult: rowResult}, nil
+		return translationExchangeApplyRowOutcome{
+			RowResult: translationExchangeSkippedApplyRowResult(rowResult),
+		}, nil
 	}
+	prepared, outcome := s.prepareImportRow(ctx, input, row, seen, rowResult, rowResolution)
+	if outcome != nil {
+		return *outcome, nil
+	}
+	if input.DryRun {
+		return translationExchangeRegisteredApplyOutcome(translationExchangeApplyRowOutcome{
+			RowResult: translationExchangeDryRunApplyRowResult(
+				prepared.RowResult,
+				prepared.Key,
+				prepared.PayloadHash,
+				prepared.CreateTranslation,
+				prepared.AllowSourceHashOverride,
+				row,
+				prepared.RowResolution,
+				prepared.Linkage,
+			),
+		}, prepared.KeyString), nil
+	}
+	return s.executeImportRow(ctx, input, row, prepared)
+}
 
+func (s *TranslationExchangeService) prepareImportRow(
+	ctx context.Context,
+	input TranslationImportApplyInput,
+	row TranslationExchangeRow,
+	seen map[string]int,
+	rowResult TranslationExchangeRowResult,
+	rowResolution *TranslationExchangeConflictResolution,
+) (translationExchangePreparedApplyRow, *translationExchangeApplyRowOutcome) {
 	key, err := ResolveTranslationExchangeLinkageKey(row)
 	if err != nil {
 		rowResult.Status = translationExchangeRowStatusError
@@ -515,140 +384,189 @@ func (s *TranslationExchangeService) applyImportRow(
 		rowResult.Metadata = map[string]any{
 			"error_code": TextCodeTranslationExchangeInvalidPayload,
 		}
-		return translationExchangeApplyRowOutcome{RowResult: rowResult, TerminalStop: !input.ContinueOnError}, nil
+		outcome := translationExchangeApplyStopOutcome(rowResult, input)
+		return translationExchangePreparedApplyRow{}, &outcome
 	}
 	keyString := key.String()
 	if firstIndex, duplicate := seen[keyString]; duplicate {
-		rowResult.Status = translationExchangeRowStatusConflict
-		rowResult.Error = "duplicate row linkage in import payload"
-		rowResult.Conflict = &TranslationExchangeConflictInfo{
-			Type:    translationExchangeConflictTypeDuplicateRow,
-			Message: "duplicate linkage key in import payload",
-		}
-		rowResult.Metadata = map[string]any{
-			"error_code":       TextCodeTranslationExchangeDuplicateRow,
-			"duplicate_of_row": firstIndex,
-		}
-		return translationExchangeApplyRowOutcome{RowResult: rowResult, TerminalStop: !input.ContinueOnError}, nil
+		outcome := translationExchangeApplyStopOutcome(
+			translationExchangeDuplicateApplyRowResult(rowResult, firstIndex),
+			input,
+		)
+		return translationExchangePreparedApplyRow{}, &outcome
 	}
 	seen[keyString] = rowResult.Index
-
 	linkage, err := s.store.ResolveLinkage(ctx, key)
 	if err != nil {
-		if errors.Is(err, ErrTranslationExchangeLinkageNotFound) || errors.Is(err, ErrNotFound) {
-			rowResult.Status = translationExchangeRowStatusConflict
-			rowResult.Error = "row linkage could not be resolved"
-			rowResult.Conflict = &TranslationExchangeConflictInfo{
-				Type:    translationExchangeConflictTypeMissingLinkage,
-				Message: "resource/entity linkage not found",
-			}
-			rowResult.Metadata = map[string]any{
-				"error_code": TextCodeTranslationExchangeMissingLinkage,
-			}
-		} else {
-			rowResult.Status = translationExchangeRowStatusError
-			rowResult.Error = err.Error()
-		}
-		return translationExchangeApplyRowOutcome{
-			RowResult:      rowResult,
-			SeenKey:        keyString,
-			SeenRegistered: true,
-			TerminalStop:   !input.ContinueOnError,
-		}, nil
+		outcome := translationExchangeRegisteredApplyOutcome(
+			translationExchangeApplyResolveLinkageOutcome(rowResult, err, input),
+			keyString,
+		)
+		return translationExchangePreparedApplyRow{}, &outcome
 	}
-
 	allowSourceHashOverride := input.AllowSourceHashOverride ||
 		translationExchangeResolutionAllows(rowResolution, translationExchangeResolutionOverrideSourceHash)
 	if !allowSourceHashOverride && hasSourceHashConflict(row, linkage) {
-		rowResult.Status = translationExchangeRowStatusConflict
-		rowResult.Error = "source hash mismatch"
-		rowResult.Conflict = &TranslationExchangeConflictInfo{
-			Type:               translationExchangeConflictTypeStaleSource,
-			Message:            "source hash mismatch",
-			CurrentSourceHash:  strings.TrimSpace(linkage.SourceHash),
-			ProvidedSourceHash: normalizeProvidedSourceHash(row),
-		}
-		rowResult.Metadata = map[string]any{
-			"error_code":           TextCodeTranslationExchangeStaleSourceHash,
-			"current_source_hash":  strings.TrimSpace(linkage.SourceHash),
-			"provided_source_hash": normalizeProvidedSourceHash(row),
-		}
-		return translationExchangeApplyRowOutcome{
-			RowResult:      rowResult,
-			SeenKey:        keyString,
-			SeenRegistered: true,
-			TerminalStop:   !input.ContinueOnError,
-		}, nil
+		outcome := translationExchangeRegisteredApplyOutcome(
+			translationExchangeApplyStopOutcome(
+				translationExchangeStaleSourceResult(rowResult, linkage, normalizeProvidedSourceHash(row)),
+				input,
+			),
+			keyString,
+		)
+		return translationExchangePreparedApplyRow{}, &outcome
 	}
-
 	createTranslation := !linkage.TargetExists
 	payloadHash := translationExchangeApplyPayloadHash(strings.TrimSpace(row.TranslatedText), createTranslation, translationExchangeWorkflowDraft, row.Path, row.RouteKey)
 	allowCreateMissing := row.CreateTranslation ||
 		input.AllowCreateMissing ||
 		translationExchangeResolutionAllows(rowResolution, translationExchangeResolutionCreateMissing)
 	if createTranslation && !allowCreateMissing {
-		rowResult.Status = translationExchangeRowStatusError
-		rowResult.Error = "target locale record missing; explicit create intent required"
-		rowResult.Metadata = map[string]any{
-			"create_translation_required": true,
-			"error_code":                  TextCodeTranslationExchangeInvalidPayload,
-			"linkage_key":                 key.String(),
-			"payload_hash":                payloadHash,
-		}
-		return translationExchangeApplyRowOutcome{
-			RowResult:      rowResult,
-			SeenKey:        keyString,
-			SeenRegistered: true,
-			TerminalStop:   !input.ContinueOnError,
-		}, nil
+		outcome := translationExchangeRegisteredApplyOutcome(
+			translationExchangeApplyStopOutcome(
+				translationExchangeCreateRequiredApplyRowResult(rowResult, key, payloadHash),
+				input,
+			),
+			keyString,
+		)
+		return translationExchangePreparedApplyRow{}, &outcome
 	}
+	return translationExchangePreparedApplyRow{
+		RowResult:               rowResult,
+		RowResolution:           rowResolution,
+		Key:                     key,
+		KeyString:               keyString,
+		Linkage:                 linkage,
+		AllowSourceHashOverride: allowSourceHashOverride,
+		CreateTranslation:       createTranslation,
+		PayloadHash:             payloadHash,
+	}, nil
+}
 
-	if input.DryRun {
-		rowResult.Status = translationExchangeRowStatusSuccess
-		rowResult.Metadata = map[string]any{
-			"dry_run":            true,
-			"linkage_key":        key.String(),
-			"payload_hash":       payloadHash,
-			"no_auto_publish":    true,
-			"create_translation": createTranslation,
-		}
-		if allowSourceHashOverride && hasSourceHashConflict(row, linkage) {
-			rowResult.Metadata["source_hash_override"] = true
-		}
-		if rowResolution != nil && strings.TrimSpace(rowResolution.Decision) != "" {
-			rowResult.Metadata["resolution_decision"] = strings.TrimSpace(rowResolution.Decision)
-		}
-		return translationExchangeApplyRowOutcome{
-			RowResult:      rowResult,
-			SeenKey:        keyString,
-			SeenRegistered: true,
-		}, nil
-	}
-
+func (s *TranslationExchangeService) executeImportRow(
+	ctx context.Context,
+	input TranslationImportApplyInput,
+	row TranslationExchangeRow,
+	prepared translationExchangePreparedApplyRow,
+) (translationExchangeApplyRowOutcome, error) {
 	applyReq := TranslationExchangeApplyRequest{
-		Key:               key,
+		Key:               prepared.Key,
 		TranslatedText:    strings.TrimSpace(row.TranslatedText),
-		CreateTranslation: createTranslation,
+		CreateTranslation: prepared.CreateTranslation,
 		WorkflowStatus:    translationExchangeWorkflowDraft,
 		Path:              strings.TrimSpace(row.Path),
 		RouteKey:          strings.TrimSpace(row.RouteKey),
 	}
-	record, replay, err := s.applyTranslationIdempotently(ctx, applyReq, payloadHash)
+	record, replay, err := s.applyTranslationIdempotently(ctx, applyReq, prepared.PayloadHash)
 	if err != nil {
-		rowResult.Status = translationExchangeRowStatusError
-		rowResult.Error = err.Error()
-		rowResult.Metadata = map[string]any{
-			"linkage_key":  key.String(),
-			"payload_hash": payloadHash,
+		prepared.RowResult.Status = translationExchangeRowStatusError
+		prepared.RowResult.Error = err.Error()
+		prepared.RowResult.Metadata = map[string]any{
+			"linkage_key":  prepared.Key.String(),
+			"payload_hash": prepared.PayloadHash,
 		}
-		return translationExchangeApplyRowOutcome{
-			RowResult:      rowResult,
-			SeenKey:        keyString,
-			SeenRegistered: true,
-			TerminalStop:   !input.ContinueOnError,
-		}, nil
+		return translationExchangeRegisteredApplyOutcome(
+			translationExchangeApplyStopOutcome(prepared.RowResult, input),
+			prepared.KeyString,
+		), nil
 	}
+	return translationExchangeRegisteredApplyOutcome(translationExchangeApplyRowOutcome{
+		RowResult: translationExchangeAppliedRowResult(
+			prepared.RowResult,
+			record,
+			replay,
+			prepared.AllowSourceHashOverride,
+			row,
+			prepared.RowResolution,
+			prepared.Linkage,
+		),
+	}, prepared.KeyString), nil
+}
 
+func translationExchangeApplyStopOutcome(rowResult TranslationExchangeRowResult, input TranslationImportApplyInput) translationExchangeApplyRowOutcome {
+	return translationExchangeApplyRowOutcome{
+		RowResult:    rowResult,
+		TerminalStop: !input.ContinueOnError,
+	}
+}
+
+func translationExchangeRegisteredApplyOutcome(outcome translationExchangeApplyRowOutcome, key string) translationExchangeApplyRowOutcome {
+	outcome.SeenKey = key
+	outcome.SeenRegistered = true
+	return outcome
+}
+
+func translationExchangeSkippedApplyRowResult(rowResult TranslationExchangeRowResult) TranslationExchangeRowResult {
+	rowResult.Status = translationExchangeRowStatusSkipped
+	rowResult.Error = "skipped by explicit retry resolution"
+	rowResult.Metadata = map[string]any{
+		"resolution_decision": translationExchangeResolutionSkip,
+	}
+	return rowResult
+}
+
+func translationExchangeDuplicateApplyRowResult(rowResult TranslationExchangeRowResult, firstIndex int) TranslationExchangeRowResult {
+	rowResult.Status = translationExchangeRowStatusConflict
+	rowResult.Error = "duplicate row linkage in import payload"
+	rowResult.Conflict = &TranslationExchangeConflictInfo{
+		Type:    translationExchangeConflictTypeDuplicateRow,
+		Message: "duplicate linkage key in import payload",
+	}
+	rowResult.Metadata = map[string]any{
+		"error_code":       TextCodeTranslationExchangeDuplicateRow,
+		"duplicate_of_row": firstIndex,
+	}
+	return rowResult
+}
+
+func translationExchangeApplyResolveLinkageOutcome(rowResult TranslationExchangeRowResult, err error, input TranslationImportApplyInput) translationExchangeApplyRowOutcome {
+	rowResult = translationExchangeLinkageErrorResult(rowResult, err)
+	return translationExchangeApplyStopOutcome(rowResult, input)
+}
+
+func translationExchangeCreateRequiredApplyRowResult(rowResult TranslationExchangeRowResult, key TranslationExchangeLinkageKey, payloadHash string) TranslationExchangeRowResult {
+	rowResult.Status = translationExchangeRowStatusError
+	rowResult.Error = "target locale record missing; explicit create intent required"
+	rowResult.Metadata = map[string]any{
+		"create_translation_required": true,
+		"error_code":                  TextCodeTranslationExchangeInvalidPayload,
+		"linkage_key":                 key.String(),
+		"payload_hash":                payloadHash,
+	}
+	return rowResult
+}
+
+func translationExchangeDryRunApplyRowResult(
+	rowResult TranslationExchangeRowResult,
+	key TranslationExchangeLinkageKey,
+	payloadHash string,
+	createTranslation bool,
+	allowSourceHashOverride bool,
+	row TranslationExchangeRow,
+	rowResolution *TranslationExchangeConflictResolution,
+	linkage TranslationExchangeLinkage,
+) TranslationExchangeRowResult {
+	rowResult.Status = translationExchangeRowStatusSuccess
+	rowResult.Metadata = map[string]any{
+		"dry_run":            true,
+		"linkage_key":        key.String(),
+		"payload_hash":       payloadHash,
+		"no_auto_publish":    true,
+		"create_translation": createTranslation,
+	}
+	translationExchangeApplyResolutionMetadata(rowResult.Metadata, allowSourceHashOverride, row, rowResolution, linkage)
+	return rowResult
+}
+
+func translationExchangeAppliedRowResult(
+	rowResult TranslationExchangeRowResult,
+	record translationExchangeAppliedRecord,
+	replay bool,
+	allowSourceHashOverride bool,
+	row TranslationExchangeRow,
+	rowResolution *TranslationExchangeConflictResolution,
+	linkage TranslationExchangeLinkage,
+) TranslationExchangeRowResult {
 	rowResult.Status = translationExchangeRowStatusSuccess
 	rowResult.Metadata = map[string]any{
 		"create_translation": record.Request.CreateTranslation,
@@ -659,17 +577,26 @@ func (s *TranslationExchangeService) applyImportRow(
 		"applied_at":         record.AppliedAt.UTC().Format(time.RFC3339Nano),
 		"no_auto_publish":    true,
 	}
+	translationExchangeApplyResolutionMetadata(rowResult.Metadata, allowSourceHashOverride, row, rowResolution, linkage)
+	return rowResult
+}
+
+func translationExchangeApplyResolutionMetadata(
+	meta map[string]any,
+	allowSourceHashOverride bool,
+	row TranslationExchangeRow,
+	rowResolution *TranslationExchangeConflictResolution,
+	linkage TranslationExchangeLinkage,
+) {
+	if meta == nil {
+		return
+	}
 	if allowSourceHashOverride && hasSourceHashConflict(row, linkage) {
-		rowResult.Metadata["source_hash_override"] = true
+		meta["source_hash_override"] = true
 	}
 	if rowResolution != nil && strings.TrimSpace(rowResolution.Decision) != "" {
-		rowResult.Metadata["resolution_decision"] = strings.TrimSpace(rowResolution.Decision)
+		meta["resolution_decision"] = strings.TrimSpace(rowResolution.Decision)
 	}
-	return translationExchangeApplyRowOutcome{
-		RowResult:      rowResult,
-		SeenKey:        keyString,
-		SeenRegistered: true,
-	}, nil
 }
 
 // ResolveTranslationExchangeLinkageKey canonicalizes deterministic row linkage identifiers.

@@ -1,0 +1,228 @@
+<header class="px-6 py-5 sm:px-8 sm:py-6 bg-white border-b border-gray-200 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+  <div>
+    <p class="text-sm text-gray-500 mb-1">Library</p>
+    <h1 class="text-3xl font-bold text-admin-dark">Media</h1>
+  </div>
+  <div class="flex flex-wrap items-center gap-3">
+    <div class="inline-flex rounded-xl border border-gray-200 overflow-hidden bg-white">
+      <a
+        href="{{ media_gallery_path }}"
+        class="px-4 py-2.5 text-sm font-medium {% if media_view == "grid" %}bg-gray-900 text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}"
+      >
+        <i class="iconoir-view-grid mr-2"></i>Grid
+      </a>
+      <a
+        href="{{ media_list_path }}"
+        class="px-4 py-2.5 text-sm font-medium border-l border-gray-200 {% if media_view == "list" %}bg-gray-900 text-white{% else %}text-gray-600 hover:bg-gray-50{% endif %}"
+      >
+        <i class="iconoir-list mr-2"></i>List
+      </a>
+    </div>
+    <input type="file" class="hidden" data-media-upload-input multiple>
+    <button type="button" class="btn btn-primary" data-media-upload-trigger>
+      <i class="iconoir-upload mr-2"></i>Upload
+    </button>
+  </div>
+</header>
+
+<div class="flex-1 overflow-hidden p-6 sm:p-8">
+  <div
+    class="h-full grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6"
+    data-media-page-root
+    data-media-view="{{ media_view }}"
+    data-media-gallery-path="{{ media_gallery_path }}"
+    data-media-list-path="{{ media_list_path }}"
+    data-media-library-path="{{ media_library_path }}"
+    data-media-item-path="{{ media_item_path }}"
+    data-media-resolve-path="{{ media_resolve_path }}"
+    data-media-upload-path="{{ media_upload_path }}"
+    data-media-presign-path="{{ media_presign_path }}"
+    data-media-confirm-path="{{ media_confirm_path }}"
+    data-media-capabilities-path="{{ media_capabilities_path }}"
+    data-media-default-value-mode="{{ media_default_value_mode }}"
+  >
+    <section class="min-h-0 flex flex-col">
+      <div class="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 mb-5">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <label class="relative flex-1">
+            <i class="iconoir-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input
+              type="search"
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900"
+              placeholder="Search media by name, URL, or type"
+              data-media-search
+            >
+          </label>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:min-w-[460px]">
+            <select class="rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" data-media-type-filter>
+              <option value="">All types</option>
+              <option value="image">Images</option>
+              <option value="video">Video</option>
+              <option value="audio">Audio</option>
+              <option value="document">Documents</option>
+              <option value="text">Text</option>
+              <option value="binary">Binary</option>
+              <option value="vector">Vectors</option>
+            </select>
+            <select class="rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" data-media-status-filter>
+              <option value="">All statuses</option>
+              <option value="ready">Ready</option>
+              <option value="processing">Processing</option>
+              <option value="uploaded">Uploaded</option>
+              <option value="failed">Failed</option>
+            </select>
+            <select class="rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" data-media-sort>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="name">Name</option>
+              <option value="size">Size</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="hidden text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4" data-media-error></div>
+      <div class="hidden text-sm text-gray-600 bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 mb-4" data-media-status></div>
+
+      <div class="hidden border-2 border-dashed border-gray-300 bg-white rounded-2xl px-8 py-16 text-center" data-media-empty>
+        <div class="max-w-md mx-auto">
+          <div class="w-16 h-16 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center mx-auto mb-4">
+            <i class="iconoir-media-image-list text-3xl"></i>
+          </div>
+          <h2 class="text-xl font-semibold text-gray-900 mb-2">No media files yet</h2>
+          <p class="text-sm text-gray-500 mb-6">Upload files to populate the library, then filter and edit them from here.</p>
+          <button type="button" class="btn btn-primary" data-media-upload-empty>
+            <i class="iconoir-upload mr-2"></i>Upload Media
+          </button>
+        </div>
+      </div>
+
+      <div class="hidden border border-gray-200 bg-white rounded-2xl px-8 py-16 text-center" data-media-no-results>
+        <div class="max-w-md mx-auto">
+          <div class="w-14 h-14 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center mx-auto mb-4">
+            <i class="iconoir-search text-2xl"></i>
+          </div>
+          <h2 class="text-lg font-semibold text-gray-900 mb-2">No matches found</h2>
+          <p class="text-sm text-gray-500">Adjust the search or filters to broaden the result set.</p>
+        </div>
+      </div>
+
+      <div class="hidden flex-1 items-center justify-center border border-gray-200 bg-white rounded-2xl" data-media-loading>
+        <div class="text-center text-gray-500">
+          <div class="w-10 h-10 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin mx-auto mb-3"></div>
+          <p class="text-sm">Loading media library…</p>
+        </div>
+      </div>
+
+      <div class="min-h-0 flex-1 flex flex-col gap-4">
+        <div class="{% if media_view == "list" %}hidden {% endif %}grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 content-start" data-media-grid></div>
+
+        <div class="{% if media_view != "list" %}hidden {% endif %}min-h-0 bg-white border border-gray-200 rounded-2xl overflow-hidden" data-media-list>
+          <div class="overflow-auto h-full">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                <tr>
+                  <th class="w-10 px-4 py-3 text-left">
+                    <input type="checkbox" class="rounded border-gray-300 text-gray-900 focus:ring-gray-900" data-media-select-all>
+                  </th>
+                  <th class="w-20 px-4 py-3 text-left font-medium text-gray-500">Preview</th>
+                  <th class="px-4 py-3 text-left font-medium text-gray-500">Name</th>
+                  <th class="px-4 py-3 text-left font-medium text-gray-500 hidden md:table-cell">Type</th>
+                  <th class="px-4 py-3 text-left font-medium text-gray-500 hidden md:table-cell">Status</th>
+                  <th class="px-4 py-3 text-left font-medium text-gray-500 hidden lg:table-cell">Size</th>
+                  <th class="px-4 py-3 text-left font-medium text-gray-500 hidden lg:table-cell">Uploaded</th>
+                  <th class="px-4 py-3 text-right font-medium text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200" data-media-list-body></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="hidden items-center justify-between text-sm text-gray-500" data-media-footer>
+          <span data-media-count-label>0 items</span>
+          <button type="button" class="btn btn-secondary hidden" data-media-load-more>Load More</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="bg-white border border-gray-200 rounded-2xl overflow-hidden min-h-0 flex flex-col" data-media-detail-shell>
+      <div class="px-5 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">Details</h2>
+        <p class="text-sm text-gray-500 mt-1">Select an item to inspect metadata and edit operator fields.</p>
+      </div>
+
+      <div class="flex-1 overflow-auto" data-media-detail-empty>
+        <div class="p-8 text-center text-gray-500">
+          <div class="w-14 h-14 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center mx-auto mb-4">
+            <i class="iconoir-cursor-pointer text-2xl"></i>
+          </div>
+          <p class="text-sm">Nothing selected yet.</p>
+        </div>
+      </div>
+
+      <div class="hidden flex-1 overflow-auto" data-media-detail>
+        <div class="p-5 border-b border-gray-200">
+          <div class="aspect-[4/3] rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center" data-media-detail-preview></div>
+        </div>
+
+        <div class="p-5 space-y-5">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 break-all" data-media-detail-name></h3>
+            <p class="text-sm text-gray-500 mt-1 break-all" data-media-detail-url></p>
+          </div>
+
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+            <div>
+              <dt class="text-gray-500">Type</dt>
+              <dd class="font-medium text-gray-900 mt-1" data-media-detail-type></dd>
+            </div>
+            <div>
+              <dt class="text-gray-500">Status</dt>
+              <dd class="font-medium text-gray-900 mt-1" data-media-detail-status-label></dd>
+            </div>
+            <div>
+              <dt class="text-gray-500">Size</dt>
+              <dd class="font-medium text-gray-900 mt-1" data-media-detail-size></dd>
+            </div>
+            <div>
+              <dt class="text-gray-500">Uploaded</dt>
+              <dd class="font-medium text-gray-900 mt-1" data-media-detail-date></dd>
+            </div>
+          </dl>
+
+          <form class="space-y-4" data-media-detail-form>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1" for="media-alt-text">Alt Text</label>
+              <input id="media-alt-text" name="alt_text" type="text" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1" for="media-caption">Caption</label>
+              <textarea id="media-caption" name="caption" rows="3" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900"></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1" for="media-tags">Tags</label>
+              <input id="media-tags" name="tags" type="text" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" placeholder="hero, homepage">
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="submit" class="btn btn-primary" data-media-save-button>Save Metadata</button>
+              <button type="button" class="btn btn-secondary" data-media-copy-url>Copy URL</button>
+              <button type="button" class="btn btn-secondary text-red-600 border-red-200 hover:bg-red-50" data-media-delete>Delete</button>
+            </div>
+            <p class="hidden text-sm text-red-600" data-media-detail-error></p>
+            <p class="hidden text-sm text-green-600" data-media-detail-feedback></p>
+          </form>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 hidden" data-media-selection-bar>
+    <div class="bg-gray-900 text-white rounded-full shadow-xl px-5 py-3 flex items-center gap-3">
+      <span class="text-sm"><strong data-media-selected-count>0</strong> selected</span>
+      <div class="w-px h-5 bg-gray-700"></div>
+      <button type="button" class="text-sm hover:text-gray-200" data-media-clear-selection>Clear</button>
+      <button type="button" class="text-sm text-red-300 hover:text-red-200" data-media-bulk-delete>Delete</button>
+    </div>
+  </div>
+</div>

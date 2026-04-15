@@ -673,12 +673,38 @@ func (e adminActivityEnricher) Enrich(ctx context.Context, record userstypes.Act
 	if data == nil {
 		data = map[string]any{}
 	}
-	updated := false
-
 	actorID := record.ActorID
 	if actorID == uuid.Nil {
 		actorID = record.UserID
 	}
+	objectType := strings.TrimSpace(record.ObjectType)
+	objectID := strings.TrimSpace(record.ObjectID)
+	updated := seedActivityMetadata(data, actorID, objectType, objectID)
+	resolveCtx := usersactivity.ResolveContext{
+		TenantID: record.TenantID,
+		ActorID:  actorID,
+		Verb:     strings.TrimSpace(record.Verb),
+		Source:   strings.TrimSpace(record.Channel),
+		Metadata: data,
+	}
+	actorUpdated, err := e.enrichActorMetadata(ctx, data, actorID, resolveCtx)
+	if err != nil {
+		return record, err
+	}
+	objectUpdated, err := e.enrichObjectMetadata(ctx, data, objectType, objectID, resolveCtx)
+	if err != nil {
+		return record, err
+	}
+	updated = updated || actorUpdated || objectUpdated
+	updated = applyDefaultActivityDisplays(data, actorID, objectType, objectID) || updated
+	if !updated {
+		return record, nil
+	}
+	return e.stampEnrichedActivity(record, data), nil
+}
+
+func seedActivityMetadata(data map[string]any, actorID uuid.UUID, objectType, objectID string) bool {
+	updated := false
 	if actorID != uuid.Nil {
 		updated = setMissingMetadata(data, usersactivity.DataKeyActorID, actorID.String()) || updated
 	}
@@ -687,66 +713,73 @@ func (e adminActivityEnricher) Enrich(ctx context.Context, record userstypes.Act
 			updated = setMissingMetadata(data, usersactivity.DataKeyActorType, legacy) || updated
 		}
 	}
-
-	objectType := strings.TrimSpace(record.ObjectType)
-	objectID := strings.TrimSpace(record.ObjectID)
 	if objectType != "" {
 		updated = setMissingMetadata(data, usersactivity.DataKeyObjectType, objectType) || updated
 	}
 	if objectID != "" {
 		updated = setMissingMetadata(data, usersactivity.DataKeyObjectID, objectID) || updated
 	}
+	return updated
+}
 
-	resolveCtx := usersactivity.ResolveContext{
-		TenantID: record.TenantID,
-		ActorID:  actorID,
-		Verb:     strings.TrimSpace(record.Verb),
-		Source:   strings.TrimSpace(record.Channel),
-		Metadata: data,
+func (e adminActivityEnricher) enrichActorMetadata(ctx context.Context, data map[string]any, actorID uuid.UUID, resolveCtx usersactivity.ResolveContext) (bool, error) {
+	if e.actorResolver == nil || actorID == uuid.Nil {
+		return false, nil
 	}
-
-	if e.actorResolver != nil && actorID != uuid.Nil {
-		infos, err := e.actorResolver.ResolveActors(ctx, []uuid.UUID{actorID}, resolveCtx)
-		if err != nil {
-			return record, err
-		}
-		if info, ok := infos[actorID]; ok {
-			if info.ID != uuid.Nil {
-				updated = setMissingMetadata(data, usersactivity.DataKeyActorID, info.ID.String()) || updated
-			}
-			if info.Type != "" {
-				updated = setMissingMetadata(data, usersactivity.DataKeyActorType, info.Type) || updated
-			}
-			if info.Display != "" {
-				updated = setMissingMetadata(data, usersactivity.DataKeyActorDisplay, info.Display) || updated
-			}
-			if info.Email != "" {
-				updated = setMissingMetadata(data, usersactivity.DataKeyActorEmail, info.Email) || updated
-			}
-		}
+	infos, err := e.actorResolver.ResolveActors(ctx, []uuid.UUID{actorID}, resolveCtx)
+	if err != nil {
+		return false, err
 	}
-
-	if e.objectResolver != nil && objectType != "" && objectID != "" {
-		infos, err := e.objectResolver.ResolveObjects(ctx, objectType, []string{objectID}, resolveCtx)
-		if err != nil {
-			return record, err
-		}
-		if info, ok := infos[objectID]; ok {
-			if info.ID != "" {
-				updated = setMissingMetadata(data, usersactivity.DataKeyObjectID, info.ID) || updated
-			}
-			if info.Type != "" {
-				updated = setMissingMetadata(data, usersactivity.DataKeyObjectType, info.Type) || updated
-			}
-			if info.Display != "" {
-				updated = setMissingMetadata(data, usersactivity.DataKeyObjectDisplay, info.Display) || updated
-			}
-			if info.Deleted {
-				updated = setMissingMetadata(data, usersactivity.DataKeyObjectDeleted, true) || updated
-			}
-		}
+	info, ok := infos[actorID]
+	if !ok {
+		return false, nil
 	}
+	updated := false
+	if info.ID != uuid.Nil {
+		updated = setMissingMetadata(data, usersactivity.DataKeyActorID, info.ID.String()) || updated
+	}
+	if info.Type != "" {
+		updated = setMissingMetadata(data, usersactivity.DataKeyActorType, info.Type) || updated
+	}
+	if info.Display != "" {
+		updated = setMissingMetadata(data, usersactivity.DataKeyActorDisplay, info.Display) || updated
+	}
+	if info.Email != "" {
+		updated = setMissingMetadata(data, usersactivity.DataKeyActorEmail, info.Email) || updated
+	}
+	return updated, nil
+}
 
+func (e adminActivityEnricher) enrichObjectMetadata(ctx context.Context, data map[string]any, objectType, objectID string, resolveCtx usersactivity.ResolveContext) (bool, error) {
+	if e.objectResolver == nil || objectType == "" || objectID == "" {
+		return false, nil
+	}
+	infos, err := e.objectResolver.ResolveObjects(ctx, objectType, []string{objectID}, resolveCtx)
+	if err != nil {
+		return false, err
+	}
+	info, ok := infos[objectID]
+	if !ok {
+		return false, nil
+	}
+	updated := false
+	if info.ID != "" {
+		updated = setMissingMetadata(data, usersactivity.DataKeyObjectID, info.ID) || updated
+	}
+	if info.Type != "" {
+		updated = setMissingMetadata(data, usersactivity.DataKeyObjectType, info.Type) || updated
+	}
+	if info.Display != "" {
+		updated = setMissingMetadata(data, usersactivity.DataKeyObjectDisplay, info.Display) || updated
+	}
+	if info.Deleted {
+		updated = setMissingMetadata(data, usersactivity.DataKeyObjectDeleted, true) || updated
+	}
+	return updated, nil
+}
+
+func applyDefaultActivityDisplays(data map[string]any, actorID uuid.UUID, objectType, objectID string) bool {
+	updated := false
 	if _, ok := data[usersactivity.DataKeyObjectDisplay]; !ok && objectType != "" {
 		display := safeObjectDisplay(objectType, objectID)
 		if objectID == "" {
@@ -759,11 +792,10 @@ func (e adminActivityEnricher) Enrich(ctx context.Context, record userstypes.Act
 	if _, ok := data[usersactivity.DataKeyActorDisplay]; !ok && actorID != uuid.Nil {
 		updated = setMissingMetadata(data, usersactivity.DataKeyActorDisplay, actorID.String()) || updated
 	}
+	return updated
+}
 
-	if !updated {
-		return record, nil
-	}
-
+func (e adminActivityEnricher) stampEnrichedActivity(record userstypes.ActivityRecord, data map[string]any) userstypes.ActivityRecord {
 	out := record
 	out.Data = data
 	now := time.Now().UTC()
@@ -775,7 +807,7 @@ func (e adminActivityEnricher) Enrich(ctx context.Context, record userstypes.Act
 			now = now.UTC()
 		}
 	}
-	return usersactivity.StampEnrichment(out, now, e.version), nil
+	return usersactivity.StampEnrichment(out, now, e.version)
 }
 
 func setMissingMetadata(data map[string]any, key string, value any) bool {

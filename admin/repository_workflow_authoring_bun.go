@@ -420,138 +420,171 @@ func EnsureWorkflowAuthoringCutover(ctx context.Context, db *bun.DB) error {
 
 func runWorkflowAuthoringCutover(ctx context.Context, db *bun.DB) error {
 	return db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		workflows := []bunWorkflowRecord{}
-		if err := tx.NewSelect().Model(&workflows).OrderExpr("id ASC").Scan(ctx); err != nil {
-			if !workflowRepoNotFound(err) {
-				return fmt.Errorf("workflow authoring cutover: list workflows: %w", err)
-			}
+		workflows, revisions, bindingsCount, err := loadWorkflowAuthoringCutoverState(ctx, tx)
+		if err != nil {
+			return err
 		}
-
-		revisions := []bunWorkflowRevisionRecord{}
-		if err := tx.NewSelect().
-			Model(&revisions).
-			OrderExpr("workflow_id ASC").
-			OrderExpr("version ASC").
-			Scan(ctx); err != nil {
-			if !workflowRepoNotFound(err) {
-				return fmt.Errorf("workflow authoring cutover: list revisions: %w", err)
-			}
+		migratedMachines, migratedVersions, err := migrateWorkflowAuthoringCutoverCurrent(ctx, tx, workflows)
+		if err != nil {
+			return err
 		}
-
-		bindingsCount := 0
-		if count, err := tx.NewSelect().Model((*bunWorkflowBindingRecord)(nil)).Count(ctx); err != nil {
-			if !workflowRepoNotFound(err) {
-				return fmt.Errorf("workflow authoring cutover: count bindings: %w", err)
-			}
-		} else {
-			bindingsCount = count
+		revisionVersions, err := migrateWorkflowAuthoringCutoverRevisions(ctx, tx, revisions)
+		if err != nil {
+			return err
 		}
-
-		migratedMachines := 0
-		migratedVersions := 0
-		for _, row := range workflows {
-			workflow, err := workflowFromBunRecord(row)
-			if err != nil {
-				return err
-			}
-			rec, err := persistedWorkflowToAuthoringRecord(workflow)
-			if err != nil {
-				return err
-			}
-			machineRow, err := bunAuthoringMachineRowFromRecord(rec)
-			if err != nil {
-				return err
-			}
-			if _, insertErr := tx.NewInsert().
-				Model(&machineRow).
-				On("CONFLICT (machine_id) DO UPDATE").
-				Set("name = EXCLUDED.name").
-				Set("version = EXCLUDED.version").
-				Set("etag = EXCLUDED.etag").
-				Set("draft = EXCLUDED.draft").
-				Set("diagnostics = EXCLUDED.diagnostics").
-				Set("updated_at = EXCLUDED.updated_at").
-				Set("published_at = EXCLUDED.published_at").
-				Set("published_definition = EXCLUDED.published_definition").
-				Set("deleted_at = EXCLUDED.deleted_at").
-				Exec(ctx); insertErr != nil {
-				return fmt.Errorf("workflow authoring cutover: upsert machine %s: %w", rec.MachineID, insertErr)
-			}
-			migratedMachines++
-
-			versionRow, err := bunAuthoringVersionRowFromRecord(rec)
-			if err != nil {
-				return err
-			}
-			if _, err := tx.NewInsert().
-				Model(&versionRow).
-				On("CONFLICT (machine_id, version) DO UPDATE").
-				Set("name = EXCLUDED.name").
-				Set("etag = EXCLUDED.etag").
-				Set("draft = EXCLUDED.draft").
-				Set("diagnostics = EXCLUDED.diagnostics").
-				Set("updated_at = EXCLUDED.updated_at").
-				Set("published_at = EXCLUDED.published_at").
-				Set("published_definition = EXCLUDED.published_definition").
-				Set("deleted_at = EXCLUDED.deleted_at").
-				Exec(ctx); err != nil {
-				return fmt.Errorf("workflow authoring cutover: upsert current version %s@%s: %w", rec.MachineID, rec.Version, err)
-			}
-			migratedVersions++
-		}
-
-		for _, row := range revisions {
-			workflow, err := workflowFromRevisionRecord(row)
-			if err != nil {
-				return err
-			}
-			rec, err := persistedWorkflowToAuthoringRecord(workflow)
-			if err != nil {
-				return err
-			}
-			versionRow, err := bunAuthoringVersionRowFromRecord(rec)
-			if err != nil {
-				return err
-			}
-			if _, err := tx.NewInsert().
-				Model(&versionRow).
-				On("CONFLICT (machine_id, version) DO UPDATE").
-				Set("name = EXCLUDED.name").
-				Set("etag = EXCLUDED.etag").
-				Set("draft = EXCLUDED.draft").
-				Set("diagnostics = EXCLUDED.diagnostics").
-				Set("updated_at = EXCLUDED.updated_at").
-				Set("published_at = EXCLUDED.published_at").
-				Set("published_definition = EXCLUDED.published_definition").
-				Set("deleted_at = EXCLUDED.deleted_at").
-				Exec(ctx); err != nil {
-				return fmt.Errorf("workflow authoring cutover: upsert revision %s@%s: %w", rec.MachineID, rec.Version, err)
-			}
-			migratedVersions++
-		}
-
-		details, _ := json.Marshal(map[string]any{
-			"legacy_workflows":         len(workflows),
-			"legacy_revisions":         len(revisions),
-			"legacy_bindings":          bindingsCount,
-			"migrated_authoring":       migratedMachines,
-			"migrated_authoringEvents": migratedVersions,
-		})
-		marker := bunWorkflowMigrationMarkerRecord{
-			MarkerKey:   workflowAuthoringCutoverMarker,
-			CompletedAt: time.Now().UTC(),
-			DetailsJSON: string(details),
-		}
-		if _, err := tx.NewInsert().
-			Model(&marker).
-			On("CONFLICT (marker_key) DO UPDATE").
-			Set("completed_at = EXCLUDED.completed_at").
-			Set("details_json = EXCLUDED.details_json").
-			Exec(ctx); err != nil {
-			return fmt.Errorf("workflow authoring cutover: write marker: %w", err)
-		}
-		return nil
+		migratedVersions += revisionVersions
+		return writeWorkflowAuthoringCutoverMarker(ctx, tx, workflows, revisions, bindingsCount, migratedMachines, migratedVersions)
 	})
+}
+
+func loadWorkflowAuthoringCutoverState(ctx context.Context, tx bun.Tx) ([]bunWorkflowRecord, []bunWorkflowRevisionRecord, int, error) {
+	workflows := []bunWorkflowRecord{}
+	if err := tx.NewSelect().Model(&workflows).OrderExpr("id ASC").Scan(ctx); err != nil && !workflowRepoNotFound(err) {
+		return nil, nil, 0, fmt.Errorf("workflow authoring cutover: list workflows: %w", err)
+	}
+	revisions := []bunWorkflowRevisionRecord{}
+	if err := tx.NewSelect().
+		Model(&revisions).
+		OrderExpr("workflow_id ASC").
+		OrderExpr("version ASC").
+		Scan(ctx); err != nil && !workflowRepoNotFound(err) {
+		return nil, nil, 0, fmt.Errorf("workflow authoring cutover: list revisions: %w", err)
+	}
+	bindingsCount := 0
+	if count, err := tx.NewSelect().Model((*bunWorkflowBindingRecord)(nil)).Count(ctx); err != nil {
+		if !workflowRepoNotFound(err) {
+			return nil, nil, 0, fmt.Errorf("workflow authoring cutover: count bindings: %w", err)
+		}
+	} else {
+		bindingsCount = count
+	}
+	return workflows, revisions, bindingsCount, nil
+}
+
+func migrateWorkflowAuthoringCutoverCurrent(ctx context.Context, tx bun.Tx, workflows []bunWorkflowRecord) (int, int, error) {
+	migratedMachines := 0
+	migratedVersions := 0
+	for _, row := range workflows {
+		rec, err := workflowAuthoringRecordFromWorkflow(row)
+		if err != nil {
+			return 0, 0, err
+		}
+		if err := upsertWorkflowAuthoringMachine(ctx, tx, rec); err != nil {
+			return 0, 0, err
+		}
+		migratedMachines++
+		if err := upsertWorkflowAuthoringVersion(ctx, tx, rec, "current version"); err != nil {
+			return 0, 0, err
+		}
+		migratedVersions++
+	}
+	return migratedMachines, migratedVersions, nil
+}
+
+func migrateWorkflowAuthoringCutoverRevisions(ctx context.Context, tx bun.Tx, revisions []bunWorkflowRevisionRecord) (int, error) {
+	migratedVersions := 0
+	for _, row := range revisions {
+		rec, err := workflowAuthoringRecordFromRevision(row)
+		if err != nil {
+			return 0, err
+		}
+		if err := upsertWorkflowAuthoringVersion(ctx, tx, rec, "revision"); err != nil {
+			return 0, err
+		}
+		migratedVersions++
+	}
+	return migratedVersions, nil
+}
+
+func workflowAuthoringRecordFromWorkflow(row bunWorkflowRecord) (*flow.AuthoringMachineRecord, error) {
+	workflow, err := workflowFromBunRecord(row)
+	if err != nil {
+		return nil, err
+	}
+	return persistedWorkflowToAuthoringRecord(workflow)
+}
+
+func workflowAuthoringRecordFromRevision(row bunWorkflowRevisionRecord) (*flow.AuthoringMachineRecord, error) {
+	workflow, err := workflowFromRevisionRecord(row)
+	if err != nil {
+		return nil, err
+	}
+	return persistedWorkflowToAuthoringRecord(workflow)
+}
+
+func upsertWorkflowAuthoringMachine(ctx context.Context, tx bun.Tx, rec *flow.AuthoringMachineRecord) error {
+	machineRow, err := bunAuthoringMachineRowFromRecord(rec)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.NewInsert().
+		Model(&machineRow).
+		On("CONFLICT (machine_id) DO UPDATE").
+		Set("name = EXCLUDED.name").
+		Set("version = EXCLUDED.version").
+		Set("etag = EXCLUDED.etag").
+		Set("draft = EXCLUDED.draft").
+		Set("diagnostics = EXCLUDED.diagnostics").
+		Set("updated_at = EXCLUDED.updated_at").
+		Set("published_at = EXCLUDED.published_at").
+		Set("published_definition = EXCLUDED.published_definition").
+		Set("deleted_at = EXCLUDED.deleted_at").
+		Exec(ctx); err != nil {
+		return fmt.Errorf("workflow authoring cutover: upsert machine %s: %w", rec.MachineID, err)
+	}
+	return nil
+}
+
+func upsertWorkflowAuthoringVersion(ctx context.Context, tx bun.Tx, rec *flow.AuthoringMachineRecord, label string) error {
+	versionRow, err := bunAuthoringVersionRowFromRecord(rec)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.NewInsert().
+		Model(&versionRow).
+		On("CONFLICT (machine_id, version) DO UPDATE").
+		Set("name = EXCLUDED.name").
+		Set("etag = EXCLUDED.etag").
+		Set("draft = EXCLUDED.draft").
+		Set("diagnostics = EXCLUDED.diagnostics").
+		Set("updated_at = EXCLUDED.updated_at").
+		Set("published_at = EXCLUDED.published_at").
+		Set("published_definition = EXCLUDED.published_definition").
+		Set("deleted_at = EXCLUDED.deleted_at").
+		Exec(ctx); err != nil {
+		return fmt.Errorf("workflow authoring cutover: upsert %s %s@%s: %w", label, rec.MachineID, rec.Version, err)
+	}
+	return nil
+}
+
+func writeWorkflowAuthoringCutoverMarker(
+	ctx context.Context,
+	tx bun.Tx,
+	workflows []bunWorkflowRecord,
+	revisions []bunWorkflowRevisionRecord,
+	bindingsCount, migratedMachines, migratedVersions int,
+) error {
+	details, _ := json.Marshal(map[string]any{
+		"legacy_workflows":         len(workflows),
+		"legacy_revisions":         len(revisions),
+		"legacy_bindings":          bindingsCount,
+		"migrated_authoring":       migratedMachines,
+		"migrated_authoringEvents": migratedVersions,
+	})
+	marker := bunWorkflowMigrationMarkerRecord{
+		MarkerKey:   workflowAuthoringCutoverMarker,
+		CompletedAt: time.Now().UTC(),
+		DetailsJSON: string(details),
+	}
+	if _, err := tx.NewInsert().
+		Model(&marker).
+		On("CONFLICT (marker_key) DO UPDATE").
+		Set("completed_at = EXCLUDED.completed_at").
+		Set("details_json = EXCLUDED.details_json").
+		Exec(ctx); err != nil {
+		return fmt.Errorf("workflow authoring cutover: write marker: %w", err)
+	}
+	return nil
 }
 
 func workflowCutoverTableExists(ctx context.Context, db bun.IDB, table string) (bool, error) {

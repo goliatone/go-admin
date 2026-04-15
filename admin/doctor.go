@@ -575,233 +575,247 @@ func doctorSeverityRank(status DoctorSeverity) int {
 
 func defaultDoctorChecks() []DoctorCheck {
 	return []DoctorCheck{
-		{
-			ID:          "admin.core.dependencies",
-			Label:       "Core Dependencies",
-			Description: "Validates essential admin wiring before feature checks run.",
-			Help:        "Checks foundational services (router, registry, command bus, feature gate, URL manager). Errors block startup-critical behavior; warnings indicate degraded capabilities.",
-			Action: NewManualDoctorAction(
-				"Validate dependency wiring in bootstrap and make sure required services are injected before Initialize.",
-				"Inspect bootstrap wiring",
-			),
-			Run: func(_ context.Context, adm *Admin) DoctorCheckOutput {
-				findings := []DoctorFinding{}
-				if adm == nil {
-					findings = append(findings, DoctorFinding{
-						Severity: DoctorSeverityError,
-						Code:     "admin.nil",
-						Message:  "Admin instance is nil",
-						Hint:     "Initialize admin before running diagnostics",
-					})
-					return DoctorCheckOutput{Findings: findings}
-				}
-				if adm.registry == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityError,
-						Component: "registry",
-						Code:      "registry.missing",
-						Message:   "Registry is not configured",
-						Hint:      "Ensure admin.New completes with a valid registry",
-					})
-				}
-				if adm.router == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityError,
-						Component: "router",
-						Code:      "router.missing",
-						Message:   "Router is not configured",
-						Hint:      "Provide a router dependency before initialize",
-					})
-				}
-				if adm.commandBus == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityWarn,
-						Component: "commands",
-						Code:      "command_bus.missing",
-						Message:   "Command bus is not configured",
-						Hint:      "Enable commands feature or inject a command bus dependency",
-					})
-				}
-				if adm.featureGate == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityWarn,
-						Component: "feature_gate",
-						Code:      "feature_gate.missing",
-						Message:   "Feature gate is not configured",
-						Hint:      "Inject a feature gate or use quickstart default feature gate",
-					})
-				}
-				if adm.urlManager == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityWarn,
-						Component: "urls",
-						Code:      "url_manager.missing",
-						Message:   "URL manager is not configured",
-						Hint:      "Ensure URL manager resolves admin and API routes",
-					})
-				}
-				metadata := map[string]any{
+		coreDependenciesDoctorCheck(),
+		authWiringDoctorCheck(),
+		featureWiringDoctorCheck(),
+		cmsWiringDoctorCheck(),
+	}
+}
+
+func coreDependenciesDoctorCheck() DoctorCheck {
+	return DoctorCheck{
+		ID:          "admin.core.dependencies",
+		Label:       "Core Dependencies",
+		Description: "Validates essential admin wiring before feature checks run.",
+		Help:        "Checks foundational services (router, registry, command bus, feature gate, URL manager). Errors block startup-critical behavior; warnings indicate degraded capabilities.",
+		Action: NewManualDoctorAction(
+			"Validate dependency wiring in bootstrap and make sure required services are injected before Initialize.",
+			"Inspect bootstrap wiring",
+		),
+		Run: func(_ context.Context, adm *Admin) DoctorCheckOutput {
+			findings := []DoctorFinding{}
+			if adm == nil {
+				findings = append(findings, DoctorFinding{
+					Severity: DoctorSeverityError,
+					Code:     "admin.nil",
+					Message:  "Admin instance is nil",
+					Hint:     "Initialize admin before running diagnostics",
+				})
+				return DoctorCheckOutput{Findings: findings}
+			}
+			if adm.registry == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityError,
+					Component: "registry",
+					Code:      "registry.missing",
+					Message:   "Registry is not configured",
+					Hint:      "Ensure admin.New completes with a valid registry",
+				})
+			}
+			if adm.router == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityError,
+					Component: "router",
+					Code:      "router.missing",
+					Message:   "Router is not configured",
+					Hint:      "Provide a router dependency before initialize",
+				})
+			}
+			if adm.commandBus == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityWarn,
+					Component: "commands",
+					Code:      "command_bus.missing",
+					Message:   "Command bus is not configured",
+					Hint:      "Enable commands feature or inject a command bus dependency",
+				})
+			}
+			if adm.featureGate == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityWarn,
+					Component: "feature_gate",
+					Code:      "feature_gate.missing",
+					Message:   "Feature gate is not configured",
+					Hint:      "Inject a feature gate or use quickstart default feature gate",
+				})
+			}
+			if adm.urlManager == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityWarn,
+					Component: "urls",
+					Code:      "url_manager.missing",
+					Message:   "URL manager is not configured",
+					Hint:      "Ensure URL manager resolves admin and API routes",
+				})
+			}
+			return DoctorCheckOutput{
+				Findings: findings,
+				Metadata: map[string]any{
 					"modules_loaded":        adm.modulesLoaded,
 					"module_startup_policy": string(adm.moduleStartupPolicy),
 					"base_path":             adminBasePath(adm.config),
-				}
-				return DoctorCheckOutput{
-					Findings: findings,
-					Metadata: metadata,
-				}
-			},
+				},
+			}
 		},
-		{
-			ID:          "admin.auth.wiring",
-			Label:       "Auth Wiring",
-			Description: "Checks authentication and authorization integrations.",
-			Help:        "Evaluates authenticator and authorizer integration. Missing authenticator is a warning; missing authorizer is informational but can hide policy gaps.",
-			Action: NewManualDoctorAction(
-				"Attach an authenticator/authorizer pair aligned with your deployment policy and verify permission evaluation paths.",
-				"Review auth integration",
-			),
-			Run: func(_ context.Context, adm *Admin) DoctorCheckOutput {
-				if adm == nil {
-					return DoctorCheckOutput{}
-				}
-				findings := []DoctorFinding{}
-				if adm.authenticator == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityWarn,
-						Component: "authenticator",
-						Code:      "authenticator.missing",
-						Message:   "No authenticator configured",
-						Hint:      "Attach an authenticator to enforce admin route authentication",
-					})
-				}
-				if adm.authorizer == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityInfo,
-						Component: "authorizer",
-						Code:      "authorizer.missing",
-						Message:   "No authorizer configured",
-						Hint:      "Attach an authorizer to enforce permission checks consistently",
-					})
-				}
-				return DoctorCheckOutput{
-					Findings: findings,
-					Metadata: map[string]any{
-						"authenticator_configured": adm.authenticator != nil,
-						"authorizer_configured":    adm.authorizer != nil,
-					},
-				}
-			},
-		},
-		{
-			ID:          "admin.features.wiring",
-			Label:       "Feature Wiring",
-			Description: "Verifies enabled feature flags map to ready services.",
-			Help:        "Compares enabled feature flags with runtime service readiness. A warning means a feature is enabled but its backing service is missing.",
-			Action: NewManualDoctorAction(
-				"Align feature flags with service registration or disable features that are not wired in this environment.",
-				"Align feature wiring",
-			),
-			Run: func(_ context.Context, adm *Admin) DoctorCheckOutput {
-				if adm == nil {
-					return DoctorCheckOutput{}
-				}
-				findings := []DoctorFinding{}
-				checkFeature := func(feature FeatureKey, ready bool, component string) {
-					if !featureEnabled(adm.featureGate, feature) || ready {
-						return
-					}
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityWarn,
-						Component: component,
-						Code:      fmt.Sprintf("feature.%s.unwired", strings.TrimSpace(string(feature))),
-						Message:   fmt.Sprintf("Feature %q is enabled but %s is not ready", strings.TrimSpace(string(feature)), component),
-						Hint:      "Ensure service wiring matches feature gate state",
-					})
-				}
-				checkFeature(FeatureDashboard, adm.dashboard != nil, "dashboard")
-				checkFeature(FeatureSettings, adm.settings != nil, "settings")
-				checkFeature(FeatureUsers, adm.users != nil, "users")
-				checkFeature(FeatureSearch, adm.search != nil, "search")
-				checkFeature(FeatureNotifications, adm.notifications != nil, "notifications")
-				checkFeature(FeatureJobs, adm.jobs != nil, "jobs")
-				checkFeature(FeaturePreferences, adm.preferences != nil, "preferences")
-				checkFeature(FeatureProfile, adm.profile != nil, "profile")
+	}
+}
 
-				return DoctorCheckOutput{Findings: findings}
-			},
+func authWiringDoctorCheck() DoctorCheck {
+	return DoctorCheck{
+		ID:          "admin.auth.wiring",
+		Label:       "Auth Wiring",
+		Description: "Checks authentication and authorization integrations.",
+		Help:        "Evaluates authenticator and authorizer integration. Missing authenticator is a warning; missing authorizer is informational but can hide policy gaps.",
+		Action: NewManualDoctorAction(
+			"Attach an authenticator/authorizer pair aligned with your deployment policy and verify permission evaluation paths.",
+			"Review auth integration",
+		),
+		Run: func(_ context.Context, adm *Admin) DoctorCheckOutput {
+			if adm == nil {
+				return DoctorCheckOutput{}
+			}
+			findings := []DoctorFinding{}
+			if adm.authenticator == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityWarn,
+					Component: "authenticator",
+					Code:      "authenticator.missing",
+					Message:   "No authenticator configured",
+					Hint:      "Attach an authenticator to enforce admin route authentication",
+				})
+			}
+			if adm.authorizer == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityInfo,
+					Component: "authorizer",
+					Code:      "authorizer.missing",
+					Message:   "No authorizer configured",
+					Hint:      "Attach an authorizer to enforce permission checks consistently",
+				})
+			}
+			return DoctorCheckOutput{
+				Findings: findings,
+				Metadata: map[string]any{
+					"authenticator_configured": adm.authenticator != nil,
+					"authorizer_configured":    adm.authorizer != nil,
+				},
+			}
 		},
-		{
-			ID:          "admin.cms.wiring",
-			Label:       "CMS Wiring",
-			Description: "Ensures CMS services are available when CMS is enabled.",
-			Help:        "Checks CMS container services and route readiness when CMS is enabled. Errors indicate unavailable core content service; warnings indicate partial CMS capability.",
-			Action: NewManualDoctorAction(
-				"Confirm CMS container/service bindings and register required routes before enabling CMS-related features.",
-				"Review CMS wiring",
-			),
-			Run: func(_ context.Context, adm *Admin) DoctorCheckOutput {
-				if adm == nil {
-					return DoctorCheckOutput{}
+	}
+}
+
+func featureWiringDoctorCheck() DoctorCheck {
+	return DoctorCheck{
+		ID:          "admin.features.wiring",
+		Label:       "Feature Wiring",
+		Description: "Verifies enabled feature flags map to ready services.",
+		Help:        "Compares enabled feature flags with runtime service readiness. A warning means a feature is enabled but its backing service is missing.",
+		Action: NewManualDoctorAction(
+			"Align feature flags with service registration or disable features that are not wired in this environment.",
+			"Align feature wiring",
+		),
+		Run: func(_ context.Context, adm *Admin) DoctorCheckOutput {
+			if adm == nil {
+				return DoctorCheckOutput{}
+			}
+			findings := []DoctorFinding{}
+			checkFeature := func(feature FeatureKey, ready bool, component string) {
+				if !featureEnabled(adm.featureGate, feature) || ready {
+					return
 				}
-				if !featureEnabled(adm.featureGate, FeatureCMS) {
-					return DoctorCheckOutput{
-						Summary: "CMS feature disabled",
-						Metadata: map[string]any{
-							"cms_enabled": false,
-						},
-					}
-				}
-				findings := []DoctorFinding{}
-				if adm.contentSvc == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityError,
-						Component: "content",
-						Code:      "cms.content_service.missing",
-						Message:   "CMS content service is unavailable",
-						Hint:      "Configure CMS container/content service before enabling CMS feature",
-					})
-				}
-				if adm.contentTypeSvc == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityWarn,
-						Component: "content_types",
-						Code:      "cms.content_type_service.missing",
-						Message:   "CMS content type service is unavailable",
-						Hint:      "Attach content type service for dynamic content panel routing",
-					})
-				}
-				if adm.menuSvc == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityWarn,
-						Component: "menus",
-						Code:      "cms.menu_service.missing",
-						Message:   "CMS menu service is unavailable",
-						Hint:      "Attach menu service for navigation-backed content menus",
-					})
-				}
-				if adm.widgetSvc == nil {
-					findings = append(findings, DoctorFinding{
-						Severity:  DoctorSeverityInfo,
-						Component: "widgets",
-						Code:      "cms.widget_service.missing",
-						Message:   "CMS widget service is unavailable",
-						Hint:      "Attach widget service if dashboard widgets are expected",
-					})
-				}
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityWarn,
+					Component: component,
+					Code:      fmt.Sprintf("feature.%s.unwired", strings.TrimSpace(string(feature))),
+					Message:   fmt.Sprintf("Feature %q is enabled but %s is not ready", strings.TrimSpace(string(feature)), component),
+					Hint:      "Ensure service wiring matches feature gate state",
+				})
+			}
+			checkFeature(FeatureDashboard, adm.dashboard != nil, "dashboard")
+			checkFeature(FeatureSettings, adm.settings != nil, "settings")
+			checkFeature(FeatureUsers, adm.users != nil, "users")
+			checkFeature(FeatureSearch, adm.search != nil, "search")
+			checkFeature(FeatureNotifications, adm.notifications != nil, "notifications")
+			checkFeature(FeatureJobs, adm.jobs != nil, "jobs")
+			checkFeature(FeaturePreferences, adm.preferences != nil, "preferences")
+			checkFeature(FeatureProfile, adm.profile != nil, "profile")
+			return DoctorCheckOutput{Findings: findings}
+		},
+	}
+}
+
+func cmsWiringDoctorCheck() DoctorCheck {
+	return DoctorCheck{
+		ID:          "admin.cms.wiring",
+		Label:       "CMS Wiring",
+		Description: "Ensures CMS services are available when CMS is enabled.",
+		Help:        "Checks CMS container services and route readiness when CMS is enabled. Errors indicate unavailable core content service; warnings indicate partial CMS capability.",
+		Action: NewManualDoctorAction(
+			"Confirm CMS container/service bindings and register required routes before enabling CMS-related features.",
+			"Review CMS wiring",
+		),
+		Run: func(_ context.Context, adm *Admin) DoctorCheckOutput {
+			if adm == nil {
+				return DoctorCheckOutput{}
+			}
+			if !featureEnabled(adm.featureGate, FeatureCMS) {
 				return DoctorCheckOutput{
-					Findings: findings,
+					Summary: "CMS feature disabled",
 					Metadata: map[string]any{
-						"cms_enabled":                 true,
-						"content_service_configured":  adm.contentSvc != nil,
-						"content_types_configured":    adm.contentTypeSvc != nil,
-						"menu_service_configured":     adm.menuSvc != nil,
-						"widget_service_configured":   adm.widgetSvc != nil,
-						"content_aliases_registered":  adm.contentAliasRoutesRegistered,
-						"cms_routes_registered":       adm.cmsRoutesRegistered,
-						"cms_workflow_defaults_ready": adm.cmsWorkflowDefaults,
+						"cms_enabled": false,
 					},
 				}
-			},
+			}
+			findings := []DoctorFinding{}
+			if adm.contentSvc == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityError,
+					Component: "content",
+					Code:      "cms.content_service.missing",
+					Message:   "CMS content service is unavailable",
+					Hint:      "Configure CMS container/content service before enabling CMS feature",
+				})
+			}
+			if adm.contentTypeSvc == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityWarn,
+					Component: "content_types",
+					Code:      "cms.content_type_service.missing",
+					Message:   "CMS content type service is unavailable",
+					Hint:      "Attach content type service for dynamic content panel routing",
+				})
+			}
+			if adm.menuSvc == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityWarn,
+					Component: "menus",
+					Code:      "cms.menu_service.missing",
+					Message:   "CMS menu service is unavailable",
+					Hint:      "Attach menu service for navigation-backed content menus",
+				})
+			}
+			if adm.widgetSvc == nil {
+				findings = append(findings, DoctorFinding{
+					Severity:  DoctorSeverityInfo,
+					Component: "widgets",
+					Code:      "cms.widget_service.missing",
+					Message:   "CMS widget service is unavailable",
+					Hint:      "Attach widget service if dashboard widgets are expected",
+				})
+			}
+			return DoctorCheckOutput{
+				Findings: findings,
+				Metadata: map[string]any{
+					"cms_enabled":                 true,
+					"content_service_configured":  adm.contentSvc != nil,
+					"content_types_configured":    adm.contentTypeSvc != nil,
+					"menu_service_configured":     adm.menuSvc != nil,
+					"widget_service_configured":   adm.widgetSvc != nil,
+					"content_aliases_registered":  adm.contentAliasRoutesRegistered,
+					"cms_routes_registered":       adm.cmsRoutesRegistered,
+					"cms_workflow_defaults_ready": adm.cmsWorkflowDefaults,
+				},
+			}
 		},
 	}
 }

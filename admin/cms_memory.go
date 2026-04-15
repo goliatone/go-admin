@@ -888,25 +888,46 @@ func (s *InMemoryContentService) CreateContentType(ctx context.Context, contentT
 func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentType CMSContentType) (*CMSContentType, error) {
 	s.mu.Lock()
 	env := cmsEnvironment(ctx, cmsadapter.ContentTypeChannel(contentType))
+	id, existing, err := s.resolveContentTypeUpdateLocked(env, contentType)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
+	existing = applyContentTypeUpdateInput(existing, contentType, env)
+	newSlug, err := s.validateUpdatedContentTypeLocked(env, id, existing, contentType)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
+	cp, activity, meta, err := s.persistUpdatedContentTypeLocked(env, id, existing, newSlug)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.content_type.update", "content_type:"+id, meta)
+	return &cp, nil
+}
+
+func (s *InMemoryContentService) resolveContentTypeUpdateLocked(env string, contentType CMSContentType) (string, CMSContentType, error) {
 	id := strings.TrimSpace(contentType.ID)
 	if id == "" {
 		if slug := strings.TrimSpace(contentType.Slug); slug != "" {
-			if existingID, ok := s.typeSlugs[cmsScopedKey(env, slug)]; ok {
-				id = existingID
-			}
+			id = s.typeSlugs[cmsScopedKey(env, slug)]
 		}
 	}
 	if id == "" {
-		s.mu.Unlock()
-		return nil, ErrNotFound
+		return "", CMSContentType{}, ErrNotFound
 	}
 	existing, ok := s.types[cmsScopedKey(env, id)]
 	if !ok {
-		s.mu.Unlock()
-		return nil, ErrNotFound
+		return "", CMSContentType{}, ErrNotFound
 	}
-	name := strings.TrimSpace(contentType.Name)
-	if name != "" {
+	return id, existing, nil
+}
+
+func applyContentTypeUpdateInput(existing CMSContentType, contentType CMSContentType, env string) CMSContentType {
+	if name := strings.TrimSpace(contentType.Name); name != "" {
 		existing.Name = name
 	}
 	if contentType.Schema != nil {
@@ -936,30 +957,33 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 	if env != "" {
 		cmsadapter.SetContentTypeChannel(&existing, env)
 	}
+	return existing
+}
+
+func (s *InMemoryContentService) validateUpdatedContentTypeLocked(env, id string, existing, contentType CMSContentType) (string, error) {
 	if existing.Name == "" {
-		s.mu.Unlock()
-		return nil, contentTypeValidationError(map[string]string{"name": "required"})
+		return "", contentTypeValidationError(map[string]string{"name": "required"})
 	}
 	if len(existing.Schema) == 0 {
-		s.mu.Unlock()
-		return nil, contentTypeValidationError(map[string]string{"schema": "required"})
+		return "", contentTypeValidationError(map[string]string{"schema": "required"})
 	}
 	newSlug := existing.Slug
 	if slugInput := strings.TrimSpace(contentType.Slug); slugInput != "" {
 		newSlug = normalizeContentTypeSlug(existing.Name, slugInput)
 	}
 	if newSlug == "" {
-		s.mu.Unlock()
-		return nil, contentTypeValidationError(map[string]string{"slug": "required"})
+		return "", contentTypeValidationError(map[string]string{"slug": "required"})
 	}
 	if !isValidContentTypeSlug(newSlug) {
-		s.mu.Unlock()
-		return nil, contentTypeValidationError(map[string]string{"slug": "invalid"})
+		return "", contentTypeValidationError(map[string]string{"slug": "invalid"})
 	}
 	if existingID, ok := s.typeSlugs[cmsScopedKey(env, newSlug)]; ok && existingID != "" && existingID != id {
-		s.mu.Unlock()
-		return nil, contentTypeValidationError(map[string]string{"slug": "already exists"})
+		return "", contentTypeValidationError(map[string]string{"slug": "already exists"})
 	}
+	return newSlug, nil
+}
+
+func (s *InMemoryContentService) persistUpdatedContentTypeLocked(env, id string, existing CMSContentType, newSlug string) (CMSContentType, ActivitySink, map[string]any, error) {
 	if existing.Slug != newSlug {
 		delete(s.typeSlugs, cmsScopedKey(env, existing.Slug))
 		s.typeSlugs[cmsScopedKey(env, newSlug)] = id
@@ -967,8 +991,7 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 	}
 	normalizedCaps, err := ValidateAndNormalizeContentTypeCapabilities(existing.Capabilities)
 	if err != nil {
-		s.mu.Unlock()
-		return nil, err
+		return CMSContentType{}, nil, nil, err
 	}
 	existing.Capabilities = normalizedCaps
 	existing.UpdatedAt = time.Now().UTC()
@@ -979,9 +1002,7 @@ func (s *InMemoryContentService) UpdateContentType(ctx context.Context, contentT
 		"name": existing.Name,
 		"slug": existing.Slug,
 	}
-	s.mu.Unlock()
-	recordCMSActivity(ctx, activity, "cms.content_type.update", "content_type:"+id, meta)
-	return &cp, nil
+	return cp, activity, meta, nil
 }
 
 // DeleteContentType removes a content type definition.
@@ -1111,22 +1132,41 @@ func (s *InMemoryContentService) CreateTranslation(ctx context.Context, input Tr
 		return nil, ErrNotFound
 	}
 	input = normalizeTranslationCreateInput(input)
-	if input.SourceID == "" {
-		return nil, validationDomainError("translation requires a single id", map[string]any{
-			"field": "id",
-		})
-	}
-	if input.Locale == "" {
-		return nil, validationDomainError("translation locale required", map[string]any{
-			"field": "locale",
-		})
+	if err := validateTranslationCreateInput(input); err != nil {
+		return nil, err
 	}
 
 	s.mu.Lock()
+	source, familyID, err := s.loadTranslationSourceLocked(input)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
+	source, created := s.buildTranslationRecordsLocked(source, familyID, input)
+	cp, activity, meta, err := s.persistCreatedTranslationLocked(source, created, familyID, input.Locale)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.content.translation.create", "content:"+cp.ID, meta)
+	return &cp, nil
+}
+
+func validateTranslationCreateInput(input TranslationCreateInput) error {
+	if input.SourceID == "" {
+		return validationDomainError("translation requires a single id", map[string]any{"field": "id"})
+	}
+	if input.Locale == "" {
+		return validationDomainError("translation locale required", map[string]any{"field": "locale"})
+	}
+	return nil
+}
+
+func (s *InMemoryContentService) loadTranslationSourceLocked(input TranslationCreateInput) (CMSContent, string, error) {
 	source, ok := s.contents[input.SourceID]
 	if !ok {
-		s.mu.Unlock()
-		return nil, ErrNotFound
+		return CMSContent{}, "", ErrNotFound
 	}
 	source = cloneCMSContent(source)
 	familyID := strings.TrimSpace(canonicalFamilyIDForContent(source))
@@ -1134,15 +1174,17 @@ func (s *InMemoryContentService) CreateTranslation(ctx context.Context, input Tr
 		familyID = strings.TrimSpace(source.ID)
 	}
 	if existing := s.findContentTranslationLocked(source.ID, familyID, input.Locale); existing != nil {
-		s.mu.Unlock()
-		return nil, TranslationAlreadyExistsError{
+		return CMSContent{}, "", TranslationAlreadyExistsError{
 			EntityID:     strings.TrimSpace(source.ID),
 			SourceLocale: strings.TrimSpace(source.Locale),
 			Locale:       input.Locale,
 			FamilyID:     familyID,
 		}
 	}
+	return source, familyID, nil
+}
 
+func (s *InMemoryContentService) buildTranslationRecordsLocked(source CMSContent, familyID string, input TranslationCreateInput) (CMSContent, CMSContent) {
 	if familyID != "" {
 		source.FamilyID = familyID
 		source = applyContentFamilyProjection(source, familyID)
@@ -1186,8 +1228,11 @@ func (s *InMemoryContentService) CreateTranslation(ctx context.Context, input Tr
 	if familyID != "" {
 		created = applyContentFamilyProjection(created, familyID)
 	}
+	return source, created
+}
 
-	availableLocales := s.translationLocalesLocked(source.ID, familyID, input.Locale)
+func (s *InMemoryContentService) persistCreatedTranslationLocked(source, created CMSContent, familyID string, locale string) (CMSContent, ActivitySink, map[string]any, error) {
+	availableLocales := s.translationLocalesLocked(source.ID, familyID, locale)
 	source.AvailableLocales = append([]string{}, availableLocales...)
 	created.AvailableLocales = append([]string{}, availableLocales...)
 	s.contents[source.ID] = cloneCMSContent(source)
@@ -1210,9 +1255,7 @@ func (s *InMemoryContentService) CreateTranslation(ctx context.Context, input Tr
 		"source_id":    source.ID,
 		"family_id":    familyID,
 	}
-	s.mu.Unlock()
-	recordCMSActivity(ctx, activity, "cms.content.translation.create", "content:"+cp.ID, meta)
-	return &cp, nil
+	return cp, activity, meta, nil
 }
 
 // DeleteContent removes a content entry.

@@ -16,60 +16,102 @@ import (
 )
 
 func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, int) {
-	status := http.StatusInternalServerError
 	if err == nil {
-		return goerrors.New("unknown error", goerrors.CategoryInternal).WithCode(status), status
+		return goerrors.New("unknown error", goerrors.CategoryInternal).WithCode(http.StatusInternalServerError), http.StatusInternalServerError
+	}
+	if mapped, status, ok := mapWorkflowErrors(err); ok {
+		return mapped, status
+	}
+	if mapped, status, ok := mapTranslationAndExchangeErrors(err); ok {
+		return mapped, status
+	}
+	if mapped, status, ok := mapValidationErrors(err); ok {
+		return mapped, status
+	}
+	if mapped, status, ok := mapPermissionAndCommonErrors(err); ok {
+		return mapped, status
+	}
+	return mapFallbackGoError(err, mappers, http.StatusInternalServerError)
+}
+
+func mapWorkflowErrors(err error) (*goerrors.Error, int, bool) {
+	switch {
+	case errors.Is(err, ErrWorkflowRollbackVersionNotFound):
+		mapped := NewDomainError(TextCodeNotFound, err.Error(), map[string]any{"field": "rollback_to_version"})
+		return mapped, mapped.Code, true
+	case errors.Is(err, ErrWorkflowNotFound):
+		mapped := NewDomainError(TextCodeWorkflowNotFound, err.Error(), nil)
+		return mapped, mapped.Code, true
+	case errors.Is(err, ErrWorkflowInvalidTransition):
+		mapped := NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), nil)
+		return mapped, mapped.Code, true
+	case hasFlowTextCode(err, flow.ErrCodeStateNotFound):
+		mapped := NewDomainError(TextCodeWorkflowNotFound, flowErrorMessage(err, flow.ErrCodeStateNotFound), flowErrorMetadataForTextCode(err, flow.ErrCodeStateNotFound))
+		return mapped, mapped.Code, true
+	case hasFlowTextCode(err, flow.ErrCodeInvalidTransition), hasFlowTextCode(err, flow.ErrCodeGuardRejected):
+		mapped := NewDomainError(TextCodeWorkflowInvalidTransition, flowErrorMessage(err, flow.ErrCodeInvalidTransition, flow.ErrCodeGuardRejected), flowErrorMetadataForTextCode(err, flow.ErrCodeInvalidTransition, flow.ErrCodeGuardRejected))
+		return mapped, mapped.Code, true
+	case hasFlowTextCode(err, flow.ErrCodeAuthoringNotFound):
+		mapped := NewDomainError(TextCodeWorkflowNotFound, flowErrorMessage(err, flow.ErrCodeAuthoringNotFound), flowErrorMetadataForTextCode(err, flow.ErrCodeAuthoringNotFound))
+		return mapped, mapped.Code, true
+	case hasFlowTextCode(err, flow.ErrCodeAuthoringValidationFailed):
+		mapped := NewDomainError(TextCodeValidationError, flowErrorMessage(err, flow.ErrCodeAuthoringValidationFailed), flowErrorMetadataForTextCode(err, flow.ErrCodeAuthoringValidationFailed))
+		return mapped, mapped.Code, true
+	case hasFlowTextCode(err, flow.ErrCodeVersionConflict), hasFlowTextCode(err, flow.ErrCodeIdempotencyConflict):
+		mapped := NewDomainError(TextCodeConflict, flowErrorMessage(err, flow.ErrCodeVersionConflict, flow.ErrCodeIdempotencyConflict), flowErrorMetadataForTextCode(err, flow.ErrCodeVersionConflict, flow.ErrCodeIdempotencyConflict))
+		return mapped, mapped.Code, true
+	case hasFlowTextCode(err, flow.ErrCodePreconditionFailed):
+		mapped := NewDomainError(TextCodePreconditionFailed, flowErrorMessage(err, flow.ErrCodePreconditionFailed), flowErrorMetadataForTextCode(err, flow.ErrCodePreconditionFailed))
+		return mapped, mapped.Code, true
 	}
 
-	var mapped *goerrors.Error
-	var settingsValidation SettingsValidationErrors
-	var workflowValidation WorkflowValidationErrors
-	var ozzoErrors validation.Errors
-	var schemaErr *jsonschema.ValidationError
-	var invalid InvalidFeatureConfigError
-	var permission PermissionDeniedError
+	var workflowVersionConflict WorkflowVersionConflictError
+	if errors.As(err, &workflowVersionConflict) {
+		meta := map[string]any{
+			"workflow_id":      strings.TrimSpace(workflowVersionConflict.WorkflowID),
+			"expected_version": workflowVersionConflict.ExpectedVersion,
+			"actual_version":   workflowVersionConflict.ActualVersion,
+		}
+		mapped := NewDomainError(TextCodeConflict, workflowVersionConflict.Error(), meta)
+		return mapped, mapped.Code, true
+	}
+	var workflowBindingConflict WorkflowBindingConflictError
+	if errors.As(err, &workflowBindingConflict) {
+		meta := map[string]any{
+			"binding_id":          strings.TrimSpace(workflowBindingConflict.BindingID),
+			"existing_binding_id": strings.TrimSpace(workflowBindingConflict.ExistingBindingID),
+			"scope_type":          strings.TrimSpace(string(workflowBindingConflict.ScopeType)),
+			"scope_ref":           strings.TrimSpace(workflowBindingConflict.ScopeRef),
+			"environment":         strings.TrimSpace(workflowBindingConflict.Environment),
+			"priority":            workflowBindingConflict.Priority,
+		}
+		mapped := NewDomainError(TextCodeConflict, workflowBindingConflict.Error(), meta)
+		return mapped, mapped.Code, true
+	}
+	var workflowBindingVersionConflict WorkflowBindingVersionConflictError
+	if errors.As(err, &workflowBindingVersionConflict) {
+		meta := map[string]any{
+			"binding_id":       strings.TrimSpace(workflowBindingVersionConflict.BindingID),
+			"expected_version": workflowBindingVersionConflict.ExpectedVersion,
+			"actual_version":   workflowBindingVersionConflict.ActualVersion,
+		}
+		mapped := NewDomainError(TextCodeConflict, workflowBindingVersionConflict.Error(), meta)
+		return mapped, mapped.Code, true
+	}
+	return nil, 0, false
+}
+
+func mapTranslationAndExchangeErrors(err error) (*goerrors.Error, int, bool) {
 	var missingTranslations MissingTranslationsError
 	var translationExists TranslationAlreadyExistsError
 	var autosaveConflict AutosaveConflictError
 	var queueConflict TranslationAssignmentConflictError
 	var queueVersionConflict TranslationAssignmentVersionConflictError
-	var workflowVersionConflict WorkflowVersionConflictError
-	var workflowBindingConflict WorkflowBindingConflictError
-	var workflowBindingVersionConflict WorkflowBindingVersionConflictError
 	var exchangeUnsupportedFormat TranslationExchangeUnsupportedFormatError
 	var exchangeInvalidPayload TranslationExchangeInvalidPayloadError
 	var exchangeConflict TranslationExchangeConflictError
 
 	switch {
-	case errors.Is(err, ErrWorkflowRollbackVersionNotFound):
-		mapped = NewDomainError(TextCodeNotFound, err.Error(), map[string]any{
-			"field": "rollback_to_version",
-		})
-		status = mapped.Code
-	case errors.Is(err, ErrWorkflowNotFound):
-		mapped = NewDomainError(TextCodeWorkflowNotFound, err.Error(), nil)
-		status = mapped.Code
-	case errors.Is(err, ErrWorkflowInvalidTransition):
-		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, err.Error(), nil)
-		status = mapped.Code
-	case hasFlowTextCode(err, flow.ErrCodeStateNotFound):
-		mapped = NewDomainError(TextCodeWorkflowNotFound, flowErrorMessage(err, flow.ErrCodeStateNotFound), flowErrorMetadataForTextCode(err, flow.ErrCodeStateNotFound))
-		status = mapped.Code
-	case hasFlowTextCode(err, flow.ErrCodeInvalidTransition), hasFlowTextCode(err, flow.ErrCodeGuardRejected):
-		mapped = NewDomainError(TextCodeWorkflowInvalidTransition, flowErrorMessage(err, flow.ErrCodeInvalidTransition, flow.ErrCodeGuardRejected), flowErrorMetadataForTextCode(err, flow.ErrCodeInvalidTransition, flow.ErrCodeGuardRejected))
-		status = mapped.Code
-	case hasFlowTextCode(err, flow.ErrCodeAuthoringNotFound):
-		mapped = NewDomainError(TextCodeWorkflowNotFound, flowErrorMessage(err, flow.ErrCodeAuthoringNotFound), flowErrorMetadataForTextCode(err, flow.ErrCodeAuthoringNotFound))
-		status = mapped.Code
-	case hasFlowTextCode(err, flow.ErrCodeAuthoringValidationFailed):
-		mapped = NewDomainError(TextCodeValidationError, flowErrorMessage(err, flow.ErrCodeAuthoringValidationFailed), flowErrorMetadataForTextCode(err, flow.ErrCodeAuthoringValidationFailed))
-		status = mapped.Code
-	case hasFlowTextCode(err, flow.ErrCodeVersionConflict), hasFlowTextCode(err, flow.ErrCodeIdempotencyConflict):
-		mapped = NewDomainError(TextCodeConflict, flowErrorMessage(err, flow.ErrCodeVersionConflict, flow.ErrCodeIdempotencyConflict), flowErrorMetadataForTextCode(err, flow.ErrCodeVersionConflict, flow.ErrCodeIdempotencyConflict))
-		status = mapped.Code
-	case hasFlowTextCode(err, flow.ErrCodePreconditionFailed):
-		mapped = NewDomainError(TextCodePreconditionFailed, flowErrorMessage(err, flow.ErrCodePreconditionFailed), flowErrorMetadataForTextCode(err, flow.ErrCodePreconditionFailed))
-		status = mapped.Code
 	case errors.As(err, &missingTranslations):
 		missingLocales := normalizeLocaleList(missingTranslations.MissingLocales)
 		if missingLocales == nil {
@@ -95,9 +137,9 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			}
 			meta["missing_fields_by_locale"] = missingFields
 		}
-		mapped = NewDomainError(TextCodeTranslationMissing, missingTranslations.Error(), meta)
-		status = translationBlockerStatus(missingFields)
-		mapped = mapped.WithCode(status)
+		status := translationBlockerStatus(missingFields)
+		mapped := NewDomainError(TextCodeTranslationMissing, missingTranslations.Error(), meta).WithCode(status)
+		return mapped, status, true
 	case errors.As(err, &translationExists):
 		meta := map[string]any{
 			"panel":         strings.TrimSpace(translationExists.Panel),
@@ -106,8 +148,8 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			"source_locale": strings.TrimSpace(translationExists.SourceLocale),
 			"family_id":     strings.TrimSpace(translationExists.FamilyID),
 		}
-		mapped = NewDomainError(TextCodeTranslationExists, translationExists.Error(), meta)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeTranslationExists, translationExists.Error(), meta)
+		return mapped, mapped.Code, true
 	case errors.As(err, &autosaveConflict):
 		meta := map[string]any{
 			"panel":     strings.TrimSpace(autosaveConflict.Panel),
@@ -123,54 +165,29 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		if len(autosaveConflict.LatestServerState) > 0 {
 			meta["latest_server_state_record"] = primitives.CloneAnyMap(autosaveConflict.LatestServerState)
 		}
-		mapped = NewDomainError(TextCodeAutosaveConflict, autosaveConflict.Error(), meta)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeAutosaveConflict, autosaveConflict.Error(), meta)
+		return mapped, mapped.Code, true
 	case errors.Is(err, cmscontent.ErrTranslationAlreadyExists), errors.Is(err, cmspages.ErrTranslationAlreadyExists):
-		meta := map[string]any{}
-		var contentDup *cmscontent.TranslationAlreadyExistsError
-		if errors.As(err, &contentDup) && contentDup != nil {
-			meta["locale"] = strings.TrimSpace(strings.ToLower(contentDup.TargetLocale))
-			meta["source_locale"] = strings.TrimSpace(strings.ToLower(contentDup.SourceLocale))
-			meta["entity_id"] = strings.TrimSpace(contentDup.EntityID.String())
-			if contentDup.FamilyID != nil {
-				meta["family_id"] = strings.TrimSpace(contentDup.FamilyID.String())
-			}
-		}
-		var pageDup *cmspages.TranslationAlreadyExistsError
-		if errors.As(err, &pageDup) && pageDup != nil {
-			meta["locale"] = strings.TrimSpace(strings.ToLower(pageDup.TargetLocale))
-			meta["source_locale"] = strings.TrimSpace(strings.ToLower(pageDup.SourceLocale))
-			meta["entity_id"] = strings.TrimSpace(pageDup.EntityID.String())
-			if pageDup.FamilyID != nil {
-				meta["family_id"] = strings.TrimSpace(pageDup.FamilyID.String())
-			}
-		}
-		if len(meta) == 0 {
-			meta = nil
-		}
-		mapped = NewDomainError(TextCodeTranslationExists, err.Error(), meta)
-		status = mapped.Code
+		meta := translationExistsMetadataForCMSError(err)
+		mapped := NewDomainError(TextCodeTranslationExists, err.Error(), meta)
+		return mapped, mapped.Code, true
 	case errors.Is(err, cmscontent.ErrInvalidLocale), errors.Is(err, cmspages.ErrInvalidLocale):
-		mapped = NewDomainError(TextCodeValidationError, err.Error(), map[string]any{"field": "locale"})
-		status = http.StatusBadRequest
-		mapped = mapped.WithCode(status)
+		mapped := NewDomainError(TextCodeValidationError, err.Error(), map[string]any{"field": "locale"}).WithCode(http.StatusBadRequest)
+		return mapped, http.StatusBadRequest, true
 	case IsTranslationMissing(err):
-		mapped = NewDomainError(TextCodeTranslationMissing, err.Error(), map[string]any{
-			"translation_missing": true,
-		})
-		status = http.StatusNotFound
-		mapped = mapped.WithCode(status)
+		mapped := NewDomainError(TextCodeTranslationMissing, err.Error(), map[string]any{"translation_missing": true}).WithCode(http.StatusNotFound)
+		return mapped, http.StatusNotFound, true
 	case errors.Is(err, cmscontent.ErrSourceNotFound), errors.Is(err, cmspages.ErrSourceNotFound):
-		mapped = NewDomainError(TextCodeNotFound, err.Error(), nil)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeNotFound, err.Error(), nil)
+		return mapped, mapped.Code, true
 	case errors.Is(err, cmspages.ErrPathConflict):
-		mapped = NewDomainError(TextCodePathConflict, err.Error(), nil)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodePathConflict, err.Error(), nil)
+		return mapped, mapped.Code, true
 	case errors.Is(err, cmscontent.ErrSlugConflict),
 		errors.Is(err, cmscontent.ErrTranslationInvariantViolation),
 		errors.Is(err, cmspages.ErrTranslationInvariantViolation):
-		mapped = NewDomainError(TextCodeConflict, err.Error(), nil)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeConflict, err.Error(), nil)
+		return mapped, mapped.Code, true
 	case errors.As(err, &queueConflict):
 		meta := map[string]any{
 			"assignment_id":          strings.TrimSpace(queueConflict.AssignmentID),
@@ -181,57 +198,28 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			"target_locale":          strings.TrimSpace(strings.ToLower(queueConflict.TargetLocale)),
 			"work_scope":             strings.TrimSpace(queueConflict.WorkScope),
 		}
-		mapped = NewDomainError(TextCodeTranslationQueueConflict, queueConflict.Error(), meta)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeTranslationQueueConflict, queueConflict.Error(), meta)
+		return mapped, mapped.Code, true
 	case errors.As(err, &queueVersionConflict):
 		meta := map[string]any{
 			"assignment_id":    strings.TrimSpace(queueVersionConflict.AssignmentID),
 			"expected_version": queueVersionConflict.ExpectedVersion,
 			"actual_version":   queueVersionConflict.ActualVersion,
 		}
-		mapped = NewDomainError(TextCodeTranslationQueueVersionConflict, queueVersionConflict.Error(), meta)
-		status = mapped.Code
-	case errors.As(err, &workflowVersionConflict):
-		meta := map[string]any{
-			"workflow_id":      strings.TrimSpace(workflowVersionConflict.WorkflowID),
-			"expected_version": workflowVersionConflict.ExpectedVersion,
-			"actual_version":   workflowVersionConflict.ActualVersion,
-		}
-		mapped = NewDomainError(TextCodeConflict, workflowVersionConflict.Error(), meta)
-		status = mapped.Code
-	case errors.As(err, &workflowBindingConflict):
-		meta := map[string]any{
-			"binding_id":          strings.TrimSpace(workflowBindingConflict.BindingID),
-			"existing_binding_id": strings.TrimSpace(workflowBindingConflict.ExistingBindingID),
-			"scope_type":          strings.TrimSpace(string(workflowBindingConflict.ScopeType)),
-			"scope_ref":           strings.TrimSpace(workflowBindingConflict.ScopeRef),
-			"environment":         strings.TrimSpace(workflowBindingConflict.Environment),
-			"priority":            workflowBindingConflict.Priority,
-		}
-		mapped = NewDomainError(TextCodeConflict, workflowBindingConflict.Error(), meta)
-		status = mapped.Code
-	case errors.As(err, &workflowBindingVersionConflict):
-		meta := map[string]any{
-			"binding_id":       strings.TrimSpace(workflowBindingVersionConflict.BindingID),
-			"expected_version": workflowBindingVersionConflict.ExpectedVersion,
-			"actual_version":   workflowBindingVersionConflict.ActualVersion,
-		}
-		mapped = NewDomainError(TextCodeConflict, workflowBindingVersionConflict.Error(), meta)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeTranslationQueueVersionConflict, queueVersionConflict.Error(), meta)
+		return mapped, mapped.Code, true
 	case errors.As(err, &exchangeUnsupportedFormat):
 		format := strings.TrimSpace(strings.ToLower(exchangeUnsupportedFormat.Format))
 		if format == "" {
 			format = "unknown"
 		}
 		supported := normalizeLocaleList(exchangeUnsupportedFormat.Supported)
-		meta := map[string]any{
-			"format": format,
-		}
+		meta := map[string]any{"format": format}
 		if len(supported) > 0 {
 			meta["supported_formats"] = supported
 		}
-		mapped = NewDomainError(TextCodeTranslationExchangeUnsupportedFormat, exchangeUnsupportedFormat.Error(), meta)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeTranslationExchangeUnsupportedFormat, exchangeUnsupportedFormat.Error(), meta)
+		return mapped, mapped.Code, true
 	case errors.As(err, &exchangeInvalidPayload):
 		meta := map[string]any{}
 		if field := strings.TrimSpace(exchangeInvalidPayload.Field); field != "" {
@@ -241,8 +229,8 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 			meta["format"] = format
 		}
 		maps.Copy(meta, exchangeInvalidPayload.Metadata)
-		mapped = NewDomainError(TextCodeTranslationExchangeInvalidPayload, exchangeInvalidPayload.Error(), meta)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeTranslationExchangeInvalidPayload, exchangeInvalidPayload.Error(), meta)
+		return mapped, mapped.Code, true
 	case errors.As(err, &exchangeConflict):
 		conflictType := strings.TrimSpace(exchangeConflict.Type)
 		code := TextCodeTranslationExchangeMissingLinkage
@@ -264,27 +252,37 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		if provided := strings.TrimSpace(exchangeConflict.ProvidedSourceHash); provided != "" {
 			meta["provided_source_hash"] = provided
 		}
-		mapped = NewDomainError(code, exchangeConflict.Error(), meta)
-		status = mapped.Code
+		mapped := NewDomainError(code, exchangeConflict.Error(), meta)
+		return mapped, mapped.Code, true
+	}
+	return nil, 0, false
+}
+
+func mapValidationErrors(err error) (*goerrors.Error, int, bool) {
+	var settingsValidation SettingsValidationErrors
+	var workflowValidation WorkflowValidationErrors
+	var ozzoErrors validation.Errors
+	var schemaErr *jsonschema.ValidationError
+	var invalid InvalidFeatureConfigError
+
+	switch {
 	case errors.As(err, &settingsValidation):
-		mapped = goerrors.New("validation failed", goerrors.CategoryValidation).
+		mapped := goerrors.New("validation failed", goerrors.CategoryValidation).
 			WithCode(http.StatusBadRequest).
 			WithTextCode(TextCodeValidationError).
 			WithMetadata(map[string]any{
 				"fields": settingsValidation.Fields,
 				"scope":  settingsValidation.Scope,
 			})
-		status = http.StatusBadRequest
+		return mapped, http.StatusBadRequest, true
 	case errors.As(err, &workflowValidation):
-		mapped = goerrors.New("validation failed", goerrors.CategoryValidation).
+		mapped := goerrors.New("validation failed", goerrors.CategoryValidation).
 			WithCode(http.StatusBadRequest).
 			WithTextCode(TextCodeValidationError).
-			WithMetadata(map[string]any{
-				"fields": workflowValidation.Fields,
-			})
-		status = http.StatusBadRequest
+			WithMetadata(map[string]any{"fields": workflowValidation.Fields})
+		return mapped, http.StatusBadRequest, true
 	case errors.As(err, &ozzoErrors):
-		mapped = goerrors.FromOzzoValidation(err, "validation failed").
+		mapped := goerrors.FromOzzoValidation(err, "validation failed").
 			WithCode(http.StatusBadRequest).
 			WithTextCode(TextCodeValidationError)
 		if mapped != nil {
@@ -295,49 +293,55 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 				mapped.Metadata["fields"] = mapped.ValidationMap()
 			}
 		}
-		status = http.StatusBadRequest
+		return mapped, http.StatusBadRequest, true
 	case errors.As(err, &schemaErr):
 		fields := map[string]string{}
 		collectJSONSchemaFields(schemaErr, fields)
 		if len(fields) == 0 {
 			fields["schema"] = strings.TrimSpace(schemaErr.Error())
 		}
-		mapped = goerrors.NewValidationFromMap("validation failed", fields).
+		mapped := goerrors.NewValidationFromMap("validation failed", fields).
 			WithCode(http.StatusBadRequest).
 			WithTextCode(TextCodeValidationError)
 		if mapped != nil {
 			mapped.Metadata = map[string]any{"fields": fields}
 		}
-		status = http.StatusBadRequest
+		return mapped, http.StatusBadRequest, true
 	case isSchemaValidationMessage(err):
 		fields := map[string]string{"schema": strings.TrimSpace(err.Error())}
-		mapped = goerrors.NewValidationFromMap("validation failed", fields).
+		mapped := goerrors.NewValidationFromMap("validation failed", fields).
 			WithCode(http.StatusBadRequest).
 			WithTextCode(TextCodeValidationError)
 		if mapped != nil {
 			mapped.Metadata = map[string]any{"fields": fields}
 		}
-		status = http.StatusBadRequest
+		return mapped, http.StatusBadRequest, true
 	case errors.As(err, &invalid):
-		mapped = goerrors.Wrap(err, goerrors.CategoryValidation, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryValidation, err.Error()).
 			WithCode(http.StatusBadRequest).
 			WithTextCode(TextCodeInvalidFeatureConfig)
-		issues := []map[string]any{}
+		issues := make([]map[string]any, 0, len(invalid.Issues))
 		for _, issue := range invalid.Issues {
 			issues = append(issues, map[string]any{
 				"feature": issue.Feature,
 				"missing": issue.Missing,
 			})
 		}
-		mapped.Metadata = map[string]any{
-			"issues": issues,
-		}
-		status = http.StatusBadRequest
+		mapped.Metadata = map[string]any{"issues": issues}
+		return mapped, http.StatusBadRequest, true
 	case errors.Is(err, ErrInvalidFeatureConfig):
-		mapped = NewDomainError(TextCodeInvalidFeatureConfig, err.Error(), nil)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeInvalidFeatureConfig, err.Error(), nil)
+		return mapped, mapped.Code, true
+	}
+	return nil, 0, false
+}
+
+func mapPermissionAndCommonErrors(err error) (*goerrors.Error, int, bool) {
+	var permission PermissionDeniedError
+
+	switch {
 	case errors.As(err, &permission):
-		mapped = goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
 			WithCode(http.StatusForbidden).
 			WithTextCode(TextCodeForbidden)
 		meta := map[string]any{}
@@ -357,78 +361,98 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		if len(meta) > 0 {
 			mapped.Metadata = meta
 		}
-		status = http.StatusForbidden
+		return mapped, http.StatusForbidden, true
 	case errors.Is(err, ErrForbidden):
-		mapped = goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
 			WithCode(http.StatusForbidden).
 			WithTextCode(TextCodeForbidden)
-		status = http.StatusForbidden
+		return mapped, http.StatusForbidden, true
 	case errors.Is(err, ErrREPLSessionLimit):
-		mapped = goerrors.Wrap(err, goerrors.CategoryRateLimit, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryRateLimit, err.Error()).
 			WithCode(http.StatusTooManyRequests).
 			WithTextCode(TextCodeReplSessionLimit)
-		status = http.StatusTooManyRequests
+		return mapped, http.StatusTooManyRequests, true
 	case errors.Is(err, ErrFeatureDisabled):
-		mapped = goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
 			WithCode(http.StatusNotFound).
 			WithTextCode(TextCodeFeatureDisabled)
-		status = http.StatusNotFound
+		return mapped, http.StatusNotFound, true
 	case errors.Is(err, ErrPathConflict):
-		mapped = NewDomainError(TextCodePathConflict, err.Error(), nil)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodePathConflict, err.Error(), nil)
+		return mapped, mapped.Code, true
 	case isContentTypeSchemaBreaking(err):
 		meta := map[string]any{}
 		if changes := parseContentTypeSchemaBreaking(err); len(changes) > 0 {
 			meta["breaking_changes"] = changes
 		}
-		mapped = NewDomainError(TextCodeContentTypeSchemaBreaking, err.Error(), meta)
-		status = mapped.Code
+		mapped := NewDomainError(TextCodeContentTypeSchemaBreaking, err.Error(), meta)
+		return mapped, mapped.Code, true
 	case errors.Is(err, ErrNotFound):
-		mapped = goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
 			WithCode(http.StatusNotFound).
 			WithTextCode(TextCodeNotFound)
-		status = http.StatusNotFound
+		return mapped, http.StatusNotFound, true
 	}
+	return nil, 0, false
+}
 
-	if mapped == nil {
-		if recovered := recoverDomainErrorFromGenericHandler(err); recovered != nil {
-			mapped = recovered
-			if mapped.Code != 0 {
-				status = mapped.Code
-			}
+func mapFallbackGoError(err error, mappers []goerrors.ErrorMapper, status int) (*goerrors.Error, int) {
+	if recovered := recoverDomainErrorFromGenericHandler(err); recovered != nil {
+		if recovered.Code != 0 {
+			status = recovered.Code
 		}
+		return recovered, status
 	}
-
-	if mapped == nil {
-		if preferred := preferSpecificMappedError(err); preferred != nil {
-			mapped = preferred
-			if mapped.Code != 0 {
-				status = mapped.Code
-			}
+	if preferred := preferSpecificMappedError(err); preferred != nil {
+		if preferred.Code != 0 {
+			status = preferred.Code
 		}
+		return preferred, status
 	}
-
-	if mapped == nil {
-		if errors.As(err, &mapped) && mapped != nil {
-			if mapped.Code != 0 {
-				status = mapped.Code
-			}
-		} else {
-			if len(mappers) == 0 {
-				mappers = goerrors.DefaultErrorMappers()
-			}
-			mapped = goerrors.MapToError(err, mappers)
-			if mapped != nil && mapped.Code != 0 {
-				status = mapped.Code
-			}
+	var mapped *goerrors.Error
+	if errors.As(err, &mapped) && mapped != nil {
+		if mapped.Code != 0 {
+			status = mapped.Code
 		}
+		return mapped, status
 	}
-
+	if len(mappers) == 0 {
+		mappers = goerrors.DefaultErrorMappers()
+	}
+	mapped = goerrors.MapToError(err, mappers)
 	if mapped == nil {
 		return goerrors.New(err.Error(), goerrors.CategoryInternal).WithCode(status), status
 	}
-
+	if mapped.Code != 0 {
+		status = mapped.Code
+	}
 	return mapped, status
+}
+
+func translationExistsMetadataForCMSError(err error) map[string]any {
+	meta := map[string]any{}
+	var contentDup *cmscontent.TranslationAlreadyExistsError
+	if errors.As(err, &contentDup) && contentDup != nil {
+		meta["locale"] = strings.TrimSpace(strings.ToLower(contentDup.TargetLocale))
+		meta["source_locale"] = strings.TrimSpace(strings.ToLower(contentDup.SourceLocale))
+		meta["entity_id"] = strings.TrimSpace(contentDup.EntityID.String())
+		if contentDup.FamilyID != nil {
+			meta["family_id"] = strings.TrimSpace(contentDup.FamilyID.String())
+		}
+	}
+	var pageDup *cmspages.TranslationAlreadyExistsError
+	if errors.As(err, &pageDup) && pageDup != nil {
+		meta["locale"] = strings.TrimSpace(strings.ToLower(pageDup.TargetLocale))
+		meta["source_locale"] = strings.TrimSpace(strings.ToLower(pageDup.SourceLocale))
+		meta["entity_id"] = strings.TrimSpace(pageDup.EntityID.String())
+		if pageDup.FamilyID != nil {
+			meta["family_id"] = strings.TrimSpace(pageDup.FamilyID.String())
+		}
+	}
+	if len(meta) == 0 {
+		return nil
+	}
+	return meta
 }
 
 func preferSpecificMappedError(err error) *goerrors.Error {

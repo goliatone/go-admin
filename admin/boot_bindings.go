@@ -585,8 +585,8 @@ func (p *panelBinding) panelDetailPath(id string) string {
 
 func (p *panelBinding) Action(c router.Context, locale, action string, body map[string]any) (boot.ActionResponse, error) {
 	body = mergePanelActionContext(body, locale, c.Query("locale"), c.Query("channel"), "", c.Query("policy_entity"), c.Query("policyEntity"))
-	ctx := p.admin.adminContextFromRequest(c, locale)
-	body = mergePanelActionActorContext(body, ctx)
+	adminCtx := p.admin.adminContextFromRequest(c, locale)
+	body = mergePanelActionActorContext(body, adminCtx)
 	ids := parseCommandIDs(body, c.Query("id"), c.Query("ids"))
 	primaryID := resolvePrimaryActionID(body, ids)
 	actionDef, actionDefined := p.panel.findAction(action)
@@ -597,281 +597,301 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			return boot.ActionResponse{}, err
 		}
 	}
-
 	if action == "create_translation" {
-		if primaryID == "" {
-			return boot.ActionResponse{}, validationDomainError("translation requires a single id", map[string]any{
-				"field": "id",
-			})
-		}
-		targetLocale := normalizeCreateTranslationLocale(toString(body["locale"]))
-		if targetLocale == "" {
-			return boot.ActionResponse{}, validationDomainError("translation locale required", map[string]any{
-				"field": "locale",
-			})
-		}
-		environment := resolvePolicyEnvironment(body, environmentFromContext(ctx.Context))
-		record, err := p.panel.Get(ctx, primaryID)
-		if err != nil {
-			return boot.ActionResponse{}, err
-		}
-		groupID := strings.TrimSpace(translationFamilyIDFromRecord(record))
-		if familyErr := requireCanonicalFamilyID(groupID, p.name, primaryID); familyErr != nil {
-			return boot.ActionResponse{}, familyErr
-		}
-		if creator, ok := p.panel.repo.(RepositoryTranslationCreator); ok && creator != nil {
-			created, createErr := creator.CreateTranslation(ctx.Context, normalizeTranslationCreateInput(TranslationCreateInput{
-				SourceID:     primaryID,
-				Locale:       targetLocale,
-				Environment:  environment,
-				PolicyEntity: resolvePolicyEntity(body, p.name),
-				ContentType:  p.name,
-				Status:       "draft",
-				Path:         strings.TrimSpace(toString(body["path"])),
-				RouteKey:     strings.TrimSpace(toString(body["route_key"])),
-			}))
-			if createErr == nil {
-				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
-					Entity:       p.name,
-					EntityID:     primaryID,
-					SourceLocale: strings.TrimSpace(toString(record["locale"])),
-					Locale:       targetLocale,
-					Transition:   "create_translation",
-					Environment:  environment,
-					Outcome:      "created",
-					FamilyID:     groupID,
-				})
-				p.panel.recordActivity(ctx, "panel.translation.create", map[string]any{
-					"panel":     p.name,
-					"entity_id": primaryID,
-					"locale":    targetLocale,
-					"family_id": groupID,
-				})
-				return bootActionResponse(normalizeActionResponse(ActionResponse{Data: buildCreateTranslationResponse(created, targetLocale, groupID)})), nil
-			}
-			var dup TranslationAlreadyExistsError
-			if errors.As(createErr, &dup) ||
-				errors.Is(createErr, cmscontent.ErrTranslationAlreadyExists) ||
-				errors.Is(createErr, cmspages.ErrTranslationAlreadyExists) {
-				duplicateLocale := strings.TrimSpace(primitives.FirstNonEmptyRaw(dup.Locale, targetLocale))
-				duplicateGroupID := strings.TrimSpace(primitives.FirstNonEmptyRaw(dup.FamilyID, groupID))
-				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
-					Entity:       p.name,
-					EntityID:     primaryID,
-					SourceLocale: strings.TrimSpace(toString(record["locale"])),
-					Locale:       duplicateLocale,
-					Transition:   "create_translation",
-					Environment:  environment,
-					Outcome:      "duplicate",
-					FamilyID:     duplicateGroupID,
-				})
-				return boot.ActionResponse{}, createErr
-			}
-			if !errors.Is(createErr, ErrTranslationCreateUnsupported) {
-				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
-					Entity:       p.name,
-					EntityID:     primaryID,
-					SourceLocale: strings.TrimSpace(toString(record["locale"])),
-					Locale:       targetLocale,
-					Transition:   "create_translation",
-					Environment:  environment,
-					Outcome:      "error",
-					FamilyID:     groupID,
-					Err:          createErr,
-				})
-				return boot.ActionResponse{}, createErr
-			}
-		}
-		translationExists := strings.EqualFold(strings.TrimSpace(toString(record["locale"])), targetLocale)
-		if !translationExists && groupID != "" {
-			if exists, localeErr := translationLocaleExistsInRepositoryGroup(ctx.Context, p.panel.repo, groupID, targetLocale, primaryID); localeErr == nil {
-				translationExists = exists
-			} else if translationLocaleExists(record, targetLocale) {
-				translationExists = true
-			}
-		} else if !translationExists {
-			translationExists = translationLocaleExists(record, targetLocale)
-		}
-		if translationExists {
-			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
-				Entity:       p.name,
-				EntityID:     primaryID,
-				SourceLocale: strings.TrimSpace(toString(record["locale"])),
-				Locale:       targetLocale,
-				Transition:   "create_translation",
-				Environment:  environment,
-				Outcome:      "duplicate",
-				FamilyID:     groupID,
-			})
-			dup := TranslationAlreadyExistsError{
-				Panel:        p.name,
-				EntityID:     primaryID,
-				SourceLocale: strings.TrimSpace(toString(record["locale"])),
-				Locale:       targetLocale,
-				FamilyID:     groupID,
-			}
-			return boot.ActionResponse{}, dup
-		}
-		clone := map[string]any{}
-		maps.Copy(clone, record)
-		delete(clone, "id")
-		delete(clone, "ID")
-		delete(clone, "created_at")
-		delete(clone, "updated_at")
-		delete(clone, "published_at")
-		clone["locale"] = targetLocale
-		clone["family_id"] = groupID
-		clone["status"] = "draft"
-		prepareCreateTranslationClone(clone, record, targetLocale)
-		if localizedPath := strings.TrimSpace(toString(body["path"])); localizedPath != "" {
-			clone["path"] = localizedPath
-		} else {
-			delete(clone, "path")
-			if data, ok := clone["data"].(map[string]any); ok && data != nil {
-				delete(data, "path")
-			}
-		}
-		if routeKey := strings.TrimSpace(toString(body["route_key"])); routeKey != "" {
-			clone["route_key"] = routeKey
-		}
-		created, err := p.panel.Create(ctx, clone)
-		if err != nil {
-			err = mapCreateTranslationPersistenceError(err, p.name, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, groupID)
-			var dup TranslationAlreadyExistsError
-			if errors.As(err, &dup) {
-				recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
-					Entity:       p.name,
-					EntityID:     primaryID,
-					SourceLocale: strings.TrimSpace(toString(record["locale"])),
-					Locale:       targetLocale,
-					Transition:   "create_translation",
-					Environment:  environment,
-					Outcome:      "duplicate",
-					FamilyID:     groupID,
-				})
-				return boot.ActionResponse{}, err
-			}
-			recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
-				Entity:       p.name,
-				EntityID:     primaryID,
-				SourceLocale: strings.TrimSpace(toString(record["locale"])),
-				Locale:       targetLocale,
-				Transition:   "create_translation",
-				Environment:  environment,
-				Outcome:      "error",
-				FamilyID:     groupID,
-				Err:          err,
-			})
-			return boot.ActionResponse{}, err
-		}
-		recordTranslationCreateActionMetric(ctx.Context, translationCreateActionEvent{
-			Entity:       p.name,
-			EntityID:     primaryID,
-			SourceLocale: strings.TrimSpace(toString(record["locale"])),
-			Locale:       targetLocale,
-			Transition:   "create_translation",
-			Environment:  environment,
-			Outcome:      "created",
-			FamilyID:     groupID,
-		})
-		p.panel.recordActivity(ctx, "panel.translation.create", map[string]any{
-			"panel":     p.name,
-			"entity_id": primaryID,
-			"locale":    targetLocale,
-			"family_id": groupID,
-		})
-		return bootActionResponse(normalizeActionResponse(ActionResponse{Data: buildCreateTranslationResponse(created, targetLocale, groupID)})), nil
+		return p.runCreateTranslationAction(adminCtx, primaryID, body)
+	}
+	if response, handled, err := p.runWorkflowBackedAction(adminCtx, primaryID, action, body, workflowBackedAction); handled || err != nil {
+		return response, err
 	}
 
-	if p.panel.workflow != nil && primaryID != "" {
-		record, err := p.panel.Get(ctx, primaryID)
-		if err != nil {
-			if workflowBackedAction {
-				return boot.ActionResponse{}, err
-			}
-		} else {
-			state := ""
-			if s, ok := record["status"].(string); ok {
-				state = s
-			}
-			transitions, err := workflowSnapshotTransitions(ctx.Context, p.panel.workflow, p.name, primaryID, state, record, true)
-			if err != nil {
-				if workflowBackedAction {
-					return boot.ActionResponse{}, err
-				}
-			} else {
-				candidates := workflowTransitionCandidates(action)
-				for _, t := range transitions {
-					if !containsTransitionEvent(candidates, t.Event) {
-						continue
-					}
-					transitionName := strings.TrimSpace(t.Event)
-					for _, a := range p.panel.actions {
-						if a.Name == action && a.Permission != "" && p.panel.authorizer != nil {
-							if !p.panel.authorizer.Can(ctx.Context, a.Permission, p.name) {
-								return boot.ActionResponse{}, permissionDenied(a.Permission, p.name)
-							}
-						}
-					}
-					policyInput := buildTranslationPolicyInput(ctx.Context, p.name, primaryID, state, action, body)
-					if policyInput.RequestedLocale == "" && record != nil {
-						policyInput.RequestedLocale = requestedLocaleFromPayload(record, localeFromContext(ctx.Context))
-					}
-					if policyInput.Environment == "" && record != nil {
-						policyInput.Environment = resolvePolicyEnvironment(record, environmentFromContext(ctx.Context))
-					}
-					if policyInput.PolicyEntity == "" && record != nil {
-						policyInput.PolicyEntity = resolvePolicyEntity(record, p.name)
-					}
-					if err := applyTranslationPolicyWithQueueHook(ctx.Context, p.panel.translationPolicy, policyInput, record, p.panel.translationQueueAutoCreateHook); err != nil {
-						p.recordBlockedTransition(ctx, primaryID, action, policyInput, err)
-						return boot.ActionResponse{}, err
-					}
-					req := buildWorkflowApplyRequest(ctx.Context, p.name, primaryID, state, workflowTransitionTargetState(t), body)
-					req.Event = transitionName
-					response, err := p.panel.workflow.ApplyEvent(ctx.Context, req)
-					if err == nil {
-						persisted := map[string]any{}
-						nextState := workflowCurrentStateFromResponse(response)
-						if nextState == "" {
-							nextState = workflowTransitionTargetState(t)
-						}
-						if nextState != "" {
-							persisted["status"] = nextState
-						}
-						if len(persisted) > 0 {
-							updated, updateErr := p.panel.repo.Update(ctx.Context, primaryID, persisted)
-							if updateErr != nil {
-								return boot.ActionResponse{}, updateErr
-							}
-							if updated != nil {
-								return bootActionResponse(normalizeActionResponse(ActionResponse{Data: map[string]any{
-									"workflow": response,
-									"record":   updated,
-								}})), nil
-							}
-						}
-						return bootActionResponse(normalizeActionResponse(ActionResponse{Data: map[string]any{
-							"workflow": response,
-						}})), nil
-					}
-					if err != nil {
-						return boot.ActionResponse{}, err
-					}
-					return bootActionResponse(normalizeActionResponse(ActionResponse{})), nil
-				}
-				if workflowBackedAction {
-					return boot.ActionResponse{}, workflowInvalidTransitionDomainError(p.name, primaryID, action, state, transitions)
-				}
-			}
-		}
-	}
-
-	response, err := p.panel.RunActionResponse(ctx, action, body, ids)
+	response, err := p.panel.RunActionResponse(adminCtx, action, body, ids)
 	if err != nil {
 		return boot.ActionResponse{}, err
 	}
 	return bootActionResponse(response), nil
+}
+
+func (p *panelBinding) runCreateTranslationAction(ctx AdminContext, primaryID string, body map[string]any) (boot.ActionResponse, error) {
+	if primaryID == "" {
+		return boot.ActionResponse{}, validationDomainError("translation requires a single id", map[string]any{"field": "id"})
+	}
+	targetLocale := normalizeCreateTranslationLocale(toString(body["locale"]))
+	if targetLocale == "" {
+		return boot.ActionResponse{}, validationDomainError("translation locale required", map[string]any{"field": "locale"})
+	}
+	record, groupID, environment, err := p.prepareCreateTranslationAction(ctx, primaryID, body)
+	if err != nil {
+		return boot.ActionResponse{}, err
+	}
+	created, err := p.createTranslationRecord(ctx, primaryID, targetLocale, environment, groupID, record, body)
+	if err != nil {
+		return boot.ActionResponse{}, err
+	}
+	p.recordCreateTranslationSuccess(ctx, primaryID, targetLocale, environment, groupID, record)
+	return bootActionResponse(normalizeActionResponse(ActionResponse{Data: buildCreateTranslationResponse(created, targetLocale, groupID)})), nil
+}
+
+func (p *panelBinding) prepareCreateTranslationAction(ctx AdminContext, primaryID string, body map[string]any) (map[string]any, string, string, error) {
+	environment := resolvePolicyEnvironment(body, environmentFromContext(ctx.Context))
+	record, err := p.panel.Get(ctx, primaryID)
+	if err != nil {
+		return nil, "", "", err
+	}
+	groupID := strings.TrimSpace(translationFamilyIDFromRecord(record))
+	if familyErr := requireCanonicalFamilyID(groupID, p.name, primaryID); familyErr != nil {
+		return nil, "", "", familyErr
+	}
+	return record, groupID, environment, nil
+}
+
+func (p *panelBinding) createTranslationRecord(
+	ctx AdminContext,
+	primaryID, targetLocale, environment, groupID string,
+	record, body map[string]any,
+) (map[string]any, error) {
+	if creator, ok := p.panel.repo.(RepositoryTranslationCreator); ok && creator != nil {
+		if created, handled, err := p.createTranslationViaRepositoryCreator(ctx, creator, primaryID, targetLocale, environment, groupID, record, body); handled || err != nil {
+			return created, err
+		}
+	}
+	return p.createTranslationViaPanelClone(ctx, primaryID, targetLocale, environment, groupID, record, body)
+}
+
+func (p *panelBinding) createTranslationViaRepositoryCreator(
+	ctx AdminContext,
+	creator RepositoryTranslationCreator,
+	primaryID, targetLocale, environment, groupID string,
+	record, body map[string]any,
+) (map[string]any, bool, error) {
+	created, createErr := creator.CreateTranslation(ctx.Context, normalizeTranslationCreateInput(TranslationCreateInput{
+		SourceID:     primaryID,
+		Locale:       targetLocale,
+		Environment:  environment,
+		PolicyEntity: resolvePolicyEntity(body, p.name),
+		ContentType:  p.name,
+		Status:       "draft",
+		Path:         strings.TrimSpace(toString(body["path"])),
+		RouteKey:     strings.TrimSpace(toString(body["route_key"])),
+	}))
+	if createErr == nil {
+		return created, true, nil
+	}
+	if p.isCreateTranslationDuplicate(ctx.Context, createErr, targetLocale, groupID, primaryID, record, environment) {
+		return nil, true, createErr
+	}
+	if errors.Is(createErr, ErrTranslationCreateUnsupported) {
+		return nil, false, nil
+	}
+	p.recordCreateTranslationMetric(ctx.Context, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, environment, "error", groupID, createErr)
+	return nil, true, createErr
+}
+
+func (p *panelBinding) createTranslationViaPanelClone(
+	ctx AdminContext,
+	primaryID, targetLocale, environment, groupID string,
+	record, body map[string]any,
+) (map[string]any, error) {
+	if translationExists := p.translationExistsInPanel(ctx, primaryID, targetLocale, groupID, record); translationExists {
+		err := TranslationAlreadyExistsError{
+			Panel:        p.name,
+			EntityID:     primaryID,
+			SourceLocale: strings.TrimSpace(toString(record["locale"])),
+			Locale:       targetLocale,
+			FamilyID:     groupID,
+		}
+		p.recordCreateTranslationMetric(ctx.Context, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, environment, "duplicate", groupID, nil)
+		return nil, err
+	}
+	clone := buildCreateTranslationClone(record, targetLocale, groupID, body)
+	created, err := p.panel.Create(ctx, clone)
+	if err != nil {
+		err = mapCreateTranslationPersistenceError(err, p.name, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, groupID)
+		outcome := "error"
+		var dup TranslationAlreadyExistsError
+		if errors.As(err, &dup) {
+			outcome = "duplicate"
+		}
+		p.recordCreateTranslationMetric(ctx.Context, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, environment, outcome, groupID, err)
+		return nil, err
+	}
+	return created, nil
+}
+
+func (p *panelBinding) translationExistsInPanel(ctx AdminContext, primaryID, targetLocale, groupID string, record map[string]any) bool {
+	translationExists := strings.EqualFold(strings.TrimSpace(toString(record["locale"])), targetLocale)
+	if !translationExists && groupID != "" {
+		if exists, localeErr := translationLocaleExistsInRepositoryGroup(ctx.Context, p.panel.repo, groupID, targetLocale, primaryID); localeErr == nil {
+			return exists
+		}
+	}
+	return translationExists || translationLocaleExists(record, targetLocale)
+}
+
+func buildCreateTranslationClone(record map[string]any, targetLocale, groupID string, body map[string]any) map[string]any {
+	clone := map[string]any{}
+	maps.Copy(clone, record)
+	delete(clone, "id")
+	delete(clone, "ID")
+	delete(clone, "created_at")
+	delete(clone, "updated_at")
+	delete(clone, "published_at")
+	clone["locale"] = targetLocale
+	clone["family_id"] = groupID
+	clone["status"] = "draft"
+	prepareCreateTranslationClone(clone, record, targetLocale)
+	if localizedPath := strings.TrimSpace(toString(body["path"])); localizedPath != "" {
+		clone["path"] = localizedPath
+	} else {
+		delete(clone, "path")
+		if data, ok := clone["data"].(map[string]any); ok && data != nil {
+			delete(data, "path")
+		}
+	}
+	if routeKey := strings.TrimSpace(toString(body["route_key"])); routeKey != "" {
+		clone["route_key"] = routeKey
+	}
+	return clone
+}
+
+func (p *panelBinding) isCreateTranslationDuplicate(ctx context.Context, err error, targetLocale, groupID, primaryID string, record map[string]any, environment string) bool {
+	var dup TranslationAlreadyExistsError
+	if !(errors.As(err, &dup) || errors.Is(err, cmscontent.ErrTranslationAlreadyExists) || errors.Is(err, cmspages.ErrTranslationAlreadyExists)) {
+		return false
+	}
+	duplicateLocale := strings.TrimSpace(primitives.FirstNonEmptyRaw(dup.Locale, targetLocale))
+	duplicateGroupID := strings.TrimSpace(primitives.FirstNonEmptyRaw(dup.FamilyID, groupID))
+	p.recordCreateTranslationMetric(ctx, primaryID, strings.TrimSpace(toString(record["locale"])), duplicateLocale, environment, "duplicate", duplicateGroupID, nil)
+	return true
+}
+
+func (p *panelBinding) recordCreateTranslationSuccess(ctx AdminContext, primaryID, targetLocale, environment, groupID string, record map[string]any) {
+	p.recordCreateTranslationMetric(ctx.Context, primaryID, strings.TrimSpace(toString(record["locale"])), targetLocale, environment, "created", groupID, nil)
+	p.panel.recordActivity(ctx, "panel.translation.create", map[string]any{
+		"panel":     p.name,
+		"entity_id": primaryID,
+		"locale":    targetLocale,
+		"family_id": groupID,
+	})
+}
+
+func (p *panelBinding) recordCreateTranslationMetric(ctx context.Context, primaryID, sourceLocale, targetLocale, environment, outcome, groupID string, err error) {
+	recordTranslationCreateActionMetric(ctx, translationCreateActionEvent{
+		Entity:       p.name,
+		EntityID:     primaryID,
+		SourceLocale: sourceLocale,
+		Locale:       targetLocale,
+		Transition:   "create_translation",
+		Environment:  environment,
+		Outcome:      outcome,
+		FamilyID:     groupID,
+		Err:          err,
+	})
+}
+
+func (p *panelBinding) runWorkflowBackedAction(ctx AdminContext, primaryID, action string, body map[string]any, workflowBackedAction bool) (boot.ActionResponse, bool, error) {
+	if p.panel.workflow == nil || primaryID == "" {
+		return boot.ActionResponse{}, false, nil
+	}
+	record, err := p.panel.Get(ctx, primaryID)
+	if err != nil {
+		if workflowBackedAction {
+			return boot.ActionResponse{}, true, err
+		}
+		return boot.ActionResponse{}, false, nil
+	}
+	state := strings.TrimSpace(toString(record["status"]))
+	transitions, err := workflowSnapshotTransitions(ctx.Context, p.panel.workflow, p.name, primaryID, state, record, true)
+	if err != nil {
+		if workflowBackedAction {
+			return boot.ActionResponse{}, true, err
+		}
+		return boot.ActionResponse{}, false, nil
+	}
+	response, matched, err := p.applyWorkflowTransition(ctx, primaryID, action, state, record, body, transitions)
+	if err != nil || matched {
+		return response, true, err
+	}
+	if workflowBackedAction {
+		return boot.ActionResponse{}, true, workflowInvalidTransitionDomainError(p.name, primaryID, action, state, transitions)
+	}
+	return boot.ActionResponse{}, false, nil
+}
+
+func (p *panelBinding) applyWorkflowTransition(ctx AdminContext, primaryID, action, state string, record, body map[string]any, transitions []WorkflowTransitionInfo) (boot.ActionResponse, bool, error) {
+	candidates := workflowTransitionCandidates(action)
+	for _, t := range transitions {
+		if !containsTransitionEvent(candidates, t.Event) {
+			continue
+		}
+		if err := p.authorizeWorkflowAction(ctx, action); err != nil {
+			return boot.ActionResponse{}, true, err
+		}
+		if err := p.applyWorkflowTranslationPolicy(ctx, primaryID, state, action, body, record); err != nil {
+			return boot.ActionResponse{}, true, err
+		}
+		return p.executeWorkflowTransition(ctx, primaryID, strings.TrimSpace(t.Event), state, body, t)
+	}
+	return boot.ActionResponse{}, false, nil
+}
+
+func (p *panelBinding) authorizeWorkflowAction(ctx AdminContext, action string) error {
+	for _, a := range p.panel.actions {
+		if a.Name == action && a.Permission != "" && p.panel.authorizer != nil && !p.panel.authorizer.Can(ctx.Context, a.Permission, p.name) {
+			return permissionDenied(a.Permission, p.name)
+		}
+	}
+	return nil
+}
+
+func (p *panelBinding) applyWorkflowTranslationPolicy(ctx AdminContext, primaryID, state, action string, body, record map[string]any) error {
+	policyInput := buildTranslationPolicyInput(ctx.Context, p.name, primaryID, state, action, body)
+	if policyInput.RequestedLocale == "" {
+		policyInput.RequestedLocale = requestedLocaleFromPayload(record, localeFromContext(ctx.Context))
+	}
+	if policyInput.Environment == "" {
+		policyInput.Environment = resolvePolicyEnvironment(record, environmentFromContext(ctx.Context))
+	}
+	if policyInput.PolicyEntity == "" {
+		policyInput.PolicyEntity = resolvePolicyEntity(record, p.name)
+	}
+	if err := applyTranslationPolicyWithQueueHook(ctx.Context, p.panel.translationPolicy, policyInput, record, p.panel.translationQueueAutoCreateHook); err != nil {
+		p.recordBlockedTransition(ctx, primaryID, action, policyInput, err)
+		return err
+	}
+	return nil
+}
+
+func (p *panelBinding) executeWorkflowTransition(ctx AdminContext, primaryID, transitionName, state string, body map[string]any, transition WorkflowTransitionInfo) (boot.ActionResponse, bool, error) {
+	req := buildWorkflowApplyRequest(ctx.Context, p.name, primaryID, state, workflowTransitionTargetState(transition), body)
+	req.Event = transitionName
+	response, err := p.panel.workflow.ApplyEvent(ctx.Context, req)
+	if err != nil {
+		return boot.ActionResponse{}, true, err
+	}
+	data, err := p.persistWorkflowTransition(ctx, primaryID, response, workflowTransitionTargetState(transition))
+	if err != nil {
+		return boot.ActionResponse{}, true, err
+	}
+	return bootActionResponse(normalizeActionResponse(ActionResponse{Data: data})), true, nil
+}
+
+func (p *panelBinding) persistWorkflowTransition(ctx AdminContext, primaryID string, response *WorkflowApplyEventResponse, fallbackState string) (map[string]any, error) {
+	data := map[string]any{"workflow": response}
+	nextState := workflowCurrentStateFromResponse(response)
+	if nextState == "" {
+		nextState = fallbackState
+	}
+	if nextState == "" {
+		return data, nil
+	}
+	updated, err := p.panel.repo.Update(ctx.Context, primaryID, map[string]any{"status": nextState})
+	if err != nil {
+		return nil, err
+	}
+	if updated != nil {
+		data["record"] = updated
+	}
+	return data, nil
 }
 
 func bootActionResponse(response ActionResponse) boot.ActionResponse {

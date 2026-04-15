@@ -64,6 +64,13 @@ func (a *Admin) registerDefaultModules() error {
 			}
 		}
 	}
+	if featureEnabled(a.featureGate, FeatureMedia) {
+		if _, exists := a.registry.Module(mediaModuleID); !exists {
+			if err := a.registry.RegisterModule(NewMediaModule()); err != nil {
+				return err
+			}
+		}
+	}
 	if _, exists := a.registry.Module(activityModuleID); !exists {
 		if err := a.registry.RegisterModule(NewActivityModule()); err != nil {
 			return err

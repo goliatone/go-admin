@@ -28,8 +28,62 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 		return err
 	}
 	workflow, workflowActions := resolveCMSDemoWorkflow(a)
+	if err := a.registerCMSDemoCorePanels(contentTypeOptions, workflow, workflowActions); err != nil {
+		return err
+	}
+	if err := a.registerCMSDemoBlockPanels(); err != nil {
+		return err
+	}
+	if err := a.registerCMSDemoWidgetPanels(); err != nil {
+		return err
+	}
+	if err := a.registerCMSDemoMenuPanel(); err != nil {
+		return err
+	}
 
-	contentTypesPanel := (&PanelBuilder{}).
+	a.registerCMSRoutesFromService()
+	a.registerDemoSearchAdapters(NewCMSContentRepository(a.contentSvc), NewCMSPageRepository(a.contentSvc))
+	return nil
+}
+
+func (a *Admin) registerCMSDemoCorePanels(contentTypeOptions []Option, workflow WorkflowEngine, workflowActions []Action) error {
+	if err := a.registerCMSDemoPanel("content_types", a.cmsDemoContentTypesPanel()); err != nil {
+		return err
+	}
+	if err := a.registerCMSDemoPanel("content", a.cmsDemoContentPanel(contentTypeOptions, workflow, workflowActions)); err != nil {
+		return err
+	}
+	return a.registerCMSDemoPanel("content_tree", a.cmsDemoTreePanel(workflow, workflowActions))
+}
+
+func (a *Admin) registerCMSDemoBlockPanels() error {
+	if err := a.registerCMSDemoPanel("block_definitions", a.cmsDemoBlockDefinitionsPanel()); err != nil {
+		return err
+	}
+	if err := a.registerCMSDemoPanel("block_conflicts", a.cmsDemoBlockConflictsPanel()); err != nil {
+		return err
+	}
+	return a.registerCMSDemoPanel("blocks", a.cmsDemoBlocksPanel())
+}
+
+func (a *Admin) registerCMSDemoWidgetPanels() error {
+	if err := a.registerCMSDemoPanel("widget_definitions", a.cmsDemoWidgetDefinitionsPanel()); err != nil {
+		return err
+	}
+	return a.registerCMSDemoPanel("widget_instances", a.cmsDemoWidgetInstancesPanel())
+}
+
+func (a *Admin) registerCMSDemoMenuPanel() error {
+	return a.registerCMSDemoPanel("menus", a.cmsDemoMenusPanel())
+}
+
+func (a *Admin) registerCMSDemoPanel(name string, panel *PanelBuilder) error {
+	_, err := a.RegisterPanel(name, panel)
+	return err
+}
+
+func (a *Admin) cmsDemoContentTypesPanel() *PanelBuilder {
+	return (&PanelBuilder{}).
 		WithRepository(NewCMSContentTypeRepository(a.contentTypeSvc)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -52,11 +106,10 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Field{Name: "description", Label: "Description", Type: "text"},
 			Field{Name: "icon", Label: "Icon", Type: "text"},
 		)
-	if _, err := a.RegisterPanel("content_types", contentTypesPanel); err != nil {
-		return err
-	}
+}
 
-	contentPanel := (&PanelBuilder{}).
+func (a *Admin) cmsDemoContentPanel(contentTypeOptions []Option, workflow WorkflowEngine, workflowActions []Action) *PanelBuilder {
+	panel := (&PanelBuilder{}).
 		WithRepository(NewCMSContentRepository(a.contentSvc)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -69,11 +122,7 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Field{Name: "title", Label: "Title", Type: "text", Required: true},
 			Field{Name: "slug", Label: "Slug", Type: "text", Required: true},
 			Field{Name: "content_type", Label: "Type", Type: "select", Required: true, Options: contentTypeOptions},
-			Field{Name: "status", Label: "Status", Type: "select", Required: true, Options: []Option{
-				{Value: "draft", Label: "Draft"},
-				{Value: "approval", Label: "Approval"},
-				{Value: "published", Label: "Published"},
-			}},
+			Field{Name: "status", Label: "Status", Type: "select", Required: true, Options: cmsDemoContentStatusOptions()},
 			Field{Name: "locale", Label: "Locale", Type: "text", Required: true},
 			hiddenRouteKeyField(),
 		).
@@ -91,13 +140,13 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 		).
 		UseBlocks(true)
 	if workflow != nil {
-		contentPanel.WithWorkflow(workflow).Actions(workflowActions...)
+		panel.WithWorkflow(workflow).Actions(workflowActions...)
 	}
-	if _, err := a.RegisterPanel("content", contentPanel); err != nil {
-		return err
-	}
+	return panel
+}
 
-	treePanel := (&PanelBuilder{}).
+func (a *Admin) cmsDemoTreePanel(workflow WorkflowEngine, workflowActions []Action) *PanelBuilder {
+	panel := (&PanelBuilder{}).
 		WithRepository(NewCMSPageRepository(a.contentSvc)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -112,11 +161,7 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Field{Name: "slug", Label: "Slug", Type: "text"},
 			Field{Name: "path", Label: "Path", Type: "text", Required: true},
 			Field{Name: "template_id", Label: "Template", Type: "text"},
-			Field{Name: "status", Label: "Status", Type: "select", Required: true, Options: []Option{
-				{Value: "draft", Label: "Draft"},
-				{Value: "approval", Label: "Approval"},
-				{Value: "published", Label: "Published"},
-			}},
+			Field{Name: "status", Label: "Status", Type: "select", Required: true, Options: cmsDemoContentStatusOptions()},
 			Field{Name: "locale", Label: "Locale", Type: "text", Required: true},
 			Field{Name: "parent_id", Label: "Parent", Type: "text"},
 			hiddenRouteKeyField(),
@@ -140,16 +185,17 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 		UseBlocks(true).
 		UseSEO(true).
 		TreeView(true)
-	if workflow != nil {
-		if checker, ok := workflow.(WorkflowDefinitionChecker); !ok || checker.HasWorkflow("content_tree") {
-			treePanel.WithWorkflow(workflow).Actions(workflowActions...)
-		}
+	if workflow == nil {
+		return panel
 	}
-	if _, err := a.RegisterPanel("content_tree", treePanel); err != nil {
-		return err
+	if checker, ok := workflow.(WorkflowDefinitionChecker); ok && !checker.HasWorkflow("content_tree") {
+		return panel
 	}
+	return panel.WithWorkflow(workflow).Actions(workflowActions...)
+}
 
-	blockDefinitions := (&PanelBuilder{}).
+func (a *Admin) cmsDemoBlockDefinitionsPanel() *PanelBuilder {
+	return (&PanelBuilder{}).
 		WithRepository(NewCMSBlockDefinitionRepository(a.contentSvc, a.contentTypeSvc)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -177,11 +223,10 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Filter{Name: "locale", Type: "text"},
 			Filter{Name: "content_type", Type: "text"},
 		)
-	if _, err := a.RegisterPanel("block_definitions", blockDefinitions); err != nil {
-		return err
-	}
+}
 
-	blockConflicts := (&PanelBuilder{}).
+func (a *Admin) cmsDemoBlockConflictsPanel() *PanelBuilder {
+	return (&PanelBuilder{}).
 		WithRepository(NewCMSBlockConflictRepository(a.contentSvc)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -209,11 +254,10 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Filter{Name: "content_type", Type: "text"},
 			Filter{Name: "entity_type", Type: "text"},
 		)
-	if _, err := a.RegisterPanel("block_conflicts", blockConflicts); err != nil {
-		return err
-	}
+}
 
-	blockPanel := (&PanelBuilder{}).
+func (a *Admin) cmsDemoBlocksPanel() *PanelBuilder {
+	return (&PanelBuilder{}).
 		WithRepository(NewCMSBlockRepository(a.contentSvc)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -239,11 +283,10 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Filter{Name: "locale", Type: "text"},
 			Filter{Name: "content_id", Type: "text"},
 		)
-	if _, err := a.RegisterPanel("blocks", blockPanel); err != nil {
-		return err
-	}
+}
 
-	widgetDefs := (&PanelBuilder{}).
+func (a *Admin) cmsDemoWidgetDefinitionsPanel() *PanelBuilder {
+	return (&PanelBuilder{}).
 		WithRepository(NewWidgetDefinitionRepository(a.widgetSvc)).
 		ListFields(
 			Field{Name: "code", Label: "Code", Type: "text"},
@@ -258,11 +301,10 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Field{Name: "code", Label: "Code", Type: "text"},
 			Field{Name: "name", Label: "Name", Type: "text"},
 		)
-	if _, err := a.RegisterPanel("widget_definitions", widgetDefs); err != nil {
-		return err
-	}
+}
 
-	widgetInstances := (&PanelBuilder{}).
+func (a *Admin) cmsDemoWidgetInstancesPanel() *PanelBuilder {
+	return (&PanelBuilder{}).
 		WithRepository(NewWidgetInstanceRepository(a.widgetSvc)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -284,11 +326,10 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Filter{Name: "area", Type: "text"},
 			Filter{Name: "locale", Type: "text"},
 		)
-	if _, err := a.RegisterPanel("widget_instances", widgetInstances); err != nil {
-		return err
-	}
+}
 
-	menuPanel := (&PanelBuilder{}).
+func (a *Admin) cmsDemoMenusPanel() *PanelBuilder {
+	return (&PanelBuilder{}).
 		WithRepository(NewCMSMenuRepository(a.menuSvc, a.navMenuCode)).
 		ListFields(
 			Field{Name: "id", Label: "ID", Type: "text"},
@@ -320,13 +361,14 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 			Filter{Name: "menu", Type: "text"},
 		).
 		TreeView(true)
-	if _, err := a.RegisterPanel("menus", menuPanel); err != nil {
-		return err
-	}
+}
 
-	a.registerCMSRoutesFromService()
-	a.registerDemoSearchAdapters(contentPanel.repo, treePanel.repo)
-	return nil
+func cmsDemoContentStatusOptions() []Option {
+	return []Option{
+		{Value: "draft", Label: "Draft"},
+		{Value: "approval", Label: "Approval"},
+		{Value: "published", Label: "Published"},
+	}
 }
 
 func resolveCMSDemoWorkflow(a *Admin) (WorkflowEngine, []Action) {

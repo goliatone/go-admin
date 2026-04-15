@@ -9,6 +9,16 @@ import (
 
 // applyConfigDefaults fills deterministic defaults.
 func applyConfigDefaults(cfg Config) Config {
+	cfg = applyCMSAndSiteConfigDefaults(cfg)
+	cfg = applyRoutingAndDebugConfigDefaults(cfg)
+	cfg = applyPermissionConfigDefaults(cfg)
+	cfg = applyThemeTokenConfigDefaults(cfg)
+	cfg.Errors = normalizeErrorConfig(cfg.Errors, cfg.Debug)
+	cfg = applyCommandConfigDefaults(cfg)
+	return cfg
+}
+
+func applyCMSAndSiteConfigDefaults(cfg Config) Config {
 	if cfg.CMS.GoCMSConfig == nil && cfg.CMSConfig != nil {
 		cfg.CMS.GoCMSConfig = cfg.CMSConfig
 	}
@@ -34,11 +44,27 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.Site.ViewProfileOverridePermission == "" {
 		cfg.Site.ViewProfileOverridePermission = "admin.site.view_profile_override"
 	}
+	return cfg
+}
+
+func applyRoutingAndDebugConfigDefaults(cfg Config) Config {
 	cfg.URLs = normalizeURLConfig(cfg.URLs, cfg.BasePath)
 	cfg.Routing = routing.NormalizeConfig(cfg.Routing, routingRootDerivationInput(cfg))
 	cfg.Debug = normalizeDebugConfig(cfg.Debug, adminBasePath(cfg))
 	cfg.Routing = applyDefaultModuleRoutingConfig(cfg.Routing, cfg.Debug)
+	return cfg
+}
 
+func applyPermissionConfigDefaults(cfg Config) Config {
+	cfg = applySettingsPermissionDefaults(cfg)
+	cfg = applyPreferencePermissionDefaults(cfg)
+	cfg = applyIdentityPermissionDefaults(cfg)
+	cfg = applyScopePermissionDefaults(cfg)
+	cfg = applyContentPermissionDefaults(cfg)
+	return cfg
+}
+
+func applySettingsPermissionDefaults(cfg Config) Config {
 	if cfg.SettingsPermission == "" {
 		cfg.SettingsPermission = "admin.settings.view"
 	}
@@ -60,6 +86,10 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.ActivityPermission == "" {
 		cfg.ActivityPermission = "admin.activity.view"
 	}
+	return cfg
+}
+
+func applyPreferencePermissionDefaults(cfg Config) Config {
 	if cfg.PreferencesPermission == "" {
 		cfg.PreferencesPermission = "admin.preferences.view"
 	}
@@ -81,6 +111,10 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.PreferencesManageSystemPermission == "" {
 		cfg.PreferencesManageSystemPermission = "admin.preferences.manage_system"
 	}
+	return cfg
+}
+
+func applyIdentityPermissionDefaults(cfg Config) Config {
 	if cfg.ProfilePermission == "" {
 		cfg.ProfilePermission = "admin.profile.view"
 	}
@@ -114,6 +148,10 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.RolesDeletePermission == "" {
 		cfg.RolesDeletePermission = "admin.roles.delete"
 	}
+	return cfg
+}
+
+func applyScopePermissionDefaults(cfg Config) Config {
 	if cfg.TenantsPermission == "" {
 		cfg.TenantsPermission = "admin.tenants.view"
 	}
@@ -138,6 +176,10 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.OrganizationsDeletePermission == "" {
 		cfg.OrganizationsDeletePermission = "admin.organizations.delete"
 	}
+	return cfg
+}
+
+func applyContentPermissionDefaults(cfg Config) Config {
 	if cfg.MenuBuilderPermission == "" {
 		cfg.MenuBuilderPermission = "admin.menus.view"
 	}
@@ -165,7 +207,10 @@ func applyConfigDefaults(cfg Config) Config {
 	if cfg.JobsTriggerPermission == "" {
 		cfg.JobsTriggerPermission = "admin.jobs.trigger"
 	}
+	return cfg
+}
 
+func applyThemeTokenConfigDefaults(cfg Config) Config {
 	if cfg.ActivityActionLabels == nil {
 		cfg.ActivityActionLabels = map[string]string{}
 	}
@@ -191,9 +236,10 @@ func applyConfigDefaults(cfg Config) Config {
 			cfg.ThemeTokens[k] = v
 		}
 	}
+	return cfg
+}
 
-	cfg.Errors = normalizeErrorConfig(cfg.Errors, cfg.Debug)
-
+func applyCommandConfigDefaults(cfg Config) Config {
 	cfg.Commands.Execution.DefaultMode = command.NormalizeExecutionMode(cfg.Commands.Execution.DefaultMode)
 	if cfg.Commands.Execution.DefaultMode == "" {
 		cfg.Commands.Execution.DefaultMode = command.ExecutionModeInline
@@ -202,7 +248,6 @@ func applyConfigDefaults(cfg Config) Config {
 		cfg.Commands.Execution.PerCommand = map[string]command.ExecutionMode{}
 	}
 	cfg.Commands.RPC = applyRPCCommandConfigDefaults(cfg.Commands.RPC)
-
 	return cfg
 }
 
