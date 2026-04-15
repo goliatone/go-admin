@@ -68,23 +68,46 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 	if client == nil {
 		return nil
 	}
+	options := defaultServiceMigrationsOptions()
+	applyServiceMigrationsOptions(&options, opts)
+	enableAuth, enableUsers, enableServices, err := resolveServiceMigrationToggles(options)
+	if err != nil {
+		return err
+	}
+	orderedSources := make([]persistence.OrderedMigrationSource, 0, 3+len(options.appSources))
+	sourceNameCounts := map[string]int{}
+	if err := appendBuiltInServiceMigrationSources(&orderedSources, sourceNameCounts, options, enableAuth, enableUsers, enableServices); err != nil {
+		return err
+	}
+	appendAppServiceMigrationSources(&orderedSources, sourceNameCounts, options)
+	if len(orderedSources) == 0 {
+		return nil
+	}
+	return client.RegisterOrderedMigrationSources(orderedSources...)
+}
 
-	options := serviceMigrationsOptions{
+func defaultServiceMigrationsOptions() serviceMigrationsOptions {
+	return serviceMigrationsOptions{
 		profile:           ServiceMigrationsProfileServicesStack,
 		authLabel:         ServiceMigrationsSourceLabelAuth,
 		usersLabel:        ServiceMigrationsSourceLabelUsers,
 		servicesLabel:     ServiceMigrationsSourceLabelServices,
 		validationTargets: []string{"postgres", "sqlite"},
 	}
+}
+
+func applyServiceMigrationsOptions(options *serviceMigrationsOptions, opts []ServiceMigrationsOption) {
 	for _, opt := range opts {
 		if opt != nil {
-			opt(&options)
+			opt(options)
 		}
 	}
+}
 
+func resolveServiceMigrationToggles(options serviceMigrationsOptions) (bool, bool, bool, error) {
 	enableAuth, enableUsers, enableServices, err := resolveServiceMigrationsProfile(options.profile)
 	if err != nil {
-		return err
+		return false, false, false, err
 	}
 	if options.enableAuth != nil {
 		enableAuth = *options.enableAuth
@@ -95,34 +118,38 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 	if options.enableServices != nil {
 		enableServices = *options.enableServices
 	}
+	return enableAuth, enableUsers, enableServices, nil
+}
 
-	orderedSources := make([]persistence.OrderedMigrationSource, 0, 3+len(options.appSources))
-	sourceNameCounts := map[string]int{}
-
+func appendBuiltInServiceMigrationSources(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, options serviceMigrationsOptions, enableAuth, enableUsers, enableServices bool) error {
 	if enableAuth {
-		migrationsFS, err := resolveMigrationFS(options.authFS, auth.GetMigrationsFS(), "data/sql/migrations")
-		if err != nil {
+		if err := appendServiceMigrationSource(orderedSources, sourceNameCounts, options.authFS, auth.GetMigrationsFS(), options.authLabel, options.validationTargets, options.observer); err != nil {
 			return err
 		}
-		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.authLabel, options.validationTargets, options.observer)
 	}
-
 	if enableUsers {
-		migrationsFS, err := resolveMigrationFS(options.usersFS, users.GetCoreMigrationsFS(), "data/sql/migrations")
-		if err != nil {
+		if err := appendServiceMigrationSource(orderedSources, sourceNameCounts, options.usersFS, users.GetCoreMigrationsFS(), options.usersLabel, options.validationTargets, options.observer); err != nil {
 			return err
 		}
-		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.usersLabel, options.validationTargets, options.observer)
 	}
-
 	if enableServices {
-		migrationsFS, err := resolveMigrationFS(options.servicesFS, goservices.GetCoreMigrationsFS(), "data/sql/migrations")
-		if err != nil {
+		if err := appendServiceMigrationSource(orderedSources, sourceNameCounts, options.servicesFS, goservices.GetCoreMigrationsFS(), options.servicesLabel, options.validationTargets, options.observer); err != nil {
 			return err
 		}
-		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.servicesLabel, options.validationTargets, options.observer)
 	}
+	return nil
+}
 
+func appendServiceMigrationSource(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, customFS fs.FS, fallbackFS fs.FS, label string, validationTargets []string, observer MigrationObserver) error {
+	migrationsFS, err := resolveMigrationFS(customFS, fallbackFS, "data/sql/migrations")
+	if err != nil {
+		return err
+	}
+	appendOrderedMigrationSource(orderedSources, sourceNameCounts, migrationsFS, label, validationTargets, observer)
+	return nil
+}
+
+func appendAppServiceMigrationSources(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, options serviceMigrationsOptions) {
 	for _, source := range options.appSources {
 		if source.Filesystem == nil {
 			continue
@@ -131,13 +158,8 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 		if label == "" {
 			label = ServiceMigrationsSourceLabelAppLocal
 		}
-		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, source.Filesystem, label, options.validationTargets, options.observer)
+		appendOrderedMigrationSource(orderedSources, sourceNameCounts, source.Filesystem, label, options.validationTargets, options.observer)
 	}
-
-	if len(orderedSources) == 0 {
-		return nil
-	}
-	return client.RegisterOrderedMigrationSources(orderedSources...)
 }
 
 // WithServiceMigrationsProfile sets the canonical service migration registration profile.

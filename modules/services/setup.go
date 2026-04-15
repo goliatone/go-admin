@@ -155,6 +155,14 @@ func applyRuntimeSetupOptions(cfg *Config, setupCfg setupOptions) {
 	if cfg == nil {
 		return
 	}
+	applyRuntimeCoreSetupOptions(cfg, setupCfg)
+	applyRuntimeProviderSetupOptions(cfg, setupCfg)
+	applyRuntimeWebhookSetupOptions(cfg, setupCfg)
+	applyRuntimeInboundSetupOptions(cfg, setupCfg)
+	applyRuntimeAPISetupOptions(cfg, setupCfg)
+}
+
+func applyRuntimeCoreSetupOptions(cfg *Config, setupCfg setupOptions) {
 	if setupCfg.loggerProvider != nil {
 		cfg.LoggerProvider = setupCfg.loggerProvider
 	}
@@ -173,6 +181,9 @@ func applyRuntimeSetupOptions(cfg *Config, setupCfg setupOptions) {
 	if setupCfg.repositoryFactory != nil {
 		cfg.RepositoryFactory = setupCfg.repositoryFactory
 	}
+}
+
+func applyRuntimeProviderSetupOptions(cfg *Config, setupCfg setupOptions) {
 	if setupCfg.secretProvider != nil {
 		cfg.SecretProvider = setupCfg.secretProvider
 	}
@@ -191,6 +202,9 @@ func applyRuntimeSetupOptions(cfg *Config, setupCfg setupOptions) {
 	if setupCfg.jobEnqueuer != nil {
 		cfg.JobEnqueuer = setupCfg.jobEnqueuer
 	}
+}
+
+func applyRuntimeWebhookSetupOptions(cfg *Config, setupCfg setupOptions) {
 	if setupCfg.webhookVerifier != nil {
 		cfg.WebhookVerifier = setupCfg.webhookVerifier
 	}
@@ -203,12 +217,18 @@ func applyRuntimeSetupOptions(cfg *Config, setupCfg setupOptions) {
 	if setupCfg.inboundVerifier != nil {
 		cfg.InboundVerifier = setupCfg.inboundVerifier
 	}
+}
+
+func applyRuntimeInboundSetupOptions(cfg *Config, setupCfg setupOptions) {
 	if len(setupCfg.inboundHandlers) > 0 {
 		cfg.InboundHandlers = append(cfg.InboundHandlers, setupCfg.inboundHandlers...)
 	}
 	if setupCfg.inboundClaimStore != nil {
 		cfg.InboundClaimStore = setupCfg.inboundClaimStore
 	}
+}
+
+func applyRuntimeAPISetupOptions(cfg *Config, setupCfg setupOptions) {
 	if len(setupCfg.activityActionLabels) > 0 {
 		cfg.API.ActivityActionLabelOverrides = copyStringMap(setupCfg.activityActionLabels)
 	}
