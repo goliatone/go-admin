@@ -202,21 +202,13 @@ func (s *BunTranslationFamilyStore) familiesFromRows(ctx context.Context, family
 		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
-	variantsByFamily := map[string][]translationservices.FamilyVariant{}
-	for _, row := range variantRows {
-		variant, err := familyVariantFromBunRecord(row)
-		if err != nil {
-			return nil, err
-		}
-		variantsByFamily[row.FamilyID] = append(variantsByFamily[row.FamilyID], variant)
+	variantsByFamily, err := bunFamilyVariantsByFamily(variantRows)
+	if err != nil {
+		return nil, err
 	}
-	blockersByFamily := map[string][]translationservices.FamilyBlocker{}
-	for _, row := range blockerRows {
-		blocker, err := familyBlockerFromBunRecord(row)
-		if err != nil {
-			return nil, err
-		}
-		blockersByFamily[row.FamilyID] = append(blockersByFamily[row.FamilyID], blocker)
+	blockersByFamily, err := bunFamilyBlockersByFamily(blockerRows)
+	if err != nil {
+		return nil, err
 	}
 	assignmentsByFamily := map[string][]translationservices.FamilyAssignment{}
 	for _, row := range assignmentRows {
@@ -232,6 +224,30 @@ func (s *BunTranslationFamilyStore) familiesFromRows(ctx context.Context, family
 		family.Blockers = blockersByFamily[row.FamilyID]
 		family.Assignments = assignmentsByFamily[row.FamilyID]
 		out = append(out, family)
+	}
+	return out, nil
+}
+
+func bunFamilyVariantsByFamily(rows []bunTranslationLocaleVariantRecord) (map[string][]translationservices.FamilyVariant, error) {
+	out := map[string][]translationservices.FamilyVariant{}
+	for _, row := range rows {
+		variant, err := familyVariantFromBunRecord(row)
+		if err != nil {
+			return nil, err
+		}
+		out[row.FamilyID] = append(out[row.FamilyID], variant)
+	}
+	return out, nil
+}
+
+func bunFamilyBlockersByFamily(rows []bunTranslationFamilyBlockerRecord) (map[string][]translationservices.FamilyBlocker, error) {
+	out := map[string][]translationservices.FamilyBlocker{}
+	for _, row := range rows {
+		blocker, err := familyBlockerFromBunRecord(row)
+		if err != nil {
+			return nil, err
+		}
+		out[row.FamilyID] = append(out[row.FamilyID], blocker)
 	}
 	return out, nil
 }

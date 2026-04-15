@@ -121,19 +121,10 @@ func (r *InMemoryTranslationAssignmentRepository) Update(_ context.Context, assi
 		return TranslationAssignment{}, ErrNotFound
 	}
 	if current.Version != expectedVersion {
-		return TranslationAssignment{}, TranslationAssignmentVersionConflictError{
-			AssignmentID:    current.ID,
-			ExpectedVersion: expectedVersion,
-			ActualVersion:   current.Version,
-		}
+		return TranslationAssignment{}, translationAssignmentVersionConflict(current, expectedVersion)
 	}
 
-	next := normalizeAssignmentForCreate(assignment)
-	if next.CreatedAt.IsZero() {
-		next.CreatedAt = current.CreatedAt
-	}
-	next.Version = current.Version + 1
-	next.UpdatedAt = time.Now().UTC()
+	next := prepareUpdatedAssignment(assignment, current)
 
 	if err := next.Validate(); err != nil {
 		return TranslationAssignment{}, err
@@ -161,6 +152,24 @@ func (r *InMemoryTranslationAssignmentRepository) Update(_ context.Context, assi
 
 	r.byID[next.ID] = cloneTranslationAssignment(next)
 	return cloneTranslationAssignment(next), nil
+}
+
+func translationAssignmentVersionConflict(current TranslationAssignment, expectedVersion int64) error {
+	return TranslationAssignmentVersionConflictError{
+		AssignmentID:    current.ID,
+		ExpectedVersion: expectedVersion,
+		ActualVersion:   current.Version,
+	}
+}
+
+func prepareUpdatedAssignment(assignment, current TranslationAssignment) TranslationAssignment {
+	next := normalizeAssignmentForCreate(assignment)
+	if next.CreatedAt.IsZero() {
+		next.CreatedAt = current.CreatedAt
+	}
+	next.Version = current.Version + 1
+	next.UpdatedAt = time.Now().UTC()
+	return next
 }
 
 func (r *InMemoryTranslationAssignmentRepository) createLocked(assignment TranslationAssignment, allowReuse bool) (TranslationAssignment, bool, error) {

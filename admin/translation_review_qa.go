@@ -34,21 +34,45 @@ func (b *translationQueueBinding) translationQAResults(editorCtx translationEdit
 		"terminology": translationQACategoryEnvelope("terminology", terminologyEnabled, string(FeatureTranslationQATerms)),
 		"style":       translationQACategoryEnvelope("style", styleEnabled, string(FeatureTranslationQAStyle)),
 	}
-	findings := make([]map[string]any, 0, 8)
+	findings := translationQAFindings(editorCtx, categories, terminologyEnabled, styleEnabled)
+	sortTranslationQAFindings(findings)
+	warningCount, blockerCount := translationQAFindingCounts(findings)
+	categoryPayload := translationQACategoryPayload(categories)
 
+	return map[string]any{
+		"enabled": terminologyEnabled || styleEnabled,
+		"summary": map[string]any{
+			"finding_count": len(findings),
+			"warning_count": warningCount,
+			"blocker_count": blockerCount,
+		},
+		"categories":     categoryPayload,
+		"findings":       findings,
+		"save_blocked":   false,
+		"submit_blocked": blockerCount > 0,
+	}
+}
+
+func translationQAFindings(editorCtx translationEditorContext, categories map[string]map[string]any, terminologyEnabled, styleEnabled bool) []map[string]any {
+	findings := make([]map[string]any, 0, 8)
 	if terminologyEnabled {
-		for _, finding := range translationTerminologyQAFindings(editorCtx) {
-			findings = append(findings, finding)
-			translationQAAccumulateCategory(categories["terminology"], finding)
-		}
+		findings = appendTranslationQAFindings(findings, categories["terminology"], translationTerminologyQAFindings(editorCtx))
 	}
 	if styleEnabled {
-		for _, finding := range translationStyleQAFindings(editorCtx) {
-			findings = append(findings, finding)
-			translationQAAccumulateCategory(categories["style"], finding)
-		}
+		findings = appendTranslationQAFindings(findings, categories["style"], translationStyleQAFindings(editorCtx))
 	}
+	return findings
+}
 
+func appendTranslationQAFindings(findings []map[string]any, category map[string]any, rows []map[string]any) []map[string]any {
+	for _, finding := range rows {
+		findings = append(findings, finding)
+		translationQAAccumulateCategory(category, finding)
+	}
+	return findings
+}
+
+func sortTranslationQAFindings(findings []map[string]any) {
 	sort.SliceStable(findings, func(i, j int) bool {
 		left := findings[i]
 		right := findings[j]
@@ -69,35 +93,27 @@ func (b *translationQueueBinding) translationQAResults(editorCtx translationEdit
 		}
 		return strings.TrimSpace(strings.ToLower(toString(left["id"]))) < strings.TrimSpace(strings.ToLower(toString(right["id"])))
 	})
+}
 
+func translationQAFindingCounts(findings []map[string]any) (int, int) {
 	warningCount := 0
 	blockerCount := 0
 	for _, finding := range findings {
-		switch strings.TrimSpace(strings.ToLower(toString(finding["severity"]))) {
-		case translationQASeverityBlocker:
+		if strings.TrimSpace(strings.ToLower(toString(finding["severity"]))) == translationQASeverityBlocker {
 			blockerCount++
-		default:
-			warningCount++
+			continue
 		}
+		warningCount++
 	}
+	return warningCount, blockerCount
+}
 
-	categoryPayload := map[string]any{}
+func translationQACategoryPayload(categories map[string]map[string]any) map[string]any {
+	out := map[string]any{}
 	for key, value := range categories {
-		categoryPayload[key] = value
+		out[key] = value
 	}
-
-	return map[string]any{
-		"enabled": terminologyEnabled || styleEnabled,
-		"summary": map[string]any{
-			"finding_count": len(findings),
-			"warning_count": warningCount,
-			"blocker_count": blockerCount,
-		},
-		"categories":     categoryPayload,
-		"findings":       findings,
-		"save_blocked":   false,
-		"submit_blocked": blockerCount > 0,
-	}
+	return out
 }
 
 func translationQASummaryPayload(results map[string]any) map[string]any {

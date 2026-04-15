@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	uiplacement "github.com/goliatone/go-admin/ui/placement"
 	urlkit "github.com/goliatone/go-urlkit"
 )
@@ -37,21 +38,40 @@ func (s *TranslationQueueStatsFromRepository) Snapshot(ctx context.Context) (Tra
 		return TranslationQueueStatsSnapshot{}, serviceNotConfiguredDomainError("translation queue stats repository", map[string]any{"component": "translation_queue_dashboard"})
 	}
 
+	rows, err := s.listTranslationQueueAssignments(ctx)
+	if err != nil {
+		return TranslationQueueStatsSnapshot{}, err
+	}
+	now := time.Now().UTC()
+	statusCounts, localeCounts, summary := summarizeTranslationAssignments(rows, now)
+
+	return TranslationQueueStatsSnapshot{
+		Summary:        summary,
+		StatusCounts:   statusCounts,
+		LocaleCounts:   localeCounts,
+		UpdatedAt:      now,
+		AssignmentRows: len(rows),
+	}, nil
+}
+
+func (s *TranslationQueueStatsFromRepository) listTranslationQueueAssignments(ctx context.Context) ([]TranslationAssignment, error) {
 	rows := []TranslationAssignment{}
 	page := 1
 	perPage := 200
 	for {
 		batch, total, err := s.Repository.List(ctx, ListOptions{Page: page, PerPage: perPage})
 		if err != nil {
-			return TranslationQueueStatsSnapshot{}, err
+			return nil, err
 		}
 		rows = append(rows, batch...)
 		if len(rows) >= total || len(batch) == 0 {
-			break
+			return rows, nil
 		}
 		page++
 	}
+}
 
+func summarizeTranslationAssignments(rows []TranslationAssignment, now time.Time) (map[string]int, map[string]int, map[string]int) {
 	statusCounts := map[string]int{}
 	localeCounts := map[string]int{}
 	summary := map[string]int{
@@ -61,41 +81,34 @@ func (s *TranslationQueueStatsFromRepository) Snapshot(ctx context.Context) (Tra
 		"review":   0,
 		"approved": 0,
 	}
-	now := time.Now().UTC()
 	for _, assignment := range rows {
-		summary["total"]++
-		status := strings.TrimSpace(string(assignment.Status))
-		if status == "" {
-			status = string(AssignmentStatusOpen)
-		}
-		status = normalizeTranslationQueueState(status)
-		statusCounts[status]++
-		locale := strings.TrimSpace(strings.ToLower(assignment.TargetLocale))
-		if locale == "" {
-			locale = "unknown"
-		}
-		localeCounts[locale]++
-		if !assignment.Status.IsTerminal() {
-			summary["active"]++
-		}
-		if normalizeTranslationAssignmentStatus(assignment.Status) == AssignmentStatusInReview {
-			summary["review"]++
-		}
-		if normalizeTranslationAssignmentStatus(assignment.Status) == AssignmentStatusApproved {
-			summary["approved"]++
-		}
-		if assignment.DueDate != nil && assignment.DueDate.Before(now) && !assignment.Status.IsTerminal() {
-			summary["overdue"]++
-		}
+		translationAssignmentQueueStats(summary, statusCounts, localeCounts, assignment, now)
 	}
+	return statusCounts, localeCounts, summary
+}
 
-	return TranslationQueueStatsSnapshot{
-		Summary:        summary,
-		StatusCounts:   statusCounts,
-		LocaleCounts:   localeCounts,
-		UpdatedAt:      now,
-		AssignmentRows: len(rows),
-	}, nil
+func translationAssignmentQueueStats(summary, statusCounts, localeCounts map[string]int, assignment TranslationAssignment, now time.Time) {
+	summary["total"]++
+	status := normalizeTranslationQueueState(strings.TrimSpace(primitives.FirstNonEmptyRaw(string(assignment.Status), string(AssignmentStatusOpen))))
+	statusCounts[status]++
+	locale := strings.TrimSpace(strings.ToLower(assignment.TargetLocale))
+	if locale == "" {
+		locale = "unknown"
+	}
+	localeCounts[locale]++
+	if !assignment.Status.IsTerminal() {
+		summary["active"]++
+	}
+	normalized := normalizeTranslationAssignmentStatus(assignment.Status)
+	if normalized == AssignmentStatusInReview {
+		summary["review"]++
+	}
+	if normalized == AssignmentStatusApproved {
+		summary["approved"]++
+	}
+	if assignment.DueDate != nil && assignment.DueDate.Before(now) && !assignment.Status.IsTerminal() {
+		summary["overdue"]++
+	}
 }
 
 // RegisterTranslationProgressWidget registers queue progress dashboard provider.

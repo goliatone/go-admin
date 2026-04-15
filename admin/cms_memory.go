@@ -1442,15 +1442,21 @@ func (s *InMemoryContentService) UpdateBlockDefinition(ctx context.Context, def 
 }
 
 func mergeUpdatedBlockDefinition(def CMSBlockDefinition, existing CMSBlockDefinition) CMSBlockDefinition {
+	def = mergeUpdatedBlockDefinitionBasics(def, existing)
+	if def.MigrationStatus == "" {
+		def.MigrationStatus = existing.MigrationStatus
+	}
+	if def.MigrationStatus == "" {
+		def.MigrationStatus = blockDefinitionMigrationStatus(def)
+	}
+	return def
+}
+
+func mergeUpdatedBlockDefinitionBasics(def CMSBlockDefinition, existing CMSBlockDefinition) CMSBlockDefinition {
 	if def.Name == "" {
 		def.Name = existing.Name
 	}
-	if def.Slug == "" {
-		def.Slug = existing.Slug
-		if def.Slug == "" {
-			def.Slug = normalizeContentTypeSlug(def.Name, def.Slug)
-		}
-	}
+	def.Slug = mergedBlockDefinitionSlug(def, existing)
 	if def.Type == "" {
 		def.Type = existing.Type
 	}
@@ -1463,32 +1469,45 @@ func mergeUpdatedBlockDefinition(def CMSBlockDefinition, existing CMSBlockDefini
 	if !def.CategorySet {
 		def.Category = existing.Category
 	}
-	if def.Status == "" {
-		if existing.Status != "" {
-			def.Status = existing.Status
-		} else {
-			def.Status = "draft"
-		}
-	}
+	def.Status = mergedBlockDefinitionStatus(def.Status, existing.Status)
 	if def.Schema == nil {
 		def.Schema = existing.Schema
 	}
 	if def.UISchema == nil {
 		def.UISchema = existing.UISchema
 	}
-	if def.SchemaVersion == "" {
-		def.SchemaVersion = existing.SchemaVersion
-	}
-	if def.SchemaVersion == "" {
-		def.SchemaVersion = schemaVersionFromSchema(def.Schema)
-	}
-	if def.MigrationStatus == "" {
-		def.MigrationStatus = existing.MigrationStatus
-	}
-	if def.MigrationStatus == "" {
-		def.MigrationStatus = blockDefinitionMigrationStatus(def)
-	}
+	def.SchemaVersion = mergedBlockDefinitionSchemaVersion(def.SchemaVersion, existing.SchemaVersion, def.Schema)
 	return def
+}
+
+func mergedBlockDefinitionSlug(def CMSBlockDefinition, existing CMSBlockDefinition) string {
+	if def.Slug != "" {
+		return def.Slug
+	}
+	if existing.Slug != "" {
+		return existing.Slug
+	}
+	return normalizeContentTypeSlug(def.Name, def.Slug)
+}
+
+func mergedBlockDefinitionStatus(status, existing string) string {
+	if status != "" {
+		return status
+	}
+	if existing != "" {
+		return existing
+	}
+	return "draft"
+}
+
+func mergedBlockDefinitionSchemaVersion(version, existing string, schema map[string]any) string {
+	if version != "" {
+		return version
+	}
+	if existing != "" {
+		return existing
+	}
+	return schemaVersionFromSchema(schema)
 }
 
 // DeleteBlockDefinition removes a block definition.

@@ -447,34 +447,9 @@ func translationExchangeJobFilePayload(kind string, request, result map[string]a
 
 	switch strings.TrimSpace(kind) {
 	case translationExchangeJobKindExport:
-		summary := extractMap(result["summary"])
-		if rowCount <= 0 {
-			rowCount = translationExchangeToInt(summary["row_count"])
-		}
-		if format == "" {
-			format = strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(summary["format"]), "json")))
-		}
-		if fileName == "" {
-			downloads := translationExchangeDownloadsPayload(result)
-			if artifact := extractMap(downloads[translationExchangeDownloadKindArtifact]); len(artifact) > 0 {
-				fileName = strings.TrimSpace(toString(artifact["filename"]))
-			}
-		}
+		fileName, format, rowCount = translationExchangeExportJobFilePayload(fileName, format, rowCount, result)
 	default:
-		if fileName == "" {
-			downloads := translationExchangeDownloadsPayload(result)
-			for _, key := range []string{translationExchangeDownloadKindInput, translationExchangeDownloadKindReport} {
-				entry := extractMap(downloads[key])
-				if len(entry) == 0 {
-					continue
-				}
-				fileName = strings.TrimSpace(toString(entry["filename"]))
-				if format == "" {
-					format = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(toString(entry["content_type"]))), "application/")
-				}
-				break
-			}
-		}
+		fileName, format = translationExchangeImportJobFilePayload(fileName, format, result)
 	}
 
 	if fileName == "" && format == "" && rowCount <= 0 {
@@ -492,6 +467,42 @@ func translationExchangeJobFilePayload(kind string, request, result map[string]a
 		payload["row_count"] = rowCount
 	}
 	return payload
+}
+
+func translationExchangeExportJobFilePayload(fileName, format string, rowCount int, result map[string]any) (string, string, int) {
+	summary := extractMap(result["summary"])
+	if rowCount <= 0 {
+		rowCount = translationExchangeToInt(summary["row_count"])
+	}
+	if format == "" {
+		format = strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(summary["format"]), "json")))
+	}
+	if fileName == "" {
+		downloads := translationExchangeDownloadsPayload(result)
+		if artifact := extractMap(downloads[translationExchangeDownloadKindArtifact]); len(artifact) > 0 {
+			fileName = strings.TrimSpace(toString(artifact["filename"]))
+		}
+	}
+	return fileName, format, rowCount
+}
+
+func translationExchangeImportJobFilePayload(fileName, format string, result map[string]any) (string, string) {
+	if fileName != "" {
+		return fileName, format
+	}
+	downloads := translationExchangeDownloadsPayload(result)
+	for _, key := range []string{translationExchangeDownloadKindInput, translationExchangeDownloadKindReport} {
+		entry := extractMap(downloads[key])
+		if len(entry) == 0 {
+			continue
+		}
+		fileName = strings.TrimSpace(toString(entry["filename"]))
+		if format == "" {
+			format = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(toString(entry["content_type"]))), "application/")
+		}
+		break
+	}
+	return fileName, format
 }
 
 func boolString(value bool) string {
