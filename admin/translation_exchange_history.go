@@ -84,68 +84,52 @@ func translationExchangeHistoryPayload(jobs []translationExchangeAsyncJob, page,
 func translationExchangeHistoryExampleJobs(actorID string) []translationExchangeAsyncJob {
 	actorID = strings.TrimSpace(primitives.FirstNonEmptyRaw(actorID, "demo-user"))
 	now := time.Date(2026, 3, 15, 9, 30, 0, 0, time.UTC)
+	exportRows := translationExchangeHistoryExportRows()
+	validateRows := translationExchangeHistoryValidateRows()
+	applyRows := translationExchangeHistoryApplyRows()
+	exportResult := TranslationExportResult{RowCount: len(exportRows), Format: "json", Rows: exportRows}
+	validateResult := translationExchangeHistoryValidateResult(validateRows)
+	applyResult := translationExchangeHistoryApplyResult(applyRows)
+	return []translationExchangeAsyncJob{
+		translationExchangeHistoryApplyJob(actorID, now, applyRows, applyResult),
+		translationExchangeHistoryValidateJob(actorID, now, validateRows, validateResult),
+		translationExchangeHistoryExportJob(actorID, now, exportResult),
+	}
+}
 
-	exportRows := []TranslationExchangeRow{
-		{
-			Resource:     "pages",
-			EntityID:     "page_translation_demo_exchange",
-			FamilyID:     "tg_translation_demo_exchange",
-			SourceLocale: "en",
-			TargetLocale: "fr",
-			FieldPath:    "title",
-			SourceText:   "Translation Demo Exchange",
-			SourceHash:   "hash_demo_exchange_title",
-			Path:         "/translation-demo-exchange",
-			Title:        "Translation Demo Exchange",
-			Status:       translationExchangeWorkflowDraft,
-			Notes:        "Fixture export row for the wizard history step.",
-		},
-		{
-			Resource:     "pages",
-			EntityID:     "page_translation_demo_exchange",
-			FamilyID:     "tg_translation_demo_exchange",
-			SourceLocale: "en",
-			TargetLocale: "es",
-			FieldPath:    "title",
-			SourceText:   "Translation Demo Exchange",
-			SourceHash:   "hash_demo_exchange_title",
-			Path:         "/translation-demo-exchange",
-			Title:        "Translation Demo Exchange",
-			Status:       translationExchangeWorkflowDraft,
-			Notes:        "Fixture export row for the wizard history step.",
-		},
+func translationExchangeHistoryExportRows() []TranslationExchangeRow {
+	return []TranslationExchangeRow{
+		translationExchangeHistoryExportRow("fr"),
+		translationExchangeHistoryExportRow("es"),
 	}
-	exportResult := TranslationExportResult{
-		RowCount: len(exportRows),
-		Format:   "json",
-		Rows:     exportRows,
-	}
+}
 
-	validateRows := []TranslationExchangeRow{
-		{
-			Index:          0,
-			Resource:       "pages",
-			EntityID:       "page_translation_demo_exchange",
-			FamilyID:       "tg_translation_demo_exchange",
-			SourceLocale:   "en",
-			TargetLocale:   "fr",
-			FieldPath:      "title",
-			TranslatedText: "Echange Traduction",
-			SourceHash:     "hash_demo_exchange_title",
-		},
-		{
-			Index:          1,
-			Resource:       "pages",
-			EntityID:       "page_translation_demo_exchange",
-			FamilyID:       "tg_translation_demo_exchange",
-			SourceLocale:   "en",
-			TargetLocale:   "es",
-			FieldPath:      "title",
-			TranslatedText: "Intercambio Traduccion",
-			SourceHash:     "hash_demo_exchange_stale",
-		},
+func translationExchangeHistoryExportRow(targetLocale string) TranslationExchangeRow {
+	return TranslationExchangeRow{
+		Resource:     "pages",
+		EntityID:     "page_translation_demo_exchange",
+		FamilyID:     "tg_translation_demo_exchange",
+		SourceLocale: "en",
+		TargetLocale: targetLocale,
+		FieldPath:    "title",
+		SourceText:   "Translation Demo Exchange",
+		SourceHash:   "hash_demo_exchange_title",
+		Path:         "/translation-demo-exchange",
+		Title:        "Translation Demo Exchange",
+		Status:       translationExchangeWorkflowDraft,
+		Notes:        "Fixture export row for the wizard history step.",
 	}
-	validateResult := TranslationExchangeResult{
+}
+
+func translationExchangeHistoryValidateRows() []TranslationExchangeRow {
+	return []TranslationExchangeRow{
+		{Index: 0, Resource: "pages", EntityID: "page_translation_demo_exchange", FamilyID: "tg_translation_demo_exchange", SourceLocale: "en", TargetLocale: "fr", FieldPath: "title", TranslatedText: "Echange Traduction", SourceHash: "hash_demo_exchange_title"},
+		{Index: 1, Resource: "pages", EntityID: "page_translation_demo_exchange", FamilyID: "tg_translation_demo_exchange", SourceLocale: "en", TargetLocale: "es", FieldPath: "title", TranslatedText: "Intercambio Traduccion", SourceHash: "hash_demo_exchange_stale"},
+	}
+}
+
+func translationExchangeHistoryValidateResult(validateRows []TranslationExchangeRow) TranslationExchangeResult {
+	return TranslationExchangeResult{
 		Summary: TranslationExchangeSummary{
 			Processed:      2,
 			Succeeded:      1,
@@ -161,15 +145,7 @@ func translationExchangeHistoryExampleJobs(actorID string) []translationExchange
 			},
 		},
 		Results: []TranslationExchangeRowResult{
-			{
-				Index:        0,
-				Resource:     "pages",
-				EntityID:     "page_translation_demo_exchange",
-				FamilyID:     "tg_translation_demo_exchange",
-				TargetLocale: "fr",
-				FieldPath:    "title",
-				Status:       translationExchangeRowStatusSuccess,
-			},
+			{Index: 0, Resource: "pages", EntityID: "page_translation_demo_exchange", FamilyID: "tg_translation_demo_exchange", TargetLocale: "fr", FieldPath: "title", Status: translationExchangeRowStatusSuccess},
 			{
 				Index:        1,
 				Resource:     "pages",
@@ -194,8 +170,10 @@ func translationExchangeHistoryExampleJobs(actorID string) []translationExchange
 		},
 		TotalRows: len(validateRows),
 	}
+}
 
-	exportJob := translationExchangeAsyncJob{
+func translationExchangeHistoryExportJob(actorID string, now time.Time, exportResult TranslationExportResult) translationExchangeAsyncJob {
+	return translationExchangeAsyncJob{
 		ID:           "txex_job_fixture_export_history",
 		Kind:         translationExchangeJobKindExport,
 		Status:       translationExchangeAsyncJobStatusCompleted,
@@ -211,29 +189,19 @@ func translationExchangeHistoryExampleJobs(actorID string) []translationExchange
 			"include_source_hash": true,
 			"file_name":           "translation_exchange_export_demo.json",
 		},
-		Progress: map[string]any{
-			"total":     exportResult.RowCount,
-			"processed": exportResult.RowCount,
-			"succeeded": exportResult.RowCount,
-			"failed":    0,
-		},
+		Progress:  map[string]any{"total": exportResult.RowCount, "processed": exportResult.RowCount, "succeeded": exportResult.RowCount, "failed": 0},
 		Result:    translationExchangeExportResultPayload(exportResult),
 		CreatedAt: now.Add(-4 * time.Hour),
-		UpdatedAt: now.Add(-4 * time.Hour).Add(3 * time.Minute),
+		UpdatedAt: now.Add(-4*time.Hour + 3*time.Minute),
 	}
+}
 
+func translationExchangeHistoryValidateJob(actorID string, now time.Time, validateRows []TranslationExchangeRow, validateResult TranslationExchangeResult) translationExchangeAsyncJob {
 	validatePayload := translationExchangeResultPayload(validateResult)
 	validateDownloads := extractMap(validatePayload["downloads"])
-	validateDownloads[translationExchangeDownloadKindInput] = translationExchangeJSONDownload(
-		translationExchangeDownloadKindInput,
-		"Download sample import",
-		"translation_exchange_validate_demo.json",
-		"application/json",
-		validateRows,
-	)
+	validateDownloads[translationExchangeDownloadKindInput] = translationExchangeJSONDownload(translationExchangeDownloadKindInput, "Download sample import", "translation_exchange_validate_demo.json", "application/json", validateRows)
 	validatePayload["downloads"] = validateDownloads
-
-	validateJob := translationExchangeAsyncJob{
+	return translationExchangeAsyncJob{
 		ID:           "txex_job_fixture_validate_history",
 		Kind:         translationExchangeJobKindImportValidate,
 		Status:       translationExchangeAsyncJobStatusCompleted,
@@ -241,11 +209,7 @@ func translationExchangeHistoryExampleJobs(actorID string) []translationExchange
 		CreatedBy:    actorID,
 		Fixture:      true,
 		PollEndpoint: "/admin/api/translations/exchange/jobs/txex_job_fixture_validate_history",
-		Request: map[string]any{
-			"row_count": len(validateRows),
-			"format":    "json",
-			"file_name": "translation_exchange_validate_demo.json",
-		},
+		Request:      map[string]any{"row_count": len(validateRows), "format": "json", "file_name": "translation_exchange_validate_demo.json"},
 		Progress: map[string]any{
 			"total":     validateResult.Summary.Processed,
 			"processed": validateResult.Summary.Processed,
@@ -253,39 +217,26 @@ func translationExchangeHistoryExampleJobs(actorID string) []translationExchange
 			"failed":    validateResult.Summary.Failed,
 			"conflicts": validateResult.Summary.Conflicts,
 		},
-		Result: validatePayload,
-		Retention: map[string]any{
-			"hard_delete_supported": true,
-			"hard_delete_path":      "/admin/api/translations/exchange/jobs/txex_job_fixture_validate_history",
-			"download_kinds":        []string{translationExchangeDownloadKindInput, translationExchangeDownloadKindReport},
-			"artifact_count":        2,
-			"retained":              true,
-		},
+		Result:    validatePayload,
+		Retention: translationExchangeHistoryRetention("/admin/api/translations/exchange/jobs/txex_job_fixture_validate_history"),
 		CreatedAt: now.Add(-90 * time.Minute),
 		UpdatedAt: now.Add(-87 * time.Minute),
 	}
+}
 
-	applyRows := []TranslationExchangeRow{
-		{
-			Index:          0,
-			Resource:       "pages",
-			EntityID:       "page_translation_demo_exchange",
-			FamilyID:       "tg_translation_demo_exchange",
-			SourceLocale:   "en",
-			TargetLocale:   "fr",
-			FieldPath:      "title",
-			TranslatedText: "Echange Traduction",
-			SourceHash:     "hash_demo_exchange_title",
-		},
+func translationExchangeHistoryApplyRows() []TranslationExchangeRow {
+	return []TranslationExchangeRow{
+		{Index: 0, Resource: "pages", EntityID: "page_translation_demo_exchange", FamilyID: "tg_translation_demo_exchange", SourceLocale: "en", TargetLocale: "fr", FieldPath: "title", TranslatedText: "Echange Traduction", SourceHash: "hash_demo_exchange_title"},
 	}
-	applyResult := TranslationExchangeResult{
+}
+
+func translationExchangeHistoryApplyResult(applyRows []TranslationExchangeRow) TranslationExchangeResult {
+	return TranslationExchangeResult{
 		Summary: TranslationExchangeSummary{
 			Processed: 1,
 			Succeeded: 1,
 			Failed:    0,
-			ByStatus: map[string]int{
-				translationExchangeRowStatusSuccess: 1,
-			},
+			ByStatus:  map[string]int{translationExchangeRowStatusSuccess: 1},
 		},
 		Results: []TranslationExchangeRowResult{
 			{
@@ -307,8 +258,10 @@ func translationExchangeHistoryExampleJobs(actorID string) []translationExchange
 		},
 		TotalRows: len(applyRows),
 	}
-	applyPayload := translationExchangeResultPayloadForKind(translationExchangeJobKindImportApply, applyResult, applyRows)
-	applyJob := translationExchangeAsyncJob{
+}
+
+func translationExchangeHistoryApplyJob(actorID string, now time.Time, applyRows []TranslationExchangeRow, applyResult TranslationExchangeResult) translationExchangeAsyncJob {
+	return translationExchangeAsyncJob{
 		ID:           "txex_job_fixture_apply_history",
 		Kind:         translationExchangeJobKindImportApply,
 		Status:       translationExchangeAsyncJobStatusCompleted,
@@ -325,25 +278,22 @@ func translationExchangeHistoryExampleJobs(actorID string) []translationExchange
 			"continue_on_error":    false,
 			"dry_run":              false,
 		},
-		Progress: map[string]any{
-			"total":     1,
-			"processed": 1,
-			"succeeded": 1,
-			"failed":    0,
-		},
-		Result: applyPayload,
-		Retention: map[string]any{
-			"hard_delete_supported": true,
-			"hard_delete_path":      "/admin/api/translations/exchange/jobs/txex_job_fixture_apply_history",
-			"download_kinds":        []string{translationExchangeDownloadKindInput, translationExchangeDownloadKindReport},
-			"artifact_count":        2,
-			"retained":              true,
-		},
+		Progress:  map[string]any{"total": 1, "processed": 1, "succeeded": 1, "failed": 0},
+		Result:    translationExchangeResultPayloadForKind(translationExchangeJobKindImportApply, applyResult, applyRows),
+		Retention: translationExchangeHistoryRetention("/admin/api/translations/exchange/jobs/txex_job_fixture_apply_history"),
 		CreatedAt: now.Add(-45 * time.Minute),
 		UpdatedAt: now.Add(-42 * time.Minute),
 	}
+}
 
-	return []translationExchangeAsyncJob{applyJob, validateJob, exportJob}
+func translationExchangeHistoryRetention(path string) map[string]any {
+	return map[string]any{
+		"hard_delete_supported": true,
+		"hard_delete_path":      path,
+		"download_kinds":        []string{translationExchangeDownloadKindInput, translationExchangeDownloadKindReport},
+		"artifact_count":        2,
+		"retained":              true,
+	}
 }
 
 func translationExchangeJSONDownload(kind, label, filename, contentType string, payload any) map[string]any {

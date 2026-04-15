@@ -351,6 +351,20 @@ func (r goCMSContentWriteBoundary) UpdateBlockDefinition(ctx context.Context, de
 	if a.blocks == nil {
 		return nil, ErrNotFound
 	}
+	req := updateBlockDefinitionInput(defID, def)
+	updated, err := a.blocks.UpdateDefinition(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if updated == nil {
+		return nil, ErrNotFound
+	}
+	converted := cmsadapter.ConvertBlockDefinition(reflect.ValueOf(updated))
+	a.blockDefinitionCache.PublishDefinition(converted, updated.ID, cmsContentChannelFromContext(ctx, ""), true)
+	return &converted, nil
+}
+
+func updateBlockDefinitionInput(defID uuid.UUID, def CMSBlockDefinition) cmsblocks.UpdateDefinitionInput {
 	req := cmsblocks.UpdateDefinitionInput{ID: defID}
 	if name := strings.TrimSpace(def.Name); name != "" {
 		req.Name = &name
@@ -379,16 +393,7 @@ func (r goCMSContentWriteBoundary) UpdateBlockDefinition(ctx context.Context, de
 	if len(def.UISchema) > 0 {
 		req.UISchema = primitives.CloneAnyMap(def.UISchema)
 	}
-	updated, err := a.blocks.UpdateDefinition(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	if updated == nil {
-		return nil, ErrNotFound
-	}
-	converted := cmsadapter.ConvertBlockDefinition(reflect.ValueOf(updated))
-	a.blockDefinitionCache.PublishDefinition(converted, updated.ID, cmsContentChannelFromContext(ctx, ""), true)
-	return &converted, nil
+	return req
 }
 
 func (r goCMSContentWriteBoundary) DeleteBlockDefinition(ctx context.Context, id string) error {
@@ -837,36 +842,7 @@ func (r goCMSContentWriteBoundary) updatePageFromContent(ctx context.Context, pa
 
 	data := primitives.CloneAnyMap(existing.Data)
 	maps.Copy(data, primitives.CloneAnyMap(page.Data))
-	if mt := cmsadapter.AsString(page.SEO["title"], cmsadapter.AsString(data["meta_title"], "")); strings.TrimSpace(mt) != "" {
-		data["meta_title"] = mt
-	}
-	if md := cmsadapter.AsString(page.SEO["description"], cmsadapter.AsString(data["meta_description"], "")); strings.TrimSpace(md) != "" {
-		data["meta_description"] = md
-	}
-	if strings.TrimSpace(page.ParentID) != "" {
-		data["parent_id"] = page.ParentID
-	}
-	if strings.TrimSpace(page.TemplateID) != "" {
-		data["template_id"] = page.TemplateID
-	}
-	if strings.TrimSpace(page.RouteKey) != "" {
-		data["route_key"] = strings.TrimSpace(page.RouteKey)
-	}
-	path := strings.TrimSpace(cmsadapter.AsString(data["path"], page.PreviewURL))
-	if path == "" {
-		path = "/" + strings.TrimPrefix(cmsadapter.AsString(page.Slug, existing.Slug), "/")
-	}
-	data["path"] = path
-	if schema := strings.TrimSpace(page.SchemaVersion); schema != "" {
-		data["_schema"] = schema
-	} else if schema := strings.TrimSpace(toString(data["_schema"])); schema != "" {
-		data["_schema"] = schema
-	}
-	if page.EmbeddedBlocks != nil {
-		data["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
-	} else if embedded, present := embeddedBlocksFromData(data); present {
-		data["blocks"] = embedded
-	}
+	data = updatePageContentData(data, page, existing)
 	metadata := cmsadapter.MergeMetadata(primitives.CloneAnyMap(existing.Metadata), primitives.CloneAnyMap(page.Metadata))
 	groupID := cmsadapter.RequestedFamilyID(primitives.FirstNonEmptyRaw(page.FamilyID, existing.FamilyID), data, metadata)
 	data, metadata = cmsadapter.PersistTranslationGroupMetadata(groupID, data, metadata)
@@ -915,6 +891,56 @@ func (r goCMSContentWriteBoundary) updatePageFromContent(ctx context.Context, pa
 	}
 	rec := pageFromContent(*updated)
 	return &rec, nil
+}
+
+func updatePageContentData(data map[string]any, page CMSPage, existing *CMSContent) map[string]any {
+	if mt := cmsadapter.AsString(page.SEO["title"], cmsadapter.AsString(data["meta_title"], "")); strings.TrimSpace(mt) != "" {
+		data["meta_title"] = mt
+	}
+	if md := cmsadapter.AsString(page.SEO["description"], cmsadapter.AsString(data["meta_description"], "")); strings.TrimSpace(md) != "" {
+		data["meta_description"] = md
+	}
+	if strings.TrimSpace(page.ParentID) != "" {
+		data["parent_id"] = page.ParentID
+	}
+	if strings.TrimSpace(page.TemplateID) != "" {
+		data["template_id"] = page.TemplateID
+	}
+	if strings.TrimSpace(page.RouteKey) != "" {
+		data["route_key"] = strings.TrimSpace(page.RouteKey)
+	}
+	data["path"] = resolveUpdatedPagePath(data, page, existing)
+	applyUpdatedPageSchemaVersion(data, page)
+	applyUpdatedPageEmbeddedBlocks(data, page)
+	return data
+}
+
+func resolveUpdatedPagePath(data map[string]any, page CMSPage, existing *CMSContent) string {
+	path := strings.TrimSpace(cmsadapter.AsString(data["path"], page.PreviewURL))
+	if path != "" {
+		return path
+	}
+	return "/" + strings.TrimPrefix(cmsadapter.AsString(page.Slug, existing.Slug), "/")
+}
+
+func applyUpdatedPageSchemaVersion(data map[string]any, page CMSPage) {
+	if schema := strings.TrimSpace(page.SchemaVersion); schema != "" {
+		data["_schema"] = schema
+		return
+	}
+	if schema := strings.TrimSpace(toString(data["_schema"])); schema != "" {
+		data["_schema"] = schema
+	}
+}
+
+func applyUpdatedPageEmbeddedBlocks(data map[string]any, page CMSPage) {
+	if page.EmbeddedBlocks != nil {
+		data["blocks"] = cloneEmbeddedBlocks(page.EmbeddedBlocks)
+		return
+	}
+	if embedded, present := embeddedBlocksFromData(data); present {
+		data["blocks"] = embedded
+	}
 }
 
 func (r goCMSContentWriteBoundary) deletePageFromContent(ctx context.Context, id string) error {

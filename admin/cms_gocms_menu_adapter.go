@@ -141,8 +141,36 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 	if err := a.ensureMenuHierarchyIntegrity(ctx, menuCode, path, parent); err != nil {
 		return err
 	}
-	update := cms.UpdateMenuItemByPathInput{Actor: uuid.Nil}
+	update := menuItemUpdateInput(item)
+	if parent != "" {
+		update.ParentPath = &parent
+	}
+	update.Metadata = map[string]any{"path": path, "parent_path": parent}
 
+	if _, err := a.service.UpdateMenuItemByPath(ctx, menuCode, path, update); err != nil {
+		return normalizeMenuTargetError(err)
+	}
+
+	locale := strings.TrimSpace(item.Locale)
+	if locale == "" {
+		return nil
+	}
+	if strings.TrimSpace(item.Label) == "" && strings.TrimSpace(item.LabelKey) == "" && strings.TrimSpace(item.GroupTitle) == "" && strings.TrimSpace(item.GroupTitleKey) == "" {
+		return nil
+	}
+	label, labelKey, groupTitle, groupTitleKey := normalizeMenuItemTranslationFields(item)
+	return normalizeMenuTargetError(a.service.UpsertMenuItemTranslationByPath(ctx, menuCode, path, cms.MenuItemTranslationInput{
+		Locale:        locale,
+		Label:         label,
+		LabelKey:      labelKey,
+		GroupTitle:    groupTitle,
+		GroupTitleKey: groupTitleKey,
+		URLOverride:   normalizedURLOverride(item.URLOverride),
+	}))
+}
+
+func menuItemUpdateInput(item MenuItem) cms.UpdateMenuItemByPathInput {
+	update := cms.UpdateMenuItemByPathInput{Actor: uuid.Nil}
 	if item.Position != nil {
 		update.Position = cloneIntPtr(item.Position)
 	}
@@ -180,32 +208,7 @@ func (a *GoCMSMenuAdapter) UpdateMenuItem(ctx context.Context, menuCode string, 
 			update.Target = tgt
 		}
 	}
-
-	if parent != "" {
-		update.ParentPath = &parent
-	}
-	update.Metadata = map[string]any{"path": path, "parent_path": parent}
-
-	if _, err := a.service.UpdateMenuItemByPath(ctx, menuCode, path, update); err != nil {
-		return normalizeMenuTargetError(err)
-	}
-
-	locale := strings.TrimSpace(item.Locale)
-	if locale == "" {
-		return nil
-	}
-	if strings.TrimSpace(item.Label) == "" && strings.TrimSpace(item.LabelKey) == "" && strings.TrimSpace(item.GroupTitle) == "" && strings.TrimSpace(item.GroupTitleKey) == "" {
-		return nil
-	}
-	label, labelKey, groupTitle, groupTitleKey := normalizeMenuItemTranslationFields(item)
-	return normalizeMenuTargetError(a.service.UpsertMenuItemTranslationByPath(ctx, menuCode, path, cms.MenuItemTranslationInput{
-		Locale:        locale,
-		Label:         label,
-		LabelKey:      labelKey,
-		GroupTitle:    groupTitle,
-		GroupTitleKey: groupTitleKey,
-		URLOverride:   normalizedURLOverride(item.URLOverride),
-	}))
+	return update
 }
 
 func (a *GoCMSMenuAdapter) ensureMenuHierarchyIntegrity(ctx context.Context, menuCode, path, parent string) error {

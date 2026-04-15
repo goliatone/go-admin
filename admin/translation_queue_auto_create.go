@@ -52,97 +52,103 @@ type DefaultTranslationQueueAutoCreateHook struct {
 // Errors are logged but not propagated to preserve primary policy response.
 func (h *DefaultTranslationQueueAutoCreateHook) OnTranslationBlocker(ctx context.Context, input TranslationQueueAutoCreateInput) TranslationQueueAutoCreateResult {
 	result := TranslationQueueAutoCreateResult{}
-
-	if h == nil || h.Repository == nil {
+	if !h.translationQueueAutoCreateEnabled(input) {
 		return result
 	}
-
-	if strings.TrimSpace(input.FamilyID) == "" {
-		return result
-	}
-	if strings.TrimSpace(input.EntityID) == "" {
-		return result
-	}
-	if len(input.MissingLocales) == 0 {
-		return result
-	}
-
-	logger := h.Logger
-	if logger == nil {
-		logger = resolveNamedLogger("admin.translation.queue", nil, getTranslationObservabilityLogger())
-	}
-
-	sourceLocale := strings.TrimSpace(strings.ToLower(input.SourceLocale))
-	if sourceLocale == "" {
-		sourceLocale = "en"
-	}
-
-	priority := input.Priority
-	if !priority.IsValid() {
-		priority = PriorityNormal
-	}
-
+	logger := h.translationQueueAutoCreateLogger()
+	sourceLocale, priority := translationQueueAutoCreateDefaults(input)
 	for _, targetLocale := range input.MissingLocales {
 		targetLocale = strings.TrimSpace(strings.ToLower(targetLocale))
 		if targetLocale == "" || targetLocale == sourceLocale {
 			continue
 		}
-
-		assignment := TranslationAssignment{
-			FamilyID:       strings.TrimSpace(input.FamilyID),
-			EntityType:     strings.TrimSpace(strings.ToLower(input.EntityType)),
-			SourceRecordID: strings.TrimSpace(input.EntityID),
-			SourceLocale:   sourceLocale,
-			TargetLocale:   targetLocale,
-			SourceTitle:    strings.TrimSpace(input.SourceTitle),
-			SourcePath:     strings.TrimSpace(input.SourcePath),
-			AssignmentType: AssignmentTypeOpenPool,
-			Status:         AssignmentStatusOpen,
-			Priority:       priority,
-			CreatedAt:      time.Now().UTC(),
-			UpdatedAt:      time.Now().UTC(),
-		}
-
+		assignment := translationQueueAutoCreateAssignment(input, sourceLocale, targetLocale, priority)
 		created, isNew, err := h.Repository.CreateOrReuseActive(ctx, assignment)
 		if err != nil {
-			result.Failed++
-			result.Errors = append(result.Errors, err)
-			logger.Warn("translation queue auto-create failed",
-				"event", "translation.queue.auto_create.error",
-				"family_id", assignment.FamilyID,
-				"entity_type", assignment.EntityType,
-				"source_locale", assignment.SourceLocale,
-				"target_locale", assignment.TargetLocale,
-				"error", err.Error(),
-			)
+			translationQueueAutoCreateRecordFailure(&result, logger, assignment, err)
 			continue
 		}
-
 		result.Assignments = append(result.Assignments, created)
-		if isNew {
-			result.Created++
-			logger.Info("translation queue auto-create success",
-				"event", "translation.queue.auto_create.created",
-				"assignment_id", created.ID,
-				"family_id", created.FamilyID,
-				"entity_type", created.EntityType,
-				"source_locale", created.SourceLocale,
-				"target_locale", created.TargetLocale,
-			)
-		} else {
-			result.Reused++
-			logger.Info("translation queue auto-create reused existing",
-				"event", "translation.queue.auto_create.reused",
-				"assignment_id", created.ID,
-				"family_id", created.FamilyID,
-				"entity_type", created.EntityType,
-				"source_locale", created.SourceLocale,
-				"target_locale", created.TargetLocale,
-			)
-		}
+		translationQueueAutoCreateRecordSuccess(&result, logger, created, isNew)
 	}
-
 	return result
+}
+
+func (h *DefaultTranslationQueueAutoCreateHook) translationQueueAutoCreateEnabled(input TranslationQueueAutoCreateInput) bool {
+	return h != nil && h.Repository != nil &&
+		strings.TrimSpace(input.FamilyID) != "" &&
+		strings.TrimSpace(input.EntityID) != "" &&
+		len(input.MissingLocales) > 0
+}
+
+func (h *DefaultTranslationQueueAutoCreateHook) translationQueueAutoCreateLogger() Logger {
+	if h != nil && h.Logger != nil {
+		return h.Logger
+	}
+	return resolveNamedLogger("admin.translation.queue", nil, getTranslationObservabilityLogger())
+}
+
+func translationQueueAutoCreateDefaults(input TranslationQueueAutoCreateInput) (string, Priority) {
+	sourceLocale := strings.TrimSpace(strings.ToLower(input.SourceLocale))
+	if sourceLocale == "" {
+		sourceLocale = "en"
+	}
+	priority := input.Priority
+	if !priority.IsValid() {
+		priority = PriorityNormal
+	}
+	return sourceLocale, priority
+}
+
+func translationQueueAutoCreateAssignment(input TranslationQueueAutoCreateInput, sourceLocale, targetLocale string, priority Priority) TranslationAssignment {
+	now := time.Now().UTC()
+	return TranslationAssignment{
+		FamilyID:       strings.TrimSpace(input.FamilyID),
+		EntityType:     strings.TrimSpace(strings.ToLower(input.EntityType)),
+		SourceRecordID: strings.TrimSpace(input.EntityID),
+		SourceLocale:   sourceLocale,
+		TargetLocale:   targetLocale,
+		SourceTitle:    strings.TrimSpace(input.SourceTitle),
+		SourcePath:     strings.TrimSpace(input.SourcePath),
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       priority,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+}
+
+func translationQueueAutoCreateRecordFailure(result *TranslationQueueAutoCreateResult, logger Logger, assignment TranslationAssignment, err error) {
+	result.Failed++
+	result.Errors = append(result.Errors, err)
+	logger.Warn("translation queue auto-create failed",
+		"event", "translation.queue.auto_create.error",
+		"family_id", assignment.FamilyID,
+		"entity_type", assignment.EntityType,
+		"source_locale", assignment.SourceLocale,
+		"target_locale", assignment.TargetLocale,
+		"error", err.Error(),
+	)
+}
+
+func translationQueueAutoCreateRecordSuccess(result *TranslationQueueAutoCreateResult, logger Logger, assignment TranslationAssignment, isNew bool) {
+	event := "translation.queue.auto_create.reused"
+	message := "translation queue auto-create reused existing"
+	if isNew {
+		result.Created++
+		event = "translation.queue.auto_create.created"
+		message = "translation queue auto-create success"
+	} else {
+		result.Reused++
+	}
+	logger.Info(message,
+		"event", event,
+		"assignment_id", assignment.ID,
+		"family_id", assignment.FamilyID,
+		"entity_type", assignment.EntityType,
+		"source_locale", assignment.SourceLocale,
+		"target_locale", assignment.TargetLocale,
+	)
 }
 
 // translationQueueAutoCreateHookFromError extracts auto-create input from a policy error.

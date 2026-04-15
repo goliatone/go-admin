@@ -59,117 +59,111 @@ func blockDefinitionsFromLibrary(
 	if err != nil {
 		return nil, err
 	}
+	slugSet := blockLibrarySlugSet(allowedSlugs)
 
-	// Build allow-set for filtering, including block type aliases
-	// (e.g. rich_text <-> rich-text) for backwards compatibility.
+	definitions := make([]blockDefinition, 0, len(items))
+	for _, item := range items {
+		if !blockLibraryDefinitionAllowed(item, slugSet) {
+			continue
+		}
+		schema, _ := item["schema"].(map[string]any)
+		uiSchema, _ := item["ui_schema"].(map[string]any)
+		definition, renderErr := buildBlockLibraryDefinition(item, schema, uiSchema, renderChild)
+		if renderErr != nil {
+			return nil, renderErr
+		}
+		definitions = append(definitions, definition)
+	}
+
+	return definitions, nil
+}
+
+func blockLibrarySlugSet(allowedSlugs []string) map[string]struct{} {
 	slugSet := make(map[string]struct{}, len(allowedSlugs)*3)
 	for _, s := range allowedSlugs {
 		for _, candidate := range blockTypeAliasCandidates(strings.ToLower(strings.TrimSpace(s))) {
 			normalized := strings.ToLower(strings.TrimSpace(candidate))
-			if normalized == "" {
-				continue
+			if normalized != "" {
+				slugSet[normalized] = struct{}{}
 			}
-			slugSet[normalized] = struct{}{}
 		}
 	}
+	return slugSet
+}
 
-	definitions := make([]blockDefinition, 0, len(items))
-	for _, item := range items {
-		slug := strings.TrimSpace(toString(item["slug"]))
-
-		// Filter by allowed slugs (empty set = all).
-		if len(slugSet) > 0 {
-			matched := false
-			for _, value := range []string{
-				slug,
-				strings.TrimSpace(toString(item["type"])),
-				strings.TrimSpace(toString(item["id"])),
-			} {
-				for _, candidate := range blockTypeAliasCandidates(strings.ToLower(strings.TrimSpace(value))) {
-					if _, ok := slugSet[strings.ToLower(strings.TrimSpace(candidate))]; ok {
-						matched = true
-						break
-					}
-				}
-				if matched {
-					break
-				}
-			}
-			if !matched {
-				continue
-			}
-		}
-
-		// Extract schema and ui_schema maps.
-		schema, _ := item["schema"].(map[string]any)
-		uiSchema, _ := item["ui_schema"].(map[string]any)
-
-		// Strip unsupported JSON Schema keywords.
-		stripped := stripUnsupportedSchemaKeywords(schema)
-		if stripped != nil {
-			if _, ok := stripped["$schema"]; !ok {
-				stripped["$schema"] = "https://json-schema.org/draft/2020-12/schema"
-			}
-		}
-
-		// Prepare UI overlay bytes using the overlay mechanism
-		// (same pattern as content_type_builder_module.go:1050-1059).
-		var overlay []byte
-		if len(uiSchema) > 0 {
-			overlayDoc := primitives.CloneAnyMap(uiSchema)
-			if overlayDoc != nil {
-				if _, ok := overlayDoc["$schema"]; !ok {
-					overlayDoc["$schema"] = "x-ui-overlay/v1"
-				}
-			}
-			if raw, err := json.Marshal(overlayDoc); err == nil {
-				overlay = raw
-			}
-		}
-
-		// Render HTML via renderChild.
-		html := ""
-		if renderChild != nil {
-			rendered, renderErr := renderChild(blockLibraryRenderInput{
-				Schema:  stripped,
-				Overlay: overlay,
-				Slug:    slug,
-			})
-			if renderErr != nil {
-				return nil, renderErr
-			}
-			html = rendered
-		}
-
-		// Derive required_fields from the top-level required array,
-		// excluding _type and _schema metadata keys.
-		requiredFields := deriveBlockRequiredFields(schema)
-
-		// Map fields from the repository result.
-		name := strings.TrimSpace(toString(item["name"]))
-		icon := strings.TrimSpace(toString(item["icon"]))
-
-		// Category: def.Category → schemaCategoryFromSchema → "custom"
-		category := strings.TrimSpace(toString(item["category"]))
-
-		// Status: from repository result (already resolved by repo.List).
-		status := strings.TrimSpace(toString(item["status"]))
-
-		schemaVersion := strings.TrimSpace(toString(item["schema_version"]))
-
-		definitions = append(definitions, blockDefinition{
-			Type:           slug,
-			Label:          name,
-			Icon:           icon,
-			Category:       category,
-			Status:         status,
-			Schema:         schemaVersion,
-			RequiredFields: requiredFields,
-			HTML:           html,
-		})
+func blockLibraryDefinitionAllowed(item map[string]any, slugSet map[string]struct{}) bool {
+	if len(slugSet) == 0 {
+		return true
 	}
+	for _, value := range []string{
+		strings.TrimSpace(toString(item["slug"])),
+		strings.TrimSpace(toString(item["type"])),
+		strings.TrimSpace(toString(item["id"])),
+	} {
+		for _, candidate := range blockTypeAliasCandidates(strings.ToLower(strings.TrimSpace(value))) {
+			if _, ok := slugSet[strings.ToLower(strings.TrimSpace(candidate))]; ok {
+				return true
+			}
+		}
+	}
+	return false
+}
 
-	return definitions, nil
+func buildBlockLibraryDefinition(item map[string]any, schema, uiSchema map[string]any, renderChild func(any) (string, error)) (blockDefinition, error) {
+	slug := strings.TrimSpace(toString(item["slug"]))
+	html, err := renderBlockLibraryDefinition(renderChild, blockLibraryRenderInputForSlug(slug, schema, uiSchema))
+	if err != nil {
+		return blockDefinition{}, err
+	}
+	return blockDefinition{
+		Type:           slug,
+		Label:          strings.TrimSpace(toString(item["name"])),
+		Icon:           strings.TrimSpace(toString(item["icon"])),
+		Category:       strings.TrimSpace(toString(item["category"])),
+		Status:         strings.TrimSpace(toString(item["status"])),
+		Schema:         strings.TrimSpace(toString(item["schema_version"])),
+		RequiredFields: deriveBlockRequiredFields(schema),
+		HTML:           html,
+	}, nil
+}
+
+func blockLibraryRenderInputForSlug(slug string, schema, uiSchema map[string]any) blockLibraryRenderInput {
+	stripped := stripUnsupportedSchemaKeywords(schema)
+	if stripped != nil {
+		if _, ok := stripped["$schema"]; !ok {
+			stripped["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+		}
+	}
+	return blockLibraryRenderInput{
+		Schema:  stripped,
+		Overlay: blockLibraryOverlay(uiSchema),
+		Slug:    slug,
+	}
+}
+
+func blockLibraryOverlay(uiSchema map[string]any) []byte {
+	if len(uiSchema) == 0 {
+		return nil
+	}
+	overlayDoc := primitives.CloneAnyMap(uiSchema)
+	if overlayDoc == nil {
+		return nil
+	}
+	if _, ok := overlayDoc["$schema"]; !ok {
+		overlayDoc["$schema"] = "x-ui-overlay/v1"
+	}
+	raw, err := json.Marshal(overlayDoc)
+	if err != nil {
+		return nil
+	}
+	return raw
+}
+
+func renderBlockLibraryDefinition(renderChild func(any) (string, error), input blockLibraryRenderInput) (string, error) {
+	if renderChild == nil {
+		return "", nil
+	}
+	return renderChild(input)
 }
 
 // deriveBlockRequiredFields extracts the top-level required field names
@@ -338,70 +332,10 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 
 	repo := NewCMSBlockDefinitionRepository(m.contentSvc, m.contentTypeSvc)
 
-	// Single-template endpoint.
 	singlePath := adminAPIRoutePath(admin, "block_definitions_meta.template")
-
-	singleHandler := func(c router.Context) error {
-		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
-		if err := m.authorize(adminCtx, admin.authorizer); err != nil {
-			return writeError(c, err)
-		}
-
-		slug := strings.TrimSpace(c.Param("slug"))
-		if slug == "" {
-			return writeError(c, ErrNotFound)
-		}
-
-		includeInactive := strings.EqualFold(strings.TrimSpace(c.Query("include_inactive")), "true")
-
-		// Look up definition by slug to verify existence and status.
-		record, err := repo.Get(adminCtx.Context, slug)
-		if err != nil {
-			return writeError(c, ErrNotFound)
-		}
-		status := strings.TrimSpace(toString(record["status"]))
-		if !includeInactive && !strings.EqualFold(status, "active") {
-			return writeError(c, ErrNotFound)
-		}
-
-		renderChild := blockLibraryRenderFunc(adminCtx.Context, renderer)
-		defs, err := blockDefinitionsFromLibrary(adminCtx.Context, repo, []string{slug}, renderChild, includeInactive)
-		if err != nil {
-			return writeError(c, err)
-		}
-
-		return writeJSON(c, map[string]any{"items": blockDefinitionsToResponse(defs)})
-	}
-
-	// Batch-templates endpoint.
 	batchPath := adminAPIRoutePath(admin, "block_definitions_meta.templates")
-
-	batchHandler := func(c router.Context) error {
-		adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
-		if err := m.authorize(adminCtx, admin.authorizer); err != nil {
-			return writeError(c, err)
-		}
-
-		slugsParam := strings.TrimSpace(c.Query("slugs"))
-		var slugs []string
-		if slugsParam != "" {
-			for s := range strings.SplitSeq(slugsParam, ",") {
-				if trimmed := strings.TrimSpace(s); trimmed != "" {
-					slugs = append(slugs, trimmed)
-				}
-			}
-		}
-
-		includeInactive := strings.EqualFold(strings.TrimSpace(c.Query("include_inactive")), "true")
-
-		renderChild := blockLibraryRenderFunc(adminCtx.Context, renderer)
-		defs, err := blockDefinitionsFromLibrary(adminCtx.Context, repo, slugs, renderChild, includeInactive)
-		if err != nil {
-			return writeError(c, err)
-		}
-
-		return writeJSON(c, map[string]any{"items": blockDefinitionsToResponse(defs)})
-	}
+	singleHandler := m.blockDefinitionSingleTemplateHandler(admin, repo, renderer)
+	batchHandler := m.blockDefinitionBatchTemplateHandler(admin, repo, renderer)
 
 	// Register routes with auth wrapper.
 	authWrap := admin.authWrapper()
@@ -413,6 +347,77 @@ func (m *ContentTypeBuilderModule) registerBlockDefinitionTemplateRoutes(admin *
 	// Register routes.
 	admin.router.Get(batchPath, batchHandler)
 	admin.router.Get(singlePath, singleHandler)
+}
+
+func (m *ContentTypeBuilderModule) blockDefinitionSingleTemplateHandler(admin *Admin, repo *CMSBlockDefinitionRepository, renderer *FormgenSchemaValidator) func(router.Context) error {
+	return func(c router.Context) error {
+		adminCtx, includeInactive, err := m.blockDefinitionTemplateContext(admin, c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		slug := strings.TrimSpace(c.Param("slug"))
+		if slug == "" {
+			return writeError(c, ErrNotFound)
+		}
+		if err := ensureBlockDefinitionTemplateAllowed(adminCtx.Context, repo, slug, includeInactive); err != nil {
+			return writeError(c, err)
+		}
+		return writeBlockDefinitionTemplateResponse(c, adminCtx.Context, repo, []string{slug}, renderer, includeInactive)
+	}
+}
+
+func (m *ContentTypeBuilderModule) blockDefinitionBatchTemplateHandler(admin *Admin, repo *CMSBlockDefinitionRepository, renderer *FormgenSchemaValidator) func(router.Context) error {
+	return func(c router.Context) error {
+		adminCtx, includeInactive, err := m.blockDefinitionTemplateContext(admin, c)
+		if err != nil {
+			return writeError(c, err)
+		}
+		return writeBlockDefinitionTemplateResponse(c, adminCtx.Context, repo, blockDefinitionTemplateSlugs(c.Query("slugs")), renderer, includeInactive)
+	}
+}
+
+func (m *ContentTypeBuilderModule) blockDefinitionTemplateContext(admin *Admin, c router.Context) (AdminContext, bool, error) {
+	adminCtx := admin.adminContextFromRequest(c, admin.config.DefaultLocale)
+	if err := m.authorize(adminCtx, admin.authorizer); err != nil {
+		return AdminContext{}, false, err
+	}
+	includeInactive := strings.EqualFold(strings.TrimSpace(c.Query("include_inactive")), "true")
+	return adminCtx, includeInactive, nil
+}
+
+func ensureBlockDefinitionTemplateAllowed(ctx context.Context, repo *CMSBlockDefinitionRepository, slug string, includeInactive bool) error {
+	record, err := repo.Get(ctx, slug)
+	if err != nil {
+		return ErrNotFound
+	}
+	status := strings.TrimSpace(toString(record["status"]))
+	if !includeInactive && !strings.EqualFold(status, "active") {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func writeBlockDefinitionTemplateResponse(c router.Context, ctx context.Context, repo *CMSBlockDefinitionRepository, slugs []string, renderer *FormgenSchemaValidator, includeInactive bool) error {
+	renderChild := blockLibraryRenderFunc(ctx, renderer)
+	defs, err := blockDefinitionsFromLibrary(ctx, repo, slugs, renderChild, includeInactive)
+	if err != nil {
+		return writeError(c, err)
+	}
+	return writeJSON(c, map[string]any{"items": blockDefinitionsToResponse(defs)})
+}
+
+func blockDefinitionTemplateSlugs(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	slugs := []string{}
+	for s := range strings.SplitSeq(raw, ",") {
+		if trimmed := strings.TrimSpace(s); trimmed != "" {
+			slugs = append(slugs, trimmed)
+		}
+	}
+	return slugs
 }
 
 // ---------------------------------------------------------------------------

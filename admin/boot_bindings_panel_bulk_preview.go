@@ -34,102 +34,10 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 	channel := resolvePolicyEnvironment(body, environmentFromContext(ctx.Context))
 	policyEntity := resolvePolicyEntity(body, p.name)
 	results := make([]map[string]any, 0, len(ids))
-	summary := map[string]int{
-		"total":             0,
-		"succeeded":         0,
-		"partial":           0,
-		"failed":            0,
-		"skipped":           0,
-		"created_locales":   0,
-		"failed_locales":    0,
-		"requested_locales": 0,
-	}
+	summary := bulkCreateMissingTranslationsSummary()
 
 	for _, id := range dedupeStrings(ids) {
-		recordResult := map[string]any{
-			"id": strings.TrimSpace(id),
-		}
-		source, err := p.panel.Get(ctx, id)
-		if err != nil {
-			recordResult["status"] = "failed"
-			recordResult["failures"] = []map[string]any{bulkCreateMissingTranslationsError("", err)}
-			results = append(results, recordResult)
-			summary["total"]++
-			summary["failed"]++
-			summary["failed_locales"]++
-			continue
-		}
-
-		sourceWithReadiness := p.withTranslationReadinessRecord(ctx, source, map[string]any{
-			"channel": channel,
-		})
-		readiness := extractMap(sourceWithReadiness["translation_readiness"])
-		missingLocales := normalizedLocaleList(readiness["missing_required_locales"])
-		if len(missingLocales) == 0 {
-			missingLocales = normalizedLocaleList(readiness["missing_locales"])
-		}
-		recordResult["missing_locales"] = append([]string{}, missingLocales...)
-		recordResult["family_id"] = strings.TrimSpace(translationFamilyIDFromRecord(sourceWithReadiness))
-		recordResult["source_locale"] = strings.TrimSpace(toString(sourceWithReadiness["locale"]))
-
-		if len(missingLocales) == 0 {
-			recordResult["status"] = "skipped"
-			recordResult["reason_code"] = bulkCreateMissingTranslationReasonNoLocale
-			recordResult["reason"] = "record has no missing required locales"
-			recordResult["created"] = []map[string]any{}
-			recordResult["failures"] = []map[string]any{}
-			results = append(results, recordResult)
-			summary["total"]++
-			summary["skipped"]++
-			continue
-		}
-
-		created := make([]map[string]any, 0, len(missingLocales))
-		failures := make([]map[string]any, 0)
-		for _, targetLocale := range missingLocales {
-			summary["requested_locales"]++
-			payload := map[string]any{
-				"id":            strings.TrimSpace(id),
-				"locale":        targetLocale,
-				"channel":       channel,
-				"policy_entity": primitives.FirstNonEmptyRaw(policyEntity, resolvePolicyEntity(sourceWithReadiness, p.name)),
-			}
-			createdResponse, createErr := p.Action(c, locale, CreateTranslationKey, payload)
-			if createErr != nil {
-				failures = append(failures, bulkCreateMissingTranslationsError(targetLocale, createErr))
-				continue
-			}
-			createdData := createdResponse.Data
-			entry := map[string]any{
-				"locale": targetLocale,
-				"status": strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(createdData["status"]), "created")),
-			}
-			if createdID := strings.TrimSpace(toString(createdData["id"])); createdID != "" {
-				entry["id"] = createdID
-			}
-			if groupID := strings.TrimSpace(toString(createdData["family_id"])); groupID != "" {
-				entry["family_id"] = groupID
-			}
-			created = append(created, entry)
-		}
-
-		recordResult["created"] = created
-		recordResult["failures"] = failures
-		summary["total"]++
-		summary["created_locales"] += len(created)
-		summary["failed_locales"] += len(failures)
-
-		switch {
-		case len(created) > 0 && len(failures) == 0:
-			recordResult["status"] = "ok"
-			summary["succeeded"]++
-		case len(created) > 0 && len(failures) > 0:
-			recordResult["status"] = "partial"
-			summary["partial"]++
-		default:
-			recordResult["status"] = "failed"
-			summary["failed"]++
-		}
+		recordResult := p.bulkCreateMissingTranslationsResult(c, ctx, locale, body, strings.TrimSpace(id), channel, policyEntity, summary)
 		results = append(results, recordResult)
 	}
 
@@ -139,6 +47,109 @@ func (p *panelBinding) bulkCreateMissingTranslations(c router.Context, ctx Admin
 		"results": results,
 		"summary": summary,
 	}, nil
+}
+
+func bulkCreateMissingTranslationsSummary() map[string]int {
+	return map[string]int{
+		"total":             0,
+		"succeeded":         0,
+		"partial":           0,
+		"failed":            0,
+		"skipped":           0,
+		"created_locales":   0,
+		"failed_locales":    0,
+		"requested_locales": 0,
+	}
+}
+
+func (p *panelBinding) bulkCreateMissingTranslationsResult(c router.Context, ctx AdminContext, locale string, body map[string]any, id, channel, policyEntity string, summary map[string]int) map[string]any {
+	recordResult := map[string]any{"id": id}
+	source, err := p.panel.Get(ctx, id)
+	if err != nil {
+		summary["total"]++
+		summary["failed"]++
+		summary["failed_locales"]++
+		recordResult["status"] = "failed"
+		recordResult["failures"] = []map[string]any{bulkCreateMissingTranslationsError("", err)}
+		return recordResult
+	}
+	sourceWithReadiness, missingLocales := p.bulkCreateMissingTranslationsReadiness(ctx, source, channel)
+	recordResult["missing_locales"] = append([]string{}, missingLocales...)
+	recordResult["family_id"] = strings.TrimSpace(translationFamilyIDFromRecord(sourceWithReadiness))
+	recordResult["source_locale"] = strings.TrimSpace(toString(sourceWithReadiness["locale"]))
+	if len(missingLocales) == 0 {
+		summary["total"]++
+		summary["skipped"]++
+		recordResult["status"] = "skipped"
+		recordResult["reason_code"] = bulkCreateMissingTranslationReasonNoLocale
+		recordResult["reason"] = "record has no missing required locales"
+		recordResult["created"] = []map[string]any{}
+		recordResult["failures"] = []map[string]any{}
+		return recordResult
+	}
+	created, failures := p.bulkCreateMissingTranslationsLocales(c, locale, id, channel, policyEntity, sourceWithReadiness, missingLocales, summary)
+	recordResult["created"] = created
+	recordResult["failures"] = failures
+	summary["total"]++
+	summary["created_locales"] += len(created)
+	summary["failed_locales"] += len(failures)
+	switch {
+	case len(created) > 0 && len(failures) == 0:
+		recordResult["status"] = "ok"
+		summary["succeeded"]++
+	case len(created) > 0 && len(failures) > 0:
+		recordResult["status"] = "partial"
+		summary["partial"]++
+	default:
+		recordResult["status"] = "failed"
+		summary["failed"]++
+	}
+	return recordResult
+}
+
+func (p *panelBinding) bulkCreateMissingTranslationsReadiness(ctx AdminContext, source map[string]any, channel string) (map[string]any, []string) {
+	sourceWithReadiness := p.withTranslationReadinessRecord(ctx, source, map[string]any{"channel": channel})
+	readiness := extractMap(sourceWithReadiness["translation_readiness"])
+	missingLocales := normalizedLocaleList(readiness["missing_required_locales"])
+	if len(missingLocales) == 0 {
+		missingLocales = normalizedLocaleList(readiness["missing_locales"])
+	}
+	return sourceWithReadiness, missingLocales
+}
+
+func (p *panelBinding) bulkCreateMissingTranslationsLocales(c router.Context, locale, id, channel, policyEntity string, sourceWithReadiness map[string]any, missingLocales []string, summary map[string]int) ([]map[string]any, []map[string]any) {
+	created := make([]map[string]any, 0, len(missingLocales))
+	failures := make([]map[string]any, 0)
+	for _, targetLocale := range missingLocales {
+		summary["requested_locales"]++
+		payload := map[string]any{
+			"id":            id,
+			"locale":        targetLocale,
+			"channel":       channel,
+			"policy_entity": primitives.FirstNonEmptyRaw(policyEntity, resolvePolicyEntity(sourceWithReadiness, p.name)),
+		}
+		createdResponse, createErr := p.Action(c, locale, CreateTranslationKey, payload)
+		if createErr != nil {
+			failures = append(failures, bulkCreateMissingTranslationsError(targetLocale, createErr))
+			continue
+		}
+		created = append(created, bulkCreateMissingTranslationsCreatedEntry(targetLocale, createdResponse.Data))
+	}
+	return created, failures
+}
+
+func bulkCreateMissingTranslationsCreatedEntry(locale string, createdData map[string]any) map[string]any {
+	entry := map[string]any{
+		"locale": locale,
+		"status": strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(createdData["status"]), "created")),
+	}
+	if createdID := strings.TrimSpace(toString(createdData["id"])); createdID != "" {
+		entry["id"] = createdID
+	}
+	if groupID := strings.TrimSpace(toString(createdData["family_id"])); groupID != "" {
+		entry["family_id"] = groupID
+	}
+	return entry
 }
 
 func bulkCreateMissingTranslationsError(locale string, err error) map[string]any {

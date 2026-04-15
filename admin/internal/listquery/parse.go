@@ -43,6 +43,25 @@ type Options[T any] struct {
 
 // ParseContext extracts list query options from a router context.
 func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
+	page, perPage := resolvePagination(c, defaultPage, defaultPerPage)
+	sortBy, sortDesc := resolveSort(c)
+	search := resolveSearch(c)
+	fields := ValuesFromAny(c.Query("fields"))
+	filters := parseFilterQueries(c)
+	predicates := PredicatesFromFilters(filters)
+	return Result{
+		Page:       page,
+		PerPage:    perPage,
+		SortBy:     sortBy,
+		SortDesc:   sortDesc,
+		Search:     search,
+		Filters:    filters,
+		Predicates: predicates,
+		Fields:     fields,
+	}
+}
+
+func resolvePagination(c router.Context, defaultPage, defaultPerPage int) (int, int) {
 	page := AtoiDefault(c.Query("page"), 0)
 	perPage := AtoiDefault(c.Query("per_page"), 0)
 	if perPage <= 0 {
@@ -53,42 +72,84 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 		page = (offset / perPage) + 1
 	}
 	if page <= 0 {
-		page = defaultPage
-		if page <= 0 {
-			page = 1
-		}
+		page = max(defaultPage, 1)
 	}
 	if perPage <= 0 {
-		perPage = defaultPerPage
-		if perPage <= 0 {
-			perPage = 10
-		}
+		perPage = max(defaultPerPage, 10)
 	}
+	return page, perPage
+}
 
+func resolveSearch(c router.Context) string {
+	search := strings.TrimSpace(c.Query("search"))
+	if search != "" {
+		return search
+	}
+	return strings.TrimSpace(c.Query("q"))
+}
+
+func resolveSort(c router.Context) (string, bool) {
 	sortBy := strings.TrimSpace(c.Query("sort"))
 	sortDesc := strings.EqualFold(strings.TrimSpace(c.Query("sort_desc")), "true")
-	search := strings.TrimSpace(c.Query("search"))
-	if search == "" {
-		search = strings.TrimSpace(c.Query("q"))
+	if sortBy != "" {
+		return sortBy, sortDesc
 	}
-	fields := ValuesFromAny(c.Query("fields"))
+	order := strings.TrimSpace(c.Query("order"))
+	if order == "" {
+		return "", sortDesc
+	}
+	first := strings.Split(order, ",")[0]
+	parts := strings.Fields(first)
+	if len(parts) == 0 {
+		return "", sortDesc
+	}
+	sortBy = strings.TrimSpace(parts[0])
+	if len(parts) > 1 {
+		sortDesc = strings.EqualFold(strings.TrimSpace(parts[1]), "desc")
+	}
+	return sortBy, sortDesc
+}
 
-	if sortBy == "" {
-		order := strings.TrimSpace(c.Query("order"))
-		if order != "" {
-			first := strings.Split(order, ",")[0]
-			parts := strings.Fields(first)
-			if len(parts) > 0 {
-				sortBy = strings.TrimSpace(parts[0])
-				if len(parts) > 1 {
-					sortDesc = strings.EqualFold(strings.TrimSpace(parts[1]), "desc")
-				}
-			}
+func parseFilterQueries(c router.Context) map[string]any {
+	filters := map[string]any{}
+	for key, value := range c.Queries() {
+		targetKey, ok := normalizeFilterQueryKey(key, value)
+		if !ok {
+			continue
+		}
+		if _, exists := filters[targetKey]; exists {
+			continue
+		}
+		filters[targetKey] = value
+	}
+	if _, ok := filters["environment"]; !ok {
+		if env := strings.TrimSpace(primitives.FirstNonEmptyRaw(c.Query("env"), c.Query("environment"))); env != "" {
+			filters["environment"] = env
 		}
 	}
+	return filters
+}
 
-	filters := map[string]any{}
-	reserved := map[string]struct{}{
+func normalizeFilterQueryKey(key, value string) (string, bool) {
+	rawKey := strings.TrimSpace(key)
+	if rawKey == "" || strings.HasPrefix(rawKey, "$") || strings.TrimSpace(value) == "" {
+		return "", false
+	}
+	if _, isReserved := reservedQueryKeys()[rawKey]; isReserved {
+		return "", false
+	}
+	targetKey := rawKey
+	if after, ok := strings.CutPrefix(targetKey, "filter_"); ok {
+		targetKey = after
+	} else if after, ok := strings.CutPrefix(targetKey, "filter."); ok {
+		targetKey = after
+	}
+	targetKey = strings.TrimSpace(targetKey)
+	return targetKey, targetKey != ""
+}
+
+func reservedQueryKeys() map[string]struct{} {
+	return map[string]struct{}{
 		"page":                  {},
 		"per_page":              {},
 		"sort":                  {},
@@ -109,56 +170,6 @@ func ParseContext(c router.Context, defaultPage, defaultPerPage int) Result {
 		"include_contributions": {},
 		"preview_token":         {},
 		"view_profile":          {},
-	}
-	for key, value := range c.Queries() {
-		rawKey := strings.TrimSpace(key)
-		if rawKey == "" {
-			continue
-		}
-		if strings.HasPrefix(rawKey, "$") {
-			continue
-		}
-		if strings.TrimSpace(value) == "" {
-			continue
-		}
-		if _, isReserved := reserved[rawKey]; isReserved {
-			continue
-		}
-		targetKey := rawKey
-		if after, ok := strings.CutPrefix(targetKey, "filter_"); ok {
-			targetKey = after
-		} else if after, ok := strings.CutPrefix(targetKey, "filter."); ok {
-			targetKey = after
-		}
-		targetKey = strings.TrimSpace(targetKey)
-		if targetKey == "" {
-			continue
-		}
-		if _, exists := filters[targetKey]; exists {
-			continue
-		}
-		filters[targetKey] = value
-	}
-
-	if _, ok := filters["environment"]; !ok {
-		if env := strings.TrimSpace(c.Query("env")); env != "" {
-			filters["environment"] = env
-		} else if env := strings.TrimSpace(c.Query("environment")); env != "" {
-			filters["environment"] = env
-		}
-	}
-
-	predicates := PredicatesFromFilters(filters)
-
-	return Result{
-		Page:       page,
-		PerPage:    perPage,
-		SortBy:     sortBy,
-		SortDesc:   sortDesc,
-		Search:     search,
-		Filters:    filters,
-		Predicates: predicates,
-		Fields:     fields,
 	}
 }
 

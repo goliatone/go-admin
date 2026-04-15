@@ -15,120 +15,83 @@ func TranslationQueueRouteStep(ctx BootCtx) error {
 	if responder == nil {
 		return nil
 	}
-	gates := ctx.Gates()
-	routes := []RouteSpec{
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.dashboard"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				payload, err := binding.Dashboard(c)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				payload, err := binding.Assignments(c)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments.id"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				id := c.Param("assignment_id")
-				if id == "" {
-					return errMissingID
-				}
-				payload, err := binding.AssignmentDetail(c, id)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-		{
-			Method: "POST",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments.actions"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
-				id := c.Param("assignment_id")
-				if id == "" {
-					return errMissingID
-				}
-				action := c.Param("action")
-				if action == "" {
-					return errMissingAction
-				}
-				payload, err := binding.RunAssignmentAction(c, id, action, body)
-				return writeJSONOrError(responder, c, payload, err)
-			})),
-		},
-		{
-			Method: "PATCH",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.variants.id"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
-				id := c.Param("variant_id")
-				if id == "" {
-					return errMissingID
-				}
-				payload, err := binding.UpdateVariant(c, id, body)
-				return writeJSONOrError(responder, c, payload, err)
-			})),
-		},
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.my_work"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				payload, err := binding.MyWork(c)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.queue"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				payload, err := binding.Queue(c)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.entity_types"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				payload, err := binding.EntityTypesOptions(c)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.source_records"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				payload, err := binding.SourceRecordsOptions(c)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.locales"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				payload, err := binding.LocalesOptions(c)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.families"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				payload, err := binding.TranslationGroupsOptions(c)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-		{
-			Method: "GET",
-			Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.options.assignees"),
-			Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
-				payload, err := binding.AssigneesOptions(c)
-				return writeJSONOrError(responder, c, payload, err)
-			}),
-		},
-	}
+	routes := translationQueueRouteSpecs(ctx, responder, ctx.Gates(), binding)
 	return applyRoutes(ctx, routes)
+}
+
+func translationQueueRouteSpecs(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) []RouteSpec {
+	return []RouteSpec{
+		translationQueueReadRoute(ctx, responder, gates, "translations.dashboard", binding.Dashboard),
+		translationQueueReadRoute(ctx, responder, gates, "translations.assignments", binding.Assignments),
+		translationQueueAssignmentDetailRoute(ctx, responder, gates, binding),
+		translationQueueAssignmentActionRoute(ctx, responder, gates, binding),
+		translationQueueVariantUpdateRoute(ctx, responder, gates, binding),
+		translationQueueReadRoute(ctx, responder, gates, "translations.my_work", binding.MyWork),
+		translationQueueReadRoute(ctx, responder, gates, "translations.queue", binding.Queue),
+		translationQueueReadRoute(ctx, responder, gates, "translations.options.entity_types", binding.EntityTypesOptions),
+		translationQueueReadRoute(ctx, responder, gates, "translations.options.source_records", binding.SourceRecordsOptions),
+		translationQueueReadRoute(ctx, responder, gates, "translations.options.locales", binding.LocalesOptions),
+		translationQueueReadRoute(ctx, responder, gates, "translations.options.families", binding.TranslationGroupsOptions),
+		translationQueueReadRoute(ctx, responder, gates, "translations.options.assignees", binding.AssigneesOptions),
+	}
+}
+
+func translationQueueReadRoute(ctx BootCtx, responder Responder, gates FeatureGates, name string, fn func(router.Context) (any, error)) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), name),
+		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+			payload, err := fn(c)
+			return writeJSONOrError(responder, c, payload, err)
+		}),
+	}
+}
+
+func translationQueueAssignmentDetailRoute(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) RouteSpec {
+	return RouteSpec{
+		Method: "GET",
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments.id"),
+		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, func(c router.Context) error {
+			id := c.Param("assignment_id")
+			if id == "" {
+				return errMissingID
+			}
+			payload, err := binding.AssignmentDetail(c, id)
+			return writeJSONOrError(responder, c, payload, err)
+		}),
+	}
+}
+
+func translationQueueAssignmentActionRoute(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) RouteSpec {
+	return RouteSpec{
+		Method: "POST",
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.assignments.actions"),
+		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
+			id := c.Param("assignment_id")
+			if id == "" {
+				return errMissingID
+			}
+			action := c.Param("action")
+			if action == "" {
+				return errMissingAction
+			}
+			payload, err := binding.RunAssignmentAction(c, id, action, body)
+			return writeJSONOrError(responder, c, payload, err)
+		})),
+	}
+}
+
+func translationQueueVariantUpdateRoute(ctx BootCtx, responder Responder, gates FeatureGates, binding TranslationQueueBinding) RouteSpec {
+	return RouteSpec{
+		Method: "PATCH",
+		Path:   routePath(ctx, ctx.AdminAPIGroup(), "translations.variants.id"),
+		Handler: withFeatureGate(responder, gates, FeatureTranslationQueue, withParsedBody(ctx, responder, func(c router.Context, body map[string]any) error {
+			id := c.Param("variant_id")
+			if id == "" {
+				return errMissingID
+			}
+			payload, err := binding.UpdateVariant(c, id, body)
+			return writeJSONOrError(responder, c, payload, err)
+		})),
+	}
 }

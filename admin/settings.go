@@ -253,10 +253,24 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 		return nil
 	}
 
+	sanitized, err := validateSettingsBundle(ctx, definitions, scope, bundle.Values)
+	if err != nil {
+		return err
+	}
+	s.mu.Lock()
+	if err := applySettingsValues(s, scope, bundle.UserID, sanitized); err != nil {
+		s.mu.Unlock()
+		return err
+	}
+	s.mu.Unlock()
+	recordSettingsActivity(activity, ctx, scope, bundle, sanitized)
+	return nil
+}
+
+func validateSettingsBundle(ctx context.Context, definitions map[string]SettingDefinition, scope SettingsScope, values map[string]any) (map[string]any, error) {
 	errs := SettingsValidationErrors{Fields: map[string]string{}, Scope: scope}
 	sanitized := map[string]any{}
-
-	for key, val := range bundle.Values {
+	for key, val := range values {
 		def, ok := definitions[key]
 		if !ok {
 			errs.Fields[key] = "unknown setting"
@@ -272,30 +286,28 @@ func (s *SettingsService) Apply(ctx context.Context, bundle SettingsBundle) erro
 		}
 		sanitized[key] = val
 	}
-
 	if errs.hasErrors() {
-		return errs
+		return nil, errs
 	}
+	return sanitized, nil
+}
 
-	s.mu.Lock()
-	for key, val := range sanitized {
+func applySettingsValues(s *SettingsService, scope SettingsScope, userID string, values map[string]any) error {
+	for key, val := range values {
 		switch scope {
 		case SettingsScopeSystem:
 			s.systemValues[key] = val
 		case SettingsScopeSite:
 			s.siteValues[key] = val
 		case SettingsScopeUser:
-			if _, ok := s.userValues[bundle.UserID]; !ok {
-				s.userValues[bundle.UserID] = make(map[string]any)
+			if _, ok := s.userValues[userID]; !ok {
+				s.userValues[userID] = make(map[string]any)
 			}
-			s.userValues[bundle.UserID][key] = val
+			s.userValues[userID][key] = val
 		default:
-			s.mu.Unlock()
 			return unsupportedScopeDomainError(string(scope), nil)
 		}
 	}
-	s.mu.Unlock()
-	recordSettingsActivity(activity, ctx, scope, bundle, sanitized)
 	return nil
 }
 

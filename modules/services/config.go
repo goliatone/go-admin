@@ -341,14 +341,21 @@ func DefaultConfig() Config {
 
 func withDefaults(cfg Config) Config {
 	defaults := DefaultConfig()
+	cfg = withCoreDefaults(cfg, defaults)
+	cfg = withLifecycleDefaults(cfg, defaults)
+	cfg = withAPIDefaults(cfg, defaults)
+	cfg = withCallbackDefaults(cfg, defaults)
+	cfg = withRuntimeDefaults(cfg, defaults)
+	cfg = withExtensionDefaults(cfg, defaults)
+	return cfg
+}
 
+func withCoreDefaults(cfg Config, defaults Config) Config {
 	if cfg.Service.ServiceName == "" {
 		cfg.Service.ServiceName = defaults.Service.ServiceName
 	}
 	if len(cfg.Service.Inheritance.EnabledProviders) == 0 && len(cfg.Inheritance.EnabledProviders) > 0 {
-		cfg.Service.Inheritance = goservices.InheritanceConfig{
-			EnabledProviders: append([]string(nil), cfg.Inheritance.EnabledProviders...),
-		}
+		cfg.Service.Inheritance = goservices.InheritanceConfig{EnabledProviders: append([]string(nil), cfg.Inheritance.EnabledProviders...)}
 	}
 	if len(cfg.Service.Inheritance.EnabledProviders) == 0 {
 		cfg.Service.Inheritance = defaults.Service.Inheritance
@@ -362,6 +369,10 @@ func withDefaults(cfg Config) Config {
 	if len(cfg.ValidationTargets) == 0 {
 		cfg.ValidationTargets = append([]string(nil), defaults.ValidationTargets...)
 	}
+	return cfg
+}
+
+func withLifecycleDefaults(cfg Config, defaults Config) Config {
 	if cfg.Lifecycle.Dispatcher.BatchSize == 0 {
 		cfg.Lifecycle.Dispatcher.BatchSize = defaults.Lifecycle.Dispatcher.BatchSize
 	}
@@ -392,12 +403,20 @@ func withDefaults(cfg Config) Config {
 	if cfg.Lifecycle.Projectors.Notifications.DefinitionMap == nil {
 		cfg.Lifecycle.Projectors.Notifications.DefinitionMap = map[string]string{}
 	}
+	return cfg
+}
+
+func withAPIDefaults(cfg Config, defaults Config) Config {
 	if cfg.API.IdempotencyTTL == 0 {
 		cfg.API.IdempotencyTTL = defaults.API.IdempotencyTTL
 	}
 	if cfg.API.ActivityActionLabelOverrides == nil {
 		cfg.API.ActivityActionLabelOverrides = map[string]string{}
 	}
+	return cfg
+}
+
+func withCallbackDefaults(cfg Config, defaults Config) Config {
 	if strings.TrimSpace(cfg.Callbacks.DefaultRoute) == "" {
 		cfg.Callbacks.DefaultRoute = defaults.Callbacks.DefaultRoute
 	}
@@ -405,6 +424,10 @@ func withDefaults(cfg Config) Config {
 	cfg.Callbacks.URLKitGroup = strings.TrimSpace(cfg.Callbacks.URLKitGroup)
 	cfg.Callbacks.ProviderRoutes = normalizeStringMapEntries(cfg.Callbacks.ProviderRoutes)
 	cfg.Callbacks.ProviderURLOverrides = normalizeStringMapEntries(cfg.Callbacks.ProviderURLOverrides)
+	return cfg
+}
+
+func withRuntimeDefaults(cfg Config, defaults Config) Config {
 	if cfg.Webhook.ClaimLease == 0 {
 		cfg.Webhook.ClaimLease = defaults.Webhook.ClaimLease
 	}
@@ -414,6 +437,10 @@ func withDefaults(cfg Config) Config {
 	if cfg.Inbound.KeyTTL == 0 {
 		cfg.Inbound.KeyTTL = defaults.Inbound.KeyTTL
 	}
+	return cfg
+}
+
+func withExtensionDefaults(cfg Config, defaults Config) Config {
 	if cfg.Extensions.FeatureFlags == nil {
 		cfg.Extensions.FeatureFlags = map[string]bool{}
 	}
@@ -423,7 +450,6 @@ func withDefaults(cfg Config) Config {
 	if !cfg.Extensions.DiagnosticsEnabled {
 		cfg.Extensions.DiagnosticsEnabled = defaults.Extensions.DiagnosticsEnabled
 	}
-
 	return cfg
 }
 
@@ -438,6 +464,22 @@ func (c Config) validate() error {
 	if !c.Enabled {
 		return nil
 	}
+	for _, validate := range []func(Config) error{
+		validateCoreConfig,
+		validateLifecycleConfig,
+		validateAPIConfig,
+		validateCallbackConfig,
+		validateRuntimeConfig,
+		validateCollectionsConfig,
+	} {
+		if err := validate(c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateCoreConfig(c Config) error {
 	if err := c.Service.Validate(); err != nil {
 		return fmt.Errorf("modules/services: invalid service config: %w", err)
 	}
@@ -450,27 +492,38 @@ func (c Config) validate() error {
 	if c.SecretProvider == nil && strings.TrimSpace(c.EncryptionKey) == "" {
 		return fmt.Errorf("modules/services: encryption_key is required when secret provider override is not configured")
 	}
-	if c.Lifecycle.Dispatcher.BatchSize <= 0 {
+	return nil
+}
+
+func validateLifecycleConfig(c Config) error {
+	switch {
+	case c.Lifecycle.Dispatcher.BatchSize <= 0:
 		return fmt.Errorf("modules/services: lifecycle.dispatcher.batch_size must be greater than zero")
-	}
-	if c.Lifecycle.Dispatcher.MaxAttempts <= 0 {
+	case c.Lifecycle.Dispatcher.MaxAttempts <= 0:
 		return fmt.Errorf("modules/services: lifecycle.dispatcher.max_attempts must be greater than zero")
-	}
-	if c.Lifecycle.Dispatcher.InitialBackoff <= 0 {
+	case c.Lifecycle.Dispatcher.InitialBackoff <= 0:
 		return fmt.Errorf("modules/services: lifecycle.dispatcher.initial_backoff must be greater than zero")
-	}
-	if c.Lifecycle.Projectors.Activity.BufferSize <= 0 {
+	case c.Lifecycle.Projectors.Activity.BufferSize <= 0:
 		return fmt.Errorf("modules/services: lifecycle.projectors.activity.buffer_size must be greater than zero")
-	}
-	if c.Lifecycle.Projectors.Activity.FallbackBufferSize <= 0 {
+	case c.Lifecycle.Projectors.Activity.FallbackBufferSize <= 0:
 		return fmt.Errorf("modules/services: lifecycle.projectors.activity.fallback_buffer_size must be greater than zero")
-	}
-	if c.Lifecycle.Projectors.Activity.RetentionTTL <= 0 {
+	case c.Lifecycle.Projectors.Activity.RetentionTTL <= 0:
 		return fmt.Errorf("modules/services: lifecycle.projectors.activity.retention_ttl must be greater than zero")
-	}
-	if c.Lifecycle.Projectors.Activity.RetentionRowCap <= 0 {
+	case c.Lifecycle.Projectors.Activity.RetentionRowCap <= 0:
 		return fmt.Errorf("modules/services: lifecycle.projectors.activity.retention_row_cap must be greater than zero")
 	}
+	for idx, subscriber := range c.Lifecycle.Projectors.Subscribers {
+		if strings.TrimSpace(subscriber.Name) == "" {
+			return fmt.Errorf("modules/services: lifecycle subscriber %d requires a name", idx)
+		}
+		if subscriber.Handler == nil {
+			return fmt.Errorf("modules/services: lifecycle subscriber %d requires a handler", idx)
+		}
+	}
+	return nil
+}
+
+func validateAPIConfig(c Config) error {
 	if c.API.IdempotencyTTL <= 0 {
 		return fmt.Errorf("modules/services: api.idempotency_ttl must be greater than zero")
 	}
@@ -482,6 +535,10 @@ func (c Config) validate() error {
 			return fmt.Errorf("modules/services: api.activity_action_label_overrides[%q] value must not be empty", action)
 		}
 	}
+	return nil
+}
+
+func validateCallbackConfig(c Config) error {
 	if strings.TrimSpace(c.Callbacks.DefaultRoute) == "" {
 		return fmt.Errorf("modules/services: callbacks.default_route must not be empty")
 	}
@@ -509,15 +566,22 @@ func (c Config) validate() error {
 			return fmt.Errorf("modules/services: callbacks.provider_url_overrides[%q] %w", providerID, err)
 		}
 	}
-	if c.Webhook.ClaimLease <= 0 {
+	return nil
+}
+
+func validateRuntimeConfig(c Config) error {
+	switch {
+	case c.Webhook.ClaimLease <= 0:
 		return fmt.Errorf("modules/services: webhook.claim_lease must be greater than zero")
-	}
-	if c.Webhook.MaxAttempts <= 0 {
+	case c.Webhook.MaxAttempts <= 0:
 		return fmt.Errorf("modules/services: webhook.max_attempts must be greater than zero")
-	}
-	if c.Inbound.KeyTTL <= 0 {
+	case c.Inbound.KeyTTL <= 0:
 		return fmt.Errorf("modules/services: inbound.key_ttl must be greater than zero")
 	}
+	return nil
+}
+
+func validateCollectionsConfig(c Config) error {
 	for _, source := range c.AppMigrations {
 		if source.Filesystem == nil {
 			return fmt.Errorf("modules/services: app migration source %q filesystem is nil", strings.TrimSpace(source.Label))
@@ -528,24 +592,15 @@ func (c Config) validate() error {
 			return fmt.Errorf("modules/services: validation targets must not include empty values")
 		}
 	}
-	for idx, subscriber := range c.Lifecycle.Projectors.Subscribers {
-		if strings.TrimSpace(subscriber.Name) == "" {
-			return fmt.Errorf("modules/services: lifecycle subscriber %d requires a name", idx)
-		}
-		if subscriber.Handler == nil {
-			return fmt.Errorf("modules/services: lifecycle subscriber %d requires a handler", idx)
-		}
-	}
 	for idx, packName := range c.Extensions.EnabledProviderPacks {
 		if strings.TrimSpace(packName) == "" {
 			return fmt.Errorf("modules/services: extensions.enabled_provider_packs[%d] must not be empty", idx)
 		}
 	}
-	for flag, value := range c.Extensions.FeatureFlags {
+	for flag := range c.Extensions.FeatureFlags {
 		if strings.TrimSpace(flag) == "" {
 			return fmt.Errorf("modules/services: extensions.feature_flags keys must not be empty")
 		}
-		_ = value
 	}
 	return nil
 }

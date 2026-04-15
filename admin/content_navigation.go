@@ -148,59 +148,15 @@ func evaluateContentEntryNavigation(rawOverrides any, policy contentEntryNavigat
 	}
 
 	eligible := dedupeAndSortStrings(policy.EligibleLocations)
-	eligibleSet := map[string]struct{}{}
-	for _, location := range eligible {
-		eligibleSet[location] = struct{}{}
-	}
-	if len(overrides) > 0 {
-		for location := range overrides {
-			if _, ok := eligibleSet[location]; ok {
-				continue
-			}
-			if strict {
-				return contentEntryNavigationEvaluation{}, validationDomainError("invalid navigation location override", map[string]any{
-					"field":             "_navigation." + location,
-					"location":          location,
-					"allowed_locations": eligible,
-					"guidance":          contentNavigationValidationContract(),
-				})
-			}
-			delete(overrides, location)
-		}
+	if overrides, err = validateNavigationOverrides(overrides, eligible, strict); err != nil {
+		return contentEntryNavigationEvaluation{}, err
 	}
 	if !policy.AllowInstanceOverride {
 		overrides = nil
 	}
 
-	defaultSet := map[string]struct{}{}
-	for _, location := range dedupeAndSortStrings(policy.DefaultLocations) {
-		defaultSet[location] = struct{}{}
-	}
-
-	visibility := map[string]bool{}
-	locations := make([]string, 0, len(eligible))
-	for _, location := range eligible {
-		mode := NavigationOverrideInherit
-		if policy.AllowInstanceOverride {
-			if override := normalizeNavigationOverrideMode(overrides[location]); override != "" {
-				mode = override
-			}
-		}
-		visible := false
-		switch mode {
-		case NavigationOverrideShow:
-			visible = true
-		case NavigationOverrideHide:
-			visible = false
-		default:
-			_, inDefaults := defaultSet[location]
-			visible = policy.DefaultVisible && inDefaults
-		}
-		visibility[location] = visible
-		if visible {
-			locations = append(locations, location)
-		}
-	}
+	defaultSet := contentNavigationLocationSet(dedupeAndSortStrings(policy.DefaultLocations))
+	visibility, locations := evaluateContentNavigationVisibility(eligible, overrides, defaultSet, policy)
 	sort.Strings(locations)
 	if len(overrides) == 0 {
 		overrides = nil
@@ -213,6 +169,67 @@ func evaluateContentEntryNavigation(rawOverrides any, policy contentEntryNavigat
 		EffectiveLocations:  locations,
 		EffectiveVisibility: visibility,
 	}, nil
+}
+
+func validateNavigationOverrides(overrides map[string]string, eligible []string, strict bool) (map[string]string, error) {
+	if len(overrides) == 0 {
+		return overrides, nil
+	}
+	eligibleSet := contentNavigationLocationSet(eligible)
+	for location := range overrides {
+		if _, ok := eligibleSet[location]; ok {
+			continue
+		}
+		if strict {
+			return nil, validationDomainError("invalid navigation location override", map[string]any{
+				"field":             "_navigation." + location,
+				"location":          location,
+				"allowed_locations": eligible,
+				"guidance":          contentNavigationValidationContract(),
+			})
+		}
+		delete(overrides, location)
+	}
+	return overrides, nil
+}
+
+func contentNavigationLocationSet(locations []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, location := range locations {
+		out[location] = struct{}{}
+	}
+	return out
+}
+
+func evaluateContentNavigationVisibility(eligible []string, overrides map[string]string, defaultSet map[string]struct{}, policy contentEntryNavigationPolicy) (map[string]bool, []string) {
+	visibility := map[string]bool{}
+	locations := make([]string, 0, len(eligible))
+	for _, location := range eligible {
+		visible := resolveContentNavigationVisibility(location, overrides, defaultSet, policy)
+		visibility[location] = visible
+		if visible {
+			locations = append(locations, location)
+		}
+	}
+	return visibility, locations
+}
+
+func resolveContentNavigationVisibility(location string, overrides map[string]string, defaultSet map[string]struct{}, policy contentEntryNavigationPolicy) bool {
+	mode := NavigationOverrideInherit
+	if policy.AllowInstanceOverride {
+		if override := normalizeNavigationOverrideMode(overrides[location]); override != "" {
+			mode = override
+		}
+	}
+	switch mode {
+	case NavigationOverrideShow:
+		return true
+	case NavigationOverrideHide:
+		return false
+	default:
+		_, inDefaults := defaultSet[location]
+		return policy.DefaultVisible && inDefaults
+	}
 }
 
 func evaluateContentEntryNavigationFromRecord(record map[string]any, policy contentEntryNavigationPolicy) (contentEntryNavigationEvaluation, bool) {

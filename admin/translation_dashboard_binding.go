@@ -44,191 +44,83 @@ func (b *translationQueueBinding) Dashboard(c router.Context) (payload any, err 
 	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); permissionErr != nil {
 		return nil, permissionErr
 	}
-
-	now := time.Now().UTC()
-	if b.now != nil {
-		now = b.now().UTC()
-	}
+	now := b.translationDashboardNow()
 	channel := translationChannelFromRequest(c, adminCtx, nil)
 	overdueLimit := clampInt(atoiDefault(c.Query("overdue_limit"), translationDashboardDefaultOverdueLimit), 1, 25)
 	blockedLimit := clampInt(atoiDefault(c.Query("blocked_limit"), translationDashboardDefaultBlockedLimit), 1, 25)
 	identity := translationIdentityFromAdminContext(adminCtx)
 	actorID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
+	return b.translationDashboardPayload(adminCtx, identity, actorID, channel, now, overdueLimit, blockedLimit)
+}
 
-	repo, err := b.assignmentRepository()
+func (b *translationQueueBinding) translationDashboardNow() time.Time {
+	now := time.Now().UTC()
+	if b.now != nil {
+		now = b.now().UTC()
+	}
+	return now
+}
+
+func (b *translationQueueBinding) translationDashboardPayload(adminCtx AdminContext, identity translationTransportIdentity, actorID, channel string, now time.Time, overdueLimit, blockedLimit int) (map[string]any, error) {
+	assignments, families, runtime, degradedReasons, err := b.translationDashboardDataSources(adminCtx, identity, channel)
 	if err != nil {
 		return nil, err
+	}
+	data, meta := b.translationDashboardSections(assignments, families, runtime, degradedReasons, identity, actorID, channel, now, overdueLimit, blockedLimit)
+	return map[string]any{"data": data, "meta": meta}, nil
+}
+
+func (b *translationQueueBinding) translationDashboardDataSources(adminCtx AdminContext, identity translationTransportIdentity, channel string) ([]TranslationAssignment, []translationservices.FamilyRecord, *translationFamilyRuntime, []map[string]any, error) {
+	repo, err := b.assignmentRepository()
+	if err != nil {
+		return nil, nil, nil, nil, err
 	}
 	assignments, err := b.listAssignmentsForSummary(adminCtx.Context, repo, "due_date", map[string]any{
 		"tenant_id": identity.TenantID,
 		"org_id":    identity.OrgID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
-
 	familyBinding := &translationFamilyBinding{admin: b.admin, loadRuntime: b.dashboardLoadRuntime}
-	runtime, runtimeErr := familyBinding.runtime(adminCtx.Context, channel)
-	families := []translationservices.FamilyRecord{}
-	degradedReasons := []map[string]any{}
-	if runtimeErr != nil {
-		degradedReasons = append(degradedReasons, map[string]any{
-			"component": "family_runtime",
-			"message":   runtimeErr.Error(),
-		})
-	} else if runtime != nil && runtime.service != nil && runtime.service.Store != nil {
-		families, err = runtime.service.Store.Families(adminCtx.Context)
-		if err != nil {
-			degradedReasons = append(degradedReasons, map[string]any{
-				"component": "family_store",
-				"message":   err.Error(),
-			})
-			families = nil
-		}
-	}
+	runtime, degradedReasons := translationDashboardRuntimeSources(adminCtx, familyBinding, channel)
+	families, degradedReasons := translationDashboardFamiliesFromRuntime(adminCtx, runtime, degradedReasons)
+	return assignments, families, runtime, degradedReasons, nil
+}
 
+func translationDashboardRuntimeSources(adminCtx AdminContext, familyBinding *translationFamilyBinding, channel string) (*translationFamilyRuntime, []map[string]any) {
+	runtime, err := familyBinding.runtime(adminCtx.Context, channel)
+	if err == nil {
+		return runtime, nil
+	}
+	return nil, []map[string]any{{"component": "family_runtime", "message": err.Error()}}
+}
+
+func translationDashboardFamiliesFromRuntime(adminCtx AdminContext, runtime *translationFamilyRuntime, degradedReasons []map[string]any) ([]translationservices.FamilyRecord, []map[string]any) {
+	if runtime == nil || runtime.service == nil || runtime.service.Store == nil {
+		return nil, degradedReasons
+	}
+	families, err := runtime.service.Store.Families(adminCtx.Context)
+	if err == nil {
+		return families, degradedReasons
+	}
+	degradedReasons = append(degradedReasons, map[string]any{"component": "family_store", "message": err.Error()})
+	return nil, degradedReasons
+}
+
+func (b *translationQueueBinding) translationDashboardSections(assignments []TranslationAssignment, families []translationservices.FamilyRecord, runtime *translationFamilyRuntime, degradedReasons []map[string]any, identity translationTransportIdentity, actorID, channel string, now time.Time, overdueLimit, blockedLimit int) (map[string]any, map[string]any) {
 	myTasks := translationDashboardMyTasks(assignments, actorID, now)
 	needsReview := translationDashboardNeedsReview(assignments, actorID)
 	overdueAssignments := translationDashboardOverdueAssignments(assignments, now)
 	scopedFamilies := translationDashboardScopedFamilies(families, identity.TenantID, identity.OrgID)
 	blockedFamilies := translationDashboardBlockedFamilies(scopedFamilies)
 	missingRequiredFamilies := translationDashboardMissingRequiredFamilies(scopedFamilies)
-
-	topOverdueRows := translationDashboardTopOverdueRows(b.admin.URLs(), overdueAssignments, overdueLimit, now, channel)
-	topBlockedRows := translationDashboardTopBlockedRows(b.admin.URLs(), blockedFamilies, blockedLimit, channel)
-	runbooks := translationDashboardRunbooks(b.admin.URLs())
-
-	cards := []map[string]any{
-		translationDashboardCard(
-			translationDashboardCardMyTasks,
-			"My Tasks",
-			"Assignments currently owned by the active actor.",
-			len(myTasks),
-			map[string]any{
-				"in_progress": translationDashboardCountByStatus(myTasks, AssignmentStatusInProgress),
-				"due_soon":    translationDashboardCountByDueState(myTasks, translationQueueDueStateSoon, now),
-				"overdue":     translationDashboardCountByDueState(myTasks, translationQueueDueStateOverdue, now),
-			},
-			translationDashboardCardAlert(len(myTasks), translationDashboardCountByDueState(myTasks, translationQueueDueStateOverdue, now) > 0, translationDashboardCountByDueState(myTasks, translationQueueDueStateSoon, now) > 0),
-			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{
-				"assignee_id": "__me__",
-				"sort":        "due_date",
-				"order":       "asc",
-			}), map[string]any{
-				"label":       "Open my tasks",
-				"description": "Open the queue filtered to assignments owned by the active actor.",
-				"relation":    "primary",
-			}),
-			"translations.dashboard.my_tasks",
-			"translations.dashboard.overdue_triage",
-		),
-		translationDashboardCard(
-			translationDashboardCardNeedsReview,
-			"Needs Review",
-			"Assignments waiting on the active reviewer.",
-			len(needsReview),
-			map[string]any{
-				"overdue": translationDashboardCountByDueState(needsReview, translationQueueDueStateOverdue, now),
-			},
-			translationDashboardCardAlert(len(needsReview), translationDashboardCountByDueState(needsReview, translationQueueDueStateOverdue, now) > 0, len(needsReview) > 0),
-			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{
-				"status":      string(AssignmentStatusInReview),
-				"reviewer_id": "__me__",
-				"sort":        "due_date",
-				"order":       "asc",
-			}), map[string]any{
-				"label":       "Open reviewer backlog",
-				"description": "Open the queue filtered to review work owned by the active reviewer.",
-				"relation":    "primary",
-			}),
-			"translations.dashboard.needs_review",
-			"translations.dashboard.review_backlog",
-		),
-		translationDashboardCard(
-			translationDashboardCardOverdueTasks,
-			"Overdue Tasks",
-			"Past-due assignments across the visible queue scope.",
-			len(overdueAssignments),
-			map[string]any{
-				"high_priority": translationDashboardCountByPriorities(overdueAssignments, PriorityHigh, PriorityUrgent),
-			},
-			translationDashboardCardAlert(len(overdueAssignments), len(overdueAssignments) > 0, false),
-			translationDashboardLink(b.admin.URLs(), "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{
-				"due_state": "overdue",
-				"sort":      "due_date",
-				"order":     "asc",
-			}), map[string]any{
-				"label":       "Open overdue queue",
-				"description": "Open the queue filtered to overdue assignments.",
-				"relation":    "primary",
-			}),
-			"translations.dashboard.overdue_tasks",
-			"translations.dashboard.overdue_triage",
-		),
-		translationDashboardCard(
-			translationDashboardCardBlockedFamilies,
-			"Blocked Families",
-			"Families currently blocked from publish readiness.",
-			len(blockedFamilies),
-			map[string]any{
-				"missing_required_locales": len(missingRequiredFamilies),
-			},
-			translationDashboardCardAlert(len(blockedFamilies), len(blockedFamilies) > 0, false),
-			translationDashboardLink(b.admin.URLs(), b.admin.AdminAPIGroup(), "translations.families", b.admin.AdminAPIGroup()+".translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{
-				"readiness_state": "blocked",
-			}), map[string]any{
-				"label":       "Open blocked families",
-				"description": "Open the blocked family feed for the current scope.",
-				"relation":    "primary",
-			}),
-			"translations.dashboard.blocked_families",
-			"translations.dashboard.publish_blockers",
-		),
-		translationDashboardCard(
-			translationDashboardCardMissingRequiredLocale,
-			"Missing Required Locales",
-			"Families still missing policy-required locale variants.",
-			len(missingRequiredFamilies),
-			map[string]any{
-				"families_blocked": len(blockedFamilies),
-			},
-			translationDashboardCardAlert(len(missingRequiredFamilies), len(missingRequiredFamilies) > 0, false),
-			translationDashboardLink(b.admin.URLs(), b.admin.AdminAPIGroup(), "translations.families", b.admin.AdminAPIGroup()+".translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{
-				"readiness_state": "blocked",
-				"blocker_code":    "missing_locale",
-			}), map[string]any{
-				"label":       "Open missing locale blockers",
-				"description": "Open the blocked family feed filtered to missing locale blockers.",
-				"relation":    "primary",
-			}),
-			"translations.dashboard.missing_required_locales",
-			"translations.dashboard.publish_blockers",
-		),
-	}
-
-	alerts := translationDashboardAlerts(cards, len(degradedReasons) > 0)
-
+	cards := b.translationDashboardCards(channel, now, myTasks, needsReview, overdueAssignments, blockedFamilies, missingRequiredFamilies)
 	return map[string]any{
-		"data": map[string]any{
-			"cards": cards,
-			"tables": map[string]any{
-				translationDashboardTableTopOverdueAssignments: map[string]any{
-					"id":    translationDashboardTableTopOverdueAssignments,
-					"label": "Top Overdue Assignments",
-					"total": len(overdueAssignments),
-					"limit": overdueLimit,
-					"rows":  topOverdueRows,
-				},
-				translationDashboardTableBlockedFamilies: map[string]any{
-					"id":    translationDashboardTableBlockedFamilies,
-					"label": "Blocked Families",
-					"total": len(blockedFamilies),
-					"limit": blockedLimit,
-					"rows":  topBlockedRows,
-				},
-			},
-			"alerts":    alerts,
-			"runbooks":  runbooks,
+			"cards":     cards,
+			"tables":    translationDashboardTables(b.admin.URLs(), overdueAssignments, blockedFamilies, overdueLimit, blockedLimit, now, channel),
+			"alerts":    translationDashboardAlerts(cards, len(degradedReasons) > 0),
+			"runbooks":  translationDashboardRunbooks(b.admin.URLs()),
 			"generated": now,
 			"summary": map[string]any{
 				"my_tasks":                 len(myTasks),
@@ -237,8 +129,7 @@ func (b *translationQueueBinding) Dashboard(c router.Context) (payload any, err 
 				"blocked_families":         len(blockedFamilies),
 				"missing_required_locales": len(missingRequiredFamilies),
 			},
-		},
-		"meta": mergeTranslationChannelContract(map[string]any{
+		}, mergeTranslationChannelContract(map[string]any{
 			"generated_at":        now,
 			"refresh_interval_ms": translationDashboardRefreshIntervalMS,
 			"latency_target_ms":   translationDashboardLatencyTargetMS,
@@ -249,8 +140,152 @@ func (b *translationQueueBinding) Dashboard(c router.Context) (payload any, err 
 			"family_report":       translationDashboardFamilyReport(runtime),
 			"scope":               map[string]any{"tenant_id": identity.TenantID, "org_id": identity.OrgID, "actor_id": actorID},
 			"metrics":             translationDashboardMetricCatalog(),
-		}, channel),
-	}, nil
+		}, channel)
+}
+
+func (b *translationQueueBinding) translationDashboardCards(channel string, now time.Time, myTasks, needsReview, overdueAssignments []TranslationAssignment, blockedFamilies, missingRequiredFamilies []translationservices.FamilyRecord) []map[string]any {
+	return []map[string]any{
+		translationDashboardMyTasksCard(b.admin.URLs(), channel, myTasks, now),
+		translationDashboardNeedsReviewCard(b.admin.URLs(), channel, needsReview, now),
+		translationDashboardOverdueTasksCard(b.admin.URLs(), channel, overdueAssignments, now),
+		translationDashboardBlockedFamiliesCard(b.admin.URLs(), b.admin.AdminAPIGroup(), channel, blockedFamilies, missingRequiredFamilies),
+		translationDashboardMissingLocalesCard(b.admin.URLs(), b.admin.AdminAPIGroup(), channel, blockedFamilies, missingRequiredFamilies),
+	}
+}
+
+func translationDashboardTables(urls urlkit.Resolver, overdueAssignments []TranslationAssignment, blockedFamilies []translationservices.FamilyRecord, overdueLimit, blockedLimit int, now time.Time, channel string) map[string]any {
+	return map[string]any{
+		translationDashboardTableTopOverdueAssignments: map[string]any{
+			"id":    translationDashboardTableTopOverdueAssignments,
+			"label": "Top Overdue Assignments",
+			"total": len(overdueAssignments),
+			"limit": overdueLimit,
+			"rows":  translationDashboardTopOverdueRows(urls, overdueAssignments, overdueLimit, now, channel),
+		},
+		translationDashboardTableBlockedFamilies: map[string]any{
+			"id":    translationDashboardTableBlockedFamilies,
+			"label": "Blocked Families",
+			"total": len(blockedFamilies),
+			"limit": blockedLimit,
+			"rows":  translationDashboardTopBlockedRows(urls, blockedFamilies, blockedLimit, channel),
+		},
+	}
+}
+
+func translationDashboardMyTasksCard(urls urlkit.Resolver, channel string, myTasks []TranslationAssignment, now time.Time) map[string]any {
+	return translationDashboardCard(
+		translationDashboardCardMyTasks,
+		"My Tasks",
+		"Assignments currently owned by the active actor.",
+		len(myTasks),
+		map[string]any{
+			"in_progress": translationDashboardCountByStatus(myTasks, AssignmentStatusInProgress),
+			"due_soon":    translationDashboardCountByDueState(myTasks, translationQueueDueStateSoon, now),
+			"overdue":     translationDashboardCountByDueState(myTasks, translationQueueDueStateOverdue, now),
+		},
+		translationDashboardCardAlert(len(myTasks), translationDashboardCountByDueState(myTasks, translationQueueDueStateOverdue, now) > 0, translationDashboardCountByDueState(myTasks, translationQueueDueStateSoon, now) > 0),
+		translationDashboardLink(urls, "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{
+			"assignee_id": "__me__",
+			"sort":        "due_date",
+			"order":       "asc",
+		}), map[string]any{
+			"label":       "Open my tasks",
+			"description": "Open the queue filtered to assignments owned by the active actor.",
+			"relation":    "primary",
+		}),
+		"translations.dashboard.my_tasks",
+		"translations.dashboard.overdue_triage",
+	)
+}
+
+func translationDashboardNeedsReviewCard(urls urlkit.Resolver, channel string, needsReview []TranslationAssignment, now time.Time) map[string]any {
+	return translationDashboardCard(
+		translationDashboardCardNeedsReview,
+		"Needs Review",
+		"Assignments waiting on the active reviewer.",
+		len(needsReview),
+		map[string]any{
+			"overdue": translationDashboardCountByDueState(needsReview, translationQueueDueStateOverdue, now),
+		},
+		translationDashboardCardAlert(len(needsReview), translationDashboardCountByDueState(needsReview, translationQueueDueStateOverdue, now) > 0, len(needsReview) > 0),
+		translationDashboardLink(urls, "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{
+			"status":      string(AssignmentStatusInReview),
+			"reviewer_id": "__me__",
+			"sort":        "due_date",
+			"order":       "asc",
+		}), map[string]any{
+			"label":       "Open reviewer backlog",
+			"description": "Open the queue filtered to review work owned by the active reviewer.",
+			"relation":    "primary",
+		}),
+		"translations.dashboard.needs_review",
+		"translations.dashboard.review_backlog",
+	)
+}
+
+func translationDashboardOverdueTasksCard(urls urlkit.Resolver, channel string, overdueAssignments []TranslationAssignment, now time.Time) map[string]any {
+	return translationDashboardCard(
+		translationDashboardCardOverdueTasks,
+		"Overdue Tasks",
+		"Past-due assignments across the visible queue scope.",
+		len(overdueAssignments),
+		map[string]any{
+			"high_priority": translationDashboardCountByPriorities(overdueAssignments, PriorityHigh, PriorityUrgent),
+		},
+		translationDashboardCardAlert(len(overdueAssignments), len(overdueAssignments) > 0, false),
+		translationDashboardLink(urls, "admin", "translations.queue", "admin.translations.queue", nil, translationDashboardQuery(nil, channel, map[string]string{
+			"due_state": "overdue",
+			"sort":      "due_date",
+			"order":     "asc",
+		}), map[string]any{
+			"label":       "Open overdue queue",
+			"description": "Open the queue filtered to overdue assignments.",
+			"relation":    "primary",
+		}),
+		"translations.dashboard.overdue_tasks",
+		"translations.dashboard.overdue_triage",
+	)
+}
+
+func translationDashboardBlockedFamiliesCard(urls urlkit.Resolver, adminAPIGroup, channel string, blockedFamilies, missingRequiredFamilies []translationservices.FamilyRecord) map[string]any {
+	return translationDashboardCard(
+		translationDashboardCardBlockedFamilies,
+		"Blocked Families",
+		"Families currently blocked from publish readiness.",
+		len(blockedFamilies),
+		map[string]any{"missing_required_locales": len(missingRequiredFamilies)},
+		translationDashboardCardAlert(len(blockedFamilies), len(blockedFamilies) > 0, false),
+		translationDashboardLink(urls, adminAPIGroup, "translations.families", adminAPIGroup+".translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{
+			"readiness_state": "blocked",
+		}), map[string]any{
+			"label":       "Open blocked families",
+			"description": "Open the blocked family feed for the current scope.",
+			"relation":    "primary",
+		}),
+		"translations.dashboard.blocked_families",
+		"translations.dashboard.publish_blockers",
+	)
+}
+
+func translationDashboardMissingLocalesCard(urls urlkit.Resolver, adminAPIGroup, channel string, blockedFamilies, missingRequiredFamilies []translationservices.FamilyRecord) map[string]any {
+	return translationDashboardCard(
+		translationDashboardCardMissingRequiredLocale,
+		"Missing Required Locales",
+		"Families still missing policy-required locale variants.",
+		len(missingRequiredFamilies),
+		map[string]any{"families_blocked": len(blockedFamilies)},
+		translationDashboardCardAlert(len(missingRequiredFamilies), len(missingRequiredFamilies) > 0, false),
+		translationDashboardLink(urls, adminAPIGroup, "translations.families", adminAPIGroup+".translations.families", nil, translationDashboardQuery(nil, channel, map[string]string{
+			"readiness_state": "blocked",
+			"blocker_code":    "missing_locale",
+		}), map[string]any{
+			"label":       "Open missing locale blockers",
+			"description": "Open the blocked family feed filtered to missing locale blockers.",
+			"relation":    "primary",
+		}),
+		"translations.dashboard.missing_required_locales",
+		"translations.dashboard.publish_blockers",
+	)
 }
 
 func translationDashboardScopedFamilies(families []translationservices.FamilyRecord, tenantID, orgID string) []translationservices.FamilyRecord {

@@ -27,11 +27,7 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 	if err != nil {
 		return err
 	}
-	workflow := resolveCMSWorkflowEngine(a)
-	workflowActions := []Action{}
-	if workflow != nil {
-		workflowActions = resolveCMSWorkflowActions(a)
-	}
+	workflow, workflowActions := resolveCMSDemoWorkflow(a)
 
 	contentTypesPanel := (&PanelBuilder{}).
 		WithRepository(NewCMSContentTypeRepository(a.contentTypeSvc)).
@@ -331,6 +327,14 @@ func (a *Admin) RegisterCMSDemoPanels() error {
 	a.registerCMSRoutesFromService()
 	a.registerDemoSearchAdapters(contentPanel.repo, treePanel.repo)
 	return nil
+}
+
+func resolveCMSDemoWorkflow(a *Admin) (WorkflowEngine, []Action) {
+	workflow := resolveCMSWorkflowEngine(a)
+	if workflow == nil {
+		return nil, nil
+	}
+	return workflow, resolveCMSWorkflowActions(a)
 }
 
 func (a *Admin) registerCMSRoutesFromService() {

@@ -147,65 +147,17 @@ func (w *WorkerRuntime) HandleExecutionMessage(ctx context.Context, msg *gocore.
 	params := msg.Parameters
 	switch strings.TrimSpace(msg.JobID) {
 	case jobIDRefresh:
-		if w.service == nil {
-			return fmt.Errorf("modules/services: services runtime is not configured")
-		}
-		_, err := w.service.Refresh(ctx, gocore.RefreshRequest{
-			ProviderID:   toString(params["provider_id"]),
-			ConnectionID: toString(params["connection_id"]),
-		})
-		return err
+		return w.handleRefreshJob(ctx, params)
 	case jobIDSubscriptionRenew:
-		if w.service == nil {
-			return fmt.Errorf("modules/services: services runtime is not configured")
-		}
-		_, err := w.service.RenewSubscription(ctx, gocore.RenewSubscriptionRequest{
-			SubscriptionID: toString(params["subscription_id"]),
-			Metadata:       toStringAnyMap(params["metadata"]),
-		})
-		return err
+		return w.handleSubscriptionRenewJob(ctx, params)
 	case jobIDSyncIncremental:
-		if w.syncOrchestrator == nil {
-			return fmt.Errorf("modules/services: sync orchestrator is not configured")
-		}
-		_, err := w.syncOrchestrator.StartIncremental(
-			ctx,
-			toString(params["connection_id"]),
-			toString(params["provider_id"]),
-			toString(params["resource_type"]),
-			toString(params["resource_id"]),
-			toStringAnyMap(params["metadata"]),
-		)
-		return err
+		return w.handleSyncIncrementalJob(ctx, params)
 	case jobIDOutboxDispatch:
-		if w.outboxDispatcher == nil {
-			return fmt.Errorf("modules/services: outbox dispatcher is not configured")
-		}
-		_, err := w.outboxDispatcher.DispatchPending(ctx, toInt(params["batch_size"], 0))
-		if err != nil {
-			return err
-		}
-		if w.activityRuntime != nil {
-			_, _ = w.activityRuntime.EnforceRetention(ctx)
-		}
-		return nil
+		return w.handleOutboxDispatchJob(ctx, params)
 	case jobIDActivityRetentionRun:
-		if w.activityRuntime == nil {
-			return nil
-		}
-		_, err := w.activityRuntime.EnforceRetention(ctx)
-		return err
+		return w.handleActivityRetentionJob(ctx)
 	case jobIDWebhookProcess:
-		if w.webhookProcessor == nil {
-			return fmt.Errorf("modules/services: webhook processor is not configured")
-		}
-		req, err := inboundRequestFromParams(params)
-		if err != nil {
-			return err
-		}
-		req.Surface = goservicesinbound.SurfaceWebhook
-		_, err = w.webhookProcessor.Process(ctx, req)
-		return err
+		return w.handleWebhookProcessJob(ctx, params)
 	default:
 		return fmt.Errorf("modules/services: unsupported job id %q", strings.TrimSpace(msg.JobID))
 	}
@@ -217,41 +169,10 @@ func (m *Module) initializeRuntime() error {
 	}
 
 	db := resolveBunDB(m.config.PersistenceClient, m.repositoryFactory)
-
-	var inboundDispatcher *goservicesinbound.Dispatcher
-	if m.config.Inbound.Enabled {
-		claimStore := m.config.InboundClaimStore
-		if claimStore == nil {
-			claimStore = goservicesinbound.NewInMemoryClaimStore()
-		}
-		inboundDispatcher = goservicesinbound.NewDispatcher(m.config.InboundVerifier, claimStore)
-		inboundDispatcher.KeyTTL = m.config.Inbound.KeyTTL
-		registerInboundHandlers(inboundDispatcher, m.config.InboundHandlers)
-	}
-
-	var webhookProcessor *goserviceswebhooks.Processor
-	if m.config.Webhook.Enabled {
-		ledger := m.config.WebhookDeliveryLedger
-		if ledger == nil && db != nil {
-			deliveryStore, err := sqlstore.NewWebhookDeliveryStore(db)
-			if err != nil {
-				return fmt.Errorf("modules/services: build webhook delivery ledger: %w", err)
-			}
-			ledger = deliveryStore
-		}
-		if ledger != nil {
-			handler := m.config.WebhookHandler
-			if handler == nil {
-				handler = webhookDispatchHandler{dispatcher: inboundDispatcher}
-			}
-			webhookProcessor = goserviceswebhooks.NewProcessor(
-				m.config.WebhookVerifier,
-				ledger,
-				handler,
-			)
-			webhookProcessor.ClaimLease = m.config.Webhook.ClaimLease
-			webhookProcessor.MaxAttempts = m.config.Webhook.MaxAttempts
-		}
+	inboundDispatcher := m.buildInboundDispatcher()
+	webhookProcessor, err := m.buildWebhookProcessor(db, inboundDispatcher)
+	if err != nil {
+		return err
 	}
 
 	syncOrchestrator := buildSyncOrchestrator(m.repositoryFactory, m.service)
@@ -294,6 +215,116 @@ func (m *Module) initializeRuntime() error {
 	}
 
 	return nil
+}
+
+func (w *WorkerRuntime) handleRefreshJob(ctx context.Context, params map[string]any) error {
+	if w.service == nil {
+		return fmt.Errorf("modules/services: services runtime is not configured")
+	}
+	_, err := w.service.Refresh(ctx, gocore.RefreshRequest{
+		ProviderID:   toString(params["provider_id"]),
+		ConnectionID: toString(params["connection_id"]),
+	})
+	return err
+}
+
+func (w *WorkerRuntime) handleSubscriptionRenewJob(ctx context.Context, params map[string]any) error {
+	if w.service == nil {
+		return fmt.Errorf("modules/services: services runtime is not configured")
+	}
+	_, err := w.service.RenewSubscription(ctx, gocore.RenewSubscriptionRequest{
+		SubscriptionID: toString(params["subscription_id"]),
+		Metadata:       toStringAnyMap(params["metadata"]),
+	})
+	return err
+}
+
+func (w *WorkerRuntime) handleSyncIncrementalJob(ctx context.Context, params map[string]any) error {
+	if w.syncOrchestrator == nil {
+		return fmt.Errorf("modules/services: sync orchestrator is not configured")
+	}
+	_, err := w.syncOrchestrator.StartIncremental(
+		ctx,
+		toString(params["connection_id"]),
+		toString(params["provider_id"]),
+		toString(params["resource_type"]),
+		toString(params["resource_id"]),
+		toStringAnyMap(params["metadata"]),
+	)
+	return err
+}
+
+func (w *WorkerRuntime) handleOutboxDispatchJob(ctx context.Context, params map[string]any) error {
+	if w.outboxDispatcher == nil {
+		return fmt.Errorf("modules/services: outbox dispatcher is not configured")
+	}
+	if _, err := w.outboxDispatcher.DispatchPending(ctx, toInt(params["batch_size"], 0)); err != nil {
+		return err
+	}
+	if w.activityRuntime != nil {
+		_, _ = w.activityRuntime.EnforceRetention(ctx)
+	}
+	return nil
+}
+
+func (w *WorkerRuntime) handleActivityRetentionJob(ctx context.Context) error {
+	if w.activityRuntime == nil {
+		return nil
+	}
+	_, err := w.activityRuntime.EnforceRetention(ctx)
+	return err
+}
+
+func (w *WorkerRuntime) handleWebhookProcessJob(ctx context.Context, params map[string]any) error {
+	if w.webhookProcessor == nil {
+		return fmt.Errorf("modules/services: webhook processor is not configured")
+	}
+	req, err := inboundRequestFromParams(params)
+	if err != nil {
+		return err
+	}
+	req.Surface = goservicesinbound.SurfaceWebhook
+	_, err = w.webhookProcessor.Process(ctx, req)
+	return err
+}
+
+func (m *Module) buildInboundDispatcher() *goservicesinbound.Dispatcher {
+	if !m.config.Inbound.Enabled {
+		return nil
+	}
+	claimStore := m.config.InboundClaimStore
+	if claimStore == nil {
+		claimStore = goservicesinbound.NewInMemoryClaimStore()
+	}
+	dispatcher := goservicesinbound.NewDispatcher(m.config.InboundVerifier, claimStore)
+	dispatcher.KeyTTL = m.config.Inbound.KeyTTL
+	registerInboundHandlers(dispatcher, m.config.InboundHandlers)
+	return dispatcher
+}
+
+func (m *Module) buildWebhookProcessor(db *bun.DB, inboundDispatcher *goservicesinbound.Dispatcher) (*goserviceswebhooks.Processor, error) {
+	if !m.config.Webhook.Enabled {
+		return nil, nil
+	}
+	ledger := m.config.WebhookDeliveryLedger
+	if ledger == nil && db != nil {
+		deliveryStore, err := sqlstore.NewWebhookDeliveryStore(db)
+		if err != nil {
+			return nil, fmt.Errorf("modules/services: build webhook delivery ledger: %w", err)
+		}
+		ledger = deliveryStore
+	}
+	if ledger == nil {
+		return nil, nil
+	}
+	handler := m.config.WebhookHandler
+	if handler == nil {
+		handler = webhookDispatchHandler{dispatcher: inboundDispatcher}
+	}
+	processor := goserviceswebhooks.NewProcessor(m.config.WebhookVerifier, ledger, handler)
+	processor.ClaimLease = m.config.Webhook.ClaimLease
+	processor.MaxAttempts = m.config.Webhook.MaxAttempts
+	return processor, nil
 }
 
 func buildSyncOrchestrator(repositoryFactory any, service *gocore.Service) *servicesync.Orchestrator {

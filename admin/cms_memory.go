@@ -1382,6 +1382,23 @@ func (s *InMemoryContentService) UpdateBlockDefinition(ctx context.Context, def 
 		s.mu.Unlock()
 		return nil, ErrNotFound
 	}
+	def = mergeUpdatedBlockDefinition(def, existing)
+	cmsadapter.SetBlockDefinitionChannel(&def, env)
+	s.upsertBlockDefinitionVersionLocked(def)
+	s.blockDefs[cmsScopedKey(env, def.ID)] = cloneCMSBlockDefinition(def)
+	cp := cloneCMSBlockDefinition(def)
+	activity := s.activity
+	meta := map[string]any{
+		"name":   cp.Name,
+		"type":   cp.Type,
+		"locale": cp.Locale,
+	}
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.block_definition.update", "block_def:"+cp.ID, meta)
+	return &cp, nil
+}
+
+func mergeUpdatedBlockDefinition(def CMSBlockDefinition, existing CMSBlockDefinition) CMSBlockDefinition {
 	if def.Name == "" {
 		def.Name = existing.Name
 	}
@@ -1428,19 +1445,7 @@ func (s *InMemoryContentService) UpdateBlockDefinition(ctx context.Context, def 
 	if def.MigrationStatus == "" {
 		def.MigrationStatus = blockDefinitionMigrationStatus(def)
 	}
-	cmsadapter.SetBlockDefinitionChannel(&def, env)
-	s.upsertBlockDefinitionVersionLocked(def)
-	s.blockDefs[cmsScopedKey(env, def.ID)] = cloneCMSBlockDefinition(def)
-	cp := cloneCMSBlockDefinition(def)
-	activity := s.activity
-	meta := map[string]any{
-		"name":   cp.Name,
-		"type":   cp.Type,
-		"locale": cp.Locale,
-	}
-	s.mu.Unlock()
-	recordCMSActivity(ctx, activity, "cms.block_definition.update", "block_def:"+cp.ID, meta)
-	return &cp, nil
+	return def
 }
 
 // DeleteBlockDefinition removes a block definition.

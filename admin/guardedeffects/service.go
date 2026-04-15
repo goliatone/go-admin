@@ -141,54 +141,66 @@ func (s Service) Complete(
 	record.UpdatedAt = now
 	switch eval.Outcome {
 	case OutcomeCompleted:
-		record.Status = StatusFinalized
-		record.FinalizedAt = &now
-		record.AbortedAt = nil
-		record.ErrorJSON = ""
-		record.RetryAt = nil
-		saved, saveErr := s.store.SaveGuardedEffect(ctx, scope, record)
-		if saveErr != nil {
-			return Record{}, saveErr
-		}
-		if handler != nil {
-			if err := handler.Finalize(ctx, saved, result); err != nil {
-				return Record{}, err
-			}
-		}
-		return saved, nil
+		return s.completeFinalized(ctx, scope, record, now, result, handler)
 	case OutcomePending:
-		record.Status = StatusGuardPending
-		record.ErrorJSON = ""
-		record.RetryAt = nil
-		saved, saveErr := s.store.SaveGuardedEffect(ctx, scope, record)
-		if saveErr != nil {
-			return Record{}, saveErr
-		}
-		if pendingHandler, ok := handler.(PendingHandler); ok {
-			if err := pendingHandler.Pending(ctx, saved, result); err != nil {
-				return Record{}, err
-			}
-		}
-		return saved, nil
+		return s.completePending(ctx, scope, record, result, handler)
 	default:
-		record.ErrorJSON = eval.Reason
-		record.RetryAt = nextRetryAt
-		if nextRetryAt != nil {
-			record.Status = StatusRetrying
-		} else {
-			record.Status = StatusDeadLettered
-		}
-		saved, saveErr := s.store.SaveGuardedEffect(ctx, scope, record)
-		if saveErr != nil {
-			return Record{}, saveErr
-		}
-		if handler != nil {
-			if err := handler.Fail(ctx, saved, result, nextRetryAt); err != nil {
-				return Record{}, err
-			}
-		}
-		return saved, nil
+		return s.completeFailed(ctx, scope, record, eval.Reason, result, nextRetryAt, handler)
 	}
+}
+
+func (s Service) completeFinalized(ctx context.Context, scope Scope, record Record, now time.Time, result DispatchResult, handler Handler) (Record, error) {
+	record.Status = StatusFinalized
+	record.FinalizedAt = &now
+	record.AbortedAt = nil
+	record.ErrorJSON = ""
+	record.RetryAt = nil
+	saved, err := s.store.SaveGuardedEffect(ctx, scope, record)
+	if err != nil {
+		return Record{}, err
+	}
+	if handler != nil {
+		if err := handler.Finalize(ctx, saved, result); err != nil {
+			return Record{}, err
+		}
+	}
+	return saved, nil
+}
+
+func (s Service) completePending(ctx context.Context, scope Scope, record Record, result DispatchResult, handler Handler) (Record, error) {
+	record.Status = StatusGuardPending
+	record.ErrorJSON = ""
+	record.RetryAt = nil
+	saved, err := s.store.SaveGuardedEffect(ctx, scope, record)
+	if err != nil {
+		return Record{}, err
+	}
+	if pendingHandler, ok := handler.(PendingHandler); ok {
+		if err := pendingHandler.Pending(ctx, saved, result); err != nil {
+			return Record{}, err
+		}
+	}
+	return saved, nil
+}
+
+func (s Service) completeFailed(ctx context.Context, scope Scope, record Record, reason string, result DispatchResult, nextRetryAt *time.Time, handler Handler) (Record, error) {
+	record.ErrorJSON = reason
+	record.RetryAt = nextRetryAt
+	if nextRetryAt != nil {
+		record.Status = StatusRetrying
+	} else {
+		record.Status = StatusDeadLettered
+	}
+	saved, err := s.store.SaveGuardedEffect(ctx, scope, record)
+	if err != nil {
+		return Record{}, err
+	}
+	if handler != nil {
+		if err := handler.Fail(ctx, saved, result, nextRetryAt); err != nil {
+			return Record{}, err
+		}
+	}
+	return saved, nil
 }
 
 // Abort moves an effect into an explicit aborted terminal state.

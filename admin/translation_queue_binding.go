@@ -294,41 +294,15 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 	if err != nil {
 		return nil, err
 	}
-
 	userID := strings.TrimSpace(primitives.FirstNonEmptyRaw(adminCtx.UserID, actorFromContext(adminCtx.Context)))
 	channel := translationChannelFromRequest(c, adminCtx, nil)
 	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
 	perPage := clampInt(atoiDefault(c.Query("per_page"), 25), 1, 200)
 	now := b.now().UTC()
-	summary := map[string]int{
-		"total":                         0,
-		translationQueueDueStateOverdue: 0,
-		translationQueueDueStateSoon:    0,
-		translationQueueDueStateOnTrack: 0,
-		translationQueueDueStateNone:    0,
-		"review":                        0,
-	}
 	if userID == "" {
-		return map[string]any{
-			"scope":       "my_work",
-			"user_id":     "",
-			"summary":     summary,
-			"assignments": []map[string]any{},
-			"items":       []map[string]any{},
-			"total":       0,
-			"page":        page,
-			"per_page":    perPage,
-			"updated_at":  now,
-		}, nil
+		return translationQueueEmptyMyWorkPayload(page, perPage, now), nil
 	}
-
-	filters := map[string]any{
-		"assignee_id": userID,
-	}
-	if status := strings.TrimSpace(strings.ToLower(c.Query("status"))); status != "" {
-		filters["status"] = status
-	}
-
+	filters := translationQueueMyWorkFilters(userID, c.Query("status"))
 	assignments, total, err := repo.List(adminCtx.Context, ListOptions{
 		Page:    page,
 		PerPage: perPage,
@@ -342,21 +316,8 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 	if err != nil {
 		return nil, err
 	}
-
-	rows := make([]map[string]any, 0, len(assignments))
-	for _, assignment := range assignments {
-		row := b.assignmentContractRow(adminCtx.Context, assignment, now, channel)
-		rows = append(rows, row)
-	}
-	for _, assignment := range summaryAssignments {
-		dueState := translationQueueDueState(assignment.DueDate, now)
-		summary[dueState]++
-		summary["total"]++
-		if assignment.Status == AssignmentStatusInReview {
-			summary["review"]++
-		}
-	}
-
+	rows := b.translationQueueAssignmentRows(adminCtx.Context, assignments, now, channel)
+	summary := translationQueueMyWorkSummary(summaryAssignments, now)
 	return map[string]any{
 		"scope":       "my_work",
 		"user_id":     userID,
@@ -369,6 +330,58 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 		"updated_at":  now,
 		"channel":     channel,
 	}, nil
+}
+
+func translationQueueEmptyMyWorkPayload(page, perPage int, now time.Time) map[string]any {
+	return map[string]any{
+		"scope":       "my_work",
+		"user_id":     "",
+		"summary":     translationQueueMyWorkSummary(nil, now),
+		"assignments": []map[string]any{},
+		"items":       []map[string]any{},
+		"total":       0,
+		"page":        page,
+		"per_page":    perPage,
+		"updated_at":  now,
+	}
+}
+
+func translationQueueMyWorkFilters(userID, status string) map[string]any {
+	filters := map[string]any{
+		"assignee_id": strings.TrimSpace(userID),
+	}
+	if status = strings.TrimSpace(strings.ToLower(status)); status != "" {
+		filters["status"] = status
+	}
+	return filters
+}
+
+func translationQueueMyWorkSummary(assignments []TranslationAssignment, now time.Time) map[string]int {
+	summary := map[string]int{
+		"total":                         0,
+		translationQueueDueStateOverdue: 0,
+		translationQueueDueStateSoon:    0,
+		translationQueueDueStateOnTrack: 0,
+		translationQueueDueStateNone:    0,
+		"review":                        0,
+	}
+	for _, assignment := range assignments {
+		dueState := translationQueueDueState(assignment.DueDate, now)
+		summary[dueState]++
+		summary["total"]++
+		if assignment.Status == AssignmentStatusInReview {
+			summary["review"]++
+		}
+	}
+	return summary
+}
+
+func (b *translationQueueBinding) translationQueueAssignmentRows(ctx context.Context, assignments []TranslationAssignment, now time.Time, channel string) []map[string]any {
+	rows := make([]map[string]any, 0, len(assignments))
+	for _, assignment := range assignments {
+		rows = append(rows, b.assignmentContractRow(ctx, assignment, now, channel))
+	}
+	return rows
 }
 
 func (b *translationQueueBinding) Queue(c router.Context) (payload any, err error) {

@@ -24,6 +24,14 @@ type translationMatrixExportSelectedInput struct {
 	Environment       string   `json:"environment"`
 }
 
+type translationMatrixRequest struct {
+	Page             int
+	PerPage          int
+	LocaleOffset     int
+	LocaleLimit      int
+	RequestedLocales []string
+}
+
 func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err error) {
 	startedAt := time.Now()
 	obsCtx := c.Context()
@@ -54,79 +62,94 @@ func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err er
 	if err != nil {
 		return nil, err
 	}
-	scope := translationservices.Scope{
-		TenantID: translationIdentityFromAdminContext(adminCtx).TenantID,
-		OrgID:    translationIdentityFromAdminContext(adminCtx).OrgID,
+	scope := translationMatrixScope(adminCtx)
+	request := translationMatrixRequestFromContext(c)
+	result, err := b.translationMatrixListFamilies(c, adminCtx, runtime, channel, scope, request)
+	if err != nil {
+		return nil, err
 	}
-	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)
-	perPage := clampInt(atoiDefault(c.Query("per_page"), translationMatrixDefaultPageSize), 1, translationMatrixMaxPageSize)
-	localeOffset := clampInt(atoiDefault(c.Query("locale_offset"), 0), 0, 10_000)
-	localeLimit := clampInt(atoiDefault(c.Query("locale_limit"), translationMatrixDefaultLocaleLimit), 1, translationMatrixMaxLocaleLimit)
-	requestedLocales := translationMatrixLocalesFromValues(c.Query("locale"), c.Query("locales"))
+	return b.translationMatrixPayload(adminCtx, runtime, result, scope, channel, request), nil
+}
 
-	result, err := runtime.service.List(adminCtx.Context, translationservices.ListFamiliesInput{
+func translationMatrixScope(adminCtx AdminContext) translationservices.Scope {
+	identity := translationIdentityFromAdminContext(adminCtx)
+	return translationservices.Scope{TenantID: identity.TenantID, OrgID: identity.OrgID}
+}
+
+func translationMatrixRequestFromContext(c router.Context) translationMatrixRequest {
+	return translationMatrixRequest{
+		Page:             clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000),
+		PerPage:          clampInt(atoiDefault(c.Query("per_page"), translationMatrixDefaultPageSize), 1, translationMatrixMaxPageSize),
+		LocaleOffset:     clampInt(atoiDefault(c.Query("locale_offset"), 0), 0, 10_000),
+		LocaleLimit:      clampInt(atoiDefault(c.Query("locale_limit"), translationMatrixDefaultLocaleLimit), 1, translationMatrixMaxLocaleLimit),
+		RequestedLocales: translationMatrixLocalesFromValues(c.Query("locale"), c.Query("locales")),
+	}
+}
+
+func (b *translationFamilyBinding) translationMatrixListFamilies(c router.Context, adminCtx AdminContext, runtime *translationFamilyRuntime, channel string, scope translationservices.Scope, request translationMatrixRequest) (translationservices.ListFamiliesResult, error) {
+	return runtime.service.List(adminCtx.Context, translationservices.ListFamiliesInput{
 		Scope:          scope,
 		Environment:    channel,
 		FamilyID:       strings.TrimSpace(c.Query("family_id")),
 		ContentType:    strings.TrimSpace(strings.ToLower(c.Query("content_type"))),
 		ReadinessState: strings.TrimSpace(strings.ToLower(c.Query("readiness_state"))),
 		BlockerCode:    strings.TrimSpace(strings.ToLower(c.Query("blocker_code"))),
-		Page:           page,
-		PerPage:        perPage,
+		Page:           request.Page,
+		PerPage:        request.PerPage,
 	})
-	if err != nil {
-		return nil, err
-	}
+}
 
-	allLocales := translationMatrixLocalesForFamilies(result.Items, requestedLocales)
-	visibleLocales, hasMoreLocales := translationMatrixVisibleLocales(allLocales, localeOffset, localeLimit)
-	columns := translationMatrixColumnPayloads(result.Items, visibleLocales, localeOffset)
-	localePolicy := translationMatrixLocalePolicyPayloads(result.Items, visibleLocales, localeOffset)
-	quickActionTargets := translationMatrixQuickActionTargets(b.admin)
+func (b *translationFamilyBinding) translationMatrixPayload(adminCtx AdminContext, runtime *translationFamilyRuntime, result translationservices.ListFamiliesResult, scope translationservices.Scope, channel string, request translationMatrixRequest) map[string]any {
+	allLocales := translationMatrixLocalesForFamilies(result.Items, request.RequestedLocales)
+	visibleLocales, hasMoreLocales := translationMatrixVisibleLocales(allLocales, request.LocaleOffset, request.LocaleLimit)
 	createActionState := translationMatrixActionState(b.admin, adminCtx.Context, PermAdminTranslationsEdit)
-	rows := make([]map[string]any, 0, len(result.Items))
-	for _, family := range result.Items {
-		rows = append(rows, translationMatrixRowPayload(family, visibleLocales, b.admin, channel, createActionState))
-	}
-
 	return map[string]any{
-		"data": map[string]any{
-			"columns": columns,
-			"rows":    rows,
-			"selection": map[string]any{
-				"bulk_actions": map[string]any{
-					translationMatrixBulkActionCreateMissing:  translationMatrixActionState(b.admin, adminCtx.Context, PermAdminTranslationsEdit),
-					translationMatrixBulkActionExportSelected: translationMatrixActionState(b.admin, adminCtx.Context, translationExchangePermissionExport),
-				},
+		"data": translationMatrixDataPayload(result.Items, visibleLocales, request.LocaleOffset, b.admin, adminCtx.Context, channel, createActionState),
+		"meta": translationMatrixMetaPayload(runtime, result, scope, channel, request, allLocales, visibleLocales, hasMoreLocales, b.admin, adminCtx.Context),
+	}
+}
+
+func translationMatrixDataPayload(items []translationservices.FamilyRecord, visibleLocales []string, localeOffset int, admin *Admin, ctx context.Context, channel string, createActionState map[string]any) map[string]any {
+	rows := make([]map[string]any, 0, len(items))
+	for _, family := range items {
+		rows = append(rows, translationMatrixRowPayload(family, visibleLocales, admin, channel, createActionState))
+	}
+	return map[string]any{
+		"columns": translationMatrixColumnPayloads(items, visibleLocales, localeOffset),
+		"rows":    rows,
+		"selection": map[string]any{
+			"bulk_actions": map[string]any{
+				translationMatrixBulkActionCreateMissing:  translationMatrixActionState(admin, ctx, PermAdminTranslationsEdit),
+				translationMatrixBulkActionExportSelected: translationMatrixActionState(admin, ctx, translationExchangePermissionExport),
 			},
 		},
-		"meta": mergeTranslationChannelContract(map[string]any{
-			"page":              result.Page,
-			"per_page":          result.PerPage,
-			"total":             result.Total,
-			"total_locales":     len(allLocales),
-			"locale_offset":     localeOffset,
-			"locale_limit":      localeLimit,
-			"has_more_locales":  hasMoreLocales,
-			"latency_target_ms": translationMatrixLatencyTargetMS,
-			"query_model":       TranslationMatrixQueryModel(),
-			"contracts":         TranslationMatrixContractPayload(),
-			"scope": map[string]any{
-				"tenant_id": scope.TenantID,
-				"org_id":    scope.OrgID,
+	}
+}
+
+func translationMatrixMetaPayload(runtime *translationFamilyRuntime, result translationservices.ListFamiliesResult, scope translationservices.Scope, channel string, request translationMatrixRequest, allLocales, visibleLocales []string, hasMoreLocales bool, admin *Admin, ctx context.Context) map[string]any {
+	return mergeTranslationChannelContract(map[string]any{
+		"page":                 result.Page,
+		"per_page":             result.PerPage,
+		"total":                result.Total,
+		"total_locales":        len(allLocales),
+		"locale_offset":        request.LocaleOffset,
+		"locale_limit":         request.LocaleLimit,
+		"has_more_locales":     hasMoreLocales,
+		"latency_target_ms":    translationMatrixLatencyTargetMS,
+		"query_model":          TranslationMatrixQueryModel(),
+		"contracts":            TranslationMatrixContractPayload(),
+		"scope":                map[string]any{"tenant_id": scope.TenantID, "org_id": scope.OrgID},
+		"locale_policy":        translationMatrixLocalePolicyPayloads(result.Items, visibleLocales, request.LocaleOffset),
+		"quick_action_targets": translationMatrixQuickActionTargets(admin),
+		"report": map[string]any{
+			"checksum": runtime.report.Checksum,
+			"summary": map[string]any{
+				"families": runtime.report.Summary.Families,
+				"variants": runtime.report.Summary.Variants,
+				"blockers": runtime.report.Summary.Blockers,
 			},
-			"locale_policy":        localePolicy,
-			"quick_action_targets": quickActionTargets,
-			"report": map[string]any{
-				"checksum": runtime.report.Checksum,
-				"summary": map[string]any{
-					"families": runtime.report.Summary.Families,
-					"variants": runtime.report.Summary.Variants,
-					"blockers": runtime.report.Summary.Blockers,
-				},
-			},
-		}, channel),
-	}, nil
+		},
+	}, channel)
 }
 
 func (b *translationFamilyBinding) CreateMissingBulk(c router.Context, body map[string]any) (payload any, err error) {

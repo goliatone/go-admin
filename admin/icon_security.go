@@ -2,9 +2,15 @@ package admin
 
 import (
 	"encoding/base64"
+	"errors"
 	"net/url"
 	"regexp"
 	"strings"
+)
+
+var (
+	errInvalidDataURIFormat       = errors.New("invalid data URI format")
+	errInvalidDataURIMissingComma = errors.New("invalid data URI: missing data separator")
 )
 
 // IconSecurityPolicy configures security restrictions for icon rendering.
@@ -214,121 +220,78 @@ func (v *IconSecurityValidator) validateURL(rawURL string, trusted bool) IconSec
 
 // validateDataURI validates a data URI.
 func (v *IconSecurityValidator) validateDataURI(dataURI string, trusted bool) IconSecurityResult {
-	// Check trust level
 	if !trusted && !v.policy.AllowUntrustedCustom {
-		return IconSecurityResult{
-			Allowed: false,
-			Reason:  "data URIs not allowed for untrusted input",
-		}
+		return IconSecurityResult{Allowed: false, Reason: "data URIs not allowed for untrusted input"}
 	}
-
 	if !v.policy.AllowDataURI {
-		return IconSecurityResult{
-			Allowed: false,
-			Reason:  "data URIs are disabled",
-		}
+		return IconSecurityResult{Allowed: false, Reason: "data URIs are disabled"}
 	}
+	mimeType, data, isBase64, err := parseDataURIContent(dataURI)
+	if err != nil {
+		return IconSecurityResult{Allowed: false, Reason: err.Error()}
+	}
+	if !v.isAllowedMIME(mimeType) {
+		return IconSecurityResult{Allowed: false, Reason: "data URI MIME type not allowed: " + mimeType}
+	}
+	if dataURIPayloadSize(data, isBase64) > v.policy.MaxDataURIBytes {
+		return IconSecurityResult{Allowed: false, Reason: "data URI payload exceeds size limit"}
+	}
+	if mimeType != "image/svg+xml" {
+		return IconSecurityResult{Allowed: true, ValidatedURL: dataURI}
+	}
+	return sanitizeSVGDataURI(data, isBase64)
+}
 
-	// Parse data URI: data:[<mediatype>][;base64],<data>
+func parseDataURIContent(dataURI string) (string, string, bool, error) {
 	if !strings.HasPrefix(dataURI, "data:") {
-		return IconSecurityResult{
-			Allowed: false,
-			Reason:  "invalid data URI format",
-		}
+		return "", "", false, &url.Error{Op: "parse", URL: dataURI, Err: errInvalidDataURIFormat}
 	}
-
-	content := strings.TrimPrefix(dataURI, "data:")
-	before, after, ok := strings.Cut(content, ",")
+	before, data, ok := strings.Cut(strings.TrimPrefix(dataURI, "data:"), ",")
 	if !ok {
-		return IconSecurityResult{
-			Allowed: false,
-			Reason:  "invalid data URI: missing comma",
-		}
+		return "", "", false, errInvalidDataURIMissingComma
 	}
-
+	isBase64 := strings.HasSuffix(before, ";base64")
 	mediaType := before
-	data := after
-
-	// Check for base64 encoding
-	isBase64 := strings.HasSuffix(mediaType, ";base64")
 	if isBase64 {
 		mediaType = strings.TrimSuffix(mediaType, ";base64")
 	}
+	mimeType := strings.TrimSpace(strings.Split(mediaType, ";")[0])
+	return mimeType, data, isBase64, nil
+}
 
-	// Extract MIME type (remove charset and other params)
-	mimeType := strings.Split(mediaType, ";")[0]
-	mimeType = strings.TrimSpace(mimeType)
-
-	// Check MIME allowlist
-	if !v.isAllowedMIME(mimeType) {
-		return IconSecurityResult{
-			Allowed: false,
-			Reason:  "data URI MIME type not allowed: " + mimeType,
-		}
-	}
-
-	// Check size limit
-	var dataSize int
+func dataURIPayloadSize(data string, isBase64 bool) int {
 	if isBase64 {
-		// Base64 encoded data: estimate decoded size
-		dataSize = base64.StdEncoding.DecodedLen(len(data))
-	} else {
-		dataSize = len(data)
+		return base64.StdEncoding.DecodedLen(len(data))
 	}
+	return len(data)
+}
 
-	if dataSize > v.policy.MaxDataURIBytes {
-		return IconSecurityResult{
-			Allowed: false,
-			Reason:  "data URI payload exceeds size limit",
-		}
+func sanitizeSVGDataURI(data string, isBase64 bool) IconSecurityResult {
+	svgContent, err := decodeSVGDataURI(data, isBase64)
+	if err != nil {
+		return IconSecurityResult{Allowed: false, Reason: err.Error()}
 	}
-
-	// For SVG data URIs, decode and sanitize
-	if mimeType == "image/svg+xml" {
-		var svgContent string
-		if isBase64 {
-			decoded, err := base64.StdEncoding.DecodeString(data)
-			if err != nil {
-				return IconSecurityResult{
-					Allowed: false,
-					Reason:  "invalid base64 encoding: " + err.Error(),
-				}
-			}
-			svgContent = string(decoded)
-		} else {
-			// URL decode
-			decoded, err := url.QueryUnescape(data)
-			if err != nil {
-				return IconSecurityResult{
-					Allowed: false,
-					Reason:  "invalid URL encoding: " + err.Error(),
-				}
-			}
-			svgContent = decoded
-		}
-
-		// Sanitize the SVG
-		sanitized, err := sanitizeSVG(svgContent)
-		if err != nil {
-			return IconSecurityResult{
-				Allowed: false,
-				Reason:  "SVG sanitization failed: " + err.Error(),
-			}
-		}
-
-		// Re-encode as data URI
-		encoded := base64.StdEncoding.EncodeToString([]byte(sanitized))
-		return IconSecurityResult{
-			Allowed:          true,
-			SanitizedContent: sanitized,
-			ValidatedURL:     "data:image/svg+xml;base64," + encoded,
-		}
+	sanitized, err := sanitizeSVG(svgContent)
+	if err != nil {
+		return IconSecurityResult{Allowed: false, Reason: "SVG sanitization failed: " + err.Error()}
 	}
-
+	encoded := base64.StdEncoding.EncodeToString([]byte(sanitized))
 	return IconSecurityResult{
-		Allowed:      true,
-		ValidatedURL: dataURI,
+		Allowed:          true,
+		SanitizedContent: sanitized,
+		ValidatedURL:     "data:image/svg+xml;base64," + encoded,
 	}
+}
+
+func decodeSVGDataURI(data string, isBase64 bool) (string, error) {
+	if isBase64 {
+		decoded, err := base64.StdEncoding.DecodeString(data)
+		if err != nil {
+			return "", err
+		}
+		return string(decoded), nil
+	}
+	return url.QueryUnescape(data)
 }
 
 // isAllowedScheme checks if a URL scheme is in the allowlist.

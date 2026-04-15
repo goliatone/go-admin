@@ -7,6 +7,32 @@ import (
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
+var debugRouteResolverKeys = map[string]map[string]string{
+	"admin.debug": {
+		"index":      debugRouteKey,
+		"ws":         debugWSRouteKey,
+		"session.ws": debugSessionWSRouteKey,
+		"repl.app":   debugREPLAppRouteKey,
+		"repl.shell": debugREPLShellRouteKey,
+	},
+	"admin.debug.api": {
+		"panels":                    debugPanelsRouteKey,
+		"snapshot":                  debugSnapshotRouteKey,
+		"sessions":                  debugSessionsRouteKey,
+		"clear":                     debugClearRouteKey,
+		"clear.panel":               debugClearPanelRouteKey,
+		"doctor.action":             debugDoctorActionRouteKey,
+		"errors":                    debugErrorsRouteKey,
+		"dashboard":                 debugDashboardRouteKey,
+		"dashboard.widgets":         debugDashboardWidgetsRouteKey,
+		"dashboard.widget":          debugDashboardWidgetRouteKey,
+		"dashboard.widgets.reorder": debugDashboardReorderRouteKey,
+		"dashboard.widgets.refresh": debugDashboardRefreshRouteKey,
+		"dashboard.preferences":     debugDashboardPrefsRouteKey,
+		"dashboard.ws":              debugDashboardWSRouteKey,
+	},
+}
+
 func adminBasePath(cfg Config) string {
 	basePath := strings.TrimSpace(cfg.Routing.Roots.AdminRoot)
 	if basePath == "" {
@@ -196,53 +222,11 @@ func debugFallbackRoutePath(debugBase, routeKey string) string {
 func debugRouteResolverKey(group, route string) string {
 	group = strings.TrimSpace(group)
 	route = strings.TrimSpace(route)
-	switch group {
-	case "admin.debug":
-		switch route {
-		case "index":
-			return debugRouteKey
-		case "ws":
-			return debugWSRouteKey
-		case "session.ws":
-			return debugSessionWSRouteKey
-		case "repl.app":
-			return debugREPLAppRouteKey
-		case "repl.shell":
-			return debugREPLShellRouteKey
-		}
-	case "admin.debug.api":
-		switch route {
-		case "panels":
-			return debugPanelsRouteKey
-		case "snapshot":
-			return debugSnapshotRouteKey
-		case "sessions":
-			return debugSessionsRouteKey
-		case "clear":
-			return debugClearRouteKey
-		case "clear.panel":
-			return debugClearPanelRouteKey
-		case "doctor.action":
-			return debugDoctorActionRouteKey
-		case "errors":
-			return debugErrorsRouteKey
-		case "dashboard":
-			return debugDashboardRouteKey
-		case "dashboard.widgets":
-			return debugDashboardWidgetsRouteKey
-		case "dashboard.widget":
-			return debugDashboardWidgetRouteKey
-		case "dashboard.widgets.reorder":
-			return debugDashboardReorderRouteKey
-		case "dashboard.widgets.refresh":
-			return debugDashboardRefreshRouteKey
-		case "dashboard.preferences":
-			return debugDashboardPrefsRouteKey
-		case "dashboard.ws":
-			return debugDashboardWSRouteKey
-		}
+	routes, ok := debugRouteResolverKeys[group]
+	if !ok {
+		return ""
 	}
-	return ""
+	return strings.TrimSpace(routes[route])
 }
 
 func debugRouteRelativePath(routeKey string) string {

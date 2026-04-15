@@ -202,79 +202,79 @@ func ParseIconReference(value string) IconReference {
 	}
 
 	ref := IconReference{Raw: value}
-
-	// 1. Check for explicit emoji prefix
-	if strings.HasPrefix(value, "emoji:") {
-		ref.Type = IconTypeEmoji
-		ref.Value = strings.TrimPrefix(value, "emoji:")
-		ref.Qualified = true
-		return ref
+	if parsed, ok := parsePrefixedIconReference(value, ref); ok {
+		return parsed
 	}
-
-	// 2. Check for explicit svg prefix
-	if strings.HasPrefix(value, "svg:") {
-		ref.Type = IconTypeSVG
-		ref.Value = strings.TrimPrefix(value, "svg:")
-		ref.Qualified = true
-		return ref
+	if parsed, ok := parseDirectIconReference(value, ref); ok {
+		return parsed
 	}
+	return parseFallbackIconReference(value, ref)
+}
 
-	// 3. Check for explicit url prefix
-	if strings.HasPrefix(value, "url:") {
-		ref.Type = IconTypeURL
-		ref.Value = strings.TrimPrefix(value, "url:")
-		ref.Qualified = true
-		return ref
-	}
-
-	// 4. Check for raw SVG (legacy convenience)
-	if strings.HasPrefix(value, "<svg") || strings.HasPrefix(value, "<SVG") {
-		ref.Type = IconTypeSVG
-		ref.Value = value
-		return ref
-	}
-
-	// 5. Check for raw URL patterns
-	if strings.HasPrefix(value, "http://") ||
-		strings.HasPrefix(value, "https://") ||
-		strings.HasPrefix(value, "data:") {
-		ref.Type = IconTypeURL
-		ref.Value = value
-		return ref
-	}
-
-	// 6. Check for qualified library:name syntax
-	if idx := strings.Index(value, ":"); idx > 0 {
-		prefix := value[:idx]
-		name := value[idx+1:]
-
-		// Known library prefixes (extensible)
-		if isKnownLibraryPrefix(prefix) {
-			ref.Type = IconTypeLibrary
-			ref.Library = prefix
-			ref.Value = name
-			ref.Qualified = true
-			return ref
+func parsePrefixedIconReference(value string, ref IconReference) (IconReference, bool) {
+	for _, candidate := range []struct {
+		prefix string
+		kind   IconType
+	}{
+		{prefix: "emoji:", kind: IconTypeEmoji},
+		{prefix: "svg:", kind: IconTypeSVG},
+		{prefix: "url:", kind: IconTypeURL},
+	} {
+		if !strings.HasPrefix(value, candidate.prefix) {
+			continue
 		}
+		ref.Type = candidate.kind
+		ref.Value = strings.TrimPrefix(value, candidate.prefix)
+		ref.Qualified = true
+		return ref, true
 	}
+	return IconReference{}, false
+}
 
-	// 7. Check for legacy iconoir-<name> pattern
-	if strings.HasPrefix(value, "iconoir-") {
+func parseDirectIconReference(value string, ref IconReference) (IconReference, bool) {
+	switch {
+	case strings.HasPrefix(value, "<svg") || strings.HasPrefix(value, "<SVG"):
+		ref.Type = IconTypeSVG
+		ref.Value = value
+		return ref, true
+	case strings.HasPrefix(value, "http://"), strings.HasPrefix(value, "https://"), strings.HasPrefix(value, "data:"):
+		ref.Type = IconTypeURL
+		ref.Value = value
+		return ref, true
+	case strings.HasPrefix(value, "iconoir-"):
 		ref.Type = IconTypeLibrary
 		ref.Library = "iconoir"
 		ref.Value = strings.TrimPrefix(value, "iconoir-")
 		ref.LegacyMapped = true
-		return ref
-	}
-
-	// 8. Check if it's an emoji (auto-detection)
-	if isEmojiString(value) {
+		return ref, true
+	case isEmojiString(value):
 		ref.Type = IconTypeEmoji
 		ref.Value = value
-		return ref
+		return ref, true
 	}
+	if parsed, ok := parseQualifiedLibraryReference(value, ref); ok {
+		return parsed, true
+	}
+	return IconReference{}, false
+}
 
-	// 9. Check for svgFieldTypeKeys mapping (backward compatibility)
+func parseQualifiedLibraryReference(value string, ref IconReference) (IconReference, bool) {
+	idx := strings.Index(value, ":")
+	if idx <= 0 {
+		return IconReference{}, false
+	}
+	prefix := value[:idx]
+	if !isKnownLibraryPrefix(prefix) {
+		return IconReference{}, false
+	}
+	ref.Type = IconTypeLibrary
+	ref.Library = prefix
+	ref.Value = value[idx+1:]
+	ref.Qualified = true
+	return ref, true
+}
+
+func parseFallbackIconReference(value string, ref IconReference) IconReference {
 	if mapped, ok := svgFieldTypeKeys[value]; ok {
 		ref.Type = IconTypeLibrary
 		ref.Library = DefaultIconLibrary
@@ -282,8 +282,6 @@ func ParseIconReference(value string) IconReference {
 		ref.LegacyMapped = true
 		return ref
 	}
-
-	// 10. Default: treat as bare library icon name
 	ref.Type = IconTypeLibrary
 	ref.Library = DefaultIconLibrary
 	ref.Value = value

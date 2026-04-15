@@ -530,29 +530,9 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 		return err
 	}
 
-	adminCtx := debugSessionAdminContextFromUpgrade(c)
-	if adminCtx.Context == nil {
-		adminCtx.Context = c.Context()
-	}
-	if adminCtx.UserID == "" {
-		adminCtx.UserID = userIDFromContext(adminCtx.Context)
-	}
-	attachMeta := map[string]any{}
-	if ip := debugSessionUpgradeString(c, debugSessionUpgradeIP); ip != "" {
-		attachMeta["attach_ip"] = ip
-	}
-	if ua := debugSessionUpgradeString(c, debugSessionUpgradeUserAgent); ua != "" {
-		attachMeta["attach_user_agent"] = ua
-	}
-	session := DebugUserSession{SessionID: sessionID}
-	if m.sessionStore != nil {
-		if ttl := m.config.SessionInactivityExpiry; ttl > 0 {
-			_, _ = m.sessionStore.Expire(adminCtx.Context, ttl)
-		}
-		if stored, ok, _ := m.sessionStore.Get(adminCtx.Context, sessionID); ok {
-			session = stored
-		}
-	}
+	adminCtx := debugSessionAdminContext(c)
+	attachMeta := debugSessionAttachMeta(c)
+	session := m.loadDebugSession(adminCtx.Context, sessionID)
 	recordDebugSessionAttach(admin, adminCtx.Context, session, attachMeta)
 
 	commandCh := make(chan debugCommand, 16)
@@ -595,6 +575,42 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 			}
 		}
 	}
+}
+
+func debugSessionAdminContext(c router.WebSocketContext) AdminContext {
+	adminCtx := debugSessionAdminContextFromUpgrade(c)
+	if adminCtx.Context == nil {
+		adminCtx.Context = c.Context()
+	}
+	if adminCtx.UserID == "" {
+		adminCtx.UserID = userIDFromContext(adminCtx.Context)
+	}
+	return adminCtx
+}
+
+func debugSessionAttachMeta(c router.WebSocketContext) map[string]any {
+	attachMeta := map[string]any{}
+	if ip := debugSessionUpgradeString(c, debugSessionUpgradeIP); ip != "" {
+		attachMeta["attach_ip"] = ip
+	}
+	if ua := debugSessionUpgradeString(c, debugSessionUpgradeUserAgent); ua != "" {
+		attachMeta["attach_user_agent"] = ua
+	}
+	return attachMeta
+}
+
+func (m *DebugModule) loadDebugSession(ctx context.Context, sessionID string) DebugUserSession {
+	session := DebugUserSession{SessionID: sessionID}
+	if m == nil || m.sessionStore == nil {
+		return session
+	}
+	if ttl := m.config.SessionInactivityExpiry; ttl > 0 {
+		_, _ = m.sessionStore.Expire(ctx, ttl)
+	}
+	if stored, ok, _ := m.sessionStore.Get(ctx, sessionID); ok {
+		return stored
+	}
+	return session
 }
 
 func (m *DebugModule) handleDebugSessionCommand(c router.WebSocketContext, subscriptions *debugSubscription, cmd debugCommand, sessionID string, includeGlobals bool) {

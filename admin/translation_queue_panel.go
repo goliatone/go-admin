@@ -91,134 +91,152 @@ func translationQueueFormSchema() map[string]any {
 			"source_locale",
 			"target_locale",
 		},
-		"properties": map[string]any{
-			"family_id": map[string]any{
-				"type":  "string",
-				"title": "Translation Group",
-				"x-relationships": map[string]any{
-					"type":       "belongsTo",
-					"target":     "#/components/schemas/TranslationGroup",
-					"foreignKey": "family_id",
-				},
-				"x-endpoint": map[string]any{
-					"url":         "/api/translations/options/families",
-					"method":      "GET",
-					"mode":        "search",
-					"searchParam": "search",
-					"labelField":  "label",
-					"valueField":  "value",
-					"dynamicParams": map[string]any{
-						"entity_type":      "{{field:entity_type}}",
-						"source_record_id": "{{field:source_record_id}}",
-					},
-				},
+		"properties": translationQueueFormSchemaProperties(),
+	}
+}
+
+func translationQueueFormSchemaProperties() map[string]any {
+	return map[string]any{
+		"family_id":        translationQueueFamilyIDSchema(),
+		"entity_type":      translationQueueEntityTypeSchema(),
+		"source_record_id": translationQueueSourceRecordSchema(),
+		"source_locale":    translationQueueSourceLocaleSchema(),
+		"target_locale":    translationQueueTargetLocaleSchema(),
+		"source_title":     map[string]any{"type": "string", "title": "Source Title"},
+		"source_path":      map[string]any{"type": "string", "title": "Source Path"},
+		"assignment_type":  map[string]any{"type": "string", "title": "Assignment Type", "enum": optionValues(assignmentTypeOptions())},
+		"assignee_id":      translationQueueAssigneeSchema(),
+		"priority":         map[string]any{"type": "string", "title": "Priority", "enum": optionValues(assignmentPriorityOptions())},
+		"due_date":         translationQueueDueDateSchema(),
+	}
+}
+
+func translationQueueFamilyIDSchema() map[string]any {
+	return map[string]any{
+		"type":  "string",
+		"title": "Translation Group",
+		"x-relationships": map[string]any{
+			"type":       "belongsTo",
+			"target":     "#/components/schemas/TranslationGroup",
+			"foreignKey": "family_id",
+		},
+		"x-endpoint": map[string]any{
+			"url":         "/api/translations/options/families",
+			"method":      "GET",
+			"mode":        "search",
+			"searchParam": "search",
+			"labelField":  "label",
+			"valueField":  "value",
+			"dynamicParams": map[string]any{
+				"entity_type":      "{{field:entity_type}}",
+				"source_record_id": "{{field:source_record_id}}",
 			},
-			"entity_type": map[string]any{
-				"type":  "string",
-				"title": "Entity Type",
-				"x-relationships": map[string]any{
-					"type":       "belongsTo",
-					"target":     "#/components/schemas/ContentType",
-					"foreignKey": "entity_type",
-				},
-				"x-endpoint": map[string]any{
-					"url":        "/api/translations/options/entity-types",
-					"method":     "GET",
-					"labelField": "label",
-					"valueField": "value",
-				},
+		},
+	}
+}
+
+func translationQueueEntityTypeSchema() map[string]any {
+	return map[string]any{
+		"type":  "string",
+		"title": "Entity Type",
+		"x-relationships": map[string]any{
+			"type":       "belongsTo",
+			"target":     "#/components/schemas/ContentType",
+			"foreignKey": "entity_type",
+		},
+		"x-endpoint": map[string]any{
+			"url":        "/api/translations/options/entity-types",
+			"method":     "GET",
+			"labelField": "label",
+			"valueField": "value",
+		},
+	}
+}
+
+func translationQueueSourceRecordSchema() map[string]any {
+	return map[string]any{
+		"type":  "string",
+		"title": "Source Record",
+		"x-relationships": map[string]any{
+			"type":       "belongsTo",
+			"target":     "#/components/schemas/Content",
+			"foreignKey": "source_record_id",
+		},
+		"x-endpoint": map[string]any{
+			"url":         "/api/translations/options/source-records",
+			"method":      "GET",
+			"mode":        "search",
+			"searchParam": "search",
+			"labelField":  "label",
+			"valueField":  "value",
+			"dynamicParams": map[string]any{
+				"entity_type": "{{field:entity_type}}",
 			},
-			"source_record_id": map[string]any{
-				"type":  "string",
-				"title": "Source Record",
-				"x-relationships": map[string]any{
-					"type":       "belongsTo",
-					"target":     "#/components/schemas/Content",
-					"foreignKey": "source_record_id",
-				},
-				"x-endpoint": map[string]any{
-					"url":         "/api/translations/options/source-records",
-					"method":      "GET",
-					"mode":        "search",
-					"searchParam": "search",
-					"labelField":  "label",
-					"valueField":  "value",
-					"dynamicParams": map[string]any{
-						"entity_type": "{{field:entity_type}}",
-					},
-				},
+		},
+	}
+}
+
+func translationQueueSourceLocaleSchema() map[string]any {
+	return map[string]any{
+		"type":     "string",
+		"title":    "Source Locale",
+		"readOnly": true,
+		"x-formgen": map[string]any{
+			"readonly": true,
+		},
+	}
+}
+
+func translationQueueTargetLocaleSchema() map[string]any {
+	return map[string]any{
+		"type":  "string",
+		"title": "Target Locale",
+		"x-relationships": map[string]any{
+			"type":       "belongsTo",
+			"target":     "#/components/schemas/Locale",
+			"foreignKey": "target_locale",
+		},
+		"x-endpoint": map[string]any{
+			"url":        "/api/translations/options/locales",
+			"method":     "GET",
+			"labelField": "label",
+			"valueField": "value",
+			"dynamicParams": map[string]any{
+				"entity_type":      "{{field:entity_type}}",
+				"source_record_id": "{{field:source_record_id}}",
+				"source_locale":    "{{field:source_locale}}",
 			},
-			"source_locale": map[string]any{
-				"type":     "string",
-				"title":    "Source Locale",
-				"readOnly": true,
-				"x-formgen": map[string]any{
-					"readonly": true,
-				},
-			},
-			"target_locale": map[string]any{
-				"type":  "string",
-				"title": "Target Locale",
-				"x-relationships": map[string]any{
-					"type":       "belongsTo",
-					"target":     "#/components/schemas/Locale",
-					"foreignKey": "target_locale",
-				},
-				"x-endpoint": map[string]any{
-					"url":        "/api/translations/options/locales",
-					"method":     "GET",
-					"labelField": "label",
-					"valueField": "value",
-					"dynamicParams": map[string]any{
-						"entity_type":      "{{field:entity_type}}",
-						"source_record_id": "{{field:source_record_id}}",
-						"source_locale":    "{{field:source_locale}}",
-					},
-				},
-			},
-			"source_title": map[string]any{
-				"type":  "string",
-				"title": "Source Title",
-			},
-			"source_path": map[string]any{
-				"type":  "string",
-				"title": "Source Path",
-			},
-			"assignment_type": map[string]any{
-				"type":  "string",
-				"title": "Assignment Type",
-				"enum":  optionValues(assignmentTypeOptions()),
-			},
-			"assignee_id": map[string]any{
-				"type":  "string",
-				"title": "Assignee",
-				"x-relationships": map[string]any{
-					"type":       "belongsTo",
-					"target":     "#/components/schemas/User",
-					"foreignKey": "assignee_id",
-				},
-				"x-endpoint": map[string]any{
-					"url":         "/api/translations/options/assignees",
-					"method":      "GET",
-					"mode":        "search",
-					"searchParam": "search",
-					"labelField":  "label",
-					"valueField":  "value",
-				},
-			},
-			"priority": map[string]any{
-				"type":  "string",
-				"title": "Priority",
-				"enum":  optionValues(assignmentPriorityOptions()),
-			},
-			"due_date": map[string]any{
-				"type":   "string",
-				"title":  "Due Date",
-				"format": "date",
-				"x-formgen": map[string]any{
-					"inputType": "date",
-				},
-			},
+		},
+	}
+}
+
+func translationQueueAssigneeSchema() map[string]any {
+	return map[string]any{
+		"type":  "string",
+		"title": "Assignee",
+		"x-relationships": map[string]any{
+			"type":       "belongsTo",
+			"target":     "#/components/schemas/User",
+			"foreignKey": "assignee_id",
+		},
+		"x-endpoint": map[string]any{
+			"url":         "/api/translations/options/assignees",
+			"method":      "GET",
+			"mode":        "search",
+			"searchParam": "search",
+			"labelField":  "label",
+			"valueField":  "value",
+		},
+	}
+}
+
+func translationQueueDueDateSchema() map[string]any {
+	return map[string]any{
+		"type":   "string",
+		"title":  "Due Date",
+		"format": "date",
+		"x-formgen": map[string]any{
+			"inputType": "date",
 		},
 	}
 }

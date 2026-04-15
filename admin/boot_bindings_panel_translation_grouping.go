@@ -257,56 +257,12 @@ func orderTranslationGroupChildren(records []map[string]any, defaultLocale strin
 }
 
 func buildTranslationGroupSummary(groupID string, records []map[string]any) map[string]any {
-	required := map[string]struct{}{}
-	available := map[string]struct{}{}
-	groupMissingFields := map[string]struct{}{}
 	lastUpdatedAt := latestTranslationGroupTimestamp(records)
-	requirementsResolved := true
-	requirementsSignal := false
-
-	for _, record := range records {
-		readiness := extractMap(record["translation_readiness"])
-		if len(readiness) == 0 {
-			requirementsResolved = false
-		}
-		if resolved, ok := readiness["requirements_resolved"].(bool); ok {
-			requirementsSignal = true
-			if !resolved {
-				requirementsResolved = false
-			}
-		}
-		for _, locale := range normalizedLocaleList(readiness["required_locales"]) {
-			required[locale] = struct{}{}
-		}
-		for _, locale := range normalizedLocaleList(readiness["available_locales"]) {
-			available[locale] = struct{}{}
-		}
-		if len(readiness) == 0 {
-			for _, locale := range normalizedLocaleList(record["available_locales"]) {
-				available[locale] = struct{}{}
-			}
-			if locale := strings.ToLower(strings.TrimSpace(toString(record["locale"]))); locale != "" {
-				available[locale] = struct{}{}
-			}
-		}
-		for _, locale := range translationReadinessMissingFieldLocales(readiness) {
-			groupMissingFields[locale] = struct{}{}
-		}
-	}
-
-	requiredLocales := localeSetToSortedList(required)
-	availableLocales := localeSetToSortedList(available)
+	requiredLocales, availableLocales, missingFields, requirementsResolved := collectTranslationGroupSummaryState(records)
 	missingLocales := translationReadinessMissingLocales(requiredLocales, availableLocales)
-	missingFields := map[string][]string{}
-	for locale := range groupMissingFields {
-		missingFields[locale] = []string{"missing_fields"}
-	}
 	state := ""
 	if len(requiredLocales) > 0 || len(missingFields) > 0 {
 		state = translationReadinessState(missingLocales, missingFields)
-	}
-	if !requirementsSignal {
-		requirementsResolved = false
 	}
 	if !requirementsResolved && strings.EqualFold(state, translationReadinessStateReady) {
 		state = ""
@@ -337,6 +293,63 @@ func buildTranslationGroupSummary(groupID string, records []map[string]any) map[
 		"requirements_resolved": requirementsResolved,
 		"requirements_state":    requirementsState,
 	}
+}
+
+func collectTranslationGroupSummaryState(records []map[string]any) ([]string, []string, map[string][]string, bool) {
+	required := map[string]struct{}{}
+	available := map[string]struct{}{}
+	groupMissingFields := map[string]struct{}{}
+	requirementsResolved := true
+	requirementsSignal := false
+	for _, record := range records {
+		readiness := extractMap(record["translation_readiness"])
+		if len(readiness) == 0 {
+			requirementsResolved = false
+		}
+		if resolved, ok := readiness["requirements_resolved"].(bool); ok {
+			requirementsSignal = true
+			if !resolved {
+				requirementsResolved = false
+			}
+		}
+		collectTranslationGroupLocales(required, readiness["required_locales"])
+		collectTranslationGroupLocales(available, readiness["available_locales"])
+		if len(readiness) == 0 {
+			collectTranslationGroupLocales(available, record["available_locales"])
+			collectTranslationGroupRecordLocale(available, record)
+		}
+		collectTranslationGroupMissingFields(groupMissingFields, readiness)
+	}
+	if !requirementsSignal {
+		requirementsResolved = false
+	}
+	return localeSetToSortedList(required), localeSetToSortedList(available), translationGroupMissingFields(groupMissingFields), requirementsResolved
+}
+
+func collectTranslationGroupLocales(out map[string]struct{}, raw any) {
+	for _, locale := range normalizedLocaleList(raw) {
+		out[locale] = struct{}{}
+	}
+}
+
+func collectTranslationGroupRecordLocale(out map[string]struct{}, record map[string]any) {
+	if locale := strings.ToLower(strings.TrimSpace(toString(record["locale"]))); locale != "" {
+		out[locale] = struct{}{}
+	}
+}
+
+func collectTranslationGroupMissingFields(out map[string]struct{}, readiness map[string]any) {
+	for _, locale := range translationReadinessMissingFieldLocales(readiness) {
+		out[locale] = struct{}{}
+	}
+}
+
+func translationGroupMissingFields(locales map[string]struct{}) map[string][]string {
+	out := map[string][]string{}
+	for locale := range locales {
+		out[locale] = []string{"missing_fields"}
+	}
+	return out
 }
 
 func orderTranslationUngroupedRows(records []map[string]any) []map[string]any {

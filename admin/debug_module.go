@@ -316,50 +316,10 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 		return nil
 	}
 	basePath, routes := debugDashboardRouteConfig(a, cfg)
-	defaultLocale := a.config.DefaultLocale
-	viewerResolver := func(c router.Context) dashcmp.ViewerContext {
-		locale := strings.TrimSpace(c.Query("locale"))
-		if locale == "" {
-			locale = defaultLocale
-		}
-		adminCtx := a.adminContextFromRequest(c, locale)
-		if c != nil {
-			c.SetContext(adminCtx.Context)
-		}
-		return dashcmp.ViewerContext{
-			UserID: adminCtx.UserID,
-			Locale: locale,
-		}
-	}
+	viewerResolver := a.debugDashboardViewerResolver()
 	access := debugAccessMiddleware(a, cfg, cfg.Permission)
 	authHandler := debugAuthHandler(a, cfg, cfg.Permission)
-	registerFallback := func() error {
-		debugPath := debugRoutePath(a, cfg, "admin.debug", "index")
-		if debugPath == "" {
-			debugPath = debugBasePath(a, cfg)
-		}
-		adminBase := strings.TrimSpace(adminBasePath(a.config))
-		handler := func(c router.Context) error {
-			viewCtx := router.ViewContext{
-				"title":                   "Debug Console",
-				"base_path":               adminBase,
-				"debug_path":              debugPath,
-				"panels":                  cfg.Panels,
-				"repl_commands":           debugREPLCommandsForRequest(a, cfg, c),
-				"max_log_entries":         cfg.MaxLogEntries,
-				"max_sql_queries":         cfg.MaxSQLQueries,
-				"slow_query_threshold_ms": cfg.SlowQueryThreshold.Milliseconds(),
-			}
-			viewCtx = buildDebugViewContext(a, cfg, c, viewCtx)
-			return templateview.RenderTemplateView(c, debugPageTemplate(cfg, c), viewCtx)
-		}
-		if access != nil {
-			a.router.Get(debugPath, handler, access)
-		} else {
-			a.router.Get(debugPath, handler)
-		}
-		return nil
-	}
+	registerFallback := a.debugDashboardFallbackRegistrar(cfg, access)
 	if _, ok := a.router.(router.Router[*fiber.App]); ok {
 		if err := registerFallback(); err != nil {
 			return err
@@ -367,18 +327,7 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 		return nil
 	}
 	captureRoutesSnapshotForCollector(a.debugCollector, a.router)
-	controller := dashcmp.NewController(dashcmp.ControllerOptions{
-		Service:  a.dash.runtime.Service,
-		Renderer: a.dashboardRenderer(),
-		Template: debugDefaultDashboardTemplate,
-	})
-	if cfg.DashboardTemplate != "" && cfg.DashboardTemplate != debugDefaultDashboardTemplate && a.dash.runtime.Service != nil {
-		controller = dashcmp.NewController(dashcmp.ControllerOptions{
-			Service:  a.dash.runtime.Service,
-			Renderer: a.dashboardRenderer(),
-			Template: cfg.DashboardTemplate,
-		})
-	}
+	controller := a.debugDashboardController(cfg)
 	registered, err := registerDashboardRoutesByRouterType(a.router, dashboardRouteRegistrars{
 		HTTP: func(rt router.Router[*httprouter.Router]) error {
 			group := rt.Group(basePath)
@@ -410,6 +359,63 @@ func (a *Admin) registerDebugDashboardRoutes() error {
 		return err
 	}
 	return nil
+}
+
+func (a *Admin) debugDashboardViewerResolver() func(router.Context) dashcmp.ViewerContext {
+	defaultLocale := a.config.DefaultLocale
+	return func(c router.Context) dashcmp.ViewerContext {
+		locale := strings.TrimSpace(c.Query("locale"))
+		if locale == "" {
+			locale = defaultLocale
+		}
+		adminCtx := a.adminContextFromRequest(c, locale)
+		if c != nil {
+			c.SetContext(adminCtx.Context)
+		}
+		return dashcmp.ViewerContext{UserID: adminCtx.UserID, Locale: locale}
+	}
+}
+
+func (a *Admin) debugDashboardFallbackRegistrar(cfg DebugConfig, access router.MiddlewareFunc) func() error {
+	return func() error {
+		debugPath := debugRoutePath(a, cfg, "admin.debug", "index")
+		if debugPath == "" {
+			debugPath = debugBasePath(a, cfg)
+		}
+		adminBase := strings.TrimSpace(adminBasePath(a.config))
+		handler := func(c router.Context) error {
+			viewCtx := router.ViewContext{
+				"title":                   "Debug Console",
+				"base_path":               adminBase,
+				"debug_path":              debugPath,
+				"panels":                  cfg.Panels,
+				"repl_commands":           debugREPLCommandsForRequest(a, cfg, c),
+				"max_log_entries":         cfg.MaxLogEntries,
+				"max_sql_queries":         cfg.MaxSQLQueries,
+				"slow_query_threshold_ms": cfg.SlowQueryThreshold.Milliseconds(),
+			}
+			viewCtx = buildDebugViewContext(a, cfg, c, viewCtx)
+			return templateview.RenderTemplateView(c, debugPageTemplate(cfg, c), viewCtx)
+		}
+		if access != nil {
+			a.router.Get(debugPath, handler, access)
+		} else {
+			a.router.Get(debugPath, handler)
+		}
+		return nil
+	}
+}
+
+func (a *Admin) debugDashboardController(cfg DebugConfig) *dashcmp.Controller {
+	template := debugDefaultDashboardTemplate
+	if cfg.DashboardTemplate != "" && cfg.DashboardTemplate != debugDefaultDashboardTemplate && a.dash.runtime.Service != nil {
+		template = cfg.DashboardTemplate
+	}
+	return dashcmp.NewController(dashcmp.ControllerOptions{
+		Service:  a.dash.runtime.Service,
+		Renderer: a.dashboardRenderer(),
+		Template: template,
+	})
 }
 
 func debugDashboardRouteConfig(admin *Admin, cfg DebugConfig) (string, dashboardrouter.RouteConfig) {

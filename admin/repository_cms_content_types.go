@@ -112,54 +112,12 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 	if ct.ID == "" {
 		ct.ID = id
 	}
-	existing, err := r.resolveContentType(ctx, id)
-	if err != nil && !errors.Is(err, ErrNotFound) {
+	existing, err := r.resolveContentTypeForUpdate(ctx, id, record)
+	if err != nil {
 		return nil, err
 	}
-	if (existing == nil || errors.Is(err, ErrNotFound)) && record != nil {
-		slug := strings.TrimSpace(toString(record["slug"]))
-		if slug == "" {
-			slug = strings.TrimSpace(toString(record["content_type_slug"]))
-		}
-		if slug != "" && slug != id {
-			if resolved, resolveErr := r.resolveContentType(ctx, slug); resolveErr == nil && resolved != nil {
-				existing = resolved
-			} else if resolveErr != nil && !errors.Is(resolveErr, ErrNotFound) {
-				return nil, resolveErr
-			}
-		}
-	}
 	if existing != nil {
-		if existing.ID != "" {
-			ct.ID = existing.ID
-		}
-		if ct.Slug == "" {
-			ct.Slug = existing.Slug
-		}
-		cmsadapter.SetContentTypeChannel(&ct, cmsadapter.ResolveContentTypeChannel(ct, cmsadapter.ContentTypeChannel(*existing)))
-		if strings.TrimSpace(ct.Name) == "" {
-			ct.Name = existing.Name
-		}
-		if !ct.DescriptionSet {
-			ct.Description = existing.Description
-		}
-		if !ct.IconSet {
-			ct.Icon = existing.Icon
-		}
-		if strings.TrimSpace(ct.Status) == "" {
-			ct.Status = existing.Status
-		}
-		if ct.Schema == nil && schemaProvided {
-			ct.Schema = existing.Schema
-		}
-		if ct.UISchema == nil && uiSchemaProvided {
-			ct.UISchema = existing.UISchema
-		}
-		if !capsProvided {
-			ct.Capabilities = existing.Capabilities
-		} else if !replaceCapabilities {
-			ct.Capabilities = mergeAnyMap(primitives.CloneAnyMap(existing.Capabilities), primitives.CloneAnyMap(ct.Capabilities))
-		}
+		ct = mergeUpdatedContentType(ct, existing, schemaProvided, uiSchemaProvided, capsProvided, replaceCapabilities)
 	}
 	if existing != nil && schemaProvided && ct.Schema != nil {
 		ct.Schema = mergeCMSContentTypeSchema(existing.Schema, ct.Schema)
@@ -174,6 +132,62 @@ func (r *CMSContentTypeRepository) Update(ctx context.Context, id string, record
 		return nil, err
 	}
 	return mapFromCMSContentType(*updated), nil
+}
+
+func (r *CMSContentTypeRepository) resolveContentTypeForUpdate(ctx context.Context, id string, record map[string]any) (*CMSContentType, error) {
+	existing, err := r.resolveContentType(ctx, id)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	if existing != nil || record == nil {
+		return existing, nil
+	}
+	slug := strings.TrimSpace(toString(record["slug"]))
+	if slug == "" {
+		slug = strings.TrimSpace(toString(record["content_type_slug"]))
+	}
+	if slug == "" || slug == id {
+		return nil, nil
+	}
+	resolved, err := r.resolveContentType(ctx, slug)
+	if err != nil && !errors.Is(err, ErrNotFound) {
+		return nil, err
+	}
+	return resolved, nil
+}
+
+func mergeUpdatedContentType(ct CMSContentType, existing *CMSContentType, schemaProvided, uiSchemaProvided, capsProvided, replaceCapabilities bool) CMSContentType {
+	if existing.ID != "" {
+		ct.ID = existing.ID
+	}
+	if ct.Slug == "" {
+		ct.Slug = existing.Slug
+	}
+	cmsadapter.SetContentTypeChannel(&ct, cmsadapter.ResolveContentTypeChannel(ct, cmsadapter.ContentTypeChannel(*existing)))
+	if strings.TrimSpace(ct.Name) == "" {
+		ct.Name = existing.Name
+	}
+	if !ct.DescriptionSet {
+		ct.Description = existing.Description
+	}
+	if !ct.IconSet {
+		ct.Icon = existing.Icon
+	}
+	if strings.TrimSpace(ct.Status) == "" {
+		ct.Status = existing.Status
+	}
+	if ct.Schema == nil && schemaProvided {
+		ct.Schema = existing.Schema
+	}
+	if ct.UISchema == nil && uiSchemaProvided {
+		ct.UISchema = existing.UISchema
+	}
+	if !capsProvided {
+		ct.Capabilities = existing.Capabilities
+	} else if !replaceCapabilities {
+		ct.Capabilities = mergeAnyMap(primitives.CloneAnyMap(existing.Capabilities), primitives.CloneAnyMap(ct.Capabilities))
+	}
+	return ct
 }
 
 // Delete removes a content type.

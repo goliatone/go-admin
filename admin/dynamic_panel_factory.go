@@ -469,49 +469,16 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 	if f == nil || f.admin == nil || contentType == nil {
 		return nil
 	}
-	menuCode := strings.TrimSpace(f.menuCode)
-	if menuCode == "" {
-		menuCode = f.admin.navMenuCode
-	}
-	basePath := strings.TrimSpace(f.basePath)
-	if basePath == "" {
-		basePath = f.admin.config.BasePath
-	}
-	locale := strings.TrimSpace(f.defaultLocale)
-	if locale == "" {
-		locale = f.admin.config.DefaultLocale
-	}
-
-	label := strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Name, contentType.Slug))
-	if override := strings.TrimSpace(panelSlug); override != "" {
-		label = titleCase(override)
-	}
+	menuCode, basePath, locale := f.navigationDefaults()
+	label := dynamicPanelNavigationLabel(contentType, panelSlug)
 	if label == "" {
 		return nil
 	}
-	params := map[string]string{"panel": panelSlug}
-	var query any
-	if env != "" {
-		query = map[string]string{"channel": env}
-	}
-	panelPath := resolveURLWith(f.admin.urlManager, "admin", "content.panel", params, query)
-	if panelPath == "" {
-		panelPath = joinBasePath(basePath, path.Join("content", panelSlug))
-		if env != "" {
-			separator := "?"
-			if strings.Contains(panelPath, "?") {
-				separator = "&"
-			}
-			panelPath = panelPath + separator + "channel=" + url.QueryEscape(env)
-		}
-	}
+	panelPath := f.navigationPanelPath(env, panelSlug, basePath)
 	if panelName == "" {
 		panelName = contentType.Slug
 	}
-	target := map[string]any{"type": "url", "path": panelPath, "key": panelName}
-	if panelIdentity := namespacedPanelTargetKey(panelName); panelIdentity != "" {
-		target["panel_key"] = panelIdentity
-	}
+	target := dynamicPanelNavigationTarget(panelPath, panelName)
 
 	item := MenuItem{
 		Label:    label,
@@ -541,6 +508,59 @@ func (f *DynamicPanelFactory) addToNavigation(ctx context.Context, contentType *
 		return err
 	}
 	return nil
+}
+
+func (f *DynamicPanelFactory) navigationDefaults() (string, string, string) {
+	menuCode := strings.TrimSpace(f.menuCode)
+	if menuCode == "" {
+		menuCode = f.admin.navMenuCode
+	}
+	basePath := strings.TrimSpace(f.basePath)
+	if basePath == "" {
+		basePath = f.admin.config.BasePath
+	}
+	locale := strings.TrimSpace(f.defaultLocale)
+	if locale == "" {
+		locale = f.admin.config.DefaultLocale
+	}
+	return menuCode, basePath, locale
+}
+
+func dynamicPanelNavigationLabel(contentType *CMSContentType, panelSlug string) string {
+	label := strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Name, contentType.Slug))
+	if override := strings.TrimSpace(panelSlug); override != "" {
+		label = titleCase(override)
+	}
+	return label
+}
+
+func (f *DynamicPanelFactory) navigationPanelPath(env, panelSlug, basePath string) string {
+	params := map[string]string{"panel": panelSlug}
+	var query any
+	if env != "" {
+		query = map[string]string{"channel": env}
+	}
+	panelPath := resolveURLWith(f.admin.urlManager, "admin", "content.panel", params, query)
+	if panelPath != "" {
+		return panelPath
+	}
+	panelPath = joinBasePath(basePath, path.Join("content", panelSlug))
+	if env == "" {
+		return panelPath
+	}
+	separator := "?"
+	if strings.Contains(panelPath, "?") {
+		separator = "&"
+	}
+	return panelPath + separator + "channel=" + url.QueryEscape(env)
+}
+
+func dynamicPanelNavigationTarget(panelPath, panelName string) map[string]any {
+	target := map[string]any{"type": "url", "path": panelPath, "key": panelName}
+	if panelIdentity := namespacedPanelTargetKey(panelName); panelIdentity != "" {
+		target["panel_key"] = panelIdentity
+	}
+	return target
 }
 
 func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, menuCode, locale string, item MenuItem, panelPath, panelName string) (bool, error) {

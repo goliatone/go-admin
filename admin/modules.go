@@ -79,76 +79,52 @@ func (a *Admin) loadModules(ctx context.Context) error {
 	if err := a.registerDefaultModules(); err != nil {
 		return err
 	}
-	modulesToLoad := []modules.Module{}
-	for _, mod := range a.registry.Modules() {
+	modulesToLoad := collectRegisteredModules(a.registry.Modules())
+	routingContexts, err := a.planModuleRouting(modulesToLoad)
+	if err != nil {
+		return err
+	}
+	authMiddleware, publicRouter, protectedRouter := a.moduleRouters()
+	err = modules.Load(ctx, a.moduleLoadOptions(ctx, modulesToLoad, routingContexts, authMiddleware, publicRouter, protectedRouter))
+	if err != nil {
+		return err
+	}
+	a.modulesLoaded = true
+	return nil
+}
+
+func collectRegisteredModules(registered []Module) []modules.Module {
+	modulesToLoad := make([]modules.Module, 0, len(registered))
+	for _, mod := range registered {
 		if mod == nil {
 			continue
 		}
 		modulesToLoad = append(modulesToLoad, mod)
 	}
-	routingContexts, err := a.planModuleRouting(modulesToLoad)
-	if err != nil {
-		return err
-	}
+	return modulesToLoad
+}
+
+func (a *Admin) moduleRouters() (router.MiddlewareFunc, AdminRouter, AdminRouter) {
 	authMiddleware := router.MiddlewareFunc(nil)
 	if a.authenticator != nil {
 		authMiddleware = router.MiddlewareFunc(a.authWrapper())
 	}
 	publicRouter := a.router
 	protectedRouter := wrapAdminRouter(publicRouter, authMiddleware)
+	return authMiddleware, publicRouter, protectedRouter
+}
 
-	err = modules.Load(ctx, modules.LoadOptions{
-		Modules:       modulesToLoad,
+func (a *Admin) moduleLoadOptions(ctx context.Context, mods []modules.Module, routingContexts map[string]routing.ModuleContext, authMiddleware router.MiddlewareFunc, publicRouter, protectedRouter AdminRouter) modules.LoadOptions {
+	return modules.LoadOptions{
+		Modules:       mods,
 		Gates:         a.featureGate,
 		DefaultLocale: a.config.DefaultLocale,
 		Translator:    a.translator,
 		DisabledError: func(feature, moduleID string) error {
-			return FeatureDisabledError{
-				Feature: feature,
-				Reason:  fmt.Sprintf("required by module %s; enable via FeatureGate defaults", moduleID),
-			}
+			return FeatureDisabledError{Feature: feature, Reason: fmt.Sprintf("required by module %s; enable via FeatureGate defaults", moduleID)}
 		},
 		Register: func(mod modules.Module) error {
-			registrar, ok := mod.(Module)
-			if !ok {
-				return validationDomainError("module missing Register implementation", map[string]any{"component": "modules", "module": mod.Manifest().ID})
-			}
-			moduleID := strings.TrimSpace(mod.Manifest().ID)
-			stagedPublicRouter := newStagedAdminRouter(publicRouter)
-			stagedProtectedRouter := newStagedAdminRouter(protectedRouter)
-			moduleCtx := ModuleContext{
-				Admin:           a,
-				Router:          stagedProtectedRouter,
-				ProtectedRouter: stagedProtectedRouter,
-				PublicRouter:    stagedPublicRouter,
-				AuthMiddleware:  authMiddleware,
-				Locale:          a.config.DefaultLocale,
-				Translator:      a.translator,
-				Routing:         routingContexts[moduleID],
-			}
-			if registerErr := registrar.Register(moduleCtx); registerErr != nil {
-				return registerErr
-			}
-			if validator, ok := registrar.(ModuleStartupValidator); ok {
-				validateErr := validator.ValidateStartup(ctx)
-				if validateErr != nil {
-					if a.moduleStartupPolicy == ModuleStartupPolicyWarn {
-						a.loggerFor("admin.modules").Warn("module startup validation warning",
-							"module", moduleID,
-							"error", validateErr,
-						)
-						return modules.NewSkippedModuleError(moduleID, validateErr)
-					}
-					return validationDomainError("module startup validation failed", map[string]any{
-						"component": "modules",
-						"module":    moduleID,
-						"error":     strings.TrimSpace(validateErr.Error()),
-					})
-				}
-			}
-			stagedPublicRouter.Commit()
-			stagedProtectedRouter.Commit()
-			return nil
+			return a.registerLoadedModule(ctx, mod, routingContexts, authMiddleware, publicRouter, protectedRouter)
 		},
 		SkipDependency: func(moduleID string, dependencies []string) {
 			a.loggerFor("admin.modules").Warn("module startup skipped due to invalid dependency",
@@ -159,43 +135,94 @@ func (a *Admin) loadModules(ctx context.Context) error {
 		AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
 			return a.addMenuItems(ctx, items)
 		},
-		AddIconLibrary: func(lib modules.IconLibrary) error {
-			if a.iconService == nil {
-				return nil
-			}
-			return a.iconService.RegisterLibrary(IconLibrary{
-				ID:          lib.ID,
-				Name:        lib.Name,
-				Description: lib.Description,
-				CDN:         lib.CDN,
-				CSSClass:    lib.CSSClass,
-				RenderMode:  IconRenderMode(lib.RenderMode),
-				Priority:    lib.Priority,
-				Trusted:     lib.Trusted,
-			})
-		},
-		AddIconDefinition: func(icon modules.IconDefinition) error {
-			if a.iconService == nil {
-				return nil
-			}
-			return a.iconService.RegisterIcon(IconDefinition{
-				ID:       icon.ID,
-				Name:     icon.Name,
-				Label:    icon.Label,
-				Type:     IconType(icon.Type),
-				Library:  icon.Library,
-				Content:  icon.Content,
-				Keywords: icon.Keywords,
-				Category: icon.Category,
-				Trusted:  icon.Trusted,
-			})
-		},
-	})
-	if err != nil {
+		AddIconLibrary:    a.registerModuleIconLibrary,
+		AddIconDefinition: a.registerModuleIconDefinition,
+	}
+}
+
+func (a *Admin) registerLoadedModule(ctx context.Context, mod modules.Module, routingContexts map[string]routing.ModuleContext, authMiddleware router.MiddlewareFunc, publicRouter, protectedRouter AdminRouter) error {
+	registrar, ok := mod.(Module)
+	if !ok {
+		return validationDomainError("module missing Register implementation", map[string]any{"component": "modules", "module": mod.Manifest().ID})
+	}
+	moduleID := strings.TrimSpace(mod.Manifest().ID)
+	stagedPublicRouter := newStagedAdminRouter(publicRouter)
+	stagedProtectedRouter := newStagedAdminRouter(protectedRouter)
+	moduleCtx := ModuleContext{
+		Admin:           a,
+		Router:          stagedProtectedRouter,
+		ProtectedRouter: stagedProtectedRouter,
+		PublicRouter:    stagedPublicRouter,
+		AuthMiddleware:  authMiddleware,
+		Locale:          a.config.DefaultLocale,
+		Translator:      a.translator,
+		Routing:         routingContexts[moduleID],
+	}
+	if err := registrar.Register(moduleCtx); err != nil {
 		return err
 	}
-	a.modulesLoaded = true
+	if err := a.validateModuleStartup(ctx, moduleID, registrar); err != nil {
+		return err
+	}
+	stagedPublicRouter.Commit()
+	stagedProtectedRouter.Commit()
 	return nil
+}
+
+func (a *Admin) validateModuleStartup(ctx context.Context, moduleID string, registrar Module) error {
+	validator, ok := registrar.(ModuleStartupValidator)
+	if !ok {
+		return nil
+	}
+	validateErr := validator.ValidateStartup(ctx)
+	if validateErr == nil {
+		return nil
+	}
+	if a.moduleStartupPolicy == ModuleStartupPolicyWarn {
+		a.loggerFor("admin.modules").Warn("module startup validation warning",
+			"module", moduleID,
+			"error", validateErr,
+		)
+		return modules.NewSkippedModuleError(moduleID, validateErr)
+	}
+	return validationDomainError("module startup validation failed", map[string]any{
+		"component": "modules",
+		"module":    moduleID,
+		"error":     strings.TrimSpace(validateErr.Error()),
+	})
+}
+
+func (a *Admin) registerModuleIconLibrary(lib modules.IconLibrary) error {
+	if a.iconService == nil {
+		return nil
+	}
+	return a.iconService.RegisterLibrary(IconLibrary{
+		ID:          lib.ID,
+		Name:        lib.Name,
+		Description: lib.Description,
+		CDN:         lib.CDN,
+		CSSClass:    lib.CSSClass,
+		RenderMode:  IconRenderMode(lib.RenderMode),
+		Priority:    lib.Priority,
+		Trusted:     lib.Trusted,
+	})
+}
+
+func (a *Admin) registerModuleIconDefinition(icon modules.IconDefinition) error {
+	if a.iconService == nil {
+		return nil
+	}
+	return a.iconService.RegisterIcon(IconDefinition{
+		ID:       icon.ID,
+		Name:     icon.Name,
+		Label:    icon.Label,
+		Type:     IconType(icon.Type),
+		Library:  icon.Library,
+		Content:  icon.Content,
+		Keywords: icon.Keywords,
+		Category: icon.Category,
+		Trusted:  icon.Trusted,
+	})
 }
 
 func (a *Admin) planModuleRouting(registered []modules.Module) (map[string]routing.ModuleContext, error) {

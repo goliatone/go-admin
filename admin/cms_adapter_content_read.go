@@ -472,37 +472,7 @@ func (r goCMSContentReadBoundary) convertContentVariants(ctx context.Context, va
 func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value reflect.Value, locale string) CMSContent {
 	a := r.adapter
 	val := gocmsutil.Deref(value)
-	out := CMSContent{Data: map[string]any{}}
-	if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
-		out.ID = id.String()
-	}
-	out.Slug = cmsadapter.StringField(val, "Slug")
-	out.Status = cmsadapter.StringField(val, "Status")
-
-	if typ := val.FieldByName("Type"); typ.IsValid() {
-		typeVal := gocmsutil.Deref(typ)
-		if slug := cmsadapter.StringField(typeVal, "Slug"); slug != "" {
-			out.ContentTypeSlug = slug
-			out.ContentType = slug
-		}
-		if out.ContentType == "" {
-			if name := cmsadapter.StringField(typeVal, "Name"); name != "" {
-				out.ContentType = name
-			}
-		}
-	}
-	if out.ContentType == "" {
-		if typID, ok := gocmsutil.ExtractUUID(val, "ContentTypeID"); ok && typID != uuid.Nil {
-			if ct := r.contentTypeByID(ctx, typID); ct != nil {
-				if ct.Slug != "" {
-					out.ContentTypeSlug = ct.Slug
-					out.ContentType = ct.Slug
-				} else if ct.Name != "" {
-					out.ContentType = ct.Name
-				}
-			}
-		}
-	}
+	out := r.baseCMSContent(ctx, val)
 
 	projection := buildGoCMSTranslationProjection(val, locale)
 	applyGoCMSTranslationProjection(&out, projection)
@@ -510,73 +480,15 @@ func (r goCMSContentReadBoundary) convertContent(ctx context.Context, value refl
 		out.Locale = locale
 	}
 	applyGoCMSTranslationLocaleState(&out, val, projection.chosen, strings.TrimSpace(locale))
-	if schema := strings.TrimSpace(toString(out.Data["_schema"])); schema != "" {
-		out.SchemaVersion = schema
-	}
-	if meta := gocmsutil.MapFieldAny(val, "Metadata"); meta != nil {
-		out.Metadata = primitives.CloneAnyMap(meta)
-	}
-	if meta := translationMetadataMap(projection.chosen); len(meta) > 0 {
-		if out.Metadata == nil {
-			out.Metadata = map[string]any{}
-		}
-		maps.Copy(out.Metadata, meta)
-	}
-	out.FamilyID = cmsadapter.ResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
-	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
-	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
-	if len(out.Navigation) > 0 {
-		out.Data["_navigation"] = navigationVisibilityMapAny(out.Navigation)
-	}
-	if len(out.EffectiveMenuLocations) > 0 {
-		out.Data["effective_menu_locations"] = append([]string{}, out.EffectiveMenuLocations...)
-	}
-	if a != nil && a.contentWriter().shouldApplyStructuralMetadata(ctx, out, nil) {
-		if len(out.Metadata) == 0 {
-			if derived := cmsadapter.StructuralMetadataFromData(out.Data); len(derived) > 0 {
-				out.Metadata = derived
-			}
-		} else {
-			out.Metadata = cmsadapter.NormalizeStructuralMetadata(out.Metadata)
-		}
-		out.Data = cmsadapter.InjectStructuralMetadata(out.Metadata, out.Data)
-	}
+	r.applyContentMetadata(&out, val, projection.chosen)
+	applyContentNavigationState(&out)
+	applyContentStructuralMetadata(ctx, a, &out)
 	return out
 }
 
 func (r goCMSContentReadBoundary) convertContentVariant(ctx context.Context, val reflect.Value, requestedLocale string, variant goCMSTranslationVariant) CMSContent {
 	a := r.adapter
-	out := CMSContent{Data: map[string]any{}}
-	if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
-		out.ID = id.String()
-	}
-	out.Slug = cmsadapter.StringField(val, "Slug")
-	out.Status = cmsadapter.StringField(val, "Status")
-
-	if typ := val.FieldByName("Type"); typ.IsValid() {
-		typeVal := gocmsutil.Deref(typ)
-		if slug := cmsadapter.StringField(typeVal, "Slug"); slug != "" {
-			out.ContentTypeSlug = slug
-			out.ContentType = slug
-		}
-		if out.ContentType == "" {
-			if name := cmsadapter.StringField(typeVal, "Name"); name != "" {
-				out.ContentType = name
-			}
-		}
-	}
-	if out.ContentType == "" {
-		if typID, ok := gocmsutil.ExtractUUID(val, "ContentTypeID"); ok && typID != uuid.Nil {
-			if ct := r.contentTypeByID(ctx, typID); ct != nil {
-				if ct.Slug != "" {
-					out.ContentTypeSlug = ct.Slug
-					out.ContentType = ct.Slug
-				} else if ct.Name != "" {
-					out.ContentType = ct.Name
-				}
-			}
-		}
-	}
+	out := r.baseCMSContent(ctx, val)
 
 	applyGoCMSTranslationVariant(&out, variant)
 	if out.Locale == "" {
@@ -598,19 +510,67 @@ func (r goCMSContentReadBoundary) convertContentVariant(ctx context.Context, val
 	} else {
 		out.MissingRequestedLocale = false
 	}
+	r.applyContentMetadata(&out, val, variant.translation)
+	applyContentNavigationState(&out)
+	applyContentStructuralMetadata(ctx, a, &out)
+	return out
+}
+
+func (r goCMSContentReadBoundary) baseCMSContent(ctx context.Context, val reflect.Value) CMSContent {
+	out := CMSContent{Data: map[string]any{}}
+	if id, ok := gocmsutil.ExtractUUID(val, "ID"); ok {
+		out.ID = id.String()
+	}
+	out.Slug = cmsadapter.StringField(val, "Slug")
+	out.Status = cmsadapter.StringField(val, "Status")
+	applyGoCMSContentType(ctx, r, val, &out)
+	return out
+}
+
+func applyGoCMSContentType(ctx context.Context, r goCMSContentReadBoundary, val reflect.Value, out *CMSContent) {
+	if typ := val.FieldByName("Type"); typ.IsValid() {
+		typeVal := gocmsutil.Deref(typ)
+		if slug := cmsadapter.StringField(typeVal, "Slug"); slug != "" {
+			out.ContentTypeSlug = slug
+			out.ContentType = slug
+		}
+		if out.ContentType == "" {
+			if name := cmsadapter.StringField(typeVal, "Name"); name != "" {
+				out.ContentType = name
+			}
+		}
+	}
+	if out.ContentType == "" {
+		if typID, ok := gocmsutil.ExtractUUID(val, "ContentTypeID"); ok && typID != uuid.Nil {
+			if ct := r.contentTypeByID(ctx, typID); ct != nil {
+				if ct.Slug != "" {
+					out.ContentTypeSlug = ct.Slug
+					out.ContentType = ct.Slug
+				} else if ct.Name != "" {
+					out.ContentType = ct.Name
+				}
+			}
+		}
+	}
+}
+
+func (r goCMSContentReadBoundary) applyContentMetadata(out *CMSContent, val reflect.Value, translation reflect.Value) {
 	if schema := strings.TrimSpace(toString(out.Data["_schema"])); schema != "" {
 		out.SchemaVersion = schema
 	}
 	if meta := gocmsutil.MapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = primitives.CloneAnyMap(meta)
 	}
-	if meta := translationMetadataMap(variant.translation); len(meta) > 0 {
+	if meta := translationMetadataMap(translation); len(meta) > 0 {
 		if out.Metadata == nil {
 			out.Metadata = map[string]any{}
 		}
 		maps.Copy(out.Metadata, meta)
 	}
 	out.FamilyID = cmsadapter.ResolvedFamilyID(out.FamilyID, out.Data, out.Metadata)
+}
+
+func applyContentNavigationState(out *CMSContent) {
 	out.Navigation = normalizeNavigationVisibilityMap(out.Data["_navigation"])
 	out.EffectiveMenuLocations = normalizeEffectiveMenuLocations(out.Data["effective_menu_locations"])
 	if len(out.Navigation) > 0 {
@@ -619,17 +579,20 @@ func (r goCMSContentReadBoundary) convertContentVariant(ctx context.Context, val
 	if len(out.EffectiveMenuLocations) > 0 {
 		out.Data["effective_menu_locations"] = append([]string{}, out.EffectiveMenuLocations...)
 	}
-	if a != nil && a.contentWriter().shouldApplyStructuralMetadata(ctx, out, nil) {
-		if len(out.Metadata) == 0 {
-			if derived := cmsadapter.StructuralMetadataFromData(out.Data); len(derived) > 0 {
-				out.Metadata = derived
-			}
-		} else {
-			out.Metadata = cmsadapter.NormalizeStructuralMetadata(out.Metadata)
-		}
-		out.Data = cmsadapter.InjectStructuralMetadata(out.Metadata, out.Data)
+}
+
+func applyContentStructuralMetadata(ctx context.Context, a *GoCMSContentAdapter, out *CMSContent) {
+	if a == nil || !a.contentWriter().shouldApplyStructuralMetadata(ctx, *out, nil) {
+		return
 	}
-	return out
+	if len(out.Metadata) == 0 {
+		if derived := cmsadapter.StructuralMetadataFromData(out.Data); len(derived) > 0 {
+			out.Metadata = derived
+		}
+	} else {
+		out.Metadata = cmsadapter.NormalizeStructuralMetadata(out.Metadata)
+	}
+	out.Data = cmsadapter.InjectStructuralMetadata(out.Metadata, out.Data)
 }
 
 func (a *GoCMSContentAdapter) convertBlockInstance(ctx context.Context, value reflect.Value, locale string) CMSBlock {

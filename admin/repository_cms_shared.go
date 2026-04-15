@@ -319,20 +319,7 @@ func mapToCMSPage(record map[string]any) CMSPage {
 	page.Blocks = mapped.Blocks
 	page.EmbeddedBlocks = mapped.Embedded
 	page.SchemaVersion = mapped.SchemaVersion
-	page.Navigation = normalizeNavigationVisibilityMap(record["_navigation"])
-	if len(page.Navigation) == 0 {
-		page.Navigation = normalizeNavigationVisibilityMap(page.Data["_navigation"])
-	}
-	page.EffectiveMenuLocations = normalizeEffectiveMenuLocations(record["effective_menu_locations"])
-	if len(page.EffectiveMenuLocations) == 0 {
-		page.EffectiveMenuLocations = normalizeEffectiveMenuLocations(page.Data["effective_menu_locations"])
-	}
-	if len(page.Navigation) > 0 {
-		page.Data["_navigation"] = navigationVisibilityMapAny(page.Navigation)
-	}
-	if len(page.EffectiveMenuLocations) > 0 {
-		page.Data["effective_menu_locations"] = append([]string{}, page.EffectiveMenuLocations...)
-	}
+	applyMappedCMSPageNavigation(&page, record)
 	if seo, ok := record["seo"].(map[string]any); ok {
 		page.SEO = primitives.CloneAnyMap(seo)
 	}
@@ -364,6 +351,23 @@ func mapToCMSPage(record map[string]any) CMSPage {
 		page.RouteKey = strings.TrimSpace(toString(page.Metadata["route_key"]))
 	}
 	return page
+}
+
+func applyMappedCMSPageNavigation(page *CMSPage, record map[string]any) {
+	page.Navigation = normalizeNavigationVisibilityMap(record["_navigation"])
+	if len(page.Navigation) == 0 {
+		page.Navigation = normalizeNavigationVisibilityMap(page.Data["_navigation"])
+	}
+	page.EffectiveMenuLocations = normalizeEffectiveMenuLocations(record["effective_menu_locations"])
+	if len(page.EffectiveMenuLocations) == 0 {
+		page.EffectiveMenuLocations = normalizeEffectiveMenuLocations(page.Data["effective_menu_locations"])
+	}
+	if len(page.Navigation) > 0 {
+		page.Data["_navigation"] = navigationVisibilityMapAny(page.Navigation)
+	}
+	if len(page.EffectiveMenuLocations) > 0 {
+		page.Data["effective_menu_locations"] = append([]string{}, page.EffectiveMenuLocations...)
+	}
 }
 
 func mergeCMSPageUpdate(existing CMSPage, page CMSPage, record map[string]any) CMSPage {

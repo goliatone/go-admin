@@ -526,51 +526,13 @@ func compileWorkflowMachineDefinition(definition WorkflowDefinition) (*flow.Mach
 	addState(initial, true)
 	transitions := make([]flow.TransitionDefinition, 0, len(definition.Transitions))
 	for idx, transition := range definition.Transitions {
-		event := normalizeWorkflowEvent(transition.Name)
-		from := normalizeWorkflowState(transition.From)
-		to := normalizeWorkflowState(transition.To)
-		dynamic := strings.TrimSpace(transition.DynamicTo)
-		if event == "" {
-			return nil, fmt.Errorf("transition[%d]: name is required", idx)
+		compiled, err := compileWorkflowTransition(idx, transition)
+		if err != nil {
+			return nil, err
 		}
-		if from == "" {
-			return nil, fmt.Errorf("transition[%d]: from state is required", idx)
-		}
-		if to == "" && dynamic == "" {
-			return nil, fmt.Errorf("transition[%d]: either to or dynamic_to is required", idx)
-		}
-		if to != "" && dynamic != "" {
-			return nil, fmt.Errorf("transition[%d]: use either to or dynamic_to, not both", idx)
-		}
-		addState(from, false)
-		if to != "" {
-			addState(to, false)
-		}
-
-		metadata := primitives.CloneAnyMapNilOnEmpty(transition.Metadata)
-		if metadata == nil {
-			metadata = map[string]any{}
-		}
-		if description := strings.TrimSpace(transition.Description); description != "" {
-			metadata["description"] = description
-		}
-
-		compiled := flow.TransitionDefinition{
-			ID:       strings.TrimSpace(transition.Name),
-			Event:    event,
-			From:     from,
-			To:       to,
-			Metadata: metadata,
-		}
-		if guard := strings.TrimSpace(transition.Guard); guard != "" {
-			compiled.Guards = []flow.GuardDefinition{{
-				Type: "resolver",
-				Ref:  guard,
-			}}
-		}
-		if dynamic != "" {
-			compiled.DynamicTo = &flow.DynamicTargetDefinition{Resolver: dynamic}
-			compiled.To = ""
+		addState(compiled.From, false)
+		if compiled.To != "" {
+			addState(compiled.To, false)
 		}
 		transitions = append(transitions, compiled)
 	}
@@ -590,6 +552,51 @@ func compileWorkflowMachineDefinition(definition WorkflowDefinition) (*flow.Mach
 		States:      stateDefs,
 		Transitions: transitions,
 	}, nil
+}
+
+func compileWorkflowTransition(idx int, transition WorkflowTransition) (flow.TransitionDefinition, error) {
+	event := normalizeWorkflowEvent(transition.Name)
+	from := normalizeWorkflowState(transition.From)
+	to := normalizeWorkflowState(transition.To)
+	dynamic := strings.TrimSpace(transition.DynamicTo)
+	if event == "" {
+		return flow.TransitionDefinition{}, fmt.Errorf("transition[%d]: name is required", idx)
+	}
+	if from == "" {
+		return flow.TransitionDefinition{}, fmt.Errorf("transition[%d]: from state is required", idx)
+	}
+	if to == "" && dynamic == "" {
+		return flow.TransitionDefinition{}, fmt.Errorf("transition[%d]: either to or dynamic_to is required", idx)
+	}
+	if to != "" && dynamic != "" {
+		return flow.TransitionDefinition{}, fmt.Errorf("transition[%d]: use either to or dynamic_to, not both", idx)
+	}
+	compiled := flow.TransitionDefinition{
+		ID:       strings.TrimSpace(transition.Name),
+		Event:    event,
+		From:     from,
+		To:       to,
+		Metadata: workflowCompiledTransitionMetadata(transition),
+	}
+	if guard := strings.TrimSpace(transition.Guard); guard != "" {
+		compiled.Guards = []flow.GuardDefinition{{Type: "resolver", Ref: guard}}
+	}
+	if dynamic != "" {
+		compiled.DynamicTo = &flow.DynamicTargetDefinition{Resolver: dynamic}
+		compiled.To = ""
+	}
+	return compiled, nil
+}
+
+func workflowCompiledTransitionMetadata(transition WorkflowTransition) map[string]any {
+	metadata := primitives.CloneAnyMapNilOnEmpty(transition.Metadata)
+	if metadata == nil {
+		metadata = map[string]any{}
+	}
+	if description := strings.TrimSpace(transition.Description); description != "" {
+		metadata["description"] = description
+	}
+	return metadata
 }
 
 func normalizeWorkflowApplyRequest(machineID string, input WorkflowApplyEventRequest) WorkflowApplyEventRequest {

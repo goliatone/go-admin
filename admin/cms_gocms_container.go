@@ -150,65 +150,8 @@ func resolveGoCMSContentService(container any) CMSContentService {
 	if svc, ok := container.(CMSContentService); ok && svc != nil {
 		return svc
 	}
-	if provider, ok := container.(interface{ ContentService() cms.ContentService }); ok {
-		contentSvc := provider.ContentService()
-		var blockSvc any
-		if blockProvider, ok := container.(interface{ BlockService() cms.BlockService }); ok {
-			blockSvc = blockProvider.BlockService()
-		}
-		if blockSvc == nil {
-			if blockProvider, ok := container.(interface{ Blocks() cms.BlockService }); ok {
-				blockSvc = blockProvider.Blocks()
-			}
-		}
-		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
-			return adapted
-		}
-	}
-	if provider, ok := container.(interface{ Content() cms.ContentService }); ok {
-		contentSvc := provider.Content()
-		var blockSvc any
-		if blockProvider, ok := container.(interface{ Blocks() cms.BlockService }); ok {
-			blockSvc = blockProvider.Blocks()
-		}
-		if blockSvc == nil {
-			if blockProvider, ok := container.(interface{ BlockService() cms.BlockService }); ok {
-				blockSvc = blockProvider.BlockService()
-			}
-		}
-		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
-			return adapted
-		}
-	}
-	if provider, ok := container.(interface{ ContentService() any }); ok {
-		contentSvc := provider.ContentService()
-		var blockSvc any
-		if blockProvider, ok := container.(interface{ Blocks() any }); ok {
-			blockSvc = blockProvider.Blocks()
-		}
-		if blockSvc == nil {
-			if blockProvider, ok := container.(interface{ BlockService() any }); ok {
-				blockSvc = blockProvider.BlockService()
-			}
-		}
-		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
-			return adapted
-		}
-	}
-	if provider, ok := container.(interface{ Content() any }); ok {
-		contentSvc := provider.Content()
-		var blockSvc any
-		if blockProvider, ok := container.(interface{ Blocks() any }); ok {
-			blockSvc = blockProvider.Blocks()
-		}
-		if blockSvc == nil {
-			if blockProvider, ok := container.(interface{ BlockService() any }); ok {
-				blockSvc = blockProvider.BlockService()
-			}
-		}
-		if adapted := newGoCMSContentAdapter(contentSvc, translationSvc, blockSvc, resolveGoCMSContentTypeService(container), localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
-			return adapted
-		}
+	if adapted := resolveGoCMSContentAdapter(container, translationSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite); adapted != nil {
+		return adapted
 	}
 	if provider, ok := container.(interface{ Container() any }); ok {
 		inner := provider.Container()
@@ -217,6 +160,37 @@ func resolveGoCMSContentService(container any) CMSContentService {
 		}
 	}
 	return nil
+}
+
+func resolveGoCMSContentAdapter(container any, translationSvc any, localeResolver gocmsutil.LocaleResolver, adminRead cms.AdminContentReadService, adminWrite cms.AdminContentWriteService, adminBlocks cms.AdminBlockReadService, adminBlockWrite cms.AdminBlockWriteService) CMSContentService {
+	contentTypeSvc := resolveGoCMSContentTypeService(container)
+	switch provider := container.(type) {
+	case interface{ ContentService() cms.ContentService }:
+		return newGoCMSContentAdapter(provider.ContentService(), translationSvc, resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
+	case interface{ Content() cms.ContentService }:
+		return newGoCMSContentAdapter(provider.Content(), translationSvc, resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
+	case interface{ ContentService() any }:
+		return newGoCMSContentAdapter(provider.ContentService(), translationSvc, resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
+	case interface{ Content() any }:
+		return newGoCMSContentAdapter(provider.Content(), translationSvc, resolveGoCMSBlockService(container), contentTypeSvc, localeResolver, adminRead, adminWrite, adminBlocks, adminBlockWrite)
+	default:
+		return nil
+	}
+}
+
+func resolveGoCMSBlockService(container any) any {
+	switch provider := container.(type) {
+	case interface{ BlockService() cms.BlockService }:
+		return provider.BlockService()
+	case interface{ Blocks() cms.BlockService }:
+		return provider.Blocks()
+	case interface{ Blocks() any }:
+		return provider.Blocks()
+	case interface{ BlockService() any }:
+		return provider.BlockService()
+	default:
+		return nil
+	}
 }
 
 func resolveGoCMSAdminContentReadService(container any) cms.AdminContentReadService {

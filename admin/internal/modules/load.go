@@ -65,79 +65,130 @@ func Load(ctx context.Context, opts LoadOptions) error {
 			continue
 		}
 		manifest := mod.Manifest()
-		skippedDeps := []string{}
-		for _, dep := range manifest.Dependencies {
-			if _, ok := skipped[strings.TrimSpace(dep)]; ok {
-				skippedDeps = append(skippedDeps, strings.TrimSpace(dep))
-			}
-		}
+		skippedDeps := moduleSkippedDependencies(skipped, manifest.Dependencies)
 		if len(skippedDeps) > 0 {
-			if opts.SkipDependency != nil {
-				opts.SkipDependency(manifest.ID, skippedDeps)
-				skipped[strings.TrimSpace(manifest.ID)] = struct{}{}
+			if err := skipUnavailableModule(opts, skipped, manifest.ID, skippedDeps); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := ensureModuleFeaturesEnabled(ctx, opts, manifest); err != nil {
+			return err
+		}
+		applyModuleTranslator(opts, mod)
+		if err := registerModule(opts, skipped, manifest.ID, mod); err != nil {
+			if IsSkippedModuleError(err) {
 				continue
 			}
-			return goerrors.New("module dependency unavailable", goerrors.CategoryValidation).WithCode(400).WithMetadata(map[string]any{
-				"module":       manifest.ID,
-				"dependencies": skippedDeps,
-			})
+			return err
 		}
-		if len(manifest.FeatureFlags) > 0 && opts.Gates != nil {
-			for _, flag := range manifest.FeatureFlags {
-				enabled, err := opts.Gates.Enabled(ctx, flag, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
-				if err != nil {
-					return err
-				}
-				if enabled {
-					continue
-				}
-				if opts.DisabledError != nil {
-					return opts.DisabledError(flag, manifest.ID)
-				}
-				return goerrors.New("feature disabled", goerrors.CategoryAuthz).WithCode(403).WithMetadata(map[string]any{
-					"feature": flag,
-					"module":  manifest.ID,
-				})
-			}
+		if err := addModuleMenuItems(ctx, opts, mod); err != nil {
+			return err
 		}
-		if opts.Translator != nil {
-			if aware, ok := mod.(TranslatorAware); ok {
-				aware.WithTranslator(opts.Translator)
-			}
+		if err := addModuleIcons(opts, mod); err != nil {
+			return err
 		}
-		if opts.Register != nil {
-			if err := opts.Register(mod); err != nil {
-				if IsSkippedModuleError(err) {
-					skipped[strings.TrimSpace(manifest.ID)] = struct{}{}
-					continue
-				}
+	}
+	return nil
+}
+
+func moduleSkippedDependencies(skipped map[string]struct{}, dependencies []string) []string {
+	skippedDeps := []string{}
+	for _, dep := range dependencies {
+		if _, ok := skipped[strings.TrimSpace(dep)]; ok {
+			skippedDeps = append(skippedDeps, strings.TrimSpace(dep))
+		}
+	}
+	return skippedDeps
+}
+
+func skipUnavailableModule(opts LoadOptions, skipped map[string]struct{}, moduleID string, skippedDeps []string) error {
+	if opts.SkipDependency != nil {
+		opts.SkipDependency(moduleID, skippedDeps)
+		skipped[strings.TrimSpace(moduleID)] = struct{}{}
+		return nil
+	}
+	return goerrors.New("module dependency unavailable", goerrors.CategoryValidation).WithCode(400).WithMetadata(map[string]any{
+		"module":       moduleID,
+		"dependencies": skippedDeps,
+	})
+}
+
+func ensureModuleFeaturesEnabled(ctx context.Context, opts LoadOptions, manifest Manifest) error {
+	if len(manifest.FeatureFlags) == 0 || opts.Gates == nil {
+		return nil
+	}
+	for _, flag := range manifest.FeatureFlags {
+		enabled, err := opts.Gates.Enabled(ctx, flag, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
+		if err != nil {
+			return err
+		}
+		if enabled {
+			continue
+		}
+		if opts.DisabledError != nil {
+			return opts.DisabledError(flag, manifest.ID)
+		}
+		return goerrors.New("feature disabled", goerrors.CategoryAuthz).WithCode(403).WithMetadata(map[string]any{
+			"feature": flag,
+			"module":  manifest.ID,
+		})
+	}
+	return nil
+}
+
+func applyModuleTranslator(opts LoadOptions, mod Module) {
+	if opts.Translator == nil {
+		return
+	}
+	if aware, ok := mod.(TranslatorAware); ok {
+		aware.WithTranslator(opts.Translator)
+	}
+}
+
+func registerModule(opts LoadOptions, skipped map[string]struct{}, moduleID string, mod Module) error {
+	if opts.Register == nil {
+		return nil
+	}
+	if err := opts.Register(mod); err != nil {
+		if IsSkippedModuleError(err) {
+			skipped[strings.TrimSpace(moduleID)] = struct{}{}
+		}
+		return err
+	}
+	return nil
+}
+
+func addModuleMenuItems(ctx context.Context, opts LoadOptions, mod Module) error {
+	if opts.AddMenuItems == nil {
+		return nil
+	}
+	contributor, ok := mod.(MenuContributor)
+	if !ok {
+		return nil
+	}
+	return opts.AddMenuItems(ctx, contributor.MenuItems(opts.DefaultLocale))
+}
+
+func addModuleIcons(opts LoadOptions, mod Module) error {
+	if opts.AddIconLibrary == nil && opts.AddIconDefinition == nil {
+		return nil
+	}
+	contributor, ok := mod.(IconContributor)
+	if !ok {
+		return nil
+	}
+	if opts.AddIconLibrary != nil {
+		for _, lib := range contributor.IconLibraries() {
+			if err := opts.AddIconLibrary(lib); err != nil {
 				return err
 			}
 		}
-		if opts.AddMenuItems != nil {
-			if contributor, ok := mod.(MenuContributor); ok {
-				items := contributor.MenuItems(opts.DefaultLocale)
-				if err := opts.AddMenuItems(ctx, items); err != nil {
-					return err
-				}
-			}
-		}
-		if opts.AddIconLibrary != nil || opts.AddIconDefinition != nil {
-			if contributor, ok := mod.(IconContributor); ok {
-				if opts.AddIconLibrary != nil {
-					for _, lib := range contributor.IconLibraries() {
-						if err := opts.AddIconLibrary(lib); err != nil {
-							return err
-						}
-					}
-				}
-				if opts.AddIconDefinition != nil {
-					for _, icon := range contributor.IconDefinitions() {
-						if err := opts.AddIconDefinition(icon); err != nil {
-							return err
-						}
-					}
-				}
+	}
+	if opts.AddIconDefinition != nil {
+		for _, icon := range contributor.IconDefinitions() {
+			if err := opts.AddIconDefinition(icon); err != nil {
+				return err
 			}
 		}
 	}

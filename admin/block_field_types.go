@@ -226,258 +226,57 @@ func BlockFieldTypeGroups() []FieldTypeCategoryGroup {
 
 func buildDefaultBlockFieldTypeRegistry() *FieldTypeRegistry {
 	reg := NewFieldTypeRegistry()
-
-	reg.RegisterCategory(FieldTypeCategory{ID: "text", Label: "Text", Icon: "text", Order: 10})
-	reg.RegisterCategory(FieldTypeCategory{ID: "media", Label: "Media", Icon: "media", Order: 20})
-	reg.RegisterCategory(FieldTypeCategory{ID: "choice", Label: "Choice", Icon: "choice", Order: 30})
-	reg.RegisterCategory(FieldTypeCategory{ID: "number", Label: "Number", Icon: "number", Order: 40})
-	reg.RegisterCategory(FieldTypeCategory{ID: "datetime", Label: "Date & Time", Icon: "datetime", Order: 50})
-	reg.RegisterCategory(FieldTypeCategory{ID: "relationship", Label: "Relationship", Icon: "relationship", Order: 60})
-	reg.RegisterCategory(FieldTypeCategory{ID: "structure", Label: "Structure", Icon: "structure", Order: 70})
-	reg.RegisterCategory(FieldTypeCategory{ID: "advanced", Label: "Advanced", Icon: "advanced", Order: 80, Collapsed: true})
-
-	// Text
-	reg.Register(FieldTypeDefinition{
-		Type:        "string",
-		Label:       "Single Line Text",
-		Description: "Short text value",
-		Category:    "text",
-		Icon:        "text",
-		Defaults: map[string]any{
-			"validation": map[string]any{
-				"maxLength": 255,
-			},
-		},
-		Order: 10,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "text",
-		Label:       "Multi Line Text",
-		Description: "Paragraph text",
-		Category:    "text",
-		Icon:        "textarea",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"rows": 4,
-			},
-		},
-		Order: 20,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "richtext",
-		Label:       "Rich Text",
-		Description: "Formatted text editor",
-		Category:    "text",
-		Icon:        "rich-text",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"toolbar": "standard",
-			},
-		},
-		Order: 30,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "slug",
-		Label:       "Slug",
-		Description: "URL-friendly identifier",
-		Category:    "text",
-		Icon:        "slug",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"sourceField": nil,
-			},
-		},
-		Order: 40,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "url",
-		Label:       "URL",
-		Description: "Website link",
-		Category:    "text",
-		Icon:        "url",
-		Order:       50,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "email",
-		Label:       "Email",
-		Description: "Email address",
-		Category:    "text",
-		Icon:        "email",
-		Order:       60,
-	})
-
-	// Media
-	reg.Register(FieldTypeDefinition{
-		Type:        "image",
-		Label:       "Image",
-		Description: "Image asset",
-		Category:    "media",
-		Icon:        "image",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"accept": "image/*",
-			},
-		},
-		Order: 10,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "file",
-		Label:       "File",
-		Description: "File attachment",
-		Category:    "media",
-		Icon:        "file",
-		Order:       20,
-	})
-
-	// Choice
-	reg.Register(FieldTypeDefinition{
-		Type:        "boolean",
-		Label:       "Boolean",
-		Description: "True/false toggle",
-		Category:    "choice",
-		Icon:        "boolean",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"displayAs": "toggle",
-			},
-		},
-		Order: 10,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "select",
-		Label:       "Select",
-		Description: "Dropdown selection",
-		Category:    "choice",
-		Icon:        "select",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"options":  []any{},
-				"multiple": false,
-			},
-		},
-		Order: 20,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "multiselect",
-		Label:       "Multi Select",
-		Description: "Multiple selections",
-		Category:    "choice",
-		Icon:        "multiselect",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"options":  []any{},
-				"multiple": true,
-			},
-		},
-		Order: 30,
-	})
-
-	// Number
-	reg.Register(FieldTypeDefinition{
-		Type:        "integer",
-		Label:       "Integer",
-		Description: "Whole number",
-		Category:    "number",
-		Icon:        "integer",
-		Order:       10,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "decimal",
-		Label:       "Decimal",
-		Description: "Decimal number",
-		Category:    "number",
-		Icon:        "decimal",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"precision": 2,
-			},
-		},
-		Order: 20,
-	})
-
-	// Date & Time
-	reg.Register(FieldTypeDefinition{
-		Type:        "date",
-		Label:       "Date",
-		Description: "Calendar date",
-		Category:    "datetime",
-		Icon:        "date",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"format": "YYYY-MM-DD",
-			},
-		},
-		Order: 10,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "datetime",
-		Label:       "Date & Time",
-		Description: "Date with time",
-		Category:    "datetime",
-		Icon:        "datetime",
-		Order:       20,
-	})
-
-	// Relationship
-	reg.Register(FieldTypeDefinition{
-		Type:        "reference",
-		Label:       "Reference",
-		Description: "Link to another type",
-		Category:    "relationship",
-		Icon:        "reference",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"targetType": nil,
-			},
-		},
-		Order: 10,
-	})
-
-	// Structure
-	reg.Register(FieldTypeDefinition{
-		Type:        "group",
-		Label:       "Group",
-		Description: "Nested fields",
-		Category:    "structure",
-		Icon:        "group",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"fields": []any{},
-			},
-		},
-		Order: 10,
-	})
-
-	// Advanced
-	reg.Register(FieldTypeDefinition{
-		Type:        "json",
-		Label:       "JSON",
-		Description: "Raw JSON input",
-		Category:    "advanced",
-		Icon:        "json",
-		Order:       10,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "color",
-		Label:       "Color",
-		Description: "Color picker",
-		Category:    "advanced",
-		Icon:        "color",
-		Defaults: map[string]any{
-			"config": map[string]any{
-				"format": "hex",
-			},
-		},
-		Order: 20,
-	})
-	reg.Register(FieldTypeDefinition{
-		Type:        "hidden",
-		Label:       "Hidden",
-		Description: "Hidden field",
-		Category:    "advanced",
-		Icon:        "hidden",
-		Order:       30,
-	})
-
+	registerFieldTypeCategories(reg, defaultFieldTypeCategories())
+	registerFieldTypeDefinitions(reg, defaultFieldTypeDefinitions())
 	return reg
+}
+
+func registerFieldTypeCategories(reg *FieldTypeRegistry, categories []FieldTypeCategory) {
+	for _, category := range categories {
+		reg.RegisterCategory(category)
+	}
+}
+
+func registerFieldTypeDefinitions(reg *FieldTypeRegistry, definitions []FieldTypeDefinition) {
+	for _, definition := range definitions {
+		reg.Register(definition)
+	}
+}
+
+func defaultFieldTypeCategories() []FieldTypeCategory {
+	return []FieldTypeCategory{
+		{ID: "text", Label: "Text", Icon: "text", Order: 10},
+		{ID: "media", Label: "Media", Icon: "media", Order: 20},
+		{ID: "choice", Label: "Choice", Icon: "choice", Order: 30},
+		{ID: "number", Label: "Number", Icon: "number", Order: 40},
+		{ID: "datetime", Label: "Date & Time", Icon: "datetime", Order: 50},
+		{ID: "relationship", Label: "Relationship", Icon: "relationship", Order: 60},
+		{ID: "structure", Label: "Structure", Icon: "structure", Order: 70},
+		{ID: "advanced", Label: "Advanced", Icon: "advanced", Order: 80, Collapsed: true},
+	}
+}
+
+func defaultFieldTypeDefinitions() []FieldTypeDefinition {
+	return []FieldTypeDefinition{
+		{Type: "string", Label: "Single Line Text", Description: "Short text value", Category: "text", Icon: "text", Defaults: map[string]any{"validation": map[string]any{"maxLength": 255}}, Order: 10},
+		{Type: "text", Label: "Multi Line Text", Description: "Paragraph text", Category: "text", Icon: "textarea", Defaults: map[string]any{"config": map[string]any{"rows": 4}}, Order: 20},
+		{Type: "richtext", Label: "Rich Text", Description: "Formatted text editor", Category: "text", Icon: "rich-text", Defaults: map[string]any{"config": map[string]any{"toolbar": "standard"}}, Order: 30},
+		{Type: "slug", Label: "Slug", Description: "URL-friendly identifier", Category: "text", Icon: "slug", Defaults: map[string]any{"config": map[string]any{"sourceField": nil}}, Order: 40},
+		{Type: "url", Label: "URL", Description: "Website link", Category: "text", Icon: "url", Order: 50},
+		{Type: "email", Label: "Email", Description: "Email address", Category: "text", Icon: "email", Order: 60},
+		{Type: "image", Label: "Image", Description: "Image asset", Category: "media", Icon: "image", Defaults: map[string]any{"config": map[string]any{"accept": "image/*"}}, Order: 10},
+		{Type: "file", Label: "File", Description: "File attachment", Category: "media", Icon: "file", Order: 20},
+		{Type: "boolean", Label: "Boolean", Description: "True/false toggle", Category: "choice", Icon: "boolean", Defaults: map[string]any{"config": map[string]any{"displayAs": "toggle"}}, Order: 10},
+		{Type: "select", Label: "Select", Description: "Dropdown selection", Category: "choice", Icon: "select", Defaults: map[string]any{"config": map[string]any{"options": []any{}, "multiple": false}}, Order: 20},
+		{Type: "multiselect", Label: "Multi Select", Description: "Multiple selections", Category: "choice", Icon: "multiselect", Defaults: map[string]any{"config": map[string]any{"options": []any{}, "multiple": true}}, Order: 30},
+		{Type: "integer", Label: "Integer", Description: "Whole number", Category: "number", Icon: "integer", Order: 10},
+		{Type: "decimal", Label: "Decimal", Description: "Decimal number", Category: "number", Icon: "decimal", Defaults: map[string]any{"config": map[string]any{"precision": 2}}, Order: 20},
+		{Type: "date", Label: "Date", Description: "Calendar date", Category: "datetime", Icon: "date", Defaults: map[string]any{"config": map[string]any{"format": "YYYY-MM-DD"}}, Order: 10},
+		{Type: "datetime", Label: "Date & Time", Description: "Date with time", Category: "datetime", Icon: "datetime", Order: 20},
+		{Type: "reference", Label: "Reference", Description: "Link to another type", Category: "relationship", Icon: "reference", Defaults: map[string]any{"config": map[string]any{"targetType": nil}}, Order: 10},
+		{Type: "group", Label: "Group", Description: "Nested fields", Category: "structure", Icon: "group", Defaults: map[string]any{"config": map[string]any{"fields": []any{}}}, Order: 10},
+		{Type: "json", Label: "JSON", Description: "Raw JSON input", Category: "advanced", Icon: "json", Order: 10},
+		{Type: "color", Label: "Color", Description: "Color picker", Category: "advanced", Icon: "color", Defaults: map[string]any{"config": map[string]any{"format": "hex"}}, Order: 20},
+		{Type: "hidden", Label: "Hidden", Description: "Hidden field", Category: "advanced", Icon: "hidden", Order: 30},
+	}
 }

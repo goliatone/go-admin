@@ -96,66 +96,12 @@ func (p *panelBinding) Name() string { return p.name }
 
 func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptions) ([]map[string]any, int, any, any, map[string]any, error) {
 	ctx := p.admin.adminContextFromRequest(c, locale)
-	listOpts := ListOptions{
-		Page:     opts.Page,
-		PerPage:  opts.PerPage,
-		SortBy:   opts.SortBy,
-		SortDesc: opts.SortDesc,
-		Filters:  opts.Filters,
-		Fields:   append([]string{}, opts.Fields...),
-		Search:   opts.Search,
-	}
-	if len(opts.Predicates) > 0 {
-		listOpts.Predicates = make([]ListPredicate, 0, len(opts.Predicates))
-		for _, predicate := range opts.Predicates {
-			listOpts.Predicates = append(listOpts.Predicates, ListPredicate{
-				Field:    predicate.Field,
-				Operator: predicate.Operator,
-				Values:   append([]string{}, predicate.Values...),
-			})
-		}
-	}
+	listOpts := panelListOptions(opts)
 	baseSchema := p.panel.Schema()
-	if listOpts.Search != "" {
-		if listOpts.Filters == nil {
-			listOpts.Filters = map[string]any{}
-		}
-		listOpts.Filters["_search"] = listOpts.Search
-	}
-	requestedListOpts, groupBy := splitListGroupByOption(listOpts)
-	groupedByTranslationGroup := strings.EqualFold(strings.TrimSpace(groupBy), listGroupByFamilyID)
-	shouldScopeByLocale := baseSchema.UseBlocks || baseSchema.UseSEO || baseSchema.TreeView
-	if shouldScopeByLocale && strings.TrimSpace(locale) != "" && !groupedByTranslationGroup {
-		if requestedListOpts.Filters == nil {
-			requestedListOpts.Filters = map[string]any{}
-		}
-		if strings.TrimSpace(toString(requestedListOpts.Filters["locale"])) == "" {
-			requestedListOpts.Filters["locale"] = locale
-		}
-	}
-	baseListOpts, readinessPredicates := splitTranslationReadinessPredicates(requestedListOpts)
-	var (
-		records []map[string]any
-		total   int
-		err     error
-	)
-	if groupedByTranslationGroup {
-		ctx.Context = withTranslationFamilyExpansion(ctx.Context)
-		records, total, err = p.listGroupedByTranslationGroup(ctx, baseListOpts, requestedListOpts, readinessPredicates)
-		if err != nil {
-			return nil, 0, nil, nil, nil, err
-		}
-	} else if len(readinessPredicates) > 0 {
-		records, total, err = p.listWithTranslationReadinessPredicates(ctx, baseListOpts, requestedListOpts, readinessPredicates)
-		if err != nil {
-			return nil, 0, nil, nil, nil, err
-		}
-	} else {
-		records, total, err = p.panel.List(ctx, requestedListOpts)
-		if err != nil {
-			return nil, 0, nil, nil, nil, err
-		}
-		records = p.withTranslationReadiness(ctx, records, requestedListOpts.Filters)
+	requestedListOpts, groupedByTranslationGroup := p.requestedListOptions(baseSchema, locale, listOpts)
+	records, total, err := p.listRecords(ctx, requestedListOpts, groupedByTranslationGroup)
+	if err != nil {
+		return nil, 0, nil, nil, nil, err
 	}
 	records = withTranslationDatagridRecords(p.admin, ctx.Channel, records)
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
@@ -176,25 +122,102 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 	if err := p.admin.decorateSchemaFor(ctx, &schema, p.name); err != nil {
 		return nil, 0, nil, nil, nil, err
 	}
-	var form PanelFormRequest
-	if p.admin.panelForm != nil {
-		form = p.admin.panelForm.Build(p.panel, ctx, nil, nil)
-		if p.admin != nil {
-			p.admin.applyContentTypeSchemaFromContext(ctx, &form.Schema, p.name)
-		}
-		if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
-			return nil, 0, nil, nil, nil, err
-		}
-	}
-	meta := map[string]any{
-		"count": total,
-	}
-	if bulkActionState, err := p.bulkActionState(ctx, schema.BulkActions, requestedListOpts); err != nil {
+	form, err := p.listForm(ctx)
+	if err != nil {
 		return nil, 0, nil, nil, nil, err
-	} else if len(bulkActionState) > 0 {
-		meta["bulk_action_state"] = bulkActionState
+	}
+	meta, err := p.listMeta(ctx, total, schema.BulkActions, requestedListOpts)
+	if err != nil {
+		return nil, 0, nil, nil, nil, err
 	}
 	return records, total, schema, form, meta, nil
+}
+
+func panelListOptions(opts boot.ListOptions) ListOptions {
+	listOpts := ListOptions{
+		Page:     opts.Page,
+		PerPage:  opts.PerPage,
+		SortBy:   opts.SortBy,
+		SortDesc: opts.SortDesc,
+		Filters:  opts.Filters,
+		Fields:   append([]string{}, opts.Fields...),
+		Search:   opts.Search,
+	}
+	if len(opts.Predicates) > 0 {
+		listOpts.Predicates = make([]ListPredicate, 0, len(opts.Predicates))
+		for _, predicate := range opts.Predicates {
+			listOpts.Predicates = append(listOpts.Predicates, ListPredicate{
+				Field:    predicate.Field,
+				Operator: predicate.Operator,
+				Values:   append([]string{}, predicate.Values...),
+			})
+		}
+	}
+	return listOpts
+}
+
+func (p *panelBinding) requestedListOptions(baseSchema Schema, locale string, listOpts ListOptions) (ListOptions, bool) {
+	if listOpts.Search != "" {
+		if listOpts.Filters == nil {
+			listOpts.Filters = map[string]any{}
+		}
+		listOpts.Filters["_search"] = listOpts.Search
+	}
+	requestedListOpts, groupBy := splitListGroupByOption(listOpts)
+	groupedByTranslationGroup := strings.EqualFold(strings.TrimSpace(groupBy), listGroupByFamilyID)
+	shouldScopeByLocale := baseSchema.UseBlocks || baseSchema.UseSEO || baseSchema.TreeView
+	if shouldScopeByLocale && strings.TrimSpace(locale) != "" && !groupedByTranslationGroup {
+		if requestedListOpts.Filters == nil {
+			requestedListOpts.Filters = map[string]any{}
+		}
+		if strings.TrimSpace(toString(requestedListOpts.Filters["locale"])) == "" {
+			requestedListOpts.Filters["locale"] = locale
+		}
+	}
+	return requestedListOpts, groupedByTranslationGroup
+}
+
+func (p *panelBinding) listRecords(ctx AdminContext, requestedListOpts ListOptions, groupedByTranslationGroup bool) ([]map[string]any, int, error) {
+	baseListOpts, readinessPredicates := splitTranslationReadinessPredicates(requestedListOpts)
+	if groupedByTranslationGroup {
+		ctx.Context = withTranslationFamilyExpansion(ctx.Context)
+		return p.listGroupedByTranslationGroup(ctx, baseListOpts, requestedListOpts, readinessPredicates)
+	}
+	if len(readinessPredicates) > 0 {
+		return p.listWithTranslationReadinessPredicates(ctx, baseListOpts, requestedListOpts, readinessPredicates)
+	}
+	records, total, err := p.panel.List(ctx, requestedListOpts)
+	if err != nil {
+		return nil, 0, err
+	}
+	return p.withTranslationReadiness(ctx, records, requestedListOpts.Filters), total, nil
+}
+
+func (p *panelBinding) listForm(ctx AdminContext) (PanelFormRequest, error) {
+	var form PanelFormRequest
+	if p.admin.panelForm == nil {
+		return form, nil
+	}
+	form = p.admin.panelForm.Build(p.panel, ctx, nil, nil)
+	if p.admin != nil {
+		p.admin.applyContentTypeSchemaFromContext(ctx, &form.Schema, p.name)
+	}
+	if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
+		return PanelFormRequest{}, err
+	}
+	return form, nil
+}
+
+func (p *panelBinding) listMeta(ctx AdminContext, total int, bulkActions []Action, requestedListOpts ListOptions) (map[string]any, error) {
+	meta := map[string]any{"count": total}
+	bulkActionState, err := p.bulkActionState(ctx, bulkActions, requestedListOpts)
+	if err != nil {
+		return nil, err
+	}
+	if len(bulkActionState) > 0 {
+		meta["bulk_action_state"] = bulkActionState
+	}
+	return meta, nil
 }
 
 func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[string]any, error) {
@@ -209,14 +232,7 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 	applySourceTargetDriftContract(record)
 	siblings, siblingsDegraded, siblingsReason := p.translationSiblingsPayload(ctx, id, locale, record)
 	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
-	contentTypeKey := ""
-	if p.name == "content" && record != nil {
-		contentTypeKey = primitives.FirstNonEmptyRaw(
-			toString(record["content_type_slug"]),
-			toString(record["content_type"]),
-			toString(record["content_type_id"]),
-		)
-	}
+	contentTypeKey := detailContentTypeKey(p.name, record)
 	if p.admin != nil && contentTypeKey != "" {
 		p.admin.applyContentTypeSchema(ctx, &schema, contentTypeKey)
 	}
@@ -224,25 +240,13 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 		return nil, err
 	}
 	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeDetail)
-	var form PanelFormRequest
-	if p.admin.panelForm != nil {
-		form = p.admin.panelForm.Build(p.panel, ctx, record, nil)
-		if p.admin != nil && contentTypeKey != "" {
-			p.admin.applyContentTypeSchema(ctx, &form.Schema, contentTypeKey)
-		}
-		if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
-			return nil, err
-		}
+	form, err := p.detailForm(ctx, record, contentTypeKey)
+	if err != nil {
+		return nil, err
 	}
-
-	if len(schema.Actions) > 0 {
-		withState, err := p.withScopedActionState(ctx, []map[string]any{record}, schema.Actions, ActionScopeDetail)
-		if err != nil {
-			return nil, err
-		}
-		if len(withState) > 0 {
-			record = withState[0]
-		}
+	record, err = p.detailRecordWithActionState(ctx, record, schema.Actions)
+	if err != nil {
+		return nil, err
 	}
 
 	res := map[string]any{
@@ -275,6 +279,46 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 	}
 
 	return res, nil
+}
+
+func detailContentTypeKey(panelName string, record map[string]any) string {
+	if panelName != "content" || record == nil {
+		return ""
+	}
+	return primitives.FirstNonEmptyRaw(
+		toString(record["content_type_slug"]),
+		toString(record["content_type"]),
+		toString(record["content_type_id"]),
+	)
+}
+
+func (p *panelBinding) detailForm(ctx AdminContext, record map[string]any, contentTypeKey string) (PanelFormRequest, error) {
+	var form PanelFormRequest
+	if p.admin.panelForm == nil {
+		return form, nil
+	}
+	form = p.admin.panelForm.Build(p.panel, ctx, record, nil)
+	if p.admin != nil && contentTypeKey != "" {
+		p.admin.applyContentTypeSchema(ctx, &form.Schema, contentTypeKey)
+	}
+	if err := p.admin.decorateSchemaFor(ctx, &form.Schema, p.name); err != nil {
+		return PanelFormRequest{}, err
+	}
+	return form, nil
+}
+
+func (p *panelBinding) detailRecordWithActionState(ctx AdminContext, record map[string]any, actions []Action) (map[string]any, error) {
+	if len(actions) == 0 {
+		return record, nil
+	}
+	withState, err := p.withScopedActionState(ctx, []map[string]any{record}, actions, ActionScopeDetail)
+	if err != nil {
+		return nil, err
+	}
+	if len(withState) == 0 {
+		return record, nil
+	}
+	return withState[0], nil
 }
 
 func (p *panelBinding) Create(c router.Context, locale string, body map[string]any) (map[string]any, error) {
