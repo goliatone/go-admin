@@ -7,11 +7,13 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 	"github.com/julienschmidt/httprouter"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestDebugIsTextContentType(t *testing.T) {
@@ -93,6 +95,76 @@ func TestCaptureJSErrorContextSkipsInjectionWhenRouteDisabled(t *testing.T) {
 	}
 	if _, ok := viewCtx["debug_jserror_endpoint"]; ok {
 		t.Fatalf("expected JS error endpoint to be omitted when route is disabled")
+	}
+}
+
+func TestCaptureViewContextForRequestInjectsToolbarTransportContract(t *testing.T) {
+	collector := NewDebugCollector(DebugConfig{
+		Enabled:            true,
+		BasePath:           "/admin/debug",
+		ToolbarMode:        true,
+		CaptureJSErrors:    true,
+		Panels:             []string{DebugPanelRequests, DebugPanelJSErrors},
+		ToolbarPanels:      []string{DebugPanelRequests, DebugPanelJSErrors, DebugPanelLogs},
+		SlowQueryThreshold: 75 * time.Millisecond,
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Path").Return("/admin/quotes")
+	ctx.On("Cookie", mock.Anything).Return()
+
+	viewCtx := CaptureViewContextForRequest(collector, ctx, router.ViewContext{})
+
+	if got := viewCtx["debug_path"]; got != "/admin/debug" {
+		t.Fatalf("expected debug_path /admin/debug, got %#v", got)
+	}
+	if got := viewCtx["debug_toolbar_panels"]; got != "requests,jserrors,logs" {
+		t.Fatalf("expected toolbar panels requests,jserrors,logs, got %#v", got)
+	}
+	if got := viewCtx["debug_slow_threshold_ms"]; got != int64(75) {
+		t.Fatalf("expected slow threshold 75ms, got %#v", got)
+	}
+	if got := viewCtx["debug_toolbar_ws_path"]; got != "/admin/debug/ws" {
+		t.Fatalf("expected debug_toolbar_ws_path /admin/debug/ws, got %#v", got)
+	}
+	if got := viewCtx["debug_toolbar_transport_base_path"]; got != "/admin/debug" {
+		t.Fatalf("expected debug_toolbar_transport_base_path /admin/debug, got %#v", got)
+	}
+	if got := viewCtx["debug_toolbar_errors_path"]; got != "/admin/debug/api/errors" {
+		t.Fatalf("expected debug_toolbar_errors_path /admin/debug/api/errors, got %#v", got)
+	}
+	if got, ok := viewCtx["debug_toolbar_live_enabled"].(bool); !ok || !got {
+		t.Fatalf("expected debug_toolbar_live_enabled true, got %#v", viewCtx["debug_toolbar_live_enabled"])
+	}
+	if got := viewCtx["debug_jserror_endpoint"]; got != "/admin/debug/api/errors" {
+		t.Fatalf("expected debug_jserror_endpoint /admin/debug/api/errors, got %#v", got)
+	}
+	if got, ok := viewCtx["debug_jserror_nonce"].(string); !ok || strings.TrimSpace(got) == "" {
+		t.Fatalf("expected request nonce in view context, got %#v", viewCtx["debug_jserror_nonce"])
+	}
+
+	transport, ok := viewCtx["debug_toolbar_transport"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured debug_toolbar_transport map, got %#v", viewCtx["debug_toolbar_transport"])
+	}
+	if got := transport["debug_path"]; got != "/admin/debug" {
+		t.Fatalf("expected transport debug_path /admin/debug, got %#v", got)
+	}
+	if got := transport["transport_base_path"]; got != "/admin/debug" {
+		t.Fatalf("expected transport base path /admin/debug, got %#v", got)
+	}
+	if got := transport["ws_path"]; got != "/admin/debug/ws" {
+		t.Fatalf("expected transport ws_path /admin/debug/ws, got %#v", got)
+	}
+	if got := transport["errors_path"]; got != "/admin/debug/api/errors" {
+		t.Fatalf("expected transport errors_path /admin/debug/api/errors, got %#v", got)
+	}
+	if got, ok := transport["enabled"].(bool); !ok || !got {
+		t.Fatalf("expected transport enabled true, got %#v", transport["enabled"])
+	}
+
+	if got := ctx.CookiesM[debugNonceCookieName]; strings.TrimSpace(got) == "" {
+		t.Fatalf("expected debug nonce cookie to be issued, got %#v", got)
 	}
 }
 

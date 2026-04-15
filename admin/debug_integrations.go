@@ -23,9 +23,13 @@ const debugMaxBodyBytes = 64 * 1024
 // CaptureViewContext stores template data in the debug collector and returns the view context.
 // When the debug collector has ToolbarMode enabled, it also injects toolbar template variables:
 // - debug_toolbar_enabled: true when toolbar should be shown
-// - debug_path: the debug module base path
+// - debug_path: the canonical debug module base path
 // - debug_toolbar_panels: comma-separated list of panels for the toolbar
 // - debug_slow_threshold_ms: slow query threshold in milliseconds
+// - debug_toolbar_ws_path: canonical debug toolbar websocket path
+// - debug_toolbar_transport_base_path: canonical transport base path used by live toolbars
+// - debug_toolbar_errors_path: JS error ingestion path when enabled
+// - debug_toolbar_live_enabled: true when live toolbar transport is available
 //
 // Note: this variant cannot inject JS error nonce cookies because it does not
 // have access to the router.Context. Use CaptureViewContextForRequest when
@@ -82,10 +86,7 @@ func captureViewContext(collector *DebugCollector, c router.Context, viewCtx rou
 			viewCtx["debug_toolbar_enabled"] = false
 			return viewCtx
 		}
-		viewCtx["debug_toolbar_enabled"] = true
-		viewCtx["debug_path"] = cfg.BasePath
-		viewCtx["debug_toolbar_panels"] = strings.Join(cfg.ToolbarPanels, ",")
-		viewCtx["debug_slow_threshold_ms"] = cfg.SlowQueryThreshold.Milliseconds()
+		injectDebugToolbarContext(collector, viewCtx)
 	}
 	return viewCtx
 }
@@ -116,6 +117,79 @@ func debugJSErrorEndpoint(collector *DebugCollector) string {
 		return path
 	}
 	return joinBasePath(cfg.BasePath, "api/errors")
+}
+
+func injectDebugToolbarContext(collector *DebugCollector, viewCtx router.ViewContext) {
+	if collector == nil || viewCtx == nil {
+		return
+	}
+	cfg := collector.config
+	debugPath := debugToolbarBasePath(collector)
+	errorsPath := ""
+	if collector.jsErrorsEnabled() {
+		errorsPath = debugJSErrorEndpoint(collector)
+	}
+	wsPath := debugToolbarWebSocketPath(collector)
+	transportBasePath := debugToolbarTransportBasePath(debugPath, wsPath)
+	liveEnabled := wsPath != ""
+
+	viewCtx["debug_toolbar_enabled"] = true
+	viewCtx["debug_path"] = debugPath
+	viewCtx["debug_toolbar_panels"] = strings.Join(cfg.ToolbarPanels, ",")
+	viewCtx["debug_slow_threshold_ms"] = cfg.SlowQueryThreshold.Milliseconds()
+	viewCtx["debug_toolbar_ws_path"] = wsPath
+	viewCtx["debug_toolbar_transport_base_path"] = transportBasePath
+	viewCtx["debug_toolbar_errors_path"] = errorsPath
+	viewCtx["debug_toolbar_live_enabled"] = liveEnabled
+	viewCtx["debug_toolbar_transport"] = map[string]any{
+		"enabled":             liveEnabled,
+		"debug_path":          debugPath,
+		"transport_base_path": transportBasePath,
+		"ws_path":             wsPath,
+		"errors_path":         errorsPath,
+	}
+}
+
+func debugToolbarBasePath(collector *DebugCollector) string {
+	if collector == nil {
+		return ""
+	}
+	cfg := collector.config
+	urls := collector.urlResolver()
+	if path := debugRoutePathWithBase(urls, cfg.BasePath, "admin.debug", "index"); path != "" {
+		return path
+	}
+	return cfg.BasePath
+}
+
+func debugToolbarWebSocketPath(collector *DebugCollector) string {
+	if collector == nil {
+		return ""
+	}
+	cfg := collector.config
+	urls := collector.urlResolver()
+	if path := debugRoutePathWithBase(urls, cfg.BasePath, "admin.debug", "ws"); path != "" {
+		return path
+	}
+	basePath := debugToolbarBasePath(collector)
+	if basePath == "" {
+		return ""
+	}
+	return joinBasePath(basePath, "ws")
+}
+
+func debugToolbarTransportBasePath(debugPath, wsPath string) string {
+	wsPath = strings.TrimSpace(wsPath)
+	if wsPath != "" {
+		if before, ok := strings.CutSuffix(wsPath, "/ws"); ok {
+			before = strings.TrimSpace(before)
+			if before != "" {
+				return before
+			}
+		}
+		return strings.TrimSuffix(wsPath, "/")
+	}
+	return strings.TrimSpace(debugPath)
 }
 
 // DebugRequestMiddleware captures request metadata for the debug collector.
