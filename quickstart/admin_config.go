@@ -133,6 +133,27 @@ func WithThemeTokens(tokens map[string]string) AdminConfigOption {
 	}
 }
 
+// WithThemeAssetURLs merges resolved theme asset URLs/paths into admin config overrides.
+// Values should be final URLs or absolute/served paths, not manifest-relative filenames.
+func WithThemeAssetURLs(assets map[string]string) AdminConfigOption {
+	return func(cfg *admin.Config) {
+		if cfg == nil || len(assets) == 0 {
+			return
+		}
+		if cfg.ThemeAssets == nil {
+			cfg.ThemeAssets = map[string]string{}
+		}
+		for key, value := range assets {
+			key = strings.TrimSpace(key)
+			value = strings.TrimSpace(value)
+			if key == "" || value == "" {
+				continue
+			}
+			cfg.ThemeAssets[key] = value
+		}
+	}
+}
+
 // WithNavMenuCode overrides the default navigation menu code.
 func WithNavMenuCode(code string) AdminConfigOption {
 	return func(cfg *admin.Config) {
