@@ -308,6 +308,7 @@ func TestConfigThemeTokensOverrideProviderThemePayload(t *testing.T) {
 	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAdminTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
 
+	//nolint:staticcheck // ThemePayload explicitly tolerates nil context in this contract test.
 	payload := adm.ThemePayload(nil)
 	if got := payload["tokens"]["primary"]; got != "#111111" {
 		t.Fatalf("expected config token primary to override provider, got %q", got)

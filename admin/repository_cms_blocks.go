@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"strings"
 )
 
@@ -34,34 +33,6 @@ func (r *CMSBlockDefinitionRepository) Get(ctx context.Context, id string) (map[
 	return r.readService().GetDefinition(ctx, id)
 }
 
-func (r *CMSBlockDefinitionRepository) findBlockDefinition(ctx context.Context, id, channel string) (*CMSBlockDefinition, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	target := strings.TrimSpace(id)
-	if target == "" {
-		return nil, ErrNotFound
-	}
-	defs, err := r.content.BlockDefinitions(ctx)
-	if err != nil {
-		return nil, err
-	}
-	channel = strings.TrimSpace(channel)
-	hasChannelFilter := channel != ""
-	for _, def := range defs {
-		if hasChannelFilter && !cmsadapter.ChannelsMatch(cmsadapter.BlockDefinitionChannel(def), channel) {
-			continue
-		}
-		if strings.EqualFold(strings.TrimSpace(def.ID), target) ||
-			strings.EqualFold(strings.TrimSpace(def.Slug), target) ||
-			strings.EqualFold(strings.TrimSpace(def.Type), target) {
-			copy := def
-			return &copy, nil
-		}
-	}
-	return nil, ErrNotFound
-}
-
 // Create adds a block definition.
 func (r *CMSBlockDefinitionRepository) Create(ctx context.Context, record map[string]any) (map[string]any, error) {
 	return r.writeService().CreateDefinition(ctx, record)
@@ -75,31 +46,6 @@ func (r *CMSBlockDefinitionRepository) Update(ctx context.Context, id string, re
 // Delete removes a block definition.
 func (r *CMSBlockDefinitionRepository) Delete(ctx context.Context, id string) error {
 	return r.writeService().DeleteDefinition(ctx, id)
-}
-
-func (r *CMSBlockDefinitionRepository) resolveContentType(ctx context.Context, key string) *CMSContentType {
-	if r == nil || r.types == nil || strings.TrimSpace(key) == "" {
-		return nil
-	}
-	key = strings.TrimSpace(key)
-	if ct, err := r.types.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
-		return ct
-	}
-	if ct, err := r.types.ContentType(ctx, key); err == nil && ct != nil {
-		return ct
-	}
-	types, err := r.types.ContentTypes(ctx)
-	if err != nil {
-		return nil
-	}
-	needle := strings.ToLower(key)
-	for _, ct := range types {
-		if strings.ToLower(ct.Slug) == needle || strings.ToLower(ct.Name) == needle || strings.ToLower(ct.ID) == needle {
-			copy := ct
-			return &copy
-		}
-	}
-	return nil
 }
 
 func (r *CMSBlockDefinitionRepository) readService() AdminBlockReadService {

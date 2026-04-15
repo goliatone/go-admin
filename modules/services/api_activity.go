@@ -299,12 +299,12 @@ func applyActivityFilterQuery(query *bun.SelectQuery, filter activityListFilter)
 	if len(filter.Channels) == 1 {
 		query = query.Where("channel = ?", filter.Channels[0])
 	} else if len(filter.Channels) > 1 {
-		query = query.Where("channel IN (?)", bun.In(filter.Channels))
+		query = query.Where("channel IN (?)", bun.List(filter.Channels))
 	}
 	if len(filter.Connections) == 1 {
 		query = query.Where("connection_id = ?", filter.Connections[0])
 	} else if len(filter.Connections) > 1 {
-		query = query.Where("connection_id IN (?)", bun.In(filter.Connections))
+		query = query.Where("connection_id IN (?)", bun.List(filter.Connections))
 	}
 	if filter.Since != nil {
 		query = query.Where("created_at >= ?", filter.Since.UTC())

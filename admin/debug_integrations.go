@@ -129,9 +129,12 @@ func injectDebugToolbarContext(collector *DebugCollector, viewCtx router.ViewCon
 	if collector.jsErrorsEnabled() {
 		errorsPath = debugJSErrorEndpoint(collector)
 	}
-	wsPath := debugToolbarWebSocketPath(collector)
+	liveEnabled := collector.toolbarLiveTransportEnabled()
+	wsPath := ""
+	if liveEnabled {
+		wsPath = debugToolbarWebSocketPath(collector)
+	}
 	transportBasePath := debugToolbarTransportBasePath(debugPath, wsPath)
-	liveEnabled := wsPath != ""
 
 	viewCtx["debug_toolbar_enabled"] = true
 	viewCtx["debug_path"] = debugPath

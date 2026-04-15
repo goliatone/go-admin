@@ -64,7 +64,7 @@ export class DebugToolbar extends HTMLElement {
   private static readonly DEFAULT_HEIGHT = 320;
 
   static get observedAttributes(): string[] {
-    return ['base-path', 'debug-path', 'panels', 'expanded', 'slow-threshold-ms', 'use-fab'];
+    return ['base-path', 'debug-path', 'panels', 'expanded', 'slow-threshold-ms', 'use-fab', 'live-transport'];
   }
 
   constructor() {
@@ -83,7 +83,9 @@ export class DebugToolbar extends HTMLElement {
     this.render();
     // Only init WebSocket if not using FAB (FAB manages its own connection)
     if (!this.useFab) {
-      this.initWebSocket();
+      if (this.liveTransportEnabled) {
+        this.initWebSocket();
+      }
       this.fetchInitialSnapshot();
     }
     this.setupKeyboardShortcut();
@@ -138,6 +140,8 @@ export class DebugToolbar extends HTMLElement {
       this.slowThresholdMs = parseInt(newValue || '50', 10) || 50;
     } else if (name === 'use-fab') {
       this.useFab = newValue === 'true' || newValue === '';
+    } else if (name === 'live-transport' && !this.useFab && !this.liveTransportEnabled) {
+      this.stream?.close();
     }
   }
 
@@ -281,6 +285,14 @@ export class DebugToolbar extends HTMLElement {
       return parsed.length ? parsed : getDefaultToolbarPanels();
     }
     return getDefaultToolbarPanels();
+  }
+
+  private get liveTransportEnabled(): boolean {
+    const attr = this.getAttribute('live-transport');
+    if (attr === null) {
+      return true;
+    }
+    return attr === '' || attr === 'true';
   }
 
   private get wsUrl(): string {

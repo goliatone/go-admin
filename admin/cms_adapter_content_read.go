@@ -24,7 +24,7 @@ func toGoCMSContentListOptions(opts ...CMSContentListOption) []cmscontent.Conten
 		if isInternalCMSContentListOption(opt) {
 			continue
 		}
-		out = append(out, cmscontent.ContentListOption(opt))
+		out = append(out, opt)
 	}
 	return out
 }
@@ -51,7 +51,7 @@ func hasCMSContentListOption(opts []CMSContentListOption, token CMSContentListOp
 func hasCMSProjectionOption(opts []CMSContentListOption) bool {
 	const prefix = "content:list:projection:"
 	for _, opt := range opts {
-		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(opt))), prefix) {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(opt)), prefix) {
 			return true
 		}
 	}

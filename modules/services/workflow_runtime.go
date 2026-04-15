@@ -243,9 +243,7 @@ func (r *workflowRuntime) listSyncRuns(
 	}
 	end := min(offset+limit, total)
 	out := make([]workflowSyncRunRecord, 0, end-offset)
-	for _, row := range filtered[offset:end] {
-		out = append(out, row)
-	}
+	out = append(out, filtered[offset:end]...)
 	return out, total
 }
 
@@ -701,9 +699,7 @@ func (s *workflowSyncChangeLogStore) ListSince(_ context.Context, syncBindingID 
 		nextCursor = rows[end-1].ID
 	}
 	out := make([]gocore.SyncChangeLogEntry, 0, end-start)
-	for _, row := range rows[start:end] {
-		out = append(out, row)
-	}
+	out = append(out, rows[start:end]...)
 	return out, nextCursor, nil
 }
 

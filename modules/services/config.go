@@ -371,10 +371,10 @@ func withDefaults(cfg Config) Config {
 	if cfg.Lifecycle.Dispatcher.InitialBackoff == 0 {
 		cfg.Lifecycle.Dispatcher.InitialBackoff = defaults.Lifecycle.Dispatcher.InitialBackoff
 	}
-	if cfg.Lifecycle.Dispatcher.Enabled == false {
+	if !cfg.Lifecycle.Dispatcher.Enabled {
 		cfg.Lifecycle.Dispatcher.Enabled = defaults.Lifecycle.Dispatcher.Enabled
 	}
-	if cfg.Lifecycle.Projectors.Activity.Enabled == false {
+	if !cfg.Lifecycle.Projectors.Activity.Enabled {
 		cfg.Lifecycle.Projectors.Activity.Enabled = defaults.Lifecycle.Projectors.Activity.Enabled
 	}
 	if cfg.Lifecycle.Projectors.Activity.BufferSize <= 0 {

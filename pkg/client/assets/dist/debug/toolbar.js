@@ -1,6 +1,6 @@
 import { escapeHTML as q } from "../shared/html.js";
 import { normalizeDebugBasePath as L } from "./shared/path-helpers.js";
-import { _ as P, a as z, b as w, c as T, d as M, g as f, h as R, m as H, n as $, o as I, r as c, s as A, t as D, v as O } from "../chunks/builtin-panels-DpLF0CLs.js";
+import { _ as P, a as T, b as w, c as z, d as M, g as f, h as R, m as H, n as $, o as I, r as c, s as A, t as D, v as O } from "../chunks/builtin-panels-DpLF0CLs.js";
 import { t as j } from "../chunks/repl-panel-So0Od67n.js";
 import { a as at, b as F, c as B, d as N, f as Q, g as _, h as G, i as y, l as Y, n as k, o as h, r as p, s as v, t as ot, u as st, y as b } from "../chunks/runtime-helpers-73DjiyO0.js";
 var K = `
@@ -1040,7 +1040,7 @@ function m(e, t, a = 50, o) {
   const r = o?.newestFirst ?? !0, i = o?.slowThresholdMs ?? a;
   switch (e) {
     case "requests":
-      return T(t.requests || [], l, {
+      return z(t.requests || [], l, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1073,7 +1073,7 @@ function m(e, t, a = 50, o) {
         showCount: !1
       });
     case "routes":
-      return z(t.routes || [], l, { showName: !1 });
+      return T(t.routes || [], l, { showName: !1 });
     case "template":
       return c("Template Context", t.template || {}, l, {
         useIconCopyButton: !1,
@@ -1117,7 +1117,8 @@ var g, S = class d extends HTMLElement {
       "panels",
       "expanded",
       "slow-threshold-ms",
-      "use-fab"
+      "use-fab",
+      "live-transport"
     ];
   }
   constructor() {
@@ -1126,7 +1127,7 @@ var g, S = class d extends HTMLElement {
     }, this.shadow = this.attachShadow({ mode: "open" });
   }
   connectedCallback() {
-    this.eventToPanel = p(), this.unsubscribeRegistry = b.subscribe((t) => this.handleRegistryChange(t)), this.loadState(), this.render(), this.useFab || (this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
+    this.eventToPanel = p(), this.unsubscribeRegistry = b.subscribe((t) => this.handleRegistryChange(t)), this.loadState(), this.render(), this.useFab || (this.liveTransportEnabled && this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
   }
   disconnectedCallback() {
     this.stream?.close(), this.unsubscribeRegistry?.(), document.removeEventListener("keydown", this.handleKeyDown);
@@ -1142,7 +1143,7 @@ var g, S = class d extends HTMLElement {
     t.subscribe(Array.from(a));
   }
   attributeChangedCallback(t, a, o) {
-    a !== o && (t === "expanded" ? (this.expanded = o === "true" || o === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(o || "50", 10) || 50 : t === "use-fab" && (this.useFab = o === "true" || o === ""));
+    a !== o && (t === "expanded" ? (this.expanded = o === "true" || o === "", this.saveState(), this.render()) : t === "slow-threshold-ms" ? this.slowThresholdMs = parseInt(o || "50", 10) || 50 : t === "use-fab" ? this.useFab = o === "true" || o === "" : t === "live-transport" && !this.useFab && !this.liveTransportEnabled && this.stream?.close());
   }
   setExpanded(t) {
     this.expanded = t, this.saveState(), this.render();
@@ -1220,6 +1221,10 @@ var g, S = class d extends HTMLElement {
       return a.length ? a : h();
     }
     return h();
+  }
+  get liveTransportEnabled() {
+    const t = this.getAttribute("live-transport");
+    return t === null ? !0 : t === "" || t === "true";
   }
   get wsUrl() {
     return `${this.debugPath}/ws`;
@@ -1721,14 +1726,15 @@ var U = `
     return [
       "debug-path",
       "panels",
-      "toolbar-expanded"
+      "toolbar-expanded",
+      "live-transport"
     ];
   }
   constructor() {
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.eventToPanel = {}, this.unsubscribeRegistry = null, this.shadow = this.attachShadow({ mode: "open" });
   }
   connectedCallback() {
-    this.eventToPanel = p(), this.unsubscribeRegistry = b.subscribe((e) => this.handleRegistryChange(e)), this.render(), this.initWebSocket(), this.fetchInitialSnapshot(), this.loadState();
+    this.eventToPanel = p(), this.unsubscribeRegistry = b.subscribe((e) => this.handleRegistryChange(e)), this.render(), this.liveTransportEnabled && this.initWebSocket(), this.fetchInitialSnapshot(), this.loadState();
   }
   disconnectedCallback() {
     this.stream?.close(), this.unsubscribeRegistry?.();
@@ -1758,6 +1764,10 @@ var U = `
       return t.length ? t : h();
     }
     return h();
+  }
+  get liveTransportEnabled() {
+    const e = this.getAttribute("live-transport");
+    return e === null ? !0 : e === "" || e === "true";
   }
   loadState() {
     try {
@@ -1926,10 +1936,10 @@ var C = class {
     this.toolbar && (this.toolbar.isExpanded() ? this.collapse() : this.expand());
   }
   createFab() {
-    this.fab = document.createElement("debug-fab"), this.options.debugPath && this.fab.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.fab.setAttribute("base-path", this.options.basePath), this.options.panels && this.fab.setAttribute("panels", this.options.panels.join(",")), this.options.container?.appendChild(this.fab);
+    this.fab = document.createElement("debug-fab"), this.options.debugPath && this.fab.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.fab.setAttribute("base-path", this.options.basePath), typeof this.options.liveTransportEnabled == "boolean" && this.fab.setAttribute("live-transport", this.options.liveTransportEnabled ? "true" : "false"), this.options.panels && this.fab.setAttribute("panels", this.options.panels.join(",")), this.options.container?.appendChild(this.fab);
   }
   createToolbar() {
-    this.toolbar = document.createElement("debug-toolbar"), this.options.debugPath && this.toolbar.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.toolbar.setAttribute("base-path", this.options.basePath), this.toolbar.setAttribute("use-fab", "true"), this.options.panels && this.toolbar.setAttribute("panels", this.options.panels.join(",")), this.options.slowThresholdMs && this.toolbar.setAttribute("slow-threshold-ms", String(this.options.slowThresholdMs)), this.options.container?.appendChild(this.toolbar);
+    this.toolbar = document.createElement("debug-toolbar"), this.options.debugPath && this.toolbar.setAttribute("debug-path", this.options.debugPath), this.options.basePath && this.toolbar.setAttribute("base-path", this.options.basePath), typeof this.options.liveTransportEnabled == "boolean" && this.toolbar.setAttribute("live-transport", this.options.liveTransportEnabled ? "true" : "false"), this.toolbar.setAttribute("use-fab", "true"), this.options.panels && this.toolbar.setAttribute("panels", this.options.panels.join(",")), this.options.slowThresholdMs && this.toolbar.setAttribute("slow-threshold-ms", String(this.options.slowThresholdMs)), this.options.container?.appendChild(this.toolbar);
   }
   wireEvents() {
     !this.fab || !this.toolbar || (this.fab.addEventListener("debug-expand", ((e) => {
@@ -1956,6 +1966,7 @@ function J() {
   if (e ? a = {
     basePath: e.basePath,
     debugPath: e.debugPath,
+    liveTransportEnabled: typeof e.liveTransportEnabled == "boolean" ? e.liveTransportEnabled : void 0,
     panels: e.panels,
     slowThresholdMs: e.slowThresholdMs
   } : t && (a = {

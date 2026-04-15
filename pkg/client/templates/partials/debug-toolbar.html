@@ -3,6 +3,7 @@
   window.DEBUG_CONFIG = {
     basePath: '{{ base_path }}',
     debugPath: '{{ debug_path }}',
+    liveTransportEnabled: {% if debug_toolbar_live_enabled %}true{% else %}false{% endif %},
     panels: '{{ debug_toolbar_panels|default:"requests,sql,logs,jserrors,routes,config" }}'.split(','),
     slowThresholdMs: {{ debug_slow_threshold_ms|default:"50" }}
   };

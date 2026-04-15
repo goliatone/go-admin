@@ -395,7 +395,7 @@ func TestPrepareStepUsesLifecycleContext(t *testing.T) {
 	}
 
 	require.NoError(t, PrepareStep(combined))
-	require.Same(t, lifecycleCtx, combined.prepareRecorder.lastContext)
+	require.Same(t, lifecycleCtx, combined.lastContext)
 }
 
 func TestPrepareStepFallsBackToBackgroundWhenLifecycleContextMissing(t *testing.T) {
@@ -408,8 +408,8 @@ func TestPrepareStepFallsBackToBackgroundWhenLifecycleContextMissing(t *testing.
 	}
 
 	require.NoError(t, PrepareStep(combined))
-	require.NotNil(t, combined.prepareRecorder.lastContext)
-	require.NoError(t, combined.prepareRecorder.lastContext.Err())
+	require.NotNil(t, combined.lastContext)
+	require.NoError(t, combined.lastContext.Err())
 }
 
 func TestHealthStepRegistersRouteWithWrapper(t *testing.T) {
@@ -679,8 +679,8 @@ func TestPanelStepBulkSuccessEnvelopeWithData(t *testing.T) {
 	require.Equal(t, "ok", payload["status"])
 	data, ok := payload["data"].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, 2, int(data["processed"].(int)))
-	require.Equal(t, 0, int(data["failed"].(int)))
+	require.Equal(t, 2, data["processed"].(int))
+	require.Equal(t, 0, data["failed"].(int))
 }
 
 func TestPanelStepActionMergesQueryContextIntoPayload(t *testing.T) {

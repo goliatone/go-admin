@@ -108,6 +108,7 @@ func TestCaptureViewContextForRequestInjectsToolbarTransportContract(t *testing.
 		ToolbarPanels:      []string{DebugPanelRequests, DebugPanelJSErrors, DebugPanelLogs},
 		SlowQueryThreshold: 75 * time.Millisecond,
 	})
+	collector.SetLiveTransportEnabled(true)
 
 	ctx := router.NewMockContext()
 	ctx.On("Path").Return("/admin/quotes")
@@ -165,6 +166,47 @@ func TestCaptureViewContextForRequestInjectsToolbarTransportContract(t *testing.
 
 	if got := ctx.CookiesM[debugNonceCookieName]; strings.TrimSpace(got) == "" {
 		t.Fatalf("expected debug nonce cookie to be issued, got %#v", got)
+	}
+}
+
+func TestCaptureViewContextForRequestDisablesLiveTransportWhenUnavailable(t *testing.T) {
+	collector := NewDebugCollector(DebugConfig{
+		Enabled:            true,
+		BasePath:           "/admin/debug",
+		ToolbarMode:        true,
+		CaptureJSErrors:    true,
+		Panels:             []string{DebugPanelRequests, DebugPanelJSErrors},
+		ToolbarPanels:      []string{DebugPanelRequests, DebugPanelJSErrors},
+		SlowQueryThreshold: 50 * time.Millisecond,
+	})
+
+	ctx := router.NewMockContext()
+	ctx.On("Path").Return("/admin/quotes")
+	ctx.On("Cookie", mock.Anything).Return()
+
+	viewCtx := CaptureViewContextForRequest(collector, ctx, router.ViewContext{})
+
+	if got := viewCtx["debug_path"]; got != "/admin/debug" {
+		t.Fatalf("expected debug_path /admin/debug, got %#v", got)
+	}
+	if got := viewCtx["debug_toolbar_ws_path"]; got != "" {
+		t.Fatalf("expected debug_toolbar_ws_path to be empty when live transport is unavailable, got %#v", got)
+	}
+	if got := viewCtx["debug_toolbar_transport_base_path"]; got != "/admin/debug" {
+		t.Fatalf("expected transport base path to fall back to debug_path, got %#v", got)
+	}
+	if got, ok := viewCtx["debug_toolbar_live_enabled"].(bool); !ok || got {
+		t.Fatalf("expected debug_toolbar_live_enabled false, got %#v", viewCtx["debug_toolbar_live_enabled"])
+	}
+	transport, ok := viewCtx["debug_toolbar_transport"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected structured debug_toolbar_transport map, got %#v", viewCtx["debug_toolbar_transport"])
+	}
+	if got := transport["ws_path"]; got != "" {
+		t.Fatalf("expected empty transport ws_path, got %#v", got)
+	}
+	if got, ok := transport["enabled"].(bool); !ok || got {
+		t.Fatalf("expected transport enabled false, got %#v", transport["enabled"])
 	}
 }
 

@@ -9,6 +9,7 @@ import { normalizeDebugBasePath } from '../shared/path-helpers.js';
 export interface DebugManagerOptions {
   basePath?: string;
   debugPath?: string;
+  liveTransportEnabled?: boolean;
   panels?: string[];
   slowThresholdMs?: number;
   container?: HTMLElement;
@@ -102,6 +103,9 @@ export class DebugManager {
     if (this.options.basePath) {
       this.fab.setAttribute('base-path', this.options.basePath);
     }
+    if (typeof this.options.liveTransportEnabled === 'boolean') {
+      this.fab.setAttribute('live-transport', this.options.liveTransportEnabled ? 'true' : 'false');
+    }
     if (this.options.panels) {
       this.fab.setAttribute('panels', this.options.panels.join(','));
     }
@@ -115,6 +119,9 @@ export class DebugManager {
     }
     if (this.options.basePath) {
       this.toolbar.setAttribute('base-path', this.options.basePath);
+    }
+    if (typeof this.options.liveTransportEnabled === 'boolean') {
+      this.toolbar.setAttribute('live-transport', this.options.liveTransportEnabled ? 'true' : 'false');
     }
     this.toolbar.setAttribute('use-fab', 'true');
     if (this.options.panels) {
@@ -190,6 +197,9 @@ export function initDebugManager(): DebugManager | null {
     options = {
       basePath: windowConfig.basePath,
       debugPath: windowConfig.debugPath,
+      liveTransportEnabled: typeof windowConfig.liveTransportEnabled === 'boolean'
+        ? windowConfig.liveTransportEnabled
+        : undefined,
       panels: windowConfig.panels,
       slowThresholdMs: windowConfig.slowThresholdMs,
     };

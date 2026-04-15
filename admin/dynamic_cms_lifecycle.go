@@ -14,11 +14,11 @@ type lifecycleBootCtx struct {
 }
 
 func (ctx lifecycleBootCtx) Prepare(lifecycle context.Context) error {
-	return ctx.Admin.prepare(lifecycle)
+	return ctx.prepare(lifecycle)
 }
 
 func (ctx lifecycleBootCtx) ReconcileDynamicCMS(lifecycle context.Context) error {
-	return ctx.Admin.reconcileDynamicCMS(lifecycle)
+	return ctx.reconcileDynamicCMS(lifecycle)
 }
 
 // AddCMSBootstrapHook registers a hook that can create or repair CMS content

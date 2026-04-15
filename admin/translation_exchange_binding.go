@@ -1182,7 +1182,9 @@ func parseTranslationImportFile(c router.Context, file *multipart.FileHeader, re
 			Format:  format,
 		}
 	}
-	defer fh.Close()
+	defer func() {
+		_ = fh.Close()
+	}()
 	var rows []TranslationExchangeRow
 	switch format {
 	case "json":

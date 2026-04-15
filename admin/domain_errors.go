@@ -25,7 +25,7 @@ func pathConflictDomainError(meta map[string]any) error {
 		WithCode(http.StatusConflict).
 		WithTextCode(TextCodePathConflict)
 	if len(meta) > 0 {
-		err.WithMetadata(meta)
+		err = err.WithMetadata(meta)
 	}
 	return err
 }

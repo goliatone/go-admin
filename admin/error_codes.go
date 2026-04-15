@@ -169,7 +169,7 @@ func NewDomainError(code, message string, meta map[string]any) *goerrors.Error {
 			WithCode(entry.HTTPStatus).
 			WithTextCode(code)
 		if len(meta) > 0 {
-			err.WithMetadata(meta)
+			err = err.WithMetadata(meta)
 		}
 		return err
 	}
@@ -177,7 +177,7 @@ func NewDomainError(code, message string, meta map[string]any) *goerrors.Error {
 		WithCode(http.StatusInternalServerError).
 		WithTextCode(code)
 	if len(meta) > 0 {
-		err.WithMetadata(meta)
+		err = err.WithMetadata(meta)
 	}
 	return err
 }

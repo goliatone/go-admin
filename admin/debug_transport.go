@@ -200,6 +200,7 @@ func (m *DebugModule) registerDebugWebSocket(admin *Admin) {
 	}
 	ws, ok := admin.router.(debugWebSocketRouter)
 	if !ok {
+		m.collector.SetLiveTransportEnabled(false)
 		return
 	}
 	basePath := m.basePath
@@ -224,6 +225,7 @@ func (m *DebugModule) registerDebugWebSocket(admin *Admin) {
 	ws.WebSocket(wsPath, cfg, func(c router.WebSocketContext) error {
 		return m.handleDebugWebSocket(c)
 	})
+	m.collector.SetLiveTransportEnabled(true)
 }
 
 func (m *DebugModule) registerDebugSessionWebSocket(admin *Admin) {

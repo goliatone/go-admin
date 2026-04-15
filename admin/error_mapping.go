@@ -97,7 +97,7 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 		}
 		mapped = NewDomainError(TextCodeTranslationMissing, missingTranslations.Error(), meta)
 		status = translationBlockerStatus(missingFields)
-		mapped.WithCode(status)
+		mapped = mapped.WithCode(status)
 	case errors.As(err, &translationExists):
 		meta := map[string]any{
 			"panel":         strings.TrimSpace(translationExists.Panel),
@@ -153,13 +153,13 @@ func mapToGoError(err error, mappers []goerrors.ErrorMapper) (*goerrors.Error, i
 	case errors.Is(err, cmscontent.ErrInvalidLocale), errors.Is(err, cmspages.ErrInvalidLocale):
 		mapped = NewDomainError(TextCodeValidationError, err.Error(), map[string]any{"field": "locale"})
 		status = http.StatusBadRequest
-		mapped.WithCode(status)
+		mapped = mapped.WithCode(status)
 	case IsTranslationMissing(err):
 		mapped = NewDomainError(TextCodeTranslationMissing, err.Error(), map[string]any{
 			"translation_missing": true,
 		})
 		status = http.StatusNotFound
-		mapped.WithCode(status)
+		mapped = mapped.WithCode(status)
 	case errors.Is(err, cmscontent.ErrSourceNotFound), errors.Is(err, cmspages.ErrSourceNotFound):
 		mapped = NewDomainError(TextCodeNotFound, err.Error(), nil)
 		status = mapped.Code

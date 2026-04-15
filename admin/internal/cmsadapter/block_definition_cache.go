@@ -101,7 +101,7 @@ func CacheKey(env, key string) string {
 }
 
 func BlockDefinitionChannel(def cmsboot.CMSBlockDefinition) string {
-	//lint:ignore SA1019 compatibility bridge for legacy CMS block definitions that still populate Environment.
+	//nolint:staticcheck // Compatibility bridge for legacy CMS block definitions that still populate Environment.
 	return strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Channel, def.Environment))
 }
 
@@ -111,7 +111,7 @@ func SetBlockDefinitionChannel(def *cmsboot.CMSBlockDefinition, channel string) 
 	}
 	channel = strings.TrimSpace(channel)
 	def.Channel = channel
-	//lint:ignore SA1019 keep legacy Environment synchronized while older persisted records still depend on it.
+	//nolint:staticcheck // Keep legacy Environment synchronized while older persisted records still depend on it.
 	def.Environment = channel
 }
 

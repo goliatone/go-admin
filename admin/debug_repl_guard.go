@@ -217,7 +217,7 @@ func debugREPLDeny(admin *Admin, ctx context.Context, c router.Context, kind str
 		WithCode(goerrors.CodeForbidden).
 		WithTextCode(textCode)
 	if len(meta) > 0 {
-		err.WithMetadata(meta)
+		err = err.WithMetadata(meta)
 	}
 	return err
 }

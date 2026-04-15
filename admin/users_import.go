@@ -354,7 +354,9 @@ func parseImportFile(file *multipart.FileHeader) (bulkImportParseOutcome, error)
 	if err != nil {
 		return outcome, validationDomainError("unable to read import file", map[string]any{"component": "users_import"})
 	}
-	defer handle.Close()
+	defer func() {
+		_ = handle.Close()
+	}()
 
 	switch format {
 	case "csv":

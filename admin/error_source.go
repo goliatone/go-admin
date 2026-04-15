@@ -89,7 +89,9 @@ func ExtractSourceContext(filePath string, errorLine, contextLines int) *SourceC
 	if err != nil {
 		return nil
 	}
-	defer file.Close()
+	defer func() {
+		_ = file.Close()
+	}()
 
 	startLine := max(errorLine-contextLines, 1)
 	endLine := errorLine + contextLines

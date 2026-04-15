@@ -1593,7 +1593,7 @@ func loadConnectionCredentialHealth(
 		Column("next_attempt_at").
 		Where("connection_id = ?", strings.TrimSpace(connectionID)).
 		Where("next_attempt_at IS NOT NULL").
-		Where("status IN (?)", bun.In([]string{"pending", "processing"})).
+		Where("status IN (?)", bun.List([]string{"pending", "processing"})).
 		Order("next_attempt_at ASC").
 		Limit(1).
 		Scan(ctx)

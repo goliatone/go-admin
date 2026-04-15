@@ -157,7 +157,7 @@ func (a *Admin) loadModules(ctx context.Context) error {
 			)
 		},
 		AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
-			return a.addMenuItems(ctx, []MenuItem(items))
+			return a.addMenuItems(ctx, items)
 		},
 		AddIconLibrary: func(lib modules.IconLibrary) error {
 			if a.iconService == nil {

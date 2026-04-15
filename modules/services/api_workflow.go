@@ -1087,9 +1087,7 @@ func (m *Module) handleWorkflowListConnectionCandidates(c router.Context, _ map[
 		return 0, nil, err
 	}
 	items := make([]map[string]any, 0, len(candidates))
-	for _, candidate := range candidates {
-		items = append(items, candidate)
-	}
+	items = append(items, candidates...)
 	response := newListResponse(items, len(items), len(items), 0, map[string]any{
 		"provider_id": providerID,
 		"scope_type":  scope.Type,

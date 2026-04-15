@@ -25,7 +25,7 @@ export class DebugFab extends HTMLElement {
   private unsubscribeRegistry: (() => void) | null = null;
 
   static get observedAttributes(): string[] {
-    return ['debug-path', 'panels', 'toolbar-expanded'];
+    return ['debug-path', 'panels', 'toolbar-expanded', 'live-transport'];
   }
 
   constructor() {
@@ -37,7 +37,9 @@ export class DebugFab extends HTMLElement {
     this.eventToPanel = buildEventToPanel();
     this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
     this.render();
-    this.initWebSocket();
+    if (this.liveTransportEnabled) {
+      this.initWebSocket();
+    }
     this.fetchInitialSnapshot();
     this.loadState();
   }
@@ -90,6 +92,14 @@ export class DebugFab extends HTMLElement {
       return parsed.length ? parsed : getDefaultToolbarPanels();
     }
     return getDefaultToolbarPanels();
+  }
+
+  private get liveTransportEnabled(): boolean {
+    const attr = this.getAttribute('live-transport');
+    if (attr === null) {
+      return true;
+    }
+    return attr === '' || attr === 'true';
   }
 
   // State persistence
