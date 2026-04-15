@@ -82,8 +82,63 @@ type MediaPageState = {
   capabilities: MediaCapabilities | null;
 };
 
+type BatchMutationResult = {
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  failures: string[];
+};
+
+type BatchMutationFeedback = {
+  status: string;
+  error: string;
+};
+
 const DEFAULT_LIMIT_GRID = 24;
 const DEFAULT_LIMIT_LIST = 50;
+
+export function summarizeBatchMutation(
+  operation: 'upload' | 'delete',
+  result: BatchMutationResult,
+): BatchMutationFeedback {
+  const attempted = Math.max(0, result.attempted);
+  const succeeded = Math.max(0, result.succeeded);
+  const failed = Math.max(0, result.failed);
+  const error = result.failures.map((entry) => toStringValue(entry)).filter(Boolean).join(' ');
+
+  if (attempted === 0 || (succeeded === 0 && failed === 0)) {
+    return { status: '', error };
+  }
+
+  if (failed === 0) {
+    if (operation === 'upload') {
+      return {
+        status: succeeded === 1 ? 'Upload complete.' : `${succeeded} uploads completed.`,
+        error: '',
+      };
+    }
+    return {
+      status: succeeded === 1 ? 'Media item deleted.' : `${succeeded} media items deleted.`,
+      error: '',
+    };
+  }
+
+  if (succeeded === 0) {
+    return { status: '', error };
+  }
+
+  if (operation === 'upload') {
+    return {
+      status: `${succeeded} of ${attempted} uploads completed.`,
+      error,
+    };
+  }
+
+  return {
+    status: `${succeeded} of ${attempted} media items deleted.`,
+    error,
+  };
+}
 
 function isRecord(value: unknown): value is RecordValue {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -796,20 +851,27 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
     }
   }
 
-  async function deleteItem(id: string, options?: { skipConfirm?: boolean; suppressStatus?: boolean }): Promise<void> {
+  async function deleteItem(
+    id: string,
+    options?: { skipConfirm?: boolean; suppressStatus?: boolean; reportDetailError?: boolean },
+  ): Promise<{ deleted: boolean; error: string }> {
     if (!canDelete()) {
-      return;
+      return { deleted: false, error: '' };
     }
     if (!itemPathTemplate) {
-      setMessage(elements.detailError, 'Media item endpoint is not configured.');
-      return;
+      const message = 'Media item endpoint is not configured.';
+      if (options?.reportDetailError !== false) {
+        setMessage(elements.detailError, message);
+      }
+      return { deleted: false, error: message };
     }
     const target = state.items.find((item) => item.id === id);
     const label = target?.name || 'this media item';
     if (!options?.skipConfirm && !globalThis.confirm(`Delete ${label}?`)) {
-      return;
+      return { deleted: false, error: '' };
     }
     try {
+      setMessage(elements.detailError, '');
       await fetchJSON(itemPath(itemPathTemplate, id), { method: 'DELETE' });
       state.items = state.items.filter((item) => item.id !== id);
       state.selectedIDs.delete(id);
@@ -822,8 +884,13 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
       if (!options?.suppressStatus) {
         setMessage(elements.status, 'Media item deleted.');
       }
+      return { deleted: true, error: '' };
     } catch (error) {
-      setMessage(elements.detailError, error instanceof Error ? error.message : 'Failed to delete media item.');
+      const message = error instanceof Error ? error.message : 'Failed to delete media item.';
+      if (options?.reportDetailError !== false) {
+        setMessage(elements.detailError, message);
+      }
+      return { deleted: false, error: message };
     }
   }
 
@@ -835,12 +902,38 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
       return;
     }
     const ids = [...state.selectedIDs];
+    const failedIDs = new Set<string>();
+    const failures: string[] = [];
+    let deleted = 0;
+    setMessage(elements.error, '');
+    setMessage(elements.detailError, '');
     for (const id of ids) {
-      await deleteItem(id, { skipConfirm: true, suppressStatus: true });
+      const item = state.items.find((entry) => entry.id === id);
+      const result = await deleteItem(id, {
+        skipConfirm: true,
+        suppressStatus: true,
+        reportDetailError: false,
+      });
+      if (result.deleted) {
+        deleted += 1;
+        continue;
+      }
+      failedIDs.add(id);
+      if (result.error) {
+        failures.push(`Failed to delete ${item?.name || id}: ${result.error}`);
+      }
     }
-    state.selectedIDs.clear();
+    state.selectedIDs = failedIDs;
     renderSelectionBar();
-    setMessage(elements.status, 'Selected media items deleted.');
+    renderList();
+    const feedback = summarizeBatchMutation('delete', {
+      attempted: ids.length,
+      succeeded: deleted,
+      failed: failures.length,
+      failures,
+    });
+    setMessage(elements.status, feedback.status);
+    setMessage(elements.error, feedback.error);
   }
 
   async function copyCurrentURL(): Promise<void> {
@@ -903,6 +996,8 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
       return;
     }
     setMessage(elements.error, '');
+    let uploaded = 0;
+    const failures: string[] = [];
     for (const file of fileList) {
       setMessage(elements.status, `Uploading ${file.name}…`);
       try {
@@ -942,12 +1037,23 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
         } else {
           throw new Error('No supported upload mode is configured.');
         }
+        uploaded += 1;
       } catch (error) {
-        setMessage(elements.error, error instanceof Error ? error.message : `Failed to upload ${file.name}.`);
+        const message = error instanceof Error ? error.message : `Failed to upload ${file.name}.`;
+        failures.push(`Failed to upload ${file.name}: ${message}`);
       }
     }
-    setMessage(elements.status, 'Upload complete.');
-    await loadItems(false);
+    const feedback = summarizeBatchMutation('upload', {
+      attempted: fileList.length,
+      succeeded: uploaded,
+      failed: failures.length,
+      failures,
+    });
+    setMessage(elements.status, feedback.status);
+    setMessage(elements.error, feedback.error);
+    if (uploaded > 0) {
+      await loadItems(false);
+    }
   }
 
   const reload = debounce(() => {
