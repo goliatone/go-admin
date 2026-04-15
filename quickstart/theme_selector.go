@@ -38,7 +38,9 @@ func WithThemeManifest(manifest *theme.Manifest) ThemeOption {
 	}
 }
 
-// WithThemeAssets configures default assets for the manifest.
+// WithThemeAssets configures manifest asset files plus an optional manifest asset prefix.
+// Use this for go-theme manifests/selectors; for final config-level URL overrides, use
+// admin.Config.ThemeAssets or quickstart.WithThemeAssetURLs.
 func WithThemeAssets(prefix string, files map[string]string) ThemeOption {
 	return func(opts *themeOptions) {
 		if opts == nil {
@@ -127,17 +129,21 @@ func NewThemeSelector(name, variant string, tokenOverrides map[string]string, op
 
 func defaultThemeManifest(name string, tokenOverrides map[string]string, options themeOptions) *theme.Manifest {
 	tokens := map[string]string{
-		"primary":               "#2563eb",
-		"accent":                "#f59e0b",
-		"surface":               "#1C1C1E",
-		"sidebar-width":         "260px",
-		"sidebar-padding-x":     "12px",
-		"sidebar-padding-y":     "12px",
-		"sidebar-item-height":   "36px",
-		"sidebar-title-height":  "28px",
-		"sidebar-gap-sections":  "24px",
-		"sidebar-icon-size":     "20px",
-		"sidebar-footer-height": "64px",
+		"primary":                      "#2563eb",
+		"accent":                       "#f59e0b",
+		"surface":                      "#1C1C1E",
+		"sidebar-width":                "260px",
+		"sidebar-padding-x":            "12px",
+		"sidebar-padding-y":            "12px",
+		"sidebar-item-height":          "36px",
+		"sidebar-title-height":         "28px",
+		"sidebar-gap-sections":         "24px",
+		"sidebar-icon-size":            "20px",
+		"sidebar-footer-height":        "64px",
+		"sidebar-brand-max-height":     "40px",
+		"sidebar-brand-max-width":      "100%",
+		"sidebar-brand-collapsed-size": "32px",
+		"sidebar-brand-align":          "flex-start",
 	}
 	for key, value := range tokenOverrides {
 		tokens[key] = value
