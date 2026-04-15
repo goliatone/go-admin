@@ -494,9 +494,12 @@ func resolveDefaultThemeSelection(cfg Config) *ThemeSelection {
 		Name:        cfg.Theme,
 		Variant:     cfg.ThemeVariant,
 		Tokens:      primitives.CloneStringMapNilOnEmpty(cfg.ThemeTokens),
-		Assets:      map[string]string{},
+		Assets:      primitives.CloneStringMapNilOnEmpty(cfg.ThemeAssets),
 		ChartTheme:  cfg.ThemeVariant,
 		AssetPrefix: cfg.ThemeAssetPrefix,
+	}
+	if defaultTheme.Assets == nil {
+		defaultTheme.Assets = map[string]string{}
 	}
 	if cfg.LogoURL != "" {
 		defaultTheme.Assets["logo"] = cfg.LogoURL
