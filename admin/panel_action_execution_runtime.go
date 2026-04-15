@@ -10,38 +10,10 @@ import (
 // RunActionResponse dispatches a command-backed action and returns a structured response.
 func (p *Panel) RunActionResponse(ctx AdminContext, name string, payload map[string]any, ids []string) (ActionResponse, error) {
 	for _, action := range p.actions {
-		if action.Name == name && action.CommandName != "" && p.commandBus != nil {
-			required := actionRequiredPermissions(action)
-			if len(required) > 0 && !CanAll(p.authorizer, ctx.Context, p.name, required...) {
-				err := permissionDenied(actionMissingPermission(p.authorizer, ctx.Context, p.name, required), p.name)
-				captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, action.Scope, "permission", resolvePrimaryActionID(payload, ids), ids, err)
-				return ActionResponse{}, err
-			}
-			collector := &ActionResponseCollector{}
-			actionCtx := ContextWithActionResponseCollector(ctx.Context, collector)
-			err := p.commandBus.DispatchByName(actionCtx, action.CommandName, payload, ids)
-			if err == nil {
-				p.recordActivity(ctx, "panel.action", map[string]any{
-					"panel":  p.name,
-					"action": name,
-				})
-			}
-			if err != nil {
-				captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, action.Scope, "dispatch", resolvePrimaryActionID(payload, ids), ids, err)
-				return ActionResponse{}, err
-			}
-			if response, ok := collector.Load(); ok {
-				return normalizeActionResponse(response), nil
-			}
-			// Fall back to generic command result when a command stored one directly.
-			result := command.ResultFromContext[map[string]any](actionCtx)
-			if result != nil {
-				if value, stored := result.Load(); stored && len(value) > 0 {
-					return normalizeActionResponse(ActionResponse{Data: value}), nil
-				}
-			}
-			return normalizeActionResponse(ActionResponse{}), nil
+		if action.Name != name || action.CommandName == "" || p.commandBus == nil {
+			continue
 		}
+		return p.runCommandActionResponse(ctx, name, action, payload, ids)
 	}
 	err := notFoundDomainError("action not found", map[string]any{
 		"panel":  p.name,
@@ -49,6 +21,38 @@ func (p *Panel) RunActionResponse(ctx AdminContext, name string, payload map[str
 	})
 	captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeAny, "lookup", resolvePrimaryActionID(payload, ids), ids, err)
 	return ActionResponse{}, err
+}
+
+func (p *Panel) runCommandActionResponse(ctx AdminContext, name string, action Action, payload map[string]any, ids []string) (ActionResponse, error) {
+	required := actionRequiredPermissions(action)
+	if len(required) > 0 && !CanAll(p.authorizer, ctx.Context, p.name, required...) {
+		err := permissionDenied(actionMissingPermission(p.authorizer, ctx.Context, p.name, required), p.name)
+		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, action.Scope, "permission", resolvePrimaryActionID(payload, ids), ids, err)
+		return ActionResponse{}, err
+	}
+	collector := &ActionResponseCollector{}
+	actionCtx := ContextWithActionResponseCollector(ctx.Context, collector)
+	err := p.commandBus.DispatchByName(actionCtx, action.CommandName, payload, ids)
+	if err == nil {
+		p.recordActivity(ctx, "panel.action", map[string]any{
+			"panel":  p.name,
+			"action": name,
+		})
+	}
+	if err != nil {
+		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, action.Scope, "dispatch", resolvePrimaryActionID(payload, ids), ids, err)
+		return ActionResponse{}, err
+	}
+	if response, ok := collector.Load(); ok {
+		return normalizeActionResponse(response), nil
+	}
+	result := command.ResultFromContext[map[string]any](actionCtx)
+	if result != nil {
+		if value, stored := result.Load(); stored && len(value) > 0 {
+			return normalizeActionResponse(ActionResponse{Data: value}), nil
+		}
+	}
+	return normalizeActionResponse(ActionResponse{}), nil
 }
 
 // RunAction dispatches a command-backed action.

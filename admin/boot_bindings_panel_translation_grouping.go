@@ -771,31 +771,32 @@ func mergePanelActionActorContext(body map[string]any, ctx AdminContext) map[str
 }
 
 func resolvePrimaryActionID(body map[string]any, ids []string) string {
-	if len(body) > 0 {
-		if id := strings.TrimSpace(toString(body["id"])); id != "" {
-			return id
-		}
-		if record := extractMap(body["record"]); len(record) > 0 {
-			if id := strings.TrimSpace(toString(record["id"])); id != "" {
-				return id
-			}
-		}
-		if selection := extractMap(body["selection"]); len(selection) > 0 {
-			if id := strings.TrimSpace(toString(selection["id"])); id != "" {
-				return id
-			}
-			if selectionIDs := toStringSlice(selection["ids"]); len(selectionIDs) > 0 {
-				if id := strings.TrimSpace(selectionIDs[0]); id != "" {
-					return id
-				}
-			}
-		}
-		if bodyIDs := toStringSlice(body["ids"]); len(bodyIDs) > 0 {
-			if id := strings.TrimSpace(bodyIDs[0]); id != "" {
-				return id
-			}
-		}
+	if len(body) == 0 {
+		return firstNonEmptyActionID(ids)
 	}
+	if id := strings.TrimSpace(toString(body["id"])); id != "" {
+		return id
+	}
+	if id := strings.TrimSpace(toString(extractMap(body["record"])["id"])); id != "" {
+		return id
+	}
+	if id := selectionActionID(extractMap(body["selection"])); id != "" {
+		return id
+	}
+	if id := firstNonEmptyActionID(toStringSlice(body["ids"])); id != "" {
+		return id
+	}
+	return firstNonEmptyActionID(ids)
+}
+
+func selectionActionID(selection map[string]any) string {
+	if id := strings.TrimSpace(toString(selection["id"])); id != "" {
+		return id
+	}
+	return firstNonEmptyActionID(toStringSlice(selection["ids"]))
+}
+
+func firstNonEmptyActionID(ids []string) string {
 	for _, id := range ids {
 		if trimmed := strings.TrimSpace(id); trimmed != "" {
 			return trimmed

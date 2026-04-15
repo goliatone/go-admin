@@ -119,7 +119,8 @@ func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptio
 	if p.admin != nil {
 		p.admin.applyContentTypeSchemaFromContext(ctx, &schema, p.name)
 	}
-	if err := p.admin.decorateSchemaFor(ctx, &schema, p.name); err != nil {
+	err = p.admin.decorateSchemaFor(ctx, &schema, p.name)
+	if err != nil {
 		return nil, 0, nil, nil, nil, err
 	}
 	form, err := p.listForm(ctx)
@@ -236,7 +237,8 @@ func (p *panelBinding) Detail(c router.Context, locale string, id string) (map[s
 	if p.admin != nil && contentTypeKey != "" {
 		p.admin.applyContentTypeSchema(ctx, &schema, contentTypeKey)
 	}
-	if err := p.admin.decorateSchemaFor(ctx, &schema, p.name); err != nil {
+	err = p.admin.decorateSchemaFor(ctx, &schema, p.name)
+	if err != nil {
 		return nil, err
 	}
 	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeDetail)
@@ -775,7 +777,9 @@ func buildCreateTranslationClone(record map[string]any, targetLocale, groupID st
 
 func (p *panelBinding) isCreateTranslationDuplicate(ctx context.Context, err error, targetLocale, groupID, primaryID string, record map[string]any, environment string) bool {
 	var dup TranslationAlreadyExistsError
-	if !(errors.As(err, &dup) || errors.Is(err, cmscontent.ErrTranslationAlreadyExists) || errors.Is(err, cmspages.ErrTranslationAlreadyExists)) {
+	if !errors.As(err, &dup) &&
+		!errors.Is(err, cmscontent.ErrTranslationAlreadyExists) &&
+		!errors.Is(err, cmspages.ErrTranslationAlreadyExists) {
 		return false
 	}
 	duplicateLocale := strings.TrimSpace(primitives.FirstNonEmptyRaw(dup.Locale, targetLocale))

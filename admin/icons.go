@@ -301,27 +301,28 @@ func isKnownLibraryPrefix(prefix string) bool {
 // isEmojiString returns true if the string contains emoji characters.
 func isEmojiString(s string) bool {
 	for _, r := range s {
-		if r > 0xFF {
-			// Symbol, Other category covers many emoji
-			if isSymbolOther(r) {
-				return true
-			}
-			// Variation selector (U+FE0F) and ZWJ (U+200D) indicate emoji sequences
-			if r == 0xFE0F || r == 0x200D {
-				return true
-			}
-			// Miscellaneous Symbols and Dingbats (U+2600–U+27BF)
-			if r >= 0x2600 && r <= 0x27BF {
-				return true
-			}
-			// Main emoji blocks (U+1F300–U+1FAFF)
-			if r >= 0x1F300 && r <= 0x1FAFF {
-				return true
-			}
-			// Skin tone modifiers
-			if r >= 0x1F3FB && r <= 0x1F3FF {
-				return true
-			}
+		if r <= 0xFF {
+			continue
+		}
+		// Symbol, Other category covers many emoji
+		if isSymbolOther(r) {
+			return true
+		}
+		// Variation selector (U+FE0F) and ZWJ (U+200D) indicate emoji sequences
+		if r == 0xFE0F || r == 0x200D {
+			return true
+		}
+		// Miscellaneous Symbols and Dingbats (U+2600–U+27BF)
+		if r >= 0x2600 && r <= 0x27BF {
+			return true
+		}
+		// Main emoji blocks (U+1F300–U+1FAFF)
+		if r >= 0x1F300 && r <= 0x1FAFF {
+			return true
+		}
+		// Skin tone modifiers
+		if r >= 0x1F3FB && r <= 0x1F3FF {
+			return true
 		}
 	}
 	return false

@@ -97,7 +97,8 @@ func (s goCMSAdminContentWriteService) Update(ctx context.Context, id string, re
 	if existing != nil {
 		content = mergeCMSContentUpdate(*existing, content, record)
 	}
-	if err := s.ensureUniqueLocalizedPath(ctx, content, id); err != nil {
+	err = s.ensureUniqueLocalizedPath(ctx, content, id)
+	if err != nil {
 		return nil, err
 	}
 	updated, err := s.content.UpdateContent(ctx, content)

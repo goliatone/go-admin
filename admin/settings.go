@@ -485,23 +485,30 @@ func resolvedFromTrace(def SettingDefinition, key string, value any, trace opts.
 	scope := SettingsScopeDefault
 	provenance := string(SettingsScopeDefault)
 	resolvedValue := def.Default
-	if err == nil {
-		resolvedValue = value
-		for _, layer := range trace.Layers {
-			if layer.Scope.Name != "" {
-				scope = SettingsScope(layer.Scope.Name)
-				provenance = layer.Scope.Name
-				if layer.Scope.Label != "" {
-					provenance = layer.Scope.Label
-				}
-			}
-			if layer.Found {
-				break
+	if err != nil {
+		return ResolvedSetting{
+			Key:        key,
+			Value:      resolvedValue,
+			Scope:      scope,
+			Provenance: provenance,
+			Definition: def,
+		}
+	}
+	resolvedValue = value
+	for _, layer := range trace.Layers {
+		if layer.Scope.Name != "" {
+			scope = SettingsScope(layer.Scope.Name)
+			provenance = layer.Scope.Name
+			if layer.Scope.Label != "" {
+				provenance = layer.Scope.Label
 			}
 		}
-		if resolvedValue == nil {
-			resolvedValue = def.Default
+		if layer.Found {
+			break
 		}
+	}
+	if resolvedValue == nil {
+		resolvedValue = def.Default
 	}
 	return ResolvedSetting{
 		Key:        key,

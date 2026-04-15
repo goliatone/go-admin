@@ -1169,9 +1169,8 @@ func listInstallationsFromDB(ctx context.Context, db *bun.DB, filter installatio
 }
 
 func installationRecordQueries(db *bun.DB, filter installationListFilter) (*bun.SelectQuery, *bun.SelectQuery) {
-	query := db.NewSelect().Model((*[]installationRecord)(nil)).Order("created_at DESC").Limit(filter.PerPage).Offset(filter.Offset())
 	rows := []installationRecord{}
-	query = db.NewSelect().Model(&rows).Order("created_at DESC").Limit(filter.PerPage).Offset(filter.Offset())
+	query := db.NewSelect().Model(&rows).Order("created_at DESC").Limit(filter.PerPage).Offset(filter.Offset())
 	countQuery := db.NewSelect().Table("service_installations")
 	if filter.ProviderID != "" {
 		query = query.Where("provider_id = ?", filter.ProviderID)

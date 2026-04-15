@@ -568,22 +568,32 @@ func debugStatusFromContext(c router.Context) int {
 			return code
 		}
 	}
-	if httpCtx, ok := c.(router.HTTPContext); ok {
-		if resp := httpCtx.Response(); resp != nil {
-			type statusCodeRaw interface {
-				StatusCodeRaw() int
-			}
-			if sc, ok := resp.(statusCodeRaw); ok {
-				if code := sc.StatusCodeRaw(); code != 0 {
-					return code
-				}
-				return 0
-			}
-			if sc, ok := resp.(statusCoder); ok {
-				if code := sc.StatusCode(); code != 0 {
-					return code
-				}
-			}
+	httpCtx, ok := c.(router.HTTPContext)
+	if !ok {
+		return 0
+	}
+	return debugStatusFromHTTPResponse(httpCtx.Response())
+}
+
+func debugStatusFromHTTPResponse(resp any) int {
+	if resp == nil {
+		return 0
+	}
+	type statusCodeRaw interface {
+		StatusCodeRaw() int
+	}
+	if sc, ok := resp.(statusCodeRaw); ok {
+		if code := sc.StatusCodeRaw(); code != 0 {
+			return code
+		}
+		return 0
+	}
+	type statusCoder interface {
+		StatusCode() int
+	}
+	if sc, ok := resp.(statusCoder); ok {
+		if code := sc.StatusCode(); code != 0 {
+			return code
 		}
 	}
 	return 0

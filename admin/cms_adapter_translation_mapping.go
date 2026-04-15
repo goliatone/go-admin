@@ -208,30 +208,7 @@ func applyGoCMSTranslationProjection(out *CMSContent, projection goCMSTranslatio
 	if out == nil {
 		return
 	}
-	chosen := projection.chosen
-	if chosen.IsValid() {
-		if groupID := cmsadapter.UUIDStringField(chosen, "FamilyID"); groupID != "" {
-			out.FamilyID = groupID
-		}
-		if code := localeCodeFromTranslation(chosen); code != "" {
-			out.Locale = code
-		}
-		out.Title = cmsadapter.StringField(chosen, "Title")
-		if summary := cmsadapter.StringField(chosen, "Summary"); summary != "" {
-			out.Data["excerpt"] = summary
-		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Pointer && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
-			out.Data["excerpt"] = summaryPtr.Elem().String()
-		}
-		if contentData := translationContentMap(chosen); len(contentData) > 0 {
-			maps.Copy(contentData, out.Data)
-			out.Data = contentData
-		}
-		if out.Title == "" {
-			if title := strings.TrimSpace(toString(out.Data["title"])); title != "" {
-				out.Title = title
-			}
-		}
-	}
+	applyGoCMSTranslationChoice(out, projection.chosen, "")
 	if len(projection.availableLocales) > 0 {
 		out.AvailableLocales = append([]string{}, projection.availableLocales...)
 	}
@@ -316,34 +293,49 @@ func applyGoCMSTranslationVariant(out *CMSContent, variant goCMSTranslationVaria
 	if out == nil {
 		return
 	}
-	chosen := variant.translation
-	if chosen.IsValid() {
-		if groupID := cmsadapter.UUIDStringField(chosen, "FamilyID"); groupID != "" {
-			out.FamilyID = groupID
-		}
-		if variant.locale != "" {
-			out.Locale = variant.locale
-		} else if code := localeCodeFromTranslation(chosen); code != "" {
-			out.Locale = code
-		}
-		out.Title = cmsadapter.StringField(chosen, "Title")
-		if summary := cmsadapter.StringField(chosen, "Summary"); summary != "" {
-			out.Data["excerpt"] = summary
-		} else if summaryPtr := chosen.FieldByName("Summary"); summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Pointer && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
-			out.Data["excerpt"] = summaryPtr.Elem().String()
-		}
-		if contentData := translationContentMap(chosen); len(contentData) > 0 {
-			maps.Copy(contentData, out.Data)
-			out.Data = contentData
-		}
-		if out.Title == "" {
-			if title := strings.TrimSpace(toString(out.Data["title"])); title != "" {
-				out.Title = title
-			}
-		}
-	}
+	applyGoCMSTranslationChoice(out, variant.translation, variant.locale)
 	if len(variant.availableLocales) > 0 {
 		out.AvailableLocales = append([]string{}, variant.availableLocales...)
+	}
+}
+
+func applyGoCMSTranslationChoice(out *CMSContent, chosen reflect.Value, locale string) {
+	if out == nil || !chosen.IsValid() {
+		return
+	}
+	if groupID := cmsadapter.UUIDStringField(chosen, "FamilyID"); groupID != "" {
+		out.FamilyID = groupID
+	}
+	locale = strings.TrimSpace(locale)
+	if locale != "" {
+		out.Locale = locale
+	} else if code := localeCodeFromTranslation(chosen); code != "" {
+		out.Locale = code
+	}
+	out.Title = cmsadapter.StringField(chosen, "Title")
+	applyGoCMSTranslationSummary(out, chosen)
+	if contentData := translationContentMap(chosen); len(contentData) > 0 {
+		maps.Copy(contentData, out.Data)
+		out.Data = contentData
+	}
+	if out.Title == "" {
+		if title := strings.TrimSpace(toString(out.Data["title"])); title != "" {
+			out.Title = title
+		}
+	}
+}
+
+func applyGoCMSTranslationSummary(out *CMSContent, chosen reflect.Value) {
+	if out == nil || !chosen.IsValid() {
+		return
+	}
+	if summary := cmsadapter.StringField(chosen, "Summary"); summary != "" {
+		out.Data["excerpt"] = summary
+		return
+	}
+	summaryPtr := chosen.FieldByName("Summary")
+	if summaryPtr.IsValid() && summaryPtr.Kind() == reflect.Pointer && !summaryPtr.IsNil() && summaryPtr.Elem().Kind() == reflect.String {
+		out.Data["excerpt"] = summaryPtr.Elem().String()
 	}
 }
 

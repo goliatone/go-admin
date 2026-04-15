@@ -58,25 +58,7 @@ func (r goCMSContentWriteBoundary) CreateContent(ctx context.Context, content CM
 	applySchemaVersionToContent(&content)
 	applyEmbeddedBlocksToContent(&content)
 	if a.adminWrite != nil {
-		contentTypeID, err := r.resolveAdminContentTypeID(ctx, content)
-		if err != nil {
-			return nil, err
-		}
-		req := cmsadapter.CMSContentToAdminContentCreateRequest(content, contentTypeID, actor, true)
-		if includeMeta {
-			req.Metadata = meta
-		} else {
-			req.Metadata = nil
-		}
-		created, err := a.adminWrite.Create(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		if created == nil {
-			return nil, ErrNotFound
-		}
-		rec := a.convertAdminContentRecord(ctx, *created)
-		return &rec, nil
+		return r.createContentViaAdminWrite(ctx, content, actor, meta, includeMeta)
 	}
 	contentTypeID, err := r.resolveContentTypeID(ctx, content)
 	if err != nil {
@@ -102,6 +84,29 @@ func (r goCMSContentWriteBoundary) CreateContent(ctx context.Context, content CM
 		return nil, ErrNotFound
 	}
 	rec := a.convertContent(ctx, reflect.ValueOf(created), content.Locale)
+	return &rec, nil
+}
+
+func (r goCMSContentWriteBoundary) createContentViaAdminWrite(ctx context.Context, content CMSContent, actor uuid.UUID, meta map[string]any, includeMeta bool) (*CMSContent, error) {
+	a := r.adapter
+	contentTypeID, err := r.resolveAdminContentTypeID(ctx, content)
+	if err != nil {
+		return nil, err
+	}
+	req := cmsadapter.CMSContentToAdminContentCreateRequest(content, contentTypeID, actor, true)
+	if includeMeta {
+		req.Metadata = meta
+	} else {
+		req.Metadata = nil
+	}
+	created, err := a.adminWrite.Create(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if created == nil {
+		return nil, ErrNotFound
+	}
+	rec := a.convertAdminContentRecord(ctx, *created)
 	return &rec, nil
 }
 
@@ -673,16 +678,18 @@ func (r goCMSContentWriteBoundary) lookupContentTypeID(ctx context.Context, cont
 			}
 		}
 	}
-	if key := strings.TrimSpace(content.ContentType); key != "" {
-		if ct, err := a.contentTypes.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
-			if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
-				return id, true
-			}
+	key := strings.TrimSpace(content.ContentType)
+	if key == "" {
+		return uuid.Nil, false
+	}
+	if ct, err := a.contentTypes.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
+		if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
+			return id, true
 		}
-		if ct, err := a.contentTypes.ContentType(ctx, key); err == nil && ct != nil {
-			if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
-				return id, true
-			}
+	}
+	if ct, err := a.contentTypes.ContentType(ctx, key); err == nil && ct != nil {
+		if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
+			return id, true
 		}
 	}
 	return uuid.Nil, false

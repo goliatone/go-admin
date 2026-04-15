@@ -93,8 +93,9 @@ func appendTranslationFamilyLocaleVariants(ctx context.Context, adm *Admin, fami
 		return err
 	}
 	for _, page := range pages {
-		if err := appendPageFamilyVariant(families, seenVariants, page, locale, defaultLocale); err != nil {
-			return err
+		appendErr := appendPageFamilyVariant(families, seenVariants, page, locale, defaultLocale)
+		if appendErr != nil {
+			return appendErr
 		}
 	}
 	contents, err := adm.contentSvc.Contents(ctx, locale)

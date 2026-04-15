@@ -94,15 +94,16 @@ func resolveBlockBool(config map[string]any, hints map[string]string, key string
 	if value, ok := blockBoolConfigValue(config, key); ok {
 		return value
 	}
-	if hints != nil {
-		if raw, ok := hints[key]; ok {
-			normalized := strings.TrimSpace(strings.ToLower(raw))
-			if normalized == "true" {
-				return true
-			}
-			if normalized == "false" {
-				return false
-			}
+	if hints == nil {
+		return fallback
+	}
+	if raw, ok := hints[key]; ok {
+		normalized := strings.TrimSpace(strings.ToLower(raw))
+		if normalized == "true" {
+			return true
+		}
+		if normalized == "false" {
+			return false
 		}
 	}
 	return fallback

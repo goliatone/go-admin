@@ -33,6 +33,27 @@ type TenantsModule struct {
 	urls          urlkit.Resolver
 }
 
+func applySharedModuleDefaults(ctx ModuleContext, basePath, menuCode, defaultLocale, uiGroupPath *string, urls *urlkit.Resolver, routeKey string) {
+	if *basePath == "" {
+		*basePath = ctx.Admin.config.BasePath
+	}
+	if *menuCode == "" {
+		*menuCode = ctx.Admin.navMenuCode
+	}
+	if *defaultLocale == "" {
+		*defaultLocale = ctx.Admin.config.DefaultLocale
+	}
+	if *urls == nil {
+		*urls = ctx.Admin.URLs()
+	}
+	if groupPath := strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath); groupPath != "" {
+		*uiGroupPath = groupPath
+	}
+	if routePath := ctx.Routing.RoutePath(routing.SurfaceUI, routeKey); routePath != "" {
+		*basePath = routePath
+	}
+}
+
 // NewTenantsModule constructs the default tenants module.
 func NewTenantsModule() *TenantsModule {
 	return (&TenantsModule{}).WithMenuParent("nav-group-main")
@@ -107,15 +128,7 @@ func (m *TenantsModule) Register(ctx ModuleContext) error {
 }
 
 func (m *TenantsModule) applyDefaults(ctx ModuleContext) {
-	if m.basePath == "" {
-		m.basePath = ctx.Admin.config.BasePath
-	}
-	if m.menuCode == "" {
-		m.menuCode = ctx.Admin.navMenuCode
-	}
-	if m.defaultLocale == "" {
-		m.defaultLocale = ctx.Admin.config.DefaultLocale
-	}
+	applySharedModuleDefaults(ctx, &m.basePath, &m.menuCode, &m.defaultLocale, &m.uiGroupPath, &m.urls, tenantsRouteKey)
 	if m.viewPerm == "" {
 		m.viewPerm = ctx.Admin.config.TenantsPermission
 	}
@@ -127,15 +140,6 @@ func (m *TenantsModule) applyDefaults(ctx ModuleContext) {
 	}
 	if m.deletePerm == "" {
 		m.deletePerm = ctx.Admin.config.TenantsDeletePermission
-	}
-	if m.urls == nil {
-		m.urls = ctx.Admin.URLs()
-	}
-	if groupPath := strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath); groupPath != "" {
-		m.uiGroupPath = groupPath
-	}
-	if routePath := ctx.Routing.RoutePath(routing.SurfaceUI, tenantsRouteKey); routePath != "" {
-		m.basePath = routePath
 	}
 }
 
@@ -262,15 +266,7 @@ func (m *OrganizationsModule) Register(ctx ModuleContext) error {
 }
 
 func (m *OrganizationsModule) applyDefaults(ctx ModuleContext) {
-	if m.basePath == "" {
-		m.basePath = ctx.Admin.config.BasePath
-	}
-	if m.menuCode == "" {
-		m.menuCode = ctx.Admin.navMenuCode
-	}
-	if m.defaultLocale == "" {
-		m.defaultLocale = ctx.Admin.config.DefaultLocale
-	}
+	applySharedModuleDefaults(ctx, &m.basePath, &m.menuCode, &m.defaultLocale, &m.uiGroupPath, &m.urls, organizationsRouteKey)
 	if m.viewPerm == "" {
 		m.viewPerm = ctx.Admin.config.OrganizationsPermission
 	}
@@ -282,15 +278,6 @@ func (m *OrganizationsModule) applyDefaults(ctx ModuleContext) {
 	}
 	if m.deletePerm == "" {
 		m.deletePerm = ctx.Admin.config.OrganizationsDeletePermission
-	}
-	if m.urls == nil {
-		m.urls = ctx.Admin.URLs()
-	}
-	if groupPath := strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath); groupPath != "" {
-		m.uiGroupPath = groupPath
-	}
-	if routePath := ctx.Routing.RoutePath(routing.SurfaceUI, organizationsRouteKey); routePath != "" {
-		m.basePath = routePath
 	}
 }
 

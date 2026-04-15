@@ -410,7 +410,7 @@ func optionsFromAny(raw any) []Option {
 }
 
 func normalizeSchemaFieldType(raw string, options []Option) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
+	switch normalizeFieldTypeKey(raw) {
 	case "textarea", "text", "markdown", "richtext":
 		return "textarea"
 	case "number", "integer", "float", "int":
@@ -419,8 +419,10 @@ func normalizeSchemaFieldType(raw string, options []Option) string {
 		return "boolean"
 	case "select", "enum":
 		return "select"
-	case "media", "media_picker":
-		return "media"
+	case "media", "media-picker":
+		return "media-picker"
+	case "media-gallery":
+		return "media-gallery"
 	case "", "string":
 		if len(options) > 0 {
 			return "select"
@@ -825,22 +827,14 @@ func overrideFieldName(override map[string]any) string {
 }
 
 func fieldOrder(prop map[string]any, override map[string]any, fallback int) int {
-	if override != nil {
-		if order, ok := numericOrder(override["order"]); ok {
-			return order
-		}
+	if order, ok := metadataOrder(override); ok {
+		return order
 	}
-	if prop != nil {
-		if meta := extractXFormgen(prop); meta != nil {
-			if order, ok := numericOrder(meta["order"]); ok {
-				return order
-			}
-		}
-		if meta := extractXAdmin(prop); meta != nil {
-			if order, ok := numericOrder(meta["order"]); ok {
-				return order
-			}
-		}
+	if order, ok := metadataOrder(extractXFormgen(prop)); ok {
+		return order
+	}
+	if order, ok := metadataOrder(extractXAdmin(prop)); ok {
+		return order
 	}
 	return fallback
 }
@@ -897,17 +891,11 @@ func isFilterable(field Field, prop map[string]any, override map[string]any) boo
 			return toBool(value)
 		}
 	}
-	if prop != nil {
-		if meta := extractXFormgen(prop); meta != nil {
-			if value, ok := meta["filterable"]; ok {
-				return toBool(value)
-			}
-		}
-		if meta := extractXAdmin(prop); meta != nil {
-			if value, ok := meta["filterable"]; ok {
-				return toBool(value)
-			}
-		}
+	if value, ok := metadataBool(extractXFormgen(prop), "filterable"); ok {
+		return value
+	}
+	if value, ok := metadataBool(extractXAdmin(prop), "filterable"); ok {
+		return value
 	}
 	if field.Hidden {
 		return false
@@ -918,6 +906,24 @@ func isFilterable(field Field, prop map[string]any, override map[string]any) boo
 	default:
 		return true
 	}
+}
+
+func metadataOrder(meta map[string]any) (int, bool) {
+	if meta == nil {
+		return 0, false
+	}
+	return numericOrder(meta["order"])
+}
+
+func metadataBool(meta map[string]any, key string) (bool, bool) {
+	if meta == nil {
+		return false, false
+	}
+	value, ok := meta[key]
+	if !ok {
+		return false, false
+	}
+	return toBool(value), true
 }
 
 func sortFieldsByOrder(fields []Field, order map[string]int) []Field {

@@ -252,24 +252,7 @@ func debugREPLLogDenied(admin *Admin, ctx context.Context, c router.Context, kin
 	resourceRoles := []string{}
 	if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
 		role = strings.TrimSpace(actor.Role)
-		if len(actor.ResourceRoles) > 0 {
-			for resource, role := range actor.ResourceRoles {
-				resource = strings.TrimSpace(resource)
-				role = strings.TrimSpace(role)
-				if resource == "" && role == "" {
-					continue
-				}
-				if resource == "" {
-					resourceRoles = append(resourceRoles, role)
-					continue
-				}
-				if role == "" {
-					resourceRoles = append(resourceRoles, resource)
-					continue
-				}
-				resourceRoles = append(resourceRoles, resource+":"+role)
-			}
-		}
+		resourceRoles = debugREPLResourceRoles(actor.ResourceRoles)
 	}
 	adminScopedLogger(admin, "admin.debug.repl.guard").Warn("debug repl access denied",
 		"text_code", textCode,
@@ -281,4 +264,25 @@ func debugREPLLogDenied(admin *Admin, ctx context.Context, c router.Context, kin
 		"path", path,
 		"resource_roles", resourceRoles,
 		"meta", meta)
+}
+
+func debugREPLResourceRoles(resourceRolesMap map[string]string) []string {
+	resourceRoles := []string{}
+	for resource, role := range resourceRolesMap {
+		resource = strings.TrimSpace(resource)
+		role = strings.TrimSpace(role)
+		if resource == "" && role == "" {
+			continue
+		}
+		if resource == "" {
+			resourceRoles = append(resourceRoles, role)
+			continue
+		}
+		if role == "" {
+			resourceRoles = append(resourceRoles, resource)
+			continue
+		}
+		resourceRoles = append(resourceRoles, resource+":"+role)
+	}
+	return resourceRoles
 }

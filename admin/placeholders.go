@@ -479,31 +479,40 @@ func (a *GoAuthAuthorizer) ResolvedPermissions(ctx context.Context) []string {
 		return nil
 	}
 	a.resolverCalls.Add(1)
-	if cache := resolvedPermissionsCacheFromContext(ctx); cache != nil {
-		_, readyBefore, _, _ := cache.snapshot()
-		if readyBefore {
-			a.resolverCacheHits.Add(1)
-		} else {
-			a.resolverCacheMisses.Add(1)
-		}
-		cache.once.Do(func() {
-			a.resolverRuns.Add(1)
-			perms, err := a.resolvePerms(ctx)
-			cache.markResolved(dedupePermissions(perms), err)
-		})
-		perms, _, runs, err := cache.snapshot()
-		if runs > 1 {
-			ensureLogger(a.logger).Warn("auth permission resolver executed more than once in request context", "runs", runs)
-		}
-		if err != nil {
-			a.resolverErrors.Add(1)
-			if a.debug {
-				ensureLogger(a.logger).Debug("auth permission resolve failed", "error", err.Error())
-			}
-			return nil
-		}
-		return clonePermissions(perms)
+	cache := resolvedPermissionsCacheFromContext(ctx)
+	if cache == nil {
+		return a.resolvePermissionsWithoutCache(ctx)
 	}
+	return a.resolvePermissionsWithCache(ctx, cache)
+}
+
+func (a *GoAuthAuthorizer) resolvePermissionsWithCache(ctx context.Context, cache *resolvedPermissionsCache) []string {
+	_, readyBefore, _, _ := cache.snapshot()
+	if readyBefore {
+		a.resolverCacheHits.Add(1)
+	} else {
+		a.resolverCacheMisses.Add(1)
+	}
+	cache.once.Do(func() {
+		a.resolverRuns.Add(1)
+		perms, err := a.resolvePerms(ctx)
+		cache.markResolved(dedupePermissions(perms), err)
+	})
+	perms, _, runs, err := cache.snapshot()
+	if runs > 1 {
+		ensureLogger(a.logger).Warn("auth permission resolver executed more than once in request context", "runs", runs)
+	}
+	if err != nil {
+		a.resolverErrors.Add(1)
+		if a.debug {
+			ensureLogger(a.logger).Debug("auth permission resolve failed", "error", err.Error())
+		}
+		return nil
+	}
+	return clonePermissions(perms)
+}
+
+func (a *GoAuthAuthorizer) resolvePermissionsWithoutCache(ctx context.Context) []string {
 	a.resolverContextCacheAbsent.Add(1)
 	a.resolverCacheMisses.Add(1)
 	a.noCacheWarnOnce.Do(func() {

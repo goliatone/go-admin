@@ -737,26 +737,37 @@ func (s *TranslationExchangeService) completeApplyFlight(ctx context.Context, id
 	flight, ok := s.inFlight[fingerprint]
 	persisted := record
 	if persist {
-		if s.ledger != nil {
-			stored, replay, err := s.ledger.RecordApplyRecord(ctx, identity, record)
-			if err != nil {
-				if ok {
-					close(flight.done)
-				}
-				delete(s.inFlight, fingerprint)
-				return translationExchangeAppliedRecord{}, err
-			}
-			if replay {
-				persisted = stored
-			}
+		var err error
+		persisted, err = s.persistApplyRecord(ctx, identity, record)
+		if err != nil {
+			s.finishApplyFlightLocked(fingerprint, ok, flight)
+			return translationExchangeAppliedRecord{}, err
 		}
 		s.applied[fingerprint] = persisted
 	}
+	s.finishApplyFlightLocked(fingerprint, ok, flight)
+	return persisted, nil
+}
+
+func (s *TranslationExchangeService) persistApplyRecord(ctx context.Context, identity translationTransportIdentity, record translationExchangeAppliedRecord) (translationExchangeAppliedRecord, error) {
+	if s.ledger == nil {
+		return record, nil
+	}
+	stored, replay, err := s.ledger.RecordApplyRecord(ctx, identity, record)
+	if err != nil {
+		return translationExchangeAppliedRecord{}, err
+	}
+	if replay {
+		return stored, nil
+	}
+	return record, nil
+}
+
+func (s *TranslationExchangeService) finishApplyFlightLocked(fingerprint string, ok bool, flight *translationExchangeApplyFlight) {
 	delete(s.inFlight, fingerprint)
 	if ok {
 		close(flight.done)
 	}
-	return persisted, nil
 }
 
 func hasSourceHashConflict(row TranslationExchangeRow, linkage TranslationExchangeLinkage) bool {

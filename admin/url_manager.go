@@ -60,7 +60,8 @@ func normalizeAPIVersion(version string) string {
 	return strings.Trim(trimmed, "/")
 }
 
-func newURLManager(cfg Config) (*urlkit.RouteManager, error) {
+func newURLManager(cfg Config, requireMediaRoutes ...bool) (*urlkit.RouteManager, error) {
+	includeMediaRoutes := len(requireMediaRoutes) > 0 && requireMediaRoutes[0]
 	if cfg.URLs.URLKit != nil {
 		manager, err := urlkit.NewRouteManagerFromConfig(cfg.URLs.URLKit)
 		if err != nil {
@@ -69,7 +70,7 @@ func newURLManager(cfg Config) (*urlkit.RouteManager, error) {
 				"error":     err.Error(),
 			})
 		}
-		if err := validateURLKitRoutes(cfg, manager); err != nil {
+		if err := validateURLKitRoutes(cfg, manager, includeMediaRoutes); err != nil {
 			return nil, validationDomainError("url manager validation error", map[string]any{
 				"component": "url_manager",
 				"error":     err.Error(),
@@ -85,7 +86,7 @@ func newURLManager(cfg Config) (*urlkit.RouteManager, error) {
 			"error":     err.Error(),
 		})
 	}
-	if err := validateURLKitRoutes(cfg, manager); err != nil {
+	if err := validateURLKitRoutes(cfg, manager, includeMediaRoutes); err != nil {
 		return nil, validationDomainError("url manager validation error", map[string]any{
 			"component": "url_manager",
 			"error":     err.Error(),
@@ -145,11 +146,11 @@ func publicAPIGroupName(cfg Config) string {
 	return routing.PublicAPIGroupPath(effectiveRoutingRoots(cfg))
 }
 
-func requiredURLKitRoutes(cfg Config) map[string][]string {
+func requiredURLKitRoutes(cfg Config, includeMediaRoutes bool) map[string][]string {
 	adminAPIGroup := adminAPIGroupName(cfg)
 	publicAPIGroup := publicAPIGroupName(cfg)
 
-	return map[string][]string{
+	required := map[string][]string{
 		"admin":       {"dashboard"},
 		adminAPIGroup: {"errors", "preview"},
 		publicAPIGroup: {
@@ -165,15 +166,27 @@ func requiredURLKitRoutes(cfg Config) map[string][]string {
 			"site.menus.code",
 		},
 	}
+	if includeMediaRoutes {
+		required[adminAPIGroup] = append(required[adminAPIGroup],
+			"media.library",
+			"media.item",
+			"media.resolve",
+			"media.upload",
+			"media.presign",
+			"media.confirm",
+			"media.capabilities",
+		)
+	}
+	return required
 }
 
-func validateURLKitRoutes(cfg Config, manager *urlkit.RouteManager) error {
+func validateURLKitRoutes(cfg Config, manager *urlkit.RouteManager, includeMediaRoutes bool) error {
 	if manager == nil {
 		return serviceNotConfiguredDomainError("url manager", map[string]any{
 			"component": "url_manager",
 		})
 	}
-	return manager.Validate(requiredURLKitRoutes(cfg))
+	return manager.Validate(requiredURLKitRoutes(cfg, includeMediaRoutes))
 }
 
 func effectiveRoutingRoots(cfg Config) routing.RootsConfig {

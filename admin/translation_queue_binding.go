@@ -763,7 +763,6 @@ func (b *translationQueueBinding) requireAssignmentActionPermission(adminCtx Adm
 			"action": action,
 		})
 	}
-	return nil
 }
 
 func validateClaimAssignmentPermission(adminCtx AdminContext, assignment TranslationAssignment) error {

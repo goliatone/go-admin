@@ -121,20 +121,7 @@ func resolveGoCMSMenuService(container any) CMSMenuService {
 			return adapted
 		}
 	}
-	if provider, ok := container.(interface{ Container() any }); ok {
-		inner := provider.Container()
-		if innerProvider, ok := inner.(interface{ MenuService() cms.MenuService }); ok {
-			if adapted := NewGoCMSMenuAdapterFromAny(innerProvider.MenuService()); adapted != nil {
-				return adapted
-			}
-		}
-		if innerProvider, ok := inner.(interface{ MenuService() any }); ok {
-			if adapted := NewGoCMSMenuAdapterFromAny(innerProvider.MenuService()); adapted != nil {
-				return adapted
-			}
-		}
-	}
-	return nil
+	return resolveGoCMSMenuServiceFromContainer(container)
 }
 
 func resolveGoCMSContentService(container any) CMSContentService {
@@ -266,28 +253,70 @@ func resolveGoCMSContentTranslationService(container any) any {
 		return nil
 	}
 	method := reflect.ValueOf(container).MethodByName("ContentTranslations")
-	if method.IsValid() {
-		signature := method.Type()
-		if signature.NumIn() == 0 && signature.NumOut() >= 1 {
-			results := method.Call(nil)
-			if len(results) > 0 {
-				result := results[0]
-				if result.IsValid() {
-					if result.Kind() == reflect.Pointer || result.Kind() == reflect.Interface {
-						if !result.IsNil() {
-							return result.Interface()
-						}
-					} else {
-						return result.Interface()
-					}
-				}
-			}
-		}
+	if result := reflectNoArgMethodResult(method); result != nil {
+		return result
 	}
-	if provider, ok := container.(interface{ Container() any }); ok {
-		return resolveGoCMSContentTranslationService(provider.Container())
+	if inner, ok := goCMSInnerContainer(container); ok {
+		return resolveGoCMSContentTranslationService(inner)
 	}
 	return nil
+}
+
+func resolveGoCMSMenuServiceFromContainer(container any) CMSMenuService {
+	inner, ok := goCMSInnerContainer(container)
+	if !ok {
+		return nil
+	}
+	if innerProvider, ok := inner.(interface{ MenuService() cms.MenuService }); ok {
+		if adapted := NewGoCMSMenuAdapterFromAny(innerProvider.MenuService()); adapted != nil {
+			return adapted
+		}
+	}
+	if innerProvider, ok := inner.(interface{ MenuService() any }); ok {
+		if adapted := NewGoCMSMenuAdapterFromAny(innerProvider.MenuService()); adapted != nil {
+			return adapted
+		}
+	}
+	return nil
+}
+
+func goCMSInnerContainer(container any) (any, bool) {
+	provider, ok := container.(interface{ Container() any })
+	if !ok {
+		return nil, false
+	}
+	inner := provider.Container()
+	if inner == nil {
+		return nil, false
+	}
+	return inner, true
+}
+
+func reflectNoArgMethodResult(method reflect.Value) any {
+	if !method.IsValid() {
+		return nil
+	}
+	signature := method.Type()
+	if signature.NumIn() != 0 || signature.NumOut() < 1 {
+		return nil
+	}
+	results := method.Call(nil)
+	if len(results) == 0 {
+		return nil
+	}
+	return reflectInterfaceValue(results[0])
+}
+
+func reflectInterfaceValue(result reflect.Value) any {
+	if !result.IsValid() {
+		return nil
+	}
+	if result.Kind() == reflect.Pointer || result.Kind() == reflect.Interface {
+		if result.IsNil() {
+			return nil
+		}
+	}
+	return result.Interface()
 }
 
 func resolveGoCMSContentTypeService(container any) CMSContentTypeService {

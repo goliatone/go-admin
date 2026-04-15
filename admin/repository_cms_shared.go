@@ -177,27 +177,32 @@ func normalizeNavigationVisibilityMap(raw any) map[string]string {
 	}
 	source, ok := raw.(map[string]any)
 	if !ok {
-		if typed, ok := raw.(map[string]string); ok {
-			out := map[string]string{}
-			for key, value := range typed {
-				location := strings.TrimSpace(key)
-				mode := strings.TrimSpace(strings.ToLower(value))
-				if location == "" || mode == "" {
-					continue
-				}
-				out[location] = mode
-			}
-			if len(out) == 0 {
-				return nil
-			}
-			return out
+		typed, ok := raw.(map[string]string)
+		if !ok {
+			return nil
 		}
-		return nil
+		return normalizeStringMapValues(typed)
 	}
 	out := map[string]string{}
 	for key, value := range source {
 		location := strings.TrimSpace(key)
 		mode := strings.TrimSpace(strings.ToLower(toString(value)))
+		if location == "" || mode == "" {
+			continue
+		}
+		out[location] = mode
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeStringMapValues(source map[string]string) map[string]string {
+	out := map[string]string{}
+	for key, value := range source {
+		location := strings.TrimSpace(key)
+		mode := strings.TrimSpace(strings.ToLower(value))
 		if location == "" || mode == "" {
 			continue
 		}

@@ -160,47 +160,8 @@ func (g *SchemaGuardrails) countFieldsAndDepth(schema map[string]any, currentDep
 	fieldCount := 0
 	maxDepth := currentDepth
 
-	// Count properties
-	if props, ok := schema["properties"].(map[string]any); ok {
-		for _, propValue := range props {
-			fieldCount++
-			if propSchema, ok := propValue.(map[string]any); ok {
-				// Recurse into nested object properties
-				if _, hasProps := propSchema["properties"]; hasProps {
-					subCount, subDepth := g.countFieldsAndDepth(propSchema, currentDepth+1)
-					fieldCount += subCount
-					if subDepth > maxDepth {
-						maxDepth = subDepth
-					}
-				}
-				// Check array items
-				if items, ok := propSchema["items"].(map[string]any); ok {
-					if _, hasProps := items["properties"]; hasProps {
-						subCount, subDepth := g.countFieldsAndDepth(items, currentDepth+1)
-						fieldCount += subCount
-						if subDepth > maxDepth {
-							maxDepth = subDepth
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Handle definitions/defs
-	for _, key := range []string{"definitions", "$defs"} {
-		if defs, ok := schema[key].(map[string]any); ok {
-			for _, defValue := range defs {
-				if defSchema, ok := defValue.(map[string]any); ok {
-					subCount, subDepth := g.countFieldsAndDepth(defSchema, currentDepth+1)
-					fieldCount += subCount
-					if subDepth > maxDepth {
-						maxDepth = subDepth
-					}
-				}
-			}
-		}
-	}
+	fieldCount, maxDepth = g.countPropertyFields(schemaMapField(schema, "properties"), currentDepth, fieldCount, maxDepth)
+	fieldCount, maxDepth = g.countDefinitionFields(schema, currentDepth, fieldCount, maxDepth)
 
 	return fieldCount, maxDepth
 }
@@ -306,48 +267,90 @@ func (g *SchemaGuardrails) validateJSONPointerTarget(pointer string, schema map[
 
 // validateLayoutReferences checks that layout tab/section field references exist
 func (g *SchemaGuardrails) validateLayoutReferences(layout map[string]any, schema map[string]any) error {
-	// Check tabs
-	if tabs, ok := layout["tabs"].([]any); ok {
-		for _, tab := range tabs {
-			tabMap, ok := tab.(map[string]any)
+	if err := g.validateLayoutFieldReferences(layout["tabs"], schema, "tab"); err != nil {
+		return err
+	}
+	if err := g.validateLayoutFieldReferences(layout["sections"], schema, "section"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func schemaMapField(schema map[string]any, key string) map[string]any {
+	if schema == nil {
+		return nil
+	}
+	value, _ := schema[key].(map[string]any)
+	return value
+}
+
+func (g *SchemaGuardrails) countPropertyFields(props map[string]any, currentDepth, fieldCount, maxDepth int) (int, int) {
+	for _, propValue := range props {
+		fieldCount++
+		propSchema, ok := propValue.(map[string]any)
+		if !ok {
+			continue
+		}
+		fieldCount, maxDepth = g.countNestedSchemaFields(propSchema, currentDepth, fieldCount, maxDepth)
+	}
+	return fieldCount, maxDepth
+}
+
+func (g *SchemaGuardrails) countNestedSchemaFields(propSchema map[string]any, currentDepth, fieldCount, maxDepth int) (int, int) {
+	if _, hasProps := propSchema["properties"]; hasProps {
+		subCount, subDepth := g.countFieldsAndDepth(propSchema, currentDepth+1)
+		fieldCount += subCount
+		if subDepth > maxDepth {
+			maxDepth = subDepth
+		}
+	}
+	items := schemaMapField(propSchema, "items")
+	if _, hasProps := items["properties"]; hasProps {
+		subCount, subDepth := g.countFieldsAndDepth(items, currentDepth+1)
+		fieldCount += subCount
+		if subDepth > maxDepth {
+			maxDepth = subDepth
+		}
+	}
+	return fieldCount, maxDepth
+}
+
+func (g *SchemaGuardrails) countDefinitionFields(schema map[string]any, currentDepth, fieldCount, maxDepth int) (int, int) {
+	for _, key := range []string{"definitions", "$defs"} {
+		for _, defValue := range schemaMapField(schema, key) {
+			defSchema, ok := defValue.(map[string]any)
 			if !ok {
 				continue
 			}
-			if fields, ok := tabMap["fields"].([]any); ok {
-				for _, field := range fields {
-					fieldStr, ok := field.(string)
-					if !ok {
-						continue
-					}
-					if !g.validateJSONPointerTarget(fieldStr, schema) {
-						return guardrailError("ui_schema", fmt.Sprintf("layout tab references non-existent field: %s", fieldStr))
-					}
-				}
+			subCount, subDepth := g.countFieldsAndDepth(defSchema, currentDepth+1)
+			fieldCount += subCount
+			if subDepth > maxDepth {
+				maxDepth = subDepth
 			}
 		}
 	}
+	return fieldCount, maxDepth
+}
 
-	// Check sections
-	if sections, ok := layout["sections"].([]any); ok {
-		for _, section := range sections {
-			sectionMap, ok := section.(map[string]any)
+func (g *SchemaGuardrails) validateLayoutFieldReferences(raw any, schema map[string]any, sectionType string) error {
+	items, _ := raw.([]any)
+	for _, item := range items {
+		itemMap, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		fields, _ := itemMap["fields"].([]any)
+		for _, field := range fields {
+			fieldStr, ok := field.(string)
 			if !ok {
 				continue
 			}
-			if fields, ok := sectionMap["fields"].([]any); ok {
-				for _, field := range fields {
-					fieldStr, ok := field.(string)
-					if !ok {
-						continue
-					}
-					if !g.validateJSONPointerTarget(fieldStr, schema) {
-						return guardrailError("ui_schema", fmt.Sprintf("layout section references non-existent field: %s", fieldStr))
-					}
-				}
+			if !g.validateJSONPointerTarget(fieldStr, schema) {
+				return guardrailError("ui_schema", fmt.Sprintf("layout %s references non-existent field: %s", sectionType, fieldStr))
 			}
 		}
 	}
-
 	return nil
 }
 

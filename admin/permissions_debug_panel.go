@@ -178,24 +178,7 @@ func (p *PermissionsDebugPanel) collectRequiredPermissions() map[string]string {
 
 	// Collect from registered panels
 	if p.admin.registry != nil {
-		for name, panel := range p.admin.registry.Panels() {
-			if panel == nil {
-				continue
-			}
-			panelPerms := panel.permissions
-			if panelPerms.View != "" {
-				perms[panelPerms.View] = name
-			}
-			if panelPerms.Create != "" {
-				perms[panelPerms.Create] = name
-			}
-			if panelPerms.Edit != "" {
-				perms[panelPerms.Edit] = name
-			}
-			if panelPerms.Delete != "" {
-				perms[panelPerms.Delete] = name
-			}
-		}
+		collectPanelPermissions(perms, p.admin.registry.Panels())
 	}
 
 	// Collect from config permissions
@@ -243,6 +226,27 @@ func (p *PermissionsDebugPanel) collectRequiredPermissions() map[string]string {
 	}
 
 	return perms
+}
+
+func collectPanelPermissions(target map[string]string, panels map[string]*Panel) {
+	for name, panel := range panels {
+		if panel == nil {
+			continue
+		}
+		panelPerms := panel.permissions
+		if panelPerms.View != "" {
+			target[panelPerms.View] = name
+		}
+		if panelPerms.Create != "" {
+			target[panelPerms.Create] = name
+		}
+		if panelPerms.Edit != "" {
+			target[panelPerms.Edit] = name
+		}
+		if panelPerms.Delete != "" {
+			target[panelPerms.Delete] = name
+		}
+	}
 }
 
 func (p *PermissionsDebugPanel) collectClaimsPermissions(ctx context.Context) []string {

@@ -271,11 +271,11 @@ func (a *Admin) addMenuItems(ctx context.Context, items []MenuItem) error {
 	cmsEnabled := featureEnabled(a.featureGate, FeatureCMS)
 	fallbackItems := []MenuItem{}
 	if a.menuSvc != nil {
-		items, err := a.persistMenuItems(ctx, items)
+		persistedItems, err := a.persistMenuItems(ctx, items)
 		if err != nil {
 			return err
 		}
-		fallbackItems = items
+		fallbackItems = persistedItems
 	}
 	if (!cmsEnabled || a.menuSvc == nil) && a.nav != nil {
 		a.addFallbackMenuItems(items, fallbackItems)

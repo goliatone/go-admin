@@ -393,20 +393,7 @@ func (r *CMSPageRepository) pageTranslationMissing(ctx context.Context, id, requ
 	}
 	page, err := r.content.Page(ctx, id, requested)
 	if err != nil {
-		if IsTranslationMissing(err) {
-			return true, nil
-		}
-		if errors.Is(err, ErrNotFound) {
-			existing, lookupErr := r.content.Page(ctx, id, "")
-			if lookupErr == nil && existing != nil {
-				return true, nil
-			}
-			if lookupErr != nil && !errors.Is(lookupErr, ErrNotFound) {
-				return false, lookupErr
-			}
-			return false, ErrNotFound
-		}
-		return false, err
+		return r.pageTranslationMissingFromLookupError(ctx, id, err)
 	}
 	if page == nil {
 		return false, ErrNotFound
@@ -427,4 +414,21 @@ func (r *CMSPageRepository) pageTranslationMissing(ctx context.Context, id, requ
 		}
 	}
 	return false, nil
+}
+
+func (r *CMSPageRepository) pageTranslationMissingFromLookupError(ctx context.Context, id string, err error) (bool, error) {
+	if IsTranslationMissing(err) {
+		return true, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return false, err
+	}
+	existing, lookupErr := r.content.Page(ctx, id, "")
+	if lookupErr == nil && existing != nil {
+		return true, nil
+	}
+	if lookupErr != nil && !errors.Is(lookupErr, ErrNotFound) {
+		return false, lookupErr
+	}
+	return false, ErrNotFound
 }

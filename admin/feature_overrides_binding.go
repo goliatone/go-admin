@@ -160,41 +160,9 @@ func (b *featureOverridesBinding) resolveFeatureFlag(ctx context.Context, key st
 	if key == "" {
 		return nil, nil
 	}
-	if traceable, ok := b.admin.featureGate.(fggate.TraceableFeatureGate); ok {
-		value, trace, err := traceable.ResolveWithTrace(ctx, key, fggate.WithScopeChain(scopeChain))
-		if err != nil {
-			return nil, err
-		}
-		overrideState := trace.Override.State
-		if overrideState == "" {
-			overrideState = fggate.OverrideStateMissing
-		}
-		override := map[string]any{
-			"state": overrideState,
-		}
-		if trace.Override.Value != nil {
-			override["value"] = *trace.Override.Value
-		}
-		defaultInfo := map[string]any{
-			"set": trace.Default.Set,
-		}
-		if trace.Default.Set {
-			defaultInfo["value"] = trace.Default.Value
-		}
-		record := map[string]any{
-			"key":       trace.NormalizedKey,
-			"effective": value,
-			"source":    trace.Source,
-			"override":  override,
-			"default":   defaultInfo,
-		}
-		if description := b.admin.featureFlagDescription(ctx, trace.NormalizedKey); description != "" {
-			record["description"] = description
-		}
-		if includeTrace {
-			record["trace"] = trace
-		}
-		return record, nil
+	traceable, ok := b.admin.featureGate.(fggate.TraceableFeatureGate)
+	if ok {
+		return b.resolveTraceableFeatureFlag(ctx, key, scopeChain, includeTrace, traceable)
 	}
 
 	value, err := b.admin.featureGate.Enabled(ctx, key, fggate.WithScopeChain(scopeChain))
@@ -208,6 +176,43 @@ func (b *featureOverridesBinding) resolveFeatureFlag(ctx context.Context, key st
 	}
 	if description := b.admin.featureFlagDescription(ctx, key); description != "" {
 		record["description"] = description
+	}
+	return record, nil
+}
+
+func (b *featureOverridesBinding) resolveTraceableFeatureFlag(ctx context.Context, key string, scopeChain fggate.ScopeChain, includeTrace bool, traceable fggate.TraceableFeatureGate) (map[string]any, error) {
+	value, trace, err := traceable.ResolveWithTrace(ctx, key, fggate.WithScopeChain(scopeChain))
+	if err != nil {
+		return nil, err
+	}
+	overrideState := trace.Override.State
+	if overrideState == "" {
+		overrideState = fggate.OverrideStateMissing
+	}
+	override := map[string]any{
+		"state": overrideState,
+	}
+	if trace.Override.Value != nil {
+		override["value"] = *trace.Override.Value
+	}
+	defaultInfo := map[string]any{
+		"set": trace.Default.Set,
+	}
+	if trace.Default.Set {
+		defaultInfo["value"] = trace.Default.Value
+	}
+	record := map[string]any{
+		"key":       trace.NormalizedKey,
+		"effective": value,
+		"source":    trace.Source,
+		"override":  override,
+		"default":   defaultInfo,
+	}
+	if description := b.admin.featureFlagDescription(ctx, trace.NormalizedKey); description != "" {
+		record["description"] = description
+	}
+	if includeTrace {
+		record["trace"] = trace
 	}
 	return record, nil
 }

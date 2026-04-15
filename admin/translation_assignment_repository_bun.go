@@ -199,40 +199,45 @@ func (r *BunTranslationAssignmentRepository) create(ctx context.Context, assignm
 	var created TranslationAssignment
 	var inserted bool
 	err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		if normalized.Status.IsActive() {
-			existing, found, err := r.findActiveByKeyTx(ctx, tx, normalized)
-			if err != nil {
-				return err
-			}
-			if found {
-				if !allowReuse {
-					return newTranslationAssignmentConflict(normalized, existing.ID)
-				}
-				refreshed := refreshExistingAssignment(existing, normalized, now)
-				record := bunTranslationAssignmentRecordFromAssignment(refreshed)
-				if _, err := tx.NewUpdate().
-					Model(&record).
-					Where("assignment_id = ?", record.AssignmentID).
-					Exec(ctx); err != nil {
-					return err
-				}
-				created = refreshed
-				inserted = false
-				return nil
-			}
+		if !normalized.Status.IsActive() {
+			return insertAssignmentTx(ctx, tx, normalized, &created, &inserted)
 		}
-		record := bunTranslationAssignmentRecordFromAssignment(normalized)
-		if _, err := tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+		existing, found, err := r.findActiveByKeyTx(ctx, tx, normalized)
+		if err != nil {
 			return err
 		}
-		created = normalized
-		inserted = true
-		return nil
+		if found {
+			if !allowReuse {
+				return newTranslationAssignmentConflict(normalized, existing.ID)
+			}
+			refreshed := refreshExistingAssignment(existing, normalized, now)
+			record := bunTranslationAssignmentRecordFromAssignment(refreshed)
+			if _, err := tx.NewUpdate().
+				Model(&record).
+				Where("assignment_id = ?", record.AssignmentID).
+				Exec(ctx); err != nil {
+				return err
+			}
+			created = refreshed
+			inserted = false
+			return nil
+		}
+		return insertAssignmentTx(ctx, tx, normalized, &created, &inserted)
 	})
 	if err != nil {
 		return TranslationAssignment{}, false, err
 	}
 	return cloneTranslationAssignment(created), inserted, nil
+}
+
+func insertAssignmentTx(ctx context.Context, tx bun.Tx, assignment TranslationAssignment, created *TranslationAssignment, inserted *bool) error {
+	record := bunTranslationAssignmentRecordFromAssignment(assignment)
+	if _, err := tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+		return err
+	}
+	*created = assignment
+	*inserted = true
+	return nil
 }
 
 func (r *BunTranslationAssignmentRepository) getTx(ctx context.Context, db bun.IDB, id string) (TranslationAssignment, error) {

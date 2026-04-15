@@ -56,33 +56,7 @@ func (s goCMSAdminBlockWriteService) UpdateDefinition(ctx context.Context, id st
 	}
 	def.ID = id
 	if existing, err := s.findBlockDefinition(ctx, id, cmsadapter.BlockDefinitionChannel(def)); err == nil && existing != nil {
-		if strings.TrimSpace(def.Name) == "" {
-			def.Name = existing.Name
-		}
-		if strings.TrimSpace(def.Slug) == "" {
-			def.Slug = existing.Slug
-		}
-		if strings.TrimSpace(def.Type) == "" {
-			def.Type = existing.Type
-		}
-		if strings.TrimSpace(def.Status) == "" {
-			def.Status = existing.Status
-		}
-		if !def.DescriptionSet {
-			def.Description = existing.Description
-		}
-		if !def.IconSet {
-			def.Icon = existing.Icon
-		}
-		if !def.CategorySet {
-			def.Category = existing.Category
-		}
-		if def.Schema == nil {
-			def.Schema = existing.Schema
-		}
-		if def.UISchema == nil {
-			def.UISchema = existing.UISchema
-		}
+		mergeBlockDefinitionUpdate(&def, existing)
 	}
 	applyBlockDefinitionDefaults(&def)
 	updated, err := s.content.UpdateBlockDefinition(ctx, def)
@@ -90,6 +64,39 @@ func (s goCMSAdminBlockWriteService) UpdateDefinition(ctx context.Context, id st
 		return nil, err
 	}
 	return adminBlockDefinitionMutationRecord(*updated), nil
+}
+
+func mergeBlockDefinitionUpdate(target *CMSBlockDefinition, existing *CMSBlockDefinition) {
+	if target == nil || existing == nil {
+		return
+	}
+	if strings.TrimSpace(target.Name) == "" {
+		target.Name = existing.Name
+	}
+	if strings.TrimSpace(target.Slug) == "" {
+		target.Slug = existing.Slug
+	}
+	if strings.TrimSpace(target.Type) == "" {
+		target.Type = existing.Type
+	}
+	if strings.TrimSpace(target.Status) == "" {
+		target.Status = existing.Status
+	}
+	if !target.DescriptionSet {
+		target.Description = existing.Description
+	}
+	if !target.IconSet {
+		target.Icon = existing.Icon
+	}
+	if !target.CategorySet {
+		target.Category = existing.Category
+	}
+	if target.Schema == nil {
+		target.Schema = existing.Schema
+	}
+	if target.UISchema == nil {
+		target.UISchema = existing.UISchema
+	}
 }
 
 func (s goCMSAdminBlockWriteService) DeleteDefinition(ctx context.Context, id string) error {

@@ -114,7 +114,7 @@ func resolveAdminRuntimeState(state adminConstructorState, deps Dependencies) (a
 	state.exportRegistrar = deps.ExportRegistrar
 	state.exportMetadata = deps.ExportMetadata
 	state.bulkSvc = resolveBulkService(deps.BulkService, state.featureGate)
-	state.urlManager, err = resolveAdminURLManager(state.cfg, deps.URLManager)
+	state.urlManager, err = resolveAdminURLManager(state.cfg, deps.URLManager, state.featureGate)
 	if err != nil {
 		return state, err
 	}
@@ -402,11 +402,18 @@ func resolveBulkService(bulkSvc BulkService, featureGate fggate.FeatureGate) Bul
 	return DisabledBulkService{}
 }
 
-func resolveAdminURLManager(cfg Config, urlManager *urlkit.RouteManager) (*urlkit.RouteManager, error) {
+func resolveAdminURLManager(cfg Config, urlManager *urlkit.RouteManager, featureGate fggate.FeatureGate) (*urlkit.RouteManager, error) {
+	requireMediaRoutes := featureEnabled(featureGate, FeatureMedia)
 	if urlManager != nil {
+		if err := validateURLKitRoutes(cfg, urlManager, requireMediaRoutes); err != nil {
+			return nil, validationDomainError("url manager validation error", map[string]any{
+				"component": "url_manager",
+				"error":     err.Error(),
+			})
+		}
 		return urlManager, nil
 	}
-	return newURLManager(cfg)
+	return newURLManager(cfg, requireMediaRoutes)
 }
 
 func resolveRoutingPlanner(cfg Config, urlManager *urlkit.RouteManager, featureGate fggate.FeatureGate) (routing.Planner, routing.StartupReport, error) {

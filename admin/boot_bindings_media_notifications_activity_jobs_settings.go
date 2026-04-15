@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
@@ -596,6 +598,7 @@ func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
 		}
 		filtered = append(filtered, item)
 	}
+	sortLegacyMediaItems(filtered, query.Sort)
 
 	total := len(filtered)
 	start := query.Offset
@@ -615,6 +618,49 @@ func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
 		Limit:  query.Limit,
 		Offset: query.Offset,
 	}
+}
+
+func sortLegacyMediaItems(items []MediaItem, sortBy string) {
+	switch strings.ToLower(strings.TrimSpace(sortBy)) {
+	case "filename", "name":
+		sort.SliceStable(items, func(i, j int) bool {
+			left := strings.ToLower(strings.TrimSpace(items[i].Name))
+			right := strings.ToLower(strings.TrimSpace(items[j].Name))
+			if left == right {
+				return newerMediaItem(items[i], items[j])
+			}
+			return left < right
+		})
+	case "size":
+		sort.SliceStable(items, func(i, j int) bool {
+			if items[i].Size == items[j].Size {
+				return newerMediaItem(items[i], items[j])
+			}
+			return items[i].Size > items[j].Size
+		})
+	case "oldest":
+		sort.SliceStable(items, func(i, j int) bool {
+			return olderMediaItem(items[i], items[j])
+		})
+	default:
+		sort.SliceStable(items, func(i, j int) bool {
+			return newerMediaItem(items[i], items[j])
+		})
+	}
+}
+
+func newerMediaItem(left, right MediaItem) bool {
+	if left.CreatedAt.Equal(right.CreatedAt) {
+		return strings.TrimSpace(left.ID) > strings.TrimSpace(right.ID)
+	}
+	return left.CreatedAt.After(right.CreatedAt)
+}
+
+func olderMediaItem(left, right MediaItem) bool {
+	if left.CreatedAt.Equal(right.CreatedAt) {
+		return strings.TrimSpace(left.ID) < strings.TrimSpace(right.ID)
+	}
+	return left.CreatedAt.Before(right.CreatedAt)
 }
 
 type mediaQueryFilters struct {
@@ -674,8 +720,10 @@ func toInt64(value any) int64 {
 	case float64:
 		return int64(typed)
 	case string:
-		var result int64
-		fmt.Sscan(strings.TrimSpace(typed), &result)
+		result, err := strconv.ParseInt(strings.TrimSpace(typed), 10, 64)
+		if err != nil {
+			return 0
+		}
 		return result
 	default:
 		return 0
@@ -910,26 +958,29 @@ func (s *settingsBinding) Save(c router.Context, body map[string]any) (map[strin
 		UserID: ctx.UserID,
 		Values: valuesRaw,
 	}
-	if s.admin.commandBus != nil {
-		payload := map[string]any{
-			"values":  valuesRaw,
-			"scope":   string(scope),
-			"user_id": ctx.UserID,
-		}
-		if err := s.admin.commandBus.DispatchByName(ctx.Context, settingsUpdateCommandName, payload, nil); err != nil {
-			return nil, err
-		}
-	} else if s.admin.settingsCommand != nil {
-		if err := s.admin.settingsCommand.Execute(ctx.Context, SettingsUpdateMsg{Bundle: bundle}); err != nil {
-			return nil, err
-		}
-	} else if s.admin.settings != nil {
-		if err := s.admin.settings.Apply(ctx.Context, bundle); err != nil {
-			return nil, err
-		}
+	if err := s.applySettingsBundle(ctx, bundle, valuesRaw); err != nil {
+		return nil, err
 	}
 	return map[string]any{
 		"status": "ok",
 		"values": s.admin.settings.ResolveAll(ctx.UserID),
 	}, nil
+}
+
+func (s *settingsBinding) applySettingsBundle(ctx AdminContext, bundle SettingsBundle, valuesRaw map[string]any) error {
+	if s.admin.commandBus != nil {
+		payload := map[string]any{
+			"values":  valuesRaw,
+			"scope":   string(bundle.Scope),
+			"user_id": bundle.UserID,
+		}
+		return s.admin.commandBus.DispatchByName(ctx.Context, settingsUpdateCommandName, payload, nil)
+	}
+	if s.admin.settingsCommand != nil {
+		return s.admin.settingsCommand.Execute(ctx.Context, SettingsUpdateMsg{Bundle: bundle})
+	}
+	if s.admin.settings != nil {
+		return s.admin.settings.Apply(ctx.Context, bundle)
+	}
+	return nil
 }

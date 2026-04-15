@@ -650,12 +650,14 @@ func mergeFormFieldSchemaWidget(prop map[string]any, field Field) {
 }
 
 func mapFieldType(t string) string {
-	switch t {
+	switch normalizeFieldTypeKey(t) {
 	case "number", "integer":
 		return "number"
 	case "boolean":
 		return "boolean"
 	case "array", "blocks", "block", "repeater", "block-library-picker", "block-library":
+		return "array"
+	case "media-gallery":
 		return "array"
 	case "object", "json":
 		return "object"
@@ -665,12 +667,12 @@ func mapFieldType(t string) string {
 }
 
 func mapWidget(t string) string {
-	switch t {
+	switch normalizeFieldTypeKey(t) {
 	case "textarea":
 		return "textarea"
-	case "jsonschema", "json_schema", "schema":
+	case "jsonschema", "json-schema", "schema":
 		return "schema-editor"
-	case "media", "media_picker":
+	case "media", "media-picker", "media-gallery":
 		return "media-picker"
 	case "block", "blocks":
 		return "block"
@@ -690,7 +692,7 @@ func applyMediaHints(schema *Schema, media *MediaConfig) {
 		return
 	}
 	for _, field := range schema.FormFields {
-		if field.Type != "media" && field.Type != "media_picker" {
+		if !isMediaFieldType(field.Type) {
 			continue
 		}
 		prop, ok := props[field.Name].(map[string]any)

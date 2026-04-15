@@ -143,30 +143,35 @@ func mediaActivityMetadata(event MediaMutationEvent, item *MediaItem, mediaID st
 	if strings.TrimSpace(mediaID) != "" {
 		metadata["media_id"] = mediaID
 	}
-	if item != nil {
-		if value := strings.TrimSpace(item.Name); value != "" {
-			metadata["name"] = value
-		}
-		if value := strings.TrimSpace(item.Type); value != "" {
-			metadata["type"] = value
-		}
-		if value := strings.TrimSpace(item.MIMEType); value != "" {
-			metadata["mime_type"] = value
-		}
-		if item.Size > 0 {
-			metadata["size"] = item.Size
-		}
-		if value := strings.TrimSpace(item.Status); value != "" {
-			metadata["status"] = value
-		}
-		if value := strings.TrimSpace(item.WorkflowStatus); value != "" {
-			metadata["workflow_status"] = value
-		}
-	}
+	addMediaActivityItemMetadata(metadata, item)
 	if requestKind := strings.TrimSpace(toString(event.Request["request_kind"])); requestKind != "" {
 		metadata["request_kind"] = requestKind
 	}
 	return metadata
+}
+
+func addMediaActivityItemMetadata(metadata map[string]any, item *MediaItem) {
+	if item == nil {
+		return
+	}
+	if value := strings.TrimSpace(item.Name); value != "" {
+		metadata["name"] = value
+	}
+	if value := strings.TrimSpace(item.Type); value != "" {
+		metadata["type"] = value
+	}
+	if value := strings.TrimSpace(item.MIMEType); value != "" {
+		metadata["mime_type"] = value
+	}
+	if item.Size > 0 {
+		metadata["size"] = item.Size
+	}
+	if value := strings.TrimSpace(item.Status); value != "" {
+		metadata["status"] = value
+	}
+	if value := strings.TrimSpace(item.WorkflowStatus); value != "" {
+		metadata["workflow_status"] = value
+	}
 }
 
 func cloneMediaActivityMetadata(input map[string]any) map[string]any {

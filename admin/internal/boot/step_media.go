@@ -114,7 +114,9 @@ func mediaUploadHandler(responder Responder, binding MediaBinding) router.Handle
 			return writeJSONOrError(responder, c, nil, err)
 		}
 		if file.Reader != nil {
-			defer file.Reader.Close()
+			defer func() {
+				_ = file.Reader.Close()
+			}()
 		}
 		payload, err := binding.Upload(c, body, file)
 		return writeJSONOrError(responder, c, payload, err)
@@ -160,7 +162,8 @@ func parseMediaUploadRequest(c router.Context) (map[string]any, MultipartFile, e
 	}
 	if raw := strings.TrimSpace(c.FormValue("metadata")); raw != "" {
 		var metadata map[string]any
-		if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+		err = json.Unmarshal([]byte(raw), &metadata)
+		if err != nil {
 			return nil, MultipartFile{}, bootValidationError("metadata", "metadata must be valid JSON")
 		}
 		body["metadata"] = metadata

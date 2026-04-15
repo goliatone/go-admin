@@ -154,24 +154,47 @@ func blockTypeFromSchemaDef(def map[string]any) string {
 			return value
 		}
 	}
-	if props, ok := def["properties"].(map[string]any); ok && props != nil {
-		for _, key := range []string{"_type", "type"} {
-			if raw, ok := props[key].(map[string]any); ok {
-				if value := strings.TrimSpace(toString(raw["const"])); value != "" {
-					return value
-				}
-				if rawEnum, ok := raw["enum"].([]any); ok {
-					for _, candidate := range rawEnum {
-						if value := strings.TrimSpace(toString(candidate)); value != "" {
-							return value
-						}
-					}
-				}
-			}
+	props, ok := def["properties"].(map[string]any)
+	if !ok || props == nil {
+		if ref, ok := def["$ref"].(string); ok && strings.TrimSpace(ref) != "" {
+			return refTail(ref)
 		}
+		return ""
+	}
+	if value := blockTypeFromProperties(props); value != "" {
+		return value
 	}
 	if ref, ok := def["$ref"].(string); ok && strings.TrimSpace(ref) != "" {
 		return refTail(ref)
+	}
+	return ""
+}
+
+func blockTypeFromProperties(props map[string]any) string {
+	for _, key := range []string{"_type", "type"} {
+		raw, ok := props[key].(map[string]any)
+		if !ok {
+			continue
+		}
+		if value := strings.TrimSpace(toString(raw["const"])); value != "" {
+			return value
+		}
+		if value := blockTypeFromEnumValues(raw["enum"]); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func blockTypeFromEnumValues(raw any) string {
+	values, ok := raw.([]any)
+	if !ok {
+		return ""
+	}
+	for _, candidate := range values {
+		if value := strings.TrimSpace(toString(candidate)); value != "" {
+			return value
+		}
 	}
 	return ""
 }

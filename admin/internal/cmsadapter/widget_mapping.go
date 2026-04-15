@@ -52,23 +52,29 @@ func ConvertGoCMSResolvedWidget(entry *cmswidgets.ResolvedWidget) dashinternal.W
 		return dashinternal.WidgetInstance{}
 	}
 	inst := ConvertGoCMSWidgetInstance(entry.Instance)
-	if entry.Placement != nil {
-		inst.Area = primitives.FirstNonEmptyRaw(entry.Placement.AreaCode, inst.Area)
-		inst.Position = entry.Placement.Position
-		if entry.Placement.Metadata != nil {
-			if inst.PageID == "" {
-				if pageID, ok := entry.Placement.Metadata["page_id"].(string); ok {
-					inst.PageID = pageID
-				}
-			}
-			if inst.Locale == "" {
-				if locale, ok := entry.Placement.Metadata["locale"].(string); ok {
-					inst.Locale = locale
-				}
-			}
+	applyResolvedWidgetPlacement(&inst, entry.Placement)
+	return inst
+}
+
+func applyResolvedWidgetPlacement(inst *dashinternal.WidgetInstance, placement *cmswidgets.AreaPlacement) {
+	if inst == nil || placement == nil {
+		return
+	}
+	inst.Area = primitives.FirstNonEmptyRaw(placement.AreaCode, inst.Area)
+	inst.Position = placement.Position
+	if placement.Metadata == nil {
+		return
+	}
+	if inst.PageID == "" {
+		if pageID, ok := placement.Metadata["page_id"].(string); ok {
+			inst.PageID = pageID
 		}
 	}
-	return inst
+	if inst.Locale == "" {
+		if locale, ok := placement.Metadata["locale"].(string); ok {
+			inst.Locale = locale
+		}
+	}
 }
 
 func FilterWidgetInstances(instances []dashinternal.WidgetInstance, filter dashinternal.WidgetInstanceFilter) []dashinternal.WidgetInstance {

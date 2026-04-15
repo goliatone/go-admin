@@ -232,15 +232,13 @@ func callbackRequestOrigin(c router.Context) string {
 		host = strings.TrimSpace(c.Header("Host"))
 	}
 
-	if httpCtx := callbackURLHTTPContext(c); httpCtx != nil {
-		request := httpCtx.Request()
-		if request != nil {
-			if host == "" {
-				host = strings.TrimSpace(request.Host)
-			}
-			if scheme == "" {
-				scheme = callbackURLRequestScheme(request)
-			}
+	request := callbackURLRequest(c)
+	if request != nil {
+		if host == "" {
+			host = strings.TrimSpace(request.Host)
+		}
+		if scheme == "" {
+			scheme = callbackURLRequestScheme(request)
 		}
 	}
 
@@ -256,6 +254,14 @@ func callbackRequestOrigin(c router.Context) string {
 		return ""
 	}
 	return strings.ToLower(strings.TrimSpace(scheme)) + "://" + host
+}
+
+func callbackURLRequest(c router.Context) *http.Request {
+	httpCtx := callbackURLHTTPContext(c)
+	if httpCtx == nil {
+		return nil
+	}
+	return httpCtx.Request()
 }
 
 func firstCSVValue(raw string) string {
