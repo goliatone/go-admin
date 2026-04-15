@@ -201,27 +201,8 @@ func (r goCMSContentWriteBoundary) resolveAdminContentTypeID(ctx context.Context
 			return id, nil
 		}
 	}
-	a := r.adapter
-	if a != nil && a.contentTypes != nil {
-		if slug := strings.TrimSpace(content.ContentTypeSlug); slug != "" {
-			if ct, err := a.contentTypes.ContentTypeBySlug(ctx, slug); err == nil && ct != nil {
-				if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
-					return id, nil
-				}
-			}
-		}
-		if key := strings.TrimSpace(content.ContentType); key != "" {
-			if ct, err := a.contentTypes.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
-				if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
-					return id, nil
-				}
-			}
-			if ct, err := a.contentTypes.ContentType(ctx, key); err == nil && ct != nil {
-				if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
-					return id, nil
-				}
-			}
-		}
+	if id, ok := r.lookupContentTypeID(ctx, content); ok {
+		return id, nil
 	}
 	if strings.TrimSpace(primitives.FirstNonEmptyRaw(content.ContentTypeSlug, content.ContentType)) != "" {
 		return uuid.Nil, nil
@@ -353,9 +334,9 @@ func (r goCMSContentWriteBoundary) UpdateBlockDefinition(ctx context.Context, de
 	}
 	if a.adminBlockW != nil {
 		req := cmsadapter.CMSBlockDefinitionToAdminBlockDefinitionUpdateRequest(def, defID, cmsContentChannelFromContext(ctx, ""))
-		updated, err := a.adminBlockW.UpdateDefinition(ctx, req)
-		if err != nil {
-			return nil, err
+		updated, updateErr := a.adminBlockW.UpdateDefinition(ctx, req)
+		if updateErr != nil {
+			return nil, updateErr
 		}
 		if updated == nil {
 			return nil, ErrNotFound
@@ -644,34 +625,42 @@ func (r goCMSContentWriteBoundary) upsertBlockTranslation(ctx context.Context, i
 }
 
 func (r goCMSContentWriteBoundary) resolveContentTypeID(ctx context.Context, content CMSContent) (uuid.UUID, error) {
-	a := r.adapter
 	for _, candidate := range []string{content.ContentType, content.ContentTypeSlug} {
 		if id := cmsadapter.UUIDFromString(candidate); id != uuid.Nil {
 			return id, nil
 		}
 	}
-	if a.contentTypes != nil {
-		if slug := strings.TrimSpace(content.ContentTypeSlug); slug != "" {
-			if ct, err := a.contentTypes.ContentTypeBySlug(ctx, slug); err == nil && ct != nil {
-				if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
-					return id, nil
-				}
-			}
-		}
-		if key := strings.TrimSpace(content.ContentType); key != "" {
-			if ct, err := a.contentTypes.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
-				if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
-					return id, nil
-				}
-			}
-			if ct, err := a.contentTypes.ContentType(ctx, key); err == nil && ct != nil {
-				if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
-					return id, nil
-				}
+	if id, ok := r.lookupContentTypeID(ctx, content); ok {
+		return id, nil
+	}
+	return uuid.Nil, notFoundDomainError("content type not found", map[string]any{"component": "content_adapter", "content_type": content.ContentType})
+}
+
+func (r goCMSContentWriteBoundary) lookupContentTypeID(ctx context.Context, content CMSContent) (uuid.UUID, bool) {
+	a := r.adapter
+	if a == nil || a.contentTypes == nil {
+		return uuid.Nil, false
+	}
+	if slug := strings.TrimSpace(content.ContentTypeSlug); slug != "" {
+		if ct, err := a.contentTypes.ContentTypeBySlug(ctx, slug); err == nil && ct != nil {
+			if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
+				return id, true
 			}
 		}
 	}
-	return uuid.Nil, notFoundDomainError("content type not found", map[string]any{"component": "content_adapter", "content_type": content.ContentType})
+	if key := strings.TrimSpace(content.ContentType); key != "" {
+		if ct, err := a.contentTypes.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
+			if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
+				return id, true
+			}
+		}
+		if ct, err := a.contentTypes.ContentType(ctx, key); err == nil && ct != nil {
+			if id := cmsadapter.UUIDFromString(ct.ID); id != uuid.Nil {
+				return id, true
+			}
+		}
+	}
+	return uuid.Nil, false
 }
 
 func preserveBlockDefinitionSetFlags(target *CMSBlockDefinition, requested CMSBlockDefinition) {

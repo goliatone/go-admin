@@ -337,38 +337,7 @@ type TenantPanelRepository = genericPanelRepository[TenantRecord]
 
 // NewTenantPanelRepository constructs a repository backed by TenantService.
 func NewTenantPanelRepository(service *TenantService) *TenantPanelRepository {
-	return newGenericPanelRepository(
-		FeatureDisabledError{Feature: string(FeatureTenants)},
-		func(ctx context.Context, opts ListOptions) ([]TenantRecord, int, error) {
-			if service == nil {
-				return nil, 0, FeatureDisabledError{Feature: string(FeatureTenants)}
-			}
-			return service.ListTenants(ctx, opts)
-		},
-		func(ctx context.Context, id string) (TenantRecord, error) {
-			if service == nil {
-				return TenantRecord{}, FeatureDisabledError{Feature: string(FeatureTenants)}
-			}
-			return service.GetTenant(ctx, id)
-		},
-		func(ctx context.Context, tenant TenantRecord) (TenantRecord, error) {
-			if service == nil {
-				return TenantRecord{}, FeatureDisabledError{Feature: string(FeatureTenants)}
-			}
-			return service.SaveTenant(ctx, tenant)
-		},
-		func(ctx context.Context, id string) error {
-			if service == nil {
-				return FeatureDisabledError{Feature: string(FeatureTenants)}
-			}
-			return service.DeleteTenant(ctx, id)
-		},
-		tenantFromRecord,
-		tenantToRecord,
-		func(tenant TenantRecord, record map[string]any) {
-			record["member_count"] = len(tenant.Members)
-		},
-	)
+	return newMemberCountPanelRepository(service, string(FeatureTenants), (*TenantService).ListTenants, (*TenantService).GetTenant, (*TenantService).SaveTenant, (*TenantService).DeleteTenant, tenantFromRecord, tenantToRecord, tenantRecordMemberCount)
 }
 
 // OrganizationPanelRepository adapts OrganizationService to the panel Repository contract.
@@ -376,37 +345,72 @@ type OrganizationPanelRepository = genericPanelRepository[OrganizationRecord]
 
 // NewOrganizationPanelRepository constructs a repository backed by OrganizationService.
 func NewOrganizationPanelRepository(service *OrganizationService) *OrganizationPanelRepository {
+	return newMemberCountPanelRepository(service, string(FeatureOrganizations), (*OrganizationService).ListOrganizations, (*OrganizationService).GetOrganization, (*OrganizationService).SaveOrganization, (*OrganizationService).DeleteOrganization, organizationFromRecord, organizationToRecord, organizationRecordMemberCount)
+}
+
+func newMemberCountPanelRepository[Service any, Record any](
+	service *Service,
+	feature string,
+	list func(*Service, context.Context, ListOptions) ([]Record, int, error),
+	get func(*Service, context.Context, string) (Record, error),
+	save func(*Service, context.Context, Record) (Record, error),
+	deleteByID func(*Service, context.Context, string) error,
+	fromRecord func(map[string]any, string) Record,
+	toRecord func(Record) map[string]any,
+	memberCount func(Record) int,
+) *genericPanelRepository[Record] {
+	return newServicePanelRepository(service, feature, list, get, save, deleteByID, fromRecord, toRecord, func(record Record, entry map[string]any) {
+		entry["member_count"] = memberCount(record)
+	})
+}
+
+func tenantRecordMemberCount(record TenantRecord) int { return len(record.Members) }
+
+func organizationRecordMemberCount(record OrganizationRecord) int { return len(record.Members) }
+
+func newServicePanelRepository[Service any, Record any](
+	service *Service,
+	feature string,
+	list func(*Service, context.Context, ListOptions) ([]Record, int, error),
+	get func(*Service, context.Context, string) (Record, error),
+	save func(*Service, context.Context, Record) (Record, error),
+	deleteByID func(*Service, context.Context, string) error,
+	fromRecord func(map[string]any, string) Record,
+	toRecord func(Record) map[string]any,
+	mutateListEntry func(Record, map[string]any),
+) *genericPanelRepository[Record] {
+	disabled := FeatureDisabledError{Feature: feature}
 	return newGenericPanelRepository(
-		FeatureDisabledError{Feature: string(FeatureOrganizations)},
-		func(ctx context.Context, opts ListOptions) ([]OrganizationRecord, int, error) {
+		disabled,
+		func(ctx context.Context, opts ListOptions) ([]Record, int, error) {
 			if service == nil {
-				return nil, 0, FeatureDisabledError{Feature: string(FeatureOrganizations)}
+				return nil, 0, disabled
 			}
-			return service.ListOrganizations(ctx, opts)
+			return list(service, ctx, opts)
 		},
-		func(ctx context.Context, id string) (OrganizationRecord, error) {
+		func(ctx context.Context, id string) (Record, error) {
 			if service == nil {
-				return OrganizationRecord{}, FeatureDisabledError{Feature: string(FeatureOrganizations)}
+				var zero Record
+				return zero, disabled
 			}
-			return service.GetOrganization(ctx, id)
+			return get(service, ctx, id)
 		},
-		func(ctx context.Context, org OrganizationRecord) (OrganizationRecord, error) {
+		func(ctx context.Context, record Record) (Record, error) {
 			if service == nil {
-				return OrganizationRecord{}, FeatureDisabledError{Feature: string(FeatureOrganizations)}
+				var zero Record
+				return zero, disabled
 			}
-			return service.SaveOrganization(ctx, org)
+			return save(service, ctx, record)
 		},
 		func(ctx context.Context, id string) error {
 			if service == nil {
-				return FeatureDisabledError{Feature: string(FeatureOrganizations)}
+				return disabled
 			}
-			return service.DeleteOrganization(ctx, id)
+			return deleteByID(service, ctx, id)
 		},
-		organizationFromRecord,
-		organizationToRecord,
-		func(org OrganizationRecord, record map[string]any) {
-			record["member_count"] = len(org.Members)
-		},
+		fromRecord,
+		toRecord,
+		mutateListEntry,
 	)
 }
 

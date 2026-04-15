@@ -774,19 +774,6 @@ func (d *Dashboard) Page(ctx AdminContext) (dashcmp.Page, error) {
 	return comp.runtime.Controller.Page(ctx.Context, viewer)
 }
 
-func (d *Dashboard) resolvedInstances(ctx AdminContext) []DashboardWidgetInstance {
-	comp, err := d.ensureComponents(ctx.Context)
-	if err != nil || comp == nil {
-		return nil
-	}
-	viewer := viewerFromAdminContext(ctx)
-	layout, err := comp.runtime.Service.ConfigureLayout(ctx.Context, viewer)
-	if err != nil {
-		return nil
-	}
-	return instancesFromLayout(layout, viewer)
-}
-
 func cloneDashboardInstances(in []DashboardWidgetInstance) []DashboardWidgetInstance {
 	return dashinternal.CloneDashboardInstances(in)
 }
@@ -812,52 +799,6 @@ func flattenWidgets(layout dashcmp.Layout) []map[string]any {
 		}
 	}
 	return out
-}
-
-func instancesFromLayout(layout dashcmp.Layout, viewer dashcmp.ViewerContext) []DashboardWidgetInstance {
-	areas := dashinternal.OrderedAreaCodes(layout.Areas)
-	out := []DashboardWidgetInstance{}
-	position := 0
-	for _, code := range areas {
-		for _, inst := range layout.Areas[code] {
-			meta := inst.Metadata
-			order := dashinternal.OrderFromMetadata(meta)
-			if order < 0 {
-				order = position
-			}
-			locale := dashinternal.LocaleFromMetadata(meta)
-			if locale == "" {
-				locale = viewer.Locale
-			}
-			out = append(out, DashboardWidgetInstance{
-				ID:             inst.ID,
-				DefinitionCode: inst.DefinitionID,
-				AreaCode:       inst.AreaCode,
-				Config:         cloneAny(inst.Configuration),
-				Position:       order,
-				Span:           dashinternal.SpanFromMetadata(meta),
-				Hidden:         dashinternal.HiddenFromMetadata(meta),
-				Locale:         locale,
-			})
-			position++
-		}
-	}
-	return out
-}
-
-func convertDashboardTheme(theme *dashcmp.ThemeSelection) *ThemeSelection {
-	if theme == nil {
-		return nil
-	}
-	assets := theme.Assets.Resolved()
-	return &ThemeSelection{
-		Name:        theme.Name,
-		Variant:     theme.Variant,
-		Tokens:      primitives.CloneStringMapNilOnEmpty(theme.Tokens),
-		Assets:      primitives.CloneStringMapNilOnEmpty(assets),
-		ChartTheme:  theme.ChartTheme,
-		AssetPrefix: theme.Assets.Prefix,
-	}
 }
 
 func widgetServiceAdapterFor(svc CMSWidgetService) dashinternal.WidgetService {

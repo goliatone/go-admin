@@ -41,8 +41,8 @@ func (b *translationQueueBinding) Dashboard(c router.Context) (payload any, err 
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 
 	now := time.Now().UTC()

@@ -97,47 +97,15 @@ func registerWorkflowRPCEndpoints(server *cmdrpc.Server, adm *Admin) error {
 }
 
 func workflowAuthoringListMachinesEndpoint(adm *Admin, service *flow.AuthoringService) cmdrpc.EndpointDefinition {
-	return cmdrpc.NewEndpoint[flow.FSMAuthoringListMachinesRequest, flow.FSMAuthoringListMachinesResponse](
-		cmdrpc.EndpointSpec{
-			Method:      flow.FSMRPCMethodAuthoringListMachines,
-			Kind:        cmdrpc.MethodKindQuery,
-			Permissions: []string{"admin.workflows.read"},
-			Tags:        []string{"fsm", "authoring"},
-			Idempotent:  true,
-		},
-		func(ctx context.Context, req cmdrpc.RequestEnvelope[flow.FSMAuthoringListMachinesRequest]) (cmdrpc.ResponseEnvelope[flow.FSMAuthoringListMachinesResponse], error) {
-			if err := authorizeRPCPermission(ctx, adm.Authorizer(), "admin.workflows.read", "workflows"); err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringListMachinesResponse]{}, err
-			}
-			out, err := service.ListMachines(ctx, req.Data)
-			if err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringListMachinesResponse]{}, err
-			}
-			return cmdrpc.ResponseEnvelope[flow.FSMAuthoringListMachinesResponse]{Data: out}, nil
-		},
-	)
+	return workflowAuthoringQueryEndpoint(adm, flow.FSMRPCMethodAuthoringListMachines, func(ctx context.Context, req flow.FSMAuthoringListMachinesRequest) (flow.FSMAuthoringListMachinesResponse, error) {
+		return service.ListMachines(ctx, req)
+	})
 }
 
 func workflowAuthoringGetMachineEndpoint(adm *Admin, service *flow.AuthoringService) cmdrpc.EndpointDefinition {
-	return cmdrpc.NewEndpoint[flow.FSMAuthoringGetMachineRequest, flow.FSMAuthoringGetMachineResponse](
-		cmdrpc.EndpointSpec{
-			Method:      flow.FSMRPCMethodAuthoringGetMachine,
-			Kind:        cmdrpc.MethodKindQuery,
-			Permissions: []string{"admin.workflows.read"},
-			Tags:        []string{"fsm", "authoring"},
-			Idempotent:  true,
-		},
-		func(ctx context.Context, req cmdrpc.RequestEnvelope[flow.FSMAuthoringGetMachineRequest]) (cmdrpc.ResponseEnvelope[flow.FSMAuthoringGetMachineResponse], error) {
-			if err := authorizeRPCPermission(ctx, adm.Authorizer(), "admin.workflows.read", "workflows"); err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringGetMachineResponse]{}, err
-			}
-			out, err := service.GetMachine(ctx, req.Data)
-			if err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringGetMachineResponse]{}, err
-			}
-			return cmdrpc.ResponseEnvelope[flow.FSMAuthoringGetMachineResponse]{Data: out}, nil
-		},
-	)
+	return workflowAuthoringQueryEndpoint(adm, flow.FSMRPCMethodAuthoringGetMachine, func(ctx context.Context, req flow.FSMAuthoringGetMachineRequest) (flow.FSMAuthoringGetMachineResponse, error) {
+		return service.GetMachine(ctx, req)
+	})
 }
 
 func workflowAuthoringSaveDraftEndpoint(adm *Admin, service *flow.AuthoringService) cmdrpc.EndpointDefinition {
@@ -162,71 +130,80 @@ func workflowAuthoringSaveDraftEndpoint(adm *Admin, service *flow.AuthoringServi
 }
 
 func workflowAuthoringValidateEndpoint(adm *Admin, service *flow.AuthoringService) cmdrpc.EndpointDefinition {
-	return cmdrpc.NewEndpoint[flow.FSMAuthoringValidateRequest, flow.FSMAuthoringValidateResponse](
+	return workflowAuthoringQueryEndpoint(adm, flow.FSMRPCMethodAuthoringValidate, func(ctx context.Context, req flow.FSMAuthoringValidateRequest) (flow.FSMAuthoringValidateResponse, error) {
+		return service.Validate(ctx, req)
+	})
+}
+
+func workflowAuthoringPublishEndpoint(adm *Admin, service *flow.AuthoringService) cmdrpc.EndpointDefinition {
+	return workflowAuthoringCommandEndpoint(adm, flow.FSMRPCMethodAuthoringPublish, func(ctx context.Context, req flow.FSMAuthoringPublishRequest) (flow.FSMAuthoringPublishResponse, error) {
+		return service.Publish(ctx, req)
+	}, func(ctx context.Context, out flow.FSMAuthoringPublishResponse) error {
+		return syncPublishedMachineToRuntime(ctx, adm, out.MachineID)
+	})
+}
+
+func workflowAuthoringDeleteEndpoint(adm *Admin, service *flow.AuthoringService) cmdrpc.EndpointDefinition {
+	return workflowAuthoringCommandEndpoint(adm, flow.FSMRPCMethodAuthoringDeleteMachine, func(ctx context.Context, req flow.FSMAuthoringDeleteMachineRequest) (flow.FSMAuthoringDeleteMachineResponse, error) {
+		return service.DeleteMachine(ctx, req)
+	}, func(ctx context.Context, out flow.FSMAuthoringDeleteMachineResponse) error {
+		return syncDeletedMachineToRuntime(ctx, adm, out.MachineID)
+	})
+}
+
+func workflowAuthoringQueryEndpoint[Request any, Response any](
+	adm *Admin,
+	method string,
+	run func(context.Context, Request) (Response, error),
+) cmdrpc.EndpointDefinition {
+	return cmdrpc.NewEndpoint[Request, Response](
 		cmdrpc.EndpointSpec{
-			Method:      flow.FSMRPCMethodAuthoringValidate,
+			Method:      method,
 			Kind:        cmdrpc.MethodKindQuery,
 			Permissions: []string{"admin.workflows.read"},
 			Tags:        []string{"fsm", "authoring"},
 			Idempotent:  true,
 		},
-		func(ctx context.Context, req cmdrpc.RequestEnvelope[flow.FSMAuthoringValidateRequest]) (cmdrpc.ResponseEnvelope[flow.FSMAuthoringValidateResponse], error) {
+		func(ctx context.Context, req cmdrpc.RequestEnvelope[Request]) (cmdrpc.ResponseEnvelope[Response], error) {
 			if err := authorizeRPCPermission(ctx, adm.Authorizer(), "admin.workflows.read", "workflows"); err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringValidateResponse]{}, err
+				return cmdrpc.ResponseEnvelope[Response]{}, err
 			}
-			out, err := service.Validate(ctx, req.Data)
+			out, err := run(ctx, req.Data)
 			if err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringValidateResponse]{}, err
+				return cmdrpc.ResponseEnvelope[Response]{}, err
 			}
-			return cmdrpc.ResponseEnvelope[flow.FSMAuthoringValidateResponse]{Data: out}, nil
+			return cmdrpc.ResponseEnvelope[Response]{Data: out}, nil
 		},
 	)
 }
 
-func workflowAuthoringPublishEndpoint(adm *Admin, service *flow.AuthoringService) cmdrpc.EndpointDefinition {
-	return cmdrpc.NewEndpoint[flow.FSMAuthoringPublishRequest, flow.FSMAuthoringPublishResponse](
+func workflowAuthoringCommandEndpoint[Request any, Response any](
+	adm *Admin,
+	method string,
+	run func(context.Context, Request) (Response, error),
+	after func(context.Context, Response) error,
+) cmdrpc.EndpointDefinition {
+	return cmdrpc.NewEndpoint[Request, Response](
 		cmdrpc.EndpointSpec{
-			Method:      flow.FSMRPCMethodAuthoringPublish,
+			Method:      method,
 			Kind:        cmdrpc.MethodKindCommand,
 			Permissions: []string{"admin.workflows.write"},
 			Tags:        []string{"fsm", "authoring"},
 		},
-		func(ctx context.Context, req cmdrpc.RequestEnvelope[flow.FSMAuthoringPublishRequest]) (cmdrpc.ResponseEnvelope[flow.FSMAuthoringPublishResponse], error) {
+		func(ctx context.Context, req cmdrpc.RequestEnvelope[Request]) (cmdrpc.ResponseEnvelope[Response], error) {
 			if err := authorizeRPCPermission(ctx, adm.Authorizer(), "admin.workflows.write", "workflows"); err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringPublishResponse]{}, err
+				return cmdrpc.ResponseEnvelope[Response]{}, err
 			}
-			out, err := service.Publish(ctx, req.Data)
+			out, err := run(ctx, req.Data)
 			if err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringPublishResponse]{}, err
+				return cmdrpc.ResponseEnvelope[Response]{}, err
 			}
-			if syncErr := syncPublishedMachineToRuntime(ctx, adm, out.MachineID); syncErr != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringPublishResponse]{}, syncErr
+			if after != nil {
+				if err := after(ctx, out); err != nil {
+					return cmdrpc.ResponseEnvelope[Response]{}, err
+				}
 			}
-			return cmdrpc.ResponseEnvelope[flow.FSMAuthoringPublishResponse]{Data: out}, nil
-		},
-	)
-}
-
-func workflowAuthoringDeleteEndpoint(adm *Admin, service *flow.AuthoringService) cmdrpc.EndpointDefinition {
-	return cmdrpc.NewEndpoint[flow.FSMAuthoringDeleteMachineRequest, flow.FSMAuthoringDeleteMachineResponse](
-		cmdrpc.EndpointSpec{
-			Method:      flow.FSMRPCMethodAuthoringDeleteMachine,
-			Kind:        cmdrpc.MethodKindCommand,
-			Permissions: []string{"admin.workflows.write"},
-			Tags:        []string{"fsm", "authoring"},
-		},
-		func(ctx context.Context, req cmdrpc.RequestEnvelope[flow.FSMAuthoringDeleteMachineRequest]) (cmdrpc.ResponseEnvelope[flow.FSMAuthoringDeleteMachineResponse], error) {
-			if err := authorizeRPCPermission(ctx, adm.Authorizer(), "admin.workflows.write", "workflows"); err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringDeleteMachineResponse]{}, err
-			}
-			out, err := service.DeleteMachine(ctx, req.Data)
-			if err != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringDeleteMachineResponse]{}, err
-			}
-			if syncErr := syncDeletedMachineToRuntime(ctx, adm, out.MachineID); syncErr != nil {
-				return cmdrpc.ResponseEnvelope[flow.FSMAuthoringDeleteMachineResponse]{}, syncErr
-			}
-			return cmdrpc.ResponseEnvelope[flow.FSMAuthoringDeleteMachineResponse]{Data: out}, nil
+			return cmdrpc.ResponseEnvelope[Response]{Data: out}, nil
 		},
 	)
 }

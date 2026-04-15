@@ -190,11 +190,11 @@ func (b *translationExchangeBinding) Export(c router.Context) (payload any, err 
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := enforceTranslationExchangeCSRF(c, b.admin); err != nil {
-		return nil, err
+	if csrfErr := enforceTranslationExchangeCSRF(c, b.admin); csrfErr != nil {
+		return nil, csrfErr
 	}
-	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionExport, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, translationExchangePermissionExport, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 	input, parsedPayload, err := parseTranslationExportInput(c)
 	if err != nil {
@@ -289,11 +289,11 @@ func (b *translationExchangeBinding) ImportValidate(c router.Context) (payload a
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := enforceTranslationExchangeCSRF(c, b.admin); err != nil {
-		return nil, err
+	if csrfErr := enforceTranslationExchangeCSRF(c, b.admin); csrfErr != nil {
+		return nil, csrfErr
 	}
-	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionImportValidate, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, translationExchangePermissionImportValidate, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 	rows, parsedPayload, format, err := parseTranslationImportRows(c, false)
 	if err != nil {
@@ -340,11 +340,11 @@ func (b *translationExchangeBinding) ImportApply(c router.Context) (payload any,
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := enforceTranslationExchangeCSRF(c, b.admin); err != nil {
-		return nil, err
+	if csrfErr := enforceTranslationExchangeCSRF(c, b.admin); csrfErr != nil {
+		return nil, csrfErr
 	}
-	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionImportApply, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, translationExchangePermissionImportApply, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 	rows, parsedPayload, format, err := parseTranslationImportRows(c, true)
 	if err != nil {
@@ -360,8 +360,8 @@ func (b *translationExchangeBinding) ImportApply(c router.Context) (payload any,
 		Resolutions:             parseTranslationExchangeResolutions(parsedPayload["resolutions"]),
 	}
 	if input.AllowSourceHashOverride || translationExchangeResolutionsRequireOverride(input.Resolutions) {
-		if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); err != nil {
-			return nil, err
+		if manageErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); manageErr != nil {
+			return nil, manageErr
 		}
 	}
 	if translationExchangeAsyncRequested(c, parsedPayload) {
@@ -489,11 +489,11 @@ func (b *translationExchangeBinding) DeleteJob(c router.Context, id string) (pay
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := enforceTranslationExchangeCSRF(c, b.admin); err != nil {
-		return nil, err
+	if csrfErr := enforceTranslationExchangeCSRF(c, b.admin); csrfErr != nil {
+		return nil, csrfErr
 	}
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsManage, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 	identity := translationIdentityFromAdminContext(adminCtx)
 	job, ok, err := b.runtime.GetJob(adminCtx.Context, identity, id)
@@ -554,8 +554,8 @@ func (b *translationExchangeBinding) History(c router.Context) (payload any, err
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.requireHistoryPermission(adminCtx); err != nil {
-		return nil, err
+	if permissionErr := b.requireHistoryPermission(adminCtx); permissionErr != nil {
+		return nil, permissionErr
 	}
 
 	page := clampInt(atoiDefault(c.Query("page"), 1), 1, 10_000)

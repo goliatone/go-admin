@@ -192,12 +192,12 @@ func (s *BunTranslationExchangeRuntimeStore) ListJobs(ctx context.Context, query
 		return nil, 0, err
 	}
 	records := []bunTranslationExchangeJobRecord{}
-	if err := base.
+	if scanErr := base.
 		OrderExpr("created_at DESC, updated_at DESC, job_id ASC").
 		Limit(query.PerPage).
 		Offset((query.Page-1)*query.PerPage).
-		Scan(ctx, &records); err != nil {
-		return nil, 0, err
+		Scan(ctx, &records); scanErr != nil {
+		return nil, 0, scanErr
 	}
 	jobs, _, err := s.jobsFromRecords(ctx, records)
 	if err != nil {
@@ -212,14 +212,14 @@ func (s *BunTranslationExchangeRuntimeStore) DeleteJob(ctx context.Context, iden
 		return translationExchangeAsyncJob{}, ok, err
 	}
 	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewDelete().Model((*bunTranslationExchangeJobArtifactRecord)(nil)).Where("job_id = ?", job.ID).Exec(ctx); err != nil {
-			return err
+		if _, artifactErr := tx.NewDelete().Model((*bunTranslationExchangeJobArtifactRecord)(nil)).Where("job_id = ?", job.ID).Exec(ctx); artifactErr != nil {
+			return artifactErr
 		}
-		if _, err := tx.NewDelete().Model((*bunTranslationExchangeJobRowRecord)(nil)).Where("job_id = ?", job.ID).Exec(ctx); err != nil {
-			return err
+		if _, rowErr := tx.NewDelete().Model((*bunTranslationExchangeJobRowRecord)(nil)).Where("job_id = ?", job.ID).Exec(ctx); rowErr != nil {
+			return rowErr
 		}
-		if _, err := tx.NewDelete().Model((*bunTranslationExchangeJobRecord)(nil)).Where("job_id = ?", job.ID).Exec(ctx); err != nil {
-			return err
+		if _, jobErr := tx.NewDelete().Model((*bunTranslationExchangeJobRecord)(nil)).Where("job_id = ?", job.ID).Exec(ctx); jobErr != nil {
+			return jobErr
 		}
 		return nil
 	})

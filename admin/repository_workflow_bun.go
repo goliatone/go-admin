@@ -529,41 +529,29 @@ func workflowToBunRecord(workflow PersistedWorkflow) (bunWorkflowRecord, error) 
 }
 
 func workflowFromBunRecord(row bunWorkflowRecord) (PersistedWorkflow, error) {
-	definition := WorkflowDefinition{}
-	if trimmed := strings.TrimSpace(row.Definition); trimmed != "" {
-		if err := json.Unmarshal([]byte(trimmed), &definition); err != nil {
-			return PersistedWorkflow{}, err
-		}
-	}
-	out := PersistedWorkflow{
-		ID:          strings.TrimSpace(row.ID),
-		Name:        strings.TrimSpace(row.Name),
-		Definition:  workflowcore.CloneWorkflowDefinition(definition),
-		Status:      PersistedWorkflowStatus(strings.ToLower(strings.TrimSpace(row.Status))),
-		Version:     row.Version,
-		Environment: strings.ToLower(strings.TrimSpace(row.Environment)),
-		CreatedAt:   row.CreatedAt,
-		UpdatedAt:   row.UpdatedAt,
-	}
-	return workflowcore.NormalizePersistedWorkflow(out), nil
+	return workflowFromStorageRecord(row.ID, row.Name, row.Definition, row.Status, row.Version, row.Environment, row.CreatedAt, row.UpdatedAt)
 }
 
 func workflowFromRevisionRecord(row bunWorkflowRevisionRecord) (PersistedWorkflow, error) {
+	return workflowFromStorageRecord(row.WorkflowID, row.Name, row.Definition, row.Status, row.Version, row.Environment, row.CreatedAt, row.UpdatedAt)
+}
+
+func workflowFromStorageRecord(id, name, definitionRaw, status string, version int, environment string, createdAt, updatedAt time.Time) (PersistedWorkflow, error) {
 	definition := WorkflowDefinition{}
-	if trimmed := strings.TrimSpace(row.Definition); trimmed != "" {
+	if trimmed := strings.TrimSpace(definitionRaw); trimmed != "" {
 		if err := json.Unmarshal([]byte(trimmed), &definition); err != nil {
 			return PersistedWorkflow{}, err
 		}
 	}
 	out := PersistedWorkflow{
-		ID:          strings.TrimSpace(row.WorkflowID),
-		Name:        strings.TrimSpace(row.Name),
+		ID:          strings.TrimSpace(id),
+		Name:        strings.TrimSpace(name),
 		Definition:  workflowcore.CloneWorkflowDefinition(definition),
-		Status:      PersistedWorkflowStatus(strings.ToLower(strings.TrimSpace(row.Status))),
-		Version:     row.Version,
-		Environment: strings.ToLower(strings.TrimSpace(row.Environment)),
-		CreatedAt:   row.CreatedAt,
-		UpdatedAt:   row.UpdatedAt,
+		Status:      PersistedWorkflowStatus(strings.ToLower(strings.TrimSpace(status))),
+		Version:     version,
+		Environment: strings.ToLower(strings.TrimSpace(environment)),
+		CreatedAt:   createdAt,
+		UpdatedAt:   updatedAt,
 	}
 	return workflowcore.NormalizePersistedWorkflow(out), nil
 }

@@ -6,10 +6,6 @@ import cmscontracts "github.com/goliatone/go-admin/admin/cms/contracts"
 // It remains re-exported from the root package for compatibility.
 type CMSContentListOption = cmscontracts.CMSContentListOption
 
-const cmsContentListWithTranslations CMSContentListOption = cmscontracts.ContentListWithTranslations
-const cmsContentListWithDerivedFields CMSContentListOption = cmscontracts.ContentListWithDerivedFields
-const cmsContentListWithLocaleVariants CMSContentListOption = cmscontracts.ContentListWithLocaleVariants
-
 // WithTranslations requests that list operations preload translations for CMS content.
 // This opt-in token mirrors the go-cms list option of the same name.
 func WithTranslations() CMSContentListOption {

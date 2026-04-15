@@ -197,9 +197,9 @@ func (a *BunSettingsAdapter) resolveAllOptions(ctx context.Context, userID strin
 		definitions: defs,
 	}
 	for _, rec := range records {
-		decoded, err := decodeSettingValue(rec.Value)
-		if err != nil {
-			return settingsSnapshot{}, nil, err
+		decoded, decodeErr := decodeSettingValue(rec.Value)
+		if decodeErr != nil {
+			return settingsSnapshot{}, nil, decodeErr
 		}
 		scope := SettingsScope(rec.Scope)
 		switch scope {

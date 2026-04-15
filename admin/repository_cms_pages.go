@@ -288,25 +288,43 @@ func cmsPageRecord(page CMSPage, opts cmsPageRecordOptions) map[string]any {
 }
 
 func normalizeCMSPageLocaleState(page CMSPage, requested string) CMSPage {
-	requested = strings.TrimSpace(primitives.FirstNonEmptyRaw(requested, page.RequestedLocale, page.Locale))
-	resolved := strings.TrimSpace(primitives.FirstNonEmptyRaw(page.ResolvedLocale, page.Locale))
-	if resolved == "" {
-		resolved = requested
-	}
-	available := append([]string{}, page.AvailableLocales...)
-	if len(available) == 0 && strings.TrimSpace(page.Locale) != "" {
-		available = []string{page.Locale}
-	}
-	available = dedupeStrings(available)
-	missing := page.MissingRequestedLocale
-	if requested != "" && !isTranslationLocaleWildcard(requested) && len(available) > 0 && !containsStringInsensitive(available, requested) {
-		missing = true
-	}
-	page.RequestedLocale = requested
-	page.ResolvedLocale = resolved
-	page.AvailableLocales = available
-	page.MissingRequestedLocale = missing
+	state := normalizeCMSLocaleState(localeState{
+		requested: page.RequestedLocale,
+		resolved:  page.ResolvedLocale,
+		locale:    page.Locale,
+		available: page.AvailableLocales,
+		missing:   page.MissingRequestedLocale,
+	}, requested)
+	page.RequestedLocale = state.requested
+	page.ResolvedLocale = state.resolved
+	page.AvailableLocales = state.available
+	page.MissingRequestedLocale = state.missing
 	return page
+}
+
+type localeState struct {
+	requested string
+	resolved  string
+	locale    string
+	available []string
+	missing   bool
+}
+
+func normalizeCMSLocaleState(state localeState, requested string) localeState {
+	state.requested = strings.TrimSpace(primitives.FirstNonEmptyRaw(requested, state.requested, state.locale))
+	state.resolved = strings.TrimSpace(primitives.FirstNonEmptyRaw(state.resolved, state.locale))
+	if state.resolved == "" {
+		state.resolved = state.requested
+	}
+	state.available = append([]string{}, state.available...)
+	if len(state.available) == 0 && strings.TrimSpace(state.locale) != "" {
+		state.available = []string{state.locale}
+	}
+	state.available = dedupeStrings(state.available)
+	if state.requested != "" && !isTranslationLocaleWildcard(state.requested) && len(state.available) > 0 && !containsStringInsensitive(state.available, state.requested) {
+		state.missing = true
+	}
+	return state
 }
 
 func (r *CMSPageRepository) resolvePageLocale(ctx context.Context, id string) string {
@@ -359,12 +377,12 @@ func (r *CMSPageRepository) pageTranslationMissing(ctx context.Context, id, requ
 			return true, nil
 		}
 		if errors.Is(err, ErrNotFound) {
-			existing, err := r.content.Page(ctx, id, "")
-			if err == nil && existing != nil {
+			existing, lookupErr := r.content.Page(ctx, id, "")
+			if lookupErr == nil && existing != nil {
 				return true, nil
 			}
-			if err != nil && !errors.Is(err, ErrNotFound) {
-				return false, err
+			if lookupErr != nil && !errors.Is(lookupErr, ErrNotFound) {
+				return false, lookupErr
 			}
 			return false, ErrNotFound
 		}

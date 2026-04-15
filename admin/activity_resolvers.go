@@ -224,7 +224,7 @@ func newUserObjectResolver(users UserRepository, profiles ProfileStore) usersact
 				if errors.Is(err, ErrNotFound) {
 					display := metaDisplay
 					if profiles != nil && display == "" {
-						if profile, err := profiles.Get(ctx, id); err == nil {
+						if profile, profileErr := profiles.Get(ctx, id); profileErr == nil {
 							display = formatObjectDisplay(label, strings.TrimSpace(profile.DisplayName), id)
 						}
 					}
@@ -245,56 +245,40 @@ func newUserObjectResolver(users UserRepository, profiles ProfileStore) usersact
 }
 
 func newRoleObjectResolver(roles RoleRepository) usersactivity.ObjectResolver {
-	return ObjectResolverFunc(func(ctx context.Context, objectType string, ids []string, meta usersactivity.ResolveContext) (map[string]usersactivity.ObjectInfo, error) {
-		ids = normalizeObjectIDs(ids)
-		if len(ids) == 0 {
-			return nil, nil
-		}
-		metaDisplay := metadataDisplay(ids, meta)
-		label := objectTypeLabel(objectType)
-		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
-			if roles == nil {
-				return objectInfo(objectType, id, formatObjectDisplay(label, "", id)), true, nil
-			}
-			role, err := roles.Get(ctx, id)
-			if err != nil {
-				if errors.Is(err, ErrNotFound) {
-					return tombstoneObjectInfo(objectType, id, metaDisplay), true, nil
-				}
-				return usersactivity.ObjectInfo{}, false, err
-			}
-			display := formatObjectDisplay(label, formatRoleDisplay(role), id)
-			return objectInfo(objectType, id, display), true, nil
-		})
-	})
+	return newLookupObjectResolver(
+		roles != nil,
+		func(ctx context.Context, id string) (RoleRecord, error) {
+			return roles.Get(ctx, id)
+		},
+		formatRoleDisplay,
+	)
 }
 
 func newTenantObjectResolver(tenants TenantRepository) usersactivity.ObjectResolver {
-	return ObjectResolverFunc(func(ctx context.Context, objectType string, ids []string, meta usersactivity.ResolveContext) (map[string]usersactivity.ObjectInfo, error) {
-		ids = normalizeObjectIDs(ids)
-		if len(ids) == 0 {
-			return nil, nil
-		}
-		metaDisplay := metadataDisplay(ids, meta)
-		label := objectTypeLabel(objectType)
-		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
-			if tenants == nil {
-				return objectInfo(objectType, id, formatObjectDisplay(label, "", id)), true, nil
-			}
-			tenant, err := tenants.Get(ctx, id)
-			if err != nil {
-				if errors.Is(err, ErrNotFound) {
-					return tombstoneObjectInfo(objectType, id, metaDisplay), true, nil
-				}
-				return usersactivity.ObjectInfo{}, false, err
-			}
-			display := formatObjectDisplay(label, formatTenantDisplay(tenant), id)
-			return objectInfo(objectType, id, display), true, nil
-		})
-	})
+	return newLookupObjectResolver(
+		tenants != nil,
+		func(ctx context.Context, id string) (TenantRecord, error) {
+			return tenants.Get(ctx, id)
+		},
+		formatTenantDisplay,
+	)
 }
 
 func newOrganizationObjectResolver(orgs OrganizationRepository) usersactivity.ObjectResolver {
+	return newLookupObjectResolver(
+		orgs != nil,
+		func(ctx context.Context, id string) (OrganizationRecord, error) {
+			return orgs.Get(ctx, id)
+		},
+		formatOrganizationDisplay,
+	)
+}
+
+func newLookupObjectResolver[T any](
+	available bool,
+	get func(context.Context, string) (T, error),
+	displayValue func(T) string,
+) usersactivity.ObjectResolver {
 	return ObjectResolverFunc(func(ctx context.Context, objectType string, ids []string, meta usersactivity.ResolveContext) (map[string]usersactivity.ObjectInfo, error) {
 		ids = normalizeObjectIDs(ids)
 		if len(ids) == 0 {
@@ -303,17 +287,17 @@ func newOrganizationObjectResolver(orgs OrganizationRepository) usersactivity.Ob
 		metaDisplay := metadataDisplay(ids, meta)
 		label := objectTypeLabel(objectType)
 		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
-			if orgs == nil {
+			if !available {
 				return objectInfo(objectType, id, formatObjectDisplay(label, "", id)), true, nil
 			}
-			org, err := orgs.Get(ctx, id)
+			item, err := get(ctx, id)
 			if err != nil {
 				if errors.Is(err, ErrNotFound) {
 					return tombstoneObjectInfo(objectType, id, metaDisplay), true, nil
 				}
 				return usersactivity.ObjectInfo{}, false, err
 			}
-			display := formatObjectDisplay(label, formatOrganizationDisplay(org), id)
+			display := formatObjectDisplay(label, displayValue(item), id)
 			return objectInfo(objectType, id, display), true, nil
 		})
 	})
@@ -452,34 +436,29 @@ func newJobObjectResolver(registry *JobRegistry) usersactivity.ObjectResolver {
 }
 
 func newWidgetAreaObjectResolver(widgets CMSWidgetService) usersactivity.ObjectResolver {
-	return ObjectResolverFunc(func(_ context.Context, objectType string, ids []string, meta usersactivity.ResolveContext) (map[string]usersactivity.ObjectInfo, error) {
-		ids = normalizeObjectIDs(ids)
-		if len(ids) == 0 {
-			return nil, nil
-		}
-		metaName := metadataValue(ids, meta, "name")
-		label := objectTypeLabel(objectType)
-		areas := map[string]WidgetAreaDefinition{}
-		if widgets != nil {
-			for _, def := range widgets.Areas() {
-				areas[def.Code] = def
-			}
-		}
-		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
-			if def, ok := areas[id]; ok {
-				display := formatObjectDisplay(label, strings.TrimSpace(def.Name), id)
-				return objectInfo(objectType, id, display), true, nil
-			}
-			if widgets != nil {
-				return tombstoneObjectInfo(objectType, id, metaName), true, nil
-			}
-			display := formatObjectDisplay(label, metaName, id)
-			return objectInfo(objectType, id, display), true, nil
-		})
-	})
+	return newWidgetCatalogObjectResolver(
+		widgets,
+		func(service CMSWidgetService) []WidgetAreaDefinition { return service.Areas() },
+		func(def WidgetAreaDefinition) string { return def.Code },
+		func(def WidgetAreaDefinition) string { return def.Name },
+	)
 }
 
 func newWidgetDefinitionObjectResolver(widgets CMSWidgetService) usersactivity.ObjectResolver {
+	return newWidgetCatalogObjectResolver(
+		widgets,
+		func(service CMSWidgetService) []WidgetDefinition { return service.Definitions() },
+		func(def WidgetDefinition) string { return def.Code },
+		func(def WidgetDefinition) string { return def.Name },
+	)
+}
+
+func newWidgetCatalogObjectResolver[T any](
+	widgets CMSWidgetService,
+	load func(CMSWidgetService) []T,
+	code func(T) string,
+	name func(T) string,
+) usersactivity.ObjectResolver {
 	return ObjectResolverFunc(func(_ context.Context, objectType string, ids []string, meta usersactivity.ResolveContext) (map[string]usersactivity.ObjectInfo, error) {
 		ids = normalizeObjectIDs(ids)
 		if len(ids) == 0 {
@@ -487,15 +466,15 @@ func newWidgetDefinitionObjectResolver(widgets CMSWidgetService) usersactivity.O
 		}
 		metaName := metadataValue(ids, meta, "name")
 		label := objectTypeLabel(objectType)
-		defs := map[string]WidgetDefinition{}
+		catalog := map[string]T{}
 		if widgets != nil {
-			for _, def := range widgets.Definitions() {
-				defs[def.Code] = def
+			for _, def := range load(widgets) {
+				catalog[code(def)] = def
 			}
 		}
 		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
-			if def, ok := defs[id]; ok {
-				display := formatObjectDisplay(label, strings.TrimSpace(def.Name), id)
+			if def, ok := catalog[id]; ok {
+				display := formatObjectDisplay(label, strings.TrimSpace(name(def)), id)
 				return objectInfo(objectType, id, display), true, nil
 			}
 			if widgets != nil {
@@ -567,35 +546,29 @@ func newMenuItemObjectResolver() usersactivity.ObjectResolver {
 }
 
 func newPageObjectResolver(content CMSContentService) usersactivity.ObjectResolver {
-	return ObjectResolverFunc(func(ctx context.Context, objectType string, ids []string, meta usersactivity.ResolveContext) (map[string]usersactivity.ObjectInfo, error) {
-		ids = normalizeObjectIDs(ids)
-		if len(ids) == 0 {
-			return nil, nil
+	return newCMSContentObjectResolver(content, func(ctx context.Context, service CMSContentService, id, locale string) (string, string, error) {
+		page, err := service.Page(ctx, id, locale)
+		if err != nil {
+			return "", "", err
 		}
-		metaTitle := metadataValue(ids, meta, "title")
-		metaSlug := metadataValue(ids, meta, "slug")
-		metaLocale := metadataValue(ids, meta, "locale")
-		label := objectTypeLabel(objectType)
-		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
-			if content != nil {
-				page, err := content.Page(ctx, id, metaLocale)
-				if err != nil {
-					if errors.Is(err, ErrNotFound) {
-						return tombstoneObjectInfo(objectType, id, primitives.FirstNonEmptyRaw(metaTitle, metaSlug)), true, nil
-					}
-					return usersactivity.ObjectInfo{}, false, err
-				}
-				value := primitives.FirstNonEmptyRaw(page.Title, page.Slug)
-				display := formatObjectDisplay(label, value, id)
-				return objectInfo(objectType, id, display), true, nil
-			}
-			display := formatObjectDisplay(label, primitives.FirstNonEmptyRaw(metaTitle, metaSlug), id)
-			return objectInfo(objectType, id, display), true, nil
-		})
+		return page.Title, page.Slug, nil
 	})
 }
 
 func newContentObjectResolver(content CMSContentService) usersactivity.ObjectResolver {
+	return newCMSContentObjectResolver(content, func(ctx context.Context, service CMSContentService, id, locale string) (string, string, error) {
+		entry, err := service.Content(ctx, id, locale)
+		if err != nil {
+			return "", "", err
+		}
+		return entry.Title, entry.Slug, nil
+	})
+}
+
+func newCMSContentObjectResolver(
+	content CMSContentService,
+	load func(context.Context, CMSContentService, string, string) (string, string, error),
+) usersactivity.ObjectResolver {
 	return ObjectResolverFunc(func(ctx context.Context, objectType string, ids []string, meta usersactivity.ResolveContext) (map[string]usersactivity.ObjectInfo, error) {
 		ids = normalizeObjectIDs(ids)
 		if len(ids) == 0 {
@@ -605,20 +578,20 @@ func newContentObjectResolver(content CMSContentService) usersactivity.ObjectRes
 		metaSlug := metadataValue(ids, meta, "slug")
 		metaLocale := metadataValue(ids, meta, "locale")
 		label := objectTypeLabel(objectType)
+		fallback := primitives.FirstNonEmptyRaw(metaTitle, metaSlug)
 		return resolveObjectIDs(ids, func(id string) (usersactivity.ObjectInfo, bool, error) {
 			if content != nil {
-				entry, err := content.Content(ctx, id, metaLocale)
+				title, slug, err := load(ctx, content, id, metaLocale)
 				if err != nil {
 					if errors.Is(err, ErrNotFound) {
-						return tombstoneObjectInfo(objectType, id, primitives.FirstNonEmptyRaw(metaTitle, metaSlug)), true, nil
+						return tombstoneObjectInfo(objectType, id, fallback), true, nil
 					}
 					return usersactivity.ObjectInfo{}, false, err
 				}
-				value := primitives.FirstNonEmptyRaw(entry.Title, entry.Slug)
-				display := formatObjectDisplay(label, value, id)
+				display := formatObjectDisplay(label, primitives.FirstNonEmptyRaw(title, slug), id)
 				return objectInfo(objectType, id, display), true, nil
 			}
-			display := formatObjectDisplay(label, primitives.FirstNonEmptyRaw(metaTitle, metaSlug), id)
+			display := formatObjectDisplay(label, fallback, id)
 			return objectInfo(objectType, id, display), true, nil
 		})
 	})

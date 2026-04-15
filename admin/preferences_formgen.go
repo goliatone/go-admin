@@ -118,10 +118,10 @@ func (m *PreferencesModule) resolvePreferencesSchema(themeOptions, variantOption
 	}
 
 	schemaMap := map[string]any{}
-	if err := json.Unmarshal(raw, &schemaMap); err != nil {
+	if unmarshalErr := json.Unmarshal(raw, &schemaMap); unmarshalErr != nil {
 		return formgenschema.Document{}, schemaInfo, validationDomainError("preferences schema parse failed", map[string]any{
 			"component": "preferences_form",
-			"error":     err.Error(),
+			"error":     unmarshalErr.Error(),
 		})
 	}
 	if schemaMap == nil {

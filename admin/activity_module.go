@@ -40,28 +40,7 @@ func (m *ActivityModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
 		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "activity_module"})
 	}
-	if m.basePath == "" {
-		m.basePath = ctx.Admin.config.BasePath
-	}
-	if m.menuCode == "" {
-		m.menuCode = ctx.Admin.navMenuCode
-	}
-	if m.defaultLocale == "" {
-		m.defaultLocale = ctx.Admin.config.DefaultLocale
-	}
-	if m.permission == "" {
-		m.permission = ctx.Admin.config.ActivityPermission
-	}
-	if m.urls == nil {
-		m.urls = ctx.Admin.URLs()
-	}
-	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
-		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
-	}
-	if path := ctx.Routing.RoutePath(routing.SurfaceUI, activityRouteKey); path != "" {
-		m.basePath = path
-	}
-	return nil
+	return configureSingleRouteModule(ctx, activityRouteKey, ctx.Admin.config.ActivityPermission, &m.basePath, &m.menuCode, &m.defaultLocale, &m.permission, &m.uiGroupPath, &m.urls)
 }
 
 func (m *ActivityModule) RouteContract() routing.ModuleContract {
@@ -106,4 +85,39 @@ func (m *ActivityModule) MenuItems(locale string) []MenuItem {
 func (m *ActivityModule) WithMenuParent(parent string) *ActivityModule {
 	m.menuParent = parent
 	return m
+}
+
+func configureSingleRouteModule(
+	ctx ModuleContext,
+	routeKey string,
+	defaultPermission string,
+	basePath *string,
+	menuCode *string,
+	defaultLocale *string,
+	permission *string,
+	uiGroupPath *string,
+	urls *urlkit.Resolver,
+) error {
+	if *basePath == "" {
+		*basePath = ctx.Admin.config.BasePath
+	}
+	if *menuCode == "" {
+		*menuCode = ctx.Admin.navMenuCode
+	}
+	if *defaultLocale == "" {
+		*defaultLocale = ctx.Admin.config.DefaultLocale
+	}
+	if *permission == "" {
+		*permission = defaultPermission
+	}
+	if *urls == nil {
+		*urls = ctx.Admin.URLs()
+	}
+	if path := strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath); path != "" {
+		*uiGroupPath = path
+	}
+	if path := ctx.Routing.RoutePath(routing.SurfaceUI, routeKey); path != "" {
+		*basePath = path
+	}
+	return nil
 }

@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -76,49 +75,7 @@ func (r *InMemoryTranslationAssignmentRepository) List(_ context.Context, opts L
 		items = append(items, cloneTranslationAssignment(assignment))
 	}
 
-	sort.SliceStable(items, func(i, j int) bool {
-		left := items[i]
-		right := items[j]
-		field := strings.TrimSpace(strings.ToLower(opts.SortBy))
-		desc := opts.SortDesc
-		if field == "" {
-			field = "created_at"
-			desc = true
-		}
-
-		switch field {
-		case "status":
-			if desc {
-				return left.Status > right.Status
-			}
-			return left.Status < right.Status
-		case "target_locale":
-			if desc {
-				return left.TargetLocale > right.TargetLocale
-			}
-			return left.TargetLocale < right.TargetLocale
-		case "assignee_id":
-			if desc {
-				return left.AssigneeID > right.AssigneeID
-			}
-			return left.AssigneeID < right.AssigneeID
-		case "priority":
-			if desc {
-				return left.Priority > right.Priority
-			}
-			return left.Priority < right.Priority
-		case "updated_at":
-			if desc {
-				return left.UpdatedAt.After(right.UpdatedAt)
-			}
-			return left.UpdatedAt.Before(right.UpdatedAt)
-		default:
-			if desc {
-				return left.CreatedAt.After(right.CreatedAt)
-			}
-			return left.CreatedAt.Before(right.CreatedAt)
-		}
-	})
+	sortTranslationAssignments(items, opts)
 
 	paginated, total := paginateInMemory(items, opts, 20)
 	return paginated, total, nil

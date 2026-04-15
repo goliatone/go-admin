@@ -718,7 +718,7 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 			input.Event = transition
 		}
 		if input.Event == "" {
-			snapshot, err := workflow.Snapshot(ctx.Context, WorkflowSnapshotRequest{
+			snapshot, snapshotErr := workflow.Snapshot(ctx.Context, WorkflowSnapshotRequest{
 				MachineID: panelName,
 				EntityID:  id,
 				Msg: WorkflowMessage{
@@ -732,15 +732,15 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 				EvaluateGuards: true,
 				IncludeBlocked: true,
 			})
-			if err == nil {
+			if snapshotErr == nil {
 				input.Event = workflowEventForTargetState(snapshot, targetState)
 			}
 		}
 		if auth != nil && !auth.CanApplyEvent(ctx.Context, input) {
 			return permissionDenied("workflow.transition", panelName)
 		}
-		if err := applyTranslationPolicy(ctx.Context, policy, buildTranslationPolicyInput(ctx.Context, panelName, id, currentState, input.Event, record)); err != nil {
-			return err
+		if policyErr := applyTranslationPolicy(ctx.Context, policy, buildTranslationPolicyInput(ctx.Context, panelName, id, currentState, input.Event, record)); policyErr != nil {
+			return policyErr
 		}
 		result, err := workflow.ApplyEvent(ctx.Context, input)
 		if err != nil {

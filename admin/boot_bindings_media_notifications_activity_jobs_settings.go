@@ -130,8 +130,8 @@ func (aBinding *activityBinding) List(c router.Context) (map[string]any, error) 
 		}
 		return nil, err
 	}
-	if err := aBinding.admin.requirePermission(adminCtx, aBinding.admin.config.ActivityPermission, "activity"); err != nil {
-		return nil, err
+	if permissionErr := aBinding.admin.requirePermission(adminCtx, aBinding.admin.config.ActivityPermission, "activity"); permissionErr != nil {
+		return nil, permissionErr
 	}
 	if aBinding.admin.activityFeed == nil {
 		return nil, FeatureDisabledError{Feature: "activity"}

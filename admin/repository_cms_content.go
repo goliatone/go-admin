@@ -88,22 +88,6 @@ func (r *CMSContentTypeEntryRepository) List(ctx context.Context, opts ListOptio
 	return r.readService().ListForContentType(ctx, r.contentType, opts)
 }
 
-func (r *CMSContentTypeEntryRepository) listContents(ctx context.Context, locale string) ([]CMSContent, error) {
-	if r.content == nil {
-		return nil, ErrNotFound
-	}
-	if contentTypeWantsTranslations(r.contentType) {
-		if svc, ok := resolveCMSContentListOptionsService(r.content); ok && svc != nil {
-			listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
-			if shouldExpandTranslationFamilyRowsForContext(ctx, ListOptions{Filters: map[string]any{"locale": locale}}) {
-				listOpts = append(listOpts, WithLocaleVariants())
-			}
-			return svc.ContentsWithOptions(ctx, locale, listOpts...)
-		}
-	}
-	return r.content.Contents(ctx, locale)
-}
-
 func cmsContentRecordSearchMatcher(record map[string]any, search string) bool {
 	if strings.TrimSpace(search) == "" {
 		return true
@@ -194,24 +178,17 @@ func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]
 }
 
 func normalizeCMSContentLocaleState(item CMSContent, requested string) CMSContent {
-	requested = strings.TrimSpace(primitives.FirstNonEmptyRaw(requested, item.RequestedLocale, item.Locale))
-	resolved := strings.TrimSpace(primitives.FirstNonEmptyRaw(item.ResolvedLocale, item.Locale))
-	if resolved == "" {
-		resolved = requested
-	}
-	available := append([]string{}, item.AvailableLocales...)
-	if len(available) == 0 && strings.TrimSpace(item.Locale) != "" {
-		available = []string{item.Locale}
-	}
-	available = dedupeStrings(available)
-	missing := item.MissingRequestedLocale
-	if requested != "" && !isTranslationLocaleWildcard(requested) && len(available) > 0 && !containsStringInsensitive(available, requested) {
-		missing = true
-	}
-	item.RequestedLocale = requested
-	item.ResolvedLocale = resolved
-	item.AvailableLocales = available
-	item.MissingRequestedLocale = missing
+	state := normalizeCMSLocaleState(localeState{
+		requested: item.RequestedLocale,
+		resolved:  item.ResolvedLocale,
+		locale:    item.Locale,
+		available: item.AvailableLocales,
+		missing:   item.MissingRequestedLocale,
+	}, requested)
+	item.RequestedLocale = state.requested
+	item.ResolvedLocale = state.resolved
+	item.AvailableLocales = state.available
+	item.MissingRequestedLocale = state.missing
 	return item
 }
 

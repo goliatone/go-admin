@@ -384,9 +384,9 @@ func (m *Module) handleBeginInstallation(c router.Context, body map[string]any) 
 	}
 	redirectURI := strings.TrimSpace(toString(body["redirect_uri"]))
 	if redirectURI == "" {
-		resolvedRedirect, err := m.resolveCallbackRedirectURI(c, providerID)
-		if err != nil {
-			return 0, nil, err
+		resolvedRedirect, redirectErr := m.resolveCallbackRedirectURI(c, providerID)
+		if redirectErr != nil {
+			return 0, nil, redirectErr
 		}
 		redirectURI = resolvedRedirect
 	}
@@ -434,11 +434,11 @@ func (m *Module) handleUpdateInstallationStatus(c router.Context, body map[strin
 		return 0, nil, providerUnavailableError("services runtime is not configured", nil)
 	}
 	reason := strings.TrimSpace(toString(body["reason"]))
-	if err := m.service.UpdateInstallationStatus(c.Context(), installationID, gocore.InstallationStatus(targetStatus), reason); err != nil {
-		if isNotFound(err) {
+	if updateErr := m.service.UpdateInstallationStatus(c.Context(), installationID, gocore.InstallationStatus(targetStatus), reason); updateErr != nil {
+		if isNotFound(updateErr) {
 			return 0, nil, missingResourceError("installation", map[string]any{"installation_id": installationID})
 		}
-		return 0, nil, err
+		return 0, nil, updateErr
 	}
 	installation, err := m.service.GetInstallation(c.Context(), installationID)
 	if err != nil {
@@ -472,20 +472,20 @@ func (m *Module) handleUninstallInstallation(c router.Context, body map[string]a
 	}
 
 	reason := strings.TrimSpace(primitives.FirstNonEmpty(toString(body["reason"]), "installation_uninstall"))
-	if err := m.service.UpdateInstallationStatus(c.Context(), installationID, gocore.InstallationStatusUninstalled, reason); err != nil {
-		return 0, nil, err
+	if updateErr := m.service.UpdateInstallationStatus(c.Context(), installationID, gocore.InstallationStatusUninstalled, reason); updateErr != nil {
+		return 0, nil, updateErr
 	}
 
 	revokedConnections := 0
 	if db := resolveBunDB(m.config.PersistenceClient, m.repositoryFactory); db != nil {
 		connections := []connectionRecord{}
-		err := db.NewSelect().Model(&connections).
+		selectErr := db.NewSelect().Model(&connections).
 			Where("provider_id = ?", installation.ProviderID).
 			Where("scope_type = ?", installation.ScopeType).
 			Where("scope_id = ?", installation.ScopeID).
 			Where("status != ?", string(gocore.ConnectionStatusDisconnected)).
 			Scan(c.Context())
-		if err == nil {
+		if selectErr == nil {
 			for _, conn := range connections {
 				if revokeErr := m.service.Revoke(c.Context(), conn.ID, reason); revokeErr == nil {
 					revokedConnections++
@@ -647,9 +647,9 @@ func (m *Module) handleBeginConnection(c router.Context, body map[string]any) (i
 	}
 	redirectURI := strings.TrimSpace(toString(body["redirect_uri"]))
 	if redirectURI == "" {
-		resolvedRedirect, err := m.resolveCallbackRedirectURI(c, providerID)
-		if err != nil {
-			return 0, nil, err
+		resolvedRedirect, redirectErr := m.resolveCallbackRedirectURI(c, providerID)
+		if redirectErr != nil {
+			return 0, nil, redirectErr
 		}
 		redirectURI = resolvedRedirect
 	}
@@ -793,35 +793,6 @@ func (m *Module) handleRevokeConnection(c router.Context, body map[string]any) (
 	return http.StatusOK, map[string]any{"status": "revoked", "connection_id": connectionID}, nil
 }
 
-func (m *Module) handleInvokeCapability(c router.Context, body map[string]any) (int, any, error) {
-	providerID := strings.TrimSpace(c.Param("provider", ""))
-	capability := strings.TrimSpace(c.Param("capability", ""))
-	if providerID == "" || capability == "" {
-		return 0, nil, validationError("provider and capability are required", map[string]any{"field": "provider/capability"})
-	}
-	if m.service == nil {
-		return 0, nil, providerUnavailableError("services runtime is not configured", nil)
-	}
-	scope, err := resolveScope(c.Context(), c, body)
-	if err != nil {
-		return 0, nil, err
-	}
-	result, err := m.service.InvokeCapability(c.Context(), gocore.InvokeCapabilityRequest{
-		ProviderID:   providerID,
-		Capability:   capability,
-		Scope:        scope,
-		ConnectionID: strings.TrimSpace(toString(body["connection_id"])),
-		Payload:      extractMap(body["payload"]),
-	})
-	if err != nil {
-		return 0, nil, err
-	}
-	if !result.Allowed && result.Mode == gocore.CapabilityDeniedBehaviorBlock {
-		return 0, nil, goerrorsMissingPermissions(result)
-	}
-	return http.StatusOK, map[string]any{"result": result}, nil
-}
-
 func (m *Module) handleProviderWebhook(c router.Context, body map[string]any) (int, any, error) {
 	providerID := strings.TrimSpace(c.Param("provider", ""))
 	if providerID == "" {
@@ -895,8 +866,8 @@ func (m *Module) handleListSubscriptions(c router.Context, _ map[string]any) (in
 		)
 	}
 
-	if err := query.Scan(c.Context()); err != nil && !errorsIsNoRows(err) {
-		return 0, nil, err
+	if queryErr := query.Scan(c.Context()); queryErr != nil && !errorsIsNoRows(queryErr) {
+		return 0, nil, queryErr
 	}
 	total, err := countQuery.Count(c.Context())
 	if err != nil {
@@ -1043,23 +1014,9 @@ func (m *Module) handleListRateLimits(c router.Context, _ map[string]any) (int, 
 		BucketKey:    strings.TrimSpace(c.Query("bucket_key")),
 		ConnectionID: strings.TrimSpace(primitives.FirstNonEmpty(c.Query("connection_id"), c.Query("connection_ref"), c.Query("ref"))),
 	}
-	if filter.ConnectionID != "" && (filter.ProviderID == "" || filter.ScopeType == "" || filter.ScopeID == "") {
-		connection := connectionRecord{}
-		err := db.NewSelect().Model(&connection).Where("id = ?", filter.ConnectionID).Limit(1).Scan(c.Context())
-		if err != nil && !errorsIsNoRows(err) {
-			return 0, nil, err
-		}
-		if err == nil {
-			if filter.ProviderID == "" {
-				filter.ProviderID = strings.TrimSpace(connection.ProviderID)
-			}
-			if filter.ScopeType == "" {
-				filter.ScopeType = strings.TrimSpace(connection.ScopeType)
-			}
-			if filter.ScopeID == "" {
-				filter.ScopeID = strings.TrimSpace(connection.ScopeID)
-			}
-		}
+	filter, err := hydrateRateLimitFilterFromConnection(c.Context(), db, filter)
+	if err != nil {
+		return 0, nil, err
 	}
 
 	rows := []rateLimitStateRecord{}
@@ -1068,8 +1025,8 @@ func (m *Module) handleListRateLimits(c router.Context, _ map[string]any) (int, 
 	query = applyRateLimitFilterQuery(query, filter)
 	countQuery = applyRateLimitFilterQuery(countQuery, filter)
 
-	if err := query.Scan(c.Context()); err != nil && !errorsIsNoRows(err) {
-		return 0, nil, err
+	if queryErr := query.Scan(c.Context()); queryErr != nil && !errorsIsNoRows(queryErr) {
+		return 0, nil, queryErr
 	}
 	total, err := countQuery.Count(c.Context())
 	if err != nil {
@@ -1110,23 +1067,9 @@ func (m *Module) handleListRateLimitsRuntime(c router.Context, _ map[string]any)
 		BucketKey:    strings.TrimSpace(c.Query("bucket_key")),
 		ConnectionID: strings.TrimSpace(primitives.FirstNonEmpty(c.Query("connection_id"), c.Query("connection_ref"), c.Query("ref"))),
 	}
-	if filter.ConnectionID != "" && (filter.ProviderID == "" || filter.ScopeType == "" || filter.ScopeID == "") {
-		connection := connectionRecord{}
-		err := db.NewSelect().Model(&connection).Where("id = ?", filter.ConnectionID).Limit(1).Scan(c.Context())
-		if err != nil && !errorsIsNoRows(err) {
-			return 0, nil, err
-		}
-		if err == nil {
-			if filter.ProviderID == "" {
-				filter.ProviderID = strings.TrimSpace(connection.ProviderID)
-			}
-			if filter.ScopeType == "" {
-				filter.ScopeType = strings.TrimSpace(connection.ScopeType)
-			}
-			if filter.ScopeID == "" {
-				filter.ScopeID = strings.TrimSpace(connection.ScopeID)
-			}
-		}
+	filter, err := hydrateRateLimitFilterFromConnection(c.Context(), db, filter)
+	if err != nil {
+		return 0, nil, err
 	}
 
 	rows := []rateLimitStateRecord{}
@@ -1135,8 +1078,8 @@ func (m *Module) handleListRateLimitsRuntime(c router.Context, _ map[string]any)
 	query = applyRateLimitFilterQuery(query, filter)
 	countQuery = applyRateLimitFilterQuery(countQuery, filter)
 
-	if err := query.Scan(c.Context()); err != nil && !errorsIsNoRows(err) {
-		return 0, nil, err
+	if queryErr := query.Scan(c.Context()); queryErr != nil && !errorsIsNoRows(queryErr) {
+		return 0, nil, queryErr
 	}
 	total, err := countQuery.Count(c.Context())
 	if err != nil {
@@ -1322,37 +1265,6 @@ func (m *Module) handleProviderInbound(c router.Context, body map[string]any) (i
 		status = http.StatusAccepted
 	}
 	return status, map[string]any{"result": result}, nil
-}
-
-func parseActivityFilter(c router.Context) (gocore.ServicesActivityFilter, error) {
-	from, err := toTime(c.Query("from"))
-	if err != nil {
-		return gocore.ServicesActivityFilter{}, validationError("from must be RFC3339", map[string]any{"field": "from"})
-	}
-	to, err := toTime(c.Query("to"))
-	if err != nil {
-		return gocore.ServicesActivityFilter{}, validationError("to must be RFC3339", map[string]any{"field": "to"})
-	}
-	page := toInt(c.Query("page"), 1)
-	if page <= 0 {
-		page = 1
-	}
-	perPage := toInt(c.Query("per_page"), 25)
-	if perPage <= 0 {
-		perPage = 25
-	}
-	return gocore.ServicesActivityFilter{
-		ProviderID:  strings.TrimSpace(c.Query("provider_id")),
-		ScopeType:   strings.TrimSpace(c.Query("scope_type")),
-		ScopeID:     strings.TrimSpace(c.Query("scope_id")),
-		Action:      strings.TrimSpace(c.Query("action")),
-		Status:      gocore.ServiceActivityStatus(strings.TrimSpace(c.Query("status"))),
-		From:        from,
-		To:          to,
-		Page:        page,
-		PerPage:     perPage,
-		Connections: toStringSlice(c.Query("connections")),
-	}, nil
 }
 
 func resolveScope(ctx context.Context, c router.Context, payload map[string]any) (gocore.ScopeRef, error) {
@@ -1912,6 +1824,33 @@ func (f rateLimitListFilter) toMap() map[string]any {
 		"bucket_key":    f.BucketKey,
 		"connection_id": f.ConnectionID,
 	}
+}
+
+func hydrateRateLimitFilterFromConnection(ctx context.Context, db *bun.DB, filter rateLimitListFilter) (rateLimitListFilter, error) {
+	if db == nil || filter.ConnectionID == "" {
+		return filter, nil
+	}
+	if filter.ProviderID != "" && filter.ScopeType != "" && filter.ScopeID != "" {
+		return filter, nil
+	}
+	connection := connectionRecord{}
+	err := db.NewSelect().Model(&connection).Where("id = ?", filter.ConnectionID).Limit(1).Scan(ctx)
+	if err != nil {
+		if errorsIsNoRows(err) {
+			return filter, nil
+		}
+		return filter, err
+	}
+	if filter.ProviderID == "" {
+		filter.ProviderID = strings.TrimSpace(connection.ProviderID)
+	}
+	if filter.ScopeType == "" {
+		filter.ScopeType = strings.TrimSpace(connection.ScopeType)
+	}
+	if filter.ScopeID == "" {
+		filter.ScopeID = strings.TrimSpace(connection.ScopeID)
+	}
+	return filter, nil
 }
 
 func applyRateLimitFilterQuery(query *bun.SelectQuery, filter rateLimitListFilter) *bun.SelectQuery {

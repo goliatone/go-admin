@@ -82,8 +82,8 @@ func (b *translationQueueBinding) AssignmentDetail(c router.Context, assignmentI
 	if err != nil {
 		return nil, err
 	}
-	if err := b.ensureAssignmentScope(identity, assignment); err != nil {
-		return nil, err
+	if scopeErr := b.ensureAssignmentScope(identity, assignment); scopeErr != nil {
+		return nil, scopeErr
 	}
 
 	channel := translationChannelFromRequest(c, adminCtx, nil)
@@ -119,8 +119,8 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 		})
 	}()
 
-	if err := rejectTranslationClientIdentityFields(body); err != nil {
-		return nil, err
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return nil, identityErr
 	}
 	if b == nil || b.admin == nil {
 		return nil, serviceNotConfiguredDomainError("translation queue binding", map[string]any{
@@ -131,8 +131,8 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 
 	channel := translationChannelFromRequest(c, adminCtx, body)
@@ -141,8 +141,8 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 		return nil, err
 	}
 	identity := translationIdentityFromAdminContext(adminCtx)
-	if err := b.ensureEditorScope(identity, editorCtx); err != nil {
-		return nil, err
+	if scopeErr := b.ensureEditorScope(identity, editorCtx); scopeErr != nil {
+		return nil, scopeErr
 	}
 	if !editorCtx.HasTarget {
 		return nil, notFoundDomainError("translation variant not found", map[string]any{
@@ -191,8 +191,8 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 	if err != nil {
 		return nil, err
 	}
-	if err := SyncTranslationFamilyStore(adminCtx.Context, b.admin, channel); err != nil {
-		return nil, err
+	if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, channel); syncErr != nil {
+		return nil, syncErr
 	}
 	if b.admin.activity != nil {
 		_ = b.admin.activity.Record(adminCtx.Context, ActivityEntry{

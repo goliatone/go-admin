@@ -42,15 +42,6 @@ func (opts dashboardRuntimeHostOptions) configured() bool {
 	return opts.themeProvider != nil || opts.themeSelector != nil || opts.pageDecorator != nil
 }
 
-func (d *Dashboard) setComponents(comp *dashboardComponents) {
-	if d == nil {
-		return
-	}
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.components = comp
-}
-
 func buildDashboardRuntimeOptions(opts dashboardRuntimeBuildOptions) dashcmp.RuntimeOptions {
 	refresh := dashcmp.NewBroadcastHook()
 	renderer := opts.renderer
@@ -242,13 +233,6 @@ func registerDashboardProviderWithRegistry(registry *dashcmp.Registry, spec Dash
 		}
 		return dashcmp.WidgetData(data), nil
 	}))
-}
-
-func (a *Admin) buildDashboardPreferenceStore(store dashcmp.WidgetStore) dashcmp.PreferenceStore {
-	if a.preferences == nil {
-		return dashcmp.NewInMemoryPreferenceStore()
-	}
-	return newDashboardPreferenceStore(a.preferences, store)
 }
 
 func (a *Admin) dashboardThemeProvider() dashcmp.ThemeProvider {

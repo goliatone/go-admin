@@ -107,25 +107,6 @@ func newWorkflowRuntime() (*workflowRuntime, error) {
 	}, nil
 }
 
-func (r *workflowRuntime) rememberRunResult(result gocore.SyncRunResult) {
-	if r == nil {
-		return
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.runResults[strings.TrimSpace(result.RunID)] = result
-}
-
-func (r *workflowRuntime) runResult(runID string) (gocore.SyncRunResult, bool) {
-	if r == nil {
-		return gocore.SyncRunResult{}, false
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	result, ok := r.runResults[strings.TrimSpace(runID)]
-	return result, ok
-}
-
 func (r *workflowRuntime) rememberSyncRun(
 	plan gocore.SyncRunPlan,
 	result gocore.SyncRunResult,

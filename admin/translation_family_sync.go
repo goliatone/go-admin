@@ -63,8 +63,8 @@ func SyncTranslationFamilyStore(ctx context.Context, adm *Admin, environment str
 			return err
 		}
 		for _, page := range pages {
-			if err := appendPageFamilyVariant(families, seenVariants, page, locale, defaultLocale); err != nil {
-				return err
+			if appendErr := appendPageFamilyVariant(families, seenVariants, page, locale, defaultLocale); appendErr != nil {
+				return appendErr
 			}
 		}
 		contents, err := adm.contentSvc.Contents(ctx, locale)
@@ -130,22 +130,19 @@ func appendPageFamilyVariant(families map[string]translationservices.FamilyRecor
 	if strings.EqualFold(translationFamilyLocale(page.Locale, locale), strings.TrimSpace(strings.ToLower(defaultLocale))) {
 		family.SourceVariantID = strings.TrimSpace(page.ID)
 	}
-	family.Variants = append(family.Variants, translationservices.FamilyVariant{
-		ID:             strings.TrimSpace(page.ID),
-		FamilyID:       familyID,
-		TenantID:       scope.TenantID,
-		OrgID:          scope.OrgID,
-		Locale:         translationFamilyLocale(page.Locale, locale),
-		Status:         translationFamilyVariantStatus(page.Status),
-		IsSource:       strings.EqualFold(translationFamilyLocale(page.Locale, locale), strings.TrimSpace(strings.ToLower(defaultLocale))),
-		Fields:         translationFamilyFields(page.Title, page.Slug, page.Data),
-		Metadata:       cloneAnyMap(page.Metadata),
-		SourceRecordID: strings.TrimSpace(page.ID),
-		SourceHashAtLastSync: strings.TrimSpace(firstNonEmpty(
-			toString(page.Metadata[translationEditorSourceHashAtLastSyncKey]),
-			translationEditorSourceHashFromMetadata(page.Metadata),
-		)),
-	})
+	family.Variants = append(family.Variants, translationFamilyVariantRecord(
+		familyID,
+		scope,
+		page.ID,
+		page.Locale,
+		page.Status,
+		page.Title,
+		page.Slug,
+		page.Data,
+		page.Metadata,
+		locale,
+		defaultLocale,
+	))
 	families[familyID] = family
 	return nil
 }
@@ -188,22 +185,51 @@ func appendContentFamilyVariant(families map[string]translationservices.FamilyRe
 	if strings.EqualFold(translationFamilyLocale(content.Locale, locale), strings.TrimSpace(strings.ToLower(defaultLocale))) {
 		family.SourceVariantID = strings.TrimSpace(content.ID)
 	}
-	family.Variants = append(family.Variants, translationservices.FamilyVariant{
-		ID:             strings.TrimSpace(content.ID),
+	family.Variants = append(family.Variants, translationFamilyVariantRecord(
+		familyID,
+		scope,
+		content.ID,
+		content.Locale,
+		content.Status,
+		content.Title,
+		content.Slug,
+		content.Data,
+		content.Metadata,
+		locale,
+		defaultLocale,
+	))
+	families[familyID] = family
+	return nil
+}
+
+func translationFamilyVariantRecord(
+	familyID string,
+	scope translationservices.Scope,
+	recordID string,
+	recordLocale string,
+	status string,
+	title string,
+	slug string,
+	data map[string]any,
+	metadata map[string]any,
+	locale string,
+	defaultLocale string,
+) translationservices.FamilyVariant {
+	resolvedLocale := translationFamilyLocale(recordLocale, locale)
+	return translationservices.FamilyVariant{
+		ID:             strings.TrimSpace(recordID),
 		FamilyID:       familyID,
 		TenantID:       scope.TenantID,
 		OrgID:          scope.OrgID,
-		Locale:         translationFamilyLocale(content.Locale, locale),
-		Status:         translationFamilyVariantStatus(content.Status),
-		IsSource:       strings.EqualFold(translationFamilyLocale(content.Locale, locale), strings.TrimSpace(strings.ToLower(defaultLocale))),
-		Fields:         translationFamilyFields(content.Title, content.Slug, content.Data),
-		Metadata:       cloneAnyMap(content.Metadata),
-		SourceRecordID: strings.TrimSpace(content.ID),
+		Locale:         resolvedLocale,
+		Status:         translationFamilyVariantStatus(status),
+		IsSource:       strings.EqualFold(resolvedLocale, strings.TrimSpace(strings.ToLower(defaultLocale))),
+		Fields:         translationFamilyFields(title, slug, data),
+		Metadata:       cloneAnyMap(metadata),
+		SourceRecordID: strings.TrimSpace(recordID),
 		SourceHashAtLastSync: strings.TrimSpace(firstNonEmpty(
-			toString(content.Metadata[translationEditorSourceHashAtLastSyncKey]),
-			translationEditorSourceHashFromMetadata(content.Metadata),
+			toString(metadata[translationEditorSourceHashAtLastSyncKey]),
+			translationEditorSourceHashFromMetadata(metadata),
 		)),
-	})
-	families[familyID] = family
-	return nil
+	}
 }

@@ -134,8 +134,8 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 			Err:       err,
 		})
 	}()
-	if err := rejectTranslationClientIdentityFields(body); err != nil {
-		return nil, err
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return nil, identityErr
 	}
 	adminCtx, repo, now, err := b.prepareAssignmentRequest(c)
 	if err != nil {
@@ -181,11 +181,11 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 	if err != nil {
 		return nil, err
 	}
-	if err := b.ensureAssignmentScope(identity, current); err != nil {
-		return nil, err
+	if scopeErr := b.ensureAssignmentScope(identity, current); scopeErr != nil {
+		return nil, scopeErr
 	}
-	if err := b.requireAssignmentActionPermission(adminCtx, action, current); err != nil {
-		return nil, err
+	if permissionErr := b.requireAssignmentActionPermission(adminCtx, action, current); permissionErr != nil {
+		return nil, permissionErr
 	}
 
 	var updated TranslationAssignment
@@ -287,8 +287,8 @@ func (b *translationQueueBinding) MyWork(c router.Context) (payload any, err err
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 	repo, err := b.assignmentRepository()
 	if err != nil {
@@ -394,8 +394,8 @@ func (b *translationQueueBinding) Queue(c router.Context) (payload any, err erro
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 	repo, err := b.assignmentRepository()
 	if err != nil {
@@ -573,10 +573,6 @@ func matchesAssignmentListFilter(assignment TranslationAssignment, filter transl
 		return false
 	}
 	return true
-}
-
-func translationQueueResolveActorFilter(value, actorID string) string {
-	return translationqueue.ResolveActorFilter(value, actorID)
 }
 
 func translationQueueListFilterMatches(filterValue, candidate string, normalize func(string) string) bool {
@@ -1658,10 +1654,6 @@ func translationQueueSourceRecordOption(record map[string]any, panelName string)
 
 func translationQueueAssigneeOption(record map[string]any) map[string]any {
 	return translationqueue.AssigneeOption(record)
-}
-
-func translationQueueAssigneeAvatarURL(record map[string]any) string {
-	return translationqueue.AssigneeAvatarURL(record)
 }
 
 func translationQueueOptionsSearch(c router.Context) string {

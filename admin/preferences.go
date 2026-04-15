@@ -141,24 +141,7 @@ func (s *InMemoryPreferencesStore) Resolve(ctx context.Context, input Preference
 		PreferenceLevelOrg:    org,
 		PreferenceLevelUser:   user,
 	}
-
-	effective := primitives.CloneAnyMap(base)
-	versionLookup := map[string]int{}
-	for _, level := range levelOrder {
-		records := levelRecords[level]
-		if len(records) == 0 {
-			continue
-		}
-		for key, record := range records {
-			if strings.TrimSpace(key) == "" {
-				continue
-			}
-			effective[key] = clonePreferenceValue(record.Value)
-			if input.IncludeVersion {
-				versionLookup[key] = record.Version
-			}
-		}
-	}
+	effective, versionLookup := resolvePreferenceEffectiveValues(base, levelOrder, levelRecords, input.IncludeVersion)
 	if len(requestedKeys) > 0 {
 		effective = filterPreferenceKeys(effective, requestedKeys)
 	}
@@ -166,32 +149,69 @@ func (s *InMemoryPreferencesStore) Resolve(ctx context.Context, input Preference
 		effective = map[string]any{}
 	}
 
-	var versions map[string]int
-	if input.IncludeVersion {
-		versions = map[string]int{}
-		for key := range effective {
-			if version, ok := versionLookup[key]; ok {
-				versions[key] = version
-			} else {
-				versions[key] = 0
-			}
-		}
-	}
-
-	var traces []PreferenceTrace
-	if input.IncludeTraces {
-		traceKeys := requestedKeys
-		if len(traceKeys) == 0 {
-			traceKeys = collectPreferenceKeys(base, system, tenant, org, user)
-		}
-		traces = buildPreferenceTraces(traceKeys, levelOrder, levelRecords, scope)
-	}
+	versions := resolvePreferenceVersions(effective, versionLookup, input.IncludeVersion)
+	traces := resolvePreferenceTraces(input, requestedKeys, base, system, tenant, org, user, levelOrder, levelRecords, scope)
 
 	return PreferenceSnapshot{
 		Effective: effective,
 		Traces:    traces,
 		Versions:  versions,
 	}, nil
+}
+
+func resolvePreferenceEffectiveValues(
+	base map[string]any,
+	levelOrder []PreferenceLevel,
+	levelRecords map[PreferenceLevel]map[string]preferenceRecord,
+	includeVersion bool,
+) (map[string]any, map[string]int) {
+	effective := primitives.CloneAnyMap(base)
+	versionLookup := map[string]int{}
+	for _, level := range levelOrder {
+		for key, record := range levelRecords[level] {
+			if strings.TrimSpace(key) == "" {
+				continue
+			}
+			effective[key] = clonePreferenceValue(record.Value)
+			if includeVersion {
+				versionLookup[key] = record.Version
+			}
+		}
+	}
+	return effective, versionLookup
+}
+
+func resolvePreferenceVersions(effective map[string]any, versionLookup map[string]int, includeVersion bool) map[string]int {
+	if !includeVersion {
+		return nil
+	}
+	versions := map[string]int{}
+	for key := range effective {
+		versions[key] = versionLookup[key]
+	}
+	return versions
+}
+
+func resolvePreferenceTraces(
+	input PreferencesResolveInput,
+	requestedKeys []string,
+	base map[string]any,
+	system map[string]preferenceRecord,
+	tenant map[string]preferenceRecord,
+	org map[string]preferenceRecord,
+	user map[string]preferenceRecord,
+	levelOrder []PreferenceLevel,
+	levelRecords map[PreferenceLevel]map[string]preferenceRecord,
+	scope PreferenceScope,
+) []PreferenceTrace {
+	if !input.IncludeTraces {
+		return nil
+	}
+	traceKeys := requestedKeys
+	if len(traceKeys) == 0 {
+		traceKeys = collectPreferenceKeys(base, system, tenant, org, user)
+	}
+	return buildPreferenceTraces(traceKeys, levelOrder, levelRecords, scope)
 }
 
 // Upsert stores preferences for a scoped level.
@@ -979,10 +999,10 @@ func expandDashboardOverrides(input any) DashboardLayoutOverrides {
 	if !ok {
 		return overrides
 	}
-	if locale, ok := raw["locale"]; ok {
+	if locale, localeOK := raw["locale"]; localeOK {
 		overrides.Locale = toString(locale)
 	}
-	if order, ok := raw["area_order"].(map[string]any); ok {
+	if order, orderOK := raw["area_order"].(map[string]any); orderOK {
 		for area, seq := range order {
 			overrides.AreaOrder[area] = toStringSlice(seq)
 		}

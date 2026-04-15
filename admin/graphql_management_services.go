@@ -1,11 +1,12 @@
 package admin
 
 import (
+	"context"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	admingraphql "github.com/goliatone/go-admin/admin/graphql"
+	"github.com/goliatone/go-admin/internal/primitives"
 	crud "github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
 )
@@ -48,41 +49,22 @@ func NewManagementContentService(container CMSContainer, opts DeliveryOptions) *
 }
 
 func (s *ManagementContentService) Index(ctx crud.Context, _ []repository.SelectCriteria) ([]admingraphql.Content, int, error) {
-	if s == nil || s.content == nil {
-		return nil, 0, ErrNotFound
-	}
-	locale := resolveManagementLocale(ctx, s.defaultLocale)
-	records, err := s.content.Contents(ctx.UserContext(), locale)
-	if err != nil && shouldFallbackDeliveryLocale(locale, s.defaultLocale) {
-		records, err = s.content.Contents(ctx.UserContext(), s.defaultLocale)
-	}
-	if err != nil {
-		return nil, 0, err
-	}
-	filtered := applyStatusFilter(ctx, records)
-	out := make([]admingraphql.Content, 0, len(filtered))
-	for _, record := range filtered {
-		out = append(out, mapManagementContent(record))
-	}
-	return out, len(out), nil
+	return managementIndexRecords(ctx, s.content, s.defaultLocale, s.content.Contents, applyStatusFilter, mapManagementContent)
 }
 
 func (s *ManagementContentService) Show(ctx crud.Context, id string, _ []repository.SelectCriteria) (admingraphql.Content, error) {
-	if s == nil || s.content == nil {
-		return admingraphql.Content{}, ErrNotFound
-	}
-	locale := resolveManagementLocale(ctx, s.defaultLocale)
-	record, err := s.content.Content(ctx.UserContext(), id, locale)
-	if err != nil && shouldFallbackDeliveryLocale(locale, s.defaultLocale) {
-		record, err = s.content.Content(ctx.UserContext(), id, s.defaultLocale)
-	}
-	if err != nil {
-		return admingraphql.Content{}, err
-	}
-	if !allowStatus(ctx, record.Status) {
-		return admingraphql.Content{}, ErrNotFound
-	}
-	return mapManagementContent(*record), nil
+	return managementShowRecord(ctx, id, s.content, s.defaultLocale, func(inner context.Context, recordID, locale string) (CMSContent, error) {
+		record, err := s.content.Content(inner, recordID, locale)
+		if err != nil {
+			return CMSContent{}, err
+		}
+		if record == nil {
+			return CMSContent{}, ErrNotFound
+		}
+		return *record, nil
+	}, func(inner crud.Context, record CMSContent) bool {
+		return allowStatus(inner, record.Status)
+	}, mapManagementContent)
 }
 
 func (s *ManagementContentService) Create(ctx crud.Context, record admingraphql.Content) (admingraphql.Content, error) {
@@ -142,41 +124,22 @@ func NewManagementPageService(container CMSContainer, opts DeliveryOptions) *Man
 }
 
 func (s *ManagementPageService) Index(ctx crud.Context, _ []repository.SelectCriteria) ([]admingraphql.Page, int, error) {
-	if s == nil || s.content == nil {
-		return nil, 0, ErrNotFound
-	}
-	locale := resolveManagementLocale(ctx, s.defaultLocale)
-	records, err := s.content.Pages(ctx.UserContext(), locale)
-	if err != nil && shouldFallbackDeliveryLocale(locale, s.defaultLocale) {
-		records, err = s.content.Pages(ctx.UserContext(), s.defaultLocale)
-	}
-	if err != nil {
-		return nil, 0, err
-	}
-	filtered := applyPageStatusFilter(ctx, records)
-	out := make([]admingraphql.Page, 0, len(filtered))
-	for _, record := range filtered {
-		out = append(out, mapManagementPage(record))
-	}
-	return out, len(out), nil
+	return managementIndexRecords(ctx, s.content, s.defaultLocale, s.content.Pages, applyPageStatusFilter, mapManagementPage)
 }
 
 func (s *ManagementPageService) Show(ctx crud.Context, id string, _ []repository.SelectCriteria) (admingraphql.Page, error) {
-	if s == nil || s.content == nil {
-		return admingraphql.Page{}, ErrNotFound
-	}
-	locale := resolveManagementLocale(ctx, s.defaultLocale)
-	record, err := s.content.Page(ctx.UserContext(), id, locale)
-	if err != nil && shouldFallbackDeliveryLocale(locale, s.defaultLocale) {
-		record, err = s.content.Page(ctx.UserContext(), id, s.defaultLocale)
-	}
-	if err != nil {
-		return admingraphql.Page{}, err
-	}
-	if !allowStatus(ctx, record.Status) {
-		return admingraphql.Page{}, ErrNotFound
-	}
-	return mapManagementPage(*record), nil
+	return managementShowRecord(ctx, id, s.content, s.defaultLocale, func(inner context.Context, recordID, locale string) (CMSPage, error) {
+		record, err := s.content.Page(inner, recordID, locale)
+		if err != nil {
+			return CMSPage{}, err
+		}
+		if record == nil {
+			return CMSPage{}, ErrNotFound
+		}
+		return *record, nil
+	}, func(inner crud.Context, record CMSPage) bool {
+		return allowStatus(inner, record.Status)
+	}, mapManagementPage)
 }
 
 func (s *ManagementPageService) Create(ctx crud.Context, record admingraphql.Page) (admingraphql.Page, error) {
@@ -300,6 +263,60 @@ func resolveManagementLocale(ctx crud.Context, fallback string) string {
 		return locale
 	}
 	return fallback
+}
+
+func managementIndexRecords[Record any, Out any](
+	ctx crud.Context,
+	content CMSContentService,
+	defaultLocale string,
+	list func(context.Context, string) ([]Record, error),
+	filter func(crud.Context, []Record) []Record,
+	mapRecord func(Record) Out,
+) ([]Out, int, error) {
+	if content == nil {
+		return nil, 0, ErrNotFound
+	}
+	locale := resolveManagementLocale(ctx, defaultLocale)
+	records, err := list(ctx.UserContext(), locale)
+	if err != nil && shouldFallbackDeliveryLocale(locale, defaultLocale) {
+		records, err = list(ctx.UserContext(), defaultLocale)
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	filtered := filter(ctx, records)
+	out := make([]Out, 0, len(filtered))
+	for _, record := range filtered {
+		out = append(out, mapRecord(record))
+	}
+	return out, len(out), nil
+}
+
+func managementShowRecord[Record any, Out any](
+	ctx crud.Context,
+	id string,
+	content CMSContentService,
+	defaultLocale string,
+	get func(context.Context, string, string) (Record, error),
+	allowed func(crud.Context, Record) bool,
+	mapRecord func(Record) Out,
+) (Out, error) {
+	var zero Out
+	if content == nil {
+		return zero, ErrNotFound
+	}
+	locale := resolveManagementLocale(ctx, defaultLocale)
+	record, err := get(ctx.UserContext(), id, locale)
+	if err != nil && shouldFallbackDeliveryLocale(locale, defaultLocale) {
+		record, err = get(ctx.UserContext(), id, defaultLocale)
+	}
+	if err != nil {
+		return zero, err
+	}
+	if !allowed(ctx, record) {
+		return zero, ErrNotFound
+	}
+	return mapRecord(record), nil
 }
 
 func applyStatusFilter(ctx crud.Context, records []CMSContent) []CMSContent {

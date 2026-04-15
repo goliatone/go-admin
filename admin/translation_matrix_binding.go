@@ -45,8 +45,8 @@ func (b *translationFamilyBinding) Matrix(c router.Context) (payload any, err er
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 
 	channel := translationChannelFromRequest(c, adminCtx, nil)
@@ -150,11 +150,11 @@ func (b *translationFamilyBinding) CreateMissingBulk(c router.Context, body map[
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
-	if err := rejectTranslationClientIdentityFields(body); err != nil {
-		return nil, err
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return nil, identityErr
 	}
 
 	channel := translationChannelFromRequest(c, adminCtx, body)
@@ -321,11 +321,11 @@ func (b *translationFamilyBinding) ExportSelectedBulk(c router.Context, body map
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, translationExchangePermissionExport, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, translationExchangePermissionExport, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
-	if err := rejectTranslationClientIdentityFields(body); err != nil {
-		return nil, err
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return nil, identityErr
 	}
 
 	input := parseTranslationMatrixExportSelectedInput(c, body, adminCtx)
@@ -1216,8 +1216,8 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 			return nil, err
 		}
 	}
-	if err := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); err != nil {
-		return nil, err
+	if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); syncErr != nil {
+		return nil, syncErr
 	}
 
 	payloadMap, familyAfter, err := b.rebuildCreateVariantPayloadWithFamily(adminCtx.Context, scope, familyBefore.ID, input)

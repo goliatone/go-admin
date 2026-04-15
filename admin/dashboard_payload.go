@@ -73,11 +73,11 @@ func encodeWidgetPayload(payload WidgetPayload) (map[string]any, error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.UseNumber()
 	out := map[string]any{}
-	if err := dec.Decode(&out); err != nil {
-		return nil, fmt.Errorf("decode widget payload object: %w", err)
+	if decodeErr := dec.Decode(&out); decodeErr != nil {
+		return nil, fmt.Errorf("decode widget payload object: %w", decodeErr)
 	}
-	if err := ensureDashboardJSONEOF(dec); err != nil {
-		return nil, fmt.Errorf("decode widget payload trailing data: %w", err)
+	if eofErr := ensureDashboardJSONEOF(dec); eofErr != nil {
+		return nil, fmt.Errorf("decode widget payload trailing data: %w", eofErr)
 	}
 	out = dashinternal.SanitizeWidgetData(out)
 	serialized, err := router.SerializeAsContext(out)

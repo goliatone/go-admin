@@ -105,43 +105,10 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 		return nil
 	}
 
-	if m.basePath == "" {
-		m.basePath = cfg.BasePath
-	}
-	if m.adminBasePath == "" {
-		m.adminBasePath = ctx.Admin.BasePath()
-	}
-	if m.menuCode == "" {
-		m.menuCode = ctx.Admin.NavMenuCode()
-	}
-	if m.locale == "" {
-		m.locale = ctx.Admin.DefaultLocale()
-	}
-	if m.permission == "" {
-		m.permission = cfg.Permission
-	}
-	if m.collector == nil {
-		m.collector = NewDebugCollector(cfg)
-	}
-	m.collector.SetJSErrorRouteEnabled(debugJSErrorRouteEnabled(ctx.Admin, cfg))
-	m.collector.SetLiveTransportEnabled(false)
 	m.admin = ctx.Admin
-	m.collector.WithURLs(ctx.Admin.URLs())
-	if m.sessionStore == nil {
-		m.sessionStore = ctx.Admin.DebugUserSessions()
-	}
-	if m.sessionStore != nil {
-		m.collector.WithSessionStore(m.sessionStore)
-	}
-	if m.urls == nil {
-		m.urls = ctx.Admin.URLs()
-	}
-	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
-		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
-	}
-	if path := ctx.Routing.RoutePath(routing.SurfaceUI, debugRouteKey); path != "" {
-		m.basePath = path
-	}
+	m.applyModuleDefaults(ctx.Admin, cfg)
+	m.configureCollector(ctx.Admin, cfg)
+	m.captureResolvedPaths(ctx)
 	ctx.Admin.debugCollector = m.collector
 	m.captureConfigSnapshot(ctx.Admin)
 	m.captureRoutesSnapshot(ctx.Admin)
@@ -156,6 +123,51 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 	RegisterActionDiagnosticsDebugPanel(ctx.Admin)
 	RegisterDoctorDebugPanel(ctx.Admin)
 	return nil
+}
+
+func (m *DebugModule) applyModuleDefaults(admin *Admin, cfg DebugConfig) {
+	if m.basePath == "" {
+		m.basePath = cfg.BasePath
+	}
+	if m.adminBasePath == "" {
+		m.adminBasePath = admin.BasePath()
+	}
+	if m.menuCode == "" {
+		m.menuCode = admin.NavMenuCode()
+	}
+	if m.locale == "" {
+		m.locale = admin.DefaultLocale()
+	}
+	if m.permission == "" {
+		m.permission = cfg.Permission
+	}
+	if m.urls == nil {
+		m.urls = admin.URLs()
+	}
+}
+
+func (m *DebugModule) configureCollector(admin *Admin, cfg DebugConfig) {
+	if m.collector == nil {
+		m.collector = NewDebugCollector(cfg)
+	}
+	m.collector.SetJSErrorRouteEnabled(debugJSErrorRouteEnabled(admin, cfg))
+	m.collector.SetLiveTransportEnabled(false)
+	m.collector.WithURLs(admin.URLs())
+	if m.sessionStore == nil {
+		m.sessionStore = admin.DebugUserSessions()
+	}
+	if m.sessionStore != nil {
+		m.collector.WithSessionStore(m.sessionStore)
+	}
+}
+
+func (m *DebugModule) captureResolvedPaths(ctx ModuleContext) {
+	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
+		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
+	}
+	if path := ctx.Routing.RoutePath(routing.SurfaceUI, debugRouteKey); path != "" {
+		m.basePath = path
+	}
 }
 
 func (m *DebugModule) RouteContract() routing.ModuleContract {
@@ -465,8 +477,4 @@ func relativeRoutePath(basePath, fullPath string) string {
 
 func debugPanelMetaFor(panelID string) debugPanelMeta {
 	return debugpanels.PanelMetaFor(panelID, debugPanelDefaults, debugPanelDefaultSpan)
-}
-
-func debugPanelLabel(panelID string) string {
-	return debugpanels.PanelLabel(panelID)
 }

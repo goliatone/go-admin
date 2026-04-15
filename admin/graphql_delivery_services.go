@@ -1,11 +1,12 @@
 package admin
 
 import (
+	"context"
 	"errors"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"strings"
 
 	delivery "github.com/goliatone/go-admin/admin/graphql"
+	"github.com/goliatone/go-admin/internal/primitives"
 	crud "github.com/goliatone/go-crud"
 	repository "github.com/goliatone/go-repository-bun"
 )
@@ -54,45 +55,24 @@ func NewDeliveryContentService(container CMSContainer, opts DeliveryOptions) *De
 }
 
 func (s *DeliveryContentService) Index(ctx crud.Context, _ []repository.SelectCriteria) ([]delivery.Content, int, error) {
-	if s == nil || s.content == nil {
-		return nil, 0, ErrNotFound
-	}
-	locale := resolveDeliveryLocale(ctx, s.defaultLocale)
-	records, err := s.content.Contents(ctx.UserContext(), locale)
-	if err != nil {
-		if locale != s.defaultLocale && s.defaultLocale != "" {
-			records, err = s.content.Contents(ctx.UserContext(), s.defaultLocale)
-		}
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	filtered := make([]delivery.Content, 0, len(records))
-	for _, record := range records {
-		if !deliveryPublished(record.Status) {
-			continue
-		}
-		filtered = append(filtered, mapDeliveryContent(record))
-	}
-	return filtered, len(filtered), nil
+	return deliveryIndexRecords(ctx, s.content, s.defaultLocale, s.content.Contents, func(record CMSContent) string {
+		return record.Status
+	}, mapDeliveryContent)
 }
 
 func (s *DeliveryContentService) Show(ctx crud.Context, id string, _ []repository.SelectCriteria) (delivery.Content, error) {
-	if s == nil || s.content == nil {
-		return delivery.Content{}, ErrNotFound
-	}
-	locale := resolveDeliveryLocale(ctx, s.defaultLocale)
-	record, err := s.content.Content(ctx.UserContext(), id, locale)
-	if err != nil && shouldFallbackDeliveryLocale(locale, s.defaultLocale) {
-		record, err = s.content.Content(ctx.UserContext(), id, s.defaultLocale)
-	}
-	if err != nil {
-		return delivery.Content{}, err
-	}
-	if !deliveryPublished(record.Status) {
-		return delivery.Content{}, ErrNotFound
-	}
-	return mapDeliveryContent(*record), nil
+	return deliveryShowRecord(ctx, id, s.content, s.defaultLocale, func(inner context.Context, recordID, locale string) (CMSContent, error) {
+		record, err := s.content.Content(inner, recordID, locale)
+		if err != nil {
+			return CMSContent{}, err
+		}
+		if record == nil {
+			return CMSContent{}, ErrNotFound
+		}
+		return *record, nil
+	}, func(record CMSContent) string {
+		return record.Status
+	}, mapDeliveryContent)
 }
 
 // DeliveryPageService adapts CMS pages for delivery.
@@ -116,45 +96,24 @@ func NewDeliveryPageService(container CMSContainer, opts DeliveryOptions) *Deliv
 }
 
 func (s *DeliveryPageService) Index(ctx crud.Context, _ []repository.SelectCriteria) ([]delivery.Page, int, error) {
-	if s == nil || s.content == nil {
-		return nil, 0, ErrNotFound
-	}
-	locale := resolveDeliveryLocale(ctx, s.defaultLocale)
-	records, err := s.content.Pages(ctx.UserContext(), locale)
-	if err != nil {
-		if locale != s.defaultLocale && s.defaultLocale != "" {
-			records, err = s.content.Pages(ctx.UserContext(), s.defaultLocale)
-		}
-		if err != nil {
-			return nil, 0, err
-		}
-	}
-	filtered := make([]delivery.Page, 0, len(records))
-	for _, record := range records {
-		if !deliveryPublished(record.Status) {
-			continue
-		}
-		filtered = append(filtered, mapDeliveryPage(record))
-	}
-	return filtered, len(filtered), nil
+	return deliveryIndexRecords(ctx, s.content, s.defaultLocale, s.content.Pages, func(record CMSPage) string {
+		return record.Status
+	}, mapDeliveryPage)
 }
 
 func (s *DeliveryPageService) Show(ctx crud.Context, id string, _ []repository.SelectCriteria) (delivery.Page, error) {
-	if s == nil || s.content == nil {
-		return delivery.Page{}, ErrNotFound
-	}
-	locale := resolveDeliveryLocale(ctx, s.defaultLocale)
-	record, err := s.content.Page(ctx.UserContext(), id, locale)
-	if err != nil && shouldFallbackDeliveryLocale(locale, s.defaultLocale) {
-		record, err = s.content.Page(ctx.UserContext(), id, s.defaultLocale)
-	}
-	if err != nil {
-		return delivery.Page{}, err
-	}
-	if !deliveryPublished(record.Status) {
-		return delivery.Page{}, ErrNotFound
-	}
-	return mapDeliveryPage(*record), nil
+	return deliveryShowRecord(ctx, id, s.content, s.defaultLocale, func(inner context.Context, recordID, locale string) (CMSPage, error) {
+		record, err := s.content.Page(inner, recordID, locale)
+		if err != nil {
+			return CMSPage{}, err
+		}
+		if record == nil {
+			return CMSPage{}, ErrNotFound
+		}
+		return *record, nil
+	}, func(record CMSPage) string {
+		return record.Status
+	}, mapDeliveryPage)
 }
 
 // DeliveryMenuService adapts CMS menus for delivery.
@@ -216,6 +175,64 @@ func resolveDeliveryLocale(ctx crud.Context, fallback string) string {
 func shouldFallbackDeliveryLocale(locale, fallback string) bool {
 	fallback = strings.TrimSpace(fallback)
 	return fallback != "" && locale != "" && locale != fallback
+}
+
+func deliveryIndexRecords[Record any, Out any](
+	ctx crud.Context,
+	content CMSContentService,
+	defaultLocale string,
+	list func(context.Context, string) ([]Record, error),
+	status func(Record) string,
+	mapRecord func(Record) Out,
+) ([]Out, int, error) {
+	if content == nil {
+		return nil, 0, ErrNotFound
+	}
+	locale := resolveDeliveryLocale(ctx, defaultLocale)
+	records, err := list(ctx.UserContext(), locale)
+	if err != nil {
+		if shouldFallbackDeliveryLocale(locale, defaultLocale) {
+			records, err = list(ctx.UserContext(), defaultLocale)
+		}
+		if err != nil {
+			return nil, 0, err
+		}
+	}
+	filtered := make([]Out, 0, len(records))
+	for _, record := range records {
+		if !deliveryPublished(status(record)) {
+			continue
+		}
+		filtered = append(filtered, mapRecord(record))
+	}
+	return filtered, len(filtered), nil
+}
+
+func deliveryShowRecord[Record any, Out any](
+	ctx crud.Context,
+	id string,
+	content CMSContentService,
+	defaultLocale string,
+	get func(context.Context, string, string) (Record, error),
+	status func(Record) string,
+	mapRecord func(Record) Out,
+) (Out, error) {
+	var zero Out
+	if content == nil {
+		return zero, ErrNotFound
+	}
+	locale := resolveDeliveryLocale(ctx, defaultLocale)
+	record, err := get(ctx.UserContext(), id, locale)
+	if err != nil && shouldFallbackDeliveryLocale(locale, defaultLocale) {
+		record, err = get(ctx.UserContext(), id, defaultLocale)
+	}
+	if err != nil {
+		return zero, err
+	}
+	if !deliveryPublished(status(record)) {
+		return zero, ErrNotFound
+	}
+	return mapRecord(record), nil
 }
 
 func deliveryPublished(status string) bool {

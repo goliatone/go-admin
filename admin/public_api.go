@@ -287,57 +287,34 @@ func (a *Admin) handleSiteMenuDispatch(c router.Context) error {
 }
 
 func (a *Admin) handleSiteMenuByLocationPath(c router.Context, location string) error {
-	if err := a.authorizeSiteRead(c); err != nil {
-		return writeError(c, err)
-	}
-	if a.menuSvc == nil {
-		return writeError(c, serviceUnavailableDomainError("menu service not available", map[string]any{
-			"service": "menu",
-		}))
-	}
 	location = strings.TrimSpace(location)
 	if location == "" {
 		return writeError(c, validationDomainError("menu location required", map[string]any{
 			"field": "location",
 		}))
 	}
-	options := a.parseSiteRequestOptions(c, true)
-	ctx := a.siteContextFromRequest(c, options.Query.Locale)
-	previewValidated := false
-	if token := strings.TrimSpace(options.Query.PreviewToken); token != "" {
-		validated, err := a.previewTokenFromQuery(token)
-		if err != nil {
-			return writeError(c, err)
-		}
-		previewValidated = previewTokenAllowsMenuDrafts(validated)
-		_, env := splitPreviewEntityType(validated.EntityType)
-		if env != "" {
-			ctx = WithEnvironment(ctx, env)
-		}
-		if previewValidated {
-			options.Query.IncludeDrafts = true
-		}
-	}
-	if err := a.authorizeSiteDraftRead(c, options.Query, previewValidated); err != nil {
-		return writeError(c, err)
-	}
-	menuReadOpts := options.menuReadOptions(c, a)
-	if menuReadOpts.ViewProfile == "" && previewValidated {
-		menuReadOpts.ViewProfile = strings.TrimSpace(options.Query.ViewProfile)
-	}
-	menu, err := a.menuByLocation(ctx, location, menuReadOpts)
-	if err != nil {
-		return writeError(c, err)
-	}
-	if menu != nil && a.contentSvc != nil {
-		a.resolveMenuTargets(ctx, menu.Items, options.Query.Locale)
-	}
-	query := options.Query
-	query.ViewProfile = menuReadOpts.ViewProfile
-	return writeJSON(c, SiteMenuResponse{Data: menu, Meta: siteMetaForMenu(query)})
+	return a.handleSiteMenuPath(c, location, "location", "menu location required", func(ctx context.Context, value string, opts SiteMenuReadOptions) (*Menu, error) {
+		return a.menuByLocation(ctx, value, opts)
+	})
 }
 
 func (a *Admin) handleSiteMenuByCodePath(c router.Context, code string) error {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return writeError(c, validationDomainError("menu code required", map[string]any{"field": "code"}))
+	}
+	return a.handleSiteMenuPath(c, code, "code", "menu code required", func(ctx context.Context, value string, opts SiteMenuReadOptions) (*Menu, error) {
+		return a.menuByCode(ctx, value, opts)
+	})
+}
+
+func (a *Admin) handleSiteMenuPath(
+	c router.Context,
+	value string,
+	field string,
+	requiredMessage string,
+	resolve func(context.Context, string, SiteMenuReadOptions) (*Menu, error),
+) error {
 	if err := a.authorizeSiteRead(c); err != nil {
 		return writeError(c, err)
 	}
@@ -346,9 +323,9 @@ func (a *Admin) handleSiteMenuByCodePath(c router.Context, code string) error {
 			"service": "menu",
 		}))
 	}
-	code = strings.TrimSpace(code)
-	if code == "" {
-		return writeError(c, validationDomainError("menu code required", map[string]any{"field": "code"}))
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return writeError(c, validationDomainError(requiredMessage, map[string]any{"field": field}))
 	}
 	options := a.parseSiteRequestOptions(c, true)
 	ctx := a.siteContextFromRequest(c, options.Query.Locale)
@@ -374,7 +351,7 @@ func (a *Admin) handleSiteMenuByCodePath(c router.Context, code string) error {
 	if menuReadOpts.ViewProfile == "" && previewValidated {
 		menuReadOpts.ViewProfile = strings.TrimSpace(options.Query.ViewProfile)
 	}
-	menu, err := a.menuByCode(ctx, code, menuReadOpts)
+	menu, err := resolve(ctx, value, menuReadOpts)
 	if err != nil {
 		return writeError(c, err)
 	}

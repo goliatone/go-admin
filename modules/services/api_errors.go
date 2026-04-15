@@ -75,44 +75,48 @@ func classifyServiceError(err error) (int, string, string, map[string]any, bool)
 	case goerrors.CategoryRateLimit:
 		return http.StatusTooManyRequests, "rate_limited", message, details, true
 	case goerrors.CategoryOperation:
-		status := mapped.Code
-		if status < 400 {
-			status = http.StatusInternalServerError
-		}
-		if status == http.StatusServiceUnavailable || strings.Contains(textCode, "provider") {
-			return http.StatusServiceUnavailable, "provider_unavailable", message, details, true
-		}
-		if status >= http.StatusInternalServerError {
-			return status, "internal_error", message, details, true
-		}
-		if status == http.StatusTooManyRequests {
-			return status, "rate_limited", message, details, true
-		}
-		if status == http.StatusBadRequest {
-			return status, "validation_error", message, details, false
-		}
-		if status == http.StatusUnauthorized {
-			return status, "unauthorized", message, details, false
-		}
-		if status == http.StatusForbidden {
-			return status, "forbidden", message, details, false
-		}
-		if status == http.StatusNotFound {
-			return status, "not_found", message, details, false
-		}
-		return http.StatusConflict, "conflict", message, details, false
+		return classifyOperationServiceError(mapped.Code, textCode, message, details)
 	default:
-		if mapped.Code == http.StatusServiceUnavailable || strings.Contains(textCode, "provider_unavailable") {
-			return http.StatusServiceUnavailable, "provider_unavailable", message, details, true
-		}
-		status := mapped.Code
-		if status < 400 {
-			status = http.StatusInternalServerError
-		}
-		code := "internal_error"
-		retryable := status >= 500
-		return status, code, message, details, retryable
+		return classifyDefaultServiceError(mapped.Code, textCode, message, details)
 	}
+}
+
+func classifyOperationServiceError(status int, textCode, message string, details map[string]any) (int, string, string, map[string]any, bool) {
+	status = normalizeServiceErrorStatus(status)
+	if status == http.StatusServiceUnavailable || strings.Contains(textCode, "provider") {
+		return http.StatusServiceUnavailable, "provider_unavailable", message, details, true
+	}
+	switch status {
+	case http.StatusTooManyRequests:
+		return status, "rate_limited", message, details, true
+	case http.StatusBadRequest:
+		return status, "validation_error", message, details, false
+	case http.StatusUnauthorized:
+		return status, "unauthorized", message, details, false
+	case http.StatusForbidden:
+		return status, "forbidden", message, details, false
+	case http.StatusNotFound:
+		return status, "not_found", message, details, false
+	}
+	if status >= http.StatusInternalServerError {
+		return status, "internal_error", message, details, true
+	}
+	return http.StatusConflict, "conflict", message, details, false
+}
+
+func classifyDefaultServiceError(status int, textCode, message string, details map[string]any) (int, string, string, map[string]any, bool) {
+	if status == http.StatusServiceUnavailable || strings.Contains(textCode, "provider_unavailable") {
+		return http.StatusServiceUnavailable, "provider_unavailable", message, details, true
+	}
+	status = normalizeServiceErrorStatus(status)
+	return status, "internal_error", message, details, status >= http.StatusInternalServerError
+}
+
+func normalizeServiceErrorStatus(status int) int {
+	if status < 400 {
+		return http.StatusInternalServerError
+	}
+	return status
 }
 
 func validationError(message string, details map[string]any) error {

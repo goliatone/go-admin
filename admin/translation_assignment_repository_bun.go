@@ -144,8 +144,8 @@ func (r *BunTranslationAssignmentRepository) Update(ctx context.Context, assignm
 		}
 		next.Version = current.Version + 1
 		next.UpdatedAt = time.Now().UTC()
-		if err := next.Validate(); err != nil {
-			return err
+		if validateErr := next.Validate(); validateErr != nil {
+			return validateErr
 		}
 		record := bunTranslationAssignmentRecordFromAssignment(next)
 		result, err := tx.NewUpdate().

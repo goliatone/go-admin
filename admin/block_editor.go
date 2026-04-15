@@ -52,7 +52,7 @@ func blockEditorRenderer(buf *bytes.Buffer, field model.Field, data components.C
 
 	configJSON := ""
 	if len(data.Config) > 0 {
-		if raw, err := json.Marshal(data.Config); err == nil {
+		if raw, marshalErr := json.Marshal(data.Config); marshalErr == nil {
 			configJSON = string(raw)
 		}
 	}

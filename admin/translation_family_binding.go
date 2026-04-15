@@ -104,8 +104,8 @@ func (b *translationFamilyBinding) List(c router.Context) (payload any, err erro
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 	channel := translationChannelFromRequest(c, adminCtx, nil)
 	runtime, err := b.runtime(adminCtx.Context, channel)
@@ -179,8 +179,8 @@ func (b *translationFamilyBinding) Detail(c router.Context, id string) (payload 
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsView, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 	channel := translationChannelFromRequest(c, adminCtx, nil)
 	runtime, err := b.runtime(adminCtx.Context, channel)
@@ -229,16 +229,16 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 	adminCtx := b.admin.adminContextFromRequest(c, b.admin.config.DefaultLocale)
 	obsCtx = adminCtx.Context
 	setTranslationTraceHeaders(c, obsCtx)
-	if err := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); err != nil {
-		return nil, err
+	if permissionErr := b.admin.requirePermission(adminCtx, PermAdminTranslationsEdit, "translations"); permissionErr != nil {
+		return nil, permissionErr
 	}
 
 	body, err := parseOptionalJSONMap(c.Body())
 	if err != nil {
 		return nil, err
 	}
-	if err := rejectTranslationClientIdentityFields(body); err != nil {
-		return nil, err
+	if identityErr := rejectTranslationClientIdentityFields(body); identityErr != nil {
+		return nil, identityErr
 	}
 
 	channel := translationChannelFromRequest(c, adminCtx, body)
@@ -360,8 +360,8 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 			return nil, err
 		}
 	}
-	if err := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); err != nil {
-		return nil, err
+	if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); syncErr != nil {
+		return nil, syncErr
 	}
 
 	payloadMap, familyAfter, err := b.rebuildCreateVariantPayloadWithFamily(adminCtx.Context, scope, familyBefore.ID, input)
@@ -650,8 +650,8 @@ func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.
 		var rollbackErr error
 		for i := len(archivedSnapshots) - 1; i >= 0; i-- {
 			snapshot := archivedSnapshots[i]
-			if _, err := repo.Update(ctx, snapshot.original, snapshot.current.Version); err != nil {
-				rollbackErr = errors.Join(rollbackErr, err)
+			if _, rollbackUpdateErr := repo.Update(ctx, snapshot.original, snapshot.current.Version); rollbackUpdateErr != nil {
+				rollbackErr = errors.Join(rollbackErr, rollbackUpdateErr)
 			}
 		}
 		if rollbackErr != nil {
@@ -665,9 +665,9 @@ func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.
 		archived.Status = AssignmentStatusArchived
 		now := b.now()
 		archived.ArchivedAt = &now
-		updated, err := repo.Update(ctx, archived, assignment.Version)
-		if err != nil {
-			return translationFamilyCreateVariantOutcome{}, err
+		updated, updateErr := repo.Update(ctx, archived, assignment.Version)
+		if updateErr != nil {
+			return translationFamilyCreateVariantOutcome{}, updateErr
 		}
 		archivedSnapshots = append(archivedSnapshots, archivedAssignmentSnapshot{
 			original: original,
@@ -694,9 +694,9 @@ func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.
 			reused.Priority != plan.ReuseAssignment.Priority ||
 			reused.WorkScope != plan.ReuseAssignment.WorkScope ||
 			!timesEqual(reused.DueDate, plan.ReuseAssignment.DueDate) {
-			updated, err := repo.Update(ctx, reused, plan.ReuseAssignment.Version)
-			if err != nil {
-				return translationFamilyCreateVariantOutcome{}, rollbackArchivedAssignments(err)
+			updated, updateErr := repo.Update(ctx, reused, plan.ReuseAssignment.Version)
+			if updateErr != nil {
+				return translationFamilyCreateVariantOutcome{}, rollbackArchivedAssignments(updateErr)
 			}
 			reused = updated
 		}

@@ -113,7 +113,7 @@ func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family trans
 		if err != nil {
 			return err
 		}
-		if _, err := tx.NewInsert().
+		if _, upsertFamilyErr := tx.NewInsert().
 			Model(&record).
 			On("CONFLICT (family_id) DO UPDATE").
 			Set("tenant_id = EXCLUDED.tenant_id").
@@ -127,15 +127,15 @@ func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family trans
 			Set("pending_review_count = EXCLUDED.pending_review_count").
 			Set("outdated_locale_count = EXCLUDED.outdated_locale_count").
 			Set("updated_at = EXCLUDED.updated_at").
-			Exec(ctx); err != nil {
-			return err
+			Exec(ctx); upsertFamilyErr != nil {
+			return upsertFamilyErr
 		}
 		for _, variant := range family.Variants {
-			row, err := bunTranslationLocaleVariantRecordFromModel(family, variant)
-			if err != nil {
-				return err
+			row, rowErr := bunTranslationLocaleVariantRecordFromModel(family, variant)
+			if rowErr != nil {
+				return rowErr
 			}
-			if _, err := tx.NewInsert().
+			if _, upsertVariantErr := tx.NewInsert().
 				Model(&row).
 				On("CONFLICT (variant_id) DO UPDATE").
 				Set("tenant_id = EXCLUDED.tenant_id").
@@ -150,21 +150,21 @@ func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family trans
 				Set("source_record_id = EXCLUDED.source_record_id").
 				Set("updated_at = EXCLUDED.updated_at").
 				Set("published_at = EXCLUDED.published_at").
-				Exec(ctx); err != nil {
-				return err
+				Exec(ctx); upsertVariantErr != nil {
+				return upsertVariantErr
 			}
 		}
-		if _, err := tx.NewDelete().Model((*bunTranslationFamilyBlockerRecord)(nil)).Where("family_id = ?", strings.TrimSpace(family.ID)).Exec(ctx); err != nil {
-			return err
+		if _, deleteBlockersErr := tx.NewDelete().Model((*bunTranslationFamilyBlockerRecord)(nil)).Where("family_id = ?", strings.TrimSpace(family.ID)).Exec(ctx); deleteBlockersErr != nil {
+			return deleteBlockersErr
 		}
 		if len(family.Blockers) == 0 {
 			return nil
 		}
 		rows := make([]bunTranslationFamilyBlockerRecord, 0, len(family.Blockers))
 		for _, blocker := range family.Blockers {
-			row, err := bunTranslationFamilyBlockerRecordFromModel(family, blocker)
-			if err != nil {
-				return err
+			row, rowErr := bunTranslationFamilyBlockerRecordFromModel(family, blocker)
+			if rowErr != nil {
+				return rowErr
 			}
 			rows = append(rows, row)
 		}

@@ -209,8 +209,8 @@ func (s *DefaultTranslationQueueService) Approve(ctx context.Context, input Tran
 	if assignment.Status != AssignmentStatusInReview {
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "approve", assignment)
 	}
-	if err := translationQueueReviewerGuard(assignment, input.ReviewerID); err != nil {
-		return TranslationAssignment{}, err
+	if guardErr := translationQueueReviewerGuard(assignment, input.ReviewerID); guardErr != nil {
+		return TranslationAssignment{}, guardErr
 	}
 
 	assignment.Status = AssignmentStatusApproved
@@ -244,8 +244,8 @@ func (s *DefaultTranslationQueueService) Reject(ctx context.Context, input Trans
 	if assignment.Status != AssignmentStatusInReview {
 		return TranslationAssignment{}, invalidQueueTransitionError(assignment.Status, "reject", assignment)
 	}
-	if err := translationQueueReviewerGuard(assignment, input.ReviewerID); err != nil {
-		return TranslationAssignment{}, err
+	if guardErr := translationQueueReviewerGuard(assignment, input.ReviewerID); guardErr != nil {
+		return TranslationAssignment{}, guardErr
 	}
 
 	assignment.Status = AssignmentStatusChangesRequested
@@ -325,24 +325,13 @@ func (s *DefaultTranslationQueueService) BulkRelease(ctx context.Context, input 
 	if err := s.ensureRepository(); err != nil {
 		return nil, err
 	}
-
-	results := make([]TranslationAssignment, 0, len(input.AssignmentIDs))
-	for _, id := range dedupeStrings(input.AssignmentIDs) {
-		current, err := s.Repository.Get(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		updated, err := s.Release(ctx, TranslationQueueReleaseInput{
+	return s.bulkMutateAssignments(ctx, input.AssignmentIDs, func(id string, version int64) (TranslationAssignment, error) {
+		return s.Release(ctx, TranslationQueueReleaseInput{
 			AssignmentID:    id,
 			ActorID:         input.ActorID,
-			ExpectedVersion: current.Version,
+			ExpectedVersion: version,
 		})
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, updated)
-	}
-	return results, nil
+	})
 }
 
 func (s *DefaultTranslationQueueService) BulkPriority(ctx context.Context, input TranslationQueueBulkPriorityInput) ([]TranslationAssignment, error) {
@@ -376,18 +365,27 @@ func (s *DefaultTranslationQueueService) BulkArchive(ctx context.Context, input 
 	if err := s.ensureRepository(); err != nil {
 		return nil, err
 	}
+	return s.bulkMutateAssignments(ctx, input.AssignmentIDs, func(id string, version int64) (TranslationAssignment, error) {
+		return s.Archive(ctx, TranslationQueueArchiveInput{
+			AssignmentID:    id,
+			ActorID:         input.ActorID,
+			ExpectedVersion: version,
+		})
+	})
+}
 
-	results := make([]TranslationAssignment, 0, len(input.AssignmentIDs))
-	for _, id := range dedupeStrings(input.AssignmentIDs) {
+func (s *DefaultTranslationQueueService) bulkMutateAssignments(
+	ctx context.Context,
+	assignmentIDs []string,
+	mutate func(string, int64) (TranslationAssignment, error),
+) ([]TranslationAssignment, error) {
+	results := make([]TranslationAssignment, 0, len(assignmentIDs))
+	for _, id := range dedupeStrings(assignmentIDs) {
 		current, err := s.Repository.Get(ctx, id)
 		if err != nil {
 			return nil, err
 		}
-		updated, err := s.Archive(ctx, TranslationQueueArchiveInput{
-			AssignmentID:    id,
-			ActorID:         input.ActorID,
-			ExpectedVersion: current.Version,
-		})
+		updated, err := mutate(id, current.Version)
 		if err != nil {
 			return nil, err
 		}

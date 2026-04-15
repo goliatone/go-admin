@@ -126,8 +126,8 @@ func (a *Admin) loadModules(ctx context.Context) error {
 				Translator:      a.translator,
 				Routing:         routingContexts[moduleID],
 			}
-			if err := registrar.Register(moduleCtx); err != nil {
-				return err
+			if registerErr := registrar.Register(moduleCtx); registerErr != nil {
+				return registerErr
 			}
 			if validator, ok := registrar.(ModuleStartupValidator); ok {
 				validateErr := validator.ValidateStartup(ctx)

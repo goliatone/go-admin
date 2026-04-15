@@ -129,70 +129,87 @@ func NormalizeMachineRecord(rec *flow.AuthoringMachineRecord) (*flow.AuthoringMa
 }
 
 func MachineRowFromRecord(rec *flow.AuthoringMachineRecord) (MachineRow, error) {
-	if rec == nil {
-		return MachineRow{}, ErrAuthoringRecordRequired
-	}
-	draftRaw, err := json.Marshal(rec.Draft)
+	encoded, err := authoringRecordPayload(rec)
 	if err != nil {
 		return MachineRow{}, err
-	}
-	diagsRaw, err := json.Marshal(rec.Diagnostics)
-	if err != nil {
-		return MachineRow{}, err
-	}
-	publishedRaw := ""
-	if rec.PublishedDefinition != nil {
-		publishedBytes, publishedErr := json.Marshal(rec.PublishedDefinition)
-		if publishedErr != nil {
-			return MachineRow{}, publishedErr
-		}
-		publishedRaw = string(publishedBytes)
 	}
 	return MachineRow{
-		MachineID:           strings.TrimSpace(rec.MachineID),
-		Name:                strings.TrimSpace(rec.Name),
-		Version:             strings.TrimSpace(rec.Version),
-		ETag:                strings.TrimSpace(rec.ETag),
-		Draft:               string(draftRaw),
-		Diagnostics:         string(diagsRaw),
-		UpdatedAt:           rec.UpdatedAt.UTC(),
-		PublishedAt:         CloneTimePtr(rec.PublishedAt),
-		PublishedDefinition: publishedRaw,
-		DeletedAt:           CloneTimePtr(rec.DeletedAt),
+		MachineID:           encoded.machineID,
+		Name:                encoded.name,
+		Version:             encoded.version,
+		ETag:                encoded.etag,
+		Draft:               encoded.draft,
+		Diagnostics:         encoded.diagnostics,
+		UpdatedAt:           encoded.updatedAt,
+		PublishedAt:         encoded.publishedAt,
+		PublishedDefinition: encoded.publishedDefinition,
+		DeletedAt:           encoded.deletedAt,
 	}, nil
 }
 
 func VersionRowFromRecord(rec *flow.AuthoringMachineRecord) (VersionRow, error) {
+	encoded, err := authoringRecordPayload(rec)
+	if err != nil {
+		return VersionRow{}, err
+	}
+	return VersionRow{
+		MachineID:           encoded.machineID,
+		Version:             encoded.version,
+		Name:                encoded.name,
+		ETag:                encoded.etag,
+		Draft:               encoded.draft,
+		Diagnostics:         encoded.diagnostics,
+		UpdatedAt:           encoded.updatedAt,
+		PublishedAt:         encoded.publishedAt,
+		PublishedDefinition: encoded.publishedDefinition,
+		DeletedAt:           encoded.deletedAt,
+	}, nil
+}
+
+type encodedAuthoringRecord struct {
+	machineID           string
+	name                string
+	version             string
+	etag                string
+	draft               string
+	diagnostics         string
+	updatedAt           time.Time
+	publishedAt         *time.Time
+	publishedDefinition string
+	deletedAt           *time.Time
+}
+
+func authoringRecordPayload(rec *flow.AuthoringMachineRecord) (encodedAuthoringRecord, error) {
 	if rec == nil {
-		return VersionRow{}, ErrAuthoringRecordRequired
+		return encodedAuthoringRecord{}, ErrAuthoringRecordRequired
 	}
 	draftRaw, err := json.Marshal(rec.Draft)
 	if err != nil {
-		return VersionRow{}, err
+		return encodedAuthoringRecord{}, err
 	}
 	diagsRaw, err := json.Marshal(rec.Diagnostics)
 	if err != nil {
-		return VersionRow{}, err
+		return encodedAuthoringRecord{}, err
 	}
 	publishedRaw := ""
 	if rec.PublishedDefinition != nil {
 		publishedBytes, publishedErr := json.Marshal(rec.PublishedDefinition)
 		if publishedErr != nil {
-			return VersionRow{}, publishedErr
+			return encodedAuthoringRecord{}, publishedErr
 		}
 		publishedRaw = string(publishedBytes)
 	}
-	return VersionRow{
-		MachineID:           strings.TrimSpace(rec.MachineID),
-		Version:             strings.TrimSpace(rec.Version),
-		Name:                strings.TrimSpace(rec.Name),
-		ETag:                strings.TrimSpace(rec.ETag),
-		Draft:               string(draftRaw),
-		Diagnostics:         string(diagsRaw),
-		UpdatedAt:           rec.UpdatedAt.UTC(),
-		PublishedAt:         CloneTimePtr(rec.PublishedAt),
-		PublishedDefinition: publishedRaw,
-		DeletedAt:           CloneTimePtr(rec.DeletedAt),
+	return encodedAuthoringRecord{
+		machineID:           strings.TrimSpace(rec.MachineID),
+		name:                strings.TrimSpace(rec.Name),
+		version:             strings.TrimSpace(rec.Version),
+		etag:                strings.TrimSpace(rec.ETag),
+		draft:               string(draftRaw),
+		diagnostics:         string(diagsRaw),
+		updatedAt:           rec.UpdatedAt.UTC(),
+		publishedAt:         CloneTimePtr(rec.PublishedAt),
+		publishedDefinition: publishedRaw,
+		deletedAt:           CloneTimePtr(rec.DeletedAt),
 	}, nil
 }
 

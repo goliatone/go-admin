@@ -572,8 +572,8 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 			return boot.ActionResponse{}, err
 		}
 		groupID := strings.TrimSpace(translationFamilyIDFromRecord(record))
-		if err := requireCanonicalFamilyID(groupID, p.name, primaryID); err != nil {
-			return boot.ActionResponse{}, err
+		if familyErr := requireCanonicalFamilyID(groupID, p.name, primaryID); familyErr != nil {
+			return boot.ActionResponse{}, familyErr
 		}
 		if creator, ok := p.panel.repo.(RepositoryTranslationCreator); ok && creator != nil {
 			created, createErr := creator.CreateTranslation(ctx.Context, normalizeTranslationCreateInput(TranslationCreateInput{
@@ -640,7 +640,7 @@ func (p *panelBinding) Action(c router.Context, locale, action string, body map[
 		}
 		translationExists := strings.EqualFold(strings.TrimSpace(toString(record["locale"])), targetLocale)
 		if !translationExists && groupID != "" {
-			if exists, err := translationLocaleExistsInRepositoryGroup(ctx.Context, p.panel.repo, groupID, targetLocale, primaryID); err == nil {
+			if exists, localeErr := translationLocaleExistsInRepositoryGroup(ctx.Context, p.panel.repo, groupID, targetLocale, primaryID); localeErr == nil {
 				translationExists = exists
 			} else if translationLocaleExists(record, targetLocale) {
 				translationExists = true

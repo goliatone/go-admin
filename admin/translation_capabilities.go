@@ -203,33 +203,56 @@ func translationCapabilityRoutes(adm *Admin) (map[string]string, []string) {
 		routes[key] = path
 	}
 
-	register(adminGroup, "translations.queue", "admin.translations.queue")
-	register(adminGroup, "translations.dashboard", "admin.translations.dashboard")
-	register(adminGroup, "translations.exchange", "admin.translations.exchange")
-	register(adminGroup, "translations.matrix", "admin.translations.matrix")
-	register(adminGroup, "translations.families.id", "admin.translations.families.id")
-	register(adminGroup, "translations.assignments.id", "admin.translations.assignments.id")
-	register(adminAPIGroup, "translations.export", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.export"))
-	register(adminAPIGroup, "translations.template", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.template"))
-	register(adminAPIGroup, "translations.dashboard", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.dashboard"))
-	register(adminAPIGroup, "translations.matrix", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.matrix"))
-	register(adminAPIGroup, "translations.matrix.actions.create_missing", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.matrix.actions.create_missing"))
-	register(adminAPIGroup, "translations.matrix.actions.export_selected", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.matrix.actions.export_selected"))
-	register(adminAPIGroup, "translations.families", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.families"))
-	register(adminAPIGroup, "translations.families.id", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.families.id"))
-	register(adminAPIGroup, "translations.families.variants", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.families.variants"))
-	register(adminAPIGroup, "translations.variants.id", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.variants.id"))
-	register(adminAPIGroup, "translations.assignments", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.assignments"))
-	register(adminAPIGroup, "translations.assignments.id", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.assignments.id"))
-	register(adminAPIGroup, "translations.assignments.actions", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.assignments.actions"))
-	register(adminAPIGroup, "translations.my_work", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.my_work"))
-	register(adminAPIGroup, "translations.queue", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.queue"))
-	register(adminAPIGroup, "translations.jobs.id", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.jobs.id"))
-	register(adminAPIGroup, "translations.import.validate", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.import.validate"))
-	register(adminAPIGroup, "translations.import.apply", fmt.Sprintf("%s.%s", adminAPIGroup, "translations.import.apply"))
+	for _, route := range translationCapabilityRouteSpecs(adminGroup, adminAPIGroup) {
+		register(route.group, route.route, route.key)
+	}
 
 	sort.Strings(keys)
 	return routes, keys
+}
+
+type translationCapabilityRouteSpec struct {
+	group string
+	route string
+	key   string
+}
+
+func translationCapabilityRouteSpecs(adminGroup, adminAPIGroup string) []translationCapabilityRouteSpec {
+	routes := []translationCapabilityRouteSpec{
+		{group: adminGroup, route: "translations.queue", key: "admin.translations.queue"},
+		{group: adminGroup, route: "translations.dashboard", key: "admin.translations.dashboard"},
+		{group: adminGroup, route: "translations.exchange", key: "admin.translations.exchange"},
+		{group: adminGroup, route: "translations.matrix", key: "admin.translations.matrix"},
+		{group: adminGroup, route: "translations.families.id", key: "admin.translations.families.id"},
+		{group: adminGroup, route: "translations.assignments.id", key: "admin.translations.assignments.id"},
+	}
+	for _, route := range []string{
+		"translations.export",
+		"translations.template",
+		"translations.dashboard",
+		"translations.matrix",
+		"translations.matrix.actions.create_missing",
+		"translations.matrix.actions.export_selected",
+		"translations.families",
+		"translations.families.id",
+		"translations.families.variants",
+		"translations.variants.id",
+		"translations.assignments",
+		"translations.assignments.id",
+		"translations.assignments.actions",
+		"translations.my_work",
+		"translations.queue",
+		"translations.jobs.id",
+		"translations.import.validate",
+		"translations.import.apply",
+	} {
+		routes = append(routes, translationCapabilityRouteSpec{
+			group: adminAPIGroup,
+			route: route,
+			key:   fmt.Sprintf("%s.%s", adminAPIGroup, route),
+		})
+	}
+	return routes
 }
 
 func translationCapabilityPanels(adm *Admin) []string {

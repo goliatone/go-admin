@@ -403,34 +403,29 @@ func dashboardViewerPayload(viewer dashcmp.ViewerContext) map[string]any {
 }
 
 func normalizeDashboardAreaOrderInput(areaOrder map[string][]string, rows map[string][]dashcmp.LayoutRowInput) map[string][]string {
-	normalized := cloneDashboardStringSliceMap(areaOrder)
-	for area, areaRows := range rows {
-		if len(normalized[area]) > 0 {
-			continue
-		}
-		ordered := make([]string, 0)
-		seen := map[string]struct{}{}
-		for _, row := range areaRows {
-			for _, widget := range row.Widgets {
-				id := strings.TrimSpace(widget.ID)
-				if id == "" {
-					continue
-				}
-				if _, ok := seen[id]; ok {
-					continue
-				}
-				seen[id] = struct{}{}
-				ordered = append(ordered, id)
-			}
-		}
-		if len(ordered) > 0 {
-			normalized[area] = ordered
-		}
-	}
-	return normalized
+	return dashboardAreaOrderWith(
+		areaOrder,
+		rows,
+		func(row dashcmp.LayoutRowInput) []dashcmp.LayoutWidgetInput { return row.Widgets },
+		func(widget dashcmp.LayoutWidgetInput) string { return widget.ID },
+	)
 }
 
 func dashboardAreaOrderPayload(areaOrder map[string][]string, rows map[string][]dashcmp.LayoutRow) map[string][]string {
+	return dashboardAreaOrderWith(
+		areaOrder,
+		rows,
+		func(row dashcmp.LayoutRow) []dashcmp.WidgetSlot { return row.Widgets },
+		func(widget dashcmp.WidgetSlot) string { return widget.ID },
+	)
+}
+
+func dashboardAreaOrderWith[Row any, Widget any](
+	areaOrder map[string][]string,
+	rows map[string][]Row,
+	widgets func(Row) []Widget,
+	widgetID func(Widget) string,
+) map[string][]string {
 	normalized := cloneDashboardStringSliceMap(areaOrder)
 	for area, areaRows := range rows {
 		if len(normalized[area]) > 0 {
@@ -439,8 +434,8 @@ func dashboardAreaOrderPayload(areaOrder map[string][]string, rows map[string][]
 		ordered := make([]string, 0)
 		seen := map[string]struct{}{}
 		for _, row := range areaRows {
-			for _, widget := range row.Widgets {
-				id := strings.TrimSpace(widget.ID)
+			for _, widget := range widgets(row) {
+				id := strings.TrimSpace(widgetID(widget))
 				if id == "" {
 					continue
 				}

@@ -403,8 +403,8 @@ func EnsureWorkflowAuthoringCutover(ctx context.Context, db *bun.DB) error {
 	if done {
 		return nil
 	}
-	if err := runWorkflowAuthoringCutover(ctx, db); err != nil {
-		return err
+	if cutoverErr := runWorkflowAuthoringCutover(ctx, db); cutoverErr != nil {
+		return cutoverErr
 	}
 	done, err = workflowCutoverMarkerExists(ctx, db)
 	if err != nil {
@@ -462,7 +462,7 @@ func runWorkflowAuthoringCutover(ctx context.Context, db *bun.DB) error {
 			if err != nil {
 				return err
 			}
-			if _, err := tx.NewInsert().
+			if _, insertErr := tx.NewInsert().
 				Model(&machineRow).
 				On("CONFLICT (machine_id) DO UPDATE").
 				Set("name = EXCLUDED.name").
@@ -474,8 +474,8 @@ func runWorkflowAuthoringCutover(ctx context.Context, db *bun.DB) error {
 				Set("published_at = EXCLUDED.published_at").
 				Set("published_definition = EXCLUDED.published_definition").
 				Set("deleted_at = EXCLUDED.deleted_at").
-				Exec(ctx); err != nil {
-				return fmt.Errorf("workflow authoring cutover: upsert machine %s: %w", rec.MachineID, err)
+				Exec(ctx); insertErr != nil {
+				return fmt.Errorf("workflow authoring cutover: upsert machine %s: %w", rec.MachineID, insertErr)
 			}
 			migratedMachines++
 

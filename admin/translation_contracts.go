@@ -139,32 +139,8 @@ func TranslationEditorContractPayload() map[string]any {
 	}
 }
 
-func translationCoreReadinessStates() []string {
-	return translationcontracts.CoreReadinessStates()
-}
-
-func translationQueueStates() []string {
-	return translationcontracts.QueueStates()
-}
-
-func translationQueueContentStates() []string {
-	return translationcontracts.QueueContentStates()
-}
-
-func translationQueueDueStates() []string {
-	return translationcontracts.QueueDueStates()
-}
-
-func translationExchangeRowStates() []string {
-	return translationcontracts.ExchangeRowStates()
-}
-
 func translationExchangeJobStates() []string {
 	return translationcontracts.ExchangeJobStates()
-}
-
-func translationStatusUnion(groups ...[]string) []string {
-	return translationcontracts.StatusUnion(groups...)
 }
 
 func normalizeTranslationReadinessState(state string) string {
@@ -189,16 +165,4 @@ func normalizeTranslationExchangeJobStatus(status string) string {
 
 func applySourceTargetDriftContract(record map[string]any) {
 	translationcontracts.ApplySourceTargetDriftContract(record)
-}
-
-func sourceTargetDriftPayload(record map[string]any) map[string]any {
-	return translationcontracts.SourceTargetDriftPayload(record)
-}
-
-func hasSourceTargetDriftInput(record map[string]any) bool {
-	return translationcontracts.HasSourceTargetDriftInput(record)
-}
-
-func normalizeDriftFields(groups ...[]string) []string {
-	return translationcontracts.NormalizeDriftFields(groups...)
 }

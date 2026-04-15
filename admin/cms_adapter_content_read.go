@@ -430,10 +430,6 @@ func (a *GoCMSContentAdapter) convertContent(ctx context.Context, value reflect.
 	return a.contentReader().convertContent(ctx, value, locale)
 }
 
-func (a *GoCMSContentAdapter) convertContentVariants(ctx context.Context, value reflect.Value, requestedLocale string) []CMSContent {
-	return a.contentReader().convertContentVariants(ctx, value, requestedLocale)
-}
-
 func (a *GoCMSContentAdapter) convertAdminContentRecord(ctx context.Context, record cms.AdminContentRecord) CMSContent {
 	return a.contentReader().convertAdminContentRecord(ctx, record)
 }
@@ -696,10 +692,6 @@ func (r goCMSContentReadBoundary) convertBlockInstance(ctx context.Context, valu
 		block.Locale = locale
 	}
 	return block
-}
-
-func (a *GoCMSContentAdapter) contentTypeByID(ctx context.Context, id uuid.UUID) *CMSContentType {
-	return a.contentReader().contentTypeByID(ctx, id)
 }
 
 func (r goCMSContentReadBoundary) contentTypeByID(ctx context.Context, id uuid.UUID) *CMSContentType {

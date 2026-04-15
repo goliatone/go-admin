@@ -343,12 +343,12 @@ func (s goCMSAdminContentWriteService) contentTranslationMissing(ctx context.Con
 			return true, nil
 		}
 		if errors.Is(err, ErrNotFound) {
-			existing, err := s.content.Content(ctx, id, "")
-			if err == nil && existing != nil {
+			existing, lookupErr := s.content.Content(ctx, id, "")
+			if lookupErr == nil && existing != nil {
 				return true, nil
 			}
-			if err != nil && !errors.Is(err, ErrNotFound) {
-				return false, err
+			if lookupErr != nil && !errors.Is(lookupErr, ErrNotFound) {
+				return false, lookupErr
 			}
 			return false, ErrNotFound
 		}

@@ -23,10 +23,6 @@ func translationChannelFromRequest(c router.Context, adminCtx AdminContext, body
 	return translationruntime.ChannelFromResolvedInputs(bodyChannel, queryChannel, adminCtx.Channel, values...)
 }
 
-func translationChannelContract(channel string) map[string]any {
-	return translationruntime.ChannelContract(channel)
-}
-
 func mergeTranslationChannelContract(payload map[string]any, channel string) map[string]any {
 	return translationruntime.MergeChannelContract(payload, channel)
 }

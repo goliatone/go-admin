@@ -347,19 +347,6 @@ func applyGoCMSTranslationVariant(out *CMSContent, variant goCMSTranslationVaria
 	}
 }
 
-func translationVariantForLocale(variants []goCMSTranslationVariant, locale string) (goCMSTranslationVariant, bool) {
-	locale = strings.ToLower(strings.TrimSpace(locale))
-	if locale == "" {
-		return goCMSTranslationVariant{}, false
-	}
-	for _, variant := range variants {
-		if strings.EqualFold(strings.TrimSpace(variant.locale), locale) {
-			return variant, true
-		}
-	}
-	return goCMSTranslationVariant{}, false
-}
-
 func localeCodeFromTranslation(val reflect.Value) string {
 	if code := cmsadapter.StringField(val, "Locale"); code != "" {
 		return code

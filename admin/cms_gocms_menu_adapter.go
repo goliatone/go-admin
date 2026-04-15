@@ -70,11 +70,11 @@ func (a *GoCMSMenuAdapter) AddMenuItem(ctx context.Context, menuCode string, ite
 	if err != nil {
 		return err
 	}
-	if err := validateMenuParentLink(path, parentPath); err != nil {
-		return err
+	if linkErr := validateMenuParentLink(path, parentPath); linkErr != nil {
+		return linkErr
 	}
-	if err := a.ensureMenuHierarchyIntegrity(ctx, menuCode, path, parentPath); err != nil {
-		return err
+	if hierarchyErr := a.ensureMenuHierarchyIntegrity(ctx, menuCode, path, parentPath); hierarchyErr != nil {
+		return hierarchyErr
 	}
 
 	itemType := normalizeMenuItemType(item.Type)
@@ -339,31 +339,42 @@ func (a *GoCMSMenuAdapter) MenuByLocation(ctx context.Context, location, locale 
 // MenuByLocationWithOptions resolves a localized navigation tree by location using
 // draft/preview/profile options when supported by the underlying go-cms service.
 func (a *GoCMSMenuAdapter) MenuByLocationWithOptions(ctx context.Context, location, locale string, opts SiteMenuReadOptions) (*Menu, error) {
-	if a == nil || a.service == nil {
-		return nil, ErrNotFound
-	}
-	resolved, err := a.service.ResolveMenuByLocation(ctx, strings.TrimSpace(location), locale, cms.MenuResolveOptions{
-		IncludeDrafts:        opts.IncludeDrafts,
-		PreviewToken:         strings.TrimSpace(opts.PreviewToken),
-		ViewProfile:          strings.TrimSpace(opts.ViewProfile),
-		IncludeContributions: new(opts.IncludeContributions),
-	})
-	if err != nil {
-		if errors.Is(err, cms.ErrMenuNotFound) {
-			return a.MenuByLocation(ctx, location, locale)
-		}
-		return nil, err
-	}
-	return convertResolvedMenuInfo(resolved, location), nil
+	return a.resolveMenuWithOptions(
+		ctx,
+		location,
+		opts,
+		func(resolveOpts cms.MenuResolveOptions) (*cms.ResolvedMenuInfo, error) {
+			return a.service.ResolveMenuByLocation(ctx, strings.TrimSpace(location), locale, resolveOpts)
+		},
+		func() (*Menu, error) { return a.MenuByLocation(ctx, location, locale) },
+	)
 }
 
 // MenuByCodeWithOptions resolves a localized navigation tree by code using
 // draft/preview/profile options when supported by the underlying go-cms service.
 func (a *GoCMSMenuAdapter) MenuByCodeWithOptions(ctx context.Context, code, locale string, opts SiteMenuReadOptions) (*Menu, error) {
+	return a.resolveMenuWithOptions(
+		ctx,
+		code,
+		opts,
+		func(resolveOpts cms.MenuResolveOptions) (*cms.ResolvedMenuInfo, error) {
+			return a.service.ResolveMenuByCode(ctx, strings.TrimSpace(code), locale, resolveOpts)
+		},
+		func() (*Menu, error) { return a.Menu(ctx, code, locale) },
+	)
+}
+
+func (a *GoCMSMenuAdapter) resolveMenuWithOptions(
+	_ context.Context,
+	fallback string,
+	opts SiteMenuReadOptions,
+	resolve func(cms.MenuResolveOptions) (*cms.ResolvedMenuInfo, error),
+	fallbackMenu func() (*Menu, error),
+) (*Menu, error) {
 	if a == nil || a.service == nil {
 		return nil, ErrNotFound
 	}
-	resolved, err := a.service.ResolveMenuByCode(ctx, strings.TrimSpace(code), locale, cms.MenuResolveOptions{
+	resolved, err := resolve(cms.MenuResolveOptions{
 		IncludeDrafts:        opts.IncludeDrafts,
 		PreviewToken:         strings.TrimSpace(opts.PreviewToken),
 		ViewProfile:          strings.TrimSpace(opts.ViewProfile),
@@ -371,11 +382,11 @@ func (a *GoCMSMenuAdapter) MenuByCodeWithOptions(ctx context.Context, code, loca
 	})
 	if err != nil {
 		if errors.Is(err, cms.ErrMenuNotFound) {
-			return a.Menu(ctx, code, locale)
+			return fallbackMenu()
 		}
 		return nil, err
 	}
-	return convertResolvedMenuInfo(resolved, code), nil
+	return convertResolvedMenuInfo(resolved, fallback), nil
 }
 
 // ResetMenuContext resets the menu contents.

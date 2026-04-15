@@ -379,30 +379,30 @@ func (r *PreferencesRepository) Update(ctx context.Context, id string, record ma
 	if err != nil {
 		return nil, err
 	}
-	if err := r.requireScopePermission(ctx, level); err != nil {
-		return nil, err
+	if permissionErr := r.requireScopePermission(ctx, level); permissionErr != nil {
+		return nil, permissionErr
 	}
 	prefs, clearKeys := r.preferencesFromRecord(record, level)
 	if toBool(record["clear"]) {
-		rawKeys, err := r.rawPreferenceKeysForLevel(ctx, scope, level)
-		if err != nil {
-			return nil, err
+		rawKeys, rawKeysErr := r.rawPreferenceKeysForLevel(ctx, scope, level)
+		if rawKeysErr != nil {
+			return nil, rawKeysErr
 		}
 		clearKeys = append(clearKeys, rawKeys...)
 	}
 	clearKeys = filterClearPreferenceKeys(clearKeys)
 	if len(clearKeys) > 0 {
 		if level == PreferenceLevelUser {
-			if _, err := r.service.Clear(ctx, userID, clearKeys); err != nil {
-				return nil, err
+			if _, clearErr := r.service.Clear(ctx, userID, clearKeys); clearErr != nil {
+				return nil, clearErr
 			}
 		} else {
-			if err := r.service.Store().Delete(ctx, PreferencesDeleteInput{
+			if deleteErr := r.service.Store().Delete(ctx, PreferencesDeleteInput{
 				Scope: scope,
 				Level: level,
 				Keys:  clearKeys,
-			}); err != nil {
-				return nil, err
+			}); deleteErr != nil {
+				return nil, deleteErr
 			}
 		}
 	}
@@ -414,12 +414,12 @@ func (r *PreferencesRepository) Update(ctx context.Context, id string, record ma
 		if level == PreferenceLevelUser {
 			updated, err = r.service.Save(ctx, userID, prefs)
 		} else {
-			if _, err := r.service.Store().Upsert(ctx, PreferencesUpsertInput{
+			if _, upsertErr := r.service.Store().Upsert(ctx, PreferencesUpsertInput{
 				Scope:  scope,
 				Level:  level,
 				Values: updateValues,
-			}); err != nil {
-				return nil, err
+			}); upsertErr != nil {
+				return nil, upsertErr
 			}
 			updated, err = r.service.Get(ctx, userID)
 		}

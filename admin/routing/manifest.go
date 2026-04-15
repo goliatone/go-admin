@@ -82,26 +82,79 @@ func (m ManifestDiff) HasChanges() bool {
 func DiffManifests(before, after Manifest) ManifestDiff {
 	left := NormalizeManifest(before)
 	right := NormalizeManifest(after)
-
-	leftMap := make(map[string]ManifestEntry, len(left.Entries))
-	rightMap := make(map[string]ManifestEntry, len(right.Entries))
-	leftFallbacks := make(map[string]FallbackEntry, len(left.Fallbacks))
-	rightFallbacks := make(map[string]FallbackEntry, len(right.Fallbacks))
-
-	for _, entry := range left.Entries {
-		leftMap[manifestIdentityKey(entry)] = entry
-	}
-	for _, entry := range right.Entries {
-		rightMap[manifestIdentityKey(entry)] = entry
-	}
-	for _, entry := range left.Fallbacks {
-		leftFallbacks[fallbackScopeKey(entry)] = entry
-	}
-	for _, entry := range right.Fallbacks {
-		rightFallbacks[fallbackScopeKey(entry)] = entry
-	}
+	leftMap, rightMap := manifestEntryMaps(left.Entries, right.Entries)
+	leftFallbacks, rightFallbacks := fallbackEntryMaps(left.Fallbacks, right.Fallbacks)
 
 	diff := ManifestDiff{}
+	appendDiffEntries(manifestDiffKeys(leftMap, rightMap), leftMap, rightMap,
+		func(key string, entry ManifestEntry) {
+			diff.Removed = append(diff.Removed, ManifestDiffEntry{
+				Kind:   ManifestDiffRemoved,
+				Key:    key,
+				Before: &entry,
+			})
+		},
+		func(key string, entry ManifestEntry) {
+			diff.Added = append(diff.Added, ManifestDiffEntry{
+				Kind:  ManifestDiffAdded,
+				Key:   key,
+				After: &entry,
+			})
+		},
+		func(key string, beforeEntry ManifestEntry, afterEntry ManifestEntry) {
+			diff.Changed = append(diff.Changed, ManifestDiffEntry{
+				Kind:   ManifestDiffChanged,
+				Key:    key,
+				Before: &beforeEntry,
+				After:  &afterEntry,
+			})
+		},
+	)
+	appendDiffEntries(manifestDiffKeys(leftFallbacks, rightFallbacks), leftFallbacks, rightFallbacks,
+		func(key string, entry FallbackEntry) {
+			diff.FallbackRemoved = append(diff.FallbackRemoved, FallbackDiffEntry{
+				Kind:   ManifestDiffRemoved,
+				Key:    key,
+				Before: &entry,
+			})
+		},
+		func(key string, entry FallbackEntry) {
+			diff.FallbackAdded = append(diff.FallbackAdded, FallbackDiffEntry{
+				Kind:  ManifestDiffAdded,
+				Key:   key,
+				After: &entry,
+			})
+		},
+		func(key string, beforeEntry FallbackEntry, afterEntry FallbackEntry) {
+			diff.FallbackChanged = append(diff.FallbackChanged, FallbackDiffEntry{
+				Kind:   ManifestDiffChanged,
+				Key:    key,
+				Before: &beforeEntry,
+				After:  &afterEntry,
+			})
+		},
+	)
+
+	return diff
+}
+
+func manifestEntryMaps(left []ManifestEntry, right []ManifestEntry) (map[string]ManifestEntry, map[string]ManifestEntry) {
+	return keyedEntries(left, manifestIdentityKey), keyedEntries(right, manifestIdentityKey)
+}
+
+func fallbackEntryMaps(left []FallbackEntry, right []FallbackEntry) (map[string]FallbackEntry, map[string]FallbackEntry) {
+	return keyedEntries(left, fallbackScopeKey), keyedEntries(right, fallbackScopeKey)
+}
+
+func keyedEntries[Entry any](entries []Entry, key func(Entry) string) map[string]Entry {
+	out := make(map[string]Entry, len(entries))
+	for _, entry := range entries {
+		out[key(entry)] = entry
+	}
+	return out
+}
+
+func manifestDiffKeys[Entry any](leftMap map[string]Entry, rightMap map[string]Entry) []string {
 	keys := make([]string, 0, len(leftMap)+len(rightMap))
 	seen := map[string]struct{}{}
 	for key := range leftMap {
@@ -115,82 +168,7 @@ func DiffManifests(before, after Manifest) ManifestDiff {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-
-	for _, key := range keys {
-		leftEntry, leftOK := leftMap[key]
-		rightEntry, rightOK := rightMap[key]
-		switch {
-		case leftOK && !rightOK:
-			entry := leftEntry
-			diff.Removed = append(diff.Removed, ManifestDiffEntry{
-				Kind:   ManifestDiffRemoved,
-				Key:    key,
-				Before: &entry,
-			})
-		case !leftOK && rightOK:
-			entry := rightEntry
-			diff.Added = append(diff.Added, ManifestDiffEntry{
-				Kind:  ManifestDiffAdded,
-				Key:   key,
-				After: &entry,
-			})
-		case leftOK && rightOK && !reflect.DeepEqual(leftEntry, rightEntry):
-			beforeEntry := leftEntry
-			afterEntry := rightEntry
-			diff.Changed = append(diff.Changed, ManifestDiffEntry{
-				Kind:   ManifestDiffChanged,
-				Key:    key,
-				Before: &beforeEntry,
-				After:  &afterEntry,
-			})
-		}
-	}
-
-	fallbackKeys := make([]string, 0, len(leftFallbacks)+len(rightFallbacks))
-	seen = map[string]struct{}{}
-	for key := range leftFallbacks {
-		fallbackKeys = append(fallbackKeys, key)
-		seen[key] = struct{}{}
-	}
-	for key := range rightFallbacks {
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		fallbackKeys = append(fallbackKeys, key)
-	}
-	sort.Strings(fallbackKeys)
-
-	for _, key := range fallbackKeys {
-		leftEntry, leftOK := leftFallbacks[key]
-		rightEntry, rightOK := rightFallbacks[key]
-		switch {
-		case leftOK && !rightOK:
-			entry := leftEntry
-			diff.FallbackRemoved = append(diff.FallbackRemoved, FallbackDiffEntry{
-				Kind:   ManifestDiffRemoved,
-				Key:    key,
-				Before: &entry,
-			})
-		case !leftOK && rightOK:
-			entry := rightEntry
-			diff.FallbackAdded = append(diff.FallbackAdded, FallbackDiffEntry{
-				Kind:  ManifestDiffAdded,
-				Key:   key,
-				After: &entry,
-			})
-		case leftOK && rightOK && !reflect.DeepEqual(leftEntry, rightEntry):
-			beforeEntry := leftEntry
-			afterEntry := rightEntry
-			diff.FallbackChanged = append(diff.FallbackChanged, FallbackDiffEntry{
-				Kind:   ManifestDiffChanged,
-				Key:    key,
-				Before: &beforeEntry,
-				After:  &afterEntry,
-			})
-		}
-	}
-
-	return diff
+	return keys
 }
 
 func normalizeManifestEntry(entry ManifestEntry) ManifestEntry {
@@ -212,6 +190,28 @@ func normalizeManifestEntry(entry ManifestEntry) ManifestEntry {
 	entry.Path = normalizeAbsolutePath(entry.Path)
 	entry.GroupPath = strings.TrimSpace(entry.GroupPath)
 	return entry
+}
+
+func appendDiffEntries[Entry any](
+	keys []string,
+	leftMap map[string]Entry,
+	rightMap map[string]Entry,
+	appendRemoved func(string, Entry),
+	appendAdded func(string, Entry),
+	appendChanged func(string, Entry, Entry),
+) {
+	for _, key := range keys {
+		leftEntry, leftOK := leftMap[key]
+		rightEntry, rightOK := rightMap[key]
+		switch {
+		case leftOK && !rightOK:
+			appendRemoved(key, leftEntry)
+		case !leftOK && rightOK:
+			appendAdded(key, rightEntry)
+		case leftOK && rightOK && !reflect.DeepEqual(leftEntry, rightEntry):
+			appendChanged(key, leftEntry, rightEntry)
+		}
+	}
 }
 
 func manifestIdentityKey(entry ManifestEntry) string {

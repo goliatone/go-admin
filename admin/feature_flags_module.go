@@ -39,28 +39,7 @@ func (m *FeatureFlagsModule) Register(ctx ModuleContext) error {
 	if ctx.Admin == nil {
 		return serviceNotConfiguredDomainError("admin", map[string]any{"component": "feature_flags_module"})
 	}
-	if m.basePath == "" {
-		m.basePath = ctx.Admin.config.BasePath
-	}
-	if m.menuCode == "" {
-		m.menuCode = ctx.Admin.navMenuCode
-	}
-	if m.defaultLocale == "" {
-		m.defaultLocale = ctx.Admin.config.DefaultLocale
-	}
-	if m.permission == "" {
-		m.permission = ctx.Admin.config.FeatureFlagsViewPermission
-	}
-	if m.urls == nil {
-		m.urls = ctx.Admin.URLs()
-	}
-	if strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath) != "" {
-		m.uiGroupPath = strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath)
-	}
-	if path := ctx.Routing.RoutePath(routing.SurfaceUI, featureFlagsRouteKey); path != "" {
-		m.basePath = path
-	}
-	return nil
+	return configureSingleRouteModule(ctx, featureFlagsRouteKey, ctx.Admin.config.FeatureFlagsViewPermission, &m.basePath, &m.menuCode, &m.defaultLocale, &m.permission, &m.uiGroupPath, &m.urls)
 }
 
 func (m *FeatureFlagsModule) RouteContract() routing.ModuleContract {

@@ -214,34 +214,9 @@ func (m *Module) handleWorkflowUpdateMappingDraft(c router.Context, body map[str
 }
 
 func (m *Module) handleWorkflowMarkMappingValidated(c router.Context, body map[string]any) (int, any, error) {
-	runtime, err := m.requireWorkflowRuntime()
-	if err != nil {
-		return 0, nil, err
-	}
-	specID := routeParam(c, "spec_id", "id", "ref")
-	if specID == "" {
-		return 0, nil, validationError("mapping spec id is required", map[string]any{"field": "spec_id"})
-	}
-	providerID := strings.TrimSpace(toString(body["provider_id"]))
-	if providerID == "" {
-		providerID = strings.TrimSpace(c.Query("provider_id"))
-	}
-	if providerID == "" {
-		return 0, nil, validationError("provider_id is required", map[string]any{"field": "provider_id"})
-	}
-	scope, err := resolveScope(c.Context(), c, body)
-	if err != nil {
-		return 0, nil, err
-	}
-	providerID, scope, err = workflowProviderScope(providerID, scope)
-	if err != nil {
-		return 0, nil, validationError(err.Error(), map[string]any{"field": "provider_id/scope"})
-	}
-	version := toInt(body["version"], 0)
-	if version <= 0 {
-		return 0, nil, validationError("version must be > 0", map[string]any{"field": "version"})
-	}
-	validated, err := runtime.mappingLifecycle.MarkValidated(c.Context(), providerID, scope, specID, version)
+	validated, err := m.handleWorkflowVersionedMappingMutation(c, body, func(runtime *workflowRuntime, providerID string, scope gocore.ScopeRef, specID string, version int) (gocore.MappingSpec, error) {
+		return runtime.mappingLifecycle.MarkValidated(c.Context(), providerID, scope, specID, version)
+	})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -249,34 +224,9 @@ func (m *Module) handleWorkflowMarkMappingValidated(c router.Context, body map[s
 }
 
 func (m *Module) handleWorkflowPublishMapping(c router.Context, body map[string]any) (int, any, error) {
-	runtime, err := m.requireWorkflowRuntime()
-	if err != nil {
-		return 0, nil, err
-	}
-	specID := routeParam(c, "spec_id", "id", "ref")
-	if specID == "" {
-		return 0, nil, validationError("mapping spec id is required", map[string]any{"field": "spec_id"})
-	}
-	providerID := strings.TrimSpace(toString(body["provider_id"]))
-	if providerID == "" {
-		providerID = strings.TrimSpace(c.Query("provider_id"))
-	}
-	if providerID == "" {
-		return 0, nil, validationError("provider_id is required", map[string]any{"field": "provider_id"})
-	}
-	scope, err := resolveScope(c.Context(), c, body)
-	if err != nil {
-		return 0, nil, err
-	}
-	providerID, scope, err = workflowProviderScope(providerID, scope)
-	if err != nil {
-		return 0, nil, validationError(err.Error(), map[string]any{"field": "provider_id/scope"})
-	}
-	version := toInt(body["version"], 0)
-	if version <= 0 {
-		return 0, nil, validationError("version must be > 0", map[string]any{"field": "version"})
-	}
-	published, err := runtime.mappingLifecycle.Publish(c.Context(), providerID, scope, specID, version)
+	published, err := m.handleWorkflowVersionedMappingMutation(c, body, func(runtime *workflowRuntime, providerID string, scope gocore.ScopeRef, specID string, version int) (gocore.MappingSpec, error) {
+		return runtime.mappingLifecycle.Publish(c.Context(), providerID, scope, specID, version)
+	})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -319,57 +269,41 @@ func (m *Module) handleWorkflowUnpublishMapping(c router.Context, body map[strin
 }
 
 func (m *Module) handleWorkflowValidateMapping(c router.Context, body map[string]any) (int, any, error) {
-	runtime, err := m.requireWorkflowRuntime()
-	if err != nil {
-		return 0, nil, err
-	}
-	request := gocore.ValidateMappingSpecRequest{}
-	if err := decodeBodyMap(body, &request); err != nil {
-		return 0, nil, validationError("invalid validate mapping payload", map[string]any{"field": "body"})
-	}
-	request = workflowNormalizeValidateMappingRequest(body, request)
-	if request.Spec.Scope.Type == "" || request.Spec.Scope.ID == "" {
-		scope, scopeErr := resolveScope(c.Context(), c, body)
-		if scopeErr != nil {
-			return 0, nil, scopeErr
-		}
-		request.Spec.Scope = scope
-	}
-	if strings.TrimSpace(request.Spec.ProviderID) == "" {
-		request.Spec.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
-	}
-	result, err := runtime.compiler.ValidateMappingSpec(c.Context(), request)
-	if err != nil {
-		return 0, nil, err
-	}
-	return http.StatusOK, map[string]any{"validation": workflowValidationToMap(result)}, nil
+	return handleWorkflowMappingSpecRuntimeRequest(
+		m,
+		c,
+		body,
+		gocore.ValidateMappingSpecRequest{},
+		"invalid validate mapping payload",
+		workflowNormalizeValidateMappingRequest,
+		func(request *gocore.ValidateMappingSpecRequest) *gocore.MappingSpec { return &request.Spec },
+		func(runtime *workflowRuntime, request gocore.ValidateMappingSpecRequest) (map[string]any, error) {
+			result, err := runtime.compiler.ValidateMappingSpec(c.Context(), request)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"validation": workflowValidationToMap(result)}, nil
+		},
+	)
 }
 
 func (m *Module) handleWorkflowPreviewMapping(c router.Context, body map[string]any) (int, any, error) {
-	runtime, err := m.requireWorkflowRuntime()
-	if err != nil {
-		return 0, nil, err
-	}
-	request := gocore.PreviewMappingSpecRequest{}
-	if err := decodeBodyMap(body, &request); err != nil {
-		return 0, nil, validationError("invalid preview mapping payload", map[string]any{"field": "body"})
-	}
-	request = workflowNormalizePreviewMappingRequest(body, request)
-	if request.Spec.Scope.Type == "" || request.Spec.Scope.ID == "" {
-		scope, scopeErr := resolveScope(c.Context(), c, body)
-		if scopeErr != nil {
-			return 0, nil, scopeErr
-		}
-		request.Spec.Scope = scope
-	}
-	if strings.TrimSpace(request.Spec.ProviderID) == "" {
-		request.Spec.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
-	}
-	result, err := runtime.previewer.PreviewMappingSpec(c.Context(), request)
-	if err != nil {
-		return 0, nil, err
-	}
-	return http.StatusOK, map[string]any{"preview": workflowPreviewToMap(result)}, nil
+	return handleWorkflowMappingSpecRuntimeRequest(
+		m,
+		c,
+		body,
+		gocore.PreviewMappingSpecRequest{},
+		"invalid preview mapping payload",
+		workflowNormalizePreviewMappingRequest,
+		func(request *gocore.PreviewMappingSpecRequest) *gocore.MappingSpec { return &request.Spec },
+		func(runtime *workflowRuntime, request gocore.PreviewMappingSpecRequest) (map[string]any, error) {
+			result, err := runtime.previewer.PreviewMappingSpec(c.Context(), request)
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"preview": workflowPreviewToMap(result)}, nil
+		},
+	)
 }
 
 func (m *Module) handleWorkflowPlanSyncRun(c router.Context, body map[string]any) (int, any, error) {
@@ -384,7 +318,7 @@ func (m *Module) handleWorkflowPlanSyncRun(c router.Context, body map[string]any
 		Limit            int                `json:"limit"`
 		Metadata         map[string]any     `json:"metadata"`
 	}{}
-	if err := decodeBodyMap(body, &payload); err != nil {
+	if decodeErr := decodeBodyMap(body, &payload); decodeErr != nil {
 		return 0, nil, validationError("invalid sync plan payload", map[string]any{"field": "body"})
 	}
 	if rawBinding, ok := body["binding"].(map[string]any); ok {
@@ -460,7 +394,7 @@ func (m *Module) handleWorkflowRunSync(c router.Context, body map[string]any) (i
 		Metadata  map[string]any        `json:"metadata"`
 		Conflicts []gocore.SyncConflict `json:"conflicts"`
 	}{}
-	if err := decodeBodyMap(body, &payload); err != nil {
+	if decodeErr := decodeBodyMap(body, &payload); decodeErr != nil {
 		return 0, nil, validationError("invalid sync run payload", map[string]any{"field": "body"})
 	}
 	if rawPlan, ok := body["plan"].(map[string]any); ok {
@@ -1275,6 +1209,105 @@ func (m *Module) requireWorkflowRuntime() (*workflowRuntime, error) {
 		return nil, providerUnavailableError("workflow runtime is not configured", nil)
 	}
 	return m.workflowRuntime, nil
+}
+
+func (m *Module) handleWorkflowVersionedMappingMutation(
+	c router.Context,
+	body map[string]any,
+	action func(*workflowRuntime, string, gocore.ScopeRef, string, int) (gocore.MappingSpec, error),
+) (gocore.MappingSpec, error) {
+	runtime, err := m.requireWorkflowRuntime()
+	if err != nil {
+		return gocore.MappingSpec{}, err
+	}
+	specID := routeParam(c, "spec_id", "id", "ref")
+	if specID == "" {
+		return gocore.MappingSpec{}, validationError("mapping spec id is required", map[string]any{"field": "spec_id"})
+	}
+	providerID := strings.TrimSpace(toString(body["provider_id"]))
+	if providerID == "" {
+		providerID = strings.TrimSpace(c.Query("provider_id"))
+	}
+	if providerID == "" {
+		return gocore.MappingSpec{}, validationError("provider_id is required", map[string]any{"field": "provider_id"})
+	}
+	scope, err := resolveScope(c.Context(), c, body)
+	if err != nil {
+		return gocore.MappingSpec{}, err
+	}
+	providerID, scope, err = workflowProviderScope(providerID, scope)
+	if err != nil {
+		return gocore.MappingSpec{}, validationError(err.Error(), map[string]any{"field": "provider_id/scope"})
+	}
+	version := toInt(body["version"], 0)
+	if version <= 0 {
+		return gocore.MappingSpec{}, validationError("version must be > 0", map[string]any{"field": "version"})
+	}
+	return action(runtime, providerID, scope, specID, version)
+}
+
+func workflowMappingRequestFromBody[T any](
+	c router.Context,
+	body map[string]any,
+	request T,
+	decodeError string,
+	normalize func(map[string]any, T) T,
+	spec func(*T) *gocore.MappingSpec,
+) (T, error) {
+	if err := decodeBodyMap(body, &request); err != nil {
+		return request, validationError(decodeError, map[string]any{"field": "body"})
+	}
+	request = normalize(body, request)
+	mapping := spec(&request)
+	if mapping.Scope.Type == "" || mapping.Scope.ID == "" {
+		scope, err := resolveScope(c.Context(), c, body)
+		if err != nil {
+			return request, err
+		}
+		mapping.Scope = scope
+	}
+	if strings.TrimSpace(mapping.ProviderID) == "" {
+		mapping.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
+	}
+	return request, nil
+}
+
+func handleWorkflowMappingSpecRequest[T any](
+	c router.Context,
+	body map[string]any,
+	runtime *workflowRuntime,
+	request T,
+	decodeError string,
+	normalize func(map[string]any, T) T,
+	spec func(*T) *gocore.MappingSpec,
+	run func(*workflowRuntime, T) (map[string]any, error),
+) (int, any, error) {
+	request, err := workflowMappingRequestFromBody(c, body, request, decodeError, normalize, spec)
+	if err != nil {
+		return 0, nil, err
+	}
+	payload, err := run(runtime, request)
+	if err != nil {
+		return 0, nil, err
+	}
+	return http.StatusOK, payload, nil
+}
+
+func handleWorkflowMappingSpecRuntimeRequest[T any](
+	m *Module,
+	c router.Context,
+	body map[string]any,
+	request T,
+	decodeError string,
+	normalize func(map[string]any, T) T,
+	spec func(*T) *gocore.MappingSpec,
+	run func(*workflowRuntime, T) (map[string]any, error),
+) (int, any, error) {
+	runtime, err := m.requireWorkflowRuntime()
+	if err != nil {
+		return 0, nil, err
+	}
+	return handleWorkflowMappingSpecRequest(c, body, runtime, request, decodeError, normalize, spec, run)
 }
 
 func (m *Module) workflowMappingSpecFromBody(c router.Context, body map[string]any, forcedSpecID string) (gocore.MappingSpec, string, gocore.ScopeRef, error) {

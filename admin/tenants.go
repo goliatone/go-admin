@@ -147,31 +147,7 @@ func (s *TenantService) AssignMember(ctx context.Context, tenantID string, membe
 	if s == nil || s.repo == nil {
 		return TenantRecord{}, serviceNotConfiguredDomainError("tenant service", nil)
 	}
-	current, err := s.repo.Get(ctx, tenantID)
-	if err != nil {
-		return TenantRecord{}, err
-	}
-	member.UserID = strings.TrimSpace(member.UserID)
-	if member.UserID == "" {
-		return TenantRecord{}, requiredFieldDomainError("user id", nil)
-	}
-	member.Roles = dedupeStrings(member.Roles)
-	member.Permissions = dedupeStrings(member.Permissions)
-	updatedMembers := []TenantMember{}
-	found := false
-	for _, m := range current.Members {
-		if m.UserID == member.UserID {
-			m.Roles = member.Roles
-			m.Permissions = member.Permissions
-			found = true
-		}
-		updatedMembers = append(updatedMembers, normalizeTenantMember(m))
-	}
-	if !found {
-		updatedMembers = append(updatedMembers, normalizeTenantMember(member))
-	}
-	current.Members = updatedMembers
-	return s.SaveTenant(ctx, current)
+	return assignScopedRecordMember(ctx, tenantID, s.repo.Get, s.SaveTenant, tenantMembersRef, member, prepareTenantMember, tenantMemberUserID, normalizeTenantMember, applyTenantMemberUpdate)
 }
 
 // RemoveMember detaches a user from a tenant.
@@ -267,24 +243,7 @@ func (s *InMemoryTenantStore) Create(ctx context.Context, tenant TenantRecord) (
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return createInMemoryRecord(s.tenants, tenant, inMemoryCreateConfig[TenantRecord]{
-		clone: cloneTenant,
-		id: func(record TenantRecord) string {
-			return record.ID
-		},
-		setID: func(record *TenantRecord, id string) {
-			record.ID = id
-		},
-		prepare: func(record *TenantRecord, now time.Time) {
-			if record.CreatedAt.IsZero() {
-				record.CreatedAt = now
-			}
-			if record.UpdatedAt.IsZero() {
-				record.UpdatedAt = record.CreatedAt
-			}
-			record.Members = normalizeTenantMembers(record.Members)
-		},
-	})
+	return createInMemoryRecord(s.tenants, tenant, newScopedMemberRecordCreateConfig(cloneTenant, tenantRecordID, setTenantRecordID, tenantCreatedAtRef, tenantUpdatedAtRef, tenantMembersRef, normalizeTenantMembers))
 }
 
 // Update modifies a tenant.
@@ -292,31 +251,7 @@ func (s *InMemoryTenantStore) Update(ctx context.Context, tenant TenantRecord) (
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return updateInMemoryRecord(s.tenants, tenant.ID, tenant, inMemoryUpdateConfig[TenantRecord]{
-		clone: cloneTenant,
-		merge: func(existing *TenantRecord, update TenantRecord, now time.Time) error {
-			if update.Name != "" {
-				existing.Name = update.Name
-			}
-			if update.Slug != "" {
-				existing.Slug = update.Slug
-			}
-			if update.Domain != "" {
-				existing.Domain = update.Domain
-			}
-			if update.Status != "" {
-				existing.Status = update.Status
-			}
-			if len(update.Members) > 0 {
-				existing.Members = normalizeTenantMembers(update.Members)
-			}
-			if update.Metadata != nil {
-				existing.Metadata = mergeMapInto(existing.Metadata, update.Metadata)
-			}
-			existing.UpdatedAt = now
-			return nil
-		},
-	})
+	return updateInMemoryRecord(s.tenants, tenant.ID, tenant, newScopedRecordUpdateConfig(cloneTenant, mergeTenantRecord))
 }
 
 // Delete removes a tenant.
@@ -337,6 +272,125 @@ func normalizeTenantMembers(members []TenantMember) []TenantMember {
 	return normalizeScopedMembers(members, func(member TenantMember) string {
 		return member.UserID
 	}, normalizeTenantMember)
+}
+
+func mergeTenantRecord(existing *TenantRecord, update TenantRecord, now time.Time) error {
+	return mergeScopedRecord(existing, update, now, applyTenantRecordUpdate, tenantMembersRef, normalizeTenantMembers, tenantMetadataRef, setTenantUpdatedAt, update.Members, update.Metadata)
+}
+
+func upsertScopedMembers[Member any](
+	members []Member,
+	candidate Member,
+	userID func(Member) string,
+	normalize func(Member) Member,
+	update func(*Member, Member),
+) []Member {
+	candidateID := strings.TrimSpace(userID(candidate))
+	out := make([]Member, 0, len(members)+1)
+	found := false
+	for _, member := range members {
+		next := member
+		if strings.TrimSpace(userID(next)) == candidateID {
+			update(&next, candidate)
+			found = true
+		}
+		out = append(out, normalize(next))
+	}
+	if !found {
+		out = append(out, normalize(candidate))
+	}
+	return out
+}
+
+func assignScopedRecordMember[Record any, Member any](
+	ctx context.Context,
+	recordID string,
+	get func(context.Context, string) (Record, error),
+	save func(context.Context, Record) (Record, error),
+	members func(*Record) *[]Member,
+	candidate Member,
+	prepare func(*Member),
+	userID func(Member) string,
+	normalize func(Member) Member,
+	update func(*Member, Member),
+) (Record, error) {
+	current, err := get(ctx, recordID)
+	if err != nil {
+		var zero Record
+		return zero, err
+	}
+	prepare(&candidate)
+	if strings.TrimSpace(userID(candidate)) == "" {
+		var zero Record
+		return zero, requiredFieldDomainError("user id", nil)
+	}
+	currentMembers := members(&current)
+	*currentMembers = upsertScopedMembers(*currentMembers, candidate, userID, normalize, update)
+	return save(ctx, current)
+}
+
+func mergeScopedRecord[Record any, Member any](
+	existing *Record,
+	update Record,
+	now time.Time,
+	apply func(*Record, Record),
+	members func(*Record) *[]Member,
+	normalizeMembers func([]Member) []Member,
+	metadata func(*Record) *map[string]any,
+	setUpdatedAt func(*Record, time.Time),
+	updateMembers []Member,
+	updateMetadata map[string]any,
+) error {
+	apply(existing, update)
+	if len(updateMembers) > 0 {
+		*members(existing) = normalizeMembers(updateMembers)
+	}
+	if updateMetadata != nil {
+		*metadata(existing) = mergeMapInto(*metadata(existing), updateMetadata)
+	}
+	setUpdatedAt(existing, now)
+	return nil
+}
+
+func newScopedRecordCreateConfig[T any](
+	clone func(T) T,
+	id func(T) string,
+	setID func(*T, string),
+	prepare func(*T, time.Time),
+) inMemoryCreateConfig[T] {
+	return inMemoryCreateConfig[T]{
+		clone:   clone,
+		id:      id,
+		setID:   setID,
+		prepare: prepare,
+	}
+}
+
+func newScopedRecordUpdateConfig[T any](
+	clone func(T) T,
+	merge func(*T, T, time.Time) error,
+) inMemoryUpdateConfig[T] {
+	return inMemoryUpdateConfig[T]{clone: clone, merge: merge}
+}
+
+func newScopedMemberRecordCreateConfig[T any, Member any](
+	clone func(T) T,
+	id func(T) string,
+	setID func(*T, string),
+	createdAt func(*T) *time.Time,
+	updatedAt func(*T) *time.Time,
+	members func(*T) *[]Member,
+	normalizeMembers func([]Member) []Member,
+) inMemoryCreateConfig[T] {
+	return newScopedRecordCreateConfig(clone, id, setID, func(record *T, now time.Time) {
+		if createdAt(record).IsZero() {
+			*createdAt(record) = now
+		}
+		if updatedAt(record).IsZero() {
+			*updatedAt(record) = *createdAt(record)
+		}
+		*members(record) = normalizeMembers(*members(record))
+	})
 }
 
 func normalizeTenantMember(member TenantMember) TenantMember {
@@ -364,6 +418,48 @@ func cloneTenant(record TenantRecord) TenantRecord {
 	}
 	return cloned
 }
+
+func tenantMembersRef(record *TenantRecord) *[]TenantMember { return &record.Members }
+
+func tenantMetadataRef(record *TenantRecord) *map[string]any { return &record.Metadata }
+
+func tenantRecordID(record TenantRecord) string { return record.ID }
+
+func setTenantRecordID(record *TenantRecord, id string) { record.ID = id }
+
+func tenantCreatedAtRef(record *TenantRecord) *time.Time { return &record.CreatedAt }
+
+func tenantUpdatedAtRef(record *TenantRecord) *time.Time { return &record.UpdatedAt }
+
+func tenantMemberUserID(member TenantMember) string { return member.UserID }
+
+func prepareTenantMember(member *TenantMember) {
+	member.UserID = strings.TrimSpace(member.UserID)
+	member.Roles = dedupeStrings(member.Roles)
+	member.Permissions = dedupeStrings(member.Permissions)
+}
+
+func applyTenantMemberUpdate(existing *TenantMember, updated TenantMember) {
+	existing.Roles = updated.Roles
+	existing.Permissions = updated.Permissions
+}
+
+func applyTenantRecordUpdate(existing *TenantRecord, update TenantRecord) {
+	if update.Name != "" {
+		existing.Name = update.Name
+	}
+	if update.Slug != "" {
+		existing.Slug = update.Slug
+	}
+	if update.Domain != "" {
+		existing.Domain = update.Domain
+	}
+	if update.Status != "" {
+		existing.Status = update.Status
+	}
+}
+
+func setTenantUpdatedAt(record *TenantRecord, updatedAt time.Time) { record.UpdatedAt = updatedAt }
 
 func cloneTenantMembers(members []TenantMember) []TenantMember {
 	return cloneScopedMembers(members, cloneTenantMember)

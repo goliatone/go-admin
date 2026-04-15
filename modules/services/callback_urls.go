@@ -44,34 +44,13 @@ func (m *Module) resolveCallbackRedirectURI(c router.Context, providerID string)
 	if providerID == "" {
 		return "", fmt.Errorf("modules/services: provider id is required to resolve callback URL")
 	}
-
 	if overrideURL := m.callbackURLOverride(providerID); overrideURL != "" {
 		return overrideURL, nil
 	}
-
-	group := m.callbackURLRouteGroup()
-	route := m.callbackURLRoute(providerID)
-	resolved := ""
-	resolveErr := error(nil)
-	if m != nil && m.admin != nil && m.admin.URLs() != nil && group != "" && route != "" {
-		resolved, resolveErr = m.admin.URLs().Resolve(group, route, map[string]any{
-			"provider": providerID,
-			"ref":      providerID,
-			"id":       providerID,
-		}, nil)
-		if resolveErr != nil && m.config.Callbacks.Strict {
-			return "", fmt.Errorf(
-				"modules/services: resolve callback route %q in group %q for provider %q: %w",
-				route,
-				group,
-				providerID,
-				resolveErr,
-			)
-		}
+	_, resolved, resolveErr := m.resolveCallbackPath(providerID)
+	if resolveErr != nil && m != nil && m.config.Callbacks.Strict {
+		return "", resolveErr
 	}
-
-	resolved = strings.TrimSpace(resolved)
-	resolved = m.normalizeCallbackResolvedPath(group, resolved)
 	if resolved == "" {
 		resolved = m.defaultCallbackPath(providerID)
 	}
@@ -82,6 +61,33 @@ func (m *Module) resolveCallbackRedirectURI(c router.Context, providerID string)
 		return "", fmt.Errorf("modules/services: callback path is required for provider %q", providerID)
 	}
 
+	return m.resolveAbsoluteCallbackURL(c, resolved)
+}
+
+func (m *Module) resolveCallbackPath(providerID string) (string, string, error) {
+	group := m.callbackURLRouteGroup()
+	route := m.callbackURLRoute(providerID)
+	if m == nil || m.admin == nil || m.admin.URLs() == nil || group == "" || route == "" {
+		return group, "", nil
+	}
+	resolved, err := m.admin.URLs().Resolve(group, route, map[string]any{
+		"provider": providerID,
+		"ref":      providerID,
+		"id":       providerID,
+	}, nil)
+	if err != nil && m.config.Callbacks.Strict {
+		return group, "", fmt.Errorf(
+			"modules/services: resolve callback route %q in group %q for provider %q: %w",
+			route,
+			group,
+			providerID,
+			err,
+		)
+	}
+	return group, m.normalizeCallbackResolvedPath(group, strings.TrimSpace(resolved)), err
+}
+
+func (m *Module) resolveAbsoluteCallbackURL(c router.Context, resolved string) (string, error) {
 	absoluteURL, err := m.absoluteCallbackURL(c, resolved)
 	if err != nil {
 		if m != nil && m.config.Callbacks.Strict {

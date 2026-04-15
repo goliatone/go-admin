@@ -433,9 +433,9 @@ func (a *GoAuthAuthorizer) Can(ctx context.Context, permission string, resource 
 	case "delete":
 		result = claims.CanDelete(target)
 	default:
-		result, reason := a.permissionAllowed(ctx, permission, target, action)
-		a.logDecision(permission, target, action, result, reason)
-		return result
+		allowed, reason := a.permissionAllowed(ctx, permission, target, action)
+		a.logDecision(permission, target, action, allowed, reason)
+		return allowed
 	}
 
 	a.logDecision(permission, target, action, result, "")

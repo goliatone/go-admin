@@ -150,31 +150,7 @@ func (s *OrganizationService) AssignMember(ctx context.Context, orgID string, me
 	if s == nil || s.repo == nil {
 		return OrganizationRecord{}, serviceNotConfiguredDomainError("organization service", nil)
 	}
-	current, err := s.repo.Get(ctx, orgID)
-	if err != nil {
-		return OrganizationRecord{}, err
-	}
-	member.UserID = strings.TrimSpace(member.UserID)
-	if member.UserID == "" {
-		return OrganizationRecord{}, requiredFieldDomainError("user id", nil)
-	}
-	member.Roles = dedupeStrings(member.Roles)
-	member.Permissions = dedupeStrings(member.Permissions)
-	updatedMembers := []OrganizationMember{}
-	found := false
-	for _, m := range current.Members {
-		if m.UserID == member.UserID {
-			m.Roles = member.Roles
-			m.Permissions = member.Permissions
-			found = true
-		}
-		updatedMembers = append(updatedMembers, normalizeOrganizationMember(m))
-	}
-	if !found {
-		updatedMembers = append(updatedMembers, normalizeOrganizationMember(member))
-	}
-	current.Members = updatedMembers
-	return s.SaveOrganization(ctx, current)
+	return assignScopedRecordMember(ctx, orgID, s.repo.Get, s.SaveOrganization, organizationMembersRef, member, prepareOrganizationMember, organizationMemberUserID, normalizeOrganizationMember, applyOrganizationMemberUpdate)
 }
 
 // RemoveMember detaches a user from an organization.
@@ -276,24 +252,7 @@ func (s *InMemoryOrganizationStore) Create(ctx context.Context, org Organization
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return createInMemoryRecord(s.orgs, org, inMemoryCreateConfig[OrganizationRecord]{
-		clone: cloneOrganization,
-		id: func(record OrganizationRecord) string {
-			return record.ID
-		},
-		setID: func(record *OrganizationRecord, id string) {
-			record.ID = id
-		},
-		prepare: func(record *OrganizationRecord, now time.Time) {
-			if record.CreatedAt.IsZero() {
-				record.CreatedAt = now
-			}
-			if record.UpdatedAt.IsZero() {
-				record.UpdatedAt = record.CreatedAt
-			}
-			record.Members = normalizeOrganizationMembers(record.Members)
-		},
-	})
+	return createInMemoryRecord(s.orgs, org, newScopedMemberRecordCreateConfig(cloneOrganization, organizationRecordID, setOrganizationRecordID, organizationCreatedAtRef, organizationUpdatedAtRef, organizationMembersRef, normalizeOrganizationMembers))
 }
 
 // Update modifies an organization.
@@ -301,31 +260,7 @@ func (s *InMemoryOrganizationStore) Update(ctx context.Context, org Organization
 	_ = ctx
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return updateInMemoryRecord(s.orgs, org.ID, org, inMemoryUpdateConfig[OrganizationRecord]{
-		clone: cloneOrganization,
-		merge: func(existing *OrganizationRecord, update OrganizationRecord, now time.Time) error {
-			if update.Name != "" {
-				existing.Name = update.Name
-			}
-			if update.Slug != "" {
-				existing.Slug = update.Slug
-			}
-			if update.Status != "" {
-				existing.Status = update.Status
-			}
-			if update.TenantID != "" {
-				existing.TenantID = update.TenantID
-			}
-			if len(update.Members) > 0 {
-				existing.Members = normalizeOrganizationMembers(update.Members)
-			}
-			if update.Metadata != nil {
-				existing.Metadata = mergeMapInto(existing.Metadata, update.Metadata)
-			}
-			existing.UpdatedAt = now
-			return nil
-		},
-	})
+	return updateInMemoryRecord(s.orgs, org.ID, org, newScopedRecordUpdateConfig(cloneOrganization, mergeOrganizationRecord))
 }
 
 // Delete removes an organization.
@@ -346,6 +281,10 @@ func normalizeOrganizationMembers(members []OrganizationMember) []OrganizationMe
 	return normalizeScopedMembers(members, func(member OrganizationMember) string {
 		return member.UserID
 	}, normalizeOrganizationMember)
+}
+
+func mergeOrganizationRecord(existing *OrganizationRecord, update OrganizationRecord, now time.Time) error {
+	return mergeScopedRecord(existing, update, now, applyOrganizationRecordUpdate, organizationMembersRef, normalizeOrganizationMembers, organizationMetadataRef, setOrganizationUpdatedAt, update.Members, update.Metadata)
 }
 
 func normalizeOrganizationMember(member OrganizationMember) OrganizationMember {
@@ -372,6 +311,50 @@ func cloneOrganization(record OrganizationRecord) OrganizationRecord {
 		cloned.Metadata = primitives.CloneAnyMap(record.Metadata)
 	}
 	return cloned
+}
+
+func organizationMembersRef(record *OrganizationRecord) *[]OrganizationMember { return &record.Members }
+
+func organizationMetadataRef(record *OrganizationRecord) *map[string]any { return &record.Metadata }
+
+func organizationRecordID(record OrganizationRecord) string { return record.ID }
+
+func setOrganizationRecordID(record *OrganizationRecord, id string) { record.ID = id }
+
+func organizationCreatedAtRef(record *OrganizationRecord) *time.Time { return &record.CreatedAt }
+
+func organizationUpdatedAtRef(record *OrganizationRecord) *time.Time { return &record.UpdatedAt }
+
+func organizationMemberUserID(member OrganizationMember) string { return member.UserID }
+
+func prepareOrganizationMember(member *OrganizationMember) {
+	member.UserID = strings.TrimSpace(member.UserID)
+	member.Roles = dedupeStrings(member.Roles)
+	member.Permissions = dedupeStrings(member.Permissions)
+}
+
+func applyOrganizationMemberUpdate(existing *OrganizationMember, updated OrganizationMember) {
+	existing.Roles = updated.Roles
+	existing.Permissions = updated.Permissions
+}
+
+func applyOrganizationRecordUpdate(existing *OrganizationRecord, update OrganizationRecord) {
+	if update.Name != "" {
+		existing.Name = update.Name
+	}
+	if update.Slug != "" {
+		existing.Slug = update.Slug
+	}
+	if update.Status != "" {
+		existing.Status = update.Status
+	}
+	if update.TenantID != "" {
+		existing.TenantID = update.TenantID
+	}
+}
+
+func setOrganizationUpdatedAt(record *OrganizationRecord, updatedAt time.Time) {
+	record.UpdatedAt = updatedAt
 }
 
 func cloneOrganizationMembers(members []OrganizationMember) []OrganizationMember {
