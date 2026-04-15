@@ -218,8 +218,6 @@ github.com/goliatone/go-repository-bun v0.15.1 h1:t2RHhqM6OBjyybJE9wnKtVYXM8f4Jb
 github.com/goliatone/go-repository-bun v0.15.1/go.mod h1:bOFyQOGKyPJX+tkd7A7DhASqcPMvwdhDq41AmWujFqs=
 github.com/goliatone/go-repository-cache v0.7.1 h1:/JHBAWnBDiz9Gz1ko3XZMmq5ZuOOHRdedMZfoBCVWk8=
 github.com/goliatone/go-repository-cache v0.7.1/go.mod h1:vv+5iv/FjDBoasIzy8Tb0t/lpswK1W6+l3piar4+w1o=
-github.com/goliatone/go-router v0.56.0 h1:r6YR1L+TnwGwenWzo8pu0X2ouFtktNl8xg+fh/V9e5U=
-github.com/goliatone/go-router v0.56.0/go.mod h1:FJzU9n2f/Gm4ZI6TO7FgKTrFyOjU2r6G9FiV1sN1U1U=
 github.com/goliatone/go-router v0.57.0 h1:kDSB4/t6lejiXey2yp+jrrDqhzeuOxjgBNa1rfhC/OE=
 github.com/goliatone/go-router v0.57.0/go.mod h1:FJzU9n2f/Gm4ZI6TO7FgKTrFyOjU2r6G9FiV1sN1U1U=
 github.com/goliatone/go-search v0.4.0 h1:ZEXgPgBzaLMdbUXXvjI7p/kyVAJqWDIfWhHGKANZb/A=
