@@ -17,14 +17,21 @@ type Config struct {
 	ThemeVariant        string            `json:"theme_variant"`
 	ThemeTokens         map[string]string `json:"theme_tokens"`
 	ThemeTokenOverrides map[string]string `json:"theme_token_overrides,omitempty"`
-	ThemeAssetPrefix    string            `json:"theme_asset_prefix"`
-	PreviewSecret       string            `json:"preview_secret"`
-	CMSConfig           any               `json:"cms_config"`
-	CMS                 CMSOptions        `json:"cms"`
-	Debug               DebugConfig       `json:"debug"`
-	Errors              ErrorConfig       `json:"errors"`
+	// ThemeAssets carries final resolved asset URLs/paths that override themed assets
+	// after go-theme selection. Use reserved keys like "logo", "icon", and "favicon".
+	ThemeAssets      map[string]string `json:"theme_assets,omitempty"`
+	ThemeAssetPrefix string            `json:"theme_asset_prefix"`
+	PreviewSecret    string            `json:"preview_secret"`
+	CMSConfig        any               `json:"cms_config"`
+	CMS              CMSOptions        `json:"cms"`
+	Debug            DebugConfig       `json:"debug"`
+	Errors           ErrorConfig       `json:"errors"`
 
-	LogoURL    string `json:"logo_url"`
+	// LogoURL is the legacy override for the expanded/admin lockup asset.
+	// Prefer ThemeAssets["logo"] for new integrations.
+	LogoURL string `json:"logo_url"`
+	// FaviconURL is the legacy override for the browser/app icon asset.
+	// Prefer ThemeAssets["favicon"] for new integrations.
 	FaviconURL string `json:"favicon_url"`
 	CustomCSS  string `json:"custom_css"`
 	CustomJS   string `json:"custom_js"`
