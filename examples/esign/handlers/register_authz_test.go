@@ -417,7 +417,7 @@ func setupSignerFlowApp(t *testing.T) (*fiber.App, stores.Scope, string, string,
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "phase4-handler-consent"}); err != nil {
+	if _, err = agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "phase4-handler-consent"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -487,7 +487,7 @@ func setupPublicSignerSessionApp(t *testing.T) (*fiber.App, stores.Scope, string
 	fieldType := stores.FieldTypeText
 	page := 1
 	required := true
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        &fieldType,
 		PageNumber:  &page,
@@ -496,7 +496,7 @@ func setupPublicSignerSessionApp(t *testing.T) (*fiber.App, stores.Scope, string
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
 	signatureType := stores.FieldTypeSignature
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        &signatureType,
 		PageNumber:  &page,
@@ -504,7 +504,7 @@ func setupPublicSignerSessionApp(t *testing.T) (*fiber.App, stores.Scope, string
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "public-signer-bootstrap"}); err != nil {
+	if _, err = agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "public-signer-bootstrap"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -760,7 +760,7 @@ func TestRegisterSignerSessionReturns410ForExpiredToken(t *testing.T) {
 		t.Fatalf("Issue: %v", err)
 	}
 	expiredValidator := stores.NewTokenService(tokenStore, stores.WithTokenClock(func() time.Time { return baseNow.Add(2 * time.Hour) }))
-	if _, err := expiredValidator.Validate(ctx, scope, issued.Token); err == nil {
+	if _, err = expiredValidator.Validate(ctx, scope, issued.Token); err == nil {
 		t.Fatal("expected token service validation to fail for expired token")
 	}
 
@@ -826,7 +826,8 @@ func TestRegisterSignerSessionReturns410ForRevokedToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
-	if err := validator.Revoke(ctx, scope, "agreement-1", "recipient-1"); err != nil {
+	err = validator.Revoke(ctx, scope, "agreement-1", "recipient-1")
+	if err != nil {
 		t.Fatalf("Revoke: %v", err)
 	}
 
@@ -897,7 +898,7 @@ func setupSupersededCorrectionSignerLink(t *testing.T) (context.Context, stores.
 	fieldType := stores.FieldTypeSignature
 	page := 1
 	required := true
-	if _, err := agreementService.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementService.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        &fieldType,
 		PageNumber:  &page,
@@ -1033,7 +1034,8 @@ func TestRegisterSignerAssetsReturns410ForRevokedTokenWithoutSupersedingVersion(
 	if err != nil {
 		t.Fatalf("Issue: %v", err)
 	}
-	if err := validator.Revoke(ctx, scope, "agreement-1", "recipient-1"); err != nil {
+	err = validator.Revoke(ctx, scope, "agreement-1", "recipient-1")
+	if err != nil {
 		t.Fatalf("Revoke: %v", err)
 	}
 
@@ -1789,7 +1791,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 
 	required := true
 	pageOne := 1
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  &pageOne,
@@ -1798,7 +1800,7 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 		t.Fatalf("UpsertFieldDraft signer one: %v", err)
 	}
 	pageTwo := 1
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  &pageTwo,
@@ -1807,12 +1809,12 @@ func TestRegisterSignerSessionReturnsScopedContextWithWaitingState(t *testing.T)
 		t.Fatalf("UpsertFieldDraft signer two: %v", err)
 	}
 
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "phase4-session"}); err != nil {
+	if _, err = agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "phase4-session"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
 	tokenService := stores.NewTokenService(store)
-	if _, err := tokenService.Issue(ctx, scope, agreement.ID, signerOne.ID); err != nil {
+	if _, err = tokenService.Issue(ctx, scope, agreement.ID, signerOne.ID); err != nil {
 		t.Fatalf("Issue signer one token: %v", err)
 	}
 	issuedTwo, err := tokenService.Issue(ctx, scope, agreement.ID, signerTwo.ID)
@@ -1979,7 +1981,7 @@ func setupExternalReviewRouteApp(t *testing.T) externalReviewRouteFixture {
 	fieldType := stores.FieldTypeSignature
 	required := true
 	page := 1
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        &fieldType,
 		PageNumber:  &page,
@@ -2006,7 +2008,7 @@ func setupExternalReviewRouteApp(t *testing.T) externalReviewRouteFixture {
 	if err != nil {
 		t.Fatalf("OpenReview: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "external-review-route-send"}); err != nil {
+	if _, err = agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "external-review-route-send"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	participants, err := store.ListAgreementReviewParticipants(ctx, scope, summary.Review.ID)
@@ -2453,7 +2455,7 @@ func TestRegisterSignerSessionIncludesLimitedCompatibilityReasonWhenPreviewFallb
 	fieldType := stores.FieldTypeSignature
 	required := true
 	page := 1
-	if _, err := agreementSvc.UpsertFieldDraft(ctx2, scope2, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementSvc.UpsertFieldDraft(ctx2, scope2, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        &fieldType,
 		PageNumber:  &page,
@@ -2461,7 +2463,7 @@ func TestRegisterSignerSessionIncludesLimitedCompatibilityReasonWhenPreviewFallb
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx2, scope2, agreement.ID, services.SendInput{IdempotencyKey: "phase-slice5-preview-fallback"}); err != nil {
+	if _, err = agreementSvc.Send(ctx2, scope2, agreement.ID, services.SendInput{IdempotencyKey: "phase-slice5-preview-fallback"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 	tokenService := stores.NewTokenService(store2)
@@ -2470,11 +2472,12 @@ func TestRegisterSignerSessionIncludesLimitedCompatibilityReasonWhenPreviewFallb
 		t.Fatalf("Issue: %v", err)
 	}
 	signingSvc := services.NewSigningService(store2, services.WithSigningPreviewFallbackEnabled(true))
-	if err := Register(adapter.Router(), routes,
+	err = Register(adapter.Router(), routes,
 		WithSignerTokenValidator(tokenService),
 		WithSignerSessionService(signingSvc),
 		WithDefaultScope(scope2),
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
 	adapter.Init()
@@ -2550,7 +2553,7 @@ func TestRegisterSignerSessionReturnsTypedUnsupportedForUnsupportedDocument(t *t
 	required := true
 	page := 1
 	fieldType := stores.FieldTypeSignature
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        &fieldType,
 		PageNumber:  &page,
@@ -2558,7 +2561,7 @@ func TestRegisterSignerSessionReturnsTypedUnsupportedForUnsupportedDocument(t *t
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
-	if _, err := store.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
+	if _, err = store.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
 		ToStatus:        stores.AgreementStatusSent,
 		ExpectedVersion: agreement.Version,
 	}); err != nil {
@@ -2646,7 +2649,7 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	}
 	required := true
 	page := 1
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
 		Type:        new(stores.FieldTypeText),
 		PageNumber:  &page,
@@ -2654,7 +2657,7 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, err = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  &page,
@@ -2662,7 +2665,7 @@ func TestRegisterSignerSessionEmitsViewedAuditEventWithIPAndUserAgent(t *testing
 	}); err != nil {
 		t.Fatalf("UpsertFieldDraft signature: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "session-viewed-audit"}); err != nil {
+	if _, err = agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "session-viewed-audit"}); err != nil {
 		t.Fatalf("Send: %v", err)
 	}
 
@@ -2916,7 +2919,8 @@ func TestRegisterSignerSignatureAttachDrawnWithUploadBootstrap(t *testing.T) {
 		t.Fatalf("read bootstrap response body: %v", err)
 	}
 	var bootstrapPayload map[string]any
-	if err := json.Unmarshal(bootstrapPayloadRaw, &bootstrapPayload); err != nil {
+	err = json.Unmarshal(bootstrapPayloadRaw, &bootstrapPayload)
+	if err != nil {
 		t.Fatalf("decode bootstrap payload: %v", err)
 	}
 	contract, _ := bootstrapPayload["contract"].(map[string]any)
@@ -2984,7 +2988,8 @@ func TestRegisterSignerSignatureAttachDrawnRetryRemainsIdempotent(t *testing.T) 
 		t.Fatalf("read bootstrap response body: %v", err)
 	}
 	var bootstrapPayload map[string]any
-	if err := json.Unmarshal(bootstrapPayloadRaw, &bootstrapPayload); err != nil {
+	err = json.Unmarshal(bootstrapPayloadRaw, &bootstrapPayload)
+	if err != nil {
 		t.Fatalf("decode bootstrap payload: %v", err)
 	}
 	contract, _ := bootstrapPayload["contract"].(map[string]any)

@@ -520,8 +520,9 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		})
 	}
 	if !shouldDispatch {
-		if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, now); err != nil {
-			return err
+		_, markErr := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, now)
+		if markErr != nil {
+			return markErr
 		}
 		observability.ObserveJobResult(ctx, JobEmailSendSigningRequest, true)
 		observability.LogOperation(ctx, slog.LevelInfo, "job", "email_send_signing_request", "success", run.CorrelationID, h.now().Sub(startedAt), nil, map[string]any{
@@ -1487,36 +1488,39 @@ func (h Handlers) RunCompletionWorkflow(ctx context.Context, scope stores.Scope,
 		return err
 	}
 	if agreement.Status != stores.AgreementStatusCompleted {
-		err := fmt.Errorf("completion workflow requires completed agreement")
+		statusErr := fmt.Errorf("completion workflow requires completed agreement")
 		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		observability.LogOperation(ctx, slog.LevelWarn, "job", "completion_workflow", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+		observability.LogOperation(ctx, slog.LevelWarn, "job", "completion_workflow", "error", correlationID, h.now().Sub(startedAt), statusErr, map[string]any{
 			"agreement_id": strings.TrimSpace(agreementID),
 		})
-		return err
+		return statusErr
 	}
-	if err := h.ExecutePDFRenderPages(ctx, PDFRenderPagesMsg{
+	renderErr := h.ExecutePDFRenderPages(ctx, PDFRenderPagesMsg{
 		Scope:         scope,
 		AgreementID:   agreementID,
 		CorrelationID: correlationID,
-	}); err != nil {
+	})
+	if renderErr != nil {
 		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		return err
+		return renderErr
 	}
-	if err := h.ExecutePDFGenerateExecuted(ctx, PDFGenerateExecutedMsg{
+	executedErr := h.ExecutePDFGenerateExecuted(ctx, PDFGenerateExecutedMsg{
 		Scope:         scope,
 		AgreementID:   agreementID,
 		CorrelationID: correlationID,
-	}); err != nil {
+	})
+	if executedErr != nil {
 		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		return err
+		return executedErr
 	}
-	if err := h.ExecutePDFGenerateCertificate(ctx, PDFGenerateCertificateMsg{
+	certificateErr := h.ExecutePDFGenerateCertificate(ctx, PDFGenerateCertificateMsg{
 		Scope:         scope,
 		AgreementID:   agreementID,
 		CorrelationID: correlationID,
-	}); err != nil {
+	})
+	if certificateErr != nil {
 		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		return err
+		return certificateErr
 	}
 	recipients, err := h.agreements.ListRecipients(ctx, scope, agreementID)
 	if err != nil {

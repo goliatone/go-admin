@@ -51,9 +51,9 @@ func TestEnsureLineageQAFixturesIsIdempotentAndUploadsArtifacts(t *testing.T) {
 		keys.ImportedV2SourceObjectKey,
 		keys.ImportedV2NormalizedObjectKey,
 	} {
-		payload, err := uploads.GetFile(ctx, key)
-		if err != nil {
-			t.Fatalf("GetFile %s: %v", key, err)
+		payload, getFileErr := uploads.GetFile(ctx, key)
+		if getFileErr != nil {
+			t.Fatalf("GetFile %s: %v", key, getFileErr)
 		}
 		if len(payload) == 0 {
 			t.Fatalf("expected payload for %s", key)
@@ -61,24 +61,26 @@ func TestEnsureLineageQAFixturesIsIdempotentAndUploadsArtifacts(t *testing.T) {
 	}
 
 	var documents int
-	if err := bootstrap.BunDB.NewRaw(`
+	countDocumentsErr := bootstrap.BunDB.NewRaw(`
 SELECT COUNT(1)
 FROM documents
 WHERE id IN (?)
-`, bun.List([]string{first.UploadOnlyDocumentID, first.ImportedDocumentID, first.RepeatedImportDocumentID})).Scan(ctx, &documents); err != nil {
-		t.Fatalf("count seeded documents: %v", err)
+	`, bun.List([]string{first.UploadOnlyDocumentID, first.ImportedDocumentID, first.RepeatedImportDocumentID})).Scan(ctx, &documents)
+	if countDocumentsErr != nil {
+		t.Fatalf("count seeded documents: %v", countDocumentsErr)
 	}
 	if documents != 3 {
 		t.Fatalf("expected 3 seeded documents, got %d", documents)
 	}
 
 	var handles int
-	if err := bootstrap.BunDB.NewRaw(`
+	countHandlesErr := bootstrap.BunDB.NewRaw(`
 SELECT COUNT(1)
 FROM source_handles
 WHERE source_document_id = ?
-`, first.SourceDocumentID).Scan(ctx, &handles); err != nil {
-		t.Fatalf("count seeded source handles: %v", err)
+	`, first.SourceDocumentID).Scan(ctx, &handles)
+	if countHandlesErr != nil {
+		t.Fatalf("count seeded source handles: %v", countHandlesErr)
 	}
 	if handles != 2 {
 		t.Fatalf("expected 2 seeded source handles for multi-handle continuity, got %d", handles)
@@ -89,14 +91,15 @@ WHERE source_document_id = ?
 		ExternalFileID string `bun:"external_file_id"`
 		HandleStatus   string `bun:"handle_status"`
 	}
-	if err := bootstrap.BunDB.NewRaw(`
+	loadPairsErr := bootstrap.BunDB.NewRaw(`
 SELECT r.id AS revision_id, h.external_file_id, h.handle_status
 FROM source_revisions r
 JOIN source_handles h ON h.id = r.source_handle_id
 WHERE r.source_document_id = ?
 ORDER BY r.modified_time ASC, r.id ASC
-`, first.SourceDocumentID).Scan(ctx, &revisionHandlePairs); err != nil {
-		t.Fatalf("load seeded revision handles: %v", err)
+	`, first.SourceDocumentID).Scan(ctx, &revisionHandlePairs)
+	if loadPairsErr != nil {
+		t.Fatalf("load seeded revision handles: %v", loadPairsErr)
 	}
 	if len(revisionHandlePairs) != 2 {
 		t.Fatalf("expected 2 seeded revisions, got %+v", revisionHandlePairs)

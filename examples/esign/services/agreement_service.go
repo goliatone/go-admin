@@ -567,8 +567,9 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 		if err != nil {
 			return err
 		}
-		if err := validateSourceAgreementForRevision(source, kind); err != nil {
-			return err
+		validateErr := validateSourceAgreementForRevision(source, kind)
+		if validateErr != nil {
+			return validateErr
 		}
 
 		parentExecutedSHA256, err := txSvc.resolveParentExecutedSHA256(ctx, scope, source, kind)
@@ -618,8 +619,9 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 		if err != nil {
 			return err
 		}
-		if err := txSvc.copyRevisionAuthoringState(ctx, scope, source, created); err != nil {
-			return err
+		copyErr := txSvc.copyRevisionAuthoringState(ctx, scope, source, created)
+		if copyErr != nil {
+			return copyErr
 		}
 
 		baseMetadata := map[string]any{
@@ -636,14 +638,17 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 				"message_changed":  nil,
 			},
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, source.ID, sourceEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata)); err != nil {
-			return err
+		auditErr := txSvc.appendAuditEventWithIP(ctx, scope, source.ID, sourceEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata))
+		if auditErr != nil {
+			return auditErr
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, created.ID, childCreatedEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata)); err != nil {
-			return err
+		auditErr = txSvc.appendAuditEventWithIP(ctx, scope, created.ID, childCreatedEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata))
+		if auditErr != nil {
+			return auditErr
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, created.ID, childLinkedEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata)); err != nil {
-			return err
+		auditErr = txSvc.appendAuditEventWithIP(ctx, scope, created.ID, childLinkedEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata))
+		if auditErr != nil {
+			return auditErr
 		}
 		if workflowKind == stores.AgreementWorkflowKindCorrection {
 			source, err = txSvc.supersedeCorrectionParentAgreement(ctx, scope, source, created, input.IPAddress, cloneAnyMap(baseMetadata))
@@ -689,8 +694,9 @@ func (s AgreementService) supersedeCorrectionParentAgreement(
 		if recipient.Role != stores.RecipientRoleSigner {
 			continue
 		}
-		if err := s.tokens.Revoke(ctx, scope, parentID, recipient.ID); err != nil {
-			return parentAgreement, err
+		revokeErr := s.tokens.Revoke(ctx, scope, parentID, recipient.ID)
+		if revokeErr != nil {
+			return parentAgreement, revokeErr
 		}
 	}
 	voided, err := s.agreements.Transition(ctx, scope, parentID, stores.AgreementTransitionInput{
@@ -760,8 +766,9 @@ func (s AgreementService) UpsertRecipientDraft(ctx context.Context, scope stores
 		return stores.RecipientRecord{}, err
 	}
 	participantPatch := participantPatchFromRecipientPatch(patch)
-	if err := validateParticipantSet(simulateParticipantUpsert(participants, participantPatch)); err != nil {
-		return stores.RecipientRecord{}, err
+	validateErr := validateParticipantSet(simulateParticipantUpsert(participants, participantPatch))
+	if validateErr != nil {
+		return stores.RecipientRecord{}, validateErr
 	}
 	participant, err := s.agreements.UpsertParticipantDraft(ctx, scope, agreementID, participantPatch, expectedVersion)
 	if err != nil {
@@ -897,8 +904,9 @@ func (s AgreementService) UpsertFieldInstanceDraft(ctx context.Context, scope st
 	if err != nil {
 		return stores.FieldInstanceRecord{}, err
 	}
-	if err := s.validateFieldInstanceGeometryBounds(ctx, scope, agreementID, pageNumber); err != nil {
-		return stores.FieldInstanceRecord{}, err
+	validateErr := s.validateFieldInstanceGeometryBounds(ctx, scope, agreementID, pageNumber)
+	if validateErr != nil {
+		return stores.FieldInstanceRecord{}, validateErr
 	}
 	instance, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, patch)
 	if err != nil {
@@ -1459,12 +1467,13 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		}))
 		result = transitioned
 		reminderStartedAt := time.Now()
-		if err := txSvc.initializeReminderStatesForSend(ctx, scope, transitioned, recipients); err != nil {
+		reminderErr := txSvc.initializeReminderStatesForSend(ctx, scope, transitioned, recipients)
+		if reminderErr != nil {
 			LogSendPhaseDuration("agreement_service", "reminder_init_failed", reminderStartedAt, SendDebugFields(scope, correlationID, map[string]any{
 				"agreement_id": strings.TrimSpace(transitioned.ID),
-				"error":        strings.TrimSpace(err.Error()),
+				"error":        strings.TrimSpace(reminderErr.Error()),
 			}))
-			return err
+			return reminderErr
 		}
 		LogSendPhaseDuration("agreement_service", "reminder_init_complete", reminderStartedAt, SendDebugFields(scope, correlationID, map[string]any{
 			"agreement_id":    strings.TrimSpace(transitioned.ID),
@@ -1489,7 +1498,7 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			"active_stage":           activeStage,
 		}))
 		auditStartedAt := time.Now()
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.sent", "system", "", input.IPAddress, map[string]any{
+		auditErr := txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.sent", "system", "", input.IPAddress, map[string]any{
 			"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
 			"status":                   transitioned.Status,
 			"workflow_kind":            strings.TrimSpace(transitioned.WorkflowKind),
@@ -1507,24 +1516,26 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 			"issued_recipient_ids": func() []string {
 				return append([]string{}, pendingRecipientIDs...)
 			}(),
-		}); err != nil {
+		})
+		if auditErr != nil {
 			LogSendPhaseDuration("agreement_service", "audit_failed", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
 				"agreement_id": strings.TrimSpace(transitioned.ID),
-				"error":        strings.TrimSpace(err.Error()),
+				"error":        strings.TrimSpace(auditErr.Error()),
 			}))
-			return err
+			return auditErr
 		}
 		LogSendPhaseDuration("agreement_service", "audit_complete", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
 			"agreement_id": strings.TrimSpace(transitioned.ID),
 			"active_stage": activeStage,
 		}))
 		if sendCompatibilityTier == PDFCompatibilityTierLimited {
-			if err := txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_degraded_preview", "system", "", map[string]any{
+			degradedAuditErr := txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_degraded_preview", "system", "", map[string]any{
 				"pdf_compatibility_tier":   strings.TrimSpace(string(sendCompatibilityTier)),
 				"pdf_compatibility_reason": strings.TrimSpace(sendCompatibilityReason),
 				"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
-			}); err != nil {
-				return err
+			})
+			if degradedAuditErr != nil {
+				return degradedAuditErr
 			}
 		}
 		outboxStartedAt := time.Now()
@@ -1780,7 +1791,7 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 		if err != nil {
 			return err
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, agreement.ID, "agreement.resent", "system", "", input.IPAddress, map[string]any{
+		auditErr := txSvc.appendAuditEventWithIP(ctx, scope, agreement.ID, "agreement.resent", "system", "", input.IPAddress, map[string]any{
 			"recipient_id":              target.ID,
 			"active_stage":              activeStage,
 			"active_recipient_id":       coalesceFirst(activeRecipientIDs),
@@ -1790,11 +1801,13 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 			"allow_out_of_order_resend": input.AllowOutOfOrderResend,
 			"source":                    resendSource,
 			"token_id":                  issued.Record.ID,
-		}); err != nil {
-			return err
+		})
+		if auditErr != nil {
+			return auditErr
 		}
-		if err := txSvc.recordReminderResendState(ctx, scope, agreement, target, resendSource, input.ReminderLease, input.ReminderLeaseSeconds); err != nil {
-			return err
+		reminderErr := txSvc.recordReminderResendState(ctx, scope, agreement, target, resendSource, input.ReminderLease, input.ReminderLeaseSeconds)
+		if reminderErr != nil {
+			return reminderErr
 		}
 		notification := AgreementNotification{
 			AgreementID:   agreement.ID,

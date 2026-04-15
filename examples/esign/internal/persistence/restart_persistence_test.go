@@ -25,16 +25,19 @@ func TestPhase8RestartPersistenceSQLiteSurvivesRestart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first Bootstrap: %v", err)
 	}
-	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, marker TEXT NOT NULL)`, tableName)); err != nil {
+	_, execErr := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (id INTEGER PRIMARY KEY, marker TEXT NOT NULL)`, tableName))
+	if execErr != nil {
 		_ = first.Close()
-		t.Fatalf("create probe table: %v", err)
+		t.Fatalf("create probe table: %v", execErr)
 	}
-	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT OR REPLACE INTO %s (id, marker) VALUES (1, ?)`, tableName), marker); err != nil {
+	_, execErr = first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT OR REPLACE INTO %s (id, marker) VALUES (1, ?)`, tableName), marker)
+	if execErr != nil {
 		_ = first.Close()
-		t.Fatalf("insert probe row: %v", err)
+		t.Fatalf("insert probe row: %v", execErr)
 	}
-	if err := first.Close(); err != nil {
-		t.Fatalf("close first bootstrap: %v", err)
+	closeErr := first.Close()
+	if closeErr != nil {
+		t.Fatalf("close first bootstrap: %v", closeErr)
 	}
 
 	second, err := Bootstrap(context.Background(), cfg)
@@ -67,16 +70,19 @@ func TestPhase8RestartPersistencePostgresSurvivesRestartWhenDSNProvided(t *testi
 	if err != nil {
 		t.Fatalf("first Bootstrap (postgres): %v", err)
 	}
-	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (id BIGINT PRIMARY KEY, marker TEXT NOT NULL)`, tableName)); err != nil {
+	_, execErr := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (id BIGINT PRIMARY KEY, marker TEXT NOT NULL)`, tableName))
+	if execErr != nil {
 		_ = first.Close()
-		t.Fatalf("create postgres probe table: %v", err)
+		t.Fatalf("create postgres probe table: %v", execErr)
 	}
-	if _, err := first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT INTO %s (id, marker) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET marker = EXCLUDED.marker`, tableName), marker); err != nil {
+	_, execErr = first.BunDB.ExecContext(context.Background(), fmt.Sprintf(`INSERT INTO %s (id, marker) VALUES (1, ?) ON CONFLICT (id) DO UPDATE SET marker = EXCLUDED.marker`, tableName), marker)
+	if execErr != nil {
 		_ = first.Close()
-		t.Fatalf("insert postgres probe row: %v", err)
+		t.Fatalf("insert postgres probe row: %v", execErr)
 	}
-	if err := first.Close(); err != nil {
-		t.Fatalf("close first postgres bootstrap: %v", err)
+	closeErr := first.Close()
+	if closeErr != nil {
+		t.Fatalf("close first postgres bootstrap: %v", closeErr)
 	}
 
 	second, err := Bootstrap(context.Background(), cfg)

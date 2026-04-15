@@ -25,25 +25,30 @@ func TestEnsureRuntimeParityColumnsSQLiteRepairsEmailLogUpdatedAtColumn(t *testi
 
 	cfg := appcfg.Defaults()
 	cfg.Persistence.Migrations.LocalOnly = true
-	if err := registerOrderedSources(client, cfg); err != nil {
-		t.Fatalf("registerOrderedSources: %v", err)
+	registerErr := registerOrderedSources(client, cfg)
+	if registerErr != nil {
+		t.Fatalf("registerOrderedSources: %v", registerErr)
 	}
-	if err := client.Migrate(context.Background()); err != nil {
-		t.Fatalf("client.Migrate: %v", err)
+	migrateErr := client.Migrate(context.Background())
+	if migrateErr != nil {
+		t.Fatalf("client.Migrate: %v", migrateErr)
 	}
 
 	// Simulate an existing DB where migration 0008 was not fully applied.
-	if _, err := sqlDB.ExecContext(context.Background(), `ALTER TABLE email_logs DROP COLUMN updated_at`); err != nil {
+	_, execErr := sqlDB.ExecContext(context.Background(), `ALTER TABLE email_logs DROP COLUMN updated_at`)
+	if execErr != nil {
 		// SQLite drop column may be unavailable in older engines; fallback by recreating table row assumptions.
 		// In this case just verify the function still passes with column already present.
-		if err := ensureRuntimeParityColumns(context.Background(), sqlDB, DialectSQLite); err != nil {
-			t.Fatalf("ensureRuntimeParityColumns existing-column case: %v", err)
+		repairErr := ensureRuntimeParityColumns(context.Background(), sqlDB, DialectSQLite)
+		if repairErr != nil {
+			t.Fatalf("ensureRuntimeParityColumns existing-column case: %v", repairErr)
 		}
 		return
 	}
 
-	if err := ensureRuntimeParityColumns(context.Background(), sqlDB, DialectSQLite); err != nil {
-		t.Fatalf("ensureRuntimeParityColumns: %v", err)
+	repairErr := ensureRuntimeParityColumns(context.Background(), sqlDB, DialectSQLite)
+	if repairErr != nil {
+		t.Fatalf("ensureRuntimeParityColumns: %v", repairErr)
 	}
 	exists, err := sqliteColumnExists(context.Background(), sqlDB, "email_logs", "updated_at")
 	if err != nil {

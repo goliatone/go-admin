@@ -282,8 +282,9 @@ func (s DefaultLineageRepairService) RepairSourceDocument(ctx context.Context, s
 	if err != nil && !isNotFound(err) {
 		return LineageRepairResult{}, err
 	}
-	if err := s.runRepairOperations(ctx, scope, sourceDocument, latestRevision, artifact); err != nil {
-		return LineageRepairResult{}, err
+	repairErr := s.runRepairOperations(ctx, scope, sourceDocument, latestRevision, artifact)
+	if repairErr != nil {
+		return LineageRepairResult{}, repairErr
 	}
 	diagnostics, err := s.sourceDocumentDiagnostics(ctx, scope, sourceDocument.ID)
 	if err != nil {
@@ -307,9 +308,9 @@ func (s DefaultLineageRepairService) RepairDocument(ctx context.Context, scope s
 		return LineageRepairResult{}, err
 	}
 	if strings.TrimSpace(document.SourceDocumentID) != "" && strings.TrimSpace(document.SourceRevisionID) != "" && s.readModels.lineage != nil {
-		sourceDocument, err := s.readModels.lineage.GetSourceDocument(ctx, scope, document.SourceDocumentID)
-		if err != nil {
-			return LineageRepairResult{}, err
+		sourceDocument, loadDocErr := s.readModels.lineage.GetSourceDocument(ctx, scope, document.SourceDocumentID)
+		if loadDocErr != nil {
+			return LineageRepairResult{}, loadDocErr
 		}
 		sourceRevision, err := s.readModels.lineage.GetSourceRevision(ctx, scope, document.SourceRevisionID)
 		if err != nil {
@@ -359,9 +360,9 @@ func (s DefaultLineageRepairService) RepairAgreement(ctx context.Context, scope 
 		}
 	}
 	if sourceRevisionID != "" && s.readModels.lineage != nil {
-		sourceRevision, err := s.readModels.lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
-		if err != nil {
-			return LineageRepairResult{}, err
+		sourceRevision, loadRevisionErr := s.readModels.lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
+		if loadRevisionErr != nil {
+			return LineageRepairResult{}, loadRevisionErr
 		}
 		sourceDocument, err := s.readModels.lineage.GetSourceDocument(ctx, scope, sourceRevision.SourceDocumentID)
 		if err != nil {

@@ -1780,8 +1780,9 @@ func (s *relationalTxStore) Delete(ctx context.Context, scope stores.Scope, id s
 	if id == "" {
 		return relationalInvalidRecordError("documents", "id", "required")
 	}
-	if _, err := loadDocumentRecord(ctx, s.tx, scope, id); err != nil {
-		return err
+	_, loadErr := loadDocumentRecord(ctx, s.tx, scope, id)
+	if loadErr != nil {
+		return loadErr
 	}
 	count, err := s.tx.NewSelect().
 		Model((*stores.AgreementRecord)(nil)).
@@ -1822,8 +1823,9 @@ func (s *relationalTxStore) AcquireDocumentRemediationLease(ctx context.Context,
 	now := relationalTimeOrNow(input.Now)
 	ttl := normalizeRelationalDocumentRemediationLeaseTTL(input.TTL)
 	correlationID := strings.TrimSpace(input.CorrelationID)
-	if _, err := loadDocumentRecord(ctx, s.tx, scope, documentID); err != nil {
-		return stores.DocumentRemediationLeaseClaim{}, err
+	_, loadErr := loadDocumentRecord(ctx, s.tx, scope, documentID)
+	if loadErr != nil {
+		return stores.DocumentRemediationLeaseClaim{}, loadErr
 	}
 
 	record, err := loadDocumentRemediationLeaseRecord(ctx, s.tx, scope, documentID)
@@ -1845,9 +1847,10 @@ func (s *relationalTxStore) AcquireDocumentRemediationLease(ctx context.Context,
 			ExpiresAt:       cloneRelationalTimePtr(&expiresAt),
 			UpdatedAt:       now,
 		}
-		if _, err := s.tx.NewInsert().Model(&relationalDocumentRemediationLeaseModel{DocumentRemediationLeaseRecord: record}).Exec(ctx); err != nil {
-			if !relationalIsUniqueConstraintError(err) {
-				return stores.DocumentRemediationLeaseClaim{}, err
+		_, insertErr := s.tx.NewInsert().Model(&relationalDocumentRemediationLeaseModel{DocumentRemediationLeaseRecord: record}).Exec(ctx)
+		if insertErr != nil {
+			if !relationalIsUniqueConstraintError(insertErr) {
+				return stores.DocumentRemediationLeaseClaim{}, insertErr
 			}
 			record, err = loadDocumentRemediationLeaseRecord(ctx, s.tx, scope, documentID)
 			if err != nil {
@@ -1906,8 +1909,9 @@ func (s *relationalTxStore) RenewDocumentRemediationLease(ctx context.Context, s
 	if err != nil {
 		return stores.DocumentRemediationLeaseClaim{}, err
 	}
-	if err := validateRelationalDocumentRemediationLease(record, input.Lease, now); err != nil {
-		return stores.DocumentRemediationLeaseClaim{}, err
+	validateErr := validateRelationalDocumentRemediationLease(record, input.Lease, now)
+	if validateErr != nil {
+		return stores.DocumentRemediationLeaseClaim{}, validateErr
 	}
 
 	expectedUpdatedAt := record.UpdatedAt
@@ -1953,8 +1957,9 @@ func (s *relationalTxStore) ReleaseDocumentRemediationLease(ctx context.Context,
 		}
 		return err
 	}
-	if err := validateRelationalDocumentRemediationLease(record, input.Lease, now); err != nil {
-		return err
+	validateErr := validateRelationalDocumentRemediationLease(record, input.Lease, now)
+	if validateErr != nil {
+		return validateErr
 	}
 	expectedUpdatedAt := record.UpdatedAt
 	clearRelationalDocumentRemediationLease(&record, now)
@@ -2619,8 +2624,9 @@ func (s *relationalTxStore) DeleteParticipantDraft(ctx context.Context, scope st
 	if agreement.Status != stores.AgreementStatusDraft {
 		return relationalImmutableAgreementError(agreementID, agreement.Status)
 	}
-	if _, err := loadParticipantRecord(ctx, s.tx, scope, agreementID, participantID); err != nil {
-		return err
+	_, loadErr := loadParticipantRecord(ctx, s.tx, scope, agreementID, participantID)
+	if loadErr != nil {
+		return loadErr
 	}
 	definitions, err := listFieldDefinitionRecords(ctx, s.tx, scope, agreementID)
 	if err != nil {
@@ -3049,23 +3055,25 @@ func (s *relationalTxStore) DeleteFieldInstanceDraft(ctx context.Context, scope 
 	if err != nil {
 		return err
 	}
-	if _, err := s.tx.NewDelete().
+	_, deleteErr := s.tx.NewDelete().
 		Model((*stores.FieldValueRecord)(nil)).
 		Where("tenant_id = ?", scope.TenantID).
 		Where("org_id = ?", scope.OrgID).
 		Where("agreement_id = ?", agreementID).
 		Where("field_id = ?", fieldInstanceID).
-		Exec(ctx); err != nil {
-		return err
+		Exec(ctx)
+	if deleteErr != nil {
+		return deleteErr
 	}
-	if _, err := s.tx.NewDelete().
+	_, deleteErr = s.tx.NewDelete().
 		Model((*stores.FieldInstanceRecord)(nil)).
 		Where("tenant_id = ?", scope.TenantID).
 		Where("org_id = ?", scope.OrgID).
 		Where("agreement_id = ?", agreementID).
 		Where("id = ?", fieldInstanceID).
-		Exec(ctx); err != nil {
-		return err
+		Exec(ctx)
+	if deleteErr != nil {
+		return deleteErr
 	}
 	remaining, err := s.tx.NewSelect().
 		Model((*stores.FieldInstanceRecord)(nil)).
@@ -3409,8 +3417,9 @@ func (s *relationalTxStore) CreateSignatureArtifact(ctx context.Context, scope s
 	if record.SHA256 == "" {
 		return stores.SignatureArtifactRecord{}, relationalInvalidRecordError("signature_artifacts", "sha256", "required")
 	}
-	if _, err := loadAgreementRecord(ctx, s.tx, scope, record.AgreementID); err != nil {
-		return stores.SignatureArtifactRecord{}, err
+	_, loadErr := loadAgreementRecord(ctx, s.tx, scope, record.AgreementID)
+	if loadErr != nil {
+		return stores.SignatureArtifactRecord{}, loadErr
 	}
 	participant, err := loadParticipantRecord(ctx, s.tx, scope, record.AgreementID, record.RecipientID)
 	if err != nil {
@@ -3901,8 +3910,9 @@ func (s *relationalTxStore) SaveAgreementArtifacts(ctx context.Context, scope st
 	if (certKey == "") != (certSHA == "") {
 		return stores.AgreementArtifactRecord{}, relationalInvalidRecordError("agreement_artifacts", "certificate_object_key|certificate_sha256", "must both be set")
 	}
-	if _, err := loadAgreementRecord(ctx, s.tx, scope, agreementID); err != nil {
-		return stores.AgreementArtifactRecord{}, err
+	_, loadErr := loadAgreementRecord(ctx, s.tx, scope, agreementID)
+	if loadErr != nil {
+		return stores.AgreementArtifactRecord{}, loadErr
 	}
 	current := stores.AgreementArtifactRecord{}
 	err = s.tx.NewSelect().
@@ -4069,8 +4079,9 @@ func (s *relationalTxStore) BeginJobRun(ctx context.Context, scope stores.Scope,
 	}
 	input.AttemptedAt = input.AttemptedAt.UTC()
 	if input.AgreementID != "" {
-		if _, err := loadAgreementRecord(ctx, s.tx, scope, input.AgreementID); err != nil {
-			return stores.JobRunRecord{}, false, err
+		_, loadErr := loadAgreementRecord(ctx, s.tx, scope, input.AgreementID)
+		if loadErr != nil {
+			return stores.JobRunRecord{}, false, loadErr
 		}
 	}
 	record, err := findJobRunByDedupeRecord(ctx, s.tx, scope, input.JobName, input.DedupeKey)
@@ -4092,8 +4103,9 @@ func (s *relationalTxStore) BeginJobRun(ctx context.Context, scope stores.Scope,
 			record.CorrelationID = input.CorrelationID
 		}
 		record.UpdatedAt = input.AttemptedAt
-		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
-			return stores.JobRunRecord{}, false, err
+		updateErr := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID)
+		if updateErr != nil {
+			return stores.JobRunRecord{}, false, updateErr
 		}
 		return record, true, nil
 	}
@@ -4170,8 +4182,9 @@ func (s *relationalTxStore) EnqueueJob(ctx context.Context, scope stores.Scope, 
 		availableAt = &ts
 	}
 	if input.AgreementID != "" {
-		if _, err := loadAgreementRecord(ctx, s.tx, scope, input.AgreementID); err != nil {
-			return stores.JobRunRecord{}, false, err
+		_, loadErr := loadAgreementRecord(ctx, s.tx, scope, input.AgreementID)
+		if loadErr != nil {
+			return stores.JobRunRecord{}, false, loadErr
 		}
 	}
 	record, err := findJobRunByDedupeRecord(ctx, s.tx, scope, input.JobName, input.DedupeKey)
@@ -4198,8 +4211,9 @@ func (s *relationalTxStore) EnqueueJob(ctx context.Context, scope stores.Scope, 
 			record.CorrelationID = input.CorrelationID
 		}
 		record.UpdatedAt = requestedAt
-		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
-			return stores.JobRunRecord{}, false, err
+		updateErr := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID)
+		if updateErr != nil {
+			return stores.JobRunRecord{}, false, updateErr
 		}
 		return record, true, nil
 	}
@@ -4709,8 +4723,9 @@ func (s *relationalTxStore) UpsertAgreementReminderState(ctx context.Context, sc
 	}
 	record = cloneRelationalReminderStateRecord(record)
 	if !exists {
-		if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-			return stores.AgreementReminderStateRecord{}, err
+		_, insertErr := s.tx.NewInsert().Model(&record).Exec(ctx)
+		if insertErr != nil {
+			return stores.AgreementReminderStateRecord{}, insertErr
 		}
 		return record, nil
 	}
@@ -4816,8 +4831,9 @@ func (s *relationalTxStore) RenewAgreementReminderLease(ctx context.Context, sco
 	if err != nil {
 		return stores.AgreementReminderClaim{}, err
 	}
-	if err := validateReminderLease(record, input.Lease, input.Now, input.LeaseSeconds); err != nil {
-		return stores.AgreementReminderClaim{}, err
+	validateErr := validateReminderLease(record, input.Lease, input.Now, input.LeaseSeconds)
+	if validateErr != nil {
+		return stores.AgreementReminderClaim{}, validateErr
 	}
 	previousUpdatedAt := record.UpdatedAt
 	record.LeaseSeq++
@@ -4871,8 +4887,9 @@ func (s *relationalTxStore) MarkAgreementReminderSent(ctx context.Context, scope
 		return stores.AgreementReminderStateRecord{}, err
 	}
 	previousUpdatedAt := record.UpdatedAt
-	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
-		return stores.AgreementReminderStateRecord{}, err
+	validateErr := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds)
+	if validateErr != nil {
+		return stores.AgreementReminderStateRecord{}, validateErr
 	}
 	record.Status = stores.AgreementReminderStatusActive
 	record.TerminalReason = ""
@@ -4937,8 +4954,9 @@ func (s *relationalTxStore) MarkAgreementReminderSkipped(ctx context.Context, sc
 		return stores.AgreementReminderStateRecord{}, err
 	}
 	previousUpdatedAt := record.UpdatedAt
-	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
-		return stores.AgreementReminderStateRecord{}, err
+	validateErr := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds)
+	if validateErr != nil {
+		return stores.AgreementReminderStateRecord{}, validateErr
 	}
 	record.LastReasonCode = input.ReasonCode
 	record.LastEvaluatedAt = cloneRelationalTimePtr(&input.OccurredAt)
@@ -5008,8 +5026,9 @@ func (s *relationalTxStore) MarkAgreementReminderFailed(ctx context.Context, sco
 		return stores.AgreementReminderStateRecord{}, err
 	}
 	previousUpdatedAt := record.UpdatedAt
-	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
-		return stores.AgreementReminderStateRecord{}, err
+	validateErr := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds)
+	if validateErr != nil {
+		return stores.AgreementReminderStateRecord{}, validateErr
 	}
 	if record.Status != stores.AgreementReminderStatusPaused {
 		record.Status = stores.AgreementReminderStatusActive
@@ -5436,8 +5455,9 @@ func (s *relationalTxStore) UpsertIntegrationCredential(ctx context.Context, sco
 		record.ID = existing.ID
 		record.CreatedAt = existing.CreatedAt
 		record.UpdatedAt = now
-		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
-			return stores.IntegrationCredentialRecord{}, err
+		updateErr := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID)
+		if updateErr != nil {
+			return stores.IntegrationCredentialRecord{}, updateErr
 		}
 		return record, nil
 	}
@@ -5646,19 +5666,19 @@ func (s *relationalTxStore) UpsertIntegrationBinding(ctx context.Context, scope 
 		record.Version = existing.Version + 1
 		record.CreatedAt = existing.CreatedAt
 		record.UpdatedAt = now
-		result, err := s.tx.NewUpdate().
+		result, updateErr := s.tx.NewUpdate().
 			Model(&record).
 			Where("tenant_id = ?", scope.TenantID).
 			Where("org_id = ?", scope.OrgID).
 			Where("id = ?", record.ID).
 			Where("version = ?", existing.Version).
 			Exec(ctx)
-		if err != nil {
-			return stores.IntegrationBindingRecord{}, err
+		if updateErr != nil {
+			return stores.IntegrationBindingRecord{}, updateErr
 		}
-		rows, err := result.RowsAffected()
-		if err != nil {
-			return stores.IntegrationBindingRecord{}, err
+		rows, rowsErr := result.RowsAffected()
+		if rowsErr != nil {
+			return stores.IntegrationBindingRecord{}, rowsErr
 		}
 		if rows == 0 {
 			current, loadErr := loadIntegrationBindingByExternalRecord(ctx, s.tx, scope, record.Provider, record.EntityKind, record.ExternalID)
@@ -5809,8 +5829,9 @@ func (s *relationalTxStore) UpsertIntegrationCheckpoint(ctx context.Context, sco
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
 	now := time.Now().UTC()
-	if _, err := loadIntegrationSyncRunRecordDirect(ctx, s.tx, scope, record.RunID); err != nil {
-		return stores.IntegrationCheckpointRecord{}, err
+	_, loadErr := loadIntegrationSyncRunRecordDirect(ctx, s.tx, scope, record.RunID)
+	if loadErr != nil {
+		return stores.IntegrationCheckpointRecord{}, loadErr
 	}
 	existing, err := loadIntegrationCheckpointByKeyRecord(ctx, s.tx, scope, record.RunID, record.CheckpointKey)
 	if err == nil {
@@ -5821,19 +5842,19 @@ func (s *relationalTxStore) UpsertIntegrationCheckpoint(ctx context.Context, sco
 		record.Version = existing.Version + 1
 		record.CreatedAt = existing.CreatedAt
 		record.UpdatedAt = now
-		result, err := s.tx.NewUpdate().
+		result, updateErr := s.tx.NewUpdate().
 			Model(&record).
 			Where("tenant_id = ?", scope.TenantID).
 			Where("org_id = ?", scope.OrgID).
 			Where("id = ?", record.ID).
 			Where("version = ?", existing.Version).
 			Exec(ctx)
-		if err != nil {
-			return stores.IntegrationCheckpointRecord{}, err
+		if updateErr != nil {
+			return stores.IntegrationCheckpointRecord{}, updateErr
 		}
-		rows, err := result.RowsAffected()
-		if err != nil {
-			return stores.IntegrationCheckpointRecord{}, err
+		rows, rowsErr := result.RowsAffected()
+		if rowsErr != nil {
+			return stores.IntegrationCheckpointRecord{}, rowsErr
 		}
 		if rows == 0 {
 			current, loadErr := loadIntegrationCheckpointByKeyRecord(ctx, s.tx, scope, record.RunID, record.CheckpointKey)
@@ -6082,8 +6103,9 @@ func (s *relationalTxStore) UpsertPlacementRun(ctx context.Context, scope stores
 		record.ManualOverrideCount = 0
 	}
 	now := time.Now().UTC()
-	if _, err := loadAgreementRecord(ctx, s.tx, scope, record.AgreementID); err != nil {
-		return stores.PlacementRunRecord{}, err
+	_, loadErr := loadAgreementRecord(ctx, s.tx, scope, record.AgreementID)
+	if loadErr != nil {
+		return stores.PlacementRunRecord{}, loadErr
 	}
 	existing, err := loadPlacementRunRecordDirect(ctx, s.tx, scope, record.ID)
 	if err == nil {
@@ -6168,8 +6190,9 @@ func (s *relationalTxStore) UpsertSignerProfile(ctx context.Context, scope store
 			record.UpdatedAt = record.UpdatedAt.UTC()
 		}
 		record.ExpiresAt = record.ExpiresAt.UTC()
-		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
-			return stores.SignerProfileRecord{}, err
+		updateErr := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID)
+		if updateErr != nil {
+			return stores.SignerProfileRecord{}, updateErr
 		}
 		return record, nil
 	}

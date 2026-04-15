@@ -156,11 +156,12 @@ func runAgreementLifecycle(
 	}
 
 	sendStart := time.Now()
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{
+	_, sendErr := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{
 		IdempotencyKey: fmt.Sprintf("release-send-%03d", index+1),
-	}); err != nil {
+	})
+	if sendErr != nil {
 		observability.ObserveSend(ctx, time.Since(sendStart), false)
-		return fmt.Errorf("send agreement: %w", err)
+		return fmt.Errorf("send agreement: %w", sendErr)
 	}
 	sendDuration := time.Since(sendStart)
 	observability.ObserveSend(ctx, sendDuration, true)
@@ -171,15 +172,16 @@ func runAgreementLifecycle(
 		RecipientID: recipient.ID,
 	}
 
-	if _, err := signingSvc.CaptureConsent(ctx, scope, token, services.SignerConsentInput{
+	_, consentErr := signingSvc.CaptureConsent(ctx, scope, token, services.SignerConsentInput{
 		Accepted:  true,
 		IPAddress: "127.0.0.1",
 		UserAgent: "release-gate-validator",
-	}); err != nil {
-		return fmt.Errorf("capture consent: %w", err)
+	})
+	if consentErr != nil {
+		return fmt.Errorf("capture consent: %w", consentErr)
 	}
 
-	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, services.SignerSignatureInput{
+	_, attachErr := signingSvc.AttachSignatureArtifact(ctx, scope, token, services.SignerSignatureInput{
 		FieldID:   signatureField.ID,
 		Type:      "typed",
 		ObjectKey: fmt.Sprintf("tenant/%s/org/%s/agreements/%s/signatures/sig-%03d.png", scope.TenantID, scope.OrgID, agreement.ID, index+1),
@@ -187,17 +189,19 @@ func runAgreementLifecycle(
 		ValueText: "Release Validation Signer",
 		IPAddress: "127.0.0.1",
 		UserAgent: "release-gate-validator",
-	}); err != nil {
-		return fmt.Errorf("attach signature: %w", err)
+	})
+	if attachErr != nil {
+		return fmt.Errorf("attach signature: %w", attachErr)
 	}
 
-	if _, err := signingSvc.UpsertFieldValue(ctx, scope, token, services.SignerFieldValueInput{
+	_, upsertErr := signingSvc.UpsertFieldValue(ctx, scope, token, services.SignerFieldValueInput{
 		FieldID:   textField.ID,
 		ValueText: "Release Validation Signer",
 		IPAddress: "127.0.0.1",
 		UserAgent: "release-gate-validator",
-	}); err != nil {
-		return fmt.Errorf("upsert field value: %w", err)
+	})
+	if upsertErr != nil {
+		return fmt.Errorf("upsert field value: %w", upsertErr)
 	}
 
 	submitStart := time.Now()

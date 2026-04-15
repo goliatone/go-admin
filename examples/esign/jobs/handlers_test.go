@@ -198,8 +198,9 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "phase5-send"}); err != nil {
-		t.Fatalf("Send: %v", err)
+	_, sendErr := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "phase5-send"})
+	if sendErr != nil {
+		t.Fatalf("Send: %v", sendErr)
 	}
 
 	signingSvc := services.NewSigningService(store)
@@ -207,23 +208,26 @@ func setupCompletedAgreement(t *testing.T) (context.Context, stores.Scope, *stor
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
 	}
-	if _, err := signingSvc.CaptureConsent(ctx, scope, token, services.SignerConsentInput{Accepted: true}); err != nil {
-		t.Fatalf("CaptureConsent: %v", err)
+	_, consentErr := signingSvc.CaptureConsent(ctx, scope, token, services.SignerConsentInput{Accepted: true})
+	if consentErr != nil {
+		t.Fatalf("CaptureConsent: %v", consentErr)
 	}
-	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, services.SignerSignatureInput{
+	_, attachErr := signingSvc.AttachSignatureArtifact(ctx, scope, token, services.SignerSignatureInput{
 		FieldID:   signatureField.ID,
 		Type:      "typed",
 		ObjectKey: "tenant/tenant-1/org/org-1/agreements/agreement-1/sig/sig-1.png",
 		SHA256:    strings.Repeat("a", 64),
 		ValueText: "Signer One",
-	}); err != nil {
-		t.Fatalf("AttachSignatureArtifact: %v", err)
+	})
+	if attachErr != nil {
+		t.Fatalf("AttachSignatureArtifact: %v", attachErr)
 	}
-	if _, err := signingSvc.UpsertFieldValue(ctx, scope, token, services.SignerFieldValueInput{
+	_, upsertValueErr := signingSvc.UpsertFieldValue(ctx, scope, token, services.SignerFieldValueInput{
 		FieldID:   textField.ID,
 		ValueText: "Approved",
-	}); err != nil {
-		t.Fatalf("UpsertFieldValue: %v", err)
+	})
+	if upsertValueErr != nil {
+		t.Fatalf("UpsertFieldValue: %v", upsertValueErr)
 	}
 	submit, err := signingSvc.Submit(ctx, scope, token, services.SignerSubmitInput{IdempotencyKey: "phase5-submit"})
 	if err != nil {
@@ -285,13 +289,14 @@ func TestHandlersExecuteArtifactJobsWithDedupe(t *testing.T) {
 		t.Fatalf("expected certificate artifact blob to be PDF payload")
 	}
 
-	if err := handlers.ExecutePDFGenerateExecuted(ctx, PDFGenerateExecutedMsg{
+	replayErr := handlers.ExecutePDFGenerateExecuted(ctx, PDFGenerateExecutedMsg{
 		Scope:         scope,
 		AgreementID:   agreement.ID,
 		CorrelationID: "corr-a",
 		DedupeKey:     agreement.ID,
-	}); err != nil {
-		t.Fatalf("ExecutePDFGenerateExecuted dedupe replay: %v", err)
+	})
+	if replayErr != nil {
+		t.Fatalf("ExecutePDFGenerateExecuted dedupe replay: %v", replayErr)
 	}
 	jobRun, err := store.GetJobRunByDedupe(ctx, scope, JobPDFGenerateExecuted, agreement.ID)
 	if err != nil {
@@ -343,14 +348,15 @@ func TestHandlersRetryEmailAndExposeStatus(t *testing.T) {
 	}
 
 	currentTime = currentTime.Add(2 * time.Second)
-	if err := handlers.ExecuteEmailSendSigningRequest(ctx, EmailSendSigningRequestMsg{
+	retryErr := handlers.ExecuteEmailSendSigningRequest(ctx, EmailSendSigningRequestMsg{
 		Scope:         scope,
 		AgreementID:   agreement.ID,
 		RecipientID:   signer.ID,
 		CorrelationID: "corr-email",
 		SignURL:       "https://example.test/sign/token-retry",
-	}); err != nil {
-		t.Fatalf("expected retry send success, got %v", err)
+	})
+	if retryErr != nil {
+		t.Fatalf("expected retry send success, got %v", retryErr)
 	}
 	detail, err = pipeline.AgreementDeliveryDetail(ctx, scope, agreement.ID)
 	if err != nil {
@@ -641,7 +647,7 @@ func TestExecuteGoogleDriveImportJobReplaysCompletedRunWithoutReimport(t *testin
 	if err != nil {
 		t.Fatalf("BeginGoogleImportRun: %v", err)
 	}
-	if _, err := store.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
+	_, markRunErr := store.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
 		DocumentID:          document.ID,
 		AgreementID:         agreement.ID,
 		SourceDocumentID:    "src-doc-1",
@@ -655,8 +661,9 @@ func TestExecuteGoogleDriveImportJobReplaysCompletedRunWithoutReimport(t *testin
 		SourceMimeType:      services.GoogleDriveMimeTypeDoc,
 		IngestionMode:       services.GoogleIngestionModeExportPDF,
 		CompletedAt:         time.Now().UTC(),
-	}); err != nil {
-		t.Fatalf("MarkGoogleImportRunSucceeded: %v", err)
+	})
+	if markRunErr != nil {
+		t.Fatalf("MarkGoogleImportRunSucceeded: %v", markRunErr)
 	}
 
 	importer := &captureGoogleImporter{}
@@ -713,7 +720,7 @@ func TestExecuteSourceLineageProcessingUpdatesImportRunFingerprintState(t *testi
 	if err != nil {
 		t.Fatalf("BeginGoogleImportRun: %v", err)
 	}
-	if _, err := store.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
+	_, markRunErr := store.MarkGoogleImportRunSucceeded(ctx, scope, run.ID, stores.GoogleImportRunSuccessInput{
 		SourceDocumentID:    seeded.sourceDocumentID,
 		SourceRevisionID:    seeded.revisionID,
 		SourceArtifactID:    seeded.artifactID,
@@ -721,8 +728,9 @@ func TestExecuteSourceLineageProcessingUpdatesImportRunFingerprintState(t *testi
 		FingerprintStatus:   services.LineageFingerprintStatusPending,
 		CandidateStatusJSON: "[]",
 		CompletedAt:         time.Now().UTC(),
-	}); err != nil {
-		t.Fatalf("MarkGoogleImportRunSucceeded: %v", err)
+	})
+	if markRunErr != nil {
+		t.Fatalf("MarkGoogleImportRunSucceeded: %v", markRunErr)
 	}
 
 	fingerprint, _, err := handlers.ExecuteSourceLineageProcessing(ctx, SourceLineageProcessingMsg{
@@ -1034,7 +1042,7 @@ func TestHandlersSkipStaleNotificationEffectDispatchPayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal dispatch payload: %v", err)
 	}
-	if _, err := store.SaveGuardedEffect(ctx, scope, guardedeffects.Record{
+	_, saveEffectErr := store.SaveGuardedEffect(ctx, scope, guardedeffects.Record{
 		EffectID:            "effect-stale-dispatch",
 		Kind:                services.GuardedEffectKindAgreementSendInvitation,
 		GroupType:           services.GuardedEffectGroupTypeAgreement,
@@ -1046,8 +1054,9 @@ func TestHandlersSkipStaleNotificationEffectDispatchPayload(t *testing.T) {
 		DispatchPayloadJSON: string(dispatchPayload),
 		CreatedAt:           time.Date(2026, 2, 10, 16, 0, 0, 0, time.UTC),
 		UpdatedAt:           time.Date(2026, 2, 10, 16, 0, 0, 0, time.UTC),
-	}); err != nil {
-		t.Fatalf("SaveGuardedEffect: %v", err)
+	})
+	if saveEffectErr != nil {
+		t.Fatalf("SaveGuardedEffect: %v", saveEffectErr)
 	}
 
 	handlers := NewHandlers(HandlerDependencies{

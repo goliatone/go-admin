@@ -86,8 +86,9 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 
 	signaturePNG := buildReadableSignaturePNG(t)
 	signatureObjectKey := "tenant/tenant-1/org/org-1/agreements/" + agreement.ID + "/sig/" + recipient.ID + "/" + signatureField.ID + ".png"
-	if _, err := objectStore.UploadFile(ctx, signatureObjectKey, signaturePNG, uploader.WithContentType("image/png")); err != nil {
-		t.Fatalf("upload signature png: %v", err)
+	_, uploadErr := objectStore.UploadFile(ctx, signatureObjectKey, signaturePNG, uploader.WithContentType("image/png"))
+	if uploadErr != nil {
+		t.Fatalf("upload signature png: %v", uploadErr)
 	}
 	artifact, err := store.CreateSignatureArtifact(ctx, scope, stores.SignatureArtifactRecord{
 		AgreementID: agreement.ID,
@@ -100,21 +101,23 @@ func TestReadableArtifactRendererRenderExecutedUsesSourceAndOverlaysValues(t *te
 	if err != nil {
 		t.Fatalf("create signature artifact: %v", err)
 	}
-	if _, err := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
+	_, upsertErr := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
 		AgreementID:         agreement.ID,
 		RecipientID:         recipient.ID,
 		FieldID:             signatureField.ID,
 		SignatureArtifactID: artifact.ID,
-	}, 0); err != nil {
-		t.Fatalf("upsert signature value: %v", err)
+	}, 0)
+	if upsertErr != nil {
+		t.Fatalf("upsert signature value: %v", upsertErr)
 	}
-	if _, err := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
+	_, upsertErr = store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
 		AgreementID: agreement.ID,
 		RecipientID: recipient.ID,
 		FieldID:     textField.ID,
 		ValueText:   "Approved by Finance",
-	}, 0); err != nil {
-		t.Fatalf("upsert text value: %v", err)
+	}, 0)
+	if upsertErr != nil {
+		t.Fatalf("upsert text value: %v", upsertErr)
 	}
 
 	fields, err := store.ListFields(ctx, scope, agreement.ID)
@@ -205,8 +208,9 @@ func TestReadableArtifactRendererRenderExecutedPrefersNormalizedWhenOriginalUnav
 	if strings.TrimSpace(document.NormalizedObjectKey) == "" {
 		t.Fatalf("expected normalized object key")
 	}
-	if _, err := objectStore.UploadFile(ctx, document.SourceObjectKey, []byte("not-a-pdf"), uploader.WithContentType("application/pdf")); err != nil {
-		t.Fatalf("overwrite source object: %v", err)
+	_, uploadErr := objectStore.UploadFile(ctx, document.SourceObjectKey, []byte("not-a-pdf"), uploader.WithContentType("application/pdf"))
+	if uploadErr != nil {
+		t.Fatalf("overwrite source object: %v", uploadErr)
 	}
 
 	rendered, err := renderer.RenderExecuted(ctx, ExecutedRenderInput{
@@ -240,8 +244,9 @@ func TestReadableArtifactRendererRenderExecutedStrictModeBlocksOriginalFallback(
 	if err != nil {
 		t.Fatalf("upload source document: %v", err)
 	}
-	if _, err := objectStore.UploadFile(ctx, document.SourceObjectKey, GenerateDeterministicPDF(1), uploader.WithContentType("application/pdf")); err != nil {
-		t.Fatalf("upload source object: %v", err)
+	_, uploadErr := objectStore.UploadFile(ctx, document.SourceObjectKey, GenerateDeterministicPDF(1), uploader.WithContentType("application/pdf"))
+	if uploadErr != nil {
+		t.Fatalf("upload source object: %v", uploadErr)
 	}
 
 	policy := DefaultPDFPolicy()
@@ -288,8 +293,9 @@ func TestReadableArtifactRendererRenderExecutedBlocksUnsupportedCompatibilityTie
 	if err != nil {
 		t.Fatalf("create document: %v", err)
 	}
-	if _, err := objectStore.UploadFile(ctx, document.SourceObjectKey, GenerateDeterministicPDF(1), uploader.WithContentType("application/pdf")); err != nil {
-		t.Fatalf("upload source payload: %v", err)
+	_, uploadErr := objectStore.UploadFile(ctx, document.SourceObjectKey, GenerateDeterministicPDF(1), uploader.WithContentType("application/pdf"))
+	if uploadErr != nil {
+		t.Fatalf("upload source payload: %v", uploadErr)
 	}
 
 	renderer := NewReadableArtifactRenderer(store, store, objectStore)
@@ -358,13 +364,14 @@ func TestReadableArtifactRendererRenderExecutedMultiPageAvoidsInfiniteTemplateSc
 	if err != nil {
 		t.Fatalf("upsert text field: %v", err)
 	}
-	if _, err := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
+	_, upsertErr := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
 		AgreementID: agreement.ID,
 		RecipientID: recipient.ID,
 		FieldID:     textField.ID,
 		ValueText:   "Page 3 Overlay Marker",
-	}, 0); err != nil {
-		t.Fatalf("upsert text value: %v", err)
+	}, 0)
+	if upsertErr != nil {
+		t.Fatalf("upsert text value: %v", upsertErr)
 	}
 
 	fields, err := store.ListFields(ctx, scope, agreement.ID)
@@ -593,13 +600,14 @@ func TestReadableArtifactRendererAuditPagesShareCoreMarkersBetweenExecutedAndCer
 	if err != nil {
 		t.Fatalf("upsert text field: %v", err)
 	}
-	if _, err := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
+	_, upsertErr := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
 		AgreementID: agreement.ID,
 		RecipientID: recipient.ID,
 		FieldID:     textField.ID,
 		ValueText:   "Marker",
-	}, 0); err != nil {
-		t.Fatalf("upsert text value: %v", err)
+	}, 0)
+	if upsertErr != nil {
+		t.Fatalf("upsert text value: %v", upsertErr)
 	}
 
 	fields, err := store.ListFields(ctx, scope, agreement.ID)

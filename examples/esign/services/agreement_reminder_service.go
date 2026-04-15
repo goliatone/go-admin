@@ -445,14 +445,14 @@ func (s AgreementReminderService) processClaimedReminder(
 			case <-heartbeatCtx.Done():
 				return
 			case <-ticker.C:
-				renewed, err := s.reminders.RenewAgreementReminderLease(ctx, scope, state.AgreementID, state.RecipientID, stores.AgreementReminderLeaseRenewInput{
+				renewed, renewErr := s.reminders.RenewAgreementReminderLease(ctx, scope, state.AgreementID, state.RecipientID, stores.AgreementReminderLeaseRenewInput{
 					Now:          s.now().UTC(),
 					LeaseSeconds: leaseSeconds,
 					Lease:        getLease(),
 				})
-				if err != nil {
+				if renewErr != nil {
 					select {
-					case heartbeatErrCh <- err:
+					case heartbeatErrCh <- renewErr:
 					default:
 					}
 					heartbeatCancel()
@@ -1002,8 +1002,9 @@ func (s AgreementService) PauseReviewReminder(ctx context.Context, scope stores.
 		}
 		now := txSvc.now().UTC()
 		target.Review.LastActivityAt = &now
-		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, target.Review); err != nil {
-			return err
+		_, updateErr := txSvc.agreements.UpdateAgreementReview(ctx, scope, target.Review)
+		if updateErr != nil {
+			return updateErr
 		}
 		metadata := map[string]any{
 			"review_id":           target.Review.ID,
@@ -1014,8 +1015,9 @@ func (s AgreementService) PauseReviewReminder(ctx context.Context, scope stores.
 		if target.State.Snapshot.NextDueAt != nil {
 			metadata["next_due_at"] = target.State.Snapshot.NextDueAt.UTC().Format(time.RFC3339Nano)
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, strings.TrimSpace(agreementID), "agreement.review_reminders_paused", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, metadata); err != nil {
-			return err
+		auditErr := txSvc.appendAuditEventWithIP(ctx, scope, strings.TrimSpace(agreementID), "agreement.review_reminders_paused", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, metadata)
+		if auditErr != nil {
+			return auditErr
 		}
 		states, err := txSvc.ReviewReminderStates(ctx, scope, agreementID)
 		if err != nil {
@@ -1044,17 +1046,19 @@ func (s AgreementService) ResumeReviewReminder(ctx context.Context, scope stores
 			nextDueAt = target.State.pausedNextDueAt.UTC()
 		}
 		target.Review.LastActivityAt = &now
-		if _, err := txSvc.agreements.UpdateAgreementReview(ctx, scope, target.Review); err != nil {
-			return err
+		_, updateErr := txSvc.agreements.UpdateAgreementReview(ctx, scope, target.Review)
+		if updateErr != nil {
+			return updateErr
 		}
-		if err := txSvc.appendAuditEventWithIP(ctx, scope, strings.TrimSpace(agreementID), "agreement.review_reminders_resumed", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+		auditErr := txSvc.appendAuditEventWithIP(ctx, scope, strings.TrimSpace(agreementID), "agreement.review_reminders_resumed", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
 			"review_id":           target.Review.ID,
 			"review_status":       target.Review.Status,
 			"reminder_status":     stores.AgreementReminderStatusActive,
 			"next_due_at":         nextDueAt.UTC().Format(time.RFC3339Nano),
 			"review_participants": normalizeReviewParticipantMetadata([]stores.AgreementReviewParticipantRecord{target.Participant}),
-		}); err != nil {
-			return err
+		})
+		if auditErr != nil {
+			return auditErr
 		}
 		states, err := txSvc.ReviewReminderStates(ctx, scope, agreementID)
 		if err != nil {
@@ -1112,8 +1116,9 @@ func (s AgreementService) resolveReviewReminderTarget(ctx context.Context, scope
 	if err != nil {
 		return resolvedReviewReminderTarget{}, err
 	}
-	if err := ensureReviewCycleMutable(review, "agreement_reviews", "override_active"); err != nil {
-		return resolvedReviewReminderTarget{}, err
+	validateErr := ensureReviewCycleMutable(review, "agreement_reviews", "override_active")
+	if validateErr != nil {
+		return resolvedReviewReminderTarget{}, validateErr
 	}
 	if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
 		return resolvedReviewReminderTarget{}, domainValidationError("agreement_reviews", "status", "review reminders require active review")

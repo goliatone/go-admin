@@ -522,8 +522,9 @@ func TestAgreementReminderServiceSweepSendsDueReviewReminder(t *testing.T) {
 	foundReminder := false
 	for _, record := range outbox {
 		var payload EmailSendAgreementNotificationOutboxPayload
-		if err := json.Unmarshal([]byte(record.PayloadJSON), &payload); err != nil {
-			t.Fatalf("Unmarshal outbox payload: %v", err)
+		unmarshalErr := json.Unmarshal([]byte(record.PayloadJSON), &payload)
+		if unmarshalErr != nil {
+			t.Fatalf("Unmarshal outbox payload: %v", unmarshalErr)
 		}
 		if strings.TrimSpace(payload.CorrelationID) != "review-reminder:"+agreement.ID+":"+participant.ReviewID+":1" {
 			continue
@@ -609,8 +610,9 @@ func TestAgreementReminderServiceSweepSendsReviewReminderBatchToAllPendingReview
 	reminderCount := 0
 	for _, record := range outbox {
 		var payload EmailSendAgreementNotificationOutboxPayload
-		if err := json.Unmarshal([]byte(record.PayloadJSON), &payload); err != nil {
-			t.Fatalf("Unmarshal outbox payload: %v", err)
+		unmarshalErr := json.Unmarshal([]byte(record.PayloadJSON), &payload)
+		if unmarshalErr != nil {
+			t.Fatalf("Unmarshal outbox payload: %v", unmarshalErr)
 		}
 		if strings.TrimSpace(payload.CorrelationID) != "review-reminder:"+agreement.ID+":"+participants[0].ReviewID+":1" {
 			continue
@@ -955,13 +957,14 @@ func seedSentAgreementWithCC(t *testing.T, store *stores.InMemoryStore, scope st
 	signerName := "Signer"
 	signerRole := stores.RecipientRoleSigner
 	stage := 1
-	if _, err := store.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
+	_, upsertErr := store.UpsertRecipientDraft(ctx, scope, agreement.ID, stores.RecipientDraftPatch{
 		Email:        &signerEmail,
 		Name:         &signerName,
 		Role:         &signerRole,
 		SigningOrder: &stage,
-	}, 0); err != nil {
-		t.Fatalf("UpsertRecipientDraft signer: %v", err)
+	}, 0)
+	if upsertErr != nil {
+		t.Fatalf("UpsertRecipientDraft signer: %v", upsertErr)
 	}
 	email := "cc@example.test"
 	name := "CC Recipient"

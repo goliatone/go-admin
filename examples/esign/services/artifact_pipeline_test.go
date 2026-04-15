@@ -160,8 +160,9 @@ func seedCompletedAgreementForArtifacts(t *testing.T, store stores.Store) (conte
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "artifact-send"}); err != nil {
-		t.Fatalf("Send: %v", err)
+	_, sendErr := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "artifact-send"})
+	if sendErr != nil {
+		t.Fatalf("Send: %v", sendErr)
 	}
 
 	signingSvc := NewSigningService(store)
@@ -169,23 +170,26 @@ func seedCompletedAgreementForArtifacts(t *testing.T, store stores.Store) (conte
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
 	}
-	if _, err := signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true}); err != nil {
-		t.Fatalf("CaptureConsent: %v", err)
+	_, consentErr := signingSvc.CaptureConsent(ctx, scope, token, SignerConsentInput{Accepted: true})
+	if consentErr != nil {
+		t.Fatalf("CaptureConsent: %v", consentErr)
 	}
-	if _, err := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
+	_, attachErr := signingSvc.AttachSignatureArtifact(ctx, scope, token, SignerSignatureInput{
 		FieldID:   signatureField.ID,
 		Type:      "typed",
 		ObjectKey: "tenant/tenant-1/org/org-1/agreements/artifact/sig.png",
 		SHA256:    strings.Repeat("a", 64),
 		ValueText: "Signer",
-	}); err != nil {
-		t.Fatalf("AttachSignatureArtifact: %v", err)
+	})
+	if attachErr != nil {
+		t.Fatalf("AttachSignatureArtifact: %v", attachErr)
 	}
-	if _, err := signingSvc.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
+	_, upsertErr := signingSvc.UpsertFieldValue(ctx, scope, token, SignerFieldValueInput{
 		FieldID:   textField.ID,
 		ValueText: "Approved",
-	}); err != nil {
-		t.Fatalf("UpsertFieldValue: %v", err)
+	})
+	if upsertErr != nil {
+		t.Fatalf("UpsertFieldValue: %v", upsertErr)
 	}
 	submit, err := signingSvc.Submit(ctx, scope, token, SignerSubmitInput{IdempotencyKey: "artifact-submit"})
 	if err != nil {
@@ -307,7 +311,8 @@ func TestArtifactPipelineGenerateExecutedFinalizeFailureLeavesMetadataUnchanged(
 	objectStore := newRecordingArtifactObjectStore(t, nil)
 	svc := NewArtifactPipelineService(store, renderer, WithArtifactObjectStore(objectStore))
 
-	if _, err := svc.GenerateExecutedArtifact(ctx, scope, agreement.ID, "corr-conflict"); err == nil {
+	_, generateErr := svc.GenerateExecutedArtifact(ctx, scope, agreement.ID, "corr-conflict")
+	if generateErr == nil {
 		t.Fatal("expected immutable artifact finalize failure")
 	}
 	reloaded, err := store.GetAgreementArtifacts(ctx, scope, agreement.ID)
@@ -428,8 +433,9 @@ func TestAgreementDeliveryDetailApplicability(t *testing.T) {
 		if !shouldRun {
 			t.Fatalf("expected executed job run to start, got %+v", executedRun)
 		}
-		if _, err := store.MarkJobRunSucceeded(ctx, scope, executedRun.ID, now.Add(1*time.Minute)); err != nil {
-			t.Fatalf("MarkJobRunSucceeded executed: %v", err)
+		_, markSucceededErr := store.MarkJobRunSucceeded(ctx, scope, executedRun.ID, now.Add(1*time.Minute))
+		if markSucceededErr != nil {
+			t.Fatalf("MarkJobRunSucceeded executed: %v", markSucceededErr)
 		}
 
 		certificateRetryRun, shouldRun, err := store.BeginJobRun(ctx, scope, stores.JobRunInput{
@@ -447,8 +453,9 @@ func TestAgreementDeliveryDetailApplicability(t *testing.T) {
 			t.Fatalf("expected certificate retrying job run to start, got %+v", certificateRetryRun)
 		}
 		nextRetryAt := now.Add(3 * time.Minute)
-		if _, err := store.MarkJobRunFailed(ctx, scope, certificateRetryRun.ID, "retry later", &nextRetryAt, now.Add(2*time.Minute)); err != nil {
-			t.Fatalf("MarkJobRunFailed certificate retrying: %v", err)
+		_, markFailedErr := store.MarkJobRunFailed(ctx, scope, certificateRetryRun.ID, "retry later", &nextRetryAt, now.Add(2*time.Minute))
+		if markFailedErr != nil {
+			t.Fatalf("MarkJobRunFailed certificate retrying: %v", markFailedErr)
 		}
 
 		svc := NewArtifactPipelineService(store, nil)
@@ -485,8 +492,9 @@ func TestAgreementDeliveryDetailApplicability(t *testing.T) {
 		if !shouldRun {
 			t.Fatalf("expected failed job run to start, got %+v", run)
 		}
-		if _, err := store.MarkJobRunFailed(ctx, scope, run.ID, "hard failure", nil, now.Add(1*time.Minute)); err != nil {
-			t.Fatalf("MarkJobRunFailed failed: %v", err)
+		_, markFailedErr := store.MarkJobRunFailed(ctx, scope, run.ID, "hard failure", nil, now.Add(1*time.Minute))
+		if markFailedErr != nil {
+			t.Fatalf("MarkJobRunFailed failed: %v", markFailedErr)
 		}
 
 		svc := NewArtifactPipelineService(store, nil)

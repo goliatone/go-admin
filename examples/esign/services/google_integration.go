@@ -984,8 +984,9 @@ func (s GoogleIntegrationService) Connect(ctx context.Context, scope stores.Scop
 		return GoogleOAuthStatus{}, MapGoogleProviderError(err)
 	}
 	scopes := normalizeScopes(token.Scopes)
-	if err := validateLeastPrivilegeScopes(scopes, s.allowedScopes); err != nil {
-		return GoogleOAuthStatus{}, err
+	validateErr := validateLeastPrivilegeScopes(scopes, s.allowedScopes)
+	if validateErr != nil {
+		return GoogleOAuthStatus{}, validateErr
 	}
 	encryptedAccess, err := s.cipher.Encrypt(ctx, token.AccessToken)
 	if err != nil {
@@ -1326,8 +1327,9 @@ func (s GoogleIntegrationService) ImportDocument(ctx context.Context, scope stor
 	if s.documents == nil || s.agreements == nil {
 		return GoogleImportResult{}, domainValidationError("google", "import", "document/agreement services not configured")
 	}
-	if err := s.ensureProviderHealthy(ctx); err != nil {
-		return GoogleImportResult{}, err
+	healthErr := s.ensureProviderHealthy(ctx)
+	if healthErr != nil {
+		return GoogleImportResult{}, healthErr
 	}
 	accessToken, userID, err := s.resolveAccessToken(ctx, scope, ComposeGoogleScopedUserID(input.UserID, input.AccountID))
 	if err != nil {
@@ -1562,8 +1564,9 @@ func (s GoogleIntegrationService) resolveAccessToken(ctx context.Context, scope 
 		}
 		return "", "", err
 	}
-	if err := validateLeastPrivilegeScopes(credential.Scopes, s.allowedScopes); err != nil {
-		return "", "", err
+	validateErr := validateLeastPrivilegeScopes(credential.Scopes, s.allowedScopes)
+	if validateErr != nil {
+		return "", "", validateErr
 	}
 	accessToken, err := s.cipher.Decrypt(ctx, credential.EncryptedAccessToken)
 	if err != nil {

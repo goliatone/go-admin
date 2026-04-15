@@ -224,8 +224,9 @@ func (p SMTPEmailProvider) sendMail(addr, host, from, to string, message []byte)
 				// #nosec G402 -- explicitly configurable for local/dev SMTP endpoints that terminate TLS upstream.
 				InsecureSkipVerify: p.cfg.InsecureTLS,
 			}
-			if err := client.StartTLS(tlsConfig); err != nil {
-				return err
+			startTLSErr := client.StartTLS(tlsConfig)
+			if startTLSErr != nil {
+				return startTLSErr
 			}
 		}
 	}
@@ -235,16 +236,19 @@ func (p SMTPEmailProvider) sendMail(addr, host, from, to string, message []byte)
 			return fmt.Errorf("smtp server does not support AUTH")
 		}
 		auth := smtp.PlainAuth("", p.cfg.Username, p.cfg.Password, host)
-		if err := client.Auth(auth); err != nil {
-			return err
+		authErr := client.Auth(auth)
+		if authErr != nil {
+			return authErr
 		}
 	}
 
-	if err := client.Mail(from); err != nil {
-		return err
+	mailErr := client.Mail(from)
+	if mailErr != nil {
+		return mailErr
 	}
-	if err := client.Rcpt(to); err != nil {
-		return err
+	rcptErr := client.Rcpt(to)
+	if rcptErr != nil {
+		return rcptErr
 	}
 	writer, err := client.Data()
 	if err != nil {

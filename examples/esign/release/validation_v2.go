@@ -435,11 +435,12 @@ func runV2AgreementLifecycle(
 	if len(suggestionIDs) == 0 {
 		return v2AgreementMetrics{}, fmt.Errorf("auto placement suggestions missing ids for agreement %s", agreement.ID)
 	}
-	if _, err := agreementSvc.ApplyPlacementRun(ctx, scope, agreement.ID, run.Run.ID, services.ApplyPlacementRunInput{
+	_, applyErr := agreementSvc.ApplyPlacementRun(ctx, scope, agreement.ID, run.Run.ID, services.ApplyPlacementRunInput{
 		UserID:        "release-v2-validation",
 		SuggestionIDs: suggestionIDs,
-	}); err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("apply placement run: %w", err)
+	})
+	if applyErr != nil {
+		return v2AgreementMetrics{}, fmt.Errorf("apply placement run: %w", applyErr)
 	}
 	placementReadinessOps := 1
 
@@ -452,10 +453,11 @@ func runV2AgreementLifecycle(
 	}
 	placementReadinessOps++
 
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{
+	_, sendErr := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{
 		IdempotencyKey: fmt.Sprintf("v2-send-%03d", index+1),
-	}); err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("send agreement: %w", err)
+	})
+	if sendErr != nil {
+		return v2AgreementMetrics{}, fmt.Errorf("send agreement: %w", sendErr)
 	}
 
 	fieldIDsByParticipant, err := requiredSignatureFieldIDsByParticipant(ctx, store, scope, agreement.ID)
@@ -642,13 +644,14 @@ func runV2IntegrationValidation(
 			summary.SampleRunIDs = append(summary.SampleRunIDs, run.ID)
 		}
 
-		if _, err := svc.SaveCheckpoint(ctx, scope, services.SaveCheckpointInput{
+		_, checkpointErr := svc.SaveCheckpoint(ctx, scope, services.SaveCheckpointInput{
 			RunID:         run.ID,
 			CheckpointKey: "page-1",
 			Cursor:        fmt.Sprintf("cursor-%03d:1", i+1),
 			Payload:       map[string]any{"batch": i + 1},
-		}); err != nil {
-			return summary, fmt.Errorf("save checkpoint for run %s: %w", run.ID, err)
+		})
+		if checkpointErr != nil {
+			return summary, fmt.Errorf("save checkpoint for run %s: %w", run.ID, checkpointErr)
 		}
 
 		conflict, replay, err := svc.DetectConflict(ctx, scope, services.DetectConflictInput{
@@ -669,15 +672,15 @@ func runV2IntegrationValidation(
 		}
 		summary.ConflictsDetected++
 
-		if _, replay, err := svc.ResolveConflict(ctx, scope, services.ResolveConflictInput{
+		if _, resolveReplay, resolveErr := svc.ResolveConflict(ctx, scope, services.ResolveConflictInput{
 			ConflictID:       conflict.ID,
 			Status:           stores.IntegrationConflictStatusResolved,
 			ResolvedByUserID: "release-v2-validation",
 			Resolution:       map[string]any{"action": "keep_internal"},
 			IdempotencyKey:   fmt.Sprintf("v2-sync-conflict-resolve-%03d", i+1),
-		}); err != nil {
-			return summary, fmt.Errorf("resolve conflict for run %s: %w", run.ID, err)
-		} else if replay {
+		}); resolveErr != nil {
+			return summary, fmt.Errorf("resolve conflict for run %s: %w", run.ID, resolveErr)
+		} else if resolveReplay {
 			return summary, fmt.Errorf("unexpected conflict resolve replay for run %s", run.ID)
 		}
 		summary.ConflictsResolved++

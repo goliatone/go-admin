@@ -79,11 +79,13 @@ func main() {
 	}
 	adminDeps.Authenticator = authBundle.Authenticator
 	adminDeps.Authorizer = authBundle.Authorizer
-	if err := validateRuntimeSecurityBaseline(runtimeConfig); err != nil {
-		logger.Fatal("runtime security baseline failed", "error", err)
+	securityErr := validateRuntimeSecurityBaseline(runtimeConfig)
+	if securityErr != nil {
+		logger.Fatal("runtime security baseline failed", "error", securityErr)
 	}
-	if err := validateRuntimeProviderConfiguration(runtimeConfig); err != nil {
-		logger.Fatal("runtime provider configuration failed", "error", err)
+	providerConfigErr := validateRuntimeProviderConfiguration(runtimeConfig)
+	if providerConfigErr != nil {
+		logger.Fatal("runtime provider configuration failed", "error", providerConfigErr)
 	}
 	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), runtimeConfig)
 	if err != nil {
@@ -156,8 +158,9 @@ func main() {
 	)
 
 	if debugEnabled {
-		if err := adm.RegisterModule(admin.NewDebugModule(cfg.Debug)); err != nil {
-			logger.Fatal("register debug module failed", "error", err)
+		debugModuleErr := adm.RegisterModule(admin.NewDebugModule(cfg.Debug))
+		if debugModuleErr != nil {
+			logger.Fatal("register debug module failed", "error", debugModuleErr)
 		}
 	}
 
@@ -176,8 +179,9 @@ func main() {
 		WithServicesModule(servicesModule).
 		WithAgreementEventPublisher(agreementPublisher).
 		WithStore(store)
-	if err := adm.RegisterModule(esignModule); err != nil {
-		logger.Fatal("register module failed", "error", err)
+	registerModuleErr := adm.RegisterModule(esignModule)
+	if registerModuleErr != nil {
+		logger.Fatal("register module failed", "error", registerModuleErr)
 	}
 	if shouldSeedESignRuntimeFixtures() {
 		fixtureSet, urls, seedErr := seedESignRuntimeFixtures(context.Background(), cfg.BasePath, esignModule, bootstrapResult)
@@ -197,8 +201,9 @@ func main() {
 		)
 	}
 
-	if err := authBundle.Apply(adm); err != nil {
-		logger.Fatal("apply auth bundle failed", "error", err)
+	authApplyErr := authBundle.Apply(adm)
+	if authApplyErr != nil {
+		logger.Fatal("apply auth bundle failed", "error", authApplyErr)
 	}
 	authn := authBundle.Authenticator
 	auther := authBundle.Auther

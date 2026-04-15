@@ -123,12 +123,12 @@ func executeGoogleImportWithPersistence(
 	}
 
 	if persistence.tx == nil {
-		result, err := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, execution)
-		if err != nil {
+		result, importErr := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, execution)
+		if importErr != nil {
 			if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-				_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, googleImportRunFailureInput(err, execution.now().UTC()))
+				_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, googleImportRunFailureInput(importErr, execution.now().UTC()))
 			}
-			return GoogleImportResult{}, err
+			return GoogleImportResult{}, importErr
 		}
 		if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
 			if markErr := markGoogleImportRunSucceeded(ctx, scope, persistence.importRuns, run.ID, result, execution.now().UTC()); markErr != nil {
@@ -143,17 +143,19 @@ func executeGoogleImportWithPersistence(
 		txExecution := execution.forTx(tx)
 		txPersistence := persistence.forTx(tx)
 		if txPersistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-			if _, err := txPersistence.importRuns.MarkGoogleImportRunRunning(ctx, scope, run.ID, txExecution.now().UTC()); err != nil {
-				return err
+			_, markRunningErr := txPersistence.importRuns.MarkGoogleImportRunRunning(ctx, scope, run.ID, txExecution.now().UTC())
+			if markRunningErr != nil {
+				return markRunningErr
 			}
 		}
-		imported, err := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, txExecution)
-		if err != nil {
-			return err
+		imported, importErr := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, txExecution)
+		if importErr != nil {
+			return importErr
 		}
 		if txPersistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-			if err := markGoogleImportRunSucceeded(ctx, scope, txPersistence.importRuns, run.ID, imported, txExecution.now().UTC()); err != nil {
-				return err
+			markSucceededErr := markGoogleImportRunSucceeded(ctx, scope, txPersistence.importRuns, run.ID, imported, txExecution.now().UTC())
+			if markSucceededErr != nil {
+				return markSucceededErr
 			}
 		}
 		result = imported

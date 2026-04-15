@@ -246,7 +246,7 @@ func TestRemediationDispatchStatusLookupPersistsAcrossRelationalReopen(t *testin
 		t.Fatalf("OpenStore: %v", err)
 	}
 	now := time.Date(2026, 3, 10, 9, 0, 0, 0, time.UTC)
-	if _, err := store.Create(ctx, scope, stores.DocumentRecord{
+	_, createErr := store.Create(ctx, scope, stores.DocumentRecord{
 		ID:                    "doc-status-3",
 		Title:                 "Doc Persisted Dispatch",
 		SourceObjectKey:       "tenant/tenant-1/org/org-1/docs/doc-status-3/original.pdf",
@@ -257,10 +257,11 @@ func TestRemediationDispatchStatusLookupPersistsAcrossRelationalReopen(t *testin
 		RemediationDispatchID: "dispatch-status-3",
 		CreatedAt:             now,
 		UpdatedAt:             now,
-	}); err != nil {
-		t.Fatalf("create document: %v", err)
+	})
+	if createErr != nil {
+		t.Fatalf("create document: %v", createErr)
 	}
-	if _, err := store.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
+	_, saveDispatchErr := store.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
 		DispatchID:     "dispatch-status-3",
 		DocumentID:     "doc-status-3",
 		IdempotencyKey: remediationIdempotencyKey(scope, "doc-status-3", "idem-3", "queued"),
@@ -270,12 +271,14 @@ func TestRemediationDispatchStatusLookupPersistsAcrossRelationalReopen(t *testin
 		Accepted:       true,
 		EnqueuedAt:     &now,
 		UpdatedAt:      now,
-	}); err != nil {
-		t.Fatalf("save remediation dispatch: %v", err)
+	})
+	if saveDispatchErr != nil {
+		t.Fatalf("save remediation dispatch: %v", saveDispatchErr)
 	}
 	if cleanup != nil {
-		if err := cleanup(); err != nil {
-			t.Fatalf("close relational store: %v", err)
+		cleanupErr := cleanup()
+		if cleanupErr != nil {
+			t.Fatalf("close relational store: %v", cleanupErr)
 		}
 	}
 

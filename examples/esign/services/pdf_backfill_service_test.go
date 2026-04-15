@@ -46,8 +46,9 @@ func TestPDFBackfillServiceRunIsIdempotent(t *testing.T) {
 	if strings.TrimSpace(updated.NormalizedObjectKey) == "" {
 		t.Fatalf("expected normalized object key after backfill, got %+v", updated)
 	}
-	if _, err := objects.GetFile(ctx, updated.NormalizedObjectKey); err != nil {
-		t.Fatalf("expected normalized payload persisted: %v", err)
+	_, getFileErr := objects.GetFile(ctx, updated.NormalizedObjectKey)
+	if getFileErr != nil {
+		t.Fatalf("expected normalized payload persisted: %v", getFileErr)
 	}
 
 	second, err := service.Run(ctx, scope, PDFBackfillInput{})
@@ -83,8 +84,9 @@ func TestPDFBackfillServiceRelationalSQLiteMigrationSmoke(t *testing.T) {
 	source := GenerateDeterministicPDF(1)
 	now := time.Date(2026, 3, 7, 10, 30, 0, 0, time.UTC)
 	doc := createLegacyBackfillDocument(t, ctx, sqliteStore, scope, "doc-sqlite-smoke", "tenant/tenant-smoke/org/org-smoke/docs/doc-sqlite-smoke/source.pdf", source, now)
-	if _, err := objects.UploadFile(ctx, doc.SourceObjectKey, source, uploader.WithContentType("application/pdf")); err != nil {
-		t.Fatalf("upload source pdf: %v", err)
+	_, uploadErr := objects.UploadFile(ctx, doc.SourceObjectKey, source, uploader.WithContentType("application/pdf"))
+	if uploadErr != nil {
+		t.Fatalf("upload source pdf: %v", uploadErr)
 	}
 
 	service := NewPDFBackfillService(sqliteStore, objects, WithPDFBackfillClock(func() time.Time { return now }))
@@ -97,8 +99,9 @@ func TestPDFBackfillServiceRelationalSQLiteMigrationSmoke(t *testing.T) {
 	}
 
 	if cleanup != nil {
-		if err := cleanup(); err != nil {
-			t.Fatalf("close relational store: %v", err)
+		cleanupErr := cleanup()
+		if cleanupErr != nil {
+			t.Fatalf("close relational store: %v", cleanupErr)
 		}
 		cleanup = nil
 	}

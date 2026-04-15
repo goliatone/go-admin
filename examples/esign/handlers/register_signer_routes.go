@@ -123,7 +123,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		var payload struct {
 			Thread services.ReviewCommentThreadInput `json:"thread"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review thread payload", nil)
 		}
 		thread, err := cfg.publicReviewSession.CreatePublicReviewThread(c.Context(), cfg.resolveScope(c), publicToken, payload.Thread)
@@ -158,7 +159,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		var payload struct {
 			Reply services.ReviewCommentReplyInput `json:"reply"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review reply payload", nil)
 		}
 		payload.Reply.ThreadID = threadID
@@ -230,7 +232,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		var payload struct {
 			Comment string `json:"comment"`
 		}
-		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review decision payload"); err != nil {
+		err = bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review decision payload")
+		if err != nil {
 			return err
 		}
 		summary, err := cfg.publicReviewSession.RequestPublicReviewChanges(c.Context(), cfg.resolveScope(c), publicToken, services.ReviewDecisionInput{
@@ -304,7 +307,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		var payload struct {
 			Patch services.SignerProfilePatch `json:"patch"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signer profile payload", nil)
 		}
 		profile, err := cfg.signerProfile.Save(c.Context(), cfg.resolveScope(c), resolveSignerProfileSubject(c, cfg, tokenRecord), key, payload.Patch)
@@ -403,7 +407,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "saved signature service not configured", nil)
 		}
 		var payload services.SaveSignerSignatureInput
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid saved signature payload", nil)
 		}
 		signature, err := cfg.signerSavedSignatures.SaveSignature(
@@ -643,7 +648,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
 		var payload services.SignerConsentInput
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid consent payload", nil)
 		}
 		payload.IPAddress = resolveAuditRequestIP(c, cfg)
@@ -700,7 +706,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			ValueBool         *bool  `json:"value_bool,omitempty"`
 			ExpectedVersion   int64  `json:"expected_version,omitempty"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
 			}
@@ -781,7 +788,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			ValueText         string `json:"value_text,omitempty"`
 			ExpectedVersion   int64  `json:"expected_version,omitempty"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
 			}
@@ -845,7 +853,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			ContentType       string `json:"content_type,omitempty"`
 			SizeBytes         int64  `json:"size_bytes,omitempty"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature upload payload", nil)
 		}
 		if strings.TrimSpace(payload.FieldInstanceID) == "" {
@@ -1013,7 +1022,8 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
 		var payload services.SignerDeclineInput
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid decline payload", nil)
 		}
 		payload.IPAddress = resolveAuditRequestIP(c, cfg)
@@ -1173,7 +1183,8 @@ func signerCreateReviewThreadAuthHandler(routes RouteSet, cfg registerConfig) ro
 		var payload struct {
 			Thread services.ReviewCommentThreadInput `json:"thread"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review thread payload", nil)
 		}
 		thread, err := cfg.publicReviewSession.CreatePublicReviewThread(c.Context(), cfg.resolveScope(c), publicToken, payload.Thread)
@@ -1209,7 +1220,8 @@ func signerReplyReviewThreadAuthHandler(routes RouteSet, cfg registerConfig) rou
 		var payload struct {
 			Reply services.ReviewCommentReplyInput `json:"reply"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review reply payload", nil)
 		}
 		payload.Reply.ThreadID = threadID
@@ -1269,7 +1281,8 @@ func signerReviewRequestChangesAuthHandler(routes RouteSet, cfg registerConfig) 
 		var payload struct {
 			Comment string `json:"comment"`
 		}
-		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review decision payload"); err != nil {
+		err = bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid review decision payload")
+		if err != nil {
 			return err
 		}
 		summary, err := cfg.publicReviewSession.RequestPublicReviewChanges(c.Context(), cfg.resolveScope(c), publicToken, services.ReviewDecisionInput{
@@ -1339,7 +1352,8 @@ func signerProfilePatchAuthHandler(routes RouteSet, cfg registerConfig) router.H
 		var payload struct {
 			Patch services.SignerProfilePatch `json:"patch"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signer profile payload", nil)
 		}
 		profile, err := cfg.signerProfile.Save(c.Context(), cfg.resolveScope(c), resolveSignerProfileSubject(c, cfg, tokenRecord), key, payload.Patch)
@@ -1425,7 +1439,8 @@ func signerSavedSignaturesSaveAuthHandler(routes RouteSet, cfg registerConfig) r
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "saved signature service not configured", nil)
 		}
 		var payload services.SaveSignerSignatureInput
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid saved signature payload", nil)
 		}
 		signature, err := cfg.signerSavedSignatures.SaveSignature(c.Context(), cfg.resolveScope(c), resolveSignerProfileSubject(c, cfg, tokenRecord), payload)
@@ -1598,7 +1613,8 @@ func signerConsentAuthHandler(routes RouteSet, cfg registerConfig) router.Handle
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
 		var payload services.SignerConsentInput
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid consent payload", nil)
 		}
 		payload.IPAddress = resolveAuditRequestIP(c, cfg)
@@ -1650,7 +1666,8 @@ func signerFieldValuesAuthHandler(routes RouteSet, cfg registerConfig) router.Ha
 			ValueBool         *bool  `json:"value_bool,omitempty"`
 			ExpectedVersion   int64  `json:"expected_version,omitempty"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
 			}
@@ -1726,7 +1743,8 @@ func signerSignatureAuthHandler(routes RouteSet, cfg registerConfig) router.Hand
 			ValueText         string `json:"value_text,omitempty"`
 			ExpectedVersion   int64  `json:"expected_version,omitempty"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			if unifiedFlow {
 				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
 			}
@@ -1788,7 +1806,8 @@ func signerSignatureUploadAuthHandler(routes RouteSet, cfg registerConfig) route
 			ContentType       string `json:"content_type,omitempty"`
 			SizeBytes         int64  `json:"size_bytes,omitempty"`
 		}
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature upload payload", nil)
 		}
 		if strings.TrimSpace(payload.FieldInstanceID) == "" {
@@ -1900,7 +1919,8 @@ func signerDeclineAuthHandler(routes RouteSet, cfg registerConfig) router.Handle
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
 		var payload services.SignerDeclineInput
-		if err := c.Bind(&payload); err != nil {
+		err = c.Bind(&payload)
+		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid decline payload", nil)
 		}
 		payload.IPAddress = resolveAuditRequestIP(c, cfg)

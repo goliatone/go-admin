@@ -21,11 +21,13 @@ func TestPhase1LineageContractFixtureSnapshot(t *testing.T) {
 
 	path := filepath.Join("..", "..", "..", "pkg", "client", "assets", "tests", "fixtures", "esign_lineage_phase1", "contract_fixtures.json")
 	if os.Getenv("UPDATE_FIXTURES") == "1" {
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatalf("mkdir fixture dir: %v", err)
+		mkdirErr := os.MkdirAll(filepath.Dir(path), 0o755)
+		if mkdirErr != nil {
+			t.Fatalf("mkdir fixture dir: %v", mkdirErr)
 		}
-		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
-			t.Fatalf("write fixture: %v", err)
+		writeErr := os.WriteFile(path, append(data, '\n'), 0o644)
+		if writeErr != nil {
+			t.Fatalf("write fixture: %v", writeErr)
 		}
 	}
 
@@ -127,11 +129,13 @@ func TestPhase11SourceManagementContractFixtureSnapshot(t *testing.T) {
 
 	path := filepath.Join("..", "..", "..", "pkg", "client", "assets", "tests", "fixtures", "source_management_contracts", "contract_fixtures.json")
 	if os.Getenv("UPDATE_FIXTURES") == "1" {
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatalf("mkdir fixture dir: %v", err)
+		mkdirErr := os.MkdirAll(filepath.Dir(path), 0o755)
+		if mkdirErr != nil {
+			t.Fatalf("mkdir fixture dir: %v", mkdirErr)
 		}
-		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
-			t.Fatalf("write fixture: %v", err)
+		writeErr := os.WriteFile(path, append(data, '\n'), 0o644)
+		if writeErr != nil {
+			t.Fatalf("write fixture: %v", writeErr)
 		}
 	}
 

@@ -88,15 +88,17 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
 		WithStore(stores.NewInMemoryStore())
 	t.Cleanup(module.Close)
-	if err := adm.RegisterModule(module); err != nil {
-		t.Fatalf("RegisterModule: %v", err)
+	registerErr := adm.RegisterModule(module)
+	if registerErr != nil {
+		t.Fatalf("RegisterModule: %v", registerErr)
 	}
 
 	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{EnablePrintRoutes: false})
 	})
-	if err := adm.Initialize(server.Router()); err != nil {
-		t.Fatalf("Initialize: %v", err)
+	initErr := adm.Initialize(server.Router())
+	if initErr != nil {
+		t.Fatalf("Initialize: %v", initErr)
 	}
 
 	if _, ok := adm.Registry().Panel(esignDocumentsPanelID); !ok {
@@ -213,10 +215,11 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 	}
 	event := firstTimelineEventMap(t, timeline)
 	assertMapHasKeys(t, event, "id", "event_type", "actor_type", "actor_id", "ip_address", "user_agent", "created_at", "metadata_raw")
-	if sentEvent, ok := findTimelineEvent(timeline, "agreement.sent"); ok {
+	sentEvent, foundSentEvent := findTimelineEvent(timeline, "agreement.sent")
+	if foundSentEvent {
 		assertMapHasKeys(t, sentEvent, "metadata")
-		metadata, ok := sentEvent["metadata"].(map[string]any)
-		if !ok {
+		metadata, metadataOK := sentEvent["metadata"].(map[string]any)
+		if !metadataOK {
 			t.Fatalf("expected timeline metadata object, got %+v", sentEvent["metadata"])
 		}
 		assertMapHasKeys(t, metadata, "idempotency_key", "status")
@@ -229,10 +232,10 @@ func TestESignModuleRegistersPanelsSettingsRoleDefaultsAndCommandActions(t *test
 		t.Fatalf("expected delivery object in agreement detail, got %+v", agreementDetail["delivery"])
 	}
 	assertMapHasKeys(t, delivery, "agreement_id", "executed_status", "certificate_status", "distribution_status", "executed_applicable", "certificate_applicable", "executed_object_key", "certificate_object_key", "last_error", "correlation_ids")
-	if got, ok := delivery["executed_applicable"].(bool); !ok || got {
+	if got, executedApplicableOK := delivery["executed_applicable"].(bool); !executedApplicableOK || got {
 		t.Fatalf("expected executed_applicable=false for sent agreement, got %+v", delivery["executed_applicable"])
 	}
-	if got, ok := delivery["certificate_applicable"].(bool); !ok || got {
+	if got, certificateApplicableOK := delivery["certificate_applicable"].(bool); !certificateApplicableOK || got {
 		t.Fatalf("expected certificate_applicable=false for sent agreement, got %+v", delivery["certificate_applicable"])
 	}
 

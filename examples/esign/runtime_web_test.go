@@ -305,7 +305,8 @@ func TestRuntimeSenderAgreementViewerPermissionDeniedRendersHTMLPage(t *testing.
 
 	routes := handlers.BuildRouteSet(nil, "/admin", "admin.api.v1")
 	module := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).WithStore(stores.NewInMemoryStore())
-	if err := registerESignSenderAgreementViewerWebRoutes(server.Router(), adm, runtimeWebTestPassthroughAuthenticator{}, routes, cfg.BasePath, module); err != nil {
+	err = registerESignSenderAgreementViewerWebRoutes(server.Router(), adm, runtimeWebTestPassthroughAuthenticator{}, routes, cfg.BasePath, module)
+	if err != nil {
 		t.Fatalf("register sender agreement viewer routes: %v", err)
 	}
 	server.Init()
@@ -909,7 +910,8 @@ func TestRuntimeAgreementDetailReviewBootstrapParsesWithRecipientAndExternalRevi
 		t.Fatalf("expected agreement detail status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	detailPayload := map[string]any{}
-	if err := json.NewDecoder(detailResp.Body).Decode(&detailPayload); err != nil {
+	err = json.NewDecoder(detailResp.Body).Decode(&detailPayload)
+	if err != nil {
 		t.Fatalf("decode agreement detail payload: %v", err)
 	}
 	record, _ := detailPayload["record"].(map[string]any)
@@ -1067,11 +1069,11 @@ func TestRuntimeSeededLineageDetailAPIsExposeSlice4Contracts(t *testing.T) {
 	if err := json.Unmarshal(agreementBody, &agreementPayload); err != nil {
 		t.Fatalf("decode agreement detail payload: %v body=%s", err, strings.TrimSpace(string(agreementBody)))
 	}
-	if data, ok := agreementPayload["data"].(map[string]any); ok && data != nil {
+	if data, dataOK := agreementPayload["data"].(map[string]any); dataOK && data != nil {
 		agreementPayload = data
 	}
-	agreementLineage, ok := agreementPayload["lineage"].(map[string]any)
-	if !ok {
+	agreementLineage, lineageOK := agreementPayload["lineage"].(map[string]any)
+	if !lineageOK {
 		t.Fatalf("expected agreement lineage payload, got %+v", agreementPayload["lineage"])
 	}
 	for _, key := range []string{"pinned_source_revision_id", "source_document", "source_revision", "linked_document_artifact", "google_source", "newer_source_exists", "newer_source_summary"} {
@@ -1136,7 +1138,7 @@ func TestRuntimeSeededLineageQAScenarioExposesCandidateWarningsAndNewerSourceSta
 		t.Fatalf("expected repeated import QA scenario to advance source_revision_id, imported=%+v repeated=%+v", importedRevision, repeatedRevision)
 	}
 
-	if newerSourceExists, ok := importedAgreementLineage["newer_source_exists"].(bool); !ok || !newerSourceExists {
+	if newerSourceExists, existsOK := importedAgreementLineage["newer_source_exists"].(bool); !existsOK || !newerSourceExists {
 		t.Fatalf("expected imported agreement to expose newer_source_exists, got %+v", importedAgreementLineage["newer_source_exists"])
 	}
 	newerSourceSummary, ok := importedAgreementLineage["newer_source_summary"].(map[string]any)
@@ -1583,10 +1585,11 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create upload file: %v", err)
 	}
-	if _, err := fileWriter.Write(services.GenerateDeterministicPDF(1)); err != nil {
+	if _, err = fileWriter.Write(services.GenerateDeterministicPDF(1)); err != nil {
 		t.Fatalf("write upload payload: %v", err)
 	}
-	if err := uploadWriter.Close(); err != nil {
+	err = uploadWriter.Close()
+	if err != nil {
 		t.Fatalf("close upload writer: %v", err)
 	}
 
@@ -1605,7 +1608,8 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	uploadPayload := map[string]any{}
-	if err := json.NewDecoder(uploadResp.Body).Decode(&uploadPayload); err != nil {
+	err = json.NewDecoder(uploadResp.Body).Decode(&uploadPayload)
+	if err != nil {
 		t.Fatalf("decode upload payload: %v", err)
 	}
 	objectKey := strings.TrimSpace(fmt.Sprint(uploadPayload["object_key"]))
@@ -1680,7 +1684,8 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		t.Fatalf("expected agreement detail status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	detailPayload := map[string]any{}
-	if err := json.NewDecoder(detailResp.Body).Decode(&detailPayload); err != nil {
+	err = json.NewDecoder(detailResp.Body).Decode(&detailPayload)
+	if err != nil {
 		t.Fatalf("decode agreement detail payload: %v", err)
 	}
 
@@ -1866,10 +1871,11 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	if err != nil {
 		t.Fatalf("create upload file: %v", err)
 	}
-	if _, err := fileWriter.Write(services.GenerateDeterministicPDF(1)); err != nil {
+	if _, err = fileWriter.Write(services.GenerateDeterministicPDF(1)); err != nil {
 		t.Fatalf("write upload payload: %v", err)
 	}
-	if err := uploadWriter.Close(); err != nil {
+	err = uploadWriter.Close()
+	if err != nil {
 		t.Fatalf("close upload writer: %v", err)
 	}
 
@@ -1888,7 +1894,8 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	uploadPayload := map[string]any{}
-	if err := json.NewDecoder(uploadResp.Body).Decode(&uploadPayload); err != nil {
+	err = json.NewDecoder(uploadResp.Body).Decode(&uploadPayload)
+	if err != nil {
 		t.Fatalf("decode upload payload: %v", err)
 	}
 	objectKey := strings.TrimSpace(fmt.Sprint(uploadPayload["object_key"]))
@@ -1971,7 +1978,8 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 		t.Fatalf("expected agreement detail status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	detailPayload := map[string]any{}
-	if err := json.NewDecoder(detailResp.Body).Decode(&detailPayload); err != nil {
+	err = json.NewDecoder(detailResp.Body).Decode(&detailPayload)
+	if err != nil {
 		t.Fatalf("decode agreement detail payload: %v", err)
 	}
 	record, _ := detailPayload["record"].(map[string]any)
@@ -2351,16 +2359,18 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 		t.Cleanup(func() { esignModule.Close() })
 		t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
 	}
-	if err := adm.RegisterModule(esignModule); err != nil {
+	err = adm.RegisterModule(esignModule)
+	if err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("register module: %w", err)
 	}
 	if shouldSeedESignRuntimeFixtures() {
-		if _, _, err := seedESignRuntimeFixtures(context.Background(), cfg.BasePath, esignModule, bootstrapResult); err != nil {
-			return eSignRuntimeWebFixture{}, fmt.Errorf("seed runtime fixtures: %w", err)
+		if _, _, seedErr := seedESignRuntimeFixtures(context.Background(), cfg.BasePath, esignModule, bootstrapResult); seedErr != nil {
+			return eSignRuntimeWebFixture{}, fmt.Errorf("seed runtime fixtures: %w", seedErr)
 		}
 	}
 
-	if err := authBundle.Apply(adm); err != nil {
+	err = authBundle.Apply(adm)
+	if err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("apply auth bundle: %w", err)
 	}
 	authn := authBundle.Authenticator

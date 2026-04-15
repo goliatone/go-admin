@@ -64,7 +64,7 @@ func TestPhase2SQLiteLineagePersistenceAndFixtures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateSourceRevision: %v", err)
 	}
-	if _, err := lineage.CreateSourceArtifact(ctx, scope, stores.SourceArtifactRecord{
+	_, createArtifactErr := lineage.CreateSourceArtifact(ctx, scope, stores.SourceArtifactRecord{
 		SourceRevisionID:    revision.ID,
 		ArtifactKind:        stores.SourceArtifactKindSignablePDF,
 		ObjectKey:           "fixtures/phase2.pdf",
@@ -75,8 +75,9 @@ func TestPhase2SQLiteLineagePersistenceAndFixtures(t *testing.T) {
 		NormalizationStatus: "completed",
 		CreatedAt:           now,
 		UpdatedAt:           now,
-	}); err != nil {
-		t.Fatalf("CreateSourceArtifact: %v", err)
+	})
+	if createArtifactErr != nil {
+		t.Fatalf("CreateSourceArtifact: %v", createArtifactErr)
 	}
 
 	fixtures, err := stores.SeedLineageFixtures(ctx, bootstrap.BunDB, scope)
@@ -197,11 +198,12 @@ func TestPhase2SQLiteLineagePersistenceNormalizesDefaultsAndRejectsDuplicateRela
 	if err != nil {
 		t.Fatalf("CreateSourceArtifact: %v", err)
 	}
-	if _, err := lineage.CreateSourceFingerprint(ctx, scope, stores.SourceFingerprintRecord{
+	_, createFingerprintErr := lineage.CreateSourceFingerprint(ctx, scope, stores.SourceFingerprintRecord{
 		SourceRevisionID: revision.ID,
 		ArtifactID:       artifact.ID,
 		CreatedAt:        now,
-	}); err == nil {
+	})
+	if createFingerprintErr == nil {
 		t.Fatalf("expected missing extract_version rejection")
 	}
 	otherDocument, err := lineage.CreateSourceDocument(ctx, scope, stores.SourceDocumentRecord{
@@ -239,12 +241,13 @@ func TestPhase2SQLiteLineagePersistenceNormalizesDefaultsAndRejectsDuplicateRela
 	if err != nil {
 		t.Fatalf("CreateSourceArtifact other: %v", err)
 	}
-	if _, err := lineage.CreateSourceFingerprint(ctx, scope, stores.SourceFingerprintRecord{
+	_, createFingerprintErr = lineage.CreateSourceFingerprint(ctx, scope, stores.SourceFingerprintRecord{
 		SourceRevisionID: revision.ID,
 		ArtifactID:       otherArtifact.ID,
 		ExtractVersion:   stores.SourceExtractVersionPDFTextV1,
 		CreatedAt:        now,
-	}); err == nil {
+	})
+	if createFingerprintErr == nil {
 		t.Fatalf("expected mismatched artifact/source revision rejection")
 	}
 
@@ -444,7 +447,7 @@ func TestPhase12SQLiteLineagePersistenceStoresDirectionalRelationshipEndpointsAn
 		t.Fatalf("expected persisted directional endpoints, got %+v", relationship)
 	}
 
-	if _, err := adapter.Create(ctx, scope, stores.DocumentRecord{
+	_, createDocumentErr := adapter.Create(ctx, scope, stores.DocumentRecord{
 		ID:                 "doc-pinned-successor",
 		Title:              "Pinned Successor",
 		SourceOriginalName: "pinned-successor.pdf",
@@ -457,10 +460,11 @@ func TestPhase12SQLiteLineagePersistenceStoresDirectionalRelationshipEndpointsAn
 		CreatedByUserID:    "fixture-user",
 		CreatedAt:          now,
 		UpdatedAt:          now,
-	}); err != nil {
-		t.Fatalf("Create pinned document: %v", err)
+	})
+	if createDocumentErr != nil {
+		t.Fatalf("Create pinned document: %v", createDocumentErr)
 	}
-	if _, err := adapter.CreateDraft(ctx, scope, stores.AgreementRecord{
+	_, createDraftErr := adapter.CreateDraft(ctx, scope, stores.AgreementRecord{
 		ID:               "agr-pinned-successor",
 		DocumentID:       "doc-pinned-successor",
 		Title:            "Pinned Successor Agreement",
@@ -471,8 +475,9 @@ func TestPhase12SQLiteLineagePersistenceStoresDirectionalRelationshipEndpointsAn
 		UpdatedByUserID:  "fixture-user",
 		CreatedAt:        now,
 		UpdatedAt:        now,
-	}); err != nil {
-		t.Fatalf("CreateDraft pinned agreement: %v", err)
+	})
+	if createDraftErr != nil {
+		t.Fatalf("CreateDraft pinned agreement: %v", createDraftErr)
 	}
 
 	usage, err := usageStore.ListSourceRevisionUsage(ctx, scope, stores.SourceRevisionUsageQuery{
@@ -566,7 +571,7 @@ func TestPhase13SQLiteLineagePersistenceStoresSourceCommentsAndSearchDocuments(t
 	if err != nil {
 		t.Fatalf("CreateSourceCommentThread: %v", err)
 	}
-	if _, err := lineage.CreateSourceCommentMessage(ctx, scope, stores.SourceCommentMessageRecord{
+	_, createMessageErr := lineage.CreateSourceCommentMessage(ctx, scope, stores.SourceCommentMessageRecord{
 		ID:                    "src-comment-message-1",
 		SourceCommentThreadID: thread.ID,
 		SourceRevisionID:      revision.ID,
@@ -577,10 +582,11 @@ func TestPhase13SQLiteLineagePersistenceStoresSourceCommentsAndSearchDocuments(t
 		AuthorJSON:            `{"display_name":"Reviewer","email":"reviewer@example.com","type":"user"}`,
 		CreatedAt:             now,
 		UpdatedAt:             now,
-	}); err != nil {
-		t.Fatalf("CreateSourceCommentMessage: %v", err)
+	})
+	if createMessageErr != nil {
+		t.Fatalf("CreateSourceCommentMessage: %v", createMessageErr)
 	}
-	if _, err := lineage.CreateSourceCommentSyncState(ctx, scope, stores.SourceCommentSyncStateRecord{
+	_, createSyncStateErr := lineage.CreateSourceCommentSyncState(ctx, scope, stores.SourceCommentSyncStateRecord{
 		ID:               "src-comment-sync-1",
 		SourceDocumentID: document.ID,
 		SourceRevisionID: revision.ID,
@@ -594,8 +600,9 @@ func TestPhase13SQLiteLineagePersistenceStoresSourceCommentsAndSearchDocuments(t
 		LastSyncedAt:     &now,
 		CreatedAt:        now,
 		UpdatedAt:        now,
-	}); err != nil {
-		t.Fatalf("CreateSourceCommentSyncState: %v", err)
+	})
+	if createSyncStateErr != nil {
+		t.Fatalf("CreateSourceCommentSyncState: %v", createSyncStateErr)
 	}
 	searchDoc, err := lineage.CreateSourceSearchDocument(ctx, scope, stores.SourceSearchDocumentRecord{
 		ID:                "src-search-doc-1",
@@ -644,8 +651,9 @@ func TestPhase13SQLiteLineagePersistenceStoresSourceCommentsAndSearchDocuments(t
 	}
 	thread.Status = stores.SourceCommentThreadStatusDeleted
 	thread.UpdatedAt = now.Add(time.Minute)
-	if _, err := lineage.SaveSourceCommentThread(ctx, scope, thread); err != nil {
-		t.Fatalf("SaveSourceCommentThread deleted: %v", err)
+	_, saveThreadErr := lineage.SaveSourceCommentThread(ctx, scope, thread)
+	if saveThreadErr != nil {
+		t.Fatalf("SaveSourceCommentThread deleted: %v", saveThreadErr)
 	}
 	activeThreads, err := lineage.ListSourceCommentThreads(ctx, scope, stores.SourceCommentThreadQuery{SourceDocumentID: document.ID})
 	if err != nil {
@@ -665,8 +673,9 @@ func TestPhase13SQLiteLineagePersistenceStoresSourceCommentsAndSearchDocuments(t
 	if len(deletedThreads) != 1 || deletedThreads[0].ID != thread.ID {
 		t.Fatalf("expected deleted thread query to return %q, got %+v", thread.ID, deletedThreads)
 	}
-	if err := lineage.DeleteSourceCommentMessages(ctx, scope, stores.SourceCommentMessageQuery{SourceCommentThreadID: thread.ID}); err != nil {
-		t.Fatalf("DeleteSourceCommentMessages: %v", err)
+	deleteMessagesErr := lineage.DeleteSourceCommentMessages(ctx, scope, stores.SourceCommentMessageQuery{SourceCommentThreadID: thread.ID})
+	if deleteMessagesErr != nil {
+		t.Fatalf("DeleteSourceCommentMessages: %v", deleteMessagesErr)
 	}
 	deletedMessages, err := lineage.ListSourceCommentMessages(ctx, scope, stores.SourceCommentMessageQuery{SourceCommentThreadID: thread.ID})
 	if err != nil {
@@ -676,8 +685,9 @@ func TestPhase13SQLiteLineagePersistenceStoresSourceCommentsAndSearchDocuments(t
 		t.Fatalf("expected deleted source comment messages, got %+v", deletedMessages)
 	}
 
-	if err := lineage.DeleteSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{SourceDocumentID: document.ID}); err != nil {
-		t.Fatalf("DeleteSourceSearchDocuments: %v", err)
+	deleteSearchDocsErr := lineage.DeleteSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{SourceDocumentID: document.ID})
+	if deleteSearchDocsErr != nil {
+		t.Fatalf("DeleteSourceSearchDocuments: %v", deleteSearchDocsErr)
 	}
 	deletedSearchDocs, err := lineage.ListSourceSearchDocuments(ctx, scope, stores.SourceSearchDocumentQuery{SourceDocumentID: document.ID})
 	if err != nil {

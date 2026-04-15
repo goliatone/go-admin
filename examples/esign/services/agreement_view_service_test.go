@@ -19,15 +19,16 @@ func TestAgreementViewServiceGetSenderSessionDraftReviewMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+	_, openErr := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
 		Gate:              stores.AgreementReviewGateApproveBeforeSend,
 		CommentsEnabled:   true,
 		ReviewerIDs:       []string{signer.ID},
 		RequestedByUserID: "ops-user",
 		ActorType:         "user",
 		ActorID:           "ops-user",
-	}); err != nil {
-		t.Fatalf("OpenReview: %v", err)
+	})
+	if openErr != nil {
+		t.Fatalf("OpenReview: %v", openErr)
 	}
 
 	viewer := NewAgreementViewService(NewSigningService(store), store)
@@ -73,33 +74,37 @@ func TestAgreementViewServiceGetSenderSessionSentModeWithoutCommentPermission(t 
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
-		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	})
+	if upsertErr != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", upsertErr)
 	}
-	if _, err := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
+	_, openErr := agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
 		Gate:              stores.AgreementReviewGateApproveBeforeSend,
 		CommentsEnabled:   true,
 		ReviewerIDs:       []string{signer.ID},
 		RequestedByUserID: "ops-user",
 		ActorType:         "user",
 		ActorID:           "ops-user",
-	}); err != nil {
-		t.Fatalf("OpenReview: %v", err)
+	})
+	if openErr != nil {
+		t.Fatalf("OpenReview: %v", openErr)
 	}
-	if _, err := agreementSvc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
+	_, approveErr := agreementSvc.ApproveReview(ctx, scope, agreement.ID, ReviewDecisionInput{
 		RecipientID: signer.ID,
 		ActorType:   "recipient",
 		ActorID:     signer.ID,
-	}); err != nil {
-		t.Fatalf("ApproveReview: %v", err)
+	})
+	if approveErr != nil {
+		t.Fatalf("ApproveReview: %v", approveErr)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "sender-view-sent"}); err != nil {
-		t.Fatalf("Send: %v", err)
+	_, sendErr := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "sender-view-sent"})
+	if sendErr != nil {
+		t.Fatalf("Send: %v", sendErr)
 	}
 
 	viewer := NewAgreementViewService(NewSigningService(store), store)
@@ -148,24 +153,27 @@ func TestAgreementViewServiceGetSenderSessionHidesInProgressFieldValuesByDefault
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
-		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	})
+	if upsertErr != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", upsertErr)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "sender-view-hide-values"}); err != nil {
-		t.Fatalf("Send: %v", err)
+	_, sendErr := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "sender-view-hide-values"})
+	if sendErr != nil {
+		t.Fatalf("Send: %v", sendErr)
 	}
-	if _, err := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
+	_, upsertValueErr := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
 		FieldID:     field.ID,
 		ValueText:   "In Progress Value",
-	}, 0); err != nil {
-		t.Fatalf("UpsertFieldValue: %v", err)
+	}, 0)
+	if upsertValueErr != nil {
+		t.Fatalf("UpsertFieldValue: %v", upsertValueErr)
 	}
 
 	viewer := NewAgreementViewService(NewSigningService(store), store)
@@ -220,24 +228,27 @@ func TestAgreementViewServiceGetSenderSessionCanExposeInProgressFieldValuesWhenE
 	if err != nil {
 		t.Fatalf("UpsertFieldDraft text: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
-		t.Fatalf("UpsertFieldDraft signature: %v", err)
+	})
+	if upsertErr != nil {
+		t.Fatalf("UpsertFieldDraft signature: %v", upsertErr)
 	}
-	if _, err := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "sender-view-show-values"}); err != nil {
-		t.Fatalf("Send: %v", err)
+	_, sendErr := agreementSvc.Send(ctx, scope, agreement.ID, SendInput{IdempotencyKey: "sender-view-show-values"})
+	if sendErr != nil {
+		t.Fatalf("Send: %v", sendErr)
 	}
-	if _, err := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
+	_, upsertValueErr := store.UpsertFieldValue(ctx, scope, stores.FieldValueRecord{
 		AgreementID: agreement.ID,
 		RecipientID: signer.ID,
 		FieldID:     field.ID,
 		ValueText:   "Visible Value",
-	}, 0); err != nil {
-		t.Fatalf("UpsertFieldValue: %v", err)
+	}, 0)
+	if upsertValueErr != nil {
+		t.Fatalf("UpsertFieldValue: %v", upsertValueErr)
 	}
 
 	viewer := NewAgreementViewService(NewSigningService(store), store)

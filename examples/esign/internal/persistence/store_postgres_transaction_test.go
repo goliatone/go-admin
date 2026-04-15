@@ -89,19 +89,20 @@ func TestStoreAdapterPostgresTxReadVisibilityAndRollbackForRelationalReads(t *te
 	dispatchID := "dispatch-postgres-read"
 
 	err = adapter.WithTx(ctx, func(tx stores.TxStore) error {
-		if _, err := tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
+		_, saveErr := tx.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
 			DispatchID:     dispatchID,
 			DocumentID:     document.ID,
 			IdempotencyKey: "idem-postgres-read",
 			Mode:           "async",
 			Accepted:       true,
 			UpdatedAt:      time.Now().UTC(),
-		}); err != nil {
-			return err
+		})
+		if saveErr != nil {
+			return saveErr
 		}
-		record, err := tx.GetRemediationDispatchByIdempotencyKey(ctx, scope, "idem-postgres-read")
-		if err != nil {
-			return err
+		record, getErr := tx.GetRemediationDispatchByIdempotencyKey(ctx, scope, "idem-postgres-read")
+		if getErr != nil {
+			return getErr
 		}
 		if record.DispatchID != dispatchID || !record.Accepted {
 			t.Fatalf("unexpected tx remediation dispatch: %+v", record)
@@ -152,15 +153,18 @@ func TestStoreAdapterPostgresPreservesCommittedStateUnderConcurrentWithTx(t *tes
 	}()
 
 	close(releaseMutating)
-	if err := <-mutatingDone; err != nil {
-		t.Fatalf("mutating tx: %v", err)
+	mutatingErr := <-mutatingDone
+	if mutatingErr != nil {
+		t.Fatalf("mutating tx: %v", mutatingErr)
 	}
 	<-staleEntered
-	if err := <-staleDone; err != nil {
-		t.Fatalf("stale tx: %v", err)
+	staleErr := <-staleDone
+	if staleErr != nil {
+		t.Fatalf("stale tx: %v", staleErr)
 	}
 
-	if _, err := store.GetDraftSession(ctx, scope, draft.ID); err == nil {
+	_, getDraftErr := store.GetDraftSession(ctx, scope, draft.ID)
+	if getDraftErr == nil {
 		t.Fatalf("expected draft deletion to persist")
 	}
 	agreement, err := store.GetAgreement(ctx, scope, "agreement-race")

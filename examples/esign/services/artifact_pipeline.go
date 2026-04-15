@@ -594,9 +594,9 @@ func (s ArtifactPipelineService) prepareExecutedArtifact(ctx context.Context, sc
 	}
 	allValues := make([]stores.FieldValueRecord, 0)
 	for _, recipient := range recipients {
-		values, err := s.signing.ListFieldValuesByRecipient(ctx, scope, agreementID, recipient.ID)
-		if err != nil {
-			return preparedExecutedArtifact{}, err
+		values, loadErr := s.signing.ListFieldValuesByRecipient(ctx, scope, agreementID, recipient.ID)
+		if loadErr != nil {
+			return preparedExecutedArtifact{}, loadErr
 		}
 		allValues = append(allValues, values...)
 	}
@@ -636,8 +636,9 @@ func (s ArtifactPipelineService) finalizeExecutedArtifact(ctx context.Context, s
 	if err != nil {
 		return stores.AgreementArtifactRecord{}, err
 	}
-	if err := validateAgreementReadyForArtifactFinalize(agreement, artifactTypeExecuted); err != nil {
-		return stores.AgreementArtifactRecord{}, err
+	validateErr := validateAgreementReadyForArtifactFinalize(agreement, artifactTypeExecuted)
+	if validateErr != nil {
+		return stores.AgreementArtifactRecord{}, validateErr
 	}
 	record, err := s.artifacts.SaveAgreementArtifacts(ctx, scope, stores.AgreementArtifactRecord{
 		AgreementID:       agreementID,
@@ -648,11 +649,12 @@ func (s ArtifactPipelineService) finalizeExecutedArtifact(ctx context.Context, s
 	if err != nil {
 		return stores.AgreementArtifactRecord{}, err
 	}
-	if err := s.appendPipelineAudit(ctx, scope, agreement.ID, "artifact.executed_generated", correlationID, map[string]any{
+	auditErr := s.appendPipelineAudit(ctx, scope, agreement.ID, "artifact.executed_generated", correlationID, map[string]any{
 		"object_key": rendered.ObjectKey,
 		"sha256":     rendered.SHA256,
-	}); err != nil {
-		return stores.AgreementArtifactRecord{}, err
+	})
+	if auditErr != nil {
+		return stores.AgreementArtifactRecord{}, auditErr
 	}
 	return record, nil
 }
@@ -713,8 +715,9 @@ func (s ArtifactPipelineService) finalizeCertificateArtifact(ctx context.Context
 	if err != nil {
 		return stores.AgreementArtifactRecord{}, err
 	}
-	if err := validateAgreementReadyForArtifactFinalize(agreement, artifactTypeCertificate); err != nil {
-		return stores.AgreementArtifactRecord{}, err
+	validateErr := validateAgreementReadyForArtifactFinalize(agreement, artifactTypeCertificate)
+	if validateErr != nil {
+		return stores.AgreementArtifactRecord{}, validateErr
 	}
 	existing, err := s.artifacts.GetAgreementArtifacts(ctx, scope, agreementID)
 	if err != nil {

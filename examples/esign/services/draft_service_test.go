@@ -75,15 +75,17 @@ func TestDraftServiceSendRollbackKeepsDraftWhenValidationFails(t *testing.T) {
 		t.Fatalf("expected first create replay=false")
 	}
 
-	if _, err := draftSvc.Send(ctx, scope, draft.ID, DraftSendInput{
+	_, sendErr := draftSvc.Send(ctx, scope, draft.ID, DraftSendInput{
 		ExpectedRevision: draft.Revision,
 		CreatedByUserID:  "author-1",
-	}); err == nil {
+	})
+	if sendErr == nil {
 		t.Fatalf("expected send to fail validation")
 	}
 
-	if _, err := draftSvc.Get(ctx, scope, draft.ID, "author-1"); err != nil {
-		t.Fatalf("expected draft to remain after failed send, got %v", err)
+	_, getErr := draftSvc.Get(ctx, scope, draft.ID, "author-1")
+	if getErr != nil {
+		t.Fatalf("expected draft to remain after failed send, got %v", getErr)
 	}
 
 	agreements, err := store.ListAgreements(ctx, scope, stores.AgreementQuery{})
@@ -206,7 +208,8 @@ func TestDraftServiceStartReviewMaterializesAgreementAndOpensReview(t *testing.T
 		t.Fatalf("expected wizard draft to be deleted after start review")
 	}
 
-	if _, err := draftSvc.Get(ctx, scope, draft.ID, "author-1"); err == nil {
+	_, getErr := draftSvc.Get(ctx, scope, draft.ID, "author-1")
+	if getErr == nil {
 		t.Fatalf("expected wizard draft to be removed after start review")
 	}
 

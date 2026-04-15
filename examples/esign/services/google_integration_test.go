@@ -207,8 +207,9 @@ func TestGoogleIntegrationConnectStatusDisconnect(t *testing.T) {
 		t.Fatalf("expected status scopes/expiry details, got %+v", status)
 	}
 
-	if err := service.Disconnect(ctx, scope, "user-1"); err != nil {
-		t.Fatalf("Disconnect: %v", err)
+	disconnectErr := service.Disconnect(ctx, scope, "user-1")
+	if disconnectErr != nil {
+		t.Fatalf("Disconnect: %v", disconnectErr)
 	}
 	status, err = service.Status(ctx, scope, "user-1")
 	if err != nil {
@@ -453,8 +454,9 @@ func TestGoogleIntegrationSupportsMultipleAccountsPerUser(t *testing.T) {
 		t.Fatalf("expected separate credentials per account, got shared id %q", workCredential.ID)
 	}
 
-	if err := service.Disconnect(ctx, scope, personalScoped); err != nil {
-		t.Fatalf("Disconnect personal account: %v", err)
+	disconnectErr := service.Disconnect(ctx, scope, personalScoped)
+	if disconnectErr != nil {
+		t.Fatalf("Disconnect personal account: %v", disconnectErr)
 	}
 	personalStatus, err := service.Status(ctx, scope, personalScoped)
 	if err != nil {
@@ -1317,8 +1319,9 @@ func TestGoogleHTTPProviderContractAgainstEmulator(t *testing.T) {
 		t.Fatalf("NewGoogleHTTPProvider: %v", err)
 	}
 
-	if err := provider.HealthCheck(ctx); err != nil {
-		t.Fatalf("HealthCheck: %v", err)
+	healthErr := provider.HealthCheck(ctx)
+	if healthErr != nil {
+		t.Fatalf("HealthCheck: %v", healthErr)
 	}
 
 	token, err := provider.ExchangeCode(ctx, "oauth-code-1", "https://app.example.test/callback", DefaultGoogleOAuthScopes)
@@ -1420,31 +1423,34 @@ func TestGoogleIntegrationRealAdapterRevokedAccessRecovery(t *testing.T) {
 		NewAgreementService(store),
 		WithGoogleProviderMode(GoogleProviderModeReal),
 	)
-	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+	_, connectErr := service.Connect(ctx, scope, GoogleConnectInput{
 		UserID:   "ops-user",
 		AuthCode: "oauth-recovery-1",
-	}); err != nil {
-		t.Fatalf("Connect: %v", err)
+	})
+	if connectErr != nil {
+		t.Fatalf("Connect: %v", connectErr)
 	}
 
 	emulator.Revoke("access-oauth-recovery-1")
-	if _, err := service.SearchFiles(ctx, scope, GoogleDriveQueryInput{UserID: "ops-user", Query: "nda"}); err == nil {
+	_, searchErr := service.SearchFiles(ctx, scope, GoogleDriveQueryInput{UserID: "ops-user", Query: "nda"})
+	if searchErr == nil {
 		t.Fatal("expected SearchFiles to fail with revoked access")
 	} else {
 		var coded *goerrors.Error
-		if !errors.As(err, &coded) {
-			t.Fatalf("expected goerrors.Error, got %T", err)
+		if !errors.As(searchErr, &coded) {
+			t.Fatalf("expected goerrors.Error, got %T", searchErr)
 		}
 		if coded.TextCode != string(ErrorCodeGoogleAccessRevoked) {
-			t.Fatalf("expected GOOGLE_ACCESS_REVOKED, got %q (%v)", coded.TextCode, err)
+			t.Fatalf("expected GOOGLE_ACCESS_REVOKED, got %q (%v)", coded.TextCode, searchErr)
 		}
 	}
 
-	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+	_, connectErr = service.Connect(ctx, scope, GoogleConnectInput{
 		UserID:   "ops-user",
 		AuthCode: "oauth-recovery-2",
-	}); err != nil {
-		t.Fatalf("Connect recovery: %v", err)
+	})
+	if connectErr != nil {
+		t.Fatalf("Connect recovery: %v", connectErr)
 	}
 	search, err := service.SearchFiles(ctx, scope, GoogleDriveQueryInput{UserID: "ops-user", Query: "nda"})
 	if err != nil {

@@ -37,14 +37,15 @@ func TestPhase10RuntimeStoreSQLiteDoesNotWriteLegacySnapshotState(t *testing.T) 
 	defer func() { _ = cleanup() }()
 
 	scope := stores.Scope{TenantID: "tenant-phase10", OrgID: "org-phase10"}
-	if _, err := adapter.Create(context.Background(), scope, stores.DocumentRecord{
+	_, createErr := adapter.Create(context.Background(), scope, stores.DocumentRecord{
 		ID:                 "doc-phase10-cutover",
 		CreatedByUserID:    "user-phase10",
 		SourceObjectKey:    "tenant/tenant-phase10/org/org-phase10/docs/doc-phase10-cutover.pdf",
 		SourceOriginalName: "source.pdf",
 		SourceSHA256:       strings.Repeat("a", 64),
-	}); err != nil {
-		t.Fatalf("Create: %v", err)
+	})
+	if createErr != nil {
+		t.Fatalf("Create: %v", createErr)
 	}
 
 	exists, err := sqliteTableExists(context.Background(), bootstrap.SQLDB, removedSnapshotStateTable)
@@ -66,20 +67,22 @@ func TestPhase10RuntimeStoreSQLitePersistsAcrossBootstrapRestart(t *testing.T) {
 		_ = first.Close()
 		t.Fatalf("NewStoreAdapter first: %v", err)
 	}
-	if _, err := firstStore.Create(context.Background(), scope, stores.DocumentRecord{
+	_, createErr := firstStore.Create(context.Background(), scope, stores.DocumentRecord{
 		ID:                 "doc-phase10-restart",
 		CreatedByUserID:    "user-phase10-restart",
 		SourceObjectKey:    "tenant/tenant-phase10-restart/org/org-phase10-restart/docs/doc-phase10-restart.pdf",
 		SourceOriginalName: "source.pdf",
 		SourceSHA256:       strings.Repeat("b", 64),
-	}); err != nil {
+	})
+	if createErr != nil {
 		_ = firstCleanup()
 		_ = first.Close()
-		t.Fatalf("Create first: %v", err)
+		t.Fatalf("Create first: %v", createErr)
 	}
 	_ = firstCleanup()
-	if err := first.Close(); err != nil {
-		t.Fatalf("close first bootstrap: %v", err)
+	closeErr := first.Close()
+	if closeErr != nil {
+		t.Fatalf("close first bootstrap: %v", closeErr)
 	}
 
 	second := newPhase10SQLiteBootstrap(t, dsn)

@@ -691,9 +691,9 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 
 	valuesByField := map[string]stores.FieldValueRecord{}
 	if s.signing != nil {
-		values, err := s.signing.ListFieldValuesByRecipient(ctx, scope, agreement.ID, recipient.ID)
-		if err != nil {
-			return SignerSessionContext{}, err
+		values, loadErr := s.signing.ListFieldValuesByRecipient(ctx, scope, agreement.ID, recipient.ID)
+		if loadErr != nil {
+			return SignerSessionContext{}, loadErr
 		}
 		for _, value := range values {
 			if strings.TrimSpace(value.FieldID) == "" {
@@ -1059,7 +1059,8 @@ func (s SigningService) UpsertFieldValue(ctx context.Context, scope stores.Scope
 	if err != nil {
 		return stores.FieldValueRecord{}, err
 	}
-	if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
+	err = ensureActiveStageSigner(recipient, activeStage, activeSigners)
+	if err != nil {
 		return stores.FieldValueRecord{}, err
 	}
 	fieldID := resolveFieldInstanceID(input.FieldInstanceID, input.FieldID)
@@ -1070,7 +1071,8 @@ func (s SigningService) UpsertFieldValue(ctx context.Context, scope stores.Scope
 	if !ok {
 		return stores.FieldValueRecord{}, domainValidationError("fields", "id", "not found")
 	}
-	if err := validateFieldDefinitionReference(field, input.FieldDefinitionID); err != nil {
+	err = validateFieldDefinitionReference(field, input.FieldDefinitionID)
+	if err != nil {
 		return stores.FieldValueRecord{}, err
 	}
 	if strings.TrimSpace(field.RecipientID) != strings.TrimSpace(recipient.ID) {
@@ -1081,7 +1083,8 @@ func (s SigningService) UpsertFieldValue(ctx context.Context, scope stores.Scope
 	if field.Type == stores.FieldTypeDateSigned {
 		resolvedText = s.now().UTC().Format(time.RFC3339)
 	}
-	if err := validateFieldValueInput(field, resolvedText, input.ValueBool); err != nil {
+	err = validateFieldValueInput(field, resolvedText, input.ValueBool)
+	if err != nil {
 		return stores.FieldValueRecord{}, err
 	}
 
@@ -1125,7 +1128,8 @@ func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.S
 	if err != nil {
 		return SignerSignatureUploadContract{}, err
 	}
-	if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
+	err = ensureActiveStageSigner(recipient, activeStage, activeSigners)
+	if err != nil {
 		return SignerSignatureUploadContract{}, err
 	}
 	fieldID := resolveFieldInstanceID(input.FieldInstanceID, input.FieldID)
@@ -1136,7 +1140,8 @@ func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.S
 	if !ok {
 		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_instance_id", "not found")
 	}
-	if err := validateFieldDefinitionReference(field, input.FieldDefinitionID); err != nil {
+	err = validateFieldDefinitionReference(field, input.FieldDefinitionID)
+	if err != nil {
 		return SignerSignatureUploadContract{}, err
 	}
 	if !isSignatureAttachFieldType(field.Type) {
@@ -1310,7 +1315,8 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 	if err != nil {
 		return SignerSignatureResult{}, err
 	}
-	if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
+	err = ensureActiveStageSigner(recipient, activeStage, activeSigners)
+	if err != nil {
 		return SignerSignatureResult{}, err
 	}
 	fieldID := resolveFieldInstanceID(input.FieldInstanceID, input.FieldID)
@@ -1321,7 +1327,8 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 	if !ok {
 		return SignerSignatureResult{}, domainValidationError("fields", "id", "not found")
 	}
-	if err := validateFieldDefinitionReference(field, input.FieldDefinitionID); err != nil {
+	err = validateFieldDefinitionReference(field, input.FieldDefinitionID)
+	if err != nil {
 		return SignerSignatureResult{}, err
 	}
 	if !isSignatureAttachFieldType(field.Type) {
@@ -1362,7 +1369,7 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 	uploadTokenHash := ""
 	releaseReservation := func() {}
 	if signatureType == "drawn" {
-		grant, err := s.validateSignatureUploadGrant(ctx, scope, signatureUploadValidationInput{
+		grant, grantErr := s.validateSignatureUploadGrant(ctx, scope, signatureUploadValidationInput{
 			UploadToken: uploadToken,
 			AgreementID: agreement.ID,
 			RecipientID: recipient.ID,
@@ -1370,12 +1377,12 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 			ObjectKey:   objectKey,
 			SHA256:      sha256Hex,
 		})
-		if err != nil {
-			return SignerSignatureResult{}, err
+		if grantErr != nil {
+			return SignerSignatureResult{}, grantErr
 		}
-		receipt, ok, err := s.resolveSignatureUploadReceipt(ctx, scope, uploadToken, grant)
-		if err != nil {
-			return SignerSignatureResult{}, err
+		receipt, ok, receiptErr := s.resolveSignatureUploadReceipt(ctx, scope, uploadToken, grant)
+		if receiptErr != nil {
+			return SignerSignatureResult{}, receiptErr
 		}
 		if !ok {
 			return SignerSignatureResult{}, domainValidationError("signature_upload", "upload_token", "signature upload object not confirmed")
@@ -1386,9 +1393,9 @@ func (s SigningService) AttachSignatureArtifact(ctx context.Context, scope store
 		if receipt.SizeBytes < 0 || receipt.SizeBytes > defaultSignatureUploadMaxBytes {
 			return SignerSignatureResult{}, domainValidationError("signature_upload", "size_bytes", "invalid content size")
 		}
-		release, err := s.reserveSignatureUploadGrant(uploadToken, s.now())
-		if err != nil {
-			return SignerSignatureResult{}, err
+		release, reserveErr := s.reserveSignatureUploadGrant(uploadToken, s.now())
+		if reserveErr != nil {
+			return SignerSignatureResult{}, reserveErr
 		}
 		releaseReservation = release
 		uploadTokenHash = hashUploadToken(uploadToken)
@@ -1646,7 +1653,8 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 		if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
 			return domainValidationError("agreements", "status", "submit requires sent or in_progress status")
 		}
-		if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
+		err = ensureActiveStageSigner(recipient, activeStage, activeSigners)
+		if err != nil {
 			return err
 		}
 		review, err := txSvc.resolveSignerReviewContext(ctx, scope, agreement.ID, recipient.ID)
@@ -1660,7 +1668,8 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 		if !txSvc.consentCaptured(ctx, scope, agreement.ID, recipient.ID) {
 			return domainValidationError("consent", "accepted", "consent must be captured before submit")
 		}
-		if err := txSvc.ensureRequiredFieldsCompleted(ctx, scope, agreement.ID, recipient.ID, fields); err != nil {
+		err = txSvc.ensureRequiredFieldsCompleted(ctx, scope, agreement.ID, recipient.ID, fields)
+		if err != nil {
 			return err
 		}
 
@@ -1858,7 +1867,8 @@ func (s SigningService) Decline(ctx context.Context, scope stores.Scope, token s
 	if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
 		return SignerDeclineResult{}, domainValidationError("agreements", "status", "decline requires sent or in_progress status")
 	}
-	if err := ensureActiveStageSigner(recipient, activeStage, activeSigners); err != nil {
+	err = ensureActiveStageSigner(recipient, activeStage, activeSigners)
+	if err != nil {
 		return SignerDeclineResult{}, err
 	}
 	reason := strings.TrimSpace(input.Reason)
@@ -2176,7 +2186,8 @@ func (s SigningService) resolveSubmitReplayFromAudit(ctx context.Context, scope 
 			continue
 		}
 		decoded := map[string]any{}
-		if err := json.Unmarshal([]byte(metadataJSON), &decoded); err != nil {
+		err = json.Unmarshal([]byte(metadataJSON), &decoded)
+		if err != nil {
 			continue
 		}
 		if strings.TrimSpace(fmt.Sprint(decoded["idempotency_key"])) != idempotencyKey {
@@ -2485,7 +2496,7 @@ func (s SigningService) parseSignatureUploadGrant(uploadToken string) (signature
 	}
 
 	mac := hmac.New(sha256.New, s.signatureUploadSecret)
-	if _, err := mac.Write(payload); err != nil {
+	if _, err = mac.Write(payload); err != nil {
 		return signatureUploadGrant{}, err
 	}
 	expectedSignature := mac.Sum(nil)
@@ -2505,7 +2516,8 @@ func (s SigningService) parseSignatureUploadGrant(uploadToken string) (signature
 		SizeBytes   int64  `json:"size_bytes"`
 		ExpiresAt   string `json:"expires_at"`
 	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
+	err = json.Unmarshal(payload, &claims)
+	if err != nil {
 		return signatureUploadGrant{}, domainValidationError("signature_upload", "upload_token", "invalid signed upload token claims")
 	}
 	expiresAt, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(claims.ExpiresAt))
