@@ -1171,6 +1171,24 @@ func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]R
 	if actor == uuid.Nil {
 		return nil, 0, ErrForbidden
 	}
+	scope := r.scope(ctx)
+	filter, limit, offset, includeGlobal := roleListFilter(actor, scope, opts)
+	if includeGlobal && (scope.TenantID != uuid.Nil || scope.OrgID != uuid.Nil) {
+		roles, total, err := r.listScopedAndGlobalRoles(ctx, filter, limit, offset)
+		if err != nil {
+			return nil, 0, err
+		}
+		return roles, total, nil
+	}
+
+	page, err := r.registry.ListRoles(ctx, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	return roleRecordsFromDefinitions(page.Roles), page.Total, nil
+}
+
+func roleListFilter(actor uuid.UUID, scope users.ScopeFilter, opts ListOptions) (users.RoleFilter, int, int, bool) {
 	limit := opts.PerPage
 	if limit <= 0 {
 		limit = 10
@@ -1184,7 +1202,6 @@ func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]R
 	if raw, ok := opts.Filters["include_global"]; ok {
 		includeGlobal = toBool(raw)
 	}
-	scope := r.scope(ctx)
 	filter := users.RoleFilter{
 		Actor:         users.ActorRef{ID: actor},
 		Scope:         scope,
@@ -1195,67 +1212,63 @@ func (r *GoUsersRoleRepository) List(ctx context.Context, opts ListOptions) ([]R
 	if roleKey := strings.TrimSpace(toString(opts.Filters["role_key"])); roleKey != "" {
 		filter.RoleKey = roleKey
 	}
+	return filter, limit, offset, includeGlobal
+}
 
-	// If scoped, optionally merge global roles (scope-less).
-	if includeGlobal && (scope.TenantID != uuid.Nil || scope.OrgID != uuid.Nil) {
-		scopedFilter := filter
-		scopedFilter.Pagination = users.Pagination{Limit: 200, Offset: 0}
-		scopedRoles, err := r.listAllRoles(ctx, scopedFilter)
-		if err != nil {
-			return nil, 0, err
-		}
-		globalFilter := filter
-		globalFilter.Scope = users.ScopeFilter{}
-		globalFilter.Pagination = users.Pagination{Limit: 200, Offset: 0}
-		globalRoles, err := r.listAllRoles(ctx, globalFilter)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		merged := make([]users.RoleDefinition, 0, len(scopedRoles)+len(globalRoles))
-		seen := map[uuid.UUID]bool{}
-		for _, role := range scopedRoles {
-			if role.ID == uuid.Nil || seen[role.ID] {
-				continue
-			}
-			seen[role.ID] = true
-			merged = append(merged, role)
-		}
-		for _, role := range globalRoles {
-			if role.ID == uuid.Nil || seen[role.ID] {
-				continue
-			}
-			seen[role.ID] = true
-			merged = append(merged, role)
-		}
-
-		sort.SliceStable(merged, func(i, j int) bool {
-			if merged[i].Order != merged[j].Order {
-				return merged[i].Order < merged[j].Order
-			}
-			return strings.ToLower(merged[i].Name) < strings.ToLower(merged[j].Name)
-		})
-
-		total := len(merged)
-		start := min(max(offset, 0), total)
-		end := min(start+limit, total)
-		pageSlice := merged[start:end]
-		roles := make([]RoleRecord, 0, len(pageSlice))
-		for _, role := range pageSlice {
-			roles = append(roles, fromUsersRole(role))
-		}
-		return roles, total, nil
-	}
-
-	page, err := r.registry.ListRoles(ctx, filter)
+func (r *GoUsersRoleRepository) listScopedAndGlobalRoles(ctx context.Context, filter users.RoleFilter, limit, offset int) ([]RoleRecord, int, error) {
+	scopedRoles, err := r.listAllRoles(ctx, resetRolePagination(filter))
 	if err != nil {
 		return nil, 0, err
 	}
-	roles := make([]RoleRecord, 0, len(page.Roles))
-	for _, role := range page.Roles {
+	globalFilter := resetRolePagination(filter)
+	globalFilter.Scope = users.ScopeFilter{}
+	globalRoles, err := r.listAllRoles(ctx, globalFilter)
+	if err != nil {
+		return nil, 0, err
+	}
+	merged := mergeRoleDefinitions(scopedRoles, globalRoles)
+	total := len(merged)
+	start := min(max(offset, 0), total)
+	end := min(start+limit, total)
+	return roleRecordsFromDefinitions(merged[start:end]), total, nil
+}
+
+func resetRolePagination(filter users.RoleFilter) users.RoleFilter {
+	filter.Pagination = users.Pagination{Limit: 200, Offset: 0}
+	return filter
+}
+
+func mergeRoleDefinitions(groups ...[]users.RoleDefinition) []users.RoleDefinition {
+	total := 0
+	for _, group := range groups {
+		total += len(group)
+	}
+	merged := make([]users.RoleDefinition, 0, total)
+	seen := map[uuid.UUID]bool{}
+	for _, group := range groups {
+		for _, role := range group {
+			if role.ID == uuid.Nil || seen[role.ID] {
+				continue
+			}
+			seen[role.ID] = true
+			merged = append(merged, role)
+		}
+	}
+	sort.SliceStable(merged, func(i, j int) bool {
+		if merged[i].Order != merged[j].Order {
+			return merged[i].Order < merged[j].Order
+		}
+		return strings.ToLower(merged[i].Name) < strings.ToLower(merged[j].Name)
+	})
+	return merged
+}
+
+func roleRecordsFromDefinitions(defs []users.RoleDefinition) []RoleRecord {
+	roles := make([]RoleRecord, 0, len(defs))
+	for _, role := range defs {
 		roles = append(roles, fromUsersRole(role))
 	}
-	return roles, page.Total, nil
+	return roles
 }
 
 func (r *GoUsersRoleRepository) listAllRoles(ctx context.Context, filter users.RoleFilter) ([]users.RoleDefinition, error) {

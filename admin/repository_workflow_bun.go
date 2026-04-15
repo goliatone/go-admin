@@ -425,30 +425,7 @@ func (r *BunWorkflowBindingRepository) Update(ctx context.Context, binding Workf
 				ActualVersion:   current.Version,
 			}
 		}
-
-		next := workflowcore.NormalizeWorkflowBinding(binding)
-		next.ID = current.ID
-		next.CreatedAt = current.CreatedAt
-		next.UpdatedAt = time.Now().UTC()
-		next.Version = current.Version + 1
-		if next.ScopeType == "" {
-			next.ScopeType = current.ScopeType
-		}
-		if next.ScopeRef == "" {
-			next.ScopeRef = current.ScopeRef
-		}
-		if next.WorkflowID == "" {
-			next.WorkflowID = current.WorkflowID
-		}
-		if next.Priority == 100 && binding.Priority == 0 {
-			next.Priority = current.Priority
-		}
-		if next.Status == "" {
-			next.Status = current.Status
-		}
-		if strings.TrimSpace(next.Environment) == "" {
-			next.Environment = current.Environment
-		}
+		next := normalizeUpdatedWorkflowBinding(current, binding)
 
 		conflictID, err := findWorkflowBindingConflict(ctx, tx, next, current.ID)
 		if err != nil {
@@ -472,15 +449,7 @@ func (r *BunWorkflowBindingRepository) Update(ctx context.Context, binding Workf
 			Column("scope_type", "scope_ref", "workflow_id", "priority", "status", "environment", "version", "updated_at").
 			Exec(ctx); err != nil {
 			if workflowBindingUniqueConstraintConflict(err) {
-				existingID, _ := findWorkflowBindingConflict(ctx, tx, next, current.ID)
-				return WorkflowBindingConflictError{
-					BindingID:         next.ID,
-					ExistingBindingID: existingID,
-					ScopeType:         next.ScopeType,
-					ScopeRef:          next.ScopeRef,
-					Environment:       next.Environment,
-					Priority:          next.Priority,
-				}
+				return workflowBindingConflictFromUniqueError(ctx, tx, next, current.ID)
 			}
 			return err
 		}
@@ -490,6 +459,45 @@ func (r *BunWorkflowBindingRepository) Update(ctx context.Context, binding Workf
 		return WorkflowBinding{}, err
 	}
 	return updated, nil
+}
+
+func normalizeUpdatedWorkflowBinding(current WorkflowBinding, binding WorkflowBinding) WorkflowBinding {
+	next := workflowcore.NormalizeWorkflowBinding(binding)
+	next.ID = current.ID
+	next.CreatedAt = current.CreatedAt
+	next.UpdatedAt = time.Now().UTC()
+	next.Version = current.Version + 1
+	if next.ScopeType == "" {
+		next.ScopeType = current.ScopeType
+	}
+	if next.ScopeRef == "" {
+		next.ScopeRef = current.ScopeRef
+	}
+	if next.WorkflowID == "" {
+		next.WorkflowID = current.WorkflowID
+	}
+	if next.Priority == 100 && binding.Priority == 0 {
+		next.Priority = current.Priority
+	}
+	if next.Status == "" {
+		next.Status = current.Status
+	}
+	if strings.TrimSpace(next.Environment) == "" {
+		next.Environment = current.Environment
+	}
+	return next
+}
+
+func workflowBindingConflictFromUniqueError(ctx context.Context, tx bun.Tx, next WorkflowBinding, currentID string) error {
+	existingID, _ := findWorkflowBindingConflict(ctx, tx, next, currentID)
+	return WorkflowBindingConflictError{
+		BindingID:         next.ID,
+		ExistingBindingID: existingID,
+		ScopeType:         next.ScopeType,
+		ScopeRef:          next.ScopeRef,
+		Environment:       next.Environment,
+		Priority:          next.Priority,
+	}
 }
 
 func (r *BunWorkflowBindingRepository) Delete(ctx context.Context, id string) error {

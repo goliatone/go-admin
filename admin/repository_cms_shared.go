@@ -476,21 +476,46 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	content.Slug = common.Slug
 	content.Locale = common.Locale
 	content.Status = common.Status
-	if requested, ok := record["requested_locale"].(string); ok {
-		content.RequestedLocale = strings.TrimSpace(requested)
-	} else if requested := strings.TrimSpace(toString(record["requested_locale"])); requested != "" {
-		content.RequestedLocale = requested
+	applyCMSContentLocaleFields(&content, record)
+	applyCMSContentTypeFields(&content, record)
+	mapped := mapCMSDataFields(record)
+	content.Data = mapped.Data
+	content.Blocks = mapped.Blocks
+	content.EmbeddedBlocks = mapped.Embedded
+	content.SchemaVersion = mapped.SchemaVersion
+	applyCMSContentNavigation(&content, record)
+	if meta, ok := record["metadata"].(map[string]any); ok {
+		content.Metadata = primitives.CloneAnyMap(meta)
 	}
-	if resolved, ok := record["resolved_locale"].(string); ok {
-		content.ResolvedLocale = strings.TrimSpace(resolved)
-	} else if resolved := strings.TrimSpace(toString(record["resolved_locale"])); resolved != "" {
-		content.ResolvedLocale = resolved
+	copyCMSContentDataFields(content.Data, record)
+	resolveCMSContentRouteKey(&content)
+	return content
+}
+
+func applyCMSContentLocaleFields(content *CMSContent, record map[string]any) {
+	if content == nil {
+		return
 	}
+	content.RequestedLocale = normalizedCMSLocaleField(record["requested_locale"])
+	content.ResolvedLocale = normalizedCMSLocaleField(record["resolved_locale"])
 	if missing, ok := record["missing_requested_locale"].(bool); ok {
 		content.MissingRequestedLocale = missing
 	}
 	if locales := normalizedLocaleList(record["available_locales"]); len(locales) > 0 {
 		content.AvailableLocales = append([]string{}, locales...)
+	}
+}
+
+func normalizedCMSLocaleField(raw any) string {
+	if value, ok := raw.(string); ok {
+		return strings.TrimSpace(value)
+	}
+	return strings.TrimSpace(toString(raw))
+}
+
+func applyCMSContentTypeFields(content *CMSContent, record map[string]any) {
+	if content == nil {
+		return
 	}
 	if ctype, ok := record["content_type"].(string); ok {
 		if content.ContentTypeSlug == "" {
@@ -509,11 +534,12 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	if content.ContentType == "" && content.ContentTypeSlug != "" {
 		content.ContentType = content.ContentTypeSlug
 	}
-	mapped := mapCMSDataFields(record)
-	content.Data = mapped.Data
-	content.Blocks = mapped.Blocks
-	content.EmbeddedBlocks = mapped.Embedded
-	content.SchemaVersion = mapped.SchemaVersion
+}
+
+func applyCMSContentNavigation(content *CMSContent, record map[string]any) {
+	if content == nil {
+		return
+	}
 	content.Navigation = normalizeNavigationVisibilityMap(record["_navigation"])
 	if len(content.Navigation) == 0 {
 		content.Navigation = normalizeNavigationVisibilityMap(content.Data["_navigation"])
@@ -528,9 +554,9 @@ func mapToCMSContent(record map[string]any) CMSContent {
 	if len(content.EffectiveMenuLocations) > 0 {
 		content.Data["effective_menu_locations"] = append([]string{}, content.EffectiveMenuLocations...)
 	}
-	if meta, ok := record["metadata"].(map[string]any); ok {
-		content.Metadata = primitives.CloneAnyMap(meta)
-	}
+}
+
+func copyCMSContentDataFields(data map[string]any, record map[string]any) {
 	for key, val := range record {
 		if _, skip := cmsContentReservedKeys[key]; skip {
 			continue
@@ -538,15 +564,18 @@ func mapToCMSContent(record map[string]any) CMSContent {
 		if strings.HasPrefix(key, "_") {
 			continue
 		}
-		content.Data[key] = val
+		data[key] = val
 	}
-	if content.RouteKey == "" {
-		content.RouteKey = strings.TrimSpace(toString(content.Data["route_key"]))
+}
+
+func resolveCMSContentRouteKey(content *CMSContent) {
+	if content == nil || content.RouteKey != "" {
+		return
 	}
+	content.RouteKey = strings.TrimSpace(toString(content.Data["route_key"]))
 	if content.RouteKey == "" {
 		content.RouteKey = strings.TrimSpace(toString(content.Metadata["route_key"]))
 	}
-	return content
 }
 
 func mergeCMSContentUpdate(existing CMSContent, content CMSContent, record map[string]any) CMSContent {

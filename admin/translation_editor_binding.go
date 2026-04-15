@@ -136,52 +136,10 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 	}
 
 	channel := translationChannelFromRequest(c, adminCtx, body)
-	editorCtx, err := b.loadVariantEditorContext(adminCtx.Context, strings.TrimSpace(variantID), channel)
+	editorCtx, identity, fields, metadata, err := b.prepareVariantUpdate(adminCtx, variantID, body, channel)
 	if err != nil {
 		return nil, err
 	}
-	identity := translationIdentityFromAdminContext(adminCtx)
-	if scopeErr := b.ensureEditorScope(identity, editorCtx); scopeErr != nil {
-		return nil, scopeErr
-	}
-	if !editorCtx.HasTarget {
-		return nil, notFoundDomainError("translation variant not found", map[string]any{
-			"variant_id": strings.TrimSpace(variantID),
-		})
-	}
-
-	fields, err := parseTranslationEditorFields(body["fields"])
-	if err != nil {
-		return nil, err
-	}
-	metadata := extractMap(body["metadata"])
-	expectedVersion := translationEditorExpectedVersion(body)
-	if expectedVersion <= 0 {
-		return nil, validationDomainError("expected_version must be > 0", map[string]any{
-			"field": "expected_version",
-		})
-	}
-	if editorCtx.TargetRowVersion != expectedVersion {
-		latestState := b.assignmentDetailVariantConflictPayload(adminCtx.Context, editorCtx)
-		if translationEditorAutosaveRequested(body) {
-			return nil, AutosaveConflictError{
-				Panel:             editorCtx.Family.ContentType,
-				EntityID:          strings.TrimSpace(editorCtx.TargetRecordID),
-				Version:           strconv.FormatInt(editorCtx.TargetRowVersion, 10),
-				ExpectedVersion:   strconv.FormatInt(expectedVersion, 10),
-				LatestStatePath:   strings.TrimSpace(editorCtx.TargetVariant.ID),
-				LatestServerState: latestState,
-			}
-		}
-		return nil, NewDomainError(string(translationcore.ErrorVersionConflict), "translation variant version conflict", map[string]any{
-			"variant_id":       strings.TrimSpace(editorCtx.TargetVariant.ID),
-			"record_id":        strings.TrimSpace(editorCtx.TargetRecordID),
-			"expected_version": expectedVersion,
-			"actual_version":   editorCtx.TargetRowVersion,
-			"family_id":        strings.TrimSpace(editorCtx.Family.ID),
-		})
-	}
-
 	actorID := strings.TrimSpace(identity.ActorID)
 	sourceSyncState, err := b.resolveEditorSourceSyncState(editorCtx, body, metadata)
 	if err != nil {
@@ -194,24 +152,87 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 	if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, channel); syncErr != nil {
 		return nil, syncErr
 	}
-	if b.admin.activity != nil {
-		_ = b.admin.activity.Record(adminCtx.Context, ActivityEntry{
-			Actor:  actorID,
-			Action: "translation.variant.saved",
-			Object: "translation_variant:" + strings.TrimSpace(editorCtx.TargetVariant.ID),
-			Metadata: map[string]any{
-				"family_id":     strings.TrimSpace(editorCtx.Family.ID),
-				"variant_id":    strings.TrimSpace(editorCtx.TargetVariant.ID),
-				"record_id":     strings.TrimSpace(editorCtx.TargetRecordID),
-				"content_type":  strings.TrimSpace(editorCtx.Family.ContentType),
-				"target_locale": strings.TrimSpace(editorCtx.TargetVariant.Locale),
-				"row_version":   nextVersion,
-				"autosave":      translationEditorAutosaveRequested(body),
-			},
+	b.recordVariantUpdateActivity(adminCtx.Context, editorCtx, actorID, nextVersion, translationEditorAutosaveRequested(body))
+	return b.variantUpdatePayload(adminCtx.Context, variantID, channel, body, updatedRecord, updatedFields, nextVersion)
+}
+
+func (b *translationQueueBinding) prepareVariantUpdate(adminCtx AdminContext, variantID string, body map[string]any, channel string) (translationEditorContext, translationTransportIdentity, map[string]string, map[string]any, error) {
+	editorCtx, err := b.loadVariantEditorContext(adminCtx.Context, strings.TrimSpace(variantID), channel)
+	if err != nil {
+		return translationEditorContext{}, translationTransportIdentity{}, nil, nil, err
+	}
+	identity := translationIdentityFromAdminContext(adminCtx)
+	if err := b.ensureEditorScope(identity, editorCtx); err != nil {
+		return translationEditorContext{}, translationTransportIdentity{}, nil, nil, err
+	}
+	if !editorCtx.HasTarget {
+		return translationEditorContext{}, translationTransportIdentity{}, nil, nil, notFoundDomainError("translation variant not found", map[string]any{
+			"variant_id": strings.TrimSpace(variantID),
 		})
 	}
+	fields, err := parseTranslationEditorFields(body["fields"])
+	if err != nil {
+		return translationEditorContext{}, translationTransportIdentity{}, nil, nil, err
+	}
+	metadata := extractMap(body["metadata"])
+	if err := b.ensureVariantUpdateVersion(adminCtx.Context, editorCtx, body); err != nil {
+		return translationEditorContext{}, translationTransportIdentity{}, nil, nil, err
+	}
+	return editorCtx, identity, fields, metadata, nil
+}
 
-	reloaded, err := b.loadVariantEditorContext(adminCtx.Context, strings.TrimSpace(variantID), channel)
+func (b *translationQueueBinding) ensureVariantUpdateVersion(ctx context.Context, editorCtx translationEditorContext, body map[string]any) error {
+	expectedVersion := translationEditorExpectedVersion(body)
+	if expectedVersion <= 0 {
+		return validationDomainError("expected_version must be > 0", map[string]any{
+			"field": "expected_version",
+		})
+	}
+	if editorCtx.TargetRowVersion == expectedVersion {
+		return nil
+	}
+	latestState := b.assignmentDetailVariantConflictPayload(ctx, editorCtx)
+	if translationEditorAutosaveRequested(body) {
+		return AutosaveConflictError{
+			Panel:             editorCtx.Family.ContentType,
+			EntityID:          strings.TrimSpace(editorCtx.TargetRecordID),
+			Version:           strconv.FormatInt(editorCtx.TargetRowVersion, 10),
+			ExpectedVersion:   strconv.FormatInt(expectedVersion, 10),
+			LatestStatePath:   strings.TrimSpace(editorCtx.TargetVariant.ID),
+			LatestServerState: latestState,
+		}
+	}
+	return NewDomainError(string(translationcore.ErrorVersionConflict), "translation variant version conflict", map[string]any{
+		"variant_id":       strings.TrimSpace(editorCtx.TargetVariant.ID),
+		"record_id":        strings.TrimSpace(editorCtx.TargetRecordID),
+		"expected_version": expectedVersion,
+		"actual_version":   editorCtx.TargetRowVersion,
+		"family_id":        strings.TrimSpace(editorCtx.Family.ID),
+	})
+}
+
+func (b *translationQueueBinding) recordVariantUpdateActivity(ctx context.Context, editorCtx translationEditorContext, actorID string, nextVersion int64, autosave bool) {
+	if b == nil || b.admin == nil || b.admin.activity == nil {
+		return
+	}
+	_ = b.admin.activity.Record(ctx, ActivityEntry{
+		Actor:  actorID,
+		Action: "translation.variant.saved",
+		Object: "translation_variant:" + strings.TrimSpace(editorCtx.TargetVariant.ID),
+		Metadata: map[string]any{
+			"family_id":     strings.TrimSpace(editorCtx.Family.ID),
+			"variant_id":    strings.TrimSpace(editorCtx.TargetVariant.ID),
+			"record_id":     strings.TrimSpace(editorCtx.TargetRecordID),
+			"content_type":  strings.TrimSpace(editorCtx.Family.ContentType),
+			"target_locale": strings.TrimSpace(editorCtx.TargetVariant.Locale),
+			"row_version":   nextVersion,
+			"autosave":      autosave,
+		},
+	})
+}
+
+func (b *translationQueueBinding) variantUpdatePayload(ctx context.Context, variantID, channel string, body map[string]any, updatedRecord any, updatedFields map[string]string, nextVersion int64) (map[string]any, error) {
+	reloaded, err := b.loadVariantEditorContext(ctx, strings.TrimSpace(variantID), channel)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +241,7 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 	reloaded.TargetRowVersion = nextVersion
 	currentAssignment := translationEditorAssignmentByLocale(reloaded.Family, reloaded.TargetVariant.Locale)
 	qaResults := b.translationQAResults(reloaded)
-	recordTranslationQAOutcomeMetric(adminCtx.Context, translationQAOutcomeEvent{
+	recordTranslationQAOutcomeMetric(ctx, translationQAOutcomeEvent{
 		Trigger:      "save",
 		AssignmentID: strings.TrimSpace(currentAssignment.ID),
 		EntityType:   strings.TrimSpace(reloaded.Family.ContentType),
@@ -230,31 +251,34 @@ func (b *translationQueueBinding) UpdateVariant(c router.Context, variantID stri
 		WarningCount: intValue(extractMap(qaResults["summary"])["warning_count"]),
 		BlockerCount: intValue(extractMap(qaResults["summary"])["blocker_count"]),
 	})
-
 	return map[string]any{
-		"data": map[string]any{
-			"variant_id":               strings.TrimSpace(reloaded.TargetVariant.ID),
-			"family_id":                strings.TrimSpace(reloaded.Family.ID),
-			"record_id":                strings.TrimSpace(reloaded.TargetRecordID),
-			"status":                   strings.TrimSpace(reloaded.TargetStatus),
-			"row_version":              nextVersion,
-			"version":                  nextVersion,
-			"fields":                   cloneStringMap(reloaded.TargetFields),
-			"source_hash_at_last_sync": strings.TrimSpace(reloaded.LastSyncedSourceHash),
-			"source_target_drift":      translationEditorDriftPayload(reloaded),
-			"field_completeness":       translationEditorFieldCompleteness(reloaded),
-			"field_drift":              translationEditorFieldDrift(reloaded),
-			"field_validations":        translationEditorFieldValidations(reloaded),
-			"updated_at":               translationEditorRecordUpdatedAt(updatedRecord),
-			"assignment_action_states": b.assignmentEditorActionStates(adminCtx.Context, reloaded, currentAssignment),
-			"review_action_states":     b.reviewActionStates(adminCtx.Context, currentAssignment),
-			"qa_results":               qaResults,
-			"assist":                   translationEditorAssistPayload(reloaded),
-		},
+		"data": translationEditorVariantPayload(ctx, b, reloaded, currentAssignment, updatedRecord, nextVersion, qaResults),
 		"meta": mergeTranslationChannelContract(map[string]any{
 			"autosave": translationEditorAutosaveRequested(body),
 		}, channel),
 	}, nil
+}
+
+func translationEditorVariantPayload(ctx context.Context, b *translationQueueBinding, reloaded translationEditorContext, currentAssignment TranslationAssignment, updatedRecord any, nextVersion int64, qaResults map[string]any) map[string]any {
+	return map[string]any{
+		"variant_id":               strings.TrimSpace(reloaded.TargetVariant.ID),
+		"family_id":                strings.TrimSpace(reloaded.Family.ID),
+		"record_id":                strings.TrimSpace(reloaded.TargetRecordID),
+		"status":                   strings.TrimSpace(reloaded.TargetStatus),
+		"row_version":              nextVersion,
+		"version":                  nextVersion,
+		"fields":                   cloneStringMap(reloaded.TargetFields),
+		"source_hash_at_last_sync": strings.TrimSpace(reloaded.LastSyncedSourceHash),
+		"source_target_drift":      translationEditorDriftPayload(reloaded),
+		"field_completeness":       translationEditorFieldCompleteness(reloaded),
+		"field_drift":              translationEditorFieldDrift(reloaded),
+		"field_validations":        translationEditorFieldValidations(reloaded),
+		"updated_at":               translationEditorRecordUpdatedAt(updatedRecord),
+		"assignment_action_states": b.assignmentEditorActionStates(ctx, reloaded, currentAssignment),
+		"review_action_states":     b.reviewActionStates(ctx, currentAssignment),
+		"qa_results":               qaResults,
+		"assist":                   translationEditorAssistPayload(reloaded),
+	}
 }
 
 func (b *translationQueueBinding) loadAssignmentEditorContext(ctx context.Context, assignment TranslationAssignment, environment string) (translationEditorContext, error) {

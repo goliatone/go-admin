@@ -385,140 +385,22 @@ func (m *Module) handleWorkflowRunSync(c router.Context, body map[string]any) (i
 	if err != nil {
 		return 0, nil, err
 	}
-	payload := struct {
-		Plan      gocore.SyncRunPlan    `json:"plan"`
-		Binding   gocore.SyncBinding    `json:"binding"`
-		Mode      string                `json:"mode"`
-		Direction string                `json:"direction"`
-		Changes   []gocore.SyncChange   `json:"changes"`
-		Metadata  map[string]any        `json:"metadata"`
-		Conflicts []gocore.SyncConflict `json:"conflicts"`
-	}{}
-	if decodeErr := decodeBodyMap(body, &payload); decodeErr != nil {
-		return 0, nil, validationError("invalid sync run payload", map[string]any{"field": "body"})
-	}
-	if rawPlan, ok := body["plan"].(map[string]any); ok {
-		payload.Plan = workflowSyncRunPlanFromMap(rawPlan, payload.Plan)
-	}
-	if rawBinding, ok := body["binding"].(map[string]any); ok {
-		payload.Binding = workflowSyncBindingFromMap(rawBinding, payload.Binding)
-	}
-	if mode := firstNonEmptyString(body["mode"], payload.Mode); mode != "" {
-		payload.Mode = mode
-	}
-	if direction := firstNonEmptyString(body["direction"], payload.Direction); direction != "" {
-		payload.Direction = direction
-	}
-	if metadata := extractMap(body["metadata"]); len(metadata) > 0 {
-		payload.Metadata = metadata
-	}
-	if rawChanges, ok := body["changes"].([]any); ok {
-		payload.Changes = workflowSyncChangesFromAny(rawChanges)
-	} else if rawChanges, ok := body["changes"].([]map[string]any); ok {
-		rows := make([]any, 0, len(rawChanges))
-		for _, row := range rawChanges {
-			rows = append(rows, row)
-		}
-		payload.Changes = workflowSyncChangesFromAny(rows)
-	}
-	if rawConflicts, ok := body["conflicts"].([]any); ok {
-		payload.Conflicts = workflowSyncConflictsFromAny(rawConflicts)
-	} else if rawConflicts, ok := body["conflicts"].([]map[string]any); ok {
-		rows := make([]any, 0, len(rawConflicts))
-		for _, row := range rawConflicts {
-			rows = append(rows, row)
-		}
-		payload.Conflicts = workflowSyncConflictsFromAny(rows)
-	}
-
-	binding := payload.Binding
-	if strings.TrimSpace(payload.Plan.BindingID) == "" {
-		if binding.Scope.Type == "" || binding.Scope.ID == "" {
-			scope, scopeErr := resolveScope(c.Context(), c, body)
-			if scopeErr != nil {
-				return 0, nil, scopeErr
-			}
-			binding.Scope = scope
-		}
-		if strings.TrimSpace(binding.ProviderID) == "" {
-			binding.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
-		}
-		if binding.Status == "" {
-			binding.Status = gocore.SyncBindingStatusActive
-		}
-		if binding.Direction == "" {
-			binding.Direction = gocore.SyncDirectionImport
-		}
-		upserted, upsertErr := runtime.syncBindingStore.Upsert(c.Context(), binding)
-		if upsertErr != nil {
-			return 0, nil, upsertErr
-		}
-		mode := workflowNormalizeSyncRunMode(payload.Mode, gocore.SyncRunModeApply)
-		if mode == "" {
-			mode = gocore.SyncRunModeApply
-		}
-		plan, planErr := runtime.planner.PlanSyncRun(c.Context(), gocore.PlanSyncRunRequest{
-			Binding:  upserted,
-			Mode:     mode,
-			Metadata: copyAnyMap(payload.Metadata),
-		})
-		if planErr != nil {
-			return 0, nil, planErr
-		}
-		payload.Plan = plan
-	}
-
-	direction := gocore.SyncDirection(strings.TrimSpace(strings.ToLower(payload.Direction)))
-	if direction == "" {
-		direction = payload.Plan.Checkpoint.Direction
-	}
-	if direction == "" {
-		direction = gocore.SyncDirectionImport
-	}
-
-	var result gocore.SyncRunResult
-	if direction == gocore.SyncDirectionExport {
-		result, err = runtime.runner.RunSyncExport(c.Context(), gocore.RunSyncExportRequest{
-			Plan:     payload.Plan,
-			Changes:  payload.Changes,
-			Metadata: copyAnyMap(payload.Metadata),
-		})
-	} else {
-		result, err = runtime.runner.RunSyncImport(c.Context(), gocore.RunSyncImportRequest{
-			Plan:     payload.Plan,
-			Changes:  payload.Changes,
-			Metadata: copyAnyMap(payload.Metadata),
-		})
-	}
+	payload, err := workflowSyncRunPayloadFromBody(body)
 	if err != nil {
 		return 0, nil, err
 	}
-
-	recordedConflicts := make([]map[string]any, 0)
-	for _, conflict := range payload.Conflicts {
-		if conflict.Scope.Type == "" || conflict.Scope.ID == "" {
-			conflict.Scope = payload.Plan.Checkpoint.Scope
-		}
-		if conflict.ProviderID == "" {
-			conflict.ProviderID = payload.Plan.Checkpoint.ProviderID
-		}
-		if conflict.ConnectionID == "" {
-			conflict.ConnectionID = payload.Plan.Checkpoint.ConnectionID
-		}
-		if conflict.SyncBindingID == "" {
-			conflict.SyncBindingID = payload.Plan.BindingID
-		}
-		if conflict.Status == "" {
-			conflict.Status = gocore.SyncConflictStatusPending
-		}
-		recorded, recordErr := runtime.conflicts.RecordSyncConflict(c.Context(), gocore.RecordSyncConflictRequest{
-			Conflict: conflict,
-			Metadata: copyAnyMap(payload.Metadata),
-		})
-		if recordErr != nil {
-			return 0, nil, recordErr
-		}
-		recordedConflicts = append(recordedConflicts, workflowSyncConflictToMap(recorded.Conflict))
+	payload.Plan, err = m.ensureWorkflowSyncRunPlan(c, body, runtime, payload)
+	if err != nil {
+		return 0, nil, err
+	}
+	direction := workflowSyncRunDirection(payload.Direction, payload.Plan.Checkpoint.Direction)
+	result, err := workflowExecuteSyncRun(c.Context(), runtime, payload.Plan, direction, payload.Changes, payload.Metadata)
+	if err != nil {
+		return 0, nil, err
+	}
+	recordedConflicts, err := workflowRecordConflicts(c.Context(), runtime, payload.Plan, payload.Conflicts, payload.Metadata)
+	if err != nil {
+		return 0, nil, err
 	}
 	runRecord := runtime.rememberSyncRun(payload.Plan, result, recordedConflicts)
 
@@ -619,36 +501,9 @@ func (m *Module) handleWorkflowResumeSyncRun(c router.Context, body map[string]a
 	if err != nil {
 		return 0, nil, err
 	}
-	runID := routeParam(c, "run_id", "id", "ref")
-	if runID == "" {
-		return 0, nil, validationError("run_id is required", map[string]any{"field": "run_id"})
-	}
-	providerID := strings.TrimSpace(firstNonEmptyString(body["provider_id"], c.Query("provider_id")))
-	if providerID == "" {
-		return 0, nil, validationError("provider_id is required", map[string]any{"field": "provider_id"})
-	}
-	scope, err := resolveScope(c.Context(), c, body)
+	previous, binding, resumeCheckpointID, err := m.workflowResumeSyncState(c, body, runtime)
 	if err != nil {
 		return 0, nil, err
-	}
-	providerID, scope, err = workflowProviderScope(providerID, scope)
-	if err != nil {
-		return 0, nil, validationError(err.Error(), map[string]any{"field": "provider_id/scope"})
-	}
-	previous, ok := runtime.getSyncRun(providerID, scope, runID)
-	if !ok {
-		return 0, nil, missingResourceError("sync_run", map[string]any{"run_id": strings.TrimSpace(runID)})
-	}
-	binding, err := runtime.syncBindingStore.Get(c.Context(), previous.SyncBindingID)
-	if err != nil {
-		return 0, nil, missingResourceError("sync_binding", map[string]any{"sync_binding_id": previous.SyncBindingID})
-	}
-	resumeCheckpointID := strings.TrimSpace(previous.Plan.Checkpoint.ID)
-	if previous.Result.NextCheckpoint != nil && strings.TrimSpace(previous.Result.NextCheckpoint.ID) != "" {
-		resumeCheckpointID = strings.TrimSpace(previous.Result.NextCheckpoint.ID)
-	}
-	if resumeCheckpointID == "" {
-		return 0, nil, validationError("resume checkpoint is required", map[string]any{"field": "checkpoint_id"})
 	}
 	mode := workflowNormalizeSyncRunMode(firstNonEmptyString(body["mode"], previous.Mode), previous.Mode)
 	if mode == "" {
@@ -658,8 +513,7 @@ func (m *Module) handleWorkflowResumeSyncRun(c router.Context, body map[string]a
 		return 0, nil, validationError("mode must be dry_run|apply", map[string]any{"field": "mode"})
 	}
 	limit := toInt(body["limit"], previous.Plan.EstimatedChanges)
-	metadata := copyAnyMap(previous.Plan.Metadata)
-	maps.Copy(metadata, extractMap(body["metadata"]))
+	metadata := workflowResumeMetadata(previous.Plan.Metadata, body)
 	plan, err := runtime.planner.PlanSyncRun(c.Context(), gocore.PlanSyncRunRequest{
 		Binding:          binding,
 		Mode:             mode,
@@ -670,7 +524,6 @@ func (m *Module) handleWorkflowResumeSyncRun(c router.Context, body map[string]a
 	if err != nil {
 		return 0, nil, err
 	}
-
 	direction := gocore.SyncDirection(strings.TrimSpace(strings.ToLower(firstNonEmptyString(body["direction"], previous.Direction, binding.Direction))))
 	if direction == "" {
 		direction = gocore.SyncDirectionImport
@@ -678,58 +531,14 @@ func (m *Module) handleWorkflowResumeSyncRun(c router.Context, body map[string]a
 	if !direction.IsValid() {
 		return 0, nil, validationError("direction must be import|export", map[string]any{"field": "direction"})
 	}
-	changes := []gocore.SyncChange{}
-	if rawChanges, ok := body["changes"].([]any); ok {
-		changes = workflowSyncChangesFromAny(rawChanges)
-	}
-	conflictsInput := []gocore.SyncConflict{}
-	if rawConflicts, ok := body["conflicts"].([]any); ok {
-		conflictsInput = workflowSyncConflictsFromAny(rawConflicts)
-	}
-
-	var result gocore.SyncRunResult
-	if direction == gocore.SyncDirectionExport {
-		result, err = runtime.runner.RunSyncExport(c.Context(), gocore.RunSyncExportRequest{
-			Plan:     plan,
-			Changes:  changes,
-			Metadata: metadata,
-		})
-	} else {
-		result, err = runtime.runner.RunSyncImport(c.Context(), gocore.RunSyncImportRequest{
-			Plan:     plan,
-			Changes:  changes,
-			Metadata: metadata,
-		})
-	}
+	changes, conflictsInput := workflowResumeRunInputs(body)
+	result, err := workflowExecuteSyncRun(c.Context(), runtime, plan, direction, changes, metadata)
 	if err != nil {
 		return 0, nil, err
 	}
-
-	recordedConflicts := make([]map[string]any, 0, len(conflictsInput))
-	for _, conflict := range conflictsInput {
-		if conflict.Scope.Type == "" || conflict.Scope.ID == "" {
-			conflict.Scope = plan.Checkpoint.Scope
-		}
-		if conflict.ProviderID == "" {
-			conflict.ProviderID = plan.Checkpoint.ProviderID
-		}
-		if conflict.ConnectionID == "" {
-			conflict.ConnectionID = plan.Checkpoint.ConnectionID
-		}
-		if conflict.SyncBindingID == "" {
-			conflict.SyncBindingID = plan.BindingID
-		}
-		if conflict.Status == "" {
-			conflict.Status = gocore.SyncConflictStatusPending
-		}
-		recorded, recordErr := runtime.conflicts.RecordSyncConflict(c.Context(), gocore.RecordSyncConflictRequest{
-			Conflict: conflict,
-			Metadata: metadata,
-		})
-		if recordErr != nil {
-			return 0, nil, recordErr
-		}
-		recordedConflicts = append(recordedConflicts, workflowSyncConflictToMap(recorded.Conflict))
+	recordedConflicts, err := workflowRecordConflicts(c.Context(), runtime, plan, conflictsInput, metadata)
+	if err != nil {
+		return 0, nil, err
 	}
 	runRecord := runtime.rememberSyncRun(plan, result, recordedConflicts)
 
@@ -741,6 +550,218 @@ func (m *Module) handleWorkflowResumeSyncRun(c router.Context, body map[string]a
 		"recorded_conflicts":         recordedConflicts,
 		"run":                        workflowSyncRunRecordToMap(runRecord),
 	}, nil
+}
+
+func (m *Module) workflowResumeSyncState(c router.Context, body map[string]any, runtime *workflowRuntime) (workflowSyncRunRecord, gocore.SyncBinding, string, error) {
+	runID := routeParam(c, "run_id", "id", "ref")
+	if runID == "" {
+		return workflowSyncRunRecord{}, gocore.SyncBinding{}, "", validationError("run_id is required", map[string]any{"field": "run_id"})
+	}
+	providerID := strings.TrimSpace(firstNonEmptyString(body["provider_id"], c.Query("provider_id")))
+	if providerID == "" {
+		return workflowSyncRunRecord{}, gocore.SyncBinding{}, "", validationError("provider_id is required", map[string]any{"field": "provider_id"})
+	}
+	scope, err := resolveScope(c.Context(), c, body)
+	if err != nil {
+		return workflowSyncRunRecord{}, gocore.SyncBinding{}, "", err
+	}
+	providerID, scope, err = workflowProviderScope(providerID, scope)
+	if err != nil {
+		return workflowSyncRunRecord{}, gocore.SyncBinding{}, "", validationError(err.Error(), map[string]any{"field": "provider_id/scope"})
+	}
+	previous, ok := runtime.getSyncRun(providerID, scope, runID)
+	if !ok {
+		return workflowSyncRunRecord{}, gocore.SyncBinding{}, "", missingResourceError("sync_run", map[string]any{"run_id": strings.TrimSpace(runID)})
+	}
+	binding, err := runtime.syncBindingStore.Get(c.Context(), previous.SyncBindingID)
+	if err != nil {
+		return workflowSyncRunRecord{}, gocore.SyncBinding{}, "", missingResourceError("sync_binding", map[string]any{"sync_binding_id": previous.SyncBindingID})
+	}
+	resumeCheckpointID := workflowResumeCheckpointID(previous)
+	if resumeCheckpointID == "" {
+		return workflowSyncRunRecord{}, gocore.SyncBinding{}, "", validationError("resume checkpoint is required", map[string]any{"field": "checkpoint_id"})
+	}
+	return previous, binding, resumeCheckpointID, nil
+}
+
+type workflowSyncRunPayload struct {
+	Plan      gocore.SyncRunPlan
+	Binding   gocore.SyncBinding
+	Mode      string
+	Direction string
+	Changes   []gocore.SyncChange
+	Metadata  map[string]any
+	Conflicts []gocore.SyncConflict
+}
+
+func workflowSyncRunPayloadFromBody(body map[string]any) (workflowSyncRunPayload, error) {
+	payload := workflowSyncRunPayload{}
+	if decodeErr := decodeBodyMap(body, &payload); decodeErr != nil {
+		return workflowSyncRunPayload{}, validationError("invalid sync run payload", map[string]any{"field": "body"})
+	}
+	if rawPlan, ok := body["plan"].(map[string]any); ok {
+		payload.Plan = workflowSyncRunPlanFromMap(rawPlan, payload.Plan)
+	}
+	if rawBinding, ok := body["binding"].(map[string]any); ok {
+		payload.Binding = workflowSyncBindingFromMap(rawBinding, payload.Binding)
+	}
+	if mode := firstNonEmptyString(body["mode"], payload.Mode); mode != "" {
+		payload.Mode = mode
+	}
+	if direction := firstNonEmptyString(body["direction"], payload.Direction); direction != "" {
+		payload.Direction = direction
+	}
+	if metadata := extractMap(body["metadata"]); len(metadata) > 0 {
+		payload.Metadata = metadata
+	}
+	payload.Changes = workflowSyncChangesInput(body["changes"], payload.Changes)
+	payload.Conflicts = workflowSyncConflictsInput(body["conflicts"], payload.Conflicts)
+	return payload, nil
+}
+
+func workflowSyncChangesInput(raw any, fallback []gocore.SyncChange) []gocore.SyncChange {
+	switch typed := raw.(type) {
+	case []any:
+		return workflowSyncChangesFromAny(typed)
+	case []map[string]any:
+		rows := make([]any, 0, len(typed))
+		for _, row := range typed {
+			rows = append(rows, row)
+		}
+		return workflowSyncChangesFromAny(rows)
+	default:
+		return fallback
+	}
+}
+
+func workflowSyncConflictsInput(raw any, fallback []gocore.SyncConflict) []gocore.SyncConflict {
+	switch typed := raw.(type) {
+	case []any:
+		return workflowSyncConflictsFromAny(typed)
+	case []map[string]any:
+		rows := make([]any, 0, len(typed))
+		for _, row := range typed {
+			rows = append(rows, row)
+		}
+		return workflowSyncConflictsFromAny(rows)
+	default:
+		return fallback
+	}
+}
+
+func (m *Module) ensureWorkflowSyncRunPlan(c router.Context, body map[string]any, runtime *workflowRuntime, payload workflowSyncRunPayload) (gocore.SyncRunPlan, error) {
+	if strings.TrimSpace(payload.Plan.BindingID) != "" {
+		return payload.Plan, nil
+	}
+	binding := payload.Binding
+	if binding.Scope.Type == "" || binding.Scope.ID == "" {
+		scope, err := resolveScope(c.Context(), c, body)
+		if err != nil {
+			return gocore.SyncRunPlan{}, err
+		}
+		binding.Scope = scope
+	}
+	if strings.TrimSpace(binding.ProviderID) == "" {
+		binding.ProviderID = strings.TrimSpace(toString(body["provider_id"]))
+	}
+	if binding.Status == "" {
+		binding.Status = gocore.SyncBindingStatusActive
+	}
+	if binding.Direction == "" {
+		binding.Direction = gocore.SyncDirectionImport
+	}
+	upserted, err := runtime.syncBindingStore.Upsert(c.Context(), binding)
+	if err != nil {
+		return gocore.SyncRunPlan{}, err
+	}
+	mode := workflowNormalizeSyncRunMode(payload.Mode, gocore.SyncRunModeApply)
+	if mode == "" {
+		mode = gocore.SyncRunModeApply
+	}
+	return runtime.planner.PlanSyncRun(c.Context(), gocore.PlanSyncRunRequest{
+		Binding:  upserted,
+		Mode:     mode,
+		Metadata: copyAnyMap(payload.Metadata),
+	})
+}
+
+func workflowSyncRunDirection(value string, fallback gocore.SyncDirection) gocore.SyncDirection {
+	direction := gocore.SyncDirection(strings.TrimSpace(strings.ToLower(value)))
+	if direction == "" {
+		direction = fallback
+	}
+	if direction == "" {
+		direction = gocore.SyncDirectionImport
+	}
+	return direction
+}
+
+func workflowExecuteSyncRun(ctx context.Context, runtime *workflowRuntime, plan gocore.SyncRunPlan, direction gocore.SyncDirection, changes []gocore.SyncChange, metadata map[string]any) (gocore.SyncRunResult, error) {
+	if direction == gocore.SyncDirectionExport {
+		return runtime.runner.RunSyncExport(ctx, gocore.RunSyncExportRequest{
+			Plan:     plan,
+			Changes:  changes,
+			Metadata: copyAnyMap(metadata),
+		})
+	}
+	return runtime.runner.RunSyncImport(ctx, gocore.RunSyncImportRequest{
+		Plan:     plan,
+		Changes:  changes,
+		Metadata: copyAnyMap(metadata),
+	})
+}
+
+func workflowRecordConflicts(ctx context.Context, runtime *workflowRuntime, plan gocore.SyncRunPlan, conflicts []gocore.SyncConflict, metadata map[string]any) ([]map[string]any, error) {
+	recordedConflicts := make([]map[string]any, 0, len(conflicts))
+	for _, conflict := range conflicts {
+		conflict = workflowPreparedConflict(plan, conflict)
+		recorded, err := runtime.conflicts.RecordSyncConflict(ctx, gocore.RecordSyncConflictRequest{
+			Conflict: conflict,
+			Metadata: copyAnyMap(metadata),
+		})
+		if err != nil {
+			return nil, err
+		}
+		recordedConflicts = append(recordedConflicts, workflowSyncConflictToMap(recorded.Conflict))
+	}
+	return recordedConflicts, nil
+}
+
+func workflowPreparedConflict(plan gocore.SyncRunPlan, conflict gocore.SyncConflict) gocore.SyncConflict {
+	if conflict.Scope.Type == "" || conflict.Scope.ID == "" {
+		conflict.Scope = plan.Checkpoint.Scope
+	}
+	if conflict.ProviderID == "" {
+		conflict.ProviderID = plan.Checkpoint.ProviderID
+	}
+	if conflict.ConnectionID == "" {
+		conflict.ConnectionID = plan.Checkpoint.ConnectionID
+	}
+	if conflict.SyncBindingID == "" {
+		conflict.SyncBindingID = plan.BindingID
+	}
+	if conflict.Status == "" {
+		conflict.Status = gocore.SyncConflictStatusPending
+	}
+	return conflict
+}
+
+func workflowResumeCheckpointID(previous workflowSyncRunRecord) string {
+	resumeCheckpointID := strings.TrimSpace(previous.Plan.Checkpoint.ID)
+	if previous.Result.NextCheckpoint != nil && strings.TrimSpace(previous.Result.NextCheckpoint.ID) != "" {
+		resumeCheckpointID = strings.TrimSpace(previous.Result.NextCheckpoint.ID)
+	}
+	return resumeCheckpointID
+}
+
+func workflowResumeMetadata(previous map[string]any, body map[string]any) map[string]any {
+	metadata := copyAnyMap(previous)
+	maps.Copy(metadata, extractMap(body["metadata"]))
+	return metadata
+}
+
+func workflowResumeRunInputs(body map[string]any) ([]gocore.SyncChange, []gocore.SyncConflict) {
+	return workflowSyncChangesInput(body["changes"], nil), workflowSyncConflictsInput(body["conflicts"], nil)
 }
 
 func (m *Module) handleWorkflowGetSyncCheckpoint(c router.Context, _ map[string]any) (int, any, error) {

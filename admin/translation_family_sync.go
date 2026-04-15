@@ -20,22 +20,37 @@ func SyncTranslationFamilyStore(ctx context.Context, adm *Admin, environment str
 	if defaultLocale == "" {
 		defaultLocale = "en"
 	}
+	binding := &translationFamilyBinding{admin: adm}
+	orderedLocales, err := translationFamilySyncLocales(ctx, adm, binding, defaultLocale, environment)
+	if err != nil {
+		return err
+	}
+	families, err := translationFamilySyncFamilies(ctx, adm, orderedLocales, defaultLocale)
+	if err != nil {
+		return err
+	}
+	if err := saveTranslationFamilies(ctx, adm, families, translationFamilyAssignmentsByFamily(binding.collectAssignments(ctx))); err != nil {
+		return err
+	}
+	return recomputeTranslationFamilies(ctx, adm, environment)
+}
+
+func translationFamilySyncLocales(ctx context.Context, adm *Admin, binding *translationFamilyBinding, defaultLocale, environment string) ([]string, error) {
 	locales := map[string]struct{}{strings.ToLower(defaultLocale): {}}
 	pagesDefault, err := adm.contentSvc.Pages(ctx, defaultLocale)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, page := range pagesDefault {
 		addRecordLocales(locales, page.AvailableLocales)
 	}
 	contentsDefault, err := adm.contentSvc.Contents(ctx, defaultLocale)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, content := range contentsDefault {
 		addRecordLocales(locales, content.AvailableLocales)
 	}
-	binding := &translationFamilyBinding{admin: adm}
 	for _, locale := range binding.policyLocales(ctx, environment) {
 		locales[strings.ToLower(strings.TrimSpace(locale))] = struct{}{}
 	}
@@ -46,54 +61,73 @@ func SyncTranslationFamilyStore(ctx context.Context, adm *Admin, environment str
 		}
 	}
 	sort.Strings(orderedLocales)
+	return orderedLocales, nil
+}
 
-	families := map[string]translationservices.FamilyRecord{}
-	seenVariants := map[string]struct{}{}
+func translationFamilyAssignmentsByFamily(assignments []translationservices.FamilyAssignment) map[string][]translationservices.FamilyAssignment {
 	assignmentsByFamily := map[string][]translationservices.FamilyAssignment{}
-	for _, assignment := range binding.collectAssignments(ctx) {
+	for _, assignment := range assignments {
 		familyID := strings.TrimSpace(assignment.FamilyID)
 		if familyID == "" {
 			continue
 		}
 		assignmentsByFamily[familyID] = append(assignmentsByFamily[familyID], assignment)
 	}
-	for _, locale := range orderedLocales {
-		pages, err := adm.contentSvc.Pages(ctx, locale)
-		if err != nil {
-			return err
-		}
-		for _, page := range pages {
-			if appendErr := appendPageFamilyVariant(families, seenVariants, page, locale, defaultLocale); appendErr != nil {
-				return appendErr
-			}
-		}
-		contents, err := adm.contentSvc.Contents(ctx, locale)
-		if err != nil {
-			return err
-		}
-		for _, content := range contents {
-			if err := appendContentFamilyVariant(families, seenVariants, content, locale, defaultLocale); err != nil {
-				return err
-			}
+	return assignmentsByFamily
+}
+
+func translationFamilySyncFamilies(ctx context.Context, adm *Admin, locales []string, defaultLocale string) (map[string]translationservices.FamilyRecord, error) {
+	families := map[string]translationservices.FamilyRecord{}
+	seenVariants := map[string]struct{}{}
+	for _, locale := range locales {
+		if err := appendTranslationFamilyLocaleVariants(ctx, adm, families, seenVariants, locale, defaultLocale); err != nil {
+			return nil, err
 		}
 	}
+	return families, nil
+}
 
+func appendTranslationFamilyLocaleVariants(ctx context.Context, adm *Admin, families map[string]translationservices.FamilyRecord, seenVariants map[string]struct{}, locale, defaultLocale string) error {
+	pages, err := adm.contentSvc.Pages(ctx, locale)
+	if err != nil {
+		return err
+	}
+	for _, page := range pages {
+		if err := appendPageFamilyVariant(families, seenVariants, page, locale, defaultLocale); err != nil {
+			return err
+		}
+	}
+	contents, err := adm.contentSvc.Contents(ctx, locale)
+	if err != nil {
+		return err
+	}
+	for _, content := range contents {
+		if err := appendContentFamilyVariant(families, seenVariants, content, locale, defaultLocale); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func saveTranslationFamilies(ctx context.Context, adm *Admin, families map[string]translationservices.FamilyRecord, assignmentsByFamily map[string][]translationservices.FamilyAssignment) error {
 	for familyID, family := range families {
 		family.Assignments = append([]translationservices.FamilyAssignment{}, assignmentsByFamily[familyID]...)
 		if err := adm.translationFamilyStore.SaveFamily(ctx, family); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func recomputeTranslationFamilies(ctx context.Context, adm *Admin, environment string) error {
 	service := translationservices.FamilyService{
 		Store: adm.translationFamilyStore,
 		Policies: translationservices.PolicyService{
 			Resolver: translationFamilyPolicyResolver{admin: adm},
 		},
 	}
-	if _, err := service.RecomputeAll(ctx, environment); err != nil {
-		return err
-	}
-	return nil
+	_, err := service.RecomputeAll(ctx, environment)
+	return err
 }
 
 func appendPageFamilyVariant(families map[string]translationservices.FamilyRecord, seen map[string]struct{}, page CMSPage, locale, defaultLocale string) error {

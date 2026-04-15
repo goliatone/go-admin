@@ -1219,140 +1219,119 @@ func parseTranslationImportFile(c router.Context, file *multipart.FileHeader, re
 func parseTranslationImportJSON(raw []byte, requireTranslatedText bool) ([]TranslationExchangeRow, map[string]any, error) {
 	payload := bytes.TrimSpace(raw)
 	if len(payload) == 0 {
-		return nil, nil, TranslationExchangeInvalidPayloadError{
-			Message: "rows required",
-			Field:   "rows",
-			Format:  "json",
-		}
+		return nil, nil, translationExchangeJSONError("rows required", "rows")
 	}
 	switch payload[0] {
 	case '[':
-		if err := validateTranslationExchangeJSONBodySize(len(payload)); err != nil {
-			return nil, nil, err
-		}
-		rawRows := []map[string]any{}
-		if err := json.Unmarshal(payload, &rawRows); err != nil {
-			return nil, nil, TranslationExchangeInvalidPayloadError{
-				Message: "invalid json payload",
-				Field:   "rows",
-				Format:  "json",
-			}
-		}
-		if err := validateTranslationExchangeJSONRows(rawRows); err != nil {
-			return nil, nil, err
-		}
-		var rows []TranslationExchangeRow
-		if err := json.Unmarshal(payload, &rows); err != nil {
-			return nil, nil, TranslationExchangeInvalidPayloadError{
-				Message: "invalid json payload",
-				Field:   "rows",
-				Format:  "json",
-			}
-		}
-		if len(rows) == 0 {
-			return nil, nil, TranslationExchangeInvalidPayloadError{
-				Message: "rows required",
-				Field:   "rows",
-				Format:  "json",
-			}
-		}
-		if requireTranslatedText {
-			for index, row := range rows {
-				if strings.TrimSpace(row.TranslatedText) == "" {
-					return nil, nil, TranslationExchangeInvalidPayloadError{
-						Message: "row translated_text required",
-						Field:   "translated_text",
-						Format:  "json",
-						Metadata: map[string]any{
-							"row": index,
-						},
-					}
-				}
-			}
-		}
-		return rows, map[string]any{}, nil
+		rows, err := decodeTranslationImportJSONRows(payload, requireTranslatedText)
+		return rows, map[string]any{}, err
 	case '{':
-		body := map[string]any{}
-		if err := json.Unmarshal(payload, &body); err != nil {
-			return nil, nil, TranslationExchangeInvalidPayloadError{
-				Message: "invalid json payload",
-				Field:   "rows",
-				Format:  "json",
-			}
-		}
-		jobKind := translationExchangeJobKindImportValidate
-		if requireTranslatedText {
-			jobKind = translationExchangeJobKindImportApply
-		}
-		if err := rejectTranslationClientIdentityFields(body); err != nil {
-			return nil, nil, err
-		}
-		if err := validateTranslationExchangeTopLevelKeys(body, jobKind); err != nil {
-			return nil, nil, err
-		}
-		rowsValue, ok := body["rows"]
-		if !ok {
-			return nil, nil, TranslationExchangeInvalidPayloadError{
-				Message: "rows required",
-				Field:   "rows",
-				Format:  "json",
-			}
-		}
-		rowsPayload, err := json.Marshal(rowsValue)
-		if err != nil {
-			return nil, nil, TranslationExchangeInvalidPayloadError{
-				Message: "invalid rows payload",
-				Field:   "rows",
-				Format:  "json",
-			}
-		}
-		var rows []TranslationExchangeRow
-		if err := json.Unmarshal(rowsPayload, &rows); err != nil {
-			return nil, nil, TranslationExchangeInvalidPayloadError{
-				Message: "invalid rows payload",
-				Field:   "rows",
-				Format:  "json",
-			}
-		}
-		rawRows := []map[string]any{}
-		if err := json.Unmarshal(rowsPayload, &rawRows); err != nil {
-			return nil, nil, TranslationExchangeInvalidPayloadError{
-				Message: "invalid rows payload",
-				Field:   "rows",
-				Format:  "json",
-			}
-		}
-		if err := validateTranslationExchangeJSONRows(rawRows); err != nil {
-			return nil, nil, err
-		}
-		if len(rows) == 0 {
-			return nil, nil, TranslationExchangeInvalidPayloadError{
-				Message: "rows required",
-				Field:   "rows",
-				Format:  "json",
-			}
-		}
-		if requireTranslatedText {
-			for index, row := range rows {
-				if strings.TrimSpace(row.TranslatedText) == "" {
-					return nil, nil, TranslationExchangeInvalidPayloadError{
-						Message: "row translated_text required",
-						Field:   "translated_text",
-						Format:  "json",
-						Metadata: map[string]any{
-							"row": index,
-						},
-					}
-				}
-			}
-		}
-		return rows, body, nil
+		return decodeTranslationImportJSONObject(payload, requireTranslatedText)
 	default:
-		return nil, nil, TranslationExchangeInvalidPayloadError{
-			Message: "invalid json payload",
-			Field:   "rows",
-			Format:  "json",
+		return nil, nil, translationExchangeJSONError("invalid json payload", "rows")
+	}
+}
+
+func decodeTranslationImportJSONRows(payload []byte, requireTranslatedText bool) ([]TranslationExchangeRow, error) {
+	if err := validateTranslationExchangeJSONBodySize(len(payload)); err != nil {
+		return nil, err
+	}
+	rawRows := []map[string]any{}
+	if err := unmarshalTranslationImportJSON(payload, &rawRows, "invalid json payload"); err != nil {
+		return nil, err
+	}
+	if err := validateTranslationExchangeJSONRows(rawRows); err != nil {
+		return nil, err
+	}
+	rows := []TranslationExchangeRow{}
+	if err := unmarshalTranslationImportJSON(payload, &rows, "invalid json payload"); err != nil {
+		return nil, err
+	}
+	return rows, validateTranslationImportRows(rows, requireTranslatedText)
+}
+
+func decodeTranslationImportJSONObject(payload []byte, requireTranslatedText bool) ([]TranslationExchangeRow, map[string]any, error) {
+	body := map[string]any{}
+	if err := unmarshalTranslationImportJSON(payload, &body, "invalid json payload"); err != nil {
+		return nil, nil, err
+	}
+	jobKind := translationExchangeJobKindImportValidate
+	if requireTranslatedText {
+		jobKind = translationExchangeJobKindImportApply
+	}
+	if err := rejectTranslationClientIdentityFields(body); err != nil {
+		return nil, nil, err
+	}
+	if err := validateTranslationExchangeTopLevelKeys(body, jobKind); err != nil {
+		return nil, nil, err
+	}
+	rowsPayload, err := translationImportJSONRowsPayload(body)
+	if err != nil {
+		return nil, nil, err
+	}
+	rawRows := []map[string]any{}
+	if err := unmarshalTranslationImportJSON(rowsPayload, &rawRows, "invalid rows payload"); err != nil {
+		return nil, nil, err
+	}
+	if err := validateTranslationExchangeJSONRows(rawRows); err != nil {
+		return nil, nil, err
+	}
+	rows := []TranslationExchangeRow{}
+	if err := unmarshalTranslationImportJSON(rowsPayload, &rows, "invalid rows payload"); err != nil {
+		return nil, nil, err
+	}
+	if err := validateTranslationImportRows(rows, requireTranslatedText); err != nil {
+		return nil, nil, err
+	}
+	return rows, body, nil
+}
+
+func translationImportJSONRowsPayload(body map[string]any) ([]byte, error) {
+	rowsValue, ok := body["rows"]
+	if !ok {
+		return nil, translationExchangeJSONError("rows required", "rows")
+	}
+	rowsPayload, err := json.Marshal(rowsValue)
+	if err != nil {
+		return nil, translationExchangeJSONError("invalid rows payload", "rows")
+	}
+	return rowsPayload, nil
+}
+
+func unmarshalTranslationImportJSON(payload []byte, target any, message string) error {
+	if err := json.Unmarshal(payload, target); err != nil {
+		return translationExchangeJSONError(message, "rows")
+	}
+	return nil
+}
+
+func validateTranslationImportRows(rows []TranslationExchangeRow, requireTranslatedText bool) error {
+	if len(rows) == 0 {
+		return translationExchangeJSONError("rows required", "rows")
+	}
+	if !requireTranslatedText {
+		return nil
+	}
+	for index, row := range rows {
+		if strings.TrimSpace(row.TranslatedText) == "" {
+			return TranslationExchangeInvalidPayloadError{
+				Message: "row translated_text required",
+				Field:   "translated_text",
+				Format:  "json",
+				Metadata: map[string]any{
+					"row": index,
+				},
+			}
 		}
+	}
+	return nil
+}
+
+func translationExchangeJSONError(message, field string) error {
+	return TranslationExchangeInvalidPayloadError{
+		Message: message,
+		Field:   field,
+		Format:  "json",
 	}
 }
 
@@ -1360,27 +1339,9 @@ func parseTranslationImportCSV(reader io.Reader, requireTranslatedText bool) ([]
 	csvReader := csv.NewReader(reader)
 	headers, err := csvReader.Read()
 	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil, TranslationExchangeInvalidPayloadError{
-				Message: "empty csv payload",
-				Field:   "rows",
-				Format:  "csv",
-			}
-		}
-		return nil, TranslationExchangeInvalidPayloadError{
-			Message: "invalid csv payload",
-			Field:   "rows",
-			Format:  "csv",
-		}
+		return nil, translationExchangeCSVReadError(err)
 	}
-	headerIndex := map[string]int{}
-	for idx, header := range headers {
-		normalized := strings.TrimSpace(strings.ToLower(header))
-		if normalized == "" {
-			continue
-		}
-		headerIndex[normalized] = idx
-	}
+	headerIndex := translationImportCSVHeaderIndex(headers)
 	required := []string{"resource", "entity_id", "family_id", "target_locale", "field_path"}
 	if requireTranslatedText {
 		required = append(required, "translated_text")
@@ -1399,49 +1360,17 @@ func parseTranslationImportCSV(reader io.Reader, requireTranslatedText bool) ([]
 	}
 	rows := make([]TranslationExchangeRow, 0)
 	for index := 0; ; index++ {
-		record, readErr := csvReader.Read()
-		if errors.Is(readErr, io.EOF) {
+		row, done, err := translationImportCSVRow(csvReader, headerIndex, index, requireTranslatedText)
+		if done {
 			break
 		}
-		if readErr != nil {
-			return nil, TranslationExchangeInvalidPayloadError{
-				Message: "invalid csv payload",
-				Field:   "rows",
-				Format:  "csv",
-			}
+		if err != nil {
+			return nil, err
 		}
-		row := TranslationExchangeRow{
-			Index:             index,
-			Resource:          csvCell(record, headerIndex, "resource"),
-			EntityID:          csvCell(record, headerIndex, "entity_id"),
-			FamilyID:          csvCell(record, headerIndex, "family_id"),
-			SourceLocale:      csvCell(record, headerIndex, "source_locale"),
-			TargetLocale:      csvCell(record, headerIndex, "target_locale"),
-			FieldPath:         csvCell(record, headerIndex, "field_path"),
-			SourceText:        csvCell(record, headerIndex, "source_text"),
-			TranslatedText:    csvCell(record, headerIndex, "translated_text"),
-			SourceHash:        csvCell(record, headerIndex, "source_hash"),
-			CreateTranslation: toBool(csvCell(record, headerIndex, "create_translation")),
-			Path:              csvCell(record, headerIndex, "path"),
-			RouteKey:          csvCell(record, headerIndex, "route_key"),
-			Title:             csvCell(record, headerIndex, "title"),
-			Status:            csvCell(record, headerIndex, "status"),
-			Notes:             csvCell(record, headerIndex, "notes"),
-		}
-		if isTranslationCSVRowEmpty(row) {
+		if row == nil {
 			continue
 		}
-		if requireTranslatedText && strings.TrimSpace(row.TranslatedText) == "" {
-			return nil, TranslationExchangeInvalidPayloadError{
-				Message: "row translated_text required",
-				Field:   "translated_text",
-				Format:  "csv",
-				Metadata: map[string]any{
-					"row": index,
-				},
-			}
-		}
-		rows = append(rows, row)
+		rows = append(rows, *row)
 		if err := validateTranslationExchangeRowLimit(len(rows)); err != nil {
 			return nil, err
 		}
@@ -1454,6 +1383,75 @@ func parseTranslationImportCSV(reader io.Reader, requireTranslatedText bool) ([]
 		}
 	}
 	return rows, nil
+}
+
+func translationExchangeCSVReadError(err error) error {
+	if errors.Is(err, io.EOF) {
+		return TranslationExchangeInvalidPayloadError{
+			Message: "empty csv payload",
+			Field:   "rows",
+			Format:  "csv",
+		}
+	}
+	return TranslationExchangeInvalidPayloadError{
+		Message: "invalid csv payload",
+		Field:   "rows",
+		Format:  "csv",
+	}
+}
+
+func translationImportCSVHeaderIndex(headers []string) map[string]int {
+	headerIndex := map[string]int{}
+	for idx, header := range headers {
+		normalized := strings.TrimSpace(strings.ToLower(header))
+		if normalized == "" {
+			continue
+		}
+		headerIndex[normalized] = idx
+	}
+	return headerIndex
+}
+
+func translationImportCSVRow(csvReader *csv.Reader, headerIndex map[string]int, index int, requireTranslatedText bool) (*TranslationExchangeRow, bool, error) {
+	record, err := csvReader.Read()
+	if errors.Is(err, io.EOF) {
+		return nil, true, nil
+	}
+	if err != nil {
+		return nil, false, translationExchangeCSVReadError(err)
+	}
+	row := TranslationExchangeRow{
+		Index:             index,
+		Resource:          csvCell(record, headerIndex, "resource"),
+		EntityID:          csvCell(record, headerIndex, "entity_id"),
+		FamilyID:          csvCell(record, headerIndex, "family_id"),
+		SourceLocale:      csvCell(record, headerIndex, "source_locale"),
+		TargetLocale:      csvCell(record, headerIndex, "target_locale"),
+		FieldPath:         csvCell(record, headerIndex, "field_path"),
+		SourceText:        csvCell(record, headerIndex, "source_text"),
+		TranslatedText:    csvCell(record, headerIndex, "translated_text"),
+		SourceHash:        csvCell(record, headerIndex, "source_hash"),
+		CreateTranslation: toBool(csvCell(record, headerIndex, "create_translation")),
+		Path:              csvCell(record, headerIndex, "path"),
+		RouteKey:          csvCell(record, headerIndex, "route_key"),
+		Title:             csvCell(record, headerIndex, "title"),
+		Status:            csvCell(record, headerIndex, "status"),
+		Notes:             csvCell(record, headerIndex, "notes"),
+	}
+	if isTranslationCSVRowEmpty(row) {
+		return nil, false, nil
+	}
+	if requireTranslatedText && strings.TrimSpace(row.TranslatedText) == "" {
+		return nil, false, TranslationExchangeInvalidPayloadError{
+			Message: "row translated_text required",
+			Field:   "translated_text",
+			Format:  "csv",
+			Metadata: map[string]any{
+				"row": index,
+			},
+		}
+	}
+	return &row, false, nil
 }
 
 func detectTranslationExchangeFormat(c router.Context, filename, contentType string) (string, error) {

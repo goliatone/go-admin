@@ -113,6 +113,9 @@ func mediaUploadHandler(responder Responder, binding MediaBinding) router.Handle
 		if err != nil {
 			return writeJSONOrError(responder, c, nil, err)
 		}
+		if file.Reader != nil {
+			defer file.Reader.Close()
+		}
 		payload, err := binding.Upload(c, body, file)
 		return writeJSONOrError(responder, c, payload, err)
 	}
@@ -144,11 +147,6 @@ func parseMediaUploadRequest(c router.Context) (map[string]any, MultipartFile, e
 	if err != nil || header == nil {
 		return nil, MultipartFile{}, bootValidationError("file", "file required")
 	}
-	file, err := header.Open()
-	if err != nil {
-		return nil, MultipartFile{}, bootValidationError("file", "file required")
-	}
-	defer file.Close()
 
 	body := map[string]any{}
 	if value := strings.TrimSpace(c.FormValue("name")); value != "" {
@@ -166,6 +164,11 @@ func parseMediaUploadRequest(c router.Context) (map[string]any, MultipartFile, e
 			return nil, MultipartFile{}, bootValidationError("metadata", "metadata must be valid JSON")
 		}
 		body["metadata"] = metadata
+	}
+
+	file, err := header.Open()
+	if err != nil {
+		return nil, MultipartFile{}, bootValidationError("file", "file required")
 	}
 
 	contentType := strings.TrimSpace(header.Header.Get("Content-Type"))

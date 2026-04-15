@@ -50,16 +50,78 @@ type ExtensionDiagnostics struct {
 	FeatureFlags             map[string]bool `json:"feature_flags"`
 }
 
+type setupRuntime struct {
+	repositoryFactory     any
+	registry              Registry
+	extensionHooks        *goservices.ExtensionHooks
+	secretProvider        SecretProvider
+	configProvider        ConfigProvider
+	optionsResolver       OptionsResolver
+	errorFactory          ErrorFactory
+	errorMapper           ErrorMapper
+	grantStore            gocore.GrantStore
+	registeredPacks       []goservices.ProviderPack
+	enabledProviderPacks  []string
+	disabledProviderPacks []string
+	resolvedProvider      goadmin.LoggerProvider
+	resolvedLogger        goadmin.Logger
+	jobProvider           any
+	jobLogger             any
+}
+
 // Setup wires go-services into an existing go-admin app.
 func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error) {
-	cfg = withDefaults(cfg)
+	setupCfg := resolveSetupOptions(opts)
+	cfg = applySetupOptions(withDefaults(cfg), setupCfg)
+	if !cfg.Enabled {
+		return nil, nil
+	}
+	if err := validateSetup(adminApp, cfg); err != nil {
+		return nil, err
+	}
+	runtime, err := resolveSetupRuntime(adminApp, cfg, setupCfg)
+	if err != nil {
+		return nil, err
+	}
+	service, err := setupService(cfg, runtime)
+	if err != nil {
+		return nil, err
+	}
+	module, err := buildSetupModule(adminApp, cfg, service, runtime)
+	if err != nil {
+		return nil, err
+	}
+	if err := module.ensureCallbackURLRoute(); err != nil {
+		return nil, err
+	}
+	if err := module.initializeRuntime(); err != nil {
+		return nil, err
+	}
+
+	return module, nil
+}
+
+func resolveSetupOptions(opts []Option) setupOptions {
 	setupCfg := setupOptions{}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(&setupCfg)
 		}
 	}
+	return setupCfg
+}
 
+func applySetupOptions(cfg Config, setupCfg setupOptions) Config {
+	applyLifecycleSetupOptions(&cfg, setupCfg)
+	applyRuntimeSetupOptions(&cfg, setupCfg)
+	applyExtensionSetupOptions(&cfg, setupCfg)
+	return cfg
+}
+
+func applyLifecycleSetupOptions(cfg *Config, setupCfg setupOptions) {
+	if cfg == nil {
+		return
+	}
 	if setupCfg.lifecycle != nil {
 		cfg.Lifecycle = *setupCfg.lifecycle
 	}
@@ -80,6 +142,18 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 	}
 	if setupCfg.notificationRecipientResolver != nil {
 		cfg.Lifecycle.Projectors.Notifications.RecipientResolver = setupCfg.notificationRecipientResolver
+	}
+	if setupCfg.registerMigrations != nil {
+		cfg.RegisterMigrations = setupCfg.registerMigrations
+	}
+	if len(setupCfg.tableHooks) > 0 {
+		cfg.TableLifecycleHooks = append(cfg.TableLifecycleHooks, setupCfg.tableHooks...)
+	}
+}
+
+func applyRuntimeSetupOptions(cfg *Config, setupCfg setupOptions) {
+	if cfg == nil {
+		return
 	}
 	if setupCfg.loggerProvider != nil {
 		cfg.LoggerProvider = setupCfg.loggerProvider
@@ -111,14 +185,8 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 	if setupCfg.optionsResolver != nil {
 		cfg.OptionsResolver = setupCfg.optionsResolver
 	}
-	if setupCfg.registerMigrations != nil {
-		cfg.RegisterMigrations = setupCfg.registerMigrations
-	}
 	if len(setupCfg.providers) > 0 {
 		cfg.Providers = append(cfg.Providers, setupCfg.providers...)
-	}
-	if len(setupCfg.tableHooks) > 0 {
-		cfg.TableLifecycleHooks = append(cfg.TableLifecycleHooks, setupCfg.tableHooks...)
 	}
 	if setupCfg.jobEnqueuer != nil {
 		cfg.JobEnqueuer = setupCfg.jobEnqueuer
@@ -147,6 +215,12 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 	if setupCfg.callbackURLs != nil {
 		cfg.Callbacks = mergeCallbackURLConfig(cfg.Callbacks, *setupCfg.callbackURLs)
 	}
+}
+
+func applyExtensionSetupOptions(cfg *Config, setupCfg setupOptions) {
+	if cfg == nil {
+		return
+	}
 	if len(setupCfg.enabledProviderPacks) > 0 {
 		cfg.Extensions.EnabledProviderPacks = normalizeStringListUnique(setupCfg.enabledProviderPacks)
 	}
@@ -163,17 +237,89 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 	if setupCfg.extensionDiagnosticsEnabled != nil {
 		cfg.Extensions.DiagnosticsEnabled = *setupCfg.extensionDiagnosticsEnabled
 	}
+}
 
-	if !cfg.Enabled {
-		return nil, nil
-	}
+func validateSetup(adminApp *goadmin.Admin, cfg Config) error {
 	if adminApp == nil {
-		return nil, fmt.Errorf("modules/services: admin app is required when services module is enabled")
+		return fmt.Errorf("modules/services: admin app is required when services module is enabled")
 	}
-	if err := cfg.validate(); err != nil {
-		return nil, err
-	}
+	return cfg.validate()
+}
 
+func resolveSetupRuntime(adminApp *goadmin.Admin, cfg Config, setupCfg setupOptions) (setupRuntime, error) {
+	runtime := setupRuntime{
+		errorFactory:    resolvedErrorFactory(cfg),
+		errorMapper:     resolvedErrorMapper(cfg),
+		configProvider:  resolvedConfigProvider(cfg),
+		optionsResolver: resolvedOptionsResolver(cfg),
+	}
+	runtime.resolvedProvider, runtime.resolvedLogger, runtime.jobProvider, runtime.jobLogger =
+		resolveSetupLoggers(adminApp, cfg)
+
+	var err error
+	runtime.registry = resolvedRegistry(cfg)
+	runtime.extensionHooks = resolvedExtensionHooks(setupCfg)
+	if err = registerExtensionSetupBundles(runtime.extensionHooks, setupCfg); err != nil {
+		return setupRuntime{}, err
+	}
+	if err = registerSetupProviders(runtime.registry, cfg.Providers); err != nil {
+		return setupRuntime{}, err
+	}
+	runtime.registeredPacks = runtime.extensionHooks.ProviderPacks()
+	runtime.enabledProviderPacks, runtime.disabledProviderPacks, err = registerEnabledProviderPacks(runtime.registry, cfg, runtime.registeredPacks)
+	if err != nil {
+		return setupRuntime{}, err
+	}
+	runtime.secretProvider, err = resolvedSecretProvider(cfg)
+	if err != nil {
+		return setupRuntime{}, err
+	}
+	runtime.repositoryFactory, err = resolvedRepositoryFactory(cfg)
+	if err != nil {
+		return setupRuntime{}, err
+	}
+	runtime.grantStore, err = resolvedGrantStore(cfg.PersistenceClient, runtime.repositoryFactory)
+	if err != nil {
+		return setupRuntime{}, err
+	}
+	if err = registerSetupMigrations(cfg, setupCfg); err != nil {
+		return setupRuntime{}, err
+	}
+	if err = runSetupTableHooks(cfg); err != nil {
+		return setupRuntime{}, err
+	}
+	return runtime, nil
+}
+
+func resolvedErrorFactory(cfg Config) ErrorFactory {
+	if cfg.ErrorFactory != nil {
+		return cfg.ErrorFactory
+	}
+	return defaultErrorFactory
+}
+
+func resolvedErrorMapper(cfg Config) ErrorMapper {
+	if cfg.ErrorMapper != nil {
+		return cfg.ErrorMapper
+	}
+	return defaultErrorMapper
+}
+
+func resolvedConfigProvider(cfg Config) ConfigProvider {
+	if cfg.ConfigProvider != nil {
+		return cfg.ConfigProvider
+	}
+	return gocore.NewCfgxConfigProvider(rawConfigLoader{values: cfg.ConfigValues})
+}
+
+func resolvedOptionsResolver(cfg Config) OptionsResolver {
+	if cfg.OptionsResolver != nil {
+		return cfg.OptionsResolver
+	}
+	return gocore.GoOptionsResolver{}
+}
+
+func resolveSetupLoggers(adminApp *goadmin.Admin, cfg Config) (goadmin.LoggerProvider, goadmin.Logger, any, any) {
 	providerInput := cfg.LoggerProvider
 	if providerInput == nil {
 		providerInput = adminApp.LoggerProvider()
@@ -182,69 +328,60 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 	if loggerInput == nil {
 		loggerInput = adminApp.Logger()
 	}
-	resolvedProvider, resolvedLogger, jobProvider, jobLogger := gologgeradapter.ResolveForJob(
-		"admin.modules.services",
-		providerInput,
-		loggerInput,
-	)
+	return gologgeradapter.ResolveForJob("admin.modules.services", providerInput, loggerInput)
+}
 
-	errorFactory := cfg.ErrorFactory
-	if errorFactory == nil {
-		errorFactory = defaultErrorFactory
+func resolvedRegistry(cfg Config) Registry {
+	if cfg.Registry != nil {
+		return cfg.Registry
 	}
-	errorMapper := cfg.ErrorMapper
-	if errorMapper == nil {
-		errorMapper = defaultErrorMapper
-	}
+	return gocore.NewProviderRegistry()
+}
 
-	configProvider := cfg.ConfigProvider
-	if configProvider == nil {
-		configProvider = gocore.NewCfgxConfigProvider(rawConfigLoader{values: cfg.ConfigValues})
+func resolvedExtensionHooks(setupCfg setupOptions) *goservices.ExtensionHooks {
+	if setupCfg.extensionHooks != nil {
+		return setupCfg.extensionHooks
 	}
-	optionsResolver := cfg.OptionsResolver
-	if optionsResolver == nil {
-		optionsResolver = gocore.GoOptionsResolver{}
-	}
+	return goservices.NewExtensionHooks()
+}
 
-	registry := cfg.Registry
-	if registry == nil {
-		registry = gocore.NewProviderRegistry()
-	}
-	extensionHooks := setupCfg.extensionHooks
-	if extensionHooks == nil {
-		extensionHooks = goservices.NewExtensionHooks()
-	}
+func registerExtensionSetupBundles(extensionHooks *goservices.ExtensionHooks, setupCfg setupOptions) error {
 	for _, pack := range setupCfg.providerPacks {
 		if err := extensionHooks.RegisterProviderPack(pack); err != nil {
-			return nil, fmt.Errorf("modules/services: register provider pack %q: %w", strings.TrimSpace(pack.Name), err)
+			return fmt.Errorf("modules/services: register provider pack %q: %w", strings.TrimSpace(pack.Name), err)
 		}
 	}
 	for _, bundle := range setupCfg.commandQueryBundles {
 		if err := extensionHooks.RegisterCommandQueryBundle(bundle.name, bundle.factory); err != nil {
-			return nil, fmt.Errorf("modules/services: register command/query bundle %q: %w", strings.TrimSpace(bundle.name), err)
+			return fmt.Errorf("modules/services: register command/query bundle %q: %w", strings.TrimSpace(bundle.name), err)
 		}
 	}
+	return nil
+}
 
-	providers := append([]Provider(nil), cfg.Providers...)
-	sort.SliceStable(providers, func(i, j int) bool {
-		if providers[i] == nil {
+func registerSetupProviders(registry Registry, providers []Provider) error {
+	sortedProviders := append([]Provider(nil), providers...)
+	sort.SliceStable(sortedProviders, func(i, j int) bool {
+		if sortedProviders[i] == nil {
 			return false
 		}
-		if providers[j] == nil {
+		if sortedProviders[j] == nil {
 			return true
 		}
-		return strings.TrimSpace(providers[i].ID()) < strings.TrimSpace(providers[j].ID())
+		return strings.TrimSpace(sortedProviders[i].ID()) < strings.TrimSpace(sortedProviders[j].ID())
 	})
-	for _, provider := range providers {
+	for _, provider := range sortedProviders {
 		if provider == nil {
 			continue
 		}
 		if err := registry.Register(provider); err != nil {
-			return nil, fmt.Errorf("modules/services: register provider %q: %w", strings.TrimSpace(provider.ID()), err)
+			return fmt.Errorf("modules/services: register provider %q: %w", strings.TrimSpace(provider.ID()), err)
 		}
 	}
+	return nil
+}
 
-	registeredPacks := extensionHooks.ProviderPacks()
+func registerEnabledProviderPacks(registry Registry, cfg Config, registeredPacks []goservices.ProviderPack) ([]string, []string, error) {
 	enabledPackSet := toEnabledPackSet(cfg.Extensions.EnabledProviderPacks)
 	enabledProviderPacks := []string{}
 	disabledProviderPacks := []string{}
@@ -257,118 +394,137 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 		enabledProviderPacks = append(enabledProviderPacks, name)
 		for _, provider := range pack.Providers {
 			if provider == nil {
-				return nil, fmt.Errorf("modules/services: provider pack %q contains nil provider", name)
+				return nil, nil, fmt.Errorf("modules/services: provider pack %q contains nil provider", name)
 			}
 			if err := registry.Register(provider); err != nil {
-				return nil, fmt.Errorf("modules/services: register provider from pack %q: %w", name, err)
+				return nil, nil, fmt.Errorf("modules/services: register provider from pack %q: %w", name, err)
 			}
 		}
 	}
 	if len(enabledPackSet) > 0 {
 		for name := range enabledPackSet {
 			if !containsString(enabledProviderPacks, name) {
-				return nil, fmt.Errorf("modules/services: enabled provider pack %q is not registered", name)
+				return nil, nil, fmt.Errorf("modules/services: enabled provider pack %q is not registered", name)
 			}
 		}
 	}
+	return enabledProviderPacks, disabledProviderPacks, nil
+}
 
-	secretProvider := cfg.SecretProvider
-	if secretProvider == nil {
-		provider, err := security.NewAppKeySecretProviderFromString(
-			cfg.EncryptionKey,
-			security.WithKeyID(cfg.EncryptionKeyID),
-			security.WithVersion(cfg.EncryptionVersion),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("modules/services: build secret provider: %w", err)
-		}
-		secretProvider = provider
+func resolvedSecretProvider(cfg Config) (SecretProvider, error) {
+	if cfg.SecretProvider != nil {
+		return cfg.SecretProvider, nil
 	}
-
-	persistenceClient := cfg.PersistenceClient
-	repositoryFactory := cfg.RepositoryFactory
-	if repositoryFactory == nil {
-		factory, err := sqlstore.NewRepositoryFactoryFromPersistence(persistenceClient)
-		if err != nil {
-			return nil, fmt.Errorf("modules/services: build repository factory: %w", err)
-		}
-		repositoryFactory = factory
+	provider, err := security.NewAppKeySecretProviderFromString(
+		cfg.EncryptionKey,
+		security.WithKeyID(cfg.EncryptionKeyID),
+		security.WithVersion(cfg.EncryptionVersion),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("modules/services: build secret provider: %w", err)
 	}
+	return provider, nil
+}
 
-	var grantStore gocore.GrantStore
+func resolvedRepositoryFactory(cfg Config) (any, error) {
+	if cfg.RepositoryFactory != nil {
+		return cfg.RepositoryFactory, nil
+	}
+	factory, err := sqlstore.NewRepositoryFactoryFromPersistence(cfg.PersistenceClient)
+	if err != nil {
+		return nil, fmt.Errorf("modules/services: build repository factory: %w", err)
+	}
+	return factory, nil
+}
+
+func resolvedGrantStore(persistenceClient any, repositoryFactory any) (gocore.GrantStore, error) {
 	if db := resolveBunDB(persistenceClient, repositoryFactory); db != nil {
 		store, err := sqlstore.NewGrantStore(db)
 		if err != nil {
 			return nil, fmt.Errorf("modules/services: build grant store: %w", err)
 		}
-		grantStore = store
+		return store, nil
 	}
+	return nil, nil
+}
 
-	if registerMigrationsEnabled(cfg.RegisterMigrations) {
-		migrationOptions := []ServiceMigrationsOption{
-			WithServiceMigrationsValidationTargets(cfg.ValidationTargets...),
+func registerSetupMigrations(cfg Config, setupCfg setupOptions) error {
+	if !registerMigrationsEnabled(cfg.RegisterMigrations) {
+		return nil
+	}
+	migrationOptions := []ServiceMigrationsOption{
+		WithServiceMigrationsValidationTargets(cfg.ValidationTargets...),
+	}
+	for _, source := range cfg.AppMigrations {
+		if source.Filesystem == nil {
+			continue
 		}
-		for _, source := range cfg.AppMigrations {
-			if source.Filesystem == nil {
-				continue
-			}
-			migrationOptions = append(migrationOptions, WithServiceMigrationsAppSource(source.Label, source.Filesystem))
+		migrationOptions = append(migrationOptions, WithServiceMigrationsAppSource(source.Label, source.Filesystem))
+	}
+	migrationOptions = append(migrationOptions, setupCfg.migrationOptions...)
+	if err := RegisterServiceMigrations(cfg.PersistenceClient, migrationOptions...); err != nil {
+		return fmt.Errorf("modules/services: register migrations: %w", err)
+	}
+	return nil
+}
+
+func runSetupTableHooks(cfg Config) error {
+	if len(cfg.TableLifecycleHooks) == 0 {
+		return nil
+	}
+	if cfg.PersistenceClient == nil || cfg.PersistenceClient.DB() == nil {
+		return fmt.Errorf("modules/services: table lifecycle hooks require persistence client")
+	}
+	for idx, hook := range cfg.TableLifecycleHooks {
+		if hook == nil {
+			continue
 		}
-		migrationOptions = append(migrationOptions, setupCfg.migrationOptions...)
-		if err := RegisterServiceMigrations(persistenceClient, migrationOptions...); err != nil {
-			return nil, fmt.Errorf("modules/services: register migrations: %w", err)
+		if err := hook(context.Background(), cfg.PersistenceClient.DB()); err != nil {
+			return fmt.Errorf("modules/services: table lifecycle hook %d failed: %w", idx, err)
 		}
 	}
+	return nil
+}
 
-	if len(cfg.TableLifecycleHooks) > 0 {
-		if persistenceClient == nil || persistenceClient.DB() == nil {
-			return nil, fmt.Errorf("modules/services: table lifecycle hooks require persistence client")
-		}
-		for idx, hook := range cfg.TableLifecycleHooks {
-			if hook == nil {
-				continue
-			}
-			if err := hook(context.Background(), persistenceClient.DB()); err != nil {
-				return nil, fmt.Errorf("modules/services: table lifecycle hook %d failed: %w", idx, err)
-			}
-		}
-	}
-
+func setupService(cfg Config, runtime setupRuntime) (*goservices.Service, error) {
 	serviceOptions := []goservices.Option{
-		goservices.WithLoggerProvider(resolvedProvider),
-		goservices.WithLogger(resolvedLogger),
-		goservices.WithErrorFactory(errorFactory),
-		goservices.WithErrorMapper(errorMapper),
-		goservices.WithSecretProvider(secretProvider),
-		goservices.WithConfigProvider(configProvider),
-		goservices.WithOptionsResolver(optionsResolver),
-		goservices.WithRegistry(registry),
+		goservices.WithLoggerProvider(runtime.resolvedProvider),
+		goservices.WithLogger(runtime.resolvedLogger),
+		goservices.WithErrorFactory(runtime.errorFactory),
+		goservices.WithErrorMapper(runtime.errorMapper),
+		goservices.WithSecretProvider(runtime.secretProvider),
+		goservices.WithConfigProvider(runtime.configProvider),
+		goservices.WithOptionsResolver(runtime.optionsResolver),
+		goservices.WithRegistry(runtime.registry),
 	}
-	if persistenceClient != nil {
-		serviceOptions = append(serviceOptions, goservices.WithPersistenceClient(persistenceClient))
+	if cfg.PersistenceClient != nil {
+		serviceOptions = append(serviceOptions, goservices.WithPersistenceClient(cfg.PersistenceClient))
 	}
-	if repositoryFactory != nil {
-		serviceOptions = append(serviceOptions, goservices.WithRepositoryFactory(repositoryFactory))
+	if runtime.repositoryFactory != nil {
+		serviceOptions = append(serviceOptions, goservices.WithRepositoryFactory(runtime.repositoryFactory))
 	}
-	if grantStore != nil {
-		serviceOptions = append(serviceOptions, goservices.WithGrantStore(grantStore))
+	if runtime.grantStore != nil {
+		serviceOptions = append(serviceOptions, goservices.WithGrantStore(runtime.grantStore))
 	}
-
 	service, err := goservices.Setup(cfg.Service, serviceOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("modules/services: setup go-services: %w", err)
 	}
+	return service, nil
+}
+
+func buildSetupModule(adminApp *goadmin.Admin, cfg Config, service *goservices.Service, runtime setupRuntime) (*Module, error) {
 	module := &Module{
 		admin:             adminApp,
 		config:            cfg,
 		service:           service,
-		extensionHooks:    extensionHooks,
-		repositoryFactory: repositoryFactory,
+		extensionHooks:    runtime.extensionHooks,
+		repositoryFactory: runtime.repositoryFactory,
 		runtime: RuntimeContracts{
-			LoggerProvider:    resolvedProvider,
-			Logger:            resolvedLogger,
-			JobLoggerProvider: jobProvider,
-			JobLogger:         jobLogger,
+			LoggerProvider:    runtime.resolvedProvider,
+			Logger:            runtime.resolvedLogger,
+			JobLoggerProvider: runtime.jobProvider,
+			JobLogger:         runtime.jobLogger,
 		},
 	}
 	facade, err := goservices.NewFacade(service, goservices.WithActivityReader(module))
@@ -376,11 +532,16 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 		return nil, fmt.Errorf("modules/services: build command/query facade: %w", err)
 	}
 	module.facade = facade
-	extensionBundles, err := extensionHooks.BuildCommandQueryBundles(service)
+	extensionBundles, err := runtime.extensionHooks.BuildCommandQueryBundles(service)
 	if err != nil {
 		return nil, fmt.Errorf("modules/services: build command/query bundles: %w", err)
 	}
 	module.extensionBundles = extensionBundles
+	module.extensionDiag = setupExtensionDiagnostics(cfg, runtime, extensionBundles)
+	return module, nil
+}
+
+func setupExtensionDiagnostics(cfg Config, runtime setupRuntime, extensionBundles map[string]any) ExtensionDiagnostics {
 	lifecycleSubscribers := make([]string, 0, len(cfg.Lifecycle.Projectors.Subscribers))
 	for _, subscriber := range cfg.Lifecycle.Projectors.Subscribers {
 		if trimmed := strings.TrimSpace(subscriber.Name); trimmed != "" {
@@ -388,23 +549,15 @@ func Setup(adminApp *goadmin.Admin, cfg Config, opts ...Option) (*Module, error)
 		}
 	}
 	sort.Strings(lifecycleSubscribers)
-	module.extensionDiag = ExtensionDiagnostics{
-		RegisteredProviderPacks:  packNames(registeredPacks),
-		EnabledProviderPacks:     enabledProviderPacks,
-		DisabledProviderPacks:    disabledProviderPacks,
-		CommandQueryBundles:      extensionHooks.BundleNames(),
+	return ExtensionDiagnostics{
+		RegisteredProviderPacks:  packNames(runtime.registeredPacks),
+		EnabledProviderPacks:     runtime.enabledProviderPacks,
+		DisabledProviderPacks:    runtime.disabledProviderPacks,
+		CommandQueryBundles:      runtime.extensionHooks.BundleNames(),
 		BuiltCommandQueryBundles: mapKeysSorted(extensionBundles),
 		LifecycleSubscribers:     lifecycleSubscribers,
 		FeatureFlags:             copyBoolMap(cfg.Extensions.FeatureFlags),
 	}
-	if err := module.ensureCallbackURLRoute(); err != nil {
-		return nil, err
-	}
-	if err := module.initializeRuntime(); err != nil {
-		return nil, err
-	}
-
-	return module, nil
 }
 
 func mergeCallbackURLConfig(base CallbackURLConfig, override CallbackURLConfig) CallbackURLConfig {

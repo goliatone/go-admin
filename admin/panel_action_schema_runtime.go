@@ -651,8 +651,8 @@ func mapWidget(t string) string {
 	}
 }
 
-func applyMediaHints(schema *Schema, libraryPath string) {
-	if schema == nil || schema.FormSchema == nil || libraryPath == "" {
+func applyMediaHints(schema *Schema, media *MediaConfig) {
+	if schema == nil || schema.FormSchema == nil || media == nil || strings.TrimSpace(media.LibraryPath) == "" {
 		return
 	}
 	props, ok := schema.FormSchema["properties"].(map[string]any)
@@ -670,11 +670,105 @@ func applyMediaHints(schema *Schema, libraryPath string) {
 		if _, ok := prop["x-formgen:widget"]; !ok {
 			prop["x-formgen:widget"] = "media-picker"
 		}
-		adminMeta, _ := prop["x-admin"].(map[string]any)
-		if adminMeta == nil {
-			adminMeta = map[string]any{}
+		valueMode := applyFormgenMediaHints(prop, media)
+		applyAdminMediaHints(prop, media, valueMode)
+	}
+}
+
+func applyFormgenMediaHints(prop map[string]any, media *MediaConfig) string {
+	formgenMeta, _ := prop["x-formgen"].(map[string]any)
+	if formgenMeta == nil {
+		formgenMeta = map[string]any{}
+	}
+	if strings.TrimSpace(toString(formgenMeta["widget"])) == "" {
+		formgenMeta["widget"] = "media-picker"
+	}
+	componentOptions, _ := formgenMeta["componentOptions"].(map[string]any)
+	if componentOptions == nil {
+		componentOptions = map[string]any{}
+	}
+	componentOptions["variant"] = "media-picker"
+	componentOptions["libraryPath"] = media.LibraryPath
+	componentOptions["itemEndpoint"] = media.ItemPath
+	componentOptions["resolveEndpoint"] = media.ResolvePath
+	componentOptions["uploadEndpoint"] = media.UploadPath
+	componentOptions["presignEndpoint"] = media.PresignPath
+	componentOptions["confirmEndpoint"] = media.ConfirmPath
+	componentOptions["capabilitiesEndpoint"] = media.CapabilitiesPath
+	componentOptions["valueMode"] = string(resolveMediaFieldValueMode(componentOptions, prop, media))
+	if propType := strings.ToLower(strings.TrimSpace(toString(prop["type"]))); propType == "array" {
+		componentOptions["multiple"] = true
+	}
+	formgenMeta["componentOptions"] = componentOptions
+	prop["x-formgen"] = formgenMeta
+	return toString(componentOptions["valueMode"])
+}
+
+func applyAdminMediaHints(prop map[string]any, media *MediaConfig, valueMode string) {
+	adminMeta, _ := prop["x-admin"].(map[string]any)
+	if adminMeta == nil {
+		adminMeta = map[string]any{}
+	}
+	adminMeta["media_library_path"] = media.LibraryPath
+	adminMeta["media_item_path"] = media.ItemPath
+	adminMeta["media_resolve_path"] = media.ResolvePath
+	adminMeta["media_upload_path"] = media.UploadPath
+	adminMeta["media_presign_path"] = media.PresignPath
+	adminMeta["media_confirm_path"] = media.ConfirmPath
+	adminMeta["media_capabilities_path"] = media.CapabilitiesPath
+	mediaMeta, _ := adminMeta["media"].(map[string]any)
+	if mediaMeta == nil {
+		mediaMeta = map[string]any{}
+	}
+	mediaMeta["libraryPath"] = media.LibraryPath
+	mediaMeta["itemPath"] = media.ItemPath
+	mediaMeta["resolvePath"] = media.ResolvePath
+	mediaMeta["uploadPath"] = media.UploadPath
+	mediaMeta["presignPath"] = media.PresignPath
+	mediaMeta["confirmPath"] = media.ConfirmPath
+	mediaMeta["capabilitiesPath"] = media.CapabilitiesPath
+	mediaMeta["valueMode"] = valueMode
+	adminMeta["media"] = mediaMeta
+	prop["x-admin"] = adminMeta
+}
+
+func resolveMediaFieldValueMode(componentOptions map[string]any, prop map[string]any, media *MediaConfig) MediaValueMode {
+	defaultMode := MediaValueModeURL
+	if media != nil && media.DefaultValueMode != "" {
+		defaultMode = media.DefaultValueMode
+	}
+	candidates := []string{
+		toString(componentOptions["valueMode"]),
+		toString(componentOptions["value_mode"]),
+	}
+	if adminMeta, ok := prop["x-admin"].(map[string]any); ok {
+		if mediaMeta, ok := adminMeta["media"].(map[string]any); ok {
+			candidates = append(candidates, toString(mediaMeta["valueMode"]), toString(mediaMeta["value_mode"]))
 		}
-		adminMeta["media_library_path"] = libraryPath
-		prop["x-admin"] = adminMeta
+		candidates = append(candidates, toString(adminMeta["media_value_mode"]))
+	}
+	for _, candidate := range candidates {
+		switch normalizeMediaValueMode(candidate) {
+		case MediaValueModeID:
+			if media != nil && strings.TrimSpace(media.ItemPath) != "" {
+				return MediaValueModeID
+			}
+		case MediaValueModeURL:
+			if media == nil || strings.TrimSpace(media.ResolvePath) != "" || strings.TrimSpace(media.LibraryPath) != "" {
+				return MediaValueModeURL
+			}
+		}
+	}
+	return defaultMode
+}
+
+func normalizeMediaValueMode(raw string) MediaValueMode {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case string(MediaValueModeID):
+		return MediaValueModeID
+	case string(MediaValueModeURL):
+		return MediaValueModeURL
+	default:
+		return ""
 	}
 }

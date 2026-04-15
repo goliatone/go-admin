@@ -5,6 +5,7 @@
  */
 
 import type {
+  MediaFieldConfig,
   FieldDefinition,
   FieldConfigFormConfig,
   FieldType,
@@ -446,7 +447,7 @@ export class FieldConfigForm extends Modal {
 
     // Media settings
     if (['media-picker', 'media-gallery', 'file-upload'].includes(this.field.type)) {
-      const config = this.field.config as { accept?: string; maxSize?: number; multiple?: boolean } | undefined;
+      const config = this.field.config as MediaFieldConfig | undefined;
 
       sections.push(`
         <div class="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -467,6 +468,22 @@ export class FieldConfigForm extends Modal {
             </div>
             <div>
               <label class="${labelClasses()}">
+                Value Mode
+              </label>
+              <select
+                name="valueMode"
+                class="${selectClasses()}"
+                ${this.field.type === 'file-upload' ? 'disabled' : ''}
+              >
+                <option value="url" ${config?.valueMode !== 'id' ? 'selected' : ''}>URL</option>
+                <option value="id" ${config?.valueMode === 'id' ? 'selected' : ''}>ID</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="${labelClasses()}">
                 Max Size (MB)
               </label>
               <input
@@ -478,20 +495,24 @@ export class FieldConfigForm extends Modal {
                 class="${inputClasses()}"
               />
             </div>
+            <div>
+              <label class="${labelClasses()}">
+                Accepted Kinds
+              </label>
+              <input
+                type="text"
+                name="acceptedKinds"
+                value="${escapeHtml((config?.acceptedKinds ?? []).join(', '))}"
+                placeholder="image, audio"
+                class="${inputClasses()}"
+              />
+            </div>
           </div>
 
           ${
             this.field.type === 'media-gallery'
               ? `
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                name="multiple"
-                ${config?.multiple !== false ? 'checked' : ''}
-                class="${checkboxClasses()}"
-              />
-              <span class="text-sm text-gray-700 dark:text-gray-300">Allow multiple files</span>
-            </label>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Media gallery fields always store multiple assets.</p>
           `
               : ''
           }
@@ -1251,11 +1272,17 @@ export class FieldConfigForm extends Modal {
       case 'file-upload': {
         const accept = (formData.get('accept') as string)?.trim();
         const maxSize = formData.get('maxSize') ? parseInt(formData.get('maxSize') as string, 10) : undefined;
-        const multiple = formData.get('multiple') === 'on';
+        const valueMode = ((formData.get('valueMode') as string)?.trim() || 'url') as 'url' | 'id';
+        const acceptedKinds = ((formData.get('acceptedKinds') as string) || '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean);
         return {
           accept: accept || undefined,
           maxSize,
-          multiple: this.field.type === 'media-gallery' ? multiple : undefined,
+          multiple: this.field.type === 'media-gallery' ? true : undefined,
+          valueMode: this.field.type === 'file-upload' ? 'url' : valueMode,
+          acceptedKinds: acceptedKinds.length > 0 ? acceptedKinds : undefined,
         };
       }
 

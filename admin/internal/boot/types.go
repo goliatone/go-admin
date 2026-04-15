@@ -157,7 +157,7 @@ type MultipartFile struct {
 	FileName    string
 	ContentType string
 	Size        int64
-	Reader      io.Reader
+	Reader      io.ReadCloser
 }
 
 // MediaBinding exposes media operations.

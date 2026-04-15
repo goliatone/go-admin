@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"go/parser"
 	"io"
 	"reflect"
@@ -97,85 +96,23 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 		return ErrForbidden
 	}
 	replCfg := normalizeDebugREPLConfig(cfg.Repl)
-	adminCtx, ok := debugREPLAdminContextFromUpgrade(c)
-	if !ok {
-		adminCtx = AdminContext{Context: c.Context()}
-	}
-	if adminCtx.Context == nil {
-		adminCtx.Context = c.Context()
-	}
-	if adminCtx.UserID == "" {
-		adminCtx.UserID = userIDFromContext(adminCtx.Context)
-	}
-	sessionManager := admin.DebugREPLSessionManager()
-	if sessionManager == nil {
-		return ErrForbidden
-	}
-	session := DebugREPLSession{
-		UserID:    adminCtx.UserID,
-		IP:        debugREPLUpgradeString(c, debugREPLUpgradeIP),
-		UserAgent: debugREPLUpgradeString(c, debugREPLUpgradeUserAgent),
-		Kind:      DebugREPLKindApp,
-		ReadOnly:  replCfg.ReadOnlyEnabled(),
-	}
-	session, err := sessionManager.Start(adminCtx.Context, session)
+	runtime, err := debugREPLStartSession(admin, c, DebugREPLKindApp, replCfg.ReadOnlyEnabled())
 	if err != nil {
 		return err
 	}
-	sessionObject := debugREPLActivityObject(session.ID)
-	baseMeta := debugREPLActivityMetadata(session)
-	recordDebugREPLActivity(admin, adminCtx.Context, debugREPLActivityActionOpen, sessionObject, baseMeta)
-
 	closeReason := debugREPLAppCloseReasonUser
-	defer func() {
-		_ = sessionManager.Close(adminCtx.Context, session.ID, time.Now())
-		closeMeta := primitives.CloneAnyMap(baseMeta)
-		closeMeta["reason"] = closeReason
-		recordDebugREPLActivity(admin, adminCtx.Context, debugREPLActivityActionClose, sessionObject, closeMeta)
-	}()
+	defer debugREPLFinishSession(admin, runtime, &closeReason)
 
-	interpreter, err := debugREPLAppInterpreter(admin, adminCtx, replCfg)
+	interpreter, err := debugREPLAppReadyInterpreter(admin, runtime.adminCtx, replCfg, c, runtime.session)
 	if err != nil {
-		admin.loggerFor("admin.debug.repl.app").Error("app console initialization failed",
-			"error", err)
-		initErr := err
-		fallback, fallbackErr := debugREPLAppFallbackInterpreter(replCfg)
-		if fallbackErr != nil {
-			admin.loggerFor("admin.debug.repl.app").Error("app console fallback initialization failed",
-				"error", fallbackErr)
-			_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{
-				"component": "debug_repl_app",
-				"error":     initErr.Error(),
-			}))
-		} else {
-			interpreter = fallback
-			_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console started without admin helpers", map[string]any{
-				"component": "debug_repl_app",
-				"error":     initErr.Error(),
-			}))
-		}
+		closeReason = debugREPLAppCloseReasonError
+		return err
 	}
 
-	commandCh := make(chan debugREPLAppCommand, 16)
-	commandErrCh := make(chan error, 1)
-	go func() {
-		defer close(commandCh)
-		for {
-			var cmd debugREPLAppCommand
-			if err := c.ReadJSON(&cmd); err != nil {
-				commandErrCh <- err
-				return
-			}
-			commandCh <- cmd
-		}
-	}()
+	commandCh, commandErrCh := debugREPLAppCommandReader(c)
 
-	var timeoutCh <-chan time.Time
-	if replCfg.MaxSessionSeconds > 0 {
-		timer := time.NewTimer(time.Duration(replCfg.MaxSessionSeconds) * time.Second)
-		defer timer.Stop()
-		timeoutCh = timer.C
-	}
+	timeoutCh, stopTimeout := debugREPLTimeoutChannel(replCfg.MaxSessionSeconds)
+	defer stopTimeout()
 
 	for {
 		select {
@@ -194,7 +131,7 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 				closeReason = debugREPLAppCloseReasonUser
 				return nil
 			}
-			if err := handleDebugREPLAppCommand(admin, adminCtx, replCfg, session, interpreter, c, cmd); err != nil {
+			if err := handleDebugREPLAppCommand(admin, runtime.adminCtx, replCfg, runtime.session, interpreter, c, cmd); err != nil {
 				switch {
 				case errors.Is(err, errDebugREPLAppClose):
 					closeReason = debugREPLAppCloseReasonUser
@@ -216,6 +153,46 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 
 var errDebugREPLAppClose = errors.New("app repl close requested")
 var errDebugREPLAppTimeout = errors.New("app repl eval timeout")
+
+func debugREPLAppReadyInterpreter(admin *Admin, adminCtx AdminContext, replCfg DebugREPLConfig, c router.WebSocketContext, session DebugREPLSession) (*interp.Interpreter, error) {
+	interpreter, err := debugREPLAppInterpreter(admin, adminCtx, replCfg)
+	if err == nil {
+		return interpreter, nil
+	}
+	admin.loggerFor("admin.debug.repl.app").Error("app console initialization failed", "error", err)
+	initErr := err
+	fallback, fallbackErr := debugREPLAppFallbackInterpreter(replCfg)
+	if fallbackErr != nil {
+		admin.loggerFor("admin.debug.repl.app").Error("app console fallback initialization failed", "error", fallbackErr)
+		_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console unavailable", map[string]any{
+			"component": "debug_repl_app",
+			"error":     initErr.Error(),
+		}))
+		return nil, fallbackErr
+	}
+	_ = debugREPLAppWriteError(admin, adminCtx, session, c, "", serviceUnavailableDomainError("app console started without admin helpers", map[string]any{
+		"component": "debug_repl_app",
+		"error":     initErr.Error(),
+	}))
+	return fallback, nil
+}
+
+func debugREPLAppCommandReader(c router.WebSocketContext) (<-chan debugREPLAppCommand, <-chan error) {
+	commandCh := make(chan debugREPLAppCommand, 16)
+	commandErrCh := make(chan error, 1)
+	go func() {
+		defer close(commandCh)
+		for {
+			var cmd debugREPLAppCommand
+			if err := c.ReadJSON(&cmd); err != nil {
+				commandErrCh <- err
+				return
+			}
+			commandCh <- cmd
+		}
+	}()
+	return commandCh, commandErrCh
+}
 
 func handleDebugREPLAppCommand(admin *Admin, adminCtx AdminContext, cfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, cmd debugREPLAppCommand) error {
 	if admin == nil || c == nil {

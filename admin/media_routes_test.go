@@ -68,7 +68,10 @@ func (l *mediaRouteTestLibrary) ResolveMedia(_ context.Context, ref MediaReferen
 }
 
 func (l *mediaRouteTestLibrary) UploadMedia(_ context.Context, input MediaUploadInput) (MediaItem, error) {
-	_, _ = io.ReadAll(input.Reader)
+	payload, err := io.ReadAll(input.Reader)
+	if err != nil {
+		return MediaItem{}, err
+	}
 	item := MediaItem{
 		ID:        "upload-1",
 		Name:      firstNonEmpty(input.Name, input.FileName),
@@ -76,6 +79,7 @@ func (l *mediaRouteTestLibrary) UploadMedia(_ context.Context, input MediaUpload
 		Thumbnail: "/uploads/" + firstNonEmpty(input.FileName, "upload.bin"),
 		Type:      "image",
 		MIMEType:  input.ContentType,
+		Size:      int64(len(payload)),
 		Status:    "ready",
 		Metadata:  input.Metadata,
 	}
@@ -313,5 +317,69 @@ func TestMediaCapabilitiesRouteReturnsRequestScopedCapabilities(t *testing.T) {
 	}
 	if !payload.Operations.Upload || !payload.Upload.DirectUpload || payload.Picker.DefaultValueMode != MediaValueModeURL {
 		t.Fatalf("unexpected capabilities payload: %+v", payload)
+	}
+}
+
+type mediaCapabilityOverrideTestLibrary struct {
+	*mediaRouteTestLibrary
+	overrides MediaCapabilityOverrides
+}
+
+func (l *mediaCapabilityOverrideTestLibrary) MediaCapabilityOverrides(context.Context) (MediaCapabilityOverrides, error) {
+	return l.overrides, nil
+}
+
+func TestMediaCapabilitiesClampUnauthorizedProviderClaims(t *testing.T) {
+	lib := newMediaRouteTestLibrary()
+	server := newMediaRouteServer(t, allowPermissionAuthorizer{allowed: "perm.view"}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS))
+	req := httptest.NewRequest("GET", "/admin/api/media/capabilities", nil)
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != 200 {
+		t.Fatalf("capabilities status: %d body=%s", res.Code, res.Body.String())
+	}
+	var payload MediaCapabilities
+	if err := json.Unmarshal(res.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode capabilities: %v", err)
+	}
+	if payload.Operations.Upload || payload.Operations.Presign || payload.Operations.Confirm || payload.Operations.Delete {
+		t.Fatalf("unauthorized operations should be clamped: %+v", payload.Operations)
+	}
+	if payload.Upload.DirectUpload || payload.Upload.Presign {
+		t.Fatalf("unauthorized upload modes should be clamped: %+v", payload.Upload)
+	}
+}
+
+func TestMediaCapabilityOverridesCanAdjustPartialFieldsWithoutResettingBooleans(t *testing.T) {
+	maxSize := int64(1024)
+	acceptedKinds := []string{"image", "audio"}
+	lib := &mediaCapabilityOverrideTestLibrary{
+		mediaRouteTestLibrary: newMediaRouteTestLibrary(),
+		overrides: MediaCapabilityOverrides{
+			Upload: MediaUploadCapabilityOverrides{
+				MaxSize:       &maxSize,
+				AcceptedKinds: &acceptedKinds,
+			},
+		},
+	}
+	server := newMediaRouteServer(t, allowAll{}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS))
+	req := httptest.NewRequest("GET", "/admin/api/media/capabilities", nil)
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != 200 {
+		t.Fatalf("capabilities status: %d body=%s", res.Code, res.Body.String())
+	}
+	var payload MediaCapabilities
+	if err := json.Unmarshal(res.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode capabilities: %v", err)
+	}
+	if !payload.Operations.Upload || !payload.Operations.Presign || !payload.Operations.Resolve {
+		t.Fatalf("partial overrides should not reset supported operations: %+v", payload.Operations)
+	}
+	if payload.Upload.MaxSize != maxSize {
+		t.Fatalf("expected max size %d, got %d", maxSize, payload.Upload.MaxSize)
+	}
+	if len(payload.Upload.AcceptedKinds) != len(acceptedKinds) {
+		t.Fatalf("expected accepted kinds %v, got %v", acceptedKinds, payload.Upload.AcceptedKinds)
 	}
 }

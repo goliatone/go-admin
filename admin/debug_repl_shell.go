@@ -50,6 +50,14 @@ type debugREPLShellEvent struct {
 	Code int    `json:"code,omitempty"`
 }
 
+type debugREPLSessionRuntime struct {
+	adminCtx      AdminContext
+	sessionManger *DebugREPLSessionManager
+	session       DebugREPLSession
+	sessionObject string
+	baseMeta      map[string]any
+}
+
 func (m *DebugModule) registerDebugREPLShellWebSocket(admin *Admin) {
 	if admin == nil || admin.router == nil || m == nil {
 		return
@@ -100,42 +108,12 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 		return ErrForbidden
 	}
 	replCfg := normalizeDebugREPLConfig(cfg.Repl)
-	adminCtx, ok := debugREPLAdminContextFromUpgrade(c)
-	if !ok {
-		adminCtx = AdminContext{Context: c.Context()}
-	}
-	if adminCtx.Context == nil {
-		adminCtx.Context = c.Context()
-	}
-	if adminCtx.UserID == "" {
-		adminCtx.UserID = userIDFromContext(adminCtx.Context)
-	}
-	sessionManager := admin.DebugREPLSessionManager()
-	if sessionManager == nil {
-		return ErrForbidden
-	}
-	session := DebugREPLSession{
-		UserID:    adminCtx.UserID,
-		IP:        debugREPLUpgradeString(c, debugREPLUpgradeIP),
-		UserAgent: debugREPLUpgradeString(c, debugREPLUpgradeUserAgent),
-		Kind:      DebugREPLKindShell,
-		ReadOnly:  replCfg.ReadOnlyEnabled(),
-	}
-	session, err := sessionManager.Start(adminCtx.Context, session)
+	runtime, err := debugREPLStartSession(admin, c, DebugREPLKindShell, replCfg.ReadOnlyEnabled())
 	if err != nil {
 		return err
 	}
-	sessionObject := debugREPLActivityObject(session.ID)
-	baseMeta := debugREPLActivityMetadata(session)
-	recordDebugREPLActivity(admin, adminCtx.Context, debugREPLActivityActionOpen, sessionObject, baseMeta)
-
 	closeReason := debugREPLShellCloseReasonUser
-	defer func() {
-		_ = sessionManager.Close(adminCtx.Context, session.ID, time.Now())
-		closeMeta := primitives.CloneAnyMap(baseMeta)
-		closeMeta["reason"] = closeReason
-		recordDebugREPLActivity(admin, adminCtx.Context, debugREPLActivityActionClose, sessionObject, closeMeta)
-	}()
+	defer debugREPLFinishSession(admin, runtime, &closeReason)
 
 	cmd, ptmx, err := debugREPLStartShell(replCfg)
 	if err != nil {
@@ -144,47 +122,9 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 	}
 	defer debugREPLStopShell(cmd, ptmx)
 
-	commandCh := make(chan debugREPLShellCommand, 16)
-	commandErrCh := make(chan error, 1)
-	go func() {
-		defer close(commandCh)
-		for {
-			var cmd debugREPLShellCommand
-			if err := c.ReadJSON(&cmd); err != nil {
-				commandErrCh <- err
-				return
-			}
-			commandCh <- cmd
-		}
-	}()
+	commandCh, commandErrCh := debugREPLShellCommandReader(c)
 
-	outputCh := make(chan []byte, 16)
-	ptyErrCh := make(chan error, 1)
-	done := make(chan struct{})
-	go func() {
-		defer close(outputCh)
-		defer close(ptyErrCh)
-		buf := make([]byte, 4096)
-		for {
-			n, err := ptmx.Read(buf)
-			if n > 0 {
-				chunk := make([]byte, n)
-				copy(chunk, buf[:n])
-				select {
-				case outputCh <- chunk:
-				case <-done:
-					return
-				}
-			}
-			if err != nil {
-				select {
-				case ptyErrCh <- err:
-				case <-done:
-				}
-				return
-			}
-		}
-	}()
+	outputCh, ptyErrCh, done := debugREPLShellOutputReader(ptmx)
 	defer close(done)
 
 	cmdErrCh := make(chan error, 1)
@@ -192,12 +132,8 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 		cmdErrCh <- cmd.Wait()
 	}()
 
-	var timeoutCh <-chan time.Time
-	if replCfg.MaxSessionSeconds > 0 {
-		timer := time.NewTimer(time.Duration(replCfg.MaxSessionSeconds) * time.Second)
-		defer timer.Stop()
-		timeoutCh = timer.C
-	}
+	timeoutCh, stopTimeout := debugREPLTimeoutChannel(replCfg.MaxSessionSeconds)
+	defer stopTimeout()
 
 	for {
 		select {
@@ -216,7 +152,7 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 				closeReason = debugREPLShellCloseReasonUser
 				return nil
 			}
-			if err := handleDebugREPLShellCommand(admin, adminCtx.Context, replCfg, session, ptmx, cmd); err != nil {
+			if err := handleDebugREPLShellCommand(admin, runtime.adminCtx.Context, replCfg, runtime.session, ptmx, cmd); err != nil {
 				if errors.Is(err, errDebugREPLShellClose) {
 					closeReason = debugREPLShellCloseReasonUser
 					return nil
@@ -246,6 +182,114 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 			return nil
 		}
 	}
+}
+
+func debugREPLStartSession(admin *Admin, c router.WebSocketContext, kind string, readOnly bool) (debugREPLSessionRuntime, error) {
+	if admin == nil || c == nil {
+		return debugREPLSessionRuntime{}, ErrForbidden
+	}
+	adminCtx, ok := debugREPLAdminContextFromUpgrade(c)
+	if !ok {
+		adminCtx = AdminContext{Context: c.Context()}
+	}
+	if adminCtx.Context == nil {
+		adminCtx.Context = c.Context()
+	}
+	if adminCtx.UserID == "" {
+		adminCtx.UserID = userIDFromContext(adminCtx.Context)
+	}
+	sessionManager := admin.DebugREPLSessionManager()
+	if sessionManager == nil {
+		return debugREPLSessionRuntime{}, ErrForbidden
+	}
+	session := DebugREPLSession{
+		UserID:    adminCtx.UserID,
+		IP:        debugREPLUpgradeString(c, debugREPLUpgradeIP),
+		UserAgent: debugREPLUpgradeString(c, debugREPLUpgradeUserAgent),
+		Kind:      kind,
+		ReadOnly:  readOnly,
+	}
+	session, err := sessionManager.Start(adminCtx.Context, session)
+	if err != nil {
+		return debugREPLSessionRuntime{}, err
+	}
+	runtime := debugREPLSessionRuntime{
+		adminCtx:      adminCtx,
+		sessionManger: sessionManager,
+		session:       session,
+		sessionObject: debugREPLActivityObject(session.ID),
+		baseMeta:      debugREPLActivityMetadata(session),
+	}
+	recordDebugREPLActivity(admin, adminCtx.Context, debugREPLActivityActionOpen, runtime.sessionObject, runtime.baseMeta)
+	return runtime, nil
+}
+
+func debugREPLFinishSession(admin *Admin, runtime debugREPLSessionRuntime, closeReason *string) {
+	if runtime.sessionManger == nil {
+		return
+	}
+	_ = runtime.sessionManger.Close(runtime.adminCtx.Context, runtime.session.ID, time.Now())
+	closeMeta := primitives.CloneAnyMap(runtime.baseMeta)
+	if closeReason != nil {
+		closeMeta["reason"] = *closeReason
+	}
+	recordDebugREPLActivity(admin, runtime.adminCtx.Context, debugREPLActivityActionClose, runtime.sessionObject, closeMeta)
+}
+
+func debugREPLTimeoutChannel(maxSessionSeconds int) (<-chan time.Time, func()) {
+	if maxSessionSeconds <= 0 {
+		return nil, func() {}
+	}
+	timer := time.NewTimer(time.Duration(maxSessionSeconds) * time.Second)
+	return timer.C, func() { timer.Stop() }
+}
+
+func debugREPLShellCommandReader(c router.WebSocketContext) (<-chan debugREPLShellCommand, <-chan error) {
+	commandCh := make(chan debugREPLShellCommand, 16)
+	commandErrCh := make(chan error, 1)
+	go func() {
+		defer close(commandCh)
+		for {
+			var cmd debugREPLShellCommand
+			if err := c.ReadJSON(&cmd); err != nil {
+				commandErrCh <- err
+				return
+			}
+			commandCh <- cmd
+		}
+	}()
+	return commandCh, commandErrCh
+}
+
+func debugREPLShellOutputReader(ptmx *os.File) (<-chan []byte, <-chan error, chan struct{}) {
+	outputCh := make(chan []byte, 16)
+	ptyErrCh := make(chan error, 1)
+	done := make(chan struct{})
+	go func() {
+		defer close(outputCh)
+		defer close(ptyErrCh)
+		buf := make([]byte, 4096)
+		for {
+			n, err := ptmx.Read(buf)
+			if n > 0 {
+				chunk := make([]byte, n)
+				copy(chunk, buf[:n])
+				select {
+				case outputCh <- chunk:
+				case <-done:
+					return
+				}
+			}
+			if err != nil {
+				select {
+				case ptyErrCh <- err:
+				case <-done:
+				}
+				return
+			}
+		}
+	}()
+	return outputCh, ptyErrCh, done
 }
 
 var errDebugREPLShellClose = errors.New("shell repl close requested")

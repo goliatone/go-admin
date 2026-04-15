@@ -230,7 +230,7 @@ func (m *mediaBinding) resolveLegacyMedia(ctx context.Context, ref MediaReferenc
 }
 
 func (m *mediaBinding) effectiveCapabilities(adminCtx AdminContext) (MediaCapabilities, error) {
-	base := MediaCapabilities{
+	supported := MediaCapabilities{
 		Operations: MediaOperationCapabilities{
 			List:         true,
 			Get:          true,
@@ -251,19 +251,23 @@ func (m *mediaBinding) effectiveCapabilities(adminCtx AdminContext) (MediaCapabi
 			DefaultValueMode: MediaValueModeURL,
 		},
 	}
+	base := supported
 	if provider, ok := m.admin.mediaLibrary.(MediaCapabilityProvider); ok {
-		override, err := provider.MediaCapabilities(adminCtx.Context)
+		authoritative, err := provider.MediaCapabilities(adminCtx.Context)
 		if err != nil {
 			return MediaCapabilities{}, err
 		}
-		base = mergeMediaCapabilities(base, override)
+		base = authoritative
 	}
-	if !base.Operations.Get && !base.Operations.Resolve {
-		base.Picker.ValueModes = []MediaValueMode{MediaValueModeURL}
+	if provider, ok := m.admin.mediaLibrary.(MediaCapabilityOverrideProvider); ok {
+		overrides, err := provider.MediaCapabilityOverrides(adminCtx.Context)
+		if err != nil {
+			return MediaCapabilities{}, err
+		}
+		base = applyMediaCapabilityOverrides(base, overrides)
 	}
-	base.Upload.DirectUpload = base.Upload.DirectUpload && base.Operations.Upload
-	base.Upload.Presign = base.Upload.Presign && base.Operations.Presign
-	return base, nil
+	base = clampMediaCapabilities(base, supported)
+	return normalizeMediaCapabilities(base, supported), nil
 }
 
 func (m *mediaBinding) can(adminCtx AdminContext, permission string) bool {
@@ -295,36 +299,183 @@ func implementsMediaDeleter(lib MediaLibrary) bool {
 	return ok
 }
 
-func mergeMediaCapabilities(base, override MediaCapabilities) MediaCapabilities {
-	base.Operations.List = base.Operations.List && override.Operations.List
-	base.Operations.Get = base.Operations.Get && override.Operations.Get
-	base.Operations.Resolve = base.Operations.Resolve && override.Operations.Resolve
-	base.Operations.Upload = base.Operations.Upload && override.Operations.Upload
-	base.Operations.Presign = base.Operations.Presign && override.Operations.Presign
-	base.Operations.Confirm = base.Operations.Confirm && override.Operations.Confirm
-	base.Operations.Update = base.Operations.Update && override.Operations.Update
-	base.Operations.Delete = base.Operations.Delete && override.Operations.Delete
-	base.Operations.LegacyCreate = base.Operations.LegacyCreate && override.Operations.LegacyCreate
-
-	if override.Upload.MaxSize > 0 {
-		base.Upload.MaxSize = override.Upload.MaxSize
+func applyMediaCapabilityOverrides(base MediaCapabilities, override MediaCapabilityOverrides) MediaCapabilities {
+	if override.Operations.List != nil {
+		base.Operations.List = *override.Operations.List
 	}
-	if len(override.Upload.AcceptedKinds) > 0 {
-		base.Upload.AcceptedKinds = append([]string{}, override.Upload.AcceptedKinds...)
+	if override.Operations.Get != nil {
+		base.Operations.Get = *override.Operations.Get
 	}
-	if len(override.Upload.AcceptedMIMETypes) > 0 {
-		base.Upload.AcceptedMIMETypes = append([]string{}, override.Upload.AcceptedMIMETypes...)
+	if override.Operations.Resolve != nil {
+		base.Operations.Resolve = *override.Operations.Resolve
 	}
-	base.Upload.DirectUpload = base.Upload.DirectUpload && override.Upload.DirectUpload
-	base.Upload.Presign = base.Upload.Presign && override.Upload.Presign
-
-	if len(override.Picker.ValueModes) > 0 {
-		base.Picker.ValueModes = append([]MediaValueMode{}, override.Picker.ValueModes...)
+	if override.Operations.Upload != nil {
+		base.Operations.Upload = *override.Operations.Upload
 	}
-	if override.Picker.DefaultValueMode != "" {
-		base.Picker.DefaultValueMode = override.Picker.DefaultValueMode
+	if override.Operations.Presign != nil {
+		base.Operations.Presign = *override.Operations.Presign
+	}
+	if override.Operations.Confirm != nil {
+		base.Operations.Confirm = *override.Operations.Confirm
+	}
+	if override.Operations.Update != nil {
+		base.Operations.Update = *override.Operations.Update
+	}
+	if override.Operations.Delete != nil {
+		base.Operations.Delete = *override.Operations.Delete
+	}
+	if override.Operations.LegacyCreate != nil {
+		base.Operations.LegacyCreate = *override.Operations.LegacyCreate
+	}
+	if override.Upload.DirectUpload != nil {
+		base.Upload.DirectUpload = *override.Upload.DirectUpload
+	}
+	if override.Upload.Presign != nil {
+		base.Upload.Presign = *override.Upload.Presign
+	}
+	if override.Upload.MaxSize != nil {
+		base.Upload.MaxSize = *override.Upload.MaxSize
+	}
+	if override.Upload.AcceptedKinds != nil {
+		base.Upload.AcceptedKinds = append([]string{}, (*override.Upload.AcceptedKinds)...)
+	}
+	if override.Upload.AcceptedMIMETypes != nil {
+		base.Upload.AcceptedMIMETypes = append([]string{}, (*override.Upload.AcceptedMIMETypes)...)
+	}
+	if override.Picker.ValueModes != nil {
+		base.Picker.ValueModes = append([]MediaValueMode{}, (*override.Picker.ValueModes)...)
+	}
+	if override.Picker.DefaultValueMode != nil {
+		base.Picker.DefaultValueMode = *override.Picker.DefaultValueMode
 	}
 	return base
+}
+
+func clampMediaCapabilities(base, supported MediaCapabilities) MediaCapabilities {
+	base.Operations.List = base.Operations.List && supported.Operations.List
+	base.Operations.Get = base.Operations.Get && supported.Operations.Get
+	base.Operations.Resolve = base.Operations.Resolve && supported.Operations.Resolve
+	base.Operations.Upload = base.Operations.Upload && supported.Operations.Upload
+	base.Operations.Presign = base.Operations.Presign && supported.Operations.Presign
+	base.Operations.Confirm = base.Operations.Confirm && supported.Operations.Confirm
+	base.Operations.Update = base.Operations.Update && supported.Operations.Update
+	base.Operations.Delete = base.Operations.Delete && supported.Operations.Delete
+	base.Operations.LegacyCreate = base.Operations.LegacyCreate && supported.Operations.LegacyCreate
+
+	base.Upload.DirectUpload = base.Upload.DirectUpload && supported.Upload.DirectUpload
+	base.Upload.Presign = base.Upload.Presign && supported.Upload.Presign
+
+	if supported.Upload.MaxSize > 0 && (base.Upload.MaxSize <= 0 || base.Upload.MaxSize > supported.Upload.MaxSize) {
+		base.Upload.MaxSize = supported.Upload.MaxSize
+	}
+	if len(supported.Upload.AcceptedKinds) > 0 {
+		base.Upload.AcceptedKinds = intersectStrings(base.Upload.AcceptedKinds, supported.Upload.AcceptedKinds)
+	}
+	if len(supported.Upload.AcceptedMIMETypes) > 0 {
+		base.Upload.AcceptedMIMETypes = intersectStrings(base.Upload.AcceptedMIMETypes, supported.Upload.AcceptedMIMETypes)
+	}
+	if len(supported.Picker.ValueModes) > 0 {
+		base.Picker.ValueModes = intersectMediaValueModes(base.Picker.ValueModes, supported.Picker.ValueModes)
+	}
+	return base
+}
+
+func normalizeMediaCapabilities(base, supported MediaCapabilities) MediaCapabilities {
+	base.Upload.DirectUpload = base.Upload.DirectUpload && base.Operations.Upload
+	base.Upload.Presign = base.Upload.Presign && base.Operations.Presign
+
+	if len(base.Picker.ValueModes) == 0 {
+		base.Picker.ValueModes = append([]MediaValueMode{}, supported.Picker.ValueModes...)
+	}
+	if !base.Operations.Get && !base.Operations.Resolve {
+		base.Picker.ValueModes = []MediaValueMode{MediaValueModeURL}
+	}
+	base.Picker.ValueModes = dedupeMediaValueModes(base.Picker.ValueModes)
+	if len(base.Picker.ValueModes) == 0 {
+		base.Picker.ValueModes = []MediaValueMode{MediaValueModeURL}
+	}
+	if !containsMediaValueMode(base.Picker.ValueModes, base.Picker.DefaultValueMode) {
+		base.Picker.DefaultValueMode = firstMediaValueMode(base.Picker.ValueModes, supported.Picker.DefaultValueMode, MediaValueModeURL)
+	}
+	return base
+}
+
+func intersectStrings(values, allowed []string) []string {
+	if len(values) == 0 {
+		return append([]string{}, allowed...)
+	}
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, value := range allowed {
+		allowedSet[strings.TrimSpace(value)] = struct{}{}
+	}
+	filtered := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if _, ok := allowedSet[trimmed]; ok {
+			filtered = append(filtered, trimmed)
+		}
+	}
+	return filtered
+}
+
+func intersectMediaValueModes(values, allowed []MediaValueMode) []MediaValueMode {
+	if len(values) == 0 {
+		return append([]MediaValueMode{}, allowed...)
+	}
+	allowedSet := make(map[MediaValueMode]struct{}, len(allowed))
+	for _, value := range allowed {
+		allowedSet[value] = struct{}{}
+	}
+	filtered := make([]MediaValueMode, 0, len(values))
+	for _, value := range values {
+		if _, ok := allowedSet[value]; ok {
+			filtered = append(filtered, value)
+		}
+	}
+	return filtered
+}
+
+func dedupeMediaValueModes(values []MediaValueMode) []MediaValueMode {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[MediaValueMode]struct{}, len(values))
+	deduped := make([]MediaValueMode, 0, len(values))
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		deduped = append(deduped, value)
+	}
+	return deduped
+}
+
+func containsMediaValueMode(values []MediaValueMode, candidate MediaValueMode) bool {
+	if candidate == "" {
+		return false
+	}
+	for _, value := range values {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func firstMediaValueMode(values []MediaValueMode, candidates ...MediaValueMode) MediaValueMode {
+	for _, candidate := range candidates {
+		if containsMediaValueMode(values, candidate) {
+			return candidate
+		}
+	}
+	if len(values) > 0 {
+		return values[0]
+	}
+	return ""
 }
 
 func mediaQueryFromRequest(c router.Context) MediaQuery {

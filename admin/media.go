@@ -167,8 +167,55 @@ type MediaQueryProvider interface {
 }
 
 // MediaCapabilityProvider exposes request-scoped media capability information.
+// Implementations should return the full capability payload for the current
+// request, not a partial patch.
 type MediaCapabilityProvider interface {
 	MediaCapabilities(ctx context.Context) (MediaCapabilities, error)
+}
+
+// MediaOperationCapabilityOverrides applies partial request-scoped operation
+// overrides without requiring callers to populate a full capability payload.
+type MediaOperationCapabilityOverrides struct {
+	List         *bool `json:"list,omitempty"`
+	Get          *bool `json:"get,omitempty"`
+	Resolve      *bool `json:"resolve,omitempty"`
+	Upload       *bool `json:"upload,omitempty"`
+	Presign      *bool `json:"presign,omitempty"`
+	Confirm      *bool `json:"confirm,omitempty"`
+	Update       *bool `json:"update,omitempty"`
+	Delete       *bool `json:"delete,omitempty"`
+	LegacyCreate *bool `json:"legacy_create,omitempty"`
+}
+
+// MediaUploadCapabilityOverrides applies partial request-scoped upload
+// overrides without requiring callers to republish unchanged fields.
+type MediaUploadCapabilityOverrides struct {
+	DirectUpload      *bool     `json:"direct_upload,omitempty"`
+	Presign           *bool     `json:"presign,omitempty"`
+	MaxSize           *int64    `json:"max_size,omitempty"`
+	AcceptedKinds     *[]string `json:"accepted_kinds,omitempty"`
+	AcceptedMIMETypes *[]string `json:"accepted_mime_types,omitempty"`
+}
+
+// MediaPickerCapabilityOverrides applies partial request-scoped picker
+// overrides without requiring callers to republish unchanged fields.
+type MediaPickerCapabilityOverrides struct {
+	ValueModes       *[]MediaValueMode `json:"value_modes,omitempty"`
+	DefaultValueMode *MediaValueMode   `json:"default_value_mode,omitempty"`
+}
+
+// MediaCapabilityOverrides carries partial capability overrides. Use this when
+// callers only need to tune a subset of the capability payload.
+type MediaCapabilityOverrides struct {
+	Operations MediaOperationCapabilityOverrides `json:"operations"`
+	Upload     MediaUploadCapabilityOverrides    `json:"upload"`
+	Picker     MediaPickerCapabilityOverrides    `json:"picker"`
+}
+
+// MediaCapabilityOverrideProvider exposes partial request-scoped capability
+// overrides layered on top of the built-in supported capability set.
+type MediaCapabilityOverrideProvider interface {
+	MediaCapabilityOverrides(ctx context.Context) (MediaCapabilityOverrides, error)
 }
 
 // MediaGetter resolves a media item by ID.

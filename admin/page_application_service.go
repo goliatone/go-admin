@@ -285,52 +285,16 @@ func (s PageApplicationService) ToFormValues(record AdminPageRecord) map[string]
 // ToFormValues maps an admin record into form values.
 func (DefaultPageMapper) ToFormValues(record AdminPageRecord) map[string]any {
 	values := map[string]any{}
-
-	title := strings.TrimSpace(record.Title)
-	if title == "" {
-		title = strings.TrimSpace(toString(extractDataValue(record.Data, "title")))
-		if title == "" {
-			title = strings.TrimSpace(record.MetaTitle)
-		}
-	}
-	setValue(values, "title", title)
+	setValue(values, "title", pageFormTitle(record))
 	setValue(values, "slug", strings.TrimSpace(record.Slug))
-
-	path := strings.TrimSpace(record.Path)
-	if path == "" {
-		path = strings.TrimSpace(toString(extractDataValue(record.Data, "path")))
-	}
-	if path == "" {
-		path = strings.TrimSpace(record.PreviewURL)
-	}
-	if path == "" && strings.TrimSpace(record.Slug) != "" {
-		path = "/" + strings.TrimPrefix(strings.TrimSpace(record.Slug), "/")
-	}
-	setValue(values, "path", path)
-
+	setValue(values, "path", pageFormPath(record))
 	locale := resolveLocale(record.RequestedLocale, record.ResolvedLocale)
 	setValue(values, "locale", locale)
 	setValue(values, "requested_locale", strings.TrimSpace(record.RequestedLocale))
 	setValue(values, "resolved_locale", strings.TrimSpace(record.ResolvedLocale))
-	if record.Translation.Meta.MissingRequestedLocale {
-		values["missing_requested_locale"] = true
-	}
-	if record.Translation.Meta.FallbackUsed {
-		values["fallback_used"] = true
-	}
-	if len(record.Translation.Meta.AvailableLocales) > 0 {
-		values["available_locales"] = append([]string{}, record.Translation.Meta.AvailableLocales...)
-	}
+	applyPageTranslationMeta(values, record)
 	setValue(values, "status", strings.TrimSpace(record.Status))
-
-	metaTitle := strings.TrimSpace(record.MetaTitle)
-	if metaTitle == "" {
-		metaTitle = strings.TrimSpace(toString(extractDataValue(record.Data, "meta_title")))
-	}
-	metaDescription := strings.TrimSpace(record.MetaDescription)
-	if metaDescription == "" {
-		metaDescription = strings.TrimSpace(toString(extractDataValue(record.Data, "meta_description")))
-	}
+	metaTitle, metaDescription := pageFormMeta(record)
 	setValue(values, "meta_title", metaTitle)
 	setValue(values, "meta_description", metaDescription)
 	if metaTitle != "" || metaDescription != "" {
@@ -351,27 +315,13 @@ func (DefaultPageMapper) ToFormValues(record AdminPageRecord) map[string]any {
 	} else if tags := extractDataValue(record.Data, "tags"); tags != nil {
 		values["tags"] = tags
 	}
-
-	content := record.Content
-	if content == nil {
-		content = extractDataValue(record.Data, "content")
-	}
-	if content != nil {
+	if content := pageFormValue(record.Content, record.Data, "content"); content != nil {
 		values["content"] = content
 	}
-
-	blocks := record.Blocks
-	if blocks == nil {
-		blocks = extractDataValue(record.Data, "blocks")
-	}
-	if blocks != nil {
+	if blocks := pageFormValue(record.Blocks, record.Data, "blocks"); blocks != nil {
 		values["blocks"] = blocks
 	}
-
-	schema := strings.TrimSpace(record.SchemaVersion)
-	if schema == "" {
-		schema = strings.TrimSpace(toString(extractDataValue(record.Data, "_schema")))
-	}
+	schema := strings.TrimSpace(firstNonEmpty(record.SchemaVersion, toString(extractDataValue(record.Data, "_schema"))))
 	setValue(values, "schema", schema)
 	setValue(values, "_schema", schema)
 
@@ -402,6 +352,65 @@ func (DefaultPageMapper) ToFormValues(record AdminPageRecord) map[string]any {
 	}
 
 	return values
+}
+
+func pageFormTitle(record AdminPageRecord) string {
+	title := strings.TrimSpace(record.Title)
+	if title != "" {
+		return title
+	}
+	if title = strings.TrimSpace(toString(extractDataValue(record.Data, "title"))); title != "" {
+		return title
+	}
+	return strings.TrimSpace(record.MetaTitle)
+}
+
+func pageFormPath(record AdminPageRecord) string {
+	path := strings.TrimSpace(record.Path)
+	if path == "" {
+		path = strings.TrimSpace(toString(extractDataValue(record.Data, "path")))
+	}
+	if path == "" {
+		path = strings.TrimSpace(record.PreviewURL)
+	}
+	if path == "" && strings.TrimSpace(record.Slug) != "" {
+		path = "/" + strings.TrimPrefix(strings.TrimSpace(record.Slug), "/")
+	}
+	return path
+}
+
+func pageFormMeta(record AdminPageRecord) (string, string) {
+	metaTitle := strings.TrimSpace(record.MetaTitle)
+	if metaTitle == "" {
+		metaTitle = strings.TrimSpace(toString(extractDataValue(record.Data, "meta_title")))
+	}
+	metaDescription := strings.TrimSpace(record.MetaDescription)
+	if metaDescription == "" {
+		metaDescription = strings.TrimSpace(toString(extractDataValue(record.Data, "meta_description")))
+	}
+	return metaTitle, metaDescription
+}
+
+func pageFormValue(current any, data map[string]any, key string) any {
+	if current != nil {
+		return current
+	}
+	return extractDataValue(data, key)
+}
+
+func applyPageTranslationMeta(values map[string]any, record AdminPageRecord) {
+	if values == nil {
+		return
+	}
+	if record.Translation.Meta.MissingRequestedLocale {
+		values["missing_requested_locale"] = true
+	}
+	if record.Translation.Meta.FallbackUsed {
+		values["fallback_used"] = true
+	}
+	if len(record.Translation.Meta.AvailableLocales) > 0 {
+		values["available_locales"] = append([]string{}, record.Translation.Meta.AvailableLocales...)
+	}
 }
 
 func (s PageApplicationService) applyIncludeDefaults(isList bool, opts PageReadOptions) PageIncludeDefaults {

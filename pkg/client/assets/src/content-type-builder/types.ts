@@ -178,6 +178,7 @@ export type JSONSchemaType = 'string' | 'number' | 'integer' | 'boolean' | 'arra
 
 export interface FormgenExtension {
   widget?: string;
+  componentOptions?: Record<string, unknown>;
   label?: string;
   placeholder?: string;
   helpText?: string;
@@ -194,11 +195,45 @@ export interface FormgenExtension {
 }
 
 export interface AdminExtension {
+  media?: AdminMediaExtension;
   group?: string;
   tags?: string[];
   filterable?: boolean;
   sortable?: boolean;
   searchable?: boolean;
+  [key: string]: unknown;
+}
+
+export type MediaValueMode = 'url' | 'id';
+
+export interface MediaComponentOptions {
+  variant?: string;
+  multiple?: boolean;
+  valueMode?: MediaValueMode;
+  accept?: string | string[];
+  maxSize?: number;
+  acceptedKinds?: string[];
+  libraryPath?: string;
+  itemEndpoint?: string;
+  resolveEndpoint?: string;
+  uploadEndpoint?: string;
+  presignEndpoint?: string;
+  confirmEndpoint?: string;
+  capabilitiesEndpoint?: string;
+  [key: string]: unknown;
+}
+
+export interface AdminMediaExtension {
+  libraryPath?: string;
+  itemPath?: string;
+  resolvePath?: string;
+  uploadPath?: string;
+  presignPath?: string;
+  confirmPath?: string;
+  capabilitiesPath?: string;
+  valueMode?: MediaValueMode;
+  maxSize?: number;
+  acceptedKinds?: string[];
   [key: string]: unknown;
 }
 
@@ -349,6 +384,10 @@ export interface MediaFieldConfig {
   accept?: string;
   maxSize?: number;
   multiple?: boolean;
+  valueMode?: MediaValueMode;
+  acceptedKinds?: string[];
+  __sourceComponentOptions?: MediaComponentOptions;
+  __sourceAdminMedia?: AdminMediaExtension;
 }
 
 export interface ReferenceFieldConfig {

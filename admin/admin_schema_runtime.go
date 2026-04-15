@@ -1,5 +1,7 @@
 package admin
 
+import urlkit "github.com/goliatone/go-urlkit"
+
 func (a *Admin) decorateSchema(schema *Schema, panelName string) {
 	if schema == nil {
 		return
@@ -19,10 +21,33 @@ func (a *Admin) decorateSchema(schema *Schema, panelName string) {
 		}
 	}
 	if featureEnabled(a.featureGate, FeatureMedia) && a.mediaLibrary != nil {
-		libraryPath := resolveURLWith(a.urlManager, adminAPIGroupName(a.config), "media.library", nil, nil)
-		schema.Media = &MediaConfig{LibraryPath: libraryPath}
-		applyMediaHints(schema, libraryPath)
+		schema.Media = a.resolveMediaSchemaConfig()
+		applyMediaHints(schema, schema.Media)
 	}
+}
+
+func (a *Admin) resolveMediaSchemaConfig() *MediaConfig {
+	if a == nil {
+		return nil
+	}
+	apiGroup := adminAPIGroupName(a.config)
+	return &MediaConfig{
+		LibraryPath:      resolveURLWith(a.urlManager, apiGroup, "media.library", nil, nil),
+		ItemPath:         mediaItemSchemaPath(a.urlManager, apiGroup),
+		ResolvePath:      resolveURLWith(a.urlManager, apiGroup, "media.resolve", nil, nil),
+		UploadPath:       resolveURLWith(a.urlManager, apiGroup, "media.upload", nil, nil),
+		PresignPath:      resolveURLWith(a.urlManager, apiGroup, "media.presign", nil, nil),
+		ConfirmPath:      resolveURLWith(a.urlManager, apiGroup, "media.confirm", nil, nil),
+		CapabilitiesPath: resolveURLWith(a.urlManager, apiGroup, "media.capabilities", nil, nil),
+		DefaultValueMode: MediaValueModeURL,
+	}
+}
+
+func mediaItemSchemaPath(urls urlkit.Resolver, apiGroup string) string {
+	if path := routePathRaw(urls, apiGroup, "media.item"); path != "" {
+		return path
+	}
+	return resolveURLWith(urls, apiGroup, "media.item", map[string]any{"id": ":id"}, nil)
 }
 
 func (a *Admin) decorateSchemaFor(ctx AdminContext, schema *Schema, panelName string) error {

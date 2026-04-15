@@ -221,133 +221,12 @@ func (m *Module) handleListActivity(c router.Context, _ map[string]any) (int, an
 }
 
 func (m *Module) handleListInstallations(c router.Context, _ map[string]any) (int, any, error) {
-	providerIDFilter := strings.TrimSpace(c.Query("provider_id"))
-	scopeTypeFilter := strings.TrimSpace(c.Query("scope_type"))
-	scopeIDFilter := strings.TrimSpace(c.Query("scope_id"))
-	installTypeFilter := strings.TrimSpace(c.Query("install_type"))
-	statusFilter := strings.TrimSpace(c.Query("status"))
-	qFilter := strings.TrimSpace(c.Query("q"))
-
-	page := toInt(c.Query("page"), 1)
-	if page <= 0 {
-		page = 1
-	}
-	perPage := toInt(c.Query("per_page"), 25)
-	if perPage <= 0 {
-		perPage = 25
-	}
-	offset := (page - 1) * perPage
-
-	if m.service != nil && providerIDFilter != "" && scopeTypeFilter != "" && scopeIDFilter != "" {
-		installations, err := m.service.ListInstallations(c.Context(), providerIDFilter, gocore.ScopeRef{
-			Type: scopeTypeFilter,
-			ID:   scopeIDFilter,
-		})
-		if err != nil {
-			return 0, nil, err
-		}
-		items := make([]map[string]any, 0, len(installations))
-		for _, installation := range installations {
-			if statusFilter != "" && !strings.EqualFold(statusFilter, strings.TrimSpace(string(installation.Status))) {
-				continue
-			}
-			if installTypeFilter != "" && !strings.EqualFold(installTypeFilter, strings.TrimSpace(installation.InstallType)) {
-				continue
-			}
-			if qFilter != "" {
-				haystack := strings.ToLower(strings.Join([]string{
-					strings.TrimSpace(installation.ProviderID),
-					strings.TrimSpace(installation.ScopeType),
-					strings.TrimSpace(installation.ScopeID),
-					strings.TrimSpace(installation.InstallType),
-					strings.TrimSpace(string(installation.Status)),
-				}, " "))
-				if !strings.Contains(haystack, strings.ToLower(qFilter)) {
-					continue
-				}
-			}
-			items = append(items, installationToMap(installation))
-		}
-		total := len(items)
-		paged := paginateMaps(items, perPage, offset)
-		response := newListResponse(paged, total, perPage, offset, map[string]any{
-			"provider_id":  providerIDFilter,
-			"scope_type":   scopeTypeFilter,
-			"scope_id":     scopeIDFilter,
-			"install_type": installTypeFilter,
-			"status":       statusFilter,
-			"q":            qFilter,
-		})
-		response["installations"] = paged
-		return http.StatusOK, response, nil
-	}
-
-	db := resolveBunDB(m.config.PersistenceClient, m.repositoryFactory)
-	if db == nil {
-		return 0, nil, providerUnavailableError("persistence client is not configured", nil)
-	}
-
-	rows := []installationRecord{}
-	query := db.NewSelect().Model(&rows).Order("created_at DESC").Limit(perPage).Offset(offset)
-	countQuery := db.NewSelect().Table("service_installations")
-
-	if providerID := providerIDFilter; providerID != "" {
-		query = query.Where("provider_id = ?", providerID)
-		countQuery = countQuery.Where("provider_id = ?", providerID)
-	}
-	if scopeType := scopeTypeFilter; scopeType != "" {
-		query = query.Where("scope_type = ?", scopeType)
-		countQuery = countQuery.Where("scope_type = ?", scopeType)
-	}
-	if scopeID := scopeIDFilter; scopeID != "" {
-		query = query.Where("scope_id = ?", scopeID)
-		countQuery = countQuery.Where("scope_id = ?", scopeID)
-	}
-	if status := statusFilter; status != "" {
-		query = query.Where("status = ?", status)
-		countQuery = countQuery.Where("status = ?", status)
-	}
-	if installType := installTypeFilter; installType != "" {
-		query = query.Where("install_type = ?", installType)
-		countQuery = countQuery.Where("install_type = ?", installType)
-	}
-	if qFilter != "" {
-		likePattern := "%" + strings.ToLower(qFilter) + "%"
-		query = query.Where(
-			"(LOWER(provider_id) LIKE ? OR LOWER(scope_type) LIKE ? OR LOWER(scope_id) LIKE ? OR LOWER(install_type) LIKE ? OR LOWER(status) LIKE ?)",
-			likePattern, likePattern, likePattern, likePattern, likePattern,
-		)
-		countQuery = countQuery.Where(
-			"(LOWER(provider_id) LIKE ? OR LOWER(scope_type) LIKE ? OR LOWER(scope_id) LIKE ? OR LOWER(install_type) LIKE ? OR LOWER(status) LIKE ?)",
-			likePattern, likePattern, likePattern, likePattern, likePattern,
-		)
-	}
-
-	if err := query.Scan(c.Context()); err != nil {
-		if errorsIsNoRows(err) {
-			rows = []installationRecord{}
-		} else {
-			return 0, nil, err
-		}
-	}
-	total, err := countQuery.Count(c.Context())
+	filter := parseInstallationListFilter(c)
+	items, total, err := m.listInstallations(c.Context(), filter)
 	if err != nil {
 		return 0, nil, err
 	}
-
-	items := make([]map[string]any, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, row.toMap())
-	}
-
-	response := newListResponse(items, total, perPage, offset, map[string]any{
-		"provider_id":  providerIDFilter,
-		"scope_type":   scopeTypeFilter,
-		"scope_id":     scopeIDFilter,
-		"install_type": installTypeFilter,
-		"status":       statusFilter,
-		"q":            qFilter,
-	})
+	response := newListResponse(items, total, filter.PerPage, filter.Offset(), filter.toMap())
 	response["installations"] = items
 	return http.StatusOK, response, nil
 }
@@ -1120,121 +999,340 @@ func (m *Module) handleListRateLimitsRuntime(c router.Context, _ map[string]any)
 }
 
 func (m *Module) handleListProviderOperationStatus(c router.Context, _ map[string]any) (int, any, error) {
-	db := resolveBunDB(m.config.PersistenceClient, m.repositoryFactory)
-	if db == nil {
-		return 0, nil, providerUnavailableError("persistence client is not configured", nil)
-	}
-	page := toInt(c.Query("page"), 1)
-	if page <= 0 {
-		page = 1
-	}
-	perPage := toInt(c.Query("per_page"), 25)
-	if perPage <= 0 {
-		perPage = 25
-	}
-	offset := (page - 1) * perPage
-
-	rows := []connectionRecord{}
-	query := db.NewSelect().Model(&rows).Order("updated_at DESC").Limit(perPage).Offset(offset)
-	countQuery := db.NewSelect().Table("service_connections")
-	if providerID := strings.TrimSpace(c.Query("provider_id")); providerID != "" {
-		query = query.Where("provider_id = ?", providerID)
-		countQuery = countQuery.Where("provider_id = ?", providerID)
-	}
-	if scopeType := strings.TrimSpace(c.Query("scope_type")); scopeType != "" {
-		query = query.Where("scope_type = ?", scopeType)
-		countQuery = countQuery.Where("scope_type = ?", scopeType)
-	}
-	if scopeID := strings.TrimSpace(c.Query("scope_id")); scopeID != "" {
-		query = query.Where("scope_id = ?", scopeID)
-		countQuery = countQuery.Where("scope_id = ?", scopeID)
-	}
-	if connectionID := strings.TrimSpace(primitives.FirstNonEmpty(c.Query("connection_id"), c.Query("ref"))); connectionID != "" {
-		query = query.Where("id = ?", connectionID)
-		countQuery = countQuery.Where("id = ?", connectionID)
-	}
-	if err := query.Scan(c.Context()); err != nil && !errorsIsNoRows(err) {
-		return 0, nil, err
-	}
-	total, err := countQuery.Count(c.Context())
+	filter := parseProviderOperationStatusFilter(c)
+	items, total, err := m.listProviderOperationStatuses(c.Context(), filter)
 	if err != nil {
 		return 0, nil, err
 	}
+	response := newListResponse(items, total, filter.PerPage, filter.Offset(), filter.toMap())
+	response["operation_statuses"] = items
+	return http.StatusOK, response, nil
+}
 
+type installationListFilter struct {
+	ProviderID  string
+	ScopeType   string
+	ScopeID     string
+	InstallType string
+	Status      string
+	Query       string
+	Page        int
+	PerPage     int
+}
+
+func parseInstallationListFilter(c router.Context) installationListFilter {
+	filter := installationListFilter{
+		ProviderID:  strings.TrimSpace(c.Query("provider_id")),
+		ScopeType:   strings.TrimSpace(c.Query("scope_type")),
+		ScopeID:     strings.TrimSpace(c.Query("scope_id")),
+		InstallType: strings.TrimSpace(c.Query("install_type")),
+		Status:      strings.TrimSpace(c.Query("status")),
+		Query:       strings.TrimSpace(c.Query("q")),
+		Page:        toInt(c.Query("page"), 1),
+		PerPage:     toInt(c.Query("per_page"), 25),
+	}
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.PerPage <= 0 {
+		filter.PerPage = 25
+	}
+	return filter
+}
+
+func (f installationListFilter) Offset() int {
+	return (f.Page - 1) * f.PerPage
+}
+
+func (f installationListFilter) toMap() map[string]any {
+	return map[string]any{
+		"provider_id":  f.ProviderID,
+		"scope_type":   f.ScopeType,
+		"scope_id":     f.ScopeID,
+		"install_type": f.InstallType,
+		"status":       f.Status,
+		"q":            f.Query,
+	}
+}
+
+func (f installationListFilter) serviceQueryable() bool {
+	return f.ProviderID != "" && f.ScopeType != "" && f.ScopeID != ""
+}
+
+func (m *Module) listInstallations(ctx context.Context, filter installationListFilter) ([]map[string]any, int, error) {
+	if m.service != nil && filter.serviceQueryable() {
+		return m.listInstallationsFromService(ctx, filter)
+	}
+	db := resolveBunDB(m.config.PersistenceClient, m.repositoryFactory)
+	if db == nil {
+		return nil, 0, providerUnavailableError("persistence client is not configured", nil)
+	}
+	return listInstallationsFromDB(ctx, db, filter)
+}
+
+func (m *Module) listInstallationsFromService(ctx context.Context, filter installationListFilter) ([]map[string]any, int, error) {
+	installations, err := m.service.ListInstallations(ctx, filter.ProviderID, gocore.ScopeRef{Type: filter.ScopeType, ID: filter.ScopeID})
+	if err != nil {
+		return nil, 0, err
+	}
+	items := make([]map[string]any, 0, len(installations))
+	for _, installation := range installations {
+		if !matchesInstallationFilter(installation, filter) {
+			continue
+		}
+		items = append(items, installationToMap(installation))
+	}
+	total := len(items)
+	return paginateMaps(items, filter.PerPage, filter.Offset()), total, nil
+}
+
+func matchesInstallationFilter(installation gocore.Installation, filter installationListFilter) bool {
+	if filter.Status != "" && !strings.EqualFold(filter.Status, strings.TrimSpace(string(installation.Status))) {
+		return false
+	}
+	if filter.InstallType != "" && !strings.EqualFold(filter.InstallType, strings.TrimSpace(installation.InstallType)) {
+		return false
+	}
+	if filter.Query == "" {
+		return true
+	}
+	haystack := strings.ToLower(strings.Join([]string{
+		strings.TrimSpace(installation.ProviderID),
+		strings.TrimSpace(installation.ScopeType),
+		strings.TrimSpace(installation.ScopeID),
+		strings.TrimSpace(installation.InstallType),
+		strings.TrimSpace(string(installation.Status)),
+	}, " "))
+	return strings.Contains(haystack, strings.ToLower(filter.Query))
+}
+
+func listInstallationsFromDB(ctx context.Context, db *bun.DB, filter installationListFilter) ([]map[string]any, int, error) {
+	rows := []installationRecord{}
+	query, countQuery := installationRecordQueries(db, filter)
+	if err := query.Scan(ctx, &rows); err != nil {
+		if !errorsIsNoRows(err) {
+			return nil, 0, err
+		}
+		rows = []installationRecord{}
+	}
+	total, err := countQuery.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	items := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, row.toMap())
+	}
+	return items, total, nil
+}
+
+func installationRecordQueries(db *bun.DB, filter installationListFilter) (*bun.SelectQuery, *bun.SelectQuery) {
+	query := db.NewSelect().Model((*[]installationRecord)(nil)).Order("created_at DESC").Limit(filter.PerPage).Offset(filter.Offset())
+	rows := []installationRecord{}
+	query = db.NewSelect().Model(&rows).Order("created_at DESC").Limit(filter.PerPage).Offset(filter.Offset())
+	countQuery := db.NewSelect().Table("service_installations")
+	if filter.ProviderID != "" {
+		query = query.Where("provider_id = ?", filter.ProviderID)
+		countQuery = countQuery.Where("provider_id = ?", filter.ProviderID)
+	}
+	if filter.ScopeType != "" {
+		query = query.Where("scope_type = ?", filter.ScopeType)
+		countQuery = countQuery.Where("scope_type = ?", filter.ScopeType)
+	}
+	if filter.ScopeID != "" {
+		query = query.Where("scope_id = ?", filter.ScopeID)
+		countQuery = countQuery.Where("scope_id = ?", filter.ScopeID)
+	}
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+		countQuery = countQuery.Where("status = ?", filter.Status)
+	}
+	if filter.InstallType != "" {
+		query = query.Where("install_type = ?", filter.InstallType)
+		countQuery = countQuery.Where("install_type = ?", filter.InstallType)
+	}
+	if filter.Query != "" {
+		likePattern := "%" + strings.ToLower(filter.Query) + "%"
+		where := "(LOWER(provider_id) LIKE ? OR LOWER(scope_type) LIKE ? OR LOWER(scope_id) LIKE ? OR LOWER(install_type) LIKE ? OR LOWER(status) LIKE ?)"
+		query = query.Where(where, likePattern, likePattern, likePattern, likePattern, likePattern)
+		countQuery = countQuery.Where(where, likePattern, likePattern, likePattern, likePattern, likePattern)
+	}
+	return query, countQuery
+}
+
+type providerOperationStatusFilter struct {
+	ProviderID   string
+	ScopeType    string
+	ScopeID      string
+	ConnectionID string
+	Page         int
+	PerPage      int
+}
+
+func parseProviderOperationStatusFilter(c router.Context) providerOperationStatusFilter {
+	filter := providerOperationStatusFilter{
+		ProviderID:   strings.TrimSpace(c.Query("provider_id")),
+		ScopeType:    strings.TrimSpace(c.Query("scope_type")),
+		ScopeID:      strings.TrimSpace(c.Query("scope_id")),
+		ConnectionID: strings.TrimSpace(primitives.FirstNonEmpty(c.Query("connection_id"), c.Query("ref"))),
+		Page:         toInt(c.Query("page"), 1),
+		PerPage:      toInt(c.Query("per_page"), 25),
+	}
+	if filter.Page <= 0 {
+		filter.Page = 1
+	}
+	if filter.PerPage <= 0 {
+		filter.PerPage = 25
+	}
+	return filter
+}
+
+func (f providerOperationStatusFilter) Offset() int {
+	return (f.Page - 1) * f.PerPage
+}
+
+func (f providerOperationStatusFilter) toMap() map[string]any {
+	return map[string]any{
+		"provider_id":   f.ProviderID,
+		"scope_type":    f.ScopeType,
+		"scope_id":      f.ScopeID,
+		"connection_id": f.ConnectionID,
+	}
+}
+
+func (m *Module) listProviderOperationStatuses(ctx context.Context, filter providerOperationStatusFilter) ([]map[string]any, int, error) {
+	db := resolveBunDB(m.config.PersistenceClient, m.repositoryFactory)
+	if db == nil {
+		return nil, 0, providerUnavailableError("persistence client is not configured", nil)
+	}
+	rows, total, err := providerOperationStatusRows(ctx, db, filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	items, err := providerOperationStatusItems(ctx, db, rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+func providerOperationStatusRows(ctx context.Context, db *bun.DB, filter providerOperationStatusFilter) ([]connectionRecord, int, error) {
+	rows := []connectionRecord{}
+	query := db.NewSelect().Model(&rows).Order("updated_at DESC").Limit(filter.PerPage).Offset(filter.Offset())
+	countQuery := db.NewSelect().Table("service_connections")
+	if filter.ProviderID != "" {
+		query = query.Where("provider_id = ?", filter.ProviderID)
+		countQuery = countQuery.Where("provider_id = ?", filter.ProviderID)
+	}
+	if filter.ScopeType != "" {
+		query = query.Where("scope_type = ?", filter.ScopeType)
+		countQuery = countQuery.Where("scope_type = ?", filter.ScopeType)
+	}
+	if filter.ScopeID != "" {
+		query = query.Where("scope_id = ?", filter.ScopeID)
+		countQuery = countQuery.Where("scope_id = ?", filter.ScopeID)
+	}
+	if filter.ConnectionID != "" {
+		query = query.Where("id = ?", filter.ConnectionID)
+		countQuery = countQuery.Where("id = ?", filter.ConnectionID)
+	}
+	if err := query.Scan(ctx); err != nil && !errorsIsNoRows(err) {
+		return nil, 0, err
+	}
+	total, err := countQuery.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
+}
+
+func providerOperationStatusItems(ctx context.Context, db *bun.DB, rows []connectionRecord) ([]map[string]any, error) {
 	now := time.Now().UTC()
 	items := make([]map[string]any, 0, len(rows))
 	for _, connection := range rows {
-		status := map[string]any{
-			"connection_id":         strings.TrimSpace(connection.ID),
-			"provider_id":           strings.TrimSpace(connection.ProviderID),
-			"scope_type":            strings.TrimSpace(connection.ScopeType),
-			"scope_id":              strings.TrimSpace(connection.ScopeID),
-			"last_operation_status": strings.TrimSpace(connection.Status),
-			"last_operation_error":  strings.TrimSpace(connection.LastError),
-			"operation_source":      "connection",
-			"next_retry_at":         nil,
-			"retry_backoff_seconds": 0,
+		item, err := providerOperationStatusItem(ctx, db, connection, now)
+		if err != nil {
+			return nil, err
 		}
-
-		outbox := lifecycleOutboxStatusRecord{}
-		outboxErr := db.NewSelect().
-			Model(&outbox).
-			Where("connection_id = ?", connection.ID).
-			Order("updated_at DESC").
-			Limit(1).
-			Scan(c.Context())
-		if outboxErr != nil && !errorsIsNoRows(outboxErr) {
-			return 0, nil, outboxErr
-		}
-
-		syncJob := syncJobStatusRecord{}
-		syncErr := db.NewSelect().
-			Model(&syncJob).
-			Where("connection_id = ?", connection.ID).
-			Order("updated_at DESC").
-			Limit(1).
-			Scan(c.Context())
-		if syncErr != nil && !errorsIsNoRows(syncErr) {
-			return 0, nil, syncErr
-		}
-
-		pickOutbox := outboxErr == nil
-		if syncErr == nil && (!pickOutbox || syncJob.UpdatedAt.After(outbox.UpdatedAt)) {
-			pickOutbox = false
-		}
-		if pickOutbox {
-			status["operation_source"] = "lifecycle_outbox"
-			status["last_operation_status"] = strings.TrimSpace(outbox.Status)
-			status["last_operation_name"] = strings.TrimSpace(outbox.EventName)
-			status["attempts"] = outbox.Attempts
-			if strings.TrimSpace(outbox.LastError) != "" {
-				status["last_operation_error"] = strings.TrimSpace(outbox.LastError)
-			}
-			status["next_retry_at"] = outbox.NextAttemptAt
-		} else if syncErr == nil {
-			status["operation_source"] = "sync_job"
-			status["last_operation_status"] = strings.TrimSpace(syncJob.Status)
-			status["last_operation_name"] = strings.TrimSpace(syncJob.Mode)
-			status["attempts"] = syncJob.Attempts
-			status["next_retry_at"] = syncJob.NextAttempt
-		}
-
-		nextRetryAt, _ := status["next_retry_at"].(*time.Time)
-		if nextRetryAt != nil {
-			backoff := max(int(nextRetryAt.UTC().Sub(now).Seconds()), 0)
-			status["retry_backoff_seconds"] = backoff
-		}
-		items = append(items, status)
+		items = append(items, item)
 	}
+	return items, nil
+}
 
-	response := newListResponse(items, total, perPage, offset, map[string]any{
-		"provider_id":   strings.TrimSpace(c.Query("provider_id")),
-		"scope_type":    strings.TrimSpace(c.Query("scope_type")),
-		"scope_id":      strings.TrimSpace(c.Query("scope_id")),
-		"connection_id": strings.TrimSpace(primitives.FirstNonEmpty(c.Query("connection_id"), c.Query("ref"))),
-	})
-	response["operation_statuses"] = items
-	return http.StatusOK, response, nil
+func providerOperationStatusItem(ctx context.Context, db *bun.DB, connection connectionRecord, now time.Time) (map[string]any, error) {
+	status := map[string]any{
+		"connection_id":         strings.TrimSpace(connection.ID),
+		"provider_id":           strings.TrimSpace(connection.ProviderID),
+		"scope_type":            strings.TrimSpace(connection.ScopeType),
+		"scope_id":              strings.TrimSpace(connection.ScopeID),
+		"last_operation_status": strings.TrimSpace(connection.Status),
+		"last_operation_error":  strings.TrimSpace(connection.LastError),
+		"operation_source":      "connection",
+		"next_retry_at":         nil,
+		"retry_backoff_seconds": 0,
+	}
+	outbox, outboxFound, err := latestOutboxStatus(ctx, db, connection.ID)
+	if err != nil {
+		return nil, err
+	}
+	syncJob, syncFound, err := latestSyncJobStatus(ctx, db, connection.ID)
+	if err != nil {
+		return nil, err
+	}
+	applyOperationSourceStatus(status, outbox, outboxFound, syncJob, syncFound)
+	if nextRetryAt, _ := status["next_retry_at"].(*time.Time); nextRetryAt != nil {
+		status["retry_backoff_seconds"] = max(int(nextRetryAt.UTC().Sub(now).Seconds()), 0)
+	}
+	return status, nil
+}
+
+func latestOutboxStatus(ctx context.Context, db *bun.DB, connectionID string) (lifecycleOutboxStatusRecord, bool, error) {
+	outbox := lifecycleOutboxStatusRecord{}
+	err := db.NewSelect().Model(&outbox).Where("connection_id = ?", connectionID).Order("updated_at DESC").Limit(1).Scan(ctx)
+	if err != nil {
+		if errorsIsNoRows(err) {
+			return lifecycleOutboxStatusRecord{}, false, nil
+		}
+		return lifecycleOutboxStatusRecord{}, false, err
+	}
+	return outbox, true, nil
+}
+
+func latestSyncJobStatus(ctx context.Context, db *bun.DB, connectionID string) (syncJobStatusRecord, bool, error) {
+	syncJob := syncJobStatusRecord{}
+	err := db.NewSelect().Model(&syncJob).Where("connection_id = ?", connectionID).Order("updated_at DESC").Limit(1).Scan(ctx)
+	if err != nil {
+		if errorsIsNoRows(err) {
+			return syncJobStatusRecord{}, false, nil
+		}
+		return syncJobStatusRecord{}, false, err
+	}
+	return syncJob, true, nil
+}
+
+func applyOperationSourceStatus(status map[string]any, outbox lifecycleOutboxStatusRecord, outboxFound bool, syncJob syncJobStatusRecord, syncFound bool) {
+	pickOutbox := outboxFound
+	if syncFound && (!pickOutbox || syncJob.UpdatedAt.After(outbox.UpdatedAt)) {
+		pickOutbox = false
+	}
+	if pickOutbox {
+		status["operation_source"] = "lifecycle_outbox"
+		status["last_operation_status"] = strings.TrimSpace(outbox.Status)
+		status["last_operation_name"] = strings.TrimSpace(outbox.EventName)
+		status["attempts"] = outbox.Attempts
+		if strings.TrimSpace(outbox.LastError) != "" {
+			status["last_operation_error"] = strings.TrimSpace(outbox.LastError)
+		}
+		status["next_retry_at"] = outbox.NextAttemptAt
+		return
+	}
+	if syncFound {
+		status["operation_source"] = "sync_job"
+		status["last_operation_status"] = strings.TrimSpace(syncJob.Status)
+		status["last_operation_name"] = strings.TrimSpace(syncJob.Mode)
+		status["attempts"] = syncJob.Attempts
+		status["next_retry_at"] = syncJob.NextAttempt
+	}
 }
 
 func (m *Module) handleProviderInbound(c router.Context, body map[string]any) (int, any, error) {

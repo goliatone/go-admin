@@ -682,6 +682,12 @@ func extractWidget(prop map[string]any) string {
 	if prop == nil {
 		return ""
 	}
+	if widget := strings.TrimSpace(toString(prop["x-formgen:widget"])); widget != "" {
+		return widget
+	}
+	if widget := strings.TrimSpace(toString(prop["x-admin:widget"])); widget != "" {
+		return widget
+	}
 	if meta := extractXFormgen(prop); meta != nil {
 		if widget := strings.TrimSpace(toString(meta["widget"])); widget != "" {
 			return widget

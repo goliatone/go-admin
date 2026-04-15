@@ -31,6 +31,12 @@ func TestAdminDecorateSchemaAppliesFeatureMetadataAndMediaHints(t *testing.T) {
 	if schema.Media == nil || schema.Media.LibraryPath == "" {
 		t.Fatalf("expected media metadata, got %+v", schema.Media)
 	}
+	if schema.Media.ItemPath == "" || schema.Media.ResolvePath == "" || schema.Media.UploadPath == "" || schema.Media.PresignPath == "" || schema.Media.ConfirmPath == "" || schema.Media.CapabilitiesPath == "" {
+		t.Fatalf("expected expanded media endpoints, got %+v", schema.Media)
+	}
+	if schema.Media.DefaultValueMode != MediaValueModeURL {
+		t.Fatalf("expected default media value mode %q, got %q", MediaValueModeURL, schema.Media.DefaultValueMode)
+	}
 
 	props, _ := schema.FormSchema["properties"].(map[string]any)
 	asset, _ := props["asset"].(map[string]any)
@@ -40,6 +46,51 @@ func TestAdminDecorateSchemaAppliesFeatureMetadataAndMediaHints(t *testing.T) {
 	}
 	if got := asset["x-formgen:widget"]; got != "media-picker" {
 		t.Fatalf("expected media picker widget hint, got %v", got)
+	}
+	formgenMeta, _ := asset["x-formgen"].(map[string]any)
+	componentOptions, _ := formgenMeta["componentOptions"].(map[string]any)
+	if got := componentOptions["valueMode"]; got != string(MediaValueModeURL) {
+		t.Fatalf("expected default media picker valueMode=url, got %v", got)
+	}
+	if got := componentOptions["itemEndpoint"]; got != schema.Media.ItemPath {
+		t.Fatalf("expected media item endpoint %q, got %v", schema.Media.ItemPath, got)
+	}
+	adminMedia, _ := adminMeta["media"].(map[string]any)
+	if got := adminMedia["capabilitiesPath"]; got != schema.Media.CapabilitiesPath {
+		t.Fatalf("expected nested media capabilities path %q, got %v", schema.Media.CapabilitiesPath, got)
+	}
+}
+
+func TestAdminDecorateSchemaHonorsExplicitMediaValueModeWhenSupported(t *testing.T) {
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en"}
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureMedia),
+	})
+
+	schema := &Schema{
+		FormFields: []Field{{Name: "asset", Label: "Asset", Type: "media"}},
+		FormSchema: map[string]any{
+			"properties": map[string]any{
+				"asset": map[string]any{
+					"type": "string",
+					"x-formgen": map[string]any{
+						"componentOptions": map[string]any{
+							"valueMode": "id",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	adm.decorateSchema(schema, "items")
+
+	props, _ := schema.FormSchema["properties"].(map[string]any)
+	asset, _ := props["asset"].(map[string]any)
+	formgenMeta, _ := asset["x-formgen"].(map[string]any)
+	componentOptions, _ := formgenMeta["componentOptions"].(map[string]any)
+	if got := componentOptions["valueMode"]; got != string(MediaValueModeID) {
+		t.Fatalf("expected explicit media picker valueMode=id, got %v", got)
 	}
 }
 

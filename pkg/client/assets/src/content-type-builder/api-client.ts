@@ -609,7 +609,17 @@ export class ContentTypeAPIClient {
 // Schema Conversion Utilities
 // ===========================================================================
 
-import type { AdminExtension, BlocksFieldConfig, FieldDefinition, FieldType, FormgenExtension } from './types';
+import type {
+  AdminExtension,
+  AdminMediaExtension,
+  BlocksFieldConfig,
+  FieldDefinition,
+  FieldType,
+  FormgenExtension,
+  MediaComponentOptions,
+  MediaFieldConfig,
+  MediaValueMode,
+} from './types';
 import { deepCloneJSON } from '../shared/deep-clone.js';
 
 function cloneSchema<T>(value: T): T {
@@ -618,6 +628,59 @@ function cloneSchema<T>(value: T): T {
 
 function mergeSchemaSection(base: Record<string, unknown>, next: Record<string, unknown>): Record<string, unknown> {
   return { ...base, ...next };
+}
+
+function normalizeMediaValueMode(value: unknown): MediaValueMode | undefined {
+  const normalized = String(value ?? '').trim().toLowerCase();
+  return normalized === 'id' || normalized === 'url' ? (normalized as MediaValueMode) : undefined;
+}
+
+function cloneMediaComponentOptions(value: unknown): MediaComponentOptions | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  return deepCloneJSON(value as MediaComponentOptions);
+}
+
+function cloneAdminMedia(value: unknown): AdminMediaExtension | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined;
+  }
+  return deepCloneJSON(value as AdminMediaExtension);
+}
+
+function normalizeMediaAcceptedKinds(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const out = value
+    .map((item) => String(item ?? '').trim())
+    .filter(Boolean);
+  return out.length > 0 ? out : undefined;
+}
+
+function normalizeMediaAccept(value: unknown): string | undefined {
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((item) => String(item ?? '').trim())
+      .filter(Boolean)
+      .join(',');
+    return joined || undefined;
+  }
+  const normalized = String(value ?? '').trim();
+  return normalized || undefined;
+}
+
+function mediaSchemaValueMode(schema: JSONSchema, fieldType: FieldType, componentOptions?: MediaComponentOptions): MediaValueMode {
+  const configured = normalizeMediaValueMode(componentOptions?.valueMode);
+  if (configured) {
+    return configured;
+  }
+  if (fieldType === 'media-gallery' && schema.items && typeof schema.items === 'object' && !Array.isArray(schema.items)) {
+    const itemsSchema = schema.items as JSONSchema;
+    return itemsSchema.format === 'uuid' ? 'id' : 'url';
+  }
+  return schema.format === 'uuid' ? 'id' : 'url';
 }
 
 function normalizeBlockTypeList(values: string[] | undefined): string[] {
@@ -947,10 +1010,92 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
       }
       break;
 
-    case 'media-gallery':
+    case 'media-gallery': {
+      const mediaConfig = field.config as MediaFieldConfig | undefined;
+      const sourceComponentOptions = cloneMediaComponentOptions(mediaConfig?.__sourceComponentOptions) ?? {};
+      const sourceAdminMedia = cloneAdminMedia(mediaConfig?.__sourceAdminMedia) ?? {};
+      const valueMode = normalizeMediaValueMode(mediaConfig?.valueMode ?? sourceComponentOptions.valueMode) ?? 'url';
+      const componentOptions: MediaComponentOptions = {
+        ...sourceComponentOptions,
+        variant: 'media-picker',
+        multiple: true,
+        valueMode,
+      };
+      const accept = normalizeMediaAccept(mediaConfig?.accept ?? sourceComponentOptions.accept);
+      if (accept) {
+        componentOptions.accept = accept;
+      } else {
+        delete componentOptions.accept;
+      }
+      if (typeof mediaConfig?.maxSize === 'number' && Number.isFinite(mediaConfig.maxSize)) {
+        componentOptions.maxSize = mediaConfig.maxSize;
+        sourceAdminMedia.maxSize = mediaConfig.maxSize;
+      }
+      const acceptedKinds = normalizeMediaAcceptedKinds(mediaConfig?.acceptedKinds ?? sourceComponentOptions.acceptedKinds);
+      if (acceptedKinds) {
+        componentOptions.acceptedKinds = acceptedKinds;
+        sourceAdminMedia.acceptedKinds = acceptedKinds;
+      } else {
+        delete componentOptions.acceptedKinds;
+      }
+      schema.items = { type: 'string', format: valueMode === 'id' ? 'uuid' : 'uri' };
+      formgen.componentOptions = componentOptions;
+      schema['x-formgen'] = formgen as FormgenExtension;
+      sourceAdminMedia.valueMode = valueMode;
+      schema['x-admin'] = mergeSchemaSection((schema['x-admin'] as Record<string, unknown>) ?? {}, {
+        media: sourceAdminMedia,
+      }) as AdminExtension;
+      break;
+    }
+
     case 'references':
       schema.items = { type: 'string', format: 'uri' };
       break;
+
+    case 'media-picker':
+    case 'file-upload': {
+      const mediaConfig = field.config as MediaFieldConfig | undefined;
+      const sourceComponentOptions = cloneMediaComponentOptions(mediaConfig?.__sourceComponentOptions) ?? {};
+      const sourceAdminMedia = cloneAdminMedia(mediaConfig?.__sourceAdminMedia) ?? {};
+      const valueMode =
+        field.type === 'file-upload'
+          ? 'url'
+          : (normalizeMediaValueMode(mediaConfig?.valueMode ?? sourceComponentOptions.valueMode) ?? 'url');
+      const componentOptions: MediaComponentOptions = {
+        ...sourceComponentOptions,
+        variant: field.type,
+        valueMode,
+      };
+      const accept = normalizeMediaAccept(mediaConfig?.accept ?? sourceComponentOptions.accept);
+      if (accept) {
+        componentOptions.accept = accept;
+      } else {
+        delete componentOptions.accept;
+      }
+      if (typeof mediaConfig?.maxSize === 'number' && Number.isFinite(mediaConfig.maxSize)) {
+        componentOptions.maxSize = mediaConfig.maxSize;
+        sourceAdminMedia.maxSize = mediaConfig.maxSize;
+      }
+      const acceptedKinds = normalizeMediaAcceptedKinds(mediaConfig?.acceptedKinds ?? sourceComponentOptions.acceptedKinds);
+      if (acceptedKinds) {
+        componentOptions.acceptedKinds = acceptedKinds;
+        sourceAdminMedia.acceptedKinds = acceptedKinds;
+      } else {
+        delete componentOptions.acceptedKinds;
+      }
+      if (field.type === 'file-upload') {
+        delete componentOptions.itemEndpoint;
+        delete componentOptions.resolveEndpoint;
+      }
+      schema.format = valueMode === 'id' ? 'uuid' : 'uri';
+      formgen.componentOptions = componentOptions;
+      schema['x-formgen'] = formgen as FormgenExtension;
+      sourceAdminMedia.valueMode = valueMode;
+      schema['x-admin'] = mergeSchemaSection((schema['x-admin'] as Record<string, unknown>) ?? {}, {
+        media: sourceAdminMedia,
+      }) as AdminExtension;
+      break;
+    }
 
     case 'repeater':
       if (field.config && 'fields' in field.config && field.config.fields) {
@@ -1131,6 +1276,39 @@ function schemaPropertyToField(name: string, schema: JSONSchema, isRequired: boo
         label: titleCaseIdentifier(String(value)),
       })),
     };
+  }
+
+  if (field.type === 'media-picker' || field.type === 'media-gallery' || field.type === 'file-upload') {
+    const mediaConfig: MediaFieldConfig = {};
+    const componentOptions = cloneMediaComponentOptions(formgen?.componentOptions);
+    const adminMedia = cloneAdminMedia(admin?.media);
+    const valueMode = mediaSchemaValueMode(schema, field.type, componentOptions);
+    const accept = normalizeMediaAccept(componentOptions?.accept);
+    const acceptedKinds = normalizeMediaAcceptedKinds(componentOptions?.acceptedKinds ?? adminMedia?.acceptedKinds);
+    if (accept) {
+      mediaConfig.accept = accept;
+    }
+    if (typeof componentOptions?.maxSize === 'number') {
+      mediaConfig.maxSize = componentOptions.maxSize;
+    } else if (typeof adminMedia?.maxSize === 'number') {
+      mediaConfig.maxSize = adminMedia.maxSize;
+    }
+    if (field.type === 'media-gallery') {
+      mediaConfig.multiple = true;
+    }
+    mediaConfig.valueMode = valueMode;
+    if (acceptedKinds) {
+      mediaConfig.acceptedKinds = acceptedKinds;
+    }
+    if (componentOptions && Object.keys(componentOptions).length > 0) {
+      mediaConfig.__sourceComponentOptions = componentOptions;
+    }
+    if (adminMedia && Object.keys(adminMedia).length > 0) {
+      mediaConfig.__sourceAdminMedia = adminMedia;
+    }
+    if (Object.keys(mediaConfig).length > 0) {
+      field.config = mediaConfig;
+    }
   }
 
   // Blocks configuration
