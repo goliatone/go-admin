@@ -41,20 +41,9 @@ func debugREPLAuthorizeRequest(admin *Admin, cfg DebugConfig, kind string, requi
 	if admin == nil || c == nil {
 		return AdminContext{}, ErrForbidden
 	}
-	if !debugConfigEnabled(cfg) {
-		return AdminContext{}, debugREPLDeny(admin, c.Context(), c, kind, requireExec, "debug module disabled", debugReplTextCodeDebugDisabled, nil)
-	}
 	replCfg := normalizeDebugREPLConfig(cfg.Repl)
-	if err := debugCheckIP(debugREPLAllowedIPs(cfg.AllowedIPs, replCfg.AllowedIPs), c.IP()); err != nil {
-		return AdminContext{}, debugREPLDeny(admin, c.Context(), c, kind, requireExec, "repl access denied by ip policy", debugReplTextCodeIPDenied, map[string]any{
-			"ip": strings.TrimSpace(c.IP()),
-		})
-	}
-	if kind == DebugREPLKindShell && !replCfg.ShellEnabled {
-		return AdminContext{}, debugREPLDeny(admin, c.Context(), c, kind, requireExec, "shell repl disabled", debugReplTextCodeShellDisabled, nil)
-	}
-	if kind == DebugREPLKindApp && !replCfg.AppEnabled {
-		return AdminContext{}, debugREPLDeny(admin, c.Context(), c, kind, requireExec, "app repl disabled", debugReplTextCodeAppDisabled, nil)
+	if err := debugREPLPrecheck(admin, cfg, replCfg, kind, requireExec, c); err != nil {
+		return AdminContext{}, err
 	}
 	locale := strings.TrimSpace(c.Query("locale"))
 	if locale == "" {
@@ -66,17 +55,7 @@ func debugREPLAuthorizeRequest(admin *Admin, cfg DebugConfig, kind string, requi
 	if !replCfg.Enabled {
 		allowed, err := debugREPLOverrideAllowed(adminCtx.Context, replCfg, kind, c)
 		if err != nil || !allowed {
-			meta := map[string]any{
-				"override_allowed": allowed,
-			}
-			if err != nil {
-				meta["override_error"] = err.Error()
-			}
-			textCode := debugReplTextCodeDisabled
-			if err != nil {
-				textCode = debugReplTextCodeOverrideDenied
-			}
-			return adminCtx, debugREPLDeny(admin, adminCtx.Context, c, kind, requireExec, "repl disabled", textCode, meta)
+			return adminCtx, debugREPLOverrideDenied(admin, adminCtx.Context, c, kind, requireExec, allowed, err)
 		}
 	}
 	if !debugREPLRoleAllowed(adminCtx.Context, replCfg.AllowedRoles) {
@@ -96,6 +75,42 @@ func debugREPLAuthorizeRequest(admin *Admin, cfg DebugConfig, kind string, requi
 		}
 	}
 	return adminCtx, nil
+}
+
+func debugREPLPrecheck(admin *Admin, cfg DebugConfig, replCfg DebugREPLConfig, kind string, requireExec bool, c router.Context) error {
+	if !debugConfigEnabled(cfg) {
+		return debugREPLDeny(admin, c.Context(), c, kind, requireExec, "debug module disabled", debugReplTextCodeDebugDisabled, nil)
+	}
+	if err := debugCheckIP(debugREPLAllowedIPs(cfg.AllowedIPs, replCfg.AllowedIPs), c.IP()); err != nil {
+		return debugREPLDeny(admin, c.Context(), c, kind, requireExec, "repl access denied by ip policy", debugReplTextCodeIPDenied, map[string]any{
+			"ip": strings.TrimSpace(c.IP()),
+		})
+	}
+	switch kind {
+	case DebugREPLKindShell:
+		if !replCfg.ShellEnabled {
+			return debugREPLDeny(admin, c.Context(), c, kind, requireExec, "shell repl disabled", debugReplTextCodeShellDisabled, nil)
+		}
+	case DebugREPLKindApp:
+		if !replCfg.AppEnabled {
+			return debugREPLDeny(admin, c.Context(), c, kind, requireExec, "app repl disabled", debugReplTextCodeAppDisabled, nil)
+		}
+	}
+	return nil
+}
+
+func debugREPLOverrideDenied(admin *Admin, ctx context.Context, c router.Context, kind string, requireExec bool, allowed bool, err error) error {
+	meta := map[string]any{
+		"override_allowed": allowed,
+	}
+	if err != nil {
+		meta["override_error"] = err.Error()
+	}
+	textCode := debugReplTextCodeDisabled
+	if err != nil {
+		textCode = debugReplTextCodeOverrideDenied
+	}
+	return debugREPLDeny(admin, ctx, c, kind, requireExec, "repl disabled", textCode, meta)
 }
 
 func debugREPLOverrideAllowed(ctx context.Context, cfg DebugREPLConfig, kind string, c router.Context) (bool, error) {

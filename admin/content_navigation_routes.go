@@ -25,72 +25,96 @@ func (a *Admin) registerContentNavigationOverrideRoute() {
 	if strings.TrimSpace(path) == "" {
 		return
 	}
-	handler := func(c router.Context) error {
-		typeKey := strings.TrimSpace(c.Param("type", ""))
-		if typeKey == "" {
-			return writeError(c, requiredFieldDomainError("type", map[string]any{"field": "type"}))
-		}
-		id := strings.TrimSpace(c.Param("id", ""))
-		if id == "" {
-			return writeError(c, requiredFieldDomainError("id", map[string]any{"field": "id"}))
-		}
-
-		locale := i18n.NormalizeLocale(primitives.FirstNonEmptyRaw(c.Query("locale"), a.config.DefaultLocale))
-		adminCtx := a.adminContextFromRequest(c, locale)
-		panelName, panel, err := a.resolveContentNavigationPanel(adminCtx.Context, typeKey)
-		if err != nil {
-			return writeError(c, err)
-		}
-		if panel == nil {
-			return writeError(c, notFoundDomainError("content panel not found", map[string]any{"type": typeKey, "id": id}))
-		}
-
-		body := map[string]any{}
-		if len(c.Body()) > 0 {
-			parsed, parseErr := parseJSONBody(c)
-			if parseErr != nil {
-				return writeError(c, parseErr)
-			}
-			body = parsed
-		}
-
-		rawOverrides, ok := body["_navigation"]
-		if !ok && len(body) > 0 {
-			rawOverrides = body
-			ok = true
-		}
-		if !ok {
-			return writeError(c, requiredFieldDomainError("_navigation", map[string]any{
-				"field":    "_navigation",
-				"hint":     "Provide an object map with tri-state values inherit|show|hide.",
-				"examples": contentNavigationExamplesContract(),
-			}))
-		}
-
-		updated, err := panel.Update(adminCtx, id, map[string]any{
-			"_navigation": rawOverrides,
-		})
-		if err != nil {
-			return writeError(c, err)
-		}
-		if policy, ok := a.resolveContentNavigationPolicy(adminCtx.Context, typeKey); ok {
-			updated = applyContentEntryNavigationReadContract(updated, policy)
-		}
-		return writeJSON(c, map[string]any{
-			"id":                              id,
-			"type":                            typeKey,
-			"panel":                           panelName,
-			"data":                            updated,
-			"_navigation":                     updated["_navigation"],
-			"effective_menu_locations":        updated["effective_menu_locations"],
-			"effective_navigation_visibility": updated["effective_navigation_visibility"],
-		})
-	}
+	handler := a.handleContentNavigationOverride
 
 	if wrap := a.authWrapper(); wrap != nil {
 		handler = wrap(handler)
 	}
 	registerPatchAdminRoute(a.router, path, handler)
+}
+
+func (a *Admin) handleContentNavigationOverride(c router.Context) error {
+	req, err := a.parseContentNavigationOverrideRequest(c)
+	if err != nil {
+		return writeError(c, err)
+	}
+	adminCtx := a.adminContextFromRequest(c, req.locale)
+	panelName, panel, err := a.resolveContentNavigationPanel(adminCtx.Context, req.typeKey)
+	if err != nil {
+		return writeError(c, err)
+	}
+	if panel == nil {
+		return writeError(c, notFoundDomainError("content panel not found", map[string]any{"type": req.typeKey, "id": req.id}))
+	}
+	updated, err := panel.Update(adminCtx, req.id, map[string]any{"_navigation": req.rawOverrides})
+	if err != nil {
+		return writeError(c, err)
+	}
+	if policy, ok := a.resolveContentNavigationPolicy(adminCtx.Context, req.typeKey); ok {
+		updated = applyContentEntryNavigationReadContract(updated, policy)
+	}
+	return writeJSON(c, contentNavigationOverrideResponse(req.id, req.typeKey, panelName, updated))
+}
+
+type contentNavigationOverrideRequest struct {
+	typeKey      string
+	id           string
+	locale       string
+	rawOverrides any
+}
+
+func (a *Admin) parseContentNavigationOverrideRequest(c router.Context) (contentNavigationOverrideRequest, error) {
+	req := contentNavigationOverrideRequest{
+		typeKey: strings.TrimSpace(c.Param("type", "")),
+		id:      strings.TrimSpace(c.Param("id", "")),
+		locale:  i18n.NormalizeLocale(primitives.FirstNonEmptyRaw(c.Query("locale"), a.config.DefaultLocale)),
+	}
+	if req.typeKey == "" {
+		return req, requiredFieldDomainError("type", map[string]any{"field": "type"})
+	}
+	if req.id == "" {
+		return req, requiredFieldDomainError("id", map[string]any{"field": "id"})
+	}
+	rawOverrides, err := parseContentNavigationOverrideBody(c)
+	if err != nil {
+		return req, err
+	}
+	req.rawOverrides = rawOverrides
+	return req, nil
+}
+
+func parseContentNavigationOverrideBody(c router.Context) (any, error) {
+	body := map[string]any{}
+	if len(c.Body()) > 0 {
+		parsed, err := parseJSONBody(c)
+		if err != nil {
+			return nil, err
+		}
+		body = parsed
+	}
+	if rawOverrides, ok := body["_navigation"]; ok {
+		return rawOverrides, nil
+	}
+	if len(body) > 0 {
+		return body, nil
+	}
+	return nil, requiredFieldDomainError("_navigation", map[string]any{
+		"field":    "_navigation",
+		"hint":     "Provide an object map with tri-state values inherit|show|hide.",
+		"examples": contentNavigationExamplesContract(),
+	})
+}
+
+func contentNavigationOverrideResponse(id, typeKey, panelName string, updated map[string]any) map[string]any {
+	return map[string]any{
+		"id":                              id,
+		"type":                            typeKey,
+		"panel":                           panelName,
+		"data":                            updated,
+		"_navigation":                     updated["_navigation"],
+		"effective_menu_locations":        updated["effective_menu_locations"],
+		"effective_navigation_visibility": updated["effective_navigation_visibility"],
+	}
 }
 
 func (a *Admin) resolveContentNavigationPanel(ctx context.Context, typeKey string) (string, *Panel, error) {

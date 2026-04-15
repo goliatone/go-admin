@@ -64,12 +64,10 @@ func (p *Panel) RunAction(ctx AdminContext, name string, payload map[string]any,
 func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]any, ids []string) error {
 	action, ok := p.findBulkActionDefinition(name)
 	if !ok {
-		err := notFoundDomainError("bulk action not found", map[string]any{
+		return p.bulkActionFailure(ctx, name, ActionScopeBulk, "lookup", ids, notFoundDomainError("bulk action not found", map[string]any{
 			"panel":  p.name,
 			"action": name,
-		})
-		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "lookup", "", ids, err)
-		return err
+		}))
 	}
 	selection := dedupeStrings(append([]string{}, ids...))
 	if len(selection) == 0 {
@@ -77,51 +75,51 @@ func (p *Panel) RunBulkAction(ctx AdminContext, name string, payload map[string]
 	}
 	requiresSelection := isBuiltInBulkDeleteAction(action.Name) || action.CommandName == "" || p.commandBus == nil
 	if len(selection) == 0 && requiresSelection {
-		err := invalidSelectionDomainError("bulk action requires at least one selected record", map[string]any{
+		return p.bulkActionFailure(ctx, name, ActionScopeBulk, "selection", selection, invalidSelectionDomainError("bulk action requires at least one selected record", map[string]any{
 			"panel":  p.name,
 			"action": strings.TrimSpace(name),
 			"field":  "ids",
-		})
-		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "selection", "", selection, err)
-		return err
+		}))
 	}
 	required := actionRequiredPermissions(action)
 	if len(required) > 0 && p.authorizer != nil && !CanAll(p.authorizer, ctx.Context, p.name, required...) {
-		err := permissionDenied(actionMissingPermission(p.authorizer, ctx.Context, p.name, required), p.name)
-		captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "permission", "", selection, err)
-		return err
+		return p.bulkActionFailure(ctx, name, ActionScopeBulk, "permission", selection, permissionDenied(actionMissingPermission(p.authorizer, ctx.Context, p.name, required), p.name))
 	}
 	if action.CommandName != "" && p.commandBus != nil {
 		err := p.commandBus.DispatchByName(ctx.Context, action.CommandName, payload, selection)
-		if err == nil {
-			p.recordActivity(ctx, "panel.bulk_action", map[string]any{
-				"panel":  p.name,
-				"action": name,
-			})
-		}
 		if err != nil {
-			captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "dispatch", "", selection, err)
+			return p.bulkActionFailure(ctx, name, ActionScopeBulk, "dispatch", selection, err)
 		}
-		return err
+		p.recordBulkAction(ctx, name, 0)
+		return nil
 	}
 	if isBuiltInBulkDeleteAction(action.Name) {
 		if err := p.runBuiltInBulkDelete(ctx, selection); err != nil {
-			captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "built_in_bulk_delete", "", selection, err)
-			return err
+			return p.bulkActionFailure(ctx, name, ActionScopeBulk, "built_in_bulk_delete", selection, err)
 		}
-		p.recordActivity(ctx, "panel.bulk_action", map[string]any{
-			"panel":  p.name,
-			"action": strings.TrimSpace(name),
-			"count":  len(selection),
-		})
+		p.recordBulkAction(ctx, name, len(selection))
 		return nil
 	}
-	err := notFoundDomainError("bulk action not found", map[string]any{
+	return p.bulkActionFailure(ctx, name, ActionScopeBulk, "lookup", selection, notFoundDomainError("bulk action not found", map[string]any{
 		"panel":  p.name,
 		"action": name,
-	})
-	captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, ActionScopeBulk, "lookup", "", selection, err)
+	}))
+}
+
+func (p *Panel) bulkActionFailure(ctx AdminContext, name string, scope ActionScope, stage string, ids []string, err error) error {
+	captureActionExecutionFailureDiagnostic(ctx.Context, p.name, name, scope, stage, "", ids, err)
 	return err
+}
+
+func (p *Panel) recordBulkAction(ctx AdminContext, name string, count int) {
+	entry := map[string]any{
+		"panel":  p.name,
+		"action": strings.TrimSpace(name),
+	}
+	if count > 0 {
+		entry["count"] = count
+	}
+	p.recordActivity(ctx, "panel.bulk_action", entry)
 }
 
 func (p *Panel) findAction(name string) (Action, bool) {

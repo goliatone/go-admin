@@ -721,28 +721,7 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 			return nil
 		}
 		input := buildWorkflowApplyRequest(ctx.Context, panelName, id, currentState, targetState, record)
-		if transition := strings.TrimSpace(toString(record["transition"])); transition != "" {
-			input.Event = transition
-		}
-		if input.Event == "" {
-			snapshot, snapshotErr := workflow.Snapshot(ctx.Context, WorkflowSnapshotRequest{
-				MachineID: panelName,
-				EntityID:  id,
-				Msg: WorkflowMessage{
-					EntityID:     id,
-					EntityType:   panelName,
-					CurrentState: currentState,
-					TargetState:  targetState,
-					Payload:      primitives.CloneAnyMapNilOnEmpty(record),
-				},
-				ExecCtx:        input.ExecCtx,
-				EvaluateGuards: true,
-				IncludeBlocked: true,
-			})
-			if snapshotErr == nil {
-				input.Event = workflowEventForTargetState(snapshot, targetState)
-			}
-		}
+		input.Event = resolveWorkflowUpdateEvent(ctx.Context, workflow, panelName, id, currentState, targetState, record, input)
 		if auth != nil && !auth.CanApplyEvent(ctx.Context, input) {
 			return permissionDenied("workflow.transition", panelName)
 		}
@@ -758,4 +737,28 @@ func buildWorkflowUpdateHook(repo Repository, workflow WorkflowEngine, auth Work
 		}
 		return nil
 	}
+}
+
+func resolveWorkflowUpdateEvent(ctx context.Context, workflow WorkflowEngine, panelName, id, currentState, targetState string, record map[string]any, input WorkflowApplyEventRequest) string {
+	if transition := strings.TrimSpace(toString(record["transition"])); transition != "" {
+		return transition
+	}
+	snapshot, err := workflow.Snapshot(ctx, WorkflowSnapshotRequest{
+		MachineID: panelName,
+		EntityID:  id,
+		Msg: WorkflowMessage{
+			EntityID:     id,
+			EntityType:   panelName,
+			CurrentState: currentState,
+			TargetState:  targetState,
+			Payload:      primitives.CloneAnyMapNilOnEmpty(record),
+		},
+		ExecCtx:        input.ExecCtx,
+		EvaluateGuards: true,
+		IncludeBlocked: true,
+	})
+	if err != nil {
+		return ""
+	}
+	return workflowEventForTargetState(snapshot, targetState)
 }

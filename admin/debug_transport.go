@@ -138,13 +138,12 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	}
 	access := debugAccessMiddleware(admin, m.config, m.permission)
 	sessionAccess := debugAccessMiddleware(admin, m.config, debugSessionViewPermission)
-
-	register := func(path string, handler router.HandlerFunc) {
+	registerGet := func(path string, handler router.HandlerFunc, middleware router.MiddlewareFunc) {
 		if path == "" {
 			return
 		}
-		if access != nil {
-			admin.router.Get(path, handler, access)
+		if middleware != nil {
+			admin.router.Get(path, handler, middleware)
 			return
 		}
 		admin.router.Get(path, handler)
@@ -159,29 +158,19 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 		}
 		admin.router.Post(path, handler)
 	}
-	registerSession := func(path string, handler router.HandlerFunc) {
-		if path == "" {
-			return
-		}
-		if sessionAccess != nil {
-			admin.router.Get(path, handler, sessionAccess)
-			return
-		}
-		admin.router.Get(path, handler)
-	}
 
 	if !featureEnabled(admin.featureGate, FeatureDashboard) {
 		debugBase := debugRoutePath(admin, m.config, "admin.debug", "index")
 		if debugBase == "" {
 			debugBase = basePath
 		}
-		register(debugBase, func(c router.Context) error {
+		registerGet(debugBase, func(c router.Context) error {
 			return m.handleDebugDashboard(admin, c)
-		})
+		}, access)
 	}
-	register(debugAPIRoutePath(admin, m.config, "panels"), m.handleDebugPanels)
-	register(debugAPIRoutePath(admin, m.config, "snapshot"), m.handleDebugSnapshot)
-	registerSession(debugAPIRoutePath(admin, m.config, "sessions"), m.handleDebugSessions)
+	registerGet(debugAPIRoutePath(admin, m.config, "panels"), m.handleDebugPanels, access)
+	registerGet(debugAPIRoutePath(admin, m.config, "snapshot"), m.handleDebugSnapshot, access)
+	registerGet(debugAPIRoutePath(admin, m.config, "sessions"), m.handleDebugSessions, sessionAccess)
 	registerPost(debugAPIRoutePath(admin, m.config, "clear"), m.handleDebugClear)
 	registerPost(debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel)
 	registerPost(debugAPIRoutePath(admin, m.config, "doctor.action"), m.handleDebugDoctorAction)
@@ -456,17 +445,30 @@ func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
 	if m == nil || m.collector == nil {
 		return ErrForbidden
 	}
-	clientID := uuid.NewString()
-	events := m.collector.Subscribe(clientID)
+	events, unsubscribe := m.subscribeDebugEvents()
 	if events == nil {
 		return nil
 	}
-	defer m.collector.Unsubscribe(clientID)
+	defer unsubscribe()
 
 	if err := m.writeDebugSnapshot(c); err != nil {
 		return err
 	}
 
+	commandCh, done := startDebugCommandReader(c)
+	subscriptions := newDebugSubscription()
+	return m.runDebugWebSocketLoop(c, subscriptions, commandCh, done, events)
+}
+
+func (m *DebugModule) subscribeDebugEvents() (<-chan DebugEvent, func()) {
+	clientID := uuid.NewString()
+	events := m.collector.Subscribe(clientID)
+	return events, func() {
+		m.collector.Unsubscribe(clientID)
+	}
+}
+
+func startDebugCommandReader(c router.WebSocketContext) (<-chan debugCommand, <-chan struct{}) {
 	commandCh := make(chan debugCommand, 16)
 	done := make(chan struct{})
 	go func() {
@@ -483,8 +485,10 @@ func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
 			}
 		}
 	}()
+	return commandCh, done
+}
 
-	subscriptions := newDebugSubscription()
+func (m *DebugModule) runDebugWebSocketLoop(c router.WebSocketContext, subscriptions *debugSubscription, commandCh <-chan debugCommand, done <-chan struct{}, events <-chan DebugEvent) error {
 	for {
 		select {
 		case <-done:
@@ -500,13 +504,18 @@ func (m *DebugModule) handleDebugWebSocket(c router.WebSocketContext) error {
 			if !ok {
 				return nil
 			}
-			if subscriptions.allows(event.Type) {
-				if err := c.WriteJSON(event); err != nil {
-					return err
-				}
+			if err := writeSubscribedDebugEvent(c, subscriptions, event); err != nil {
+				return err
 			}
 		}
 	}
+}
+
+func writeSubscribedDebugEvent(c router.WebSocketContext, subscriptions *debugSubscription, event DebugEvent) error {
+	if !subscriptions.allows(event.Type) {
+		return nil
+	}
+	return c.WriteJSON(event)
 }
 
 func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSocketContext) error {
@@ -537,20 +546,7 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 
 	commandCh := make(chan debugCommand, 16)
 	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		defer close(commandCh)
-		for {
-			var cmd debugCommand
-			if err := c.ReadJSON(&cmd); err != nil {
-				return
-			}
-			select {
-			case commandCh <- cmd:
-			default:
-			}
-		}
-	}()
+	go m.readDebugSessionCommands(c, commandCh, done)
 
 	subscriptions := newDebugSubscription()
 	for {
@@ -568,13 +564,33 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 			if !ok {
 				return nil
 			}
-			if subscriptions.allows(event.Type) && debugSessionEventAllowed(event, sessionID, includeGlobals) {
-				if err := c.WriteJSON(event); err != nil {
-					return err
-				}
+			if err := writeDebugSessionEvent(c, subscriptions, event, sessionID, includeGlobals); err != nil {
+				return err
 			}
 		}
 	}
+}
+
+func (m *DebugModule) readDebugSessionCommands(c router.WebSocketContext, commandCh chan<- debugCommand, done chan<- struct{}) {
+	defer close(done)
+	defer close(commandCh)
+	for {
+		var cmd debugCommand
+		if err := c.ReadJSON(&cmd); err != nil {
+			return
+		}
+		select {
+		case commandCh <- cmd:
+		default:
+		}
+	}
+}
+
+func writeDebugSessionEvent(c router.WebSocketContext, subscriptions *debugSubscription, event DebugEvent, sessionID string, includeGlobals bool) error {
+	if !subscriptions.allows(event.Type) || !debugSessionEventAllowed(event, sessionID, includeGlobals) {
+		return nil
+	}
+	return c.WriteJSON(event)
 }
 
 func debugSessionAdminContext(c router.WebSocketContext) AdminContext {

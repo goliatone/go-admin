@@ -47,16 +47,9 @@ func (s *InMemoryDebugUserSessionStore) Upsert(_ context.Context, session DebugU
 	if s == nil {
 		return nil
 	}
-	session.SessionID = strings.TrimSpace(session.SessionID)
-	session.UserID = strings.TrimSpace(session.UserID)
+	session = normalizeDebugUserSession(session)
 	if session.SessionID == "" {
 		return nil
-	}
-	if session.LastActivity.IsZero() {
-		session.LastActivity = time.Now().UTC()
-	}
-	if session.StartedAt.IsZero() {
-		session.StartedAt = session.LastActivity
 	}
 	key := debugUserSessionKey(session.UserID, session.SessionID)
 
@@ -66,33 +59,45 @@ func (s *InMemoryDebugUserSessionStore) Upsert(_ context.Context, session DebugU
 		s.sessions = map[string]DebugUserSession{}
 	}
 	if existing, ok := s.sessions[key]; ok {
-		if !existing.StartedAt.IsZero() && (session.StartedAt.IsZero() || session.StartedAt.After(existing.StartedAt)) {
-			session.StartedAt = existing.StartedAt
-		}
-		if !existing.LastActivity.IsZero() && session.LastActivity.Before(existing.LastActivity) {
-			session.LastActivity = existing.LastActivity
-		}
-		if session.RequestCount <= 0 {
-			session.RequestCount = existing.RequestCount
-		} else {
-			session.RequestCount += existing.RequestCount
-		}
-		if session.Username == "" {
-			session.Username = existing.Username
-		}
-		if session.IP == "" {
-			session.IP = existing.IP
-		}
-		if session.UserAgent == "" {
-			session.UserAgent = existing.UserAgent
-		}
-		if session.CurrentPage == "" {
-			session.CurrentPage = existing.CurrentPage
-		}
-		session.Metadata = mergeDebugUserSessionMetadata(existing.Metadata, session.Metadata)
+		session = mergeDebugUserSession(existing, session)
 	}
 	s.sessions[key] = cloneDebugUserSession(session)
 	return nil
+}
+
+func normalizeDebugUserSession(session DebugUserSession) DebugUserSession {
+	session.SessionID = strings.TrimSpace(session.SessionID)
+	session.UserID = strings.TrimSpace(session.UserID)
+	if session.LastActivity.IsZero() {
+		session.LastActivity = time.Now().UTC()
+	}
+	if session.StartedAt.IsZero() {
+		session.StartedAt = session.LastActivity
+	}
+	return session
+}
+
+func mergeDebugUserSession(existing, session DebugUserSession) DebugUserSession {
+	if !existing.StartedAt.IsZero() && (session.StartedAt.IsZero() || session.StartedAt.After(existing.StartedAt)) {
+		session.StartedAt = existing.StartedAt
+	}
+	if !existing.LastActivity.IsZero() && session.LastActivity.Before(existing.LastActivity) {
+		session.LastActivity = existing.LastActivity
+	}
+	session.RequestCount = mergedDebugSessionRequestCount(existing.RequestCount, session.RequestCount)
+	session.Username = primitives.FirstNonEmptyRaw(session.Username, existing.Username)
+	session.IP = primitives.FirstNonEmptyRaw(session.IP, existing.IP)
+	session.UserAgent = primitives.FirstNonEmptyRaw(session.UserAgent, existing.UserAgent)
+	session.CurrentPage = primitives.FirstNonEmptyRaw(session.CurrentPage, existing.CurrentPage)
+	session.Metadata = mergeDebugUserSessionMetadata(existing.Metadata, session.Metadata)
+	return session
+}
+
+func mergedDebugSessionRequestCount(existing, current int) int {
+	if current <= 0 {
+		return existing
+	}
+	return current + existing
 }
 
 // Get returns a session by session ID.

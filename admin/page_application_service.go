@@ -624,40 +624,41 @@ func applyRecordDefaults(payload map[string]any, record AdminPageRecord) {
 	if payload == nil {
 		return
 	}
-	title := strings.TrimSpace(record.Title)
-	if title == "" {
-		title = strings.TrimSpace(record.MetaTitle)
-	}
-	if title == "" {
-		title = strings.TrimSpace(record.Slug)
-	}
-	setIfBlank(payload, "title", title)
+	setIfBlank(payload, "title", pageRecordTitle(record))
 	setIfBlank(payload, "slug", strings.TrimSpace(record.Slug))
+	setIfBlank(payload, "path", pageRecordPath(record))
+	setIfBlank(payload, "locale", resolveLocale(record.RequestedLocale, record.ResolvedLocale))
+	applyPageRecordStringDefaults(payload, record)
+	applyPageRecordOptionalDefaults(payload, record)
+}
 
-	path := strings.TrimSpace(record.Path)
-	if path == "" {
-		path = strings.TrimSpace(record.PreviewURL)
+func pageRecordTitle(record AdminPageRecord) string {
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(record.Title, record.MetaTitle, record.Slug))
+}
+
+func pageRecordPath(record AdminPageRecord) string {
+	path := strings.TrimSpace(primitives.FirstNonEmptyRaw(record.Path, record.PreviewURL))
+	if path != "" || strings.TrimSpace(record.Slug) == "" {
+		return path
 	}
-	if path == "" && strings.TrimSpace(record.Slug) != "" {
-		path = "/" + strings.TrimPrefix(strings.TrimSpace(record.Slug), "/")
-	}
-	setIfBlank(payload, "path", path)
+	return "/" + strings.TrimPrefix(strings.TrimSpace(record.Slug), "/")
+}
 
-	locale := resolveLocale(record.RequestedLocale, record.ResolvedLocale)
-	setIfBlank(payload, "locale", locale)
-
+func applyPageRecordStringDefaults(payload map[string]any, record AdminPageRecord) {
 	setIfBlank(payload, "meta_title", strings.TrimSpace(record.MetaTitle))
 	setIfBlank(payload, "meta_description", strings.TrimSpace(record.MetaDescription))
 	setIfBlank(payload, "template_id", strings.TrimSpace(record.TemplateID))
 	setIfBlank(payload, "parent_id", strings.TrimSpace(record.ParentID))
 	setIfBlank(payload, "family_id", strings.TrimSpace(record.FamilyID))
-	routeKey := strings.TrimSpace(record.RouteKey)
-	if routeKey == "" {
-		routeKey = strings.TrimSpace(toString(extractDataValue(record.Data, "route_key")))
-	}
-	setIfBlank(payload, "route_key", routeKey)
+	setIfBlank(payload, "route_key", pageRecordRouteKey(record))
 	setIfBlank(payload, "content_id", strings.TrimSpace(record.ContentID))
+}
 
+func pageRecordRouteKey(record AdminPageRecord) string {
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(record.RouteKey, toString(extractDataValue(record.Data, "route_key"))))
+}
+
+func applyPageRecordOptionalDefaults(payload map[string]any, record AdminPageRecord) {
 	if _, ok := payload["summary"]; !ok && record.Summary != nil {
 		if summary := strings.TrimSpace(*record.Summary); summary != "" {
 			payload["summary"] = summary

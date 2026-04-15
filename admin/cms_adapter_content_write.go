@@ -121,29 +121,39 @@ func (r goCMSContentWriteBoundary) UpdateContent(ctx context.Context, content CM
 	applySchemaVersionToContent(&content)
 	applyEmbeddedBlocksToContent(&content)
 	if a.adminWrite != nil {
-		contentTypeID, err := r.resolveAdminContentTypeID(ctx, content)
-		if err != nil {
-			return nil, err
-		}
-		req := cmsadapter.CMSContentToAdminContentUpdateRequest(content, contentTypeID, actorUUID(ctx), true)
-		if req.ID == uuid.Nil {
-			return nil, ErrNotFound
-		}
-		if includeMeta {
-			req.Metadata = meta
-		} else {
-			req.Metadata = nil
-		}
-		updated, err := a.adminWrite.Update(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		if updated == nil {
-			return nil, ErrNotFound
-		}
-		rec := a.convertAdminContentRecord(ctx, *updated)
-		return &rec, nil
+		return r.updateAdminContent(ctx, content, meta, includeMeta)
 	}
+	return r.updateLegacyContent(ctx, content, meta, includeMeta)
+}
+
+func (r goCMSContentWriteBoundary) updateAdminContent(ctx context.Context, content CMSContent, meta map[string]any, includeMeta bool) (*CMSContent, error) {
+	a := r.adapter
+	contentTypeID, err := r.resolveAdminContentTypeID(ctx, content)
+	if err != nil {
+		return nil, err
+	}
+	req := cmsadapter.CMSContentToAdminContentUpdateRequest(content, contentTypeID, actorUUID(ctx), true)
+	if req.ID == uuid.Nil {
+		return nil, ErrNotFound
+	}
+	if includeMeta {
+		req.Metadata = meta
+	} else {
+		req.Metadata = nil
+	}
+	updated, err := a.adminWrite.Update(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if updated == nil {
+		return nil, ErrNotFound
+	}
+	rec := a.convertAdminContentRecord(ctx, *updated)
+	return &rec, nil
+}
+
+func (r goCMSContentWriteBoundary) updateLegacyContent(ctx context.Context, content CMSContent, meta map[string]any, includeMeta bool) (*CMSContent, error) {
+	a := r.adapter
 	req := cmscontent.UpdateContentRequest{
 		ID:                       cmsadapter.UUIDFromString(content.ID),
 		Status:                   content.Status,
@@ -263,55 +273,35 @@ func (r goCMSContentWriteBoundary) CreateBlockDefinition(ctx context.Context, de
 		return nil, requiredFieldDomainError("block definition name", map[string]any{"component": "content_adapter"})
 	}
 	if a.adminBlockW != nil {
-		req := cmsadapter.CMSBlockDefinitionToAdminBlockDefinitionCreateRequest(def, cmsContentChannelFromContext(ctx, ""))
-		created, err := a.adminBlockW.CreateDefinition(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		if created == nil {
-			return nil, ErrNotFound
-		}
-		converted := cmsadapter.AdminBlockDefinitionRecordToCMSBlockDefinition(*created)
-		preserveBlockDefinitionSetFlags(&converted, def)
-		if created.ID != uuid.Nil {
-			a.blockDefinitionCache.PublishDefinition(converted, created.ID, cmsContentChannelFromContext(ctx, ""), true)
-		}
-		return &converted, nil
+		return r.createAdminBlockDefinition(ctx, def)
 	}
 	if a.blocks == nil {
 		return nil, ErrNotFound
 	}
-	req := cmsblocks.RegisterDefinitionInput{
-		Name:   name,
-		Slug:   strings.TrimSpace(def.Slug),
-		Status: strings.TrimSpace(def.Status),
-		Schema: primitives.CloneAnyMap(def.Schema),
+	return r.createLegacyBlockDefinition(ctx, def, name)
+}
+
+func (r goCMSContentWriteBoundary) createAdminBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {
+	a := r.adapter
+	req := cmsadapter.CMSBlockDefinitionToAdminBlockDefinitionCreateRequest(def, cmsContentChannelFromContext(ctx, ""))
+	created, err := a.adminBlockW.CreateDefinition(ctx, req)
+	if err != nil {
+		return nil, err
 	}
-	if channel := strings.TrimSpace(cmsadapter.BlockDefinitionChannel(def)); channel != "" {
-		req.EnvironmentKey = channel
+	if created == nil {
+		return nil, ErrNotFound
 	}
-	if def.DescriptionSet {
-		desc := def.Description
-		req.Description = &desc
-	} else if desc := strings.TrimSpace(def.Description); desc != "" {
-		req.Description = &desc
+	converted := cmsadapter.AdminBlockDefinitionRecordToCMSBlockDefinition(*created)
+	preserveBlockDefinitionSetFlags(&converted, def)
+	if created.ID != uuid.Nil {
+		a.blockDefinitionCache.PublishDefinition(converted, created.ID, cmsContentChannelFromContext(ctx, ""), true)
 	}
-	if def.IconSet {
-		icon := def.Icon
-		req.Icon = &icon
-	} else if icon := strings.TrimSpace(def.Icon); icon != "" {
-		req.Icon = &icon
-	}
-	if def.CategorySet {
-		category := def.Category
-		req.Category = &category
-	} else if category := strings.TrimSpace(def.Category); category != "" {
-		req.Category = &category
-	}
-	if len(def.UISchema) > 0 {
-		req.UISchema = primitives.CloneAnyMap(def.UISchema)
-	}
-	created, err := a.blocks.RegisterDefinition(ctx, req)
+	return &converted, nil
+}
+
+func (r goCMSContentWriteBoundary) createLegacyBlockDefinition(ctx context.Context, def CMSBlockDefinition, name string) (*CMSBlockDefinition, error) {
+	a := r.adapter
+	created, err := a.blocks.RegisterDefinition(ctx, newLegacyBlockDefinitionCreateInput(def, name))
 	if err != nil {
 		return nil, err
 	}
@@ -321,6 +311,36 @@ func (r goCMSContentWriteBoundary) CreateBlockDefinition(ctx context.Context, de
 	converted := cmsadapter.ConvertBlockDefinition(reflect.ValueOf(created))
 	a.blockDefinitionCache.PublishDefinition(converted, created.ID, cmsContentChannelFromContext(ctx, ""), true)
 	return &converted, nil
+}
+
+func newLegacyBlockDefinitionCreateInput(def CMSBlockDefinition, name string) cmsblocks.RegisterDefinitionInput {
+	req := cmsblocks.RegisterDefinitionInput{
+		Name:   name,
+		Slug:   strings.TrimSpace(def.Slug),
+		Status: strings.TrimSpace(def.Status),
+		Schema: primitives.CloneAnyMap(def.Schema),
+	}
+	if channel := strings.TrimSpace(cmsadapter.BlockDefinitionChannel(def)); channel != "" {
+		req.EnvironmentKey = channel
+	}
+	req.Description = optionalBlockDefinitionText(def.DescriptionSet, def.Description)
+	req.Icon = optionalBlockDefinitionText(def.IconSet, def.Icon)
+	req.Category = optionalBlockDefinitionText(def.CategorySet, def.Category)
+	if len(def.UISchema) > 0 {
+		req.UISchema = primitives.CloneAnyMap(def.UISchema)
+	}
+	return req
+}
+
+func optionalBlockDefinitionText(explicit bool, value string) *string {
+	if explicit {
+		out := value
+		return &out
+	}
+	if trimmed := strings.TrimSpace(value); trimmed != "" {
+		return &trimmed
+	}
+	return nil
 }
 
 func (r goCMSContentWriteBoundary) UpdateBlockDefinition(ctx context.Context, def CMSBlockDefinition) (*CMSBlockDefinition, error) {

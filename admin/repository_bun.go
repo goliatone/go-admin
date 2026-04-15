@@ -264,20 +264,24 @@ func (a *BunRepositoryAdapter[T]) buildPredicateCriteria(predicate ListPredicate
 		}
 		return nil
 	}
+	return repositoryPredicateCriteria(field, values, predicate.Operator)
+}
 
-	switch strings.ToLower(strings.TrimSpace(predicate.Operator)) {
+func repositoryPredicateCriteria(field string, values []string, operator string) repository.SelectCriteria {
+	value := strings.Join(values, ",")
+	switch strings.ToLower(strings.TrimSpace(operator)) {
 	case "", "eq":
-		return repository.SelectBy(field, "=", strings.Join(values, ","))
+		return repository.SelectBy(field, "=", value)
 	case "ne", "neq":
-		return repository.SelectBy(field, "!=", strings.Join(values, ","))
+		return repository.SelectBy(field, "!=", value)
 	case "gt":
-		return repository.SelectBy(field, ">", strings.Join(values, ","))
+		return repository.SelectBy(field, ">", value)
 	case "gte":
-		return repository.SelectBy(field, ">=", strings.Join(values, ","))
+		return repository.SelectBy(field, ">=", value)
 	case "lt":
-		return repository.SelectBy(field, "<", strings.Join(values, ","))
+		return repository.SelectBy(field, "<", value)
 	case "lte":
-		return repository.SelectBy(field, "<=", strings.Join(values, ","))
+		return repository.SelectBy(field, "<=", value)
 	case "in":
 		return bunAnyValuePredicate(field, values, false)
 	case "nin":
@@ -287,7 +291,7 @@ func (a *BunRepositoryAdapter[T]) buildPredicateCriteria(predicate ListPredicate
 	case "ilike", "contains":
 		return bunContainsPredicate(field, values, true)
 	default:
-		return repository.SelectBy(field, "=", strings.Join(values, ","))
+		return repository.SelectBy(field, "=", value)
 	}
 }
 

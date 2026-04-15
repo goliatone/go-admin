@@ -59,6 +59,13 @@ func (m *mediaBinding) Add(c router.Context, body map[string]any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
+		Operation: MediaMutationCreate,
+		MediaID:   strings.TrimSpace(created.ID),
+		Reference: MediaReference{ID: created.ID, URL: created.URL, Name: created.Name},
+		After:     cloneMediaItem(created),
+		Request:   map[string]any{"request_kind": "legacy_create"},
+	})
 	return created, nil
 }
 
@@ -98,7 +105,7 @@ func (m *mediaBinding) Upload(c router.Context, body map[string]any, file boot.M
 			"route":     "media.upload",
 		})
 	}
-	return uploader.UploadMedia(adminCtx.Context, MediaUploadInput{
+	uploaded, err := uploader.UploadMedia(adminCtx.Context, MediaUploadInput{
 		MediaUploadRequest: MediaUploadRequest{
 			Name:        firstNonEmpty(toString(body["name"]), file.FileName),
 			FileName:    firstNonEmpty(toString(body["file_name"]), file.FileName),
@@ -108,6 +115,17 @@ func (m *mediaBinding) Upload(c router.Context, body map[string]any, file boot.M
 		},
 		Reader: file.Reader,
 	})
+	if err != nil {
+		return nil, err
+	}
+	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
+		Operation: MediaMutationUpload,
+		MediaID:   strings.TrimSpace(uploaded.ID),
+		Reference: MediaReference{ID: uploaded.ID, URL: uploaded.URL, Name: uploaded.Name},
+		After:     cloneMediaItem(uploaded),
+		Request:   map[string]any{"request_kind": "upload"},
+	})
+	return uploaded, nil
 }
 
 func (m *mediaBinding) Presign(c router.Context, body map[string]any) (any, error) {
@@ -143,7 +161,7 @@ func (m *mediaBinding) Confirm(c router.Context, body map[string]any) (any, erro
 			"route":     "media.confirm",
 		})
 	}
-	return confirmer.ConfirmMedia(adminCtx.Context, MediaConfirmRequest{
+	confirmed, err := confirmer.ConfirmMedia(adminCtx.Context, MediaConfirmRequest{
 		UploadID:    toString(body["upload_id"]),
 		Name:        toString(body["name"]),
 		URL:         toString(body["url"]),
@@ -152,12 +170,27 @@ func (m *mediaBinding) Confirm(c router.Context, body map[string]any) (any, erro
 		Size:        toInt64(body["size"]),
 		Metadata:    extractMap(body["metadata"]),
 	})
+	if err != nil {
+		return nil, err
+	}
+	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
+		Operation: MediaMutationConfirm,
+		MediaID:   strings.TrimSpace(confirmed.ID),
+		Reference: MediaReference{ID: confirmed.ID, URL: confirmed.URL, Name: confirmed.Name},
+		After:     cloneMediaItem(confirmed),
+		Request:   map[string]any{"request_kind": "confirm"},
+	})
+	return confirmed, nil
 }
 
 func (m *mediaBinding) Update(c router.Context, id string, body map[string]any) (any, error) {
 	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
 	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaUpdatePermission, "media"); err != nil {
 		return nil, err
+	}
+	before, beforeErr := m.getMedia(adminCtx.Context, strings.TrimSpace(id))
+	if beforeErr != nil {
+		before = MediaItem{}
 	}
 	updater, ok := m.admin.mediaLibrary.(MediaUpdater)
 	if !ok {
@@ -166,7 +199,7 @@ func (m *mediaBinding) Update(c router.Context, id string, body map[string]any) 
 			"route":     "media.item",
 		})
 	}
-	return updater.UpdateMedia(adminCtx.Context, strings.TrimSpace(id), MediaUpdateInput{
+	updated, err := updater.UpdateMedia(adminCtx.Context, strings.TrimSpace(id), MediaUpdateInput{
 		Name:           toString(body["name"]),
 		Thumbnail:      toString(body["thumbnail"]),
 		Type:           toString(body["type"]),
@@ -176,12 +209,28 @@ func (m *mediaBinding) Update(c router.Context, id string, body map[string]any) 
 		WorkflowError:  toString(body["workflow_error"]),
 		Metadata:       extractMap(body["metadata"]),
 	})
+	if err != nil {
+		return nil, err
+	}
+	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
+		Operation: MediaMutationUpdate,
+		MediaID:   strings.TrimSpace(updated.ID),
+		Reference: MediaReference{ID: updated.ID, URL: updated.URL, Name: updated.Name},
+		Before:    optionalMediaItem(before),
+		After:     cloneMediaItem(updated),
+		Request:   map[string]any{"request_kind": "update"},
+	})
+	return updated, nil
 }
 
 func (m *mediaBinding) Delete(c router.Context, id string) error {
 	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
 	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaDeletePermission, "media"); err != nil {
 		return err
+	}
+	before, beforeErr := m.getMedia(adminCtx.Context, strings.TrimSpace(id))
+	if beforeErr != nil {
+		before = MediaItem{}
 	}
 	deleter, ok := m.admin.mediaLibrary.(MediaDeleter)
 	if !ok {
@@ -190,7 +239,17 @@ func (m *mediaBinding) Delete(c router.Context, id string) error {
 			"route":     "media.item",
 		})
 	}
-	return deleter.DeleteMedia(adminCtx.Context, strings.TrimSpace(id))
+	if err := deleter.DeleteMedia(adminCtx.Context, strings.TrimSpace(id)); err != nil {
+		return err
+	}
+	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
+		Operation: MediaMutationDelete,
+		MediaID:   strings.TrimSpace(id),
+		Reference: MediaReference{ID: strings.TrimSpace(id), URL: before.URL, Name: before.Name},
+		Before:    optionalMediaItem(before),
+		Request:   map[string]any{"request_kind": "delete"},
+	})
+	return nil
 }
 
 func (m *mediaBinding) Capabilities(c router.Context) (any, error) {
@@ -227,6 +286,21 @@ func (m *mediaBinding) resolveLegacyMedia(ctx context.Context, ref MediaReferenc
 		"id":  id,
 		"url": url,
 	})
+}
+
+func cloneMediaItem(item MediaItem) *MediaItem {
+	cloned := item
+	if len(item.Metadata) > 0 {
+		cloned.Metadata = extractMap(item.Metadata)
+	}
+	return &cloned
+}
+
+func optionalMediaItem(item MediaItem) *MediaItem {
+	if strings.TrimSpace(item.ID) == "" && strings.TrimSpace(item.URL) == "" && strings.TrimSpace(item.Name) == "" {
+		return nil
+	}
+	return cloneMediaItem(item)
 }
 
 func (m *mediaBinding) effectiveCapabilities(adminCtx AdminContext) (MediaCapabilities, error) {
@@ -300,84 +374,105 @@ func implementsMediaDeleter(lib MediaLibrary) bool {
 }
 
 func applyMediaCapabilityOverrides(base MediaCapabilities, override MediaCapabilityOverrides) MediaCapabilities {
-	if override.Operations.List != nil {
-		base.Operations.List = *override.Operations.List
-	}
-	if override.Operations.Get != nil {
-		base.Operations.Get = *override.Operations.Get
-	}
-	if override.Operations.Resolve != nil {
-		base.Operations.Resolve = *override.Operations.Resolve
-	}
-	if override.Operations.Upload != nil {
-		base.Operations.Upload = *override.Operations.Upload
-	}
-	if override.Operations.Presign != nil {
-		base.Operations.Presign = *override.Operations.Presign
-	}
-	if override.Operations.Confirm != nil {
-		base.Operations.Confirm = *override.Operations.Confirm
-	}
-	if override.Operations.Update != nil {
-		base.Operations.Update = *override.Operations.Update
-	}
-	if override.Operations.Delete != nil {
-		base.Operations.Delete = *override.Operations.Delete
-	}
-	if override.Operations.LegacyCreate != nil {
-		base.Operations.LegacyCreate = *override.Operations.LegacyCreate
-	}
-	if override.Upload.DirectUpload != nil {
-		base.Upload.DirectUpload = *override.Upload.DirectUpload
-	}
-	if override.Upload.Presign != nil {
-		base.Upload.Presign = *override.Upload.Presign
-	}
-	if override.Upload.MaxSize != nil {
-		base.Upload.MaxSize = *override.Upload.MaxSize
-	}
-	if override.Upload.AcceptedKinds != nil {
-		base.Upload.AcceptedKinds = append([]string{}, (*override.Upload.AcceptedKinds)...)
-	}
-	if override.Upload.AcceptedMIMETypes != nil {
-		base.Upload.AcceptedMIMETypes = append([]string{}, (*override.Upload.AcceptedMIMETypes)...)
-	}
-	if override.Picker.ValueModes != nil {
-		base.Picker.ValueModes = append([]MediaValueMode{}, (*override.Picker.ValueModes)...)
-	}
-	if override.Picker.DefaultValueMode != nil {
-		base.Picker.DefaultValueMode = *override.Picker.DefaultValueMode
-	}
+	applyMediaOperationOverrides(&base.Operations, override.Operations)
+	applyMediaUploadOverrides(&base.Upload, override.Upload)
+	applyMediaPickerOverrides(&base.Picker, override.Picker)
 	return base
 }
 
 func clampMediaCapabilities(base, supported MediaCapabilities) MediaCapabilities {
-	base.Operations.List = base.Operations.List && supported.Operations.List
-	base.Operations.Get = base.Operations.Get && supported.Operations.Get
-	base.Operations.Resolve = base.Operations.Resolve && supported.Operations.Resolve
-	base.Operations.Upload = base.Operations.Upload && supported.Operations.Upload
-	base.Operations.Presign = base.Operations.Presign && supported.Operations.Presign
-	base.Operations.Confirm = base.Operations.Confirm && supported.Operations.Confirm
-	base.Operations.Update = base.Operations.Update && supported.Operations.Update
-	base.Operations.Delete = base.Operations.Delete && supported.Operations.Delete
-	base.Operations.LegacyCreate = base.Operations.LegacyCreate && supported.Operations.LegacyCreate
-
-	base.Upload.DirectUpload = base.Upload.DirectUpload && supported.Upload.DirectUpload
-	base.Upload.Presign = base.Upload.Presign && supported.Upload.Presign
-
-	if supported.Upload.MaxSize > 0 && (base.Upload.MaxSize <= 0 || base.Upload.MaxSize > supported.Upload.MaxSize) {
-		base.Upload.MaxSize = supported.Upload.MaxSize
-	}
-	if len(supported.Upload.AcceptedKinds) > 0 {
-		base.Upload.AcceptedKinds = intersectStrings(base.Upload.AcceptedKinds, supported.Upload.AcceptedKinds)
-	}
-	if len(supported.Upload.AcceptedMIMETypes) > 0 {
-		base.Upload.AcceptedMIMETypes = intersectStrings(base.Upload.AcceptedMIMETypes, supported.Upload.AcceptedMIMETypes)
-	}
-	if len(supported.Picker.ValueModes) > 0 {
-		base.Picker.ValueModes = intersectMediaValueModes(base.Picker.ValueModes, supported.Picker.ValueModes)
-	}
+	clampMediaOperationCapabilities(&base.Operations, supported.Operations)
+	clampMediaUploadCapabilities(&base.Upload, supported.Upload)
+	clampMediaPickerCapabilities(&base.Picker, supported.Picker)
 	return base
+}
+
+func applyMediaOperationOverrides(base *MediaOperationCapabilities, override MediaOperationCapabilityOverrides) {
+	applyBoolOverride(&base.List, override.List)
+	applyBoolOverride(&base.Get, override.Get)
+	applyBoolOverride(&base.Resolve, override.Resolve)
+	applyBoolOverride(&base.Upload, override.Upload)
+	applyBoolOverride(&base.Presign, override.Presign)
+	applyBoolOverride(&base.Confirm, override.Confirm)
+	applyBoolOverride(&base.Update, override.Update)
+	applyBoolOverride(&base.Delete, override.Delete)
+	applyBoolOverride(&base.LegacyCreate, override.LegacyCreate)
+}
+
+func applyMediaUploadOverrides(base *MediaUploadCapabilities, override MediaUploadCapabilityOverrides) {
+	applyBoolOverride(&base.DirectUpload, override.DirectUpload)
+	applyBoolOverride(&base.Presign, override.Presign)
+	applyInt64Override(&base.MaxSize, override.MaxSize)
+	applyStringSliceOverride(&base.AcceptedKinds, override.AcceptedKinds)
+	applyStringSliceOverride(&base.AcceptedMIMETypes, override.AcceptedMIMETypes)
+}
+
+func applyMediaPickerOverrides(base *MediaPickerCapabilities, override MediaPickerCapabilityOverrides) {
+	applyMediaValueModeSliceOverride(&base.ValueModes, override.ValueModes)
+	applyMediaValueModeOverride(&base.DefaultValueMode, override.DefaultValueMode)
+}
+
+func clampMediaOperationCapabilities(base *MediaOperationCapabilities, supported MediaOperationCapabilities) {
+	base.List = base.List && supported.List
+	base.Get = base.Get && supported.Get
+	base.Resolve = base.Resolve && supported.Resolve
+	base.Upload = base.Upload && supported.Upload
+	base.Presign = base.Presign && supported.Presign
+	base.Confirm = base.Confirm && supported.Confirm
+	base.Update = base.Update && supported.Update
+	base.Delete = base.Delete && supported.Delete
+	base.LegacyCreate = base.LegacyCreate && supported.LegacyCreate
+}
+
+func clampMediaUploadCapabilities(base *MediaUploadCapabilities, supported MediaUploadCapabilities) {
+	base.DirectUpload = base.DirectUpload && supported.DirectUpload
+	base.Presign = base.Presign && supported.Presign
+
+	if supported.MaxSize > 0 && (base.MaxSize <= 0 || base.MaxSize > supported.MaxSize) {
+		base.MaxSize = supported.MaxSize
+	}
+	if len(supported.AcceptedKinds) > 0 {
+		base.AcceptedKinds = intersectStrings(base.AcceptedKinds, supported.AcceptedKinds)
+	}
+	if len(supported.AcceptedMIMETypes) > 0 {
+		base.AcceptedMIMETypes = intersectStrings(base.AcceptedMIMETypes, supported.AcceptedMIMETypes)
+	}
+}
+
+func clampMediaPickerCapabilities(base *MediaPickerCapabilities, supported MediaPickerCapabilities) {
+	if len(supported.ValueModes) > 0 {
+		base.ValueModes = intersectMediaValueModes(base.ValueModes, supported.ValueModes)
+	}
+}
+
+func applyBoolOverride(target *bool, override *bool) {
+	if override != nil {
+		*target = *override
+	}
+}
+
+func applyInt64Override(target *int64, override *int64) {
+	if override != nil {
+		*target = *override
+	}
+}
+
+func applyStringSliceOverride(target *[]string, override *[]string) {
+	if override != nil {
+		*target = append([]string{}, (*override)...)
+	}
+}
+
+func applyMediaValueModeSliceOverride(target *[]MediaValueMode, override *[]MediaValueMode) {
+	if override != nil {
+		*target = append([]MediaValueMode{}, (*override)...)
+	}
+}
+
+func applyMediaValueModeOverride(target *MediaValueMode, override *MediaValueMode) {
+	if override != nil {
+		*target = *override
+	}
 }
 
 func normalizeMediaCapabilities(base, supported MediaCapabilities) MediaCapabilities {
@@ -493,29 +588,10 @@ func mediaQueryFromRequest(c router.Context) MediaQuery {
 
 func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
 	filtered := make([]MediaItem, 0, len(items))
-	search := strings.ToLower(strings.TrimSpace(query.Search))
-	typeFilter := strings.ToLower(strings.TrimSpace(query.Type))
-	statusFilter := strings.ToLower(strings.TrimSpace(query.Status))
-	workflowFilter := strings.ToLower(strings.TrimSpace(query.WorkflowStatus))
-	mimeFamily := strings.ToLower(strings.TrimSpace(query.MIMEFamily))
+	filters := normalizeMediaQueryFilters(query)
 
 	for _, item := range items {
-		if search != "" {
-			haystack := strings.ToLower(strings.Join([]string{item.ID, item.Name, item.URL, item.Type, item.MIMEType}, " "))
-			if !strings.Contains(haystack, search) {
-				continue
-			}
-		}
-		if typeFilter != "" && strings.ToLower(strings.TrimSpace(item.Type)) != typeFilter {
-			continue
-		}
-		if statusFilter != "" && strings.ToLower(strings.TrimSpace(item.Status)) != statusFilter {
-			continue
-		}
-		if workflowFilter != "" && strings.ToLower(strings.TrimSpace(item.WorkflowStatus)) != workflowFilter {
-			continue
-		}
-		if mimeFamily != "" && !strings.HasPrefix(strings.ToLower(strings.TrimSpace(item.MIMEType)), mimeFamily+"/") {
+		if !mediaItemMatchesQuery(item, filters) {
 			continue
 		}
 		filtered = append(filtered, item)
@@ -539,6 +615,46 @@ func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
 		Limit:  query.Limit,
 		Offset: query.Offset,
 	}
+}
+
+type mediaQueryFilters struct {
+	search         string
+	typeFilter     string
+	statusFilter   string
+	workflowFilter string
+	mimeFamily     string
+}
+
+func normalizeMediaQueryFilters(query MediaQuery) mediaQueryFilters {
+	return mediaQueryFilters{
+		search:         strings.ToLower(strings.TrimSpace(query.Search)),
+		typeFilter:     strings.ToLower(strings.TrimSpace(query.Type)),
+		statusFilter:   strings.ToLower(strings.TrimSpace(query.Status)),
+		workflowFilter: strings.ToLower(strings.TrimSpace(query.WorkflowStatus)),
+		mimeFamily:     strings.ToLower(strings.TrimSpace(query.MIMEFamily)),
+	}
+}
+
+func mediaItemMatchesQuery(item MediaItem, filters mediaQueryFilters) bool {
+	if filters.search != "" {
+		haystack := strings.ToLower(strings.Join([]string{item.ID, item.Name, item.URL, item.Type, item.MIMEType}, " "))
+		if !strings.Contains(haystack, filters.search) {
+			return false
+		}
+	}
+	if filters.typeFilter != "" && strings.ToLower(strings.TrimSpace(item.Type)) != filters.typeFilter {
+		return false
+	}
+	if filters.statusFilter != "" && strings.ToLower(strings.TrimSpace(item.Status)) != filters.statusFilter {
+		return false
+	}
+	if filters.workflowFilter != "" && strings.ToLower(strings.TrimSpace(item.WorkflowStatus)) != filters.workflowFilter {
+		return false
+	}
+	if filters.mimeFamily != "" && !strings.HasPrefix(strings.ToLower(strings.TrimSpace(item.MIMEType)), filters.mimeFamily+"/") {
+		return false
+	}
+	return true
 }
 
 func intQuery(c router.Context, key string) int {

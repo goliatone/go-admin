@@ -88,45 +88,13 @@ func (s goCMSAdminContentWriteService) Update(ctx context.Context, id string, re
 	}
 	content := mapToCMSContent(record)
 	content.ID = id
-	if strings.TrimSpace(content.Locale) == "" {
-		if locale := localeFromContext(ctx); locale != "" {
-			content.Locale = locale
-		}
-		if locale := s.resolveContentLocale(ctx, id); locale != "" {
-			content.Locale = locale
-		}
-	}
-	var existing *CMSContent
-	if content.Locale != "" {
-		if current, err := s.content.Content(ctx, id, content.Locale); err == nil {
-			existing = current
-		}
-	}
-	if existing == nil {
-		if locale := s.resolveContentLocale(ctx, id); locale != "" {
-			content.Locale = locale
-			if current, err := s.content.Content(ctx, id, locale); err == nil {
-				existing = current
-			}
-		}
+	content.Locale = s.resolveUpdateContentLocale(ctx, id, content.Locale)
+	existing := s.resolveExistingContentForUpdate(ctx, id, &content)
+	content, err := s.applyUpdateNavigationPolicy(ctx, id, record, content, existing)
+	if err != nil {
+		return nil, err
 	}
 	if existing != nil {
-		contentTypeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(
-			toString(record["content_type_slug"]),
-			toString(record["content_type"]),
-			toString(record["content_type_id"]),
-			primitives.FirstNonEmptyRaw(existing.ContentTypeSlug, existing.ContentType),
-		))
-		if policy, ok := s.resolveContentNavigationPolicy(ctx, contentTypeKey); ok {
-			if err := applyContentEntryNavigationWrite(record, policy, false); err != nil {
-				return nil, err
-			}
-			content = mapToCMSContent(record)
-			content.ID = id
-			if strings.TrimSpace(content.Locale) == "" {
-				content.Locale = existing.Locale
-			}
-		}
 		content = mergeCMSContentUpdate(*existing, content, record)
 	}
 	if err := s.ensureUniqueLocalizedPath(ctx, content, id); err != nil {
@@ -145,6 +113,71 @@ func (s goCMSAdminContentWriteService) Update(ctx context.Context, id string, re
 		result = applyContentEntryNavigationReadContract(result, policy)
 	}
 	return result, nil
+}
+
+func (s goCMSAdminContentWriteService) resolveUpdateContentLocale(ctx context.Context, id, locale string) string {
+	locale = strings.TrimSpace(locale)
+	if locale != "" {
+		return locale
+	}
+	if resolved := localeFromContext(ctx); resolved != "" {
+		locale = resolved
+	}
+	if resolved := s.resolveContentLocale(ctx, id); resolved != "" {
+		locale = resolved
+	}
+	return locale
+}
+
+func (s goCMSAdminContentWriteService) resolveExistingContentForUpdate(ctx context.Context, id string, content *CMSContent) *CMSContent {
+	if s.content == nil || content == nil {
+		return nil
+	}
+	if current := s.lookupUpdateContent(ctx, id, content.Locale); current != nil {
+		return current
+	}
+	fallbackLocale := s.resolveContentLocale(ctx, id)
+	if fallbackLocale == "" || strings.EqualFold(fallbackLocale, content.Locale) {
+		return nil
+	}
+	content.Locale = fallbackLocale
+	return s.lookupUpdateContent(ctx, id, fallbackLocale)
+}
+
+func (s goCMSAdminContentWriteService) lookupUpdateContent(ctx context.Context, id, locale string) *CMSContent {
+	if strings.TrimSpace(locale) == "" {
+		return nil
+	}
+	current, err := s.content.Content(ctx, id, locale)
+	if err != nil {
+		return nil
+	}
+	return current
+}
+
+func (s goCMSAdminContentWriteService) applyUpdateNavigationPolicy(ctx context.Context, id string, record map[string]any, content CMSContent, existing *CMSContent) (CMSContent, error) {
+	if existing == nil {
+		return content, nil
+	}
+	contentTypeKey := strings.TrimSpace(primitives.FirstNonEmptyRaw(
+		toString(record["content_type_slug"]),
+		toString(record["content_type"]),
+		toString(record["content_type_id"]),
+		primitives.FirstNonEmptyRaw(existing.ContentTypeSlug, existing.ContentType),
+	))
+	policy, ok := s.resolveContentNavigationPolicy(ctx, contentTypeKey)
+	if !ok {
+		return content, nil
+	}
+	if err := applyContentEntryNavigationWrite(record, policy, false); err != nil {
+		return content, err
+	}
+	content = mapToCMSContent(record)
+	content.ID = id
+	if strings.TrimSpace(content.Locale) == "" {
+		content.Locale = existing.Locale
+	}
+	return content, nil
 }
 
 func (s goCMSAdminContentWriteService) Delete(ctx context.Context, id string) error {
@@ -334,26 +367,35 @@ func (s goCMSAdminContentWriteService) ensureContentTranslationIntent(ctx contex
 }
 
 func (s goCMSAdminContentWriteService) contentTranslationMissing(ctx context.Context, id, requested string) (bool, error) {
-	if strings.TrimSpace(requested) == "" {
+	requested = strings.TrimSpace(requested)
+	if requested == "" {
 		return false, nil
 	}
 	content, err := s.content.Content(ctx, id, requested)
 	if err != nil {
-		if IsTranslationMissing(err) {
-			return true, nil
-		}
-		if errors.Is(err, ErrNotFound) {
-			existing, lookupErr := s.content.Content(ctx, id, "")
-			if lookupErr == nil && existing != nil {
-				return true, nil
-			}
-			if lookupErr != nil && !errors.Is(lookupErr, ErrNotFound) {
-				return false, lookupErr
-			}
-			return false, ErrNotFound
-		}
+		return s.handleContentTranslationMissingError(ctx, id, err)
+	}
+	return contentMissingRequestedTranslation(content, requested)
+}
+
+func (s goCMSAdminContentWriteService) handleContentTranslationMissingError(ctx context.Context, id string, err error) (bool, error) {
+	if IsTranslationMissing(err) {
+		return true, nil
+	}
+	if !errors.Is(err, ErrNotFound) {
 		return false, err
 	}
+	existing, lookupErr := s.content.Content(ctx, id, "")
+	if lookupErr == nil && existing != nil {
+		return true, nil
+	}
+	if lookupErr != nil && !errors.Is(lookupErr, ErrNotFound) {
+		return false, lookupErr
+	}
+	return false, ErrNotFound
+}
+
+func contentMissingRequestedTranslation(content *CMSContent, requested string) (bool, error) {
 	if content == nil {
 		return false, ErrNotFound
 	}
@@ -366,19 +408,19 @@ func (s goCMSAdminContentWriteService) contentTranslationMissing(ctx context.Con
 	if !strings.EqualFold(content.Locale, requested) {
 		return true, nil
 	}
-	if len(content.AvailableLocales) > 0 {
-		found := false
-		for _, loc := range content.AvailableLocales {
-			if strings.EqualFold(loc, requested) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return true, nil
-		}
+	if !cmsContentHasLocale(content.AvailableLocales, requested) {
+		return len(content.AvailableLocales) > 0, nil
 	}
 	return false, nil
+}
+
+func cmsContentHasLocale(locales []string, requested string) bool {
+	for _, loc := range locales {
+		if strings.EqualFold(loc, requested) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s goCMSAdminContentWriteService) prepareTranslationCreateInput(ctx context.Context, input TranslationCreateInput) (TranslationCreateInput, error) {

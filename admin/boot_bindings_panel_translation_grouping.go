@@ -832,37 +832,45 @@ func translationLocaleExistsInRepositoryGroup(ctx context.Context, repo Reposito
 	const perPage = 200
 	page := 1
 	for {
-		records, total, err := repo.List(ctx, ListOptions{
-			Page:    page,
-			PerPage: perPage,
-		})
+		records, total, err := repo.List(ctx, ListOptions{Page: page, PerPage: perPage})
 		if err != nil {
 			return false, err
 		}
-		for _, record := range records {
-			if strings.TrimSpace(toString(record["id"])) == strings.TrimSpace(skipID) {
-				continue
-			}
-			candidateGroup := strings.TrimSpace(translationFamilyIDFromRecord(record))
-			if candidateGroup == "" || !strings.EqualFold(candidateGroup, groupID) {
-				continue
-			}
-			candidateLocale := strings.TrimSpace(toString(record["locale"]))
-			if candidateLocale != "" && strings.EqualFold(candidateLocale, locale) {
-				return true, nil
-			}
+		if translationLocaleExistsInRecords(records, groupID, locale, skipID) {
+			return true, nil
 		}
-		if len(records) == 0 {
-			return false, nil
-		}
-		if total > 0 && page*perPage >= total {
-			return false, nil
-		}
-		if len(records) < perPage {
+		if translationLocalePageComplete(records, total, page, perPage) {
 			return false, nil
 		}
 		page++
 	}
+}
+
+func translationLocaleExistsInRecords(records []map[string]any, groupID, locale, skipID string) bool {
+	for _, record := range records {
+		if strings.TrimSpace(toString(record["id"])) == strings.TrimSpace(skipID) {
+			continue
+		}
+		candidateGroup := strings.TrimSpace(translationFamilyIDFromRecord(record))
+		if candidateGroup == "" || !strings.EqualFold(candidateGroup, groupID) {
+			continue
+		}
+		candidateLocale := strings.TrimSpace(toString(record["locale"]))
+		if candidateLocale != "" && strings.EqualFold(candidateLocale, locale) {
+			return true
+		}
+	}
+	return false
+}
+
+func translationLocalePageComplete(records []map[string]any, total, page, perPage int) bool {
+	if len(records) == 0 {
+		return true
+	}
+	if total > 0 && page*perPage >= total {
+		return true
+	}
+	return len(records) < perPage
 }
 
 func mapCreateTranslationPersistenceError(err error, panel, entityID, sourceLocale, locale, groupID string) error {

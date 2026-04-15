@@ -24,7 +24,7 @@ require (
 	github.com/goliatone/go-export v0.8.0
 	github.com/goliatone/go-export/adapters/template/go-template v0.7.0
 	github.com/goliatone/go-featuregate v0.6.0
-	github.com/goliatone/go-formgen v0.18.0
+	github.com/goliatone/go-formgen v0.19.0
 	github.com/goliatone/go-i18n v0.5.0
 	github.com/goliatone/go-job v0.19.0
 	github.com/goliatone/go-logger v0.8.0

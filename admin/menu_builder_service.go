@@ -653,43 +653,61 @@ func validateMenuTarget(item MenuItem) error {
 	}
 	switch targetType {
 	case "", "route", "module":
-		if strings.TrimSpace(toString(target["url"])) == "" &&
-			strings.TrimSpace(toString(target["path"])) == "" &&
-			strings.TrimSpace(toString(target["key"])) == "" &&
-			strings.TrimSpace(toString(target["route"])) == "" &&
-			strings.TrimSpace(toString(target["module"])) == "" {
-			return menuValidationInvalidTargetError(map[string]any{
-				"field": "target",
-				"id":    item.ID,
-			})
-		}
+		return validateRouteMenuTarget(item, target)
 	case "content":
-		if strings.TrimSpace(toString(target["content_id"])) == "" &&
-			strings.TrimSpace(toString(target["slug"])) == "" &&
-			strings.TrimSpace(toString(target["path"])) == "" {
-			return menuValidationInvalidTargetError(map[string]any{
-				"field": "target.content_id",
-				"id":    item.ID,
-			})
-		}
+		return validateContentMenuTarget(item, target)
 	case "external":
-		raw := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(target["url"]), toString(target["href"])))
-		if raw == "" {
-			return menuValidationInvalidTargetError(map[string]any{
-				"field": "target.url",
-				"id":    item.ID,
-			})
-		}
-		parsed, err := url.Parse(raw)
-		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-			return menuValidationInvalidTargetError(map[string]any{
-				"field": "target.url",
-				"id":    item.ID,
-				"value": raw,
-			})
-		}
+		return validateExternalMenuTarget(item, target)
 	}
 	return nil
+}
+
+func validateRouteMenuTarget(item MenuItem, target map[string]any) error {
+	if menuTargetValue(target, "url", "path", "key", "route", "module") != "" {
+		return nil
+	}
+	return menuValidationInvalidTargetError(map[string]any{
+		"field": "target",
+		"id":    item.ID,
+	})
+}
+
+func validateContentMenuTarget(item MenuItem, target map[string]any) error {
+	if menuTargetValue(target, "content_id", "slug", "path") != "" {
+		return nil
+	}
+	return menuValidationInvalidTargetError(map[string]any{
+		"field": "target.content_id",
+		"id":    item.ID,
+	})
+}
+
+func validateExternalMenuTarget(item MenuItem, target map[string]any) error {
+	raw := strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(target["url"]), toString(target["href"])))
+	if raw == "" {
+		return menuValidationInvalidTargetError(map[string]any{
+			"field": "target.url",
+			"id":    item.ID,
+		})
+	}
+	parsed, err := url.Parse(raw)
+	if err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		return nil
+	}
+	return menuValidationInvalidTargetError(map[string]any{
+		"field": "target.url",
+		"id":    item.ID,
+		"value": raw,
+	})
+}
+
+func menuTargetValue(target map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value := strings.TrimSpace(toString(target[key])); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func menuBuilderIntPointer(raw any) *int {
@@ -747,36 +765,12 @@ func projectMenuForProfile(menu *Menu, profile AdminMenuViewProfileRecord) *Menu
 	case "max_depth":
 		items = truncateMenuDepth(items, profile.MaxDepth, 1)
 	case "include_ids":
-		if len(profile.IncludeItemIDs) > 0 {
-			includeSet := map[string]struct{}{}
-			for _, id := range profile.IncludeItemIDs {
-				includeSet[strings.ToLower(strings.TrimSpace(id))] = struct{}{}
-			}
-			items = filterMenuByIDs(items, includeSet, true)
-		}
+		items = applyMenuIDProfile(items, profile.IncludeItemIDs, true)
 	case "exclude_ids":
-		if len(profile.ExcludeItemIDs) > 0 {
-			excludeSet := map[string]struct{}{}
-			for _, id := range profile.ExcludeItemIDs {
-				excludeSet[strings.ToLower(strings.TrimSpace(id))] = struct{}{}
-			}
-			items = filterMenuByIDs(items, excludeSet, false)
-		}
+		items = applyMenuIDProfile(items, profile.ExcludeItemIDs, false)
 	case "composed":
-		if len(profile.ExcludeItemIDs) > 0 {
-			excludeSet := map[string]struct{}{}
-			for _, id := range profile.ExcludeItemIDs {
-				excludeSet[strings.ToLower(strings.TrimSpace(id))] = struct{}{}
-			}
-			items = filterMenuByIDs(items, excludeSet, false)
-		}
-		if len(profile.IncludeItemIDs) > 0 {
-			includeSet := map[string]struct{}{}
-			for _, id := range profile.IncludeItemIDs {
-				includeSet[strings.ToLower(strings.TrimSpace(id))] = struct{}{}
-			}
-			items = filterMenuByIDs(items, includeSet, true)
-		}
+		items = applyMenuIDProfile(items, profile.ExcludeItemIDs, false)
+		items = applyMenuIDProfile(items, profile.IncludeItemIDs, true)
 		if profile.MaxDepth != nil {
 			items = truncateMenuDepth(items, profile.MaxDepth, 1)
 		}
@@ -785,6 +779,21 @@ func projectMenuForProfile(menu *Menu, profile AdminMenuViewProfileRecord) *Menu
 		}
 	}
 	out.Items = items
+	return out
+}
+
+func applyMenuIDProfile(items []MenuItem, ids []string, include bool) []MenuItem {
+	if len(ids) == 0 {
+		return items
+	}
+	return filterMenuByIDs(items, menuProfileIDSet(ids), include)
+}
+
+func menuProfileIDSet(ids []string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, id := range ids {
+		out[strings.ToLower(strings.TrimSpace(id))] = struct{}{}
+	}
 	return out
 }
 

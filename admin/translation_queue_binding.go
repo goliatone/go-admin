@@ -890,42 +890,7 @@ func (b *translationQueueBinding) EntityTypesOptions(c router.Context) (any, err
 	}
 
 	search := strings.ToLower(strings.TrimSpace(translationQueueOptionsSearch(c)))
-	seen := map[string]map[string]any{}
-	if b.admin.registry != nil {
-		for panelName, panel := range b.admin.registry.Panels() {
-			if panel == nil || !panelSupportsTranslationQueueTab(panelName, panel) {
-				continue
-			}
-			entityType := normalizeTranslationQueueEntityType(panelName)
-			if entityType == "" {
-				continue
-			}
-			seen[entityType] = map[string]any{
-				"value": entityType,
-				"label": translationQueueEntityTypeLabel(entityType),
-			}
-		}
-	}
-
-	if repo, err := b.assignmentRepository(); err == nil && repo != nil {
-		assignments, listErr := b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", nil)
-		if listErr == nil {
-			for _, assignment := range assignments {
-				entityType := normalizeTranslationQueueEntityType(assignment.EntityType)
-				if entityType == "" {
-					continue
-				}
-				if _, ok := seen[entityType]; ok {
-					continue
-				}
-				seen[entityType] = map[string]any{
-					"value": entityType,
-					"label": translationQueueEntityTypeLabel(entityType),
-				}
-			}
-		}
-	}
-
+	seen := b.collectEntityTypeOptions(adminCtx)
 	options := make([]map[string]any, 0, len(seen))
 	for _, option := range seen {
 		if !translationQueueOptionMatchesSearch(option, search) {
@@ -935,6 +900,54 @@ func (b *translationQueueBinding) EntityTypesOptions(c router.Context) (any, err
 	}
 	sortTranslationQueueOptions(options)
 	return options, nil
+}
+
+func (b *translationQueueBinding) collectEntityTypeOptions(adminCtx AdminContext) map[string]map[string]any {
+	seen := b.collectEntityTypeOptionsFromRegistry()
+	b.collectEntityTypeOptionsFromAssignments(adminCtx, seen)
+	return seen
+}
+
+func (b *translationQueueBinding) collectEntityTypeOptionsFromRegistry() map[string]map[string]any {
+	seen := map[string]map[string]any{}
+	if b == nil || b.admin == nil || b.admin.registry == nil {
+		return seen
+	}
+	for panelName, panel := range b.admin.registry.Panels() {
+		if panel == nil || !panelSupportsTranslationQueueTab(panelName, panel) {
+			continue
+		}
+		addTranslationQueueEntityTypeOption(seen, panelName)
+	}
+	return seen
+}
+
+func (b *translationQueueBinding) collectEntityTypeOptionsFromAssignments(adminCtx AdminContext, seen map[string]map[string]any) {
+	repo, err := b.assignmentRepository()
+	if err != nil || repo == nil {
+		return
+	}
+	assignments, listErr := b.listAssignmentsForSummary(adminCtx.Context, repo, "updated_at", nil)
+	if listErr != nil {
+		return
+	}
+	for _, assignment := range assignments {
+		addTranslationQueueEntityTypeOption(seen, assignment.EntityType)
+	}
+}
+
+func addTranslationQueueEntityTypeOption(seen map[string]map[string]any, raw string) {
+	entityType := normalizeTranslationQueueEntityType(raw)
+	if entityType == "" {
+		return
+	}
+	if _, ok := seen[entityType]; ok {
+		return
+	}
+	seen[entityType] = map[string]any{
+		"value": entityType,
+		"label": translationQueueEntityTypeLabel(entityType),
+	}
 }
 
 func (b *translationQueueBinding) SourceRecordsOptions(c router.Context) (any, error) {

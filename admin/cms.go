@@ -185,13 +185,25 @@ func (a *Admin) ensureCMS(ctx context.Context) error {
 	if !requireCMS {
 		return nil
 	}
+	resolved, err := cmsboot.Ensure(ctx, a.cmsEnsureOptions(requireCMS))
+	if err != nil {
+		return err
+	}
+	a.applyResolvedCMSServices(resolved)
+	if featureEnabled(a.featureGate, FeatureDashboard) && a.widgetSvc == nil {
+		return serviceNotConfiguredDomainError("dashboard cms widget service", map[string]any{"component": "cms"})
+	}
+	return nil
+}
+
+func (a *Admin) cmsEnsureOptions(requireCMS bool) cmsboot.EnsureOptions {
 	builder := a.config.CMS.ContainerBuilder
 	if builder == nil {
 		builder = func(ctx context.Context, cfg Config) (CMSContainer, error) {
 			return BuildGoCMSContainer(ctx, cfg)
 		}
 	}
-	resolved, err := cmsboot.Ensure(ctx, cmsboot.EnsureOptions{
+	return cmsboot.EnsureOptions{
 		Container:          a.cms,
 		WidgetService:      a.widgetSvc,
 		MenuService:        a.menuSvc,
@@ -202,38 +214,42 @@ func (a *Admin) ensureCMS(ctx context.Context) error {
 		BuildContainer: func(ctx context.Context) (cmsboot.CMSContainer, error) {
 			return builder(ctx, a.config)
 		},
-	})
-	if err != nil {
-		return err
 	}
+}
+
+func (a *Admin) applyResolvedCMSServices(resolved cmsboot.EnsureResult) {
 	if resolved.Container != nil {
 		a.UseCMS(resolved.Container)
-	} else {
-		if resolved.WidgetService != nil {
-			a.widgetSvc = resolved.WidgetService
-		}
-		if resolved.MenuService != nil {
-			a.menuSvc = resolved.MenuService
-			if a.nav != nil {
-				a.nav.SetMenuService(a.menuSvc)
-				a.nav.UseCMS(featureEnabled(a.featureGate, FeatureCMS))
-			}
-		}
-		if resolved.ContentService != nil {
-			a.contentSvc = resolved.ContentService
-		}
-		if resolved.ContentTypeService != nil {
-			a.contentTypeSvc = resolved.ContentTypeService
-		} else if a.contentTypeSvc == nil {
-			if svc, ok := a.contentSvc.(CMSContentTypeService); ok && svc != nil {
-				a.contentTypeSvc = svc
-			}
+		return
+	}
+	if resolved.WidgetService != nil {
+		a.widgetSvc = resolved.WidgetService
+	}
+	a.applyResolvedCMSMenuService(resolved.MenuService)
+	if resolved.ContentService != nil {
+		a.contentSvc = resolved.ContentService
+	}
+	if resolved.ContentTypeService != nil {
+		a.contentTypeSvc = resolved.ContentTypeService
+		return
+	}
+	if a.contentTypeSvc == nil {
+		if svc, ok := a.contentSvc.(CMSContentTypeService); ok && svc != nil {
+			a.contentTypeSvc = svc
 		}
 	}
-	if featureEnabled(a.featureGate, FeatureDashboard) && a.widgetSvc == nil {
-		return serviceNotConfiguredDomainError("dashboard cms widget service", map[string]any{"component": "cms"})
+}
+
+func (a *Admin) applyResolvedCMSMenuService(menuSvc CMSMenuService) {
+	if menuSvc == nil {
+		return
 	}
-	return nil
+	a.menuSvc = menuSvc
+	if a.nav == nil {
+		return
+	}
+	a.nav.SetMenuService(a.menuSvc)
+	a.nav.UseCMS(featureEnabled(a.featureGate, FeatureCMS))
 }
 
 func (a *Admin) bootstrapAdminMenu(ctx context.Context) error {

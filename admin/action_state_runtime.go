@@ -298,6 +298,24 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 	if len(actions) == 0 {
 		return nil, nil
 	}
+	out, blockerStageByAction := p.buildBulkActionStateMap(ctx, actions)
+	if p != nil && p.panel != nil && p.panel.bulkActionStateResolver != nil {
+		resolved, err := p.panel.bulkActionStateResolver(ctx, append([]Action{}, actions...), cloneListOptions(listOpts))
+		if err != nil {
+			captureActionResolverErrorDiagnostic(ctx.Context, p.name, ActionScopeBulk, actions, nil, err)
+			return nil, err
+		}
+		mergeResolvedBulkActionStates(actions, resolved, out, blockerStageByAction)
+	}
+
+	if len(out) == 0 {
+		return nil, nil
+	}
+	captureBulkActionStateDiagnostics(ctx, p.name, actions, blockerStageByAction, out)
+	return out, nil
+}
+
+func (p *panelBinding) buildBulkActionStateMap(ctx AdminContext, actions []Action) (map[string]ActionState, map[string]string) {
 	out := make(map[string]ActionState, len(actions))
 	blockerStageByAction := make(map[string]string, len(actions))
 	for _, action := range actions {
@@ -305,79 +323,89 @@ func (p *panelBinding) bulkActionStates(ctx AdminContext, actions []Action, list
 		if name == "" {
 			continue
 		}
-		state := defaultEnabledActionState()
-		blockerStage := ""
-		applyStage := func(stage string, candidate ActionState, applies bool) {
-			if !applies {
-				return
-			}
-			if blockerStage == "" && state.Enabled && !candidate.Enabled {
-				blockerStage = stage
-			}
-			state = mergeActionState(state, candidate, true)
-		}
-		if action.Scope != ActionScopeAny && action.Scope != "" && action.Scope != ActionScopeBulk {
-			applyStage("scope", ActionState{
-				Enabled:    false,
-				ReasonCode: ActionDisabledReasonCodePreconditionFailed,
-				Reason:     "action is not available for bulk execution",
-			}, true)
-		}
-		required := actionRequiredPermissions(action)
-		if len(required) > 0 && p != nil && p.panel != nil && p.panel.authorizer != nil {
-			if CanAll(p.panel.authorizer, ctx.Context, p.name, required...) {
-				applyStage("permission", ActionState{
-					Enabled:    true,
-					Permission: strings.TrimSpace(required[0]),
-				}, true)
-			} else {
-				missing := actionMissingPermission(p.panel.authorizer, ctx.Context, p.name, required)
-				applyStage("permission", ActionState{
-					Enabled:    false,
-					ReasonCode: ActionDisabledReasonCodePermissionDenied,
-					Reason:     "you do not have permission to execute this action",
-					Permission: missing,
-					Metadata: map[string]any{
-						"required_permissions": append([]string{}, required...),
-					},
-				}, true)
-			}
-		}
-		out[name] = state
-		blockerStageByAction[name] = blockerStage
+		out[name], blockerStageByAction[name] = p.evaluateBulkActionState(ctx, action)
 	}
+	return out, blockerStageByAction
+}
 
-	if p != nil && p.panel != nil && p.panel.bulkActionStateResolver != nil {
-		resolved, err := p.panel.bulkActionStateResolver(ctx, append([]Action{}, actions...), cloneListOptions(listOpts))
-		if err != nil {
-			captureActionResolverErrorDiagnostic(ctx.Context, p.name, ActionScopeBulk, actions, nil, err)
-			return nil, err
+func (p *panelBinding) evaluateBulkActionState(ctx AdminContext, action Action) (ActionState, string) {
+	state := defaultEnabledActionState()
+	blockerStage := ""
+	applyStage := func(stage string, candidate ActionState, applies bool) {
+		if !applies {
+			return
 		}
-		for _, action := range actions {
-			name := strings.TrimSpace(action.Name)
-			if name == "" {
-				continue
-			}
-			if candidate, ok := resolved[name]; ok {
-				if blockerStageByAction[name] == "" && out[name].Enabled && !candidate.Enabled {
-					blockerStageByAction[name] = "resolver"
-				}
-				out[name] = mergeActionState(out[name], candidate, true)
-			}
+		if blockerStage == "" && state.Enabled && !candidate.Enabled {
+			blockerStage = stage
 		}
+		state = mergeActionState(state, candidate, true)
 	}
+	scopeState, scopeApplies := bulkActionScopeState(action)
+	applyStage("scope", scopeState, scopeApplies)
+	permissionState, permissionApplies := p.bulkActionPermissionState(ctx, action)
+	applyStage("permission", permissionState, permissionApplies)
+	return state, blockerStage
+}
 
-	if len(out) == 0 {
-		return nil, nil
+func bulkActionScopeState(action Action) (ActionState, bool) {
+	if action.Scope == ActionScopeAny || action.Scope == "" || action.Scope == ActionScopeBulk {
+		return ActionState{}, false
 	}
+	return ActionState{
+		Enabled:    false,
+		ReasonCode: ActionDisabledReasonCodePreconditionFailed,
+		Reason:     "action is not available for bulk execution",
+	}, true
+}
+
+func (p *panelBinding) bulkActionPermissionState(ctx AdminContext, action Action) (ActionState, bool) {
+	required := actionRequiredPermissions(action)
+	if len(required) == 0 || p == nil || p.panel == nil || p.panel.authorizer == nil {
+		return ActionState{}, false
+	}
+	if CanAll(p.panel.authorizer, ctx.Context, p.name, required...) {
+		return ActionState{
+			Enabled:    true,
+			Permission: strings.TrimSpace(required[0]),
+		}, true
+	}
+	missing := actionMissingPermission(p.panel.authorizer, ctx.Context, p.name, required)
+	return ActionState{
+		Enabled:    false,
+		ReasonCode: ActionDisabledReasonCodePermissionDenied,
+		Reason:     "you do not have permission to execute this action",
+		Permission: missing,
+		Metadata: map[string]any{
+			"required_permissions": append([]string{}, required...),
+		},
+	}, true
+}
+
+func mergeResolvedBulkActionStates(actions []Action, resolved map[string]ActionState, out map[string]ActionState, blockerStageByAction map[string]string) {
 	for _, action := range actions {
 		name := strings.TrimSpace(action.Name)
 		if name == "" {
 			continue
 		}
-		captureActionDisablementDiagnostic(ctx.Context, p.name, action, ActionScopeBulk, "", blockerStageByAction[name], out[name])
+		candidate, ok := resolved[name]
+		if !ok {
+			continue
+		}
+		if blockerStageByAction[name] == "" && out[name].Enabled && !candidate.Enabled {
+			blockerStageByAction[name] = "resolver"
+		}
+		out[name] = mergeActionState(out[name], candidate, true)
 	}
-	return out, nil
+}
+
+func captureBulkActionStateDiagnostics(ctx AdminContext, panelName string, actions []Action, blockerStageByAction map[string]string, out map[string]ActionState) {
+	for _, action := range actions {
+		name := strings.TrimSpace(action.Name)
+		if name == "" {
+			continue
+		}
+		captureActionDisablementDiagnostic(ctx.Context, panelName, action, ActionScopeBulk, "", blockerStageByAction[name], out[name])
+	}
 }
 
 func actionMissingPermission(authorizer Authorizer, ctx context.Context, resource string, required []string) string {
@@ -410,42 +438,56 @@ func mergeActionState(current ActionState, next ActionState, applies bool) Actio
 }
 
 func enrichActionState(current ActionState, next ActionState) ActionState {
-	if current.ReasonCode == "" {
-		current.ReasonCode = strings.TrimSpace(next.ReasonCode)
+	current.ReasonCode = mergeActionStateText(current.ReasonCode, next.ReasonCode)
+	current.Reason = mergeActionStateText(current.Reason, next.Reason)
+	current.Severity = mergeActionStateText(current.Severity, next.Severity)
+	current.Kind = mergeActionStateText(current.Kind, next.Kind)
+	current.Permission = mergeActionStateText(current.Permission, next.Permission)
+	current.Metadata = mergeActionStateMetadata(current.Metadata, next.Metadata)
+	current.Remediation = mergeActionStateRemediation(current.Remediation, next.Remediation)
+	current.AvailableTransitions = mergeActionStateTransitions(current.AvailableTransitions, next.AvailableTransitions)
+	return current
+}
+
+func mergeActionStateText(current, next string) string {
+	if strings.TrimSpace(current) != "" {
+		return current
 	}
-	if current.Reason == "" {
-		current.Reason = strings.TrimSpace(next.Reason)
+	return strings.TrimSpace(next)
+}
+
+func mergeActionStateMetadata(current, next map[string]any) map[string]any {
+	if len(next) == 0 {
+		return current
 	}
-	if current.Severity == "" {
-		current.Severity = strings.TrimSpace(next.Severity)
+	if len(current) == 0 {
+		return primitives.CloneAnyMap(next)
 	}
-	if current.Kind == "" {
-		current.Kind = strings.TrimSpace(next.Kind)
-	}
-	if current.Permission == "" {
-		current.Permission = strings.TrimSpace(next.Permission)
-	}
-	if len(current.Metadata) == 0 && len(next.Metadata) > 0 {
-		current.Metadata = primitives.CloneAnyMap(next.Metadata)
-	} else if len(current.Metadata) > 0 && len(next.Metadata) > 0 {
-		for key, value := range next.Metadata {
-			if _, exists := current.Metadata[key]; exists {
-				continue
-			}
-			current.Metadata[key] = value
+	for key, value := range next {
+		if _, exists := current[key]; exists {
+			continue
 		}
-	}
-	if current.Remediation == nil && next.Remediation != nil {
-		current.Remediation = &ActionRemediation{
-			Label: strings.TrimSpace(next.Remediation.Label),
-			Href:  strings.TrimSpace(next.Remediation.Href),
-			Kind:  strings.TrimSpace(next.Remediation.Kind),
-		}
-	}
-	if len(current.AvailableTransitions) == 0 && len(next.AvailableTransitions) > 0 {
-		current.AvailableTransitions = append([]string{}, next.AvailableTransitions...)
+		current[key] = value
 	}
 	return current
+}
+
+func mergeActionStateRemediation(current, next *ActionRemediation) *ActionRemediation {
+	if current != nil || next == nil {
+		return current
+	}
+	return &ActionRemediation{
+		Label: strings.TrimSpace(next.Label),
+		Href:  strings.TrimSpace(next.Href),
+		Kind:  strings.TrimSpace(next.Kind),
+	}
+}
+
+func mergeActionStateTransitions(current, next []string) []string {
+	if len(current) > 0 || len(next) == 0 {
+		return current
+	}
+	return append([]string{}, next...)
 }
 
 func actionStatePayloadMap(states map[string]ActionState) map[string]map[string]any {

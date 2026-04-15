@@ -102,14 +102,30 @@ func mapWorkflowErrors(err error) (*goerrors.Error, int, bool) {
 }
 
 func mapTranslationAndExchangeErrors(err error) (*goerrors.Error, int, bool) {
+	if mapped, status, ok := mapTranslationErrors(err); ok {
+		return mapped, status, true
+	}
+	return mapExchangeErrors(err)
+}
+
+func mapTranslationErrors(err error) (*goerrors.Error, int, bool) {
+	if mapped, status, ok := mapTranslationLifecycleErrors(err); ok {
+		return mapped, status, true
+	}
+	return mapTranslationQueueErrors(err)
+}
+
+func mapTranslationLifecycleErrors(err error) (*goerrors.Error, int, bool) {
+	if mapped, status, ok := mapLocalTranslationLifecycleErrors(err); ok {
+		return mapped, status, true
+	}
+	return mapCMSTranslationLifecycleErrors(err)
+}
+
+func mapLocalTranslationLifecycleErrors(err error) (*goerrors.Error, int, bool) {
 	var missingTranslations MissingTranslationsError
 	var translationExists TranslationAlreadyExistsError
 	var autosaveConflict AutosaveConflictError
-	var queueConflict TranslationAssignmentConflictError
-	var queueVersionConflict TranslationAssignmentVersionConflictError
-	var exchangeUnsupportedFormat TranslationExchangeUnsupportedFormatError
-	var exchangeInvalidPayload TranslationExchangeInvalidPayloadError
-	var exchangeConflict TranslationExchangeConflictError
 
 	switch {
 	case errors.As(err, &missingTranslations):
@@ -167,6 +183,12 @@ func mapTranslationAndExchangeErrors(err error) (*goerrors.Error, int, bool) {
 		}
 		mapped := NewDomainError(TextCodeAutosaveConflict, autosaveConflict.Error(), meta)
 		return mapped, mapped.Code, true
+	}
+	return nil, 0, false
+}
+
+func mapCMSTranslationLifecycleErrors(err error) (*goerrors.Error, int, bool) {
+	switch {
 	case errors.Is(err, cmscontent.ErrTranslationAlreadyExists), errors.Is(err, cmspages.ErrTranslationAlreadyExists):
 		meta := translationExistsMetadataForCMSError(err)
 		mapped := NewDomainError(TextCodeTranslationExists, err.Error(), meta)
@@ -188,6 +210,15 @@ func mapTranslationAndExchangeErrors(err error) (*goerrors.Error, int, bool) {
 		errors.Is(err, cmspages.ErrTranslationInvariantViolation):
 		mapped := NewDomainError(TextCodeConflict, err.Error(), nil)
 		return mapped, mapped.Code, true
+	}
+	return nil, 0, false
+}
+
+func mapTranslationQueueErrors(err error) (*goerrors.Error, int, bool) {
+	var queueConflict TranslationAssignmentConflictError
+	var queueVersionConflict TranslationAssignmentVersionConflictError
+
+	switch {
 	case errors.As(err, &queueConflict):
 		meta := map[string]any{
 			"assignment_id":          strings.TrimSpace(queueConflict.AssignmentID),
@@ -208,6 +239,23 @@ func mapTranslationAndExchangeErrors(err error) (*goerrors.Error, int, bool) {
 		}
 		mapped := NewDomainError(TextCodeTranslationQueueVersionConflict, queueVersionConflict.Error(), meta)
 		return mapped, mapped.Code, true
+	}
+	return nil, 0, false
+}
+
+func mapValidationErrors(err error) (*goerrors.Error, int, bool) {
+	if mapped, status, ok := mapStructuredValidationErrors(err); ok {
+		return mapped, status, true
+	}
+	return mapFeatureConfigValidationErrors(err)
+}
+
+func mapExchangeErrors(err error) (*goerrors.Error, int, bool) {
+	var exchangeUnsupportedFormat TranslationExchangeUnsupportedFormatError
+	var exchangeInvalidPayload TranslationExchangeInvalidPayloadError
+	var exchangeConflict TranslationExchangeConflictError
+
+	switch {
 	case errors.As(err, &exchangeUnsupportedFormat):
 		format := strings.TrimSpace(strings.ToLower(exchangeUnsupportedFormat.Format))
 		if format == "" {
@@ -258,12 +306,11 @@ func mapTranslationAndExchangeErrors(err error) (*goerrors.Error, int, bool) {
 	return nil, 0, false
 }
 
-func mapValidationErrors(err error) (*goerrors.Error, int, bool) {
+func mapStructuredValidationErrors(err error) (*goerrors.Error, int, bool) {
 	var settingsValidation SettingsValidationErrors
 	var workflowValidation WorkflowValidationErrors
 	var ozzoErrors validation.Errors
 	var schemaErr *jsonschema.ValidationError
-	var invalid InvalidFeatureConfigError
 
 	switch {
 	case errors.As(err, &settingsValidation):
@@ -316,6 +363,14 @@ func mapValidationErrors(err error) (*goerrors.Error, int, bool) {
 			mapped.Metadata = map[string]any{"fields": fields}
 		}
 		return mapped, http.StatusBadRequest, true
+	}
+	return nil, 0, false
+}
+
+func mapFeatureConfigValidationErrors(err error) (*goerrors.Error, int, bool) {
+	var invalid InvalidFeatureConfigError
+
+	switch {
 	case errors.As(err, &invalid):
 		mapped := goerrors.Wrap(err, goerrors.CategoryValidation, err.Error()).
 			WithCode(http.StatusBadRequest).

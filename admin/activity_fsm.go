@@ -36,40 +36,20 @@ func activityEntryFromFSMLifecycleEnvelope(envelope flow.LifecycleActivityEnvelo
 		metadata = map[string]any{}
 	}
 
-	actor := strings.TrimSpace(envelope.ActorID)
-	if actor == "" {
-		actor = strings.TrimSpace(stringMetadata(metadata, "actor_id"))
-	}
-
-	tenant := strings.TrimSpace(envelope.TenantID)
-	if tenant == "" {
-		tenant = strings.TrimSpace(stringMetadata(metadata, "tenant"))
-	}
-
+	actor := firstEnvelopeValue(metadata, envelope.ActorID, "actor_id")
+	tenant := firstEnvelopeValue(metadata, envelope.TenantID, "tenant")
 	objectType := strings.TrimSpace(envelope.ObjectType)
 	objectID := strings.TrimSpace(envelope.ObjectID)
 	action := strings.TrimSpace(envelope.Verb)
 	channel := strings.TrimSpace(envelope.Channel)
 	phase := normalizeFSMLifecyclePhase(stringMetadata(metadata, "phase"), action)
 
-	if phase != "" {
-		metadata["phase"] = phase
-	}
-	if actor != "" && metadata["actor_id"] == nil {
-		metadata["actor_id"] = actor
-	}
-	if tenant != "" && metadata["tenant"] == nil {
-		metadata["tenant"] = tenant
-	}
-	if tenant != "" && metadata["tenant_id"] == nil {
-		metadata["tenant_id"] = tenant
-	}
-	if objectType != "" && metadata["object_type"] == nil {
-		metadata["object_type"] = objectType
-	}
-	if objectID != "" && metadata["object_id"] == nil {
-		metadata["object_id"] = objectID
-	}
+	setMetadataIfMissing(metadata, "phase", phase)
+	setMetadataIfMissing(metadata, "actor_id", actor)
+	setMetadataIfMissing(metadata, "tenant", tenant)
+	setMetadataIfMissing(metadata, "tenant_id", tenant)
+	setMetadataIfMissing(metadata, "object_type", objectType)
+	setMetadataIfMissing(metadata, "object_id", objectID)
 
 	occurredAt := envelope.OccurredAt
 	if occurredAt.IsZero() {
@@ -84,6 +64,21 @@ func activityEntryFromFSMLifecycleEnvelope(envelope flow.LifecycleActivityEnvelo
 		Metadata:  metadata,
 		CreatedAt: occurredAt,
 	}
+}
+
+func firstEnvelopeValue(metadata map[string]any, raw, key string) string {
+	value := strings.TrimSpace(raw)
+	if value != "" {
+		return value
+	}
+	return strings.TrimSpace(stringMetadata(metadata, key))
+}
+
+func setMetadataIfMissing(metadata map[string]any, key, value string) {
+	if value == "" || metadata[key] != nil {
+		return
+	}
+	metadata[key] = value
 }
 
 func normalizeFSMLifecyclePhase(raw, action string) string {

@@ -199,27 +199,13 @@ func normalizeTranslationDatagridSummaryMap(summary map[string]any) map[string]a
 }
 
 func normalizeTranslationDatagridSummaryInt(value any) (int, bool) {
+	if out, ok := normalizeTranslationDatagridSignedInt(value); ok {
+		return out, true
+	}
+	if out, ok := normalizeTranslationDatagridUnsignedInt(value); ok {
+		return out, true
+	}
 	switch typed := value.(type) {
-	case int:
-		return typed, true
-	case int8:
-		return int(typed), true
-	case int16:
-		return int(typed), true
-	case int32:
-		return int(typed), true
-	case int64:
-		return primitives.IntFromInt64(typed)
-	case uint:
-		return primitives.IntFromUint(typed)
-	case uint8:
-		return int(typed), true
-	case uint16:
-		return int(typed), true
-	case uint32:
-		return int(typed), true
-	case uint64:
-		return primitives.IntFromUint64(typed)
 	case float32:
 		return int(typed), true
 	case float64:
@@ -236,5 +222,39 @@ func normalizeTranslationDatagridSummaryInt(value any) (int, bool) {
 			return 0, false
 		}
 		return atoiDefault(trimmed, 0), true
+	}
+}
+
+func normalizeTranslationDatagridSignedInt(value any) (int, bool) {
+	switch typed := value.(type) {
+	case int:
+		return typed, true
+	case int8:
+		return int(typed), true
+	case int16:
+		return int(typed), true
+	case int32:
+		return int(typed), true
+	case int64:
+		return primitives.IntFromInt64(typed)
+	default:
+		return 0, false
+	}
+}
+
+func normalizeTranslationDatagridUnsignedInt(value any) (int, bool) {
+	switch typed := value.(type) {
+	case uint:
+		return primitives.IntFromUint(typed)
+	case uint8:
+		return int(typed), true
+	case uint16:
+		return int(typed), true
+	case uint32:
+		return int(typed), true
+	case uint64:
+		return primitives.IntFromUint64(typed)
+	default:
+		return 0, false
 	}
 }

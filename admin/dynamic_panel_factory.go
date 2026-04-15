@@ -593,23 +593,7 @@ func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, 
 		}
 		return false, nil
 	}
-	item.ID = existing.ID
-	item.Menu = menuCode
-	if strings.TrimSpace(item.Code) == "" {
-		item.Code = strings.TrimSpace(existing.Code)
-	}
-	if strings.TrimSpace(item.Type) == "" {
-		item.Type = strings.TrimSpace(existing.Type)
-	}
-	if strings.TrimSpace(item.ParentID) == "" {
-		item.ParentID = strings.TrimSpace(existing.ParentID)
-	}
-	if strings.TrimSpace(item.ParentCode) == "" {
-		item.ParentCode = strings.TrimSpace(existing.ParentCode)
-	}
-	if item.Position == nil && existing.Position != nil {
-		item.Position = new(*existing.Position)
-	}
+	item = mergedExistingNavigationItem(item, existing, menuCode)
 	if err := f.admin.menuSvc.UpdateMenuItem(ctx, menuCode, item); err != nil {
 		if isMenuTargetMissing(err) {
 			return false, nil
@@ -617,6 +601,19 @@ func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, 
 		return false, err
 	}
 	return true, nil
+}
+
+func mergedExistingNavigationItem(item, existing MenuItem, menuCode string) MenuItem {
+	item.ID = existing.ID
+	item.Menu = menuCode
+	item.Code = primitives.FirstNonEmptyRaw(item.Code, existing.Code)
+	item.Type = primitives.FirstNonEmptyRaw(item.Type, existing.Type)
+	item.ParentID = primitives.FirstNonEmptyRaw(item.ParentID, existing.ParentID)
+	item.ParentCode = primitives.FirstNonEmptyRaw(item.ParentCode, existing.ParentCode)
+	if item.Position == nil && existing.Position != nil {
+		item.Position = new(*existing.Position)
+	}
+	return item
 }
 
 func findMenuItemByID(items []MenuItem, itemID string) (MenuItem, bool) {
@@ -681,49 +678,51 @@ func collectPanelCollisionItems(items []MenuItem, query panelCollisionQuery) []M
 }
 
 func appendPanelCollisionItems(items []MenuItem, query panelCollisionQuery, out *[]MenuItem) {
-	canonicalPath := strings.TrimSpace(query.panelPath)
-	canonicalName := strings.TrimSpace(query.panelName)
-	canonicalParent := strings.TrimSpace(query.parentID)
-	panelIdentity := namespacedPanelTargetKey(canonicalName)
-	excludeID := strings.TrimSpace(query.excludeID)
-	protected := strings.TrimSpace(query.protected)
-
+	query = normalizePanelCollisionQuery(query)
 	for _, item := range items {
-		itemID := strings.TrimSpace(item.ID)
-		if itemID == excludeID {
-			if len(item.Children) > 0 {
-				appendPanelCollisionItems(item.Children, query, out)
-			}
-			continue
-		}
-		if isProtectedScaffoldItem(item, protected) {
-			if len(item.Children) > 0 {
-				appendPanelCollisionItems(item.Children, query, out)
-			}
-			continue
-		}
-		if canonicalParent != "" && strings.TrimSpace(item.ParentID) != canonicalParent {
-			if len(item.Children) > 0 {
-				appendPanelCollisionItems(item.Children, query, out)
-			}
-			continue
-		}
-
-		targetKey := strings.TrimSpace(extractTargetKey(item.Target))
-		targetPath := strings.TrimSpace(toString(item.Target["path"]))
-		targetPanelKey := strings.TrimSpace(toString(item.Target["panel_key"]))
-		if panelIdentity != "" && strings.EqualFold(targetPanelKey, panelIdentity) {
-			*out = append(*out, item)
-		} else if canonicalName != "" && strings.EqualFold(targetKey, canonicalName) {
-			*out = append(*out, item)
-		} else if canonicalPath != "" && targetPath == canonicalPath {
-			*out = append(*out, item)
-		}
-
-		if len(item.Children) > 0 {
+		if panelCollisionItemExcluded(item, query) {
 			appendPanelCollisionItems(item.Children, query, out)
+			continue
 		}
+		if panelCollisionMatches(item, query) {
+			*out = append(*out, item)
+		}
+		appendPanelCollisionItems(item.Children, query, out)
 	}
+}
+
+func normalizePanelCollisionQuery(query panelCollisionQuery) panelCollisionQuery {
+	query.panelPath = strings.TrimSpace(query.panelPath)
+	query.panelName = strings.TrimSpace(query.panelName)
+	query.parentID = strings.TrimSpace(query.parentID)
+	query.protected = strings.TrimSpace(query.protected)
+	query.excludeID = strings.TrimSpace(query.excludeID)
+	return query
+}
+
+func panelCollisionItemExcluded(item MenuItem, query panelCollisionQuery) bool {
+	itemID := strings.TrimSpace(item.ID)
+	if itemID == query.excludeID {
+		return true
+	}
+	if isProtectedScaffoldItem(item, query.protected) {
+		return true
+	}
+	return query.parentID != "" && strings.TrimSpace(item.ParentID) != query.parentID
+}
+
+func panelCollisionMatches(item MenuItem, query panelCollisionQuery) bool {
+	panelIdentity := namespacedPanelTargetKey(query.panelName)
+	targetKey := strings.TrimSpace(extractTargetKey(item.Target))
+	targetPath := strings.TrimSpace(toString(item.Target["path"]))
+	targetPanelKey := strings.TrimSpace(toString(item.Target["panel_key"]))
+	if panelIdentity != "" && strings.EqualFold(targetPanelKey, panelIdentity) {
+		return true
+	}
+	if query.panelName != "" && strings.EqualFold(targetKey, query.panelName) {
+		return true
+	}
+	return query.panelPath != "" && targetPath == query.panelPath
 }
 
 func isProtectedScaffoldItem(item MenuItem, protectedID string) bool {
@@ -950,35 +949,44 @@ func collectPanelTraits(out map[string]struct{}, raw any) {
 	}
 	switch typed := raw.(type) {
 	case string:
-		for part := range strings.SplitSeq(typed, ",") {
-			trait := strings.ToLower(strings.TrimSpace(part))
-			if trait != "" {
-				out[trait] = struct{}{}
-			}
-		}
+		appendPanelTraits(out, strings.Split(typed, ","))
 	case []string:
-		for _, value := range typed {
-			trait := strings.ToLower(strings.TrimSpace(value))
-			if trait != "" {
-				out[trait] = struct{}{}
-			}
-		}
+		appendPanelTraits(out, typed)
 	case []any:
-		for _, value := range typed {
-			trait := strings.ToLower(strings.TrimSpace(toString(value)))
-			if trait != "" {
-				out[trait] = struct{}{}
-			}
-		}
+		appendPanelTraitValues(out, typed)
 	case map[string]any:
-		for key, value := range typed {
-			trait := strings.ToLower(strings.TrimSpace(key))
-			if trait == "" || !capabilityEnabled(value) {
-				continue
-			}
+		appendEnabledPanelTraits(out, typed)
+	}
+}
+
+func appendPanelTraits(out map[string]struct{}, values []string) {
+	for _, value := range values {
+		if trait := normalizedPanelTrait(value); trait != "" {
 			out[trait] = struct{}{}
 		}
 	}
+}
+
+func appendPanelTraitValues(out map[string]struct{}, values []any) {
+	for _, value := range values {
+		if trait := normalizedPanelTrait(toString(value)); trait != "" {
+			out[trait] = struct{}{}
+		}
+	}
+}
+
+func appendEnabledPanelTraits(out map[string]struct{}, values map[string]any) {
+	for key, value := range values {
+		trait := normalizedPanelTrait(key)
+		if trait == "" || !capabilityEnabled(value) {
+			continue
+		}
+		out[trait] = struct{}{}
+	}
+}
+
+func normalizedPanelTrait(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
 }
 
 func hasPanelTrait(traits map[string]struct{}, trait string) bool {
@@ -1216,31 +1224,39 @@ func permissionsFromCapabilities(capabilities map[string]any) (PanelPermissions,
 		if len(value) == 0 {
 			return PanelPermissions{}, false
 		}
-		if base := strings.TrimSpace(value[0]); base != "" {
-			return panelPermissionsFromBase(base), true
-		}
+		return panelPermissionsFromSlice(value[0])
 	case []any:
 		if len(value) == 0 {
 			return PanelPermissions{}, false
 		}
-		if base := strings.TrimSpace(toString(value[0])); base != "" {
-			return panelPermissionsFromBase(base), true
-		}
+		return panelPermissionsFromSlice(toString(value[0]))
 	case map[string]any:
 		if base := capabilityString(value, "base", "resource", "name", "key"); base != "" {
 			return panelPermissionsFromBase(base), true
 		}
-		perms := PanelPermissions{
-			View:   strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(value["view"]), toString(value["read"]))),
-			Create: strings.TrimSpace(toString(value["create"])),
-			Edit:   strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(value["edit"]), toString(value["update"]))),
-			Delete: strings.TrimSpace(toString(value["delete"])),
-		}
+		perms := panelPermissionsFromMap(value)
 		if perms.View != "" || perms.Create != "" || perms.Edit != "" || perms.Delete != "" {
 			return perms, true
 		}
 	}
 	return PanelPermissions{}, false
+}
+
+func panelPermissionsFromSlice(base string) (PanelPermissions, bool) {
+	base = strings.TrimSpace(base)
+	if base == "" {
+		return PanelPermissions{}, false
+	}
+	return panelPermissionsFromBase(base), true
+}
+
+func panelPermissionsFromMap(value map[string]any) PanelPermissions {
+	return PanelPermissions{
+		View:   strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(value["view"]), toString(value["read"]))),
+		Create: strings.TrimSpace(toString(value["create"])),
+		Edit:   strings.TrimSpace(primitives.FirstNonEmptyRaw(toString(value["edit"]), toString(value["update"]))),
+		Delete: strings.TrimSpace(toString(value["delete"])),
+	}
 }
 
 func panelPermissionsFromBase(base string) PanelPermissions {

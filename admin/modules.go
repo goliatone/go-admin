@@ -24,59 +24,44 @@ func (a *Admin) registerDefaultModules() error {
 	if a.registry == nil {
 		return nil
 	}
-	if featureEnabled(a.featureGate, FeatureUsers) {
-		if _, exists := a.registry.Module(usersModuleID); !exists {
-			if err := a.registry.RegisterModule(NewUserManagementModule()); err != nil {
-				return err
-			}
+	for _, candidate := range a.defaultModules() {
+		if !candidate.enabled {
+			continue
 		}
-	}
-	if featureEnabled(a.featureGate, FeaturePreferences) {
-		if _, exists := a.registry.Module(preferencesModuleID); !exists {
-			if err := a.registry.RegisterModule(NewPreferencesModule()); err != nil {
-				return err
-			}
-		}
-	}
-	if _, exists := a.registry.Module(featureFlagsModuleID); !exists {
-		if err := a.registry.RegisterModule(NewFeatureFlagsModule()); err != nil {
-			return err
-		}
-	}
-	if featureEnabled(a.featureGate, FeatureProfile) {
-		if _, exists := a.registry.Module(profileModuleID); !exists {
-			if err := a.registry.RegisterModule(NewProfileModule()); err != nil {
-				return err
-			}
-		}
-	}
-	if featureEnabled(a.featureGate, FeatureTenants) {
-		if _, exists := a.registry.Module(tenantsModuleID); !exists {
-			if err := a.registry.RegisterModule(NewTenantsModule()); err != nil {
-				return err
-			}
-		}
-	}
-	if featureEnabled(a.featureGate, FeatureOrganizations) {
-		if _, exists := a.registry.Module(organizationsModuleID); !exists {
-			if err := a.registry.RegisterModule(NewOrganizationsModule()); err != nil {
-				return err
-			}
-		}
-	}
-	if featureEnabled(a.featureGate, FeatureMedia) {
-		if _, exists := a.registry.Module(mediaModuleID); !exists {
-			if err := a.registry.RegisterModule(NewMediaModule()); err != nil {
-				return err
-			}
-		}
-	}
-	if _, exists := a.registry.Module(activityModuleID); !exists {
-		if err := a.registry.RegisterModule(NewActivityModule()); err != nil {
+		if err := a.registerDefaultModule(candidate.id, candidate.build); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+type defaultModuleRegistration struct {
+	id      string
+	enabled bool
+	build   func() Module
+}
+
+func (a *Admin) defaultModules() []defaultModuleRegistration {
+	return []defaultModuleRegistration{
+		{id: usersModuleID, enabled: featureEnabled(a.featureGate, FeatureUsers), build: func() Module { return NewUserManagementModule() }},
+		{id: preferencesModuleID, enabled: featureEnabled(a.featureGate, FeaturePreferences), build: func() Module { return NewPreferencesModule() }},
+		{id: featureFlagsModuleID, enabled: true, build: func() Module { return NewFeatureFlagsModule() }},
+		{id: profileModuleID, enabled: featureEnabled(a.featureGate, FeatureProfile), build: func() Module { return NewProfileModule() }},
+		{id: tenantsModuleID, enabled: featureEnabled(a.featureGate, FeatureTenants), build: func() Module { return NewTenantsModule() }},
+		{id: organizationsModuleID, enabled: featureEnabled(a.featureGate, FeatureOrganizations), build: func() Module { return NewOrganizationsModule() }},
+		{id: mediaModuleID, enabled: featureEnabled(a.featureGate, FeatureMedia), build: func() Module { return NewMediaModule() }},
+		{id: activityModuleID, enabled: true, build: func() Module { return NewActivityModule() }},
+	}
+}
+
+func (a *Admin) registerDefaultModule(id string, build func() Module) error {
+	if a == nil || a.registry == nil || build == nil {
+		return nil
+	}
+	if _, exists := a.registry.Module(id); exists {
+		return nil
+	}
+	return a.registry.RegisterModule(build())
 }
 
 func (a *Admin) loadModules(ctx context.Context) error {

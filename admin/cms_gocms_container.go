@@ -294,46 +294,58 @@ func resolveGoCMSContentTypeService(container any) CMSContentTypeService {
 	if container == nil {
 		return nil
 	}
-	if svc, ok := container.(CMSContentTypeService); ok && svc != nil {
-		return svc
-	}
-	if provider, ok := container.(interface{ ContentTypes() cms.ContentTypeService }); ok {
-		if adapted := NewGoCMSContentTypeAdapter(provider.ContentTypes()); adapted != nil {
-			return adapted
-		}
-	}
-	if provider, ok := container.(interface{ ContentTypeService() cms.ContentTypeService }); ok {
-		if adapted := NewGoCMSContentTypeAdapter(provider.ContentTypeService()); adapted != nil {
-			return adapted
-		}
-	}
-	if provider, ok := container.(interface{ ContentTypeService() any }); ok {
-		if adapted := NewGoCMSContentTypeAdapter(provider.ContentTypeService()); adapted != nil {
-			return adapted
-		}
-	}
-	if provider, ok := container.(interface{ ContentTypes() any }); ok {
-		if adapted := NewGoCMSContentTypeAdapter(provider.ContentTypes()); adapted != nil {
-			return adapted
-		}
+	if adapted := adaptGoCMSContentTypeService(container); adapted != nil {
+		return adapted
 	}
 	if provider, ok := container.(interface{ Container() any }); ok {
-		inner := provider.Container()
-		if adapted := resolveGoCMSContentTypeService(inner); adapted != nil {
+		if adapted := resolveGoCMSContentTypeService(provider.Container()); adapted != nil {
 			return adapted
 		}
 	}
-	if provider, ok := container.(interface{ ContentService() any }); ok {
-		if adapted := NewGoCMSContentTypeAdapter(provider.ContentService()); adapted != nil {
-			return adapted
-		}
-	}
-	if provider, ok := container.(interface{ Content() any }); ok {
-		if adapted := NewGoCMSContentTypeAdapter(provider.Content()); adapted != nil {
+	for _, candidate := range goCMSContentTypeFallbackSources(container) {
+		if adapted := NewGoCMSContentTypeAdapter(candidate); adapted != nil {
 			return adapted
 		}
 	}
 	return nil
+}
+
+func adaptGoCMSContentTypeService(container any) CMSContentTypeService {
+	if svc, ok := container.(CMSContentTypeService); ok && svc != nil {
+		return svc
+	}
+	for _, candidate := range goCMSContentTypeSources(container) {
+		if adapted := NewGoCMSContentTypeAdapter(candidate); adapted != nil {
+			return adapted
+		}
+	}
+	return nil
+}
+
+func goCMSContentTypeSources(container any) []any {
+	switch provider := container.(type) {
+	case interface{ ContentTypes() cms.ContentTypeService }:
+		return []any{provider.ContentTypes()}
+	case interface{ ContentTypeService() cms.ContentTypeService }:
+		return []any{provider.ContentTypeService()}
+	case interface{ ContentTypeService() any }:
+		return []any{provider.ContentTypeService()}
+	case interface{ ContentTypes() any }:
+		return []any{provider.ContentTypes()}
+	default:
+		return nil
+	}
+}
+
+func goCMSContentTypeFallbackSources(container any) []any {
+	switch provider := container.(type) {
+	case interface{ ContentService() any }:
+		return []any{provider.ContentService()}
+	case interface{ Content() any }:
+		return []any{provider.Content()}
+	default:
+		return nil
+	}
 }
 
 func resolveGoCMSWidgetService(container any) CMSWidgetService {

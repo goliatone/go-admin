@@ -131,28 +131,8 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 	}
 	page := mapToCMSPage(record)
 	page.ID = id
-	if strings.TrimSpace(page.Locale) == "" {
-		if locale := localeFromContext(ctx); locale != "" {
-			page.Locale = locale
-		}
-		if locale := r.resolvePageLocale(ctx, id); locale != "" {
-			page.Locale = locale
-		}
-	}
-	var existing *CMSPage
-	if page.Locale != "" {
-		if current, err := r.content.Page(ctx, id, page.Locale); err == nil {
-			existing = current
-		}
-	}
-	if existing == nil {
-		if locale := r.resolvePageLocale(ctx, id); locale != "" {
-			page.Locale = locale
-			if current, err := r.content.Page(ctx, id, locale); err == nil {
-				existing = current
-			}
-		}
-	}
+	page.Locale = r.resolveUpdatePageLocale(ctx, id, page.Locale)
+	existing := r.resolveExistingPageForUpdate(ctx, id, &page)
 	if existing != nil {
 		page = mergeCMSPageUpdate(*existing, page, record)
 	}
@@ -170,6 +150,46 @@ func (r *CMSPageRepository) Update(ctx context.Context, id string, record map[st
 		return nil, err
 	}
 	return cmsPageRecord(*updated, cmsPageRecordOptions{}), nil
+}
+
+func (r *CMSPageRepository) resolveUpdatePageLocale(ctx context.Context, id, locale string) string {
+	locale = strings.TrimSpace(locale)
+	if locale != "" {
+		return locale
+	}
+	if resolved := localeFromContext(ctx); resolved != "" {
+		locale = resolved
+	}
+	if resolved := r.resolvePageLocale(ctx, id); resolved != "" {
+		locale = resolved
+	}
+	return locale
+}
+
+func (r *CMSPageRepository) resolveExistingPageForUpdate(ctx context.Context, id string, page *CMSPage) *CMSPage {
+	if r == nil || r.content == nil || page == nil {
+		return nil
+	}
+	if current := r.lookupPageForUpdate(ctx, id, page.Locale); current != nil {
+		return current
+	}
+	fallbackLocale := r.resolvePageLocale(ctx, id)
+	if fallbackLocale == "" || strings.EqualFold(fallbackLocale, page.Locale) {
+		return nil
+	}
+	page.Locale = fallbackLocale
+	return r.lookupPageForUpdate(ctx, id, fallbackLocale)
+}
+
+func (r *CMSPageRepository) lookupPageForUpdate(ctx context.Context, id, locale string) *CMSPage {
+	if strings.TrimSpace(locale) == "" {
+		return nil
+	}
+	current, err := r.content.Page(ctx, id, locale)
+	if err != nil {
+		return nil
+	}
+	return current
 }
 
 // Delete removes a page.

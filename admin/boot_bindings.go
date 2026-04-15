@@ -387,6 +387,15 @@ func (p *panelBinding) translationSiblingsPayload(ctx AdminContext, id, requeste
 		return []map[string]any{translationSiblingSummary(record, id, requestedLocale)}, true, "canonical_family_id_missing"
 	}
 
+	siblings, degraded, reason := p.loadTranslationSiblings(ctx, id, requestedLocale, groupID)
+	if len(siblings) == 0 {
+		siblings = append(siblings, translationSiblingSummary(record, id, requestedLocale))
+	}
+	sortTranslationSiblings(siblings)
+	return siblings, degraded, reason
+}
+
+func (p *panelBinding) loadTranslationSiblings(ctx AdminContext, id, requestedLocale, groupID string) ([]map[string]any, bool, string) {
 	const perPage = 200
 	const maxPages = 10
 	page := 1
@@ -400,48 +409,60 @@ func (p *panelBinding) translationSiblingsPayload(ctx AdminContext, id, requeste
 			reason = "siblings_query_limit_reached"
 			break
 		}
-		records, total, err := p.panel.List(ctx, ListOptions{
-			Page:    page,
-			PerPage: perPage,
-			Filters: map[string]any{
-				"family_id": groupID,
-			},
-		})
+		records, total, err := p.listTranslationSiblingPage(ctx, groupID, page, perPage)
 		if err != nil {
 			degraded = true
 			reason = "siblings_query_failed"
 			break
 		}
-		for _, candidate := range records {
-			if !strings.EqualFold(strings.TrimSpace(translationFamilyIDFromRecord(candidate)), groupID) {
-				continue
-			}
-			sibling := translationSiblingSummary(candidate, id, requestedLocale)
-			key := strings.ToLower(strings.TrimSpace(toString(sibling["id"]))) + "::" + strings.ToLower(strings.TrimSpace(toString(sibling["locale"])))
-			if key == "::" {
-				continue
-			}
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			siblings = append(siblings, sibling)
-		}
-		if len(records) == 0 {
-			break
-		}
-		if total > 0 && page*perPage >= total {
-			break
-		}
-		if len(records) < perPage {
+		appendTranslationSiblingPage(seen, records, groupID, id, requestedLocale, &siblings)
+		if translationSiblingPageComplete(records, total, page, perPage) {
 			break
 		}
 		page++
 	}
+	return siblings, degraded, reason
+}
 
-	if len(siblings) == 0 {
-		siblings = append(siblings, translationSiblingSummary(record, id, requestedLocale))
+func (p *panelBinding) listTranslationSiblingPage(ctx AdminContext, groupID string, page, perPage int) ([]map[string]any, int, error) {
+	return p.panel.List(ctx, ListOptions{
+		Page:    page,
+		PerPage: perPage,
+		Filters: map[string]any{
+			"family_id": groupID,
+		},
+	})
+}
+
+func appendTranslationSiblingPage(seen map[string]struct{}, records []map[string]any, groupID, id, requestedLocale string, out *[]map[string]any) {
+	for _, candidate := range records {
+		if !strings.EqualFold(strings.TrimSpace(translationFamilyIDFromRecord(candidate)), groupID) {
+			continue
+		}
+		sibling := translationSiblingSummary(candidate, id, requestedLocale)
+		key := strings.ToLower(strings.TrimSpace(toString(sibling["id"]))) + "::" + strings.ToLower(strings.TrimSpace(toString(sibling["locale"])))
+		if key == "::" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		*out = append(*out, sibling)
 	}
+}
+
+func translationSiblingPageComplete(records []map[string]any, total, page, perPage int) bool {
+	if len(records) == 0 {
+		return true
+	}
+	if total > 0 && page*perPage >= total {
+		return true
+	}
+	return len(records) < perPage
+}
+
+func sortTranslationSiblings(siblings []map[string]any) {
 	sort.SliceStable(siblings, func(i, j int) bool {
 		leftLocale := strings.ToLower(strings.TrimSpace(toString(siblings[i]["locale"])))
 		rightLocale := strings.ToLower(strings.TrimSpace(toString(siblings[j]["locale"])))
@@ -452,7 +473,6 @@ func (p *panelBinding) translationSiblingsPayload(ctx AdminContext, id, requeste
 		}
 		return leftLocale < rightLocale
 	})
-	return siblings, degraded, reason
 }
 
 func translationSiblingSummary(record map[string]any, currentID, requestedLocale string) map[string]any {

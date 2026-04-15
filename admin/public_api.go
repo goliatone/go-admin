@@ -596,29 +596,55 @@ func (a *Admin) menuByCode(ctx context.Context, code string, opts SiteMenuReadOp
 func (a *Admin) resolveMenuTargets(ctx context.Context, items []MenuItem, locale string) {
 	for i := range items {
 		item := &items[i]
-		if item.Target != nil {
-			if rawURL, ok := item.Target["url"].(string); !ok || strings.TrimSpace(rawURL) == "" {
-				if pageID, ok := item.Target["page_id"].(string); ok && pageID != "" {
-					if page, err := a.contentSvc.Page(ctx, pageID, locale); err == nil && page != nil {
-						path := extractPathFromData(page.Data, page.Slug)
-						if path != "" {
-							item.Target["url"] = CanonicalPath(strings.TrimSpace(path), "")
-						}
-					}
-				}
-				if contentID, ok := item.Target["content_id"].(string); ok && contentID != "" {
-					if content, err := a.contentSvc.Content(ctx, contentID, locale); err == nil && content != nil {
-						if url := buildContentURL(content); url != "" {
-							item.Target["url"] = url
-						}
-					}
-				}
-			}
-		}
-		if len(item.Children) > 0 {
-			a.resolveMenuTargets(ctx, item.Children, locale)
-		}
+		a.resolveMenuItemTarget(ctx, item, locale)
+		a.resolveMenuTargets(ctx, item.Children, locale)
 	}
+}
+
+func (a *Admin) resolveMenuItemTarget(ctx context.Context, item *MenuItem, locale string) {
+	if a == nil || a.contentSvc == nil || item == nil || item.Target == nil || menuItemHasTargetURL(item.Target) {
+		return
+	}
+	if url := a.resolvePageTargetURL(ctx, item.Target, locale); url != "" {
+		item.Target["url"] = url
+		return
+	}
+	if url := a.resolveContentTargetURL(ctx, item.Target, locale); url != "" {
+		item.Target["url"] = url
+	}
+}
+
+func menuItemHasTargetURL(target map[string]any) bool {
+	rawURL, ok := target["url"].(string)
+	return ok && strings.TrimSpace(rawURL) != ""
+}
+
+func (a *Admin) resolvePageTargetURL(ctx context.Context, target map[string]any, locale string) string {
+	pageID, ok := target["page_id"].(string)
+	if !ok || pageID == "" {
+		return ""
+	}
+	page, err := a.contentSvc.Page(ctx, pageID, locale)
+	if err != nil || page == nil {
+		return ""
+	}
+	path := extractPathFromData(page.Data, page.Slug)
+	if path == "" {
+		return ""
+	}
+	return CanonicalPath(strings.TrimSpace(path), "")
+}
+
+func (a *Admin) resolveContentTargetURL(ctx context.Context, target map[string]any, locale string) string {
+	contentID, ok := target["content_id"].(string)
+	if !ok || contentID == "" {
+		return ""
+	}
+	content, err := a.contentSvc.Content(ctx, contentID, locale)
+	if err != nil || content == nil {
+		return ""
+	}
+	return buildContentURL(content)
 }
 
 func extractPathFromData(data map[string]any, fallback string) string {

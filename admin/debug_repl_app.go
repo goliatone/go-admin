@@ -114,40 +114,52 @@ func handleDebugREPLAppWebSocket(admin *Admin, cfg DebugConfig, c router.WebSock
 	timeoutCh, stopTimeout := debugREPLTimeoutChannel(replCfg.MaxSessionSeconds)
 	defer stopTimeout()
 
+	return runDebugREPLAppLoop(admin, runtime.adminCtx, replCfg, runtime.session, interpreter, c, commandCh, commandErrCh, timeoutCh, &closeReason)
+}
+
+func runDebugREPLAppLoop(admin *Admin, adminCtx AdminContext, replCfg DebugREPLConfig, session DebugREPLSession, interpreter *interp.Interpreter, c router.WebSocketContext, commandCh <-chan debugREPLAppCommand, commandErrCh <-chan error, timeoutCh <-chan time.Time, closeReason *string) error {
 	for {
 		select {
 		case <-c.Context().Done():
-			closeReason = debugREPLAppCloseReasonUser
+			*closeReason = debugREPLAppCloseReasonUser
 			return nil
 		case err := <-commandErrCh:
-			if err != nil && !errors.Is(err, io.EOF) {
-				closeReason = debugREPLAppCloseReasonError
-				return err
-			}
-			closeReason = debugREPLAppCloseReasonUser
-			return nil
+			return handleDebugREPLAppCommandReadError(err, closeReason)
 		case cmd, ok := <-commandCh:
 			if !ok {
-				closeReason = debugREPLAppCloseReasonUser
+				*closeReason = debugREPLAppCloseReasonUser
 				return nil
 			}
-			if err := handleDebugREPLAppCommand(admin, runtime.adminCtx, replCfg, runtime.session, interpreter, c, cmd); err != nil {
-				switch {
-				case errors.Is(err, errDebugREPLAppClose):
-					closeReason = debugREPLAppCloseReasonUser
-					return nil
-				case errors.Is(err, errDebugREPLAppTimeout):
-					closeReason = debugREPLAppCloseReasonIdle
-					return nil
-				default:
-					closeReason = debugREPLAppCloseReasonError
-					return err
-				}
+			if err := handleDebugREPLAppCommand(admin, adminCtx, replCfg, session, interpreter, c, cmd); err != nil {
+				return handleDebugREPLAppCommandError(err, closeReason)
 			}
 		case <-timeoutCh:
-			closeReason = debugREPLAppCloseReasonIdle
+			*closeReason = debugREPLAppCloseReasonIdle
 			return nil
 		}
+	}
+}
+
+func handleDebugREPLAppCommandReadError(err error, closeReason *string) error {
+	if err != nil && !errors.Is(err, io.EOF) {
+		*closeReason = debugREPLAppCloseReasonError
+		return err
+	}
+	*closeReason = debugREPLAppCloseReasonUser
+	return nil
+}
+
+func handleDebugREPLAppCommandError(err error, closeReason *string) error {
+	switch {
+	case errors.Is(err, errDebugREPLAppClose):
+		*closeReason = debugREPLAppCloseReasonUser
+		return nil
+	case errors.Is(err, errDebugREPLAppTimeout):
+		*closeReason = debugREPLAppCloseReasonIdle
+		return nil
+	default:
+		*closeReason = debugREPLAppCloseReasonError
+		return err
 	}
 }
 

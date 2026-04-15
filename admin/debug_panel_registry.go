@@ -105,50 +105,54 @@ func debugPanelDefinitionFor(panelID string) debugregistry.PanelDefinition {
 	}
 	def, ok := debugregistry.PanelDefinitionFor(normalized)
 	if !ok {
-		def = debugregistry.PanelDefinition{
-			ID:              normalized,
-			Label:           debugpanels.PanelLabel(normalized),
-			SnapshotKey:     normalized,
-			EventTypes:      debugPanelEventTypes(normalized),
-			SupportsToolbar: true,
-		}
-		if meta, ok := debugPanelDefaults[normalized]; ok {
-			if meta.Label != "" {
-				def.Label = meta.Label
-			}
-			if meta.Icon != "" {
-				def.Icon = meta.Icon
-			}
-			if meta.Span > 0 {
-				def.Span = meta.Span
-			}
-		}
-		if def.Label == "" {
-			def.Label = debugpanels.PanelLabel(normalized)
-		}
-		if def.Span == 0 {
-			def.Span = debugPanelDefaultSpan
-		}
-		return def
+		return defaultDebugPanelDefinition(normalized)
 	}
-	if def.Label == "" {
-		def.Label = debugpanels.PanelLabel(normalized)
+	return normalizeDebugPanelDefinition(normalized, def)
+}
+
+func defaultDebugPanelDefinition(panelID string) debugregistry.PanelDefinition {
+	def := debugregistry.PanelDefinition{
+		ID:              panelID,
+		Label:           debugpanels.PanelLabel(panelID),
+		SnapshotKey:     panelID,
+		EventTypes:      debugPanelEventTypes(panelID),
+		SupportsToolbar: true,
 	}
-	if def.SnapshotKey == "" {
-		def.SnapshotKey = normalized
-	}
-	if len(def.EventTypes) == 0 {
-		def.EventTypes = debugPanelEventTypes(normalized)
-	}
-	if def.Span == 0 {
-		if meta, ok := debugPanelDefaults[normalized]; ok && meta.Span > 0 {
+	if meta, ok := debugPanelDefaults[panelID]; ok {
+		if meta.Label != "" {
+			def.Label = meta.Label
+		}
+		if meta.Icon != "" {
+			def.Icon = meta.Icon
+		}
+		if meta.Span > 0 {
 			def.Span = meta.Span
 		}
 	}
+	return normalizeDebugPanelDefinition(panelID, def)
+}
+
+func normalizeDebugPanelDefinition(panelID string, def debugregistry.PanelDefinition) debugregistry.PanelDefinition {
 	if def.Label == "" {
-		def.Label = debugpanels.PanelLabel(normalized)
+		def.Label = debugpanels.PanelLabel(panelID)
+	}
+	if def.SnapshotKey == "" {
+		def.SnapshotKey = panelID
+	}
+	if len(def.EventTypes) == 0 {
+		def.EventTypes = debugPanelEventTypes(panelID)
+	}
+	if def.Span == 0 {
+		def.Span = debugPanelSpan(panelID)
 	}
 	return def
+}
+
+func debugPanelSpan(panelID string) int {
+	if meta, ok := debugPanelDefaults[panelID]; ok && meta.Span > 0 {
+		return meta.Span
+	}
+	return debugPanelDefaultSpan
 }
 
 func debugPanelSnapshotKey(panelID string) string {

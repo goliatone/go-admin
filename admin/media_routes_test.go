@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	auth "github.com/goliatone/go-auth"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	router "github.com/goliatone/go-router"
 	"github.com/julienschmidt/httprouter"
@@ -176,6 +178,10 @@ func (a allowPermissionAuthorizer) Can(_ context.Context, action string, _ strin
 }
 
 func newMediaRouteServer(t *testing.T, authz Authorizer, lib MediaLibrary, featureGate fggate.FeatureGate) router.Server[*httprouter.Router] {
+	return newMediaRouteServerWithDeps(t, authz, lib, featureGate, Dependencies{})
+}
+
+func newMediaRouteServerWithDeps(t *testing.T, authz Authorizer, lib MediaLibrary, featureGate fggate.FeatureGate, deps Dependencies) router.Server[*httprouter.Router] {
 	t.Helper()
 	cfg := Config{
 		BasePath:              "/admin",
@@ -185,10 +191,9 @@ func newMediaRouteServer(t *testing.T, authz Authorizer, lib MediaLibrary, featu
 		MediaUpdatePermission: "perm.update",
 		MediaDeletePermission: "perm.delete",
 	}
-	adm := mustNewAdmin(t, cfg, Dependencies{
-		FeatureGate:  featureGate,
-		MediaLibrary: lib,
-	})
+	deps.FeatureGate = featureGate
+	deps.MediaLibrary = lib
+	adm := mustNewAdmin(t, cfg, deps)
 	if authz != nil {
 		adm.WithAuthorizer(authz)
 	}
@@ -382,4 +387,194 @@ func TestMediaCapabilityOverridesCanAdjustPartialFieldsWithoutResettingBooleans(
 	if len(payload.Upload.AcceptedKinds) != len(acceptedKinds) {
 		t.Fatalf("expected accepted kinds %v, got %v", acceptedKinds, payload.Upload.AcceptedKinds)
 	}
+}
+
+func TestMediaMutationRoutesEmitDefaultActivityEntries(t *testing.T) {
+	lib := newMediaRouteTestLibrary()
+	feed := NewActivityFeed()
+	server := newMediaRouteServerWithDeps(
+		t,
+		allowPermissionAuthorizer{allowed: "perm.create"},
+		lib,
+		featureGateFromKeys(FeatureMedia, FeatureCMS),
+		Dependencies{ActivitySink: feed},
+	)
+
+	uploadReq := newMultipartMediaRequest(t, "/admin/api/media/upload", "hero.jpg", "image/jpeg", []byte("hero"))
+	uploadReq = uploadReq.WithContext(auth.WithActorContext(uploadReq.Context(), &auth.ActorContext{ActorID: "editor-upload"}))
+	uploadResp := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(uploadResp, uploadReq)
+	if uploadResp.Code != 200 {
+		t.Fatalf("expected upload 200, got %d", uploadResp.Code)
+	}
+
+	updateServer := newMediaRouteServerWithDeps(
+		t,
+		allowPermissionAuthorizer{allowed: "perm.update"},
+		lib,
+		featureGateFromKeys(FeatureMedia, FeatureCMS),
+		Dependencies{ActivitySink: feed},
+	)
+	updateReq := httptest.NewRequest("PATCH", "/admin/api/media/library/1", bytes.NewBufferString(`{"metadata":{"alt_text":"Hero image"}}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq = updateReq.WithContext(auth.WithActorContext(updateReq.Context(), &auth.ActorContext{ActorID: "editor-update"}))
+	updateResp := httptest.NewRecorder()
+	updateServer.WrappedRouter().ServeHTTP(updateResp, updateReq)
+	if updateResp.Code != 200 {
+		t.Fatalf("expected update 200, got %d", updateResp.Code)
+	}
+
+	deleteServer := newMediaRouteServerWithDeps(
+		t,
+		allowPermissionAuthorizer{allowed: "perm.delete"},
+		lib,
+		featureGateFromKeys(FeatureMedia, FeatureCMS),
+		Dependencies{ActivitySink: feed},
+	)
+	deleteReq := httptest.NewRequest("DELETE", "/admin/api/media/library/1", nil)
+	deleteReq = deleteReq.WithContext(auth.WithActorContext(deleteReq.Context(), &auth.ActorContext{ActorID: "editor-delete"}))
+	deleteResp := httptest.NewRecorder()
+	deleteServer.WrappedRouter().ServeHTTP(deleteResp, deleteReq)
+	if deleteResp.Code != 200 {
+		t.Fatalf("expected delete 200, got %d", deleteResp.Code)
+	}
+
+	entries, err := feed.List(context.Background(), 100)
+	if err != nil {
+		t.Fatalf("list activity: %v", err)
+	}
+	entries = filterActivityEntries(entries, "media.")
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 media activity entries, got %+v", entries)
+	}
+	if entries[0].Action != "media.deleted" || entries[0].Actor != "editor-delete" {
+		t.Fatalf("expected delete activity entry, got %+v", entries[0])
+	}
+	if got := toString(entries[0].Metadata["request_kind"]); got != "delete" {
+		t.Fatalf("expected delete request_kind, got %+v", entries[0].Metadata)
+	}
+	if entries[1].Action != "media.updated" || entries[1].Actor != "editor-update" {
+		t.Fatalf("expected update activity entry, got %+v", entries[1])
+	}
+	if got := toString(entries[1].Metadata["request_kind"]); got != "update" {
+		t.Fatalf("expected update request_kind, got %+v", entries[1].Metadata)
+	}
+	if entries[2].Action != "media.created" || entries[2].Actor != "editor-upload" {
+		t.Fatalf("expected create activity entry, got %+v", entries[2])
+	}
+	if got := toString(entries[2].Metadata["request_kind"]); got != "upload" {
+		t.Fatalf("expected upload request_kind, got %+v", entries[2].Metadata)
+	}
+}
+
+func TestMediaMutationActivityHookCanOverrideAppendAndSuppress(t *testing.T) {
+	lib := newMediaRouteTestLibrary()
+	feed := NewActivityFeed()
+	hook := func(_ context.Context, event MediaMutationEvent) (MediaActivityDecision, error) {
+		switch event.Operation {
+		case MediaMutationUpdate:
+			entry := *event.DefaultEntry
+			entry.Action = "media.updated.enriched"
+			entry.Metadata["hook"] = "update"
+			return MediaActivityDecision{
+				Primary: &entry,
+				Additional: []ActivityEntry{{
+					Action:   "media.audit",
+					Object:   joinObject("media", event.MediaID),
+					Channel:  "media",
+					Metadata: map[string]any{"operation": "update"},
+				}},
+			}, nil
+		case MediaMutationDelete:
+			return MediaActivityDecision{SuppressDefault: true}, nil
+		default:
+			return MediaActivityDecision{}, nil
+		}
+	}
+
+	updateServer := newMediaRouteServerWithDeps(
+		t,
+		allowPermissionAuthorizer{allowed: "perm.update"},
+		lib,
+		featureGateFromKeys(FeatureMedia, FeatureCMS),
+		Dependencies{ActivitySink: feed, MediaActivityHook: hook},
+	)
+	updateReq := httptest.NewRequest("PATCH", "/admin/api/media/library/1", bytes.NewBufferString(`{"metadata":{"alt_text":"Hero image"}}`))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq = updateReq.WithContext(auth.WithActorContext(updateReq.Context(), &auth.ActorContext{ActorID: "editor-update"}))
+	updateResp := httptest.NewRecorder()
+	updateServer.WrappedRouter().ServeHTTP(updateResp, updateReq)
+	if updateResp.Code != 200 {
+		t.Fatalf("expected update 200, got %d", updateResp.Code)
+	}
+
+	deleteServer := newMediaRouteServerWithDeps(
+		t,
+		allowPermissionAuthorizer{allowed: "perm.delete"},
+		lib,
+		featureGateFromKeys(FeatureMedia, FeatureCMS),
+		Dependencies{ActivitySink: feed, MediaActivityHook: hook},
+	)
+	deleteReq := httptest.NewRequest("DELETE", "/admin/api/media/library/1", nil)
+	deleteReq = deleteReq.WithContext(auth.WithActorContext(deleteReq.Context(), &auth.ActorContext{ActorID: "editor-delete"}))
+	deleteResp := httptest.NewRecorder()
+	deleteServer.WrappedRouter().ServeHTTP(deleteResp, deleteReq)
+	if deleteResp.Code != 200 {
+		t.Fatalf("expected delete 200, got %d", deleteResp.Code)
+	}
+
+	entries, err := feed.List(context.Background(), 100)
+	if err != nil {
+		t.Fatalf("list activity: %v", err)
+	}
+	entries = filterActivityEntries(entries, "media.")
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 media activity entries, got %+v", entries)
+	}
+	if entries[0].Action != "media.audit" {
+		t.Fatalf("expected audit entry first, got %+v", entries[0])
+	}
+	if entries[1].Action != "media.updated.enriched" {
+		t.Fatalf("expected enriched update entry, got %+v", entries[1])
+	}
+	if got := toString(entries[1].Metadata["hook"]); got != "update" {
+		t.Fatalf("expected hook metadata on enriched entry, got %+v", entries[1].Metadata)
+	}
+}
+
+func newMultipartMediaRequest(t *testing.T, path, filename, contentType string, payload []byte) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		t.Fatalf("create multipart file: %v", err)
+	}
+	if _, err := part.Write(payload); err != nil {
+		t.Fatalf("write multipart payload: %v", err)
+	}
+	if err := writer.WriteField("name", filename); err != nil {
+		t.Fatalf("write multipart field: %v", err)
+	}
+	if contentType != "" {
+		if err := writer.WriteField("content_type", contentType); err != nil {
+			t.Fatalf("write multipart content type: %v", err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+	req := httptest.NewRequest("POST", path, &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return req
+}
+
+func filterActivityEntries(entries []ActivityEntry, prefix string) []ActivityEntry {
+	filtered := make([]ActivityEntry, 0, len(entries))
+	for _, entry := range entries {
+		if strings.HasPrefix(strings.TrimSpace(entry.Action), prefix) {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }

@@ -211,22 +211,8 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 			if sessionMeta.SessionID != "" || sessionMeta.UserID != "" {
 				c.SetContext(withDebugSessionContext(c.Context(), sessionMeta.SessionID, sessionMeta.UserID))
 			}
-			contentType := debugContentType(c)
-			remoteIP := debugRemoteIP(c)
-			requestSize := debugRequestSize(c)
-			var requestBody string
-			var bodyTruncated bool
-			if cfg.CaptureRequestBody && debugIsTextContentType(contentType) && !debugSkipBodyCapture(requestSize, debugMaxBodyBytes) {
-				if raw := c.Body(); len(raw) > 0 {
-					requestBody, bodyTruncated = debugCaptureBody(raw, debugMaxBodyBytes)
-				}
-			}
-
-			var respWriter *debugResponseWriter
-			var restoreWriter func()
-			if cfg.CaptureRequestBody {
-				respWriter, restoreWriter = debugWrapResponseWriter(c, debugMaxBodyBytes)
-			}
+			requestCapture := debugCaptureRequestData(c, cfg)
+			respWriter, restoreWriter := debugPrepareResponseCapture(c, cfg)
 
 			err := next(c)
 			sessionMeta = debugSessionContextFromRequest(c, cfg)
@@ -243,32 +229,13 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 				Duration:      time.Since(start),
 				Headers:       debugRequestHeaders(c),
 				Query:         debugRequestQueries(c),
-				ContentType:   contentType,
-				RequestBody:   requestBody,
-				RequestSize:   requestSize,
-				BodyTruncated: bodyTruncated,
-				RemoteIP:      remoteIP,
+				ContentType:   requestCapture.contentType,
+				RequestBody:   requestCapture.body,
+				RequestSize:   requestCapture.size,
+				BodyTruncated: requestCapture.truncated,
+				RemoteIP:      requestCapture.remoteIP,
 			}
-			responseContentType := ""
-			if httpCtx, ok := c.(router.HTTPContext); ok {
-				if respWriter != nil {
-					entry.ResponseHeaders = debugResponseHeaders(respWriter)
-					entry.ResponseSize = respWriter.BodySize()
-					if entry.ResponseSize == 0 {
-						entry.ResponseSize = debugResponseSize(httpCtx)
-					}
-					responseContentType = debugNormalizeContentType(respWriter.Header().Get("Content-Type"))
-				} else {
-					entry.ResponseHeaders = debugResponseHeaders(httpCtx.Response())
-					entry.ResponseSize = debugResponseSize(httpCtx)
-					if entry.ResponseHeaders != nil {
-						responseContentType = debugNormalizeContentType(entry.ResponseHeaders["Content-Type"])
-					}
-				}
-			}
-			if cfg.CaptureRequestBody && respWriter != nil && responseContentType != "" && debugIsTextContentType(responseContentType) {
-				entry.ResponseBody = respWriter.Body()
-			}
+			debugPopulateResponseData(c, cfg, respWriter, &entry)
 			entry.Status = debugRequestStatus(c, err)
 			if err != nil {
 				entry.Error = err.Error()
@@ -280,6 +247,67 @@ func DebugRequestMiddleware(collector *DebugCollector) router.MiddlewareFunc {
 			return err
 		}
 	}
+}
+
+type debugRequestCapture struct {
+	contentType string
+	remoteIP    string
+	body        string
+	size        int64
+	truncated   bool
+}
+
+func debugCaptureRequestData(c router.Context, cfg DebugConfig) debugRequestCapture {
+	capture := debugRequestCapture{
+		contentType: debugContentType(c),
+		remoteIP:    debugRemoteIP(c),
+		size:        debugRequestSize(c),
+	}
+	if !cfg.CaptureRequestBody || !debugIsTextContentType(capture.contentType) || debugSkipBodyCapture(capture.size, debugMaxBodyBytes) {
+		return capture
+	}
+	if raw := c.Body(); len(raw) > 0 {
+		capture.body, capture.truncated = debugCaptureBody(raw, debugMaxBodyBytes)
+	}
+	return capture
+}
+
+func debugPrepareResponseCapture(c router.Context, cfg DebugConfig) (*debugResponseWriter, func()) {
+	if !cfg.CaptureRequestBody {
+		return nil, nil
+	}
+	return debugWrapResponseWriter(c, debugMaxBodyBytes)
+}
+
+func debugPopulateResponseData(c router.Context, cfg DebugConfig, respWriter *debugResponseWriter, entry *RequestEntry) {
+	if entry == nil {
+		return
+	}
+	httpCtx, ok := c.(router.HTTPContext)
+	if !ok {
+		return
+	}
+	responseContentType := debugResponseContentType(httpCtx, respWriter, entry)
+	if cfg.CaptureRequestBody && respWriter != nil && responseContentType != "" && debugIsTextContentType(responseContentType) {
+		entry.ResponseBody = respWriter.Body()
+	}
+}
+
+func debugResponseContentType(httpCtx router.HTTPContext, respWriter *debugResponseWriter, entry *RequestEntry) string {
+	if respWriter != nil {
+		entry.ResponseHeaders = debugResponseHeaders(respWriter)
+		entry.ResponseSize = respWriter.BodySize()
+		if entry.ResponseSize == 0 {
+			entry.ResponseSize = debugResponseSize(httpCtx)
+		}
+		return debugNormalizeContentType(respWriter.Header().Get("Content-Type"))
+	}
+	entry.ResponseHeaders = debugResponseHeaders(httpCtx.Response())
+	entry.ResponseSize = debugResponseSize(httpCtx)
+	if entry.ResponseHeaders == nil {
+		return ""
+	}
+	return debugNormalizeContentType(entry.ResponseHeaders["Content-Type"])
 }
 
 func buildDebugSessionSnapshot(c router.Context, sessionMeta debugSessionContext, startedAt time.Time) map[string]any {

@@ -205,44 +205,14 @@ func (s *UserManagementService) BulkRoleChange(ctx context.Context, req BulkRole
 			Status: "skipped",
 		}
 
-		if req.Assign && req.Replace {
-			existing, err := s.RolesForUser(ctx, userID)
-			if err != nil {
-				result.Status = "failed"
-				result.Error = err.Error()
-				response.Summary.Failed++
-				response.Results = append(response.Results, result)
-				continue
-			}
-			replaceFailed := false
-			for _, role := range existing {
-				if strings.TrimSpace(role.ID) == roleID {
-					continue
-				}
-				if err := s.UnassignRole(ctx, userID, role.ID); err != nil {
-					result.Status = "failed"
-					result.Error = err.Error()
-					response.Summary.Failed++
-					response.Results = append(response.Results, result)
-					replaceFailed = true
-					break
-				}
-			}
-			if replaceFailed {
-				continue
-			}
+		if err := s.prepareBulkRoleChange(ctx, req, userID, roleID); err != nil {
+			recordBulkRoleChangeFailure(&response, &result, err)
+			continue
 		}
 
-		var execErr error
-		if req.Assign {
-			execErr = s.AssignRole(ctx, userID, roleID)
-		} else {
-			execErr = s.UnassignRole(ctx, userID, roleID)
-		}
+		execErr := s.applyBulkRoleChange(ctx, req.Assign, userID, roleID)
 		if execErr != nil {
-			result.Status = "failed"
-			result.Error = execErr.Error()
-			response.Summary.Failed++
+			recordBulkRoleChangeFailure(&response, &result, execErr)
 		} else {
 			result.Status = "success"
 			response.Summary.Succeeded++
@@ -254,42 +224,64 @@ func (s *UserManagementService) BulkRoleChange(ctx context.Context, req BulkRole
 	return response, nil
 }
 
+func (s *UserManagementService) prepareBulkRoleChange(ctx context.Context, req BulkRoleChangeRequest, userID, roleID string) error {
+	if !req.Assign || !req.Replace {
+		return nil
+	}
+	existing, err := s.RolesForUser(ctx, userID)
+	if err != nil {
+		return err
+	}
+	for _, role := range existing {
+		if strings.TrimSpace(role.ID) == roleID {
+			continue
+		}
+		if err := s.UnassignRole(ctx, userID, role.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *UserManagementService) applyBulkRoleChange(ctx context.Context, assign bool, userID, roleID string) error {
+	if assign {
+		return s.AssignRole(ctx, userID, roleID)
+	}
+	return s.UnassignRole(ctx, userID, roleID)
+}
+
+func recordBulkRoleChangeFailure(response *BulkRoleChangeResponse, result *BulkRoleChangeResult, err error) {
+	if response == nil || result == nil || err == nil {
+		return
+	}
+	result.Status = "failed"
+	result.Error = err.Error()
+	response.Summary.Failed++
+	response.Results = append(response.Results, *result)
+}
+
 // SaveUser creates or updates a user and syncs role assignments.
 func (s *UserManagementService) SaveUser(ctx context.Context, user UserRecord) (UserRecord, error) {
 	if s == nil || s.users == nil {
 		return UserRecord{}, serviceNotConfiguredDomainError("user service", nil)
 	}
 	isCreate := strings.TrimSpace(user.ID) == ""
-	if user.ID == "" {
-		user.ID = s.idBuilder()
-	}
-	if normalized := normalizeLifecycleState(user.Status); normalized != "" {
-		user.Status = string(normalized)
-	}
-	if user.Status == "" {
-		user.Status = "active"
-	}
-	if user.Role == "" && len(user.Roles) > 0 {
-		user.Role = user.Roles[0]
-	}
-	if s != nil {
-		if filtered, err := s.filterAssignableRoles(ctx, user.Roles); err != nil {
-			return UserRecord{}, err
-		} else {
-			user.Roles = filtered
-		}
-	}
-	var (
-		result UserRecord
-		err    error
-	)
-	if isCreate {
-		result, err = s.users.Create(ctx, user)
-	} else {
-		result, err = s.users.Update(ctx, user)
-	}
+	normalized, err := s.prepareUserForSave(ctx, user)
 	if err != nil {
 		return UserRecord{}, err
+	}
+	user = normalized
+	var (
+		result  UserRecord
+		saveErr error
+	)
+	if isCreate {
+		result, saveErr = s.users.Create(ctx, user)
+	} else {
+		result, saveErr = s.users.Update(ctx, user)
+	}
+	if saveErr != nil {
+		return UserRecord{}, saveErr
 	}
 	result.Roles = dedupeStrings(result.Roles)
 	if len(user.Roles) > 0 {
@@ -313,6 +305,27 @@ func (s *UserManagementService) SaveUser(ctx context.Context, user UserRecord) (
 		"display_name": strings.TrimSpace(result.FirstName + " " + result.LastName),
 	})
 	return result, nil
+}
+
+func (s *UserManagementService) prepareUserForSave(ctx context.Context, user UserRecord) (UserRecord, error) {
+	if strings.TrimSpace(user.ID) == "" {
+		user.ID = s.idBuilder()
+	}
+	if normalized := normalizeLifecycleState(user.Status); normalized != "" {
+		user.Status = string(normalized)
+	}
+	if user.Status == "" {
+		user.Status = "active"
+	}
+	if user.Role == "" && len(user.Roles) > 0 {
+		user.Role = user.Roles[0]
+	}
+	filtered, err := s.filterAssignableRoles(ctx, user.Roles)
+	if err != nil {
+		return UserRecord{}, err
+	}
+	user.Roles = filtered
+	return user, nil
 }
 
 // DeleteUser removes a user and related assignments.

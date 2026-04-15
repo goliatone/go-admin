@@ -307,6 +307,17 @@ func debugViewSessionUser(c router.Context, basePath string) map[string]any {
 		return session
 	}
 
+	metadata, hasActor, hasClaims := debugViewSessionIdentity(reqCtx, session)
+	if strings.TrimSpace(toString(session["id"])) == "" {
+		session["id"] = strings.TrimSpace(userIDFromContext(reqCtx))
+	}
+
+	debugApplySessionIdentity(session, metadata, c)
+	session["is_authenticated"] = hasActor || hasClaims
+	return session
+}
+
+func debugViewSessionIdentity(reqCtx context.Context, session map[string]any) (map[string]any, bool, bool) {
 	metadata := map[string]any{}
 	actor, hasActor := auth.ActorFromContext(reqCtx)
 	if hasActor && actor != nil {
@@ -322,18 +333,24 @@ func debugViewSessionUser(c router.Context, basePath string) map[string]any {
 		if role := strings.TrimSpace(claims.Role()); role != "" && strings.TrimSpace(toString(session["role"])) == "" {
 			session["role"] = role
 		}
-		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok && carrier != nil {
-			for k, v := range carrier.ClaimsMetadata() {
-				if _, exists := metadata[k]; !exists {
-					metadata[k] = v
-				}
-			}
+		mergeDebugClaimsMetadata(metadata, claims)
+	}
+	return metadata, hasActor, hasClaims
+}
+
+func mergeDebugClaimsMetadata(metadata map[string]any, claims auth.AuthClaims) {
+	carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any })
+	if !ok || carrier == nil {
+		return
+	}
+	for k, v := range carrier.ClaimsMetadata() {
+		if _, exists := metadata[k]; !exists {
+			metadata[k] = v
 		}
 	}
-	if strings.TrimSpace(toString(session["id"])) == "" {
-		session["id"] = strings.TrimSpace(userIDFromContext(reqCtx))
-	}
+}
 
+func debugApplySessionIdentity(session map[string]any, metadata map[string]any, c router.Context) {
 	displayName := primitives.FirstNonEmptyRaw(
 		debugSessionUsernameFromRequest(c),
 		strings.TrimSpace(toString(metadata["display_name"])),
@@ -347,18 +364,18 @@ func debugViewSessionUser(c router.Context, basePath string) map[string]any {
 	if initial := debugDisplayInitial(displayName); initial != "" && !strings.EqualFold(displayName, "Guest") {
 		session["initial"] = initial
 	}
+	if avatarURL := debugSessionAvatarURL(metadata); avatarURL != "" {
+		session["avatar_url"] = avatarURL
+	}
+}
 
-	if avatarURL := primitives.FirstNonEmptyRaw(
+func debugSessionAvatarURL(metadata map[string]any) string {
+	return primitives.FirstNonEmptyRaw(
 		strings.TrimSpace(toString(metadata["avatar_url"])),
 		strings.TrimSpace(toString(metadata["avatar"])),
 		strings.TrimSpace(toString(metadata["picture"])),
 		strings.TrimSpace(toString(metadata["image_url"])),
-	); avatarURL != "" {
-		session["avatar_url"] = avatarURL
-	}
-
-	session["is_authenticated"] = hasActor || hasClaims
-	return session
+	)
 }
 
 func debugDisplayInitial(displayName string) string {

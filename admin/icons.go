@@ -330,24 +330,23 @@ func isEmojiString(s string) bool {
 // isSymbolOther checks if a rune is in the Symbol, Other Unicode category.
 // This covers many emoji symbols.
 func isSymbolOther(r rune) bool {
-	// Common emoji symbol ranges in So category
-	switch {
-	case r >= 0x2300 && r <= 0x23FF: // Miscellaneous Technical
-		return true
-	case r >= 0x2600 && r <= 0x26FF: // Miscellaneous Symbols
-		return true
-	case r >= 0x2700 && r <= 0x27BF: // Dingbats
-		return true
-	case r >= 0x1F300 && r <= 0x1F5FF: // Miscellaneous Symbols and Pictographs
-		return true
-	case r >= 0x1F600 && r <= 0x1F64F: // Emoticons
-		return true
-	case r >= 0x1F680 && r <= 0x1F6FF: // Transport and Map Symbols
-		return true
-	case r >= 0x1F900 && r <= 0x1F9FF: // Supplemental Symbols and Pictographs
-		return true
-	case r >= 0x1FA00 && r <= 0x1FAFF: // Chess Symbols, Extended-A Pictographs
-		return true
+	return runeInAnyRange(r,
+		0x2300, 0x23FF,
+		0x2600, 0x26FF,
+		0x2700, 0x27BF,
+		0x1F300, 0x1F5FF,
+		0x1F600, 0x1F64F,
+		0x1F680, 0x1F6FF,
+		0x1F900, 0x1F9FF,
+		0x1FA00, 0x1FAFF,
+	)
+}
+
+func runeInAnyRange(r rune, ranges ...rune) bool {
+	for i := 0; i+1 < len(ranges); i += 2 {
+		if r >= ranges[i] && r <= ranges[i+1] {
+			return true
+		}
 	}
 	return false
 }

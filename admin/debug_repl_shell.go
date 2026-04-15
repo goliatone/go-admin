@@ -135,30 +135,24 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 	timeoutCh, stopTimeout := debugREPLTimeoutChannel(replCfg.MaxSessionSeconds)
 	defer stopTimeout()
 
+	return runDebugREPLShellLoop(admin, runtime.adminCtx.Context, replCfg, runtime.session, ptmx, c, commandCh, commandErrCh, outputCh, ptyErrCh, cmdErrCh, timeoutCh, &closeReason)
+}
+
+func runDebugREPLShellLoop(admin *Admin, ctx context.Context, replCfg DebugREPLConfig, session DebugREPLSession, ptmx *os.File, c router.WebSocketContext, commandCh <-chan debugREPLShellCommand, commandErrCh <-chan error, outputCh <-chan []byte, ptyErrCh <-chan error, cmdErrCh <-chan error, timeoutCh <-chan time.Time, closeReason *string) error {
 	for {
 		select {
 		case <-c.Context().Done():
-			closeReason = debugREPLShellCloseReasonUser
+			*closeReason = debugREPLShellCloseReasonUser
 			return nil
 		case err := <-commandErrCh:
-			if err != nil && !errors.Is(err, io.EOF) {
-				closeReason = debugREPLShellCloseReasonError
-				return err
-			}
-			closeReason = debugREPLShellCloseReasonUser
-			return nil
+			return handleDebugREPLShellCommandReadError(err, closeReason)
 		case cmd, ok := <-commandCh:
 			if !ok {
-				closeReason = debugREPLShellCloseReasonUser
+				*closeReason = debugREPLShellCloseReasonUser
 				return nil
 			}
-			if err := handleDebugREPLShellCommand(admin, runtime.adminCtx.Context, replCfg, runtime.session, ptmx, cmd); err != nil {
-				if errors.Is(err, errDebugREPLShellClose) {
-					closeReason = debugREPLShellCloseReasonUser
-					return nil
-				}
-				closeReason = debugREPLShellCloseReasonError
-				return err
+			if err := handleDebugREPLShellCommand(admin, ctx, replCfg, session, ptmx, cmd); err != nil {
+				return handleDebugREPLShellCommandError(err, closeReason)
 			}
 		case out, ok := <-outputCh:
 			if !ok {
@@ -166,22 +160,40 @@ func handleDebugREPLShellWebSocket(admin *Admin, cfg DebugConfig, c router.WebSo
 				continue
 			}
 			if err := c.WriteJSON(debugREPLShellEvent{Type: debugREPLShellEventOutput, Data: string(out)}); err != nil {
-				closeReason = debugREPLShellCloseReasonError
+				*closeReason = debugREPLShellCloseReasonError
 				return err
 			}
 		case err := <-cmdErrCh:
 			exitCode := debugREPLShellExitCode(err)
 			_ = c.WriteJSON(debugREPLShellEvent{Type: debugREPLShellEventExit, Code: exitCode})
-			closeReason = debugREPLShellCloseReasonUser
+			*closeReason = debugREPLShellCloseReasonUser
 			return nil
 		case <-ptyErrCh:
-			closeReason = debugREPLShellCloseReasonUser
+			*closeReason = debugREPLShellCloseReasonUser
 			return nil
 		case <-timeoutCh:
-			closeReason = debugREPLShellCloseReasonIdle
+			*closeReason = debugREPLShellCloseReasonIdle
 			return nil
 		}
 	}
+}
+
+func handleDebugREPLShellCommandReadError(err error, closeReason *string) error {
+	if err != nil && !errors.Is(err, io.EOF) {
+		*closeReason = debugREPLShellCloseReasonError
+		return err
+	}
+	*closeReason = debugREPLShellCloseReasonUser
+	return nil
+}
+
+func handleDebugREPLShellCommandError(err error, closeReason *string) error {
+	if errors.Is(err, errDebugREPLShellClose) {
+		*closeReason = debugREPLShellCloseReasonUser
+		return nil
+	}
+	*closeReason = debugREPLShellCloseReasonError
+	return err
 }
 
 func debugREPLStartSession(admin *Admin, c router.WebSocketContext, kind string, readOnly bool) (debugREPLSessionRuntime, error) {

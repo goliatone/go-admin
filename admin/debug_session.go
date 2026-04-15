@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/goliatone/go-admin/internal/primitives"
 	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 	"github.com/google/uuid"
@@ -69,49 +70,9 @@ func debugSessionContextFromRequest(c router.Context, cfg DebugConfig) debugSess
 	meta := debugSessionContextFromContext(c.Context())
 	sessionID := strings.TrimSpace(meta.SessionID)
 	userID := strings.TrimSpace(meta.UserID)
-	if sessionID == "" || userID == "" {
-		if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
-			if sessionID == "" {
-				if resolved, ok := sessionIDFromClaims(claims); ok {
-					sessionID = resolved
-				}
-			}
-			if userID == "" {
-				userID = strings.TrimSpace(claims.UserID())
-				if userID == "" {
-					userID = strings.TrimSpace(claims.Subject())
-				}
-			}
-		}
-	}
-	if sessionID == "" || userID == "" {
-		if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
-			if sessionID == "" {
-				if resolved, ok := sessionIDFromClaims(claims); ok {
-					sessionID = resolved
-				}
-			}
-			if userID == "" {
-				userID = strings.TrimSpace(claims.UserID())
-				if userID == "" {
-					userID = strings.TrimSpace(claims.Subject())
-				}
-			}
-		}
-	}
-
-	cookieName := debugSessionCookieName(cfg)
-	shouldSetCookie := cfg.SessionTracking || sessionID == ""
-	cookieSession := ""
-	if cookieName != "" && shouldSetCookie {
-		cookieSession = strings.TrimSpace(c.Cookies(cookieName))
-		if cookieSession == "" {
-			cookieSession = uuid.NewString()
-		}
-		if cookieSession != "" {
-			debugSetSessionCookie(c, cookieName, cookieSession, cfg.SessionInactivityExpiry, cfg)
-		}
-	}
+	sessionID, userID = debugSessionIDsFromClaims(sessionID, userID, debugClaimsFromContext(c.Context()))
+	sessionID, userID = debugSessionIDsFromClaims(sessionID, userID, debugClaimsFromRouter(c))
+	cookieSession := resolveDebugCookieSession(c, cfg, sessionID == "")
 	if sessionID == "" {
 		sessionID = cookieSession
 	}
@@ -119,6 +80,52 @@ func debugSessionContextFromRequest(c router.Context, cfg DebugConfig) debugSess
 		SessionID: sessionID,
 		UserID:    userID,
 	}
+}
+
+func debugClaimsFromContext(ctx context.Context) auth.AuthClaims {
+	claims, ok := auth.GetClaims(ctx)
+	if !ok {
+		return nil
+	}
+	return claims
+}
+
+func debugClaimsFromRouter(c router.Context) auth.AuthClaims {
+	claims, ok := auth.GetRouterClaims(c, "")
+	if !ok {
+		return nil
+	}
+	return claims
+}
+
+func debugSessionIDsFromClaims(sessionID, userID string, claims auth.AuthClaims) (string, string) {
+	if claims == nil {
+		return sessionID, userID
+	}
+	if sessionID == "" {
+		if resolved, ok := sessionIDFromClaims(claims); ok {
+			sessionID = resolved
+		}
+	}
+	if userID == "" {
+		userID = strings.TrimSpace(primitives.FirstNonEmptyRaw(claims.UserID(), claims.Subject()))
+	}
+	return sessionID, userID
+}
+
+func resolveDebugCookieSession(c router.Context, cfg DebugConfig, missingSession bool) string {
+	cookieName := debugSessionCookieName(cfg)
+	if cookieName == "" || (!cfg.SessionTracking && !missingSession) {
+		return ""
+	}
+	cookieSession := strings.TrimSpace(c.Cookies(cookieName))
+	if cookieSession == "" {
+		cookieSession = uuid.NewString()
+	}
+	if cookieSession != "" {
+		debugSetSessionCookie(c, cookieName, cookieSession, cfg.SessionInactivityExpiry, cfg)
+	}
+	return cookieSession
 }
 
 func debugSessionCookieName(cfg DebugConfig) string {
@@ -150,29 +157,25 @@ func debugSessionUsernameFromRequest(c router.Context) string {
 			return name
 		}
 	}
-	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
-		if carrier, ok := claims.(interface{ Username() string }); ok {
-			if name := strings.TrimSpace(carrier.Username()); name != "" {
-				return name
-			}
-		}
-		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
-			if name := debugSessionUsernameFromMetadata(carrier.ClaimsMetadata()); name != "" {
-				return name
-			}
+	for _, claims := range []auth.AuthClaims{debugClaimsFromContext(c.Context()), debugClaimsFromRouter(c)} {
+		if name := debugSessionUsernameFromClaims(claims); name != "" {
+			return name
 		}
 	}
-	if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
-		if carrier, ok := claims.(interface{ Username() string }); ok {
-			if name := strings.TrimSpace(carrier.Username()); name != "" {
-				return name
-			}
+	return ""
+}
+
+func debugSessionUsernameFromClaims(claims auth.AuthClaims) string {
+	if claims == nil {
+		return ""
+	}
+	if carrier, ok := claims.(interface{ Username() string }); ok {
+		if name := strings.TrimSpace(carrier.Username()); name != "" {
+			return name
 		}
-		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
-			if name := debugSessionUsernameFromMetadata(carrier.ClaimsMetadata()); name != "" {
-				return name
-			}
-		}
+	}
+	if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
+		return debugSessionUsernameFromMetadata(carrier.ClaimsMetadata())
 	}
 	return ""
 }
