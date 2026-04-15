@@ -41,11 +41,12 @@ func TestGoogleIntegrationImportDocumentSyncsSourceCommentsAndSearchWhenConfigur
 		WithGoogleSourceCommentSyncService(commentSync),
 	)
 
-	if _, err := service.Connect(ctx, scope, GoogleConnectInput{
+	_, connectErr := service.Connect(ctx, scope, GoogleConnectInput{
 		UserID:   "sync-user",
 		AuthCode: "sync-comments",
-	}); err != nil {
-		t.Fatalf("Connect: %v", err)
+	})
+	if connectErr != nil {
+		t.Fatalf("Connect: %v", connectErr)
 	}
 
 	imported, err := service.ImportDocument(ctx, scope, GoogleImportInput{
@@ -144,7 +145,8 @@ func TestGoogleIntegrationSyncSourceRevisionCommentsPersistsFailureStateOnProvid
 		WithGoogleSourceCommentSyncService(commentSync),
 	)
 
-	if _, err := failingService.SyncSourceRevisionComments(ctx, scope, imported.SourceRevisionID); err == nil {
+	_, syncErr := failingService.SyncSourceRevisionComments(ctx, scope, imported.SourceRevisionID)
+	if syncErr == nil {
 		t.Fatal("expected SyncSourceRevisionComments to fail when provider comments fail")
 	}
 

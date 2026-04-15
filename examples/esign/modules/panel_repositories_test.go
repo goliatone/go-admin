@@ -1738,11 +1738,12 @@ func TestAgreementPanelRepositoryUpdateRemovesAllFieldsWhenFieldsPresentFlagSet(
 		t.Fatalf("expected created agreement id")
 	}
 
-	if _, err := repo.Update(context.Background(), agreementID, map[string]any{
+	_, updateErr := repo.Update(context.Background(), agreementID, map[string]any{
 		"title":          "Field cleanup",
 		"fields_present": "1",
-	}); err != nil {
-		t.Fatalf("Update: %v", err)
+	})
+	if updateErr != nil {
+		t.Fatalf("Update: %v", updateErr)
 	}
 
 	fields, err := store.ListFields(context.Background(), scope, agreementID)
@@ -2236,13 +2237,14 @@ func TestAgreementPanelRepositoryServePanelSubresourceReturnsPDFAndAppendsAuditE
 	}
 
 	objectKey := "tenant/" + scope.TenantID + "/org/" + scope.OrgID + "/agreements/" + agreement.ID + "/executed.pdf"
-	if _, err := store.SaveAgreementArtifacts(context.Background(), scope, stores.AgreementArtifactRecord{
+	_, saveArtifactsErr := store.SaveAgreementArtifacts(context.Background(), scope, stores.AgreementArtifactRecord{
 		AgreementID:       agreement.ID,
 		ExecutedObjectKey: objectKey,
 		ExecutedSHA256:    strings.Repeat("a", 64),
 		CorrelationID:     "corr-artifact-1",
-	}); err != nil {
-		t.Fatalf("SaveAgreementArtifacts: %v", err)
+	})
+	if saveArtifactsErr != nil {
+		t.Fatalf("SaveAgreementArtifacts: %v", saveArtifactsErr)
 	}
 
 	repo := newAgreementPanelRepository(

@@ -92,8 +92,8 @@ func TestResolveAppLocalMigrationFSPrefersESignTreeOverRepoRootDefault(t *testin
 			t.Fatalf("restore cwd: %v", chdirErr)
 		}
 	}()
-	if err := os.Chdir(rootDir); err != nil {
-		t.Fatalf("chdir root dir: %v", err)
+	if chdirErr := os.Chdir(rootDir); chdirErr != nil {
+		t.Fatalf("chdir root dir: %v", chdirErr)
 	}
 
 	cfg := appcfg.Defaults()

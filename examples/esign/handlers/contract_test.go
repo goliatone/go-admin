@@ -182,7 +182,7 @@ func TestAdminGuardedEffectStatusRedactsSensitivePayloadFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal prepare payload: %v", err)
 	}
-	if _, err := store.SaveGuardedEffect(ctx, scope, guardedeffects.Record{
+	if _, saveErr := store.SaveGuardedEffect(ctx, scope, guardedeffects.Record{
 		EffectID:            "effect-1",
 		TenantID:            scope.TenantID,
 		OrgID:               scope.OrgID,
@@ -196,8 +196,8 @@ func TestAdminGuardedEffectStatusRedactsSensitivePayloadFields(t *testing.T) {
 		DispatchPayloadJSON: string(dispatchPayload),
 		CreatedAt:           time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC),
 		UpdatedAt:           time.Date(2026, 3, 13, 10, 0, 0, 0, time.UTC),
-	}); err != nil {
-		t.Fatalf("SaveGuardedEffect: %v", err)
+	}); saveErr != nil {
+		t.Fatalf("SaveGuardedEffect: %v", saveErr)
 	}
 
 	app := setupRegisterTestApp(t,

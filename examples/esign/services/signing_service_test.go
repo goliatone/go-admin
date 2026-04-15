@@ -3394,13 +3394,13 @@ func TestSigningServiceSubmitBlockedUntilApproveBeforeSignReviewCompletes(t *tes
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	if _, fieldErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signer.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  new(1),
 		Required:    new(true),
-	}); err != nil {
-		t.Fatalf("UpsertFieldDraft: %v", err)
+	}); fieldErr != nil {
+		t.Fatalf("UpsertFieldDraft: %v", fieldErr)
 	}
 	_, err = agreementSvc.OpenReview(ctx, scope, agreement.ID, ReviewOpenInput{
 		Gate:              stores.AgreementReviewGateApproveBeforeSign,

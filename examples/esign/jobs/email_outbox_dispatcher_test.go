@@ -190,13 +190,13 @@ func TestEmailOutboxDispatcherDrainsPendingMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal payload: %v", err)
 	}
-	if _, err := store.EnqueueOutboxMessage(ctx, scope, stores.OutboxMessageRecord{
+	if _, enqueueErr := store.EnqueueOutboxMessage(ctx, scope, stores.OutboxMessageRecord{
 		ID:          uuid.NewString(),
 		Topic:       services.NotificationOutboxTopicEmailSendSigningRequest,
 		PayloadJSON: string(payloadJSON),
 		AvailableAt: dispatcher.now(),
-	}); err != nil {
-		t.Fatalf("EnqueueOutboxMessage: %v", err)
+	}); enqueueErr != nil {
+		t.Fatalf("EnqueueOutboxMessage: %v", enqueueErr)
 	}
 
 	dispatcher.dispatchScope(context.Background(), scope)

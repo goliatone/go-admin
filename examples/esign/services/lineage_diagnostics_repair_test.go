@@ -79,7 +79,7 @@ func TestBuildLineageExamplePayloadsBuildsCanonicalExamples(t *testing.T) {
 	if !created {
 		t.Fatalf("expected import run to be created")
 	}
-	if _, err := store.MarkGoogleImportRunSucceeded(context.Background(), scope, run.ID, stores.GoogleImportRunSuccessInput{
+	if _, markErr := store.MarkGoogleImportRunSucceeded(context.Background(), scope, run.ID, stores.GoogleImportRunSuccessInput{
 		DocumentID:         seeded.importedDocumentID,
 		AgreementID:        seeded.importedAgreementID,
 		SourceDocumentID:   seeded.sourceDocumentID,
@@ -92,8 +92,8 @@ func TestBuildLineageExamplePayloadsBuildsCanonicalExamples(t *testing.T) {
 		SourceMimeType:     "application/vnd.google-apps.document",
 		IngestionMode:      GoogleIngestionModeExportPDF,
 		CompletedAt:        now,
-	}); err != nil {
-		t.Fatalf("MarkGoogleImportRunSucceeded: %v", err)
+	}); markErr != nil {
+		t.Fatalf("MarkGoogleImportRunSucceeded: %v", markErr)
 	}
 
 	readModels := NewDefaultSourceReadModelService(

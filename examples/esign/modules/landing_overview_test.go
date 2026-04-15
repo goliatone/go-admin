@@ -50,10 +50,11 @@ func TestLandingOverviewBuildsStatsAndRecentRows(t *testing.T) {
 		t.Fatalf("create pending draft: %v", err)
 	}
 	addRecipientToAgreement(t, store, scope, pending.ID, "pending@example.com", "Pending Signer")
-	if _, err := store.Transition(ctx, scope, pending.ID, stores.AgreementTransitionInput{
+	_, transitionErr := store.Transition(ctx, scope, pending.ID, stores.AgreementTransitionInput{
 		ToStatus: stores.AgreementStatusSent,
-	}); err != nil {
-		t.Fatalf("transition pending agreement to sent: %v", err)
+	})
+	if transitionErr != nil {
+		t.Fatalf("transition pending agreement to sent: %v", transitionErr)
 	}
 
 	completed, err := store.CreateDraft(ctx, scope, stores.AgreementRecord{
@@ -66,10 +67,11 @@ func TestLandingOverviewBuildsStatsAndRecentRows(t *testing.T) {
 	}
 	addRecipientToAgreement(t, store, scope, completed.ID, "completed.one@example.com", "Completed One")
 	addRecipientToAgreement(t, store, scope, completed.ID, "completed.two@example.com", "Completed Two")
-	if _, err := store.Transition(ctx, scope, completed.ID, stores.AgreementTransitionInput{
+	_, transitionErr = store.Transition(ctx, scope, completed.ID, stores.AgreementTransitionInput{
 		ToStatus: stores.AgreementStatusCompleted,
-	}); err != nil {
-		t.Fatalf("transition completed agreement to completed: %v", err)
+	})
+	if transitionErr != nil {
+		t.Fatalf("transition completed agreement to completed: %v", transitionErr)
 	}
 
 	stats, recent, err := module.LandingOverview(ctx, scope, 2)

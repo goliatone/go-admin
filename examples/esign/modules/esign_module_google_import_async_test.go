@@ -60,15 +60,17 @@ func TestESignModuleGoogleDriveImportAsyncUsesGoogleImporter(t *testing.T) {
 	module := NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
 		WithStore(stores.NewInMemoryStore())
 	t.Cleanup(module.Close)
-	if err := adm.RegisterModule(module); err != nil {
-		t.Fatalf("RegisterModule: %v", err)
+	registerErr := adm.RegisterModule(module)
+	if registerErr != nil {
+		t.Fatalf("RegisterModule: %v", registerErr)
 	}
 
 	server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
 		return fiber.New(fiber.Config{EnablePrintRoutes: false})
 	})
-	if err := adm.Initialize(server.Router()); err != nil {
-		t.Fatalf("Initialize: %v", err)
+	initErr := adm.Initialize(server.Router())
+	if initErr != nil {
+		t.Fatalf("Initialize: %v", initErr)
 	}
 
 	connectReq := httptest.NewRequest(http.MethodPost, "/admin/api/v1/esign/integrations/google/connect?user_id=ops-user", bytes.NewBufferString(`{"auth_code":"oauth-code-async"}`))

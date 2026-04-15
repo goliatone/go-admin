@@ -120,9 +120,9 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			profile, err := tx.GetSignerProfile(ctx, scope, subject, "default", now.Add(time.Hour))
-			if err != nil {
-				return err
+			profile, getProfileErr := tx.GetSignerProfile(ctx, scope, subject, "default", now.Add(time.Hour))
+			if getProfileErr != nil {
+				return getProfileErr
 			}
 			if profile.FullName != "Signer Two" || profile.Initials != "ST" {
 				t.Fatalf("unexpected tx signer profile: %+v", profile)
@@ -130,16 +130,16 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			if _, err = tx.GetSignerProfile(ctx, scope, subject, "default", now.Add(72*time.Hour)); !relationalIsNotFoundError(err) {
 				t.Fatalf("expected expired signer profile to be not found, got %v", err)
 			}
-			signatures, err := tx.ListSavedSignerSignatures(ctx, scope, subject, "signature")
-			if err != nil {
-				return err
+			signatures, listErr := tx.ListSavedSignerSignatures(ctx, scope, subject, "signature")
+			if listErr != nil {
+				return listErr
 			}
 			if len(signatures) != 2 || signatures[0].ID != "sig-new-"+suffix || signatures[1].ID != "sig-old-"+suffix {
 				t.Fatalf("unexpected tx saved signatures ordering: %+v", signatures)
 			}
-			count, err := tx.CountSavedSignerSignatures(ctx, scope, subject, "signature")
-			if err != nil {
-				return err
+			count, countErr := tx.CountSavedSignerSignatures(ctx, scope, subject, "signature")
+			if countErr != nil {
+				return countErr
 			}
 			if count != 2 {
 				t.Fatalf("expected tx saved signature count 2, got %d", count)
@@ -157,15 +157,15 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			artifacts, err := tx.GetAgreementArtifacts(ctx, scope, agreement.ID)
-			if err != nil {
-				return err
+			artifacts, artifactsErr := tx.GetAgreementArtifacts(ctx, scope, agreement.ID)
+			if artifactsErr != nil {
+				return artifactsErr
 			}
 			if artifacts.ExecutedSHA256 != "sha-executed-"+suffix {
 				t.Fatalf("unexpected tx agreement artifacts: %+v", artifacts)
 			}
 
-			run, created, err := tx.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+			run, created, beginErr := tx.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
 				UserID:            userID,
 				GoogleFileID:      "file-success-" + suffix,
 				SourceVersionHint: "v1",
@@ -174,8 +174,8 @@ func TestRuntimeRelationalAuxiliaryReadSurfaces(t *testing.T) {
 				AgreementTitle:    "Agreement Success",
 				RequestedAt:       now,
 			})
-			if err != nil {
-				return err
+			if beginErr != nil {
+				return beginErr
 			}
 			if !created {
 				t.Fatalf("expected first google import run to be created")
@@ -478,15 +478,15 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			if credential.EncryptedAccessToken != "access-2" {
 				t.Fatalf("unexpected tx integration credential: %+v", credential)
 			}
-			credentials, err := tx.ListIntegrationCredentials(ctx, scope, "google", baseUser)
-			if err != nil {
-				return err
+			credentials, listCredentialsErr := tx.ListIntegrationCredentials(ctx, scope, "google", baseUser)
+			if listCredentialsErr != nil {
+				return listCredentialsErr
 			}
 			if len(credentials) != 2 {
 				t.Fatalf("expected 2 tx filtered credentials, got %+v", credentials)
 			}
 
-			spec, err := tx.UpsertMappingSpec(ctx, scope, stores.MappingSpecRecord{
+			spec, upsertErr := tx.UpsertMappingSpec(ctx, scope, stores.MappingSpecRecord{
 				Provider:        "hris",
 				Name:            "employees",
 				Status:          stores.MappingSpecStatusDraft,
@@ -495,8 +495,8 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				CreatedByUserID: baseUser,
 				UpdatedByUserID: baseUser,
 			})
-			if err != nil {
-				return err
+			if upsertErr != nil {
+				return upsertErr
 			}
 			spec, err = tx.PublishMappingSpec(ctx, scope, spec.ID, spec.Version, now)
 			if err != nil {
@@ -516,9 +516,9 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 				return err
 			}
 			mappingDraftID = spec.ID
-			mappingSpecs, err := tx.ListMappingSpecs(ctx, scope, "hris")
-			if err != nil {
-				return err
+			mappingSpecs, listErr := tx.ListMappingSpecs(ctx, scope, "hris")
+			if listErr != nil {
+				return listErr
 			}
 			if len(mappingSpecs) != 2 || mappingSpecs[0].Name != "departments" || mappingSpecs[1].Name != "employees" {
 				t.Fatalf("unexpected tx mapping spec ordering: %+v", mappingSpecs)
@@ -542,16 +542,16 @@ func TestRuntimeRelationalIntegrationAndPlacementReadSurfaces(t *testing.T) {
 			}); err != nil {
 				return err
 			}
-			binding, err := tx.GetIntegrationBindingByExternal(ctx, scope, "hris", "agreement", "ext-primary-"+suffix)
-			if err != nil {
-				return err
+			binding, bindingErr := tx.GetIntegrationBindingByExternal(ctx, scope, "hris", "agreement", "ext-primary-"+suffix)
+			if bindingErr != nil {
+				return bindingErr
 			}
 			if binding.InternalID != agreement.ID {
 				t.Fatalf("unexpected tx binding by external: %+v", binding)
 			}
-			bindings, err := tx.ListIntegrationBindings(ctx, scope, "hris", "agreement", agreement.ID)
-			if err != nil {
-				return err
+			bindings, listBindingsErr := tx.ListIntegrationBindings(ctx, scope, "hris", "agreement", agreement.ID)
+			if listBindingsErr != nil {
+				return listBindingsErr
 			}
 			if len(bindings) != 1 || bindings[0].ExternalID != "ext-primary-"+suffix {
 				t.Fatalf("unexpected tx bindings list: %+v", bindings)

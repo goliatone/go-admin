@@ -152,8 +152,9 @@ func (r *ExternalPDFRemediationRunner) Run(ctx context.Context, input PDFRemedia
 
 	inputPath := filepath.Join(tempDir, "input.pdf")
 	outputPath := filepath.Join(tempDir, "output.pdf")
-	if err := os.WriteFile(inputPath, source, 0o600); err != nil {
-		return PDFRemediationRunResult{}, fmt.Errorf("write remediation input: %w", err)
+	writeErr := os.WriteFile(inputPath, source, 0o600)
+	if writeErr != nil {
+		return PDFRemediationRunResult{}, fmt.Errorf("write remediation input: %w", writeErr)
 	}
 
 	args, err := interpolateRemediationArgs(r.template.Args, inputPath, outputPath)
@@ -176,11 +177,12 @@ func (r *ExternalPDFRemediationRunner) Run(ctx context.Context, input PDFRemedia
 	cmd := execabs.CommandContext(opCtx, r.template.Bin, args...)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	if err := cmd.Run(); err != nil {
+	runErr := cmd.Run()
+	if runErr != nil {
 		if opCtx.Err() == context.DeadlineExceeded {
 			return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation command timed out after %s", timeout)
 		}
-		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation command failed: %w", err)
+		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation command failed: %w", runErr)
 	}
 
 	info, err := os.Stat(outputPath)

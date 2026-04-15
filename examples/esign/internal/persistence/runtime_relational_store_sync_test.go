@@ -41,8 +41,8 @@ func TestRuntimeRelationalStoreSyncLoadPayloadKeysReminderStatesByScopeAgreement
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
-	if _, err := bootstrap.BunDB.NewInsert().Model(record).Exec(ctx); err != nil {
-		t.Fatalf("insert reminder state: %v", err)
+	if _, insertErr := bootstrap.BunDB.NewInsert().Model(record).Exec(ctx); insertErr != nil {
+		t.Fatalf("insert reminder state: %v", insertErr)
 	}
 
 	backend, err := newRuntimeRelationalStoreSync(bootstrap)

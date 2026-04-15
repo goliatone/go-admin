@@ -187,8 +187,9 @@ func (s SignerProfileService) Save(ctx context.Context, scope stores.Scope, subj
 	}
 
 	if patch.Remember != nil && !*patch.Remember {
-		if err := s.store.DeleteSignerProfile(ctx, scope, subject, key); err != nil && !isNotFoundError(err) {
-			return SignerProfile{}, err
+		deleteErr := s.store.DeleteSignerProfile(ctx, scope, subject, key)
+		if deleteErr != nil && !isNotFoundError(deleteErr) {
+			return SignerProfile{}, deleteErr
 		}
 		now := s.now().UTC()
 		return SignerProfile{
@@ -256,8 +257,9 @@ func (s SignerProfileService) Save(ctx context.Context, scope stores.Scope, subj
 		current.Remember = *patch.Remember
 	}
 	if !current.Remember {
-		if err := s.store.DeleteSignerProfile(ctx, scope, subject, key); err != nil && !isNotFoundError(err) {
-			return SignerProfile{}, err
+		deleteErr := s.store.DeleteSignerProfile(ctx, scope, subject, key)
+		if deleteErr != nil && !isNotFoundError(deleteErr) {
+			return SignerProfile{}, deleteErr
 		}
 		now := s.now().UTC()
 		return SignerProfile{

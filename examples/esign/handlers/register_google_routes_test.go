@@ -791,8 +791,8 @@ func TestRegisterGoogleImportCreateAtomicallyPersistsRunAndDurableJob(t *testing
 	}
 
 	body := map[string]any{}
-	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		t.Fatalf("decode response: %v", err)
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&body); decodeErr != nil {
+		t.Fatalf("decode response: %v", decodeErr)
 	}
 	runID := strings.TrimSpace(fmt.Sprint(body["import_run_id"]))
 	if runID == "" {

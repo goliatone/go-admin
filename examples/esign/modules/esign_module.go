@@ -575,11 +575,11 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	var sourceSearch services.SourceSearchService
 	var sourceCommentSync services.SourceCommentSyncService
 	if lineageStore != nil {
-		searchService, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
+		searchService, searchErr := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
 			Lineage: lineageStore,
 		})
-		if err != nil {
-			return err
+		if searchErr != nil {
+			return searchErr
 		}
 		sourceSearch = searchService
 		sourceCommentSync = services.NewDefaultSourceCommentSyncService(

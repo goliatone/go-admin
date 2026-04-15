@@ -47,8 +47,8 @@ func TestPhase11ReminderStateUpsertAfterRestartUsesLogicalKey(t *testing.T) {
 		t.Fatalf("initial UpsertAgreementReminderState: %v", err)
 	}
 	_ = firstCleanup()
-	if err := first.Close(); err != nil {
-		t.Fatalf("close first bootstrap: %v", err)
+	if closeErr := first.Close(); closeErr != nil {
+		t.Fatalf("close first bootstrap: %v", closeErr)
 	}
 
 	second, err := Bootstrap(context.Background(), cfg)

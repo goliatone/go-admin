@@ -1951,13 +1951,13 @@ func (r *agreementPanelRepository) syncDraftFormPayload(
 		return nil, nil, err
 	}
 	if hasRulePayload {
-		documentPageCount, err := coerceFormInt(record["document_page_count"], "document_page_count")
-		if err != nil {
-			return nil, nil, err
+		documentPageCount, pageCountErr := coerceFormInt(record["document_page_count"], "document_page_count")
+		if pageCountErr != nil {
+			return nil, nil, pageCountErr
 		}
-		expanded, err := expandAgreementFieldRules(ruleInputs, recipients, fieldInputs, documentPageCount)
-		if err != nil {
-			return nil, nil, err
+		expanded, expandErr := expandAgreementFieldRules(ruleInputs, recipients, fieldInputs, documentPageCount)
+		if expandErr != nil {
+			return nil, nil, expandErr
 		}
 		fieldInputs = append(fieldInputs, expanded...)
 		hasFieldPayload = true

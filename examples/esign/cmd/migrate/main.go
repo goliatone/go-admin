@@ -285,13 +285,13 @@ func runValidateFixtures(ctx context.Context, handles *esignpersistence.ClientHa
 	}
 
 	var documents int
-	if err := tx.NewRaw(
+	if scanErr := tx.NewRaw(
 		`SELECT COUNT(1) FROM documents WHERE tenant_id = ? AND org_id = ?`,
 		scope.TenantID,
 		scope.OrgID,
-	).Scan(ctx, &documents); err != nil {
+	).Scan(ctx, &documents); scanErr != nil {
 		_ = tx.Rollback()
-		return fmt.Errorf("verify fixture inserts: %w", err)
+		return fmt.Errorf("verify fixture inserts: %w", scanErr)
 	}
 	if documents < 1 {
 		_ = tx.Rollback()

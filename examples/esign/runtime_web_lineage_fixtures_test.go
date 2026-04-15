@@ -86,9 +86,9 @@ func TestRuntimeDetailPagesRenderSeededLineageFixtures(t *testing.T) {
 				body, _ := io.ReadAll(pageResp.Body)
 				t.Fatalf("expected document detail status 200, got %d body=%s", pageResp.StatusCode, strings.TrimSpace(string(body)))
 			}
-			body, err := io.ReadAll(pageResp.Body)
-			if err != nil {
-				t.Fatalf("read document detail body: %v", err)
+			body, readErr := io.ReadAll(pageResp.Body)
+			if readErr != nil {
+				t.Fatalf("read document detail body: %v", readErr)
 			}
 			if !strings.Contains(string(body), tc.title) {
 				t.Fatalf("expected document detail body to contain %q", tc.title)
@@ -116,9 +116,9 @@ func TestRuntimeDetailPagesRenderSeededLineageFixtures(t *testing.T) {
 				payload, _ := io.ReadAll(pdfResp.Body)
 				t.Fatalf("expected source pdf 200, got %d body=%s", pdfResp.StatusCode, strings.TrimSpace(string(payload)))
 			}
-			pdfBody, err := io.ReadAll(pdfResp.Body)
-			if err != nil {
-				t.Fatalf("read source pdf body: %v", err)
+			pdfBody, pdfReadErr := io.ReadAll(pdfResp.Body)
+			if pdfReadErr != nil {
+				t.Fatalf("read source pdf body: %v", pdfReadErr)
 			}
 			if len(pdfBody) == 0 {
 				t.Fatalf("expected non-empty source pdf for %s", tc.title)

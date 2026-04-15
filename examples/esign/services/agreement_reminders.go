@@ -230,7 +230,7 @@ func (s AgreementService) recordReminderResendState(
 	policy := ReminderPolicyFromConfig(appcfg.Active())
 	if source == ResendSourceAutoReminder {
 		state.UpdatedAt = now
-		_, err := s.reminders.UpsertAgreementReminderState(ctx, scope, state)
+		_, err = s.reminders.UpsertAgreementReminderState(ctx, scope, state)
 		return err
 	}
 

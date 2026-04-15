@@ -41,8 +41,8 @@ func TestSignerSavedSignatureServiceRoundTrip(t *testing.T) {
 		t.Fatalf("expected id %q, got %q", saved.ID, rows[0].ID)
 	}
 
-	if err := service.DeleteSavedSignature(ctx, scope, "signer@example.com", saved.ID); err != nil {
-		t.Fatalf("DeleteSavedSignature: %v", err)
+	if deleteErr := service.DeleteSavedSignature(ctx, scope, "signer@example.com", saved.ID); deleteErr != nil {
+		t.Fatalf("DeleteSavedSignature: %v", deleteErr)
 	}
 	rowsAfterDelete, err := service.ListSavedSignatures(ctx, scope, "signer@example.com", stores.FieldTypeSignature)
 	if err != nil {

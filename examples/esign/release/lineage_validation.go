@@ -106,11 +106,11 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 		services.WithGoogleLineageStore(store),
 	)
 
-	if _, err := google.Connect(ctx, scope, services.GoogleConnectInput{
+	if _, connectErr := google.Connect(ctx, scope, services.GoogleConnectInput{
 		UserID:   "ops-user",
 		AuthCode: "lineage-validation-auth",
-	}); err != nil {
-		return LineageValidationResult{}, fmt.Errorf("connect google validation account: %w", err)
+	}); connectErr != nil {
+		return LineageValidationResult{}, fmt.Errorf("connect google validation account: %w", connectErr)
 	}
 
 	first, err := google.ImportDocument(ctx, scope, services.GoogleImportInput{

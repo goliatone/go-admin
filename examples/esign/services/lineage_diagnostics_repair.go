@@ -312,16 +312,17 @@ func (s DefaultLineageRepairService) RepairDocument(ctx context.Context, scope s
 		if loadDocErr != nil {
 			return LineageRepairResult{}, loadDocErr
 		}
-		sourceRevision, err := s.readModels.lineage.GetSourceRevision(ctx, scope, document.SourceRevisionID)
-		if err != nil {
-			return LineageRepairResult{}, err
+		sourceRevision, loadRevisionErr := s.readModels.lineage.GetSourceRevision(ctx, scope, document.SourceRevisionID)
+		if loadRevisionErr != nil {
+			return LineageRepairResult{}, loadRevisionErr
 		}
-		sourceArtifact, err := s.readModels.documentArtifact(ctx, scope, document, sourceRevision.ID)
-		if err != nil && !isNotFound(err) {
-			return LineageRepairResult{}, err
+		sourceArtifact, loadArtifactErr := s.readModels.documentArtifact(ctx, scope, document, sourceRevision.ID)
+		if loadArtifactErr != nil && !isNotFound(loadArtifactErr) {
+			return LineageRepairResult{}, loadArtifactErr
 		}
-		if err := s.runRepairOperations(ctx, scope, sourceDocument, sourceRevision, sourceArtifact); err != nil {
-			return LineageRepairResult{}, err
+		repairErr := s.runRepairOperations(ctx, scope, sourceDocument, sourceRevision, sourceArtifact)
+		if repairErr != nil {
+			return LineageRepairResult{}, repairErr
 		}
 	}
 	detail, err := s.readModels.GetDocumentLineageDetail(ctx, scope, document.ID)
@@ -364,16 +365,16 @@ func (s DefaultLineageRepairService) RepairAgreement(ctx context.Context, scope 
 		if loadRevisionErr != nil {
 			return LineageRepairResult{}, loadRevisionErr
 		}
-		sourceDocument, err := s.readModels.lineage.GetSourceDocument(ctx, scope, sourceRevision.SourceDocumentID)
-		if err != nil {
-			return LineageRepairResult{}, err
+		sourceDocument, loadDocumentErr := s.readModels.lineage.GetSourceDocument(ctx, scope, sourceRevision.SourceDocumentID)
+		if loadDocumentErr != nil {
+			return LineageRepairResult{}, loadDocumentErr
 		}
-		sourceArtifact, err := s.readModels.documentArtifact(ctx, scope, document, sourceRevision.ID)
-		if err != nil && !isNotFound(err) {
-			return LineageRepairResult{}, err
+		sourceArtifact, artifactErr := s.readModels.documentArtifact(ctx, scope, document, sourceRevision.ID)
+		if artifactErr != nil && !isNotFound(artifactErr) {
+			return LineageRepairResult{}, artifactErr
 		}
-		if err := s.runRepairOperations(ctx, scope, sourceDocument, sourceRevision, sourceArtifact); err != nil {
-			return LineageRepairResult{}, err
+		if repairErr := s.runRepairOperations(ctx, scope, sourceDocument, sourceRevision, sourceArtifact); repairErr != nil {
+			return LineageRepairResult{}, repairErr
 		}
 	}
 	detail, err := s.readModels.GetAgreementLineageDetail(ctx, scope, agreement.ID)

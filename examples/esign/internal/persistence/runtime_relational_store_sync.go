@@ -47,8 +47,9 @@ func (b *runtimeRelationalStoreSync) LoadPayload(ctx context.Context) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	if err := validateRuntimeSnapshot(snapshot); err != nil {
-		return nil, err
+	validateErr := validateRuntimeSnapshot(snapshot)
+	if validateErr != nil {
+		return nil, validateErr
 	}
 	payload, err := json.Marshal(snapshot)
 	if err != nil {
@@ -875,8 +876,8 @@ func deleteMissingRowsByKey(
 	}
 	if len(keys) == 0 {
 		// #nosec G201,G202 -- table identifier is validated before query construction.
-		_, err := tx.ExecContext(ctx, `DELETE FROM `+tableName)
-		return err
+		_, execErr := tx.ExecContext(ctx, `DELETE FROM `+tableName)
+		return execErr
 	}
 	placeholders := make([]string, 0, len(keys))
 	args := make([]any, 0, len(keys))

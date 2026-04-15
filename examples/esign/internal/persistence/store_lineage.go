@@ -809,8 +809,9 @@ func (s *relationalTxStore) CreateSourceRevision(ctx context.Context, scope stor
 	if err != nil {
 		return stores.SourceRevisionRecord{}, err
 	}
-	if _, err := loadSourceDocumentRecord(ctx, s.tx, scope, record.SourceDocumentID); err != nil {
-		return stores.SourceRevisionRecord{}, err
+	_, loadErr := loadSourceDocumentRecord(ctx, s.tx, scope, record.SourceDocumentID)
+	if loadErr != nil {
+		return stores.SourceRevisionRecord{}, loadErr
 	}
 	handle, err := loadSourceHandleRecord(ctx, s.tx, scope, record.SourceHandleID)
 	if err != nil {
@@ -932,8 +933,9 @@ func (s *relationalTxStore) CreateSourceFingerprint(ctx context.Context, scope s
 	if err != nil {
 		return stores.SourceFingerprintRecord{}, err
 	}
-	if _, err := loadSourceRevisionRecord(ctx, s.tx, scope, record.SourceRevisionID); err != nil {
-		return stores.SourceFingerprintRecord{}, err
+	_, loadErr := loadSourceRevisionRecord(ctx, s.tx, scope, record.SourceRevisionID)
+	if loadErr != nil {
+		return stores.SourceFingerprintRecord{}, loadErr
 	}
 	artifact, err := loadSourceArtifactRecord(ctx, s.tx, scope, record.ArtifactID)
 	if err != nil {

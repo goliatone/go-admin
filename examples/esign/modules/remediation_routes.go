@@ -60,8 +60,8 @@ func (t *remediationCommandTrigger) TriggerRemediation(ctx context.Context, inpu
 	idempotencyKey := strings.TrimSpace(input.IdempotencyKey)
 	cacheKey := remediationIdempotencyKey(scope, documentID, idempotencyKey, string(mode))
 	if cacheKey != "" {
-		record, err := t.dispatches.GetRemediationDispatchByIdempotencyKey(ctx, scope, cacheKey)
-		if err == nil {
+		record, lookupErr := t.dispatches.GetRemediationDispatchByIdempotencyKey(ctx, scope, cacheKey)
+		if lookupErr == nil {
 			receipt := remediationDispatchReceiptFromRecord(record)
 			observability.ObserveRemediationDuplicateSuppressed(ctx)
 			observability.ObserveCommandDispatch(ctx, commands.CommandPDFRemediate, receipt.Mode, receipt.Accepted, 0)
@@ -75,8 +75,8 @@ func (t *remediationCommandTrigger) TriggerRemediation(ctx context.Context, inpu
 			})
 			return receipt, nil
 		}
-		if !isNotFoundStoreError(err) {
-			return handlers.RemediationDispatchReceipt{}, fmt.Errorf("lookup remediation dispatch idempotency key: %w", err)
+		if !isNotFoundStoreError(lookupErr) {
+			return handlers.RemediationDispatchReceipt{}, fmt.Errorf("lookup remediation dispatch idempotency key: %w", lookupErr)
 		}
 	}
 	now := time.Now().UTC()

@@ -24,8 +24,8 @@ func TestSignerAssetContractResolveIncludesSourceObjectWhenBlobExists(t *testing
 		t.Fatalf("Get document: %v", err)
 	}
 	objectStore := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(t.TempDir())))
-	if _, err := objectStore.UploadFile(ctx, doc.SourceObjectKey, GenerateDeterministicPDF(1), uploader.WithContentType("application/pdf")); err != nil {
-		t.Fatalf("UploadFile source object: %v", err)
+	if _, uploadErr := objectStore.UploadFile(ctx, doc.SourceObjectKey, GenerateDeterministicPDF(1), uploader.WithContentType("application/pdf")); uploadErr != nil {
+		t.Fatalf("UploadFile source object: %v", uploadErr)
 	}
 
 	service := NewSignerAssetContractService(store, WithSignerAssetObjectStore(objectStore))

@@ -167,8 +167,9 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 	if err != nil {
 		return GoogleOAuthStatus{}, err
 	}
-	if err := s.ensureProviderHealthy(ctx); err != nil {
-		return GoogleOAuthStatus{}, err
+	healthErr := s.ensureProviderHealthy(ctx)
+	if healthErr != nil {
+		return GoogleOAuthStatus{}, healthErr
 	}
 	userID := normalizeRequiredID("google", "user_id", input.UserID)
 	if userID == "" {
@@ -566,8 +567,9 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 	defer func() {
 		observability.ObserveGoogleImport(ctx, err == nil, googleTelemetryReason(err))
 	}()
-	if err := s.ensureProviderHealthy(ctx); err != nil {
-		return GoogleImportResult{}, err
+	healthErr := s.ensureProviderHealthy(ctx)
+	if healthErr != nil {
+		return GoogleImportResult{}, healthErr
 	}
 	if s.provider == nil {
 		return GoogleImportResult{}, domainValidationError("google", "service", "provider not configured")

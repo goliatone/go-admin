@@ -698,29 +698,31 @@ func (s PDFService) Normalize(ctx context.Context, scope stores.Scope, raw []byt
 	source := append([]byte{}, raw...)
 	outDoc := gofpdf.New("P", "pt", "Letter", "")
 	outDoc.SetCompression(false)
-	if err := s.RenderSourcePages(opCtx, scope, outDoc, source, analysis.PageCount, nil); err != nil {
+	renderErr := s.RenderSourcePages(opCtx, scope, outDoc, source, analysis.PageCount, nil)
+	if renderErr != nil {
 		if mapped := mapContextPDFError("normalize", opCtx.Err(), PDFReasonTimeoutNormalize); mapped != nil {
 			return PDFNormalized{}, mapped
 		}
 		var pdfErr *PDFError
-		if errors.As(err, &pdfErr) {
+		if errors.As(renderErr, &pdfErr) {
 			return PDFNormalized{}, &PDFError{
 				Op:     "normalize",
 				Reason: pdfErr.Reason,
 				Page:   pdfErr.Page,
 				Box:    pdfErr.Box,
-				Cause:  err,
+				Cause:  renderErr,
 			}
 		}
-		return PDFNormalized{}, pdfErrorf("normalize", PDFReasonImportFailed, err)
+		return PDFNormalized{}, pdfErrorf("normalize", PDFReasonImportFailed, renderErr)
 	}
 	if mapped := mapContextPDFError("normalize", opCtx.Err(), PDFReasonTimeoutNormalize); mapped != nil {
 		return PDFNormalized{}, mapped
 	}
 
 	var out bytes.Buffer
-	if err := outDoc.Output(&out); err != nil {
-		return PDFNormalized{}, pdfErrorf("normalize", PDFReasonImportFailed, err)
+	outputErr := outDoc.Output(&out)
+	if outputErr != nil {
+		return PDFNormalized{}, pdfErrorf("normalize", PDFReasonImportFailed, outputErr)
 	}
 	normalized := out.Bytes()
 	if len(normalized) == 0 || !bytes.HasPrefix(normalized, []byte("%PDF-")) {

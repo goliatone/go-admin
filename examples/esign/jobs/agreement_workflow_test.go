@@ -73,21 +73,23 @@ func setupSentAgreementForWorkflow(t *testing.T) (context.Context, stores.Scope,
 	if err != nil {
 		t.Fatalf("UpsertRecipientDraft signer two: %v", err)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, upsertErr := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerOne.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  intPtr(1),
 		Required:    new(true),
-	}); err != nil {
-		t.Fatalf("UpsertFieldDraft signer one: %v", err)
+	})
+	if upsertErr != nil {
+		t.Fatalf("UpsertFieldDraft signer one: %v", upsertErr)
 	}
-	if _, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
+	_, upsertErr = agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &signerTwo.ID,
 		Type:        new(stores.FieldTypeSignature),
 		PageNumber:  intPtr(1),
 		Required:    new(true),
-	}); err != nil {
-		t.Fatalf("UpsertFieldDraft signer two: %v", err)
+	})
+	if upsertErr != nil {
+		t.Fatalf("UpsertFieldDraft signer two: %v", upsertErr)
 	}
 
 	sent, err := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{IdempotencyKey: "workflow-send"})

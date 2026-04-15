@@ -72,8 +72,8 @@ func TestPDFRemediationServiceLifecycleAgreementAuditAndProjection(t *testing.T)
 	if result.OutputObjectKey != result.Document.RemediationOutputKey {
 		t.Fatalf("expected result output key %q to match persisted %q", result.OutputObjectKey, result.Document.RemediationOutputKey)
 	}
-	if _, err := objects.GetFile(ctx, result.OutputObjectKey); err != nil {
-		t.Fatalf("GetFile remediation output: %v", err)
+	if _, getErr := objects.GetFile(ctx, result.OutputObjectKey); getErr != nil {
+		t.Fatalf("GetFile remediation output: %v", getErr)
 	}
 
 	updated, err := store.Get(ctx, scope, document.ID)

@@ -128,15 +128,18 @@ func TestStoreAdapterPreservesCommittedStateUnderConcurrentWithTx(t *testing.T) 
 	}()
 
 	close(releaseMutating)
-	if err := <-mutatingDone; err != nil {
-		t.Fatalf("mutating tx: %v", err)
+	mutatingErr := <-mutatingDone
+	if mutatingErr != nil {
+		t.Fatalf("mutating tx: %v", mutatingErr)
 	}
 	<-staleEntered
-	if err := <-staleDone; err != nil {
-		t.Fatalf("stale tx: %v", err)
+	staleErr := <-staleDone
+	if staleErr != nil {
+		t.Fatalf("stale tx: %v", staleErr)
 	}
 
-	if _, err := store.GetDraftSession(ctx, scope, draft.ID); err == nil {
+	_, getDraftErr := store.GetDraftSession(ctx, scope, draft.ID)
+	if getDraftErr == nil {
 		t.Fatalf("expected draft deletion to persist")
 	}
 	agreement, err := store.GetAgreement(ctx, scope, "agreement-race")

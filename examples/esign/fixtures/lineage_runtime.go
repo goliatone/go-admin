@@ -146,8 +146,8 @@ func EnsureLineageQAFixtures(
 		{key: keys.ImportedV2SourceObjectKey, payload: importedV2PDF.payload},
 		{key: keys.ImportedV2NormalizedObjectKey, payload: importedV2PDF.payload},
 	} {
-		if _, err := uploads.UploadFile(ctx, upload.key, upload.payload, uploader.WithContentType("application/pdf")); err != nil {
-			return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: upload %s: %w", strings.TrimSpace(upload.key), err)
+		if _, uploadErr := uploads.UploadFile(ctx, upload.key, upload.payload, uploader.WithContentType("application/pdf")); uploadErr != nil {
+			return stores.LineageFixtureSet{}, fmt.Errorf("lineage qa fixtures: upload %s: %w", strings.TrimSpace(upload.key), uploadErr)
 		}
 	}
 
