@@ -1,5 +1,33 @@
 # Changelog
 
+# [0.51.0](https://github.com/goliatone/go-admin/compare/v0.50.0...v0.51.0) - (2026-04-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code issues ([7e64471](https://github.com/goliatone/go-admin/commit/7e6447160f9a4af180697c4fcd64212b4460a670))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.51.0 ([ce608b1](https://github.com/goliatone/go-admin/commit/ce608b114280c46e028414016bb1cd710ce8d1bf))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Hot schema migration, activity integration for media ([66dc874](https://github.com/goliatone/go-admin/commit/66dc874196f38dfa8fa745c80952f7ec8ebf3854))  - (goliatone)
+- Schema, picker, gallery productization ([f0b956b](https://github.com/goliatone/go-admin/commit/f0b956bec4ece91fb5a1369b50a7431b126eabf1))  - (goliatone)
+- Media module config, auth, routing updates ([9f8e16a](https://github.com/goliatone/go-admin/commit/9f8e16ae959d0b688ca072d3ad469bc7d97820ed))  - (goliatone)
+- Admin debug toolbar inject optoins ([8b79f8b](https://github.com/goliatone/go-admin/commit/8b79f8b86bb1ca6d590d32cef663752e91809b7f))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.50.0 ([b4486fc](https://github.com/goliatone/go-admin/commit/b4486fc7e73edbd70487d7b7ba009c0892c85308))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Fix code ([02bc7e0](https://github.com/goliatone/go-admin/commit/02bc7e0a71f4aa0f7e98296c96b9040a6db65258))  - (goliatone)
+- Update deps ([8cee0e5](https://github.com/goliatone/go-admin/commit/8cee0e55d066f4a21c32b449d0bc9aab20ab34d4))  - (goliatone)
+- Fix linting and quality of code issues ([f12ff62](https://github.com/goliatone/go-admin/commit/f12ff6209cdf3dd7d71109b5f46bfe3147c865a7))  - (goliatone)
+- Update tests ([5f1d7e4](https://github.com/goliatone/go-admin/commit/5f1d7e49d913ebfe2c4ddb7eb691e61451282e7a))  - (goliatone)
+
 # [0.50.0](https://github.com/goliatone/go-admin/compare/v0.49.0...v0.50.0) - (2026-04-15)
 
 ## <!-- 1 -->🐛 Bug Fixes
