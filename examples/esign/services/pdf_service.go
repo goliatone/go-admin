@@ -599,32 +599,8 @@ func (s PDFService) Policy(ctx context.Context, scope stores.Scope) PDFPolicy {
 func (s PDFService) Analyze(ctx context.Context, scope stores.Scope, raw []byte) (PDFAnalysis, error) {
 	policy := s.Policy(ctx, scope)
 	payload := append([]byte{}, raw...)
-	if len(bytes.TrimSpace(payload)) == 0 {
-		return PDFAnalysis{}, pdfErrorf("analyze", PDFReasonInvalidInputRequired, nil)
-	}
-	if policy.MaxSourceBytes > 0 && int64(len(payload)) > policy.MaxSourceBytes {
-		return PDFAnalysis{}, pdfErrorf("analyze", PDFReasonPolicyMaxSourceBytes, nil)
-	}
-	if !bytes.HasPrefix(payload, []byte("%PDF-")) {
-		return PDFAnalysis{}, pdfErrorf("analyze", PDFReasonInvalidInputNotPDF, nil)
-	}
-	if !policy.AllowEncrypted && hasPDFEncryptedMarker(payload) {
-		return PDFAnalysis{}, pdfErrorf("analyze", PDFReasonPolicyEncryptedDisallowed, nil)
-	}
-	if !policy.AllowJavaScriptActions && hasPDFJavaScriptMarker(payload) {
-		return PDFAnalysis{}, pdfErrorf("analyze", PDFReasonPolicyJavaScriptDisallowed, nil)
-	}
-	if policy.MaxObjects > 0 {
-		objectCount := estimatePDFObjectCount(payload)
-		if objectCount > policy.MaxObjects {
-			return PDFAnalysis{}, pdfErrorf("analyze", PDFReasonPolicyMaxObjects, nil)
-		}
-	}
-	if policy.MaxDecompressedBytes > 0 {
-		estimated := estimatePDFDecompressedBytes(payload)
-		if estimated > policy.MaxDecompressedBytes {
-			return PDFAnalysis{}, pdfErrorf("analyze", PDFReasonPolicyMaxDecompressedBytes, nil)
-		}
+	if err := validatePDFAnalyzePayload(policy, payload); err != nil {
+		return PDFAnalysis{}, err
 	}
 
 	opCtx, cancel := context.WithTimeout(ctx, policy.ParseTimeout)
@@ -653,6 +629,41 @@ func (s PDFService) Analyze(ctx context.Context, scope stores.Scope, raw []byte)
 		ReasonCode:          "",
 		NormalizationStatus: PDFNormalizationStatusNotRequested,
 	}, nil
+}
+
+func validatePDFAnalyzePayload(policy PDFPolicy, payload []byte) error {
+	if len(bytes.TrimSpace(payload)) == 0 {
+		return pdfErrorf("analyze", PDFReasonInvalidInputRequired, nil)
+	}
+	if policy.MaxSourceBytes > 0 && int64(len(payload)) > policy.MaxSourceBytes {
+		return pdfErrorf("analyze", PDFReasonPolicyMaxSourceBytes, nil)
+	}
+	if !bytes.HasPrefix(payload, []byte("%PDF-")) {
+		return pdfErrorf("analyze", PDFReasonInvalidInputNotPDF, nil)
+	}
+	if !policy.AllowEncrypted && hasPDFEncryptedMarker(payload) {
+		return pdfErrorf("analyze", PDFReasonPolicyEncryptedDisallowed, nil)
+	}
+	if !policy.AllowJavaScriptActions && hasPDFJavaScriptMarker(payload) {
+		return pdfErrorf("analyze", PDFReasonPolicyJavaScriptDisallowed, nil)
+	}
+	return validatePDFAnalyzeEstimates(policy, payload)
+}
+
+func validatePDFAnalyzeEstimates(policy PDFPolicy, payload []byte) error {
+	if policy.MaxObjects > 0 {
+		objectCount := estimatePDFObjectCount(payload)
+		if objectCount > policy.MaxObjects {
+			return pdfErrorf("analyze", PDFReasonPolicyMaxObjects, nil)
+		}
+	}
+	if policy.MaxDecompressedBytes > 0 {
+		estimated := estimatePDFDecompressedBytes(payload)
+		if estimated > policy.MaxDecompressedBytes {
+			return pdfErrorf("analyze", PDFReasonPolicyMaxDecompressedBytes, nil)
+		}
+	}
+	return nil
 }
 
 // Normalize attempts to generate a safer/portable PDF variant from source bytes.
@@ -846,10 +857,7 @@ func (s PDFService) RenderSourcePages(
 		return err
 	}
 
-	pageCount := requestedPages
-	if pageCount <= 0 || pageCount > analysis.PageCount {
-		pageCount = analysis.PageCount
-	}
+	pageCount := resolveRenderedSourcePageCount(requestedPages, analysis.PageCount)
 	if pageCount <= 0 {
 		return pdfErrorf("render_source_pages", PDFReasonInvalidInputRequired, nil)
 	}
@@ -860,57 +868,81 @@ func (s PDFService) RenderSourcePages(
 
 	importer := gofpdi.NewImporter()
 	for page := 1; page <= pageCount; page++ {
-		if mapped := mapContextPDFError("render_source_pages", opCtx.Err(), PDFReasonTimeoutParse); mapped != nil {
-			return mapped
-		}
-		// Import /MediaBox first to avoid zero-sized /CropBox transformations.
-		tplID, box, importErr := safeImportPageWithBoxesWithContext(opCtx, importer, pdfDoc, sourcePDF, page, "/MediaBox", "/CropBox")
-		if importErr != nil {
-			if mapped := mapContextPDFError("render_source_pages", importErr, PDFReasonTimeoutParse); mapped != nil {
-				return mapped
-			}
-			return &PDFError{
-				Op:     "render_source_pages",
-				Reason: PDFReasonImportFailed,
-				Page:   page,
-				Box:    strings.TrimSpace(box),
-				Cause:  importErr,
-			}
-		}
-		width, height := importedPageSize(importer.GetPageSizes(), page)
-		if width <= 0 {
-			width = PDFDefaultPageWidthPt
-		}
-		if height <= 0 {
-			height = PDFDefaultPageHeightPt
-		}
-		orientation := "P"
-		if width > height {
-			orientation = "L"
-		}
-		pdfDoc.AddPageFormat(orientation, gofpdf.SizeType{Wd: width, Ht: height})
-		if useErr := safeUseImportedTemplateWithContext(opCtx, importer, pdfDoc, tplID, 0, 0, width, height); useErr != nil {
-			if mapped := mapContextPDFError("render_source_pages", useErr, PDFReasonTimeoutParse); mapped != nil {
-				return mapped
-			}
-			return &PDFError{
-				Op:     "render_source_pages",
-				Reason: PDFReasonImportFailed,
-				Page:   page,
-				Box:    strings.TrimSpace(box),
-				Cause:  useErr,
-			}
-		}
-		if onPage != nil {
-			if err := onPage(page, width, height); err != nil {
-				return err
-			}
+		if err := renderSourcePage(opCtx, importer, pdfDoc, sourcePDF, page, onPage); err != nil {
+			return err
 		}
 	}
 	if mapped := mapContextPDFError("render_source_pages", opCtx.Err(), PDFReasonTimeoutParse); mapped != nil {
 		return mapped
 	}
 	return nil
+}
+
+func resolveRenderedSourcePageCount(requestedPages, analysisPageCount int) int {
+	pageCount := requestedPages
+	if pageCount <= 0 || pageCount > analysisPageCount {
+		pageCount = analysisPageCount
+	}
+	return pageCount
+}
+
+func renderSourcePage(
+	opCtx context.Context,
+	importer *gofpdi.Importer,
+	pdfDoc *gofpdf.Fpdf,
+	sourcePDF []byte,
+	page int,
+	onPage func(page int, width, height float64) error,
+) error {
+	if mapped := mapContextPDFError("render_source_pages", opCtx.Err(), PDFReasonTimeoutParse); mapped != nil {
+		return mapped
+	}
+	tplID, box, err := safeImportPageWithBoxesWithContext(opCtx, importer, pdfDoc, sourcePDF, page, "/MediaBox", "/CropBox")
+	if err != nil {
+		return renderSourcePageImportError(err, page, box)
+	}
+	width, height := importedPageDimensions(importer.GetPageSizes(), page)
+	pdfDoc.AddPageFormat(importedPageOrientation(width, height), gofpdf.SizeType{Wd: width, Ht: height})
+	if useErr := safeUseImportedTemplateWithContext(opCtx, importer, pdfDoc, tplID, 0, 0, width, height); useErr != nil {
+		return renderSourcePageImportError(useErr, page, box)
+	}
+	if onPage != nil {
+		if callbackErr := onPage(page, width, height); callbackErr != nil {
+			return callbackErr
+		}
+	}
+	return nil
+}
+
+func renderSourcePageImportError(err error, page int, box string) error {
+	if mapped := mapContextPDFError("render_source_pages", err, PDFReasonTimeoutParse); mapped != nil {
+		return mapped
+	}
+	return &PDFError{
+		Op:     "render_source_pages",
+		Reason: PDFReasonImportFailed,
+		Page:   page,
+		Box:    strings.TrimSpace(box),
+		Cause:  err,
+	}
+}
+
+func importedPageDimensions(pageSizes map[int]map[string]map[string]float64, page int) (float64, float64) {
+	width, height := importedPageSize(pageSizes, page)
+	if width <= 0 {
+		width = PDFDefaultPageWidthPt
+	}
+	if height <= 0 {
+		height = PDFDefaultPageHeightPt
+	}
+	return width, height
+}
+
+func importedPageOrientation(width, height float64) string {
+	if width > height {
+		return "L"
+	}
+	return "P"
 }
 
 func importedPageSize(pageSizes map[int]map[string]map[string]float64, page int) (float64, float64) {

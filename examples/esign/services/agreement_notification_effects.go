@@ -592,45 +592,30 @@ func (s AgreementNotificationRecoveryService) resumeAgreementNotificationEffect(
 		CorrelationID:       correlationID,
 		Type:                notificationType,
 	}
-	switch notificationType {
-	case NotificationReviewInvitation:
-		if reviewParticipantID == "" {
-			return AgreementNotificationEffectDetail{}, "", fmt.Errorf("resume guarded effect: missing review participant")
-		}
-		participant, err := loadReviewNotificationParticipant(ctx, tx, scope, agreementID, notification.ReviewID, reviewParticipantID)
-		if err != nil {
-			return AgreementNotificationEffectDetail{}, "", err
-		}
-		if notification.ReviewID == "" {
-			notification.ReviewID = strings.TrimSpace(participant.ReviewID)
-		}
-		notification.RecipientID = strings.TrimSpace(participant.RecipientID)
-		notification.RecipientEmail = strings.TrimSpace(participant.Email)
-		notification.RecipientName = strings.TrimSpace(participant.DisplayName)
-		if reviewTokens == nil {
-			return AgreementNotificationEffectDetail{}, "", domainValidationError("review_session_tokens", "service", "not configured")
-		}
-		issued, err := reviewTokens.Rotate(ctx, scope, agreementID, notification.ReviewID, reviewParticipantID)
-		if err != nil {
-			return AgreementNotificationEffectDetail{}, "", err
-		}
-		notification.ReviewToken = issued
-	default:
-		if recipientID == "" {
-			return AgreementNotificationEffectDetail{}, "", fmt.Errorf("resume guarded effect: missing agreement recipient")
-		}
-		if tokens == nil {
-			return AgreementNotificationEffectDetail{}, "", domainValidationError("signing_tokens", "service", "not configured")
-		}
-		if pendingTokenID := strings.TrimSpace(payload.PendingTokenID); pendingTokenID != "" {
-			_, _ = tokens.AbortPending(ctx, scope, pendingTokenID)
-		}
-		issued, err := tokens.IssuePending(ctx, scope, agreementID, recipientID)
-		if err != nil {
-			return AgreementNotificationEffectDetail{}, "", err
-		}
-		notification.Token = issued
+	notification, err := resumeAgreementNotificationDelivery(ctx, tx, tokens, reviewTokens, scope, agreementID, payload, notification)
+	if err != nil {
+		return AgreementNotificationEffectDetail{}, "", err
 	}
+	record, outboxRecord, err := prepareResumedAgreementNotificationEffect(record, scope, agreementID, correlationID, payload, notification, now)
+	if err != nil {
+		return AgreementNotificationEffectDetail{}, "", err
+	}
+	saved, err := persistResumedAgreementNotificationEffect(ctx, tx, scope, agreementID, record, outboxRecord)
+	if err != nil {
+		return AgreementNotificationEffectDetail{}, "", err
+	}
+	appendAgreementNotificationResumeAudit(ctx, tx, scope, agreementID, saved, notification, payload, input, correlationID, now)
+	return AgreementNotificationEffectDetailFromRecord(saved), agreementID, nil
+}
+
+func prepareResumedAgreementNotificationEffect(
+	record guardedeffects.Record,
+	scope stores.Scope,
+	agreementID, correlationID string,
+	payload agreementNotificationEffectPreparePayload,
+	notification AgreementNotification,
+	now time.Time,
+) (guardedeffects.Record, stores.OutboxMessageRecord, error) {
 	preparePayload, err := json.Marshal(agreementNotificationEffectPreparePayload{
 		AgreementID:         agreementID,
 		ReviewID:            strings.TrimSpace(notification.ReviewID),
@@ -641,11 +626,11 @@ func (s AgreementNotificationRecoveryService) resumeAgreementNotificationEffect(
 		FailureAuditEvent:   strings.TrimSpace(payload.FailureAuditEvent),
 	})
 	if err != nil {
-		return AgreementNotificationEffectDetail{}, "", err
+		return guardedeffects.Record{}, stores.OutboxMessageRecord{}, err
 	}
 	outboxRecord, err := buildEmailNotificationOutboxRecord(scope, notification, strings.TrimSpace(payload.FailureAuditEvent), now)
 	if err != nil {
-		return AgreementNotificationEffectDetail{}, "", err
+		return guardedeffects.Record{}, stores.OutboxMessageRecord{}, err
 	}
 	record.CorrelationID = correlationID
 	record.Status = guardedeffects.StatusPrepared
@@ -660,16 +645,42 @@ func (s AgreementNotificationRecoveryService) resumeAgreementNotificationEffect(
 	record.UpdatedAt = now
 	record.GroupType = strings.TrimSpace(firstNonEmpty(record.GroupType, GuardedEffectGroupTypeAgreement))
 	record.GroupID = strings.TrimSpace(firstNonEmpty(record.GroupID, agreementID))
+	return record, outboxRecord, nil
+}
+
+func persistResumedAgreementNotificationEffect(
+	ctx context.Context,
+	tx stores.TxStore,
+	scope stores.Scope,
+	agreementID string,
+	record guardedeffects.Record,
+	outboxRecord stores.OutboxMessageRecord,
+) (guardedeffects.Record, error) {
 	saved, err := tx.SaveGuardedEffect(ctx, scope, record)
 	if err != nil {
-		return AgreementNotificationEffectDetail{}, "", err
+		return guardedeffects.Record{}, err
 	}
 	if _, err := tx.EnqueueOutboxMessage(ctx, scope, outboxRecord); err != nil {
-		return AgreementNotificationEffectDetail{}, "", err
+		return guardedeffects.Record{}, err
 	}
 	if _, _, err := ApplyAgreementNotificationSummary(ctx, tx, tx, scope, agreementID); err != nil {
-		return AgreementNotificationEffectDetail{}, "", err
+		return guardedeffects.Record{}, err
 	}
+	return saved, nil
+}
+
+func appendAgreementNotificationResumeAudit(
+	ctx context.Context,
+	tx stores.TxStore,
+	scope stores.Scope,
+	agreementID string,
+	saved guardedeffects.Record,
+	notification AgreementNotification,
+	payload agreementNotificationEffectPreparePayload,
+	input GuardedEffectResumeInput,
+	correlationID string,
+	now time.Time,
+) {
 	metadata, _ := json.Marshal(map[string]any{
 		"effect_id":             strings.TrimSpace(saved.EffectID),
 		"recipient_id":          strings.TrimSpace(notification.RecipientID),
@@ -690,7 +701,82 @@ func (s AgreementNotificationRecoveryService) resumeAgreementNotificationEffect(
 		MetadataJSON: string(metadata),
 		CreatedAt:    now,
 	})
-	return AgreementNotificationEffectDetailFromRecord(saved), agreementID, nil
+}
+
+func resumeAgreementNotificationDelivery(
+	ctx context.Context,
+	tx stores.TxStore,
+	tokens AgreementTokenService,
+	reviewTokens AgreementReviewTokenService,
+	scope stores.Scope,
+	agreementID string,
+	payload agreementNotificationEffectPreparePayload,
+	notification AgreementNotification,
+) (AgreementNotification, error) {
+	switch notification.Type {
+	case NotificationReviewInvitation:
+		return resumeReviewAgreementNotification(ctx, tx, reviewTokens, scope, agreementID, notification)
+	default:
+		return resumeSigningAgreementNotification(ctx, tokens, scope, agreementID, strings.TrimSpace(payload.PendingTokenID), notification)
+	}
+}
+
+func resumeReviewAgreementNotification(
+	ctx context.Context,
+	tx stores.TxStore,
+	reviewTokens AgreementReviewTokenService,
+	scope stores.Scope,
+	agreementID string,
+	notification AgreementNotification,
+) (AgreementNotification, error) {
+	reviewParticipantID := strings.TrimSpace(notification.ReviewParticipantID)
+	if reviewParticipantID == "" {
+		return AgreementNotification{}, fmt.Errorf("resume guarded effect: missing review participant")
+	}
+	participant, err := loadReviewNotificationParticipant(ctx, tx, scope, agreementID, notification.ReviewID, reviewParticipantID)
+	if err != nil {
+		return AgreementNotification{}, err
+	}
+	if notification.ReviewID == "" {
+		notification.ReviewID = strings.TrimSpace(participant.ReviewID)
+	}
+	notification.RecipientID = strings.TrimSpace(participant.RecipientID)
+	notification.RecipientEmail = strings.TrimSpace(participant.Email)
+	notification.RecipientName = strings.TrimSpace(participant.DisplayName)
+	if reviewTokens == nil {
+		return AgreementNotification{}, domainValidationError("review_session_tokens", "service", "not configured")
+	}
+	issued, err := reviewTokens.Rotate(ctx, scope, agreementID, notification.ReviewID, reviewParticipantID)
+	if err != nil {
+		return AgreementNotification{}, err
+	}
+	notification.ReviewToken = issued
+	return notification, nil
+}
+
+func resumeSigningAgreementNotification(
+	ctx context.Context,
+	tokens AgreementTokenService,
+	scope stores.Scope,
+	agreementID, pendingTokenID string,
+	notification AgreementNotification,
+) (AgreementNotification, error) {
+	recipientID := strings.TrimSpace(notification.RecipientID)
+	if recipientID == "" {
+		return AgreementNotification{}, fmt.Errorf("resume guarded effect: missing agreement recipient")
+	}
+	if tokens == nil {
+		return AgreementNotification{}, domainValidationError("signing_tokens", "service", "not configured")
+	}
+	if pendingTokenID != "" {
+		_, _ = tokens.AbortPending(ctx, scope, pendingTokenID)
+	}
+	issued, err := tokens.IssuePending(ctx, scope, agreementID, recipientID)
+	if err != nil {
+		return AgreementNotification{}, err
+	}
+	notification.Token = issued
+	return notification, nil
 }
 
 func cloneAgreementTime(src *time.Time) *time.Time {

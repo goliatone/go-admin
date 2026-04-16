@@ -1122,39 +1122,96 @@ type resolvedReviewReminderTarget struct {
 	State       derivedReviewReminderState              `json:"state"`
 }
 
-func (s AgreementService) resolveReviewReminderTarget(ctx context.Context, scope stores.Scope, agreementID, participantID, recipientID string) (resolvedReviewReminderTarget, error) {
+func resolveActiveReviewReminderContext(
+	ctx context.Context,
+	agreements stores.AgreementStore,
+	scope stores.Scope,
+	agreementID string,
+) (stores.AgreementRecord, stores.AgreementReviewRecord, []stores.AgreementReviewParticipantRecord, error) {
 	agreementID = strings.TrimSpace(agreementID)
 	if agreementID == "" {
-		return resolvedReviewReminderTarget{}, domainValidationError("agreements", "id", "required")
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, domainValidationError("agreements", "id", "required")
 	}
-	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	agreement, err := agreements.GetAgreement(ctx, scope, agreementID)
 	if err != nil {
-		return resolvedReviewReminderTarget{}, err
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, err
 	}
 	if strings.TrimSpace(agreement.Status) != stores.AgreementStatusDraft {
-		return resolvedReviewReminderTarget{}, domainValidationError("agreements", "status", "review reminders require draft agreement")
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, domainValidationError("agreements", "status", "review reminders require draft agreement")
 	}
-	review, err := s.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+	review, err := agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
 	if err != nil {
-		return resolvedReviewReminderTarget{}, err
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, err
 	}
-	validateErr := ensureReviewCycleMutable(review, "agreement_reviews", "override_active")
-	if validateErr != nil {
-		return resolvedReviewReminderTarget{}, validateErr
+	if validateErr := ensureReviewCycleMutable(review, "agreement_reviews", "override_active"); validateErr != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, validateErr
 	}
 	if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
-		return resolvedReviewReminderTarget{}, domainValidationError("agreement_reviews", "status", "review reminders require active review")
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, domainValidationError("agreement_reviews", "status", "review reminders require active review")
 	}
-	participants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+	participants, err := agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
 	if err != nil {
-		return resolvedReviewReminderTarget{}, err
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, err
 	}
+	return agreement, review, participants, nil
+}
+
+func resolvePendingReviewReminderParticipant(
+	participants []stores.AgreementReviewParticipantRecord,
+	participantID, recipientID string,
+) (stores.AgreementReviewParticipantRecord, error) {
 	participant, _, err := findReviewParticipant(participants, participantID, recipientID)
 	if err != nil {
-		return resolvedReviewReminderTarget{}, err
+		return stores.AgreementReviewParticipantRecord{}, err
 	}
 	if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
-		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "decision_status", "review reminders require pending reviewer")
+		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_review_participants", "decision_status", "review reminders require pending reviewer")
+	}
+	return participant, nil
+}
+
+func sortAuditEventsByCreatedAt(events []stores.AuditEventRecord) {
+	sort.Slice(events, func(i, j int) bool {
+		if !events[i].CreatedAt.Equal(events[j].CreatedAt) {
+			return events[i].CreatedAt.Before(events[j].CreatedAt)
+		}
+		return events[i].ID < events[j].ID
+	})
+}
+
+func deriveResolvedReviewReminderState(
+	scope stores.Scope,
+	agreementID string,
+	review stores.AgreementReviewRecord,
+	participant stores.AgreementReviewParticipantRecord,
+	participants []stores.AgreementReviewParticipantRecord,
+	events []stores.AuditEventRecord,
+	now time.Time,
+) (derivedReviewReminderState, error) {
+	batch, signalsByParticipantID, ok := deriveReviewReminderBatchState(scope, strings.TrimSpace(review.ID), now, participants, events, ReminderPolicyFromConfig(appcfg.Active()))
+	if !ok {
+		return derivedReviewReminderState{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
+	}
+	signals, ok := signalsByParticipantID[strings.TrimSpace(participant.ID)]
+	if !ok {
+		return derivedReviewReminderState{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
+	}
+	derived, ok := deriveReviewReminderState(agreementID, review.Status, participant, batch, signals)
+	if !ok {
+		return derivedReviewReminderState{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
+	}
+	return derived, nil
+}
+
+func (s AgreementService) resolveReviewReminderTarget(ctx context.Context, scope stores.Scope, agreementID, participantID, recipientID string) (resolvedReviewReminderTarget, error) {
+	agreementID = strings.TrimSpace(agreementID)
+	agreement, review, participants, err := resolveActiveReviewReminderContext(ctx, s.agreements, scope, agreementID)
+	if err != nil {
+		return resolvedReviewReminderTarget{}, err
+	}
+	participant, err := resolvePendingReviewReminderParticipant(participants, participantID, recipientID)
+	if err != nil {
+		return resolvedReviewReminderTarget{}, err
 	}
 	if s.audits == nil {
 		return resolvedReviewReminderTarget{}, fmt.Errorf("review reminder audit store not configured")
@@ -1163,23 +1220,10 @@ func (s AgreementService) resolveReviewReminderTarget(ctx context.Context, scope
 	if err != nil {
 		return resolvedReviewReminderTarget{}, err
 	}
-	sort.Slice(events, func(i, j int) bool {
-		if !events[i].CreatedAt.Equal(events[j].CreatedAt) {
-			return events[i].CreatedAt.Before(events[j].CreatedAt)
-		}
-		return events[i].ID < events[j].ID
-	})
-	batch, signalsByParticipantID, ok := deriveReviewReminderBatchState(scope, strings.TrimSpace(review.ID), s.now().UTC(), participants, events, ReminderPolicyFromConfig(appcfg.Active()))
-	if !ok {
-		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
-	}
-	signals, ok := signalsByParticipantID[strings.TrimSpace(participant.ID)]
-	if !ok {
-		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
-	}
-	derived, ok := deriveReviewReminderState(agreementID, review.Status, participant, batch, signals)
-	if !ok {
-		return resolvedReviewReminderTarget{}, domainValidationError("agreement_review_participants", "participant_id", "review reminder state unavailable")
+	sortAuditEventsByCreatedAt(events)
+	derived, err := deriveResolvedReviewReminderState(scope, agreementID, review, participant, participants, events, s.now().UTC())
+	if err != nil {
+		return resolvedReviewReminderTarget{}, err
 	}
 	return resolvedReviewReminderTarget{
 		Agreement:   agreement,

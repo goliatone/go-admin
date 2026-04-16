@@ -484,25 +484,29 @@ func (h Handlers) shouldExecuteNotificationEffectDispatch(
 	return true, "", nil
 }
 
-func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailSendSigningRequestMsg) error {
-	startedAt := h.now()
-	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.AgreementID, notificationSubjectID(msg), JobEmailSendSigningRequest)
-	if h.agreements == nil || h.jobRuns == nil || h.emailLogs == nil {
-		err := fmt.Errorf("email job dependencies not configured")
-		observability.LogOperation(ctx, slog.LevelError, "job", "email_send_signing_request", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
-			"job_name": JobEmailSendSigningRequest,
-		})
-		return err
-	}
-	notification := resolveNotificationType(msg.Notification, msg.TemplateCode)
-	templateCode := resolveTemplateCode(msg.TemplateCode, notification)
-	isCompletionNotification := notification == string(services.NotificationCompletionPackage)
-	isReviewNotification := notification == string(services.NotificationReviewInvitation)
+func resolveEmailSendSigningRequestDedupeKey(
+	msg EmailSendSigningRequestMsg,
+	notification, templateCode string,
+) string {
 	dedupeKey := strings.TrimSpace(msg.DedupeKey)
-	if dedupeKey == "" {
-		dedupeKey = strings.Join([]string{msg.AgreementID, notificationSubjectID(msg), templateCode, notification, strings.TrimSpace(msg.CorrelationID)}, "|")
+	if dedupeKey != "" {
+		return dedupeKey
 	}
-	now := h.now()
+	return strings.Join([]string{
+		msg.AgreementID,
+		notificationSubjectID(msg),
+		templateCode,
+		notification,
+		strings.TrimSpace(msg.CorrelationID),
+	}, "|")
+}
+
+func (h Handlers) beginEmailSendSigningRequestRun(
+	ctx context.Context,
+	msg EmailSendSigningRequestMsg,
+	correlationID, dedupeKey string,
+	attemptedAt, startedAt time.Time,
+) (stores.JobRunRecord, bool, error) {
 	run, shouldRun, err := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
 		JobName:       JobEmailSendSigningRequest,
 		DedupeKey:     dedupeKey,
@@ -510,59 +514,63 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		RecipientID:   msg.RecipientID,
 		CorrelationID: correlationID,
 		MaxAttempts:   h.retryPolicy.resolveMaxAttempts(msg.MaxAttempts),
-		AttemptedAt:   now,
+		AttemptedAt:   attemptedAt,
 	})
-	if err != nil || !shouldRun {
-		if err != nil {
-			observability.LogOperation(ctx, slog.LevelWarn, "job", "email_send_signing_request", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
-				"job_name":   JobEmailSendSigningRequest,
-				"dedupe_key": dedupeKey,
-			})
-		}
-		return err
-	}
-	shouldDispatch, skipReason, err := h.shouldExecuteNotificationEffectDispatch(ctx, msg)
 	if err != nil {
-		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{
-			"notification": strings.TrimSpace(msg.Notification),
+		observability.LogOperation(ctx, slog.LevelWarn, "job", "email_send_signing_request", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+			"job_name":   JobEmailSendSigningRequest,
+			"dedupe_key": dedupeKey,
 		})
 	}
-	if !shouldDispatch {
-		_, markErr := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, now)
-		if markErr != nil {
-			return markErr
-		}
-		observability.ObserveJobResult(ctx, JobEmailSendSigningRequest, true)
-		observability.LogOperation(ctx, slog.LevelInfo, "job", "email_send_signing_request", "success", run.CorrelationID, h.now().Sub(startedAt), nil, map[string]any{
-			"job_name":              JobEmailSendSigningRequest,
-			"agreement_id":          strings.TrimSpace(msg.AgreementID),
-			"recipient_id":          strings.TrimSpace(msg.RecipientID),
-			"review_participant_id": strings.TrimSpace(msg.ReviewParticipantID),
-			"effect_id":             strings.TrimSpace(msg.EffectID),
-			"skip_reason":           strings.TrimSpace(skipReason),
-			"attempt_count":         run.AttemptCount,
-		})
-		return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.skipped", map[string]any{
-			"job_name":              JobEmailSendSigningRequest,
-			"agreement_id":          strings.TrimSpace(msg.AgreementID),
-			"recipient_id":          strings.TrimSpace(msg.RecipientID),
-			"review_participant_id": strings.TrimSpace(msg.ReviewParticipantID),
-			"effect_id":             strings.TrimSpace(msg.EffectID),
-			"notification":          strings.TrimSpace(notification),
-			"template_code":         strings.TrimSpace(templateCode),
-			"correlation_id":        strings.TrimSpace(run.CorrelationID),
-			"dedupe_key":            strings.TrimSpace(dedupeKey),
-			"skip_reason":           strings.TrimSpace(skipReason),
-			"attempt_count":         run.AttemptCount,
-		})
-	}
-	execution, err := h.prepareEmailSendSigningRequest(ctx, msg, run, now, notification, templateCode, isReviewNotification, isCompletionNotification)
-	if err != nil {
+	return run, shouldRun, err
+}
+
+func (h Handlers) markSkippedEmailSendSigningRequest(
+	ctx context.Context,
+	msg EmailSendSigningRequestMsg,
+	run stores.JobRunRecord,
+	notification, templateCode, dedupeKey, skipReason string,
+	startedAt time.Time,
+) error {
+	now := h.now()
+	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, now); err != nil {
 		return err
 	}
-	if err := h.sendEmailSendSigningRequest(ctx, msg, run, notification, templateCode, isCompletionNotification, &execution); err != nil {
-		return err
-	}
+	observability.ObserveJobResult(ctx, JobEmailSendSigningRequest, true)
+	observability.LogOperation(ctx, slog.LevelInfo, "job", "email_send_signing_request", "success", run.CorrelationID, h.now().Sub(startedAt), nil, map[string]any{
+		"job_name":              JobEmailSendSigningRequest,
+		"agreement_id":          strings.TrimSpace(msg.AgreementID),
+		"recipient_id":          strings.TrimSpace(msg.RecipientID),
+		"review_participant_id": strings.TrimSpace(msg.ReviewParticipantID),
+		"effect_id":             strings.TrimSpace(msg.EffectID),
+		"skip_reason":           strings.TrimSpace(skipReason),
+		"attempt_count":         run.AttemptCount,
+	})
+	return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.skipped", map[string]any{
+		"job_name":              JobEmailSendSigningRequest,
+		"agreement_id":          strings.TrimSpace(msg.AgreementID),
+		"recipient_id":          strings.TrimSpace(msg.RecipientID),
+		"review_participant_id": strings.TrimSpace(msg.ReviewParticipantID),
+		"effect_id":             strings.TrimSpace(msg.EffectID),
+		"notification":          strings.TrimSpace(notification),
+		"template_code":         strings.TrimSpace(templateCode),
+		"correlation_id":        strings.TrimSpace(run.CorrelationID),
+		"dedupe_key":            strings.TrimSpace(dedupeKey),
+		"skip_reason":           strings.TrimSpace(skipReason),
+		"attempt_count":         run.AttemptCount,
+	})
+}
+
+func (h Handlers) completeEmailSendSigningRequest(
+	ctx context.Context,
+	msg EmailSendSigningRequestMsg,
+	run stores.JobRunRecord,
+	execution emailSendSigningRequestExecution,
+	notification, templateCode, dedupeKey string,
+	isCompletionNotification bool,
+	startedAt time.Time,
+) error {
+	now := h.now()
 	if _, err := h.emailLogs.UpdateEmailLog(ctx, msg.Scope, execution.emailLog.ID, stores.EmailLogRecord{
 		Status:            "sent",
 		ProviderMessageID: execution.providerMessageID,
@@ -614,6 +622,45 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		"attempt_count":  run.AttemptCount,
 		"correlation_id": run.CorrelationID,
 	})
+}
+
+func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailSendSigningRequestMsg) error {
+	startedAt := h.now()
+	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.AgreementID, notificationSubjectID(msg), JobEmailSendSigningRequest)
+	if h.agreements == nil || h.jobRuns == nil || h.emailLogs == nil {
+		err := fmt.Errorf("email job dependencies not configured")
+		observability.LogOperation(ctx, slog.LevelError, "job", "email_send_signing_request", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+			"job_name": JobEmailSendSigningRequest,
+		})
+		return err
+	}
+	notification := resolveNotificationType(msg.Notification, msg.TemplateCode)
+	templateCode := resolveTemplateCode(msg.TemplateCode, notification)
+	isCompletionNotification := notification == string(services.NotificationCompletionPackage)
+	isReviewNotification := notification == string(services.NotificationReviewInvitation)
+	dedupeKey := resolveEmailSendSigningRequestDedupeKey(msg, notification, templateCode)
+	now := h.now()
+	run, shouldRun, err := h.beginEmailSendSigningRequestRun(ctx, msg, correlationID, dedupeKey, now, startedAt)
+	if err != nil || !shouldRun {
+		return err
+	}
+	shouldDispatch, skipReason, err := h.shouldExecuteNotificationEffectDispatch(ctx, msg)
+	if err != nil {
+		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{
+			"notification": strings.TrimSpace(msg.Notification),
+		})
+	}
+	if !shouldDispatch {
+		return h.markSkippedEmailSendSigningRequest(ctx, msg, run, notification, templateCode, dedupeKey, skipReason, startedAt)
+	}
+	execution, err := h.prepareEmailSendSigningRequest(ctx, msg, run, now, notification, templateCode, isReviewNotification, isCompletionNotification)
+	if err != nil {
+		return err
+	}
+	if err := h.sendEmailSendSigningRequest(ctx, msg, run, notification, templateCode, isCompletionNotification, &execution); err != nil {
+		return err
+	}
+	return h.completeEmailSendSigningRequest(ctx, msg, run, execution, notification, templateCode, dedupeKey, isCompletionNotification, startedAt)
 }
 
 func (h Handlers) prepareEmailSendSigningRequest(

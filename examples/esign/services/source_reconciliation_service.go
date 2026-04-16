@@ -488,77 +488,13 @@ func (s DefaultSourceReconciliationService) resolveCandidateContext(ctx context.
 	if err != nil {
 		return reconciliationTargetContext{}, err
 	}
-	handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{
-		SourceDocumentID: sourceDocumentID,
-	})
+	handles, activeHandles, handleByID, err := s.resolveCandidateHandles(ctx, scope, sourceDocumentID)
 	if err != nil {
 		return reconciliationTargetContext{}, err
 	}
-	if len(handles) == 0 {
-		return reconciliationTargetContext{}, debugLineageNotFound("source_handles", sourceDocumentID)
-	}
-	handleByID := make(map[string]stores.SourceHandleRecord, len(handles))
-	activeHandles := make([]stores.SourceHandleRecord, 0, len(handles))
-	for _, handle := range handles {
-		handleByID[strings.TrimSpace(handle.ID)] = handle
-		if strings.TrimSpace(handle.HandleStatus) == stores.SourceHandleStatusActive {
-			activeHandles = append(activeHandles, handle)
-		}
-	}
-	sort.SliceStable(activeHandles, func(i, j int) bool {
-		if activeHandles[i].CreatedAt.Equal(activeHandles[j].CreatedAt) {
-			return activeHandles[i].ID < activeHandles[j].ID
-		}
-		return activeHandles[i].CreatedAt.After(activeHandles[j].CreatedAt)
-	})
-	sort.SliceStable(handles, func(i, j int) bool {
-		if handles[i].CreatedAt.Equal(handles[j].CreatedAt) {
-			return handles[i].ID < handles[j].ID
-		}
-		return handles[i].CreatedAt.After(handles[j].CreatedAt)
-	})
-	revisions, err := s.lineage.ListSourceRevisions(ctx, scope, stores.SourceRevisionQuery{
-		SourceDocumentID: sourceDocumentID,
-	})
+	revisionContexts, err := s.resolveCandidateRevisionContexts(ctx, scope, sourceDocumentID, handleByID)
 	if err != nil {
 		return reconciliationTargetContext{}, err
-	}
-	if len(revisions) == 0 {
-		return reconciliationTargetContext{}, debugLineageNotFound("source_revisions", sourceDocumentID)
-	}
-	sort.SliceStable(revisions, func(i, j int) bool {
-		return sourceRevisionRank(revisions[i]).After(sourceRevisionRank(revisions[j]))
-	})
-	revisionContexts := make([]reconciliationRevisionContext, 0, len(revisions))
-	for _, revision := range revisions {
-		artifacts, err := s.lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{
-			SourceRevisionID: revision.ID,
-			ArtifactKind:     stores.SourceArtifactKindSignablePDF,
-		})
-		if err != nil {
-			return reconciliationTargetContext{}, err
-		}
-		if len(artifacts) == 0 {
-			continue
-		}
-		sort.SliceStable(artifacts, func(i, j int) bool {
-			if artifacts[i].CreatedAt.Equal(artifacts[j].CreatedAt) {
-				return artifacts[i].ID < artifacts[j].ID
-			}
-			return artifacts[i].CreatedAt.After(artifacts[j].CreatedAt)
-		})
-		artifactContexts := make([]reconciliationArtifactContext, 0, len(artifacts))
-		for _, artifact := range artifacts {
-			artifactContexts = append(artifactContexts, reconciliationArtifactContext{
-				artifact:    artifact,
-				fingerprint: s.latestReadyFingerprint(ctx, scope, revision.ID, artifact.ID),
-			})
-		}
-		revisionContexts = append(revisionContexts, reconciliationRevisionContext{
-			handle:    handleByID[strings.TrimSpace(revision.SourceHandleID)],
-			revision:  revision,
-			artifacts: artifactContexts,
-		})
 	}
 	if len(revisionContexts) == 0 {
 		return reconciliationTargetContext{}, debugLineageNotFound("source_artifacts", sourceDocumentID)
@@ -569,6 +505,109 @@ func (s DefaultSourceReconciliationService) resolveCandidateContext(ctx context.
 		activeHandle: firstReconciliationHandle(activeHandles, handles),
 		revisions:    revisionContexts,
 	}, nil
+}
+
+func (s DefaultSourceReconciliationService) resolveCandidateHandles(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocumentID string,
+) ([]stores.SourceHandleRecord, []stores.SourceHandleRecord, map[string]stores.SourceHandleRecord, error) {
+	handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{
+		SourceDocumentID: sourceDocumentID,
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if len(handles) == 0 {
+		return nil, nil, nil, debugLineageNotFound("source_handles", sourceDocumentID)
+	}
+	handleByID := make(map[string]stores.SourceHandleRecord, len(handles))
+	activeHandles := make([]stores.SourceHandleRecord, 0, len(handles))
+	for _, handle := range handles {
+		handleByID[strings.TrimSpace(handle.ID)] = handle
+		if strings.TrimSpace(handle.HandleStatus) == stores.SourceHandleStatusActive {
+			activeHandles = append(activeHandles, handle)
+		}
+	}
+	sortSourceHandlesByCreatedAt(activeHandles)
+	sortSourceHandlesByCreatedAt(handles)
+	return handles, activeHandles, handleByID, nil
+}
+
+func (s DefaultSourceReconciliationService) resolveCandidateRevisionContexts(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocumentID string,
+	handleByID map[string]stores.SourceHandleRecord,
+) ([]reconciliationRevisionContext, error) {
+	revisions, err := s.lineage.ListSourceRevisions(ctx, scope, stores.SourceRevisionQuery{
+		SourceDocumentID: sourceDocumentID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(revisions) == 0 {
+		return nil, debugLineageNotFound("source_revisions", sourceDocumentID)
+	}
+	sort.SliceStable(revisions, func(i, j int) bool {
+		return sourceRevisionRank(revisions[i]).After(sourceRevisionRank(revisions[j]))
+	})
+	revisionContexts := make([]reconciliationRevisionContext, 0, len(revisions))
+	for _, revision := range revisions {
+		artifactContexts, err := s.resolveCandidateArtifactContexts(ctx, scope, revision)
+		if err != nil {
+			return nil, err
+		}
+		if len(artifactContexts) == 0 {
+			continue
+		}
+		revisionContexts = append(revisionContexts, reconciliationRevisionContext{
+			handle:    handleByID[strings.TrimSpace(revision.SourceHandleID)],
+			revision:  revision,
+			artifacts: artifactContexts,
+		})
+	}
+	return revisionContexts, nil
+}
+
+func (s DefaultSourceReconciliationService) resolveCandidateArtifactContexts(
+	ctx context.Context,
+	scope stores.Scope,
+	revision stores.SourceRevisionRecord,
+) ([]reconciliationArtifactContext, error) {
+	artifacts, err := s.lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{
+		SourceRevisionID: revision.ID,
+		ArtifactKind:     stores.SourceArtifactKindSignablePDF,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(artifacts) == 0 {
+		return nil, nil
+	}
+	sort.SliceStable(artifacts, func(i, j int) bool {
+		if artifacts[i].CreatedAt.Equal(artifacts[j].CreatedAt) {
+			return artifacts[i].ID < artifacts[j].ID
+		}
+		return artifacts[i].CreatedAt.After(artifacts[j].CreatedAt)
+	})
+	artifactContexts := make([]reconciliationArtifactContext, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		artifactContexts = append(artifactContexts, reconciliationArtifactContext{
+			artifact:    artifact,
+			fingerprint: s.latestReadyFingerprint(ctx, scope, revision.ID, artifact.ID),
+		})
+	}
+	return artifactContexts, nil
+}
+
+func sortSourceHandlesByCreatedAt(handles []stores.SourceHandleRecord) {
+	sort.SliceStable(handles, func(i, j int) bool {
+		if handles[i].CreatedAt.Equal(handles[j].CreatedAt) {
+			return handles[i].ID < handles[j].ID
+		}
+		return handles[i].CreatedAt.After(handles[j].CreatedAt)
+	})
 }
 
 func (s DefaultSourceReconciliationService) evaluateCandidateArtifact(

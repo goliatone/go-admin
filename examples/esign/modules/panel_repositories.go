@@ -2953,57 +2953,57 @@ func coerceFormIntSlice(value any, fieldPath string) ([]int, error) {
 	case nil:
 		return nil, nil
 	case []any:
-		out := make([]int, 0, len(typed))
-		for index, item := range typed {
-			raw, err := coerceFormInt(item, fmt.Sprintf("%s[%d]", fieldPath, index))
-			if err != nil {
-				return nil, err
-			}
-			if raw <= 0 {
-				continue
-			}
-			out = append(out, raw)
-		}
-		return out, nil
+		return coerceFormAnyIntSlice(typed, fieldPath)
 	case []string:
-		out := make([]int, 0, len(typed))
-		for index, item := range typed {
-			raw, err := coerceFormInt(item, fmt.Sprintf("%s[%d]", fieldPath, index))
-			if err != nil {
-				return nil, err
-			}
-			if raw <= 0 {
-				continue
-			}
-			out = append(out, raw)
-		}
-		return out, nil
+		return coerceFormStringIntSlice(typed, fieldPath)
 	default:
-		raw := strings.TrimSpace(toString(value))
-		if raw == "" {
-			return nil, nil
-		}
-		if strings.HasPrefix(raw, "[") && strings.HasSuffix(raw, "]") {
-			var decoded []any
-			if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
-				return nil, fmt.Errorf("field %s has invalid list payload", fieldPath)
-			}
-			return coerceFormIntSlice(decoded, fieldPath)
-		}
-		parts := strings.Split(raw, ",")
-		out := make([]int, 0, len(parts))
-		for index, part := range parts {
-			resolved, err := coerceFormInt(strings.TrimSpace(part), fmt.Sprintf("%s[%d]", fieldPath, index))
-			if err != nil {
-				return nil, err
-			}
-			if resolved <= 0 {
-				continue
-			}
-			out = append(out, resolved)
-		}
-		return out, nil
+		return coerceFormScalarIntSlice(value, fieldPath)
 	}
+}
+
+func coerceFormAnyIntSlice(values []any, fieldPath string) ([]int, error) {
+	out := make([]int, 0, len(values))
+	for index, item := range values {
+		raw, err := coerceFormInt(item, fmt.Sprintf("%s[%d]", fieldPath, index))
+		if err != nil {
+			return nil, err
+		}
+		if raw <= 0 {
+			continue
+		}
+		out = append(out, raw)
+	}
+	return out, nil
+}
+
+func coerceFormStringIntSlice(values []string, fieldPath string) ([]int, error) {
+	out := make([]int, 0, len(values))
+	for index, item := range values {
+		raw, err := coerceFormInt(item, fmt.Sprintf("%s[%d]", fieldPath, index))
+		if err != nil {
+			return nil, err
+		}
+		if raw <= 0 {
+			continue
+		}
+		out = append(out, raw)
+	}
+	return out, nil
+}
+
+func coerceFormScalarIntSlice(value any, fieldPath string) ([]int, error) {
+	raw := strings.TrimSpace(toString(value))
+	if raw == "" {
+		return nil, nil
+	}
+	if strings.HasPrefix(raw, "[") && strings.HasSuffix(raw, "]") {
+		var decoded []any
+		if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+			return nil, fmt.Errorf("field %s has invalid list payload", fieldPath)
+		}
+		return coerceFormIntSlice(decoded, fieldPath)
+	}
+	return coerceFormStringIntSlice(strings.Split(raw, ","), fieldPath)
 }
 
 func coerceFormFloat(value any, fieldPath string) (float64, error) {

@@ -325,25 +325,7 @@ func (s AgreementService) notifyReviewersWithTx(
 	input ReviewNotifyInput,
 	hooks *stores.TxHooks,
 ) (ReviewSummary, error) {
-	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
-	if err != nil {
-		return ReviewSummary{}, err
-	}
-	if agreement.Status != stores.AgreementStatusDraft {
-		return ReviewSummary{}, domainValidationError("agreements", "status", "review notifications require draft agreement")
-	}
-	review, err := s.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
-	if err != nil {
-		return ReviewSummary{}, err
-	}
-	err = ensureReviewCycleMutable(review, "agreement_reviews", "override_active")
-	if err != nil {
-		return ReviewSummary{}, err
-	}
-	if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
-		return ReviewSummary{}, domainValidationError("agreement_reviews", "status", "review notifications require active review")
-	}
-	participants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+	_, review, participants, err := s.resolveActiveReviewNotificationContext(ctx, scope, agreementID)
 	if err != nil {
 		return ReviewSummary{}, err
 	}
@@ -390,6 +372,35 @@ func (s AgreementService) notifyReviewersWithTx(
 		})
 	}
 	return summary, nil
+}
+
+func (s AgreementService) resolveActiveReviewNotificationContext(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+) (stores.AgreementRecord, stores.AgreementReviewRecord, []stores.AgreementReviewParticipantRecord, error) {
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, err
+	}
+	if agreement.Status != stores.AgreementStatusDraft {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, domainValidationError("agreements", "status", "review notifications require draft agreement")
+	}
+	review, err := s.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, err
+	}
+	if validateErr := ensureReviewCycleMutable(review, "agreement_reviews", "override_active"); validateErr != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, validateErr
+	}
+	if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, domainValidationError("agreement_reviews", "status", "review notifications require active review")
+	}
+	participants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+	if err != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, err
+	}
+	return agreement, review, participants, nil
 }
 
 func (s AgreementService) CloseReview(ctx context.Context, scope stores.Scope, agreementID string, actorType, actorID, ipAddress string) (ReviewSummary, error) {
@@ -528,38 +539,12 @@ func (s AgreementService) ForceApproveReview(ctx context.Context, scope stores.S
 func (s AgreementService) ApproveReviewParticipantOnBehalf(ctx context.Context, scope stores.Scope, agreementID string, input ReviewApproveOnBehalfInput) (ReviewSummary, error) {
 	var summary ReviewSummary
 	err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
-		review, err := txSvc.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+		review, participants, participant, reason, err := txSvc.resolveReviewParticipantOnBehalfApproval(ctx, scope, agreementID, input)
 		if err != nil {
 			return err
 		}
-		err = ensureReviewCycleMutable(review, "agreement_review_participants", "decision_status")
-		if err != nil {
-			return err
-		}
-		if !strings.EqualFold(strings.TrimSpace(review.Status), stores.AgreementReviewStatusInReview) {
-			return domainValidationError("agreement_reviews", "status", "on-behalf approval requires active review")
-		}
-		participants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
-		if err != nil {
-			return err
-		}
-		participant, participants, err := findReviewParticipant(participants, input.ParticipantID, input.RecipientID)
-		if err != nil {
-			return err
-		}
-		if !participant.CanApprove {
-			return domainValidationError("agreement_review_participants", "participant_id", "participant cannot approve review")
-		}
-		if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
-			return domainValidationError("agreement_review_participants", "decision_status", "participant has already submitted a review decision")
-		}
-		reason := strings.TrimSpace(input.Reason)
-		if reason == "" {
-			return domainValidationError("agreement_review_participants", "reason", "approval reason is required")
-		}
-		err = requireReviewAdminActorIdentity("agreement_review_participants", "approved_on_behalf_by_user_id", input.ActorID)
-		if err != nil {
-			return err
+		if validateErr := requireReviewAdminActorIdentity("agreement_review_participants", "approved_on_behalf_by_user_id", input.ActorID); validateErr != nil {
+			return validateErr
 		}
 		now := txSvc.now()
 		previousStatus := strings.TrimSpace(review.Status)
@@ -614,6 +599,43 @@ func (s AgreementService) ApproveReviewParticipantOnBehalf(ctx context.Context, 
 		return err
 	})
 	return summary, err
+}
+
+func (s AgreementService) resolveReviewParticipantOnBehalfApproval(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	input ReviewApproveOnBehalfInput,
+) (stores.AgreementReviewRecord, []stores.AgreementReviewParticipantRecord, stores.AgreementReviewParticipantRecord, string, error) {
+	review, err := s.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementReviewRecord{}, nil, stores.AgreementReviewParticipantRecord{}, "", err
+	}
+	if validateErr := ensureReviewCycleMutable(review, "agreement_review_participants", "decision_status"); validateErr != nil {
+		return stores.AgreementReviewRecord{}, nil, stores.AgreementReviewParticipantRecord{}, "", validateErr
+	}
+	if !strings.EqualFold(strings.TrimSpace(review.Status), stores.AgreementReviewStatusInReview) {
+		return stores.AgreementReviewRecord{}, nil, stores.AgreementReviewParticipantRecord{}, "", domainValidationError("agreement_reviews", "status", "on-behalf approval requires active review")
+	}
+	participants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+	if err != nil {
+		return stores.AgreementReviewRecord{}, nil, stores.AgreementReviewParticipantRecord{}, "", err
+	}
+	participant, participants, err := findReviewParticipant(participants, input.ParticipantID, input.RecipientID)
+	if err != nil {
+		return stores.AgreementReviewRecord{}, nil, stores.AgreementReviewParticipantRecord{}, "", err
+	}
+	if !participant.CanApprove {
+		return stores.AgreementReviewRecord{}, nil, stores.AgreementReviewParticipantRecord{}, "", domainValidationError("agreement_review_participants", "participant_id", "participant cannot approve review")
+	}
+	if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
+		return stores.AgreementReviewRecord{}, nil, stores.AgreementReviewParticipantRecord{}, "", domainValidationError("agreement_review_participants", "decision_status", "participant has already submitted a review decision")
+	}
+	reason := strings.TrimSpace(input.Reason)
+	if reason == "" {
+		return stores.AgreementReviewRecord{}, nil, stores.AgreementReviewParticipantRecord{}, "", domainValidationError("agreement_review_participants", "reason", "approval reason is required")
+	}
+	return review, participants, participant, reason, nil
 }
 
 func (s AgreementService) CreateCommentThread(ctx context.Context, scope stores.Scope, agreementID string, input ReviewCommentThreadInput) (ReviewThread, error) {
@@ -866,15 +888,9 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 		if err != nil {
 			return err
 		}
-		participant, participants, err := findReviewParticipant(participants, input.ParticipantID, input.RecipientID)
+		participant, participants, err := resolvePendingReviewDecisionParticipant(participants, input.ParticipantID, input.RecipientID)
 		if err != nil {
 			return err
-		}
-		if !participant.CanApprove {
-			return domainValidationError("agreement_review_participants", "recipient_id", "participant cannot approve review")
-		}
-		if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
-			return domainValidationError("agreement_review_participants", "decision_status", "participant has already submitted a review decision")
 		}
 		now := txSvc.now()
 		participant.DecisionStatus = decisionStatus
@@ -908,19 +924,7 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 			}
 			decisionThreadID = strings.TrimSpace(decisionThread.ID)
 		}
-		metadata := map[string]any{
-			"review_id":      review.ID,
-			"participant_id": participant.ID,
-			"recipient_id":   participant.RecipientID,
-			"review_gate":    review.Gate,
-			"review_status":  review.Status,
-		}
-		if decisionComment != "" {
-			metadata["decision_comment"] = decisionComment
-		}
-		if decisionThreadID != "" {
-			metadata["thread_id"] = decisionThreadID
-		}
+		metadata := reviewDecisionAuditMetadata(review, participant, decisionComment, decisionThreadID)
 		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, auditEvent, normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, metadata)
 		if err != nil {
 			return err
@@ -929,6 +933,44 @@ func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.
 		return err
 	})
 	return summary, err
+}
+
+func resolvePendingReviewDecisionParticipant(
+	participants []stores.AgreementReviewParticipantRecord,
+	participantID, recipientID string,
+) (stores.AgreementReviewParticipantRecord, []stores.AgreementReviewParticipantRecord, error) {
+	participant, participants, err := findReviewParticipant(participants, participantID, recipientID)
+	if err != nil {
+		return stores.AgreementReviewParticipantRecord{}, participants, err
+	}
+	if !participant.CanApprove {
+		return stores.AgreementReviewParticipantRecord{}, participants, domainValidationError("agreement_review_participants", "recipient_id", "participant cannot approve review")
+	}
+	if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
+		return stores.AgreementReviewParticipantRecord{}, participants, domainValidationError("agreement_review_participants", "decision_status", "participant has already submitted a review decision")
+	}
+	return participant, participants, nil
+}
+
+func reviewDecisionAuditMetadata(
+	review stores.AgreementReviewRecord,
+	participant stores.AgreementReviewParticipantRecord,
+	decisionComment, decisionThreadID string,
+) map[string]any {
+	metadata := map[string]any{
+		"review_id":      review.ID,
+		"participant_id": participant.ID,
+		"recipient_id":   participant.RecipientID,
+		"review_gate":    review.Gate,
+		"review_status":  review.Status,
+	}
+	if decisionComment != "" {
+		metadata["decision_comment"] = decisionComment
+	}
+	if decisionThreadID != "" {
+		metadata["thread_id"] = decisionThreadID
+	}
+	return metadata
 }
 
 func (s AgreementService) appendReviewDecisionComment(
@@ -1327,6 +1369,23 @@ func resolveReviewNotificationTargets(
 	participantIDs []string,
 	participantID, recipientID string,
 ) ([]stores.AgreementReviewParticipantRecord, error) {
+	cleanIDs := uniqueReviewParticipantIDs(participantIDs)
+	if len(cleanIDs) > 0 {
+		return resolvePendingReviewNotificationTargetsByID(participants, cleanIDs)
+	}
+	participantID = strings.TrimSpace(participantID)
+	recipientID = strings.TrimSpace(recipientID)
+	if participantID != "" || recipientID != "" {
+		target, err := resolvePendingReviewNotificationTarget(participants, participantID, recipientID)
+		if err != nil {
+			return nil, err
+		}
+		return []stores.AgreementReviewParticipantRecord{target}, nil
+	}
+	return listPendingReviewNotificationTargets(participants)
+}
+
+func uniqueReviewParticipantIDs(participantIDs []string) []string {
 	cleanIDs := make([]string, 0, len(participantIDs))
 	seen := make(map[string]struct{}, len(participantIDs))
 	for _, rawID := range participantIDs {
@@ -1340,35 +1399,41 @@ func resolveReviewNotificationTargets(
 		seen[id] = struct{}{}
 		cleanIDs = append(cleanIDs, id)
 	}
-	if len(cleanIDs) > 0 {
-		out := make([]stores.AgreementReviewParticipantRecord, 0, len(cleanIDs))
-		for _, id := range cleanIDs {
-			target, _, err := findReviewParticipant(participants, id, "")
-			if err != nil {
-				return nil, err
-			}
-			if reviewParticipantEffectiveDecisionStatus(target) != stores.AgreementReviewDecisionPending {
-				return nil, domainValidationError("agreement_review_participants", "decision_status", "review notifications require pending reviewers")
-			}
-			out = append(out, target)
-		}
-		if len(out) == 0 {
-			return nil, domainValidationError("agreement_review_participants", "decision_status", "no pending reviewers to notify")
-		}
-		return out, nil
-	}
-	participantID = strings.TrimSpace(participantID)
-	recipientID = strings.TrimSpace(recipientID)
-	if participantID != "" || recipientID != "" {
-		target, _, err := findReviewParticipant(participants, participantID, recipientID)
+	return cleanIDs
+}
+
+func resolvePendingReviewNotificationTargetsByID(
+	participants []stores.AgreementReviewParticipantRecord,
+	participantIDs []string,
+) ([]stores.AgreementReviewParticipantRecord, error) {
+	out := make([]stores.AgreementReviewParticipantRecord, 0, len(participantIDs))
+	for _, id := range participantIDs {
+		target, err := resolvePendingReviewNotificationTarget(participants, id, "")
 		if err != nil {
 			return nil, err
 		}
-		if reviewParticipantEffectiveDecisionStatus(target) != stores.AgreementReviewDecisionPending {
-			return nil, domainValidationError("agreement_review_participants", "decision_status", "review notifications require pending reviewers")
-		}
-		return []stores.AgreementReviewParticipantRecord{target}, nil
+		out = append(out, target)
 	}
+	return requireReviewNotificationTargets(out)
+}
+
+func resolvePendingReviewNotificationTarget(
+	participants []stores.AgreementReviewParticipantRecord,
+	participantID, recipientID string,
+) (stores.AgreementReviewParticipantRecord, error) {
+	target, _, err := findReviewParticipant(participants, participantID, recipientID)
+	if err != nil {
+		return stores.AgreementReviewParticipantRecord{}, err
+	}
+	if reviewParticipantEffectiveDecisionStatus(target) != stores.AgreementReviewDecisionPending {
+		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_review_participants", "decision_status", "review notifications require pending reviewers")
+	}
+	return target, nil
+}
+
+func listPendingReviewNotificationTargets(
+	participants []stores.AgreementReviewParticipantRecord,
+) ([]stores.AgreementReviewParticipantRecord, error) {
 	out := make([]stores.AgreementReviewParticipantRecord, 0, len(participants))
 	for _, participant := range participants {
 		if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
@@ -1376,10 +1441,16 @@ func resolveReviewNotificationTargets(
 		}
 		out = append(out, participant)
 	}
-	if len(out) == 0 {
+	return requireReviewNotificationTargets(out)
+}
+
+func requireReviewNotificationTargets(
+	participants []stores.AgreementReviewParticipantRecord,
+) ([]stores.AgreementReviewParticipantRecord, error) {
+	if len(participants) == 0 {
 		return nil, domainValidationError("agreement_review_participants", "decision_status", "no pending reviewers to notify")
 	}
-	return out, nil
+	return participants, nil
 }
 
 func isRecipientActor(actorType string) bool {

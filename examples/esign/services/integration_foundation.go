@@ -554,30 +554,18 @@ func (s IntegrationFoundationService) DetectConflict(ctx context.Context, scope 
 	if s.store == nil {
 		return stores.IntegrationConflictRecord{}, false, domainValidationError("integration_conflicts", "store", "not configured")
 	}
-	runID := strings.TrimSpace(input.RunID)
-	provider := strings.ToLower(strings.TrimSpace(input.Provider))
-	entityKind := strings.ToLower(strings.TrimSpace(input.EntityKind))
-	externalID := strings.TrimSpace(input.ExternalID)
-	reason := strings.TrimSpace(input.Reason)
-	if runID == "" || provider == "" || entityKind == "" || externalID == "" || reason == "" {
-		return stores.IntegrationConflictRecord{}, false, integrationConflictError("run_id, provider, entity_kind, external_id, and reason are required")
-	}
-	key := strings.TrimSpace(input.IdempotencyKey)
-	if key == "" {
-		key = DeterministicIntegrationMutationKey("integration_conflict", runID, provider, entityKind, externalID, reason)
+	runID, provider, entityKind, externalID, reason, key, err := normalizeDetectConflictInput(input)
+	if err != nil {
+		return stores.IntegrationConflictRecord{}, false, err
 	}
 	claimed, err := s.store.ClaimIntegrationMutation(ctx, scope, key, s.now())
 	if err != nil {
 		return stores.IntegrationConflictRecord{}, false, err
 	}
 	if !claimed {
-		conflicts, listErr := s.store.ListIntegrationConflicts(ctx, scope, runID, stores.IntegrationConflictStatusPending)
-		if listErr == nil {
-			for _, conflict := range conflicts {
-				if conflict.Provider == provider && conflict.EntityKind == entityKind && conflict.ExternalID == externalID && conflict.Reason == reason {
-					return conflict, true, nil
-				}
-			}
+		replayed, found, replayErr := s.findPendingIntegrationConflict(ctx, scope, runID, provider, entityKind, externalID, reason)
+		if replayErr == nil && found {
+			return replayed, true, nil
 		}
 		return stores.IntegrationConflictRecord{}, true, nil
 	}
@@ -610,6 +598,39 @@ func (s IntegrationFoundationService) DetectConflict(ctx context.Context, scope 
 		CreatedAt: s.now(),
 	})
 	return record, false, nil
+}
+
+func normalizeDetectConflictInput(input DetectConflictInput) (string, string, string, string, string, string, error) {
+	runID := strings.TrimSpace(input.RunID)
+	provider := strings.ToLower(strings.TrimSpace(input.Provider))
+	entityKind := strings.ToLower(strings.TrimSpace(input.EntityKind))
+	externalID := strings.TrimSpace(input.ExternalID)
+	reason := strings.TrimSpace(input.Reason)
+	if runID == "" || provider == "" || entityKind == "" || externalID == "" || reason == "" {
+		return "", "", "", "", "", "", integrationConflictError("run_id, provider, entity_kind, external_id, and reason are required")
+	}
+	key := strings.TrimSpace(input.IdempotencyKey)
+	if key == "" {
+		key = DeterministicIntegrationMutationKey("integration_conflict", runID, provider, entityKind, externalID, reason)
+	}
+	return runID, provider, entityKind, externalID, reason, key, nil
+}
+
+func (s IntegrationFoundationService) findPendingIntegrationConflict(
+	ctx context.Context,
+	scope stores.Scope,
+	runID, provider, entityKind, externalID, reason string,
+) (stores.IntegrationConflictRecord, bool, error) {
+	conflicts, err := s.store.ListIntegrationConflicts(ctx, scope, runID, stores.IntegrationConflictStatusPending)
+	if err != nil {
+		return stores.IntegrationConflictRecord{}, false, err
+	}
+	for _, conflict := range conflicts {
+		if conflict.Provider == provider && conflict.EntityKind == entityKind && conflict.ExternalID == externalID && conflict.Reason == reason {
+			return conflict, true, nil
+		}
+	}
+	return stores.IntegrationConflictRecord{}, false, nil
 }
 
 // ResolveConflict resolves or ignores an integration conflict with idempotent behavior.

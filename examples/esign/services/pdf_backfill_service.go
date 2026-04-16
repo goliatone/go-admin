@@ -144,31 +144,19 @@ func (s PDFBackfillService) backfillDocumentPatch(ctx context.Context, scope sto
 
 	sourceKey := strings.TrimSpace(document.SourceObjectKey)
 	if sourceKey == "" {
-		patch.PDFCompatibilityTier = string(PDFCompatibilityTierUnsupported)
-		patch.PDFCompatibilityReason = pdfBackfillReasonSourceUnavailable
-		patch.PDFNormalizationStatus = string(PDFNormalizationStatusFailed)
-		patch.PDFPolicyVersion = PDFPolicyVersion
-		patch.PDFAnalyzedAt = resolvedBackfillAnalyzedAt(patch.PDFAnalyzedAt, s.now())
+		applyPDFBackfillFailure(&patch, pdfBackfillReasonSourceUnavailable, s.now)
 		return patch, ""
 	}
 
 	sourcePDF, err := s.objects.GetFile(ctx, sourceKey)
 	if err != nil || len(sourcePDF) == 0 {
-		patch.PDFCompatibilityTier = string(PDFCompatibilityTierUnsupported)
-		patch.PDFCompatibilityReason = pdfBackfillReasonSourceUnavailable
-		patch.PDFNormalizationStatus = string(PDFNormalizationStatusFailed)
-		patch.PDFPolicyVersion = PDFPolicyVersion
-		patch.PDFAnalyzedAt = resolvedBackfillAnalyzedAt(patch.PDFAnalyzedAt, s.now())
+		applyPDFBackfillFailure(&patch, pdfBackfillReasonSourceUnavailable, s.now)
 		return patch, ""
 	}
 	if expected := strings.TrimSpace(document.SourceSHA256); expected != "" {
 		sum := sha256.Sum256(sourcePDF)
 		if !strings.EqualFold(hex.EncodeToString(sum[:]), expected) {
-			patch.PDFCompatibilityTier = string(PDFCompatibilityTierUnsupported)
-			patch.PDFCompatibilityReason = pdfBackfillReasonSourceDigestMismatch
-			patch.PDFNormalizationStatus = string(PDFNormalizationStatusFailed)
-			patch.PDFPolicyVersion = PDFPolicyVersion
-			patch.PDFAnalyzedAt = resolvedBackfillAnalyzedAt(patch.PDFAnalyzedAt, s.now())
+			applyPDFBackfillFailure(&patch, pdfBackfillReasonSourceDigestMismatch, s.now)
 			return patch, ""
 		}
 	}
@@ -179,14 +167,8 @@ func (s PDFBackfillService) backfillDocumentPatch(ctx context.Context, scope sto
 		if reason == "" {
 			reason = string(PDFReasonParseFailed)
 		}
-		patch.PDFCompatibilityTier = string(PDFCompatibilityTierUnsupported)
-		patch.PDFCompatibilityReason = reason
-		patch.PDFNormalizationStatus = string(PDFNormalizationStatusFailed)
+		applyPDFBackfillFailure(&patch, reason, s.now)
 		patch.SizeBytes = int64(len(sourcePDF))
-		if patch.PDFPolicyVersion == "" {
-			patch.PDFPolicyVersion = PDFPolicyVersion
-		}
-		patch.PDFAnalyzedAt = resolvedBackfillAnalyzedAt(patch.PDFAnalyzedAt, s.now())
 		return patch, ""
 	}
 
@@ -195,35 +177,7 @@ func (s PDFBackfillService) backfillDocumentPatch(ctx context.Context, scope sto
 	patch.PDFPolicyVersion = PDFPolicyVersion
 	patch.PDFAnalyzedAt = resolvedBackfillAnalyzedAt(patch.PDFAnalyzedAt, s.now())
 
-	normalizationStatus := normalizePDFNormalizationStatus(patch.PDFNormalizationStatus)
-	normalizedKey := strings.TrimSpace(patch.NormalizedObjectKey)
-	if normalizationStatus != PDFNormalizationStatusCompleted || normalizedKey == "" {
-		normalized, normalizeErr := s.pdfs.Normalize(ctx, scope, sourcePDF)
-		if normalizeErr == nil && len(normalized.Payload) > 0 {
-			candidateKey := normalizedObjectKeyForSource(sourceKey)
-			if _, err := s.objects.UploadFile(ctx, candidateKey, normalized.Payload,
-				uploader.WithContentType("application/pdf"),
-				uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
-			); err == nil {
-				stored, err := s.objects.GetFile(ctx, candidateKey)
-				if err == nil && len(stored) > 0 {
-					sum := sha256.Sum256(stored)
-					if hex.EncodeToString(sum[:]) == normalized.SHA256 {
-						normalizedKey = candidateKey
-						normalizationStatus = PDFNormalizationStatusCompleted
-					} else {
-						normalizationStatus = PDFNormalizationStatusFailed
-					}
-				} else {
-					normalizationStatus = PDFNormalizationStatusFailed
-				}
-			} else {
-				normalizationStatus = PDFNormalizationStatusFailed
-			}
-		} else {
-			normalizationStatus = PDFNormalizationStatusFailed
-		}
-	}
+	normalizationStatus, normalizedKey := s.resolveBackfillNormalization(ctx, scope, sourceKey, sourcePDF, patch)
 
 	baseCompatibilityTier := string(analysis.CompatibilityTier)
 	baseCompatibilityReason := string(analysis.ReasonCode)
@@ -242,6 +196,73 @@ func (s PDFBackfillService) backfillDocumentPatch(ctx context.Context, scope sto
 	patch.PDFCompatibilityTier = string(compatibility.Tier)
 	patch.PDFCompatibilityReason = compatibility.Reason
 	return patch, ""
+}
+
+func (s PDFBackfillService) resolveBackfillNormalization(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceKey string,
+	sourcePDF []byte,
+	patch stores.DocumentMetadataPatch,
+) (PDFNormalizationStatus, string) {
+	normalizationStatus := normalizePDFNormalizationStatus(patch.PDFNormalizationStatus)
+	normalizedKey := strings.TrimSpace(patch.NormalizedObjectKey)
+	if normalizationStatus == PDFNormalizationStatusCompleted && normalizedKey != "" {
+		return normalizationStatus, normalizedKey
+	}
+	normalized, err := s.pdfs.Normalize(ctx, scope, sourcePDF)
+	if err != nil || len(normalized.Payload) == 0 {
+		return PDFNormalizationStatusFailed, normalizedKey
+	}
+	candidateKey := normalizedObjectKeyForSource(sourceKey)
+	if !s.storeBackfilledNormalizedPDF(ctx, candidateKey, normalized.Payload) {
+		return PDFNormalizationStatusFailed, normalizedKey
+	}
+	if !s.verifyBackfilledNormalizedPDF(ctx, candidateKey, normalized.SHA256) {
+		return PDFNormalizationStatusFailed, normalizedKey
+	}
+	return PDFNormalizationStatusCompleted, candidateKey
+}
+
+func (s PDFBackfillService) storeBackfilledNormalizedPDF(
+	ctx context.Context,
+	candidateKey string,
+	payload []byte,
+) bool {
+	_, err := s.objects.UploadFile(ctx, candidateKey, payload,
+		uploader.WithContentType("application/pdf"),
+		uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
+	)
+	return err == nil
+}
+
+func (s PDFBackfillService) verifyBackfilledNormalizedPDF(
+	ctx context.Context,
+	candidateKey, expectedSHA string,
+) bool {
+	stored, err := s.objects.GetFile(ctx, candidateKey)
+	if err != nil || len(stored) == 0 {
+		return false
+	}
+	sum := sha256.Sum256(stored)
+	return hex.EncodeToString(sum[:]) == expectedSHA
+}
+
+func applyPDFBackfillFailure(
+	patch *stores.DocumentMetadataPatch,
+	reason string,
+	now func() time.Time,
+) {
+	if patch == nil {
+		return
+	}
+	patch.PDFCompatibilityTier = string(PDFCompatibilityTierUnsupported)
+	patch.PDFCompatibilityReason = strings.TrimSpace(reason)
+	patch.PDFNormalizationStatus = string(PDFNormalizationStatusFailed)
+	patch.PDFPolicyVersion = PDFPolicyVersion
+	if now != nil {
+		patch.PDFAnalyzedAt = resolvedBackfillAnalyzedAt(patch.PDFAnalyzedAt, now())
+	}
 }
 
 func documentBackfillPatchUnchanged(document stores.DocumentRecord, patch stores.DocumentMetadataPatch) bool {

@@ -1117,8 +1117,28 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 		return draftMaterializationResult{}, err
 	}
 
+	participantMap, err := s.materializeDraftParticipants(ctx, scope, agreement.ID, state.Participants)
+	if err != nil {
+		return draftMaterializationResult{}, err
+	}
+	if err := s.materializeDraftFieldDefinitions(ctx, scope, agreement.ID, state, participantMap); err != nil {
+		return draftMaterializationResult{}, err
+	}
+
+	return draftMaterializationResult{
+		Agreement:            agreement,
+		ParticipantsByTempID: participantMap,
+	}, nil
+}
+
+func (s DraftService) materializeDraftParticipants(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	participants []wizardParticipantState,
+) (map[string]stores.ParticipantRecord, error) {
 	participantMap := map[string]stores.ParticipantRecord{}
-	for idx, participant := range state.Participants {
+	for idx, participant := range participants {
 		role := normalizeDraftParticipantRole(participant.Role)
 		signingStage := participant.SigningStage
 		if signingStage <= 0 {
@@ -1133,7 +1153,7 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 		if participant.Notify != nil {
 			notify = *participant.Notify
 		}
-		created, err := s.agreements.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
+		created, err := s.agreements.UpsertParticipantDraft(ctx, scope, agreementID, stores.ParticipantDraftPatch{
 			Email:        &email,
 			Name:         &name,
 			Role:         &role,
@@ -1141,54 +1161,71 @@ func (s DraftService) materializeDraftAgreement(ctx context.Context, scope store
 			SigningStage: new(signingStage),
 		}, 0)
 		if err != nil {
-			return draftMaterializationResult{}, err
+			return nil, err
 		}
 		if key := strings.TrimSpace(participant.TempID); key != "" {
 			participantMap[key] = created
 		}
 	}
+	return participantMap, nil
+}
 
+func (s DraftService) materializeDraftFieldDefinitions(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	state wizardStatePayload,
+	participantMap map[string]stores.ParticipantRecord,
+) error {
 	definitions := materializeFieldDefinitions(state)
 	for idx, definition := range definitions {
-		participantID := resolveFieldParticipantID(definition, participantMap)
-		if participantID == "" {
-			return draftMaterializationResult{}, domainValidationError("field_definitions", "participant_id", "field definition participant is not resolvable")
-		}
-		fieldType := normalizeDraftFieldType(definition.Type)
-		required := definition.Required
-		created, err := s.agreements.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, stores.FieldDefinitionDraftPatch{
-			ParticipantID: &participantID,
-			Type:          &fieldType,
-			Required:      &required,
-		})
-		if err != nil {
-			return draftMaterializationResult{}, err
-		}
-
-		placement := resolveFieldPlacementGeometry(state, definition, idx)
-		label := strings.TrimSpace(definition.Label)
-		if _, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreement.ID, stores.FieldInstanceDraftPatch{
-			FieldDefinitionID: &created.ID,
-			PageNumber:        &placement.Page,
-			X:                 &placement.X,
-			Y:                 &placement.Y,
-			Width:             &placement.Width,
-			Height:            &placement.Height,
-			PlacementSource:   draftStringPtr(strings.TrimSpace(placement.PlacementSource)),
-			LinkGroupID:       draftStringPtr(strings.TrimSpace(placement.LinkGroupID)),
-			LinkedFromFieldID: draftStringPtr(strings.TrimSpace(placement.LinkedFromFieldID)),
-			IsUnlinked:        new(placement.IsUnlinked),
-			TabIndex:          new(idx + 1),
-			Label:             &label,
-		}); err != nil {
-			return draftMaterializationResult{}, err
+		if err := s.materializeDraftFieldDefinition(ctx, scope, agreementID, state, definition, participantMap, idx); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	return draftMaterializationResult{
-		Agreement:            agreement,
-		ParticipantsByTempID: participantMap,
-	}, nil
+func (s DraftService) materializeDraftFieldDefinition(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	state wizardStatePayload,
+	definition wizardFieldDefinitionState,
+	participantMap map[string]stores.ParticipantRecord,
+	index int,
+) error {
+	participantID := resolveFieldParticipantID(definition, participantMap)
+	if participantID == "" {
+		return domainValidationError("field_definitions", "participant_id", "field definition participant is not resolvable")
+	}
+	fieldType := normalizeDraftFieldType(definition.Type)
+	required := definition.Required
+	created, err := s.agreements.UpsertFieldDefinitionDraft(ctx, scope, agreementID, stores.FieldDefinitionDraftPatch{
+		ParticipantID: &participantID,
+		Type:          &fieldType,
+		Required:      &required,
+	})
+	if err != nil {
+		return err
+	}
+	placement := resolveFieldPlacementGeometry(state, definition, index)
+	label := strings.TrimSpace(definition.Label)
+	_, err = s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, stores.FieldInstanceDraftPatch{
+		FieldDefinitionID: &created.ID,
+		PageNumber:        &placement.Page,
+		X:                 &placement.X,
+		Y:                 &placement.Y,
+		Width:             &placement.Width,
+		Height:            &placement.Height,
+		PlacementSource:   draftStringPtr(strings.TrimSpace(placement.PlacementSource)),
+		LinkGroupID:       draftStringPtr(strings.TrimSpace(placement.LinkGroupID)),
+		LinkedFromFieldID: draftStringPtr(strings.TrimSpace(placement.LinkedFromFieldID)),
+		IsUnlinked:        new(placement.IsUnlinked),
+		TabIndex:          new(index + 1),
+		Label:             &label,
+	})
+	return err
 }
 
 func resolveFieldParticipantID(definition wizardFieldDefinitionState, participants map[string]stores.ParticipantRecord) string {

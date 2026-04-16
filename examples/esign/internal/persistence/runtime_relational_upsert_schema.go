@@ -162,6 +162,24 @@ func runtimeUpsertTargetTables(specs []runtimeTableUpsertSpec) []string {
 
 func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 	now := func() time.Time { return time.Now().UTC() }
+	specs := make([]runtimeTableUpsertSpec, 0, 38)
+	specs = append(specs, runtimeSourceStoreTableUpsertSpecs(now)...)
+	specs = append(specs, runtimeDocumentAgreementUpsertSpecs(now)...)
+	specs = append(specs, runtimeFieldSigningUpsertSpecs(now)...)
+	specs = append(specs, runtimeAuditMessagingUpsertSpecs(now)...)
+	specs = append(specs, runtimeReminderIntegrationReferenceUpsertSpecs(now)...)
+	specs = append(specs, runtimeSyncPlacementDraftUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeSourceStoreTableUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 6)
+	specs = append(specs, runtimeSourceReferenceUpsertSpecs(now)...)
+	specs = append(specs, runtimeSourceArtifactUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeSourceReferenceUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
 	return []runtimeTableUpsertSpec{
 		{
 			table:    "source_documents",
@@ -244,6 +262,18 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeSourceArtifactUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 3)
+	specs = append(specs, runtimeSourceArtifactRecordUpsertSpecs(now)...)
+	specs = append(specs, runtimeSourceRelationshipUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeSourceArtifactRecordUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "source_artifacts",
 			columns:  []string{"id", "tenant_id", "org_id", "source_revision_id", "artifact_kind", "object_key", "sha256", "page_count", "size_bytes", "compatibility_tier", "compatibility_reason", "normalization_status", "created_at", "updated_at"},
@@ -304,6 +334,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeSourceRelationshipUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "source_relationships",
 			columns:  []string{"id", "tenant_id", "org_id", "left_source_document_id", "right_source_document_id", "predecessor_source_document_id", "successor_source_document_id", "relationship_type", "confidence_band", "confidence_score", "status", "evidence_json", "created_by_user_id", "created_at", "updated_at"},
@@ -334,6 +369,19 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeDocumentAgreementUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 6)
+	specs = append(specs, runtimeDocumentRecordUpsertSpecs(now)...)
+	specs = append(specs, runtimeAgreementRemediationUpsertSpecs(now)...)
+	specs = append(specs, runtimeAgreementActorUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeDocumentRecordUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "documents",
 			columns:  []string{"id", "tenant_id", "org_id", "created_by_user_id", "title", "source_original_name", "source_object_key", "normalized_object_key", "source_sha256", "size_bytes", "page_count", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "source_document_id", "source_revision_id", "source_artifact_id", "pdf_compatibility_tier", "pdf_compatibility_reason", "pdf_normalization_status", "pdf_analyzed_at", "pdf_policy_version"},
@@ -382,6 +430,18 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeAgreementRemediationUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 3)
+	specs = append(specs, runtimeAgreementRecordUpsertSpecs(now)...)
+	specs = append(specs, runtimeRemediationStateUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeAgreementRecordUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "agreements",
 			columns:  []string{"id", "tenant_id", "org_id", "document_id", "status", "title", "message", "version", "sent_at", "completed_at", "voided_at", "declined_at", "expired_at", "created_by_user_id", "updated_by_user_id", "created_at", "updated_at", "source_type", "source_google_file_id", "source_google_doc_url", "source_modified_time", "source_exported_at", "source_exported_by_user_id", "source_mime_type", "source_ingestion_mode", "source_revision_id"},
@@ -435,6 +495,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeRemediationStateUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "document_remediation_leases",
 			columns:  []string{"document_id", "tenant_id", "org_id", "worker_id", "lease_seq", "correlation_id", "acquired_at", "last_heartbeat_at", "expires_at", "updated_at"},
@@ -483,6 +548,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeAgreementActorUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "recipients",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "email", "name", "role", "notify", "signing_order", "first_view_at", "last_view_at", "declined_at", "decline_reason", "completed_at", "version", "created_at", "updated_at"},
@@ -519,6 +589,25 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeFieldSigningUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 8)
+	specs = append(specs, runtimeFieldPlacementUpsertSpecs(now)...)
+	specs = append(specs, runtimeSigningArtifactUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeFieldPlacementUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 3)
+	specs = append(specs, runtimeFieldRecordUpsertSpecs(now)...)
+	specs = append(specs, runtimeFieldDefinitionPlacementUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeFieldRecordUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "fields",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "field_type", "page_number", "pos_x", "pos_y", "width", "height", "required", "created_at", "updated_at", "field_definition_id", "placement_source", "link_group_id", "linked_from_field_id", "is_unlinked"},
@@ -594,6 +683,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeFieldDefinitionPlacementUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "field_definitions",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "participant_id", "field_type", "required", "validation_json", "link_group_id", "created_at", "updated_at"},
@@ -658,6 +752,18 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeSigningArtifactUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 5)
+	specs = append(specs, runtimeSigningTokenArtifactUpsertSpecs(now)...)
+	specs = append(specs, runtimeSignerProfileValueUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeSigningTokenArtifactUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "signing_tokens",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "token_hash", "status", "expires_at", "revoked_at", "created_at"},
@@ -698,6 +804,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeSignerProfileValueUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "signer_profiles",
 			columns:  []string{"id", "tenant_id", "org_id", "subject", "profile_key", "full_name", "initials", "typed_signature", "drawn_signature_data_url", "drawn_initials_data_url", "remember", "created_at", "updated_at", "expires_at"},
@@ -771,6 +882,19 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeAuditMessagingUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 6)
+	specs = append(specs, runtimeAuditTrailUpsertSpecs(now)...)
+	specs = append(specs, runtimeDeliveryArtifactUpsertSpecs(now)...)
+	specs = append(specs, runtimeAsyncImportUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeAuditTrailUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "draft_audit_events",
 			columns:  []string{"id", "tenant_id", "org_id", "draft_id", "event_type", "actor_type", "actor_id", "metadata_json", "created_at"},
@@ -827,6 +951,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeDeliveryArtifactUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "email_logs",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "template_code", "provider_message_id", "status", "failure_reason", "attempt_count", "max_attempts", "correlation_id", "next_retry_at", "sent_at", "created_at", "updated_at"},
@@ -887,6 +1016,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeAsyncImportUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "job_runs",
 			columns:  []string{"id", "tenant_id", "org_id", "job_name", "dedupe_key", "agreement_id", "recipient_id", "correlation_id", "status", "attempt_count", "max_attempts", "payload_json", "available_at", "started_at", "completed_at", "claimed_at", "lease_expires_at", "worker_id", "resource_kind", "resource_id", "last_error_code", "last_error", "next_retry_at", "created_at", "updated_at"},
@@ -973,6 +1107,26 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeReminderIntegrationReferenceUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 5)
+	specs = append(specs, runtimeReminderOutboxUpsertSpecs(now)...)
+	specs = append(specs, runtimeIntegrationCredentialMappingUpsertSpecs(now)...)
+	specs = append(specs, runtimeIntegrationBindingReferenceUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeReminderOutboxUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 2)
+	specs = append(specs, runtimeReminderStateUpsertSpecs(now)...)
+	specs = append(specs, runtimeOutboxMessageUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeReminderStateUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "agreement_reminder_states",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "recipient_id", "status", "terminal_reason", "policy_version", "sent_count", "first_sent_at", "last_sent_at", "last_viewed_at", "last_manual_resend_at", "next_due_at", "last_reason_code", "last_error_code", "last_error_internal_encrypted", "last_error_internal_expires_at", "lease_seq", "claimed_at", "last_heartbeat_at", "sweep_id", "worker_id", "last_evaluated_at", "last_attempted_send_at", "created_at", "updated_at"},
@@ -1034,6 +1188,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeOutboxMessageUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "outbox_messages",
 			columns:  []string{"id", "tenant_id", "org_id", "topic", "message_key", "payload_json", "headers_json", "correlation_id", "status", "attempt_count", "max_attempts", "last_error", "available_at", "locked_at", "locked_by", "published_at", "created_at", "updated_at"},
@@ -1068,6 +1227,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeIntegrationCredentialMappingUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "integration_credentials",
 			columns:  []string{"id", "tenant_id", "org_id", "user_id", "provider", "encrypted_access_token", "encrypted_refresh_token", "scopes_json", "expires_at", "profile_json", "last_used_at", "created_at", "updated_at"},
@@ -1135,6 +1299,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeIntegrationBindingReferenceUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "integration_bindings",
 			columns:  []string{"id", "tenant_id", "org_id", "provider", "entity_kind", "external_id", "internal_id", "provenance_json", "version", "created_at", "updated_at"},
@@ -1165,6 +1334,26 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeSyncPlacementDraftUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 7)
+	specs = append(specs, runtimeIntegrationSyncConflictUpsertSpecs(now)...)
+	specs = append(specs, runtimeIntegrationEventClaimUpsertSpecs(now)...)
+	specs = append(specs, runtimePlacementDraftUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeIntegrationSyncConflictUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	specs := make([]runtimeTableUpsertSpec, 0, 3)
+	specs = append(specs, runtimeIntegrationSyncCheckpointUpsertSpecs(now)...)
+	specs = append(specs, runtimeIntegrationConflictUpsertSpecs(now)...)
+	return specs
+}
+
+func runtimeIntegrationSyncCheckpointUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "integration_sync_runs",
 			columns:  []string{"id", "tenant_id", "org_id", "provider", "direction", "mapping_spec_id", "status", "cursor", "last_error", "attempt_count", "version", "started_at", "completed_at", "created_by_user_id", "created_at", "updated_at"},
@@ -1238,6 +1427,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeIntegrationConflictUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "integration_conflicts",
 			columns:  []string{"id", "tenant_id", "org_id", "run_id", "binding_id", "provider", "entity_kind", "external_id", "internal_id", "status", "reason", "payload_json", "resolution_json", "resolved_by_user_id", "resolved_at", "version", "created_at", "updated_at"},
@@ -1279,6 +1473,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimeIntegrationEventClaimUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "integration_change_events",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "provider", "event_type", "source_event_id", "idempotency_key", "payload_json", "emitted_at", "created_at"},
@@ -1334,6 +1533,11 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				return rows
 			},
 		},
+	}
+}
+
+func runtimePlacementDraftUpsertSpecs(now func() time.Time) []runtimeTableUpsertSpec {
+	return []runtimeTableUpsertSpec{
 		{
 			table:    "placement_runs",
 			columns:  []string{"id", "tenant_id", "org_id", "agreement_id", "status", "reason_code", "resolver_order_json", "executed_resolvers_json", "resolver_scores_json", "suggestions_json", "selected_suggestion_ids_json", "unresolved_definition_ids_json", "selected_source", "policy_json", "max_budget", "budget_used", "max_time_ms", "elapsed_ms", "manual_override_count", "created_by_user_id", "version", "created_at", "updated_at", "completed_at"},

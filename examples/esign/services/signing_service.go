@@ -689,68 +689,20 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 	}
 	recipient = updatedRecipient
 
-	valuesByField := map[string]stores.FieldValueRecord{}
-	if s.signing != nil {
-		values, loadErr := s.signing.ListFieldValuesByRecipient(ctx, scope, agreement.ID, recipient.ID)
-		if loadErr != nil {
-			return SignerSessionContext{}, loadErr
-		}
-		for _, value := range values {
-			if strings.TrimSpace(value.FieldID) == "" {
-				continue
-			}
-			valuesByField[value.FieldID] = value
-		}
+	valuesByField, err := s.loadFieldValuesByFieldID(ctx, scope, agreement.ID, recipient.ID)
+	if err != nil {
+		return SignerSessionContext{}, err
 	}
 
 	state := resolveSessionState(agreement.Status, recipient, activeStage, activeSigners)
 	activeRecipientIDs := recipientIDs(activeSigners)
-	waitingFor := ""
-	waitingForIDs := []string{}
-	if state == SignerSessionStateWaiting {
-		waitingForIDs = append(waitingForIDs, activeRecipientIDs...)
-		waitingFor = coalesceFirst(waitingForIDs)
-	}
+	waitingFor, waitingForIDs := resolveWaitingRecipients(state, activeRecipientIDs)
 	documentName, pageCount, viewer, err := s.resolveSessionBootstrap(ctx, scope, document, compatibility, fields)
 	if err != nil {
 		return SignerSessionContext{}, err
 	}
-	pagesByNumber := map[int]SignerSessionViewerPage{}
-	for _, page := range viewer.Pages {
-		pagesByNumber[page.Page] = page
-	}
-
-	sessionFields := make([]SignerSessionField, 0)
-	tabIndex := 1
-	for _, field := range fields {
-		fieldRecipientID := strings.TrimSpace(field.RecipientID)
-		if fieldRecipientID != "" && fieldRecipientID != recipient.ID {
-			continue
-		}
-		value := valuesByField[field.ID]
-		page, posX, posY, width, height, pageMeta := normalizeFieldGeometry(field, pageCount, pagesByNumber)
-		sessionFields = append(sessionFields, SignerSessionField{
-			ID:                field.ID,
-			FieldInstanceID:   field.ID,
-			FieldDefinitionID: strings.TrimSpace(field.FieldDefinitionID),
-			RecipientID:       field.RecipientID,
-			Type:              field.Type,
-			Page:              page,
-			PosX:              posX,
-			PosY:              posY,
-			Width:             width,
-			Height:            height,
-			PageWidth:         pageMeta.Width,
-			PageHeight:        pageMeta.Height,
-			PageRotation:      pageMeta.Rotation,
-			Required:          field.Required,
-			Label:             strings.TrimSpace(field.Type),
-			TabIndex:          tabIndex,
-			ValueText:         strings.TrimSpace(value.ValueText),
-			ValueBool:         value.ValueBool,
-		})
-		tabIndex++
-	}
+	pagesByNumber := viewerPagesByNumber(viewer.Pages)
+	sessionFields := buildSignerSessionFields(fields, recipient.ID, pageCount, pagesByNumber, valuesByField)
 	review, err := s.resolveSignerReviewContext(ctx, scope, agreement.ID, recipient.ID)
 	if err != nil {
 		return SignerSessionContext{}, err
@@ -785,6 +737,85 @@ func (s SigningService) GetSession(ctx context.Context, scope stores.Scope, toke
 		CanSign:                  review == nil || review.CanSign,
 		Fields:                   sessionFields,
 	}, nil
+}
+
+func (s SigningService) loadFieldValuesByFieldID(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID, recipientID string,
+) (map[string]stores.FieldValueRecord, error) {
+	valuesByField := map[string]stores.FieldValueRecord{}
+	if s.signing == nil {
+		return valuesByField, nil
+	}
+	values, err := s.signing.ListFieldValuesByRecipient(ctx, scope, agreementID, recipientID)
+	if err != nil {
+		return nil, err
+	}
+	for _, value := range values {
+		if strings.TrimSpace(value.FieldID) == "" {
+			continue
+		}
+		valuesByField[value.FieldID] = value
+	}
+	return valuesByField, nil
+}
+
+func resolveWaitingRecipients(state string, activeRecipientIDs []string) (string, []string) {
+	if state != SignerSessionStateWaiting {
+		return "", nil
+	}
+	waitingForIDs := append([]string(nil), activeRecipientIDs...)
+	return coalesceFirst(waitingForIDs), waitingForIDs
+}
+
+func viewerPagesByNumber(pages []SignerSessionViewerPage) map[int]SignerSessionViewerPage {
+	pagesByNumber := make(map[int]SignerSessionViewerPage, len(pages))
+	for _, page := range pages {
+		pagesByNumber[page.Page] = page
+	}
+	return pagesByNumber
+}
+
+func buildSignerSessionFields(
+	fields []stores.FieldRecord,
+	recipientID string,
+	pageCount int,
+	pagesByNumber map[int]SignerSessionViewerPage,
+	valuesByField map[string]stores.FieldValueRecord,
+) []SignerSessionField {
+	sessionFields := make([]SignerSessionField, 0, len(fields))
+	tabIndex := 1
+	for _, field := range fields {
+		fieldRecipientID := strings.TrimSpace(field.RecipientID)
+		if fieldRecipientID != "" && fieldRecipientID != recipientID {
+			continue
+		}
+		value := valuesByField[field.ID]
+		page, posX, posY, width, height, pageMeta := normalizeFieldGeometry(field, pageCount, pagesByNumber)
+		sessionFields = append(sessionFields, SignerSessionField{
+			ID:                field.ID,
+			FieldInstanceID:   field.ID,
+			FieldDefinitionID: strings.TrimSpace(field.FieldDefinitionID),
+			RecipientID:       field.RecipientID,
+			Type:              field.Type,
+			Page:              page,
+			PosX:              posX,
+			PosY:              posY,
+			Width:             width,
+			Height:            height,
+			PageWidth:         pageMeta.Width,
+			PageHeight:        pageMeta.Height,
+			PageRotation:      pageMeta.Rotation,
+			Required:          field.Required,
+			Label:             strings.TrimSpace(field.Type),
+			TabIndex:          tabIndex,
+			ValueText:         strings.TrimSpace(value.ValueText),
+			ValueBool:         value.ValueBool,
+		})
+		tabIndex++
+	}
+	return sessionFields
 }
 
 func (s SigningService) resolveSigningDocumentCompatibility(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord) (stores.DocumentRecord, PDFCompatibilityStatus, error) {
@@ -2348,24 +2379,30 @@ func normalizeSigningStage(stage int) int {
 	return stage
 }
 
-func normalizeFieldGeometry(field stores.FieldRecord, pageCount int, pagesByNumber map[int]SignerSessionViewerPage) (int, float64, float64, float64, float64, SignerSessionViewerPage) {
-	page := field.PageNumber
+func resolveFieldGeometryPage(page, pageCount int) int {
 	if page <= 0 {
 		page = 1
 	}
 	if pageCount > 0 && page > pageCount {
 		page = pageCount
 	}
-	pageMeta, ok := pagesByNumber[page]
-	if !ok {
-		pageMeta = SignerSessionViewerPage{
-			Page:     page,
-			Width:    defaultPDFPageWidth,
-			Height:   defaultPDFPageHeight,
-			Rotation: 0,
-		}
-	}
+	return page
+}
 
+func resolveFieldGeometryPageMeta(page int, pagesByNumber map[int]SignerSessionViewerPage) SignerSessionViewerPage {
+	pageMeta, ok := pagesByNumber[page]
+	if ok {
+		return pageMeta
+	}
+	return SignerSessionViewerPage{
+		Page:     page,
+		Width:    defaultPDFPageWidth,
+		Height:   defaultPDFPageHeight,
+		Rotation: 0,
+	}
+}
+
+func normalizeFieldDimensions(field stores.FieldRecord, pageMeta SignerSessionViewerPage) (float64, float64) {
 	width := field.Width
 	height := field.Height
 	if width <= 0 {
@@ -2380,7 +2417,10 @@ func normalizeFieldGeometry(field stores.FieldRecord, pageCount int, pagesByNumb
 	if pageMeta.Height > 0 && height > pageMeta.Height {
 		height = pageMeta.Height
 	}
+	return width, height
+}
 
+func normalizeFieldPosition(field stores.FieldRecord, width, height float64, pageMeta SignerSessionViewerPage) (float64, float64) {
 	posX := field.PosX
 	posY := field.PosY
 	if posX < 0 {
@@ -2395,7 +2435,14 @@ func normalizeFieldGeometry(field stores.FieldRecord, pageCount int, pagesByNumb
 	if pageMeta.Height > 0 && posY+height > pageMeta.Height {
 		posY = maxFloat(0, pageMeta.Height-height)
 	}
+	return posX, posY
+}
 
+func normalizeFieldGeometry(field stores.FieldRecord, pageCount int, pagesByNumber map[int]SignerSessionViewerPage) (int, float64, float64, float64, float64, SignerSessionViewerPage) {
+	page := resolveFieldGeometryPage(field.PageNumber, pageCount)
+	pageMeta := resolveFieldGeometryPageMeta(page, pagesByNumber)
+	width, height := normalizeFieldDimensions(field, pageMeta)
+	posX, posY := normalizeFieldPosition(field, width, height, pageMeta)
 	return page, posX, posY, width, height, pageMeta
 }
 

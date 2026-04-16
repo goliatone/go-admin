@@ -852,23 +852,47 @@ func decodeActiveCredential(
 ) (gocore.ActiveCredential, error) {
 	active := gocore.ActiveCredential{ConnectionID: stored.ConnectionID}
 	if len(stored.EncryptedPayload) > 0 {
-		if deps.SecretProvider == nil {
-			return gocore.ActiveCredential{}, fmt.Errorf("google: secret provider is required to decrypt credentials")
-		}
-		decrypted, err := deps.SecretProvider.Decrypt(ctx, stored.EncryptedPayload)
+		decoded, err := decodeStoredActiveCredential(ctx, deps, stored)
 		if err != nil {
 			return gocore.ActiveCredential{}, err
 		}
-		codec := resolvedCredentialCodec(deps, stored.PayloadFormat)
-		decoded, decodeErr := codec.Decode(decrypted)
-		if decodeErr != nil && !strings.EqualFold(codec.Format(), gocore.CredentialPayloadFormatLegacyToken) {
-			legacy := gocore.LegacyTokenCredentialCodec{}
-			decoded, decodeErr = legacy.Decode(decrypted)
-		}
-		if decodeErr != nil {
-			return gocore.ActiveCredential{}, decodeErr
-		}
 		active = decoded
+	}
+	applyStoredCredentialDefaults(&active, stored)
+	return active, nil
+}
+
+func decodeStoredActiveCredential(
+	ctx context.Context,
+	deps gocore.ServiceDependencies,
+	stored gocore.Credential,
+) (gocore.ActiveCredential, error) {
+	if deps.SecretProvider == nil {
+		return gocore.ActiveCredential{}, fmt.Errorf("google: secret provider is required to decrypt credentials")
+	}
+	decrypted, err := deps.SecretProvider.Decrypt(ctx, stored.EncryptedPayload)
+	if err != nil {
+		return gocore.ActiveCredential{}, err
+	}
+	return decodeCredentialPayload(deps, stored.PayloadFormat, decrypted)
+}
+
+func decodeCredentialPayload(
+	deps gocore.ServiceDependencies,
+	payloadFormat string,
+	decrypted []byte,
+) (gocore.ActiveCredential, error) {
+	codec := resolvedCredentialCodec(deps, payloadFormat)
+	decoded, err := codec.Decode(decrypted)
+	if err == nil || strings.EqualFold(codec.Format(), gocore.CredentialPayloadFormatLegacyToken) {
+		return decoded, err
+	}
+	return gocore.LegacyTokenCredentialCodec{}.Decode(decrypted)
+}
+
+func applyStoredCredentialDefaults(active *gocore.ActiveCredential, stored gocore.Credential) {
+	if active == nil {
+		return
 	}
 	if strings.TrimSpace(active.ConnectionID) == "" {
 		active.ConnectionID = stored.ConnectionID
@@ -893,7 +917,6 @@ func decodeActiveCredential(
 		rotates := stored.RotatesAt.UTC()
 		active.RotatesAt = &rotates
 	}
-	return active, nil
 }
 
 func resolvedCredentialCodec(deps gocore.ServiceDependencies, payloadFormat string) gocore.CredentialCodec {
@@ -927,49 +950,81 @@ func (s GoogleServicesIntegrationService) ensureProviderHealthy(ctx context.Cont
 		WithMetadata(metadata)
 }
 
+func normalizeScopedGoogleUserID(userID string) (string, string, string, error) {
+	userID = normalizeRequiredID("google", "user_id", userID)
+	if userID == "" {
+		return "", "", "", domainValidationError("google", "user_id", "required")
+	}
+	baseUserID, accountID := ParseGoogleScopedUserID(userID)
+	if baseUserID == "" {
+		return "", "", "", domainValidationError("google", "user_id", "required")
+	}
+	return baseUserID, accountID, ComposeGoogleScopedUserID(baseUserID, accountID), nil
+}
+
+func googleAccessRevokedError(
+	message, reason, baseUserID, accountID string,
+	extra map[string]any,
+) error {
+	metadata := map[string]any{
+		"provider":   GoogleProviderName,
+		"user_id":    baseUserID,
+		"account_id": accountID,
+	}
+	if strings.TrimSpace(reason) != "" {
+		metadata["reason"] = reason
+	}
+	for key, value := range extra {
+		metadata[key] = value
+	}
+	return goerrors.New(message, goerrors.CategoryAuthz).
+		WithCode(http.StatusUnauthorized).
+		WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
+		WithMetadata(metadata)
+}
+
+func (s GoogleServicesIntegrationService) resolveScopedActiveCredential(
+	ctx context.Context,
+	svc *gocore.Service,
+	connectionID, baseUserID, accountID string,
+) (gocore.ActiveCredential, error) {
+	active, err := s.resolveActiveCredential(ctx, svc, connectionID)
+	if err == nil {
+		return active, nil
+	}
+	if isNotFound(err) {
+		observability.ObserveGoogleAuthChurn(ctx, "disconnected")
+		return gocore.ActiveCredential{}, googleAccessRevokedError(
+			"google integration disconnected",
+			"",
+			baseUserID,
+			accountID,
+			nil,
+		)
+	}
+	return gocore.ActiveCredential{}, err
+}
+
 func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context, scope stores.Scope, userID string) (string, string, error) {
 	svc, err := s.serviceRuntime()
 	if err != nil {
 		return "", "", err
 	}
-	userID = normalizeRequiredID("google", "user_id", userID)
-	if userID == "" {
-		return "", "", domainValidationError("google", "user_id", "required")
+	baseUserID, accountID, scopedUserID, err := normalizeScopedGoogleUserID(userID)
+	if err != nil {
+		return "", "", err
 	}
-	baseUserID, accountID := ParseGoogleScopedUserID(userID)
-	if baseUserID == "" {
-		return "", "", domainValidationError("google", "user_id", "required")
-	}
-	scopedUserID := ComposeGoogleScopedUserID(baseUserID, accountID)
 	connection, found, err := s.findScopedConnection(ctx, svc, scope, scopedUserID)
 	if err != nil {
 		return "", "", err
 	}
 	if !found {
 		observability.ObserveGoogleAuthChurn(ctx, "disconnected")
-		return "", "", goerrors.New("google integration disconnected", goerrors.CategoryAuthz).
-			WithCode(http.StatusUnauthorized).
-			WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
-			WithMetadata(map[string]any{
-				"provider":   GoogleProviderName,
-				"user_id":    baseUserID,
-				"account_id": accountID,
-			})
+		return "", "", googleAccessRevokedError("google integration disconnected", "", baseUserID, accountID, nil)
 	}
 
-	active, err := s.resolveActiveCredential(ctx, svc, connection.ID)
+	active, err := s.resolveScopedActiveCredential(ctx, svc, connection.ID, baseUserID, accountID)
 	if err != nil {
-		if isNotFound(err) {
-			observability.ObserveGoogleAuthChurn(ctx, "disconnected")
-			return "", "", goerrors.New("google integration disconnected", goerrors.CategoryAuthz).
-				WithCode(http.StatusUnauthorized).
-				WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
-				WithMetadata(map[string]any{
-					"provider":   GoogleProviderName,
-					"user_id":    baseUserID,
-					"account_id": accountID,
-				})
-		}
 		return "", "", err
 	}
 	tokenState := gocore.ResolveCredentialTokenState(s.now().UTC(), active, gocore.DefaultCredentialExpiringSoonWindow)
@@ -991,17 +1046,16 @@ func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context
 			observability.ObserveProviderResult(ctx, GoogleProviderName, false)
 		}
 		observability.ObserveGoogleAuthChurn(ctx, "refresh_failed")
-		return "", "", goerrors.New("google integration token refresh failed; re-authorization required", goerrors.CategoryAuthz).
-			WithCode(http.StatusUnauthorized).
-			WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
-			WithMetadata(map[string]any{
-				"provider":          GoogleProviderName,
-				"user_id":           baseUserID,
-				"account_id":        accountID,
-				"reason":            "refresh_failed",
+		return "", "", googleAccessRevokedError(
+			"google integration token refresh failed; re-authorization required",
+			"refresh_failed",
+			baseUserID,
+			accountID,
+			map[string]any{
 				"can_auto_refresh":  tokenState.CanAutoRefresh,
 				"connection_status": string(connection.Status),
-			})
+			},
+		)
 	}
 
 	scopes := normalizeScopes(active.GrantedScopes)
@@ -1013,22 +1067,18 @@ func (s GoogleServicesIntegrationService) resolveAccessToken(ctx context.Context
 	}
 	if tokenState.IsExpired {
 		observability.ObserveGoogleAuthChurn(ctx, "token_expired")
-		return "", "", goerrors.New("google integration token expired; re-authorization required", goerrors.CategoryAuthz).
-			WithCode(http.StatusUnauthorized).
-			WithTextCode(string(ErrorCodeGoogleAccessRevoked)).
-			WithMetadata(map[string]any{
-				"provider":   GoogleProviderName,
-				"user_id":    baseUserID,
-				"account_id": accountID,
-				"reason":     "token_expired",
-			})
+		return "", "", googleAccessRevokedError(
+			"google integration token expired; re-authorization required",
+			"token_expired",
+			baseUserID,
+			accountID,
+			nil,
+		)
 	}
 	accessToken := strings.TrimSpace(active.AccessToken)
 	if accessToken == "" {
 		observability.ObserveGoogleAuthChurn(ctx, "access_revoked")
-		return "", "", goerrors.New("google integration access revoked", goerrors.CategoryAuthz).
-			WithCode(http.StatusUnauthorized).
-			WithTextCode(string(ErrorCodeGoogleAccessRevoked))
+		return "", "", googleAccessRevokedError("google integration access revoked", "", baseUserID, accountID, nil)
 	}
 	return accessToken, baseUserID, nil
 }
