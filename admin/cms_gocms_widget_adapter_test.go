@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 type stubGoCMSWidgetService struct {
 	defs                  map[string]*cmswidgets.Definition
 	instances             map[uuid.UUID]*cmswidgets.Instance
+	resolvedConfigs       map[uuid.UUID]map[string]any
 	areas                 map[string]*cmswidgets.AreaDefinition
 	placementsByArea      map[string]map[uuid.UUID]*cmswidgets.AreaPlacement
 	assignErr             error
@@ -26,6 +28,7 @@ func newStubGoCMSWidgetService() *stubGoCMSWidgetService {
 	return &stubGoCMSWidgetService{
 		defs:             map[string]*cmswidgets.Definition{},
 		instances:        map[uuid.UUID]*cmswidgets.Instance{},
+		resolvedConfigs:  map[uuid.UUID]map[string]any{},
 		areas:            map[string]*cmswidgets.AreaDefinition{},
 		placementsByArea: map[string]map[uuid.UUID]*cmswidgets.AreaPlacement{},
 	}
@@ -49,6 +52,36 @@ func (s *stubGoCMSWidgetService) RegisterDefinition(_ context.Context, input cms
 	}
 	s.defs[input.Name] = def
 	return def, nil
+}
+
+func (s *stubGoCMSWidgetService) SyncDefinition(ctx context.Context, input cmswidgets.RegisterDefinitionInput) (*cmswidgets.DefinitionSyncResult, error) {
+	for _, existing := range s.defs {
+		if existing.Name != input.Name {
+			continue
+		}
+		same := strings.TrimSpace(primitives.FirstNonEmptyRaw(derefString(existing.Description), existing.Name)) == strings.TrimSpace(primitives.FirstNonEmptyRaw(derefString(input.Description), input.Name)) &&
+			reflect.DeepEqual(existing.Schema, input.Schema)
+		if same {
+			return &cmswidgets.DefinitionSyncResult{
+				Definition: existing,
+				Status:     cmswidgets.DefinitionSyncStatusUnchanged,
+			}, nil
+		}
+		existing.Description = input.Description
+		existing.Schema = primitives.CloneAnyMap(input.Schema)
+		return &cmswidgets.DefinitionSyncResult{
+			Definition: existing,
+			Status:     cmswidgets.DefinitionSyncStatusUpdated,
+		}, nil
+	}
+	created, err := s.RegisterDefinition(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return &cmswidgets.DefinitionSyncResult{
+		Definition: created,
+		Status:     cmswidgets.DefinitionSyncStatusCreated,
+	}, nil
 }
 
 func (s *stubGoCMSWidgetService) GetDefinition(_ context.Context, id uuid.UUID) (*cmswidgets.Definition, error) {
@@ -214,7 +247,11 @@ func (s *stubGoCMSWidgetService) ResolveArea(_ context.Context, input cmswidgets
 		if !ok {
 			continue
 		}
-		out = append(out, &cmswidgets.ResolvedWidget{Instance: inst, Placement: placement})
+		out = append(out, &cmswidgets.ResolvedWidget{
+			Instance:  inst,
+			Config:    primitives.CloneAnyMap(s.resolvedConfigs[instanceID]),
+			Placement: placement,
+		})
 	}
 	return out, nil
 }
@@ -273,6 +310,70 @@ func TestGoCMSWidgetAdapterRegistersDefinitionUsingCode(t *testing.T) {
 	}
 	if len(instances) != 1 || instances[0].DefinitionCode != code {
 		t.Fatalf("expected 1 instance with definition code %q, got %+v", code, instances)
+	}
+}
+
+func TestGoCMSWidgetAdapterSyncDefinitionIsIdempotentAndUpdatesChanges(t *testing.T) {
+	ctx := context.Background()
+	svc := newStubGoCMSWidgetService()
+	adapter := NewGoCMSWidgetAdapter(svc)
+
+	first, err := adapter.SyncDefinition(ctx, WidgetDefinition{
+		Code: "admin.widget.syncable",
+		Name: "Syncable",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"title": map[string]any{"type": "string"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("sync definition create: %v", err)
+	}
+	if first == nil || first.Status != WidgetDefinitionSyncStatusCreated {
+		t.Fatalf("expected created sync status, got %+v", first)
+	}
+
+	same, err := adapter.SyncDefinition(ctx, WidgetDefinition{
+		Code: "admin.widget.syncable",
+		Name: "Syncable",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"title": map[string]any{"type": "string"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("sync definition unchanged: %v", err)
+	}
+	if same == nil || same.Status != WidgetDefinitionSyncStatusUnchanged {
+		t.Fatalf("expected unchanged sync status, got %+v", same)
+	}
+
+	updated, err := adapter.SyncDefinition(ctx, WidgetDefinition{
+		Code: "admin.widget.syncable",
+		Name: "Syncable",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"title":   map[string]any{"type": "string"},
+				"variant": map[string]any{"type": "string"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("sync definition update: %v", err)
+	}
+	if updated == nil || updated.Status != WidgetDefinitionSyncStatusUpdated {
+		t.Fatalf("expected updated sync status, got %+v", updated)
+	}
+
+	stored := svc.defs["admin.widget.syncable"]
+	properties, _ := stored.Schema["properties"].(map[string]any)
+	if _, ok := properties["variant"]; !ok {
+		t.Fatalf("expected updated schema propagated to go-cms service, got %#v", stored.Schema)
 	}
 }
 
@@ -415,6 +516,85 @@ func TestGoCMSWidgetAdapterListInstancesResolvesDefinitionCodeByID(t *testing.T)
 	}
 }
 
+func TestGoCMSWidgetAdapterListInstancesUsesResolvedLocalizedConfig(t *testing.T) {
+	ctx := context.Background()
+	svc := newStubGoCMSWidgetService()
+	defID := uuid.New()
+	svc.defs["admin.widget.localized"] = &cmswidgets.Definition{
+		ID:     defID,
+		Name:   "admin.widget.localized",
+		Schema: map[string]any{"fields": []any{}},
+	}
+	area := "admin.dashboard.main"
+	instID := uuid.New()
+	svc.instances[instID] = &cmswidgets.Instance{
+		ID:            instID,
+		DefinitionID:  defID,
+		AreaCode:      &area,
+		Configuration: map[string]any{"headline": "Base"},
+	}
+	svc.resolvedConfigs[instID] = map[string]any{"headline": "Localized"}
+	svc.placementsByArea[area] = map[uuid.UUID]*cmswidgets.AreaPlacement{
+		instID: {
+			ID:         uuid.New(),
+			AreaCode:   area,
+			InstanceID: instID,
+			Position:   1,
+		},
+	}
+
+	adapter := NewGoCMSWidgetAdapter(svc)
+	instances, err := adapter.ListInstances(ctx, WidgetInstanceFilter{Area: area})
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	if len(instances) != 1 {
+		t.Fatalf("expected one instance, got %d", len(instances))
+	}
+	if got := instances[0].Config["headline"]; got != "Localized" {
+		t.Fatalf("expected resolved localized config, got %#v", got)
+	}
+}
+
+func TestGoCMSWidgetAdapterListInstancesKeepsBaseConfigWhenResolvedConfigMissing(t *testing.T) {
+	ctx := context.Background()
+	svc := newStubGoCMSWidgetService()
+	defID := uuid.New()
+	svc.defs["admin.widget.base_only"] = &cmswidgets.Definition{
+		ID:     defID,
+		Name:   "admin.widget.base_only",
+		Schema: map[string]any{"fields": []any{}},
+	}
+	area := "admin.dashboard.main"
+	instID := uuid.New()
+	svc.instances[instID] = &cmswidgets.Instance{
+		ID:            instID,
+		DefinitionID:  defID,
+		AreaCode:      &area,
+		Configuration: map[string]any{"headline": "Base"},
+	}
+	svc.placementsByArea[area] = map[uuid.UUID]*cmswidgets.AreaPlacement{
+		instID: {
+			ID:         uuid.New(),
+			AreaCode:   area,
+			InstanceID: instID,
+			Position:   1,
+		},
+	}
+
+	adapter := NewGoCMSWidgetAdapter(svc)
+	instances, err := adapter.ListInstances(ctx, WidgetInstanceFilter{Area: area})
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	if len(instances) != 1 {
+		t.Fatalf("expected one instance, got %d", len(instances))
+	}
+	if got := instances[0].Config["headline"]; got != "Base" {
+		t.Fatalf("expected base config fallback, got %#v", got)
+	}
+}
+
 func TestGoCMSWidgetAdapterSaveInstanceWithNilContext(t *testing.T) {
 	svc := newStubGoCMSWidgetService()
 	adapter := NewGoCMSWidgetAdapter(svc)
@@ -531,4 +711,11 @@ func TestGoCMSWidgetAdapterAssignWidgetPlacementDoesNotStringMatchDuplicates(t *
 	if !strings.Contains(err.Error(), "already assigned") {
 		t.Fatalf("expected duplicate assignment error preserved, got %v", err)
 	}
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

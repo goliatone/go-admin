@@ -26,9 +26,12 @@ func (stubWidgetService) RegisterAreaDefinition(context.Context, WidgetAreaDefin
 	return nil
 }
 func (stubWidgetService) RegisterDefinition(context.Context, WidgetDefinition) error { return nil }
-func (stubWidgetService) DeleteDefinition(context.Context, string) error             { return nil }
-func (stubWidgetService) Areas() []WidgetAreaDefinition                              { return nil }
-func (stubWidgetService) Definitions() []WidgetDefinition                            { return nil }
+func (stubWidgetService) SyncDefinition(context.Context, WidgetDefinition) (*WidgetDefinitionSyncResult, error) {
+	return &WidgetDefinitionSyncResult{Status: WidgetDefinitionSyncStatusUnchanged}, nil
+}
+func (stubWidgetService) DeleteDefinition(context.Context, string) error { return nil }
+func (stubWidgetService) Areas() []WidgetAreaDefinition                  { return nil }
+func (stubWidgetService) Definitions() []WidgetDefinition                { return nil }
 func (stubWidgetService) SaveInstance(ctx context.Context, instance WidgetInstance) (*WidgetInstance, error) {
 	return &instance, nil
 }
@@ -161,8 +164,11 @@ func TestEnsureUsesBuilderWhenMissing(t *testing.T) {
 	if res.Container != built {
 		t.Fatalf("expected builder container to be used")
 	}
-	if res.MenuService != menu || res.WidgetService != widget || res.ContentService != content || res.ContentTypeService != content {
+	if res.MenuService != menu || res.ContentService != content || res.ContentTypeService != content {
 		t.Fatalf("expected services from builder to be used")
+	}
+	if _, ok := res.WidgetService.(stubWidgetService); !ok {
+		t.Fatalf("expected widget service from builder to be used")
 	}
 }
 

@@ -50,6 +50,27 @@ func TestConvertGoCMSResolvedWidgetBackfillsPlacementMetadata(t *testing.T) {
 	}
 }
 
+func TestConvertGoCMSResolvedWidgetPrefersResolvedConfig(t *testing.T) {
+	entry := &cmswidgets.ResolvedWidget{
+		Instance: &cmswidgets.Instance{
+			ID:            uuid.New(),
+			DefinitionID:  uuid.New(),
+			Configuration: map[string]any{"headline": "Base"},
+		},
+		Config: map[string]any{"headline": "Localized"},
+	}
+
+	inst := ConvertGoCMSResolvedWidget(entry)
+	if got := inst.Config["headline"]; got != "Localized" {
+		t.Fatalf("expected resolved config to win, got %#v", got)
+	}
+
+	inst.Config["headline"] = "Mutated"
+	if got := entry.Config["headline"]; got != "Localized" {
+		t.Fatalf("expected mapped config clone, got %#v", got)
+	}
+}
+
 func TestFilterWidgetInstancesTreatsEmptyInstanceLocaleAsWildcard(t *testing.T) {
 	instances := []dashinternal.WidgetInstance{
 		{ID: "1", PageID: "page-1", Locale: ""},

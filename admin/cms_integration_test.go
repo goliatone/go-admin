@@ -87,6 +87,9 @@ func (stubWidgetService) RegisterAreaDefinition(ctx context.Context, def WidgetA
 func (stubWidgetService) RegisterDefinition(ctx context.Context, def WidgetDefinition) error {
 	return nil
 }
+func (stubWidgetService) SyncDefinition(ctx context.Context, def WidgetDefinition) (*WidgetDefinitionSyncResult, error) {
+	return &WidgetDefinitionSyncResult{Definition: def, Status: WidgetDefinitionSyncStatusUnchanged}, nil
+}
 func (stubWidgetService) DeleteDefinition(ctx context.Context, code string) error {
 	return nil
 }

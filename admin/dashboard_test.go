@@ -80,6 +80,13 @@ func (s *reentrantDashboardWidgetService) RegisterDefinition(context.Context, Wi
 	return nil
 }
 
+func (s *reentrantDashboardWidgetService) SyncDefinition(ctx context.Context, def WidgetDefinition) (*WidgetDefinitionSyncResult, error) {
+	if err := s.RegisterDefinition(ctx, def); err != nil {
+		return nil, err
+	}
+	return &WidgetDefinitionSyncResult{Definition: def, Status: WidgetDefinitionSyncStatusUnchanged}, nil
+}
+
 func (s *reentrantDashboardWidgetService) DeleteDefinition(context.Context, string) error {
 	return nil
 }

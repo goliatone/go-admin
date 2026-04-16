@@ -163,6 +163,18 @@ func (s *inMemoryWidgetService) RegisterDefinition(_ context.Context, def Widget
 	return nil
 }
 
+func (s *inMemoryWidgetService) SyncDefinition(_ context.Context, def WidgetDefinition) (*WidgetDefinitionSyncResult, error) {
+	status := WidgetDefinitionSyncStatusCreated
+	if _, ok := s.defs[def.Code]; ok {
+		status = WidgetDefinitionSyncStatusUpdated
+	}
+	s.defs[def.Code] = def
+	return &WidgetDefinitionSyncResult{
+		Definition: def,
+		Status:     status,
+	}, nil
+}
+
 func (s *inMemoryWidgetService) DeleteDefinition(_ context.Context, code string) error {
 	delete(s.defs, code)
 	return nil

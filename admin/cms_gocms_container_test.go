@@ -112,6 +112,13 @@ func (testPublicWidgetService) RegisterDefinition(context.Context, cmswidgets.Re
 	return &cmswidgets.Definition{ID: uuid.New(), Name: "widget", Schema: map[string]any{}}, nil
 }
 
+func (testPublicWidgetService) SyncDefinition(context.Context, cmswidgets.RegisterDefinitionInput) (*cmswidgets.DefinitionSyncResult, error) {
+	return &cmswidgets.DefinitionSyncResult{
+		Definition: &cmswidgets.Definition{ID: uuid.New(), Name: "widget", Schema: map[string]any{}},
+		Status:     cmswidgets.DefinitionSyncStatusUnchanged,
+	}, nil
+}
+
 func (testPublicWidgetService) GetDefinition(context.Context, uuid.UUID) (*cmswidgets.Definition, error) {
 	return &cmswidgets.Definition{ID: uuid.New(), Name: "widget", Schema: map[string]any{}}, nil
 }
