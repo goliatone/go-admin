@@ -1284,6 +1284,14 @@ func main() {
 		"icon":    "icon.light.svg", // Square icon only (white fill for dark bg)
 		"favicon": "logo.svg",
 	}
+	for key, value := range runtimeConfig.Admin.ThemeAssets {
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" || value == "" {
+			continue
+		}
+		authThemeAssets[key] = value
+	}
 	authThemeAssetPrefix := path.Join(cfg.BasePath, "assets")
 
 	if err := quickstart.RegisterAuthUIRoutes(
