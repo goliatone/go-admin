@@ -1486,28 +1486,7 @@ func (s *InMemoryStore) SaveRemediationDispatch(ctx context.Context, scope Scope
 	defer s.mu.Unlock()
 
 	if existing, ok := s.remediationDispatches[record.DispatchID]; ok {
-		if existing.DocumentID != "" && record.DocumentID == "" {
-			record.DocumentID = existing.DocumentID
-		}
-		if existing.IdempotencyKey != "" && record.IdempotencyKey == "" {
-			record.IdempotencyKey = existing.IdempotencyKey
-		}
-		if existing.Mode != "" && record.Mode == "" {
-			record.Mode = existing.Mode
-		}
-		if existing.CommandID != "" && record.CommandID == "" {
-			record.CommandID = existing.CommandID
-		}
-		if existing.CorrelationID != "" && record.CorrelationID == "" {
-			record.CorrelationID = existing.CorrelationID
-		}
-		if existing.EnqueuedAt != nil && record.EnqueuedAt == nil {
-			record.EnqueuedAt = cloneTimePtr(existing.EnqueuedAt)
-		}
-		if existing.MaxAttempts > record.MaxAttempts {
-			record.MaxAttempts = existing.MaxAttempts
-		}
-		record.Accepted = record.Accepted || existing.Accepted
+		record = mergeRemediationDispatchRecord(record, existing)
 	}
 
 	record = cloneRemediationDispatchRecord(record)
@@ -1516,6 +1495,32 @@ func (s *InMemoryStore) SaveRemediationDispatch(ctx context.Context, scope Scope
 		s.remediationDispatchIndex[remediationDispatchIndexKey(scope, record.IdempotencyKey)] = record.DispatchID
 	}
 	return cloneRemediationDispatchRecord(record), nil
+}
+
+func mergeRemediationDispatchRecord(record, existing RemediationDispatchRecord) RemediationDispatchRecord {
+	if existing.DocumentID != "" && record.DocumentID == "" {
+		record.DocumentID = existing.DocumentID
+	}
+	if existing.IdempotencyKey != "" && record.IdempotencyKey == "" {
+		record.IdempotencyKey = existing.IdempotencyKey
+	}
+	if existing.Mode != "" && record.Mode == "" {
+		record.Mode = existing.Mode
+	}
+	if existing.CommandID != "" && record.CommandID == "" {
+		record.CommandID = existing.CommandID
+	}
+	if existing.CorrelationID != "" && record.CorrelationID == "" {
+		record.CorrelationID = existing.CorrelationID
+	}
+	if existing.EnqueuedAt != nil && record.EnqueuedAt == nil {
+		record.EnqueuedAt = cloneTimePtr(existing.EnqueuedAt)
+	}
+	if existing.MaxAttempts > record.MaxAttempts {
+		record.MaxAttempts = existing.MaxAttempts
+	}
+	record.Accepted = record.Accepted || existing.Accepted
+	return record
 }
 
 func (s *InMemoryStore) GetRemediationDispatch(ctx context.Context, dispatchID string) (RemediationDispatchRecord, error) {
@@ -1596,63 +1601,78 @@ func (s *InMemoryStore) SaveGuardedEffect(ctx context.Context, scope Scope, reco
 	defer s.mu.Unlock()
 
 	if existing, ok := s.guardedEffects[record.EffectID]; ok {
-		if record.IdempotencyKey == "" {
-			record.IdempotencyKey = existing.IdempotencyKey
-		}
-		if record.CorrelationID == "" {
-			record.CorrelationID = existing.CorrelationID
-		}
-		if record.DispatchID == "" {
-			record.DispatchID = existing.DispatchID
-		}
-		if record.GuardPolicy == "" {
-			record.GuardPolicy = existing.GuardPolicy
-		}
-		if record.GroupType == "" {
-			record.GroupType = existing.GroupType
-		}
-		if record.GroupID == "" {
-			record.GroupID = existing.GroupID
-		}
-		if record.PreparePayloadJSON == "" {
-			record.PreparePayloadJSON = existing.PreparePayloadJSON
-		}
-		if record.DispatchPayloadJSON == "" {
-			record.DispatchPayloadJSON = existing.DispatchPayloadJSON
-		}
-		if record.ResultPayloadJSON == "" {
-			record.ResultPayloadJSON = existing.ResultPayloadJSON
-		}
-		if record.ErrorJSON == "" {
-			record.ErrorJSON = existing.ErrorJSON
-		}
-		if record.AttemptCount < existing.AttemptCount {
-			record.AttemptCount = existing.AttemptCount
-		}
-		if record.MaxAttempts < existing.MaxAttempts {
-			record.MaxAttempts = existing.MaxAttempts
-		}
-		if record.DispatchedAt == nil {
-			record.DispatchedAt = cloneTimePtr(existing.DispatchedAt)
-		}
-		if record.FinalizedAt == nil {
-			record.FinalizedAt = cloneTimePtr(existing.FinalizedAt)
-		}
-		if record.AbortedAt == nil {
-			record.AbortedAt = cloneTimePtr(existing.AbortedAt)
-		}
-		if record.RetryAt == nil {
-			record.RetryAt = cloneTimePtr(existing.RetryAt)
-		}
-		if record.CreatedAt.IsZero() {
-			record.CreatedAt = existing.CreatedAt
-		}
+		record = mergeGuardedEffectRecord(record, existing)
 	}
 	s.guardedEffects[record.EffectID] = record
 	if record.IdempotencyKey != "" {
 		s.guardedEffectIndex[guardedEffectIndexKey(scope, record.IdempotencyKey)] = record.EffectID
 	}
 	return cloneGuardedEffectRecord(record), nil
+}
+
+func mergeGuardedEffectRecord(record, existing guardedeffects.Record) guardedeffects.Record {
+	record = mergeGuardedEffectScalarFields(record, existing)
+	record = mergeGuardedEffectTimeFields(record, existing)
+	if record.CreatedAt.IsZero() {
+		record.CreatedAt = existing.CreatedAt
+	}
+	return record
+}
+
+func mergeGuardedEffectScalarFields(record, existing guardedeffects.Record) guardedeffects.Record {
+	if record.IdempotencyKey == "" {
+		record.IdempotencyKey = existing.IdempotencyKey
+	}
+	if record.CorrelationID == "" {
+		record.CorrelationID = existing.CorrelationID
+	}
+	if record.DispatchID == "" {
+		record.DispatchID = existing.DispatchID
+	}
+	if record.GuardPolicy == "" {
+		record.GuardPolicy = existing.GuardPolicy
+	}
+	if record.GroupType == "" {
+		record.GroupType = existing.GroupType
+	}
+	if record.GroupID == "" {
+		record.GroupID = existing.GroupID
+	}
+	if record.PreparePayloadJSON == "" {
+		record.PreparePayloadJSON = existing.PreparePayloadJSON
+	}
+	if record.DispatchPayloadJSON == "" {
+		record.DispatchPayloadJSON = existing.DispatchPayloadJSON
+	}
+	if record.ResultPayloadJSON == "" {
+		record.ResultPayloadJSON = existing.ResultPayloadJSON
+	}
+	if record.ErrorJSON == "" {
+		record.ErrorJSON = existing.ErrorJSON
+	}
+	if record.AttemptCount < existing.AttemptCount {
+		record.AttemptCount = existing.AttemptCount
+	}
+	if record.MaxAttempts < existing.MaxAttempts {
+		record.MaxAttempts = existing.MaxAttempts
+	}
+	return record
+}
+
+func mergeGuardedEffectTimeFields(record, existing guardedeffects.Record) guardedeffects.Record {
+	if record.DispatchedAt == nil {
+		record.DispatchedAt = cloneTimePtr(existing.DispatchedAt)
+	}
+	if record.FinalizedAt == nil {
+		record.FinalizedAt = cloneTimePtr(existing.FinalizedAt)
+	}
+	if record.AbortedAt == nil {
+		record.AbortedAt = cloneTimePtr(existing.AbortedAt)
+	}
+	if record.RetryAt == nil {
+		record.RetryAt = cloneTimePtr(existing.RetryAt)
+	}
+	return record
 }
 
 func (s *InMemoryStore) GetGuardedEffect(ctx context.Context, effectID string) (guardedeffects.Record, error) {
@@ -2638,21 +2658,39 @@ func (s *InMemoryStore) UpsertParticipantDraft(ctx context.Context, scope Scope,
 
 	record, exists := s.participants[key]
 	if !exists {
-		record = ParticipantRecord{
-			ID:           participantID,
-			TenantID:     scope.TenantID,
-			OrgID:        scope.OrgID,
-			AgreementID:  agreementID,
-			Role:         RecipientRoleSigner,
-			Notify:       true,
-			SigningStage: 1,
-			Version:      1,
-			CreatedAt:    time.Now().UTC(),
-		}
+		record = newParticipantDraftRecord(scope, agreementID, participantID)
 	} else if expectedVersion > 0 && record.Version != expectedVersion {
 		return ParticipantRecord{}, versionConflictError("participants", participantID, expectedVersion, record.Version)
 	}
 
+	applyParticipantDraftPatch(&record, patch)
+	if err := validateParticipantDraftRecord(record); err != nil {
+		return ParticipantRecord{}, err
+	}
+
+	if exists {
+		record.Version++
+	}
+	record.UpdatedAt = time.Now().UTC()
+	s.participants[key] = record
+	return record, nil
+}
+
+func newParticipantDraftRecord(scope Scope, agreementID, participantID string) ParticipantRecord {
+	return ParticipantRecord{
+		ID:           participantID,
+		TenantID:     scope.TenantID,
+		OrgID:        scope.OrgID,
+		AgreementID:  agreementID,
+		Role:         RecipientRoleSigner,
+		Notify:       true,
+		SigningStage: 1,
+		Version:      1,
+		CreatedAt:    time.Now().UTC(),
+	}
+}
+
+func applyParticipantDraftPatch(record *ParticipantRecord, patch ParticipantDraftPatch) {
 	if patch.Email != nil {
 		record.Email = strings.TrimSpace(*patch.Email)
 	}
@@ -2671,23 +2709,19 @@ func (s *InMemoryStore) UpsertParticipantDraft(ctx context.Context, scope Scope,
 	if record.Role == "" {
 		record.Role = RecipientRoleSigner
 	}
+}
 
+func validateParticipantDraftRecord(record ParticipantRecord) error {
 	if record.Email == "" {
-		return ParticipantRecord{}, invalidRecordError("participants", "email", "required")
+		return invalidRecordError("participants", "email", "required")
 	}
 	if record.Role != RecipientRoleSigner && record.Role != RecipientRoleCC {
-		return ParticipantRecord{}, invalidRecordError("participants", "role", "must be signer or cc")
+		return invalidRecordError("participants", "role", "must be signer or cc")
 	}
 	if record.SigningStage <= 0 {
-		return ParticipantRecord{}, invalidRecordError("participants", "signing_stage", "must be positive")
+		return invalidRecordError("participants", "signing_stage", "must be positive")
 	}
-
-	if exists {
-		record.Version++
-	}
-	record.UpdatedAt = time.Now().UTC()
-	s.participants[key] = record
-	return record, nil
+	return nil
 }
 
 func (s *InMemoryStore) DeleteParticipantDraft(ctx context.Context, scope Scope, agreementID, participantID string) error {
@@ -2721,40 +2755,36 @@ func (s *InMemoryStore) DeleteParticipantDraft(ctx context.Context, scope Scope,
 		return notFoundError("participants", participantID)
 	}
 	delete(s.participants, participantKey)
+	s.deleteParticipantFieldDefinitions(scope, agreementID, participantID)
+	s.deleteParticipantFieldValues(scope, agreementID, participantID)
+	return nil
+}
 
-	for key, definition := range s.fieldDefinitions {
-		if definition.TenantID != scope.TenantID || definition.OrgID != scope.OrgID {
+func (s *InMemoryStore) deleteParticipantFieldDefinitions(scope Scope, agreementID, participantID string) {
+	for _, definition := range s.fieldDefinitions {
+		if !matchesScopedAgreementRecord(scope, agreementID, definition.TenantID, definition.OrgID, definition.AgreementID) {
 			continue
 		}
-		if definition.AgreementID == agreementID && definition.ParticipantID == participantID {
-			delete(s.fieldDefinitions, key)
-			for instanceKey, instance := range s.fieldInstances {
-				if instance.TenantID != scope.TenantID || instance.OrgID != scope.OrgID {
-					continue
-				}
-				if instance.AgreementID == agreementID && instance.FieldDefinitionID == definition.ID {
-					delete(s.fieldInstances, instanceKey)
-					for valueKey, value := range s.fieldValues {
-						if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
-							continue
-						}
-						if value.AgreementID == agreementID && value.FieldID == instance.ID {
-							delete(s.fieldValues, valueKey)
-						}
-					}
-				}
-			}
+		if definition.ParticipantID != participantID {
+			continue
 		}
+		s.deleteFieldDefinitionArtifacts(scope, agreementID, definition.ID)
 	}
+}
+
+func (s *InMemoryStore) deleteParticipantFieldValues(scope Scope, agreementID, participantID string) {
 	for valueKey, value := range s.fieldValues {
-		if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
+		if !matchesScopedAgreementRecord(scope, agreementID, value.TenantID, value.OrgID, value.AgreementID) {
 			continue
 		}
-		if value.AgreementID == agreementID && value.RecipientID == participantID {
+		if value.RecipientID == participantID {
 			delete(s.fieldValues, valueKey)
 		}
 	}
-	return nil
+}
+
+func matchesScopedAgreementRecord(scope Scope, agreementID, tenantID, orgID, recordAgreementID string) bool {
+	return tenantID == scope.TenantID && orgID == scope.OrgID && recordAgreementID == agreementID
 }
 
 func (s *InMemoryStore) ListParticipants(ctx context.Context, scope Scope, agreementID string) ([]ParticipantRecord, error) {
@@ -3077,24 +3107,22 @@ func (s *InMemoryStore) DeleteFieldDefinitionDraft(ctx context.Context, scope Sc
 	if !ok || record.AgreementID != agreementID {
 		return notFoundError("field_definitions", fieldDefinitionID)
 	}
-	delete(s.fieldDefinitions, key)
+	s.deleteFieldDefinitionArtifacts(scope, agreementID, fieldDefinitionID)
+	return nil
+}
+
+func (s *InMemoryStore) deleteFieldDefinitionArtifacts(scope Scope, agreementID, fieldDefinitionID string) {
+	delete(s.fieldDefinitions, scopedKey(scope, fieldDefinitionID))
 	for instanceKey, instance := range s.fieldInstances {
-		if instance.TenantID != scope.TenantID || instance.OrgID != scope.OrgID {
+		if !matchesScopedAgreementRecord(scope, agreementID, instance.TenantID, instance.OrgID, instance.AgreementID) {
 			continue
 		}
-		if instance.AgreementID == agreementID && instance.FieldDefinitionID == fieldDefinitionID {
-			delete(s.fieldInstances, instanceKey)
-			for valueKey, value := range s.fieldValues {
-				if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
-					continue
-				}
-				if value.AgreementID == agreementID && value.FieldID == instance.ID {
-					delete(s.fieldValues, valueKey)
-				}
-			}
+		if instance.FieldDefinitionID != fieldDefinitionID {
+			continue
 		}
+		delete(s.fieldInstances, instanceKey)
+		s.deleteFieldInstanceValues(scope, agreementID, instance.ID)
 	}
-	return nil
 }
 
 func (s *InMemoryStore) ListFieldDefinitions(ctx context.Context, scope Scope, agreementID string) ([]FieldDefinitionRecord, error) {
@@ -3153,6 +3181,21 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	}
 
 	record, exists := s.fieldInstances[key]
+	record = prepareFieldInstanceDraftRecord(scope, agreementID, instanceID, patch, record, exists)
+	if err := validateFieldInstanceDraftRecord(&record); err != nil {
+		return FieldInstanceRecord{}, err
+	}
+	definition, ok := s.fieldDefinitions[scopedKey(scope, record.FieldDefinitionID)]
+	if !ok || definition.AgreementID != agreementID {
+		return FieldInstanceRecord{}, notFoundError("field_definitions", record.FieldDefinitionID)
+	}
+	mergeFieldInstanceLinkGroup(&record, definition)
+	record.UpdatedAt = time.Now().UTC()
+	s.fieldInstances[key] = record
+	return record, nil
+}
+
+func prepareFieldInstanceDraftRecord(scope Scope, agreementID, instanceID string, patch FieldInstanceDraftPatch, record FieldInstanceRecord, exists bool) FieldInstanceRecord {
 	if !exists {
 		record = FieldInstanceRecord{
 			ID:              instanceID,
@@ -3167,9 +3210,28 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 			CreatedAt:       time.Now().UTC(),
 		}
 	}
+	applyFieldInstanceLinkPatch(&record, patch)
+	applyFieldInstanceGeometryPatch(&record, patch)
+	applyFieldInstancePlacementPatch(&record, patch)
+	return record
+}
+
+func applyFieldInstanceLinkPatch(record *FieldInstanceRecord, patch FieldInstanceDraftPatch) {
 	if patch.FieldDefinitionID != nil {
 		record.FieldDefinitionID = normalizeID(*patch.FieldDefinitionID)
 	}
+	if patch.LinkGroupID != nil {
+		record.LinkGroupID = strings.TrimSpace(*patch.LinkGroupID)
+	}
+	if patch.LinkedFromFieldID != nil {
+		record.LinkedFromFieldID = normalizeID(*patch.LinkedFromFieldID)
+	}
+	if patch.IsUnlinked != nil {
+		record.IsUnlinked = *patch.IsUnlinked
+	}
+}
+
+func applyFieldInstanceGeometryPatch(record *FieldInstanceRecord, patch FieldInstanceDraftPatch) {
 	if patch.PageNumber != nil {
 		record.PageNumber = *patch.PageNumber
 	}
@@ -3188,6 +3250,9 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	if patch.TabIndex != nil {
 		record.TabIndex = *patch.TabIndex
 	}
+}
+
+func applyFieldInstancePlacementPatch(record *FieldInstanceRecord, patch FieldInstanceDraftPatch) {
 	if patch.Label != nil {
 		record.Label = strings.TrimSpace(*patch.Label)
 	}
@@ -3209,30 +3274,17 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	if patch.ManualOverride != nil {
 		record.ManualOverride = *patch.ManualOverride
 	}
-	if patch.LinkGroupID != nil {
-		record.LinkGroupID = strings.TrimSpace(*patch.LinkGroupID)
-	}
-	if patch.LinkedFromFieldID != nil {
-		record.LinkedFromFieldID = normalizeID(*patch.LinkedFromFieldID)
-	}
-	if patch.IsUnlinked != nil {
-		record.IsUnlinked = *patch.IsUnlinked
-	}
+}
+
+func validateFieldInstanceDraftRecord(record *FieldInstanceRecord) error {
 	if record.FieldDefinitionID == "" {
-		return FieldInstanceRecord{}, invalidRecordError("field_instances", "field_definition_id", "required")
-	}
-	definition, ok := s.fieldDefinitions[scopedKey(scope, record.FieldDefinitionID)]
-	if !ok || definition.AgreementID != agreementID {
-		return FieldInstanceRecord{}, notFoundError("field_definitions", record.FieldDefinitionID)
-	}
-	if strings.TrimSpace(record.LinkGroupID) == "" {
-		record.LinkGroupID = strings.TrimSpace(definition.LinkGroupID)
+		return invalidRecordError("field_instances", "field_definition_id", "required")
 	}
 	if record.PageNumber <= 0 {
-		return FieldInstanceRecord{}, invalidRecordError("field_instances", "page_number", "must be positive")
+		return invalidRecordError("field_instances", "page_number", "must be positive")
 	}
 	if record.Width <= 0 || record.Height <= 0 {
-		return FieldInstanceRecord{}, invalidRecordError("field_instances", "width|height", "must be positive")
+		return invalidRecordError("field_instances", "width|height", "must be positive")
 	}
 	if record.PlacementSource == "" {
 		record.PlacementSource = PlacementSourceManual
@@ -3240,7 +3292,7 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	if record.PlacementSource != PlacementSourceAuto &&
 		record.PlacementSource != PlacementSourceManual &&
 		record.PlacementSource != PlacementSourceAutoLinked {
-		return FieldInstanceRecord{}, invalidRecordError("field_instances", "placement_source", "must be auto, manual, or auto_linked")
+		return invalidRecordError("field_instances", "placement_source", "must be auto, manual, or auto_linked")
 	}
 	if record.Confidence < 0 {
 		record.Confidence = 0
@@ -3248,9 +3300,13 @@ func (s *InMemoryStore) UpsertFieldInstanceDraft(ctx context.Context, scope Scop
 	if record.Confidence > 1 {
 		record.Confidence = 1
 	}
-	record.UpdatedAt = time.Now().UTC()
-	s.fieldInstances[key] = record
-	return record, nil
+	return nil
+}
+
+func mergeFieldInstanceLinkGroup(record *FieldInstanceRecord, definition FieldDefinitionRecord) {
+	if strings.TrimSpace(record.LinkGroupID) == "" {
+		record.LinkGroupID = strings.TrimSpace(definition.LinkGroupID)
+	}
 }
 
 func (s *InMemoryStore) DeleteFieldInstanceDraft(ctx context.Context, scope Scope, agreementID, fieldInstanceID string) error {
@@ -3282,28 +3338,34 @@ func (s *InMemoryStore) DeleteFieldInstanceDraft(ctx context.Context, scope Scop
 		return notFoundError("field_instances", fieldInstanceID)
 	}
 	delete(s.fieldInstances, key)
-	for valueKey, value := range s.fieldValues {
-		if value.TenantID != scope.TenantID || value.OrgID != scope.OrgID {
-			continue
-		}
-		if value.AgreementID == agreementID && value.FieldID == fieldInstanceID {
-			delete(s.fieldValues, valueKey)
-		}
-	}
-	remaining := 0
-	for _, check := range s.fieldInstances {
-		if check.TenantID != scope.TenantID || check.OrgID != scope.OrgID {
-			continue
-		}
-		if check.AgreementID == agreementID && check.FieldDefinitionID == instance.FieldDefinitionID {
-			remaining++
-			break
-		}
-	}
-	if remaining == 0 {
+	s.deleteFieldInstanceValues(scope, agreementID, fieldInstanceID)
+	if !s.hasFieldInstancesForDefinition(scope, agreementID, instance.FieldDefinitionID) {
 		delete(s.fieldDefinitions, scopedKey(scope, instance.FieldDefinitionID))
 	}
 	return nil
+}
+
+func (s *InMemoryStore) deleteFieldInstanceValues(scope Scope, agreementID, fieldInstanceID string) {
+	for valueKey, value := range s.fieldValues {
+		if !matchesScopedAgreementRecord(scope, agreementID, value.TenantID, value.OrgID, value.AgreementID) {
+			continue
+		}
+		if value.FieldID == fieldInstanceID {
+			delete(s.fieldValues, valueKey)
+		}
+	}
+}
+
+func (s *InMemoryStore) hasFieldInstancesForDefinition(scope Scope, agreementID, fieldDefinitionID string) bool {
+	for _, check := range s.fieldInstances {
+		if !matchesScopedAgreementRecord(scope, agreementID, check.TenantID, check.OrgID, check.AgreementID) {
+			continue
+		}
+		if check.FieldDefinitionID == fieldDefinitionID {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *InMemoryStore) ListFieldInstances(ctx context.Context, scope Scope, agreementID string) ([]FieldInstanceRecord, error) {
@@ -4353,62 +4415,23 @@ func (s *InMemoryStore) UpsertFieldValue(ctx context.Context, scope Scope, value
 	if err != nil {
 		return FieldValueRecord{}, err
 	}
-	value.AgreementID = normalizeID(value.AgreementID)
-	value.RecipientID = normalizeID(value.RecipientID)
-	value.FieldID = normalizeID(value.FieldID)
-	value.SignatureArtifactID = normalizeID(value.SignatureArtifactID)
-	if value.AgreementID == "" {
-		return FieldValueRecord{}, invalidRecordError("field_values", "agreement_id", "required")
+	value = normalizeFieldValueRecord(scope, value)
+	if err := validateFieldValueRecord(value); err != nil {
+		return FieldValueRecord{}, err
 	}
-	if value.RecipientID == "" {
-		return FieldValueRecord{}, invalidRecordError("field_values", "recipient_id", "required")
-	}
-	if value.FieldID == "" {
-		return FieldValueRecord{}, invalidRecordError("field_values", "field_id", "required")
-	}
-	if normalizeID(value.ID) == "" {
-		value.ID = uuid.NewString()
-	}
-	value.ID = normalizeID(value.ID)
-
-	value.TenantID = scope.TenantID
-	value.OrgID = scope.OrgID
 
 	key := scopedKey(scope, value.ID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var (
-		existingByField FieldValueRecord
-		hasByField      bool
-	)
-	for _, record := range s.fieldValues {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.AgreementID != value.AgreementID || record.RecipientID != value.RecipientID {
-			continue
-		}
-		if record.FieldID != value.FieldID {
-			continue
-		}
-		existingByField = record
-		hasByField = true
-		break
-	}
+	existingByField, hasByField := s.findFieldValueByLogicalKey(scope, value)
 	if hasByField && value.ID != existingByField.ID {
 		value.ID = existingByField.ID
 		key = scopedKey(scope, value.ID)
 	}
 
-	if value.SignatureArtifactID != "" {
-		artifact, ok := s.signatureArtifacts[scopedKey(scope, value.SignatureArtifactID)]
-		if !ok {
-			return FieldValueRecord{}, notFoundError("signature_artifacts", value.SignatureArtifactID)
-		}
-		if artifact.AgreementID != value.AgreementID || artifact.RecipientID != value.RecipientID {
-			return FieldValueRecord{}, invalidRecordError("field_values", "signature_artifact_id", "artifact does not belong to signer agreement scope")
-		}
+	if err := s.validateFieldValueArtifact(scope, value); err != nil {
+		return FieldValueRecord{}, err
 	}
 
 	existing, exists := s.fieldValues[key]
@@ -4416,21 +4439,84 @@ func (s *InMemoryStore) UpsertFieldValue(ctx context.Context, scope Scope, value
 		existing = existingByField
 		exists = true
 	}
-	if exists {
-		if expectedVersion > 0 && existing.Version != expectedVersion {
-			return FieldValueRecord{}, versionConflictError("field_values", value.ID, expectedVersion, existing.Version)
-		}
-		value.CreatedAt = existing.CreatedAt
-		value.Version = existing.Version + 1
-	} else {
-		if value.Version <= 0 {
-			value.Version = 1
-		}
-		value.CreatedAt = normalizeRecordTime(value.CreatedAt)
+	if err := finalizeFieldValueRecord(&value, existing, exists, expectedVersion); err != nil {
+		return FieldValueRecord{}, err
 	}
 	value.UpdatedAt = time.Now().UTC()
 	s.fieldValues[key] = value
 	return value, nil
+}
+
+func normalizeFieldValueRecord(scope Scope, value FieldValueRecord) FieldValueRecord {
+	value.AgreementID = normalizeID(value.AgreementID)
+	value.RecipientID = normalizeID(value.RecipientID)
+	value.FieldID = normalizeID(value.FieldID)
+	value.SignatureArtifactID = normalizeID(value.SignatureArtifactID)
+	value.ID = normalizeID(value.ID)
+	if value.ID == "" {
+		value.ID = uuid.NewString()
+	}
+	value.TenantID = scope.TenantID
+	value.OrgID = scope.OrgID
+	return value
+}
+
+func validateFieldValueRecord(value FieldValueRecord) error {
+	if value.AgreementID == "" {
+		return invalidRecordError("field_values", "agreement_id", "required")
+	}
+	if value.RecipientID == "" {
+		return invalidRecordError("field_values", "recipient_id", "required")
+	}
+	if value.FieldID == "" {
+		return invalidRecordError("field_values", "field_id", "required")
+	}
+	return nil
+}
+
+func (s *InMemoryStore) findFieldValueByLogicalKey(scope Scope, value FieldValueRecord) (FieldValueRecord, bool) {
+	for _, record := range s.fieldValues {
+		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+			continue
+		}
+		if record.AgreementID != value.AgreementID || record.RecipientID != value.RecipientID {
+			continue
+		}
+		if record.FieldID == value.FieldID {
+			return record, true
+		}
+	}
+	return FieldValueRecord{}, false
+}
+
+func (s *InMemoryStore) validateFieldValueArtifact(scope Scope, value FieldValueRecord) error {
+	if value.SignatureArtifactID == "" {
+		return nil
+	}
+	artifact, ok := s.signatureArtifacts[scopedKey(scope, value.SignatureArtifactID)]
+	if !ok {
+		return notFoundError("signature_artifacts", value.SignatureArtifactID)
+	}
+	if artifact.AgreementID != value.AgreementID || artifact.RecipientID != value.RecipientID {
+		return invalidRecordError("field_values", "signature_artifact_id", "artifact does not belong to signer agreement scope")
+	}
+	return nil
+}
+
+func finalizeFieldValueRecord(value *FieldValueRecord, existing FieldValueRecord, exists bool, expectedVersion int64) error {
+	if exists {
+		if expectedVersion > 0 && existing.Version != expectedVersion {
+			return versionConflictError("field_values", value.ID, expectedVersion, existing.Version)
+		}
+		value.CreatedAt = existing.CreatedAt
+		value.Version = existing.Version + 1
+		return nil
+	}
+	if value.Version <= 0 {
+		value.Version = 1
+	}
+	value.CreatedAt = normalizeRecordTime(value.CreatedAt)
+	return nil
 }
 
 func (s *InMemoryStore) ListFieldValuesByRecipient(ctx context.Context, scope Scope, agreementID, recipientID string) ([]FieldValueRecord, error) {
@@ -5149,6 +5235,15 @@ func (s *InMemoryStore) UpdateEmailLog(ctx context.Context, scope Scope, id stri
 		return EmailLogRecord{}, notFoundError("email_logs", id)
 	}
 
+	applyEmailLogMetadataPatch(&record, patch)
+	applyEmailLogTimePatch(&record, patch)
+
+	record = cloneEmailLogRecord(record)
+	s.emailLogs[key] = record
+	return record, nil
+}
+
+func applyEmailLogMetadataPatch(record *EmailLogRecord, patch EmailLogRecord) {
 	if status := strings.TrimSpace(patch.Status); status != "" {
 		record.Status = status
 	}
@@ -5167,6 +5262,12 @@ func (s *InMemoryStore) UpdateEmailLog(ctx context.Context, scope Scope, id stri
 	if patch.FailureReason != "" || record.Status == "failed" || record.Status == "retrying" {
 		record.FailureReason = strings.TrimSpace(patch.FailureReason)
 	}
+	if record.Status == "sent" {
+		record.FailureReason = ""
+	}
+}
+
+func applyEmailLogTimePatch(record *EmailLogRecord, patch EmailLogRecord) {
 	if patch.NextRetryAt != nil {
 		record.NextRetryAt = cloneTimePtr(patch.NextRetryAt)
 	} else if record.Status == "sent" || record.Status == "failed" {
@@ -5178,39 +5279,27 @@ func (s *InMemoryStore) UpdateEmailLog(ctx context.Context, scope Scope, id stri
 		now := time.Now().UTC()
 		record.SentAt = cloneTimePtr(&now)
 	}
-	if record.Status == "sent" {
-		record.FailureReason = ""
-	}
 	record.UpdatedAt = normalizeRecordTime(patch.UpdatedAt)
 	if patch.UpdatedAt.IsZero() {
 		record.UpdatedAt = time.Now().UTC()
 	}
-
-	record = cloneEmailLogRecord(record)
-	s.emailLogs[key] = record
-	return record, nil
 }
 
 func (s *InMemoryStore) ListEmailLogs(ctx context.Context, scope Scope, agreementID string) ([]EmailLogRecord, error) {
 	return listScopedRequiredRecordSet(s, ctx, scope, agreementID, "email_logs", "agreement_id", s.emailLogs, emailLogMatchesAgreement, cloneEmailLogRecord, emailLogCreatedAt, emailLogID)
 }
 
-func (s *InMemoryStore) BeginJobRun(ctx context.Context, scope Scope, input JobRunInput) (JobRunRecord, bool, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return JobRunRecord{}, false, err
-	}
+func normalizeBeginJobRunInput(input JobRunInput) (JobRunInput, error) {
 	input.JobName = strings.TrimSpace(input.JobName)
 	input.DedupeKey = strings.TrimSpace(input.DedupeKey)
 	input.AgreementID = normalizeID(input.AgreementID)
 	input.RecipientID = normalizeID(input.RecipientID)
 	input.CorrelationID = strings.TrimSpace(input.CorrelationID)
 	if input.JobName == "" {
-		return JobRunRecord{}, false, invalidRecordError("job_runs", "job_name", "required")
+		return JobRunInput{}, invalidRecordError("job_runs", "job_name", "required")
 	}
 	if input.DedupeKey == "" {
-		return JobRunRecord{}, false, invalidRecordError("job_runs", "dedupe_key", "required")
+		return JobRunInput{}, invalidRecordError("job_runs", "dedupe_key", "required")
 	}
 	if input.MaxAttempts <= 0 {
 		input.MaxAttempts = 3
@@ -5219,43 +5308,75 @@ func (s *InMemoryStore) BeginJobRun(ctx context.Context, scope Scope, input JobR
 		input.AttemptedAt = time.Now().UTC()
 	}
 	input.AttemptedAt = input.AttemptedAt.UTC()
+	return input, nil
+}
 
-	dedupeKey := jobDedupeIndexKey(scope, input.JobName, input.DedupeKey)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if input.AgreementID != "" {
-		if _, ok := s.agreements[scopedKey(scope, input.AgreementID)]; !ok {
-			return JobRunRecord{}, false, notFoundError("agreements", input.AgreementID)
-		}
+func normalizeEnqueueJobInput(input JobRunEnqueueInput) (JobRunEnqueueInput, time.Time, *time.Time, error) {
+	input.JobName = strings.TrimSpace(input.JobName)
+	input.DedupeKey = strings.TrimSpace(input.DedupeKey)
+	input.AgreementID = normalizeID(input.AgreementID)
+	input.RecipientID = normalizeID(input.RecipientID)
+	input.CorrelationID = strings.TrimSpace(input.CorrelationID)
+	input.PayloadJSON = strings.TrimSpace(input.PayloadJSON)
+	input.ResourceKind = strings.TrimSpace(input.ResourceKind)
+	input.ResourceID = strings.TrimSpace(input.ResourceID)
+	if input.JobName == "" {
+		return JobRunEnqueueInput{}, time.Time{}, nil, invalidRecordError("job_runs", "job_name", "required")
 	}
-	if existingID, exists := s.jobRunDedupeIndex[dedupeKey]; exists {
-		record, ok := s.jobRuns[scopedKey(scope, existingID)]
-		if !ok {
-			return JobRunRecord{}, false, notFoundError("job_runs", existingID)
-		}
-		if record.Status == JobRunStatusSucceeded {
-			return cloneJobRunRecord(record), false, nil
-		}
-		if record.Status == JobRunStatusRetrying && record.NextRetryAt != nil && input.AttemptedAt.Before(record.NextRetryAt.UTC()) {
-			return cloneJobRunRecord(record), false, nil
-		}
-		if record.AttemptCount >= record.MaxAttempts && record.Status == JobRunStatusFailed {
-			return cloneJobRunRecord(record), false, nil
-		}
-		record.AttemptCount++
-		record.Status = JobRunStatusPending
-		record.LastError = ""
-		record.NextRetryAt = nil
-		if input.CorrelationID != "" {
-			record.CorrelationID = input.CorrelationID
-		}
-		record.UpdatedAt = input.AttemptedAt
-		record = cloneJobRunRecord(record)
-		s.jobRuns[scopedKey(scope, record.ID)] = record
-		return record, true, nil
+	if input.DedupeKey == "" {
+		return JobRunEnqueueInput{}, time.Time{}, nil, invalidRecordError("job_runs", "dedupe_key", "required")
 	}
+	if input.MaxAttempts <= 0 {
+		input.MaxAttempts = 3
+	}
+	requestedAt := input.RequestedAt
+	if requestedAt.IsZero() {
+		requestedAt = time.Now().UTC()
+	}
+	requestedAt = requestedAt.UTC()
+	availableAt := cloneTimePtr(input.AvailableAt)
+	if availableAt == nil {
+		availableAt = &requestedAt
+	} else {
+		ts := availableAt.UTC()
+		availableAt = &ts
+	}
+	return input, requestedAt, availableAt, nil
+}
 
-	record := JobRunRecord{
+func ensureJobRunAgreementExists(scope Scope, agreements map[string]AgreementRecord, agreementID string) error {
+	if agreementID == "" {
+		return nil
+	}
+	if _, ok := agreements[scopedKey(scope, agreementID)]; !ok {
+		return notFoundError("agreements", agreementID)
+	}
+	return nil
+}
+
+func prepareExistingBeginJobRunRecord(record JobRunRecord, input JobRunInput) (JobRunRecord, bool) {
+	if record.Status == JobRunStatusSucceeded {
+		return cloneJobRunRecord(record), false
+	}
+	if record.Status == JobRunStatusRetrying && record.NextRetryAt != nil && input.AttemptedAt.Before(record.NextRetryAt.UTC()) {
+		return cloneJobRunRecord(record), false
+	}
+	if record.AttemptCount >= record.MaxAttempts && record.Status == JobRunStatusFailed {
+		return cloneJobRunRecord(record), false
+	}
+	record.AttemptCount++
+	record.Status = JobRunStatusPending
+	record.LastError = ""
+	record.NextRetryAt = nil
+	if input.CorrelationID != "" {
+		record.CorrelationID = input.CorrelationID
+	}
+	record.UpdatedAt = input.AttemptedAt
+	return cloneJobRunRecord(record), true
+}
+
+func buildPendingJobRunRecord(scope Scope, input JobRunInput) JobRunRecord {
+	return cloneJobRunRecord(JobRunRecord{
 		ID:            uuid.NewString(),
 		TenantID:      scope.TenantID,
 		OrgID:         scope.OrgID,
@@ -5269,8 +5390,88 @@ func (s *InMemoryStore) BeginJobRun(ctx context.Context, scope Scope, input JobR
 		MaxAttempts:   input.MaxAttempts,
 		CreatedAt:     input.AttemptedAt,
 		UpdatedAt:     input.AttemptedAt,
+	})
+}
+
+func prepareExistingQueuedJobRunRecord(record JobRunRecord, input JobRunEnqueueInput, requestedAt time.Time, availableAt *time.Time) (JobRunRecord, bool) {
+	terminal := record.Status == JobRunStatusSucceeded || record.Status == JobRunStatusFailed || record.Status == JobRunStatusStale
+	if !input.ReplaceTerminal || !terminal {
+		return cloneJobRunRecord(record), false
 	}
-	record = cloneJobRunRecord(record)
+	record.Status = JobRunStatusQueued
+	record.AttemptCount = 0
+	record.PayloadJSON = input.PayloadJSON
+	record.AvailableAt = availableAt
+	record.StartedAt = nil
+	record.CompletedAt = nil
+	record.ClaimedAt = nil
+	record.LeaseExpiresAt = nil
+	record.WorkerID = ""
+	record.ResourceKind = input.ResourceKind
+	record.ResourceID = input.ResourceID
+	record.LastErrorCode = ""
+	record.LastError = ""
+	record.NextRetryAt = nil
+	if input.CorrelationID != "" {
+		record.CorrelationID = input.CorrelationID
+	}
+	record.UpdatedAt = requestedAt
+	return cloneJobRunRecord(record), true
+}
+
+func buildQueuedJobRunRecord(scope Scope, input JobRunEnqueueInput, requestedAt time.Time, availableAt *time.Time) JobRunRecord {
+	return cloneJobRunRecord(JobRunRecord{
+		ID:            uuid.NewString(),
+		TenantID:      scope.TenantID,
+		OrgID:         scope.OrgID,
+		JobName:       input.JobName,
+		DedupeKey:     input.DedupeKey,
+		AgreementID:   input.AgreementID,
+		RecipientID:   input.RecipientID,
+		CorrelationID: input.CorrelationID,
+		Status:        JobRunStatusQueued,
+		AttemptCount:  0,
+		MaxAttempts:   input.MaxAttempts,
+		PayloadJSON:   input.PayloadJSON,
+		AvailableAt:   availableAt,
+		ResourceKind:  input.ResourceKind,
+		ResourceID:    input.ResourceID,
+		CreatedAt:     requestedAt,
+		UpdatedAt:     requestedAt,
+	})
+}
+
+func (s *InMemoryStore) BeginJobRun(ctx context.Context, scope Scope, input JobRunInput) (JobRunRecord, bool, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return JobRunRecord{}, false, err
+	}
+	input, err = normalizeBeginJobRunInput(input)
+	if err != nil {
+		return JobRunRecord{}, false, err
+	}
+
+	dedupeKey := jobDedupeIndexKey(scope, input.JobName, input.DedupeKey)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ensureJobRunAgreementExists(scope, s.agreements, input.AgreementID); err != nil {
+		return JobRunRecord{}, false, err
+	}
+	if existingID, exists := s.jobRunDedupeIndex[dedupeKey]; exists {
+		record, ok := s.jobRuns[scopedKey(scope, existingID)]
+		if !ok {
+			return JobRunRecord{}, false, notFoundError("job_runs", existingID)
+		}
+		record, started := prepareExistingBeginJobRunRecord(record, input)
+		if !started {
+			return record, false, nil
+		}
+		s.jobRuns[scopedKey(scope, record.ID)] = record
+		return record, true, nil
+	}
+
+	record := buildPendingJobRunRecord(scope, input)
 	s.jobRuns[scopedKey(scope, record.ID)] = record
 	s.jobRunDedupeIndex[dedupeKey] = record.ID
 	return record, true, nil
@@ -5383,96 +5584,31 @@ func (s *InMemoryStore) EnqueueJob(ctx context.Context, scope Scope, input JobRu
 	if err != nil {
 		return JobRunRecord{}, false, err
 	}
-	input.JobName = strings.TrimSpace(input.JobName)
-	input.DedupeKey = strings.TrimSpace(input.DedupeKey)
-	input.AgreementID = normalizeID(input.AgreementID)
-	input.RecipientID = normalizeID(input.RecipientID)
-	input.CorrelationID = strings.TrimSpace(input.CorrelationID)
-	input.PayloadJSON = strings.TrimSpace(input.PayloadJSON)
-	input.ResourceKind = strings.TrimSpace(input.ResourceKind)
-	input.ResourceID = strings.TrimSpace(input.ResourceID)
-	if input.JobName == "" {
-		return JobRunRecord{}, false, invalidRecordError("job_runs", "job_name", "required")
-	}
-	if input.DedupeKey == "" {
-		return JobRunRecord{}, false, invalidRecordError("job_runs", "dedupe_key", "required")
-	}
-	if input.MaxAttempts <= 0 {
-		input.MaxAttempts = 3
-	}
-	requestedAt := input.RequestedAt
-	if requestedAt.IsZero() {
-		requestedAt = time.Now().UTC()
-	}
-	requestedAt = requestedAt.UTC()
-	availableAt := cloneTimePtr(input.AvailableAt)
-	if availableAt == nil {
-		availableAt = &requestedAt
-	} else {
-		ts := availableAt.UTC()
-		availableAt = &ts
+	input, requestedAt, availableAt, err := normalizeEnqueueJobInput(input)
+	if err != nil {
+		return JobRunRecord{}, false, err
 	}
 
 	dedupeKey := jobDedupeIndexKey(scope, input.JobName, input.DedupeKey)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if input.AgreementID != "" {
-		if _, ok := s.agreements[scopedKey(scope, input.AgreementID)]; !ok {
-			return JobRunRecord{}, false, notFoundError("agreements", input.AgreementID)
-		}
+	if err := ensureJobRunAgreementExists(scope, s.agreements, input.AgreementID); err != nil {
+		return JobRunRecord{}, false, err
 	}
 	if existingID, exists := s.jobRunDedupeIndex[dedupeKey]; exists {
 		record, ok := s.jobRuns[scopedKey(scope, existingID)]
 		if !ok {
 			return JobRunRecord{}, false, notFoundError("job_runs", existingID)
 		}
-		terminal := record.Status == JobRunStatusSucceeded || record.Status == JobRunStatusFailed || record.Status == JobRunStatusStale
-		if !input.ReplaceTerminal || !terminal {
-			return cloneJobRunRecord(record), false, nil
+		record, started := prepareExistingQueuedJobRunRecord(record, input, requestedAt, availableAt)
+		if !started {
+			return record, false, nil
 		}
-		record.Status = JobRunStatusQueued
-		record.AttemptCount = 0
-		record.PayloadJSON = input.PayloadJSON
-		record.AvailableAt = availableAt
-		record.StartedAt = nil
-		record.CompletedAt = nil
-		record.ClaimedAt = nil
-		record.LeaseExpiresAt = nil
-		record.WorkerID = ""
-		record.ResourceKind = input.ResourceKind
-		record.ResourceID = input.ResourceID
-		record.LastErrorCode = ""
-		record.LastError = ""
-		record.NextRetryAt = nil
-		if input.CorrelationID != "" {
-			record.CorrelationID = input.CorrelationID
-		}
-		record.UpdatedAt = requestedAt
-		record = cloneJobRunRecord(record)
 		s.jobRuns[scopedKey(scope, record.ID)] = record
 		return record, true, nil
 	}
 
-	record := JobRunRecord{
-		ID:            uuid.NewString(),
-		TenantID:      scope.TenantID,
-		OrgID:         scope.OrgID,
-		JobName:       input.JobName,
-		DedupeKey:     input.DedupeKey,
-		AgreementID:   input.AgreementID,
-		RecipientID:   input.RecipientID,
-		CorrelationID: input.CorrelationID,
-		Status:        JobRunStatusQueued,
-		AttemptCount:  0,
-		MaxAttempts:   input.MaxAttempts,
-		PayloadJSON:   input.PayloadJSON,
-		AvailableAt:   availableAt,
-		ResourceKind:  input.ResourceKind,
-		ResourceID:    input.ResourceID,
-		CreatedAt:     requestedAt,
-		UpdatedAt:     requestedAt,
-	}
-	record = cloneJobRunRecord(record)
+	record := buildQueuedJobRunRecord(scope, input, requestedAt, availableAt)
 	s.jobRuns[scopedKey(scope, record.ID)] = record
 	s.jobRunDedupeIndex[dedupeKey] = record.ID
 	return record, true, nil

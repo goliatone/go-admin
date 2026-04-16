@@ -308,73 +308,88 @@ func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, 
 func (s AgreementService) NotifyReviewers(ctx context.Context, scope stores.Scope, agreementID string, input ReviewNotifyInput) (ReviewSummary, error) {
 	var summary ReviewSummary
 	err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
-		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
+		result, err := txSvc.notifyReviewersWithTx(ctx, scope, agreementID, input, hooks)
 		if err != nil {
 			return err
 		}
-		if agreement.Status != stores.AgreementStatusDraft {
-			return domainValidationError("agreements", "status", "review notifications require draft agreement")
-		}
-		review, err := txSvc.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		err = ensureReviewCycleMutable(review, "agreement_reviews", "override_active")
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
-			return domainValidationError("agreement_reviews", "status", "review notifications require active review")
-		}
-		participants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
-		if err != nil {
-			return err
-		}
-		targets, err := resolveReviewNotificationTargets(participants, input.ParticipantIDs, input.ParticipantID, input.RecipientID)
-		if err != nil {
-			return err
-		}
-		issuedTokens, err := txSvc.issueReviewSessionTokensForParticipants(ctx, scope, review, targets, true)
-		if err != nil {
-			return err
-		}
-		now := txSvc.now()
-		source := normalizeReviewNotificationSource(input.Source)
-		correlationID := resolveReviewNotificationCorrelationID(input.CorrelationID, review.ID, now)
-		enqueuedCount, err := txSvc.enqueueReviewInvitationEffects(ctx, scope, review, targets, issuedTokens, correlationID)
-		if err != nil {
-			return err
-		}
-		review.LastActivityAt = &now
-		_, err = txSvc.agreements.UpdateAgreementReview(ctx, scope, review)
-		if err != nil {
-			return err
-		}
-		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_notified", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
-			"review_id":            review.ID,
-			"review_status":        review.Status,
-			"source":               source,
-			"reason":               strings.TrimSpace(input.Reason),
-			"requested_by_user_id": strings.TrimSpace(input.RequestedByID),
-			"notified_count":       len(targets),
-			"review_participants":  normalizeReviewParticipantMetadata(targets),
-		})
-		if err != nil {
-			return err
-		}
-		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		if enqueuedCount > 0 && hooks != nil && s.notificationDispatch != nil {
-			hooks.AfterCommit(func() error {
-				s.notificationDispatch.NotifyScope(scope)
-				return nil
-			})
-		}
+		summary = result
 		return nil
 	})
 	return summary, err
+}
+
+func (s AgreementService) notifyReviewersWithTx(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	input ReviewNotifyInput,
+	hooks *stores.TxHooks,
+) (ReviewSummary, error) {
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	if agreement.Status != stores.AgreementStatusDraft {
+		return ReviewSummary{}, domainValidationError("agreements", "status", "review notifications require draft agreement")
+	}
+	review, err := s.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	err = ensureReviewCycleMutable(review, "agreement_reviews", "override_active")
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	if strings.TrimSpace(review.Status) != stores.AgreementReviewStatusInReview {
+		return ReviewSummary{}, domainValidationError("agreement_reviews", "status", "review notifications require active review")
+	}
+	participants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	targets, err := resolveReviewNotificationTargets(participants, input.ParticipantIDs, input.ParticipantID, input.RecipientID)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	issuedTokens, err := s.issueReviewSessionTokensForParticipants(ctx, scope, review, targets, true)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	now := s.now()
+	source := normalizeReviewNotificationSource(input.Source)
+	correlationID := resolveReviewNotificationCorrelationID(input.CorrelationID, review.ID, now)
+	enqueuedCount, err := s.enqueueReviewInvitationEffects(ctx, scope, review, targets, issuedTokens, correlationID)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	review.LastActivityAt = &now
+	_, err = s.agreements.UpdateAgreementReview(ctx, scope, review)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	err = s.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_notified", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+		"review_id":            review.ID,
+		"review_status":        review.Status,
+		"source":               source,
+		"reason":               strings.TrimSpace(input.Reason),
+		"requested_by_user_id": strings.TrimSpace(input.RequestedByID),
+		"notified_count":       len(targets),
+		"review_participants":  normalizeReviewParticipantMetadata(targets),
+	})
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	summary, err := s.GetReviewSummary(ctx, scope, agreementID)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	if enqueuedCount > 0 && hooks != nil && s.notificationDispatch != nil {
+		hooks.AfterCommit(func() error {
+			s.notificationDispatch.NotifyScope(scope)
+			return nil
+		})
+	}
+	return summary, nil
 }
 
 func (s AgreementService) CloseReview(ctx context.Context, scope stores.Scope, agreementID string, actorType, actorID, ipAddress string) (ReviewSummary, error) {

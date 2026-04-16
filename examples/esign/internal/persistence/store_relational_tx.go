@@ -2199,35 +2199,8 @@ func (s *relationalTxStore) SaveRemediationDispatch(ctx context.Context, scope s
 		return stores.RemediationDispatchRecord{}, err
 	}
 	if err == nil {
-		if current.DocumentID != "" && record.DocumentID == "" {
-			record.DocumentID = current.DocumentID
-		}
-		if current.IdempotencyKey != "" && record.IdempotencyKey == "" {
-			record.IdempotencyKey = current.IdempotencyKey
-		}
-		if current.Mode != "" && record.Mode == "" {
-			record.Mode = current.Mode
-		}
-		if current.CommandID != "" && record.CommandID == "" {
-			record.CommandID = current.CommandID
-		}
-		if current.CorrelationID != "" && record.CorrelationID == "" {
-			record.CorrelationID = current.CorrelationID
-		}
-		if current.EnqueuedAt != nil && record.EnqueuedAt == nil {
-			record.EnqueuedAt = cloneRelationalTimePtr(current.EnqueuedAt)
-		}
-		if current.MaxAttempts > record.MaxAttempts {
-			record.MaxAttempts = current.MaxAttempts
-		}
-		record.Accepted = record.Accepted || current.Accepted
-		if _, err := s.tx.NewUpdate().
-			Model(&relationalRemediationDispatchModel{RemediationDispatchRecord: record}).
-			Column("document_id", "idempotency_key", "mode", "command_id", "correlation_id", "accepted", "max_attempts", "enqueued_at", "updated_at").
-			Where("tenant_id = ?", scope.TenantID).
-			Where("org_id = ?", scope.OrgID).
-			Where("dispatch_id = ?", record.DispatchID).
-			Exec(ctx); err != nil {
+		record = mergeRelationalRemediationDispatchRecord(record, current)
+		if err := updateRelationalRemediationDispatchRecord(ctx, s.tx, scope, record); err != nil {
 			return stores.RemediationDispatchRecord{}, err
 		}
 		return record, nil
@@ -2241,41 +2214,51 @@ func (s *relationalTxStore) SaveRemediationDispatch(ctx context.Context, scope s
 		if loadErr != nil {
 			return stores.RemediationDispatchRecord{}, loadErr
 		}
-		if existing.DocumentID != "" && record.DocumentID == "" {
-			record.DocumentID = existing.DocumentID
-		}
-		if existing.IdempotencyKey != "" && record.IdempotencyKey == "" {
-			record.IdempotencyKey = existing.IdempotencyKey
-		}
-		if existing.Mode != "" && record.Mode == "" {
-			record.Mode = existing.Mode
-		}
-		if existing.CommandID != "" && record.CommandID == "" {
-			record.CommandID = existing.CommandID
-		}
-		if existing.CorrelationID != "" && record.CorrelationID == "" {
-			record.CorrelationID = existing.CorrelationID
-		}
-		if existing.EnqueuedAt != nil && record.EnqueuedAt == nil {
-			record.EnqueuedAt = cloneRelationalTimePtr(existing.EnqueuedAt)
-		}
-		if existing.MaxAttempts > record.MaxAttempts {
-			record.MaxAttempts = existing.MaxAttempts
-		}
-		record.Accepted = record.Accepted || existing.Accepted
+		record = mergeRelationalRemediationDispatchRecord(record, existing)
 		record.DispatchID = existing.DispatchID
-		if _, err := s.tx.NewUpdate().
-			Model(&relationalRemediationDispatchModel{RemediationDispatchRecord: record}).
-			Column("document_id", "idempotency_key", "mode", "command_id", "correlation_id", "accepted", "max_attempts", "enqueued_at", "updated_at").
-			Where("tenant_id = ?", scope.TenantID).
-			Where("org_id = ?", scope.OrgID).
-			Where("dispatch_id = ?", record.DispatchID).
-			Exec(ctx); err != nil {
+		if err := updateRelationalRemediationDispatchRecord(ctx, s.tx, scope, record); err != nil {
 			return stores.RemediationDispatchRecord{}, err
 		}
 		return record, nil
 	}
 	return record, nil
+}
+
+func mergeRelationalRemediationDispatchRecord(record, existing stores.RemediationDispatchRecord) stores.RemediationDispatchRecord {
+	if existing.DocumentID != "" && record.DocumentID == "" {
+		record.DocumentID = existing.DocumentID
+	}
+	if existing.IdempotencyKey != "" && record.IdempotencyKey == "" {
+		record.IdempotencyKey = existing.IdempotencyKey
+	}
+	if existing.Mode != "" && record.Mode == "" {
+		record.Mode = existing.Mode
+	}
+	if existing.CommandID != "" && record.CommandID == "" {
+		record.CommandID = existing.CommandID
+	}
+	if existing.CorrelationID != "" && record.CorrelationID == "" {
+		record.CorrelationID = existing.CorrelationID
+	}
+	if existing.EnqueuedAt != nil && record.EnqueuedAt == nil {
+		record.EnqueuedAt = cloneRelationalTimePtr(existing.EnqueuedAt)
+	}
+	if existing.MaxAttempts > record.MaxAttempts {
+		record.MaxAttempts = existing.MaxAttempts
+	}
+	record.Accepted = record.Accepted || existing.Accepted
+	return record
+}
+
+func updateRelationalRemediationDispatchRecord(ctx context.Context, tx bun.IDB, scope stores.Scope, record stores.RemediationDispatchRecord) error {
+	_, err := tx.NewUpdate().
+		Model(&relationalRemediationDispatchModel{RemediationDispatchRecord: record}).
+		Column("document_id", "idempotency_key", "mode", "command_id", "correlation_id", "accepted", "max_attempts", "enqueued_at", "updated_at").
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("dispatch_id = ?", record.DispatchID).
+		Exec(ctx)
+	return err
 }
 
 func (s *relationalTxStore) SaveGuardedEffect(ctx context.Context, scope stores.Scope, record guardedeffects.Record) (guardedeffects.Record, error) {
@@ -2316,64 +2299,8 @@ func (s *relationalTxStore) SaveGuardedEffect(ctx context.Context, scope stores.
 		return guardedeffects.Record{}, err
 	}
 	if err == nil {
-		if record.IdempotencyKey == "" {
-			record.IdempotencyKey = current.IdempotencyKey
-		}
-		if record.CorrelationID == "" {
-			record.CorrelationID = current.CorrelationID
-		}
-		if record.GuardPolicy == "" {
-			record.GuardPolicy = current.GuardPolicy
-		}
-		if record.GroupType == "" {
-			record.GroupType = current.GroupType
-		}
-		if record.GroupID == "" {
-			record.GroupID = current.GroupID
-		}
-		if record.DispatchID == "" {
-			record.DispatchID = current.DispatchID
-		}
-		if record.PreparePayloadJSON == "" {
-			record.PreparePayloadJSON = current.PreparePayloadJSON
-		}
-		if record.DispatchPayloadJSON == "" {
-			record.DispatchPayloadJSON = current.DispatchPayloadJSON
-		}
-		if record.ResultPayloadJSON == "" {
-			record.ResultPayloadJSON = current.ResultPayloadJSON
-		}
-		if record.ErrorJSON == "" {
-			record.ErrorJSON = current.ErrorJSON
-		}
-		if record.AttemptCount < current.AttemptCount {
-			record.AttemptCount = current.AttemptCount
-		}
-		if record.MaxAttempts < current.MaxAttempts {
-			record.MaxAttempts = current.MaxAttempts
-		}
-		if record.DispatchedAt == nil {
-			record.DispatchedAt = cloneRelationalTimePtr(current.DispatchedAt)
-		}
-		if record.FinalizedAt == nil {
-			record.FinalizedAt = cloneRelationalTimePtr(current.FinalizedAt)
-		}
-		if record.AbortedAt == nil {
-			record.AbortedAt = cloneRelationalTimePtr(current.AbortedAt)
-		}
-		if record.RetryAt == nil {
-			record.RetryAt = cloneRelationalTimePtr(current.RetryAt)
-		}
-		if record.CreatedAt.IsZero() {
-			record.CreatedAt = current.CreatedAt
-		}
-		if _, err := s.tx.NewUpdate().
-			Model(&relationalGuardedEffectModel{GuardedEffectRecord: stores.GuardedEffectRecord{Record: record}}).
-			Column("kind", "group_type", "group_id", "subject_type", "subject_id", "idempotency_key", "correlation_id", "status", "attempt_count", "max_attempts", "guard_policy", "prepare_payload_json", "dispatch_payload_json", "result_payload_json", "error_json", "dispatch_id", "created_at", "updated_at", "dispatched_at", "finalized_at", "aborted_at", "retry_at").
-			Where("tenant_id = ?", scope.TenantID).
-			Where("org_id = ?", scope.OrgID).
-			Where("effect_id = ?", record.EffectID).
-			Exec(ctx); err != nil {
+		record = mergeRelationalGuardedEffectRecord(record, current)
+		if err := updateRelationalGuardedEffectRecord(ctx, s.tx, scope, record); err != nil {
 			return guardedeffects.Record{}, err
 		}
 		return record, nil
@@ -2391,6 +2318,82 @@ func (s *relationalTxStore) SaveGuardedEffect(ctx context.Context, scope stores.
 		return s.SaveGuardedEffect(ctx, scope, record)
 	}
 	return record, nil
+}
+
+func mergeRelationalGuardedEffectRecord(record, current guardedeffects.Record) guardedeffects.Record {
+	record = mergeRelationalGuardedEffectScalarFields(record, current)
+	record = mergeRelationalGuardedEffectTimeFields(record, current)
+	if record.CreatedAt.IsZero() {
+		record.CreatedAt = current.CreatedAt
+	}
+	return record
+}
+
+func mergeRelationalGuardedEffectScalarFields(record, current guardedeffects.Record) guardedeffects.Record {
+	if record.IdempotencyKey == "" {
+		record.IdempotencyKey = current.IdempotencyKey
+	}
+	if record.CorrelationID == "" {
+		record.CorrelationID = current.CorrelationID
+	}
+	if record.GuardPolicy == "" {
+		record.GuardPolicy = current.GuardPolicy
+	}
+	if record.GroupType == "" {
+		record.GroupType = current.GroupType
+	}
+	if record.GroupID == "" {
+		record.GroupID = current.GroupID
+	}
+	if record.DispatchID == "" {
+		record.DispatchID = current.DispatchID
+	}
+	if record.PreparePayloadJSON == "" {
+		record.PreparePayloadJSON = current.PreparePayloadJSON
+	}
+	if record.DispatchPayloadJSON == "" {
+		record.DispatchPayloadJSON = current.DispatchPayloadJSON
+	}
+	if record.ResultPayloadJSON == "" {
+		record.ResultPayloadJSON = current.ResultPayloadJSON
+	}
+	if record.ErrorJSON == "" {
+		record.ErrorJSON = current.ErrorJSON
+	}
+	if record.AttemptCount < current.AttemptCount {
+		record.AttemptCount = current.AttemptCount
+	}
+	if record.MaxAttempts < current.MaxAttempts {
+		record.MaxAttempts = current.MaxAttempts
+	}
+	return record
+}
+
+func mergeRelationalGuardedEffectTimeFields(record, current guardedeffects.Record) guardedeffects.Record {
+	if record.DispatchedAt == nil {
+		record.DispatchedAt = cloneRelationalTimePtr(current.DispatchedAt)
+	}
+	if record.FinalizedAt == nil {
+		record.FinalizedAt = cloneRelationalTimePtr(current.FinalizedAt)
+	}
+	if record.AbortedAt == nil {
+		record.AbortedAt = cloneRelationalTimePtr(current.AbortedAt)
+	}
+	if record.RetryAt == nil {
+		record.RetryAt = cloneRelationalTimePtr(current.RetryAt)
+	}
+	return record
+}
+
+func updateRelationalGuardedEffectRecord(ctx context.Context, tx bun.IDB, scope stores.Scope, record guardedeffects.Record) error {
+	_, err := tx.NewUpdate().
+		Model(&relationalGuardedEffectModel{GuardedEffectRecord: stores.GuardedEffectRecord{Record: record}}).
+		Column("kind", "group_type", "group_id", "subject_type", "subject_id", "idempotency_key", "correlation_id", "status", "attempt_count", "max_attempts", "guard_policy", "prepare_payload_json", "dispatch_payload_json", "result_payload_json", "error_json", "dispatch_id", "created_at", "updated_at", "dispatched_at", "finalized_at", "aborted_at", "retry_at").
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("effect_id = ?", record.EffectID).
+		Exec(ctx)
+	return err
 }
 
 func findAgreementRevisionRequestByDedupeRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, sourceAgreementID, revisionKind, idempotencyKey string) (stores.AgreementRevisionRequestRecord, error) {
@@ -2430,22 +2433,25 @@ func (s *relationalTxStore) CreateDraft(ctx context.Context, scope stores.Scope,
 	if err != nil {
 		return stores.AgreementRecord{}, err
 	}
+	record = normalizeRelationalAgreementDraftRecord(scope, record)
+	if err := validateRelationalAgreementDraftRecord(record); err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+		return stores.AgreementRecord{}, relationalUniqueConstraintError(err, "agreements", "id")
+	}
+	return record, nil
+}
+
+func normalizeRelationalAgreementDraftRecord(scope stores.Scope, record stores.AgreementRecord) stores.AgreementRecord {
 	record.ID = normalizeRelationalID(record.ID)
 	if record.ID == "" {
 		record.ID = uuid.NewString()
 	}
 	record.DocumentID = normalizeRelationalID(record.DocumentID)
-	if record.DocumentID == "" {
-		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "document_id", "required")
-	}
 	record.WorkflowKind = strings.TrimSpace(record.WorkflowKind)
 	if record.WorkflowKind == "" {
 		record.WorkflowKind = stores.AgreementWorkflowKindStandard
-	}
-	switch record.WorkflowKind {
-	case stores.AgreementWorkflowKindStandard, stores.AgreementWorkflowKindCorrection, stores.AgreementWorkflowKindAmendment:
-	default:
-		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "workflow_kind", "unsupported workflow kind")
 	}
 	record.RootAgreementID = normalizeRelationalID(record.RootAgreementID)
 	if record.RootAgreementID == "" {
@@ -2454,19 +2460,10 @@ func (s *relationalTxStore) CreateDraft(ctx context.Context, scope stores.Scope,
 	record.ParentAgreementID = normalizeRelationalID(record.ParentAgreementID)
 	record.ParentExecutedSHA256 = strings.TrimSpace(record.ParentExecutedSHA256)
 	record.ReviewStatus = stores.NormalizeAgreementReviewStatus(record.ReviewStatus)
-	if record.ReviewStatus == "" {
-		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "review_status", "unsupported review status")
-	}
 	record.ReviewGate = stores.NormalizeAgreementReviewGate(record.ReviewGate)
-	if record.ReviewGate == "" {
-		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "review_gate", "unsupported review gate")
-	}
 	record.SourceType = strings.TrimSpace(record.SourceType)
 	if record.SourceType == "" {
 		record.SourceType = stores.SourceTypeUpload
-	}
-	if record.SourceType != stores.SourceTypeUpload && record.SourceType != stores.SourceTypeGoogleDrive {
-		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "source_type", "unsupported source type")
 	}
 	record.SourceGoogleFileID = strings.TrimSpace(record.SourceGoogleFileID)
 	record.SourceGoogleDocURL = strings.TrimSpace(record.SourceGoogleDocURL)
@@ -2478,9 +2475,6 @@ func (s *relationalTxStore) CreateDraft(ctx context.Context, scope stores.Scope,
 	if record.Status == "" {
 		record.Status = stores.AgreementStatusDraft
 	}
-	if record.Status != stores.AgreementStatusDraft {
-		return stores.AgreementRecord{}, relationalInvalidRecordError("agreements", "status", "must start in draft")
-	}
 	if record.Version <= 0 {
 		record.Version = 1
 	}
@@ -2488,10 +2482,52 @@ func (s *relationalTxStore) CreateDraft(ctx context.Context, scope stores.Scope,
 	record.OrgID = scope.OrgID
 	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
 	record.UpdatedAt = relationalTimeOrNow(record.UpdatedAt)
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		return stores.AgreementRecord{}, relationalUniqueConstraintError(err, "agreements", "id")
+	return record
+}
+
+func validateRelationalAgreementDraftRecord(record stores.AgreementRecord) error {
+	if record.DocumentID == "" {
+		return relationalInvalidRecordError("agreements", "document_id", "required")
 	}
-	return record, nil
+	if err := validateRelationalAgreementWorkflowKind(record.WorkflowKind); err != nil {
+		return err
+	}
+	if err := validateRelationalAgreementReviewState(record); err != nil {
+		return err
+	}
+	if err := validateRelationalAgreementSourceType(record.SourceType); err != nil {
+		return err
+	}
+	if record.Status != stores.AgreementStatusDraft {
+		return relationalInvalidRecordError("agreements", "status", "must start in draft")
+	}
+	return nil
+}
+
+func validateRelationalAgreementWorkflowKind(workflowKind string) error {
+	switch workflowKind {
+	case stores.AgreementWorkflowKindStandard, stores.AgreementWorkflowKindCorrection, stores.AgreementWorkflowKindAmendment:
+		return nil
+	default:
+		return relationalInvalidRecordError("agreements", "workflow_kind", "unsupported workflow kind")
+	}
+}
+
+func validateRelationalAgreementReviewState(record stores.AgreementRecord) error {
+	if record.ReviewStatus == "" {
+		return relationalInvalidRecordError("agreements", "review_status", "unsupported review status")
+	}
+	if record.ReviewGate == "" {
+		return relationalInvalidRecordError("agreements", "review_gate", "unsupported review gate")
+	}
+	return nil
+}
+
+func validateRelationalAgreementSourceType(sourceType string) error {
+	if sourceType == stores.SourceTypeUpload || sourceType == stores.SourceTypeGoogleDrive {
+		return nil
+	}
+	return relationalInvalidRecordError("agreements", "source_type", "unsupported source type")
 }
 
 func (s *relationalTxStore) BeginAgreementRevisionRequest(ctx context.Context, scope stores.Scope, input stores.AgreementRevisionRequestInput) (stores.AgreementRevisionRequestRecord, bool, error) {
@@ -2741,25 +2777,48 @@ func (s *relationalTxStore) UpsertParticipantDraft(ctx context.Context, scope st
 
 	record, err := loadParticipantRecord(ctx, s.tx, scope, agreementID, participantID)
 	exists := err == nil
-	if err != nil && !strings.Contains(err.Error(), "NOT_FOUND") {
+	if err != nil && !relationalIsNotFoundError(err) {
 		return stores.ParticipantRecord{}, err
 	}
 	if !exists {
-		record = stores.ParticipantRecord{
-			ID:           participantID,
-			TenantID:     scope.TenantID,
-			OrgID:        scope.OrgID,
-			AgreementID:  agreementID,
-			Role:         stores.RecipientRoleSigner,
-			Notify:       true,
-			SigningStage: 1,
-			Version:      1,
-			CreatedAt:    time.Now().UTC(),
-		}
+		record = newRelationalParticipantDraftRecord(scope, agreementID, participantID)
 	} else if expectedVersion > 0 && record.Version != expectedVersion {
 		return stores.ParticipantRecord{}, relationalVersionConflictError("participants", participantID, expectedVersion, record.Version)
 	}
 
+	applyRelationalParticipantDraftPatch(&record, patch)
+	if err := validateRelationalParticipantDraftRecord(record); err != nil {
+		return stores.ParticipantRecord{}, err
+	}
+	record.UpdatedAt = time.Now().UTC()
+	if exists {
+		record.Version++
+		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+			return stores.ParticipantRecord{}, err
+		}
+		return record, nil
+	}
+	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+		return stores.ParticipantRecord{}, relationalUniqueConstraintError(err, "participants", "id")
+	}
+	return record, nil
+}
+
+func newRelationalParticipantDraftRecord(scope stores.Scope, agreementID, participantID string) stores.ParticipantRecord {
+	return stores.ParticipantRecord{
+		ID:           participantID,
+		TenantID:     scope.TenantID,
+		OrgID:        scope.OrgID,
+		AgreementID:  agreementID,
+		Role:         stores.RecipientRoleSigner,
+		Notify:       true,
+		SigningStage: 1,
+		Version:      1,
+		CreatedAt:    time.Now().UTC(),
+	}
+}
+
+func applyRelationalParticipantDraftPatch(record *stores.ParticipantRecord, patch stores.ParticipantDraftPatch) {
 	if patch.Email != nil {
 		record.Email = strings.TrimSpace(*patch.Email)
 	}
@@ -2778,27 +2837,19 @@ func (s *relationalTxStore) UpsertParticipantDraft(ctx context.Context, scope st
 	if record.Role == "" {
 		record.Role = stores.RecipientRoleSigner
 	}
+}
+
+func validateRelationalParticipantDraftRecord(record stores.ParticipantRecord) error {
 	if record.Email == "" {
-		return stores.ParticipantRecord{}, relationalInvalidRecordError("participants", "email", "required")
+		return relationalInvalidRecordError("participants", "email", "required")
 	}
 	if record.Role != stores.RecipientRoleSigner && record.Role != stores.RecipientRoleCC {
-		return stores.ParticipantRecord{}, relationalInvalidRecordError("participants", "role", "must be signer or cc")
+		return relationalInvalidRecordError("participants", "role", "must be signer or cc")
 	}
 	if record.SigningStage <= 0 {
-		return stores.ParticipantRecord{}, relationalInvalidRecordError("participants", "signing_stage", "must be positive")
+		return relationalInvalidRecordError("participants", "signing_stage", "must be positive")
 	}
-	record.UpdatedAt = time.Now().UTC()
-	if exists {
-		record.Version++
-		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
-			return stores.ParticipantRecord{}, err
-		}
-		return record, nil
-	}
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		return stores.ParticipantRecord{}, relationalUniqueConstraintError(err, "participants", "id")
-	}
-	return record, nil
+	return nil
 }
 
 func (s *relationalTxStore) DeleteParticipantDraft(ctx context.Context, scope stores.Scope, agreementID, participantID string) error {
@@ -2817,49 +2868,10 @@ func (s *relationalTxStore) DeleteParticipantDraft(ctx context.Context, scope st
 	if loadErr != nil {
 		return loadErr
 	}
-	definitions, err := listFieldDefinitionRecords(ctx, s.tx, scope, agreementID)
-	if err != nil {
+	if err := s.deleteParticipantFieldDefinitions(ctx, scope, agreementID, participantID); err != nil {
 		return err
 	}
-	for _, definition := range definitions {
-		if normalizeRelationalID(definition.ParticipantID) != normalizeRelationalID(participantID) {
-			continue
-		}
-		if _, err := s.tx.NewDelete().
-			Model((*stores.FieldValueRecord)(nil)).
-			Where("tenant_id = ?", scope.TenantID).
-			Where("org_id = ?", scope.OrgID).
-			Where("agreement_id = ?", agreementID).
-			Where("field_id IN (SELECT id FROM field_instances WHERE tenant_id = ? AND org_id = ? AND agreement_id = ? AND field_definition_id = ?)", scope.TenantID, scope.OrgID, agreementID, definition.ID).
-			Exec(ctx); err != nil {
-			return err
-		}
-		if _, err := s.tx.NewDelete().
-			Model((*stores.FieldInstanceRecord)(nil)).
-			Where("tenant_id = ?", scope.TenantID).
-			Where("org_id = ?", scope.OrgID).
-			Where("agreement_id = ?", agreementID).
-			Where("field_definition_id = ?", definition.ID).
-			Exec(ctx); err != nil {
-			return err
-		}
-		if _, err := s.tx.NewDelete().
-			Model((*stores.FieldDefinitionRecord)(nil)).
-			Where("tenant_id = ?", scope.TenantID).
-			Where("org_id = ?", scope.OrgID).
-			Where("agreement_id = ?", agreementID).
-			Where("id = ?", definition.ID).
-			Exec(ctx); err != nil {
-			return err
-		}
-	}
-	if _, err := s.tx.NewDelete().
-		Model((*stores.FieldValueRecord)(nil)).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("agreement_id = ?", agreementID).
-		Where("recipient_id = ?", participantID).
-		Exec(ctx); err != nil {
+	if err := s.deleteParticipantFieldValues(ctx, scope, agreementID, participantID); err != nil {
 		return err
 	}
 	if _, err := s.tx.NewDelete().
@@ -2868,6 +2880,35 @@ func (s *relationalTxStore) DeleteParticipantDraft(ctx context.Context, scope st
 		Where("org_id = ?", scope.OrgID).
 		Where("agreement_id = ?", agreementID).
 		Where("id = ?", participantID).
+		Exec(ctx); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *relationalTxStore) deleteParticipantFieldDefinitions(ctx context.Context, scope stores.Scope, agreementID, participantID string) error {
+	definitions, err := listFieldDefinitionRecords(ctx, s.tx, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	for _, definition := range definitions {
+		if normalizeRelationalID(definition.ParticipantID) != normalizeRelationalID(participantID) {
+			continue
+		}
+		if err := s.deleteFieldDefinitionArtifacts(ctx, scope, agreementID, definition.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *relationalTxStore) deleteParticipantFieldValues(ctx context.Context, scope stores.Scope, agreementID, participantID string) error {
+	if _, err := s.tx.NewDelete().
+		Model((*stores.FieldValueRecord)(nil)).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		Where("recipient_id = ?", participantID).
 		Exec(ctx); err != nil {
 		return err
 	}
@@ -2996,43 +3037,15 @@ func (s *relationalTxStore) UpsertFieldDefinitionDraft(ctx context.Context, scop
 	}
 	record, err := loadFieldDefinitionRecord(ctx, s.tx, scope, agreementID, definitionID)
 	exists := err == nil
-	if err != nil && !strings.Contains(err.Error(), "NOT_FOUND") {
+	if err != nil && !relationalIsNotFoundError(err) {
 		return stores.FieldDefinitionRecord{}, err
 	}
 	if !exists {
-		record = stores.FieldDefinitionRecord{
-			ID:             definitionID,
-			TenantID:       scope.TenantID,
-			OrgID:          scope.OrgID,
-			AgreementID:    agreementID,
-			Type:           stores.FieldTypeText,
-			Required:       false,
-			ValidationJSON: "",
-			CreatedAt:      time.Now().UTC(),
-		}
+		record = newRelationalFieldDefinitionDraftRecord(scope, agreementID, definitionID)
 	}
-	if patch.ParticipantID != nil {
-		record.ParticipantID = normalizeRelationalID(*patch.ParticipantID)
-	}
-	if patch.Type != nil {
-		record.Type = strings.TrimSpace(*patch.Type)
-	}
-	if patch.Required != nil {
-		record.Required = *patch.Required
-	}
-	if patch.ValidationJSON != nil {
-		record.ValidationJSON = strings.TrimSpace(*patch.ValidationJSON)
-	}
-	if record.Type == stores.FieldTypeDateSigned {
-		record.Required = true
-	}
-	switch strings.TrimSpace(record.Type) {
-	case stores.FieldTypeSignature, stores.FieldTypeName, stores.FieldTypeDateSigned, stores.FieldTypeText, stores.FieldTypeCheckbox, stores.FieldTypeInitials:
-	default:
-		return stores.FieldDefinitionRecord{}, relationalInvalidRecordError("field_definitions", "field_type", "unsupported type")
-	}
-	if record.ParticipantID == "" {
-		return stores.FieldDefinitionRecord{}, relationalInvalidRecordError("field_definitions", "participant_id", "required")
+	applyRelationalFieldDefinitionDraftPatch(&record, patch)
+	if validationErr := validateRelationalFieldDefinitionDraftRecord(record); validationErr != nil {
+		return stores.FieldDefinitionRecord{}, validationErr
 	}
 	participant, err := loadParticipantRecord(ctx, s.tx, scope, agreementID, record.ParticipantID)
 	if err != nil {
@@ -3054,6 +3067,61 @@ func (s *relationalTxStore) UpsertFieldDefinitionDraft(ctx context.Context, scop
 	return record, nil
 }
 
+func newRelationalFieldDefinitionDraftRecord(scope stores.Scope, agreementID, definitionID string) stores.FieldDefinitionRecord {
+	return stores.FieldDefinitionRecord{
+		ID:             definitionID,
+		TenantID:       scope.TenantID,
+		OrgID:          scope.OrgID,
+		AgreementID:    agreementID,
+		Type:           stores.FieldTypeText,
+		Required:       false,
+		ValidationJSON: "",
+		CreatedAt:      time.Now().UTC(),
+	}
+}
+
+func applyRelationalFieldDefinitionDraftPatch(record *stores.FieldDefinitionRecord, patch stores.FieldDefinitionDraftPatch) {
+	if patch.ParticipantID != nil {
+		record.ParticipantID = normalizeRelationalID(*patch.ParticipantID)
+	}
+	if patch.Type != nil {
+		record.Type = strings.TrimSpace(*patch.Type)
+	}
+	if patch.Required != nil {
+		record.Required = *patch.Required
+	}
+	if patch.ValidationJSON != nil {
+		record.ValidationJSON = strings.TrimSpace(*patch.ValidationJSON)
+	}
+	if record.Type == stores.FieldTypeDateSigned {
+		record.Required = true
+	}
+}
+
+func validateRelationalFieldDefinitionDraftRecord(record stores.FieldDefinitionRecord) error {
+	if !isSupportedRelationalFieldType(record.Type) {
+		return relationalInvalidRecordError("field_definitions", "field_type", "unsupported type")
+	}
+	if record.ParticipantID == "" {
+		return relationalInvalidRecordError("field_definitions", "participant_id", "required")
+	}
+	return nil
+}
+
+func isSupportedRelationalFieldType(fieldType string) bool {
+	switch strings.TrimSpace(fieldType) {
+	case stores.FieldTypeSignature,
+		stores.FieldTypeName,
+		stores.FieldTypeDateSigned,
+		stores.FieldTypeText,
+		stores.FieldTypeCheckbox,
+		stores.FieldTypeInitials:
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *relationalTxStore) DeleteFieldDefinitionDraft(ctx context.Context, scope stores.Scope, agreementID, fieldDefinitionID string) error {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {
@@ -3069,6 +3137,10 @@ func (s *relationalTxStore) DeleteFieldDefinitionDraft(ctx context.Context, scop
 	if _, err := loadFieldDefinitionRecord(ctx, s.tx, scope, agreementID, fieldDefinitionID); err != nil {
 		return err
 	}
+	return s.deleteFieldDefinitionArtifacts(ctx, scope, agreementID, fieldDefinitionID)
+}
+
+func (s *relationalTxStore) deleteFieldDefinitionArtifacts(ctx context.Context, scope stores.Scope, agreementID, fieldDefinitionID string) error {
 	if _, err := s.tx.NewDelete().
 		Model((*stores.FieldValueRecord)(nil)).
 		Where("tenant_id = ?", scope.TenantID).
@@ -3117,26 +3189,67 @@ func (s *relationalTxStore) UpsertFieldInstanceDraft(ctx context.Context, scope 
 	}
 	record, err := loadFieldInstanceRecord(ctx, s.tx, scope, agreementID, instanceID)
 	exists := err == nil
-	if err != nil && !strings.Contains(err.Error(), "NOT_FOUND") {
+	if err != nil && !relationalIsNotFoundError(err) {
 		return stores.FieldInstanceRecord{}, err
 	}
 	if !exists {
-		record = stores.FieldInstanceRecord{
-			ID:              instanceID,
-			TenantID:        scope.TenantID,
-			OrgID:           scope.OrgID,
-			AgreementID:     agreementID,
-			PageNumber:      1,
-			Width:           150,
-			Height:          32,
-			TabIndex:        0,
-			PlacementSource: stores.PlacementSourceManual,
-			CreatedAt:       time.Now().UTC(),
-		}
+		record = newRelationalFieldInstanceDraftRecord(scope, agreementID, instanceID)
 	}
+	applyRelationalFieldInstanceLinkPatch(&record, patch)
+	applyRelationalFieldInstanceGeometryPatch(&record, patch)
+	applyRelationalFieldInstancePlacementPatch(&record, patch)
+	if validationErr := validateRelationalFieldInstanceDraftRecord(&record); validationErr != nil {
+		return stores.FieldInstanceRecord{}, validationErr
+	}
+	definition, err := loadFieldDefinitionRecord(ctx, s.tx, scope, agreementID, record.FieldDefinitionID)
+	if err != nil {
+		return stores.FieldInstanceRecord{}, err
+	}
+	mergeRelationalFieldInstanceLinkGroup(&record, definition)
+	record.UpdatedAt = time.Now().UTC()
+	if exists {
+		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+			return stores.FieldInstanceRecord{}, err
+		}
+		return record, nil
+	}
+	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+		return stores.FieldInstanceRecord{}, relationalUniqueConstraintError(err, "field_instances", "id")
+	}
+	return record, nil
+}
+
+func newRelationalFieldInstanceDraftRecord(scope stores.Scope, agreementID, instanceID string) stores.FieldInstanceRecord {
+	return stores.FieldInstanceRecord{
+		ID:              instanceID,
+		TenantID:        scope.TenantID,
+		OrgID:           scope.OrgID,
+		AgreementID:     agreementID,
+		PageNumber:      1,
+		Width:           150,
+		Height:          32,
+		TabIndex:        0,
+		PlacementSource: stores.PlacementSourceManual,
+		CreatedAt:       time.Now().UTC(),
+	}
+}
+
+func applyRelationalFieldInstanceLinkPatch(record *stores.FieldInstanceRecord, patch stores.FieldInstanceDraftPatch) {
 	if patch.FieldDefinitionID != nil {
 		record.FieldDefinitionID = normalizeRelationalID(*patch.FieldDefinitionID)
 	}
+	if patch.LinkGroupID != nil {
+		record.LinkGroupID = strings.TrimSpace(*patch.LinkGroupID)
+	}
+	if patch.LinkedFromFieldID != nil {
+		record.LinkedFromFieldID = normalizeRelationalID(*patch.LinkedFromFieldID)
+	}
+	if patch.IsUnlinked != nil {
+		record.IsUnlinked = *patch.IsUnlinked
+	}
+}
+
+func applyRelationalFieldInstanceGeometryPatch(record *stores.FieldInstanceRecord, patch stores.FieldInstanceDraftPatch) {
 	if patch.PageNumber != nil {
 		record.PageNumber = *patch.PageNumber
 	}
@@ -3155,6 +3268,9 @@ func (s *relationalTxStore) UpsertFieldInstanceDraft(ctx context.Context, scope 
 	if patch.TabIndex != nil {
 		record.TabIndex = *patch.TabIndex
 	}
+}
+
+func applyRelationalFieldInstancePlacementPatch(record *stores.FieldInstanceRecord, patch stores.FieldInstanceDraftPatch) {
 	if patch.Label != nil {
 		record.Label = strings.TrimSpace(*patch.Label)
 	}
@@ -3176,30 +3292,17 @@ func (s *relationalTxStore) UpsertFieldInstanceDraft(ctx context.Context, scope 
 	if patch.ManualOverride != nil {
 		record.ManualOverride = *patch.ManualOverride
 	}
-	if patch.LinkGroupID != nil {
-		record.LinkGroupID = strings.TrimSpace(*patch.LinkGroupID)
-	}
-	if patch.LinkedFromFieldID != nil {
-		record.LinkedFromFieldID = normalizeRelationalID(*patch.LinkedFromFieldID)
-	}
-	if patch.IsUnlinked != nil {
-		record.IsUnlinked = *patch.IsUnlinked
-	}
+}
+
+func validateRelationalFieldInstanceDraftRecord(record *stores.FieldInstanceRecord) error {
 	if record.FieldDefinitionID == "" {
-		return stores.FieldInstanceRecord{}, relationalInvalidRecordError("field_instances", "field_definition_id", "required")
-	}
-	definition, err := loadFieldDefinitionRecord(ctx, s.tx, scope, agreementID, record.FieldDefinitionID)
-	if err != nil {
-		return stores.FieldInstanceRecord{}, err
-	}
-	if strings.TrimSpace(record.LinkGroupID) == "" {
-		record.LinkGroupID = strings.TrimSpace(definition.LinkGroupID)
+		return relationalInvalidRecordError("field_instances", "field_definition_id", "required")
 	}
 	if record.PageNumber <= 0 {
-		return stores.FieldInstanceRecord{}, relationalInvalidRecordError("field_instances", "page_number", "must be positive")
+		return relationalInvalidRecordError("field_instances", "page_number", "must be positive")
 	}
 	if record.Width <= 0 || record.Height <= 0 {
-		return stores.FieldInstanceRecord{}, relationalInvalidRecordError("field_instances", "width|height", "must be positive")
+		return relationalInvalidRecordError("field_instances", "width|height", "must be positive")
 	}
 	if record.PlacementSource == "" {
 		record.PlacementSource = stores.PlacementSourceManual
@@ -3207,7 +3310,7 @@ func (s *relationalTxStore) UpsertFieldInstanceDraft(ctx context.Context, scope 
 	if record.PlacementSource != stores.PlacementSourceAuto &&
 		record.PlacementSource != stores.PlacementSourceManual &&
 		record.PlacementSource != stores.PlacementSourceAutoLinked {
-		return stores.FieldInstanceRecord{}, relationalInvalidRecordError("field_instances", "placement_source", "must be auto, manual, or auto_linked")
+		return relationalInvalidRecordError("field_instances", "placement_source", "must be auto, manual, or auto_linked")
 	}
 	if record.Confidence < 0 {
 		record.Confidence = 0
@@ -3215,17 +3318,13 @@ func (s *relationalTxStore) UpsertFieldInstanceDraft(ctx context.Context, scope 
 	if record.Confidence > 1 {
 		record.Confidence = 1
 	}
-	record.UpdatedAt = time.Now().UTC()
-	if exists {
-		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
-			return stores.FieldInstanceRecord{}, err
-		}
-		return record, nil
+	return nil
+}
+
+func mergeRelationalFieldInstanceLinkGroup(record *stores.FieldInstanceRecord, definition stores.FieldDefinitionRecord) {
+	if strings.TrimSpace(record.LinkGroupID) == "" {
+		record.LinkGroupID = strings.TrimSpace(definition.LinkGroupID)
 	}
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		return stores.FieldInstanceRecord{}, relationalUniqueConstraintError(err, "field_instances", "id")
-	}
-	return record, nil
 }
 
 func (s *relationalTxStore) DeleteFieldInstanceDraft(ctx context.Context, scope stores.Scope, agreementID, fieldInstanceID string) error {
@@ -3359,13 +3458,39 @@ func (s *relationalTxStore) CreateDraftSession(ctx context.Context, scope stores
 	if err != nil {
 		return stores.DraftRecord{}, false, err
 	}
+	record, err = prepareRelationalDraftRecord(scope, record)
+	if err != nil {
+		return stores.DraftRecord{}, false, err
+	}
+	existing, found, err := s.findReusableDraftSession(ctx, scope, record.CreatedByUserID, record.WizardID, record.UpdatedAt)
+	if err != nil {
+		return stores.DraftRecord{}, false, err
+	}
+	if found {
+		existing.UpdatedAt = record.UpdatedAt
+		existing.ExpiresAt = record.ExpiresAt
+		if err := updateScopedModelByID(ctx, s.tx, &existing, existing.TenantID, existing.OrgID, existing.ID); err != nil {
+			return stores.DraftRecord{}, false, err
+		}
+		return existing, true, nil
+	}
+	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+		if replayed, ok := s.reloadDraftSessionOnInsertConflict(ctx, scope, record, err); ok {
+			return replayed, true, nil
+		}
+		return stores.DraftRecord{}, false, relationalUniqueConstraintError(err, "drafts", "id")
+	}
+	return record, false, nil
+}
+
+func prepareRelationalDraftRecord(scope stores.Scope, record stores.DraftRecord) (stores.DraftRecord, error) {
 	record.WizardID = strings.TrimSpace(record.WizardID)
 	record.CreatedByUserID = normalizeRelationalID(record.CreatedByUserID)
 	if record.WizardID == "" {
-		return stores.DraftRecord{}, false, relationalInvalidRecordError("drafts", "wizard_id", "required")
+		return stores.DraftRecord{}, relationalInvalidRecordError("drafts", "wizard_id", "required")
 	}
 	if record.CreatedByUserID == "" {
-		return stores.DraftRecord{}, false, relationalInvalidRecordError("drafts", "created_by_user_id", "required")
+		return stores.DraftRecord{}, relationalInvalidRecordError("drafts", "created_by_user_id", "required")
 	}
 	record.ID = normalizeRelationalID(record.ID)
 	if record.ID == "" {
@@ -3381,7 +3506,7 @@ func (s *relationalTxStore) CreateDraftSession(ctx context.Context, scope stores
 		record.CurrentStep = 1
 	}
 	if record.CurrentStep > 6 {
-		return stores.DraftRecord{}, false, relationalInvalidRecordError("drafts", "current_step", "must be between 1 and 6")
+		return stores.DraftRecord{}, relationalInvalidRecordError("drafts", "current_step", "must be between 1 and 6")
 	}
 	if record.Revision <= 0 {
 		record.Revision = 1
@@ -3395,34 +3520,35 @@ func (s *relationalTxStore) CreateDraftSession(ctx context.Context, scope stores
 	} else {
 		record.ExpiresAt = record.ExpiresAt.UTC()
 	}
-	referenceNow := record.UpdatedAt
+	return record, nil
+}
 
-	existing, err := findDraftByWizardRecord(ctx, s.tx, scope, record.CreatedByUserID, record.WizardID)
-	if err == nil {
-		if !existing.ExpiresAt.IsZero() && !existing.ExpiresAt.After(referenceNow) {
-			if delErr := deleteScopedModelByID(ctx, s.tx, &existing, existing.TenantID, existing.OrgID, existing.ID); delErr != nil {
-				return stores.DraftRecord{}, false, delErr
-			}
-		} else {
-			existing.UpdatedAt = record.UpdatedAt
-			existing.ExpiresAt = record.ExpiresAt
-			if updErr := updateScopedModelByID(ctx, s.tx, &existing, existing.TenantID, existing.OrgID, existing.ID); updErr != nil {
-				return stores.DraftRecord{}, false, updErr
-			}
-			return existing, true, nil
-		}
-	} else if !strings.Contains(err.Error(), "NOT_FOUND") {
+func (s *relationalTxStore) findReusableDraftSession(ctx context.Context, scope stores.Scope, createdByUserID, wizardID string, referenceNow time.Time) (stores.DraftRecord, bool, error) {
+	existing, err := findDraftByWizardRecord(ctx, s.tx, scope, createdByUserID, wizardID)
+	if relationalIsNotFoundError(err) {
+		return stores.DraftRecord{}, false, nil
+	}
+	if err != nil {
 		return stores.DraftRecord{}, false, err
 	}
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		if relationalUniqueConstraintError(err, "drafts", "id") != err {
-			if replayed, reloadErr := findDraftByWizardRecord(ctx, s.tx, scope, record.CreatedByUserID, record.WizardID); reloadErr == nil {
-				return replayed, true, nil
-			}
-		}
-		return stores.DraftRecord{}, false, relationalUniqueConstraintError(err, "drafts", "id")
+	if existing.ExpiresAt.IsZero() || existing.ExpiresAt.After(referenceNow) {
+		return existing, true, nil
 	}
-	return record, false, nil
+	if err := deleteScopedModelByID(ctx, s.tx, &existing, existing.TenantID, existing.OrgID, existing.ID); err != nil {
+		return stores.DraftRecord{}, false, err
+	}
+	return stores.DraftRecord{}, false, nil
+}
+
+func (s *relationalTxStore) reloadDraftSessionOnInsertConflict(ctx context.Context, scope stores.Scope, record stores.DraftRecord, insertErr error) (stores.DraftRecord, bool) {
+	if relationalUniqueConstraintError(insertErr, "drafts", "id") == insertErr {
+		return stores.DraftRecord{}, false
+	}
+	replayed, err := findDraftByWizardRecord(ctx, s.tx, scope, record.CreatedByUserID, record.WizardID)
+	if err != nil {
+		return stores.DraftRecord{}, false
+	}
+	return replayed, true
 }
 
 func (s *relationalTxStore) UpdateDraftSession(ctx context.Context, scope stores.Scope, id string, patch stores.DraftPatch, expectedRevision int64) (stores.DraftRecord, error) {
@@ -3436,6 +3562,17 @@ func (s *relationalTxStore) UpdateDraftSession(ctx context.Context, scope stores
 	if record.Revision != expectedRevision {
 		return stores.DraftRecord{}, relationalVersionConflictError("drafts", id, expectedRevision, record.Revision)
 	}
+	if err := applyRelationalDraftPatch(&record, patch); err != nil {
+		return stores.DraftRecord{}, err
+	}
+	record.Revision++
+	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.DraftRecord{}, err
+	}
+	return record, nil
+}
+
+func applyRelationalDraftPatch(record *stores.DraftRecord, patch stores.DraftPatch) error {
 	if patch.WizardStateJSON != nil {
 		record.WizardStateJSON = strings.TrimSpace(*patch.WizardStateJSON)
 		if record.WizardStateJSON == "" {
@@ -3447,7 +3584,7 @@ func (s *relationalTxStore) UpdateDraftSession(ctx context.Context, scope stores
 	}
 	if patch.CurrentStep != nil {
 		if *patch.CurrentStep <= 0 || *patch.CurrentStep > 6 {
-			return stores.DraftRecord{}, relationalInvalidRecordError("drafts", "current_step", "must be between 1 and 6")
+			return relationalInvalidRecordError("drafts", "current_step", "must be between 1 and 6")
 		}
 		record.CurrentStep = *patch.CurrentStep
 	}
@@ -3464,11 +3601,7 @@ func (s *relationalTxStore) UpdateDraftSession(ctx context.Context, scope stores
 	} else if record.ExpiresAt.IsZero() {
 		record.ExpiresAt = record.UpdatedAt.Add(relationalDefaultDraftTTL).UTC()
 	}
-	record.Revision++
-	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
-		return stores.DraftRecord{}, err
-	}
-	return record, nil
+	return nil
 }
 
 func (s *relationalTxStore) DeleteDraftSession(ctx context.Context, scope stores.Scope, id string) error {
@@ -3505,76 +3638,115 @@ func (s *relationalTxStore) UpsertFieldValue(ctx context.Context, scope stores.S
 	if err != nil {
 		return stores.FieldValueRecord{}, err
 	}
+	value = normalizeRelationalFieldValueRecord(scope, value)
+	if validationErr := validateRelationalFieldValueRecord(value); validationErr != nil {
+		return stores.FieldValueRecord{}, validationErr
+	}
+	existingByField, hasByField, err := s.findExistingFieldValueByLogicalKey(ctx, scope, value)
+	if err != nil {
+		return stores.FieldValueRecord{}, err
+	}
+	if hasByField && value.ID != existingByField.ID {
+		value.ID = existingByField.ID
+	}
+	if err := s.validateFieldValueArtifact(ctx, scope, value); err != nil {
+		return stores.FieldValueRecord{}, err
+	}
+	if hasByField {
+		return s.updateExistingFieldValue(ctx, value, existingByField, expectedVersion)
+	}
+	return s.insertFieldValue(ctx, scope, value)
+}
+
+func normalizeRelationalFieldValueRecord(scope stores.Scope, value stores.FieldValueRecord) stores.FieldValueRecord {
 	value.AgreementID = normalizeRelationalID(value.AgreementID)
 	value.RecipientID = normalizeRelationalID(value.RecipientID)
 	value.FieldID = normalizeRelationalID(value.FieldID)
 	value.SignatureArtifactID = normalizeRelationalID(value.SignatureArtifactID)
-	if value.AgreementID == "" {
-		return stores.FieldValueRecord{}, relationalInvalidRecordError("field_values", "agreement_id", "required")
-	}
-	if value.RecipientID == "" {
-		return stores.FieldValueRecord{}, relationalInvalidRecordError("field_values", "recipient_id", "required")
-	}
-	if value.FieldID == "" {
-		return stores.FieldValueRecord{}, relationalInvalidRecordError("field_values", "field_id", "required")
-	}
 	value.ID = normalizeRelationalID(value.ID)
 	if value.ID == "" {
 		value.ID = uuid.NewString()
 	}
 	value.TenantID = scope.TenantID
 	value.OrgID = scope.OrgID
+	return value
+}
 
-	existingByField, err := findFieldValueByLogicalKey(ctx, s.tx, scope, value.AgreementID, value.RecipientID, value.FieldID)
-	hasByField := err == nil
-	if err != nil && !strings.Contains(err.Error(), "NOT_FOUND") {
+func validateRelationalFieldValueRecord(value stores.FieldValueRecord) error {
+	if value.AgreementID == "" {
+		return relationalInvalidRecordError("field_values", "agreement_id", "required")
+	}
+	if value.RecipientID == "" {
+		return relationalInvalidRecordError("field_values", "recipient_id", "required")
+	}
+	if value.FieldID == "" {
+		return relationalInvalidRecordError("field_values", "field_id", "required")
+	}
+	return nil
+}
+
+func (s *relationalTxStore) findExistingFieldValueByLogicalKey(ctx context.Context, scope stores.Scope, value stores.FieldValueRecord) (stores.FieldValueRecord, bool, error) {
+	existing, err := findFieldValueByLogicalKey(ctx, s.tx, scope, value.AgreementID, value.RecipientID, value.FieldID)
+	if relationalIsNotFoundError(err) {
+		return stores.FieldValueRecord{}, false, nil
+	}
+	if err != nil {
+		return stores.FieldValueRecord{}, false, err
+	}
+	return existing, true, nil
+}
+
+func (s *relationalTxStore) validateFieldValueArtifact(ctx context.Context, scope stores.Scope, value stores.FieldValueRecord) error {
+	if value.SignatureArtifactID == "" {
+		return nil
+	}
+	artifact, err := s.GetSignatureArtifact(ctx, scope, value.SignatureArtifactID)
+	if err != nil {
+		return err
+	}
+	if artifact.AgreementID != value.AgreementID || artifact.RecipientID != value.RecipientID {
+		return relationalInvalidRecordError("field_values", "signature_artifact_id", "artifact does not belong to signer agreement scope")
+	}
+	return nil
+}
+
+func (s *relationalTxStore) updateExistingFieldValue(ctx context.Context, value, existing stores.FieldValueRecord, expectedVersion int64) (stores.FieldValueRecord, error) {
+	if expectedVersion > 0 && existing.Version != expectedVersion {
+		return stores.FieldValueRecord{}, relationalVersionConflictError("field_values", value.ID, expectedVersion, existing.Version)
+	}
+	value.CreatedAt = existing.CreatedAt
+	value.Version = existing.Version + 1
+	value.UpdatedAt = time.Now().UTC()
+	if err := updateScopedModelByID(ctx, s.tx, &value, value.TenantID, value.OrgID, value.ID); err != nil {
 		return stores.FieldValueRecord{}, err
 	}
-	if hasByField && value.ID != existingByField.ID {
-		value.ID = existingByField.ID
-	}
-	if value.SignatureArtifactID != "" {
-		artifact, err := s.GetSignatureArtifact(ctx, scope, value.SignatureArtifactID)
-		if err != nil {
-			return stores.FieldValueRecord{}, err
-		}
-		if artifact.AgreementID != value.AgreementID || artifact.RecipientID != value.RecipientID {
-			return stores.FieldValueRecord{}, relationalInvalidRecordError("field_values", "signature_artifact_id", "artifact does not belong to signer agreement scope")
-		}
-	}
-	existing := stores.FieldValueRecord{}
-	exists := false
-	if hasByField {
-		existing = existingByField
-		exists = true
-	}
-	if exists {
-		if expectedVersion > 0 && existing.Version != expectedVersion {
-			return stores.FieldValueRecord{}, relationalVersionConflictError("field_values", value.ID, expectedVersion, existing.Version)
-		}
-		value.CreatedAt = existing.CreatedAt
-		value.Version = existing.Version + 1
-		value.UpdatedAt = time.Now().UTC()
-		if err := updateScopedModelByID(ctx, s.tx, &value, value.TenantID, value.OrgID, value.ID); err != nil {
-			return stores.FieldValueRecord{}, err
-		}
-		return value, nil
-	}
+	return value, nil
+}
+
+func (s *relationalTxStore) insertFieldValue(ctx context.Context, scope stores.Scope, value stores.FieldValueRecord) (stores.FieldValueRecord, error) {
 	if value.Version <= 0 {
 		value.Version = 1
 	}
 	value.CreatedAt = relationalTimeOrNow(value.CreatedAt)
 	value.UpdatedAt = time.Now().UTC()
 	if _, err := s.tx.NewInsert().Model(&value).Exec(ctx); err != nil {
-		if relationalUniqueConstraintError(err, "field_values", "id") != err {
-			reloaded, reloadErr := findFieldValueByLogicalKey(ctx, s.tx, scope, value.AgreementID, value.RecipientID, value.FieldID)
-			if reloadErr == nil {
-				return reloaded, nil
-			}
+		if reloaded, ok := s.reloadFieldValueOnInsertConflict(ctx, scope, value, err); ok {
+			return reloaded, nil
 		}
 		return stores.FieldValueRecord{}, relationalUniqueConstraintError(err, "field_values", "id")
 	}
 	return value, nil
+}
+
+func (s *relationalTxStore) reloadFieldValueOnInsertConflict(ctx context.Context, scope stores.Scope, value stores.FieldValueRecord, insertErr error) (stores.FieldValueRecord, bool) {
+	if relationalUniqueConstraintError(insertErr, "field_values", "id") == insertErr {
+		return stores.FieldValueRecord{}, false
+	}
+	reloaded, err := findFieldValueByLogicalKey(ctx, s.tx, scope, value.AgreementID, value.RecipientID, value.FieldID)
+	if err != nil {
+		return stores.FieldValueRecord{}, false
+	}
+	return reloaded, true
 }
 
 func (s *relationalTxStore) CreateSignatureArtifact(ctx context.Context, scope stores.Scope, record stores.SignatureArtifactRecord) (stores.SignatureArtifactRecord, error) {
@@ -4084,58 +4256,20 @@ func (s *relationalTxStore) SaveAgreementArtifacts(ctx context.Context, scope st
 	if err != nil {
 		return stores.AgreementArtifactRecord{}, err
 	}
-	agreementID := normalizeRelationalID(record.AgreementID)
-	if agreementID == "" {
-		return stores.AgreementArtifactRecord{}, relationalInvalidRecordError("agreement_artifacts", "agreement_id", "required")
+	input, err := normalizeRelationalAgreementArtifactInput(record)
+	if err != nil {
+		return stores.AgreementArtifactRecord{}, err
 	}
-	executedKey := strings.TrimSpace(record.ExecutedObjectKey)
-	executedSHA := strings.TrimSpace(record.ExecutedSHA256)
-	certKey := strings.TrimSpace(record.CertificateObjectKey)
-	certSHA := strings.TrimSpace(record.CertificateSHA256)
-	if (executedKey == "") != (executedSHA == "") {
-		return stores.AgreementArtifactRecord{}, relationalInvalidRecordError("agreement_artifacts", "executed_object_key|executed_sha256", "must both be set")
-	}
-	if (certKey == "") != (certSHA == "") {
-		return stores.AgreementArtifactRecord{}, relationalInvalidRecordError("agreement_artifacts", "certificate_object_key|certificate_sha256", "must both be set")
-	}
-	_, loadErr := loadAgreementRecord(ctx, s.tx, scope, agreementID)
-	if loadErr != nil {
+	if _, loadErr := loadAgreementRecord(ctx, s.tx, scope, input.agreementID); loadErr != nil {
 		return stores.AgreementArtifactRecord{}, loadErr
 	}
-	current := stores.AgreementArtifactRecord{}
-	err = s.tx.NewSelect().
-		Model(&current).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("agreement_id = ?", agreementID).
-		Scan(ctx)
-	exists := err == nil
-	if err != nil && !strings.Contains(strings.ToLower(err.Error()), "no rows") {
-		return stores.AgreementArtifactRecord{}, err
-	}
 	now := time.Now().UTC()
-	if !exists {
-		current = stores.AgreementArtifactRecord{
-			AgreementID: agreementID,
-			TenantID:    scope.TenantID,
-			OrgID:       scope.OrgID,
-			CreatedAt:   now,
-		}
-	}
-	if current.ExecutedObjectKey, err = relationalMergeImmutableArtifactValue(current.ExecutedObjectKey, executedKey, "executed_object_key"); err != nil {
+	current, exists, err := loadCurrentAgreementArtifact(ctx, s.tx, scope, input.agreementID, now)
+	if err != nil {
 		return stores.AgreementArtifactRecord{}, err
 	}
-	if current.ExecutedSHA256, err = relationalMergeImmutableArtifactValue(current.ExecutedSHA256, executedSHA, "executed_sha256"); err != nil {
+	if err := applyRelationalAgreementArtifactInput(&current, input); err != nil {
 		return stores.AgreementArtifactRecord{}, err
-	}
-	if current.CertificateObjectKey, err = relationalMergeImmutableArtifactValue(current.CertificateObjectKey, certKey, "certificate_object_key"); err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	if current.CertificateSHA256, err = relationalMergeImmutableArtifactValue(current.CertificateSHA256, certSHA, "certificate_sha256"); err != nil {
-		return stores.AgreementArtifactRecord{}, err
-	}
-	if correlationID := strings.TrimSpace(record.CorrelationID); correlationID != "" {
-		current.CorrelationID = correlationID
 	}
 	current.UpdatedAt = now
 	if exists {
@@ -4148,6 +4282,78 @@ func (s *relationalTxStore) SaveAgreementArtifacts(ctx context.Context, scope st
 		return stores.AgreementArtifactRecord{}, relationalUniqueConstraintError(err, "agreement_artifacts", "agreement_id")
 	}
 	return current, nil
+}
+
+type relationalAgreementArtifactInput struct {
+	agreementID   string
+	executedKey   string
+	executedSHA   string
+	certKey       string
+	certSHA       string
+	correlationID string
+}
+
+func normalizeRelationalAgreementArtifactInput(record stores.AgreementArtifactRecord) (relationalAgreementArtifactInput, error) {
+	input := relationalAgreementArtifactInput{
+		agreementID:   normalizeRelationalID(record.AgreementID),
+		executedKey:   strings.TrimSpace(record.ExecutedObjectKey),
+		executedSHA:   strings.TrimSpace(record.ExecutedSHA256),
+		certKey:       strings.TrimSpace(record.CertificateObjectKey),
+		certSHA:       strings.TrimSpace(record.CertificateSHA256),
+		correlationID: strings.TrimSpace(record.CorrelationID),
+	}
+	if input.agreementID == "" {
+		return relationalAgreementArtifactInput{}, relationalInvalidRecordError("agreement_artifacts", "agreement_id", "required")
+	}
+	if (input.executedKey == "") != (input.executedSHA == "") {
+		return relationalAgreementArtifactInput{}, relationalInvalidRecordError("agreement_artifacts", "executed_object_key|executed_sha256", "must both be set")
+	}
+	if (input.certKey == "") != (input.certSHA == "") {
+		return relationalAgreementArtifactInput{}, relationalInvalidRecordError("agreement_artifacts", "certificate_object_key|certificate_sha256", "must both be set")
+	}
+	return input, nil
+}
+
+func loadCurrentAgreementArtifact(ctx context.Context, idb bun.IDB, scope stores.Scope, agreementID string, now time.Time) (stores.AgreementArtifactRecord, bool, error) {
+	current := stores.AgreementArtifactRecord{}
+	err := idb.NewSelect().
+		Model(&current).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("agreement_id = ?", agreementID).
+		Scan(ctx)
+	if err == nil {
+		return current, true, nil
+	}
+	if mapped := mapSQLNotFound(err, "agreement_artifacts", agreementID); !relationalIsNotFoundError(mapped) {
+		return stores.AgreementArtifactRecord{}, false, err
+	}
+	return stores.AgreementArtifactRecord{
+		AgreementID: agreementID,
+		TenantID:    scope.TenantID,
+		OrgID:       scope.OrgID,
+		CreatedAt:   now,
+	}, false, nil
+}
+
+func applyRelationalAgreementArtifactInput(current *stores.AgreementArtifactRecord, input relationalAgreementArtifactInput) error {
+	var err error
+	if current.ExecutedObjectKey, err = relationalMergeImmutableArtifactValue(current.ExecutedObjectKey, input.executedKey, "executed_object_key"); err != nil {
+		return err
+	}
+	if current.ExecutedSHA256, err = relationalMergeImmutableArtifactValue(current.ExecutedSHA256, input.executedSHA, "executed_sha256"); err != nil {
+		return err
+	}
+	if current.CertificateObjectKey, err = relationalMergeImmutableArtifactValue(current.CertificateObjectKey, input.certKey, "certificate_object_key"); err != nil {
+		return err
+	}
+	if current.CertificateSHA256, err = relationalMergeImmutableArtifactValue(current.CertificateSHA256, input.certSHA, "certificate_sha256"); err != nil {
+		return err
+	}
+	if input.correlationID != "" {
+		current.CorrelationID = input.correlationID
+	}
+	return nil
 }
 
 func (s *relationalTxStore) CreateEmailLog(ctx context.Context, scope stores.Scope, record stores.EmailLogRecord) (stores.EmailLogRecord, error) {
@@ -4200,6 +4406,15 @@ func (s *relationalTxStore) UpdateEmailLog(ctx context.Context, scope stores.Sco
 	if err != nil {
 		return stores.EmailLogRecord{}, err
 	}
+	applyRelationalEmailLogMetadataPatch(&record, patch)
+	applyRelationalEmailLogTimePatch(&record, patch)
+	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
+		return stores.EmailLogRecord{}, err
+	}
+	return record, nil
+}
+
+func applyRelationalEmailLogMetadataPatch(record *stores.EmailLogRecord, patch stores.EmailLogRecord) {
 	if status := strings.TrimSpace(patch.Status); status != "" {
 		record.Status = status
 	}
@@ -4218,6 +4433,12 @@ func (s *relationalTxStore) UpdateEmailLog(ctx context.Context, scope stores.Sco
 	if patch.FailureReason != "" || record.Status == "failed" || record.Status == "retrying" {
 		record.FailureReason = strings.TrimSpace(patch.FailureReason)
 	}
+	if record.Status == "sent" {
+		record.FailureReason = ""
+	}
+}
+
+func applyRelationalEmailLogTimePatch(record *stores.EmailLogRecord, patch stores.EmailLogRecord) {
 	if patch.NextRetryAt != nil {
 		record.NextRetryAt = cloneRelationalTimePtr(patch.NextRetryAt)
 	} else if record.Status == "sent" || record.Status == "failed" {
@@ -4229,35 +4450,24 @@ func (s *relationalTxStore) UpdateEmailLog(ctx context.Context, scope stores.Sco
 		now := time.Now().UTC()
 		record.SentAt = cloneRelationalTimePtr(&now)
 	}
-	if record.Status == "sent" {
-		record.FailureReason = ""
-	}
 	if patch.UpdatedAt.IsZero() {
 		record.UpdatedAt = time.Now().UTC()
 	} else {
 		record.UpdatedAt = patch.UpdatedAt.UTC()
 	}
-	if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
-		return stores.EmailLogRecord{}, err
-	}
-	return record, nil
 }
 
-func (s *relationalTxStore) BeginJobRun(ctx context.Context, scope stores.Scope, input stores.JobRunInput) (stores.JobRunRecord, bool, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.JobRunRecord{}, false, err
-	}
+func normalizeBeginJobRunInput(input stores.JobRunInput) (stores.JobRunInput, error) {
 	input.JobName = strings.TrimSpace(input.JobName)
 	input.DedupeKey = strings.TrimSpace(input.DedupeKey)
 	input.AgreementID = normalizeRelationalID(input.AgreementID)
 	input.RecipientID = normalizeRelationalID(input.RecipientID)
 	input.CorrelationID = strings.TrimSpace(input.CorrelationID)
 	if input.JobName == "" {
-		return stores.JobRunRecord{}, false, relationalInvalidRecordError("job_runs", "job_name", "required")
+		return stores.JobRunInput{}, relationalInvalidRecordError("job_runs", "job_name", "required")
 	}
 	if input.DedupeKey == "" {
-		return stores.JobRunRecord{}, false, relationalInvalidRecordError("job_runs", "dedupe_key", "required")
+		return stores.JobRunInput{}, relationalInvalidRecordError("job_runs", "dedupe_key", "required")
 	}
 	if input.MaxAttempts <= 0 {
 		input.MaxAttempts = 3
@@ -4266,41 +4476,69 @@ func (s *relationalTxStore) BeginJobRun(ctx context.Context, scope stores.Scope,
 		input.AttemptedAt = time.Now().UTC()
 	}
 	input.AttemptedAt = input.AttemptedAt.UTC()
-	if input.AgreementID != "" {
-		_, loadErr := loadAgreementRecord(ctx, s.tx, scope, input.AgreementID)
-		if loadErr != nil {
-			return stores.JobRunRecord{}, false, loadErr
-		}
+	return input, nil
+}
+
+func normalizeEnqueueJobInput(input stores.JobRunEnqueueInput) (stores.JobRunEnqueueInput, time.Time, *time.Time, error) {
+	input.JobName = strings.TrimSpace(input.JobName)
+	input.DedupeKey = strings.TrimSpace(input.DedupeKey)
+	input.AgreementID = normalizeRelationalID(input.AgreementID)
+	input.RecipientID = normalizeRelationalID(input.RecipientID)
+	input.CorrelationID = strings.TrimSpace(input.CorrelationID)
+	input.PayloadJSON = strings.TrimSpace(input.PayloadJSON)
+	input.ResourceKind = strings.TrimSpace(input.ResourceKind)
+	input.ResourceID = strings.TrimSpace(input.ResourceID)
+	if input.JobName == "" {
+		return stores.JobRunEnqueueInput{}, time.Time{}, nil, relationalInvalidRecordError("job_runs", "job_name", "required")
 	}
-	record, err := findJobRunByDedupeRecord(ctx, s.tx, scope, input.JobName, input.DedupeKey)
-	if err == nil {
-		if record.Status == stores.JobRunStatusSucceeded {
-			return record, false, nil
-		}
-		if record.Status == stores.JobRunStatusRetrying && record.NextRetryAt != nil && input.AttemptedAt.Before(record.NextRetryAt.UTC()) {
-			return record, false, nil
-		}
-		if record.AttemptCount >= record.MaxAttempts && record.Status == stores.JobRunStatusFailed {
-			return record, false, nil
-		}
-		record.AttemptCount++
-		record.Status = stores.JobRunStatusPending
-		record.LastError = ""
-		record.NextRetryAt = nil
-		if input.CorrelationID != "" {
-			record.CorrelationID = input.CorrelationID
-		}
-		record.UpdatedAt = input.AttemptedAt
-		updateErr := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID)
-		if updateErr != nil {
-			return stores.JobRunRecord{}, false, updateErr
-		}
-		return record, true, nil
+	if input.DedupeKey == "" {
+		return stores.JobRunEnqueueInput{}, time.Time{}, nil, relationalInvalidRecordError("job_runs", "dedupe_key", "required")
 	}
-	if !strings.Contains(err.Error(), "NOT_FOUND") {
-		return stores.JobRunRecord{}, false, err
+	if input.MaxAttempts <= 0 {
+		input.MaxAttempts = 3
 	}
-	record = stores.JobRunRecord{
+	requestedAt := relationalTimeOrNow(input.RequestedAt)
+	availableAt := cloneRelationalTimePtr(input.AvailableAt)
+	if availableAt == nil {
+		availableAt = &requestedAt
+	} else {
+		ts := availableAt.UTC()
+		availableAt = &ts
+	}
+	return input, requestedAt, availableAt, nil
+}
+
+func (s *relationalTxStore) ensureJobRunAgreementExists(ctx context.Context, scope stores.Scope, agreementID string) error {
+	if agreementID == "" {
+		return nil
+	}
+	_, err := loadAgreementRecord(ctx, s.tx, scope, agreementID)
+	return err
+}
+
+func prepareExistingBeginJobRunRecord(record stores.JobRunRecord, input stores.JobRunInput) (stores.JobRunRecord, bool) {
+	if record.Status == stores.JobRunStatusSucceeded {
+		return record, false
+	}
+	if record.Status == stores.JobRunStatusRetrying && record.NextRetryAt != nil && input.AttemptedAt.Before(record.NextRetryAt.UTC()) {
+		return record, false
+	}
+	if record.AttemptCount >= record.MaxAttempts && record.Status == stores.JobRunStatusFailed {
+		return record, false
+	}
+	record.AttemptCount++
+	record.Status = stores.JobRunStatusPending
+	record.LastError = ""
+	record.NextRetryAt = nil
+	if input.CorrelationID != "" {
+		record.CorrelationID = input.CorrelationID
+	}
+	record.UpdatedAt = input.AttemptedAt
+	return record, true
+}
+
+func buildPendingJobRunRecord(scope stores.Scope, input stores.JobRunInput) stores.JobRunRecord {
+	return stores.JobRunRecord{
 		ID:            uuid.NewString(),
 		TenantID:      scope.TenantID,
 		OrgID:         scope.OrgID,
@@ -4315,14 +4553,103 @@ func (s *relationalTxStore) BeginJobRun(ctx context.Context, scope stores.Scope,
 		CreatedAt:     input.AttemptedAt,
 		UpdatedAt:     input.AttemptedAt,
 	}
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
+}
+
+func prepareExistingQueuedJobRunRecord(record stores.JobRunRecord, input stores.JobRunEnqueueInput, requestedAt time.Time, availableAt *time.Time) (stores.JobRunRecord, bool) {
+	terminal := record.Status == stores.JobRunStatusSucceeded || record.Status == stores.JobRunStatusFailed || record.Status == stores.JobRunStatusStale
+	if !input.ReplaceTerminal || !terminal {
+		return record, false
+	}
+	record.Status = stores.JobRunStatusQueued
+	record.AttemptCount = 0
+	record.PayloadJSON = input.PayloadJSON
+	record.AvailableAt = availableAt
+	record.StartedAt = nil
+	record.CompletedAt = nil
+	record.ClaimedAt = nil
+	record.LeaseExpiresAt = nil
+	record.WorkerID = ""
+	record.ResourceKind = input.ResourceKind
+	record.ResourceID = input.ResourceID
+	record.LastErrorCode = ""
+	record.LastError = ""
+	record.NextRetryAt = nil
+	if input.CorrelationID != "" {
+		record.CorrelationID = input.CorrelationID
+	}
+	record.UpdatedAt = requestedAt
+	return record, true
+}
+
+func buildQueuedJobRunRecord(scope stores.Scope, input stores.JobRunEnqueueInput, requestedAt time.Time, availableAt *time.Time) stores.JobRunRecord {
+	return stores.JobRunRecord{
+		ID:            uuid.NewString(),
+		TenantID:      scope.TenantID,
+		OrgID:         scope.OrgID,
+		JobName:       input.JobName,
+		DedupeKey:     input.DedupeKey,
+		AgreementID:   input.AgreementID,
+		RecipientID:   input.RecipientID,
+		CorrelationID: input.CorrelationID,
+		Status:        stores.JobRunStatusQueued,
+		AttemptCount:  0,
+		MaxAttempts:   input.MaxAttempts,
+		PayloadJSON:   input.PayloadJSON,
+		AvailableAt:   availableAt,
+		ResourceKind:  input.ResourceKind,
+		ResourceID:    input.ResourceID,
+		CreatedAt:     requestedAt,
+		UpdatedAt:     requestedAt,
+	}
+}
+
+func insertJobRunRecord(ctx context.Context, tx bun.IDB, scope stores.Scope, record stores.JobRunRecord, uniqueFields string) (stores.JobRunRecord, error) {
+	if _, err := tx.NewInsert().Model(&record).Exec(ctx); err != nil {
 		if relationalUniqueConstraintError(err, "job_runs", "dedupe_key") != err {
-			reloaded, reloadErr := findJobRunByDedupeRecord(ctx, s.tx, scope, input.JobName, input.DedupeKey)
+			reloaded, reloadErr := findJobRunByDedupeRecord(ctx, tx, scope, record.JobName, record.DedupeKey)
 			if reloadErr == nil {
-				return reloaded, false, nil
+				return reloaded, nil
 			}
 		}
-		return stores.JobRunRecord{}, false, relationalUniqueConstraintError(err, "job_runs", "id|dedupe_key")
+		return stores.JobRunRecord{}, relationalUniqueConstraintError(err, "job_runs", uniqueFields)
+	}
+	return record, nil
+}
+
+func (s *relationalTxStore) BeginJobRun(ctx context.Context, scope stores.Scope, input stores.JobRunInput) (stores.JobRunRecord, bool, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.JobRunRecord{}, false, err
+	}
+	input, err = normalizeBeginJobRunInput(input)
+	if err != nil {
+		return stores.JobRunRecord{}, false, err
+	}
+	err = s.ensureJobRunAgreementExists(ctx, scope, input.AgreementID)
+	if err != nil {
+		return stores.JobRunRecord{}, false, err
+	}
+
+	record, err := findJobRunByDedupeRecord(ctx, s.tx, scope, input.JobName, input.DedupeKey)
+	if err == nil {
+		var started bool
+		record, started = prepareExistingBeginJobRunRecord(record, input)
+		if !started {
+			return record, false, nil
+		}
+		err = updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID)
+		if err != nil {
+			return stores.JobRunRecord{}, false, err
+		}
+		return record, true, nil
+	}
+	if !relationalIsNotFoundError(err) {
+		return stores.JobRunRecord{}, false, err
+	}
+	record = buildPendingJobRunRecord(scope, input)
+	record, err = insertJobRunRecord(ctx, s.tx, scope, record, "id|dedupe_key")
+	if err != nil {
+		return stores.JobRunRecord{}, false, err
 	}
 	return record, true, nil
 }
@@ -4344,97 +4671,35 @@ func (s *relationalTxStore) EnqueueJob(ctx context.Context, scope stores.Scope, 
 	if err != nil {
 		return stores.JobRunRecord{}, false, err
 	}
-	input.JobName = strings.TrimSpace(input.JobName)
-	input.DedupeKey = strings.TrimSpace(input.DedupeKey)
-	input.AgreementID = normalizeRelationalID(input.AgreementID)
-	input.RecipientID = normalizeRelationalID(input.RecipientID)
-	input.CorrelationID = strings.TrimSpace(input.CorrelationID)
-	input.PayloadJSON = strings.TrimSpace(input.PayloadJSON)
-	input.ResourceKind = strings.TrimSpace(input.ResourceKind)
-	input.ResourceID = strings.TrimSpace(input.ResourceID)
-	if input.JobName == "" {
-		return stores.JobRunRecord{}, false, relationalInvalidRecordError("job_runs", "job_name", "required")
+	input, requestedAt, availableAt, err := normalizeEnqueueJobInput(input)
+	if err != nil {
+		return stores.JobRunRecord{}, false, err
 	}
-	if input.DedupeKey == "" {
-		return stores.JobRunRecord{}, false, relationalInvalidRecordError("job_runs", "dedupe_key", "required")
+	err = s.ensureJobRunAgreementExists(ctx, scope, input.AgreementID)
+	if err != nil {
+		return stores.JobRunRecord{}, false, err
 	}
-	if input.MaxAttempts <= 0 {
-		input.MaxAttempts = 3
-	}
-	requestedAt := relationalTimeOrNow(input.RequestedAt)
-	availableAt := cloneRelationalTimePtr(input.AvailableAt)
-	if availableAt == nil {
-		availableAt = &requestedAt
-	} else {
-		ts := availableAt.UTC()
-		availableAt = &ts
-	}
-	if input.AgreementID != "" {
-		_, loadErr := loadAgreementRecord(ctx, s.tx, scope, input.AgreementID)
-		if loadErr != nil {
-			return stores.JobRunRecord{}, false, loadErr
-		}
-	}
+
 	record, err := findJobRunByDedupeRecord(ctx, s.tx, scope, input.JobName, input.DedupeKey)
 	if err == nil {
-		terminal := record.Status == stores.JobRunStatusSucceeded || record.Status == stores.JobRunStatusFailed || record.Status == stores.JobRunStatusStale
-		if !input.ReplaceTerminal || !terminal {
+		var started bool
+		record, started = prepareExistingQueuedJobRunRecord(record, input, requestedAt, availableAt)
+		if !started {
 			return record, false, nil
 		}
-		record.Status = stores.JobRunStatusQueued
-		record.AttemptCount = 0
-		record.PayloadJSON = input.PayloadJSON
-		record.AvailableAt = availableAt
-		record.StartedAt = nil
-		record.CompletedAt = nil
-		record.ClaimedAt = nil
-		record.LeaseExpiresAt = nil
-		record.WorkerID = ""
-		record.ResourceKind = input.ResourceKind
-		record.ResourceID = input.ResourceID
-		record.LastErrorCode = ""
-		record.LastError = ""
-		record.NextRetryAt = nil
-		if input.CorrelationID != "" {
-			record.CorrelationID = input.CorrelationID
-		}
-		record.UpdatedAt = requestedAt
-		updateErr := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID)
-		if updateErr != nil {
-			return stores.JobRunRecord{}, false, updateErr
+		err = updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID)
+		if err != nil {
+			return stores.JobRunRecord{}, false, err
 		}
 		return record, true, nil
 	}
-	if !strings.Contains(err.Error(), "NOT_FOUND") {
+	if !relationalIsNotFoundError(err) {
 		return stores.JobRunRecord{}, false, err
 	}
-	record = stores.JobRunRecord{
-		ID:            uuid.NewString(),
-		TenantID:      scope.TenantID,
-		OrgID:         scope.OrgID,
-		JobName:       input.JobName,
-		DedupeKey:     input.DedupeKey,
-		AgreementID:   input.AgreementID,
-		RecipientID:   input.RecipientID,
-		CorrelationID: input.CorrelationID,
-		Status:        stores.JobRunStatusQueued,
-		AttemptCount:  0,
-		MaxAttempts:   input.MaxAttempts,
-		PayloadJSON:   input.PayloadJSON,
-		AvailableAt:   availableAt,
-		ResourceKind:  input.ResourceKind,
-		ResourceID:    input.ResourceID,
-		CreatedAt:     requestedAt,
-		UpdatedAt:     requestedAt,
-	}
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		if relationalUniqueConstraintError(err, "job_runs", "dedupe_key") != err {
-			reloaded, reloadErr := findJobRunByDedupeRecord(ctx, s.tx, scope, input.JobName, input.DedupeKey)
-			if reloadErr == nil {
-				return reloaded, false, nil
-			}
-		}
-		return stores.JobRunRecord{}, false, relationalUniqueConstraintError(err, "job_runs", "id|dedupe_key")
+	record = buildQueuedJobRunRecord(scope, input, requestedAt, availableAt)
+	record, err = insertJobRunRecord(ctx, s.tx, scope, record, "id|dedupe_key")
+	if err != nil {
+		return stores.JobRunRecord{}, false, err
 	}
 	return record, true, nil
 }

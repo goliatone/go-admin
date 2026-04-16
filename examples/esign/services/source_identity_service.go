@@ -86,55 +86,38 @@ func (s DefaultSourceIdentityService) ResolveSourceIdentity(ctx context.Context,
 	}
 
 	active, err := s.store.GetActiveSourceHandle(ctx, scope, providerKind, metadata.ExternalFileID, metadata.AccountID)
-	if err == nil {
-		var document stores.SourceDocumentRecord
-		document, err = s.store.GetSourceDocument(ctx, scope, active.SourceDocumentID)
-		if err != nil {
+	if err != nil {
+		if !isNotFound(err) {
 			return SourceIdentityResolution{}, err
 		}
-		var revision stores.SourceRevisionRecord
-		revision, err = s.resolveRevision(ctx, scope, document, active, metadata, input)
-		if err != nil {
-			return SourceIdentityResolution{}, err
-		}
-		return SourceIdentityResolution{
-			SourceDocument: document,
-			SourceHandle:   active,
-			SourceRevision: revision,
-			ResolutionKind: sourceResolutionExactActiveHandle,
-			ConfidenceBand: stores.LineageConfidenceBandExact,
-		}, nil
-	} else if !isNotFound(err) {
-		return SourceIdentityResolution{}, err
+	} else {
+		return s.resolveActiveSourceIdentity(ctx, scope, active, metadata, input)
 	}
 
-	var document stores.SourceDocumentRecord
-	var handle stores.SourceHandleRecord
-	var ok bool
-	document, handle, ok, err = s.findHighConfidenceAttach(ctx, scope, providerKind, metadata)
+	document, handle, ok, err := s.findHighConfidenceAttach(ctx, scope, providerKind, metadata)
 	if err != nil {
 		return SourceIdentityResolution{}, err
-	} else if ok {
-		var revision stores.SourceRevisionRecord
-		revision, err = s.resolveRevision(ctx, scope, document, handle, metadata, input)
-		if err != nil {
-			return SourceIdentityResolution{}, err
-		}
-		return SourceIdentityResolution{
-			SourceDocument: document,
-			SourceHandle:   handle,
-			SourceRevision: revision,
-			ResolutionKind: sourceResolutionHighConfidence,
-			ConfidenceBand: stores.LineageConfidenceBandHigh,
-		}, nil
+	}
+	if ok {
+		return s.buildResolvedSourceIdentity(ctx, scope, document, handle, metadata, input, sourceResolutionHighConfidence, stores.LineageConfidenceBandHigh)
 	}
 
+	return s.resolveNewSourceIdentity(ctx, scope, providerKind, metadata, input)
+}
+
+func (s DefaultSourceIdentityService) resolveNewSourceIdentity(
+	ctx context.Context,
+	scope stores.Scope,
+	providerKind string,
+	metadata SourceMetadataBaseline,
+	input SourceIdentityResolutionInput,
+) (SourceIdentityResolution, error) {
 	candidateTarget, candidateBand, candidateScore, err := s.findCandidateTarget(ctx, scope, providerKind, metadata)
 	if err != nil {
 		return SourceIdentityResolution{}, err
 	}
 
-	document, err = s.createSourceDocument(ctx, scope, providerKind, metadata.TitleHint, stores.LineageConfidenceBandMedium)
+	document, err := s.createSourceDocument(ctx, scope, providerKind, metadata.TitleHint, stores.LineageConfidenceBandMedium)
 	if err != nil {
 		return SourceIdentityResolution{}, err
 	}
@@ -148,7 +131,7 @@ func (s DefaultSourceIdentityService) ResolveSourceIdentity(ctx context.Context,
 		}
 	}
 	document = binding.Document
-	handle = binding.Handle
+	handle := binding.Handle
 	revision, err := s.resolveRevision(ctx, scope, document, handle, metadata, input)
 	if err != nil {
 		return SourceIdentityResolution{}, err
@@ -177,6 +160,43 @@ func (s DefaultSourceIdentityService) ResolveSourceIdentity(ctx context.Context,
 	result.ResolutionKind = sourceResolutionCandidateCreated
 	result.CandidateRelationship = &relationship
 	return result, nil
+}
+
+func (s DefaultSourceIdentityService) resolveActiveSourceIdentity(
+	ctx context.Context,
+	scope stores.Scope,
+	active stores.SourceHandleRecord,
+	metadata SourceMetadataBaseline,
+	input SourceIdentityResolutionInput,
+) (SourceIdentityResolution, error) {
+	document, err := s.store.GetSourceDocument(ctx, scope, active.SourceDocumentID)
+	if err != nil {
+		return SourceIdentityResolution{}, err
+	}
+	return s.buildResolvedSourceIdentity(ctx, scope, document, active, metadata, input, sourceResolutionExactActiveHandle, stores.LineageConfidenceBandExact)
+}
+
+func (s DefaultSourceIdentityService) buildResolvedSourceIdentity(
+	ctx context.Context,
+	scope stores.Scope,
+	document stores.SourceDocumentRecord,
+	handle stores.SourceHandleRecord,
+	metadata SourceMetadataBaseline,
+	input SourceIdentityResolutionInput,
+	resolutionKind string,
+	confidenceBand string,
+) (SourceIdentityResolution, error) {
+	revision, err := s.resolveRevision(ctx, scope, document, handle, metadata, input)
+	if err != nil {
+		return SourceIdentityResolution{}, err
+	}
+	return SourceIdentityResolution{
+		SourceDocument: document,
+		SourceHandle:   handle,
+		SourceRevision: revision,
+		ResolutionKind: resolutionKind,
+		ConfidenceBand: confidenceBand,
+	}, nil
 }
 
 func (s DefaultSourceIdentityService) findHighConfidenceAttach(ctx context.Context, scope stores.Scope, providerKind string, metadata SourceMetadataBaseline) (stores.SourceDocumentRecord, stores.SourceHandleRecord, bool, error) {

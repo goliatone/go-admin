@@ -409,56 +409,80 @@ func (s DefaultLineageRepairService) runRepairOperations(
 		sourceRevision: sourceRevision,
 		sourceArtifact: sourceArtifact,
 	}.metadataBaseline(stores.DocumentRecord{})
-	if s.processing != nil && strings.TrimSpace(sourceRevision.ID) != "" && strings.TrimSpace(sourceArtifact.ID) != "" {
-		processingInput := SourceLineageProcessingInput{
-			SourceDocumentID: strings.TrimSpace(sourceDocument.ID),
-			SourceRevisionID: strings.TrimSpace(sourceRevision.ID),
-			ArtifactID:       strings.TrimSpace(sourceArtifact.ID),
-			DedupeKey:        strings.Join([]string{"lineage-repair", strings.TrimSpace(sourceDocument.ID), strings.TrimSpace(sourceRevision.ID), strings.TrimSpace(sourceArtifact.ID)}, "|"),
-		}
-		if metadata != nil {
-			processingInput.Metadata = *metadata
-		}
-		return s.processing.EnqueueLineageProcessing(ctx, scope, processingInput)
+	if err := s.enqueueRepairProcessing(ctx, scope, sourceDocument, sourceRevision, sourceArtifact, metadata); err != nil {
+		return err
 	}
-	if s.fingerprints != nil && strings.TrimSpace(sourceRevision.ID) != "" && strings.TrimSpace(sourceArtifact.ID) != "" {
-		buildInput := SourceFingerprintBuildInput{
-			SourceRevisionID: sourceRevision.ID,
-			ArtifactID:       sourceArtifact.ID,
-		}
-		if metadata != nil {
-			buildInput.Metadata = *metadata
-		}
-		_, err := s.fingerprints.BuildFingerprint(ctx, scope, SourceFingerprintBuildInput{
-			SourceRevisionID: buildInput.SourceRevisionID,
-			ArtifactID:       buildInput.ArtifactID,
-			Metadata:         buildInput.Metadata,
-		})
-		if err != nil {
-			return err
-		}
+	if err := s.buildRepairFingerprint(ctx, scope, sourceRevision, sourceArtifact, metadata); err != nil {
+		return err
 	}
-	if s.reconciliation != nil && strings.TrimSpace(sourceDocument.ID) != "" && strings.TrimSpace(sourceRevision.ID) != "" && strings.TrimSpace(sourceArtifact.ID) != "" {
-		reconcileInput := SourceReconciliationInput{
-			SourceDocumentID: sourceDocument.ID,
-			SourceRevisionID: sourceRevision.ID,
-			ArtifactID:       sourceArtifact.ID,
-		}
-		if metadata != nil {
-			reconcileInput.Metadata = *metadata
-		}
-		_, err := s.reconciliation.EvaluateCandidates(ctx, scope, SourceReconciliationInput{
-			SourceDocumentID: reconcileInput.SourceDocumentID,
-			SourceRevisionID: reconcileInput.SourceRevisionID,
-			ArtifactID:       reconcileInput.ArtifactID,
-			ActorID:          reconcileInput.ActorID,
-			Metadata:         reconcileInput.Metadata,
-		})
-		if err != nil {
-			return err
-		}
+	return s.evaluateRepairCandidates(ctx, scope, sourceDocument, sourceRevision, sourceArtifact, metadata)
+}
+
+func (s DefaultLineageRepairService) enqueueRepairProcessing(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocument stores.SourceDocumentRecord,
+	sourceRevision stores.SourceRevisionRecord,
+	sourceArtifact stores.SourceArtifactRecord,
+	metadata *SourceMetadataBaseline,
+) error {
+	if s.processing == nil || strings.TrimSpace(sourceRevision.ID) == "" || strings.TrimSpace(sourceArtifact.ID) == "" {
+		return nil
 	}
-	return nil
+	processingInput := SourceLineageProcessingInput{
+		SourceDocumentID: strings.TrimSpace(sourceDocument.ID),
+		SourceRevisionID: strings.TrimSpace(sourceRevision.ID),
+		ArtifactID:       strings.TrimSpace(sourceArtifact.ID),
+		DedupeKey:        strings.Join([]string{"lineage-repair", strings.TrimSpace(sourceDocument.ID), strings.TrimSpace(sourceRevision.ID), strings.TrimSpace(sourceArtifact.ID)}, "|"),
+	}
+	if metadata != nil {
+		processingInput.Metadata = *metadata
+	}
+	return s.processing.EnqueueLineageProcessing(ctx, scope, processingInput)
+}
+
+func (s DefaultLineageRepairService) buildRepairFingerprint(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceRevision stores.SourceRevisionRecord,
+	sourceArtifact stores.SourceArtifactRecord,
+	metadata *SourceMetadataBaseline,
+) error {
+	if s.fingerprints == nil || strings.TrimSpace(sourceRevision.ID) == "" || strings.TrimSpace(sourceArtifact.ID) == "" {
+		return nil
+	}
+	buildInput := SourceFingerprintBuildInput{
+		SourceRevisionID: sourceRevision.ID,
+		ArtifactID:       sourceArtifact.ID,
+	}
+	if metadata != nil {
+		buildInput.Metadata = *metadata
+	}
+	_, err := s.fingerprints.BuildFingerprint(ctx, scope, buildInput)
+	return err
+}
+
+func (s DefaultLineageRepairService) evaluateRepairCandidates(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocument stores.SourceDocumentRecord,
+	sourceRevision stores.SourceRevisionRecord,
+	sourceArtifact stores.SourceArtifactRecord,
+	metadata *SourceMetadataBaseline,
+) error {
+	if s.reconciliation == nil || strings.TrimSpace(sourceDocument.ID) == "" || strings.TrimSpace(sourceRevision.ID) == "" || strings.TrimSpace(sourceArtifact.ID) == "" {
+		return nil
+	}
+	reconcileInput := SourceReconciliationInput{
+		SourceDocumentID: sourceDocument.ID,
+		SourceRevisionID: sourceRevision.ID,
+		ArtifactID:       sourceArtifact.ID,
+	}
+	if metadata != nil {
+		reconcileInput.Metadata = *metadata
+	}
+	_, err := s.reconciliation.EvaluateCandidates(ctx, scope, reconcileInput)
+	return err
 }
 
 func (s DefaultLineageRepairService) sourceDocumentDiagnostics(ctx context.Context, scope stores.Scope, sourceDocumentID string) (LineageDiagnostics, error) {

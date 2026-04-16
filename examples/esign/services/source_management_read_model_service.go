@@ -213,37 +213,12 @@ func (s DefaultSourceReadModelService) ListSourceRelationships(ctx context.Conte
 	if err != nil {
 		return page, err
 	}
-	relationships := make([]stores.SourceRelationshipRecord, 0, len(resolved.relationships))
-	for _, relationship := range resolved.relationships {
-		if normalized.Status != "" && !strings.EqualFold(strings.TrimSpace(relationship.Status), normalized.Status) {
-			continue
-		}
-		if normalized.RelationshipType != "" && !strings.EqualFold(strings.TrimSpace(relationship.RelationshipType), normalized.RelationshipType) {
-			continue
-		}
-		relationships = append(relationships, relationship)
-	}
+	relationships := filterSourceRelationships(resolved.relationships, normalized)
 	sortSourceRelationshipRecords(relationships, normalized.Sort)
 	paged, pageInfo := paginateSourceManagement(relationships, normalized.Page, normalized.PageSize, normalized.Sort)
-	contextRecords := []stores.SourceDocumentRecord{resolved.sourceDocument}
-	seenContextIDs := map[string]struct{}{strings.TrimSpace(resolved.sourceDocument.ID): {}}
-	for _, relationship := range paged {
-		for _, candidateID := range []string{relationship.LeftSourceDocumentID, relationship.RightSourceDocumentID} {
-			candidateID = strings.TrimSpace(candidateID)
-			if candidateID == "" {
-				continue
-			}
-			if _, ok := seenContextIDs[candidateID]; ok {
-				continue
-			}
-			var candidate stores.SourceDocumentRecord
-			candidate, err = s.lineage.GetSourceDocument(ctx, scope, candidateID)
-			if err != nil {
-				return page, err
-			}
-			contextRecords = append(contextRecords, candidate)
-			seenContextIDs[candidateID] = struct{}{}
-		}
+	contextRecords, err := s.loadRelationshipContextRecords(ctx, scope, resolved.sourceDocument, paged)
+	if err != nil {
+		return page, err
 	}
 	resolvedByID, err := s.resolveSourceManagementContexts(ctx, scope, contextRecords)
 	if err != nil {
@@ -263,6 +238,48 @@ func (s DefaultSourceReadModelService) ListSourceRelationships(ctx context.Conte
 	page.Links = sourceLinksForDocument(resolved.sourceDocument.ID)
 	page.EmptyState = sourceCollectionEmptyState(len(items) == 0, "No relationships", "This source has no relationship records for the current filters.")
 	return page, nil
+}
+
+func filterSourceRelationships(records []stores.SourceRelationshipRecord, query SourceRelationshipListQuery) []stores.SourceRelationshipRecord {
+	relationships := make([]stores.SourceRelationshipRecord, 0, len(records))
+	for _, relationship := range records {
+		if query.Status != "" && !strings.EqualFold(strings.TrimSpace(relationship.Status), query.Status) {
+			continue
+		}
+		if query.RelationshipType != "" && !strings.EqualFold(strings.TrimSpace(relationship.RelationshipType), query.RelationshipType) {
+			continue
+		}
+		relationships = append(relationships, relationship)
+	}
+	return relationships
+}
+
+func (s DefaultSourceReadModelService) loadRelationshipContextRecords(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocument stores.SourceDocumentRecord,
+	relationships []stores.SourceRelationshipRecord,
+) ([]stores.SourceDocumentRecord, error) {
+	contextRecords := []stores.SourceDocumentRecord{sourceDocument}
+	seenContextIDs := map[string]struct{}{strings.TrimSpace(sourceDocument.ID): {}}
+	for _, relationship := range relationships {
+		for _, candidateID := range []string{relationship.LeftSourceDocumentID, relationship.RightSourceDocumentID} {
+			candidateID = strings.TrimSpace(candidateID)
+			if candidateID == "" {
+				continue
+			}
+			if _, ok := seenContextIDs[candidateID]; ok {
+				continue
+			}
+			candidate, err := s.lineage.GetSourceDocument(ctx, scope, candidateID)
+			if err != nil {
+				return nil, err
+			}
+			contextRecords = append(contextRecords, candidate)
+			seenContextIDs[candidateID] = struct{}{}
+		}
+	}
+	return contextRecords, nil
 }
 
 func (s DefaultSourceReadModelService) ListSourceAgreements(ctx context.Context, scope stores.Scope, sourceDocumentID string, query SourceAgreementListQuery) (SourceAgreementPage, error) {

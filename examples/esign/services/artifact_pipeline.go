@@ -470,72 +470,138 @@ func (s ArtifactPipelineService) AgreementDeliveryDetail(ctx context.Context, sc
 		CertificateStatus:  DeliveryStatePending,
 		DistributionStatus: DeliveryStatePending,
 	}
-	if s.agreements != nil {
-		agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
-		if err != nil {
-			return detail, err
-		}
-		agreementStatus = strings.TrimSpace(agreement.Status)
-		detail.ExecutedApplicable = agreementArtifactApplicable(agreementStatus, "")
-		detail.CertificateApplicable = agreementArtifactApplicable(agreementStatus, "")
+	if err := s.populateAgreementDeliveryAgreement(ctx, scope, agreementID, &agreementStatus, &detail); err != nil {
+		return detail, err
 	}
-	if s.artifacts != nil {
-		if artifactRecord, err := s.artifacts.GetAgreementArtifacts(ctx, scope, agreementID); err == nil {
-			detail.ExecutedObjectKey = artifactRecord.ExecutedObjectKey
-			detail.CertificateObjectKey = artifactRecord.CertificateObjectKey
-			detail.ExecutedApplicable = agreementArtifactApplicable(agreementStatus, artifactRecord.ExecutedObjectKey)
-			detail.CertificateApplicable = agreementArtifactApplicable(agreementStatus, artifactRecord.CertificateObjectKey)
-			if artifactRecord.ExecutedObjectKey != "" {
-				detail.ExecutedStatus = DeliveryStateReady
-			}
-			if artifactRecord.CertificateObjectKey != "" {
-				detail.CertificateStatus = DeliveryStateReady
-			}
-			detail.CorrelationIDs = append(detail.CorrelationIDs, strings.TrimSpace(artifactRecord.CorrelationID))
-		}
+	s.populateAgreementDeliveryArtifacts(ctx, scope, agreementID, agreementStatus, &detail)
+	if err := s.populateAgreementDeliveryJobRuns(ctx, scope, agreementID, &detail); err != nil {
+		return detail, err
 	}
-	if s.jobRuns != nil {
-		jobRuns, err := s.jobRuns.ListJobRuns(ctx, scope, agreementID)
-		if err != nil {
-			return detail, err
-		}
-		detail.ExecutedStatus = stageStatusFromRuns(jobRuns, jobNamePDFGenerateExecuted, detail.ExecutedStatus)
-		detail.CertificateStatus = stageStatusFromRuns(jobRuns, jobNamePDFGenerateCertificate, detail.CertificateStatus)
-		for _, run := range jobRuns {
-			if run.LastError != "" {
-				detail.LastError = run.LastError
-			}
-			detail.CorrelationIDs = append(detail.CorrelationIDs, strings.TrimSpace(run.CorrelationID))
-		}
+	if err := s.populateAgreementDeliveryDistribution(ctx, scope, agreementID, &detail); err != nil {
+		return detail, err
 	}
-	if s.emailLogs != nil {
-		logs, err := s.emailLogs.ListEmailLogs(ctx, scope, agreementID)
-		if err != nil {
-			return detail, err
-		}
-		detail.DistributionStatus = distributionStatusFromEmailLogs(logs)
-		for _, log := range logs {
-			if strings.TrimSpace(log.FailureReason) != "" {
-				detail.LastError = strings.TrimSpace(log.FailureReason)
-			}
-			detail.CorrelationIDs = append(detail.CorrelationIDs, strings.TrimSpace(log.CorrelationID))
-		}
-	}
-	if s.effects != nil {
-		records, err := listAgreementNotificationEffectRecords(ctx, s.effects, scope, agreementID)
-		if err != nil {
-			return detail, err
-		}
-		summary := summarizeAgreementNotificationEffects(records)
-		detail.NotificationStatus = strings.TrimSpace(summary.Status)
-		detail.NotificationRecoverable = summary.Recoverable
-		detail.NotificationEffects = append(detail.NotificationEffects, summary.Effects...)
-		if detail.LastError == "" {
-			detail.LastError = strings.TrimSpace(summary.LastError)
-		}
+	if err := s.populateAgreementDeliveryEffects(ctx, scope, agreementID, &detail); err != nil {
+		return detail, err
 	}
 	detail.CorrelationIDs = dedupeStrings(detail.CorrelationIDs)
 	return detail, nil
+}
+
+func (s ArtifactPipelineService) populateAgreementDeliveryAgreement(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	agreementStatus *string,
+	detail *AgreementDeliveryDetail,
+) error {
+	if s.agreements == nil {
+		return nil
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	*agreementStatus = strings.TrimSpace(agreement.Status)
+	detail.ExecutedApplicable = agreementArtifactApplicable(*agreementStatus, "")
+	detail.CertificateApplicable = agreementArtifactApplicable(*agreementStatus, "")
+	return nil
+}
+
+func (s ArtifactPipelineService) populateAgreementDeliveryArtifacts(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	agreementStatus string,
+	detail *AgreementDeliveryDetail,
+) {
+	if s.artifacts == nil {
+		return
+	}
+	artifactRecord, err := s.artifacts.GetAgreementArtifacts(ctx, scope, agreementID)
+	if err != nil {
+		return
+	}
+	detail.ExecutedObjectKey = artifactRecord.ExecutedObjectKey
+	detail.CertificateObjectKey = artifactRecord.CertificateObjectKey
+	detail.ExecutedApplicable = agreementArtifactApplicable(agreementStatus, artifactRecord.ExecutedObjectKey)
+	detail.CertificateApplicable = agreementArtifactApplicable(agreementStatus, artifactRecord.CertificateObjectKey)
+	if artifactRecord.ExecutedObjectKey != "" {
+		detail.ExecutedStatus = DeliveryStateReady
+	}
+	if artifactRecord.CertificateObjectKey != "" {
+		detail.CertificateStatus = DeliveryStateReady
+	}
+	detail.CorrelationIDs = append(detail.CorrelationIDs, strings.TrimSpace(artifactRecord.CorrelationID))
+}
+
+func (s ArtifactPipelineService) populateAgreementDeliveryJobRuns(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	detail *AgreementDeliveryDetail,
+) error {
+	if s.jobRuns == nil {
+		return nil
+	}
+	jobRuns, err := s.jobRuns.ListJobRuns(ctx, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	detail.ExecutedStatus = stageStatusFromRuns(jobRuns, jobNamePDFGenerateExecuted, detail.ExecutedStatus)
+	detail.CertificateStatus = stageStatusFromRuns(jobRuns, jobNamePDFGenerateCertificate, detail.CertificateStatus)
+	for _, run := range jobRuns {
+		if run.LastError != "" {
+			detail.LastError = run.LastError
+		}
+		detail.CorrelationIDs = append(detail.CorrelationIDs, strings.TrimSpace(run.CorrelationID))
+	}
+	return nil
+}
+
+func (s ArtifactPipelineService) populateAgreementDeliveryDistribution(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	detail *AgreementDeliveryDetail,
+) error {
+	if s.emailLogs == nil {
+		return nil
+	}
+	logs, err := s.emailLogs.ListEmailLogs(ctx, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	detail.DistributionStatus = distributionStatusFromEmailLogs(logs)
+	for _, log := range logs {
+		if strings.TrimSpace(log.FailureReason) != "" {
+			detail.LastError = strings.TrimSpace(log.FailureReason)
+		}
+		detail.CorrelationIDs = append(detail.CorrelationIDs, strings.TrimSpace(log.CorrelationID))
+	}
+	return nil
+}
+
+func (s ArtifactPipelineService) populateAgreementDeliveryEffects(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	detail *AgreementDeliveryDetail,
+) error {
+	if s.effects == nil {
+		return nil
+	}
+	records, err := listAgreementNotificationEffectRecords(ctx, s.effects, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	summary := summarizeAgreementNotificationEffects(records)
+	detail.NotificationStatus = strings.TrimSpace(summary.Status)
+	detail.NotificationRecoverable = summary.Recoverable
+	detail.NotificationEffects = append(detail.NotificationEffects, summary.Effects...)
+	if detail.LastError == "" {
+		detail.LastError = strings.TrimSpace(summary.LastError)
+	}
+	return nil
 }
 
 func agreementArtifactApplicable(status, objectKey string) bool {

@@ -176,36 +176,7 @@ func (s AgreementService) RunAutoPlacement(ctx context.Context, scope stores.Sco
 	if err != nil {
 		return AutoPlacementRunResult{}, err
 	}
-
-	docBytes := []byte{}
-	if s.documents != nil && s.placementObjectStore != nil {
-		document, docErr := s.documents.Get(ctx, scope, agreement.DocumentID)
-		if docErr == nil && strings.TrimSpace(document.SourceObjectKey) != "" {
-			payload, readErr := s.placementObjectStore.GetFile(ctx, strings.TrimSpace(document.SourceObjectKey))
-			if readErr == nil {
-				docBytes = payload
-			}
-		}
-	}
-
-	runInput := placementengine.RunInput{
-		AgreementID:        agreementID,
-		CreatedByUserID:    strings.TrimSpace(input.UserID),
-		OrgID:              scope.OrgID,
-		UserID:             strings.TrimSpace(input.UserID),
-		PolicyOverride:     policyOverrideToModel(input.PolicyOverride),
-		DocumentBytes:      docBytes,
-		DocumentPageCount:  0,
-		FieldDefinitions:   toPlacementDefinitions(definitions),
-		ExistingPlacements: toExistingPlacements(instances),
-		NativeFormFields:   toNativeFields(input.NativeFields),
-	}
-	if s.documents != nil {
-		document, docErr := s.documents.Get(ctx, scope, agreement.DocumentID)
-		if docErr == nil {
-			runInput.DocumentPageCount = document.PageCount
-		}
-	}
+	runInput := s.buildAutoPlacementRunInput(ctx, scope, agreement, agreementID, definitions, instances, input)
 	run, err := s.placementOrchestrator.Run(ctx, runInput)
 	if err != nil {
 		return AutoPlacementRunResult{}, err
@@ -246,6 +217,55 @@ func (s AgreementService) RunAutoPlacement(ctx context.Context, scope stores.Sco
 	return AutoPlacementRunResult{Run: persisted}, nil
 }
 
+func (s AgreementService) buildAutoPlacementRunInput(
+	ctx context.Context,
+	scope stores.Scope,
+	agreement stores.AgreementRecord,
+	agreementID string,
+	definitions []stores.FieldDefinitionRecord,
+	instances []stores.FieldInstanceRecord,
+	input AutoPlacementRunInput,
+) placementengine.RunInput {
+	return placementengine.RunInput{
+		AgreementID:        agreementID,
+		CreatedByUserID:    strings.TrimSpace(input.UserID),
+		OrgID:              scope.OrgID,
+		UserID:             strings.TrimSpace(input.UserID),
+		PolicyOverride:     policyOverrideToModel(input.PolicyOverride),
+		DocumentBytes:      s.loadAutoPlacementDocumentBytes(ctx, scope, agreement.DocumentID),
+		DocumentPageCount:  s.loadAutoPlacementPageCount(ctx, scope, agreement.DocumentID),
+		FieldDefinitions:   toPlacementDefinitions(definitions),
+		ExistingPlacements: toExistingPlacements(instances),
+		NativeFormFields:   toNativeFields(input.NativeFields),
+	}
+}
+
+func (s AgreementService) loadAutoPlacementDocumentBytes(ctx context.Context, scope stores.Scope, documentID string) []byte {
+	if s.documents == nil || s.placementObjectStore == nil {
+		return nil
+	}
+	document, err := s.documents.Get(ctx, scope, documentID)
+	if err != nil || strings.TrimSpace(document.SourceObjectKey) == "" {
+		return nil
+	}
+	payload, err := s.placementObjectStore.GetFile(ctx, strings.TrimSpace(document.SourceObjectKey))
+	if err != nil {
+		return nil
+	}
+	return payload
+}
+
+func (s AgreementService) loadAutoPlacementPageCount(ctx context.Context, scope stores.Scope, documentID string) int {
+	if s.documents == nil {
+		return 0
+	}
+	document, err := s.documents.Get(ctx, scope, documentID)
+	if err != nil {
+		return 0
+	}
+	return document.PageCount
+}
+
 // ListPlacementRuns lists placement runs for a draft agreement.
 func (s AgreementService) ListPlacementRuns(ctx context.Context, scope stores.Scope, agreementID string) ([]stores.PlacementRunRecord, error) {
 	if s.placementRuns == nil {
@@ -278,144 +298,192 @@ func (s AgreementService) ApplyPlacementRun(ctx context.Context, scope stores.Sc
 
 	var out ApplyPlacementRunResult
 	err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
-		run, err := txSvc.placementRuns.GetPlacementRun(ctx, scope, agreementID, placementRunID)
+		result, err := txSvc.applyPlacementRunWithTx(ctx, scope, agreementID, placementRunID, input)
 		if err != nil {
 			return err
 		}
-		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		if agreement.Status != stores.AgreementStatusDraft {
-			return domainValidationError("agreements", "status", "placement apply requires draft status")
-		}
-
-		instances, err := txSvc.agreements.ListFieldInstances(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		instanceByDefinition := map[string]stores.FieldInstanceRecord{}
-		for _, instance := range instances {
-			instanceByDefinition[strings.TrimSpace(instance.FieldDefinitionID)] = instance
-		}
-
-		suggestionsByID := map[string]stores.PlacementSuggestionRecord{}
-		orderedSuggestionIDs := make([]string, 0, len(run.Suggestions))
-		for _, suggestion := range run.Suggestions {
-			sid := strings.TrimSpace(suggestion.ID)
-			if sid == "" {
-				continue
-			}
-			suggestionsByID[sid] = suggestion
-			orderedSuggestionIDs = append(orderedSuggestionIDs, sid)
-		}
-		sort.Strings(orderedSuggestionIDs)
-
-		selectedSuggestionIDs := normalizeSuggestionSelection(input.SuggestionIDs, suggestionsByID, orderedSuggestionIDs)
-		applied := make([]stores.FieldInstanceRecord, 0, len(selectedSuggestionIDs)+len(input.ManualOverrides))
-		autoSource := stores.PlacementSourceAuto
-		manualSource := stores.PlacementSourceManual
-		manualOverrideFlag := true
-		noManualOverrideFlag := false
-		runID := run.ID
-
-		for _, suggestionID := range selectedSuggestionIDs {
-			suggestion, ok := suggestionsByID[suggestionID]
-			if !ok {
-				continue
-			}
-			fieldDefinitionID := strings.TrimSpace(suggestion.FieldDefinitionID)
-			if fieldDefinitionID == "" {
-				continue
-			}
-			patch := stores.FieldInstanceDraftPatch{
-				FieldDefinitionID: &fieldDefinitionID,
-				PageNumber:        new(suggestion.PageNumber),
-				X:                 new(suggestion.X),
-				Y:                 new(suggestion.Y),
-				Width:             new(suggestion.Width),
-				Height:            new(suggestion.Height),
-				PlacementSource:   &autoSource,
-				ResolverID:        new(strings.TrimSpace(suggestion.ResolverID)),
-				Confidence:        new(suggestion.Confidence),
-				PlacementRunID:    &runID,
-				ManualOverride:    &noManualOverrideFlag,
-			}
-			if label := strings.TrimSpace(suggestion.Label); label != "" {
-				patch.Label = &label
-			}
-			if existing, ok := instanceByDefinition[fieldDefinitionID]; ok {
-				patch.ID = existing.ID
-			}
-			record, upsertErr := txSvc.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, patch)
-			if upsertErr != nil {
-				return upsertErr
-			}
-			instanceByDefinition[fieldDefinitionID] = record
-			applied = append(applied, record)
-		}
-
-		for _, manual := range input.ManualOverrides {
-			fieldDefinitionID := strings.TrimSpace(manual.FieldDefinitionID)
-			if fieldDefinitionID == "" {
-				return domainValidationError("field_instances", "field_definition_id", "required for manual override")
-			}
-			patch := stores.FieldInstanceDraftPatch{
-				ID:                strings.TrimSpace(manual.FieldInstanceID),
-				FieldDefinitionID: &fieldDefinitionID,
-				PageNumber:        new(manual.PageNumber),
-				X:                 new(manual.X),
-				Y:                 new(manual.Y),
-				Width:             new(manual.Width),
-				Height:            new(manual.Height),
-				PlacementSource:   &manualSource,
-				PlacementRunID:    &runID,
-				ManualOverride:    &manualOverrideFlag,
-			}
-			if manual.TabIndex != nil {
-				patch.TabIndex = manual.TabIndex
-			}
-			if label := strings.TrimSpace(manual.Label); label != "" {
-				patch.Label = &label
-			}
-			if patch.ID == "" {
-				if existing, ok := instanceByDefinition[fieldDefinitionID]; ok {
-					patch.ID = existing.ID
-				}
-			}
-			record, upsertErr := txSvc.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, patch)
-			if upsertErr != nil {
-				return upsertErr
-			}
-			instanceByDefinition[fieldDefinitionID] = record
-			applied = append(applied, record)
-		}
-
-		run.SelectedSuggestionIDs = append([]string{}, selectedSuggestionIDs...)
-		run.ManualOverrideCount = len(input.ManualOverrides)
-		run.Status = stores.PlacementRunStatusCompleted
-		run.ReasonCode = "applied"
-		now := txSvc.now()
-		run.CompletedAt = &now
-		run.UpdatedAt = now
-
-		persisted, persistErr := txSvc.placementRuns.UpsertPlacementRun(ctx, scope, run)
-		if persistErr != nil {
-			return persistErr
-		}
-		_ = txSvc.appendAuditEvent(ctx, scope, agreementID, "agreement.placement_run_applied", "system", strings.TrimSpace(input.UserID), map[string]any{
-			"placement_run_id":        persisted.ID,
-			"applied_count":           len(applied),
-			"selected_suggestion_ids": persisted.SelectedSuggestionIDs,
-			"manual_override_count":   persisted.ManualOverrideCount,
-		})
-		out = ApplyPlacementRunResult{Run: persisted, AppliedInstances: applied}
+		out = result
 		return nil
 	})
 	if err != nil {
 		return ApplyPlacementRunResult{}, err
 	}
 	return out, nil
+}
+
+func (s AgreementService) applyPlacementRunWithTx(ctx context.Context, scope stores.Scope, agreementID, placementRunID string, input ApplyPlacementRunInput) (ApplyPlacementRunResult, error) {
+	run, err := s.placementRuns.GetPlacementRun(ctx, scope, agreementID, placementRunID)
+	if err != nil {
+		return ApplyPlacementRunResult{}, err
+	}
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return ApplyPlacementRunResult{}, err
+	}
+	if agreement.Status != stores.AgreementStatusDraft {
+		return ApplyPlacementRunResult{}, domainValidationError("agreements", "status", "placement apply requires draft status")
+	}
+
+	instances, err := s.agreements.ListFieldInstances(ctx, scope, agreementID)
+	if err != nil {
+		return ApplyPlacementRunResult{}, err
+	}
+	instanceByDefinition := map[string]stores.FieldInstanceRecord{}
+	for _, instance := range instances {
+		instanceByDefinition[strings.TrimSpace(instance.FieldDefinitionID)] = instance
+	}
+
+	suggestionsByID, orderedSuggestionIDs := indexPlacementSuggestions(run.Suggestions)
+	selectedSuggestionIDs := normalizeSuggestionSelection(input.SuggestionIDs, suggestionsByID, orderedSuggestionIDs)
+	applied := make([]stores.FieldInstanceRecord, 0, len(selectedSuggestionIDs)+len(input.ManualOverrides))
+	autoSource := stores.PlacementSourceAuto
+	manualSource := stores.PlacementSourceManual
+	manualOverrideFlag := true
+	noManualOverrideFlag := false
+	runID := run.ID
+
+	err = s.applyPlacementSuggestions(ctx, scope, agreementID, selectedSuggestionIDs, suggestionsByID, instanceByDefinition, &applied, runID, autoSource, noManualOverrideFlag)
+	if err != nil {
+		return ApplyPlacementRunResult{}, err
+	}
+	err = s.applyPlacementManualOverrides(ctx, scope, agreementID, input.ManualOverrides, instanceByDefinition, &applied, runID, manualSource, manualOverrideFlag)
+	if err != nil {
+		return ApplyPlacementRunResult{}, err
+	}
+
+	run.SelectedSuggestionIDs = append([]string{}, selectedSuggestionIDs...)
+	run.ManualOverrideCount = len(input.ManualOverrides)
+	run.Status = stores.PlacementRunStatusCompleted
+	run.ReasonCode = "applied"
+	now := s.now()
+	run.CompletedAt = &now
+	run.UpdatedAt = now
+
+	persisted, err := s.placementRuns.UpsertPlacementRun(ctx, scope, run)
+	if err != nil {
+		return ApplyPlacementRunResult{}, err
+	}
+	_ = s.appendAuditEvent(ctx, scope, agreementID, "agreement.placement_run_applied", "system", strings.TrimSpace(input.UserID), map[string]any{
+		"placement_run_id":        persisted.ID,
+		"applied_count":           len(applied),
+		"selected_suggestion_ids": persisted.SelectedSuggestionIDs,
+		"manual_override_count":   persisted.ManualOverrideCount,
+	})
+	return ApplyPlacementRunResult{Run: persisted, AppliedInstances: applied}, nil
+}
+
+func (s AgreementService) applyPlacementSuggestions(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	selectedSuggestionIDs []string,
+	suggestionsByID map[string]stores.PlacementSuggestionRecord,
+	instanceByDefinition map[string]stores.FieldInstanceRecord,
+	applied *[]stores.FieldInstanceRecord,
+	runID string,
+	autoSource string,
+	noManualOverrideFlag bool,
+) error {
+	for _, suggestionID := range selectedSuggestionIDs {
+		suggestion, ok := suggestionsByID[suggestionID]
+		if !ok {
+			continue
+		}
+		fieldDefinitionID := strings.TrimSpace(suggestion.FieldDefinitionID)
+		if fieldDefinitionID == "" {
+			continue
+		}
+		patch := stores.FieldInstanceDraftPatch{
+			FieldDefinitionID: &fieldDefinitionID,
+			PageNumber:        new(suggestion.PageNumber),
+			X:                 new(suggestion.X),
+			Y:                 new(suggestion.Y),
+			Width:             new(suggestion.Width),
+			Height:            new(suggestion.Height),
+			PlacementSource:   &autoSource,
+			ResolverID:        new(strings.TrimSpace(suggestion.ResolverID)),
+			Confidence:        new(suggestion.Confidence),
+			PlacementRunID:    &runID,
+			ManualOverride:    &noManualOverrideFlag,
+		}
+		if label := strings.TrimSpace(suggestion.Label); label != "" {
+			patch.Label = &label
+		}
+		if existing, ok := instanceByDefinition[fieldDefinitionID]; ok {
+			patch.ID = existing.ID
+		}
+		record, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, patch)
+		if err != nil {
+			return err
+		}
+		instanceByDefinition[fieldDefinitionID] = record
+		*applied = append(*applied, record)
+	}
+	return nil
+}
+
+func (s AgreementService) applyPlacementManualOverrides(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	manualOverrides []ManuallyPlacedField,
+	instanceByDefinition map[string]stores.FieldInstanceRecord,
+	applied *[]stores.FieldInstanceRecord,
+	runID string,
+	manualSource string,
+	manualOverrideFlag bool,
+) error {
+	for _, manual := range manualOverrides {
+		fieldDefinitionID := strings.TrimSpace(manual.FieldDefinitionID)
+		if fieldDefinitionID == "" {
+			return domainValidationError("field_instances", "field_definition_id", "required for manual override")
+		}
+		patch := stores.FieldInstanceDraftPatch{
+			ID:                strings.TrimSpace(manual.FieldInstanceID),
+			FieldDefinitionID: &fieldDefinitionID,
+			PageNumber:        new(manual.PageNumber),
+			X:                 new(manual.X),
+			Y:                 new(manual.Y),
+			Width:             new(manual.Width),
+			Height:            new(manual.Height),
+			PlacementSource:   &manualSource,
+			PlacementRunID:    &runID,
+			ManualOverride:    &manualOverrideFlag,
+		}
+		if manual.TabIndex != nil {
+			patch.TabIndex = manual.TabIndex
+		}
+		if label := strings.TrimSpace(manual.Label); label != "" {
+			patch.Label = &label
+		}
+		if patch.ID == "" {
+			if existing, ok := instanceByDefinition[fieldDefinitionID]; ok {
+				patch.ID = existing.ID
+			}
+		}
+		record, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, patch)
+		if err != nil {
+			return err
+		}
+		instanceByDefinition[fieldDefinitionID] = record
+		*applied = append(*applied, record)
+	}
+	return nil
+}
+
+func indexPlacementSuggestions(suggestions []stores.PlacementSuggestionRecord) (map[string]stores.PlacementSuggestionRecord, []string) {
+	suggestionsByID := map[string]stores.PlacementSuggestionRecord{}
+	orderedSuggestionIDs := make([]string, 0, len(suggestions))
+	for _, suggestion := range suggestions {
+		suggestionID := strings.TrimSpace(suggestion.ID)
+		if suggestionID == "" {
+			continue
+		}
+		suggestionsByID[suggestionID] = suggestion
+		orderedSuggestionIDs = append(orderedSuggestionIDs, suggestionID)
+	}
+	sort.Strings(orderedSuggestionIDs)
+	return suggestionsByID, orderedSuggestionIDs
 }
 
 func normalizeSuggestionSelection(requested []string, available map[string]stores.PlacementSuggestionRecord, fallback []string) []string {
