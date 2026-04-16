@@ -78,3 +78,15 @@ backend_tests: go test ./examples/esign/stores -run Reminder -count=1 && go test
 frontend_tests: N/A (panel payload contract hardening only)
 contract_hash: 880d34a7412225d98273e954bc4f3b36268072f16971f4c96e770f51b876f0e9
 related_adr: docs/PLAN_ESIGN_REMINDER_SYSTEMIC_HARDENING.md
+
+## TC-2026-04-16-012
+
+date: 2026-04-16
+owner: backend
+breaking_change_rationale: split reminder-state upsert and claim flows into explicit normalization, lease-preservation, candidate selection, and claim-application helpers so the in-memory Track C store preserves lease ownership and deterministic claim semantics under concurrent reminder sweeps.
+measurable_gain: stable reminder lease retention on unfenced active upserts, shared validation for claim inputs and state records, and deterministic due-reminder ordering before in-memory claim mutation.
+impacted_endpoints: admin agreement reminder sweep command path, admin agreement reminder pause/resume/send_now actions, agreement detail/list reminder status payload shape.
+backend_tests: go test ./examples/esign/release -run TestValidateTrackCContractGuardPassesForCurrentSnapshot -count=1
+frontend_tests: N/A (backend in-memory contract maintenance only)
+contract_hash: 7f45792e5797d469f997cca69eede0548abe19ab29b2112f347cb47d3c607151
+related_adr: docs/PLAN_ESIGN_REMINDER_SYSTEMIC_HARDENING.md

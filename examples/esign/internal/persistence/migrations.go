@@ -59,24 +59,8 @@ func registerOrderedSources(client *persistence.Client, cfg appcfg.Config, opts 
 
 	orderedSources := make([]persistence.OrderedMigrationSource, 0, 4)
 	if !cfg.Persistence.Migrations.LocalOnly {
-		authRoot, err := resolveMigrationFS(auth.GetMigrationsFS(), "data/sql/migrations")
-		if err != nil {
-			return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelAuth, err)
-		}
-		appendOrderedSource(&orderedSources, migrationSourceLabelAuth, authRoot, options.observer)
-
-		usersRoot, err := resolveMigrationFS(users.GetCoreMigrationsFS(), "data/sql/migrations")
-		if err != nil {
-			return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelUsers, err)
-		}
-		appendOrderedSource(&orderedSources, migrationSourceLabelUsers, usersRoot, options.observer)
-
-		if cfg.Services.ModuleEnabled {
-			servicesRoot, err := resolveMigrationFS(goservices.GetCoreMigrationsFS(), "data/sql/migrations")
-			if err != nil {
-				return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelServices, err)
-			}
-			appendOrderedSource(&orderedSources, migrationSourceLabelServices, servicesRoot, options.observer)
+		if err := appendCoreMigrationSources(&orderedSources, cfg, options.observer); err != nil {
+			return err
 		}
 	}
 
@@ -90,6 +74,30 @@ func registerOrderedSources(client *persistence.Client, cfg appcfg.Config, opts 
 		return nil
 	}
 	return client.RegisterOrderedMigrationSources(orderedSources...)
+}
+
+func appendCoreMigrationSources(sources *[]persistence.OrderedMigrationSource, cfg appcfg.Config, observer migrationObserver) error {
+	authRoot, err := resolveMigrationFS(auth.GetMigrationsFS(), "data/sql/migrations")
+	if err != nil {
+		return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelAuth, err)
+	}
+	appendOrderedSource(sources, migrationSourceLabelAuth, authRoot, observer)
+
+	usersRoot, err := resolveMigrationFS(users.GetCoreMigrationsFS(), "data/sql/migrations")
+	if err != nil {
+		return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelUsers, err)
+	}
+	appendOrderedSource(sources, migrationSourceLabelUsers, usersRoot, observer)
+
+	if !cfg.Services.ModuleEnabled {
+		return nil
+	}
+	servicesRoot, err := resolveMigrationFS(goservices.GetCoreMigrationsFS(), "data/sql/migrations")
+	if err != nil {
+		return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelServices, err)
+	}
+	appendOrderedSource(sources, migrationSourceLabelServices, servicesRoot, observer)
+	return nil
 }
 
 func appendOrderedSource(sources *[]persistence.OrderedMigrationSource, label string, root fs.FS, observer migrationObserver) {

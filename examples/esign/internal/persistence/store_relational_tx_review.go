@@ -7,6 +7,7 @@ import (
 
 	"github.com/goliatone/go-admin/examples/esign/stores"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 )
 
 func normalizeRelationalAgreementCommentThreadTarget(scope stores.Scope, record stores.AgreementCommentThreadRecord) (stores.Scope, stores.AgreementCommentThreadRecord, error) {
@@ -193,73 +194,103 @@ func (s *relationalTxStore) ReplaceAgreementReviewParticipants(ctx context.Conte
 	if err != nil {
 		return err
 	}
-	if _, err := s.tx.NewDelete().
+	if _, deleteErr := s.tx.NewDelete().
 		Model((*stores.AgreementReviewParticipantRecord)(nil)).
 		Where("tenant_id = ?", scope.TenantID).
 		Where("org_id = ?", scope.OrgID).
 		Where("review_id = ?", reviewID).
-		Exec(ctx); err != nil {
-		return err
+		Exec(ctx); deleteErr != nil {
+		return deleteErr
 	}
 	for _, record := range records {
-		record.ID = normalizeRelationalID(record.ID)
-		if record.ID == "" {
-			record.ID = uuid.NewString()
+		record, err = prepareAgreementReviewParticipantRecord(ctx, s.tx, scope, review, reviewID, record)
+		if err != nil {
+			return err
 		}
-		record.TenantID = scope.TenantID
-		record.OrgID = scope.OrgID
-		record.ReviewID = reviewID
-		record.ParticipantType = stores.NormalizeAgreementReviewParticipantType(record.ParticipantType)
-		if record.ParticipantType == "" {
-			return relationalInvalidRecordError("agreement_review_participants", "participant_type", "unsupported participant type")
-		}
-		record.RecipientID = normalizeRelationalID(record.RecipientID)
-		record.Email = strings.TrimSpace(strings.ToLower(record.Email))
-		record.DisplayName = strings.TrimSpace(record.DisplayName)
-		switch record.ParticipantType {
-		case stores.AgreementReviewParticipantTypeRecipient:
-			if record.RecipientID == "" {
-				return relationalInvalidRecordError("agreement_review_participants", "recipient_id", "required")
-			}
-			recipient, err := loadParticipantRecord(ctx, s.tx, scope, review.AgreementID, record.RecipientID)
-			if err != nil {
-				return err
-			}
-			if recipient.AgreementID != review.AgreementID {
-				return relationalInvalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
-			}
-			if record.Email == "" {
-				record.Email = strings.TrimSpace(strings.ToLower(recipient.Email))
-			}
-			if record.DisplayName == "" {
-				record.DisplayName = strings.TrimSpace(recipient.Name)
-			}
-		case stores.AgreementReviewParticipantTypeExternal:
-			record.RecipientID = ""
-			if record.Email == "" {
-				return relationalInvalidRecordError("agreement_review_participants", "email", "required")
-			}
-		}
-		record.Role = strings.TrimSpace(record.Role)
-		if record.Role == "" {
-			record.Role = stores.AgreementReviewParticipantRoleReviewer
-		}
-		record.DecisionStatus = stores.NormalizeAgreementReviewDecision(record.DecisionStatus)
-		if record.DecisionStatus == "" {
-			return relationalInvalidRecordError("agreement_review_participants", "decision_status", "unsupported decision status")
-		}
-		record.DecisionAt = cloneRelationalTimePtr(record.DecisionAt)
-		record.ApprovedOnBehalfByUserID = normalizeRelationalID(record.ApprovedOnBehalfByUserID)
-		record.ApprovedOnBehalfByDisplayName = strings.TrimSpace(record.ApprovedOnBehalfByDisplayName)
-		record.ApprovedOnBehalfReason = strings.TrimSpace(record.ApprovedOnBehalfReason)
-		record.ApprovedOnBehalfAt = cloneRelationalTimePtr(record.ApprovedOnBehalfAt)
-		record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
-		record.UpdatedAt = relationalTimeOrNow(record.UpdatedAt)
 		if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func prepareAgreementReviewParticipantRecord(
+	ctx context.Context,
+	idb bun.IDB,
+	scope stores.Scope,
+	review stores.AgreementReviewRecord,
+	reviewID string,
+	record stores.AgreementReviewParticipantRecord,
+) (stores.AgreementReviewParticipantRecord, error) {
+	record.ID = normalizeRelationalID(record.ID)
+	if record.ID == "" {
+		record.ID = uuid.NewString()
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.ReviewID = reviewID
+	record.RecipientID = normalizeRelationalID(record.RecipientID)
+	record.Email = strings.TrimSpace(strings.ToLower(record.Email))
+	record.DisplayName = strings.TrimSpace(record.DisplayName)
+	record.ParticipantType = stores.NormalizeAgreementReviewParticipantType(record.ParticipantType)
+	if record.ParticipantType == "" {
+		return stores.AgreementReviewParticipantRecord{}, relationalInvalidRecordError("agreement_review_participants", "participant_type", "unsupported participant type")
+	}
+	var err error
+	record, err = populateAgreementReviewParticipantContact(ctx, idb, scope, review.AgreementID, record)
+	if err != nil {
+		return stores.AgreementReviewParticipantRecord{}, err
+	}
+	record.Role = strings.TrimSpace(record.Role)
+	if record.Role == "" {
+		record.Role = stores.AgreementReviewParticipantRoleReviewer
+	}
+	record.DecisionStatus = stores.NormalizeAgreementReviewDecision(record.DecisionStatus)
+	if record.DecisionStatus == "" {
+		return stores.AgreementReviewParticipantRecord{}, relationalInvalidRecordError("agreement_review_participants", "decision_status", "unsupported decision status")
+	}
+	record.DecisionAt = cloneRelationalTimePtr(record.DecisionAt)
+	record.ApprovedOnBehalfByUserID = normalizeRelationalID(record.ApprovedOnBehalfByUserID)
+	record.ApprovedOnBehalfByDisplayName = strings.TrimSpace(record.ApprovedOnBehalfByDisplayName)
+	record.ApprovedOnBehalfReason = strings.TrimSpace(record.ApprovedOnBehalfReason)
+	record.ApprovedOnBehalfAt = cloneRelationalTimePtr(record.ApprovedOnBehalfAt)
+	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
+	record.UpdatedAt = relationalTimeOrNow(record.UpdatedAt)
+	return record, nil
+}
+
+func populateAgreementReviewParticipantContact(
+	ctx context.Context,
+	idb bun.IDB,
+	scope stores.Scope,
+	agreementID string,
+	record stores.AgreementReviewParticipantRecord,
+) (stores.AgreementReviewParticipantRecord, error) {
+	switch record.ParticipantType {
+	case stores.AgreementReviewParticipantTypeRecipient:
+		if record.RecipientID == "" {
+			return stores.AgreementReviewParticipantRecord{}, relationalInvalidRecordError("agreement_review_participants", "recipient_id", "required")
+		}
+		recipient, err := loadParticipantRecord(ctx, idb, scope, agreementID, record.RecipientID)
+		if err != nil {
+			return stores.AgreementReviewParticipantRecord{}, err
+		}
+		if recipient.AgreementID != agreementID {
+			return stores.AgreementReviewParticipantRecord{}, relationalInvalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
+		}
+		if record.Email == "" {
+			record.Email = strings.TrimSpace(strings.ToLower(recipient.Email))
+		}
+		if record.DisplayName == "" {
+			record.DisplayName = strings.TrimSpace(recipient.Name)
+		}
+	case stores.AgreementReviewParticipantTypeExternal:
+		record.RecipientID = ""
+		if record.Email == "" {
+			return stores.AgreementReviewParticipantRecord{}, relationalInvalidRecordError("agreement_review_participants", "email", "required")
+		}
+	}
+	return record, nil
 }
 
 func (s *relationalTxStore) ListAgreementReviewParticipants(ctx context.Context, scope stores.Scope, reviewID string) ([]stores.AgreementReviewParticipantRecord, error) {

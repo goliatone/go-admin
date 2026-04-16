@@ -83,7 +83,24 @@ func (b *runtimeRelationalStoreSync) loadSnapshot(ctx context.Context) (runtimeS
 }
 
 func (b *runtimeRelationalStoreSync) loadSnapshotWithIDB(ctx context.Context, idb bun.IDB) (runtimeStoreSnapshot, error) {
-	snapshot := runtimeStoreSnapshot{
+	snapshot := newRuntimeStoreSnapshot()
+	if b == nil || b.factory == nil {
+		return snapshot, nil
+	}
+	if err := b.loadSnapshotCoreRecords(ctx, idb, &snapshot); err != nil {
+		return snapshot, err
+	}
+	if err := b.loadSnapshotAgreementRecords(ctx, idb, &snapshot); err != nil {
+		return snapshot, err
+	}
+	if err := b.loadSnapshotAsyncRecords(ctx, idb, &snapshot); err != nil {
+		return snapshot, err
+	}
+	return snapshot, nil
+}
+
+func newRuntimeStoreSnapshot() runtimeStoreSnapshot {
+	return runtimeStoreSnapshot{
 		Documents:                  map[string]stores.DocumentRecord{},
 		SourceDocuments:            map[string]stores.SourceDocumentRecord{},
 		SourceHandles:              map[string]stores.SourceHandleRecord{},
@@ -132,123 +149,66 @@ func (b *runtimeRelationalStoreSync) loadSnapshotWithIDB(ctx context.Context, id
 		IntegrationMutationClaims:  map[string]time.Time{},
 		PlacementRuns:              map[string]stores.PlacementRunRecord{},
 	}
+}
 
-	if b == nil || b.factory == nil {
-		return snapshot, nil
-	}
-
-	docs, err := listRepositoryRecords(ctx, idb, b.factory.Documents())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list documents: %w", err)
-	}
-	for _, record := range docs {
-		if record == nil {
-			continue
-		}
+func (b *runtimeRelationalStoreSync) loadSnapshotCoreRecords(ctx context.Context, idb bun.IDB, snapshot *runtimeStoreSnapshot) error {
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.Documents(), "documents", func(record *stores.DocumentRecord) {
 		snapshot.Documents[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	sourceDocuments, err := listRepositoryRecords(ctx, idb, b.factory.SourceDocuments())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list source documents: %w", err)
-	}
-	for _, record := range sourceDocuments {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SourceDocuments(), "source documents", func(record *stores.SourceDocumentRecord) {
 		snapshot.SourceDocuments[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	sourceHandles, err := listRepositoryRecords(ctx, idb, b.factory.SourceHandles())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list source handles: %w", err)
-	}
-	for _, record := range sourceHandles {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SourceHandles(), "source handles", func(record *stores.SourceHandleRecord) {
 		snapshot.SourceHandles[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	sourceRevisions, err := listRepositoryRecords(ctx, idb, b.factory.SourceRevisions())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list source revisions: %w", err)
-	}
-	for _, record := range sourceRevisions {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SourceRevisions(), "source revisions", func(record *stores.SourceRevisionRecord) {
 		snapshot.SourceRevisions[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	sourceArtifacts, err := listRepositoryRecords(ctx, idb, b.factory.SourceArtifacts())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list source artifacts: %w", err)
-	}
-	for _, record := range sourceArtifacts {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SourceArtifacts(), "source artifacts", func(record *stores.SourceArtifactRecord) {
 		snapshot.SourceArtifacts[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	sourceFingerprints, err := listRepositoryRecords(ctx, idb, b.factory.SourceFingerprints())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list source fingerprints: %w", err)
-	}
-	for _, record := range sourceFingerprints {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SourceFingerprints(), "source fingerprints", func(record *stores.SourceFingerprintRecord) {
 		snapshot.SourceFingerprints[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	sourceRelationships, err := listRepositoryRecords(ctx, idb, b.factory.SourceRelationships())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list source relationships: %w", err)
-	}
-	for _, record := range sourceRelationships {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SourceRelationships(), "source relationships", func(record *stores.SourceRelationshipRecord) {
 		snapshot.SourceRelationships[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	agreements, err := listRepositoryRecords(ctx, idb, b.factory.Agreements())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list agreements: %w", err)
-	}
-	for _, record := range agreements {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.Agreements(), "agreements", func(record *stores.AgreementRecord) {
 		snapshot.Agreements[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	drafts, err := listRepositoryRecords(ctx, idb, b.factory.Drafts())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list drafts: %w", err)
-	}
-	for _, record := range drafts {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.Drafts(), "drafts", func(record *stores.DraftRecord) {
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.ID)
 		snapshot.Drafts[scopedID] = *record
 		snapshot.DraftWizardIndex[draftWizardIndexForKey(record.TenantID, record.OrgID, record.CreatedByUserID, record.WizardID)] = strings.TrimSpace(record.ID)
+	}); err != nil {
+		return err
 	}
-
 	leases, err := listDocumentRemediationLeases(ctx, idbOrDB(idb, b.factory.DB()))
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list document remediation leases: %w", err)
+		return fmt.Errorf("runtime relational store sync: list document remediation leases: %w", err)
 	}
 	for _, record := range leases {
 		snapshot.DocumentRemediationLeases[scopeRecordKey(record.TenantID, record.OrgID, record.DocumentID)] = record
 	}
-
 	dispatches, err := listRemediationDispatches(ctx, idbOrDB(idb, b.factory.DB()))
 	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list remediation dispatches: %w", err)
+		return fmt.Errorf("runtime relational store sync: list remediation dispatches: %w", err)
 	}
 	for _, record := range dispatches {
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.DispatchID)
@@ -257,326 +217,185 @@ func (b *runtimeRelationalStoreSync) loadSnapshotWithIDB(ctx context.Context, id
 			snapshot.RemediationDispatchIndex[scopeRecordKey(record.TenantID, record.OrgID, key)] = strings.TrimSpace(record.DispatchID)
 		}
 	}
+	return nil
+}
 
-	recipients, err := listRepositoryRecords(ctx, idb, b.factory.Recipients())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list recipients: %w", err)
-	}
-	for _, record := range recipients {
-		if record == nil {
-			continue
-		}
+func (b *runtimeRelationalStoreSync) loadSnapshotAgreementRecords(ctx context.Context, idb bun.IDB, snapshot *runtimeStoreSnapshot) error {
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.Recipients(), "recipients", func(record *stores.RecipientRecord) {
 		snapshot.Recipients[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	participants, err := listRepositoryRecords(ctx, idb, b.factory.Participants())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list participants: %w", err)
-	}
-	for _, record := range participants {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.Participants(), "participants", func(record *stores.ParticipantRecord) {
 		snapshot.Participants[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	fields, err := listRepositoryRecords(ctx, idb, b.factory.Fields())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list fields: %w", err)
-	}
-	for _, record := range fields {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.Fields(), "fields", func(record *stores.FieldRecord) {
 		snapshot.Fields[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	fieldDefs, err := listRepositoryRecords(ctx, idb, b.factory.FieldDefinitions())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list field definitions: %w", err)
-	}
-	for _, record := range fieldDefs {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.FieldDefinitions(), "field definitions", func(record *stores.FieldDefinitionRecord) {
 		snapshot.FieldDefinitions[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	fieldInstances, err := listRepositoryRecords(ctx, idb, b.factory.FieldInstances())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list field instances: %w", err)
-	}
-	for _, record := range fieldInstances {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.FieldInstances(), "field instances", func(record *stores.FieldInstanceRecord) {
 		snapshot.FieldInstances[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
+	if err := b.loadSnapshotSigningRecords(ctx, idb, snapshot); err != nil {
+		return err
+	}
+	if err := b.loadSnapshotAuditRecords(ctx, idb, snapshot); err != nil {
+		return err
+	}
+	return nil
+}
 
-	signingTokens, err := listRepositoryRecords(ctx, idb, b.factory.SigningTokens())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list signing tokens: %w", err)
-	}
-	for _, record := range signingTokens {
-		if record == nil {
-			continue
-		}
+func (b *runtimeRelationalStoreSync) loadSnapshotSigningRecords(ctx context.Context, idb bun.IDB, snapshot *runtimeStoreSnapshot) error {
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SigningTokens(), "signing tokens", func(record *stores.SigningTokenRecord) {
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.ID)
 		snapshot.SigningTokens[scopedID] = *record
 		hash := strings.TrimSpace(record.TokenHash)
 		if hash != "" {
 			snapshot.TokenHashIndex[hash] = scopedID
 		}
+	}); err != nil {
+		return err
 	}
-
-	signatures, err := listRepositoryRecords(ctx, idb, b.factory.SignatureArtifacts())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list signature artifacts: %w", err)
-	}
-	for _, record := range signatures {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SignatureArtifacts(), "signature artifacts", func(record *stores.SignatureArtifactRecord) {
 		snapshot.SignatureArtifacts[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	signerProfiles, err := listRepositoryRecords(ctx, idb, b.factory.SignerProfiles())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list signer profiles: %w", err)
-	}
-	for _, record := range signerProfiles {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SignerProfiles(), "signer profiles", func(record *stores.SignerProfileRecord) {
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.ID)
 		snapshot.SignerProfiles[scopedID] = *record
 		snapshot.SignerProfileIndex[signerProfileIndexForKey(record.TenantID, record.OrgID, record.Subject, record.Key)] = strings.TrimSpace(record.ID)
+	}); err != nil {
+		return err
 	}
-
-	savedSignatures, err := listRepositoryRecords(ctx, idb, b.factory.SavedSignerSignatures())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list saved signatures: %w", err)
-	}
-	for _, record := range savedSignatures {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.SavedSignerSignatures(), "saved signatures", func(record *stores.SavedSignerSignatureRecord) {
 		snapshot.SavedSignerSignatures[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	fieldValues, err := listRepositoryRecords(ctx, idb, b.factory.FieldValues())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list field values: %w", err)
-	}
-	for _, record := range fieldValues {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.FieldValues(), "field values", func(record *stores.FieldValueRecord) {
 		snapshot.FieldValues[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
+	return nil
+}
 
-	draftAuditEvents, err := listRepositoryRecords(ctx, idb, b.factory.DraftAuditEvents())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list draft audit events: %w", err)
-	}
-	for _, record := range draftAuditEvents {
-		if record == nil {
-			continue
-		}
+func (b *runtimeRelationalStoreSync) loadSnapshotAuditRecords(ctx context.Context, idb bun.IDB, snapshot *runtimeStoreSnapshot) error {
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.DraftAuditEvents(), "draft audit events", func(record *stores.DraftAuditEventRecord) {
 		snapshot.DraftAuditEvents[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	auditEvents, err := listRepositoryRecords(ctx, idb, b.factory.AuditEvents())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list audit events: %w", err)
-	}
-	for _, record := range auditEvents {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.AuditEvents(), "audit events", func(record *stores.AuditEventRecord) {
 		snapshot.AuditEvents[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	agreementArtifacts, err := listRepositoryRecords(ctx, idb, b.factory.AgreementArtifacts())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list agreement artifacts: %w", err)
-	}
-	for _, record := range agreementArtifacts {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.AgreementArtifacts(), "agreement artifacts", func(record *stores.AgreementArtifactRecord) {
 		snapshot.AgreementArtifacts[scopeRecordKey(record.TenantID, record.OrgID, record.AgreementID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	emailLogs, err := listRepositoryRecords(ctx, idb, b.factory.EmailLogs())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list email logs: %w", err)
-	}
-	for _, record := range emailLogs {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.EmailLogs(), "email logs", func(record *stores.EmailLogRecord) {
 		snapshot.EmailLogs[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
+	return nil
+}
 
-	jobRuns, err := listRepositoryRecords(ctx, idb, b.factory.JobRuns())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list job runs: %w", err)
-	}
-	for _, record := range jobRuns {
-		if record == nil {
-			continue
-		}
+func (b *runtimeRelationalStoreSync) loadSnapshotAsyncRecords(ctx context.Context, idb bun.IDB, snapshot *runtimeStoreSnapshot) error {
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.JobRuns(), "job runs", func(record *stores.JobRunRecord) {
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.ID)
 		snapshot.JobRuns[scopedID] = *record
 		snapshot.JobRunDedupeIndex[jobRunDedupeIndexForKey(record.TenantID, record.OrgID, record.JobName, record.DedupeKey)] = strings.TrimSpace(record.ID)
+	}); err != nil {
+		return err
 	}
-
-	googleImportRuns, err := listRepositoryRecords(ctx, idb, b.factory.GoogleImportRuns())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list google import runs: %w", err)
-	}
-	for _, record := range googleImportRuns {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.GoogleImportRuns(), "google import runs", func(record *stores.GoogleImportRunRecord) {
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.ID)
 		snapshot.GoogleImportRuns[scopedID] = *record
 		snapshot.GoogleImportRunDedupeIndex[googleImportRunDedupeIndexForKey(record.TenantID, record.OrgID, record.UserID, record.DedupeKey)] = strings.TrimSpace(record.ID)
+	}); err != nil {
+		return err
 	}
-
-	agreementReminderStates, err := listRepositoryRecords(ctx, idb, b.factory.AgreementReminderStates())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list agreement reminder states: %w", err)
-	}
-	for _, record := range agreementReminderStates {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.AgreementReminderStates(), "agreement reminder states", func(record *stores.AgreementReminderStateRecord) {
 		snapshot.AgreementReminderStates[scopeAgreementRecipientKey(record.TenantID, record.OrgID, record.AgreementID, record.RecipientID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	outboxMessages, err := listRepositoryRecords(ctx, idb, b.factory.OutboxMessages())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list outbox messages: %w", err)
-	}
-	for _, record := range outboxMessages {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.OutboxMessages(), "outbox messages", func(record *OutboxMessageRecord) {
 		snapshot.OutboxMessages[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = record.Message
+	}); err != nil {
+		return err
 	}
-
-	integrationCredentials, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationCredentials())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list integration credentials: %w", err)
-	}
-	for _, record := range integrationCredentials {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.IntegrationCredentials(), "integration credentials", func(record *stores.IntegrationCredentialRecord) {
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.ID)
 		snapshot.IntegrationCredentials[scopedID] = *record
 		snapshot.IntegrationCredentialIndex[integrationCredentialIndexForKey(record.TenantID, record.OrgID, record.Provider, record.UserID)] = strings.TrimSpace(record.ID)
+	}); err != nil {
+		return err
 	}
-
-	mappingSpecs, err := listRepositoryRecords(ctx, idb, b.factory.MappingSpecs())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list mapping specs: %w", err)
-	}
-	for _, record := range mappingSpecs {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.MappingSpecs(), "mapping specs", func(record *stores.MappingSpecRecord) {
 		snapshot.MappingSpecs[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	integrationBindings, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationBindings())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list integration bindings: %w", err)
-	}
-	for _, record := range integrationBindings {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.IntegrationBindings(), "integration bindings", func(record *stores.IntegrationBindingRecord) {
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.ID)
 		snapshot.IntegrationBindings[scopedID] = *record
 		snapshot.IntegrationBindingIndex[integrationBindingIndexForKey(record.TenantID, record.OrgID, record.Provider, record.EntityKind, record.ExternalID)] = strings.TrimSpace(record.ID)
+	}); err != nil {
+		return err
 	}
-
-	integrationSyncRuns, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationSyncRuns())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list integration sync runs: %w", err)
-	}
-	for _, record := range integrationSyncRuns {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.IntegrationSyncRuns(), "integration sync runs", func(record *stores.IntegrationSyncRunRecord) {
 		snapshot.IntegrationSyncRuns[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	integrationCheckpoints, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationCheckpoints())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list integration checkpoints: %w", err)
-	}
-	for _, record := range integrationCheckpoints {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.IntegrationCheckpoints(), "integration checkpoints", func(record *stores.IntegrationCheckpointRecord) {
 		scopedID := scopeRecordKey(record.TenantID, record.OrgID, record.ID)
 		snapshot.IntegrationCheckpoints[scopedID] = *record
 		snapshot.IntegrationCheckpointIndex[integrationCheckpointIndexForKey(record.TenantID, record.OrgID, record.RunID, record.CheckpointKey)] = strings.TrimSpace(record.ID)
+	}); err != nil {
+		return err
 	}
-
-	integrationConflicts, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationConflicts())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list integration conflicts: %w", err)
-	}
-	for _, record := range integrationConflicts {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.IntegrationConflicts(), "integration conflicts", func(record *stores.IntegrationConflictRecord) {
 		snapshot.IntegrationConflicts[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	integrationChangeEvents, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationChangeEvents())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list integration change events: %w", err)
-	}
-	for _, record := range integrationChangeEvents {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.IntegrationChangeEvents(), "integration change events", func(record *stores.IntegrationChangeEventRecord) {
 		snapshot.IntegrationChangeEvents[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	integrationMutationClaims, err := listRepositoryRecords(ctx, idb, b.factory.IntegrationMutationClaims())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list integration mutation claims: %w", err)
-	}
-	for _, record := range integrationMutationClaims {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.IntegrationMutationClaims(), "integration mutation claims", func(record *IntegrationMutationClaimRecord) {
 		firstSeen := record.FirstSeenAt
 		if firstSeen.IsZero() {
 			firstSeen = record.CreatedAt
 		}
 		snapshot.IntegrationMutationClaims[integrationMutationClaimKeyForScope(record.TenantID, record.OrgID, record.IdempotencyKey)] = firstSeen.UTC()
+	}); err != nil {
+		return err
 	}
-
-	placementRuns, err := listRepositoryRecords(ctx, idb, b.factory.PlacementRuns())
-	if err != nil {
-		return snapshot, fmt.Errorf("runtime relational store sync: list placement runs: %w", err)
-	}
-	for _, record := range placementRuns {
-		if record == nil {
-			continue
-		}
+	if err := loadSnapshotRepositoryRecords(ctx, idb, b.factory.PlacementRuns(), "placement runs", func(record *stores.PlacementRunRecord) {
 		snapshot.PlacementRuns[scopeRecordKey(record.TenantID, record.OrgID, record.ID)] = *record
+	}); err != nil {
+		return err
 	}
-
-	return snapshot, nil
+	return nil
 }
 
 func (b *runtimeRelationalStoreSync) persistSnapshot(ctx context.Context, snapshot runtimeStoreSnapshot) error {
@@ -595,43 +414,90 @@ func (b *runtimeRelationalStoreSync) persistSnapshot(ctx context.Context, snapsh
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	for _, spec := range specs {
-		tableColumns := columnMap[spec.table]
-		if len(tableColumns) == 0 {
-			continue
-		}
-		rows := spec.rows(snapshot)
-		for _, row := range rows {
-			if err := upsertRuntimeRowForDialect(ctx, tx, b.dialect, spec, tableColumns, row); err != nil {
-				return fmt.Errorf("runtime relational store sync: upsert into %s: %w", spec.table, err)
-			}
-		}
+	if err := upsertRuntimeSnapshotRows(ctx, tx, b.dialect, specs, columnMap, snapshot); err != nil {
+		return err
 	}
-
-	for i := len(specs) - 1; i >= 0; i-- {
-		spec := specs[i]
-		if isAppendOnlyRuntimeTable(spec.table) {
-			continue
-		}
-		tableColumns := columnMap[spec.table]
-		if len(tableColumns) == 0 || len(spec.conflict) == 0 {
-			continue
-		}
-		keyColumn := strings.ToLower(strings.TrimSpace(spec.conflict[0]))
-		if keyColumn == "" || !tableColumns[keyColumn] {
-			continue
-		}
-		rows := spec.rows(snapshot)
-		keys := collectRowKeys(rows, keyColumn)
-		if err := deleteMissingRowsByKey(ctx, tx, b.dialect, spec.table, keyColumn, keys); err != nil {
-			return fmt.Errorf("runtime relational store sync: cleanup stale rows from %s: %w", spec.table, err)
-		}
+	if err := cleanupRuntimeSnapshotRows(ctx, tx, b.dialect, specs, columnMap, snapshot); err != nil {
+		return err
 	}
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("runtime relational store sync: commit transaction: %w", err)
 	}
 	return nil
+}
+
+func loadSnapshotRepositoryRecords[T any](ctx context.Context, idb bun.IDB, repo repository.Repository[*T], label string, apply func(*T)) error {
+	records, err := listRepositoryRecords(ctx, idb, repo)
+	if err != nil {
+		return fmt.Errorf("runtime relational store sync: list %s: %w", label, err)
+	}
+	for _, record := range records {
+		if record == nil {
+			continue
+		}
+		apply(record)
+	}
+	return nil
+}
+
+func upsertRuntimeSnapshotRows(
+	ctx context.Context,
+	tx *sql.Tx,
+	dialect Dialect,
+	specs []runtimeTableUpsertSpec,
+	columnMap map[string]map[string]bool,
+	snapshot runtimeStoreSnapshot,
+) error {
+	for _, spec := range specs {
+		tableColumns := columnMap[spec.table]
+		if len(tableColumns) == 0 {
+			continue
+		}
+		for _, row := range spec.rows(snapshot) {
+			if err := upsertRuntimeRowForDialect(ctx, tx, dialect, spec, tableColumns, row); err != nil {
+				return fmt.Errorf("runtime relational store sync: upsert into %s: %w", spec.table, err)
+			}
+		}
+	}
+	return nil
+}
+
+func cleanupRuntimeSnapshotRows(
+	ctx context.Context,
+	tx *sql.Tx,
+	dialect Dialect,
+	specs []runtimeTableUpsertSpec,
+	columnMap map[string]map[string]bool,
+	snapshot runtimeStoreSnapshot,
+) error {
+	for i := len(specs) - 1; i >= 0; i-- {
+		spec := specs[i]
+		if isAppendOnlyRuntimeTable(spec.table) {
+			continue
+		}
+		tableColumns := columnMap[spec.table]
+		keyColumn, ok := runtimeCleanupKeyColumn(spec, tableColumns)
+		if !ok {
+			continue
+		}
+		keys := collectRowKeys(spec.rows(snapshot), keyColumn)
+		if err := deleteMissingRowsByKey(ctx, tx, dialect, spec.table, keyColumn, keys); err != nil {
+			return fmt.Errorf("runtime relational store sync: cleanup stale rows from %s: %w", spec.table, err)
+		}
+	}
+	return nil
+}
+
+func runtimeCleanupKeyColumn(spec runtimeTableUpsertSpec, tableColumns map[string]bool) (string, bool) {
+	if len(tableColumns) == 0 || len(spec.conflict) == 0 {
+		return "", false
+	}
+	keyColumn := strings.ToLower(strings.TrimSpace(spec.conflict[0]))
+	if keyColumn == "" || !tableColumns[keyColumn] {
+		return "", false
+	}
+	return keyColumn, true
 }
 
 func listRepositoryRecords[T any](ctx context.Context, idb bun.IDB, repo repository.Repository[T]) ([]T, error) {
@@ -794,6 +660,35 @@ func upsertRuntimeRowForDialect(
 	if tx == nil || len(tableColumns) == 0 || len(row) == 0 {
 		return nil
 	}
+	columns, args, err := runtimeUpsertColumnsAndArgs(spec, tableColumns, row)
+	if err != nil {
+		return err
+	}
+	if len(columns) == 0 || len(args) == 0 {
+		return nil
+	}
+
+	placeholders := make([]string, 0, len(columns))
+	for idx := range columns {
+		placeholders = append(placeholders, sqlPlaceholder(dialect, idx+1))
+	}
+	assignments := runtimeUpsertAssignments(spec, columns)
+	query, err := buildRuntimeUpsertQuery(spec.table, columns, placeholders, spec.conflict)
+	if err != nil {
+		return err
+	}
+	if len(assignments) == 0 {
+		query += `DO NOTHING`
+	} else {
+		query += `DO UPDATE SET ` + strings.Join(normalizeRuntimeAssignments(assignments), ", ")
+	}
+	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runtimeUpsertColumnsAndArgs(spec runtimeTableUpsertSpec, tableColumns map[string]bool, row map[string]any) ([]string, []any, error) {
 	columns := make([]string, 0, len(spec.columns))
 	args := make([]any, 0, len(spec.columns))
 	for _, column := range spec.columns {
@@ -808,18 +703,17 @@ func upsertRuntimeRowForDialect(
 		columns = append(columns, column)
 		args = append(args, value)
 	}
-	if len(columns) == 0 {
-		return nil
-	}
 	for _, conflictColumn := range spec.conflict {
 		if !containsString(columns, conflictColumn) {
-			return fmt.Errorf("missing conflict column %q", conflictColumn)
+			return nil, nil, fmt.Errorf("missing conflict column %q", conflictColumn)
 		}
 	}
+	return columns, args, nil
+}
 
-	placeholders := make([]string, 0, len(columns))
-	for idx := range columns {
-		placeholders = append(placeholders, sqlPlaceholder(dialect, idx+1))
+func runtimeUpsertAssignments(spec runtimeTableUpsertSpec, columns []string) []string {
+	if isAppendOnlyRuntimeTable(spec.table) {
+		return nil
 	}
 	assignments := make([]string, 0, len(columns))
 	for _, column := range columns {
@@ -828,22 +722,7 @@ func upsertRuntimeRowForDialect(
 		}
 		assignments = append(assignments, column+" = excluded."+column)
 	}
-	if isAppendOnlyRuntimeTable(spec.table) {
-		assignments = nil
-	}
-	query, err := buildRuntimeUpsertQuery(spec.table, columns, placeholders, spec.conflict)
-	if err != nil {
-		return err
-	}
-	if len(assignments) == 0 {
-		query += `DO NOTHING`
-	} else {
-		query += `DO UPDATE SET ` + strings.Join(normalizeRuntimeAssignments(assignments), ", ")
-	}
-	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
-		return err
-	}
-	return nil
+	return assignments
 }
 
 func isAppendOnlyRuntimeTable(table string) bool {

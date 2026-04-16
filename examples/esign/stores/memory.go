@@ -1210,13 +1210,23 @@ func (s *InMemoryStore) Delete(ctx context.Context, scope Scope, id string) erro
 }
 
 func documentMetadataUnchanged(current, next DocumentRecord) bool {
+	return documentPDFMetadataUnchanged(current, next) &&
+		documentRemediationMetadataUnchanged(current, next) &&
+		current.SizeBytes == next.SizeBytes &&
+		current.PageCount == next.PageCount
+}
+
+func documentPDFMetadataUnchanged(current, next DocumentRecord) bool {
 	return strings.TrimSpace(current.NormalizedObjectKey) == strings.TrimSpace(next.NormalizedObjectKey) &&
 		strings.TrimSpace(current.PDFCompatibilityTier) == strings.TrimSpace(next.PDFCompatibilityTier) &&
 		strings.TrimSpace(current.PDFCompatibilityReason) == strings.TrimSpace(next.PDFCompatibilityReason) &&
 		strings.TrimSpace(current.PDFNormalizationStatus) == strings.TrimSpace(next.PDFNormalizationStatus) &&
 		timePtrEqual(current.PDFAnalyzedAt, next.PDFAnalyzedAt) &&
-		strings.TrimSpace(current.PDFPolicyVersion) == strings.TrimSpace(next.PDFPolicyVersion) &&
-		strings.TrimSpace(current.RemediationStatus) == strings.TrimSpace(next.RemediationStatus) &&
+		strings.TrimSpace(current.PDFPolicyVersion) == strings.TrimSpace(next.PDFPolicyVersion)
+}
+
+func documentRemediationMetadataUnchanged(current, next DocumentRecord) bool {
+	return strings.TrimSpace(current.RemediationStatus) == strings.TrimSpace(next.RemediationStatus) &&
 		normalizeID(current.RemediationActorID) == normalizeID(next.RemediationActorID) &&
 		strings.TrimSpace(current.RemediationCommandID) == strings.TrimSpace(next.RemediationCommandID) &&
 		strings.TrimSpace(current.RemediationDispatchID) == strings.TrimSpace(next.RemediationDispatchID) &&
@@ -1227,9 +1237,7 @@ func documentMetadataUnchanged(current, next DocumentRecord) bool {
 		strings.TrimSpace(current.RemediationOutputKey) == strings.TrimSpace(next.RemediationOutputKey) &&
 		timePtrEqual(current.RemediationRequestedAt, next.RemediationRequestedAt) &&
 		timePtrEqual(current.RemediationStartedAt, next.RemediationStartedAt) &&
-		timePtrEqual(current.RemediationCompletedAt, next.RemediationCompletedAt) &&
-		current.SizeBytes == next.SizeBytes &&
-		current.PageCount == next.PageCount
+		timePtrEqual(current.RemediationCompletedAt, next.RemediationCompletedAt)
 }
 
 func timePtrEqual(a, b *time.Time) bool {
@@ -1719,42 +1727,56 @@ func (s *InMemoryStore) ListGuardedEffects(ctx context.Context, scope Scope, que
 	if err != nil {
 		return nil, err
 	}
-	subjectType := strings.TrimSpace(query.SubjectType)
-	subjectID := normalizeID(query.SubjectID)
-	groupType := strings.TrimSpace(query.GroupType)
-	groupID := normalizeID(query.GroupID)
-	kind := strings.TrimSpace(query.Kind)
-	status := strings.TrimSpace(query.Status)
+	query = normalizeGuardedEffectQuery(query)
 	out := make([]guardedeffects.Record, 0)
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, record := range s.guardedEffects {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if subjectType != "" && record.SubjectType != subjectType {
-			continue
-		}
-		if subjectID != "" && record.SubjectID != subjectID {
-			continue
-		}
-		if groupType != "" && record.GroupType != groupType {
-			continue
-		}
-		if groupID != "" && record.GroupID != groupID {
-			continue
-		}
-		if kind != "" && record.Kind != kind {
-			continue
-		}
-		if status != "" && record.Status != status {
+		if !guardedEffectMatchesQuery(record, scope, query) {
 			continue
 		}
 		out = append(out, cloneGuardedEffectRecord(record))
 	}
+	sortGuardedEffects(out, query.SortDesc)
+	return paginateGuardedEffects(out, query.Offset, query.Limit), nil
+}
+
+func normalizeGuardedEffectQuery(query GuardedEffectQuery) GuardedEffectQuery {
+	query.SubjectType = strings.TrimSpace(query.SubjectType)
+	query.SubjectID = normalizeID(query.SubjectID)
+	query.GroupType = strings.TrimSpace(query.GroupType)
+	query.GroupID = normalizeID(query.GroupID)
+	query.Kind = strings.TrimSpace(query.Kind)
+	query.Status = strings.TrimSpace(query.Status)
+	return query
+}
+
+func guardedEffectMatchesQuery(record guardedeffects.Record, scope Scope, query GuardedEffectQuery) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if query.SubjectType != "" && record.SubjectType != query.SubjectType {
+		return false
+	}
+	if query.SubjectID != "" && record.SubjectID != query.SubjectID {
+		return false
+	}
+	if query.GroupType != "" && record.GroupType != query.GroupType {
+		return false
+	}
+	if query.GroupID != "" && record.GroupID != query.GroupID {
+		return false
+	}
+	if query.Kind != "" && record.Kind != query.Kind {
+		return false
+	}
+	return query.Status == "" || record.Status == query.Status
+}
+
+func sortGuardedEffects(out []guardedeffects.Record, sortDesc bool) {
 	sort.Slice(out, func(i, j int) bool {
-		if query.SortDesc {
+		if sortDesc {
 			if out[i].CreatedAt.Equal(out[j].CreatedAt) {
 				return out[i].EffectID > out[j].EffectID
 			}
@@ -1765,12 +1787,15 @@ func (s *InMemoryStore) ListGuardedEffects(ctx context.Context, scope Scope, que
 		}
 		return out[i].CreatedAt.Before(out[j].CreatedAt)
 	})
-	start := min(max(query.Offset, 0), len(out))
+}
+
+func paginateGuardedEffects(out []guardedeffects.Record, offset, limit int) []guardedeffects.Record {
+	start := min(max(offset, 0), len(out))
 	end := len(out)
-	if query.Limit > 0 && start+query.Limit < end {
-		end = start + query.Limit
+	if limit > 0 && start+limit < end {
+		end = start + limit
 	}
-	return out[start:end], nil
+	return out[start:end]
 }
 
 func (s *InMemoryStore) CreateDraft(ctx context.Context, scope Scope, record AgreementRecord) (AgreementRecord, error) {
@@ -2045,13 +2070,24 @@ func (s *InMemoryStore) ListSourceRevisionUsage(ctx context.Context, scope Scope
 
 	documentIDs := normalizedLineageQueryIDs("", query.SourceDocumentIDs)
 	revisionIDs := normalizedLineageQueryIDs("", query.SourceRevisionIDs)
-	revisionToDocument := map[string]string{}
-
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	scopePrefix := scope.key() + "|"
-	for key, record := range s.sourceRevisions {
+	revisionToDocument := buildRevisionToDocumentMap(s.sourceRevisions, scopePrefix, documentIDs, revisionIDs)
+	usage := buildSourceRevisionDocumentUsage(s.documents, scopePrefix, documentIDs, revisionIDs, revisionToDocument)
+	applyAgreementRevisionUsage(usage, revisionToDocument, s.agreements, scopePrefix, documentIDs, revisionIDs)
+	return sortedSourceRevisionUsage(usage), nil
+}
+
+func buildRevisionToDocumentMap(
+	sourceRevisions map[string]SourceRevisionRecord,
+	scopePrefix string,
+	documentIDs map[string]struct{},
+	revisionIDs map[string]struct{},
+) map[string]string {
+	revisionToDocument := map[string]string{}
+	for key, record := range sourceRevisions {
 		if !strings.HasPrefix(key, scopePrefix) {
 			continue
 		}
@@ -2064,9 +2100,18 @@ func (s *InMemoryStore) ListSourceRevisionUsage(ctx context.Context, scope Scope
 		}
 		revisionToDocument[revisionID] = strings.TrimSpace(record.SourceDocumentID)
 	}
+	return revisionToDocument
+}
 
+func buildSourceRevisionDocumentUsage(
+	documents map[string]DocumentRecord,
+	scopePrefix string,
+	documentIDs map[string]struct{},
+	revisionIDs map[string]struct{},
+	revisionToDocument map[string]string,
+) map[string]SourceRevisionUsageRecord {
 	usage := map[string]SourceRevisionUsageRecord{}
-	for key, record := range s.documents {
+	for key, record := range documents {
 		if !strings.HasPrefix(key, scopePrefix) {
 			continue
 		}
@@ -2090,8 +2135,18 @@ func (s *InMemoryStore) ListSourceRevisionUsage(ctx context.Context, scope Scope
 			revisionToDocument[revisionID] = sourceDocumentID
 		}
 	}
+	return usage
+}
 
-	for key, record := range s.agreements {
+func applyAgreementRevisionUsage(
+	usage map[string]SourceRevisionUsageRecord,
+	revisionToDocument map[string]string,
+	agreements map[string]AgreementRecord,
+	scopePrefix string,
+	documentIDs map[string]struct{},
+	revisionIDs map[string]struct{},
+) {
+	for key, record := range agreements {
 		if !strings.HasPrefix(key, scopePrefix) {
 			continue
 		}
@@ -2115,7 +2170,9 @@ func (s *InMemoryStore) ListSourceRevisionUsage(ctx context.Context, scope Scope
 		current.PinnedAgreementCount++
 		usage[revisionID] = current
 	}
+}
 
+func sortedSourceRevisionUsage(usage map[string]SourceRevisionUsageRecord) []SourceRevisionUsageRecord {
 	out := make([]SourceRevisionUsageRecord, 0, len(usage))
 	for _, record := range usage {
 		out = append(out, record)
@@ -2126,7 +2183,7 @@ func (s *InMemoryStore) ListSourceRevisionUsage(ctx context.Context, scope Scope
 		}
 		return out[i].SourceDocumentID < out[j].SourceDocumentID
 	})
-	return out, nil
+	return out
 }
 
 func (s *InMemoryStore) CreateDraftSession(ctx context.Context, scope Scope, record DraftRecord) (DraftRecord, bool, error) {
@@ -2149,17 +2206,8 @@ func (s *InMemoryStore) CreateDraftSession(ctx context.Context, scope Scope, rec
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if existingID, ok := s.draftWizardIndex[indexKey]; ok {
-		if existing, exists := s.drafts[scopedKey(scope, existingID)]; exists {
-			if !existing.ExpiresAt.IsZero() && !existing.ExpiresAt.After(referenceNow) {
-				delete(s.drafts, scopedKey(scope, existingID))
-				delete(s.draftWizardIndex, indexKey)
-			} else {
-				return s.refreshExistingDraftSession(scope, existingID, existing, record), true, nil
-			}
-		} else {
-			delete(s.draftWizardIndex, indexKey)
-		}
+	if existing, reused := s.resolveExistingDraftSession(scope, indexKey, referenceNow, record); reused {
+		return existing, true, nil
 	}
 	if _, exists := s.drafts[key]; exists {
 		return DraftRecord{}, false, invalidRecordError("drafts", "id", "already exists")
@@ -2168,6 +2216,24 @@ func (s *InMemoryStore) CreateDraftSession(ctx context.Context, scope Scope, rec
 	s.drafts[key] = record
 	s.draftWizardIndex[indexKey] = record.ID
 	return cloneDraftRecord(record), false, nil
+}
+
+func (s *InMemoryStore) resolveExistingDraftSession(scope Scope, indexKey string, referenceNow time.Time, record DraftRecord) (DraftRecord, bool) {
+	existingID, ok := s.draftWizardIndex[indexKey]
+	if !ok {
+		return DraftRecord{}, false
+	}
+	existing, exists := s.drafts[scopedKey(scope, existingID)]
+	if !exists {
+		delete(s.draftWizardIndex, indexKey)
+		return DraftRecord{}, false
+	}
+	if !existing.ExpiresAt.IsZero() && !existing.ExpiresAt.After(referenceNow) {
+		delete(s.drafts, scopedKey(scope, existingID))
+		delete(s.draftWizardIndex, indexKey)
+		return DraftRecord{}, false
+	}
+	return s.refreshExistingDraftSession(scope, existingID, existing, record), true
 }
 
 func prepareDraftSessionRecord(scope Scope, record DraftRecord) (DraftRecord, error) {
@@ -5620,60 +5686,80 @@ func (s *InMemoryStore) ClaimDueJobs(ctx context.Context, scope Scope, input Job
 	if err != nil {
 		return nil, err
 	}
-	if input.Limit <= 0 {
-		input.Limit = 25
-	}
-	now := input.Now
-	if now.IsZero() {
-		now = time.Now().UTC()
-	}
-	now = now.UTC()
-	if input.LeaseDuration <= 0 {
-		input.LeaseDuration = 30 * time.Second
-	}
-	workerID := strings.TrimSpace(input.WorkerID)
-	if workerID == "" {
-		return nil, invalidRecordError("job_runs", "worker_id", "required")
-	}
-	jobNames := make(map[string]struct{}, len(input.JobNames))
-	for _, name := range input.JobNames {
-		name = strings.TrimSpace(name)
-		if name != "" {
-			jobNames[name] = struct{}{}
-		}
+	input, jobNames, err := normalizeJobRunClaimInput(input)
+	if err != nil {
+		return nil, err
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	candidates := make([]JobRunRecord, 0)
 	for key, record := range s.jobRuns {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		if !jobRunClaimable(record, scope, jobNames, input.Now) {
 			continue
 		}
-		if len(jobNames) > 0 {
-			if _, ok := jobNames[record.JobName]; !ok {
-				continue
-			}
-		}
-		if record.Status != JobRunStatusQueued && record.Status != JobRunStatusRetrying {
-			continue
-		}
-		dueAt := jobRunDueAt(record)
-		if dueAt != nil && dueAt.After(now) {
-			continue
-		}
-		record.AttemptCount++
-		record.Status = JobRunStatusRunning
-		record.StartedAt = cloneTimePtr(&now)
-		record.ClaimedAt = cloneTimePtr(&now)
-		leaseExpiresAt := now.Add(input.LeaseDuration)
-		record.LeaseExpiresAt = cloneTimePtr(&leaseExpiresAt)
-		record.WorkerID = workerID
-		record.UpdatedAt = now
-		record = cloneJobRunRecord(record)
+		record = applyJobRunClaim(record, input.WorkerID, input.Now, input.LeaseDuration)
 		s.jobRuns[key] = record
 		candidates = append(candidates, record)
 	}
+	sortClaimedJobRuns(candidates)
+	if len(candidates) > input.Limit {
+		candidates = candidates[:input.Limit]
+	}
+	out := make([]JobRunRecord, 0, len(candidates))
+	for _, record := range candidates {
+		out = append(out, cloneJobRunRecord(record))
+	}
+	return out, nil
+}
+
+func normalizeJobRunClaimInput(input JobRunClaimInput) (JobRunClaimInput, map[string]struct{}, error) {
+	if input.Limit <= 0 {
+		input.Limit = 25
+	}
+	if input.Now.IsZero() {
+		input.Now = time.Now().UTC()
+	}
+	input.Now = input.Now.UTC()
+	if input.LeaseDuration <= 0 {
+		input.LeaseDuration = 30 * time.Second
+	}
+	input.WorkerID = strings.TrimSpace(input.WorkerID)
+	if input.WorkerID == "" {
+		return JobRunClaimInput{}, nil, invalidRecordError("job_runs", "worker_id", "required")
+	}
+	return input, normalizeJobNameSet(input.JobNames), nil
+}
+
+func jobRunClaimable(record JobRunRecord, scope Scope, jobNames map[string]struct{}, now time.Time) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if len(jobNames) > 0 {
+		if _, ok := jobNames[record.JobName]; !ok {
+			return false
+		}
+	}
+	if record.Status != JobRunStatusQueued && record.Status != JobRunStatusRetrying {
+		return false
+	}
+	dueAt := jobRunDueAt(record)
+	return dueAt == nil || !dueAt.After(now)
+}
+
+func applyJobRunClaim(record JobRunRecord, workerID string, now time.Time, leaseDuration time.Duration) JobRunRecord {
+	record.AttemptCount++
+	record.Status = JobRunStatusRunning
+	record.StartedAt = cloneTimePtr(&now)
+	record.ClaimedAt = cloneTimePtr(&now)
+	leaseExpiresAt := now.Add(leaseDuration)
+	record.LeaseExpiresAt = cloneTimePtr(&leaseExpiresAt)
+	record.WorkerID = workerID
+	record.UpdatedAt = now
+	return cloneJobRunRecord(record)
+}
+
+func sortClaimedJobRuns(candidates []JobRunRecord) {
 	sort.SliceStable(candidates, func(i, j int) bool {
 		left := jobRunDueAt(candidates[i])
 		right := jobRunDueAt(candidates[j])
@@ -5690,14 +5776,6 @@ func (s *InMemoryStore) ClaimDueJobs(ctx context.Context, scope Scope, input Job
 			return candidates[i].ID < candidates[j].ID
 		}
 	})
-	if len(candidates) > input.Limit {
-		candidates = candidates[:input.Limit]
-	}
-	out := make([]JobRunRecord, 0, len(candidates))
-	for _, record := range candidates {
-		out = append(out, cloneJobRunRecord(record))
-	}
-	return out, nil
 }
 
 func (s *InMemoryStore) RenewJobLease(ctx context.Context, scope Scope, id string, input JobRunLeaseRenewInput) (JobRunRecord, error) {
@@ -6582,6 +6660,25 @@ func (s *InMemoryStore) UpsertAgreementReminderState(ctx context.Context, scope 
 	if err != nil {
 		return AgreementReminderStateRecord{}, err
 	}
+	record, err = normalizeAgreementReminderStateRecord(record)
+	if err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	now := time.Now().UTC()
+	key := agreementReminderStateScopedKey(scope, record.AgreementID, record.RecipientID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	existing, exists := s.agreementReminderStates[key]
+	preserveReminderLease(&record, existing, exists, now)
+	record = finalizeAgreementReminderStateRecord(scope, record, existing, exists, now)
+	record = cloneAgreementReminderStateRecord(record)
+	s.agreementReminderStates[key] = record
+	return cloneAgreementReminderStateRecord(record), nil
+}
+
+func normalizeAgreementReminderStateRecord(record AgreementReminderStateRecord) (AgreementReminderStateRecord, error) {
 	record.AgreementID = normalizeID(record.AgreementID)
 	record.RecipientID = normalizeID(record.RecipientID)
 	if record.AgreementID == "" {
@@ -6620,33 +6717,35 @@ func (s *InMemoryStore) UpsertAgreementReminderState(ctx context.Context, scope 
 	if record.SentCount < 0 {
 		record.SentCount = 0
 	}
-	now := time.Now().UTC()
-	key := agreementReminderStateScopedKey(scope, record.AgreementID, record.RecipientID)
+	return record, nil
+}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	existing, exists := s.agreementReminderStates[key]
-	if exists && record.Status == AgreementReminderStatusActive {
-		// Upsert is intentionally general-purpose. Preserve an active lease unless the caller
-		// presents the exact current lease token, preventing unfenced writes from clobbering ownership.
-		if reminderLeaseIsActive(existing, now, defaultReminderLeaseSeconds) &&
-			!reminderLeaseTokenMatchesRecord(existing, reminderLeaseTokenFromRecord(record)) {
-			record.WorkerID = existing.WorkerID
-			record.SweepID = existing.SweepID
-			record.LeaseSeq = existing.LeaseSeq
-			record.ClaimedAt = cloneTimePtr(existing.ClaimedAt)
-			record.LastHeartbeatAt = cloneTimePtr(existing.LastHeartbeatAt)
-		}
+func preserveReminderLease(record *AgreementReminderStateRecord, existing AgreementReminderStateRecord, exists bool, now time.Time) {
+	if !exists || record.Status != AgreementReminderStatusActive {
+		return
 	}
-	if normalizeID(record.ID) == "" {
+	if !reminderLeaseIsActive(existing, now, defaultReminderLeaseSeconds) {
+		return
+	}
+	if reminderLeaseTokenMatchesRecord(existing, reminderLeaseTokenFromRecord(*record)) {
+		return
+	}
+	record.WorkerID = existing.WorkerID
+	record.SweepID = existing.SweepID
+	record.LeaseSeq = existing.LeaseSeq
+	record.ClaimedAt = cloneTimePtr(existing.ClaimedAt)
+	record.LastHeartbeatAt = cloneTimePtr(existing.LastHeartbeatAt)
+}
+
+func finalizeAgreementReminderStateRecord(scope Scope, record, existing AgreementReminderStateRecord, exists bool, now time.Time) AgreementReminderStateRecord {
+	record.ID = normalizeID(record.ID)
+	if record.ID == "" {
 		if exists && strings.TrimSpace(existing.ID) != "" {
 			record.ID = existing.ID
 		} else {
 			record.ID = uuid.NewString()
 		}
 	}
-	record.ID = normalizeID(record.ID)
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
 	if exists && record.LeaseSeq == 0 {
@@ -6662,9 +6761,7 @@ func (s *InMemoryStore) UpsertAgreementReminderState(ctx context.Context, scope 
 	if record.UpdatedAt.IsZero() {
 		record.UpdatedAt = now
 	}
-	record = cloneAgreementReminderStateRecord(record)
-	s.agreementReminderStates[key] = record
-	return cloneAgreementReminderStateRecord(record), nil
+	return record
 }
 
 func (s *InMemoryStore) GetAgreementReminderState(ctx context.Context, scope Scope, agreementID, recipientID string) (AgreementReminderStateRecord, error) {
@@ -6697,13 +6794,26 @@ func (s *InMemoryStore) ClaimDueAgreementReminders(ctx context.Context, scope Sc
 	if err != nil {
 		return nil, err
 	}
+	input, err = normalizeAgreementReminderClaimInput(input)
+	if err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	candidates := listClaimableReminderCandidates(s.agreementReminderStates, scope, input)
+	return applyReminderClaims(s.agreementReminderStates, scope, input, candidates), nil
+}
+
+func normalizeAgreementReminderClaimInput(input AgreementReminderClaimInput) (AgreementReminderClaimInput, error) {
 	input.WorkerID = normalizeID(input.WorkerID)
 	input.SweepID = strings.TrimSpace(input.SweepID)
 	if input.WorkerID == "" {
-		return nil, invalidRecordError("agreement_reminder_states", "worker_id", "required")
+		return AgreementReminderClaimInput{}, invalidRecordError("agreement_reminder_states", "worker_id", "required")
 	}
 	if input.SweepID == "" {
-		return nil, invalidRecordError("agreement_reminder_states", "sweep_id", "required")
+		return AgreementReminderClaimInput{}, invalidRecordError("agreement_reminder_states", "sweep_id", "required")
 	}
 	if input.Now.IsZero() {
 		input.Now = time.Now().UTC()
@@ -6718,29 +6828,41 @@ func (s *InMemoryStore) ClaimDueAgreementReminders(ctx context.Context, scope Sc
 	if input.LeaseSeconds <= 0 {
 		input.LeaseSeconds = defaultReminderLeaseSeconds
 	}
+	return input, nil
+}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+func listClaimableReminderCandidates(records map[string]AgreementReminderStateRecord, scope Scope, input AgreementReminderClaimInput) []AgreementReminderStateRecord {
 	candidates := make([]AgreementReminderStateRecord, 0)
-	for _, record := range s.agreementReminderStates {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.Status != AgreementReminderStatusActive {
-			continue
-		}
-		if record.NextDueAt == nil {
-			continue
-		}
-		if record.NextDueAt.After(input.Now) {
-			continue
-		}
-		if reminderLeaseIsActive(record, input.Now, input.LeaseSeconds) {
+	for _, record := range records {
+		if !isClaimableReminderCandidate(record, scope, input) {
 			continue
 		}
 		candidates = append(candidates, cloneAgreementReminderStateRecord(record))
 	}
+	sortClaimableReminderCandidates(candidates)
+	if len(candidates) > input.Limit {
+		return candidates[:input.Limit]
+	}
+	return candidates
+}
+
+func isClaimableReminderCandidate(record AgreementReminderStateRecord, scope Scope, input AgreementReminderClaimInput) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if record.Status != AgreementReminderStatusActive {
+		return false
+	}
+	if record.NextDueAt == nil {
+		return false
+	}
+	if record.NextDueAt.After(input.Now) {
+		return false
+	}
+	return !reminderLeaseIsActive(record, input.Now, input.LeaseSeconds)
+}
+
+func sortClaimableReminderCandidates(candidates []AgreementReminderStateRecord) {
 	sort.Slice(candidates, func(i, j int) bool {
 		iDue := candidates[i].NextDueAt
 		jDue := candidates[j].NextDueAt
@@ -6758,22 +6880,27 @@ func (s *InMemoryStore) ClaimDueAgreementReminders(ctx context.Context, scope Sc
 		}
 		return candidates[i].ID < candidates[j].ID
 	})
-	if len(candidates) > input.Limit {
-		candidates = candidates[:input.Limit]
-	}
+}
+
+func applyReminderClaims(records map[string]AgreementReminderStateRecord, scope Scope, input AgreementReminderClaimInput, candidates []AgreementReminderStateRecord) []AgreementReminderClaim {
 	out := make([]AgreementReminderClaim, 0, len(candidates))
 	for _, record := range candidates {
-		record.WorkerID = input.WorkerID
-		record.SweepID = input.SweepID
-		record.LeaseSeq = max(record.LeaseSeq, 0) + 1
-		record.ClaimedAt = cloneTimePtr(&input.Now)
-		record.LastHeartbeatAt = cloneTimePtr(&input.Now)
-		record.UpdatedAt = input.Now
+		record = applyReminderClaim(record, input)
 		record = cloneAgreementReminderStateRecord(record)
-		s.agreementReminderStates[agreementReminderStateScopedKey(scope, record.AgreementID, record.RecipientID)] = record
+		records[agreementReminderStateScopedKey(scope, record.AgreementID, record.RecipientID)] = record
 		out = append(out, reminderClaimFromRecord(record))
 	}
-	return out, nil
+	return out
+}
+
+func applyReminderClaim(record AgreementReminderStateRecord, input AgreementReminderClaimInput) AgreementReminderStateRecord {
+	record.WorkerID = input.WorkerID
+	record.SweepID = input.SweepID
+	record.LeaseSeq = max(record.LeaseSeq, 0) + 1
+	record.ClaimedAt = cloneTimePtr(&input.Now)
+	record.LastHeartbeatAt = cloneTimePtr(&input.Now)
+	record.UpdatedAt = input.Now
+	return record
 }
 
 func (s *InMemoryStore) RenewAgreementReminderLease(
@@ -7121,10 +7248,38 @@ func (s *InMemoryStore) ClaimOutboxMessages(ctx context.Context, scope Scope, in
 	if err != nil {
 		return nil, err
 	}
+	input, lockUntil, err := normalizeOutboxClaimInput(input)
+	if err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	candidates := make([]OutboxMessageRecord, 0)
+	for _, record := range s.outboxMessages {
+		if !outboxMessageClaimable(record, scope, input) {
+			continue
+		}
+		candidates = append(candidates, record)
+	}
+	sortClaimableOutboxMessages(candidates)
+	if len(candidates) > input.Limit {
+		candidates = candidates[:input.Limit]
+	}
+	out := make([]OutboxMessageRecord, 0, len(candidates))
+	for _, record := range candidates {
+		record = applyOutboxMessageClaim(record, input.Consumer, input.Now, lockUntil)
+		s.outboxMessages[scopedKey(scope, record.ID)] = record
+		out = append(out, record)
+	}
+	return out, nil
+}
+
+func normalizeOutboxClaimInput(input OutboxClaimInput) (OutboxClaimInput, *time.Time, error) {
 	input.Consumer = normalizeID(input.Consumer)
 	input.Topic = strings.ToLower(strings.TrimSpace(input.Topic))
 	if input.Consumer == "" {
-		return nil, invalidRecordError("outbox_messages", "consumer", "required")
+		return OutboxClaimInput{}, nil, invalidRecordError("outbox_messages", "consumer", "required")
 	}
 	if input.Now.IsZero() {
 		input.Now = time.Now().UTC()
@@ -7137,36 +7292,33 @@ func (s *InMemoryStore) ClaimOutboxMessages(ctx context.Context, scope Scope, in
 	if lockUntil == nil || lockUntil.IsZero() {
 		defaultLock := input.Now.Add(5 * time.Minute).UTC()
 		lockUntil = &defaultLock
-	} else {
-		lock := lockUntil.UTC()
-		lockUntil = &lock
+		return input, lockUntil, nil
 	}
+	lock := lockUntil.UTC()
+	return input, &lock, nil
+}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	candidates := make([]OutboxMessageRecord, 0)
-	for _, record := range s.outboxMessages {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if input.Topic != "" && strings.ToLower(strings.TrimSpace(record.Topic)) != input.Topic {
-			continue
-		}
-		if record.MaxAttempts > 0 && record.AttemptCount >= record.MaxAttempts {
-			continue
-		}
-		if record.AvailableAt.After(input.Now) {
-			continue
-		}
-		status := strings.ToLower(strings.TrimSpace(record.Status))
-		if status != OutboxMessageStatusPending && status != OutboxMessageStatusRetrying && status != OutboxMessageStatusProcessing {
-			continue
-		}
-		if record.LockedAt != nil && record.LockedAt.After(input.Now) {
-			continue
-		}
-		candidates = append(candidates, record)
+func outboxMessageClaimable(record OutboxMessageRecord, scope Scope, input OutboxClaimInput) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
 	}
+	if input.Topic != "" && strings.ToLower(strings.TrimSpace(record.Topic)) != input.Topic {
+		return false
+	}
+	if record.MaxAttempts > 0 && record.AttemptCount >= record.MaxAttempts {
+		return false
+	}
+	if record.AvailableAt.After(input.Now) {
+		return false
+	}
+	status := strings.ToLower(strings.TrimSpace(record.Status))
+	if status != OutboxMessageStatusPending && status != OutboxMessageStatusRetrying && status != OutboxMessageStatusProcessing {
+		return false
+	}
+	return record.LockedAt == nil || !record.LockedAt.After(input.Now)
+}
+
+func sortClaimableOutboxMessages(candidates []OutboxMessageRecord) {
 	sort.Slice(candidates, func(i, j int) bool {
 		if candidates[i].AvailableAt.Equal(candidates[j].AvailableAt) {
 			if candidates[i].CreatedAt.Equal(candidates[j].CreatedAt) {
@@ -7176,21 +7328,15 @@ func (s *InMemoryStore) ClaimOutboxMessages(ctx context.Context, scope Scope, in
 		}
 		return candidates[i].AvailableAt.Before(candidates[j].AvailableAt)
 	})
-	if len(candidates) > input.Limit {
-		candidates = candidates[:input.Limit]
-	}
-	out := make([]OutboxMessageRecord, 0, len(candidates))
-	for _, record := range candidates {
-		record.Status = OutboxMessageStatusProcessing
-		record.AttemptCount++
-		record.LockedBy = input.Consumer
-		record.LockedAt = cloneTimePtr(lockUntil)
-		record.UpdatedAt = input.Now
-		record = cloneOutboxMessageRecord(record)
-		s.outboxMessages[scopedKey(scope, record.ID)] = record
-		out = append(out, record)
-	}
-	return out, nil
+}
+
+func applyOutboxMessageClaim(record OutboxMessageRecord, consumer string, now time.Time, lockUntil *time.Time) OutboxMessageRecord {
+	record.Status = OutboxMessageStatusProcessing
+	record.AttemptCount++
+	record.LockedBy = consumer
+	record.LockedAt = cloneTimePtr(lockUntil)
+	record.UpdatedAt = now
+	return cloneOutboxMessageRecord(record)
 }
 
 func (s *InMemoryStore) MarkOutboxMessageSucceeded(ctx context.Context, scope Scope, id string, publishedAt time.Time) (OutboxMessageRecord, error) {
