@@ -354,6 +354,381 @@ func updateReminderStateRecord(ctx context.Context, idb bun.IDB, record stores.A
 	return result.RowsAffected()
 }
 
+func normalizeRelationalReminderTarget(scope stores.Scope, agreementID, recipientID string) (stores.Scope, string, string, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.Scope{}, "", "", err
+	}
+	agreementID = normalizeRelationalID(agreementID)
+	recipientID = normalizeRelationalID(recipientID)
+	if agreementID == "" {
+		return stores.Scope{}, "", "", relationalInvalidRecordError("agreement_reminder_states", "agreement_id", "required")
+	}
+	if recipientID == "" {
+		return stores.Scope{}, "", "", relationalInvalidRecordError("agreement_reminder_states", "recipient_id", "required")
+	}
+	return scope, agreementID, recipientID, nil
+}
+
+func normalizeRelationalReminderMarkInput(input stores.AgreementReminderMarkInput) stores.AgreementReminderMarkInput {
+	if input.OccurredAt.IsZero() {
+		input.OccurredAt = time.Now().UTC()
+	}
+	input.OccurredAt = input.OccurredAt.UTC()
+	input.Lease = normalizeReminderLeaseToken(input.Lease)
+	if input.LeaseSeconds <= 0 {
+		input.LeaseSeconds = relationalDefaultReminderLeaseSeconds
+	}
+	input.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
+	input.ErrorInternalEncrypted = strings.TrimSpace(input.ErrorInternalEncrypted)
+	input.ErrorInternalExpiresAt = cloneRelationalTimePtr(input.ErrorInternalExpiresAt)
+	return input
+}
+
+func (s *relationalTxStore) mutateAgreementReminderState(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID, recipientID string,
+	input stores.AgreementReminderMarkInput,
+	mutate func(*stores.AgreementReminderStateRecord, stores.AgreementReminderMarkInput) error,
+) (stores.AgreementReminderStateRecord, error) {
+	record, err := loadAgreementReminderStateRecord(ctx, s.tx, scope, agreementID, recipientID)
+	if err != nil {
+		return stores.AgreementReminderStateRecord{}, err
+	}
+	previousUpdatedAt := record.UpdatedAt
+	validateErr := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds)
+	if validateErr != nil {
+		return stores.AgreementReminderStateRecord{}, validateErr
+	}
+	mutateErr := mutate(&record, input)
+	if mutateErr != nil {
+		return stores.AgreementReminderStateRecord{}, mutateErr
+	}
+	clearReminderLease(&record)
+	record.UpdatedAt = input.OccurredAt
+	rows, err := updateReminderStateRecord(ctx, s.tx, record, &previousUpdatedAt)
+	if err != nil {
+		return stores.AgreementReminderStateRecord{}, err
+	}
+	if rows == 0 {
+		current, loadErr := loadAgreementReminderStateRecord(ctx, s.tx, scope, agreementID, recipientID)
+		if loadErr != nil {
+			return stores.AgreementReminderStateRecord{}, loadErr
+		}
+		return stores.AgreementReminderStateRecord{}, relationalReminderLeaseConflictError(
+			agreementID,
+			recipientID,
+			input.Lease.WorkerID,
+			input.Lease.LeaseSeq,
+			current.LeaseSeq,
+		)
+	}
+	return cloneRelationalReminderStateRecord(record), nil
+}
+
+func applyRelationalReminderSent(record *stores.AgreementReminderStateRecord, input stores.AgreementReminderMarkInput) error {
+	record.Status = stores.AgreementReminderStatusActive
+	record.TerminalReason = ""
+	record.SentCount++
+	if record.FirstSentAt == nil {
+		record.FirstSentAt = cloneRelationalTimePtr(&input.OccurredAt)
+	}
+	record.LastSentAt = cloneRelationalTimePtr(&input.OccurredAt)
+	record.LastAttemptedSendAt = cloneRelationalTimePtr(&input.OccurredAt)
+	record.LastEvaluatedAt = cloneRelationalTimePtr(&input.OccurredAt)
+	record.LastReasonCode = input.ReasonCode
+	record.LastErrorCode = ""
+	record.LastErrorInternalEncrypted = ""
+	record.LastErrorInternalExpiresAt = nil
+	record.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
+	if record.NextDueAt == nil {
+		return relationalReminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
+	return nil
+}
+
+func applyRelationalReminderSkipped(record *stores.AgreementReminderStateRecord, input stores.AgreementReminderMarkInput) error {
+	terminalReason := input.TerminalReason
+	if terminalReason == "" && input.ReasonCode == stores.AgreementReminderTerminalReasonMaxCountReached {
+		terminalReason = stores.AgreementReminderTerminalReasonMaxCountReached
+	}
+	record.LastReasonCode = input.ReasonCode
+	record.LastEvaluatedAt = cloneRelationalTimePtr(&input.OccurredAt)
+	record.LastErrorCode = ""
+	record.LastErrorInternalEncrypted = ""
+	record.LastErrorInternalExpiresAt = nil
+	if terminalReason != "" {
+		record.Status = stores.AgreementReminderStatusTerminal
+		record.TerminalReason = terminalReason
+		record.NextDueAt = nil
+		return nil
+	}
+	if record.Status != stores.AgreementReminderStatusPaused {
+		record.Status = stores.AgreementReminderStatusActive
+	}
+	record.TerminalReason = ""
+	record.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
+	if record.Status == stores.AgreementReminderStatusActive && record.NextDueAt == nil {
+		return relationalReminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
+	return nil
+}
+
+func applyRelationalReminderFailed(record *stores.AgreementReminderStateRecord, input stores.AgreementReminderMarkInput) error {
+	if record.Status != stores.AgreementReminderStatusPaused {
+		record.Status = stores.AgreementReminderStatusActive
+	}
+	record.TerminalReason = ""
+	record.LastReasonCode = input.ReasonCode
+	record.LastErrorCode = input.ReasonCode
+	record.LastErrorInternalEncrypted = input.ErrorInternalEncrypted
+	record.LastErrorInternalExpiresAt = cloneRelationalTimePtr(input.ErrorInternalExpiresAt)
+	record.LastAttemptedSendAt = cloneRelationalTimePtr(&input.OccurredAt)
+	record.LastEvaluatedAt = cloneRelationalTimePtr(&input.OccurredAt)
+	record.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
+	if record.Status == stores.AgreementReminderStatusActive && record.NextDueAt == nil {
+		return relationalReminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
+	return nil
+}
+
+func trimRelationalIntegrationCredentialScopes(scopes []string) []string {
+	out := make([]string, 0, len(scopes))
+	for _, scopeValue := range scopes {
+		if scopeText := strings.TrimSpace(scopeValue); scopeText != "" {
+			out = append(out, scopeText)
+		}
+	}
+	return out
+}
+
+func normalizeRelationalIntegrationCredentialRecord(scope stores.Scope, record stores.IntegrationCredentialRecord) (stores.IntegrationCredentialRecord, error) {
+	record.Provider = strings.ToLower(strings.TrimSpace(record.Provider))
+	record.UserID = normalizeRelationalID(record.UserID)
+	record.EncryptedAccessToken = strings.TrimSpace(record.EncryptedAccessToken)
+	record.EncryptedRefreshToken = strings.TrimSpace(record.EncryptedRefreshToken)
+	record.ProfileJSON = strings.TrimSpace(record.ProfileJSON)
+	if record.Provider == "" {
+		return stores.IntegrationCredentialRecord{}, relationalInvalidRecordError("integration_credentials", "provider", "required")
+	}
+	if record.UserID == "" {
+		return stores.IntegrationCredentialRecord{}, relationalInvalidRecordError("integration_credentials", "user_id", "required")
+	}
+	if record.EncryptedAccessToken == "" {
+		return stores.IntegrationCredentialRecord{}, relationalInvalidRecordError("integration_credentials", "encrypted_access_token", "required")
+	}
+	record.Scopes = trimRelationalIntegrationCredentialScopes(record.Scopes)
+	record.ExpiresAt = cloneRelationalTimePtr(record.ExpiresAt)
+	record.LastUsedAt = cloneRelationalTimePtr(record.LastUsedAt)
+	if record.ID = normalizeRelationalID(record.ID); record.ID == "" {
+		record.ID = uuid.NewString()
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	return record, nil
+}
+
+func applyRelationalIntegrationCredentialExisting(
+	record *stores.IntegrationCredentialRecord,
+	existing stores.IntegrationCredentialRecord,
+	now time.Time,
+) {
+	record.ID = existing.ID
+	record.CreatedAt = existing.CreatedAt
+	record.UpdatedAt = now
+}
+
+func normalizeRelationalDocumentCreateRecord(scope stores.Scope, record stores.DocumentRecord) (stores.DocumentRecord, error) {
+	if strings.TrimSpace(record.SourceObjectKey) == "" {
+		return stores.DocumentRecord{}, relationalInvalidRecordError("documents", "source_object_key", "required")
+	}
+	record, err := normalizeRelationalDocumentCreateSource(record)
+	if err != nil {
+		return stores.DocumentRecord{}, err
+	}
+	record = normalizeRelationalDocumentCreateMetadata(record)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
+	record.UpdatedAt = relationalTimeOrNow(record.UpdatedAt)
+	return record, nil
+}
+
+func normalizeRelationalDocumentCreateSource(record stores.DocumentRecord) (stores.DocumentRecord, error) {
+	record.SourceOriginalName = strings.TrimSpace(record.SourceOriginalName)
+	if record.SourceOriginalName == "" {
+		return stores.DocumentRecord{}, relationalInvalidRecordError("documents", "source_original_name", "required")
+	}
+	record.SourceSHA256 = strings.TrimSpace(record.SourceSHA256)
+	if record.SourceSHA256 == "" {
+		return stores.DocumentRecord{}, relationalInvalidRecordError("documents", "source_sha256", "required")
+	}
+	record.NormalizedObjectKey = strings.TrimSpace(record.NormalizedObjectKey)
+	record.ID = normalizeRelationalID(record.ID)
+	if record.ID == "" {
+		record.ID = uuid.NewString()
+	}
+	record.SourceType = strings.TrimSpace(record.SourceType)
+	if record.SourceType == "" {
+		record.SourceType = stores.SourceTypeUpload
+	}
+	if record.SourceType != stores.SourceTypeUpload && record.SourceType != stores.SourceTypeGoogleDrive {
+		return stores.DocumentRecord{}, relationalInvalidRecordError("documents", "source_type", "unsupported source type")
+	}
+	record.SourceGoogleFileID = strings.TrimSpace(record.SourceGoogleFileID)
+	record.SourceGoogleDocURL = strings.TrimSpace(record.SourceGoogleDocURL)
+	record.CreatedByUserID = normalizeRelationalID(record.CreatedByUserID)
+	record.SourceModifiedTime = cloneRelationalTimePtr(record.SourceModifiedTime)
+	record.SourceExportedAt = cloneRelationalTimePtr(record.SourceExportedAt)
+	record.SourceExportedByUserID = normalizeRelationalID(record.SourceExportedByUserID)
+	record.SourceMimeType = strings.TrimSpace(record.SourceMimeType)
+	record.SourceIngestionMode = strings.TrimSpace(record.SourceIngestionMode)
+	return record, nil
+}
+
+func normalizeRelationalDocumentCreateMetadata(record stores.DocumentRecord) stores.DocumentRecord {
+	record.PDFCompatibilityTier = strings.TrimSpace(record.PDFCompatibilityTier)
+	record.PDFCompatibilityReason = strings.TrimSpace(record.PDFCompatibilityReason)
+	record.PDFNormalizationStatus = strings.TrimSpace(record.PDFNormalizationStatus)
+	record.PDFAnalyzedAt = cloneRelationalTimePtr(record.PDFAnalyzedAt)
+	record.PDFPolicyVersion = strings.TrimSpace(record.PDFPolicyVersion)
+	record.RemediationStatus = strings.TrimSpace(record.RemediationStatus)
+	record.RemediationActorID = normalizeRelationalID(record.RemediationActorID)
+	record.RemediationCommandID = strings.TrimSpace(record.RemediationCommandID)
+	record.RemediationDispatchID = strings.TrimSpace(record.RemediationDispatchID)
+	record.RemediationExecMode = strings.TrimSpace(record.RemediationExecMode)
+	record.RemediationCorrelation = strings.TrimSpace(record.RemediationCorrelation)
+	record.RemediationFailure = strings.TrimSpace(record.RemediationFailure)
+	record.RemediationOriginalKey = strings.TrimSpace(record.RemediationOriginalKey)
+	record.RemediationOutputKey = strings.TrimSpace(record.RemediationOutputKey)
+	record.RemediationRequestedAt = cloneRelationalTimePtr(record.RemediationRequestedAt)
+	record.RemediationStartedAt = cloneRelationalTimePtr(record.RemediationStartedAt)
+	record.RemediationCompletedAt = cloneRelationalTimePtr(record.RemediationCompletedAt)
+	return record
+}
+
+type relationalDocumentRemediationLeaseAcquireParams struct {
+	scope         stores.Scope
+	documentID    string
+	workerID      string
+	correlationID string
+	now           time.Time
+	ttl           time.Duration
+}
+
+func normalizeRelationalDocumentRemediationLeaseAcquireParams(
+	scope stores.Scope,
+	documentID string,
+	input stores.DocumentRemediationLeaseAcquireInput,
+) (relationalDocumentRemediationLeaseAcquireParams, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return relationalDocumentRemediationLeaseAcquireParams{}, err
+	}
+	documentID = normalizeRelationalID(documentID)
+	if documentID == "" {
+		return relationalDocumentRemediationLeaseAcquireParams{}, relationalInvalidRecordError("document_remediation_leases", "document_id", "required")
+	}
+	workerID := strings.TrimSpace(input.WorkerID)
+	if workerID == "" {
+		return relationalDocumentRemediationLeaseAcquireParams{}, relationalInvalidRecordError("document_remediation_leases", "worker_id", "required")
+	}
+	return relationalDocumentRemediationLeaseAcquireParams{
+		scope:         scope,
+		documentID:    documentID,
+		workerID:      workerID,
+		correlationID: strings.TrimSpace(input.CorrelationID),
+		now:           relationalTimeOrNow(input.Now),
+		ttl:           normalizeRelationalDocumentRemediationLeaseTTL(input.TTL),
+	}, nil
+}
+
+func buildRelationalDocumentRemediationLeaseRecord(params relationalDocumentRemediationLeaseAcquireParams, leaseSeq int64) stores.DocumentRemediationLeaseRecord {
+	acquiredAt := params.now
+	expiresAt := params.now.Add(params.ttl)
+	return stores.DocumentRemediationLeaseRecord{
+		DocumentID:      params.documentID,
+		TenantID:        params.scope.TenantID,
+		OrgID:           params.scope.OrgID,
+		WorkerID:        params.workerID,
+		LeaseSeq:        leaseSeq,
+		CorrelationID:   params.correlationID,
+		AcquiredAt:      cloneRelationalTimePtr(&acquiredAt),
+		LastHeartbeatAt: cloneRelationalTimePtr(&acquiredAt),
+		ExpiresAt:       cloneRelationalTimePtr(&expiresAt),
+		UpdatedAt:       params.now,
+	}
+}
+
+func (s *relationalTxStore) loadOrCreateDocumentRemediationLeaseRecord(
+	ctx context.Context,
+	params relationalDocumentRemediationLeaseAcquireParams,
+) (stores.DocumentRemediationLeaseRecord, bool, error) {
+	record, err := loadDocumentRemediationLeaseRecord(ctx, s.tx, params.scope, params.documentID)
+	if err == nil {
+		return record, false, nil
+	}
+	if !relationalIsNotFoundError(err) {
+		return stores.DocumentRemediationLeaseRecord{}, false, err
+	}
+	record = buildRelationalDocumentRemediationLeaseRecord(params, 1)
+	_, insertErr := s.tx.NewInsert().Model(&relationalDocumentRemediationLeaseModel{DocumentRemediationLeaseRecord: record}).Exec(ctx)
+	if insertErr == nil {
+		return record, true, nil
+	}
+	if !relationalIsUniqueConstraintError(insertErr) {
+		return stores.DocumentRemediationLeaseRecord{}, false, insertErr
+	}
+	record, err = loadDocumentRemediationLeaseRecord(ctx, s.tx, params.scope, params.documentID)
+	if err != nil {
+		return stores.DocumentRemediationLeaseRecord{}, false, err
+	}
+	return record, false, nil
+}
+
+func (s *relationalTxStore) claimExistingDocumentRemediationLeaseRecord(
+	ctx context.Context,
+	params relationalDocumentRemediationLeaseAcquireParams,
+	record stores.DocumentRemediationLeaseRecord,
+) (stores.DocumentRemediationLeaseClaim, error) {
+	if relationalDocumentRemediationLeaseIsActive(record, params.now) {
+		return stores.DocumentRemediationLeaseClaim{}, relationalDocumentRemediationLeaseConflictError(
+			params.documentID,
+			params.workerID,
+			record.LeaseSeq+1,
+			record.LeaseSeq,
+		)
+	}
+	expectedUpdatedAt := record.UpdatedAt
+	record = buildRelationalDocumentRemediationLeaseRecord(params, record.LeaseSeq+1)
+	rows, err := updateDocumentRemediationLeaseRecord(ctx, s.tx, record, &expectedUpdatedAt)
+	if err != nil {
+		return stores.DocumentRemediationLeaseClaim{}, err
+	}
+	if rows == 0 {
+		current, loadErr := loadDocumentRemediationLeaseRecord(ctx, s.tx, params.scope, params.documentID)
+		if loadErr != nil {
+			return stores.DocumentRemediationLeaseClaim{}, loadErr
+		}
+		if relationalDocumentRemediationLeaseIsActive(current, params.now) {
+			return stores.DocumentRemediationLeaseClaim{}, relationalDocumentRemediationLeaseConflictError(
+				params.documentID,
+				params.workerID,
+				record.LeaseSeq,
+				current.LeaseSeq,
+			)
+		}
+		return stores.DocumentRemediationLeaseClaim{}, relationalVersionConflictError(
+			"document_remediation_leases",
+			params.documentID,
+			record.LeaseSeq,
+			current.LeaseSeq,
+		)
+	}
+	return relationalDocumentRemediationLeaseClaimFromRecord(record), nil
+}
+
 func updateOutboxMessageRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, record stores.OutboxMessageRecord, expectedUpdatedAt *time.Time) (int64, error) {
 	record = cloneRelationalOutboxMessageRecord(record)
 	wrapped := OutboxMessageRecord{Message: record}
@@ -1609,59 +1984,10 @@ func (s *relationalTxStore) Create(ctx context.Context, scope stores.Scope, reco
 	if err != nil {
 		return stores.DocumentRecord{}, err
 	}
-	if strings.TrimSpace(record.SourceObjectKey) == "" {
-		return stores.DocumentRecord{}, relationalInvalidRecordError("documents", "source_object_key", "required")
+	record, err = normalizeRelationalDocumentCreateRecord(scope, record)
+	if err != nil {
+		return stores.DocumentRecord{}, err
 	}
-	record.SourceOriginalName = strings.TrimSpace(record.SourceOriginalName)
-	if record.SourceOriginalName == "" {
-		return stores.DocumentRecord{}, relationalInvalidRecordError("documents", "source_original_name", "required")
-	}
-	record.SourceSHA256 = strings.TrimSpace(record.SourceSHA256)
-	if record.SourceSHA256 == "" {
-		return stores.DocumentRecord{}, relationalInvalidRecordError("documents", "source_sha256", "required")
-	}
-	record.NormalizedObjectKey = strings.TrimSpace(record.NormalizedObjectKey)
-	record.ID = normalizeRelationalID(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	record.SourceType = strings.TrimSpace(record.SourceType)
-	if record.SourceType == "" {
-		record.SourceType = stores.SourceTypeUpload
-	}
-	if record.SourceType != stores.SourceTypeUpload && record.SourceType != stores.SourceTypeGoogleDrive {
-		return stores.DocumentRecord{}, relationalInvalidRecordError("documents", "source_type", "unsupported source type")
-	}
-	record.SourceGoogleFileID = strings.TrimSpace(record.SourceGoogleFileID)
-	record.SourceGoogleDocURL = strings.TrimSpace(record.SourceGoogleDocURL)
-	record.CreatedByUserID = normalizeRelationalID(record.CreatedByUserID)
-	record.SourceModifiedTime = cloneRelationalTimePtr(record.SourceModifiedTime)
-	record.SourceExportedAt = cloneRelationalTimePtr(record.SourceExportedAt)
-	record.SourceExportedByUserID = normalizeRelationalID(record.SourceExportedByUserID)
-	record.SourceMimeType = strings.TrimSpace(record.SourceMimeType)
-	record.SourceIngestionMode = strings.TrimSpace(record.SourceIngestionMode)
-	record.PDFCompatibilityTier = strings.TrimSpace(record.PDFCompatibilityTier)
-	record.PDFCompatibilityReason = strings.TrimSpace(record.PDFCompatibilityReason)
-	record.PDFNormalizationStatus = strings.TrimSpace(record.PDFNormalizationStatus)
-	record.PDFAnalyzedAt = cloneRelationalTimePtr(record.PDFAnalyzedAt)
-	record.PDFPolicyVersion = strings.TrimSpace(record.PDFPolicyVersion)
-	record.RemediationStatus = strings.TrimSpace(record.RemediationStatus)
-	record.RemediationActorID = normalizeRelationalID(record.RemediationActorID)
-	record.RemediationCommandID = strings.TrimSpace(record.RemediationCommandID)
-	record.RemediationDispatchID = strings.TrimSpace(record.RemediationDispatchID)
-	record.RemediationExecMode = strings.TrimSpace(record.RemediationExecMode)
-	record.RemediationCorrelation = strings.TrimSpace(record.RemediationCorrelation)
-	record.RemediationFailure = strings.TrimSpace(record.RemediationFailure)
-	record.RemediationOriginalKey = strings.TrimSpace(record.RemediationOriginalKey)
-	record.RemediationOutputKey = strings.TrimSpace(record.RemediationOutputKey)
-	record.RemediationRequestedAt = cloneRelationalTimePtr(record.RemediationRequestedAt)
-	record.RemediationStartedAt = cloneRelationalTimePtr(record.RemediationStartedAt)
-	record.RemediationCompletedAt = cloneRelationalTimePtr(record.RemediationCompletedAt)
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
-	record.UpdatedAt = relationalTimeOrNow(record.UpdatedAt)
-
 	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
 		return stores.DocumentRecord{}, relationalUniqueConstraintError(err, "documents", "id")
 	}
@@ -1738,88 +2064,21 @@ func (s *relationalTxStore) Delete(ctx context.Context, scope stores.Scope, id s
 }
 
 func (s *relationalTxStore) AcquireDocumentRemediationLease(ctx context.Context, scope stores.Scope, documentID string, input stores.DocumentRemediationLeaseAcquireInput) (stores.DocumentRemediationLeaseClaim, error) {
-	scope, err := normalizedStoreScope(scope)
+	params, err := normalizeRelationalDocumentRemediationLeaseAcquireParams(scope, documentID, input)
 	if err != nil {
 		return stores.DocumentRemediationLeaseClaim{}, err
 	}
-	documentID = normalizeRelationalID(documentID)
-	if documentID == "" {
-		return stores.DocumentRemediationLeaseClaim{}, relationalInvalidRecordError("document_remediation_leases", "document_id", "required")
-	}
-	workerID := strings.TrimSpace(input.WorkerID)
-	if workerID == "" {
-		return stores.DocumentRemediationLeaseClaim{}, relationalInvalidRecordError("document_remediation_leases", "worker_id", "required")
-	}
-	now := relationalTimeOrNow(input.Now)
-	ttl := normalizeRelationalDocumentRemediationLeaseTTL(input.TTL)
-	correlationID := strings.TrimSpace(input.CorrelationID)
-	_, loadErr := loadDocumentRecord(ctx, s.tx, scope, documentID)
-	if loadErr != nil {
+	if _, loadErr := loadDocumentRecord(ctx, s.tx, params.scope, params.documentID); loadErr != nil {
 		return stores.DocumentRemediationLeaseClaim{}, loadErr
 	}
-
-	record, err := loadDocumentRemediationLeaseRecord(ctx, s.tx, scope, documentID)
-	if err != nil {
-		if !relationalIsNotFoundError(err) {
-			return stores.DocumentRemediationLeaseClaim{}, err
-		}
-		acquiredAt := now
-		expiresAt := now.Add(ttl)
-		record = stores.DocumentRemediationLeaseRecord{
-			DocumentID:      documentID,
-			TenantID:        scope.TenantID,
-			OrgID:           scope.OrgID,
-			WorkerID:        workerID,
-			LeaseSeq:        1,
-			CorrelationID:   correlationID,
-			AcquiredAt:      cloneRelationalTimePtr(&acquiredAt),
-			LastHeartbeatAt: cloneRelationalTimePtr(&acquiredAt),
-			ExpiresAt:       cloneRelationalTimePtr(&expiresAt),
-			UpdatedAt:       now,
-		}
-		_, insertErr := s.tx.NewInsert().Model(&relationalDocumentRemediationLeaseModel{DocumentRemediationLeaseRecord: record}).Exec(ctx)
-		if insertErr != nil {
-			if !relationalIsUniqueConstraintError(insertErr) {
-				return stores.DocumentRemediationLeaseClaim{}, insertErr
-			}
-			record, err = loadDocumentRemediationLeaseRecord(ctx, s.tx, scope, documentID)
-			if err != nil {
-				return stores.DocumentRemediationLeaseClaim{}, err
-			}
-		} else {
-			return relationalDocumentRemediationLeaseClaimFromRecord(record), nil
-		}
-	}
-
-	if relationalDocumentRemediationLeaseIsActive(record, now) {
-		return stores.DocumentRemediationLeaseClaim{}, relationalDocumentRemediationLeaseConflictError(documentID, workerID, record.LeaseSeq+1, record.LeaseSeq)
-	}
-
-	expectedUpdatedAt := record.UpdatedAt
-	record.LeaseSeq++
-	record.WorkerID = workerID
-	record.CorrelationID = correlationID
-	record.UpdatedAt = now
-	acquiredAt := now
-	expiresAt := now.Add(ttl)
-	record.AcquiredAt = cloneRelationalTimePtr(&acquiredAt)
-	record.LastHeartbeatAt = cloneRelationalTimePtr(&acquiredAt)
-	record.ExpiresAt = cloneRelationalTimePtr(&expiresAt)
-	rows, err := updateDocumentRemediationLeaseRecord(ctx, s.tx, record, &expectedUpdatedAt)
+	record, inserted, err := s.loadOrCreateDocumentRemediationLeaseRecord(ctx, params)
 	if err != nil {
 		return stores.DocumentRemediationLeaseClaim{}, err
 	}
-	if rows == 0 {
-		current, loadErr := loadDocumentRemediationLeaseRecord(ctx, s.tx, scope, documentID)
-		if loadErr != nil {
-			return stores.DocumentRemediationLeaseClaim{}, loadErr
-		}
-		if relationalDocumentRemediationLeaseIsActive(current, now) {
-			return stores.DocumentRemediationLeaseClaim{}, relationalDocumentRemediationLeaseConflictError(documentID, workerID, record.LeaseSeq, current.LeaseSeq)
-		}
-		return stores.DocumentRemediationLeaseClaim{}, relationalVersionConflictError("document_remediation_leases", documentID, record.LeaseSeq, current.LeaseSeq)
+	if inserted {
+		return relationalDocumentRemediationLeaseClaimFromRecord(record), nil
 	}
-	return relationalDocumentRemediationLeaseClaimFromRecord(record), nil
+	return s.claimExistingDocumentRemediationLeaseRecord(ctx, params, record)
 }
 
 func (s *relationalTxStore) RenewDocumentRemediationLease(ctx context.Context, scope stores.Scope, documentID string, input stores.DocumentRemediationLeaseRenewInput) (stores.DocumentRemediationLeaseClaim, error) {
@@ -4786,207 +5045,37 @@ func (s *relationalTxStore) RenewAgreementReminderLease(ctx context.Context, sco
 }
 
 func (s *relationalTxStore) MarkAgreementReminderSent(ctx context.Context, scope stores.Scope, agreementID, recipientID string, input stores.AgreementReminderMarkInput) (stores.AgreementReminderStateRecord, error) {
-	scope, err := normalizedStoreScope(scope)
+	scope, agreementID, recipientID, err := normalizeRelationalReminderTarget(scope, agreementID, recipientID)
 	if err != nil {
 		return stores.AgreementReminderStateRecord{}, err
 	}
-	agreementID = normalizeRelationalID(agreementID)
-	recipientID = normalizeRelationalID(recipientID)
-	if agreementID == "" {
-		return stores.AgreementReminderStateRecord{}, relationalInvalidRecordError("agreement_reminder_states", "agreement_id", "required")
-	}
-	if recipientID == "" {
-		return stores.AgreementReminderStateRecord{}, relationalInvalidRecordError("agreement_reminder_states", "recipient_id", "required")
-	}
-	if input.OccurredAt.IsZero() {
-		input.OccurredAt = time.Now().UTC()
-	}
-	input.OccurredAt = input.OccurredAt.UTC()
-	input.Lease = normalizeReminderLeaseToken(input.Lease)
-	if input.LeaseSeconds <= 0 {
-		input.LeaseSeconds = relationalDefaultReminderLeaseSeconds
-	}
+	input = normalizeRelationalReminderMarkInput(input)
 	input.ReasonCode = normalizeRelationalReminderReasonCode(input.ReasonCode)
-	input.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
-	if input.NextDueAt == nil {
-		return stores.AgreementReminderStateRecord{}, relationalReminderStateInvariantError("next_due_at", "active_requires_next_due_at")
-	}
-	record, err := loadAgreementReminderStateRecord(ctx, s.tx, scope, agreementID, recipientID)
-	if err != nil {
-		return stores.AgreementReminderStateRecord{}, err
-	}
-	previousUpdatedAt := record.UpdatedAt
-	validateErr := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds)
-	if validateErr != nil {
-		return stores.AgreementReminderStateRecord{}, validateErr
-	}
-	record.Status = stores.AgreementReminderStatusActive
-	record.TerminalReason = ""
-	record.SentCount++
-	if record.FirstSentAt == nil {
-		record.FirstSentAt = cloneRelationalTimePtr(&input.OccurredAt)
-	}
-	record.LastSentAt = cloneRelationalTimePtr(&input.OccurredAt)
-	record.LastAttemptedSendAt = cloneRelationalTimePtr(&input.OccurredAt)
-	record.LastEvaluatedAt = cloneRelationalTimePtr(&input.OccurredAt)
-	record.LastReasonCode = input.ReasonCode
-	record.LastErrorCode = ""
-	record.LastErrorInternalEncrypted = ""
-	record.LastErrorInternalExpiresAt = nil
-	record.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
-	clearReminderLease(&record)
-	record.UpdatedAt = input.OccurredAt
-	rows, err := updateReminderStateRecord(ctx, s.tx, record, &previousUpdatedAt)
-	if err != nil {
-		return stores.AgreementReminderStateRecord{}, err
-	}
-	if rows == 0 {
-		current, loadErr := loadAgreementReminderStateRecord(ctx, s.tx, scope, agreementID, recipientID)
-		if loadErr != nil {
-			return stores.AgreementReminderStateRecord{}, loadErr
-		}
-		return stores.AgreementReminderStateRecord{}, relationalReminderLeaseConflictError(agreementID, recipientID, input.Lease.WorkerID, input.Lease.LeaseSeq, current.LeaseSeq)
-	}
-	return cloneRelationalReminderStateRecord(record), nil
+	return s.mutateAgreementReminderState(ctx, scope, agreementID, recipientID, input, applyRelationalReminderSent)
 }
 
 func (s *relationalTxStore) MarkAgreementReminderSkipped(ctx context.Context, scope stores.Scope, agreementID, recipientID string, input stores.AgreementReminderMarkInput) (stores.AgreementReminderStateRecord, error) {
-	scope, err := normalizedStoreScope(scope)
+	scope, agreementID, recipientID, err := normalizeRelationalReminderTarget(scope, agreementID, recipientID)
 	if err != nil {
 		return stores.AgreementReminderStateRecord{}, err
 	}
-	agreementID = normalizeRelationalID(agreementID)
-	recipientID = normalizeRelationalID(recipientID)
-	if agreementID == "" {
-		return stores.AgreementReminderStateRecord{}, relationalInvalidRecordError("agreement_reminder_states", "agreement_id", "required")
-	}
-	if recipientID == "" {
-		return stores.AgreementReminderStateRecord{}, relationalInvalidRecordError("agreement_reminder_states", "recipient_id", "required")
-	}
-	if input.OccurredAt.IsZero() {
-		input.OccurredAt = time.Now().UTC()
-	}
-	input.OccurredAt = input.OccurredAt.UTC()
-	input.Lease = normalizeReminderLeaseToken(input.Lease)
-	if input.LeaseSeconds <= 0 {
-		input.LeaseSeconds = relationalDefaultReminderLeaseSeconds
-	}
+	input = normalizeRelationalReminderMarkInput(input)
 	input.ReasonCode = normalizeRelationalReminderReasonCode(input.ReasonCode)
 	input.TerminalReason = normalizeRelationalReminderReasonCode(input.TerminalReason)
-	input.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
-	terminalReason := input.TerminalReason
-	if terminalReason == "" && input.ReasonCode == stores.AgreementReminderTerminalReasonMaxCountReached {
-		terminalReason = stores.AgreementReminderTerminalReasonMaxCountReached
-	}
-	record, err := loadAgreementReminderStateRecord(ctx, s.tx, scope, agreementID, recipientID)
-	if err != nil {
-		return stores.AgreementReminderStateRecord{}, err
-	}
-	previousUpdatedAt := record.UpdatedAt
-	validateErr := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds)
-	if validateErr != nil {
-		return stores.AgreementReminderStateRecord{}, validateErr
-	}
-	record.LastReasonCode = input.ReasonCode
-	record.LastEvaluatedAt = cloneRelationalTimePtr(&input.OccurredAt)
-	record.LastErrorCode = ""
-	record.LastErrorInternalEncrypted = ""
-	record.LastErrorInternalExpiresAt = nil
-	if terminalReason != "" {
-		record.Status = stores.AgreementReminderStatusTerminal
-		record.TerminalReason = terminalReason
-		record.NextDueAt = nil
-	} else {
-		if record.Status != stores.AgreementReminderStatusPaused {
-			record.Status = stores.AgreementReminderStatusActive
-		}
-		record.TerminalReason = ""
-		record.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
-	}
-	if record.Status == stores.AgreementReminderStatusActive && record.NextDueAt == nil {
-		return stores.AgreementReminderStateRecord{}, relationalReminderStateInvariantError("next_due_at", "active_requires_next_due_at")
-	}
-	clearReminderLease(&record)
-	record.UpdatedAt = input.OccurredAt
-	rows, err := updateReminderStateRecord(ctx, s.tx, record, &previousUpdatedAt)
-	if err != nil {
-		return stores.AgreementReminderStateRecord{}, err
-	}
-	if rows == 0 {
-		current, loadErr := loadAgreementReminderStateRecord(ctx, s.tx, scope, agreementID, recipientID)
-		if loadErr != nil {
-			return stores.AgreementReminderStateRecord{}, loadErr
-		}
-		return stores.AgreementReminderStateRecord{}, relationalReminderLeaseConflictError(agreementID, recipientID, input.Lease.WorkerID, input.Lease.LeaseSeq, current.LeaseSeq)
-	}
-	return cloneRelationalReminderStateRecord(record), nil
+	return s.mutateAgreementReminderState(ctx, scope, agreementID, recipientID, input, applyRelationalReminderSkipped)
 }
 
 func (s *relationalTxStore) MarkAgreementReminderFailed(ctx context.Context, scope stores.Scope, agreementID, recipientID string, input stores.AgreementReminderMarkInput) (stores.AgreementReminderStateRecord, error) {
-	scope, err := normalizedStoreScope(scope)
+	scope, agreementID, recipientID, err := normalizeRelationalReminderTarget(scope, agreementID, recipientID)
 	if err != nil {
 		return stores.AgreementReminderStateRecord{}, err
 	}
-	agreementID = normalizeRelationalID(agreementID)
-	recipientID = normalizeRelationalID(recipientID)
-	if agreementID == "" {
-		return stores.AgreementReminderStateRecord{}, relationalInvalidRecordError("agreement_reminder_states", "agreement_id", "required")
-	}
-	if recipientID == "" {
-		return stores.AgreementReminderStateRecord{}, relationalInvalidRecordError("agreement_reminder_states", "recipient_id", "required")
-	}
-	if input.OccurredAt.IsZero() {
-		input.OccurredAt = time.Now().UTC()
-	}
-	input.OccurredAt = input.OccurredAt.UTC()
-	input.Lease = normalizeReminderLeaseToken(input.Lease)
-	if input.LeaseSeconds <= 0 {
-		input.LeaseSeconds = relationalDefaultReminderLeaseSeconds
-	}
+	input = normalizeRelationalReminderMarkInput(input)
 	input.ReasonCode = normalizeRelationalReminderReasonCode(input.ReasonCode)
 	if input.ReasonCode == "" {
 		input.ReasonCode = "failed"
 	}
-	input.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
-	input.ErrorInternalEncrypted = strings.TrimSpace(input.ErrorInternalEncrypted)
-	input.ErrorInternalExpiresAt = cloneRelationalTimePtr(input.ErrorInternalExpiresAt)
-	record, err := loadAgreementReminderStateRecord(ctx, s.tx, scope, agreementID, recipientID)
-	if err != nil {
-		return stores.AgreementReminderStateRecord{}, err
-	}
-	previousUpdatedAt := record.UpdatedAt
-	validateErr := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds)
-	if validateErr != nil {
-		return stores.AgreementReminderStateRecord{}, validateErr
-	}
-	if record.Status != stores.AgreementReminderStatusPaused {
-		record.Status = stores.AgreementReminderStatusActive
-	}
-	record.TerminalReason = ""
-	record.LastReasonCode = input.ReasonCode
-	record.LastErrorCode = input.ReasonCode
-	record.LastErrorInternalEncrypted = input.ErrorInternalEncrypted
-	record.LastErrorInternalExpiresAt = cloneRelationalTimePtr(input.ErrorInternalExpiresAt)
-	record.LastAttemptedSendAt = cloneRelationalTimePtr(&input.OccurredAt)
-	record.LastEvaluatedAt = cloneRelationalTimePtr(&input.OccurredAt)
-	record.NextDueAt = cloneRelationalTimePtr(input.NextDueAt)
-	if record.Status == stores.AgreementReminderStatusActive && record.NextDueAt == nil {
-		return stores.AgreementReminderStateRecord{}, relationalReminderStateInvariantError("next_due_at", "active_requires_next_due_at")
-	}
-	clearReminderLease(&record)
-	record.UpdatedAt = input.OccurredAt
-	rows, err := updateReminderStateRecord(ctx, s.tx, record, &previousUpdatedAt)
-	if err != nil {
-		return stores.AgreementReminderStateRecord{}, err
-	}
-	if rows == 0 {
-		current, loadErr := loadAgreementReminderStateRecord(ctx, s.tx, scope, agreementID, recipientID)
-		if loadErr != nil {
-			return stores.AgreementReminderStateRecord{}, loadErr
-		}
-		return stores.AgreementReminderStateRecord{}, relationalReminderLeaseConflictError(agreementID, recipientID, input.Lease.WorkerID, input.Lease.LeaseSeq, current.LeaseSeq)
-	}
-	return cloneRelationalReminderStateRecord(record), nil
+	return s.mutateAgreementReminderState(ctx, scope, agreementID, recipientID, input, applyRelationalReminderFailed)
 }
 
 func (s *relationalTxStore) PauseAgreementReminder(ctx context.Context, scope stores.Scope, agreementID, recipientID string, pausedAt time.Time) (stores.AgreementReminderStateRecord, error) {
@@ -5350,40 +5439,14 @@ func (s *relationalTxStore) UpsertIntegrationCredential(ctx context.Context, sco
 	if err != nil {
 		return stores.IntegrationCredentialRecord{}, err
 	}
-	record.Provider = strings.ToLower(strings.TrimSpace(record.Provider))
-	record.UserID = normalizeRelationalID(record.UserID)
-	record.EncryptedAccessToken = strings.TrimSpace(record.EncryptedAccessToken)
-	record.EncryptedRefreshToken = strings.TrimSpace(record.EncryptedRefreshToken)
-	record.ProfileJSON = strings.TrimSpace(record.ProfileJSON)
-	if record.Provider == "" {
-		return stores.IntegrationCredentialRecord{}, relationalInvalidRecordError("integration_credentials", "provider", "required")
+	record, err = normalizeRelationalIntegrationCredentialRecord(scope, record)
+	if err != nil {
+		return stores.IntegrationCredentialRecord{}, err
 	}
-	if record.UserID == "" {
-		return stores.IntegrationCredentialRecord{}, relationalInvalidRecordError("integration_credentials", "user_id", "required")
-	}
-	if record.EncryptedAccessToken == "" {
-		return stores.IntegrationCredentialRecord{}, relationalInvalidRecordError("integration_credentials", "encrypted_access_token", "required")
-	}
-	scopesJSON := make([]string, 0, len(record.Scopes))
-	for _, scopeValue := range record.Scopes {
-		if scopeText := strings.TrimSpace(scopeValue); scopeText != "" {
-			scopesJSON = append(scopesJSON, scopeText)
-		}
-	}
-	record.Scopes = scopesJSON
-	record.ExpiresAt = cloneRelationalTimePtr(record.ExpiresAt)
-	record.LastUsedAt = cloneRelationalTimePtr(record.LastUsedAt)
-	if record.ID = normalizeRelationalID(record.ID); record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
 	now := time.Now().UTC()
 	existing, err := loadIntegrationCredentialByProviderUserRecord(ctx, s.tx, scope, record.Provider, record.UserID)
 	if err == nil {
-		record.ID = existing.ID
-		record.CreatedAt = existing.CreatedAt
-		record.UpdatedAt = now
+		applyRelationalIntegrationCredentialExisting(&record, existing, now)
 		updateErr := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID)
 		if updateErr != nil {
 			return stores.IntegrationCredentialRecord{}, updateErr
@@ -5403,9 +5466,7 @@ func (s *relationalTxStore) UpsertIntegrationCredential(ctx context.Context, sco
 		if loadErr != nil {
 			return stores.IntegrationCredentialRecord{}, loadErr
 		}
-		record.ID = existing.ID
-		record.CreatedAt = existing.CreatedAt
-		record.UpdatedAt = now
+		applyRelationalIntegrationCredentialExisting(&record, existing, now)
 		if err := updateScopedModelByID(ctx, s.tx, &record, record.TenantID, record.OrgID, record.ID); err != nil {
 			return stores.IntegrationCredentialRecord{}, err
 		}

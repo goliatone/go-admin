@@ -5,7 +5,7 @@
     "examples/esign/services/lineage_contracts.go",
     "examples/esign/handlers/register_lineage_routes.go"
   ],
-  "contract_hash": "db74debee35d2f6781001f75a021176fa1a2d439960309a46e8249136bdbff0f",
+  "contract_hash": "6a2b1d7158f0658c75d6ab7102b5d1828e2ec61675fb5af13f78d56b5591376a",
   "freeze_date": "2026-02-16",
   "release_owner": "backend-release-owner",
   "ledger_path": "examples/esign/release/V2_SOURCE_MANAGEMENT_CONTRACT_LEDGER.md",

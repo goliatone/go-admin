@@ -247,6 +247,11 @@ func authorizeSourceCommentPageValue(c router.Context, cfg registerConfig, value
 }
 
 func registerLineageDiagnosticRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
+	registerLineageDetailRoutes(adminRoutes, cfg, paths)
+	registerLineageCandidateRoutes(adminRoutes, cfg, paths)
+}
+
+func registerLineageDetailRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
 	adminRoutes.Get(paths.document, lineageDiagnosticsHandler(
 		cfg,
 		"document_id",
@@ -266,7 +271,9 @@ func registerLineageDiagnosticRoutes(adminRoutes routeRegistrar, cfg registerCon
 			return cfg.lineageDiagnostics.GetAgreementLineageDiagnostics(ctx, scope, id)
 		},
 	), requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
 
+func registerLineageCandidateRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
 	adminRoutes.Get(paths.documentCandidates, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -349,6 +356,13 @@ func registerLineageDiagnosticRoutes(adminRoutes routeRegistrar, cfg registerCon
 }
 
 func registerSourceManagementRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
+	registerSourceCollectionRoutes(adminRoutes, cfg, paths)
+	registerSourceDocumentReadModelRoutes(adminRoutes, cfg, paths)
+	registerSourceRevisionReadModelRoutes(adminRoutes, cfg, paths)
+	registerSourceSearchRoute(adminRoutes, cfg, paths)
+}
+
+func registerSourceCollectionRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
 	adminRoutes.Get(paths.sources, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -372,7 +386,14 @@ func registerSourceManagementRoutes(adminRoutes routeRegistrar, cfg registerConf
 		page = authorizeSourceListPage(c, cfg, page)
 		return c.JSON(http.StatusOK, page)
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
 
+func registerSourceDocumentReadModelRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
+	registerSourceDocumentDetailRoutes(adminRoutes, cfg, paths)
+	registerSourceDocumentRelationshipRoutes(adminRoutes, cfg, paths)
+}
+
+func registerSourceDocumentDetailRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
 	registerSourceDocumentReadModelRoute(
 		adminRoutes,
 		cfg,
@@ -427,7 +448,9 @@ func registerSourceManagementRoutes(adminRoutes routeRegistrar, cfg registerConf
 			return authorizeSourceRevisionPage(c, cfg, value.(services.SourceRevisionPage))
 		},
 	)
+}
 
+func registerSourceDocumentRelationshipRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
 	registerSourceDocumentReadModelRoute(
 		adminRoutes,
 		cfg,
@@ -479,7 +502,9 @@ func registerSourceManagementRoutes(adminRoutes routeRegistrar, cfg registerConf
 		sourceCommentPageLookup(cfg),
 		authorizeSourceCommentPageValue,
 	)
+}
 
+func registerSourceRevisionReadModelRoutes(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
 	registerSourceRevisionReadModelRoute(
 		adminRoutes,
 		cfg,
@@ -523,7 +548,9 @@ func registerSourceManagementRoutes(adminRoutes routeRegistrar, cfg registerConf
 		sourceRevisionCommentPageLookup(cfg),
 		authorizeSourceCommentPageValue,
 	)
+}
 
+func registerSourceSearchRoute(adminRoutes routeRegistrar, cfg registerConfig, paths lineageRoutePaths) {
 	adminRoutes.Get(paths.sourceSearch, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)

@@ -186,182 +186,238 @@ var activeConfig struct {
 	cfg *Config
 }
 
+func defaultAppConfig() AppConfig {
+	return AppConfig{
+		Name: "go-admin e-sign",
+		Env:  "development",
+	}
+}
+
+func defaultServerConfig() ServerConfig {
+	return ServerConfig{Address: ":8082"}
+}
+
+func defaultAdminConfig() AdminConfig {
+	return AdminConfig{
+		BasePath:      "/admin",
+		Title:         "E-Sign Admin",
+		DefaultLocale: "en",
+		PublicAPI:     true,
+		APIPrefix:     "api",
+		APIVersion:    "v1",
+		Debug: AdminDebugConfig{
+			EnableSlog: true,
+		},
+	}
+}
+
+func defaultAuthConfig() AuthConfig {
+	return AuthConfig{
+		AdminID:       "",
+		AdminEmail:    "",
+		AdminRole:     "",
+		AdminPassword: "",
+		SigningKey:    "",
+		ContextKey:    "",
+		SeedFile:      resolveDefaultAuthSeedPath(),
+	}
+}
+
+func defaultFeatureConfig() FeatureConfig {
+	return FeatureConfig{
+		ESign:       true,
+		ESignGoogle: false,
+		Activity:    true,
+	}
+}
+
+func defaultRuntimeConfig() RuntimeConfig {
+	return RuntimeConfig{
+		Profile:       "development",
+		StartupPolicy: "enforce",
+		StrictStartup: false,
+	}
+}
+
+func defaultReminderConfig() ReminderConfig {
+	return ReminderConfig{
+		Enabled:                     false,
+		SweepCron:                   "*/15 * * * *",
+		BatchSize:                   100,
+		ClaimLeaseSeconds:           120,
+		InitialDelayMinutes:         1440,
+		IntervalMinutes:             1440,
+		MaxReminders:                5,
+		JitterPercent:               15,
+		RecentViewGraceMinutes:      120,
+		ManualResendCooldownMinutes: 240,
+		RotateToken:                 true,
+		AllowOutOfOrder:             false,
+	}
+}
+
+func defaultStorageConfig() StorageConfig {
+	return StorageConfig{
+		Backend:             "fs",
+		EncryptionAlgorithm: "aws:kms",
+		KmsKeyID:            "",
+		Fs: Fs{
+			BasePath: "",
+		},
+		S3: S3{
+			AccessKeyID:     "",
+			BasePath:        "",
+			Bucket:          "",
+			DisableSsl:      false,
+			EndpointURL:     "",
+			Profile:         "",
+			Region:          "",
+			SecretAccessKey: "",
+			SessionToken:    "",
+			UsePathStyle:    false,
+		},
+	}
+}
+
+func defaultEmailConfig() EmailConfig {
+	return EmailConfig{
+		Transport: "deterministic",
+		SMTP: EmailSMTPConfig{
+			Host:            "localhost",
+			Port:            1025,
+			FromName:        "E-Sign",
+			FromAddress:     "no-reply@example.test",
+			TimeoutSeconds:  10,
+			DisableSTARTTLS: false,
+			InsecureTLS:     false,
+		},
+	}
+}
+
+func defaultSignerConfig() SignerConfig {
+	return SignerConfig{
+		UploadTTLSeconds:             300,
+		ProfileTTLDays:               90,
+		ProfilePersistDrawnSignature: true,
+		ProfileMode:                  "hybrid",
+		SavedSignaturesLimitPerType:  10,
+		SenderViewer: SenderViewerConfig{
+			PagePermissionsAll:    []string{"admin.esign.view"},
+			CommentPermissionsAll: []string{"admin.esign.edit", "admin.esign.view"},
+			AssetPermissions: SenderViewerAssetPermissionsConfig{
+				Preview:     []string{"admin.esign.view"},
+				Source:      []string{"admin.esign.view"},
+				Executed:    []string{"admin.esign.download"},
+				Certificate: []string{"admin.esign.download"},
+			},
+			ShowInProgressFieldValues: false,
+		},
+		PDF: SignerPDFConfig{
+			MaxSourceBytes:         10 * 1024 * 1024,
+			MaxPages:               200,
+			MaxObjects:             100000,
+			MaxDecompressedBytes:   64 * 1024 * 1024,
+			ParseTimeoutMS:         2500,
+			NormalizationTimeoutMS: 5000,
+			AllowEncrypted:         false,
+			AllowJavaScriptActions: false,
+			CompatibilityMode:      "balanced",
+			PreviewFallbackEnabled: false,
+			PipelineMode:           "prefer_normalized",
+			Remediation: SignerPDFRemediationConfig{
+				Enabled:          false,
+				ExecutionMode:    "inline",
+				AutoOnUpload:     false,
+				CandidateReasons: []string{"import.failed", "parse.failed"},
+				LeaseTTLMS:       int(defaultPDFRemediationLeaseTTL.Milliseconds()),
+				Command: SignerPDFRemediationCommandConfig{
+					Bin:         "gs",
+					Args:        defaultPDFRemediationCommandArgs(),
+					TimeoutMS:   int(defaultPDFRemediationCommandTimeout.Milliseconds()),
+					MaxPdfBytes: defaultPDFRemediationCommandMaxPDFBytes,
+					MaxLogBytes: defaultPDFRemediationCommandMaxLogBytes,
+				},
+			},
+		},
+	}
+}
+
+func defaultServicesConfig() ServicesConfig {
+	return ServicesConfig{
+		ModuleEnabled: true,
+		EncryptionKey: "",
+	}
+}
+
+func defaultGoogleConfig() GoogleConfig {
+	return GoogleConfig{
+		ProviderMode:          "real",
+		TokenEndpoint:         "https://oauth2.googleapis.com/token",
+		RevokeEndpoint:        "https://oauth2.googleapis.com/revoke",
+		DriveBaseURL:          "https://www.googleapis.com/drive/v3",
+		UserInfoEndpoint:      "https://www.googleapis.com/oauth2/v2/userinfo",
+		HealthEndpoint:        "https://www.googleapis.com/generate_204",
+		HTTPTimeoutSeconds:    10,
+		CredentialActiveKeyID: "v1",
+		// #nosec G101 -- deterministic development default, replaced by environment-specific keys in deployed environments.
+		CredentialActiveKey: "go-admin-esign-google",
+		CredentialKeysJSON:  "",
+	}
+}
+
+func defaultPublicConfig() PublicConfig {
+	return PublicConfig{BaseURL: "http://localhost:8082"}
+}
+
+func defaultPersistenceConfig() PersistenceConfig {
+	return PersistenceConfig{
+		SQLite: SQLiteConfig{
+			DSN: defaultSQLiteDSN,
+		},
+		Postgres: PostgresConfig{
+			DSN: "",
+		},
+		Migrations: MigrationsConfig{
+			LocalDir:  defaultMigrationsLocalDir,
+			LocalOnly: false,
+		},
+	}
+}
+
+func defaultNetworkConfig() NetworkConfig {
+	return NetworkConfig{
+		RateLimitTrustProxyHeaders: false,
+		TrustedProxyCIDRs: []string{
+			"127.0.0.1/32",
+			"::1/128",
+		},
+		RateLimit: NetworkRateLimitConfig{
+			SignerSession: RateLimitBucketConfig{MaxRequests: 60, WindowSeconds: 60},
+			SignerConsent: RateLimitBucketConfig{MaxRequests: 30, WindowSeconds: 60},
+			SignerWrite:   RateLimitBucketConfig{MaxRequests: 120, WindowSeconds: 60},
+			SignerSubmit:  RateLimitBucketConfig{MaxRequests: 12, WindowSeconds: 60},
+			AdminResend:   RateLimitBucketConfig{MaxRequests: 12, WindowSeconds: 60},
+		},
+	}
+}
+
 func Defaults() Config {
 	return Config{
-		App: AppConfig{
-			Name: "go-admin e-sign",
-			Env:  "development",
-		},
-		Server: ServerConfig{
-			Address: ":8082",
-		},
-		Admin: AdminConfig{
-			BasePath:      "/admin",
-			Title:         "E-Sign Admin",
-			DefaultLocale: "en",
-			PublicAPI:     true,
-			APIPrefix:     "api",
-			APIVersion:    "v1",
-			Debug: AdminDebugConfig{
-				EnableSlog: true,
-			},
-		},
-		Auth: AuthConfig{
-			AdminID:       "",
-			AdminEmail:    "",
-			AdminRole:     "",
-			AdminPassword: "",
-			SigningKey:    "",
-			ContextKey:    "",
-			SeedFile:      resolveDefaultAuthSeedPath(),
-		},
-		Features: FeatureConfig{
-			ESign:       true,
-			ESignGoogle: false,
-			Activity:    true,
-		},
-		Runtime: RuntimeConfig{
-			Profile:       "development",
-			StartupPolicy: "enforce",
-			StrictStartup: false,
-		},
-		Reminders: ReminderConfig{
-			Enabled:                     false,
-			SweepCron:                   "*/15 * * * *",
-			BatchSize:                   100,
-			ClaimLeaseSeconds:           120,
-			InitialDelayMinutes:         1440,
-			IntervalMinutes:             1440,
-			MaxReminders:                5,
-			JitterPercent:               15,
-			RecentViewGraceMinutes:      120,
-			ManualResendCooldownMinutes: 240,
-			RotateToken:                 true,
-			AllowOutOfOrder:             false,
-		},
-		Storage: StorageConfig{
-			Backend:             "fs",
-			EncryptionAlgorithm: "aws:kms",
-			KmsKeyID:            "",
-			Fs: Fs{
-				BasePath: "",
-			},
-			S3: S3{
-				AccessKeyID:     "",
-				BasePath:        "",
-				Bucket:          "",
-				DisableSsl:      false,
-				EndpointURL:     "",
-				Profile:         "",
-				Region:          "",
-				SecretAccessKey: "",
-				SessionToken:    "",
-				UsePathStyle:    false,
-			},
-		},
-		Email: EmailConfig{
-			Transport: "deterministic",
-			SMTP: EmailSMTPConfig{
-				Host:            "localhost",
-				Port:            1025,
-				FromName:        "E-Sign",
-				FromAddress:     "no-reply@example.test",
-				TimeoutSeconds:  10,
-				DisableSTARTTLS: false,
-				InsecureTLS:     false,
-			},
-		},
-		Signer: SignerConfig{
-			UploadTTLSeconds:             300,
-			ProfileTTLDays:               90,
-			ProfilePersistDrawnSignature: true,
-			ProfileMode:                  "hybrid",
-			SavedSignaturesLimitPerType:  10,
-			SenderViewer: SenderViewerConfig{
-				PagePermissionsAll:    []string{"admin.esign.view"},
-				CommentPermissionsAll: []string{"admin.esign.edit", "admin.esign.view"},
-				AssetPermissions: SenderViewerAssetPermissionsConfig{
-					Preview:     []string{"admin.esign.view"},
-					Source:      []string{"admin.esign.view"},
-					Executed:    []string{"admin.esign.download"},
-					Certificate: []string{"admin.esign.download"},
-				},
-				ShowInProgressFieldValues: false,
-			},
-			PDF: SignerPDFConfig{
-				MaxSourceBytes:         10 * 1024 * 1024,
-				MaxPages:               200,
-				MaxObjects:             100000,
-				MaxDecompressedBytes:   64 * 1024 * 1024,
-				ParseTimeoutMS:         2500,
-				NormalizationTimeoutMS: 5000,
-				AllowEncrypted:         false,
-				AllowJavaScriptActions: false,
-				CompatibilityMode:      "balanced",
-				PreviewFallbackEnabled: false,
-				PipelineMode:           "prefer_normalized",
-				Remediation: SignerPDFRemediationConfig{
-					Enabled:          false,
-					ExecutionMode:    "inline",
-					AutoOnUpload:     false,
-					CandidateReasons: []string{"import.failed", "parse.failed"},
-					LeaseTTLMS:       int(defaultPDFRemediationLeaseTTL.Milliseconds()),
-					Command: SignerPDFRemediationCommandConfig{
-						Bin:         "gs",
-						Args:        defaultPDFRemediationCommandArgs(),
-						TimeoutMS:   int(defaultPDFRemediationCommandTimeout.Milliseconds()),
-						MaxPdfBytes: defaultPDFRemediationCommandMaxPDFBytes,
-						MaxLogBytes: defaultPDFRemediationCommandMaxLogBytes,
-					},
-				},
-			},
-		},
-		Services: ServicesConfig{
-			ModuleEnabled: true,
-			EncryptionKey: "",
-		},
-		Google: GoogleConfig{
-			ProviderMode:          "real",
-			TokenEndpoint:         "https://oauth2.googleapis.com/token",
-			RevokeEndpoint:        "https://oauth2.googleapis.com/revoke",
-			DriveBaseURL:          "https://www.googleapis.com/drive/v3",
-			UserInfoEndpoint:      "https://www.googleapis.com/oauth2/v2/userinfo",
-			HealthEndpoint:        "https://www.googleapis.com/generate_204",
-			HTTPTimeoutSeconds:    10,
-			CredentialActiveKeyID: "v1",
-			// #nosec G101 -- deterministic development default, replaced by environment-specific keys in deployed environments.
-			CredentialActiveKey: "go-admin-esign-google",
-			CredentialKeysJSON:  "",
-		},
-		Public: PublicConfig{
-			BaseURL: "http://localhost:8082",
-		},
-		Persistence: PersistenceConfig{
-			SQLite: SQLiteConfig{
-				DSN: defaultSQLiteDSN,
-			},
-			Postgres: PostgresConfig{
-				DSN: "",
-			},
-			Migrations: MigrationsConfig{
-				LocalDir:  defaultMigrationsLocalDir,
-				LocalOnly: false,
-			},
-		},
-		Network: NetworkConfig{
-			RateLimitTrustProxyHeaders: false,
-			TrustedProxyCIDRs: []string{
-				"127.0.0.1/32",
-				"::1/128",
-			},
-			RateLimit: NetworkRateLimitConfig{
-				SignerSession: RateLimitBucketConfig{MaxRequests: 60, WindowSeconds: 60},
-				SignerConsent: RateLimitBucketConfig{MaxRequests: 30, WindowSeconds: 60},
-				SignerWrite:   RateLimitBucketConfig{MaxRequests: 120, WindowSeconds: 60},
-				SignerSubmit:  RateLimitBucketConfig{MaxRequests: 12, WindowSeconds: 60},
-				AdminResend:   RateLimitBucketConfig{MaxRequests: 12, WindowSeconds: 60},
-			},
-		},
+		App:         defaultAppConfig(),
+		Server:      defaultServerConfig(),
+		Admin:       defaultAdminConfig(),
+		Auth:        defaultAuthConfig(),
+		Features:    defaultFeatureConfig(),
+		Runtime:     defaultRuntimeConfig(),
+		Reminders:   defaultReminderConfig(),
+		Storage:     defaultStorageConfig(),
+		Email:       defaultEmailConfig(),
+		Signer:      defaultSignerConfig(),
+		Services:    defaultServicesConfig(),
+		Google:      defaultGoogleConfig(),
+		Public:      defaultPublicConfig(),
+		Persistence: defaultPersistenceConfig(),
+		Network:     defaultNetworkConfig(),
 	}
 }
 

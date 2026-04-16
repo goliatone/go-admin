@@ -28,6 +28,60 @@ func agreementCommentMessageCreatedAt(record AgreementCommentMessageRecord) time
 }
 func agreementCommentMessageID(record AgreementCommentMessageRecord) string { return record.ID }
 
+func normalizeAgreementCommentThreadTarget(scope Scope, record AgreementCommentThreadRecord) (Scope, AgreementCommentThreadRecord, error) {
+	scope, err := validateScope(scope)
+	if err != nil {
+		return Scope{}, AgreementCommentThreadRecord{}, err
+	}
+	record.AgreementID = normalizeID(record.AgreementID)
+	record.ReviewID = normalizeID(record.ReviewID)
+	if record.AgreementID == "" {
+		return Scope{}, AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "agreement_id", "required")
+	}
+	if record.ReviewID == "" {
+		return Scope{}, AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "review_id", "required")
+	}
+	return scope, record, nil
+}
+
+func prepareAgreementCommentThreadRecord(scope Scope, agreement AgreementRecord, record AgreementCommentThreadRecord) (AgreementCommentThreadRecord, error) {
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.DocumentID = normalizeID(record.DocumentID)
+	if record.DocumentID == "" {
+		record.DocumentID = agreement.DocumentID
+	}
+	record.Visibility = NormalizeAgreementCommentVisibility(record.Visibility)
+	if record.Visibility == "" {
+		return AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "visibility", "unsupported visibility")
+	}
+	record.AnchorType = NormalizeAgreementCommentAnchorType(record.AnchorType)
+	if record.AnchorType == "" {
+		return AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "anchor_type", "unsupported anchor type")
+	}
+	record.FieldID = normalizeID(record.FieldID)
+	record.Status = NormalizeAgreementCommentThreadStatus(record.Status)
+	if record.Status == "" {
+		return AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "status", "unsupported status")
+	}
+	record.CreatedByType = strings.TrimSpace(record.CreatedByType)
+	record.CreatedByID = normalizeID(record.CreatedByID)
+	record.ResolvedByType = strings.TrimSpace(record.ResolvedByType)
+	record.ResolvedByID = normalizeID(record.ResolvedByID)
+	record.ResolvedAt = cloneTimePtr(record.ResolvedAt)
+	record.LastActivityAt = cloneTimePtr(record.LastActivityAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	if record.LastActivityAt == nil {
+		record.LastActivityAt = cloneTimePtr(&record.UpdatedAt)
+	}
+	return record, nil
+}
+
 func (s *InMemoryStore) CreateAgreementReview(ctx context.Context, scope Scope, record AgreementReviewRecord) (AgreementReviewRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -311,17 +365,9 @@ func (s *InMemoryStore) UpdateAgreementReviewParticipant(ctx context.Context, sc
 
 func (s *InMemoryStore) CreateAgreementCommentThread(ctx context.Context, scope Scope, record AgreementCommentThreadRecord) (AgreementCommentThreadRecord, error) {
 	_ = ctx
-	scope, err := validateScope(scope)
+	scope, record, err := normalizeAgreementCommentThreadTarget(scope, record)
 	if err != nil {
 		return AgreementCommentThreadRecord{}, err
-	}
-	record.AgreementID = normalizeID(record.AgreementID)
-	record.ReviewID = normalizeID(record.ReviewID)
-	if record.AgreementID == "" {
-		return AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "agreement_id", "required")
-	}
-	if record.ReviewID == "" {
-		return AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "review_id", "required")
 	}
 
 	s.mu.Lock()
@@ -335,39 +381,9 @@ func (s *InMemoryStore) CreateAgreementCommentThread(ctx context.Context, scope 
 	if !ok || review.AgreementID != record.AgreementID {
 		return AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "review_id", "review must belong to agreement")
 	}
-	if normalizeID(record.ID) == "" {
-		record.ID = uuid.NewString()
-	}
-	record.ID = normalizeID(record.ID)
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record.DocumentID = normalizeID(record.DocumentID)
-	if record.DocumentID == "" {
-		record.DocumentID = agreement.DocumentID
-	}
-	record.Visibility = NormalizeAgreementCommentVisibility(record.Visibility)
-	if record.Visibility == "" {
-		return AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "visibility", "unsupported visibility")
-	}
-	record.AnchorType = NormalizeAgreementCommentAnchorType(record.AnchorType)
-	if record.AnchorType == "" {
-		return AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "anchor_type", "unsupported anchor type")
-	}
-	record.FieldID = normalizeID(record.FieldID)
-	record.Status = NormalizeAgreementCommentThreadStatus(record.Status)
-	if record.Status == "" {
-		return AgreementCommentThreadRecord{}, invalidRecordError("agreement_comment_threads", "status", "unsupported status")
-	}
-	record.CreatedByType = strings.TrimSpace(record.CreatedByType)
-	record.CreatedByID = normalizeID(record.CreatedByID)
-	record.ResolvedByType = strings.TrimSpace(record.ResolvedByType)
-	record.ResolvedByID = normalizeID(record.ResolvedByID)
-	record.ResolvedAt = cloneTimePtr(record.ResolvedAt)
-	record.LastActivityAt = cloneTimePtr(record.LastActivityAt)
-	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
-	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
-	if record.LastActivityAt == nil {
-		record.LastActivityAt = cloneTimePtr(&record.UpdatedAt)
+	record, err = prepareAgreementCommentThreadRecord(scope, agreement, record)
+	if err != nil {
+		return AgreementCommentThreadRecord{}, err
 	}
 	s.agreementCommentThreads[scopedKey(scope, record.ID)] = record
 	return record, nil

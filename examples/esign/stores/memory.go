@@ -1000,58 +1000,10 @@ func (s *InMemoryStore) Create(ctx context.Context, scope Scope, record Document
 	if err != nil {
 		return DocumentRecord{}, err
 	}
-	if strings.TrimSpace(record.SourceObjectKey) == "" {
-		return DocumentRecord{}, invalidRecordError("documents", "source_object_key", "required")
+	record, err = normalizeDocumentCreateRecord(scope, record)
+	if err != nil {
+		return DocumentRecord{}, err
 	}
-	record.SourceOriginalName = strings.TrimSpace(record.SourceOriginalName)
-	if record.SourceOriginalName == "" {
-		return DocumentRecord{}, invalidRecordError("documents", "source_original_name", "required")
-	}
-	record.NormalizedObjectKey = strings.TrimSpace(record.NormalizedObjectKey)
-	if strings.TrimSpace(record.SourceSHA256) == "" {
-		return DocumentRecord{}, invalidRecordError("documents", "source_sha256", "required")
-	}
-	if normalizeID(record.ID) == "" {
-		record.ID = uuid.NewString()
-	}
-	record.ID = normalizeID(record.ID)
-	record.SourceType = strings.TrimSpace(record.SourceType)
-	if record.SourceType == "" {
-		record.SourceType = SourceTypeUpload
-	}
-	if record.SourceType != SourceTypeUpload && record.SourceType != SourceTypeGoogleDrive {
-		return DocumentRecord{}, invalidRecordError("documents", "source_type", "unsupported source type")
-	}
-	record.SourceGoogleFileID = strings.TrimSpace(record.SourceGoogleFileID)
-	record.SourceGoogleDocURL = strings.TrimSpace(record.SourceGoogleDocURL)
-	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
-	record.SourceModifiedTime = cloneTimePtr(record.SourceModifiedTime)
-	record.SourceExportedAt = cloneTimePtr(record.SourceExportedAt)
-	record.SourceExportedByUserID = normalizeID(record.SourceExportedByUserID)
-	record.SourceMimeType = strings.TrimSpace(record.SourceMimeType)
-	record.SourceIngestionMode = strings.TrimSpace(record.SourceIngestionMode)
-	record.PDFCompatibilityTier = strings.TrimSpace(record.PDFCompatibilityTier)
-	record.PDFCompatibilityReason = strings.TrimSpace(record.PDFCompatibilityReason)
-	record.PDFNormalizationStatus = strings.TrimSpace(record.PDFNormalizationStatus)
-	record.PDFAnalyzedAt = cloneTimePtr(record.PDFAnalyzedAt)
-	record.PDFPolicyVersion = strings.TrimSpace(record.PDFPolicyVersion)
-	record.RemediationStatus = strings.TrimSpace(record.RemediationStatus)
-	record.RemediationActorID = normalizeID(record.RemediationActorID)
-	record.RemediationCommandID = strings.TrimSpace(record.RemediationCommandID)
-	record.RemediationDispatchID = strings.TrimSpace(record.RemediationDispatchID)
-	record.RemediationExecMode = strings.TrimSpace(record.RemediationExecMode)
-	record.RemediationCorrelation = strings.TrimSpace(record.RemediationCorrelation)
-	record.RemediationFailure = strings.TrimSpace(record.RemediationFailure)
-	record.RemediationOriginalKey = strings.TrimSpace(record.RemediationOriginalKey)
-	record.RemediationOutputKey = strings.TrimSpace(record.RemediationOutputKey)
-	record.RemediationRequestedAt = cloneTimePtr(record.RemediationRequestedAt)
-	record.RemediationStartedAt = cloneTimePtr(record.RemediationStartedAt)
-	record.RemediationCompletedAt = cloneTimePtr(record.RemediationCompletedAt)
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
-	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
-
 	key := scopedKey(scope, record.ID)
 
 	s.mu.Lock()
@@ -6212,6 +6164,239 @@ func reminderLeaseTokenMatchesRecord(record AgreementReminderStateRecord, token 
 	return current.WorkerID == token.WorkerID && current.SweepID == token.SweepID && current.LeaseSeq == token.LeaseSeq
 }
 
+func normalizeAgreementReminderTarget(scope Scope, agreementID, recipientID string) (Scope, string, string, error) {
+	scope, err := validateScope(scope)
+	if err != nil {
+		return Scope{}, "", "", err
+	}
+	agreementID = normalizeID(agreementID)
+	recipientID = normalizeID(recipientID)
+	if agreementID == "" {
+		return Scope{}, "", "", invalidRecordError("agreement_reminder_states", "agreement_id", "required")
+	}
+	if recipientID == "" {
+		return Scope{}, "", "", invalidRecordError("agreement_reminder_states", "recipient_id", "required")
+	}
+	return scope, agreementID, recipientID, nil
+}
+
+func normalizeAgreementReminderMarkInput(input AgreementReminderMarkInput) AgreementReminderMarkInput {
+	if input.OccurredAt.IsZero() {
+		input.OccurredAt = time.Now().UTC()
+	}
+	input.OccurredAt = input.OccurredAt.UTC()
+	input.Lease = normalizeReminderLeaseToken(input.Lease)
+	if input.LeaseSeconds <= 0 {
+		input.LeaseSeconds = defaultReminderLeaseSeconds
+	}
+	input.NextDueAt = cloneTimePtr(input.NextDueAt)
+	input.ErrorInternalEncrypted = strings.TrimSpace(input.ErrorInternalEncrypted)
+	input.ErrorInternalExpiresAt = cloneTimePtr(input.ErrorInternalExpiresAt)
+	return input
+}
+
+func (s *InMemoryStore) mutateAgreementReminderState(
+	scope Scope,
+	agreementID, recipientID string,
+	input AgreementReminderMarkInput,
+	mutate func(*AgreementReminderStateRecord, AgreementReminderMarkInput) error,
+) (AgreementReminderStateRecord, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := agreementReminderStateScopedKey(scope, agreementID, recipientID)
+	record, ok := s.agreementReminderStates[key]
+	if !ok {
+		return AgreementReminderStateRecord{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
+	}
+	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	if err := mutate(&record, input); err != nil {
+		return AgreementReminderStateRecord{}, err
+	}
+	clearReminderLease(&record)
+	record.UpdatedAt = input.OccurredAt
+	record = cloneAgreementReminderStateRecord(record)
+	s.agreementReminderStates[key] = record
+	return cloneAgreementReminderStateRecord(record), nil
+}
+
+func applyAgreementReminderSent(record *AgreementReminderStateRecord, input AgreementReminderMarkInput) error {
+	record.Status = AgreementReminderStatusActive
+	record.TerminalReason = ""
+	record.SentCount++
+	if record.FirstSentAt == nil {
+		record.FirstSentAt = cloneTimePtr(&input.OccurredAt)
+	}
+	record.LastSentAt = cloneTimePtr(&input.OccurredAt)
+	record.LastAttemptedSendAt = cloneTimePtr(&input.OccurredAt)
+	record.LastEvaluatedAt = cloneTimePtr(&input.OccurredAt)
+	record.LastReasonCode = input.ReasonCode
+	record.LastErrorCode = ""
+	record.LastErrorInternalEncrypted = ""
+	record.LastErrorInternalExpiresAt = nil
+	record.NextDueAt = cloneTimePtr(input.NextDueAt)
+	if record.NextDueAt == nil {
+		return reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
+	return nil
+}
+
+func applyAgreementReminderSkipped(record *AgreementReminderStateRecord, input AgreementReminderMarkInput) error {
+	terminalReason := input.TerminalReason
+	if terminalReason == "" && input.ReasonCode == AgreementReminderTerminalReasonMaxCountReached {
+		terminalReason = AgreementReminderTerminalReasonMaxCountReached
+	}
+	record.LastReasonCode = input.ReasonCode
+	record.LastEvaluatedAt = cloneTimePtr(&input.OccurredAt)
+	record.LastErrorCode = ""
+	record.LastErrorInternalEncrypted = ""
+	record.LastErrorInternalExpiresAt = nil
+	if terminalReason != "" {
+		record.Status = AgreementReminderStatusTerminal
+		record.TerminalReason = terminalReason
+		record.NextDueAt = nil
+		return nil
+	}
+	if record.Status != AgreementReminderStatusPaused {
+		record.Status = AgreementReminderStatusActive
+	}
+	record.TerminalReason = ""
+	record.NextDueAt = cloneTimePtr(input.NextDueAt)
+	if record.Status == AgreementReminderStatusActive && record.NextDueAt == nil {
+		return reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
+	return nil
+}
+
+func applyAgreementReminderFailed(record *AgreementReminderStateRecord, input AgreementReminderMarkInput) error {
+	if record.Status != AgreementReminderStatusPaused {
+		record.Status = AgreementReminderStatusActive
+	}
+	record.TerminalReason = ""
+	record.LastReasonCode = input.ReasonCode
+	record.LastErrorCode = input.ReasonCode
+	record.LastErrorInternalEncrypted = input.ErrorInternalEncrypted
+	record.LastErrorInternalExpiresAt = cloneTimePtr(input.ErrorInternalExpiresAt)
+	record.LastAttemptedSendAt = cloneTimePtr(&input.OccurredAt)
+	record.LastEvaluatedAt = cloneTimePtr(&input.OccurredAt)
+	record.NextDueAt = cloneTimePtr(input.NextDueAt)
+	if record.Status == AgreementReminderStatusActive && record.NextDueAt == nil {
+		return reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
+	}
+	return nil
+}
+
+func trimIntegrationCredentialScopes(scopes []string) []string {
+	out := make([]string, 0, len(scopes))
+	for _, scopeValue := range scopes {
+		if scopeText := strings.TrimSpace(scopeValue); scopeText != "" {
+			out = append(out, scopeText)
+		}
+	}
+	return out
+}
+
+func normalizeIntegrationCredentialRecord(scope Scope, record IntegrationCredentialRecord) (IntegrationCredentialRecord, error) {
+	record.Provider = strings.ToLower(strings.TrimSpace(record.Provider))
+	record.UserID = normalizeID(record.UserID)
+	record.EncryptedAccessToken = strings.TrimSpace(record.EncryptedAccessToken)
+	record.EncryptedRefreshToken = strings.TrimSpace(record.EncryptedRefreshToken)
+	if record.Provider == "" {
+		return IntegrationCredentialRecord{}, invalidRecordError("integration_credentials", "provider", "required")
+	}
+	if record.UserID == "" {
+		return IntegrationCredentialRecord{}, invalidRecordError("integration_credentials", "user_id", "required")
+	}
+	if record.EncryptedAccessToken == "" {
+		return IntegrationCredentialRecord{}, invalidRecordError("integration_credentials", "encrypted_access_token", "required")
+	}
+	record.Scopes = trimIntegrationCredentialScopes(record.Scopes)
+	record.ExpiresAt = cloneTimePtr(record.ExpiresAt)
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	return record, nil
+}
+
+func applyExistingIntegrationCredentialRecord(record *IntegrationCredentialRecord, existing IntegrationCredentialRecord, now time.Time) {
+	record.ID = existing.ID
+	record.CreatedAt = existing.CreatedAt
+	record.UpdatedAt = now
+}
+
+func normalizeDocumentCreateRecord(scope Scope, record DocumentRecord) (DocumentRecord, error) {
+	if strings.TrimSpace(record.SourceObjectKey) == "" {
+		return DocumentRecord{}, invalidRecordError("documents", "source_object_key", "required")
+	}
+	record, err := normalizeDocumentCreateSource(record)
+	if err != nil {
+		return DocumentRecord{}, err
+	}
+	record = normalizeDocumentCreateMetadata(record)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record, nil
+}
+
+func normalizeDocumentCreateSource(record DocumentRecord) (DocumentRecord, error) {
+	record.SourceOriginalName = strings.TrimSpace(record.SourceOriginalName)
+	if record.SourceOriginalName == "" {
+		return DocumentRecord{}, invalidRecordError("documents", "source_original_name", "required")
+	}
+	record.NormalizedObjectKey = strings.TrimSpace(record.NormalizedObjectKey)
+	if strings.TrimSpace(record.SourceSHA256) == "" {
+		return DocumentRecord{}, invalidRecordError("documents", "source_sha256", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.SourceType = strings.TrimSpace(record.SourceType)
+	if record.SourceType == "" {
+		record.SourceType = SourceTypeUpload
+	}
+	if record.SourceType != SourceTypeUpload && record.SourceType != SourceTypeGoogleDrive {
+		return DocumentRecord{}, invalidRecordError("documents", "source_type", "unsupported source type")
+	}
+	record.SourceGoogleFileID = strings.TrimSpace(record.SourceGoogleFileID)
+	record.SourceGoogleDocURL = strings.TrimSpace(record.SourceGoogleDocURL)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
+	record.SourceModifiedTime = cloneTimePtr(record.SourceModifiedTime)
+	record.SourceExportedAt = cloneTimePtr(record.SourceExportedAt)
+	record.SourceExportedByUserID = normalizeID(record.SourceExportedByUserID)
+	record.SourceMimeType = strings.TrimSpace(record.SourceMimeType)
+	record.SourceIngestionMode = strings.TrimSpace(record.SourceIngestionMode)
+	return record, nil
+}
+
+func normalizeDocumentCreateMetadata(record DocumentRecord) DocumentRecord {
+	record.PDFCompatibilityTier = strings.TrimSpace(record.PDFCompatibilityTier)
+	record.PDFCompatibilityReason = strings.TrimSpace(record.PDFCompatibilityReason)
+	record.PDFNormalizationStatus = strings.TrimSpace(record.PDFNormalizationStatus)
+	record.PDFAnalyzedAt = cloneTimePtr(record.PDFAnalyzedAt)
+	record.PDFPolicyVersion = strings.TrimSpace(record.PDFPolicyVersion)
+	record.RemediationStatus = strings.TrimSpace(record.RemediationStatus)
+	record.RemediationActorID = normalizeID(record.RemediationActorID)
+	record.RemediationCommandID = strings.TrimSpace(record.RemediationCommandID)
+	record.RemediationDispatchID = strings.TrimSpace(record.RemediationDispatchID)
+	record.RemediationExecMode = strings.TrimSpace(record.RemediationExecMode)
+	record.RemediationCorrelation = strings.TrimSpace(record.RemediationCorrelation)
+	record.RemediationFailure = strings.TrimSpace(record.RemediationFailure)
+	record.RemediationOriginalKey = strings.TrimSpace(record.RemediationOriginalKey)
+	record.RemediationOutputKey = strings.TrimSpace(record.RemediationOutputKey)
+	record.RemediationRequestedAt = cloneTimePtr(record.RemediationRequestedAt)
+	record.RemediationStartedAt = cloneTimePtr(record.RemediationStartedAt)
+	record.RemediationCompletedAt = cloneTimePtr(record.RemediationCompletedAt)
+	return record
+}
+
 func (s *InMemoryStore) UpsertAgreementReminderState(ctx context.Context, scope Scope, record AgreementReminderStateRecord) (AgreementReminderStateRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -6464,188 +6649,39 @@ func (s *InMemoryStore) RenewAgreementReminderLease(
 
 func (s *InMemoryStore) MarkAgreementReminderSent(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error) {
 	_ = ctx
-	scope, err := validateScope(scope)
+	scope, agreementID, recipientID, err := normalizeAgreementReminderTarget(scope, agreementID, recipientID)
 	if err != nil {
 		return AgreementReminderStateRecord{}, err
 	}
-	agreementID = normalizeID(agreementID)
-	recipientID = normalizeID(recipientID)
-	if agreementID == "" {
-		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "agreement_id", "required")
-	}
-	if recipientID == "" {
-		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "recipient_id", "required")
-	}
-	if input.OccurredAt.IsZero() {
-		input.OccurredAt = time.Now().UTC()
-	}
-	input.OccurredAt = input.OccurredAt.UTC()
-	input.Lease = normalizeReminderLeaseToken(input.Lease)
-	if input.LeaseSeconds <= 0 {
-		input.LeaseSeconds = defaultReminderLeaseSeconds
-	}
+	input = normalizeAgreementReminderMarkInput(input)
 	input.ReasonCode = normalizeReminderReasonCode(input.ReasonCode)
-	input.NextDueAt = cloneTimePtr(input.NextDueAt)
-	if input.NextDueAt == nil {
-		return AgreementReminderStateRecord{}, reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key := agreementReminderStateScopedKey(scope, agreementID, recipientID)
-	record, ok := s.agreementReminderStates[key]
-	if !ok {
-		return AgreementReminderStateRecord{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
-	}
-	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
-		return AgreementReminderStateRecord{}, err
-	}
-	record.Status = AgreementReminderStatusActive
-	record.TerminalReason = ""
-	record.SentCount++
-	if record.FirstSentAt == nil {
-		record.FirstSentAt = cloneTimePtr(&input.OccurredAt)
-	}
-	record.LastSentAt = cloneTimePtr(&input.OccurredAt)
-	record.LastAttemptedSendAt = cloneTimePtr(&input.OccurredAt)
-	record.LastEvaluatedAt = cloneTimePtr(&input.OccurredAt)
-	record.LastReasonCode = input.ReasonCode
-	record.LastErrorCode = ""
-	record.LastErrorInternalEncrypted = ""
-	record.LastErrorInternalExpiresAt = nil
-	record.NextDueAt = cloneTimePtr(input.NextDueAt)
-	clearReminderLease(&record)
-	record.UpdatedAt = input.OccurredAt
-	record = cloneAgreementReminderStateRecord(record)
-	s.agreementReminderStates[key] = record
-	return cloneAgreementReminderStateRecord(record), nil
+	return s.mutateAgreementReminderState(scope, agreementID, recipientID, input, applyAgreementReminderSent)
 }
 
 func (s *InMemoryStore) MarkAgreementReminderSkipped(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error) {
 	_ = ctx
-	scope, err := validateScope(scope)
+	scope, agreementID, recipientID, err := normalizeAgreementReminderTarget(scope, agreementID, recipientID)
 	if err != nil {
 		return AgreementReminderStateRecord{}, err
 	}
-	agreementID = normalizeID(agreementID)
-	recipientID = normalizeID(recipientID)
-	if agreementID == "" {
-		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "agreement_id", "required")
-	}
-	if recipientID == "" {
-		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "recipient_id", "required")
-	}
-	if input.OccurredAt.IsZero() {
-		input.OccurredAt = time.Now().UTC()
-	}
-	input.OccurredAt = input.OccurredAt.UTC()
-	input.Lease = normalizeReminderLeaseToken(input.Lease)
-	if input.LeaseSeconds <= 0 {
-		input.LeaseSeconds = defaultReminderLeaseSeconds
-	}
+	input = normalizeAgreementReminderMarkInput(input)
 	input.ReasonCode = normalizeReminderReasonCode(input.ReasonCode)
 	input.TerminalReason = normalizeReminderReasonCode(input.TerminalReason)
-	input.NextDueAt = cloneTimePtr(input.NextDueAt)
-	terminalReason := input.TerminalReason
-	if terminalReason == "" && input.ReasonCode == AgreementReminderTerminalReasonMaxCountReached {
-		terminalReason = AgreementReminderTerminalReasonMaxCountReached
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key := agreementReminderStateScopedKey(scope, agreementID, recipientID)
-	record, ok := s.agreementReminderStates[key]
-	if !ok {
-		return AgreementReminderStateRecord{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
-	}
-	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
-		return AgreementReminderStateRecord{}, err
-	}
-	record.LastReasonCode = input.ReasonCode
-	record.LastEvaluatedAt = cloneTimePtr(&input.OccurredAt)
-	record.LastErrorCode = ""
-	record.LastErrorInternalEncrypted = ""
-	record.LastErrorInternalExpiresAt = nil
-	if terminalReason != "" {
-		record.Status = AgreementReminderStatusTerminal
-		record.TerminalReason = terminalReason
-		record.NextDueAt = nil
-	} else {
-		if record.Status != AgreementReminderStatusPaused {
-			record.Status = AgreementReminderStatusActive
-		}
-		record.TerminalReason = ""
-		record.NextDueAt = cloneTimePtr(input.NextDueAt)
-	}
-	if record.Status == AgreementReminderStatusActive && record.NextDueAt == nil {
-		return AgreementReminderStateRecord{}, reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
-	}
-	clearReminderLease(&record)
-	record.UpdatedAt = input.OccurredAt
-	record = cloneAgreementReminderStateRecord(record)
-	s.agreementReminderStates[key] = record
-	return cloneAgreementReminderStateRecord(record), nil
+	return s.mutateAgreementReminderState(scope, agreementID, recipientID, input, applyAgreementReminderSkipped)
 }
 
 func (s *InMemoryStore) MarkAgreementReminderFailed(ctx context.Context, scope Scope, agreementID, recipientID string, input AgreementReminderMarkInput) (AgreementReminderStateRecord, error) {
 	_ = ctx
-	scope, err := validateScope(scope)
+	scope, agreementID, recipientID, err := normalizeAgreementReminderTarget(scope, agreementID, recipientID)
 	if err != nil {
 		return AgreementReminderStateRecord{}, err
 	}
-	agreementID = normalizeID(agreementID)
-	recipientID = normalizeID(recipientID)
-	if agreementID == "" {
-		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "agreement_id", "required")
-	}
-	if recipientID == "" {
-		return AgreementReminderStateRecord{}, invalidRecordError("agreement_reminder_states", "recipient_id", "required")
-	}
-	if input.OccurredAt.IsZero() {
-		input.OccurredAt = time.Now().UTC()
-	}
-	input.OccurredAt = input.OccurredAt.UTC()
-	input.Lease = normalizeReminderLeaseToken(input.Lease)
-	if input.LeaseSeconds <= 0 {
-		input.LeaseSeconds = defaultReminderLeaseSeconds
-	}
+	input = normalizeAgreementReminderMarkInput(input)
 	input.ReasonCode = normalizeReminderReasonCode(input.ReasonCode)
 	if input.ReasonCode == "" {
 		input.ReasonCode = "failed"
 	}
-	input.NextDueAt = cloneTimePtr(input.NextDueAt)
-	input.ErrorInternalEncrypted = strings.TrimSpace(input.ErrorInternalEncrypted)
-	input.ErrorInternalExpiresAt = cloneTimePtr(input.ErrorInternalExpiresAt)
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key := agreementReminderStateScopedKey(scope, agreementID, recipientID)
-	record, ok := s.agreementReminderStates[key]
-	if !ok {
-		return AgreementReminderStateRecord{}, notFoundError("agreement_reminder_states", agreementID+"|"+recipientID)
-	}
-	if err := validateReminderLease(record, input.Lease, input.OccurredAt, input.LeaseSeconds); err != nil {
-		return AgreementReminderStateRecord{}, err
-	}
-	if record.Status != AgreementReminderStatusPaused {
-		record.Status = AgreementReminderStatusActive
-	}
-	record.TerminalReason = ""
-	record.LastReasonCode = input.ReasonCode
-	record.LastErrorCode = input.ReasonCode
-	record.LastErrorInternalEncrypted = input.ErrorInternalEncrypted
-	record.LastErrorInternalExpiresAt = cloneTimePtr(input.ErrorInternalExpiresAt)
-	record.LastAttemptedSendAt = cloneTimePtr(&input.OccurredAt)
-	record.LastEvaluatedAt = cloneTimePtr(&input.OccurredAt)
-	record.NextDueAt = cloneTimePtr(input.NextDueAt)
-	if record.Status == AgreementReminderStatusActive && record.NextDueAt == nil {
-		return AgreementReminderStateRecord{}, reminderStateInvariantError("next_due_at", "active_requires_next_due_at")
-	}
-	clearReminderLease(&record)
-	record.UpdatedAt = input.OccurredAt
-	record = cloneAgreementReminderStateRecord(record)
-	s.agreementReminderStates[key] = record
-	return cloneAgreementReminderStateRecord(record), nil
+	return s.mutateAgreementReminderState(scope, agreementID, recipientID, input, applyAgreementReminderFailed)
 }
 
 func (s *InMemoryStore) PauseAgreementReminder(ctx context.Context, scope Scope, agreementID, recipientID string, pausedAt time.Time) (AgreementReminderStateRecord, error) {
@@ -7050,33 +7086,10 @@ func (s *InMemoryStore) UpsertIntegrationCredential(ctx context.Context, scope S
 	if err != nil {
 		return IntegrationCredentialRecord{}, err
 	}
-	record.Provider = strings.ToLower(strings.TrimSpace(record.Provider))
-	record.UserID = normalizeID(record.UserID)
-	record.EncryptedAccessToken = strings.TrimSpace(record.EncryptedAccessToken)
-	record.EncryptedRefreshToken = strings.TrimSpace(record.EncryptedRefreshToken)
-	if record.Provider == "" {
-		return IntegrationCredentialRecord{}, invalidRecordError("integration_credentials", "provider", "required")
+	record, err = normalizeIntegrationCredentialRecord(scope, record)
+	if err != nil {
+		return IntegrationCredentialRecord{}, err
 	}
-	if record.UserID == "" {
-		return IntegrationCredentialRecord{}, invalidRecordError("integration_credentials", "user_id", "required")
-	}
-	if record.EncryptedAccessToken == "" {
-		return IntegrationCredentialRecord{}, invalidRecordError("integration_credentials", "encrypted_access_token", "required")
-	}
-	scopes := make([]string, 0, len(record.Scopes))
-	for _, scopeValue := range record.Scopes {
-		if scopeText := strings.TrimSpace(scopeValue); scopeText != "" {
-			scopes = append(scopes, scopeText)
-		}
-	}
-	record.Scopes = scopes
-	record.ExpiresAt = cloneTimePtr(record.ExpiresAt)
-	if normalizeID(record.ID) == "" {
-		record.ID = uuid.NewString()
-	}
-	record.ID = normalizeID(record.ID)
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
 
 	now := time.Now().UTC()
 	indexKey := integrationCredentialIndexKey(scope, record.Provider, record.UserID)
@@ -7089,9 +7102,7 @@ func (s *InMemoryStore) UpsertIntegrationCredential(ctx context.Context, scope S
 		if !ok {
 			return IntegrationCredentialRecord{}, notFoundError("integration_credentials", existingID)
 		}
-		record.ID = existing.ID
-		record.CreatedAt = existing.CreatedAt
-		record.UpdatedAt = now
+		applyExistingIntegrationCredentialRecord(&record, existing, now)
 		record = cloneIntegrationCredentialRecord(record)
 		s.integrationCredentials[scopedKey(scope, record.ID)] = record
 		s.integrationCredentialIndex[indexKey] = record.ID

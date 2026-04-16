@@ -9,6 +9,89 @@ import (
 	"github.com/google/uuid"
 )
 
+func normalizeRelationalAgreementCommentThreadTarget(scope stores.Scope, record stores.AgreementCommentThreadRecord) (stores.Scope, stores.AgreementCommentThreadRecord, error) {
+	scope, err := normalizedStoreScope(scope)
+	if err != nil {
+		return stores.Scope{}, stores.AgreementCommentThreadRecord{}, err
+	}
+	record.AgreementID = normalizeRelationalID(record.AgreementID)
+	record.ReviewID = normalizeRelationalID(record.ReviewID)
+	if record.AgreementID == "" {
+		return stores.Scope{}, stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "agreement_id", "required")
+	}
+	if record.ReviewID == "" {
+		return stores.Scope{}, stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "review_id", "required")
+	}
+	return scope, record, nil
+}
+
+func loadRelationalAgreementCommentThreadReview(
+	ctx context.Context,
+	txStore *relationalTxStore,
+	scope stores.Scope,
+	record stores.AgreementCommentThreadRecord,
+) (stores.AgreementRecord, stores.AgreementReviewRecord, error) {
+	agreement, err := loadAgreementRecord(ctx, txStore.tx, scope, record.AgreementID)
+	if err != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, err
+	}
+	review := stores.AgreementReviewRecord{}
+	if err := txStore.tx.NewSelect().
+		Model(&review).
+		Where("tenant_id = ?", scope.TenantID).
+		Where("org_id = ?", scope.OrgID).
+		Where("id = ?", record.ReviewID).
+		Scan(ctx); err != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, mapSQLNotFound(err, "agreement_reviews", record.ReviewID)
+	}
+	if review.AgreementID != record.AgreementID {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, relationalInvalidRecordError("agreement_comment_threads", "review_id", "review must belong to agreement")
+	}
+	return agreement, review, nil
+}
+
+func prepareRelationalAgreementCommentThreadRecord(
+	scope stores.Scope,
+	agreement stores.AgreementRecord,
+	record stores.AgreementCommentThreadRecord,
+) (stores.AgreementCommentThreadRecord, error) {
+	record.ID = normalizeRelationalID(record.ID)
+	if record.ID == "" {
+		record.ID = uuid.NewString()
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.DocumentID = normalizeRelationalID(record.DocumentID)
+	if record.DocumentID == "" {
+		record.DocumentID = agreement.DocumentID
+	}
+	record.Visibility = stores.NormalizeAgreementCommentVisibility(record.Visibility)
+	if record.Visibility == "" {
+		return stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "visibility", "unsupported visibility")
+	}
+	record.AnchorType = stores.NormalizeAgreementCommentAnchorType(record.AnchorType)
+	if record.AnchorType == "" {
+		return stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "anchor_type", "unsupported anchor type")
+	}
+	record.FieldID = normalizeRelationalID(record.FieldID)
+	record.Status = stores.NormalizeAgreementCommentThreadStatus(record.Status)
+	if record.Status == "" {
+		return stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "status", "unsupported status")
+	}
+	record.CreatedByType = strings.TrimSpace(record.CreatedByType)
+	record.CreatedByID = normalizeRelationalID(record.CreatedByID)
+	record.ResolvedByType = strings.TrimSpace(record.ResolvedByType)
+	record.ResolvedByID = normalizeRelationalID(record.ResolvedByID)
+	record.ResolvedAt = cloneRelationalTimePtr(record.ResolvedAt)
+	record.LastActivityAt = cloneRelationalTimePtr(record.LastActivityAt)
+	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
+	record.UpdatedAt = relationalTimeOrNow(record.UpdatedAt)
+	if record.LastActivityAt == nil {
+		record.LastActivityAt = cloneRelationalTimePtr(&record.UpdatedAt)
+	}
+	return record, nil
+}
+
 func (s *relationalTxStore) CreateAgreementReview(ctx context.Context, scope stores.Scope, record stores.AgreementReviewRecord) (stores.AgreementReviewRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {
@@ -228,67 +311,17 @@ func (s *relationalTxStore) UpdateAgreementReviewParticipant(ctx context.Context
 }
 
 func (s *relationalTxStore) CreateAgreementCommentThread(ctx context.Context, scope stores.Scope, record stores.AgreementCommentThreadRecord) (stores.AgreementCommentThreadRecord, error) {
-	scope, err := normalizedStoreScope(scope)
+	scope, record, err := normalizeRelationalAgreementCommentThreadTarget(scope, record)
 	if err != nil {
 		return stores.AgreementCommentThreadRecord{}, err
 	}
-	record.AgreementID = normalizeRelationalID(record.AgreementID)
-	record.ReviewID = normalizeRelationalID(record.ReviewID)
-	if record.AgreementID == "" {
-		return stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "agreement_id", "required")
-	}
-	if record.ReviewID == "" {
-		return stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "review_id", "required")
-	}
-	agreement, err := loadAgreementRecord(ctx, s.tx, scope, record.AgreementID)
+	agreement, _, err := loadRelationalAgreementCommentThreadReview(ctx, s, scope, record)
 	if err != nil {
 		return stores.AgreementCommentThreadRecord{}, err
 	}
-	review := stores.AgreementReviewRecord{}
-	if err := s.tx.NewSelect().
-		Model(&review).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", record.ReviewID).
-		Scan(ctx); err != nil {
-		return stores.AgreementCommentThreadRecord{}, mapSQLNotFound(err, "agreement_reviews", record.ReviewID)
-	}
-	if review.AgreementID != record.AgreementID {
-		return stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "review_id", "review must belong to agreement")
-	}
-	record.ID = normalizeRelationalID(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record.DocumentID = normalizeRelationalID(record.DocumentID)
-	if record.DocumentID == "" {
-		record.DocumentID = agreement.DocumentID
-	}
-	record.Visibility = stores.NormalizeAgreementCommentVisibility(record.Visibility)
-	if record.Visibility == "" {
-		return stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "visibility", "unsupported visibility")
-	}
-	record.AnchorType = stores.NormalizeAgreementCommentAnchorType(record.AnchorType)
-	if record.AnchorType == "" {
-		return stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "anchor_type", "unsupported anchor type")
-	}
-	record.FieldID = normalizeRelationalID(record.FieldID)
-	record.Status = stores.NormalizeAgreementCommentThreadStatus(record.Status)
-	if record.Status == "" {
-		return stores.AgreementCommentThreadRecord{}, relationalInvalidRecordError("agreement_comment_threads", "status", "unsupported status")
-	}
-	record.CreatedByType = strings.TrimSpace(record.CreatedByType)
-	record.CreatedByID = normalizeRelationalID(record.CreatedByID)
-	record.ResolvedByType = strings.TrimSpace(record.ResolvedByType)
-	record.ResolvedByID = normalizeRelationalID(record.ResolvedByID)
-	record.ResolvedAt = cloneRelationalTimePtr(record.ResolvedAt)
-	record.LastActivityAt = cloneRelationalTimePtr(record.LastActivityAt)
-	record.CreatedAt = relationalTimeOrNow(record.CreatedAt)
-	record.UpdatedAt = relationalTimeOrNow(record.UpdatedAt)
-	if record.LastActivityAt == nil {
-		record.LastActivityAt = cloneRelationalTimePtr(&record.UpdatedAt)
+	record, err = prepareRelationalAgreementCommentThreadRecord(scope, agreement, record)
+	if err != nil {
+		return stores.AgreementCommentThreadRecord{}, err
 	}
 	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
 		return stores.AgreementCommentThreadRecord{}, relationalUniqueConstraintError(err, "agreement_comment_threads", "id")

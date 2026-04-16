@@ -15,6 +15,20 @@ type integrationProviderRowsFunc func(context.Context, stores.Scope, string) ([]
 type integrationLookupFunc func(context.Context, stores.Scope, string) (map[string]any, error)
 type integrationSyncRunAction func(context.Context, stores.Scope, string, string) (stores.IntegrationSyncRunRecord, bool, error)
 
+type integrationProviderReadRouteConfig struct {
+	listPath         string
+	detailPath       string
+	detailParamName  string
+	errorCode        string
+	listErrorMessage string
+	rowsKey          string
+	missingMessage   string
+	notFoundMessage  string
+	responseKey      string
+	listRows         integrationProviderRowsFunc
+	lookup           integrationLookupFunc
+}
+
 func registerIntegrationRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	if cfg.integration == nil {
 		return
@@ -88,25 +102,122 @@ func integrationSyncRunActionHandler(cfg registerConfig, errorMessage string, ac
 	}
 }
 
-func registerIntegrationMappingRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
-	adminRoutes.Get(routes.AdminIntegrationMappings, integrationProviderListHandler(
+func registerIntegrationProviderReadRoutes(adminRoutes routeRegistrar, cfg registerConfig, routeCfg integrationProviderReadRouteConfig) {
+	adminRoutes.Get(routeCfg.listPath, integrationProviderListHandler(
 		cfg,
+		routeCfg.errorCode,
+		routeCfg.listErrorMessage,
+		routeCfg.rowsKey,
+		routeCfg.listRows,
+	), requireAdminPermission(cfg, cfg.permissions.AdminView))
+
+	adminRoutes.Get(routeCfg.detailPath, integrationLookupByIDHandler(
+		cfg,
+		routeCfg.detailParamName,
+		routeCfg.errorCode,
+		routeCfg.missingMessage,
+		routeCfg.notFoundMessage,
+		routeCfg.responseKey,
+		routeCfg.lookup,
+	), requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
+
+func registerIntegrationProviderResourceRoutes(
+	adminRoutes routeRegistrar,
+	cfg registerConfig,
+	listPath, detailPath, detailParamName, errorCode, listErrorMessage, rowsKey, missingMessage, notFoundMessage, responseKey string,
+	listRows integrationProviderRowsFunc,
+	lookup integrationLookupFunc,
+) {
+	registerIntegrationProviderReadRoutes(adminRoutes, cfg, integrationProviderReadRouteConfig{
+		listPath:         listPath,
+		detailPath:       detailPath,
+		detailParamName:  detailParamName,
+		errorCode:        errorCode,
+		listErrorMessage: listErrorMessage,
+		rowsKey:          rowsKey,
+		missingMessage:   missingMessage,
+		notFoundMessage:  notFoundMessage,
+		responseKey:      responseKey,
+		listRows:         listRows,
+		lookup:           lookup,
+	})
+}
+
+func integrationMappingRows(ctx context.Context, cfg registerConfig, scope stores.Scope, provider string) ([]map[string]any, error) {
+	records, err := cfg.integration.ListMappingSpecs(ctx, scope, provider)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		rows = append(rows, mappingSpecRecordToMap(record))
+	}
+	return rows, nil
+}
+
+func integrationMappingLookup(ctx context.Context, cfg registerConfig, scope stores.Scope, id string) (map[string]any, error) {
+	record, err := cfg.integration.GetMappingSpec(ctx, scope, id)
+	if err != nil {
+		return nil, err
+	}
+	return mappingSpecRecordToMap(record), nil
+}
+
+func integrationSyncRunRows(ctx context.Context, cfg registerConfig, scope stores.Scope, provider string) ([]map[string]any, error) {
+	runs, err := cfg.integration.ListSyncRuns(ctx, scope, provider)
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]map[string]any, 0, len(runs))
+	for _, run := range runs {
+		rows = append(rows, integrationSyncRunRecordToMap(run))
+	}
+	return rows, nil
+}
+
+func integrationSyncRunLookup(ctx context.Context, cfg registerConfig, scope stores.Scope, id string) (map[string]any, error) {
+	run, err := cfg.integration.GetSyncRun(ctx, scope, id)
+	if err != nil {
+		return nil, err
+	}
+	return integrationSyncRunRecordToMap(run), nil
+}
+
+func registerIntegrationMappingRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerIntegrationMappingListRoutes(adminRoutes, routes, cfg)
+	registerIntegrationMappingMutationRoutes(adminRoutes, routes, cfg)
+}
+
+func registerIntegrationMappingListRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerIntegrationProviderResourceRoutes(
+		adminRoutes,
+		cfg,
+		routes.AdminIntegrationMappings,
+		routes.AdminIntegrationMapping,
+		"mapping_id",
 		string(services.ErrorCodeIntegrationMapping),
 		"unable to list integration mappings",
 		"mappings",
+		"mapping_id is required",
+		"integration mapping not found",
+		"mapping",
 		func(ctx context.Context, scope stores.Scope, provider string) ([]map[string]any, error) {
-			records, err := cfg.integration.ListMappingSpecs(ctx, scope, provider)
-			if err != nil {
-				return nil, err
-			}
-			rows := make([]map[string]any, 0, len(records))
-			for _, record := range records {
-				rows = append(rows, mappingSpecRecordToMap(record))
-			}
-			return rows, nil
+			return integrationMappingRows(ctx, cfg, scope, provider)
 		},
-	), requireAdminPermission(cfg, cfg.permissions.AdminView))
+		func(ctx context.Context, scope stores.Scope, id string) (map[string]any, error) {
+			return integrationMappingLookup(ctx, cfg, scope, id)
+		},
+	)
+}
 
+func registerIntegrationMappingMutationRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerIntegrationMappingCreateRoute(adminRoutes, routes, cfg)
+	registerIntegrationMappingUpdateRoute(adminRoutes, routes, cfg)
+	registerIntegrationMappingPublishRoute(adminRoutes, routes, cfg)
+}
+
+func registerIntegrationMappingCreateRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(routes.AdminIntegrationMappings, func(c router.Context) error {
 		startedAt := time.Now()
 		correlationID := apiCorrelationID(c, c.Header("Idempotency-Key"), "integration_mapping_compile")
@@ -158,23 +269,9 @@ func registerIntegrationMappingRoutes(adminRoutes routeRegistrar, routes RouteSe
 		})
 		return respErr
 	}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+}
 
-	adminRoutes.Get(routes.AdminIntegrationMapping, integrationLookupByIDHandler(
-		cfg,
-		"mapping_id",
-		string(services.ErrorCodeIntegrationMapping),
-		"mapping_id is required",
-		"integration mapping not found",
-		"mapping",
-		func(ctx context.Context, scope stores.Scope, id string) (map[string]any, error) {
-			record, err := cfg.integration.GetMappingSpec(ctx, scope, id)
-			if err != nil {
-				return nil, err
-			}
-			return mappingSpecRecordToMap(record), nil
-		},
-	), requireAdminPermission(cfg, cfg.permissions.AdminView))
-
+func registerIntegrationMappingUpdateRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Put(routes.AdminIntegrationMapping, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -215,7 +312,9 @@ func registerIntegrationMappingRoutes(adminRoutes routeRegistrar, routes RouteSe
 			"warnings":      compiled.Warnings,
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+}
 
+func registerIntegrationMappingPublishRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(routes.AdminIntegrationMapPublish, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -242,24 +341,40 @@ func registerIntegrationMappingRoutes(adminRoutes routeRegistrar, routes RouteSe
 }
 
 func registerIntegrationSyncRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
-	adminRoutes.Get(routes.AdminIntegrationSyncRuns, integrationProviderListHandler(
+	registerIntegrationSyncReadRoutes(adminRoutes, routes, cfg)
+	registerIntegrationSyncMutationRoutes(adminRoutes, routes, cfg)
+}
+
+func registerIntegrationSyncReadRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerIntegrationProviderResourceRoutes(
+		adminRoutes,
 		cfg,
+		routes.AdminIntegrationSyncRuns,
+		routes.AdminIntegrationSyncRun,
+		"run_id",
 		string(services.ErrorCodeInvalidSignerState),
 		"unable to list sync runs",
 		"runs",
+		"run_id is required",
+		"sync run not found",
+		"run",
 		func(ctx context.Context, scope stores.Scope, provider string) ([]map[string]any, error) {
-			runs, err := cfg.integration.ListSyncRuns(ctx, scope, provider)
-			if err != nil {
-				return nil, err
-			}
-			rows := make([]map[string]any, 0, len(runs))
-			for _, run := range runs {
-				rows = append(rows, integrationSyncRunRecordToMap(run))
-			}
-			return rows, nil
+			return integrationSyncRunRows(ctx, cfg, scope, provider)
 		},
-	), requireAdminPermission(cfg, cfg.permissions.AdminView))
+		func(ctx context.Context, scope stores.Scope, id string) (map[string]any, error) {
+			return integrationSyncRunLookup(ctx, cfg, scope, id)
+		},
+	)
+}
 
+func registerIntegrationSyncMutationRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerIntegrationSyncStartRoute(adminRoutes, routes, cfg)
+	registerIntegrationCheckpointRoute(adminRoutes, routes, cfg)
+	registerIntegrationSyncActionRoutes(adminRoutes, routes, cfg)
+	registerIntegrationSyncFailRoute(adminRoutes, routes, cfg)
+}
+
+func registerIntegrationSyncStartRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(routes.AdminIntegrationSyncRuns, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -292,23 +407,9 @@ func registerIntegrationSyncRoutes(adminRoutes routeRegistrar, routes RouteSet, 
 			"run":    integrationSyncRunRecordToMap(run),
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+}
 
-	adminRoutes.Get(routes.AdminIntegrationSyncRun, integrationLookupByIDHandler(
-		cfg,
-		"run_id",
-		string(services.ErrorCodeInvalidSignerState),
-		"run_id is required",
-		"sync run not found",
-		"run",
-		func(ctx context.Context, scope stores.Scope, id string) (map[string]any, error) {
-			run, err := cfg.integration.GetSyncRun(ctx, scope, id)
-			if err != nil {
-				return nil, err
-			}
-			return integrationSyncRunRecordToMap(run), nil
-		},
-	), requireAdminPermission(cfg, cfg.permissions.AdminView))
-
+func registerIntegrationCheckpointRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(routes.AdminIntegrationCheckpoints, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -339,7 +440,9 @@ func registerIntegrationSyncRoutes(adminRoutes routeRegistrar, routes RouteSet, 
 			"checkpoint": integrationCheckpointRecordToMap(checkpoint),
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminSettings))
+}
 
+func registerIntegrationSyncActionRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(
 		routes.AdminIntegrationSyncResume,
 		integrationSyncRunActionHandler(cfg, "unable to resume sync run", cfg.integration.ResumeSyncRun),
@@ -351,7 +454,9 @@ func registerIntegrationSyncRoutes(adminRoutes routeRegistrar, routes RouteSet, 
 		integrationSyncRunActionHandler(cfg, "unable to complete sync run", cfg.integration.CompleteSyncRun),
 		requireAdminPermission(cfg, cfg.permissions.AdminSettings),
 	)
+}
 
+func registerIntegrationSyncFailRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(routes.AdminIntegrationSyncFail, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
