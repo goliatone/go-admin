@@ -405,6 +405,12 @@ func resolveBulkService(bulkSvc BulkService, featureGate fggate.FeatureGate) Bul
 func resolveAdminURLManager(cfg Config, urlManager *urlkit.RouteManager, featureGate fggate.FeatureGate) (*urlkit.RouteManager, error) {
 	requireMediaRoutes := featureEnabled(featureGate, FeatureMedia)
 	if urlManager != nil {
+		if err := mergeDefaultURLKitRoutes(urlManager, cfg); err != nil {
+			return nil, validationDomainError("url manager merge error", map[string]any{
+				"component": "url_manager",
+				"error":     err.Error(),
+			})
+		}
 		if err := validateURLKitRoutes(cfg, urlManager, requireMediaRoutes); err != nil {
 			return nil, validationDomainError("url manager validation error", map[string]any{
 				"component": "url_manager",
