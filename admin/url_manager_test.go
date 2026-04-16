@@ -208,7 +208,7 @@ func TestDefaultURLKitConfigUsesRoutingRootOverrides(t *testing.T) {
 	}
 }
 
-func TestNewURLManagerValidatesMediaRoutesWhenFeatureEnabled(t *testing.T) {
+func TestNewURLManagerBackfillsMediaRoutesWhenFeatureEnabled(t *testing.T) {
 	cfg := applyConfigDefaults(Config{BasePath: "/admin"})
 	custom := defaultURLKitConfig(cfg)
 	if len(custom.Groups) == 0 || len(custom.Groups[0].Groups) == 0 {
@@ -217,12 +217,16 @@ func TestNewURLManagerValidatesMediaRoutesWhenFeatureEnabled(t *testing.T) {
 	delete(custom.Groups[0].Groups[0].Routes, "media.capabilities")
 	cfg.URLs.URLKit = custom
 
-	_, err := newURLManager(cfg, true)
-	if err == nil {
-		t.Fatalf("expected media route validation to fail when media routes are missing")
+	manager, err := newURLManager(cfg, true)
+	if err != nil {
+		t.Fatalf("newURLManager: %v", err)
 	}
-	if got := err.Error(); got == "" {
-		t.Fatalf("expected non-empty validation error, got %v", err)
+	got, resolveErr := manager.Resolve("admin.api", "media.capabilities", nil, nil)
+	if resolveErr != nil {
+		t.Fatalf("resolve admin.api media.capabilities: %v", resolveErr)
+	}
+	if got != "/admin/api/media/capabilities" {
+		t.Fatalf("expected /admin/api/media/capabilities, got %q", got)
 	}
 }
 
