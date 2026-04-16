@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"net/url"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -12,9 +13,14 @@ import (
 // joinAssetPath safely joins an asset prefix and filename for URL paths.
 // It trims trailing slashes from prefix and leading slashes from filename,
 // then concatenates with a single slash. If prefix is empty, returns filename as-is.
+// Absolute URLs, protocol-relative URLs, data URIs, and rooted paths are treated
+// as already resolved asset references and returned unchanged.
 func joinAssetPath(prefix, filename string) string {
 	prefix = strings.TrimSpace(prefix)
 	filename = strings.TrimSpace(filename)
+	if isResolvedAssetReference(filename) {
+		return filename
+	}
 	if prefix == "" {
 		return filename
 	}
@@ -22,6 +28,21 @@ func joinAssetPath(prefix, filename string) string {
 		return prefix
 	}
 	return strings.TrimSuffix(prefix, "/") + "/" + strings.TrimPrefix(filename, "/")
+}
+
+func isResolvedAssetReference(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return false
+	}
+	if strings.HasPrefix(value, "/") || strings.HasPrefix(value, "//") || strings.HasPrefix(value, "data:") {
+		return true
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return false
+	}
+	return parsed.Scheme != ""
 }
 
 // AuthUIState captures feature-guarded flags used by auth templates.
@@ -78,8 +99,9 @@ func WithAuthUIViewContext(ctx router.ViewContext, cfg admin.Config, state AuthU
 
 // WithAuthUIViewThemeAssets merges theme assets into an existing view context.
 // It creates or extends the "theme" map with an "assets" sub-map containing
-// the provided asset paths. If assetPrefix is provided, each asset filename
-// is resolved to a full path by joining with the prefix.
+// the provided asset paths. If assetPrefix is provided, each relative asset filename
+// is resolved to a full path by joining with the prefix. Already resolved absolute
+// URLs/paths are preserved unchanged.
 //
 // This function does not add query-string theme/variant handling; it only
 // provides static asset paths for auth UI templates.
