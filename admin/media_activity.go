@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"maps"
 	"strings"
 )
 
@@ -20,7 +21,7 @@ const (
 type MediaMutationEvent struct {
 	Operation    MediaMutationOperation `json:"operation"`
 	MediaID      string                 `json:"media_id,omitempty"`
-	Reference    MediaReference         `json:"reference,omitempty"`
+	Reference    MediaReference         `json:"reference"`
 	Before       *MediaItem             `json:"before,omitempty"`
 	After        *MediaItem             `json:"after,omitempty"`
 	Request      map[string]any         `json:"request,omitempty"`
@@ -179,9 +180,7 @@ func cloneMediaActivityMetadata(input map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	out := make(map[string]any, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 

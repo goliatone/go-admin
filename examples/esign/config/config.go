@@ -896,10 +896,8 @@ func applySignerPDFModeDefaults(target *SignerPDFConfig, defaults SignerPDFConfi
 
 func normalizeSignerPDFMode(value, fallback string, allowed ...string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
-	for _, candidate := range allowed {
-		if normalized == candidate {
-			return normalized
-		}
+	if slices.Contains(allowed, normalized) {
+		return normalized
 	}
 	return fallback
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -555,12 +556,7 @@ func containsMediaValueMode(values []MediaValueMode, candidate MediaValueMode) b
 	if candidate == "" {
 		return false
 	}
-	for _, value := range values {
-		if value == candidate {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, candidate)
 }
 
 func firstMediaValueMode(values []MediaValueMode, candidates ...MediaValueMode) MediaValueMode {
@@ -601,10 +597,7 @@ func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
 	sortLegacyMediaItems(filtered, query.Sort)
 
 	total := len(filtered)
-	start := query.Offset
-	if start < 0 {
-		start = 0
-	}
+	start := max(query.Offset, 0)
 	if start > total {
 		start = total
 	}
