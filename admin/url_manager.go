@@ -70,6 +70,12 @@ func newURLManager(cfg Config, requireMediaRoutes ...bool) (*urlkit.RouteManager
 				"error":     err.Error(),
 			})
 		}
+		if err := mergeDefaultURLKitRoutes(manager, cfg); err != nil {
+			return nil, validationDomainError("url manager merge error", map[string]any{
+				"component": "url_manager",
+				"error":     err.Error(),
+			})
+		}
 		if err := validateURLKitRoutes(cfg, manager, includeMediaRoutes); err != nil {
 			return nil, validationDomainError("url manager validation error", map[string]any{
 				"component": "url_manager",
@@ -187,6 +193,111 @@ func validateURLKitRoutes(cfg Config, manager *urlkit.RouteManager, includeMedia
 		})
 	}
 	return manager.Validate(requiredURLKitRoutes(cfg, includeMediaRoutes))
+}
+
+func mergeDefaultURLKitRoutes(manager *urlkit.RouteManager, cfg Config) error {
+	if manager == nil {
+		return nil
+	}
+	for _, group := range defaultURLKitConfig(cfg).GetGroups() {
+		if err := mergeURLKitGroupConfig(manager, "", group); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func mergeURLKitGroupConfig(manager *urlkit.RouteManager, parentPath string, cfg urlkit.GroupConfig) error {
+	if manager == nil {
+		return nil
+	}
+	name := strings.TrimSpace(cfg.Name)
+	if name == "" {
+		return nil
+	}
+
+	groupPath := name
+	if parentPath != "" {
+		groupPath = parentPath + "." + name
+	}
+
+	group, err := ensureURLKitGroup(manager, parentPath, cfg)
+	if err != nil {
+		return err
+	}
+	if group != nil {
+		if template := strings.TrimSpace(cfg.URLTemplate); template != "" {
+			if setErr := group.SetURLTemplate(template); setErr != nil {
+				return setErr
+			}
+		}
+		for key, value := range cfg.TemplateVars {
+			if setErr := group.SetTemplateVar(key, value); setErr != nil {
+				return setErr
+			}
+		}
+		routes := missingURLKitRoutes(group, cfg)
+		if len(routes) > 0 {
+			if _, _, addErr := manager.AddRoutes(groupPath, routes); addErr != nil {
+				return addErr
+			}
+		}
+	}
+
+	for _, child := range cfg.Groups {
+		if err := mergeURLKitGroupConfig(manager, groupPath, child); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureURLKitGroup(manager *urlkit.RouteManager, parentPath string, cfg urlkit.GroupConfig) (*urlkit.Group, error) {
+	if manager == nil {
+		return nil, nil
+	}
+	name := strings.TrimSpace(cfg.Name)
+	if name == "" {
+		return nil, nil
+	}
+	if parentPath == "" {
+		if group, err := manager.GetGroup(name); err == nil {
+			return group, nil
+		}
+		group, _, err := manager.RegisterGroup(name, cfg.BaseURL, nil)
+		return group, err
+	}
+
+	segment := name
+	if path := strings.TrimSpace(cfg.Path); path != "" {
+		segment = name + ":" + path
+	}
+	groupPath := parentPath + "." + segment
+	return manager.EnsureGroup(groupPath)
+}
+
+func missingURLKitRoutes(group *urlkit.Group, cfg urlkit.GroupConfig) map[string]string {
+	if group == nil {
+		return nil
+	}
+	routes := cfg.Routes
+	if len(routes) == 0 {
+		routes = cfg.Paths
+	}
+	if len(routes) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(routes))
+	for routeKey, routePath := range routes {
+		if _, err := group.Route(routeKey); err == nil {
+			continue
+		}
+		out[routeKey] = routePath
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func effectiveRoutingRoots(cfg Config) routing.RootsConfig {
