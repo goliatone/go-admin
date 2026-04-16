@@ -29,31 +29,358 @@ func isActiveSourceHandle(record SourceHandleRecord) bool {
 	return record.ValidTo == nil || record.ValidTo.IsZero()
 }
 
-func (s *InMemoryStore) CreateSourceDocument(ctx context.Context, scope Scope, record SourceDocumentRecord) (SourceDocumentRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return SourceDocumentRecord{}, err
+func createPreparedLineageRecord[T any](
+	s *InMemoryStore,
+	scope Scope,
+	record T,
+	table string,
+	records map[string]T,
+	ensure func(Scope, T) error,
+	prepare func(T, *T) (T, error),
+	getID func(T) string,
+	setID func(T, string) T,
+	setScope func(T, Scope) T,
+	beforeStore func(T) error,
+) (T, error) {
+	var zero T
+
+	record = setID(record, strings.TrimSpace(getID(record)))
+	if getID(record) == "" {
+		record = setID(record, uuid.NewString())
 	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
+	if ensure != nil {
+		if err := ensure(scope, record); err != nil {
+			return zero, err
+		}
 	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = PrepareSourceDocumentRecord(record, nil)
+	record = setScope(record, scope)
+	record, err := prepare(record, nil)
 	if err != nil {
-		return SourceDocumentRecord{}, err
+		return zero, err
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	scopedID := lineageScopedID(scope, record.ID)
-	if _, exists := s.sourceDocuments[scopedID]; exists {
-		return SourceDocumentRecord{}, invalidRecordError("source_documents", "id", "already exists")
+	scopedID := lineageScopedID(scope, getID(record))
+	if _, exists := records[scopedID]; exists {
+		return zero, invalidRecordError(table, "id", "already exists")
 	}
-	s.sourceDocuments[scopedID] = record
+	if beforeStore != nil {
+		if err := beforeStore(record); err != nil {
+			return zero, err
+		}
+	}
+	records[scopedID] = record
 	return record, nil
+}
+
+func savePreparedLineageRecord[T any](
+	s *InMemoryStore,
+	scope Scope,
+	record T,
+	table string,
+	records map[string]T,
+	ensure func(Scope, T) error,
+	prepare func(T, *T) (T, error),
+	getID func(T) string,
+	setID func(T, string) T,
+	setScope func(T, Scope) T,
+	beforeStore func(T, T) error,
+) (T, error) {
+	var zero T
+
+	record = setID(record, strings.TrimSpace(getID(record)))
+	if getID(record) == "" {
+		return zero, invalidRecordError(table, "id", "required")
+	}
+	if ensure != nil {
+		if err := ensure(scope, record); err != nil {
+			return zero, err
+		}
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	scopedID := lineageScopedID(scope, getID(record))
+	current, ok := records[scopedID]
+	if !ok {
+		return zero, notFoundError(table, getID(record))
+	}
+	record = setScope(record, scope)
+	record, err := prepare(record, &current)
+	if err != nil {
+		return zero, err
+	}
+	if beforeStore != nil {
+		if err := beforeStore(record, current); err != nil {
+			return zero, err
+		}
+	}
+	records[scopedID] = record
+	return record, nil
+}
+
+func listFilteredLineageRecords[T any](
+	scope Scope,
+	records map[string]T,
+	include func(T, Scope) bool,
+	less func(T, T) bool,
+) []T {
+	out := make([]T, 0)
+	for _, record := range records {
+		if !include(record, scope) {
+			continue
+		}
+		out = append(out, record)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return less(out[i], out[j])
+	})
+	return out
+}
+
+func listLineageQueryRecords[T any, Q any](
+	s *InMemoryStore,
+	ctx context.Context,
+	scope Scope,
+	query Q,
+	records map[string]T,
+	include func(T, Scope, Q) bool,
+	less func(T, T) bool,
+) ([]T, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return listFilteredLineageRecords(scope, records, func(record T, scope Scope) bool {
+		return include(record, scope, query)
+	}, less), nil
+}
+
+func createLineageRecordWithScopeValidation[T any](
+	s *InMemoryStore,
+	ctx context.Context,
+	scope Scope,
+	record T,
+	table string,
+	records map[string]T,
+	ensure func(Scope, T) error,
+	prepare func(T, *T) (T, error),
+	getID func(T) string,
+	setID func(T, string) T,
+	setScope func(T, Scope) T,
+	beforeStore func(T) error,
+) (T, error) {
+	var zero T
+
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return zero, err
+	}
+	return createPreparedLineageRecord(s, scope, record, table, records, ensure, prepare, getID, setID, setScope, beforeStore)
+}
+
+func saveLineageRecordWithScopeValidation[T any](
+	s *InMemoryStore,
+	ctx context.Context,
+	scope Scope,
+	record T,
+	table string,
+	records map[string]T,
+	ensure func(Scope, T) error,
+	prepare func(T, *T) (T, error),
+	getID func(T) string,
+	setID func(T, string) T,
+	setScope func(T, Scope) T,
+	beforeStore func(T, T) error,
+) (T, error) {
+	var zero T
+
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return zero, err
+	}
+	return savePreparedLineageRecord(s, scope, record, table, records, ensure, prepare, getID, setID, setScope, beforeStore)
+}
+
+func sourceDocumentRecordID(record SourceDocumentRecord) string { return record.ID }
+
+func setSourceDocumentRecordID(record SourceDocumentRecord, id string) SourceDocumentRecord {
+	record.ID = id
+	return record
+}
+
+func scopeSourceDocumentRecord(record SourceDocumentRecord, scope Scope) SourceDocumentRecord {
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	return record
+}
+
+func includeSourceDocumentRecord(record SourceDocumentRecord, scope Scope, query SourceDocumentQuery) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if query.ProviderKind != "" && strings.TrimSpace(record.ProviderKind) != strings.TrimSpace(query.ProviderKind) {
+		return false
+	}
+	if query.Status != "" && strings.TrimSpace(record.Status) != strings.TrimSpace(query.Status) {
+		return false
+	}
+	return query.CanonicalTitle == "" || strings.EqualFold(strings.TrimSpace(record.CanonicalTitle), strings.TrimSpace(query.CanonicalTitle))
+}
+
+func sourceDocumentRecordLess(left, right SourceDocumentRecord) bool {
+	if left.CreatedAt.Equal(right.CreatedAt) {
+		return left.ID < right.ID
+	}
+	return left.CreatedAt.Before(right.CreatedAt)
+}
+
+func sourceArtifactRecordID(record SourceArtifactRecord) string { return record.ID }
+
+func setSourceArtifactRecordID(record SourceArtifactRecord, id string) SourceArtifactRecord {
+	record.ID = id
+	return record
+}
+
+func scopeSourceArtifactRecord(record SourceArtifactRecord, scope Scope) SourceArtifactRecord {
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	return record
+}
+
+func includeSourceArtifactRecord(record SourceArtifactRecord, scope Scope, query SourceArtifactQuery) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if query.SourceRevisionID != "" && strings.TrimSpace(record.SourceRevisionID) != strings.TrimSpace(query.SourceRevisionID) {
+		return false
+	}
+	if query.ArtifactKind != "" && strings.TrimSpace(record.ArtifactKind) != strings.TrimSpace(query.ArtifactKind) {
+		return false
+	}
+	return query.SHA256 == "" || strings.TrimSpace(record.SHA256) == strings.TrimSpace(query.SHA256)
+}
+
+func sourceArtifactRecordLess(left, right SourceArtifactRecord) bool {
+	if left.CreatedAt.Equal(right.CreatedAt) {
+		return left.ID < right.ID
+	}
+	return left.CreatedAt.Before(right.CreatedAt)
+}
+
+func sourceFingerprintRecordID(record SourceFingerprintRecord) string { return record.ID }
+
+func setSourceFingerprintRecordID(record SourceFingerprintRecord, id string) SourceFingerprintRecord {
+	record.ID = id
+	return record
+}
+
+func scopeSourceFingerprintRecord(record SourceFingerprintRecord, scope Scope) SourceFingerprintRecord {
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	return record
+}
+
+func includeSourceFingerprintRecord(record SourceFingerprintRecord, scope Scope, query SourceFingerprintQuery) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if query.SourceRevisionID != "" && strings.TrimSpace(record.SourceRevisionID) != strings.TrimSpace(query.SourceRevisionID) {
+		return false
+	}
+	if query.ArtifactID != "" && strings.TrimSpace(record.ArtifactID) != strings.TrimSpace(query.ArtifactID) {
+		return false
+	}
+	return query.ExtractVersion == "" || strings.TrimSpace(record.ExtractVersion) == strings.TrimSpace(query.ExtractVersion)
+}
+
+func sourceFingerprintRecordLess(left, right SourceFingerprintRecord) bool {
+	if left.CreatedAt.Equal(right.CreatedAt) {
+		return left.ID < right.ID
+	}
+	return left.CreatedAt.Before(right.CreatedAt)
+}
+
+func (s *InMemoryStore) ensureSourceArtifactRecord(scope Scope, record SourceArtifactRecord) error {
+	_, err := s.GetSourceRevision(context.Background(), scope, record.SourceRevisionID)
+	return err
+}
+
+func (s *InMemoryStore) ensureUniqueSourceArtifactRecord(scope Scope, record SourceArtifactRecord) error {
+	for _, existing := range s.sourceArtifacts {
+		if existing.TenantID == scope.TenantID &&
+			existing.OrgID == scope.OrgID &&
+			strings.TrimSpace(existing.SourceRevisionID) == record.SourceRevisionID &&
+			strings.TrimSpace(existing.ArtifactKind) == record.ArtifactKind &&
+			strings.TrimSpace(existing.SHA256) == record.SHA256 {
+			return invalidRecordError("source_artifacts", "sha256", "already exists")
+		}
+	}
+	return nil
+}
+
+func (s *InMemoryStore) ensureSourceRevisionRecord(scope Scope, record SourceRevisionRecord) error {
+	_, err := s.GetSourceDocument(context.Background(), scope, record.SourceDocumentID)
+	if err != nil {
+		return err
+	}
+	handle, err := s.GetSourceHandle(context.Background(), scope, record.SourceHandleID)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(handle.SourceDocumentID) != strings.TrimSpace(record.SourceDocumentID) {
+		return invalidRecordError("source_revisions", "source_handle_id", "must belong to source_document_id")
+	}
+	return nil
+}
+
+func sourceRevisionRecordID(record SourceRevisionRecord) string { return record.ID }
+
+func setSourceRevisionRecordID(record SourceRevisionRecord, id string) SourceRevisionRecord {
+	record.ID = id
+	return record
+}
+
+func scopeSourceRevisionRecord(record SourceRevisionRecord, scope Scope) SourceRevisionRecord {
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	return record
+}
+
+func (s *InMemoryStore) ensureSourceFingerprintRecord(scope Scope, record SourceFingerprintRecord) error {
+	_, err := s.GetSourceRevision(context.Background(), scope, record.SourceRevisionID)
+	if err != nil {
+		return err
+	}
+	artifact, err := s.GetSourceArtifact(context.Background(), scope, record.ArtifactID)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
+		return invalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
+	}
+	return nil
+}
+
+func (s *InMemoryStore) validateSavedSourceFingerprintRecord(scope Scope, record, _ SourceFingerprintRecord) error {
+	artifact, err := s.getSourceArtifactLocked(scope, record.ArtifactID)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
+		return invalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
+	}
+	return nil
+}
+
+func (s *InMemoryStore) CreateSourceDocument(ctx context.Context, scope Scope, record SourceDocumentRecord) (SourceDocumentRecord, error) {
+	return createLineageRecordWithScopeValidation(s, ctx, scope, record, "source_documents", s.sourceDocuments, nil, PrepareSourceDocumentRecord, sourceDocumentRecordID, setSourceDocumentRecordID, scopeSourceDocumentRecord, nil)
 }
 
 func (s *InMemoryStore) GetSourceDocument(ctx context.Context, scope Scope, id string) (SourceDocumentRecord, error) {
@@ -76,63 +403,11 @@ func (s *InMemoryStore) GetSourceDocument(ctx context.Context, scope Scope, id s
 }
 
 func (s *InMemoryStore) ListSourceDocuments(ctx context.Context, scope Scope, query SourceDocumentQuery) ([]SourceDocumentRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]SourceDocumentRecord, 0)
-	for _, record := range s.sourceDocuments {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if query.ProviderKind != "" && strings.TrimSpace(record.ProviderKind) != strings.TrimSpace(query.ProviderKind) {
-			continue
-		}
-		if query.Status != "" && strings.TrimSpace(record.Status) != strings.TrimSpace(query.Status) {
-			continue
-		}
-		if query.CanonicalTitle != "" && !strings.EqualFold(strings.TrimSpace(record.CanonicalTitle), strings.TrimSpace(query.CanonicalTitle)) {
-			continue
-		}
-		out = append(out, record)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
-	})
-	return out, nil
+	return listLineageQueryRecords(s, ctx, scope, query, s.sourceDocuments, includeSourceDocumentRecord, sourceDocumentRecordLess)
 }
 
 func (s *InMemoryStore) SaveSourceDocument(ctx context.Context, scope Scope, record SourceDocumentRecord) (SourceDocumentRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return SourceDocumentRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		return SourceDocumentRecord{}, invalidRecordError("source_documents", "id", "required")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	scopedID := lineageScopedID(scope, record.ID)
-	current, ok := s.sourceDocuments[scopedID]
-	if !ok {
-		return SourceDocumentRecord{}, notFoundError("source_documents", record.ID)
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = PrepareSourceDocumentRecord(record, &current)
-	if err != nil {
-		return SourceDocumentRecord{}, err
-	}
-	s.sourceDocuments[scopedID] = record
-	return record, nil
+	return saveLineageRecordWithScopeValidation(s, ctx, scope, record, "source_documents", s.sourceDocuments, nil, PrepareSourceDocumentRecord, sourceDocumentRecordID, setSourceDocumentRecordID, scopeSourceDocumentRecord, nil)
 }
 
 func (s *InMemoryStore) CreateSourceHandle(ctx context.Context, scope Scope, record SourceHandleRecord) (SourceHandleRecord, error) {
@@ -307,41 +582,7 @@ func (s *InMemoryStore) SaveSourceHandle(ctx context.Context, scope Scope, recor
 }
 
 func (s *InMemoryStore) CreateSourceRevision(ctx context.Context, scope Scope, record SourceRevisionRecord) (SourceRevisionRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return SourceRevisionRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	_, err = s.GetSourceDocument(context.Background(), scope, record.SourceDocumentID)
-	if err != nil {
-		return SourceRevisionRecord{}, err
-	}
-	handle, err := s.GetSourceHandle(context.Background(), scope, record.SourceHandleID)
-	if err != nil {
-		return SourceRevisionRecord{}, err
-	}
-	if strings.TrimSpace(handle.SourceDocumentID) != strings.TrimSpace(record.SourceDocumentID) {
-		return SourceRevisionRecord{}, invalidRecordError("source_revisions", "source_handle_id", "must belong to source_document_id")
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = PrepareSourceRevisionRecord(record, nil)
-	if err != nil {
-		return SourceRevisionRecord{}, err
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	scopedID := lineageScopedID(scope, record.ID)
-	if _, exists := s.sourceRevisions[scopedID]; exists {
-		return SourceRevisionRecord{}, invalidRecordError("source_revisions", "id", "already exists")
-	}
-	s.sourceRevisions[scopedID] = record
-	return record, nil
+	return createLineageRecordWithScopeValidation(s, ctx, scope, record, "source_revisions", s.sourceRevisions, s.ensureSourceRevisionRecord, PrepareSourceRevisionRecord, sourceRevisionRecordID, setSourceRevisionRecordID, scopeSourceRevisionRecord, nil)
 }
 
 func (s *InMemoryStore) GetSourceRevision(ctx context.Context, scope Scope, id string) (SourceRevisionRecord, error) {
@@ -425,43 +666,9 @@ func (s *InMemoryStore) SaveSourceRevision(ctx context.Context, scope Scope, rec
 }
 
 func (s *InMemoryStore) CreateSourceArtifact(ctx context.Context, scope Scope, record SourceArtifactRecord) (SourceArtifactRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return SourceArtifactRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	_, err = s.GetSourceRevision(context.Background(), scope, record.SourceRevisionID)
-	if err != nil {
-		return SourceArtifactRecord{}, err
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = PrepareSourceArtifactRecord(record, nil)
-	if err != nil {
-		return SourceArtifactRecord{}, err
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	scopedID := lineageScopedID(scope, record.ID)
-	if _, exists := s.sourceArtifacts[scopedID]; exists {
-		return SourceArtifactRecord{}, invalidRecordError("source_artifacts", "id", "already exists")
-	}
-	for _, existing := range s.sourceArtifacts {
-		if existing.TenantID == scope.TenantID &&
-			existing.OrgID == scope.OrgID &&
-			strings.TrimSpace(existing.SourceRevisionID) == record.SourceRevisionID &&
-			strings.TrimSpace(existing.ArtifactKind) == record.ArtifactKind &&
-			strings.TrimSpace(existing.SHA256) == record.SHA256 {
-			return SourceArtifactRecord{}, invalidRecordError("source_artifacts", "sha256", "already exists")
-		}
-	}
-	s.sourceArtifacts[scopedID] = record
-	return record, nil
+	return createLineageRecordWithScopeValidation(s, ctx, scope, record, "source_artifacts", s.sourceArtifacts, s.ensureSourceArtifactRecord, PrepareSourceArtifactRecord, sourceArtifactRecordID, setSourceArtifactRecordID, scopeSourceArtifactRecord, func(record SourceArtifactRecord) error {
+		return s.ensureUniqueSourceArtifactRecord(scope, record)
+	})
 }
 
 func (s *InMemoryStore) GetSourceArtifact(ctx context.Context, scope Scope, id string) (SourceArtifactRecord, error) {
@@ -488,101 +695,15 @@ func (s *InMemoryStore) getSourceArtifactLocked(scope Scope, id string) (SourceA
 }
 
 func (s *InMemoryStore) ListSourceArtifacts(ctx context.Context, scope Scope, query SourceArtifactQuery) ([]SourceArtifactRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]SourceArtifactRecord, 0)
-	for _, record := range s.sourceArtifacts {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if query.SourceRevisionID != "" && strings.TrimSpace(record.SourceRevisionID) != strings.TrimSpace(query.SourceRevisionID) {
-			continue
-		}
-		if query.ArtifactKind != "" && strings.TrimSpace(record.ArtifactKind) != strings.TrimSpace(query.ArtifactKind) {
-			continue
-		}
-		if query.SHA256 != "" && strings.TrimSpace(record.SHA256) != strings.TrimSpace(query.SHA256) {
-			continue
-		}
-		out = append(out, record)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
-	})
-	return out, nil
+	return listLineageQueryRecords(s, ctx, scope, query, s.sourceArtifacts, includeSourceArtifactRecord, sourceArtifactRecordLess)
 }
 
 func (s *InMemoryStore) SaveSourceArtifact(ctx context.Context, scope Scope, record SourceArtifactRecord) (SourceArtifactRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return SourceArtifactRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		return SourceArtifactRecord{}, invalidRecordError("source_artifacts", "id", "required")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	scopedID := lineageScopedID(scope, record.ID)
-	current, ok := s.sourceArtifacts[scopedID]
-	if !ok {
-		return SourceArtifactRecord{}, notFoundError("source_artifacts", record.ID)
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = PrepareSourceArtifactRecord(record, &current)
-	if err != nil {
-		return SourceArtifactRecord{}, err
-	}
-	s.sourceArtifacts[scopedID] = record
-	return record, nil
+	return saveLineageRecordWithScopeValidation(s, ctx, scope, record, "source_artifacts", s.sourceArtifacts, nil, PrepareSourceArtifactRecord, sourceArtifactRecordID, setSourceArtifactRecordID, scopeSourceArtifactRecord, nil)
 }
 
 func (s *InMemoryStore) CreateSourceFingerprint(ctx context.Context, scope Scope, record SourceFingerprintRecord) (SourceFingerprintRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return SourceFingerprintRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	_, err = s.GetSourceRevision(context.Background(), scope, record.SourceRevisionID)
-	if err != nil {
-		return SourceFingerprintRecord{}, err
-	}
-	artifact, err := s.GetSourceArtifact(context.Background(), scope, record.ArtifactID)
-	if err != nil {
-		return SourceFingerprintRecord{}, err
-	}
-	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
-		return SourceFingerprintRecord{}, invalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = PrepareSourceFingerprintRecord(record, nil)
-	if err != nil {
-		return SourceFingerprintRecord{}, err
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	scopedID := lineageScopedID(scope, record.ID)
-	if _, exists := s.sourceFingerprints[scopedID]; exists {
-		return SourceFingerprintRecord{}, invalidRecordError("source_fingerprints", "id", "already exists")
-	}
-	s.sourceFingerprints[scopedID] = record
-	return record, nil
+	return createLineageRecordWithScopeValidation(s, ctx, scope, record, "source_fingerprints", s.sourceFingerprints, s.ensureSourceFingerprintRecord, PrepareSourceFingerprintRecord, sourceFingerprintRecordID, setSourceFingerprintRecordID, scopeSourceFingerprintRecord, nil)
 }
 
 func (s *InMemoryStore) GetSourceFingerprint(ctx context.Context, scope Scope, id string) (SourceFingerprintRecord, error) {
@@ -605,70 +726,13 @@ func (s *InMemoryStore) GetSourceFingerprint(ctx context.Context, scope Scope, i
 }
 
 func (s *InMemoryStore) ListSourceFingerprints(ctx context.Context, scope Scope, query SourceFingerprintQuery) ([]SourceFingerprintRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]SourceFingerprintRecord, 0)
-	for _, record := range s.sourceFingerprints {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if query.SourceRevisionID != "" && strings.TrimSpace(record.SourceRevisionID) != strings.TrimSpace(query.SourceRevisionID) {
-			continue
-		}
-		if query.ArtifactID != "" && strings.TrimSpace(record.ArtifactID) != strings.TrimSpace(query.ArtifactID) {
-			continue
-		}
-		if query.ExtractVersion != "" && strings.TrimSpace(record.ExtractVersion) != strings.TrimSpace(query.ExtractVersion) {
-			continue
-		}
-		out = append(out, record)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
-	})
-	return out, nil
+	return listLineageQueryRecords(s, ctx, scope, query, s.sourceFingerprints, includeSourceFingerprintRecord, sourceFingerprintRecordLess)
 }
 
 func (s *InMemoryStore) SaveSourceFingerprint(ctx context.Context, scope Scope, record SourceFingerprintRecord) (SourceFingerprintRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return SourceFingerprintRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		return SourceFingerprintRecord{}, invalidRecordError("source_fingerprints", "id", "required")
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	scopedID := lineageScopedID(scope, record.ID)
-	current, ok := s.sourceFingerprints[scopedID]
-	if !ok {
-		return SourceFingerprintRecord{}, notFoundError("source_fingerprints", record.ID)
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = PrepareSourceFingerprintRecord(record, &current)
-	if err != nil {
-		return SourceFingerprintRecord{}, err
-	}
-	artifact, err := s.getSourceArtifactLocked(scope, record.ArtifactID)
-	if err != nil {
-		return SourceFingerprintRecord{}, err
-	}
-	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
-		return SourceFingerprintRecord{}, invalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
-	}
-	s.sourceFingerprints[scopedID] = record
-	return record, nil
+	return saveLineageRecordWithScopeValidation(s, ctx, scope, record, "source_fingerprints", s.sourceFingerprints, nil, PrepareSourceFingerprintRecord, sourceFingerprintRecordID, setSourceFingerprintRecordID, scopeSourceFingerprintRecord, func(record, current SourceFingerprintRecord) error {
+		return s.validateSavedSourceFingerprintRecord(scope, record, current)
+	})
 }
 
 func (s *InMemoryStore) CreateSourceRelationship(ctx context.Context, scope Scope, record SourceRelationshipRecord) (SourceRelationshipRecord, error) {

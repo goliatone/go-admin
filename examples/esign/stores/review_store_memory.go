@@ -9,6 +9,25 @@ import (
 	"github.com/google/uuid"
 )
 
+func agreementReviewParticipantMatchesReview(record AgreementReviewParticipantRecord, scope Scope, reviewID string) bool {
+	return record.TenantID == scope.TenantID && record.OrgID == scope.OrgID && record.ReviewID == reviewID
+}
+
+func agreementReviewParticipantCreatedAt(record AgreementReviewParticipantRecord) time.Time {
+	return record.CreatedAt
+}
+
+func agreementReviewParticipantID(record AgreementReviewParticipantRecord) string { return record.ID }
+
+func agreementCommentMessageMatchesThread(record AgreementCommentMessageRecord, scope Scope, threadID string) bool {
+	return record.TenantID == scope.TenantID && record.OrgID == scope.OrgID && record.ThreadID == threadID
+}
+
+func agreementCommentMessageCreatedAt(record AgreementCommentMessageRecord) time.Time {
+	return record.CreatedAt
+}
+func agreementCommentMessageID(record AgreementCommentMessageRecord) string { return record.ID }
+
 func (s *InMemoryStore) CreateAgreementReview(ctx context.Context, scope Scope, record AgreementReviewRecord) (AgreementReviewRecord, error) {
 	_ = ctx
 	scope, err := validateScope(scope)
@@ -244,36 +263,7 @@ func (s *InMemoryStore) ReplaceAgreementReviewParticipants(ctx context.Context, 
 }
 
 func (s *InMemoryStore) ListAgreementReviewParticipants(ctx context.Context, scope Scope, reviewID string) ([]AgreementReviewParticipantRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	reviewID = normalizeID(reviewID)
-	if reviewID == "" {
-		return nil, invalidRecordError("agreement_review_participants", "review_id", "required")
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	out := make([]AgreementReviewParticipantRecord, 0)
-	for _, record := range s.agreementReviewParticipants {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.ReviewID != reviewID {
-			continue
-		}
-		out = append(out, record)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
-	})
-	return out, nil
+	return listScopedRequiredRecordSet(s, ctx, scope, reviewID, "agreement_review_participants", "review_id", s.agreementReviewParticipants, agreementReviewParticipantMatchesReview, func(record AgreementReviewParticipantRecord) AgreementReviewParticipantRecord { return record }, agreementReviewParticipantCreatedAt, agreementReviewParticipantID)
 }
 
 func (s *InMemoryStore) UpdateAgreementReviewParticipant(ctx context.Context, scope Scope, record AgreementReviewParticipantRecord) (AgreementReviewParticipantRecord, error) {
@@ -539,34 +529,5 @@ func (s *InMemoryStore) CreateAgreementCommentMessage(ctx context.Context, scope
 }
 
 func (s *InMemoryStore) ListAgreementCommentMessages(ctx context.Context, scope Scope, threadID string) ([]AgreementCommentMessageRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	threadID = normalizeID(threadID)
-	if threadID == "" {
-		return nil, invalidRecordError("agreement_comment_messages", "thread_id", "required")
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	out := make([]AgreementCommentMessageRecord, 0)
-	for _, record := range s.agreementCommentMessages {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.ThreadID != threadID {
-			continue
-		}
-		out = append(out, record)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
-	})
-	return out, nil
+	return listScopedRequiredRecordSet(s, ctx, scope, threadID, "agreement_comment_messages", "thread_id", s.agreementCommentMessages, agreementCommentMessageMatchesThread, func(record AgreementCommentMessageRecord) AgreementCommentMessageRecord { return record }, agreementCommentMessageCreatedAt, agreementCommentMessageID)
 }

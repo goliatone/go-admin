@@ -785,104 +785,95 @@ func (h Handlers) ExecutePDFRenderPages(ctx context.Context, msg PDFRenderPagesM
 }
 
 func (h Handlers) ExecutePDFGenerateExecuted(ctx context.Context, msg PDFGenerateExecutedMsg) error {
-	startedAt := h.now()
-	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.AgreementID, JobPDFGenerateExecuted)
-	dedupeKey := strings.TrimSpace(msg.DedupeKey)
-	if dedupeKey == "" {
-		dedupeKey = strings.TrimSpace(msg.AgreementID)
-	}
-	run, shouldRun, err := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
-		JobName:       JobPDFGenerateExecuted,
-		DedupeKey:     dedupeKey,
-		AgreementID:   msg.AgreementID,
-		CorrelationID: correlationID,
-		MaxAttempts:   h.retryPolicy.resolveMaxAttempts(msg.MaxAttempts),
-		AttemptedAt:   h.now(),
-	})
-	if err != nil || !shouldRun {
-		if err != nil {
-			observability.LogOperation(ctx, slog.LevelWarn, "job", "pdf_generate_executed", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
-				"job_name":   JobPDFGenerateExecuted,
-				"dedupe_key": dedupeKey,
-			})
-		}
-		return err
-	}
-	if _, err := h.pipeline.GenerateExecutedArtifact(ctx, msg.Scope, msg.AgreementID, correlationID); err != nil {
-		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, nil)
-	}
-	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, h.now()); err != nil {
-		return err
-	}
-	observability.ObserveJobResult(ctx, JobPDFGenerateExecuted, true)
-	observability.LogOperation(ctx, slog.LevelInfo, "job", "pdf_generate_executed", "success", run.CorrelationID, h.now().Sub(startedAt), nil, map[string]any{
-		"job_name":      JobPDFGenerateExecuted,
-		"dedupe_key":    dedupeKey,
-		"agreement_id":  strings.TrimSpace(msg.AgreementID),
-		"attempt_count": run.AttemptCount,
-	})
-	notifyAgreementChange(ctx, h.agreementChanges, msg.Scope, AgreementChangeNotification{
-		AgreementID:   strings.TrimSpace(msg.AgreementID),
-		CorrelationID: strings.TrimSpace(run.CorrelationID),
-		Sections:      []string{"delivery", "artifacts", "timeline"},
-		Status:        "completed",
-		Message:       "Executed artifact generated",
-		Metadata:      map[string]any{"job_name": JobPDFGenerateExecuted, "artifact_type": "executed"},
-	})
-	return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.succeeded", map[string]any{
-		"job_name":       JobPDFGenerateExecuted,
-		"dedupe_key":     dedupeKey,
-		"correlation_id": run.CorrelationID,
+	return h.executePDFArtifactGeneration(ctx, pdfArtifactGenerationInput{
+		scope:         msg.Scope,
+		agreementID:   msg.AgreementID,
+		correlationID: msg.CorrelationID,
+		dedupeKey:     msg.DedupeKey,
+		maxAttempts:   msg.MaxAttempts,
+		jobName:       JobPDFGenerateExecuted,
+		operation:     "pdf_generate_executed",
+		artifactType:  "executed",
+		message:       "Executed artifact generated",
+		generate:      h.pipeline.GenerateExecutedArtifact,
 	})
 }
 
 func (h Handlers) ExecutePDFGenerateCertificate(ctx context.Context, msg PDFGenerateCertificateMsg) error {
+	return h.executePDFArtifactGeneration(ctx, pdfArtifactGenerationInput{
+		scope:         msg.Scope,
+		agreementID:   msg.AgreementID,
+		correlationID: msg.CorrelationID,
+		dedupeKey:     msg.DedupeKey,
+		maxAttempts:   msg.MaxAttempts,
+		jobName:       JobPDFGenerateCertificate,
+		operation:     "pdf_generate_certificate",
+		artifactType:  "certificate",
+		message:       "Certificate artifact generated",
+		generate:      h.pipeline.GenerateCertificateArtifact,
+	})
+}
+
+type pdfArtifactGenerationInput struct {
+	scope         stores.Scope
+	agreementID   string
+	correlationID string
+	dedupeKey     string
+	maxAttempts   int
+	jobName       string
+	operation     string
+	artifactType  string
+	message       string
+	generate      func(context.Context, stores.Scope, string, string) (stores.AgreementArtifactRecord, error)
+}
+
+func (h Handlers) executePDFArtifactGeneration(ctx context.Context, input pdfArtifactGenerationInput) error {
 	startedAt := h.now()
-	correlationID := observability.ResolveCorrelationID(msg.CorrelationID, msg.DedupeKey, msg.AgreementID, JobPDFGenerateCertificate)
-	dedupeKey := strings.TrimSpace(msg.DedupeKey)
+	correlationID := observability.ResolveCorrelationID(input.correlationID, input.dedupeKey, input.agreementID, input.jobName)
+	dedupeKey := strings.TrimSpace(input.dedupeKey)
 	if dedupeKey == "" {
-		dedupeKey = strings.TrimSpace(msg.AgreementID)
+		dedupeKey = strings.TrimSpace(input.agreementID)
 	}
-	run, shouldRun, err := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
-		JobName:       JobPDFGenerateCertificate,
+	run, shouldRun, err := h.jobRuns.BeginJobRun(ctx, input.scope, stores.JobRunInput{
+		JobName:       input.jobName,
 		DedupeKey:     dedupeKey,
-		AgreementID:   msg.AgreementID,
+		AgreementID:   input.agreementID,
 		CorrelationID: correlationID,
-		MaxAttempts:   h.retryPolicy.resolveMaxAttempts(msg.MaxAttempts),
+		MaxAttempts:   h.retryPolicy.resolveMaxAttempts(input.maxAttempts),
 		AttemptedAt:   h.now(),
 	})
 	if err != nil || !shouldRun {
 		if err != nil {
-			observability.LogOperation(ctx, slog.LevelWarn, "job", "pdf_generate_certificate", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
-				"job_name":   JobPDFGenerateCertificate,
+			observability.LogOperation(ctx, slog.LevelWarn, "job", input.operation, "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+				"job_name":   input.jobName,
 				"dedupe_key": dedupeKey,
 			})
 		}
 		return err
 	}
-	if _, err := h.pipeline.GenerateCertificateArtifact(ctx, msg.Scope, msg.AgreementID, correlationID); err != nil {
-		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, nil)
+	if _, err := input.generate(ctx, input.scope, input.agreementID, correlationID); err != nil {
+		return h.failJob(ctx, input.scope, run, err, input.agreementID, nil)
 	}
-	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, h.now()); err != nil {
+	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, input.scope, run.ID, h.now()); err != nil {
 		return err
 	}
-	observability.ObserveJobResult(ctx, JobPDFGenerateCertificate, true)
-	observability.LogOperation(ctx, slog.LevelInfo, "job", "pdf_generate_certificate", "success", run.CorrelationID, h.now().Sub(startedAt), nil, map[string]any{
-		"job_name":      JobPDFGenerateCertificate,
+	observability.ObserveJobResult(ctx, input.jobName, true)
+	observability.LogOperation(ctx, slog.LevelInfo, "job", input.operation, "success", run.CorrelationID, h.now().Sub(startedAt), nil, map[string]any{
+		"job_name":      input.jobName,
 		"dedupe_key":    dedupeKey,
-		"agreement_id":  strings.TrimSpace(msg.AgreementID),
+		"agreement_id":  strings.TrimSpace(input.agreementID),
 		"attempt_count": run.AttemptCount,
 	})
-	notifyAgreementChange(ctx, h.agreementChanges, msg.Scope, AgreementChangeNotification{
-		AgreementID:   strings.TrimSpace(msg.AgreementID),
+	notifyAgreementChange(ctx, h.agreementChanges, input.scope, AgreementChangeNotification{
+		AgreementID:   strings.TrimSpace(input.agreementID),
 		CorrelationID: strings.TrimSpace(run.CorrelationID),
 		Sections:      []string{"delivery", "artifacts", "timeline"},
 		Status:        "completed",
-		Message:       "Certificate artifact generated",
-		Metadata:      map[string]any{"job_name": JobPDFGenerateCertificate, "artifact_type": "certificate"},
+		Message:       input.message,
+		Metadata:      map[string]any{"job_name": input.jobName, "artifact_type": input.artifactType},
 	})
-	return h.appendJobAudit(ctx, msg.Scope, msg.AgreementID, "job.succeeded", map[string]any{
-		"job_name":       JobPDFGenerateCertificate,
+	return h.appendJobAudit(ctx, input.scope, input.agreementID, "job.succeeded", map[string]any{
+		"job_name":       input.jobName,
 		"dedupe_key":     dedupeKey,
 		"correlation_id": run.CorrelationID,
 	})

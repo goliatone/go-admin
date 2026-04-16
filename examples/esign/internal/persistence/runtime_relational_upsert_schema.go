@@ -490,40 +490,9 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.Recipients)+len(snapshot.Participants))
 				defaultNotifyEnabled := runtimeSnapshotNotifyDefaultsEnabled(snapshot)
-				addRecipient := func(record stores.RecipientRecord) {
-					createdAt := requiredTime(record.CreatedAt, now())
-					updatedAt := requiredTime(record.UpdatedAt, createdAt)
-					version := record.Version
-					if version <= 0 {
-						version = 1
-					}
-					notify := record.Notify
-					if defaultNotifyEnabled {
-						notify = true
-					}
-					rows = append(rows, map[string]any{
-						"id":             strings.TrimSpace(record.ID),
-						"tenant_id":      strings.TrimSpace(record.TenantID),
-						"org_id":         strings.TrimSpace(record.OrgID),
-						"agreement_id":   strings.TrimSpace(record.AgreementID),
-						"email":          strings.TrimSpace(record.Email),
-						"name":           strings.TrimSpace(record.Name),
-						"role":           strings.TrimSpace(record.Role),
-						"notify":         notify,
-						"signing_order":  record.SigningOrder,
-						"first_view_at":  optionalTime(record.FirstViewAt),
-						"last_view_at":   optionalTime(record.LastViewAt),
-						"declined_at":    optionalTime(record.DeclinedAt),
-						"decline_reason": strings.TrimSpace(record.DeclineReason),
-						"completed_at":   optionalTime(record.CompletedAt),
-						"version":        version,
-						"created_at":     createdAt,
-						"updated_at":     updatedAt,
-					})
-				}
 				seen := map[string]bool{}
 				for _, record := range sortedMapValues(snapshot.Recipients) {
-					addRecipient(record)
+					rows = append(rows, runtimeSnapshotRecipientRow(record, defaultNotifyEnabled))
 					seen[strings.TrimSpace(record.ID)] = true
 				}
 				for _, participant := range sortedMapValues(snapshot.Participants) {
@@ -531,25 +500,7 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 					if id == "" || seen[id] {
 						continue
 					}
-					addRecipient(stores.RecipientRecord{
-						ID:            id,
-						TenantID:      participant.TenantID,
-						OrgID:         participant.OrgID,
-						AgreementID:   participant.AgreementID,
-						Email:         participant.Email,
-						Name:          participant.Name,
-						Role:          participant.Role,
-						Notify:        participant.Notify,
-						SigningOrder:  participant.SigningStage,
-						FirstViewAt:   participant.FirstViewAt,
-						LastViewAt:    participant.LastViewAt,
-						DeclinedAt:    participant.DeclinedAt,
-						DeclineReason: participant.DeclineReason,
-						CompletedAt:   participant.CompletedAt,
-						Version:       participant.Version,
-						CreatedAt:     participant.CreatedAt,
-						UpdatedAt:     participant.UpdatedAt,
-					})
+					rows = append(rows, runtimeSnapshotRecipientRow(runtimeSnapshotRecipientFromParticipant(participant), defaultNotifyEnabled))
 					seen[id] = true
 				}
 				return rows
@@ -563,35 +514,7 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 				rows := make([]map[string]any, 0, len(snapshot.Participants))
 				defaultNotifyEnabled := runtimeSnapshotNotifyDefaultsEnabled(snapshot)
 				for _, record := range sortedMapValues(snapshot.Participants) {
-					createdAt := requiredTime(record.CreatedAt, now())
-					updatedAt := requiredTime(record.UpdatedAt, createdAt)
-					version := record.Version
-					if version <= 0 {
-						version = 1
-					}
-					notify := record.Notify
-					if defaultNotifyEnabled {
-						notify = true
-					}
-					rows = append(rows, map[string]any{
-						"id":             strings.TrimSpace(record.ID),
-						"tenant_id":      strings.TrimSpace(record.TenantID),
-						"org_id":         strings.TrimSpace(record.OrgID),
-						"agreement_id":   strings.TrimSpace(record.AgreementID),
-						"email":          strings.TrimSpace(record.Email),
-						"name":           strings.TrimSpace(record.Name),
-						"role":           strings.TrimSpace(record.Role),
-						"notify":         notify,
-						"signing_stage":  record.SigningStage,
-						"first_view_at":  optionalTime(record.FirstViewAt),
-						"last_view_at":   optionalTime(record.LastViewAt),
-						"declined_at":    optionalTime(record.DeclinedAt),
-						"decline_reason": strings.TrimSpace(record.DeclineReason),
-						"completed_at":   optionalTime(record.CompletedAt),
-						"version":        version,
-						"created_at":     createdAt,
-						"updated_at":     updatedAt,
-					})
+					rows = append(rows, runtimeSnapshotParticipantRow(record, defaultNotifyEnabled))
 				}
 				return rows
 			},
@@ -770,18 +693,7 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.SignatureArtifacts))
 				for _, record := range sortedMapValues(snapshot.SignatureArtifacts) {
-					createdAt := requiredTime(record.CreatedAt, now())
-					rows = append(rows, map[string]any{
-						"id":            strings.TrimSpace(record.ID),
-						"tenant_id":     strings.TrimSpace(record.TenantID),
-						"org_id":        strings.TrimSpace(record.OrgID),
-						"agreement_id":  strings.TrimSpace(record.AgreementID),
-						"recipient_id":  strings.TrimSpace(record.RecipientID),
-						"artifact_type": strings.TrimSpace(record.Type),
-						"object_key":    strings.TrimSpace(record.ObjectKey),
-						"sha256":        strings.TrimSpace(record.SHA256),
-						"created_at":    createdAt,
-					})
+					rows = append(rows, runtimeSnapshotSignatureArtifactRow(record))
 				}
 				return rows
 			},
@@ -823,18 +735,7 @@ func runtimeStoreTableUpsertSpecs() []runtimeTableUpsertSpec {
 			rows: func(snapshot runtimeStoreSnapshot) []map[string]any {
 				rows := make([]map[string]any, 0, len(snapshot.SavedSignerSignatures))
 				for _, record := range sortedMapValues(snapshot.SavedSignerSignatures) {
-					createdAt := requiredTime(record.CreatedAt, now())
-					rows = append(rows, map[string]any{
-						"id":                 strings.TrimSpace(record.ID),
-						"tenant_id":          strings.TrimSpace(record.TenantID),
-						"org_id":             strings.TrimSpace(record.OrgID),
-						"subject":            strings.TrimSpace(record.Subject),
-						"signature_type":     strings.TrimSpace(record.Type),
-						"label":              strings.TrimSpace(record.Label),
-						"object_key":         strings.TrimSpace(record.ObjectKey),
-						"thumbnail_data_url": strings.TrimSpace(record.ThumbnailDataURL),
-						"created_at":         createdAt,
-					})
+					rows = append(rows, runtimeSnapshotSavedSignerSignatureRow(record))
 				}
 				return rows
 			},
@@ -1599,6 +1500,146 @@ func runtimeSnapshotNotifyDefaultsEnabled(snapshot runtimeStoreSnapshot) bool {
 		}
 	}
 	return true
+}
+
+func runtimeSnapshotRecipientFromParticipant(record stores.ParticipantRecord) stores.RecipientRecord {
+	return stores.RecipientRecord{
+		ID:            strings.TrimSpace(record.ID),
+		TenantID:      record.TenantID,
+		OrgID:         record.OrgID,
+		AgreementID:   record.AgreementID,
+		Email:         record.Email,
+		Name:          record.Name,
+		Role:          record.Role,
+		Notify:        record.Notify,
+		SigningOrder:  record.SigningStage,
+		FirstViewAt:   record.FirstViewAt,
+		LastViewAt:    record.LastViewAt,
+		DeclinedAt:    record.DeclinedAt,
+		DeclineReason: record.DeclineReason,
+		CompletedAt:   record.CompletedAt,
+		Version:       record.Version,
+		CreatedAt:     record.CreatedAt,
+		UpdatedAt:     record.UpdatedAt,
+	}
+}
+
+func runtimeSnapshotRecipientRow(record stores.RecipientRecord, defaultNotifyEnabled bool) map[string]any {
+	return runtimeSnapshotAgreementActorRow(
+		record.ID,
+		record.TenantID,
+		record.OrgID,
+		record.AgreementID,
+		record.Email,
+		record.Name,
+		record.Role,
+		record.Notify,
+		defaultNotifyEnabled,
+		record.FirstViewAt,
+		record.LastViewAt,
+		record.DeclinedAt,
+		record.CompletedAt,
+		record.DeclineReason,
+		record.Version,
+		record.CreatedAt,
+		record.UpdatedAt,
+		"signing_order",
+		record.SigningOrder,
+	)
+}
+
+func runtimeSnapshotParticipantRow(record stores.ParticipantRecord, defaultNotifyEnabled bool) map[string]any {
+	return runtimeSnapshotAgreementActorRow(
+		record.ID,
+		record.TenantID,
+		record.OrgID,
+		record.AgreementID,
+		record.Email,
+		record.Name,
+		record.Role,
+		record.Notify,
+		defaultNotifyEnabled,
+		record.FirstViewAt,
+		record.LastViewAt,
+		record.DeclinedAt,
+		record.CompletedAt,
+		record.DeclineReason,
+		record.Version,
+		record.CreatedAt,
+		record.UpdatedAt,
+		"signing_stage",
+		record.SigningStage,
+	)
+}
+
+func runtimeSnapshotAgreementActorRow(
+	id, tenantID, orgID, agreementID, email, name, role string,
+	notify, defaultNotifyEnabled bool,
+	firstViewAt, lastViewAt, declinedAt, completedAt *time.Time,
+	declineReason string,
+	version int64,
+	createdAt, updatedAt time.Time,
+	signingField string,
+	signingValue int,
+) map[string]any {
+	createdAt = requiredTime(createdAt, time.Now().UTC())
+	updatedAt = requiredTime(updatedAt, createdAt)
+	if version <= 0 {
+		version = 1
+	}
+	if defaultNotifyEnabled {
+		notify = true
+	}
+	row := map[string]any{
+		"id":             strings.TrimSpace(id),
+		"tenant_id":      strings.TrimSpace(tenantID),
+		"org_id":         strings.TrimSpace(orgID),
+		"agreement_id":   strings.TrimSpace(agreementID),
+		"email":          strings.TrimSpace(email),
+		"name":           strings.TrimSpace(name),
+		"role":           strings.TrimSpace(role),
+		"notify":         notify,
+		"first_view_at":  optionalTime(firstViewAt),
+		"last_view_at":   optionalTime(lastViewAt),
+		"declined_at":    optionalTime(declinedAt),
+		"decline_reason": strings.TrimSpace(declineReason),
+		"completed_at":   optionalTime(completedAt),
+		"version":        version,
+		"created_at":     createdAt,
+		"updated_at":     updatedAt,
+	}
+	row[signingField] = signingValue
+	return row
+}
+
+func runtimeSnapshotSignatureArtifactRow(record stores.SignatureArtifactRecord) map[string]any {
+	createdAt := requiredTime(record.CreatedAt, time.Now().UTC())
+	return map[string]any{
+		"id":            strings.TrimSpace(record.ID),
+		"tenant_id":     strings.TrimSpace(record.TenantID),
+		"org_id":        strings.TrimSpace(record.OrgID),
+		"agreement_id":  strings.TrimSpace(record.AgreementID),
+		"recipient_id":  strings.TrimSpace(record.RecipientID),
+		"artifact_type": strings.TrimSpace(record.Type),
+		"object_key":    strings.TrimSpace(record.ObjectKey),
+		"sha256":        strings.TrimSpace(record.SHA256),
+		"created_at":    createdAt,
+	}
+}
+
+func runtimeSnapshotSavedSignerSignatureRow(record stores.SavedSignerSignatureRecord) map[string]any {
+	createdAt := requiredTime(record.CreatedAt, time.Now().UTC())
+	return map[string]any{
+		"id":                 strings.TrimSpace(record.ID),
+		"tenant_id":          strings.TrimSpace(record.TenantID),
+		"org_id":             strings.TrimSpace(record.OrgID),
+		"subject":            strings.TrimSpace(record.Subject),
+		"signature_type":     strings.TrimSpace(record.Type),
+		"label":              strings.TrimSpace(record.Label),
+		"object_key":         strings.TrimSpace(record.ObjectKey),
+		"thumbnail_data_url": strings.TrimSpace(record.ThumbnailDataURL),
+		"created_at":         createdAt,
+	}
 }
 
 func sortedMapValues[T any](records map[string]T) []T {

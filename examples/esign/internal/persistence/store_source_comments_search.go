@@ -10,220 +10,108 @@ import (
 )
 
 func loadSourceCommentThreadRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceCommentThreadRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceCommentThreadRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceCommentThreadRecord{}, relationalInvalidRecordError("source_comment_threads", "id", "required")
-	}
-	record := stores.SourceCommentThreadRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceCommentThreadRecord{}, mapSQLNotFound(err, "source_comment_threads", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceCommentThreadRecord](ctx, idb, scope, "source_comment_threads", "id", id)
 }
 
 func listSourceCommentThreadRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceCommentThreadQuery) ([]stores.SourceCommentThreadRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	records := make([]stores.SourceCommentThreadRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if query.SourceDocumentID != "" {
-		sel = sel.Where("source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
-	}
-	if query.SourceRevisionID != "" {
-		sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
-	}
-	if query.ThreadID != "" {
-		sel = sel.Where("thread_id = ?", strings.TrimSpace(query.ThreadID))
-	}
-	if query.ProviderKind != "" {
-		sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
-	}
-	if query.SyncStatus != "" {
-		sel = sel.Where("sync_status = ?", strings.TrimSpace(query.SyncStatus))
-	}
-	if query.Status != "" {
-		sel = sel.Where("status = ?", strings.TrimSpace(query.Status))
-	} else if !query.IncludeDeleted {
-		sel = sel.Where("status <> ?", stores.SourceCommentThreadStatusDeleted)
-	}
-	sel = sel.OrderExpr("updated_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+	return relationalListRecords[stores.SourceCommentThreadRecord](ctx, idb, scope, "updated_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		if query.SourceDocumentID != "" {
+			sel = sel.Where("source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
+		}
+		if query.SourceRevisionID != "" {
+			sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
+		}
+		if query.ThreadID != "" {
+			sel = sel.Where("thread_id = ?", strings.TrimSpace(query.ThreadID))
+		}
+		if query.ProviderKind != "" {
+			sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
+		}
+		if query.SyncStatus != "" {
+			sel = sel.Where("sync_status = ?", strings.TrimSpace(query.SyncStatus))
+		}
+		if query.Status != "" {
+			sel = sel.Where("status = ?", strings.TrimSpace(query.Status))
+		} else if !query.IncludeDeleted {
+			sel = sel.Where("status <> ?", stores.SourceCommentThreadStatusDeleted)
+		}
+		return sel
+	})
 }
 
 func loadSourceCommentMessageRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceCommentMessageRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceCommentMessageRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceCommentMessageRecord{}, relationalInvalidRecordError("source_comment_messages", "id", "required")
-	}
-	record := stores.SourceCommentMessageRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceCommentMessageRecord{}, mapSQLNotFound(err, "source_comment_messages", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceCommentMessageRecord](ctx, idb, scope, "source_comment_messages", "id", id)
 }
 
 func listSourceCommentMessageRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceCommentMessageQuery) ([]stores.SourceCommentMessageRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	records := make([]stores.SourceCommentMessageRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if query.SourceCommentThreadID != "" {
-		sel = sel.Where("source_comment_thread_id = ?", strings.TrimSpace(query.SourceCommentThreadID))
-	}
-	if query.SourceRevisionID != "" {
-		sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
-	}
-	if query.ProviderMessageID != "" {
-		sel = sel.Where("provider_message_id = ?", strings.TrimSpace(query.ProviderMessageID))
-	}
-	sel = sel.OrderExpr("created_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+	return relationalListRecords[stores.SourceCommentMessageRecord](ctx, idb, scope, "created_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		if query.SourceCommentThreadID != "" {
+			sel = sel.Where("source_comment_thread_id = ?", strings.TrimSpace(query.SourceCommentThreadID))
+		}
+		if query.SourceRevisionID != "" {
+			sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
+		}
+		if query.ProviderMessageID != "" {
+			sel = sel.Where("provider_message_id = ?", strings.TrimSpace(query.ProviderMessageID))
+		}
+		return sel
+	})
 }
 
 func loadSourceCommentSyncStateRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceCommentSyncStateRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceCommentSyncStateRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceCommentSyncStateRecord{}, relationalInvalidRecordError("source_comment_sync_states", "id", "required")
-	}
-	record := stores.SourceCommentSyncStateRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceCommentSyncStateRecord{}, mapSQLNotFound(err, "source_comment_sync_states", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceCommentSyncStateRecord](ctx, idb, scope, "source_comment_sync_states", "id", id)
 }
 
 func listSourceCommentSyncStateRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceCommentSyncStateQuery) ([]stores.SourceCommentSyncStateRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	records := make([]stores.SourceCommentSyncStateRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if query.SourceDocumentID != "" {
-		sel = sel.Where("source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
-	}
-	if query.SourceRevisionID != "" {
-		sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
-	}
-	if query.ProviderKind != "" {
-		sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
-	}
-	if query.SyncStatus != "" {
-		sel = sel.Where("sync_status = ?", strings.TrimSpace(query.SyncStatus))
-	}
-	sel = sel.OrderExpr("updated_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+	return relationalListRecords[stores.SourceCommentSyncStateRecord](ctx, idb, scope, "updated_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		if query.SourceDocumentID != "" {
+			sel = sel.Where("source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
+		}
+		if query.SourceRevisionID != "" {
+			sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
+		}
+		if query.ProviderKind != "" {
+			sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
+		}
+		if query.SyncStatus != "" {
+			sel = sel.Where("sync_status = ?", strings.TrimSpace(query.SyncStatus))
+		}
+		return sel
+	})
 }
 
 func loadSourceSearchDocumentRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceSearchDocumentRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceSearchDocumentRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceSearchDocumentRecord{}, relationalInvalidRecordError("source_search_documents", "id", "required")
-	}
-	record := stores.SourceSearchDocumentRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceSearchDocumentRecord{}, mapSQLNotFound(err, "source_search_documents", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceSearchDocumentRecord](ctx, idb, scope, "source_search_documents", "id", id)
 }
 
 func listSourceSearchDocumentRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceSearchDocumentQuery) ([]stores.SourceSearchDocumentRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	records := make([]stores.SourceSearchDocumentRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if query.SourceDocumentID != "" {
-		sel = sel.Where("source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
-	}
-	if query.SourceRevisionID != "" {
-		sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
-	}
-	if query.ResultKind != "" {
-		sel = sel.Where("result_kind = ?", strings.TrimSpace(query.ResultKind))
-	}
-	if query.ProviderKind != "" {
-		sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
-	}
-	if query.RelationshipState != "" {
-		sel = sel.Where("relationship_state = ?", strings.TrimSpace(query.RelationshipState))
-	}
-	if query.CommentSyncStatus != "" {
-		sel = sel.Where("comment_sync_status = ?", strings.TrimSpace(query.CommentSyncStatus))
-	}
-	if query.CanonicalTitle != "" {
-		sel = sel.Where("LOWER(canonical_title) = LOWER(?)", strings.TrimSpace(query.CanonicalTitle))
-	}
-	if query.HasComments != nil {
-		sel = sel.Where("has_comments = ?", *query.HasComments)
-	}
-	sel = sel.OrderExpr("updated_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+	return relationalListRecords[stores.SourceSearchDocumentRecord](ctx, idb, scope, "updated_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		if query.SourceDocumentID != "" {
+			sel = sel.Where("source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
+		}
+		if query.SourceRevisionID != "" {
+			sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
+		}
+		if query.ResultKind != "" {
+			sel = sel.Where("result_kind = ?", strings.TrimSpace(query.ResultKind))
+		}
+		if query.ProviderKind != "" {
+			sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
+		}
+		if query.RelationshipState != "" {
+			sel = sel.Where("relationship_state = ?", strings.TrimSpace(query.RelationshipState))
+		}
+		if query.CommentSyncStatus != "" {
+			sel = sel.Where("comment_sync_status = ?", strings.TrimSpace(query.CommentSyncStatus))
+		}
+		if query.CanonicalTitle != "" {
+			sel = sel.Where("LOWER(canonical_title) = LOWER(?)", strings.TrimSpace(query.CanonicalTitle))
+		}
+		if query.HasComments != nil {
+			sel = sel.Where("has_comments = ?", *query.HasComments)
+		}
+		return sel
+	})
 }
 
 func (s *StoreAdapter) CreateSourceCommentThread(ctx context.Context, scope stores.Scope, record stores.SourceCommentThreadRecord) (stores.SourceCommentThreadRecord, error) {
@@ -358,32 +246,70 @@ func (s *StoreAdapter) DeleteSourceSearchDocuments(ctx context.Context, scope st
 	})
 }
 
-func (s *relationalTxStore) CreateSourceCommentThread(ctx context.Context, scope stores.Scope, record stores.SourceCommentThreadRecord) (stores.SourceCommentThreadRecord, error) {
-	scope, err := normalizedStoreScope(scope)
+func createScopedSourceCommentRecord[T any](
+	ctx context.Context,
+	idb bun.IDB,
+	scope stores.Scope,
+	record T,
+	initialize func(stores.Scope, T) T,
+	prepare func(T, *T) (T, error),
+	validate func(context.Context, bun.IDB, stores.Scope, T) error,
+) (T, error) {
+	return relationalCreatePreparedRecord(
+		ctx,
+		idb,
+		scope,
+		record,
+		func(_ context.Context, _ bun.IDB, scope stores.Scope, record T) (T, error) {
+			return initialize(scope, record), nil
+		},
+		prepare,
+		validate,
+	)
+}
+
+func initializeSourceCommentThreadRecord(scope stores.Scope, record stores.SourceCommentThreadRecord) stores.SourceCommentThreadRecord {
+	record.ID, record.TenantID, record.OrgID = relationalInitializeScopedID(record.ID, scope)
+	return record
+}
+
+func validateCreateSourceCommentThreadRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, record stores.SourceCommentThreadRecord) error {
+	revision, err := loadSourceRevisionRecord(ctx, idb, scope, record.SourceRevisionID)
 	if err != nil {
-		return stores.SourceCommentThreadRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceCommentThreadRecord(record, nil)
-	if err != nil {
-		return stores.SourceCommentThreadRecord{}, err
-	}
-	revision, err := loadSourceRevisionRecord(ctx, s.tx, scope, record.SourceRevisionID)
-	if err != nil {
-		return stores.SourceCommentThreadRecord{}, err
+		return err
 	}
 	if strings.TrimSpace(revision.SourceDocumentID) != strings.TrimSpace(record.SourceDocumentID) {
-		return stores.SourceCommentThreadRecord{}, relationalInvalidRecordError("source_comment_threads", "source_revision_id", "must belong to source_document_id")
+		return relationalInvalidRecordError("source_comment_threads", "source_revision_id", "must belong to source_document_id")
 	}
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		return stores.SourceCommentThreadRecord{}, err
+	return nil
+}
+
+func initializeSourceCommentSyncStateRecord(scope stores.Scope, record stores.SourceCommentSyncStateRecord) stores.SourceCommentSyncStateRecord {
+	record.ID, record.TenantID, record.OrgID = relationalInitializeScopedID(record.ID, scope)
+	return record
+}
+
+func validateCreateSourceCommentSyncStateRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, record stores.SourceCommentSyncStateRecord) error {
+	revision, err := loadSourceRevisionRecord(ctx, idb, scope, record.SourceRevisionID)
+	if err != nil {
+		return err
 	}
-	return record, nil
+	if strings.TrimSpace(revision.SourceDocumentID) != strings.TrimSpace(record.SourceDocumentID) {
+		return relationalInvalidRecordError("source_comment_sync_states", "source_revision_id", "must belong to source_document_id")
+	}
+	return nil
+}
+
+func (s *relationalTxStore) CreateSourceCommentThread(ctx context.Context, scope stores.Scope, record stores.SourceCommentThreadRecord) (stores.SourceCommentThreadRecord, error) {
+	return createScopedSourceCommentRecord(
+		ctx,
+		s.tx,
+		scope,
+		record,
+		initializeSourceCommentThreadRecord,
+		stores.PrepareSourceCommentThreadRecord,
+		validateCreateSourceCommentThreadRecord,
+	)
 }
 
 func (s *relationalTxStore) GetSourceCommentThread(ctx context.Context, scope stores.Scope, id string) (stores.SourceCommentThreadRecord, error) {
@@ -395,29 +321,21 @@ func (s *relationalTxStore) ListSourceCommentThreads(ctx context.Context, scope 
 }
 
 func (s *relationalTxStore) SaveSourceCommentThread(ctx context.Context, scope stores.Scope, record stores.SourceCommentThreadRecord) (stores.SourceCommentThreadRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceCommentThreadRecord{}, err
-	}
-	current, err := loadSourceCommentThreadRecord(ctx, s.tx, scope, record.ID)
-	if err != nil {
-		return stores.SourceCommentThreadRecord{}, err
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceCommentThreadRecord(record, &current)
-	if err != nil {
-		return stores.SourceCommentThreadRecord{}, err
-	}
-	if _, err := s.tx.NewUpdate().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", record.ID).
-		Exec(ctx); err != nil {
-		return stores.SourceCommentThreadRecord{}, err
-	}
-	return record, nil
+	return relationalSavePreparedRecord(
+		ctx,
+		s.tx,
+		scope,
+		record.ID,
+		record,
+		loadSourceCommentThreadRecord,
+		stores.PrepareSourceCommentThreadRecord,
+		func(record stores.SourceCommentThreadRecord, scope stores.Scope) stores.SourceCommentThreadRecord {
+			record.TenantID = scope.TenantID
+			record.OrgID = scope.OrgID
+			return record
+		},
+		nil,
+	)
 }
 
 func (s *relationalTxStore) CreateSourceCommentMessage(ctx context.Context, scope stores.Scope, record stores.SourceCommentMessageRecord) (stores.SourceCommentMessageRecord, error) {
@@ -460,79 +378,45 @@ func (s *relationalTxStore) ListSourceCommentMessages(ctx context.Context, scope
 }
 
 func (s *relationalTxStore) SaveSourceCommentMessage(ctx context.Context, scope stores.Scope, record stores.SourceCommentMessageRecord) (stores.SourceCommentMessageRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceCommentMessageRecord{}, err
-	}
-	current, err := loadSourceCommentMessageRecord(ctx, s.tx, scope, record.ID)
-	if err != nil {
-		return stores.SourceCommentMessageRecord{}, err
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceCommentMessageRecord(record, &current)
-	if err != nil {
-		return stores.SourceCommentMessageRecord{}, err
-	}
-	if _, err := s.tx.NewUpdate().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", record.ID).
-		Exec(ctx); err != nil {
-		return stores.SourceCommentMessageRecord{}, err
-	}
-	return record, nil
+	return relationalSavePreparedRecord(
+		ctx,
+		s.tx,
+		scope,
+		record.ID,
+		record,
+		loadSourceCommentMessageRecord,
+		stores.PrepareSourceCommentMessageRecord,
+		func(record stores.SourceCommentMessageRecord, scope stores.Scope) stores.SourceCommentMessageRecord {
+			record.TenantID = scope.TenantID
+			record.OrgID = scope.OrgID
+			return record
+		},
+		nil,
+	)
 }
 
 func (s *relationalTxStore) DeleteSourceCommentMessages(ctx context.Context, scope stores.Scope, query stores.SourceCommentMessageQuery) error {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return err
-	}
-	del := s.tx.NewDelete().
-		Model((*stores.SourceCommentMessageRecord)(nil)).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if query.SourceCommentThreadID != "" {
-		del = del.Where("source_comment_thread_id = ?", strings.TrimSpace(query.SourceCommentThreadID))
-	}
-	if query.SourceRevisionID != "" {
-		del = del.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
-	}
-	if query.ProviderMessageID != "" {
-		del = del.Where("provider_message_id = ?", strings.TrimSpace(query.ProviderMessageID))
-	}
-	_, err = del.Exec(ctx)
-	return err
+	return relationalDeleteScopedRecords(
+		ctx,
+		s.tx,
+		scope,
+		(*stores.SourceCommentMessageRecord)(nil),
+		relationalDeleteFilter{field: "source_comment_thread_id", value: query.SourceCommentThreadID},
+		relationalDeleteFilter{field: "source_revision_id", value: query.SourceRevisionID},
+		relationalDeleteFilter{field: "provider_message_id", value: query.ProviderMessageID},
+	)
 }
 
 func (s *relationalTxStore) CreateSourceCommentSyncState(ctx context.Context, scope stores.Scope, record stores.SourceCommentSyncStateRecord) (stores.SourceCommentSyncStateRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceCommentSyncStateRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceCommentSyncStateRecord(record, nil)
-	if err != nil {
-		return stores.SourceCommentSyncStateRecord{}, err
-	}
-	revision, err := loadSourceRevisionRecord(ctx, s.tx, scope, record.SourceRevisionID)
-	if err != nil {
-		return stores.SourceCommentSyncStateRecord{}, err
-	}
-	if strings.TrimSpace(revision.SourceDocumentID) != strings.TrimSpace(record.SourceDocumentID) {
-		return stores.SourceCommentSyncStateRecord{}, relationalInvalidRecordError("source_comment_sync_states", "source_revision_id", "must belong to source_document_id")
-	}
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		return stores.SourceCommentSyncStateRecord{}, err
-	}
-	return record, nil
+	return createScopedSourceCommentRecord(
+		ctx,
+		s.tx,
+		scope,
+		record,
+		initializeSourceCommentSyncStateRecord,
+		stores.PrepareSourceCommentSyncStateRecord,
+		validateCreateSourceCommentSyncStateRecord,
+	)
 }
 
 func (s *relationalTxStore) GetSourceCommentSyncState(ctx context.Context, scope stores.Scope, id string) (stores.SourceCommentSyncStateRecord, error) {
@@ -544,29 +428,21 @@ func (s *relationalTxStore) ListSourceCommentSyncStates(ctx context.Context, sco
 }
 
 func (s *relationalTxStore) SaveSourceCommentSyncState(ctx context.Context, scope stores.Scope, record stores.SourceCommentSyncStateRecord) (stores.SourceCommentSyncStateRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceCommentSyncStateRecord{}, err
-	}
-	current, err := loadSourceCommentSyncStateRecord(ctx, s.tx, scope, record.ID)
-	if err != nil {
-		return stores.SourceCommentSyncStateRecord{}, err
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceCommentSyncStateRecord(record, &current)
-	if err != nil {
-		return stores.SourceCommentSyncStateRecord{}, err
-	}
-	if _, err := s.tx.NewUpdate().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", record.ID).
-		Exec(ctx); err != nil {
-		return stores.SourceCommentSyncStateRecord{}, err
-	}
-	return record, nil
+	return relationalSavePreparedRecord(
+		ctx,
+		s.tx,
+		scope,
+		record.ID,
+		record,
+		loadSourceCommentSyncStateRecord,
+		stores.PrepareSourceCommentSyncStateRecord,
+		func(record stores.SourceCommentSyncStateRecord, scope stores.Scope) stores.SourceCommentSyncStateRecord {
+			record.TenantID = scope.TenantID
+			record.OrgID = scope.OrgID
+			return record
+		},
+		nil,
+	)
 }
 
 func (s *relationalTxStore) CreateSourceSearchDocument(ctx context.Context, scope stores.Scope, record stores.SourceSearchDocumentRecord) (stores.SourceSearchDocumentRecord, error) {
@@ -607,49 +483,31 @@ func (s *relationalTxStore) ListSourceSearchDocuments(ctx context.Context, scope
 }
 
 func (s *relationalTxStore) SaveSourceSearchDocument(ctx context.Context, scope stores.Scope, record stores.SourceSearchDocumentRecord) (stores.SourceSearchDocumentRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceSearchDocumentRecord{}, err
-	}
-	current, err := loadSourceSearchDocumentRecord(ctx, s.tx, scope, record.ID)
-	if err != nil {
-		return stores.SourceSearchDocumentRecord{}, err
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceSearchDocumentRecord(record, &current)
-	if err != nil {
-		return stores.SourceSearchDocumentRecord{}, err
-	}
-	if _, err := s.tx.NewUpdate().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", record.ID).
-		Exec(ctx); err != nil {
-		return stores.SourceSearchDocumentRecord{}, err
-	}
-	return record, nil
+	return relationalSavePreparedRecord(
+		ctx,
+		s.tx,
+		scope,
+		record.ID,
+		record,
+		loadSourceSearchDocumentRecord,
+		stores.PrepareSourceSearchDocumentRecord,
+		func(record stores.SourceSearchDocumentRecord, scope stores.Scope) stores.SourceSearchDocumentRecord {
+			record.TenantID = scope.TenantID
+			record.OrgID = scope.OrgID
+			return record
+		},
+		nil,
+	)
 }
 
 func (s *relationalTxStore) DeleteSourceSearchDocuments(ctx context.Context, scope stores.Scope, query stores.SourceSearchDocumentQuery) error {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return err
-	}
-	del := s.tx.NewDelete().
-		Model((*stores.SourceSearchDocumentRecord)(nil)).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if query.SourceDocumentID != "" {
-		del = del.Where("source_document_id = ?", strings.TrimSpace(query.SourceDocumentID))
-	}
-	if query.SourceRevisionID != "" {
-		del = del.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
-	}
-	if query.ResultKind != "" {
-		del = del.Where("result_kind = ?", strings.TrimSpace(query.ResultKind))
-	}
-	_, err = del.Exec(ctx)
-	return err
+	return relationalDeleteScopedRecords(
+		ctx,
+		s.tx,
+		scope,
+		(*stores.SourceSearchDocumentRecord)(nil),
+		relationalDeleteFilter{field: "source_document_id", value: query.SourceDocumentID},
+		relationalDeleteFilter{field: "source_revision_id", value: query.SourceRevisionID},
+		relationalDeleteFilter{field: "result_kind", value: query.ResultKind},
+	)
 }

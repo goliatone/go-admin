@@ -12,71 +12,21 @@ import (
 )
 
 func loadSourceDocumentRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceDocumentRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceDocumentRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceDocumentRecord{}, relationalInvalidRecordError("source_documents", "id", "required")
-	}
-	record := stores.SourceDocumentRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceDocumentRecord{}, mapSQLNotFound(err, "source_documents", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceDocumentRecord](ctx, idb, scope, "source_documents", "id", id)
 }
 
 func listSourceDocumentRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceDocumentQuery) ([]stores.SourceDocumentRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	records := make([]stores.SourceDocumentRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if query.ProviderKind != "" {
-		sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
-	}
-	if query.Status != "" {
-		sel = sel.Where("status = ?", strings.TrimSpace(query.Status))
-	}
-	if query.CanonicalTitle != "" {
-		sel = sel.Where("LOWER(canonical_title) = LOWER(?)", strings.TrimSpace(query.CanonicalTitle))
-	}
-	sel = sel.OrderExpr("created_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+	return relationalListRecords[stores.SourceDocumentRecord](ctx, idb, scope, "created_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		return relationalApplyStringFilters(sel,
+			relationalStringFilter{field: "provider_kind", value: query.ProviderKind},
+			relationalStringFilter{field: "status", value: query.Status},
+			relationalStringFilter{field: "canonical_title", value: query.CanonicalTitle, caseInsensitive: true},
+		)
+	})
 }
 
 func loadSourceHandleRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceHandleRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceHandleRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceHandleRecord{}, relationalInvalidRecordError("source_handles", "id", "required")
-	}
-	record := stores.SourceHandleRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceHandleRecord{}, mapSQLNotFound(err, "source_handles", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceHandleRecord](ctx, idb, scope, "source_handles", "id", id)
 }
 
 func findActiveSourceHandleRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, providerKind, externalFileID, accountID, excludeID string) (stores.SourceHandleRecord, error) {
@@ -107,240 +57,107 @@ func findActiveSourceHandleRecord(ctx context.Context, idb bun.IDB, scope stores
 }
 
 func listSourceHandleRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceHandleQuery) ([]stores.SourceHandleRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
 	documentIDs := relationalNormalizedLineageIDs(query.SourceDocumentID, query.SourceDocumentIDs)
-	records := make([]stores.SourceHandleRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if len(documentIDs) == 1 {
-		for id := range documentIDs {
-			sel = sel.Where("source_document_id = ?", id)
+	return relationalListRecords[stores.SourceHandleRecord](ctx, idb, scope, "created_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		if len(documentIDs) == 1 {
+			for id := range documentIDs {
+				sel = sel.Where("source_document_id = ?", id)
+			}
+		} else if len(documentIDs) > 1 {
+			ids := relationalLineageIDList(documentIDs)
+			sel = sel.Where("source_document_id IN (?)", bun.List(ids))
 		}
-	} else if len(documentIDs) > 1 {
-		ids := relationalLineageIDList(documentIDs)
-		sel = sel.Where("source_document_id IN (?)", bun.List(ids))
-	}
-	if query.ProviderKind != "" {
-		sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
-	}
-	if query.ExternalFileID != "" {
-		sel = sel.Where("external_file_id = ?", strings.TrimSpace(query.ExternalFileID))
-	}
-	if query.AccountID != "" {
-		sel = sel.Where("account_id = ?", strings.TrimSpace(query.AccountID))
-	}
-	if query.ActiveOnly {
-		sel = sel.Where("handle_status = ?", stores.SourceHandleStatusActive).Where("valid_to IS NULL")
-	}
-	sel = sel.OrderExpr("created_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+		if query.ProviderKind != "" {
+			sel = sel.Where("provider_kind = ?", strings.TrimSpace(query.ProviderKind))
+		}
+		if query.ExternalFileID != "" {
+			sel = sel.Where("external_file_id = ?", strings.TrimSpace(query.ExternalFileID))
+		}
+		if query.AccountID != "" {
+			sel = sel.Where("account_id = ?", strings.TrimSpace(query.AccountID))
+		}
+		if query.ActiveOnly {
+			sel = sel.Where("handle_status = ?", stores.SourceHandleStatusActive).Where("valid_to IS NULL")
+		}
+		return sel
+	})
 }
 
 func loadSourceRevisionRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceRevisionRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceRevisionRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceRevisionRecord{}, relationalInvalidRecordError("source_revisions", "id", "required")
-	}
-	record := stores.SourceRevisionRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceRevisionRecord{}, mapSQLNotFound(err, "source_revisions", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceRevisionRecord](ctx, idb, scope, "source_revisions", "id", id)
 }
 
 func listSourceRevisionRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceRevisionQuery) ([]stores.SourceRevisionRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
 	documentIDs := relationalNormalizedLineageIDs(query.SourceDocumentID, query.SourceDocumentIDs)
-	records := make([]stores.SourceRevisionRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if len(documentIDs) == 1 {
-		for id := range documentIDs {
-			sel = sel.Where("source_document_id = ?", id)
+	return relationalListRecords[stores.SourceRevisionRecord](ctx, idb, scope, "created_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		if len(documentIDs) == 1 {
+			for id := range documentIDs {
+				sel = sel.Where("source_document_id = ?", id)
+			}
+		} else if len(documentIDs) > 1 {
+			ids := relationalLineageIDList(documentIDs)
+			sel = sel.Where("source_document_id IN (?)", bun.List(ids))
 		}
-	} else if len(documentIDs) > 1 {
-		ids := relationalLineageIDList(documentIDs)
-		sel = sel.Where("source_document_id IN (?)", bun.List(ids))
-	}
-	if query.SourceHandleID != "" {
-		sel = sel.Where("source_handle_id = ?", strings.TrimSpace(query.SourceHandleID))
-	}
-	if query.ProviderRevisionHint != "" {
-		sel = sel.Where("provider_revision_hint = ?", strings.TrimSpace(query.ProviderRevisionHint))
-	}
-	sel = sel.OrderExpr("created_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+		if query.SourceHandleID != "" {
+			sel = sel.Where("source_handle_id = ?", strings.TrimSpace(query.SourceHandleID))
+		}
+		if query.ProviderRevisionHint != "" {
+			sel = sel.Where("provider_revision_hint = ?", strings.TrimSpace(query.ProviderRevisionHint))
+		}
+		return sel
+	})
 }
 
 func loadSourceArtifactRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceArtifactRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceArtifactRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceArtifactRecord{}, relationalInvalidRecordError("source_artifacts", "id", "required")
-	}
-	record := stores.SourceArtifactRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceArtifactRecord{}, mapSQLNotFound(err, "source_artifacts", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceArtifactRecord](ctx, idb, scope, "source_artifacts", "id", id)
 }
 
 func listSourceArtifactRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceArtifactQuery) ([]stores.SourceArtifactRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	records := make([]stores.SourceArtifactRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if query.SourceRevisionID != "" {
-		sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
-	}
-	if query.ArtifactKind != "" {
-		sel = sel.Where("artifact_kind = ?", strings.TrimSpace(query.ArtifactKind))
-	}
-	if query.SHA256 != "" {
-		sel = sel.Where("sha256 = ?", strings.TrimSpace(query.SHA256))
-	}
-	sel = sel.OrderExpr("created_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+	return relationalListRecords[stores.SourceArtifactRecord](ctx, idb, scope, "created_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		return relationalApplyStringFilters(sel,
+			relationalStringFilter{field: "source_revision_id", value: query.SourceRevisionID},
+			relationalStringFilter{field: "artifact_kind", value: query.ArtifactKind},
+			relationalStringFilter{field: "sha256", value: query.SHA256},
+		)
+	})
 }
 
 func loadSourceFingerprintRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceFingerprintRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceFingerprintRecord{}, relationalInvalidRecordError("source_fingerprints", "id", "required")
-	}
-	record := stores.SourceFingerprintRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceFingerprintRecord{}, mapSQLNotFound(err, "source_fingerprints", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceFingerprintRecord](ctx, idb, scope, "source_fingerprints", "id", id)
 }
 
 func listSourceFingerprintRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceFingerprintQuery) ([]stores.SourceFingerprintRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	records := make([]stores.SourceFingerprintRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if query.SourceRevisionID != "" {
-		sel = sel.Where("source_revision_id = ?", strings.TrimSpace(query.SourceRevisionID))
-	}
-	if query.ArtifactID != "" {
-		sel = sel.Where("artifact_id = ?", strings.TrimSpace(query.ArtifactID))
-	}
-	if query.ExtractVersion != "" {
-		sel = sel.Where("extract_version = ?", strings.TrimSpace(query.ExtractVersion))
-	}
-	sel = sel.OrderExpr("created_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+	return relationalListRecords[stores.SourceFingerprintRecord](ctx, idb, scope, "created_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		return relationalApplyStringFilters(sel,
+			relationalStringFilter{field: "source_revision_id", value: query.SourceRevisionID},
+			relationalStringFilter{field: "artifact_id", value: query.ArtifactID},
+			relationalStringFilter{field: "extract_version", value: query.ExtractVersion},
+		)
+	})
 }
 
 func loadSourceRelationshipRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, id string) (stores.SourceRelationshipRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceRelationshipRecord{}, err
-	}
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return stores.SourceRelationshipRecord{}, relationalInvalidRecordError("source_relationships", "id", "required")
-	}
-	record := stores.SourceRelationshipRecord{}
-	if err := idb.NewSelect().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", id).
-		Scan(ctx); err != nil {
-		return stores.SourceRelationshipRecord{}, mapSQLNotFound(err, "source_relationships", id)
-	}
-	return record, nil
+	return relationalLoadRecord[stores.SourceRelationshipRecord](ctx, idb, scope, "source_relationships", "id", id)
 }
 
 func listSourceRelationshipRecords(ctx context.Context, idb bun.IDB, scope stores.Scope, query stores.SourceRelationshipQuery) ([]stores.SourceRelationshipRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return nil, err
-	}
 	documentIDs := relationalNormalizedLineageIDs(query.SourceDocumentID, query.SourceDocumentIDs)
-	records := make([]stores.SourceRelationshipRecord, 0)
-	sel := idb.NewSelect().
-		Model(&records).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID)
-	if len(documentIDs) > 0 {
-		ids := relationalLineageIDList(documentIDs)
-		sel = sel.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
-			return q.Where("left_source_document_id IN (?)", bun.List(ids)).
-				WhereOr("right_source_document_id IN (?)", bun.List(ids))
-		})
-	}
-	if query.RelationshipType != "" {
-		sel = sel.Where("relationship_type = ?", strings.TrimSpace(query.RelationshipType))
-	}
-	if query.Status != "" {
-		sel = sel.Where("status = ?", strings.TrimSpace(query.Status))
-	}
-	sel = sel.OrderExpr("created_at ASC, id ASC")
-	if err := sel.Scan(ctx, &records); err != nil {
-		return nil, err
-	}
-	return records, nil
+	return relationalListRecords[stores.SourceRelationshipRecord](ctx, idb, scope, "created_at ASC, id ASC", func(sel *bun.SelectQuery) *bun.SelectQuery {
+		if len(documentIDs) > 0 {
+			ids := relationalLineageIDList(documentIDs)
+			sel = sel.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+				return q.Where("left_source_document_id IN (?)", bun.List(ids)).
+					WhereOr("right_source_document_id IN (?)", bun.List(ids))
+			})
+		}
+		if query.RelationshipType != "" {
+			sel = sel.Where("relationship_type = ?", strings.TrimSpace(query.RelationshipType))
+		}
+		if query.Status != "" {
+			sel = sel.Where("status = ?", strings.TrimSpace(query.Status))
+		}
+		return sel
+	})
 }
 
 func findSourceRelationshipRecordByTuple(ctx context.Context, idb bun.IDB, scope stores.Scope, leftID, rightID, relationshipType, status, excludeID string) (stores.SourceRelationshipRecord, error) {
@@ -663,6 +480,66 @@ func (s *StoreAdapter) SaveSourceRelationship(ctx context.Context, scope stores.
 	})
 }
 
+func createScopedLineageRecord[T any](
+	ctx context.Context,
+	idb bun.IDB,
+	scope stores.Scope,
+	record T,
+	initialize func(stores.Scope, T) T,
+	prepare func(T, *T) (T, error),
+	validate func(context.Context, bun.IDB, stores.Scope, T) error,
+) (T, error) {
+	return relationalCreatePreparedRecord(
+		ctx,
+		idb,
+		scope,
+		record,
+		func(_ context.Context, _ bun.IDB, scope stores.Scope, record T) (T, error) {
+			return initialize(scope, record), nil
+		},
+		prepare,
+		validate,
+	)
+}
+
+func initializeSourceRevisionRecord(scope stores.Scope, record stores.SourceRevisionRecord) stores.SourceRevisionRecord {
+	record.ID, record.TenantID, record.OrgID = relationalInitializeScopedID(record.ID, scope)
+	return record
+}
+
+func validateCreateSourceRevisionRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, record stores.SourceRevisionRecord) error {
+	if _, err := loadSourceDocumentRecord(ctx, idb, scope, record.SourceDocumentID); err != nil {
+		return err
+	}
+	handle, err := loadSourceHandleRecord(ctx, idb, scope, record.SourceHandleID)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(handle.SourceDocumentID) != strings.TrimSpace(record.SourceDocumentID) {
+		return relationalInvalidRecordError("source_revisions", "source_handle_id", "must belong to source_document_id")
+	}
+	return nil
+}
+
+func initializeSourceFingerprintRecord(scope stores.Scope, record stores.SourceFingerprintRecord) stores.SourceFingerprintRecord {
+	record.ID, record.TenantID, record.OrgID = relationalInitializeScopedID(record.ID, scope)
+	return record
+}
+
+func validateCreateSourceFingerprintRecord(ctx context.Context, idb bun.IDB, scope stores.Scope, record stores.SourceFingerprintRecord) error {
+	if _, err := loadSourceRevisionRecord(ctx, idb, scope, record.SourceRevisionID); err != nil {
+		return err
+	}
+	artifact, err := loadSourceArtifactRecord(ctx, idb, scope, record.ArtifactID)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
+		return relationalInvalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
+	}
+	return nil
+}
+
 func (s *relationalTxStore) CreateSourceDocument(ctx context.Context, scope stores.Scope, record stores.SourceDocumentRecord) (stores.SourceDocumentRecord, error) {
 	scope, err := normalizedStoreScope(scope)
 	if err != nil {
@@ -693,29 +570,21 @@ func (s *relationalTxStore) ListSourceDocuments(ctx context.Context, scope store
 }
 
 func (s *relationalTxStore) SaveSourceDocument(ctx context.Context, scope stores.Scope, record stores.SourceDocumentRecord) (stores.SourceDocumentRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceDocumentRecord{}, err
-	}
-	current, err := loadSourceDocumentRecord(ctx, s.tx, scope, record.ID)
-	if err != nil {
-		return stores.SourceDocumentRecord{}, err
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceDocumentRecord(record, &current)
-	if err != nil {
-		return stores.SourceDocumentRecord{}, err
-	}
-	if _, err := s.tx.NewUpdate().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", record.ID).
-		Exec(ctx); err != nil {
-		return stores.SourceDocumentRecord{}, err
-	}
-	return record, nil
+	return relationalSavePreparedRecord(
+		ctx,
+		s.tx,
+		scope,
+		record.ID,
+		record,
+		loadSourceDocumentRecord,
+		stores.PrepareSourceDocumentRecord,
+		func(record stores.SourceDocumentRecord, scope stores.Scope) stores.SourceDocumentRecord {
+			record.TenantID = scope.TenantID
+			record.OrgID = scope.OrgID
+			return record
+		},
+		nil,
+	)
 }
 
 func (s *relationalTxStore) CreateSourceHandle(ctx context.Context, scope stores.Scope, record stores.SourceHandleRecord) (stores.SourceHandleRecord, error) {
@@ -795,35 +664,15 @@ func (s *relationalTxStore) SaveSourceHandle(ctx context.Context, scope stores.S
 }
 
 func (s *relationalTxStore) CreateSourceRevision(ctx context.Context, scope stores.Scope, record stores.SourceRevisionRecord) (stores.SourceRevisionRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceRevisionRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceRevisionRecord(record, nil)
-	if err != nil {
-		return stores.SourceRevisionRecord{}, err
-	}
-	_, loadErr := loadSourceDocumentRecord(ctx, s.tx, scope, record.SourceDocumentID)
-	if loadErr != nil {
-		return stores.SourceRevisionRecord{}, loadErr
-	}
-	handle, err := loadSourceHandleRecord(ctx, s.tx, scope, record.SourceHandleID)
-	if err != nil {
-		return stores.SourceRevisionRecord{}, err
-	}
-	if strings.TrimSpace(handle.SourceDocumentID) != strings.TrimSpace(record.SourceDocumentID) {
-		return stores.SourceRevisionRecord{}, relationalInvalidRecordError("source_revisions", "source_handle_id", "must belong to source_document_id")
-	}
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		return stores.SourceRevisionRecord{}, err
-	}
-	return record, nil
+	return createScopedLineageRecord(
+		ctx,
+		s.tx,
+		scope,
+		record,
+		initializeSourceRevisionRecord,
+		stores.PrepareSourceRevisionRecord,
+		validateCreateSourceRevisionRecord,
+	)
 }
 
 func (s *relationalTxStore) GetSourceRevision(ctx context.Context, scope stores.Scope, id string) (stores.SourceRevisionRecord, error) {
@@ -835,29 +684,21 @@ func (s *relationalTxStore) ListSourceRevisions(ctx context.Context, scope store
 }
 
 func (s *relationalTxStore) SaveSourceRevision(ctx context.Context, scope stores.Scope, record stores.SourceRevisionRecord) (stores.SourceRevisionRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceRevisionRecord{}, err
-	}
-	current, err := loadSourceRevisionRecord(ctx, s.tx, scope, record.ID)
-	if err != nil {
-		return stores.SourceRevisionRecord{}, err
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceRevisionRecord(record, &current)
-	if err != nil {
-		return stores.SourceRevisionRecord{}, err
-	}
-	if _, err := s.tx.NewUpdate().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", record.ID).
-		Exec(ctx); err != nil {
-		return stores.SourceRevisionRecord{}, err
-	}
-	return record, nil
+	return relationalSavePreparedRecord(
+		ctx,
+		s.tx,
+		scope,
+		record.ID,
+		record,
+		loadSourceRevisionRecord,
+		stores.PrepareSourceRevisionRecord,
+		func(record stores.SourceRevisionRecord, scope stores.Scope) stores.SourceRevisionRecord {
+			record.TenantID = scope.TenantID
+			record.OrgID = scope.OrgID
+			return record
+		},
+		nil,
+	)
 }
 
 func (s *relationalTxStore) CreateSourceArtifact(ctx context.Context, scope stores.Scope, record stores.SourceArtifactRecord) (stores.SourceArtifactRecord, error) {
@@ -893,61 +734,33 @@ func (s *relationalTxStore) ListSourceArtifacts(ctx context.Context, scope store
 }
 
 func (s *relationalTxStore) SaveSourceArtifact(ctx context.Context, scope stores.Scope, record stores.SourceArtifactRecord) (stores.SourceArtifactRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceArtifactRecord{}, err
-	}
-	current, err := loadSourceArtifactRecord(ctx, s.tx, scope, record.ID)
-	if err != nil {
-		return stores.SourceArtifactRecord{}, err
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceArtifactRecord(record, &current)
-	if err != nil {
-		return stores.SourceArtifactRecord{}, err
-	}
-	if _, err := s.tx.NewUpdate().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", record.ID).
-		Exec(ctx); err != nil {
-		return stores.SourceArtifactRecord{}, err
-	}
-	return record, nil
+	return relationalSavePreparedRecord(
+		ctx,
+		s.tx,
+		scope,
+		record.ID,
+		record,
+		loadSourceArtifactRecord,
+		stores.PrepareSourceArtifactRecord,
+		func(record stores.SourceArtifactRecord, scope stores.Scope) stores.SourceArtifactRecord {
+			record.TenantID = scope.TenantID
+			record.OrgID = scope.OrgID
+			return record
+		},
+		nil,
+	)
 }
 
 func (s *relationalTxStore) CreateSourceFingerprint(ctx context.Context, scope stores.Scope, record stores.SourceFingerprintRecord) (stores.SourceFingerprintRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	record.ID = strings.TrimSpace(record.ID)
-	if record.ID == "" {
-		record.ID = uuid.NewString()
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceFingerprintRecord(record, nil)
-	if err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	_, loadErr := loadSourceRevisionRecord(ctx, s.tx, scope, record.SourceRevisionID)
-	if loadErr != nil {
-		return stores.SourceFingerprintRecord{}, loadErr
-	}
-	artifact, err := loadSourceArtifactRecord(ctx, s.tx, scope, record.ArtifactID)
-	if err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
-		return stores.SourceFingerprintRecord{}, relationalInvalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
-	}
-	if _, err := s.tx.NewInsert().Model(&record).Exec(ctx); err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	return record, nil
+	return createScopedLineageRecord(
+		ctx,
+		s.tx,
+		scope,
+		record,
+		initializeSourceFingerprintRecord,
+		stores.PrepareSourceFingerprintRecord,
+		validateCreateSourceFingerprintRecord,
+	)
 }
 
 func (s *relationalTxStore) GetSourceFingerprint(ctx context.Context, scope stores.Scope, id string) (stores.SourceFingerprintRecord, error) {
@@ -959,36 +772,30 @@ func (s *relationalTxStore) ListSourceFingerprints(ctx context.Context, scope st
 }
 
 func (s *relationalTxStore) SaveSourceFingerprint(ctx context.Context, scope stores.Scope, record stores.SourceFingerprintRecord) (stores.SourceFingerprintRecord, error) {
-	scope, err := normalizedStoreScope(scope)
-	if err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	current, err := loadSourceFingerprintRecord(ctx, s.tx, scope, record.ID)
-	if err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record, err = stores.PrepareSourceFingerprintRecord(record, &current)
-	if err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	artifact, err := loadSourceArtifactRecord(ctx, s.tx, scope, record.ArtifactID)
-	if err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
-		return stores.SourceFingerprintRecord{}, relationalInvalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
-	}
-	if _, err := s.tx.NewUpdate().
-		Model(&record).
-		Where("tenant_id = ?", scope.TenantID).
-		Where("org_id = ?", scope.OrgID).
-		Where("id = ?", record.ID).
-		Exec(ctx); err != nil {
-		return stores.SourceFingerprintRecord{}, err
-	}
-	return record, nil
+	return relationalSavePreparedRecord(
+		ctx,
+		s.tx,
+		scope,
+		record.ID,
+		record,
+		loadSourceFingerprintRecord,
+		stores.PrepareSourceFingerprintRecord,
+		func(record stores.SourceFingerprintRecord, scope stores.Scope) stores.SourceFingerprintRecord {
+			record.TenantID = scope.TenantID
+			record.OrgID = scope.OrgID
+			return record
+		},
+		func(record stores.SourceFingerprintRecord, scope stores.Scope) error {
+			artifact, err := loadSourceArtifactRecord(ctx, s.tx, scope, record.ArtifactID)
+			if err != nil {
+				return err
+			}
+			if strings.TrimSpace(artifact.SourceRevisionID) != strings.TrimSpace(record.SourceRevisionID) {
+				return relationalInvalidRecordError("source_fingerprints", "artifact_id", "must belong to source_revision_id")
+			}
+			return nil
+		},
+	)
 }
 
 func (s *relationalTxStore) CreateSourceRelationship(ctx context.Context, scope stores.Scope, record stores.SourceRelationshipRecord) (stores.SourceRelationshipRecord, error) {

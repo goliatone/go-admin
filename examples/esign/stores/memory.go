@@ -448,6 +448,467 @@ func clonePublicSignerSessionTokenRecord(record PublicSignerSessionTokenRecord) 
 	return record
 }
 
+func getScopedRecordByHash[T any](
+	tokenHash string,
+	table string,
+	hashIndex map[string]string,
+	records map[string]T,
+	inScope func(T) bool,
+	clone func(T) T,
+) (T, error) {
+	var zero T
+
+	key, ok := hashIndex[tokenHash]
+	if !ok {
+		return zero, notFoundError(table, tokenHash)
+	}
+	record, ok := records[key]
+	if !ok {
+		return zero, notFoundError(table, tokenHash)
+	}
+	if !inScope(record) {
+		return zero, scopeDeniedError()
+	}
+	return clone(record), nil
+}
+
+func listScopedRecords[T any](
+	records map[string]T,
+	include func(T) bool,
+	clone func(T) T,
+	less func(T, T) bool,
+) []T {
+	out := make([]T, 0)
+	for _, record := range records {
+		if !include(record) {
+			continue
+		}
+		out = append(out, clone(record))
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return less(out[i], out[j])
+	})
+	return out
+}
+
+func listScopedRequiredPairRecords[T any](
+	scope Scope,
+	agreementID string,
+	relatedID string,
+	table string,
+	agreementField string,
+	relatedField string,
+	records map[string]T,
+	include func(T, Scope, string, string) bool,
+	clone func(T) T,
+	less func(T, T) bool,
+) ([]T, error) {
+	agreementID = normalizeID(agreementID)
+	relatedID = normalizeID(relatedID)
+	if agreementID == "" {
+		return nil, invalidRecordError(table, agreementField, "required")
+	}
+	if relatedID == "" {
+		return nil, invalidRecordError(table, relatedField, "required")
+	}
+	return listScopedRecords(records,
+		func(record T) bool {
+			return include(record, scope, agreementID, relatedID)
+		},
+		clone,
+		less,
+	), nil
+}
+
+func scopedRecordTimeLess(leftAt, rightAt time.Time, leftID, rightID string) bool {
+	if leftAt.Equal(rightAt) {
+		return leftID < rightID
+	}
+	return leftAt.Before(rightAt)
+}
+
+func listScopedRequiredRecords[T any](
+	scope Scope,
+	requiredID string,
+	table string,
+	requiredField string,
+	records map[string]T,
+	include func(T, Scope, string) bool,
+	clone func(T) T,
+	less func(T, T) bool,
+) ([]T, error) {
+	requiredID = normalizeID(requiredID)
+	if requiredID == "" {
+		return nil, invalidRecordError(table, requiredField, "required")
+	}
+	return listScopedRecords(records,
+		func(record T) bool {
+			return include(record, scope, requiredID)
+		},
+		clone,
+		less,
+	), nil
+}
+
+func listScopedRequiredPairRecordsByTime[T any](
+	scope Scope,
+	agreementID string,
+	relatedID string,
+	table string,
+	agreementField string,
+	relatedField string,
+	records map[string]T,
+	include func(T, Scope, string, string) bool,
+	clone func(T) T,
+	recordTime func(T) time.Time,
+	recordID func(T) string,
+) ([]T, error) {
+	return listScopedRequiredPairRecords(scope, agreementID, relatedID, table, agreementField, relatedField, records, include, clone,
+		func(left, right T) bool {
+			return scopedRecordTimeLess(recordTime(left), recordTime(right), recordID(left), recordID(right))
+		},
+	)
+}
+
+func listScopedRequiredRecordsByTime[T any](
+	scope Scope,
+	requiredID string,
+	table string,
+	requiredField string,
+	records map[string]T,
+	include func(T, Scope, string) bool,
+	clone func(T) T,
+	recordTime func(T) time.Time,
+	recordID func(T) string,
+) ([]T, error) {
+	return listScopedRequiredRecords(scope, requiredID, table, requiredField, records, include, clone,
+		func(left, right T) bool {
+			return scopedRecordTimeLess(recordTime(left), recordTime(right), recordID(left), recordID(right))
+		},
+	)
+}
+
+func signingTokenMatchesScope(record SigningTokenRecord, scope Scope, agreementID, recipientID string) bool {
+	return record.TenantID == scope.TenantID &&
+		record.OrgID == scope.OrgID &&
+		record.AgreementID == agreementID &&
+		record.RecipientID == recipientID
+}
+
+func activeSigningTokenMatchesScope(record SigningTokenRecord, scope Scope, agreementID, recipientID string) bool {
+	return signingTokenMatchesScope(record, scope, agreementID, recipientID) && record.Status == SigningTokenStatusActive
+}
+
+func revokeSigningTokenRecord(record SigningTokenRecord, revokedAt *time.Time) SigningTokenRecord {
+	record.Status = SigningTokenStatusRevoked
+	record.RevokedAt = cloneTimePtr(revokedAt)
+	return record
+}
+
+func signingTokenCreatedAt(record SigningTokenRecord) time.Time { return record.CreatedAt }
+func signingTokenID(record SigningTokenRecord) string           { return record.ID }
+
+func reviewSessionTokenMatchesScope(record ReviewSessionTokenRecord, scope Scope, agreementID, participantID string) bool {
+	return record.TenantID == scope.TenantID &&
+		record.OrgID == scope.OrgID &&
+		record.AgreementID == agreementID &&
+		record.ParticipantID == participantID
+}
+
+func activeReviewSessionTokenMatchesScope(record ReviewSessionTokenRecord, scope Scope, agreementID, participantID string) bool {
+	return reviewSessionTokenMatchesScope(record, scope, agreementID, participantID) && record.Status == ReviewSessionTokenStatusActive
+}
+
+func revokeReviewSessionTokenRecord(record ReviewSessionTokenRecord, revokedAt *time.Time) ReviewSessionTokenRecord {
+	record.Status = ReviewSessionTokenStatusRevoked
+	record.RevokedAt = cloneTimePtr(revokedAt)
+	return record
+}
+
+func reviewSessionTokenCreatedAt(record ReviewSessionTokenRecord) time.Time { return record.CreatedAt }
+func reviewSessionTokenID(record ReviewSessionTokenRecord) string           { return record.ID }
+
+func emailLogMatchesAgreement(record EmailLogRecord, scope Scope, agreementID string) bool {
+	return record.TenantID == scope.TenantID && record.OrgID == scope.OrgID && record.AgreementID == agreementID
+}
+
+func emailLogCreatedAt(record EmailLogRecord) time.Time { return record.CreatedAt }
+func emailLogID(record EmailLogRecord) string           { return record.ID }
+
+func jobRunMatchesAgreement(record JobRunRecord, scope Scope, agreementID string) bool {
+	return record.TenantID == scope.TenantID && record.OrgID == scope.OrgID && record.AgreementID == agreementID
+}
+
+func jobRunUpdatedAt(record JobRunRecord) time.Time { return record.UpdatedAt }
+func jobRunID(record JobRunRecord) string           { return record.ID }
+
+func integrationCheckpointMatchesRun(record IntegrationCheckpointRecord, scope Scope, runID string) bool {
+	return record.TenantID == scope.TenantID && record.OrgID == scope.OrgID && record.RunID == runID
+}
+
+func integrationCheckpointUpdatedAt(record IntegrationCheckpointRecord) time.Time {
+	return record.UpdatedAt
+}
+func integrationCheckpointID(record IntegrationCheckpointRecord) string { return record.ID }
+
+func placementRunMatchesAgreement(record PlacementRunRecord, scope Scope, agreementID string) bool {
+	return record.TenantID == scope.TenantID && record.OrgID == scope.OrgID && record.AgreementID == agreementID
+}
+
+func placementRunCreatedAt(record PlacementRunRecord) time.Time { return record.CreatedAt }
+func placementRunID(record PlacementRunRecord) string           { return record.ID }
+
+func revokeScopedRecords[T any](
+	scope Scope,
+	agreementID string,
+	relatedID string,
+	revokedAt time.Time,
+	table string,
+	agreementField string,
+	relatedField string,
+	records map[string]T,
+	include func(T, Scope, string, string) bool,
+	update func(T, *time.Time) T,
+) (int, error) {
+	agreementID = normalizeID(agreementID)
+	relatedID = normalizeID(relatedID)
+	if agreementID == "" {
+		return 0, invalidRecordError(table, agreementField, "required")
+	}
+	if relatedID == "" {
+		return 0, invalidRecordError(table, relatedField, "required")
+	}
+	if revokedAt.IsZero() {
+		revokedAt = time.Now().UTC()
+	}
+	revokedAt = revokedAt.UTC()
+	revokedAtPtr := cloneTimePtr(&revokedAt)
+
+	revoked := 0
+	for key, record := range records {
+		if !include(record, scope, agreementID, relatedID) {
+			continue
+		}
+		records[key] = update(record, revokedAtPtr)
+		revoked++
+	}
+	return revoked, nil
+}
+
+func listScopedPairRecordsByTime[T any](
+	s *InMemoryStore,
+	ctx context.Context,
+	scope Scope,
+	agreementID string,
+	relatedID string,
+	table string,
+	relatedField string,
+	records map[string]T,
+	include func(T, Scope, string, string) bool,
+	clone func(T) T,
+	recordTime func(T) time.Time,
+	recordID func(T) string,
+) ([]T, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return listScopedRequiredPairRecordsByTime(scope, agreementID, relatedID, table, "agreement_id", relatedField, records, include, clone, recordTime, recordID)
+}
+
+func revokeScopedPairRecords[T any](
+	s *InMemoryStore,
+	ctx context.Context,
+	scope Scope,
+	agreementID string,
+	relatedID string,
+	revokedAt time.Time,
+	table string,
+	relatedField string,
+	records map[string]T,
+	include func(T, Scope, string, string) bool,
+	update func(T, *time.Time) T,
+) (int, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return 0, err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return revokeScopedRequiredPairRecords(scope, agreementID, relatedID, revokedAt, table, relatedField, records, include, update)
+}
+
+func listScopedRequiredRecordSet[T any](
+	s *InMemoryStore,
+	ctx context.Context,
+	scope Scope,
+	requiredID string,
+	table string,
+	requiredField string,
+	records map[string]T,
+	include func(T, Scope, string) bool,
+	clone func(T) T,
+	recordTime func(T) time.Time,
+	recordID func(T) string,
+) ([]T, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return nil, err
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return listScopedRequiredRecordsByTime(scope, requiredID, table, requiredField, records, include, clone, recordTime, recordID)
+}
+
+func revokeScopedRequiredPairRecords[T any](
+	scope Scope,
+	agreementID string,
+	relatedID string,
+	revokedAt time.Time,
+	table string,
+	relatedField string,
+	records map[string]T,
+	include func(T, Scope, string, string) bool,
+	update func(T, *time.Time) T,
+) (int, error) {
+	return revokeScopedRecords(scope, agreementID, relatedID, revokedAt, table, "agreement_id", relatedField, records, include, update)
+}
+
+func appendScopedEventRecord[T any](
+	scope Scope,
+	event T,
+	table string,
+	records map[string]T,
+	prepare func(T, Scope) (T, error),
+	id func(T) string,
+) (T, error) {
+	var zero T
+
+	event, err := prepare(event, scope)
+	if err != nil {
+		return zero, err
+	}
+	key := scopedKey(scope, id(event))
+	if _, exists := records[key]; exists {
+		return zero, invalidRecordError(table, "id", "already exists")
+	}
+	records[key] = event
+	return event, nil
+}
+
+func upsertIndexedScopedVersionedRecord[T any](
+	scope Scope,
+	record T,
+	now time.Time,
+	table string,
+	indexKey string,
+	records map[string]T,
+	index map[string]string,
+	getID func(T) string,
+	clone func(T) T,
+	create func(T, time.Time) T,
+	update func(T, T, time.Time) (T, error),
+) (T, error) {
+	var zero T
+
+	if existingID, ok := index[indexKey]; ok {
+		existing, ok := records[scopedKey(scope, existingID)]
+		if !ok {
+			return zero, notFoundError(table, existingID)
+		}
+		updatedRecord, err := update(record, existing, now)
+		if err != nil {
+			return zero, err
+		}
+		updatedRecord = clone(updatedRecord)
+		records[scopedKey(scope, getID(updatedRecord))] = updatedRecord
+		index[indexKey] = getID(updatedRecord)
+		return updatedRecord, nil
+	}
+
+	record = clone(create(record, now))
+	records[scopedKey(scope, getID(record))] = record
+	index[indexKey] = getID(record)
+	return record, nil
+}
+
+func prepareAuditEventRecord(event AuditEventRecord, scope Scope) (AuditEventRecord, error) {
+	if normalizeID(event.ID) == "" {
+		event.ID = uuid.NewString()
+	}
+	event.ID = normalizeID(event.ID)
+	event.AgreementID = normalizeID(event.AgreementID)
+	if event.AgreementID == "" {
+		return AuditEventRecord{}, invalidRecordError("audit_events", "agreement_id", "required")
+	}
+	if strings.TrimSpace(event.EventType) == "" {
+		return AuditEventRecord{}, invalidRecordError("audit_events", "event_type", "required")
+	}
+	event.TenantID = scope.TenantID
+	event.OrgID = scope.OrgID
+	event.CreatedAt = normalizeRecordTime(event.CreatedAt)
+	return event, nil
+}
+
+func prepareDraftAuditEventRecord(event DraftAuditEventRecord, scope Scope) (DraftAuditEventRecord, error) {
+	if normalizeID(event.ID) == "" {
+		event.ID = uuid.NewString()
+	}
+	event.ID = normalizeID(event.ID)
+	event.DraftID = normalizeID(event.DraftID)
+	if event.DraftID == "" {
+		return DraftAuditEventRecord{}, invalidRecordError("draft_audit_events", "draft_id", "required")
+	}
+	if strings.TrimSpace(event.EventType) == "" {
+		return DraftAuditEventRecord{}, invalidRecordError("draft_audit_events", "event_type", "required")
+	}
+	event.TenantID = scope.TenantID
+	event.OrgID = scope.OrgID
+	event.CreatedAt = normalizeRecordTime(event.CreatedAt)
+	return event, nil
+}
+
+func createIntegrationBindingForUpsert(record IntegrationBindingRecord, now time.Time) IntegrationBindingRecord {
+	record.Version = normalizePositiveVersion(record.Version)
+	record.CreatedAt = now
+	record.UpdatedAt = now
+	return record
+}
+
+func updateIntegrationBindingForUpsert(record, existing IntegrationBindingRecord, now time.Time) (IntegrationBindingRecord, error) {
+	if record.Version > 0 && record.Version != existing.Version {
+		return IntegrationBindingRecord{}, versionConflictError("integration_bindings", existing.ID, record.Version, existing.Version)
+	}
+	record.ID = existing.ID
+	record.Version = existing.Version + 1
+	record.CreatedAt = existing.CreatedAt
+	record.UpdatedAt = now
+	return record, nil
+}
+
+func createIntegrationCheckpointForUpsert(record IntegrationCheckpointRecord, now time.Time) IntegrationCheckpointRecord {
+	record.Version = normalizePositiveVersion(record.Version)
+	record.CreatedAt = now
+	record.UpdatedAt = now
+	return record
+}
+
+func updateIntegrationCheckpointForUpsert(record, existing IntegrationCheckpointRecord, now time.Time) (IntegrationCheckpointRecord, error) {
+	if record.Version > 0 && record.Version != existing.Version {
+		return IntegrationCheckpointRecord{}, versionConflictError("integration_checkpoints", existing.ID, record.Version, existing.Version)
+	}
+	record.ID = existing.ID
+	record.Version = existing.Version + 1
+	record.CreatedAt = existing.CreatedAt
+	record.UpdatedAt = now
+	return record, nil
+}
+
 func cloneGuardedEffectRecord(record guardedeffects.Record) guardedeffects.Record {
 	record.EffectID = normalizeID(record.EffectID)
 	record.TenantID = strings.TrimSpace(record.TenantID)
@@ -3038,55 +3499,29 @@ func (s *InMemoryStore) GetSigningTokenByHash(ctx context.Context, scope Scope, 
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-
-	key, ok := s.tokenHashIndex[tokenHash]
-	if !ok {
-		return SigningTokenRecord{}, notFoundError("signing_tokens", tokenHash)
-	}
-	record, ok := s.signingTokens[key]
-	if !ok {
-		return SigningTokenRecord{}, notFoundError("signing_tokens", tokenHash)
-	}
-	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-		return SigningTokenRecord{}, scopeDeniedError()
-	}
-
-	return cloneSigningTokenRecord(record), nil
+	return getScopedRecordByHash(tokenHash, "signing_tokens", s.tokenHashIndex, s.signingTokens,
+		func(record SigningTokenRecord) bool {
+			return record.TenantID == scope.TenantID && record.OrgID == scope.OrgID
+		},
+		cloneSigningTokenRecord,
+	)
 }
 
 func (s *InMemoryStore) ListSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string) ([]SigningTokenRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	agreementID = normalizeID(agreementID)
-	recipientID = normalizeID(recipientID)
-	if agreementID == "" {
-		return nil, invalidRecordError("signing_tokens", "agreement_id", "required")
-	}
-	if recipientID == "" {
-		return nil, invalidRecordError("signing_tokens", "recipient_id", "required")
-	}
-	out := make([]SigningTokenRecord, 0)
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, record := range s.signingTokens {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.AgreementID != agreementID || record.RecipientID != recipientID {
-			continue
-		}
-		out = append(out, cloneSigningTokenRecord(record))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
-	})
-	return out, nil
+	return listScopedPairRecordsByTime(
+		s,
+		ctx,
+		scope,
+		agreementID,
+		recipientID,
+		"signing_tokens",
+		"recipient_id",
+		s.signingTokens,
+		signingTokenMatchesScope,
+		cloneSigningTokenRecord,
+		signingTokenCreatedAt,
+		signingTokenID,
+	)
 }
 
 func (s *InMemoryStore) SaveSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error) {
@@ -3130,45 +3565,7 @@ func (s *InMemoryStore) SaveSigningToken(ctx context.Context, scope Scope, recor
 }
 
 func (s *InMemoryStore) RevokeActiveSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string, revokedAt time.Time) (int, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return 0, err
-	}
-	agreementID = normalizeID(agreementID)
-	recipientID = normalizeID(recipientID)
-	if agreementID == "" {
-		return 0, invalidRecordError("signing_tokens", "agreement_id", "required")
-	}
-	if recipientID == "" {
-		return 0, invalidRecordError("signing_tokens", "recipient_id", "required")
-	}
-	if revokedAt.IsZero() {
-		revokedAt = time.Now().UTC()
-	}
-	revokedAt = revokedAt.UTC()
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	revoked := 0
-	for key, token := range s.signingTokens {
-		if token.TenantID != scope.TenantID || token.OrgID != scope.OrgID {
-			continue
-		}
-		if token.AgreementID != agreementID || token.RecipientID != recipientID {
-			continue
-		}
-		if token.Status != SigningTokenStatusActive {
-			continue
-		}
-		token.Status = SigningTokenStatusRevoked
-		token.RevokedAt = cloneTimePtr(&revokedAt)
-		s.signingTokens[key] = token
-		revoked++
-	}
-
-	return revoked, nil
+	return revokeScopedPairRecords(s, ctx, scope, agreementID, recipientID, revokedAt, "signing_tokens", "recipient_id", s.signingTokens, activeSigningTokenMatchesScope, revokeSigningTokenRecord)
 }
 
 func (s *InMemoryStore) CreateReviewSessionToken(ctx context.Context, scope Scope, record ReviewSessionTokenRecord) (ReviewSessionTokenRecord, error) {
@@ -3252,53 +3649,29 @@ func (s *InMemoryStore) GetReviewSessionTokenByHash(ctx context.Context, scope S
 
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	key, ok := s.reviewSessionTokenHashIndex[tokenHash]
-	if !ok {
-		return ReviewSessionTokenRecord{}, notFoundError("review_session_tokens", tokenHash)
-	}
-	record, ok := s.reviewSessionTokens[key]
-	if !ok {
-		return ReviewSessionTokenRecord{}, notFoundError("review_session_tokens", tokenHash)
-	}
-	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-		return ReviewSessionTokenRecord{}, scopeDeniedError()
-	}
-	return cloneReviewSessionTokenRecord(record), nil
+	return getScopedRecordByHash(tokenHash, "review_session_tokens", s.reviewSessionTokenHashIndex, s.reviewSessionTokens,
+		func(record ReviewSessionTokenRecord) bool {
+			return record.TenantID == scope.TenantID && record.OrgID == scope.OrgID
+		},
+		cloneReviewSessionTokenRecord,
+	)
 }
 
 func (s *InMemoryStore) ListReviewSessionTokens(ctx context.Context, scope Scope, agreementID, participantID string) ([]ReviewSessionTokenRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	agreementID = normalizeID(agreementID)
-	participantID = normalizeID(participantID)
-	if agreementID == "" {
-		return nil, invalidRecordError("review_session_tokens", "agreement_id", "required")
-	}
-	if participantID == "" {
-		return nil, invalidRecordError("review_session_tokens", "participant_id", "required")
-	}
-	out := make([]ReviewSessionTokenRecord, 0)
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, record := range s.reviewSessionTokens {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.AgreementID != agreementID || record.ParticipantID != participantID {
-			continue
-		}
-		out = append(out, cloneReviewSessionTokenRecord(record))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
-	})
-	return out, nil
+	return listScopedPairRecordsByTime(
+		s,
+		ctx,
+		scope,
+		agreementID,
+		participantID,
+		"review_session_tokens",
+		"participant_id",
+		s.reviewSessionTokens,
+		reviewSessionTokenMatchesScope,
+		cloneReviewSessionTokenRecord,
+		reviewSessionTokenCreatedAt,
+		reviewSessionTokenID,
+	)
 }
 
 func (s *InMemoryStore) SaveReviewSessionToken(ctx context.Context, scope Scope, record ReviewSessionTokenRecord) (ReviewSessionTokenRecord, error) {
@@ -3349,43 +3722,7 @@ func (s *InMemoryStore) SaveReviewSessionToken(ctx context.Context, scope Scope,
 }
 
 func (s *InMemoryStore) RevokeActiveReviewSessionTokens(ctx context.Context, scope Scope, agreementID, participantID string, revokedAt time.Time) (int, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return 0, err
-	}
-	agreementID = normalizeID(agreementID)
-	participantID = normalizeID(participantID)
-	if agreementID == "" {
-		return 0, invalidRecordError("review_session_tokens", "agreement_id", "required")
-	}
-	if participantID == "" {
-		return 0, invalidRecordError("review_session_tokens", "participant_id", "required")
-	}
-	if revokedAt.IsZero() {
-		revokedAt = time.Now().UTC()
-	}
-	revokedAt = revokedAt.UTC()
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	revoked := 0
-	for key, token := range s.reviewSessionTokens {
-		if token.TenantID != scope.TenantID || token.OrgID != scope.OrgID {
-			continue
-		}
-		if token.AgreementID != agreementID || token.ParticipantID != participantID {
-			continue
-		}
-		if token.Status != ReviewSessionTokenStatusActive {
-			continue
-		}
-		token.Status = ReviewSessionTokenStatusRevoked
-		token.RevokedAt = cloneTimePtr(&revokedAt)
-		s.reviewSessionTokens[key] = token
-		revoked++
-	}
-	return revoked, nil
+	return revokeScopedPairRecords(s, ctx, scope, agreementID, participantID, revokedAt, "review_session_tokens", "participant_id", s.reviewSessionTokens, activeReviewSessionTokenMatchesScope, revokeReviewSessionTokenRecord)
 }
 
 func (s *InMemoryStore) CreatePublicSignerSessionToken(ctx context.Context, scope Scope, record PublicSignerSessionTokenRecord) (PublicSignerSessionTokenRecord, error) {
@@ -3488,18 +3825,12 @@ func (s *InMemoryStore) GetPublicSignerSessionTokenByHash(ctx context.Context, s
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	key, ok := s.publicSignerSessionHashIndex[tokenHash]
-	if !ok {
-		return PublicSignerSessionTokenRecord{}, notFoundError("public_signer_session_tokens", tokenHash)
-	}
-	record, ok := s.publicSignerSessionTokens[key]
-	if !ok {
-		return PublicSignerSessionTokenRecord{}, notFoundError("public_signer_session_tokens", tokenHash)
-	}
-	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-		return PublicSignerSessionTokenRecord{}, scopeDeniedError()
-	}
-	return clonePublicSignerSessionTokenRecord(record), nil
+	return getScopedRecordByHash(tokenHash, "public_signer_session_tokens", s.publicSignerSessionHashIndex, s.publicSignerSessionTokens,
+		func(record PublicSignerSessionTokenRecord) bool {
+			return record.TenantID == scope.TenantID && record.OrgID == scope.OrgID
+		},
+		clonePublicSignerSessionTokenRecord,
+	)
 }
 
 func (s *InMemoryStore) ListPublicSignerSessionTokens(ctx context.Context, scope Scope, agreementID, recipientID, participantID string) ([]PublicSignerSessionTokenRecord, error) {
@@ -4111,30 +4442,9 @@ func (s *InMemoryStore) Append(ctx context.Context, scope Scope, event AuditEven
 	if err != nil {
 		return AuditEventRecord{}, err
 	}
-	if normalizeID(event.ID) == "" {
-		event.ID = uuid.NewString()
-	}
-	event.ID = normalizeID(event.ID)
-	event.AgreementID = normalizeID(event.AgreementID)
-	if event.AgreementID == "" {
-		return AuditEventRecord{}, invalidRecordError("audit_events", "agreement_id", "required")
-	}
-	if strings.TrimSpace(event.EventType) == "" {
-		return AuditEventRecord{}, invalidRecordError("audit_events", "event_type", "required")
-	}
-
-	event.TenantID = scope.TenantID
-	event.OrgID = scope.OrgID
-	event.CreatedAt = normalizeRecordTime(event.CreatedAt)
-
-	key := scopedKey(scope, event.ID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, exists := s.auditEvents[key]; exists {
-		return AuditEventRecord{}, invalidRecordError("audit_events", "id", "already exists")
-	}
-	s.auditEvents[key] = event
-	return event, nil
+	return appendScopedEventRecord(scope, event, "audit_events", s.auditEvents, prepareAuditEventRecord, func(event AuditEventRecord) string { return event.ID })
 }
 
 func (s *InMemoryStore) AppendDraftEvent(ctx context.Context, scope Scope, event DraftAuditEventRecord) (DraftAuditEventRecord, error) {
@@ -4143,30 +4453,9 @@ func (s *InMemoryStore) AppendDraftEvent(ctx context.Context, scope Scope, event
 	if err != nil {
 		return DraftAuditEventRecord{}, err
 	}
-	if normalizeID(event.ID) == "" {
-		event.ID = uuid.NewString()
-	}
-	event.ID = normalizeID(event.ID)
-	event.DraftID = normalizeID(event.DraftID)
-	if event.DraftID == "" {
-		return DraftAuditEventRecord{}, invalidRecordError("draft_audit_events", "draft_id", "required")
-	}
-	if strings.TrimSpace(event.EventType) == "" {
-		return DraftAuditEventRecord{}, invalidRecordError("draft_audit_events", "event_type", "required")
-	}
-
-	event.TenantID = scope.TenantID
-	event.OrgID = scope.OrgID
-	event.CreatedAt = normalizeRecordTime(event.CreatedAt)
-
-	key := scopedKey(scope, event.ID)
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, exists := s.draftAuditEvents[key]; exists {
-		return DraftAuditEventRecord{}, invalidRecordError("draft_audit_events", "id", "already exists")
-	}
-	s.draftAuditEvents[key] = event
-	return event, nil
+	return appendScopedEventRecord(scope, event, "draft_audit_events", s.draftAuditEvents, prepareDraftAuditEventRecord, func(event DraftAuditEventRecord) string { return event.ID })
 }
 
 func (s *InMemoryStore) ListDraftEvents(ctx context.Context, scope Scope, draftID string, query DraftAuditEventQuery) ([]DraftAuditEventRecord, error) {
@@ -4875,35 +5164,7 @@ func (s *InMemoryStore) UpdateEmailLog(ctx context.Context, scope Scope, id stri
 }
 
 func (s *InMemoryStore) ListEmailLogs(ctx context.Context, scope Scope, agreementID string) ([]EmailLogRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	agreementID = normalizeID(agreementID)
-	if agreementID == "" {
-		return nil, invalidRecordError("email_logs", "agreement_id", "required")
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]EmailLogRecord, 0)
-	for _, record := range s.emailLogs {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.AgreementID != agreementID {
-			continue
-		}
-		out = append(out, cloneEmailLogRecord(record))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
-	})
-	return out, nil
+	return listScopedRequiredRecordSet(s, ctx, scope, agreementID, "email_logs", "agreement_id", s.emailLogs, emailLogMatchesAgreement, cloneEmailLogRecord, emailLogCreatedAt, emailLogID)
 }
 
 func (s *InMemoryStore) BeginJobRun(ctx context.Context, scope Scope, input JobRunInput) (JobRunRecord, bool, error) {
@@ -5085,35 +5346,7 @@ func (s *InMemoryStore) GetJobRunByDedupe(ctx context.Context, scope Scope, jobN
 }
 
 func (s *InMemoryStore) ListJobRuns(ctx context.Context, scope Scope, agreementID string) ([]JobRunRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	agreementID = normalizeID(agreementID)
-	if agreementID == "" {
-		return nil, invalidRecordError("job_runs", "agreement_id", "required")
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]JobRunRecord, 0)
-	for _, record := range s.jobRuns {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.AgreementID != agreementID {
-			continue
-		}
-		out = append(out, cloneJobRunRecord(record))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
-	})
-	return out, nil
+	return listScopedRequiredRecordSet(s, ctx, scope, agreementID, "job_runs", "agreement_id", s.jobRuns, jobRunMatchesAgreement, cloneJobRunRecord, jobRunUpdatedAt, jobRunID)
 }
 
 func (s *InMemoryStore) EnqueueJob(ctx context.Context, scope Scope, input JobRunEnqueueInput) (JobRunRecord, bool, error) {
@@ -7164,31 +7397,19 @@ func (s *InMemoryStore) UpsertIntegrationBinding(ctx context.Context, scope Scop
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if existingID, ok := s.integrationBindingIndex[indexKey]; ok {
-		existing, ok := s.integrationBindings[scopedKey(scope, existingID)]
-		if !ok {
-			return IntegrationBindingRecord{}, notFoundError("integration_bindings", existingID)
-		}
-		if record.Version > 0 && record.Version != existing.Version {
-			return IntegrationBindingRecord{}, versionConflictError("integration_bindings", existing.ID, record.Version, existing.Version)
-		}
-		record.ID = existing.ID
-		record.Version = existing.Version + 1
-		record.CreatedAt = existing.CreatedAt
-		record.UpdatedAt = now
-		record = cloneIntegrationBindingRecord(record)
-		s.integrationBindings[scopedKey(scope, record.ID)] = record
-		s.integrationBindingIndex[indexKey] = record.ID
-		return record, nil
-	}
-
-	record.Version = normalizePositiveVersion(record.Version)
-	record.CreatedAt = now
-	record.UpdatedAt = now
-	record = cloneIntegrationBindingRecord(record)
-	s.integrationBindings[scopedKey(scope, record.ID)] = record
-	s.integrationBindingIndex[indexKey] = record.ID
-	return record, nil
+	return upsertIndexedScopedVersionedRecord(
+		scope,
+		record,
+		now,
+		"integration_bindings",
+		indexKey,
+		s.integrationBindings,
+		s.integrationBindingIndex,
+		func(record IntegrationBindingRecord) string { return record.ID },
+		cloneIntegrationBindingRecord,
+		createIntegrationBindingForUpsert,
+		updateIntegrationBindingForUpsert,
+	)
 }
 
 func (s *InMemoryStore) GetIntegrationBindingByExternal(ctx context.Context, scope Scope, provider, entityKind, externalID string) (IntegrationBindingRecord, error) {
@@ -7423,63 +7644,35 @@ func (s *InMemoryStore) UpsertIntegrationCheckpoint(ctx context.Context, scope S
 	if _, ok := s.integrationSyncRuns[scopedKey(scope, record.RunID)]; !ok {
 		return IntegrationCheckpointRecord{}, notFoundError("integration_sync_runs", record.RunID)
 	}
-
-	if existingID, ok := s.integrationCheckpointIndex[indexKey]; ok {
-		existing, ok := s.integrationCheckpoints[scopedKey(scope, existingID)]
-		if !ok {
-			return IntegrationCheckpointRecord{}, notFoundError("integration_checkpoints", existingID)
-		}
-		if record.Version > 0 && record.Version != existing.Version {
-			return IntegrationCheckpointRecord{}, versionConflictError("integration_checkpoints", existing.ID, record.Version, existing.Version)
-		}
-		record.ID = existing.ID
-		record.Version = existing.Version + 1
-		record.CreatedAt = existing.CreatedAt
-		record.UpdatedAt = now
-		record = cloneIntegrationCheckpointRecord(record)
-		s.integrationCheckpoints[scopedKey(scope, record.ID)] = record
-		s.integrationCheckpointIndex[indexKey] = record.ID
-		return record, nil
-	}
-
-	record.Version = normalizePositiveVersion(record.Version)
-	record.CreatedAt = now
-	record.UpdatedAt = now
-	record = cloneIntegrationCheckpointRecord(record)
-	s.integrationCheckpoints[scopedKey(scope, record.ID)] = record
-	s.integrationCheckpointIndex[indexKey] = record.ID
-	return record, nil
+	return upsertIndexedScopedVersionedRecord(
+		scope,
+		record,
+		now,
+		"integration_checkpoints",
+		indexKey,
+		s.integrationCheckpoints,
+		s.integrationCheckpointIndex,
+		func(record IntegrationCheckpointRecord) string { return record.ID },
+		cloneIntegrationCheckpointRecord,
+		createIntegrationCheckpointForUpsert,
+		updateIntegrationCheckpointForUpsert,
+	)
 }
 
 func (s *InMemoryStore) ListIntegrationCheckpoints(ctx context.Context, scope Scope, runID string) ([]IntegrationCheckpointRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	runID = normalizeID(runID)
-	if runID == "" {
-		return nil, invalidRecordError("integration_checkpoints", "run_id", "required")
-	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]IntegrationCheckpointRecord, 0)
-	for _, record := range s.integrationCheckpoints {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.RunID != runID {
-			continue
-		}
-		out = append(out, cloneIntegrationCheckpointRecord(record))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
-	})
-	return out, nil
+	return listScopedRequiredRecordSet(
+		s,
+		ctx,
+		scope,
+		runID,
+		"integration_checkpoints",
+		"run_id",
+		s.integrationCheckpoints,
+		integrationCheckpointMatchesRun,
+		cloneIntegrationCheckpointRecord,
+		integrationCheckpointUpdatedAt,
+		integrationCheckpointID,
+	)
 }
 
 func (s *InMemoryStore) CreateIntegrationConflict(ctx context.Context, scope Scope, record IntegrationConflictRecord) (IntegrationConflictRecord, error) {
@@ -7842,35 +8035,19 @@ func (s *InMemoryStore) GetPlacementRun(ctx context.Context, scope Scope, agreem
 }
 
 func (s *InMemoryStore) ListPlacementRuns(ctx context.Context, scope Scope, agreementID string) ([]PlacementRunRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return nil, err
-	}
-	agreementID = normalizeID(agreementID)
-	if agreementID == "" {
-		return nil, invalidRecordError("placement_runs", "agreement_id", "required")
-	}
-
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]PlacementRunRecord, 0)
-	for _, record := range s.placementRuns {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.AgreementID != agreementID {
-			continue
-		}
-		out = append(out, clonePlacementRunRecord(record))
-	}
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].CreatedAt.Before(out[j].CreatedAt)
-	})
-	return out, nil
+	return listScopedRequiredRecordSet(
+		s,
+		ctx,
+		scope,
+		agreementID,
+		"placement_runs",
+		"agreement_id",
+		s.placementRuns,
+		placementRunMatchesAgreement,
+		clonePlacementRunRecord,
+		placementRunCreatedAt,
+		placementRunID,
+	)
 }
 
 // UpdateAuditEvent always rejects writes because audit_events is append-only.

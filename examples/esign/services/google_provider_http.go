@@ -363,30 +363,22 @@ func (p *GoogleHTTPProvider) GetFile(ctx context.Context, accessToken, fileID st
 }
 
 func (p *GoogleHTTPProvider) ExportFilePDF(ctx context.Context, accessToken, fileID string) (GoogleExportSnapshot, error) {
-	if p == nil {
-		return GoogleExportSnapshot{}, fmt.Errorf("google provider not configured")
-	}
-	fileID = strings.TrimSpace(fileID)
-	if fileID == "" {
-		return GoogleExportSnapshot{}, NewGoogleProviderError(GoogleProviderErrorPermissionDenied, "google_file_id is required", nil)
-	}
-
-	metadata, err := p.fetchDriveFileMetadata(ctx, accessToken, fileID)
-	if err != nil {
-		return GoogleExportSnapshot{}, err
-	}
-	endpoint := fmt.Sprintf("%s/files/%s/export?mimeType=application/pdf", p.driveBaseURL, url.PathEscape(fileID))
-	respBody, statusCode, err := p.requestJSON(ctx, http.MethodGet, endpoint, accessToken, nil)
-	if err != nil {
-		return GoogleExportSnapshot{}, err
-	}
-	if statusCode >= http.StatusBadRequest {
-		return GoogleExportSnapshot{}, mapGoogleHTTPStatus("drive_export_pdf", statusCode, respBody, map[string]any{"file_id": fileID})
-	}
-	return GoogleExportSnapshot{File: metadata, PDF: append([]byte{}, respBody...)}, nil
+	return p.fetchPDFSnapshot(ctx, accessToken, fileID, "drive_export_pdf", func(fileID string) string {
+		return fmt.Sprintf("%s/files/%s/export?mimeType=application/pdf", p.driveBaseURL, url.PathEscape(fileID))
+	})
 }
 
 func (p *GoogleHTTPProvider) DownloadFilePDF(ctx context.Context, accessToken, fileID string) (GoogleExportSnapshot, error) {
+	return p.fetchPDFSnapshot(ctx, accessToken, fileID, "drive_download_pdf", func(fileID string) string {
+		return fmt.Sprintf("%s/files/%s?alt=media", p.driveBaseURL, url.PathEscape(fileID))
+	})
+}
+
+func (p *GoogleHTTPProvider) fetchPDFSnapshot(
+	ctx context.Context,
+	accessToken, fileID, operation string,
+	buildEndpoint func(string) string,
+) (GoogleExportSnapshot, error) {
 	if p == nil {
 		return GoogleExportSnapshot{}, fmt.Errorf("google provider not configured")
 	}
@@ -399,13 +391,13 @@ func (p *GoogleHTTPProvider) DownloadFilePDF(ctx context.Context, accessToken, f
 	if err != nil {
 		return GoogleExportSnapshot{}, err
 	}
-	endpoint := fmt.Sprintf("%s/files/%s?alt=media", p.driveBaseURL, url.PathEscape(fileID))
+	endpoint := buildEndpoint(fileID)
 	respBody, statusCode, err := p.requestJSON(ctx, http.MethodGet, endpoint, accessToken, nil)
 	if err != nil {
 		return GoogleExportSnapshot{}, err
 	}
 	if statusCode >= http.StatusBadRequest {
-		return GoogleExportSnapshot{}, mapGoogleHTTPStatus("drive_download_pdf", statusCode, respBody, map[string]any{"file_id": fileID})
+		return GoogleExportSnapshot{}, mapGoogleHTTPStatus(operation, statusCode, respBody, map[string]any{"file_id": fileID})
 	}
 	return GoogleExportSnapshot{File: metadata, PDF: append([]byte{}, respBody...)}, nil
 }

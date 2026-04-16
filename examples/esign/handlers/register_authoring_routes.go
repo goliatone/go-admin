@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
@@ -71,137 +72,62 @@ func registerAgreementAuthoringRoutes(adminRoutes routeRegistrar, routes RouteSe
 }
 
 func registerAgreementParticipantRoutes(securedRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
-	registerAgreementDraftResourceRoutes(
+	registerAgreementTypedDraftEntityRoutes(
 		securedRoutes,
 		cfg,
 		routes.AdminAgreementParticipants,
-		routes.AdminAgreementParticipants,
-		routes.AdminAgreementParticipant,
 		routes.AdminAgreementParticipant,
 		"participants",
 		"unable to list participants",
-		func(c router.Context, agreementID string) ([]map[string]any, error) {
-			participants, err := cfg.agreementAuthoring.ListParticipants(c.Context(), cfg.resolveScope(c), agreementID)
-			if err != nil {
-				return nil, err
-			}
-			rows := make([]map[string]any, 0, len(participants))
-			for _, participant := range participants {
-				rows = append(rows, participantRecordToMap(participant))
-			}
-			return rows, nil
-		},
-		participantDraftUpsertHandler(
-			cfg,
-			"",
-			"agreement_id is required",
-			"invalid participant payload",
-			"unable to upsert participant",
-		),
-		participantDraftUpsertHandler(
-			cfg,
-			"participant_id",
-			"agreement_id and participant_id are required",
-			"invalid participant payload",
-			"unable to update participant",
-		),
-		"participant_id",
-		"agreement_id and participant_id are required",
+		"invalid participant payload",
+		"unable to upsert participant",
+		"unable to update participant",
 		"unable to delete participant",
 		"participant_id",
-		func(c router.Context, agreementID, participantID string) error {
-			return cfg.agreementAuthoring.DeleteParticipantDraft(c.Context(), cfg.resolveScope(c), agreementID, participantID)
-		},
+		cfg.agreementAuthoring.ListParticipants,
+		participantRecordToMap,
+		participantDraftUpsertHandler,
+		cfg.agreementAuthoring.DeleteParticipantDraft,
 	)
 }
 
 func registerAgreementFieldDefinitionRoutes(securedRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
-	registerAgreementDraftResourceRoutes(
+	registerAgreementTypedDraftEntityRoutes(
 		securedRoutes,
 		cfg,
 		routes.AdminAgreementFieldDefinitions,
-		routes.AdminAgreementFieldDefinitions,
-		routes.AdminAgreementFieldDefinition,
 		routes.AdminAgreementFieldDefinition,
 		"field_definitions",
 		"unable to list field definitions",
-		func(c router.Context, agreementID string) ([]map[string]any, error) {
-			definitions, err := cfg.agreementAuthoring.ListFieldDefinitions(c.Context(), cfg.resolveScope(c), agreementID)
-			if err != nil {
-				return nil, err
-			}
-			rows := make([]map[string]any, 0, len(definitions))
-			for _, definition := range definitions {
-				rows = append(rows, fieldDefinitionRecordToMap(definition))
-			}
-			return rows, nil
-		},
-		fieldDefinitionDraftUpsertHandler(
-			cfg,
-			"",
-			"agreement_id is required",
-			"invalid field definition payload",
-			"unable to upsert field definition",
-		),
-		fieldDefinitionDraftUpsertHandler(
-			cfg,
-			"field_definition_id",
-			"agreement_id and field_definition_id are required",
-			"invalid field definition payload",
-			"unable to update field definition",
-		),
-		"field_definition_id",
-		"agreement_id and field_definition_id are required",
+		"invalid field definition payload",
+		"unable to upsert field definition",
+		"unable to update field definition",
 		"unable to delete field definition",
 		"field_definition_id",
-		func(c router.Context, agreementID, fieldDefinitionID string) error {
-			return cfg.agreementAuthoring.DeleteFieldDefinitionDraft(c.Context(), cfg.resolveScope(c), agreementID, fieldDefinitionID)
-		},
+		cfg.agreementAuthoring.ListFieldDefinitions,
+		fieldDefinitionRecordToMap,
+		fieldDefinitionDraftUpsertHandler,
+		cfg.agreementAuthoring.DeleteFieldDefinitionDraft,
 	)
 }
 
 func registerAgreementFieldInstanceRoutes(securedRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
-	registerAgreementDraftResourceRoutes(
+	registerAgreementTypedDraftEntityRoutes(
 		securedRoutes,
 		cfg,
 		routes.AdminAgreementFieldInstances,
-		routes.AdminAgreementFieldInstances,
-		routes.AdminAgreementFieldInstance,
 		routes.AdminAgreementFieldInstance,
 		"field_instances",
 		"unable to list field instances",
-		func(c router.Context, agreementID string) ([]map[string]any, error) {
-			instances, err := cfg.agreementAuthoring.ListFieldInstances(c.Context(), cfg.resolveScope(c), agreementID)
-			if err != nil {
-				return nil, err
-			}
-			rows := make([]map[string]any, 0, len(instances))
-			for _, instance := range instances {
-				rows = append(rows, fieldInstanceRecordToMap(instance))
-			}
-			return rows, nil
-		},
-		fieldInstanceDraftUpsertHandler(
-			cfg,
-			"",
-			"agreement_id is required",
-			"invalid field instance payload",
-			"unable to upsert field instance",
-		),
-		fieldInstanceDraftUpsertHandler(
-			cfg,
-			"field_instance_id",
-			"agreement_id and field_instance_id are required",
-			"invalid field instance payload",
-			"unable to update field instance",
-		),
-		"field_instance_id",
-		"agreement_id and field_instance_id are required",
+		"invalid field instance payload",
+		"unable to upsert field instance",
+		"unable to update field instance",
 		"unable to delete field instance",
 		"field_instance_id",
-		func(c router.Context, agreementID, fieldInstanceID string) error {
-			return cfg.agreementAuthoring.DeleteFieldInstanceDraft(c.Context(), cfg.resolveScope(c), agreementID, fieldInstanceID)
-		},
+		cfg.agreementAuthoring.ListFieldInstances,
+		fieldInstanceRecordToMap,
+		fieldInstanceDraftUpsertHandler,
+		cfg.agreementAuthoring.DeleteFieldInstanceDraft,
 	)
 }
 
@@ -437,24 +363,38 @@ func authoringAgreementUpsertHandler(
 	}
 }
 
+func authoringDraftUpsertHandler[T any](
+	cfg registerConfig,
+	itemParam, requiredMessage, invalidPayloadMessage, failureMessage string,
+	action func(router.Context, string, *T) (map[string]any, error),
+) router.HandlerFunc {
+	return authoringAgreementUpsertHandler(cfg, itemParam, requiredMessage, func(c router.Context, agreementID string) (map[string]any, bool, error) {
+		var payload T
+		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), invalidPayloadMessage); err != nil {
+			return nil, true, err
+		}
+		result, err := action(c, agreementID, &payload)
+		if err != nil {
+			return nil, true, writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), failureMessage, nil)
+		}
+		return result, false, nil
+	})
+}
+
 func participantDraftUpsertHandler(
 	cfg registerConfig,
 	participantParam, requiredMessage, invalidPayloadMessage, failureMessage string,
 ) router.HandlerFunc {
-	return authoringAgreementUpsertHandler(cfg, participantParam, requiredMessage, func(c router.Context, agreementID string) (map[string]any, bool, error) {
+	return authoringDraftUpsertHandler(cfg, participantParam, requiredMessage, invalidPayloadMessage, failureMessage, func(c router.Context, agreementID string, payload *participantDraftPayload) (map[string]any, error) {
 		participantID := strings.TrimSpace(c.Param(participantParam))
-		var payload participantDraftPayload
-		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), invalidPayloadMessage); err != nil {
-			return nil, true, err
-		}
-		participant, err := cfg.agreementAuthoring.UpsertParticipantDraft(c.Context(), cfg.resolveScope(c), agreementID, buildParticipantDraftPatch(payload, participantID), payload.ExpectedVersion)
+		participant, err := cfg.agreementAuthoring.UpsertParticipantDraft(c.Context(), cfg.resolveScope(c), agreementID, buildParticipantDraftPatch(*payload, participantID), payload.ExpectedVersion)
 		if err != nil {
-			return nil, true, writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), failureMessage, nil)
+			return nil, err
 		}
 		return map[string]any{
 			"status":      "ok",
 			"participant": participantRecordToMap(participant),
-		}, false, nil
+		}, nil
 	})
 }
 
@@ -462,20 +402,16 @@ func fieldDefinitionDraftUpsertHandler(
 	cfg registerConfig,
 	fieldDefinitionParam, requiredMessage, invalidPayloadMessage, failureMessage string,
 ) router.HandlerFunc {
-	return authoringAgreementUpsertHandler(cfg, fieldDefinitionParam, requiredMessage, func(c router.Context, agreementID string) (map[string]any, bool, error) {
+	return authoringDraftUpsertHandler(cfg, fieldDefinitionParam, requiredMessage, invalidPayloadMessage, failureMessage, func(c router.Context, agreementID string, payload *fieldDefinitionDraftPayload) (map[string]any, error) {
 		fieldDefinitionID := strings.TrimSpace(c.Param(fieldDefinitionParam))
-		var payload fieldDefinitionDraftPayload
-		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), invalidPayloadMessage); err != nil {
-			return nil, true, err
-		}
-		definition, err := cfg.agreementAuthoring.UpsertFieldDefinitionDraft(c.Context(), cfg.resolveScope(c), agreementID, buildFieldDefinitionDraftPatch(payload, fieldDefinitionID))
+		definition, err := cfg.agreementAuthoring.UpsertFieldDefinitionDraft(c.Context(), cfg.resolveScope(c), agreementID, buildFieldDefinitionDraftPatch(*payload, fieldDefinitionID))
 		if err != nil {
-			return nil, true, writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), failureMessage, nil)
+			return nil, err
 		}
 		return map[string]any{
 			"status":           "ok",
 			"field_definition": fieldDefinitionRecordToMap(definition),
-		}, false, nil
+		}, nil
 	})
 }
 
@@ -483,21 +419,70 @@ func fieldInstanceDraftUpsertHandler(
 	cfg registerConfig,
 	fieldInstanceParam, requiredMessage, invalidPayloadMessage, failureMessage string,
 ) router.HandlerFunc {
-	return authoringAgreementUpsertHandler(cfg, fieldInstanceParam, requiredMessage, func(c router.Context, agreementID string) (map[string]any, bool, error) {
+	return authoringDraftUpsertHandler(cfg, fieldInstanceParam, requiredMessage, invalidPayloadMessage, failureMessage, func(c router.Context, agreementID string, payload *fieldInstanceDraftPayload) (map[string]any, error) {
 		fieldInstanceID := strings.TrimSpace(c.Param(fieldInstanceParam))
-		var payload fieldInstanceDraftPayload
-		if err := bindPayloadOrError(c, &payload, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), invalidPayloadMessage); err != nil {
-			return nil, true, err
-		}
-		instance, err := cfg.agreementAuthoring.UpsertFieldInstanceDraft(c.Context(), cfg.resolveScope(c), agreementID, buildFieldInstanceDraftPatch(payload, fieldInstanceID))
+		instance, err := cfg.agreementAuthoring.UpsertFieldInstanceDraft(c.Context(), cfg.resolveScope(c), agreementID, buildFieldInstanceDraftPatch(*payload, fieldInstanceID))
 		if err != nil {
-			return nil, true, writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), failureMessage, nil)
+			return nil, err
 		}
 		return map[string]any{
 			"status":         "ok",
 			"field_instance": fieldInstanceRecordToMap(instance),
-		}, false, nil
+		}, nil
 	})
+}
+
+func registerAgreementTypedDraftEntityRoutes[T any](
+	securedRoutes routeRegistrar,
+	cfg registerConfig,
+	collectionRoute, itemRoute, resourceKey, listFailureMessage, invalidPayload, createFailure, updateFailure, deleteFailure, itemParam string,
+	list func(context.Context, stores.Scope, string) ([]T, error),
+	toMap func(T) map[string]any,
+	buildUpsert func(registerConfig, string, string, string, string) router.HandlerFunc,
+	deleteAction func(context.Context, stores.Scope, string, string) error,
+) {
+	registerAgreementDraftResourceRoutes(
+		securedRoutes,
+		cfg,
+		collectionRoute,
+		collectionRoute,
+		itemRoute,
+		itemRoute,
+		resourceKey,
+		listFailureMessage,
+		func(c router.Context, agreementID string) ([]map[string]any, error) {
+			records, err := list(c.Context(), cfg.resolveScope(c), agreementID)
+			if err != nil {
+				return nil, err
+			}
+			rows := make([]map[string]any, 0, len(records))
+			for _, record := range records {
+				rows = append(rows, toMap(record))
+			}
+			return rows, nil
+		},
+		buildUpsert(
+			cfg,
+			"",
+			"agreement_id is required",
+			invalidPayload,
+			createFailure,
+		),
+		buildUpsert(
+			cfg,
+			itemParam,
+			"agreement_id and "+itemParam+" are required",
+			invalidPayload,
+			updateFailure,
+		),
+		itemParam,
+		"agreement_id and "+itemParam+" are required",
+		deleteFailure,
+		itemParam,
+		func(c router.Context, agreementID, itemID string) error {
+			return deleteAction(c.Context(), cfg.resolveScope(c), agreementID, itemID)
+		},
+	)
 }
 
 func buildParticipantDraftPatch(payload participantDraftPayload, participantID string) stores.ParticipantDraftPatch {

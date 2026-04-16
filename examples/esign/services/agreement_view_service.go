@@ -202,64 +202,73 @@ func (s AgreementViewService) CreateSenderReviewThread(ctx context.Context, scop
 	return thread, nil
 }
 
-func (s AgreementViewService) ReplySenderReviewThread(ctx context.Context, scope stores.Scope, agreementID string, actor AgreementViewActor, input ReviewCommentReplyInput) (ReviewThread, error) {
+func mutateSenderReviewThread[T any](
+	s AgreementViewService,
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	actor AgreementViewActor,
+	threadID string,
+	input T,
+	message string,
+	prepare func(T, string) T,
+	mutate func(T) (ReviewThread, error),
+) (ReviewThread, error) {
 	if !s.senderCommentMutationsAllowed(ctx, scope, agreementID, actor) {
 		return ReviewThread{}, signerReviewAccessError("comments are not enabled for this sender")
 	}
-	if err := s.ensureSharedViewerThread(ctx, scope, agreementID, input.ThreadID); err != nil {
+	if err := s.ensureSharedViewerThread(ctx, scope, agreementID, threadID); err != nil {
 		return ReviewThread{}, err
 	}
-	input.ActorType = "user"
-	input.ActorID = strings.TrimSpace(actor.ActorID)
-	thread, err := s.signing.reviewWorkflow().ReplyCommentThread(ctx, scope, agreementID, input)
+	actorID := strings.TrimSpace(actor.ActorID)
+	thread, err := mutate(prepare(input, actorID))
 	if err != nil {
 		return ReviewThread{}, err
 	}
-	s.notifyAgreementChange(ctx, scope, agreementID, "Review reply created", map[string]any{
+	s.notifyAgreementChange(ctx, scope, agreementID, message, map[string]any{
 		"thread_id": strings.TrimSpace(thread.Thread.ID),
-		"actor_id":  strings.TrimSpace(actor.ActorID),
+		"actor_id":  actorID,
 	})
 	return thread, nil
+}
+
+func (s AgreementViewService) ReplySenderReviewThread(ctx context.Context, scope stores.Scope, agreementID string, actor AgreementViewActor, input ReviewCommentReplyInput) (ReviewThread, error) {
+	return mutateSenderReviewThread(s, ctx, scope, agreementID, actor, input.ThreadID, input, "Review reply created",
+		func(input ReviewCommentReplyInput, actorID string) ReviewCommentReplyInput {
+			input.ActorType = "user"
+			input.ActorID = actorID
+			return input
+		},
+		func(input ReviewCommentReplyInput) (ReviewThread, error) {
+			return s.signing.reviewWorkflow().ReplyCommentThread(ctx, scope, agreementID, input)
+		},
+	)
 }
 
 func (s AgreementViewService) ResolveSenderReviewThread(ctx context.Context, scope stores.Scope, agreementID string, actor AgreementViewActor, input ReviewCommentStateInput) (ReviewThread, error) {
-	if !s.senderCommentMutationsAllowed(ctx, scope, agreementID, actor) {
-		return ReviewThread{}, signerReviewAccessError("comments are not enabled for this sender")
-	}
-	if err := s.ensureSharedViewerThread(ctx, scope, agreementID, input.ThreadID); err != nil {
-		return ReviewThread{}, err
-	}
-	input.ActorType = "user"
-	input.ActorID = strings.TrimSpace(actor.ActorID)
-	thread, err := s.signing.reviewWorkflow().ResolveCommentThread(ctx, scope, agreementID, input)
-	if err != nil {
-		return ReviewThread{}, err
-	}
-	s.notifyAgreementChange(ctx, scope, agreementID, "Review thread resolved", map[string]any{
-		"thread_id": strings.TrimSpace(thread.Thread.ID),
-		"actor_id":  strings.TrimSpace(actor.ActorID),
-	})
-	return thread, nil
+	return mutateSenderReviewThread(s, ctx, scope, agreementID, actor, input.ThreadID, input, "Review thread resolved",
+		func(input ReviewCommentStateInput, actorID string) ReviewCommentStateInput {
+			input.ActorType = "user"
+			input.ActorID = actorID
+			return input
+		},
+		func(input ReviewCommentStateInput) (ReviewThread, error) {
+			return s.signing.reviewWorkflow().ResolveCommentThread(ctx, scope, agreementID, input)
+		},
+	)
 }
 
 func (s AgreementViewService) ReopenSenderReviewThread(ctx context.Context, scope stores.Scope, agreementID string, actor AgreementViewActor, input ReviewCommentStateInput) (ReviewThread, error) {
-	if !s.senderCommentMutationsAllowed(ctx, scope, agreementID, actor) {
-		return ReviewThread{}, signerReviewAccessError("comments are not enabled for this sender")
-	}
-	if err := s.ensureSharedViewerThread(ctx, scope, agreementID, input.ThreadID); err != nil {
-		return ReviewThread{}, err
-	}
-	input.ActorType = "user"
-	input.ActorID = strings.TrimSpace(actor.ActorID)
-	thread, err := s.signing.reviewWorkflow().ReopenCommentThread(ctx, scope, agreementID, input)
-	if err != nil {
-		return ReviewThread{}, err
-	}
-	s.notifyAgreementChange(ctx, scope, agreementID, "Review thread reopened", map[string]any{
-		"thread_id": strings.TrimSpace(thread.Thread.ID),
-		"actor_id":  strings.TrimSpace(actor.ActorID),
-	})
-	return thread, nil
+	return mutateSenderReviewThread(s, ctx, scope, agreementID, actor, input.ThreadID, input, "Review thread reopened",
+		func(input ReviewCommentStateInput, actorID string) ReviewCommentStateInput {
+			input.ActorType = "user"
+			input.ActorID = actorID
+			return input
+		},
+		func(input ReviewCommentStateInput) (ReviewThread, error) {
+			return s.signing.reviewWorkflow().ReopenCommentThread(ctx, scope, agreementID, input)
+		},
+	)
 }
 
 func (s AgreementViewService) listAgreementFieldValues(ctx context.Context, scope stores.Scope, agreementID string, recipients []stores.RecipientRecord) (map[string]stores.FieldValueRecord, error) {

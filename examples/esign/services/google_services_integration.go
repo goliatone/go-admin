@@ -519,28 +519,24 @@ func (s GoogleServicesIntegrationService) RotateCredentialEncryption(ctx context
 
 // SearchFiles searches Drive files using the access token resolved from go-services credentials.
 func (s GoogleServicesIntegrationService) SearchFiles(ctx context.Context, scope stores.Scope, input GoogleDriveQueryInput) (GoogleDriveListResult, error) {
-	if err := s.ensureProviderHealthy(ctx); err != nil {
-		return GoogleDriveListResult{}, err
-	}
-	if s.provider == nil {
-		return GoogleDriveListResult{}, domainValidationError("google", "service", "provider not configured")
-	}
-	accessToken, _, err := s.resolveAccessToken(ctx, scope, ComposeGoogleScopedUserID(input.UserID, input.AccountID))
-	if err != nil {
-		return GoogleDriveListResult{}, err
-	}
-	pageSize := normalizeDrivePageSize(input.PageSize)
-	result, err := s.provider.SearchFiles(ctx, accessToken, strings.TrimSpace(input.Query), strings.TrimSpace(input.PageToken), pageSize)
-	if err != nil {
-		observability.ObserveProviderResult(ctx, GoogleProviderName, false)
-		return GoogleDriveListResult{}, MapGoogleProviderError(err)
-	}
-	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
-	return result, nil
+	return s.executeDriveListQuery(ctx, scope, input, func(accessToken string, pageSize int) (GoogleDriveListResult, error) {
+		return s.provider.SearchFiles(ctx, accessToken, strings.TrimSpace(input.Query), strings.TrimSpace(input.PageToken), pageSize)
+	})
 }
 
 // BrowseFiles lists Drive folder files using go-services-backed credentials.
 func (s GoogleServicesIntegrationService) BrowseFiles(ctx context.Context, scope stores.Scope, input GoogleDriveQueryInput) (GoogleDriveListResult, error) {
+	return s.executeDriveListQuery(ctx, scope, input, func(accessToken string, pageSize int) (GoogleDriveListResult, error) {
+		return s.provider.BrowseFiles(ctx, accessToken, strings.TrimSpace(input.FolderID), strings.TrimSpace(input.PageToken), pageSize)
+	})
+}
+
+func (s GoogleServicesIntegrationService) executeDriveListQuery(
+	ctx context.Context,
+	scope stores.Scope,
+	input GoogleDriveQueryInput,
+	execute func(string, int) (GoogleDriveListResult, error),
+) (GoogleDriveListResult, error) {
 	if err := s.ensureProviderHealthy(ctx); err != nil {
 		return GoogleDriveListResult{}, err
 	}
@@ -551,8 +547,7 @@ func (s GoogleServicesIntegrationService) BrowseFiles(ctx context.Context, scope
 	if err != nil {
 		return GoogleDriveListResult{}, err
 	}
-	pageSize := normalizeDrivePageSize(input.PageSize)
-	result, err := s.provider.BrowseFiles(ctx, accessToken, strings.TrimSpace(input.FolderID), strings.TrimSpace(input.PageToken), pageSize)
+	result, err := execute(accessToken, normalizeDrivePageSize(input.PageSize))
 	if err != nil {
 		observability.ObserveProviderResult(ctx, GoogleProviderName, false)
 		return GoogleDriveListResult{}, MapGoogleProviderError(err)
@@ -593,18 +588,7 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 	}
 	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
 
-	result, err = executeGoogleImportWithPersistence(ctx, scope, GoogleImportInput{
-		ImportRunID:       strings.TrimSpace(input.ImportRunID),
-		UserID:            strings.TrimSpace(input.UserID),
-		AccountID:         strings.TrimSpace(input.AccountID),
-		GoogleFileID:      fileID,
-		SourceVersionHint: strings.TrimSpace(input.SourceVersionHint),
-		DocumentTitle:     strings.TrimSpace(input.DocumentTitle),
-		AgreementTitle:    strings.TrimSpace(input.AgreementTitle),
-		CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
-		CorrelationID:     strings.TrimSpace(input.CorrelationID),
-		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
-	}, snapshot, sourceMimeType, ingestionMode, userID, googleImportExecutionDeps{
+	result, err = executeNormalizedGoogleImportWithPersistence(ctx, scope, input, fileID, snapshot, sourceMimeType, ingestionMode, userID, googleImportExecutionDeps{
 		documents:  s.documents,
 		agreements: s.agreements,
 		identity:   s.identity,
@@ -618,18 +602,7 @@ func (s GoogleServicesIntegrationService) ImportDocument(ctx context.Context, sc
 	if err != nil {
 		return GoogleImportResult{}, err
 	}
-	if err := s.enqueueLineageProcessing(ctx, scope, result, GoogleImportInput{
-		ImportRunID:       strings.TrimSpace(input.ImportRunID),
-		UserID:            strings.TrimSpace(input.UserID),
-		AccountID:         strings.TrimSpace(input.AccountID),
-		GoogleFileID:      fileID,
-		SourceVersionHint: strings.TrimSpace(input.SourceVersionHint),
-		DocumentTitle:     strings.TrimSpace(input.DocumentTitle),
-		AgreementTitle:    strings.TrimSpace(input.AgreementTitle),
-		CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
-		CorrelationID:     strings.TrimSpace(input.CorrelationID),
-		IdempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
-	}, snapshot, sourceMimeType, ingestionMode); err != nil {
+	if err := s.enqueueLineageProcessing(ctx, scope, result, normalizedGoogleImportInput(input, fileID), snapshot, sourceMimeType, ingestionMode); err != nil {
 		return GoogleImportResult{}, err
 	}
 	if s.sourceComments != nil && strings.TrimSpace(result.SourceRevisionID) != "" {
@@ -660,29 +633,7 @@ func (s GoogleServicesIntegrationService) enqueueLineageProcessing(
 	if modifiedTime.IsZero() {
 		modifiedTime = s.now().UTC()
 	}
-	return s.lineageProcessing.EnqueueLineageProcessing(ctx, scope, SourceLineageProcessingInput{
-		ImportRunID:      strings.TrimSpace(input.ImportRunID),
-		SourceDocumentID: strings.TrimSpace(result.SourceDocumentID),
-		SourceRevisionID: strings.TrimSpace(result.SourceRevisionID),
-		ArtifactID:       strings.TrimSpace(result.SourceArtifactID),
-		ActorID:          strings.TrimSpace(input.CreatedByUserID),
-		CorrelationID:    strings.TrimSpace(input.CorrelationID),
-		DedupeKey:        strings.Join([]string{"google-import-lineage", strings.TrimSpace(result.SourceRevisionID), strings.TrimSpace(result.SourceArtifactID)}, "|"),
-		Metadata: SourceMetadataBaseline{
-			AccountID:           strings.TrimSpace(input.AccountID),
-			ExternalFileID:      strings.TrimSpace(input.GoogleFileID),
-			DriveID:             strings.TrimSpace(snapshot.File.DriveID),
-			WebURL:              strings.TrimSpace(snapshot.File.WebViewURL),
-			ModifiedTime:        &modifiedTime,
-			SourceVersionHint:   strings.TrimSpace(input.SourceVersionHint),
-			SourceMimeType:      strings.TrimSpace(sourceMimeType),
-			SourceIngestionMode: strings.TrimSpace(ingestionMode),
-			TitleHint:           firstNonEmpty(strings.TrimSpace(input.DocumentTitle), strings.TrimSpace(snapshot.File.Name)),
-			PageCountHint:       result.Document.PageCount,
-			OwnerEmail:          strings.TrimSpace(snapshot.File.OwnerEmail),
-			ParentID:            strings.TrimSpace(snapshot.File.ParentID),
-		},
-	})
+	return s.lineageProcessing.EnqueueLineageProcessing(ctx, scope, buildLineageProcessingInput(result, input, snapshot, sourceMimeType, ingestionMode, modifiedTime))
 }
 
 // ProviderHealth reports provider/runtime health used for degraded-mode signaling.

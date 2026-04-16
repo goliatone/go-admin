@@ -125,22 +125,38 @@ type SavedSignerSignatureStore interface {
 }
 
 // SigningTokenStore defines persistence for hashed signer tokens.
-type SigningTokenStore interface {
+type signingTokenLookupStore interface {
 	CreateSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error)
 	GetSigningToken(ctx context.Context, scope Scope, id string) (SigningTokenRecord, error)
 	GetSigningTokenByHash(ctx context.Context, scope Scope, tokenHash string) (SigningTokenRecord, error)
+}
+
+type signingTokenMutationStore interface {
 	ListSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string) ([]SigningTokenRecord, error)
 	SaveSigningToken(ctx context.Context, scope Scope, record SigningTokenRecord) (SigningTokenRecord, error)
 	RevokeActiveSigningTokens(ctx context.Context, scope Scope, agreementID, recipientID string, revokedAt time.Time) (int, error)
 }
 
-type ReviewSessionTokenStore interface {
+type SigningTokenStore interface {
+	signingTokenLookupStore
+	signingTokenMutationStore
+}
+
+type reviewSessionTokenLookupStore interface {
 	CreateReviewSessionToken(ctx context.Context, scope Scope, record ReviewSessionTokenRecord) (ReviewSessionTokenRecord, error)
 	GetReviewSessionToken(ctx context.Context, scope Scope, id string) (ReviewSessionTokenRecord, error)
 	GetReviewSessionTokenByHash(ctx context.Context, scope Scope, tokenHash string) (ReviewSessionTokenRecord, error)
+}
+
+type reviewSessionTokenMutationStore interface {
 	ListReviewSessionTokens(ctx context.Context, scope Scope, agreementID, participantID string) ([]ReviewSessionTokenRecord, error)
 	SaveReviewSessionToken(ctx context.Context, scope Scope, record ReviewSessionTokenRecord) (ReviewSessionTokenRecord, error)
 	RevokeActiveReviewSessionTokens(ctx context.Context, scope Scope, agreementID, participantID string, revokedAt time.Time) (int, error)
+}
+
+type ReviewSessionTokenStore interface {
+	reviewSessionTokenLookupStore
+	reviewSessionTokenMutationStore
 }
 
 type PublicSignerSessionTokenStore interface {

@@ -2501,20 +2501,20 @@ func parseAgreementFieldRuleFormInputs(record map[string]any) ([]agreementFieldR
 	return out, hasPayload, nil
 }
 
-func decodeFieldRuleJSONPayload(value any) ([]map[string]any, bool, error) {
+func decodeJSONPayloadEntries(value any, fieldName string) ([]map[string]any, bool, error) {
 	switch typed := value.(type) {
 	case nil:
 		return nil, false, nil
 	case string:
-		return decodeFieldRuleJSONRawPayload(typed)
+		return decodeJSONRawPayloadEntries(typed, fieldName)
 	case []byte:
-		return decodeFieldRuleJSONRawPayload(string(typed))
+		return decodeJSONRawPayloadEntries(string(typed), fieldName)
 	case []string:
-		raw, err := coerceFormString(typed, "field_rules_json")
+		raw, err := coerceFormString(typed, fieldName)
 		if err != nil {
 			return nil, true, err
 		}
-		return decodeFieldRuleJSONRawPayload(raw)
+		return decodeJSONRawPayloadEntries(raw, fieldName)
 	case []any:
 		if len(typed) == 0 {
 			return nil, false, nil
@@ -2532,27 +2532,27 @@ func decodeFieldRuleJSONPayload(value any) ([]map[string]any, bool, error) {
 			}
 		}
 		if allStringValues {
-			raw, err := coerceFormString(rawValues, "field_rules_json")
+			raw, err := coerceFormString(rawValues, fieldName)
 			if err != nil {
 				return nil, true, err
 			}
-			return decodeFieldRuleJSONRawPayload(raw)
+			return decodeJSONRawPayloadEntries(raw, fieldName)
 		}
 		encoded, err := json.Marshal(value)
 		if err != nil {
 			return nil, true, err
 		}
-		return decodeFieldRuleJSONRawPayload(string(encoded))
+		return decodeJSONRawPayloadEntries(string(encoded), fieldName)
 	default:
 		encoded, err := json.Marshal(value)
 		if err != nil {
 			return nil, true, err
 		}
-		return decodeFieldRuleJSONRawPayload(string(encoded))
+		return decodeJSONRawPayloadEntries(string(encoded), fieldName)
 	}
 }
 
-func decodeFieldRuleJSONRawPayload(raw string) ([]map[string]any, bool, error) {
+func decodeJSONRawPayloadEntries(raw, fieldName string) ([]map[string]any, bool, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || strings.EqualFold(raw, "null") {
 		return nil, false, nil
@@ -2576,11 +2576,15 @@ func decodeFieldRuleJSONRawPayload(raw string) ([]map[string]any, bool, error) {
 	for index, item := range generic {
 		entry, ok := item.(map[string]any)
 		if !ok {
-			return nil, true, fmt.Errorf("field_rules_json[%d] must be an object", index)
+			return nil, true, fmt.Errorf("%s[%d] must be an object", fieldName, index)
 		}
 		decoded = append(decoded, entry)
 	}
 	return decoded, true, nil
+}
+
+func decodeFieldRuleJSONPayload(value any) ([]map[string]any, bool, error) {
+	return decodeJSONPayloadEntries(value, "field_rules_json")
 }
 
 func expandAgreementFieldRules(
@@ -2833,85 +2837,7 @@ func parseAgreementFieldPlacementInputs(record map[string]any) ([]agreementField
 }
 
 func decodeFieldPlacementJSONPayload(value any) ([]map[string]any, bool, error) {
-	switch typed := value.(type) {
-	case nil:
-		return nil, false, nil
-	case string:
-		return decodeFieldPlacementJSONRawPayload(typed)
-	case []byte:
-		return decodeFieldPlacementJSONRawPayload(string(typed))
-	case []string:
-		raw, err := coerceFormString(typed, "field_placements_json")
-		if err != nil {
-			return nil, true, err
-		}
-		return decodeFieldPlacementJSONRawPayload(raw)
-	case []any:
-		if len(typed) == 0 {
-			return nil, false, nil
-		}
-		rawValues := make([]string, 0, len(typed))
-		allStringValues := true
-		for _, item := range typed {
-			switch value := item.(type) {
-			case string:
-				rawValues = append(rawValues, value)
-			case []byte:
-				rawValues = append(rawValues, string(value))
-			default:
-				allStringValues = false
-			}
-		}
-		if allStringValues {
-			raw, err := coerceFormString(rawValues, "field_placements_json")
-			if err != nil {
-				return nil, true, err
-			}
-			return decodeFieldPlacementJSONRawPayload(raw)
-		}
-		encoded, err := json.Marshal(value)
-		if err != nil {
-			return nil, true, err
-		}
-		return decodeFieldPlacementJSONRawPayload(string(encoded))
-	default:
-		encoded, err := json.Marshal(value)
-		if err != nil {
-			return nil, true, err
-		}
-		return decodeFieldPlacementJSONRawPayload(string(encoded))
-	}
-}
-
-func decodeFieldPlacementJSONRawPayload(raw string) ([]map[string]any, bool, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" || strings.EqualFold(raw, "null") {
-		return nil, false, nil
-	}
-	var decoded []map[string]any
-	if err := json.Unmarshal([]byte(raw), &decoded); err == nil {
-		return decoded, true, nil
-	}
-	var single map[string]any
-	if err := json.Unmarshal([]byte(raw), &single); err == nil {
-		if len(single) == 0 {
-			return []map[string]any{}, true, nil
-		}
-		return []map[string]any{single}, true, nil
-	}
-	var generic []any
-	if err := json.Unmarshal([]byte(raw), &generic); err != nil {
-		return nil, true, err
-	}
-	decoded = make([]map[string]any, 0, len(generic))
-	for index, item := range generic {
-		entry, ok := item.(map[string]any)
-		if !ok {
-			return nil, true, fmt.Errorf("field_placements_json[%d] must be an object", index)
-		}
-		decoded = append(decoded, entry)
-	}
-	return decoded, true, nil
+	return decodeJSONPayloadEntries(value, "field_placements_json")
 }
 
 func mergeFieldPlacementInputs(fields []agreementFieldFormInput, placements []agreementFieldPlacementFormInput) []agreementFieldFormInput {
