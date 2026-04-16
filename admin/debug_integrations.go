@@ -1120,6 +1120,9 @@ func debugAdminConfigSnapshot(cfg Config) map[string]any {
 	if cfg.FaviconURL != "" {
 		out["favicon_url"] = cfg.FaviconURL
 	}
+	if assets := primitives.CloneStringMapNilOnEmpty(cfg.ThemeAssets); len(assets) > 0 {
+		out["theme_assets"] = assets
+	}
 	if cfg.CustomCSS != "" {
 		out["custom_css"] = cfg.CustomCSS
 	}
@@ -1139,6 +1142,9 @@ func debugThemeSnapshot(cfg Config) map[string]any {
 	}
 	if cfg.ThemeAssetPrefix != "" {
 		out["asset_prefix"] = cfg.ThemeAssetPrefix
+	}
+	if assets := primitives.CloneStringMapNilOnEmpty(cfg.ThemeAssets); len(assets) > 0 {
+		out["assets"] = assets
 	}
 	if tokens := primitives.CloneStringMapNilOnEmpty(cfg.ThemeTokens); len(tokens) > 0 {
 		out["tokens"] = tokens
