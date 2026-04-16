@@ -767,7 +767,7 @@ Override the confirm route or template with `WithAuthUIPasswordResetConfirmPath`
 `WithAuthUIPasswordResetConfirmTemplate`.
 
 ### Theme assets for auth UI
-Auth and registration UI routes support theme assets (`logo`, `icon`, `favicon`) via dedicated options. Assets are exposed in templates as `theme.assets.logo`, `theme.assets.icon`, `theme.assets.favicon`, etc.
+Auth and registration UI routes support theme assets (`logo`, `icon`, `favicon`) via dedicated options. Assets are exposed in templates as `theme.assets.logo`, `theme.assets.icon`, `theme.assets.favicon`, etc. Relative filenames are joined with the provided prefix; already resolved absolute URLs/paths are preserved.
 
 Reserved branding semantics:
 

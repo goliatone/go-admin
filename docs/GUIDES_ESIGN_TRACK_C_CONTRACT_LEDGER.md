@@ -148,5 +148,5 @@ measurable_gain: full-repo verification no longer fails on a stale Track C hash,
 impacted_endpoints: no intended externally visible endpoint payload change; reviewed Track C files remain examples/esign/stores/contracts.go, examples/esign/stores/models.go, examples/esign/stores/memory.go, examples/esign/services/agreement_service.go, and examples/esign/modules/panel_repositories.go.
 backend_tests: go test ./examples/esign/release ./examples/esign/services ./examples/esign/modules ./examples/esign/stores -count=1 && go test ./...
 frontend_tests: N/A (no frontend contract payload change in this guard refresh)
-contract_hash: f21b6e88d398ba5ef01cb43a42573b42cea71bcd46bed3947e5bb78a7e8a5e75
+contract_hash: fef908fd802d1b6eb5533692cb3e8bf275084d4009f95e48853f0e9cd48e54a9
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
