@@ -16,6 +16,14 @@ import (
 )
 
 func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerAdminHealthRoutes(adminRoutes, routes, cfg)
+	registerAdminAPIStatusRoute(adminRoutes, routes, cfg)
+	registerAdminAgreementDiagnosticsRoutes(adminRoutes, routes, cfg)
+	registerAdminDocumentOperationsRoutes(adminRoutes, routes, cfg)
+	registerAdminGuardedEffectRoutes(adminRoutes, routes, cfg)
+}
+
+func registerAdminHealthRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Get(routes.AdminStatus, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -26,7 +34,9 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			"phase":  "baseline",
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
 
+func registerAdminAPIStatusRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Get(routes.AdminAPIStatus, func(c router.Context) error {
 		startedAt := time.Now()
 		correlationID := apiCorrelationID(c, "admin_api_status")
@@ -34,95 +44,106 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			logAPIOperation(c.Context(), "admin_api_status", correlationID, startedAt, err, nil)
 			return asHandlerError(err)
 		}
-		response := map[string]any{
-			"status": "ok",
-			"codes": []string{
-				string(services.ErrorCodeTokenExpired),
-				string(services.ErrorCodeAgreementImmutable),
-				string(services.ErrorCodeMissingRequiredFields),
-			},
-			"routes": map[string]string{
-				"admin":                                 routes.AdminHome,
-				"admin_legacy":                          routes.AdminLegacyHome,
-				"admin_status":                          routes.AdminStatus,
-				"admin_api":                             routes.AdminAPIStatus,
-				"admin_agreement_view":                  routes.AdminAgreementView,
-				"admin_drafts":                          routes.AdminDrafts,
-				"admin_draft":                           routes.AdminDraft,
-				"admin_draft_send":                      routes.AdminDraftSend,
-				"admin_agreements_stats":                routes.AdminAgreementsStats,
-				"admin_agreement_participants":          routes.AdminAgreementParticipants,
-				"admin_agreement_participant":           routes.AdminAgreementParticipant,
-				"admin_agreement_field_definitions":     routes.AdminAgreementFieldDefinitions,
-				"admin_agreement_field_definition":      routes.AdminAgreementFieldDefinition,
-				"admin_agreement_field_instances":       routes.AdminAgreementFieldInstances,
-				"admin_agreement_field_instance":        routes.AdminAgreementFieldInstance,
-				"admin_agreement_send_readiness":        routes.AdminAgreementSendReadiness,
-				"admin_agreement_auto_place":            routes.AdminAgreementAutoPlace,
-				"admin_agreement_placement_runs":        routes.AdminAgreementPlacementRuns,
-				"admin_agreement_placement_run":         routes.AdminAgreementPlacementRun,
-				"admin_agreement_placement_apply":       routes.AdminAgreementPlacementApply,
-				"admin_smoke_recipient_links":           routes.AdminSmokeRecipientLinks,
-				"admin_documents_upload":                routes.AdminDocumentsUpload,
-				"admin_document_remediate":              routes.AdminDocumentRemediate,
-				"admin_remediation_dispatch_status":     routes.AdminRemediationDispatchStatus,
-				"admin_guarded_effect_status":           routes.AdminGuardedEffectStatus,
-				"admin_guarded_effect_resume":           routes.AdminGuardedEffectResume,
-				"admin_agreement_viewer_session":        routes.AdminAgreementViewerSession,
-				"admin_agreement_viewer_assets":         routes.AdminAgreementViewerAssets,
-				"admin_agreement_viewer_threads":        routes.AdminAgreementViewerThreads,
-				"admin_agreement_viewer_thread_replies": routes.AdminAgreementViewerThreadReplies,
-				"admin_agreement_viewer_thread_resolve": routes.AdminAgreementViewerThreadResolve,
-				"admin_agreement_viewer_thread_reopen":  routes.AdminAgreementViewerThreadReopen,
-				"signer_session":                        routes.SignerSession,
-				"signer_consent":                        routes.SignerConsent,
-				"signer_field_values":                   routes.SignerFieldValues,
-				"signer_signature":                      routes.SignerSignature,
-				"signer_signature_upload":               routes.SignerSignatureUpload,
-				"signer_signature_object":               routes.SignerSignatureObject,
-				"signer_telemetry":                      routes.SignerTelemetry,
-				"signer_submit":                         routes.SignerSubmit,
-				"signer_decline":                        routes.SignerDecline,
-				"signer_assets":                         routes.SignerAssets,
-				"signer_profile":                        routes.SignerProfile,
-				"signer_saved_signatures":               routes.SignerSavedSignatures,
-				"signer_saved_signature":                routes.SignerSavedSignature,
-				"google_oauth_connect":                  routes.AdminGoogleOAuthConnect,
-				"google_oauth_disconnect":               routes.AdminGoogleOAuthDisconnect,
-				"google_oauth_rotate":                   routes.AdminGoogleOAuthRotate,
-				"google_oauth_status":                   routes.AdminGoogleOAuthStatus,
-				"google_oauth_accounts":                 routes.AdminGoogleOAuthAccounts,
-				"google_drive_search":                   routes.AdminGoogleDriveSearch,
-				"google_drive_browse":                   routes.AdminGoogleDriveBrowse,
-				"google_drive_import":                   routes.AdminGoogleDriveImport,
-				"google_drive_imports":                  routes.AdminGoogleDriveImports,
-				"google_drive_import_run":               routes.AdminGoogleDriveImportRun,
-				"integration_mappings":                  routes.AdminIntegrationMappings,
-				"integration_mapping":                   routes.AdminIntegrationMapping,
-				"integration_mapping_publish":           routes.AdminIntegrationMapPublish,
-				"integration_sync_runs":                 routes.AdminIntegrationSyncRuns,
-				"integration_sync_run":                  routes.AdminIntegrationSyncRun,
-				"integration_checkpoints":               routes.AdminIntegrationCheckpoints,
-				"integration_sync_resume":               routes.AdminIntegrationSyncResume,
-				"integration_sync_complete":             routes.AdminIntegrationSyncComplete,
-				"integration_sync_fail":                 routes.AdminIntegrationSyncFail,
-				"integration_conflicts":                 routes.AdminIntegrationConflicts,
-				"integration_conflict":                  routes.AdminIntegrationConflict,
-				"integration_conflict_resolve":          routes.AdminIntegrationResolve,
-				"integration_diagnostics":               routes.AdminIntegrationDiagnostics,
-				"integration_inbound":                   routes.AdminIntegrationInbound,
-				"integration_outbound":                  routes.AdminIntegrationOutbound,
-			},
-		}
-		if cfg.pdfPolicy != nil {
-			scope := cfg.resolveScope(c)
-			response["pdf_policy"] = services.PDFPolicyDiagnostics(cfg.pdfPolicy.Policy(c.Context(), scope))
-		}
+		response := buildAdminAPIStatusResponse(c, cfg, routes)
 		err := c.JSON(http.StatusOK, response)
 		logAPIOperation(c.Context(), "admin_api_status", correlationID, startedAt, err, nil)
 		return err
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
 
+func buildAdminAPIStatusResponse(c router.Context, cfg registerConfig, routes RouteSet) map[string]any {
+	response := map[string]any{
+		"status": "ok",
+		"codes": []string{
+			string(services.ErrorCodeTokenExpired),
+			string(services.ErrorCodeAgreementImmutable),
+			string(services.ErrorCodeMissingRequiredFields),
+		},
+		"routes": buildAdminAPIStatusRouteMap(routes),
+	}
+	if cfg.pdfPolicy != nil {
+		scope := cfg.resolveScope(c)
+		response["pdf_policy"] = services.PDFPolicyDiagnostics(cfg.pdfPolicy.Policy(c.Context(), scope))
+	}
+	return response
+}
+
+func buildAdminAPIStatusRouteMap(routes RouteSet) map[string]string {
+	return map[string]string{
+		"admin":                                 routes.AdminHome,
+		"admin_legacy":                          routes.AdminLegacyHome,
+		"admin_status":                          routes.AdminStatus,
+		"admin_api":                             routes.AdminAPIStatus,
+		"admin_agreement_view":                  routes.AdminAgreementView,
+		"admin_drafts":                          routes.AdminDrafts,
+		"admin_draft":                           routes.AdminDraft,
+		"admin_draft_send":                      routes.AdminDraftSend,
+		"admin_agreements_stats":                routes.AdminAgreementsStats,
+		"admin_agreement_participants":          routes.AdminAgreementParticipants,
+		"admin_agreement_participant":           routes.AdminAgreementParticipant,
+		"admin_agreement_field_definitions":     routes.AdminAgreementFieldDefinitions,
+		"admin_agreement_field_definition":      routes.AdminAgreementFieldDefinition,
+		"admin_agreement_field_instances":       routes.AdminAgreementFieldInstances,
+		"admin_agreement_field_instance":        routes.AdminAgreementFieldInstance,
+		"admin_agreement_send_readiness":        routes.AdminAgreementSendReadiness,
+		"admin_agreement_auto_place":            routes.AdminAgreementAutoPlace,
+		"admin_agreement_placement_runs":        routes.AdminAgreementPlacementRuns,
+		"admin_agreement_placement_run":         routes.AdminAgreementPlacementRun,
+		"admin_agreement_placement_apply":       routes.AdminAgreementPlacementApply,
+		"admin_smoke_recipient_links":           routes.AdminSmokeRecipientLinks,
+		"admin_documents_upload":                routes.AdminDocumentsUpload,
+		"admin_document_remediate":              routes.AdminDocumentRemediate,
+		"admin_remediation_dispatch_status":     routes.AdminRemediationDispatchStatus,
+		"admin_guarded_effect_status":           routes.AdminGuardedEffectStatus,
+		"admin_guarded_effect_resume":           routes.AdminGuardedEffectResume,
+		"admin_agreement_viewer_session":        routes.AdminAgreementViewerSession,
+		"admin_agreement_viewer_assets":         routes.AdminAgreementViewerAssets,
+		"admin_agreement_viewer_threads":        routes.AdminAgreementViewerThreads,
+		"admin_agreement_viewer_thread_replies": routes.AdminAgreementViewerThreadReplies,
+		"admin_agreement_viewer_thread_resolve": routes.AdminAgreementViewerThreadResolve,
+		"admin_agreement_viewer_thread_reopen":  routes.AdminAgreementViewerThreadReopen,
+		"signer_session":                        routes.SignerSession,
+		"signer_consent":                        routes.SignerConsent,
+		"signer_field_values":                   routes.SignerFieldValues,
+		"signer_signature":                      routes.SignerSignature,
+		"signer_signature_upload":               routes.SignerSignatureUpload,
+		"signer_signature_object":               routes.SignerSignatureObject,
+		"signer_telemetry":                      routes.SignerTelemetry,
+		"signer_submit":                         routes.SignerSubmit,
+		"signer_decline":                        routes.SignerDecline,
+		"signer_assets":                         routes.SignerAssets,
+		"signer_profile":                        routes.SignerProfile,
+		"signer_saved_signatures":               routes.SignerSavedSignatures,
+		"signer_saved_signature":                routes.SignerSavedSignature,
+		"google_oauth_connect":                  routes.AdminGoogleOAuthConnect,
+		"google_oauth_disconnect":               routes.AdminGoogleOAuthDisconnect,
+		"google_oauth_rotate":                   routes.AdminGoogleOAuthRotate,
+		"google_oauth_status":                   routes.AdminGoogleOAuthStatus,
+		"google_oauth_accounts":                 routes.AdminGoogleOAuthAccounts,
+		"google_drive_search":                   routes.AdminGoogleDriveSearch,
+		"google_drive_browse":                   routes.AdminGoogleDriveBrowse,
+		"google_drive_import":                   routes.AdminGoogleDriveImport,
+		"google_drive_imports":                  routes.AdminGoogleDriveImports,
+		"google_drive_import_run":               routes.AdminGoogleDriveImportRun,
+		"integration_mappings":                  routes.AdminIntegrationMappings,
+		"integration_mapping":                   routes.AdminIntegrationMapping,
+		"integration_mapping_publish":           routes.AdminIntegrationMapPublish,
+		"integration_sync_runs":                 routes.AdminIntegrationSyncRuns,
+		"integration_sync_run":                  routes.AdminIntegrationSyncRun,
+		"integration_checkpoints":               routes.AdminIntegrationCheckpoints,
+		"integration_sync_resume":               routes.AdminIntegrationSyncResume,
+		"integration_sync_complete":             routes.AdminIntegrationSyncComplete,
+		"integration_sync_fail":                 routes.AdminIntegrationSyncFail,
+		"integration_conflicts":                 routes.AdminIntegrationConflicts,
+		"integration_conflict":                  routes.AdminIntegrationConflict,
+		"integration_conflict_resolve":          routes.AdminIntegrationResolve,
+		"integration_diagnostics":               routes.AdminIntegrationDiagnostics,
+		"integration_inbound":                   routes.AdminIntegrationInbound,
+		"integration_outbound":                  routes.AdminIntegrationOutbound,
+	}
+}
+
+func registerAdminAgreementDiagnosticsRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Get(routes.AdminAgreementsStats, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -207,7 +228,15 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			},
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
 
+func registerAdminDocumentOperationsRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerAdminUploadRoute(adminRoutes, routes, cfg)
+	registerAdminRemediationRoutes(adminRoutes, routes, cfg)
+	registerAdminRemediationStatusRoute(adminRoutes, routes, cfg)
+}
+
+func registerAdminUploadRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	if cfg.documentUpload != nil {
 		adminRoutes.Post(routes.AdminDocumentsUpload, func(c router.Context) error {
 			if err := enforceTransportSecurity(c, cfg); err != nil {
@@ -216,7 +245,9 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			return cfg.documentUpload(c)
 		}, requireAdminPermission(cfg, cfg.permissions.AdminCreate))
 	}
+}
 
+func registerAdminRemediationRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(routes.AdminDocumentRemediate, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -284,7 +315,9 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 		}
 		return c.JSON(statusCode, response)
 	}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+}
 
+func registerAdminRemediationStatusRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Get(routes.AdminRemediationDispatchStatus, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -341,7 +374,14 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			},
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
 
+func registerAdminGuardedEffectRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerAdminGuardedEffectStatusRoute(adminRoutes, routes, cfg)
+	registerAdminGuardedEffectResumeRoute(adminRoutes, routes, cfg)
+}
+
+func registerAdminGuardedEffectStatusRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Get(routes.AdminGuardedEffectStatus, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -403,7 +443,9 @@ func registerAdminCoreRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg re
 			},
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
 
+func registerAdminGuardedEffectResumeRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(routes.AdminGuardedEffectResume, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)

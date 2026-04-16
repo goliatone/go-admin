@@ -190,83 +190,166 @@ func Register(
 	if err := RegisterCommandFactories(bus); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementSendCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if err := registerAgreementCommands(bus, agreements, defaultScope, projector, opts.events); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementVoidCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if err := registerRecoveryCommands(bus, opts.effectRecovery, defaultScope, projector, opts.events); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementResendCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if err := registerMaintenanceCommands(bus, tokens, drafts, agreementReminders, reminderSweepCron, opts.remediation, defaultScope, projector, opts.events); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestCorrectionCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	return nil
+}
+
+func registerAgreementCommands(
+	bus *coreadmin.CommandBus,
+	agreements AgreementLifecycleService,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
+) error {
+	if err := registerAgreementLifecycleCommands(bus, agreements, defaultScope, projector, publisher); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestAmendmentCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if err := registerAgreementReviewCommands(bus, agreements, defaultScope, projector, publisher); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if err := registerAgreementCommentCommands(bus, agreements, defaultScope, projector, publisher); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReopenReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	return nil
+}
+
+func registerAgreementLifecycleCommands(
+	bus *coreadmin.CommandBus,
+	agreements AgreementLifecycleService,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
+) error {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementSendCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementNotifyReviewersCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementVoidCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderPauseCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementResendCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderResumeCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestCorrectionCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderSendNowCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestAmendmentCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementCloseReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	return nil
+}
+
+func registerAgreementReviewCommands(
+	bus *coreadmin.CommandBus,
+	agreements AgreementLifecycleService,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
+) error {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementForceApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReopenReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewOnBehalfCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementNotifyReviewersCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderPauseCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestReviewChangesCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderResumeCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementCreateCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReviewReminderSendNowCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReplyCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementCloseReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementResolveCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementForceApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &AgreementReopenCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewOnBehalfCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
-	if opts.effectRecovery != nil {
-		if _, err := coreadmin.RegisterCommand(bus, &AgreementDeliveryResumeCommand{
-			recovery:     opts.effectRecovery,
-			defaultScope: defaultScope,
-			projector:    projector,
-			publisher:    opts.events,
-		}); err != nil {
-			return err
-		}
-		if _, err := coreadmin.RegisterCommand(bus, &GuardedEffectResumeCommand{
-			recovery:     opts.effectRecovery,
-			defaultScope: defaultScope,
-		}); err != nil {
-			return err
-		}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementApproveReviewCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
+		return err
 	}
-	if _, err := coreadmin.RegisterCommand(bus, &TokenRotateCommand{tokens: tokens, defaultScope: defaultScope, projector: projector, publisher: opts.events}); err != nil {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementRequestReviewChangesCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func registerAgreementCommentCommands(
+	bus *coreadmin.CommandBus,
+	agreements AgreementLifecycleService,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
+) error {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementCreateCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReplyCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementResolveCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReopenCommentThreadCommand{agreements: agreements, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func registerRecoveryCommands(
+	bus *coreadmin.CommandBus,
+	recovery GuardedEffectRecoveryService,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
+) error {
+	if recovery == nil {
+		return nil
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementDeliveryResumeCommand{
+		recovery:     recovery,
+		defaultScope: defaultScope,
+		projector:    projector,
+		publisher:    publisher,
+	}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &GuardedEffectResumeCommand{
+		recovery:     recovery,
+		defaultScope: defaultScope,
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func registerMaintenanceCommands(
+	bus *coreadmin.CommandBus,
+	tokens TokenRotator,
+	drafts DraftCleanupService,
+	agreementReminders AgreementReminderService,
+	reminderSweepCron string,
+	remediation PDFRemediationCommandService,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+	publisher AgreementEventPublisher,
+) error {
+	if _, err := coreadmin.RegisterCommand(bus, &TokenRotateCommand{tokens: tokens, defaultScope: defaultScope, projector: projector, publisher: publisher}); err != nil {
 		return err
 	}
 	if drafts != nil {
@@ -275,36 +358,49 @@ func Register(
 		}
 	}
 	if agreementReminders != nil {
-		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderSweepCommand{
-			reminders:      agreementReminders,
-			defaultScope:   defaultScope,
-			cronExpression: strings.TrimSpace(reminderSweepCron),
-		}); err != nil {
-			return err
-		}
-		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderCleanupCommand{
-			reminders:    agreementReminders,
-			defaultScope: defaultScope,
-		}); err != nil {
-			return err
-		}
-		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderPauseCommand{reminders: agreementReminders, defaultScope: defaultScope}); err != nil {
-			return err
-		}
-		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderResumeCommand{reminders: agreementReminders, defaultScope: defaultScope}); err != nil {
-			return err
-		}
-		if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderSendNowCommand{reminders: agreementReminders, defaultScope: defaultScope, projector: projector}); err != nil {
+		if err := registerReminderCommands(bus, agreementReminders, reminderSweepCron, defaultScope, projector); err != nil {
 			return err
 		}
 	}
-	if opts.remediation != nil {
+	if remediation != nil {
 		if _, err := coreadmin.RegisterCommand(bus, &PDFRemediationCommand{
-			remediation:  opts.remediation,
+			remediation:  remediation,
 			defaultScope: defaultScope,
 		}); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func registerReminderCommands(
+	bus *coreadmin.CommandBus,
+	reminders AgreementReminderService,
+	reminderSweepCron string,
+	defaultScope stores.Scope,
+	projector AgreementActivityProjector,
+) error {
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderSweepCommand{
+		reminders:      reminders,
+		defaultScope:   defaultScope,
+		cronExpression: strings.TrimSpace(reminderSweepCron),
+	}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderCleanupCommand{
+		reminders:    reminders,
+		defaultScope: defaultScope,
+	}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderPauseCommand{reminders: reminders, defaultScope: defaultScope}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderResumeCommand{reminders: reminders, defaultScope: defaultScope}); err != nil {
+		return err
+	}
+	if _, err := coreadmin.RegisterCommand(bus, &AgreementReminderSendNowCommand{reminders: reminders, defaultScope: defaultScope, projector: projector}); err != nil {
+		return err
 	}
 	return nil
 }
@@ -2028,16 +2124,7 @@ func resolveScope(ctx context.Context, preferred stores.Scope, fallback stores.S
 		TenantID: strings.TrimSpace(preferred.TenantID),
 		OrgID:    strings.TrimSpace(preferred.OrgID),
 	}
-	if scope.TenantID == "" || scope.OrgID == "" {
-		if actor, ok := auth.ActorFromContext(ctx); ok && actor != nil {
-			if scope.TenantID == "" {
-				scope.TenantID = strings.TrimSpace(actor.TenantID)
-			}
-			if scope.OrgID == "" {
-				scope.OrgID = strings.TrimSpace(actor.OrganizationID)
-			}
-		}
-	}
+	scope = resolveScopeFromActor(ctx, scope)
 	if scope.TenantID == "" {
 		scope.TenantID = strings.TrimSpace(fallback.TenantID)
 	}
@@ -2048,4 +2135,21 @@ func resolveScope(ctx context.Context, preferred stores.Scope, fallback stores.S
 		return stores.Scope{}, fmt.Errorf("tenant_id and org_id are required")
 	}
 	return scope, nil
+}
+
+func resolveScopeFromActor(ctx context.Context, scope stores.Scope) stores.Scope {
+	if scope.TenantID != "" && scope.OrgID != "" {
+		return scope
+	}
+	actor, ok := auth.ActorFromContext(ctx)
+	if !ok || actor == nil {
+		return scope
+	}
+	if scope.TenantID == "" {
+		scope.TenantID = strings.TrimSpace(actor.TenantID)
+	}
+	if scope.OrgID == "" {
+		scope.OrgID = strings.TrimSpace(actor.OrganizationID)
+	}
+	return scope
 }

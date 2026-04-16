@@ -13,6 +13,19 @@ import (
 
 // RegisterCommandFactories registers payload parsers for panel action command dispatch.
 func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
+	if err := registerAgreementCommandFactories(bus); err != nil {
+		return err
+	}
+	if err := registerReviewCommandFactories(bus); err != nil {
+		return err
+	}
+	if err := registerReminderCommandFactories(bus); err != nil {
+		return err
+	}
+	return registerMaintenanceCommandFactories(bus)
+}
+
+func registerAgreementCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementSend, buildAgreementSendInput); err != nil {
 		return err
 	}
@@ -28,6 +41,10 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementRequestAmendment, buildAgreementRequestAmendmentInput); err != nil {
 		return err
 	}
+	return coreadmin.RegisterMessageFactory(bus, CommandAgreementDeliveryResume, buildAgreementDeliveryResumeInput)
+}
+
+func registerReviewCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementRequestReview, buildAgreementRequestReviewInput); err != nil {
 		return err
 	}
@@ -70,12 +87,10 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementResolveCommentThread, buildAgreementResolveCommentThreadInput); err != nil {
 		return err
 	}
-	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReopenCommentThread, buildAgreementReopenCommentThreadInput); err != nil {
-		return err
-	}
-	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementDeliveryResume, buildAgreementDeliveryResumeInput); err != nil {
-		return err
-	}
+	return coreadmin.RegisterMessageFactory(bus, CommandAgreementReopenCommentThread, buildAgreementReopenCommentThreadInput)
+}
+
+func registerReminderCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderSweep, buildAgreementReminderSweepInput); err != nil {
 		return err
 	}
@@ -88,9 +103,10 @@ func RegisterCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderResume, buildAgreementReminderResumeInput); err != nil {
 		return err
 	}
-	if err := coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderSendNow, buildAgreementReminderSendNowInput); err != nil {
-		return err
-	}
+	return coreadmin.RegisterMessageFactory(bus, CommandAgreementReminderSendNow, buildAgreementReminderSendNowInput)
+}
+
+func registerMaintenanceCommandFactories(bus *coreadmin.CommandBus) error {
 	if err := coreadmin.RegisterMessageFactory(bus, CommandPDFRemediate, buildPDFRemediationInput); err != nil {
 		return err
 	}

@@ -337,22 +337,10 @@ func buildAdminActivityFilters(filters []coreadmin.ActivityFilter) (string, []an
 func buildUsersActivityFilters(filter userstypes.ActivityFilter) (string, []any) {
 	where := make([]string, 0)
 	args := make([]any, 0)
-	if filter.UserID != uuid.Nil {
-		where = append(where, "user_id = ?")
-		args = append(args, filter.UserID.String())
-	}
-	if filter.ActorID != uuid.Nil {
-		where = append(where, "actor_id = ?")
-		args = append(args, filter.ActorID.String())
-	}
-	if filter.Scope.TenantID != uuid.Nil {
-		where = append(where, "tenant_id = ?")
-		args = append(args, filter.Scope.TenantID.String())
-	}
-	if filter.Scope.OrgID != uuid.Nil {
-		where = append(where, "org_id = ?")
-		args = append(args, filter.Scope.OrgID.String())
-	}
+	appendUUIDActivityFilter(&where, &args, "user_id", filter.UserID)
+	appendUUIDActivityFilter(&where, &args, "actor_id", filter.ActorID)
+	appendUUIDActivityFilter(&where, &args, "tenant_id", filter.Scope.TenantID)
+	appendUUIDActivityFilter(&where, &args, "org_id", filter.Scope.OrgID)
 	if verbs := normalizeStringList(filter.Verbs); len(verbs) > 0 {
 		clause, inArgs := buildInClause("verb", verbs)
 		where = append(where, clause)
@@ -396,6 +384,14 @@ func buildUsersActivityFilters(filter userstypes.ActivityFilter) (string, []any)
 		return "", args
 	}
 	return " WHERE " + strings.Join(where, " AND "), args
+}
+
+func appendUUIDActivityFilter(where *[]string, args *[]any, column string, id uuid.UUID) {
+	if id == uuid.Nil {
+		return
+	}
+	*where = append(*where, column+" = ?")
+	*args = append(*args, id.String())
 }
 
 func buildUsersActivityStatsFilters(filter userstypes.ActivityStatsFilter) (string, []any) {

@@ -619,42 +619,9 @@ func runV2IntegrationValidation(
 	lagMS := make([]float64, 0, runCount)
 
 	for i := range runCount {
-		compiled, err := svc.ValidateAndCompileMapping(ctx, scope, services.MappingCompileInput{
-			Provider: "crm",
-			Name:     fmt.Sprintf("v2-phase28-%03d", i+1),
-			ExternalSchema: stores.ExternalSchema{
-				ObjectType: "contract",
-				Version:    "v1",
-				Fields: []stores.ExternalFieldRef{
-					{Object: "contract", Field: "email", Type: "string", Required: true},
-					{Object: "contract", Field: "name", Type: "string", Required: true},
-				},
-			},
-			Rules: []stores.MappingRule{
-				{SourceObject: "contract", SourceField: "email", TargetEntity: "participant", TargetPath: "email"},
-				{SourceObject: "contract", SourceField: "name", TargetEntity: "participant", TargetPath: "name"},
-			},
-		})
+		run, err := startV2IntegrationValidationRun(ctx, scope, i, svc, &summary)
 		if err != nil {
-			return summary, fmt.Errorf("compile mapping spec %d: %w", i+1, err)
-		}
-
-		run, replay, err := svc.StartSyncRun(ctx, scope, services.StartSyncRunInput{
-			Provider:       "crm",
-			Direction:      "inbound",
-			MappingSpecID:  compiled.Spec.ID,
-			Cursor:         fmt.Sprintf("cursor-%03d", i+1),
-			IdempotencyKey: fmt.Sprintf("v2-sync-start-%03d", i+1),
-		})
-		if err != nil {
-			return summary, fmt.Errorf("start sync run %d: %w", i+1, err)
-		}
-		if replay {
-			return summary, fmt.Errorf("unexpected replay for sync run %d", i+1)
-		}
-		summary.SyncRunsStarted++
-		if len(summary.SampleRunIDs) < 5 {
-			summary.SampleRunIDs = append(summary.SampleRunIDs, run.ID)
+			return summary, err
 		}
 
 		_, checkpointErr := svc.SaveCheckpoint(ctx, scope, services.SaveCheckpointInput{
@@ -721,6 +688,48 @@ func runV2IntegrationValidation(
 
 	summary.SyncRunLagP95MS = percentile(lagMS, 95)
 	return summary, nil
+}
+
+func startV2IntegrationValidationRun(ctx context.Context, scope stores.Scope, idx int, svc services.IntegrationFoundationService, summary *V2IntegrationSummary) (stores.IntegrationSyncRunRecord, error) {
+	compiled, err := svc.ValidateAndCompileMapping(ctx, scope, services.MappingCompileInput{
+		Provider: "crm",
+		Name:     fmt.Sprintf("v2-phase28-%03d", idx+1),
+		ExternalSchema: stores.ExternalSchema{
+			ObjectType: "contract",
+			Version:    "v1",
+			Fields: []stores.ExternalFieldRef{
+				{Object: "contract", Field: "email", Type: "string", Required: true},
+				{Object: "contract", Field: "name", Type: "string", Required: true},
+			},
+		},
+		Rules: []stores.MappingRule{
+			{SourceObject: "contract", SourceField: "email", TargetEntity: "participant", TargetPath: "email"},
+			{SourceObject: "contract", SourceField: "name", TargetEntity: "participant", TargetPath: "name"},
+		},
+	})
+	if err != nil {
+		return stores.IntegrationSyncRunRecord{}, fmt.Errorf("compile mapping spec %d: %w", idx+1, err)
+	}
+	run, replay, err := svc.StartSyncRun(ctx, scope, services.StartSyncRunInput{
+		Provider:       "crm",
+		Direction:      "inbound",
+		MappingSpecID:  compiled.Spec.ID,
+		Cursor:         fmt.Sprintf("cursor-%03d", idx+1),
+		IdempotencyKey: fmt.Sprintf("v2-sync-start-%03d", idx+1),
+	})
+	if err != nil {
+		return stores.IntegrationSyncRunRecord{}, fmt.Errorf("start sync run %d: %w", idx+1, err)
+	}
+	if replay {
+		return stores.IntegrationSyncRunRecord{}, fmt.Errorf("unexpected replay for sync run %d", idx+1)
+	}
+	if summary != nil {
+		summary.SyncRunsStarted++
+		if len(summary.SampleRunIDs) < 5 {
+			summary.SampleRunIDs = append(summary.SampleRunIDs, run.ID)
+		}
+	}
+	return run, nil
 }
 
 func requiredSignatureFieldIDsByParticipant(ctx context.Context, store stores.Store, scope stores.Scope, agreementID string) (map[string]string, error) {

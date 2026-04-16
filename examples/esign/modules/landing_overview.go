@@ -61,24 +61,7 @@ func (m *ESignModule) LandingOverview(ctx context.Context, scope stores.Scope, r
 	if err != nil {
 		return stats, recent, err
 	}
-	stats["total"] = len(agreements)
-
-	byStatus := map[string]int{}
-	actionRequired := 0
-	for _, agreement := range agreements {
-		status := strings.ToLower(strings.TrimSpace(agreement.Status))
-		if status == "" {
-			continue
-		}
-		byStatus[status] = byStatus[status] + 1
-		if agreementRequiresAction(agreement) {
-			actionRequired++
-		}
-	}
-	stats["draft"] = byStatus[stores.AgreementStatusDraft]
-	stats["pending"] = byStatus[stores.AgreementStatusSent] + byStatus[stores.AgreementStatusInProgress]
-	stats["completed"] = byStatus[stores.AgreementStatusCompleted]
-	stats["action_required"] = actionRequired
+	populateLandingOverviewStats(stats, agreements)
 
 	sort.Slice(agreements, func(i, j int) bool {
 		left := agreements[i].UpdatedAt
@@ -100,31 +83,62 @@ func (m *ESignModule) LandingOverview(ctx context.Context, scope stores.Scope, r
 	}
 	recent = make([]map[string]any, 0, recentLimit)
 	for i := 0; i < recentLimit; i++ {
-		agreement := agreements[i]
-		recipients, err := m.store.ListRecipients(ctx, scope, agreement.ID)
+		row, err := m.buildLandingOverviewRecentRow(ctx, scope, agreements[i])
 		if err != nil {
 			return stats, nil, err
 		}
-		title := strings.TrimSpace(agreement.Title)
-		if title == "" {
-			title = "Untitled"
-		}
-		status := strings.TrimSpace(agreement.Status)
-		presentationStatus := landingAgreementPresentationStatus(agreement)
-		updatedAt := agreement.UpdatedAt.UTC().Format(time.RFC3339Nano)
-		if agreement.UpdatedAt.IsZero() {
-			updatedAt = agreement.CreatedAt.UTC().Format(time.RFC3339Nano)
-		}
-		recent = append(recent, map[string]any{
-			"id":                  strings.TrimSpace(agreement.ID),
-			"title":               title,
-			"status":              status,
-			"review_status":       strings.TrimSpace(agreement.ReviewStatus),
-			"presentation_status": presentationStatus,
-			"recipient_count":     len(recipients),
-			"updated_at":          updatedAt,
-		})
+		recent = append(recent, row)
 	}
 
 	return stats, recent, nil
+}
+
+func populateLandingOverviewStats(stats map[string]int, agreements []stores.AgreementRecord) {
+	if stats == nil {
+		return
+	}
+	stats["total"] = len(agreements)
+	byStatus := map[string]int{}
+	actionRequired := 0
+	for _, agreement := range agreements {
+		status := strings.ToLower(strings.TrimSpace(agreement.Status))
+		if status == "" {
+			continue
+		}
+		byStatus[status] = byStatus[status] + 1
+		if agreementRequiresAction(agreement) {
+			actionRequired++
+		}
+	}
+	stats["draft"] = byStatus[stores.AgreementStatusDraft]
+	stats["pending"] = byStatus[stores.AgreementStatusSent] + byStatus[stores.AgreementStatusInProgress]
+	stats["completed"] = byStatus[stores.AgreementStatusCompleted]
+	stats["action_required"] = actionRequired
+}
+
+func (m *ESignModule) buildLandingOverviewRecentRow(ctx context.Context, scope stores.Scope, agreement stores.AgreementRecord) (map[string]any, error) {
+	recipients, err := m.store.ListRecipients(ctx, scope, agreement.ID)
+	if err != nil {
+		return nil, err
+	}
+	title := strings.TrimSpace(agreement.Title)
+	if title == "" {
+		title = "Untitled"
+	}
+	return map[string]any{
+		"id":                  strings.TrimSpace(agreement.ID),
+		"title":               title,
+		"status":              strings.TrimSpace(agreement.Status),
+		"review_status":       strings.TrimSpace(agreement.ReviewStatus),
+		"presentation_status": landingAgreementPresentationStatus(agreement),
+		"recipient_count":     len(recipients),
+		"updated_at":          landingAgreementUpdatedAt(agreement),
+	}, nil
+}
+
+func landingAgreementUpdatedAt(agreement stores.AgreementRecord) string {
+	if agreement.UpdatedAt.IsZero() {
+		return agreement.CreatedAt.UTC().Format(time.RFC3339Nano)
+	}
+	return agreement.UpdatedAt.UTC().Format(time.RFC3339Nano)
 }

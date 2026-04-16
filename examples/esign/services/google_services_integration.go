@@ -161,62 +161,46 @@ func NewGoogleServicesIntegrationService(
 	return svc
 }
 
-// Connect exchanges the auth code through the services runtime and stores credentials in go-services tables.
-func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope stores.Scope, input GoogleConnectInput) (GoogleOAuthStatus, error) {
+type googleConnectContext struct {
+	svc          *gocore.Service
+	health       GoogleProviderHealthStatus
+	userID       string
+	accountID    string
+	scopedUserID string
+	redirectURI  string
+	scopeRef     gocore.ScopeRef
+}
+
+func (s GoogleServicesIntegrationService) resolveGoogleConnectContext(ctx context.Context, scope stores.Scope, input GoogleConnectInput) (googleConnectContext, error) {
 	svc, err := s.serviceRuntime()
 	if err != nil {
-		return GoogleOAuthStatus{}, err
+		return googleConnectContext{}, err
 	}
-	healthErr := s.ensureProviderHealthy(ctx)
-	if healthErr != nil {
-		return GoogleOAuthStatus{}, healthErr
+	if err := s.ensureProviderHealthy(ctx); err != nil {
+		return googleConnectContext{}, err
 	}
 	userID := normalizeRequiredID("google", "user_id", input.UserID)
 	if userID == "" {
-		return GoogleOAuthStatus{}, domainValidationError("google", "user_id", "required")
+		return googleConnectContext{}, domainValidationError("google", "user_id", "required")
 	}
 	accountID := normalizeGoogleAccountID(input.AccountID)
-	scopedUserID := ComposeGoogleScopedUserID(userID, accountID)
-	authCode := strings.TrimSpace(input.AuthCode)
-	if authCode == "" {
-		return GoogleOAuthStatus{}, domainValidationError("google", "auth_code", "required")
-	}
 	redirectURI, redirectErr := s.resolveConnectRedirectURI(input.RedirectURI)
 	if redirectErr != nil {
-		return GoogleOAuthStatus{}, redirectErr
+		return googleConnectContext{}, redirectErr
 	}
-	resolvedScope := s.scopeRef(scope, scopedUserID)
+	scopedUserID := ComposeGoogleScopedUserID(userID, accountID)
+	return googleConnectContext{
+		svc:          svc,
+		health:       s.ProviderHealth(ctx),
+		userID:       userID,
+		accountID:    accountID,
+		scopedUserID: scopedUserID,
+		redirectURI:  redirectURI,
+		scopeRef:     s.scopeRef(scope, scopedUserID),
+	}, nil
+}
 
-	begin, err := svc.Connect(ctx, gocore.ConnectRequest{
-		ProviderID:      s.googleProviderID(),
-		Scope:           resolvedScope,
-		RedirectURI:     redirectURI,
-		RequestedGrants: append([]string(nil), s.allowedScopes...),
-		Metadata: map[string]any{
-			"user_id":    userID,
-			"account_id": accountID,
-		},
-	})
-	if err != nil {
-		return GoogleOAuthStatus{}, err
-	}
-
-	completion, err := svc.CompleteCallback(ctx, gocore.CompleteAuthRequest{
-		ProviderID:  s.googleProviderID(),
-		Scope:       resolvedScope,
-		Code:        authCode,
-		State:       strings.TrimSpace(begin.State),
-		RedirectURI: redirectURI,
-		Metadata: map[string]any{
-			"user_id":    userID,
-			"account_id": accountID,
-		},
-	})
-	if err != nil {
-		observability.ObserveProviderResult(ctx, GoogleProviderName, false)
-		return GoogleOAuthStatus{}, err
-	}
-
+func (s GoogleServicesIntegrationService) buildConnectedGoogleOAuthStatus(ctx context.Context, connectCtx googleConnectContext, completion gocore.CallbackCompletion) GoogleOAuthStatus {
 	scopes := normalizeScopes(completion.Credential.GrantedScopes)
 	if len(scopes) == 0 {
 		scopes = normalizeScopes(completion.Credential.RequestedScopes)
@@ -231,38 +215,76 @@ func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope sto
 		ExpiresAt:   expiresAt,
 		Refreshable: false,
 	}, gocore.DefaultCredentialExpiringSoonWindow)
-	expired := state.IsExpired
-	expiringSoon := state.IsExpiringSoon
-	canAutoRefresh := state.CanAutoRefresh
-
-	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
-	observability.ObserveGoogleAuthChurn(ctx, "oauth_connected")
-	health := s.ProviderHealth(ctx)
 	accountEmail := googleAccountEmailCandidate(completion.Connection.ExternalAccountID)
 	if accountEmail == "" {
-		if active, decodeErr := decodeActiveCredential(ctx, svc.Dependencies(), completion.Credential); decodeErr == nil {
+		if active, decodeErr := decodeActiveCredential(ctx, connectCtx.svc.Dependencies(), completion.Credential); decodeErr == nil {
 			accountEmail = s.resolveAccountEmail(ctx, active.AccessToken)
 		}
 	}
 	return GoogleOAuthStatus{
 		Provider:             GoogleProviderName,
-		ProviderMode:         health.Mode,
-		UserID:               userID,
-		AccountID:            accountID,
+		ProviderMode:         connectCtx.health.Mode,
+		UserID:               connectCtx.userID,
+		AccountID:            connectCtx.accountID,
 		AccountEmail:         accountEmail,
 		Connected:            true,
 		Scopes:               scopes,
 		ExpiresAt:            expiresAt,
-		IsExpired:            expired,
-		IsExpiringSoon:       expiringSoon,
-		CanAutoRefresh:       canAutoRefresh,
-		NeedsReauthorization: googleNeedsReauthorization(expired, expiringSoon, canAutoRefresh),
+		IsExpired:            state.IsExpired,
+		IsExpiringSoon:       state.IsExpiringSoon,
+		CanAutoRefresh:       state.CanAutoRefresh,
+		NeedsReauthorization: googleNeedsReauthorization(state.IsExpired, state.IsExpiringSoon, state.CanAutoRefresh),
 		LeastPrivilege:       least,
-		Healthy:              health.Healthy,
-		Degraded:             !health.Healthy,
-		DegradedReason:       health.Reason,
-		HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
-	}, nil
+		Healthy:              connectCtx.health.Healthy,
+		Degraded:             !connectCtx.health.Healthy,
+		DegradedReason:       connectCtx.health.Reason,
+		HealthCheckedAt:      cloneGoogleTimePtr(connectCtx.health.CheckedAt),
+	}
+}
+
+// Connect exchanges the auth code through the services runtime and stores credentials in go-services tables.
+func (s GoogleServicesIntegrationService) Connect(ctx context.Context, scope stores.Scope, input GoogleConnectInput) (GoogleOAuthStatus, error) {
+	connectCtx, err := s.resolveGoogleConnectContext(ctx, scope, input)
+	if err != nil {
+		return GoogleOAuthStatus{}, err
+	}
+	authCode := strings.TrimSpace(input.AuthCode)
+	if authCode == "" {
+		return GoogleOAuthStatus{}, domainValidationError("google", "auth_code", "required")
+	}
+	begin, err := connectCtx.svc.Connect(ctx, gocore.ConnectRequest{
+		ProviderID:      s.googleProviderID(),
+		Scope:           connectCtx.scopeRef,
+		RedirectURI:     connectCtx.redirectURI,
+		RequestedGrants: append([]string(nil), s.allowedScopes...),
+		Metadata: map[string]any{
+			"user_id":    connectCtx.userID,
+			"account_id": connectCtx.accountID,
+		},
+	})
+	if err != nil {
+		return GoogleOAuthStatus{}, err
+	}
+
+	completion, err := connectCtx.svc.CompleteCallback(ctx, gocore.CompleteAuthRequest{
+		ProviderID:  s.googleProviderID(),
+		Scope:       connectCtx.scopeRef,
+		Code:        authCode,
+		State:       strings.TrimSpace(begin.State),
+		RedirectURI: connectCtx.redirectURI,
+		Metadata: map[string]any{
+			"user_id":    connectCtx.userID,
+			"account_id": connectCtx.accountID,
+		},
+	})
+	if err != nil {
+		observability.ObserveProviderResult(ctx, GoogleProviderName, false)
+		return GoogleOAuthStatus{}, err
+	}
+
+	observability.ObserveProviderResult(ctx, GoogleProviderName, true)
+	observability.ObserveGoogleAuthChurn(ctx, "oauth_connected")
+	return s.buildConnectedGoogleOAuthStatus(ctx, connectCtx, completion), nil
 }
 
 // Disconnect revokes Google access (best effort) and marks the services connection as disconnected.
@@ -303,6 +325,58 @@ func (s GoogleServicesIntegrationService) Disconnect(ctx context.Context, scope 
 	return nil
 }
 
+func (s GoogleServicesIntegrationService) disconnectedGoogleOAuthStatus(health GoogleProviderHealthStatus, baseUserID, accountID string) GoogleOAuthStatus {
+	return GoogleOAuthStatus{
+		Provider:             GoogleProviderName,
+		ProviderMode:         health.Mode,
+		UserID:               baseUserID,
+		AccountID:            accountID,
+		Connected:            false,
+		Scopes:               []string{},
+		IsExpired:            false,
+		IsExpiringSoon:       false,
+		CanAutoRefresh:       false,
+		NeedsReauthorization: false,
+		LeastPrivilege:       false,
+		Healthy:              health.Healthy,
+		Degraded:             !health.Healthy,
+		DegradedReason:       health.Reason,
+		HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
+	}
+}
+
+func (s GoogleServicesIntegrationService) activeCredentialStatus(ctx context.Context, svc *gocore.Service, connectionID string) (gocore.ActiveCredential, []string, *time.Time, gocore.CredentialTokenState, bool, error) {
+	active, activeErr := s.resolveActiveCredential(ctx, svc, connectionID)
+	if activeErr != nil {
+		return gocore.ActiveCredential{}, nil, nil, gocore.CredentialTokenState{}, false, activeErr
+	}
+	freshResult, freshErr := svc.EnsureCredentialFresh(ctx, gocore.EnsureCredentialFreshRequest{
+		ProviderID:         s.googleProviderID(),
+		ConnectionID:       strings.TrimSpace(connectionID),
+		Credential:         &active,
+		RefreshLeadWindow:  gocore.DefaultCredentialRefreshLeadWindow,
+		ExpiringSoonWindow: gocore.DefaultCredentialExpiringSoonWindow,
+	})
+	state := gocore.CredentialTokenState{}
+	if freshErr == nil {
+		active = freshResult.Credential
+		state = freshResult.State
+		if freshResult.RefreshAttempted {
+			observability.ObserveProviderResult(ctx, GoogleProviderName, true)
+		}
+	} else {
+		state = gocore.ResolveCredentialTokenState(s.now().UTC(), active, gocore.DefaultCredentialExpiringSoonWindow)
+		if state.CanAutoRefresh {
+			observability.ObserveProviderResult(ctx, GoogleProviderName, false)
+		}
+	}
+	scopes := normalizeScopes(active.GrantedScopes)
+	if len(scopes) == 0 {
+		scopes = normalizeScopes(active.RequestedScopes)
+	}
+	return active, scopes, cloneGoogleTimePtr(state.ExpiresAt), state, state.CanAutoRefresh, nil
+}
+
 // Status returns OAuth connection status based on go-services connection and credential rows.
 func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stores.Scope, userID string) (GoogleOAuthStatus, error) {
 	svc, err := s.serviceRuntime()
@@ -324,57 +398,11 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 		return GoogleOAuthStatus{}, err
 	}
 	if !found {
-		return GoogleOAuthStatus{
-			Provider:             GoogleProviderName,
-			ProviderMode:         health.Mode,
-			UserID:               baseUserID,
-			AccountID:            accountID,
-			Connected:            false,
-			Scopes:               []string{},
-			IsExpired:            false,
-			IsExpiringSoon:       false,
-			CanAutoRefresh:       false,
-			NeedsReauthorization: false,
-			LeastPrivilege:       false,
-			Healthy:              health.Healthy,
-			Degraded:             !health.Healthy,
-			DegradedReason:       health.Reason,
-			HealthCheckedAt:      cloneGoogleTimePtr(health.CheckedAt),
-		}, nil
+		return s.disconnectedGoogleOAuthStatus(health, baseUserID, accountID), nil
 	}
 
-	active, activeErr := s.resolveActiveCredential(ctx, svc, connection.ID)
-	scopes := []string{}
-	var expiresAt *time.Time
-	state := gocore.CredentialTokenState{}
-	canAutoRefresh := false
-	if activeErr == nil {
-		freshResult, freshErr := svc.EnsureCredentialFresh(ctx, gocore.EnsureCredentialFreshRequest{
-			ProviderID:         s.googleProviderID(),
-			ConnectionID:       strings.TrimSpace(connection.ID),
-			Credential:         &active,
-			RefreshLeadWindow:  gocore.DefaultCredentialRefreshLeadWindow,
-			ExpiringSoonWindow: gocore.DefaultCredentialExpiringSoonWindow,
-		})
-		if freshErr == nil {
-			active = freshResult.Credential
-			state = freshResult.State
-			if freshResult.RefreshAttempted {
-				observability.ObserveProviderResult(ctx, GoogleProviderName, true)
-			}
-		} else {
-			state = gocore.ResolveCredentialTokenState(s.now().UTC(), active, gocore.DefaultCredentialExpiringSoonWindow)
-			if state.CanAutoRefresh {
-				observability.ObserveProviderResult(ctx, GoogleProviderName, false)
-			}
-		}
-		canAutoRefresh = state.CanAutoRefresh
-		scopes = normalizeScopes(active.GrantedScopes)
-		if len(scopes) == 0 {
-			scopes = normalizeScopes(active.RequestedScopes)
-		}
-		expiresAt = cloneGoogleTimePtr(state.ExpiresAt)
-	} else if !isNotFound(activeErr) {
+	active, scopes, expiresAt, state, canAutoRefresh, activeErr := s.activeCredentialStatus(ctx, svc, connection.ID)
+	if activeErr != nil && !isNotFound(activeErr) {
 		return GoogleOAuthStatus{}, activeErr
 	}
 

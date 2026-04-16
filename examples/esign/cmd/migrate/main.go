@@ -274,39 +274,58 @@ func runValidateFixtures(ctx context.Context, handles *esignpersistence.ClientHa
 	if err != nil {
 		return fmt.Errorf("begin validation transaction: %w", err)
 	}
-	scope := stores.Scope{
-		TenantID: "tenant-fixture-validation",
-		OrgID:    "org-fixture-validation",
-	}
-	fx, err := stores.SeedCoreFixtures(ctx, tx, scope)
+	fx, err := validateFixtureTransaction(ctx, tx)
 	if err != nil {
 		_ = tx.Rollback()
-		return fmt.Errorf("seed fixtures in validation transaction: %w", err)
+		return err
 	}
 
+	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+		return fmt.Errorf("rollback validation transaction: %w", err)
+	}
+	fmt.Printf("fixture validation passed (agreement_id=%s)\n", strings.TrimSpace(fx.AgreementID))
+	return nil
+}
+
+func validateFixtureTransaction(ctx context.Context, tx bun.Tx) (stores.FixtureSet, error) {
+	scope := stores.Scope{TenantID: "tenant-fixture-validation", OrgID: "org-fixture-validation"}
+	fx, err := stores.SeedCoreFixtures(ctx, tx, scope)
+	if err != nil {
+		return stores.FixtureSet{}, fmt.Errorf("seed fixtures in validation transaction: %w", err)
+	}
+	if err := verifyFixtureDocumentCount(ctx, tx, scope); err != nil {
+		return stores.FixtureSet{}, err
+	}
+	if err := validateLineageFixtures(ctx, tx, scope); err != nil {
+		return stores.FixtureSet{}, err
+	}
+	return fx, nil
+}
+
+func verifyFixtureDocumentCount(ctx context.Context, tx bun.Tx, scope stores.Scope) error {
 	var documents int
 	if scanErr := tx.NewRaw(
 		`SELECT COUNT(1) FROM documents WHERE tenant_id = ? AND org_id = ?`,
 		scope.TenantID,
 		scope.OrgID,
 	).Scan(ctx, &documents); scanErr != nil {
-		_ = tx.Rollback()
 		return fmt.Errorf("verify fixture inserts: %w", scanErr)
 	}
 	if documents < 1 {
-		_ = tx.Rollback()
 		return fmt.Errorf("fixture validation did not insert expected documents")
 	}
+	return nil
+}
+
+func validateLineageFixtures(ctx context.Context, tx bun.Tx, scope stores.Scope) error {
 	validationAssetsDir, err := os.MkdirTemp("", "esign-lineage-fixtures-validate-")
 	if err != nil {
-		_ = tx.Rollback()
 		return fmt.Errorf("create lineage validation assets dir: %w", err)
 	}
 	defer func() { _ = os.RemoveAll(validationAssetsDir) }()
 	uploads := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(validationAssetsDir)))
 	lineageSet, err := fixtures.EnsureLineageQAFixtures(ctx, tx, uploads, scope)
 	if err != nil {
-		_ = tx.Rollback()
 		return fmt.Errorf("seed lineage fixtures in validation transaction: %w", err)
 	}
 	var lineageDocuments int
@@ -318,18 +337,11 @@ func runValidateFixtures(ctx context.Context, handles *esignpersistence.ClientHa
 			lineageSet.RepeatedImportDocumentID,
 		}),
 	).Scan(ctx, &lineageDocuments); err != nil {
-		_ = tx.Rollback()
 		return fmt.Errorf("verify lineage fixture inserts: %w", err)
 	}
 	if lineageDocuments != 3 {
-		_ = tx.Rollback()
 		return fmt.Errorf("lineage fixture validation expected 3 documents, got %d", lineageDocuments)
 	}
-
-	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
-		return fmt.Errorf("rollback validation transaction: %w", err)
-	}
-	fmt.Printf("fixture validation passed (agreement_id=%s)\n", strings.TrimSpace(fx.AgreementID))
 	return nil
 }
 

@@ -150,59 +150,121 @@ func (s *AgreementDraftResourceStore) Mutate(ctx context.Context, input gosyncco
 	if err := validateResourceKind(input.ResourceRef.Kind); err != nil {
 		return gosynccore.Snapshot{}, err
 	}
+	resourceID := strings.TrimSpace(input.ResourceRef.ID)
 
 	switch strings.ToLower(strings.TrimSpace(input.Operation)) {
 	case OperationAutosave:
-		payload, err := decodeAutosavePayload(input.Payload)
-		if err != nil {
-			return gosynccore.Snapshot{}, err
-		}
-		record, err := s.workflow.Update(ctx, scope, strings.TrimSpace(input.ResourceRef.ID), services.DraftUpdateInput{
-			ExpectedRevision: input.ExpectedRevision,
-			WizardState:      payload.WizardState,
-			Title:            payload.title(),
-			CurrentStep:      payload.currentStep(),
-			DocumentID:       payload.DocumentID,
-			UpdatedByUserID:  actorID,
-		})
-		if err != nil {
-			return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
-		}
-		return snapshotFromDraftRecord(record, buildResourceScope(scope, actorID))
+		return s.mutateAutosave(ctx, input, scope, actorID, resourceID)
 	case OperationSend:
-		ipAddress := strings.TrimSpace(fmt.Sprint(copyAnyMap(input.Metadata)["ip_address"]))
-		result, err := s.workflow.Send(ctx, scope, strings.TrimSpace(input.ResourceRef.ID), services.DraftSendInput{
-			ExpectedRevision: input.ExpectedRevision,
-			CreatedByUserID:  actorID,
-			IPAddress:        ipAddress,
-			CorrelationID:    strings.TrimSpace(input.CorrelationID),
-			IdempotencyKey:   strings.TrimSpace(input.IdempotencyKey),
-		})
-		if err != nil {
-			return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
-		}
-		return snapshotFromSendResult(input.ResourceRef, buildResourceScope(scope, actorID), result, input.ExpectedRevision+1, s.now().UTC())
+		return s.mutateSend(ctx, input, scope, actorID, resourceID)
 	case OperationStartReview:
-		ipAddress := strings.TrimSpace(fmt.Sprint(copyAnyMap(input.Metadata)["ip_address"]))
-		result, err := s.workflow.StartReview(ctx, scope, strings.TrimSpace(input.ResourceRef.ID), services.DraftStartReviewInput{
-			ExpectedRevision: input.ExpectedRevision,
-			CreatedByUserID:  actorID,
-			IPAddress:        ipAddress,
-			CorrelationID:    strings.TrimSpace(input.CorrelationID),
-			IdempotencyKey:   strings.TrimSpace(input.IdempotencyKey),
-		})
-		if err != nil {
-			return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
-		}
-		return snapshotFromStartReviewResult(input.ResourceRef, buildResourceScope(scope, actorID), result, input.ExpectedRevision+1, s.now().UTC())
+		return s.mutateStartReview(ctx, input, scope, actorID, resourceID)
 	case OperationDispose:
-		if err := s.workflow.Delete(ctx, scope, strings.TrimSpace(input.ResourceRef.ID), actorID); err != nil {
+		if err := s.workflow.Delete(ctx, scope, resourceID, actorID); err != nil {
 			return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
 		}
 		return snapshotFromDisposeResult(input.ResourceRef, buildResourceScope(scope, actorID), input.ExpectedRevision+1, s.now().UTC())
 	default:
 		return gosynccore.Snapshot{}, gosynccore.NewError(gosynccore.CodeInvalidMutation, "unsupported agreement draft operation", map[string]any{
 			"operation": strings.TrimSpace(input.Operation),
+		})
+	}
+}
+
+func (s *AgreementDraftResourceStore) mutateAutosave(ctx context.Context, input gosynccore.MutationInput, scope stores.Scope, actorID, resourceID string) (gosynccore.Snapshot, error) {
+	payload, err := decodeAutosavePayload(input.Payload)
+	if err != nil {
+		return gosynccore.Snapshot{}, err
+	}
+	record, err := s.workflow.Update(ctx, scope, resourceID, services.DraftUpdateInput{
+		ExpectedRevision: input.ExpectedRevision,
+		WizardState:      payload.WizardState,
+		Title:            payload.title(),
+		CurrentStep:      payload.currentStep(),
+		DocumentID:       payload.DocumentID,
+		UpdatedByUserID:  actorID,
+	})
+	if err != nil {
+		return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
+	}
+	return snapshotFromDraftRecord(record, buildResourceScope(scope, actorID))
+}
+
+func (s *AgreementDraftResourceStore) mutateSend(ctx context.Context, input gosynccore.MutationInput, scope stores.Scope, actorID, resourceID string) (gosynccore.Snapshot, error) {
+	return s.mutateWorkflowTransition(ctx, input, scope, actorID, resourceID, OperationSend)
+}
+
+func (s *AgreementDraftResourceStore) mutateStartReview(ctx context.Context, input gosynccore.MutationInput, scope stores.Scope, actorID, resourceID string) (gosynccore.Snapshot, error) {
+	return s.mutateWorkflowTransition(ctx, input, scope, actorID, resourceID, OperationStartReview)
+}
+
+type draftWorkflowTransitionInput struct {
+	ExpectedRevision int64
+	NextRevision     int64
+	IPAddress        string
+	CorrelationID    string
+	IdempotencyKey   string
+	CreatedAt        time.Time
+}
+
+func (s *AgreementDraftResourceStore) mutateWorkflowTransition(
+	ctx context.Context,
+	input gosynccore.MutationInput,
+	scope stores.Scope,
+	actorID, resourceID string,
+	operation string,
+) (gosynccore.Snapshot, error) {
+	transitionInput := draftWorkflowTransitionInput{
+		ExpectedRevision: input.ExpectedRevision,
+		NextRevision:     input.ExpectedRevision + 1,
+		IPAddress:        strings.TrimSpace(fmt.Sprint(copyAnyMap(input.Metadata)["ip_address"])),
+		CorrelationID:    strings.TrimSpace(input.CorrelationID),
+		IdempotencyKey:   strings.TrimSpace(input.IdempotencyKey),
+		CreatedAt:        s.now().UTC(),
+	}
+	snapshot, err := s.runWorkflowTransition(ctx, input.ResourceRef, scope, actorID, resourceID, operation, transitionInput)
+	if err != nil {
+		return gosynccore.Snapshot{}, s.mapWorkflowError(ctx, input.ResourceRef, actorID, err)
+	}
+	return snapshot, nil
+}
+
+func (s *AgreementDraftResourceStore) runWorkflowTransition(
+	ctx context.Context,
+	ref gosynccore.ResourceRef,
+	scope stores.Scope,
+	actorID, resourceID, operation string,
+	input draftWorkflowTransitionInput,
+) (gosynccore.Snapshot, error) {
+	resourceScope := buildResourceScope(scope, actorID)
+	switch operation {
+	case OperationSend:
+		result, err := s.workflow.Send(ctx, scope, resourceID, services.DraftSendInput{
+			ExpectedRevision: input.ExpectedRevision,
+			CreatedByUserID:  actorID,
+			IPAddress:        input.IPAddress,
+			CorrelationID:    input.CorrelationID,
+			IdempotencyKey:   input.IdempotencyKey,
+		})
+		if err != nil {
+			return gosynccore.Snapshot{}, err
+		}
+		return snapshotFromSendResult(ref, resourceScope, result, input.NextRevision, input.CreatedAt)
+	case OperationStartReview:
+		result, err := s.workflow.StartReview(ctx, scope, resourceID, services.DraftStartReviewInput{
+			ExpectedRevision: input.ExpectedRevision,
+			CreatedByUserID:  actorID,
+			IPAddress:        input.IPAddress,
+			CorrelationID:    input.CorrelationID,
+			IdempotencyKey:   input.IdempotencyKey,
+		})
+		if err != nil {
+			return gosynccore.Snapshot{}, err
+		}
+		return snapshotFromStartReviewResult(ref, resourceScope, result, input.NextRevision, input.CreatedAt)
+	default:
+		return gosynccore.Snapshot{}, gosynccore.NewError(gosynccore.CodeInvalidMutation, "unsupported agreement draft operation", map[string]any{
+			"operation": strings.TrimSpace(operation),
 		})
 	}
 }

@@ -74,29 +74,46 @@ func (c Checklist) Validate() []string {
 	if strings.TrimSpace(c.ReleaseID) == "" {
 		issues = append(issues, "release_id is required")
 	}
-	if c.Signoffs == nil {
-		issues = append(issues, "signoffs are required")
-	} else {
-		for _, team := range requiredSignoffTeams {
-			signoff, ok := c.Signoffs[team]
-			if !ok {
-				issues = append(issues, fmt.Sprintf("missing %s signoff", team))
-				continue
-			}
-			if !signoff.Approved {
-				issues = append(issues, fmt.Sprintf("%s signoff is not approved", team))
-			}
-			if strings.TrimSpace(signoff.Approver) == "" {
-				issues = append(issues, fmt.Sprintf("%s approver is required", team))
-			}
-			if strings.TrimSpace(signoff.ApprovedAt) == "" {
-				issues = append(issues, fmt.Sprintf("%s approved_at is required", team))
-			}
-		}
-	}
+	issues = append(issues, c.validateSignoffs()...)
 	if c.Security.HighSeverityOpen > 0 {
 		issues = append(issues, fmt.Sprintf("security review has %d high severity item(s) open", c.Security.HighSeverityOpen))
 	}
+	issues = append(issues, c.validateRuntimeReadiness()...)
+	issues = append(issues, c.validateProductization()...)
+	slo := observability.EvaluateSLO(c.SLOSnapshot)
+	if !slo.OverallPass {
+		failed := failedSLOMetrics(slo.Targets)
+		issues = append(issues, fmt.Sprintf("numeric SLO gate failed for: %s", strings.Join(failed, ", ")))
+	}
+	return issues
+}
+
+func (c Checklist) validateSignoffs() []string {
+	if c.Signoffs == nil {
+		return []string{"signoffs are required"}
+	}
+	issues := make([]string, 0)
+	for _, team := range requiredSignoffTeams {
+		signoff, ok := c.Signoffs[team]
+		if !ok {
+			issues = append(issues, fmt.Sprintf("missing %s signoff", team))
+			continue
+		}
+		if !signoff.Approved {
+			issues = append(issues, fmt.Sprintf("%s signoff is not approved", team))
+		}
+		if strings.TrimSpace(signoff.Approver) == "" {
+			issues = append(issues, fmt.Sprintf("%s approver is required", team))
+		}
+		if strings.TrimSpace(signoff.ApprovedAt) == "" {
+			issues = append(issues, fmt.Sprintf("%s approved_at is required", team))
+		}
+	}
+	return issues
+}
+
+func (c Checklist) validateRuntimeReadiness() []string {
+	issues := make([]string, 0)
 	if c.Runtime.UsesMockDependencies {
 		issues = append(issues, "runtime depends on mock/demo-only components")
 	}
@@ -109,6 +126,11 @@ func (c Checklist) Validate() []string {
 	if c.Runtime.LegacyRuntimePathActive {
 		issues = append(issues, "runtime still exposes legacy signer flow paths")
 	}
+	return issues
+}
+
+func (c Checklist) validateProductization() []string {
+	issues := make([]string, 0)
 	if !c.Productization.RecipientJourneyFromSignLink {
 		issues = append(issues, "15.4 recipient journey from sign link without API tooling is not verified")
 	}
@@ -124,18 +146,18 @@ func (c Checklist) Validate() []string {
 	if !c.Productization.CISmokeWorkflowPassed {
 		issues = append(issues, "15.4 CI smoke sender->recipient->completion workflow assertion is not verified")
 	}
-	slo := observability.EvaluateSLO(c.SLOSnapshot)
-	if !slo.OverallPass {
-		failed := make([]string, 0)
-		for _, target := range slo.Targets {
-			if !target.Pass {
-				failed = append(failed, target.Metric)
-			}
-		}
-		sort.Strings(failed)
-		issues = append(issues, fmt.Sprintf("numeric SLO gate failed for: %s", strings.Join(failed, ", ")))
-	}
 	return issues
+}
+
+func failedSLOMetrics(targets []observability.SLOTargetStatus) []string {
+	failed := make([]string, 0)
+	for _, target := range targets {
+		if !target.Pass {
+			failed = append(failed, target.Metric)
+		}
+	}
+	sort.Strings(failed)
+	return failed
 }
 
 func RequiredSignoffTeams() []string {

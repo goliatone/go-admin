@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	persistence "github.com/goliatone/go-persistence-bun"
+	"github.com/uptrace/bun"
 )
 
 // CheckConnectivity validates DB connectivity through the persistence client.
@@ -67,12 +68,7 @@ func CheckLineageIntegrity(ctx context.Context, client *persistence.Client) erro
 		return fmt.Errorf("persistence health: bun db is required")
 	}
 
-	type countRow struct {
-		Count int `bun:"count"`
-	}
-
-	duplicateHandles := countRow{}
-	if err := db.NewRaw(`
+	if err := validateLineageCountQuery(ctx, db, `
 SELECT COUNT(1) AS count
 FROM (
     SELECT tenant_id, org_id, provider_kind, external_file_id, account_id
@@ -80,15 +76,10 @@ FROM (
     WHERE handle_status = 'active' AND valid_to IS NULL
     GROUP BY tenant_id, org_id, provider_kind, external_file_id, account_id
     HAVING COUNT(1) > 1
-) dup`).Scan(ctx, &duplicateHandles); err != nil {
-		return fmt.Errorf("persistence health: lineage duplicate active handle check failed: %w", err)
+) dup`, "persistence health: lineage duplicate active handle check failed", "persistence health: lineage duplicate active handles detected"); err != nil {
+		return err
 	}
-	if duplicateHandles.Count > 0 {
-		return fmt.Errorf("persistence health: lineage duplicate active handles detected")
-	}
-
-	orphanedDocs := countRow{}
-	if err := db.NewRaw(`
+	if err := validateLineageCountQuery(ctx, db, `
 SELECT COUNT(1) AS count
 FROM documents d
 LEFT JOIN source_documents sd
@@ -100,27 +91,60 @@ LEFT JOIN source_artifacts sa
 WHERE (TRIM(COALESCE(d.source_document_id, '')) <> '' AND sd.id IS NULL)
    OR (TRIM(COALESCE(d.source_revision_id, '')) <> '' AND sr.id IS NULL)
    OR (TRIM(COALESCE(d.source_artifact_id, '')) <> '' AND sa.id IS NULL)
-`).Scan(ctx, &orphanedDocs); err != nil {
-		return fmt.Errorf("persistence health: lineage orphaned document reference check failed: %w", err)
+`, "persistence health: lineage orphaned document reference check failed", "persistence health: orphaned document lineage references detected"); err != nil {
+		return err
 	}
-	if orphanedDocs.Count > 0 {
-		return fmt.Errorf("persistence health: orphaned document lineage references detected")
-	}
-
-	orphanedAgreements := countRow{}
-	if err := db.NewRaw(`
+	if err := validateLineageCountQuery(ctx, db, `
 SELECT COUNT(1) AS count
 FROM agreements a
 LEFT JOIN source_revisions sr
   ON sr.tenant_id = a.tenant_id AND sr.org_id = a.org_id AND sr.id = a.source_revision_id
 WHERE TRIM(COALESCE(a.source_revision_id, '')) <> '' AND sr.id IS NULL
-`).Scan(ctx, &orphanedAgreements); err != nil {
-		return fmt.Errorf("persistence health: lineage orphaned agreement reference check failed: %w", err)
+`, "persistence health: lineage orphaned agreement reference check failed", "persistence health: orphaned agreement lineage references detected"); err != nil {
+		return err
 	}
-	if orphanedAgreements.Count > 0 {
-		return fmt.Errorf("persistence health: orphaned agreement lineage references detected")
+	if err := validateGoogleLineageMetadata(ctx, db); err != nil {
+		return err
 	}
+	return validateLineageCountQuery(ctx, db, `
+SELECT COUNT(1) AS count
+FROM source_revisions sr
+JOIN source_documents sd ON sd.id = sr.source_document_id
+JOIN source_handles sh ON sh.id = sr.source_handle_id
+WHERE sr.tenant_id <> sd.tenant_id
+   OR sr.org_id <> sd.org_id
+   OR sr.tenant_id <> sh.tenant_id
+   OR sr.org_id <> sh.org_id
+`, "persistence health: lineage scope validation failed", "persistence health: lineage scope violations detected")
+}
 
+type bunDB interface {
+	NewRaw(query string, args ...any) *bun.RawQuery
+}
+
+func validateLineageCountQuery(ctx context.Context, db bunDB, query, failureMessage, violationMessage string) error {
+	count, err := scanLineageCount(ctx, db, query)
+	if err != nil {
+		return fmt.Errorf("%s: %w", failureMessage, err)
+	}
+	if count > 0 {
+		return fmt.Errorf("%s", violationMessage)
+	}
+	return nil
+}
+
+func scanLineageCount(ctx context.Context, db bunDB, query string) (int, error) {
+	type countRow struct {
+		Count int `bun:"count"`
+	}
+	row := countRow{}
+	if err := db.NewRaw(query).Scan(ctx, &row); err != nil {
+		return 0, err
+	}
+	return row.Count, nil
+}
+
+func validateGoogleLineageMetadata(ctx context.Context, db bunDB) error {
 	type metadataRow struct {
 		ID           string `bun:"id"`
 		MetadataJSON string `bun:"metadata_json"`
@@ -140,23 +164,6 @@ WHERE sh.provider_kind = 'google_drive'
 		if raw == "" || !json.Valid([]byte(raw)) {
 			return fmt.Errorf("persistence health: malformed google lineage metadata for source_revision %s", strings.TrimSpace(row.ID))
 		}
-	}
-
-	scopeViolations := countRow{}
-	if err := db.NewRaw(`
-SELECT COUNT(1) AS count
-FROM source_revisions sr
-JOIN source_documents sd ON sd.id = sr.source_document_id
-JOIN source_handles sh ON sh.id = sr.source_handle_id
-WHERE sr.tenant_id <> sd.tenant_id
-   OR sr.org_id <> sd.org_id
-   OR sr.tenant_id <> sh.tenant_id
-   OR sr.org_id <> sh.org_id
-`).Scan(ctx, &scopeViolations); err != nil {
-		return fmt.Errorf("persistence health: lineage scope validation failed: %w", err)
-	}
-	if scopeViolations.Count > 0 {
-		return fmt.Errorf("persistence health: lineage scope violations detected")
 	}
 	return nil
 }

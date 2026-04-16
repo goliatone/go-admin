@@ -293,6 +293,14 @@ func (s *InMemoryStore) snapshot() (inMemoryStoreSnapshot, error) {
 }
 
 func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
+	s.applySourceSnapshot(snapshot)
+	s.applyAgreementSnapshot(snapshot)
+	s.applySigningSnapshot(snapshot)
+	s.applyActivitySnapshot(snapshot)
+	s.applyIntegrationSnapshot(snapshot)
+}
+
+func (s *InMemoryStore) applySourceSnapshot(snapshot inMemoryStoreSnapshot) {
 	s.documents = ensureDocumentMap(snapshot.Documents)
 	s.sourceDocuments = ensureSourceDocumentMap(snapshot.SourceDocuments)
 	s.sourceHandles = ensureSourceHandleMap(snapshot.SourceHandles)
@@ -304,6 +312,14 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.sourceCommentMessages = ensureSourceCommentMessageMap(snapshot.SourceCommentMessages)
 	s.sourceCommentSyncStates = ensureSourceCommentSyncStateMap(snapshot.SourceCommentSyncStates)
 	s.sourceSearchDocuments = ensureSourceSearchDocumentMap(snapshot.SourceSearchDocuments)
+}
+
+func (s *InMemoryStore) applyAgreementSnapshot(snapshot inMemoryStoreSnapshot) {
+	s.applyAgreementReviewSnapshot(snapshot)
+	s.applyAgreementDraftSnapshot(snapshot)
+}
+
+func (s *InMemoryStore) applyAgreementReviewSnapshot(snapshot inMemoryStoreSnapshot) {
 	s.agreements = ensureAgreementMap(snapshot.Agreements)
 	s.agreementRevisionRequests = ensureAgreementRevisionRequestMap(snapshot.AgreementRevisionRequests)
 	s.agreementRevisionReqIndex = ensureStringMap(snapshot.AgreementRevisionReqIndex)
@@ -312,6 +328,9 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.agreementReviewParticipants = ensureAgreementReviewParticipantMap(snapshot.AgreementReviewParticipants)
 	s.agreementCommentThreads = ensureAgreementCommentThreadMap(snapshot.AgreementCommentThreads)
 	s.agreementCommentMessages = ensureAgreementCommentMessageMap(snapshot.AgreementCommentMessages)
+}
+
+func (s *InMemoryStore) applyAgreementDraftSnapshot(snapshot inMemoryStoreSnapshot) {
 	s.drafts = ensureDraftMap(snapshot.Drafts)
 	s.draftWizardIndex = ensureStringMap(snapshot.DraftWizardIndex)
 	s.participants = ensureParticipantMap(snapshot.Participants)
@@ -319,6 +338,9 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.fieldInstances = ensureFieldInstanceMap(snapshot.FieldInstances)
 	s.recipients = ensureRecipientMap(snapshot.Recipients)
 	s.fields = ensureFieldMap(snapshot.Fields)
+}
+
+func (s *InMemoryStore) applySigningSnapshot(snapshot inMemoryStoreSnapshot) {
 	s.signingTokens = ensureSigningTokenMap(snapshot.SigningTokens)
 	s.tokenHashIndex = ensureStringMap(snapshot.TokenHashIndex)
 	s.reviewSessionTokens = ensureReviewSessionTokenMap(snapshot.ReviewSessionTokens)
@@ -330,6 +352,14 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.signerProfileIndex = ensureStringMap(snapshot.SignerProfileIndex)
 	s.savedSignerSignatures = ensureSavedSignerSignatureMap(snapshot.SavedSignerSignatures)
 	s.fieldValues = ensureFieldValueMap(snapshot.FieldValues)
+}
+
+func (s *InMemoryStore) applyActivitySnapshot(snapshot inMemoryStoreSnapshot) {
+	s.applyActivityArtifactSnapshot(snapshot)
+	s.applyActivityWorkflowSnapshot(snapshot)
+}
+
+func (s *InMemoryStore) applyActivityArtifactSnapshot(snapshot inMemoryStoreSnapshot) {
 	s.draftAuditEvents = ensureDraftAuditEventMap(snapshot.DraftAuditEvents)
 	s.auditEvents = ensureAuditEventMap(snapshot.AuditEvents)
 	s.agreementArtifacts = ensureAgreementArtifactMap(snapshot.AgreementArtifacts)
@@ -338,6 +368,9 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.jobRunDedupeIndex = ensureStringMap(snapshot.JobRunDedupeIndex)
 	s.googleImportRuns = ensureGoogleImportRunMap(snapshot.GoogleImportRuns)
 	s.googleImportRunDedupeIndex = ensureStringMap(snapshot.GoogleImportRunDedupeIndex)
+}
+
+func (s *InMemoryStore) applyActivityWorkflowSnapshot(snapshot inMemoryStoreSnapshot) {
 	s.documentRemediationLeases = ensureDocumentRemediationLeaseMap(snapshot.DocumentRemediationLeases)
 	s.remediationDispatches = ensureRemediationDispatchMap(snapshot.RemediationDispatches)
 	s.remediationDispatchIndex = ensureStringMap(snapshot.RemediationDispatchIndex)
@@ -345,6 +378,9 @@ func (s *InMemoryStore) applySnapshot(snapshot inMemoryStoreSnapshot) {
 	s.guardedEffectIndex = ensureStringMap(snapshot.GuardedEffectIndex)
 	s.agreementReminderStates = ensureAgreementReminderStateMap(snapshot.AgreementReminderStates)
 	s.outboxMessages = ensureOutboxMessageMap(snapshot.OutboxMessages)
+}
+
+func (s *InMemoryStore) applyIntegrationSnapshot(snapshot inMemoryStoreSnapshot) {
 	s.integrationCredentials = ensureIntegrationCredentialMap(snapshot.IntegrationCredentials)
 	s.integrationCredentialIndex = ensureStringMap(snapshot.IntegrationCredentialIndex)
 	s.mappingSpecs = ensureMappingSpecMap(snapshot.MappingSpecs)
@@ -1723,6 +1759,21 @@ func (s *InMemoryStore) CreateDraft(ctx context.Context, scope Scope, record Agr
 	if err != nil {
 		return AgreementRecord{}, err
 	}
+	record, err = prepareDraftAgreementRecord(scope, record)
+	if err != nil {
+		return AgreementRecord{}, err
+	}
+	key := scopedKey(scope, record.ID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.agreements[key]; exists {
+		return AgreementRecord{}, invalidRecordError("agreements", "id", "already exists")
+	}
+	s.agreements[key] = record
+	return record, nil
+}
+
+func prepareDraftAgreementRecord(scope Scope, record AgreementRecord) (AgreementRecord, error) {
 	if normalizeID(record.ID) == "" {
 		record.ID = uuid.NewString()
 	}
@@ -1754,6 +1805,27 @@ func (s *InMemoryStore) CreateDraft(ctx context.Context, scope Scope, record Agr
 	if record.ReviewGate == "" {
 		record.ReviewGate = AgreementReviewGateNone
 	}
+	record, err := normalizeDraftAgreementSource(record)
+	if err != nil {
+		return AgreementRecord{}, err
+	}
+	if record.Status == "" {
+		record.Status = AgreementStatusDraft
+	}
+	if record.Status != AgreementStatusDraft {
+		return AgreementRecord{}, invalidRecordError("agreements", "status", "must start in draft")
+	}
+	if record.Version <= 0 {
+		record.Version = 1
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record, nil
+}
+
+func normalizeDraftAgreementSource(record AgreementRecord) (AgreementRecord, error) {
 	record.SourceType = strings.TrimSpace(record.SourceType)
 	if record.SourceType == "" {
 		record.SourceType = SourceTypeUpload
@@ -1768,28 +1840,6 @@ func (s *InMemoryStore) CreateDraft(ctx context.Context, scope Scope, record Agr
 	record.SourceExportedByUserID = normalizeID(record.SourceExportedByUserID)
 	record.SourceMimeType = strings.TrimSpace(record.SourceMimeType)
 	record.SourceIngestionMode = strings.TrimSpace(record.SourceIngestionMode)
-
-	if record.Status == "" {
-		record.Status = AgreementStatusDraft
-	}
-	if record.Status != AgreementStatusDraft {
-		return AgreementRecord{}, invalidRecordError("agreements", "status", "must start in draft")
-	}
-	if record.Version <= 0 {
-		record.Version = 1
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
-	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
-
-	key := scopedKey(scope, record.ID)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, exists := s.agreements[key]; exists {
-		return AgreementRecord{}, invalidRecordError("agreements", "id", "already exists")
-	}
-	s.agreements[key] = record
 	return record, nil
 }
 
@@ -2065,43 +2115,10 @@ func (s *InMemoryStore) CreateDraftSession(ctx context.Context, scope Scope, rec
 	if err != nil {
 		return DraftRecord{}, false, err
 	}
-	record.WizardID = strings.TrimSpace(record.WizardID)
-	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
-	if record.WizardID == "" {
-		return DraftRecord{}, false, invalidRecordError("drafts", "wizard_id", "required")
+	record, err = prepareDraftSessionRecord(scope, record)
+	if err != nil {
+		return DraftRecord{}, false, err
 	}
-	if record.CreatedByUserID == "" {
-		return DraftRecord{}, false, invalidRecordError("drafts", "created_by_user_id", "required")
-	}
-	if normalizeID(record.ID) == "" {
-		record.ID = uuid.NewString()
-	}
-	record.ID = normalizeID(record.ID)
-	record.DocumentID = normalizeID(record.DocumentID)
-	record.Title = strings.TrimSpace(record.Title)
-	record.WizardStateJSON = strings.TrimSpace(record.WizardStateJSON)
-	if record.WizardStateJSON == "" {
-		record.WizardStateJSON = "{}"
-	}
-	if record.CurrentStep <= 0 {
-		record.CurrentStep = 1
-	}
-	if record.CurrentStep > 6 {
-		return DraftRecord{}, false, invalidRecordError("drafts", "current_step", "must be between 1 and 6")
-	}
-	if record.Revision <= 0 {
-		record.Revision = 1
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
-	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
-	if record.ExpiresAt.IsZero() {
-		record.ExpiresAt = record.UpdatedAt.Add(defaultDraftTTL).UTC()
-	} else {
-		record.ExpiresAt = record.ExpiresAt.UTC()
-	}
-
 	key := scopedKey(scope, record.ID)
 	indexKey := draftWizardIndexKey(scope, record.CreatedByUserID, record.WizardID)
 	referenceNow := record.UpdatedAt.UTC()
@@ -2118,20 +2135,7 @@ func (s *InMemoryStore) CreateDraftSession(ctx context.Context, scope Scope, rec
 				delete(s.drafts, scopedKey(scope, existingID))
 				delete(s.draftWizardIndex, indexKey)
 			} else {
-				// Idempotent create replays still refresh TTL/updated timestamps without bumping revision.
-				now := record.UpdatedAt
-				if now.IsZero() {
-					now = time.Now().UTC()
-				}
-				expiresAt := record.ExpiresAt
-				if expiresAt.IsZero() {
-					expiresAt = now.Add(defaultDraftTTL).UTC()
-				}
-				existing.UpdatedAt = now.UTC()
-				existing.ExpiresAt = expiresAt.UTC()
-				existing = cloneDraftRecord(existing)
-				s.drafts[scopedKey(scope, existingID)] = existing
-				return cloneDraftRecord(existing), true, nil
+				return s.refreshExistingDraftSession(scope, existingID, existing, record), true, nil
 			}
 		} else {
 			delete(s.draftWizardIndex, indexKey)
@@ -2144,6 +2148,62 @@ func (s *InMemoryStore) CreateDraftSession(ctx context.Context, scope Scope, rec
 	s.drafts[key] = record
 	s.draftWizardIndex[indexKey] = record.ID
 	return cloneDraftRecord(record), false, nil
+}
+
+func prepareDraftSessionRecord(scope Scope, record DraftRecord) (DraftRecord, error) {
+	record.WizardID = strings.TrimSpace(record.WizardID)
+	record.CreatedByUserID = normalizeID(record.CreatedByUserID)
+	if record.WizardID == "" {
+		return DraftRecord{}, invalidRecordError("drafts", "wizard_id", "required")
+	}
+	if record.CreatedByUserID == "" {
+		return DraftRecord{}, invalidRecordError("drafts", "created_by_user_id", "required")
+	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.DocumentID = normalizeID(record.DocumentID)
+	record.Title = strings.TrimSpace(record.Title)
+	record.WizardStateJSON = strings.TrimSpace(record.WizardStateJSON)
+	if record.WizardStateJSON == "" {
+		record.WizardStateJSON = "{}"
+	}
+	if record.CurrentStep <= 0 {
+		record.CurrentStep = 1
+	}
+	if record.CurrentStep > 6 {
+		return DraftRecord{}, invalidRecordError("drafts", "current_step", "must be between 1 and 6")
+	}
+	if record.Revision <= 0 {
+		record.Revision = 1
+	}
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	if record.ExpiresAt.IsZero() {
+		record.ExpiresAt = record.UpdatedAt.Add(defaultDraftTTL).UTC()
+	} else {
+		record.ExpiresAt = record.ExpiresAt.UTC()
+	}
+	return record, nil
+}
+
+func (s *InMemoryStore) refreshExistingDraftSession(scope Scope, existingID string, existing, record DraftRecord) DraftRecord {
+	now := record.UpdatedAt
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	expiresAt := record.ExpiresAt
+	if expiresAt.IsZero() {
+		expiresAt = now.Add(defaultDraftTTL).UTC()
+	}
+	existing.UpdatedAt = now.UTC()
+	existing.ExpiresAt = expiresAt.UTC()
+	existing = cloneDraftRecord(existing)
+	s.drafts[scopedKey(scope, existingID)] = existing
+	return cloneDraftRecord(existing)
 }
 
 func (s *InMemoryStore) GetDraftSession(ctx context.Context, scope Scope, id string) (DraftRecord, error) {
@@ -2195,32 +2255,12 @@ func (s *InMemoryStore) ListDraftSessions(ctx context.Context, scope Scope, quer
 	now := time.Now().UTC()
 	out := make([]DraftRecord, 0)
 	for _, record := range s.drafts {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.CreatedByUserID != createdByUserID {
-			continue
-		}
-		if wizardIDFilter != "" && record.WizardID != wizardIDFilter {
-			continue
-		}
-		if !record.ExpiresAt.IsZero() && !record.ExpiresAt.After(now) {
+		if !includeDraftSessionRecord(record, scope, createdByUserID, wizardIDFilter, now) {
 			continue
 		}
 		out = append(out, cloneDraftRecord(record))
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if query.SortDesc {
-			if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
-				return out[i].ID > out[j].ID
-			}
-			return out[i].UpdatedAt.After(out[j].UpdatedAt)
-		}
-		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
-			return out[i].ID < out[j].ID
-		}
-		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
-	})
+	sortDraftRecords(out, query.SortDesc)
 
 	if offset > len(out) {
 		offset = len(out)
@@ -2232,6 +2272,34 @@ func (s *InMemoryStore) ListDraftSessions(ctx context.Context, scope Scope, quer
 		nextCursor = strconv.Itoa(end)
 	}
 	return page, nextCursor, nil
+}
+
+func includeDraftSessionRecord(record DraftRecord, scope Scope, createdByUserID, wizardID string, now time.Time) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if record.CreatedByUserID != createdByUserID {
+		return false
+	}
+	if wizardID != "" && record.WizardID != wizardID {
+		return false
+	}
+	return record.ExpiresAt.IsZero() || record.ExpiresAt.After(now)
+}
+
+func sortDraftRecords(out []DraftRecord, sortDesc bool) {
+	sort.Slice(out, func(i, j int) bool {
+		if sortDesc {
+			if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+				return out[i].ID > out[j].ID
+			}
+			return out[i].UpdatedAt.After(out[j].UpdatedAt)
+		}
+		if out[i].UpdatedAt.Equal(out[j].UpdatedAt) {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].UpdatedAt.Before(out[j].UpdatedAt)
+	})
 }
 
 func (s *InMemoryStore) UpdateDraftSession(ctx context.Context, scope Scope, id string, patch DraftPatch, expectedRevision int64) (DraftRecord, error) {
@@ -2262,7 +2330,17 @@ func (s *InMemoryStore) UpdateDraftSession(ctx context.Context, scope Scope, id 
 	if record.Revision != expectedRevision {
 		return DraftRecord{}, versionConflictError("drafts", id, expectedRevision, record.Revision)
 	}
+	record, err = applyDraftSessionPatch(record, patch)
+	if err != nil {
+		return DraftRecord{}, err
+	}
+	record.Revision++
+	record = cloneDraftRecord(record)
+	s.drafts[key] = record
+	return cloneDraftRecord(record), nil
+}
 
+func applyDraftSessionPatch(record DraftRecord, patch DraftPatch) (DraftRecord, error) {
 	if patch.WizardStateJSON != nil {
 		record.WizardStateJSON = strings.TrimSpace(*patch.WizardStateJSON)
 		if record.WizardStateJSON == "" {
@@ -2281,7 +2359,6 @@ func (s *InMemoryStore) UpdateDraftSession(ctx context.Context, scope Scope, id 
 	if patch.DocumentID != nil {
 		record.DocumentID = normalizeID(*patch.DocumentID)
 	}
-
 	if patch.UpdatedAt != nil && !patch.UpdatedAt.IsZero() {
 		record.UpdatedAt = patch.UpdatedAt.UTC()
 	} else {
@@ -2292,11 +2369,7 @@ func (s *InMemoryStore) UpdateDraftSession(ctx context.Context, scope Scope, id 
 	} else if record.ExpiresAt.IsZero() {
 		record.ExpiresAt = record.UpdatedAt.Add(defaultDraftTTL).UTC()
 	}
-
-	record.Revision++
-	record = cloneDraftRecord(record)
-	s.drafts[key] = record
-	return cloneDraftRecord(record), nil
+	return record, nil
 }
 
 func (s *InMemoryStore) DeleteDraftSession(ctx context.Context, scope Scope, id string) error {
@@ -2367,7 +2440,17 @@ func (s *InMemoryStore) UpdateDraft(ctx context.Context, scope Scope, id string,
 	if expectedVersion > 0 && record.Version != expectedVersion {
 		return AgreementRecord{}, versionConflictError("agreements", id, expectedVersion, record.Version)
 	}
+	record, err = applyAgreementDraftPatch(record, patch)
+	if err != nil {
+		return AgreementRecord{}, err
+	}
+	record.Version++
+	record.UpdatedAt = time.Now().UTC()
+	s.agreements[key] = record
+	return record, nil
+}
 
+func applyAgreementDraftPatch(record AgreementRecord, patch AgreementDraftPatch) (AgreementRecord, error) {
 	if patch.Title != nil {
 		record.Title = strings.TrimSpace(*patch.Title)
 	}
@@ -2396,9 +2479,6 @@ func (s *InMemoryStore) UpdateDraft(ctx context.Context, scope Scope, id string,
 	if patch.CommentsEnabled != nil {
 		record.CommentsEnabled = *patch.CommentsEnabled
 	}
-	record.Version++
-	record.UpdatedAt = time.Now().UTC()
-	s.agreements[key] = record
 	return record, nil
 }
 
@@ -2918,6 +2998,26 @@ func (s *InMemoryStore) UpsertFieldDefinitionDraft(ctx context.Context, scope Sc
 	}
 
 	record, exists := s.fieldDefinitions[key]
+	record = prepareFieldDefinitionDraftRecord(scope, agreementID, definitionID, patch, record, exists)
+	if !isSupportedFieldType(record.Type) {
+		return FieldDefinitionRecord{}, invalidRecordError("field_definitions", "field_type", "unsupported type")
+	}
+	if record.ParticipantID == "" {
+		return FieldDefinitionRecord{}, invalidRecordError("field_definitions", "participant_id", "required")
+	}
+	participant, ok := s.participants[scopedKey(scope, record.ParticipantID)]
+	if !ok || participant.AgreementID != agreementID {
+		return FieldDefinitionRecord{}, notFoundError("participants", record.ParticipantID)
+	}
+	if participant.Role != RecipientRoleSigner {
+		return FieldDefinitionRecord{}, invalidSignerStateError("field definitions cannot target cc participants")
+	}
+	record.UpdatedAt = time.Now().UTC()
+	s.fieldDefinitions[key] = record
+	return record, nil
+}
+
+func prepareFieldDefinitionDraftRecord(scope Scope, agreementID, definitionID string, patch FieldDefinitionDraftPatch, record FieldDefinitionRecord, exists bool) FieldDefinitionRecord {
 	if !exists {
 		record = FieldDefinitionRecord{
 			ID:             definitionID,
@@ -2945,22 +3045,7 @@ func (s *InMemoryStore) UpsertFieldDefinitionDraft(ctx context.Context, scope Sc
 	if record.Type == FieldTypeDateSigned {
 		record.Required = true
 	}
-	if !isSupportedFieldType(record.Type) {
-		return FieldDefinitionRecord{}, invalidRecordError("field_definitions", "field_type", "unsupported type")
-	}
-	if record.ParticipantID == "" {
-		return FieldDefinitionRecord{}, invalidRecordError("field_definitions", "participant_id", "required")
-	}
-	participant, ok := s.participants[scopedKey(scope, record.ParticipantID)]
-	if !ok || participant.AgreementID != agreementID {
-		return FieldDefinitionRecord{}, notFoundError("participants", record.ParticipantID)
-	}
-	if participant.Role != RecipientRoleSigner {
-		return FieldDefinitionRecord{}, invalidSignerStateError("field definitions cannot target cc participants")
-	}
-	record.UpdatedAt = time.Now().UTC()
-	s.fieldDefinitions[key] = record
-	return record, nil
+	return record
 }
 
 func (s *InMemoryStore) DeleteFieldDefinitionDraft(ctx context.Context, scope Scope, agreementID, fieldDefinitionID string) error {
@@ -3683,53 +3768,10 @@ func (s *InMemoryStore) CreatePublicSignerSessionToken(ctx context.Context, scop
 	if err != nil {
 		return PublicSignerSessionTokenRecord{}, err
 	}
-	if normalizeID(record.ID) == "" {
-		record.ID = uuid.NewString()
+	record, err = preparePublicSignerSessionTokenRecord(scope, record, true)
+	if err != nil {
+		return PublicSignerSessionTokenRecord{}, err
 	}
-	record.ID = normalizeID(record.ID)
-	record.SubjectKind = NormalizePublicSignerSessionSubjectKind(record.SubjectKind)
-	record.AgreementID = normalizeID(record.AgreementID)
-	record.RecipientID = normalizeID(record.RecipientID)
-	record.ReviewID = normalizeID(record.ReviewID)
-	record.ParticipantID = normalizeID(record.ParticipantID)
-	record.SigningTokenID = normalizeID(record.SigningTokenID)
-	record.ReviewTokenID = normalizeID(record.ReviewTokenID)
-	record.TokenHash = strings.TrimSpace(record.TokenHash)
-	if record.SubjectKind == "" {
-		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "subject_kind", "required")
-	}
-	if record.AgreementID == "" {
-		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "agreement_id", "required")
-	}
-	if record.TokenHash == "" {
-		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "token_hash", "required")
-	}
-	switch record.SubjectKind {
-	case PublicSignerSessionSubjectKindSigning:
-		if record.RecipientID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "recipient_id", "required")
-		}
-		if record.SigningTokenID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "signing_token_id", "required")
-		}
-	case PublicSignerSessionSubjectKindReview:
-		if record.ReviewID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "review_id", "required")
-		}
-		if record.ParticipantID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "participant_id", "required")
-		}
-		if record.ReviewTokenID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "review_token_id", "required")
-		}
-	}
-	record.TenantID = scope.TenantID
-	record.OrgID = scope.OrgID
-	record.Status = NormalizePublicSignerSessionTokenStatus(record.Status)
-	if record.Status == "" {
-		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "status", "unsupported public signer session token status")
-	}
-	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
 
 	key := scopedKey(scope, record.ID)
 	s.mu.Lock()
@@ -3833,6 +3875,29 @@ func (s *InMemoryStore) SavePublicSignerSessionToken(ctx context.Context, scope 
 	if err != nil {
 		return PublicSignerSessionTokenRecord{}, err
 	}
+	record, err = preparePublicSignerSessionTokenRecord(scope, record, false)
+	if err != nil {
+		return PublicSignerSessionTokenRecord{}, err
+	}
+	record = clonePublicSignerSessionTokenRecord(record)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := scopedKey(scope, record.ID)
+	if _, ok := s.publicSignerSessionTokens[key]; !ok {
+		return PublicSignerSessionTokenRecord{}, notFoundError("public_signer_session_tokens", record.ID)
+	}
+	if existingKey, ok := s.publicSignerSessionHashIndex[record.TokenHash]; ok && existingKey != key {
+		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "token_hash", "already exists")
+	}
+	s.publicSignerSessionTokens[key] = record
+	s.publicSignerSessionHashIndex[record.TokenHash] = key
+	return clonePublicSignerSessionTokenRecord(record), nil
+}
+
+func preparePublicSignerSessionTokenRecord(scope Scope, record PublicSignerSessionTokenRecord, create bool) (PublicSignerSessionTokenRecord, error) {
+	if create && normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
 	record.ID = normalizeID(record.ID)
 	record.SubjectKind = NormalizePublicSignerSessionSubjectKind(record.SubjectKind)
 	record.AgreementID = normalizeID(record.AgreementID)
@@ -3854,24 +3919,8 @@ func (s *InMemoryStore) SavePublicSignerSessionToken(ctx context.Context, scope 
 	if record.TokenHash == "" {
 		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "token_hash", "required")
 	}
-	switch record.SubjectKind {
-	case PublicSignerSessionSubjectKindSigning:
-		if record.RecipientID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "recipient_id", "required")
-		}
-		if record.SigningTokenID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "signing_token_id", "required")
-		}
-	case PublicSignerSessionSubjectKindReview:
-		if record.ReviewID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "review_id", "required")
-		}
-		if record.ParticipantID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "participant_id", "required")
-		}
-		if record.ReviewTokenID == "" {
-			return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "review_token_id", "required")
-		}
+	if err := validatePublicSignerSessionTokenSubject(record); err != nil {
+		return PublicSignerSessionTokenRecord{}, err
 	}
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
@@ -3879,19 +3928,33 @@ func (s *InMemoryStore) SavePublicSignerSessionToken(ctx context.Context, scope 
 	if record.Status == "" {
 		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "status", "unsupported public signer session token status")
 	}
-	record = clonePublicSignerSessionTokenRecord(record)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key := scopedKey(scope, record.ID)
-	if _, ok := s.publicSignerSessionTokens[key]; !ok {
-		return PublicSignerSessionTokenRecord{}, notFoundError("public_signer_session_tokens", record.ID)
+	if create {
+		record.CreatedAt = normalizeRecordTime(record.CreatedAt)
 	}
-	if existingKey, ok := s.publicSignerSessionHashIndex[record.TokenHash]; ok && existingKey != key {
-		return PublicSignerSessionTokenRecord{}, invalidRecordError("public_signer_session_tokens", "token_hash", "already exists")
+	return record, nil
+}
+
+func validatePublicSignerSessionTokenSubject(record PublicSignerSessionTokenRecord) error {
+	switch record.SubjectKind {
+	case PublicSignerSessionSubjectKindSigning:
+		if record.RecipientID == "" {
+			return invalidRecordError("public_signer_session_tokens", "recipient_id", "required")
+		}
+		if record.SigningTokenID == "" {
+			return invalidRecordError("public_signer_session_tokens", "signing_token_id", "required")
+		}
+	case PublicSignerSessionSubjectKindReview:
+		if record.ReviewID == "" {
+			return invalidRecordError("public_signer_session_tokens", "review_id", "required")
+		}
+		if record.ParticipantID == "" {
+			return invalidRecordError("public_signer_session_tokens", "participant_id", "required")
+		}
+		if record.ReviewTokenID == "" {
+			return invalidRecordError("public_signer_session_tokens", "review_token_id", "required")
+		}
 	}
-	s.publicSignerSessionTokens[key] = record
-	s.publicSignerSessionHashIndex[record.TokenHash] = key
-	return clonePublicSignerSessionTokenRecord(record), nil
+	return nil
 }
 
 func (s *InMemoryStore) RevokeActivePublicSignerSessionTokens(ctx context.Context, scope Scope, agreementID, recipientID, participantID string, revokedAt time.Time) (int, error) {
@@ -4022,12 +4085,7 @@ func (s *InMemoryStore) GetSignatureArtifact(ctx context.Context, scope Scope, i
 	return record, nil
 }
 
-func (s *InMemoryStore) UpsertSignerProfile(ctx context.Context, scope Scope, record SignerProfileRecord) (SignerProfileRecord, error) {
-	_ = ctx
-	scope, err := validateScope(scope)
-	if err != nil {
-		return SignerProfileRecord{}, err
-	}
+func normalizeSignerProfileRecord(scope Scope, record SignerProfileRecord) (SignerProfileRecord, error) {
 	record.Subject = strings.ToLower(strings.TrimSpace(record.Subject))
 	record.Key = strings.TrimSpace(record.Key)
 	record.FullName = strings.TrimSpace(record.FullName)
@@ -4044,9 +4102,45 @@ func (s *InMemoryStore) UpsertSignerProfile(ctx context.Context, scope Scope, re
 	if record.ExpiresAt.IsZero() {
 		return SignerProfileRecord{}, invalidRecordError("signer_profiles", "expires_at", "required")
 	}
-
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
+	record.ExpiresAt = record.ExpiresAt.UTC()
+	return record, nil
+}
+
+func buildSignerProfileUpdateRecord(record, existing SignerProfileRecord, now time.Time) SignerProfileRecord {
+	record.ID = existing.ID
+	record.CreatedAt = normalizeRecordTime(existing.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	if record.UpdatedAt.IsZero() {
+		record.UpdatedAt = now
+	}
+	return cloneSignerProfileRecord(record)
+}
+
+func buildSignerProfileCreateRecord(record SignerProfileRecord) SignerProfileRecord {
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	if record.UpdatedAt.Before(record.CreatedAt) {
+		record.UpdatedAt = record.CreatedAt
+	}
+	return cloneSignerProfileRecord(record)
+}
+
+func (s *InMemoryStore) UpsertSignerProfile(ctx context.Context, scope Scope, record SignerProfileRecord) (SignerProfileRecord, error) {
+	_ = ctx
+	scope, err := validateScope(scope)
+	if err != nil {
+		return SignerProfileRecord{}, err
+	}
+	record, err = normalizeSignerProfileRecord(scope, record)
+	if err != nil {
+		return SignerProfileRecord{}, err
+	}
 	indexKey := signerProfileIndexKey(scope, record.Subject, record.Key)
 	now := time.Now().UTC()
 
@@ -4058,30 +4152,12 @@ func (s *InMemoryStore) UpsertSignerProfile(ctx context.Context, scope Scope, re
 		if !ok {
 			return SignerProfileRecord{}, notFoundError("signer_profiles", existingID)
 		}
-		record.ID = existing.ID
-		record.CreatedAt = normalizeRecordTime(existing.CreatedAt)
-		record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
-		if record.UpdatedAt.IsZero() {
-			record.UpdatedAt = now
-		}
-		record.ExpiresAt = record.ExpiresAt.UTC()
-		record = cloneSignerProfileRecord(record)
+		record = buildSignerProfileUpdateRecord(record, existing, now)
 		s.signerProfiles[scopedKey(scope, record.ID)] = record
 		s.signerProfileIndex[indexKey] = record.ID
 		return record, nil
 	}
-
-	if normalizeID(record.ID) == "" {
-		record.ID = uuid.NewString()
-	}
-	record.ID = normalizeID(record.ID)
-	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
-	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
-	if record.UpdatedAt.Before(record.CreatedAt) {
-		record.UpdatedAt = record.CreatedAt
-	}
-	record.ExpiresAt = record.ExpiresAt.UTC()
-	record = cloneSignerProfileRecord(record)
+	record = buildSignerProfileCreateRecord(record)
 	s.signerProfiles[scopedKey(scope, record.ID)] = record
 	s.signerProfileIndex[indexKey] = record.ID
 	return record, nil
@@ -5674,48 +5750,15 @@ func (s *InMemoryStore) RequeueStaleJobs(ctx context.Context, scope Scope, input
 		now = time.Now().UTC()
 	}
 	now = now.UTC()
-	jobNames := make(map[string]struct{}, len(input.JobNames))
-	for _, name := range input.JobNames {
-		name = strings.TrimSpace(name)
-		if name != "" {
-			jobNames[name] = struct{}{}
-		}
-	}
+	jobNames := normalizeJobNameSet(input.JobNames)
 	updated := 0
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for key, record := range s.jobRuns {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		if !jobRunEligibleForRequeue(record, scope, jobNames, now) {
 			continue
 		}
-		if len(jobNames) > 0 {
-			if _, ok := jobNames[record.JobName]; !ok {
-				continue
-			}
-		}
-		if record.Status != JobRunStatusRunning {
-			continue
-		}
-		if record.LeaseExpiresAt == nil || record.LeaseExpiresAt.After(now) {
-			continue
-		}
-		record.LastErrorCode = "LEASE_EXPIRED"
-		record.LastError = "job lease expired"
-		record.ClaimedAt = nil
-		record.LeaseExpiresAt = nil
-		record.WorkerID = ""
-		if record.AttemptCount < record.MaxAttempts {
-			record.Status = JobRunStatusRetrying
-			record.NextRetryAt = cloneTimePtr(&now)
-			record.AvailableAt = cloneTimePtr(&now)
-		} else {
-			record.Status = JobRunStatusStale
-			record.NextRetryAt = nil
-			record.AvailableAt = nil
-			record.CompletedAt = cloneTimePtr(&now)
-		}
-		record.UpdatedAt = now
-		record = cloneJobRunRecord(record)
+		record = requeueStaleJobRecord(record, now)
 		s.jobRuns[key] = record
 		updated++
 		if input.Limit > 0 && updated >= input.Limit {
@@ -6822,6 +6865,65 @@ func (s *InMemoryStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, r
 	if err != nil {
 		return OutboxMessageRecord{}, err
 	}
+	record, err = prepareOutboxMessageRecord(scope, record)
+	if err != nil {
+		return OutboxMessageRecord{}, err
+	}
+	key := scopedKey(scope, record.ID)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.outboxMessages[key]; exists {
+		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "id", "already exists")
+	}
+	s.outboxMessages[key] = record
+	return record, nil
+}
+
+func normalizeJobNameSet(jobNames []string) map[string]struct{} {
+	normalized := make(map[string]struct{}, len(jobNames))
+	for _, name := range jobNames {
+		name = strings.TrimSpace(name)
+		if name != "" {
+			normalized[name] = struct{}{}
+		}
+	}
+	return normalized
+}
+
+func jobRunEligibleForRequeue(record JobRunRecord, scope Scope, jobNames map[string]struct{}, now time.Time) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if len(jobNames) > 0 {
+		if _, ok := jobNames[record.JobName]; !ok {
+			return false
+		}
+	}
+	return record.Status == JobRunStatusRunning && record.LeaseExpiresAt != nil && !record.LeaseExpiresAt.After(now)
+}
+
+func requeueStaleJobRecord(record JobRunRecord, now time.Time) JobRunRecord {
+	record.LastErrorCode = "LEASE_EXPIRED"
+	record.LastError = "job lease expired"
+	record.ClaimedAt = nil
+	record.LeaseExpiresAt = nil
+	record.WorkerID = ""
+	if record.AttemptCount < record.MaxAttempts {
+		record.Status = JobRunStatusRetrying
+		record.NextRetryAt = cloneTimePtr(&now)
+		record.AvailableAt = cloneTimePtr(&now)
+	} else {
+		record.Status = JobRunStatusStale
+		record.NextRetryAt = nil
+		record.AvailableAt = nil
+		record.CompletedAt = cloneTimePtr(&now)
+	}
+	record.UpdatedAt = now
+	return cloneJobRunRecord(record)
+}
+
+func prepareOutboxMessageRecord(scope Scope, record OutboxMessageRecord) (OutboxMessageRecord, error) {
 	if normalizeID(record.ID) == "" {
 		record.ID = uuid.NewString()
 	}
@@ -6845,43 +6947,36 @@ func (s *InMemoryStore) EnqueueOutboxMessage(ctx context.Context, scope Scope, r
 	if record.MaxAttempts <= 0 {
 		record.MaxAttempts = 5
 	}
-	if record.Status == "" {
-		record.Status = OutboxMessageStatusPending
+	status, err := normalizeOutboxMessageStatus(record.Status)
+	if err != nil {
+		return OutboxMessageRecord{}, err
 	}
-	if record.Status != OutboxMessageStatusPending &&
-		record.Status != OutboxMessageStatusRetrying &&
-		record.Status != OutboxMessageStatusProcessing &&
-		record.Status != OutboxMessageStatusSucceeded &&
-		record.Status != OutboxMessageStatusFailed {
-		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "status", "invalid status")
-	}
-	if record.CreatedAt.IsZero() {
-		record.CreatedAt = now
-	} else {
-		record.CreatedAt = record.CreatedAt.UTC()
-	}
-	if record.UpdatedAt.IsZero() {
-		record.UpdatedAt = record.CreatedAt
-	} else {
-		record.UpdatedAt = record.UpdatedAt.UTC()
-	}
-	if record.AvailableAt.IsZero() {
-		record.AvailableAt = record.CreatedAt
-	} else {
-		record.AvailableAt = record.AvailableAt.UTC()
-	}
+	record.Status = status
+	record.CreatedAt = normalizeOutboxMessageTime(record.CreatedAt, now)
+	record.UpdatedAt = normalizeOutboxMessageTime(record.UpdatedAt, record.CreatedAt)
+	record.AvailableAt = normalizeOutboxMessageTime(record.AvailableAt, record.CreatedAt)
 	record.LockedAt = cloneTimePtr(record.LockedAt)
 	record.PublishedAt = cloneTimePtr(record.PublishedAt)
-	record = cloneOutboxMessageRecord(record)
-	key := scopedKey(scope, record.ID)
+	return cloneOutboxMessageRecord(record), nil
+}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, exists := s.outboxMessages[key]; exists {
-		return OutboxMessageRecord{}, invalidRecordError("outbox_messages", "id", "already exists")
+func normalizeOutboxMessageStatus(status string) (string, error) {
+	if status == "" {
+		return OutboxMessageStatusPending, nil
 	}
-	s.outboxMessages[key] = record
-	return record, nil
+	switch status {
+	case OutboxMessageStatusPending, OutboxMessageStatusRetrying, OutboxMessageStatusProcessing, OutboxMessageStatusSucceeded, OutboxMessageStatusFailed:
+		return status, nil
+	default:
+		return "", invalidRecordError("outbox_messages", "status", "invalid status")
+	}
+}
+
+func normalizeOutboxMessageTime(value, fallback time.Time) time.Time {
+	if value.IsZero() {
+		return fallback
+	}
+	return value.UTC()
 }
 
 func (s *InMemoryStore) ClaimOutboxMessages(ctx context.Context, scope Scope, input OutboxClaimInput) ([]OutboxMessageRecord, error) {
@@ -7226,6 +7321,32 @@ func (s *InMemoryStore) UpsertMappingSpec(ctx context.Context, scope Scope, reco
 	if err != nil {
 		return MappingSpecRecord{}, err
 	}
+	record, err = normalizeMappingSpecRecord(scope, record)
+	if err != nil {
+		return MappingSpecRecord{}, err
+	}
+	now := time.Now().UTC()
+
+	key := scopedKey(scope, record.ID)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	existing, hasExisting := s.mappingSpecs[key]
+	if hasExisting {
+		if record.Version > 0 && record.Version != existing.Version {
+			return MappingSpecRecord{}, versionConflictError("integration_mapping_specs", record.ID, record.Version, existing.Version)
+		}
+		record = updateMappingSpecRecord(record, existing)
+	} else {
+		record = createMappingSpecRecord(record, now)
+	}
+	record = finalizeMappingSpecRecord(record, now)
+	record.UpdatedAt = now
+	record = cloneMappingSpecRecord(record)
+	s.mappingSpecs[key] = record
+	return record, nil
+}
+
+func normalizeMappingSpecRecord(scope Scope, record MappingSpecRecord) (MappingSpecRecord, error) {
 	record.Provider = strings.ToLower(strings.TrimSpace(record.Provider))
 	record.Name = strings.TrimSpace(record.Name)
 	record.Status = normalizeMappingStatus(record.Status)
@@ -7263,39 +7384,36 @@ func (s *InMemoryStore) UpsertMappingSpec(ctx context.Context, scope Scope, reco
 	record.ID = normalizeID(record.ID)
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
-	now := time.Now().UTC()
+	return record, nil
+}
 
-	key := scopedKey(scope, record.ID)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	existing, hasExisting := s.mappingSpecs[key]
-	if hasExisting {
-		if record.Version > 0 && record.Version != existing.Version {
-			return MappingSpecRecord{}, versionConflictError("integration_mapping_specs", record.ID, record.Version, existing.Version)
-		}
-		record.Version = existing.Version + 1
-		record.CreatedAt = existing.CreatedAt
-		record.PublishedAt = cloneTimePtr(existing.PublishedAt)
-		if existing.Status == MappingSpecStatusPublished && record.Status == MappingSpecStatusDraft {
-			record.Status = existing.Status
-		}
-	} else {
-		record.Version = normalizePositiveVersion(record.Version)
-		record.CreatedAt = now
+func updateMappingSpecRecord(record, existing MappingSpecRecord) MappingSpecRecord {
+	record.Version = existing.Version + 1
+	record.CreatedAt = existing.CreatedAt
+	record.PublishedAt = cloneTimePtr(existing.PublishedAt)
+	if existing.Status == MappingSpecStatusPublished && record.Status == MappingSpecStatusDraft {
+		record.Status = existing.Status
 	}
+	return record
+}
+
+func createMappingSpecRecord(record MappingSpecRecord, now time.Time) MappingSpecRecord {
+	record.Version = normalizePositiveVersion(record.Version)
+	record.CreatedAt = now
+	return record
+}
+
+func finalizeMappingSpecRecord(record MappingSpecRecord, now time.Time) MappingSpecRecord {
 	if record.Status == MappingSpecStatusPublished {
 		if record.PublishedAt == nil {
 			record.PublishedAt = &now
 		} else {
 			record.PublishedAt = cloneTimePtr(record.PublishedAt)
 		}
-	} else {
-		record.PublishedAt = nil
+		return record
 	}
-	record.UpdatedAt = now
-	record = cloneMappingSpecRecord(record)
-	s.mappingSpecs[key] = record
-	return record, nil
+	record.PublishedAt = nil
+	return record
 }
 
 func (s *InMemoryStore) GetMappingSpec(ctx context.Context, scope Scope, id string) (MappingSpecRecord, error) {
@@ -8000,12 +8118,28 @@ func (s *InMemoryStore) UpsertPlacementRun(ctx context.Context, scope Scope, rec
 		if record.Version > 0 && record.Version != existing.Version {
 			return PlacementRunRecord{}, versionConflictError("placement_runs", record.ID, record.Version, existing.Version)
 		}
-		record.Version = existing.Version + 1
-		record.CreatedAt = existing.CreatedAt
+		record = updatePlacementRunRecord(record, existing)
 	} else {
-		record.Version = normalizePositiveVersion(record.Version)
-		record.CreatedAt = now
+		record = createPlacementRunRecord(record, now)
 	}
+	record = finalizePlacementRunRecord(scope, record, now)
+	s.placementRuns[key] = record
+	return record, nil
+}
+
+func updatePlacementRunRecord(record, existing PlacementRunRecord) PlacementRunRecord {
+	record.Version = existing.Version + 1
+	record.CreatedAt = existing.CreatedAt
+	return record
+}
+
+func createPlacementRunRecord(record PlacementRunRecord, now time.Time) PlacementRunRecord {
+	record.Version = normalizePositiveVersion(record.Version)
+	record.CreatedAt = now
+	return record
+}
+
+func finalizePlacementRunRecord(scope Scope, record PlacementRunRecord, now time.Time) PlacementRunRecord {
 	if record.CompletedAt != nil {
 		completed := record.CompletedAt.UTC()
 		record.CompletedAt = &completed
@@ -8013,9 +8147,7 @@ func (s *InMemoryStore) UpsertPlacementRun(ctx context.Context, scope Scope, rec
 	record.TenantID = scope.TenantID
 	record.OrgID = scope.OrgID
 	record.UpdatedAt = now
-	record = clonePlacementRunRecord(record)
-	s.placementRuns[key] = record
-	return record, nil
+	return clonePlacementRunRecord(record)
 }
 
 func (s *InMemoryStore) GetPlacementRun(ctx context.Context, scope Scope, agreementID, runID string) (PlacementRunRecord, error) {

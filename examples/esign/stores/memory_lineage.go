@@ -511,22 +511,7 @@ func (s *InMemoryStore) ListSourceHandles(ctx context.Context, scope Scope, quer
 	defer s.mu.RUnlock()
 	out := make([]SourceHandleRecord, 0)
 	for _, record := range s.sourceHandles {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if len(documentIDs) > 0 && !lineageQueryIDMatches(record.SourceDocumentID, documentIDs) {
-			continue
-		}
-		if query.ProviderKind != "" && strings.TrimSpace(record.ProviderKind) != strings.TrimSpace(query.ProviderKind) {
-			continue
-		}
-		if query.ExternalFileID != "" && strings.TrimSpace(record.ExternalFileID) != strings.TrimSpace(query.ExternalFileID) {
-			continue
-		}
-		if query.AccountID != "" && strings.TrimSpace(record.AccountID) != strings.TrimSpace(query.AccountID) {
-			continue
-		}
-		if query.ActiveOnly && !isActiveSourceHandle(record) {
+		if !includeSourceHandleRecord(record, scope, query, documentIDs) {
 			continue
 		}
 		out = append(out, record)
@@ -538,6 +523,25 @@ func (s *InMemoryStore) ListSourceHandles(ctx context.Context, scope Scope, quer
 		return out[i].CreatedAt.Before(out[j].CreatedAt)
 	})
 	return out, nil
+}
+
+func includeSourceHandleRecord(record SourceHandleRecord, scope Scope, query SourceHandleQuery, documentIDs map[string]struct{}) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if len(documentIDs) > 0 && !lineageQueryIDMatches(record.SourceDocumentID, documentIDs) {
+		return false
+	}
+	if query.ProviderKind != "" && strings.TrimSpace(record.ProviderKind) != strings.TrimSpace(query.ProviderKind) {
+		return false
+	}
+	if query.ExternalFileID != "" && strings.TrimSpace(record.ExternalFileID) != strings.TrimSpace(query.ExternalFileID) {
+		return false
+	}
+	if query.AccountID != "" && strings.TrimSpace(record.AccountID) != strings.TrimSpace(query.AccountID) {
+		return false
+	}
+	return !query.ActiveOnly || isActiveSourceHandle(record)
 }
 
 func (s *InMemoryStore) SaveSourceHandle(ctx context.Context, scope Scope, record SourceHandleRecord) (SourceHandleRecord, error) {

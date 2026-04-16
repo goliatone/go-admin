@@ -23,12 +23,7 @@ type DraftUpgradeReport struct {
 // UpgradeDraftAgreementToV2 normalizes draft records to v2 participant/field invariants.
 func UpgradeDraftAgreementToV2(ctx context.Context, agreements AgreementStore, scope Scope, agreementID string) (DraftUpgradeReport, error) {
 	report := DraftUpgradeReport{AgreementID: strings.TrimSpace(agreementID)}
-	if agreements == nil {
-		report.Issues = append(report.Issues, DraftUpgradeIssue{Field: "store", Message: "agreement store is required"})
-		return report, nil
-	}
-	if strings.TrimSpace(report.AgreementID) == "" {
-		report.Issues = append(report.Issues, DraftUpgradeIssue{Field: "agreement_id", Message: "required"})
+	if !validateDraftUpgradeInput(agreements, &report) {
 		return report, nil
 	}
 
@@ -50,35 +45,14 @@ func UpgradeDraftAgreementToV2(ctx context.Context, agreements AgreementStore, s
 		return report, nil
 	}
 
-	signers := make([]ParticipantRecord, 0, len(participants))
-	for _, participant := range participants {
-		if participant.Role == RecipientRoleSigner {
-			signers = append(signers, participant)
-		}
-	}
+	signers := collectSignerParticipants(participants)
 	if len(signers) == 0 {
 		report.Issues = append(report.Issues, DraftUpgradeIssue{Field: "participants.role", Message: "at least one signer is required"})
 	}
-	sort.Slice(signers, func(i, j int) bool {
-		if signers[i].SigningStage == signers[j].SigningStage {
-			if signers[i].CreatedAt.Equal(signers[j].CreatedAt) {
-				return signers[i].ID < signers[j].ID
-			}
-			return signers[i].CreatedAt.Before(signers[j].CreatedAt)
-		}
-		return signers[i].SigningStage < signers[j].SigningStage
-	})
-	for i, signer := range signers {
-		expectedStage := i + 1
-		if signer.SigningStage == expectedStage {
-			continue
-		}
-		stage := expectedStage
-		_, err = agreements.UpsertParticipantDraft(ctx, scope, report.AgreementID, ParticipantDraftPatch{ID: signer.ID, SigningStage: &stage}, signer.Version)
-		if err != nil {
-			return report, err
-		}
-		report.Actions = append(report.Actions, "updated participant signing_stage to contiguous ordering")
+	sortSignerParticipants(signers)
+	err = normalizeSignerStages(ctx, agreements, scope, report.AgreementID, signers, &report)
+	if err != nil {
+		return report, err
 	}
 
 	definitions, err := agreements.ListFieldDefinitions(ctx, scope, report.AgreementID)
@@ -89,68 +63,142 @@ func UpgradeDraftAgreementToV2(ctx context.Context, agreements AgreementStore, s
 	if err != nil {
 		return report, err
 	}
-
-	instancesByDefinition := map[string][]FieldInstanceRecord{}
-	for _, instance := range instances {
-		instancesByDefinition[instance.FieldDefinitionID] = append(instancesByDefinition[instance.FieldDefinitionID], instance)
-		pageNumber := instance.PageNumber
-		if pageNumber <= 0 {
-			pageNumber = 1
-		}
-		x := instance.X
-		y := instance.Y
-		width := instance.Width
-		if width <= 0 {
-			width = 150
-		}
-		height := instance.Height
-		if height <= 0 {
-			height = 32
-		}
-		if pageNumber == instance.PageNumber && width == instance.Width && height == instance.Height {
-			continue
-		}
-		if _, err := agreements.UpsertFieldInstanceDraft(ctx, scope, report.AgreementID, FieldInstanceDraftPatch{
-			ID:                instance.ID,
-			FieldDefinitionID: &instance.FieldDefinitionID,
-			PageNumber:        &pageNumber,
-			X:                 &x,
-			Y:                 &y,
-			Width:             &width,
-			Height:            &height,
-		}); err != nil {
-			return report, err
-		}
-		report.Actions = append(report.Actions, "normalized invalid field instance geometry")
+	instancesByDefinition, err := normalizeDraftFieldInstances(ctx, agreements, scope, report.AgreementID, instances, &report)
+	if err != nil {
+		return report, err
 	}
-
-	for _, definition := range definitions {
-		if !definition.Required {
-			continue
-		}
-		if len(instancesByDefinition[definition.ID]) > 0 {
-			continue
-		}
-		page := 1
-		x := 10.0
-		y := 10.0
-		width := 150.0
-		height := 32.0
-		if _, err := agreements.UpsertFieldInstanceDraft(ctx, scope, report.AgreementID, FieldInstanceDraftPatch{
-			FieldDefinitionID: &definition.ID,
-			PageNumber:        &page,
-			X:                 &x,
-			Y:                 &y,
-			Width:             &width,
-			Height:            &height,
-		}); err != nil {
-			return report, err
-		}
-		report.Actions = append(report.Actions, "created default field instance for required definition")
+	if err := ensureRequiredFieldInstances(ctx, agreements, scope, report.AgreementID, definitions, instancesByDefinition, &report); err != nil {
+		return report, err
 	}
 
 	report.Upgraded = len(report.Actions) > 0
 	return report, nil
+}
+
+func validateDraftUpgradeInput(agreements AgreementStore, report *DraftUpgradeReport) bool {
+	if report == nil {
+		return false
+	}
+	if agreements == nil {
+		report.Issues = append(report.Issues, DraftUpgradeIssue{Field: "store", Message: "agreement store is required"})
+		return false
+	}
+	if strings.TrimSpace(report.AgreementID) == "" {
+		report.Issues = append(report.Issues, DraftUpgradeIssue{Field: "agreement_id", Message: "required"})
+		return false
+	}
+	return true
+}
+
+func collectSignerParticipants(participants []ParticipantRecord) []ParticipantRecord {
+	signers := make([]ParticipantRecord, 0, len(participants))
+	for _, participant := range participants {
+		if participant.Role == RecipientRoleSigner {
+			signers = append(signers, participant)
+		}
+	}
+	return signers
+}
+
+func sortSignerParticipants(signers []ParticipantRecord) {
+	sort.Slice(signers, func(i, j int) bool {
+		if signers[i].SigningStage == signers[j].SigningStage {
+			if signers[i].CreatedAt.Equal(signers[j].CreatedAt) {
+				return signers[i].ID < signers[j].ID
+			}
+			return signers[i].CreatedAt.Before(signers[j].CreatedAt)
+		}
+		return signers[i].SigningStage < signers[j].SigningStage
+	})
+}
+
+func normalizeSignerStages(ctx context.Context, agreements AgreementStore, scope Scope, agreementID string, signers []ParticipantRecord, report *DraftUpgradeReport) error {
+	for i, signer := range signers {
+		expectedStage := i + 1
+		if signer.SigningStage == expectedStage {
+			continue
+		}
+		stage := expectedStage
+		if _, err := agreements.UpsertParticipantDraft(ctx, scope, agreementID, ParticipantDraftPatch{ID: signer.ID, SigningStage: &stage}, signer.Version); err != nil {
+			return err
+		}
+		report.Actions = append(report.Actions, "updated participant signing_stage to contiguous ordering")
+	}
+	return nil
+}
+
+func normalizeDraftFieldInstances(ctx context.Context, agreements AgreementStore, scope Scope, agreementID string, instances []FieldInstanceRecord, report *DraftUpgradeReport) (map[string][]FieldInstanceRecord, error) {
+	instancesByDefinition := map[string][]FieldInstanceRecord{}
+	for _, instance := range instances {
+		instancesByDefinition[instance.FieldDefinitionID] = append(instancesByDefinition[instance.FieldDefinitionID], instance)
+		patch, changed := normalizedFieldInstanceDraftPatch(instance)
+		if !changed {
+			continue
+		}
+		if _, err := agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, patch); err != nil {
+			return nil, err
+		}
+		report.Actions = append(report.Actions, "normalized invalid field instance geometry")
+	}
+	return instancesByDefinition, nil
+}
+
+func normalizedFieldInstanceDraftPatch(instance FieldInstanceRecord) (FieldInstanceDraftPatch, bool) {
+	pageNumber := instance.PageNumber
+	if pageNumber <= 0 {
+		pageNumber = 1
+	}
+	x := instance.X
+	y := instance.Y
+	width := instance.Width
+	if width <= 0 {
+		width = 150
+	}
+	height := instance.Height
+	if height <= 0 {
+		height = 32
+	}
+	if pageNumber == instance.PageNumber && width == instance.Width && height == instance.Height {
+		return FieldInstanceDraftPatch{}, false
+	}
+	return FieldInstanceDraftPatch{
+		ID:                instance.ID,
+		FieldDefinitionID: &instance.FieldDefinitionID,
+		PageNumber:        &pageNumber,
+		X:                 &x,
+		Y:                 &y,
+		Width:             &width,
+		Height:            &height,
+	}, true
+}
+
+func ensureRequiredFieldInstances(ctx context.Context, agreements AgreementStore, scope Scope, agreementID string, definitions []FieldDefinitionRecord, instancesByDefinition map[string][]FieldInstanceRecord, report *DraftUpgradeReport) error {
+	for _, definition := range definitions {
+		if !definition.Required || len(instancesByDefinition[definition.ID]) > 0 {
+			continue
+		}
+		if _, err := agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, defaultRequiredFieldInstancePatch(definition.ID)); err != nil {
+			return err
+		}
+		report.Actions = append(report.Actions, "created default field instance for required definition")
+	}
+	return nil
+}
+
+func defaultRequiredFieldInstancePatch(definitionID string) FieldInstanceDraftPatch {
+	page := 1
+	x := 10.0
+	y := 10.0
+	width := 150.0
+	height := 32.0
+	return FieldInstanceDraftPatch{
+		FieldDefinitionID: &definitionID,
+		PageNumber:        &page,
+		X:                 &x,
+		Y:                 &y,
+		Width:             &width,
+		Height:            &height,
+	}
 }
 
 // UpgradeDraftAgreementsToV2 upgrades a scoped batch of draft agreements.

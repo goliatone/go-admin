@@ -45,13 +45,9 @@ func (t *remediationCommandTrigger) TriggerRemediation(ctx context.Context, inpu
 		return handlers.RemediationDispatchReceipt{}, fmt.Errorf("remediation command bus is not configured")
 	}
 	startedAt := time.Now()
-	scope := normalizeRemediationScope(input.Scope, t.defaultScope)
-	if strings.TrimSpace(scope.TenantID) == "" || strings.TrimSpace(scope.OrgID) == "" {
-		return handlers.RemediationDispatchReceipt{}, fmt.Errorf("tenant_id and org_id are required")
-	}
-	documentID := strings.TrimSpace(input.DocumentID)
-	if documentID == "" {
-		return handlers.RemediationDispatchReceipt{}, fmt.Errorf("document_id is required")
+	scope, documentID, err := validateRemediationDispatchTarget(input, t.defaultScope)
+	if err != nil {
+		return handlers.RemediationDispatchReceipt{}, err
 	}
 	mode, err := resolveRemediationDispatchMode(t.bus, strings.TrimSpace(input.ModeOverride))
 	if err != nil {
@@ -60,43 +56,16 @@ func (t *remediationCommandTrigger) TriggerRemediation(ctx context.Context, inpu
 	idempotencyKey := strings.TrimSpace(input.IdempotencyKey)
 	cacheKey := remediationIdempotencyKey(scope, documentID, idempotencyKey, string(mode))
 	if cacheKey != "" {
-		record, lookupErr := t.dispatches.GetRemediationDispatchByIdempotencyKey(ctx, scope, cacheKey)
-		if lookupErr == nil {
-			receipt := remediationDispatchReceiptFromRecord(record)
-			observability.ObserveRemediationDuplicateSuppressed(ctx)
-			observability.ObserveCommandDispatch(ctx, commands.CommandPDFRemediate, receipt.Mode, receipt.Accepted, 0)
-			observability.LogOperation(ctx, slog.LevelInfo, "command_dispatch", "pdf_remediate", "duplicate", strings.TrimSpace(receipt.CorrelationID), time.Since(startedAt), nil, map[string]any{
-				"command_id":      commands.CommandPDFRemediate,
-				"dispatch_id":     strings.TrimSpace(receipt.DispatchID),
-				"execution_mode":  strings.TrimSpace(receipt.Mode),
-				"accepted":        receipt.Accepted,
-				"document_id":     documentID,
-				"idempotency_key": idempotencyKey != "",
-			})
-			return receipt, nil
+		existingReceipt, ok, lookupErr := t.lookupExistingRemediationDispatch(ctx, scope, cacheKey, documentID, idempotencyKey != "", startedAt)
+		if lookupErr != nil {
+			return handlers.RemediationDispatchReceipt{}, lookupErr
 		}
-		if !isNotFoundStoreError(lookupErr) {
-			return handlers.RemediationDispatchReceipt{}, fmt.Errorf("lookup remediation dispatch idempotency key: %w", lookupErr)
+		if ok {
+			return existingReceipt, nil
 		}
 	}
-	now := time.Now().UTC()
-	if t.now != nil {
-		now = t.now().UTC()
-	}
-	correlationID := strings.TrimSpace(input.CorrelationID)
-	if correlationID == "" {
-		correlationID = fmt.Sprintf("pdf-remediation-%d", now.UnixNano())
-	}
-	payload := map[string]any{
-		"tenant_id":      strings.TrimSpace(scope.TenantID),
-		"org_id":         strings.TrimSpace(scope.OrgID),
-		"document_id":    documentID,
-		"actor_id":       strings.TrimSpace(input.ActorID),
-		"correlation_id": correlationID,
-		"command_id":     commands.CommandPDFRemediate,
-		"execution_mode": strings.TrimSpace(string(mode)),
-		"requested_at":   now.UTC().Format(time.RFC3339Nano),
-	}
+	now := remediationDispatchTime(t.now)
+	correlationID, payload := remediationDispatchPayload(scope, input, documentID, mode, now)
 	receipt, err := t.bus.DispatchByNameWithOptions(ctx, commands.CommandPDFRemediate, payload, nil, gocommand.DispatchOptions{
 		Mode:           mode,
 		IdempotencyKey: idempotencyKey,
@@ -154,6 +123,90 @@ func (t *remediationCommandTrigger) TriggerRemediation(ctx context.Context, inpu
 		"idempotency_key": idempotencyKey != "",
 		"enqueued_at":     formatRemediationTimestamp(out.EnqueuedAt),
 	})
+	if err := t.persistRemediationDispatch(ctx, scope, out, cacheKey, documentID, now); err != nil {
+		return handlers.RemediationDispatchReceipt{}, err
+	}
+	return out, nil
+}
+
+func remediationDispatchPayload(
+	scope stores.Scope,
+	input handlers.RemediationTriggerInput,
+	documentID string,
+	mode gocommand.ExecutionMode,
+	now time.Time,
+) (string, map[string]any) {
+	correlationID := strings.TrimSpace(input.CorrelationID)
+	if correlationID == "" {
+		correlationID = fmt.Sprintf("pdf-remediation-%d", now.UnixNano())
+	}
+	return correlationID, map[string]any{
+		"tenant_id":      strings.TrimSpace(scope.TenantID),
+		"org_id":         strings.TrimSpace(scope.OrgID),
+		"document_id":    documentID,
+		"actor_id":       strings.TrimSpace(input.ActorID),
+		"correlation_id": correlationID,
+		"command_id":     commands.CommandPDFRemediate,
+		"execution_mode": strings.TrimSpace(string(mode)),
+		"requested_at":   now.UTC().Format(time.RFC3339Nano),
+	}
+}
+
+func validateRemediationDispatchTarget(input handlers.RemediationTriggerInput, fallback stores.Scope) (stores.Scope, string, error) {
+	scope := normalizeRemediationScope(input.Scope, fallback)
+	if strings.TrimSpace(scope.TenantID) == "" || strings.TrimSpace(scope.OrgID) == "" {
+		return stores.Scope{}, "", fmt.Errorf("tenant_id and org_id are required")
+	}
+	documentID := strings.TrimSpace(input.DocumentID)
+	if documentID == "" {
+		return stores.Scope{}, "", fmt.Errorf("document_id is required")
+	}
+	return scope, documentID, nil
+}
+
+func remediationDispatchTime(now func() time.Time) time.Time {
+	current := time.Now().UTC()
+	if now != nil {
+		current = now().UTC()
+	}
+	return current
+}
+
+func (t *remediationCommandTrigger) lookupExistingRemediationDispatch(
+	ctx context.Context,
+	scope stores.Scope,
+	cacheKey, documentID string,
+	hasIdempotencyKey bool,
+	startedAt time.Time,
+) (handlers.RemediationDispatchReceipt, bool, error) {
+	record, err := t.dispatches.GetRemediationDispatchByIdempotencyKey(ctx, scope, cacheKey)
+	if err == nil {
+		receipt := remediationDispatchReceiptFromRecord(record)
+		observability.ObserveRemediationDuplicateSuppressed(ctx)
+		observability.ObserveCommandDispatch(ctx, commands.CommandPDFRemediate, receipt.Mode, receipt.Accepted, 0)
+		observability.LogOperation(ctx, slog.LevelInfo, "command_dispatch", "pdf_remediate", "duplicate", strings.TrimSpace(receipt.CorrelationID), time.Since(startedAt), nil, map[string]any{
+			"command_id":      commands.CommandPDFRemediate,
+			"dispatch_id":     strings.TrimSpace(receipt.DispatchID),
+			"execution_mode":  strings.TrimSpace(receipt.Mode),
+			"accepted":        receipt.Accepted,
+			"document_id":     documentID,
+			"idempotency_key": hasIdempotencyKey,
+		})
+		return receipt, true, nil
+	}
+	if !isNotFoundStoreError(err) {
+		return handlers.RemediationDispatchReceipt{}, false, fmt.Errorf("lookup remediation dispatch idempotency key: %w", err)
+	}
+	return handlers.RemediationDispatchReceipt{}, false, nil
+}
+
+func (t *remediationCommandTrigger) persistRemediationDispatch(
+	ctx context.Context,
+	scope stores.Scope,
+	out handlers.RemediationDispatchReceipt,
+	cacheKey, documentID string,
+	now time.Time,
+) error {
 	if _, err := t.dispatches.SaveRemediationDispatch(ctx, scope, stores.RemediationDispatchRecord{
 		DispatchID:     strings.TrimSpace(out.DispatchID),
 		DocumentID:     documentID,
@@ -165,9 +218,9 @@ func (t *remediationCommandTrigger) TriggerRemediation(ctx context.Context, inpu
 		EnqueuedAt:     cloneRemediationTimePtr(out.EnqueuedAt),
 		UpdatedAt:      now,
 	}); err != nil {
-		return handlers.RemediationDispatchReceipt{}, fmt.Errorf("persist remediation dispatch: %w", err)
+		return fmt.Errorf("persist remediation dispatch: %w", err)
 	}
-	return out, nil
+	return nil
 }
 
 func resolveRemediationDispatchMode(bus *coreadmin.CommandBus, override string) (gocommand.ExecutionMode, error) {
@@ -280,46 +333,75 @@ func (l remediationDispatchStatusLookup) LookupRemediationDispatchStatus(ctx con
 		UpdatedAt:   cloneRemediationTimePtr(entry.EnqueuedAt),
 		MaxAttempts: entry.MaxAttempts,
 	}
-	if l.queueStatus != nil {
-		if queueStatus, err := l.queueStatus.GetDispatchStatus(ctx, dispatchID); err == nil {
-			mergeQueueDispatchStatus(&status, queueStatus)
-		}
-	}
-	documentID := strings.TrimSpace(entry.DocumentID)
-	if documentID != "" && l.documents != nil {
-		record, err := l.documents.Get(ctx, scope, documentID)
-		if err == nil && strings.TrimSpace(record.RemediationDispatchID) == dispatchID {
-			mergeDocumentRemediationStatus(&status, record)
-		}
-	}
+	l.mergeDispatchQueueStatus(ctx, dispatchID, &status)
+	l.mergeDispatchDocumentStatus(ctx, scope, entry, dispatchID, &status)
 	status.Status = normalizeRemediationStatusValue(status.Status)
 	if status.Attempt > status.MaxAttempts {
 		status.MaxAttempts = status.Attempt
 	}
-	if status.MaxAttempts > entry.MaxAttempts {
-		entry.MaxAttempts = status.MaxAttempts
-		entry.UpdatedAt = time.Now().UTC()
-		if l.now != nil {
-			entry.UpdatedAt = l.now().UTC()
-		}
-		if _, err := l.dispatches.SaveRemediationDispatch(ctx, scope, entry); err != nil {
-			observability.LogOperation(ctx, slog.LevelWarn, "remediation_dispatch", "status_lookup", "persist_error", strings.TrimSpace(entry.CorrelationID), 0, err, map[string]any{
-				"dispatch_id":  dispatchID,
-				"max_attempts": status.MaxAttempts,
-			})
-		}
-	}
-	if status.UpdatedAt == nil {
-		now := time.Now().UTC()
-		if l.now != nil {
-			now = l.now().UTC()
-		}
-		status.UpdatedAt = &now
-	}
+	l.persistDispatchAttemptCeiling(ctx, scope, dispatchID, entry, status.MaxAttempts)
+	l.ensureDispatchUpdatedAt(&status)
 	if l.transitions != nil {
 		l.transitions.observe(ctx, dispatchID, status.Status)
 	}
 	return status, nil
+}
+
+func (l remediationDispatchStatusLookup) mergeDispatchQueueStatus(ctx context.Context, dispatchID string, status *handlers.RemediationDispatchStatus) {
+	if l.queueStatus == nil || status == nil {
+		return
+	}
+	queueStatus, err := l.queueStatus.GetDispatchStatus(ctx, dispatchID)
+	if err != nil {
+		return
+	}
+	mergeQueueDispatchStatus(status, queueStatus)
+}
+
+func (l remediationDispatchStatusLookup) mergeDispatchDocumentStatus(
+	ctx context.Context,
+	scope stores.Scope,
+	entry stores.RemediationDispatchRecord,
+	dispatchID string,
+	status *handlers.RemediationDispatchStatus,
+) {
+	documentID := strings.TrimSpace(entry.DocumentID)
+	if documentID == "" || l.documents == nil || status == nil {
+		return
+	}
+	record, err := l.documents.Get(ctx, scope, documentID)
+	if err != nil || strings.TrimSpace(record.RemediationDispatchID) != dispatchID {
+		return
+	}
+	mergeDocumentRemediationStatus(status, record)
+}
+
+func (l remediationDispatchStatusLookup) persistDispatchAttemptCeiling(
+	ctx context.Context,
+	scope stores.Scope,
+	dispatchID string,
+	entry stores.RemediationDispatchRecord,
+	maxAttempts int,
+) {
+	if maxAttempts <= entry.MaxAttempts {
+		return
+	}
+	entry.MaxAttempts = maxAttempts
+	entry.UpdatedAt = remediationDispatchTime(l.now)
+	if _, err := l.dispatches.SaveRemediationDispatch(ctx, scope, entry); err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "remediation_dispatch", "status_lookup", "persist_error", strings.TrimSpace(entry.CorrelationID), 0, err, map[string]any{
+			"dispatch_id":  dispatchID,
+			"max_attempts": maxAttempts,
+		})
+	}
+}
+
+func (l remediationDispatchStatusLookup) ensureDispatchUpdatedAt(status *handlers.RemediationDispatchStatus) {
+	if status == nil || status.UpdatedAt != nil {
+		return
+	}
+	now := remediationDispatchTime(l.now)
+	status.UpdatedAt = &now
 }
 
 func mergeQueueDispatchStatus(out *handlers.RemediationDispatchStatus, queueStatus jobqueue.DispatchStatus) {

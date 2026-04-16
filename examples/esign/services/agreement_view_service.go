@@ -19,6 +19,16 @@ type AgreementViewService struct {
 	assets  SignerAssetContractService
 }
 
+type senderSessionBootstrap struct {
+	agreement     stores.AgreementRecord
+	recipients    []stores.RecipientRecord
+	fields        []stores.FieldRecord
+	documentName  string
+	pageCount     int
+	viewer        SignerSessionViewerContext
+	reviewSummary ReviewSummary
+}
+
 func NewAgreementViewService(signing SigningService, store stores.Store, opts ...SignerAssetContractOption) AgreementViewService {
 	return AgreementViewService{
 		signing: signing,
@@ -26,53 +36,58 @@ func NewAgreementViewService(signing SigningService, store stores.Store, opts ..
 	}
 }
 
-func (s AgreementViewService) GetSenderSession(ctx context.Context, scope stores.Scope, agreementID string, actor AgreementViewActor) (SignerSessionContext, error) {
-	if s.signing.agreements == nil {
-		return SignerSessionContext{}, domainValidationError("agreements", "store", "not configured")
-	}
-	agreementID = strings.TrimSpace(agreementID)
-	if agreementID == "" {
-		return SignerSessionContext{}, domainValidationError("agreements", "id", "required")
-	}
-
+func (s AgreementViewService) loadSenderSessionBootstrap(ctx context.Context, scope stores.Scope, agreementID string) (senderSessionBootstrap, error) {
 	agreement, err := s.signing.agreements.GetAgreement(ctx, scope, agreementID)
 	if err != nil {
-		return SignerSessionContext{}, err
+		return senderSessionBootstrap{}, err
 	}
 	recipients, err := s.signing.agreements.ListRecipients(ctx, scope, agreementID)
 	if err != nil {
-		return SignerSessionContext{}, err
+		return senderSessionBootstrap{}, err
 	}
 	fields, err := s.signing.agreements.ListFields(ctx, scope, agreementID)
 	if err != nil {
-		return SignerSessionContext{}, err
+		return senderSessionBootstrap{}, err
 	}
 	document, compatibility, err := s.signing.resolveSigningDocumentCompatibility(ctx, scope, agreement)
 	if err != nil {
-		return SignerSessionContext{}, err
+		return senderSessionBootstrap{}, err
 	}
 	if compatibility.Tier == PDFCompatibilityTierUnsupported && !policyAllowsAnalyzeOnlyUpload(s.signing.pdfs.Policy(ctx, scope)) {
-		return SignerSessionContext{}, pdfUnsupportedError("agreement_view.bootstrap", string(compatibility.Tier), compatibility.Reason, map[string]any{
+		return senderSessionBootstrap{}, pdfUnsupportedError("agreement_view.bootstrap", string(compatibility.Tier), compatibility.Reason, map[string]any{
 			"agreement_id": agreement.ID,
 			"document_id":  document.ID,
 		})
 	}
-
 	documentName, pageCount, viewer, err := s.signing.resolveSessionBootstrap(ctx, scope, document, compatibility, fields)
 	if err != nil {
-		return SignerSessionContext{}, err
+		return senderSessionBootstrap{}, err
 	}
+	reviewSummary, err := s.signing.reviewWorkflow().GetReviewSummary(ctx, scope, agreementID)
+	if err != nil {
+		return senderSessionBootstrap{}, err
+	}
+	return senderSessionBootstrap{
+		agreement:     agreement,
+		recipients:    recipients,
+		fields:        fields,
+		documentName:  documentName,
+		pageCount:     pageCount,
+		viewer:        viewer,
+		reviewSummary: reviewSummary,
+	}, nil
+}
+
+func (s AgreementViewService) buildSenderSessionFields(ctx context.Context, scope stores.Scope, agreementID string, recipients []stores.RecipientRecord, fields []stores.FieldRecord, pageCount int, viewer SignerSessionViewerContext, agreementStatus string) ([]SignerSessionField, error) {
 	pagesByNumber := map[int]SignerSessionViewerPage{}
 	for _, page := range viewer.Pages {
 		pagesByNumber[page.Page] = page
 	}
-
 	valuesByField, err := s.listAgreementFieldValues(ctx, scope, agreementID, recipients)
 	if err != nil {
-		return SignerSessionContext{}, err
+		return nil, err
 	}
-	policy := ResolveSenderViewerPolicy()
-	showFieldValues := policy.CanExposeInProgressFieldValues(strings.TrimSpace(agreement.Status))
+	showFieldValues := ResolveSenderViewerPolicy().CanExposeInProgressFieldValues(strings.TrimSpace(agreementStatus))
 	sessionFields := make([]SignerSessionField, 0, len(fields))
 	tabIndex := 1
 	for _, field := range fields {
@@ -103,16 +118,30 @@ func (s AgreementViewService) GetSenderSession(ctx context.Context, scope stores
 		sessionFields = append(sessionFields, sessionField)
 		tabIndex++
 	}
+	return sessionFields, nil
+}
 
-	reviewSummary, err := s.signing.reviewWorkflow().GetReviewSummary(ctx, scope, agreementID)
+func (s AgreementViewService) GetSenderSession(ctx context.Context, scope stores.Scope, agreementID string, actor AgreementViewActor) (SignerSessionContext, error) {
+	if s.signing.agreements == nil {
+		return SignerSessionContext{}, domainValidationError("agreements", "store", "not configured")
+	}
+	agreementID = strings.TrimSpace(agreementID)
+	if agreementID == "" {
+		return SignerSessionContext{}, domainValidationError("agreements", "id", "required")
+	}
+	bootstrap, err := s.loadSenderSessionBootstrap(ctx, scope, agreementID)
 	if err != nil {
 		return SignerSessionContext{}, err
 	}
-	reviewCtx := buildSenderReviewContext(reviewSummary, actor.CanComment)
-	viewMode := deriveAgreementViewerMode(strings.TrimSpace(agreement.Status), reviewSummary.Review != nil)
+	sessionFields, err := s.buildSenderSessionFields(ctx, scope, agreementID, bootstrap.recipients, bootstrap.fields, bootstrap.pageCount, bootstrap.viewer, bootstrap.agreement.Status)
+	if err != nil {
+		return SignerSessionContext{}, err
+	}
+	reviewCtx := buildSenderReviewContext(bootstrap.reviewSummary, actor.CanComment)
+	viewMode := deriveAgreementViewerMode(strings.TrimSpace(bootstrap.agreement.Status), bootstrap.reviewSummary.Review != nil)
 	uiMode, defaultTab, reviewMarkersVisible, reviewMarkersInteractive := deriveAgreementViewerUIPresentation(viewMode, reviewCtx != nil)
 
-	activeStage, activeSigners, _ := activeSignerStageFromRecipients(recipients)
+	activeStage, activeSigners, _ := activeSignerStageFromRecipients(bootstrap.recipients)
 	activeRecipientIDs := recipientIDs(activeSigners)
 
 	return SignerSessionContext{
@@ -123,11 +152,11 @@ func (s AgreementViewService) GetSenderSession(ctx context.Context, scope stores
 		ViewerBanner:             deriveAgreementViewerBanner(viewMode),
 		ReviewMarkersVisible:     reviewMarkersVisible,
 		ReviewMarkersInteractive: reviewMarkersInteractive,
-		AgreementID:              agreement.ID,
-		AgreementStatus:          agreement.Status,
-		DocumentName:             documentName,
-		PageCount:                pageCount,
-		Viewer:                   viewer,
+		AgreementID:              bootstrap.agreement.ID,
+		AgreementStatus:          bootstrap.agreement.Status,
+		DocumentName:             bootstrap.documentName,
+		PageCount:                bootstrap.pageCount,
+		Viewer:                   bootstrap.viewer,
 		RecipientRole:            "sender",
 		ActiveStage:              activeStage,
 		State:                    SignerSessionStateObserver,
@@ -157,30 +186,8 @@ func (s AgreementViewService) ResolveSenderAssets(ctx context.Context, scope sto
 		AgreementStatus: strings.TrimSpace(agreement.Status),
 		RecipientRole:   "sender",
 	}
-	if s.assets.documents != nil {
-		if document, err := s.assets.documents.Get(ctx, scope, strings.TrimSpace(agreement.DocumentID)); err == nil {
-			if previewKey := s.assets.resolvePreviewObjectKey(ctx, scope, document); previewKey != "" {
-				contract.PreviewDocumentAvailable = true
-				contract.PreviewObjectKey = previewKey
-			}
-			if sourceKey := strings.TrimSpace(document.SourceObjectKey); s.assets.objectAvailable(ctx, sourceKey) {
-				contract.SourceDocumentAvailable = true
-				contract.SourceObjectKey = sourceKey
-			}
-		}
-	}
-	if s.assets.artifacts != nil {
-		if artifacts, err := s.assets.artifacts.GetAgreementArtifacts(ctx, scope, agreementID); err == nil {
-			if executedKey := strings.TrimSpace(artifacts.ExecutedObjectKey); s.assets.objectAvailable(ctx, executedKey) {
-				contract.ExecutedArtifactAvailable = true
-				contract.ExecutedObjectKey = executedKey
-			}
-			if certificateKey := strings.TrimSpace(artifacts.CertificateObjectKey); s.assets.objectAvailable(ctx, certificateKey) {
-				contract.CertificateAvailable = true
-				contract.CertificateObjectKey = certificateKey
-			}
-		}
-	}
+	s.assets.populateDocumentAssets(ctx, scope, strings.TrimSpace(agreement.DocumentID), &contract)
+	s.assets.populateAgreementArtifactAssets(ctx, scope, agreementID, &contract)
 	return contract, nil
 }
 

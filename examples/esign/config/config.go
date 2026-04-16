@@ -849,69 +849,20 @@ func (c *Config) applySignerPDFDefaults() {
 	}
 	defaults := Defaults().Signer.PDF
 
-	if c.Signer.PDF.MaxSourceBytes <= 0 {
-		c.Signer.PDF.MaxSourceBytes = defaults.MaxSourceBytes
-	}
-	if c.Signer.PDF.MaxPages <= 0 {
-		c.Signer.PDF.MaxPages = defaults.MaxPages
-	}
-	if c.Signer.PDF.MaxObjects <= 0 {
-		c.Signer.PDF.MaxObjects = defaults.MaxObjects
-	}
-	if c.Signer.PDF.MaxDecompressedBytes <= 0 {
-		c.Signer.PDF.MaxDecompressedBytes = defaults.MaxDecompressedBytes
-	}
-	if c.Signer.PDF.ParseTimeoutMS <= 0 {
-		c.Signer.PDF.ParseTimeoutMS = defaults.ParseTimeoutMS
-	}
-	if c.Signer.PDF.NormalizationTimeoutMS <= 0 {
-		c.Signer.PDF.NormalizationTimeoutMS = defaults.NormalizationTimeoutMS
-	}
-	mode := strings.ToLower(strings.TrimSpace(c.Signer.PDF.CompatibilityMode))
-	switch mode {
-	case "strict", "balanced", "permissive":
-		c.Signer.PDF.CompatibilityMode = mode
-	default:
-		c.Signer.PDF.CompatibilityMode = defaults.CompatibilityMode
-	}
-	switch strings.ToLower(strings.TrimSpace(c.Signer.PDF.PipelineMode)) {
-	case "analyze_only", "enforce_policy", "prefer_normalized":
-		c.Signer.PDF.PipelineMode = strings.ToLower(strings.TrimSpace(c.Signer.PDF.PipelineMode))
-	default:
-		c.Signer.PDF.PipelineMode = defaults.PipelineMode
-	}
+	applySignerPDFScalarDefaults(&c.Signer.PDF, defaults)
+	applySignerPDFModeDefaults(&c.Signer.PDF, defaults)
 
 	remediationDefaults := defaults.Remediation
-	mode = strings.ToLower(strings.TrimSpace(c.Signer.PDF.Remediation.ExecutionMode))
-	switch mode {
-	case "inline", "queued":
-		c.Signer.PDF.Remediation.ExecutionMode = mode
-	default:
-		c.Signer.PDF.Remediation.ExecutionMode = remediationDefaults.ExecutionMode
-	}
+	c.Signer.PDF.Remediation.ExecutionMode = normalizeSignerPDFMode(c.Signer.PDF.Remediation.ExecutionMode, remediationDefaults.ExecutionMode, "inline", "queued")
 	if c.Signer.PDF.Remediation.LeaseTTLMS <= 0 {
 		c.Signer.PDF.Remediation.LeaseTTLMS = remediationDefaults.LeaseTTLMS
 	}
-	if len(c.Signer.PDF.Remediation.CandidateReasons) == 0 {
-		c.Signer.PDF.Remediation.CandidateReasons = append([]string{}, remediationDefaults.CandidateReasons...)
-	} else {
-		c.Signer.PDF.Remediation.CandidateReasons = normalizeRemediationReasons(c.Signer.PDF.Remediation.CandidateReasons)
-		if len(c.Signer.PDF.Remediation.CandidateReasons) == 0 {
-			c.Signer.PDF.Remediation.CandidateReasons = append([]string{}, remediationDefaults.CandidateReasons...)
-		}
-	}
+	c.Signer.PDF.Remediation.CandidateReasons = normalizeRemediationStringSlice(c.Signer.PDF.Remediation.CandidateReasons, remediationDefaults.CandidateReasons, normalizeRemediationReasons)
 	c.Signer.PDF.Remediation.Command.Bin = strings.TrimSpace(c.Signer.PDF.Remediation.Command.Bin)
 	if c.Signer.PDF.Remediation.Command.Bin == "" {
 		c.Signer.PDF.Remediation.Command.Bin = remediationDefaults.Command.Bin
 	}
-	if len(c.Signer.PDF.Remediation.Command.Args) == 0 {
-		c.Signer.PDF.Remediation.Command.Args = append([]string{}, remediationDefaults.Command.Args...)
-	} else {
-		c.Signer.PDF.Remediation.Command.Args = normalizeRemediationArgs(c.Signer.PDF.Remediation.Command.Args)
-		if len(c.Signer.PDF.Remediation.Command.Args) == 0 {
-			c.Signer.PDF.Remediation.Command.Args = append([]string{}, remediationDefaults.Command.Args...)
-		}
-	}
+	c.Signer.PDF.Remediation.Command.Args = normalizeRemediationStringSlice(c.Signer.PDF.Remediation.Command.Args, remediationDefaults.Command.Args, normalizeRemediationArgs)
 	if c.Signer.PDF.Remediation.Command.TimeoutMS <= 0 {
 		c.Signer.PDF.Remediation.Command.TimeoutMS = remediationDefaults.Command.TimeoutMS
 	}
@@ -921,6 +872,61 @@ func (c *Config) applySignerPDFDefaults() {
 	if c.Signer.PDF.Remediation.Command.MaxLogBytes <= 0 {
 		c.Signer.PDF.Remediation.Command.MaxLogBytes = remediationDefaults.Command.MaxLogBytes
 	}
+}
+
+func applySignerPDFScalarDefaults(target *SignerPDFConfig, defaults SignerPDFConfig) {
+	if target == nil {
+		return
+	}
+	applyPositiveInt64Default(&target.MaxSourceBytes, defaults.MaxSourceBytes)
+	applyPositiveIntDefault(&target.MaxPages, defaults.MaxPages)
+	applyPositiveIntDefault(&target.MaxObjects, defaults.MaxObjects)
+	applyPositiveInt64Default(&target.MaxDecompressedBytes, defaults.MaxDecompressedBytes)
+	applyPositiveIntDefault(&target.ParseTimeoutMS, defaults.ParseTimeoutMS)
+	applyPositiveIntDefault(&target.NormalizationTimeoutMS, defaults.NormalizationTimeoutMS)
+}
+
+func applySignerPDFModeDefaults(target *SignerPDFConfig, defaults SignerPDFConfig) {
+	if target == nil {
+		return
+	}
+	target.CompatibilityMode = normalizeSignerPDFMode(target.CompatibilityMode, defaults.CompatibilityMode, "strict", "balanced", "permissive")
+	target.PipelineMode = normalizeSignerPDFMode(target.PipelineMode, defaults.PipelineMode, "analyze_only", "enforce_policy", "prefer_normalized")
+}
+
+func normalizeSignerPDFMode(value, fallback string, allowed ...string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	for _, candidate := range allowed {
+		if normalized == candidate {
+			return normalized
+		}
+	}
+	return fallback
+}
+
+func normalizeRemediationStringSlice(values, fallback []string, normalize func([]string) []string) []string {
+	if len(values) == 0 {
+		return append([]string{}, fallback...)
+	}
+	normalized := normalize(values)
+	if len(normalized) == 0 {
+		return append([]string{}, fallback...)
+	}
+	return normalized
+}
+
+func applyPositiveIntDefault(target *int, fallback int) {
+	if target == nil || *target > 0 {
+		return
+	}
+	*target = fallback
+}
+
+func applyPositiveInt64Default(target *int64, fallback int64) {
+	if target == nil || *target > 0 {
+		return
+	}
+	*target = fallback
 }
 
 func (c *Config) applySenderViewerDefaults() {

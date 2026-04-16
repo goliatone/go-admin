@@ -709,116 +709,9 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 		if tx != nil {
 			txSvc = s.forTx(tx)
 		}
-		loadStartedAt := time.Now()
-		draft, err := txSvc.Get(txCtx, scope, id, input.CreatedByUserID)
-		if err != nil {
-			LogSendPhaseDuration("draft_service", "draft_load_failed", loadStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"draft_id": strings.TrimSpace(id),
-				"error":    strings.TrimSpace(err.Error()),
-			}))
-			return err
-		}
-		LogSendPhaseDuration("draft_service", "draft_loaded", loadStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"draft_id":       strings.TrimSpace(draft.ID),
-			"wizard_id":      strings.TrimSpace(draft.WizardID),
-			"draft_revision": draft.Revision,
-		}))
-		if draft.Revision != input.ExpectedRevision {
-			return staleRevisionError(draft.Revision)
-		}
-		materializeStartedAt := time.Now()
-		materialized, err := txSvc.materializeDraftAgreement(txCtx, scope, draft, input.IPAddress)
-		if err != nil {
-			LogSendPhaseDuration("draft_service", "materialize_agreement_failed", materializeStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"draft_id":  strings.TrimSpace(draft.ID),
-				"wizard_id": strings.TrimSpace(draft.WizardID),
-				"error":     strings.TrimSpace(err.Error()),
-			}))
-			return err
-		}
-		LogSendPhaseDuration("draft_service", "materialize_agreement_complete", materializeStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"draft_id":     strings.TrimSpace(draft.ID),
-			"wizard_id":    strings.TrimSpace(draft.WizardID),
-			"agreement_id": strings.TrimSpace(materialized.Agreement.ID),
-		}))
-		agreementSendStartedAt := time.Now()
-		sent, err := txSvc.agreements.Send(txCtx, scope, materialized.Agreement.ID, SendInput{
-			IdempotencyKey: fmt.Sprintf("draft_send_%s_rev_%d", strings.TrimSpace(draft.ID), draft.Revision),
-			IPAddress:      input.IPAddress,
-			CorrelationID:  correlationID,
-		})
-		if err != nil {
-			LogSendPhaseDuration("draft_service", "agreement_send_failed", agreementSendStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"draft_id":     strings.TrimSpace(draft.ID),
-				"wizard_id":    strings.TrimSpace(draft.WizardID),
-				"agreement_id": strings.TrimSpace(materialized.Agreement.ID),
-				"error":        strings.TrimSpace(err.Error()),
-			}))
-			return err
-		}
-		LogSendPhaseDuration("draft_service", "agreement_send_complete", agreementSendStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"draft_id":     strings.TrimSpace(draft.ID),
-			"wizard_id":    strings.TrimSpace(draft.WizardID),
-			"agreement_id": strings.TrimSpace(sent.ID),
-		}))
-		deleteStartedAt := time.Now()
-		if err := txSvc.drafts.DeleteDraftSession(txCtx, scope, draft.ID); err != nil {
-			LogSendPhaseDuration("draft_service", "draft_delete_failed", deleteStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"draft_id":     strings.TrimSpace(draft.ID),
-				"wizard_id":    strings.TrimSpace(draft.WizardID),
-				"agreement_id": strings.TrimSpace(sent.ID),
-				"error":        strings.TrimSpace(err.Error()),
-			}))
-			return err
-		}
-		LogSendPhaseDuration("draft_service", "draft_delete_complete", deleteStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"draft_id":     strings.TrimSpace(draft.ID),
-			"wizard_id":    strings.TrimSpace(draft.WizardID),
-			"agreement_id": strings.TrimSpace(sent.ID),
-		}))
-		auditStartedAt := time.Now()
-		if err := txSvc.appendDraftAudit(txCtx, scope, draft.ID, "draft.sent", strings.TrimSpace(input.CreatedByUserID), map[string]any{
-			"agreement_id":    strings.TrimSpace(sent.ID),
-			"wizard_id":       draft.WizardID,
-			"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-			"revision":        draft.Revision + 1,
-			"status":          "sent",
-			"draft_deleted":   true,
-		}); err != nil {
-			LogSendPhaseDuration("draft_service", "draft_audit_failed", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"draft_id":     strings.TrimSpace(draft.ID),
-				"wizard_id":    strings.TrimSpace(draft.WizardID),
-				"agreement_id": strings.TrimSpace(sent.ID),
-				"error":        strings.TrimSpace(err.Error()),
-			}))
-			return err
-		}
-		LogSendPhaseDuration("draft_service", "draft_audit_complete", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"draft_id":     strings.TrimSpace(draft.ID),
-			"wizard_id":    strings.TrimSpace(draft.WizardID),
-			"agreement_id": strings.TrimSpace(sent.ID),
-		}))
-		if hooks != nil {
-			agreementID := strings.TrimSpace(sent.ID)
-			draftID := strings.TrimSpace(draft.ID)
-			createdByUserID := strings.TrimSpace(input.CreatedByUserID)
-			wizardID := strings.TrimSpace(draft.WizardID)
-			hooks.AfterCommit(func() error {
-				return s.verifySendPersistenceInvariants(ctx, scope, draftID, createdByUserID, agreementID, correlationID, wizardID)
-			})
-			LogSendDebug("draft_service", "after_commit_verify_registered", SendDebugFields(scope, correlationID, map[string]any{
-				"draft_id":     draftID,
-				"wizard_id":    wizardID,
-				"agreement_id": agreementID,
-			}))
-		}
-		result = DraftSendResult{
-			AgreementID:  strings.TrimSpace(sent.ID),
-			Status:       primitives.FirstNonEmpty(strings.TrimSpace(sent.Status), stores.AgreementStatusSent),
-			DraftID:      strings.TrimSpace(draft.ID),
-			DraftDeleted: true,
-		}
-		return nil
+		var txErr error
+		result, txErr = txSvc.sendDraftWithinTx(txCtx, ctx, hooks, s, scope, id, input, correlationID)
+		return txErr
 	})
 	if err != nil {
 		LogSendPhaseDuration("draft_service", "send_failed", sendStartedAt, SendDebugFields(scope, correlationID, map[string]any{
@@ -836,6 +729,154 @@ func (s DraftService) Send(ctx context.Context, scope stores.Scope, id string, i
 		"created_by_user_id": strings.TrimSpace(input.CreatedByUserID),
 	}))
 	return result, nil
+}
+
+func (s DraftService) sendDraftWithinTx(txCtx, verifyCtx context.Context, hooks *stores.TxHooks, verifySvc DraftService, scope stores.Scope, id string, input DraftSendInput, correlationID string) (DraftSendResult, error) {
+	draft, err := s.loadDraftForSend(txCtx, scope, id, input.CreatedByUserID, input.ExpectedRevision, correlationID)
+	if err != nil {
+		return DraftSendResult{}, err
+	}
+	materialized, err := s.materializeDraftForSend(txCtx, scope, draft, input.IPAddress, correlationID)
+	if err != nil {
+		return DraftSendResult{}, err
+	}
+	sent, err := s.sendMaterializedDraft(txCtx, scope, draft, materialized.Agreement.ID, input.IPAddress, correlationID)
+	if err != nil {
+		return DraftSendResult{}, err
+	}
+	if err := s.finalizeDraftSend(txCtx, scope, draft, sent, input, correlationID); err != nil {
+		return DraftSendResult{}, err
+	}
+	verifySvc.registerDraftSendVerification(verifyCtx, hooks, scope, draft, sent, input.CreatedByUserID, correlationID)
+	return DraftSendResult{
+		AgreementID:  strings.TrimSpace(sent.ID),
+		Status:       primitives.FirstNonEmpty(strings.TrimSpace(sent.Status), stores.AgreementStatusSent),
+		DraftID:      strings.TrimSpace(draft.ID),
+		DraftDeleted: true,
+	}, nil
+}
+
+func (s DraftService) loadDraftForSend(ctx context.Context, scope stores.Scope, id, createdByUserID string, expectedRevision int64, correlationID string) (stores.DraftRecord, error) {
+	loadStartedAt := time.Now()
+	draft, err := s.Get(ctx, scope, id, createdByUserID)
+	if err != nil {
+		LogSendPhaseDuration("draft_service", "draft_load_failed", loadStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"draft_id": strings.TrimSpace(id),
+			"error":    strings.TrimSpace(err.Error()),
+		}))
+		return stores.DraftRecord{}, err
+	}
+	LogSendPhaseDuration("draft_service", "draft_loaded", loadStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"draft_id":       strings.TrimSpace(draft.ID),
+		"wizard_id":      strings.TrimSpace(draft.WizardID),
+		"draft_revision": draft.Revision,
+	}))
+	if draft.Revision != expectedRevision {
+		return stores.DraftRecord{}, staleRevisionError(draft.Revision)
+	}
+	return draft, nil
+}
+
+func (s DraftService) materializeDraftForSend(ctx context.Context, scope stores.Scope, draft stores.DraftRecord, ipAddress, correlationID string) (draftMaterializationResult, error) {
+	materializeStartedAt := time.Now()
+	materialized, err := s.materializeDraftAgreement(ctx, scope, draft, ipAddress)
+	if err != nil {
+		LogSendPhaseDuration("draft_service", "materialize_agreement_failed", materializeStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"draft_id":  strings.TrimSpace(draft.ID),
+			"wizard_id": strings.TrimSpace(draft.WizardID),
+			"error":     strings.TrimSpace(err.Error()),
+		}))
+		return draftMaterializationResult{}, err
+	}
+	LogSendPhaseDuration("draft_service", "materialize_agreement_complete", materializeStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"draft_id":     strings.TrimSpace(draft.ID),
+		"wizard_id":    strings.TrimSpace(draft.WizardID),
+		"agreement_id": strings.TrimSpace(materialized.Agreement.ID),
+	}))
+	return materialized, nil
+}
+
+func (s DraftService) sendMaterializedDraft(ctx context.Context, scope stores.Scope, draft stores.DraftRecord, agreementID, ipAddress, correlationID string) (stores.AgreementRecord, error) {
+	agreementSendStartedAt := time.Now()
+	sent, err := s.agreements.Send(ctx, scope, agreementID, SendInput{
+		IdempotencyKey: fmt.Sprintf("draft_send_%s_rev_%d", strings.TrimSpace(draft.ID), draft.Revision),
+		IPAddress:      ipAddress,
+		CorrelationID:  correlationID,
+	})
+	if err != nil {
+		LogSendPhaseDuration("draft_service", "agreement_send_failed", agreementSendStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"draft_id":     strings.TrimSpace(draft.ID),
+			"wizard_id":    strings.TrimSpace(draft.WizardID),
+			"agreement_id": strings.TrimSpace(agreementID),
+			"error":        strings.TrimSpace(err.Error()),
+		}))
+		return stores.AgreementRecord{}, err
+	}
+	LogSendPhaseDuration("draft_service", "agreement_send_complete", agreementSendStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"draft_id":     strings.TrimSpace(draft.ID),
+		"wizard_id":    strings.TrimSpace(draft.WizardID),
+		"agreement_id": strings.TrimSpace(sent.ID),
+	}))
+	return sent, nil
+}
+
+func (s DraftService) finalizeDraftSend(ctx context.Context, scope stores.Scope, draft stores.DraftRecord, sent stores.AgreementRecord, input DraftSendInput, correlationID string) error {
+	deleteStartedAt := time.Now()
+	if err := s.drafts.DeleteDraftSession(ctx, scope, draft.ID); err != nil {
+		LogSendPhaseDuration("draft_service", "draft_delete_failed", deleteStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"draft_id":     strings.TrimSpace(draft.ID),
+			"wizard_id":    strings.TrimSpace(draft.WizardID),
+			"agreement_id": strings.TrimSpace(sent.ID),
+			"error":        strings.TrimSpace(err.Error()),
+		}))
+		return err
+	}
+	LogSendPhaseDuration("draft_service", "draft_delete_complete", deleteStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"draft_id":     strings.TrimSpace(draft.ID),
+		"wizard_id":    strings.TrimSpace(draft.WizardID),
+		"agreement_id": strings.TrimSpace(sent.ID),
+	}))
+	auditStartedAt := time.Now()
+	if err := s.appendDraftAudit(ctx, scope, draft.ID, "draft.sent", strings.TrimSpace(input.CreatedByUserID), map[string]any{
+		"agreement_id":    strings.TrimSpace(sent.ID),
+		"wizard_id":       draft.WizardID,
+		"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+		"revision":        draft.Revision + 1,
+		"status":          "sent",
+		"draft_deleted":   true,
+	}); err != nil {
+		LogSendPhaseDuration("draft_service", "draft_audit_failed", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"draft_id":     strings.TrimSpace(draft.ID),
+			"wizard_id":    strings.TrimSpace(draft.WizardID),
+			"agreement_id": strings.TrimSpace(sent.ID),
+			"error":        strings.TrimSpace(err.Error()),
+		}))
+		return err
+	}
+	LogSendPhaseDuration("draft_service", "draft_audit_complete", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"draft_id":     strings.TrimSpace(draft.ID),
+		"wizard_id":    strings.TrimSpace(draft.WizardID),
+		"agreement_id": strings.TrimSpace(sent.ID),
+	}))
+	return nil
+}
+
+func (s DraftService) registerDraftSendVerification(ctx context.Context, hooks *stores.TxHooks, scope stores.Scope, draft stores.DraftRecord, sent stores.AgreementRecord, createdByUserID, correlationID string) {
+	if hooks == nil {
+		return
+	}
+	agreementID := strings.TrimSpace(sent.ID)
+	draftID := strings.TrimSpace(draft.ID)
+	wizardID := strings.TrimSpace(draft.WizardID)
+	createdByUserID = strings.TrimSpace(createdByUserID)
+	hooks.AfterCommit(func() error {
+		return s.verifySendPersistenceInvariants(ctx, scope, draftID, createdByUserID, agreementID, correlationID, wizardID)
+	})
+	LogSendDebug("draft_service", "after_commit_verify_registered", SendDebugFields(scope, correlationID, map[string]any{
+		"draft_id":     draftID,
+		"wizard_id":    wizardID,
+		"agreement_id": agreementID,
+	}))
 }
 
 // StartReview materializes a wizard draft into an agreement draft and immediately opens review.

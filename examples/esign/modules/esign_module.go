@@ -1060,243 +1060,144 @@ func (m *ESignModule) registerAgreementPanel(adm *coreadmin.Admin) error {
 	agreementRepo.profiles = adm.ProfileService()
 	agreementBuilder := adm.Panel(esignAgreementsPanelID).
 		WithRepository(agreementRepo).
-		WithBreadcrumbs(coreadmin.PanelBreadcrumbConfig{
-			ListLabel:           "Agreements",
-			RootLabel:           "Home",
-			RootHref:            normalizeBasePath(m.basePath),
-			ShowCurrentOnDetail: true,
-			DetailLabelResolver: func(record map[string]any) string {
-				return firstNonEmptyValue(strings.TrimSpace(toString(record["title"])), strings.TrimSpace(toString(record["id"])))
-			},
-		}).
-		ListFields(
-			coreadmin.Field{Name: "title", Label: "Title", Type: "text"},
-			coreadmin.Field{Name: "status", Label: "Status", Type: "select"},
-			coreadmin.Field{Name: "workflow_kind", Label: "Workflow", Type: "text"},
-			coreadmin.Field{Name: "reminder_status", Label: "Reminder", Type: "text"},
-			coreadmin.Field{Name: "next_due_at", Label: "Next Reminder", Type: "datetime"},
-			coreadmin.Field{Name: "recipient_count", Label: "Recipients", Type: "number"},
-			coreadmin.Field{Name: "updated_at", Label: "Updated", Type: "datetime"},
-		).
-		FormFields(
-			coreadmin.Field{Name: "document_id", Label: "Document", Type: "text", Required: true},
-			coreadmin.Field{Name: "title", Label: "Title", Type: "text", Required: true},
-			coreadmin.Field{Name: "message", Label: "Message", Type: "textarea"},
-		).
-		DetailFields(
-			coreadmin.Field{Name: "id", Label: "ID", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "document_id", Label: "Document", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "title", Label: "Title", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "status", Label: "Status", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "review_status", Label: "Review Status", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "review_gate", Label: "Review Gate", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "comments_enabled", Label: "Comments Enabled", Type: "boolean", ReadOnly: true},
-			coreadmin.Field{Name: "workflow_kind", Label: "Workflow", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "root_agreement_id", Label: "Root Agreement", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "parent_agreement_id", Label: "Parent Agreement", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "parent_executed_sha256", Label: "Parent Executed SHA256", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "superseded_by_agreement_id", Label: "Superseded By", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "reminder_status", Label: "Reminder", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "next_due_at", Label: "Next Reminder", Type: "datetime", ReadOnly: true},
-			coreadmin.Field{Name: "last_sent_at", Label: "Last Reminder Sent", Type: "datetime", ReadOnly: true},
-			coreadmin.Field{Name: "reminder_count", Label: "Reminder Count", Type: "number", ReadOnly: true},
-			coreadmin.Field{Name: "last_error_code", Label: "Reminder Error Code", Type: "text", ReadOnly: true},
-			coreadmin.Field{Name: "paused", Label: "Reminders Paused", Type: "boolean", ReadOnly: true},
-			coreadmin.Field{Name: "recipient_count", Label: "Recipients", Type: "number", ReadOnly: true},
-			coreadmin.Field{Name: "sent_at", Label: "Sent", Type: "datetime", ReadOnly: true},
-			coreadmin.Field{Name: "completed_at", Label: "Completed", Type: "datetime", ReadOnly: true},
-			coreadmin.Field{Name: "updated_at", Label: "Updated", Type: "datetime", ReadOnly: true},
-		).
-		Filters(
-			coreadmin.Filter{Name: "version_visibility", Label: "Versions", Type: "select", Options: []coreadmin.Option{
-				{Value: "current", Label: "Current"},
-				{Value: "all", Label: "All"},
-				{Value: "previous", Label: "Previous"},
-			}},
-			coreadmin.Filter{Name: "status", Label: "Status", Type: "select", Options: agreementStatusOptions()},
-			coreadmin.Filter{Name: "title", Label: "Title", Type: "text"},
-			coreadmin.Filter{Name: "document_id", Label: "Document ID", Type: "text"},
-			coreadmin.Filter{Name: "recipient_email", Label: "Recipient Email", Type: "text"},
-		).
-		Actions(
-			withAgreementActionGuard(coreadmin.Action{Name: "edit", Label: "Edit", Type: "navigation", Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit}),
-			withAgreementActionGuard(coreadmin.Action{Name: "delete", Label: "Delete", Variant: "danger", Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignVoid, Confirm: "Are you sure you want to delete this item?"}),
-			withAgreementActionGuard(coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:            "request_review",
-				Label:           "Request Review",
-				CommandName:     commands.CommandAgreementRequestReview,
-				Scope:           coreadmin.ActionScopeDetail,
-				Permission:      permissions.AdminESignEdit,
-				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				PayloadRequired: []string{"gate", "review_participants"},
-				PayloadSchema:   agreementReviewActionPayloadSchema(true),
-				Idempotent:      true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:            "reopen_review",
-				Label:           "Reopen Review",
-				CommandName:     commands.CommandAgreementReopenReview,
-				Scope:           coreadmin.ActionScopeDetail,
-				Permission:      permissions.AdminESignEdit,
-				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				PayloadRequired: []string{"gate"},
-				PayloadSchema:   agreementReviewActionPayloadSchema(false),
-				Idempotent:      true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:           "notify_reviewers",
-				Label:          "Notify Reviewers",
-				CommandName:    commands.CommandAgreementNotifyReviewers,
-				Scope:          coreadmin.ActionScopeDetail,
-				Permission:     permissions.AdminESignEdit,
-				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				Idempotent:     true,
-				Overflow:       true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:           "pause_review_reminder",
-				Label:          "Pause Review Reminder",
-				CommandName:    commands.CommandAgreementReviewReminderPause,
-				Scope:          coreadmin.ActionScopeDetail,
-				Permission:     permissions.AdminESignEdit,
-				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				Idempotent:     true,
-				Overflow:       true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:           "resume_review_reminder",
-				Label:          "Resume Review Reminder",
-				CommandName:    commands.CommandAgreementReviewReminderResume,
-				Scope:          coreadmin.ActionScopeDetail,
-				Permission:     permissions.AdminESignEdit,
-				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				Idempotent:     true,
-				Overflow:       true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:           "send_review_reminder_now",
-				Label:          "Send Review Reminder Now",
-				CommandName:    commands.CommandAgreementReviewReminderSendNow,
-				Scope:          coreadmin.ActionScopeDetail,
-				Permission:     permissions.AdminESignEdit,
-				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				Idempotent:     true,
-				Overflow:       true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:           "close_review",
-				Label:          "Close Review",
-				CommandName:    commands.CommandAgreementCloseReview,
-				Scope:          coreadmin.ActionScopeDetail,
-				Permission:     permissions.AdminESignEdit,
-				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				Idempotent:     true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:            "force_approve_review",
-				Label:           "Force Approve Review",
-				CommandName:     commands.CommandAgreementForceApproveReview,
-				Scope:           coreadmin.ActionScopeDetail,
-				Permission:      permissions.AdminESignEdit,
-				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				PayloadRequired: []string{"reason"},
-				Idempotent:      true,
-				Overflow:        true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:            "approve_review_participant_on_behalf",
-				Label:           "Approve On Behalf",
-				CommandName:     commands.CommandAgreementApproveReviewOnBehalf,
-				Scope:           coreadmin.ActionScopeDetail,
-				Permission:      permissions.AdminESignEdit,
-				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				PayloadRequired: []string{"participant_id", "reason"},
-				Idempotent:      true,
-				Overflow:        true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:            "create_comment_thread",
-				Label:           "Add Review Comment",
-				CommandName:     commands.CommandAgreementCreateCommentThread,
-				Scope:           coreadmin.ActionScopeDetail,
-				Permission:      permissions.AdminESignEdit,
-				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignView},
-				PayloadRequired: []string{"body"},
-				Idempotent:      true,
-				Overflow:        true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:            "reply_comment_thread",
-				Label:           "Reply To Review Comment",
-				CommandName:     commands.CommandAgreementReplyCommentThread,
-				Scope:           coreadmin.ActionScopeDetail,
-				Permission:      permissions.AdminESignEdit,
-				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignView},
-				PayloadRequired: []string{"thread_id", "body"},
-				Idempotent:      true,
-				Overflow:        true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:            "resolve_comment_thread",
-				Label:           "Resolve Review Comment",
-				CommandName:     commands.CommandAgreementResolveCommentThread,
-				Scope:           coreadmin.ActionScopeDetail,
-				Permission:      permissions.AdminESignEdit,
-				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignView},
-				PayloadRequired: []string{"thread_id"},
-				Idempotent:      true,
-				Overflow:        true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:            "reopen_comment_thread",
-				Label:           "Reopen Review Comment",
-				CommandName:     commands.CommandAgreementReopenCommentThread,
-				Scope:           coreadmin.ActionScopeDetail,
-				Permission:      permissions.AdminESignEdit,
-				PermissionsAll:  []string{permissions.AdminESignEdit, permissions.AdminESignView},
-				PayloadRequired: []string{"thread_id"},
-				Idempotent:      true,
-				Overflow:        true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{Name: "resend", Label: "Resend", CommandName: commands.CommandAgreementResend, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignSend, Idempotent: true}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:           "request_correction",
-				Label:          "Request Correction",
-				CommandName:    commands.CommandAgreementRequestCorrection,
-				Scope:          coreadmin.ActionScopeAny,
-				Permission:     permissions.AdminESignEdit,
-				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				Idempotent:     true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{
-				Name:           "request_amendment",
-				Label:          "Request Amendment",
-				CommandName:    commands.CommandAgreementRequestAmendment,
-				Scope:          coreadmin.ActionScopeAny,
-				Permission:     permissions.AdminESignEdit,
-				PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend},
-				Idempotent:     true,
-			}),
-			withAgreementActionGuard(coreadmin.Action{Name: "resume_delivery", Label: "Resume Delivery", CommandName: commands.CommandAgreementDeliveryResume, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignSend, Idempotent: true}),
-			withAgreementActionGuard(coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}}),
-		).
-		BulkActions(
-			withAgreementActionGuard(coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Scope: coreadmin.ActionScopeBulk, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}}),
-			withAgreementActionGuard(coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Scope: coreadmin.ActionScopeBulk, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}}),
-		).
+		WithBreadcrumbs(m.agreementPanelBreadcrumbs()).
+		ListFields(m.agreementPanelListFields()...).
+		FormFields(m.agreementPanelFormFields()...).
+		DetailFields(m.agreementPanelDetailFields()...).
+		Filters(m.agreementPanelFilters()...).
+		Actions(m.agreementPanelActions()...).
+		BulkActions(m.agreementPanelBulkActions()...).
 		Subresources(
 			coreadmin.PanelSubresource{Name: "artifact", Method: "GET", Permission: permissions.AdminESignDownload},
 		).
-		Permissions(coreadmin.PanelPermissions{
-			View:   permissions.AdminESignView,
-			Create: permissions.AdminESignCreate,
-			Edit:   permissions.AdminESignEdit,
-			Delete: permissions.AdminESignVoid,
-		})
+		Permissions(m.agreementPanelPermissions())
 
 	_, err := adm.RegisterPanel(esignAgreementsPanelID, agreementBuilder)
 	return err
+}
+
+func (m *ESignModule) agreementPanelBreadcrumbs() coreadmin.PanelBreadcrumbConfig {
+	return coreadmin.PanelBreadcrumbConfig{
+		ListLabel:           "Agreements",
+		RootLabel:           "Home",
+		RootHref:            normalizeBasePath(m.basePath),
+		ShowCurrentOnDetail: true,
+		DetailLabelResolver: func(record map[string]any) string {
+			return firstNonEmptyValue(strings.TrimSpace(toString(record["title"])), strings.TrimSpace(toString(record["id"])))
+		},
+	}
+}
+
+func (m *ESignModule) agreementPanelListFields() []coreadmin.Field {
+	return []coreadmin.Field{
+		{Name: "title", Label: "Title", Type: "text"},
+		{Name: "status", Label: "Status", Type: "select"},
+		{Name: "workflow_kind", Label: "Workflow", Type: "text"},
+		{Name: "reminder_status", Label: "Reminder", Type: "text"},
+		{Name: "next_due_at", Label: "Next Reminder", Type: "datetime"},
+		{Name: "recipient_count", Label: "Recipients", Type: "number"},
+		{Name: "updated_at", Label: "Updated", Type: "datetime"},
+	}
+}
+
+func (m *ESignModule) agreementPanelFormFields() []coreadmin.Field {
+	return []coreadmin.Field{
+		{Name: "document_id", Label: "Document", Type: "text", Required: true},
+		{Name: "title", Label: "Title", Type: "text", Required: true},
+		{Name: "message", Label: "Message", Type: "textarea"},
+	}
+}
+
+func (m *ESignModule) agreementPanelDetailFields() []coreadmin.Field {
+	return []coreadmin.Field{
+		{Name: "id", Label: "ID", Type: "text", ReadOnly: true},
+		{Name: "document_id", Label: "Document", Type: "text", ReadOnly: true},
+		{Name: "title", Label: "Title", Type: "text", ReadOnly: true},
+		{Name: "status", Label: "Status", Type: "text", ReadOnly: true},
+		{Name: "review_status", Label: "Review Status", Type: "text", ReadOnly: true},
+		{Name: "review_gate", Label: "Review Gate", Type: "text", ReadOnly: true},
+		{Name: "comments_enabled", Label: "Comments Enabled", Type: "boolean", ReadOnly: true},
+		{Name: "workflow_kind", Label: "Workflow", Type: "text", ReadOnly: true},
+		{Name: "root_agreement_id", Label: "Root Agreement", Type: "text", ReadOnly: true},
+		{Name: "parent_agreement_id", Label: "Parent Agreement", Type: "text", ReadOnly: true},
+		{Name: "parent_executed_sha256", Label: "Parent Executed SHA256", Type: "text", ReadOnly: true},
+		{Name: "superseded_by_agreement_id", Label: "Superseded By", Type: "text", ReadOnly: true},
+		{Name: "reminder_status", Label: "Reminder", Type: "text", ReadOnly: true},
+		{Name: "next_due_at", Label: "Next Reminder", Type: "datetime", ReadOnly: true},
+		{Name: "last_sent_at", Label: "Last Reminder Sent", Type: "datetime", ReadOnly: true},
+		{Name: "reminder_count", Label: "Reminder Count", Type: "number", ReadOnly: true},
+		{Name: "last_error_code", Label: "Reminder Error Code", Type: "text", ReadOnly: true},
+		{Name: "paused", Label: "Reminders Paused", Type: "boolean", ReadOnly: true},
+		{Name: "recipient_count", Label: "Recipients", Type: "number", ReadOnly: true},
+		{Name: "sent_at", Label: "Sent", Type: "datetime", ReadOnly: true},
+		{Name: "completed_at", Label: "Completed", Type: "datetime", ReadOnly: true},
+		{Name: "updated_at", Label: "Updated", Type: "datetime", ReadOnly: true},
+	}
+}
+
+func (m *ESignModule) agreementPanelFilters() []coreadmin.Filter {
+	return []coreadmin.Filter{
+		{Name: "version_visibility", Label: "Versions", Type: "select", Options: []coreadmin.Option{
+			{Value: "current", Label: "Current"},
+			{Value: "all", Label: "All"},
+			{Value: "previous", Label: "Previous"},
+		}},
+		{Name: "status", Label: "Status", Type: "select", Options: agreementStatusOptions()},
+		{Name: "title", Label: "Title", Type: "text"},
+		{Name: "document_id", Label: "Document ID", Type: "text"},
+		{Name: "recipient_email", Label: "Recipient Email", Type: "text"},
+	}
+}
+
+func agreementReviewPanelActions() []coreadmin.Action {
+	return []coreadmin.Action{
+		withAgreementActionGuard(coreadmin.Action{Name: "request_review", Label: "Request Review", CommandName: commands.CommandAgreementRequestReview, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, PayloadRequired: []string{"gate", "review_participants"}, PayloadSchema: agreementReviewActionPayloadSchema(true), Idempotent: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "reopen_review", Label: "Reopen Review", CommandName: commands.CommandAgreementReopenReview, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, PayloadRequired: []string{"gate"}, PayloadSchema: agreementReviewActionPayloadSchema(false), Idempotent: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "notify_reviewers", Label: "Notify Reviewers", CommandName: commands.CommandAgreementNotifyReviewers, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, Idempotent: true, Overflow: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "pause_review_reminder", Label: "Pause Review Reminder", CommandName: commands.CommandAgreementReviewReminderPause, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, Idempotent: true, Overflow: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "resume_review_reminder", Label: "Resume Review Reminder", CommandName: commands.CommandAgreementReviewReminderResume, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, Idempotent: true, Overflow: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "send_review_reminder_now", Label: "Send Review Reminder Now", CommandName: commands.CommandAgreementReviewReminderSendNow, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, Idempotent: true, Overflow: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "close_review", Label: "Close Review", CommandName: commands.CommandAgreementCloseReview, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, Idempotent: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "force_approve_review", Label: "Force Approve Review", CommandName: commands.CommandAgreementForceApproveReview, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, PayloadRequired: []string{"reason"}, Idempotent: true, Overflow: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "approve_review_participant_on_behalf", Label: "Approve On Behalf", CommandName: commands.CommandAgreementApproveReviewOnBehalf, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, PayloadRequired: []string{"participant_id", "reason"}, Idempotent: true, Overflow: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "create_comment_thread", Label: "Add Review Comment", CommandName: commands.CommandAgreementCreateCommentThread, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignView}, PayloadRequired: []string{"body"}, Idempotent: true, Overflow: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "reply_comment_thread", Label: "Reply To Review Comment", CommandName: commands.CommandAgreementReplyCommentThread, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignView}, PayloadRequired: []string{"thread_id", "body"}, Idempotent: true, Overflow: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "resolve_comment_thread", Label: "Resolve Review Comment", CommandName: commands.CommandAgreementResolveCommentThread, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignView}, PayloadRequired: []string{"thread_id"}, Idempotent: true, Overflow: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "reopen_comment_thread", Label: "Reopen Review Comment", CommandName: commands.CommandAgreementReopenCommentThread, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignView}, PayloadRequired: []string{"thread_id"}, Idempotent: true, Overflow: true}),
+	}
+}
+
+func (m *ESignModule) agreementPanelActions() []coreadmin.Action {
+	actions := []coreadmin.Action{
+		withAgreementActionGuard(coreadmin.Action{Name: "edit", Label: "Edit", Type: "navigation", Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignEdit}),
+		withAgreementActionGuard(coreadmin.Action{Name: "delete", Label: "Delete", Variant: "danger", Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignVoid, Confirm: "Are you sure you want to delete this item?"}),
+		withAgreementActionGuard(coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}}),
+	}
+	actions = append(actions, agreementReviewPanelActions()...)
+	actions = append(actions,
+		withAgreementActionGuard(coreadmin.Action{Name: "resend", Label: "Resend", CommandName: commands.CommandAgreementResend, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignSend, Idempotent: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "request_correction", Label: "Request Correction", CommandName: commands.CommandAgreementRequestCorrection, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, Idempotent: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "request_amendment", Label: "Request Amendment", CommandName: commands.CommandAgreementRequestAmendment, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignEdit, PermissionsAll: []string{permissions.AdminESignEdit, permissions.AdminESignSend}, Idempotent: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "resume_delivery", Label: "Resume Delivery", CommandName: commands.CommandAgreementDeliveryResume, Scope: coreadmin.ActionScopeDetail, Permission: permissions.AdminESignSend, Idempotent: true}),
+		withAgreementActionGuard(coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Scope: coreadmin.ActionScopeAny, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}}),
+	)
+	return actions
+}
+
+func (m *ESignModule) agreementPanelBulkActions() []coreadmin.Action {
+	return []coreadmin.Action{
+		withAgreementActionGuard(coreadmin.Action{Name: "send", Label: "Send", CommandName: commands.CommandAgreementSend, Scope: coreadmin.ActionScopeBulk, Permission: permissions.AdminESignSend, Idempotent: true, PayloadRequired: []string{"idempotency_key"}}),
+		withAgreementActionGuard(coreadmin.Action{Name: "void", Label: "Void", CommandName: commands.CommandAgreementVoid, Scope: coreadmin.ActionScopeBulk, Permission: permissions.AdminESignVoid, PayloadRequired: []string{"reason"}}),
+	}
+}
+
+func (m *ESignModule) agreementPanelPermissions() coreadmin.PanelPermissions {
+	return coreadmin.PanelPermissions{
+		View:   permissions.AdminESignView,
+		Create: permissions.AdminESignCreate,
+		Edit:   permissions.AdminESignEdit,
+		Delete: permissions.AdminESignVoid,
+	}
 }
 
 func (m *ESignModule) registerPanelTabs(adm *coreadmin.Admin) error {

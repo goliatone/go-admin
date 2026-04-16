@@ -339,51 +339,81 @@ func executeGoogleImportWithLineage(
 	if createdByUserID == "" {
 		createdByUserID = strings.TrimSpace(resolvedUserID)
 	}
-
-	resolution := SourceIdentityResolution{}
-	if deps.identity != nil {
-		resolved, err := deps.identity.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
-			ProviderKind:          stores.SourceProviderKindGoogleDrive,
-			ActorID:               createdByUserID,
-			CorrelationID:         strings.TrimSpace(input.CorrelationID),
-			IdempotencyKey:        strings.TrimSpace(input.IdempotencyKey),
-			RevisionContentSHA256: contentHash,
-			Metadata: SourceMetadataBaseline{
-				AccountID:           strings.TrimSpace(input.AccountID),
-				ExternalFileID:      strings.TrimSpace(input.GoogleFileID),
-				DriveID:             strings.TrimSpace(snapshot.File.DriveID),
-				WebURL:              strings.TrimSpace(snapshot.File.WebViewURL),
-				ModifiedTime:        &modifiedTime,
-				SourceVersionHint:   strings.TrimSpace(input.SourceVersionHint),
-				SourceMimeType:      strings.TrimSpace(sourceMimeType),
-				SourceIngestionMode: strings.TrimSpace(ingestionMode),
-				TitleHint:           documentTitle,
-				PageCountHint:       0,
-				OwnerEmail:          strings.TrimSpace(snapshot.File.OwnerEmail),
-				ParentID:            strings.TrimSpace(snapshot.File.ParentID),
-			},
-		})
-		if err != nil {
-			observability.LogOperation(ctx, slog.LevelWarn, "lineage", "google_import_resolution", "error", strings.TrimSpace(input.CorrelationID), 0, err, map[string]any{
-				"google_file_id":  strings.TrimSpace(input.GoogleFileID),
-				"account_id":      strings.TrimSpace(input.AccountID),
-				"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-			})
-			return GoogleImportResult{}, err
-		}
-		resolution = resolved
-		observability.LogOperation(ctx, slog.LevelInfo, "lineage", "google_import_resolution", "success", strings.TrimSpace(input.CorrelationID), 0, nil, map[string]any{
-			"google_file_id":  strings.TrimSpace(input.GoogleFileID),
-			"resolution_kind": strings.TrimSpace(resolution.ResolutionKind),
-			"confidence_band": strings.TrimSpace(resolution.ConfidenceBand),
-			"source_document": strings.TrimSpace(resolution.SourceDocument.ID),
-			"source_revision": strings.TrimSpace(resolution.SourceRevision.ID),
-			"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-			"content_sha256":  contentHash,
-		})
+	resolution, err := deps.resolveGoogleImportIdentity(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, createdByUserID, documentTitle, modifiedTime, contentHash)
+	if err != nil {
+		return GoogleImportResult{}, err
 	}
+	document, err := deps.createGoogleImportedDocument(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, createdByUserID, documentTitle, modifiedTime, exportedAt, resolution)
+	if err != nil {
+		return GoogleImportResult{}, err
+	}
+	agreement, err := deps.createGoogleImportedAgreement(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, createdByUserID, agreementTitle, modifiedTime, exportedAt, document, resolution)
+	if err != nil {
+		return GoogleImportResult{}, err
+	}
+	result := buildGoogleImportResult(document, agreement, resolution, sourceMimeType, ingestionMode)
+	observability.LogOperation(ctx, slog.LevelInfo, "lineage", "google_import_complete", "success", strings.TrimSpace(input.CorrelationID), 0, nil, map[string]any{
+		"google_file_id":     strings.TrimSpace(input.GoogleFileID),
+		"document_id":        strings.TrimSpace(result.Document.ID),
+		"agreement_id":       strings.TrimSpace(result.Agreement.ID),
+		"source_document_id": strings.TrimSpace(result.SourceDocumentID),
+		"source_revision_id": strings.TrimSpace(result.SourceRevisionID),
+		"source_artifact_id": strings.TrimSpace(result.SourceArtifactID),
+		"lineage_status":     strings.TrimSpace(result.LineageStatus),
+		"idempotency_key":    strings.TrimSpace(input.IdempotencyKey),
+		"content_sha256":     contentHash,
+	})
+	return result, nil
+}
 
-	document, err := deps.documents.Upload(ctx, scope, DocumentUploadInput{
+func (d googleImportExecutionDeps) resolveGoogleImportIdentity(ctx context.Context, scope stores.Scope, input GoogleImportInput, snapshot GoogleExportSnapshot, sourceMimeType, ingestionMode, createdByUserID, documentTitle string, modifiedTime time.Time, contentHash string) (SourceIdentityResolution, error) {
+	resolution := SourceIdentityResolution{}
+	if d.identity == nil {
+		return resolution, nil
+	}
+	resolved, err := d.identity.ResolveSourceIdentity(ctx, scope, SourceIdentityResolutionInput{
+		ProviderKind:          stores.SourceProviderKindGoogleDrive,
+		ActorID:               createdByUserID,
+		CorrelationID:         strings.TrimSpace(input.CorrelationID),
+		IdempotencyKey:        strings.TrimSpace(input.IdempotencyKey),
+		RevisionContentSHA256: contentHash,
+		Metadata: SourceMetadataBaseline{
+			AccountID:           strings.TrimSpace(input.AccountID),
+			ExternalFileID:      strings.TrimSpace(input.GoogleFileID),
+			DriveID:             strings.TrimSpace(snapshot.File.DriveID),
+			WebURL:              strings.TrimSpace(snapshot.File.WebViewURL),
+			ModifiedTime:        &modifiedTime,
+			SourceVersionHint:   strings.TrimSpace(input.SourceVersionHint),
+			SourceMimeType:      strings.TrimSpace(sourceMimeType),
+			SourceIngestionMode: strings.TrimSpace(ingestionMode),
+			TitleHint:           documentTitle,
+			PageCountHint:       0,
+			OwnerEmail:          strings.TrimSpace(snapshot.File.OwnerEmail),
+			ParentID:            strings.TrimSpace(snapshot.File.ParentID),
+		},
+	})
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "lineage", "google_import_resolution", "error", strings.TrimSpace(input.CorrelationID), 0, err, map[string]any{
+			"google_file_id":  strings.TrimSpace(input.GoogleFileID),
+			"account_id":      strings.TrimSpace(input.AccountID),
+			"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+		})
+		return SourceIdentityResolution{}, err
+	}
+	observability.LogOperation(ctx, slog.LevelInfo, "lineage", "google_import_resolution", "success", strings.TrimSpace(input.CorrelationID), 0, nil, map[string]any{
+		"google_file_id":  strings.TrimSpace(input.GoogleFileID),
+		"resolution_kind": strings.TrimSpace(resolved.ResolutionKind),
+		"confidence_band": strings.TrimSpace(resolved.ConfidenceBand),
+		"source_document": strings.TrimSpace(resolved.SourceDocument.ID),
+		"source_revision": strings.TrimSpace(resolved.SourceRevision.ID),
+		"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
+		"content_sha256":  contentHash,
+	})
+	return resolved, nil
+}
+
+func (d googleImportExecutionDeps) createGoogleImportedDocument(ctx context.Context, scope stores.Scope, input GoogleImportInput, snapshot GoogleExportSnapshot, sourceMimeType, ingestionMode, resolvedUserID, createdByUserID, documentTitle string, modifiedTime, exportedAt time.Time, resolution SourceIdentityResolution) (stores.DocumentRecord, error) {
+	document, err := d.documents.Upload(ctx, scope, DocumentUploadInput{
 		Title:                  documentTitle,
 		SourceOriginalName:     strings.TrimSpace(snapshot.File.Name),
 		ObjectKey:              googleImportObjectKey(scope, input.GoogleFileID, exportedAt),
@@ -406,42 +436,47 @@ func executeGoogleImportWithLineage(
 			"google_file_id":  strings.TrimSpace(input.GoogleFileID),
 			"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
 		})
-		return GoogleImportResult{}, err
+		return stores.DocumentRecord{}, err
 	}
+	return document, nil
+}
 
-	var agreement stores.AgreementRecord
-	if agreementTitle != "" {
-		agreement, err = deps.agreements.CreateDraft(ctx, scope, CreateDraftInput{
-			DocumentID:             document.ID,
-			Title:                  agreementTitle,
-			CreatedByUserID:        createdByUserID,
-			SourceType:             stores.SourceTypeGoogleDrive,
-			SourceGoogleFileID:     strings.TrimSpace(input.GoogleFileID),
-			SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
-			SourceModifiedTime:     &modifiedTime,
-			SourceExportedAt:       &exportedAt,
-			SourceExportedByUserID: strings.TrimSpace(resolvedUserID),
-			SourceMimeType:         sourceMimeType,
-			SourceIngestionMode:    ingestionMode,
-			SourceRevisionID:       strings.TrimSpace(resolution.SourceRevision.ID),
+func (d googleImportExecutionDeps) createGoogleImportedAgreement(ctx context.Context, scope stores.Scope, input GoogleImportInput, snapshot GoogleExportSnapshot, sourceMimeType, ingestionMode, resolvedUserID, createdByUserID, agreementTitle string, modifiedTime, exportedAt time.Time, document stores.DocumentRecord, resolution SourceIdentityResolution) (stores.AgreementRecord, error) {
+	if agreementTitle == "" {
+		return stores.AgreementRecord{}, nil
+	}
+	agreement, err := d.agreements.CreateDraft(ctx, scope, CreateDraftInput{
+		DocumentID:             document.ID,
+		Title:                  agreementTitle,
+		CreatedByUserID:        createdByUserID,
+		SourceType:             stores.SourceTypeGoogleDrive,
+		SourceGoogleFileID:     strings.TrimSpace(input.GoogleFileID),
+		SourceGoogleDocURL:     strings.TrimSpace(snapshot.File.WebViewURL),
+		SourceModifiedTime:     &modifiedTime,
+		SourceExportedAt:       &exportedAt,
+		SourceExportedByUserID: strings.TrimSpace(resolvedUserID),
+		SourceMimeType:         sourceMimeType,
+		SourceIngestionMode:    ingestionMode,
+		SourceRevisionID:       strings.TrimSpace(resolution.SourceRevision.ID),
+	})
+	if err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "lineage", "google_import_agreement_persist", "error", strings.TrimSpace(input.CorrelationID), 0, err, map[string]any{
+			"google_file_id":  strings.TrimSpace(input.GoogleFileID),
+			"document_id":     strings.TrimSpace(document.ID),
+			"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
 		})
-		if err != nil {
-			observability.LogOperation(ctx, slog.LevelWarn, "lineage", "google_import_agreement_persist", "error", strings.TrimSpace(input.CorrelationID), 0, err, map[string]any{
-				"google_file_id":  strings.TrimSpace(input.GoogleFileID),
-				"document_id":     strings.TrimSpace(document.ID),
-				"idempotency_key": strings.TrimSpace(input.IdempotencyKey),
-			})
-			return GoogleImportResult{}, err
-		}
+		return stores.AgreementRecord{}, err
 	}
+	return agreement, nil
+}
 
+func buildGoogleImportResult(document stores.DocumentRecord, agreement stores.AgreementRecord, resolution SourceIdentityResolution, sourceMimeType, ingestionMode string) GoogleImportResult {
 	candidates := candidateWarningsFromRelationship(resolution.CandidateRelationship)
 	lineageStatus := LineageImportStatusLinked
 	if len(candidates) > 0 {
 		lineageStatus = LineageImportStatusNeedsReview
 	}
-
-	result := GoogleImportResult{
+	return GoogleImportResult{
 		Document:           document,
 		Agreement:          agreement,
 		SourceDocumentID:   firstNonEmpty(strings.TrimSpace(document.SourceDocumentID), strings.TrimSpace(resolution.SourceDocument.ID)),
@@ -455,18 +490,6 @@ func executeGoogleImportWithLineage(
 		SourceMimeType:     sourceMimeType,
 		IngestionMode:      ingestionMode,
 	}
-	observability.LogOperation(ctx, slog.LevelInfo, "lineage", "google_import_complete", "success", strings.TrimSpace(input.CorrelationID), 0, nil, map[string]any{
-		"google_file_id":     strings.TrimSpace(input.GoogleFileID),
-		"document_id":        strings.TrimSpace(result.Document.ID),
-		"agreement_id":       strings.TrimSpace(result.Agreement.ID),
-		"source_document_id": strings.TrimSpace(result.SourceDocumentID),
-		"source_revision_id": strings.TrimSpace(result.SourceRevisionID),
-		"source_artifact_id": strings.TrimSpace(result.SourceArtifactID),
-		"lineage_status":     strings.TrimSpace(result.LineageStatus),
-		"idempotency_key":    strings.TrimSpace(input.IdempotencyKey),
-		"content_sha256":     contentHash,
-	})
-	return result, nil
 }
 
 func candidateWarningsFromRelationship(relationship *stores.SourceRelationshipRecord) []CandidateWarningSummary {

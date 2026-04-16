@@ -18,7 +18,17 @@ func registerAgreementViewerRoutes(adminRoutes routeRegistrar, routes RouteSet, 
 	if cfg.agreementViewer == nil {
 		return
 	}
+	registerAgreementViewerReadRoutes(adminRoutes, routes, cfg)
+	registerAgreementViewerCommentRoutes(adminRoutes, routes, cfg)
+	registerAgreementViewerCommentStateRoutes(adminRoutes, routes, cfg)
+}
 
+func registerAgreementViewerReadRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerAgreementViewerSessionRoute(adminRoutes, routes, cfg)
+	registerAgreementViewerAssetRoute(adminRoutes, routes, cfg)
+}
+
+func registerAgreementViewerSessionRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Get(routes.AdminAgreementViewerSession, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -39,7 +49,9 @@ func registerAgreementViewerRoutes(adminRoutes routeRegistrar, routes RouteSet, 
 			"session": session,
 		})
 	}, requireAuthenticatedAgreementRequest(cfg))
+}
 
+func registerAgreementViewerAssetRoute(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Get(routes.AdminAgreementViewerAssets, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -70,59 +82,7 @@ func registerAgreementViewerRoutes(adminRoutes routeRegistrar, routes RouteSet, 
 			})
 		}
 		if assetType != "" {
-			if missing := senderAgreementViewerFirstMissingAssetPermission(c, cfg, assetType); missing != "" {
-				return writePermissionDenied(c, missing)
-			}
-			if !signerAssetAvailable(filteredContract, assetType) {
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			if cfg.objectStore == nil {
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			objectKey := signerAssetObjectKey(filteredContract, assetType)
-			if objectKey == "" {
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			if cfg.auditEvents != nil {
-				metadataJSON := "{}"
-				if encoded, merr := json.Marshal(map[string]any{
-					"asset":       assetType,
-					"disposition": resolveSignerAssetDisposition(c.Query("disposition")),
-				}); merr == nil {
-					metadataJSON = string(encoded)
-				}
-				_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
-					AgreementID:  strings.TrimSpace(filteredContract.AgreementID),
-					EventType:    "agreement.viewer.asset_opened",
-					ActorType:    "user",
-					ActorID:      resolveAuthenticatedAdminUserID(c),
-					IPAddress:    resolveAuditRequestIP(c, cfg),
-					UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
-					MetadataJSON: metadataJSON,
-					CreatedAt:    time.Now().UTC(),
-				})
-			}
-			if err := quickstart.ServeBinaryObject(c, quickstart.BinaryObjectResponseConfig{
-				Store:       cfg.objectStore,
-				ObjectKey:   objectKey,
-				ContentType: "application/pdf",
-				Filename:    signerAssetFilename(filteredContract, assetType),
-				Disposition: resolveSignerAssetDisposition(c.Query("disposition")),
-			}); err != nil {
-				if !errors.Is(err, quickstart.ErrBinaryObjectUnavailable) {
-					return err
-				}
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			return nil
+			return serveAgreementViewerAsset(c, cfg, filteredContract, assetType)
 		}
 
 		if cfg.auditEvents != nil {
@@ -148,7 +108,71 @@ func registerAgreementViewerRoutes(adminRoutes routeRegistrar, routes RouteSet, 
 			"assets":   assets,
 		})
 	}, requireAuthenticatedAgreementRequest(cfg))
+}
 
+func serveAgreementViewerAsset(c router.Context, cfg registerConfig, contract services.SignerAssetContract, assetType string) error {
+	if missing := senderAgreementViewerFirstMissingAssetPermission(c, cfg, assetType); missing != "" {
+		return writePermissionDenied(c, missing)
+	}
+	if !signerAssetAvailable(contract, assetType) || cfg.objectStore == nil {
+		return writeAgreementViewerAssetUnavailable(c, assetType)
+	}
+	objectKey := signerAssetObjectKey(contract, assetType)
+	if objectKey == "" {
+		return writeAgreementViewerAssetUnavailable(c, assetType)
+	}
+	disposition := resolveSignerAssetDisposition(c.Query("disposition"))
+	appendAgreementViewerAssetAudit(c, cfg, contract, assetType, disposition)
+	if err := quickstart.ServeBinaryObject(c, quickstart.BinaryObjectResponseConfig{
+		Store:       cfg.objectStore,
+		ObjectKey:   objectKey,
+		ContentType: "application/pdf",
+		Filename:    signerAssetFilename(contract, assetType),
+		Disposition: disposition,
+	}); err != nil {
+		if !errors.Is(err, quickstart.ErrBinaryObjectUnavailable) {
+			return err
+		}
+		return writeAgreementViewerAssetUnavailable(c, assetType)
+	}
+	return nil
+}
+
+func appendAgreementViewerAssetAudit(
+	c router.Context,
+	cfg registerConfig,
+	contract services.SignerAssetContract,
+	assetType, disposition string,
+) {
+	if cfg.auditEvents == nil {
+		return
+	}
+	metadataJSON := "{}"
+	if encoded, err := json.Marshal(map[string]any{
+		"asset":       assetType,
+		"disposition": disposition,
+	}); err == nil {
+		metadataJSON = string(encoded)
+	}
+	_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
+		AgreementID:  strings.TrimSpace(contract.AgreementID),
+		EventType:    "agreement.viewer.asset_opened",
+		ActorType:    "user",
+		ActorID:      resolveAuthenticatedAdminUserID(c),
+		IPAddress:    resolveAuditRequestIP(c, cfg),
+		UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
+		MetadataJSON: metadataJSON,
+		CreatedAt:    time.Now().UTC(),
+	})
+}
+
+func writeAgreementViewerAssetUnavailable(c router.Context, assetType string) error {
+	return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
+		"asset": assetType,
+	})
+}
+
+func registerAgreementViewerCommentRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(routes.AdminAgreementViewerThreads, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -204,7 +228,9 @@ func registerAgreementViewerRoutes(adminRoutes routeRegistrar, routes RouteSet, 
 			"thread": thread,
 		})
 	}, requireAuthenticatedAgreementRequest(cfg))
+}
 
+func registerAgreementViewerCommentStateRoutes(adminRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	adminRoutes.Post(routes.AdminAgreementViewerThreadResolve, func(c router.Context) error {
 		return senderAgreementViewerThreadStateHandler(c, cfg, true)
 	}, requireAuthenticatedAgreementRequest(cfg))

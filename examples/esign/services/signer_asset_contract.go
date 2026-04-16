@@ -113,34 +113,8 @@ func (s SignerAssetContractService) Resolve(ctx context.Context, scope stores.Sc
 		RecipientID:     recipientID,
 		RecipientRole:   recipientRole,
 	}
-
-	if s.documents != nil {
-		if document, err := s.documents.Get(ctx, scope, strings.TrimSpace(agreement.DocumentID)); err == nil {
-			if previewKey := s.resolvePreviewObjectKey(ctx, scope, document); previewKey != "" {
-				contract.PreviewDocumentAvailable = true
-				contract.PreviewObjectKey = previewKey
-			}
-			objectKey := strings.TrimSpace(document.SourceObjectKey)
-			if s.objectAvailable(ctx, objectKey) {
-				contract.SourceDocumentAvailable = true
-				contract.SourceObjectKey = objectKey
-			}
-		}
-	}
-	if s.artifacts != nil {
-		if artifacts, err := s.artifacts.GetAgreementArtifacts(ctx, scope, agreementID); err == nil {
-			executedKey := strings.TrimSpace(artifacts.ExecutedObjectKey)
-			certificateKey := strings.TrimSpace(artifacts.CertificateObjectKey)
-			if s.objectAvailable(ctx, executedKey) {
-				contract.ExecutedArtifactAvailable = true
-				contract.ExecutedObjectKey = executedKey
-			}
-			if s.objectAvailable(ctx, certificateKey) {
-				contract.CertificateAvailable = true
-				contract.CertificateObjectKey = certificateKey
-			}
-		}
-	}
+	s.populateDocumentAssets(ctx, scope, strings.TrimSpace(agreement.DocumentID), &contract)
+	s.populateAgreementArtifactAssets(ctx, scope, agreementID, &contract)
 
 	return contract, nil
 }
@@ -185,15 +159,7 @@ func (s SignerAssetContractService) ResolvePublic(ctx context.Context, scope sto
 			RecipientID:     participantID,
 			RecipientRole:   firstNonEmptyString(strings.TrimSpace(participant.Role), stores.AgreementReviewParticipantRoleReviewer),
 		}
-
-		if s.documents != nil {
-			if document, err := s.documents.Get(ctx, scope, strings.TrimSpace(agreement.DocumentID)); err == nil {
-				if previewKey := s.resolvePreviewObjectKey(ctx, scope, document); previewKey != "" {
-					contract.PreviewDocumentAvailable = true
-					contract.PreviewObjectKey = previewKey
-				}
-			}
-		}
+		s.populatePreviewDocumentAsset(ctx, scope, strings.TrimSpace(agreement.DocumentID), &contract)
 
 		return contract, nil
 	default:
@@ -211,6 +177,109 @@ func (s SignerAssetContractService) objectAvailable(ctx context.Context, objectK
 	}
 	payload, err := s.objects.GetFile(ctx, objectKey)
 	return err == nil && len(payload) > 0
+}
+
+func (s SignerAssetContractService) populateDocumentAssets(
+	ctx context.Context,
+	scope stores.Scope,
+	documentID string,
+	contract *SignerAssetContract,
+) {
+	document, ok := s.lookupAgreementDocument(ctx, scope, documentID)
+	if !ok {
+		return
+	}
+	s.assignPreviewDocumentAsset(ctx, scope, contract, document)
+	s.assignSourceDocumentAsset(ctx, contract, document)
+}
+
+func (s SignerAssetContractService) populatePreviewDocumentAsset(
+	ctx context.Context,
+	scope stores.Scope,
+	documentID string,
+	contract *SignerAssetContract,
+) {
+	document, ok := s.lookupAgreementDocument(ctx, scope, documentID)
+	if !ok {
+		return
+	}
+	s.assignPreviewDocumentAsset(ctx, scope, contract, document)
+}
+
+func (s SignerAssetContractService) lookupAgreementDocument(
+	ctx context.Context,
+	scope stores.Scope,
+	documentID string,
+) (stores.DocumentRecord, bool) {
+	if s.documents == nil || strings.TrimSpace(documentID) == "" {
+		return stores.DocumentRecord{}, false
+	}
+	document, err := s.documents.Get(ctx, scope, strings.TrimSpace(documentID))
+	if err != nil {
+		return stores.DocumentRecord{}, false
+	}
+	return document, true
+}
+
+func (s SignerAssetContractService) assignPreviewDocumentAsset(
+	ctx context.Context,
+	scope stores.Scope,
+	contract *SignerAssetContract,
+	document stores.DocumentRecord,
+) {
+	if contract == nil {
+		return
+	}
+	if previewKey := s.resolvePreviewObjectKey(ctx, scope, document); previewKey != "" {
+		contract.PreviewDocumentAvailable = true
+		contract.PreviewObjectKey = previewKey
+	}
+}
+
+func (s SignerAssetContractService) assignSourceDocumentAsset(ctx context.Context, contract *SignerAssetContract, document stores.DocumentRecord) {
+	if contract == nil {
+		return
+	}
+	objectKey := strings.TrimSpace(document.SourceObjectKey)
+	if s.objectAvailable(ctx, objectKey) {
+		contract.SourceDocumentAvailable = true
+		contract.SourceObjectKey = objectKey
+	}
+}
+
+func (s SignerAssetContractService) populateAgreementArtifactAssets(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	contract *SignerAssetContract,
+) {
+	if s.artifacts == nil || contract == nil {
+		return
+	}
+	artifacts, err := s.artifacts.GetAgreementArtifacts(ctx, scope, agreementID)
+	if err != nil {
+		return
+	}
+	s.assignAgreementArtifactAsset(ctx, contract, strings.TrimSpace(artifacts.ExecutedObjectKey), true)
+	s.assignAgreementArtifactAsset(ctx, contract, strings.TrimSpace(artifacts.CertificateObjectKey), false)
+}
+
+func (s SignerAssetContractService) assignAgreementArtifactAsset(
+	ctx context.Context,
+	contract *SignerAssetContract,
+	objectKey string,
+	executed bool,
+) {
+	if contract == nil || !s.objectAvailable(ctx, objectKey) {
+		return
+	}
+	if executed {
+		contract.ExecutedArtifactAvailable = true
+		contract.ExecutedObjectKey = objectKey
+		return
+	}
+	contract.CertificateAvailable = true
+	contract.CertificateObjectKey = objectKey
 }
 
 func (s SignerAssetContractService) resolvePreviewObjectKey(ctx context.Context, scope stores.Scope, document stores.DocumentRecord) string {

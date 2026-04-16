@@ -2232,7 +2232,15 @@ func (s AgreementService) copyRevisionAuthoringState(ctx context.Context, scope 
 	if err != nil {
 		return err
 	}
+	participantIDs, err := s.cloneRevisionParticipants(ctx, scope, target.ID, participants)
+	if err != nil {
+		return err
+	}
 	definitions, err := s.agreements.ListFieldDefinitions(ctx, scope, source.ID)
+	if err != nil {
+		return err
+	}
+	definitionIDs, err := s.cloneRevisionFieldDefinitions(ctx, scope, target.ID, definitions, participantIDs)
 	if err != nil {
 		return err
 	}
@@ -2240,7 +2248,10 @@ func (s AgreementService) copyRevisionAuthoringState(ctx context.Context, scope 
 	if err != nil {
 		return err
 	}
+	return s.cloneRevisionFieldInstances(ctx, scope, target.ID, instances, definitionIDs)
+}
 
+func (s AgreementService) cloneRevisionParticipants(ctx context.Context, scope stores.Scope, targetAgreementID string, participants []stores.ParticipantRecord) (map[string]string, error) {
 	participantIDs := map[string]string{}
 	for _, participant := range participants {
 		email := strings.TrimSpace(participant.Email)
@@ -2248,7 +2259,7 @@ func (s AgreementService) copyRevisionAuthoringState(ctx context.Context, scope 
 		role := strings.TrimSpace(participant.Role)
 		stage := participant.SigningStage
 		notify := participant.Notify
-		cloned, err := s.agreements.UpsertParticipantDraft(ctx, scope, target.ID, stores.ParticipantDraftPatch{
+		cloned, err := s.agreements.UpsertParticipantDraft(ctx, scope, targetAgreementID, stores.ParticipantDraftPatch{
 			Email:        &email,
 			Name:         &name,
 			Role:         &role,
@@ -2256,29 +2267,35 @@ func (s AgreementService) copyRevisionAuthoringState(ctx context.Context, scope 
 			SigningStage: &stage,
 		}, 0)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		participantIDs[strings.TrimSpace(participant.ID)] = strings.TrimSpace(cloned.ID)
 	}
+	return participantIDs, nil
+}
 
+func (s AgreementService) cloneRevisionFieldDefinitions(ctx context.Context, scope stores.Scope, targetAgreementID string, definitions []stores.FieldDefinitionRecord, participantIDs map[string]string) (map[string]string, error) {
 	definitionIDs := map[string]string{}
 	for _, definition := range definitions {
 		participantID := strings.TrimSpace(participantIDs[strings.TrimSpace(definition.ParticipantID)])
 		fieldType := strings.TrimSpace(definition.Type)
 		required := definition.Required
 		validationJSON := strings.TrimSpace(definition.ValidationJSON)
-		cloned, err := s.agreements.UpsertFieldDefinitionDraft(ctx, scope, target.ID, stores.FieldDefinitionDraftPatch{
+		cloned, err := s.agreements.UpsertFieldDefinitionDraft(ctx, scope, targetAgreementID, stores.FieldDefinitionDraftPatch{
 			ParticipantID:  &participantID,
 			Type:           &fieldType,
 			Required:       &required,
 			ValidationJSON: &validationJSON,
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
 		definitionIDs[strings.TrimSpace(definition.ID)] = strings.TrimSpace(cloned.ID)
 	}
+	return definitionIDs, nil
+}
 
+func (s AgreementService) cloneRevisionFieldInstances(ctx context.Context, scope stores.Scope, targetAgreementID string, instances []stores.FieldInstanceRecord, definitionIDs map[string]string) error {
 	instanceIDs := map[string]string{}
 	type linkedFieldUpdate struct {
 		instanceID        string
@@ -2303,7 +2320,7 @@ func (s AgreementService) copyRevisionAuthoringState(ctx context.Context, scope 
 		manualOverride := instance.ManualOverride
 		linkGroupID := strings.TrimSpace(instance.LinkGroupID)
 		isUnlinked := instance.IsUnlinked
-		cloned, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, target.ID, stores.FieldInstanceDraftPatch{
+		cloned, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, targetAgreementID, stores.FieldInstanceDraftPatch{
 			FieldDefinitionID: &fieldDefinitionID,
 			PageNumber:        &pageNumber,
 			X:                 &x,
@@ -2338,7 +2355,7 @@ func (s AgreementService) copyRevisionAuthoringState(ctx context.Context, scope 
 		if linkedFromFieldID == "" {
 			continue
 		}
-		if _, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, target.ID, stores.FieldInstanceDraftPatch{
+		if _, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, targetAgreementID, stores.FieldInstanceDraftPatch{
 			ID:                strings.TrimSpace(pending.instanceID),
 			FieldDefinitionID: &pending.fieldDefinitionID,
 			LinkedFromFieldID: &linkedFromFieldID,

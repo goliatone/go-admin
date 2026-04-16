@@ -231,24 +231,17 @@ func describeContractFieldType(value reflect.Type) (string, string, string, stri
 		return "string", "", "", ""
 	case reflect.Bool:
 		return "bool", "", "", ""
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return "integer", "", "", ""
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return "unsigned_integer", "", "", ""
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return describeContractNumericType(value.Kind()), "", "", ""
 	case reflect.Float32, reflect.Float64:
 		return "number", "", "", ""
 	case reflect.Struct:
 		return "object", value.Name(), "", ""
 	case reflect.Slice, reflect.Array:
-		elemType, elemRef, _, _ := describeContractFieldType(value.Elem())
-		if elemRef == "" && value.Elem().Kind() == reflect.Interface {
-			elemType = "any"
-		}
-		return "array", firstNonEmpty(elemRef, elemType), "", ""
+		return describeContractArrayType(value)
 	case reflect.Map:
-		keyType, _, _, _ := describeContractFieldType(value.Key())
-		valueType, valueRef, _, _ := describeContractFieldType(value.Elem())
-		return "map", "", keyType, firstNonEmpty(valueRef, valueType)
+		return describeContractMapType(value)
 	case reflect.Interface:
 		return "any", "", "", ""
 	default:
@@ -257,6 +250,29 @@ func describeContractFieldType(value reflect.Type) (string, string, string, stri
 		}
 		return value.Kind().String(), "", "", ""
 	}
+}
+
+func describeContractNumericType(kind reflect.Kind) string {
+	switch kind {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return "integer"
+	default:
+		return "unsigned_integer"
+	}
+}
+
+func describeContractArrayType(value reflect.Type) (string, string, string, string) {
+	elemType, elemRef, _, _ := describeContractFieldType(value.Elem())
+	if elemRef == "" && value.Elem().Kind() == reflect.Interface {
+		elemType = "any"
+	}
+	return "array", firstNonEmpty(elemRef, elemType), "", ""
+}
+
+func describeContractMapType(value reflect.Type) (string, string, string, string) {
+	keyType, _, _, _ := describeContractFieldType(value.Key())
+	valueType, valueRef, _, _ := describeContractFieldType(value.Elem())
+	return "map", "", keyType, firstNonEmpty(valueRef, valueType)
 }
 
 func unwrapContractType(value reflect.Type) reflect.Type {

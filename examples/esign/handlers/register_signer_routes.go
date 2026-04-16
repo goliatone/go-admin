@@ -22,6 +22,13 @@ import (
 )
 
 func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
+	registerSignerPublicReviewRoutes(r, routes, cfg)
+	registerSignerProfileRoutes(r, routes, cfg)
+	registerSignerAssetAndWorkflowRoutes(r, routes, cfg)
+	registerSignerAuthenticatedRoutes(r, routes, cfg)
+}
+
+func registerSignerPublicReviewRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Get(routes.SignerSession, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -250,6 +257,9 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 		})
 	})
 
+}
+
+func registerSignerProfileRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Get(routes.SignerProfile, signerProfileGetHandler(cfg, signerProfileSubjectFromTokenParam(cfg)))
 
 	registerSignerPatchRoute(r, routes.SignerProfile, func(c router.Context) error {
@@ -335,141 +345,7 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 
 	r.Delete(routes.SignerSavedSignature, signerSavedSignatureDeleteHandler(cfg, signerProfileSubjectFromTokenParam(cfg)))
 
-	r.Get(routes.SignerAssets, func(c router.Context) error {
-		if err := enforceTransportSecurity(c, cfg); err != nil {
-			return asHandlerError(err)
-		}
-		token := strings.TrimSpace(c.Param("token"))
-		if token == "" {
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
-		}
-		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
-			return asHandlerError(err)
-		}
-		publicToken, err := resolvePublicReviewTokenWithRedirect(c, cfg, token, routes.SignerAssets)
-		if err != nil {
-			return asHandlerError(err)
-		}
-		auditActorType := "signer_token"
-		if strings.TrimSpace(publicToken.Kind) == services.PublicReviewTokenKindReview {
-			auditActorType = "review_token"
-		}
-		contract := services.SignerAssetContract{}
-		switch {
-		case publicToken.SigningToken != nil:
-			contract = services.SignerAssetContract{
-				AgreementID: strings.TrimSpace(publicToken.SigningToken.AgreementID),
-				RecipientID: strings.TrimSpace(publicToken.SigningToken.RecipientID),
-			}
-		case publicToken.ReviewToken != nil:
-			contract = services.SignerAssetContract{
-				AgreementID:   strings.TrimSpace(publicToken.ReviewToken.AgreementID),
-				RecipientID:   strings.TrimSpace(publicToken.ReviewToken.ParticipantID),
-				RecipientRole: stores.AgreementReviewParticipantRoleReviewer,
-			}
-		}
-		if cfg.signerAssets != nil {
-			contract, err = resolveSignerAssetContract(c, cfg, publicToken)
-			if err != nil {
-				return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to resolve signer asset contract", nil)
-			}
-		}
-
-		escapedToken := url.PathEscape(token)
-		sessionURL := strings.Replace(routes.SignerSession, ":token", escapedToken, 1)
-		contractURL := strings.Replace(routes.SignerAssets, ":token", escapedToken, 1)
-		assets := buildSignerAssetLinks(contract, contractURL, sessionURL)
-
-		rawAssetType := strings.TrimSpace(c.Query("asset"))
-		assetType := normalizeSignerAssetType(rawAssetType)
-		if rawAssetType != "" && assetType == "" {
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "asset must be one of preview|source|executed|certificate", map[string]any{
-				"asset": rawAssetType,
-			})
-		}
-		if assetType != "" {
-			if !signerRoleCanAccessAsset(contract.RecipientRole, assetType) || !signerAssetAvailable(contract, assetType) {
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			if cfg.objectStore == nil {
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			objectKey := signerAssetObjectKey(contract, assetType)
-			if objectKey == "" {
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			disposition := resolveSignerAssetDisposition(c.Query("disposition"))
-			filename := signerAssetFilename(contract, assetType)
-
-			if cfg.auditEvents != nil {
-				metadataJSON := "{}"
-				if encoded, merr := json.Marshal(map[string]any{
-					"recipient_id": strings.TrimSpace(contract.RecipientID),
-					"asset":        assetType,
-					"disposition":  disposition,
-				}); merr == nil {
-					metadataJSON = string(encoded)
-				}
-				_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
-					AgreementID:  strings.TrimSpace(contract.AgreementID),
-					EventType:    "signer.assets.asset_opened",
-					ActorType:    auditActorType,
-					ActorID:      strings.TrimSpace(contract.RecipientID),
-					IPAddress:    resolveAuditRequestIP(c, cfg),
-					UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
-					MetadataJSON: metadataJSON,
-					CreatedAt:    time.Now().UTC(),
-				})
-			}
-			if err := quickstart.ServeBinaryObject(c, quickstart.BinaryObjectResponseConfig{
-				Store:       cfg.objectStore,
-				ObjectKey:   objectKey,
-				ContentType: "application/pdf",
-				Filename:    filename,
-				Disposition: disposition,
-			}); err != nil {
-				if !errors.Is(err, quickstart.ErrBinaryObjectUnavailable) {
-					return err
-				}
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			return nil
-		}
-
-		if cfg.auditEvents != nil {
-			metadataJSON := "{}"
-			if encoded, merr := json.Marshal(map[string]any{
-				"recipient_id": strings.TrimSpace(contract.RecipientID),
-				"assets":       assets,
-			}); merr == nil {
-				metadataJSON = string(encoded)
-			}
-			_, _ = cfg.auditEvents.Append(c.Context(), cfg.resolveScope(c), stores.AuditEventRecord{
-				AgreementID:  strings.TrimSpace(contract.AgreementID),
-				EventType:    "signer.assets.contract_viewed",
-				ActorType:    auditActorType,
-				ActorID:      strings.TrimSpace(contract.RecipientID),
-				IPAddress:    resolveAuditRequestIP(c, cfg),
-				UserAgent:    strings.TrimSpace(c.Header("User-Agent")),
-				MetadataJSON: metadataJSON,
-				CreatedAt:    time.Now().UTC(),
-			})
-		}
-
-		return c.JSON(http.StatusOK, map[string]any{
-			"status":   "ok",
-			"contract": contract,
-			"assets":   assets,
-		})
-	})
+	r.Get(routes.SignerAssets, signerAssetsHandler(routes, cfg))
 
 	r.Post(routes.SignerTelemetry, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
@@ -502,7 +378,9 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			"accepted_events": acceptedEvents,
 		})
 	})
+}
 
+func registerSignerAssetAndWorkflowRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Post(routes.SignerConsent, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -912,7 +790,9 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 			"decline": result,
 		})
 	})
+}
 
+func registerSignerAuthenticatedRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Post(routes.SignerBootstrap, signerBootstrapHandler(routes, cfg))
 	r.Get(routes.SignerSessionAuth, signerSessionAuthHandler(routes, cfg))
 	r.Get(routes.SignerReviewThreadsAuth, signerReviewThreadsAuthHandler(routes, cfg))
@@ -940,6 +820,125 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 	r.Post(routes.SignerSignatureUploadAuth, signerSignatureUploadAuthHandler(routes, cfg))
 	r.Post(routes.SignerSubmitAuth, signerSubmitAuthHandler(routes, cfg))
 	r.Post(routes.SignerDeclineAuth, signerDeclineAuthHandler(routes, cfg))
+}
+
+func signerAssetsHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+	return func(c router.Context) error {
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			return asHandlerError(err)
+		}
+		token := strings.TrimSpace(c.Param("token"))
+		if token == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
+		}
+		if err := enforceRateLimit(c, cfg, OperationSignerSession); err != nil {
+			return asHandlerError(err)
+		}
+		publicToken, err := resolvePublicReviewTokenWithRedirect(c, cfg, token, routes.SignerAssets)
+		if err != nil {
+			return asHandlerError(err)
+		}
+		auditActorType := signerAssetAuditActorType(publicToken)
+		contract, err := resolveSignerAssetContractForResponse(c, cfg, publicToken)
+		if err != nil {
+			return err
+		}
+
+		escapedToken := url.PathEscape(token)
+		sessionURL := strings.Replace(routes.SignerSession, ":token", escapedToken, 1)
+		contractURL := strings.Replace(routes.SignerAssets, ":token", escapedToken, 1)
+		assets := buildSignerAssetLinks(contract, contractURL, sessionURL)
+
+		rawAssetType := strings.TrimSpace(c.Query("asset"))
+		assetType := normalizeSignerAssetType(rawAssetType)
+		if rawAssetType != "" && assetType == "" {
+			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "asset must be one of preview|source|executed|certificate", map[string]any{
+				"asset": rawAssetType,
+			})
+		}
+		if assetType != "" {
+			return serveSignerAsset(c, cfg, contract, assetType, auditActorType)
+		}
+
+		appendSignerAssetContractAudit(c, cfg, auditActorType, contract, assets)
+		return c.JSON(http.StatusOK, map[string]any{
+			"status":   "ok",
+			"contract": contract,
+			"assets":   assets,
+		})
+	}
+}
+
+func signerAssetAuditActorType(publicToken services.PublicReviewToken) string {
+	if strings.TrimSpace(publicToken.Kind) == services.PublicReviewTokenKindReview {
+		return "review_token"
+	}
+	return "signer_token"
+}
+
+func resolveSignerAssetContractForResponse(
+	c router.Context,
+	cfg registerConfig,
+	publicToken services.PublicReviewToken,
+) (services.SignerAssetContract, error) {
+	contract := services.SignerAssetContract{}
+	switch {
+	case publicToken.SigningToken != nil:
+		contract = services.SignerAssetContract{
+			AgreementID: strings.TrimSpace(publicToken.SigningToken.AgreementID),
+			RecipientID: strings.TrimSpace(publicToken.SigningToken.RecipientID),
+		}
+	case publicToken.ReviewToken != nil:
+		contract = services.SignerAssetContract{
+			AgreementID:   strings.TrimSpace(publicToken.ReviewToken.AgreementID),
+			RecipientID:   strings.TrimSpace(publicToken.ReviewToken.ParticipantID),
+			RecipientRole: stores.AgreementReviewParticipantRoleReviewer,
+		}
+	}
+	if cfg.signerAssets == nil {
+		return contract, nil
+	}
+	resolved, err := resolveSignerAssetContract(c, cfg, publicToken)
+	if err != nil {
+		return services.SignerAssetContract{}, writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to resolve signer asset contract", nil)
+	}
+	return resolved, nil
+}
+
+func serveSignerAsset(
+	c router.Context,
+	cfg registerConfig,
+	contract services.SignerAssetContract,
+	assetType, auditActorType string,
+) error {
+	if (!signerRoleCanAccessAsset(contract.RecipientRole, assetType)) || !signerAssetAvailable(contract, assetType) || cfg.objectStore == nil {
+		return writeSignerAssetUnavailable(c, assetType)
+	}
+	objectKey := signerAssetObjectKey(contract, assetType)
+	if objectKey == "" {
+		return writeSignerAssetUnavailable(c, assetType)
+	}
+	disposition := resolveSignerAssetDisposition(c.Query("disposition"))
+	appendSignerAssetAudit(c, cfg, auditActorType, contract, assetType, disposition)
+	if err := quickstart.ServeBinaryObject(c, quickstart.BinaryObjectResponseConfig{
+		Store:       cfg.objectStore,
+		ObjectKey:   objectKey,
+		ContentType: "application/pdf",
+		Filename:    signerAssetFilename(contract, assetType),
+		Disposition: disposition,
+	}); err != nil {
+		if !errors.Is(err, quickstart.ErrBinaryObjectUnavailable) {
+			return err
+		}
+		return writeSignerAssetUnavailable(c, assetType)
+	}
+	return nil
+}
+
+func writeSignerAssetUnavailable(c router.Context, assetType string) error {
+	return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
+		"asset": assetType,
+	})
 }
 
 func signerBootstrapHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {

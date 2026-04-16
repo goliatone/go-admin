@@ -135,35 +135,24 @@ func NewExternalPDFRemediationRunner(template PDFRemediationCommandTemplate, all
 	return &ExternalPDFRemediationRunner{template: template}, nil
 }
 
-func (r *ExternalPDFRemediationRunner) Run(ctx context.Context, input PDFRemediationRunInput) (PDFRemediationRunResult, error) {
-	if r == nil {
-		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation runner is not configured")
-	}
-	source := append([]byte{}, input.SourcePDF...)
-	if len(source) == 0 {
-		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation source payload is required")
-	}
-
+func (r *ExternalPDFRemediationRunner) prepareRun(source []byte) (string, string, func(), error) {
 	tempDir, err := os.MkdirTemp("", "esign-pdf-remediate-*")
 	if err != nil {
-		return PDFRemediationRunResult{}, fmt.Errorf("create remediation temp dir: %w", err)
+		return "", "", nil, fmt.Errorf("create remediation temp dir: %w", err)
 	}
-	defer func() {
+	cleanup := func() {
 		_ = os.RemoveAll(tempDir)
-	}()
-
+	}
 	inputPath := filepath.Join(tempDir, "input.pdf")
 	outputPath := filepath.Join(tempDir, "output.pdf")
-	writeErr := os.WriteFile(inputPath, source, 0o600)
-	if writeErr != nil {
-		return PDFRemediationRunResult{}, fmt.Errorf("write remediation input: %w", writeErr)
+	if err := os.WriteFile(inputPath, source, 0o600); err != nil {
+		cleanup()
+		return "", "", nil, fmt.Errorf("write remediation input: %w", err)
 	}
+	return inputPath, outputPath, cleanup, nil
+}
 
-	args, err := interpolateRemediationArgs(r.template.Args, inputPath, outputPath)
-	if err != nil {
-		return PDFRemediationRunResult{}, err
-	}
-
+func (r *ExternalPDFRemediationRunner) executeRun(ctx context.Context, args []string) (*limitedBuffer, *limitedBuffer, time.Time, error) {
 	timeout := r.template.Timeout
 	opCtx := ctx
 	cancel := func() {}
@@ -182,26 +171,56 @@ func (r *ExternalPDFRemediationRunner) Run(ctx context.Context, input PDFRemedia
 	runErr := cmd.Run()
 	if runErr != nil {
 		if opCtx.Err() == context.DeadlineExceeded {
-			return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation command timed out after %s", timeout)
+			return nil, nil, time.Time{}, fmt.Errorf("pdf remediation command timed out after %s", timeout)
 		}
-		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation command failed: %w", runErr)
+		return nil, nil, time.Time{}, fmt.Errorf("pdf remediation command failed: %w", runErr)
 	}
+	return stdout, stderr, startedAt, nil
+}
 
+func (r *ExternalPDFRemediationRunner) readRunOutput(outputPath string) ([]byte, error) {
 	info, err := os.Stat(outputPath)
 	if err != nil {
-		return PDFRemediationRunResult{}, fmt.Errorf("stat remediation output: %w", err)
+		return nil, fmt.Errorf("stat remediation output: %w", err)
 	}
 	if info.Size() <= 0 {
-		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation output is empty")
+		return nil, fmt.Errorf("pdf remediation output is empty")
 	}
 	if info.Size() > r.template.MaxPDFBytes {
-		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation output exceeds max_pdf_bytes")
+		return nil, fmt.Errorf("pdf remediation output exceeds max_pdf_bytes")
 	}
 	payload, err := primitives.ReadTrustedFile(outputPath)
 	if err != nil {
-		return PDFRemediationRunResult{}, fmt.Errorf("read remediation output: %w", err)
+		return nil, fmt.Errorf("read remediation output: %w", err)
 	}
+	return payload, nil
+}
 
+func (r *ExternalPDFRemediationRunner) Run(ctx context.Context, input PDFRemediationRunInput) (PDFRemediationRunResult, error) {
+	if r == nil {
+		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation runner is not configured")
+	}
+	source := append([]byte{}, input.SourcePDF...)
+	if len(source) == 0 {
+		return PDFRemediationRunResult{}, fmt.Errorf("pdf remediation source payload is required")
+	}
+	inputPath, outputPath, cleanup, err := r.prepareRun(source)
+	if err != nil {
+		return PDFRemediationRunResult{}, err
+	}
+	defer cleanup()
+	args, err := interpolateRemediationArgs(r.template.Args, inputPath, outputPath)
+	if err != nil {
+		return PDFRemediationRunResult{}, err
+	}
+	stdout, stderr, startedAt, err := r.executeRun(ctx, args)
+	if err != nil {
+		return PDFRemediationRunResult{}, err
+	}
+	payload, err := r.readRunOutput(outputPath)
+	if err != nil {
+		return PDFRemediationRunResult{}, err
+	}
 	return PDFRemediationRunResult{
 		OutputPDF:      payload,
 		Stdout:         stdout.String(),

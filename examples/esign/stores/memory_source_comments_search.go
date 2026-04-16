@@ -25,22 +25,12 @@ func includeSourceCommentThreadRecord(record SourceCommentThreadRecord, scope Sc
 	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
 		return false
 	}
-	if query.SourceDocumentID != "" && strings.TrimSpace(record.SourceDocumentID) != strings.TrimSpace(query.SourceDocumentID) {
-		return false
-	}
-	if query.SourceRevisionID != "" && strings.TrimSpace(record.SourceRevisionID) != strings.TrimSpace(query.SourceRevisionID) {
-		return false
-	}
-	if query.ThreadID != "" && strings.TrimSpace(record.ThreadID) != strings.TrimSpace(query.ThreadID) {
-		return false
-	}
-	if query.ProviderKind != "" && strings.TrimSpace(record.ProviderKind) != strings.TrimSpace(query.ProviderKind) {
-		return false
-	}
-	if query.SyncStatus != "" && strings.TrimSpace(record.SyncStatus) != strings.TrimSpace(query.SyncStatus) {
-		return false
-	}
-	if query.Status != "" && strings.TrimSpace(record.Status) != strings.TrimSpace(query.Status) {
+	if !matchesNormalizedString(record.SourceDocumentID, query.SourceDocumentID) ||
+		!matchesNormalizedString(record.SourceRevisionID, query.SourceRevisionID) ||
+		!matchesNormalizedString(record.ThreadID, query.ThreadID) ||
+		!matchesNormalizedString(record.ProviderKind, query.ProviderKind) ||
+		!matchesNormalizedString(record.SyncStatus, query.SyncStatus) ||
+		!matchesNormalizedString(record.Status, query.Status) {
 		return false
 	}
 	return query.Status != "" || query.IncludeDeleted || !strings.EqualFold(strings.TrimSpace(record.Status), SourceCommentThreadStatusDeleted)
@@ -106,28 +96,21 @@ func includeSourceSearchDocumentRecord(record SourceSearchDocumentRecord, scope 
 	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
 		return false
 	}
-	if query.SourceDocumentID != "" && strings.TrimSpace(record.SourceDocumentID) != strings.TrimSpace(query.SourceDocumentID) {
-		return false
-	}
-	if query.SourceRevisionID != "" && strings.TrimSpace(record.SourceRevisionID) != strings.TrimSpace(query.SourceRevisionID) {
-		return false
-	}
-	if query.ResultKind != "" && strings.TrimSpace(record.ResultKind) != strings.TrimSpace(query.ResultKind) {
-		return false
-	}
-	if query.ProviderKind != "" && strings.TrimSpace(record.ProviderKind) != strings.TrimSpace(query.ProviderKind) {
-		return false
-	}
-	if query.RelationshipState != "" && strings.TrimSpace(record.RelationshipState) != strings.TrimSpace(query.RelationshipState) {
-		return false
-	}
-	if query.CommentSyncStatus != "" && strings.TrimSpace(record.CommentSyncStatus) != strings.TrimSpace(query.CommentSyncStatus) {
-		return false
-	}
-	if query.CanonicalTitle != "" && strings.TrimSpace(record.CanonicalTitle) != strings.TrimSpace(query.CanonicalTitle) {
+	if !matchesNormalizedString(record.SourceDocumentID, query.SourceDocumentID) ||
+		!matchesNormalizedString(record.SourceRevisionID, query.SourceRevisionID) ||
+		!matchesNormalizedString(record.ResultKind, query.ResultKind) ||
+		!matchesNormalizedString(record.ProviderKind, query.ProviderKind) ||
+		!matchesNormalizedString(record.RelationshipState, query.RelationshipState) ||
+		!matchesNormalizedString(record.CommentSyncStatus, query.CommentSyncStatus) ||
+		!matchesNormalizedString(record.CanonicalTitle, query.CanonicalTitle) {
 		return false
 	}
 	return query.HasComments == nil || record.HasComments == *query.HasComments
+}
+
+func matchesNormalizedString(value, filter string) bool {
+	filter = strings.TrimSpace(filter)
+	return filter == "" || strings.TrimSpace(value) == filter
 }
 
 func sourceSearchDocumentRecordLess(left, right SourceSearchDocumentRecord) bool {
@@ -400,31 +383,7 @@ func (s *InMemoryStore) DeleteSourceSearchDocuments(ctx context.Context, scope S
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for scopedID, record := range s.sourceSearchDocuments {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if query.SourceDocumentID != "" && strings.TrimSpace(record.SourceDocumentID) != strings.TrimSpace(query.SourceDocumentID) {
-			continue
-		}
-		if query.SourceRevisionID != "" && strings.TrimSpace(record.SourceRevisionID) != strings.TrimSpace(query.SourceRevisionID) {
-			continue
-		}
-		if query.ResultKind != "" && strings.TrimSpace(record.ResultKind) != strings.TrimSpace(query.ResultKind) {
-			continue
-		}
-		if query.ProviderKind != "" && strings.TrimSpace(record.ProviderKind) != strings.TrimSpace(query.ProviderKind) {
-			continue
-		}
-		if query.RelationshipState != "" && strings.TrimSpace(record.RelationshipState) != strings.TrimSpace(query.RelationshipState) {
-			continue
-		}
-		if query.CommentSyncStatus != "" && strings.TrimSpace(record.CommentSyncStatus) != strings.TrimSpace(query.CommentSyncStatus) {
-			continue
-		}
-		if query.CanonicalTitle != "" && strings.TrimSpace(record.CanonicalTitle) != strings.TrimSpace(query.CanonicalTitle) {
-			continue
-		}
-		if query.HasComments != nil && record.HasComments != *query.HasComments {
+		if !includeSourceSearchDocumentRecord(record, scope, query) {
 			continue
 		}
 		delete(s.sourceSearchDocuments, scopedID)

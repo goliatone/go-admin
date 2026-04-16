@@ -1078,40 +1078,46 @@ func resolveESignActorScope(c router.Context) stores.Scope {
 	if c == nil {
 		return stores.Scope{}
 	}
-	metadataScope := func(metadata map[string]any) stores.Scope {
-		return stores.Scope{
-			TenantID: metadataString(metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id"),
-			OrgID:    metadataString(metadata, "organization_id", "org_id", "org", "default_org_id"),
-		}
-	}
 	if actor, ok := auth.ActorFromContext(c.Context()); ok && actor != nil {
-		scope := stores.Scope{
-			TenantID: strings.TrimSpace(actor.TenantID),
-			OrgID:    strings.TrimSpace(actor.OrganizationID),
-		}
-		if scope.TenantID == "" {
-			scope.TenantID = metadataString(actor.Metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id")
-		}
-		if scope.OrgID == "" {
-			scope.OrgID = metadataString(actor.Metadata, "organization_id", "org_id", "org", "default_org_id")
-		}
+		scope := resolveESignActorMetadataScope(actor)
 		if scope.TenantID != "" || scope.OrgID != "" {
 			return scope
 		}
 	}
 	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
-		scope := metadataScope(claimsMetadata(claims))
+		scope := resolveESignMetadataScope(claimsMetadata(claims))
 		if scope.TenantID != "" || scope.OrgID != "" {
 			return scope
 		}
 	}
 	if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
-		scope := metadataScope(claimsMetadata(claims))
+		scope := resolveESignMetadataScope(claimsMetadata(claims))
 		if scope.TenantID != "" || scope.OrgID != "" {
 			return scope
 		}
 	}
 	return stores.Scope{}
+}
+
+func resolveESignMetadataScope(metadata map[string]any) stores.Scope {
+	return stores.Scope{
+		TenantID: metadataString(metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id"),
+		OrgID:    metadataString(metadata, "organization_id", "org_id", "org", "default_org_id"),
+	}
+}
+
+func resolveESignActorMetadataScope(actor *auth.ActorContext) stores.Scope {
+	scope := stores.Scope{
+		TenantID: strings.TrimSpace(actor.TenantID),
+		OrgID:    strings.TrimSpace(actor.OrganizationID),
+	}
+	if scope.TenantID == "" {
+		scope.TenantID = metadataString(actor.Metadata, "tenant_id", "tenant", "default_tenant", "default_tenant_id")
+	}
+	if scope.OrgID == "" {
+		scope.OrgID = metadataString(actor.Metadata, "organization_id", "org_id", "org", "default_org_id")
+	}
+	return scope
 }
 
 func claimsMetadata(claims auth.AuthClaims) map[string]any {

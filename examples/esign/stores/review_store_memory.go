@@ -221,7 +221,19 @@ func (s *InMemoryStore) ReplaceAgreementReviewParticipants(ctx context.Context, 
 	if !ok {
 		return notFoundError("agreement_reviews", reviewID)
 	}
+	s.removeAgreementReviewParticipants(scope, reviewID)
 
+	for _, record := range records {
+		record, err = s.prepareAgreementReviewParticipant(scope, review, reviewID, record)
+		if err != nil {
+			return err
+		}
+		s.agreementReviewParticipants[scopedKey(scope, record.ID)] = record
+	}
+	return nil
+}
+
+func (s *InMemoryStore) removeAgreementReviewParticipants(scope Scope, reviewID string) {
 	removedParticipantIDs := make([]string, 0)
 	for key, participant := range s.agreementReviewParticipants {
 		if participant.TenantID == scope.TenantID && participant.OrgID == scope.OrgID && participant.ReviewID == reviewID {
@@ -229,89 +241,96 @@ func (s *InMemoryStore) ReplaceAgreementReviewParticipants(ctx context.Context, 
 			delete(s.agreementReviewParticipants, key)
 		}
 	}
-	if len(removedParticipantIDs) > 0 {
-		removedSet := make(map[string]struct{}, len(removedParticipantIDs))
-		for _, participantID := range removedParticipantIDs {
-			removedSet[participantID] = struct{}{}
+	if len(removedParticipantIDs) == 0 {
+		return
+	}
+	removedSet := make(map[string]struct{}, len(removedParticipantIDs))
+	for _, participantID := range removedParticipantIDs {
+		removedSet[participantID] = struct{}{}
+	}
+	for key, token := range s.reviewSessionTokens {
+		if token.TenantID != scope.TenantID || token.OrgID != scope.OrgID {
+			continue
 		}
-		for key, token := range s.reviewSessionTokens {
-			if token.TenantID != scope.TenantID || token.OrgID != scope.OrgID {
-				continue
-			}
-			if _, ok := removedSet[token.ParticipantID]; !ok {
-				continue
-			}
-			delete(s.reviewSessionTokenHashIndex, token.TokenHash)
-			delete(s.reviewSessionTokens, key)
+		if _, ok := removedSet[token.ParticipantID]; !ok {
+			continue
+		}
+		delete(s.reviewSessionTokenHashIndex, token.TokenHash)
+		delete(s.reviewSessionTokens, key)
+	}
+}
+
+func (s *InMemoryStore) prepareAgreementReviewParticipant(scope Scope, review AgreementReviewRecord, reviewID string, record AgreementReviewParticipantRecord) (AgreementReviewParticipantRecord, error) {
+	record.ReviewID = reviewID
+	record.ParticipantType = NormalizeAgreementReviewParticipantType(record.ParticipantType)
+	if record.ParticipantType == "" {
+		return AgreementReviewParticipantRecord{}, invalidRecordError("agreement_review_participants", "participant_type", "unsupported participant type")
+	}
+	record.RecipientID = normalizeID(record.RecipientID)
+	record.Email = strings.TrimSpace(strings.ToLower(record.Email))
+	record.DisplayName = strings.TrimSpace(record.DisplayName)
+	switch record.ParticipantType {
+	case AgreementReviewParticipantTypeRecipient:
+		if err := s.populateRecipientReviewParticipant(scope, review.AgreementID, &record); err != nil {
+			return AgreementReviewParticipantRecord{}, err
+		}
+	case AgreementReviewParticipantTypeExternal:
+		record.RecipientID = ""
+		if record.Email == "" {
+			return AgreementReviewParticipantRecord{}, invalidRecordError("agreement_review_participants", "email", "required")
 		}
 	}
+	if normalizeID(record.ID) == "" {
+		record.ID = uuid.NewString()
+	}
+	record.ID = normalizeID(record.ID)
+	record.TenantID = scope.TenantID
+	record.OrgID = scope.OrgID
+	record.Role = strings.TrimSpace(record.Role)
+	if record.Role == "" {
+		record.Role = AgreementReviewParticipantRoleReviewer
+	}
+	record.DecisionStatus = NormalizeAgreementReviewDecision(record.DecisionStatus)
+	if record.DecisionStatus == "" {
+		return AgreementReviewParticipantRecord{}, invalidRecordError("agreement_review_participants", "decision_status", "unsupported decision status")
+	}
+	record.DecisionAt = cloneTimePtr(record.DecisionAt)
+	record.ApprovedOnBehalfByUserID = normalizeID(record.ApprovedOnBehalfByUserID)
+	record.ApprovedOnBehalfByDisplayName = strings.TrimSpace(record.ApprovedOnBehalfByDisplayName)
+	record.ApprovedOnBehalfReason = strings.TrimSpace(record.ApprovedOnBehalfReason)
+	record.ApprovedOnBehalfAt = cloneTimePtr(record.ApprovedOnBehalfAt)
+	record.CreatedAt = normalizeRecordTime(record.CreatedAt)
+	record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
+	return record, nil
+}
 
-	for _, record := range records {
-		record.ReviewID = reviewID
-		record.ParticipantType = NormalizeAgreementReviewParticipantType(record.ParticipantType)
-		if record.ParticipantType == "" {
-			return invalidRecordError("agreement_review_participants", "participant_type", "unsupported participant type")
+func (s *InMemoryStore) populateRecipientReviewParticipant(scope Scope, agreementID string, record *AgreementReviewParticipantRecord) error {
+	if record == nil || record.RecipientID == "" {
+		return invalidRecordError("agreement_review_participants", "recipient_id", "required")
+	}
+	recipientAgreementID := ""
+	if recipient, ok := s.recipients[scopedKey(scope, record.RecipientID)]; ok {
+		recipientAgreementID = recipient.AgreementID
+		if record.Email == "" {
+			record.Email = strings.TrimSpace(strings.ToLower(recipient.Email))
 		}
-		record.RecipientID = normalizeID(record.RecipientID)
-		record.Email = strings.TrimSpace(strings.ToLower(record.Email))
-		record.DisplayName = strings.TrimSpace(record.DisplayName)
-		switch record.ParticipantType {
-		case AgreementReviewParticipantTypeRecipient:
-			if record.RecipientID == "" {
-				return invalidRecordError("agreement_review_participants", "recipient_id", "required")
-			}
-			recipientAgreementID := ""
-			if recipient, ok := s.recipients[scopedKey(scope, record.RecipientID)]; ok {
-				recipientAgreementID = recipient.AgreementID
-				if record.Email == "" {
-					record.Email = strings.TrimSpace(strings.ToLower(recipient.Email))
-				}
-				if record.DisplayName == "" {
-					record.DisplayName = strings.TrimSpace(recipient.Name)
-				}
-			}
-			if recipientAgreementID == "" {
-				if participant, ok := s.participants[scopedKey(scope, record.RecipientID)]; ok {
-					recipientAgreementID = participant.AgreementID
-					if record.Email == "" {
-						record.Email = strings.TrimSpace(strings.ToLower(participant.Email))
-					}
-					if record.DisplayName == "" {
-						record.DisplayName = strings.TrimSpace(participant.Name)
-					}
-				}
-			}
-			if recipientAgreementID != review.AgreementID {
-				return invalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
-			}
-		case AgreementReviewParticipantTypeExternal:
-			record.RecipientID = ""
+		if record.DisplayName == "" {
+			record.DisplayName = strings.TrimSpace(recipient.Name)
+		}
+	}
+	if recipientAgreementID == "" {
+		if participant, ok := s.participants[scopedKey(scope, record.RecipientID)]; ok {
+			recipientAgreementID = participant.AgreementID
 			if record.Email == "" {
-				return invalidRecordError("agreement_review_participants", "email", "required")
+				record.Email = strings.TrimSpace(strings.ToLower(participant.Email))
+			}
+			if record.DisplayName == "" {
+				record.DisplayName = strings.TrimSpace(participant.Name)
 			}
 		}
-		if normalizeID(record.ID) == "" {
-			record.ID = uuid.NewString()
-		}
-		record.ID = normalizeID(record.ID)
-		record.TenantID = scope.TenantID
-		record.OrgID = scope.OrgID
-		record.Role = strings.TrimSpace(record.Role)
-		if record.Role == "" {
-			record.Role = AgreementReviewParticipantRoleReviewer
-		}
-		record.DecisionStatus = NormalizeAgreementReviewDecision(record.DecisionStatus)
-		if record.DecisionStatus == "" {
-			return invalidRecordError("agreement_review_participants", "decision_status", "unsupported decision status")
-		}
-		record.DecisionAt = cloneTimePtr(record.DecisionAt)
-		record.ApprovedOnBehalfByUserID = normalizeID(record.ApprovedOnBehalfByUserID)
-		record.ApprovedOnBehalfByDisplayName = strings.TrimSpace(record.ApprovedOnBehalfByDisplayName)
-		record.ApprovedOnBehalfReason = strings.TrimSpace(record.ApprovedOnBehalfReason)
-		record.ApprovedOnBehalfAt = cloneTimePtr(record.ApprovedOnBehalfAt)
-		record.CreatedAt = normalizeRecordTime(record.CreatedAt)
-		record.UpdatedAt = normalizeRecordTime(record.UpdatedAt)
-		s.agreementReviewParticipants[scopedKey(scope, record.ID)] = record
+	}
+	if recipientAgreementID != agreementID {
+		return invalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
 	}
 	return nil
 }
@@ -464,19 +483,7 @@ func (s *InMemoryStore) ListAgreementCommentThreads(ctx context.Context, scope S
 
 	out := make([]AgreementCommentThreadRecord, 0)
 	for _, record := range s.agreementCommentThreads {
-		if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
-			continue
-		}
-		if record.AgreementID != agreementID {
-			continue
-		}
-		if reviewID != "" && record.ReviewID != reviewID {
-			continue
-		}
-		if visibility != "" && record.Visibility != visibility {
-			continue
-		}
-		if status != "" && record.Status != status {
+		if !includeAgreementCommentThreadRecord(record, scope, agreementID, reviewID, visibility, status) {
 			continue
 		}
 		out = append(out, record)
@@ -499,6 +506,22 @@ func (s *InMemoryStore) ListAgreementCommentThreads(ctx context.Context, scope S
 		end = start + query.Limit
 	}
 	return out[start:end], nil
+}
+
+func includeAgreementCommentThreadRecord(record AgreementCommentThreadRecord, scope Scope, agreementID, reviewID, visibility, status string) bool {
+	if record.TenantID != scope.TenantID || record.OrgID != scope.OrgID {
+		return false
+	}
+	if record.AgreementID != agreementID {
+		return false
+	}
+	if reviewID != "" && record.ReviewID != reviewID {
+		return false
+	}
+	if visibility != "" && record.Visibility != visibility {
+		return false
+	}
+	return status == "" || record.Status == status
 }
 
 func (s *InMemoryStore) CreateAgreementCommentMessage(ctx context.Context, scope Scope, record AgreementCommentMessageRecord) (AgreementCommentMessageRecord, error) {
