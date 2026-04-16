@@ -63,7 +63,7 @@ func TestBlockDefinitionFieldTypesGroupingAndOrder(t *testing.T) {
 		t.Fatalf("unexpected text field types order: %v", got)
 	}
 
-	mediaExpected := []string{"image", "file"}
+	mediaExpected := []string{"media-picker", "media-gallery", "file-upload"}
 	if got := fieldTypeIDs(groups[1].FieldTypes); !reflect.DeepEqual(got, mediaExpected) {
 		t.Fatalf("unexpected media field types order: %v", got)
 	}
