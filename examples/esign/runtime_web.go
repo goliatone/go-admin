@@ -1295,27 +1295,34 @@ func dedupePermissionList(input []string) []string {
 }
 
 func resolveESignAdminUserID(c router.Context) string {
-	if c != nil {
-		if actor, ok := auth.ActorFromContext(c.Context()); ok && actor != nil {
-			if subject := strings.TrimSpace(actor.Subject); subject != "" {
-				return subject
-			}
-			if actorID := strings.TrimSpace(actor.ActorID); actorID != "" {
-				return actorID
-			}
+	if c == nil {
+		return ""
+	}
+	if userID := resolveESignAdminActorID(c.Context()); userID != "" {
+		return userID
+	}
+	if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
+		if userID := firstNonEmptyValue(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
+			return userID
 		}
-		if claims, ok := auth.GetClaims(c.Context()); ok && claims != nil {
-			if userID := firstNonEmptyValue(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
-				return userID
-			}
-		}
-		if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
-			if userID := firstNonEmptyValue(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
-				return userID
-			}
+	}
+	if claims, ok := auth.GetRouterClaims(c, ""); ok && claims != nil {
+		if userID := firstNonEmptyValue(strings.TrimSpace(claims.UserID()), strings.TrimSpace(claims.Subject())); userID != "" {
+			return userID
 		}
 	}
 	return ""
+}
+
+func resolveESignAdminActorID(ctx context.Context) string {
+	actor, ok := auth.ActorFromContext(ctx)
+	if !ok || actor == nil {
+		return ""
+	}
+	if subject := strings.TrimSpace(actor.Subject); subject != "" {
+		return subject
+	}
+	return strings.TrimSpace(actor.ActorID)
 }
 
 func resolveGoogleAccountID(c router.Context) string {
@@ -1828,88 +1835,17 @@ func renderSignerCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBas
 
 	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
 	if err != nil {
-		// For complete page, some token errors are expected (e.g., token revoked after completion)
-		// Show a generic completion message
-		viewCtx := router.ViewContext{
-			"token":         token,
-			"api_base_path": apiBasePath,
-			"agreement": map[string]any{
-				"title":     "Document",
-				"completed": true,
-			},
-			"signed_at": time.Now().Format("January 2, 2006"),
-		}
-		viewCtx = withESignPageConfig(
-			viewCtx,
-			buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
-		)
-		return templateview.RenderTemplateView(c, "esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+		return renderSignerFallbackCompletePage(c, cfg, apiBasePath, token)
 	}
 
 	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
 	if err != nil {
-		// Still show completion page even if session fails
-		viewCtx := router.ViewContext{
-			"token":         token,
-			"api_base_path": apiBasePath,
-			"agreement": map[string]any{
-				"title":     "Document",
-				"completed": true,
-			},
-			"signed_at": time.Now().Format("January 2, 2006"),
-		}
-		viewCtx = withESignPageConfig(
-			viewCtx,
-			buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
-		)
-		return templateview.RenderTemplateView(c, "esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+		return renderSignerFallbackCompletePage(c, cfg, apiBasePath, token)
 	}
 
-	viewCtx := router.ViewContext{
-		"token":         token,
-		"api_base_path": apiBasePath,
-		"agreement": map[string]any{
-			"title":     "Agreement",
-			"status":    session.AgreementStatus,
-			"completed": session.AgreementStatus == stores.AgreementStatusCompleted,
-		},
-		"session":   sessionToViewContext(session),
-		"signed_at": time.Now().Format("January 2, 2006"),
-	}
-
-	if cfg.AssetContractService != nil {
-		if contract, err := cfg.AssetContractService.Resolve(c.Context(), cfg.DefaultScope, tokenRecord); err == nil {
-			assetBaseURL := path.Join(strings.TrimSpace(apiBasePath), "assets", url.PathEscape(token))
-			assetURLs := map[string]string{}
-			if contract.SourceDocumentAvailable {
-				assetURLs["source_url"] = assetBaseURL + "?asset=source"
-			}
-			if contract.ExecutedArtifactAvailable {
-				assetURLs["executed_url"] = assetBaseURL + "?asset=executed"
-			}
-			if contract.CertificateAvailable {
-				assetURLs["certificate_url"] = assetBaseURL + "?asset=certificate"
-			}
-			if len(assetURLs) > 0 {
-				viewCtx["artifact_urls"] = assetURLs
-				downloadURL := firstNonEmptyValue(strings.TrimSpace(assetURLs["executed_url"]), "")
-				if downloadURL == "" {
-					downloadURL = firstNonEmptyValue(strings.TrimSpace(assetURLs["certificate_url"]), "")
-				}
-				if downloadURL == "" {
-					downloadURL = firstNonEmptyValue(strings.TrimSpace(assetURLs["source_url"]), "")
-				}
-				if downloadURL != "" {
-					viewCtx["download_url"] = downloadURL
-				}
-			}
-		}
-	}
-	viewCtx = withESignPageConfig(
-		viewCtx,
-		buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
-	)
-	return templateview.RenderTemplateView(c, "esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+	viewCtx := buildSignerCompleteViewContext(apiBasePath, token, session)
+	applySignerCompleteAssetContract(c, cfg, apiBasePath, token, tokenRecord, viewCtx)
+	return renderSignerCompleteTemplate(c, cfg, apiBasePath, token, viewCtx)
 }
 
 func renderSignerDeclinedPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string) error {
@@ -1931,24 +1867,117 @@ func renderSignerDeclinedPage(c router.Context, cfg SignerWebRouteConfig, apiBas
 		},
 	}
 
-	// Try to load session for additional context, but don't fail if unavailable
-	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
-	if err == nil {
-		session, sessionErr := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
-		if sessionErr == nil {
-			viewCtx["agreement"] = map[string]any{
-				"title":        "Agreement",
-				"sender_email": "",
-			}
-			viewCtx["session"] = sessionToViewContext(session)
-		}
-	}
+	applySignerDeclinedSessionContext(c, cfg, token, viewCtx)
 	viewCtx = withESignPageConfig(
 		viewCtx,
 		buildESignSignerPageConfig(eSignPageSignerDeclined, cfg.AssetBasePath, apiBasePath, token),
 	)
 
 	return templateview.RenderTemplateView(c, "esign-signer/declined", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+}
+
+func renderSignerFallbackCompletePage(c router.Context, cfg SignerWebRouteConfig, apiBasePath string, token string) error {
+	return renderSignerCompleteTemplate(c, cfg, apiBasePath, token, router.ViewContext{
+		"token":         token,
+		"api_base_path": apiBasePath,
+		"agreement": map[string]any{
+			"title":     "Document",
+			"completed": true,
+		},
+		"signed_at": time.Now().Format("January 2, 2006"),
+	})
+}
+
+func buildSignerCompleteViewContext(apiBasePath string, token string, session services.SignerSessionContext) router.ViewContext {
+	return router.ViewContext{
+		"token":         token,
+		"api_base_path": apiBasePath,
+		"agreement": map[string]any{
+			"title":     "Agreement",
+			"status":    session.AgreementStatus,
+			"completed": session.AgreementStatus == stores.AgreementStatusCompleted,
+		},
+		"session":   sessionToViewContext(session),
+		"signed_at": time.Now().Format("January 2, 2006"),
+	}
+}
+
+func applySignerCompleteAssetContract(
+	c router.Context,
+	cfg SignerWebRouteConfig,
+	apiBasePath string,
+	token string,
+	tokenRecord stores.SigningTokenRecord,
+	viewCtx router.ViewContext,
+) {
+	if viewCtx == nil || cfg.AssetContractService == nil {
+		return
+	}
+	contract, err := cfg.AssetContractService.Resolve(c.Context(), cfg.DefaultScope, tokenRecord)
+	if err != nil {
+		return
+	}
+	assetURLs := signerCompleteAssetURLs(apiBasePath, token, contract)
+	if len(assetURLs) == 0 {
+		return
+	}
+	viewCtx["artifact_urls"] = assetURLs
+	if downloadURL := signerCompleteDownloadURL(assetURLs); downloadURL != "" {
+		viewCtx["download_url"] = downloadURL
+	}
+}
+
+func signerCompleteAssetURLs(apiBasePath string, token string, contract services.SignerAssetContract) map[string]string {
+	assetBaseURL := path.Join(strings.TrimSpace(apiBasePath), "assets", url.PathEscape(token))
+	assetURLs := map[string]string{}
+	if contract.SourceDocumentAvailable {
+		assetURLs["source_url"] = assetBaseURL + "?asset=source"
+	}
+	if contract.ExecutedArtifactAvailable {
+		assetURLs["executed_url"] = assetBaseURL + "?asset=executed"
+	}
+	if contract.CertificateAvailable {
+		assetURLs["certificate_url"] = assetBaseURL + "?asset=certificate"
+	}
+	return assetURLs
+}
+
+func signerCompleteDownloadURL(assetURLs map[string]string) string {
+	return firstNonEmptyValue(
+		strings.TrimSpace(assetURLs["executed_url"]),
+		strings.TrimSpace(assetURLs["certificate_url"]),
+		strings.TrimSpace(assetURLs["source_url"]),
+	)
+}
+
+func renderSignerCompleteTemplate(
+	c router.Context,
+	cfg SignerWebRouteConfig,
+	apiBasePath string,
+	token string,
+	viewCtx router.ViewContext,
+) error {
+	viewCtx = withESignPageConfig(
+		viewCtx,
+		buildESignSignerPageConfig(eSignPageSignerComplete, cfg.AssetBasePath, apiBasePath, token),
+	)
+	return templateview.RenderTemplateView(c, "esign-signer/complete", signerTemplateViewContext(cfg, apiBasePath, viewCtx))
+}
+
+func applySignerDeclinedSessionContext(c router.Context, cfg SignerWebRouteConfig, token string, viewCtx router.ViewContext) {
+	tokenRecord, err := validateSignerToken(c.Context(), cfg, token)
+	if err != nil {
+		return
+	}
+	session, err := cfg.SigningService.GetSession(c.Context(), cfg.DefaultScope, tokenRecord)
+	if err != nil {
+		return
+	}
+	viewCtx["agreement"] = map[string]any{
+		"title":        "Agreement",
+		"sender_email": "",
+	}
+	viewCtx["session"] = sessionToViewContext(session)
 }
 
 func renderSignerErrorPage(c router.Context, cfg SignerWebRouteConfig, apiBasePath, errorCode, errorTitle, errorMessage string) error {

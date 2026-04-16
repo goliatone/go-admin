@@ -61,25 +61,52 @@ func documentsActionStateResolver(basePath string, agreements stores.AgreementSt
 }
 
 func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
+	if guard := agreementLifecycleActionGuard(action); guard != nil {
+		action.Guard = guard
+		return action
+	}
+	if guard := agreementReviewActionGuard(action); guard != nil {
+		action.Guard = guard
+		return action
+	}
+	if guard := agreementCommentActionGuard(action); guard != nil {
+		action.Guard = guard
+		return action
+	}
+	if guard := agreementDeliveryActionGuard(action); guard != nil {
+		action.Guard = guard
+		return action
+	}
+	return action
+}
+
+func agreementLifecycleActionGuard(action coreadmin.Action) coreadmin.ActionGuard {
 	switch strings.ToLower(strings.TrimSpace(action.Name)) {
 	case "edit":
-		action.Guard = agreementAllowedStatusesGuard(
+		return agreementAllowedStatusesGuard(
 			action.Name,
 			[]string{stores.AgreementStatusDraft},
 			"Draft agreements can be edited before they are sent.",
 			"esign.agreements.edit_requires_draft",
 		)
 	case "send":
-		action.Guard = agreementSendGuard(action.Name)
+		return agreementSendGuard(action.Name)
+	default:
+		return nil
+	}
+}
+
+func agreementReviewActionGuard(action coreadmin.Action) coreadmin.ActionGuard {
+	switch strings.ToLower(strings.TrimSpace(action.Name)) {
 	case "request_review":
-		action.Guard = agreementDraftReviewGuard(
+		return agreementDraftReviewGuard(
 			action.Name,
 			[]string{stores.AgreementReviewStatusNone, ""},
 			"Review can only be requested for draft agreements that do not already have an active review.",
 			"esign.agreements.request_review_requires_draft_without_active_review",
 		)
 	case "reopen_review":
-		action.Guard = agreementDraftReviewGuard(
+		return agreementDraftReviewGuard(
 			action.Name,
 			[]string{
 				stores.AgreementReviewStatusChangesRequested,
@@ -90,21 +117,21 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 			"esign.agreements.reopen_review_requires_prior_review",
 		)
 	case "notify_reviewers":
-		action.Guard = agreementDraftReviewGuard(
+		return agreementDraftReviewGuard(
 			action.Name,
 			[]string{stores.AgreementReviewStatusInReview},
 			"Review notifications can only be resent while a draft agreement has an active review.",
 			"esign.agreements.notify_reviewers_requires_active_review",
 		)
 	case "pause_review_reminder", "resume_review_reminder", "send_review_reminder_now":
-		action.Guard = agreementDraftReviewGuard(
+		return agreementDraftReviewGuard(
 			action.Name,
 			[]string{stores.AgreementReviewStatusInReview},
 			"Review reminder controls can only be used while a draft agreement has an active review.",
 			"esign.agreements.review_reminder_controls_require_active_review",
 		)
 	case "close_review":
-		action.Guard = agreementDraftReviewGuard(
+		return agreementDraftReviewGuard(
 			action.Name,
 			[]string{
 				stores.AgreementReviewStatusInReview,
@@ -115,71 +142,86 @@ func withAgreementActionGuard(action coreadmin.Action) coreadmin.Action {
 			"esign.agreements.close_review_requires_active_review",
 		)
 	case "force_approve_review":
-		action.Guard = agreementReviewOverrideGuard(action.Name)
+		return agreementReviewOverrideGuard(action.Name)
 	case "approve_review_participant_on_behalf":
-		action.Guard = agreementApproveOnBehalfGuard(action.Name)
+		return agreementApproveOnBehalfGuard(action.Name)
+	default:
+		return nil
+	}
+}
+
+func agreementCommentActionGuard(action coreadmin.Action) coreadmin.ActionGuard {
+	switch strings.ToLower(strings.TrimSpace(action.Name)) {
 	case "create_comment_thread":
-		action.Guard = agreementActiveReviewGuard(
+		return agreementActiveReviewGuard(
 			action.Name,
 			true,
 			"Comments can only be added while a shared review is active and comments are enabled.",
 			"esign.agreements.create_comment_thread_requires_active_review",
 		)
 	case "reply_comment_thread":
-		action.Guard = agreementActiveReviewGuard(
+		return agreementActiveReviewGuard(
 			action.Name,
 			true,
 			"Replies can only be added while a shared review is active and comments are enabled.",
 			"esign.agreements.reply_comment_thread_requires_active_review",
 		)
 	case "resolve_comment_thread":
-		action.Guard = agreementActiveReviewGuard(
+		return agreementActiveReviewGuard(
 			action.Name,
 			false,
 			"Threads can only be resolved while a review is active.",
 			"esign.agreements.resolve_comment_thread_requires_active_review",
 		)
 	case "reopen_comment_thread":
-		action.Guard = agreementActiveReviewGuard(
+		return agreementActiveReviewGuard(
 			action.Name,
 			false,
 			"Threads can only be reopened while a review is active.",
 			"esign.agreements.reopen_comment_thread_requires_active_review",
 		)
+	default:
+		return nil
+	}
+}
+
+func agreementDeliveryActionGuard(action coreadmin.Action) coreadmin.ActionGuard {
+	switch strings.ToLower(strings.TrimSpace(action.Name)) {
 	case "resend":
-		action.Guard = agreementAllowedStatusesGuard(
+		return agreementAllowedStatusesGuard(
 			action.Name,
 			[]string{stores.AgreementStatusSent, stores.AgreementStatusInProgress},
 			"Only sent or in-progress agreements can be resent.",
 			"esign.agreements.resend_requires_active_delivery",
 		)
 	case "request_correction":
-		action.Guard = agreementAllowedStatusesGuard(
+		return agreementAllowedStatusesGuard(
 			action.Name,
 			[]string{stores.AgreementStatusSent, stores.AgreementStatusInProgress},
 			"Corrections can only be requested for sent or in-progress agreements.",
 			"esign.agreements.request_correction_requires_active_delivery",
 		)
 	case "request_amendment":
-		action.Guard = agreementAllowedStatusesGuard(
+		return agreementAllowedStatusesGuard(
 			action.Name,
 			[]string{stores.AgreementStatusCompleted},
 			"Amendments can only be requested for completed agreements.",
 			"esign.agreements.request_amendment_requires_completed",
 		)
 	case "void":
-		action.Guard = agreementAllowedStatusesGuard(
+		return agreementAllowedStatusesGuard(
 			action.Name,
 			[]string{stores.AgreementStatusSent, stores.AgreementStatusInProgress},
 			"Only sent or in-progress agreements can be voided.",
 			"esign.agreements.void_requires_active_delivery",
 		)
 	case "delete":
-		action.Guard = agreementDeleteDisabledGuard()
+		return agreementDeleteDisabledGuard()
 	case "resume_delivery":
-		action.Guard = agreementResumeDeliveryGuard()
+		return agreementResumeDeliveryGuard()
+	default:
+		return nil
 	}
-	return action
 }
 
 func agreementSendGuard(actionName string) coreadmin.ActionGuard {

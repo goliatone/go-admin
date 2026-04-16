@@ -164,6 +164,14 @@ type Handlers struct {
 	agreementChanges AgreementChangeNotifier
 }
 
+type emailSendSigningRequestExecution struct {
+	emailInput        EmailSendInput
+	emailLog          stores.EmailLogRecord
+	dispatchDelay     time.Duration
+	hasDispatchDelay  bool
+	providerMessageID string
+}
+
 type uploaderStore interface {
 	GetFile(ctx context.Context, path string) ([]byte, error)
 	UploadFile(ctx context.Context, path string, content []byte, opts ...uploader.UploadOption) (string, error)
@@ -548,148 +556,16 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 			"attempt_count":         run.AttemptCount,
 		})
 	}
-	agreement, err := h.agreements.GetAgreement(ctx, msg.Scope, msg.AgreementID)
+	execution, err := h.prepareEmailSendSigningRequest(ctx, msg, run, now, notification, templateCode, isReviewNotification, isCompletionNotification)
 	if err != nil {
-		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
+		return err
 	}
-	dispatchDelay := time.Duration(0)
-	hasDispatchDelay := agreement.SentAt != nil && !agreement.SentAt.IsZero()
-	if hasDispatchDelay {
-		dispatchDelay = now.Sub(agreement.SentAt.UTC())
+	if err := h.sendEmailSendSigningRequest(ctx, msg, run, notification, templateCode, isCompletionNotification, &execution); err != nil {
+		return err
 	}
-	recipient, err := h.resolveNotificationRecipient(ctx, msg.Scope, msg)
-	if err != nil {
-		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
-	}
-
-	emailLog, err := h.emailLogs.CreateEmailLog(ctx, msg.Scope, stores.EmailLogRecord{
-		AgreementID:   msg.AgreementID,
-		RecipientID:   msg.RecipientID,
-		TemplateCode:  templateCode,
-		Status:        "queued",
-		AttemptCount:  run.AttemptCount,
-		MaxAttempts:   run.MaxAttempts,
-		CorrelationID: run.CorrelationID,
-		CreatedAt:     now,
-		UpdatedAt:     now,
-	})
-	if err != nil {
-		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
-	}
-
-	emailInput := EmailSendInput{
-		Scope:         msg.Scope,
-		Agreement:     agreement,
-		Recipient:     recipient,
-		TemplateCode:  templateCode,
-		Notification:  notification,
-		CorrelationID: run.CorrelationID,
-	}
-	if isSigningNotification(notification) {
-		signURL := strings.TrimSpace(msg.SignURL)
-		signerToken := strings.TrimSpace(msg.SignerToken)
-		if signURL == "" && signerToken == "" && h.tokens != nil {
-			issued, issueErr := h.tokens.Issue(ctx, msg.Scope, msg.AgreementID, msg.RecipientID)
-			if issueErr != nil {
-				return h.failJob(ctx, msg.Scope, run, issueErr, msg.AgreementID, map[string]any{
-					"template_code": templateCode,
-					"notification":  notification,
-				})
-			}
-			signerToken = strings.TrimSpace(issued.Token)
-		}
-		if signURL == "" {
-			signURL = buildSignLink(signerToken)
-		}
-		if signURL == "" {
-			return h.failJob(ctx, msg.Scope, run, fmt.Errorf("missing sign link for signing notification"), msg.AgreementID, map[string]any{
-				"template_code": templateCode,
-				"notification":  notification,
-			})
-		}
-		emailInput.SignURL = signURL
-	}
-	if isReviewNotification {
-		reviewURL := strings.TrimSpace(msg.ReviewURL)
-		reviewToken := strings.TrimSpace(msg.ReviewToken)
-		if reviewURL == "" {
-			reviewURL = buildReviewLink(reviewToken)
-		}
-		if reviewURL == "" {
-			return h.failJob(ctx, msg.Scope, run, fmt.Errorf("missing review link for review notification"), msg.AgreementID, map[string]any{
-				"template_code": templateCode,
-				"notification":  notification,
-			})
-		}
-		emailInput.ReviewURL = reviewURL
-	}
-	if isCompletionNotification {
-		completionURL := strings.TrimSpace(msg.CompletionURL)
-		completionToken := strings.TrimSpace(msg.SignerToken)
-		if completionToken == "" && h.tokens != nil {
-			issued, issueErr := h.tokens.Issue(ctx, msg.Scope, msg.AgreementID, msg.RecipientID)
-			if issueErr != nil {
-				return h.failJob(ctx, msg.Scope, run, issueErr, msg.AgreementID, map[string]any{
-					"template_code": templateCode,
-					"notification":  notification,
-				})
-			}
-			completionToken = strings.TrimSpace(issued.Token)
-		}
-		if completionURL == "" {
-			completionURL = buildCompletionLink(completionToken)
-		}
-		if completionURL == "" {
-			return h.failJob(ctx, msg.Scope, run, fmt.Errorf("missing completion delivery link"), msg.AgreementID, map[string]any{
-				"template_code": templateCode,
-				"notification":  notification,
-			})
-		}
-		emailInput.CompletionURL = completionURL
-	}
-
-	if err := h.markNotificationEffectDispatching(ctx, msg.Scope, strings.TrimSpace(msg.EffectID), run); err != nil {
-		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
-	}
-	notifyAgreementChange(ctx, h.agreementChanges, msg.Scope, AgreementChangeNotification{
-		AgreementID:   strings.TrimSpace(msg.AgreementID),
-		CorrelationID: strings.TrimSpace(run.CorrelationID),
-		Sections:      sectionsForNotification(notification),
-		Status:        "accepted",
-		Message:       "Notification dispatching",
-		Metadata: map[string]any{
-			"job_name":       JobEmailSendSigningRequest,
-			"notification":   strings.TrimSpace(notification),
-			"template_code":  strings.TrimSpace(templateCode),
-			"effect_id":      strings.TrimSpace(msg.EffectID),
-			"recipient_id":   strings.TrimSpace(msg.RecipientID),
-			"participant_id": strings.TrimSpace(msg.ReviewParticipantID),
-		},
-	})
-
-	providerMessageID, sendErr := h.emailProvider.Send(ctx, emailInput)
-	if sendErr != nil {
-		if hasDispatchDelay {
-			observability.ObserveEmailDispatchStart(ctx, dispatchDelay, false)
-		}
-		if isCompletionNotification {
-			observability.ObserveCompletionDelivery(ctx, false)
-		}
-		observability.ObserveProviderResult(ctx, "email", false)
-		return h.failEmailJob(ctx, msg.Scope, run, emailLog, strings.TrimSpace(msg.EffectID), sendErr, msg.AgreementID, map[string]any{
-			"template_code": templateCode,
-		})
-	}
-	if hasDispatchDelay {
-		observability.ObserveEmailDispatchStart(ctx, dispatchDelay, true)
-	}
-	if isCompletionNotification {
-		observability.ObserveCompletionDelivery(ctx, true)
-	}
-	observability.ObserveProviderResult(ctx, "email", true)
-	if _, err := h.emailLogs.UpdateEmailLog(ctx, msg.Scope, emailLog.ID, stores.EmailLogRecord{
+	if _, err := h.emailLogs.UpdateEmailLog(ctx, msg.Scope, execution.emailLog.ID, stores.EmailLogRecord{
 		Status:            "sent",
-		ProviderMessageID: providerMessageID,
+		ProviderMessageID: execution.providerMessageID,
 		AttemptCount:      run.AttemptCount,
 		MaxAttempts:       run.MaxAttempts,
 		CorrelationID:     run.CorrelationID,
@@ -698,7 +574,7 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 	}); err != nil {
 		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
 	}
-	if err := h.finalizeNotificationEffect(ctx, msg.Scope, strings.TrimSpace(msg.EffectID), run, providerMessageID); err != nil {
+	if err := h.finalizeNotificationEffect(ctx, msg.Scope, strings.TrimSpace(msg.EffectID), run, execution.providerMessageID); err != nil {
 		return err
 	}
 	if _, err := h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, now); err != nil {
@@ -724,7 +600,7 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 				"job_name":            JobEmailSendSigningRequest,
 				"notification":        strings.TrimSpace(notification),
 				"template_code":       strings.TrimSpace(templateCode),
-				"provider_message_id": strings.TrimSpace(providerMessageID),
+				"provider_message_id": strings.TrimSpace(execution.providerMessageID),
 				"recipient_id":        strings.TrimSpace(msg.RecipientID),
 				"participant_id":      strings.TrimSpace(msg.ReviewParticipantID),
 			},
@@ -738,6 +614,221 @@ func (h Handlers) ExecuteEmailSendSigningRequest(ctx context.Context, msg EmailS
 		"attempt_count":  run.AttemptCount,
 		"correlation_id": run.CorrelationID,
 	})
+}
+
+func (h Handlers) prepareEmailSendSigningRequest(
+	ctx context.Context,
+	msg EmailSendSigningRequestMsg,
+	run stores.JobRunRecord,
+	now time.Time,
+	notification string,
+	templateCode string,
+	isReviewNotification bool,
+	isCompletionNotification bool,
+) (emailSendSigningRequestExecution, error) {
+	agreement, err := h.agreements.GetAgreement(ctx, msg.Scope, msg.AgreementID)
+	if err != nil {
+		return emailSendSigningRequestExecution{}, h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
+	}
+	dispatchDelay := time.Duration(0)
+	hasDispatchDelay := agreement.SentAt != nil && !agreement.SentAt.IsZero()
+	if hasDispatchDelay {
+		dispatchDelay = now.Sub(agreement.SentAt.UTC())
+	}
+	recipient, err := h.resolveNotificationRecipient(ctx, msg.Scope, msg)
+	if err != nil {
+		return emailSendSigningRequestExecution{}, h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
+	}
+	emailLog, err := h.emailLogs.CreateEmailLog(ctx, msg.Scope, stores.EmailLogRecord{
+		AgreementID:   msg.AgreementID,
+		RecipientID:   msg.RecipientID,
+		TemplateCode:  templateCode,
+		Status:        "queued",
+		AttemptCount:  run.AttemptCount,
+		MaxAttempts:   run.MaxAttempts,
+		CorrelationID: run.CorrelationID,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	})
+	if err != nil {
+		return emailSendSigningRequestExecution{}, h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
+	}
+	execution := emailSendSigningRequestExecution{
+		emailInput: EmailSendInput{
+			Scope:         msg.Scope,
+			Agreement:     agreement,
+			Recipient:     recipient,
+			TemplateCode:  templateCode,
+			Notification:  notification,
+			CorrelationID: run.CorrelationID,
+		},
+		emailLog:         emailLog,
+		dispatchDelay:    dispatchDelay,
+		hasDispatchDelay: hasDispatchDelay,
+	}
+	if err := h.populateNotificationURLs(ctx, msg, run, notification, templateCode, isReviewNotification, isCompletionNotification, &execution.emailInput); err != nil {
+		return emailSendSigningRequestExecution{}, err
+	}
+	return execution, nil
+}
+
+func (h Handlers) sendEmailSendSigningRequest(
+	ctx context.Context,
+	msg EmailSendSigningRequestMsg,
+	run stores.JobRunRecord,
+	notification string,
+	templateCode string,
+	isCompletionNotification bool,
+	execution *emailSendSigningRequestExecution,
+) error {
+	if execution == nil {
+		return nil
+	}
+	if err := h.markNotificationEffectDispatching(ctx, msg.Scope, strings.TrimSpace(msg.EffectID), run); err != nil {
+		return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{"template_code": templateCode})
+	}
+	notifyAgreementChange(ctx, h.agreementChanges, msg.Scope, AgreementChangeNotification{
+		AgreementID:   strings.TrimSpace(msg.AgreementID),
+		CorrelationID: strings.TrimSpace(run.CorrelationID),
+		Sections:      sectionsForNotification(notification),
+		Status:        "accepted",
+		Message:       "Notification dispatching",
+		Metadata: map[string]any{
+			"job_name":       JobEmailSendSigningRequest,
+			"notification":   strings.TrimSpace(notification),
+			"template_code":  strings.TrimSpace(templateCode),
+			"effect_id":      strings.TrimSpace(msg.EffectID),
+			"recipient_id":   strings.TrimSpace(msg.RecipientID),
+			"participant_id": strings.TrimSpace(msg.ReviewParticipantID),
+		},
+	})
+	providerMessageID, err := h.emailProvider.Send(ctx, execution.emailInput)
+	if err != nil {
+		observeEmailSendAttempt(ctx, execution.hasDispatchDelay, execution.dispatchDelay, isCompletionNotification, false)
+		return h.failEmailJob(ctx, msg.Scope, run, execution.emailLog, strings.TrimSpace(msg.EffectID), err, msg.AgreementID, map[string]any{
+			"template_code": templateCode,
+		})
+	}
+	observeEmailSendAttempt(ctx, execution.hasDispatchDelay, execution.dispatchDelay, isCompletionNotification, true)
+	execution.providerMessageID = providerMessageID
+	return nil
+}
+
+func (h Handlers) populateNotificationURLs(
+	ctx context.Context,
+	msg EmailSendSigningRequestMsg,
+	run stores.JobRunRecord,
+	notification string,
+	templateCode string,
+	isReviewNotification bool,
+	isCompletionNotification bool,
+	emailInput *EmailSendInput,
+) error {
+	if emailInput == nil {
+		return nil
+	}
+	if isSigningNotification(notification) {
+		signURL, err := h.resolveSigningNotificationURL(ctx, msg)
+		if err != nil {
+			return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{
+				"template_code": templateCode,
+				"notification":  notification,
+			})
+		}
+		emailInput.SignURL = signURL
+	}
+	if isReviewNotification {
+		reviewURL := resolveReviewNotificationURL(msg)
+		if reviewURL == "" {
+			return h.failJob(ctx, msg.Scope, run, fmt.Errorf("missing review link for review notification"), msg.AgreementID, map[string]any{
+				"template_code": templateCode,
+				"notification":  notification,
+			})
+		}
+		emailInput.ReviewURL = reviewURL
+	}
+	if isCompletionNotification {
+		completionURL, err := h.resolveCompletionNotificationURL(ctx, msg)
+		if err != nil {
+			return h.failJob(ctx, msg.Scope, run, err, msg.AgreementID, map[string]any{
+				"template_code": templateCode,
+				"notification":  notification,
+			})
+		}
+		emailInput.CompletionURL = completionURL
+	}
+	return nil
+}
+
+func (h Handlers) resolveSigningNotificationURL(ctx context.Context, msg EmailSendSigningRequestMsg) (string, error) {
+	signURL := strings.TrimSpace(msg.SignURL)
+	if signURL != "" {
+		return signURL, nil
+	}
+	signerToken, err := h.issueEmailSignerToken(ctx, msg)
+	if err != nil {
+		return "", err
+	}
+	signURL = buildSignLink(signerToken)
+	if signURL == "" {
+		return "", fmt.Errorf("missing sign link for signing notification")
+	}
+	return signURL, nil
+}
+
+func resolveReviewNotificationURL(msg EmailSendSigningRequestMsg) string {
+	reviewURL := strings.TrimSpace(msg.ReviewURL)
+	if reviewURL != "" {
+		return reviewURL
+	}
+	return buildReviewLink(strings.TrimSpace(msg.ReviewToken))
+}
+
+func (h Handlers) resolveCompletionNotificationURL(ctx context.Context, msg EmailSendSigningRequestMsg) (string, error) {
+	completionURL := strings.TrimSpace(msg.CompletionURL)
+	if completionURL != "" {
+		return completionURL, nil
+	}
+	completionToken, err := h.issueEmailSignerToken(ctx, msg)
+	if err != nil {
+		return "", err
+	}
+	completionURL = buildCompletionLink(completionToken)
+	if completionURL == "" {
+		return "", fmt.Errorf("missing completion delivery link")
+	}
+	return completionURL, nil
+}
+
+func (h Handlers) issueEmailSignerToken(ctx context.Context, msg EmailSendSigningRequestMsg) (string, error) {
+	existing := strings.TrimSpace(msg.SignerToken)
+	if existing != "" {
+		return existing, nil
+	}
+	if h.tokens == nil {
+		return "", nil
+	}
+	issued, err := h.tokens.Issue(ctx, msg.Scope, msg.AgreementID, msg.RecipientID)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(issued.Token), nil
+}
+
+func observeEmailSendAttempt(
+	ctx context.Context,
+	hasDispatchDelay bool,
+	dispatchDelay time.Duration,
+	isCompletionNotification bool,
+	succeeded bool,
+) {
+	if hasDispatchDelay {
+		observability.ObserveEmailDispatchStart(ctx, dispatchDelay, succeeded)
+	}
+	if isCompletionNotification {
+		observability.ObserveCompletionDelivery(ctx, succeeded)
+	}
+	observability.ObserveProviderResult(ctx, "email", succeeded)
 }
 
 func (h Handlers) ExecutePDFRenderPages(ctx context.Context, msg PDFRenderPagesMsg) error {
@@ -1079,14 +1170,7 @@ func (h Handlers) performGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		})
 		return replay, nil
 	}
-	if h.googleImportRuns != nil && importRunID != "" {
-		if _, markErr := h.googleImportRuns.MarkGoogleImportRunRunning(ctx, msg.Scope, importRunID, h.now()); markErr != nil {
-			observability.LogOperation(ctx, slog.LevelWarn, "job", "google_drive_import", "error", correlationID, h.now().Sub(startedAt), markErr, map[string]any{
-				"job_name":      JobGoogleDriveImport,
-				"import_run_id": importRunID,
-			})
-		}
-	}
+	h.markGoogleImportRunRunning(ctx, msg.Scope, importRunID, correlationID, startedAt)
 
 	result, err := h.googleImporter.ImportDocument(ctx, msg.Scope, services.GoogleImportInput{
 		ImportRunID:       importRunID,
@@ -1101,58 +1185,12 @@ func (h Handlers) performGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		IdempotencyKey:    dedupeKey,
 	})
 	if err != nil {
-		if h.googleImportRuns != nil && importRunID != "" {
-			code, message, details := googleImportFailureDetails(err)
-			_, _ = h.googleImportRuns.MarkGoogleImportRunFailed(ctx, msg.Scope, importRunID, stores.GoogleImportRunFailureInput{
-				ErrorCode:        code,
-				ErrorMessage:     message,
-				ErrorDetailsJSON: details,
-				CompletedAt:      h.now(),
-			})
-		}
-		observability.ObserveJobResult(ctx, JobGoogleDriveImport, false)
-		observability.LogOperation(ctx, slog.LevelWarn, "job", "google_drive_import", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
-			"job_name":       JobGoogleDriveImport,
-			"google_file_id": strings.TrimSpace(msg.GoogleFileID),
-		})
+		h.failGoogleDriveImport(ctx, msg.Scope, importRunID, correlationID, startedAt, strings.TrimSpace(msg.GoogleFileID), err)
 		return services.GoogleImportResult{}, err
 	}
 
-	if h.googleImportRuns != nil && importRunID != "" {
-		candidateStatusJSON := "[]"
-		if encoded, marshalErr := json.Marshal(result.CandidateStatus); marshalErr == nil {
-			candidateStatusJSON = string(encoded)
-		}
-		_, _ = h.googleImportRuns.MarkGoogleImportRunSucceeded(ctx, msg.Scope, importRunID, stores.GoogleImportRunSuccessInput{
-			DocumentID:          strings.TrimSpace(result.Document.ID),
-			AgreementID:         strings.TrimSpace(result.Agreement.ID),
-			SourceDocumentID:    strings.TrimSpace(result.SourceDocumentID),
-			SourceRevisionID:    strings.TrimSpace(result.SourceRevisionID),
-			SourceArtifactID:    strings.TrimSpace(result.SourceArtifactID),
-			LineageStatus:       strings.TrimSpace(result.LineageStatus),
-			FingerprintStatus:   strings.TrimSpace(result.FingerprintStatus.Status),
-			CandidateStatusJSON: candidateStatusJSON,
-			DocumentDetailURL:   strings.TrimSpace(result.DocumentDetailURL),
-			AgreementDetailURL:  strings.TrimSpace(result.AgreementDetailURL),
-			SourceMimeType:      strings.TrimSpace(result.SourceMimeType),
-			IngestionMode:       strings.TrimSpace(result.IngestionMode),
-			CompletedAt:         h.now(),
-		})
-	}
-
-	if trackAgreementJob && h.jobRuns != nil && strings.TrimSpace(result.Agreement.ID) != "" {
-		run, shouldRun, runErr := h.jobRuns.BeginJobRun(ctx, msg.Scope, stores.JobRunInput{
-			JobName:       JobGoogleDriveImport,
-			DedupeKey:     dedupeKey,
-			AgreementID:   result.Agreement.ID,
-			CorrelationID: correlationID,
-			MaxAttempts:   h.retryPolicy.resolveMaxAttempts(1),
-			AttemptedAt:   h.now(),
-		})
-		if runErr == nil && shouldRun {
-			_, _ = h.jobRuns.MarkJobRunSucceeded(ctx, msg.Scope, run.ID, h.now())
-		}
-	}
+	h.markGoogleImportRunSucceeded(ctx, msg.Scope, importRunID, result)
+	h.trackGoogleImportAgreementJob(ctx, msg.Scope, trackAgreementJob, dedupeKey, correlationID, result)
 	if h.audits != nil && strings.TrimSpace(result.Agreement.ID) != "" {
 		_ = h.appendJobAudit(ctx, msg.Scope, result.Agreement.ID, "google.import.completed", map[string]any{
 			"job_name":       JobGoogleDriveImport,
@@ -1168,6 +1206,103 @@ func (h Handlers) performGoogleDriveImport(ctx context.Context, msg GoogleDriveI
 		"account_id":     strings.TrimSpace(msg.GoogleAccountID),
 	})
 	return result, nil
+}
+
+func (h Handlers) markGoogleImportRunRunning(
+	ctx context.Context,
+	scope stores.Scope,
+	importRunID string,
+	correlationID string,
+	startedAt time.Time,
+) {
+	if h.googleImportRuns == nil || importRunID == "" {
+		return
+	}
+	if _, err := h.googleImportRuns.MarkGoogleImportRunRunning(ctx, scope, importRunID, h.now()); err != nil {
+		observability.LogOperation(ctx, slog.LevelWarn, "job", "google_drive_import", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+			"job_name":      JobGoogleDriveImport,
+			"import_run_id": importRunID,
+		})
+	}
+}
+
+func (h Handlers) failGoogleDriveImport(
+	ctx context.Context,
+	scope stores.Scope,
+	importRunID string,
+	correlationID string,
+	startedAt time.Time,
+	googleFileID string,
+	err error,
+) {
+	if h.googleImportRuns != nil && importRunID != "" {
+		code, message, details := googleImportFailureDetails(err)
+		_, _ = h.googleImportRuns.MarkGoogleImportRunFailed(ctx, scope, importRunID, stores.GoogleImportRunFailureInput{
+			ErrorCode:        code,
+			ErrorMessage:     message,
+			ErrorDetailsJSON: details,
+			CompletedAt:      h.now(),
+		})
+	}
+	observability.ObserveJobResult(ctx, JobGoogleDriveImport, false)
+	observability.LogOperation(ctx, slog.LevelWarn, "job", "google_drive_import", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
+		"job_name":       JobGoogleDriveImport,
+		"google_file_id": googleFileID,
+	})
+}
+
+func (h Handlers) markGoogleImportRunSucceeded(
+	ctx context.Context,
+	scope stores.Scope,
+	importRunID string,
+	result services.GoogleImportResult,
+) {
+	if h.googleImportRuns == nil || importRunID == "" {
+		return
+	}
+	candidateStatusJSON := "[]"
+	if encoded, err := json.Marshal(result.CandidateStatus); err == nil {
+		candidateStatusJSON = string(encoded)
+	}
+	_, _ = h.googleImportRuns.MarkGoogleImportRunSucceeded(ctx, scope, importRunID, stores.GoogleImportRunSuccessInput{
+		DocumentID:          strings.TrimSpace(result.Document.ID),
+		AgreementID:         strings.TrimSpace(result.Agreement.ID),
+		SourceDocumentID:    strings.TrimSpace(result.SourceDocumentID),
+		SourceRevisionID:    strings.TrimSpace(result.SourceRevisionID),
+		SourceArtifactID:    strings.TrimSpace(result.SourceArtifactID),
+		LineageStatus:       strings.TrimSpace(result.LineageStatus),
+		FingerprintStatus:   strings.TrimSpace(result.FingerprintStatus.Status),
+		CandidateStatusJSON: candidateStatusJSON,
+		DocumentDetailURL:   strings.TrimSpace(result.DocumentDetailURL),
+		AgreementDetailURL:  strings.TrimSpace(result.AgreementDetailURL),
+		SourceMimeType:      strings.TrimSpace(result.SourceMimeType),
+		IngestionMode:       strings.TrimSpace(result.IngestionMode),
+		CompletedAt:         h.now(),
+	})
+}
+
+func (h Handlers) trackGoogleImportAgreementJob(
+	ctx context.Context,
+	scope stores.Scope,
+	trackAgreementJob bool,
+	dedupeKey string,
+	correlationID string,
+	result services.GoogleImportResult,
+) {
+	if !trackAgreementJob || h.jobRuns == nil || strings.TrimSpace(result.Agreement.ID) == "" {
+		return
+	}
+	run, shouldRun, err := h.jobRuns.BeginJobRun(ctx, scope, stores.JobRunInput{
+		JobName:       JobGoogleDriveImport,
+		DedupeKey:     dedupeKey,
+		AgreementID:   result.Agreement.ID,
+		CorrelationID: correlationID,
+		MaxAttempts:   h.retryPolicy.resolveMaxAttempts(1),
+		AttemptedAt:   h.now(),
+	})
+	if err == nil && shouldRun {
+		_, _ = h.jobRuns.MarkJobRunSucceeded(ctx, scope, run.ID, h.now())
+	}
 }
 
 func (h Handlers) ExecuteSourceLineageProcessing(ctx context.Context, msg SourceLineageProcessingMsg) (services.SourceFingerprintBuildResult, services.SourceReconciliationResult, error) {
@@ -1390,33 +1525,59 @@ func (h Handlers) loadCompletedGoogleImportResult(ctx context.Context, scope sto
 	if strings.TrimSpace(run.CandidateStatusJSON) != "" {
 		_ = json.Unmarshal([]byte(run.CandidateStatusJSON), &result.CandidateStatus)
 	}
-	if h.documents != nil && strings.TrimSpace(run.DocumentID) != "" {
-		document, err := h.documents.Get(ctx, scope, run.DocumentID)
-		if err != nil {
-			return services.GoogleImportResult{}, false, err
-		}
-		result.Document = document
-		if result.SourceDocumentID == "" {
-			result.SourceDocumentID = strings.TrimSpace(document.SourceDocumentID)
-		}
-		if result.SourceRevisionID == "" {
-			result.SourceRevisionID = strings.TrimSpace(document.SourceRevisionID)
-		}
-		if result.SourceArtifactID == "" {
-			result.SourceArtifactID = strings.TrimSpace(document.SourceArtifactID)
-		}
+	if err := h.populateCompletedGoogleImportDocument(ctx, scope, run, &result); err != nil {
+		return services.GoogleImportResult{}, false, err
 	}
-	if h.agreements != nil && strings.TrimSpace(run.AgreementID) != "" {
-		agreement, err := h.agreements.GetAgreement(ctx, scope, run.AgreementID)
-		if err != nil {
-			return services.GoogleImportResult{}, false, err
-		}
-		result.Agreement = agreement
-		if result.SourceRevisionID == "" {
-			result.SourceRevisionID = strings.TrimSpace(agreement.SourceRevisionID)
-		}
+	if err := h.populateCompletedGoogleImportAgreement(ctx, scope, run, &result); err != nil {
+		return services.GoogleImportResult{}, false, err
 	}
 	return result, true, nil
+}
+
+func (h Handlers) populateCompletedGoogleImportDocument(
+	ctx context.Context,
+	scope stores.Scope,
+	run stores.GoogleImportRunRecord,
+	result *services.GoogleImportResult,
+) error {
+	if result == nil || h.documents == nil || strings.TrimSpace(run.DocumentID) == "" {
+		return nil
+	}
+	document, err := h.documents.Get(ctx, scope, run.DocumentID)
+	if err != nil {
+		return err
+	}
+	result.Document = document
+	if result.SourceDocumentID == "" {
+		result.SourceDocumentID = strings.TrimSpace(document.SourceDocumentID)
+	}
+	if result.SourceRevisionID == "" {
+		result.SourceRevisionID = strings.TrimSpace(document.SourceRevisionID)
+	}
+	if result.SourceArtifactID == "" {
+		result.SourceArtifactID = strings.TrimSpace(document.SourceArtifactID)
+	}
+	return nil
+}
+
+func (h Handlers) populateCompletedGoogleImportAgreement(
+	ctx context.Context,
+	scope stores.Scope,
+	run stores.GoogleImportRunRecord,
+	result *services.GoogleImportResult,
+) error {
+	if result == nil || h.agreements == nil || strings.TrimSpace(run.AgreementID) == "" {
+		return nil
+	}
+	agreement, err := h.agreements.GetAgreement(ctx, scope, run.AgreementID)
+	if err != nil {
+		return err
+	}
+	result.Agreement = agreement
+	if result.SourceRevisionID == "" {
+		result.SourceRevisionID = strings.TrimSpace(agreement.SourceRevisionID)
+	}
+	return nil
 }
 
 func jobNotFound(err error) bool {
@@ -1590,12 +1751,7 @@ func (h Handlers) RunStageActivationWorkflow(ctx context.Context, scope stores.S
 		return nil
 	}
 
-	targets := map[string]struct{}{}
-	for _, recipientID := range recipientIDs {
-		if trimmed := strings.TrimSpace(recipientID); trimmed != "" {
-			targets[trimmed] = struct{}{}
-		}
-	}
+	targets := stageActivationRecipientTargets(recipientIDs)
 	if len(targets) == 0 {
 		return nil
 	}
@@ -1607,36 +1763,7 @@ func (h Handlers) RunStageActivationWorkflow(ctx context.Context, scope stores.S
 		})
 		return err
 	}
-	var firstErr error
-	for _, recipient := range recipients {
-		recipientID := strings.TrimSpace(recipient.ID)
-		if _, ok := targets[recipientID]; !ok {
-			continue
-		}
-		if strings.TrimSpace(recipient.Role) != stores.RecipientRoleSigner {
-			continue
-		}
-		if recipient.CompletedAt != nil || recipient.DeclinedAt != nil {
-			continue
-		}
-		err := h.ExecuteEmailSendSigningRequest(ctx, EmailSendSigningRequestMsg{
-			Scope:         scope,
-			AgreementID:   agreementID,
-			RecipientID:   recipientID,
-			Notification:  string(services.NotificationSigningInvitation),
-			CorrelationID: correlationID,
-			DedupeKey: strings.Join([]string{
-				agreementID,
-				recipientID,
-				string(services.NotificationSigningInvitation),
-				"stage_activation",
-				correlationID,
-			}, "|"),
-		})
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
+	firstErr := h.dispatchStageActivationNotifications(ctx, scope, agreementID, correlationID, recipients, targets)
 	if firstErr != nil {
 		observability.LogOperation(ctx, slog.LevelWarn, "job", "stage_activation_workflow", "error", correlationID, h.now().Sub(startedAt), firstErr, map[string]any{
 			"agreement_id": strings.TrimSpace(agreementID),
@@ -1647,6 +1774,61 @@ func (h Handlers) RunStageActivationWorkflow(ctx context.Context, scope stores.S
 		"agreement_id": strings.TrimSpace(agreementID),
 	})
 	return nil
+}
+
+func stageActivationRecipientTargets(recipientIDs []string) map[string]struct{} {
+	targets := map[string]struct{}{}
+	for _, recipientID := range recipientIDs {
+		if trimmed := strings.TrimSpace(recipientID); trimmed != "" {
+			targets[trimmed] = struct{}{}
+		}
+	}
+	return targets
+}
+
+func (h Handlers) dispatchStageActivationNotifications(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	correlationID string,
+	recipients []stores.RecipientRecord,
+	targets map[string]struct{},
+) error {
+	var firstErr error
+	for _, recipient := range recipients {
+		if !shouldDispatchStageActivation(recipient, targets) {
+			continue
+		}
+		err := h.ExecuteEmailSendSigningRequest(ctx, EmailSendSigningRequestMsg{
+			Scope:         scope,
+			AgreementID:   agreementID,
+			RecipientID:   strings.TrimSpace(recipient.ID),
+			Notification:  string(services.NotificationSigningInvitation),
+			CorrelationID: correlationID,
+			DedupeKey: strings.Join([]string{
+				agreementID,
+				strings.TrimSpace(recipient.ID),
+				string(services.NotificationSigningInvitation),
+				"stage_activation",
+				correlationID,
+			}, "|"),
+		})
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+func shouldDispatchStageActivation(recipient stores.RecipientRecord, targets map[string]struct{}) bool {
+	recipientID := strings.TrimSpace(recipient.ID)
+	if _, ok := targets[recipientID]; !ok {
+		return false
+	}
+	if strings.TrimSpace(recipient.Role) != stores.RecipientRoleSigner {
+		return false
+	}
+	return recipient.CompletedAt == nil && recipient.DeclinedAt == nil
 }
 
 func (h Handlers) finalizeNotificationEffect(
@@ -1905,55 +2087,15 @@ func (h Handlers) findRecipient(ctx context.Context, scope stores.Scope, agreeme
 }
 
 func (h Handlers) resolveNotificationRecipient(ctx context.Context, scope stores.Scope, msg EmailSendSigningRequestMsg) (stores.RecipientRecord, error) {
-	if recipientID := strings.TrimSpace(msg.RecipientID); recipientID != "" {
-		recipient, err := h.findRecipient(ctx, scope, msg.AgreementID, recipientID)
-		if err == nil {
-			if strings.TrimSpace(msg.RecipientEmail) != "" {
-				recipient.Email = strings.TrimSpace(msg.RecipientEmail)
-			}
-			if strings.TrimSpace(msg.RecipientName) != "" {
-				recipient.Name = strings.TrimSpace(msg.RecipientName)
-			}
-			return recipient, nil
-		}
+	if recipient, ok, err := h.resolveDirectNotificationRecipient(ctx, scope, msg); err != nil {
+		return stores.RecipientRecord{}, err
+	} else if ok {
+		return recipient, nil
 	}
-	if participantID := strings.TrimSpace(msg.ReviewParticipantID); participantID != "" {
-		reviewID := strings.TrimSpace(msg.ReviewID)
-		if reviewID == "" {
-			review, err := h.agreements.GetAgreementReviewByAgreementID(ctx, scope, msg.AgreementID)
-			if err != nil {
-				return stores.RecipientRecord{}, err
-			}
-			reviewID = strings.TrimSpace(review.ID)
-		}
-		participants, err := h.agreements.ListAgreementReviewParticipants(ctx, scope, reviewID)
-		if err != nil {
-			return stores.RecipientRecord{}, err
-		}
-		for _, participant := range participants {
-			if strings.TrimSpace(participant.ID) != participantID {
-				continue
-			}
-			if recipientID := strings.TrimSpace(participant.RecipientID); recipientID != "" {
-				recipient, err := h.findRecipient(ctx, scope, msg.AgreementID, recipientID)
-				if err != nil {
-					return stores.RecipientRecord{}, err
-				}
-				if strings.TrimSpace(participant.Email) != "" {
-					recipient.Email = strings.TrimSpace(participant.Email)
-				}
-				if strings.TrimSpace(participant.DisplayName) != "" {
-					recipient.Name = strings.TrimSpace(participant.DisplayName)
-				}
-				return recipient, nil
-			}
-			return stores.RecipientRecord{
-				ID:    strings.TrimSpace(participant.ID),
-				Email: strings.TrimSpace(firstNonEmpty(msg.RecipientEmail, participant.Email)),
-				Name:  strings.TrimSpace(firstNonEmpty(msg.RecipientName, participant.DisplayName)),
-			}, nil
-		}
-		return stores.RecipientRecord{}, fmt.Errorf("review participant not found for agreement")
+	if recipient, ok, err := h.resolveReviewParticipantNotificationRecipient(ctx, scope, msg); err != nil {
+		return stores.RecipientRecord{}, err
+	} else if ok {
+		return recipient, nil
 	}
 	if email := strings.TrimSpace(msg.RecipientEmail); email != "" {
 		return stores.RecipientRecord{
@@ -1963,6 +2105,80 @@ func (h Handlers) resolveNotificationRecipient(ctx context.Context, scope stores
 		}, nil
 	}
 	return stores.RecipientRecord{}, fmt.Errorf("notification recipient not found")
+}
+
+func (h Handlers) resolveDirectNotificationRecipient(ctx context.Context, scope stores.Scope, msg EmailSendSigningRequestMsg) (stores.RecipientRecord, bool, error) {
+	recipientID := strings.TrimSpace(msg.RecipientID)
+	if recipientID == "" {
+		return stores.RecipientRecord{}, false, nil
+	}
+	recipient, err := h.findRecipient(ctx, scope, msg.AgreementID, recipientID)
+	if err != nil {
+		return stores.RecipientRecord{}, false, nil
+	}
+	if strings.TrimSpace(msg.RecipientEmail) != "" {
+		recipient.Email = strings.TrimSpace(msg.RecipientEmail)
+	}
+	if strings.TrimSpace(msg.RecipientName) != "" {
+		recipient.Name = strings.TrimSpace(msg.RecipientName)
+	}
+	return recipient, true, nil
+}
+
+func (h Handlers) resolveReviewParticipantNotificationRecipient(ctx context.Context, scope stores.Scope, msg EmailSendSigningRequestMsg) (stores.RecipientRecord, bool, error) {
+	participantID := strings.TrimSpace(msg.ReviewParticipantID)
+	if participantID == "" {
+		return stores.RecipientRecord{}, false, nil
+	}
+	participants, err := h.listNotificationReviewParticipants(ctx, scope, msg)
+	if err != nil {
+		return stores.RecipientRecord{}, false, err
+	}
+	for _, participant := range participants {
+		if strings.TrimSpace(participant.ID) != participantID {
+			continue
+		}
+		return h.notificationRecipientFromParticipant(ctx, scope, msg, participant)
+	}
+	return stores.RecipientRecord{}, false, fmt.Errorf("review participant not found for agreement")
+}
+
+func (h Handlers) listNotificationReviewParticipants(ctx context.Context, scope stores.Scope, msg EmailSendSigningRequestMsg) ([]stores.AgreementReviewParticipantRecord, error) {
+	reviewID := strings.TrimSpace(msg.ReviewID)
+	if reviewID == "" {
+		review, err := h.agreements.GetAgreementReviewByAgreementID(ctx, scope, msg.AgreementID)
+		if err != nil {
+			return nil, err
+		}
+		reviewID = strings.TrimSpace(review.ID)
+	}
+	return h.agreements.ListAgreementReviewParticipants(ctx, scope, reviewID)
+}
+
+func (h Handlers) notificationRecipientFromParticipant(
+	ctx context.Context,
+	scope stores.Scope,
+	msg EmailSendSigningRequestMsg,
+	participant stores.AgreementReviewParticipantRecord,
+) (stores.RecipientRecord, bool, error) {
+	if recipientID := strings.TrimSpace(participant.RecipientID); recipientID != "" {
+		recipient, err := h.findRecipient(ctx, scope, msg.AgreementID, recipientID)
+		if err != nil {
+			return stores.RecipientRecord{}, false, err
+		}
+		if strings.TrimSpace(participant.Email) != "" {
+			recipient.Email = strings.TrimSpace(participant.Email)
+		}
+		if strings.TrimSpace(participant.DisplayName) != "" {
+			recipient.Name = strings.TrimSpace(participant.DisplayName)
+		}
+		return recipient, true, nil
+	}
+	return stores.RecipientRecord{
+		ID:    strings.TrimSpace(participant.ID),
+		Email: strings.TrimSpace(firstNonEmpty(msg.RecipientEmail, participant.Email)),
+		Name:  strings.TrimSpace(firstNonEmpty(msg.RecipientName, participant.DisplayName)),
+	}, true, nil
 }
 
 func resolveTemplateCode(templateCode, notification string) string {

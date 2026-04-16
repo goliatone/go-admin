@@ -303,6 +303,19 @@ func validateRuntimeProviderConfiguration(cfg appcfg.Config) error {
 	if profile != "production" && profile != "prod" {
 		return nil
 	}
+	if err := validateProductionAuthConfiguration(cfg); err != nil {
+		return err
+	}
+	if err := validateProductionEmailConfiguration(cfg); err != nil {
+		return err
+	}
+	if err := validateProductionSignerUploadConfiguration(cfg); err != nil {
+		return err
+	}
+	return validateProductionGoogleConfiguration(cfg)
+}
+
+func validateProductionAuthConfiguration(cfg appcfg.Config) error {
 	if strings.TrimSpace(cfg.Auth.SeedFile) != "" {
 		return fmt.Errorf("production profile must not use APP_AUTH__SEED_FILE; configure auth credentials via environment or secure config")
 	}
@@ -330,12 +343,19 @@ func validateRuntimeProviderConfiguration(cfg appcfg.Config) error {
 	if strings.TrimSpace(cfg.Auth.AdminPassword) == defaultESignDemoAdminPassword {
 		return fmt.Errorf("production profile must override demo APP_AUTH__ADMIN_PASSWORD")
 	}
+	return nil
+}
 
-	transport := strings.ToLower(strings.TrimSpace(cfg.Email.Transport))
-	switch transport {
+func validateProductionEmailConfiguration(cfg appcfg.Config) error {
+	switch strings.ToLower(strings.TrimSpace(cfg.Email.Transport)) {
 	case "", "deterministic", "mock":
 		return fmt.Errorf("production profile requires APP_EMAIL__TRANSPORT to use a non-deterministic provider")
+	default:
+		return nil
 	}
+}
+
+func validateProductionSignerUploadConfiguration(cfg appcfg.Config) error {
 	if strings.TrimSpace(cfg.Signer.UploadSigningKey) == "" {
 		return fmt.Errorf("production profile requires APP_SIGNER__UPLOAD_SIGNING_KEY for signer upload contract signing")
 	}
@@ -346,25 +366,26 @@ func validateRuntimeProviderConfiguration(cfg appcfg.Config) error {
 	if uploadTTLSeconds < 60 || uploadTTLSeconds > 900 {
 		return fmt.Errorf("production profile requires APP_SIGNER__UPLOAD_TTL_SECONDS between 60 and 900 seconds")
 	}
-
-	if cfg.Features.ESignGoogle {
-		if !cfg.Services.ModuleEnabled {
-			return fmt.Errorf("production profile requires APP_SERVICES__MODULE_ENABLED=true when APP_FEATURES__ESIGN_GOOGLE=true")
-		}
-		if strings.TrimSpace(cfg.Google.ClientID) == "" {
-			return fmt.Errorf("production profile requires APP_GOOGLE__CLIENT_ID when APP_FEATURES__ESIGN_GOOGLE=true")
-		}
-		if strings.TrimSpace(cfg.Google.ClientSecret) == "" {
-			return fmt.Errorf("production profile requires APP_GOOGLE__CLIENT_SECRET when APP_FEATURES__ESIGN_GOOGLE=true")
-		}
-		if strings.TrimSpace(cfg.Services.EncryptionKey) == "" {
-			return fmt.Errorf("production profile requires APP_SERVICES__ENCRYPTION_KEY when APP_FEATURES__ESIGN_GOOGLE=true")
-		}
-		if err := validateGoogleOAuthRedirectURI(cfg.Google.OAuthRedirectURI); err != nil {
-			return err
-		}
-	}
 	return nil
+}
+
+func validateProductionGoogleConfiguration(cfg appcfg.Config) error {
+	if !cfg.Features.ESignGoogle {
+		return nil
+	}
+	if !cfg.Services.ModuleEnabled {
+		return fmt.Errorf("production profile requires APP_SERVICES__MODULE_ENABLED=true when APP_FEATURES__ESIGN_GOOGLE=true")
+	}
+	if strings.TrimSpace(cfg.Google.ClientID) == "" {
+		return fmt.Errorf("production profile requires APP_GOOGLE__CLIENT_ID when APP_FEATURES__ESIGN_GOOGLE=true")
+	}
+	if strings.TrimSpace(cfg.Google.ClientSecret) == "" {
+		return fmt.Errorf("production profile requires APP_GOOGLE__CLIENT_SECRET when APP_FEATURES__ESIGN_GOOGLE=true")
+	}
+	if strings.TrimSpace(cfg.Services.EncryptionKey) == "" {
+		return fmt.Errorf("production profile requires APP_SERVICES__ENCRYPTION_KEY when APP_FEATURES__ESIGN_GOOGLE=true")
+	}
+	return validateGoogleOAuthRedirectURI(cfg.Google.OAuthRedirectURI)
 }
 
 func shouldSeedESignRuntimeFixtures() bool {

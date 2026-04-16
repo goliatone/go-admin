@@ -731,6 +731,27 @@ func deriveReviewReminderParticipantSignals(
 	participant stores.AgreementReviewParticipantRecord,
 	events []stores.AuditEventRecord,
 ) (reviewReminderParticipantSignals, bool) {
+	signals, cycleStart, ok := reviewReminderCycleSignals(participant, events)
+	if !ok {
+		return reviewReminderParticipantSignals{}, false
+	}
+	if cycleStart == nil {
+		return reviewReminderParticipantSignals{}, false
+	}
+	for _, event := range events {
+		eventAt := event.CreatedAt.UTC()
+		if eventAt.Before(*cycleStart) || !reviewReminderEventMatchesReview(event, participant.ReviewID) || !reviewReminderEventApplies(event, participant) {
+			continue
+		}
+		applyReviewReminderParticipantEvent(&signals, event, eventAt)
+	}
+	return signals, true
+}
+
+func reviewReminderCycleSignals(
+	participant stores.AgreementReviewParticipantRecord,
+	events []stores.AuditEventRecord,
+) (reviewReminderParticipantSignals, *time.Time, bool) {
 	signals := reviewReminderParticipantSignals{}
 	var cycleStart *time.Time
 	for _, event := range events {
@@ -747,47 +768,48 @@ func deriveReviewReminderParticipantSignals(
 			}
 		}
 	}
-	if cycleStart == nil {
-		return reviewReminderParticipantSignals{}, false
+	return signals, cycleStart, cycleStart != nil
+}
+
+func applyReviewReminderParticipantEvent(
+	signals *reviewReminderParticipantSignals,
+	event stores.AuditEventRecord,
+	eventAt time.Time,
+) {
+	if signals == nil {
+		return
 	}
-	for _, event := range events {
-		eventAt := event.CreatedAt.UTC()
-		if eventAt.Before(*cycleStart) || !reviewReminderEventMatchesReview(event, participant.ReviewID) || !reviewReminderEventApplies(event, participant) {
-			continue
+	switch strings.TrimSpace(event.EventType) {
+	case "agreement.review_requested", "agreement.review_reopened":
+		signals.FirstSentAt = cloneServiceTimePtr(&eventAt)
+		signals.LastSentAt = cloneServiceTimePtr(&eventAt)
+		signals.LastViewedAt = nil
+		signals.LastManualResendAt = nil
+		signals.AutoReminderCount = 0
+		signals.LastReasonCode = ""
+		signals.Paused = false
+		signals.NextDueAt = nil
+		signals.pausedNextDueAt = nil
+	case "agreement.review_notified":
+		signals.LastSentAt = cloneServiceTimePtr(&eventAt)
+		if reviewReminderEventSource(event) == ReviewNotificationSourceAutoReminder {
+			signals.AutoReminderCount++
+		} else {
+			signals.LastManualResendAt = cloneServiceTimePtr(&eventAt)
 		}
-		switch strings.TrimSpace(event.EventType) {
-		case "agreement.review_requested", "agreement.review_reopened":
-			signals.FirstSentAt = cloneServiceTimePtr(&eventAt)
-			signals.LastSentAt = cloneServiceTimePtr(&eventAt)
-			signals.LastViewedAt = nil
-			signals.LastManualResendAt = nil
-			signals.AutoReminderCount = 0
-			signals.LastReasonCode = ""
-			signals.Paused = false
-			signals.NextDueAt = nil
-			signals.pausedNextDueAt = nil
-		case "agreement.review_notified":
-			signals.LastSentAt = cloneServiceTimePtr(&eventAt)
-			if reviewReminderEventSource(event) == ReviewNotificationSourceAutoReminder {
-				signals.AutoReminderCount++
-			} else {
-				signals.LastManualResendAt = cloneServiceTimePtr(&eventAt)
-			}
-		case "agreement.review_viewed":
-			signals.LastViewedAt = newerTimePtr(signals.LastViewedAt, &eventAt)
-		case "agreement.review_reminders_paused":
-			signals.Paused = true
-			signals.LastReasonCode = "paused"
-			signals.pausedNextDueAt = reviewReminderEventNextDueAt(event)
-			signals.NextDueAt = nil
-		case "agreement.review_reminders_resumed":
-			signals.Paused = false
-			signals.LastReasonCode = "resumed"
-			signals.NextDueAt = reviewReminderEventNextDueAt(event)
-			signals.pausedNextDueAt = nil
-		}
+	case "agreement.review_viewed":
+		signals.LastViewedAt = newerTimePtr(signals.LastViewedAt, &eventAt)
+	case "agreement.review_reminders_paused":
+		signals.Paused = true
+		signals.LastReasonCode = "paused"
+		signals.pausedNextDueAt = reviewReminderEventNextDueAt(event)
+		signals.NextDueAt = nil
+	case "agreement.review_reminders_resumed":
+		signals.Paused = false
+		signals.LastReasonCode = "resumed"
+		signals.NextDueAt = reviewReminderEventNextDueAt(event)
+		signals.pausedNextDueAt = nil
 	}
-	return signals, true
 }
 
 func deriveReviewReminderState(

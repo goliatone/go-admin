@@ -728,7 +728,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 					return 0
 				}
 				var parsed int
-				if _, err := fmt.Sscan(trimmed, &parsed); err == nil {
+				if _, scanErr := fmt.Sscan(trimmed, &parsed); scanErr == nil {
 					return parsed
 				}
 			}
@@ -739,63 +739,11 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		m.store,
 		services.WithIntegrationAuditStore(m.store),
 	)
-	if m.googleEnabled {
-		googleProvider, providerMode, err := services.NewGoogleProviderFromEnv()
-		if err != nil {
-			return fmt.Errorf("esign module: google provider: %w", err)
-		}
-		if m.services != nil {
-			opts := make([]services.GoogleServicesIntegrationOption, 0, 1)
-			if lineageStore != nil {
-				opts = append(opts, services.WithGoogleServicesLineageStore(lineageStore))
-			}
-			if sourceCommentSync != nil {
-				opts = append(opts, services.WithGoogleServicesSourceCommentSyncService(sourceCommentSync))
-			}
-			if lineageProcessingTrigger != nil {
-				opts = append(opts, services.WithGoogleServicesLineageProcessingTrigger(lineageProcessingTrigger))
-			}
-			opts = append(opts, services.WithGoogleServicesPersistenceStore(m.store))
-			m.google = services.NewGoogleServicesIntegrationService(
-				m.services,
-				googleProvider,
-				providerMode,
-				m.documents,
-				m.agreements,
-				opts...,
-			)
-		} else {
-			googleCipher, cipherErr := services.NewGoogleCredentialCipher(context.Background(), services.NewEnvGoogleCredentialKeyProvider())
-			if cipherErr != nil {
-				return fmt.Errorf("esign module: google credential key provider: %w", cipherErr)
-			}
-			opts := []services.GoogleIntegrationOption{
-				services.WithGoogleCipher(googleCipher),
-				services.WithGoogleProviderMode(providerMode),
-			}
-			if lineageStore != nil {
-				opts = append(opts, services.WithGoogleLineageStore(lineageStore))
-			}
-			if sourceCommentSync != nil {
-				opts = append(opts, services.WithGoogleSourceCommentSyncService(sourceCommentSync))
-			}
-			if lineageProcessingTrigger != nil {
-				opts = append(opts, services.WithGoogleLineageProcessingTrigger(lineageProcessingTrigger))
-			}
-			m.google = services.NewGoogleIntegrationService(
-				m.store,
-				googleProvider,
-				m.documents,
-				m.agreements,
-				opts...,
-			)
-		}
-		googleImportJobDeps := jobHandlerDeps
-		googleImportJobDeps.GoogleImporter = m.google
-		durableJobs.RegisterHandler(jobs.JobGoogleDriveImport, jobs.NewHandlers(googleImportJobDeps).HandleGoogleDriveImportJob)
+	if googleErr := m.configureGoogleIntegration(jobHandlerDeps, durableJobs, lineageStore, sourceCommentSync, lineageProcessingTrigger); googleErr != nil {
+		return googleErr
 	}
-	if err := m.validateGoogleRuntimeWiring(context.Background(), resolveESignStrictStartup()); err != nil {
-		return err
+	if validateErr := m.validateGoogleRuntimeWiring(context.Background(), resolveESignStrictStartup()); validateErr != nil {
+		return validateErr
 	}
 	m.activityMap = NewAuditActivityProjector(ctx.Admin.ActivityFeed(), m.store)
 	notificationRecovery := services.NewAgreementNotificationRecoveryService(
@@ -824,7 +772,7 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	if m.agreementEvents != nil {
 		registerOptions = append(registerOptions, commands.WithAgreementEventPublisher(m.agreementEvents))
 	}
-	if err := commands.Register(
+	if registerErr := commands.Register(
 		ctx.Admin.Commands(),
 		m.agreements,
 		m.tokens,
@@ -834,18 +782,18 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		m.defaultScope,
 		m.activityMap,
 		registerOptions...,
-	); err != nil {
-		return err
+	); registerErr != nil {
+		return registerErr
 	}
-	if err := m.registerPanels(ctx.Admin); err != nil {
-		return err
+	if panelErr := m.registerPanels(ctx.Admin); panelErr != nil {
+		return panelErr
 	}
-	if err := m.registerPanelTabs(ctx.Admin); err != nil {
-		return err
+	if tabsErr := m.registerPanelTabs(ctx.Admin); tabsErr != nil {
+		return tabsErr
 	}
 	m.registerDashboardProviders(ctx.Admin)
-	if err := ensureDefaultRoleMappings(ctx.Admin); err != nil {
-		return err
+	if rolesErr := ensureDefaultRoleMappings(ctx.Admin); rolesErr != nil {
+		return rolesErr
 	}
 
 	m.routes = handlers.BuildRouteSet(ctx.Admin.URLs(), ctx.Admin.BasePath(), ctx.Admin.AdminAPIGroup())
@@ -853,33 +801,9 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	if routeRouter == nil {
 		routeRouter = ctx.Router
 	}
-	var sourceReadModels services.SourceReadModelService
-	var lineageDiagnostics services.LineageDiagnosticsService
-	if lineageStore, ok := any(m.store).(stores.LineageStore); ok {
-		if sourceSearch == nil {
-			searchService, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
-				Lineage: lineageStore,
-			})
-			if err != nil {
-				return err
-			}
-			sourceSearch = searchService
-		}
-		sourceReadModels = services.NewDefaultSourceReadModelService(
-			m.store,
-			m.store,
-			lineageStore,
-			services.WithSourceReadModelImportRuns(m.store),
-			services.WithSourceReadModelJobRuns(m.store),
-			services.WithSourceReadModelSearchService(sourceSearch),
-		)
-		lineageDiagnostics = services.NewDefaultLineageDiagnosticsService(
-			m.store,
-			m.store,
-			lineageStore,
-			services.WithSourceReadModelImportRuns(m.store),
-			services.WithSourceReadModelJobRuns(m.store),
-		)
+	sourceReadModels, lineageDiagnostics, err := m.resolveSourceManagementReadModels(sourceSearch)
+	if err != nil {
+		return err
 	}
 	m.sourceReadModels = sourceReadModels
 	m.sourceDiagnostics = lineageDiagnostics
@@ -964,6 +888,120 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		return err
 	}
 	return nil
+}
+
+func (m *ESignModule) configureGoogleIntegration(
+	jobHandlerDeps jobs.HandlerDependencies,
+	durableJobs *jobs.DurableJobRuntime,
+	lineageStore stores.LineageStore,
+	sourceCommentSync services.SourceCommentSyncService,
+	lineageProcessingTrigger services.SourceLineageProcessingTrigger,
+) error {
+	if !m.googleEnabled {
+		return nil
+	}
+	googleProvider, providerMode, err := services.NewGoogleProviderFromEnv()
+	if err != nil {
+		return fmt.Errorf("esign module: google provider: %w", err)
+	}
+	googleIntegration, err := m.newGoogleIntegrationService(googleProvider, providerMode, lineageStore, sourceCommentSync, lineageProcessingTrigger)
+	if err != nil {
+		return err
+	}
+	m.google = googleIntegration
+	googleImportJobDeps := jobHandlerDeps
+	googleImportJobDeps.GoogleImporter = m.google
+	durableJobs.RegisterHandler(jobs.JobGoogleDriveImport, jobs.NewHandlers(googleImportJobDeps).HandleGoogleDriveImportJob)
+	return nil
+}
+
+func (m *ESignModule) newGoogleIntegrationService(
+	googleProvider services.GoogleProvider,
+	providerMode string,
+	lineageStore stores.LineageStore,
+	sourceCommentSync services.SourceCommentSyncService,
+	lineageProcessingTrigger services.SourceLineageProcessingTrigger,
+) (googleIntegrationService, error) {
+	if m.services != nil {
+		opts := make([]services.GoogleServicesIntegrationOption, 0, 4)
+		if lineageStore != nil {
+			opts = append(opts, services.WithGoogleServicesLineageStore(lineageStore))
+		}
+		if sourceCommentSync != nil {
+			opts = append(opts, services.WithGoogleServicesSourceCommentSyncService(sourceCommentSync))
+		}
+		if lineageProcessingTrigger != nil {
+			opts = append(opts, services.WithGoogleServicesLineageProcessingTrigger(lineageProcessingTrigger))
+		}
+		opts = append(opts, services.WithGoogleServicesPersistenceStore(m.store))
+		return services.NewGoogleServicesIntegrationService(
+			m.services,
+			googleProvider,
+			providerMode,
+			m.documents,
+			m.agreements,
+			opts...,
+		), nil
+	}
+
+	googleCipher, err := services.NewGoogleCredentialCipher(context.Background(), services.NewEnvGoogleCredentialKeyProvider())
+	if err != nil {
+		return nil, fmt.Errorf("esign module: google credential key provider: %w", err)
+	}
+	opts := []services.GoogleIntegrationOption{
+		services.WithGoogleCipher(googleCipher),
+		services.WithGoogleProviderMode(providerMode),
+	}
+	if lineageStore != nil {
+		opts = append(opts, services.WithGoogleLineageStore(lineageStore))
+	}
+	if sourceCommentSync != nil {
+		opts = append(opts, services.WithGoogleSourceCommentSyncService(sourceCommentSync))
+	}
+	if lineageProcessingTrigger != nil {
+		opts = append(opts, services.WithGoogleLineageProcessingTrigger(lineageProcessingTrigger))
+	}
+	return services.NewGoogleIntegrationService(
+		m.store,
+		googleProvider,
+		m.documents,
+		m.agreements,
+		opts...,
+	), nil
+}
+
+func (m *ESignModule) resolveSourceManagementReadModels(
+	sourceSearch services.SourceSearchService,
+) (services.SourceReadModelService, services.LineageDiagnosticsService, error) {
+	lineageStore, ok := any(m.store).(stores.LineageStore)
+	if !ok {
+		return nil, nil, nil
+	}
+	if sourceSearch == nil {
+		searchService, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
+			Lineage: lineageStore,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		sourceSearch = searchService
+	}
+	sourceReadModels := services.NewDefaultSourceReadModelService(
+		m.store,
+		m.store,
+		lineageStore,
+		services.WithSourceReadModelImportRuns(m.store),
+		services.WithSourceReadModelJobRuns(m.store),
+		services.WithSourceReadModelSearchService(sourceSearch),
+	)
+	lineageDiagnostics := services.NewDefaultLineageDiagnosticsService(
+		m.store,
+		m.store,
+		lineageStore,
+		services.WithSourceReadModelImportRuns(m.store),
+		services.WithSourceReadModelJobRuns(m.store),
+	)
+	return sourceReadModels, lineageDiagnostics, nil
 }
 
 func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {

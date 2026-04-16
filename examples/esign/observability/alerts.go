@@ -54,55 +54,54 @@ type Alert struct {
 
 // EvaluateAlerts returns active alerts for provider/job failure rates above policy thresholds.
 func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
-	if policy.ProviderFailureRatePercentThreshold <= 0 {
-		policy.ProviderFailureRatePercentThreshold = DefaultAlertPolicy().ProviderFailureRatePercentThreshold
-	}
-	if policy.JobFailureRatePercentThreshold <= 0 {
-		policy.JobFailureRatePercentThreshold = DefaultAlertPolicy().JobFailureRatePercentThreshold
-	}
-	if policy.GoogleImportFailureTotalThreshold <= 0 {
-		policy.GoogleImportFailureTotalThreshold = DefaultAlertPolicy().GoogleImportFailureTotalThreshold
-	}
-	if policy.GoogleAuthChurnTotalThreshold <= 0 {
-		policy.GoogleAuthChurnTotalThreshold = DefaultAlertPolicy().GoogleAuthChurnTotalThreshold
-	}
-	if policy.SignerLinkOpenRatePercentFloor <= 0 {
-		policy.SignerLinkOpenRatePercentFloor = DefaultAlertPolicy().SignerLinkOpenRatePercentFloor
-	}
-	if policy.SignerSubmitConversionPercentFloor <= 0 {
-		policy.SignerSubmitConversionPercentFloor = DefaultAlertPolicy().SignerSubmitConversionPercentFloor
-	}
-	if policy.CompletionDeliverySuccessRateFloor <= 0 {
-		policy.CompletionDeliverySuccessRateFloor = DefaultAlertPolicy().CompletionDeliverySuccessRateFloor
-	}
-	if policy.PDFIngestAnalyzeFailTotalThreshold <= 0 {
-		policy.PDFIngestAnalyzeFailTotalThreshold = DefaultAlertPolicy().PDFIngestAnalyzeFailTotalThreshold
-	}
-	if policy.PDFIngestPolicyRejectTotalThreshold <= 0 {
-		policy.PDFIngestPolicyRejectTotalThreshold = DefaultAlertPolicy().PDFIngestPolicyRejectTotalThreshold
-	}
-	if policy.PDFPreviewFallbackTotalThreshold <= 0 {
-		policy.PDFPreviewFallbackTotalThreshold = DefaultAlertPolicy().PDFPreviewFallbackTotalThreshold
-	}
-	if policy.PDFRenderImportFailTotalThreshold <= 0 {
-		policy.PDFRenderImportFailTotalThreshold = DefaultAlertPolicy().PDFRenderImportFailTotalThreshold
-	}
-	if policy.DedupStoreMissTotalThreshold <= 0 {
-		policy.DedupStoreMissTotalThreshold = DefaultAlertPolicy().DedupStoreMissTotalThreshold
-	}
-	if policy.RemediationRetryingTotalThreshold <= 0 {
-		policy.RemediationRetryingTotalThreshold = DefaultAlertPolicy().RemediationRetryingTotalThreshold
-	}
-	if policy.RemediationDeadLetterTotalThreshold <= 0 {
-		policy.RemediationDeadLetterTotalThreshold = DefaultAlertPolicy().RemediationDeadLetterTotalThreshold
-	}
-	if policy.RemediationLockContentionThreshold <= 0 {
-		policy.RemediationLockContentionThreshold = DefaultAlertPolicy().RemediationLockContentionThreshold
-	}
-	if policy.RemediationLockTimeoutThreshold <= 0 {
-		policy.RemediationLockTimeoutThreshold = DefaultAlertPolicy().RemediationLockTimeoutThreshold
-	}
+	policy = normalizedAlertPolicy(policy)
+	alerts := []Alert{}
+	alerts = append(alerts, evaluateProviderAlerts(snapshot, policy)...)
+	alerts = append(alerts, evaluateJobAlerts(snapshot, policy)...)
+	alerts = append(alerts, evaluateGoogleAlerts(snapshot, policy)...)
+	alerts = append(alerts, evaluateSignerAlerts(snapshot, policy)...)
+	alerts = append(alerts, evaluatePDFAccessAlerts(snapshot, policy)...)
+	alerts = append(alerts, evaluateRemediationAlerts(snapshot, policy)...)
+	alerts = append(alerts, evaluateSLOThresholdAlerts(snapshot)...)
+	return alerts
+}
 
+func normalizedAlertPolicy(policy AlertPolicy) AlertPolicy {
+	defaults := DefaultAlertPolicy()
+	policy.ProviderFailureRatePercentThreshold = alertFloat64OrDefault(policy.ProviderFailureRatePercentThreshold, defaults.ProviderFailureRatePercentThreshold)
+	policy.JobFailureRatePercentThreshold = alertFloat64OrDefault(policy.JobFailureRatePercentThreshold, defaults.JobFailureRatePercentThreshold)
+	policy.GoogleImportFailureTotalThreshold = alertInt64OrDefault(policy.GoogleImportFailureTotalThreshold, defaults.GoogleImportFailureTotalThreshold)
+	policy.GoogleAuthChurnTotalThreshold = alertInt64OrDefault(policy.GoogleAuthChurnTotalThreshold, defaults.GoogleAuthChurnTotalThreshold)
+	policy.SignerLinkOpenRatePercentFloor = alertFloat64OrDefault(policy.SignerLinkOpenRatePercentFloor, defaults.SignerLinkOpenRatePercentFloor)
+	policy.SignerSubmitConversionPercentFloor = alertFloat64OrDefault(policy.SignerSubmitConversionPercentFloor, defaults.SignerSubmitConversionPercentFloor)
+	policy.CompletionDeliverySuccessRateFloor = alertFloat64OrDefault(policy.CompletionDeliverySuccessRateFloor, defaults.CompletionDeliverySuccessRateFloor)
+	policy.PDFIngestAnalyzeFailTotalThreshold = alertInt64OrDefault(policy.PDFIngestAnalyzeFailTotalThreshold, defaults.PDFIngestAnalyzeFailTotalThreshold)
+	policy.PDFIngestPolicyRejectTotalThreshold = alertInt64OrDefault(policy.PDFIngestPolicyRejectTotalThreshold, defaults.PDFIngestPolicyRejectTotalThreshold)
+	policy.PDFPreviewFallbackTotalThreshold = alertInt64OrDefault(policy.PDFPreviewFallbackTotalThreshold, defaults.PDFPreviewFallbackTotalThreshold)
+	policy.PDFRenderImportFailTotalThreshold = alertInt64OrDefault(policy.PDFRenderImportFailTotalThreshold, defaults.PDFRenderImportFailTotalThreshold)
+	policy.DedupStoreMissTotalThreshold = alertInt64OrDefault(policy.DedupStoreMissTotalThreshold, defaults.DedupStoreMissTotalThreshold)
+	policy.RemediationRetryingTotalThreshold = alertInt64OrDefault(policy.RemediationRetryingTotalThreshold, defaults.RemediationRetryingTotalThreshold)
+	policy.RemediationDeadLetterTotalThreshold = alertInt64OrDefault(policy.RemediationDeadLetterTotalThreshold, defaults.RemediationDeadLetterTotalThreshold)
+	policy.RemediationLockContentionThreshold = alertInt64OrDefault(policy.RemediationLockContentionThreshold, defaults.RemediationLockContentionThreshold)
+	policy.RemediationLockTimeoutThreshold = alertInt64OrDefault(policy.RemediationLockTimeoutThreshold, defaults.RemediationLockTimeoutThreshold)
+	return policy
+}
+
+func alertFloat64OrDefault(value, fallback float64) float64 {
+	if value > 0 {
+		return value
+	}
+	return fallback
+}
+
+func alertInt64OrDefault(value, fallback int64) int64 {
+	if value > 0 {
+		return value
+	}
+	return fallback
+}
+
+func evaluateProviderAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 	alerts := []Alert{}
 	for provider, failures := range snapshot.ProviderFailureByName {
 		successes := snapshot.ProviderSuccessByName[provider]
@@ -123,7 +122,11 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
+	return alerts
+}
 
+func evaluateJobAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
+	alerts := []Alert{}
 	for jobName, failures := range snapshot.JobFailureByName {
 		successes := snapshot.JobSuccessByName[jobName]
 		rate := failureRatePercent(successes, failures)
@@ -143,7 +146,11 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
+	return alerts
+}
 
+func evaluateGoogleAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
+	alerts := []Alert{}
 	if snapshot.GoogleImportFailureTotal >= policy.GoogleImportFailureTotalThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "google.import_failures_detected",
@@ -157,7 +164,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	if snapshot.GoogleAuthChurnTotal >= policy.GoogleAuthChurnTotalThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "google.auth_churn_high",
@@ -170,7 +176,11 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
+	return alerts
+}
 
+func evaluateSignerAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
+	alerts := []Alert{}
 	linkOpenRate := snapshot.SignerLinkOpenRatePercent()
 	if linkOpenRate < policy.SignerLinkOpenRatePercentFloor {
 		alerts = append(alerts, Alert{
@@ -185,7 +195,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	submitConversion := snapshot.SignerSubmitConversionPercent()
 	if submitConversion < policy.SignerSubmitConversionPercentFloor {
 		alerts = append(alerts, Alert{
@@ -200,7 +209,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	completionRate := snapshot.CompletionDeliverySuccessRatePercent()
 	if completionRate < policy.CompletionDeliverySuccessRateFloor {
 		alerts = append(alerts, Alert{
@@ -215,7 +223,11 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
+	return alerts
+}
 
+func evaluatePDFAccessAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
+	alerts := []Alert{}
 	if snapshot.PDFIngestAnalyzeFailTotal >= policy.PDFIngestAnalyzeFailTotalThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "pdf.ingest_analyze_failures_high",
@@ -228,7 +240,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	if snapshot.PDFIngestPolicyRejectTotal >= policy.PDFIngestPolicyRejectTotalThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "pdf.ingest_policy_rejects_high",
@@ -242,7 +253,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	if snapshot.PDFPreviewFallbackTotal >= policy.PDFPreviewFallbackTotalThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "pdf.preview_fallback_high",
@@ -255,7 +265,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	if snapshot.PDFRenderImportFailTotal >= policy.PDFRenderImportFailTotalThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "pdf.render_import_failures_high",
@@ -268,7 +277,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	if snapshot.DedupStoreMissTotal >= policy.DedupStoreMissTotalThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "command.dedup_store_miss_detected",
@@ -283,7 +291,11 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
+	return alerts
+}
 
+func evaluateRemediationAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
+	alerts := []Alert{}
 	if snapshot.RemediationRetryingTotal >= policy.RemediationRetryingTotalThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "pdf.remediation_retrying_high",
@@ -296,7 +308,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	if snapshot.RemediationDeadLetterTotal >= policy.RemediationDeadLetterTotalThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "pdf.remediation_dead_letter_high",
@@ -309,7 +320,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	if snapshot.RemediationLockContentionTotal >= policy.RemediationLockContentionThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "pdf.remediation_lock_contention_high",
@@ -322,7 +332,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
 	if snapshot.RemediationLockTimeoutTotal >= policy.RemediationLockTimeoutThreshold {
 		alerts = append(alerts, Alert{
 			Code:     "pdf.remediation_lock_timeout_high",
@@ -335,9 +344,6 @@ func EvaluateAlerts(snapshot MetricsSnapshot, policy AlertPolicy) []Alert {
 			},
 		})
 	}
-
-	alerts = append(alerts, evaluateSLOThresholdAlerts(snapshot)...)
-
 	return alerts
 }
 

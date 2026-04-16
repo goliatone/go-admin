@@ -21,6 +21,37 @@ import (
 	router "github.com/goliatone/go-router"
 )
 
+type signerSigningTokenResolver func(router.Context) (stores.SigningTokenRecord, error)
+type signerMutationObserver func(router.Context, time.Time, bool)
+type signerMutationExecutor func(router.Context, stores.SigningTokenRecord) (map[string]any, error)
+
+type signerFieldValuePayload struct {
+	FieldInstanceID   string `json:"field_instance_id"`
+	FieldDefinitionID string `json:"field_definition_id"`
+	ValueText         string `json:"value_text,omitempty"`
+	ValueBool         *bool  `json:"value_bool,omitempty"`
+	ExpectedVersion   int64  `json:"expected_version,omitempty"`
+}
+
+type signerSignaturePayload struct {
+	FieldInstanceID   string `json:"field_instance_id"`
+	FieldDefinitionID string `json:"field_definition_id"`
+	Type              string `json:"type"`
+	ObjectKey         string `json:"object_key"`
+	SHA256            string `json:"sha256"`
+	UploadToken       string `json:"upload_token,omitempty"`
+	ValueText         string `json:"value_text,omitempty"`
+	ExpectedVersion   int64  `json:"expected_version,omitempty"`
+}
+
+type signerSignatureUploadPayload struct {
+	FieldInstanceID   string `json:"field_instance_id"`
+	FieldDefinitionID string `json:"field_definition_id"`
+	SHA256            string `json:"sha256"`
+	ContentType       string `json:"content_type,omitempty"`
+	SizeBytes         int64  `json:"size_bytes,omitempty"`
+}
+
 func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	registerSignerPublicReviewRoutes(r, routes, cfg)
 	registerSignerProfileRoutes(r, routes, cfg)
@@ -29,6 +60,12 @@ func registerSignerRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg register
 }
 
 func registerSignerPublicReviewRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
+	registerSignerPublicReviewSessionRoutes(r, routes, cfg)
+	registerSignerPublicReviewThreadRoutes(r, routes, cfg)
+	registerSignerPublicReviewDecisionRoutes(r, routes, cfg)
+}
+
+func registerSignerPublicReviewSessionRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Get(routes.SignerSession, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -80,7 +117,16 @@ func registerSignerPublicReviewRoutes(r coreadmin.AdminRouter, routes RouteSet, 
 			"token":  token,
 		})
 	})
+}
 
+func registerSignerPublicReviewThreadRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
+	registerSignerReviewThreadListRoute(r, routes, cfg)
+	registerSignerReviewThreadCreateRoute(r, routes, cfg)
+	registerSignerReviewThreadReplyRoute(r, routes, cfg)
+	registerSignerReviewThreadStateRoutes(r, routes, cfg)
+}
+
+func registerSignerReviewThreadListRoute(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Get(routes.SignerReviewThreads, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -108,7 +154,9 @@ func registerSignerPublicReviewRoutes(r coreadmin.AdminRouter, routes RouteSet, 
 			"threads": threads,
 		})
 	})
+}
 
+func registerSignerReviewThreadCreateRoute(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Post(routes.SignerReviewThreads, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -143,7 +191,9 @@ func registerSignerPublicReviewRoutes(r coreadmin.AdminRouter, routes RouteSet, 
 			"thread": thread,
 		})
 	})
+}
 
+func registerSignerReviewThreadReplyRoute(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Post(routes.SignerReviewThreadReplies, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -180,7 +230,9 @@ func registerSignerPublicReviewRoutes(r coreadmin.AdminRouter, routes RouteSet, 
 			"thread": thread,
 		})
 	})
+}
 
+func registerSignerReviewThreadStateRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Post(routes.SignerReviewThreadResolve, func(c router.Context) error {
 		return signerReviewThreadStateHandler(c, cfg, true)
 	})
@@ -188,7 +240,9 @@ func registerSignerPublicReviewRoutes(r coreadmin.AdminRouter, routes RouteSet, 
 	r.Post(routes.SignerReviewThreadReopen, func(c router.Context) error {
 		return signerReviewThreadStateHandler(c, cfg, false)
 	})
+}
 
+func registerSignerPublicReviewDecisionRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Post(routes.SignerReviewApprove, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -256,10 +310,15 @@ func registerSignerPublicReviewRoutes(r coreadmin.AdminRouter, routes RouteSet, 
 			"review": summary,
 		})
 	})
-
 }
 
 func registerSignerProfileRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
+	registerSignerProfileCRUDRoutes(r, routes, cfg)
+	registerSignerSavedSignatureRoutes(r, routes, cfg)
+	registerSignerProfileAssetRoutes(r, routes, cfg)
+}
+
+func registerSignerProfileCRUDRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Get(routes.SignerProfile, signerProfileGetHandler(cfg, signerProfileSubjectFromTokenParam(cfg)))
 
 	registerSignerPatchRoute(r, routes.SignerProfile, func(c router.Context) error {
@@ -302,7 +361,9 @@ func registerSignerProfileRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg r
 	})
 
 	r.Delete(routes.SignerProfile, signerProfileDeleteHandler(cfg, signerProfileSubjectFromTokenParam(cfg)))
+}
 
+func registerSignerSavedSignatureRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Get(routes.SignerSavedSignatures, signerSavedSignaturesListHandler(cfg, signerProfileSubjectFromTokenParam(cfg)))
 
 	r.Post(routes.SignerSavedSignatures, func(c router.Context) error {
@@ -344,7 +405,9 @@ func registerSignerProfileRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg r
 	})
 
 	r.Delete(routes.SignerSavedSignature, signerSavedSignatureDeleteHandler(cfg, signerProfileSubjectFromTokenParam(cfg)))
+}
 
+func registerSignerProfileAssetRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
 	r.Get(routes.SignerAssets, signerAssetsHandler(routes, cfg))
 
 	r.Post(routes.SignerTelemetry, func(c router.Context) error {
@@ -381,257 +444,19 @@ func registerSignerProfileRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg r
 }
 
 func registerSignerAssetAndWorkflowRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
-	r.Post(routes.SignerConsent, func(c router.Context) error {
-		if err := enforceTransportSecurity(c, cfg); err != nil {
-			return asHandlerError(err)
-		}
-		token := strings.TrimSpace(c.Param("token"))
-		if token == "" {
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
-		}
-		if err := enforceRateLimit(c, cfg, OperationSignerConsent); err != nil {
-			return asHandlerError(err)
-		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
-		if err != nil {
-			return asHandlerError(err)
-		}
-		if cfg.signerSession == nil {
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
-		}
-		var payload services.SignerConsentInput
-		err = c.Bind(&payload)
-		if err != nil {
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid consent payload", nil)
-		}
-		payload.IPAddress = resolveAuditRequestIP(c, cfg)
-		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
-		result, err := cfg.signerSession.CaptureConsent(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
-		if err != nil {
-			return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to capture consent", nil)
-		}
-		return c.JSON(http.StatusOK, map[string]any{
-			"status":  "accepted",
-			"consent": result,
-		})
-	})
+	registerSignerConsentRoutes(r, routes, cfg)
+	registerSignerSigningMutationRoutes(r, routes, cfg)
+	registerSignerSubmitRoutes(r, routes, cfg)
+}
 
-	r.Post(routes.SignerFieldValues, func(c router.Context) error {
-		startedAt := time.Now()
-		unifiedFlow := isUnifiedFlowRequest(c)
-		if err := enforceTransportSecurity(c, cfg); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		token := strings.TrimSpace(c.Param("token"))
-		if token == "" {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
-		}
-		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
-		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		if cfg.signerSession == nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
-		}
-		var payload struct {
-			FieldInstanceID   string `json:"field_instance_id"`
-			FieldDefinitionID string `json:"field_definition_id"`
-			ValueText         string `json:"value_text,omitempty"`
-			ValueBool         *bool  `json:"value_bool,omitempty"`
-			ExpectedVersion   int64  `json:"expected_version,omitempty"`
-		}
-		err = c.Bind(&payload)
-		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field value payload", nil)
-		}
-		if strings.TrimSpace(payload.FieldInstanceID) == "" {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
-		}
-		value, err := cfg.signerSession.UpsertFieldValue(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerFieldValueInput{
-			FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
-			FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
-			ValueText:         payload.ValueText,
-			ValueBool:         payload.ValueBool,
-			ExpectedVersion:   payload.ExpectedVersion,
-			IPAddress:         resolveAuditRequestIP(c, cfg),
-			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
-		})
-		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to upsert field value", nil)
-		}
-		if unifiedFlow {
-			observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), true)
-		}
-		return c.JSON(http.StatusOK, map[string]any{
-			"status":      "ok",
-			"field_value": value,
-		})
-	})
+func registerSignerConsentRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
+	r.Post(routes.SignerConsent, signerConsentHandler(cfg, signerSigningTokenFromParam(cfg)))
+}
 
-	r.Post(routes.SignerSignature, func(c router.Context) error {
-		startedAt := time.Now()
-		unifiedFlow := isUnifiedFlowRequest(c)
-		if err := enforceTransportSecurity(c, cfg); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		token := strings.TrimSpace(c.Param("token"))
-		if token == "" {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
-		}
-		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
-		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		if cfg.signerSession == nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
-		}
-		var payload struct {
-			FieldInstanceID   string `json:"field_instance_id"`
-			FieldDefinitionID string `json:"field_definition_id"`
-			Type              string `json:"type"`
-			ObjectKey         string `json:"object_key"`
-			SHA256            string `json:"sha256"`
-			UploadToken       string `json:"upload_token,omitempty"`
-			ValueText         string `json:"value_text,omitempty"`
-			ExpectedVersion   int64  `json:"expected_version,omitempty"`
-		}
-		err = c.Bind(&payload)
-		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature payload", nil)
-		}
-		if strings.TrimSpace(payload.FieldInstanceID) == "" {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
-		}
-		result, err := cfg.signerSession.AttachSignatureArtifact(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerSignatureInput{
-			FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
-			FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
-			Type:              strings.TrimSpace(payload.Type),
-			ObjectKey:         strings.TrimSpace(payload.ObjectKey),
-			SHA256:            strings.TrimSpace(payload.SHA256),
-			UploadToken:       strings.TrimSpace(payload.UploadToken),
-			ValueText:         payload.ValueText,
-			ExpectedVersion:   payload.ExpectedVersion,
-			IPAddress:         resolveAuditRequestIP(c, cfg),
-			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
-		})
-		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to attach signature", nil)
-		}
-		if unifiedFlow {
-			observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), true)
-		}
-		return c.JSON(http.StatusOK, map[string]any{
-			"status":    "ok",
-			"signature": result,
-		})
-	})
-
-	r.Post(routes.SignerSignatureUpload, func(c router.Context) error {
-		if err := enforceTransportSecurity(c, cfg); err != nil {
-			return asHandlerError(err)
-		}
-		token := strings.TrimSpace(c.Param("token"))
-		if token == "" {
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
-		}
-		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
-			return asHandlerError(err)
-		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
-		if err != nil {
-			return asHandlerError(err)
-		}
-		if cfg.signerSession == nil {
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
-		}
-		var payload struct {
-			FieldInstanceID   string `json:"field_instance_id"`
-			FieldDefinitionID string `json:"field_definition_id"`
-			SHA256            string `json:"sha256"`
-			ContentType       string `json:"content_type,omitempty"`
-			SizeBytes         int64  `json:"size_bytes,omitempty"`
-		}
-		err = c.Bind(&payload)
-		if err != nil {
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature upload payload", nil)
-		}
-		if strings.TrimSpace(payload.FieldInstanceID) == "" {
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
-		}
-		contract, err := cfg.signerSession.IssueSignatureUpload(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerSignatureUploadInput{
-			FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
-			FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
-			SHA256:            strings.TrimSpace(payload.SHA256),
-			ContentType:       strings.TrimSpace(payload.ContentType),
-			SizeBytes:         payload.SizeBytes,
-			IPAddress:         resolveAuditRequestIP(c, cfg),
-			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
-		})
-		if err != nil {
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to issue signature upload contract", nil)
-		}
-		contract.UploadURL = strings.TrimSpace(routes.SignerSignatureObject)
-		c.SetHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate, private")
-		c.SetHeader("Pragma", "no-cache")
-		return c.JSON(http.StatusOK, map[string]any{
-			"status":   "ok",
-			"contract": contract,
-		})
-	})
+func registerSignerSigningMutationRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
+	r.Post(routes.SignerFieldValues, signerFieldValuesHandler(cfg, signerSigningTokenFromParam(cfg)))
+	r.Post(routes.SignerSignature, signerSignatureHandler(cfg, signerSigningTokenFromParam(cfg)))
+	r.Post(routes.SignerSignatureUpload, signerSignatureUploadHandler(routes.SignerSignatureObject, cfg, signerSigningTokenFromParam(cfg)))
 
 	r.Put(routes.SignerSignatureObject, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
@@ -677,119 +502,8 @@ func registerSignerAssetAndWorkflowRoutes(r coreadmin.AdminRouter, routes RouteS
 		})
 	})
 
-	r.Post(routes.SignerSubmit, func(c router.Context) error {
-		startedAt := time.Now()
-		unifiedFlow := isUnifiedFlowRequest(c)
-		idempotencyKey := strings.TrimSpace(c.Header("Idempotency-Key"))
-		correlationID := apiCorrelationID(c, idempotencyKey, "signer_submit")
-		if err := enforceTransportSecurity(c, cfg); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
-			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
-			return asHandlerError(err)
-		}
-		token := strings.TrimSpace(c.Param("token"))
-		if token == "" {
-			werr := writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
-			observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), false)
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
-			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
-			return werr
-		}
-		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
-			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
-			return asHandlerError(err)
-		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
-		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
-			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
-			return asHandlerError(err)
-		}
-		if cfg.signerSession == nil {
-			werr := writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
-			observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), false)
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
-			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
-			return werr
-		}
-		result, err := cfg.signerSession.Submit(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerSubmitInput{
-			IdempotencyKey: idempotencyKey,
-			IPAddress:      resolveAuditRequestIP(c, cfg),
-			UserAgent:      strings.TrimSpace(c.Header("User-Agent")),
-		})
-		if err != nil {
-			werr := writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to submit signer completion", nil)
-			observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), false)
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
-			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
-			return werr
-		}
-		revokePublicSignerSession(c.Context(), cfg.resolveScope(c), cfg, tokenRecord)
-		respErr := c.JSON(http.StatusOK, map[string]any{
-			"status": "ok",
-			"submit": result,
-		})
-		observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), respErr == nil)
-		if unifiedFlow {
-			if respErr == nil && !result.Replay {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), true)
-			}
-		}
-		logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, respErr, map[string]any{
-			"agreement_id": strings.TrimSpace(result.Agreement.ID),
-			"completed":    result.Completed,
-		})
-		return respErr
-	})
-
-	r.Post(routes.SignerDecline, func(c router.Context) error {
-		if err := enforceTransportSecurity(c, cfg); err != nil {
-			return asHandlerError(err)
-		}
-		token := strings.TrimSpace(c.Param("token"))
-		if token == "" {
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
-		}
-		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
-			return asHandlerError(err)
-		}
-		tokenRecord, err := resolveSignerToken(c, cfg, token)
-		if err != nil {
-			return asHandlerError(err)
-		}
-		if cfg.signerSession == nil {
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
-		}
-		var payload services.SignerDeclineInput
-		err = c.Bind(&payload)
-		if err != nil {
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid decline payload", nil)
-		}
-		payload.IPAddress = resolveAuditRequestIP(c, cfg)
-		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
-		result, err := cfg.signerSession.Decline(c.Context(), cfg.resolveScope(c), tokenRecord, payload)
-		if err != nil {
-			return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to process decline", nil)
-		}
-		revokePublicSignerSession(c.Context(), cfg.resolveScope(c), cfg, tokenRecord)
-		return c.JSON(http.StatusOK, map[string]any{
-			"status":  "ok",
-			"decline": result,
-		})
-	})
+	r.Post(routes.SignerSubmit, signerSubmitHandler(cfg, signerSigningTokenFromParam(cfg)))
+	r.Post(routes.SignerDecline, signerDeclineHandler(cfg, signerSigningTokenFromParam(cfg)))
 }
 
 func registerSignerAuthenticatedRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
@@ -1407,29 +1121,10 @@ func signerAssetsAuthHandler(routes RouteSet, cfg registerConfig) router.Handler
 		if err != nil {
 			return asHandlerError(err)
 		}
-		auditActorType := "signer_token"
-		if strings.TrimSpace(publicToken.Kind) == services.PublicReviewTokenKindReview {
-			auditActorType = "review_token"
-		}
-		contract := services.SignerAssetContract{}
-		switch {
-		case publicToken.SigningToken != nil:
-			contract = services.SignerAssetContract{
-				AgreementID: strings.TrimSpace(publicToken.SigningToken.AgreementID),
-				RecipientID: strings.TrimSpace(publicToken.SigningToken.RecipientID),
-			}
-		case publicToken.ReviewToken != nil:
-			contract = services.SignerAssetContract{
-				AgreementID:   strings.TrimSpace(publicToken.ReviewToken.AgreementID),
-				RecipientID:   strings.TrimSpace(publicToken.ReviewToken.ParticipantID),
-				RecipientRole: stores.AgreementReviewParticipantRoleReviewer,
-			}
-		}
-		if cfg.signerAssets != nil {
-			contract, err = resolveSignerAssetContract(c, cfg, publicToken)
-			if err != nil {
-				return writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to resolve signer asset contract", nil)
-			}
+		auditActorType := signerAssetAuditActorType(publicToken)
+		contract, err := resolveSignerAssetContractForResponse(c, cfg, publicToken)
+		if err != nil {
+			return err
 		}
 		assets := buildSignerAssetLinks(contract, routes.SignerAssetsAuth, routes.SignerSessionAuth)
 		rawAssetType := strings.TrimSpace(c.Query("asset"))
@@ -1440,40 +1135,7 @@ func signerAssetsAuthHandler(routes RouteSet, cfg registerConfig) router.Handler
 			})
 		}
 		if assetType != "" {
-			if !signerRoleCanAccessAsset(contract.RecipientRole, assetType) || !signerAssetAvailable(contract, assetType) {
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			if cfg.objectStore == nil {
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			objectKey := signerAssetObjectKey(contract, assetType)
-			if objectKey == "" {
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			disposition := resolveSignerAssetDisposition(c.Query("disposition"))
-			filename := signerAssetFilename(contract, assetType)
-			appendSignerAssetAudit(c, cfg, auditActorType, contract, assetType, disposition)
-			if err := quickstart.ServeBinaryObject(c, quickstart.BinaryObjectResponseConfig{
-				Store:       cfg.objectStore,
-				ObjectKey:   objectKey,
-				ContentType: "application/pdf",
-				Filename:    filename,
-				Disposition: disposition,
-			}); err != nil {
-				if !errors.Is(err, quickstart.ErrBinaryObjectUnavailable) {
-					return err
-				}
-				return writeAPIError(c, nil, http.StatusNotFound, string(services.ErrorCodeAssetUnavailable), "requested asset is unavailable", map[string]any{
-					"asset": assetType,
-				})
-			}
-			return nil
+			return serveSignerAsset(c, cfg, contract, assetType, auditActorType)
 		}
 		appendSignerAssetContractAudit(c, cfg, auditActorType, contract, assets)
 		return c.JSON(http.StatusOK, map[string]any{
@@ -1513,6 +1175,35 @@ func signerTelemetryAuthHandler(routes RouteSet, cfg registerConfig) router.Hand
 }
 
 func signerConsentAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+	return signerConsentHandler(cfg, signerSigningTokenFromRequest(routes.SignerConsentAuth, cfg))
+}
+
+func signerFieldValuesAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+	return signerFieldValuesHandler(cfg, signerSigningTokenFromRequest(routes.SignerFieldValuesAuth, cfg))
+}
+
+func signerSignatureAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+	return signerSignatureHandler(cfg, signerSigningTokenFromRequest(routes.SignerSignatureAuth, cfg))
+}
+
+func signerSignatureUploadAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+	return signerSignatureUploadHandler(routes.SignerSignatureObject, cfg, signerSigningTokenFromRequest(routes.SignerSignatureUploadAuth, cfg))
+}
+
+func signerSubmitAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+	return signerSubmitHandler(cfg, signerSigningTokenFromRequest(routes.SignerSubmitAuth, cfg))
+}
+
+func signerDeclineAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+	return signerDeclineHandler(cfg, signerSigningTokenFromRequest(routes.SignerDeclineAuth, cfg))
+}
+
+func registerSignerSubmitRoutes(r coreadmin.AdminRouter, routes RouteSet, cfg registerConfig) {
+	r.Post(routes.SignerSubmit, signerSubmitHandler(cfg, signerSigningTokenFromParam(cfg)))
+	r.Post(routes.SignerDecline, signerDeclineHandler(cfg, signerSigningTokenFromParam(cfg)))
+}
+
+func signerConsentHandler(cfg registerConfig, resolveToken signerSigningTokenResolver) router.HandlerFunc {
 	return func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -1520,17 +1211,16 @@ func signerConsentAuthHandler(routes RouteSet, cfg registerConfig) router.Handle
 		if err := enforceRateLimit(c, cfg, OperationSignerConsent); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveRequestSigningToken(c, cfg, routes.SignerConsentAuth)
+		tokenRecord, err := resolveToken(c)
 		if err != nil {
-			return asHandlerError(err)
+			return err
 		}
 		if cfg.signerSession == nil {
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
 		var payload services.SignerConsentInput
-		err = c.Bind(&payload)
-		if err != nil {
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid consent payload", nil)
+		if bindErr := c.Bind(&payload); bindErr != nil {
+			return writeAPIError(c, bindErr, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid consent payload", nil)
 		}
 		payload.IPAddress = resolveAuditRequestIP(c, cfg)
 		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
@@ -1545,161 +1235,41 @@ func signerConsentAuthHandler(routes RouteSet, cfg registerConfig) router.Handle
 	}
 }
 
-func signerFieldValuesAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
-	return func(c router.Context) error {
-		startedAt := time.Now()
-		unifiedFlow := isUnifiedFlowRequest(c)
-		if err := enforceTransportSecurity(c, cfg); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		tokenRecord, err := resolveRequestSigningToken(c, cfg, routes.SignerFieldValuesAuth)
+func signerFieldValuesHandler(cfg registerConfig, resolveToken signerSigningTokenResolver) router.HandlerFunc {
+	return signerSessionMutationHandler(cfg, resolveToken, observeSignerFieldSave, func(c router.Context, tokenRecord stores.SigningTokenRecord) (map[string]any, error) {
+		input, err := bindSignerFieldValueInput(c, cfg)
 		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
+			return nil, err
 		}
-		if cfg.signerSession == nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
-		}
-		var payload struct {
-			FieldInstanceID   string `json:"field_instance_id"`
-			FieldDefinitionID string `json:"field_definition_id"`
-			ValueText         string `json:"value_text,omitempty"`
-			ValueBool         *bool  `json:"value_bool,omitempty"`
-			ExpectedVersion   int64  `json:"expected_version,omitempty"`
-		}
-		err = c.Bind(&payload)
+		value, err := cfg.signerSession.UpsertFieldValue(c.Context(), cfg.resolveScope(c), tokenRecord, input)
 		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field value payload", nil)
+			return nil, writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to upsert field value", nil)
 		}
-		if strings.TrimSpace(payload.FieldInstanceID) == "" {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
-		}
-		value, err := cfg.signerSession.UpsertFieldValue(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerFieldValueInput{
-			FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
-			FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
-			ValueText:         payload.ValueText,
-			ValueBool:         payload.ValueBool,
-			ExpectedVersion:   payload.ExpectedVersion,
-			IPAddress:         resolveAuditRequestIP(c, cfg),
-			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
-		})
-		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to upsert field value", nil)
-		}
-		if unifiedFlow {
-			observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), true)
-		}
-		return c.JSON(http.StatusOK, map[string]any{
+		return map[string]any{
 			"status":      "ok",
 			"field_value": value,
-		})
-	}
+		}, nil
+	})
 }
 
-func signerSignatureAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
-	return func(c router.Context) error {
-		startedAt := time.Now()
-		unifiedFlow := isUnifiedFlowRequest(c)
-		if err := enforceTransportSecurity(c, cfg); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
-		}
-		tokenRecord, err := resolveRequestSigningToken(c, cfg, routes.SignerSignatureAuth)
+func signerSignatureHandler(cfg registerConfig, resolveToken signerSigningTokenResolver) router.HandlerFunc {
+	return signerSessionMutationHandler(cfg, resolveToken, observeSignerSignatureAttach, func(c router.Context, tokenRecord stores.SigningTokenRecord) (map[string]any, error) {
+		input, err := bindSignerSignatureInput(c, cfg)
 		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return asHandlerError(err)
+			return nil, err
 		}
-		if cfg.signerSession == nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
-		}
-		var payload struct {
-			FieldInstanceID   string `json:"field_instance_id"`
-			FieldDefinitionID string `json:"field_definition_id"`
-			Type              string `json:"type"`
-			ObjectKey         string `json:"object_key"`
-			SHA256            string `json:"sha256"`
-			UploadToken       string `json:"upload_token,omitempty"`
-			ValueText         string `json:"value_text,omitempty"`
-			ExpectedVersion   int64  `json:"expected_version,omitempty"`
-		}
-		err = c.Bind(&payload)
+		result, err := cfg.signerSession.AttachSignatureArtifact(c.Context(), cfg.resolveScope(c), tokenRecord, input)
 		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature payload", nil)
+			return nil, writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to attach signature", nil)
 		}
-		if strings.TrimSpace(payload.FieldInstanceID) == "" {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
-		}
-		result, err := cfg.signerSession.AttachSignatureArtifact(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerSignatureInput{
-			FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
-			FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
-			Type:              strings.TrimSpace(payload.Type),
-			ObjectKey:         strings.TrimSpace(payload.ObjectKey),
-			SHA256:            strings.TrimSpace(payload.SHA256),
-			UploadToken:       strings.TrimSpace(payload.UploadToken),
-			ValueText:         payload.ValueText,
-			ExpectedVersion:   payload.ExpectedVersion,
-			IPAddress:         resolveAuditRequestIP(c, cfg),
-			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
-		})
-		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), false)
-			}
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to attach signature", nil)
-		}
-		if unifiedFlow {
-			observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), true)
-		}
-		return c.JSON(http.StatusOK, map[string]any{
+		return map[string]any{
 			"status":    "ok",
 			"signature": result,
-		})
-	}
+		}, nil
+	})
 }
 
-func signerSignatureUploadAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+func signerSignatureUploadHandler(uploadURL string, cfg registerConfig, resolveToken signerSigningTokenResolver) router.HandlerFunc {
 	return func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -1707,40 +1277,22 @@ func signerSignatureUploadAuthHandler(routes RouteSet, cfg registerConfig) route
 		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveRequestSigningToken(c, cfg, routes.SignerSignatureUploadAuth)
+		tokenRecord, err := resolveToken(c)
 		if err != nil {
-			return asHandlerError(err)
+			return err
 		}
 		if cfg.signerSession == nil {
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
-		var payload struct {
-			FieldInstanceID   string `json:"field_instance_id"`
-			FieldDefinitionID string `json:"field_definition_id"`
-			SHA256            string `json:"sha256"`
-			ContentType       string `json:"content_type,omitempty"`
-			SizeBytes         int64  `json:"size_bytes,omitempty"`
-		}
-		err = c.Bind(&payload)
+		input, err := bindSignerSignatureUploadInput(c, cfg)
 		if err != nil {
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature upload payload", nil)
+			return err
 		}
-		if strings.TrimSpace(payload.FieldInstanceID) == "" {
-			return writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
-		}
-		contract, err := cfg.signerSession.IssueSignatureUpload(c.Context(), cfg.resolveScope(c), tokenRecord, services.SignerSignatureUploadInput{
-			FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
-			FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
-			SHA256:            strings.TrimSpace(payload.SHA256),
-			ContentType:       strings.TrimSpace(payload.ContentType),
-			SizeBytes:         payload.SizeBytes,
-			IPAddress:         resolveAuditRequestIP(c, cfg),
-			UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
-		})
+		contract, err := cfg.signerSession.IssueSignatureUpload(c.Context(), cfg.resolveScope(c), tokenRecord, input)
 		if err != nil {
 			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "unable to issue signature upload contract", nil)
 		}
-		contract.UploadURL = strings.TrimSpace(routes.SignerSignatureObject)
+		contract.UploadURL = strings.TrimSpace(uploadURL)
 		c.SetHeader("Cache-Control", "no-store, no-cache, max-age=0, must-revalidate, private")
 		c.SetHeader("Pragma", "no-cache")
 		return c.JSON(http.StatusOK, map[string]any{
@@ -1750,40 +1302,32 @@ func signerSignatureUploadAuthHandler(routes RouteSet, cfg registerConfig) route
 	}
 }
 
-func signerSubmitAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+func signerSubmitHandler(cfg registerConfig, resolveToken signerSigningTokenResolver) router.HandlerFunc {
 	return func(c router.Context) error {
 		startedAt := time.Now()
-		unifiedFlow := isUnifiedFlowRequest(c)
 		idempotencyKey := strings.TrimSpace(c.Header("Idempotency-Key"))
 		correlationID := apiCorrelationID(c, idempotencyKey, "signer_submit")
 		if err := enforceTransportSecurity(c, cfg); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
+			observeSignerSubmitConversion(c, false)
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
 			return asHandlerError(err)
 		}
 		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
+			observeSignerSubmitConversion(c, false)
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveRequestSigningToken(c, cfg, routes.SignerSubmitAuth)
+		tokenRecord, err := resolveToken(c)
 		if err != nil {
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
-			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
-			return asHandlerError(err)
+			observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), false)
+			observeSignerSubmitConversion(c, false)
+			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
+			return err
 		}
 		if cfg.signerSession == nil {
 			werr := writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 			observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), false)
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
+			observeSignerSubmitConversion(c, false)
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, nil, map[string]any{"outcome": "error"})
 			return werr
 		}
@@ -1795,9 +1339,7 @@ func signerSubmitAuthHandler(routes RouteSet, cfg registerConfig) router.Handler
 		if err != nil {
 			werr := writeAPIError(c, err, http.StatusConflict, string(services.ErrorCodeInvalidSignerState), "unable to submit signer completion", nil)
 			observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), false)
-			if unifiedFlow {
-				observability.ObserveUnifiedSubmitConversion(c.Context(), false)
-			}
+			observeSignerSubmitConversion(c, false)
 			logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, err, nil)
 			return werr
 		}
@@ -1807,8 +1349,8 @@ func signerSubmitAuthHandler(routes RouteSet, cfg registerConfig) router.Handler
 			"submit": result,
 		})
 		observability.ObserveSignerSubmit(c.Context(), time.Since(startedAt), respErr == nil)
-		if unifiedFlow && respErr == nil && !result.Replay {
-			observability.ObserveUnifiedSubmitConversion(c.Context(), true)
+		if respErr == nil && !result.Replay {
+			observeSignerSubmitConversion(c, true)
 		}
 		logAPIOperation(c.Context(), "signer_submit", correlationID, startedAt, respErr, map[string]any{
 			"agreement_id": strings.TrimSpace(result.Agreement.ID),
@@ -1818,7 +1360,7 @@ func signerSubmitAuthHandler(routes RouteSet, cfg registerConfig) router.Handler
 	}
 }
 
-func signerDeclineAuthHandler(routes RouteSet, cfg registerConfig) router.HandlerFunc {
+func signerDeclineHandler(cfg registerConfig, resolveToken signerSigningTokenResolver) router.HandlerFunc {
 	return func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -1826,17 +1368,16 @@ func signerDeclineAuthHandler(routes RouteSet, cfg registerConfig) router.Handle
 		if err := enforceRateLimit(c, cfg, OperationSignerSubmit); err != nil {
 			return asHandlerError(err)
 		}
-		tokenRecord, err := resolveRequestSigningToken(c, cfg, routes.SignerDeclineAuth)
+		tokenRecord, err := resolveToken(c)
 		if err != nil {
-			return asHandlerError(err)
+			return err
 		}
 		if cfg.signerSession == nil {
 			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
 		}
 		var payload services.SignerDeclineInput
-		err = c.Bind(&payload)
-		if err != nil {
-			return writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid decline payload", nil)
+		if bindErr := c.Bind(&payload); bindErr != nil {
+			return writeAPIError(c, bindErr, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid decline payload", nil)
 		}
 		payload.IPAddress = resolveAuditRequestIP(c, cfg)
 		payload.UserAgent = strings.TrimSpace(c.Header("User-Agent"))
@@ -1849,6 +1390,147 @@ func signerDeclineAuthHandler(routes RouteSet, cfg registerConfig) router.Handle
 			"status":  "ok",
 			"decline": result,
 		})
+	}
+}
+
+func signerSessionMutationHandler(
+	cfg registerConfig,
+	resolveToken signerSigningTokenResolver,
+	observe signerMutationObserver,
+	execute signerMutationExecutor,
+) router.HandlerFunc {
+	return func(c router.Context) error {
+		startedAt := time.Now()
+		if err := enforceTransportSecurity(c, cfg); err != nil {
+			observe(c, startedAt, false)
+			return asHandlerError(err)
+		}
+		if err := enforceRateLimit(c, cfg, OperationSignerWrite); err != nil {
+			observe(c, startedAt, false)
+			return asHandlerError(err)
+		}
+		tokenRecord, err := resolveToken(c)
+		if err != nil {
+			observe(c, startedAt, false)
+			return err
+		}
+		if cfg.signerSession == nil {
+			observe(c, startedAt, false)
+			return writeAPIError(c, nil, http.StatusNotImplemented, string(services.ErrorCodeInvalidSignerState), "signer service not configured", nil)
+		}
+		payload, err := execute(c, tokenRecord)
+		if err != nil {
+			observe(c, startedAt, false)
+			return err
+		}
+		if payload == nil {
+			observe(c, startedAt, false)
+			return nil
+		}
+		observe(c, startedAt, true)
+		return c.JSON(http.StatusOK, payload)
+	}
+}
+
+func signerSigningTokenFromParam(cfg registerConfig) signerSigningTokenResolver {
+	return func(c router.Context) (stores.SigningTokenRecord, error) {
+		token := strings.TrimSpace(c.Param("token"))
+		if token == "" {
+			return stores.SigningTokenRecord{}, writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "token is required", nil)
+		}
+		tokenRecord, err := resolveSignerToken(c, cfg, token)
+		if err != nil {
+			return stores.SigningTokenRecord{}, asHandlerError(err)
+		}
+		return tokenRecord, nil
+	}
+}
+
+func signerSigningTokenFromRequest(route string, cfg registerConfig) signerSigningTokenResolver {
+	return func(c router.Context) (stores.SigningTokenRecord, error) {
+		tokenRecord, err := resolveRequestSigningToken(c, cfg, route)
+		if err != nil {
+			return stores.SigningTokenRecord{}, asHandlerError(err)
+		}
+		return tokenRecord, nil
+	}
+}
+
+func bindSignerFieldValueInput(c router.Context, cfg registerConfig) (services.SignerFieldValueInput, error) {
+	var payload signerFieldValuePayload
+	if err := c.Bind(&payload); err != nil {
+		return services.SignerFieldValueInput{}, writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid field value payload", nil)
+	}
+	if strings.TrimSpace(payload.FieldInstanceID) == "" {
+		return services.SignerFieldValueInput{}, writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
+	}
+	return services.SignerFieldValueInput{
+		FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
+		FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
+		ValueText:         payload.ValueText,
+		ValueBool:         payload.ValueBool,
+		ExpectedVersion:   payload.ExpectedVersion,
+		IPAddress:         resolveAuditRequestIP(c, cfg),
+		UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
+	}, nil
+}
+
+func bindSignerSignatureInput(c router.Context, cfg registerConfig) (services.SignerSignatureInput, error) {
+	var payload signerSignaturePayload
+	if err := c.Bind(&payload); err != nil {
+		return services.SignerSignatureInput{}, writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature payload", nil)
+	}
+	if strings.TrimSpace(payload.FieldInstanceID) == "" {
+		return services.SignerSignatureInput{}, writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
+	}
+	return services.SignerSignatureInput{
+		FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
+		FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
+		Type:              strings.TrimSpace(payload.Type),
+		ObjectKey:         strings.TrimSpace(payload.ObjectKey),
+		SHA256:            strings.TrimSpace(payload.SHA256),
+		UploadToken:       strings.TrimSpace(payload.UploadToken),
+		ValueText:         payload.ValueText,
+		ExpectedVersion:   payload.ExpectedVersion,
+		IPAddress:         resolveAuditRequestIP(c, cfg),
+		UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
+	}, nil
+}
+
+func bindSignerSignatureUploadInput(c router.Context, cfg registerConfig) (services.SignerSignatureUploadInput, error) {
+	var payload signerSignatureUploadPayload
+	if err := c.Bind(&payload); err != nil {
+		return services.SignerSignatureUploadInput{}, writeAPIError(c, err, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "invalid signature upload payload", nil)
+	}
+	if strings.TrimSpace(payload.FieldInstanceID) == "" {
+		return services.SignerSignatureUploadInput{}, writeAPIError(c, nil, http.StatusBadRequest, string(services.ErrorCodeMissingRequiredFields), "field_instance_id is required", nil)
+	}
+	return services.SignerSignatureUploadInput{
+		FieldInstanceID:   strings.TrimSpace(payload.FieldInstanceID),
+		FieldDefinitionID: strings.TrimSpace(payload.FieldDefinitionID),
+		SHA256:            strings.TrimSpace(payload.SHA256),
+		ContentType:       strings.TrimSpace(payload.ContentType),
+		SizeBytes:         payload.SizeBytes,
+		IPAddress:         resolveAuditRequestIP(c, cfg),
+		UserAgent:         strings.TrimSpace(c.Header("User-Agent")),
+	}, nil
+}
+
+func observeSignerFieldSave(c router.Context, startedAt time.Time, success bool) {
+	if isUnifiedFlowRequest(c) {
+		observability.ObserveUnifiedFieldSave(c.Context(), time.Since(startedAt), success)
+	}
+}
+
+func observeSignerSignatureAttach(c router.Context, startedAt time.Time, success bool) {
+	if isUnifiedFlowRequest(c) {
+		observability.ObserveUnifiedSignatureAttach(c.Context(), time.Since(startedAt), success)
+	}
+}
+
+func observeSignerSubmitConversion(c router.Context, success bool) {
+	if isUnifiedFlowRequest(c) {
+		observability.ObserveUnifiedSubmitConversion(c.Context(), success)
 	}
 }
 

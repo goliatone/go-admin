@@ -62,6 +62,21 @@ func registerESignSourceManagementUIRoutes(
 		return nil
 	}
 
+	basePath, apiBasePath, apiESignBasePath := resolveSourceManagementRuntimeBasePaths(cfg, adm)
+	defaultScope := esignModule.DefaultScope()
+
+	return quickstart.RegisterAdminPageRoutes(r, cfg, adm, authn,
+		buildSourceBrowserPageSpec(basePath, apiBasePath, apiESignBasePath, defaultScope, sourceReadModels),
+		buildSourceDetailPageSpec(basePath, apiBasePath, apiESignBasePath, defaultScope, sourceReadModels),
+		buildSourceWorkspacePageSpec(basePath, apiBasePath, apiESignBasePath, defaultScope, sourceReadModels),
+		buildSourceRevisionPageSpec(basePath, apiBasePath, apiESignBasePath, defaultScope, sourceReadModels),
+		buildSourceCommentsPageSpec(basePath, apiBasePath, apiESignBasePath, defaultScope, sourceReadModels),
+		buildSourceArtifactsPageSpec(basePath, apiBasePath, apiESignBasePath, defaultScope, sourceReadModels),
+		buildSourceSearchPageSpec(basePath, apiBasePath, apiESignBasePath, defaultScope, sourceReadModels),
+	)
+}
+
+func resolveSourceManagementRuntimeBasePaths(cfg coreadmin.Config, adm *coreadmin.Admin) (string, string, string) {
 	basePath := strings.TrimSpace(adm.BasePath())
 	if basePath == "" {
 		basePath = strings.TrimSpace(cfg.BasePath)
@@ -70,337 +85,384 @@ func registerESignSourceManagementUIRoutes(
 		basePath = "/admin"
 	}
 	apiBasePath := strings.TrimSpace(adm.AdminAPIBasePath())
-	apiESignBasePath := path.Join(apiBasePath, "esign")
+	return basePath, apiBasePath, path.Join(apiBasePath, "esign")
+}
 
-	return quickstart.RegisterAdminPageRoutes(
-		r,
-		cfg,
-		adm,
-		authn,
-		quickstart.AdminPageSpec{
-			Path:       eSignSourceBrowserPath(basePath),
-			Template:   sourceManagementRuntimeTemplate,
-			Title:      "Source Browser",
-			Active:     "esign_sources",
-			Permission: permissions.AdminESignView,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-				page, err := sourceReadModels.ListSources(c.Context(), scope, sourceListQueryFromRequest(c))
-				if err != nil {
-					return nil, err
-				}
-				routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, "", "")
-				model := buildSourceBrowserRuntimePageModel(scope, routes, page)
-				viewCtx := router.ViewContext{
-					"routes": routes,
-				}
-				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
-					RootLabel:    "Home",
-					RootHref:     normalizeESignBasePath(basePath),
-					CurrentLabel: "Sources",
-				})
-				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
-				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
-					eSignPageSourceBrowser,
-					basePath,
-					apiESignBasePath,
-					routes,
-					map[string]any{
-						"surface": "source_browser",
-					},
-				))
-				return viewCtx, nil
-			},
+func buildSourceBrowserPageSpec(
+	basePath string,
+	apiBasePath string,
+	apiESignBasePath string,
+	defaultScope stores.Scope,
+	sourceReadModels services.SourceReadModelService,
+) quickstart.AdminPageSpec {
+	return quickstart.AdminPageSpec{
+		Path:       eSignSourceBrowserPath(basePath),
+		Template:   sourceManagementRuntimeTemplate,
+		Title:      "Source Browser",
+		Active:     "esign_sources",
+		Permission: permissions.AdminESignView,
+		BuildContext: func(c router.Context) (router.ViewContext, error) {
+			scope := resolveESignUploadScope(c, defaultScope)
+			page, err := sourceReadModels.ListSources(c.Context(), scope, sourceListQueryFromRequest(c))
+			if err != nil {
+				return nil, err
+			}
+			routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, "", "")
+			model := buildSourceBrowserRuntimePageModel(scope, routes, page)
+			viewCtx := sourceManagementRuntimeRoutesContext(routes)
+			viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
+				RootLabel:    "Home",
+				RootHref:     normalizeESignBasePath(basePath),
+				CurrentLabel: "Sources",
+			})
+			viewCtx = withESignSourceManagementPageModel(viewCtx, model)
+			return withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
+				eSignPageSourceBrowser,
+				basePath,
+				apiESignBasePath,
+				routes,
+				map[string]any{"surface": "source_browser"},
+			)), nil
 		},
-		quickstart.AdminPageSpec{
-			Path:       eSignSourceDetailPath(basePath, ":source_document_id"),
-			Template:   sourceManagementRuntimeTemplate,
-			Title:      "Source Detail",
-			Active:     "esign_sources",
-			Permission: permissions.AdminESignView,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-				sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
-				if sourceDocumentID == "" {
+	}
+}
+
+func buildSourceDetailPageSpec(
+	basePath string,
+	apiBasePath string,
+	apiESignBasePath string,
+	defaultScope stores.Scope,
+	sourceReadModels services.SourceReadModelService,
+) quickstart.AdminPageSpec {
+	return quickstart.AdminPageSpec{
+		Path:       eSignSourceDetailPath(basePath, ":source_document_id"),
+		Template:   sourceManagementRuntimeTemplate,
+		Title:      "Source Detail",
+		Active:     "esign_sources",
+		Permission: permissions.AdminESignView,
+		BuildContext: func(c router.Context) (router.ViewContext, error) {
+			scope := resolveESignUploadScope(c, defaultScope)
+			sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+			if sourceDocumentID == "" {
+				return nil, coreadmin.ErrNotFound
+			}
+			workspace, err := loadSourceWorkspaceRuntimeContext(c, sourceReadModels, scope, sourceDocumentID)
+			if err != nil {
+				return nil, err
+			}
+			latestRevisionID := sourceWorkspaceLatestRevisionID(workspace)
+			routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, latestRevisionID)
+			model := buildSourceDetailAliasRuntimePageModel(scope, routes, workspace)
+			viewCtx := sourceManagementRuntimeRoutesContext(routes)
+			viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
+				RootLabel: "Home",
+				RootHref:  normalizeESignBasePath(basePath),
+				Trail: []quickstart.BreadcrumbItem{
+					quickstart.Breadcrumb("Source Browser", routes["source_browser"]),
+				},
+				CurrentLabel: firstNonEmptyValue(sourceReferenceLabel(workspace.Source), sourceDocumentID),
+			})
+			viewCtx = withESignSourceManagementPageModel(viewCtx, model)
+			return withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
+				eSignPageSourceDetail,
+				basePath,
+				apiESignBasePath,
+				routes,
+				map[string]any{
+					"surface":            "source_detail",
+					"source_document_id": sourceDocumentID,
+					"source_revision_id": latestRevisionID,
+				},
+			)), nil
+		},
+	}
+}
+
+func buildSourceWorkspacePageSpec(
+	basePath string,
+	apiBasePath string,
+	apiESignBasePath string,
+	defaultScope stores.Scope,
+	sourceReadModels services.SourceReadModelService,
+) quickstart.AdminPageSpec {
+	return quickstart.AdminPageSpec{
+		Path:       eSignSourceWorkspacePath(basePath, ":source_document_id"),
+		Template:   sourceManagementRuntimeTemplate,
+		Title:      "Source Workspace",
+		Active:     "esign_sources",
+		Permission: permissions.AdminESignView,
+		BuildContext: func(c router.Context) (router.ViewContext, error) {
+			scope := resolveESignUploadScope(c, defaultScope)
+			sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
+			if sourceDocumentID == "" {
+				return nil, coreadmin.ErrNotFound
+			}
+			workspace, err := loadSourceWorkspaceRuntimeContext(c, sourceReadModels, scope, sourceDocumentID)
+			if err != nil {
+				return nil, err
+			}
+			latestRevisionID := sourceWorkspaceLatestRevisionID(workspace)
+			routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, latestRevisionID)
+			model := buildSourceWorkspaceRuntimePageModel(scope, routes, workspace)
+			viewCtx := sourceManagementRuntimeRoutesContext(routes)
+			viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, buildSourceManagementBreadcrumbSpec(
+				basePath,
+				routes,
+				sourceReferenceLabel(workspace.Source),
+				sourceDocumentID,
+				"Workspace",
+			))
+			viewCtx = withESignSourceManagementPageModel(viewCtx, model)
+			return withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
+				eSignPageSourceWorkspace,
+				basePath,
+				apiESignBasePath,
+				routes,
+				map[string]any{
+					"surface":            "source_workspace",
+					"source_document_id": sourceDocumentID,
+					"source_revision_id": latestRevisionID,
+				},
+			)), nil
+		},
+	}
+}
+
+func buildSourceRevisionPageSpec(
+	basePath string,
+	apiBasePath string,
+	apiESignBasePath string,
+	defaultScope stores.Scope,
+	sourceReadModels services.SourceReadModelService,
+) quickstart.AdminPageSpec {
+	return quickstart.AdminPageSpec{
+		Path:       eSignSourceRevisionPath(basePath, ":source_revision_id"),
+		Template:   sourceManagementRuntimeTemplate,
+		Title:      "Revision Inspector",
+		Active:     "esign_sources",
+		Permission: permissions.AdminESignView,
+		BuildContext: func(c router.Context) (router.ViewContext, error) {
+			scope := resolveESignUploadScope(c, defaultScope)
+			sourceRevisionID := strings.TrimSpace(c.Param("source_revision_id"))
+			if sourceRevisionID == "" {
+				return nil, coreadmin.ErrNotFound
+			}
+			detail, err := sourceReadModels.GetSourceRevisionDetail(c.Context(), scope, sourceRevisionID)
+			if err != nil {
+				if isESignNotFound(err) {
 					return nil, coreadmin.ErrNotFound
 				}
-				workspace, err := sourceReadModels.GetSourceWorkspace(c.Context(), scope, sourceDocumentID, services.SourceWorkspaceQuery{
-					Panel:  strings.TrimSpace(c.Query("panel")),
-					Anchor: strings.TrimSpace(c.Query("anchor")),
-				})
-				if err != nil {
-					if isESignNotFound(err) {
-						return nil, coreadmin.ErrNotFound
-					}
-					return nil, err
-				}
-				latestRevisionID := ""
-				if workspace.LatestRevision != nil {
-					latestRevisionID = strings.TrimSpace(workspace.LatestRevision.ID)
-				}
-				routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, latestRevisionID)
-				model := buildSourceDetailAliasRuntimePageModel(scope, routes, workspace)
-				viewCtx := router.ViewContext{
-					"routes": routes,
-				}
-				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
-					RootLabel: "Home",
-					RootHref:  normalizeESignBasePath(basePath),
-					Trail: []quickstart.BreadcrumbItem{
-						quickstart.Breadcrumb("Source Browser", routes["source_browser"]),
-					},
-					CurrentLabel: firstNonEmptyValue(sourceReferenceLabel(workspace.Source), strings.TrimSpace(sourceDocumentID)),
-				})
-				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
-				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
-					eSignPageSourceDetail,
-					basePath,
-					apiESignBasePath,
-					routes,
-					map[string]any{
-						"surface":            "source_detail",
-						"source_document_id": sourceDocumentID,
-						"source_revision_id": latestRevisionID,
-					},
-				))
-				return viewCtx, nil
-			},
+				return nil, err
+			}
+			sourceDocumentID := sourceReferenceID(detail.Source)
+			routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, sourceRevisionID)
+			model := buildSourceRevisionRuntimePageModel(scope, routes, detail)
+			viewCtx := sourceManagementRuntimeRoutesContext(routes)
+			viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, buildSourceManagementBreadcrumbSpec(
+				basePath,
+				routes,
+				sourceReferenceLabel(detail.Source),
+				sourceDocumentID,
+				revisionInspectorLabel(detail.Revision),
+			))
+			viewCtx = withESignSourceManagementPageModel(viewCtx, model)
+			return withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
+				eSignPageSourceRevision,
+				basePath,
+				apiESignBasePath,
+				routes,
+				map[string]any{
+					"surface":            "source_revision",
+					"source_document_id": sourceDocumentID,
+					"source_revision_id": sourceRevisionID,
+				},
+			)), nil
 		},
-		quickstart.AdminPageSpec{
-			Path:       eSignSourceWorkspacePath(basePath, ":source_document_id"),
-			Template:   sourceManagementRuntimeTemplate,
-			Title:      "Source Workspace",
-			Active:     "esign_sources",
-			Permission: permissions.AdminESignView,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-				sourceDocumentID := strings.TrimSpace(c.Param("source_document_id"))
-				if sourceDocumentID == "" {
+	}
+}
+
+func buildSourceCommentsPageSpec(
+	basePath string,
+	apiBasePath string,
+	apiESignBasePath string,
+	defaultScope stores.Scope,
+	sourceReadModels services.SourceReadModelService,
+) quickstart.AdminPageSpec {
+	return quickstart.AdminPageSpec{
+		Path:       eSignSourceCommentsPath(basePath, ":source_revision_id"),
+		Template:   sourceManagementRuntimeTemplate,
+		Title:      "Comment Inspector",
+		Active:     "esign_sources",
+		Permission: permissions.AdminESignView,
+		BuildContext: func(c router.Context) (router.ViewContext, error) {
+			scope := resolveESignUploadScope(c, defaultScope)
+			sourceRevisionID := strings.TrimSpace(c.Param("source_revision_id"))
+			if sourceRevisionID == "" {
+				return nil, coreadmin.ErrNotFound
+			}
+			page, err := sourceReadModels.ListSourceRevisionComments(c.Context(), scope, sourceRevisionID, sourceCommentListQueryFromRequest(c))
+			if err != nil {
+				if isESignNotFound(err) {
 					return nil, coreadmin.ErrNotFound
 				}
-				workspace, err := sourceReadModels.GetSourceWorkspace(c.Context(), scope, sourceDocumentID, services.SourceWorkspaceQuery{
-					Panel:  strings.TrimSpace(c.Query("panel")),
-					Anchor: strings.TrimSpace(c.Query("anchor")),
-				})
-				if err != nil {
-					if isESignNotFound(err) {
-						return nil, coreadmin.ErrNotFound
-					}
-					return nil, err
-				}
-				latestRevisionID := ""
-				if workspace.LatestRevision != nil {
-					latestRevisionID = strings.TrimSpace(workspace.LatestRevision.ID)
-				}
-				routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, latestRevisionID)
-				model := buildSourceWorkspaceRuntimePageModel(scope, routes, workspace)
-				viewCtx := router.ViewContext{
-					"routes": routes,
-				}
-				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, buildSourceManagementBreadcrumbSpec(
-					basePath,
-					routes,
-					sourceReferenceLabel(workspace.Source),
-					sourceDocumentID,
-					"Workspace",
-				))
-				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
-				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
-					eSignPageSourceWorkspace,
-					basePath,
-					apiESignBasePath,
-					routes,
-					map[string]any{
-						"surface":            "source_workspace",
-						"source_document_id": sourceDocumentID,
-						"source_revision_id": latestRevisionID,
-					},
-				))
-				return viewCtx, nil
-			},
+				return nil, err
+			}
+			sourceDocumentID := sourceReferenceID(page.Source)
+			routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, sourceRevisionID)
+			model := buildSourceCommentInspectorRuntimePageModel(scope, routes, page)
+			viewCtx := sourceManagementRuntimeRoutesContext(routes)
+			viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, buildSourceManagementBreadcrumbSpec(
+				basePath,
+				routes,
+				sourceReferenceLabel(page.Source),
+				sourceDocumentID,
+				"Comment Inspector",
+			))
+			viewCtx = withESignSourceManagementPageModel(viewCtx, model)
+			return withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
+				eSignPageSourceComments,
+				basePath,
+				apiESignBasePath,
+				routes,
+				map[string]any{
+					"surface":            "source_comments",
+					"source_document_id": sourceDocumentID,
+					"source_revision_id": sourceRevisionID,
+				},
+			)), nil
 		},
-		quickstart.AdminPageSpec{
-			Path:       eSignSourceRevisionPath(basePath, ":source_revision_id"),
-			Template:   sourceManagementRuntimeTemplate,
-			Title:      "Revision Inspector",
-			Active:     "esign_sources",
-			Permission: permissions.AdminESignView,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-				sourceRevisionID := strings.TrimSpace(c.Param("source_revision_id"))
-				if sourceRevisionID == "" {
+	}
+}
+
+func buildSourceArtifactsPageSpec(
+	basePath string,
+	apiBasePath string,
+	apiESignBasePath string,
+	defaultScope stores.Scope,
+	sourceReadModels services.SourceReadModelService,
+) quickstart.AdminPageSpec {
+	return quickstart.AdminPageSpec{
+		Path:       eSignSourceArtifactsPath(basePath, ":source_revision_id"),
+		Template:   sourceManagementRuntimeTemplate,
+		Title:      "Artifact Inspector",
+		Active:     "esign_sources",
+		Permission: permissions.AdminESignView,
+		BuildContext: func(c router.Context) (router.ViewContext, error) {
+			scope := resolveESignUploadScope(c, defaultScope)
+			sourceRevisionID := strings.TrimSpace(c.Param("source_revision_id"))
+			if sourceRevisionID == "" {
+				return nil, coreadmin.ErrNotFound
+			}
+			page, err := sourceReadModels.ListSourceRevisionArtifacts(c.Context(), scope, sourceRevisionID)
+			if err != nil {
+				if isESignNotFound(err) {
 					return nil, coreadmin.ErrNotFound
 				}
-				detail, err := sourceReadModels.GetSourceRevisionDetail(c.Context(), scope, sourceRevisionID)
-				if err != nil {
-					if isESignNotFound(err) {
-						return nil, coreadmin.ErrNotFound
-					}
-					return nil, err
-				}
-				sourceDocumentID := sourceReferenceID(detail.Source)
-				routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, sourceRevisionID)
-				model := buildSourceRevisionRuntimePageModel(scope, routes, detail)
-				viewCtx := router.ViewContext{
-					"routes": routes,
-				}
-				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, buildSourceManagementBreadcrumbSpec(
-					basePath,
-					routes,
-					sourceReferenceLabel(detail.Source),
-					sourceDocumentID,
-					revisionInspectorLabel(detail.Revision),
-				))
-				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
-				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
-					eSignPageSourceRevision,
-					basePath,
-					apiESignBasePath,
-					routes,
-					map[string]any{
-						"surface":            "source_revision",
-						"source_document_id": sourceDocumentID,
-						"source_revision_id": sourceRevisionID,
-					},
-				))
-				return viewCtx, nil
-			},
+				return nil, err
+			}
+			revisionDetail, err := sourceReadModels.GetSourceRevisionDetail(c.Context(), scope, sourceRevisionID)
+			if err != nil && !isESignNotFound(err) {
+				return nil, err
+			}
+			sourceDocumentID := sourceReferenceID(revisionDetail.Source)
+			routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, sourceRevisionID)
+			model := buildSourceArtifactInspectorRuntimePageModel(scope, routes, page)
+			viewCtx := sourceManagementRuntimeRoutesContext(routes)
+			viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, buildSourceManagementBreadcrumbSpec(
+				basePath,
+				routes,
+				sourceReferenceLabel(revisionDetail.Source),
+				sourceDocumentID,
+				"Artifact Inspector",
+			))
+			viewCtx = withESignSourceManagementPageModel(viewCtx, model)
+			return withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
+				eSignPageSourceArtifacts,
+				basePath,
+				apiESignBasePath,
+				routes,
+				map[string]any{
+					"surface":            "source_artifacts",
+					"source_document_id": sourceDocumentID,
+					"source_revision_id": sourceRevisionID,
+				},
+			)), nil
 		},
-		quickstart.AdminPageSpec{
-			Path:       eSignSourceCommentsPath(basePath, ":source_revision_id"),
-			Template:   sourceManagementRuntimeTemplate,
-			Title:      "Comment Inspector",
-			Active:     "esign_sources",
-			Permission: permissions.AdminESignView,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-				sourceRevisionID := strings.TrimSpace(c.Param("source_revision_id"))
-				if sourceRevisionID == "" {
-					return nil, coreadmin.ErrNotFound
-				}
-				page, err := sourceReadModels.ListSourceRevisionComments(c.Context(), scope, sourceRevisionID, sourceCommentListQueryFromRequest(c))
-				if err != nil {
-					if isESignNotFound(err) {
-						return nil, coreadmin.ErrNotFound
-					}
-					return nil, err
-				}
-				sourceDocumentID := sourceReferenceID(page.Source)
-				routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, sourceRevisionID)
-				model := buildSourceCommentInspectorRuntimePageModel(scope, routes, page)
-				viewCtx := router.ViewContext{
-					"routes": routes,
-				}
-				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, buildSourceManagementBreadcrumbSpec(
-					basePath,
-					routes,
-					sourceReferenceLabel(page.Source),
-					sourceDocumentID,
-					"Comment Inspector",
-				))
-				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
-				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
-					eSignPageSourceComments,
-					basePath,
-					apiESignBasePath,
-					routes,
-					map[string]any{
-						"surface":            "source_comments",
-						"source_document_id": sourceDocumentID,
-						"source_revision_id": sourceRevisionID,
-					},
-				))
-				return viewCtx, nil
-			},
+	}
+}
+
+func buildSourceSearchPageSpec(
+	basePath string,
+	apiBasePath string,
+	apiESignBasePath string,
+	defaultScope stores.Scope,
+	sourceReadModels services.SourceReadModelService,
+) quickstart.AdminPageSpec {
+	return quickstart.AdminPageSpec{
+		Path:       eSignSourceSearchPath(basePath),
+		Template:   sourceManagementRuntimeTemplate,
+		Title:      "Source Search",
+		Active:     "esign_source_search",
+		Permission: permissions.AdminESignView,
+		BuildContext: func(c router.Context) (router.ViewContext, error) {
+			scope := resolveESignUploadScope(c, defaultScope)
+			results, err := sourceReadModels.SearchSources(c.Context(), scope, sourceSearchQueryFromRequest(c))
+			if err != nil {
+				return nil, err
+			}
+			routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, "", "")
+			model := buildSourceSearchRuntimePageModel(basePath, currentSourceManagementRuntimeQuery(c), scope, routes, results)
+			viewCtx := sourceManagementRuntimeRoutesContext(routes)
+			viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
+				RootLabel:    "Home",
+				RootHref:     normalizeESignBasePath(basePath),
+				CurrentLabel: "Search",
+			})
+			viewCtx = withESignSourceManagementPageModel(viewCtx, model)
+			return withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
+				eSignPageSourceSearch,
+				basePath,
+				apiESignBasePath,
+				routes,
+				map[string]any{
+					"surface": "source_search",
+					"query":   strings.TrimSpace(results.AppliedQuery.Query),
+				},
+			)), nil
 		},
-		quickstart.AdminPageSpec{
-			Path:       eSignSourceArtifactsPath(basePath, ":source_revision_id"),
-			Template:   sourceManagementRuntimeTemplate,
-			Title:      "Artifact Inspector",
-			Active:     "esign_sources",
-			Permission: permissions.AdminESignView,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-				sourceRevisionID := strings.TrimSpace(c.Param("source_revision_id"))
-				if sourceRevisionID == "" {
-					return nil, coreadmin.ErrNotFound
-				}
-				page, err := sourceReadModels.ListSourceRevisionArtifacts(c.Context(), scope, sourceRevisionID)
-				if err != nil {
-					if isESignNotFound(err) {
-						return nil, coreadmin.ErrNotFound
-					}
-					return nil, err
-				}
-				revisionDetail, err := sourceReadModels.GetSourceRevisionDetail(c.Context(), scope, sourceRevisionID)
-				if err != nil && !isESignNotFound(err) {
-					return nil, err
-				}
-				sourceDocumentID := sourceReferenceID(revisionDetail.Source)
-				routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, sourceDocumentID, sourceRevisionID)
-				model := buildSourceArtifactInspectorRuntimePageModel(scope, routes, page)
-				viewCtx := router.ViewContext{
-					"routes": routes,
-				}
-				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, buildSourceManagementBreadcrumbSpec(
-					basePath,
-					routes,
-					sourceReferenceLabel(revisionDetail.Source),
-					sourceDocumentID,
-					"Artifact Inspector",
-				))
-				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
-				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
-					eSignPageSourceArtifacts,
-					basePath,
-					apiESignBasePath,
-					routes,
-					map[string]any{
-						"surface":            "source_artifacts",
-						"source_document_id": sourceDocumentID,
-						"source_revision_id": sourceRevisionID,
-					},
-				))
-				return viewCtx, nil
-			},
-		},
-		quickstart.AdminPageSpec{
-			Path:       eSignSourceSearchPath(basePath),
-			Template:   sourceManagementRuntimeTemplate,
-			Title:      "Source Search",
-			Active:     "esign_source_search",
-			Permission: permissions.AdminESignView,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-				results, err := sourceReadModels.SearchSources(c.Context(), scope, sourceSearchQueryFromRequest(c))
-				if err != nil {
-					return nil, err
-				}
-				routes := buildESignSourceManagementRuntimeRoutes(c, basePath, apiBasePath, "", "")
-				model := buildSourceSearchRuntimePageModel(basePath, currentSourceManagementRuntimeQuery(c), scope, routes, results)
-				viewCtx := router.ViewContext{
-					"routes": routes,
-				}
-				viewCtx = quickstart.WithBreadcrumbSpec(viewCtx, quickstart.BreadcrumbSpec{
-					RootLabel:    "Home",
-					RootHref:     normalizeESignBasePath(basePath),
-					CurrentLabel: "Search",
-				})
-				viewCtx = withESignSourceManagementPageModel(viewCtx, model)
-				viewCtx = withESignPageConfig(viewCtx, buildESignSourceManagementPageConfig(
-					eSignPageSourceSearch,
-					basePath,
-					apiESignBasePath,
-					routes,
-					map[string]any{
-						"surface": "source_search",
-						"query":   strings.TrimSpace(results.AppliedQuery.Query),
-					},
-				))
-				return viewCtx, nil
-			},
-		},
-	)
+	}
+}
+
+func sourceManagementRuntimeRoutesContext(routes map[string]string) router.ViewContext {
+	return router.ViewContext{
+		"routes": routes,
+	}
+}
+
+func loadSourceWorkspaceRuntimeContext(
+	c router.Context,
+	sourceReadModels services.SourceReadModelService,
+	scope stores.Scope,
+	sourceDocumentID string,
+) (services.SourceWorkspace, error) {
+	workspace, err := sourceReadModels.GetSourceWorkspace(c.Context(), scope, sourceDocumentID, services.SourceWorkspaceQuery{
+		Panel:  strings.TrimSpace(c.Query("panel")),
+		Anchor: strings.TrimSpace(c.Query("anchor")),
+	})
+	if err != nil {
+		if isESignNotFound(err) {
+			return services.SourceWorkspace{}, coreadmin.ErrNotFound
+		}
+		return services.SourceWorkspace{}, err
+	}
+	return workspace, nil
+}
+
+func sourceWorkspaceLatestRevisionID(workspace services.SourceWorkspace) string {
+	if workspace.LatestRevision == nil {
+		return ""
+	}
+	return strings.TrimSpace(workspace.LatestRevision.ID)
 }
 
 func withESignSourceManagementPageModel(ctx router.ViewContext, model eSignSourceManagementPageModel) router.ViewContext {
@@ -899,63 +961,74 @@ func translateSourceManagementAPIPathToRuntimePath(target string, routes map[str
 	if target == "" {
 		return ""
 	}
-	if !strings.HasPrefix(target, services.DefaultSourceManagementBasePath) {
-		if runtimeHrefReachable(target, routes) {
-			return target
-		}
+	if resolved := translateSourceManagementRuntimeHref(target, routes); resolved != "" {
+		return resolved
+	}
+	trimmed, search, ok := parseSourceManagementRuntimeTarget(target)
+	if !ok {
 		return ""
 	}
+	return sourceManagementRuntimeRouteForTarget(trimmed, search, routes)
+}
 
+func translateSourceManagementRuntimeHref(target string, routes map[string]string) string {
+	if strings.HasPrefix(target, services.DefaultSourceManagementBasePath) {
+		return ""
+	}
+	if runtimeHrefReachable(target, routes) {
+		return target
+	}
+	return ""
+}
+
+func parseSourceManagementRuntimeTarget(target string) (string, neturl.Values, bool) {
 	parsed, err := neturl.Parse(target)
 	if err != nil {
-		return ""
+		return "", nil, false
 	}
 	pathname := strings.TrimSpace(parsed.Path)
-	search := parsed.Query()
-	trimmed := strings.TrimPrefix(pathname, services.DefaultSourceManagementBasePath)
+	return strings.TrimPrefix(pathname, services.DefaultSourceManagementBasePath), parsed.Query(), true
+}
 
+func sourceManagementRuntimeRouteForTarget(trimmed string, search neturl.Values, routes map[string]string) string {
 	switch {
 	case trimmed == "/sources":
 		return routeWithQuery(routes["source_browser"], search)
 	case trimmed == "/source-search":
 		return routeWithQuery(routes["source_search"], search)
 	case sourceWorkspaceTarget(trimmed):
-		sourceDocumentID := sourceWorkspaceID(trimmed)
-		if sourceDocumentID == "" {
-			return ""
-		}
-		targetRoute := routes["source_workspace"]
-		if strings.TrimSpace(targetRoute) == "" {
-			targetRoute = routes["source_detail"]
-		}
-		return routeWithQuery(routeWithRuntimeID(targetRoute, sourceDocumentID), search)
+		return sourceManagementWorkspaceRoute(trimmed, search, routes)
 	case sourceDetailTarget(trimmed):
 		sourceDocumentID := sourceDetailID(trimmed)
-		if sourceDocumentID == "" {
-			return ""
-		}
-		return routeWithQuery(routeWithRuntimeID(routes["source_detail"], sourceDocumentID), search)
+		return sourceManagementRouteWithID(routes["source_detail"], sourceDocumentID, search)
 	case sourceRevisionCommentsTarget(trimmed):
 		sourceRevisionID := sourceRevisionCommentsID(trimmed)
-		if sourceRevisionID == "" {
-			return ""
-		}
-		return routeWithQuery(routeWithRuntimeID(routes["source_comment_inspector"], sourceRevisionID), search)
+		return sourceManagementRouteWithID(routes["source_comment_inspector"], sourceRevisionID, search)
 	case sourceRevisionArtifactsTarget(trimmed):
 		sourceRevisionID := sourceRevisionArtifactsID(trimmed)
-		if sourceRevisionID == "" {
-			return ""
-		}
-		return routeWithQuery(routeWithRuntimeID(routes["source_artifact_inspector"], sourceRevisionID), search)
+		return sourceManagementRouteWithID(routes["source_artifact_inspector"], sourceRevisionID, search)
 	case sourceRevisionTarget(trimmed):
 		sourceRevisionID := sourceRevisionIDFromPath(trimmed)
-		if sourceRevisionID == "" {
-			return ""
-		}
-		return routeWithQuery(routeWithRuntimeID(routes["source_revision"], sourceRevisionID), search)
+		return sourceManagementRouteWithID(routes["source_revision"], sourceRevisionID, search)
 	default:
 		return ""
 	}
+}
+
+func sourceManagementWorkspaceRoute(trimmed string, search neturl.Values, routes map[string]string) string {
+	sourceDocumentID := sourceWorkspaceID(trimmed)
+	targetRoute := routes["source_workspace"]
+	if strings.TrimSpace(targetRoute) == "" {
+		targetRoute = routes["source_detail"]
+	}
+	return sourceManagementRouteWithID(targetRoute, sourceDocumentID, search)
+}
+
+func sourceManagementRouteWithID(route, id string, search neturl.Values) string {
+	if strings.TrimSpace(id) == "" {
+		return ""
+	}
+	return routeWithQuery(routeWithRuntimeID(route, id), search)
 }
 
 func mergeQueryString(target, queryString string) string {

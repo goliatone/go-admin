@@ -1132,23 +1132,9 @@ func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.S
 	if err != nil {
 		return SignerSignatureUploadContract{}, err
 	}
-	fieldID := resolveFieldInstanceID(input.FieldInstanceID, input.FieldID)
-	if fieldID == "" {
-		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_instance_id", "required")
-	}
-	field, ok := findFieldByID(fields, fieldID)
-	if !ok {
-		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_instance_id", "not found")
-	}
-	err = validateFieldDefinitionReference(field, input.FieldDefinitionID)
+	field, err := resolveSignatureUploadField(fields, recipient, input)
 	if err != nil {
 		return SignerSignatureUploadContract{}, err
-	}
-	if !isSignatureAttachFieldType(field.Type) {
-		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "field_type", "bootstrap requires signature or initials field")
-	}
-	if strings.TrimSpace(field.RecipientID) != strings.TrimSpace(recipient.ID) {
-		return SignerSignatureUploadContract{}, domainValidationError("signature_upload", "recipient_id", "field does not belong to signer")
 	}
 	digest := normalizeSHA256Hex(input.SHA256)
 	if len(digest) != 64 {
@@ -1213,6 +1199,31 @@ func (s SigningService) IssueSignatureUpload(ctx context.Context, scope stores.S
 		SizeBytes:   input.SizeBytes,
 		ExpiresAt:   expiresAt.UTC(),
 	}, nil
+}
+
+func resolveSignatureUploadField(
+	fields []stores.FieldRecord,
+	recipient stores.RecipientRecord,
+	input SignerSignatureUploadInput,
+) (stores.FieldRecord, error) {
+	fieldID := resolveFieldInstanceID(input.FieldInstanceID, input.FieldID)
+	if fieldID == "" {
+		return stores.FieldRecord{}, domainValidationError("signature_upload", "field_instance_id", "required")
+	}
+	field, ok := findFieldByID(fields, fieldID)
+	if !ok {
+		return stores.FieldRecord{}, domainValidationError("signature_upload", "field_instance_id", "not found")
+	}
+	if err := validateFieldDefinitionReference(field, input.FieldDefinitionID); err != nil {
+		return stores.FieldRecord{}, err
+	}
+	if !isSignatureAttachFieldType(field.Type) {
+		return stores.FieldRecord{}, domainValidationError("signature_upload", "field_type", "bootstrap requires signature or initials field")
+	}
+	if strings.TrimSpace(field.RecipientID) != strings.TrimSpace(recipient.ID) {
+		return stores.FieldRecord{}, domainValidationError("signature_upload", "recipient_id", "field does not belong to signer")
+	}
+	return field, nil
 }
 
 // ConfirmSignatureUpload records upload receipt metadata and enforces grant-bound digest/object constraints.

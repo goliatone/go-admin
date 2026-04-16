@@ -132,6 +132,12 @@ func registerAgreementFieldInstanceRoutes(securedRoutes routeRegistrar, routes R
 }
 
 func registerAgreementPlacementRoutes(securedRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
+	registerAgreementAutoPlacementRoute(securedRoutes, routes, cfg)
+	registerAgreementPlacementRunReadRoutes(securedRoutes, routes, cfg)
+	registerAgreementPlacementApplyRoute(securedRoutes, routes, cfg)
+}
+
+func registerAgreementAutoPlacementRoute(securedRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	securedRoutes.Post(routes.AdminAgreementAutoPlace, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)
@@ -161,7 +167,9 @@ func registerAgreementPlacementRoutes(securedRoutes routeRegistrar, routes Route
 			"run":    placementRunRecordToMap(result.Run),
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminEdit))
+}
 
+func registerAgreementPlacementRunReadRoutes(securedRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	securedRoutes.Get(routes.AdminAgreementPlacementRuns, authoringAgreementRowsHandler(
 		cfg,
 		"runs",
@@ -197,7 +205,9 @@ func registerAgreementPlacementRoutes(securedRoutes routeRegistrar, routes Route
 			"run":    placementRunRecordToMap(run),
 		})
 	}, requireAdminPermission(cfg, cfg.permissions.AdminView))
+}
 
+func registerAgreementPlacementApplyRoute(securedRoutes routeRegistrar, routes RouteSet, cfg registerConfig) {
 	securedRoutes.Post(routes.AdminAgreementPlacementApply, func(c router.Context) error {
 		if err := enforceTransportSecurity(c, cfg); err != nil {
 			return asHandlerError(err)

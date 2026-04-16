@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -450,26 +451,12 @@ func (r *RuntimePDFPolicyResolver) resolveSettingString(key string) (string, boo
 
 func parseInt64Any(value any) (int64, bool) {
 	switch typed := value.(type) {
-	case int:
-		return int64(typed), true
-	case int8:
-		return int64(typed), true
-	case int16:
-		return int64(typed), true
-	case int32:
-		return int64(typed), true
-	case int64:
-		return typed, true
+	case int, int8, int16, int32, int64:
+		return reflect.ValueOf(typed).Int(), true
 	case uint:
 		return primitives.Int64FromUint(typed)
-	case uint8:
-		return int64(typed), true
-	case uint16:
-		return int64(typed), true
-	case uint32:
-		return int64(typed), true
-	case uint64:
-		return primitives.Int64FromUint64(typed)
+	case uint8, uint16, uint32, uint64:
+		return primitives.Int64FromUint64(reflect.ValueOf(typed).Uint())
 	case float32:
 		return int64(typed), true
 	case float64:
@@ -493,26 +480,10 @@ func parseBoolAny(value any) (bool, bool) {
 	switch typed := value.(type) {
 	case bool:
 		return typed, true
-	case int:
-		return typed != 0, true
-	case int8:
-		return typed != 0, true
-	case int16:
-		return typed != 0, true
-	case int32:
-		return typed != 0, true
-	case int64:
-		return typed != 0, true
-	case uint:
-		return typed != 0, true
-	case uint8:
-		return typed != 0, true
-	case uint16:
-		return typed != 0, true
-	case uint32:
-		return typed != 0, true
-	case uint64:
-		return typed != 0, true
+	case int, int8, int16, int32, int64:
+		return reflect.ValueOf(typed).Int() != 0, true
+	case uint, uint8, uint16, uint32, uint64:
+		return reflect.ValueOf(typed).Uint() != 0, true
 	case float32:
 		return typed != 0, true
 	case float64:
