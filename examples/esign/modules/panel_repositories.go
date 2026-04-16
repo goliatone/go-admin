@@ -410,6 +410,114 @@ func newAgreementPanelRepository(
 	return repo
 }
 
+type agreementListFilters struct {
+	status             string
+	actionRequiredOnly bool
+	versionVisibility  string
+	documentID         string
+	recipientEmail     string
+	titleQuery         string
+}
+
+func resolveAgreementListFilters(opts coreadmin.ListOptions) agreementListFilters {
+	return agreementListFilters{
+		status:             strings.TrimSpace(lookupFilter(opts.Filters, "status")),
+		actionRequiredOnly: truthyFilterValue(lookupFilter(opts.Filters, "action_required")),
+		versionVisibility:  normalizeAgreementVersionVisibility(lookupFilter(opts.Filters, "version_visibility")),
+		documentID:         strings.TrimSpace(lookupFilter(opts.Filters, "document_id")),
+		recipientEmail:     strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "recipient_email"))),
+		titleQuery:         strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "title", "title_contains"))),
+	}
+}
+
+func (r *agreementPanelRepository) agreementMatchesListFilters(
+	ctx context.Context,
+	scope stores.Scope,
+	agreement stores.AgreementRecord,
+	filters agreementListFilters,
+	currentVersionIDs map[string]struct{},
+) (bool, error) {
+	agreementID := strings.TrimSpace(agreement.ID)
+	if !agreementMatchesStatusFilter(agreement, filters.status) {
+		return false, nil
+	}
+	if filters.actionRequiredOnly && !agreementRequiresAction(agreement) {
+		return false, nil
+	}
+	if !includeAgreementForVersionVisibility(agreementID, currentVersionIDs, filters.versionVisibility) {
+		return false, nil
+	}
+	if filters.documentID != "" && strings.TrimSpace(agreement.DocumentID) != filters.documentID {
+		return false, nil
+	}
+	if filters.titleQuery != "" && !strings.Contains(strings.ToLower(strings.TrimSpace(agreement.Title)), filters.titleQuery) {
+		return false, nil
+	}
+	if filters.recipientEmail == "" {
+		return true, nil
+	}
+	recipients, err := r.agreements.ListRecipients(ctx, scope, agreement.ID)
+	if err != nil {
+		return false, err
+	}
+	for _, recipient := range recipients {
+		if strings.Contains(strings.ToLower(strings.TrimSpace(recipient.Email)), filters.recipientEmail) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (r *agreementPanelRepository) filterAgreementsForList(
+	ctx context.Context,
+	scope stores.Scope,
+	agreements []stores.AgreementRecord,
+	filters agreementListFilters,
+	currentVersionIDs map[string]struct{},
+) ([]stores.AgreementRecord, error) {
+	filtered := make([]stores.AgreementRecord, 0, len(agreements))
+	for _, agreement := range agreements {
+		include, err := r.agreementMatchesListFilters(ctx, scope, agreement, filters, currentVersionIDs)
+		if err != nil {
+			return nil, err
+		}
+		if !include {
+			continue
+		}
+		filtered = append(filtered, agreement)
+	}
+	return filtered, nil
+}
+
+func sortAgreementsForList(agreements []stores.AgreementRecord, sortDesc bool) {
+	sort.Slice(agreements, func(i, j int) bool {
+		if sortDesc {
+			return agreements[i].UpdatedAt.After(agreements[j].UpdatedAt)
+		}
+		return agreements[i].UpdatedAt.Before(agreements[j].UpdatedAt)
+	})
+}
+
+func (r *agreementPanelRepository) buildAgreementListRows(
+	ctx context.Context,
+	scope stores.Scope,
+	rows []stores.AgreementRecord,
+	lineage map[string]agreementLineagePayload,
+) ([]map[string]any, error) {
+	out := make([]map[string]any, 0, len(rows))
+	for _, agreement := range rows {
+		recipients, err := r.agreements.ListRecipients(ctx, scope, agreement.ID)
+		if err != nil {
+			return nil, err
+		}
+		reminderStates := r.reminderStateMap(ctx, scope, agreement.ID, recipients)
+		payload := agreementRecordToMap(agreement, recipients, reminderStates, nil, nil, services.AgreementDeliveryDetail{})
+		applyAgreementLineagePayload(payload, lineage[strings.TrimSpace(agreement.ID)], false)
+		out = append(out, payload)
+	}
+	return out, nil
+}
+
 func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.ListOptions) ([]map[string]any, int, error) {
 	startedAt := time.Now()
 	success := false
@@ -429,68 +537,125 @@ func (r *agreementPanelRepository) List(ctx context.Context, opts coreadmin.List
 	}
 	lineage := buildAgreementLineageIndex(agreements)
 	currentVersionIDs := buildCurrentAgreementVersionIDSet(agreements)
-	statusFilter := strings.TrimSpace(lookupFilter(opts.Filters, "status"))
-	actionRequiredOnly := truthyFilterValue(lookupFilter(opts.Filters, "action_required"))
-	versionVisibility := normalizeAgreementVersionVisibility(lookupFilter(opts.Filters, "version_visibility"))
-	documentID := strings.TrimSpace(lookupFilter(opts.Filters, "document_id"))
-	recipientEmail := strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "recipient_email")))
-	titleQuery := strings.ToLower(strings.TrimSpace(lookupFilter(opts.Filters, "title", "title_contains")))
-	filtered := make([]stores.AgreementRecord, 0, len(agreements))
-	for _, agreement := range agreements {
-		agreementID := strings.TrimSpace(agreement.ID)
-		if !agreementMatchesStatusFilter(agreement, statusFilter) {
-			continue
-		}
-		if actionRequiredOnly && !agreementRequiresAction(agreement) {
-			continue
-		}
-		if !includeAgreementForVersionVisibility(agreementID, currentVersionIDs, versionVisibility) {
-			continue
-		}
-		if documentID != "" && strings.TrimSpace(agreement.DocumentID) != documentID {
-			continue
-		}
-		if titleQuery != "" && !strings.Contains(strings.ToLower(strings.TrimSpace(agreement.Title)), titleQuery) {
-			continue
-		}
-		if recipientEmail != "" {
-			recipients, err := r.agreements.ListRecipients(ctx, scope, agreement.ID)
-			if err != nil {
-				return nil, 0, err
-			}
-			matched := false
-			for _, recipient := range recipients {
-				if strings.Contains(strings.ToLower(strings.TrimSpace(recipient.Email)), recipientEmail) {
-					matched = true
-					break
-				}
-			}
-			if !matched {
-				continue
-			}
-		}
-		filtered = append(filtered, agreement)
+	filtered, err := r.filterAgreementsForList(ctx, scope, agreements, resolveAgreementListFilters(opts), currentVersionIDs)
+	if err != nil {
+		return nil, 0, err
 	}
-	sort.Slice(filtered, func(i, j int) bool {
-		if opts.SortDesc {
-			return filtered[i].UpdatedAt.After(filtered[j].UpdatedAt)
-		}
-		return filtered[i].UpdatedAt.Before(filtered[j].UpdatedAt)
-	})
+	sortAgreementsForList(filtered, opts.SortDesc)
 	rows := paginateRecords(filtered, opts.Page, opts.PerPage)
-	out := make([]map[string]any, 0, len(rows))
-	for _, agreement := range rows {
-		recipients, err := r.agreements.ListRecipients(ctx, scope, agreement.ID)
-		if err != nil {
-			return nil, 0, err
-		}
-		reminderStates := r.reminderStateMap(ctx, scope, agreement.ID, recipients)
-		payload := agreementRecordToMap(agreement, recipients, reminderStates, nil, nil, services.AgreementDeliveryDetail{})
-		applyAgreementLineagePayload(payload, lineage[strings.TrimSpace(agreement.ID)], false)
-		out = append(out, payload)
+	out, err := r.buildAgreementListRows(ctx, scope, rows, lineage)
+	if err != nil {
+		return nil, 0, err
 	}
 	success = true
 	return out, len(filtered), nil
+}
+
+type agreementPanelGetContext struct {
+	agreement        stores.AgreementRecord
+	agreements       []stores.AgreementRecord
+	recipients       []stores.RecipientRecord
+	fieldDefinitions []stores.FieldDefinitionRecord
+	fieldInstances   []stores.FieldInstanceRecord
+	fields           []stores.FieldRecord
+	events           []stores.AuditEventRecord
+	delivery         services.AgreementDeliveryDetail
+}
+
+func (r *agreementPanelRepository) loadAgreementPanelGetContext(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+) (agreementPanelGetContext, error) {
+	agreement, err := r.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return agreementPanelGetContext{}, err
+	}
+	agreements, err := r.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{})
+	if err != nil {
+		return agreementPanelGetContext{}, err
+	}
+	recipients, err := r.agreements.ListRecipients(ctx, scope, agreementID)
+	if err != nil {
+		return agreementPanelGetContext{}, err
+	}
+	fieldDefinitions, err := r.agreements.ListFieldDefinitions(ctx, scope, agreementID)
+	if err != nil {
+		return agreementPanelGetContext{}, err
+	}
+	fieldInstances, err := r.agreements.ListFieldInstances(ctx, scope, agreementID)
+	if err != nil {
+		return agreementPanelGetContext{}, err
+	}
+	fields, err := r.agreements.ListFields(ctx, scope, agreementID)
+	if err != nil {
+		return agreementPanelGetContext{}, err
+	}
+	events, err := r.listAgreementAuditEvents(ctx, scope, agreementID)
+	if err != nil {
+		return agreementPanelGetContext{}, err
+	}
+	delivery, err := r.artifacts.AgreementDeliveryDetail(ctx, scope, agreementID)
+	if err != nil {
+		return agreementPanelGetContext{}, err
+	}
+	return agreementPanelGetContext{
+		agreement:        agreement,
+		agreements:       agreements,
+		recipients:       recipients,
+		fieldDefinitions: fieldDefinitions,
+		fieldInstances:   fieldInstances,
+		fields:           fields,
+		events:           events,
+		delivery:         delivery,
+	}, nil
+}
+
+func (r *agreementPanelRepository) listAgreementAuditEvents(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+) ([]stores.AuditEventRecord, error) {
+	audits, ok := r.agreements.(stores.AuditEventStore)
+	if !ok {
+		return []stores.AuditEventRecord{}, nil
+	}
+	return audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: false})
+}
+
+func (r *agreementPanelRepository) maybeLoadAgreementDocumentTitle(
+	ctx context.Context,
+	scope stores.Scope,
+	documentID string,
+) string {
+	documentID = strings.TrimSpace(documentID)
+	if documentID == "" || r.documents == nil {
+		return ""
+	}
+	doc, err := r.documents.Get(ctx, scope, documentID)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(doc.Title)
+}
+
+func (r *agreementPanelRepository) attachAgreementLineageDetail(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	result map[string]any,
+) error {
+	if r.readModels == nil {
+		return nil
+	}
+	lineage, err := r.readModels.GetAgreementLineageDetail(ctx, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	lineage = sanitizeAgreementLineageDetailForPermissions(ctx, r.authorizer, permissions.AdminESignView, lineage)
+	result["lineage"] = lineage
+	result["lineage_presentation"] = buildAgreementLineagePresentation(lineage)
+	return nil
 }
 
 func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[string]any, error) {
@@ -507,38 +672,7 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 		return nil, fmt.Errorf("agreement store not configured")
 	}
 	agreementID := strings.TrimSpace(id)
-	agreement, err := r.agreements.GetAgreement(ctx, scope, agreementID)
-	if err != nil {
-		return nil, err
-	}
-	agreements, err := r.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{})
-	if err != nil {
-		return nil, err
-	}
-	recipients, err := r.agreements.ListRecipients(ctx, scope, agreementID)
-	if err != nil {
-		return nil, err
-	}
-	fieldDefinitions, err := r.agreements.ListFieldDefinitions(ctx, scope, agreementID)
-	if err != nil {
-		return nil, err
-	}
-	fieldInstances, err := r.agreements.ListFieldInstances(ctx, scope, agreementID)
-	if err != nil {
-		return nil, err
-	}
-	fields, err := r.agreements.ListFields(ctx, scope, agreementID)
-	if err != nil {
-		return nil, err
-	}
-	events := []stores.AuditEventRecord{}
-	if audits, ok := r.agreements.(stores.AuditEventStore); ok {
-		events, err = audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{SortDesc: false})
-		if err != nil {
-			return nil, err
-		}
-	}
-	delivery, err := r.artifacts.AgreementDeliveryDetail(ctx, scope, agreementID)
+	loadCtx, err := r.loadAgreementPanelGetContext(ctx, scope, agreementID)
 	if err != nil {
 		return nil, err
 	}
@@ -547,21 +681,15 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 			return nil, err
 		}
 	}
-	reminderStates := r.reminderStateMap(ctx, scope, agreementID, recipients)
-	result := agreementRecordToMap(agreement, recipients, reminderStates, fields, events, delivery)
+	reminderStates := r.reminderStateMap(ctx, scope, agreementID, loadCtx.recipients)
+	result := agreementRecordToMap(loadCtx.agreement, loadCtx.recipients, reminderStates, loadCtx.fields, loadCtx.events, loadCtx.delivery)
 	currentUserID := strings.TrimSpace(userIDFromContext(ctx))
 	result["current_user_id"] = currentUserID
 	result["review_permissions"] = buildAgreementReviewPermissionPayload(ctx, r.authorizer)
-	result["field_definitions"] = fieldDefinitionsToMaps(fieldDefinitions, fieldInstances)
-	applyAgreementLineagePayload(result, buildAgreementLineageIndex(agreements)[agreementID], true)
-	if r.readModels != nil {
-		lineage, err := r.readModels.GetAgreementLineageDetail(ctx, scope, agreementID)
-		if err != nil {
-			return nil, err
-		}
-		lineage = sanitizeAgreementLineageDetailForPermissions(ctx, r.authorizer, permissions.AdminESignView, lineage)
-		result["lineage"] = lineage
-		result["lineage_presentation"] = buildAgreementLineagePresentation(lineage)
+	result["field_definitions"] = fieldDefinitionsToMaps(loadCtx.fieldDefinitions, loadCtx.fieldInstances)
+	applyAgreementLineagePayload(result, buildAgreementLineageIndex(loadCtx.agreements)[agreementID], true)
+	if err := r.attachAgreementLineageDetail(ctx, scope, agreementID, result); err != nil {
+		return nil, err
 	}
 	if reviewSummary, err := r.service.GetReviewSummary(ctx, scope, agreementID); err == nil {
 		reviewReminderStates, statesErr := r.service.ReviewReminderStates(ctx, scope, agreementID)
@@ -570,16 +698,12 @@ func (r *agreementPanelRepository) Get(ctx context.Context, id string) (map[stri
 		}
 		result["review"] = reviewSummaryToMap(reviewSummary, reviewReminderStates)
 		result["review_override_active"] = reviewSummary.OverrideActive
-		result["timeline_bootstrap"] = r.buildAgreementTimelineBootstrap(ctx, scope, agreementID, currentUserID, events, recipients, fieldDefinitions, fieldInstances, &reviewSummary)
+		result["timeline_bootstrap"] = r.buildAgreementTimelineBootstrap(ctx, scope, agreementID, currentUserID, loadCtx.events, loadCtx.recipients, loadCtx.fieldDefinitions, loadCtx.fieldInstances, &reviewSummary)
 	} else {
-		result["timeline_bootstrap"] = r.buildAgreementTimelineBootstrap(ctx, scope, agreementID, currentUserID, events, recipients, fieldDefinitions, fieldInstances, nil)
+		result["timeline_bootstrap"] = r.buildAgreementTimelineBootstrap(ctx, scope, agreementID, currentUserID, loadCtx.events, loadCtx.recipients, loadCtx.fieldDefinitions, loadCtx.fieldInstances, nil)
 	}
-	// Fetch document title if document_id exists
-	documentID := strings.TrimSpace(agreement.DocumentID)
-	if documentID != "" && r.documents != nil {
-		if doc, err := r.documents.Get(ctx, scope, documentID); err == nil {
-			result["document_title"] = strings.TrimSpace(doc.Title)
-		}
+	if documentTitle := r.maybeLoadAgreementDocumentTitle(ctx, scope, loadCtx.agreement.DocumentID); documentTitle != "" {
+		result["document_title"] = documentTitle
 	}
 	success = true
 	return result, nil
@@ -885,41 +1009,7 @@ func summarizeReminderState(recipients []stores.RecipientRecord, states map[stri
 	if len(recipients) == 0 {
 		return summary
 	}
-	signerCount := 0
-	pausedCount := 0
-	terminalCount := 0
-	activeCount := 0
-	for _, recipient := range recipients {
-		if recipient.Role != stores.RecipientRoleSigner {
-			continue
-		}
-		signerCount++
-		state, ok := states[strings.TrimSpace(recipient.ID)]
-		if !ok {
-			activeCount++
-			continue
-		}
-		summary.SentCount += state.SentCount
-		if state.NextDueAt != nil && (summary.NextDueAt == nil || state.NextDueAt.Before(*summary.NextDueAt)) {
-			next := state.NextDueAt.UTC()
-			summary.NextDueAt = &next
-		}
-		if state.LastSentAt != nil && (summary.LastSentAt == nil || state.LastSentAt.After(*summary.LastSentAt)) {
-			last := state.LastSentAt.UTC()
-			summary.LastSentAt = &last
-		}
-		if summary.LastErrorCode == "" {
-			summary.LastErrorCode = reminderErrorForClient(state)
-		}
-		switch strings.TrimSpace(state.Status) {
-		case stores.AgreementReminderStatusPaused:
-			pausedCount++
-		case stores.AgreementReminderStatusTerminal:
-			terminalCount++
-		default:
-			activeCount++
-		}
-	}
+	signerCount, pausedCount, terminalCount, activeCount := collectReminderSummaryCounts(recipients, states, &summary)
 	if signerCount == 0 {
 		return summary
 	}
@@ -935,6 +1025,56 @@ func summarizeReminderState(recipients []stores.RecipientRecord, states map[stri
 		summary.Status = stores.AgreementReminderStatusActive
 	}
 	return summary
+}
+
+func collectReminderSummaryCounts(
+	recipients []stores.RecipientRecord,
+	states map[string]stores.AgreementReminderStateRecord,
+	summary *reminderSummary,
+) (int, int, int, int) {
+	signerCount := 0
+	pausedCount := 0
+	terminalCount := 0
+	activeCount := 0
+	for _, recipient := range recipients {
+		if recipient.Role != stores.RecipientRoleSigner {
+			continue
+		}
+		signerCount++
+		state, ok := states[strings.TrimSpace(recipient.ID)]
+		if !ok {
+			activeCount++
+			continue
+		}
+		accumulateReminderSummary(summary, state)
+		switch strings.TrimSpace(state.Status) {
+		case stores.AgreementReminderStatusPaused:
+			pausedCount++
+		case stores.AgreementReminderStatusTerminal:
+			terminalCount++
+		default:
+			activeCount++
+		}
+	}
+	return signerCount, pausedCount, terminalCount, activeCount
+}
+
+func accumulateReminderSummary(summary *reminderSummary, state stores.AgreementReminderStateRecord) {
+	if summary == nil {
+		return
+	}
+	summary.SentCount += state.SentCount
+	if state.NextDueAt != nil && (summary.NextDueAt == nil || state.NextDueAt.Before(*summary.NextDueAt)) {
+		next := state.NextDueAt.UTC()
+		summary.NextDueAt = &next
+	}
+	if state.LastSentAt != nil && (summary.LastSentAt == nil || state.LastSentAt.After(*summary.LastSentAt)) {
+		last := state.LastSentAt.UTC()
+		summary.LastSentAt = &last
+	}
+	if summary.LastErrorCode == "" {
+		summary.LastErrorCode = reminderErrorForClient(state)
+	}
 }
 
 func agreementRecordToMap(
@@ -1916,6 +2056,43 @@ type agreementFieldRuleFormInput struct {
 	Required         bool   `json:"required"`
 }
 
+func syncAgreementFieldRuleInputs(
+	record map[string]any,
+	recipients []stores.RecipientRecord,
+	fieldInputs []agreementFieldFormInput,
+) ([]agreementFieldFormInput, bool, error) {
+	ruleInputs, hasRulePayload, err := parseAgreementFieldRuleFormInputs(record)
+	if err != nil {
+		return nil, false, err
+	}
+	if !hasRulePayload {
+		return fieldInputs, false, nil
+	}
+	documentPageCount, err := coerceFormInt(record["document_page_count"], "document_page_count")
+	if err != nil {
+		return nil, false, err
+	}
+	expanded, err := expandAgreementFieldRules(ruleInputs, recipients, fieldInputs, documentPageCount)
+	if err != nil {
+		return nil, false, err
+	}
+	return append(fieldInputs, expanded...), true, nil
+}
+
+func mergeAgreementFieldPlacementPayload(
+	record map[string]any,
+	fieldInputs []agreementFieldFormInput,
+) ([]agreementFieldFormInput, bool, error) {
+	placementInputs, hasPlacementPayload, err := parseAgreementFieldPlacementInputs(record)
+	if err != nil {
+		return nil, false, err
+	}
+	if !hasPlacementPayload || len(fieldInputs) == 0 {
+		return fieldInputs, hasPlacementPayload, nil
+	}
+	return mergeFieldPlacementInputs(fieldInputs, placementInputs), true, nil
+}
+
 func (r *agreementPanelRepository) syncDraftFormPayload(
 	ctx context.Context,
 	scope stores.Scope,
@@ -1946,28 +2123,16 @@ func (r *agreementPanelRepository) syncDraftFormPayload(
 	if err != nil {
 		return nil, nil, err
 	}
-	ruleInputs, hasRulePayload, err := parseAgreementFieldRuleFormInputs(record)
+	fieldInputs, hasRulePayload, err := syncAgreementFieldRuleInputs(record, recipients, fieldInputs)
 	if err != nil {
 		return nil, nil, err
 	}
 	if hasRulePayload {
-		documentPageCount, pageCountErr := coerceFormInt(record["document_page_count"], "document_page_count")
-		if pageCountErr != nil {
-			return nil, nil, pageCountErr
-		}
-		expanded, expandErr := expandAgreementFieldRules(ruleInputs, recipients, fieldInputs, documentPageCount)
-		if expandErr != nil {
-			return nil, nil, expandErr
-		}
-		fieldInputs = append(fieldInputs, expanded...)
 		hasFieldPayload = true
 	}
-	placementInputs, hasPlacementPayload, err := parseAgreementFieldPlacementInputs(record)
+	fieldInputs, _, err = mergeAgreementFieldPlacementPayload(record, fieldInputs)
 	if err != nil {
 		return nil, nil, err
-	}
-	if hasPlacementPayload && len(fieldInputs) > 0 {
-		fieldInputs = mergeFieldPlacementInputs(fieldInputs, placementInputs)
 	}
 	if !hasFieldPayload && toBool(record["fields_present"]) {
 		hasFieldPayload = true
@@ -2056,6 +2221,28 @@ func (r *agreementPanelRepository) syncDraftFields(
 	if len(recipients) == 0 {
 		return nil, fmt.Errorf("at least one recipient is required before adding fields")
 	}
+	recipientIDsByIndex, recipientIDs := agreementFieldRecipientIndexes(recipients)
+	existingByID := agreementFieldsByID(existingFields)
+	seen := map[string]bool{}
+	for _, input := range inputs {
+		patch, err := buildAgreementFieldDraftPatch(input, recipientIDsByIndex, recipientIDs)
+		if err != nil {
+			return nil, err
+		}
+		markSeenExistingFieldPatch(seen, existingByID, patch.ID)
+		if _, err := r.service.UpsertFieldDraft(ctx, scope, agreementID, patch); err != nil {
+			return nil, err
+		}
+	}
+	for _, fieldID := range agreementFieldDeleteIDs(existingFields, seen) {
+		if err := r.service.DeleteFieldDraft(ctx, scope, agreementID, fieldID); err != nil {
+			return nil, err
+		}
+	}
+	return r.agreements.ListFields(ctx, scope, agreementID)
+}
+
+func agreementFieldRecipientIndexes(recipients []stores.RecipientRecord) ([]string, map[string]struct{}) {
 	recipientIDsByIndex := make([]string, 0, len(recipients))
 	recipientIDs := map[string]struct{}{}
 	for _, recipient := range recipients {
@@ -2066,79 +2253,102 @@ func (r *agreementPanelRepository) syncDraftFields(
 		recipientIDsByIndex = append(recipientIDsByIndex, id)
 		recipientIDs[id] = struct{}{}
 	}
-	existingByID := make(map[string]stores.FieldRecord, len(existingFields))
-	for _, field := range existingFields {
+	return recipientIDsByIndex, recipientIDs
+}
+
+func agreementFieldsByID(fields []stores.FieldRecord) map[string]stores.FieldRecord {
+	existingByID := make(map[string]stores.FieldRecord, len(fields))
+	for _, field := range fields {
 		id := strings.TrimSpace(field.ID)
 		if id == "" {
 			continue
 		}
 		existingByID[id] = field
 	}
-	seen := map[string]bool{}
-	for _, input := range inputs {
-		fieldType := strings.TrimSpace(input.Type)
-		if fieldType == "" {
-			fieldType = stores.FieldTypeSignature
-		}
-		participantID := strings.TrimSpace(input.ParticipantID)
-		if participantID == "" {
-			if input.RecipientIndex >= 0 && input.RecipientIndex < len(recipientIDsByIndex) {
-				participantID = recipientIDsByIndex[input.RecipientIndex]
-			}
-		}
-		if participantID == "" {
-			return nil, fmt.Errorf("field participant_id is required")
-		}
-		if _, ok := recipientIDs[participantID]; !ok {
-			return nil, fmt.Errorf("field participant_id %q is invalid", participantID)
-		}
-		pageNumber := input.PageNumber
-		if pageNumber <= 0 {
-			pageNumber = 1
-		}
-		width := input.Width
-		if width <= 0 {
-			width = 150
-		}
-		height := input.Height
-		if height <= 0 {
-			height = 32
-		}
-		required := input.Required
-		patch := stores.FieldDraftPatch{
-			ID:                strings.TrimSpace(input.ID),
-			RecipientID:       &participantID,
-			Type:              &fieldType,
-			PageNumber:        &pageNumber,
-			PosX:              &input.PosX,
-			PosY:              &input.PosY,
-			Width:             &width,
-			Height:            &height,
-			PlacementSource:   stringPtr(strings.TrimSpace(strings.ToLower(input.PlacementSource))),
-			LinkGroupID:       stringPtr(strings.TrimSpace(input.LinkGroupID)),
-			LinkedFromFieldID: stringPtr(strings.TrimSpace(input.LinkedFromFieldID)),
-			IsUnlinked:        input.IsUnlinked,
-			Required:          &required,
-		}
-		if patch.ID != "" {
-			if _, ok := existingByID[patch.ID]; ok {
-				seen[patch.ID] = true
-			}
-		}
-		if _, err := r.service.UpsertFieldDraft(ctx, scope, agreementID, patch); err != nil {
-			return nil, err
-		}
+	return existingByID
+}
+
+func resolveAgreementFieldParticipantID(
+	input agreementFieldFormInput,
+	recipientIDsByIndex []string,
+	recipientIDs map[string]struct{},
+) (string, error) {
+	participantID := strings.TrimSpace(input.ParticipantID)
+	if participantID == "" && input.RecipientIndex >= 0 && input.RecipientIndex < len(recipientIDsByIndex) {
+		participantID = recipientIDsByIndex[input.RecipientIndex]
 	}
+	if participantID == "" {
+		return "", fmt.Errorf("field participant_id is required")
+	}
+	if _, ok := recipientIDs[participantID]; !ok {
+		return "", fmt.Errorf("field participant_id %q is invalid", participantID)
+	}
+	return participantID, nil
+}
+
+func buildAgreementFieldDraftPatch(
+	input agreementFieldFormInput,
+	recipientIDsByIndex []string,
+	recipientIDs map[string]struct{},
+) (stores.FieldDraftPatch, error) {
+	fieldType := strings.TrimSpace(input.Type)
+	if fieldType == "" {
+		fieldType = stores.FieldTypeSignature
+	}
+	participantID, err := resolveAgreementFieldParticipantID(input, recipientIDsByIndex, recipientIDs)
+	if err != nil {
+		return stores.FieldDraftPatch{}, err
+	}
+	pageNumber := input.PageNumber
+	if pageNumber <= 0 {
+		pageNumber = 1
+	}
+	width := input.Width
+	if width <= 0 {
+		width = 150
+	}
+	height := input.Height
+	if height <= 0 {
+		height = 32
+	}
+	required := input.Required
+	return stores.FieldDraftPatch{
+		ID:                strings.TrimSpace(input.ID),
+		RecipientID:       &participantID,
+		Type:              &fieldType,
+		PageNumber:        &pageNumber,
+		PosX:              &input.PosX,
+		PosY:              &input.PosY,
+		Width:             &width,
+		Height:            &height,
+		PlacementSource:   stringPtr(strings.TrimSpace(strings.ToLower(input.PlacementSource))),
+		LinkGroupID:       stringPtr(strings.TrimSpace(input.LinkGroupID)),
+		LinkedFromFieldID: stringPtr(strings.TrimSpace(input.LinkedFromFieldID)),
+		IsUnlinked:        input.IsUnlinked,
+		Required:          &required,
+	}, nil
+}
+
+func markSeenExistingFieldPatch(seen map[string]bool, existingByID map[string]stores.FieldRecord, fieldID string) {
+	fieldID = strings.TrimSpace(fieldID)
+	if fieldID == "" {
+		return
+	}
+	if _, ok := existingByID[fieldID]; ok {
+		seen[fieldID] = true
+	}
+}
+
+func agreementFieldDeleteIDs(existingFields []stores.FieldRecord, seen map[string]bool) []string {
+	deleteIDs := make([]string, 0, len(existingFields))
 	for _, field := range existingFields {
 		id := strings.TrimSpace(field.ID)
 		if id == "" || seen[id] {
 			continue
 		}
-		if err := r.service.DeleteFieldDraft(ctx, scope, agreementID, id); err != nil {
-			return nil, err
-		}
+		deleteIDs = append(deleteIDs, id)
 	}
-	return r.agreements.ListFields(ctx, scope, agreementID)
+	return deleteIDs
 }
 
 func parseAgreementRecipientFormInputs(record map[string]any) ([]agreementRecipientFormInput, bool) {
@@ -2234,119 +2444,137 @@ func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormI
 	indexes := sortedEntryIndexes(entries)
 	out := make([]agreementFieldFormInput, 0, len(indexes))
 	for _, index := range indexes {
-		entry := entries[index]
-		id, err := coerceFormString(entry["id"], fmt.Sprintf("field_instances[%d].id", index))
+		parsed, skip, err := parseAgreementFieldFormEntry(entries[index], index)
 		if err != nil {
 			return nil, hasPayload, err
 		}
-		fieldType, err := coerceFormString(entry["type"], fmt.Sprintf("field_instances[%d].type", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		participantID, err := coerceFormString(entry["participant_id"], fmt.Sprintf("field_instances[%d].participant_id", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if participantID == "" {
-			participantID, err = coerceFormString(entry["recipient_id"], fmt.Sprintf("field_instances[%d].recipient_id", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		recipientIndex, err := coerceFormInt(entry["recipient_index"], fmt.Sprintf("field_instances[%d].recipient_index", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		pageNumber, err := coerceFormInt(entry["page"], fmt.Sprintf("field_instances[%d].page", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if pageNumber == 0 {
-			pageNumber, err = coerceFormInt(entry["page_number"], fmt.Sprintf("field_instances[%d].page_number", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		posX, err := coerceFormFloat(entry["x"], fmt.Sprintf("field_instances[%d].x", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if posX == 0 {
-			posX, err = coerceFormFloat(entry["pos_x"], fmt.Sprintf("field_instances[%d].pos_x", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		posY, err := coerceFormFloat(entry["y"], fmt.Sprintf("field_instances[%d].y", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if posY == 0 {
-			posY, err = coerceFormFloat(entry["pos_y"], fmt.Sprintf("field_instances[%d].pos_y", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		width, err := coerceFormFloat(entry["width"], fmt.Sprintf("field_instances[%d].width", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		height, err := coerceFormFloat(entry["height"], fmt.Sprintf("field_instances[%d].height", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		placementSource, err := coerceFormString(entry["placement_source"], fmt.Sprintf("field_instances[%d].placement_source", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		linkGroupID, err := coerceFormString(entry["link_group_id"], fmt.Sprintf("field_instances[%d].link_group_id", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		linkedFromFieldID, err := coerceFormString(entry["linked_from_field_id"], fmt.Sprintf("field_instances[%d].linked_from_field_id", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		var isUnlinked *bool
-		if _, ok := entry["is_unlinked"]; ok {
-			parsed, parseErr := coerceFormBool(entry["is_unlinked"], fmt.Sprintf("field_instances[%d].is_unlinked", index))
-			if parseErr != nil {
-				return nil, hasPayload, parseErr
-			}
-			isUnlinked = &parsed
-		} else if _, ok := entry["isUnlinked"]; ok {
-			parsed, parseErr := coerceFormBool(entry["isUnlinked"], fmt.Sprintf("field_instances[%d].isUnlinked", index))
-			if parseErr != nil {
-				return nil, hasPayload, parseErr
-			}
-			isUnlinked = &parsed
-		}
-		required, err := coerceFormBool(entry["required"], fmt.Sprintf("field_instances[%d].required", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if id == "" && fieldType == "" && participantID == "" {
+		if skip {
 			continue
 		}
-		out = append(out, agreementFieldFormInput{
-			ID:                id,
-			Type:              fieldType,
-			ParticipantID:     participantID,
-			RecipientIndex:    recipientIndex,
-			PageNumber:        pageNumber,
-			PosX:              posX,
-			PosY:              posY,
-			Width:             width,
-			Height:            height,
-			PlacementSource:   strings.TrimSpace(strings.ToLower(placementSource)),
-			LinkGroupID:       strings.TrimSpace(linkGroupID),
-			LinkedFromFieldID: strings.TrimSpace(linkedFromFieldID),
-			IsUnlinked:        isUnlinked,
-			Required:          required,
-		})
+		out = append(out, parsed)
 	}
 
 	return out, hasPayload, nil
+}
+
+func parseAgreementFieldFormEntry(entry map[string]any, index int) (agreementFieldFormInput, bool, error) {
+	id, err := coerceFormString(entry["id"], fmt.Sprintf("field_instances[%d].id", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	fieldType, err := coerceFormString(entry["type"], fmt.Sprintf("field_instances[%d].type", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	participantID, err := coerceFormString(entry["participant_id"], fmt.Sprintf("field_instances[%d].participant_id", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	if participantID == "" {
+		participantID, err = coerceFormString(entry["recipient_id"], fmt.Sprintf("field_instances[%d].recipient_id", index))
+		if err != nil {
+			return agreementFieldFormInput{}, false, err
+		}
+	}
+	recipientIndex, err := coerceFormInt(entry["recipient_index"], fmt.Sprintf("field_instances[%d].recipient_index", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	pageNumber, err := coerceFormInt(entry["page"], fmt.Sprintf("field_instances[%d].page", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	if pageNumber == 0 {
+		pageNumber, err = coerceFormInt(entry["page_number"], fmt.Sprintf("field_instances[%d].page_number", index))
+		if err != nil {
+			return agreementFieldFormInput{}, false, err
+		}
+	}
+	posX, err := coerceFormFloat(entry["x"], fmt.Sprintf("field_instances[%d].x", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	if posX == 0 {
+		posX, err = coerceFormFloat(entry["pos_x"], fmt.Sprintf("field_instances[%d].pos_x", index))
+		if err != nil {
+			return agreementFieldFormInput{}, false, err
+		}
+	}
+	posY, err := coerceFormFloat(entry["y"], fmt.Sprintf("field_instances[%d].y", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	if posY == 0 {
+		posY, err = coerceFormFloat(entry["pos_y"], fmt.Sprintf("field_instances[%d].pos_y", index))
+		if err != nil {
+			return agreementFieldFormInput{}, false, err
+		}
+	}
+	width, err := coerceFormFloat(entry["width"], fmt.Sprintf("field_instances[%d].width", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	height, err := coerceFormFloat(entry["height"], fmt.Sprintf("field_instances[%d].height", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	placementSource, err := coerceFormString(entry["placement_source"], fmt.Sprintf("field_instances[%d].placement_source", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	linkGroupID, err := coerceFormString(entry["link_group_id"], fmt.Sprintf("field_instances[%d].link_group_id", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	linkedFromFieldID, err := coerceFormString(entry["linked_from_field_id"], fmt.Sprintf("field_instances[%d].linked_from_field_id", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	isUnlinked, err := parseAgreementFieldFormIsUnlinked(entry, index)
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	required, err := coerceFormBool(entry["required"], fmt.Sprintf("field_instances[%d].required", index))
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	if id == "" && fieldType == "" && participantID == "" {
+		return agreementFieldFormInput{}, true, nil
+	}
+	return agreementFieldFormInput{
+		ID:                id,
+		Type:              fieldType,
+		ParticipantID:     participantID,
+		RecipientIndex:    recipientIndex,
+		PageNumber:        pageNumber,
+		PosX:              posX,
+		PosY:              posY,
+		Width:             width,
+		Height:            height,
+		PlacementSource:   strings.TrimSpace(strings.ToLower(placementSource)),
+		LinkGroupID:       strings.TrimSpace(linkGroupID),
+		LinkedFromFieldID: strings.TrimSpace(linkedFromFieldID),
+		IsUnlinked:        isUnlinked,
+		Required:          required,
+	}, false, nil
+}
+
+func parseAgreementFieldFormIsUnlinked(entry map[string]any, index int) (*bool, error) {
+	if _, ok := entry["is_unlinked"]; ok {
+		parsed, err := coerceFormBool(entry["is_unlinked"], fmt.Sprintf("field_instances[%d].is_unlinked", index))
+		if err != nil {
+			return nil, err
+		}
+		return &parsed, nil
+	}
+	if _, ok := entry["isUnlinked"]; ok {
+		parsed, err := coerceFormBool(entry["isUnlinked"], fmt.Sprintf("field_instances[%d].isUnlinked", index))
+		if err != nil {
+			return nil, err
+		}
+		return &parsed, nil
+	}
+	return nil, nil
 }
 
 func parseAgreementFieldRuleFormInputs(record map[string]any) ([]agreementFieldRuleFormInput, bool, error) {
@@ -2391,114 +2619,132 @@ func parseAgreementFieldRuleFormInputs(record map[string]any) ([]agreementFieldR
 	indexes := sortedEntryIndexes(entries)
 	out := make([]agreementFieldRuleFormInput, 0, len(indexes))
 	for _, index := range indexes {
-		entry := entries[index]
-		id, err := coerceFormString(entry["id"], fmt.Sprintf("field_rules[%d].id", index))
+		parsed, skip, err := parseAgreementFieldRuleFormEntry(entries[index], index)
 		if err != nil {
 			return nil, hasPayload, err
 		}
-		ruleType, err := coerceFormString(entry["type"], fmt.Sprintf("field_rules[%d].type", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		participantID, err := coerceFormString(entry["participant_id"], fmt.Sprintf("field_rules[%d].participant_id", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if participantID == "" {
-			participantID, err = coerceFormString(entry["participantId"], fmt.Sprintf("field_rules[%d].participantId", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		participantIndex := -1
-		if raw, ok := entry["participant_index"]; ok {
-			participantIndex, err = coerceFormInt(raw, fmt.Sprintf("field_rules[%d].participant_index", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		} else if raw, ok := entry["participantIndex"]; ok {
-			participantIndex, err = coerceFormInt(raw, fmt.Sprintf("field_rules[%d].participantIndex", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		page, err := coerceFormInt(entry["page"], fmt.Sprintf("field_rules[%d].page", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		fromPage, err := coerceFormInt(entry["from_page"], fmt.Sprintf("field_rules[%d].from_page", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if fromPage == 0 {
-			fromPage, err = coerceFormInt(entry["fromPage"], fmt.Sprintf("field_rules[%d].fromPage", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		toPage, err := coerceFormInt(entry["to_page"], fmt.Sprintf("field_rules[%d].to_page", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if toPage == 0 {
-			toPage, err = coerceFormInt(entry["toPage"], fmt.Sprintf("field_rules[%d].toPage", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		excludeLastPage, err := coerceFormBool(entry["exclude_last_page"], fmt.Sprintf("field_rules[%d].exclude_last_page", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if !excludeLastPage {
-			excludeLastPage, err = coerceFormBool(entry["excludeLastPage"], fmt.Sprintf("field_rules[%d].excludeLastPage", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		excludePages, err := coerceFormIntSlice(entry["exclude_pages"], fmt.Sprintf("field_rules[%d].exclude_pages", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if len(excludePages) == 0 {
-			excludePages, err = coerceFormIntSlice(entry["excludePages"], fmt.Sprintf("field_rules[%d].excludePages", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		label, err := coerceFormString(entry["label"], fmt.Sprintf("field_rules[%d].label", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-
-		required := true
-		if raw, ok := entry["required"]; ok {
-			required, err = coerceFormBool(raw, fmt.Sprintf("field_rules[%d].required", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-
-		if id == "" && ruleType == "" && participantID == "" && participantIndex < 0 && page == 0 && fromPage == 0 && toPage == 0 {
+		if skip {
 			continue
 		}
-
-		out = append(out, agreementFieldRuleFormInput{
-			ID:               strings.TrimSpace(id),
-			Type:             strings.ToLower(strings.TrimSpace(ruleType)),
-			ParticipantID:    strings.TrimSpace(participantID),
-			ParticipantIndex: participantIndex,
-			Page:             page,
-			FromPage:         fromPage,
-			ToPage:           toPage,
-			ExcludeLastPage:  excludeLastPage,
-			ExcludePages:     excludePages,
-			Label:            strings.TrimSpace(label),
-			Required:         required,
-		})
+		out = append(out, parsed)
 	}
 
 	return out, hasPayload, nil
+}
+
+func parseAgreementFieldRuleFormEntry(entry map[string]any, index int) (agreementFieldRuleFormInput, bool, error) {
+	id, err := coerceFormString(entry["id"], fmt.Sprintf("field_rules[%d].id", index))
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	ruleType, err := coerceFormString(entry["type"], fmt.Sprintf("field_rules[%d].type", index))
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	participantID, err := coerceFormString(entry["participant_id"], fmt.Sprintf("field_rules[%d].participant_id", index))
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	if participantID == "" {
+		participantID, err = coerceFormString(entry["participantId"], fmt.Sprintf("field_rules[%d].participantId", index))
+		if err != nil {
+			return agreementFieldRuleFormInput{}, false, err
+		}
+	}
+	participantIndex, err := parseAgreementFieldRuleParticipantIndex(entry, index)
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	page, err := coerceFormInt(entry["page"], fmt.Sprintf("field_rules[%d].page", index))
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	fromPage, err := parseAgreementFieldRulePageValue(entry, index, "from_page", "fromPage")
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	toPage, err := parseAgreementFieldRulePageValue(entry, index, "to_page", "toPage")
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	excludeLastPage, err := parseAgreementFieldRuleExcludeLastPage(entry, index)
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	excludePages, err := parseAgreementFieldRuleExcludePages(entry, index)
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	label, err := coerceFormString(entry["label"], fmt.Sprintf("field_rules[%d].label", index))
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	required := true
+	if raw, ok := entry["required"]; ok {
+		required, err = coerceFormBool(raw, fmt.Sprintf("field_rules[%d].required", index))
+		if err != nil {
+			return agreementFieldRuleFormInput{}, false, err
+		}
+	}
+	if id == "" && ruleType == "" && participantID == "" && participantIndex < 0 && page == 0 && fromPage == 0 && toPage == 0 {
+		return agreementFieldRuleFormInput{}, true, nil
+	}
+	return agreementFieldRuleFormInput{
+		ID:               strings.TrimSpace(id),
+		Type:             strings.ToLower(strings.TrimSpace(ruleType)),
+		ParticipantID:    strings.TrimSpace(participantID),
+		ParticipantIndex: participantIndex,
+		Page:             page,
+		FromPage:         fromPage,
+		ToPage:           toPage,
+		ExcludeLastPage:  excludeLastPage,
+		ExcludePages:     excludePages,
+		Label:            strings.TrimSpace(label),
+		Required:         required,
+	}, false, nil
+}
+
+func parseAgreementFieldRuleParticipantIndex(entry map[string]any, index int) (int, error) {
+	if raw, ok := entry["participant_index"]; ok {
+		return coerceFormInt(raw, fmt.Sprintf("field_rules[%d].participant_index", index))
+	}
+	if raw, ok := entry["participantIndex"]; ok {
+		return coerceFormInt(raw, fmt.Sprintf("field_rules[%d].participantIndex", index))
+	}
+	return -1, nil
+}
+
+func parseAgreementFieldRulePageValue(entry map[string]any, index int, snakeKey, camelKey string) (int, error) {
+	value, err := coerceFormInt(entry[snakeKey], fmt.Sprintf("field_rules[%d].%s", index, snakeKey))
+	if err != nil {
+		return 0, err
+	}
+	if value != 0 {
+		return value, nil
+	}
+	return coerceFormInt(entry[camelKey], fmt.Sprintf("field_rules[%d].%s", index, camelKey))
+}
+
+func parseAgreementFieldRuleExcludeLastPage(entry map[string]any, index int) (bool, error) {
+	excludeLastPage, err := coerceFormBool(entry["exclude_last_page"], fmt.Sprintf("field_rules[%d].exclude_last_page", index))
+	if err != nil {
+		return false, err
+	}
+	if excludeLastPage {
+		return true, nil
+	}
+	return coerceFormBool(entry["excludeLastPage"], fmt.Sprintf("field_rules[%d].excludeLastPage", index))
+}
+
+func parseAgreementFieldRuleExcludePages(entry map[string]any, index int) ([]int, error) {
+	excludePages, err := coerceFormIntSlice(entry["exclude_pages"], fmt.Sprintf("field_rules[%d].exclude_pages", index))
+	if err != nil {
+		return nil, err
+	}
+	if len(excludePages) > 0 {
+		return excludePages, nil
+	}
+	return coerceFormIntSlice(entry["excludePages"], fmt.Sprintf("field_rules[%d].excludePages", index))
 }
 
 func decodeJSONPayloadEntries(value any, fieldName string) ([]map[string]any, bool, error) {
@@ -2650,63 +2896,9 @@ func expandAgreementFieldRules(
 
 		switch rule.Type {
 		case "initials_each_page":
-			startPage := rule.FromPage
-			if startPage <= 0 {
-				startPage = 1
-			}
-			endPage := rule.ToPage
-			if endPage <= 0 {
-				endPage = terminalPage
-			}
-			if endPage < startPage {
-				startPage, endPage = endPage, startPage
-			}
-			excluded := map[int]struct{}{}
-			for _, page := range rule.ExcludePages {
-				if page > 0 {
-					if page > terminalPage {
-						page = terminalPage
-					}
-					excluded[page] = struct{}{}
-				}
-			}
-			if rule.ExcludeLastPage {
-				excluded[terminalPage] = struct{}{}
-			}
-			for page := startPage; page <= endPage; page++ {
-				if _, skip := excluded[page]; skip {
-					continue
-				}
-				out = append(out, agreementFieldFormInput{
-					ID:            fmt.Sprintf("%s-initials-%d", ruleBaseID, page),
-					Type:          stores.FieldTypeInitials,
-					ParticipantID: participantID,
-					PageNumber:    page,
-					Width:         80,
-					Height:        40,
-					Required:      rule.Required,
-				})
-			}
+			out = append(out, expandInitialsEachPageRule(rule, ruleBaseID, participantID, terminalPage)...)
 		case "signature_once":
-			page := rule.Page
-			if page <= 0 {
-				page = rule.ToPage
-			}
-			if page <= 0 {
-				page = terminalPage
-			}
-			if page <= 0 {
-				page = 1
-			}
-			out = append(out, agreementFieldFormInput{
-				ID:            fmt.Sprintf("%s-signature-%d", ruleBaseID, page),
-				Type:          stores.FieldTypeSignature,
-				ParticipantID: participantID,
-				PageNumber:    page,
-				Width:         200,
-				Height:        50,
-				Required:      rule.Required,
-			})
+			out = append(out, expandSignatureOnceRule(rule, ruleBaseID, participantID, terminalPage))
 		default:
 			return nil, fmt.Errorf("field rule type %q is not supported", strings.TrimSpace(rule.Type))
 		}
@@ -2728,6 +2920,84 @@ func resolveRuleExpansionBaseID(rule agreementFieldRuleFormInput, index int) str
 		return baseID
 	}
 	return fmt.Sprintf("rule-%d", index+1)
+}
+
+func expandInitialsEachPageRule(
+	rule agreementFieldRuleFormInput,
+	ruleBaseID, participantID string,
+	terminalPage int,
+) []agreementFieldFormInput {
+	startPage := rule.FromPage
+	if startPage <= 0 {
+		startPage = 1
+	}
+	endPage := rule.ToPage
+	if endPage <= 0 {
+		endPage = terminalPage
+	}
+	if endPage < startPage {
+		startPage, endPage = endPage, startPage
+	}
+	excluded := buildExcludedRulePages(rule, terminalPage)
+	out := make([]agreementFieldFormInput, 0, len(rule.ExcludePages)+1)
+	for page := startPage; page <= endPage; page++ {
+		if _, skip := excluded[page]; skip {
+			continue
+		}
+		out = append(out, agreementFieldFormInput{
+			ID:            fmt.Sprintf("%s-initials-%d", ruleBaseID, page),
+			Type:          stores.FieldTypeInitials,
+			ParticipantID: participantID,
+			PageNumber:    page,
+			Width:         80,
+			Height:        40,
+			Required:      rule.Required,
+		})
+	}
+	return out
+}
+
+func buildExcludedRulePages(rule agreementFieldRuleFormInput, terminalPage int) map[int]struct{} {
+	excluded := map[int]struct{}{}
+	for _, page := range rule.ExcludePages {
+		if page <= 0 {
+			continue
+		}
+		if page > terminalPage {
+			page = terminalPage
+		}
+		excluded[page] = struct{}{}
+	}
+	if rule.ExcludeLastPage {
+		excluded[terminalPage] = struct{}{}
+	}
+	return excluded
+}
+
+func expandSignatureOnceRule(
+	rule agreementFieldRuleFormInput,
+	ruleBaseID, participantID string,
+	terminalPage int,
+) agreementFieldFormInput {
+	page := rule.Page
+	if page <= 0 {
+		page = rule.ToPage
+	}
+	if page <= 0 {
+		page = terminalPage
+	}
+	if page <= 0 {
+		page = 1
+	}
+	return agreementFieldFormInput{
+		ID:            fmt.Sprintf("%s-signature-%d", ruleBaseID, page),
+		Type:          stores.FieldTypeSignature,
+		ParticipantID: participantID,
+		PageNumber:    page,
+		Width:         200,
+		Height:        50,
+		Required:      rule.Required,
+	}
 }
 
 func parseAgreementFieldPlacementInputs(record map[string]any) ([]agreementFieldPlacementFormInput, bool, error) {
@@ -2768,72 +3038,84 @@ func parseAgreementFieldPlacementInputs(record map[string]any) ([]agreementField
 	indexes := sortedEntryIndexes(entries)
 	out := make([]agreementFieldPlacementFormInput, 0, len(indexes))
 	for _, index := range indexes {
-		entry := entries[index]
-		id, err := coerceFormString(entry["id"], fmt.Sprintf("field_placements[%d].id", index))
+		parsed, skip, err := parseAgreementFieldPlacementEntry(entries[index], index)
 		if err != nil {
 			return nil, hasPayload, err
 		}
-		definitionID, err := coerceFormString(entry["definition_id"], fmt.Sprintf("field_placements[%d].definition_id", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if definitionID == "" {
-			definitionID, err = coerceFormString(entry["field_definition_id"], fmt.Sprintf("field_placements[%d].field_definition_id", index))
-			if err != nil {
-				return nil, hasPayload, err
-			}
-		}
-		pageNumber, err := coerceFormInt(entry["page"], fmt.Sprintf("field_placements[%d].page", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		posX, err := coerceFormFloat(entry["x"], fmt.Sprintf("field_placements[%d].x", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		posY, err := coerceFormFloat(entry["y"], fmt.Sprintf("field_placements[%d].y", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		width, err := coerceFormFloat(entry["width"], fmt.Sprintf("field_placements[%d].width", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		height, err := coerceFormFloat(entry["height"], fmt.Sprintf("field_placements[%d].height", index))
-		if err != nil {
-			return nil, hasPayload, err
-		}
-		if id == "" && definitionID == "" && pageNumber <= 0 && posX == 0 && posY == 0 && width == 0 && height == 0 {
+		if skip {
 			continue
 		}
-		// Parse link metadata fields (Phase 3)
-		placementSource, _ := coerceFormString(entry["placement_source"], fmt.Sprintf("field_placements[%d].placement_source", index))
-		linkGroupID, _ := coerceFormString(entry["link_group_id"], fmt.Sprintf("field_placements[%d].link_group_id", index))
-		linkedFromFieldID, _ := coerceFormString(entry["linked_from_field_id"], fmt.Sprintf("field_placements[%d].linked_from_field_id", index))
-		var isUnlinked *bool
-		if _, ok := entry["is_unlinked"]; ok {
-			parsed := toBool(entry["is_unlinked"])
-			isUnlinked = &parsed
-		} else if _, ok := entry["isUnlinked"]; ok {
-			parsed := toBool(entry["isUnlinked"])
-			isUnlinked = &parsed
-		}
-
-		out = append(out, agreementFieldPlacementFormInput{
-			ID:                id,
-			DefinitionID:      definitionID,
-			PageNumber:        pageNumber,
-			PosX:              posX,
-			PosY:              posY,
-			Width:             width,
-			Height:            height,
-			PlacementSource:   placementSource,
-			LinkGroupID:       linkGroupID,
-			LinkedFromFieldID: linkedFromFieldID,
-			IsUnlinked:        isUnlinked,
-		})
+		out = append(out, parsed)
 	}
 	return out, hasPayload, nil
+}
+
+func parseAgreementFieldPlacementEntry(entry map[string]any, index int) (agreementFieldPlacementFormInput, bool, error) {
+	id, err := coerceFormString(entry["id"], fmt.Sprintf("field_placements[%d].id", index))
+	if err != nil {
+		return agreementFieldPlacementFormInput{}, false, err
+	}
+	definitionID, err := coerceFormString(entry["definition_id"], fmt.Sprintf("field_placements[%d].definition_id", index))
+	if err != nil {
+		return agreementFieldPlacementFormInput{}, false, err
+	}
+	if definitionID == "" {
+		definitionID, err = coerceFormString(entry["field_definition_id"], fmt.Sprintf("field_placements[%d].field_definition_id", index))
+		if err != nil {
+			return agreementFieldPlacementFormInput{}, false, err
+		}
+	}
+	pageNumber, err := coerceFormInt(entry["page"], fmt.Sprintf("field_placements[%d].page", index))
+	if err != nil {
+		return agreementFieldPlacementFormInput{}, false, err
+	}
+	posX, err := coerceFormFloat(entry["x"], fmt.Sprintf("field_placements[%d].x", index))
+	if err != nil {
+		return agreementFieldPlacementFormInput{}, false, err
+	}
+	posY, err := coerceFormFloat(entry["y"], fmt.Sprintf("field_placements[%d].y", index))
+	if err != nil {
+		return agreementFieldPlacementFormInput{}, false, err
+	}
+	width, err := coerceFormFloat(entry["width"], fmt.Sprintf("field_placements[%d].width", index))
+	if err != nil {
+		return agreementFieldPlacementFormInput{}, false, err
+	}
+	height, err := coerceFormFloat(entry["height"], fmt.Sprintf("field_placements[%d].height", index))
+	if err != nil {
+		return agreementFieldPlacementFormInput{}, false, err
+	}
+	if id == "" && definitionID == "" && pageNumber <= 0 && posX == 0 && posY == 0 && width == 0 && height == 0 {
+		return agreementFieldPlacementFormInput{}, true, nil
+	}
+	placementSource, _ := coerceFormString(entry["placement_source"], fmt.Sprintf("field_placements[%d].placement_source", index))
+	linkGroupID, _ := coerceFormString(entry["link_group_id"], fmt.Sprintf("field_placements[%d].link_group_id", index))
+	linkedFromFieldID, _ := coerceFormString(entry["linked_from_field_id"], fmt.Sprintf("field_placements[%d].linked_from_field_id", index))
+	return agreementFieldPlacementFormInput{
+		ID:                id,
+		DefinitionID:      definitionID,
+		PageNumber:        pageNumber,
+		PosX:              posX,
+		PosY:              posY,
+		Width:             width,
+		Height:            height,
+		PlacementSource:   placementSource,
+		LinkGroupID:       linkGroupID,
+		LinkedFromFieldID: linkedFromFieldID,
+		IsUnlinked:        parseAgreementFieldPlacementIsUnlinked(entry),
+	}, false, nil
+}
+
+func parseAgreementFieldPlacementIsUnlinked(entry map[string]any) *bool {
+	if _, ok := entry["is_unlinked"]; ok {
+		parsed := toBool(entry["is_unlinked"])
+		return &parsed
+	}
+	if _, ok := entry["isUnlinked"]; ok {
+		parsed := toBool(entry["isUnlinked"])
+		return &parsed
+	}
+	return nil
 }
 
 func decodeFieldPlacementJSONPayload(value any) ([]map[string]any, bool, error) {
