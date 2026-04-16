@@ -169,15 +169,7 @@ func EvaluateV2SLO(snapshot observability.MetricsSnapshot, integration V2Integra
 	}
 }
 
-// EvaluateV2Alerts emits explicit v2 gate alerts for signer, completion, and integration thresholds.
-func EvaluateV2Alerts(snapshot observability.MetricsSnapshot, integration V2IntegrationSummary) []observability.Alert {
-	alerts := make([]observability.Alert, 0)
-	syncSuccessRate := 100.0
-	if integration.SyncRunsStarted > 0 {
-		syncSuccessRate = (float64(integration.SyncRunsCompleted) / float64(integration.SyncRunsStarted)) * 100
-	}
-	completionRate := snapshot.CompletionDeliverySuccessRatePercent()
-
+func appendV2LatencyAlerts(alerts []observability.Alert, snapshot observability.MetricsSnapshot) []observability.Alert {
 	if snapshot.UnifiedViewerSampleTotal > 0 && snapshot.UnifiedViewerLoadP95MS > ThresholdV2SignerSessionReadP95MS {
 		alerts = append(alerts, observability.Alert{
 			Code:     "v2.signer_session_read_p95_breach",
@@ -208,20 +200,33 @@ func EvaluateV2Alerts(snapshot observability.MetricsSnapshot, integration V2Inte
 			},
 		})
 	}
-	if completionRate < ThresholdV2CompletionDeliverySuccessRate {
-		alerts = append(alerts, observability.Alert{
-			Code:     "v2.completion_delivery_success_rate_low",
-			Severity: "critical",
-			Message:  "v2 completion delivery success rate below threshold",
-			Metadata: map[string]any{
-				"actual_percent":    completionRate,
-				"threshold_percent": ThresholdV2CompletionDeliverySuccessRate,
-				"success_total":     snapshot.CompletionDeliverySuccessTotal,
-				"failure_total":     snapshot.CompletionDeliveryFailureTotal,
-				"slo_managed":       true,
-				"v2_gate":           true,
-			},
-		})
+	return alerts
+}
+
+func appendV2CompletionAlert(alerts []observability.Alert, snapshot observability.MetricsSnapshot) []observability.Alert {
+	completionRate := snapshot.CompletionDeliverySuccessRatePercent()
+	if completionRate >= ThresholdV2CompletionDeliverySuccessRate {
+		return alerts
+	}
+	return append(alerts, observability.Alert{
+		Code:     "v2.completion_delivery_success_rate_low",
+		Severity: "critical",
+		Message:  "v2 completion delivery success rate below threshold",
+		Metadata: map[string]any{
+			"actual_percent":    completionRate,
+			"threshold_percent": ThresholdV2CompletionDeliverySuccessRate,
+			"success_total":     snapshot.CompletionDeliverySuccessTotal,
+			"failure_total":     snapshot.CompletionDeliveryFailureTotal,
+			"slo_managed":       true,
+			"v2_gate":           true,
+		},
+	})
+}
+
+func appendV2IntegrationAlerts(alerts []observability.Alert, integration V2IntegrationSummary) []observability.Alert {
+	syncSuccessRate := 100.0
+	if integration.SyncRunsStarted > 0 {
+		syncSuccessRate = (float64(integration.SyncRunsCompleted) / float64(integration.SyncRunsStarted)) * 100
 	}
 	if syncSuccessRate < ThresholdV2IntegrationSyncSuccessRate {
 		alerts = append(alerts, observability.Alert{
@@ -267,7 +272,15 @@ func EvaluateV2Alerts(snapshot observability.MetricsSnapshot, integration V2Inte
 			},
 		})
 	}
+	return alerts
+}
 
+// EvaluateV2Alerts emits explicit v2 gate alerts for signer, completion, and integration thresholds.
+func EvaluateV2Alerts(snapshot observability.MetricsSnapshot, integration V2IntegrationSummary) []observability.Alert {
+	alerts := make([]observability.Alert, 0)
+	alerts = appendV2LatencyAlerts(alerts, snapshot)
+	alerts = appendV2CompletionAlert(alerts, snapshot)
+	alerts = appendV2IntegrationAlerts(alerts, integration)
 	sort.Slice(alerts, func(i, j int) bool {
 		return alerts[i].Code < alerts[j].Code
 	})

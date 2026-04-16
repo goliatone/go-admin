@@ -283,17 +283,16 @@ func loadESignAuthSeed(runtimeCfg appcfg.Config) (appcfg.AuthConfig, error) {
 	return flatAuth, nil
 }
 
-func newESignAuthBundle(cfg coreadmin.Config) (eSignAuthBundle, error) {
+func resolveESignAuthBasePath(cfg coreadmin.Config) string {
 	basePath := strings.TrimSpace(cfg.BasePath)
 	if basePath == "" {
 		basePath = "/admin"
 	}
-	runtimeCfg := appcfg.Active()
-	seedAuth, err := loadESignAuthSeed(runtimeCfg)
-	if err != nil {
-		return eSignAuthBundle{}, err
-	}
-	identity := eSignDemoIdentity{
+	return basePath
+}
+
+func resolveESignDemoIdentity(runtimeCfg appcfg.Config, seedAuth appcfg.AuthConfig) eSignDemoIdentity {
+	return eSignDemoIdentity{
 		id: firstNonEmptyValue(
 			strings.TrimSpace(runtimeCfg.Auth.AdminID),
 			strings.TrimSpace(seedAuth.AdminID),
@@ -315,7 +314,10 @@ func newESignAuthBundle(cfg coreadmin.Config) (eSignAuthBundle, error) {
 			defaultESignDemoAdminPassword,
 		),
 	}
-	authCfg := eSignAuthConfig{
+}
+
+func resolveESignAuthConfig(basePath string, runtimeCfg appcfg.Config, seedAuth appcfg.AuthConfig) eSignAuthConfig {
+	return eSignAuthConfig{
 		basePath: basePath,
 		adminCfg: coreadmin.Config{BasePath: basePath},
 		signingKey: firstNonEmptyValue(
@@ -329,27 +331,66 @@ func newESignAuthBundle(cfg coreadmin.Config) (eSignAuthBundle, error) {
 			defaultESignAuthContextKey,
 		),
 	}
+}
 
-	provider := newESignDemoIdentityProvider(identity)
-	auther := auth.NewAuthenticator(provider, authCfg)
-	auther.WithResourceRoleProvider(provider).
-		WithClaimsDecorator(auth.ClaimsDecoratorFunc(func(_ context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
-			if identity == nil || claims == nil {
-				return nil
-			}
-			if claims.Metadata == nil {
-				claims.Metadata = map[string]any{}
-			}
-			claims.Metadata["email"] = identity.Email()
-			claims.Metadata["role"] = identity.Role()
+func decorateESignAuthClaims(auther *auth.Auther) {
+	if auther == nil {
+		return
+	}
+	auther.WithClaimsDecorator(auth.ClaimsDecoratorFunc(func(_ context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
+		if identity == nil || claims == nil {
 			return nil
-		}))
-	routeAuth, err := auth.NewHTTPAuthenticator(
+		}
+		if claims.Metadata == nil {
+			claims.Metadata = map[string]any{}
+		}
+		claims.Metadata["email"] = identity.Email()
+		claims.Metadata["role"] = identity.Role()
+		return nil
+	}))
+}
+
+func newESignRouteAuthenticator(auther *auth.Auther, authCfg eSignAuthConfig) (*auth.RouteAuthenticator, error) {
+	return auth.NewHTTPAuthenticator(
 		auther,
 		authCfg,
 		auth.WithAuthCookieTemplate(router.FirstPartySessionCookie("", "")),
 		auth.WithRedirectCookieTemplate(router.Cookie{Path: "/", HTTPOnly: true, SameSite: router.CookieSameSiteLaxMode}),
 	)
+}
+
+func newESignAdminAuthorizer(provider *eSignDemoIdentityProvider) coreadmin.Authorizer {
+	return coreadmin.NewGoAuthAuthorizer(coreadmin.GoAuthAuthorizerConfig{
+		DefaultResource: "admin",
+		ResolvePermissions: func(context.Context) ([]string, error) {
+			return append([]string{}, provider.permissions...), nil
+		},
+	})
+}
+
+func resolveESignAdminAuthConfig(basePath string) coreadmin.AuthConfig {
+	return coreadmin.AuthConfig{
+		LoginPath:    path.Join(basePath, "login"),
+		LogoutPath:   path.Join(basePath, "logout"),
+		RedirectPath: basePath,
+	}
+}
+
+func newESignAuthBundle(cfg coreadmin.Config) (eSignAuthBundle, error) {
+	basePath := resolveESignAuthBasePath(cfg)
+	runtimeCfg := appcfg.Active()
+	seedAuth, err := loadESignAuthSeed(runtimeCfg)
+	if err != nil {
+		return eSignAuthBundle{}, err
+	}
+	identity := resolveESignDemoIdentity(runtimeCfg, seedAuth)
+	authCfg := resolveESignAuthConfig(basePath, runtimeCfg, seedAuth)
+
+	provider := newESignDemoIdentityProvider(identity)
+	auther := auth.NewAuthenticator(provider, authCfg)
+	auther.WithResourceRoleProvider(provider)
+	decorateESignAuthClaims(auther)
+	routeAuth, err := newESignRouteAuthenticator(auther, authCfg)
 	if err != nil {
 		return eSignAuthBundle{}, err
 	}
@@ -359,17 +400,8 @@ func newESignAuthBundle(cfg coreadmin.Config) (eSignAuthBundle, error) {
 		authCfg,
 		coreadmin.WithAuthErrorHandler(makeESignAuthErrorHandler(authCfg)),
 	)
-	adminAuthCfg := coreadmin.AuthConfig{
-		LoginPath:    path.Join(basePath, "login"),
-		LogoutPath:   path.Join(basePath, "logout"),
-		RedirectPath: basePath,
-	}
-	authorizer := coreadmin.NewGoAuthAuthorizer(coreadmin.GoAuthAuthorizerConfig{
-		DefaultResource: "admin",
-		ResolvePermissions: func(context.Context) ([]string, error) {
-			return append([]string{}, provider.permissions...), nil
-		},
-	})
+	adminAuthCfg := resolveESignAdminAuthConfig(basePath)
+	authorizer := newESignAdminAuthorizer(provider)
 	return eSignAuthBundle{
 		Authenticator:      authn,
 		RouteAuthenticator: routeAuth,
@@ -766,6 +798,183 @@ func registerESignSyncClientAssets(r router.Router[*fiber.App], basePath string)
 	})
 }
 
+type eSignGoogleUIRouteConfig struct {
+	basePath              string
+	landingPath           string
+	documentsPath         string
+	googleIntegrationPath string
+	googleCallbackPath    string
+	googleDrivePickerPath string
+	apiBasePath           string
+	googleClientID        string
+	googleEnabled         bool
+}
+
+func resolveESignGoogleUIRouteConfig(cfg coreadmin.Config, adm *coreadmin.Admin) eSignGoogleUIRouteConfig {
+	basePath := ""
+	if adm != nil {
+		basePath = strings.TrimSpace(adm.BasePath())
+	}
+	if basePath == "" {
+		basePath = strings.TrimSpace(cfg.BasePath)
+	}
+	if basePath == "" {
+		basePath = "/admin"
+	}
+	apiBasePath := ""
+	googleEnabled := false
+	if adm != nil {
+		apiBasePath = strings.TrimSpace(adm.AdminAPIBasePath())
+		googleEnabled = featureEnabledInSystemScope(adm.FeatureGate(), "esign_google")
+	}
+	googleIntegrationPath := path.Join(basePath, "esign", "integrations", "google")
+	return eSignGoogleUIRouteConfig{
+		basePath:              basePath,
+		landingPath:           basePath,
+		documentsPath:         path.Join(basePath, "content", "esign_documents"),
+		googleIntegrationPath: googleIntegrationPath,
+		googleCallbackPath:    path.Join(googleIntegrationPath, "callback"),
+		googleDrivePickerPath: path.Join(googleIntegrationPath, "drive"),
+		apiBasePath:           apiBasePath,
+		googleClientID:        strings.TrimSpace(appcfg.Active().Google.ClientID),
+		googleEnabled:         googleEnabled,
+	}
+}
+
+func buildESignGoogleIntegrationViewContext(c router.Context, routeCfg eSignGoogleUIRouteConfig) router.ViewContext {
+	userID := resolveESignAdminUserID(c)
+	accountID := resolveGoogleAccountID(c)
+	redirectURI := resolveGoogleOAuthRedirectURI(c, routeCfg.googleCallbackPath)
+	viewCtx := router.ViewContext{
+		"api_base_path":       routeCfg.apiBasePath,
+		"google_enabled":      routeCfg.googleEnabled,
+		"google_client_id":    routeCfg.googleClientID,
+		"google_redirect_uri": redirectURI,
+		"google_account_id":   accountID,
+		"user_id":             userID,
+		"routes": map[string]any{
+			"esign_settings":      routeCfg.landingPath,
+			"esign_documents":     routeCfg.documentsPath,
+			"esign_google_picker": routeCfg.googleDrivePickerPath,
+		},
+	}
+	pageCfg := buildESignGoogleIntegrationPageConfig(
+		eSignPageGoogleIntegration,
+		routeCfg.basePath,
+		routeCfg.apiBasePath,
+		userID,
+		accountID,
+		redirectURI,
+		routeCfg.googleClientID,
+		routeCfg.googleEnabled,
+		viewContextRoutes(viewCtx),
+	)
+	return withESignPageConfig(viewCtx, pageCfg)
+}
+
+func buildESignGoogleDrivePickerViewContext(
+	c router.Context,
+	routeCfg eSignGoogleUIRouteConfig,
+	esignModule *modules.ESignModule,
+) router.ViewContext {
+	userID := resolveESignAdminUserID(c)
+	accountID := resolveGoogleAccountID(c)
+	scope := stores.Scope{TenantID: "tenant-bootstrap", OrgID: "org-bootstrap"}
+	if esignModule != nil {
+		scope = resolveESignUploadScope(c, esignModule.DefaultScope())
+	}
+	scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
+	googleConnected := esignModule != nil && esignModule.GoogleConnected(c.Context(), scope, scopedUserID)
+	viewCtx := router.ViewContext{
+		"api_base_path":     routeCfg.apiBasePath,
+		"google_account_id": accountID,
+		"user_id":           userID,
+		"google_connected":  googleConnected,
+		"routes": map[string]any{
+			"esign_settings":  routeCfg.landingPath,
+			"esign_documents": routeCfg.documentsPath,
+		},
+	}
+	pageCfg := buildESignGoogleIntegrationPageConfig(
+		eSignPageGoogleDrivePicker,
+		routeCfg.basePath,
+		routeCfg.apiBasePath,
+		userID,
+		accountID,
+		"",
+		"",
+		routeCfg.googleEnabled,
+		viewContextRoutes(viewCtx),
+	)
+	return withESignPageConfig(viewCtx, pageCfg)
+}
+
+func registerESignGoogleIntegrationPages(
+	r router.Router[*fiber.App],
+	cfg coreadmin.Config,
+	adm *coreadmin.Admin,
+	authn coreadmin.HandlerAuthenticator,
+	routeCfg eSignGoogleUIRouteConfig,
+	esignModule *modules.ESignModule,
+) error {
+	return quickstart.RegisterAdminPageRoutes(
+		r,
+		cfg,
+		adm,
+		authn,
+		quickstart.AdminPageSpec{
+			Path:       routeCfg.googleIntegrationPath,
+			Template:   "resources/esign-integrations/google",
+			Title:      "Google Drive Integration",
+			Active:     "esign",
+			Permission: permissions.AdminESignSettings,
+			BuildContext: func(c router.Context) (router.ViewContext, error) {
+				return buildESignGoogleIntegrationViewContext(c, routeCfg), nil
+			},
+		},
+		quickstart.AdminPageSpec{
+			Path:       routeCfg.googleDrivePickerPath,
+			Template:   "resources/esign-integrations/google-drive-picker",
+			Title:      "Import from Google Drive",
+			Active:     "esign",
+			Permission: permissions.AdminESignCreate,
+			BuildContext: func(c router.Context) (router.ViewContext, error) {
+				return buildESignGoogleDrivePickerViewContext(c, routeCfg, esignModule), nil
+			},
+		},
+	)
+}
+
+func registerESignGoogleCallbackRoute(r router.Router[*fiber.App], routeCfg eSignGoogleUIRouteConfig) {
+	// OAuth callback must be reachable from Google redirect even when auth cookies
+	// are absent (e.g. localhost vs 127.0.0.1 callback host mismatch).
+	r.Get(routeCfg.googleCallbackPath, func(c router.Context) error {
+		userID := resolveESignAdminUserID(c)
+		accountID := resolveGoogleAccountID(c)
+		pageCfg := buildESignGoogleIntegrationPageConfig(
+			eSignPageGoogleCallback,
+			routeCfg.basePath,
+			routeCfg.apiBasePath,
+			userID,
+			accountID,
+			"",
+			"",
+			routeCfg.googleEnabled,
+			map[string]string{},
+		)
+		viewCtx := withESignPageConfig(
+			router.ViewContext{
+				"base_path":         routeCfg.basePath,
+				"api_base_path":     routeCfg.apiBasePath,
+				"google_account_id": accountID,
+				"google_enabled":    routeCfg.googleEnabled,
+			},
+			pageCfg,
+		)
+		return templateview.RenderTemplateView(c, "resources/esign-integrations/google-callback", viewCtx)
+	})
+}
+
 func registerESignGoogleIntegrationUIRoutes(
 	r router.Router[*fiber.App],
 	cfg coreadmin.Config,
@@ -777,147 +986,14 @@ func registerESignGoogleIntegrationUIRoutes(
 	if r == nil || adm == nil {
 		return nil
 	}
-
-	basePath := strings.TrimSpace(adm.BasePath())
-	if basePath == "" {
-		basePath = strings.TrimSpace(cfg.BasePath)
-	}
-	if basePath == "" {
-		basePath = "/admin"
-	}
-
-	landingPath := basePath
-	documentsPath := path.Join(basePath, "content", "esign_documents")
-	googleIntegrationPath := path.Join(basePath, "esign", "integrations", "google")
-	googleCallbackPath := path.Join(googleIntegrationPath, "callback")
-	googleDrivePickerPath := path.Join(googleIntegrationPath, "drive")
-	apiBasePath := strings.TrimSpace(adm.AdminAPIBasePath())
-	googleEnabled := featureEnabledInSystemScope(adm.FeatureGate(), "esign_google")
-	if !googleEnabled {
+	routeCfg := resolveESignGoogleUIRouteConfig(cfg, adm)
+	if !routeCfg.googleEnabled {
 		return nil
 	}
-
-	if err := quickstart.RegisterAdminPageRoutes(
-		r,
-		cfg,
-		adm,
-		authn,
-		quickstart.AdminPageSpec{
-			Path:       googleIntegrationPath,
-			Template:   "resources/esign-integrations/google",
-			Title:      "Google Drive Integration",
-			Active:     "esign",
-			Permission: permissions.AdminESignSettings,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				userID := resolveESignAdminUserID(c)
-				accountID := resolveGoogleAccountID(c)
-				redirectURI := resolveGoogleOAuthRedirectURI(c, googleCallbackPath)
-				viewCtx := router.ViewContext{
-					"api_base_path":       apiBasePath,
-					"google_enabled":      googleEnabled,
-					"google_client_id":    strings.TrimSpace(appcfg.Active().Google.ClientID),
-					"google_redirect_uri": redirectURI,
-					"google_account_id":   accountID,
-					"user_id":             userID,
-					"routes": map[string]any{
-						"esign_settings":      landingPath,
-						"esign_documents":     documentsPath,
-						"esign_google_picker": googleDrivePickerPath,
-					},
-				}
-				pageCfg := buildESignGoogleIntegrationPageConfig(
-					eSignPageGoogleIntegration,
-					basePath,
-					apiBasePath,
-					userID,
-					accountID,
-					redirectURI,
-					strings.TrimSpace(appcfg.Active().Google.ClientID),
-					googleEnabled,
-					viewContextRoutes(viewCtx),
-				)
-				viewCtx = withESignPageConfig(
-					viewCtx,
-					pageCfg,
-				)
-				return viewCtx, nil
-			},
-		},
-		quickstart.AdminPageSpec{
-			Path:       googleDrivePickerPath,
-			Template:   "resources/esign-integrations/google-drive-picker",
-			Title:      "Import from Google Drive",
-			Active:     "esign",
-			Permission: permissions.AdminESignCreate,
-			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				userID := resolveESignAdminUserID(c)
-				accountID := resolveGoogleAccountID(c)
-				scope := stores.Scope{TenantID: "tenant-bootstrap", OrgID: "org-bootstrap"}
-				if esignModule != nil {
-					scope = resolveESignUploadScope(c, esignModule.DefaultScope())
-				}
-				scopedUserID := services.ComposeGoogleScopedUserID(userID, accountID)
-				googleConnected := esignModule != nil && esignModule.GoogleConnected(c.Context(), scope, scopedUserID)
-				viewCtx := router.ViewContext{
-					"api_base_path":     apiBasePath,
-					"google_account_id": accountID,
-					"user_id":           userID,
-					"google_connected":  googleConnected,
-					"routes": map[string]any{
-						"esign_settings":  landingPath,
-						"esign_documents": documentsPath,
-					},
-				}
-				pageCfg := buildESignGoogleIntegrationPageConfig(
-					eSignPageGoogleDrivePicker,
-					basePath,
-					apiBasePath,
-					userID,
-					accountID,
-					"",
-					"",
-					googleEnabled,
-					viewContextRoutes(viewCtx),
-				)
-				viewCtx = withESignPageConfig(
-					viewCtx,
-					pageCfg,
-				)
-				return viewCtx, nil
-			},
-		},
-	); err != nil {
+	if err := registerESignGoogleIntegrationPages(r, cfg, adm, authn, routeCfg, esignModule); err != nil {
 		return err
 	}
-
-	// OAuth callback must be reachable from Google redirect even when auth cookies
-	// are absent (e.g. localhost vs 127.0.0.1 callback host mismatch).
-	r.Get(googleCallbackPath, func(c router.Context) error {
-		userID := resolveESignAdminUserID(c)
-		accountID := resolveGoogleAccountID(c)
-		pageCfg := buildESignGoogleIntegrationPageConfig(
-			eSignPageGoogleCallback,
-			basePath,
-			apiBasePath,
-			userID,
-			accountID,
-			"",
-			"",
-			googleEnabled,
-			map[string]string{},
-		)
-		viewCtx := withESignPageConfig(
-			router.ViewContext{
-				"base_path":         basePath,
-				"api_base_path":     apiBasePath,
-				"google_account_id": accountID,
-				"google_enabled":    googleEnabled,
-			},
-			pageCfg,
-		)
-		return templateview.RenderTemplateView(c, "resources/esign-integrations/google-callback", viewCtx)
-	})
-
+	registerESignGoogleCallbackRoute(r, routeCfg)
 	return nil
 }
 

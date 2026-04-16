@@ -59,158 +59,208 @@ func defaultRuntimeSettings() RuntimeSettings {
 	}
 }
 
+func runtimeEmailSettingDefinitions(settings RuntimeSettings) []coreadmin.SettingDefinition {
+	return []coreadmin.SettingDefinition{
+		{
+			Key:           settingEmailDefaultFromName,
+			Title:         "E-Sign Email Sender Name",
+			Description:   "Default display name for outgoing e-sign emails",
+			Default:       settings.EmailDefaultFromName,
+			Type:          "string",
+			Group:         "esign.email",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingEmailDefaultFromAddress,
+			Title:         "E-Sign Email Sender Address",
+			Description:   "Default from address for outgoing e-sign emails",
+			Default:       settings.EmailDefaultFromAddress,
+			Type:          "string",
+			Group:         "esign.email",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+	}
+}
+
+func runtimePDFLimitSettingDefinitions(settings RuntimeSettings) []coreadmin.SettingDefinition {
+	cfg := appcfg.Active()
+	return []coreadmin.SettingDefinition{
+		{
+			Key:           settingPDFMaxSourceBytes,
+			Title:         "E-Sign Max Source PDF Bytes",
+			Description:   "Maximum source PDF byte size accepted for uploads",
+			Default:       settings.MaxSourcePDFBytes,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingMaxSourceSizeBytes,
+			Title:         "E-Sign Max Source PDF Bytes (Legacy Alias)",
+			Description:   "Legacy key alias for max source PDF byte size",
+			Default:       settings.MaxSourcePDFBytes,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingPDFMaxPages,
+			Title:         "E-Sign Max PDF Pages",
+			Description:   "Maximum page count accepted for source PDFs",
+			Default:       cfg.Signer.PDF.MaxPages,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingPDFMaxObjects,
+			Title:         "E-Sign Max PDF Objects",
+			Description:   "Maximum object count threshold allowed for source PDFs",
+			Default:       cfg.Signer.PDF.MaxObjects,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingPDFMaxDecompressedBytes,
+			Title:         "E-Sign Max Decompressed PDF Bytes",
+			Description:   "Maximum decompressed payload budget for source PDF parsing",
+			Default:       cfg.Signer.PDF.MaxDecompressedBytes,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingPDFParseTimeoutMS,
+			Title:         "E-Sign PDF Parse Timeout (ms)",
+			Description:   "Parsing deadline budget in milliseconds",
+			Default:       cfg.Signer.PDF.ParseTimeoutMS,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingPDFNormalizationTimeoutMS,
+			Title:         "E-Sign PDF Normalization Timeout (ms)",
+			Description:   "Normalization deadline budget in milliseconds",
+			Default:       cfg.Signer.PDF.NormalizationTimeoutMS,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+	}
+}
+
+func runtimePDFBehaviorSettingDefinitions(settings RuntimeSettings) []coreadmin.SettingDefinition {
+	cfg := appcfg.Active()
+	return []coreadmin.SettingDefinition{
+		{
+			Key:           settingPDFAllowEncrypted,
+			Title:         "E-Sign Allow Encrypted PDFs",
+			Description:   "Allow encrypted/password-protected source PDFs",
+			Default:       cfg.Signer.PDF.AllowEncrypted,
+			Type:          "boolean",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingPDFAllowJavaScript,
+			Title:         "E-Sign Allow PDF JavaScript Actions",
+			Description:   "Allow JavaScript/actions in source PDFs",
+			Default:       cfg.Signer.PDF.AllowJavaScriptActions,
+			Type:          "boolean",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingPDFCompatibilityMode,
+			Title:         "E-Sign PDF Compatibility Mode",
+			Description:   "Compatibility policy mode (strict, balanced, permissive)",
+			Default:       cfg.Signer.PDF.CompatibilityMode,
+			Type:          "string",
+			Group:         "esign.policy",
+			Enum:          []any{"strict", "balanced", "permissive"},
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingPDFPipelineMode,
+			Title:         "E-Sign PDF Pipeline Rollout Mode",
+			Description:   "Controls staged pipeline rollout behavior (analyze_only, enforce_policy, prefer_normalized)",
+			Default:       cfg.Signer.PDF.PipelineMode,
+			Type:          "string",
+			Group:         "esign.policy",
+			Enum:          []any{"analyze_only", "enforce_policy", "prefer_normalized"},
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingSavedSignaturesLimit,
+			Title:         "Signer Saved Signatures Limit",
+			Description:   "Maximum saved signatures per signer and type (signature or initials)",
+			Default:       settings.SavedSignaturesLimit,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite, coreadmin.SettingsScopeUser},
+		},
+		{
+			Key:           settingPreviewFallbackEnabled,
+			Title:         "E-Sign Preview Fallback Enabled",
+			Description:   "Force signer preview bootstrap to use safe default geometry fallback",
+			Default:       settings.PreviewFallbackEnabled,
+			Type:          "boolean",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+	}
+}
+
+func runtimePolicySettingDefinitions(settings RuntimeSettings) []coreadmin.SettingDefinition {
+	return []coreadmin.SettingDefinition{
+		{
+			Key:           settingTokenTTLSeconds,
+			Title:         "E-Sign Token TTL (seconds)",
+			Description:   "Default recipient signing token lifetime in seconds",
+			Default:       settings.TokenTTLSeconds,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+		{
+			Key:           settingSavedSignaturesLimit,
+			Title:         "Signer Saved Signatures Limit",
+			Description:   "Maximum saved signatures per signer and type (signature or initials)",
+			Default:       settings.SavedSignaturesLimit,
+			Type:          "integer",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite, coreadmin.SettingsScopeUser},
+		},
+		{
+			Key:           settingPreviewFallbackEnabled,
+			Title:         "E-Sign Preview Fallback Enabled",
+			Description:   "Force signer preview bootstrap to use safe default geometry fallback",
+			Default:       settings.PreviewFallbackEnabled,
+			Type:          "boolean",
+			Group:         "esign.policy",
+			AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
+		},
+	}
+}
+
+func runtimeSettingDefinitions(settings RuntimeSettings) []coreadmin.SettingDefinition {
+	definitions := runtimeEmailSettingDefinitions(settings)
+	definitions = append(definitions, runtimePDFLimitSettingDefinitions(settings)...)
+	definitions = append(definitions, runtimePDFBehaviorSettingDefinitions(settings)...)
+	definitions = append(definitions, runtimePolicySettingDefinitions(settings)...)
+	return definitions
+}
+
 func registerRuntimeSettings(service *coreadmin.SettingsService) RuntimeSettings {
 	settings := defaultRuntimeSettings()
 	if service == nil {
 		return settings
 	}
-
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingEmailDefaultFromName,
-		Title:         "E-Sign Email Sender Name",
-		Description:   "Default display name for outgoing e-sign emails",
-		Default:       settings.EmailDefaultFromName,
-		Type:          "string",
-		Group:         "esign.email",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingEmailDefaultFromAddress,
-		Title:         "E-Sign Email Sender Address",
-		Description:   "Default from address for outgoing e-sign emails",
-		Default:       settings.EmailDefaultFromAddress,
-		Type:          "string",
-		Group:         "esign.email",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingTokenTTLSeconds,
-		Title:         "E-Sign Token TTL (seconds)",
-		Description:   "Default recipient signing token lifetime in seconds",
-		Default:       settings.TokenTTLSeconds,
-		Type:          "integer",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFMaxSourceBytes,
-		Title:         "E-Sign Max Source PDF Bytes",
-		Description:   "Maximum source PDF byte size accepted for uploads",
-		Default:       settings.MaxSourcePDFBytes,
-		Type:          "integer",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingMaxSourceSizeBytes,
-		Title:         "E-Sign Max Source PDF Bytes (Legacy Alias)",
-		Description:   "Legacy key alias for max source PDF byte size",
-		Default:       settings.MaxSourcePDFBytes,
-		Type:          "integer",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFMaxPages,
-		Title:         "E-Sign Max PDF Pages",
-		Description:   "Maximum page count accepted for source PDFs",
-		Default:       appcfg.Active().Signer.PDF.MaxPages,
-		Type:          "integer",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFMaxObjects,
-		Title:         "E-Sign Max PDF Objects",
-		Description:   "Maximum object count threshold allowed for source PDFs",
-		Default:       appcfg.Active().Signer.PDF.MaxObjects,
-		Type:          "integer",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFMaxDecompressedBytes,
-		Title:         "E-Sign Max Decompressed PDF Bytes",
-		Description:   "Maximum decompressed payload budget for source PDF parsing",
-		Default:       appcfg.Active().Signer.PDF.MaxDecompressedBytes,
-		Type:          "integer",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFParseTimeoutMS,
-		Title:         "E-Sign PDF Parse Timeout (ms)",
-		Description:   "Parsing deadline budget in milliseconds",
-		Default:       appcfg.Active().Signer.PDF.ParseTimeoutMS,
-		Type:          "integer",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFNormalizationTimeoutMS,
-		Title:         "E-Sign PDF Normalization Timeout (ms)",
-		Description:   "Normalization deadline budget in milliseconds",
-		Default:       appcfg.Active().Signer.PDF.NormalizationTimeoutMS,
-		Type:          "integer",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFAllowEncrypted,
-		Title:         "E-Sign Allow Encrypted PDFs",
-		Description:   "Allow encrypted/password-protected source PDFs",
-		Default:       appcfg.Active().Signer.PDF.AllowEncrypted,
-		Type:          "boolean",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFAllowJavaScript,
-		Title:         "E-Sign Allow PDF JavaScript Actions",
-		Description:   "Allow JavaScript/actions in source PDFs",
-		Default:       appcfg.Active().Signer.PDF.AllowJavaScriptActions,
-		Type:          "boolean",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFCompatibilityMode,
-		Title:         "E-Sign PDF Compatibility Mode",
-		Description:   "Compatibility policy mode (strict, balanced, permissive)",
-		Default:       appcfg.Active().Signer.PDF.CompatibilityMode,
-		Type:          "string",
-		Group:         "esign.policy",
-		Enum:          []any{"strict", "balanced", "permissive"},
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPDFPipelineMode,
-		Title:         "E-Sign PDF Pipeline Rollout Mode",
-		Description:   "Controls staged pipeline rollout behavior (analyze_only, enforce_policy, prefer_normalized)",
-		Default:       appcfg.Active().Signer.PDF.PipelineMode,
-		Type:          "string",
-		Group:         "esign.policy",
-		Enum:          []any{"analyze_only", "enforce_policy", "prefer_normalized"},
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingSavedSignaturesLimit,
-		Title:         "Signer Saved Signatures Limit",
-		Description:   "Maximum saved signatures per signer and type (signature or initials)",
-		Default:       settings.SavedSignaturesLimit,
-		Type:          "integer",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite, coreadmin.SettingsScopeUser},
-	})
-	service.RegisterDefinition(coreadmin.SettingDefinition{
-		Key:           settingPreviewFallbackEnabled,
-		Title:         "E-Sign Preview Fallback Enabled",
-		Description:   "Force signer preview bootstrap to use safe default geometry fallback",
-		Default:       settings.PreviewFallbackEnabled,
-		Type:          "boolean",
-		Group:         "esign.policy",
-		AllowedScopes: []coreadmin.SettingsScope{coreadmin.SettingsScopeSystem, coreadmin.SettingsScopeSite},
-	})
+	for _, definition := range runtimeSettingDefinitions(settings) {
+		service.RegisterDefinition(definition)
+	}
 
 	return resolveRuntimeSettings(service)
 }

@@ -1458,64 +1458,60 @@ func errorsAsGoError(err error, target **goerrors.Error) bool {
 	return errors.As(err, target)
 }
 
-// RunCompletionWorkflow executes render/generate/distribution jobs in completion order.
-func (h Handlers) RunCompletionWorkflow(ctx context.Context, scope stores.Scope, agreementID, correlationID string) error {
-	startedAt := h.now()
-	correlationID = observability.ResolveCorrelationID(correlationID, agreementID, "completion_workflow")
-	if h.agreements == nil {
-		err := fmt.Errorf("completion workflow agreement store not configured")
-		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		observability.LogOperation(ctx, slog.LevelError, "job", "completion_workflow", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
-			"agreement_id": strings.TrimSpace(agreementID),
-		})
-		return err
-	}
-	agreement, err := h.agreements.GetAgreement(ctx, scope, agreementID)
-	if err != nil {
-		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		observability.LogOperation(ctx, slog.LevelWarn, "job", "completion_workflow", "error", correlationID, h.now().Sub(startedAt), err, map[string]any{
-			"agreement_id": strings.TrimSpace(agreementID),
-		})
-		return err
-	}
-	if agreement.Status != stores.AgreementStatusCompleted {
-		statusErr := fmt.Errorf("completion workflow requires completed agreement")
-		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		observability.LogOperation(ctx, slog.LevelWarn, "job", "completion_workflow", "error", correlationID, h.now().Sub(startedAt), statusErr, map[string]any{
-			"agreement_id": strings.TrimSpace(agreementID),
-		})
-		return statusErr
-	}
-	renderErr := h.ExecutePDFRenderPages(ctx, PDFRenderPagesMsg{
-		Scope:         scope,
-		AgreementID:   agreementID,
-		CorrelationID: correlationID,
+func logCompletionWorkflowOutcome(
+	ctx context.Context,
+	startedAt time.Time,
+	correlationID, agreementID string,
+	level slog.Level,
+	status string,
+	err error,
+) {
+	duration := time.Since(startedAt)
+	observability.ObserveFinalize(ctx, duration, err == nil)
+	observability.LogOperation(ctx, level, "job", "completion_workflow", status, correlationID, duration, err, map[string]any{
+		"agreement_id": strings.TrimSpace(agreementID),
 	})
-	if renderErr != nil {
-		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		return renderErr
+}
+
+func (h Handlers) runCompletionArtifactGeneration(ctx context.Context, scope stores.Scope, agreementID, correlationID string) error {
+	steps := []func() error{
+		func() error {
+			return h.ExecutePDFRenderPages(ctx, PDFRenderPagesMsg{
+				Scope:         scope,
+				AgreementID:   agreementID,
+				CorrelationID: correlationID,
+			})
+		},
+		func() error {
+			return h.ExecutePDFGenerateExecuted(ctx, PDFGenerateExecutedMsg{
+				Scope:         scope,
+				AgreementID:   agreementID,
+				CorrelationID: correlationID,
+			})
+		},
+		func() error {
+			return h.ExecutePDFGenerateCertificate(ctx, PDFGenerateCertificateMsg{
+				Scope:         scope,
+				AgreementID:   agreementID,
+				CorrelationID: correlationID,
+			})
+		},
 	}
-	executedErr := h.ExecutePDFGenerateExecuted(ctx, PDFGenerateExecutedMsg{
-		Scope:         scope,
-		AgreementID:   agreementID,
-		CorrelationID: correlationID,
-	})
-	if executedErr != nil {
-		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		return executedErr
+	for _, step := range steps {
+		if err := step(); err != nil {
+			return err
+		}
 	}
-	certificateErr := h.ExecutePDFGenerateCertificate(ctx, PDFGenerateCertificateMsg{
-		Scope:         scope,
-		AgreementID:   agreementID,
-		CorrelationID: correlationID,
-	})
-	if certificateErr != nil {
-		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		return certificateErr
-	}
+	return nil
+}
+
+func (h Handlers) sendCompletionPackageNotifications(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID, correlationID string,
+) error {
 	recipients, err := h.agreements.ListRecipients(ctx, scope, agreementID)
 	if err != nil {
-		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
 		return err
 	}
 	var firstErr error
@@ -1536,17 +1532,37 @@ func (h Handlers) RunCompletionWorkflow(ctx context.Context, scope stores.Scope,
 			firstErr = err
 		}
 	}
-	if firstErr != nil {
-		observability.ObserveFinalize(ctx, h.now().Sub(startedAt), false)
-		observability.LogOperation(ctx, slog.LevelWarn, "job", "completion_workflow", "error", correlationID, h.now().Sub(startedAt), firstErr, map[string]any{
-			"agreement_id": strings.TrimSpace(agreementID),
-		})
-		return firstErr
+	return firstErr
+}
+
+// RunCompletionWorkflow executes render/generate/distribution jobs in completion order.
+func (h Handlers) RunCompletionWorkflow(ctx context.Context, scope stores.Scope, agreementID, correlationID string) error {
+	startedAt := h.now()
+	correlationID = observability.ResolveCorrelationID(correlationID, agreementID, "completion_workflow")
+	if h.agreements == nil {
+		err := fmt.Errorf("completion workflow agreement store not configured")
+		logCompletionWorkflowOutcome(ctx, startedAt, correlationID, agreementID, slog.LevelError, "error", err)
+		return err
 	}
-	observability.ObserveFinalize(ctx, h.now().Sub(startedAt), true)
-	observability.LogOperation(ctx, slog.LevelInfo, "job", "completion_workflow", "success", correlationID, h.now().Sub(startedAt), nil, map[string]any{
-		"agreement_id": strings.TrimSpace(agreementID),
-	})
+	agreement, err := h.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		logCompletionWorkflowOutcome(ctx, startedAt, correlationID, agreementID, slog.LevelWarn, "error", err)
+		return err
+	}
+	if agreement.Status != stores.AgreementStatusCompleted {
+		statusErr := fmt.Errorf("completion workflow requires completed agreement")
+		logCompletionWorkflowOutcome(ctx, startedAt, correlationID, agreementID, slog.LevelWarn, "error", statusErr)
+		return statusErr
+	}
+	if err := h.runCompletionArtifactGeneration(ctx, scope, agreementID, correlationID); err != nil {
+		logCompletionWorkflowOutcome(ctx, startedAt, correlationID, agreementID, slog.LevelWarn, "error", err)
+		return err
+	}
+	if err := h.sendCompletionPackageNotifications(ctx, scope, agreementID, correlationID); err != nil {
+		logCompletionWorkflowOutcome(ctx, startedAt, correlationID, agreementID, slog.LevelWarn, "error", err)
+		return err
+	}
+	logCompletionWorkflowOutcome(ctx, startedAt, correlationID, agreementID, slog.LevelInfo, "success", nil)
 	return nil
 }
 

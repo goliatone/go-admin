@@ -88,14 +88,13 @@ func runValidationChunk(ctx context.Context, scope stores.Scope, chunkStart, chu
 	return nil
 }
 
-func runAgreementLifecycle(
+func createValidationDraftAgreement(
 	ctx context.Context,
 	scope stores.Scope,
 	index int,
 	documentSvc services.DocumentService,
 	agreementSvc services.AgreementService,
-	signingSvc services.SigningService,
-) error {
+) (stores.DocumentRecord, stores.AgreementRecord, error) {
 	doc, err := documentSvc.Upload(ctx, scope, services.DocumentUploadInput{
 		Title:              fmt.Sprintf("Rollout Validation Document %03d", index+1),
 		SourceOriginalName: fmt.Sprintf("rollout-%03d-source.pdf", index+1),
@@ -104,9 +103,8 @@ func runAgreementLifecycle(
 		CreatedBy:          "release-validation",
 	})
 	if err != nil {
-		return fmt.Errorf("upload document: %w", err)
+		return stores.DocumentRecord{}, stores.AgreementRecord{}, fmt.Errorf("upload document: %w", err)
 	}
-
 	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
 		DocumentID:      doc.ID,
 		Title:           fmt.Sprintf("Rollout Agreement %03d", index+1),
@@ -114,9 +112,18 @@ func runAgreementLifecycle(
 		CreatedByUserID: "release-validation",
 	})
 	if err != nil {
-		return fmt.Errorf("create draft: %w", err)
+		return stores.DocumentRecord{}, stores.AgreementRecord{}, fmt.Errorf("create draft: %w", err)
 	}
+	return doc, agreement, nil
+}
 
+func createValidationRecipientAndFields(
+	ctx context.Context,
+	scope stores.Scope,
+	index int,
+	agreement stores.AgreementRecord,
+	agreementSvc services.AgreementService,
+) (stores.RecipientRecord, stores.FieldRecord, stores.FieldRecord, error) {
 	email := fmt.Sprintf("signer-%03d@example.test", index+1)
 	name := fmt.Sprintf("Signer %03d", index+1)
 	role := stores.RecipientRoleSigner
@@ -128,9 +135,8 @@ func runAgreementLifecycle(
 		SigningOrder: &signingOrder,
 	}, 0)
 	if err != nil {
-		return fmt.Errorf("upsert recipient: %w", err)
+		return stores.RecipientRecord{}, stores.FieldRecord{}, stores.FieldRecord{}, fmt.Errorf("upsert recipient: %w", err)
 	}
-
 	fieldTypeSignature := stores.FieldTypeSignature
 	pageNumber := 1
 	required := true
@@ -141,9 +147,8 @@ func runAgreementLifecycle(
 		Required:    &required,
 	})
 	if err != nil {
-		return fmt.Errorf("upsert signature field: %w", err)
+		return stores.RecipientRecord{}, stores.FieldRecord{}, stores.FieldRecord{}, fmt.Errorf("upsert signature field: %w", err)
 	}
-
 	fieldTypeText := stores.FieldTypeText
 	textField, err := agreementSvc.UpsertFieldDraft(ctx, scope, agreement.ID, stores.FieldDraftPatch{
 		RecipientID: &recipient.ID,
@@ -152,11 +157,14 @@ func runAgreementLifecycle(
 		Required:    &required,
 	})
 	if err != nil {
-		return fmt.Errorf("upsert text field: %w", err)
+		return stores.RecipientRecord{}, stores.FieldRecord{}, stores.FieldRecord{}, fmt.Errorf("upsert text field: %w", err)
 	}
+	return recipient, signatureField, textField, nil
+}
 
+func sendValidationAgreement(ctx context.Context, scope stores.Scope, index int, agreementID string, agreementSvc services.AgreementService) error {
 	sendStart := time.Now()
-	_, sendErr := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{
+	_, sendErr := agreementSvc.Send(ctx, scope, agreementID, services.SendInput{
 		IdempotencyKey: fmt.Sprintf("release-send-%03d", index+1),
 	})
 	if sendErr != nil {
@@ -166,12 +174,22 @@ func runAgreementLifecycle(
 	sendDuration := time.Since(sendStart)
 	observability.ObserveSend(ctx, sendDuration, true)
 	observability.ObserveEmailDispatchStart(ctx, sendDuration, true)
+	return nil
+}
 
+func submitValidationAgreement(
+	ctx context.Context,
+	scope stores.Scope,
+	index int,
+	agreement stores.AgreementRecord,
+	recipient stores.RecipientRecord,
+	signatureField, textField stores.FieldRecord,
+	signingSvc services.SigningService,
+) error {
 	token := stores.SigningTokenRecord{
 		AgreementID: agreement.ID,
 		RecipientID: recipient.ID,
 	}
-
 	_, consentErr := signingSvc.CaptureConsent(ctx, scope, token, services.SignerConsentInput{
 		Accepted:  true,
 		IPAddress: "127.0.0.1",
@@ -180,7 +198,6 @@ func runAgreementLifecycle(
 	if consentErr != nil {
 		return fmt.Errorf("capture consent: %w", consentErr)
 	}
-
 	_, attachErr := signingSvc.AttachSignatureArtifact(ctx, scope, token, services.SignerSignatureInput{
 		FieldID:   signatureField.ID,
 		Type:      "typed",
@@ -193,7 +210,6 @@ func runAgreementLifecycle(
 	if attachErr != nil {
 		return fmt.Errorf("attach signature: %w", attachErr)
 	}
-
 	_, upsertErr := signingSvc.UpsertFieldValue(ctx, scope, token, services.SignerFieldValueInput{
 		FieldID:   textField.ID,
 		ValueText: "Release Validation Signer",
@@ -203,7 +219,6 @@ func runAgreementLifecycle(
 	if upsertErr != nil {
 		return fmt.Errorf("upsert field value: %w", upsertErr)
 	}
-
 	submitStart := time.Now()
 	submit, err := signingSvc.Submit(ctx, scope, token, services.SignerSubmitInput{
 		IdempotencyKey: fmt.Sprintf("release-submit-%03d", index+1),
@@ -216,7 +231,6 @@ func runAgreementLifecycle(
 		observability.ObserveFinalize(ctx, submitDuration, false)
 		return fmt.Errorf("submit signing: %w", err)
 	}
-
 	observability.ObserveSignerSubmit(ctx, submitDuration, true)
 	observability.ObserveFinalize(ctx, submitDuration, submit.Completed)
 	observability.ObserveJobResult(ctx, "jobs.esign.pdf_generate_executed", true)
@@ -224,6 +238,28 @@ func runAgreementLifecycle(
 	observability.ObserveJobResult(ctx, "jobs.esign.email_send_completed_cc", true)
 	observability.ObserveProviderResult(ctx, "email", true)
 	return nil
+}
+
+func runAgreementLifecycle(
+	ctx context.Context,
+	scope stores.Scope,
+	index int,
+	documentSvc services.DocumentService,
+	agreementSvc services.AgreementService,
+	signingSvc services.SigningService,
+) error {
+	_, agreement, err := createValidationDraftAgreement(ctx, scope, index, documentSvc, agreementSvc)
+	if err != nil {
+		return err
+	}
+	recipient, signatureField, textField, err := createValidationRecipientAndFields(ctx, scope, index, agreement, agreementSvc)
+	if err != nil {
+		return err
+	}
+	if err := sendValidationAgreement(ctx, scope, index, agreement.ID, agreementSvc); err != nil {
+		return err
+	}
+	return submitValidationAgreement(ctx, scope, index, agreement, recipient, signatureField, textField, signingSvc)
 }
 
 func samplePDF(pageCount int) []byte {

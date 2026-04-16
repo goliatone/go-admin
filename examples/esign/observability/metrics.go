@@ -574,28 +574,50 @@ func (m *inMemoryMetrics) ObserveRemediationLockSignal(_ context.Context, signal
 	m.remediationLockSignals[signal]++
 }
 
-func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+type metricsSnapshotTotals struct {
+	jobSuccessTotal                int64
+	jobFailureTotal                int64
+	emailSuccessTotal              int64
+	emailFailureTotal              int64
+	commandDispatchAcceptedTotal   int64
+	commandDispatchRejectedTotal   int64
+	dedupStoreMissTotal            int64
+	tokenFailureTotal              int64
+	googleImportFailureTotal       int64
+	googleAuthChurnTotal           int64
+	pdfIngestAnalyzeFailTotal      int64
+	pdfIngestPolicyRejectTotal     int64
+	pdfPreviewFallbackTotal        int64
+	pdfRenderImportFailTotal       int64
+	remediationLockContentionTotal int64
+	remediationLockTimeoutTotal    int64
+}
 
+func (m *inMemoryMetrics) snapshotTotalsLocked() metricsSnapshotTotals {
 	jobSuccessTotal := sumMap(m.jobSuccessByName)
 	jobFailureTotal := sumMap(m.jobFailureByName)
-	emailSuccessTotal := m.providerSuccessByName["email"]
-	emailFailureTotal := m.providerFailureByName["email"]
-	commandDispatchAcceptedTotal := sumMap(m.commandDispatchAcceptedByMode)
-	commandDispatchRejectedTotal := sumMap(m.commandDispatchRejectedByReason)
-	dedupStoreMissTotal := sumMap(m.dedupStoreMissByCommandID)
-	tokenFailureTotal := sumMap(m.tokenValidationByReason)
-	googleImportFailureTotal := sumMap(m.googleImportFailureByKey)
-	googleAuthChurnTotal := sumMap(m.googleAuthChurnByReason)
-	pdfIngestAnalyzeFailTotal := sumMap(m.pdfIngestAnalyzeFailByLabel)
-	pdfIngestPolicyRejectTotal := sumMap(m.pdfIngestPolicyRejectByLabel)
-	pdfPreviewFallbackTotal := sumMap(m.pdfPreviewFallbackByLabel)
-	pdfRenderImportFailTotal := sumMap(m.pdfRenderImportFailByLabel)
-	remediationLockContentionTotal := m.remediationLockSignals["contention"]
-	remediationLockTimeoutTotal := m.remediationLockSignals["timeout"]
+	return metricsSnapshotTotals{
+		jobSuccessTotal:                jobSuccessTotal,
+		jobFailureTotal:                jobFailureTotal,
+		emailSuccessTotal:              m.providerSuccessByName["email"],
+		emailFailureTotal:              m.providerFailureByName["email"],
+		commandDispatchAcceptedTotal:   sumMap(m.commandDispatchAcceptedByMode),
+		commandDispatchRejectedTotal:   sumMap(m.commandDispatchRejectedByReason),
+		dedupStoreMissTotal:            sumMap(m.dedupStoreMissByCommandID),
+		tokenFailureTotal:              sumMap(m.tokenValidationByReason),
+		googleImportFailureTotal:       sumMap(m.googleImportFailureByKey),
+		googleAuthChurnTotal:           sumMap(m.googleAuthChurnByReason),
+		pdfIngestAnalyzeFailTotal:      sumMap(m.pdfIngestAnalyzeFailByLabel),
+		pdfIngestPolicyRejectTotal:     sumMap(m.pdfIngestPolicyRejectByLabel),
+		pdfPreviewFallbackTotal:        sumMap(m.pdfPreviewFallbackByLabel),
+		pdfRenderImportFailTotal:       sumMap(m.pdfRenderImportFailByLabel),
+		remediationLockContentionTotal: m.remediationLockSignals["contention"],
+		remediationLockTimeoutTotal:    m.remediationLockSignals["timeout"],
+	}
+}
 
-	return MetricsSnapshot{
+func (m *inMemoryMetrics) snapshotLatencyMetricsLocked(snapshot *MetricsSnapshot) {
+	*snapshot = MetricsSnapshot{
 		AdminReadP95MS:          percentile(m.adminReadDurationsMS, 95),
 		SendP95MS:               percentile(m.sendDurationsMS, 95),
 		CommandDispatchP95MS:    percentile(m.commandDispatchDurationsMS, 95),
@@ -616,87 +638,104 @@ func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
 		UnifiedSignatureTotal:    int64(len(m.unifiedSignatureDurationsMS)),
 		FinalizeSampleTotal:      int64(len(m.finalizeDurationsMS)),
 		EmailDispatchSampleTotal: int64(len(m.emailDispatchDurationsMS)),
-
-		SendSuccessTotal:                m.sendSuccessTotal,
-		SendFailureTotal:                m.sendFailureTotal,
-		CommandDispatchAcceptedTotal:    commandDispatchAcceptedTotal,
-		CommandDispatchRejectedTotal:    commandDispatchRejectedTotal,
-		CommandDispatchAcceptedByMode:   cloneInt64Map(m.commandDispatchAcceptedByMode),
-		CommandDispatchAcceptedByID:     cloneInt64Map(m.commandDispatchAcceptedByID),
-		CommandDispatchRejectedByReason: cloneInt64Map(m.commandDispatchRejectedByReason),
-		DedupStoreMissTotal:             dedupStoreMissTotal,
-		DedupStoreMissByCommandID:       cloneInt64Map(m.dedupStoreMissByCommandID),
-		ReminderSweepClaimedTotal:       m.reminderSweepClaimedTotal,
-		ReminderSweepSentTotal:          m.reminderSweepSentTotal,
-		ReminderSweepSkippedTotal:       m.reminderSweepSkippedTotal,
-		ReminderSweepFailedTotal:        m.reminderSweepFailedTotal,
-		ReminderSweepSkipByReason:       cloneInt64Map(m.reminderSweepSkipByReason),
-		ReminderSweepFailureByReason:    cloneInt64Map(m.reminderSweepFailureByReason),
-		ReminderLeaseLostTotal:          m.reminderSweepSkipByReason["lease_lost"],
-		ReminderLeaseConflictTotal:      m.reminderSweepSkipByReason["lease_conflict"],
-		ReminderStateInvariantTotal:     m.reminderSweepFailureByReason["state_invariant_violation"],
-		ReminderPolicyBlockTotal:        m.reminderSweepSkipByReason["policy_block"],
-		ReminderClaimToSendP95MS:        percentile(m.reminderClaimToSendDurationsMS, 95),
-		ReminderDueToSendP95MS:          percentile(m.reminderDueToSendDurationsMS, 95),
-		ReminderDueBacklogAgeP95MS:      percentile(m.reminderDueBacklogAgeMS, 95),
-		SignerLinkOpenSuccessTotal:      m.signerLinkOpenSuccessTotal,
-		SignerLinkOpenFailureTotal:      m.signerLinkOpenFailureTotal,
-		SignerSubmitSuccessTotal:        m.signerSubmitSuccessTotal,
-		SignerSubmitFailureTotal:        m.signerSubmitFailureTotal,
-		UnifiedViewerSuccessTotal:       m.unifiedViewerSuccessTotal,
-		UnifiedViewerFailureTotal:       m.unifiedViewerFailureTotal,
-		UnifiedFieldSaveSuccessTotal:    m.unifiedFieldSaveSuccessTotal,
-		UnifiedFieldSaveFailureTotal:    m.unifiedFieldSaveFailureTotal,
-		UnifiedSignatureSuccessTotal:    m.unifiedSignatureSuccessTotal,
-		UnifiedSignatureFailureTotal:    m.unifiedSignatureFailureTotal,
-		UnifiedSubmitSuccessTotal:       m.unifiedSubmitSuccessTotal,
-		UnifiedSubmitFailureTotal:       m.unifiedSubmitFailureTotal,
-		FinalizeSuccessTotal:            m.finalizeSuccessTotal,
-		FinalizeFailureTotal:            m.finalizeFailureTotal,
-		CompletionDeliverySuccessTotal:  m.completionDeliverySuccessTotal,
-		CompletionDeliveryFailureTotal:  m.completionDeliveryFailureTotal,
-
-		JobSuccessTotal:             jobSuccessTotal,
-		JobFailureTotal:             jobFailureTotal,
-		EmailSuccessTotal:           emailSuccessTotal,
-		EmailFailureTotal:           emailFailureTotal,
-		TokenFailureTotal:           tokenFailureTotal,
-		TokenFailureByReason:        cloneInt64Map(m.tokenValidationByReason),
-		GoogleImportSuccessTotal:    m.googleImportSuccessTotal,
-		GoogleImportFailureTotal:    googleImportFailureTotal,
-		GoogleImportFailureByReason: cloneInt64Map(m.googleImportFailureByKey),
-		GoogleAuthChurnTotal:        googleAuthChurnTotal,
-		GoogleAuthChurnByReason:     cloneInt64Map(m.googleAuthChurnByReason),
-
-		ProviderSuccessByName: cloneInt64Map(m.providerSuccessByName),
-		ProviderFailureByName: cloneInt64Map(m.providerFailureByName),
-		JobSuccessByName:      cloneInt64Map(m.jobSuccessByName),
-		JobFailureByName:      cloneInt64Map(m.jobFailureByName),
-
-		PDFIngestAnalyzeFailTotal:         pdfIngestAnalyzeFailTotal,
-		PDFIngestAnalyzeFailByReasonTier:  cloneInt64Map(m.pdfIngestAnalyzeFailByLabel),
-		PDFIngestPolicyRejectTotal:        pdfIngestPolicyRejectTotal,
-		PDFIngestPolicyRejectByReasonTier: cloneInt64Map(m.pdfIngestPolicyRejectByLabel),
-		PDFPreviewFallbackTotal:           pdfPreviewFallbackTotal,
-		PDFPreviewFallbackByReasonTier:    cloneInt64Map(m.pdfPreviewFallbackByLabel),
-		PDFRenderImportFailTotal:          pdfRenderImportFailTotal,
-		PDFRenderImportFailByReasonTier:   cloneInt64Map(m.pdfRenderImportFailByLabel),
-
-		RemediationCandidateTotal:           m.remediationLifecycleByStatus["requested"],
-		RemediationStartedTotal:             m.remediationLifecycleByStatus["started"],
-		RemediationSucceededTotal:           m.remediationLifecycleByStatus["succeeded"],
-		RemediationFailedTotal:              m.remediationLifecycleByStatus["failed"],
-		RemediationRetryingTotal:            m.remediationDispatchByStatus["retrying"],
-		RemediationCanceledTotal:            m.remediationDispatchByStatus["canceled"],
-		RemediationDeadLetterTotal:          m.remediationDispatchByStatus["dead_letter"],
-		RemediationLifecycleByStatus:        cloneInt64Map(m.remediationLifecycleByStatus),
-		RemediationDispatchStateByStatus:    cloneInt64Map(m.remediationDispatchByStatus),
-		RemediationFailureByReason:          cloneInt64Map(m.remediationFailureByReason),
-		RemediationDuplicateSuppressedTotal: m.remediationDuplicateSuppressed,
-		RemediationLockContentionTotal:      remediationLockContentionTotal,
-		RemediationLockTimeoutTotal:         remediationLockTimeoutTotal,
-		RemediationLockSignals:              cloneInt64Map(m.remediationLockSignals),
 	}
+}
+
+func (m *inMemoryMetrics) snapshotDispatchAndReminderMetricsLocked(snapshot *MetricsSnapshot, totals metricsSnapshotTotals) {
+	snapshot.SendSuccessTotal = m.sendSuccessTotal
+	snapshot.SendFailureTotal = m.sendFailureTotal
+	snapshot.CommandDispatchAcceptedTotal = totals.commandDispatchAcceptedTotal
+	snapshot.CommandDispatchRejectedTotal = totals.commandDispatchRejectedTotal
+	snapshot.CommandDispatchAcceptedByMode = cloneInt64Map(m.commandDispatchAcceptedByMode)
+	snapshot.CommandDispatchAcceptedByID = cloneInt64Map(m.commandDispatchAcceptedByID)
+	snapshot.CommandDispatchRejectedByReason = cloneInt64Map(m.commandDispatchRejectedByReason)
+	snapshot.DedupStoreMissTotal = totals.dedupStoreMissTotal
+	snapshot.DedupStoreMissByCommandID = cloneInt64Map(m.dedupStoreMissByCommandID)
+	snapshot.ReminderSweepClaimedTotal = m.reminderSweepClaimedTotal
+	snapshot.ReminderSweepSentTotal = m.reminderSweepSentTotal
+	snapshot.ReminderSweepSkippedTotal = m.reminderSweepSkippedTotal
+	snapshot.ReminderSweepFailedTotal = m.reminderSweepFailedTotal
+	snapshot.ReminderSweepSkipByReason = cloneInt64Map(m.reminderSweepSkipByReason)
+	snapshot.ReminderSweepFailureByReason = cloneInt64Map(m.reminderSweepFailureByReason)
+	snapshot.ReminderLeaseLostTotal = m.reminderSweepSkipByReason["lease_lost"]
+	snapshot.ReminderLeaseConflictTotal = m.reminderSweepSkipByReason["lease_conflict"]
+	snapshot.ReminderStateInvariantTotal = m.reminderSweepFailureByReason["state_invariant_violation"]
+	snapshot.ReminderPolicyBlockTotal = m.reminderSweepSkipByReason["policy_block"]
+	snapshot.ReminderClaimToSendP95MS = percentile(m.reminderClaimToSendDurationsMS, 95)
+	snapshot.ReminderDueToSendP95MS = percentile(m.reminderDueToSendDurationsMS, 95)
+	snapshot.ReminderDueBacklogAgeP95MS = percentile(m.reminderDueBacklogAgeMS, 95)
+	snapshot.SignerLinkOpenSuccessTotal = m.signerLinkOpenSuccessTotal
+	snapshot.SignerLinkOpenFailureTotal = m.signerLinkOpenFailureTotal
+	snapshot.SignerSubmitSuccessTotal = m.signerSubmitSuccessTotal
+	snapshot.SignerSubmitFailureTotal = m.signerSubmitFailureTotal
+	snapshot.UnifiedViewerSuccessTotal = m.unifiedViewerSuccessTotal
+	snapshot.UnifiedViewerFailureTotal = m.unifiedViewerFailureTotal
+	snapshot.UnifiedFieldSaveSuccessTotal = m.unifiedFieldSaveSuccessTotal
+	snapshot.UnifiedFieldSaveFailureTotal = m.unifiedFieldSaveFailureTotal
+	snapshot.UnifiedSignatureSuccessTotal = m.unifiedSignatureSuccessTotal
+	snapshot.UnifiedSignatureFailureTotal = m.unifiedSignatureFailureTotal
+	snapshot.UnifiedSubmitSuccessTotal = m.unifiedSubmitSuccessTotal
+	snapshot.UnifiedSubmitFailureTotal = m.unifiedSubmitFailureTotal
+	snapshot.FinalizeSuccessTotal = m.finalizeSuccessTotal
+	snapshot.FinalizeFailureTotal = m.finalizeFailureTotal
+	snapshot.CompletionDeliverySuccessTotal = m.completionDeliverySuccessTotal
+	snapshot.CompletionDeliveryFailureTotal = m.completionDeliveryFailureTotal
+}
+
+func (m *inMemoryMetrics) snapshotIntegrationAndProviderMetricsLocked(snapshot *MetricsSnapshot, totals metricsSnapshotTotals) {
+	snapshot.JobSuccessTotal = totals.jobSuccessTotal
+	snapshot.JobFailureTotal = totals.jobFailureTotal
+	snapshot.EmailSuccessTotal = totals.emailSuccessTotal
+	snapshot.EmailFailureTotal = totals.emailFailureTotal
+	snapshot.TokenFailureTotal = totals.tokenFailureTotal
+	snapshot.TokenFailureByReason = cloneInt64Map(m.tokenValidationByReason)
+	snapshot.GoogleImportSuccessTotal = m.googleImportSuccessTotal
+	snapshot.GoogleImportFailureTotal = totals.googleImportFailureTotal
+	snapshot.GoogleImportFailureByReason = cloneInt64Map(m.googleImportFailureByKey)
+	snapshot.GoogleAuthChurnTotal = totals.googleAuthChurnTotal
+	snapshot.GoogleAuthChurnByReason = cloneInt64Map(m.googleAuthChurnByReason)
+	snapshot.ProviderSuccessByName = cloneInt64Map(m.providerSuccessByName)
+	snapshot.ProviderFailureByName = cloneInt64Map(m.providerFailureByName)
+	snapshot.JobSuccessByName = cloneInt64Map(m.jobSuccessByName)
+	snapshot.JobFailureByName = cloneInt64Map(m.jobFailureByName)
+}
+
+func (m *inMemoryMetrics) snapshotPDFAndRemediationMetricsLocked(snapshot *MetricsSnapshot, totals metricsSnapshotTotals) {
+	snapshot.PDFIngestAnalyzeFailTotal = totals.pdfIngestAnalyzeFailTotal
+	snapshot.PDFIngestAnalyzeFailByReasonTier = cloneInt64Map(m.pdfIngestAnalyzeFailByLabel)
+	snapshot.PDFIngestPolicyRejectTotal = totals.pdfIngestPolicyRejectTotal
+	snapshot.PDFIngestPolicyRejectByReasonTier = cloneInt64Map(m.pdfIngestPolicyRejectByLabel)
+	snapshot.PDFPreviewFallbackTotal = totals.pdfPreviewFallbackTotal
+	snapshot.PDFPreviewFallbackByReasonTier = cloneInt64Map(m.pdfPreviewFallbackByLabel)
+	snapshot.PDFRenderImportFailTotal = totals.pdfRenderImportFailTotal
+	snapshot.PDFRenderImportFailByReasonTier = cloneInt64Map(m.pdfRenderImportFailByLabel)
+	snapshot.RemediationCandidateTotal = m.remediationLifecycleByStatus["requested"]
+	snapshot.RemediationStartedTotal = m.remediationLifecycleByStatus["started"]
+	snapshot.RemediationSucceededTotal = m.remediationLifecycleByStatus["succeeded"]
+	snapshot.RemediationFailedTotal = m.remediationLifecycleByStatus["failed"]
+	snapshot.RemediationRetryingTotal = m.remediationDispatchByStatus["retrying"]
+	snapshot.RemediationCanceledTotal = m.remediationDispatchByStatus["canceled"]
+	snapshot.RemediationDeadLetterTotal = m.remediationDispatchByStatus["dead_letter"]
+	snapshot.RemediationLifecycleByStatus = cloneInt64Map(m.remediationLifecycleByStatus)
+	snapshot.RemediationDispatchStateByStatus = cloneInt64Map(m.remediationDispatchByStatus)
+	snapshot.RemediationFailureByReason = cloneInt64Map(m.remediationFailureByReason)
+	snapshot.RemediationDuplicateSuppressedTotal = m.remediationDuplicateSuppressed
+	snapshot.RemediationLockContentionTotal = totals.remediationLockContentionTotal
+	snapshot.RemediationLockTimeoutTotal = totals.remediationLockTimeoutTotal
+	snapshot.RemediationLockSignals = cloneInt64Map(m.remediationLockSignals)
+}
+
+func (m *inMemoryMetrics) Snapshot() MetricsSnapshot {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	totals := m.snapshotTotalsLocked()
+	snapshot := MetricsSnapshot{}
+	m.snapshotLatencyMetricsLocked(&snapshot)
+	m.snapshotDispatchAndReminderMetricsLocked(&snapshot, totals)
+	m.snapshotIntegrationAndProviderMetricsLocked(&snapshot, totals)
+	m.snapshotPDFAndRemediationMetricsLocked(&snapshot, totals)
+	return snapshot
 }
 
 var (

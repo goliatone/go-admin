@@ -970,6 +970,13 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 	if adm == nil {
 		return fmt.Errorf("esign module: admin is nil")
 	}
+	if err := m.registerDocumentPanel(adm); err != nil {
+		return err
+	}
+	return m.registerAgreementPanel(adm)
+}
+
+func (m *ESignModule) registerDocumentPanel(adm *coreadmin.Admin) error {
 	docRepo := newDocumentPanelRepository(
 		m.store,
 		m.store,
@@ -1043,7 +1050,10 @@ func (m *ESignModule) registerPanels(adm *coreadmin.Admin) error {
 	if _, err := adm.RegisterPanel(esignDocumentsPanelID, docBuilder); err != nil {
 		return err
 	}
+	return nil
+}
 
+func (m *ESignModule) registerAgreementPanel(adm *coreadmin.Admin) error {
 	agreementRepo := newAgreementPanelRepository(m.store, m.store, m.agreements, m.artifacts, m.activityMap, m.documentUploadManager(), m.defaultScope, m.settings)
 	agreementRepo.authorizer = adm.Authorizer()
 	agreementRepo.users = adm.UserService()
@@ -1309,27 +1319,43 @@ func (m *ESignModule) registerPanelTabs(adm *coreadmin.Admin) error {
 }
 
 func (m *ESignModule) MenuItems(locale string) []coreadmin.MenuItem {
+	locale = m.resolveMenuLocale(locale)
+	menuCode := m.resolveMenuCode()
+	items := m.baseMenuItems(locale, menuCode)
+	if m.GoogleIntegrationEnabled() {
+		items = append(items, m.googleIntegrationMenuItem(locale, menuCode))
+	}
+	return items
+}
+
+func (m *ESignModule) resolveMenuLocale(locale string) string {
 	if strings.TrimSpace(locale) == "" {
 		locale = m.defaultLocale
 	}
 	if strings.TrimSpace(locale) == "" {
 		locale = "en"
 	}
+	return locale
+}
+
+func (m *ESignModule) resolveMenuCode() string {
 	menuCode := strings.TrimSpace(m.menuCode)
 	if menuCode == "" {
 		menuCode = "admin_main"
 	}
+	return menuCode
+}
 
+func (m *ESignModule) baseMenuItems(locale, menuCode string) []coreadmin.MenuItem {
 	documentsPath := canonicalESignPanelListPath(m.basePath, esignDocumentsPanelID)
 	agreementsPath := canonicalESignPanelListPath(m.basePath, esignAgreementsPanelID)
 	sourceBrowserPath := joinBasePath(m.basePath, path.Join("esign", "sources"))
 	sourceSearchPath := joinBasePath(m.basePath, path.Join("esign", "source-search"))
-
 	agreementsPos := 15
 	documentsPos := 16
 	sourceBrowserPos := 17
 	sourceSearchPos := 18
-	items := []coreadmin.MenuItem{
+	return []coreadmin.MenuItem{
 		{
 			ID:    "esign.agreements",
 			Label: "Agreements",
@@ -1387,24 +1413,24 @@ func (m *ESignModule) MenuItems(locale string) []coreadmin.MenuItem {
 			Position:    &sourceSearchPos,
 		},
 	}
-	if m.GoogleIntegrationEnabled() {
-		integrationsPos := 19
-		items = append(items, coreadmin.MenuItem{
-			ID:    "esign.integrations",
-			Label: "Integrations",
-			Icon:  "settings",
-			Target: map[string]any{
-				"type": "url",
-				"path": joinBasePath(m.basePath, path.Join("esign", "integrations", "google")),
-				"key":  "esign_integrations_google",
-			},
-			Permissions: []string{permissions.AdminESignSettings},
-			Locale:      locale,
-			Menu:        menuCode,
-			Position:    &integrationsPos,
-		})
+}
+
+func (m *ESignModule) googleIntegrationMenuItem(locale, menuCode string) coreadmin.MenuItem {
+	integrationsPos := 19
+	return coreadmin.MenuItem{
+		ID:    "esign.integrations",
+		Label: "Integrations",
+		Icon:  "settings",
+		Target: map[string]any{
+			"type": "url",
+			"path": joinBasePath(m.basePath, path.Join("esign", "integrations", "google")),
+			"key":  "esign_integrations_google",
+		},
+		Permissions: []string{permissions.AdminESignSettings},
+		Locale:      locale,
+		Menu:        menuCode,
+		Position:    &integrationsPos,
 	}
-	return items
 }
 
 func featureEnabled(gate fggate.FeatureGate, feature string) bool {
