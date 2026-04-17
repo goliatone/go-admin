@@ -42,16 +42,54 @@ type LineageValidationResult struct {
 	ImportedAgreementID              string `json:"imported_agreement_id"`
 }
 
+type lineageValidationRuntime struct {
+	scope          stores.Scope
+	agreements     services.AgreementService
+	readModels     services.DefaultSourceReadModelService
+	fingerprints   services.DefaultSourceFingerprintService
+	reconciliation services.DefaultSourceReconciliationService
+	google         services.GoogleIntegrationService
+	provider       *lineageValidationGoogleProvider
+}
+
+type lineageValidationExecution struct {
+	first                 services.GoogleImportResult
+	reimported            services.GoogleImportResult
+	changed               services.GoogleImportResult
+	laterAgreement        stores.AgreementRecord
+	fingerprint           services.SourceFingerprintBuildResult
+	candidate             services.GoogleImportResult
+	candidateDetailBefore services.DocumentLineageDetail
+	reviewed              services.CandidateWarningSummary
+	candidateDetailAfter  services.DocumentLineageDetail
+	importedAgreement     services.AgreementLineageDetail
+	laterAgreementDetail  services.AgreementLineageDetail
+}
+
 func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig) (LineageValidationResult, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 
-	storeDSN, cleanup := resolveValidationSQLiteDSN("lineage-validation")
-	if cleanup != nil {
-		defer cleanup()
+	runtime, cleanup, err := newLineageValidationRuntime(ctx)
+	if err != nil {
+		return LineageValidationResult{}, err
 	}
+	defer cleanup()
 
+	execution, err := runLineageValidationExecution(ctx, runtime)
+	if err != nil {
+		return LineageValidationResult{}, err
+	}
+	result := buildLineageValidationResult(execution)
+	if err := validateLineageValidationResult(result); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+func newLineageValidationRuntime(ctx context.Context) (lineageValidationRuntime, func(), error) {
+	storeDSN, dsnCleanup := resolveValidationSQLiteDSN("lineage-validation")
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
 	cfg.Persistence.Migrations.LocalOnly = true
@@ -60,30 +98,27 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 
 	bootstrap, err := esignpersistence.Bootstrap(ctx, cfg)
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("bootstrap lineage validation store: %w", err)
+		runLineageValidationCleanup(dsnCleanup)
+		return lineageValidationRuntime{}, func() {}, fmt.Errorf("bootstrap lineage validation store: %w", err)
 	}
-	defer func() {
-		_ = bootstrap.Close()
-	}()
-
 	store, storeCleanup, err := esignpersistence.NewStoreAdapter(bootstrap)
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("create lineage validation store adapter: %w", err)
+		_ = bootstrap.Close()
+		runLineageValidationCleanup(dsnCleanup)
+		return lineageValidationRuntime{}, func() {}, fmt.Errorf("create lineage validation store adapter: %w", err)
 	}
-	if storeCleanup != nil {
-		defer func() {
-			_ = storeCleanup()
-		}()
-	}
-
 	uploadDir, err := os.MkdirTemp("", "go-admin-lineage-validation-upload-*")
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("create lineage validation upload dir: %w", err)
+		runLineageValidationStoreCleanup(bootstrap, storeCleanup, dsnCleanup)
+		return lineageValidationRuntime{}, func() {}, fmt.Errorf("create lineage validation upload dir: %w", err)
 	}
-	defer func() {
-		_ = os.RemoveAll(uploadDir)
-	}()
 	uploads := uploader.NewManager(uploader.WithProvider(uploader.NewFSProvider(uploadDir)))
+	provider, err := newLineageValidationGoogleProvider()
+	if err != nil {
+		_ = os.RemoveAll(uploadDir)
+		runLineageValidationStoreCleanup(bootstrap, storeCleanup, dsnCleanup)
+		return lineageValidationRuntime{}, func() {}, fmt.Errorf("build lineage validation google provider: %w", err)
+	}
 
 	scope := stores.Scope{TenantID: "tenant-lineage-validation", OrgID: "org-lineage-validation"}
 	documents := services.NewDocumentService(store,
@@ -91,29 +126,91 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 		services.WithDocumentPDFService(services.NewPDFService()),
 	)
 	agreements := services.NewAgreementService(store)
-	readModels := services.NewDefaultSourceReadModelService(store, store, store)
-	fingerprints := services.NewDefaultSourceFingerprintService(store, uploads)
-	reconciliation := services.NewDefaultSourceReconciliationService(store)
-	provider, err := newLineageValidationGoogleProvider()
-	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("build lineage validation google provider: %w", err)
+	runtime := lineageValidationRuntime{
+		scope:          scope,
+		agreements:     agreements,
+		readModels:     services.NewDefaultSourceReadModelService(store, store, store),
+		fingerprints:   services.NewDefaultSourceFingerprintService(store, uploads),
+		reconciliation: services.NewDefaultSourceReconciliationService(store),
+		google: services.NewGoogleIntegrationService(
+			store,
+			provider,
+			documents,
+			agreements,
+			services.WithGoogleLineageStore(store),
+		),
+		provider: provider,
 	}
-	google := services.NewGoogleIntegrationService(
-		store,
-		provider,
-		documents,
-		agreements,
-		services.WithGoogleLineageStore(store),
-	)
+	cleanup := func() {
+		_ = os.RemoveAll(uploadDir)
+		runLineageValidationStoreCleanup(bootstrap, storeCleanup, dsnCleanup)
+	}
+	return runtime, cleanup, nil
+}
 
-	if _, connectErr := google.Connect(ctx, scope, services.GoogleConnectInput{
+func runLineageValidationCleanup(cleanup func()) {
+	if cleanup != nil {
+		cleanup()
+	}
+}
+
+func runLineageValidationStoreCleanup(bootstrap ioCloser, storeCleanup func() error, dsnCleanup func()) {
+	if bootstrap != nil {
+		_ = bootstrap.Close()
+	}
+	if storeCleanup != nil {
+		_ = storeCleanup()
+	}
+	runLineageValidationCleanup(dsnCleanup)
+}
+
+type ioCloser interface {
+	Close() error
+}
+
+func runLineageValidationExecution(ctx context.Context, runtime lineageValidationRuntime) (lineageValidationExecution, error) {
+	if _, err := runtime.google.Connect(ctx, runtime.scope, services.GoogleConnectInput{
 		UserID:   "ops-user",
 		AuthCode: "lineage-validation-auth",
-	}); connectErr != nil {
-		return LineageValidationResult{}, fmt.Errorf("connect google validation account: %w", connectErr)
+	}); err != nil {
+		return lineageValidationExecution{}, fmt.Errorf("connect google validation account: %w", err)
 	}
+	first, reimported, changed, err := runLineageValidationImports(ctx, runtime)
+	if err != nil {
+		return lineageValidationExecution{}, err
+	}
+	laterAgreement, fingerprint, err := runLineageValidationAgreementFlow(ctx, runtime, changed)
+	if err != nil {
+		return lineageValidationExecution{}, err
+	}
+	candidate, candidateDetailBefore, reviewed, candidateDetailAfter, err := runLineageValidationCandidateFlow(ctx, runtime)
+	if err != nil {
+		return lineageValidationExecution{}, err
+	}
+	importedAgreement, laterAgreementDetail, err := runLineageValidationAgreementDetails(ctx, runtime, first.Agreement.ID, laterAgreement.ID)
+	if err != nil {
+		return lineageValidationExecution{}, err
+	}
+	return lineageValidationExecution{
+		first:                 first,
+		reimported:            reimported,
+		changed:               changed,
+		laterAgreement:        laterAgreement,
+		fingerprint:           fingerprint,
+		candidate:             candidate,
+		candidateDetailBefore: candidateDetailBefore,
+		reviewed:              reviewed,
+		candidateDetailAfter:  candidateDetailAfter,
+		importedAgreement:     importedAgreement,
+		laterAgreementDetail:  laterAgreementDetail,
+	}, nil
+}
 
-	first, err := google.ImportDocument(ctx, scope, services.GoogleImportInput{
+func runLineageValidationImports(
+	ctx context.Context,
+	runtime lineageValidationRuntime,
+) (services.GoogleImportResult, services.GoogleImportResult, services.GoogleImportResult, error) {
+	first, err := runtime.google.ImportDocument(ctx, runtime.scope, services.GoogleImportInput{
 		UserID:            "ops-user",
 		GoogleFileID:      "google-file-1",
 		SourceVersionHint: "v1",
@@ -124,10 +221,9 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 		IdempotencyKey:    "lineage-validation-import-1",
 	})
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("import initial google document: %w", err)
+		return services.GoogleImportResult{}, services.GoogleImportResult{}, services.GoogleImportResult{}, fmt.Errorf("import initial google document: %w", err)
 	}
-
-	reimported, err := google.ImportDocument(ctx, scope, services.GoogleImportInput{
+	reimported, err := runtime.google.ImportDocument(ctx, runtime.scope, services.GoogleImportInput{
 		UserID:            "ops-user",
 		GoogleFileID:      "google-file-1",
 		SourceVersionHint: "v1",
@@ -137,15 +233,33 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 		IdempotencyKey:    "lineage-validation-import-2",
 	})
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("re-import unchanged google document: %w", err)
+		return services.GoogleImportResult{}, services.GoogleImportResult{}, services.GoogleImportResult{}, fmt.Errorf("re-import unchanged google document: %w", err)
 	}
+	if updateErr := updateLineageValidationChangedImport(runtime.provider); updateErr != nil {
+		return services.GoogleImportResult{}, services.GoogleImportResult{}, services.GoogleImportResult{}, updateErr
+	}
+	changed, err := runtime.google.ImportDocument(ctx, runtime.scope, services.GoogleImportInput{
+		UserID:            "ops-user",
+		GoogleFileID:      "google-file-1",
+		SourceVersionHint: "v2",
+		DocumentTitle:     "Master Services Agreement",
+		CreatedByUserID:   "ops-user",
+		CorrelationID:     "lineage-validation-import-3",
+		IdempotencyKey:    "lineage-validation-import-3",
+	})
+	if err != nil {
+		return services.GoogleImportResult{}, services.GoogleImportResult{}, services.GoogleImportResult{}, fmt.Errorf("import changed google document: %w", err)
+	}
+	return first, reimported, changed, nil
+}
 
+func updateLineageValidationChangedImport(provider *lineageValidationGoogleProvider) error {
 	changedPDF, err := makeReadableValidationPDF(
 		"Master Services Agreement",
 		"Commercial terms were updated for the March revision.",
 	)
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("build changed lineage validation PDF: %w", err)
+		return fmt.Errorf("build changed lineage validation PDF: %w", err)
 	}
 	provider.setFile(
 		"google-file-1",
@@ -162,39 +276,38 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 			pdf: changedPDF,
 		},
 	)
+	return nil
+}
 
-	changed, err := google.ImportDocument(ctx, scope, services.GoogleImportInput{
-		UserID:            "ops-user",
-		GoogleFileID:      "google-file-1",
-		SourceVersionHint: "v2",
-		DocumentTitle:     "Master Services Agreement",
-		CreatedByUserID:   "ops-user",
-		CorrelationID:     "lineage-validation-import-3",
-		IdempotencyKey:    "lineage-validation-import-3",
-	})
-	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("import changed google document: %w", err)
-	}
-
-	laterAgreement, err := agreements.CreateDraft(ctx, scope, services.CreateDraftInput{
+func runLineageValidationAgreementFlow(
+	ctx context.Context,
+	runtime lineageValidationRuntime,
+	changed services.GoogleImportResult,
+) (stores.AgreementRecord, services.SourceFingerprintBuildResult, error) {
+	laterAgreement, err := runtime.agreements.CreateDraft(ctx, runtime.scope, services.CreateDraftInput{
 		DocumentID:      changed.Document.ID,
 		Title:           "Master Services Agreement Follow-on Draft",
 		CreatedByUserID: "ops-user",
 	})
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("create later agreement from changed import: %w", err)
+		return stores.AgreementRecord{}, services.SourceFingerprintBuildResult{}, fmt.Errorf("create later agreement from changed import: %w", err)
 	}
-
-	fingerprint, err := fingerprints.BuildFingerprint(ctx, scope, services.SourceFingerprintBuildInput{
+	fingerprint, err := runtime.fingerprints.BuildFingerprint(ctx, runtime.scope, services.SourceFingerprintBuildInput{
 		SourceRevisionID: changed.SourceRevisionID,
 		ArtifactID:       changed.SourceArtifactID,
 		Metadata:         lineageValidationMetadata(changed, "google-file-1"),
 	})
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("build fingerprint for changed revision: %w", err)
+		return stores.AgreementRecord{}, services.SourceFingerprintBuildResult{}, fmt.Errorf("build fingerprint for changed revision: %w", err)
 	}
+	return laterAgreement, fingerprint, nil
+}
 
-	candidate, err := google.ImportDocument(ctx, scope, services.GoogleImportInput{
+func runLineageValidationCandidateFlow(
+	ctx context.Context,
+	runtime lineageValidationRuntime,
+) (services.GoogleImportResult, services.DocumentLineageDetail, services.CandidateWarningSummary, services.DocumentLineageDetail, error) {
+	candidate, err := runtime.google.ImportDocument(ctx, runtime.scope, services.GoogleImportInput{
 		UserID:            "ops-user",
 		GoogleFileID:      "google-file-candidate",
 		SourceVersionHint: "candidate-v1",
@@ -204,96 +317,104 @@ func RunLineageValidationProfile(ctx context.Context, _ LineageValidationConfig)
 		IdempotencyKey:    "lineage-validation-import-4",
 	})
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("import candidate google document: %w", err)
+		return services.GoogleImportResult{}, services.DocumentLineageDetail{}, services.CandidateWarningSummary{}, services.DocumentLineageDetail{}, fmt.Errorf("import candidate google document: %w", err)
 	}
 	if len(candidate.CandidateStatus) == 0 {
-		return LineageValidationResult{}, fmt.Errorf("candidate import did not create a pending candidate relationship")
+		return services.GoogleImportResult{}, services.DocumentLineageDetail{}, services.CandidateWarningSummary{}, services.DocumentLineageDetail{}, fmt.Errorf("candidate import did not create a pending candidate relationship")
 	}
-
-	candidateDetailBefore, err := readModels.GetDocumentLineageDetail(ctx, scope, candidate.Document.ID)
+	candidateDetailBefore, err := runtime.readModels.GetDocumentLineageDetail(ctx, runtime.scope, candidate.Document.ID)
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("load candidate detail before review: %w", err)
+		return services.GoogleImportResult{}, services.DocumentLineageDetail{}, services.CandidateWarningSummary{}, services.DocumentLineageDetail{}, fmt.Errorf("load candidate detail before review: %w", err)
 	}
-
-	reviewed, err := reconciliation.ApplyReviewAction(ctx, scope, services.SourceRelationshipReviewInput{
+	reviewed, err := runtime.reconciliation.ApplyReviewAction(ctx, runtime.scope, services.SourceRelationshipReviewInput{
 		RelationshipID: candidate.CandidateStatus[0].ID,
 		Action:         services.SourceRelationshipActionReject,
 		ActorID:        "lineage-reviewer",
 		Reason:         "release validation rejection flow",
 	})
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("apply candidate review action: %w", err)
+		return services.GoogleImportResult{}, services.DocumentLineageDetail{}, services.CandidateWarningSummary{}, services.DocumentLineageDetail{}, fmt.Errorf("apply candidate review action: %w", err)
 	}
-
-	candidateDetailAfter, err := readModels.GetDocumentLineageDetail(ctx, scope, candidate.Document.ID)
+	candidateDetailAfter, err := runtime.readModels.GetDocumentLineageDetail(ctx, runtime.scope, candidate.Document.ID)
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("load candidate detail after review: %w", err)
+		return services.GoogleImportResult{}, services.DocumentLineageDetail{}, services.CandidateWarningSummary{}, services.DocumentLineageDetail{}, fmt.Errorf("load candidate detail after review: %w", err)
 	}
+	return candidate, candidateDetailBefore, reviewed, candidateDetailAfter, nil
+}
 
-	importedAgreementDetail, err := readModels.GetAgreementLineageDetail(ctx, scope, first.Agreement.ID)
+func runLineageValidationAgreementDetails(
+	ctx context.Context,
+	runtime lineageValidationRuntime,
+	importedAgreementID, laterAgreementID string,
+) (services.AgreementLineageDetail, services.AgreementLineageDetail, error) {
+	importedAgreementDetail, err := runtime.readModels.GetAgreementLineageDetail(ctx, runtime.scope, importedAgreementID)
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("load imported agreement lineage detail: %w", err)
+		return services.AgreementLineageDetail{}, services.AgreementLineageDetail{}, fmt.Errorf("load imported agreement lineage detail: %w", err)
 	}
-	laterAgreementDetail, err := readModels.GetAgreementLineageDetail(ctx, scope, laterAgreement.ID)
+	laterAgreementDetail, err := runtime.readModels.GetAgreementLineageDetail(ctx, runtime.scope, laterAgreementID)
 	if err != nil {
-		return LineageValidationResult{}, fmt.Errorf("load later agreement lineage detail: %w", err)
+		return services.AgreementLineageDetail{}, services.AgreementLineageDetail{}, fmt.Errorf("load later agreement lineage detail: %w", err)
 	}
+	return importedAgreementDetail, laterAgreementDetail, nil
+}
 
-	result := LineageValidationResult{
+func buildLineageValidationResult(execution lineageValidationExecution) LineageValidationResult {
+	return LineageValidationResult{
 		BootstrapValidated:               true,
-		ImportLineageLinked:              first.LineageStatus == services.LineageImportStatusLinked && strings.TrimSpace(first.SourceDocumentID) != "" && strings.TrimSpace(first.SourceRevisionID) != "",
-		ReimportReusedRevision:           first.SourceDocumentID == reimported.SourceDocumentID && first.SourceRevisionID == reimported.SourceRevisionID && first.SourceArtifactID == reimported.SourceArtifactID,
-		ChangedSourceCreatedNewRevision:  first.SourceDocumentID == changed.SourceDocumentID && first.SourceRevisionID != changed.SourceRevisionID && strings.TrimSpace(changed.SourceRevisionID) != "",
-		LaterAgreementPinnedLatest:       strings.TrimSpace(laterAgreement.SourceRevisionID) == strings.TrimSpace(changed.SourceRevisionID) && laterAgreementDetail.PinnedSourceRevisionID == changed.SourceRevisionID && !laterAgreementDetail.NewerSourceExists,
-		FingerprintStatus:                strings.TrimSpace(fingerprint.Status.Status),
-		CandidateCreated:                 candidate.LineageStatus == services.LineageImportStatusNeedsReview && len(candidate.CandidateStatus) > 0,
-		CandidateReviewActionApplied:     strings.TrimSpace(reviewed.Status) == stores.SourceRelationshipStatusRejected,
-		CandidateWarningsVisibleBefore:   len(candidateDetailBefore.CandidateWarningSummary) > 0,
-		CandidateWarningsSuppressedAfter: len(candidateDetailAfter.CandidateWarningSummary) == 0,
-		DocumentDetailContractStable:     validateLineageDocumentContract(candidateDetailBefore),
-		AgreementDetailContractStable:    validateLineageAgreementContract(importedAgreementDetail),
-		SourceDocumentID:                 strings.TrimSpace(first.SourceDocumentID),
-		PinnedAgreementSourceRevisionID:  strings.TrimSpace(importedAgreementDetail.PinnedSourceRevisionID),
-		LatestSourceRevisionID:           strings.TrimSpace(changed.SourceRevisionID),
-		CandidateRelationshipID:          strings.TrimSpace(candidate.CandidateStatus[0].ID),
-		CandidateRelationshipFinalStatus: strings.TrimSpace(reviewed.Status),
-		CandidateDocumentID:              strings.TrimSpace(candidate.Document.ID),
-		ChangedImportDocumentID:          strings.TrimSpace(changed.Document.ID),
-		ImportedAgreementID:              strings.TrimSpace(first.Agreement.ID),
+		ImportLineageLinked:              execution.first.LineageStatus == services.LineageImportStatusLinked && strings.TrimSpace(execution.first.SourceDocumentID) != "" && strings.TrimSpace(execution.first.SourceRevisionID) != "",
+		ReimportReusedRevision:           execution.first.SourceDocumentID == execution.reimported.SourceDocumentID && execution.first.SourceRevisionID == execution.reimported.SourceRevisionID && execution.first.SourceArtifactID == execution.reimported.SourceArtifactID,
+		ChangedSourceCreatedNewRevision:  execution.first.SourceDocumentID == execution.changed.SourceDocumentID && execution.first.SourceRevisionID != execution.changed.SourceRevisionID && strings.TrimSpace(execution.changed.SourceRevisionID) != "",
+		LaterAgreementPinnedLatest:       strings.TrimSpace(execution.laterAgreement.SourceRevisionID) == strings.TrimSpace(execution.changed.SourceRevisionID) && execution.laterAgreementDetail.PinnedSourceRevisionID == execution.changed.SourceRevisionID && !execution.laterAgreementDetail.NewerSourceExists,
+		FingerprintStatus:                strings.TrimSpace(execution.fingerprint.Status.Status),
+		CandidateCreated:                 execution.candidate.LineageStatus == services.LineageImportStatusNeedsReview && len(execution.candidate.CandidateStatus) > 0,
+		CandidateReviewActionApplied:     strings.TrimSpace(execution.reviewed.Status) == stores.SourceRelationshipStatusRejected,
+		CandidateWarningsVisibleBefore:   len(execution.candidateDetailBefore.CandidateWarningSummary) > 0,
+		CandidateWarningsSuppressedAfter: len(execution.candidateDetailAfter.CandidateWarningSummary) == 0,
+		DocumentDetailContractStable:     validateLineageDocumentContract(execution.candidateDetailBefore),
+		AgreementDetailContractStable:    validateLineageAgreementContract(execution.importedAgreement),
+		SourceDocumentID:                 strings.TrimSpace(execution.first.SourceDocumentID),
+		PinnedAgreementSourceRevisionID:  strings.TrimSpace(execution.importedAgreement.PinnedSourceRevisionID),
+		LatestSourceRevisionID:           strings.TrimSpace(execution.changed.SourceRevisionID),
+		CandidateRelationshipID:          strings.TrimSpace(execution.candidate.CandidateStatus[0].ID),
+		CandidateRelationshipFinalStatus: strings.TrimSpace(execution.reviewed.Status),
+		CandidateDocumentID:              strings.TrimSpace(execution.candidate.Document.ID),
+		ChangedImportDocumentID:          strings.TrimSpace(execution.changed.Document.ID),
+		ImportedAgreementID:              strings.TrimSpace(execution.first.Agreement.ID),
 	}
+}
 
+func validateLineageValidationResult(result LineageValidationResult) error {
 	if !result.ImportLineageLinked {
-		return result, fmt.Errorf("initial google import did not persist linked lineage")
+		return fmt.Errorf("initial google import did not persist linked lineage")
 	}
 	if !result.ReimportReusedRevision {
-		return result, fmt.Errorf("unchanged re-import did not reuse the existing revision")
+		return fmt.Errorf("unchanged re-import did not reuse the existing revision")
 	}
 	if !result.ChangedSourceCreatedNewRevision {
-		return result, fmt.Errorf("changed re-import did not create a new revision")
+		return fmt.Errorf("changed re-import did not create a new revision")
 	}
 	if !result.LaterAgreementPinnedLatest {
-		return result, fmt.Errorf("later agreement did not pin the latest source revision")
+		return fmt.Errorf("later agreement did not pin the latest source revision")
 	}
 	if result.FingerprintStatus != services.LineageFingerprintStatusReady {
-		return result, fmt.Errorf("fingerprint build did not complete with ready status: %s", result.FingerprintStatus)
+		return fmt.Errorf("fingerprint build did not complete with ready status: %s", result.FingerprintStatus)
 	}
 	if !result.CandidateCreated {
-		return result, fmt.Errorf("candidate creation flow was not exercised")
+		return fmt.Errorf("candidate creation flow was not exercised")
 	}
 	if !result.CandidateReviewActionApplied {
-		return result, fmt.Errorf("candidate review action was not applied")
+		return fmt.Errorf("candidate review action was not applied")
 	}
 	if !result.CandidateWarningsVisibleBefore || !result.CandidateWarningsSuppressedAfter {
-		return result, fmt.Errorf("candidate warning visibility did not transition across review")
+		return fmt.Errorf("candidate warning visibility did not transition across review")
 	}
 	if !result.DocumentDetailContractStable {
-		return result, fmt.Errorf("document lineage detail contract is missing required fields")
+		return fmt.Errorf("document lineage detail contract is missing required fields")
 	}
 	if !result.AgreementDetailContractStable {
-		return result, fmt.Errorf("agreement lineage detail contract is missing required fields")
+		return fmt.Errorf("agreement lineage detail contract is missing required fields")
 	}
-
-	return result, nil
+	return nil
 }
 
 type lineageValidationGoogleFile struct {

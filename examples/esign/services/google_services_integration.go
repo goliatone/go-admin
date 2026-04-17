@@ -435,18 +435,35 @@ func (s GoogleServicesIntegrationService) Status(ctx context.Context, scope stor
 }
 
 func (s GoogleServicesIntegrationService) ListAccounts(ctx context.Context, scope stores.Scope, baseUserID string) ([]GoogleAccountInfo, error) {
-	baseUserID = normalizeRequiredID("google", "user_id", baseUserID)
-	if baseUserID == "" {
-		return nil, domainValidationError("google", "user_id", "required")
-	}
-	parsedBaseUserID, requestedAccountID := ParseGoogleScopedUserID(baseUserID)
-	if parsedBaseUserID != "" {
-		baseUserID = parsedBaseUserID
+	baseUserID, requestedAccountID, err := normalizeListAccountsUserID(baseUserID)
+	if err != nil {
+		return nil, err
 	}
 	accountRows, err := s.listScopedConnections(ctx, scope, baseUserID)
 	if err != nil {
 		return nil, err
 	}
+	accountIDs := listedGoogleAccountIDs(accountRows, requestedAccountID)
+	if len(accountIDs) == 0 {
+		return s.listFallbackGoogleAccounts(ctx, scope, baseUserID, requestedAccountID)
+	}
+	sortGoogleAccountIDs(accountIDs)
+	return s.buildGoogleAccountInfoList(ctx, scope, baseUserID, accountRows, accountIDs)
+}
+
+func normalizeListAccountsUserID(baseUserID string) (string, string, error) {
+	baseUserID = normalizeRequiredID("google", "user_id", baseUserID)
+	if baseUserID == "" {
+		return "", "", domainValidationError("google", "user_id", "required")
+	}
+	parsedBaseUserID, requestedAccountID := ParseGoogleScopedUserID(baseUserID)
+	if parsedBaseUserID != "" {
+		baseUserID = parsedBaseUserID
+	}
+	return baseUserID, requestedAccountID, nil
+}
+
+func listedGoogleAccountIDs(accountRows map[string]googleServicesConnectionRecord, requestedAccountID string) []string {
 	accountIDs := make([]string, 0, len(accountRows))
 	for accountID := range accountRows {
 		accountIDs = append(accountIDs, accountID)
@@ -454,30 +471,10 @@ func (s GoogleServicesIntegrationService) ListAccounts(ctx context.Context, scop
 	if requestedAccountID != "" && !containsGoogleAccountID(accountIDs, requestedAccountID) {
 		accountIDs = append(accountIDs, requestedAccountID)
 	}
-	if len(accountIDs) == 0 {
-		status, statusErr := s.Status(ctx, scope, ComposeGoogleScopedUserID(baseUserID, requestedAccountID))
-		if statusErr != nil {
-			return nil, statusErr
-		}
-		if !status.Connected {
-			return []GoogleAccountInfo{}, nil
-		}
-		accountStatus := googleAccountRuntimeStatus(status)
-		email := strings.TrimSpace(status.AccountEmail)
-		createdAt := s.now().UTC()
-		return []GoogleAccountInfo{
-			{
-				AccountID:  normalizeGoogleAccountID(status.AccountID),
-				Email:      email,
-				Status:     accountStatus,
-				Scopes:     normalizeScopes(status.Scopes),
-				ExpiresAt:  cloneGoogleTimePtr(status.ExpiresAt),
-				CreatedAt:  createdAt,
-				LastUsedAt: nil,
-				IsDefault:  normalizeGoogleAccountID(status.AccountID) == "",
-			},
-		}, nil
-	}
+	return accountIDs
+}
+
+func sortGoogleAccountIDs(accountIDs []string) {
 	sort.Slice(accountIDs, func(i, j int) bool {
 		left := normalizeGoogleAccountID(accountIDs[i])
 		right := normalizeGoogleAccountID(accountIDs[j])
@@ -492,41 +489,53 @@ func (s GoogleServicesIntegrationService) ListAccounts(ctx context.Context, scop
 		}
 		return left < right
 	})
+}
+
+func (s GoogleServicesIntegrationService) listFallbackGoogleAccounts(
+	ctx context.Context,
+	scope stores.Scope,
+	baseUserID, requestedAccountID string,
+) ([]GoogleAccountInfo, error) {
+	status, err := s.Status(ctx, scope, ComposeGoogleScopedUserID(baseUserID, requestedAccountID))
+	if err != nil {
+		return nil, err
+	}
+	if !status.Connected {
+		return []GoogleAccountInfo{}, nil
+	}
+	return []GoogleAccountInfo{googleFallbackAccountInfo(status, s.now().UTC())}, nil
+}
+
+func googleFallbackAccountInfo(status GoogleOAuthStatus, createdAt time.Time) GoogleAccountInfo {
+	return GoogleAccountInfo{
+		AccountID:  normalizeGoogleAccountID(status.AccountID),
+		Email:      strings.TrimSpace(status.AccountEmail),
+		Status:     googleAccountRuntimeStatus(status),
+		Scopes:     normalizeScopes(status.Scopes),
+		ExpiresAt:  cloneGoogleTimePtr(status.ExpiresAt),
+		CreatedAt:  createdAt,
+		LastUsedAt: nil,
+		IsDefault:  normalizeGoogleAccountID(status.AccountID) == "",
+	}
+}
+
+func (s GoogleServicesIntegrationService) buildGoogleAccountInfoList(
+	ctx context.Context,
+	scope stores.Scope,
+	baseUserID string,
+	accountRows map[string]googleServicesConnectionRecord,
+	accountIDs []string,
+) ([]GoogleAccountInfo, error) {
 	accounts := make([]GoogleAccountInfo, 0, len(accountIDs))
 	for _, accountID := range accountIDs {
-		normalizedAccountID := normalizeGoogleAccountID(accountID)
-		status, statusErr := s.Status(ctx, scope, ComposeGoogleScopedUserID(baseUserID, normalizedAccountID))
-		if statusErr != nil {
-			return nil, statusErr
+		account, ok, err := s.buildGoogleAccountInfo(ctx, scope, baseUserID, accountRows, accountID)
+		if err != nil {
+			return nil, err
 		}
-		if !status.Connected {
+		if !ok {
 			continue
 		}
-		connection := accountRows[normalizedAccountID]
-		accountStatus := googleAccountRuntimeStatus(status)
-		email := strings.TrimSpace(status.AccountEmail)
-		if email == "" {
-			email = googleAccountEmailCandidate(connection.ExternalAccountID)
-		}
-		createdAt := s.now().UTC()
-		if !connection.CreatedAt.IsZero() {
-			createdAt = connection.CreatedAt.UTC()
-		}
-		var lastUsedAt *time.Time
-		if !connection.UpdatedAt.IsZero() {
-			lastUsed := connection.UpdatedAt.UTC()
-			lastUsedAt = &lastUsed
-		}
-		accounts = append(accounts, GoogleAccountInfo{
-			AccountID:  normalizedAccountID,
-			Email:      email,
-			Status:     accountStatus,
-			Scopes:     normalizeScopes(status.Scopes),
-			ExpiresAt:  cloneGoogleTimePtr(status.ExpiresAt),
-			CreatedAt:  createdAt,
-			LastUsedAt: lastUsedAt,
-			IsDefault:  normalizedAccountID == "",
-		})
+		accounts = append(accounts, account)
 	}
 	sort.Slice(accounts, func(i, j int) bool {
 		if accounts[i].IsDefault != accounts[j].IsDefault {
@@ -538,6 +547,57 @@ func (s GoogleServicesIntegrationService) ListAccounts(ctx context.Context, scop
 		return accounts[i].CreatedAt.After(accounts[j].CreatedAt)
 	})
 	return accounts, nil
+}
+
+func (s GoogleServicesIntegrationService) buildGoogleAccountInfo(
+	ctx context.Context,
+	scope stores.Scope,
+	baseUserID string,
+	accountRows map[string]googleServicesConnectionRecord,
+	accountID string,
+) (GoogleAccountInfo, bool, error) {
+	normalizedAccountID := normalizeGoogleAccountID(accountID)
+	status, err := s.Status(ctx, scope, ComposeGoogleScopedUserID(baseUserID, normalizedAccountID))
+	if err != nil {
+		return GoogleAccountInfo{}, false, err
+	}
+	if !status.Connected {
+		return GoogleAccountInfo{}, false, nil
+	}
+	connection := accountRows[normalizedAccountID]
+	return GoogleAccountInfo{
+		AccountID:  normalizedAccountID,
+		Email:      resolveGoogleAccountInfoEmail(status, connection),
+		Status:     googleAccountRuntimeStatus(status),
+		Scopes:     normalizeScopes(status.Scopes),
+		ExpiresAt:  cloneGoogleTimePtr(status.ExpiresAt),
+		CreatedAt:  resolveGoogleAccountCreatedAt(connection, s.now().UTC()),
+		LastUsedAt: resolveGoogleAccountLastUsedAt(connection),
+		IsDefault:  normalizedAccountID == "",
+	}, true, nil
+}
+
+func resolveGoogleAccountInfoEmail(status GoogleOAuthStatus, connection googleServicesConnectionRecord) string {
+	email := strings.TrimSpace(status.AccountEmail)
+	if email != "" {
+		return email
+	}
+	return googleAccountEmailCandidate(connection.ExternalAccountID)
+}
+
+func resolveGoogleAccountCreatedAt(connection googleServicesConnectionRecord, fallback time.Time) time.Time {
+	if !connection.CreatedAt.IsZero() {
+		return connection.CreatedAt.UTC()
+	}
+	return fallback
+}
+
+func resolveGoogleAccountLastUsedAt(connection googleServicesConnectionRecord) *time.Time {
+	if connection.UpdatedAt.IsZero() {
+		return nil
+	}
+	lastUsed := connection.UpdatedAt.UTC()
+	return &lastUsed
 }
 
 // RotateCredentialEncryption is a compatibility no-op under go-services-backed storage.

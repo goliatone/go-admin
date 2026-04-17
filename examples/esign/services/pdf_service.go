@@ -377,46 +377,74 @@ func (r *RuntimePDFPolicyResolver) applySettings(policy PDFPolicy) PDFPolicy {
 	if r == nil || r.settings == nil {
 		return policy
 	}
+	policy.MaxSourceBytes = r.resolvePDFMaxSourceBytes(policy.MaxSourceBytes)
+	policy.MaxPages = r.resolvePositiveSettingInt(SettingPDFMaxPages, policy.MaxPages)
+	policy.MaxObjects = r.resolvePositiveSettingInt(SettingPDFMaxObjects, policy.MaxObjects)
+	policy.MaxDecompressedBytes = r.resolvePositiveSettingInt64(SettingPDFMaxDecompressedBytes, policy.MaxDecompressedBytes)
+	policy.ParseTimeout = r.resolvePositiveSettingDuration(SettingPDFParseTimeoutMS, policy.ParseTimeout)
+	policy.NormalizationTimeout = r.resolvePositiveSettingDuration(SettingPDFNormalizationTimeoutMS, policy.NormalizationTimeout)
+	policy.AllowEncrypted = r.resolveOptionalSettingBool(SettingPDFAllowEncrypted, policy.AllowEncrypted)
+	policy.AllowJavaScriptActions = r.resolveOptionalSettingBool(SettingPDFAllowJavaScriptActions, policy.AllowJavaScriptActions)
+	policy.PreviewFallbackEnabled = r.resolveOptionalSettingBool(SettingPDFPreviewFallbackEnabled, policy.PreviewFallbackEnabled)
+	policy.CompatibilityMode = r.resolvePDFCompatibilityMode(policy.CompatibilityMode)
+	policy.PipelineMode = r.resolvePDFPipelineMode(policy.PipelineMode)
+	return policy
+}
+
+func (r *RuntimePDFPolicyResolver) resolvePDFMaxSourceBytes(current int64) int64 {
 	if value, ok := r.resolveSettingInt64(SettingPDFMaxSourceBytes); ok && value > 0 {
-		policy.MaxSourceBytes = value
-	} else if legacy, ok := r.resolveSettingInt64(SettingPDFMaxSourceBytesLegacy); ok && legacy > 0 {
-		policy.MaxSourceBytes = legacy
+		return value
 	}
-	if value, ok := r.resolveSettingInt64(SettingPDFMaxPages); ok && value > 0 {
-		policy.MaxPages = int(value)
+	if legacy, ok := r.resolveSettingInt64(SettingPDFMaxSourceBytesLegacy); ok && legacy > 0 {
+		return legacy
 	}
-	if value, ok := r.resolveSettingInt64(SettingPDFMaxObjects); ok && value > 0 {
-		policy.MaxObjects = int(value)
+	return current
+}
+
+func (r *RuntimePDFPolicyResolver) resolvePositiveSettingInt(key string, current int) int {
+	if value, ok := r.resolveSettingInt64(key); ok && value > 0 {
+		return int(value)
 	}
-	if value, ok := r.resolveSettingInt64(SettingPDFMaxDecompressedBytes); ok && value > 0 {
-		policy.MaxDecompressedBytes = value
+	return current
+}
+
+func (r *RuntimePDFPolicyResolver) resolvePositiveSettingInt64(key string, current int64) int64 {
+	if value, ok := r.resolveSettingInt64(key); ok && value > 0 {
+		return value
 	}
-	if value, ok := r.resolveSettingInt64(SettingPDFParseTimeoutMS); ok && value > 0 {
-		policy.ParseTimeout = time.Duration(value) * time.Millisecond
+	return current
+}
+
+func (r *RuntimePDFPolicyResolver) resolvePositiveSettingDuration(key string, current time.Duration) time.Duration {
+	if value, ok := r.resolveSettingInt64(key); ok && value > 0 {
+		return time.Duration(value) * time.Millisecond
 	}
-	if value, ok := r.resolveSettingInt64(SettingPDFNormalizationTimeoutMS); ok && value > 0 {
-		policy.NormalizationTimeout = time.Duration(value) * time.Millisecond
+	return current
+}
+
+func (r *RuntimePDFPolicyResolver) resolveOptionalSettingBool(key string, current bool) bool {
+	if value, ok := r.resolveSettingBool(key); ok {
+		return value
 	}
-	if value, ok := r.resolveSettingBool(SettingPDFAllowEncrypted); ok {
-		policy.AllowEncrypted = value
-	}
-	if value, ok := r.resolveSettingBool(SettingPDFAllowJavaScriptActions); ok {
-		policy.AllowJavaScriptActions = value
-	}
-	if value, ok := r.resolveSettingBool(SettingPDFPreviewFallbackEnabled); ok {
-		policy.PreviewFallbackEnabled = value
-	}
+	return current
+}
+
+func (r *RuntimePDFPolicyResolver) resolvePDFCompatibilityMode(current PDFCompatibilityMode) PDFCompatibilityMode {
 	if value, ok := r.resolveSettingString(SettingPDFCompatibilityMode); ok {
 		if mode := normalizeCompatibilityMode(value); mode != "" {
-			policy.CompatibilityMode = mode
+			return mode
 		}
 	}
+	return current
+}
+
+func (r *RuntimePDFPolicyResolver) resolvePDFPipelineMode(current PDFPipelineMode) PDFPipelineMode {
 	if value, ok := r.resolveSettingString(SettingPDFPipelineMode); ok {
 		if mode := normalizePipelineMode(value); mode != "" {
-			policy.PipelineMode = mode
+			return mode
 		}
 	}
-	return policy
+	return current
 }
 
 func (r *RuntimePDFPolicyResolver) resolveSettingInt64(key string) (int64, bool) {

@@ -2458,105 +2458,145 @@ func parseAgreementFieldFormInputs(record map[string]any) ([]agreementFieldFormI
 }
 
 func parseAgreementFieldFormEntry(entry map[string]any, index int) (agreementFieldFormInput, bool, error) {
-	id, err := coerceFormString(entry["id"], fmt.Sprintf("field_instances[%d].id", index))
+	identity, err := parseAgreementFieldFormIdentity(entry, index)
 	if err != nil {
 		return agreementFieldFormInput{}, false, err
+	}
+	geometry, err := parseAgreementFieldFormGeometry(entry, index)
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	metadata, err := parseAgreementFieldFormMetadata(entry, index)
+	if err != nil {
+		return agreementFieldFormInput{}, false, err
+	}
+	if identity.ID == "" && identity.Type == "" && identity.ParticipantID == "" {
+		return agreementFieldFormInput{}, true, nil
+	}
+	identity.PageNumber = geometry.PageNumber
+	identity.PosX = geometry.PosX
+	identity.PosY = geometry.PosY
+	identity.Width = geometry.Width
+	identity.Height = geometry.Height
+	identity.PlacementSource = metadata.PlacementSource
+	identity.LinkGroupID = metadata.LinkGroupID
+	identity.LinkedFromFieldID = metadata.LinkedFromFieldID
+	identity.IsUnlinked = metadata.IsUnlinked
+	identity.Required = metadata.Required
+	return identity, false, nil
+}
+
+func parseAgreementFieldFormIdentity(entry map[string]any, index int) (agreementFieldFormInput, error) {
+	id, err := coerceFormString(entry["id"], fmt.Sprintf("field_instances[%d].id", index))
+	if err != nil {
+		return agreementFieldFormInput{}, err
 	}
 	fieldType, err := coerceFormString(entry["type"], fmt.Sprintf("field_instances[%d].type", index))
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
 	participantID, err := coerceFormString(entry["participant_id"], fmt.Sprintf("field_instances[%d].participant_id", index))
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
 	if participantID == "" {
 		participantID, err = coerceFormString(entry["recipient_id"], fmt.Sprintf("field_instances[%d].recipient_id", index))
 		if err != nil {
-			return agreementFieldFormInput{}, false, err
+			return agreementFieldFormInput{}, err
 		}
 	}
 	recipientIndex, err := coerceFormInt(entry["recipient_index"], fmt.Sprintf("field_instances[%d].recipient_index", index))
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
-	pageNumber, err := coerceFormInt(entry["page"], fmt.Sprintf("field_instances[%d].page", index))
+	return agreementFieldFormInput{
+		ID:             id,
+		Type:           fieldType,
+		ParticipantID:  participantID,
+		RecipientIndex: recipientIndex,
+	}, nil
+}
+
+func parseAgreementFieldFormGeometry(entry map[string]any, index int) (agreementFieldFormInput, error) {
+	pageNumber, err := parseAgreementFieldFormPageNumber(entry, index)
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
-	if pageNumber == 0 {
-		pageNumber, err = coerceFormInt(entry["page_number"], fmt.Sprintf("field_instances[%d].page_number", index))
-		if err != nil {
-			return agreementFieldFormInput{}, false, err
-		}
-	}
-	posX, err := coerceFormFloat(entry["x"], fmt.Sprintf("field_instances[%d].x", index))
+	posX, err := parseAgreementFieldFormPosition(entry, index, "x", "pos_x")
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
-	if posX == 0 {
-		posX, err = coerceFormFloat(entry["pos_x"], fmt.Sprintf("field_instances[%d].pos_x", index))
-		if err != nil {
-			return agreementFieldFormInput{}, false, err
-		}
-	}
-	posY, err := coerceFormFloat(entry["y"], fmt.Sprintf("field_instances[%d].y", index))
+	posY, err := parseAgreementFieldFormPosition(entry, index, "y", "pos_y")
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
-	}
-	if posY == 0 {
-		posY, err = coerceFormFloat(entry["pos_y"], fmt.Sprintf("field_instances[%d].pos_y", index))
-		if err != nil {
-			return agreementFieldFormInput{}, false, err
-		}
+		return agreementFieldFormInput{}, err
 	}
 	width, err := coerceFormFloat(entry["width"], fmt.Sprintf("field_instances[%d].width", index))
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
 	height, err := coerceFormFloat(entry["height"], fmt.Sprintf("field_instances[%d].height", index))
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
+	return agreementFieldFormInput{
+		PageNumber: pageNumber,
+		PosX:       posX,
+		PosY:       posY,
+		Width:      width,
+		Height:     height,
+	}, nil
+}
+
+func parseAgreementFieldFormPageNumber(entry map[string]any, index int) (int, error) {
+	pageNumber, err := coerceFormInt(entry["page"], fmt.Sprintf("field_instances[%d].page", index))
+	if err != nil {
+		return 0, err
+	}
+	if pageNumber != 0 {
+		return pageNumber, nil
+	}
+	return coerceFormInt(entry["page_number"], fmt.Sprintf("field_instances[%d].page_number", index))
+}
+
+func parseAgreementFieldFormPosition(entry map[string]any, index int, primaryKey, fallbackKey string) (float64, error) {
+	value, err := coerceFormFloat(entry[primaryKey], fmt.Sprintf("field_instances[%d].%s", index, primaryKey))
+	if err != nil {
+		return 0, err
+	}
+	if value != 0 {
+		return value, nil
+	}
+	return coerceFormFloat(entry[fallbackKey], fmt.Sprintf("field_instances[%d].%s", index, fallbackKey))
+}
+
+func parseAgreementFieldFormMetadata(entry map[string]any, index int) (agreementFieldFormInput, error) {
 	placementSource, err := coerceFormString(entry["placement_source"], fmt.Sprintf("field_instances[%d].placement_source", index))
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
 	linkGroupID, err := coerceFormString(entry["link_group_id"], fmt.Sprintf("field_instances[%d].link_group_id", index))
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
 	linkedFromFieldID, err := coerceFormString(entry["linked_from_field_id"], fmt.Sprintf("field_instances[%d].linked_from_field_id", index))
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
 	isUnlinked, err := parseAgreementFieldFormIsUnlinked(entry, index)
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
+		return agreementFieldFormInput{}, err
 	}
 	required, err := coerceFormBool(entry["required"], fmt.Sprintf("field_instances[%d].required", index))
 	if err != nil {
-		return agreementFieldFormInput{}, false, err
-	}
-	if id == "" && fieldType == "" && participantID == "" {
-		return agreementFieldFormInput{}, true, nil
+		return agreementFieldFormInput{}, err
 	}
 	return agreementFieldFormInput{
-		ID:                id,
-		Type:              fieldType,
-		ParticipantID:     participantID,
-		RecipientIndex:    recipientIndex,
-		PageNumber:        pageNumber,
-		PosX:              posX,
-		PosY:              posY,
-		Width:             width,
-		Height:            height,
 		PlacementSource:   strings.TrimSpace(strings.ToLower(placementSource)),
 		LinkGroupID:       strings.TrimSpace(linkGroupID),
 		LinkedFromFieldID: strings.TrimSpace(linkedFromFieldID),
 		IsUnlinked:        isUnlinked,
 		Required:          required,
-	}, false, nil
+	}, nil
 }
 
 func parseAgreementFieldFormIsUnlinked(entry map[string]any, index int) (*bool, error) {
@@ -2633,75 +2673,114 @@ func parseAgreementFieldRuleFormInputs(record map[string]any) ([]agreementFieldR
 }
 
 func parseAgreementFieldRuleFormEntry(entry map[string]any, index int) (agreementFieldRuleFormInput, bool, error) {
-	id, err := coerceFormString(entry["id"], fmt.Sprintf("field_rules[%d].id", index))
+	identity, err := parseAgreementFieldRuleIdentity(entry, index)
 	if err != nil {
 		return agreementFieldRuleFormInput{}, false, err
+	}
+	pages, err := parseAgreementFieldRulePages(entry, index)
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	metadata, err := parseAgreementFieldRuleMetadata(entry, index)
+	if err != nil {
+		return agreementFieldRuleFormInput{}, false, err
+	}
+	if identity.ID == "" &&
+		identity.Type == "" &&
+		identity.ParticipantID == "" &&
+		identity.ParticipantIndex < 0 &&
+		pages.Page == 0 &&
+		pages.FromPage == 0 &&
+		pages.ToPage == 0 {
+		return agreementFieldRuleFormInput{}, true, nil
+	}
+	identity.Page = pages.Page
+	identity.FromPage = pages.FromPage
+	identity.ToPage = pages.ToPage
+	identity.ExcludeLastPage = pages.ExcludeLastPage
+	identity.ExcludePages = pages.ExcludePages
+	identity.Label = metadata.Label
+	identity.Required = metadata.Required
+	return identity, false, nil
+}
+
+func parseAgreementFieldRuleIdentity(entry map[string]any, index int) (agreementFieldRuleFormInput, error) {
+	id, err := coerceFormString(entry["id"], fmt.Sprintf("field_rules[%d].id", index))
+	if err != nil {
+		return agreementFieldRuleFormInput{}, err
 	}
 	ruleType, err := coerceFormString(entry["type"], fmt.Sprintf("field_rules[%d].type", index))
 	if err != nil {
-		return agreementFieldRuleFormInput{}, false, err
+		return agreementFieldRuleFormInput{}, err
 	}
 	participantID, err := coerceFormString(entry["participant_id"], fmt.Sprintf("field_rules[%d].participant_id", index))
 	if err != nil {
-		return agreementFieldRuleFormInput{}, false, err
+		return agreementFieldRuleFormInput{}, err
 	}
 	if participantID == "" {
 		participantID, err = coerceFormString(entry["participantId"], fmt.Sprintf("field_rules[%d].participantId", index))
 		if err != nil {
-			return agreementFieldRuleFormInput{}, false, err
+			return agreementFieldRuleFormInput{}, err
 		}
 	}
 	participantIndex, err := parseAgreementFieldRuleParticipantIndex(entry, index)
 	if err != nil {
-		return agreementFieldRuleFormInput{}, false, err
-	}
-	page, err := coerceFormInt(entry["page"], fmt.Sprintf("field_rules[%d].page", index))
-	if err != nil {
-		return agreementFieldRuleFormInput{}, false, err
-	}
-	fromPage, err := parseAgreementFieldRulePageValue(entry, index, "from_page", "fromPage")
-	if err != nil {
-		return agreementFieldRuleFormInput{}, false, err
-	}
-	toPage, err := parseAgreementFieldRulePageValue(entry, index, "to_page", "toPage")
-	if err != nil {
-		return agreementFieldRuleFormInput{}, false, err
-	}
-	excludeLastPage, err := parseAgreementFieldRuleExcludeLastPage(entry, index)
-	if err != nil {
-		return agreementFieldRuleFormInput{}, false, err
-	}
-	excludePages, err := parseAgreementFieldRuleExcludePages(entry, index)
-	if err != nil {
-		return agreementFieldRuleFormInput{}, false, err
-	}
-	label, err := coerceFormString(entry["label"], fmt.Sprintf("field_rules[%d].label", index))
-	if err != nil {
-		return agreementFieldRuleFormInput{}, false, err
-	}
-	required := true
-	if raw, ok := entry["required"]; ok {
-		required, err = coerceFormBool(raw, fmt.Sprintf("field_rules[%d].required", index))
-		if err != nil {
-			return agreementFieldRuleFormInput{}, false, err
-		}
-	}
-	if id == "" && ruleType == "" && participantID == "" && participantIndex < 0 && page == 0 && fromPage == 0 && toPage == 0 {
-		return agreementFieldRuleFormInput{}, true, nil
+		return agreementFieldRuleFormInput{}, err
 	}
 	return agreementFieldRuleFormInput{
 		ID:               strings.TrimSpace(id),
 		Type:             strings.ToLower(strings.TrimSpace(ruleType)),
 		ParticipantID:    strings.TrimSpace(participantID),
 		ParticipantIndex: participantIndex,
-		Page:             page,
-		FromPage:         fromPage,
-		ToPage:           toPage,
-		ExcludeLastPage:  excludeLastPage,
-		ExcludePages:     excludePages,
-		Label:            strings.TrimSpace(label),
-		Required:         required,
-	}, false, nil
+	}, nil
+}
+
+func parseAgreementFieldRulePages(entry map[string]any, index int) (agreementFieldRuleFormInput, error) {
+	page, err := coerceFormInt(entry["page"], fmt.Sprintf("field_rules[%d].page", index))
+	if err != nil {
+		return agreementFieldRuleFormInput{}, err
+	}
+	fromPage, err := parseAgreementFieldRulePageValue(entry, index, "from_page", "fromPage")
+	if err != nil {
+		return agreementFieldRuleFormInput{}, err
+	}
+	toPage, err := parseAgreementFieldRulePageValue(entry, index, "to_page", "toPage")
+	if err != nil {
+		return agreementFieldRuleFormInput{}, err
+	}
+	excludeLastPage, err := parseAgreementFieldRuleExcludeLastPage(entry, index)
+	if err != nil {
+		return agreementFieldRuleFormInput{}, err
+	}
+	excludePages, err := parseAgreementFieldRuleExcludePages(entry, index)
+	if err != nil {
+		return agreementFieldRuleFormInput{}, err
+	}
+	return agreementFieldRuleFormInput{
+		Page:            page,
+		FromPage:        fromPage,
+		ToPage:          toPage,
+		ExcludeLastPage: excludeLastPage,
+		ExcludePages:    excludePages,
+	}, nil
+}
+
+func parseAgreementFieldRuleMetadata(entry map[string]any, index int) (agreementFieldRuleFormInput, error) {
+	label, err := coerceFormString(entry["label"], fmt.Sprintf("field_rules[%d].label", index))
+	if err != nil {
+		return agreementFieldRuleFormInput{}, err
+	}
+	required := true
+	if raw, ok := entry["required"]; ok {
+		required, err = coerceFormBool(raw, fmt.Sprintf("field_rules[%d].required", index))
+		if err != nil {
+			return agreementFieldRuleFormInput{}, err
+		}
+	}
+	return agreementFieldRuleFormInput{
+		Label:    strings.TrimSpace(label),
+		Required: required,
+	}, nil
 }
 
 func parseAgreementFieldRuleParticipantIndex(entry map[string]any, index int) (int, error) {
@@ -2842,66 +2921,21 @@ func expandAgreementFieldRules(
 	if len(rules) == 0 {
 		return nil, nil
 	}
-	recipientIDsByIndex := make([]string, 0, len(recipients))
-	for _, recipient := range recipients {
-		id := strings.TrimSpace(recipient.ID)
-		if id == "" {
-			continue
-		}
-		recipientIDsByIndex = append(recipientIDsByIndex, id)
-	}
-
-	terminalPage := documentPageCount
-	if terminalPage <= 0 {
-		terminalPage = 1
-	}
-
-	// Clamp helper to enforce page bounds [1, terminalPage]
-	clampPage := func(page int) int {
-		if page < 1 {
-			return 1
-		}
-		if page > terminalPage {
-			return terminalPage
-		}
-		return page
-	}
-
-	// Clamp rule page values to document bounds before expansion
-	for i := range rules {
-		if rules[i].Page != 0 {
-			rules[i].Page = clampPage(rules[i].Page)
-		}
-		if rules[i].FromPage != 0 {
-			rules[i].FromPage = clampPage(rules[i].FromPage)
-		}
-		if rules[i].ToPage != 0 {
-			rules[i].ToPage = clampPage(rules[i].ToPage)
-		}
-	}
+	_ = baseFields
+	recipientIDsByIndex := agreementFieldRuleRecipientIDsByIndex(recipients)
+	terminalPage := agreementFieldRuleTerminalPage(documentPageCount)
+	rules = clampAgreementFieldRules(rules, terminalPage)
 
 	out := make([]agreementFieldFormInput, 0, len(rules))
 	for index, rule := range rules {
-		if strings.TrimSpace(rule.Type) == "" {
+		expanded, skip, err := expandAgreementFieldRule(rule, index, recipientIDsByIndex, terminalPage)
+		if err != nil {
+			return nil, err
+		}
+		if skip {
 			continue
 		}
-		ruleBaseID := resolveRuleExpansionBaseID(rule, index)
-		participantID := strings.TrimSpace(rule.ParticipantID)
-		if participantID == "" && rule.ParticipantIndex >= 0 && rule.ParticipantIndex < len(recipientIDsByIndex) {
-			participantID = recipientIDsByIndex[rule.ParticipantIndex]
-		}
-		if participantID == "" {
-			return nil, fmt.Errorf("field rule participant_id is required")
-		}
-
-		switch rule.Type {
-		case "initials_each_page":
-			out = append(out, expandInitialsEachPageRule(rule, ruleBaseID, participantID, terminalPage)...)
-		case "signature_once":
-			out = append(out, expandSignatureOnceRule(rule, ruleBaseID, participantID, terminalPage))
-		default:
-			return nil, fmt.Errorf("field rule type %q is not supported", strings.TrimSpace(rule.Type))
-		}
+		out = append(out, expanded...)
 	}
 
 	sort.SliceStable(out, func(i, j int) bool {
@@ -2912,6 +2946,85 @@ func expandAgreementFieldRules(
 	})
 
 	return out, nil
+}
+
+func agreementFieldRuleRecipientIDsByIndex(recipients []stores.RecipientRecord) []string {
+	recipientIDsByIndex := make([]string, 0, len(recipients))
+	for _, recipient := range recipients {
+		id := strings.TrimSpace(recipient.ID)
+		if id == "" {
+			continue
+		}
+		recipientIDsByIndex = append(recipientIDsByIndex, id)
+	}
+	return recipientIDsByIndex
+}
+
+func agreementFieldRuleTerminalPage(documentPageCount int) int {
+	if documentPageCount > 0 {
+		return documentPageCount
+	}
+	return 1
+}
+
+func clampAgreementFieldRules(rules []agreementFieldRuleFormInput, terminalPage int) []agreementFieldRuleFormInput {
+	clamped := make([]agreementFieldRuleFormInput, len(rules))
+	copy(clamped, rules)
+	for i := range clamped {
+		clamped[i].Page = clampAgreementFieldRulePage(clamped[i].Page, terminalPage)
+		clamped[i].FromPage = clampAgreementFieldRulePage(clamped[i].FromPage, terminalPage)
+		clamped[i].ToPage = clampAgreementFieldRulePage(clamped[i].ToPage, terminalPage)
+	}
+	return clamped
+}
+
+func clampAgreementFieldRulePage(page, terminalPage int) int {
+	if page == 0 {
+		return 0
+	}
+	if page < 1 {
+		return 1
+	}
+	if page > terminalPage {
+		return terminalPage
+	}
+	return page
+}
+
+func expandAgreementFieldRule(
+	rule agreementFieldRuleFormInput,
+	index int,
+	recipientIDsByIndex []string,
+	terminalPage int,
+) ([]agreementFieldFormInput, bool, error) {
+	ruleType := strings.TrimSpace(rule.Type)
+	if ruleType == "" {
+		return nil, true, nil
+	}
+	ruleBaseID := resolveRuleExpansionBaseID(rule, index)
+	participantID, err := resolveAgreementFieldRuleParticipantID(rule, recipientIDsByIndex)
+	if err != nil {
+		return nil, false, err
+	}
+	switch ruleType {
+	case "initials_each_page":
+		return expandInitialsEachPageRule(rule, ruleBaseID, participantID, terminalPage), false, nil
+	case "signature_once":
+		return []agreementFieldFormInput{expandSignatureOnceRule(rule, ruleBaseID, participantID, terminalPage)}, false, nil
+	default:
+		return nil, false, fmt.Errorf("field rule type %q is not supported", ruleType)
+	}
+}
+
+func resolveAgreementFieldRuleParticipantID(rule agreementFieldRuleFormInput, recipientIDsByIndex []string) (string, error) {
+	participantID := strings.TrimSpace(rule.ParticipantID)
+	if participantID == "" && rule.ParticipantIndex >= 0 && rule.ParticipantIndex < len(recipientIDsByIndex) {
+		participantID = recipientIDsByIndex[rule.ParticipantIndex]
+	}
+	if participantID == "" {
+		return "", fmt.Errorf("field rule participant_id is required")
+	}
+	return participantID, nil
 }
 
 func resolveRuleExpansionBaseID(rule agreementFieldRuleFormInput, index int) string {
@@ -3051,59 +3164,89 @@ func parseAgreementFieldPlacementInputs(record map[string]any) ([]agreementField
 }
 
 func parseAgreementFieldPlacementEntry(entry map[string]any, index int) (agreementFieldPlacementFormInput, bool, error) {
-	id, err := coerceFormString(entry["id"], fmt.Sprintf("field_placements[%d].id", index))
+	identity, err := parseAgreementFieldPlacementIdentity(entry, index)
 	if err != nil {
 		return agreementFieldPlacementFormInput{}, false, err
 	}
-	definitionID, err := coerceFormString(entry["definition_id"], fmt.Sprintf("field_placements[%d].definition_id", index))
+	geometry, err := parseAgreementFieldPlacementGeometry(entry, index)
 	if err != nil {
 		return agreementFieldPlacementFormInput{}, false, err
+	}
+	if identity.ID == "" &&
+		identity.DefinitionID == "" &&
+		geometry.PageNumber <= 0 &&
+		geometry.PosX == 0 &&
+		geometry.PosY == 0 &&
+		geometry.Width == 0 &&
+		geometry.Height == 0 {
+		return agreementFieldPlacementFormInput{}, true, nil
+	}
+	identity.PageNumber = geometry.PageNumber
+	identity.PosX = geometry.PosX
+	identity.PosY = geometry.PosY
+	identity.Width = geometry.Width
+	identity.Height = geometry.Height
+	identity.PlacementSource = parseAgreementFieldPlacementString(entry, index, "placement_source")
+	identity.LinkGroupID = parseAgreementFieldPlacementString(entry, index, "link_group_id")
+	identity.LinkedFromFieldID = parseAgreementFieldPlacementString(entry, index, "linked_from_field_id")
+	identity.IsUnlinked = parseAgreementFieldPlacementIsUnlinked(entry)
+	return identity, false, nil
+}
+
+func parseAgreementFieldPlacementIdentity(entry map[string]any, index int) (agreementFieldPlacementFormInput, error) {
+	id, err := coerceFormString(entry["id"], fmt.Sprintf("field_placements[%d].id", index))
+	if err != nil {
+		return agreementFieldPlacementFormInput{}, err
+	}
+	definitionID, err := coerceFormString(entry["definition_id"], fmt.Sprintf("field_placements[%d].definition_id", index))
+	if err != nil {
+		return agreementFieldPlacementFormInput{}, err
 	}
 	if definitionID == "" {
 		definitionID, err = coerceFormString(entry["field_definition_id"], fmt.Sprintf("field_placements[%d].field_definition_id", index))
 		if err != nil {
-			return agreementFieldPlacementFormInput{}, false, err
+			return agreementFieldPlacementFormInput{}, err
 		}
 	}
+	return agreementFieldPlacementFormInput{
+		ID:           id,
+		DefinitionID: definitionID,
+	}, nil
+}
+
+func parseAgreementFieldPlacementGeometry(entry map[string]any, index int) (agreementFieldPlacementFormInput, error) {
 	pageNumber, err := coerceFormInt(entry["page"], fmt.Sprintf("field_placements[%d].page", index))
 	if err != nil {
-		return agreementFieldPlacementFormInput{}, false, err
+		return agreementFieldPlacementFormInput{}, err
 	}
 	posX, err := coerceFormFloat(entry["x"], fmt.Sprintf("field_placements[%d].x", index))
 	if err != nil {
-		return agreementFieldPlacementFormInput{}, false, err
+		return agreementFieldPlacementFormInput{}, err
 	}
 	posY, err := coerceFormFloat(entry["y"], fmt.Sprintf("field_placements[%d].y", index))
 	if err != nil {
-		return agreementFieldPlacementFormInput{}, false, err
+		return agreementFieldPlacementFormInput{}, err
 	}
 	width, err := coerceFormFloat(entry["width"], fmt.Sprintf("field_placements[%d].width", index))
 	if err != nil {
-		return agreementFieldPlacementFormInput{}, false, err
+		return agreementFieldPlacementFormInput{}, err
 	}
 	height, err := coerceFormFloat(entry["height"], fmt.Sprintf("field_placements[%d].height", index))
 	if err != nil {
-		return agreementFieldPlacementFormInput{}, false, err
+		return agreementFieldPlacementFormInput{}, err
 	}
-	if id == "" && definitionID == "" && pageNumber <= 0 && posX == 0 && posY == 0 && width == 0 && height == 0 {
-		return agreementFieldPlacementFormInput{}, true, nil
-	}
-	placementSource, _ := coerceFormString(entry["placement_source"], fmt.Sprintf("field_placements[%d].placement_source", index))
-	linkGroupID, _ := coerceFormString(entry["link_group_id"], fmt.Sprintf("field_placements[%d].link_group_id", index))
-	linkedFromFieldID, _ := coerceFormString(entry["linked_from_field_id"], fmt.Sprintf("field_placements[%d].linked_from_field_id", index))
 	return agreementFieldPlacementFormInput{
-		ID:                id,
-		DefinitionID:      definitionID,
-		PageNumber:        pageNumber,
-		PosX:              posX,
-		PosY:              posY,
-		Width:             width,
-		Height:            height,
-		PlacementSource:   placementSource,
-		LinkGroupID:       linkGroupID,
-		LinkedFromFieldID: linkedFromFieldID,
-		IsUnlinked:        parseAgreementFieldPlacementIsUnlinked(entry),
-	}, false, nil
+		PageNumber: pageNumber,
+		PosX:       posX,
+		PosY:       posY,
+		Width:      width,
+		Height:     height,
+	}, nil
+}
+
+func parseAgreementFieldPlacementString(entry map[string]any, index int, key string) string {
+	value, _ := coerceFormString(entry[key], fmt.Sprintf("field_placements[%d].%s", index, key))
+	return value
 }
 
 func parseAgreementFieldPlacementIsUnlinked(entry map[string]any) *bool {

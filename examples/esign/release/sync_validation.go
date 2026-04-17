@@ -25,61 +25,51 @@ type SyncValidationResult struct {
 	RetryMessage string                            `json:"retry_message"`
 }
 
+type syncValidationRuntime struct {
+	scope       stores.Scope
+	actorID     string
+	documentSvc services.DocumentService
+	draftSvc    services.DraftService
+}
+
+type syncValidationDraftContext struct {
+	document stores.DocumentRecord
+	draft    stores.DraftRecord
+}
+
+type syncValidationSendOutcome struct {
+	result gosynccore.MutationResult
+	err    error
+}
+
+type syncValidationReplayOutcome struct {
+	replayResult gosynccore.MutationResult
+	currentRev   int64
+	retryErr     error
+}
+
 // RunSyncValidationProfile exercises the example sync flow through autosave, stale conflict, pending retry, and send replay.
 func RunSyncValidationProfile(ctx context.Context) (SyncValidationResult, error) {
 	observability.ResetSyncMetrics()
 	defer observability.ResetSyncMetrics()
 
 	storeDSN, cleanup := resolveValidationSQLiteDSN("sync-validation-profile")
-	if cleanup != nil {
-		defer cleanup()
-	}
+	defer runSyncValidationCallback(cleanup)
 	store, storeCleanup, err := newValidationRuntimeStore(ctx, storeDSN)
 	if err != nil {
 		return SyncValidationResult{}, fmt.Errorf("initialize sync validation runtime store: %w", err)
 	}
-	defer func() {
-		if storeCleanup != nil {
-			_ = storeCleanup()
-		}
-	}()
+	defer runSyncValidationCleanup(storeCleanup)
 
-	scope := stores.Scope{TenantID: "tenant-sync-validation", OrgID: "org-sync-validation"}
-	actorID := "release-sync-validation"
-
-	documentSvc := services.NewDocumentService(store)
-	agreementSvc := services.NewAgreementService(store)
-	draftSvc := services.NewDraftService(store,
-		services.WithDraftAgreementService(agreementSvc),
-		services.WithDraftAuditStore(store),
-	)
-
-	document, err := documentSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:              "Sync Validation Source",
-		SourceOriginalName: "sync-validation.pdf",
-		ObjectKey:          fmt.Sprintf("tenant/%s/org/%s/docs/sync-validation/source.pdf", scope.TenantID, scope.OrgID),
-		PDF:                services.GenerateDeterministicPDF(1),
-		CreatedBy:          actorID,
-	})
+	runtime := newSyncValidationRuntime(store)
+	draftCtx, err := createSyncValidationDraft(ctx, runtime)
 	if err != nil {
-		return SyncValidationResult{}, fmt.Errorf("upload sync validation document: %w", err)
-	}
-
-	draft, _, err := draftSvc.Create(ctx, scope, services.DraftCreateInput{
-		WizardID:        "wizard-sync-validation",
-		CreatedByUserID: actorID,
-		Title:           "Sync Validation Draft",
-		CurrentStep:     2,
-		DocumentID:      document.ID,
-		WizardState:     syncValidationWizardState(document.ID, "Sync Validation Draft", "First pass"),
-	})
-	if err != nil {
-		return SyncValidationResult{}, fmt.Errorf("create sync validation draft: %w", err)
+		return SyncValidationResult{}, err
 	}
 
 	observer := observability.NewSyncKernelObserver()
 	idempotencyStore := esignsync.NewAgreementDraftIdempotencyStore(store)
-	resourceStore := esignsync.NewAgreementDraftResourceStore(draftSvc)
+	resourceStore := esignsync.NewAgreementDraftResourceStore(runtime.draftSvc)
 	svc, err := syncservice.NewSyncService(
 		resourceStore,
 		idempotencyStore,
@@ -92,26 +82,26 @@ func RunSyncValidationProfile(ctx context.Context) (SyncValidationResult, error)
 
 	ref := gosynccore.ResourceRef{
 		Kind:  esignsync.ResourceKindAgreementDraft,
-		ID:    draft.ID,
-		Scope: esignsync.BuildIdentityScope(scope, actorID),
+		ID:    draftCtx.draft.ID,
+		Scope: esignsync.BuildIdentityScope(runtime.scope, runtime.actorID),
 	}
 
-	autosavePayload, err := jsonPayload(syncValidationAutosavePayload(document.ID, "Sync Validation Draft", "Second pass", 3))
+	autosavePayload, err := jsonPayload(syncValidationAutosavePayload(draftCtx.document.ID, "Sync Validation Draft", "Second pass", 3))
 	if err != nil {
 		return SyncValidationResult{}, fmt.Errorf("marshal sync validation autosave payload: %w", err)
 	}
 	successResult, err := svc.Mutate(ctx, gosynccore.MutationInput{
 		ResourceRef:      ref,
 		Operation:        esignsync.OperationAutosave,
-		ExpectedRevision: draft.Revision,
-		ActorID:          actorID,
+		ExpectedRevision: draftCtx.draft.Revision,
+		ActorID:          runtime.actorID,
 		Payload:          autosavePayload,
 	})
 	if err != nil {
 		return SyncValidationResult{}, fmt.Errorf("autosave sync validation draft: %w", err)
 	}
 
-	conflictErr := runSyncValidationConflict(ctx, svc, ref, actorID, draft.Revision, document.ID)
+	conflictErr := runSyncValidationConflict(ctx, svc, ref, runtime.actorID, draftCtx.draft.Revision, draftCtx.document.ID)
 	currentRevision, _, ok := gosynccore.StaleRevisionDetails(conflictErr)
 	if !ok {
 		return SyncValidationResult{}, fmt.Errorf("expected stale revision details from sync validation conflict, got %v", conflictErr)
@@ -128,77 +118,176 @@ func RunSyncValidationProfile(ctx context.Context) (SyncValidationResult, error)
 		return SyncValidationResult{}, fmt.Errorf("build blocking sync validation service: %w", err)
 	}
 
-	sendPayload, err := jsonPayload(map[string]any{})
+	replayOutcome, err := executeSyncValidationReplay(ctx, blockingSvc, blockingStore, ref, runtime.actorID, successResult.Snapshot.Revision)
 	if err != nil {
-		return SyncValidationResult{}, fmt.Errorf("marshal sync validation send payload: %w", err)
-	}
-	sendInput := gosynccore.MutationInput{
-		ResourceRef:      ref,
-		Operation:        esignsync.OperationSend,
-		ExpectedRevision: successResult.Snapshot.Revision,
-		ActorID:          actorID,
-		IdempotencyKey:   "sync-validation-send-once",
-		Payload:          sendPayload,
+		return SyncValidationResult{}, err
 	}
 
-	type sendOutcome struct {
-		result gosynccore.MutationResult
-		err    error
-	}
-	firstSendCh := make(chan sendOutcome, 1)
-	go func() {
-		result, mutateErr := blockingSvc.Mutate(ctx, sendInput)
-		firstSendCh <- sendOutcome{result: result, err: mutateErr}
-	}()
-
-	blockingStore.waitUntilBlocked()
-
-	_, retryErr := blockingSvc.Mutate(ctx, sendInput)
-	if retryErr == nil || !gosynccore.HasCode(retryErr, gosynccore.CodeTemporaryFailure) {
-		return SyncValidationResult{}, fmt.Errorf("expected retry-safe temporary failure while first send was in flight, got %v", retryErr)
-	}
-
-	blockingStore.release()
-	firstSend := <-firstSendCh
-	if firstSend.err != nil {
-		return SyncValidationResult{}, fmt.Errorf("complete first sync validation send: %w", firstSend.err)
-	}
-	if firstSend.result.Replay {
-		return SyncValidationResult{}, fmt.Errorf("expected first send not to be a replay")
-	}
-
-	replayResult, err := blockingSvc.Mutate(ctx, sendInput)
+	agreementID, err := requireSyncValidationAgreementID(replayOutcome.replayResult.Snapshot)
 	if err != nil {
-		return SyncValidationResult{}, fmt.Errorf("replay sync validation send: %w", err)
+		return SyncValidationResult{}, err
 	}
-	if !replayResult.Replay {
-		return SyncValidationResult{}, fmt.Errorf("expected sync validation replay result")
-	}
-
-	agreementID := strings.TrimSpace(syncValidationAgreementID(replayResult.Snapshot))
-	if agreementID == "" {
-		return SyncValidationResult{}, fmt.Errorf("expected agreement_id in replay snapshot")
-	}
-
-	snapshot := observability.SyncSnapshot()
-	if snapshot.ConflictTotal < 1 {
-		return SyncValidationResult{}, fmt.Errorf("expected at least one sync conflict metric, got %+v", snapshot)
-	}
-	if snapshot.RetryTotal < 1 {
-		return SyncValidationResult{}, fmt.Errorf("expected at least one sync retry metric, got %+v", snapshot)
-	}
-	if snapshot.ReplayTotal < 1 || snapshot.ReplayByOperation["send"] < 1 {
-		return SyncValidationResult{}, fmt.Errorf("expected send replay metrics, got %+v", snapshot)
+	snapshot, err := validatedSyncValidationSnapshot()
+	if err != nil {
+		return SyncValidationResult{}, err
 	}
 
 	return SyncValidationResult{
-		DraftID:      draft.ID,
+		DraftID:      draftCtx.draft.ID,
 		AgreementID:  agreementID,
-		Replay:       replayResult,
+		Replay:       replayOutcome.replayResult,
 		Snapshot:     snapshot,
 		CurrentRev:   currentRevision,
-		RetryMessage: strings.TrimSpace(retryErr.Error()),
+		RetryMessage: strings.TrimSpace(replayOutcome.retryErr.Error()),
 	}, nil
+}
+
+func runSyncValidationCleanup(cleanup func() error) {
+	if cleanup != nil {
+		_ = cleanup()
+	}
+}
+
+func runSyncValidationCallback(cleanup func()) {
+	if cleanup != nil {
+		cleanup()
+	}
+}
+
+func requireSyncValidationAgreementID(snapshot gosynccore.Snapshot) (string, error) {
+	agreementID := strings.TrimSpace(syncValidationAgreementID(snapshot))
+	if agreementID == "" {
+		return "", fmt.Errorf("expected agreement_id in replay snapshot")
+	}
+	return agreementID, nil
+}
+
+func validatedSyncValidationSnapshot() (observability.SyncMetricsSnapshot, error) {
+	snapshot := observability.SyncSnapshot()
+	if snapshot.ConflictTotal < 1 {
+		return observability.SyncMetricsSnapshot{}, fmt.Errorf("expected at least one sync conflict metric, got %+v", snapshot)
+	}
+	if snapshot.RetryTotal < 1 {
+		return observability.SyncMetricsSnapshot{}, fmt.Errorf("expected at least one sync retry metric, got %+v", snapshot)
+	}
+	if snapshot.ReplayTotal < 1 || snapshot.ReplayByOperation["send"] < 1 {
+		return observability.SyncMetricsSnapshot{}, fmt.Errorf("expected send replay metrics, got %+v", snapshot)
+	}
+	return snapshot, nil
+}
+
+func newSyncValidationRuntime(store stores.Store) syncValidationRuntime {
+	scope := stores.Scope{TenantID: "tenant-sync-validation", OrgID: "org-sync-validation"}
+	actorID := "release-sync-validation"
+	documentSvc := services.NewDocumentService(store)
+	agreementSvc := services.NewAgreementService(store)
+	draftSvc := services.NewDraftService(store,
+		services.WithDraftAgreementService(agreementSvc),
+		services.WithDraftAuditStore(store),
+	)
+	return syncValidationRuntime{
+		scope:       scope,
+		actorID:     actorID,
+		documentSvc: documentSvc,
+		draftSvc:    draftSvc,
+	}
+}
+
+func createSyncValidationDraft(ctx context.Context, runtime syncValidationRuntime) (syncValidationDraftContext, error) {
+	document, err := runtime.documentSvc.Upload(ctx, runtime.scope, services.DocumentUploadInput{
+		Title:              "Sync Validation Source",
+		SourceOriginalName: "sync-validation.pdf",
+		ObjectKey:          fmt.Sprintf("tenant/%s/org/%s/docs/sync-validation/source.pdf", runtime.scope.TenantID, runtime.scope.OrgID),
+		PDF:                services.GenerateDeterministicPDF(1),
+		CreatedBy:          runtime.actorID,
+	})
+	if err != nil {
+		return syncValidationDraftContext{}, fmt.Errorf("upload sync validation document: %w", err)
+	}
+	draft, _, err := runtime.draftSvc.Create(ctx, runtime.scope, services.DraftCreateInput{
+		WizardID:        "wizard-sync-validation",
+		CreatedByUserID: runtime.actorID,
+		Title:           "Sync Validation Draft",
+		CurrentStep:     2,
+		DocumentID:      document.ID,
+		WizardState:     syncValidationWizardState(document.ID, "Sync Validation Draft", "First pass"),
+	})
+	if err != nil {
+		return syncValidationDraftContext{}, fmt.Errorf("create sync validation draft: %w", err)
+	}
+	return syncValidationDraftContext{document: document, draft: draft}, nil
+}
+
+func newSyncValidationSendInput(
+	ref gosynccore.ResourceRef,
+	actorID string,
+	expectedRevision int64,
+) (gosynccore.MutationInput, error) {
+	sendPayload, err := jsonPayload(map[string]any{})
+	if err != nil {
+		return gosynccore.MutationInput{}, fmt.Errorf("marshal sync validation send payload: %w", err)
+	}
+	return gosynccore.MutationInput{
+		ResourceRef:      ref,
+		Operation:        esignsync.OperationSend,
+		ExpectedRevision: expectedRevision,
+		ActorID:          actorID,
+		IdempotencyKey:   "sync-validation-send-once",
+		Payload:          sendPayload,
+	}, nil
+}
+
+func executeSyncValidationReplay(
+	ctx context.Context,
+	blockingSvc gosynccore.SyncService,
+	blockingStore *blockingMutationResourceStore,
+	ref gosynccore.ResourceRef,
+	actorID string,
+	expectedRevision int64,
+) (syncValidationReplayOutcome, error) {
+	sendInput, err := newSyncValidationSendInput(ref, actorID, expectedRevision)
+	if err != nil {
+		return syncValidationReplayOutcome{}, err
+	}
+	firstSend, retryErr, err := runSyncValidationFirstSend(ctx, blockingSvc, blockingStore, sendInput)
+	if err != nil {
+		return syncValidationReplayOutcome{}, err
+	}
+	replayResult, err := blockingSvc.Mutate(ctx, sendInput)
+	if err != nil {
+		return syncValidationReplayOutcome{}, fmt.Errorf("replay sync validation send: %w", err)
+	}
+	if !replayResult.Replay {
+		return syncValidationReplayOutcome{}, fmt.Errorf("expected sync validation replay result")
+	}
+	return syncValidationReplayOutcome{replayResult: replayResult, currentRev: firstSend.result.Snapshot.Revision, retryErr: retryErr}, nil
+}
+
+func runSyncValidationFirstSend(
+	ctx context.Context,
+	blockingSvc gosynccore.SyncService,
+	blockingStore *blockingMutationResourceStore,
+	sendInput gosynccore.MutationInput,
+) (syncValidationSendOutcome, error, error) {
+	firstSendCh := make(chan syncValidationSendOutcome, 1)
+	go func() {
+		result, mutateErr := blockingSvc.Mutate(ctx, sendInput)
+		firstSendCh <- syncValidationSendOutcome{result: result, err: mutateErr}
+	}()
+	blockingStore.waitUntilBlocked()
+	_, retryErr := blockingSvc.Mutate(ctx, sendInput)
+	if retryErr == nil || !gosynccore.HasCode(retryErr, gosynccore.CodeTemporaryFailure) {
+		return syncValidationSendOutcome{}, nil, fmt.Errorf("expected retry-safe temporary failure while first send was in flight, got %v", retryErr)
+	}
+	blockingStore.release()
+	firstSend := <-firstSendCh
+	if firstSend.err != nil {
+		return syncValidationSendOutcome{}, nil, fmt.Errorf("complete first sync validation send: %w", firstSend.err)
+	}
+	if firstSend.result.Replay {
+		return syncValidationSendOutcome{}, nil, fmt.Errorf("expected first send not to be a replay")
+	}
+	return firstSend, retryErr, nil
 }
 
 func runSyncValidationConflict(

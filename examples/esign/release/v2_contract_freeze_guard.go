@@ -40,24 +40,9 @@ func LoadV2ContractFreezeGuard(path string) (V2ContractFreezeGuard, error) {
 // ValidateV2ContractFreezeGuard validates v2 contract freeze snapshot and post-freeze exception rules.
 func ValidateV2ContractFreezeGuard(repoRoot string, guard V2ContractFreezeGuard, now time.Time) ([]string, error) {
 	issues := make([]string, 0)
+	issues = append(issues, validateV2ContractFreezeGuardRequiredFields(guard)...)
 	if len(guard.TrackedFiles) == 0 {
-		issues = append(issues, "tracked_files is required")
 		return issues, nil
-	}
-	if strings.TrimSpace(guard.ContractHash) == "" {
-		issues = append(issues, "contract_hash is required")
-	}
-	if strings.TrimSpace(guard.FreezeDate) == "" {
-		issues = append(issues, "freeze_date is required")
-	}
-	if strings.TrimSpace(guard.ReleaseOwner) == "" {
-		issues = append(issues, "release_owner is required")
-	}
-	if strings.TrimSpace(guard.LedgerPath) == "" {
-		issues = append(issues, "ledger_path is required")
-	}
-	if strings.TrimSpace(guard.RequiredLedgerEntryID) == "" {
-		issues = append(issues, "required_ledger_entry_id is required")
 	}
 	for _, requiredPath := range requiredV2SourceManagementTrackedFiles(repoRoot) {
 		if !containsTrackedFile(guard.TrackedFiles, requiredPath) {
@@ -76,22 +61,8 @@ func ValidateV2ContractFreezeGuard(repoRoot string, guard V2ContractFreezeGuard,
 	if err != nil {
 		return issues, err
 	}
-	if strings.TrimSpace(guard.ContractHash) != computedHash {
-		if afterFreeze {
-			if strings.TrimSpace(guard.ExceptionApprovalRef) == "" || strings.TrimSpace(guard.ExceptionApprovedBy) == "" {
-				issues = append(issues, "post-freeze contract change blocked: release-owner exception approval is required")
-			}
-		} else {
-			issues = append(issues, "pre-freeze contract-shape hash mismatch: update guard snapshot before freeze")
-		}
-	}
-
-	if strings.TrimSpace(guard.ExceptionApprovalRef) != "" && strings.TrimSpace(guard.ExceptionApprovedBy) == "" {
-		issues = append(issues, "exception_approved_by is required when exception_approval_ref is set")
-	}
-	if strings.TrimSpace(guard.ExceptionApprovedBy) != "" && strings.TrimSpace(guard.ExceptionApprovalRef) == "" {
-		issues = append(issues, "exception_approval_ref is required when exception_approved_by is set")
-	}
+	issues = append(issues, validateV2ContractFreezeHash(guard, computedHash, afterFreeze)...)
+	issues = append(issues, validateV2ContractFreezeExceptionApproval(guard)...)
 
 	ledgerAbsPath := filepath.Join(repoRoot, filepath.FromSlash(strings.TrimSpace(guard.LedgerPath)))
 	ledgerRaw, err := primitives.ReadTrustedFile(ledgerAbsPath)
@@ -103,6 +74,58 @@ func ValidateV2ContractFreezeGuard(repoRoot string, guard V2ContractFreezeGuard,
 		issues = append(issues, "required v2 source-management ledger entry is missing")
 		return issues, nil
 	}
+	issues = append(issues, validateV2ContractFreezeLedgerMarkers(section, computedHash)...)
+	return issues, nil
+}
+
+func validateV2ContractFreezeGuardRequiredFields(guard V2ContractFreezeGuard) []string {
+	issues := make([]string, 0)
+	if len(guard.TrackedFiles) == 0 {
+		issues = append(issues, "tracked_files is required")
+	}
+	if strings.TrimSpace(guard.ContractHash) == "" {
+		issues = append(issues, "contract_hash is required")
+	}
+	if strings.TrimSpace(guard.FreezeDate) == "" {
+		issues = append(issues, "freeze_date is required")
+	}
+	if strings.TrimSpace(guard.ReleaseOwner) == "" {
+		issues = append(issues, "release_owner is required")
+	}
+	if strings.TrimSpace(guard.LedgerPath) == "" {
+		issues = append(issues, "ledger_path is required")
+	}
+	if strings.TrimSpace(guard.RequiredLedgerEntryID) == "" {
+		issues = append(issues, "required_ledger_entry_id is required")
+	}
+	return issues
+}
+
+func validateV2ContractFreezeHash(guard V2ContractFreezeGuard, computedHash string, afterFreeze bool) []string {
+	if strings.TrimSpace(guard.ContractHash) == computedHash {
+		return nil
+	}
+	if afterFreeze {
+		if strings.TrimSpace(guard.ExceptionApprovalRef) == "" || strings.TrimSpace(guard.ExceptionApprovedBy) == "" {
+			return []string{"post-freeze contract change blocked: release-owner exception approval is required"}
+		}
+		return nil
+	}
+	return []string{"pre-freeze contract-shape hash mismatch: update guard snapshot before freeze"}
+}
+
+func validateV2ContractFreezeExceptionApproval(guard V2ContractFreezeGuard) []string {
+	issues := make([]string, 0)
+	if strings.TrimSpace(guard.ExceptionApprovalRef) != "" && strings.TrimSpace(guard.ExceptionApprovedBy) == "" {
+		issues = append(issues, "exception_approved_by is required when exception_approval_ref is set")
+	}
+	if strings.TrimSpace(guard.ExceptionApprovedBy) != "" && strings.TrimSpace(guard.ExceptionApprovalRef) == "" {
+		issues = append(issues, "exception_approval_ref is required when exception_approved_by is set")
+	}
+	return issues
+}
+
+func validateV2ContractFreezeLedgerMarkers(section, computedHash string) []string {
 	requiredMarkers := []string{
 		"reviewed_contract_hash: " + computedHash,
 		"contract_scope:",
@@ -111,13 +134,14 @@ func ValidateV2ContractFreezeGuard(repoRoot string, guard V2ContractFreezeGuard,
 		"fixtures:",
 		"runbook:",
 	}
+	issues := make([]string, 0)
 	for _, marker := range requiredMarkers {
 		if strings.Contains(section, marker) {
 			continue
 		}
 		issues = append(issues, "ledger entry missing required marker: "+marker)
 	}
-	return issues, nil
+	return issues
 }
 
 // DefaultV2ContractFreezeGuardPath resolves the canonical v2 guard file path.

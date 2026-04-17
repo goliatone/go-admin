@@ -70,74 +70,110 @@ func NewDefaultSourceFingerprintService(
 }
 
 func (s DefaultSourceFingerprintService) BuildFingerprint(ctx context.Context, scope stores.Scope, input SourceFingerprintBuildInput) (SourceFingerprintBuildResult, error) {
+	state, err := s.loadFingerprintBuildState(ctx, scope, input)
+	if err != nil {
+		return SourceFingerprintBuildResult{}, err
+	}
+	extracted, extractionErr := extractFingerprintText(ctx, state.pdfBytes)
+	if extractionErr != nil {
+		return s.buildFingerprintFailureResult(ctx, scope, state, input.Metadata, extractionErr)
+	}
+	return s.buildFingerprintSuccessResult(ctx, scope, state, input.Metadata, extracted)
+}
+
+type fingerprintBuildState struct {
+	sourceRevision stores.SourceRevisionRecord
+	artifact       stores.SourceArtifactRecord
+	pdfBytes       []byte
+	fingerprint    stores.SourceFingerprintRecord
+}
+
+func (s DefaultSourceFingerprintService) loadFingerprintBuildState(ctx context.Context, scope stores.Scope, input SourceFingerprintBuildInput) (fingerprintBuildState, error) {
 	if s.lineage == nil {
-		return SourceFingerprintBuildResult{}, domainValidationError("lineage_fingerprints", "lineage", "not configured")
+		return fingerprintBuildState{}, domainValidationError("lineage_fingerprints", "lineage", "not configured")
 	}
 	if s.objectStore == nil {
-		return SourceFingerprintBuildResult{}, domainValidationError("lineage_fingerprints", "object_store", "not configured")
+		return fingerprintBuildState{}, domainValidationError("lineage_fingerprints", "object_store", "not configured")
 	}
 	sourceRevisionID := strings.TrimSpace(input.SourceRevisionID)
 	artifactID := strings.TrimSpace(input.ArtifactID)
 	if sourceRevisionID == "" || artifactID == "" {
-		return SourceFingerprintBuildResult{}, domainValidationError("lineage_fingerprints", "source_revision_id|artifact_id", "required")
+		return fingerprintBuildState{}, domainValidationError("lineage_fingerprints", "source_revision_id|artifact_id", "required")
 	}
 
 	sourceRevision, err := s.lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
 	if err != nil {
-		return SourceFingerprintBuildResult{}, err
+		return fingerprintBuildState{}, err
 	}
 	artifact, err := s.lineage.GetSourceArtifact(ctx, scope, artifactID)
 	if err != nil {
-		return SourceFingerprintBuildResult{}, err
+		return fingerprintBuildState{}, err
 	}
 	err = validateSourceArtifactRevisionLink(sourceRevision, artifact)
 	if err != nil {
-		return SourceFingerprintBuildResult{}, err
+		return fingerprintBuildState{}, err
 	}
 	if strings.TrimSpace(artifact.ObjectKey) == "" {
-		return SourceFingerprintBuildResult{}, domainValidationError("lineage_fingerprints", "object_key", "required")
+		return fingerprintBuildState{}, domainValidationError("lineage_fingerprints", "object_key", "required")
 	}
 
 	pdfBytes, err := s.objectStore.GetFile(ctx, artifact.ObjectKey)
 	if err != nil {
-		return SourceFingerprintBuildResult{}, err
+		return fingerprintBuildState{}, err
 	}
 	if len(pdfBytes) == 0 {
-		return SourceFingerprintBuildResult{}, fmt.Errorf("lineage fingerprints: artifact %s has no object bytes", artifact.ID)
+		return fingerprintBuildState{}, fmt.Errorf("lineage fingerprints: artifact %s has no object bytes", artifact.ID)
 	}
 
-	fingerprint := stores.SourceFingerprintRecord{
-		ID:               sourceFingerprintRecordID(sourceRevisionID, artifactID, stores.SourceExtractVersionPDFTextV1),
-		SourceRevisionID: sourceRevisionID,
-		ArtifactID:       artifactID,
-		ExtractVersion:   stores.SourceExtractVersionPDFTextV1,
-		CreatedAt:        s.now().UTC(),
-	}
+	return fingerprintBuildState{
+		sourceRevision: sourceRevision,
+		artifact:       artifact,
+		pdfBytes:       pdfBytes,
+		fingerprint: stores.SourceFingerprintRecord{
+			ID:               sourceFingerprintRecordID(sourceRevisionID, artifactID, stores.SourceExtractVersionPDFTextV1),
+			SourceRevisionID: sourceRevisionID,
+			ArtifactID:       artifactID,
+			ExtractVersion:   stores.SourceExtractVersionPDFTextV1,
+			CreatedAt:        s.now().UTC(),
+		},
+	}, nil
+}
 
-	extracted, extractionErr := extractFingerprintText(ctx, pdfBytes)
-	if extractionErr != nil {
-		record, persistErr := s.persistFingerprintFailure(ctx, scope, fingerprint, input.Metadata, sourceRevision, artifact, extractionErr)
-		if persistErr != nil {
-			return SourceFingerprintBuildResult{}, persistErr
-		}
-		return SourceFingerprintBuildResult{
-			Fingerprint: record,
-			Status:      fingerprintStatusSummaryFromRecord(record),
-		}, nil
+func (s DefaultSourceFingerprintService) buildFingerprintFailureResult(
+	ctx context.Context,
+	scope stores.Scope,
+	state fingerprintBuildState,
+	metadata SourceMetadataBaseline,
+	extractionErr error,
+) (SourceFingerprintBuildResult, error) {
+	record, err := s.persistFingerprintFailure(ctx, scope, state.fingerprint, metadata, state.sourceRevision, state.artifact, extractionErr)
+	if err != nil {
+		return SourceFingerprintBuildResult{}, err
 	}
+	return SourceFingerprintBuildResult{
+		Fingerprint: record,
+		Status:      fingerprintStatusSummaryFromRecord(record),
+	}, nil
+}
 
+func (s DefaultSourceFingerprintService) buildFingerprintSuccessResult(
+	ctx context.Context,
+	scope stores.Scope,
+	state fingerprintBuildState,
+	metadata SourceMetadataBaseline,
+	extracted extractedFingerprintText,
+) (SourceFingerprintBuildResult, error) {
 	normalizedParagraphs := normalizeFingerprintParagraphs(extracted.Text)
 	normalizedText := strings.Join(normalizedParagraphs, "\n\n")
 	tokens := fingerprintTokens(normalizedText)
 	if len(tokens) == 0 {
-		record, persistErr := s.persistFingerprintFailure(ctx, scope, fingerprint, input.Metadata, sourceRevision, artifact, newLineageExtractionError(lineageFingerprintErrorIncompleteExtraction, "no normalized text tokens extracted"))
-		if persistErr != nil {
-			return SourceFingerprintBuildResult{}, persistErr
-		}
-		return SourceFingerprintBuildResult{
-			Fingerprint: record,
-			Status:      fingerprintStatusSummaryFromRecord(record),
-		}, nil
+		return s.buildFingerprintFailureResult(
+			ctx,
+			scope,
+			state,
+			metadata,
+			newLineageExtractionError(lineageFingerprintErrorIncompleteExtraction, "no normalized text tokens extracted"),
+		)
 	}
 
 	chunks := buildFingerprintChunks(normalizedParagraphs)
@@ -146,7 +182,7 @@ func (s DefaultSourceFingerprintService) BuildFingerprint(ctx context.Context, s
 		chunkHashes = append(chunkHashes, hashFingerprintValue(chunk))
 	}
 
-	metadataJSON, err := json.Marshal(buildFingerprintExtractionMetadata(input.Metadata, sourceRevision, artifact, extracted, normalizedParagraphs, chunks, len(tokens), len(pdfBytes)))
+	metadataJSON, err := json.Marshal(buildFingerprintExtractionMetadata(metadata, state.sourceRevision, state.artifact, extracted, normalizedParagraphs, chunks, len(tokens), len(state.pdfBytes)))
 	if err != nil {
 		return SourceFingerprintBuildResult{}, err
 	}
@@ -159,8 +195,9 @@ func (s DefaultSourceFingerprintService) BuildFingerprint(ctx context.Context, s
 		return SourceFingerprintBuildResult{}, err
 	}
 
+	fingerprint := state.fingerprint
 	fingerprint.Status = stores.SourceFingerprintStatusReady
-	fingerprint.RawSHA256 = hashFingerprintBytes(pdfBytes)
+	fingerprint.RawSHA256 = hashFingerprintBytes(state.pdfBytes)
 	fingerprint.NormalizedTextSHA256 = hashFingerprintValue(normalizedText)
 	fingerprint.SimHash64 = computeFingerprintSimHash(tokens)
 	fingerprint.MinHashJSON = string(minHashesJSON)
