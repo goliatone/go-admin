@@ -219,9 +219,10 @@ func (r *WidgetInstanceRepository) List(ctx context.Context, opts ListOptions) (
 		return nil, 0, err
 	}
 	filter := WidgetInstanceFilter{
-		Area:   stringFromFilter(opts.Filters, "area"),
-		PageID: stringFromFilter(opts.Filters, "page_id"),
-		Locale: resolveListRequestedLocale(ctx, opts, ""),
+		Area:            stringFromFilter(opts.Filters, "area"),
+		PageID:          stringFromFilter(opts.Filters, "page_id"),
+		Locale:          resolveListRequestedLocale(ctx, opts, ""),
+		FallbackLocales: stringSliceFromFilter(opts.Filters, "fallback_locales", "fallbackLocales"),
 	}
 	instances, err := r.widgets.ListInstances(ctx, filter)
 	if err != nil {
