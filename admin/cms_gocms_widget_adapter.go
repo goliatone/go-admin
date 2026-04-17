@@ -510,12 +510,13 @@ func (a *GoCMSWidgetAdapter) resolveAreaInstances(ctx context.Context, filter Wi
 	}
 	ctx = widgetCallContext(ctx)
 	input := cmswidgets.ResolveAreaInput{AreaCode: strings.TrimSpace(filter.Area)}
+	fallbackLocaleIDs := a.resolveFallbackLocaleIDs(ctx, filter)
 	if localeID, ok := gocmsutil.ResolveLocaleID(ctx, a.locales, filter.Locale); ok {
 		input.LocaleID = &localeID
-	} else if strings.TrimSpace(filter.Locale) != "" && len(filter.FallbackLocales) == 0 {
+	} else if strings.TrimSpace(filter.Locale) != "" && len(fallbackLocaleIDs) == 0 {
 		return []WidgetInstance{}, nil
 	}
-	input.FallbackLocaleIDs = a.resolveFallbackLocaleIDs(ctx, filter)
+	input.FallbackLocaleIDs = fallbackLocaleIDs
 	resolved, err := a.service.ResolveArea(ctx, input)
 	if err != nil {
 		if errors.Is(err, cmswidgets.ErrFeatureDisabled) || errors.Is(err, cmswidgets.ErrAreaFeatureDisabled) {
