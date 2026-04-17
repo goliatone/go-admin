@@ -72,6 +72,31 @@ type AgreementReminderService struct {
 	workerID   string
 }
 
+type agreementReminderClaimRuntime struct {
+	service      AgreementReminderService
+	ctx          context.Context
+	scope        stores.Scope
+	state        stores.AgreementReminderStateRecord
+	claim        stores.AgreementReminderClaim
+	policy       reminders.Policy
+	stableKey    string
+	leaseSeconds int
+	leaseToken   stores.AgreementReminderLeaseToken
+	leaseMu      sync.Mutex
+}
+
+type agreementReminderLeaseHeartbeat struct {
+	cancel context.CancelFunc
+	done   <-chan struct{}
+	errCh  <-chan agreementReminderLeaseHeartbeatResult
+}
+
+type agreementReminderLeaseHeartbeatResult struct {
+	outcome string
+	reason  string
+	err     error
+}
+
 // AgreementReminderServiceOption customizes reminder service behavior.
 type AgreementReminderServiceOption func(*AgreementReminderService)
 
@@ -198,51 +223,7 @@ func (s AgreementReminderService) Sweep(ctx context.Context, scope stores.Scope)
 	}
 	out.Claimed = len(claims)
 	policy := ReminderPolicyFromConfig(appcfg.Active())
-	for _, claim := range claims {
-		if claim.State.NextDueAt != nil {
-			out.DueBacklogAgeMS = append(out.DueBacklogAgeMS, durationMillisNonNegative(now.Sub(claim.State.NextDueAt.UTC())))
-		}
-		outcome, reason, sentAt, processErr := s.processClaimedReminder(ctx, scope, claim, policy, cfg.ClaimLeaseSeconds)
-		if processErr != nil {
-			out.Failed++
-			out.FailureReasons["process_failed"]++
-			continue
-		}
-		switch outcome {
-		case "sent":
-			out.Sent++
-			if sentAt != nil {
-				if claim.State.ClaimedAt != nil {
-					out.ClaimToSendMS = append(out.ClaimToSendMS, durationMillisNonNegative(sentAt.Sub(claim.State.ClaimedAt.UTC())))
-				}
-				if claim.State.NextDueAt != nil {
-					out.DueToSendMS = append(out.DueToSendMS, durationMillisNonNegative(sentAt.Sub(claim.State.NextDueAt.UTC())))
-				}
-			}
-		case "skipped":
-			out.Skipped++
-			if strings.TrimSpace(reason) != "" {
-				out.SkipReasons[reason]++
-			}
-			if reason == "lease_lost" {
-				out.LeaseLost++
-			}
-			if reason == "lease_conflict" {
-				out.LeaseConflict++
-			}
-			if reason == "policy_block" {
-				out.PolicyBlock++
-			}
-		case "failed":
-			out.Failed++
-			if strings.TrimSpace(reason) != "" {
-				out.FailureReasons[reason]++
-			}
-			if reason == "state_invariant_violation" {
-				out.StateInvariantViolation++
-			}
-		}
-	}
+	s.processAgreementReminderClaims(ctx, scope, &out, claims, policy, cfg.ClaimLeaseSeconds, now)
 	reviewResult, err := s.sweepReviewReminders(ctx, scope, now, policy)
 	if err != nil {
 		return out, err
@@ -271,237 +252,20 @@ func (s AgreementReminderService) processClaimedReminder(
 	policy reminders.Policy,
 	leaseSeconds int,
 ) (string, string, *time.Time, error) {
-	state := claim.State
-	stableKey := reminderStableKey(scope, state.AgreementID, state.RecipientID)
-	if leaseSeconds <= 0 {
-		leaseSeconds = appcfg.Active().Reminders.ClaimLeaseSeconds
+	runtime := newAgreementReminderClaimRuntime(s, ctx, scope, claim, policy, leaseSeconds)
+	agreement, outcome, reason, sentAt, err := runtime.resolveAgreement()
+	if outcome != "" || err != nil {
+		return outcome, reason, sentAt, err
 	}
-	if leaseSeconds <= 0 {
-		leaseSeconds = 120
+	target, outcome, reason, sentAt, err := runtime.resolveRecipient()
+	if outcome != "" || err != nil {
+		return outcome, reason, sentAt, err
 	}
-	leaseToken := claim.Lease
-	var leaseMu sync.Mutex
-	getLease := func() stores.AgreementReminderLeaseToken {
-		leaseMu.Lock()
-		defer leaseMu.Unlock()
-		return leaseToken
+	outcome, reason, sentAt, err = runtime.handleDecision(target)
+	if outcome != "" || err != nil {
+		return outcome, reason, sentAt, err
 	}
-	setLease := func(next stores.AgreementReminderLeaseToken) {
-		leaseMu.Lock()
-		defer leaseMu.Unlock()
-		leaseToken = next
-	}
-
-	handleMutationErr := func(err error) (string, string, error) {
-		if err == nil {
-			return "", "", nil
-		}
-		if outcome, reason, handled := classifyReminderMutationErr(err); handled {
-			return outcome, reason, nil
-		}
-		return "failed", "", err
-	}
-
-	markSkip := func(reason string, due *time.Time, terminalReason string) (string, string, error) {
-		markAt := s.now().UTC()
-		_, err := s.reminders.MarkAgreementReminderSkipped(ctx, scope, state.AgreementID, state.RecipientID, stores.AgreementReminderMarkInput{
-			ReasonCode:     reason,
-			OccurredAt:     markAt,
-			NextDueAt:      due,
-			LeaseSeconds:   leaseSeconds,
-			Lease:          getLease(),
-			TerminalReason: terminalReason,
-		})
-		if err != nil {
-			return handleMutationErr(err)
-		}
-		return "skipped", reason, nil
-	}
-	computeNextDue := func(at time.Time) *time.Time {
-		next := reminders.ComputeNextDue(at, policy, stableKey)
-		return &next
-	}
-	markFail := func(reason, failure string) (string, string, error) {
-		markAt := s.now().UTC()
-		nextDue := reminders.ComputeNextDue(markAt, policy, stableKey)
-		failure = sanitizeReminderFailureText(failure)
-		encryptedFailure, expiresAt, encryptErr := s.encryptReminderFailure(ctx, failure, markAt)
-		if encryptErr != nil {
-			encryptedFailure = ""
-			expiresAt = nil
-		}
-		_, err := s.reminders.MarkAgreementReminderFailed(ctx, scope, state.AgreementID, state.RecipientID, stores.AgreementReminderMarkInput{
-			ReasonCode:             reason,
-			Failure:                failure,
-			OccurredAt:             markAt,
-			NextDueAt:              &nextDue,
-			LeaseSeconds:           leaseSeconds,
-			Lease:                  getLease(),
-			ErrorInternalEncrypted: encryptedFailure,
-			ErrorInternalExpiresAt: expiresAt,
-		})
-		if err != nil {
-			return handleMutationErr(err)
-		}
-		return "failed", reason, nil
-	}
-
-	agreement, err := s.agreements.GetAgreement(ctx, scope, state.AgreementID)
-	if err != nil {
-		outcome, reason, markErr := markFail("agreement_lookup_failed", err.Error())
-		return outcome, reason, nil, markErr
-	}
-	switch strings.TrimSpace(agreement.Status) {
-	case stores.AgreementStatusSent, stores.AgreementStatusInProgress:
-	case stores.AgreementStatusCompleted, stores.AgreementStatusVoided, stores.AgreementStatusDeclined, stores.AgreementStatusExpired:
-		_, pauseErr := s.reminders.PauseAgreementReminder(ctx, scope, state.AgreementID, state.RecipientID, s.now().UTC())
-		if pauseErr != nil {
-			return "failed", "pause_failed", nil, pauseErr
-		}
-		return "skipped", "agreement_terminal", nil, nil
-	default:
-		outcome, reason, markErr := markSkip("agreement_not_active", computeNextDue(s.now().UTC()), "")
-		return outcome, reason, nil, markErr
-	}
-
-	recipients, err := s.agreements.ListRecipients(ctx, scope, state.AgreementID)
-	if err != nil {
-		outcome, reason, markErr := markFail("recipient_lookup_failed", err.Error())
-		return outcome, reason, nil, markErr
-	}
-	activeStage, activeSigners, ok := activeSignerStage(recipients)
-	if !ok {
-		outcome, reason, markErr := markSkip("no_active_signer", computeNextDue(s.now().UTC()), "")
-		return outcome, reason, nil, markErr
-	}
-	target, found := recipientByID(recipients, state.RecipientID)
-	if !found {
-		outcome, reason, markErr := markFail("recipient_not_found", "recipient not found")
-		return outcome, reason, nil, markErr
-	}
-	if target.Role != stores.RecipientRoleSigner {
-		outcome, reason, markErr := markSkip("recipient_not_signer", computeNextDue(s.now().UTC()), "")
-		return outcome, reason, nil, markErr
-	}
-	if target.CompletedAt != nil || target.DeclinedAt != nil {
-		_, pauseErr := s.reminders.PauseAgreementReminder(ctx, scope, state.AgreementID, state.RecipientID, s.now().UTC())
-		if pauseErr != nil {
-			return "failed", "pause_failed", nil, pauseErr
-		}
-		return "skipped", "recipient_terminal", nil, nil
-	}
-	if !containsRecipientID(recipientIDs(activeSigners), target.ID) && !appcfg.Active().Reminders.AllowOutOfOrder {
-		_ = activeStage
-		outcome, reason, markErr := markSkip("recipient_not_in_active_stage", computeNextDue(s.now().UTC()), "")
-		return outcome, reason, nil, markErr
-	}
-
-	observedLastViewedAt := newerTimePtr(state.LastViewedAt, target.LastViewAt)
-	now := s.now().UTC()
-
-	decision := reminders.Evaluate(now, policy, reminders.State{
-		SentCount:          state.SentCount,
-		FirstSentAt:        state.FirstSentAt,
-		LastSentAt:         state.LastSentAt,
-		LastViewedAt:       observedLastViewedAt,
-		LastManualResendAt: state.LastManualResendAt,
-		NextDueAt:          state.NextDueAt,
-	})
-	if !decision.Due {
-		reason := strings.TrimSpace(decision.ReasonCode)
-		if reason == stores.AgreementReminderTerminalReasonMaxCountReached {
-			outcome, skipReason, markErr := markSkip(reason, nil, stores.AgreementReminderTerminalReasonMaxCountReached)
-			return outcome, skipReason, nil, markErr
-		}
-		if decision.NextDueAt == nil {
-			outcome, skipReason, markErr := markSkip(reason, computeNextDue(s.now().UTC()), "")
-			return outcome, skipReason, nil, markErr
-		}
-		outcome, skipReason, markErr := markSkip(reason, decision.NextDueAt, "")
-		return outcome, skipReason, nil, markErr
-	}
-
-	renewed, renewErr := s.reminders.RenewAgreementReminderLease(ctx, scope, state.AgreementID, state.RecipientID, stores.AgreementReminderLeaseRenewInput{
-		Now:          s.now().UTC(),
-		LeaseSeconds: leaseSeconds,
-		Lease:        getLease(),
-	})
-	if renewErr != nil {
-		outcome, reason, markErr := handleMutationErr(renewErr)
-		return outcome, reason, nil, markErr
-	}
-	setLease(renewed.Lease)
-
-	heartbeatCtx, heartbeatCancel := context.WithCancel(ctx)
-	heartbeatErrCh := make(chan error, 1)
-	heartbeatDone := make(chan struct{})
-	heartbeatInterval := reminderHeartbeatInterval(leaseSeconds)
-	go func() {
-		defer close(heartbeatDone)
-		ticker := time.NewTicker(heartbeatInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-heartbeatCtx.Done():
-				return
-			case <-ticker.C:
-				renewed, renewErr := s.reminders.RenewAgreementReminderLease(ctx, scope, state.AgreementID, state.RecipientID, stores.AgreementReminderLeaseRenewInput{
-					Now:          s.now().UTC(),
-					LeaseSeconds: leaseSeconds,
-					Lease:        getLease(),
-				})
-				if renewErr != nil {
-					select {
-					case heartbeatErrCh <- renewErr:
-					default:
-					}
-					heartbeatCancel()
-					return
-				}
-				setLease(renewed.Lease)
-			}
-		}
-	}()
-
-	_, resendErr := s.lifecycle.Resend(heartbeatCtx, scope, agreement.ID, ResendInput{
-		RecipientID:           target.ID,
-		RotateToken:           appcfg.Active().Reminders.RotateToken,
-		InvalidateExisting:    appcfg.Active().Reminders.RotateToken,
-		AllowOutOfOrderResend: appcfg.Active().Reminders.AllowOutOfOrder,
-		IdempotencyKey:        fmt.Sprintf("reminder:%s:%s:%s:%d", agreement.ID, target.ID, claim.Lease.SweepID, claim.Lease.LeaseSeq),
-		Source:                ResendSourceAutoReminder,
-		ReminderLease:         getLease(),
-		ReminderLeaseSeconds:  leaseSeconds,
-	})
-	heartbeatCancel()
-	<-heartbeatDone
-	select {
-	case heartbeatErr := <-heartbeatErrCh:
-		if resendErr == nil {
-			outcome, reason, markErr := handleMutationErr(heartbeatErr)
-			return outcome, reason, nil, markErr
-		}
-	default:
-	}
-	if resendErr != nil {
-		outcome, reason, markErr := markFail("resend_failed", resendErr.Error())
-		return outcome, reason, nil, markErr
-	}
-
-	markAt := s.now().UTC()
-	nextDue := reminders.ComputeNextDue(markAt, policy, stableKey)
-	_, err = s.reminders.MarkAgreementReminderSent(ctx, scope, state.AgreementID, state.RecipientID, stores.AgreementReminderMarkInput{
-		ReasonCode:   reminders.ReasonDue,
-		OccurredAt:   markAt,
-		NextDueAt:    &nextDue,
-		LeaseSeconds: leaseSeconds,
-		Lease:        getLease(),
-	})
-	if err != nil {
-		outcome, reason, markErr := handleMutationErr(err)
-		return outcome, reason, nil, markErr
-	}
-	return "sent", "", cloneServiceTimePtr(&markAt), nil
+	return runtime.dispatchResend(ctx, agreement.ID, target.ID)
 }
 
 func durationMillisNonNegative(value time.Duration) float64 {
@@ -579,8 +343,8 @@ func (s AgreementReminderService) sweepReviewReminders(
 	if s.agreements == nil {
 		return out, nil
 	}
-	audits, ok := s.agreements.(stores.AuditEventStore)
-	if !ok || audits == nil {
+	audits, ok := s.reviewReminderAuditStore()
+	if !ok {
 		return out, nil
 	}
 	agreements, err := s.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{
@@ -591,99 +355,610 @@ func (s AgreementReminderService) sweepReviewReminders(
 		return out, err
 	}
 	for _, agreement := range agreements {
-		if strings.TrimSpace(agreement.ReviewStatus) != stores.AgreementReviewStatusInReview {
-			continue
+		result, processErr := s.processReviewReminderAgreement(ctx, scope, now, policy, audits, agreement)
+		if processErr != nil {
+			return out, processErr
 		}
-		summary, err := s.lifecycle.GetReviewSummary(ctx, scope, agreement.ID)
-		if err != nil {
-			out.Failed++
-			out.FailureReasons["review_summary_failed"]++
-			continue
-		}
-		if summary.Review == nil || strings.TrimSpace(summary.Status) != stores.AgreementReviewStatusInReview {
-			continue
-		}
-		events, err := audits.ListForAgreement(ctx, scope, agreement.ID, stores.AuditEventQuery{})
-		if err != nil {
-			out.Failed++
-			out.FailureReasons["review_audit_lookup_failed"]++
-			continue
-		}
-		sort.Slice(events, func(i, j int) bool {
-			if !events[i].CreatedAt.Equal(events[j].CreatedAt) {
-				return events[i].CreatedAt.Before(events[j].CreatedAt)
+		mergeAgreementReminderSweepResult(&out, result)
+	}
+	return out, nil
+}
+
+func newAgreementReminderClaimRuntime(
+	service AgreementReminderService,
+	ctx context.Context,
+	scope stores.Scope,
+	claim stores.AgreementReminderClaim,
+	policy reminders.Policy,
+	leaseSeconds int,
+) agreementReminderClaimRuntime {
+	state := claim.State
+	return agreementReminderClaimRuntime{
+		service:      service,
+		ctx:          ctx,
+		scope:        scope,
+		state:        state,
+		claim:        claim,
+		policy:       policy,
+		stableKey:    reminderStableKey(scope, state.AgreementID, state.RecipientID),
+		leaseSeconds: resolveAgreementReminderLeaseSeconds(leaseSeconds),
+		leaseToken:   claim.Lease,
+	}
+}
+
+func resolveAgreementReminderLeaseSeconds(leaseSeconds int) int {
+	if leaseSeconds <= 0 {
+		leaseSeconds = appcfg.Active().Reminders.ClaimLeaseSeconds
+	}
+	if leaseSeconds <= 0 {
+		leaseSeconds = 120
+	}
+	return leaseSeconds
+}
+
+func (s AgreementReminderService) processAgreementReminderClaims(
+	ctx context.Context,
+	scope stores.Scope,
+	out *AgreementReminderSweepResult,
+	claims []stores.AgreementReminderClaim,
+	policy reminders.Policy,
+	leaseSeconds int,
+	now time.Time,
+) {
+	for _, claim := range claims {
+		recordAgreementReminderBacklogAge(out, claim, now)
+		outcome, reason, sentAt, processErr := s.processClaimedReminder(ctx, scope, claim, policy, leaseSeconds)
+		applyAgreementReminderSweepOutcome(out, claim, outcome, reason, sentAt, processErr)
+	}
+}
+
+func recordAgreementReminderBacklogAge(out *AgreementReminderSweepResult, claim stores.AgreementReminderClaim, now time.Time) {
+	if out == nil || claim.State.NextDueAt == nil {
+		return
+	}
+	out.DueBacklogAgeMS = append(out.DueBacklogAgeMS, durationMillisNonNegative(now.Sub(claim.State.NextDueAt.UTC())))
+}
+
+func applyAgreementReminderSweepOutcome(
+	out *AgreementReminderSweepResult,
+	claim stores.AgreementReminderClaim,
+	outcome, reason string,
+	sentAt *time.Time,
+	processErr error,
+) {
+	if out == nil {
+		return
+	}
+	if processErr != nil {
+		out.Failed++
+		out.FailureReasons["process_failed"]++
+		return
+	}
+	switch outcome {
+	case "sent":
+		recordAgreementReminderSend(out, claim, sentAt)
+	case "skipped":
+		recordAgreementReminderSkip(out, reason)
+	case "failed":
+		recordAgreementReminderFailure(out, reason)
+	}
+}
+
+func recordAgreementReminderSend(out *AgreementReminderSweepResult, claim stores.AgreementReminderClaim, sentAt *time.Time) {
+	out.Sent++
+	if sentAt == nil {
+		return
+	}
+	if claim.State.ClaimedAt != nil {
+		out.ClaimToSendMS = append(out.ClaimToSendMS, durationMillisNonNegative(sentAt.Sub(claim.State.ClaimedAt.UTC())))
+	}
+	if claim.State.NextDueAt != nil {
+		out.DueToSendMS = append(out.DueToSendMS, durationMillisNonNegative(sentAt.Sub(claim.State.NextDueAt.UTC())))
+	}
+}
+
+func recordAgreementReminderSkip(out *AgreementReminderSweepResult, reason string) {
+	out.Skipped++
+	if strings.TrimSpace(reason) != "" {
+		out.SkipReasons[reason]++
+	}
+	switch reason {
+	case "lease_lost":
+		out.LeaseLost++
+	case "lease_conflict":
+		out.LeaseConflict++
+	case "policy_block":
+		out.PolicyBlock++
+	}
+}
+
+func recordAgreementReminderFailure(out *AgreementReminderSweepResult, reason string) {
+	out.Failed++
+	if strings.TrimSpace(reason) != "" {
+		out.FailureReasons[reason]++
+	}
+	if reason == "state_invariant_violation" {
+		out.StateInvariantViolation++
+	}
+}
+
+func (runtime *agreementReminderClaimRuntime) now() time.Time {
+	return runtime.service.now().UTC()
+}
+
+func (runtime *agreementReminderClaimRuntime) getLease() stores.AgreementReminderLeaseToken {
+	runtime.leaseMu.Lock()
+	defer runtime.leaseMu.Unlock()
+	return runtime.leaseToken
+}
+
+func (runtime *agreementReminderClaimRuntime) setLease(next stores.AgreementReminderLeaseToken) {
+	runtime.leaseMu.Lock()
+	defer runtime.leaseMu.Unlock()
+	runtime.leaseToken = next
+}
+
+func (runtime *agreementReminderClaimRuntime) computeNextDue(at time.Time) *time.Time {
+	next := reminders.ComputeNextDue(at, runtime.policy, runtime.stableKey)
+	return &next
+}
+
+func (runtime *agreementReminderClaimRuntime) handleMutationErr(err error) (string, string, error) {
+	if err == nil {
+		return "", "", nil
+	}
+	if outcome, reason, handled := classifyReminderMutationErr(err); handled {
+		return outcome, reason, nil
+	}
+	return "failed", "", err
+}
+
+func (runtime *agreementReminderClaimRuntime) markSkip(reason string, due *time.Time, terminalReason string) (string, string, error) {
+	markAt := runtime.now()
+	_, err := runtime.service.reminders.MarkAgreementReminderSkipped(
+		runtime.ctx,
+		runtime.scope,
+		runtime.state.AgreementID,
+		runtime.state.RecipientID,
+		stores.AgreementReminderMarkInput{
+			ReasonCode:     reason,
+			OccurredAt:     markAt,
+			NextDueAt:      due,
+			LeaseSeconds:   runtime.leaseSeconds,
+			Lease:          runtime.getLease(),
+			TerminalReason: terminalReason,
+		},
+	)
+	if err != nil {
+		return runtime.handleMutationErr(err)
+	}
+	return "skipped", reason, nil
+}
+
+func (runtime *agreementReminderClaimRuntime) markFail(reason, failure string) (string, string, error) {
+	markAt := runtime.now()
+	nextDue := reminders.ComputeNextDue(markAt, runtime.policy, runtime.stableKey)
+	failure = sanitizeReminderFailureText(failure)
+	encryptedFailure, expiresAt, encryptErr := runtime.service.encryptReminderFailure(runtime.ctx, failure, markAt)
+	if encryptErr != nil {
+		encryptedFailure = ""
+		expiresAt = nil
+	}
+	_, err := runtime.service.reminders.MarkAgreementReminderFailed(
+		runtime.ctx,
+		runtime.scope,
+		runtime.state.AgreementID,
+		runtime.state.RecipientID,
+		stores.AgreementReminderMarkInput{
+			ReasonCode:             reason,
+			Failure:                failure,
+			OccurredAt:             markAt,
+			NextDueAt:              &nextDue,
+			LeaseSeconds:           runtime.leaseSeconds,
+			Lease:                  runtime.getLease(),
+			ErrorInternalEncrypted: encryptedFailure,
+			ErrorInternalExpiresAt: expiresAt,
+		},
+	)
+	if err != nil {
+		return runtime.handleMutationErr(err)
+	}
+	return "failed", reason, nil
+}
+
+func (runtime *agreementReminderClaimRuntime) pause(reason string) (string, string, *time.Time, error) {
+	_, err := runtime.service.reminders.PauseAgreementReminder(
+		runtime.ctx,
+		runtime.scope,
+		runtime.state.AgreementID,
+		runtime.state.RecipientID,
+		runtime.now(),
+	)
+	if err != nil {
+		return "failed", "pause_failed", nil, err
+	}
+	return "skipped", reason, nil, nil
+}
+
+func (runtime *agreementReminderClaimRuntime) resolveAgreement() (stores.AgreementRecord, string, string, *time.Time, error) {
+	agreement, err := runtime.service.agreements.GetAgreement(runtime.ctx, runtime.scope, runtime.state.AgreementID)
+	if err != nil {
+		outcome, reason, markErr := runtime.markFail("agreement_lookup_failed", err.Error())
+		return stores.AgreementRecord{}, outcome, reason, nil, markErr
+	}
+	switch strings.TrimSpace(agreement.Status) {
+	case stores.AgreementStatusSent, stores.AgreementStatusInProgress:
+		return agreement, "", "", nil, nil
+	case stores.AgreementStatusCompleted, stores.AgreementStatusVoided, stores.AgreementStatusDeclined, stores.AgreementStatusExpired:
+		outcome, reason, sentAt, pauseErr := runtime.pause("agreement_terminal")
+		return stores.AgreementRecord{}, outcome, reason, sentAt, pauseErr
+	default:
+		outcome, reason, markErr := runtime.markSkip("agreement_not_active", runtime.computeNextDue(runtime.now()), "")
+		return stores.AgreementRecord{}, outcome, reason, nil, markErr
+	}
+}
+
+func (runtime *agreementReminderClaimRuntime) resolveRecipient() (stores.RecipientRecord, string, string, *time.Time, error) {
+	recipients, err := runtime.service.agreements.ListRecipients(runtime.ctx, runtime.scope, runtime.state.AgreementID)
+	if err != nil {
+		outcome, reason, markErr := runtime.markFail("recipient_lookup_failed", err.Error())
+		return stores.RecipientRecord{}, outcome, reason, nil, markErr
+	}
+	_, activeSigners, ok := activeSignerStage(recipients)
+	if !ok {
+		outcome, reason, markErr := runtime.markSkip("no_active_signer", runtime.computeNextDue(runtime.now()), "")
+		return stores.RecipientRecord{}, outcome, reason, nil, markErr
+	}
+	target, found := recipientByID(recipients, runtime.state.RecipientID)
+	if !found {
+		outcome, reason, markErr := runtime.markFail("recipient_not_found", "recipient not found")
+		return stores.RecipientRecord{}, outcome, reason, nil, markErr
+	}
+	if target.Role != stores.RecipientRoleSigner {
+		outcome, reason, markErr := runtime.markSkip("recipient_not_signer", runtime.computeNextDue(runtime.now()), "")
+		return stores.RecipientRecord{}, outcome, reason, nil, markErr
+	}
+	if target.CompletedAt != nil || target.DeclinedAt != nil {
+		outcome, reason, sentAt, pauseErr := runtime.pause("recipient_terminal")
+		return stores.RecipientRecord{}, outcome, reason, sentAt, pauseErr
+	}
+	if !containsRecipientID(recipientIDs(activeSigners), target.ID) && !appcfg.Active().Reminders.AllowOutOfOrder {
+		outcome, reason, markErr := runtime.markSkip("recipient_not_in_active_stage", runtime.computeNextDue(runtime.now()), "")
+		return stores.RecipientRecord{}, outcome, reason, nil, markErr
+	}
+	return target, "", "", nil, nil
+}
+
+func (runtime *agreementReminderClaimRuntime) handleDecision(target stores.RecipientRecord) (string, string, *time.Time, error) {
+	decision := reminders.Evaluate(runtime.now(), runtime.policy, reminders.State{
+		SentCount:          runtime.state.SentCount,
+		FirstSentAt:        runtime.state.FirstSentAt,
+		LastSentAt:         runtime.state.LastSentAt,
+		LastViewedAt:       newerTimePtr(runtime.state.LastViewedAt, target.LastViewAt),
+		LastManualResendAt: runtime.state.LastManualResendAt,
+		NextDueAt:          runtime.state.NextDueAt,
+	})
+	if decision.Due {
+		return "", "", nil, nil
+	}
+	reason := strings.TrimSpace(decision.ReasonCode)
+	if reason == stores.AgreementReminderTerminalReasonMaxCountReached {
+		outcome, skipReason, markErr := runtime.markSkip(reason, nil, stores.AgreementReminderTerminalReasonMaxCountReached)
+		return outcome, skipReason, nil, markErr
+	}
+	if decision.NextDueAt == nil {
+		outcome, skipReason, markErr := runtime.markSkip(reason, runtime.computeNextDue(runtime.now()), "")
+		return outcome, skipReason, nil, markErr
+	}
+	outcome, skipReason, markErr := runtime.markSkip(reason, decision.NextDueAt, "")
+	return outcome, skipReason, nil, markErr
+}
+
+func (runtime *agreementReminderClaimRuntime) renewLease() (string, string, error) {
+	renewed, err := runtime.service.reminders.RenewAgreementReminderLease(
+		runtime.ctx,
+		runtime.scope,
+		runtime.state.AgreementID,
+		runtime.state.RecipientID,
+		stores.AgreementReminderLeaseRenewInput{
+			Now:          runtime.now(),
+			LeaseSeconds: runtime.leaseSeconds,
+			Lease:        runtime.getLease(),
+		},
+	)
+	if err != nil {
+		return runtime.handleMutationErr(err)
+	}
+	runtime.setLease(renewed.Lease)
+	return "", "", nil
+}
+
+func (runtime *agreementReminderClaimRuntime) startLeaseHeartbeat(parent context.Context) agreementReminderLeaseHeartbeat {
+	heartbeatCtx, cancel := context.WithCancel(parent)
+	errCh := make(chan agreementReminderLeaseHeartbeatResult, 1)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(reminderHeartbeatInterval(runtime.leaseSeconds))
+		defer ticker.Stop()
+		for {
+			select {
+			case <-heartbeatCtx.Done():
+				return
+			case <-ticker.C:
+				outcome, reason, err := runtime.renewLease()
+				if outcome == "" && err == nil {
+					continue
+				}
+				select {
+				case errCh <- agreementReminderLeaseHeartbeatResult{outcome: outcome, reason: reason, err: err}:
+				default:
+				}
+				cancel()
+				return
 			}
-			return events[i].ID < events[j].ID
-		})
-		batch, signalsByParticipantID, ok := deriveReviewReminderBatchState(scope, strings.TrimSpace(summary.Review.ID), now, summary.Participants, events, policy)
+		}
+	}()
+	return agreementReminderLeaseHeartbeat{
+		cancel: cancel,
+		done:   done,
+		errCh:  errCh,
+	}
+}
+
+func (runtime *agreementReminderClaimRuntime) stopLeaseHeartbeat(
+	heartbeat agreementReminderLeaseHeartbeat,
+	resendErr error,
+) (string, string, error) {
+	heartbeat.cancel()
+	<-heartbeat.done
+	select {
+	case heartbeatResult := <-heartbeat.errCh:
+		if resendErr == nil {
+			return heartbeatResult.outcome, heartbeatResult.reason, heartbeatResult.err
+		}
+	default:
+	}
+	return "", "", resendErr
+}
+
+func (runtime *agreementReminderClaimRuntime) resendWithLeaseHeartbeat(
+	ctx context.Context,
+	agreementID, recipientID string,
+) (string, string, error) {
+	heartbeat := runtime.startLeaseHeartbeat(ctx)
+	_, resendErr := runtime.service.lifecycle.Resend(ctx, runtime.scope, agreementID, ResendInput{
+		RecipientID:           recipientID,
+		RotateToken:           appcfg.Active().Reminders.RotateToken,
+		InvalidateExisting:    appcfg.Active().Reminders.RotateToken,
+		AllowOutOfOrderResend: appcfg.Active().Reminders.AllowOutOfOrder,
+		IdempotencyKey:        fmt.Sprintf("reminder:%s:%s:%s:%d", agreementID, recipientID, runtime.claim.Lease.SweepID, runtime.claim.Lease.LeaseSeq),
+		Source:                ResendSourceAutoReminder,
+		ReminderLease:         runtime.getLease(),
+		ReminderLeaseSeconds:  runtime.leaseSeconds,
+	})
+	return runtime.stopLeaseHeartbeat(heartbeat, resendErr)
+}
+
+func (runtime *agreementReminderClaimRuntime) markSent() (string, string, *time.Time, error) {
+	markAt := runtime.now()
+	nextDue := reminders.ComputeNextDue(markAt, runtime.policy, runtime.stableKey)
+	_, err := runtime.service.reminders.MarkAgreementReminderSent(
+		runtime.ctx,
+		runtime.scope,
+		runtime.state.AgreementID,
+		runtime.state.RecipientID,
+		stores.AgreementReminderMarkInput{
+			ReasonCode:   reminders.ReasonDue,
+			OccurredAt:   markAt,
+			NextDueAt:    &nextDue,
+			LeaseSeconds: runtime.leaseSeconds,
+			Lease:        runtime.getLease(),
+		},
+	)
+	if err != nil {
+		outcome, reason, markErr := runtime.handleMutationErr(err)
+		return outcome, reason, nil, markErr
+	}
+	return "sent", "", cloneServiceTimePtr(&markAt), nil
+}
+
+func (runtime *agreementReminderClaimRuntime) dispatchResend(
+	ctx context.Context,
+	agreementID, recipientID string,
+) (string, string, *time.Time, error) {
+	outcome, reason, err := runtime.renewLease()
+	if outcome != "" || err != nil {
+		return outcome, reason, nil, err
+	}
+	outcome, reason, resendErr := runtime.resendWithLeaseHeartbeat(ctx, agreementID, recipientID)
+	if outcome != "" || resendErr != nil {
+		if resendErr == nil {
+			return outcome, reason, nil, nil
+		}
+		outcome, reason, markErr := runtime.markFail("resend_failed", resendErr.Error())
+		return outcome, reason, nil, markErr
+	}
+	return runtime.markSent()
+}
+
+func (s AgreementReminderService) reviewReminderAuditStore() (stores.AuditEventStore, bool) {
+	audits, ok := s.agreements.(stores.AuditEventStore)
+	return audits, ok && audits != nil
+}
+
+func (s AgreementReminderService) processReviewReminderAgreement(
+	ctx context.Context,
+	scope stores.Scope,
+	now time.Time,
+	policy reminders.Policy,
+	audits stores.AuditEventStore,
+	agreement stores.AgreementRecord,
+) (AgreementReminderSweepResult, error) {
+	out := AgreementReminderSweepResult{
+		SkipReasons:    map[string]int{},
+		FailureReasons: map[string]int{},
+	}
+	if strings.TrimSpace(agreement.ReviewStatus) != stores.AgreementReviewStatusInReview {
+		return out, nil
+	}
+	summary, err := s.lifecycle.GetReviewSummary(ctx, scope, agreement.ID)
+	if err != nil {
+		out.Failed++
+		out.FailureReasons["review_summary_failed"]++
+		return out, nil
+	}
+	if summary.Review == nil || strings.TrimSpace(summary.Status) != stores.AgreementReviewStatusInReview {
+		return out, nil
+	}
+	events, err := s.reviewReminderEvents(ctx, scope, audits, agreement.ID)
+	if err != nil {
+		out.Failed++
+		out.FailureReasons["review_audit_lookup_failed"]++
+		return out, nil
+	}
+	targets, targetStates, batch := collectReviewReminderTargets(scope, agreement.ID, summary, events, now, policy, &out)
+	if len(targets) == 0 {
+		return out, nil
+	}
+	notifyErr := s.notifyReviewReminderTargets(ctx, scope, agreement.ID, batch, targets, targetStates, &out)
+	return out, notifyErr
+}
+
+func (s AgreementReminderService) reviewReminderEvents(
+	ctx context.Context,
+	scope stores.Scope,
+	audits stores.AuditEventStore,
+	agreementID string,
+) ([]stores.AuditEventRecord, error) {
+	events, err := audits.ListForAgreement(ctx, scope, agreementID, stores.AuditEventQuery{})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(events, func(i, j int) bool {
+		if !events[i].CreatedAt.Equal(events[j].CreatedAt) {
+			return events[i].CreatedAt.Before(events[j].CreatedAt)
+		}
+		return events[i].ID < events[j].ID
+	})
+	return events, nil
+}
+
+func collectReviewReminderTargets(
+	scope stores.Scope,
+	agreementID string,
+	summary ReviewSummary,
+	events []stores.AuditEventRecord,
+	now time.Time,
+	policy reminders.Policy,
+	out *AgreementReminderSweepResult,
+) ([]stores.AgreementReviewParticipantRecord, []derivedReviewReminderState, derivedReviewReminderBatchState) {
+	batch, signalsByParticipantID, ok := deriveReviewReminderBatchState(scope, strings.TrimSpace(summary.Review.ID), now, summary.Participants, events, policy)
+	if !ok {
+		return nil, nil, derivedReviewReminderBatchState{}
+	}
+	targets := make([]stores.AgreementReviewParticipantRecord, 0, len(summary.Participants))
+	targetStates := make([]derivedReviewReminderState, 0, len(summary.Participants))
+	for _, participant := range summary.Participants {
+		derived, ok := derivePendingReviewReminderState(agreementID, summary.Status, participant, batch, signalsByParticipantID)
 		if !ok {
 			continue
 		}
-		targets := make([]stores.AgreementReviewParticipantRecord, 0, len(summary.Participants))
-		targetStates := make([]derivedReviewReminderState, 0, len(summary.Participants))
-		for _, participant := range summary.Participants {
-			if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
-				continue
-			}
-			signals, ok := signalsByParticipantID[strings.TrimSpace(participant.ID)]
-			if !ok {
-				continue
-			}
-			derived, ok := deriveReviewReminderState(agreement.ID, summary.Status, participant, batch, signals)
-			if !ok {
-				continue
-			}
-			if strings.TrimSpace(derived.Snapshot.Status) == stores.AgreementReminderStatusPaused {
-				out.Skipped++
-				out.SkipReasons["review_paused"]++
-				continue
-			}
-			decision := reminders.Evaluate(now, policy, derived.State)
-			if derived.State.NextDueAt != nil {
-				out.DueBacklogAgeMS = append(out.DueBacklogAgeMS, durationMillisNonNegative(now.Sub(derived.State.NextDueAt.UTC())))
-			}
-			if !decision.Due {
-				out.Skipped++
-				reason := prefixReviewReminderReason(decision.ReasonCode)
-				if reason != "" {
-					out.SkipReasons[reason]++
-				}
-				continue
-			}
-			out.Claimed++
-			targets = append(targets, participant)
-			targetStates = append(targetStates, derived)
-		}
-		if len(targets) == 0 {
+		if !recordReviewReminderDecision(out, derived, now, policy) {
 			continue
 		}
-		participantIDs := make([]string, 0, len(targets))
-		for _, target := range targets {
-			participantIDs = append(participantIDs, strings.TrimSpace(target.ID))
-		}
-		correlationID := fmt.Sprintf("review-reminder:%s:%s:%d", strings.TrimSpace(agreement.ID), strings.TrimSpace(batch.ReviewID), batch.AutoReminderCount+1)
-		notifyStartedAt := s.now().UTC()
-		if _, err := s.lifecycle.NotifyReviewers(ctx, scope, agreement.ID, ReviewNotifyInput{
-			ParticipantIDs: participantIDs,
-			RequestedByID:  "",
-			ActorType:      "system",
-			ActorID:        "",
-			CorrelationID:  correlationID,
-			Source:         ReviewNotificationSourceAutoReminder,
-		}); err != nil {
-			out.Failed += len(targets)
-			out.FailureReasons["review_notify_failed"] += len(targets)
-			continue
-		}
-		out.Sent += len(targets)
-		for _, derived := range targetStates {
-			out.ClaimToSendMS = append(out.ClaimToSendMS, 0)
-			if derived.State.NextDueAt != nil {
-				out.DueToSendMS = append(out.DueToSendMS, durationMillisNonNegative(notifyStartedAt.Sub(derived.State.NextDueAt.UTC())))
-			}
+		out.Claimed++
+		targets = append(targets, participant)
+		targetStates = append(targetStates, derived)
+	}
+	return targets, targetStates, batch
+}
+
+func derivePendingReviewReminderState(
+	agreementID, reviewStatus string,
+	participant stores.AgreementReviewParticipantRecord,
+	batch derivedReviewReminderBatchState,
+	signalsByParticipantID map[string]reviewReminderParticipantSignals,
+) (derivedReviewReminderState, bool) {
+	if reviewParticipantEffectiveDecisionStatus(participant) != stores.AgreementReviewDecisionPending {
+		return derivedReviewReminderState{}, false
+	}
+	signals, ok := signalsByParticipantID[strings.TrimSpace(participant.ID)]
+	if !ok {
+		return derivedReviewReminderState{}, false
+	}
+	return deriveReviewReminderState(agreementID, reviewStatus, participant, batch, signals)
+}
+
+func recordReviewReminderDecision(
+	out *AgreementReminderSweepResult,
+	derived derivedReviewReminderState,
+	now time.Time,
+	policy reminders.Policy,
+) bool {
+	if strings.TrimSpace(derived.Snapshot.Status) == stores.AgreementReminderStatusPaused {
+		out.Skipped++
+		out.SkipReasons["review_paused"]++
+		return false
+	}
+	if derived.State.NextDueAt != nil {
+		out.DueBacklogAgeMS = append(out.DueBacklogAgeMS, durationMillisNonNegative(now.Sub(derived.State.NextDueAt.UTC())))
+	}
+	decision := reminders.Evaluate(now, policy, derived.State)
+	if decision.Due {
+		return true
+	}
+	out.Skipped++
+	reason := prefixReviewReminderReason(decision.ReasonCode)
+	if reason != "" {
+		out.SkipReasons[reason]++
+	}
+	return false
+}
+
+func (s AgreementReminderService) notifyReviewReminderTargets(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	batch derivedReviewReminderBatchState,
+	targets []stores.AgreementReviewParticipantRecord,
+	targetStates []derivedReviewReminderState,
+	out *AgreementReminderSweepResult,
+) error {
+	participantIDs := make([]string, 0, len(targets))
+	for _, target := range targets {
+		participantIDs = append(participantIDs, strings.TrimSpace(target.ID))
+	}
+	notifyStartedAt := s.now().UTC()
+	_, err := s.lifecycle.NotifyReviewers(ctx, scope, agreementID, ReviewNotifyInput{
+		ParticipantIDs: participantIDs,
+		RequestedByID:  "",
+		ActorType:      "system",
+		ActorID:        "",
+		CorrelationID:  fmt.Sprintf("review-reminder:%s:%s:%d", strings.TrimSpace(agreementID), strings.TrimSpace(batch.ReviewID), batch.AutoReminderCount+1),
+		Source:         ReviewNotificationSourceAutoReminder,
+	})
+	if err != nil {
+		out.Failed += len(targets)
+		out.FailureReasons["review_notify_failed"] += len(targets)
+		return nil
+	}
+	recordReviewReminderSendMetrics(out, targetStates, notifyStartedAt)
+	return nil
+}
+
+func recordReviewReminderSendMetrics(
+	out *AgreementReminderSweepResult,
+	targetStates []derivedReviewReminderState,
+	notifyStartedAt time.Time,
+) {
+	out.Sent += len(targetStates)
+	for _, derived := range targetStates {
+		out.ClaimToSendMS = append(out.ClaimToSendMS, 0)
+		if derived.State.NextDueAt != nil {
+			out.DueToSendMS = append(out.DueToSendMS, durationMillisNonNegative(notifyStartedAt.Sub(derived.State.NextDueAt.UTC())))
 		}
 	}
-	return out, nil
 }
 
 func deriveReviewReminderBatchState(

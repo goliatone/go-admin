@@ -77,94 +77,145 @@ func executeGoogleImportWithPersistence(
 	execution googleImportExecutionDeps,
 	persistence googleImportPersistenceDeps,
 ) (GoogleImportResult, error) {
-	var run stores.GoogleImportRunRecord
-	var err error
-	if persistence.importRuns != nil && strings.TrimSpace(input.IdempotencyKey) != "" {
-		var created bool
-		run, created, err = persistence.importRuns.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
-			UserID:            strings.TrimSpace(input.UserID),
-			GoogleFileID:      strings.TrimSpace(input.GoogleFileID),
-			SourceVersionHint: strings.TrimSpace(input.SourceVersionHint),
-			DedupeKey:         strings.TrimSpace(input.IdempotencyKey),
-			DocumentTitle:     strings.TrimSpace(input.DocumentTitle),
-			AgreementTitle:    strings.TrimSpace(input.AgreementTitle),
-			CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
-			CorrelationID:     strings.TrimSpace(input.CorrelationID),
-			RequestedAt:       execution.now().UTC(),
-		})
-		if err != nil {
-			return GoogleImportResult{}, err
-		}
-		if replay, replayed, replayErr := loadCompletedGoogleImportResult(ctx, scope, run, persistence.documentStore, persistence.agreementStore); replayErr != nil {
-			return GoogleImportResult{}, replayErr
-		} else if replayed {
-			return replay, nil
-		}
-		if !created {
-			status := strings.TrimSpace(run.Status)
-			if (status == stores.GoogleImportRunStatusQueued || status == stores.GoogleImportRunStatusRunning) &&
-				strings.TrimSpace(input.ImportRunID) != strings.TrimSpace(run.ID) {
-				return GoogleImportResult{}, &GoogleImportInProgressError{
-					RunID:  strings.TrimSpace(run.ID),
-					Status: status,
-				}
-			}
-		}
+	run, replay, err := beginGoogleImportRun(ctx, scope, input, execution, persistence)
+	if err != nil {
+		return GoogleImportResult{}, err
 	}
-
-	if execution.identity != nil && persistence.tx == nil {
-		if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-			_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, googleImportRunFailureInput(
-				domainValidationError("google", "transaction_manager", "required for lineage imports"),
-				execution.now().UTC(),
-			))
-		}
-		return GoogleImportResult{}, domainValidationError("google", "transaction_manager", "required for lineage imports")
+	if replay != nil {
+		return *replay, nil
 	}
-
+	if err := requireGoogleImportTransaction(ctx, scope, run, execution, persistence); err != nil {
+		return GoogleImportResult{}, err
+	}
 	if persistence.tx == nil {
-		result, importErr := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, execution)
-		if importErr != nil {
-			if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-				_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, googleImportRunFailureInput(importErr, execution.now().UTC()))
-			}
-			return GoogleImportResult{}, importErr
-		}
-		if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-			if markErr := markGoogleImportRunSucceeded(ctx, scope, persistence.importRuns, run.ID, result, execution.now().UTC()); markErr != nil {
-				return GoogleImportResult{}, markErr
-			}
-		}
-		return result, nil
+		return executeGoogleImportWithoutTx(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, execution, persistence, run)
 	}
+	return executeGoogleImportWithinTx(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, execution, persistence, run)
+}
 
+func beginGoogleImportRun(
+	ctx context.Context,
+	scope stores.Scope,
+	input GoogleImportInput,
+	execution googleImportExecutionDeps,
+	persistence googleImportPersistenceDeps,
+) (stores.GoogleImportRunRecord, *GoogleImportResult, error) {
+	if persistence.importRuns == nil || strings.TrimSpace(input.IdempotencyKey) == "" {
+		return stores.GoogleImportRunRecord{}, nil, nil
+	}
+	run, created, err := persistence.importRuns.BeginGoogleImportRun(ctx, scope, stores.GoogleImportRunInput{
+		UserID:            strings.TrimSpace(input.UserID),
+		GoogleFileID:      strings.TrimSpace(input.GoogleFileID),
+		SourceVersionHint: strings.TrimSpace(input.SourceVersionHint),
+		DedupeKey:         strings.TrimSpace(input.IdempotencyKey),
+		DocumentTitle:     strings.TrimSpace(input.DocumentTitle),
+		AgreementTitle:    strings.TrimSpace(input.AgreementTitle),
+		CreatedByUserID:   strings.TrimSpace(input.CreatedByUserID),
+		CorrelationID:     strings.TrimSpace(input.CorrelationID),
+		RequestedAt:       execution.now().UTC(),
+	})
+	if err != nil {
+		return stores.GoogleImportRunRecord{}, nil, err
+	}
+	replay, replayed, replayErr := loadCompletedGoogleImportResult(ctx, scope, run, persistence.documentStore, persistence.agreementStore)
+	if replayErr != nil {
+		return stores.GoogleImportRunRecord{}, nil, replayErr
+	}
+	if replayed {
+		return run, &replay, nil
+	}
+	if err := ensureGoogleImportRunNotInProgress(run, input.ImportRunID, created); err != nil {
+		return stores.GoogleImportRunRecord{}, nil, err
+	}
+	return run, nil, nil
+}
+
+func ensureGoogleImportRunNotInProgress(run stores.GoogleImportRunRecord, importRunID string, created bool) error {
+	if created {
+		return nil
+	}
+	status := strings.TrimSpace(run.Status)
+	if status != stores.GoogleImportRunStatusQueued && status != stores.GoogleImportRunStatusRunning {
+		return nil
+	}
+	if strings.TrimSpace(importRunID) == strings.TrimSpace(run.ID) {
+		return nil
+	}
+	return &GoogleImportInProgressError{
+		RunID:  strings.TrimSpace(run.ID),
+		Status: status,
+	}
+}
+
+func requireGoogleImportTransaction(
+	ctx context.Context,
+	scope stores.Scope,
+	run stores.GoogleImportRunRecord,
+	execution googleImportExecutionDeps,
+	persistence googleImportPersistenceDeps,
+) error {
+	if execution.identity == nil || persistence.tx != nil {
+		return nil
+	}
+	err := domainValidationError("google", "transaction_manager", "required for lineage imports")
+	markGoogleImportRunFailedIfNeeded(ctx, scope, persistence.importRuns, run.ID, err, execution.now().UTC())
+	return err
+}
+
+func executeGoogleImportWithoutTx(
+	ctx context.Context,
+	scope stores.Scope,
+	input GoogleImportInput,
+	snapshot GoogleExportSnapshot,
+	sourceMimeType string,
+	ingestionMode string,
+	resolvedUserID string,
+	execution googleImportExecutionDeps,
+	persistence googleImportPersistenceDeps,
+	run stores.GoogleImportRunRecord,
+) (GoogleImportResult, error) {
+	result, err := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, execution)
+	if err != nil {
+		markGoogleImportRunFailedIfNeeded(ctx, scope, persistence.importRuns, run.ID, err, execution.now().UTC())
+		return GoogleImportResult{}, err
+	}
+	if err := markGoogleImportRunSucceededIfNeeded(ctx, scope, persistence.importRuns, run.ID, result, execution.now().UTC()); err != nil {
+		return GoogleImportResult{}, err
+	}
+	return result, nil
+}
+
+func executeGoogleImportWithinTx(
+	ctx context.Context,
+	scope stores.Scope,
+	input GoogleImportInput,
+	snapshot GoogleExportSnapshot,
+	sourceMimeType string,
+	ingestionMode string,
+	resolvedUserID string,
+	execution googleImportExecutionDeps,
+	persistence googleImportPersistenceDeps,
+	run stores.GoogleImportRunRecord,
+) (GoogleImportResult, error) {
 	result := GoogleImportResult{}
-	err = persistence.tx.WithTx(ctx, func(tx stores.TxStore) error {
+	err := persistence.tx.WithTx(ctx, func(tx stores.TxStore) error {
 		txExecution := execution.forTx(tx)
 		txPersistence := persistence.forTx(tx)
-		if txPersistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-			_, markRunningErr := txPersistence.importRuns.MarkGoogleImportRunRunning(ctx, scope, run.ID, txExecution.now().UTC())
-			if markRunningErr != nil {
-				return markRunningErr
-			}
+		if err := markGoogleImportRunRunningIfNeeded(ctx, scope, txPersistence.importRuns, run.ID, txExecution.now().UTC()); err != nil {
+			return err
 		}
 		imported, importErr := executeGoogleImportWithLineage(ctx, scope, input, snapshot, sourceMimeType, ingestionMode, resolvedUserID, txExecution)
 		if importErr != nil {
 			return importErr
 		}
-		if txPersistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-			markSucceededErr := markGoogleImportRunSucceeded(ctx, scope, txPersistence.importRuns, run.ID, imported, txExecution.now().UTC())
-			if markSucceededErr != nil {
-				return markSucceededErr
-			}
+		if err := markGoogleImportRunSucceededIfNeeded(ctx, scope, txPersistence.importRuns, run.ID, imported, txExecution.now().UTC()); err != nil {
+			return err
 		}
 		result = imported
 		return nil
 	})
 	if err != nil {
-		if persistence.importRuns != nil && strings.TrimSpace(run.ID) != "" {
-			_, _ = persistence.importRuns.MarkGoogleImportRunFailed(ctx, scope, run.ID, googleImportRunFailureInput(err, execution.now().UTC()))
-		}
+		markGoogleImportRunFailedIfNeeded(ctx, scope, persistence.importRuns, run.ID, err, execution.now().UTC())
 		return GoogleImportResult{}, err
 	}
 	return result, nil
@@ -178,35 +229,100 @@ func googleImportRunFailureInput(err error, completedAt time.Time) stores.Google
 	}
 
 	mapped := MapGoogleProviderError(err)
-	var coded *goerrors.Error
-	if goerrors.As(mapped, &coded) && coded != nil {
-		if textCode := strings.TrimSpace(coded.TextCode); textCode != "" {
-			failure.ErrorCode = textCode
-		}
-		if message := strings.TrimSpace(coded.Message); message != "" {
-			failure.ErrorMessage = message
-		}
-		details := map[string]any{}
-		if category := strings.TrimSpace(string(coded.Category)); category != "" {
-			details["category"] = category
-		}
-		if coded.Code != 0 {
-			details["http_status"] = coded.Code
-		}
-		if textCode := strings.TrimSpace(coded.TextCode); textCode != "" {
-			details["text_code"] = textCode
-		}
-		if len(coded.Metadata) > 0 {
-			details["metadata"] = coded.Metadata
-		}
-		if len(details) > 0 {
-			if encoded, marshalErr := json.Marshal(details); marshalErr == nil {
-				failure.ErrorDetailsJSON = string(encoded)
-			}
-		}
+	coded := googleImportCodedError(mapped)
+	if coded == nil {
+		return failure
 	}
-
+	if textCode := strings.TrimSpace(coded.TextCode); textCode != "" {
+		failure.ErrorCode = textCode
+	}
+	if message := strings.TrimSpace(coded.Message); message != "" {
+		failure.ErrorMessage = message
+	}
+	failure.ErrorDetailsJSON = googleImportFailureDetailsJSON(coded)
 	return failure
+}
+
+func googleImportCodedError(err error) *goerrors.Error {
+	var coded *goerrors.Error
+	if goerrors.As(err, &coded) && coded != nil {
+		return coded
+	}
+	return nil
+}
+
+func googleImportFailureDetailsJSON(coded *goerrors.Error) string {
+	details := googleImportFailureDetails(coded)
+	if len(details) == 0 {
+		return ""
+	}
+	encoded, err := json.Marshal(details)
+	if err != nil {
+		return ""
+	}
+	return string(encoded)
+}
+
+func googleImportFailureDetails(coded *goerrors.Error) map[string]any {
+	if coded == nil {
+		return nil
+	}
+	details := map[string]any{}
+	if category := strings.TrimSpace(string(coded.Category)); category != "" {
+		details["category"] = category
+	}
+	if coded.Code != 0 {
+		details["http_status"] = coded.Code
+	}
+	if textCode := strings.TrimSpace(coded.TextCode); textCode != "" {
+		details["text_code"] = textCode
+	}
+	if len(coded.Metadata) > 0 {
+		details["metadata"] = coded.Metadata
+	}
+	return details
+}
+
+func markGoogleImportRunRunningIfNeeded(
+	ctx context.Context,
+	scope stores.Scope,
+	store stores.GoogleImportRunStore,
+	runID string,
+	startedAt time.Time,
+) error {
+	if store == nil || strings.TrimSpace(runID) == "" {
+		return nil
+	}
+	_, err := store.MarkGoogleImportRunRunning(ctx, scope, runID, startedAt.UTC())
+	return err
+}
+
+func markGoogleImportRunFailedIfNeeded(
+	ctx context.Context,
+	scope stores.Scope,
+	store stores.GoogleImportRunStore,
+	runID string,
+	err error,
+	completedAt time.Time,
+) {
+	if store == nil || strings.TrimSpace(runID) == "" || err == nil {
+		return
+	}
+	_, _ = store.MarkGoogleImportRunFailed(ctx, scope, runID, googleImportRunFailureInput(err, completedAt))
+}
+
+func markGoogleImportRunSucceededIfNeeded(
+	ctx context.Context,
+	scope stores.Scope,
+	store stores.GoogleImportRunStore,
+	runID string,
+	result GoogleImportResult,
+	completedAt time.Time,
+) error {
+	if store == nil || strings.TrimSpace(runID) == "" {
+		return nil
+	}
+	return markGoogleImportRunSucceeded(ctx, scope, store, runID, result, completedAt)
 }
 
 func markGoogleImportRunSucceeded(ctx context.Context, scope stores.Scope, store stores.GoogleImportRunStore, runID string, result GoogleImportResult, completedAt time.Time) error {

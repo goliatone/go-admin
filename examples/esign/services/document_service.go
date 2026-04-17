@@ -134,21 +134,9 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 
 	payload := append([]byte{}, input.PDF...)
 	policy := s.pdfs.Policy(ctx, scope)
-	analysis, err := s.pdfs.Analyze(ctx, scope, payload)
-	policyRejectReason := PDFReasonCode("")
+	analysis, policyRejectReason, err := s.analyzeDocumentPayload(ctx, scope, payload, policy)
 	if err != nil {
-		reason := pdfErrorReasonCode(err)
-		observability.ObservePDFIngestAnalyzeFailure(ctx, string(reason), string(PDFCompatibilityTierUnsupported))
-		if isPDFPolicyReason(reason) {
-			observability.ObservePDFIngestPolicyReject(ctx, string(reason), string(PDFCompatibilityTierUnsupported))
-		}
-		if policyAllowsAnalyzeOnlyUpload(policy) && isPDFCompatibilityBypassReason(reason) {
-			policyRejectReason = reason
-			analysis, err = s.analyzeWithoutCompatibilityBlocking(ctx, scope, payload, policy)
-		}
-		if err != nil {
-			return stores.DocumentRecord{}, mapPDFAnalysisError(err)
-		}
+		return stores.DocumentRecord{}, err
 	}
 	if policyRejectReason != "" {
 		analysis.CompatibilityTier = PDFCompatibilityTierUnsupported
@@ -161,49 +149,9 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 	}
 	normalizationStatus := analysis.NormalizationStatus
 	normalizedObjectKey := ""
-	if s.objectStore != nil {
-		if _, err := s.objectStore.UploadFile(ctx, objectKey, payload,
-			uploader.WithContentType("application/pdf"),
-			uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
-		); err != nil {
-			return stores.DocumentRecord{}, domainValidationError("documents", "object_store", "persist source pdf failed")
-		}
-		stored, err := s.objectStore.GetFile(ctx, objectKey)
-		if err != nil || len(stored) == 0 {
-			return stores.DocumentRecord{}, domainValidationError("documents", "object_store", "persisted source pdf is unavailable")
-		}
-		sum := sha256.Sum256(stored)
-		if hex.EncodeToString(sum[:]) != metadata.SHA256 {
-			return stores.DocumentRecord{}, domainValidationError("documents", "object_store", "persisted source pdf digest mismatch")
-		}
-
-		if policyPrefersNormalizedSource(policy) {
-			candidateNormalizedObjectKey := normalizedObjectKeyForSource(objectKey)
-			normalized, normalizeErr := s.pdfs.Normalize(ctx, scope, payload)
-			if normalizeErr == nil && len(normalized.Payload) > 0 {
-				if _, err := s.objectStore.UploadFile(ctx, candidateNormalizedObjectKey, normalized.Payload,
-					uploader.WithContentType("application/pdf"),
-					uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
-				); err == nil {
-					storedNormalized, err := s.objectStore.GetFile(ctx, candidateNormalizedObjectKey)
-					if err == nil && len(storedNormalized) > 0 {
-						sum := sha256.Sum256(storedNormalized)
-						if hex.EncodeToString(sum[:]) == normalized.SHA256 {
-							normalizationStatus = PDFNormalizationStatusCompleted
-							normalizedObjectKey = candidateNormalizedObjectKey
-						} else {
-							normalizationStatus = PDFNormalizationStatusFailed
-						}
-					} else {
-						normalizationStatus = PDFNormalizationStatusFailed
-					}
-				} else {
-					normalizationStatus = PDFNormalizationStatusFailed
-				}
-			} else {
-				normalizationStatus = PDFNormalizationStatusFailed
-			}
-		}
+	normalizedObjectKey, normalizationStatus, err = s.persistDocumentPayload(ctx, scope, objectKey, payload, metadata, policy, normalizationStatus)
+	if err != nil {
+		return stores.DocumentRecord{}, err
 	}
 	baseCompatibilityTier := strings.TrimSpace(string(analysis.CompatibilityTier))
 	baseCompatibilityReason := strings.TrimSpace(string(analysis.ReasonCode))
@@ -226,7 +174,128 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		title = "Untitled Document"
 	}
 
-	record := stores.DocumentRecord{
+	record := s.buildDocumentRecord(input, metadata, title, sourceOriginalName, objectKey, normalizedObjectKey, compatibility, normalizationStatus, now)
+	if strings.TrimSpace(record.SourceRevisionID) == "" {
+		return s.store.Create(ctx, scope, record)
+	}
+	return s.createLineageBackedDocument(ctx, scope, record)
+}
+
+func (s DocumentService) analyzeDocumentPayload(
+	ctx context.Context,
+	scope stores.Scope,
+	payload []byte,
+	policy PDFPolicy,
+) (PDFAnalysis, PDFReasonCode, error) {
+	analysis, err := s.pdfs.Analyze(ctx, scope, payload)
+	policyRejectReason := PDFReasonCode("")
+	if err == nil {
+		return analysis, policyRejectReason, nil
+	}
+	reason := pdfErrorReasonCode(err)
+	observability.ObservePDFIngestAnalyzeFailure(ctx, string(reason), string(PDFCompatibilityTierUnsupported))
+	if isPDFPolicyReason(reason) {
+		observability.ObservePDFIngestPolicyReject(ctx, string(reason), string(PDFCompatibilityTierUnsupported))
+	}
+	if !policyAllowsAnalyzeOnlyUpload(policy) || !isPDFCompatibilityBypassReason(reason) {
+		return PDFAnalysis{}, "", mapPDFAnalysisError(err)
+	}
+	policyRejectReason = reason
+	analysis, err = s.analyzeWithoutCompatibilityBlocking(ctx, scope, payload, policy)
+	if err != nil {
+		return PDFAnalysis{}, "", mapPDFAnalysisError(err)
+	}
+	return analysis, policyRejectReason, nil
+}
+
+func (s DocumentService) persistDocumentPayload(
+	ctx context.Context,
+	scope stores.Scope,
+	objectKey string,
+	payload []byte,
+	metadata DocumentMetadata,
+	policy PDFPolicy,
+	normalizationStatus PDFNormalizationStatus,
+) (string, PDFNormalizationStatus, error) {
+	if s.objectStore == nil {
+		return "", normalizationStatus, nil
+	}
+	if err := s.persistSourceDocumentPayload(ctx, objectKey, payload, metadata); err != nil {
+		return "", normalizationStatus, err
+	}
+	if !policyPrefersNormalizedSource(policy) {
+		return "", normalizationStatus, nil
+	}
+	return s.persistNormalizedDocumentPayload(ctx, scope, objectKey, payload, normalizationStatus)
+}
+
+func (s DocumentService) persistSourceDocumentPayload(
+	ctx context.Context,
+	objectKey string,
+	payload []byte,
+	metadata DocumentMetadata,
+) error {
+	if _, err := s.objectStore.UploadFile(
+		ctx,
+		objectKey,
+		payload,
+		uploader.WithContentType("application/pdf"),
+		uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
+	); err != nil {
+		return domainValidationError("documents", "object_store", "persist source pdf failed")
+	}
+	stored, err := s.objectStore.GetFile(ctx, objectKey)
+	if err != nil || len(stored) == 0 {
+		return domainValidationError("documents", "object_store", "persisted source pdf is unavailable")
+	}
+	sum := sha256.Sum256(stored)
+	if hex.EncodeToString(sum[:]) != metadata.SHA256 {
+		return domainValidationError("documents", "object_store", "persisted source pdf digest mismatch")
+	}
+	return nil
+}
+
+func (s DocumentService) persistNormalizedDocumentPayload(
+	ctx context.Context,
+	scope stores.Scope,
+	objectKey string,
+	payload []byte,
+	normalizationStatus PDFNormalizationStatus,
+) (string, PDFNormalizationStatus, error) {
+	candidateNormalizedObjectKey := normalizedObjectKeyForSource(objectKey)
+	normalized, err := s.pdfs.Normalize(ctx, scope, payload)
+	if err != nil || len(normalized.Payload) == 0 {
+		return "", PDFNormalizationStatusFailed, nil
+	}
+	if _, uploadErr := s.objectStore.UploadFile(
+		ctx,
+		candidateNormalizedObjectKey,
+		normalized.Payload,
+		uploader.WithContentType("application/pdf"),
+		uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
+	); uploadErr != nil {
+		return "", PDFNormalizationStatusFailed, nil
+	}
+	storedNormalized, err := s.objectStore.GetFile(ctx, candidateNormalizedObjectKey)
+	if err != nil || len(storedNormalized) == 0 {
+		return "", PDFNormalizationStatusFailed, nil
+	}
+	sum := sha256.Sum256(storedNormalized)
+	if hex.EncodeToString(sum[:]) != normalized.SHA256 {
+		return "", PDFNormalizationStatusFailed, nil
+	}
+	return candidateNormalizedObjectKey, PDFNormalizationStatusCompleted, nil
+}
+
+func (s DocumentService) buildDocumentRecord(
+	input DocumentUploadInput,
+	metadata DocumentMetadata,
+	title, sourceOriginalName, objectKey, normalizedObjectKey string,
+	compatibility PDFCompatibilityStatus,
+	normalizationStatus PDFNormalizationStatus,
+	now time.Time,
+) stores.DocumentRecord {
+	return stores.DocumentRecord{
 		ID:                     strings.TrimSpace(input.ID),
 		CreatedByUserID:        strings.TrimSpace(input.CreatedBy),
 		Title:                  title,
@@ -254,10 +323,6 @@ func (s DocumentService) Upload(ctx context.Context, scope stores.Scope, input D
 		CreatedAt:              now,
 		UpdatedAt:              now,
 	}
-	if strings.TrimSpace(record.SourceRevisionID) == "" {
-		return s.store.Create(ctx, scope, record)
-	}
-	return s.createLineageBackedDocument(ctx, scope, record)
 }
 
 func (s DocumentService) createLineageBackedDocument(ctx context.Context, scope stores.Scope, record stores.DocumentRecord) (stores.DocumentRecord, error) {

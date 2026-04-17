@@ -383,15 +383,73 @@ type AuditTrailBuildInput struct {
 	ParentExecutedSHA256 string                    `json:"parent_executed_sha256"`
 }
 
+var auditTrailActorDescriptionPrefixes = map[auditTrailDescriptionKind]string{
+	auditTrailDescriptionKindViewed:                 "Viewed by ",
+	auditTrailDescriptionKindSigned:                 "Signed by ",
+	auditTrailDescriptionKindCorrectionRequested:    "Correction requested by ",
+	auditTrailDescriptionKindCorrectionDrafted:      "Correction draft created by ",
+	auditTrailDescriptionKindAmendmentRequested:     "Amendment requested by ",
+	auditTrailDescriptionKindAmendmentDrafted:       "Amendment draft created by ",
+	auditTrailDescriptionKindReviewRequested:        "Review requested by ",
+	auditTrailDescriptionKindReviewReopened:         "Review reopened by ",
+	auditTrailDescriptionKindReviewApproved:         "Review approved by ",
+	auditTrailDescriptionKindReviewChangesRequested: "Changes requested by ",
+	auditTrailDescriptionKindReviewClosed:           "Review closed by ",
+	auditTrailDescriptionKindReviewForceApproved:    "Review force approved by ",
+	auditTrailDescriptionKindReviewApprovedOnBehalf: "Review approved on behalf by ",
+	auditTrailDescriptionKindCommentCreated:         "Comment added by ",
+	auditTrailDescriptionKindCommentReplied:         "Comment replied to by ",
+	auditTrailDescriptionKindCommentResolved:        "Comment resolved by ",
+	auditTrailDescriptionKindCommentReopened:        "Comment reopened by ",
+}
+
+var auditTrailReferenceDescriptionTemplates = map[auditTrailDescriptionKind]string{
+	auditTrailDescriptionKindCorrectedFrom: "Derived from agreement %s",
+	auditTrailDescriptionKindSuperseded:    "Superseded by correction %s",
+	auditTrailDescriptionKindAmendedFrom:   "Amends agreement %s",
+}
+
 // BuildAuditTrailDocument maps e-sign agreement/audit data into a deterministic render contract.
 func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
-	now := input.GeneratedAt.UTC()
+	now := normalizeAuditTrailGeneratedAt(input.GeneratedAt)
+	recipientsByID, signerRecipients := buildAuditTrailRecipients(input.Recipients)
+	actorIPIndex := buildAuditTrailActorIPIndex(input.Events)
+	entries := buildAuditTrailEntries(input, now, recipientsByID, signerRecipients, actorIPIndex)
+	terminal := buildTerminalAuditTrailEntry(input.Agreement, now)
+	if terminal != nil && !auditTrailContainsEventType(entries, terminal.EventType) {
+		entries = append(entries, *terminal)
+	}
+	sortAuditTrailEntries(entries)
+
+	return AuditTrailDocument{
+		AgreementID:          strings.TrimSpace(input.Agreement.ID),
+		Title:                coalesce(strings.TrimSpace(input.Agreement.Title), strings.TrimSpace(input.DocumentTitle), "Agreement"),
+		FileName:             resolveAuditTrailFileName(input),
+		DocumentID:           coalesce(strings.TrimSpace(input.DocumentID), strings.TrimSpace(input.Agreement.DocumentID), strings.TrimSpace(input.Agreement.ID)),
+		DocumentHash:         strings.TrimSpace(input.DocumentHash),
+		Status:               resolveAuditTrailAgreementStatus(input.Agreement),
+		GeneratedAt:          now,
+		ExecutedSHA256:       strings.TrimSpace(input.ExecutedSHA256),
+		CorrelationID:        strings.TrimSpace(input.CorrelationID),
+		RootAgreementID:      coalesce(strings.TrimSpace(input.RootAgreementID), strings.TrimSpace(input.Agreement.RootAgreementID)),
+		ParentAgreementID:    coalesce(strings.TrimSpace(input.ParentAgreementID), strings.TrimSpace(input.Agreement.ParentAgreementID)),
+		ParentExecutedSHA256: coalesce(strings.TrimSpace(input.ParentExecutedSHA256), strings.TrimSpace(input.Agreement.ParentExecutedSHA256)),
+		Entries:              entries,
+	}
+}
+
+func normalizeAuditTrailGeneratedAt(generatedAt time.Time) time.Time {
+	now := generatedAt.UTC()
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
+	return now
+}
+
+func buildAuditTrailRecipients(recipients []stores.RecipientRecord) (map[string]stores.RecipientRecord, []stores.RecipientRecord) {
 	recipientsByID := map[string]stores.RecipientRecord{}
-	signerRecipients := make([]stores.RecipientRecord, 0)
-	for _, recipient := range input.Recipients {
+	signerRecipients := make([]stores.RecipientRecord, 0, len(recipients))
+	for _, recipient := range recipients {
 		recipientID := strings.TrimSpace(recipient.ID)
 		if recipientID == "" {
 			continue
@@ -407,8 +465,16 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 		}
 		return signerRecipients[i].SigningOrder < signerRecipients[j].SigningOrder
 	})
+	return recipientsByID, signerRecipients
+}
 
-	actorIPIndex := buildAuditTrailActorIPIndex(input.Events)
+func buildAuditTrailEntries(
+	input AuditTrailBuildInput,
+	now time.Time,
+	recipientsByID map[string]stores.RecipientRecord,
+	signerRecipients []stores.RecipientRecord,
+	actorIPIndex auditTrailActorIPIndex,
+) []AuditTrailEntry {
 	entries := make([]AuditTrailEntry, 0, len(input.Events)+1)
 	for idx, event := range input.Events {
 		entry, ok := normalizeAuditTrailEntry(event, idx, now, input.Agreement, recipientsByID, signerRecipients, actorIPIndex)
@@ -418,13 +484,10 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 		entries = append(entries, entry)
 	}
 	sourceMarkers := collectAuditTrailSourceMarkers(input.Events)
-	entries = append(entries, deriveLifecycleAuditTrailEntries(input.Agreement, signerRecipients, sourceMarkers, actorIPIndex)...)
+	return append(entries, deriveLifecycleAuditTrailEntries(input.Agreement, signerRecipients, sourceMarkers, actorIPIndex)...)
+}
 
-	terminal := buildTerminalAuditTrailEntry(input.Agreement, now)
-	if terminal != nil && !auditTrailContainsEventType(entries, terminal.EventType) {
-		entries = append(entries, *terminal)
-	}
-
+func sortAuditTrailEntries(entries []AuditTrailEntry) {
 	sort.SliceStable(entries, func(i, j int) bool {
 		leftDerived := strings.HasPrefix(strings.TrimSpace(entries[i].SourceEvent), "derived.status.")
 		rightDerived := strings.HasPrefix(strings.TrimSpace(entries[j].SourceEvent), "derived.status.")
@@ -442,39 +505,29 @@ func BuildAuditTrailDocument(input AuditTrailBuildInput) AuditTrailDocument {
 		}
 		return entries[i].Timestamp.Before(entries[j].Timestamp)
 	})
+}
 
+func resolveAuditTrailFileName(input AuditTrailBuildInput) string {
 	fileName := strings.TrimSpace(path.Base(strings.TrimSpace(input.DocumentOriginalName)))
-	if fileName == "" || fileName == "." || fileName == "/" {
-		title := strings.TrimSpace(input.DocumentTitle)
-		if title == "" {
-			title = strings.TrimSpace(input.Agreement.Title)
-		}
-		if title == "" {
-			title = "document"
-		}
-		fileName = title + ".pdf"
+	if fileName != "" && fileName != "." && fileName != "/" {
+		return fileName
 	}
+	title := strings.TrimSpace(input.DocumentTitle)
+	if title == "" {
+		title = strings.TrimSpace(input.Agreement.Title)
+	}
+	if title == "" {
+		title = "document"
+	}
+	return title + ".pdf"
+}
 
-	status := strings.ToUpper(strings.TrimSpace(input.Agreement.Status))
+func resolveAuditTrailAgreementStatus(agreement stores.AgreementRecord) string {
+	status := strings.ToUpper(strings.TrimSpace(agreement.Status))
 	if status == "" {
-		status = strings.ToUpper(stores.AgreementStatusDraft)
+		return strings.ToUpper(stores.AgreementStatusDraft)
 	}
-
-	return AuditTrailDocument{
-		AgreementID:          strings.TrimSpace(input.Agreement.ID),
-		Title:                coalesce(strings.TrimSpace(input.Agreement.Title), strings.TrimSpace(input.DocumentTitle), "Agreement"),
-		FileName:             fileName,
-		DocumentID:           coalesce(strings.TrimSpace(input.DocumentID), strings.TrimSpace(input.Agreement.DocumentID), strings.TrimSpace(input.Agreement.ID)),
-		DocumentHash:         strings.TrimSpace(input.DocumentHash),
-		Status:               status,
-		GeneratedAt:          now,
-		ExecutedSHA256:       strings.TrimSpace(input.ExecutedSHA256),
-		CorrelationID:        strings.TrimSpace(input.CorrelationID),
-		RootAgreementID:      coalesce(strings.TrimSpace(input.RootAgreementID), strings.TrimSpace(input.Agreement.RootAgreementID)),
-		ParentAgreementID:    coalesce(strings.TrimSpace(input.ParentAgreementID), strings.TrimSpace(input.Agreement.ParentAgreementID)),
-		ParentExecutedSHA256: coalesce(strings.TrimSpace(input.ParentExecutedSHA256), strings.TrimSpace(input.Agreement.ParentExecutedSHA256)),
-		Entries:              entries,
-	}
+	return status
 }
 
 func normalizeAuditTrailEntry(
@@ -576,70 +629,81 @@ func buildAuditTrailEventDescription(
 ) string {
 	switch kind {
 	case auditTrailDescriptionKindCreated:
-		creator := coalesce(
-			toMetadataString(metadata, "created_by_user_id", "actor_id", "sender_email", "actor_email"),
-			strings.TrimSpace(agreement.CreatedByUserID),
-			strings.TrimSpace(actorID),
-			"system",
-		)
-		return fmt.Sprintf("Created by %s", creator)
+		return buildAuditTrailCreatedDescription(agreement, metadata, actorID)
 	case auditTrailDescriptionKindSent:
-		action := "Sent"
-		if strings.EqualFold(strings.TrimSpace(sourceEvent), auditTrailSourceAgreementResent) {
-			action = "Re-sent"
-		}
-		sender := coalesce(toMetadataString(metadata, "sender_email"), strings.TrimSpace(agreement.CreatedByUserID), "system")
-		return buildAuditTrailSentDescription(action, sender, signerRecipients)
-	case auditTrailDescriptionKindViewed:
-		return fmt.Sprintf("Viewed by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindSigned:
-		return fmt.Sprintf("Signed by %s", formatActorIdentity(actorName, actorEmail, actorID))
+		return buildAuditTrailSendDescription(sourceEvent, agreement, signerRecipients, metadata)
 	case auditTrailDescriptionKindDeclined:
-		reason := strings.TrimSpace(toMetadataString(metadata, "decline_reason"))
-		if reason != "" {
-			return fmt.Sprintf("Declined by %s. Reason: %s", formatActorIdentity(actorName, actorEmail, actorID), reason)
-		}
-		return fmt.Sprintf("Declined by %s", formatActorIdentity(actorName, actorEmail, actorID))
+		return buildAuditTrailDeclinedDescription(metadata, actorID, actorName, actorEmail)
 	case auditTrailDescriptionKindIncomplete:
 		return "This document has not been fully executed by all signers."
 	case auditTrailDescriptionKindCompleted:
 		return "This document has been fully executed by all signers."
-	case auditTrailDescriptionKindCorrectionRequested:
-		return fmt.Sprintf("Correction requested by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindCorrectionDrafted:
-		return fmt.Sprintf("Correction draft created by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindCorrectedFrom:
-		return fmt.Sprintf("Derived from agreement %s", toMetadataString(metadata, "source_agreement_id", "parent_agreement_id"))
+	default:
+		return buildAuditTrailMappedDescription(kind, metadata, actorID, actorName, actorEmail)
+	}
+}
+
+func buildAuditTrailCreatedDescription(
+	agreement stores.AgreementRecord,
+	metadata map[string]any,
+	actorID string,
+) string {
+	creator := coalesce(
+		toMetadataString(metadata, "created_by_user_id", "actor_id", "sender_email", "actor_email"),
+		strings.TrimSpace(agreement.CreatedByUserID),
+		strings.TrimSpace(actorID),
+		"system",
+	)
+	return fmt.Sprintf("Created by %s", creator)
+}
+
+func buildAuditTrailSendDescription(
+	sourceEvent string,
+	agreement stores.AgreementRecord,
+	signerRecipients []stores.RecipientRecord,
+	metadata map[string]any,
+) string {
+	action := "Sent"
+	if strings.EqualFold(strings.TrimSpace(sourceEvent), auditTrailSourceAgreementResent) {
+		action = "Re-sent"
+	}
+	sender := coalesce(toMetadataString(metadata, "sender_email"), strings.TrimSpace(agreement.CreatedByUserID), "system")
+	return buildAuditTrailSentDescription(action, sender, signerRecipients)
+}
+
+func buildAuditTrailDeclinedDescription(
+	metadata map[string]any,
+	actorID, actorName, actorEmail string,
+) string {
+	actor := formatActorIdentity(actorName, actorEmail, actorID)
+	reason := strings.TrimSpace(toMetadataString(metadata, "decline_reason"))
+	if reason == "" {
+		return fmt.Sprintf("Declined by %s", actor)
+	}
+	return fmt.Sprintf("Declined by %s. Reason: %s", actor, reason)
+}
+
+func buildAuditTrailMappedDescription(
+	kind auditTrailDescriptionKind,
+	metadata map[string]any,
+	actorID, actorName, actorEmail string,
+) string {
+	if prefix, ok := auditTrailActorDescriptionPrefixes[kind]; ok {
+		return prefix + formatActorIdentity(actorName, actorEmail, actorID)
+	}
+	template, ok := auditTrailReferenceDescriptionTemplates[kind]
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf(template, auditTrailReferenceDescriptionValue(kind, metadata))
+}
+
+func auditTrailReferenceDescriptionValue(kind auditTrailDescriptionKind, metadata map[string]any) string {
+	switch kind {
+	case auditTrailDescriptionKindCorrectedFrom, auditTrailDescriptionKindAmendedFrom:
+		return toMetadataString(metadata, "source_agreement_id", "parent_agreement_id")
 	case auditTrailDescriptionKindSuperseded:
-		return fmt.Sprintf("Superseded by correction %s", toMetadataString(metadata, "new_agreement_id", "superseded_by_id"))
-	case auditTrailDescriptionKindAmendmentRequested:
-		return fmt.Sprintf("Amendment requested by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindAmendmentDrafted:
-		return fmt.Sprintf("Amendment draft created by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindAmendedFrom:
-		return fmt.Sprintf("Amends agreement %s", toMetadataString(metadata, "source_agreement_id", "parent_agreement_id"))
-	case auditTrailDescriptionKindReviewRequested:
-		return fmt.Sprintf("Review requested by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindReviewReopened:
-		return fmt.Sprintf("Review reopened by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindReviewApproved:
-		return fmt.Sprintf("Review approved by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindReviewChangesRequested:
-		return fmt.Sprintf("Changes requested by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindReviewClosed:
-		return fmt.Sprintf("Review closed by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindReviewForceApproved:
-		return fmt.Sprintf("Review force approved by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindReviewApprovedOnBehalf:
-		return fmt.Sprintf("Review approved on behalf by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindCommentCreated:
-		return fmt.Sprintf("Comment added by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindCommentReplied:
-		return fmt.Sprintf("Comment replied to by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindCommentResolved:
-		return fmt.Sprintf("Comment resolved by %s", formatActorIdentity(actorName, actorEmail, actorID))
-	case auditTrailDescriptionKindCommentReopened:
-		return fmt.Sprintf("Comment reopened by %s", formatActorIdentity(actorName, actorEmail, actorID))
+		return toMetadataString(metadata, "new_agreement_id", "superseded_by_id")
 	default:
 		return ""
 	}
@@ -756,97 +820,172 @@ func deriveLifecycleAuditTrailEntries(
 	sentPolicy, hasSentPolicy := auditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleSent)
 	viewedPolicy, hasViewedPolicy := auditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleViewed)
 	signedPolicy, hasSignedPolicy := auditTrailPolicyForDerivedSourceEvent(auditTrailSourceDerivedLifecycleSigned)
-
-	if hasCreatedPolicy && !markers.HasCreated && !agreement.CreatedAt.IsZero() {
-		createdAt := agreement.CreatedAt.UTC()
-		entries = append(entries, AuditTrailEntry{
-			EventType:     createdPolicy.EventType,
-			Timestamp:     createdAt,
-			ActorName:     creator,
-			IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), createdAt),
-			ShowIPAddress: createdPolicy.ShowIPAddress,
-			Description:   fmt.Sprintf("Created by %s", creator),
-			Severity:      createdPolicy.Severity,
-			SourceEvent:   auditTrailSourceDerivedLifecycleCreated,
-			SourceEventID: "derived.created",
-		})
-	}
-	if hasSentPolicy && !markers.HasSent && agreement.SentAt != nil && !agreement.SentAt.IsZero() {
-		sentAt := agreement.SentAt.UTC()
-		entries = append(entries, AuditTrailEntry{
-			EventType:     sentPolicy.EventType,
-			Timestamp:     sentAt,
-			ActorName:     creator,
-			IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), sentAt),
-			ShowIPAddress: sentPolicy.ShowIPAddress,
-			Description:   buildAuditTrailSentDescription("Sent", creator, signerRecipients),
-			Severity:      sentPolicy.Severity,
-			SourceEvent:   auditTrailSourceDerivedLifecycleSent,
-			SourceEventID: "derived.sent",
-		})
-	}
-
-	if hasViewedPolicy && !markers.HasViewedWithoutActor {
-		for _, recipient := range signerRecipients {
-			recipientID := strings.TrimSpace(recipient.ID)
-			if recipientID == "" {
-				continue
-			}
-			if _, seen := markers.ViewedRecipientIDs[recipientID]; seen {
-				continue
-			}
-			viewedAt := recipient.FirstViewAt
-			if viewedAt == nil || viewedAt.IsZero() {
-				viewedAt = recipient.LastViewAt
-			}
-			if viewedAt == nil || viewedAt.IsZero() {
-				continue
-			}
-			viewedAtUTC := viewedAt.UTC()
-			entries = append(entries, AuditTrailEntry{
-				EventType:     viewedPolicy.EventType,
-				Timestamp:     viewedAtUTC,
-				ActorName:     strings.TrimSpace(recipient.Name),
-				ActorEmail:    strings.TrimSpace(recipient.Email),
-				IPAddress:     actorIPIndex.Nearest(recipientID, viewedAtUTC),
-				ShowIPAddress: viewedPolicy.ShowIPAddress,
-				Description:   fmt.Sprintf("Viewed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
-				Severity:      viewedPolicy.Severity,
-				SourceEvent:   auditTrailSourceDerivedLifecycleViewed,
-				SourceEventID: "derived.viewed." + recipientID,
-			})
-		}
-	}
-
-	if hasSignedPolicy && !markers.HasSignedWithoutActor {
-		for _, recipient := range signerRecipients {
-			recipientID := strings.TrimSpace(recipient.ID)
-			if recipientID == "" {
-				continue
-			}
-			if _, seen := markers.SignedRecipientIDs[recipientID]; seen {
-				continue
-			}
-			if recipient.CompletedAt == nil || recipient.CompletedAt.IsZero() {
-				continue
-			}
-			completedAt := recipient.CompletedAt.UTC()
-			entries = append(entries, AuditTrailEntry{
-				EventType:     signedPolicy.EventType,
-				Timestamp:     completedAt,
-				ActorName:     strings.TrimSpace(recipient.Name),
-				ActorEmail:    strings.TrimSpace(recipient.Email),
-				IPAddress:     actorIPIndex.Nearest(recipientID, completedAt),
-				ShowIPAddress: signedPolicy.ShowIPAddress,
-				Description:   fmt.Sprintf("Signed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
-				Severity:      signedPolicy.Severity,
-				SourceEvent:   auditTrailSourceDerivedLifecycleSigned,
-				SourceEventID: "derived.signed." + recipientID,
-			})
-		}
-	}
-
+	entries = appendDerivedCreatedAuditTrailEntry(entries, agreement, creator, createdPolicy, hasCreatedPolicy, markers, actorIPIndex)
+	entries = appendDerivedSentAuditTrailEntry(entries, agreement, creator, signerRecipients, sentPolicy, hasSentPolicy, markers, actorIPIndex)
+	entries = appendDerivedViewedAuditTrailEntries(entries, signerRecipients, viewedPolicy, hasViewedPolicy, markers, actorIPIndex)
+	entries = appendDerivedSignedAuditTrailEntries(entries, signerRecipients, signedPolicy, hasSignedPolicy, markers, actorIPIndex)
 	return entries
+}
+
+func appendDerivedCreatedAuditTrailEntry(
+	entries []AuditTrailEntry,
+	agreement stores.AgreementRecord,
+	creator string,
+	policy auditTrailDerivedEventPolicy,
+	hasPolicy bool,
+	markers auditTrailSourceMarkers,
+	actorIPIndex auditTrailActorIPIndex,
+) []AuditTrailEntry {
+	if !hasPolicy || markers.HasCreated || agreement.CreatedAt.IsZero() {
+		return entries
+	}
+	createdAt := agreement.CreatedAt.UTC()
+	return append(entries, AuditTrailEntry{
+		EventType:     policy.EventType,
+		Timestamp:     createdAt,
+		ActorName:     creator,
+		IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), createdAt),
+		ShowIPAddress: policy.ShowIPAddress,
+		Description:   fmt.Sprintf("Created by %s", creator),
+		Severity:      policy.Severity,
+		SourceEvent:   auditTrailSourceDerivedLifecycleCreated,
+		SourceEventID: "derived.created",
+	})
+}
+
+func appendDerivedSentAuditTrailEntry(
+	entries []AuditTrailEntry,
+	agreement stores.AgreementRecord,
+	creator string,
+	signerRecipients []stores.RecipientRecord,
+	policy auditTrailDerivedEventPolicy,
+	hasPolicy bool,
+	markers auditTrailSourceMarkers,
+	actorIPIndex auditTrailActorIPIndex,
+) []AuditTrailEntry {
+	if !hasPolicy || markers.HasSent || agreement.SentAt == nil || agreement.SentAt.IsZero() {
+		return entries
+	}
+	sentAt := agreement.SentAt.UTC()
+	return append(entries, AuditTrailEntry{
+		EventType:     policy.EventType,
+		Timestamp:     sentAt,
+		ActorName:     creator,
+		IPAddress:     actorIPIndex.Nearest(strings.TrimSpace(agreement.CreatedByUserID), sentAt),
+		ShowIPAddress: policy.ShowIPAddress,
+		Description:   buildAuditTrailSentDescription("Sent", creator, signerRecipients),
+		Severity:      policy.Severity,
+		SourceEvent:   auditTrailSourceDerivedLifecycleSent,
+		SourceEventID: "derived.sent",
+	})
+}
+
+func appendDerivedViewedAuditTrailEntries(
+	entries []AuditTrailEntry,
+	signerRecipients []stores.RecipientRecord,
+	policy auditTrailDerivedEventPolicy,
+	hasPolicy bool,
+	markers auditTrailSourceMarkers,
+	actorIPIndex auditTrailActorIPIndex,
+) []AuditTrailEntry {
+	if !hasPolicy || markers.HasViewedWithoutActor {
+		return entries
+	}
+	for _, recipient := range signerRecipients {
+		entry, ok := buildDerivedViewedAuditTrailEntry(recipient, policy, markers, actorIPIndex)
+		if !ok {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
+func buildDerivedViewedAuditTrailEntry(
+	recipient stores.RecipientRecord,
+	policy auditTrailDerivedEventPolicy,
+	markers auditTrailSourceMarkers,
+	actorIPIndex auditTrailActorIPIndex,
+) (AuditTrailEntry, bool) {
+	recipientID := strings.TrimSpace(recipient.ID)
+	if recipientID == "" {
+		return AuditTrailEntry{}, false
+	}
+	if _, seen := markers.ViewedRecipientIDs[recipientID]; seen {
+		return AuditTrailEntry{}, false
+	}
+	viewedAt := recipient.FirstViewAt
+	if viewedAt == nil || viewedAt.IsZero() {
+		viewedAt = recipient.LastViewAt
+	}
+	if viewedAt == nil || viewedAt.IsZero() {
+		return AuditTrailEntry{}, false
+	}
+	viewedAtUTC := viewedAt.UTC()
+	return AuditTrailEntry{
+		EventType:     policy.EventType,
+		Timestamp:     viewedAtUTC,
+		ActorName:     strings.TrimSpace(recipient.Name),
+		ActorEmail:    strings.TrimSpace(recipient.Email),
+		IPAddress:     actorIPIndex.Nearest(recipientID, viewedAtUTC),
+		ShowIPAddress: policy.ShowIPAddress,
+		Description:   fmt.Sprintf("Viewed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
+		Severity:      policy.Severity,
+		SourceEvent:   auditTrailSourceDerivedLifecycleViewed,
+		SourceEventID: "derived.viewed." + recipientID,
+	}, true
+}
+
+func appendDerivedSignedAuditTrailEntries(
+	entries []AuditTrailEntry,
+	signerRecipients []stores.RecipientRecord,
+	policy auditTrailDerivedEventPolicy,
+	hasPolicy bool,
+	markers auditTrailSourceMarkers,
+	actorIPIndex auditTrailActorIPIndex,
+) []AuditTrailEntry {
+	if !hasPolicy || markers.HasSignedWithoutActor {
+		return entries
+	}
+	for _, recipient := range signerRecipients {
+		entry, ok := buildDerivedSignedAuditTrailEntry(recipient, policy, markers, actorIPIndex)
+		if !ok {
+			continue
+		}
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
+func buildDerivedSignedAuditTrailEntry(
+	recipient stores.RecipientRecord,
+	policy auditTrailDerivedEventPolicy,
+	markers auditTrailSourceMarkers,
+	actorIPIndex auditTrailActorIPIndex,
+) (AuditTrailEntry, bool) {
+	recipientID := strings.TrimSpace(recipient.ID)
+	if recipientID == "" {
+		return AuditTrailEntry{}, false
+	}
+	if _, seen := markers.SignedRecipientIDs[recipientID]; seen {
+		return AuditTrailEntry{}, false
+	}
+	if recipient.CompletedAt == nil || recipient.CompletedAt.IsZero() {
+		return AuditTrailEntry{}, false
+	}
+	completedAt := recipient.CompletedAt.UTC()
+	return AuditTrailEntry{
+		EventType:     policy.EventType,
+		Timestamp:     completedAt,
+		ActorName:     strings.TrimSpace(recipient.Name),
+		ActorEmail:    strings.TrimSpace(recipient.Email),
+		IPAddress:     actorIPIndex.Nearest(recipientID, completedAt),
+		ShowIPAddress: policy.ShowIPAddress,
+		Description:   fmt.Sprintf("Signed by %s", formatActorIdentity(strings.TrimSpace(recipient.Name), strings.TrimSpace(recipient.Email), recipientID)),
+		Severity:      policy.Severity,
+		SourceEvent:   auditTrailSourceDerivedLifecycleSigned,
+		SourceEventID: "derived.signed." + recipientID,
+	}, true
 }
 
 func absDuration(value time.Duration) time.Duration {
