@@ -714,191 +714,335 @@ func (s IntegrationFoundationService) ApplyInbound(ctx context.Context, scope st
 	if s.agreements == nil {
 		return InboundApplyResult{}, domainValidationError("integration_inbound", "agreements", "not configured")
 	}
-	provider := strings.ToLower(strings.TrimSpace(input.Provider))
-	entityKind := strings.ToLower(strings.TrimSpace(input.EntityKind))
-	externalID := strings.TrimSpace(input.ExternalID)
-	agreementID := strings.TrimSpace(input.AgreementID)
-	if provider == "" || entityKind == "" || externalID == "" || agreementID == "" {
-		return InboundApplyResult{}, domainValidationError("integration_inbound", "provider|entity_kind|external_id|agreement_id", "required")
-	}
-	key := strings.TrimSpace(input.IdempotencyKey)
-	if key == "" {
-		key = DeterministicIntegrationMutationKey("inbound_apply", provider, entityKind, externalID, agreementID)
+	cfg, err := normalizeInboundApplyInput(input)
+	if err != nil {
+		return InboundApplyResult{}, err
 	}
 
 	var result InboundApplyResult
-	err := s.withWriteTx(ctx, func(txSvc IntegrationFoundationService) error {
-		claimed, claimErr := txSvc.store.ClaimIntegrationMutation(ctx, scope, key, txSvc.now())
+	err = s.withWriteTx(ctx, func(txSvc IntegrationFoundationService) error {
+		claimed, claimErr := txSvc.store.ClaimIntegrationMutation(ctx, scope, cfg.idempotencyKey, txSvc.now())
 		if claimErr != nil {
 			return claimErr
 		}
 		if !claimed {
-			participants, pErr := txSvc.agreements.ListParticipants(ctx, scope, agreementID)
-			if pErr != nil {
-				return pErr
-			}
-			definitions, dErr := txSvc.agreements.ListFieldDefinitions(ctx, scope, agreementID)
-			if dErr != nil {
-				return dErr
-			}
-			result = InboundApplyResult{
-				AgreementID:          agreementID,
-				ParticipantCount:     len(participants),
-				FieldDefinitionCount: len(definitions),
-				Replay:               true,
-			}
-			return nil
+			return txSvc.populateInboundApplyResult(ctx, scope, cfg.agreementID, true, &result)
 		}
-
-		agreement, getErr := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
-		if getErr != nil {
-			return getErr
-		}
-		if agreement.Status == stores.AgreementStatusDraft {
-			patch := stores.AgreementDraftPatch{}
-			if title := strings.TrimSpace(input.MetadataTitle); title != "" {
-				patch.Title = &title
-			}
-			if message := strings.TrimSpace(input.MetadataMessage); message != "" {
-				patch.Message = &message
-			}
-			if patch.Title != nil || patch.Message != nil {
-				agreement, getErr = txSvc.agreements.UpdateDraft(ctx, scope, agreementID, patch, agreement.Version)
-				if getErr != nil {
-					return getErr
-				}
-			}
-		}
-
-		participantIDsByExternal := map[string]string{}
-		for _, participant := range input.Participants {
-			externalParticipantID := strings.TrimSpace(participant.ExternalID)
-			participantID := ""
-			if externalParticipantID != "" {
-				binding, bindErr := txSvc.store.GetIntegrationBindingByExternal(ctx, scope, provider, "participant", externalParticipantID)
-				if bindErr == nil {
-					participantID = strings.TrimSpace(binding.InternalID)
-				}
-			}
-			role := strings.ToLower(strings.TrimSpace(participant.Role))
-			if role == "" {
-				role = stores.RecipientRoleSigner
-			}
-			stage := participant.SigningStage
-			if stage <= 0 {
-				stage = 1
-			}
-			upserted, upsertErr := txSvc.agreements.UpsertParticipantDraft(ctx, scope, agreementID, stores.ParticipantDraftPatch{
-				ID:           participantID,
-				Email:        integrationStrPtr(strings.TrimSpace(participant.Email)),
-				Name:         integrationStrPtr(strings.TrimSpace(participant.Name)),
-				Role:         integrationStrPtr(role),
-				SigningStage: integrationIntPtr(stage),
-			}, 0)
-			if upsertErr != nil {
-				return upsertErr
-			}
-			if externalParticipantID != "" {
-				participantIDsByExternal[externalParticipantID] = upserted.ID
-				if _, bindErr := txSvc.store.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
-					Provider:       provider,
-					EntityKind:     "participant",
-					ExternalID:     externalParticipantID,
-					InternalID:     upserted.ID,
-					ProvenanceJSON: mustJSON(map[string]any{"source": "integration_inbound"}),
-				}); bindErr != nil {
-					return bindErr
-				}
-			}
-		}
-
-		fieldDefinitionCount := 0
-		for _, field := range input.FieldDefinitions {
-			participantID := strings.TrimSpace(field.ParticipantID)
-			if participantID == "" {
-				participantID = participantIDsByExternal[strings.TrimSpace(field.ParticipantExternalID)]
-			}
-			if participantID == "" {
-				continue
-			}
-			fieldType := strings.TrimSpace(field.Type)
-			if fieldType == "" {
-				fieldType = stores.FieldTypeText
-			}
-			definition, defErr := txSvc.agreements.UpsertFieldDefinitionDraft(ctx, scope, agreementID, stores.FieldDefinitionDraftPatch{
-				ID:             strings.TrimSpace(field.FieldDefinitionID),
-				ParticipantID:  integrationStrPtr(participantID),
-				Type:           integrationStrPtr(fieldType),
-				Required:       new(field.Required),
-				ValidationJSON: integrationStrPtr(strings.TrimSpace(field.ValidationJSON)),
-			})
-			if defErr != nil {
-				return defErr
-			}
-			fieldDefinitionCount++
-			if field.PageNumber > 0 && field.Width > 0 && field.Height > 0 {
-				if _, instanceErr := txSvc.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, stores.FieldInstanceDraftPatch{
-					FieldDefinitionID: integrationStrPtr(definition.ID),
-					PageNumber:        integrationIntPtr(field.PageNumber),
-					X:                 integrationFloatPtr(field.X),
-					Y:                 integrationFloatPtr(field.Y),
-					Width:             integrationFloatPtr(field.Width),
-					Height:            integrationFloatPtr(field.Height),
-					TabIndex:          integrationIntPtr(field.TabIndex),
-					Label:             integrationStrPtr(strings.TrimSpace(field.Label)),
-					AppearanceJSON:    integrationStrPtr(strings.TrimSpace(field.AppearanceJSON)),
-				}); instanceErr != nil {
-					return instanceErr
-				}
-			}
-		}
-
-		if _, bindErr := txSvc.store.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
-			Provider:       provider,
-			EntityKind:     entityKind,
-			ExternalID:     externalID,
-			InternalID:     agreementID,
-			ProvenanceJSON: mustJSON(map[string]any{"source": "integration_inbound"}),
-		}); bindErr != nil {
-			return bindErr
-		}
-
-		txSvc.appendAudit(ctx, scope, stores.AuditEventRecord{
-			AgreementID: agreementID,
-			EventType:   "integration.inbound.applied",
-			ActorType:   "system",
-			ActorID:     provider,
-			MetadataJSON: mustJSON(RedactIntegrationPayload(map[string]any{
-				"provider":               provider,
-				"entity_kind":            entityKind,
-				"external_id":            externalID,
-				"agreement_id":           agreementID,
-				"participant_count":      len(input.Participants),
-				"field_definition_count": fieldDefinitionCount,
-			})),
-			CreatedAt: txSvc.now(),
-		})
-
-		participants, pErr := txSvc.agreements.ListParticipants(ctx, scope, agreementID)
-		if pErr != nil {
-			return pErr
-		}
-		definitions, dErr := txSvc.agreements.ListFieldDefinitions(ctx, scope, agreementID)
-		if dErr != nil {
-			return dErr
-		}
-		result = InboundApplyResult{
-			AgreementID:          agreementID,
-			ParticipantCount:     len(participants),
-			FieldDefinitionCount: len(definitions),
-			Replay:               false,
-		}
-		return nil
+		return txSvc.applyInboundWithClaim(ctx, scope, cfg, input, &result)
 	})
 	if err != nil {
 		return InboundApplyResult{}, err
 	}
 	return result, nil
+}
+
+type inboundApplyConfig struct {
+	provider       string
+	entityKind     string
+	externalID     string
+	agreementID    string
+	idempotencyKey string
+}
+
+func normalizeInboundApplyInput(input InboundApplyInput) (inboundApplyConfig, error) {
+	cfg := inboundApplyConfig{
+		provider:    strings.ToLower(strings.TrimSpace(input.Provider)),
+		entityKind:  strings.ToLower(strings.TrimSpace(input.EntityKind)),
+		externalID:  strings.TrimSpace(input.ExternalID),
+		agreementID: strings.TrimSpace(input.AgreementID),
+	}
+	if cfg.provider == "" || cfg.entityKind == "" || cfg.externalID == "" || cfg.agreementID == "" {
+		return inboundApplyConfig{}, domainValidationError("integration_inbound", "provider|entity_kind|external_id|agreement_id", "required")
+	}
+	cfg.idempotencyKey = strings.TrimSpace(input.IdempotencyKey)
+	if cfg.idempotencyKey == "" {
+		cfg.idempotencyKey = DeterministicIntegrationMutationKey("inbound_apply", cfg.provider, cfg.entityKind, cfg.externalID, cfg.agreementID)
+	}
+	return cfg, nil
+}
+
+func (s IntegrationFoundationService) applyInboundWithClaim(
+	ctx context.Context,
+	scope stores.Scope,
+	cfg inboundApplyConfig,
+	input InboundApplyInput,
+	result *InboundApplyResult,
+) error {
+	if err := s.updateInboundAgreementDraft(ctx, scope, cfg.agreementID, input); err != nil {
+		return err
+	}
+	participantIDsByExternal, err := s.upsertInboundParticipants(ctx, scope, cfg.provider, cfg.agreementID, input.Participants)
+	if err != nil {
+		return err
+	}
+	fieldDefinitionCount, err := s.upsertInboundFieldDefinitions(ctx, scope, cfg.agreementID, participantIDsByExternal, input.FieldDefinitions)
+	if err != nil {
+		return err
+	}
+	s.appendInboundApplyAudit(ctx, scope, cfg, input, fieldDefinitionCount)
+	if err := s.upsertInboundAgreementBinding(ctx, scope, cfg); err != nil {
+		return err
+	}
+	return s.populateInboundApplyResult(ctx, scope, cfg.agreementID, false, result)
+}
+
+func (s IntegrationFoundationService) populateInboundApplyResult(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	replay bool,
+	result *InboundApplyResult,
+) error {
+	participants, err := s.agreements.ListParticipants(ctx, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	definitions, err := s.agreements.ListFieldDefinitions(ctx, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	*result = InboundApplyResult{
+		AgreementID:          agreementID,
+		ParticipantCount:     len(participants),
+		FieldDefinitionCount: len(definitions),
+		Replay:               replay,
+	}
+	return nil
+}
+
+func (s IntegrationFoundationService) updateInboundAgreementDraft(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	input InboundApplyInput,
+) error {
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return err
+	}
+	if agreement.Status != stores.AgreementStatusDraft {
+		return nil
+	}
+	patch := stores.AgreementDraftPatch{}
+	if title := strings.TrimSpace(input.MetadataTitle); title != "" {
+		patch.Title = &title
+	}
+	if message := strings.TrimSpace(input.MetadataMessage); message != "" {
+		patch.Message = &message
+	}
+	if patch.Title == nil && patch.Message == nil {
+		return nil
+	}
+	_, err = s.agreements.UpdateDraft(ctx, scope, agreementID, patch, agreement.Version)
+	return err
+}
+
+func (s IntegrationFoundationService) upsertInboundParticipants(
+	ctx context.Context,
+	scope stores.Scope,
+	provider string,
+	agreementID string,
+	participants []InboundParticipantInput,
+) (map[string]string, error) {
+	participantIDsByExternal := map[string]string{}
+	for _, participant := range participants {
+		upserted, externalParticipantID, err := s.upsertInboundParticipant(ctx, scope, provider, agreementID, participant)
+		if err != nil {
+			return nil, err
+		}
+		if externalParticipantID != "" {
+			participantIDsByExternal[externalParticipantID] = upserted.ID
+		}
+	}
+	return participantIDsByExternal, nil
+}
+
+func (s IntegrationFoundationService) upsertInboundParticipant(
+	ctx context.Context,
+	scope stores.Scope,
+	provider string,
+	agreementID string,
+	participant InboundParticipantInput,
+) (stores.ParticipantRecord, string, error) {
+	externalParticipantID := strings.TrimSpace(participant.ExternalID)
+	participantID, err := s.resolveInboundParticipantID(ctx, scope, provider, externalParticipantID)
+	if err != nil {
+		return stores.ParticipantRecord{}, "", err
+	}
+	role := strings.ToLower(strings.TrimSpace(participant.Role))
+	if role == "" {
+		role = stores.RecipientRoleSigner
+	}
+	stage := participant.SigningStage
+	if stage <= 0 {
+		stage = 1
+	}
+	upserted, err := s.agreements.UpsertParticipantDraft(ctx, scope, agreementID, stores.ParticipantDraftPatch{
+		ID:           participantID,
+		Email:        integrationStrPtr(strings.TrimSpace(participant.Email)),
+		Name:         integrationStrPtr(strings.TrimSpace(participant.Name)),
+		Role:         integrationStrPtr(role),
+		SigningStage: integrationIntPtr(stage),
+	}, 0)
+	if err != nil {
+		return stores.ParticipantRecord{}, "", err
+	}
+	if err := s.upsertInboundParticipantBinding(ctx, scope, provider, externalParticipantID, upserted.ID); err != nil {
+		return stores.ParticipantRecord{}, "", err
+	}
+	return upserted, externalParticipantID, nil
+}
+
+func (s IntegrationFoundationService) resolveInboundParticipantID(
+	ctx context.Context,
+	scope stores.Scope,
+	provider string,
+	externalParticipantID string,
+) (string, error) {
+	if externalParticipantID == "" {
+		return "", nil
+	}
+	binding, err := s.store.GetIntegrationBindingByExternal(ctx, scope, provider, "participant", externalParticipantID)
+	if err != nil {
+		if isNotFound(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	return strings.TrimSpace(binding.InternalID), nil
+}
+
+func (s IntegrationFoundationService) upsertInboundParticipantBinding(
+	ctx context.Context,
+	scope stores.Scope,
+	provider string,
+	externalParticipantID string,
+	participantID string,
+) error {
+	if externalParticipantID == "" {
+		return nil
+	}
+	_, err := s.store.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
+		Provider:       provider,
+		EntityKind:     "participant",
+		ExternalID:     externalParticipantID,
+		InternalID:     participantID,
+		ProvenanceJSON: mustJSON(map[string]any{"source": "integration_inbound"}),
+	})
+	return err
+}
+
+func (s IntegrationFoundationService) upsertInboundFieldDefinitions(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	participantIDsByExternal map[string]string,
+	fields []InboundFieldDefinitionInput,
+) (int, error) {
+	count := 0
+	for _, field := range fields {
+		created, err := s.upsertInboundFieldDefinition(ctx, scope, agreementID, participantIDsByExternal, field)
+		if err != nil {
+			return 0, err
+		}
+		if created {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (s IntegrationFoundationService) upsertInboundFieldDefinition(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	participantIDsByExternal map[string]string,
+	field InboundFieldDefinitionInput,
+) (bool, error) {
+	participantID := strings.TrimSpace(field.ParticipantID)
+	if participantID == "" {
+		participantID = participantIDsByExternal[strings.TrimSpace(field.ParticipantExternalID)]
+	}
+	if participantID == "" {
+		return false, nil
+	}
+	fieldType := strings.TrimSpace(field.Type)
+	if fieldType == "" {
+		fieldType = stores.FieldTypeText
+	}
+	definition, err := s.agreements.UpsertFieldDefinitionDraft(ctx, scope, agreementID, stores.FieldDefinitionDraftPatch{
+		ID:             strings.TrimSpace(field.FieldDefinitionID),
+		ParticipantID:  integrationStrPtr(participantID),
+		Type:           integrationStrPtr(fieldType),
+		Required:       new(field.Required),
+		ValidationJSON: integrationStrPtr(strings.TrimSpace(field.ValidationJSON)),
+	})
+	if err != nil {
+		return false, err
+	}
+	if err := s.upsertInboundFieldInstance(ctx, scope, agreementID, definition.ID, field); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s IntegrationFoundationService) upsertInboundFieldInstance(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	fieldDefinitionID string,
+	field InboundFieldDefinitionInput,
+) error {
+	if field.PageNumber <= 0 || field.Width <= 0 || field.Height <= 0 {
+		return nil
+	}
+	_, err := s.agreements.UpsertFieldInstanceDraft(ctx, scope, agreementID, stores.FieldInstanceDraftPatch{
+		FieldDefinitionID: integrationStrPtr(fieldDefinitionID),
+		PageNumber:        integrationIntPtr(field.PageNumber),
+		X:                 integrationFloatPtr(field.X),
+		Y:                 integrationFloatPtr(field.Y),
+		Width:             integrationFloatPtr(field.Width),
+		Height:            integrationFloatPtr(field.Height),
+		TabIndex:          integrationIntPtr(field.TabIndex),
+		Label:             integrationStrPtr(strings.TrimSpace(field.Label)),
+		AppearanceJSON:    integrationStrPtr(strings.TrimSpace(field.AppearanceJSON)),
+	})
+	return err
+}
+
+func (s IntegrationFoundationService) upsertInboundAgreementBinding(ctx context.Context, scope stores.Scope, cfg inboundApplyConfig) error {
+	_, err := s.store.UpsertIntegrationBinding(ctx, scope, stores.IntegrationBindingRecord{
+		Provider:       cfg.provider,
+		EntityKind:     cfg.entityKind,
+		ExternalID:     cfg.externalID,
+		InternalID:     cfg.agreementID,
+		ProvenanceJSON: mustJSON(map[string]any{"source": "integration_inbound"}),
+	})
+	return err
+}
+
+func (s IntegrationFoundationService) appendInboundApplyAudit(
+	ctx context.Context,
+	scope stores.Scope,
+	cfg inboundApplyConfig,
+	input InboundApplyInput,
+	fieldDefinitionCount int,
+) {
+	s.appendAudit(ctx, scope, stores.AuditEventRecord{
+		AgreementID: cfg.agreementID,
+		EventType:   "integration.inbound.applied",
+		ActorType:   "system",
+		ActorID:     cfg.provider,
+		MetadataJSON: mustJSON(RedactIntegrationPayload(map[string]any{
+			"provider":               cfg.provider,
+			"entity_kind":            cfg.entityKind,
+			"external_id":            cfg.externalID,
+			"agreement_id":           cfg.agreementID,
+			"participant_count":      len(input.Participants),
+			"field_definition_count": fieldDefinitionCount,
+		})),
+		CreatedAt: s.now(),
+	})
 }
 
 // EmitOutboundChange emits normalized provider-agnostic change events.

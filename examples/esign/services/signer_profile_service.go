@@ -187,18 +187,7 @@ func (s SignerProfileService) Save(ctx context.Context, scope stores.Scope, subj
 	}
 
 	if patch.Remember != nil && !*patch.Remember {
-		deleteErr := s.store.DeleteSignerProfile(ctx, scope, subject, key)
-		if deleteErr != nil && !isNotFoundError(deleteErr) {
-			return SignerProfile{}, deleteErr
-		}
-		now := s.now().UTC()
-		return SignerProfile{
-			SchemaVersion: 1,
-			Key:           key,
-			Remember:      false,
-			UpdatedAt:     now.UnixMilli(),
-			ExpiresAt:     now.UnixMilli(),
-		}, nil
+		return s.deleteSignerProfile(ctx, scope, subject, key)
 	}
 	if !signerProfilePatchHasMutableFields(patch) {
 		return SignerProfile{}, goerrors.New("signer profile patch must include at least one profile field", goerrors.CategoryValidation).
@@ -206,71 +195,105 @@ func (s SignerProfileService) Save(ctx context.Context, scope stores.Scope, subj
 			WithTextCode(string(ErrorCodeMissingRequiredFields))
 	}
 
-	current, err := s.store.GetSignerProfile(ctx, scope, subject, key, s.now())
+	current, err := s.loadSignerProfileForSave(ctx, scope, subject, key)
 	if err != nil {
-		if !isNotFoundError(err) {
-			return SignerProfile{}, err
-		}
-		current = stores.SignerProfileRecord{
-			Subject:  subject,
-			Key:      key,
-			Remember: true,
-		}
+		return SignerProfile{}, err
+	}
+	current, err = s.applySignerProfilePatch(current, patch)
+	if err != nil {
+		return SignerProfile{}, err
+	}
+	if !current.Remember {
+		return s.deleteSignerProfile(ctx, scope, subject, key)
 	}
 
+	current = s.finalizeSignerProfileRecord(current, subject, key)
+	stored, err := s.store.UpsertSignerProfile(ctx, scope, current)
+	if err != nil {
+		return SignerProfile{}, err
+	}
+	return signerProfileFromRecord(stored), nil
+}
+
+func (s SignerProfileService) deleteSignerProfile(ctx context.Context, scope stores.Scope, subject, key string) (SignerProfile, error) {
+	deleteErr := s.store.DeleteSignerProfile(ctx, scope, subject, key)
+	if deleteErr != nil && !isNotFoundError(deleteErr) {
+		return SignerProfile{}, deleteErr
+	}
+	now := s.now().UTC()
+	return SignerProfile{
+		SchemaVersion: 1,
+		Key:           key,
+		Remember:      false,
+		UpdatedAt:     now.UnixMilli(),
+		ExpiresAt:     now.UnixMilli(),
+	}, nil
+}
+
+func (s SignerProfileService) loadSignerProfileForSave(
+	ctx context.Context,
+	scope stores.Scope,
+	subject, key string,
+) (stores.SignerProfileRecord, error) {
+	current, err := s.store.GetSignerProfile(ctx, scope, subject, key, s.now())
+	if err == nil {
+		return current, nil
+	}
+	if !isNotFoundError(err) {
+		return stores.SignerProfileRecord{}, err
+	}
+	return stores.SignerProfileRecord{
+		Subject:  subject,
+		Key:      key,
+		Remember: true,
+	}, nil
+}
+
+func (s SignerProfileService) applySignerProfilePatch(
+	current stores.SignerProfileRecord,
+	patch SignerProfilePatch,
+) (stores.SignerProfileRecord, error) {
+	var err error
 	if patch.FullName != nil {
-		value, verr := sanitizeSignerProfileText(*patch.FullName, "fullName", s.maxTextLen)
-		if verr != nil {
-			return SignerProfile{}, verr
+		current.FullName, err = sanitizeSignerProfileText(*patch.FullName, "fullName", s.maxTextLen)
+		if err != nil {
+			return stores.SignerProfileRecord{}, err
 		}
-		current.FullName = value
 	}
 	if patch.Initials != nil {
-		value, verr := sanitizeSignerProfileText(*patch.Initials, "initials", s.maxTextLen)
-		if verr != nil {
-			return SignerProfile{}, verr
+		current.Initials, err = sanitizeSignerProfileText(*patch.Initials, "initials", s.maxTextLen)
+		if err != nil {
+			return stores.SignerProfileRecord{}, err
 		}
-		current.Initials = value
 	}
 	if patch.TypedSignature != nil {
-		value, verr := sanitizeSignerProfileText(*patch.TypedSignature, "typedSignature", s.maxTextLen)
-		if verr != nil {
-			return SignerProfile{}, verr
+		current.TypedSignature, err = sanitizeSignerProfileText(*patch.TypedSignature, "typedSignature", s.maxTextLen)
+		if err != nil {
+			return stores.SignerProfileRecord{}, err
 		}
-		current.TypedSignature = value
 	}
 	if patch.DrawnSignatureDataURL != nil {
-		value, verr := s.sanitizeDrawnDataURL(*patch.DrawnSignatureDataURL, "drawnSignatureDataUrl")
-		if verr != nil {
-			return SignerProfile{}, verr
+		current.DrawnSignatureDataURL, err = s.sanitizeDrawnDataURL(*patch.DrawnSignatureDataURL, "drawnSignatureDataUrl")
+		if err != nil {
+			return stores.SignerProfileRecord{}, err
 		}
-		current.DrawnSignatureDataURL = value
 	}
 	if patch.DrawnInitialsDataURL != nil {
-		value, verr := s.sanitizeDrawnDataURL(*patch.DrawnInitialsDataURL, "drawnInitialsDataUrl")
-		if verr != nil {
-			return SignerProfile{}, verr
+		current.DrawnInitialsDataURL, err = s.sanitizeDrawnDataURL(*patch.DrawnInitialsDataURL, "drawnInitialsDataUrl")
+		if err != nil {
+			return stores.SignerProfileRecord{}, err
 		}
-		current.DrawnInitialsDataURL = value
 	}
 	if patch.Remember != nil {
 		current.Remember = *patch.Remember
 	}
-	if !current.Remember {
-		deleteErr := s.store.DeleteSignerProfile(ctx, scope, subject, key)
-		if deleteErr != nil && !isNotFoundError(deleteErr) {
-			return SignerProfile{}, deleteErr
-		}
-		now := s.now().UTC()
-		return SignerProfile{
-			SchemaVersion: 1,
-			Key:           key,
-			Remember:      false,
-			UpdatedAt:     now.UnixMilli(),
-			ExpiresAt:     now.UnixMilli(),
-		}, nil
-	}
+	return current, nil
+}
 
+func (s SignerProfileService) finalizeSignerProfileRecord(
+	current stores.SignerProfileRecord,
+	subject, key string,
+) stores.SignerProfileRecord {
 	now := s.now().UTC()
 	current.Subject = subject
 	current.Key = key
@@ -280,12 +303,7 @@ func (s SignerProfileService) Save(ctx context.Context, scope stores.Scope, subj
 	if current.CreatedAt.IsZero() {
 		current.CreatedAt = now
 	}
-
-	stored, err := s.store.UpsertSignerProfile(ctx, scope, current)
-	if err != nil {
-		return SignerProfile{}, err
-	}
-	return signerProfileFromRecord(stored), nil
+	return current
 }
 
 // Clear deletes a persisted signer profile for a token-derived subject and profile key.

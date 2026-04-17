@@ -219,90 +219,162 @@ func (s AgreementService) OpenReview(ctx context.Context, scope stores.Scope, ag
 func (s AgreementService) ReopenReview(ctx context.Context, scope stores.Scope, agreementID string, input ReviewOpenInput) (ReviewSummary, error) {
 	var summary ReviewSummary
 	err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
-		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
-		if err != nil {
-			return err
+		reopenSummary, reopenErr := txSvc.reopenReviewWithTx(ctx, scope, agreementID, input, hooks)
+		if reopenErr != nil {
+			return reopenErr
 		}
-		if agreement.Status != stores.AgreementStatusDraft {
-			return domainValidationError("agreements", "status", "review requires draft agreement")
-		}
-		review, err := txSvc.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		participantsInput := input.ReviewParticipants
-		if len(participantsInput) == 0 && len(input.ReviewerIDs) == 0 {
-			storedParticipants, listErr := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
-			if listErr != nil {
-				return listErr
-			}
-			participantsInput = reviewParticipantsFromRecords(storedParticipants)
-		}
-		input.ReviewParticipants = participantsInput
-		participants, err := txSvc.validateReviewParticipants(ctx, scope, agreementID, input)
-		if err != nil {
-			return err
-		}
-		now := txSvc.now()
-		if input.Gate == "" {
-			input.Gate = review.Gate
-		}
-		nextStatus := deriveReviewStatus(participants, stores.AgreementReviewStatusInReview)
-		review, err = txSvc.upsertAgreementReview(ctx, scope, agreement, input, nextStatus, &now, nil)
-		if err != nil {
-			return err
-		}
-		err = txSvc.replaceReviewParticipants(ctx, scope, review, participants, now)
-		if err != nil {
-			return err
-		}
-		storedParticipants, err := txSvc.agreements.ListAgreementReviewParticipants(ctx, scope, review.ID)
-		if err != nil {
-			return err
-		}
-		issuedTokens, err := txSvc.syncReviewSessionTokens(ctx, scope, review)
-		if err != nil {
-			return err
-		}
-		correlationID := resolveReviewNotificationCorrelationID(input.CorrelationID, review.ID, now)
-		enqueuedCount, err := txSvc.enqueueReviewInvitationEffects(ctx, scope, review, storedParticipants, issuedTokens, correlationID)
-		if err != nil {
-			return err
-		}
-		commentsEnabled := input.CommentsEnabled
-		if !commentsEnabled && agreement.CommentsEnabled {
-			commentsEnabled = agreement.CommentsEnabled
-		}
-		_, err = txSvc.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
-			ReviewStatus:    ptrString(review.Status),
-			ReviewGate:      ptrString(review.Gate),
-			CommentsEnabled: reviewPtrBool(commentsEnabled),
-		})
-		if err != nil {
-			return err
-		}
-		err = txSvc.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_reopened", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
-			"review_id":           review.ID,
-			"review_gate":         review.Gate,
-			"review_status":       review.Status,
-			"review_participants": normalizeReviewParticipantMetadata(storedParticipants),
-		})
-		if err != nil {
-			return err
-		}
-		summary, err = txSvc.GetReviewSummary(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		if enqueuedCount > 0 && hooks != nil && s.notificationDispatch != nil {
-			hooks.AfterCommit(func() error {
-				s.notificationDispatch.NotifyScope(scope)
-				return nil
-			})
-		}
+		summary = reopenSummary
 		return nil
 	})
 	return summary, err
+}
+
+func (s AgreementService) reopenReviewWithTx(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	input ReviewOpenInput,
+	hooks *stores.TxHooks,
+) (ReviewSummary, error) {
+	agreement, review, participants, input, err := s.loadReopenReviewState(ctx, scope, agreementID, input)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	review, storedParticipants, enqueuedCount, err := s.persistReopenedReview(ctx, scope, agreementID, agreement, review, participants, input)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	return s.finalizeReopenedReview(ctx, scope, agreementID, agreement, review, storedParticipants, input, enqueuedCount, hooks)
+}
+
+func (s AgreementService) loadReopenReviewState(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	input ReviewOpenInput,
+) (stores.AgreementRecord, stores.AgreementReviewRecord, []stores.AgreementReviewParticipantRecord, ReviewOpenInput, error) {
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, input, err
+	}
+	if agreement.Status != stores.AgreementStatusDraft {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, input, domainValidationError("agreements", "status", "review requires draft agreement")
+	}
+	review, err := s.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, input, err
+	}
+	participantsInput, err := s.resolveReopenReviewParticipantsInput(ctx, scope, review.ID, input)
+	if err != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, input, err
+	}
+	input.ReviewParticipants = participantsInput
+	participants, err := s.validateReviewParticipants(ctx, scope, agreementID, input)
+	if err != nil {
+		return stores.AgreementRecord{}, stores.AgreementReviewRecord{}, nil, input, err
+	}
+	return agreement, review, participants, input, nil
+}
+
+func (s AgreementService) persistReopenedReview(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	agreement stores.AgreementRecord,
+	review stores.AgreementReviewRecord,
+	participants []stores.AgreementReviewParticipantRecord,
+	input ReviewOpenInput,
+) (stores.AgreementReviewRecord, []stores.AgreementReviewParticipantRecord, int, error) {
+	now := s.now()
+	if input.Gate == "" {
+		input.Gate = review.Gate
+	}
+	nextStatus := deriveReviewStatus(participants, stores.AgreementReviewStatusInReview)
+	updatedReview, err := s.upsertAgreementReview(ctx, scope, agreement, input, nextStatus, &now, nil)
+	if err != nil {
+		return stores.AgreementReviewRecord{}, nil, 0, err
+	}
+	if replaceErr := s.replaceReviewParticipants(ctx, scope, updatedReview, participants, now); replaceErr != nil {
+		return stores.AgreementReviewRecord{}, nil, 0, replaceErr
+	}
+	storedParticipants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, updatedReview.ID)
+	if err != nil {
+		return stores.AgreementReviewRecord{}, nil, 0, err
+	}
+	issuedTokens, err := s.syncReviewSessionTokens(ctx, scope, updatedReview)
+	if err != nil {
+		return stores.AgreementReviewRecord{}, nil, 0, err
+	}
+	correlationID := resolveReviewNotificationCorrelationID(input.CorrelationID, updatedReview.ID, now)
+	enqueuedCount, err := s.enqueueReviewInvitationEffects(ctx, scope, updatedReview, storedParticipants, issuedTokens, correlationID)
+	if err != nil {
+		return stores.AgreementReviewRecord{}, nil, 0, err
+	}
+	return updatedReview, storedParticipants, enqueuedCount, nil
+}
+
+func (s AgreementService) finalizeReopenedReview(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	agreement stores.AgreementRecord,
+	review stores.AgreementReviewRecord,
+	storedParticipants []stores.AgreementReviewParticipantRecord,
+	input ReviewOpenInput,
+	enqueuedCount int,
+	hooks *stores.TxHooks,
+) (ReviewSummary, error) {
+	commentsEnabled := reopenReviewCommentsEnabled(agreement, input)
+	if _, err := s.agreements.UpdateAgreementReviewProjection(ctx, scope, agreementID, stores.AgreementReviewProjectionPatch{
+		ReviewStatus:    ptrString(review.Status),
+		ReviewGate:      ptrString(review.Gate),
+		CommentsEnabled: reviewPtrBool(commentsEnabled),
+	}); err != nil {
+		return ReviewSummary{}, err
+	}
+	if err := s.appendAuditEventWithIP(ctx, scope, agreementID, "agreement.review_reopened", normalizeReviewActorType(input.ActorType), strings.TrimSpace(input.ActorID), input.IPAddress, map[string]any{
+		"review_id":           review.ID,
+		"review_gate":         review.Gate,
+		"review_status":       review.Status,
+		"review_participants": normalizeReviewParticipantMetadata(storedParticipants),
+	}); err != nil {
+		return ReviewSummary{}, err
+	}
+	summary, err := s.GetReviewSummary(ctx, scope, agreementID)
+	if err != nil {
+		return ReviewSummary{}, err
+	}
+	if enqueuedCount > 0 && hooks != nil && s.notificationDispatch != nil {
+		hooks.AfterCommit(func() error {
+			s.notificationDispatch.NotifyScope(scope)
+			return nil
+		})
+	}
+	return summary, nil
+}
+
+func (s AgreementService) resolveReopenReviewParticipantsInput(
+	ctx context.Context,
+	scope stores.Scope,
+	reviewID string,
+	input ReviewOpenInput,
+) ([]ReviewParticipantInput, error) {
+	participantsInput := append([]ReviewParticipantInput(nil), input.ReviewParticipants...)
+	if len(participantsInput) > 0 || len(input.ReviewerIDs) > 0 {
+		return participantsInput, nil
+	}
+	storedParticipants, err := s.agreements.ListAgreementReviewParticipants(ctx, scope, reviewID)
+	if err != nil {
+		return nil, err
+	}
+	return reviewParticipantsFromRecords(storedParticipants), nil
+}
+
+func reopenReviewCommentsEnabled(agreement stores.AgreementRecord, input ReviewOpenInput) bool {
+	if input.CommentsEnabled {
+		return true
+	}
+	return agreement.CommentsEnabled
 }
 
 func (s AgreementService) NotifyReviewers(ctx context.Context, scope stores.Scope, agreementID string, input ReviewNotifyInput) (ReviewSummary, error) {
@@ -817,13 +889,7 @@ func (s AgreementService) GetReviewSummary(ctx context.Context, scope stores.Sco
 	review, err := s.agreements.GetAgreementReviewByAgreementID(ctx, scope, agreementID)
 	if err != nil {
 		if isNotFoundError(err) {
-			if summary.Status == "" {
-				summary.Status = stores.AgreementReviewStatusNone
-			}
-			if summary.Gate == "" {
-				summary.Gate = stores.AgreementReviewGateNone
-			}
-			return summary, nil
+			return defaultReviewSummary(summary), nil
 		}
 		return ReviewSummary{}, err
 	}
@@ -867,6 +933,16 @@ func (s AgreementService) GetReviewSummary(ctx context.Context, scope stores.Sco
 	}
 	summary.ActorMap = s.buildReviewActorMap(ctx, scope, summary.Review, summary.Participants, recipients, summary.Threads)
 	return summary, nil
+}
+
+func defaultReviewSummary(summary ReviewSummary) ReviewSummary {
+	if summary.Status == "" {
+		summary.Status = stores.AgreementReviewStatusNone
+	}
+	if summary.Gate == "" {
+		summary.Gate = stores.AgreementReviewGateNone
+	}
+	return summary
 }
 
 func (s AgreementService) applyReviewDecision(ctx context.Context, scope stores.Scope, agreementID string, input ReviewDecisionInput, decisionStatus, auditEvent string) (ReviewSummary, error) {
@@ -1574,75 +1650,20 @@ func (s AgreementService) replaceReviewParticipants(ctx context.Context, scope s
 }
 
 func (s AgreementService) validateReviewParticipants(ctx context.Context, scope stores.Scope, agreementID string, input ReviewOpenInput) ([]stores.AgreementReviewParticipantRecord, error) {
-	participantInputs := append([]ReviewParticipantInput(nil), input.ReviewParticipants...)
-	if len(participantInputs) == 0 && len(input.ReviewerIDs) > 0 {
-		for _, reviewerID := range input.ReviewerIDs {
-			participantInputs = append(participantInputs, ReviewParticipantInput{
-				ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
-				RecipientID:     reviewerID,
-				CanComment:      true,
-				CanApprove:      true,
-			})
-		}
-	}
+	participantInputs := reviewParticipantInputsFromOpenInput(input)
 	if len(participantInputs) == 0 {
 		return nil, domainValidationError("agreement_reviews", "review_participants", "at least one reviewer is required")
 	}
-	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	validRecipients, err := s.validReviewRecipients(ctx, scope, agreementID)
 	if err != nil {
 		return nil, err
-	}
-	validRecipients := make(map[string]stores.RecipientRecord, len(recipients))
-	for _, recipient := range recipients {
-		validRecipients[recipient.ID] = recipient
 	}
 	seen := make(map[string]struct{}, len(participantInputs))
 	out := make([]stores.AgreementReviewParticipantRecord, 0, len(participantInputs))
 	for _, participant := range participantInputs {
-		participantType := stores.NormalizeAgreementReviewParticipantType(participant.ParticipantType)
-		if participantType == "" {
-			if strings.TrimSpace(participant.RecipientID) != "" {
-				participantType = stores.AgreementReviewParticipantTypeRecipient
-			} else if strings.TrimSpace(participant.Email) != "" {
-				participantType = stores.AgreementReviewParticipantTypeExternal
-			}
-		}
-		if participantType == "" {
-			return nil, domainValidationError("agreement_reviews", "review_participants", "participant type is required")
-		}
-		record := stores.AgreementReviewParticipantRecord{
-			ParticipantType: participantType,
-			Role:            stores.AgreementReviewParticipantRoleReviewer,
-			CanComment:      participant.CanComment,
-			CanApprove:      participant.CanApprove,
-			DecisionStatus:  stores.AgreementReviewDecisionPending,
-		}
-		if !record.CanComment && !record.CanApprove {
-			record.CanComment = true
-			record.CanApprove = true
-		}
-		switch participantType {
-		case stores.AgreementReviewParticipantTypeRecipient:
-			recipientID := strings.TrimSpace(participant.RecipientID)
-			if recipientID == "" {
-				return nil, domainValidationError("agreement_reviews", "review_participants", "recipient reviewers require recipient_id")
-			}
-			recipient, ok := validRecipients[recipientID]
-			if !ok {
-				return nil, domainValidationError("agreement_reviews", "review_participants", "recipient reviewers must be existing recipients")
-			}
-			record.RecipientID = recipientID
-			record.Email = strings.TrimSpace(firstNonEmptyString(participant.Email, recipient.Email))
-			record.DisplayName = strings.TrimSpace(firstNonEmptyString(participant.DisplayName, recipient.Name))
-		case stores.AgreementReviewParticipantTypeExternal:
-			email := strings.TrimSpace(strings.ToLower(participant.Email))
-			if email == "" {
-				return nil, domainValidationError("agreement_reviews", "review_participants", "external reviewers require email")
-			}
-			record.Email = email
-			record.DisplayName = strings.TrimSpace(participant.DisplayName)
-		default:
-			return nil, domainValidationError("agreement_reviews", "review_participants", "unsupported participant type")
+		record, err := buildValidatedReviewParticipantRecord(participant, validRecipients)
+		if err != nil {
+			return nil, err
 		}
 		identityKey := reviewParticipantIdentityKey(record)
 		if identityKey == "" {
@@ -1658,6 +1679,118 @@ func (s AgreementService) validateReviewParticipants(ctx context.Context, scope 
 		return nil, domainValidationError("agreement_reviews", "review_participants", "at least one reviewer is required")
 	}
 	return out, nil
+}
+
+func reviewParticipantInputsFromOpenInput(input ReviewOpenInput) []ReviewParticipantInput {
+	participantInputs := append([]ReviewParticipantInput(nil), input.ReviewParticipants...)
+	if len(participantInputs) > 0 || len(input.ReviewerIDs) == 0 {
+		return participantInputs
+	}
+	for _, reviewerID := range input.ReviewerIDs {
+		participantInputs = append(participantInputs, ReviewParticipantInput{
+			ParticipantType: stores.AgreementReviewParticipantTypeRecipient,
+			RecipientID:     reviewerID,
+			CanComment:      true,
+			CanApprove:      true,
+		})
+	}
+	return participantInputs
+}
+
+func (s AgreementService) validReviewRecipients(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+) (map[string]stores.RecipientRecord, error) {
+	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	if err != nil {
+		return nil, err
+	}
+	validRecipients := make(map[string]stores.RecipientRecord, len(recipients))
+	for _, recipient := range recipients {
+		validRecipients[recipient.ID] = recipient
+	}
+	return validRecipients, nil
+}
+
+func buildValidatedReviewParticipantRecord(
+	participant ReviewParticipantInput,
+	validRecipients map[string]stores.RecipientRecord,
+) (stores.AgreementReviewParticipantRecord, error) {
+	participantType := resolveReviewParticipantType(participant)
+	if participantType == "" {
+		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_reviews", "review_participants", "participant type is required")
+	}
+	record := defaultReviewParticipantRecord(participantType, participant)
+	switch participantType {
+	case stores.AgreementReviewParticipantTypeRecipient:
+		return populateRecipientReviewParticipantRecord(record, participant, validRecipients)
+	case stores.AgreementReviewParticipantTypeExternal:
+		return populateExternalReviewParticipantRecord(record, participant)
+	default:
+		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_reviews", "review_participants", "unsupported participant type")
+	}
+}
+
+func resolveReviewParticipantType(participant ReviewParticipantInput) string {
+	participantType := stores.NormalizeAgreementReviewParticipantType(participant.ParticipantType)
+	if participantType != "" {
+		return participantType
+	}
+	if strings.TrimSpace(participant.RecipientID) != "" {
+		return stores.AgreementReviewParticipantTypeRecipient
+	}
+	if strings.TrimSpace(participant.Email) != "" {
+		return stores.AgreementReviewParticipantTypeExternal
+	}
+	return ""
+}
+
+func defaultReviewParticipantRecord(participantType string, participant ReviewParticipantInput) stores.AgreementReviewParticipantRecord {
+	record := stores.AgreementReviewParticipantRecord{
+		ParticipantType: participantType,
+		Role:            stores.AgreementReviewParticipantRoleReviewer,
+		CanComment:      participant.CanComment,
+		CanApprove:      participant.CanApprove,
+		DecisionStatus:  stores.AgreementReviewDecisionPending,
+	}
+	if !record.CanComment && !record.CanApprove {
+		record.CanComment = true
+		record.CanApprove = true
+	}
+	return record
+}
+
+func populateRecipientReviewParticipantRecord(
+	record stores.AgreementReviewParticipantRecord,
+	participant ReviewParticipantInput,
+	validRecipients map[string]stores.RecipientRecord,
+) (stores.AgreementReviewParticipantRecord, error) {
+	recipientID := strings.TrimSpace(participant.RecipientID)
+	if recipientID == "" {
+		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_reviews", "review_participants", "recipient reviewers require recipient_id")
+	}
+	recipient, ok := validRecipients[recipientID]
+	if !ok {
+		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_reviews", "review_participants", "recipient reviewers must be existing recipients")
+	}
+	record.RecipientID = recipientID
+	record.Email = strings.TrimSpace(firstNonEmptyString(participant.Email, recipient.Email))
+	record.DisplayName = strings.TrimSpace(firstNonEmptyString(participant.DisplayName, recipient.Name))
+	return record, nil
+}
+
+func populateExternalReviewParticipantRecord(
+	record stores.AgreementReviewParticipantRecord,
+	participant ReviewParticipantInput,
+) (stores.AgreementReviewParticipantRecord, error) {
+	email := strings.TrimSpace(strings.ToLower(participant.Email))
+	if email == "" {
+		return stores.AgreementReviewParticipantRecord{}, domainValidationError("agreement_reviews", "review_participants", "external reviewers require email")
+	}
+	record.Email = email
+	record.DisplayName = strings.TrimSpace(participant.DisplayName)
+	return record, nil
 }
 
 func reviewParticipantsFromRecords(records []stores.AgreementReviewParticipantRecord) []ReviewParticipantInput {

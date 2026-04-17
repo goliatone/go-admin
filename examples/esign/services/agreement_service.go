@@ -525,147 +525,279 @@ func (s AgreementService) CreateRevision(ctx context.Context, scope stores.Scope
 	if s.agreements == nil {
 		return stores.AgreementRecord{}, domainValidationError("agreements", "store", "not configured")
 	}
-	sourceAgreementID := strings.TrimSpace(input.SourceAgreementID)
-	if sourceAgreementID == "" {
-		return stores.AgreementRecord{}, domainValidationError("agreements", "source_agreement_id", "required")
-	}
-	createdByUserID := strings.TrimSpace(input.CreatedByUserID)
-	if createdByUserID == "" {
-		return stores.AgreementRecord{}, domainValidationError("agreements", "created_by_user_id", "required")
-	}
-	idempotencyKey := strings.TrimSpace(input.IdempotencyKey)
-	kind := normalizeAgreementRevisionKind(input.Kind)
-	if kind == "" {
-		return stores.AgreementRecord{}, domainValidationError("agreements", "revision_kind", "unsupported revision kind")
+	config, err := normalizeCreateRevisionInput(input)
+	if err != nil {
+		return stores.AgreementRecord{}, err
 	}
 
 	var created stores.AgreementRecord
 	if err := s.withWriteTx(ctx, func(txSvc AgreementService) error {
-		requestID := ""
-		if txSvc.revisionRequests != nil && idempotencyKey != "" {
-			request, reserved, err := txSvc.revisionRequests.BeginAgreementRevisionRequest(ctx, scope, stores.AgreementRevisionRequestInput{
-				SourceAgreementID: sourceAgreementID,
-				RevisionKind:      string(kind),
-				IdempotencyKey:    idempotencyKey,
-				RequestHash:       txSvc.revisionRequestHash(sourceAgreementID, kind, createdByUserID),
-				ActorID:           createdByUserID,
-				Now:               txSvc.now().UTC(),
-			})
-			if err != nil {
-				return err
-			}
-			if !reserved {
-				if strings.TrimSpace(request.CreatedAgreementID) == "" {
-					return domainValidationError("agreement_revision_requests", "created_agreement_id", "replay request incomplete")
-				}
-				created, err = txSvc.agreements.GetAgreement(ctx, scope, request.CreatedAgreementID)
-				return err
-			}
-			requestID = strings.TrimSpace(request.ID)
+		createdAgreement, createErr := txSvc.createRevisionWithTx(ctx, scope, config, input.IPAddress)
+		if createErr != nil {
+			return createErr
 		}
-		source, err := txSvc.agreements.GetAgreement(ctx, scope, sourceAgreementID)
-		if err != nil {
-			return err
-		}
-		validateErr := validateSourceAgreementForRevision(source, kind)
-		if validateErr != nil {
-			return validateErr
-		}
-
-		parentExecutedSHA256, err := txSvc.resolveParentExecutedSHA256(ctx, scope, source, kind)
-		if err != nil {
-			return err
-		}
-		sourceRevisionID := strings.TrimSpace(source.SourceRevisionID)
-		now := txSvc.now().UTC()
-		rootAgreementID := strings.TrimSpace(source.RootAgreementID)
-		if rootAgreementID == "" {
-			rootAgreementID = strings.TrimSpace(source.ID)
-		}
-		workflowKind := stores.AgreementWorkflowKindCorrection
-		sourceEventType := "agreement.correction_requested"
-		childCreatedEventType := "agreement.correction_draft_created"
-		childLinkedEventType := "agreement.corrected_from"
-		if kind == AgreementRevisionKindAmendment {
-			workflowKind = stores.AgreementWorkflowKindAmendment
-			sourceEventType = "agreement.amendment_requested"
-			childCreatedEventType = "agreement.amendment_draft_created"
-			childLinkedEventType = "agreement.amended_from"
-		}
-
-		created, err = txSvc.agreements.CreateDraft(ctx, scope, stores.AgreementRecord{
-			DocumentID:             strings.TrimSpace(source.DocumentID),
-			WorkflowKind:           workflowKind,
-			RootAgreementID:        rootAgreementID,
-			ParentAgreementID:      strings.TrimSpace(source.ID),
-			ParentExecutedSHA256:   strings.TrimSpace(parentExecutedSHA256),
-			SourceType:             strings.TrimSpace(source.SourceType),
-			SourceGoogleFileID:     strings.TrimSpace(source.SourceGoogleFileID),
-			SourceGoogleDocURL:     strings.TrimSpace(source.SourceGoogleDocURL),
-			SourceModifiedTime:     source.SourceModifiedTime,
-			SourceExportedAt:       source.SourceExportedAt,
-			SourceExportedByUserID: strings.TrimSpace(source.SourceExportedByUserID),
-			SourceMimeType:         strings.TrimSpace(source.SourceMimeType),
-			SourceIngestionMode:    strings.TrimSpace(source.SourceIngestionMode),
-			SourceRevisionID:       sourceRevisionID,
-			Status:                 stores.AgreementStatusDraft,
-			Title:                  strings.TrimSpace(source.Title),
-			Message:                strings.TrimSpace(source.Message),
-			CreatedByUserID:        createdByUserID,
-			UpdatedByUserID:        createdByUserID,
-			CreatedAt:              now,
-			UpdatedAt:              now,
-		})
-		if err != nil {
-			return err
-		}
-		copyErr := txSvc.copyRevisionAuthoringState(ctx, scope, source, created)
-		if copyErr != nil {
-			return copyErr
-		}
-
-		baseMetadata := map[string]any{
-			"source_agreement_id":    strings.TrimSpace(source.ID),
-			"new_agreement_id":       strings.TrimSpace(created.ID),
-			"root_agreement_id":      strings.TrimSpace(rootAgreementID),
-			"parent_agreement_id":    strings.TrimSpace(source.ID),
-			"workflow_kind":          strings.TrimSpace(workflowKind),
-			"parent_executed_sha256": strings.TrimSpace(parentExecutedSHA256),
-			"idempotency_key":        idempotencyKey,
-			"change_summary": map[string]any{
-				"document_changed": nil,
-				"title_changed":    nil,
-				"message_changed":  nil,
-			},
-		}
-		auditErr := txSvc.appendAuditEventWithIP(ctx, scope, source.ID, sourceEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata))
-		if auditErr != nil {
-			return auditErr
-		}
-		auditErr = txSvc.appendAuditEventWithIP(ctx, scope, created.ID, childCreatedEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata))
-		if auditErr != nil {
-			return auditErr
-		}
-		auditErr = txSvc.appendAuditEventWithIP(ctx, scope, created.ID, childLinkedEventType, "user", createdByUserID, input.IPAddress, cloneAnyMap(baseMetadata))
-		if auditErr != nil {
-			return auditErr
-		}
-		if workflowKind == stores.AgreementWorkflowKindCorrection {
-			source, err = txSvc.supersedeCorrectionParentAgreement(ctx, scope, source, created, input.IPAddress, cloneAnyMap(baseMetadata))
-			if err != nil {
-				return err
-			}
-		}
-		if requestID != "" {
-			if _, err := txSvc.revisionRequests.CompleteAgreementRevisionRequest(ctx, scope, requestID, created.ID, txSvc.now().UTC()); err != nil {
-				return err
-			}
-		}
+		created = createdAgreement
 		return nil
 	}); err != nil {
 		return stores.AgreementRecord{}, err
 	}
 	return created, nil
+}
+
+type createRevisionConfig struct {
+	sourceAgreementID string
+	createdByUserID   string
+	idempotencyKey    string
+	kind              AgreementRevisionKind
+}
+
+type revisionWorkflowConfig struct {
+	workflowKind          string
+	sourceEventType       string
+	childCreatedEventType string
+	childLinkedEventType  string
+}
+
+type revisionSourceState struct {
+	source               stores.AgreementRecord
+	parentExecutedSHA256 string
+	rootAgreementID      string
+	sourceRevisionID     string
+}
+
+type agreementSendValidationContext struct {
+	agreement         stores.AgreementRecord
+	participants      []stores.ParticipantRecord
+	definitions       []stores.FieldDefinitionRecord
+	instances         []stores.FieldInstanceRecord
+	documentPageCount int
+}
+
+func normalizeCreateRevisionInput(input CreateRevisionInput) (createRevisionConfig, error) {
+	config := createRevisionConfig{
+		sourceAgreementID: strings.TrimSpace(input.SourceAgreementID),
+		createdByUserID:   strings.TrimSpace(input.CreatedByUserID),
+		idempotencyKey:    strings.TrimSpace(input.IdempotencyKey),
+		kind:              normalizeAgreementRevisionKind(input.Kind),
+	}
+	if config.sourceAgreementID == "" {
+		return createRevisionConfig{}, domainValidationError("agreements", "source_agreement_id", "required")
+	}
+	if config.createdByUserID == "" {
+		return createRevisionConfig{}, domainValidationError("agreements", "created_by_user_id", "required")
+	}
+	if config.kind == "" {
+		return createRevisionConfig{}, domainValidationError("agreements", "revision_kind", "unsupported revision kind")
+	}
+	return config, nil
+}
+
+func (s AgreementService) createRevisionWithTx(
+	ctx context.Context,
+	scope stores.Scope,
+	config createRevisionConfig,
+	ipAddress string,
+) (stores.AgreementRecord, error) {
+	requestID, replayAgreement, err := s.beginCreateRevisionRequest(ctx, scope, config)
+	if err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	if replayAgreement != nil {
+		return *replayAgreement, nil
+	}
+	sourceState, err := s.loadRevisionSourceState(ctx, scope, config)
+	if err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	workflow := revisionWorkflowForKind(config.kind)
+	created, err := s.createRevisionDraft(ctx, scope, sourceState, workflow.workflowKind, config.createdByUserID)
+	if err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	if err := s.copyRevisionAuthoringState(ctx, scope, sourceState.source, created); err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	baseMetadata := buildCreateRevisionMetadata(sourceState, created, workflow.workflowKind, config.idempotencyKey)
+	if err := s.appendCreateRevisionAuditEvents(ctx, scope, sourceState.source.ID, created.ID, workflow, config.createdByUserID, ipAddress, baseMetadata); err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	if err := s.finalizeCreateRevisionSideEffects(ctx, scope, requestID, sourceState.source, created, workflow.workflowKind, ipAddress, baseMetadata); err != nil {
+		return stores.AgreementRecord{}, err
+	}
+	return created, nil
+}
+
+func (s AgreementService) beginCreateRevisionRequest(
+	ctx context.Context,
+	scope stores.Scope,
+	config createRevisionConfig,
+) (string, *stores.AgreementRecord, error) {
+	if s.revisionRequests == nil || config.idempotencyKey == "" {
+		return "", nil, nil
+	}
+	request, reserved, err := s.revisionRequests.BeginAgreementRevisionRequest(ctx, scope, stores.AgreementRevisionRequestInput{
+		SourceAgreementID: config.sourceAgreementID,
+		RevisionKind:      string(config.kind),
+		IdempotencyKey:    config.idempotencyKey,
+		RequestHash:       s.revisionRequestHash(config.sourceAgreementID, config.kind, config.createdByUserID),
+		ActorID:           config.createdByUserID,
+		Now:               s.now().UTC(),
+	})
+	if err != nil {
+		return "", nil, err
+	}
+	if reserved {
+		return strings.TrimSpace(request.ID), nil, nil
+	}
+	if strings.TrimSpace(request.CreatedAgreementID) == "" {
+		return "", nil, domainValidationError("agreement_revision_requests", "created_agreement_id", "replay request incomplete")
+	}
+	created, err := s.agreements.GetAgreement(ctx, scope, request.CreatedAgreementID)
+	if err != nil {
+		return "", nil, err
+	}
+	return "", &created, nil
+}
+
+func (s AgreementService) loadRevisionSourceState(
+	ctx context.Context,
+	scope stores.Scope,
+	config createRevisionConfig,
+) (revisionSourceState, error) {
+	source, err := s.agreements.GetAgreement(ctx, scope, config.sourceAgreementID)
+	if err != nil {
+		return revisionSourceState{}, err
+	}
+	if validationErr := validateSourceAgreementForRevision(source, config.kind); validationErr != nil {
+		return revisionSourceState{}, validationErr
+	}
+	parentExecutedSHA256, err := s.resolveParentExecutedSHA256(ctx, scope, source, config.kind)
+	if err != nil {
+		return revisionSourceState{}, err
+	}
+	rootAgreementID := strings.TrimSpace(source.RootAgreementID)
+	if rootAgreementID == "" {
+		rootAgreementID = strings.TrimSpace(source.ID)
+	}
+	return revisionSourceState{
+		source:               source,
+		parentExecutedSHA256: strings.TrimSpace(parentExecutedSHA256),
+		rootAgreementID:      rootAgreementID,
+		sourceRevisionID:     strings.TrimSpace(source.SourceRevisionID),
+	}, nil
+}
+
+func revisionWorkflowForKind(kind AgreementRevisionKind) revisionWorkflowConfig {
+	if kind == AgreementRevisionKindAmendment {
+		return revisionWorkflowConfig{
+			workflowKind:          stores.AgreementWorkflowKindAmendment,
+			sourceEventType:       "agreement.amendment_requested",
+			childCreatedEventType: "agreement.amendment_draft_created",
+			childLinkedEventType:  "agreement.amended_from",
+		}
+	}
+	return revisionWorkflowConfig{
+		workflowKind:          stores.AgreementWorkflowKindCorrection,
+		sourceEventType:       "agreement.correction_requested",
+		childCreatedEventType: "agreement.correction_draft_created",
+		childLinkedEventType:  "agreement.corrected_from",
+	}
+}
+
+func (s AgreementService) createRevisionDraft(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceState revisionSourceState,
+	workflowKind string,
+	createdByUserID string,
+) (stores.AgreementRecord, error) {
+	now := s.now().UTC()
+	return s.agreements.CreateDraft(ctx, scope, stores.AgreementRecord{
+		DocumentID:             strings.TrimSpace(sourceState.source.DocumentID),
+		WorkflowKind:           workflowKind,
+		RootAgreementID:        sourceState.rootAgreementID,
+		ParentAgreementID:      strings.TrimSpace(sourceState.source.ID),
+		ParentExecutedSHA256:   sourceState.parentExecutedSHA256,
+		SourceType:             strings.TrimSpace(sourceState.source.SourceType),
+		SourceGoogleFileID:     strings.TrimSpace(sourceState.source.SourceGoogleFileID),
+		SourceGoogleDocURL:     strings.TrimSpace(sourceState.source.SourceGoogleDocURL),
+		SourceModifiedTime:     sourceState.source.SourceModifiedTime,
+		SourceExportedAt:       sourceState.source.SourceExportedAt,
+		SourceExportedByUserID: strings.TrimSpace(sourceState.source.SourceExportedByUserID),
+		SourceMimeType:         strings.TrimSpace(sourceState.source.SourceMimeType),
+		SourceIngestionMode:    strings.TrimSpace(sourceState.source.SourceIngestionMode),
+		SourceRevisionID:       sourceState.sourceRevisionID,
+		Status:                 stores.AgreementStatusDraft,
+		Title:                  strings.TrimSpace(sourceState.source.Title),
+		Message:                strings.TrimSpace(sourceState.source.Message),
+		CreatedByUserID:        createdByUserID,
+		UpdatedByUserID:        createdByUserID,
+		CreatedAt:              now,
+		UpdatedAt:              now,
+	})
+}
+
+func buildCreateRevisionMetadata(
+	sourceState revisionSourceState,
+	created stores.AgreementRecord,
+	workflowKind string,
+	idempotencyKey string,
+) map[string]any {
+	return map[string]any{
+		"source_agreement_id":    strings.TrimSpace(sourceState.source.ID),
+		"new_agreement_id":       strings.TrimSpace(created.ID),
+		"root_agreement_id":      strings.TrimSpace(sourceState.rootAgreementID),
+		"parent_agreement_id":    strings.TrimSpace(sourceState.source.ID),
+		"workflow_kind":          strings.TrimSpace(workflowKind),
+		"parent_executed_sha256": strings.TrimSpace(sourceState.parentExecutedSHA256),
+		"idempotency_key":        idempotencyKey,
+		"change_summary": map[string]any{
+			"document_changed": nil,
+			"title_changed":    nil,
+			"message_changed":  nil,
+		},
+	}
+}
+
+func (s AgreementService) appendCreateRevisionAuditEvents(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceAgreementID string,
+	createdAgreementID string,
+	workflow revisionWorkflowConfig,
+	createdByUserID string,
+	ipAddress string,
+	baseMetadata map[string]any,
+) error {
+	if err := s.appendAuditEventWithIP(ctx, scope, sourceAgreementID, workflow.sourceEventType, "user", createdByUserID, ipAddress, cloneAnyMap(baseMetadata)); err != nil {
+		return err
+	}
+	if err := s.appendAuditEventWithIP(ctx, scope, createdAgreementID, workflow.childCreatedEventType, "user", createdByUserID, ipAddress, cloneAnyMap(baseMetadata)); err != nil {
+		return err
+	}
+	return s.appendAuditEventWithIP(ctx, scope, createdAgreementID, workflow.childLinkedEventType, "user", createdByUserID, ipAddress, cloneAnyMap(baseMetadata))
+}
+
+func (s AgreementService) finalizeCreateRevisionSideEffects(
+	ctx context.Context,
+	scope stores.Scope,
+	requestID string,
+	source stores.AgreementRecord,
+	created stores.AgreementRecord,
+	workflowKind string,
+	ipAddress string,
+	baseMetadata map[string]any,
+) error {
+	if workflowKind == stores.AgreementWorkflowKindCorrection {
+		if _, err := s.supersedeCorrectionParentAgreement(ctx, scope, source, created, ipAddress, cloneAnyMap(baseMetadata)); err != nil {
+			return err
+		}
+	}
+	if requestID == "" {
+		return nil
+	}
+	_, err := s.revisionRequests.CompleteAgreementRevisionRequest(ctx, scope, requestID, created.ID, s.now().UTC())
+	return err
 }
 
 func (s AgreementService) supersedeCorrectionParentAgreement(
@@ -1042,60 +1174,105 @@ func (s AgreementService) ValidateBeforeSend(ctx context.Context, scope stores.S
 	if s.agreements == nil {
 		return AgreementValidationResult{}, domainValidationError("agreements", "store", "not configured")
 	}
-	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	validationCtx, err := s.loadAgreementSendValidationContext(ctx, scope, agreementID)
 	if err != nil {
 		return AgreementValidationResult{}, err
 	}
 
 	issues := make([]ValidationIssue, 0)
-	if agreement.Status != stores.AgreementStatusDraft {
+	if validationCtx.agreement.Status != stores.AgreementStatusDraft {
 		issues = append(issues, ValidationIssue{
 			Code:    string(ErrorCodeAgreementImmutable),
 			Field:   "status",
 			Message: "agreement must be in draft before send validation",
 		})
 	}
-
-	participants, err := s.agreements.ListParticipants(ctx, scope, agreementID)
-	if err != nil {
-		return AgreementValidationResult{}, err
-	}
-	definitions, err := s.agreements.ListFieldDefinitions(ctx, scope, agreementID)
-	if err != nil {
-		return AgreementValidationResult{}, err
-	}
-	instances, err := s.agreements.ListFieldInstances(ctx, scope, agreementID)
-	if err != nil {
-		return AgreementValidationResult{}, err
-	}
-	documentPageCount, err := s.documentPageCount(ctx, scope, agreement)
-	if err != nil {
-		return AgreementValidationResult{}, err
-	}
-	issues = append(issues, participantValidationIssues(participants)...)
-
-	if len(definitions) == 0 {
+	issues = append(issues, participantValidationIssues(validationCtx.participants)...)
+	if len(validationCtx.definitions) == 0 {
 		issues = append(issues, ValidationIssue{
 			Code:    string(ErrorCodeMissingRequiredFields),
 			Field:   "field_definitions",
 			Message: "at least one field definition is required",
 		})
 	}
-	if len(instances) == 0 {
+	if len(validationCtx.instances) == 0 {
 		issues = append(issues, ValidationIssue{
 			Code:    string(ErrorCodeMissingRequiredFields),
 			Field:   "field_instances",
 			Message: "at least one field instance is required",
 		})
 	}
+	signers := signerParticipantsByID(validationCtx.participants)
+	instancesByDefinition, instanceIssues := validateSendFieldInstances(validationCtx.instances, validationCtx.definitions, validationCtx.documentPageCount)
+	issues = append(issues, instanceIssues...)
+	issues = append(issues, validateSendFieldDefinitions(validationCtx.definitions, signers, instancesByDefinition)...)
+	issues = append(issues, validateRequiredSignatureFields(signers, validationCtx.definitions, instancesByDefinition)...)
+	if err := s.validateReviewGateBeforeSend(ctx, scope, validationCtx.agreement); err != nil {
+		issues = append(issues, ValidationIssue{
+			Code:    string(ErrorCodeMissingRequiredFields),
+			Field:   "review_status",
+			Message: err.Error(),
+		})
+	}
 
+	return AgreementValidationResult{
+		Valid:          len(issues) == 0,
+		RecipientCount: len(validationCtx.participants),
+		FieldCount:     len(validationCtx.instances),
+		Issues:         issues,
+	}, nil
+}
+
+func (s AgreementService) loadAgreementSendValidationContext(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+) (agreementSendValidationContext, error) {
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return agreementSendValidationContext{}, err
+	}
+	participants, err := s.agreements.ListParticipants(ctx, scope, agreementID)
+	if err != nil {
+		return agreementSendValidationContext{}, err
+	}
+	definitions, err := s.agreements.ListFieldDefinitions(ctx, scope, agreementID)
+	if err != nil {
+		return agreementSendValidationContext{}, err
+	}
+	instances, err := s.agreements.ListFieldInstances(ctx, scope, agreementID)
+	if err != nil {
+		return agreementSendValidationContext{}, err
+	}
+	documentPageCount, err := s.documentPageCount(ctx, scope, agreement)
+	if err != nil {
+		return agreementSendValidationContext{}, err
+	}
+	return agreementSendValidationContext{
+		agreement:         agreement,
+		participants:      participants,
+		definitions:       definitions,
+		instances:         instances,
+		documentPageCount: documentPageCount,
+	}, nil
+}
+
+func signerParticipantsByID(participants []stores.ParticipantRecord) map[string]stores.ParticipantRecord {
 	signers := map[string]stores.ParticipantRecord{}
 	for _, participant := range participants {
 		if participant.Role == stores.RecipientRoleSigner {
 			signers[participant.ID] = participant
 		}
 	}
+	return signers
+}
 
+func validateSendFieldInstances(
+	instances []stores.FieldInstanceRecord,
+	definitions []stores.FieldDefinitionRecord,
+	documentPageCount int,
+) (map[string]int, []ValidationIssue) {
+	issues := make([]ValidationIssue, 0)
 	instancesByDefinition := make(map[string]int, len(instances))
 	definitionByID := make(map[string]stores.FieldDefinitionRecord, len(definitions))
 	for _, definition := range definitions {
@@ -1128,94 +1305,108 @@ func (s AgreementService) ValidateBeforeSend(ctx context.Context, scope stores.S
 		}
 		instancesByDefinition[instance.FieldDefinitionID]++
 	}
+	return instancesByDefinition, issues
+}
 
+func validateSendFieldDefinitions(
+	definitions []stores.FieldDefinitionRecord,
+	signers map[string]stores.ParticipantRecord,
+	instancesByDefinition map[string]int,
+) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
+	for _, definition := range definitions {
+		issues = append(issues, validateSendFieldDefinition(definition, signers, instancesByDefinition)...)
+	}
+	return issues
+}
+
+func validateSendFieldDefinition(
+	definition stores.FieldDefinitionRecord,
+	signers map[string]stores.ParticipantRecord,
+	instancesByDefinition map[string]int,
+) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
+	if !isV1FieldType(definition.Type) {
+		return append(issues, ValidationIssue{
+			Code:    string(ErrorCodeMissingRequiredFields),
+			Field:   "field_definitions.field_type",
+			Message: "unsupported field type",
+		})
+	}
+	if definition.Type == stores.FieldTypeDateSigned {
+		issues = append(issues, validateDateSignedFieldDefinition(definition)...)
+	}
+	participantID := strings.TrimSpace(definition.ParticipantID)
+	if participantID == "" {
+		return append(issues, ValidationIssue{
+			Code:    string(ErrorCodeMissingRequiredFields),
+			Field:   "field_definitions.participant_id",
+			Message: "field definitions must be assigned to a signer participant",
+		})
+	}
+	participant, ok := signers[participantID]
+	if !ok || participant.Role != stores.RecipientRoleSigner {
+		issues = append(issues, ValidationIssue{
+			Code:    string(ErrorCodeInvalidSignerState),
+			Field:   "field_definitions.participant_id",
+			Message: "field definition participant must be a signer",
+		})
+	}
+	if definition.Required && instancesByDefinition[definition.ID] == 0 {
+		issues = append(issues, ValidationIssue{
+			Code:    string(ErrorCodeMissingRequiredFields),
+			Field:   "field_instances",
+			Message: "required field definition must include at least one valid instance placement",
+		})
+	}
+	return issues
+}
+
+func validateDateSignedFieldDefinition(definition stores.FieldDefinitionRecord) []ValidationIssue {
+	issues := make([]ValidationIssue, 0)
+	if !definition.Required {
+		issues = append(issues, ValidationIssue{
+			Code:    string(ErrorCodeInvalidSignerState),
+			Field:   "field_definitions.date_signed.required",
+			Message: "date_signed fields must be required and system-managed",
+		})
+	}
+	if strings.TrimSpace(definition.ParticipantID) == "" {
+		issues = append(issues, ValidationIssue{
+			Code:    string(ErrorCodeMissingRequiredFields),
+			Field:   "field_definitions.date_signed.participant_id",
+			Message: "date_signed fields must target a signer",
+		})
+	}
+	return issues
+}
+
+func validateRequiredSignatureFields(
+	signers map[string]stores.ParticipantRecord,
+	definitions []stores.FieldDefinitionRecord,
+	instancesByDefinition map[string]int,
+) []ValidationIssue {
 	requiredSignatureBySigner := map[string]bool{}
 	for _, definition := range definitions {
-		if !isV1FieldType(definition.Type) {
-			issues = append(issues, ValidationIssue{
-				Code:    string(ErrorCodeMissingRequiredFields),
-				Field:   "field_definitions.field_type",
-				Message: "unsupported field type",
-			})
-			continue
-		}
-		if definition.Type == stores.FieldTypeDateSigned {
-			if !definition.Required {
-				issues = append(issues, ValidationIssue{
-					Code:    string(ErrorCodeInvalidSignerState),
-					Field:   "field_definitions.date_signed.required",
-					Message: "date_signed fields must be required and system-managed",
-				})
-			}
-			if strings.TrimSpace(definition.ParticipantID) == "" {
-				issues = append(issues, ValidationIssue{
-					Code:    string(ErrorCodeMissingRequiredFields),
-					Field:   "field_definitions.date_signed.participant_id",
-					Message: "date_signed fields must target a signer",
-				})
-			}
-		}
-		if strings.TrimSpace(definition.ParticipantID) == "" {
-			issues = append(issues, ValidationIssue{
-				Code:    string(ErrorCodeMissingRequiredFields),
-				Field:   "field_definitions.participant_id",
-				Message: "field definitions must be assigned to a signer participant",
-			})
-			continue
-		}
-		if strings.TrimSpace(definition.ParticipantID) != "" {
-			participant, ok := signers[definition.ParticipantID]
-			if !ok {
-				issues = append(issues, ValidationIssue{
-					Code:    string(ErrorCodeInvalidSignerState),
-					Field:   "field_definitions.participant_id",
-					Message: "field definition participant must be a signer",
-				})
-				continue
-			}
-			if participant.Role != stores.RecipientRoleSigner {
-				issues = append(issues, ValidationIssue{
-					Code:    string(ErrorCodeInvalidSignerState),
-					Field:   "field_definitions.participant_id",
-					Message: "field definition participant must be a signer",
-				})
-			}
-		}
-		if definition.Required && instancesByDefinition[definition.ID] == 0 {
-			issues = append(issues, ValidationIssue{
-				Code:    string(ErrorCodeMissingRequiredFields),
-				Field:   "field_instances",
-				Message: "required field definition must include at least one valid instance placement",
-			})
-		}
-		if definition.Required && definition.Type == stores.FieldTypeSignature && strings.TrimSpace(definition.ParticipantID) != "" && instancesByDefinition[definition.ID] > 0 {
+		if definition.Required &&
+			definition.Type == stores.FieldTypeSignature &&
+			strings.TrimSpace(definition.ParticipantID) != "" &&
+			instancesByDefinition[definition.ID] > 0 {
 			requiredSignatureBySigner[definition.ParticipantID] = true
 		}
 	}
-
+	issues := make([]ValidationIssue, 0)
 	for signerID := range signers {
-		if !requiredSignatureBySigner[signerID] {
-			issues = append(issues, ValidationIssue{
-				Code:    string(ErrorCodeMissingRequiredFields),
-				Field:   "field_definitions.signature",
-				Message: "each signer requires at least one required signature field",
-			})
+		if requiredSignatureBySigner[signerID] {
+			continue
 		}
-	}
-	if err := s.validateReviewGateBeforeSend(ctx, scope, agreement); err != nil {
 		issues = append(issues, ValidationIssue{
 			Code:    string(ErrorCodeMissingRequiredFields),
-			Field:   "review_status",
-			Message: err.Error(),
+			Field:   "field_definitions.signature",
+			Message: "each signer requires at least one required signature field",
 		})
 	}
-
-	return AgreementValidationResult{
-		Valid:          len(issues) == 0,
-		RecipientCount: len(participants),
-		FieldCount:     len(instances),
-		Issues:         issues,
-	}, nil
+	return issues
 }
 
 // ResolveFieldValueForSigner enforces system-managed field semantics for signer submissions.
@@ -1745,110 +1936,159 @@ func (s AgreementService) Resend(ctx context.Context, scope stores.Scope, agreem
 	}
 	var result ResendResult
 	if err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
-		resendSource := normalizeResendSource(input.Source)
-		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
-		if err != nil {
-			return err
+		resendResult, resendErr := txSvc.resendWithTx(ctx, scope, agreementID, input, hooks)
+		if resendErr != nil {
+			return resendErr
 		}
-		if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
-			return domainValidationError("agreements", "status", "resend requires sent or in_progress status")
-		}
-
-		recipients, err := txSvc.agreements.ListRecipients(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		activeStage, activeSigners, ok := activeSignerStage(recipients)
-		if !ok {
-			return domainValidationError("recipients", "role", "no active signer recipient found")
-		}
-
-		target := activeSigners[0]
-		requestedID := strings.TrimSpace(input.RecipientID)
-		if requestedID != "" {
-			var found *stores.RecipientRecord
-			for i := range recipients {
-				if recipients[i].ID == requestedID {
-					found = &recipients[i]
-					break
-				}
-			}
-			if found == nil {
-				return domainValidationError("recipients", "id", "recipient not found")
-			}
-			target = *found
-		}
-
-		if target.Role != stores.RecipientRoleSigner {
-			return domainValidationError("recipients", "role", "resend target must be signer")
-		}
-		activeRecipientIDs := recipientIDs(activeSigners)
-		if !containsRecipientID(activeRecipientIDs, target.ID) && !input.AllowOutOfOrderResend {
-			return domainValidationError("recipients", "signing_stage", "resend target is not in active signing stage")
-		}
-
-		issued, err := txSvc.tokens.IssuePending(ctx, scope, agreementID, target.ID)
-		if err != nil {
-			return err
-		}
-		auditErr := txSvc.appendAuditEventWithIP(ctx, scope, agreement.ID, "agreement.resent", "system", "", input.IPAddress, map[string]any{
-			"recipient_id":              target.ID,
-			"active_stage":              activeStage,
-			"active_recipient_id":       coalesceFirst(activeRecipientIDs),
-			"active_recipient_ids":      activeRecipientIDs,
-			"rotate_token":              input.RotateToken,
-			"invalidate_existing":       input.InvalidateExisting,
-			"allow_out_of_order_resend": input.AllowOutOfOrderResend,
-			"source":                    resendSource,
-			"token_id":                  issued.Record.ID,
-		})
-		if auditErr != nil {
-			return auditErr
-		}
-		reminderErr := txSvc.recordReminderResendState(ctx, scope, agreement, target, resendSource, input.ReminderLease, input.ReminderLeaseSeconds)
-		if reminderErr != nil {
-			return reminderErr
-		}
-		notification := AgreementNotification{
-			AgreementID:   agreement.ID,
-			RecipientID:   target.ID,
-			CorrelationID: strings.TrimSpace(input.IdempotencyKey),
-			Type:          NotificationSigningReminder,
-			Token:         issued,
-		}
-		effect, _, err := txSvc.prepareAgreementNotificationEffect(
-			ctx,
-			scope,
-			GuardedEffectKindAgreementResendReminder,
-			notification,
-			AgreementResendNotificationFailedAuditEvent,
-			strings.TrimSpace(input.IdempotencyKey),
-		)
-		if err != nil {
-			return err
-		}
-		agreement, _, err = ApplyAgreementNotificationSummary(ctx, txSvc.agreements, txSvc.effects, scope, agreement.ID)
-		if err != nil {
-			return err
-		}
-		if hooks != nil && s.notificationDispatch != nil {
-			hooks.AfterCommit(func() error {
-				s.notificationDispatch.NotifyScope(scope)
-				return nil
-			})
-		}
-		result = ResendResult{
-			Agreement:       agreement,
-			Recipient:       target,
-			ActiveRecipient: activeSigners[0],
-			Token:           issued,
-			Effects:         []AgreementNotificationEffectDetail{AgreementNotificationEffectDetailFromRecord(effect)},
-		}
+		result = resendResult
 		return nil
 	}); err != nil {
 		return ResendResult{}, err
 	}
 	return result, nil
+}
+
+func (s AgreementService) resendWithTx(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	input ResendInput,
+	hooks *stores.TxHooks,
+) (ResendResult, error) {
+	agreement, recipients, activeStage, activeSigners, err := s.loadResendContext(ctx, scope, agreementID)
+	if err != nil {
+		return ResendResult{}, err
+	}
+	target, activeRecipientIDs, err := resolveResendTarget(recipients, activeSigners, input)
+	if err != nil {
+		return ResendResult{}, err
+	}
+	return s.issueResendNotification(ctx, scope, agreement, target, activeStage, activeSigners, activeRecipientIDs, input, hooks)
+}
+
+func (s AgreementService) loadResendContext(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+) (stores.AgreementRecord, []stores.RecipientRecord, int, []stores.RecipientRecord, error) {
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementRecord{}, nil, 0, nil, err
+	}
+	if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
+		return stores.AgreementRecord{}, nil, 0, nil, domainValidationError("agreements", "status", "resend requires sent or in_progress status")
+	}
+	recipients, err := s.agreements.ListRecipients(ctx, scope, agreementID)
+	if err != nil {
+		return stores.AgreementRecord{}, nil, 0, nil, err
+	}
+	activeStage, activeSigners, ok := activeSignerStage(recipients)
+	if !ok {
+		return stores.AgreementRecord{}, nil, 0, nil, domainValidationError("recipients", "role", "no active signer recipient found")
+	}
+	return agreement, recipients, activeStage, activeSigners, nil
+}
+
+func resolveResendTarget(
+	recipients []stores.RecipientRecord,
+	activeSigners []stores.RecipientRecord,
+	input ResendInput,
+) (stores.RecipientRecord, []string, error) {
+	target := activeSigners[0]
+	requestedID := strings.TrimSpace(input.RecipientID)
+	if requestedID != "" {
+		found, ok := findResendRecipientByID(recipients, requestedID)
+		if !ok {
+			return stores.RecipientRecord{}, nil, domainValidationError("recipients", "id", "recipient not found")
+		}
+		target = found
+	}
+	if target.Role != stores.RecipientRoleSigner {
+		return stores.RecipientRecord{}, nil, domainValidationError("recipients", "role", "resend target must be signer")
+	}
+	activeRecipientIDs := recipientIDs(activeSigners)
+	if !containsRecipientID(activeRecipientIDs, target.ID) && !input.AllowOutOfOrderResend {
+		return stores.RecipientRecord{}, nil, domainValidationError("recipients", "signing_stage", "resend target is not in active signing stage")
+	}
+	return target, activeRecipientIDs, nil
+}
+
+func findResendRecipientByID(recipients []stores.RecipientRecord, recipientID string) (stores.RecipientRecord, bool) {
+	for _, recipient := range recipients {
+		if recipient.ID == recipientID {
+			return recipient, true
+		}
+	}
+	return stores.RecipientRecord{}, false
+}
+
+func (s AgreementService) issueResendNotification(
+	ctx context.Context,
+	scope stores.Scope,
+	agreement stores.AgreementRecord,
+	target stores.RecipientRecord,
+	activeStage int,
+	activeSigners []stores.RecipientRecord,
+	activeRecipientIDs []string,
+	input ResendInput,
+	hooks *stores.TxHooks,
+) (ResendResult, error) {
+	resendSource := normalizeResendSource(input.Source)
+	issued, err := s.tokens.IssuePending(ctx, scope, agreement.ID, target.ID)
+	if err != nil {
+		return ResendResult{}, err
+	}
+	if auditErr := s.appendAuditEventWithIP(ctx, scope, agreement.ID, "agreement.resent", "system", "", input.IPAddress, map[string]any{
+		"recipient_id":              target.ID,
+		"active_stage":              activeStage,
+		"active_recipient_id":       coalesceFirst(activeRecipientIDs),
+		"active_recipient_ids":      activeRecipientIDs,
+		"rotate_token":              input.RotateToken,
+		"invalidate_existing":       input.InvalidateExisting,
+		"allow_out_of_order_resend": input.AllowOutOfOrderResend,
+		"source":                    resendSource,
+		"token_id":                  issued.Record.ID,
+	}); auditErr != nil {
+		return ResendResult{}, auditErr
+	}
+	if reminderErr := s.recordReminderResendState(ctx, scope, agreement, target, resendSource, input.ReminderLease, input.ReminderLeaseSeconds); reminderErr != nil {
+		return ResendResult{}, reminderErr
+	}
+	notification := AgreementNotification{
+		AgreementID:   agreement.ID,
+		RecipientID:   target.ID,
+		CorrelationID: strings.TrimSpace(input.IdempotencyKey),
+		Type:          NotificationSigningReminder,
+		Token:         issued,
+	}
+	effect, _, err := s.prepareAgreementNotificationEffect(
+		ctx,
+		scope,
+		GuardedEffectKindAgreementResendReminder,
+		notification,
+		AgreementResendNotificationFailedAuditEvent,
+		strings.TrimSpace(input.IdempotencyKey),
+	)
+	if err != nil {
+		return ResendResult{}, err
+	}
+	agreement, _, err = ApplyAgreementNotificationSummary(ctx, s.agreements, s.effects, scope, agreement.ID)
+	if err != nil {
+		return ResendResult{}, err
+	}
+	if hooks != nil && s.notificationDispatch != nil {
+		hooks.AfterCommit(func() error {
+			s.notificationDispatch.NotifyScope(scope)
+			return nil
+		})
+	}
+	return ResendResult{
+		Agreement:       agreement,
+		Recipient:       target,
+		ActiveRecipient: activeSigners[0],
+		Token:           issued,
+		Effects:         []AgreementNotificationEffectDetail{AgreementNotificationEffectDetailFromRecord(effect)},
+	}, nil
 }
 
 // CompletionDeliveryRecipients returns recipients opted-in for final artifact delivery after completion.
@@ -2682,21 +2922,25 @@ func comparableFields(
 		})
 	}
 	sort.SliceStable(out, func(i, j int) bool {
-		if out[i].ParticipantKey == out[j].ParticipantKey {
-			if out[i].Type == out[j].Type {
-				if out[i].PageNumber == out[j].PageNumber {
-					if out[i].Y == out[j].Y {
-						return out[i].X < out[j].X
-					}
-					return out[i].Y < out[j].Y
-				}
-				return out[i].PageNumber < out[j].PageNumber
-			}
-			return out[i].Type < out[j].Type
-		}
-		return out[i].ParticipantKey < out[j].ParticipantKey
+		return compareFieldPositionSnapshots(out[i], out[j])
 	})
 	return out
+}
+
+func compareFieldPositionSnapshots(left, right comparableField) bool {
+	if left.ParticipantKey != right.ParticipantKey {
+		return left.ParticipantKey < right.ParticipantKey
+	}
+	if left.Type != right.Type {
+		return left.Type < right.Type
+	}
+	if left.PageNumber != right.PageNumber {
+		return left.PageNumber < right.PageNumber
+	}
+	if left.Y != right.Y {
+		return left.Y < right.Y
+	}
+	return left.X < right.X
 }
 
 func comparableFieldChangedFields(left, right comparableField) ([]string, bool) {
@@ -2866,71 +3110,8 @@ func matchComparableRecords(
 	}
 	leftMatched := make([]bool, leftLen)
 	rightMatched := make([]bool, rightLen)
-
-	type exactBucket struct {
-		leftIndexes  []int
-		rightIndexes []int
-	}
-	buckets := map[string]*exactBucket{}
-	for index := range leftLen {
-		key := strings.TrimSpace(leftExactKey(index))
-		if key == "" {
-			continue
-		}
-		bucket := buckets[key]
-		if bucket == nil {
-			bucket = &exactBucket{}
-			buckets[key] = bucket
-		}
-		bucket.leftIndexes = append(bucket.leftIndexes, index)
-	}
-	for index := range rightLen {
-		key := strings.TrimSpace(rightExactKey(index))
-		if key == "" {
-			continue
-		}
-		bucket := buckets[key]
-		if bucket == nil {
-			bucket = &exactBucket{}
-			buckets[key] = bucket
-		}
-		bucket.rightIndexes = append(bucket.rightIndexes, index)
-	}
-	for _, bucket := range buckets {
-		limit := min(len(bucket.rightIndexes), len(bucket.leftIndexes))
-		for index := range limit {
-			leftIndex := bucket.leftIndexes[index]
-			rightIndex := bucket.rightIndexes[index]
-			leftMatched[leftIndex] = true
-			rightMatched[rightIndex] = true
-			matches = append(matches, comparableMatch{
-				LeftIndex:  leftIndex,
-				RightIndex: rightIndex,
-				Score:      score(leftIndex, rightIndex),
-			})
-		}
-	}
-
-	candidates := make([]comparableMatch, 0)
-	for leftIndex := range leftLen {
-		if leftMatched[leftIndex] {
-			continue
-		}
-		for rightIndex := range rightLen {
-			if rightMatched[rightIndex] {
-				continue
-			}
-			matchScore := score(leftIndex, rightIndex)
-			if matchScore < threshold {
-				continue
-			}
-			candidates = append(candidates, comparableMatch{
-				LeftIndex:  leftIndex,
-				RightIndex: rightIndex,
-				Score:      matchScore,
-			})
-		}
-	}
+	applyComparableExactMatches(buildComparableExactBuckets(leftLen, leftExactKey, rightLen, rightExactKey), leftMatched, rightMatched, score, &matches)
+	candidates := collectComparableCandidates(leftLen, rightLen, leftMatched, rightMatched, score, threshold)
 	sort.SliceStable(candidates, func(i, j int) bool {
 		if candidates[i].Score == candidates[j].Score {
 			if candidates[i].LeftIndex == candidates[j].LeftIndex {
@@ -2952,6 +3133,96 @@ func matchComparableRecords(
 		return matches[i].LeftIndex < matches[j].LeftIndex
 	})
 	return matches
+}
+
+type comparableExactBucket struct {
+	leftIndexes  []int
+	rightIndexes []int
+}
+
+func buildComparableExactBuckets(
+	leftLen int,
+	leftExactKey func(index int) string,
+	rightLen int,
+	rightExactKey func(index int) string,
+) map[string]*comparableExactBucket {
+	buckets := map[string]*comparableExactBucket{}
+	for index := range leftLen {
+		appendComparableExactBucketIndex(buckets, strings.TrimSpace(leftExactKey(index)), index, true)
+	}
+	for index := range rightLen {
+		appendComparableExactBucketIndex(buckets, strings.TrimSpace(rightExactKey(index)), index, false)
+	}
+	return buckets
+}
+
+func appendComparableExactBucketIndex(buckets map[string]*comparableExactBucket, key string, index int, left bool) {
+	if key == "" {
+		return
+	}
+	bucket := buckets[key]
+	if bucket == nil {
+		bucket = &comparableExactBucket{}
+		buckets[key] = bucket
+	}
+	if left {
+		bucket.leftIndexes = append(bucket.leftIndexes, index)
+		return
+	}
+	bucket.rightIndexes = append(bucket.rightIndexes, index)
+}
+
+func applyComparableExactMatches(
+	buckets map[string]*comparableExactBucket,
+	leftMatched []bool,
+	rightMatched []bool,
+	score func(leftIndex, rightIndex int) int,
+	matches *[]comparableMatch,
+) {
+	for _, bucket := range buckets {
+		limit := min(len(bucket.rightIndexes), len(bucket.leftIndexes))
+		for index := range limit {
+			leftIndex := bucket.leftIndexes[index]
+			rightIndex := bucket.rightIndexes[index]
+			leftMatched[leftIndex] = true
+			rightMatched[rightIndex] = true
+			*matches = append(*matches, comparableMatch{
+				LeftIndex:  leftIndex,
+				RightIndex: rightIndex,
+				Score:      score(leftIndex, rightIndex),
+			})
+		}
+	}
+}
+
+func collectComparableCandidates(
+	leftLen, rightLen int,
+	leftMatched []bool,
+	rightMatched []bool,
+	score func(leftIndex, rightIndex int) int,
+	threshold int,
+) []comparableMatch {
+	candidates := make([]comparableMatch, 0)
+	for leftIndex := range leftLen {
+		if leftMatched[leftIndex] {
+			continue
+		}
+		for rightIndex := range rightLen {
+			if rightMatched[rightIndex] {
+				continue
+			}
+			matchScore := score(leftIndex, rightIndex)
+			if matchScore < threshold {
+				continue
+			}
+			candidates = append(candidates, comparableMatch{
+				LeftIndex:  leftIndex,
+				RightIndex: rightIndex,
+				Score:      matchScore,
+			})
+		}
+	}
+	return candidates
 }
 
 func activeSignerStage(recipients []stores.RecipientRecord) (int, []stores.RecipientRecord, bool) {

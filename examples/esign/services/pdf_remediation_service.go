@@ -65,6 +65,25 @@ type PDFRemediationService struct {
 	workerPref string
 }
 
+type pdfRemediationExecution struct {
+	documentID    string
+	agreementID   string
+	actorID       string
+	commandID     string
+	dispatchID    string
+	correlationID string
+	executionMode string
+	requestedAt   time.Time
+	baseMeta      map[string]any
+}
+
+type pdfRemediationState struct {
+	request   pdfRemediationExecution
+	document  stores.DocumentRecord
+	lease     stores.DocumentRemediationLeaseToken
+	startedAt time.Time
+}
+
 type remediationActivityProjector interface {
 	ProjectAgreement(ctx context.Context, scope stores.Scope, agreementID string) error
 }
@@ -168,69 +187,24 @@ func NewPDFRemediationService(store stores.Store, objects documentObjectStore, r
 
 // Remediate executes one document remediation attempt with lease fencing and lifecycle tracking.
 func (s PDFRemediationService) Remediate(ctx context.Context, scope stores.Scope, input PDFRemediationRequest) (result PDFRemediationResult, err error) {
-	if s.documents == nil {
-		return PDFRemediationResult{}, domainValidationError("documents", "store", "not configured")
+	if validateErr := s.validateRemediationDependencies(); validateErr != nil {
+		return PDFRemediationResult{}, validateErr
 	}
-	if s.leases == nil {
-		return PDFRemediationResult{}, domainValidationError("document_remediation", "lease_store", "not configured")
+	req, err := s.normalizePDFRemediationRequest(scope, input)
+	if err != nil {
+		return PDFRemediationResult{}, err
 	}
-	if s.objects == nil {
-		return PDFRemediationResult{}, domainValidationError("documents", "object_store", "not configured")
-	}
-	if s.runner == nil {
-		return PDFRemediationResult{}, domainValidationError("document_remediation", "runner", "not configured")
-	}
-
-	documentID := strings.TrimSpace(input.DocumentID)
-	if documentID == "" {
-		return PDFRemediationResult{}, domainValidationError("documents", "document_id", "required")
-	}
-	commandID := strings.TrimSpace(input.CommandID)
-	if commandID == "" {
-		commandID = "esign.pdf.remediate"
-	}
-	correlationID := observability.ResolveCorrelationID(strings.TrimSpace(input.CorrelationID), commandID, documentID)
-	executionMode := strings.ToLower(strings.TrimSpace(input.ExecutionMode))
-	if executionMode == "" {
-		executionMode = "inline"
-	}
-	dispatchID := strings.TrimSpace(input.DispatchID)
-	actorID := strings.TrimSpace(input.ActorID)
-	agreementID := strings.TrimSpace(input.AgreementID)
-	requestedAt := s.now().UTC()
-	if input.RequestedAt != nil && !input.RequestedAt.IsZero() {
-		requestedAt = input.RequestedAt.UTC()
-	}
-
-	baseMeta := remediationLifecycleMetadata(scope, documentID, commandID, dispatchID, correlationID, executionMode)
-	if emitErr := s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusRequested, requestedAt, baseMeta, ""); emitErr != nil {
+	if emitErr := s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusRequested, req.requestedAt, req.baseMeta, ""); emitErr != nil {
 		return PDFRemediationResult{}, emitErr
 	}
-
-	document, err := s.documents.Get(ctx, scope, documentID)
+	state, err := s.startPDFRemediation(ctx, scope, req)
 	if err != nil {
-		observeRemediationLockSignal(ctx, err)
-		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
 		return PDFRemediationResult{}, err
 	}
-
-	workerID := s.workerID(correlationID)
-	claim, err := s.leases.AcquireDocumentRemediationLease(ctx, scope, documentID, stores.DocumentRemediationLeaseAcquireInput{
-		Now:           s.now().UTC(),
-		TTL:           s.leaseTTL,
-		WorkerID:      workerID,
-		CorrelationID: correlationID,
-	})
-	if err != nil {
-		observeRemediationLockSignal(ctx, err)
-		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
-		return PDFRemediationResult{}, err
-	}
-	currentLease := claim.Lease
 	defer func() {
-		releaseErr := s.leases.ReleaseDocumentRemediationLease(ctx, scope, documentID, stores.DocumentRemediationLeaseReleaseInput{
+		releaseErr := s.leases.ReleaseDocumentRemediationLease(ctx, scope, req.documentID, stores.DocumentRemediationLeaseReleaseInput{
 			Now:   s.now().UTC(),
-			Lease: currentLease,
+			Lease: state.lease,
 		})
 		if releaseErr == nil {
 			return
@@ -243,100 +217,224 @@ func (s PDFRemediationService) Remediate(ctx context.Context, scope stores.Scope
 		err = errors.Join(err, releaseErr)
 	}()
 
-	startedAt := s.now().UTC()
-	startPatch := documentMetadataPatchFromRecord(document)
+	return s.executePDFRemediation(ctx, scope, &state)
+}
+
+func (s PDFRemediationService) validateRemediationDependencies() error {
+	if s.documents == nil {
+		return domainValidationError("documents", "store", "not configured")
+	}
+	if s.leases == nil {
+		return domainValidationError("document_remediation", "lease_store", "not configured")
+	}
+	if s.objects == nil {
+		return domainValidationError("documents", "object_store", "not configured")
+	}
+	if s.runner == nil {
+		return domainValidationError("document_remediation", "runner", "not configured")
+	}
+	return nil
+}
+
+func (s PDFRemediationService) normalizePDFRemediationRequest(scope stores.Scope, input PDFRemediationRequest) (pdfRemediationExecution, error) {
+	documentID := strings.TrimSpace(input.DocumentID)
+	if documentID == "" {
+		return pdfRemediationExecution{}, domainValidationError("documents", "document_id", "required")
+	}
+	commandID := strings.TrimSpace(input.CommandID)
+	if commandID == "" {
+		commandID = "esign.pdf.remediate"
+	}
+	executionMode := strings.ToLower(strings.TrimSpace(input.ExecutionMode))
+	if executionMode == "" {
+		executionMode = "inline"
+	}
+	requestedAt := s.now().UTC()
+	if input.RequestedAt != nil && !input.RequestedAt.IsZero() {
+		requestedAt = input.RequestedAt.UTC()
+	}
+	correlationID := observability.ResolveCorrelationID(strings.TrimSpace(input.CorrelationID), commandID, documentID)
+	req := pdfRemediationExecution{
+		documentID:    documentID,
+		agreementID:   strings.TrimSpace(input.AgreementID),
+		actorID:       strings.TrimSpace(input.ActorID),
+		commandID:     commandID,
+		dispatchID:    strings.TrimSpace(input.DispatchID),
+		correlationID: correlationID,
+		executionMode: executionMode,
+		requestedAt:   requestedAt,
+	}
+	req.baseMeta = remediationLifecycleMetadata(scope, req.documentID, req.commandID, req.dispatchID, req.correlationID, req.executionMode)
+	return req, nil
+}
+
+func (s PDFRemediationService) startPDFRemediation(
+	ctx context.Context,
+	scope stores.Scope,
+	req pdfRemediationExecution,
+) (pdfRemediationState, error) {
+	document, err := s.documents.Get(ctx, scope, req.documentID)
+	if err != nil {
+		observeRemediationLockSignal(ctx, err)
+		_ = s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusFailed, s.now().UTC(), req.baseMeta, err.Error())
+		return pdfRemediationState{}, err
+	}
+	claim, err := s.leases.AcquireDocumentRemediationLease(ctx, scope, req.documentID, stores.DocumentRemediationLeaseAcquireInput{
+		Now:           s.now().UTC(),
+		TTL:           s.leaseTTL,
+		WorkerID:      s.workerID(req.correlationID),
+		CorrelationID: req.correlationID,
+	})
+	if err != nil {
+		observeRemediationLockSignal(ctx, err)
+		_ = s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusFailed, s.now().UTC(), req.baseMeta, err.Error())
+		return pdfRemediationState{}, err
+	}
+	state := pdfRemediationState{
+		request:   req,
+		document:  document,
+		lease:     claim.Lease,
+		startedAt: s.now().UTC(),
+	}
+	updatedDocument, err := s.persistStartedRemediationState(ctx, scope, state)
+	if err != nil {
+		_ = s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusFailed, s.now().UTC(), req.baseMeta, err.Error())
+		return pdfRemediationState{}, err
+	}
+	state.document = updatedDocument
+	if emitErr := s.emitLifecycle(ctx, req.agreementID, req.actorID, PDFRemediationStatusStarted, state.startedAt, req.baseMeta, ""); emitErr != nil {
+		return pdfRemediationState{}, emitErr
+	}
+	return state, nil
+}
+
+func (s PDFRemediationService) persistStartedRemediationState(
+	ctx context.Context,
+	scope stores.Scope,
+	state pdfRemediationState,
+) (stores.DocumentRecord, error) {
+	startPatch := documentMetadataPatchFromRecord(state.document)
 	startPatch.RemediationStatus = PDFRemediationStatusStarted
-	startPatch.RemediationActorID = actorID
-	startPatch.RemediationCommandID = commandID
-	startPatch.RemediationDispatchID = dispatchID
-	startPatch.RemediationExecMode = executionMode
-	startPatch.RemediationCorrelation = correlationID
+	startPatch.RemediationActorID = state.request.actorID
+	startPatch.RemediationCommandID = state.request.commandID
+	startPatch.RemediationDispatchID = state.request.dispatchID
+	startPatch.RemediationExecMode = state.request.executionMode
+	startPatch.RemediationCorrelation = state.request.correlationID
 	startPatch.RemediationFailure = ""
 	if strings.TrimSpace(startPatch.RemediationOriginalKey) == "" {
-		startPatch.RemediationOriginalKey = strings.TrimSpace(document.SourceObjectKey)
+		startPatch.RemediationOriginalKey = strings.TrimSpace(state.document.SourceObjectKey)
 	}
-	startPatch.RemediationRequestedAt = cloneDocumentTimePtr(requestedAt)
-	startPatch.RemediationStartedAt = cloneDocumentTimePtr(startedAt)
+	startPatch.RemediationRequestedAt = cloneDocumentTimePtr(state.request.requestedAt)
+	startPatch.RemediationStartedAt = cloneDocumentTimePtr(state.startedAt)
 	startPatch.RemediationCompletedAt = nil
+	return s.documents.SaveMetadata(ctx, scope, state.request.documentID, startPatch)
+}
 
-	document, err = s.documents.SaveMetadata(ctx, scope, documentID, startPatch)
+func (s PDFRemediationService) executePDFRemediation(
+	ctx context.Context,
+	scope stores.Scope,
+	state *pdfRemediationState,
+) (PDFRemediationResult, error) {
+	sourcePDF, err := s.loadRemediationSourcePDF(ctx, scope, *state)
 	if err != nil {
-		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
 		return PDFRemediationResult{}, err
 	}
-	if emitErr := s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusStarted, startedAt, baseMeta, ""); emitErr != nil {
-		return PDFRemediationResult{}, emitErr
+	runResult, err := s.runPDFRemediationJob(ctx, scope, state, sourcePDF)
+	if err != nil {
+		return PDFRemediationResult{}, err
 	}
+	analysis, err := s.pdfs.Analyze(ctx, scope, runResult.OutputPDF)
+	if err != nil {
+		return PDFRemediationResult{}, s.failStartedPDFRemediation(ctx, scope, *state, err)
+	}
+	outputKey, err := s.storeRemediationOutput(ctx, state.document, runResult.OutputPDF)
+	if err != nil {
+		return PDFRemediationResult{}, s.failStartedPDFRemediation(ctx, scope, *state, err)
+	}
+	return s.completePDFRemediation(ctx, scope, *state, analysis, outputKey)
+}
 
-	sourceKey := strings.TrimSpace(document.SourceObjectKey)
+func (s PDFRemediationService) loadRemediationSourcePDF(
+	ctx context.Context,
+	scope stores.Scope,
+	state pdfRemediationState,
+) ([]byte, error) {
+	sourceKey := strings.TrimSpace(state.document.SourceObjectKey)
 	if sourceKey == "" {
-		err = domainValidationError("documents", "source_object_key", "required")
-		_ = s.persistFailureState(ctx, scope, documentID, document, actorID, commandID, dispatchID, executionMode, correlationID, requestedAt, startedAt, err.Error())
-		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
-		return PDFRemediationResult{}, err
+		err := domainValidationError("documents", "source_object_key", "required")
+		return nil, s.failStartedPDFRemediation(ctx, scope, state, err)
 	}
-
 	sourcePDF, sourceErr := s.objects.GetFile(ctx, sourceKey)
 	if sourceErr != nil || len(sourcePDF) == 0 {
-		err = fmt.Errorf("load remediation source pdf: %w", sourceErr)
+		err := fmt.Errorf("load remediation source pdf: %w", sourceErr)
 		if sourceErr == nil {
 			err = fmt.Errorf("load remediation source pdf: payload unavailable")
 		}
-		_ = s.persistFailureState(ctx, scope, documentID, document, actorID, commandID, dispatchID, executionMode, correlationID, requestedAt, startedAt, err.Error())
-		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
-		return PDFRemediationResult{}, err
+		return nil, s.failStartedPDFRemediation(ctx, scope, state, err)
 	}
-	if expected := strings.TrimSpace(document.SourceSHA256); expected != "" {
-		sum := sha256.Sum256(sourcePDF)
-		if got := hex.EncodeToString(sum[:]); !strings.EqualFold(got, expected) {
-			err = fmt.Errorf("remediation source digest mismatch")
-			_ = s.persistFailureState(ctx, scope, documentID, document, actorID, commandID, dispatchID, executionMode, correlationID, requestedAt, startedAt, err.Error())
-			_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
-			return PDFRemediationResult{}, err
-		}
+	if err := validateRemediationSourceDigest(state.document, sourcePDF); err != nil {
+		return nil, s.failStartedPDFRemediation(ctx, scope, state, err)
 	}
+	return sourcePDF, nil
+}
 
-	runResult, finalLease, runErr := s.runWithLeaseHeartbeat(ctx, scope, documentID, currentLease, func(opCtx context.Context) (PDFRemediationRunResult, error) {
+func validateRemediationSourceDigest(document stores.DocumentRecord, sourcePDF []byte) error {
+	expected := strings.TrimSpace(document.SourceSHA256)
+	if expected == "" {
+		return nil
+	}
+	sum := sha256.Sum256(sourcePDF)
+	if got := hex.EncodeToString(sum[:]); strings.EqualFold(got, expected) {
+		return nil
+	}
+	return fmt.Errorf("remediation source digest mismatch")
+}
+
+func (s PDFRemediationService) runPDFRemediationJob(
+	ctx context.Context,
+	scope stores.Scope,
+	state *pdfRemediationState,
+	sourcePDF []byte,
+) (PDFRemediationRunResult, error) {
+	runResult, finalLease, err := s.runWithLeaseHeartbeat(ctx, scope, state.request.documentID, state.lease, func(opCtx context.Context) (PDFRemediationRunResult, error) {
 		return s.runner.Run(opCtx, PDFRemediationRunInput{SourcePDF: sourcePDF})
 	})
-	currentLease = finalLease
-	if runErr != nil {
-		err = runErr
+	state.lease = finalLease
+	if err != nil {
 		observeRemediationLockSignal(ctx, err)
-		_ = s.persistFailureState(ctx, scope, documentID, document, actorID, commandID, dispatchID, executionMode, correlationID, requestedAt, startedAt, err.Error())
-		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
-		return PDFRemediationResult{}, err
+		return PDFRemediationRunResult{}, s.failStartedPDFRemediation(ctx, scope, *state, err)
 	}
+	return runResult, nil
+}
 
-	analysis, analyzeErr := s.pdfs.Analyze(ctx, scope, runResult.OutputPDF)
-	if analyzeErr != nil {
-		err = analyzeErr
-		_ = s.persistFailureState(ctx, scope, documentID, document, actorID, commandID, dispatchID, executionMode, correlationID, requestedAt, startedAt, err.Error())
-		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
-		return PDFRemediationResult{}, err
-	}
-
+func (s PDFRemediationService) storeRemediationOutput(ctx context.Context, document stores.DocumentRecord, outputPDF []byte) (string, error) {
 	outputKey := strings.TrimSpace(document.RemediationOutputKey)
 	if outputKey == "" {
-		outputKey = remediatedObjectKeyForSource(sourceKey)
+		outputKey = remediatedObjectKeyForSource(strings.TrimSpace(document.SourceObjectKey))
 	}
-	if _, uploadErr := s.objects.UploadFile(ctx, outputKey, runResult.OutputPDF,
+	if _, err := s.objects.UploadFile(ctx, outputKey, outputPDF,
 		uploader.WithContentType("application/pdf"),
 		uploader.WithCacheControl("no-store, no-cache, max-age=0, must-revalidate, private"),
-	); uploadErr != nil {
-		err = fmt.Errorf("persist remediation output: %w", uploadErr)
-		_ = s.persistFailureState(ctx, scope, documentID, document, actorID, commandID, dispatchID, executionMode, correlationID, requestedAt, startedAt, err.Error())
-		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
-		return PDFRemediationResult{}, err
+	); err != nil {
+		return "", fmt.Errorf("persist remediation output: %w", err)
 	}
+	return outputKey, nil
+}
 
+func (s PDFRemediationService) completePDFRemediation(
+	ctx context.Context,
+	scope stores.Scope,
+	state pdfRemediationState,
+	analysis PDFAnalysis,
+	outputKey string,
+) (PDFRemediationResult, error) {
 	compatibility := resolveDocumentCompatibility(s.pdfs.Policy(ctx, scope), stores.DocumentRecord{
 		PDFCompatibilityTier:   strings.TrimSpace(string(analysis.CompatibilityTier)),
 		PDFCompatibilityReason: strings.TrimSpace(string(analysis.ReasonCode)),
 		PDFNormalizationStatus: strings.TrimSpace(string(PDFNormalizationStatusCompleted)),
 	})
 	completedAt := s.now().UTC()
-	successPatch := documentMetadataPatchFromRecord(document)
+	successPatch := documentMetadataPatchFromRecord(state.document)
 	successPatch.NormalizedObjectKey = outputKey
 	successPatch.PDFCompatibilityTier = strings.TrimSpace(string(compatibility.Tier))
 	successPatch.PDFCompatibilityReason = strings.TrimSpace(compatibility.Reason)
@@ -346,34 +444,56 @@ func (s PDFRemediationService) Remediate(ctx context.Context, scope stores.Scope
 	successPatch.SizeBytes = analysis.SizeBytes
 	successPatch.PageCount = analysis.PageCount
 	successPatch.RemediationStatus = PDFRemediationStatusSucceeded
-	successPatch.RemediationActorID = actorID
-	successPatch.RemediationCommandID = commandID
-	successPatch.RemediationDispatchID = dispatchID
-	successPatch.RemediationExecMode = executionMode
-	successPatch.RemediationCorrelation = correlationID
+	successPatch.RemediationActorID = state.request.actorID
+	successPatch.RemediationCommandID = state.request.commandID
+	successPatch.RemediationDispatchID = state.request.dispatchID
+	successPatch.RemediationExecMode = state.request.executionMode
+	successPatch.RemediationCorrelation = state.request.correlationID
 	successPatch.RemediationFailure = ""
-	successPatch.RemediationRequestedAt = cloneDocumentTimePtr(requestedAt)
-	successPatch.RemediationStartedAt = cloneDocumentTimePtr(startedAt)
+	successPatch.RemediationRequestedAt = cloneDocumentTimePtr(state.request.requestedAt)
+	successPatch.RemediationStartedAt = cloneDocumentTimePtr(state.startedAt)
 	successPatch.RemediationCompletedAt = cloneDocumentTimePtr(completedAt)
-	successPatch.RemediationOriginalKey = strings.TrimSpace(document.SourceObjectKey)
+	successPatch.RemediationOriginalKey = strings.TrimSpace(state.document.SourceObjectKey)
 	successPatch.RemediationOutputKey = outputKey
 
-	updated, saveErr := s.documents.SaveMetadata(ctx, scope, documentID, successPatch)
-	if saveErr != nil {
-		err = saveErr
-		_ = s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusFailed, s.now().UTC(), baseMeta, err.Error())
+	updated, err := s.documents.SaveMetadata(ctx, scope, state.request.documentID, successPatch)
+	if err != nil {
+		_ = s.emitLifecycle(ctx, state.request.agreementID, state.request.actorID, PDFRemediationStatusFailed, s.now().UTC(), state.request.baseMeta, err.Error())
 		return PDFRemediationResult{}, err
 	}
-	if emitErr := s.emitLifecycle(ctx, agreementID, actorID, PDFRemediationStatusSucceeded, completedAt, baseMeta, ""); emitErr != nil {
+	if emitErr := s.emitLifecycle(ctx, state.request.agreementID, state.request.actorID, PDFRemediationStatusSucceeded, completedAt, state.request.baseMeta, ""); emitErr != nil {
 		return PDFRemediationResult{}, emitErr
 	}
-
 	return PDFRemediationResult{
 		Document:        updated,
 		Compatibility:   compatibility,
 		Analysis:        analysis,
 		OutputObjectKey: outputKey,
 	}, nil
+}
+
+func (s PDFRemediationService) failStartedPDFRemediation(
+	ctx context.Context,
+	scope stores.Scope,
+	state pdfRemediationState,
+	err error,
+) error {
+	_ = s.persistFailureState(
+		ctx,
+		scope,
+		state.request.documentID,
+		state.document,
+		state.request.actorID,
+		state.request.commandID,
+		state.request.dispatchID,
+		state.request.executionMode,
+		state.request.correlationID,
+		state.request.requestedAt,
+		state.startedAt,
+		err.Error(),
+	)
+	_ = s.emitLifecycle(ctx, state.request.agreementID, state.request.actorID, PDFRemediationStatusFailed, s.now().UTC(), state.request.baseMeta, err.Error())
+	return err
 }
 
 func (s PDFRemediationService) emitLifecycle(
