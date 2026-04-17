@@ -2,6 +2,8 @@ module github.com/goliatone/go-admin
 
 go 1.26.2
 
+exclude google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa
+
 replace github.com/goliatone/go-dashboard => ../go-dashboard
 
 require (
