@@ -85,21 +85,56 @@ func FilterWidgetInstances(instances []dashinternal.WidgetInstance, filter dashi
 		return instances
 	}
 	pageID := strings.TrimSpace(filter.PageID)
-	locale := strings.TrimSpace(filter.Locale)
-	if pageID == "" && locale == "" {
+	if pageID == "" && !widgetFilterHasLocaleConstraint(filter) {
 		return instances
 	}
 	out := make([]dashinternal.WidgetInstance, 0, len(instances))
 	for _, inst := range instances {
-		if pageID != "" && inst.PageID != pageID {
-			continue
-		}
-		if locale != "" && inst.Locale != "" && !strings.EqualFold(inst.Locale, locale) {
+		if !widgetInstanceMatchesFilter(inst, filter, pageID) {
 			continue
 		}
 		out = append(out, inst)
 	}
 	return out
+}
+
+func widgetInstanceMatchesFilter(inst dashinternal.WidgetInstance, filter dashinternal.WidgetInstanceFilter, pageID string) bool {
+	if pageID != "" && inst.PageID != pageID {
+		return false
+	}
+	if !widgetFilterHasLocaleConstraint(filter) || strings.TrimSpace(inst.Locale) == "" {
+		return true
+	}
+	if widgetFilterLocaleMatches(strings.TrimSpace(inst.Locale), filter.Locale) {
+		return true
+	}
+	for _, fallback := range filter.FallbackLocales {
+		if widgetFilterLocaleMatches(strings.TrimSpace(inst.Locale), fallback) {
+			return true
+		}
+	}
+	return false
+}
+
+func widgetFilterHasLocaleConstraint(filter dashinternal.WidgetInstanceFilter) bool {
+	if strings.TrimSpace(filter.Locale) != "" {
+		return true
+	}
+	for _, fallback := range filter.FallbackLocales {
+		if strings.TrimSpace(fallback) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func widgetFilterLocaleMatches(value, candidate string) bool {
+	value = strings.TrimSpace(value)
+	candidate = strings.TrimSpace(candidate)
+	if value == "" || candidate == "" {
+		return false
+	}
+	return strings.EqualFold(value, candidate)
 }
 
 func PlacementPositionForInstance(placements []*cmswidgets.AreaPlacement, instanceID uuid.UUID) int {
