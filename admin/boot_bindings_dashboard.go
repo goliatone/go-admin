@@ -69,8 +69,9 @@ func (d *dashboardBinding) Preferences(c router.Context, locale string) (map[str
 		return nil, nil
 	}
 	viewer := dashcmp.ViewerContext{
-		UserID: adminCtx.UserID,
-		Locale: adminCtx.Locale,
+		UserID:          adminCtx.UserID,
+		Locale:          adminCtx.Locale,
+		FallbackLocales: append([]string{}, adminCtx.FallbackLocales...),
 	}
 	overrides := dashboardLayoutOverridesToTyped(d.admin.PreferencesService().DashboardOverrides(adminCtx.Context, adminCtx.UserID), viewer.Locale)
 	registry, _ := d.admin.dashboard.providerSnapshot()
@@ -95,8 +96,9 @@ func (d *dashboardBinding) SavePreferences(c router.Context, body map[string]any
 	// Keep legacy {"layout":[...]} parsing only at this HTTP boundary until
 	// callers are fully migrated to the typed preference transport.
 	input, err := dashapi.PreferencesInputFromMapCompatible(body, dashcmp.ViewerContext{
-		UserID: adminCtx.UserID,
-		Locale: adminCtx.Locale,
+		UserID:          adminCtx.UserID,
+		Locale:          adminCtx.Locale,
+		FallbackLocales: append([]string{}, adminCtx.FallbackLocales...),
 	})
 	if err != nil {
 		return nil, validationDomainError("layout must be an array or valid preferences object", map[string]any{
@@ -227,8 +229,9 @@ func (d *dashboardBinding) resolveAdminDashboardPage(c router.Context, locale st
 		return AdminDashboardPage{}, AdminContext{}, nil
 	}
 	page, err := dashapi.Page(d.dashboardPageContext(adminCtx, c), d.admin.dash.runtime.Controller, dashcmp.ViewerContext{
-		UserID: adminCtx.UserID,
-		Locale: adminCtx.Locale,
+		UserID:          adminCtx.UserID,
+		Locale:          adminCtx.Locale,
+		FallbackLocales: append([]string{}, adminCtx.FallbackLocales...),
 	})
 	if err != nil {
 		return AdminDashboardPage{}, AdminContext{}, err
