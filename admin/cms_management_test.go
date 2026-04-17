@@ -149,6 +149,36 @@ func TestWidgetInstanceRepositoryConfigRoundTrip(t *testing.T) {
 	}
 }
 
+func TestWidgetInstanceRepositoryListSupportsFallbackLocalesFilter(t *testing.T) {
+	svc := NewInMemoryWidgetService()
+	repo := NewWidgetInstanceRepository(svc)
+	if _, err := repo.Create(context.Background(), map[string]any{
+		"definition_code": "stats",
+		"area":            "admin.dashboard.main",
+		"locale":          "en",
+		"config":          map[string]any{"title": "Fallback"},
+	}); err != nil {
+		t.Fatalf("create fallback widget failed: %v", err)
+	}
+
+	list, total, err := repo.List(context.Background(), ListOptions{
+		Filters: map[string]any{
+			"area":             "admin.dashboard.main",
+			"locale":           "fr",
+			"fallback_locales": []string{"en"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list failed: %v", err)
+	}
+	if total != 1 || len(list) != 1 {
+		t.Fatalf("expected fallback locale list result, got total=%d len=%d", total, len(list))
+	}
+	if got := list[0]["locale"]; got != "en" {
+		t.Fatalf("expected fallback locale record, got %+v", list[0])
+	}
+}
+
 func TestPanelBindingListUsesRouteLocaleForBlockDefinitionPanel(t *testing.T) {
 	repo := NewCMSBlockDefinitionRepository(&adminBlockReadContentStub{
 		defs: []CMSBlockDefinition{

@@ -120,6 +120,53 @@ func TestGoCMSMenuAdapterUsesTranslationURLOverride(t *testing.T) {
 	}
 }
 
+func TestGoCMSMenuAdapterDoesNotBackfillDisplayTextFromTranslationKeys(t *testing.T) {
+	ctx := context.Background()
+	menuSvc := newStubCMSMenuService()
+	adapter := NewGoCMSMenuAdapterFromAny(menuSvc)
+
+	if _, err := adapter.CreateMenu(ctx, "site.main"); err != nil {
+		t.Fatalf("create menu: %v", err)
+	}
+
+	if err := adapter.AddMenuItem(ctx, "site.main", MenuItem{
+		ID:       "products",
+		LabelKey: "menu.products",
+		Locale:   "en",
+		Target:   map[string]any{"type": "page", "slug": "products"},
+	}); err != nil {
+		t.Fatalf("add keyed item: %v", err)
+	}
+
+	if err := adapter.AddMenuItem(ctx, "site.main", MenuItem{
+		ID:            "catalog",
+		Type:          MenuItemTypeGroup,
+		GroupTitleKey: "menu.catalog",
+		Locale:        "en",
+	}); err != nil {
+		t.Fatalf("add keyed group: %v", err)
+	}
+
+	itemPath := canonicalMenuItemPath("site_main", "products")
+	groupPath := canonicalMenuItemPath("site_main", "catalog")
+
+	itemTranslation := menuSvc.menus["site_main"].items[itemPath].tr["en"]
+	if itemTranslation.Label != "" {
+		t.Fatalf("expected label to remain empty when only label_key is provided, got %q", itemTranslation.Label)
+	}
+	if itemTranslation.LabelKey != "menu.products" {
+		t.Fatalf("expected label_key preserved, got %q", itemTranslation.LabelKey)
+	}
+
+	groupTranslation := menuSvc.menus["site_main"].items[groupPath].tr["en"]
+	if groupTranslation.GroupTitle != "" {
+		t.Fatalf("expected group_title to remain empty when only group_title_key is provided, got %q", groupTranslation.GroupTitle)
+	}
+	if groupTranslation.GroupTitleKey != "menu.catalog" {
+		t.Fatalf("expected group_title_key preserved, got %q", groupTranslation.GroupTitleKey)
+	}
+}
+
 func TestGoCMSMenuAdapterReordersAndUpdates(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := newStubCMSMenuService()

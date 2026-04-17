@@ -767,6 +767,31 @@ func TestGoCMSWidgetAdapterListInstancesUsesFallbackLocaleChain(t *testing.T) {
 	}
 }
 
+func TestGoCMSWidgetAdapterListInstancesFailsClosedWhenFallbackChainDoesNotResolve(t *testing.T) {
+	ctx := context.Background()
+	svc := newStubGoCMSWidgetService()
+	adapter := newGoCMSWidgetAdapter(svc, stubLocaleResolver{
+		ids: map[string]uuid.UUID{
+			"en": uuid.New(),
+		},
+	})
+
+	instances, err := adapter.ListInstances(ctx, WidgetInstanceFilter{
+		Area:            "admin.dashboard.main",
+		Locale:          "fr",
+		FallbackLocales: []string{"it"},
+	})
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	if len(instances) != 0 {
+		t.Fatalf("expected no instances for unresolved locale chain, got %+v", instances)
+	}
+	if svc.lastResolveAreaInput.AreaCode != "" {
+		t.Fatalf("expected resolve area not to run for unresolved locale chain, got %+v", svc.lastResolveAreaInput)
+	}
+}
+
 func TestGoCMSWidgetAdapterAssignWidgetPlacementDoesNotStringMatchDuplicates(t *testing.T) {
 	ctx := context.Background()
 	svc := newStubGoCMSWidgetService()
