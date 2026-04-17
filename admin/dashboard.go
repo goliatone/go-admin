@@ -780,8 +780,9 @@ func cloneDashboardInstances(in []DashboardWidgetInstance) []DashboardWidgetInst
 
 func viewerFromAdminContext(ctx AdminContext) dashcmp.ViewerContext {
 	return dashcmp.ViewerContext{
-		UserID: ctx.UserID,
-		Locale: ctx.Locale,
+		UserID:          ctx.UserID,
+		Locale:          ctx.Locale,
+		FallbackLocales: append([]string{}, ctx.FallbackLocales...),
 	}
 }
 
@@ -848,8 +849,9 @@ func (c *dashboardProviderCommand) Execute(ctx context.Context, msg DashboardPro
 			Configuration: cfg,
 		},
 		Viewer: dashcmp.ViewerContext{
-			UserID: adminCtx.UserID,
-			Locale: adminCtx.Locale,
+			UserID:          adminCtx.UserID,
+			Locale:          adminCtx.Locale,
+			FallbackLocales: append([]string{}, adminCtx.FallbackLocales...),
 		},
 	})
 	return err
