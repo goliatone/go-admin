@@ -539,6 +539,7 @@ func (a *Admin) activeLocales(ctx context.Context) []string {
 func (a *Admin) adminContextFromRequest(c router.Context, locale string) AdminContext {
 	locale = a.ResolveLocaleFromRequest(c, locale)
 	ctx := newAdminContextFromRouter(c, locale)
+	ctx.FallbackLocales = a.dashboardFallbackLocales(locale)
 	ctx.Translator = a.translator
 	selector := selectorFromRequest(c)
 	if selector.Name != "" || selector.Variant != "" {
@@ -548,6 +549,18 @@ func (a *Admin) adminContextFromRequest(c router.Context, locale string) AdminCo
 		ctx.Context = ContextWithActionDiagnostics(ctx.Context, sink)
 	}
 	return a.withTheme(ctx)
+}
+
+func (a *Admin) dashboardFallbackLocales(requested string) []string {
+	if a == nil {
+		return nil
+	}
+	defaultLocale := strings.TrimSpace(a.config.DefaultLocale)
+	requested = strings.TrimSpace(requested)
+	if defaultLocale == "" || requested == "" || strings.EqualFold(defaultLocale, requested) {
+		return nil
+	}
+	return []string{defaultLocale}
 }
 
 func (a *Admin) authWrapper() func(router.HandlerFunc) router.HandlerFunc {
