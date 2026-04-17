@@ -573,6 +573,19 @@ type agreementSendValidationContext struct {
 	documentPageCount int
 }
 
+type agreementSendState struct {
+	agreement          stores.AgreementRecord
+	workflowKind       string
+	parentAgreement    stores.AgreementRecord
+	changeSummary      map[string]any
+	document           stores.DocumentRecord
+	compatibility      PDFCompatibilityStatus
+	recipients         []stores.RecipientRecord
+	activeStage        int
+	activeSigners      []stores.RecipientRecord
+	activeRecipientIDs []string
+}
+
 func normalizeCreateRevisionInput(input CreateRevisionInput) (createRevisionConfig, error) {
 	config := createRevisionConfig{
 		sourceAgreementID: strings.TrimSpace(input.SourceAgreementID),
@@ -1534,271 +1547,21 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		"idempotency_key": idempotencyKey,
 	}))
 	if err := s.withWriteTxHooks(ctx, func(txSvc AgreementService, hooks *stores.TxHooks) error {
-		loadAgreementStartedAt := time.Now()
-		agreement, err := txSvc.agreements.GetAgreement(ctx, scope, agreementID)
-		if err != nil {
-			LogSendPhaseDuration("agreement_service", "agreement_load_failed", loadAgreementStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"agreement_id": strings.TrimSpace(agreementID),
-				"error":        strings.TrimSpace(err.Error()),
-			}))
-			return err
+		sendState, sendErr := txSvc.loadAgreementSendState(ctx, scope, agreementID, correlationID, idempotencyKey)
+		if sendErr != nil {
+			return sendErr
 		}
-		LogSendPhaseDuration("agreement_service", "agreement_loaded", loadAgreementStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"agreement_id": strings.TrimSpace(agreement.ID),
-			"status":       strings.TrimSpace(agreement.Status),
-			"version":      agreement.Version,
-		}))
-		if agreement.Status != stores.AgreementStatusDraft {
-			if agreement.Status == stores.AgreementStatusSent && idempotencyKey != "" {
-				if replayed, replayErr := txSvc.wasSendRecordedWithIdempotencyKey(ctx, scope, agreementID, idempotencyKey); replayErr != nil {
-					return replayErr
-				} else if replayed {
-					result = agreement
-					return nil
-				}
-			}
-			return domainValidationError("agreements", "status", "send requires draft status")
+		sendCompatibilityTier = sendState.compatibility.Tier
+		sendCompatibilityReason = sendState.compatibility.Reason
+		transitioned, pendingByRecipient, pendingRecipientIDs, transitionErr := txSvc.transitionAgreementForSend(ctx, scope, sendState, input, correlationID, idempotencyKey)
+		if transitionErr != nil {
+			return transitionErr
 		}
-		workflowKind := strings.TrimSpace(agreement.WorkflowKind)
-		parentAgreementID := strings.TrimSpace(agreement.ParentAgreementID)
-		var parentAgreement stores.AgreementRecord
-		var changeSummary map[string]any
-		if (workflowKind == stores.AgreementWorkflowKindCorrection || workflowKind == stores.AgreementWorkflowKindAmendment) && parentAgreementID != "" {
-			parentAgreement, err = txSvc.agreements.GetAgreement(ctx, scope, parentAgreementID)
-			if err != nil {
-				return err
-			}
-			switch workflowKind {
-			case stores.AgreementWorkflowKindCorrection:
-				if parentAgreement.Status != stores.AgreementStatusSent &&
-					parentAgreement.Status != stores.AgreementStatusInProgress &&
-					parentAgreement.Status != stores.AgreementStatusVoided {
-					return domainValidationError("agreements", "parent_agreement_id", "correction parent must be sent, in_progress, or already voided")
-				}
-			case stores.AgreementWorkflowKindAmendment:
-				if parentAgreement.Status != stores.AgreementStatusCompleted {
-					return domainValidationError("agreements", "parent_agreement_id", "amendment parent must be completed")
-				}
-			}
-			changeSummary, err = txSvc.buildAgreementChangeSummary(ctx, scope, parentAgreement, agreement)
-			if err != nil {
-				return err
-			}
-		}
-		compatibilityStartedAt := time.Now()
-		document, compatibility, err := txSvc.resolveAgreementDocumentCompatibility(ctx, scope, agreement)
-		if err != nil {
-			LogSendPhaseDuration("agreement_service", "compatibility_check_failed", compatibilityStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"agreement_id": strings.TrimSpace(agreement.ID),
-				"error":        strings.TrimSpace(err.Error()),
-			}))
-			return err
-		}
-		LogSendPhaseDuration("agreement_service", "compatibility_check_complete", compatibilityStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"agreement_id":         strings.TrimSpace(agreement.ID),
-			"document_id":          strings.TrimSpace(document.ID),
-			"compatibility_tier":   strings.TrimSpace(string(compatibility.Tier)),
-			"compatibility_reason": strings.TrimSpace(compatibility.Reason),
-		}))
-		sendCompatibilityTier = compatibility.Tier
-		sendCompatibilityReason = compatibility.Reason
-		if compatibility.Tier == PDFCompatibilityTierUnsupported && !policyAllowsAnalyzeOnlyUpload(txSvc.pdfs.Policy(ctx, scope)) {
-			return pdfUnsupportedError("agreement.send", string(compatibility.Tier), compatibility.Reason, map[string]any{
-				"agreement_id": agreement.ID,
-				"document_id":  document.ID,
-			})
-		}
-
-		validationStartedAt := time.Now()
-		validation, err := txSvc.ValidateBeforeSend(ctx, scope, agreementID)
-		if err != nil {
-			LogSendPhaseDuration("agreement_service", "validation_failed", validationStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"agreement_id": strings.TrimSpace(agreement.ID),
-				"error":        strings.TrimSpace(err.Error()),
-			}))
-			return err
-		}
-		LogSendPhaseDuration("agreement_service", "validation_complete", validationStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"agreement_id":     strings.TrimSpace(agreement.ID),
-			"recipient_count":  validation.RecipientCount,
-			"field_count":      validation.FieldCount,
-			"validation_valid": validation.Valid,
-		}))
-		if !validation.Valid {
-			first := validation.Issues[0]
-			return domainValidationError("agreements", first.Field, first.Message)
-		}
-		if txSvc.tokens == nil {
-			return domainValidationError("signing_tokens", "service", "not configured")
-		}
-		recipients, err := txSvc.agreements.ListRecipients(ctx, scope, agreementID)
-		if err != nil {
-			return err
-		}
-		activeStage, activeSigners, ok := activeSignerStage(recipients)
-		if !ok {
-			return domainValidationError("recipients", "role", "no active signer recipient found")
-		}
-		transitionStartedAt := time.Now()
-		transitioned, err := txSvc.agreements.Transition(ctx, scope, agreementID, stores.AgreementTransitionInput{
-			ToStatus:        stores.AgreementStatusSent,
-			ExpectedVersion: agreement.Version,
-		})
-		if err != nil {
-			LogSendPhaseDuration("agreement_service", "transition_failed", transitionStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"agreement_id": strings.TrimSpace(agreement.ID),
-				"error":        strings.TrimSpace(err.Error()),
-			}))
-			return err
-		}
-		LogSendPhaseDuration("agreement_service", "transition_complete", transitionStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"agreement_id": strings.TrimSpace(transitioned.ID),
-			"status":       strings.TrimSpace(transitioned.Status),
-			"version":      transitioned.Version,
-		}))
-		result = transitioned
-		reminderStartedAt := time.Now()
-		reminderErr := txSvc.initializeReminderStatesForSend(ctx, scope, transitioned, recipients)
-		if reminderErr != nil {
-			LogSendPhaseDuration("agreement_service", "reminder_init_failed", reminderStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"agreement_id": strings.TrimSpace(transitioned.ID),
-				"error":        strings.TrimSpace(reminderErr.Error()),
-			}))
-			return reminderErr
-		}
-		LogSendPhaseDuration("agreement_service", "reminder_init_complete", reminderStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"agreement_id":    strings.TrimSpace(transitioned.ID),
-			"recipient_count": len(recipients),
-		}))
-
-		activeRecipientIDs := recipientIDs(activeSigners)
-		pendingByRecipient := map[string]stores.IssuedSigningToken{}
-		pendingRecipientIDs := make([]string, 0, len(activeSigners))
-		tokenIssueStartedAt := time.Now()
-		for _, activeSigner := range activeSigners {
-			issued, issueErr := txSvc.tokens.IssuePending(ctx, scope, agreementID, activeSigner.ID)
-			if issueErr != nil {
-				return issueErr
-			}
-			pendingByRecipient[activeSigner.ID] = issued
-			pendingRecipientIDs = append(pendingRecipientIDs, activeSigner.ID)
-		}
-		LogSendPhaseDuration("agreement_service", "token_issuance_complete", tokenIssueStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"agreement_id":           strings.TrimSpace(agreement.ID),
-			"issued_recipient_count": len(pendingRecipientIDs),
-			"active_stage":           activeStage,
-		}))
-		auditStartedAt := time.Now()
-		auditErr := txSvc.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.sent", "system", "", input.IPAddress, map[string]any{
-			"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
-			"status":                   transitioned.Status,
-			"workflow_kind":            strings.TrimSpace(transitioned.WorkflowKind),
-			"root_agreement_id":        strings.TrimSpace(transitioned.RootAgreementID),
-			"parent_agreement_id":      strings.TrimSpace(transitioned.ParentAgreementID),
-			"parent_executed_sha256":   strings.TrimSpace(transitioned.ParentExecutedSHA256),
-			"change_summary":           cloneAnyMap(changeSummary),
-			"pdf_compatibility_tier":   strings.TrimSpace(string(sendCompatibilityTier)),
-			"pdf_compatibility_reason": strings.TrimSpace(sendCompatibilityReason),
-			"active_stage":             activeStage,
-			"active_recipient_id":      coalesceFirst(activeRecipientIDs),
-			"active_recipient_ids": func() []string {
-				return append([]string{}, activeRecipientIDs...)
-			}(),
-			"issued_recipient_ids": func() []string {
-				return append([]string{}, pendingRecipientIDs...)
-			}(),
-		})
-		if auditErr != nil {
-			LogSendPhaseDuration("agreement_service", "audit_failed", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-				"agreement_id": strings.TrimSpace(transitioned.ID),
-				"error":        strings.TrimSpace(auditErr.Error()),
-			}))
-			return auditErr
-		}
-		LogSendPhaseDuration("agreement_service", "audit_complete", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"agreement_id": strings.TrimSpace(transitioned.ID),
-			"active_stage": activeStage,
-		}))
-		if sendCompatibilityTier == PDFCompatibilityTierLimited {
-			degradedAuditErr := txSvc.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_degraded_preview", "system", "", map[string]any{
-				"pdf_compatibility_tier":   strings.TrimSpace(string(sendCompatibilityTier)),
-				"pdf_compatibility_reason": strings.TrimSpace(sendCompatibilityReason),
-				"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
-			})
-			if degradedAuditErr != nil {
-				return degradedAuditErr
-			}
-		}
-		outboxStartedAt := time.Now()
-		enqueuedCount := 0
-		for _, activeSigner := range activeSigners {
-			issued := pendingByRecipient[activeSigner.ID]
-			notification := AgreementNotification{
-				AgreementID:   transitioned.ID,
-				RecipientID:   activeSigner.ID,
-				CorrelationID: correlationID,
-				Type:          NotificationSigningInvitation,
-				Token:         issued,
-			}
-			_, replayed, effectErr := txSvc.prepareAgreementNotificationEffect(
-				ctx,
-				scope,
-				GuardedEffectKindAgreementSendInvitation,
-				notification,
-				AgreementSendNotificationFailedAuditEvent,
-				idempotencyKey,
-			)
-			if effectErr != nil {
-				LogSendPhaseDuration("agreement_service", "outbox_enqueue_failed", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-					"agreement_id": strings.TrimSpace(transitioned.ID),
-					"recipient_id": strings.TrimSpace(activeSigner.ID),
-					"error":        strings.TrimSpace(effectErr.Error()),
-				}))
-				return effectErr
-			}
-			if !replayed {
-				enqueuedCount++
-			}
-		}
-		transitioned, _, err = ApplyAgreementNotificationSummary(ctx, txSvc.agreements, txSvc.effects, scope, transitioned.ID)
-		if err != nil {
-			return err
-		}
-		if workflowKind == stores.AgreementWorkflowKindCorrection &&
-			strings.TrimSpace(parentAgreement.ID) != "" &&
-			parentAgreement.Status != stores.AgreementStatusVoided {
-			parentAgreement, err = txSvc.supersedeCorrectionParentAgreement(ctx, scope, parentAgreement, transitioned, input.IPAddress, map[string]any{
-				"new_agreement_id":    strings.TrimSpace(transitioned.ID),
-				"source_agreement_id": strings.TrimSpace(parentAgreement.ID),
-				"root_agreement_id":   strings.TrimSpace(transitioned.RootAgreementID),
-				"parent_agreement_id": strings.TrimSpace(transitioned.ParentAgreementID),
-				"workflow_kind":       strings.TrimSpace(transitioned.WorkflowKind),
-				"change_summary":      cloneAnyMap(changeSummary),
-				"new_document_id":     strings.TrimSpace(transitioned.DocumentID),
-				"new_document_sha256": strings.TrimSpace(fmt.Sprint(changeSummary["new_document_sha256"])),
-				"old_document_id":     strings.TrimSpace(parentAgreement.DocumentID),
-				"old_document_sha256": strings.TrimSpace(fmt.Sprint(changeSummary["old_document_sha256"])),
-			})
-			if err != nil {
-				return err
-			}
+		transitioned, _, finalizeErr := txSvc.finalizeAgreementSend(ctx, scope, sendState, transitioned, pendingByRecipient, pendingRecipientIDs, input, hooks, correlationID, idempotencyKey)
+		if finalizeErr != nil {
+			return finalizeErr
 		}
 		result = transitioned
-		LogSendPhaseDuration("agreement_service", "outbox_enqueue_complete", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
-			"agreement_id":   strings.TrimSpace(transitioned.ID),
-			"enqueued_count": enqueuedCount,
-			"active_signers": len(activeSigners),
-		}))
-		if len(activeSigners) > 0 && hooks != nil && s.notificationDispatch != nil {
-			hooks.AfterCommit(func() error {
-				s.notificationDispatch.NotifyScope(scope)
-				return nil
-			})
-			LogSendDebug("agreement_service", "after_commit_notify_registered", SendDebugFields(scope, correlationID, map[string]any{
-				"agreement_id":   strings.TrimSpace(transitioned.ID),
-				"enqueued_count": enqueuedCount,
-			}))
-		}
 		return nil
 	}); err != nil {
 		LogSendPhaseDuration("agreement_service", "send_failed", sendStartedAt, SendDebugFields(scope, correlationID, map[string]any{
@@ -1818,6 +1581,429 @@ func (s AgreementService) Send(ctx context.Context, scope stores.Scope, agreemen
 		"compatibility_reason": strings.TrimSpace(sendCompatibilityReason),
 	}))
 	return result, nil
+}
+
+func (s AgreementService) loadAgreementSendState(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	correlationID string,
+	idempotencyKey string,
+) (agreementSendState, error) {
+	sendState, err := s.loadSendAgreement(ctx, scope, agreementID, idempotencyKey, correlationID)
+	if err != nil {
+		return sendState, err
+	}
+	sendState, err = s.resolveSendWorkflowState(ctx, scope, sendState)
+	if err != nil {
+		return sendState, err
+	}
+	sendState, err = s.validateAgreementSend(ctx, scope, sendState, correlationID)
+	if err != nil {
+		return sendState, err
+	}
+	return s.loadActiveAgreementSendRecipients(ctx, scope, sendState)
+}
+
+func (s AgreementService) loadSendAgreement(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	idempotencyKey string,
+	correlationID string,
+) (agreementSendState, error) {
+	loadAgreementStartedAt := time.Now()
+	agreement, err := s.agreements.GetAgreement(ctx, scope, agreementID)
+	if err != nil {
+		LogSendPhaseDuration("agreement_service", "agreement_load_failed", loadAgreementStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id": strings.TrimSpace(agreementID),
+			"error":        strings.TrimSpace(err.Error()),
+		}))
+		return agreementSendState{}, err
+	}
+	LogSendPhaseDuration("agreement_service", "agreement_loaded", loadAgreementStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id": strings.TrimSpace(agreement.ID),
+		"status":       strings.TrimSpace(agreement.Status),
+		"version":      agreement.Version,
+	}))
+	if agreement.Status == stores.AgreementStatusDraft {
+		return agreementSendState{
+			agreement:    agreement,
+			workflowKind: strings.TrimSpace(agreement.WorkflowKind),
+		}, nil
+	}
+	if agreement.Status == stores.AgreementStatusSent && idempotencyKey != "" {
+		replayed, replayErr := s.wasSendRecordedWithIdempotencyKey(ctx, scope, agreementID, idempotencyKey)
+		if replayErr != nil {
+			return agreementSendState{agreement: agreement}, replayErr
+		}
+		if replayed {
+			return agreementSendState{agreement: agreement}, nil
+		}
+	}
+	return agreementSendState{agreement: agreement}, domainValidationError("agreements", "status", "send requires draft status")
+}
+
+func (s AgreementService) resolveSendWorkflowState(
+	ctx context.Context,
+	scope stores.Scope,
+	sendState agreementSendState,
+) (agreementSendState, error) {
+	parentAgreementID := strings.TrimSpace(sendState.agreement.ParentAgreementID)
+	if (sendState.workflowKind != stores.AgreementWorkflowKindCorrection && sendState.workflowKind != stores.AgreementWorkflowKindAmendment) || parentAgreementID == "" {
+		return sendState, nil
+	}
+	parentAgreement, err := s.agreements.GetAgreement(ctx, scope, parentAgreementID)
+	if err != nil {
+		return agreementSendState{}, err
+	}
+	if parentErr := validateAgreementSendParent(sendState.workflowKind, parentAgreement); parentErr != nil {
+		return agreementSendState{}, parentErr
+	}
+	changeSummary, err := s.buildAgreementChangeSummary(ctx, scope, parentAgreement, sendState.agreement)
+	if err != nil {
+		return agreementSendState{}, err
+	}
+	sendState.parentAgreement = parentAgreement
+	sendState.changeSummary = changeSummary
+	return sendState, nil
+}
+
+func validateAgreementSendParent(workflowKind string, parentAgreement stores.AgreementRecord) error {
+	switch workflowKind {
+	case stores.AgreementWorkflowKindCorrection:
+		if parentAgreement.Status != stores.AgreementStatusSent &&
+			parentAgreement.Status != stores.AgreementStatusInProgress &&
+			parentAgreement.Status != stores.AgreementStatusVoided {
+			return domainValidationError("agreements", "parent_agreement_id", "correction parent must be sent, in_progress, or already voided")
+		}
+	case stores.AgreementWorkflowKindAmendment:
+		if parentAgreement.Status != stores.AgreementStatusCompleted {
+			return domainValidationError("agreements", "parent_agreement_id", "amendment parent must be completed")
+		}
+	}
+	return nil
+}
+
+func (s AgreementService) validateAgreementSend(
+	ctx context.Context,
+	scope stores.Scope,
+	sendState agreementSendState,
+	correlationID string,
+) (agreementSendState, error) {
+	compatibilityStartedAt := time.Now()
+	document, compatibility, err := s.resolveAgreementDocumentCompatibility(ctx, scope, sendState.agreement)
+	if err != nil {
+		LogSendPhaseDuration("agreement_service", "compatibility_check_failed", compatibilityStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id": strings.TrimSpace(sendState.agreement.ID),
+			"error":        strings.TrimSpace(err.Error()),
+		}))
+		return agreementSendState{}, err
+	}
+	LogSendPhaseDuration("agreement_service", "compatibility_check_complete", compatibilityStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id":         strings.TrimSpace(sendState.agreement.ID),
+		"document_id":          strings.TrimSpace(document.ID),
+		"compatibility_tier":   strings.TrimSpace(string(compatibility.Tier)),
+		"compatibility_reason": strings.TrimSpace(compatibility.Reason),
+	}))
+	if compatibility.Tier == PDFCompatibilityTierUnsupported && !policyAllowsAnalyzeOnlyUpload(s.pdfs.Policy(ctx, scope)) {
+		return agreementSendState{}, pdfUnsupportedError("agreement.send", string(compatibility.Tier), compatibility.Reason, map[string]any{
+			"agreement_id": sendState.agreement.ID,
+			"document_id":  document.ID,
+		})
+	}
+	validationStartedAt := time.Now()
+	validation, err := s.ValidateBeforeSend(ctx, scope, sendState.agreement.ID)
+	if err != nil {
+		LogSendPhaseDuration("agreement_service", "validation_failed", validationStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id": strings.TrimSpace(sendState.agreement.ID),
+			"error":        strings.TrimSpace(err.Error()),
+		}))
+		return agreementSendState{}, err
+	}
+	LogSendPhaseDuration("agreement_service", "validation_complete", validationStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id":     strings.TrimSpace(sendState.agreement.ID),
+		"recipient_count":  validation.RecipientCount,
+		"field_count":      validation.FieldCount,
+		"validation_valid": validation.Valid,
+	}))
+	if !validation.Valid {
+		first := validation.Issues[0]
+		return agreementSendState{}, domainValidationError("agreements", first.Field, first.Message)
+	}
+	sendState.document = document
+	sendState.compatibility = compatibility
+	return sendState, nil
+}
+
+func (s AgreementService) loadActiveAgreementSendRecipients(
+	ctx context.Context,
+	scope stores.Scope,
+	sendState agreementSendState,
+) (agreementSendState, error) {
+	if s.tokens == nil {
+		return agreementSendState{}, domainValidationError("signing_tokens", "service", "not configured")
+	}
+	recipients, err := s.agreements.ListRecipients(ctx, scope, sendState.agreement.ID)
+	if err != nil {
+		return agreementSendState{}, err
+	}
+	activeStage, activeSigners, ok := activeSignerStage(recipients)
+	if !ok {
+		return agreementSendState{}, domainValidationError("recipients", "role", "no active signer recipient found")
+	}
+	sendState.recipients = recipients
+	sendState.activeStage = activeStage
+	sendState.activeSigners = activeSigners
+	sendState.activeRecipientIDs = recipientIDs(activeSigners)
+	return sendState, nil
+}
+
+func (s AgreementService) transitionAgreementForSend(
+	ctx context.Context,
+	scope stores.Scope,
+	sendState agreementSendState,
+	input SendInput,
+	correlationID string,
+	idempotencyKey string,
+) (stores.AgreementRecord, map[string]stores.IssuedSigningToken, []string, error) {
+	transitionStartedAt := time.Now()
+	transitioned, err := s.agreements.Transition(ctx, scope, sendState.agreement.ID, stores.AgreementTransitionInput{
+		ToStatus:        stores.AgreementStatusSent,
+		ExpectedVersion: sendState.agreement.Version,
+	})
+	if err != nil {
+		LogSendPhaseDuration("agreement_service", "transition_failed", transitionStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id": strings.TrimSpace(sendState.agreement.ID),
+			"error":        strings.TrimSpace(err.Error()),
+		}))
+		return stores.AgreementRecord{}, nil, nil, err
+	}
+	LogSendPhaseDuration("agreement_service", "transition_complete", transitionStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id": strings.TrimSpace(transitioned.ID),
+		"status":       strings.TrimSpace(transitioned.Status),
+		"version":      transitioned.Version,
+	}))
+	if reminderErr := s.initializeSendReminderState(ctx, scope, transitioned, sendState.recipients, correlationID); reminderErr != nil {
+		return stores.AgreementRecord{}, nil, nil, reminderErr
+	}
+	pendingByRecipient, pendingRecipientIDs, err := s.issueAgreementSendTokens(ctx, scope, sendState, correlationID)
+	if err != nil {
+		return stores.AgreementRecord{}, nil, nil, err
+	}
+	if err := s.appendAgreementSentAudit(ctx, scope, transitioned, sendState, pendingRecipientIDs, input, correlationID, idempotencyKey); err != nil {
+		return stores.AgreementRecord{}, nil, nil, err
+	}
+	return transitioned, pendingByRecipient, pendingRecipientIDs, nil
+}
+
+func (s AgreementService) initializeSendReminderState(
+	ctx context.Context,
+	scope stores.Scope,
+	agreement stores.AgreementRecord,
+	recipients []stores.RecipientRecord,
+	correlationID string,
+) error {
+	reminderStartedAt := time.Now()
+	if err := s.initializeReminderStatesForSend(ctx, scope, agreement, recipients); err != nil {
+		LogSendPhaseDuration("agreement_service", "reminder_init_failed", reminderStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id": strings.TrimSpace(agreement.ID),
+			"error":        strings.TrimSpace(err.Error()),
+		}))
+		return err
+	}
+	LogSendPhaseDuration("agreement_service", "reminder_init_complete", reminderStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id":    strings.TrimSpace(agreement.ID),
+		"recipient_count": len(recipients),
+	}))
+	return nil
+}
+
+func (s AgreementService) issueAgreementSendTokens(
+	ctx context.Context,
+	scope stores.Scope,
+	sendState agreementSendState,
+	correlationID string,
+) (map[string]stores.IssuedSigningToken, []string, error) {
+	pendingByRecipient := map[string]stores.IssuedSigningToken{}
+	pendingRecipientIDs := make([]string, 0, len(sendState.activeSigners))
+	tokenIssueStartedAt := time.Now()
+	for _, activeSigner := range sendState.activeSigners {
+		issued, err := s.tokens.IssuePending(ctx, scope, sendState.agreement.ID, activeSigner.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		pendingByRecipient[activeSigner.ID] = issued
+		pendingRecipientIDs = append(pendingRecipientIDs, activeSigner.ID)
+	}
+	LogSendPhaseDuration("agreement_service", "token_issuance_complete", tokenIssueStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id":           strings.TrimSpace(sendState.agreement.ID),
+		"issued_recipient_count": len(pendingRecipientIDs),
+		"active_stage":           sendState.activeStage,
+	}))
+	return pendingByRecipient, pendingRecipientIDs, nil
+}
+
+func (s AgreementService) appendAgreementSentAudit(
+	ctx context.Context,
+	scope stores.Scope,
+	transitioned stores.AgreementRecord,
+	sendState agreementSendState,
+	pendingRecipientIDs []string,
+	input SendInput,
+	correlationID string,
+	idempotencyKey string,
+) error {
+	auditStartedAt := time.Now()
+	if err := s.appendAuditEventWithIP(ctx, scope, transitioned.ID, "agreement.sent", "system", "", input.IPAddress, map[string]any{
+		"idempotency_key":          strings.TrimSpace(input.IdempotencyKey),
+		"status":                   transitioned.Status,
+		"workflow_kind":            strings.TrimSpace(transitioned.WorkflowKind),
+		"root_agreement_id":        strings.TrimSpace(transitioned.RootAgreementID),
+		"parent_agreement_id":      strings.TrimSpace(transitioned.ParentAgreementID),
+		"parent_executed_sha256":   strings.TrimSpace(transitioned.ParentExecutedSHA256),
+		"change_summary":           cloneAnyMap(sendState.changeSummary),
+		"pdf_compatibility_tier":   strings.TrimSpace(string(sendState.compatibility.Tier)),
+		"pdf_compatibility_reason": strings.TrimSpace(sendState.compatibility.Reason),
+		"active_stage":             sendState.activeStage,
+		"active_recipient_id":      coalesceFirst(sendState.activeRecipientIDs),
+		"active_recipient_ids":     append([]string{}, sendState.activeRecipientIDs...),
+		"issued_recipient_ids":     append([]string{}, pendingRecipientIDs...),
+	}); err != nil {
+		LogSendPhaseDuration("agreement_service", "audit_failed", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+			"agreement_id": strings.TrimSpace(transitioned.ID),
+			"error":        strings.TrimSpace(err.Error()),
+		}))
+		return err
+	}
+	LogSendPhaseDuration("agreement_service", "audit_complete", auditStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id": strings.TrimSpace(transitioned.ID),
+		"active_stage": sendState.activeStage,
+	}))
+	if sendState.compatibility.Tier != PDFCompatibilityTierLimited {
+		return nil
+	}
+	return s.appendAuditEvent(ctx, scope, transitioned.ID, "agreement.send_degraded_preview", "system", "", map[string]any{
+		"pdf_compatibility_tier":   strings.TrimSpace(string(sendState.compatibility.Tier)),
+		"pdf_compatibility_reason": strings.TrimSpace(sendState.compatibility.Reason),
+		"idempotency_key":          idempotencyKey,
+	})
+}
+
+func (s AgreementService) finalizeAgreementSend(
+	ctx context.Context,
+	scope stores.Scope,
+	sendState agreementSendState,
+	transitioned stores.AgreementRecord,
+	pendingByRecipient map[string]stores.IssuedSigningToken,
+	pendingRecipientIDs []string,
+	input SendInput,
+	hooks *stores.TxHooks,
+	correlationID string,
+	idempotencyKey string,
+) (stores.AgreementRecord, int, error) {
+	outboxStartedAt := time.Now()
+	enqueuedCount, err := s.prepareAgreementSendNotifications(ctx, scope, transitioned, sendState.activeSigners, pendingByRecipient, correlationID, idempotencyKey, outboxStartedAt)
+	if err != nil {
+		return stores.AgreementRecord{}, 0, err
+	}
+	transitioned, _, err = ApplyAgreementNotificationSummary(ctx, s.agreements, s.effects, scope, transitioned.ID)
+	if err != nil {
+		return stores.AgreementRecord{}, 0, err
+	}
+	if err := s.finalizeAgreementSendWorkflows(ctx, scope, sendState, transitioned, input, hooks, correlationID, enqueuedCount); err != nil {
+		return stores.AgreementRecord{}, 0, err
+	}
+	return transitioned, enqueuedCount, nil
+}
+
+func (s AgreementService) prepareAgreementSendNotifications(
+	ctx context.Context,
+	scope stores.Scope,
+	transitioned stores.AgreementRecord,
+	activeSigners []stores.RecipientRecord,
+	pendingByRecipient map[string]stores.IssuedSigningToken,
+	correlationID string,
+	idempotencyKey string,
+	outboxStartedAt time.Time,
+) (int, error) {
+	enqueuedCount := 0
+	for _, activeSigner := range activeSigners {
+		notification := AgreementNotification{
+			AgreementID:   transitioned.ID,
+			RecipientID:   activeSigner.ID,
+			CorrelationID: correlationID,
+			Type:          NotificationSigningInvitation,
+			Token:         pendingByRecipient[activeSigner.ID],
+		}
+		_, replayed, err := s.prepareAgreementNotificationEffect(
+			ctx,
+			scope,
+			GuardedEffectKindAgreementSendInvitation,
+			notification,
+			AgreementSendNotificationFailedAuditEvent,
+			idempotencyKey,
+		)
+		if err != nil {
+			LogSendPhaseDuration("agreement_service", "outbox_enqueue_failed", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+				"agreement_id": strings.TrimSpace(transitioned.ID),
+				"recipient_id": strings.TrimSpace(activeSigner.ID),
+				"error":        strings.TrimSpace(err.Error()),
+			}))
+			return 0, err
+		}
+		if !replayed {
+			enqueuedCount++
+		}
+	}
+	LogSendPhaseDuration("agreement_service", "outbox_enqueue_complete", outboxStartedAt, SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id":   strings.TrimSpace(transitioned.ID),
+		"enqueued_count": enqueuedCount,
+		"active_signers": len(activeSigners),
+	}))
+	return enqueuedCount, nil
+}
+
+func (s AgreementService) finalizeAgreementSendWorkflows(
+	ctx context.Context,
+	scope stores.Scope,
+	sendState agreementSendState,
+	transitioned stores.AgreementRecord,
+	input SendInput,
+	hooks *stores.TxHooks,
+	correlationID string,
+	enqueuedCount int,
+) error {
+	if sendState.workflowKind == stores.AgreementWorkflowKindCorrection &&
+		strings.TrimSpace(sendState.parentAgreement.ID) != "" &&
+		sendState.parentAgreement.Status != stores.AgreementStatusVoided {
+		if _, err := s.supersedeCorrectionParentAgreement(ctx, scope, sendState.parentAgreement, transitioned, input.IPAddress, map[string]any{
+			"new_agreement_id":    strings.TrimSpace(transitioned.ID),
+			"source_agreement_id": strings.TrimSpace(sendState.parentAgreement.ID),
+			"root_agreement_id":   strings.TrimSpace(transitioned.RootAgreementID),
+			"parent_agreement_id": strings.TrimSpace(transitioned.ParentAgreementID),
+			"workflow_kind":       strings.TrimSpace(transitioned.WorkflowKind),
+			"change_summary":      cloneAnyMap(sendState.changeSummary),
+			"new_document_id":     strings.TrimSpace(transitioned.DocumentID),
+			"new_document_sha256": strings.TrimSpace(fmt.Sprint(sendState.changeSummary["new_document_sha256"])),
+			"old_document_id":     strings.TrimSpace(sendState.parentAgreement.DocumentID),
+			"old_document_sha256": strings.TrimSpace(fmt.Sprint(sendState.changeSummary["old_document_sha256"])),
+		}); err != nil {
+			return err
+		}
+	}
+	if len(sendState.activeSigners) == 0 || hooks == nil || s.notificationDispatch == nil {
+		return nil
+	}
+	hooks.AfterCommit(func() error {
+		s.notificationDispatch.NotifyScope(scope)
+		return nil
+	})
+	LogSendDebug("agreement_service", "after_commit_notify_registered", SendDebugFields(scope, correlationID, map[string]any{
+		"agreement_id":   strings.TrimSpace(transitioned.ID),
+		"enqueued_count": enqueuedCount,
+	}))
+	return nil
 }
 
 // Void transitions sent/in-progress agreements to voided and revokes signer tokens when requested.

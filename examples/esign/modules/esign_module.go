@@ -454,30 +454,61 @@ func (m *ESignModule) ValidateStartup(ctx context.Context) error {
 	return m.validateLineageRuntimeWiring(ctx)
 }
 
+type moduleRegisterRuntime struct {
+	objectStore              *uploader.Manager
+	pdfService               services.PDFService
+	jobHandlerDeps           jobs.HandlerDependencies
+	durableJobs              *jobs.DurableJobRuntime
+	lineageStore             stores.LineageStore
+	sourceReconciliation     services.SourceReconciliationService
+	sourceSearch             services.SourceSearchService
+	sourceCommentSync        services.SourceCommentSyncService
+	lineageProcessingTrigger services.SourceLineageProcessingTrigger
+	signingAgreementChanges  services.AgreementChangeNotifier
+	emailWorkflow            jobs.AgreementWorkflow
+	emailOutbox              scopedAsyncTrigger
+	signingWorkflowOutbox    scopedAsyncTrigger
+	notificationRecovery     services.AgreementNotificationRecoveryService
+}
+
 func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
+	if err := validateESignModuleContext(ctx); err != nil {
+		return err
+	}
+	if err := m.prepareRegistration(ctx); err != nil {
+		return err
+	}
+	runtime, err := m.buildRegisterRuntime(ctx)
+	if err != nil {
+		return err
+	}
+	if err := m.configureGoogleIntegration(runtime.jobHandlerDeps, runtime.durableJobs, runtime.lineageStore, runtime.sourceCommentSync, runtime.lineageProcessingTrigger); err != nil {
+		return err
+	}
+	if err := m.validateGoogleRuntimeWiring(context.Background(), resolveESignStrictStartup()); err != nil {
+		return err
+	}
+	return m.registerModuleRuntime(ctx, runtime)
+}
+
+func validateESignModuleContext(ctx coreadmin.ModuleContext) error {
 	if ctx.Admin == nil {
 		return fmt.Errorf("esign module: admin is nil")
 	}
 	if ctx.Router == nil && ctx.PublicRouter == nil {
 		return fmt.Errorf("esign module: router is nil")
 	}
+	return nil
+}
 
+func (m *ESignModule) prepareRegistration(ctx coreadmin.ModuleContext) error {
 	services.RegisterDomainErrorCodes()
 	m.settings = registerRuntimeSettings(ctx.Admin.SettingsService())
 	adminScopeDefaults := ctx.Admin.ScopeDefaults()
 	if adminScopeDefaults.Enabled {
-		tenantID := strings.TrimSpace(adminScopeDefaults.TenantID)
-		if tenantID == "" {
-			tenantID = strings.TrimSpace(m.defaultScope.TenantID)
-		}
-		orgID := strings.TrimSpace(adminScopeDefaults.OrgID)
-		if orgID == "" {
-			orgID = strings.TrimSpace(m.defaultScope.OrgID)
-		}
-		m.defaultScope = stores.Scope{
-			TenantID: tenantID,
-			OrgID:    orgID,
-		}
+		tenantID := firstNonEmptyValue(strings.TrimSpace(adminScopeDefaults.TenantID), strings.TrimSpace(m.defaultScope.TenantID))
+		orgID := firstNonEmptyValue(strings.TrimSpace(adminScopeDefaults.OrgID), strings.TrimSpace(m.defaultScope.OrgID))
+		m.defaultScope = stores.Scope{TenantID: tenantID, OrgID: orgID}
 	}
 	if m.defaultScope.TenantID == "" || m.defaultScope.OrgID == "" {
 		m.defaultScope = defaultModuleScope
@@ -490,12 +521,67 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		)
 	}
 	m.googleEnabled = featureEnabled(ctx.Admin.FeatureGate(), "esign_google")
-	objectStore := m.documentUploadManager()
-	pdfPolicyResolver := services.NewRuntimePDFPolicyResolver(ctx.Admin.SettingsService())
-	pdfService := services.NewPDFService(
-		services.WithPDFPolicyResolver(pdfPolicyResolver),
-	)
+	return nil
+}
 
+func (m *ESignModule) buildRegisterRuntime(ctx coreadmin.ModuleContext) (moduleRegisterRuntime, error) {
+	runtime := moduleRegisterRuntime{}
+	runtime.objectStore, runtime.pdfService = m.buildDocumentRuntime(ctx.Admin)
+	jobAgreementChanges, signingAgreementChanges := m.buildAgreementChangeNotifiers()
+	runtime.signingAgreementChanges = signingAgreementChanges
+	m.initializeCoreServices(runtime.objectStore, runtime.pdfService)
+	runtime.jobHandlerDeps = m.buildJobHandlerDependencies(runtime.objectStore, runtime.pdfService, jobAgreementChanges)
+	durableJobs, err := jobs.NewDurableJobRuntime(m.store, jobs.DefaultRetryPolicy())
+	if err != nil {
+		return runtime, fmt.Errorf("esign module: durable job runtime: %w", err)
+	}
+	durableJobs.RegisterScope(m.defaultScope)
+	m.durableJobs = durableJobs
+	runtime.durableJobs = durableJobs
+	if err := m.initializeLineageRuntime(&runtime, runtime.objectStore); err != nil {
+		return runtime, err
+	}
+	runtime.signingAgreementChanges = m.wrapSigningAgreementChanges(runtime.signingAgreementChanges, runtime.lineageStore, runtime.sourceSearch)
+	if err := m.initializeWorkflowRuntime(ctx, &runtime); err != nil {
+		return runtime, err
+	}
+	return runtime, nil
+}
+
+func (m *ESignModule) buildDocumentRuntime(admin *coreadmin.Admin) (*uploader.Manager, services.PDFService) {
+	objectStore := m.documentUploadManager()
+	pdfPolicyResolver := services.NewRuntimePDFPolicyResolver(admin.SettingsService())
+	return objectStore, services.NewPDFService(services.WithPDFPolicyResolver(pdfPolicyResolver))
+}
+
+func (m *ESignModule) buildAgreementChangeNotifiers() (jobs.AgreementChangeNotifier, services.AgreementChangeNotifier) {
+	if m.agreementEvents == nil {
+		return nil, nil
+	}
+	jobAgreementChanges := func(ctx context.Context, scope stores.Scope, notification jobs.AgreementChangeNotification) error {
+		return m.agreementEvents.PublishAgreementChanged(ctx, scope, commands.AgreementChangedEvent{
+			AgreementID:   strings.TrimSpace(notification.AgreementID),
+			CorrelationID: strings.TrimSpace(notification.CorrelationID),
+			Sections:      append([]string{}, notification.Sections...),
+			Status:        strings.TrimSpace(notification.Status),
+			Message:       strings.TrimSpace(notification.Message),
+			Metadata:      maps.Clone(notification.Metadata),
+		})
+	}
+	signingAgreementChanges := func(ctx context.Context, scope stores.Scope, notification services.AgreementChangeNotification) error {
+		return m.agreementEvents.PublishAgreementChanged(ctx, scope, commands.AgreementChangedEvent{
+			AgreementID:   strings.TrimSpace(notification.AgreementID),
+			CorrelationID: strings.TrimSpace(notification.CorrelationID),
+			Sections:      append([]string{}, notification.Sections...),
+			Status:        strings.TrimSpace(notification.Status),
+			Message:       strings.TrimSpace(notification.Message),
+			Metadata:      maps.Clone(notification.Metadata),
+		})
+	}
+	return jobAgreementChanges, signingAgreementChanges
+}
+
+func (m *ESignModule) initializeCoreServices(objectStore *uploader.Manager, pdfService services.PDFService) {
 	tokenTTL := time.Duration(m.settings.TokenTTLSeconds) * time.Second
 	m.documents = services.NewDocumentService(
 		m.store,
@@ -513,36 +599,18 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		objectStore,
 		services.WithReadableArtifactRendererPDFService(pdfService),
 	)
-	jobAgreementChanges := jobs.AgreementChangeNotifier(nil)
-	signingAgreementChanges := services.AgreementChangeNotifier(nil)
-	if m.agreementEvents != nil {
-		jobAgreementChanges = func(ctx context.Context, scope stores.Scope, notification jobs.AgreementChangeNotification) error {
-			return m.agreementEvents.PublishAgreementChanged(ctx, scope, commands.AgreementChangedEvent{
-				AgreementID:   strings.TrimSpace(notification.AgreementID),
-				CorrelationID: strings.TrimSpace(notification.CorrelationID),
-				Sections:      append([]string{}, notification.Sections...),
-				Status:        strings.TrimSpace(notification.Status),
-				Message:       strings.TrimSpace(notification.Message),
-				Metadata:      maps.Clone(notification.Metadata),
-			})
-		}
-		signingAgreementChanges = func(ctx context.Context, scope stores.Scope, notification services.AgreementChangeNotification) error {
-			return m.agreementEvents.PublishAgreementChanged(ctx, scope, commands.AgreementChangedEvent{
-				AgreementID:   strings.TrimSpace(notification.AgreementID),
-				CorrelationID: strings.TrimSpace(notification.CorrelationID),
-				Sections:      append([]string{}, notification.Sections...),
-				Status:        strings.TrimSpace(notification.Status),
-				Message:       strings.TrimSpace(notification.Message),
-				Metadata:      maps.Clone(notification.Metadata),
-			})
-		}
-	}
 	m.artifacts = services.NewArtifactPipelineService(m.store,
 		artifactRenderer,
 		services.WithArtifactObjectStore(objectStore),
 	)
-	emailProvider := jobs.EmailProviderFromEnv()
-	jobHandlerDeps := jobs.HandlerDependencies{
+}
+
+func (m *ESignModule) buildJobHandlerDependencies(
+	objectStore *uploader.Manager,
+	pdfService services.PDFService,
+	jobAgreementChanges jobs.AgreementChangeNotifier,
+) jobs.HandlerDependencies {
+	return jobs.HandlerDependencies{
 		Agreements:       m.store,
 		Effects:          m.store,
 		Artifacts:        m.store,
@@ -555,65 +623,101 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		Tokens:           m.tokens,
 		Pipeline:         m.artifacts,
 		PDFService:       pdfService,
-		EmailProvider:    emailProvider,
+		EmailProvider:    jobs.EmailProviderFromEnv(),
 		Transactions:     m.store,
 		AgreementChanges: jobAgreementChanges,
 	}
-	jobHandlers := jobs.NewHandlers(jobHandlerDeps)
-	durableJobs, err := jobs.NewDurableJobRuntime(m.store, jobs.DefaultRetryPolicy())
-	if err != nil {
-		return fmt.Errorf("esign module: durable job runtime: %w", err)
-	}
-	durableJobs.RegisterScope(m.defaultScope)
-	m.durableJobs = durableJobs
-	var lineageStore stores.LineageStore
+}
+
+func (m *ESignModule) initializeLineageRuntime(runtime *moduleRegisterRuntime, objectStore *uploader.Manager) error {
 	if resolved, ok := any(m.store).(stores.LineageStore); ok {
-		lineageStore = resolved
+		runtime.lineageStore = resolved
 	}
-	var sourceReconciliation services.SourceReconciliationService
-	var lineageProcessingTrigger services.SourceLineageProcessingTrigger
-	var sourceSearch services.SourceSearchService
-	var sourceCommentSync services.SourceCommentSyncService
-	if lineageStore != nil {
-		searchService, searchErr := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
-			Lineage: lineageStore,
-		})
-		if searchErr != nil {
-			return searchErr
+	if runtime.lineageStore == nil {
+		return nil
+	}
+	searchService, err := services.NewGoSearchSourceSearchService(services.GoSearchSourceSearchConfig{
+		Lineage: runtime.lineageStore,
+	})
+	if err != nil {
+		return err
+	}
+	runtime.sourceSearch = searchService
+	runtime.sourceCommentSync = services.NewDefaultSourceCommentSyncService(
+		runtime.lineageStore,
+		services.WithSourceCommentSyncSearchService(runtime.sourceSearch),
+	)
+	fingerprintService := services.NewDefaultSourceFingerprintService(runtime.lineageStore, objectStore)
+	runtime.sourceReconciliation = services.NewDefaultSourceReconciliationService(
+		runtime.lineageStore,
+		services.WithSourceReconciliationSearchService(runtime.sourceSearch),
+	)
+	lineageJobDeps := runtime.jobHandlerDeps
+	lineageJobDeps.Fingerprints = fingerprintService
+	lineageJobDeps.Reconciliation = runtime.sourceReconciliation
+	lineageHandlers := jobs.NewHandlers(lineageJobDeps)
+	runtime.durableJobs.RegisterHandler(jobs.JobSourceLineageProcessing, lineageHandlers.HandleSourceLineageProcessingJob)
+	runtime.lineageProcessingTrigger = jobs.NewDurableSourceLineageProcessingEnqueuer(runtime.durableJobs)
+	return nil
+}
+
+func (m *ESignModule) wrapSigningAgreementChanges(
+	base services.AgreementChangeNotifier,
+	lineageStore stores.LineageStore,
+	sourceSearch services.SourceSearchService,
+) services.AgreementChangeNotifier {
+	if sourceSearch == nil || lineageStore == nil {
+		return base
+	}
+	agreementSearchRefresh := services.NewSourceSearchAgreementRefreshService(m.store, m.store, lineageStore, sourceSearch)
+	return func(ctx context.Context, scope stores.Scope, notification services.AgreementChangeNotification) error {
+		var firstErr error
+		if base != nil {
+			firstErr = base(ctx, scope, notification)
 		}
-		sourceSearch = searchService
-		sourceCommentSync = services.NewDefaultSourceCommentSyncService(
-			lineageStore,
-			services.WithSourceCommentSyncSearchService(sourceSearch),
-		)
-		fingerprintService := services.NewDefaultSourceFingerprintService(lineageStore, objectStore)
-		reconciliationService := services.NewDefaultSourceReconciliationService(
-			lineageStore,
-			services.WithSourceReconciliationSearchService(sourceSearch),
-		)
-		sourceReconciliation = reconciliationService
-		lineageJobDeps := jobHandlerDeps
-		lineageJobDeps.Fingerprints = fingerprintService
-		lineageJobDeps.Reconciliation = reconciliationService
-		lineageHandlers := jobs.NewHandlers(lineageJobDeps)
-		durableJobs.RegisterHandler(jobs.JobSourceLineageProcessing, lineageHandlers.HandleSourceLineageProcessingJob)
-		lineageProcessingTrigger = jobs.NewDurableSourceLineageProcessingEnqueuer(durableJobs)
-	}
-	if sourceSearch != nil && lineageStore != nil {
-		agreementSearchRefresh := services.NewSourceSearchAgreementRefreshService(m.store, m.store, lineageStore, sourceSearch)
-		baseSigningAgreementChanges := signingAgreementChanges
-		signingAgreementChanges = func(ctx context.Context, scope stores.Scope, notification services.AgreementChangeNotification) error {
-			var firstErr error
-			if baseSigningAgreementChanges != nil {
-				firstErr = baseSigningAgreementChanges(ctx, scope, notification)
-			}
-			if refreshErr := agreementSearchRefresh.RefreshAgreement(ctx, scope, notification.AgreementID); firstErr == nil && refreshErr != nil {
-				firstErr = refreshErr
-			}
-			return firstErr
+		if refreshErr := agreementSearchRefresh.RefreshAgreement(ctx, scope, notification.AgreementID); firstErr == nil && refreshErr != nil {
+			firstErr = refreshErr
 		}
+		return firstErr
 	}
-	emailWorkflow := jobs.NewAgreementWorkflow(jobHandlers)
+}
+
+func (m *ESignModule) initializeWorkflowRuntime(ctx coreadmin.ModuleContext, runtime *moduleRegisterRuntime) error {
+	jobHandlers := jobs.NewHandlers(runtime.jobHandlerDeps)
+	runtime.emailWorkflow = jobs.NewAgreementWorkflow(jobHandlers)
+	emailOutbox, err := m.newEmailOutboxTrigger(runtime.durableJobs, jobHandlers)
+	if err != nil {
+		return err
+	}
+	runtime.emailOutbox = emailOutbox
+	m.emailOutbox = emailOutbox
+	signingWorkflowOutbox, err := m.newSigningWorkflowOutboxTrigger(runtime.durableJobs, jobHandlers, runtime.emailWorkflow)
+	if err != nil {
+		return err
+	}
+	runtime.signingWorkflowOutbox = signingWorkflowOutbox
+	m.signingWorkflows = signingWorkflowOutbox
+	m.initializeDomainServices(ctx, runtime)
+	draftSync, err := m.newDraftSyncService()
+	if err != nil {
+		return err
+	}
+	m.draftSync = draftSync
+	m.draftSyncBootstrap = esignsync.NewAgreementDraftBootstrapper(m.drafts)
+	m.integrations = services.NewIntegrationFoundationService(
+		m.store,
+		services.WithIntegrationAuditStore(m.store),
+	)
+	runtime.notificationRecovery = services.NewAgreementNotificationRecoveryService(
+		m.store,
+		m.tokens,
+		services.WithAgreementNotificationRecoveryReviewTokens(m.reviewTokens),
+		services.WithAgreementNotificationRecoveryDispatch(m.emailOutbox),
+	)
+	return nil
+}
+
+func (m *ESignModule) newEmailOutboxTrigger(durableJobs *jobs.DurableJobRuntime, jobHandlers jobs.Handlers) (scopedAsyncTrigger, error) {
 	emailOutboxPublisher := jobs.NewEmailOutboxPublisher(jobHandlers)
 	durableJobs.RegisterHandler(jobs.JobDrainEmailOutbox, func(ctx context.Context, scope stores.Scope, _ stores.JobRunRecord) error {
 		return drainScopedOutbox(ctx, scope, m.store, emailOutboxPublisher, "esign-email-outbox", []string{
@@ -622,11 +726,17 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	})
 	emailOutbox, err := jobs.NewDurableOutboxDrainTrigger(durableJobs, jobs.JobDrainEmailOutbox, 30*time.Second)
 	if err != nil {
-		return fmt.Errorf("esign module: email outbox trigger: %w", err)
+		return nil, fmt.Errorf("esign module: email outbox trigger: %w", err)
 	}
 	emailOutbox.NotifyScope(m.defaultScope)
-	m.emailOutbox = emailOutbox
-	reviewActorDirectory := newReviewActorDirectory(ctx.Admin)
+	return emailOutbox, nil
+}
+
+func (m *ESignModule) newSigningWorkflowOutboxTrigger(
+	durableJobs *jobs.DurableJobRuntime,
+	jobHandlers jobs.Handlers,
+	emailWorkflow jobs.AgreementWorkflow,
+) (scopedAsyncTrigger, error) {
 	signingWorkflowPublisher := jobs.NewSigningWorkflowOutboxPublisher(jobHandlers, emailWorkflow, emailWorkflow)
 	durableJobs.RegisterHandler(jobs.JobDrainSigningWorkflowOutbox, func(ctx context.Context, scope stores.Scope, _ stores.JobRunRecord) error {
 		return drainScopedOutbox(ctx, scope, m.store, signingWorkflowPublisher, "esign-signing-workflow-outbox", []string{
@@ -636,20 +746,24 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	})
 	signingWorkflowOutbox, err := jobs.NewDurableOutboxDrainTrigger(durableJobs, jobs.JobDrainSigningWorkflowOutbox, 30*time.Second)
 	if err != nil {
-		return fmt.Errorf("esign module: signing workflow outbox trigger: %w", err)
+		return nil, fmt.Errorf("esign module: signing workflow outbox trigger: %w", err)
 	}
 	signingWorkflowOutbox.NotifyScope(m.defaultScope)
-	m.signingWorkflows = signingWorkflowOutbox
+	return signingWorkflowOutbox, nil
+}
+
+func (m *ESignModule) initializeDomainServices(ctx coreadmin.ModuleContext, runtime *moduleRegisterRuntime) {
+	reviewActorDirectory := newReviewActorDirectory(ctx.Admin)
 	m.agreements = services.NewAgreementService(m.store,
 		services.WithAgreementTokenService(m.tokens),
 		services.WithAgreementReviewTokenService(m.reviewTokens),
 		services.WithAgreementAuditStore(m.store),
 		services.WithAgreementReminderStore(m.store),
 		services.WithAgreementNotificationOutbox(m.store),
-		services.WithAgreementNotificationDispatchTrigger(emailOutbox),
-		services.WithAgreementEmailWorkflow(emailWorkflow),
-		services.WithAgreementPlacementObjectStore(objectStore),
-		services.WithAgreementPDFService(pdfService),
+		services.WithAgreementNotificationDispatchTrigger(runtime.emailOutbox),
+		services.WithAgreementEmailWorkflow(runtime.emailWorkflow),
+		services.WithAgreementPlacementObjectStore(runtime.objectStore),
+		services.WithAgreementPDFService(runtime.pdfService),
 		services.WithAgreementReviewActorDirectory(reviewActorDirectory),
 	)
 	m.reminders = services.NewAgreementReminderService(
@@ -661,29 +775,17 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithDraftAgreementService(m.agreements),
 		services.WithDraftAuditStore(m.store),
 	)
-	syncObserver := observability.NewSyncKernelObserver()
-	draftSync, err := syncservice.NewSyncService(
-		esignsync.NewAgreementDraftResourceStore(m.drafts),
-		esignsync.NewAgreementDraftIdempotencyStore(m.store),
-		syncservice.WithMetrics(syncObserver),
-		syncservice.WithLogger(syncObserver),
-	)
-	if err != nil {
-		return fmt.Errorf("esign module: agreement draft sync service: %w", err)
-	}
-	m.draftSync = draftSync
-	m.draftSyncBootstrap = esignsync.NewAgreementDraftBootstrapper(m.drafts)
 	signatureUploadTTL, signatureUploadSecret := resolveSignatureUploadSecurityPolicy()
 	m.signing = services.NewSigningService(m.store,
 		services.WithSigningAuditStore(m.store),
 		services.WithSigningWorkflowOutbox(m.store),
-		services.WithSigningWorkflowDispatchTrigger(signingWorkflowOutbox),
-		services.WithSigningCompletionWorkflow(emailWorkflow),
-		services.WithSigningStageWorkflow(emailWorkflow),
-		services.WithSigningAgreementChangeNotifier(signingAgreementChanges),
+		services.WithSigningWorkflowDispatchTrigger(runtime.signingWorkflowOutbox),
+		services.WithSigningCompletionWorkflow(runtime.emailWorkflow),
+		services.WithSigningStageWorkflow(runtime.emailWorkflow),
+		services.WithSigningAgreementChangeNotifier(runtime.signingAgreementChanges),
 		services.WithSignatureUploadConfig(signatureUploadTTL, signatureUploadSecret),
-		services.WithSigningObjectStore(objectStore),
-		services.WithSigningPDFService(pdfService),
+		services.WithSigningObjectStore(runtime.objectStore),
+		services.WithSigningPDFService(runtime.pdfService),
 		services.WithSigningReviewActorDirectory(reviewActorDirectory),
 	)
 	profileTTL, persistDrawnSignature := resolveSignerProfilePersistencePolicy()
@@ -692,6 +794,29 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		services.WithSignerProfileTTL(profileTTL),
 		services.WithSignerProfilePersistDrawnSignature(persistDrawnSignature),
 	)
+	m.savedSignatures = services.NewSignerSavedSignatureService(
+		m.store,
+		services.WithSignerSavedSignatureDefaultLimit(m.savedSignatureLimit()),
+		services.WithSignerSavedSignatureObjectStore(runtime.objectStore),
+		services.WithSignerSavedSignatureLimitResolver(m.savedSignatureLimitResolver(ctx.Admin.SettingsService())),
+	)
+}
+
+func (m *ESignModule) newDraftSyncService() (synccore.SyncService, error) {
+	syncObserver := observability.NewSyncKernelObserver()
+	draftSync, err := syncservice.NewSyncService(
+		esignsync.NewAgreementDraftResourceStore(m.drafts),
+		esignsync.NewAgreementDraftIdempotencyStore(m.store),
+		syncservice.WithMetrics(syncObserver),
+		syncservice.WithLogger(syncObserver),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("esign module: agreement draft sync service: %w", err)
+	}
+	return draftSync, nil
+}
+
+func (m *ESignModule) savedSignatureLimit() int {
 	savedSignatureLimit := int(m.settings.SavedSignaturesLimit)
 	if savedSignatureLimit <= 0 {
 		savedSignatureLimit = appcfg.Active().Signer.SavedSignaturesLimitPerType
@@ -699,80 +824,91 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 	if savedSignatureLimit <= 0 {
 		savedSignatureLimit = 10
 	}
-	settingsService := ctx.Admin.SettingsService()
-	m.savedSignatures = services.NewSignerSavedSignatureService(
-		m.store,
-		services.WithSignerSavedSignatureDefaultLimit(savedSignatureLimit),
-		services.WithSignerSavedSignatureObjectStore(objectStore),
-		services.WithSignerSavedSignatureLimitResolver(func(_ context.Context, _ stores.Scope, subject, _ string) int {
-			if settingsService == nil {
-				return 0
-			}
-			subject = strings.TrimSpace(subject)
-			if subject == "" {
-				return 0
-			}
-			resolved := settingsService.Resolve(settingSavedSignaturesLimit, subject)
-			switch raw := resolved.Value.(type) {
-			case int:
-				return raw
-			case int32:
-				return int(raw)
-			case int64:
-				return int(raw)
-			case float64:
-				return int(raw)
-			case string:
-				trimmed := strings.TrimSpace(raw)
-				if trimmed == "" {
-					return 0
-				}
-				var parsed int
-				if _, scanErr := fmt.Sscan(trimmed, &parsed); scanErr == nil {
-					return parsed
-				}
-			}
-			return 0
-		}),
-	)
-	m.integrations = services.NewIntegrationFoundationService(
-		m.store,
-		services.WithIntegrationAuditStore(m.store),
-	)
-	if googleErr := m.configureGoogleIntegration(jobHandlerDeps, durableJobs, lineageStore, sourceCommentSync, lineageProcessingTrigger); googleErr != nil {
-		return googleErr
-	}
-	if validateErr := m.validateGoogleRuntimeWiring(context.Background(), resolveESignStrictStartup()); validateErr != nil {
-		return validateErr
-	}
-	m.activityMap = NewAuditActivityProjector(ctx.Admin.ActivityFeed(), m.store)
-	notificationRecovery := services.NewAgreementNotificationRecoveryService(
-		m.store,
-		m.tokens,
-		services.WithAgreementNotificationRecoveryReviewTokens(m.reviewTokens),
-		services.WithAgreementNotificationRecoveryDispatch(m.emailOutbox),
-	)
+	return savedSignatureLimit
+}
 
-	registerOptions := make([]commands.RegisterOption, 0, 1)
-	remediationService, remediationErr := buildPDFRemediationCommandService(
+func (m *ESignModule) savedSignatureLimitResolver(settingsService *coreadmin.SettingsService) func(context.Context, stores.Scope, string, string) int {
+	return func(_ context.Context, _ stores.Scope, subject, _ string) int {
+		if settingsService == nil {
+			return 0
+		}
+		subject = strings.TrimSpace(subject)
+		if subject == "" {
+			return 0
+		}
+		resolved := settingsService.Resolve(settingSavedSignaturesLimit, subject)
+		switch raw := resolved.Value.(type) {
+		case int:
+			return raw
+		case int32:
+			return int(raw)
+		case int64:
+			return int(raw)
+		case float64:
+			return int(raw)
+		case string:
+			trimmed := strings.TrimSpace(raw)
+			if trimmed == "" {
+				return 0
+			}
+			var parsed int
+			if _, scanErr := fmt.Sscan(trimmed, &parsed); scanErr == nil {
+				return parsed
+			}
+		}
+		return 0
+	}
+}
+
+func (m *ESignModule) registerModuleRuntime(ctx coreadmin.ModuleContext, runtime moduleRegisterRuntime) error {
+	m.activityMap = NewAuditActivityProjector(ctx.Admin.ActivityFeed(), m.store)
+	remediationService, err := m.buildRemediationService(ctx.Admin, runtime.objectStore, runtime.pdfService)
+	if err != nil {
+		return err
+	}
+	if err := m.registerCommandsAndPanels(ctx, runtime.notificationRecovery, remediationService); err != nil {
+		return err
+	}
+	if err := m.registerHandlers(ctx, runtime, remediationService); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *ESignModule) buildRemediationService(
+	admin *coreadmin.Admin,
+	objectStore *uploader.Manager,
+	pdfService services.PDFService,
+) (commands.PDFRemediationCommandService, error) {
+	remediationService, err := buildPDFRemediationCommandService(
 		appcfg.Active(),
 		m.store,
 		objectStore,
 		pdfService,
-		ctx.Admin.ActivityFeed(),
+		admin.ActivityFeed(),
 		m.activityMap,
 	)
-	if remediationErr != nil {
-		return fmt.Errorf("esign module: pdf remediation runtime: %w", remediationErr)
+	if err != nil {
+		return nil, fmt.Errorf("esign module: pdf remediation runtime: %w", err)
+	}
+	return remediationService, nil
+}
+
+func (m *ESignModule) registerCommandsAndPanels(
+	ctx coreadmin.ModuleContext,
+	notificationRecovery services.AgreementNotificationRecoveryService,
+	remediationService commands.PDFRemediationCommandService,
+) error {
+	registerOptions := []commands.RegisterOption{
+		commands.WithGuardedEffectRecoveryService(notificationRecovery),
 	}
 	if remediationService != nil {
 		registerOptions = append(registerOptions, commands.WithPDFRemediationService(remediationService))
 	}
-	registerOptions = append(registerOptions, commands.WithGuardedEffectRecoveryService(notificationRecovery))
 	if m.agreementEvents != nil {
 		registerOptions = append(registerOptions, commands.WithAgreementEventPublisher(m.agreementEvents))
 	}
-	if registerErr := commands.Register(
+	if err := commands.Register(
 		ctx.Admin.Commands(),
 		m.agreements,
 		m.tokens,
@@ -782,32 +918,58 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		m.defaultScope,
 		m.activityMap,
 		registerOptions...,
-	); registerErr != nil {
-		return registerErr
+	); err != nil {
+		return err
 	}
-	if panelErr := m.registerPanels(ctx.Admin); panelErr != nil {
-		return panelErr
+	if err := m.registerPanels(ctx.Admin); err != nil {
+		return err
 	}
-	if tabsErr := m.registerPanelTabs(ctx.Admin); tabsErr != nil {
-		return tabsErr
+	if err := m.registerPanelTabs(ctx.Admin); err != nil {
+		return err
 	}
 	m.registerDashboardProviders(ctx.Admin)
-	if rolesErr := ensureDefaultRoleMappings(ctx.Admin); rolesErr != nil {
-		return rolesErr
-	}
+	return ensureDefaultRoleMappings(ctx.Admin)
+}
 
+func (m *ESignModule) registerHandlers(
+	ctx coreadmin.ModuleContext,
+	runtime moduleRegisterRuntime,
+	remediationService commands.PDFRemediationCommandService,
+) error {
 	m.routes = handlers.BuildRouteSet(ctx.Admin.URLs(), ctx.Admin.BasePath(), ctx.Admin.AdminAPIGroup())
-	routeRouter := ctx.PublicRouter
-	if routeRouter == nil {
-		routeRouter = ctx.Router
-	}
-	sourceReadModels, lineageDiagnostics, err := m.resolveSourceManagementReadModels(sourceSearch)
+	routeRouter := m.resolveRouteRouter(ctx)
+	sourceReadModels, lineageDiagnostics, err := m.resolveHandlerReadModels(runtime)
 	if err != nil {
 		return err
 	}
+	googleRuntime := m.buildGoogleRuntime()
+	remediationTrigger, remediationDispatchLookup := m.buildRemediationHandlerBindings(ctx, remediationService)
+	return handlers.Register(
+		routeRouter,
+		m.routes,
+		m.handlerRegisterOptions(ctx, runtime, sourceReadModels, lineageDiagnostics, googleRuntime, remediationTrigger, remediationDispatchLookup)...,
+	)
+}
+
+func (m *ESignModule) resolveRouteRouter(ctx coreadmin.ModuleContext) coreadmin.AdminRouter {
+	if ctx.PublicRouter != nil {
+		return ctx.PublicRouter
+	}
+	return ctx.Router
+}
+
+func (m *ESignModule) resolveHandlerReadModels(runtime moduleRegisterRuntime) (services.SourceReadModelService, services.LineageDiagnosticsService, error) {
+	sourceReadModels, lineageDiagnostics, err := m.resolveSourceManagementReadModels(runtime.sourceSearch)
+	if err != nil {
+		return nil, nil, err
+	}
 	m.sourceReadModels = sourceReadModels
 	m.sourceDiagnostics = lineageDiagnostics
-	m.reconciliation = sourceReconciliation
+	m.reconciliation = runtime.sourceReconciliation
+	return sourceReadModels, lineageDiagnostics, nil
+}
+
+func (m *ESignModule) buildGoogleRuntime() handlers.GoogleRuntimeConfig {
 	googleRuntime := handlers.GoogleRuntimeConfig{
 		Enabled:     m.googleEnabled,
 		Integration: m.google,
@@ -817,21 +979,36 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		googleRuntime.ImportJobs = m.store
 		googleRuntime.ImportEnqueue = jobs.NewDurableGoogleDriveImportEnqueue(m.durableJobs)
 	}
-	rateLimitRules := resolveRateLimitRulesFromConfig()
-	requestTrustPolicy := resolveRequestTrustPolicyFromConfig()
-	var remediationTrigger handlers.RemediationTrigger
-	var remediationDispatchLookup handlers.RemediationDispatchStatusLookup
-	if remediationService != nil {
-		remediationTrigger = newRemediationCommandTrigger(ctx.Admin.Commands(), m.defaultScope, m.store)
-		remediationDispatchLookup = newRemediationDispatchStatusLookup(m.store, m.store, m.remediationStatus)
+	return googleRuntime
+}
+
+func (m *ESignModule) buildRemediationHandlerBindings(
+	ctx coreadmin.ModuleContext,
+	remediationService commands.PDFRemediationCommandService,
+) (handlers.RemediationTrigger, handlers.RemediationDispatchStatusLookup) {
+	if remediationService == nil {
+		return nil, nil
 	}
+	return newRemediationCommandTrigger(ctx.Admin.Commands(), m.defaultScope, m.store),
+		newRemediationDispatchStatusLookup(m.store, m.store, m.remediationStatus)
+}
+
+func (m *ESignModule) handlerRegisterOptions(
+	ctx coreadmin.ModuleContext,
+	runtime moduleRegisterRuntime,
+	sourceReadModels services.SourceReadModelService,
+	lineageDiagnostics services.LineageDiagnosticsService,
+	googleRuntime handlers.GoogleRuntimeConfig,
+	remediationTrigger handlers.RemediationTrigger,
+	remediationDispatchLookup handlers.RemediationDispatchStatusLookup,
+) []handlers.RegisterOption {
 	var preferenceStore coreadmin.PreferencesStore
 	if prefs := ctx.Admin.PreferencesService(); prefs != nil {
 		preferenceStore = prefs.Store()
 	}
-	if err := handlers.Register(
-		routeRouter,
-		m.routes,
+	rateLimitRules := resolveRateLimitRulesFromConfig()
+	requestTrustPolicy := resolveRequestTrustPolicyFromConfig()
+	return []handlers.RegisterOption{
 		handlers.WithRequestRateLimiter(handlers.NewSlidingWindowRateLimiter(rateLimitRules)),
 		handlers.WithRateLimitRuleResolver(handlers.NewScopedRateLimitRuleResolver(preferenceStore, m.defaultScope, rateLimitRules)),
 		handlers.WithAuthorizer(ctx.Admin.Authorizer()),
@@ -845,12 +1022,12 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithSignerSavedSignatureService(m.savedSignatures),
 		handlers.WithSignerAssetContractService(
 			services.NewSignerAssetContractService(m.store,
-				services.WithSignerAssetObjectStore(objectStore),
+				services.WithSignerAssetObjectStore(runtime.objectStore),
 			),
 		),
 		handlers.WithAgreementViewerService(
 			services.NewAgreementViewService(m.signing, m.store,
-				services.WithSignerAssetObjectStore(objectStore),
+				services.WithSignerAssetObjectStore(runtime.objectStore),
 			),
 		),
 		handlers.WithAgreementDeliveryService(m.artifacts),
@@ -858,12 +1035,12 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		handlers.WithDraftWorkflowService(m.drafts),
 		handlers.WithAgreementDraftSyncService(m.draftSync),
 		handlers.WithAgreementDraftSyncBootstrap(m.draftSyncBootstrap),
-		handlers.WithSignerObjectStore(objectStore),
+		handlers.WithSignerObjectStore(runtime.objectStore),
 		handlers.WithAgreementStatsService(m.store),
 		handlers.WithAuditEventStore(m.store),
 		handlers.WithGuardedEffectStore(m.store),
-		handlers.WithGuardedEffectRecoveryService(notificationRecovery),
-		handlers.WithPDFPolicyService(pdfService),
+		handlers.WithGuardedEffectRecoveryService(runtime.notificationRecovery),
+		handlers.WithPDFPolicyService(runtime.pdfService),
 		handlers.WithRemediationTrigger(remediationTrigger),
 		handlers.WithRemediationDispatchStatusLookup(remediationDispatchLookup),
 		handlers.WithDefaultScope(m.defaultScope),
@@ -881,13 +1058,10 @@ func (m *ESignModule) Register(ctx coreadmin.ModuleContext) error {
 		}),
 		handlers.WithGoogleRuntime(googleRuntime),
 		handlers.WithSourceReadModelService(sourceReadModels),
-		handlers.WithSourceReconciliationService(sourceReconciliation),
+		handlers.WithSourceReconciliationService(runtime.sourceReconciliation),
 		handlers.WithLineageDiagnosticsService(lineageDiagnostics),
 		handlers.WithIntegrationFoundationService(m.integrations),
-	); err != nil {
-		return err
 	}
-	return nil
 }
 
 func (m *ESignModule) configureGoogleIntegration(

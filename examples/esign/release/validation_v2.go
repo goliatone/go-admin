@@ -367,232 +367,17 @@ func runV2AgreementLifecycle(
 	agreementSvc services.AgreementService,
 	signingSvc services.SigningService,
 ) (v2AgreementMetrics, error) {
-	doc, err := documentSvc.Upload(ctx, scope, services.DocumentUploadInput{
-		Title:              fmt.Sprintf("V2 Validation Document %03d", index+1),
-		SourceOriginalName: fmt.Sprintf("v2-validation-%03d-source.pdf", index+1),
-		ObjectKey:          fmt.Sprintf("tenant/%s/org/%s/docs/v2-validation-%03d/source.pdf", scope.TenantID, scope.OrgID, index+1),
-		PDF:                samplePDF(1),
-		CreatedBy:          "release-v2-validation",
-	})
+	agreement, participants, placementReadinessOps, err := seedV2AgreementLifecycle(ctx, scope, index, documentSvc, agreementSvc)
 	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("upload document: %w", err)
+		return v2AgreementMetrics{}, err
 	}
-
-	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
-		DocumentID:      doc.ID,
-		Title:           fmt.Sprintf("V2 Validation Agreement %03d", index+1),
-		Message:         "Phase 28 v2 validation profile",
-		CreatedByUserID: "release-v2-validation",
-	})
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("create agreement: %w", err)
-	}
-
-	stageOneSignerA, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
-		Email:        new(fmt.Sprintf("stage1-a-%03d@example.test", index+1)),
-		Name:         new("Stage One A"),
-		Role:         new(stores.RecipientRoleSigner),
-		SigningStage: new(1),
-	}, 0)
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("create stage1 signer A: %w", err)
-	}
-	stageOneSignerB, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
-		Email:        new(fmt.Sprintf("stage1-b-%03d@example.test", index+1)),
-		Name:         new("Stage One B"),
-		Role:         new(stores.RecipientRoleSigner),
-		SigningStage: new(1),
-	}, 0)
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("create stage1 signer B: %w", err)
-	}
-	stageTwoSigner, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreement.ID, stores.ParticipantDraftPatch{
-		Email:        new(fmt.Sprintf("stage2-%03d@example.test", index+1)),
-		Name:         new("Stage Two"),
-		Role:         new(stores.RecipientRoleSigner),
-		SigningStage: new(2),
-	}, 0)
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("create stage2 signer: %w", err)
-	}
-
-	participants := []stores.ParticipantRecord{stageOneSignerA, stageOneSignerB, stageTwoSigner}
-	for _, participant := range participants {
-		_, defErr := agreementSvc.UpsertFieldDefinitionDraft(ctx, scope, agreement.ID, stores.FieldDefinitionDraftPatch{
-			ParticipantID: new(participant.ID),
-			Type:          new(stores.FieldTypeSignature),
-			Required:      new(true),
-		})
-		if defErr != nil {
-			return v2AgreementMetrics{}, fmt.Errorf("create field definition for participant %s: %w", participant.ID, defErr)
-		}
-	}
-
-	run, err := agreementSvc.RunAutoPlacement(ctx, scope, agreement.ID, services.AutoPlacementRunInput{
-		UserID: "release-v2-validation",
-	})
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("run auto placement: %w", err)
-	}
-	if len(run.Run.Suggestions) == 0 {
-		return v2AgreementMetrics{}, fmt.Errorf("auto placement produced no suggestions for agreement %s", agreement.ID)
-	}
-	suggestionIDs := make([]string, 0, len(run.Run.Suggestions))
-	for _, suggestion := range run.Run.Suggestions {
-		sid := strings.TrimSpace(suggestion.ID)
-		if sid == "" {
-			continue
-		}
-		suggestionIDs = append(suggestionIDs, sid)
-	}
-	if len(suggestionIDs) == 0 {
-		return v2AgreementMetrics{}, fmt.Errorf("auto placement suggestions missing ids for agreement %s", agreement.ID)
-	}
-	_, applyErr := agreementSvc.ApplyPlacementRun(ctx, scope, agreement.ID, run.Run.ID, services.ApplyPlacementRunInput{
-		UserID:        "release-v2-validation",
-		SuggestionIDs: suggestionIDs,
-	})
-	if applyErr != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("apply placement run: %w", applyErr)
-	}
-	placementReadinessOps := 1
-
-	validation, err := agreementSvc.ValidateBeforeSend(ctx, scope, agreement.ID)
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("validate before send: %w", err)
-	}
-	if !validation.Valid {
-		return v2AgreementMetrics{}, fmt.Errorf("validation before send failed for agreement %s: %+v", agreement.ID, validation.Issues)
-	}
-	placementReadinessOps++
-
-	_, sendErr := agreementSvc.Send(ctx, scope, agreement.ID, services.SendInput{
-		IdempotencyKey: fmt.Sprintf("v2-send-%03d", index+1),
-	})
-	if sendErr != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("send agreement: %w", sendErr)
-	}
-
 	fieldIDsByParticipant, err := requiredSignatureFieldIDsByParticipant(ctx, store, scope, agreement.ID)
 	if err != nil {
 		return v2AgreementMetrics{}, err
 	}
-
-	stageEdgeChecks := 0
-	activeSessionStart := time.Now()
-	activeSession, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
-		AgreementID: agreement.ID,
-		RecipientID: stageOneSignerA.ID,
-	})
-	activeSessionDuration := time.Since(activeSessionStart)
-	observability.ObserveUnifiedViewerLoad(ctx, activeSessionDuration, err == nil)
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("get active session for stage one signer: %w", err)
-	}
-	if activeSession.State != services.SignerSessionStateActive {
-		return v2AgreementMetrics{}, fmt.Errorf("expected stage-one signer active session, got %q", activeSession.State)
-	}
-	stageEdgeChecks++
-
-	waitingSessionStart := time.Now()
-	waitingSession, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
-		AgreementID: agreement.ID,
-		RecipientID: stageTwoSigner.ID,
-	})
-	waitingSessionDuration := time.Since(waitingSessionStart)
-	observability.ObserveUnifiedViewerLoad(ctx, waitingSessionDuration, err == nil)
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("get waiting session for stage-two signer: %w", err)
-	}
-	if waitingSession.State != services.SignerSessionStateWaiting {
-		return v2AgreementMetrics{}, fmt.Errorf("expected stage-two signer waiting session, got %q", waitingSession.State)
-	}
-	stageEdgeChecks++
-
-	stageOneSubmitA, stageOneDurationA, err := signV2Participant(
-		ctx,
-		scope,
-		signingSvc,
-		agreement.ID,
-		stageOneSignerA.ID,
-		fieldIDsByParticipant[stageOneSignerA.ID],
-		fmt.Sprintf("v2-submit-stage1-a-%03d", index+1),
-		fmt.Sprintf("tenant/%s/org/%s/agreements/%s/signatures/stage1-a-%03d.png", scope.TenantID, scope.OrgID, agreement.ID, index+1),
-		strings.Repeat("1", 64),
-	)
+	stageEdgeChecks, submitDurations, err := executeV2AgreementLifecycleStages(ctx, scope, index, agreement.ID, participants, fieldIDsByParticipant, signingSvc)
 	if err != nil {
 		return v2AgreementMetrics{}, err
-	}
-	if stageOneSubmitA.Completed || stageOneSubmitA.NextStage != 1 {
-		return v2AgreementMetrics{}, fmt.Errorf("expected first stage-one submit to keep stage 1 active")
-	}
-	stageEdgeChecks++
-
-	stageTwoWaitingStart := time.Now()
-	stageTwoWaiting, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
-		AgreementID: agreement.ID,
-		RecipientID: stageTwoSigner.ID,
-	})
-	stageTwoWaitingDuration := time.Since(stageTwoWaitingStart)
-	observability.ObserveUnifiedViewerLoad(ctx, stageTwoWaitingDuration, err == nil)
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("get stage-two waiting session after first submit: %w", err)
-	}
-	if stageTwoWaiting.State != services.SignerSessionStateWaiting {
-		return v2AgreementMetrics{}, fmt.Errorf("expected stage-two signer waiting after first submit, got %q", stageTwoWaiting.State)
-	}
-	stageEdgeChecks++
-
-	stageOneSubmitB, stageOneDurationB, err := signV2Participant(
-		ctx,
-		scope,
-		signingSvc,
-		agreement.ID,
-		stageOneSignerB.ID,
-		fieldIDsByParticipant[stageOneSignerB.ID],
-		fmt.Sprintf("v2-submit-stage1-b-%03d", index+1),
-		fmt.Sprintf("tenant/%s/org/%s/agreements/%s/signatures/stage1-b-%03d.png", scope.TenantID, scope.OrgID, agreement.ID, index+1),
-		strings.Repeat("2", 64),
-	)
-	if err != nil {
-		return v2AgreementMetrics{}, err
-	}
-	if stageOneSubmitB.Completed || stageOneSubmitB.NextStage != 2 {
-		return v2AgreementMetrics{}, fmt.Errorf("expected second stage-one submit to advance to stage 2")
-	}
-	stageEdgeChecks++
-
-	stageTwoActiveStart := time.Now()
-	stageTwoActive, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
-		AgreementID: agreement.ID,
-		RecipientID: stageTwoSigner.ID,
-	})
-	stageTwoActiveDuration := time.Since(stageTwoActiveStart)
-	observability.ObserveUnifiedViewerLoad(ctx, stageTwoActiveDuration, err == nil)
-	if err != nil {
-		return v2AgreementMetrics{}, fmt.Errorf("get stage-two active session after stage-one completion: %w", err)
-	}
-	if stageTwoActive.State != services.SignerSessionStateActive || stageTwoActive.ActiveStage != 2 {
-		return v2AgreementMetrics{}, fmt.Errorf("expected stage-two signer active at stage 2, got state=%q stage=%d", stageTwoActive.State, stageTwoActive.ActiveStage)
-	}
-	stageEdgeChecks++
-
-	finalSubmit, stageTwoDuration, err := signV2Participant(
-		ctx,
-		scope,
-		signingSvc,
-		agreement.ID,
-		stageTwoSigner.ID,
-		fieldIDsByParticipant[stageTwoSigner.ID],
-		fmt.Sprintf("v2-submit-stage2-%03d", index+1),
-		fmt.Sprintf("tenant/%s/org/%s/agreements/%s/signatures/stage2-%03d.png", scope.TenantID, scope.OrgID, agreement.ID, index+1),
-		strings.Repeat("3", 64),
-	)
-	if err != nil {
-		return v2AgreementMetrics{}, err
-	}
-	if !finalSubmit.Completed || finalSubmit.Agreement.Status != stores.AgreementStatusCompleted {
-		return v2AgreementMetrics{}, fmt.Errorf("expected final stage submit to complete agreement")
 	}
 	observability.ObserveCompletionDelivery(ctx, true)
 	observability.ObserveJobResult(ctx, "jobs.esign.pdf_generate_executed", true)
@@ -603,8 +388,305 @@ func runV2AgreementLifecycle(
 	return v2AgreementMetrics{
 		stageEdgeChecks:       stageEdgeChecks,
 		placementReadinessOps: placementReadinessOps,
-		submitDurations:       []time.Duration{stageOneDurationA, stageOneDurationB, stageTwoDuration},
+		submitDurations:       submitDurations,
 	}, nil
+}
+
+func seedV2AgreementLifecycle(
+	ctx context.Context,
+	scope stores.Scope,
+	index int,
+	documentSvc services.DocumentService,
+	agreementSvc services.AgreementService,
+) (stores.AgreementRecord, []stores.ParticipantRecord, int, error) {
+	doc, err := documentSvc.Upload(ctx, scope, services.DocumentUploadInput{
+		Title:              fmt.Sprintf("V2 Validation Document %03d", index+1),
+		SourceOriginalName: fmt.Sprintf("v2-validation-%03d-source.pdf", index+1),
+		ObjectKey:          fmt.Sprintf("tenant/%s/org/%s/docs/v2-validation-%03d/source.pdf", scope.TenantID, scope.OrgID, index+1),
+		PDF:                samplePDF(1),
+		CreatedBy:          "release-v2-validation",
+	})
+	if err != nil {
+		return stores.AgreementRecord{}, nil, 0, fmt.Errorf("upload document: %w", err)
+	}
+	agreement, err := agreementSvc.CreateDraft(ctx, scope, services.CreateDraftInput{
+		DocumentID:      doc.ID,
+		Title:           fmt.Sprintf("V2 Validation Agreement %03d", index+1),
+		Message:         "Phase 28 v2 validation profile",
+		CreatedByUserID: "release-v2-validation",
+	})
+	if err != nil {
+		return stores.AgreementRecord{}, nil, 0, fmt.Errorf("create agreement: %w", err)
+	}
+	participants, err := createV2AgreementLifecycleParticipants(ctx, scope, index, agreement.ID, agreementSvc)
+	if err != nil {
+		return stores.AgreementRecord{}, nil, 0, err
+	}
+	placementReadinessOps, err := prepareV2AgreementForSend(ctx, scope, index, agreement.ID, agreementSvc)
+	if err != nil {
+		return stores.AgreementRecord{}, nil, 0, err
+	}
+	return agreement, participants, placementReadinessOps, nil
+}
+
+func createV2AgreementLifecycleParticipants(
+	ctx context.Context,
+	scope stores.Scope,
+	index int,
+	agreementID string,
+	agreementSvc services.AgreementService,
+) ([]stores.ParticipantRecord, error) {
+	stageOneSignerA, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreementID, stores.ParticipantDraftPatch{
+		Email:        new(fmt.Sprintf("stage1-a-%03d@example.test", index+1)),
+		Name:         new("Stage One A"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningStage: new(1),
+	}, 0)
+	if err != nil {
+		return nil, fmt.Errorf("create stage1 signer A: %w", err)
+	}
+	stageOneSignerB, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreementID, stores.ParticipantDraftPatch{
+		Email:        new(fmt.Sprintf("stage1-b-%03d@example.test", index+1)),
+		Name:         new("Stage One B"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningStage: new(1),
+	}, 0)
+	if err != nil {
+		return nil, fmt.Errorf("create stage1 signer B: %w", err)
+	}
+	stageTwoSigner, err := agreementSvc.UpsertParticipantDraft(ctx, scope, agreementID, stores.ParticipantDraftPatch{
+		Email:        new(fmt.Sprintf("stage2-%03d@example.test", index+1)),
+		Name:         new("Stage Two"),
+		Role:         new(stores.RecipientRoleSigner),
+		SigningStage: new(2),
+	}, 0)
+	if err != nil {
+		return nil, fmt.Errorf("create stage2 signer: %w", err)
+	}
+	participants := []stores.ParticipantRecord{stageOneSignerA, stageOneSignerB, stageTwoSigner}
+	for _, participant := range participants {
+		if _, err := agreementSvc.UpsertFieldDefinitionDraft(ctx, scope, agreementID, stores.FieldDefinitionDraftPatch{
+			ParticipantID: new(participant.ID),
+			Type:          new(stores.FieldTypeSignature),
+			Required:      new(true),
+		}); err != nil {
+			return nil, fmt.Errorf("create field definition for participant %s: %w", participant.ID, err)
+		}
+	}
+	return participants, nil
+}
+
+func prepareV2AgreementForSend(
+	ctx context.Context,
+	scope stores.Scope,
+	index int,
+	agreementID string,
+	agreementSvc services.AgreementService,
+) (int, error) {
+	run, err := agreementSvc.RunAutoPlacement(ctx, scope, agreementID, services.AutoPlacementRunInput{
+		UserID: "release-v2-validation",
+	})
+	if err != nil {
+		return 0, fmt.Errorf("run auto placement: %w", err)
+	}
+	suggestionIDs, err := requiredPlacementSuggestionIDs(run.Run.Suggestions, agreementID)
+	if err != nil {
+		return 0, err
+	}
+	if _, applyErr := agreementSvc.ApplyPlacementRun(ctx, scope, agreementID, run.Run.ID, services.ApplyPlacementRunInput{
+		UserID:        "release-v2-validation",
+		SuggestionIDs: suggestionIDs,
+	}); applyErr != nil {
+		return 0, fmt.Errorf("apply placement run: %w", applyErr)
+	}
+	validation, err := agreementSvc.ValidateBeforeSend(ctx, scope, agreementID)
+	if err != nil {
+		return 0, fmt.Errorf("validate before send: %w", err)
+	}
+	if !validation.Valid {
+		return 0, fmt.Errorf("validation before send failed for agreement %s: %+v", agreementID, validation.Issues)
+	}
+	if _, sendErr := agreementSvc.Send(ctx, scope, agreementID, services.SendInput{
+		IdempotencyKey: fmt.Sprintf("v2-send-%03d", index+1),
+	}); sendErr != nil {
+		return 0, fmt.Errorf("send agreement: %w", sendErr)
+	}
+	return 2, nil
+}
+
+func requiredPlacementSuggestionIDs(suggestions []stores.PlacementSuggestionRecord, agreementID string) ([]string, error) {
+	if len(suggestions) == 0 {
+		return nil, fmt.Errorf("auto placement produced no suggestions for agreement %s", agreementID)
+	}
+	suggestionIDs := make([]string, 0, len(suggestions))
+	for _, suggestion := range suggestions {
+		if sid := strings.TrimSpace(suggestion.ID); sid != "" {
+			suggestionIDs = append(suggestionIDs, sid)
+		}
+	}
+	if len(suggestionIDs) == 0 {
+		return nil, fmt.Errorf("auto placement suggestions missing ids for agreement %s", agreementID)
+	}
+	return suggestionIDs, nil
+}
+
+func executeV2AgreementLifecycleStages(
+	ctx context.Context,
+	scope stores.Scope,
+	index int,
+	agreementID string,
+	participants []stores.ParticipantRecord,
+	fieldIDsByParticipant map[string]string,
+	signingSvc services.SigningService,
+) (int, []time.Duration, error) {
+	stageOneSignerA := participants[0]
+	stageOneSignerB := participants[1]
+	stageTwoSigner := participants[2]
+	stageEdgeChecks, err := verifyV2InitialLifecycleSessions(ctx, scope, signingSvc, agreementID, stageOneSignerA.ID, stageTwoSigner.ID)
+	if err != nil {
+		return 0, nil, err
+	}
+	stageOneDurationA, err := submitAndVerifyV2StageOneParticipant(
+		ctx, scope, signingSvc, agreementID, stageOneSignerA.ID, fieldIDsByParticipant[stageOneSignerA.ID],
+		fmt.Sprintf("v2-submit-stage1-a-%03d", index+1),
+		fmt.Sprintf("tenant/%s/org/%s/agreements/%s/signatures/stage1-a-%03d.png", scope.TenantID, scope.OrgID, agreementID, index+1),
+		strings.Repeat("1", 64),
+		1,
+		stageTwoSigner.ID,
+	)
+	if err != nil {
+		return 0, nil, err
+	}
+	stageEdgeChecks += 2
+	stageOneDurationB, err := submitAndVerifyV2StageOneParticipant(
+		ctx, scope, signingSvc, agreementID, stageOneSignerB.ID, fieldIDsByParticipant[stageOneSignerB.ID],
+		fmt.Sprintf("v2-submit-stage1-b-%03d", index+1),
+		fmt.Sprintf("tenant/%s/org/%s/agreements/%s/signatures/stage1-b-%03d.png", scope.TenantID, scope.OrgID, agreementID, index+1),
+		strings.Repeat("2", 64),
+		2,
+		"",
+	)
+	if err != nil {
+		return 0, nil, err
+	}
+	stageEdgeChecks++
+	if activationErr := verifyV2StageTwoActivation(ctx, scope, signingSvc, agreementID, stageTwoSigner.ID); activationErr != nil {
+		return 0, nil, activationErr
+	}
+	stageEdgeChecks++
+	stageTwoDuration, err := submitAndVerifyV2FinalParticipant(
+		ctx, scope, signingSvc, agreementID, stageTwoSigner.ID, fieldIDsByParticipant[stageTwoSigner.ID],
+		fmt.Sprintf("v2-submit-stage2-%03d", index+1),
+		fmt.Sprintf("tenant/%s/org/%s/agreements/%s/signatures/stage2-%03d.png", scope.TenantID, scope.OrgID, agreementID, index+1),
+		strings.Repeat("3", 64),
+	)
+	if err != nil {
+		return 0, nil, err
+	}
+	return stageEdgeChecks, []time.Duration{stageOneDurationA, stageOneDurationB, stageTwoDuration}, nil
+}
+
+func verifyV2InitialLifecycleSessions(
+	ctx context.Context,
+	scope stores.Scope,
+	signingSvc services.SigningService,
+	agreementID, activeRecipientID, waitingRecipientID string,
+) (int, error) {
+	activeSession, activeDuration, err := loadV2SignerSession(ctx, scope, signingSvc, agreementID, activeRecipientID)
+	observability.ObserveUnifiedViewerLoad(ctx, activeDuration, err == nil)
+	if err != nil {
+		return 0, fmt.Errorf("get active session for stage one signer: %w", err)
+	}
+	if activeSession.State != services.SignerSessionStateActive {
+		return 0, fmt.Errorf("expected stage-one signer active session, got %q", activeSession.State)
+	}
+
+	waitingSession, waitingDuration, err := loadV2SignerSession(ctx, scope, signingSvc, agreementID, waitingRecipientID)
+	observability.ObserveUnifiedViewerLoad(ctx, waitingDuration, err == nil)
+	if err != nil {
+		return 0, fmt.Errorf("get waiting session for stage-two signer: %w", err)
+	}
+	if waitingSession.State != services.SignerSessionStateWaiting {
+		return 0, fmt.Errorf("expected stage-two signer waiting session, got %q", waitingSession.State)
+	}
+	return 2, nil
+}
+
+func submitAndVerifyV2StageOneParticipant(
+	ctx context.Context,
+	scope stores.Scope,
+	signingSvc services.SigningService,
+	agreementID, recipientID, fieldID, submitKey, objectKey, digest string,
+	expectedNextStage int,
+	waitingRecipientID string,
+) (time.Duration, error) {
+	submit, submitDuration, err := signV2Participant(ctx, scope, signingSvc, agreementID, recipientID, fieldID, submitKey, objectKey, digest)
+	if err != nil {
+		return 0, err
+	}
+	if submit.Completed || submit.NextStage != expectedNextStage {
+		return 0, fmt.Errorf("expected stage-one submit for recipient %s to keep workflow at stage %d", recipientID, expectedNextStage)
+	}
+	if strings.TrimSpace(waitingRecipientID) == "" {
+		return submitDuration, nil
+	}
+	waitingSession, waitingDuration, err := loadV2SignerSession(ctx, scope, signingSvc, agreementID, waitingRecipientID)
+	observability.ObserveUnifiedViewerLoad(ctx, waitingDuration, err == nil)
+	if err != nil {
+		return 0, fmt.Errorf("get waiting session after submit recipient=%s: %w", recipientID, err)
+	}
+	if waitingSession.State != services.SignerSessionStateWaiting {
+		return 0, fmt.Errorf("expected waiting signer %s to remain waiting after submit recipient=%s, got %q", waitingRecipientID, recipientID, waitingSession.State)
+	}
+	return submitDuration, nil
+}
+
+func verifyV2StageTwoActivation(
+	ctx context.Context,
+	scope stores.Scope,
+	signingSvc services.SigningService,
+	agreementID, recipientID string,
+) error {
+	activeSession, activeDuration, err := loadV2SignerSession(ctx, scope, signingSvc, agreementID, recipientID)
+	observability.ObserveUnifiedViewerLoad(ctx, activeDuration, err == nil)
+	if err != nil {
+		return fmt.Errorf("get stage-two active session after stage-one completion: %w", err)
+	}
+	if activeSession.State != services.SignerSessionStateActive || activeSession.ActiveStage != 2 {
+		return fmt.Errorf("expected stage-two signer active at stage 2, got state=%q stage=%d", activeSession.State, activeSession.ActiveStage)
+	}
+	return nil
+}
+
+func submitAndVerifyV2FinalParticipant(
+	ctx context.Context,
+	scope stores.Scope,
+	signingSvc services.SigningService,
+	agreementID, recipientID, fieldID, submitKey, objectKey, digest string,
+) (time.Duration, error) {
+	submit, submitDuration, err := signV2Participant(ctx, scope, signingSvc, agreementID, recipientID, fieldID, submitKey, objectKey, digest)
+	if err != nil {
+		return 0, err
+	}
+	if !submit.Completed || submit.Agreement.Status != stores.AgreementStatusCompleted {
+		return 0, fmt.Errorf("expected final stage submit to complete agreement")
+	}
+	return submitDuration, nil
+}
+
+func loadV2SignerSession(
+	ctx context.Context,
+	scope stores.Scope,
+	signingSvc services.SigningService,
+	agreementID string,
+	recipientID string,
+) (services.SignerSessionContext, time.Duration, error) {
+	startedAt := time.Now()
+	session, err := signingSvc.GetSession(ctx, scope, stores.SigningTokenRecord{
+		AgreementID: agreementID,
+		RecipientID: recipientID,
+	})
+	return session, time.Since(startedAt), err
 }
 
 func runV2IntegrationValidation(

@@ -645,6 +645,17 @@ type signatureAttachmentContext struct {
 	hasExisting bool
 }
 
+type signerSubmitState struct {
+	agreement     stores.AgreementRecord
+	recipient     stores.RecipientRecord
+	activeStage   int
+	recipients    []stores.RecipientRecord
+	fields        []stores.FieldRecord
+	nextStage     int
+	nextSigners   []stores.RecipientRecord
+	nextSignerIDs []string
+}
+
 // SignerSignatureResult returns created artifact and attached field-value record.
 type SignerSignatureResult struct {
 	Artifact   stores.SignatureArtifactRecord `json:"artifact"`
@@ -1874,191 +1885,18 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 	}
 	var result SignerSubmitResult
 	if err := s.withWriteTxHooks(ctx, func(txSvc SigningService, hooks *stores.TxHooks) error {
-		agreement, recipient, activeStage, activeSigners, recipients, fields, err := txSvc.signerContext(ctx, scope, token)
-		if err != nil {
-			return err
+		submitState, loadErr := txSvc.loadSignerSubmitState(ctx, scope, token)
+		if loadErr != nil {
+			return loadErr
 		}
-		if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
-			return domainValidationError("agreements", "status", "submit requires sent or in_progress status")
+		resultValue, applyErr := txSvc.applySignerSubmit(ctx, scope, submitState, input, idempotencyKey)
+		if applyErr != nil {
+			return applyErr
 		}
-		err = ensureActiveStageSigner(recipient, activeStage, activeSigners)
-		if err != nil {
-			return err
+		if workflowErr := s.scheduleSignerSubmitWorkflows(ctx, scope, txSvc, resultValue, submitState.activeStage, input, idempotencyKey, hooks); workflowErr != nil {
+			return workflowErr
 		}
-		review, err := txSvc.resolveSignerReviewContext(ctx, scope, agreement.ID, recipient.ID)
-		if err != nil {
-			return err
-		}
-		if review != nil && review.SignBlocked {
-			return domainValidationError("agreements", "review_status", firstNonEmpty(review.SignBlockReason, "review approval is required before signing"))
-		}
-
-		if !txSvc.consentCaptured(ctx, scope, agreement.ID, recipient.ID) {
-			return domainValidationError("consent", "accepted", "consent must be captured before submit")
-		}
-		err = txSvc.ensureRequiredFieldsCompleted(ctx, scope, agreement.ID, recipient.ID, fields)
-		if err != nil {
-			return err
-		}
-
-		completedRecipient, err := txSvc.agreements.CompleteRecipient(ctx, scope, agreement.ID, recipient.ID, txSvc.now(), recipient.Version)
-		if err != nil {
-			return err
-		}
-
-		nextStage, nextSigners, hasNext := activeSignerStageFromRecipients(updateRecipientSnapshot(recipients, completedRecipient))
-		nextSignerIDs := recipientIDs(nextSigners)
-		nextSignerID := coalesceFirst(nextSignerIDs)
-		resultAgreement := agreement
-		expectedVersion := agreement.Version
-		if !hasNext {
-			if agreement.Status != stores.AgreementStatusCompleted {
-				resultAgreement, err = txSvc.agreements.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
-					ToStatus:        stores.AgreementStatusCompleted,
-					ExpectedVersion: expectedVersion,
-				})
-				if err != nil {
-					return err
-				}
-			}
-		} else if agreement.Status == stores.AgreementStatusSent {
-			resultAgreement, err = txSvc.agreements.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
-				ToStatus:        stores.AgreementStatusInProgress,
-				ExpectedVersion: expectedVersion,
-			})
-			if err != nil {
-				return err
-			}
-		}
-
-		result = SignerSubmitResult{
-			Agreement:        resultAgreement,
-			Recipient:        completedRecipient,
-			NextRecipientID:  nextSignerID,
-			NextRecipientIDs: nextSignerIDs,
-			NextStage:        nextStage,
-			Completed:        !hasNext,
-		}
-		if err := txSvc.appendSignerAudit(ctx, scope, agreement.ID, recipient.ID, "signer.submitted", input.IPAddress, input.UserAgent, map[string]any{
-			"agreement_status":    resultAgreement.Status,
-			"active_stage":        normalizeSigningStage(completedRecipient.SigningOrder),
-			"next_stage":          nextStage,
-			"next_recipient_id":   nextSignerID,
-			"next_recipient_ids":  nextSignerIDs,
-			"idempotency_key":     idempotencyKey,
-			"agreement_completed": !hasNext,
-			"signer_identity_snapshot": map[string]any{
-				"recipient_id":   completedRecipient.ID,
-				"email":          completedRecipient.Email,
-				"name":           completedRecipient.Name,
-				"role":           completedRecipient.Role,
-				"signing_order":  completedRecipient.SigningOrder,
-				"signing_stage":  normalizeSigningStage(completedRecipient.SigningOrder),
-				"first_view_at":  timePtrRFC3339(completedRecipient.FirstViewAt),
-				"last_view_at":   timePtrRFC3339(completedRecipient.LastViewAt),
-				"completed_at":   timePtrRFC3339(completedRecipient.CompletedAt),
-				"declined_at":    timePtrRFC3339(completedRecipient.DeclinedAt),
-				"decline_reason": completedRecipient.DeclineReason,
-			},
-		}); err != nil {
-			return err
-		}
-		if !result.Completed && nextStage > activeStage && txSvc.stageFlow != nil && len(nextSignerIDs) > 0 {
-			stageAgreementID := strings.TrimSpace(result.Agreement.ID)
-			stageRecipientIDs := append([]string{}, nextSignerIDs...)
-			completedRecipientID := strings.TrimSpace(result.Recipient.ID)
-			if txSvc.outbox != nil {
-				if err := txSvc.enqueueSigningWorkflowOutbox(ctx, scope, SigningWorkflowOutboxTopicStageActivation, SigningWorkflowOutboxPayload{
-					AgreementID:       stageAgreementID,
-					RecipientID:       completedRecipientID,
-					RecipientIDs:      stageRecipientIDs,
-					CorrelationID:     idempotencyKey,
-					FailureAuditEvent: SignerStageActivationWorkflowFailedAuditEvent,
-				}); err != nil {
-					return err
-				}
-				if hooks != nil && txSvc.workflowDispatch != nil {
-					hooks.AfterCommit(func() error {
-						txSvc.workflowDispatch.NotifyScope(scope)
-						return nil
-					})
-				}
-			} else if txSvc.stageFlow != nil {
-				hooks.AfterCommit(func() error {
-					if err := s.stageFlow.RunStageActivationWorkflow(ctx, scope, stageAgreementID, stageRecipientIDs, idempotencyKey); err != nil {
-						auditErr := s.appendSignerAudit(ctx, scope, stageAgreementID, completedRecipientID, "signer.stage_activation_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
-							"idempotency_key":    idempotencyKey,
-							"next_stage":         nextStage,
-							"next_recipient_ids": stageRecipientIDs,
-							"error":              strings.TrimSpace(err.Error()),
-						})
-						if auditErr != nil {
-							observability.NamedLogger("esign.signing").Warn(
-								"signer stage activation workflow failure audit append failed",
-								"agreement_id", stageAgreementID,
-								"recipient_id", completedRecipientID,
-								"error", err,
-								"audit_error", auditErr,
-							)
-							return nil
-						}
-						observability.NamedLogger("esign.signing").Warn(
-							"signer stage activation workflow failed",
-							"agreement_id", stageAgreementID,
-							"recipient_id", completedRecipientID,
-							"error", err,
-						)
-					}
-					return nil
-				})
-			}
-		}
-		if result.Completed && txSvc.completionFlow != nil {
-			completionAgreementID := strings.TrimSpace(result.Agreement.ID)
-			completionRecipientID := strings.TrimSpace(result.Recipient.ID)
-			if txSvc.outbox != nil {
-				if err := txSvc.enqueueSigningWorkflowOutbox(ctx, scope, SigningWorkflowOutboxTopicCompletion, SigningWorkflowOutboxPayload{
-					AgreementID:       completionAgreementID,
-					RecipientID:       completionRecipientID,
-					CorrelationID:     idempotencyKey,
-					FailureAuditEvent: SignerCompletionWorkflowFailedAuditEvent,
-				}); err != nil {
-					return err
-				}
-				if hooks != nil && txSvc.workflowDispatch != nil {
-					hooks.AfterCommit(func() error {
-						txSvc.workflowDispatch.NotifyScope(scope)
-						return nil
-					})
-				}
-			} else if txSvc.completionFlow != nil {
-				hooks.AfterCommit(func() error {
-					if err := s.completionFlow.RunCompletionWorkflow(ctx, scope, completionAgreementID, idempotencyKey); err != nil {
-						auditErr := s.appendSignerAudit(ctx, scope, completionAgreementID, completionRecipientID, "signer.completion_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
-							"idempotency_key": idempotencyKey,
-							"error":           strings.TrimSpace(err.Error()),
-						})
-						if auditErr != nil {
-							observability.NamedLogger("esign.signing").Warn(
-								"signer completion workflow failure audit append failed",
-								"agreement_id", completionAgreementID,
-								"recipient_id", completionRecipientID,
-								"error", err,
-								"audit_error", auditErr,
-							)
-							return nil
-						}
-						observability.NamedLogger("esign.signing").Warn(
-							"signer completion workflow failed",
-							"agreement_id", completionAgreementID,
-							"recipient_id", completionRecipientID,
-							"error", err,
-						)
-					}
-					return nil
-				})
-			}
-		}
+		result = resultValue
 		return nil
 	}); err != nil {
 		return SignerSubmitResult{}, err
@@ -2084,6 +1922,299 @@ func (s SigningService) Submit(ctx context.Context, scope stores.Scope, token st
 	})
 	s.setSubmitByKey(submitKey, result)
 	return result, nil
+}
+
+func (s SigningService) loadSignerSubmitState(ctx context.Context, scope stores.Scope, token stores.SigningTokenRecord) (signerSubmitState, error) {
+	agreement, recipient, activeStage, activeSigners, recipients, fields, err := s.signerContext(ctx, scope, token)
+	if err != nil {
+		return signerSubmitState{}, err
+	}
+	if agreement.Status != stores.AgreementStatusSent && agreement.Status != stores.AgreementStatusInProgress {
+		return signerSubmitState{}, domainValidationError("agreements", "status", "submit requires sent or in_progress status")
+	}
+	if activeSignerErr := ensureActiveStageSigner(recipient, activeStage, activeSigners); activeSignerErr != nil {
+		return signerSubmitState{}, activeSignerErr
+	}
+	review, err := s.resolveSignerReviewContext(ctx, scope, agreement.ID, recipient.ID)
+	if err != nil {
+		return signerSubmitState{}, err
+	}
+	if review != nil && review.SignBlocked {
+		return signerSubmitState{}, domainValidationError("agreements", "review_status", firstNonEmpty(review.SignBlockReason, "review approval is required before signing"))
+	}
+	if !s.consentCaptured(ctx, scope, agreement.ID, recipient.ID) {
+		return signerSubmitState{}, domainValidationError("consent", "accepted", "consent must be captured before submit")
+	}
+	if err := s.ensureRequiredFieldsCompleted(ctx, scope, agreement.ID, recipient.ID, fields); err != nil {
+		return signerSubmitState{}, err
+	}
+	return signerSubmitState{
+		agreement:   agreement,
+		recipient:   recipient,
+		activeStage: activeStage,
+		recipients:  recipients,
+		fields:      fields,
+	}, nil
+}
+
+func (s SigningService) applySignerSubmit(
+	ctx context.Context,
+	scope stores.Scope,
+	submitState signerSubmitState,
+	input SignerSubmitInput,
+	idempotencyKey string,
+) (SignerSubmitResult, error) {
+	completedRecipient, err := s.agreements.CompleteRecipient(ctx, scope, submitState.agreement.ID, submitState.recipient.ID, s.now(), submitState.recipient.Version)
+	if err != nil {
+		return SignerSubmitResult{}, err
+	}
+	nextStage, nextSigners, hasNext := activeSignerStageFromRecipients(updateRecipientSnapshot(submitState.recipients, completedRecipient))
+	nextSignerIDs := recipientIDs(nextSigners)
+	resultAgreement, err := s.transitionSubmitAgreement(ctx, scope, submitState.agreement, hasNext)
+	if err != nil {
+		return SignerSubmitResult{}, err
+	}
+	result := SignerSubmitResult{
+		Agreement:        resultAgreement,
+		Recipient:        completedRecipient,
+		NextRecipientID:  coalesceFirst(nextSignerIDs),
+		NextRecipientIDs: nextSignerIDs,
+		NextStage:        nextStage,
+		Completed:        !hasNext,
+	}
+	if err := s.appendSignerSubmitAudit(ctx, scope, result, idempotencyKey, input); err != nil {
+		return SignerSubmitResult{}, err
+	}
+	submitState.nextStage = nextStage
+	submitState.nextSigners = nextSigners
+	submitState.nextSignerIDs = nextSignerIDs
+	return result, nil
+}
+
+func (s SigningService) transitionSubmitAgreement(
+	ctx context.Context,
+	scope stores.Scope,
+	agreement stores.AgreementRecord,
+	hasNext bool,
+) (stores.AgreementRecord, error) {
+	if !hasNext {
+		if agreement.Status == stores.AgreementStatusCompleted {
+			return agreement, nil
+		}
+		return s.agreements.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
+			ToStatus:        stores.AgreementStatusCompleted,
+			ExpectedVersion: agreement.Version,
+		})
+	}
+	if agreement.Status != stores.AgreementStatusSent {
+		return agreement, nil
+	}
+	return s.agreements.Transition(ctx, scope, agreement.ID, stores.AgreementTransitionInput{
+		ToStatus:        stores.AgreementStatusInProgress,
+		ExpectedVersion: agreement.Version,
+	})
+}
+
+func (s SigningService) appendSignerSubmitAudit(
+	ctx context.Context,
+	scope stores.Scope,
+	result SignerSubmitResult,
+	idempotencyKey string,
+	input SignerSubmitInput,
+) error {
+	return s.appendSignerAudit(ctx, scope, result.Agreement.ID, result.Recipient.ID, "signer.submitted", input.IPAddress, input.UserAgent, map[string]any{
+		"agreement_status":    result.Agreement.Status,
+		"active_stage":        normalizeSigningStage(result.Recipient.SigningOrder),
+		"next_stage":          result.NextStage,
+		"next_recipient_id":   result.NextRecipientID,
+		"next_recipient_ids":  result.NextRecipientIDs,
+		"idempotency_key":     idempotencyKey,
+		"agreement_completed": result.Completed,
+		"signer_identity_snapshot": map[string]any{
+			"recipient_id":   result.Recipient.ID,
+			"email":          result.Recipient.Email,
+			"name":           result.Recipient.Name,
+			"role":           result.Recipient.Role,
+			"signing_order":  result.Recipient.SigningOrder,
+			"signing_stage":  normalizeSigningStage(result.Recipient.SigningOrder),
+			"first_view_at":  timePtrRFC3339(result.Recipient.FirstViewAt),
+			"last_view_at":   timePtrRFC3339(result.Recipient.LastViewAt),
+			"completed_at":   timePtrRFC3339(result.Recipient.CompletedAt),
+			"declined_at":    timePtrRFC3339(result.Recipient.DeclinedAt),
+			"decline_reason": result.Recipient.DeclineReason,
+		},
+	})
+}
+
+func (s SigningService) scheduleSignerSubmitWorkflows(
+	ctx context.Context,
+	scope stores.Scope,
+	txSvc SigningService,
+	result SignerSubmitResult,
+	activeStage int,
+	input SignerSubmitInput,
+	idempotencyKey string,
+	hooks *stores.TxHooks,
+) error {
+	if !result.Completed && result.NextStage > activeStage && len(result.NextRecipientIDs) > 0 {
+		return s.scheduleSignerStageActivation(ctx, scope, txSvc, result, input, idempotencyKey, hooks)
+	}
+	if result.Completed {
+		return s.scheduleSignerCompletion(ctx, scope, txSvc, result, input, idempotencyKey, hooks)
+	}
+	return nil
+}
+
+func (s SigningService) scheduleSignerStageActivation(
+	ctx context.Context,
+	scope stores.Scope,
+	txSvc SigningService,
+	result SignerSubmitResult,
+	input SignerSubmitInput,
+	idempotencyKey string,
+	hooks *stores.TxHooks,
+) error {
+	if s.stageFlow == nil {
+		return nil
+	}
+	stageAgreementID := strings.TrimSpace(result.Agreement.ID)
+	stageRecipientIDs := append([]string{}, result.NextRecipientIDs...)
+	completedRecipientID := strings.TrimSpace(result.Recipient.ID)
+	if txSvc.outbox != nil {
+		if err := txSvc.enqueueSigningWorkflowOutbox(ctx, scope, SigningWorkflowOutboxTopicStageActivation, SigningWorkflowOutboxPayload{
+			AgreementID:       stageAgreementID,
+			RecipientID:       completedRecipientID,
+			RecipientIDs:      stageRecipientIDs,
+			CorrelationID:     idempotencyKey,
+			FailureAuditEvent: SignerStageActivationWorkflowFailedAuditEvent,
+		}); err != nil {
+			return err
+		}
+		if hooks != nil && txSvc.workflowDispatch != nil {
+			hooks.AfterCommit(func() error {
+				txSvc.workflowDispatch.NotifyScope(scope)
+				return nil
+			})
+		}
+		return nil
+	}
+	if hooks == nil {
+		return nil
+	}
+	hooks.AfterCommit(func() error {
+		return s.runStageActivationWorkflow(ctx, scope, stageAgreementID, completedRecipientID, stageRecipientIDs, result.NextStage, idempotencyKey, input)
+	})
+	return nil
+}
+
+func (s SigningService) runStageActivationWorkflow(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	recipientID string,
+	recipientIDs []string,
+	nextStage int,
+	idempotencyKey string,
+	input SignerSubmitInput,
+) error {
+	if err := s.stageFlow.RunStageActivationWorkflow(ctx, scope, agreementID, recipientIDs, idempotencyKey); err != nil {
+		auditErr := s.appendSignerAudit(ctx, scope, agreementID, recipientID, "signer.stage_activation_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
+			"idempotency_key":    idempotencyKey,
+			"next_stage":         nextStage,
+			"next_recipient_ids": recipientIDs,
+			"error":              strings.TrimSpace(err.Error()),
+		})
+		if auditErr != nil {
+			observability.NamedLogger("esign.signing").Warn(
+				"signer stage activation workflow failure audit append failed",
+				"agreement_id", agreementID,
+				"recipient_id", recipientID,
+				"error", err,
+				"audit_error", auditErr,
+			)
+			return nil
+		}
+		observability.NamedLogger("esign.signing").Warn(
+			"signer stage activation workflow failed",
+			"agreement_id", agreementID,
+			"recipient_id", recipientID,
+			"error", err,
+		)
+	}
+	return nil
+}
+
+func (s SigningService) scheduleSignerCompletion(
+	ctx context.Context,
+	scope stores.Scope,
+	txSvc SigningService,
+	result SignerSubmitResult,
+	input SignerSubmitInput,
+	idempotencyKey string,
+	hooks *stores.TxHooks,
+) error {
+	if s.completionFlow == nil {
+		return nil
+	}
+	completionAgreementID := strings.TrimSpace(result.Agreement.ID)
+	completionRecipientID := strings.TrimSpace(result.Recipient.ID)
+	if txSvc.outbox != nil {
+		if err := txSvc.enqueueSigningWorkflowOutbox(ctx, scope, SigningWorkflowOutboxTopicCompletion, SigningWorkflowOutboxPayload{
+			AgreementID:       completionAgreementID,
+			RecipientID:       completionRecipientID,
+			CorrelationID:     idempotencyKey,
+			FailureAuditEvent: SignerCompletionWorkflowFailedAuditEvent,
+		}); err != nil {
+			return err
+		}
+		if hooks != nil && txSvc.workflowDispatch != nil {
+			hooks.AfterCommit(func() error {
+				txSvc.workflowDispatch.NotifyScope(scope)
+				return nil
+			})
+		}
+		return nil
+	}
+	if hooks == nil {
+		return nil
+	}
+	hooks.AfterCommit(func() error {
+		return s.runCompletionWorkflow(ctx, scope, completionAgreementID, completionRecipientID, idempotencyKey, input)
+	})
+	return nil
+}
+
+func (s SigningService) runCompletionWorkflow(
+	ctx context.Context,
+	scope stores.Scope,
+	agreementID string,
+	recipientID string,
+	idempotencyKey string,
+	input SignerSubmitInput,
+) error {
+	if err := s.completionFlow.RunCompletionWorkflow(ctx, scope, agreementID, idempotencyKey); err != nil {
+		auditErr := s.appendSignerAudit(ctx, scope, agreementID, recipientID, "signer.completion_workflow_failed", input.IPAddress, input.UserAgent, map[string]any{
+			"idempotency_key": idempotencyKey,
+			"error":           strings.TrimSpace(err.Error()),
+		})
+		if auditErr != nil {
+			observability.NamedLogger("esign.signing").Warn(
+				"signer completion workflow failure audit append failed",
+				"agreement_id", agreementID,
+				"recipient_id", recipientID,
+				"error", err,
+				"audit_error", auditErr,
+			)
+			return nil
+		}
+		observability.NamedLogger("esign.signing").Warn(
+			"signer completion workflow failed",
+			"agreement_id", agreementID,
+			"recipient_id", recipientID,
+			"error", err,
+		)
+	}
+	return nil
 }
 
 // Decline records signer decline reason and transitions agreement to terminal declined state.
