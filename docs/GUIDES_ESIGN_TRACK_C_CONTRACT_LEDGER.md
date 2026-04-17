@@ -150,3 +150,27 @@ backend_tests: go test ./examples/esign/release ./examples/esign/services ./exam
 frontend_tests: N/A (no frontend contract payload change in this guard refresh)
 contract_hash: d4450024575af6eb29a6a20ad4d691882b47f2309ae09f72019d52e23e365bd5
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+
+## TC-2026-04-16-011
+
+date: 2026-04-16
+owner: backend
+breaking_change_rationale: refresh the Track C guard after additional low-risk store and service refactors changed the reviewed contract hash, so release verification tracks the current accepted backend contract boundary instead of failing against the April 2, 2026 snapshot.
+measurable_gain: full e-sign verification now validates the current reviewed Track C file set without false guard failures, while preserving a dated audit checkpoint for the accepted contract boundary after the latest refactor tranche.
+impacted_endpoints: no intended externally visible endpoint payload change; reviewed Track C files remain examples/esign/stores/contracts.go, examples/esign/stores/models.go, examples/esign/stores/memory.go, examples/esign/services/agreement_service.go, and examples/esign/modules/panel_repositories.go.
+backend_tests: go test ./examples/esign/...
+frontend_tests: N/A (no frontend contract payload change in this guard refresh)
+contract_hash: 8d9a01403b08a6f06c5f34865abcdc6e718a67cb2a826515431ab077ee7d5221
+related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+
+## TC-2026-04-16-012
+
+date: 2026-04-16
+owner: backend
+breaking_change_rationale: split reminder-state upsert and claim flows into explicit normalization, lease-preservation, candidate selection, and claim-application helpers so the in-memory Track C store preserves lease ownership and deterministic claim semantics under concurrent reminder sweeps.
+measurable_gain: stable reminder lease retention on unfenced active upserts, shared validation for claim inputs and state records, and deterministic due-reminder ordering before in-memory claim mutation.
+impacted_endpoints: admin agreement reminder sweep command path, admin agreement reminder pause/resume/send_now actions, agreement detail/list reminder status payload shape.
+backend_tests: go test ./examples/esign/release -run TestValidateTrackCContractGuardPassesForCurrentSnapshot -count=1
+frontend_tests: N/A (backend in-memory contract maintenance only)
+contract_hash: 7f45792e5797d469f997cca69eede0548abe19ab29b2112f347cb47d3c607151
+related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
