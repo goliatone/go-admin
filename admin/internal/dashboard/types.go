@@ -34,9 +34,10 @@ type WidgetDefinitionSyncResult struct {
 
 // WidgetInstanceFilter narrows widget instance queries.
 type WidgetInstanceFilter struct {
-	Area   string `json:"area"`
-	PageID string `json:"page_id"`
-	Locale string `json:"locale"`
+	Area            string   `json:"area"`
+	PageID          string   `json:"page_id"`
+	Locale          string   `json:"locale"`
+	FallbackLocales []string `json:"fallback_locales,omitempty"`
 }
 
 // WidgetInstance links a widget definition to a specific area/page.
