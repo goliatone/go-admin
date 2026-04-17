@@ -262,6 +262,7 @@ func (a *Admin) handlePublicMenu(c router.Context) error {
 	if err != nil {
 		return writeError(c, err)
 	}
+	menu = LocalizeMenu(menu, a.translator, options.Query.Locale)
 	if menu != nil && a.contentSvc != nil {
 		a.resolveMenuTargets(ctx, menu.Items, options.Query.Locale)
 	}
@@ -355,6 +356,7 @@ func (a *Admin) handleSiteMenuPath(
 	if err != nil {
 		return writeError(c, err)
 	}
+	menu = LocalizeMenu(menu, a.translator, options.Query.Locale)
 	if menu != nil && a.contentSvc != nil {
 		a.resolveMenuTargets(ctx, menu.Items, options.Query.Locale)
 	}
