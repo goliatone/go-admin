@@ -29,6 +29,7 @@ func resolveNavigationMenuForLocation(
 	if menu == nil {
 		return emptyResolvedMenu(location, r.siteCfg.Navigation.FallbackMenuCode, activePath)
 	}
+	menu = admin.LocalizeMenu(menu, r.translator, opts.Locale)
 	return navigationResolvedMenuPayload(r, ctx, state, location, activePath, opts, debugMode, menu, source)
 }
 
