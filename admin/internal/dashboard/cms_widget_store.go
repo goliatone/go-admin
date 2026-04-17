@@ -199,8 +199,9 @@ func (s *CMSWidgetStore) ResolveArea(ctx context.Context, input godash.ResolveAr
 		return godash.ResolvedArea{}, errWidgetServiceUnavailable
 	}
 	instances, err := s.svc.ListInstances(ctx, WidgetInstanceFilter{
-		Area:   input.AreaCode,
-		Locale: input.Locale,
+		Area:            input.AreaCode,
+		Locale:          input.Locale,
+		FallbackLocales: append([]string{}, input.FallbackLocales...),
 	})
 	if err != nil {
 		return godash.ResolvedArea{}, err
