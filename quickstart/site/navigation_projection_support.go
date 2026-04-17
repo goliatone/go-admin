@@ -173,6 +173,12 @@ func resolveMenuItemKey(item admin.MenuItem, href string, target map[string]any)
 	if href != "" {
 		return strings.ToLower(strings.Trim(href, "/"))
 	}
+	if value := strings.TrimSpace(item.LabelKey); value != "" {
+		return strings.ToLower(value)
+	}
+	if value := strings.TrimSpace(item.GroupTitleKey); value != "" {
+		return strings.ToLower(value)
+	}
 	if value := strings.TrimSpace(item.Label); value != "" {
 		return strings.ToLower(strings.ReplaceAll(value, " ", "_"))
 	}
