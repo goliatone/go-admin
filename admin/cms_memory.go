@@ -248,13 +248,7 @@ func (s *InMemoryWidgetService) ListInstances(_ context.Context, filter WidgetIn
 	defer s.mu.Unlock()
 	out := []WidgetInstance{}
 	for _, inst := range s.instances {
-		if filter.Area != "" && inst.Area != filter.Area {
-			continue
-		}
-		if filter.PageID != "" && inst.PageID != filter.PageID {
-			continue
-		}
-		if filter.Locale != "" && inst.Locale != "" && inst.Locale != filter.Locale {
+		if !widgetInstanceMatchesMemoryFilter(inst, filter) {
 			continue
 		}
 		out = append(out, cloneWidgetInstance(inst))
@@ -280,18 +274,54 @@ func (s *InMemoryWidgetService) HasInstanceForDefinition(_ context.Context, defi
 		if inst.DefinitionCode != definitionCode {
 			continue
 		}
-		if filter.Area != "" && inst.Area != filter.Area {
-			continue
-		}
-		if filter.PageID != "" && inst.PageID != filter.PageID {
-			continue
-		}
-		if filter.Locale != "" && inst.Locale != "" && inst.Locale != filter.Locale {
+		if !widgetInstanceMatchesMemoryFilter(inst, filter) {
 			continue
 		}
 		return true, nil
 	}
 	return false, nil
+}
+
+func widgetInstanceMatchesMemoryFilter(inst WidgetInstance, filter WidgetInstanceFilter) bool {
+	if filter.Area != "" && inst.Area != filter.Area {
+		return false
+	}
+	if filter.PageID != "" && inst.PageID != filter.PageID {
+		return false
+	}
+	if !widgetFilterHasLocaleConstraintMemory(filter) || strings.TrimSpace(inst.Locale) == "" {
+		return true
+	}
+	if widgetFilterLocaleMatchesMemory(inst.Locale, filter.Locale) {
+		return true
+	}
+	for _, fallback := range filter.FallbackLocales {
+		if widgetFilterLocaleMatchesMemory(inst.Locale, fallback) {
+			return true
+		}
+	}
+	return false
+}
+
+func widgetFilterHasLocaleConstraintMemory(filter WidgetInstanceFilter) bool {
+	if strings.TrimSpace(filter.Locale) != "" {
+		return true
+	}
+	for _, fallback := range filter.FallbackLocales {
+		if strings.TrimSpace(fallback) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func widgetFilterLocaleMatchesMemory(value, candidate string) bool {
+	value = strings.TrimSpace(value)
+	candidate = strings.TrimSpace(candidate)
+	if value == "" || candidate == "" {
+		return false
+	}
+	return strings.EqualFold(value, candidate)
 }
 
 func cloneWidgetInstance(in WidgetInstance) WidgetInstance {
