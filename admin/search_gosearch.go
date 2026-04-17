@@ -206,6 +206,63 @@ func (o *GoSearchOperations) ReindexAll(ctx context.Context, index string, batch
 	return o.Reindex.Execute(ctx, searchtypes.ReindexIndexInput{Index: index, BatchSize: batchSize})
 }
 
+type GoSearchBundleConfig struct {
+	Search         goSearchQuerier
+	Suggest        goSuggestQuerier
+	Health         goHealthQuerier
+	Stats          goStatsQuerier
+	EnsureIndex    goEnsureCommander
+	Reindex        goReindexCommander
+	Indexes        []string
+	PermissionName string
+	FallbackType   string
+}
+
+type GoSearchBundle struct {
+	SiteProvider  *GoSearchSiteProvider
+	GlobalAdapter *GoSearchGlobalAdapter
+	Operations    *GoSearchOperations
+}
+
+func NewGoSearchBundle(cfg GoSearchBundleConfig) *GoSearchBundle {
+	bundle := &GoSearchBundle{
+		SiteProvider: NewGoSearchSiteProvider(GoSearchSiteProviderConfig{
+			Search:  cfg.Search,
+			Suggest: cfg.Suggest,
+			Indexes: cfg.Indexes,
+		}),
+		GlobalAdapter: NewGoSearchGlobalAdapter(GoSearchGlobalAdapterConfig{
+			Search:         cfg.Search,
+			Indexes:        cfg.Indexes,
+			PermissionName: cfg.PermissionName,
+			FallbackType:   cfg.FallbackType,
+		}),
+	}
+	if cfg.Health != nil || cfg.Stats != nil || cfg.EnsureIndex != nil || cfg.Reindex != nil || len(cfg.Indexes) > 0 {
+		bundle.Operations = &GoSearchOperations{
+			Health:      cfg.Health,
+			Stats:       cfg.Stats,
+			EnsureIndex: cfg.EnsureIndex,
+			Reindex:     cfg.Reindex,
+			Indexes:     append([]string(nil), cfg.Indexes...),
+		}
+	}
+	if bundle.SiteProvider == nil && bundle.GlobalAdapter == nil && bundle.Operations == nil {
+		return nil
+	}
+	return bundle
+}
+
+func (b *GoSearchBundle) AttachAdminSearch(engine *SearchEngine, key string, setPrimary bool) {
+	if b == nil || engine == nil || b.GlobalAdapter == nil {
+		return
+	}
+	engine.Register(key, b.GlobalAdapter)
+	if setPrimary {
+		engine.SetPrimary(b.GlobalAdapter)
+	}
+}
+
 func toAdminSearchHits(hits []searchadapter.SiteSearchHit) []SearchHit {
 	out := make([]SearchHit, 0, len(hits))
 	for _, hit := range hits {
