@@ -13,15 +13,16 @@ import (
 
 // AdminContext carries request-scoped information into panel operations.
 type AdminContext struct {
-	Context     context.Context `json:"context"`
-	UserID      string          `json:"user_id"`
-	TenantID    string          `json:"tenant_id"`
-	OrgID       string          `json:"org_id"`
-	Channel     string          `json:"channel"`
-	Environment string          `json:"environment"`
-	Locale      string          `json:"locale"`
-	Theme       *ThemeSelection `json:"theme"`
-	Translator  Translator      `json:"translator"`
+	Context         context.Context `json:"context"`
+	UserID          string          `json:"user_id"`
+	TenantID        string          `json:"tenant_id"`
+	OrgID           string          `json:"org_id"`
+	Channel         string          `json:"channel"`
+	Environment     string          `json:"environment"`
+	Locale          string          `json:"locale"`
+	FallbackLocales []string        `json:"fallback_locales,omitempty"`
+	Theme           *ThemeSelection `json:"theme"`
+	Translator      Translator      `json:"translator"`
 }
 
 type adminContextKey string
