@@ -14,19 +14,13 @@ func NormalizeMenuItemType(raw string) string {
 	}
 }
 
-// NormalizeMenuItemTranslationFields derives translation display fallbacks.
+// NormalizeMenuItemTranslationFields trims menu translation fields without
+// synthesizing display values from translation keys.
 func NormalizeMenuItemTranslationFields(item MenuItem) (label, labelKey, groupTitle, groupTitleKey string) {
 	label = strings.TrimSpace(item.Label)
 	labelKey = strings.TrimSpace(item.LabelKey)
 	groupTitle = strings.TrimSpace(item.GroupTitle)
 	groupTitleKey = strings.TrimSpace(item.GroupTitleKey)
-
-	if label == "" && labelKey != "" {
-		label = labelKey
-	}
-	if groupTitle == "" && groupTitleKey != "" {
-		groupTitle = groupTitleKey
-	}
 	return
 }
 

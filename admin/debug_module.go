@@ -372,7 +372,11 @@ func (a *Admin) debugDashboardViewerResolver() func(router.Context) dashcmp.View
 		if c != nil {
 			c.SetContext(adminCtx.Context)
 		}
-		return dashcmp.ViewerContext{UserID: adminCtx.UserID, Locale: locale}
+		return dashcmp.ViewerContext{
+			UserID:          adminCtx.UserID,
+			Locale:          locale,
+			FallbackLocales: append([]string{}, adminCtx.FallbackLocales...),
+		}
 	}
 }
 
