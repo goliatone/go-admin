@@ -319,20 +319,28 @@ func (s *InMemoryStore) populateRecipientReviewParticipant(scope Scope, agreemen
 		}
 	}
 	if recipientAgreementID == "" {
-		if participant, ok := s.participants[scopedKey(scope, record.RecipientID)]; ok {
-			recipientAgreementID = participant.AgreementID
-			if record.Email == "" {
-				record.Email = strings.TrimSpace(strings.ToLower(participant.Email))
-			}
-			if record.DisplayName == "" {
-				record.DisplayName = strings.TrimSpace(participant.Name)
-			}
-		}
+		recipientAgreementID, record.Email, record.DisplayName = s.reviewParticipantFallback(scope, record)
 	}
 	if recipientAgreementID != agreementID {
 		return invalidRecordError("agreement_review_participants", "recipient_id", "recipient must belong to agreement")
 	}
 	return nil
+}
+
+func (s *InMemoryStore) reviewParticipantFallback(scope Scope, record *AgreementReviewParticipantRecord) (string, string, string) {
+	email := strings.TrimSpace(record.Email)
+	displayName := strings.TrimSpace(record.DisplayName)
+	participant, ok := s.participants[scopedKey(scope, record.RecipientID)]
+	if !ok {
+		return "", email, displayName
+	}
+	if email == "" {
+		email = strings.TrimSpace(strings.ToLower(participant.Email))
+	}
+	if displayName == "" {
+		displayName = strings.TrimSpace(participant.Name)
+	}
+	return participant.AgreementID, email, displayName
 }
 
 func (s *InMemoryStore) ListAgreementReviewParticipants(ctx context.Context, scope Scope, reviewID string) ([]AgreementReviewParticipantRecord, error) {

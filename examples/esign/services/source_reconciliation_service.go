@@ -215,8 +215,8 @@ func (s DefaultSourceReconciliationService) evaluateCandidateDocument(
 		return CandidateWarningSummary{}, false, err
 	}
 	if evaluation.band == stores.LineageConfidenceBandNone {
-		if err := s.supersedePendingReviewCandidate(ctx, scope, target.document.ID, candidateDocument.ID, existing, input.ActorID); err != nil {
-			return CandidateWarningSummary{}, false, err
+		if supersedeErr := s.supersedePendingReviewCandidate(ctx, scope, target.document.ID, candidateDocument.ID, existing, input.ActorID); supersedeErr != nil {
+			return CandidateWarningSummary{}, false, supersedeErr
 		}
 		return CandidateWarningSummary{}, false, nil
 	}
@@ -298,106 +298,23 @@ func (s DefaultSourceReconciliationService) ApplyReviewAction(ctx context.Contex
 }
 
 func (s DefaultSourceReconciliationService) applyReviewAction(ctx context.Context, scope stores.Scope, input SourceRelationshipReviewInput) (CandidateWarningSummary, []string, error) {
-	relationshipID := strings.TrimSpace(input.RelationshipID)
-	action := strings.TrimSpace(strings.ToLower(input.Action))
-	actorID := strings.TrimSpace(input.ActorID)
-	if relationshipID == "" || action == "" || actorID == "" {
-		return CandidateWarningSummary{}, nil, domainValidationError("lineage_reconciliation", "relationship_id|action|actor_id", "required")
-	}
-	effectiveAction, err := normalizeSourceRelationshipReviewAction(action, input.ConfirmBehavior)
+	relationshipID, effectiveAction, actorID, err := validateSourceRelationshipReviewInput(input)
 	if err != nil {
 		return CandidateWarningSummary{}, nil, err
 	}
-	relationship, err := s.lineage.GetSourceRelationship(ctx, scope, relationshipID)
+	relationship, beforeStatus, err := s.loadReviewActionRelationship(ctx, scope, relationshipID, effectiveAction)
 	if err != nil {
 		return CandidateWarningSummary{}, nil, err
 	}
-	currentStatus := strings.TrimSpace(relationship.Status)
-	if currentStatus == stores.SourceRelationshipStatusSuperseded && effectiveAction != SourceRelationshipActionSupersede {
-		return CandidateWarningSummary{}, nil, lineageReviewConflictError("relationship", "superseded candidates are immutable")
+	state := s.newRelationshipReviewActionState(relationship, effectiveAction, actorID, input.Reason)
+	if mutateErr := s.applyRelationshipReviewActionMutation(ctx, scope, effectiveAction, &state); mutateErr != nil {
+		return CandidateWarningSummary{}, nil, mutateErr
 	}
-	if currentStatus != stores.SourceRelationshipStatusPendingReview && effectiveAction != SourceRelationshipActionSupersede {
-		return CandidateWarningSummary{}, nil, lineageReviewConflictError("relationship", "candidate is no longer pending review")
-	}
-
-	evidence := decodeLineageMetadataJSON(relationship.EvidenceJSON)
-	evidence["review_action"] = effectiveAction
-	evidence["reviewed_by_user_id"] = actorID
-	evidence["review_reason"] = strings.TrimSpace(input.Reason)
-	evidence["reviewed_at"] = s.now().UTC().Format(time.RFC3339Nano)
-	evidence["last_review_action"] = effectiveAction
-	beforeStatus := currentStatus
-
-	impactedSourceIDs := []string{relationship.LeftSourceDocumentID, relationship.RightSourceDocumentID}
-	switch effectiveAction {
-	case SourceRelationshipActionAttach:
-		relationship.Status = stores.SourceRelationshipStatusConfirmed
-		if s.policy.AttachHandlesOnConfirm {
-			var canonicalID string
-			var attachedHandles int
-			canonicalID, attachedHandles, err = s.attachHandlesForRelationship(ctx, scope, relationship)
-			if err != nil {
-				return CandidateWarningSummary{}, nil, err
-			}
-			if canonicalID != "" {
-				evidence["canonical_source_document_id"] = canonicalID
-			}
-			evidence["attached_handle_count"] = attachedHandles
-		}
-	case SourceRelationshipActionMerge:
-		relationship.Status = stores.SourceRelationshipStatusConfirmed
-		var canonicalID, mergedID string
-		var attachedHandles int
-		canonicalID, mergedID, attachedHandles, err = s.mergeSourceDocumentsForRelationship(ctx, scope, relationship)
-		if err != nil {
-			return CandidateWarningSummary{}, nil, err
-		}
-		if canonicalID != "" {
-			evidence["canonical_source_document_id"] = canonicalID
-			impactedSourceIDs = append(impactedSourceIDs, canonicalID)
-		}
-		if mergedID != "" {
-			evidence["merged_source_document_id"] = mergedID
-			impactedSourceIDs = append(impactedSourceIDs, mergedID)
-		}
-		evidence["attached_handle_count"] = attachedHandles
-		relationship.PredecessorSourceDocumentID = strings.TrimSpace(mergedID)
-		relationship.SuccessorSourceDocumentID = strings.TrimSpace(canonicalID)
-	case SourceRelationshipActionRelated:
-		relationship.Status = stores.SourceRelationshipStatusConfirmed
-		relationship.RelationshipType = confirmedRelatedRelationshipType(relationship.RelationshipType)
-		relationship.PredecessorSourceDocumentID = ""
-		relationship.SuccessorSourceDocumentID = ""
-	case SourceRelationshipActionReject:
-		relationship.Status = stores.SourceRelationshipStatusRejected
-		evidence["suppression_evidence_signature"] = firstNonEmpty(lineageMetadataString(evidence, "evidence_signature"), lineageMetadataString(evidence, "suppression_evidence_signature"))
-	case SourceRelationshipActionSupersede:
-		relationship.Status = stores.SourceRelationshipStatusSuperseded
-	default:
-		return CandidateWarningSummary{}, nil, domainValidationError("lineage_reconciliation", "action", "unsupported")
-	}
-	evidence = appendReconciliationAuditEntry(evidence, reconciliationAuditEntryInput{
-		ID:         "audit_" + hashFingerprintValue(strings.Join([]string{relationship.ID, effectiveAction, actorID, s.now().UTC().Format(time.RFC3339Nano)}, "|"))[:16],
-		Action:     effectiveAction,
-		ActorID:    actorID,
-		Reason:     strings.TrimSpace(input.Reason),
-		FromStatus: beforeStatus,
-		ToStatus:   strings.TrimSpace(relationship.Status),
-		Summary:    reconciliationReviewActionSummary(effectiveAction, relationship),
-		CreatedAt:  s.now().UTC(),
-	})
-
-	encoded, err := json.Marshal(evidence)
+	relationship, err = s.persistRelationshipReviewAction(ctx, scope, effectiveAction, actorID, input.Reason, beforeStatus, state)
 	if err != nil {
 		return CandidateWarningSummary{}, nil, err
 	}
-	relationship.EvidenceJSON = string(encoded)
-	relationship.UpdatedAt = s.now().UTC()
-	relationship, err = s.lineage.SaveSourceRelationship(ctx, scope, relationship)
-	if err != nil {
-		return CandidateWarningSummary{}, nil, err
-	}
-	return candidateWarningSummaryFromRelationship(relationship), impactedSourceIDs, nil
+	return candidateWarningSummaryFromRelationship(relationship), state.impactedSourceIDs, nil
 }
 
 func (s DefaultSourceReconciliationService) ListCandidateRelationships(ctx context.Context, scope stores.Scope, sourceDocumentID string) ([]stores.SourceRelationshipRecord, error) {
@@ -417,6 +334,166 @@ func (s DefaultSourceReconciliationService) ListCandidateRelationships(ctx conte
 		return relationships[i].UpdatedAt.After(relationships[j].UpdatedAt)
 	})
 	return relationships, nil
+}
+
+func validateSourceRelationshipReviewInput(input SourceRelationshipReviewInput) (string, string, string, error) {
+	relationshipID := strings.TrimSpace(input.RelationshipID)
+	action := strings.TrimSpace(strings.ToLower(input.Action))
+	actorID := strings.TrimSpace(input.ActorID)
+	if relationshipID == "" || action == "" || actorID == "" {
+		return "", "", "", domainValidationError("lineage_reconciliation", "relationship_id|action|actor_id", "required")
+	}
+	effectiveAction, err := normalizeSourceRelationshipReviewAction(action, input.ConfirmBehavior)
+	if err != nil {
+		return "", "", "", err
+	}
+	return relationshipID, effectiveAction, actorID, nil
+}
+
+func (s DefaultSourceReconciliationService) loadReviewActionRelationship(
+	ctx context.Context,
+	scope stores.Scope,
+	relationshipID, effectiveAction string,
+) (stores.SourceRelationshipRecord, string, error) {
+	relationship, err := s.lineage.GetSourceRelationship(ctx, scope, relationshipID)
+	if err != nil {
+		return stores.SourceRelationshipRecord{}, "", err
+	}
+	currentStatus := strings.TrimSpace(relationship.Status)
+	if currentStatus == stores.SourceRelationshipStatusSuperseded && effectiveAction != SourceRelationshipActionSupersede {
+		return stores.SourceRelationshipRecord{}, "", lineageReviewConflictError("relationship", "superseded candidates are immutable")
+	}
+	if currentStatus != stores.SourceRelationshipStatusPendingReview && effectiveAction != SourceRelationshipActionSupersede {
+		return stores.SourceRelationshipRecord{}, "", lineageReviewConflictError("relationship", "candidate is no longer pending review")
+	}
+	return relationship, currentStatus, nil
+}
+
+func (s DefaultSourceReconciliationService) newRelationshipReviewActionState(
+	relationship stores.SourceRelationshipRecord,
+	effectiveAction, actorID, reason string,
+) relationshipReviewActionState {
+	evidence := decodeLineageMetadataJSON(relationship.EvidenceJSON)
+	evidence["review_action"] = effectiveAction
+	evidence["reviewed_by_user_id"] = actorID
+	evidence["review_reason"] = strings.TrimSpace(reason)
+	evidence["reviewed_at"] = s.now().UTC().Format(time.RFC3339Nano)
+	evidence["last_review_action"] = effectiveAction
+	return relationshipReviewActionState{
+		relationship:      relationship,
+		evidence:          evidence,
+		impactedSourceIDs: []string{relationship.LeftSourceDocumentID, relationship.RightSourceDocumentID},
+	}
+}
+
+func (s DefaultSourceReconciliationService) applyRelationshipReviewActionMutation(
+	ctx context.Context,
+	scope stores.Scope,
+	effectiveAction string,
+	state *relationshipReviewActionState,
+) error {
+	switch effectiveAction {
+	case SourceRelationshipActionAttach:
+		return s.applyAttachRelationshipReviewAction(ctx, scope, state)
+	case SourceRelationshipActionMerge:
+		return s.applyMergeRelationshipReviewAction(ctx, scope, state)
+	case SourceRelationshipActionRelated:
+		applyRelatedRelationshipReviewAction(state)
+		return nil
+	case SourceRelationshipActionReject:
+		applyRejectRelationshipReviewAction(state)
+		return nil
+	case SourceRelationshipActionSupersede:
+		state.relationship.Status = stores.SourceRelationshipStatusSuperseded
+		return nil
+	default:
+		return domainValidationError("lineage_reconciliation", "action", "unsupported")
+	}
+}
+
+func (s DefaultSourceReconciliationService) applyAttachRelationshipReviewAction(
+	ctx context.Context,
+	scope stores.Scope,
+	state *relationshipReviewActionState,
+) error {
+	state.relationship.Status = stores.SourceRelationshipStatusConfirmed
+	if !s.policy.AttachHandlesOnConfirm {
+		return nil
+	}
+	canonicalID, attachedHandles, err := s.attachHandlesForRelationship(ctx, scope, state.relationship)
+	if err != nil {
+		return err
+	}
+	if canonicalID != "" {
+		state.evidence["canonical_source_document_id"] = canonicalID
+	}
+	state.evidence["attached_handle_count"] = attachedHandles
+	return nil
+}
+
+func (s DefaultSourceReconciliationService) applyMergeRelationshipReviewAction(
+	ctx context.Context,
+	scope stores.Scope,
+	state *relationshipReviewActionState,
+) error {
+	state.relationship.Status = stores.SourceRelationshipStatusConfirmed
+	canonicalID, mergedID, attachedHandles, err := s.mergeSourceDocumentsForRelationship(ctx, scope, state.relationship)
+	if err != nil {
+		return err
+	}
+	if canonicalID != "" {
+		state.evidence["canonical_source_document_id"] = canonicalID
+		state.impactedSourceIDs = append(state.impactedSourceIDs, canonicalID)
+	}
+	if mergedID != "" {
+		state.evidence["merged_source_document_id"] = mergedID
+		state.impactedSourceIDs = append(state.impactedSourceIDs, mergedID)
+	}
+	state.evidence["attached_handle_count"] = attachedHandles
+	state.relationship.PredecessorSourceDocumentID = strings.TrimSpace(mergedID)
+	state.relationship.SuccessorSourceDocumentID = strings.TrimSpace(canonicalID)
+	return nil
+}
+
+func applyRelatedRelationshipReviewAction(state *relationshipReviewActionState) {
+	state.relationship.Status = stores.SourceRelationshipStatusConfirmed
+	state.relationship.RelationshipType = confirmedRelatedRelationshipType(state.relationship.RelationshipType)
+	state.relationship.PredecessorSourceDocumentID = ""
+	state.relationship.SuccessorSourceDocumentID = ""
+}
+
+func applyRejectRelationshipReviewAction(state *relationshipReviewActionState) {
+	state.relationship.Status = stores.SourceRelationshipStatusRejected
+	state.evidence["suppression_evidence_signature"] = firstNonEmpty(
+		lineageMetadataString(state.evidence, "evidence_signature"),
+		lineageMetadataString(state.evidence, "suppression_evidence_signature"),
+	)
+}
+
+func (s DefaultSourceReconciliationService) persistRelationshipReviewAction(
+	ctx context.Context,
+	scope stores.Scope,
+	effectiveAction, actorID, reason, beforeStatus string,
+	state relationshipReviewActionState,
+) (stores.SourceRelationshipRecord, error) {
+	now := s.now().UTC()
+	state.evidence = appendReconciliationAuditEntry(state.evidence, reconciliationAuditEntryInput{
+		ID:         "audit_" + hashFingerprintValue(strings.Join([]string{state.relationship.ID, effectiveAction, actorID, now.Format(time.RFC3339Nano)}, "|"))[:16],
+		Action:     effectiveAction,
+		ActorID:    actorID,
+		Reason:     strings.TrimSpace(reason),
+		FromStatus: beforeStatus,
+		ToStatus:   strings.TrimSpace(state.relationship.Status),
+		Summary:    reconciliationReviewActionSummary(effectiveAction, state.relationship),
+		CreatedAt:  now,
+	})
+	encoded, err := json.Marshal(state.evidence)
+	if err != nil {
+		return stores.SourceRelationshipRecord{}, err
+	}
+	state.relationship.EvidenceJSON = string(encoded)
+	state.relationship.UpdatedAt = now
+	return s.lineage.SaveSourceRelationship(ctx, scope, state.relationship)
 }
 
 type reconciliationAuditEntryInput struct {
@@ -537,6 +614,12 @@ type candidateArtifactMetrics struct {
 	ownerMatch           bool
 	folderMatch          bool
 	temporalProximity    float64
+}
+
+type relationshipReviewActionState struct {
+	relationship      stores.SourceRelationshipRecord
+	evidence          map[string]any
+	impactedSourceIDs []string
 }
 
 func (s DefaultSourceReconciliationService) scoreCandidate(
@@ -714,80 +797,129 @@ func (s DefaultSourceReconciliationService) evaluateCandidateArtifact(
 	candidateRevision stores.SourceRevisionRecord,
 	artifactContext reconciliationArtifactContext,
 ) candidateScoreEvaluation {
-	titleSimilarity := reconciliationTitleSimilarity(targetDocument.CanonicalTitle, candidateDocument.CanonicalTitle, metadata.TitleHint)
-	chunkOverlap := reconciliationChunkOverlap(targetFingerprint, artifactContext.fingerprint)
-	normalizedSimilarity := reconciliationNormalizedTextSimilarity(targetFingerprint, artifactContext.fingerprint)
-	exactArtifactMatch := strings.TrimSpace(targetArtifact.SHA256) != "" && strings.TrimSpace(targetArtifact.SHA256) == strings.TrimSpace(artifactContext.artifact.SHA256)
-	accountMatch := strings.TrimSpace(metadata.AccountID) != "" && strings.EqualFold(strings.TrimSpace(metadata.AccountID), strings.TrimSpace(candidateHandle.AccountID))
-	driveMatch := strings.TrimSpace(metadata.DriveID) != "" && strings.EqualFold(strings.TrimSpace(metadata.DriveID), strings.TrimSpace(firstNonEmpty(candidateHandle.DriveID, reconciliationMetadataString(candidateRevision.MetadataJSON, "drive_id"))))
-	webURLMatch := strings.TrimSpace(metadata.WebURL) != "" && strings.EqualFold(strings.TrimSpace(metadata.WebURL), strings.TrimSpace(firstNonEmpty(candidateHandle.WebURL, reconciliationMetadataString(candidateRevision.MetadataJSON, "web_url"))))
-	ownerMatch := strings.TrimSpace(metadata.OwnerEmail) != "" && strings.EqualFold(strings.TrimSpace(metadata.OwnerEmail), strings.TrimSpace(reconciliationMetadataString(candidateRevision.MetadataJSON, "owner_email")))
-	folderMatch := strings.TrimSpace(metadata.ParentID) != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(reconciliationMetadataString(candidateRevision.MetadataJSON, "parent_id")))
-	temporal := reconciliationTemporalProximity(targetRevision, candidateRevision, metadata.ModifiedTime)
-
-	score := 0.0
-	if exactArtifactMatch {
-		score = 1
-	} else {
-		score += normalizedSimilarity * 0.42
-		score += chunkOverlap * 0.2
-		score += titleSimilarity * 0.14
-		score += temporal * 0.08
-		if accountMatch {
-			score += 0.06
-		}
-		if driveMatch {
-			score += 0.05
-		}
-		if webURLMatch {
-			score += 0.1
-		}
-		if ownerMatch {
-			score += 0.04
-		}
-		if folderMatch {
-			score += 0.04
-		}
-	}
-
-	band := stores.LineageConfidenceBandNone
-	status := stores.SourceRelationshipStatusPendingReview
-	switch {
-	case exactArtifactMatch:
-		band = stores.LineageConfidenceBandExact
-		if s.policy.AutoConfirmExactArtifactMatches {
-			status = stores.SourceRelationshipStatusConfirmed
-		}
-	case score >= 0.85:
-		band = stores.LineageConfidenceBandHigh
-	case score >= 0.62:
-		band = stores.LineageConfidenceBandMedium
-	default:
+	metrics := buildCandidateArtifactMetrics(targetDocument, targetRevision, targetArtifact, targetFingerprint, metadata, candidateDocument, candidateHandle, candidateRevision, artifactContext)
+	score := reconciliationCandidateScore(metrics)
+	band, status := s.reconciliationCandidateStatus(score, metrics.exactArtifactMatch)
+	if band == stores.LineageConfidenceBandNone {
 		return candidateScoreEvaluation{band: stores.LineageConfidenceBandNone}
 	}
+	evidence := s.buildCandidateArtifactEvidence(targetDocument, targetRevision, targetArtifact, targetFingerprint, candidateDocument, candidateRevision, artifactContext, metrics)
+	evidence["evidence_signature"] = reconciliationEvidenceSignature(evidence)
 
-	relationshipType := stores.SourceRelationshipTypeSameLogicalDoc
-	switch {
-	case exactArtifactMatch && !accountMatch:
-		relationshipType = stores.SourceRelationshipTypeCopiedFrom
-	case !accountMatch && normalizedSimilarity >= 0.7:
-		relationshipType = stores.SourceRelationshipTypeTransferredFrom
-	case chunkOverlap >= 0.45 && normalizedSimilarity < 0.65:
-		relationshipType = stores.SourceRelationshipTypePartialOverlap
+	return candidateScoreEvaluation{
+		candidateDocument:  candidateDocument,
+		score:              math.Min(score, 1),
+		band:               band,
+		relationshipType:   reconciliationCandidateRelationshipType(metrics),
+		status:             status,
+		evidence:           evidence,
+		exactArtifactMatch: metrics.exactArtifactMatch,
 	}
+}
 
-	evidence := map[string]any{
-		"candidate_reason":             reconciliationCandidateReason(exactArtifactMatch, normalizedSimilarity, chunkOverlap, accountMatch, webURLMatch),
-		"exact_artifact_match":         exactArtifactMatch,
-		"normalized_text_similarity":   fmt.Sprintf("%.3f", normalizedSimilarity),
-		"chunk_overlap":                fmt.Sprintf("%.3f", chunkOverlap),
-		"title_similarity":             fmt.Sprintf("%.3f", titleSimilarity),
-		"temporal_proximity":           fmt.Sprintf("%.3f", temporal),
-		"account_match":                fmt.Sprintf("%t", accountMatch),
-		"drive_match":                  fmt.Sprintf("%t", driveMatch),
-		"web_url_match":                fmt.Sprintf("%t", webURLMatch),
-		"owner_match":                  fmt.Sprintf("%t", ownerMatch),
-		"folder_match":                 fmt.Sprintf("%t", folderMatch),
+func buildCandidateArtifactMetrics(
+	targetDocument stores.SourceDocumentRecord,
+	targetRevision stores.SourceRevisionRecord,
+	targetArtifact stores.SourceArtifactRecord,
+	targetFingerprint stores.SourceFingerprintRecord,
+	metadata SourceMetadataBaseline,
+	candidateDocument stores.SourceDocumentRecord,
+	candidateHandle stores.SourceHandleRecord,
+	candidateRevision stores.SourceRevisionRecord,
+	artifactContext reconciliationArtifactContext,
+) candidateArtifactMetrics {
+	return candidateArtifactMetrics{
+		titleSimilarity:      reconciliationTitleSimilarity(targetDocument.CanonicalTitle, candidateDocument.CanonicalTitle, metadata.TitleHint),
+		chunkOverlap:         reconciliationChunkOverlap(targetFingerprint, artifactContext.fingerprint),
+		normalizedSimilarity: reconciliationNormalizedTextSimilarity(targetFingerprint, artifactContext.fingerprint),
+		exactArtifactMatch:   strings.TrimSpace(targetArtifact.SHA256) != "" && strings.TrimSpace(targetArtifact.SHA256) == strings.TrimSpace(artifactContext.artifact.SHA256),
+		accountMatch:         strings.TrimSpace(metadata.AccountID) != "" && strings.EqualFold(strings.TrimSpace(metadata.AccountID), strings.TrimSpace(candidateHandle.AccountID)),
+		driveMatch:           strings.TrimSpace(metadata.DriveID) != "" && strings.EqualFold(strings.TrimSpace(metadata.DriveID), strings.TrimSpace(firstNonEmpty(candidateHandle.DriveID, reconciliationMetadataString(candidateRevision.MetadataJSON, "drive_id")))),
+		webURLMatch:          strings.TrimSpace(metadata.WebURL) != "" && strings.EqualFold(strings.TrimSpace(metadata.WebURL), strings.TrimSpace(firstNonEmpty(candidateHandle.WebURL, reconciliationMetadataString(candidateRevision.MetadataJSON, "web_url")))),
+		ownerMatch:           strings.TrimSpace(metadata.OwnerEmail) != "" && strings.EqualFold(strings.TrimSpace(metadata.OwnerEmail), strings.TrimSpace(reconciliationMetadataString(candidateRevision.MetadataJSON, "owner_email"))),
+		folderMatch:          strings.TrimSpace(metadata.ParentID) != "" && strings.EqualFold(strings.TrimSpace(metadata.ParentID), strings.TrimSpace(reconciliationMetadataString(candidateRevision.MetadataJSON, "parent_id"))),
+		temporalProximity:    reconciliationTemporalProximity(targetRevision, candidateRevision, metadata.ModifiedTime),
+	}
+}
+
+func reconciliationCandidateScore(metrics candidateArtifactMetrics) float64 {
+	if metrics.exactArtifactMatch {
+		return 1
+	}
+	score := 0.0
+	score += metrics.normalizedSimilarity * 0.42
+	score += metrics.chunkOverlap * 0.2
+	score += metrics.titleSimilarity * 0.14
+	score += metrics.temporalProximity * 0.08
+	if metrics.accountMatch {
+		score += 0.06
+	}
+	if metrics.driveMatch {
+		score += 0.05
+	}
+	if metrics.webURLMatch {
+		score += 0.1
+	}
+	if metrics.ownerMatch {
+		score += 0.04
+	}
+	if metrics.folderMatch {
+		score += 0.04
+	}
+	return score
+}
+
+func (s DefaultSourceReconciliationService) reconciliationCandidateStatus(score float64, exactArtifactMatch bool) (string, string) {
+	switch {
+	case exactArtifactMatch:
+		if s.policy.AutoConfirmExactArtifactMatches {
+			return stores.LineageConfidenceBandExact, stores.SourceRelationshipStatusConfirmed
+		}
+		return stores.LineageConfidenceBandExact, stores.SourceRelationshipStatusPendingReview
+	case score >= 0.85:
+		return stores.LineageConfidenceBandHigh, stores.SourceRelationshipStatusPendingReview
+	case score >= 0.62:
+		return stores.LineageConfidenceBandMedium, stores.SourceRelationshipStatusPendingReview
+	default:
+		return stores.LineageConfidenceBandNone, stores.SourceRelationshipStatusPendingReview
+	}
+}
+
+func reconciliationCandidateRelationshipType(metrics candidateArtifactMetrics) string {
+	switch {
+	case metrics.exactArtifactMatch && !metrics.accountMatch:
+		return stores.SourceRelationshipTypeCopiedFrom
+	case !metrics.accountMatch && metrics.normalizedSimilarity >= 0.7:
+		return stores.SourceRelationshipTypeTransferredFrom
+	case metrics.chunkOverlap >= 0.45 && metrics.normalizedSimilarity < 0.65:
+		return stores.SourceRelationshipTypePartialOverlap
+	default:
+		return stores.SourceRelationshipTypeSameLogicalDoc
+	}
+}
+
+func (s DefaultSourceReconciliationService) buildCandidateArtifactEvidence(
+	targetDocument stores.SourceDocumentRecord,
+	targetRevision stores.SourceRevisionRecord,
+	targetArtifact stores.SourceArtifactRecord,
+	targetFingerprint stores.SourceFingerprintRecord,
+	candidateDocument stores.SourceDocumentRecord,
+	candidateRevision stores.SourceRevisionRecord,
+	artifactContext reconciliationArtifactContext,
+	metrics candidateArtifactMetrics,
+) map[string]any {
+	return map[string]any{
+		"candidate_reason":             reconciliationCandidateReason(metrics.exactArtifactMatch, metrics.normalizedSimilarity, metrics.chunkOverlap, metrics.accountMatch, metrics.webURLMatch),
+		"exact_artifact_match":         metrics.exactArtifactMatch,
+		"normalized_text_similarity":   fmt.Sprintf("%.3f", metrics.normalizedSimilarity),
+		"chunk_overlap":                fmt.Sprintf("%.3f", metrics.chunkOverlap),
+		"title_similarity":             fmt.Sprintf("%.3f", metrics.titleSimilarity),
+		"temporal_proximity":           fmt.Sprintf("%.3f", metrics.temporalProximity),
+		"account_match":                fmt.Sprintf("%t", metrics.accountMatch),
+		"drive_match":                  fmt.Sprintf("%t", metrics.driveMatch),
+		"web_url_match":                fmt.Sprintf("%t", metrics.webURLMatch),
+		"owner_match":                  fmt.Sprintf("%t", metrics.ownerMatch),
+		"folder_match":                 fmt.Sprintf("%t", metrics.folderMatch),
 		"target_source_document_id":    strings.TrimSpace(targetDocument.ID),
 		"target_source_revision_id":    strings.TrimSpace(targetRevision.ID),
 		"target_source_artifact_id":    strings.TrimSpace(targetArtifact.ID),
@@ -797,17 +929,6 @@ func (s DefaultSourceReconciliationService) evaluateCandidateArtifact(
 		"candidate_source_artifact_id": strings.TrimSpace(artifactContext.artifact.ID),
 		"candidate_extract_version":    strings.TrimSpace(artifactContext.fingerprint.ExtractVersion),
 		"evaluated_at":                 s.now().UTC().Format(time.RFC3339Nano),
-	}
-	evidence["evidence_signature"] = reconciliationEvidenceSignature(evidence)
-
-	return candidateScoreEvaluation{
-		candidateDocument:  candidateDocument,
-		score:              math.Min(score, 1),
-		band:               band,
-		relationshipType:   relationshipType,
-		status:             status,
-		evidence:           evidence,
-		exactArtifactMatch: exactArtifactMatch,
 	}
 }
 

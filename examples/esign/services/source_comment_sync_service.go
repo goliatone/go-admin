@@ -329,24 +329,31 @@ func (s DefaultSourceCommentSyncService) upsertSyncState(
 	if stateRecord.LastSyncedAt == nil && status == SourceManagementCommentSyncSynced {
 		stateRecord.LastSyncedAt = &now
 	}
-	if existing, err := lineage.GetSourceCommentSyncState(ctx, scope, stateRecord.ID); err == nil {
-		if !sourceCommentSyncInputReplayable(input) && sourceCommentSyncPayloadReplayable(existing.PayloadJSON) {
-			stateRecord.PayloadSHA256 = strings.TrimSpace(existing.PayloadSHA256)
-			stateRecord.PayloadJSON = strings.TrimSpace(existing.PayloadJSON)
-		}
-		if stateRecord.LastSyncedAt == nil && existing.LastSyncedAt != nil {
-			stateRecord.LastSyncedAt = cloneSourceTimePtr(existing.LastSyncedAt)
-		}
-		if strings.TrimSpace(existing.PayloadSHA256) == payloadSHA && strings.TrimSpace(existing.SyncStatus) == strings.TrimSpace(stateRecord.SyncStatus) {
-			stateRecord.CreatedAt = existing.CreatedAt
-		} else {
-			stateRecord.CreatedAt = existing.CreatedAt
-		}
+	existing, err := lineage.GetSourceCommentSyncState(ctx, scope, stateRecord.ID)
+	if err == nil {
+		stateRecord = mergeSourceCommentSyncStateRecord(stateRecord, existing, input)
 		return lineage.SaveSourceCommentSyncState(ctx, scope, stateRecord)
-	} else if !isNotFound(err) {
+	}
+	if !isNotFound(err) {
 		return stores.SourceCommentSyncStateRecord{}, err
 	}
 	return lineage.CreateSourceCommentSyncState(ctx, scope, stateRecord)
+}
+
+func mergeSourceCommentSyncStateRecord(
+	record stores.SourceCommentSyncStateRecord,
+	existing stores.SourceCommentSyncStateRecord,
+	input SourceCommentSyncInput,
+) stores.SourceCommentSyncStateRecord {
+	if !sourceCommentSyncInputReplayable(input) && sourceCommentSyncPayloadReplayable(existing.PayloadJSON) {
+		record.PayloadSHA256 = strings.TrimSpace(existing.PayloadSHA256)
+		record.PayloadJSON = strings.TrimSpace(existing.PayloadJSON)
+	}
+	if record.LastSyncedAt == nil && existing.LastSyncedAt != nil {
+		record.LastSyncedAt = cloneSourceTimePtr(existing.LastSyncedAt)
+	}
+	record.CreatedAt = existing.CreatedAt
+	return record
 }
 
 func (s DefaultSourceCommentSyncService) upsertMessage(ctx context.Context, lineage stores.LineageStore, scope stores.Scope, revision stores.SourceRevisionRecord, thread stores.SourceCommentThreadRecord, input SourceCommentProviderMessage) (stores.SourceCommentMessageRecord, error) {

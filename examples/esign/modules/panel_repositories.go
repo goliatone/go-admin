@@ -188,27 +188,55 @@ func (r *documentPanelRepository) Delete(ctx context.Context, id string) error {
 	}
 	id = strings.TrimSpace(id)
 	if err := r.store.Delete(ctx, scope, id); err != nil {
-		var typedErr *goerrors.Error
-		if goerrors.As(err, &typedErr) && typedErr != nil {
-			textCode := strings.TrimSpace(typedErr.TextCode)
-			entity := strings.ToLower(strings.TrimSpace(toString(typedErr.Metadata["entity"])))
-			field := strings.TrimSpace(toString(typedErr.Metadata["field"]))
-			if textCode == coreadmin.TextCodeResourceInUse && entity == "documents" && field == "id" {
-				if summary, ok, summaryErr := r.documentAgreementReferenceSummary(ctx, scope, id); summaryErr != nil {
-					return summaryErr
-				} else if ok {
-					return documentDeleteConflictError("", id, summary)
-				}
-				count := int(toInt64(typedErr.Metadata["agreement_count"]))
-				if count <= 0 {
-					count = 1
-				}
-				return documentDeleteConflictError("", id, documentAgreementReferenceSummary{Count: count})
-			}
-		}
-		return err
+		return r.resolveDocumentDeleteError(ctx, scope, id, err)
 	}
 	return nil
+}
+
+func (r *documentPanelRepository) resolveDocumentDeleteError(
+	ctx context.Context,
+	scope stores.Scope,
+	documentID string,
+	err error,
+) error {
+	typedErr := documentDeleteTypedError(err)
+	if !isDocumentDeleteConflict(typedErr) {
+		return err
+	}
+	summary, ok, summaryErr := r.documentAgreementReferenceSummary(ctx, scope, documentID)
+	if summaryErr != nil {
+		return summaryErr
+	}
+	if ok {
+		return documentDeleteConflictError("", documentID, summary)
+	}
+	return documentDeleteConflictError("", documentID, fallbackDocumentAgreementReferenceSummary(typedErr))
+}
+
+func documentDeleteTypedError(err error) *goerrors.Error {
+	var typedErr *goerrors.Error
+	if goerrors.As(err, &typedErr) && typedErr != nil {
+		return typedErr
+	}
+	return nil
+}
+
+func isDocumentDeleteConflict(err *goerrors.Error) bool {
+	if err == nil {
+		return false
+	}
+	textCode := strings.TrimSpace(err.TextCode)
+	entity := strings.ToLower(strings.TrimSpace(toString(err.Metadata["entity"])))
+	field := strings.TrimSpace(toString(err.Metadata["field"]))
+	return textCode == coreadmin.TextCodeResourceInUse && entity == "documents" && field == "id"
+}
+
+func fallbackDocumentAgreementReferenceSummary(err *goerrors.Error) documentAgreementReferenceSummary {
+	count := int(toInt64(err.Metadata["agreement_count"]))
+	if count <= 0 {
+		count = 1
+	}
+	return documentAgreementReferenceSummary{Count: count}
 }
 
 func (r *documentPanelRepository) documentAgreementReferenceSummary(ctx context.Context, scope stores.Scope, documentID string) (documentAgreementReferenceSummary, bool, error) {
@@ -1349,23 +1377,35 @@ func (r *agreementPanelRepository) resolveTimelineUserActor(ctx context.Context,
 	if actorID == "" {
 		return "", ""
 	}
-	name := ""
-	email := ""
-	if r.profiles != nil {
-		if profile, err := r.profiles.Get(ctx, actorID); err == nil {
-			name = firstNonEmptyReviewActorValue(profile.DisplayName, profile.Email)
-			email = strings.TrimSpace(profile.Email)
-		}
+	name, email := r.resolveTimelineProfileActor(ctx, actorID)
+	name, email = r.resolveTimelineAccountActor(ctx, actorID, name, email)
+	return name, email
+}
+
+func (r *agreementPanelRepository) resolveTimelineProfileActor(ctx context.Context, actorID string) (string, string) {
+	if r.profiles == nil {
+		return "", ""
 	}
-	if r.users != nil {
-		if user, err := r.users.GetUser(ctx, actorID); err == nil {
-			if name == "" {
-				name = firstNonEmptyReviewActorValue(reviewActorUserDisplayName(user), user.Email, user.Username)
-			}
-			if email == "" {
-				email = strings.TrimSpace(user.Email)
-			}
-		}
+	profile, err := r.profiles.Get(ctx, actorID)
+	if err != nil {
+		return "", ""
+	}
+	return firstNonEmptyReviewActorValue(profile.DisplayName, profile.Email), strings.TrimSpace(profile.Email)
+}
+
+func (r *agreementPanelRepository) resolveTimelineAccountActor(ctx context.Context, actorID, name, email string) (string, string) {
+	if r.users == nil {
+		return name, email
+	}
+	user, err := r.users.GetUser(ctx, actorID)
+	if err != nil {
+		return name, email
+	}
+	if name == "" {
+		name = firstNonEmptyReviewActorValue(reviewActorUserDisplayName(user), user.Email, user.Username)
+	}
+	if email == "" {
+		email = strings.TrimSpace(user.Email)
 	}
 	return name, email
 }

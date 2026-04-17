@@ -803,22 +803,57 @@ func (s DefaultSourceSearchService) sourceSearchIndexNeedsRefresh(ctx context.Co
 
 func (s DefaultSourceSearchService) sourceSearchLastChangedAt(ctx context.Context, scope stores.Scope, sourceDocument stores.SourceDocumentRecord, revisions []stores.SourceRevisionRecord) (time.Time, error) {
 	latest := sourceDocument.UpdatedAt.UTC()
-	handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{SourceDocumentID: sourceDocument.ID})
+	var err error
+	latest, err = s.sourceSearchLastChangedAtForDocument(ctx, scope, sourceDocument.ID, latest)
+	if err != nil {
+		return time.Time{}, err
+	}
+	latest, err = s.sourceSearchLastChangedAtForComments(ctx, scope, sourceDocument.ID, latest)
+	if err != nil {
+		return time.Time{}, err
+	}
+	latest, err = s.sourceSearchLastChangedAtForRevisions(ctx, scope, revisions, latest)
+	if err != nil {
+		return time.Time{}, err
+	}
+	latest, err = s.sourceSearchLastChangedAtForAgreements(ctx, scope, revisions, latest)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return latest, nil
+}
+
+func (s DefaultSourceSearchService) sourceSearchLastChangedAtForDocument(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocumentID string,
+	latest time.Time,
+) (time.Time, error) {
+	handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{SourceDocumentID: sourceDocumentID})
 	if err != nil {
 		return time.Time{}, err
 	}
 	for _, handle := range handles {
 		latest = maxSourceSearchTime(latest, handle.UpdatedAt, handle.CreatedAt)
 	}
-	relationships, err := s.lineage.ListSourceRelationships(ctx, scope, stores.SourceRelationshipQuery{SourceDocumentID: sourceDocument.ID})
+	relationships, err := s.lineage.ListSourceRelationships(ctx, scope, stores.SourceRelationshipQuery{SourceDocumentID: sourceDocumentID})
 	if err != nil {
 		return time.Time{}, err
 	}
 	for _, relationship := range relationships {
 		latest = maxSourceSearchTime(latest, relationship.UpdatedAt, relationship.CreatedAt)
 	}
+	return latest, nil
+}
+
+func (s DefaultSourceSearchService) sourceSearchLastChangedAtForComments(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocumentID string,
+	latest time.Time,
+) (time.Time, error) {
 	threads, err := s.lineage.ListSourceCommentThreads(ctx, scope, stores.SourceCommentThreadQuery{
-		SourceDocumentID: sourceDocument.ID,
+		SourceDocumentID: sourceDocumentID,
 		IncludeDeleted:   true,
 	})
 	if err != nil {
@@ -833,7 +868,7 @@ func (s DefaultSourceSearchService) sourceSearchLastChangedAt(ctx context.Contex
 			latest = maxSourceSearchTime(latest, thread.LastSyncedAt.UTC())
 		}
 	}
-	states, err := s.lineage.ListSourceCommentSyncStates(ctx, scope, stores.SourceCommentSyncStateQuery{SourceDocumentID: sourceDocument.ID})
+	states, err := s.lineage.ListSourceCommentSyncStates(ctx, scope, stores.SourceCommentSyncStateQuery{SourceDocumentID: sourceDocumentID})
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -846,6 +881,15 @@ func (s DefaultSourceSearchService) sourceSearchLastChangedAt(ctx context.Contex
 			latest = maxSourceSearchTime(latest, state.LastSyncedAt.UTC())
 		}
 	}
+	return latest, nil
+}
+
+func (s DefaultSourceSearchService) sourceSearchLastChangedAtForRevisions(
+	ctx context.Context,
+	scope stores.Scope,
+	revisions []stores.SourceRevisionRecord,
+	latest time.Time,
+) (time.Time, error) {
 	for _, revision := range revisions {
 		latest = maxSourceSearchTime(latest, revision.UpdatedAt, revision.CreatedAt)
 		artifacts, err := s.lineage.ListSourceArtifacts(ctx, scope, stores.SourceArtifactQuery{SourceRevisionID: revision.ID})
@@ -863,23 +907,38 @@ func (s DefaultSourceSearchService) sourceSearchLastChangedAt(ctx context.Contex
 			latest = maxSourceSearchTime(latest, fingerprint.CreatedAt)
 		}
 	}
-	if s.agreements != nil {
-		agreements, err := s.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{SortDesc: true})
-		if err != nil {
-			return time.Time{}, err
+	return latest, nil
+}
+
+func (s DefaultSourceSearchService) sourceSearchLastChangedAtForAgreements(
+	ctx context.Context,
+	scope stores.Scope,
+	revisions []stores.SourceRevisionRecord,
+	latest time.Time,
+) (time.Time, error) {
+	if s.agreements == nil {
+		return latest, nil
+	}
+	agreements, err := s.agreements.ListAgreements(ctx, scope, stores.AgreementQuery{SortDesc: true})
+	if err != nil {
+		return time.Time{}, err
+	}
+	revisionIDs := sourceSearchRevisionIDSet(revisions)
+	for _, agreement := range agreements {
+		if _, ok := revisionIDs[strings.TrimSpace(agreement.SourceRevisionID)]; !ok {
+			continue
 		}
-		revisionIDs := make(map[string]struct{}, len(revisions))
-		for _, revision := range revisions {
-			revisionIDs[strings.TrimSpace(revision.ID)] = struct{}{}
-		}
-		for _, agreement := range agreements {
-			if _, ok := revisionIDs[strings.TrimSpace(agreement.SourceRevisionID)]; !ok {
-				continue
-			}
-			latest = maxSourceSearchTime(latest, agreement.UpdatedAt, agreement.CreatedAt)
-		}
+		latest = maxSourceSearchTime(latest, agreement.UpdatedAt, agreement.CreatedAt)
 	}
 	return latest, nil
+}
+
+func sourceSearchRevisionIDSet(revisions []stores.SourceRevisionRecord) map[string]struct{} {
+	revisionIDs := make(map[string]struct{}, len(revisions))
+	for _, revision := range revisions {
+		revisionIDs[strings.TrimSpace(revision.ID)] = struct{}{}
+	}
+	return revisionIDs
 }
 
 func maxSourceSearchTime(current time.Time, candidates ...time.Time) time.Time {

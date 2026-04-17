@@ -71,26 +71,40 @@ func (d reviewActorDirectory) resolveUserActor(ctx context.Context, actorID stri
 	if info.ActorID == "" {
 		return services.ReviewActorInfo{}, false
 	}
-	if d.profiles != nil {
-		if profile, err := d.profiles.Get(ctx, info.ActorID); err == nil {
-			info.Name = firstNonEmptyReviewActorValue(profile.DisplayName, profile.Email)
-			info.Email = strings.TrimSpace(profile.Email)
-		}
-	}
-	if d.users != nil {
-		if user, err := d.users.GetUser(ctx, info.ActorID); err == nil {
-			if info.Name == "" {
-				info.Name = firstNonEmptyReviewActorValue(reviewActorUserDisplayName(user), user.Email, user.Username)
-			}
-			if info.Email == "" {
-				info.Email = strings.TrimSpace(user.Email)
-			}
-		}
-	}
+	info.Name, info.Email = d.resolveProfileActor(ctx, info.ActorID)
+	info.Name, info.Email = d.resolveAccountActor(ctx, info.ActorID, info.Name, info.Email)
 	if info.Name == "" && info.Email == "" {
 		return services.ReviewActorInfo{}, false
 	}
 	return info, true
+}
+
+func (d reviewActorDirectory) resolveProfileActor(ctx context.Context, actorID string) (string, string) {
+	if d.profiles == nil {
+		return "", ""
+	}
+	profile, err := d.profiles.Get(ctx, actorID)
+	if err != nil {
+		return "", ""
+	}
+	return firstNonEmptyReviewActorValue(profile.DisplayName, profile.Email), strings.TrimSpace(profile.Email)
+}
+
+func (d reviewActorDirectory) resolveAccountActor(ctx context.Context, actorID, name, email string) (string, string) {
+	if d.users == nil {
+		return name, email
+	}
+	user, err := d.users.GetUser(ctx, actorID)
+	if err != nil {
+		return name, email
+	}
+	if name == "" {
+		name = firstNonEmptyReviewActorValue(reviewActorUserDisplayName(user), user.Email, user.Username)
+	}
+	if email == "" {
+		email = strings.TrimSpace(user.Email)
+	}
+	return name, email
 }
 
 func reviewActorUserDisplayName(user coreadmin.UserRecord) string {

@@ -184,36 +184,49 @@ func drawAuditTrailMetadata(pdf *gofpdf.Fpdf, style auditTrailStyle, doc AuditTr
 		pdf.Text(boxX+10, currentY, strings.TrimSpace(row.Label))
 
 		if row.Status {
-			statusColor := auditTrailStatusColor(row.Value)
-			pdf.SetFillColor(statusColor.R, statusColor.G, statusColor.B)
-			pdf.Circle(valueX+3, currentY-3, 2.4, "F")
-			pdf.SetFont("Helvetica", "B", 10)
-			pdf.SetTextColor(style.Text.R, style.Text.G, style.Text.B)
-			pdf.Text(valueX+10, currentY, auditTrailStatusLabel(row.Value))
+			renderAuditTrailStatusValue(pdf, style, row.Value, valueX, currentY)
 		} else {
-			value := strings.TrimSpace(row.Value)
-			if value == "" {
-				value = "-"
-			}
-			if row.Monospace {
-				pdf.SetFont("Courier", "", 9)
-			} else {
-				pdf.SetFont("Helvetica", "", 10)
-			}
-			pdf.SetTextColor(style.Text.R, style.Text.G, style.Text.B)
-			lines := pdf.SplitText(value, valueWidth)
-			if len(lines) == 0 {
-				lines = []string{"-"}
-			}
-			lineY := currentY
-			for _, line := range lines {
-				pdf.Text(valueX, lineY, strings.TrimSpace(line))
-				lineY += 11
-			}
+			renderAuditTrailTextValue(pdf, style, row, valueX, currentY, valueWidth)
 		}
 		currentY += rowHeights[idx]
 	}
 	return startY + boxH
+}
+
+func renderAuditTrailStatusValue(pdf *gofpdf.Fpdf, style auditTrailStyle, value string, valueX, currentY float64) {
+	statusColor := auditTrailStatusColor(value)
+	pdf.SetFillColor(statusColor.R, statusColor.G, statusColor.B)
+	pdf.Circle(valueX+3, currentY-3, 2.4, "F")
+	pdf.SetFont("Helvetica", "B", 10)
+	pdf.SetTextColor(style.Text.R, style.Text.G, style.Text.B)
+	pdf.Text(valueX+10, currentY, auditTrailStatusLabel(value))
+}
+
+func renderAuditTrailTextValue(
+	pdf *gofpdf.Fpdf,
+	style auditTrailStyle,
+	row auditTrailMetadataRow,
+	valueX, currentY, valueWidth float64,
+) {
+	value := strings.TrimSpace(row.Value)
+	if value == "" {
+		value = "-"
+	}
+	if row.Monospace {
+		pdf.SetFont("Courier", "", 9)
+	} else {
+		pdf.SetFont("Helvetica", "", 10)
+	}
+	pdf.SetTextColor(style.Text.R, style.Text.G, style.Text.B)
+	lines := pdf.SplitText(value, valueWidth)
+	if len(lines) == 0 {
+		lines = []string{"-"}
+	}
+	lineY := currentY
+	for _, line := range lines {
+		pdf.Text(valueX, lineY, strings.TrimSpace(line))
+		lineY += 11
+	}
 }
 
 func drawAuditTrailSectionTitle(pdf *gofpdf.Fpdf, style auditTrailStyle, startY float64, firstPage bool) float64 {
