@@ -69,9 +69,6 @@ func RegisterDefaultWidgets(widgetSvc WidgetService, features FeatureFlags, regi
 		}
 	}
 	ctx := context.Background()
-	if defs := widgetSvc.Definitions(); len(defs) > 0 {
-		return nil
-	}
 	definitions := []WidgetDefinition{
 		{
 			Code: widgetcodes.WidgetUserStats,
@@ -143,7 +140,7 @@ func RegisterDefaultWidgets(widgetSvc WidgetService, features FeatureFlags, regi
 		})
 	}
 	for _, def := range definitions {
-		if err := widgetSvc.RegisterDefinition(ctx, def); err != nil {
+		if _, err := widgetSvc.SyncDefinition(ctx, def); err != nil {
 			return err
 		}
 	}

@@ -2,6 +2,9 @@ package admin
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -83,6 +86,48 @@ func (s *InMemoryWidgetService) RegisterDefinition(ctx context.Context, def Widg
 	return nil
 }
 
+// SyncDefinition creates, updates, or no-ops a widget definition based on content fingerprint equality.
+func (s *InMemoryWidgetService) SyncDefinition(ctx context.Context, def WidgetDefinition) (*WidgetDefinitionSyncResult, error) {
+	if s == nil {
+		return nil, nil
+	}
+	s.mu.Lock()
+	current, exists := s.definitions[def.Code]
+	if !exists {
+		s.definitions[def.Code] = cloneWidgetDefinition(def)
+		activity := s.activity
+		s.mu.Unlock()
+		recordCMSActivity(ctx, activity, "cms.widget_definition.register", "widget_def:"+def.Code, map[string]any{"name": def.Name, "status": string(WidgetDefinitionSyncStatusCreated)})
+		return &WidgetDefinitionSyncResult{
+			Definition: cloneWidgetDefinition(def),
+			Status:     WidgetDefinitionSyncStatusCreated,
+		}, nil
+	}
+
+	same, err := widgetDefinitionsEquivalent(current, def)
+	if err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
+	if same {
+		result := cloneWidgetDefinition(current)
+		s.mu.Unlock()
+		return &WidgetDefinitionSyncResult{
+			Definition: result,
+			Status:     WidgetDefinitionSyncStatusUnchanged,
+		}, nil
+	}
+
+	s.definitions[def.Code] = cloneWidgetDefinition(def)
+	activity := s.activity
+	s.mu.Unlock()
+	recordCMSActivity(ctx, activity, "cms.widget_definition.sync", "widget_def:"+def.Code, map[string]any{"name": def.Name, "status": string(WidgetDefinitionSyncStatusUpdated)})
+	return &WidgetDefinitionSyncResult{
+		Definition: cloneWidgetDefinition(def),
+		Status:     WidgetDefinitionSyncStatusUpdated,
+	}, nil
+}
+
 // DeleteDefinition removes a widget definition.
 func (s *InMemoryWidgetService) DeleteDefinition(ctx context.Context, code string) error {
 	s.mu.Lock()
@@ -114,9 +159,47 @@ func (s *InMemoryWidgetService) Definitions() []WidgetDefinition {
 	defer s.mu.Unlock()
 	out := make([]WidgetDefinition, 0, len(s.definitions))
 	for _, def := range s.definitions {
-		out = append(out, def)
+		out = append(out, cloneWidgetDefinition(def))
 	}
 	return out
+}
+
+func cloneWidgetDefinition(def WidgetDefinition) WidgetDefinition {
+	return WidgetDefinition{
+		Code:   def.Code,
+		Name:   def.Name,
+		Schema: primitives.CloneAnyMap(def.Schema),
+	}
+}
+
+func widgetDefinitionsEquivalent(current WidgetDefinition, desired WidgetDefinition) (bool, error) {
+	currentFingerprint, err := widgetDefinitionFingerprint(current)
+	if err != nil {
+		return false, err
+	}
+	desiredFingerprint, err := widgetDefinitionFingerprint(desired)
+	if err != nil {
+		return false, err
+	}
+	return currentFingerprint == desiredFingerprint, nil
+}
+
+func widgetDefinitionFingerprint(def WidgetDefinition) (string, error) {
+	payload := struct {
+		Code   string         `json:"code"`
+		Name   string         `json:"name"`
+		Schema map[string]any `json:"schema"`
+	}{
+		Code:   strings.TrimSpace(def.Code),
+		Name:   strings.TrimSpace(def.Name),
+		Schema: primitives.CloneAnyMap(def.Schema),
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
 }
 
 // SaveInstance stores or updates a widget instance.

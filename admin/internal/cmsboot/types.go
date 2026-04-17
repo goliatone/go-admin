@@ -22,6 +22,7 @@ type CMSContainer interface {
 type CMSWidgetService interface {
 	RegisterAreaDefinition(ctx context.Context, def WidgetAreaDefinition) error
 	RegisterDefinition(ctx context.Context, def WidgetDefinition) error
+	SyncDefinition(ctx context.Context, def WidgetDefinition) (*WidgetDefinitionSyncResult, error)
 	DeleteDefinition(ctx context.Context, code string) error
 	Areas() []WidgetAreaDefinition
 	Definitions() []WidgetDefinition
@@ -140,6 +141,18 @@ type WidgetAreaDefinition = dashinternal.WidgetAreaDefinition
 
 // WidgetDefinition captures admin widget metadata.
 type WidgetDefinition = dashinternal.WidgetDefinition
+
+// WidgetDefinitionSyncStatus describes how a definition sync changed persistent state.
+type WidgetDefinitionSyncStatus = dashinternal.WidgetDefinitionSyncStatus
+
+// WidgetDefinitionSyncResult reports the synced definition and resulting status.
+type WidgetDefinitionSyncResult = dashinternal.WidgetDefinitionSyncResult
+
+const (
+	WidgetDefinitionSyncStatusCreated   = dashinternal.WidgetDefinitionSyncStatusCreated
+	WidgetDefinitionSyncStatusUpdated   = dashinternal.WidgetDefinitionSyncStatusUpdated
+	WidgetDefinitionSyncStatusUnchanged = dashinternal.WidgetDefinitionSyncStatusUnchanged
+)
 
 // WidgetInstanceFilter narrows widget instance queries.
 type WidgetInstanceFilter = dashinternal.WidgetInstanceFilter

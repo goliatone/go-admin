@@ -60,17 +60,15 @@ func (s *CMSWidgetStore) EnsureDefinition(ctx context.Context, def godash.Widget
 	if s == nil || s.svc == nil {
 		return false, errWidgetServiceUnavailable
 	}
-	for _, existing := range s.svc.Definitions() {
-		if existing.Code == def.Code {
-			return false, nil
-		}
-	}
-	err := s.svc.RegisterDefinition(ctx, WidgetDefinition{
+	result, err := s.svc.SyncDefinition(ctx, WidgetDefinition{
 		Code:   def.Code,
 		Name:   def.Name,
 		Schema: def.Schema,
 	})
-	return err == nil, err
+	if err != nil {
+		return false, err
+	}
+	return result != nil && result.Status == WidgetDefinitionSyncStatusCreated, nil
 }
 
 // CreateInstance stores a widget instance.

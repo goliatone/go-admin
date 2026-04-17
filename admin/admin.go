@@ -163,6 +163,14 @@ func (a *Admin) WithTranslator(t Translator) *Admin {
 	return a
 }
 
+// Translator returns the configured i18n translator, if any.
+func (a *Admin) Translator() Translator {
+	if a == nil {
+		return nil
+	}
+	return a.translator
+}
+
 // WithAuthorizer sets an authorizer for panel permissions.
 func (a *Admin) WithAuthorizer(authz Authorizer) *Admin {
 	if a == nil {

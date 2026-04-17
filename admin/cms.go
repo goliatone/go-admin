@@ -27,6 +27,18 @@ type WidgetAreaDefinition = cmsboot.WidgetAreaDefinition
 // WidgetDefinition captures admin widget metadata.
 type WidgetDefinition = cmsboot.WidgetDefinition
 
+// WidgetDefinitionSyncStatus describes how a definition sync changed persistent state.
+type WidgetDefinitionSyncStatus = cmsboot.WidgetDefinitionSyncStatus
+
+// WidgetDefinitionSyncResult reports the synced definition and resulting status.
+type WidgetDefinitionSyncResult = cmsboot.WidgetDefinitionSyncResult
+
+const (
+	WidgetDefinitionSyncStatusCreated   = cmsboot.WidgetDefinitionSyncStatusCreated
+	WidgetDefinitionSyncStatusUpdated   = cmsboot.WidgetDefinitionSyncStatusUpdated
+	WidgetDefinitionSyncStatusUnchanged = cmsboot.WidgetDefinitionSyncStatusUnchanged
+)
+
 // WidgetInstanceFilter narrows widget instance queries.
 type WidgetInstanceFilter = cmsboot.WidgetInstanceFilter
 

@@ -17,6 +17,7 @@ import (
 // goCMSWidgetService captures the public go-cms widget operations this adapter needs.
 type goCMSWidgetService interface {
 	RegisterDefinition(ctx context.Context, input cmswidgets.RegisterDefinitionInput) (*cmswidgets.Definition, error)
+	SyncDefinition(ctx context.Context, input cmswidgets.RegisterDefinitionInput) (*cmswidgets.DefinitionSyncResult, error)
 	GetDefinition(ctx context.Context, id uuid.UUID) (*cmswidgets.Definition, error)
 	ListDefinitions(ctx context.Context) ([]*cmswidgets.Definition, error)
 	DeleteDefinition(ctx context.Context, req cmswidgets.DeleteDefinitionRequest) error
@@ -89,6 +90,17 @@ func normalizeWidgetDefinition(def WidgetDefinition) (code string, displayName s
 		schema = minimalWidgetSchema()
 	}
 	return code, displayName, schema
+}
+
+func mapWidgetDefinitionSyncStatus(status cmswidgets.DefinitionSyncStatus) WidgetDefinitionSyncStatus {
+	switch status {
+	case cmswidgets.DefinitionSyncStatusCreated:
+		return WidgetDefinitionSyncStatusCreated
+	case cmswidgets.DefinitionSyncStatusUpdated:
+		return WidgetDefinitionSyncStatusUpdated
+	default:
+		return WidgetDefinitionSyncStatusUnchanged
+	}
 }
 
 func (a *GoCMSWidgetAdapter) setDefinitionCache(code string, id uuid.UUID) {
@@ -176,6 +188,40 @@ func (a *GoCMSWidgetAdapter) RegisterDefinition(ctx context.Context, def WidgetD
 		a.setDefinitionCache(code, created.ID)
 	}
 	return nil
+}
+
+func (a *GoCMSWidgetAdapter) SyncDefinition(ctx context.Context, def WidgetDefinition) (*WidgetDefinitionSyncResult, error) {
+	if a == nil || a.service == nil {
+		return nil, ErrNotFound
+	}
+	ctx = widgetCallContext(ctx)
+	code, displayName, schema := normalizeWidgetDefinition(def)
+	if code == "" {
+		return nil, requiredFieldDomainError("widget definition code", map[string]any{
+			"component": "widget_adapter",
+		})
+	}
+	name := displayName
+	result, err := a.service.SyncDefinition(ctx, cmswidgets.RegisterDefinitionInput{
+		Name:        code,
+		Description: &name,
+		Schema:      primitives.CloneAnyMap(schema),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result == nil || result.Definition == nil {
+		return nil, ErrNotFound
+	}
+	a.setDefinitionCache(code, result.Definition.ID)
+	return &WidgetDefinitionSyncResult{
+		Definition: WidgetDefinition{
+			Code:   code,
+			Name:   displayName,
+			Schema: primitives.CloneAnyMap(schema),
+		},
+		Status: mapWidgetDefinitionSyncStatus(result.Status),
+	}, nil
 }
 
 func (a *GoCMSWidgetAdapter) DeleteDefinition(ctx context.Context, code string) error {

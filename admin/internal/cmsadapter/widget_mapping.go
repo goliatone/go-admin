@@ -52,6 +52,9 @@ func ConvertGoCMSResolvedWidget(entry *cmswidgets.ResolvedWidget) dashinternal.W
 		return dashinternal.WidgetInstance{}
 	}
 	inst := ConvertGoCMSWidgetInstance(entry.Instance)
+	if len(entry.Config) > 0 {
+		inst.Config = primitives.CloneAnyMap(entry.Config)
+	}
 	applyResolvedWidgetPlacement(&inst, entry.Placement)
 	return inst
 }

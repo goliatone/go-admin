@@ -19,6 +19,19 @@ type WidgetDefinition struct {
 	Schema map[string]any `json:"schema"`
 }
 
+type WidgetDefinitionSyncStatus string
+
+const (
+	WidgetDefinitionSyncStatusCreated   WidgetDefinitionSyncStatus = "created"
+	WidgetDefinitionSyncStatusUpdated   WidgetDefinitionSyncStatus = "updated"
+	WidgetDefinitionSyncStatusUnchanged WidgetDefinitionSyncStatus = "unchanged"
+)
+
+type WidgetDefinitionSyncResult struct {
+	Definition WidgetDefinition           `json:"definition"`
+	Status     WidgetDefinitionSyncStatus `json:"status"`
+}
+
 // WidgetInstanceFilter narrows widget instance queries.
 type WidgetInstanceFilter struct {
 	Area   string `json:"area"`
@@ -43,6 +56,7 @@ type WidgetInstance struct {
 type WidgetService interface {
 	RegisterAreaDefinition(ctx context.Context, def WidgetAreaDefinition) error
 	RegisterDefinition(ctx context.Context, def WidgetDefinition) error
+	SyncDefinition(ctx context.Context, def WidgetDefinition) (*WidgetDefinitionSyncResult, error)
 	DeleteDefinition(ctx context.Context, code string) error
 	Areas() []WidgetAreaDefinition
 	Definitions() []WidgetDefinition

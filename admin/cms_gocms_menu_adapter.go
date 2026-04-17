@@ -472,7 +472,7 @@ func convertPublicNavigationNodes(nodes []cms.NavigationNode, menuCode, parentPa
 	for _, node := range nodes {
 		path := navigationNodePath(node, menuCode)
 		if path == "" {
-			if seg := cms.SanitizeMenuItemSegment(node.Label); seg != "" {
+			if seg := cms.SanitizeMenuItemSegment(primitives.FirstNonEmptyRaw(node.Label, node.DisplayLabel, node.GroupTitle, node.DisplayGroupTitle)); seg != "" {
 				path = canonicalMenuItemPath(menuCode, seg)
 			}
 		}
@@ -481,9 +481,9 @@ func convertPublicNavigationNodes(nodes []cms.NavigationNode, menuCode, parentPa
 			ID:            path,
 			Code:          path,
 			Type:          normalizeMenuItemType(node.Type),
-			Label:         node.Label,
+			Label:         strings.TrimSpace(primitives.FirstNonEmptyRaw(node.DisplayLabel, node.Label)),
 			LabelKey:      strings.TrimSpace(node.LabelKey),
-			GroupTitle:    node.GroupTitle,
+			GroupTitle:    strings.TrimSpace(primitives.FirstNonEmptyRaw(node.DisplayGroupTitle, node.GroupTitle)),
 			GroupTitleKey: strings.TrimSpace(node.GroupTitleKey),
 			Target:        primitives.CloneAnyMap(node.Target),
 			Icon:          strings.TrimSpace(node.Icon),

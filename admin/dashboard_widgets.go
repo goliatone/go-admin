@@ -425,6 +425,13 @@ func (w cmsWidgetServiceAdapter) RegisterDefinition(ctx context.Context, def das
 	return w.svc.RegisterDefinition(ctx, def)
 }
 
+func (w cmsWidgetServiceAdapter) SyncDefinition(ctx context.Context, def dashinternal.WidgetDefinition) (*dashinternal.WidgetDefinitionSyncResult, error) {
+	if w.svc == nil {
+		return nil, nil
+	}
+	return w.svc.SyncDefinition(ctx, def)
+}
+
 func (w cmsWidgetServiceAdapter) DeleteDefinition(ctx context.Context, code string) error {
 	if w.svc == nil {
 		return nil
@@ -483,6 +490,13 @@ func (w widgetServiceBridge) RegisterDefinition(ctx context.Context, def WidgetD
 		return nil
 	}
 	return w.svc.RegisterDefinition(ctx, def)
+}
+
+func (w widgetServiceBridge) SyncDefinition(ctx context.Context, def WidgetDefinition) (*WidgetDefinitionSyncResult, error) {
+	if w.svc == nil {
+		return nil, nil
+	}
+	return w.svc.SyncDefinition(ctx, def)
 }
 
 func (w widgetServiceBridge) DeleteDefinition(ctx context.Context, code string) error {
