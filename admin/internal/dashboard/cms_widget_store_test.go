@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"context"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -127,6 +128,26 @@ func TestCMSWidgetStoreUsesSharedMetadataHelpers(t *testing.T) {
 	}
 }
 
+func TestCMSWidgetStoreResolveAreaPropagatesFallbackLocales(t *testing.T) {
+	ctx := context.Background()
+	svc := newInMemoryWidgetService()
+	store := NewCMSWidgetStore(svc)
+
+	if _, err := store.ResolveArea(ctx, godash.ResolveAreaInput{
+		AreaCode:        "admin.dashboard.main",
+		Locale:          "fr",
+		FallbackLocales: []string{"en"},
+	}); err != nil {
+		t.Fatalf("resolve area: %v", err)
+	}
+	if got := svc.lastListFilter.Locale; got != "fr" {
+		t.Fatalf("expected locale forwarded, got %q", got)
+	}
+	if !reflect.DeepEqual(svc.lastListFilter.FallbackLocales, []string{"en"}) {
+		t.Fatalf("expected fallback locales forwarded, got %+v", svc.lastListFilter.FallbackLocales)
+	}
+}
+
 func TestCMSWidgetStoreMissingService(t *testing.T) {
 	store := NewCMSWidgetStore(nil)
 	if store != nil {
@@ -139,10 +160,11 @@ func TestCMSWidgetStoreMissingService(t *testing.T) {
 }
 
 type inMemoryWidgetService struct {
-	defs     map[string]WidgetDefinition
-	areas    map[string]WidgetAreaDefinition
-	instList []WidgetInstance
-	nextID   int
+	defs           map[string]WidgetDefinition
+	areas          map[string]WidgetAreaDefinition
+	instList       []WidgetInstance
+	nextID         int
+	lastListFilter WidgetInstanceFilter
 }
 
 func newInMemoryWidgetService() *inMemoryWidgetService {
@@ -225,6 +247,7 @@ func (s *inMemoryWidgetService) DeleteInstance(_ context.Context, id string) err
 }
 
 func (s *inMemoryWidgetService) ListInstances(_ context.Context, filter WidgetInstanceFilter) ([]WidgetInstance, error) {
+	s.lastListFilter = filter
 	out := []WidgetInstance{}
 	for _, inst := range s.instList {
 		if filter.Area != "" && inst.Area != filter.Area {

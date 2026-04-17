@@ -219,9 +219,10 @@ func registerDashboardProviderWithRegistry(registry *dashcmp.Registry, spec Dash
 			maps.Copy(cfg, meta.Instance.Configuration)
 		}
 		adminCtx := AdminContext{
-			Context: ctx,
-			UserID:  meta.Viewer.UserID,
-			Locale:  meta.Viewer.Locale,
+			Context:         ctx,
+			UserID:          meta.Viewer.UserID,
+			Locale:          meta.Viewer.Locale,
+			FallbackLocales: append([]string{}, meta.Viewer.FallbackLocales...),
 		}
 		payload, err := spec.Handler(adminCtx, cfg)
 		if err != nil {
