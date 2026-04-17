@@ -556,6 +556,8 @@ type (
 	GoOptionsSettingsAdapter                  = core.GoOptionsSettingsAdapter
 	GoSearchGlobalAdapter                     = core.GoSearchGlobalAdapter
 	GoSearchGlobalAdapterConfig               = core.GoSearchGlobalAdapterConfig
+	GoSearchBundle                            = core.GoSearchBundle
+	GoSearchBundleConfig                      = core.GoSearchBundleConfig
 	GoSearchOperations                        = core.GoSearchOperations
 	GoSearchSiteProvider                      = core.GoSearchSiteProvider
 	GoSearchSiteProviderConfig                = core.GoSearchSiteProviderConfig
@@ -1463,6 +1465,10 @@ func NewGoOptionsSettingsAdapter() *GoOptionsSettingsAdapter {
 
 func NewGoSearchGlobalAdapter(cfg GoSearchGlobalAdapterConfig) *GoSearchGlobalAdapter {
 	return core.NewGoSearchGlobalAdapter(cfg)
+}
+
+func NewGoSearchBundle(cfg GoSearchBundleConfig) *GoSearchBundle {
+	return core.NewGoSearchBundle(cfg)
 }
 
 func NewGoSearchSiteProvider(cfg GoSearchSiteProviderConfig) *GoSearchSiteProvider {
