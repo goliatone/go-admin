@@ -34,9 +34,11 @@ func newNavigationRuntime(
 ) *navigationRuntime {
 	var menuSvc admin.CMSMenuService
 	var authorizer admin.Authorizer
+	var translator admin.Translator
 	if adm != nil {
 		menuSvc = adm.MenuService()
 		authorizer = adm.Authorizer()
+		translator = adm.Translator()
 	}
 	if contentSvc == nil && adm != nil {
 		contentSvc = adm.ContentService()
@@ -53,5 +55,6 @@ func newNavigationRuntime(
 		contentSvc:  contentSvc,
 		contentType: contentTypeSvc,
 		authorizer:  authorizer,
+		translator:  translator,
 	}
 }
