@@ -26,6 +26,8 @@ type templateFuncOptions struct {
 	basePath             string
 	urls                 urlkit.Resolver
 	iconRenderFunc       func(ref string, variant string) string
+	translator           admin.Translator
+	defaultLocale        string
 }
 
 // DefaultTemplateFuncs returns shared template functions for view rendering.
@@ -123,6 +125,24 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		},
 		"siteMenuHasActive": func(menu any) bool {
 			return siteMenuHasActive(menu)
+		},
+		"translate": func(args ...any) string {
+			locale, rest := templateTranslationArgs(options.defaultLocale, args)
+			if len(rest) == 0 {
+				return ""
+			}
+			return templateTranslate(options.translator, locale, rest[0], rest[1:]...)
+		},
+		"translate_count": func(args ...any) string {
+			locale, rest := templateTranslationArgs(options.defaultLocale, args)
+			if len(rest) < 2 {
+				return ""
+			}
+			return templateTranslateCount(options.translator, locale, rest[0], rest[1], rest[2:]...)
+		},
+		"current_locale": func(args ...any) string {
+			locale, _ := templateTranslationArgs(options.defaultLocale, args)
+			return locale
 		},
 		"dict": func(values ...any) (map[string]any, error) {
 			if len(values)%2 != 0 {
@@ -238,6 +258,27 @@ func WithTemplateIconRenderer(renderFunc func(ref string, variant string) string
 			return
 		}
 		opts.iconRenderFunc = renderFunc
+	}
+}
+
+// WithTemplateTranslator configures translation helpers for template rendering.
+func WithTemplateTranslator(translator admin.Translator) TemplateFuncOption {
+	return func(opts *templateFuncOptions) {
+		if opts == nil || translator == nil {
+			return
+		}
+		opts.translator = translator
+	}
+}
+
+// WithTemplateDefaultLocale configures the locale used when translation helpers
+// do not receive a request-bound context value.
+func WithTemplateDefaultLocale(locale string) TemplateFuncOption {
+	return func(opts *templateFuncOptions) {
+		if opts == nil {
+			return
+		}
+		opts.defaultLocale = strings.TrimSpace(locale)
 	}
 }
 
