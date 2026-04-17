@@ -294,66 +294,162 @@ func (s DefaultSourceReadModelService) buildGoogleImportLineageStatus(ctx contex
 	if s.lineage == nil {
 		return status, nil
 	}
+	sourceDocumentID, sourceRevisionID, sourceArtifactID, err := s.resolveImportRunLineageIDs(ctx, scope, run)
+	if err != nil {
+		return GoogleImportLineageStatus{}, err
+	}
+	if err := s.attachImportRunSourceDocument(ctx, scope, sourceDocumentID, &status); err != nil {
+		return GoogleImportLineageStatus{}, err
+	}
+	if err := s.attachImportRunSourceRevision(ctx, scope, sourceRevisionID, &status); err != nil {
+		return GoogleImportLineageStatus{}, err
+	}
+	if err := s.attachImportRunSourceArtifact(ctx, scope, sourceArtifactID, &status); err != nil {
+		return GoogleImportLineageStatus{}, err
+	}
+	if err := s.attachImportRunCandidateWarnings(ctx, scope, sourceDocumentID, &status); err != nil {
+		return GoogleImportLineageStatus{}, err
+	}
+	return status, nil
+}
 
+func (s DefaultSourceReadModelService) resolveImportRunLineageIDs(
+	ctx context.Context,
+	scope stores.Scope,
+	run stores.GoogleImportRunRecord,
+) (string, string, string, error) {
 	sourceDocumentID := strings.TrimSpace(run.SourceDocumentID)
 	sourceRevisionID := strings.TrimSpace(run.SourceRevisionID)
 	sourceArtifactID := strings.TrimSpace(run.SourceArtifactID)
+	if sourceDocumentID == "" {
+		resolvedDocumentID, resolvedRevisionID, resolvedArtifactID, err := s.resolveImportRunDocumentLineage(ctx, scope, run)
+		if err != nil {
+			return "", "", "", err
+		}
+		sourceDocumentID = resolvedDocumentID
+		if sourceRevisionID == "" {
+			sourceRevisionID = resolvedRevisionID
+		}
+		if sourceArtifactID == "" {
+			sourceArtifactID = resolvedArtifactID
+		}
+	}
+	if sourceRevisionID == "" {
+		resolvedRevisionID, err := s.resolveImportRunAgreementRevision(ctx, scope, run)
+		if err != nil {
+			return "", "", "", err
+		}
+		sourceRevisionID = resolvedRevisionID
+	}
+	return sourceDocumentID, sourceRevisionID, sourceArtifactID, nil
+}
 
-	if sourceDocumentID == "" && s.documents != nil && strings.TrimSpace(run.DocumentID) != "" {
-		document, err := s.documents.Get(ctx, scope, run.DocumentID)
-		if err == nil {
-			sourceDocumentID = strings.TrimSpace(document.SourceDocumentID)
-			if sourceRevisionID == "" {
-				sourceRevisionID = strings.TrimSpace(document.SourceRevisionID)
-			}
-			if sourceArtifactID == "" {
-				sourceArtifactID = strings.TrimSpace(document.SourceArtifactID)
-			}
-		} else if !isNotFound(err) {
-			return GoogleImportLineageStatus{}, err
-		}
+func (s DefaultSourceReadModelService) resolveImportRunDocumentLineage(
+	ctx context.Context,
+	scope stores.Scope,
+	run stores.GoogleImportRunRecord,
+) (string, string, string, error) {
+	if s.documents == nil || strings.TrimSpace(run.DocumentID) == "" {
+		return "", "", "", nil
 	}
-	if sourceRevisionID == "" && s.agreements != nil && strings.TrimSpace(run.AgreementID) != "" {
-		agreement, err := s.agreements.GetAgreement(ctx, scope, run.AgreementID)
-		if err == nil {
-			sourceRevisionID = strings.TrimSpace(agreement.SourceRevisionID)
-		} else if !isNotFound(err) {
-			return GoogleImportLineageStatus{}, err
-		}
+	document, err := s.documents.Get(ctx, scope, run.DocumentID)
+	if err == nil {
+		return strings.TrimSpace(document.SourceDocumentID), strings.TrimSpace(document.SourceRevisionID), strings.TrimSpace(document.SourceArtifactID), nil
 	}
-	if sourceDocumentID != "" {
-		sourceDocument, err := s.lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
-		if err != nil {
-			return GoogleImportLineageStatus{}, err
-		}
-		status.SourceDocument = &LineageReference{
-			ID:    strings.TrimSpace(sourceDocument.ID),
-			Label: strings.TrimSpace(sourceDocument.CanonicalTitle),
-		}
+	if isNotFound(err) {
+		return "", "", "", nil
 	}
-	if sourceRevisionID != "" {
-		sourceRevision, err := s.lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
-		if err != nil {
-			return GoogleImportLineageStatus{}, err
-		}
-		status.SourceRevision = sourceRevisionSummaryFromRecord(sourceRevision)
-		status.FingerprintStatus, status.FingerprintProcessing = s.fingerprintStateForRevision(ctx, scope, sourceRevision)
+	return "", "", "", err
+}
+
+func (s DefaultSourceReadModelService) resolveImportRunAgreementRevision(
+	ctx context.Context,
+	scope stores.Scope,
+	run stores.GoogleImportRunRecord,
+) (string, error) {
+	if s.agreements == nil || strings.TrimSpace(run.AgreementID) == "" {
+		return "", nil
 	}
-	if sourceArtifactID != "" {
-		sourceArtifact, err := s.lineage.GetSourceArtifact(ctx, scope, sourceArtifactID)
-		if err != nil {
-			return GoogleImportLineageStatus{}, err
-		}
-		status.SourceArtifact = sourceArtifactSummaryFromRecord(sourceArtifact)
+	agreement, err := s.agreements.GetAgreement(ctx, scope, run.AgreementID)
+	if err == nil {
+		return strings.TrimSpace(agreement.SourceRevisionID), nil
 	}
-	if sourceDocumentID != "" {
-		warnings, err := s.ListCandidateWarnings(ctx, scope, sourceDocumentID)
-		if err != nil {
-			return GoogleImportLineageStatus{}, err
-		}
-		status.CandidateStatus = warnings
+	if isNotFound(err) {
+		return "", nil
 	}
-	return status, nil
+	return "", err
+}
+
+func (s DefaultSourceReadModelService) attachImportRunSourceDocument(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocumentID string,
+	status *GoogleImportLineageStatus,
+) error {
+	if strings.TrimSpace(sourceDocumentID) == "" {
+		return nil
+	}
+	sourceDocument, err := s.lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
+	if err != nil {
+		return err
+	}
+	status.SourceDocument = &LineageReference{
+		ID:    strings.TrimSpace(sourceDocument.ID),
+		Label: strings.TrimSpace(sourceDocument.CanonicalTitle),
+	}
+	return nil
+}
+
+func (s DefaultSourceReadModelService) attachImportRunSourceRevision(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceRevisionID string,
+	status *GoogleImportLineageStatus,
+) error {
+	if strings.TrimSpace(sourceRevisionID) == "" {
+		return nil
+	}
+	sourceRevision, err := s.lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
+	if err != nil {
+		return err
+	}
+	status.SourceRevision = sourceRevisionSummaryFromRecord(sourceRevision)
+	status.FingerprintStatus, status.FingerprintProcessing = s.fingerprintStateForRevision(ctx, scope, sourceRevision)
+	return nil
+}
+
+func (s DefaultSourceReadModelService) attachImportRunSourceArtifact(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceArtifactID string,
+	status *GoogleImportLineageStatus,
+) error {
+	if strings.TrimSpace(sourceArtifactID) == "" {
+		return nil
+	}
+	sourceArtifact, err := s.lineage.GetSourceArtifact(ctx, scope, sourceArtifactID)
+	if err != nil {
+		return err
+	}
+	status.SourceArtifact = sourceArtifactSummaryFromRecord(sourceArtifact)
+	return nil
+}
+
+func (s DefaultSourceReadModelService) attachImportRunCandidateWarnings(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocumentID string,
+	status *GoogleImportLineageStatus,
+) error {
+	if strings.TrimSpace(sourceDocumentID) == "" {
+		return nil
+	}
+	warnings, err := s.ListCandidateWarnings(ctx, scope, sourceDocumentID)
+	if err != nil {
+		return err
+	}
+	status.CandidateStatus = warnings
+	return nil
 }
 
 func (s DefaultSourceReadModelService) resolveDocumentLineage(ctx context.Context, scope stores.Scope, document stores.DocumentRecord) (resolvedLineageContext, error) {

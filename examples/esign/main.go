@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/examples/esign/commands"
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
@@ -24,6 +25,7 @@ import (
 	"github.com/goliatone/go-admin/pkg/client"
 	"github.com/goliatone/go-admin/quickstart"
 	glog "github.com/goliatone/go-logger/glog"
+	"github.com/goliatone/go-router"
 	"github.com/goliatone/go-router/eventstream"
 	"github.com/goliatone/go-uploader"
 )
@@ -35,84 +37,186 @@ func main() {
 	)
 	logger := rootLogger.GetLogger("esign.bootstrap")
 
-	runtimeConfig, err := appcfg.Load()
+	runtimeState, err := loadESignRuntimeState()
 	if err != nil {
-		logger.Fatal("load runtime config failed", "error", err)
+		logger.Fatal("initialize runtime state failed", "error", err)
+	}
+	runtimeState.adminDeps.LoggerProvider = rootLogger
+	runtimeState.adminDeps.Logger = rootLogger
+
+	if validateErr := validateESignRuntimeState(runtimeState.runtimeConfig); validateErr != nil {
+		logger.Fatal("validate runtime state failed", "error", validateErr)
 	}
 
+	bootstrapResult, store, storeCleanup, agreementStream, agreementPublisher, err := bootstrapESignPersistence(runtimeState.runtimeConfig)
+	if err != nil {
+		logger.Fatal("bootstrap persistence failed", "error", err)
+	}
+	defer closeESignPersistenceBootstrap(logger, bootstrapResult)
+	defer closeESignRuntimeStore(logger, storeCleanup)
+
+	adm, err := newESignAdminApp(runtimeState.cfg, runtimeState.adminDeps, runtimeState.featureDefaults, runtimeState.runtimeConfig)
+	if err != nil {
+		logger.Fatal("new admin failed", "error", err)
+	}
+	observability.ConfigureLogging(
+		observability.WithLoggerProvider(adm.LoggerProvider()),
+		observability.WithLogger(adm.NamedLogger("esign.observability")),
+	)
+
+	if registerErr := registerOptionalESignDebugModule(adm, runtimeState.cfg, runtimeState.debugEnabled); registerErr != nil {
+		logger.Fatal("register debug module failed", "error", registerErr)
+	}
+
+	esignModule, err := setupRegisteredESignModule(adm, runtimeState.cfg, runtimeState.runtimeConfig, bootstrapResult, store, agreementPublisher)
+	if err != nil {
+		logger.Fatal("setup e-sign module failed", "error", err)
+	}
+	if seedErr := seedRegisteredESignFixtures(runtimeState.cfg, adm, esignModule, bootstrapResult); seedErr != nil {
+		logger.Fatal("seed e-sign runtime fixtures failed", "error", seedErr)
+	}
+
+	server, err := initializeESignServer(
+		runtimeState.cfg,
+		adm,
+		runtimeState.runtimeConfig,
+		runtimeState.authBundle,
+		runtimeState.isDev,
+		runtimeState.debugEnabled,
+		esignModule,
+		agreementStream,
+	)
+	if err != nil {
+		logger.Fatal("initialize e-sign server failed", "error", err)
+	}
+
+	addr := listenAddr(runtimeState.runtimeConfig.Server.Address)
+	startupURL := "http://localhost" + addr + adm.BasePath()
+	adm.NamedLogger("esign.bootstrap").Info("e-sign admin ready", "url", startupURL)
+	if err := server.Serve(addr); err != nil {
+		logger.Fatal("server stopped", "error", err)
+	}
+}
+
+type eSignRuntimeState struct {
+	runtimeConfig   appcfg.Config
+	cfg             admin.Config
+	debugEnabled    bool
+	isDev           bool
+	featureDefaults map[string]bool
+	adminDeps       admin.Dependencies
+	authBundle      eSignAuthBundle
+}
+
+func loadESignRuntimeState() (eSignRuntimeState, error) {
+	runtimeConfig, err := appcfg.Load()
+	if err != nil {
+		return eSignRuntimeState{}, err
+	}
+	cfg, debugEnabled, isDev := buildESignAdminConfig(runtimeConfig)
+	adminDeps, authBundle, err := buildESignAdminDependencies(cfg)
+	if err != nil {
+		return eSignRuntimeState{}, err
+	}
+	return eSignRuntimeState{
+		runtimeConfig:   runtimeConfig,
+		cfg:             cfg,
+		debugEnabled:    debugEnabled,
+		isDev:           isDev,
+		featureDefaults: buildESignFeatureDefaults(runtimeConfig),
+		adminDeps:       adminDeps,
+		authBundle:      authBundle,
+	}, nil
+}
+
+func buildESignAdminConfig(runtimeConfig appcfg.Config) (admin.Config, bool, bool) {
 	cfg := quickstart.NewAdminConfig(
 		runtimeConfig.Admin.BasePath,
 		runtimeConfig.Admin.Title,
 		runtimeConfig.Admin.DefaultLocale,
 	)
 	applyESignRuntimeDefaults(&cfg)
-
-	// Explicit namespaces for admin and public signer API surfaces.
-	cfg.URLs.Admin.APIPrefix = strings.TrimSpace(runtimeConfig.Admin.APIPrefix)
-	if cfg.URLs.Admin.APIPrefix == "" {
-		cfg.URLs.Admin.APIPrefix = "api"
-	}
-	cfg.URLs.Admin.APIVersion = strings.TrimSpace(runtimeConfig.Admin.APIVersion)
-	if cfg.URLs.Admin.APIVersion == "" {
-		cfg.URLs.Admin.APIVersion = "v1"
-	}
+	cfg.URLs.Admin.APIPrefix = firstNonEmptyString(strings.TrimSpace(runtimeConfig.Admin.APIPrefix), "api")
+	cfg.URLs.Admin.APIVersion = firstNonEmptyString(strings.TrimSpace(runtimeConfig.Admin.APIVersion), "v1")
 	cfg.URLs.Public.APIPrefix = cfg.URLs.Admin.APIPrefix
 	cfg.URLs.Public.APIVersion = cfg.URLs.Admin.APIVersion
 	cfg.EnablePublicAPI = runtimeConfig.Admin.PublicAPI
-	debugEnabled := cfg.Debug.Enabled
-	isDev := isDevelopmentEnv(runtimeConfig.App.Env)
+	return cfg, cfg.Debug.Enabled, isDevelopmentEnv(runtimeConfig.App.Env)
+}
 
-	featureDefaults := map[string]bool{
+func buildESignFeatureDefaults(runtimeConfig appcfg.Config) map[string]bool {
+	return map[string]bool{
 		"esign":                       runtimeConfig.Features.ESign,
 		"esign_google":                runtimeConfig.Features.ESignGoogle,
 		string(admin.FeatureActivity): runtimeConfig.Features.Activity,
 	}
+}
+
+func buildESignAdminDependencies(cfg admin.Config) (admin.Dependencies, eSignAuthBundle, error) {
 	adminDeps, err := newESignActivityDependencies()
 	if err != nil {
-		logger.Fatal("init activity sqlite dependencies failed", "error", err)
+		return admin.Dependencies{}, eSignAuthBundle{}, err
 	}
-	adminDeps.LoggerProvider = rootLogger
-	adminDeps.Logger = rootLogger
 	authBundle, err := newESignAuthBundle(cfg)
 	if err != nil {
-		logger.Fatal("build auth bundle failed", "error", err)
+		return admin.Dependencies{}, eSignAuthBundle{}, err
 	}
 	adminDeps.Authenticator = authBundle.Authenticator
 	adminDeps.Authorizer = authBundle.Authorizer
-	securityErr := validateRuntimeSecurityBaseline(runtimeConfig)
-	if securityErr != nil {
-		logger.Fatal("runtime security baseline failed", "error", securityErr)
+	return adminDeps, authBundle, nil
+}
+
+func validateESignRuntimeState(runtimeConfig appcfg.Config) error {
+	if err := validateRuntimeSecurityBaseline(runtimeConfig); err != nil {
+		return fmt.Errorf("runtime security baseline failed: %w", err)
 	}
-	providerConfigErr := validateRuntimeProviderConfiguration(runtimeConfig)
-	if providerConfigErr != nil {
-		logger.Fatal("runtime provider configuration failed", "error", providerConfigErr)
+	if err := validateRuntimeProviderConfiguration(runtimeConfig); err != nil {
+		return fmt.Errorf("runtime provider configuration failed: %w", err)
 	}
+	return nil
+}
+
+func bootstrapESignPersistence(
+	runtimeConfig appcfg.Config,
+) (*esignpersistence.BootstrapResult, stores.Store, func() error, eventstream.Stream, *esignevents.AgreementEventPublisher, error) {
 	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), runtimeConfig)
 	if err != nil {
-		logger.Fatal("bootstrap persistence failed", "error", err)
+		return nil, nil, nil, nil, nil, err
 	}
-	defer func() {
-		if cerr := bootstrapResult.Close(); cerr != nil {
-			logger.Warn("close persistence bootstrap failed", "error", cerr)
-		}
-	}()
-
 	store, storeCleanup, err := newESignRuntimeStore(bootstrapResult)
 	if err != nil {
-		logger.Fatal("initialize e-sign runtime store failed", "error", err)
+		_ = bootstrapResult.Close()
+		return nil, nil, nil, nil, nil, err
 	}
-	if storeCleanup != nil {
-		defer func() {
-			if cerr := storeCleanup(); cerr != nil {
-				logger.Warn("close e-sign runtime store failed", "error", cerr)
-			}
-		}()
-	}
-	agreementStream := eventstream.New(
-		eventstream.WithMatcher(eventstream.SubsetMatch),
-	)
+	agreementStream := eventstream.New(eventstream.WithMatcher(eventstream.SubsetMatch))
 	agreementPublisher := esignevents.NewAgreementEventPublisher(agreementStream)
+	return bootstrapResult, store, storeCleanup, agreementStream, agreementPublisher, nil
+}
 
+func closeESignPersistenceBootstrap(logger admin.Logger, bootstrapResult *esignpersistence.BootstrapResult) {
+	if bootstrapResult == nil {
+		return
+	}
+	if cerr := bootstrapResult.Close(); cerr != nil {
+		logger.Warn("close persistence bootstrap failed", "error", cerr)
+	}
+}
+
+func closeESignRuntimeStore(logger admin.Logger, cleanup func() error) {
+	if cleanup == nil {
+		return
+	}
+	if cerr := cleanup(); cerr != nil {
+		logger.Warn("close e-sign runtime store failed", "error", cerr)
+	}
+}
+
+func newESignAdminApp(
+	cfg admin.Config,
+	adminDeps admin.Dependencies,
+	featureDefaults map[string]bool,
+	runtimeConfig appcfg.Config,
+) (*admin.Admin, error) {
 	var adminApp *admin.Admin
 	adm, _, err := quickstart.NewAdmin(
 		cfg,
@@ -125,123 +229,147 @@ func main() {
 			Enabled:      true,
 			CommandRules: esignReviewRPCCommandRules(),
 			Authorize: func(ctx context.Context, input admin.RPCCommandPolicyInput) error {
-				extraPermissions := esignReviewRPCExtraPermissions(input.CommandName)
-				if len(extraPermissions) == 0 {
-					return nil
-				}
-				resource := strings.TrimSpace(input.Rule.Resource)
-				if resource == "" {
-					resource = "commands"
-				}
-				authorizer := adminApp.Authorizer()
-				for _, permission := range extraPermissions {
-					if admin.CanAll(authorizer, ctx, resource, permission) {
-						continue
-					}
-					return admin.PermissionDeniedError{
-						Permission: permission,
-						Resource:   resource,
-						Hint:       "Grant the missing permission to the current role and reload the page.",
-					}
-				}
-				return nil
+				return authorizeESignRPCCommand(adminApp, ctx, input)
 			},
 		}),
 	)
 	if err != nil {
-		logger.Fatal("new admin failed", "error", err)
+		return nil, err
 	}
 	adminApp = adm
-	observability.ConfigureLogging(
-		observability.WithLoggerProvider(adm.LoggerProvider()),
-		observability.WithLogger(adm.NamedLogger("esign.observability")),
-	)
+	return adm, nil
+}
 
-	if debugEnabled {
-		debugModuleErr := adm.RegisterModule(admin.NewDebugModule(cfg.Debug))
-		if debugModuleErr != nil {
-			logger.Fatal("register debug module failed", "error", debugModuleErr)
+func authorizeESignRPCCommand(adm *admin.Admin, ctx context.Context, input admin.RPCCommandPolicyInput) error {
+	extraPermissions := esignReviewRPCExtraPermissions(input.CommandName)
+	if len(extraPermissions) == 0 {
+		return nil
+	}
+	resource := strings.TrimSpace(input.Rule.Resource)
+	if resource == "" {
+		resource = "commands"
+	}
+	for _, permission := range extraPermissions {
+		if admin.CanAll(adm.Authorizer(), ctx, resource, permission) {
+			continue
+		}
+		return admin.PermissionDeniedError{
+			Permission: permission,
+			Resource:   resource,
+			Hint:       "Grant the missing permission to the current role and reload the page.",
 		}
 	}
+	return nil
+}
 
+func registerOptionalESignDebugModule(adm *admin.Admin, cfg admin.Config, debugEnabled bool) error {
+	if !debugEnabled {
+		return nil
+	}
+	return adm.RegisterModule(admin.NewDebugModule(cfg.Debug))
+}
+
+func setupRegisteredESignModule(
+	adm *admin.Admin,
+	cfg admin.Config,
+	runtimeConfig appcfg.Config,
+	bootstrapResult *esignpersistence.BootstrapResult,
+	store stores.Store,
+	agreementPublisher *esignevents.AgreementEventPublisher,
+) (*modules.ESignModule, error) {
 	servicesModule, err := setupESignServicesModule(adm, bootstrapResult)
 	if err != nil {
-		logger.Fatal("setup services module failed", "error", err)
+		return nil, err
 	}
 	storageBundle, err := newESignStorageBundle(adm.NamedLogger("esign.storage"), runtimeConfig)
 	if err != nil {
-		logger.Fatal("setup e-sign storage failed", "error", err)
+		return nil, err
 	}
-
 	esignModule := modules.NewESignModule(cfg.BasePath, cfg.DefaultLocale, cfg.NavMenuCode).
 		WithPlacements(quickstart.DefaultPlacements(admin.Config{NavMenuCode: cfg.NavMenuCode})).
 		WithUploadManager(storageBundle.Manager).
 		WithServicesModule(servicesModule).
 		WithAgreementEventPublisher(agreementPublisher).
 		WithStore(store)
-	registerModuleErr := adm.RegisterModule(esignModule)
-	if registerModuleErr != nil {
-		logger.Fatal("register module failed", "error", registerModuleErr)
+	if err := adm.RegisterModule(esignModule); err != nil {
+		return nil, err
 	}
-	if shouldSeedESignRuntimeFixtures() {
-		fixtureSet, urls, seedErr := seedESignRuntimeFixtures(context.Background(), cfg.BasePath, esignModule, bootstrapResult)
-		if seedErr != nil {
-			logger.Fatal("seed e-sign runtime fixtures failed", "error", seedErr)
-		}
-		adm.NamedLogger("esign.bootstrap").Info(
-			"seeded e-sign lineage qa fixtures",
-			"upload_only_document_id", fixtureSet.UploadOnlyDocumentID,
-			"imported_document_id", fixtureSet.ImportedDocumentID,
-			"repeated_import_document_id", fixtureSet.RepeatedImportDocumentID,
-			"imported_agreement_id", fixtureSet.ImportedAgreementID,
-			"upload_only_document_url", urls.UploadOnlyDocumentURL,
-			"imported_document_url", urls.ImportedDocumentURL,
-			"repeated_import_document_url", urls.RepeatedImportDocumentURL,
-			"imported_agreement_url", urls.ImportedAgreementURL,
-		)
-	}
+	return esignModule, nil
+}
 
-	authApplyErr := authBundle.Apply(adm)
-	if authApplyErr != nil {
-		logger.Fatal("apply auth bundle failed", "error", authApplyErr)
+func seedRegisteredESignFixtures(
+	cfg admin.Config,
+	adm *admin.Admin,
+	esignModule *modules.ESignModule,
+	bootstrapResult *esignpersistence.BootstrapResult,
+) error {
+	if !shouldSeedESignRuntimeFixtures() {
+		return nil
 	}
-	authn := authBundle.Authenticator
-	auther := authBundle.Auther
-	authCookieName := authBundle.CookieName
+	fixtureSet, urls, err := seedESignRuntimeFixtures(context.Background(), cfg.BasePath, esignModule, bootstrapResult)
+	if err != nil {
+		return err
+	}
+	adm.NamedLogger("esign.bootstrap").Info(
+		"seeded e-sign lineage qa fixtures",
+		"upload_only_document_id", fixtureSet.UploadOnlyDocumentID,
+		"imported_document_id", fixtureSet.ImportedDocumentID,
+		"repeated_import_document_id", fixtureSet.RepeatedImportDocumentID,
+		"imported_agreement_id", fixtureSet.ImportedAgreementID,
+		"upload_only_document_url", urls.UploadOnlyDocumentURL,
+		"imported_document_url", urls.ImportedDocumentURL,
+		"repeated_import_document_url", urls.RepeatedImportDocumentURL,
+		"imported_agreement_url", urls.ImportedAgreementURL,
+	)
+	return nil
+}
 
+func initializeESignServer(
+	cfg admin.Config,
+	adm *admin.Admin,
+	runtimeConfig appcfg.Config,
+	authBundle eSignAuthBundle,
+	isDev bool,
+	debugEnabled bool,
+	esignModule *modules.ESignModule,
+	agreementStream eventstream.Stream,
+) (router.Server[*fiber.App], error) {
+	if err := authBundle.Apply(adm); err != nil {
+		return nil, err
+	}
 	viewEngine, err := newESignViewEngine(cfg, adm)
 	if err != nil {
-		logger.Fatal("initialize view engine failed", "error", err)
+		return nil, err
 	}
 	server, r := quickstart.NewFiberServer(viewEngine, cfg, adm, isDev)
 	quickstart.NewStaticAssets(r, cfg, client.Assets(), quickstart.WithDiskAssetsDir(resolveESignDiskAssetsDir()))
-
 	if debugEnabled {
 		quickstart.AttachDebugMiddleware(r, cfg, adm)
 	}
-
 	if err := adm.Initialize(r); err != nil {
-		logger.Fatal("initialize admin failed", "error", err)
+		return nil, err
 	}
 	routes := handlers.BuildRouteSet(adm.URLs(), adm.BasePath(), adm.AdminAPIGroup())
-	if err := registerESignWebRoutes(r, cfg, adm, authn, authBundle.RouteAuthenticator, auther, authCookieName, routes, esignModule); err != nil {
-		logger.Fatal("register web routes failed", "error", err)
+	if err := registerESignWebRoutes(
+		r,
+		cfg,
+		adm,
+		authBundle.Authenticator,
+		authBundle.RouteAuthenticator,
+		authBundle.Auther,
+		authBundle.CookieName,
+		routes,
+		esignModule,
+	); err != nil {
+		return nil, err
 	}
-	if err := registerESignAgreementEventsRoute(r, adm, authn, esignModule, agreementStream); err != nil {
-		logger.Fatal("register agreement events route failed", "error", err)
+	if err := registerESignAgreementEventsRoute(r, adm, authBundle.Authenticator, esignModule, agreementStream); err != nil {
+		return nil, err
 	}
-	if debugEnabled {
-		if runtimeConfig.Admin.Debug.EnableSlog {
-			quickstart.AttachDebugLogHandler(cfg, adm)
-		}
+	if debugEnabled && runtimeConfig.Admin.Debug.EnableSlog {
+		quickstart.AttachDebugLogHandler(cfg, adm)
 	}
-
-	addr := listenAddr(runtimeConfig.Server.Address)
-	startupURL := "http://localhost" + addr + adm.BasePath()
-	adm.NamedLogger("esign.bootstrap").Info("e-sign admin ready", "url", startupURL)
-	if err := server.Serve(addr); err != nil {
-		logger.Fatal("server stopped", "error", err)
-	}
+	return server, nil
 }
 
 func listenAddr(configured string) string {

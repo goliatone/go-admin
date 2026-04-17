@@ -19,23 +19,9 @@ func (s DefaultSourceReadModelService) buildSourceCommentPage(ctx context.Contex
 		return page, domainValidationError("lineage_read_models", "source_document_id|source_revision_id", "required")
 	}
 
-	var sourceDocument stores.SourceDocumentRecord
-	var revision stores.SourceRevisionRecord
-	var err error
-	if strings.TrimSpace(sourceRevisionID) != "" {
-		revision, err = s.lineage.GetSourceRevision(ctx, scope, strings.TrimSpace(sourceRevisionID))
-		if err != nil {
-			return page, err
-		}
-		sourceDocument, err = s.lineage.GetSourceDocument(ctx, scope, revision.SourceDocumentID)
-		if err != nil {
-			return page, err
-		}
-	} else {
-		sourceDocument, err = s.lineage.GetSourceDocument(ctx, scope, strings.TrimSpace(sourceDocumentID))
-		if err != nil {
-			return page, err
-		}
+	sourceDocument, revision, err := s.resolveSourceCommentDocumentAndRevision(ctx, scope, sourceDocumentID, sourceRevisionID)
+	if err != nil {
+		return page, err
 	}
 	resolved, err := s.resolveSourceManagementContext(ctx, scope, sourceDocument)
 	if err != nil {
@@ -71,22 +57,9 @@ func (s DefaultSourceReadModelService) buildSourceCommentPage(ctx context.Contex
 	syncStatus := aggregateSourceCommentSyncStatus(states)
 	syncSummary := aggregateSourceCommentSyncSummary(states)
 
-	items := make([]SourceCommentThreadSummary, 0, len(threads))
-	for _, thread := range threads {
-		threadRevision := revision
-		if strings.TrimSpace(thread.SourceRevisionID) != "" && strings.TrimSpace(thread.SourceRevisionID) != strings.TrimSpace(threadRevision.ID) {
-			threadRevision, err = s.lineage.GetSourceRevision(ctx, scope, thread.SourceRevisionID)
-			if err != nil {
-				return page, err
-			}
-		}
-		messages, err := s.lineage.ListSourceCommentMessages(ctx, scope, stores.SourceCommentMessageQuery{
-			SourceCommentThreadID: thread.ID,
-		})
-		if err != nil {
-			return page, err
-		}
-		items = append(items, buildSourceCommentThreadSummary(sourceDocument, threadRevision, thread, messages))
+	items, err := s.buildSourceCommentThreadSummaries(ctx, scope, sourceDocument, revision, threads)
+	if err != nil {
+		return page, err
 	}
 	paged, pageInfo := paginateSourceManagement(items, query.Page, query.PageSize, sourceRevisionSortLatestDesc)
 
@@ -105,18 +78,82 @@ func (s DefaultSourceReadModelService) buildSourceCommentPage(ctx context.Contex
 	} else {
 		page.Links = sourceLinksForDocument(sourceDocument.ID)
 	}
-	description := "No source comments were found for the current filters."
-	if strings.TrimSpace(revision.ID) != "" && syncStatus == SourceManagementCommentSyncNotConfigured {
-		description = "Source-level comment sync is not configured yet for this revision."
-	} else if strings.TrimSpace(revision.ID) == "" && syncStatus == SourceManagementCommentSyncNotConfigured {
-		description = "Source-level comment sync is not configured yet for this source."
-	}
 	page.EmptyState = LineageEmptyState{
 		Kind:        emptyCommentStateKind(len(items), syncStatus),
 		Title:       "No comments",
-		Description: description,
+		Description: sourceCommentEmptyDescription(revision, syncStatus),
 	}
 	return page, nil
+}
+
+func (s DefaultSourceReadModelService) resolveSourceCommentDocumentAndRevision(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocumentID, sourceRevisionID string,
+) (stores.SourceDocumentRecord, stores.SourceRevisionRecord, error) {
+	if strings.TrimSpace(sourceRevisionID) != "" {
+		revision, err := s.lineage.GetSourceRevision(ctx, scope, strings.TrimSpace(sourceRevisionID))
+		if err != nil {
+			return stores.SourceDocumentRecord{}, stores.SourceRevisionRecord{}, err
+		}
+		sourceDocument, err := s.lineage.GetSourceDocument(ctx, scope, revision.SourceDocumentID)
+		if err != nil {
+			return stores.SourceDocumentRecord{}, stores.SourceRevisionRecord{}, err
+		}
+		return sourceDocument, revision, nil
+	}
+	sourceDocument, err := s.lineage.GetSourceDocument(ctx, scope, strings.TrimSpace(sourceDocumentID))
+	if err != nil {
+		return stores.SourceDocumentRecord{}, stores.SourceRevisionRecord{}, err
+	}
+	return sourceDocument, stores.SourceRevisionRecord{}, nil
+}
+
+func (s DefaultSourceReadModelService) buildSourceCommentThreadSummaries(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocument stores.SourceDocumentRecord,
+	revision stores.SourceRevisionRecord,
+	threads []stores.SourceCommentThreadRecord,
+) ([]SourceCommentThreadSummary, error) {
+	items := make([]SourceCommentThreadSummary, 0, len(threads))
+	for _, thread := range threads {
+		threadRevision, err := s.resolveSourceCommentThreadRevision(ctx, scope, revision, thread)
+		if err != nil {
+			return nil, err
+		}
+		messages, err := s.lineage.ListSourceCommentMessages(ctx, scope, stores.SourceCommentMessageQuery{
+			SourceCommentThreadID: thread.ID,
+		})
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, buildSourceCommentThreadSummary(sourceDocument, threadRevision, thread, messages))
+	}
+	return items, nil
+}
+
+func (s DefaultSourceReadModelService) resolveSourceCommentThreadRevision(
+	ctx context.Context,
+	scope stores.Scope,
+	revision stores.SourceRevisionRecord,
+	thread stores.SourceCommentThreadRecord,
+) (stores.SourceRevisionRecord, error) {
+	threadRevision := revision
+	if strings.TrimSpace(thread.SourceRevisionID) == "" || strings.TrimSpace(thread.SourceRevisionID) == strings.TrimSpace(threadRevision.ID) {
+		return threadRevision, nil
+	}
+	return s.lineage.GetSourceRevision(ctx, scope, thread.SourceRevisionID)
+}
+
+func sourceCommentEmptyDescription(revision stores.SourceRevisionRecord, syncStatus string) string {
+	if strings.TrimSpace(syncStatus) != SourceManagementCommentSyncNotConfigured {
+		return "No source comments were found for the current filters."
+	}
+	if strings.TrimSpace(revision.ID) != "" {
+		return "Source-level comment sync is not configured yet for this revision."
+	}
+	return "Source-level comment sync is not configured yet for this source."
 }
 
 func normalizeSourceCommentListQuery(query SourceCommentListQuery) SourceCommentListQuery {

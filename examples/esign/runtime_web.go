@@ -553,24 +553,66 @@ func registerESignWebRoutes(
 	routes handlers.RouteSet,
 	esignModule *modules.ESignModule,
 ) error {
+	basePath, err := validateESignWebRouteInputs(r, cfg, adm, authn, routeAuth, auther, cookieName)
+	if err != nil {
+		return err
+	}
+	if err := configureESignContentPanelRoutes(adm, basePath); err != nil {
+		return err
+	}
+	routeState := resolveESignWebRouteState(cfg, adm, basePath)
+	registerESignSyncClientAssets(r, basePath)
+	registerESignRootRedirect(r, basePath)
+	if err := registerESignAdminUIRoutes(r, cfg, adm, authn, esignModule, routeState); err != nil {
+		return err
+	}
+	registerESignDocumentUploadRoute(r, authn, routes, esignModule)
+	registerESignLegacyUIAliasRoutes(r, authn, basePath)
+	if err := registerESignAuthUIRoutes(r, cfg, adm, routeAuth, cookieName); err != nil {
+		return err
+	}
+	if err := registerESignLandingRoute(r, cfg, adm, authn, routes, esignModule, routeState); err != nil {
+		return err
+	}
+	if err := registerESignModuleWebRoutes(r, cfg, adm, authn, routes, esignModule, basePath); err != nil {
+		return err
+	}
+	return registerESignPublicSignerRoutes(r, routes, esignModule, basePath)
+}
+
+type eSignWebRouteState struct {
+	basePath                string
+	apiBasePath             string
+	googleEnabled           bool
+	contentEntryViewContext func(router.ViewContext, string, router.Context) router.ViewContext
+}
+
+func validateESignWebRouteInputs(
+	r router.Router[*fiber.App],
+	cfg coreadmin.Config,
+	adm *coreadmin.Admin,
+	authn coreadmin.HandlerAuthenticator,
+	routeAuth *auth.RouteAuthenticator,
+	auther *auth.Auther,
+	cookieName string,
+) (string, error) {
 	if r == nil {
-		return fmt.Errorf("router is required")
+		return "", fmt.Errorf("router is required")
 	}
 	if adm == nil {
-		return fmt.Errorf("admin is required")
+		return "", fmt.Errorf("admin is required")
 	}
 	if authn == nil {
-		return fmt.Errorf("authenticator is required")
+		return "", fmt.Errorf("authenticator is required")
 	}
 	if routeAuth == nil {
-		return fmt.Errorf("route authenticator is required")
+		return "", fmt.Errorf("route authenticator is required")
 	}
 	if auther == nil {
-		return fmt.Errorf("auther is required")
+		return "", fmt.Errorf("auther is required")
 	}
-	cookieName = strings.TrimSpace(cookieName)
-	if cookieName == "" {
-		return fmt.Errorf("auth cookie name is required")
+	if strings.TrimSpace(cookieName) == "" {
+		return "", fmt.Errorf("auth cookie name is required")
 	}
 	basePath := strings.TrimSpace(adm.BasePath())
 	if basePath == "" {
@@ -579,17 +621,33 @@ func registerESignWebRoutes(
 	if basePath == "" {
 		basePath = "/admin"
 	}
-	if err := configureESignContentPanelRoutes(adm, basePath); err != nil {
-		return err
-	}
-	contentEntryViewContext := quickstart.DefaultAdminUIViewContextBuilder(adm, cfg)
-	googleEnabled := featureEnabledInSystemScope(adm.FeatureGate(), "esign_google")
-	registerESignSyncClientAssets(r, basePath)
+	return basePath, nil
+}
 
+func resolveESignWebRouteState(cfg coreadmin.Config, adm *coreadmin.Admin, basePath string) eSignWebRouteState {
+	state := eSignWebRouteState{
+		basePath:      basePath,
+		apiBasePath:   strings.TrimSpace(adm.AdminAPIBasePath()),
+		googleEnabled: featureEnabledInSystemScope(adm.FeatureGate(), "esign_google"),
+	}
+	state.contentEntryViewContext = quickstart.DefaultAdminUIViewContextBuilder(adm, cfg)
+	return state
+}
+
+func registerESignRootRedirect(r router.Router[*fiber.App], basePath string) {
 	r.Get("/", func(c router.Context) error {
 		return c.Redirect(basePath, http.StatusFound)
 	})
+}
 
+func registerESignAdminUIRoutes(
+	r router.Router[*fiber.App],
+	cfg coreadmin.Config,
+	adm *coreadmin.Admin,
+	authn coreadmin.HandlerAuthenticator,
+	esignModule *modules.ESignModule,
+	state eSignWebRouteState,
+) error {
 	if err := quickstart.RegisterAdminUIRoutes(
 		r,
 		cfg,
@@ -602,51 +660,63 @@ func registerESignWebRoutes(
 	if err := quickstart.RegisterSettingsUIRoutes(r, cfg, adm, authn); err != nil {
 		return err
 	}
-	if err := quickstart.RegisterContentEntryUIRoutes(
+	return quickstart.RegisterContentEntryUIRoutes(
 		r,
 		cfg,
 		adm,
 		authn,
 		quickstart.WithContentEntryUIViewContext(func(ctx router.ViewContext, panelName string, c router.Context) router.ViewContext {
-			if contentEntryViewContext != nil {
-				ctx = contentEntryViewContext(ctx, panelName, c)
+			if state.contentEntryViewContext != nil {
+				ctx = state.contentEntryViewContext(ctx, panelName, c)
 			}
-			return withESignContentEntryViewContext(ctx, panelName, c, esignModule, googleEnabled)
+			return withESignContentEntryViewContext(ctx, panelName, c, esignModule, state.googleEnabled)
 		}),
 		quickstart.WithContentEntryUIEditGuard(func(c router.Context, panelName string, record map[string]any) (bool, error) {
-			return guardESignAgreementEditRoute(c, panelName, record, basePath)
+			return guardESignAgreementEditRoute(c, panelName, record, state.basePath)
 		}),
 		quickstart.WithContentEntryUITemplateFS(client.FS(), eSignTemplatesFS),
-	); err != nil {
-		return err
-	}
-	registerESignDocumentUploadRoute(r, authn, routes, esignModule)
-	registerESignLegacyUIAliasRoutes(r, authn, basePath)
+	)
+}
+
+func registerESignAuthUIRoutes(
+	r router.Router[*fiber.App],
+	cfg coreadmin.Config,
+	adm *coreadmin.Admin,
+	routeAuth *auth.RouteAuthenticator,
+	cookieName string,
+) error {
 	if err := quickstart.RegisterAuthUIRoutes(
 		r,
 		cfg,
 		routeAuth,
-		quickstart.WithAuthUICookie(router.FirstPartySessionCookie(cookieName, "")),
+		quickstart.WithAuthUICookie(router.FirstPartySessionCookie(strings.TrimSpace(cookieName), "")),
 		quickstart.WithAuthUITitles("Login", "Password Reset"),
 		quickstart.WithAuthUITemplates("login-esign", "password_reset"),
 		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),
 	); err != nil {
 		return err
 	}
-	if err := quickstart.RegisterRegistrationUIRoutes(
+	return quickstart.RegisterRegistrationUIRoutes(
 		r,
 		cfg,
 		quickstart.WithRegistrationUIFeatureGate(adm.FeatureGate()),
-	); err != nil {
-		return err
-	}
+	)
+}
 
-	landingPath := basePath
+func registerESignLandingRoute(
+	r router.Router[*fiber.App],
+	cfg coreadmin.Config,
+	adm *coreadmin.Admin,
+	authn coreadmin.HandlerAuthenticator,
+	routes handlers.RouteSet,
+	esignModule *modules.ESignModule,
+	state eSignWebRouteState,
+) error {
+	landingPath := state.basePath
 	legacyLandingPath := strings.TrimSpace(routes.AdminLegacyHome)
 	if legacyLandingPath == "" {
-		legacyLandingPath = path.Join(basePath, "esign")
+		legacyLandingPath = path.Join(state.basePath, "esign")
 	}
-	apiBasePath := strings.TrimSpace(adm.AdminAPIBasePath())
 	if err := quickstart.RegisterAdminPageRoutes(
 		r,
 		cfg,
@@ -660,28 +730,7 @@ func registerESignWebRoutes(
 			Feature:    "esign",
 			Permission: permissions.AdminESignView,
 			BuildContext: func(c router.Context) (router.ViewContext, error) {
-				stats := map[string]int{
-					"draft":           0,
-					"pending":         0,
-					"completed":       0,
-					"action_required": 0,
-					"total":           0,
-				}
-				recentAgreements := []map[string]any{}
-				if esignModule != nil {
-					scope := resolveESignUploadScope(c, esignModule.DefaultScope())
-					if liveStats, liveRecent, err := esignModule.LandingOverview(c.Context(), scope, 5); err == nil {
-						stats = liveStats
-						recentAgreements = liveRecent
-					}
-				}
-				viewCtx := router.ViewContext{
-					"api_base_path":     apiBasePath,
-					"stats":             stats,
-					"recent_agreements": recentAgreements,
-				}
-				viewCtx = withESignPageConfig(viewCtx, buildESignAdminLandingPageConfig(basePath, apiBasePath, googleEnabled))
-				return viewCtx, nil
+				return buildESignLandingViewContext(c, esignModule, state)
 			},
 		},
 	); err != nil {
@@ -692,39 +741,80 @@ func registerESignWebRoutes(
 			return redirectPathAlias(c, legacyLandingPath, landingPath)
 		}))
 	}
+	return nil
+}
+
+func buildESignLandingViewContext(c router.Context, esignModule *modules.ESignModule, state eSignWebRouteState) (router.ViewContext, error) {
+	stats := map[string]int{
+		"draft":           0,
+		"pending":         0,
+		"completed":       0,
+		"action_required": 0,
+		"total":           0,
+	}
+	recentAgreements := []map[string]any{}
+	if esignModule != nil {
+		scope := resolveESignUploadScope(c, esignModule.DefaultScope())
+		if liveStats, liveRecent, err := esignModule.LandingOverview(c.Context(), scope, 5); err == nil {
+			stats = liveStats
+			recentAgreements = liveRecent
+		}
+	}
+	viewCtx := router.ViewContext{
+		"api_base_path":     state.apiBasePath,
+		"stats":             stats,
+		"recent_agreements": recentAgreements,
+	}
+	viewCtx = withESignPageConfig(
+		viewCtx,
+		buildESignAdminLandingPageConfig(state.basePath, state.apiBasePath, state.googleEnabled),
+	)
+	return viewCtx, nil
+}
+
+func registerESignModuleWebRoutes(
+	r router.Router[*fiber.App],
+	cfg coreadmin.Config,
+	adm *coreadmin.Admin,
+	authn coreadmin.HandlerAuthenticator,
+	routes handlers.RouteSet,
+	esignModule *modules.ESignModule,
+	basePath string,
+) error {
 	if err := registerESignSourceManagementUIRoutes(r, cfg, adm, authn, esignModule); err != nil {
 		return err
 	}
 	if err := registerESignGoogleIntegrationUIRoutes(r, cfg, adm, authn, routes, esignModule); err != nil {
 		return err
 	}
-	if err := registerESignSenderAgreementViewerWebRoutes(r, adm, authn, routes, basePath, esignModule); err != nil {
-		return err
-	}
+	return registerESignSenderAgreementViewerWebRoutes(r, adm, authn, routes, basePath, esignModule)
+}
 
-	// Register public signer web routes (no auth required)
+func registerESignPublicSignerRoutes(
+	r router.Router[*fiber.App],
+	routes handlers.RouteSet,
+	esignModule *modules.ESignModule,
+	basePath string,
+) error {
 	tokenSvc := esignModule.TokenService()
-	if tokenSvc != nil {
-		signerAPIBasePath := path.Join(routes.PublicAPIBase, "esign", "signing")
-		if strings.TrimSpace(signerAPIBasePath) == "" {
-			signerAPIBasePath = "/api/v1/esign/signing"
-		}
-		signerCfg := SignerWebRouteConfig{
-			TokenValidator:       tokenSvc,
-			PublicTokenValidator: esignModule.PublicReviewTokenResolver(),
-			SigningService:       esignModule.SigningService(),
-			PublicReviewSession:  esignModule.SigningService(),
-			AssetContractService: esignModule.SignerAssetContractService(),
-			DefaultScope:         esignModule.DefaultScope(),
-			APIBasePath:          signerAPIBasePath,
-			AssetBasePath:        basePath,
-		}
-		if err := registerESignPublicSignerWebRoutes(r, signerCfg); err != nil {
-			return err
-		}
+	if tokenSvc == nil {
+		return nil
 	}
-
-	return nil
+	signerAPIBasePath := path.Join(routes.PublicAPIBase, "esign", "signing")
+	if strings.TrimSpace(signerAPIBasePath) == "" {
+		signerAPIBasePath = "/api/v1/esign/signing"
+	}
+	signerCfg := SignerWebRouteConfig{
+		TokenValidator:       tokenSvc,
+		PublicTokenValidator: esignModule.PublicReviewTokenResolver(),
+		SigningService:       esignModule.SigningService(),
+		PublicReviewSession:  esignModule.SigningService(),
+		AssetContractService: esignModule.SignerAssetContractService(),
+		DefaultScope:         esignModule.DefaultScope(),
+		APIBasePath:          signerAPIBasePath,
+		AssetBasePath:        basePath,
+	}
+	return registerESignPublicSignerWebRoutes(r, signerCfg)
 }
 
 func registerESignAgreementEventsRoute(

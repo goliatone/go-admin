@@ -459,6 +459,27 @@ func (s DefaultSourceReadModelService) resolveSourceManagementContext(ctx contex
 }
 
 func (s DefaultSourceReadModelService) resolveSourceManagementContexts(ctx context.Context, scope stores.Scope, records []stores.SourceDocumentRecord) (map[string]sourceManagementContext, error) {
+	resolvedByID, sourceIDs := seedSourceManagementContexts(records)
+	if len(sourceIDs) == 0 {
+		return resolvedByID, nil
+	}
+	if err := s.attachSourceManagementHandles(ctx, scope, sourceIDs, resolvedByID); err != nil {
+		return nil, err
+	}
+	allRevisions, err := s.attachSourceManagementRevisions(ctx, scope, sourceIDs, resolvedByID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.attachSourceManagementRelationships(ctx, scope, sourceIDs, resolvedByID); err != nil {
+		return nil, err
+	}
+	if err := s.attachSourceManagementRevisionUsage(ctx, scope, sourceIDs, allRevisions, resolvedByID); err != nil {
+		return nil, err
+	}
+	return resolvedByID, nil
+}
+
+func seedSourceManagementContexts(records []stores.SourceDocumentRecord) (map[string]sourceManagementContext, []string) {
 	resolvedByID := make(map[string]sourceManagementContext, len(records))
 	sourceIDs := make([]string, 0, len(records))
 	for _, record := range records {
@@ -472,13 +493,18 @@ func (s DefaultSourceReadModelService) resolveSourceManagementContexts(ctx conte
 		resolvedByID[recordID] = sourceManagementContext{sourceDocument: record}
 		sourceIDs = append(sourceIDs, recordID)
 	}
-	if len(sourceIDs) == 0 {
-		return resolvedByID, nil
-	}
+	return resolvedByID, sourceIDs
+}
 
+func (s DefaultSourceReadModelService) attachSourceManagementHandles(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceIDs []string,
+	resolvedByID map[string]sourceManagementContext,
+) error {
 	handles, err := s.lineage.ListSourceHandles(ctx, scope, stores.SourceHandleQuery{SourceDocumentIDs: sourceIDs})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, handle := range handles {
 		recordID := strings.TrimSpace(handle.SourceDocumentID)
@@ -499,7 +525,15 @@ func (s DefaultSourceReadModelService) resolveSourceManagementContexts(ctx conte
 		resolved.activeHandle = latestActiveSourceHandle(resolved.handles)
 		resolvedByID[recordID] = resolved
 	}
+	return nil
+}
 
+func (s DefaultSourceReadModelService) attachSourceManagementRevisions(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceIDs []string,
+	resolvedByID map[string]sourceManagementContext,
+) ([]stores.SourceRevisionRecord, error) {
 	revisions, err := s.lineage.ListSourceRevisions(ctx, scope, stores.SourceRevisionQuery{SourceDocumentIDs: sourceIDs})
 	if err != nil {
 		return nil, err
@@ -524,29 +558,52 @@ func (s DefaultSourceReadModelService) resolveSourceManagementContexts(ctx conte
 		}
 		resolvedByID[recordID] = resolved
 	}
+	return allRevisions, nil
+}
 
+func (s DefaultSourceReadModelService) attachSourceManagementRelationships(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceIDs []string,
+	resolvedByID map[string]sourceManagementContext,
+) error {
 	relationships, err := s.lineage.ListSourceRelationships(ctx, scope, stores.SourceRelationshipQuery{SourceDocumentIDs: sourceIDs})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, relationship := range relationships {
-		leftID := strings.TrimSpace(relationship.LeftSourceDocumentID)
+		attachSourceManagementRelationship(resolvedByID, strings.TrimSpace(relationship.LeftSourceDocumentID), relationship)
 		rightID := strings.TrimSpace(relationship.RightSourceDocumentID)
-		if resolved, ok := resolvedByID[leftID]; ok {
-			resolved.relationships = append(resolved.relationships, relationship)
-			resolvedByID[leftID] = resolved
-		}
-		if rightID != leftID {
-			if resolved, ok := resolvedByID[rightID]; ok {
-				resolved.relationships = append(resolved.relationships, relationship)
-				resolvedByID[rightID] = resolved
-			}
+		if rightID != strings.TrimSpace(relationship.LeftSourceDocumentID) {
+			attachSourceManagementRelationship(resolvedByID, rightID, relationship)
 		}
 	}
+	return nil
+}
 
+func attachSourceManagementRelationship(
+	resolvedByID map[string]sourceManagementContext,
+	recordID string,
+	relationship stores.SourceRelationshipRecord,
+) {
+	resolved, ok := resolvedByID[recordID]
+	if !ok {
+		return
+	}
+	resolved.relationships = append(resolved.relationships, relationship)
+	resolvedByID[recordID] = resolved
+}
+
+func (s DefaultSourceReadModelService) attachSourceManagementRevisionUsage(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceIDs []string,
+	allRevisions []stores.SourceRevisionRecord,
+	resolvedByID map[string]sourceManagementContext,
+) error {
 	revisionUsage, err := s.sourceRevisionUsageByRevision(ctx, scope, sourceIDs, allRevisions)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for recordID, resolved := range resolvedByID {
 		resolved.revisionUsage = make(map[string]sourceRevisionUsageSummary, len(resolved.revisions))
@@ -559,7 +616,7 @@ func (s DefaultSourceReadModelService) resolveSourceManagementContexts(ctx conte
 		}
 		resolvedByID[recordID] = resolved
 	}
-	return resolvedByID, nil
+	return nil
 }
 
 func (s DefaultSourceReadModelService) buildSourceListItem(resolved sourceManagementContext) SourceListItem {

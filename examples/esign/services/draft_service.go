@@ -509,57 +509,7 @@ func normalizePageField(entry map[string]any, field string, maxPage int) {
 }
 
 func normalizeBoundedIntSlice(value any, maxPage int) []int {
-	var out []int
-	switch typed := value.(type) {
-	case []any:
-		for _, item := range typed {
-			parsed, ok := anyToInt(item)
-			if !ok || parsed <= 0 {
-				continue
-			}
-			if maxPage > 0 && parsed > maxPage {
-				parsed = maxPage
-			}
-			out = append(out, parsed)
-		}
-	case []int:
-		for _, item := range typed {
-			parsed := item
-			if parsed <= 0 {
-				continue
-			}
-			if maxPage > 0 && parsed > maxPage {
-				parsed = maxPage
-			}
-			out = append(out, parsed)
-		}
-	case []string:
-		for _, item := range typed {
-			parsed, ok := anyToInt(item)
-			if !ok || parsed <= 0 {
-				continue
-			}
-			if maxPage > 0 && parsed > maxPage {
-				parsed = maxPage
-			}
-			out = append(out, parsed)
-		}
-	default:
-		raw := strings.TrimSpace(wizardAnyToString(value))
-		if raw == "" {
-			return []int{}
-		}
-		for part := range strings.SplitSeq(raw, ",") {
-			parsed, ok := anyToInt(strings.TrimSpace(part))
-			if !ok || parsed <= 0 {
-				continue
-			}
-			if maxPage > 0 && parsed > maxPage {
-				parsed = maxPage
-			}
-			out = append(out, parsed)
-		}
-	}
+	out := boundedIntSliceFromValue(value, maxPage)
 	if len(out) == 0 {
 		return []int{}
 	}
@@ -576,6 +526,73 @@ func normalizeBoundedIntSlice(value any, maxPage int) []int {
 	return unique
 }
 
+func boundedIntSliceFromValue(value any, maxPage int) []int {
+	switch typed := value.(type) {
+	case []any:
+		return boundedIntSliceFromInterfaces(typed, maxPage)
+	case []int:
+		return boundedIntSliceFromInts(typed, maxPage)
+	case []string:
+		return boundedIntSliceFromStrings(typed, maxPage)
+	default:
+		return boundedIntSliceFromCSV(value, maxPage)
+	}
+}
+
+func boundedIntSliceFromInterfaces(values []any, maxPage int) []int {
+	out := make([]int, 0, len(values))
+	for _, value := range values {
+		out = appendBoundedInt(out, value, maxPage)
+	}
+	return out
+}
+
+func boundedIntSliceFromInts(values []int, maxPage int) []int {
+	out := make([]int, 0, len(values))
+	for _, value := range values {
+		out = appendBoundedPositiveInt(out, value, maxPage)
+	}
+	return out
+}
+
+func boundedIntSliceFromStrings(values []string, maxPage int) []int {
+	out := make([]int, 0, len(values))
+	for _, value := range values {
+		out = appendBoundedInt(out, value, maxPage)
+	}
+	return out
+}
+
+func boundedIntSliceFromCSV(value any, maxPage int) []int {
+	raw := strings.TrimSpace(wizardAnyToString(value))
+	if raw == "" {
+		return nil
+	}
+	out := make([]int, 0)
+	for part := range strings.SplitSeq(raw, ",") {
+		out = appendBoundedInt(out, strings.TrimSpace(part), maxPage)
+	}
+	return out
+}
+
+func appendBoundedInt(out []int, value any, maxPage int) []int {
+	parsed, ok := anyToInt(value)
+	if !ok {
+		return out
+	}
+	return appendBoundedPositiveInt(out, parsed, maxPage)
+}
+
+func appendBoundedPositiveInt(out []int, parsed, maxPage int) []int {
+	if parsed <= 0 {
+		return out
+	}
+	if maxPage > 0 && parsed > maxPage {
+		parsed = maxPage
+	}
+	return append(out, parsed)
+}
+
 func anyToPositiveInt(value any) (int, bool) {
 	parsed, ok := anyToInt(value)
 	if !ok || parsed <= 0 {
@@ -585,9 +602,20 @@ func anyToPositiveInt(value any) (int, bool) {
 }
 
 func anyToInt(value any) (int, bool) {
+	if parsed, ok := anyToSignedInt(value); ok {
+		return parsed, true
+	}
+	if parsed, ok := anyToUnsignedInt(value); ok {
+		return parsed, true
+	}
+	if parsed, ok := anyToFloatInt(value); ok {
+		return parsed, true
+	}
+	return anyToEncodedInt(value)
+}
+
+func anyToSignedInt(value any) (int, bool) {
 	switch typed := value.(type) {
-	case nil:
-		return 0, false
 	case int:
 		return typed, true
 	case int8:
@@ -598,6 +626,13 @@ func anyToInt(value any) (int, bool) {
 		return int(typed), true
 	case int64:
 		return primitives.IntFromInt64(typed)
+	default:
+		return 0, false
+	}
+}
+
+func anyToUnsignedInt(value any) (int, bool) {
+	switch typed := value.(type) {
 	case uint:
 		return primitives.IntFromUint(typed)
 	case uint8:
@@ -608,6 +643,13 @@ func anyToInt(value any) (int, bool) {
 		return int(typed), true
 	case uint64:
 		return primitives.IntFromUint64(typed)
+	default:
+		return 0, false
+	}
+}
+
+func anyToFloatInt(value any) (int, bool) {
+	switch typed := value.(type) {
 	case float32:
 		if !isFinite(float64(typed)) {
 			return 0, false
@@ -618,6 +660,13 @@ func anyToInt(value any) (int, bool) {
 			return 0, false
 		}
 		return int(typed), true
+	default:
+		return 0, false
+	}
+}
+
+func anyToEncodedInt(value any) (int, bool) {
+	switch typed := value.(type) {
 	case json.Number:
 		parsed, err := typed.Int64()
 		if err != nil {
@@ -1604,103 +1653,126 @@ func expandFieldRules(state wizardStatePayload) []wizardFieldDefinitionState {
 	}
 	expanded := make([]wizardFieldDefinitionState, 0)
 	for index, rule := range state.FieldRules {
-		ruleType := strings.ToLower(strings.TrimSpace(rule.Type))
-		if ruleType == "" {
+		normalized, skip := normalizeWizardFieldRule(rule, index, terminalPage)
+		if skip {
 			continue
 		}
-		ruleBaseID := resolveWizardRuleExpansionBaseID(rule, index)
-		rulePage := rule.Page
-		if rulePage < 0 {
-			rulePage = 1
-		}
-		if rulePage > terminalPage {
-			rulePage = terminalPage
-		}
-		fromPage := rule.FromPage
-		if fromPage < 0 {
-			fromPage = 1
-		}
-		if fromPage > terminalPage {
-			fromPage = terminalPage
-		}
-		toPage := rule.ToPage
-		if toPage < 0 {
-			toPage = 1
-		}
-		if toPage > terminalPage {
-			toPage = terminalPage
-		}
-
-		required := true
-		if rule.Required != nil {
-			required = *rule.Required
-		}
-		switch ruleType {
+		switch normalized.Type {
 		case "initials_each_page":
-			startPage := fromPage
-			if startPage <= 0 {
-				startPage = 1
-			}
-			endPage := toPage
-			if endPage <= 0 {
-				endPage = terminalPage
-			}
-			if endPage < startPage {
-				startPage, endPage = endPage, startPage
-			}
-			excludedPages := map[int]struct{}{}
-			for _, page := range rule.ExcludePages {
-				if page > 0 {
-					if page > terminalPage {
-						page = terminalPage
-					}
-					excludedPages[page] = struct{}{}
-				}
-			}
-			if rule.ExcludeLastPage {
-				excludedPages[terminalPage] = struct{}{}
-			}
-			for page := startPage; page <= endPage; page++ {
-				if _, excluded := excludedPages[page]; excluded {
-					continue
-				}
-				defID := fmt.Sprintf("%s-initials-%d", ruleBaseID, page)
-				expanded = append(expanded, wizardFieldDefinitionState{
-					ID:                defID,
-					TempID:            defID,
-					Type:              stores.FieldTypeInitials,
-					ParticipantID:     strings.TrimSpace(rule.ParticipantID),
-					ParticipantTempID: strings.TrimSpace(rule.ParticipantTempID),
-					Label:             primitives.FirstNonEmpty(strings.TrimSpace(rule.Label), "Initials"),
-					Required:          required,
-					Page:              page,
-				})
-			}
+			expanded = append(expanded, expandInitialsEachPageFieldRule(normalized, terminalPage)...)
 		case "signature_once":
-			page := rulePage
-			if page <= 0 {
-				page = toPage
-			}
-			if page <= 0 {
-				page = terminalPage
-			}
-			if page <= 0 {
-				page = 1
-			}
-			defID := fmt.Sprintf("%s-signature-%d", ruleBaseID, page)
-			expanded = append(expanded, wizardFieldDefinitionState{
-				ID:                defID,
-				TempID:            defID,
-				Type:              stores.FieldTypeSignature,
-				ParticipantID:     strings.TrimSpace(rule.ParticipantID),
-				ParticipantTempID: strings.TrimSpace(rule.ParticipantTempID),
-				Label:             primitives.FirstNonEmpty(strings.TrimSpace(rule.Label), "Signature"),
-				Required:          required,
-				Page:              page,
-			})
+			expanded = append(expanded, expandSignatureOnceFieldRule(normalized, terminalPage))
 		}
 	}
 	return expanded
+}
+
+func normalizeWizardFieldRule(rule wizardFieldRuleState, index, terminalPage int) (wizardFieldRuleState, bool) {
+	rule.Type = strings.ToLower(strings.TrimSpace(rule.Type))
+	if rule.Type == "" {
+		return wizardFieldRuleState{}, true
+	}
+	rule.ID = resolveWizardRuleExpansionBaseID(rule, index)
+	rule.Page = clampWizardRulePage(rule.Page, terminalPage)
+	rule.FromPage = clampWizardRulePage(rule.FromPage, terminalPage)
+	rule.ToPage = clampWizardRulePage(rule.ToPage, terminalPage)
+	return rule, false
+}
+
+func clampWizardRulePage(page, terminalPage int) int {
+	if page < 0 {
+		page = 1
+	}
+	if page > terminalPage {
+		page = terminalPage
+	}
+	return page
+}
+
+func expandInitialsEachPageFieldRule(rule wizardFieldRuleState, terminalPage int) []wizardFieldDefinitionState {
+	startPage, endPage := wizardFieldRulePageRange(rule, terminalPage)
+	excludedPages := wizardExcludedRulePages(rule, terminalPage)
+	expanded := make([]wizardFieldDefinitionState, 0, endPage-startPage+1)
+	for page := startPage; page <= endPage; page++ {
+		if _, excluded := excludedPages[page]; excluded {
+			continue
+		}
+		defID := fmt.Sprintf("%s-initials-%d", rule.ID, page)
+		expanded = append(expanded, wizardFieldDefinitionState{
+			ID:                defID,
+			TempID:            defID,
+			Type:              stores.FieldTypeInitials,
+			ParticipantID:     strings.TrimSpace(rule.ParticipantID),
+			ParticipantTempID: strings.TrimSpace(rule.ParticipantTempID),
+			Label:             primitives.FirstNonEmpty(strings.TrimSpace(rule.Label), "Initials"),
+			Required:          wizardFieldRuleRequired(rule),
+			Page:              page,
+		})
+	}
+	return expanded
+}
+
+func wizardFieldRulePageRange(rule wizardFieldRuleState, terminalPage int) (int, int) {
+	startPage := rule.FromPage
+	if startPage <= 0 {
+		startPage = 1
+	}
+	endPage := rule.ToPage
+	if endPage <= 0 {
+		endPage = terminalPage
+	}
+	if endPage < startPage {
+		return endPage, startPage
+	}
+	return startPage, endPage
+}
+
+func wizardExcludedRulePages(rule wizardFieldRuleState, terminalPage int) map[int]struct{} {
+	excludedPages := map[int]struct{}{}
+	for _, page := range rule.ExcludePages {
+		if page <= 0 {
+			continue
+		}
+		if page > terminalPage {
+			page = terminalPage
+		}
+		excludedPages[page] = struct{}{}
+	}
+	if rule.ExcludeLastPage {
+		excludedPages[terminalPage] = struct{}{}
+	}
+	return excludedPages
+}
+
+func expandSignatureOnceFieldRule(rule wizardFieldRuleState, terminalPage int) wizardFieldDefinitionState {
+	page := rule.Page
+	if page <= 0 {
+		page = rule.ToPage
+	}
+	if page <= 0 {
+		page = terminalPage
+	}
+	if page <= 0 {
+		page = 1
+	}
+	defID := fmt.Sprintf("%s-signature-%d", rule.ID, page)
+	return wizardFieldDefinitionState{
+		ID:                defID,
+		TempID:            defID,
+		Type:              stores.FieldTypeSignature,
+		ParticipantID:     strings.TrimSpace(rule.ParticipantID),
+		ParticipantTempID: strings.TrimSpace(rule.ParticipantTempID),
+		Label:             primitives.FirstNonEmpty(strings.TrimSpace(rule.Label), "Signature"),
+		Required:          wizardFieldRuleRequired(rule),
+		Page:              page,
+	}
+}
+
+func wizardFieldRuleRequired(rule wizardFieldRuleState) bool {
+	if rule.Required != nil {
+		return *rule.Required
+	}
+	return true
 }
 
 func resolveWizardRuleExpansionBaseID(rule wizardFieldRuleState, index int) string {
