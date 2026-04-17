@@ -1,0 +1,16 @@
+{
+  "localized_widget_instance": {
+    "config": {
+      "headline": "Localized"
+    },
+    "definition": "admin.widget.localized"
+  },
+  "site_menu_item": {
+    "code": "site_primary",
+    "href": "/",
+    "id": "home",
+    "label": "Inicio",
+    "label_key": "menu.home",
+    "location": "site.main"
+  }
+}
