@@ -1301,3 +1301,67 @@ func stringFromFilter(filters map[string]any, key string) string {
 	}
 	return ""
 }
+
+func stringSliceFromFilter(filters map[string]any, keys ...string) []string {
+	if filters == nil {
+		return nil
+	}
+	for _, key := range keys {
+		values := stringsFromFilterValue(filters[key])
+		if len(values) > 0 {
+			return values
+		}
+	}
+	return nil
+}
+
+func stringsFromFilterValue(value any) []string {
+	switch typed := value.(type) {
+	case string:
+		return splitAndCompactFilterValues(typed)
+	case []string:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			item = strings.TrimSpace(item)
+			if item == "" {
+				continue
+			}
+			out = append(out, item)
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			text := strings.TrimSpace(toString(item))
+			if text == "" {
+				continue
+			}
+			out = append(out, text)
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func splitAndCompactFilterValues(raw string) []string {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		out = append(out, part)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
