@@ -113,66 +113,21 @@ func (s DefaultSourceReconciliationService) evaluateCandidates(ctx context.Conte
 	if sourceDocumentID == "" || sourceRevisionID == "" || artifactID == "" {
 		return SourceReconciliationResult{}, domainValidationError("lineage_reconciliation", "source_document_id|source_revision_id|artifact_id", "required")
 	}
-
-	targetDocument, err := s.lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
+	target, err := s.resolveReconciliationTargetState(ctx, scope, sourceDocumentID, sourceRevisionID, artifactID)
 	if err != nil {
 		return SourceReconciliationResult{}, err
 	}
-	targetRevision, err := s.lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
-	if err != nil {
-		return SourceReconciliationResult{}, err
-	}
-	targetArtifact, err := s.lineage.GetSourceArtifact(ctx, scope, artifactID)
-	if err != nil {
-		return SourceReconciliationResult{}, err
-	}
-	targetFingerprint := s.latestReadyFingerprint(ctx, scope, targetRevision.ID, targetArtifact.ID)
 	documents, err := s.lineage.ListSourceDocuments(ctx, scope, stores.SourceDocumentQuery{
-		ProviderKind: targetDocument.ProviderKind,
+		ProviderKind: target.document.ProviderKind,
 		Status:       stores.SourceDocumentStatusActive,
 	})
 	if err != nil {
 		return SourceReconciliationResult{}, err
 	}
-
-	candidates := make([]CandidateWarningSummary, 0)
-	for _, candidateDocument := range documents {
-		if strings.TrimSpace(candidateDocument.ID) == sourceDocumentID {
-			continue
-		}
-		leftID, rightID := orderedRelationshipIDs(sourceDocumentID, strings.TrimSpace(candidateDocument.ID))
-		existing, err := s.findRelationshipPair(ctx, scope, leftID, rightID)
-		if err != nil {
-			return SourceReconciliationResult{}, err
-		}
-		evaluation, err := s.scoreCandidate(ctx, scope, targetDocument, targetRevision, targetArtifact, targetFingerprint, input.Metadata, candidateDocument)
-		if err != nil {
-			return SourceReconciliationResult{}, err
-		}
-		if evaluation.band == stores.LineageConfidenceBandNone {
-			if strings.TrimSpace(existing.Status) == stores.SourceRelationshipStatusPendingReview {
-				err = s.supersedeRelationshipPair(ctx, scope, sourceDocumentID, candidateDocument.ID, "reevaluated_below_threshold", strings.TrimSpace(input.ActorID))
-				if err != nil {
-					return SourceReconciliationResult{}, err
-				}
-			}
-			continue
-		}
-		relationship, err := s.upsertEvaluatedRelationship(ctx, scope, input, evaluation, existing)
-		if err != nil {
-			return SourceReconciliationResult{}, err
-		}
-		if relationship.Status == stores.SourceRelationshipStatusConfirmed && evaluation.exactArtifactMatch && s.policy.AttachHandlesOnAutoConfirm {
-			_, _, err = s.attachHandlesForRelationship(ctx, scope, relationship)
-			if err != nil {
-				return SourceReconciliationResult{}, err
-			}
-		}
-		if strings.TrimSpace(relationship.Status) == stores.SourceRelationshipStatusPendingReview {
-			candidates = append(candidates, candidateWarningSummaryFromRelationship(relationship))
-		}
+	candidates, err := s.evaluateCandidateDocuments(ctx, scope, input, target, documents)
+	if err != nil {
+		return SourceReconciliationResult{}, err
 	}
-
 	sort.SliceStable(candidates, func(i, j int) bool {
 		if candidates[i].ConfidenceScore == candidates[j].ConfidenceScore {
 			return candidates[i].ID < candidates[j].ID
@@ -184,6 +139,124 @@ func (s DefaultSourceReconciliationService) evaluateCandidates(ctx context.Conte
 		result.PrimaryCandidate = &candidates[0]
 	}
 	return result, nil
+}
+
+func (s DefaultSourceReconciliationService) resolveReconciliationTargetState(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocumentID, sourceRevisionID, artifactID string,
+) (reconciliationTargetState, error) {
+	targetDocument, err := s.lineage.GetSourceDocument(ctx, scope, sourceDocumentID)
+	if err != nil {
+		return reconciliationTargetState{}, err
+	}
+	targetRevision, err := s.lineage.GetSourceRevision(ctx, scope, sourceRevisionID)
+	if err != nil {
+		return reconciliationTargetState{}, err
+	}
+	targetArtifact, err := s.lineage.GetSourceArtifact(ctx, scope, artifactID)
+	if err != nil {
+		return reconciliationTargetState{}, err
+	}
+	return reconciliationTargetState{
+		document:    targetDocument,
+		revision:    targetRevision,
+		artifact:    targetArtifact,
+		fingerprint: s.latestReadyFingerprint(ctx, scope, targetRevision.ID, targetArtifact.ID),
+	}, nil
+}
+
+func (s DefaultSourceReconciliationService) evaluateCandidateDocuments(
+	ctx context.Context,
+	scope stores.Scope,
+	input SourceReconciliationInput,
+	target reconciliationTargetState,
+	documents []stores.SourceDocumentRecord,
+) ([]CandidateWarningSummary, error) {
+	candidates := make([]CandidateWarningSummary, 0)
+	for _, candidateDocument := range documents {
+		if strings.TrimSpace(candidateDocument.ID) == strings.TrimSpace(target.document.ID) {
+			continue
+		}
+		candidate, ok, err := s.evaluateCandidateDocument(ctx, scope, input, target, candidateDocument)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			candidates = append(candidates, candidate)
+		}
+	}
+	return candidates, nil
+}
+
+func (s DefaultSourceReconciliationService) evaluateCandidateDocument(
+	ctx context.Context,
+	scope stores.Scope,
+	input SourceReconciliationInput,
+	target reconciliationTargetState,
+	candidateDocument stores.SourceDocumentRecord,
+) (CandidateWarningSummary, bool, error) {
+	leftID, rightID := orderedRelationshipIDs(strings.TrimSpace(target.document.ID), strings.TrimSpace(candidateDocument.ID))
+	existing, err := s.findRelationshipPair(ctx, scope, leftID, rightID)
+	if err != nil {
+		return CandidateWarningSummary{}, false, err
+	}
+	evaluation, err := s.scoreCandidate(
+		ctx,
+		scope,
+		target.document,
+		target.revision,
+		target.artifact,
+		target.fingerprint,
+		input.Metadata,
+		candidateDocument,
+	)
+	if err != nil {
+		return CandidateWarningSummary{}, false, err
+	}
+	if evaluation.band == stores.LineageConfidenceBandNone {
+		if err := s.supersedePendingReviewCandidate(ctx, scope, target.document.ID, candidateDocument.ID, existing, input.ActorID); err != nil {
+			return CandidateWarningSummary{}, false, err
+		}
+		return CandidateWarningSummary{}, false, nil
+	}
+	relationship, err := s.upsertEvaluatedRelationship(ctx, scope, input, evaluation, existing)
+	if err != nil {
+		return CandidateWarningSummary{}, false, err
+	}
+	if err := s.attachAutoConfirmedCandidateHandles(ctx, scope, relationship, evaluation); err != nil {
+		return CandidateWarningSummary{}, false, err
+	}
+	if strings.TrimSpace(relationship.Status) != stores.SourceRelationshipStatusPendingReview {
+		return CandidateWarningSummary{}, false, nil
+	}
+	return candidateWarningSummaryFromRelationship(relationship), true, nil
+}
+
+func (s DefaultSourceReconciliationService) supersedePendingReviewCandidate(
+	ctx context.Context,
+	scope stores.Scope,
+	sourceDocumentID, candidateDocumentID string,
+	existing stores.SourceRelationshipRecord,
+	actorID string,
+) error {
+	if strings.TrimSpace(existing.Status) != stores.SourceRelationshipStatusPendingReview {
+		return nil
+	}
+	return s.supersedeRelationshipPair(ctx, scope, sourceDocumentID, candidateDocumentID, "reevaluated_below_threshold", strings.TrimSpace(actorID))
+}
+
+func (s DefaultSourceReconciliationService) attachAutoConfirmedCandidateHandles(
+	ctx context.Context,
+	scope stores.Scope,
+	relationship stores.SourceRelationshipRecord,
+	evaluation candidateScoreEvaluation,
+) error {
+	if relationship.Status != stores.SourceRelationshipStatusConfirmed || !evaluation.exactArtifactMatch || !s.policy.AttachHandlesOnAutoConfirm {
+		return nil
+	}
+	_, _, err := s.attachHandlesForRelationship(ctx, scope, relationship)
+	return err
 }
 
 func (s DefaultSourceReconciliationService) ApplyReviewAction(ctx context.Context, scope stores.Scope, input SourceRelationshipReviewInput) (CandidateWarningSummary, error) {
@@ -444,6 +517,26 @@ type candidateScoreEvaluation struct {
 	status             string
 	evidence           map[string]any
 	exactArtifactMatch bool
+}
+
+type reconciliationTargetState struct {
+	document    stores.SourceDocumentRecord
+	revision    stores.SourceRevisionRecord
+	artifact    stores.SourceArtifactRecord
+	fingerprint stores.SourceFingerprintRecord
+}
+
+type candidateArtifactMetrics struct {
+	titleSimilarity      float64
+	chunkOverlap         float64
+	normalizedSimilarity float64
+	exactArtifactMatch   bool
+	accountMatch         bool
+	driveMatch           bool
+	webURLMatch          bool
+	ownerMatch           bool
+	folderMatch          bool
+	temporalProximity    float64
 }
 
 func (s DefaultSourceReconciliationService) scoreCandidate(
