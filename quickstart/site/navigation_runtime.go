@@ -14,4 +14,5 @@ type navigationRuntime struct {
 	contentSvc  admin.CMSContentService
 	contentType admin.CMSContentTypeService
 	authorizer  admin.Authorizer
+	translator  admin.Translator
 }
