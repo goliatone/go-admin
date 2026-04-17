@@ -86,3 +86,20 @@ func TestFilterWidgetInstancesTreatsEmptyInstanceLocaleAsWildcard(t *testing.T) 
 		t.Fatalf("expected wildcard locale instance only, got %+v", filtered)
 	}
 }
+
+func TestFilterWidgetInstancesIncludesFallbackLocales(t *testing.T) {
+	instances := []dashinternal.WidgetInstance{
+		{ID: "1", PageID: "page-1", Locale: "en"},
+		{ID: "2", PageID: "page-1", Locale: "es"},
+		{ID: "3", PageID: "page-2", Locale: "en"},
+	}
+
+	filtered := FilterWidgetInstances(instances, dashinternal.WidgetInstanceFilter{
+		PageID:          "page-1",
+		Locale:          "fr",
+		FallbackLocales: []string{"en"},
+	})
+	if len(filtered) != 1 || filtered[0].ID != "1" {
+		t.Fatalf("expected fallback-locale instance only, got %+v", filtered)
+	}
+}

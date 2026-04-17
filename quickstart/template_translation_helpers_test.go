@@ -87,6 +87,30 @@ func TestDefaultTemplateFuncsTranslationHelpersDegradeSafelyWithoutTranslator(t 
 	}
 }
 
+func TestDefaultTemplateFuncsTreatBareShortStringsAsKeys(t *testing.T) {
+	funcs := DefaultTemplateFuncs(
+		WithTemplateTranslator(templateTranslatorStub{
+			values: map[string]string{
+				"en:seo": "SEO",
+			},
+			countValues: map[string]string{
+				"en:qty:2": "2 items",
+			},
+		}),
+		WithTemplateDefaultLocale("en"),
+	)
+
+	translate := funcs["translate"].(func(...any) string)
+	translateCount := funcs["translate_count"].(func(...any) string)
+
+	if got := translate("seo"); got != "SEO" {
+		t.Fatalf("expected bare short key to resolve as translation key, got %q", got)
+	}
+	if got := translateCount("qty", 2); got != "2 items" {
+		t.Fatalf("expected bare short count key to resolve as translation key, got %q", got)
+	}
+}
+
 func TestTemplateLocaleFromSubjectRecognizesViewContextMaps(t *testing.T) {
 	locale, ok := templateLocaleFromSubject(map[string]any{
 		"site_runtime": map[string]any{"locale": "es"},

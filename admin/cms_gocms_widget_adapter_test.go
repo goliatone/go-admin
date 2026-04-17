@@ -19,6 +19,7 @@ type stubGoCMSWidgetService struct {
 	resolvedConfigs       map[uuid.UUID]map[string]any
 	areas                 map[string]*cmswidgets.AreaDefinition
 	placementsByArea      map[string]map[uuid.UUID]*cmswidgets.AreaPlacement
+	lastResolveAreaInput  cmswidgets.ResolveAreaInput
 	assignErr             error
 	forceEmptyDefinitions bool
 	forceEmptyListAll     bool
@@ -232,28 +233,53 @@ func (s *stubGoCMSWidgetService) AssignWidgetToArea(_ context.Context, input cms
 }
 
 func (s *stubGoCMSWidgetService) ResolveArea(_ context.Context, input cmswidgets.ResolveAreaInput) ([]*cmswidgets.ResolvedWidget, error) {
+	s.lastResolveAreaInput = input
 	placements := s.placementsByArea[input.AreaCode]
 	if len(placements) == 0 {
 		return []*cmswidgets.ResolvedWidget{}, nil
 	}
+	localeChain := make([]*uuid.UUID, 0, len(input.FallbackLocaleIDs)+2)
+	if input.LocaleID != nil {
+		localeID := *input.LocaleID
+		localeChain = append(localeChain, &localeID)
+	}
+	for _, fallback := range input.FallbackLocaleIDs {
+		localeID := fallback
+		localeChain = append(localeChain, &localeID)
+	}
+	localeChain = append(localeChain, nil)
+
 	out := make([]*cmswidgets.ResolvedWidget, 0, len(placements))
-	for instanceID, placement := range placements {
-		if input.LocaleID != nil {
-			if placement.LocaleID == nil || *placement.LocaleID != *input.LocaleID {
+	for _, localeID := range localeChain {
+		for instanceID, placement := range placements {
+			if !stubPlacementMatchesLocale(placement, localeID) {
 				continue
 			}
+			inst, ok := s.instances[instanceID]
+			if !ok {
+				continue
+			}
+			out = append(out, &cmswidgets.ResolvedWidget{
+				Instance:  inst,
+				Config:    primitives.CloneAnyMap(s.resolvedConfigs[instanceID]),
+				Placement: placement,
+			})
 		}
-		inst, ok := s.instances[instanceID]
-		if !ok {
-			continue
+		if len(out) > 0 {
+			break
 		}
-		out = append(out, &cmswidgets.ResolvedWidget{
-			Instance:  inst,
-			Config:    primitives.CloneAnyMap(s.resolvedConfigs[instanceID]),
-			Placement: placement,
-		})
 	}
 	return out, nil
+}
+
+func stubPlacementMatchesLocale(placement *cmswidgets.AreaPlacement, localeID *uuid.UUID) bool {
+	if placement == nil {
+		return false
+	}
+	if localeID == nil {
+		return placement.LocaleID == nil
+	}
+	return placement.LocaleID != nil && *placement.LocaleID == *localeID
 }
 
 func TestNewGoCMSWidgetAdapterRejectsIncompatibleService(t *testing.T) {
@@ -686,6 +712,58 @@ func TestGoCMSWidgetAdapterListInstancesUnknownLocaleReturnsEmpty(t *testing.T) 
 	}
 	if len(instances) != 0 {
 		t.Fatalf("expected no instances for unknown locale filter, got %d", len(instances))
+	}
+}
+
+func TestGoCMSWidgetAdapterListInstancesUsesFallbackLocaleChain(t *testing.T) {
+	ctx := context.Background()
+	localeES := uuid.New()
+	localeEN := uuid.New()
+	svc := newStubGoCMSWidgetService()
+	adapter := newGoCMSWidgetAdapter(svc, stubLocaleResolver{
+		ids: map[string]uuid.UUID{
+			"es": localeES,
+			"en": localeEN,
+		},
+	})
+
+	code := "admin.widget.localized_fallback"
+	if err := adapter.RegisterDefinition(ctx, WidgetDefinition{Code: code, Name: "Localized Fallback"}); err != nil {
+		t.Fatalf("register definition: %v", err)
+	}
+
+	instance, err := adapter.SaveInstance(ctx, WidgetInstance{
+		DefinitionCode: code,
+		Area:           "admin.dashboard.main",
+		Locale:         "en",
+		Config:         map[string]any{"headline": "Fallback headline"},
+	})
+	if err != nil {
+		t.Fatalf("save instance: %v", err)
+	}
+
+	instances, err := adapter.ListInstances(ctx, WidgetInstanceFilter{
+		Area:            "admin.dashboard.main",
+		Locale:          "es",
+		FallbackLocales: []string{"en"},
+	})
+	if err != nil {
+		t.Fatalf("list instances: %v", err)
+	}
+	if len(instances) != 1 {
+		t.Fatalf("expected one fallback instance, got %d", len(instances))
+	}
+	if got := instances[0].Config["headline"]; got != "Fallback headline" {
+		t.Fatalf("expected fallback localized config, got %+v", instances[0].Config)
+	}
+	if len(svc.lastResolveAreaInput.FallbackLocaleIDs) != 1 || svc.lastResolveAreaInput.FallbackLocaleIDs[0] != localeEN {
+		t.Fatalf("expected fallback locale chain [%s], got %+v", localeEN, svc.lastResolveAreaInput.FallbackLocaleIDs)
+	}
+	if svc.lastResolveAreaInput.LocaleID == nil || *svc.lastResolveAreaInput.LocaleID != localeES {
+		t.Fatalf("expected requested locale %s, got %+v", localeES, svc.lastResolveAreaInput.LocaleID)
+	}
+	if instances[0].ID != instance.ID {
+		t.Fatalf("expected resolved instance %q, got %+v", instance.ID, instances)
 	}
 }
 
