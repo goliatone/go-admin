@@ -512,9 +512,10 @@ func (a *GoCMSWidgetAdapter) resolveAreaInstances(ctx context.Context, filter Wi
 	input := cmswidgets.ResolveAreaInput{AreaCode: strings.TrimSpace(filter.Area)}
 	if localeID, ok := gocmsutil.ResolveLocaleID(ctx, a.locales, filter.Locale); ok {
 		input.LocaleID = &localeID
-	} else if strings.TrimSpace(filter.Locale) != "" {
+	} else if strings.TrimSpace(filter.Locale) != "" && len(filter.FallbackLocales) == 0 {
 		return []WidgetInstance{}, nil
 	}
+	input.FallbackLocaleIDs = a.resolveFallbackLocaleIDs(ctx, filter)
 	resolved, err := a.service.ResolveArea(ctx, input)
 	if err != nil {
 		if errors.Is(err, cmswidgets.ErrFeatureDisabled) || errors.Is(err, cmswidgets.ErrAreaFeatureDisabled) {
@@ -535,6 +536,34 @@ func (a *GoCMSWidgetAdapter) resolveAreaInstances(ctx context.Context, filter Wi
 		out = append(out, inst)
 	}
 	return out, nil
+}
+
+func (a *GoCMSWidgetAdapter) resolveFallbackLocaleIDs(ctx context.Context, filter WidgetInstanceFilter) []uuid.UUID {
+	if a == nil || a.locales == nil || len(filter.FallbackLocales) == 0 {
+		return nil
+	}
+	requested := strings.TrimSpace(filter.Locale)
+	seen := map[uuid.UUID]struct{}{}
+	out := make([]uuid.UUID, 0, len(filter.FallbackLocales))
+	for _, fallback := range filter.FallbackLocales {
+		fallback = strings.TrimSpace(fallback)
+		if fallback == "" || strings.EqualFold(fallback, requested) {
+			continue
+		}
+		localeID, ok := gocmsutil.ResolveLocaleID(ctx, a.locales, fallback)
+		if !ok || localeID == uuid.Nil {
+			continue
+		}
+		if _, exists := seen[localeID]; exists {
+			continue
+		}
+		seen[localeID] = struct{}{}
+		out = append(out, localeID)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (a *GoCMSWidgetAdapter) hasInstanceByDefinitionID(ctx context.Context, definitionID uuid.UUID, filter WidgetInstanceFilter) (bool, error) {
