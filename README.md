@@ -89,6 +89,16 @@ if err := adm.Initialize(server.Router()); err != nil {
 - Commands: register typed commands and message factories for panel/API dispatch.
 - Panels: control canonical UI ownership (`PanelUIRouteMode*`) and canonical entry behavior (`PanelEntryMode*`).
 
+## Media Responsibility Split
+
+The upstream media surface is intentionally split across layers:
+
+- `go-admin` owns the admin-facing media module, gallery page, route-key-driven layout integration, and shared schema hints for admin pages.
+- `go-formgen` owns the field-level `media-picker` component, renderer templates, and picker runtime used inside forms.
+- Host apps keep ownership of storage providers, upload workflows, delivery URL rules, and any CMS-specific normalization around persisted media values.
+
+That split keeps page-level media UX aligned with normal admin module/layout behavior while letting hosts keep app-specific delivery and persistence concerns out of core.
+
 ## URL Configuration
 
 `Config.URLs` is the canonical URL surface. It exposes separate namespaces for
