@@ -5,6 +5,7 @@ import (
 	"io/fs"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-admin/admin"
 	fggate "github.com/goliatone/go-featuregate/gate"
 	fgtemplates "github.com/goliatone/go-featuregate/templates"
 	router "github.com/goliatone/go-router"
@@ -20,6 +21,8 @@ type viewEngineOptions struct {
 	templateFuncs        map[string]any
 	featureGate          fggate.FeatureGate
 	featureHelperOptions []fgtemplates.HelperOption
+	translator           admin.Translator
+	defaultLocale        string
 	reload               bool
 	debug                bool
 	embed                bool
@@ -143,6 +146,29 @@ func WithViewURLResolver(urls urlkit.Resolver) ViewEngineOption {
 	}
 }
 
+// WithViewTranslator configures the default translation helpers exposed by the
+// quickstart view engine.
+func WithViewTranslator(translator admin.Translator) ViewEngineOption {
+	return func(opts *viewEngineOptions) {
+		if opts == nil || translator == nil {
+			return
+		}
+		opts.translator = translator
+	}
+}
+
+// WithViewDefaultLocale configures the fallback locale used by the default
+// translation helpers when templates are rendered without request locale
+// metadata.
+func WithViewDefaultLocale(locale string) ViewEngineOption {
+	return func(opts *viewEngineOptions) {
+		if opts == nil {
+			return
+		}
+		opts.defaultLocale = locale
+	}
+}
+
 // NewViewEngine builds a view engine with quickstart sidebar fallbacks.
 func NewViewEngine(baseFS fs.FS, opts ...ViewEngineOption) (fiber.Views, error) {
 	cfg, err := newViewEngineConfig(baseFS, opts...)
@@ -187,6 +213,8 @@ func newViewEngineConfig(baseFS fs.FS, opts ...ViewEngineOption) (*viewEngineCon
 			WithTemplateBasePath(options.basePath),
 			WithTemplateURLResolver(options.urls),
 			WithTemplateFeatureGate(options.featureGate, options.featureHelperOptions...),
+			WithTemplateTranslator(options.translator),
+			WithTemplateDefaultLocale(options.defaultLocale),
 		)
 	}
 
