@@ -62,12 +62,6 @@ func templateLocaleFromSubject(subject any, defaultLocale string) (string, bool)
 	switch typed := subject.(type) {
 	case nil:
 		return strings.TrimSpace(defaultLocale), false
-	case string:
-		candidate := strings.TrimSpace(typed)
-		if !looksLikeLocale(candidate) {
-			return strings.TrimSpace(defaultLocale), false
-		}
-		return candidate, true
 	case map[string]any:
 		if locale := localeFromTemplateMap(typed); locale != "" {
 			return locale, true
@@ -95,32 +89,6 @@ func localeFromTemplateMap(values map[string]any) string {
 		}
 	}
 	return ""
-}
-
-func looksLikeLocale(value string) bool {
-	if value == "" {
-		return false
-	}
-	parts := strings.FieldsFunc(value, func(r rune) bool {
-		return r == '-' || r == '_'
-	})
-	if len(parts) == 0 || len(parts) > 3 {
-		return false
-	}
-	for index, part := range parts {
-		if part == "" {
-			return false
-		}
-		if index == 0 && (len(part) < 2 || len(part) > 3) {
-			return false
-		}
-		for _, r := range part {
-			if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 func firstNonEmptyMapString(values map[string]string, keys ...string) string {
