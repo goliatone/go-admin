@@ -273,6 +273,17 @@ func allowPublicSiteReads(cfg Config) Config {
 	return cfg
 }
 
+type siteAPITranslatorStub struct {
+	values map[string]string
+}
+
+func (s siteAPITranslatorStub) Translate(locale, key string, args ...any) (string, error) {
+	if value, ok := s.values[strings.TrimSpace(locale)+":"+strings.TrimSpace(key)]; ok {
+		return value, nil
+	}
+	return key, nil
+}
+
 func TestSitePublicAPIContentRoutesAndQueryModel(t *testing.T) {
 	contentSvc := &siteAPIContentServiceStub{byLocale: map[string][]CMSContent{
 		"en": {
@@ -358,6 +369,50 @@ func TestSitePublicAPIContentRoutesAndQueryModel(t *testing.T) {
 	}
 	if got := legacySlug; got != "alpha" {
 		t.Fatalf("expected legacy detail slug alpha, got %q", got)
+	}
+}
+
+func TestSiteMenuRoutesUseConfiguredTranslatorForDisplayLabels(t *testing.T) {
+	menuSvc := &siteAPIMenuServiceStub{
+		byLocation: map[string]*Menu{
+			"site.main": {
+				Code:     "site_primary",
+				Location: "site.main",
+				Items: []MenuItem{
+					{ID: "home", LabelKey: "menu.home", Target: map[string]any{"url": "/"}},
+				},
+			},
+		},
+	}
+	adm, server := newSiteTestServerWithoutAuthorizer(t, allowPublicSiteReads(Config{BasePath: "/admin", DefaultLocale: "en"}), Dependencies{}, nil, menuSvc)
+	adm.WithTranslator(siteAPITranslatorStub{
+		values: map[string]string{
+			"es:menu.home": "Inicio",
+		},
+	})
+
+	path := mustResolveURL(t, adm.URLs(), publicAPIGroupName(adm.config), SiteRouteMenuByLocation, map[string]string{"location": "site.main"}, map[string]string{
+		"locale": "es",
+	})
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("site menu status=%d body=%s", res.Code, res.Body.String())
+	}
+
+	payload := decodeJSONMap(t, res)
+	data := extractMap(payload["data"])
+	items := extractListMaps(data["items"])
+	if len(items) != 1 {
+		t.Fatalf("expected one localized menu item, got %+v", data)
+	}
+	item := items[0]
+	if got := strings.TrimSpace(toString(item["label"])); got != "Inicio" {
+		t.Fatalf("expected translated label Inicio, got %+v", item)
+	}
+	if got := strings.TrimSpace(toString(item["label_key"])); got != "menu.home" {
+		t.Fatalf("expected label_key to be preserved, got %+v", item)
 	}
 }
 

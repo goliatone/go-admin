@@ -27,6 +27,44 @@ func (s *stubSuggestQuery) Query(_ context.Context, req searchtypes.SuggestReque
 	return s.result, nil
 }
 
+type stubHealthQuery struct {
+	last   searchtypes.HealthRequest
+	result searchtypes.HealthStatus
+}
+
+func (s *stubHealthQuery) Query(_ context.Context, req searchtypes.HealthRequest) (searchtypes.HealthStatus, error) {
+	s.last = req
+	return s.result, nil
+}
+
+type stubStatsQuery struct {
+	last   searchtypes.StatsRequest
+	result searchtypes.StatsResult
+}
+
+func (s *stubStatsQuery) Query(_ context.Context, req searchtypes.StatsRequest) (searchtypes.StatsResult, error) {
+	s.last = req
+	return s.result, nil
+}
+
+type stubEnsureCommand struct {
+	last searchtypes.EnsureIndexInput
+}
+
+func (s *stubEnsureCommand) Execute(_ context.Context, req searchtypes.EnsureIndexInput) error {
+	s.last = req
+	return nil
+}
+
+type stubReindexCommand struct {
+	last searchtypes.ReindexIndexInput
+}
+
+func (s *stubReindexCommand) Execute(_ context.Context, req searchtypes.ReindexIndexInput) error {
+	s.last = req
+	return nil
+}
+
 func TestGoSearchGlobalAdapterUsesGoSearchQuery(t *testing.T) {
 	search := &stubSearchQuery{
 		page: searchtypes.SearchResultPage{
@@ -128,5 +166,91 @@ func TestGoSearchSiteProviderTranslatesSearchAndSuggest(t *testing.T) {
 	}
 	if len(result.Suggestions) != 1 || suggest.last.Indexes[0] != "media" {
 		t.Fatalf("result=%#v request=%#v", result, suggest.last)
+	}
+}
+
+func TestGoSearchBundleBuildsSiteGlobalAndOperations(t *testing.T) {
+	search := &stubSearchQuery{}
+	suggest := &stubSuggestQuery{}
+	health := &stubHealthQuery{result: searchtypes.HealthStatus{Provider: "memory", Healthy: true}}
+	stats := &stubStatsQuery{result: searchtypes.StatsResult{Indexes: []searchtypes.IndexStats{{Name: "site_content", Documents: 3}}}}
+	ensure := &stubEnsureCommand{}
+	reindex := &stubReindexCommand{}
+
+	bundle := NewGoSearchBundle(GoSearchBundleConfig{
+		Search:         search,
+		Suggest:        suggest,
+		Health:         health,
+		Stats:          stats,
+		EnsureIndex:    ensure,
+		Reindex:        reindex,
+		Indexes:        []string{"site_content", "archive_media"},
+		PermissionName: "admin.search.view",
+		FallbackType:   "search",
+	})
+	if bundle == nil || bundle.SiteProvider == nil || bundle.GlobalAdapter == nil || bundle.Operations == nil {
+		t.Fatalf("expected complete bundle, got %#v", bundle)
+	}
+
+	_, _ = bundle.SiteProvider.Search(context.Background(), SearchRequest{Query: "ocean", Locale: "en"})
+	if len(search.last.Indexes) != 2 || search.last.Indexes[0] != "site_content" {
+		t.Fatalf("expected site provider indexes, got %#v", search.last.Indexes)
+	}
+	if bundle.GlobalAdapter.Permission() != "admin.search.view" {
+		t.Fatalf("permission = %q", bundle.GlobalAdapter.Permission())
+	}
+
+	if _, err := bundle.Operations.HealthStatus(context.Background()); err != nil {
+		t.Fatalf("health: %v", err)
+	}
+	if len(health.last.Indexes) != 2 || health.last.Indexes[1] != "archive_media" {
+		t.Fatalf("expected ops indexes, got %#v", health.last.Indexes)
+	}
+	if _, err := bundle.Operations.StatsSnapshot(context.Background()); err != nil {
+		t.Fatalf("stats: %v", err)
+	}
+	if err := bundle.Operations.Ensure(context.Background(), searchtypes.IndexDefinition{Name: "site_content"}); err != nil {
+		t.Fatalf("ensure: %v", err)
+	}
+	if ensure.last.Definition.Name != "site_content" {
+		t.Fatalf("ensure input = %#v", ensure.last)
+	}
+	if err := bundle.Operations.ReindexAll(context.Background(), "site_content", 200); err != nil {
+		t.Fatalf("reindex: %v", err)
+	}
+	if reindex.last.Index != "site_content" || reindex.last.BatchSize != 200 {
+		t.Fatalf("reindex input = %#v", reindex.last)
+	}
+}
+
+func TestGoSearchBundleAttachAdminSearchCanSetPrimary(t *testing.T) {
+	search := &stubSearchQuery{
+		page: searchtypes.SearchResultPage{
+			Hits: []searchtypes.SearchHit{{ID: "1", Type: "page", Title: "Ocean Wind"}},
+		},
+	}
+	bundle := NewGoSearchBundle(GoSearchBundleConfig{
+		Search:         search,
+		Suggest:        &stubSuggestQuery{},
+		Indexes:        []string{"site_content"},
+		PermissionName: "",
+		FallbackType:   "search",
+	})
+	if bundle == nil {
+		t.Fatal("expected bundle")
+	}
+
+	engine := NewSearchEngine(nil)
+	bundle.AttachAdminSearch(engine, "gosearch", true)
+
+	results, err := engine.Query(AdminContext{Context: context.Background()}, "ocean", 5)
+	if err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if len(results) != 1 || results[0].Title != "Ocean Wind" {
+		t.Fatalf("results=%#v", results)
+	}
+	if search.last.Indexes[0] != "site_content" {
+		t.Fatalf("request=%#v", search.last)
 	}
 }

@@ -204,6 +204,27 @@ func TestGoCMSMenuAdapterMenuByLocation(t *testing.T) {
 	}
 }
 
+func TestConvertPublicNavigationNodesPrefersDisplayLabelOverRawKeys(t *testing.T) {
+	items := convertPublicNavigationNodes([]cms.NavigationNode{{
+		Type:         MenuItemTypeItem,
+		Label:        "",
+		DisplayLabel: "Products",
+		LabelKey:     "menu.products",
+		URL:          "/products",
+		Metadata:     map[string]any{"path": "primary.products"},
+	}}, "primary", "")
+
+	if len(items) != 1 {
+		t.Fatalf("expected one converted item, got %d", len(items))
+	}
+	if items[0].Label != "Products" {
+		t.Fatalf("expected display label to be projected, got %q", items[0].Label)
+	}
+	if items[0].LabelKey != "menu.products" {
+		t.Fatalf("expected label key preserved, got %q", items[0].LabelKey)
+	}
+}
+
 func TestUseCMSUsesTypedContainerMenuService(t *testing.T) {
 	ctx := context.Background()
 	menuSvc := newStubCMSMenuService()

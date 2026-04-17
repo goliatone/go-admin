@@ -45,6 +45,9 @@ func TestSiteTemplateContextAddsRuntimeContract(t *testing.T) {
 	if got := anyString(runtime["content_kind"]); got != "search" {
 		t.Fatalf("expected content_kind=search, got %q", got)
 	}
+	if got := anyString(out["current_locale"]); got != "en" {
+		t.Fatalf("expected current_locale=en, got %q", got)
+	}
 	if got := anyString(runtime["page_kind"]); got != "search" {
 		t.Fatalf("expected page_kind=search, got %q", got)
 	}

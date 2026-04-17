@@ -8,6 +8,7 @@ import (
 	"testing/fstest"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/pkg/client"
 )
 
@@ -267,6 +268,31 @@ func TestSidebarTemplateUsesCompactIconWhenAvailable(t *testing.T) {
 		t.Fatalf("expected rendered sidebar to include expanded logo and compact icon, got %q", html)
 	}
 }
+
+func TestViewEngineConfigWiresTranslationHelpersFromOptions(t *testing.T) {
+	cfg, err := newViewEngineConfig(
+		fstest.MapFS{"templates/home.html": {Data: []byte("home")}},
+		WithViewTranslator(templateTranslatorStub{
+			values: map[string]string{
+				"en:menu.home": "Home",
+			},
+		}),
+		WithViewDefaultLocale("en"),
+	)
+	if err != nil {
+		t.Fatalf("newViewEngineConfig error: %v", err)
+	}
+
+	translate, ok := cfg.templateFuncs["translate"].(func(...any) string)
+	if !ok {
+		t.Fatalf("expected translate helper in template funcs, got %T", cfg.templateFuncs["translate"])
+	}
+	if got := translate("menu.home"); got != "Home" {
+		t.Fatalf("expected translated helper output Home, got %q", got)
+	}
+}
+
+var _ admin.Translator = templateTranslatorStub{}
 
 func TestSidebarTemplateFallsBackToLogoForCompactBrand(t *testing.T) {
 	hostFS := fstest.MapFS{

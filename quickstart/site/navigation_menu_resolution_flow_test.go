@@ -130,3 +130,61 @@ func TestNavigationResolvedMenuPayloadBuildsProjectedContract(t *testing.T) {
 		t.Fatalf("expected filtered/projected public menu item, got %+v", items)
 	}
 }
+
+func TestResolveNavigationMenuForLocationLocalizesKeyOnlyLabelsAndPreservesKeys(t *testing.T) {
+	runtime := &navigationRuntime{
+		siteCfg: ResolveSiteConfig(admin.Config{DefaultLocale: "en"}, SiteConfig{
+			Navigation: SiteNavigationConfig{
+				MainMenuLocation: "site.main",
+			},
+		}),
+		menuSvc: &siteNavigationMenuStub{
+			byLocation: map[string]*admin.Menu{
+				"site.main": {
+					Code:     "site_primary",
+					Location: "site.main",
+					Items: []admin.MenuItem{
+						{ID: "home", LabelKey: "menu.home", Target: map[string]any{"url": "/"}},
+					},
+				},
+			},
+		},
+		translator: siteNavigationTranslatorStub{
+			values: map[string]string{
+				"es:menu.home": "Inicio",
+			},
+		},
+	}
+
+	resolved := resolveNavigationMenuForLocation(
+		runtime,
+		context.Background(),
+		RequestState{Locale: "es"},
+		"site.main",
+		"/es",
+		navigationReadOptions{Locale: "es"},
+		false,
+	)
+
+	items := menuItemsFromContext(t, resolved["items"])
+	if len(items) != 1 {
+		t.Fatalf("expected one localized item, got %+v", resolved)
+	}
+	if got := menuItemLabel(items[0]); got != "Inicio" {
+		t.Fatalf("expected translated label Inicio, got %+v", items[0])
+	}
+	if got := stringsTrimSpace(anyString(items[0]["label_key"])); got != "menu.home" {
+		t.Fatalf("expected label_key to be preserved, got %+v", items[0])
+	}
+}
+
+type siteNavigationTranslatorStub struct {
+	values map[string]string
+}
+
+func (s siteNavigationTranslatorStub) Translate(locale, key string, args ...any) (string, error) {
+	if value, ok := s.values[locale+":"+key]; ok {
+		return value, nil
+	}
+	return key, nil
+}
