@@ -1,5 +1,59 @@
 # Changelog
 
+# [0.52.0](https://github.com/goliatone/go-admin/compare/v0.51.0...v0.52.0) - (2026-04-17)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Theme assets and assets include config values ([8136fcc](https://github.com/goliatone/go-admin/commit/8136fcc672b7816f5f1aac86471e6f162a6a9050))  - (goliatone)
+- Auth resolved assets ([9206cd4](https://github.com/goliatone/go-admin/commit/9206cd43152018f6ba63ab1342b93233e6bb5f14))  - (goliatone)
+- Handle empty assets in theme ([59830fd](https://github.com/goliatone/go-admin/commit/59830fdda7aa90ff30e89204e3d05adc766a4c91))  - (goliatone)
+- Code quality ([f21942d](https://github.com/goliatone/go-admin/commit/f21942d6a4d6679834ddcdd67bdc2c75769288a8))  - (goliatone)
+- Address media module and code quality ([71dcbd0](https://github.com/goliatone/go-admin/commit/71dcbd023c4089525c20fc4b4fe64e6ebc871c6c))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.52.0 ([abc0013](https://github.com/goliatone/go-admin/commit/abc00137009d6696715db84aa2c190f06c944e08))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Fallback locale to widget ([9ee0e29](https://github.com/goliatone/go-admin/commit/9ee0e29da8f3cbb8b6065eb2dfcbf02708b12247))  - (goliatone)
+- Widget locale support ([f637622](https://github.com/goliatone/go-admin/commit/f637622b7cca23d404605a48d9fc54eb192132bc))  - (goliatone)
+- Admin localize public menu ([83d2ac7](https://github.com/goliatone/go-admin/commit/83d2ac7d4ed2409ad07008d67114358bbcdc7a81))  - (goliatone)
+- Go search exposed; ([bca8225](https://github.com/goliatone/go-admin/commit/bca8225b6a461e38753ba319b168c8afcbb9d78a))  - (goliatone)
+- Search bundle facade ([c24d5d9](https://github.com/goliatone/go-admin/commit/c24d5d925dd30b3ba62a8d23c993825e2cf916d1))  - (goliatone)
+- Navigation projection translation ([70b87e2](https://github.com/goliatone/go-admin/commit/70b87e211686532e477d26f08b6c10048b4cbc25))  - (goliatone)
+- Template translate function ([59f3c3c](https://github.com/goliatone/go-admin/commit/59f3c3c6bc7654acd9b505067292b568d6e15f40))  - (goliatone)
+- View translator helper ([a08aa80](https://github.com/goliatone/go-admin/commit/a08aa806ac1a7d014972e3e6f7e224529dec9461))  - (goliatone)
+- Template translation helpers ([b28da47](https://github.com/goliatone/go-admin/commit/b28da477d6879cb06c85518a4392d9e920e869ef))  - (goliatone)
+- Menu localization handler ([73599d0](https://github.com/goliatone/go-admin/commit/73599d0b69138168af4cb1c066b01601af55a65c))  - (goliatone)
+- Side theme hardening ([74b4c45](https://github.com/goliatone/go-admin/commit/74b4c4516a777fb9fca84a9737de6ef207fa7dd5))  - (goliatone)
+- Theme selector tokens for sidebar ([59d27aa](https://github.com/goliatone/go-admin/commit/59d27aaaa5af94642528e9f1c1ed5250602903b9))  - (goliatone)
+- Theme assets URL handler ([321df3d](https://github.com/goliatone/go-admin/commit/321df3d8d0a40dffa6b95ff2798e83d9315ea4b1))  - (goliatone)
+- Media runtime assets ([52d6bc0](https://github.com/goliatone/go-admin/commit/52d6bc045dc7a093bcd2af94f87dabe750c864f9))  - (goliatone)
+
+## <!-- 22 -->🚧 WIP
+
+- Linting for code quality ([d7f6248](https://github.com/goliatone/go-admin/commit/d7f6248fc6eeb2d2316822a2bfb33752dba13122))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.51.0 ([73ff56c](https://github.com/goliatone/go-admin/commit/73ff56c858b86dd20b26d5b70e9fbad84a5b2310))  - (goliatone)
+
+## <!-- 30 -->📝 Other
+
+- Merge default url kit routes ([9ef5e39](https://github.com/goliatone/go-admin/commit/9ef5e3984ca2022f076d40da96250409c63f922a))  - (goliatone)
+- Remove LogoURL and FaviconURL ([d8a620c](https://github.com/goliatone/go-admin/commit/d8a620c6601c2d87883a93b9542ebc1167d8d683))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Udpate docs ([881eaed](https://github.com/goliatone/go-admin/commit/881eaedba0f3cb3da589beed9f5d14880e082016))  - (goliatone)
+- Code quality ([c1225d6](https://github.com/goliatone/go-admin/commit/c1225d64fbc90e8f3c5ff3d9a05d4072b12b1a86))  - (goliatone)
+- Update tests ([a9f81af](https://github.com/goliatone/go-admin/commit/a9f81afd46a97921d18b6aa484790cf7271bb2a7))  - (goliatone)
+- Update deps ([c746110](https://github.com/goliatone/go-admin/commit/c746110e64ee9e7b9279a70f2e2cb20aa806f8ba))  - (goliatone)
+- Udpate tests ([0c7b744](https://github.com/goliatone/go-admin/commit/0c7b7447a005be07c5a15b031320f9331a1b2074))  - (goliatone)
+- Update docs ([7fbb8d1](https://github.com/goliatone/go-admin/commit/7fbb8d126e673ef1a87edce10101f2189c3ac1eb))  - (goliatone)
+- Update examples ([39fd9be](https://github.com/goliatone/go-admin/commit/39fd9bebc55f7b490093c1f84501d70c82e36450))  - (goliatone)
+
 # [0.51.0](https://github.com/goliatone/go-admin/compare/v0.50.0...v0.51.0) - (2026-04-15)
 
 ## <!-- 1 -->🐛 Bug Fixes
