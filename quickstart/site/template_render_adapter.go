@@ -42,6 +42,11 @@ func siteTemplateContext(c router.Context, viewCtx router.ViewContext) router.Vi
 		"page_kind":             strings.TrimSpace(anyString(sitePage["kind"])),
 		"template_candidates":   cloneStrings(anyStringSlice(sitePage["template_candidates"])),
 	}
+	if currentLocale := strings.TrimSpace(anyString(ctx["resolved_locale"])); currentLocale != "" {
+		ctx["current_locale"] = currentLocale
+	} else if currentLocale := strings.TrimSpace(anyString(ctx["locale"])); currentLocale != "" {
+		ctx["current_locale"] = currentLocale
+	}
 	return ctx
 }
 
