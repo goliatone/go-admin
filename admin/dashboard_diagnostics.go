@@ -62,8 +62,9 @@ func (q *dashboardDiagnosticsQuery) Query(ctx context.Context, msg DashboardDiag
 	}
 
 	viewer := dashcmp.ViewerContext{
-		UserID: actorFromContext(ctx),
-		Locale: locale,
+		UserID:          actorFromContext(ctx),
+		Locale:          locale,
+		FallbackLocales: q.admin.dashboardFallbackLocales(locale),
 	}
 	diagnostics, err := q.admin.dash.runtime.Controller.Diagnostics(ctx, viewer)
 	if err != nil {
