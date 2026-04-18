@@ -228,6 +228,8 @@ github.com/goliatone/go-search v0.5.0 h1:6GJEMxYEGOgrR0attNs/E8FpyixTTEZkECDGuiH
 github.com/goliatone/go-search v0.5.0/go.mod h1:XBJV7Z9PqYjTZ4JXpug/xbBQvcjCHTldB20nkP4GadM=
 github.com/goliatone/go-search v0.6.0 h1:ynGyFAOy2nhYUlZfq1pRhnUUtONvTOe1qcn6WU2rxuw=
 github.com/goliatone/go-search v0.6.0/go.mod h1:BvWF/BxgqRM02fE02FgsXkhJvz/pxYBr+GipO7pvHB4=
+github.com/goliatone/go-search v0.7.0 h1:7CYP5a0bxL3dP/XYL3nmMIdQZ7cvXgzgOKZ0Rb+qIgc=
+github.com/goliatone/go-search v0.7.0/go.mod h1:BvWF/BxgqRM02fE02FgsXkhJvz/pxYBr+GipO7pvHB4=
 github.com/goliatone/go-search/adapters/goadmin v0.5.0 h1:sJgiY5YBX3GG8dlIvWA6PZiWgAI2lpY2Sy/+HS/xhx0=
 github.com/goliatone/go-search/adapters/goadmin v0.5.0/go.mod h1:u2O3dyz/WTp0r/mjTPKxS/a6LP03aG6lWue+8FCuCH8=
 github.com/goliatone/go-services v0.6.0 h1:26LMJxO1Nlw3x7d2XIcG1wsdgx2v1Tre/wAzKC77TMw=

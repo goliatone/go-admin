@@ -32,7 +32,7 @@ require (
 	github.com/goliatone/go-persistence-bun v0.14.0
 	github.com/goliatone/go-repository-bun v0.15.1
 	github.com/goliatone/go-router v0.57.0
-	github.com/goliatone/go-search v0.6.0
+	github.com/goliatone/go-search v0.7.0
 	github.com/goliatone/go-search/adapters/goadmin v0.5.0
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
