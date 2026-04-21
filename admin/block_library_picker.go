@@ -222,7 +222,7 @@ func (v *FormgenSchemaValidator) renderBlockTemplate(ctx context.Context, schema
 		formID = strings.TrimSpace(slug) + defaultFormIDOperationSuffix
 	}
 
-	doc, err := schemaDocumentFromMap(schema)
+	doc, err := schemaDocumentFromMap(prepareSchemaForFormgen(schema))
 	if err != nil {
 		return "", err
 	}
@@ -261,7 +261,7 @@ func (v *FormgenSchemaValidator) renderBlockTemplate(ctx context.Context, schema
 
 // blockLibraryRenderFunc builds a renderChild closure that uses the
 // FormgenSchemaValidator to render block definition schemas as HTML.
-func blockLibraryRenderFunc(ctx context.Context, validator *FormgenSchemaValidator) func(any) (string, error) {
+func blockLibraryRenderFunc(ctx context.Context, validator *FormgenSchemaValidator, admins ...*Admin) func(any) (string, error) {
 	return func(input any) (string, error) {
 		ri, ok := input.(blockLibraryRenderInput)
 		if !ok {
@@ -269,7 +269,11 @@ func blockLibraryRenderFunc(ctx context.Context, validator *FormgenSchemaValidat
 				"component": "block_library_picker",
 			})
 		}
-		return validator.renderBlockTemplate(ctx, ri.Schema, ri.Overlay, ri.Slug)
+		schema := deepCloneAnyMap(ri.Schema)
+		if len(admins) > 0 && admins[0] != nil {
+			admins[0].ApplyMediaSchemaHints(schema)
+		}
+		return validator.renderBlockTemplate(ctx, schema, ri.Overlay, ri.Slug)
 	}
 }
 
@@ -362,7 +366,7 @@ func (m *ContentTypeBuilderModule) blockDefinitionSingleTemplateHandler(admin *A
 		if err := ensureBlockDefinitionTemplateAllowed(adminCtx.Context, repo, slug, includeInactive); err != nil {
 			return writeError(c, err)
 		}
-		return writeBlockDefinitionTemplateResponse(c, adminCtx.Context, repo, []string{slug}, renderer, includeInactive)
+		return writeBlockDefinitionTemplateResponse(c, adminCtx.Context, admin, repo, []string{slug}, renderer, includeInactive)
 	}
 }
 
@@ -372,7 +376,7 @@ func (m *ContentTypeBuilderModule) blockDefinitionBatchTemplateHandler(admin *Ad
 		if err != nil {
 			return writeError(c, err)
 		}
-		return writeBlockDefinitionTemplateResponse(c, adminCtx.Context, repo, blockDefinitionTemplateSlugs(c.Query("slugs")), renderer, includeInactive)
+		return writeBlockDefinitionTemplateResponse(c, adminCtx.Context, admin, repo, blockDefinitionTemplateSlugs(c.Query("slugs")), renderer, includeInactive)
 	}
 }
 
@@ -397,8 +401,8 @@ func ensureBlockDefinitionTemplateAllowed(ctx context.Context, repo *CMSBlockDef
 	return nil
 }
 
-func writeBlockDefinitionTemplateResponse(c router.Context, ctx context.Context, repo *CMSBlockDefinitionRepository, slugs []string, renderer *FormgenSchemaValidator, includeInactive bool) error {
-	renderChild := blockLibraryRenderFunc(ctx, renderer)
+func writeBlockDefinitionTemplateResponse(c router.Context, ctx context.Context, admin *Admin, repo *CMSBlockDefinitionRepository, slugs []string, renderer *FormgenSchemaValidator, includeInactive bool) error {
+	renderChild := blockLibraryRenderFunc(ctx, renderer, admin)
 	defs, err := blockDefinitionsFromLibrary(ctx, repo, slugs, renderChild, includeInactive)
 	if err != nil {
 		return writeError(c, err)

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"maps"
 	"strings"
 
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -702,24 +703,34 @@ func applyMediaHints(schema *Schema, media *MediaConfig) {
 		if _, ok := prop["x-formgen:widget"]; !ok {
 			prop["x-formgen:widget"] = "media-picker"
 		}
-		valueMode := applyFormgenMediaHints(prop, media)
-		applyAdminMediaHints(prop, media, valueMode)
 	}
+	applyMediaSchemaHints(schema.FormSchema, media)
 }
 
-func applyFormgenMediaHints(prop map[string]any, media *MediaConfig) string {
+func applyFormgenMediaHints(prop map[string]any, media *MediaConfig, kinds ...string) string {
 	formgenMeta, _ := prop["x-formgen"].(map[string]any)
 	if formgenMeta == nil {
 		formgenMeta = map[string]any{}
 	}
+	kind := "media-picker"
+	if len(kinds) > 0 && strings.TrimSpace(kinds[0]) != "" {
+		kind = strings.TrimSpace(kinds[0])
+	}
 	if strings.TrimSpace(toString(formgenMeta["widget"])) == "" {
-		formgenMeta["widget"] = "media-picker"
+		if kind == "file-upload" {
+			formgenMeta["widget"] = "file_uploader"
+		} else {
+			formgenMeta["widget"] = "media-picker"
+		}
 	}
-	componentOptions, _ := formgenMeta["componentOptions"].(map[string]any)
-	if componentOptions == nil {
-		componentOptions = map[string]any{}
+	componentOptions := mergedFormgenMediaComponentOptions(formgenMeta)
+	if canonicalMediaSchemaKind(toString(componentOptions["variant"])) == "" {
+		if kind == "file-upload" {
+			componentOptions["variant"] = "file-upload"
+		} else {
+			componentOptions["variant"] = "media-picker"
+		}
 	}
-	componentOptions["variant"] = "media-picker"
 	componentOptions["libraryPath"] = media.LibraryPath
 	componentOptions["itemEndpoint"] = media.ItemPath
 	componentOptions["resolveEndpoint"] = media.ResolvePath
@@ -731,9 +742,24 @@ func applyFormgenMediaHints(prop map[string]any, media *MediaConfig) string {
 	if propType := strings.ToLower(strings.TrimSpace(toString(prop["type"]))); propType == "array" {
 		componentOptions["multiple"] = true
 	}
-	formgenMeta["componentOptions"] = componentOptions
+	formgenMeta["componentOptions"] = deepCloneAnyMap(componentOptions)
+	formgenMeta["component.config"] = deepCloneAnyMap(componentOptions)
 	prop["x-formgen"] = formgenMeta
 	return toString(componentOptions["valueMode"])
+}
+
+func mergedFormgenMediaComponentOptions(formgenMeta map[string]any) map[string]any {
+	merged := map[string]any{}
+	if formgenMeta == nil {
+		return merged
+	}
+	if componentOptions, ok := formgenMeta["componentOptions"].(map[string]any); ok && componentOptions != nil {
+		maps.Copy(merged, deepCloneAnyMap(componentOptions))
+	}
+	if componentConfig, ok := formgenMeta["component.config"].(map[string]any); ok && componentConfig != nil {
+		maps.Copy(merged, deepCloneAnyMap(componentConfig))
+	}
+	return merged
 }
 
 func applyAdminMediaHints(prop map[string]any, media *MediaConfig, valueMode string) {
@@ -772,6 +798,11 @@ func resolveMediaFieldValueMode(componentOptions map[string]any, prop map[string
 	candidates := []string{
 		toString(componentOptions["valueMode"]),
 		toString(componentOptions["value_mode"]),
+	}
+	if formgenMeta, ok := prop["x-formgen"].(map[string]any); ok {
+		if componentConfig, ok := formgenMeta["component.config"].(map[string]any); ok {
+			candidates = append(candidates, toString(componentConfig["valueMode"]), toString(componentConfig["value_mode"]))
+		}
 	}
 	if adminMeta, ok := prop["x-admin"].(map[string]any); ok {
 		if mediaMeta, ok := adminMeta["media"].(map[string]any); ok {
