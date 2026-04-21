@@ -616,6 +616,42 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 				},
 			},
 		},
+		"media_gallery": map[string]any{
+			"type":     "object",
+			"required": []string{"_type", "images"},
+			"x-formgen": map[string]any{
+				"label": "Media Gallery",
+				"icon":  "media-gallery",
+			},
+			"properties": map[string]any{
+				"_type": map[string]any{
+					"const": "media_gallery",
+					"x-formgen": map[string]any{
+						"readonly": true,
+					},
+				},
+				"images": map[string]any{
+					"type": "array",
+					"items": map[string]any{
+						"type":   "string",
+						"format": "uri",
+					},
+					"x-formgen": map[string]any{
+						"widget": "media-picker",
+						"componentOptions": map[string]any{
+							"variant":   "media-picker",
+							"multiple":  true,
+							"valueMode": "url",
+						},
+					},
+					"x-admin": map[string]any{
+						"media": map[string]any{
+							"valueMode": "url",
+						},
+					},
+				},
+			},
+		},
 	}
 	pageSchema := map[string]any{
 		"$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -678,6 +714,7 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 					"oneOf": []any{
 						map[string]any{"$ref": "#/$defs/hero"},
 						map[string]any{"$ref": "#/$defs/rich_text"},
+						map[string]any{"$ref": "#/$defs/media_gallery"},
 					},
 				},
 			},

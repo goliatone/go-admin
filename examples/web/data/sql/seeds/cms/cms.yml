@@ -88,6 +88,33 @@
                 type: "string"
                 x-formgen:
                   widget: "wysiwyg"
+          media_gallery:
+            type: "object"
+            required:
+              - "_type"
+              - "images"
+            x-formgen:
+              label: "Media Gallery"
+              icon: "media-gallery"
+            properties:
+              _type:
+                const: "media_gallery"
+                x-formgen:
+                  readonly: true
+              images:
+                type: "array"
+                items:
+                  type: "string"
+                  format: "uri"
+                x-formgen:
+                  widget: "media-picker"
+                  componentOptions:
+                    variant: "media-picker"
+                    multiple: true
+                    valueMode: "url"
+                x-admin:
+                  media:
+                    valueMode: "url"
         properties:
           title:
             type: "string"
@@ -136,6 +163,7 @@
               oneOf:
                 - "$ref": "#/$defs/hero"
                 - "$ref": "#/$defs/rich_text"
+                - "$ref": "#/$defs/media_gallery"
       capabilities:
         translations: true
         seo: true
