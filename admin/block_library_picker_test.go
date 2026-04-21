@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -940,6 +941,50 @@ func TestBlockLibraryRenderFunc_NilValidator(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error for nil validator")
+	}
+}
+
+func TestBlockLibraryRenderFuncEnrichesMediaFields(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureMedia),
+	})
+	validator, err := NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("new validator: %v", err)
+	}
+	renderChild := blockLibraryRenderFunc(context.Background(), validator, adm)
+	html, err := renderChild(blockLibraryRenderInput{
+		Slug: "gallery_block",
+		Schema: map[string]any{
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type":    "object",
+			"properties": map[string]any{
+				"images": map[string]any{
+					"type": "array",
+					"items": map[string]any{
+						"type": "string",
+					},
+					"x-formgen": map[string]any{
+						"widget": "media-picker",
+						"componentOptions": map[string]any{
+							"multiple": true,
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("render block template: %v", err)
+	}
+	if !strings.Contains(html, `data-component="media_picker"`) {
+		t.Fatalf("expected media picker component in block template, got:\n%s", html)
+	}
+	if !strings.Contains(html, `/admin/api/media/library`) || !strings.Contains(html, `capabilitiesEndpoint`) {
+		t.Fatalf("expected media endpoint hints in block template, got:\n%s", html)
+	}
+	if !strings.Contains(html, `multiple`) {
+		t.Fatalf("expected gallery multiple hint in block template, got:\n%s", html)
 	}
 }
 

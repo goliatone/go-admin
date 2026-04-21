@@ -1,6 +1,10 @@
 package quickstart
 
-import "testing"
+import (
+	"testing"
+
+	router "github.com/goliatone/go-router"
+)
 
 func TestParseMultiValueScalarCollapsesIdenticalDuplicates(t *testing.T) {
 	value, err := parseMultiValue([]string{"temp_123", "temp_123"}, schemaPathInfo{})
@@ -45,5 +49,68 @@ func TestParseMultiValueArrayRemainsArray(t *testing.T) {
 	second, ok := values[1].(int)
 	if !ok || second != 2 {
 		t.Fatalf("expected second value 2, got %#v", values[1])
+	}
+}
+
+func TestParseFormPayloadNormalizesRepeatedArrayFieldSuffix(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte("gallery%5B%5D=/media/1.jpg&gallery%5B%5D=/media/2.jpg&hero=/media/hero.jpg"))
+	h := &contentEntryHandlers{}
+	record, err := h.parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"hero": map[string]any{
+				"type": "string",
+			},
+			"gallery": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "string",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	gallery, ok := record["gallery"].([]any)
+	if !ok {
+		t.Fatalf("expected gallery array, got %#v", record["gallery"])
+	}
+	if len(gallery) != 2 || gallery[0] != "/media/1.jpg" || gallery[1] != "/media/2.jpg" {
+		t.Fatalf("expected ordered gallery values, got %#v", gallery)
+	}
+	if _, exists := record["gallery[]"]; exists {
+		t.Fatalf("did not expect raw gallery[] key in record: %#v", record)
+	}
+	if got := record["hero"]; got != "/media/hero.jpg" {
+		t.Fatalf("expected scalar hero value, got %#v", got)
+	}
+}
+
+func TestParseFormPayloadNormalizesSingleArrayFieldSuffixValue(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte("gallery%5B%5D=/media/solo.jpg"))
+	h := &contentEntryHandlers{}
+	record, err := h.parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"gallery": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "string",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	gallery, ok := record["gallery"].([]any)
+	if !ok {
+		t.Fatalf("expected gallery array, got %#v", record["gallery"])
+	}
+	if len(gallery) != 1 || gallery[0] != "/media/solo.jpg" {
+		t.Fatalf("expected one-item gallery array, got %#v", gallery)
 	}
 }
