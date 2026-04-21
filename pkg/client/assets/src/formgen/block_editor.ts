@@ -186,6 +186,9 @@ function readArrayFieldValues(elements: Array<HTMLInputElement | HTMLSelectEleme
       values.push(...Array.from(element.selectedOptions).map((opt) => opt.value));
       return;
     }
+    if (element instanceof HTMLInputElement && element.type === 'hidden' && element.value.trim() === '') {
+      return;
+    }
     values.push(element.value);
   });
   return values;
@@ -193,6 +196,18 @@ function readArrayFieldValues(elements: Array<HTMLInputElement | HTMLSelectEleme
 
 function stripArrayFieldSuffix(raw: string): string {
   return raw.endsWith('[]') ? raw.slice(0, -2) : raw;
+}
+
+function fieldComponentConfig(field: Element): Record<string, any> {
+  const configRoot = field.closest<HTMLElement>('[data-component-config]');
+  const parsed = parseConfig(configRoot?.getAttribute('data-component-config') ?? null);
+  return parsed as Record<string, any>;
+}
+
+function isArrayFieldForCollection(field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, key: string): boolean {
+  if (key.endsWith('[]') || field.name.endsWith('[]')) return true;
+  const config = fieldComponentConfig(field);
+  return config.multiple === true || config.multiple === 'true';
 }
 
 function setFieldValue(element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, value: any): void {
@@ -759,7 +774,8 @@ function collectBlockData(item: HTMLElement): Record<string, any> {
   item.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea').forEach((field) => {
     const key = field.getAttribute('data-block-field-name') || field.name;
     if (!key || field.dataset.blockIgnore === 'true') return;
-    const arrayField = key.endsWith('[]') || field.name.endsWith('[]');
+    const arrayField = isArrayFieldForCollection(field, key);
+    if (arrayField && field instanceof HTMLInputElement && field.type === 'hidden' && field.value.trim() === '') return;
     if (field instanceof HTMLInputElement && field.type === 'checkbox') {
       assignBlockFieldValue(data, key, field.checked, arrayField);
     } else if (field instanceof HTMLSelectElement && field.multiple) {
@@ -927,7 +943,7 @@ export function initBlockEditor(root: HTMLElement): void {
         groups.get(key)!.push(field);
       });
       groups.forEach((group, key) => {
-        const arrayField = key.endsWith('[]') || group.some((field) => field.name.endsWith('[]'));
+        const arrayField = group.some((field) => isArrayFieldForCollection(field, key));
         const value = arrayField ? readArrayFieldValues(group) : readFieldValue(group);
         if (value !== undefined) {
           setByPath(data, stripArrayFieldSuffix(key), value);
