@@ -99,6 +99,38 @@ test('block editor adds blocks and serializes values', () => {
   assert.equal(typeInput.readOnly, true);
 });
 
+test('block editor serializes media gallery hidden inputs as an ordered array', () => {
+  const dom = setupEditor(`
+    <form>
+      <div data-block-editor data-block-sortable="true">
+        <div data-block-empty></div>
+        <div data-block-list></div>
+        <input type="hidden" name="blocks" data-block-output value="" />
+        <select data-block-add-select></select>
+        <button type="button" data-block-add>Add</button>
+        <template data-block-template data-block-type="media_gallery" data-block-label="Media Gallery">
+          <input type="hidden" name="images[]" value="/media/1.jpg" />
+          <input type="hidden" name="images[]" value="/media/2.jpg" />
+        </template>
+      </div>
+    </form>
+  `);
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const select = doc.querySelector('[data-block-add-select]');
+  const addButton = doc.querySelector('[data-block-add]');
+
+  select.value = 'media_gallery';
+  click(addButton);
+
+  const payload = getOutputPayload(doc);
+  assert.equal(payload.length, 1);
+  assert.equal(payload[0]._type, 'media_gallery');
+  assert.deepEqual(payload[0].images, ['/media/1.jpg', '/media/2.jpg']);
+  assert.equal(payload[0]['images[]'], undefined);
+});
+
 test('block editor supports collapse and removal', () => {
   const dom = setupEditor(editorMarkup());
   initBlockEditors(dom.window.document);

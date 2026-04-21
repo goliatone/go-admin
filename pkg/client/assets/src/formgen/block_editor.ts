@@ -175,6 +175,26 @@ function readFieldValue(elements: Array<HTMLInputElement | HTMLSelectElement | H
   return first.value;
 }
 
+function readArrayFieldValues(elements: Array<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>): any[] {
+  const values: any[] = [];
+  elements.forEach((element) => {
+    if (element instanceof HTMLInputElement && element.type === 'checkbox') {
+      if (element.checked) values.push(element.value);
+      return;
+    }
+    if (element instanceof HTMLSelectElement && element.multiple) {
+      values.push(...Array.from(element.selectedOptions).map((opt) => opt.value));
+      return;
+    }
+    values.push(element.value);
+  });
+  return values;
+}
+
+function stripArrayFieldSuffix(raw: string): string {
+  return raw.endsWith('[]') ? raw.slice(0, -2) : raw;
+}
+
 function setFieldValue(element: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, value: any): void {
   if (value == null) return;
   if (element instanceof HTMLInputElement) {
@@ -739,17 +759,37 @@ function collectBlockData(item: HTMLElement): Record<string, any> {
   item.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea').forEach((field) => {
     const key = field.getAttribute('data-block-field-name') || field.name;
     if (!key || field.dataset.blockIgnore === 'true') return;
+    const arrayField = key.endsWith('[]') || field.name.endsWith('[]');
     if (field instanceof HTMLInputElement && field.type === 'checkbox') {
-      data[key] = field.checked;
+      assignBlockFieldValue(data, key, field.checked, arrayField);
     } else if (field instanceof HTMLSelectElement && field.multiple) {
-      data[key] = Array.from(field.selectedOptions).map((opt) => opt.value);
+      assignBlockFieldValue(data, key, Array.from(field.selectedOptions).map((opt) => opt.value), false);
     } else {
-      data[key] = field.value;
+      assignBlockFieldValue(data, key, field.value, arrayField);
     }
   });
   data._type = item.dataset.blockType || '';
   data._schema = item.dataset.blockSchema || '';
   return data;
+}
+
+function assignBlockFieldValue(data: Record<string, any>, rawKey: string, value: any, arrayField: boolean): void {
+  const key = rawKey.endsWith('[]') ? rawKey.slice(0, -2) : rawKey;
+  if (!key) return;
+  if (!arrayField) {
+    data[key] = value;
+    return;
+  }
+  const existing = data[key];
+  if (Array.isArray(existing)) {
+    existing.push(value);
+    return;
+  }
+  if (existing !== undefined) {
+    data[key] = [existing, value];
+    return;
+  }
+  data[key] = [value];
 }
 
 /**
@@ -887,9 +927,10 @@ export function initBlockEditor(root: HTMLElement): void {
         groups.get(key)!.push(field);
       });
       groups.forEach((group, key) => {
-        const value = readFieldValue(group);
+        const arrayField = key.endsWith('[]') || group.some((field) => field.name.endsWith('[]'));
+        const value = arrayField ? readArrayFieldValues(group) : readFieldValue(group);
         if (value !== undefined) {
-          setByPath(data, key, value);
+          setByPath(data, stripArrayFieldSuffix(key), value);
         }
       });
       const blockType = item.dataset.blockType || data._type || '';

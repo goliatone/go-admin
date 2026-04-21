@@ -53,6 +53,10 @@ func (h *contentEntryHandlers) renderForm(
 	if schema == nil {
 		return admin.ErrNotFound
 	}
+	if h.admin != nil {
+		schema = deepCloneAnyMap(schema)
+		h.admin.ApplyMediaSchemaHints(schema)
+	}
 	uiSchema := contentTypeUISchema(contentType)
 	opts := admin.SchemaValidationOptions{
 		Slug:     formAction,
@@ -148,19 +152,20 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 		if len(vals) == 0 {
 			continue
 		}
-		schemaDef := schemaMap[key]
-		if len(vals) > 1 {
+		fieldKey, submittedArray := normalizeSubmittedArrayFieldName(key, schemaMap)
+		schemaDef := schemaMap[fieldKey]
+		if len(vals) > 1 || (submittedArray && strings.TrimSpace(schemaDef.Type) == "array") {
 			value, err := parseMultiValue(vals, schemaDef)
 			if err != nil {
-				return nil, goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(key)), goerrors.CategoryValidation).
+				return nil, goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(fieldKey)), goerrors.CategoryValidation).
 					WithCode(http.StatusBadRequest).
 					WithTextCode("INVALID_FORM")
 			}
-			setNestedValue(record, key, value)
+			setNestedValue(record, fieldKey, value)
 			continue
 		}
 		value := parseValue(vals[0], schemaDef)
-		setNestedValue(record, key, value)
+		setNestedValue(record, fieldKey, value)
 	}
 	for _, path := range boolPaths {
 		if !hasNestedValue(record, path) {
@@ -168,6 +173,18 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 		}
 	}
 	return record, nil
+}
+
+func normalizeSubmittedArrayFieldName(key string, schemaMap map[string]schemaPathInfo) (string, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" || !strings.HasSuffix(key, "[]") {
+		return key, false
+	}
+	candidate := strings.TrimSuffix(key, "[]")
+	if info, ok := schemaMap[candidate]; ok && strings.TrimSpace(info.Type) == "array" {
+		return candidate, true
+	}
+	return key, false
 }
 
 func isMultipartFormRequest(c router.Context) bool {
