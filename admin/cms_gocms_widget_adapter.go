@@ -527,16 +527,26 @@ func (a *GoCMSWidgetAdapter) resolveAreaInstances(ctx context.Context, filter Wi
 	out := make([]WidgetInstance, 0, len(resolved))
 	for _, entry := range resolved {
 		inst := cmsadapter.ConvertGoCMSResolvedWidget(entry)
-		if entry != nil && entry.Instance != nil {
-			if code, ok := a.definitionCode(entry.Instance.DefinitionID); ok {
-				inst.DefinitionCode = code
-			} else if code, err := a.resolveDefinitionCodeByID(ctx, entry.Instance.DefinitionID); err == nil && strings.TrimSpace(code) != "" {
-				inst.DefinitionCode = code
-			}
+		if code := a.resolveEntryDefinitionCode(ctx, entry); code != "" {
+			inst.DefinitionCode = code
 		}
 		out = append(out, inst)
 	}
 	return out, nil
+}
+
+func (a *GoCMSWidgetAdapter) resolveEntryDefinitionCode(ctx context.Context, entry *cmswidgets.ResolvedWidget) string {
+	if entry == nil || entry.Instance == nil {
+		return ""
+	}
+	if code, ok := a.definitionCode(entry.Instance.DefinitionID); ok {
+		return code
+	}
+	code, err := a.resolveDefinitionCodeByID(ctx, entry.Instance.DefinitionID)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(code)
 }
 
 func (a *GoCMSWidgetAdapter) resolveFallbackLocaleIDs(ctx context.Context, filter WidgetInstanceFilter) []uuid.UUID {

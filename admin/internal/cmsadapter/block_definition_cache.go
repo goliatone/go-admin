@@ -101,7 +101,7 @@ func CacheKey(env, key string) string {
 }
 
 func BlockDefinitionChannel(def cmsboot.CMSBlockDefinition) string {
-	return strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Channel, def.Environment))
+	return strings.TrimSpace(primitives.FirstNonEmptyRaw(def.Channel, legacyStringField(def, "Environment")))
 }
 
 func SetBlockDefinitionChannel(def *cmsboot.CMSBlockDefinition, channel string) {
@@ -110,7 +110,7 @@ func SetBlockDefinitionChannel(def *cmsboot.CMSBlockDefinition, channel string) 
 	}
 	channel = strings.TrimSpace(channel)
 	def.Channel = channel
-	def.Environment = channel
+	setLegacyStringField(def, "Environment", channel)
 }
 
 func NewBlockDefinitionCacheEntry(def cmsboot.CMSBlockDefinition, id uuid.UUID, env string, includeGlobal bool) BlockDefinitionCacheEntry {

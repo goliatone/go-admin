@@ -226,21 +226,8 @@ func mergeURLKitGroupConfig(manager *urlkit.RouteManager, parentPath string, cfg
 		return err
 	}
 	if group != nil {
-		if template := strings.TrimSpace(cfg.URLTemplate); template != "" {
-			if setErr := group.SetURLTemplate(template); setErr != nil {
-				return setErr
-			}
-		}
-		for key, value := range cfg.TemplateVars {
-			if setErr := group.SetTemplateVar(key, value); setErr != nil {
-				return setErr
-			}
-		}
-		routes := missingURLKitRoutes(group, cfg)
-		if len(routes) > 0 {
-			if _, _, addErr := manager.AddRoutes(groupPath, routes); addErr != nil {
-				return addErr
-			}
+		if err := applyURLKitGroupConfig(manager, group, groupPath, cfg); err != nil {
+			return err
 		}
 	}
 
@@ -250,6 +237,25 @@ func mergeURLKitGroupConfig(manager *urlkit.RouteManager, parentPath string, cfg
 		}
 	}
 	return nil
+}
+
+func applyURLKitGroupConfig(manager *urlkit.RouteManager, group *urlkit.Group, groupPath string, cfg urlkit.GroupConfig) error {
+	if template := strings.TrimSpace(cfg.URLTemplate); template != "" {
+		if setErr := group.SetURLTemplate(template); setErr != nil {
+			return setErr
+		}
+	}
+	for key, value := range cfg.TemplateVars {
+		if setErr := group.SetTemplateVar(key, value); setErr != nil {
+			return setErr
+		}
+	}
+	routes := missingURLKitRoutes(group, cfg)
+	if len(routes) == 0 {
+		return nil
+	}
+	_, _, err := manager.AddRoutes(groupPath, routes)
+	return err
 }
 
 func ensureURLKitGroup(manager *urlkit.RouteManager, parentPath string, cfg urlkit.GroupConfig) (*urlkit.Group, error) {
