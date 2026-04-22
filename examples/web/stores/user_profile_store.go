@@ -592,7 +592,7 @@ func applyProfileFilters(records []*usersprofile.Record, filters map[string]any)
 			email = asString(rec.Contact["email"], "")
 		}
 		if len(globalSearch) > 0 {
-			if !(matchAny(rec.DisplayName, globalSearch) || matchAny(email, globalSearch) || matchAny(rec.Bio, globalSearch)) {
+			if !matchAny(rec.DisplayName, globalSearch) && !matchAny(email, globalSearch) && !matchAny(rec.Bio, globalSearch) {
 				continue
 			}
 		} else {

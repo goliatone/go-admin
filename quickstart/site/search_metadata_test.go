@@ -37,7 +37,7 @@ func TestSearchPageResponseMeta(t *testing.T) {
 		Query:   "archive",
 		Locale:  "es",
 		Sort:    "published_at:desc",
-		Filters: map[string][]string{"content_type": []string{"post"}},
+		Filters: map[string][]string{"content_type": {"post"}},
 		Ranges:  []admin.SearchRange{{Field: "published_year", GTE: 2024}},
 	}, []string{"content_type"}, []string{"media"}, &searchLandingState{Slug: "architecture"})
 
@@ -63,7 +63,7 @@ func TestSearchSuggestResponseMeta(t *testing.T) {
 	meta := searchSuggestResponseMeta(admin.SuggestRequest{
 		Query:   "hel",
 		Locale:  "en",
-		Filters: map[string][]string{"content_type": []string{"post"}},
+		Filters: map[string][]string{"content_type": {"post"}},
 	}, []string{"media"})
 
 	if got := anyString(meta["query"]); got != "hel" {

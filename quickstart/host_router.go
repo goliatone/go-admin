@@ -245,7 +245,7 @@ func (r hostSiteSurfaceRouter[T]) PublicAPIRouter() router.Router[T] {
 func (r hostSiteSurfaceRouter[T]) Group(prefix string) router.Router[T] {
 	return &hostSiteSurfaceRouter[T]{
 		hostSurfaceRouter: hostSurfaceRouter[T]{
-			router:      r.hostSurfaceRouter.router.Group(prefix),
+			router:      r.router.Group(prefix),
 			scopePrefix: joinHostScopePrefix(r.scopePrefix, prefix),
 			validator:   r.validator,
 			middlewares: append([]router.MiddlewareFunc{}, r.middlewares...),
@@ -257,7 +257,7 @@ func (r hostSiteSurfaceRouter[T]) Group(prefix string) router.Router[T] {
 func (r hostSiteSurfaceRouter[T]) Mount(prefix string) router.Router[T] {
 	return &hostSiteSurfaceRouter[T]{
 		hostSurfaceRouter: hostSurfaceRouter[T]{
-			router:      r.hostSurfaceRouter.router.Mount(prefix),
+			router:      r.router.Mount(prefix),
 			scopePrefix: joinHostScopePrefix(r.scopePrefix, prefix),
 			validator:   r.validator,
 			middlewares: append([]router.MiddlewareFunc{}, r.middlewares...),
@@ -275,8 +275,8 @@ func (r hostSiteSurfaceRouter[T]) WithGroup(groupPath string, cb func(router.Rou
 }
 
 func (r *hostSiteSurfaceRouter[T]) Use(m ...router.MiddlewareFunc) router.Router[T] {
-	r.hostSurfaceRouter.router = r.hostSurfaceRouter.router.Use(m...)
-	r.hostSurfaceRouter.middlewares = append(r.hostSurfaceRouter.middlewares, m...)
+	r.router = r.router.Use(m...)
+	r.middlewares = append(r.middlewares, m...)
 	return r
 }
 
@@ -395,7 +395,7 @@ func (r hostSurfaceRouter[T]) WithLogger(logger router.Logger) router.Router[T] 
 func (r hostSiteSurfaceRouter[T]) WithLogger(logger router.Logger) router.Router[T] {
 	return &hostSiteSurfaceRouter[T]{
 		hostSurfaceRouter: hostSurfaceRouter[T]{
-			router:      r.hostSurfaceRouter.router.WithLogger(logger),
+			router:      r.router.WithLogger(logger),
 			scopePrefix: r.scopePrefix,
 			validator:   r.validator,
 			middlewares: append([]router.MiddlewareFunc{}, r.middlewares...),

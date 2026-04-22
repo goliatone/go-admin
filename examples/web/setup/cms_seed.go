@@ -1812,7 +1812,7 @@ func updatePageParents(ctx context.Context, db *bun.DB, parents map[string]strin
 	}
 
 	var rows []pageRow
-	if err := db.NewSelect().Model(&rows).Where("slug IN (?)", bun.In(slugs)).Scan(ctx); err != nil {
+	if err := db.NewSelect().Model(&rows).Where("slug IN (?)", bun.List(slugs)).Scan(ctx); err != nil {
 		return err
 	}
 	lookup := map[string]pageRow{}

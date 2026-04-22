@@ -224,13 +224,15 @@ func TestMergeWorkflowConfigsOverrideWins(t *testing.T) {
 
 func TestValidateWorkflowTraitDefaultsReferencesRejectsUnknownWorkflow(t *testing.T) {
 	engine := admin.NewFSMWorkflowEngine()
-	engine.RegisterWorkflow("editorial.default", admin.WorkflowDefinition{
+	if err := engine.RegisterWorkflow("editorial.default", admin.WorkflowDefinition{
 		EntityType:   "editorial.default",
 		InitialState: "draft",
 		Transitions: []admin.WorkflowTransition{
 			{Name: "publish", From: "draft", To: "published"},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("register workflow: %v", err)
+	}
 
 	err := validateWorkflowTraitDefaultsReferences(
 		map[string]string{"editorial": "editorial.news"},

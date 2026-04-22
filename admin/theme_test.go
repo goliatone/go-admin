@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"os"
@@ -308,8 +309,7 @@ func TestConfigThemeTokensOverrideProviderThemePayload(t *testing.T) {
 	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAdminTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
 
-	//nolint:staticcheck // ThemePayload explicitly tolerates nil context in this contract test.
-	payload := adm.ThemePayload(nil)
+	payload := adm.ThemePayload(context.Background())
 	if got := payload["tokens"]["primary"]; got != "#111111" {
 		t.Fatalf("expected config token primary to override provider, got %q", got)
 	}
@@ -356,7 +356,7 @@ func TestConfigThemeAssetsOverrideProviderBeforeLegacyURLs(t *testing.T) {
 	adm := mustNewAdmin(t, cfg, Dependencies{})
 	adm.WithAdminTheme(theme.Selector{Registry: registry, DefaultTheme: cfg.Theme, DefaultVariant: cfg.ThemeVariant})
 
-	payload := adm.ThemePayload(nil)
+	payload := adm.ThemePayload(context.Background())
 	if got := payload["assets"]["logo"]; got != "/legacy/logo.svg" {
 		t.Fatalf("expected legacy LogoURL to win for logo, got %q", got)
 	}

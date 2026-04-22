@@ -123,10 +123,7 @@ func deliverySlugMatches(record admin.CMSContent, slug string, capability delive
 		return true
 	}
 	path := strings.Trim(strings.ToLower(strings.TrimSpace(recordDeliveryPath(record, capability))), "/")
-	if path == slug {
-		return true
-	}
-	return false
+	return path == slug
 }
 
 func contentIdentityKey(record admin.CMSContent, capability deliveryCapability) string {

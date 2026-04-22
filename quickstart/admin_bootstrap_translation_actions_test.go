@@ -36,14 +36,16 @@ func TestNewAdminConfiguresCreateTranslationActionLocalesFromPolicy(t *testing.T
 
 	workflow := admin.NewFSMWorkflowEngine()
 	admin.RegisterDefaultCMSWorkflows(workflow)
-	workflow.RegisterWorkflow("posts", admin.WorkflowDefinition{
+	if err := workflow.RegisterWorkflow("posts", admin.WorkflowDefinition{
 		EntityType:   "posts",
 		InitialState: "draft",
 		Transitions: []admin.WorkflowTransition{
 			{Name: "submit_for_approval", From: "draft", To: "approval"},
 			{Name: "publish", From: "approval", To: "published"},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("register workflow: %v", err)
+	}
 	adm.WithWorkflow(workflow)
 
 	factory := admin.NewDynamicPanelFactory(adm)

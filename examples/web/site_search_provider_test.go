@@ -59,7 +59,7 @@ func TestExampleSiteSearchProviderSearchAndSuggest(t *testing.T) {
 		Query:   "runtime",
 		Page:    1,
 		PerPage: 10,
-		Filters: map[string][]string{"content_type": []string{"post", "news"}},
+		Filters: map[string][]string{"content_type": {"post", "news"}},
 	})
 	if err != nil {
 		t.Fatalf("search: %v", err)

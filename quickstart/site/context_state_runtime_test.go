@@ -8,7 +8,7 @@ import (
 )
 
 func TestRequestStateFromContextHandlesNilInvalidAndStoredState(t *testing.T) {
-	if _, ok := RequestStateFromContext(nil); ok {
+	if _, ok := RequestStateFromContext(nil); ok { //nolint:staticcheck // Verifies nil context compatibility handling.
 		t.Fatalf("expected nil context lookup to fail")
 	}
 

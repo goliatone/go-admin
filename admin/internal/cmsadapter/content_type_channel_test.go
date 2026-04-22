@@ -15,7 +15,6 @@ func TestContentTypeChannelHelpersPreserveLegacyEnvironmentMirror(t *testing.T) 
 	}
 
 	SetContentTypeChannel(&ct, "preview")
-	//nolint:staticcheck // Test verifies legacy Environment synchronization for compatibility helpers.
 	if ct.Channel != "preview" || ct.Environment != "preview" {
 		t.Fatalf("expected channel/environment to stay synchronized, got %+v", ct)
 	}

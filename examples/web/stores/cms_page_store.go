@@ -463,7 +463,7 @@ func protectedHomePageMutationError(record map[string]any, action string) error 
 	path := strings.TrimSpace(asString(record["path"], ""))
 	slug := strings.ToLower(strings.TrimSpace(asString(record["slug"], "")))
 	parentID := strings.TrimSpace(asString(record["parent_id"], ""))
-	if path != "/" && !(slug == "home" && parentID == "") {
+	if path != "/" && (slug != "home" || parentID != "") {
 		return nil
 	}
 
@@ -582,7 +582,7 @@ func (s *CMSPageStore) pagePayload(record map[string]any, existing map[string]an
 		payloadData := payload["data"].(map[string]any)
 		payloadData["workflow_status"] = workflowStatus
 	}
-	if publishedAt.IsZero() == false {
+	if !publishedAt.IsZero() {
 		payloadData := payload["data"].(map[string]any)
 		payloadData["published_at"] = publishedAt
 	}

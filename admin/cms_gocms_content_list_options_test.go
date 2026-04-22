@@ -209,7 +209,17 @@ func TestGoCMSContentAdapterContentUsesDerivedFieldsProjection(t *testing.T) {
 	}
 }
 
+func TestGoCMSContentAdapterContentsWithLocaleVariantsReturnsCompleteRows(t *testing.T) {
+	assertGoCMSContentAdapterContentsWithLocaleVariantsCompleteRows(t)
+}
+
 func TestGoCMSContentAdapterContentsWithLocaleVariantsExpandsTranslationFamilies(t *testing.T) {
+	assertGoCMSContentAdapterContentsWithLocaleVariantsCompleteRows(t)
+}
+
+func assertGoCMSContentAdapterContentsWithLocaleVariantsCompleteRows(t *testing.T) {
+	t.Helper()
+
 	ctx := context.Background()
 	contentID := uuid.New()
 	familyID := uuid.New()
@@ -217,9 +227,11 @@ func TestGoCMSContentAdapterContentsWithLocaleVariantsExpandsTranslationFamilies
 	contentSvc := &stubGoCMSContentService{
 		listWithDerived: []*cmscontent.Content{
 			{
-				ID:   contentID,
-				Slug: "breaking-news",
-				Type: &cmscontent.ContentType{Slug: "news"},
+				ID:       contentID,
+				Slug:     "breaking-news",
+				Status:   "published",
+				Metadata: map[string]any{"family_id": familyID.String(), "channel": "production"},
+				Type:     &cmscontent.ContentType{Slug: "news"},
 				Translations: []*cmscontent.ContentTranslation{
 					{
 						Locale:   &cmscontent.Locale{Code: "en"},
@@ -246,7 +258,7 @@ func TestGoCMSContentAdapterContentsWithLocaleVariantsExpandsTranslationFamilies
 	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
 	adapter := svc.(*GoCMSContentAdapter)
 
-	items, err := adapter.ContentsWithOptions(ctx, "all", WithTranslations(), WithLocaleVariants())
+	items, err := adapter.ContentsWithOptions(ctx, "all", WithTranslations(), WithDerivedFields(), WithLocaleVariants())
 	if err != nil {
 		t.Fatalf("list content with locale variants: %v", err)
 	}
@@ -258,6 +270,9 @@ func TestGoCMSContentAdapterContentsWithLocaleVariantsExpandsTranslationFamilies
 		t.Fatalf("expected locales [en bo zh], got %v", locales)
 	}
 	for _, item := range items {
+		if item.ID != contentID.String() {
+			t.Fatalf("expected stable content id %q, got %q", contentID.String(), item.ID)
+		}
 		if item.FamilyID != familyID.String() {
 			t.Fatalf("expected family id %q, got %q", familyID.String(), item.FamilyID)
 		}
@@ -273,6 +288,30 @@ func TestGoCMSContentAdapterContentsWithLocaleVariantsExpandsTranslationFamilies
 		if len(item.AvailableLocales) != 3 {
 			t.Fatalf("expected available locales to include siblings, got %+v", item.AvailableLocales)
 		}
+		if !slices.Equal(item.AvailableLocales, []string{"en", "bo", "zh"}) {
+			t.Fatalf("expected available locale siblings en/bo/zh, got %+v", item.AvailableLocales)
+		}
+		if strings.TrimSpace(item.Title) == "" {
+			t.Fatalf("expected variant title, got %+v", item)
+		}
+		if item.Slug != "breaking-news" {
+			t.Fatalf("expected parent slug fallback, got %q", item.Slug)
+		}
+		if item.Status != "published" {
+			t.Fatalf("expected parent status fallback, got %q", item.Status)
+		}
+		if item.ContentType != "news" || item.ContentTypeSlug != "news" {
+			t.Fatalf("expected content type slug news, got content_type=%q content_type_slug=%q", item.ContentType, item.ContentTypeSlug)
+		}
+		if len(item.Data) == 0 || strings.TrimSpace(toString(item.Data["body"])) == "" {
+			t.Fatalf("expected list-renderable translation data, got %+v", item.Data)
+		}
+		if strings.TrimSpace(toString(item.Metadata["channel"])) != "production" {
+			t.Fatalf("expected parent metadata to be preserved, got %+v", item.Metadata)
+		}
+	}
+	if contentSvc.getCount != 0 {
+		t.Fatalf("expected locale variant list to avoid per-locale get calls, got %d", contentSvc.getCount)
 	}
 	if !hasTranslationListOption(contentSvc.listOptions) {
 		t.Fatalf("expected translations option for locale-variant list, got %v", contentSvc.listOptions)
@@ -415,6 +454,109 @@ func TestAdminContentReadServiceAndRepositoryExpandTranslationFamiliesForWildcar
 	}
 	if strings.TrimSpace(toString(enRows[0]["locale"])) != "en" {
 		t.Fatalf("expected english row, got %#v", enRows[0])
+	}
+}
+
+func TestAdminContentReadServiceListForContentTypeGroupedUsesCompleteLocaleVariantRows(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	familyID := uuid.New()
+	newsType := CMSContentType{
+		Slug:         "news",
+		Capabilities: map[string]any{"translations": true},
+	}
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{
+			{
+				ID:       contentID,
+				Slug:     "breaking-news",
+				Status:   "published",
+				Metadata: map[string]any{"family_id": familyID.String(), "channel": "production"},
+				Type:     &cmscontent.ContentType{Slug: "news"},
+				Translations: []*cmscontent.ContentTranslation{
+					{
+						Locale:   &cmscontent.Locale{Code: "en"},
+						FamilyID: &familyID,
+						Title:    "Breaking News",
+						Content:  map[string]any{"body": "english", "path": "/en/breaking-news"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "bo"},
+						FamilyID: &familyID,
+						Title:    "Breaking News BO",
+						Content:  map[string]any{"body": "tibetan", "path": "/bo/breaking-news"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "zh"},
+						FamilyID: &familyID,
+						Title:    "Breaking News ZH",
+						Content:  map[string]any{"body": "chinese", "path": "/zh/breaking-news"},
+					},
+				},
+			},
+		},
+	}
+	adapter := NewGoCMSContentAdapter(contentSvc, nil, newStubContentTypeService(newsType))
+	service := newAdminContentReadService(adapter)
+
+	rows, total, err := service.ListForContentType(ctx, newsType, ListOptions{
+		Filters: map[string]any{
+			"locale":   "en",
+			"group_by": "family_id",
+		},
+		Predicates: []ListPredicate{
+			{Field: "status", Operator: "eq", Values: []string{"published"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("list grouped content type rows: %v", err)
+	}
+	if total != 3 || len(rows) != 3 {
+		t.Fatalf("expected 3 complete locale rows before DataGrid grouping, got total=%d len=%d", total, len(rows))
+	}
+	for _, row := range rows {
+		if strings.TrimSpace(toString(row["id"])) != contentID.String() {
+			t.Fatalf("expected stable id %q, got %#v", contentID.String(), row["id"])
+		}
+		if strings.TrimSpace(toString(row["family_id"])) != familyID.String() {
+			t.Fatalf("expected family_id %q, got %#v", familyID.String(), row["family_id"])
+		}
+		locale := strings.TrimSpace(toString(row["locale"]))
+		if locale == "" {
+			t.Fatalf("expected locale, got %#v", row)
+		}
+		if strings.TrimSpace(toString(row["resolved_locale"])) != locale {
+			t.Fatalf("expected resolved_locale %q, got %#v", locale, row["resolved_locale"])
+		}
+		if !slices.Equal(toStringSlice(row["available_locales"]), []string{"en", "bo", "zh"}) {
+			t.Fatalf("expected available_locales en/bo/zh, got %#v", row["available_locales"])
+		}
+		if strings.TrimSpace(toString(row["content_type"])) != "news" {
+			t.Fatalf("expected content_type news, got %#v", row["content_type"])
+		}
+		if strings.TrimSpace(toString(row["content_type_slug"])) != "news" {
+			t.Fatalf("expected content_type_slug news, got %#v", row["content_type_slug"])
+		}
+		if strings.TrimSpace(toString(row["title"])) == "" {
+			t.Fatalf("expected title, got %#v", row["title"])
+		}
+		if strings.TrimSpace(toString(row["slug"])) != "breaking-news" {
+			t.Fatalf("expected slug fallback breaking-news, got %#v", row["slug"])
+		}
+		if strings.TrimSpace(toString(row["status"])) != "published" {
+			t.Fatalf("expected status fallback published, got %#v", row["status"])
+		}
+		data, ok := row["data"].(map[string]any)
+		if !ok || strings.TrimSpace(toString(data["body"])) == "" {
+			t.Fatalf("expected list-renderable data, got %#v", row["data"])
+		}
+		metadata, ok := row["metadata"].(map[string]any)
+		if !ok || strings.TrimSpace(toString(metadata["channel"])) != "production" {
+			t.Fatalf("expected preserved metadata, got %#v", row["metadata"])
+		}
+	}
+	if contentSvc.getCount != 0 {
+		t.Fatalf("expected grouped locale variant list to avoid per-locale get calls, got %d", contentSvc.getCount)
 	}
 }
 

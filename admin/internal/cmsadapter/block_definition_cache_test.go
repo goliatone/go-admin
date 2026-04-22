@@ -85,7 +85,6 @@ func TestBlockDefinitionChannelHelpersPreserveLegacyEnvironmentMirror(t *testing
 	}
 
 	SetBlockDefinitionChannel(&def, "preview")
-	//nolint:staticcheck // Test verifies legacy Environment synchronization for compatibility helpers.
 	if def.Channel != "preview" || def.Environment != "preview" {
 		t.Fatalf("expected channel/environment to stay synchronized, got %+v", def)
 	}

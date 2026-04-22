@@ -235,10 +235,10 @@ func buildFacade(corePath string) ([]byte, facadeSummary, error) {
 		buf.WriteString("import (\n")
 		for _, spec := range importSpecs {
 			if spec.alias == "" || spec.alias == pathBase(spec.path) {
-				buf.WriteString(fmt.Sprintf("\t\"%s\"\n", spec.path))
+				fmt.Fprintf(&buf, "\t\"%s\"\n", spec.path)
 				continue
 			}
-			buf.WriteString(fmt.Sprintf("\t%s \"%s\"\n", spec.alias, spec.path))
+			fmt.Fprintf(&buf, "\t%s \"%s\"\n", spec.alias, spec.path)
 		}
 		buf.WriteString(")\n\n")
 	}
@@ -246,7 +246,7 @@ func buildFacade(corePath string) ([]byte, facadeSummary, error) {
 	if len(constNames) > 0 {
 		buf.WriteString("const (\n")
 		for _, name := range constNames {
-			buf.WriteString(fmt.Sprintf("\t%s = %s.%s\n", name, coreAlias, name))
+			fmt.Fprintf(&buf, "\t%s = %s.%s\n", name, coreAlias, name)
 		}
 		buf.WriteString(")\n\n")
 	}
@@ -254,7 +254,7 @@ func buildFacade(corePath string) ([]byte, facadeSummary, error) {
 	if len(varNames) > 0 {
 		buf.WriteString("var (\n")
 		for _, name := range varNames {
-			buf.WriteString(fmt.Sprintf("\t%s = %s.%s\n", name, coreAlias, name))
+			fmt.Fprintf(&buf, "\t%s = %s.%s\n", name, coreAlias, name)
 		}
 		buf.WriteString(")\n\n")
 	}

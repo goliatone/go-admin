@@ -32,10 +32,10 @@ func TestBuildSearchResultEnvelope(t *testing.T) {
 			Query:   "hello",
 			Page:    2,
 			PerPage: 5,
-			Filters: map[string][]string{"content_type": []string{"post"}},
+			Filters: map[string][]string{"content_type": {"post"}},
 		},
 		"/search",
-		map[string][]string{"q": []string{"hello"}},
+		map[string][]string{"q": {"hello"}},
 		false,
 	)
 

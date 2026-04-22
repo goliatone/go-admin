@@ -209,7 +209,7 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionVersions(c router.Context) e
 	output := buildBlockSchemaVersions(versions)
 	if len(output) == 0 {
 		entry := buildBlockVersionFromRecord(record)
-		if entry.Schema != nil && len(entry.Schema) > 0 {
+		if len(entry.Schema) > 0 {
 			output = append(output, entry)
 		}
 	}

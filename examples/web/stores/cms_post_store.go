@@ -517,7 +517,7 @@ func (s *CMSPostStore) postPayload(record map[string]any, existing map[string]an
 		"category":       category,
 		"featured_image": featuredImage,
 		"tags":           tags,
-		"author":         asString(record["author"], asString(existing["author"], resolveActivityActor(nil))),
+		"author":         asString(record["author"], asString(existing["author"], resolveActivityActor(context.Background()))),
 		"created_at":     createdAt,
 		"updated_at":     updatedAt,
 	}

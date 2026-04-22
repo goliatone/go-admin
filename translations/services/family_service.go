@@ -415,9 +415,7 @@ func normalizeFamilyPolicy(policy FamilyPolicy) FamilyPolicy {
 
 func selectSourceVariant(family FamilyRecord, policy FamilyPolicy) FamilyVariant {
 	locales := make([]FamilyVariant, 0, len(family.Variants))
-	for _, variant := range family.Variants {
-		locales = append(locales, variant)
-	}
+	locales = append(locales, family.Variants...)
 	sort.SliceStable(locales, func(i, j int) bool {
 		left := locales[i]
 		right := locales[j]
@@ -777,9 +775,7 @@ func cloneFamilyAssignments(items []FamilyAssignment) []FamilyAssignment {
 		return nil
 	}
 	out := make([]FamilyAssignment, 0, len(items))
-	for _, item := range items {
-		out = append(out, item)
-	}
+	out = append(out, items...)
 	return out
 }
 

@@ -32,14 +32,16 @@ func TestNewAdminTraitWorkflowDefaultsNoLongerDriveRuntimeResolution(t *testing.
 	cfg := NewAdminConfig("/admin", "Test", "en")
 
 	workflow := admin.NewFSMWorkflowEngine()
-	workflow.RegisterWorkflow("editorial.default", admin.WorkflowDefinition{
+	if err := workflow.RegisterWorkflow("editorial.default", admin.WorkflowDefinition{
 		EntityType:   "editorial.default",
 		InitialState: "draft",
 		Transitions: []admin.WorkflowTransition{
 			{Name: "submit_for_approval", From: "draft", To: "approval"},
 			{Name: "publish", From: "approval", To: "published"},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("register workflow: %v", err)
+	}
 
 	adm, _, err := NewAdmin(
 		cfg,
@@ -82,21 +84,25 @@ func TestNewAdminPrefersWorkflowIDOverLegacyWorkflowCapability(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Test", "en")
 
 	workflow := admin.NewFSMWorkflowEngine()
-	workflow.RegisterWorkflow("legacy.pages", admin.WorkflowDefinition{
+	if err := workflow.RegisterWorkflow("legacy.pages", admin.WorkflowDefinition{
 		EntityType:   "legacy.pages",
 		InitialState: "draft",
 		Transitions: []admin.WorkflowTransition{
 			{Name: "publish", From: "draft", To: "published"},
 		},
-	})
-	workflow.RegisterWorkflow("editorial.news", admin.WorkflowDefinition{
+	}); err != nil {
+		t.Fatalf("register legacy workflow: %v", err)
+	}
+	if err := workflow.RegisterWorkflow("editorial.news", admin.WorkflowDefinition{
 		EntityType:   "editorial.news",
 		InitialState: "draft",
 		Transitions: []admin.WorkflowTransition{
 			{Name: "submit_for_approval", From: "draft", To: "approval"},
 			{Name: "publish", From: "approval", To: "published"},
 		},
-	})
+	}); err != nil {
+		t.Fatalf("register editorial workflow: %v", err)
+	}
 
 	adm, _, err := NewAdmin(
 		cfg,

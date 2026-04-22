@@ -42,7 +42,7 @@ func TestResolveLocalizedPathsByLocaleUsesLocaleVariants(t *testing.T) {
 	stub := &localeScopedContentListStub{
 		CMSContentService: admin.NewInMemoryContentService(),
 		byLocale: map[string][]admin.CMSContent{
-			"en": []admin.CMSContent{{
+			"en": {{
 				ID:              "about-record",
 				Slug:            "about",
 				Locale:          "en",
@@ -51,7 +51,7 @@ func TestResolveLocalizedPathsByLocaleUsesLocaleVariants(t *testing.T) {
 				ContentTypeSlug: "page",
 				Data:            map[string]any{"path": "/about"},
 			}},
-			"es": []admin.CMSContent{{
+			"es": {{
 				ID:              "about-record",
 				Slug:            "about",
 				Locale:          "es",
@@ -60,7 +60,7 @@ func TestResolveLocalizedPathsByLocaleUsesLocaleVariants(t *testing.T) {
 				ContentTypeSlug: "page",
 				Data:            map[string]any{"path": "/sobre-nosotros"},
 			}},
-			"fr": []admin.CMSContent{{
+			"fr": {{
 				ID:              "about-record",
 				Slug:            "about",
 				Locale:          "fr",

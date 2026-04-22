@@ -54,9 +54,10 @@ func (s goCMSAdminContentReadService) List(ctx context.Context, opts ListOptions
 		}
 		item = normalizeCMSContentLocaleState(item, locale)
 		record := cmsContentRecord(item, cmsContentRecordOptions{
-			includeBlocks:   true,
-			includeData:     true,
-			includeMetadata: true,
+			includeBlocks:          true,
+			includeData:            true,
+			includeMetadata:        true,
+			includeContentTypeSlug: true,
 		})
 		if policy, ok := s.resolveContentNavigationPolicy(ctx, primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)); ok {
 			record = applyContentEntryNavigationReadContract(record, policy)
@@ -151,9 +152,10 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 		}
 		item = normalizeCMSContentLocaleState(item, locale)
 		record := cmsContentRecord(item, cmsContentRecordOptions{
-			includeBlocks:   true,
-			includeData:     true,
-			includeMetadata: true,
+			includeBlocks:          true,
+			includeData:            true,
+			includeMetadata:        true,
+			includeContentTypeSlug: true,
 		})
 		record = applyContentEntryNavigationReadContract(record, navigationPolicy)
 		records = append(records, record)
@@ -204,7 +206,7 @@ func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Con
 	if contentTypeWantsTranslations(contentType) {
 		if svc, ok := resolveCMSContentListOptionsService(s.content); ok && svc != nil {
 			listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
-			if shouldExpandTranslationFamilyRowsForContext(ctx, opts) {
+			if shouldExpandContentEntryTranslationFamilyRowsForContext(ctx, opts) {
 				listOpts = append(listOpts, WithLocaleVariants())
 			}
 			return svc.ContentsWithOptions(ctx, locale, listOpts...)
@@ -214,7 +216,10 @@ func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Con
 }
 
 func normalizeCMSContentListOptionsForFiltering(opts ListOptions) ListOptions {
-	return normalizeListOptionsForTranslationWildcard(opts)
+	normalized := normalizeListOptionsForTranslationWildcard(opts)
+	normalized.Filters = pruneGroupByFilters(normalized.Filters)
+	normalized.Predicates = pruneGroupByPredicates(normalized.Predicates)
+	return normalized
 }
 
 func (s goCMSAdminContentReadService) resolveContentLocale(ctx context.Context, id string) string {

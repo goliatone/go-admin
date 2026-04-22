@@ -50,9 +50,8 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		viewCtx["records"] = items
 		viewCtx[pluralTypeSlug(resolution.Capability.TypeSlug)] = items
 	default:
-		recordMap := map[string]any{}
 		if resolution.Record != nil {
-			recordMap = mapDeliveryRecord(*resolution.Record, resolution.Capability)
+			recordMap := mapDeliveryRecord(*resolution.Record, resolution.Capability)
 			viewCtx["record"] = recordMap
 			viewCtx[singularTypeSlug(resolution.Capability.TypeSlug)] = recordMap
 			viewCtx["family_id"] = strings.TrimSpace(firstNonEmpty(

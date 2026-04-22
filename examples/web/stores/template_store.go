@@ -53,7 +53,7 @@ func (s *TemplateStore) List(ctx context.Context, query string, ids []string, li
 	rows := []templateRow{}
 	selectQuery := s.db.NewSelect().Model(&rows)
 	if len(ids) > 0 {
-		selectQuery = selectQuery.Where("id IN (?)", bun.In(ids))
+		selectQuery = selectQuery.Where("id IN (?)", bun.List(ids))
 	}
 	if query != "" {
 		needle := "%" + strings.ToLower(query) + "%"

@@ -267,9 +267,7 @@ func parseRect(raw []string) ([4]float64, bool) {
 func ParseNativeFormFieldsForDebug(pdf []byte) []models.NativeFormField {
 	fields := extractNativeFormFields(pdf)
 	out := make([]models.NativeFormField, 0, len(fields))
-	for _, field := range fields {
-		out = append(out, field)
-	}
+	out = append(out, fields...)
 	return out
 }
 

@@ -451,8 +451,6 @@ func main() {
 	}
 	cfg = adapterResult.Config
 	cmsBackend := adapterResult.CMSBackend
-	settingsBackend := adapterResult.SettingsBackend
-	activityBackend := adapterResult.ActivityBackend
 	authzPreflightMode := resolveAuthzPreflightMode(runtimeConfig.Admin.AuthzPreflight.Mode, isDev)
 	authzPreflightRoles := resolveAuthzPreflightRoleKeys(runtimeConfig.Admin.AuthzPreflight.Roles)
 	preflightReport, err := runTranslationAuthzPreflight(
@@ -564,7 +562,7 @@ func main() {
 		primaryActivitySink = adm.ActivityFeed()
 	}
 	if goUsersActivitySink != nil {
-		activityBackend = "go-users (sqlite)"
+		adapterResult.ActivityBackend = "go-users (sqlite)"
 	}
 
 	// Create activity adapter that wraps the primary sink and also emits to dashboard hooks.
@@ -1051,8 +1049,8 @@ func main() {
 		setup.SetupSettings(adm)
 		adapterResult.SettingsBackend = "in-memory settings"
 	}
-	settingsBackend = adapterResult.SettingsBackend
-	activityBackend = adapterResult.ActivityBackend
+	settingsBackend := adapterResult.SettingsBackend
+	activityBackend := adapterResult.ActivityBackend
 	setupSearch(adm, dataStores)
 	setupJobs(adm, dataStores)
 

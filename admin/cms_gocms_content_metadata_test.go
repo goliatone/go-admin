@@ -17,6 +17,7 @@ type stubGoCMSContentService struct {
 	getResp              *cmscontent.Content
 	getWithDerived       *cmscontent.Content
 	getOptions           []cmscontent.ContentGetOption
+	getCount             int
 	createReq            cmscontent.CreateContentRequest
 	updateReq            cmscontent.UpdateContentRequest
 	updateResp           *cmscontent.Content
@@ -99,6 +100,7 @@ func (s *stubGoCMSContentService) List(_ context.Context, opts ...cmscontent.Con
 }
 
 func (s *stubGoCMSContentService) Get(_ context.Context, _ uuid.UUID, opts ...cmscontent.ContentGetOption) (*cmscontent.Content, error) {
+	s.getCount++
 	s.getOptions = append([]cmscontent.ContentGetOption{}, opts...)
 	if hasDerivedProjectionGetOption(opts) && s.getWithDerived != nil {
 		return s.getWithDerived, nil

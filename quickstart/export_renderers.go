@@ -198,7 +198,7 @@ func normalizeExportPDFConfig(cfg ExportPDFConfig) ExportPDFConfig {
 	if cfg.Timeout <= 0 {
 		cfg.Timeout = defaults.Timeout
 	}
-	if cfg.Args == nil || len(cfg.Args) == 0 {
+	if len(cfg.Args) == 0 {
 		cfg.Args = append([]string{}, defaults.Args...)
 	}
 	return cfg

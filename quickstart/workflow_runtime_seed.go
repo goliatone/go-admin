@@ -88,7 +88,7 @@ func hasEquivalentWorkflowBinding(existing []admin.WorkflowBinding, target admin
 		if normalizeLookupKey(candidate.ScopeRef) != normalizeLookupKey(target.ScopeRef) {
 			continue
 		}
-		if strings.ToLower(strings.TrimSpace(candidate.Environment)) != strings.ToLower(strings.TrimSpace(target.Environment)) {
+		if !strings.EqualFold(strings.TrimSpace(candidate.Environment), strings.TrimSpace(target.Environment)) {
 			continue
 		}
 		if candidate.Priority != target.Priority {

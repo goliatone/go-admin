@@ -429,7 +429,7 @@ func parseSize(raw string) int64 {
 	var value float64
 	var unit string
 	_, _ = fmt.Sscanf(trimmed, "%f%s", &value, &unit)
-	multiplier := float64(1)
+	var multiplier float64
 	switch unit {
 	case "kb", "kib":
 		multiplier = 1024

@@ -505,7 +505,7 @@ func (b *goCMSContentBridge) Content(ctx context.Context, id, locale string) (*a
 		return nil, err
 	}
 	args := []reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(u)}
-	optionValues, err := bridgeOptionValues(method, "Get", string(admin.WithTranslations()), string(admin.WithDerivedFields()))
+	optionValues, err := bridgeOptionValues(method, "Get", admin.WithTranslations(), admin.WithDerivedFields())
 	if err != nil {
 		return nil, err
 	}
@@ -1075,7 +1075,7 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 				availableLocales = append(availableLocales, code)
 			}
 		}
-		if chosen.IsValid() == false {
+		if !chosen.IsValid() {
 			chosen = current
 		}
 		if locale == "" {
@@ -1411,7 +1411,7 @@ func hasBridgeContentListOption(opts []admin.CMSContentListOption, token admin.C
 func hasBridgeProjectionOption(opts []admin.CMSContentListOption) bool {
 	const prefix = "content:list:projection:"
 	for _, opt := range opts {
-		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(string(opt))), prefix) {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(opt)), prefix) {
 			return true
 		}
 	}
@@ -1529,9 +1529,7 @@ func callWithOptionalEnvAndOptions(method reflect.Value, ctx context.Context, en
 	if env != "" {
 		optionTokens = append(optionTokens, env)
 	}
-	for _, opt := range opts {
-		optionTokens = append(optionTokens, string(opt))
-	}
+	optionTokens = append(optionTokens, opts...)
 	optionValues, err := bridgeOptionValues(method, "List", optionTokens...)
 	if err != nil {
 		return nil, err

@@ -162,10 +162,10 @@ func TestGoCMSContentBridgeAddsDerivedProjectionWhenTranslationsAreRequested(t *
 	if len(contentSvc.listOpts) != 2 {
 		t.Fatalf("expected two list options, got %#v", contentSvc.listOpts)
 	}
-	if string(contentSvc.listOpts[0]) != string(admin.WithTranslations()) {
+	if string(contentSvc.listOpts[0]) != admin.WithTranslations() {
 		t.Fatalf("expected translations option first, got %#v", contentSvc.listOpts)
 	}
-	if string(contentSvc.listOpts[1]) != string(admin.WithDerivedFields()) {
+	if string(contentSvc.listOpts[1]) != admin.WithDerivedFields() {
 		t.Fatalf("expected derived-fields projection option, got %#v", contentSvc.listOpts)
 	}
 }
@@ -185,10 +185,10 @@ func TestGoCMSContentBridgeContentAlwaysRequestsTranslationsAndDerivedProjection
 	if len(contentSvc.getOpts) != 2 {
 		t.Fatalf("expected two get options, got %#v", contentSvc.getOpts)
 	}
-	if string(contentSvc.getOpts[0]) != string(admin.WithTranslations()) {
+	if string(contentSvc.getOpts[0]) != admin.WithTranslations() {
 		t.Fatalf("expected translations option first, got %#v", contentSvc.getOpts)
 	}
-	if string(contentSvc.getOpts[1]) != string(admin.WithDerivedFields()) {
+	if string(contentSvc.getOpts[1]) != admin.WithDerivedFields() {
 		t.Fatalf("expected derived-fields projection option, got %#v", contentSvc.getOpts)
 	}
 }
