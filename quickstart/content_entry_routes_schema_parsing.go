@@ -88,6 +88,20 @@ func parseMultiValue(values []string, info schemaPathInfo) (any, error) {
 	return parsed, nil
 }
 
+func parseSingleArrayValue(raw string, info schemaPathInfo) any {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return []any{}
+	}
+	if parsed, ok := parseJSONValue(trimmed); ok {
+		if values, ok := parsed.([]any); ok {
+			return values
+		}
+	}
+	itemsSchema, _ := info.Schema["items"].(map[string]any)
+	return []any{parseValue(raw, schemaPathInfo{Schema: itemsSchema, Type: schemaType(itemsSchema)})}
+}
+
 func parseScalarMultiValue(values []string, info schemaPathInfo) (any, error) {
 	unique := []string{}
 	seen := map[string]struct{}{}

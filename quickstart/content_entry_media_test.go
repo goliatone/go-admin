@@ -96,6 +96,73 @@ func TestRenderFormEnrichesContentEntryMediaSchemaHints(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestRenderFormMediaHintsDoNotMutateStoredContentTypeSchema(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		AuthConfig:    &admin.AuthConfig{AllowUnauthenticatedRoutes: true},
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{
+		FeatureGate: contentEntryStaticFeatureGate{string(admin.FeatureMedia): true},
+	})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+	validator, err := admin.NewFormgenSchemaValidatorWithAPIBase("/admin", "/admin/api")
+	if err != nil {
+		t.Fatalf("validator init failed: %v", err)
+	}
+	contentType := &admin.CMSContentType{
+		Name: "Page",
+		Slug: "page",
+		Schema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"gallery": map[string]any{
+					"type": "array",
+					"items": map[string]any{
+						"type": "string",
+					},
+					"x-formgen": map[string]any{
+						"component.config": map[string]any{
+							"variant":   "media-picker",
+							"multiple":  true,
+							"valueMode": "url",
+						},
+					},
+				},
+			},
+		},
+	}
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/form", mock.Anything).Return(nil).Once()
+
+	handler := &contentEntryHandlers{
+		admin:        adm,
+		cfg:          cfg,
+		formTemplate: "resources/content/form",
+		formRenderer: validator,
+		templateExists: func(name string) bool {
+			return name == "resources/content/form"
+		},
+	}
+
+	if err := handler.renderForm(ctx, "pages", nil, contentType, admin.AdminContext{Context: context.Background()}, map[string]any{}, nil, false, ""); err != nil {
+		t.Fatalf("render form: %v", err)
+	}
+	prop := contentType.Schema["properties"].(map[string]any)["gallery"].(map[string]any)
+	if _, ok := prop["x-admin"]; ok {
+		t.Fatalf("did not expect render-time media hints to mutate stored schema: %+v", prop)
+	}
+	formgen := prop["x-formgen"].(map[string]any)
+	config := formgen["component.config"].(map[string]any)
+	if _, ok := config["libraryPath"]; ok {
+		t.Fatalf("did not expect endpoint hints in stored component.config: %+v", config)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestContentEntryRoutesPersistAndReopenMediaPickerValues(t *testing.T) {
 	cfg := admin.Config{
 		BasePath:      "/admin",

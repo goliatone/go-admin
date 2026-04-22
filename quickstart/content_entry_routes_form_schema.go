@@ -154,7 +154,8 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 		}
 		fieldKey, submittedArray := normalizeSubmittedArrayFieldName(key, schemaMap)
 		schemaDef := schemaMap[fieldKey]
-		if len(vals) > 1 || (submittedArray && strings.TrimSpace(schemaDef.Type) == "array") {
+		schemaType := strings.TrimSpace(schemaDef.Type)
+		if len(vals) > 1 || (submittedArray && schemaType == "array") {
 			value, err := parseMultiValue(vals, schemaDef)
 			if err != nil {
 				return nil, goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(fieldKey)), goerrors.CategoryValidation).
@@ -162,6 +163,10 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 					WithTextCode("INVALID_FORM")
 			}
 			setNestedValue(record, fieldKey, value)
+			continue
+		}
+		if schemaType == "array" {
+			setNestedValue(record, fieldKey, parseSingleArrayValue(vals[0], schemaDef))
 			continue
 		}
 		value := parseValue(vals[0], schemaDef)

@@ -114,3 +114,88 @@ func TestParseFormPayloadNormalizesSingleArrayFieldSuffixValue(t *testing.T) {
 		t.Fatalf("expected one-item gallery array, got %#v", gallery)
 	}
 }
+
+func TestParseFormPayloadKeepsSingleArrayFieldAsArray(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte("gallery=/media/solo.jpg"))
+	h := &contentEntryHandlers{}
+	record, err := h.parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"gallery": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "string",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	gallery, ok := record["gallery"].([]any)
+	if !ok {
+		t.Fatalf("expected gallery array, got %#v", record["gallery"])
+	}
+	if len(gallery) != 1 || gallery[0] != "/media/solo.jpg" {
+		t.Fatalf("expected one-item gallery array, got %#v", gallery)
+	}
+}
+
+func TestParseFormPayloadKeepsEmptyArrayFieldAsEmptyArray(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte("gallery="))
+	h := &contentEntryHandlers{}
+	record, err := h.parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"gallery": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "string",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	gallery, ok := record["gallery"].([]any)
+	if !ok {
+		t.Fatalf("expected gallery array, got %#v", record["gallery"])
+	}
+	if len(gallery) != 0 {
+		t.Fatalf("expected empty gallery array, got %#v", gallery)
+	}
+}
+
+func TestParseFormPayloadPreservesJSONArrayFieldValue(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.On("Body").Return([]byte("blocks=%5B%7B%22_type%22%3A%22hero%22%7D%5D"))
+	h := &contentEntryHandlers{}
+	record, err := h.parseFormPayload(ctx, map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"blocks": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("parseFormPayload: %v", err)
+	}
+	blocks, ok := record["blocks"].([]any)
+	if !ok {
+		t.Fatalf("expected blocks array, got %#v", record["blocks"])
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("expected one block, got %#v", blocks)
+	}
+	block, ok := blocks[0].(map[string]any)
+	if !ok || block["_type"] != "hero" {
+		t.Fatalf("expected decoded block value, got %#v", blocks[0])
+	}
+}
