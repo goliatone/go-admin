@@ -199,32 +199,7 @@ func seedDemoCredentials(cfg *config.AppConfig) []DemoCredential {
 
 	// Optional override for the "admin" style demo account via app config.
 	if cfg != nil {
-		overrideUsername := strings.TrimSpace(cfg.Auth.DemoUsername)
-		overrideEmail := strings.TrimSpace(cfg.Auth.DemoEmail)
-		overridePassword := strings.TrimSpace(cfg.Auth.DemoPassword)
-		if overrideUsername != "" {
-			replaced := false
-			for i := range seed {
-				if strings.EqualFold(seed[i].Username, overrideUsername) {
-					if overrideEmail != "" {
-						seed[i].Email = overrideEmail
-					}
-					if overridePassword != "" {
-						seed[i].Password = overridePassword
-					}
-					replaced = true
-					break
-				}
-			}
-			if !replaced {
-				seed = append(seed, DemoCredential{
-					Username: overrideUsername,
-					Email:    fallbackString(overrideEmail, overrideUsername+"@example.com"),
-					Password: fallbackString(overridePassword, overrideUsername+".pwd"),
-					Role:     string(auth.RoleAdmin),
-				})
-			}
-		}
+		seed = applyDemoCredentialOverride(seed, cfg)
 	}
 
 	for i := range seed {
@@ -250,6 +225,33 @@ func seedDemoCredentials(cfg *config.AppConfig) []DemoCredential {
 	}
 
 	return seed
+}
+
+func applyDemoCredentialOverride(seed []DemoCredential, cfg *config.AppConfig) []DemoCredential {
+	overrideUsername := strings.TrimSpace(cfg.Auth.DemoUsername)
+	overrideEmail := strings.TrimSpace(cfg.Auth.DemoEmail)
+	overridePassword := strings.TrimSpace(cfg.Auth.DemoPassword)
+	if overrideUsername == "" {
+		return seed
+	}
+	for i := range seed {
+		if !strings.EqualFold(seed[i].Username, overrideUsername) {
+			continue
+		}
+		if overrideEmail != "" {
+			seed[i].Email = overrideEmail
+		}
+		if overridePassword != "" {
+			seed[i].Password = overridePassword
+		}
+		return seed
+	}
+	return append(seed, DemoCredential{
+		Username: overrideUsername,
+		Email:    fallbackString(overrideEmail, overrideUsername+"@example.com"),
+		Password: fallbackString(overridePassword, overrideUsername+".pwd"),
+		Role:     string(auth.RoleAdmin),
+	})
 }
 
 func resolvePrimaryCredential(credentials []DemoCredential) DemoCredential {

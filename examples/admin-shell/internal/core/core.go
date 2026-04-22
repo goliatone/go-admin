@@ -78,20 +78,8 @@ func New(_ context.Context, cfg *config.AppConfig) (*Core, error) {
 		return nil, fmt.Errorf("setup auth: %w", err)
 	}
 
-	isDev := strings.EqualFold(strings.TrimSpace(cfg.Env), "development") ||
-		strings.EqualFold(strings.TrimSpace(cfg.Env), "dev") ||
-		strings.EqualFold(strings.TrimSpace(cfg.Env), "local")
-
-	viewEngine, err := quickstart.NewViewEngine(
-		client.FS(),
-		quickstart.WithViewTemplatesFS(adminShellTemplatesFS()),
-		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
-			quickstart.WithTemplateURLResolver(adm.URLs()),
-			quickstart.WithTemplateBasePath(adminCfg.BasePath),
-			quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
-		)),
-		quickstart.WithViewDebug(isDev),
-	)
+	isDev := isDevelopmentEnv(cfg.Env)
+	viewEngine, err := newAdminShellViewEngine(adminCfg, adm, isDev)
 	if err != nil {
 		return nil, fmt.Errorf("initialize view engine: %w", err)
 	}
@@ -101,12 +89,7 @@ func New(_ context.Context, cfg *config.AppConfig) (*Core, error) {
 		adminCfg,
 		adm,
 		isDev,
-		quickstart.WithFiberConfig(func(fcfg *fiber.Config) {
-			if fcfg == nil {
-				return
-			}
-			fcfg.EnablePrintRoutes = cfg.Server.PrintRoutes
-		}),
+		printRoutesFiberConfig(cfg.Server.PrintRoutes),
 	)
 
 	if err := adm.Initialize(r); err != nil {
@@ -114,22 +97,8 @@ func New(_ context.Context, cfg *config.AppConfig) (*Core, error) {
 	}
 	quickstart.NewStaticAssets(r, adminCfg, client.Assets())
 
-	if err := quickstart.RegisterAuthUIRoutes(
-		r,
-		adminCfg,
-		routeAuth,
-		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),
-		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
-		quickstart.WithAuthUIViewContextBuilder(func(ctx router.ViewContext, _ router.Context) router.ViewContext {
-			ctx["demo_credentials"] = demoCredentialsView(demoCredentials)
-			return ctx
-		}),
-	); err != nil {
-		return nil, fmt.Errorf("register auth UI routes: %w", err)
-	}
-
-	if err := quickstart.RegisterAdminUIRoutes(r, adminCfg, adm, authn); err != nil {
-		return nil, fmt.Errorf("register admin UI routes: %w", err)
+	if err := registerAdminShellUIRoutes(r, adminCfg, adm, routeAuth, authn, demoCredentials); err != nil {
+		return nil, err
 	}
 
 	return &Core{
@@ -149,6 +118,63 @@ func New(_ context.Context, cfg *config.AppConfig) (*Core, error) {
 		DemoIdentity:       demoIdentity,
 		DemoToken:          demoToken,
 	}, nil
+}
+
+func isDevelopmentEnv(env string) bool {
+	switch strings.ToLower(strings.TrimSpace(env)) {
+	case "development", "dev", "local":
+		return true
+	default:
+		return false
+	}
+}
+
+func newAdminShellViewEngine(adminCfg admin.Config, adm *admin.Admin, isDev bool) (fiber.Views, error) {
+	return quickstart.NewViewEngine(
+		client.FS(),
+		quickstart.WithViewTemplatesFS(adminShellTemplatesFS()),
+		quickstart.WithViewTemplateFuncs(quickstart.DefaultTemplateFuncs(
+			quickstart.WithTemplateURLResolver(adm.URLs()),
+			quickstart.WithTemplateBasePath(adminCfg.BasePath),
+			quickstart.WithTemplateFeatureGate(adm.FeatureGate()),
+		)),
+		quickstart.WithViewDebug(isDev),
+	)
+}
+
+func printRoutesFiberConfig(enabled bool) quickstart.FiberServerOption {
+	return quickstart.WithFiberConfig(func(fcfg *fiber.Config) {
+		if fcfg != nil {
+			fcfg.EnablePrintRoutes = enabled
+		}
+	})
+}
+
+func registerAdminShellUIRoutes(
+	r router.Router[*fiber.App],
+	adminCfg admin.Config,
+	adm *admin.Admin,
+	routeAuth *auth.RouteAuthenticator,
+	authn *admin.GoAuthAuthenticator,
+	demoCredentials []DemoCredential,
+) error {
+	if err := quickstart.RegisterAuthUIRoutes(
+		r,
+		adminCfg,
+		routeAuth,
+		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),
+		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
+		quickstart.WithAuthUIViewContextBuilder(func(ctx router.ViewContext, _ router.Context) router.ViewContext {
+			ctx["demo_credentials"] = demoCredentialsView(demoCredentials)
+			return ctx
+		}),
+	); err != nil {
+		return fmt.Errorf("register auth UI routes: %w", err)
+	}
+	if err := quickstart.RegisterAdminUIRoutes(r, adminCfg, adm, authn); err != nil {
+		return fmt.Errorf("register admin UI routes: %w", err)
+	}
+	return nil
 }
 
 // Serve starts the HTTP server.
