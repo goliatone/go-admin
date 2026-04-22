@@ -1,5 +1,26 @@
 # Changelog
 
+# [0.53.0](https://github.com/goliatone/go-admin/compare/v0.52.3...v0.53.0) - (2026-04-22)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.53.0 ([7ded838](https://github.com/goliatone/go-admin/commit/7ded838759179956bdbc78b4d662d48add333823))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Media picker component ([55b034c](https://github.com/goliatone/go-admin/commit/55b034c2927ccd2f4dec2df6acab7e9be0eace25))  - (goliatone)
+- Media picker hint management ([c823ee5](https://github.com/goliatone/go-admin/commit/c823ee555cc855cf2a8c0cc763f20a50a7d999c5))  - (goliatone)
+- Media schema hints ([7e390b1](https://github.com/goliatone/go-admin/commit/7e390b18f880fe58a738724bb59b4752aa5d3f02))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.52.3 ([ea57062](https://github.com/goliatone/go-admin/commit/ea570628b23abf742d61170e91943f75a75660d5))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([59a7fee](https://github.com/goliatone/go-admin/commit/59a7fee22a4b4da1bcd3d8f937a97cb7a1032d99))  - (goliatone)
+- Update test ([53b39f1](https://github.com/goliatone/go-admin/commit/53b39f175599f5c2b1ecec3f94ba5698df02cc68))  - (goliatone)
+
 # [0.52.3](https://github.com/goliatone/go-admin/compare/v0.52.2...v0.52.3) - (2026-04-18)
 
 ## <!-- 13 -->📦 Bumps
