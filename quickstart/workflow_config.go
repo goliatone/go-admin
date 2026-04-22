@@ -221,118 +221,129 @@ func ValidateWorkflowConfig(cfg WorkflowConfig) error {
 		})
 	}
 
-	for _, workflowID := range sortedKeys(cfg.Workflows) {
-		spec := cfg.Workflows[workflowID]
-		prefix := "workflows." + workflowID
-		if strings.TrimSpace(spec.InitialState) == "" {
-			issues = append(issues, WorkflowConfigValidationIssue{
-				Field:   prefix + ".initial_state",
-				Message: "required",
-			})
-		}
-		if len(spec.Transitions) == 0 {
-			issues = append(issues, WorkflowConfigValidationIssue{
-				Field:   prefix + ".transitions",
-				Message: "at least one transition is required",
-			})
-			continue
-		}
-		seenTransitions := map[string]struct{}{}
-		for i, transition := range spec.Transitions {
-			path := fmt.Sprintf("%s.transitions[%d]", prefix, i)
-			name := strings.TrimSpace(transition.Name)
-			from := strings.TrimSpace(transition.From)
-			to := strings.TrimSpace(transition.To)
-
-			if name == "" {
-				issues = append(issues, WorkflowConfigValidationIssue{
-					Field:   path + ".name",
-					Message: "required",
-				})
-			}
-			if from == "" {
-				issues = append(issues, WorkflowConfigValidationIssue{
-					Field:   path + ".from",
-					Message: "required",
-				})
-			}
-			if to == "" {
-				issues = append(issues, WorkflowConfigValidationIssue{
-					Field:   path + ".to",
-					Message: "required",
-				})
-			}
-			if name != "" {
-				normalized := normalizeLookupKey(name)
-				if _, exists := seenTransitions[normalized]; exists {
-					issues = append(issues, WorkflowConfigValidationIssue{
-						Field:   path + ".name",
-						Message: fmt.Sprintf("duplicate transition name %q", name),
-					})
-				}
-				seenTransitions[normalized] = struct{}{}
-			}
-		}
-	}
-	knownWorkflows := map[string]struct{}{}
-	for _, workflowID := range sortedKeys(cfg.Workflows) {
-		knownWorkflows[workflowID] = struct{}{}
-	}
-	for i, binding := range cfg.Bindings {
-		prefix := fmt.Sprintf("bindings[%d]", i)
-		scopeType := strings.ToLower(strings.TrimSpace(binding.ScopeType))
-		scopeRef := normalizeLookupKey(binding.ScopeRef)
-		workflowID := strings.TrimSpace(binding.WorkflowID)
-		status := strings.ToLower(strings.TrimSpace(binding.Status))
-
-		if scopeType == "" {
-			issues = append(issues, WorkflowConfigValidationIssue{
-				Field:   prefix + ".scope_type",
-				Message: "required",
-			})
-		} else {
-			switch admin.WorkflowBindingScopeType(scopeType) {
-			case admin.WorkflowBindingScopeTrait, admin.WorkflowBindingScopeContentType, admin.WorkflowBindingScopeGlobal:
-			default:
-				issues = append(issues, WorkflowConfigValidationIssue{
-					Field:   prefix + ".scope_type",
-					Message: "must be one of trait|content_type|global",
-				})
-			}
-		}
-		if admin.WorkflowBindingScopeType(scopeType) != admin.WorkflowBindingScopeGlobal && scopeRef == "" {
-			issues = append(issues, WorkflowConfigValidationIssue{
-				Field:   prefix + ".scope_ref",
-				Message: "required",
-			})
-		}
-		if workflowID == "" {
-			issues = append(issues, WorkflowConfigValidationIssue{
-				Field:   prefix + ".workflow_id",
-				Message: "required",
-			})
-		} else if _, ok := knownWorkflows[workflowID]; !ok {
-			issues = append(issues, WorkflowConfigValidationIssue{
-				Field:   prefix + ".workflow_id",
-				Message: fmt.Sprintf("references unknown workflow_id %q", workflowID),
-			})
-		}
-		if binding.Priority < 0 {
-			issues = append(issues, WorkflowConfigValidationIssue{
-				Field:   prefix + ".priority",
-				Message: "must be >= 0",
-			})
-		}
-		if status != "" && status != string(admin.WorkflowBindingStatusActive) && status != string(admin.WorkflowBindingStatusInactive) {
-			issues = append(issues, WorkflowConfigValidationIssue{
-				Field:   prefix + ".status",
-				Message: "must be one of active|inactive",
-			})
-		}
-	}
-
+	issues = append(issues, validateWorkflowDefinitions(cfg.Workflows)...)
+	issues = append(issues, validateWorkflowBindings(cfg.Bindings, cfg.Workflows)...)
 	if len(issues) > 0 {
 		return WorkflowConfigValidationError{Issues: issues}
+	}
+	return nil
+}
+
+func validateWorkflowDefinitions(workflows map[string]WorkflowDefinitionSpec) []WorkflowConfigValidationIssue {
+	issues := []WorkflowConfigValidationIssue{}
+	for _, workflowID := range sortedKeys(workflows) {
+		issues = append(issues, validateWorkflowDefinition(workflowID, workflows[workflowID])...)
+	}
+	return issues
+}
+
+func validateWorkflowDefinition(workflowID string, spec WorkflowDefinitionSpec) []WorkflowConfigValidationIssue {
+	issues := []WorkflowConfigValidationIssue{}
+	prefix := "workflows." + workflowID
+	if strings.TrimSpace(spec.InitialState) == "" {
+		issues = append(issues, WorkflowConfigValidationIssue{
+			Field:   prefix + ".initial_state",
+			Message: "required",
+		})
+	}
+	if len(spec.Transitions) == 0 {
+		return append(issues, WorkflowConfigValidationIssue{
+			Field:   prefix + ".transitions",
+			Message: "at least one transition is required",
+		})
+	}
+	seenTransitions := map[string]struct{}{}
+	for i, transition := range spec.Transitions {
+		issues = append(issues, validateWorkflowTransition(prefix, i, transition, seenTransitions)...)
+	}
+	return issues
+}
+
+func validateWorkflowTransition(prefix string, index int, transition WorkflowTransitionSpec, seenTransitions map[string]struct{}) []WorkflowConfigValidationIssue {
+	path := fmt.Sprintf("%s.transitions[%d]", prefix, index)
+	issues := []WorkflowConfigValidationIssue{}
+	name := strings.TrimSpace(transition.Name)
+	from := strings.TrimSpace(transition.From)
+	to := strings.TrimSpace(transition.To)
+	if name == "" {
+		issues = append(issues, WorkflowConfigValidationIssue{Field: path + ".name", Message: "required"})
+	}
+	if from == "" {
+		issues = append(issues, WorkflowConfigValidationIssue{Field: path + ".from", Message: "required"})
+	}
+	if to == "" {
+		issues = append(issues, WorkflowConfigValidationIssue{Field: path + ".to", Message: "required"})
+	}
+	if name == "" {
+		return issues
+	}
+	normalized := normalizeLookupKey(name)
+	if _, exists := seenTransitions[normalized]; exists {
+		issues = append(issues, WorkflowConfigValidationIssue{
+			Field:   path + ".name",
+			Message: fmt.Sprintf("duplicate transition name %q", name),
+		})
+	}
+	seenTransitions[normalized] = struct{}{}
+	return issues
+}
+
+func validateWorkflowBindings(bindings []WorkflowBindingSpec, workflows map[string]WorkflowDefinitionSpec) []WorkflowConfigValidationIssue {
+	knownWorkflows := map[string]struct{}{}
+	for _, workflowID := range sortedKeys(workflows) {
+		knownWorkflows[workflowID] = struct{}{}
+	}
+	issues := []WorkflowConfigValidationIssue{}
+	for i, binding := range bindings {
+		issues = append(issues, validateWorkflowBinding(i, binding, knownWorkflows)...)
+	}
+	return issues
+}
+
+func validateWorkflowBinding(index int, binding WorkflowBindingSpec, knownWorkflows map[string]struct{}) []WorkflowConfigValidationIssue {
+	issues := []WorkflowConfigValidationIssue{}
+	prefix := fmt.Sprintf("bindings[%d]", index)
+	scopeType := strings.ToLower(strings.TrimSpace(binding.ScopeType))
+	scopeRef := normalizeLookupKey(binding.ScopeRef)
+	workflowID := strings.TrimSpace(binding.WorkflowID)
+	status := strings.ToLower(strings.TrimSpace(binding.Status))
+	issues = append(issues, validateWorkflowBindingScope(prefix, scopeType, scopeRef)...)
+	issues = append(issues, validateWorkflowBindingWorkflow(prefix, workflowID, knownWorkflows)...)
+	if binding.Priority < 0 {
+		issues = append(issues, WorkflowConfigValidationIssue{Field: prefix + ".priority", Message: "must be >= 0"})
+	}
+	if status != "" && status != string(admin.WorkflowBindingStatusActive) && status != string(admin.WorkflowBindingStatusInactive) {
+		issues = append(issues, WorkflowConfigValidationIssue{Field: prefix + ".status", Message: "must be one of active|inactive"})
+	}
+	return issues
+}
+
+func validateWorkflowBindingScope(prefix string, scopeType string, scopeRef string) []WorkflowConfigValidationIssue {
+	issues := []WorkflowConfigValidationIssue{}
+	if scopeType == "" {
+		issues = append(issues, WorkflowConfigValidationIssue{Field: prefix + ".scope_type", Message: "required"})
+	} else {
+		switch admin.WorkflowBindingScopeType(scopeType) {
+		case admin.WorkflowBindingScopeTrait, admin.WorkflowBindingScopeContentType, admin.WorkflowBindingScopeGlobal:
+		default:
+			issues = append(issues, WorkflowConfigValidationIssue{Field: prefix + ".scope_type", Message: "must be one of trait|content_type|global"})
+		}
+	}
+	if admin.WorkflowBindingScopeType(scopeType) != admin.WorkflowBindingScopeGlobal && scopeRef == "" {
+		issues = append(issues, WorkflowConfigValidationIssue{Field: prefix + ".scope_ref", Message: "required"})
+	}
+	return issues
+}
+
+func validateWorkflowBindingWorkflow(prefix string, workflowID string, knownWorkflows map[string]struct{}) []WorkflowConfigValidationIssue {
+	if workflowID == "" {
+		return []WorkflowConfigValidationIssue{{Field: prefix + ".workflow_id", Message: "required"}}
+	}
+	if _, ok := knownWorkflows[workflowID]; !ok {
+		return []WorkflowConfigValidationIssue{{
+			Field:   prefix + ".workflow_id",
+			Message: fmt.Sprintf("references unknown workflow_id %q", workflowID),
+		}}
 	}
 	return nil
 }

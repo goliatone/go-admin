@@ -57,6 +57,18 @@ type authUIOptions struct {
 	logoutGetEnabled             bool
 }
 
+type authUIRouteRuntime struct {
+	cfg                     admin.Config
+	options                 authUIOptions
+	routeAuth               *auth.RouteAuthenticator
+	authScope               fggate.ScopeChain
+	confirmBasePath         string
+	confirmLinkPath         string
+	csrfMiddleware          router.MiddlewareFunc
+	resolvePasswordReset    func(router.Context) bool
+	resolveSelfRegistration func(router.Context) bool
+}
+
 var (
 	defaultAuthUICSRFKeyMu sync.Mutex
 	defaultAuthUICSRFKey   []byte
@@ -312,7 +324,17 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 	if routeAuth == nil {
 		return fmt.Errorf("auth route authenticator is required")
 	}
+	runtime, err := newAuthUIRouteRuntime(cfg, routeAuth, opts)
+	if err != nil {
+		return err
+	}
+	registerAuthUILoginRoutes(r, runtime)
+	registerAuthUIPasswordResetRoutes(r, runtime)
+	registerAuthUILogoutRoutes(r, runtime)
+	return nil
+}
 
+func newAuthUIRouteRuntime(cfg admin.Config, routeAuth *auth.RouteAuthenticator, opts []AuthUIOption) (authUIRouteRuntime, error) {
 	options := authUIOptions{
 		basePath:                     strings.TrimSpace(cfg.BasePath),
 		loginTemplate:                "login",
@@ -334,40 +356,9 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 		}
 	}
 
-	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
-	if options.loginPath == "" {
-		options.loginPath = path.Join(options.basePath, "login")
-	}
-	if options.logoutPath == "" {
-		options.logoutPath = path.Join(options.basePath, "logout")
-	}
-	if options.passwordResetPath == "" {
-		options.passwordResetPath = path.Join(options.basePath, "password-reset")
-	}
-	if options.passwordResetConfirmPath == "" {
-		options.passwordResetConfirmPath = path.Join(options.passwordResetPath, "confirm")
-	}
-	confirmBasePath := ""
-	confirmLinkPath := options.passwordResetConfirmPath
-	if strings.Contains(options.passwordResetConfirmPath, ":") {
-		confirmBasePath = stripRouteParams(options.passwordResetConfirmPath)
-		if confirmBasePath != "" {
-			confirmLinkPath = confirmBasePath
-		} else {
-			confirmLinkPath = ""
-		}
-	}
-	if options.registerPath == "" {
-		options.registerPath = path.Join(options.basePath, "register")
-	}
-	if options.loginRedirectPath == "" {
-		options.loginRedirectPath = options.basePath
-	}
-	if options.logoutRedirectPath == "" {
-		options.logoutRedirectPath = options.loginPath
-	}
+	options = applyAuthUIRouteDefaults(options)
+	confirmBasePath, confirmLinkPath := resolvePasswordResetConfirmPaths(options.passwordResetConfirmPath)
 	options.viewContext = resolveQuickstartAuthUIViewContextBuilder(options.viewContext)
-
 	authScope := fggate.ScopeChain{{Kind: fggate.ScopeSystem}}
 	resolvePasswordReset := func(c router.Context) bool {
 		if options.passwordResetEnabled != nil {
@@ -381,7 +372,67 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 		}
 		return featureEnabledWithContext(c.Context(), options.featureGate, "users.signup", authScope)
 	}
+	if err := validateAuthUIRouteCookie(routeAuth, options); err != nil {
+		return authUIRouteRuntime{}, err
+	}
+	csrfMiddleware, err := authUICSRFMiddleware(options, cfg)
+	if err != nil {
+		return authUIRouteRuntime{}, err
+	}
+	return authUIRouteRuntime{
+		cfg:                     cfg,
+		options:                 options,
+		routeAuth:               routeAuth,
+		authScope:               authScope,
+		confirmBasePath:         confirmBasePath,
+		confirmLinkPath:         confirmLinkPath,
+		csrfMiddleware:          csrfMiddleware,
+		resolvePasswordReset:    resolvePasswordReset,
+		resolveSelfRegistration: resolveSelfRegistration,
+	}, nil
+}
 
+func applyAuthUIRouteDefaults(options authUIOptions) authUIOptions {
+	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
+	if options.loginPath == "" {
+		options.loginPath = path.Join(options.basePath, "login")
+	}
+	if options.logoutPath == "" {
+		options.logoutPath = path.Join(options.basePath, "logout")
+	}
+	if options.passwordResetPath == "" {
+		options.passwordResetPath = path.Join(options.basePath, "password-reset")
+	}
+	if options.passwordResetConfirmPath == "" {
+		options.passwordResetConfirmPath = path.Join(options.passwordResetPath, "confirm")
+	}
+	if options.registerPath == "" {
+		options.registerPath = path.Join(options.basePath, "register")
+	}
+	if options.loginRedirectPath == "" {
+		options.loginRedirectPath = options.basePath
+	}
+	if options.logoutRedirectPath == "" {
+		options.logoutRedirectPath = options.loginPath
+	}
+	return options
+}
+
+func resolvePasswordResetConfirmPaths(passwordResetConfirmPath string) (string, string) {
+	confirmBasePath := ""
+	confirmLinkPath := passwordResetConfirmPath
+	if strings.Contains(passwordResetConfirmPath, ":") {
+		confirmBasePath = stripRouteParams(passwordResetConfirmPath)
+		if confirmBasePath != "" {
+			confirmLinkPath = confirmBasePath
+		} else {
+			confirmLinkPath = ""
+		}
+	}
+	return confirmBasePath, confirmLinkPath
+}
+
+func validateAuthUIRouteCookie(routeAuth *auth.RouteAuthenticator, options authUIOptions) error {
 	loginCookieName := ""
 	if provider, ok := any(routeAuth).(interface{ AuthCookieName() string }); ok {
 		loginCookieName = strings.TrimSpace(provider.AuthCookieName())
@@ -395,30 +446,36 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 	if err := router.ValidateCookie(options.cookie); err != nil {
 		return err
 	}
+	return nil
+}
 
+func authUICSRFMiddleware(options authUIOptions, cfg admin.Config) (router.MiddlewareFunc, error) {
 	csrfSecureKey, err := resolveAuthUICSRFSecureKey(options, cfg)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	csrfMiddleware := csrfmw.New(csrfmw.Config{
+	return csrfmw.New(csrfmw.Config{
 		SecureKey: csrfSecureKey,
 		ErrorHandler: func(c router.Context, err error) error {
 			return c.Status(fiber.StatusForbidden).SendString(err.Error())
 		},
-	})
+	}), nil
+}
 
+func registerAuthUILoginRoutes[T any](r router.Router[T], runtime authUIRouteRuntime) {
+	options := runtime.options
 	r.Get(options.loginPath, func(c router.Context) error {
 		authState := AuthUIState{
-			PasswordResetEnabled:    resolvePasswordReset(c),
-			SelfRegistrationEnabled: resolveSelfRegistration(c),
+			PasswordResetEnabled:    runtime.resolvePasswordReset(c),
+			SelfRegistrationEnabled: runtime.resolveSelfRegistration(c),
 		}
 		authSnapshot := authUISnapshot(authState)
-		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, options.themeAdmin, c, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(runtime.cfg, options.themeAdmin, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
-			PasswordResetConfirmPath: confirmLinkPath,
+			PasswordResetConfirmPath: runtime.confirmLinkPath,
 			RegisterPath:             options.registerPath,
-		}, options.loginTitle, options.themeAssets, options.themeAssetPrefix, authScope, authSnapshot)
+		}, options.loginTitle, options.themeAssets, options.themeAssetPrefix, runtime.authScope, authSnapshot)
 		if key := strings.TrimSpace(options.loginErrorQueryKey); key != "" {
 			if code := strings.TrimSpace(c.Query(key)); code != "" {
 				viewCtx["login_error_code"] = code
@@ -437,13 +494,13 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 		}
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.loginTemplate, viewCtx)
-	}, csrfMiddleware)
+	}, runtime.csrfMiddleware)
 
 	r.Post(options.loginPath, func(c router.Context) error {
 		payload := loginPayload{}
 		_ = c.Bind(&payload)
 
-		if err := routeAuth.Login(c, payload); err != nil {
+		if err := runtime.routeAuth.Login(c, payload); err != nil {
 			errorCode := classifyLoginErrorCode(err)
 			return c.Redirect(
 				buildLoginFailureRedirect(
@@ -466,12 +523,15 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 			}
 		}
 		return c.Redirect(redirectTarget, options.loginRedirectStatus)
-	}, csrfMiddleware)
+	}, runtime.csrfMiddleware)
+}
 
+func registerAuthUIPasswordResetRoutes[T any](r router.Router[T], runtime authUIRouteRuntime) {
+	options := runtime.options
 	r.Get(options.passwordResetPath, func(c router.Context) error {
 		authState := AuthUIState{
-			PasswordResetEnabled:    resolvePasswordReset(c),
-			SelfRegistrationEnabled: resolveSelfRegistration(c),
+			PasswordResetEnabled:    runtime.resolvePasswordReset(c),
+			SelfRegistrationEnabled: runtime.resolveSelfRegistration(c),
 		}
 		authSnapshot := authUISnapshot(authState)
 		passwordResetEnabled := authState.PasswordResetEnabled
@@ -480,20 +540,20 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, options.themeAdmin, c, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(runtime.cfg, options.themeAdmin, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
-			PasswordResetConfirmPath: confirmLinkPath,
+			PasswordResetConfirmPath: runtime.confirmLinkPath,
 			RegisterPath:             options.registerPath,
-		}, options.passwordResetTitle, options.themeAssets, options.themeAssetPrefix, authScope, authSnapshot)
+		}, options.passwordResetTitle, options.themeAssets, options.themeAssetPrefix, runtime.authScope, authSnapshot)
 		viewCtx = options.viewContext(viewCtx, c)
 		return templateview.RenderTemplateView(c, options.passwordResetTemplate, viewCtx)
 	})
 
 	confirmHandler := func(c router.Context) error {
 		authState := AuthUIState{
-			PasswordResetEnabled:    resolvePasswordReset(c),
-			SelfRegistrationEnabled: resolveSelfRegistration(c),
+			PasswordResetEnabled:    runtime.resolvePasswordReset(c),
+			SelfRegistrationEnabled: runtime.resolveSelfRegistration(c),
 		}
 		authSnapshot := authUISnapshot(authState)
 		passwordResetEnabled := authState.PasswordResetEnabled
@@ -502,12 +562,12 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 				WithCode(fiber.StatusForbidden).
 				WithTextCode("FEATURE_DISABLED")
 		}
-		viewCtx := buildQuickstartAuthTemplateViewContext(cfg, options.themeAdmin, c, authState, AuthUIPaths{
+		viewCtx := buildQuickstartAuthTemplateViewContext(runtime.cfg, options.themeAdmin, c, authState, AuthUIPaths{
 			BasePath:                 options.basePath,
 			PasswordResetPath:        options.passwordResetPath,
-			PasswordResetConfirmPath: confirmLinkPath,
+			PasswordResetConfirmPath: runtime.confirmLinkPath,
 			RegisterPath:             options.registerPath,
-		}, options.passwordResetConfirmTitle, options.themeAssets, options.themeAssetPrefix, authScope, authSnapshot)
+		}, options.passwordResetConfirmTitle, options.themeAssets, options.themeAssetPrefix, runtime.authScope, authSnapshot)
 		if token := strings.TrimSpace(c.Param("token")); token != "" {
 			viewCtx["password_reset_token"] = token
 		}
@@ -517,25 +577,26 @@ func RegisterAuthUIRoutes[T any](r router.Router[T], cfg admin.Config, routeAuth
 
 	r.Get(options.passwordResetConfirmPath, confirmHandler)
 	if strings.Contains(options.passwordResetConfirmPath, ":") {
-		if confirmBasePath != "" && confirmBasePath != options.passwordResetConfirmPath {
-			r.Get(confirmBasePath, confirmHandler)
+		if runtime.confirmBasePath != "" && runtime.confirmBasePath != options.passwordResetConfirmPath {
+			r.Get(runtime.confirmBasePath, confirmHandler)
 		}
 	} else {
 		confirmTokenPath := strings.TrimRight(options.passwordResetConfirmPath, "/") + "/:token"
 		r.Get(confirmTokenPath, confirmHandler)
 	}
+}
 
+func registerAuthUILogoutRoutes[T any](r router.Router[T], runtime authUIRouteRuntime) {
+	options := runtime.options
 	logoutHandler := func(c router.Context) error {
-		routeAuth.Logout(c)
+		runtime.routeAuth.Logout(c)
 		return c.Redirect(options.logoutRedirectPath, options.logoutRedirectStatus)
 	}
 
-	r.Post(options.logoutPath, logoutHandler, csrfMiddleware)
+	r.Post(options.logoutPath, logoutHandler, runtime.csrfMiddleware)
 	if options.logoutGetEnabled {
 		r.Get(options.logoutPath, logoutHandler)
 	}
-
-	return nil
 }
 
 type loginPayload struct {

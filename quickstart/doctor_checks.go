@@ -262,9 +262,9 @@ func quickstartDoctorTranslationCheck() admin.DoctorCheck {
 			"Enable/disable translation modules consistently and ensure UI/API routes are registered for active modules.",
 			"Review translation wiring",
 		),
-			Run: quickstartDoctorTranslationRun,
-		}
+		Run: quickstartDoctorTranslationRun,
 	}
+}
 
 func quickstartDoctorTranslationRun(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
 	if adm == nil {
@@ -374,10 +374,233 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 			"Seed block definitions in the default content channel and verify the Block Library channel selector is set to default.",
 			"Seed default block definitions",
 		),
-			Run: quickstartDoctorBlockDefinitionsRun,
+		Run: quickstartDoctorBlockDefinitionsRun,
+	}
+}
+
+func quickstartDoctorBlockDefinitionsRun(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
+	if adm == nil {
+		return admin.DoctorCheckOutput{}
+	}
+	content := adm.ContentService()
+	if content == nil {
+		return quickstartDoctorMissingContentService()
+	}
+	effectiveEnv := defaultChannelKey
+	defs, err := content.BlockDefinitions(admin.WithContentChannel(context.Background(), effectiveEnv))
+	if err != nil {
+		return quickstartDoctorBlockDefinitionsFetchFailed(effectiveEnv, err)
+	}
+	required := []string{"hero", "rich_text"}
+	availableList, missing := blockDefinitionAvailability(defs, required)
+	findings := []admin.DoctorFinding{}
+	metadata := map[string]any{
+		"effective_channel": effectiveEnv,
+		"required":          required,
+		"available_count":   len(availableList),
+		"available_types":   availableList,
+		"service_total":     len(defs),
+	}
+	visibility := quickstartDoctorBlockVisibility(adm, content, effectiveEnv)
+	applyBlockVisibilityMetadata(metadata, visibility)
+	findings = append(findings, blockVisibilityFindings(effectiveEnv, len(defs), visibility)...)
+	findings = append(findings, missingBlockDefinitionFindings(missing)...)
+	if len(findings) == 0 {
+		return admin.DoctorCheckOutput{
+			Summary:  "Required default block definitions are present and list visibility is consistent",
+			Metadata: metadata,
 		}
 	}
+	return admin.DoctorCheckOutput{Findings: findings, Metadata: metadata}
+}
 
+func quickstartDoctorMissingContentService() admin.DoctorCheckOutput {
+	return admin.DoctorCheckOutput{
+		Findings: []admin.DoctorFinding{
+			{
+				Severity:  admin.DoctorSeverityWarn,
+				Code:      "quickstart.blocks.content_service_missing",
+				Component: "cms",
+				Message:   "Content service is unavailable; block diagnostics skipped",
+				Hint:      "Configure CMS content service before running block seed diagnostics",
+			},
+		},
+	}
+}
+
+func quickstartDoctorBlockDefinitionsFetchFailed(effectiveEnv string, err error) admin.DoctorCheckOutput {
+	return admin.DoctorCheckOutput{
+		Findings: []admin.DoctorFinding{
+			{
+				Severity:  admin.DoctorSeverityError,
+				Code:      "quickstart.blocks.fetch_failed",
+				Component: "cms.blocks",
+				Message:   "Failed to load block definitions for diagnostics",
+				Hint:      "Verify CMS persistence wiring and block definition repository health",
+				Metadata: map[string]any{
+					"error": err.Error(),
+				},
+			},
+		},
+		Metadata: map[string]any{
+			"effective_channel": effectiveEnv,
+		},
+	}
+}
+
+func blockDefinitionAvailability(defs []admin.CMSBlockDefinition, required []string) ([]string, []string) {
+	requiredSet := map[string]bool{}
+	for _, key := range required {
+		requiredSet[key] = true
+	}
+	present := map[string]bool{}
+	available := map[string]struct{}{}
+	for _, def := range defs {
+		for _, candidate := range blockDefinitionAliasKeys(def.ID, def.Slug, def.Type) {
+			if candidate == "" {
+				continue
+			}
+			available[candidate] = struct{}{}
+			if requiredSet[candidate] {
+				present[candidate] = true
+			}
+		}
+	}
+	missing := []string{}
+	for _, key := range required {
+		if !present[key] {
+			missing = append(missing, key)
+		}
+	}
+	availableList := make([]string, 0, len(available))
+	for key := range available {
+		availableList = append(availableList, key)
+	}
+	sort.Strings(availableList)
+	return availableList, missing
+}
+
+type blockVisibilityDiagnostic struct {
+	total        int
+	source       string
+	panelListErr error
+	err          error
+}
+
+func quickstartDoctorBlockVisibility(adm *admin.Admin, content admin.CMSContentService, effectiveEnv string) blockVisibilityDiagnostic {
+	diagnostic := blockVisibilityDiagnostic{total: -1}
+	listCtx := admin.WithContentChannel(context.Background(), effectiveEnv)
+	if total, err, ok := blockVisibilityFromPanel(adm, listCtx, effectiveEnv); ok {
+		diagnostic.total = total
+		diagnostic.source = "panel"
+		return diagnostic
+	} else if err != nil {
+		diagnostic.panelListErr = err
+	}
+	total, err := blockVisibilityFromRepository(adm, content, listCtx, effectiveEnv)
+	if err != nil {
+		diagnostic.err = err
+		return diagnostic
+	}
+	diagnostic.total = total
+	diagnostic.source = "repository_fallback"
+	return diagnostic
+}
+
+func blockVisibilityFromPanel(adm *admin.Admin, listCtx context.Context, effectiveEnv string) (int, error, bool) {
+	registry := adm.Registry()
+	if registry == nil {
+		return -1, nil, false
+	}
+	panel, ok := registry.Panel("block_definitions")
+	if !ok || panel == nil {
+		return -1, nil, false
+	}
+	adminCtx := admin.AdminContext{
+		Context:     listCtx,
+		Environment: effectiveEnv,
+		Locale:      strings.TrimSpace(adm.DefaultLocale()),
+	}
+	_, total, err := panel.List(adminCtx, admin.ListOptions{
+		Page:    1,
+		PerPage: 1,
+		Filters: map[string]any{admin.ContentChannelScopeQueryParam: effectiveEnv},
+	})
+	return total, err, err == nil
+}
+
+func blockVisibilityFromRepository(adm *admin.Admin, content admin.CMSContentService, listCtx context.Context, effectiveEnv string) (int, error) {
+	repo := admin.NewCMSBlockDefinitionRepository(content, adm.ContentTypeService())
+	_, total, err := repo.List(listCtx, admin.ListOptions{
+		Page:    1,
+		PerPage: 1,
+		Filters: map[string]any{admin.ContentChannelScopeQueryParam: effectiveEnv},
+	})
+	return total, err
+}
+
+func applyBlockVisibilityMetadata(metadata map[string]any, visibility blockVisibilityDiagnostic) {
+	if visibility.panelListErr != nil {
+		metadata["panel_list_error"] = visibility.panelListErr.Error()
+	}
+	if visibility.total >= 0 {
+		metadata["visible_total"] = visibility.total
+	}
+	if visibility.source != "" {
+		metadata["visibility_source"] = visibility.source
+	}
+}
+
+func blockVisibilityFindings(effectiveEnv string, serviceTotal int, visibility blockVisibilityDiagnostic) []admin.DoctorFinding {
+	if visibility.err != nil {
+		visibilityErr := visibility.err
+		if visibility.panelListErr != nil && !errors.Is(visibility.panelListErr, admin.ErrForbidden) {
+			visibilityErr = fmt.Errorf("panel list failed: %w; repository fallback failed: %v", visibility.panelListErr, visibility.err)
+		}
+		return []admin.DoctorFinding{{
+			Severity:  admin.DoctorSeverityWarn,
+			Code:      "quickstart.blocks.visibility_check_unavailable",
+			Component: "cms.blocks",
+			Message:   "Could not run Block Library visibility consistency check",
+			Hint:      "Ensure block_definitions panel and CMS repositories are healthy before relying on Block Library diagnostics",
+			Metadata: map[string]any{
+				"error": visibilityErr.Error(),
+			},
+		}}
+	}
+	if visibility.total < 0 || visibility.total == serviceTotal {
+		return nil
+	}
+	return []admin.DoctorFinding{{
+		Severity:  admin.DoctorSeverityError,
+		Code:      "quickstart.blocks.visibility_mismatch",
+		Component: "cms.blocks",
+		Message:   fmt.Sprintf("Block Library visibility mismatch in %q channel: service=%d, visible=%d", effectiveEnv, serviceTotal, visibility.total),
+		Hint:      "Align channel canonicalization between diagnostics and list-path filtering (blank vs default handling)",
+		Metadata: map[string]any{
+			"effective_channel": effectiveEnv,
+			"service_total":     serviceTotal,
+			"visible_total":     visibility.total,
+			"visibility_source": visibility.source,
+		},
+	}}
+}
+
+func missingBlockDefinitionFindings(missing []string) []admin.DoctorFinding {
+	if len(missing) == 0 {
+		return nil
+	}
+	return []admin.DoctorFinding{{
+		Severity:  admin.DoctorSeverityError,
+		Code:      "quickstart.blocks.seed_missing",
+		Component: "cms.blocks",
+		Message:   fmt.Sprintf("Missing required default block definitions: %s", strings.Join(missing, ", ")),
+		Hint:      "Seed missing block definitions into the default content channel or switch the Block Library back to default",
+		Metadata: map[string]any{
+			"missing": missing,
+		},
+	}}
+}
 
 func routingDoctorSummaryMetadata(summary routing.RouteSummary) map[string]any {
 	return map[string]any{

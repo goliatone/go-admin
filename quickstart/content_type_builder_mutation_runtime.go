@@ -264,25 +264,34 @@ func (h *contentTypeBuilderHandlers) updateContentTypeStatus(c router.Context, s
 	}
 	updated, err := panel.Update(adminCtx, resolvedID, updatePayload)
 	if err != nil {
-		if errors.Is(err, admin.ErrNotFound) {
-			h.logContentTypeIDMismatch("publish", id, resolvedID, resolvedFrom, record)
-			return goerrors.New("content type not found", goerrors.CategoryNotFound).
-				WithCode(http.StatusNotFound).
-				WithTextCode(admin.TextCodeNotFound)
-		}
+		return h.contentTypeStatusUpdateError(err, id, resolvedID, resolvedFrom, record)
+	}
+	h.flushPublishedContentTypeVersion(status, resolvedID, updated)
+	return c.JSON(http.StatusOK, updated)
+}
+
+func (h *contentTypeBuilderHandlers) contentTypeStatusUpdateError(err error, requestID string, resolvedID string, resolvedFrom string, record map[string]any) error {
+	if !errors.Is(err, admin.ErrNotFound) {
 		return err
 	}
-	if status == "active" && h.versions != nil {
-		key := contentTypeKey(resolvedID, updated)
-		entry, ok := h.versions.flushPending(key)
-		if !ok {
-			entry = buildVersionFromRecord(updated)
-		}
-		if entry.Schema != nil {
-			h.versions.addVersion(key, entry)
-		}
+	h.logContentTypeIDMismatch("publish", requestID, resolvedID, resolvedFrom, record)
+	return goerrors.New("content type not found", goerrors.CategoryNotFound).
+		WithCode(http.StatusNotFound).
+		WithTextCode(admin.TextCodeNotFound)
+}
+
+func (h *contentTypeBuilderHandlers) flushPublishedContentTypeVersion(status string, resolvedID string, updated map[string]any) {
+	if status != "active" || h.versions == nil {
+		return
 	}
-	return c.JSON(http.StatusOK, updated)
+	key := contentTypeKey(resolvedID, updated)
+	entry, ok := h.versions.flushPending(key)
+	if !ok {
+		entry = buildVersionFromRecord(updated)
+	}
+	if entry.Schema != nil {
+		h.versions.addVersion(key, entry)
+	}
 }
 
 func (h *contentTypeBuilderHandlers) resolveContentTypeID(ctx context.Context, requestID string, record map[string]any) (string, string, error) {
@@ -291,42 +300,66 @@ func (h *contentTypeBuilderHandlers) resolveContentTypeID(ctx context.Context, r
 		return "", "", nil
 	}
 	if h == nil || h.admin == nil {
-		if record != nil {
-			if resolved := resolveContentTypeUpdateID(requestID, record); resolved != "" {
-				return resolved, "record", nil
-			}
-		}
-		return requestID, "request", nil
+		return contentTypeIDFromRecordOrRequest(requestID, record)
 	}
 	svc := h.admin.ContentTypeService()
 	if svc == nil {
-		if record != nil {
-			if resolved := resolveContentTypeUpdateID(requestID, record); resolved != "" {
-				return resolved, "record", nil
-			}
-		}
-		return requestID, "request", nil
+		return contentTypeIDFromRecordOrRequest(requestID, record)
 	}
 
-	if ct, err := svc.ContentType(ctx, requestID); err == nil && ct != nil {
-		if id := strings.TrimSpace(ct.ID); id != "" {
-			return id, "id", nil
-		}
-		return requestID, "id", nil
-	} else if err != nil && !errors.Is(err, admin.ErrNotFound) {
-		return "", "", err
+	id, found, err := resolveContentTypeServiceID(ctx, svc, requestID)
+	if err != nil || found {
+		return id, "id", err
 	}
-
-	if ct, err := svc.ContentTypeBySlug(ctx, requestID); err == nil && ct != nil {
-		if id := strings.TrimSpace(ct.ID); id != "" {
-			return id, "slug", nil
-		}
-		return requestID, "slug", nil
-	} else if err != nil && !errors.Is(err, admin.ErrNotFound) {
-		return "", "", err
+	id, found, err = resolveContentTypeServiceSlug(ctx, svc, requestID)
+	if err != nil || found {
+		return id, "slug", err
 	}
 
 	return "", "", nil
+}
+
+func contentTypeIDFromRecordOrRequest(requestID string, record map[string]any) (string, string, error) {
+	if record != nil {
+		if resolved := resolveContentTypeUpdateID(requestID, record); resolved != "" {
+			return resolved, "record", nil
+		}
+	}
+	return requestID, "request", nil
+}
+
+func resolveContentTypeServiceID(ctx context.Context, svc admin.CMSContentTypeService, requestID string) (string, bool, error) {
+	ct, err := svc.ContentType(ctx, requestID)
+	if err != nil {
+		if errors.Is(err, admin.ErrNotFound) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	if ct == nil {
+		return "", false, nil
+	}
+	if id := strings.TrimSpace(ct.ID); id != "" {
+		return id, true, nil
+	}
+	return requestID, true, nil
+}
+
+func resolveContentTypeServiceSlug(ctx context.Context, svc admin.CMSContentTypeService, requestID string) (string, bool, error) {
+	ct, err := svc.ContentTypeBySlug(ctx, requestID)
+	if err != nil {
+		if errors.Is(err, admin.ErrNotFound) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	if ct == nil {
+		return "", false, nil
+	}
+	if id := strings.TrimSpace(ct.ID); id != "" {
+		return id, true, nil
+	}
+	return requestID, true, nil
 }
 
 func (h *contentTypeBuilderHandlers) logContentTypeIDMismatch(action, requestID, resolvedID, resolvedFrom string, record map[string]any) {

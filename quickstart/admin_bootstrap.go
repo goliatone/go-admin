@@ -296,29 +296,39 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	if err := resolveAdminRuntimeDependencies(cfg, &options); err != nil {
 		return nil, result, err
 	}
-	applyRPCTransportPolicyConfig(&cfg, &options)
-	applyCommandExecutionRoutingConfig(&cfg, options)
-	if options.workflowRuntime != nil {
-		options.deps.WorkflowRuntime = options.workflowRuntime
-	}
+	applyAdminRuntimeConfig(&cfg, &options)
 	adm, err := admin.New(cfg, options.deps)
 	if err != nil {
 		return nil, result, err
 	}
+	if err := applyAdminPostCreateIntegrations(adm, cfg, hooks, &result, options); err != nil {
+		return nil, result, err
+	}
+	if err := validateAndRegisterTranslationCapabilities(adm, options, translationLogger); err != nil {
+		return nil, result, err
+	}
+	registerQuickstartDoctorChecks(adm, cfg, result, options)
+	if err := configureAdminRuntimeQueues(adm, options); err != nil {
+		return nil, result, err
+	}
+	return adm, result, nil
+}
+
+func applyAdminRuntimeConfig(cfg *admin.Config, options *adminOptions) {
+	applyRPCTransportPolicyConfig(cfg, options)
+	applyCommandExecutionRoutingConfig(cfg, *options)
+	if options.workflowRuntime != nil {
+		options.deps.WorkflowRuntime = options.workflowRuntime
+	}
+}
+
+func applyAdminPostCreateIntegrations(adm *admin.Admin, cfg admin.Config, hooks AdapterHooks, result *AdapterResult, options adminOptions) error {
 	if options.startupPolicy != nil {
 		adm.WithModuleStartupPolicy(*options.startupPolicy)
 	}
 	configureCMSWorkflowTranslationActions(adm, options)
-	if options.translationExchangeConfigSet {
-		if err := RegisterTranslationExchangeWiring(adm, options.translationExchangeConfig); err != nil {
-			return nil, result, err
-		}
-	}
-	if options.translationQueueConfigSet {
-		policyCfg, hasPolicyCfg := queuePolicyConfigFromOptions(options)
-		if err := RegisterTranslationQueueWiring(adm, options.translationQueueConfig, policyCfg, hasPolicyCfg); err != nil {
-			return nil, result, err
-		}
+	if err := registerTranslationProductWiring(adm, options); err != nil {
+		return err
 	}
 	if options.themeSelector != nil {
 		adm.WithAdminTheme(options.themeSelector)
@@ -326,12 +336,27 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	if options.themeManifest != nil {
 		adm.WithThemeManifest(options.themeManifest)
 	}
-	ApplyAdapterIntegrations(adm, &result, hooks)
+	ApplyAdapterIntegrations(adm, result, hooks)
 	if options.registerUserRoleBulkRoutes {
-		if err := registerUserRoleBulkRoutes(adm, cfg); err != nil {
-			return nil, result, err
+		return registerUserRoleBulkRoutes(adm, cfg)
+	}
+	return nil
+}
+
+func registerTranslationProductWiring(adm *admin.Admin, options adminOptions) error {
+	if options.translationExchangeConfigSet {
+		if err := RegisterTranslationExchangeWiring(adm, options.translationExchangeConfig); err != nil {
+			return err
 		}
 	}
+	if options.translationQueueConfigSet {
+		policyCfg, hasPolicyCfg := queuePolicyConfigFromOptions(options)
+		return RegisterTranslationQueueWiring(adm, options.translationQueueConfig, policyCfg, hasPolicyCfg)
+	}
+	return nil
+}
+
+func validateAndRegisterTranslationCapabilities(adm *admin.Admin, options adminOptions, translationLogger admin.Logger) error {
 	translationModules := resolvedTranslationCapabilityModules(
 		options.translationProductConfig,
 		options.translationExchangeConfig,
@@ -342,19 +367,19 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 	if shouldValidateTranslationProductRuntime(options) {
 		if err := validateTranslationProductRuntime(adm, options.translationProductConfig, options.translationProductWarnings, translationModules); err != nil {
 			logTranslationCapabilityValidationError(translationLogger, err)
-			return nil, result, err
+			return err
 		}
 	}
 	registerTranslationCapabilities(adm, options.translationProductConfig, options.translationProductWarnings, translationModules)
 	logTranslationCapabilitiesStartup(translationLogger, TranslationCapabilities(adm))
-	registerQuickstartDoctorChecks(adm, cfg, result, options)
+	return nil
+}
+
+func configureAdminRuntimeQueues(adm *admin.Admin, options adminOptions) error {
 	if err := configureCommandQueueRouting(options); err != nil {
-		return nil, result, err
+		return err
 	}
-	if err := configureRPCTransport(adm, options); err != nil {
-		return nil, result, err
-	}
-	return adm, result, nil
+	return configureRPCTransport(adm, options)
 }
 
 func resolveAdminRuntimeDependencies(cfg admin.Config, options *adminOptions) error {

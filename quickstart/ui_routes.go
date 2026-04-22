@@ -365,16 +365,25 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	if r == nil {
 		return fmt.Errorf("router is required")
 	}
+	options := resolveAdminUIRouteOptions(cfg, adm, opts)
+	wrap := wrapQuickstartRouteAuth(auth)
+	renderView := func(c router.Context, template, title, active string, extra router.ViewContext) error {
+		return renderQuickstartUIView(c, template, title, active, options.basePath, options.viewContext, extra)
+	}
+	resolveAPIBase := func() string {
+		return resolveQuickstartAdminAPIBase(adm, cfg, options.basePath)
+	}
+
+	registerAdminUIStandardRoutes(r, options, wrap, renderView, resolveAPIBase)
+	registerAdminUITranslationRoutes(r, options, wrap, renderView, resolveAPIBase)
+	return nil
+}
+
+func resolveAdminUIRouteOptions(cfg admin.Config, adm *admin.Admin, opts []UIRouteOption) uiRouteOptions {
 	exposure := resolveTranslationModuleExposureSnapshot(adm, nil)
 	queueModuleEnabled := exposure.Queue.CapabilityEnabled
 	exchangeModuleEnabled := exposure.Exchange.CapabilityEnabled
-	coreModuleEnabled := false
-	if _, ok := translationCapabilitiesStore.Load(adm); ok {
-		if caps := translationCapabilitiesForAdmin(adm); len(caps) > 0 {
-			productized, _ := caps["productized"].(bool)
-			coreModuleEnabled = productized && !strings.EqualFold(strings.TrimSpace(fmt.Sprint(caps["profile"])), "none")
-		}
-	}
+	coreModuleEnabled := translationCoreModuleEnabled(adm)
 
 	options := uiRouteOptions{
 		basePath:                        strings.TrimSpace(cfg.BasePath),
@@ -424,8 +433,26 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 			opt(&options)
 		}
 	}
-	// Keep translation UI routes aligned with capability state even when callers
-	// explicitly opt in, so dashboard/exchange pages do not point to disabled APIs.
+	applyAdminUITranslationCapabilityGates(&options, queueModuleEnabled, coreModuleEnabled, exchangeModuleEnabled)
+	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
+	applyAdminUIRoutePathDefaults(&options)
+	options.viewContext = resolveQuickstartUIViewContextBuilder(adm, cfg, options.viewContext)
+	return options
+}
+
+func translationCoreModuleEnabled(adm *admin.Admin) bool {
+	if _, ok := translationCapabilitiesStore.Load(adm); !ok {
+		return false
+	}
+	caps := translationCapabilitiesForAdmin(adm)
+	if len(caps) == 0 {
+		return false
+	}
+	productized, _ := caps["productized"].(bool)
+	return productized && !strings.EqualFold(strings.TrimSpace(fmt.Sprint(caps["profile"])), "none")
+}
+
+func applyAdminUITranslationCapabilityGates(options *uiRouteOptions, queueModuleEnabled, coreModuleEnabled, exchangeModuleEnabled bool) {
 	if !queueModuleEnabled {
 		options.registerTranslationQueue = false
 		options.registerTranslationEditor = false
@@ -438,8 +465,9 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	if !exchangeModuleEnabled {
 		options.registerTranslationExchange = false
 	}
+}
 
-	options.basePath = normalizeQuickstartRouteBasePath(options.basePath)
+func applyAdminUIRoutePathDefaults(options *uiRouteOptions) {
 	if options.dashboardPath == "" {
 		options.dashboardPath = options.basePath
 	}
@@ -470,16 +498,15 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 	if options.translationExchangePath == "" {
 		options.translationExchangePath = path.Join(options.basePath, "translations", "exchange")
 	}
-	options.viewContext = resolveQuickstartUIViewContextBuilder(adm, cfg, options.viewContext)
+}
 
-	wrap := wrapQuickstartRouteAuth(auth)
-	renderView := func(c router.Context, template, title, active string, extra router.ViewContext) error {
-		return renderQuickstartUIView(c, template, title, active, options.basePath, options.viewContext, extra)
-	}
-	resolveAPIBase := func() string {
-		return resolveQuickstartAdminAPIBase(adm, cfg, options.basePath)
-	}
-
+func registerAdminUIStandardRoutes[T any](
+	r router.Router[T],
+	options uiRouteOptions,
+	wrap func(router.HandlerFunc) router.HandlerFunc,
+	renderView func(router.Context, string, string, string, router.ViewContext) error,
+	resolveAPIBase func() string,
+) {
 	if options.registerDashboard {
 		r.Get(options.dashboardPath, wrap(func(c router.Context) error {
 			return renderView(c, options.dashboardTemplate, options.dashboardTitle, options.dashboardActive, nil)
@@ -509,7 +536,15 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 			})
 		}))
 	}
+}
 
+func registerAdminUITranslationRoutes[T any](
+	r router.Router[T],
+	options uiRouteOptions,
+	wrap func(router.HandlerFunc) router.HandlerFunc,
+	renderView func(router.Context, string, string, string, router.ViewContext) error,
+	resolveAPIBase func() string,
+) {
 	if options.registerTranslationDashboard {
 		r.Get(options.translationDashboardPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
@@ -595,8 +630,6 @@ func RegisterAdminUIRoutes[T any](r router.Router[T], cfg admin.Config, adm *adm
 			})
 		}))
 	}
-
-	return nil
 }
 
 func defaultUIViewContextBuilder(adm *admin.Admin, cfg admin.Config) UIViewContextBuilder {

@@ -51,61 +51,20 @@ func RegisterAdminPageRoutes[T any](
 
 	for _, spec := range specs {
 		spec := spec
-		template := strings.TrimSpace(spec.Template)
-		if template == "" {
-			return fmt.Errorf("admin page template is required")
+		routePath, template, err := resolveAdminPageRouteSpec(spec, urls, basePath)
+		if err != nil {
+			return err
 		}
-		routePath := strings.TrimSpace(spec.Path)
-		if routePath == "" {
-			routeKey := strings.TrimSpace(spec.Route)
-			if routeKey == "" {
-				return fmt.Errorf("admin page route is required")
-			}
-			routePath = resolveAdminRoutePath(urls, basePath, routeKey)
-		}
-		if routePath == "" {
-			return fmt.Errorf("admin page route %q unresolved", spec.Route)
-		}
-
-		active := strings.TrimSpace(spec.Active)
-		if active == "" {
-			active = strings.TrimSpace(spec.Route)
-		}
-		viewBuilder := spec.ViewContextBuilder
-		if viewBuilder == nil {
-			viewBuilder = defaultViewBuilder
-		}
+		active := resolveAdminPageActive(spec)
+		viewBuilder := resolveAdminPageViewBuilder(spec, defaultViewBuilder)
 
 		handler := func(c router.Context) error {
-			if strings.TrimSpace(spec.Feature) != "" {
-				if adm == nil || !featureEnabled(adm.FeatureGate(), spec.Feature) {
-					return admin.FeatureDisabledError{Feature: strings.TrimSpace(spec.Feature)}
-				}
+			if err := guardAdminPageRoute(c, adm, spec, fallbackAuthz); err != nil {
+				return err
 			}
-			if spec.Guard != nil {
-				if err := spec.Guard(c); err != nil {
-					return err
-				}
-			}
-			if perm := strings.TrimSpace(spec.Permission); perm != "" {
-				if !permissionAllowed(c, adm, perm, fallbackAuthz) {
-					return admin.ErrForbidden
-				}
-			}
-
-			viewCtx := router.ViewContext{}
-			if strings.TrimSpace(spec.Title) != "" {
-				viewCtx["title"] = strings.TrimSpace(spec.Title)
-			}
-			if spec.BuildContext != nil {
-				extra, err := spec.BuildContext(c)
-				if err != nil {
-					return err
-				}
-				viewCtx = mergeViewContext(viewCtx, extra)
-			}
-			if viewBuilder != nil {
-				viewCtx = viewBuilder(viewCtx, active, c)
+			viewCtx, err := buildAdminPageViewContext(c, spec, viewBuilder, active)
+			if err != nil {
+				return err
 			}
 			return templateview.RenderTemplateView(c, template, viewCtx)
 		}
@@ -118,6 +77,76 @@ func RegisterAdminPageRoutes[T any](
 	}
 
 	return nil
+}
+
+func resolveAdminPageRouteSpec(spec AdminPageSpec, urls urlkit.Resolver, basePath string) (string, string, error) {
+	template := strings.TrimSpace(spec.Template)
+	if template == "" {
+		return "", "", fmt.Errorf("admin page template is required")
+	}
+	routePath := strings.TrimSpace(spec.Path)
+	if routePath == "" {
+		routeKey := strings.TrimSpace(spec.Route)
+		if routeKey == "" {
+			return "", "", fmt.Errorf("admin page route is required")
+		}
+		routePath = resolveAdminRoutePath(urls, basePath, routeKey)
+	}
+	if routePath == "" {
+		return "", "", fmt.Errorf("admin page route %q unresolved", spec.Route)
+	}
+	return routePath, template, nil
+}
+
+func resolveAdminPageActive(spec AdminPageSpec) string {
+	if active := strings.TrimSpace(spec.Active); active != "" {
+		return active
+	}
+	return strings.TrimSpace(spec.Route)
+}
+
+func resolveAdminPageViewBuilder(spec AdminPageSpec, fallback UIViewContextBuilder) UIViewContextBuilder {
+	if spec.ViewContextBuilder != nil {
+		return spec.ViewContextBuilder
+	}
+	return fallback
+}
+
+func guardAdminPageRoute(c router.Context, adm *admin.Admin, spec AdminPageSpec, fallbackAuthz admin.Authorizer) error {
+	if feature := strings.TrimSpace(spec.Feature); feature != "" {
+		if adm == nil || !featureEnabled(adm.FeatureGate(), feature) {
+			return admin.FeatureDisabledError{Feature: feature}
+		}
+	}
+	if spec.Guard != nil {
+		if err := spec.Guard(c); err != nil {
+			return err
+		}
+	}
+	if perm := strings.TrimSpace(spec.Permission); perm != "" {
+		if !permissionAllowed(c, adm, perm, fallbackAuthz) {
+			return admin.ErrForbidden
+		}
+	}
+	return nil
+}
+
+func buildAdminPageViewContext(c router.Context, spec AdminPageSpec, viewBuilder UIViewContextBuilder, active string) (router.ViewContext, error) {
+	viewCtx := router.ViewContext{}
+	if title := strings.TrimSpace(spec.Title); title != "" {
+		viewCtx["title"] = title
+	}
+	if spec.BuildContext != nil {
+		extra, err := spec.BuildContext(c)
+		if err != nil {
+			return nil, err
+		}
+		viewCtx = mergeViewContext(viewCtx, extra)
+	}
+	if viewBuilder != nil {
+		viewCtx = viewBuilder(viewCtx, active, c)
+	}
+	return viewCtx, nil
 }
 
 func mergeViewContext(base router.ViewContext, extra router.ViewContext) router.ViewContext {

@@ -13,6 +13,30 @@ import (
 	urlkit "github.com/goliatone/go-urlkit"
 )
 
+type contentEntryListViewParams struct {
+	Panel                *admin.Panel
+	PanelName            string
+	ContentType          *admin.CMSContentType
+	AdminCtx             admin.AdminContext
+	Items                []map[string]any
+	Total                int
+	Filters              []map[string]any
+	Columns              []map[string]any
+	URLs                 urlkit.Resolver
+	BasePath             string
+	PreferencesAPI       string
+	Slug                 string
+	ActionBase           string
+	Routes               contentEntryRoutes
+	RoutesMap            map[string]string
+	DataTableID          string
+	ListAPI              string
+	BulkCtx              contentEntryBulkActionContext
+	TranslationUXEnabled bool
+	StateStoreCfg        PanelDataGridStateStoreOptions
+	Request              router.Context
+}
+
 func (h *contentEntryHandlers) List(c router.Context) error {
 	return h.listForPanel(c, "")
 }
@@ -31,12 +55,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	}
 	filters := contentEntryFilters(panel)
 	columns := contentEntryColumns(panel, contentType, filters, h.defaultRenderers)
-	// Inject block icons map for blocks_chips renderer (only when needed).
-	if contentEntryNeedsBlocksChips(columns) {
-		if iconMap := contentEntryBlockIconsMap(adminCtx, h.admin); iconMap != nil {
-			columns = contentEntryAttachBlocksIconMap(columns, iconMap)
-		}
-	}
+	columns = h.withContentEntryBlockIcons(columns, adminCtx)
 	var urls urlkit.Resolver
 	if h.admin != nil {
 		urls = h.admin.URLs()
@@ -55,49 +74,58 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	listAPI := resolveAdminPanelAPICollectionURL(urls, h.cfg, basePath, panelName)
 	bulkCtx := buildContentEntryBulkActionContext(h.admin, panel, panelName, c, urls, h.cfg, basePath)
 	translationUXEnabled := h.translationUX && contentEntryPanelSupportsTranslationUX(panel)
-	stateStoreCfg := h.dataGridStateStore
-	stateStoreConfigured := strings.TrimSpace(stateStoreCfg.Mode) != "" ||
-		strings.TrimSpace(stateStoreCfg.Resource) != "" ||
-		stateStoreCfg.SyncDebounceMS > 0 ||
-		stateStoreCfg.MaxShareEntries > 0
-	if stateStoreConfigured && strings.TrimSpace(stateStoreCfg.Resource) == "" {
-		stateStoreCfg.Resource = panelName
-	}
+	stateStoreCfg := h.listStateStoreConfig(panelName)
 
+	viewCtx := h.contentEntryListViewContext(contentEntryListViewParams{
+		Panel: panel, PanelName: panelName, ContentType: contentType, AdminCtx: adminCtx,
+		Items: items, Total: total, Filters: filters, Columns: columns, URLs: urls,
+		BasePath: basePath, PreferencesAPI: preferencesAPI, Slug: slug, ActionBase: actionBase,
+		Routes: routes, RoutesMap: routesMap, DataTableID: dataTableID, ListAPI: listAPI,
+		BulkCtx: bulkCtx, TranslationUXEnabled: translationUXEnabled, StateStoreCfg: stateStoreCfg,
+		Request: c,
+	})
+	if h.viewContext != nil {
+		viewCtx = h.viewContext(viewCtx, panelName, c)
+	}
+	return h.renderTemplate(c, contentTypeSlug(contentType, panelName), h.listTemplate, viewCtx)
+}
+
+func (h *contentEntryHandlers) contentEntryListViewContext(params contentEntryListViewParams) router.ViewContext {
 	viewCtx := router.ViewContext{
 		"title":                h.cfg.Title,
-		"base_path":            basePath,
+		"base_path":            params.BasePath,
 		"resource":             "content",
-		"resource_label":       contentTypeLabel(contentType, panelName),
-		"routes":               routesMap,
-		"action_base":          actionBase,
-		"items":                items,
-		"columns":              columns,
-		"filters":              filters,
-		"total":                total,
-		"datatable_id":         dataTableID,
-		"list_api":             listAPI,
-		"channel":              adminCtx.Channel,
+		"resource_label":       contentTypeLabel(params.ContentType, params.PanelName),
+		"routes":               params.RoutesMap,
+		"action_base":          params.ActionBase,
+		"items":                params.Items,
+		"columns":              params.Columns,
+		"filters":              params.Filters,
+		"total":                params.Total,
+		"datatable_id":         params.DataTableID,
+		"list_api":             params.ListAPI,
+		"channel":              params.AdminCtx.Channel,
 		"channel_query_key":    admin.ContentChannelScopeQueryParam,
-		"panel_name":           panelName,
-		"preferences_api_path": preferencesAPI,
-		"content_type": map[string]any{
-			"id":     contentTypeID(contentType),
-			"name":   contentTypeLabel(contentType, panelName),
-			"slug":   slug,
-			"icon":   contentTypeIcon(contentType),
-			"status": contentTypeStatus(contentType),
-		},
+		"panel_name":           params.PanelName,
+		"preferences_api_path": params.PreferencesAPI,
+		"content_type":         contentEntryListContentTypePayload(params.ContentType, params.PanelName, params.Slug),
 	}
-	viewCtx = ApplyPanelBreadcrumbs(
-		viewCtx,
-		panel,
-		basePath,
-		contentTypeLabel(contentType, panelName),
-		routes.index(),
-		BreadcrumbRouteList,
-		nil,
-	)
+	viewCtx = ApplyPanelBreadcrumbs(viewCtx, params.Panel, params.BasePath, contentTypeLabel(params.ContentType, params.PanelName), params.Routes.index(), BreadcrumbRouteList, nil)
+	applyContentEntryBulkViewContext(viewCtx, params.BulkCtx)
+	return mergeViewContext(viewCtx, h.contentEntryListCapabilities(params))
+}
+
+func contentEntryListContentTypePayload(contentType *admin.CMSContentType, panelName string, slug string) map[string]any {
+	return map[string]any{
+		"id":     contentTypeID(contentType),
+		"name":   contentTypeLabel(contentType, panelName),
+		"slug":   slug,
+		"icon":   contentTypeIcon(contentType),
+		"status": contentTypeStatus(contentType),
+	}
+}
+
+func applyContentEntryBulkViewContext(viewCtx router.ViewContext, bulkCtx contentEntryBulkActionContext) {
 	if len(bulkCtx.Primary) > 0 {
 		viewCtx["bulk_actions_primary"] = bulkCtx.Primary
 	}
@@ -107,28 +135,50 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	if bulkCtx.BaseURL != "" && (len(bulkCtx.Primary) > 0 || len(bulkCtx.Overflow) > 0) {
 		viewCtx["bulk_base"] = bulkCtx.BaseURL
 	}
-	viewCtx = mergeViewContext(viewCtx, BuildPanelViewCapabilities(h.cfg, PanelViewCapabilityOptions{
-		BasePath:    basePath,
-		URLResolver: urls,
-		Definition:  canonicalPanelName(panelName),
-		Variant:     adminCtx.Channel,
+}
+
+func (h *contentEntryHandlers) contentEntryListCapabilities(params contentEntryListViewParams) router.ViewContext {
+	return BuildPanelViewCapabilities(h.cfg, PanelViewCapabilityOptions{
+		BasePath:    params.BasePath,
+		URLResolver: params.URLs,
+		Definition:  canonicalPanelName(params.PanelName),
+		Variant:     params.AdminCtx.Channel,
 		DataGrid: PanelDataGridConfigOptions{
-			TableID:             dataTableID,
-			APIEndpoint:         listAPI,
-			ActionBase:          actionBase,
-			PreferencesEndpoint: preferencesAPI,
-			TranslationUX:       translationUXEnabled,
-			EnableGroupedMode:   translationUXEnabled,
-			DefaultViewMode:     contentEntryTranslationDefaultViewMode(translationUXEnabled),
-			GroupByField:        contentEntryFamilyGroupByField(translationUXEnabled),
-			StateStore:          stateStoreCfg,
+			TableID:             params.DataTableID,
+			APIEndpoint:         params.ListAPI,
+			ActionBase:          params.ActionBase,
+			PreferencesEndpoint: params.PreferencesAPI,
+			TranslationUX:       params.TranslationUXEnabled,
+			EnableGroupedMode:   params.TranslationUXEnabled,
+			DefaultViewMode:     contentEntryTranslationDefaultViewMode(params.TranslationUXEnabled),
+			GroupByField:        contentEntryFamilyGroupByField(params.TranslationUXEnabled),
+			StateStore:          params.StateStoreCfg,
 			URLState:            h.dataGridURLState,
 		},
-	}))
-	if h.viewContext != nil {
-		viewCtx = h.viewContext(viewCtx, panelName, c)
+	})
+}
+
+func (h *contentEntryHandlers) withContentEntryBlockIcons(columns []map[string]any, adminCtx admin.AdminContext) []map[string]any {
+	if !contentEntryNeedsBlocksChips(columns) {
+		return columns
 	}
-	return h.renderTemplate(c, contentTypeSlug(contentType, panelName), h.listTemplate, viewCtx)
+	iconMap := contentEntryBlockIconsMap(adminCtx, h.admin)
+	if iconMap == nil {
+		return columns
+	}
+	return contentEntryAttachBlocksIconMap(columns, iconMap)
+}
+
+func (h *contentEntryHandlers) listStateStoreConfig(panelName string) PanelDataGridStateStoreOptions {
+	stateStoreCfg := h.dataGridStateStore
+	stateStoreConfigured := strings.TrimSpace(stateStoreCfg.Mode) != "" ||
+		strings.TrimSpace(stateStoreCfg.Resource) != "" ||
+		stateStoreCfg.SyncDebounceMS > 0 ||
+		stateStoreCfg.MaxShareEntries > 0
+	if stateStoreConfigured && strings.TrimSpace(stateStoreCfg.Resource) == "" {
+		stateStoreCfg.Resource = panelName
+	}
+	return stateStoreCfg
 }
 
 func (h *contentEntryHandlers) Detail(c router.Context) error {

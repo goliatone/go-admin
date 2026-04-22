@@ -66,22 +66,11 @@ func (r *deliveryRuntime) resolvePagePathAliasCandidates(
 		return nil
 	}
 
-	identityToRecord := map[string]admin.CMSContent{}
-	for _, record := range records {
-		key := strings.TrimSpace(contentIdentityKey(record, capability))
-		if key == "" {
-			continue
-		}
-		if _, exists := identityToRecord[key]; exists {
-			continue
-		}
-		identityToRecord[key] = record
-	}
+	identityToRecord := contentIdentityRecordMap(records, capability)
 	if len(identityToRecord) == 0 {
 		return nil
 	}
 
-	matchedKeys := map[string]struct{}{}
 	requestPath = normalizeLocalePath(requestPath)
 	localized := r.localizedCapabilityRecords(
 		ctx,
@@ -93,36 +82,73 @@ func (r *deliveryRuntime) resolvePagePathAliasCandidates(
 		[]string{state.DefaultLocale},
 		[]string{r.siteCfg.DefaultLocale},
 	)
-	for _, locale := range localized.locales {
-		for _, item := range localized.byLocale[locale] {
-			if !pathsMatch(recordDeliveryPath(item, capability), requestPath) {
-				continue
-			}
-			key := strings.TrimSpace(contentIdentityKey(item, capability))
-			if key == "" {
-				continue
-			}
-			if _, ok := identityToRecord[key]; !ok {
-				continue
-			}
-			matchedKeys[key] = struct{}{}
-		}
-	}
+	matchedKeys := matchedPageAliasIdentityKeys(localized, capability, requestPath, identityToRecord)
 	if len(matchedKeys) == 0 {
 		return nil
 	}
 
-	keys := make([]string, 0, len(matchedKeys))
-	for key := range matchedKeys {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
+	keys := sortedStringSetKeys(matchedKeys)
 	out := make([]admin.CMSContent, 0, len(keys))
 	for _, key := range keys {
 		out = append(out, identityToRecord[key])
 	}
 	return out
+}
+
+func contentIdentityRecordMap(records []admin.CMSContent, capability deliveryCapability) map[string]admin.CMSContent {
+	identityToRecord := map[string]admin.CMSContent{}
+	for _, record := range records {
+		key := strings.TrimSpace(contentIdentityKey(record, capability))
+		if key == "" {
+			continue
+		}
+		if _, exists := identityToRecord[key]; exists {
+			continue
+		}
+		identityToRecord[key] = record
+	}
+	return identityToRecord
+}
+
+func matchedPageAliasIdentityKeys(
+	localized localizedCapabilityRecordSet,
+	capability deliveryCapability,
+	requestPath string,
+	identityToRecord map[string]admin.CMSContent,
+) map[string]struct{} {
+	matchedKeys := map[string]struct{}{}
+	for _, locale := range localized.locales {
+		for _, item := range localized.byLocale[locale] {
+			key := pageAliasIdentityKey(item, capability, requestPath, identityToRecord)
+			if key != "" {
+				matchedKeys[key] = struct{}{}
+			}
+		}
+	}
+	return matchedKeys
+}
+
+func pageAliasIdentityKey(item admin.CMSContent, capability deliveryCapability, requestPath string, identityToRecord map[string]admin.CMSContent) string {
+	if !pathsMatch(recordDeliveryPath(item, capability), requestPath) {
+		return ""
+	}
+	key := strings.TrimSpace(contentIdentityKey(item, capability))
+	if key == "" {
+		return ""
+	}
+	if _, ok := identityToRecord[key]; !ok {
+		return ""
+	}
+	return key
+}
+
+func sortedStringSetKeys(set map[string]struct{}) []string {
+	keys := make([]string, 0, len(set))
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func (r *deliveryRuntime) resolveDetailPathAliasCandidates(
@@ -152,29 +178,42 @@ func (r *deliveryRuntime) resolveDetailPathAliasCandidates(
 		return nil
 	}
 
-	matchedIdentityKeys := map[string]struct{}{}
-	for _, locale := range localized.locales {
-		for _, item := range localized.byLocale[locale] {
-			matches := false
-			if requestPath != "" && pathsMatch(recordDeliveryPath(item, capability), requestPath) {
-				matches = true
-			} else if slug != "" {
-				matches = deliverySlugMatches(item, slug, capability)
-			}
-			if !matches {
-				continue
-			}
-			key := strings.TrimSpace(contentIdentityKey(item, capability))
-			if key == "" {
-				continue
-			}
-			matchedIdentityKeys[key] = struct{}{}
-		}
-	}
+	matchedIdentityKeys := matchedDetailAliasIdentityKeys(localized, capability, requestPath, slug)
 	if len(matchedIdentityKeys) == 0 {
 		return nil
 	}
 
+	return uniqueDetailAliasCandidates(localized, capability, matchedIdentityKeys)
+}
+
+func matchedDetailAliasIdentityKeys(localized localizedCapabilityRecordSet, capability deliveryCapability, requestPath string, slug string) map[string]struct{} {
+	matchedIdentityKeys := map[string]struct{}{}
+	for _, locale := range localized.locales {
+		for _, item := range localized.byLocale[locale] {
+			if !detailAliasItemMatches(item, capability, requestPath, slug) {
+				continue
+			}
+			key := strings.TrimSpace(contentIdentityKey(item, capability))
+			if key != "" {
+				matchedIdentityKeys[key] = struct{}{}
+			}
+		}
+	}
+	return matchedIdentityKeys
+}
+
+func detailAliasItemMatches(item admin.CMSContent, capability deliveryCapability, requestPath string, slug string) bool {
+	if requestPath != "" && pathsMatch(recordDeliveryPath(item, capability), requestPath) {
+		return true
+	}
+	return slug != "" && deliverySlugMatches(item, slug, capability)
+}
+
+func uniqueDetailAliasCandidates(
+	localized localizedCapabilityRecordSet,
+	capability deliveryCapability,
+	matchedIdentityKeys map[string]struct{},
+) []admin.CMSContent {
 	seen := map[string]struct{}{}
 	out := []admin.CMSContent{}
 	for _, locale := range localized.locales {
@@ -183,10 +222,7 @@ func (r *deliveryRuntime) resolveDetailPathAliasCandidates(
 			if _, ok := matchedIdentityKeys[key]; !ok {
 				continue
 			}
-			uniqueKey := strings.TrimSpace(item.ID) + "|" + strings.ToLower(strings.TrimSpace(item.Locale))
-			if uniqueKey == "|" {
-				uniqueKey = key + "|" + strings.ToLower(strings.TrimSpace(recordDeliveryPath(item, capability)))
-			}
+			uniqueKey := detailAliasUniqueKey(item, capability, key)
 			if _, ok := seen[uniqueKey]; ok {
 				continue
 			}
@@ -195,6 +231,14 @@ func (r *deliveryRuntime) resolveDetailPathAliasCandidates(
 		}
 	}
 	return out
+}
+
+func detailAliasUniqueKey(item admin.CMSContent, capability deliveryCapability, identityKey string) string {
+	uniqueKey := strings.TrimSpace(item.ID) + "|" + strings.ToLower(strings.TrimSpace(item.Locale))
+	if uniqueKey != "|" {
+		return uniqueKey
+	}
+	return identityKey + "|" + strings.ToLower(strings.TrimSpace(recordDeliveryPath(item, capability)))
 }
 
 func resolutionFromDetailRecord(

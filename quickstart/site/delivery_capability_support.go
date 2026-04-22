@@ -271,13 +271,7 @@ func sanitizeDeliveryPath(raw string, policy deliveryPathPolicy) string {
 	if raw == "" {
 		return ""
 	}
-	if !policy.AllowExternalURLs {
-		lower := strings.ToLower(raw)
-		if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(raw, "//") {
-			return ""
-		}
-	}
-	if strings.Contains(raw, "\\") {
+	if deliveryPathIsUnsafe(raw, policy) {
 		return ""
 	}
 	if idx := strings.IndexAny(raw, "?#"); idx >= 0 {
@@ -289,15 +283,36 @@ func sanitizeDeliveryPath(raw string, policy deliveryPathPolicy) string {
 	if !strings.HasPrefix(raw, "/") {
 		raw = "/" + strings.TrimLeft(raw, "/")
 	}
-	for segment := range strings.SplitSeq(strings.Trim(raw, "/"), "/") {
-		if segment == "." || segment == ".." {
-			return ""
-		}
+	if deliveryPathHasDotSegment(raw) {
+		return ""
 	}
 	cleaned := path.Clean(raw)
 	if !strings.HasPrefix(cleaned, "/") {
 		cleaned = "/" + cleaned
 	}
+	return applyDeliveryPathPolicy(normalizeLocalePath(cleaned), policy)
+}
+
+func deliveryPathIsUnsafe(raw string, policy deliveryPathPolicy) bool {
+	if !policy.AllowExternalURLs {
+		lower := strings.ToLower(raw)
+		if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(raw, "//") {
+			return true
+		}
+	}
+	return strings.Contains(raw, "\\")
+}
+
+func deliveryPathHasDotSegment(raw string) bool {
+	for segment := range strings.SplitSeq(strings.Trim(raw, "/"), "/") {
+		if segment == "." || segment == ".." {
+			return true
+		}
+	}
+	return false
+}
+
+func applyDeliveryPathPolicy(cleaned string, policy deliveryPathPolicy) string {
 	cleaned = normalizeLocalePath(cleaned)
 	if cleaned == "" {
 		return ""
