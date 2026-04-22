@@ -7,6 +7,7 @@ type CMSContentListOption = string
 const ContentListWithTranslations CMSContentListOption = "content:list:with_translations"
 const ContentListWithDerivedFields CMSContentListOption = "content:list:projection:derived_fields"
 const ContentListWithLocaleVariants CMSContentListOption = "content:list:with_locale_variants"
+const contentListContentTypePrefix CMSContentListOption = "content:list:content_type:"
 
 func WithTranslations() CMSContentListOption {
 	return ContentListWithTranslations
@@ -18,4 +19,11 @@ func WithDerivedFields() CMSContentListOption {
 
 func WithLocaleVariants() CMSContentListOption {
 	return ContentListWithLocaleVariants
+}
+
+func WithContentTypeID(id string) CMSContentListOption {
+	if id == "" {
+		return ""
+	}
+	return CMSContentListOption(string(contentListContentTypePrefix) + id)
 }
