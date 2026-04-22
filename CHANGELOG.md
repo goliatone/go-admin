@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.53.1](https://github.com/goliatone/go-admin/compare/v0.53.0...v0.53.1) - (2026-04-22)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Db query hook treat sql no rows as a warning ([142278a](https://github.com/goliatone/go-admin/commit/142278ac91e37c6c1c7017069acdf39f8475913b))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.53.1 ([9c0478d](https://github.com/goliatone/go-admin/commit/9c0478d2131ddab5521943ba1d4797dac5ba2d14))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.53.0 ([721c9fc](https://github.com/goliatone/go-admin/commit/721c9fcd4213a01adc3bce34fb9027ece93d5b54))  - (goliatone)
+
 # [0.53.0](https://github.com/goliatone/go-admin/compare/v0.52.3...v0.53.0) - (2026-04-22)
 
 ## <!-- 13 -->📦 Bumps
