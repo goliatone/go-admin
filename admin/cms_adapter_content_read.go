@@ -21,6 +21,9 @@ func toGoCMSContentListOptions(opts ...CMSContentListOption) []cmscontent.Conten
 	}
 	out := make([]cmscontent.ContentListOption, 0, len(opts))
 	for _, opt := range opts {
+		if strings.TrimSpace(string(opt)) == "" {
+			continue
+		}
 		if isInternalCMSContentListOption(opt) {
 			continue
 		}
