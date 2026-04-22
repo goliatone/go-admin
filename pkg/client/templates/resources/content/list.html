@@ -491,6 +491,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   if (!tableEl) {
     return;
   }
+  if (tableEl.dataset.datagridInitialized === 'true') {
+    return;
+  }
+  tableEl.dataset.datagridInitialized = 'true';
 
   const preferencesEndpoint = preferencesAPIPath || (apiBasePath ? `${apiBasePath}/panels/preferences` : `${basePath}/api/panels/preferences`);
   const stateStoreOptions = resolveObject(dataGridConfig.state_store);
