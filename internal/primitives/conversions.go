@@ -3,6 +3,7 @@ package primitives
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -49,49 +50,13 @@ func BoolFromAny(value any) (bool, bool) {
 	case bool:
 		return typed, true
 	case string:
-		normalized := strings.ToLower(strings.TrimSpace(typed))
-		if normalized == "" {
-			return false, false
-		}
-		if trueStringValues[normalized] {
-			return true, true
-		}
-		if falseStringValues[normalized] {
-			return false, true
-		}
-		return false, false
-	case int:
-		return typed != 0, true
-	case int8:
-		return typed != 0, true
-	case int16:
-		return typed != 0, true
-	case int32:
-		return typed != 0, true
-	case int64:
-		return typed != 0, true
-	case uint:
-		return typed != 0, true
-	case uint8:
-		return typed != 0, true
-	case uint16:
-		return typed != 0, true
-	case uint32:
-		return typed != 0, true
-	case uint64:
-		return typed != 0, true
-	case float32:
-		if !isFiniteFloat64(float64(typed)) {
-			return false, false
-		}
-		return typed != 0, true
-	case float64:
-		if !isFiniteFloat64(typed) {
-			return false, false
-		}
-		return typed != 0, true
+		return boolFromString(typed)
 	default:
-		return false, false
+		number, ok := numericFloat64(value)
+		if !ok || !isFiniteFloat64(number) {
+			return false, false
+		}
+		return number != 0, true
 	}
 }
 
@@ -172,37 +137,6 @@ func Float64FromAny(value any) (float64, bool) {
 	switch typed := value.(type) {
 	case nil:
 		return 0, false
-	case float64:
-		if !isFiniteFloat64(typed) {
-			return 0, false
-		}
-		return typed, true
-	case float32:
-		value := float64(typed)
-		if !isFiniteFloat64(value) {
-			return 0, false
-		}
-		return value, true
-	case int:
-		return float64(typed), true
-	case int8:
-		return float64(typed), true
-	case int16:
-		return float64(typed), true
-	case int32:
-		return float64(typed), true
-	case int64:
-		return float64(typed), true
-	case uint:
-		return float64(typed), true
-	case uint8:
-		return float64(typed), true
-	case uint16:
-		return float64(typed), true
-	case uint32:
-		return float64(typed), true
-	case uint64:
-		return float64(typed), true
 	case string:
 		trimmed := strings.TrimSpace(typed)
 		if trimmed == "" {
@@ -213,6 +147,41 @@ func Float64FromAny(value any) (float64, bool) {
 			return 0, false
 		}
 		return parsed, true
+	default:
+		number, ok := numericFloat64(value)
+		if !ok || !isFiniteFloat64(number) {
+			return 0, false
+		}
+		return number, true
+	}
+}
+
+func boolFromString(value string) (bool, bool) {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	if normalized == "" {
+		return false, false
+	}
+	if trueStringValues[normalized] {
+		return true, true
+	}
+	if falseStringValues[normalized] {
+		return false, true
+	}
+	return false, false
+}
+
+func numericFloat64(value any) (float64, bool) {
+	rv := reflect.ValueOf(value)
+	if !rv.IsValid() {
+		return 0, false
+	}
+	switch rv.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(rv.Int()), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return float64(rv.Uint()), true
+	case reflect.Float32, reflect.Float64:
+		return rv.Float(), true
 	default:
 		return 0, false
 	}
