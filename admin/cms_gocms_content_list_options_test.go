@@ -321,6 +321,59 @@ func assertGoCMSContentAdapterContentsWithLocaleVariantsCompleteRows(t *testing.
 	}
 }
 
+func TestGoCMSContentAdapterContentsWithLocaleVariantsCachesContentTypeMetadataLookup(t *testing.T) {
+	ctx := context.Background()
+	contentID := uuid.New()
+	familyID := uuid.New()
+	typeSvc := newStubContentTypeService(CMSContentType{
+		ID:           uuid.New().String(),
+		Slug:         "news",
+		Capabilities: map[string]any{"structural_fields": true},
+	})
+	contentSvc := &stubGoCMSContentService{
+		listWithDerived: []*cmscontent.Content{
+			{
+				ID:   contentID,
+				Slug: "breaking-news",
+				Type: &cmscontent.ContentType{Slug: "news"},
+				Translations: []*cmscontent.ContentTranslation{
+					{
+						Locale:   &cmscontent.Locale{Code: "en"},
+						FamilyID: &familyID,
+						Title:    "Breaking News",
+						Content:  map[string]any{"body": "english"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "bo"},
+						FamilyID: &familyID,
+						Title:    "Breaking News BO",
+						Content:  map[string]any{"body": "tibetan"},
+					},
+					{
+						Locale:   &cmscontent.Locale{Code: "zh"},
+						FamilyID: &familyID,
+						Title:    "Breaking News ZH",
+						Content:  map[string]any{"body": "chinese"},
+					},
+				},
+			},
+		},
+	}
+	svc := NewGoCMSContentAdapter(contentSvc, nil, typeSvc)
+	adapter := svc.(*GoCMSContentAdapter)
+
+	items, err := adapter.ContentsWithOptions(ctx, "all", WithTranslations(), WithDerivedFields(), WithLocaleVariants())
+	if err != nil {
+		t.Fatalf("list content with locale variants: %v", err)
+	}
+	if len(items) != 3 {
+		t.Fatalf("expected 3 locale variants, got %d", len(items))
+	}
+	if typeSvc.slugLookups != 1 {
+		t.Fatalf("expected one cached content type slug lookup, got %d", typeSvc.slugLookups)
+	}
+}
+
 func TestGoCMSContentAdapterPagesWithLocaleVariantsExpandsTranslationFamilies(t *testing.T) {
 	ctx := context.Background()
 	contentID := uuid.New()

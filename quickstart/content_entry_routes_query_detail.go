@@ -49,10 +49,6 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	if guardErr := h.guardPanel(c, panelName, panel, "read"); guardErr != nil {
 		return guardErr
 	}
-	items, total, err := h.listPanelItems(panel, adminCtx)
-	if err != nil {
-		return err
-	}
 	filters := contentEntryFilters(panel)
 	columns := contentEntryColumns(panel, contentType, filters, h.defaultRenderers)
 	columns = h.withContentEntryBlockIcons(columns, adminCtx)
@@ -78,7 +74,7 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 
 	viewCtx := h.contentEntryListViewContext(contentEntryListViewParams{
 		Panel: panel, PanelName: panelName, ContentType: contentType, AdminCtx: adminCtx,
-		Items: items, Total: total, Filters: filters, Columns: columns, URLs: urls,
+		Items: nil, Total: 0, Filters: filters, Columns: columns, URLs: urls,
 		BasePath: basePath, PreferencesAPI: preferencesAPI, Slug: slug, ActionBase: actionBase,
 		Routes: routes, RoutesMap: routesMap, DataTableID: dataTableID, ListAPI: listAPI,
 		BulkCtx: bulkCtx, TranslationUXEnabled: translationUXEnabled, StateStoreCfg: stateStoreCfg,
@@ -502,17 +498,6 @@ func contentEntryURLWithChannel(rawURL, channel string) string {
 		parsed.RawQuery = query.Encode()
 	}
 	return parsed.String()
-}
-
-func (h *contentEntryHandlers) listPanelItems(panel *admin.Panel, adminCtx admin.AdminContext) ([]map[string]any, int, error) {
-	if panel == nil {
-		return nil, 0, admin.ErrNotFound
-	}
-	items, total, err := panel.List(adminCtx, admin.ListOptions{Page: 1, PerPage: 1})
-	if err != nil {
-		return nil, 0, err
-	}
-	return items, total, nil
 }
 
 func (h *contentEntryHandlers) guardPanel(c router.Context, panelName string, panel *admin.Panel, action string) error {

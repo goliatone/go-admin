@@ -514,6 +514,10 @@ document.addEventListener('DOMContentLoaded', async function() {
       stateStoreOptions.sync_debounce_ms ?? dataGridConfig.state_store_sync_debounce_ms,
       1000
     ),
+    hydrateTimeoutMs: normalizePositiveInt(
+      stateStoreOptions.hydrate_timeout_ms ?? dataGridConfig.state_store_hydrate_timeout_ms,
+      1500
+    ),
     maxShareEntries: normalizePositiveInt(
       stateStoreOptions.max_share_entries ?? dataGridConfig.state_store_max_share_entries,
       20

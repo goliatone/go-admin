@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { DataGrid } = await import('../dist/datatable/index.js');
+const { DataGrid, createDataGridStateStore } = await import('../dist/datatable/index.js');
 
 function createLocalStorage(initial = {}) {
   const store = new Map(Object.entries(initial));
@@ -148,6 +148,39 @@ test('DataGrid refresh coalesces repeated calls into one active fetch and one tr
   }
 });
 
+test('DataGrid ignores stale refresh responses', async () => {
+  const { cleanup } = installTestGlobals();
+  let releaseFetch;
+  const fetchReleased = new Promise((resolve) => {
+    releaseFetch = resolve;
+  });
+  let renderCalls = 0;
+
+  globalThis.fetch = async () => {
+    await fetchReleased;
+    return createListResponse();
+  };
+
+  try {
+    const grid = createGrid();
+    grid.renderData = () => {
+      renderCalls++;
+    };
+    grid.updatePaginationUI = () => {};
+    grid.updateBulkActionsBar = () => {};
+
+    const refresh = grid.refresh();
+    await Promise.resolve();
+    grid.activeRefreshSeq = 999;
+    releaseFetch();
+    await refresh;
+
+    assert.equal(renderCalls, 0);
+  } finally {
+    cleanup();
+  }
+});
+
 test('DataGrid init hydrates preferences before the first refresh', async () => {
   const { cleanup } = installTestGlobals();
   const events = [];
@@ -165,7 +198,7 @@ test('DataGrid init hydrates preferences before the first refresh', async () => 
     },
     loadPersistedState: () => {
       events.push(hydrated ? 'load:hydrated' : 'load:initial');
-      return hydrated ? { perPage: 25, viewMode: 'grouped' } : null;
+      return hydrated ? { viewMode: 'grouped' } : null;
     },
     savePersistedState: () => {},
     clearPersistedState: () => {},
@@ -198,6 +231,75 @@ test('DataGrid init hydrates preferences before the first refresh', async () => 
       'load:hydrated',
       'refresh:10:grouped',
     ]);
+  } finally {
+    cleanup();
+  }
+});
+
+test('DataGrid URL state remains authoritative over hydrated preferences', async () => {
+  const { cleanup } = installTestGlobals({ search: '?view_mode=flat' });
+  const events = [];
+  const stateStore = {
+    hydrate: async () => {
+      events.push('hydrate');
+    },
+    loadPersistedState: () => {
+      events.push('load');
+      return { viewMode: 'grouped' };
+    },
+    savePersistedState: () => {},
+    clearPersistedState: () => {},
+    createShareState: () => '',
+    resolveShareState: () => null,
+  };
+
+  try {
+    const grid = createGrid({
+      enableGroupedMode: true,
+      defaultViewMode: 'matrix',
+      stateStore,
+    });
+    grid.refresh = async () => {
+      events.push(`refresh:${grid.state.viewMode}`);
+    };
+
+    grid.init();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.deepEqual(events, [
+      'load',
+      'hydrate',
+      'refresh:flat',
+    ]);
+  } finally {
+    cleanup();
+  }
+});
+
+test('preferences state hydration times out instead of blocking the grid', async () => {
+  const { cleanup } = installTestGlobals();
+  let aborted = false;
+
+  globalThis.fetch = async (_url, options = {}) => new Promise((_resolve, reject) => {
+    options.signal?.addEventListener('abort', () => {
+      aborted = true;
+      const error = new Error('aborted');
+      error.name = 'AbortError';
+      reject(error);
+    });
+  });
+
+  try {
+    const store = createDataGridStateStore({
+      key: 'pages',
+      mode: 'preferences',
+      preferencesEndpoint: '/admin/api/panels/preferences',
+      hydrateTimeoutMs: 1,
+    });
+
+    await store.hydrate();
+
+    assert.equal(aborted, true);
   } finally {
     cleanup();
   }

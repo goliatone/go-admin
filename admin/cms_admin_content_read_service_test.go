@@ -208,7 +208,7 @@ func TestAdminContentReadServiceListForContentTypeSummarizesEmbeddedBlocksForLis
 	if got := toString(blocks[0]["_type"]); got != "hero" {
 		t.Fatalf("expected summarized block type hero, got %q", got)
 	}
-	if _, ok := blocks[0]["image"]; ok {
+	if _, hasImage := blocks[0]["image"]; hasImage {
 		t.Fatalf("expected list block summary to omit image payload, got %#v", blocks[0])
 	}
 	data := extractMap(rows[0]["data"])
@@ -216,7 +216,7 @@ func TestAdminContentReadServiceListForContentTypeSummarizesEmbeddedBlocksForLis
 	if !ok || len(dataBlocks) != 1 {
 		t.Fatalf("expected summarized data blocks, got %#v", data["blocks"])
 	}
-	if _, ok := dataBlocks[0]["body"]; ok {
+	if _, hasBody := dataBlocks[0]["body"]; hasBody {
 		t.Fatalf("expected list data block summary to omit body payload, got %#v", dataBlocks[0])
 	}
 

@@ -36,10 +36,11 @@ type PanelDataGridConfigOptions struct {
 
 // PanelDataGridStateStoreOptions configures datagrid state store wiring for templates.
 type PanelDataGridStateStoreOptions struct {
-	Mode            string `json:"mode"`
-	Resource        string `json:"resource"`
-	SyncDebounceMS  int    `json:"sync_debounce_ms"`
-	MaxShareEntries int    `json:"max_share_entries"`
+	Mode             string `json:"mode"`
+	Resource         string `json:"resource"`
+	SyncDebounceMS   int    `json:"sync_debounce_ms"`
+	HydrateTimeoutMS int    `json:"hydrate_timeout_ms"`
+	MaxShareEntries  int    `json:"max_share_entries"`
 }
 
 // PanelDataGridURLStateOptions configures datagrid URL sync limits.
@@ -161,6 +162,9 @@ func buildPanelDataGridStateStoreConfig(opts PanelDataGridStateStoreOptions) map
 	}
 	if opts.SyncDebounceMS > 0 {
 		cfg["sync_debounce_ms"] = opts.SyncDebounceMS
+	}
+	if opts.HydrateTimeoutMS > 0 {
+		cfg["hydrate_timeout_ms"] = opts.HydrateTimeoutMS
 	}
 	if opts.MaxShareEntries > 0 {
 		cfg["max_share_entries"] = opts.MaxShareEntries

@@ -10,6 +10,20 @@ import (
 	"github.com/google/uuid"
 )
 
+type cmsContentTypeMetadataCacheKey struct{}
+
+type cmsContentTypeMetadataCache map[string]*CMSContentType
+
+func withCMSContentTypeMetadataCache(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Value(cmsContentTypeMetadataCacheKey{}).(cmsContentTypeMetadataCache); ok {
+		return ctx
+	}
+	return context.WithValue(ctx, cmsContentTypeMetadataCacheKey{}, cmsContentTypeMetadataCache{})
+}
+
 func resolveContentPageID(contentID string) uuid.UUID {
 	return cmsadapter.UUIDFromString(contentID)
 }
@@ -80,24 +94,73 @@ func (r goCMSContentWriteBoundary) contentTypeForMetadata(ctx context.Context, c
 	if a == nil || a.contentTypes == nil {
 		return nil
 	}
-	for _, slug := range []string{content.ContentTypeSlug, content.ContentType} {
-		if key := strings.TrimSpace(slug); key != "" {
-			if ct, err := a.contentTypes.ContentTypeBySlug(ctx, key); err == nil && ct != nil {
-				return ct
-			}
-		}
+	cache, _ := ctx.Value(cmsContentTypeMetadataCacheKey{}).(cmsContentTypeMetadataCache)
+	if ct := a.contentTypeByMetadataSlug(ctx, cache, content.ContentTypeSlug); ct != nil {
+		return ct
 	}
-	for _, key := range []string{content.ContentType, content.ContentTypeSlug} {
-		if id := cmsadapter.UUIDFromString(key); id != uuid.Nil {
-			if ct, err := a.contentTypes.ContentType(ctx, id.String()); err == nil && ct != nil {
-				return ct
-			}
-		}
+	if ct := a.contentTypeByMetadataSlug(ctx, cache, content.ContentType); ct != nil {
+		return ct
 	}
-	if key := strings.TrimSpace(content.ContentType); key != "" {
-		if ct, err := a.contentTypes.ContentType(ctx, key); err == nil && ct != nil {
-			return ct
-		}
+	if ct := a.contentTypeByMetadataUUID(ctx, cache, content.ContentType); ct != nil {
+		return ct
 	}
-	return nil
+	if ct := a.contentTypeByMetadataUUID(ctx, cache, content.ContentTypeSlug); ct != nil {
+		return ct
+	}
+	return a.contentTypeByMetadataID(ctx, cache, content.ContentType)
+}
+
+func (a *GoCMSContentAdapter) contentTypeByMetadataSlug(ctx context.Context, cache cmsContentTypeMetadataCache, slug string) *CMSContentType {
+	key := strings.TrimSpace(slug)
+	if key == "" {
+		return nil
+	}
+	cacheKey := "slug:" + key
+	if cached := cachedCMSContentTypeMetadata(cache, cacheKey); cached != nil {
+		return cached
+	}
+	ct, err := a.contentTypes.ContentTypeBySlug(ctx, key)
+	if err != nil || ct == nil {
+		return nil
+	}
+	cacheCMSContentTypeMetadata(cache, cacheKey, ct)
+	return ct
+}
+
+func (a *GoCMSContentAdapter) contentTypeByMetadataUUID(ctx context.Context, cache cmsContentTypeMetadataCache, key string) *CMSContentType {
+	id := cmsadapter.UUIDFromString(key)
+	if id == uuid.Nil {
+		return nil
+	}
+	return a.contentTypeByMetadataID(ctx, cache, id.String())
+}
+
+func (a *GoCMSContentAdapter) contentTypeByMetadataID(ctx context.Context, cache cmsContentTypeMetadataCache, key string) *CMSContentType {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return nil
+	}
+	cacheKey := "id:" + key
+	if cached := cachedCMSContentTypeMetadata(cache, cacheKey); cached != nil {
+		return cached
+	}
+	ct, err := a.contentTypes.ContentType(ctx, key)
+	if err != nil || ct == nil {
+		return nil
+	}
+	cacheCMSContentTypeMetadata(cache, cacheKey, ct)
+	return ct
+}
+
+func cachedCMSContentTypeMetadata(cache cmsContentTypeMetadataCache, key string) *CMSContentType {
+	if cache == nil {
+		return nil
+	}
+	return cache[key]
+}
+
+func cacheCMSContentTypeMetadata(cache cmsContentTypeMetadataCache, key string, ct *CMSContentType) {
+	if cache != nil && ct != nil {
+		cache[key] = ct
+	}
 }

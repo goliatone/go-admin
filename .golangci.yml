@@ -46,6 +46,19 @@ linters:
       - comments
       - common-false-positives
     rules:
+      - path: ^examples/web/
+        linters:
+          - dupl
+          - errcheck
+          - funlen
+          - gocyclo
+          - govet
+          - ineffassign
+          - nestif
+          - nolintlint
+          - staticcheck
+          - unconvert
+          - unused
       - path: _test\.go
         linters:
           - dupl

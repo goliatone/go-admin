@@ -161,6 +161,8 @@ func hasDerivedProjectionGetOption(opts []cmscontent.ContentGetOption) bool {
 type stubContentTypeService struct {
 	typesBySlug map[string]CMSContentType
 	typesByID   map[string]CMSContentType
+	slugLookups int
+	idLookups   int
 }
 
 func newStubContentTypeService(types ...CMSContentType) *stubContentTypeService {
@@ -188,6 +190,7 @@ func (s *stubContentTypeService) ContentTypes(context.Context) ([]CMSContentType
 }
 
 func (s *stubContentTypeService) ContentType(_ context.Context, id string) (*CMSContentType, error) {
+	s.idLookups++
 	if ct, ok := s.typesByID[id]; ok {
 		copy := ct
 		return &copy, nil
@@ -196,6 +199,7 @@ func (s *stubContentTypeService) ContentType(_ context.Context, id string) (*CMS
 }
 
 func (s *stubContentTypeService) ContentTypeBySlug(_ context.Context, slug string) (*CMSContentType, error) {
+	s.slugLookups++
 	if ct, ok := s.typesBySlug[slug]; ok {
 		copy := ct
 		return &copy, nil

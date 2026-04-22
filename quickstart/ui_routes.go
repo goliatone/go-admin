@@ -545,6 +545,17 @@ func registerAdminUITranslationRoutes[T any](
 	renderView func(router.Context, string, string, string, router.ViewContext) error,
 	resolveAPIBase func() string,
 ) {
+	registerAdminUITranslationOverviewRoutes(r, options, wrap, renderView, resolveAPIBase)
+	registerAdminUITranslationDetailRoutes(r, options, wrap, renderView, resolveAPIBase)
+}
+
+func registerAdminUITranslationOverviewRoutes[T any](
+	r router.Router[T],
+	options uiRouteOptions,
+	wrap func(router.HandlerFunc) router.HandlerFunc,
+	renderView func(router.Context, string, string, string, router.ViewContext) error,
+	resolveAPIBase func() string,
+) {
 	if options.registerTranslationDashboard {
 		r.Get(options.translationDashboardPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
@@ -569,7 +580,15 @@ func registerAdminUITranslationRoutes[T any](
 			})
 		}))
 	}
+}
 
+func registerAdminUITranslationDetailRoutes[T any](
+	r router.Router[T],
+	options uiRouteOptions,
+	wrap func(router.HandlerFunc) router.HandlerFunc,
+	renderView func(router.Context, string, string, string, router.ViewContext) error,
+	resolveAPIBase func() string,
+) {
 	if options.registerTranslationFamilyDetail {
 		r.Get(options.translationFamilyDetailPath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()

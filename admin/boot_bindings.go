@@ -8,6 +8,7 @@ import (
 	"maps"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	cmscontent "github.com/goliatone/go-cms/content"
@@ -95,43 +96,106 @@ func newPanelBindings(a *Admin) []boot.PanelBinding {
 func (p *panelBinding) Name() string { return p.name }
 
 func (p *panelBinding) List(c router.Context, locale string, opts boot.ListOptions) ([]map[string]any, int, any, any, map[string]any, error) {
+	overallStarted := time.Now()
 	ctx := p.admin.adminContextFromRequest(c, locale)
 	listOpts := panelListOptions(opts)
 	baseSchema := p.panel.Schema()
 	requestedListOpts, groupedByTranslationGroup := p.requestedListOptions(baseSchema, locale, listOpts)
+	listStarted := time.Now()
 	records, total, err := p.listRecords(ctx, requestedListOpts, groupedByTranslationGroup)
+	logCMSContentListTiming(ctx.Context, "panel_records", listStarted,
+		"panel", p.name,
+		"locale", locale,
+		"grouped", groupedByTranslationGroup,
+		"records", len(records),
+		"total", total,
+	)
 	if err != nil {
 		return nil, 0, nil, nil, nil, err
 	}
+	enrichStarted := time.Now()
 	records = withTranslationDatagridRecords(p.admin, ctx.Channel, records)
-	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
-	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
-	schema.BulkActions = filterActionsForScope(schema.BulkActions, ActionScopeBulk)
-	schema.BulkActionStateConfig = p.bulkActionStateConfig(schema.BulkActions)
+	logCMSContentListTiming(ctx.Context, "panel_translation_enrich", enrichStarted,
+		"panel", p.name,
+		"locale", locale,
+		"grouped", groupedByTranslationGroup,
+		"records", len(records),
+	)
+	schema, err := p.listSchema(ctx, groupedByTranslationGroup)
+	if err != nil {
+		return nil, 0, nil, nil, nil, err
+	}
+	actionStateStarted := time.Now()
 	if groupedByTranslationGroup {
 		records, err = p.withGroupedRowActionState(ctx, records, schema.Actions)
 	} else {
 		records, err = p.withRowActionState(ctx, records, schema.Actions)
 	}
+	logCMSContentListTiming(ctx.Context, "panel_action_state", actionStateStarted,
+		"panel", p.name,
+		"locale", locale,
+		"grouped", groupedByTranslationGroup,
+		"records", len(records),
+	)
 	if err != nil {
 		return nil, 0, nil, nil, nil, err
 	}
+	formStarted := time.Now()
+	form, err := p.listForm(ctx)
+	logCMSContentListTiming(ctx.Context, "panel_form", formStarted,
+		"panel", p.name,
+		"locale", locale,
+		"grouped", groupedByTranslationGroup,
+	)
+	if err != nil {
+		return nil, 0, nil, nil, nil, err
+	}
+	metaStarted := time.Now()
+	meta, err := p.listMeta(ctx, total, schema.BulkActions, requestedListOpts)
+	logCMSContentListTiming(ctx.Context, "panel_meta", metaStarted,
+		"panel", p.name,
+		"locale", locale,
+		"grouped", groupedByTranslationGroup,
+	)
+	if err != nil {
+		return nil, 0, nil, nil, nil, err
+	}
+	logCMSContentListTiming(ctx.Context, "panel_total", overallStarted,
+		"panel", p.name,
+		"locale", locale,
+		"grouped", groupedByTranslationGroup,
+		"records", len(records),
+		"total", total,
+	)
+	return records, total, schema, form, meta, nil
+}
+
+func (p *panelBinding) listSchema(ctx AdminContext, groupedByTranslationGroup bool) (Schema, error) {
+	schemaStarted := time.Now()
+	schema := p.panel.SchemaWithTheme(p.admin.themePayload(ctx.Context))
+	schema.Actions = filterActionsForScope(schema.Actions, ActionScopeRow)
+	schema.BulkActions = filterActionsForScope(schema.BulkActions, ActionScopeBulk)
+	schema.BulkActionStateConfig = p.bulkActionStateConfig(schema.BulkActions)
+	logCMSContentListTiming(ctx.Context, "panel_schema", schemaStarted,
+		"panel", p.name,
+		"locale", ctx.Locale,
+		"grouped", groupedByTranslationGroup,
+	)
+
+	decorateStarted := time.Now()
 	if p.admin != nil {
 		p.admin.applyContentTypeSchemaFromContext(ctx, &schema, p.name)
 	}
-	err = p.admin.decorateSchemaFor(ctx, &schema, p.name)
+	err := p.admin.decorateSchemaFor(ctx, &schema, p.name)
+	logCMSContentListTiming(ctx.Context, "panel_schema_decorate", decorateStarted,
+		"panel", p.name,
+		"locale", ctx.Locale,
+		"grouped", groupedByTranslationGroup,
+	)
 	if err != nil {
-		return nil, 0, nil, nil, nil, err
+		return Schema{}, err
 	}
-	form, err := p.listForm(ctx)
-	if err != nil {
-		return nil, 0, nil, nil, nil, err
-	}
-	meta, err := p.listMeta(ctx, total, schema.BulkActions, requestedListOpts)
-	if err != nil {
-		return nil, 0, nil, nil, nil, err
-	}
-	return records, total, schema, form, meta, nil
+	return schema, nil
 }
 
 func panelListOptions(opts boot.ListOptions) ListOptions {

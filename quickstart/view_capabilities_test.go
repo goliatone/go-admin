@@ -136,10 +136,11 @@ func TestBuildPanelDataGridConfigIncludesStateAndURLConfig(t *testing.T) {
 	cfg := BuildPanelDataGridConfig(PanelDataGridConfigOptions{
 		TableID: "content-pages",
 		StateStore: PanelDataGridStateStoreOptions{
-			Mode:            "preferences",
-			Resource:        "pages",
-			SyncDebounceMS:  1200,
-			MaxShareEntries: 25,
+			Mode:             "preferences",
+			Resource:         "pages",
+			SyncDebounceMS:   1200,
+			HydrateTimeoutMS: 1500,
+			MaxShareEntries:  25,
 		},
 		PreferencesEndpoint: "/admin/api/panels/preferences",
 		URLState: PanelDataGridURLStateOptions{
@@ -164,6 +165,9 @@ func TestBuildPanelDataGridConfigIncludesStateAndURLConfig(t *testing.T) {
 	}
 	if debounce := stateStore["sync_debounce_ms"]; debounce != 1200 {
 		t.Fatalf("expected state_store.sync_debounce_ms 1200, got %v", debounce)
+	}
+	if timeout := stateStore["hydrate_timeout_ms"]; timeout != 1500 {
+		t.Fatalf("expected state_store.hydrate_timeout_ms 1500, got %v", timeout)
 	}
 	if maxEntries := stateStore["max_share_entries"]; maxEntries != 25 {
 		t.Fatalf("expected state_store.max_share_entries 25, got %v", maxEntries)

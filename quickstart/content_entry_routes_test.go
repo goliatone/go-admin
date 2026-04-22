@@ -42,6 +42,30 @@ type contentEntryRouteCaptureRouter struct {
 	paths  map[string]bool
 }
 
+func contentEntryTestInt(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	default:
+		return 0
+	}
+}
+
+type countingListRepository struct {
+	admin.Repository
+	listCalls int
+}
+
+func (r *countingListRepository) List(ctx context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {
+	_, _ = ctx, opts
+	r.listCalls++
+	return []map[string]any{{"id": "unexpected"}}, 1, nil
+}
+
 func newContentEntryRouteCaptureRouter() *contentEntryRouteCaptureRouter {
 	return &contentEntryRouteCaptureRouter{paths: map[string]bool{}}
 }
@@ -1001,6 +1025,50 @@ func TestListForPanelIncludesBulkActionToolbarContext(t *testing.T) {
 	ctx.AssertExpectations(t)
 }
 
+func TestListForPanelRendersDataGridShellWithoutPrefetchingRows(t *testing.T) {
+	fixture := newContentEntryAdminFixture(t)
+	cfg := fixture.Config
+	adm := fixture.Admin
+	repo := &countingListRepository{Repository: admin.NewMemoryRepository()}
+	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+		WithRepository(repo).
+		ListFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	handler := &contentEntryHandlers{
+		admin:        adm,
+		cfg:          cfg,
+		listTemplate: "resources/content/list",
+		templateExists: func(name string) bool {
+			return name == "resources/content/list"
+		},
+	}
+
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.On("Render", "resources/content/list", mock.MatchedBy(func(arg any) bool {
+		viewCtx, ok := arg.(router.ViewContext)
+		if !ok {
+			return false
+		}
+		items, ok := viewCtx["items"].([]map[string]any)
+		if ok && len(items) != 0 {
+			return false
+		}
+		return contentEntryTestInt(viewCtx["total"]) == 0 &&
+			strings.TrimSpace(anyToString(viewCtx["list_api"])) == "/admin/api/panels/pages"
+	})).Return(nil).Once()
+
+	if err := handler.listForPanel(ctx, "pages"); err != nil {
+		t.Fatalf("listForPanel(pages): %v", err)
+	}
+	if repo.listCalls != 0 {
+		t.Fatalf("expected list page render to skip row prefetch, got %d list calls", repo.listCalls)
+	}
+	ctx.AssertExpectations(t)
+}
+
 func TestListForPanelEnablesTranslationDataGridUXWhenConfigured(t *testing.T) {
 	fixture := newContentEntryAdminFixture(t)
 	cfg := fixture.Config
@@ -1057,9 +1125,10 @@ func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.
 		listTemplate:   "resources/content/list",
 		templateExists: func(name string) bool { return name == "resources/content/list" },
 		dataGridStateStore: PanelDataGridStateStoreOptions{
-			Mode:            "preferences",
-			SyncDebounceMS:  1200,
-			MaxShareEntries: 30,
+			Mode:             "preferences",
+			SyncDebounceMS:   1200,
+			HydrateTimeoutMS: 1500,
+			MaxShareEntries:  30,
 		},
 		dataGridURLState: PanelDataGridURLStateOptions{
 			MaxURLLength:     1700,
@@ -1108,6 +1177,7 @@ func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.
 			strings.TrimSpace(anyToString(dataGridCfg["preferences_endpoint"])) == "/admin/api/panels/preferences" &&
 			strings.TrimSpace(anyToString(viewCtx["preferences_api_path"])) == "/admin/api/panels/preferences" &&
 			toInt(stateStore["sync_debounce_ms"]) == 1200 &&
+			toInt(stateStore["hydrate_timeout_ms"]) == 1500 &&
 			toInt(stateStore["max_share_entries"]) == 30 &&
 			toInt(urlState["max_url_length"]) == 1700 &&
 			toInt(urlState["max_filters_length"]) == 500 &&

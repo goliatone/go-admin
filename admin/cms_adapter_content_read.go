@@ -189,6 +189,7 @@ func (r goCMSContentReadBoundary) listContents(ctx context.Context, locale strin
 	if err != nil {
 		return nil, err
 	}
+	ctx = withCMSContentTypeMetadataCache(ctx)
 	out := make([]CMSContent, 0, len(listed))
 	for _, item := range listed {
 		if item == nil {

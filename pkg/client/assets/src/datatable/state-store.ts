@@ -40,6 +40,7 @@ export interface DataGridStateStoreConfig {
   preferencesEndpoint?: string;
   resource?: string;
   syncDebounceMs?: number;
+  hydrateTimeoutMs?: number;
   maxShareEntries?: number;
 }
 
@@ -47,6 +48,7 @@ const PERSISTED_PREFIX = 'datagrid.state.';
 const SHARE_PREFIX = 'datagrid.share.';
 const SHARE_INDEX_KEY = 'datagrid.share.index';
 const DEFAULT_MAX_SHARE_ENTRIES = 20;
+const DEFAULT_PREFERENCES_HYDRATE_TIMEOUT_MS = 1500;
 
 function toStorageKey(value: string): string {
   const trimmed = String(value || '').trim();
@@ -263,6 +265,7 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
   private readonly preferencesEndpoint: string;
   private readonly resource: string;
   private readonly syncDebounceMs: number;
+  private readonly hydrateTimeoutMs: number;
   private syncTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: DataGridStateStoreConfig) {
@@ -270,6 +273,7 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
     this.preferencesEndpoint = normalizePreferencesEndpoint(config.preferencesEndpoint);
     this.resource = normalizeResource(config.resource) || this.key;
     this.syncDebounceMs = Math.max(100, config.syncDebounceMs || 1000);
+    this.hydrateTimeoutMs = Math.max(100, config.hydrateTimeoutMs || DEFAULT_PREFERENCES_HYDRATE_TIMEOUT_MS);
   }
 
   private get serverStateKey(): string {
@@ -277,11 +281,18 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
   }
 
   async hydrate(): Promise<void> {
+    const controller = typeof AbortController !== 'undefined'
+      ? new AbortController()
+      : null;
+    const timeout = setTimeout(() => {
+      controller?.abort();
+    }, this.hydrateTimeoutMs);
     try {
       const url = this.buildKeysQueryURL(this.serverStateKey);
       const response = await fetch(url, {
         method: 'GET',
         credentials: 'same-origin',
+        signal: controller?.signal,
         headers: {
           Accept: 'application/json',
         },
@@ -301,6 +312,8 @@ export class PreferencesDataGridStateStore extends LocalDataGridStateStore {
       }
     } catch {
       // Ignore hydrate failures and fall back to local cache.
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
