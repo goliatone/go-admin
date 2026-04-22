@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -43,6 +45,59 @@ func TestDebugQueryHookCapturesSQL(t *testing.T) {
 	}
 	if entries[0].RowCount != 2 {
 		t.Fatalf("expected row count 2, got %+v", entries[0].RowCount)
+	}
+}
+
+func TestDebugQueryHookSuppressesNoRowsError(t *testing.T) {
+	cfg := DebugConfig{
+		CaptureSQL: true,
+		Panels:     []string{DebugPanelSQL},
+	}
+	collector := NewDebugCollector(cfg)
+	hook := NewDebugQueryHook(collector)
+
+	event := &bun.QueryEvent{
+		Query:     "SELECT missing",
+		StartTime: time.Now().Add(-10 * time.Millisecond),
+		Err:       sql.ErrNoRows,
+	}
+
+	hook.AfterQuery(context.Background(), event)
+
+	snapshot := collector.Snapshot()
+	entries, ok := snapshot[DebugPanelSQL].([]SQLEntry)
+	if !ok || len(entries) != 1 {
+		t.Fatalf("expected sql snapshot entry, got %+v", snapshot[DebugPanelSQL])
+	}
+	if entries[0].Error != "" {
+		t.Fatalf("expected sql.ErrNoRows to be suppressed, got %q", entries[0].Error)
+	}
+}
+
+func TestDebugQueryHookCapturesRealSQLError(t *testing.T) {
+	cfg := DebugConfig{
+		CaptureSQL: true,
+		Panels:     []string{DebugPanelSQL},
+	}
+	collector := NewDebugCollector(cfg)
+	hook := NewDebugQueryHook(collector)
+	failure := errors.New("database unavailable")
+
+	event := &bun.QueryEvent{
+		Query:     "SELECT broken",
+		StartTime: time.Now().Add(-10 * time.Millisecond),
+		Err:       failure,
+	}
+
+	hook.AfterQuery(context.Background(), event)
+
+	snapshot := collector.Snapshot()
+	entries, ok := snapshot[DebugPanelSQL].([]SQLEntry)
+	if !ok || len(entries) != 1 {
+		t.Fatalf("expected sql snapshot entry, got %+v", snapshot[DebugPanelSQL])
+	}
+	if entries[0].Error != failure.Error() {
+		t.Fatalf("expected real SQL error %q, got %q", failure.Error(), entries[0].Error)
 	}
 }
 

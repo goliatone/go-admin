@@ -2,6 +2,8 @@ package admin
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"slices"
 	"time"
 
@@ -50,7 +52,7 @@ func (h *DebugQueryHook) AfterQuery(ctx context.Context, event *bun.QueryEvent) 
 		Args:      event.QueryArgs,
 		Duration:  time.Since(event.StartTime),
 	}
-	if event.Err != nil {
+	if event.Err != nil && !errors.Is(event.Err, sql.ErrNoRows) {
 		entry.Error = event.Err.Error()
 	}
 	if event.Result != nil {
