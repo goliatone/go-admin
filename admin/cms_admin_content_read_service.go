@@ -243,6 +243,9 @@ func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Con
 	if contentTypeWantsTranslations(contentType) {
 		if svc, ok := resolveCMSContentListOptionsService(s.content); ok && svc != nil {
 			listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
+			if id := strings.TrimSpace(contentType.ID); id != "" {
+				listOpts = append(listOpts, WithContentTypeID(id))
+			}
 			if shouldExpandContentEntryTranslationFamilyRowsForContext(ctx, opts) {
 				listOpts = append(listOpts, WithLocaleVariants())
 			}
