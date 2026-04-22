@@ -1,5 +1,37 @@
 # Changelog
 
+# [0.54.0](https://github.com/goliatone/go-admin/compare/v0.53.1...v0.54.0) - (2026-04-22)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Grid client handling of fetch and columns ([5b00b41](https://github.com/goliatone/go-admin/commit/5b00b4177365d388aeb4dc84d5046fa04b4835ec))  - (goliatone)
+- Check for empty options ([90caed1](https://github.com/goliatone/go-admin/commit/90caed12e1d8b6e46fbb445b4b4a0d37aa677b65))  - (goliatone)
+- Add render_datagrid_shell to list base so datagrid shell renders ([5a6463b](https://github.com/goliatone/go-admin/commit/5a6463bc0ef672e9704654e8cb1c588ef8a17d05))  - (goliatone)
+- Datagrid fetch spam ([494cef3](https://github.com/goliatone/go-admin/commit/494cef31d2be65c6a1d1bda3591227c4f4924326))  - (goliatone)
+- Locale variant list contract ([f8a9cd0](https://github.com/goliatone/go-admin/commit/f8a9cd0a88edd1c793de3c286c1fada3522e66b0))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.54.0 ([5e46cd9](https://github.com/goliatone/go-admin/commit/5e46cd9d2bc608d26322238cefacb9c2b01990b2))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Content list type id ([63f79d4](https://github.com/goliatone/go-admin/commit/63f79d49b74a295cefc5cffdc6bc3d83155de99b))  - (goliatone)
+- Content type id to list options ([15e4c11](https://github.com/goliatone/go-admin/commit/15e4c1121aa53f2236129f812a89065a5f63c959))  - (goliatone)
+- Content list prefix option ([7bc7a64](https://github.com/goliatone/go-admin/commit/7bc7a6491301b436e253eb8700fa3c8b4c4cf2b3))  - (goliatone)
+- Cms block definition channel ([0e5ecfa](https://github.com/goliatone/go-admin/commit/0e5ecfae8af33e2dce4da04cc9ad986de63adb26))  - (goliatone)
+- Stub helpers for resolvers ([3c62456](https://github.com/goliatone/go-admin/commit/3c62456fed0c4707385a96307fca15d3fa9064c5))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.53.1 ([e2e4c15](https://github.com/goliatone/go-admin/commit/e2e4c15f807cfcb216621f6a2df2d10bc704f35c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update test ([3f1e99f](https://github.com/goliatone/go-admin/commit/3f1e99f03edbd81d3fbb4d369fa1745b4c7b118b))  - (goliatone)
+- Code quality ([fac8c49](https://github.com/goliatone/go-admin/commit/fac8c4905780b272d9054e0dd287e3fd7d50d625))  - (goliatone)
+- Update examples ([1a6db99](https://github.com/goliatone/go-admin/commit/1a6db99b8d6e8878020cf81c6d9b205aa7523272))  - (goliatone)
+
 # [0.53.1](https://github.com/goliatone/go-admin/compare/v0.53.0...v0.53.1) - (2026-04-22)
 
 ## <!-- 1 -->🐛 Bug Fixes
