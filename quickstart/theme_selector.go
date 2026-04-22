@@ -86,30 +86,7 @@ func NewThemeSelector(name, variant string, tokenOverrides map[string]string, op
 		return theme.Selector{}, nil, fmt.Errorf("theme registry does not implement ThemeProvider")
 	}
 
-	manifest := options.manifest
-	registerManifest := false
-	if manifest == nil {
-		if existing, err := registry.Get(name); err == nil && existing != nil {
-			manifest = existing
-		}
-	}
-	if manifest == nil {
-		manifest = defaultThemeManifest(name, tokenOverrides, options)
-		registerManifest = true
-	} else {
-		if strings.TrimSpace(manifest.Name) == "" {
-			manifest.Name = name
-		}
-		if strings.TrimSpace(options.assetsPrefix) != "" && strings.TrimSpace(manifest.Assets.Prefix) == "" {
-			manifest.Assets.Prefix = options.assetsPrefix
-		}
-		if len(options.assetsFiles) > 0 && len(manifest.Assets.Files) == 0 {
-			manifest.Assets.Files = cloneStringMap(options.assetsFiles)
-		}
-		if len(options.variants) > 0 && len(manifest.Variants) == 0 {
-			manifest.Variants = options.variants
-		}
-	}
+	manifest, registerManifest := resolveThemeManifest(registry, name, tokenOverrides, options)
 	manifest.Assets.Files = normalizeThemeAssetFiles(manifest.Assets.Files)
 	manifest.Variants = normalizeThemeVariants(manifest.Variants)
 
@@ -125,6 +102,35 @@ func NewThemeSelector(name, variant string, tokenOverrides map[string]string, op
 		DefaultVariant: variant,
 	}
 	return selector, manifest, nil
+}
+
+func resolveThemeManifest(registry theme.Registry, name string, tokenOverrides map[string]string, options themeOptions) (*theme.Manifest, bool) {
+	manifest := options.manifest
+	if manifest == nil {
+		if existing, err := registry.Get(name); err == nil && existing != nil {
+			manifest = existing
+		}
+	}
+	if manifest == nil {
+		return defaultThemeManifest(name, tokenOverrides, options), true
+	}
+	applyThemeManifestFallbacks(manifest, name, options)
+	return manifest, false
+}
+
+func applyThemeManifestFallbacks(manifest *theme.Manifest, name string, options themeOptions) {
+	if strings.TrimSpace(manifest.Name) == "" {
+		manifest.Name = name
+	}
+	if strings.TrimSpace(options.assetsPrefix) != "" && strings.TrimSpace(manifest.Assets.Prefix) == "" {
+		manifest.Assets.Prefix = options.assetsPrefix
+	}
+	if len(options.assetsFiles) > 0 && len(manifest.Assets.Files) == 0 {
+		manifest.Assets.Files = cloneStringMap(options.assetsFiles)
+	}
+	if len(options.variants) > 0 && len(manifest.Variants) == 0 {
+		manifest.Variants = options.variants
+	}
 }
 
 func defaultThemeManifest(name string, tokenOverrides map[string]string, options themeOptions) *theme.Manifest {

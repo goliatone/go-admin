@@ -60,38 +60,38 @@ func configureAdaptersWithFlagsLogger(ctx context.Context, cfg admin.Config, hoo
 		ActivityBackend: "in-memory activity feed",
 	}
 	if flags.UsePersistentCMS {
-		if hooks.PersistentCMS == nil {
-			result.PersistentCMSError = errors.Join(
-				ErrPersistentCMSSetupFailed,
-				fmt.Errorf("persistent CMS setup hook is not configured"),
-			)
-			logger.Warn("persistent CMS requested but setup hook is not configured",
-				"default_locale", cfg.DefaultLocale,
-			)
-		} else {
-			opts, backend, err := hooks.PersistentCMS(ctx, cfg.DefaultLocale)
-			if err == nil && opts.Container != nil {
-				cfg.CMS = opts
-				result.CMSBackend = backend
-				result.PersistentCMSSet = true
-			} else if err != nil {
-				result.PersistentCMSError = errors.Join(ErrPersistentCMSSetupFailed, err)
-				logger.Warn("persistent CMS requested but setup failed",
-					"error", err,
-					"default_locale", cfg.DefaultLocale,
-				)
-			} else {
-				result.PersistentCMSError = errors.Join(
-					ErrPersistentCMSSetupFailed,
-					fmt.Errorf("persistent CMS setup returned nil container"),
-				)
-				logger.Warn("persistent CMS requested but setup returned nil container",
-					"default_locale", cfg.DefaultLocale,
-				)
-			}
-		}
+		cfg, result = applyPersistentCMSAdapter(ctx, cfg, hooks, result, logger)
 	}
 	result.Config = cfg
+	return cfg, result
+}
+
+func applyPersistentCMSAdapter(ctx context.Context, cfg admin.Config, hooks AdapterHooks, result AdapterResult, logger admin.Logger) (admin.Config, AdapterResult) {
+	if hooks.PersistentCMS == nil {
+		result.PersistentCMSError = errors.Join(
+			ErrPersistentCMSSetupFailed,
+			fmt.Errorf("persistent CMS setup hook is not configured"),
+		)
+		logger.Warn("persistent CMS requested but setup hook is not configured", "default_locale", cfg.DefaultLocale)
+		return cfg, result
+	}
+	opts, backend, err := hooks.PersistentCMS(ctx, cfg.DefaultLocale)
+	if err != nil {
+		result.PersistentCMSError = errors.Join(ErrPersistentCMSSetupFailed, err)
+		logger.Warn("persistent CMS requested but setup failed", "error", err, "default_locale", cfg.DefaultLocale)
+		return cfg, result
+	}
+	if opts.Container == nil {
+		result.PersistentCMSError = errors.Join(
+			ErrPersistentCMSSetupFailed,
+			fmt.Errorf("persistent CMS setup returned nil container"),
+		)
+		logger.Warn("persistent CMS requested but setup returned nil container", "default_locale", cfg.DefaultLocale)
+		return cfg, result
+	}
+	cfg.CMS = opts
+	result.CMSBackend = backend
+	result.PersistentCMSSet = true
 	return cfg, result
 }
 

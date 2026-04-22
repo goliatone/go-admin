@@ -60,32 +60,7 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 		session.Metadata = cloneAnyMap(actor.Metadata)
 	}
 
-	if claims != nil {
-		if session.ID == "" {
-			session.ID = claims.UserID()
-		}
-		session.Subject = firstNonEmpty(session.Subject, claims.Subject(), claims.UserID())
-		session.Role = firstNonEmpty(session.Role, claims.Role())
-
-		if carrier, ok := claims.(interface{ ResourceRoles() map[string]string }); ok {
-			if session.ResourceRoles == nil {
-				session.ResourceRoles = cloneStringMap(carrier.ResourceRoles())
-			} else {
-				session.ResourceRoles = mergeStringMaps(session.ResourceRoles, carrier.ResourceRoles())
-			}
-		}
-
-		if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
-			session.Metadata = mergeAnyMaps(session.Metadata, carrier.ClaimsMetadata())
-		}
-
-		if issued := claims.IssuedAt(); !issued.IsZero() {
-			session.IssuedAt = ptrTime(issued)
-		}
-		if exp := claims.Expires(); !exp.IsZero() {
-			session.ExpiresAt = ptrTime(exp)
-		}
-	}
+	applyClaimsToSession(&session, claims)
 
 	session.IsAuthenticated = actor != nil || claims != nil
 
@@ -127,6 +102,40 @@ func BuildSessionUser(ctx context.Context) SessionUser {
 	session.Initial = strings.ToUpper(initialRune(session.DisplayName))
 
 	return session
+}
+
+func applyClaimsToSession(session *SessionUser, claims authlib.AuthClaims) {
+	if session == nil || claims == nil {
+		return
+	}
+	if session.ID == "" {
+		session.ID = claims.UserID()
+	}
+	session.Subject = firstNonEmpty(session.Subject, claims.Subject(), claims.UserID())
+	session.Role = firstNonEmpty(session.Role, claims.Role())
+	applyClaimsResourceRoles(session, claims)
+
+	if carrier, ok := claims.(interface{ ClaimsMetadata() map[string]any }); ok {
+		session.Metadata = mergeAnyMaps(session.Metadata, carrier.ClaimsMetadata())
+	}
+	if issued := claims.IssuedAt(); !issued.IsZero() {
+		session.IssuedAt = ptrTime(issued)
+	}
+	if exp := claims.Expires(); !exp.IsZero() {
+		session.ExpiresAt = ptrTime(exp)
+	}
+}
+
+func applyClaimsResourceRoles(session *SessionUser, claims authlib.AuthClaims) {
+	carrier, ok := claims.(interface{ ResourceRoles() map[string]string })
+	if !ok {
+		return
+	}
+	if session.ResourceRoles == nil {
+		session.ResourceRoles = cloneStringMap(carrier.ResourceRoles())
+		return
+	}
+	session.ResourceRoles = mergeStringMaps(session.ResourceRoles, carrier.ResourceRoles())
 }
 
 // FilterSessionUser hides tenant/org data when those features are disabled.
@@ -247,29 +256,8 @@ func collectScopes(meta map[string]any, roles map[string]string, claimScopes []s
 		scopes[scope] = struct{}{}
 	}
 
-	if raw, ok := meta["scopes"]; ok {
-		switch vals := raw.(type) {
-		case []string:
-			for _, v := range vals {
-				if trimmed := strings.TrimSpace(v); trimmed != "" {
-					scopes[trimmed] = struct{}{}
-				}
-			}
-		case []any:
-			for _, v := range vals {
-				if str, ok := v.(string); ok {
-					if trimmed := strings.TrimSpace(str); trimmed != "" {
-						scopes[trimmed] = struct{}{}
-					}
-				}
-			}
-		case string:
-			for _, v := range strings.Fields(vals) {
-				if trimmed := strings.TrimSpace(v); trimmed != "" {
-					scopes[trimmed] = struct{}{}
-				}
-			}
-		}
+	for _, scope := range scopesFromMetadata(meta["scopes"]) {
+		scopes[scope] = struct{}{}
 	}
 
 	if len(scopes) == 0 {
@@ -281,6 +269,35 @@ func collectScopes(meta map[string]any, roles map[string]string, claimScopes []s
 		out = append(out, scope)
 	}
 	sort.Strings(out)
+	return out
+}
+
+func scopesFromMetadata(raw any) []string {
+	switch vals := raw.(type) {
+	case []string:
+		return normalizeScopeStrings(vals)
+	case []any:
+		out := make([]string, 0, len(vals))
+		for _, value := range vals {
+			if str, ok := value.(string); ok {
+				out = append(out, str)
+			}
+		}
+		return normalizeScopeStrings(out)
+	case string:
+		return normalizeScopeStrings(strings.Fields(vals))
+	default:
+		return nil
+	}
+}
+
+func normalizeScopeStrings(values []string) []string {
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
 	return out
 }
 

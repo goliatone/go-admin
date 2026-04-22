@@ -62,22 +62,7 @@ func NewUploadHandler(cfg UploadHandlerConfig) router.HandlerFunc {
 		formField = defaultUploadFormField
 	}
 	basePath := strings.TrimSpace(cfg.BasePath)
-
-	manager := cfg.Manager
-	if manager == nil {
-		validator := cfg.Validator
-		if validator == nil {
-			validator = buildUploadValidator(cfg)
-		}
-		provider := cfg.Provider
-		if provider == nil {
-			provider = uploader.NewFSProvider(assetsDir).WithURLPrefix(resolveDefaultUploadURLPrefix(basePath))
-		}
-		manager = uploader.NewManager(
-			uploader.WithProvider(provider),
-			uploader.WithValidator(validator),
-		)
-	}
+	manager := resolveUploadManager(cfg, assetsDir, basePath)
 
 	return func(c router.Context) error {
 		if c == nil {
@@ -129,6 +114,24 @@ func NewUploadHandler(cfg UploadHandlerConfig) router.HandlerFunc {
 
 		return c.JSON(http.StatusOK, payload)
 	}
+}
+
+func resolveUploadManager(cfg UploadHandlerConfig, assetsDir, basePath string) *uploader.Manager {
+	if cfg.Manager != nil {
+		return cfg.Manager
+	}
+	validator := cfg.Validator
+	if validator == nil {
+		validator = buildUploadValidator(cfg)
+	}
+	provider := cfg.Provider
+	if provider == nil {
+		provider = uploader.NewFSProvider(assetsDir).WithURLPrefix(resolveDefaultUploadURLPrefix(basePath))
+	}
+	return uploader.NewManager(
+		uploader.WithProvider(provider),
+		uploader.WithValidator(validator),
+	)
 }
 
 func resolveDefaultUploadURLPrefix(basePath string) string {

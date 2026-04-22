@@ -25,6 +25,12 @@ type LegacyLocalizedMenuMigrationReport struct {
 	LegacyItemIDs        []string `json:"legacy_item_i_ds"`
 }
 
+type legacyTranslationMove struct {
+	baseID string
+	locale string
+	item   admin.MenuItem
+}
+
 // MigrateLegacyLocalizedMenuItems folds legacy locale-suffixed item IDs (for example
 // "site_main.about.es") into canonical base IDs by transferring localized translations and
 // then removing the suffix nodes.
@@ -49,58 +55,94 @@ func MigrateLegacyLocalizedMenuItems(ctx context.Context, opts LegacyLocalizedMe
 		localeSet[locale] = struct{}{}
 	}
 
-	type translationMove struct {
-		baseID string
-		locale string
-		item   admin.MenuItem
+	moves, legacyIDs, err := collectLegacyLocalizedMenuMoves(ctx, opts.MenuSvc, menuCode, locales, localeSet)
+	if err != nil {
+		return report, err
 	}
-	moves := []translationMove{}
+
+	applyLegacyLocalizedMenuMoves(ctx, opts.MenuSvc, menuCode, moves, &report)
+	ids := sortedLegacyMenuItemIDs(legacyIDs)
+	report.LegacyItemIDs = append([]string{}, ids...)
+	deleteLegacyLocalizedMenuItems(ctx, opts.MenuSvc, menuCode, ids, &report)
+
+	return report, nil
+}
+
+func collectLegacyLocalizedMenuMoves(
+	ctx context.Context,
+	menuSvc admin.CMSMenuService,
+	menuCode string,
+	locales []string,
+	localeSet map[string]struct{},
+) ([]legacyTranslationMove, map[string]struct{}, error) {
+	moves := []legacyTranslationMove{}
 	legacyIDs := map[string]struct{}{}
 	moveSeen := map[string]struct{}{}
-
 	for _, locale := range locales {
-		menu, err := opts.MenuSvc.Menu(ctx, menuCode, locale)
+		menu, err := menuSvc.Menu(ctx, menuCode, locale)
 		if err != nil {
-			return report, err
+			return nil, nil, err
 		}
 		for _, item := range flattenMenuItems(menu.Items) {
-			baseID, suffix, ok := splitLegacyLocaleSuffix(strings.TrimSpace(item.ID), localeSet)
-			if !ok || !strings.EqualFold(suffix, locale) {
+			move, ok := legacyLocalizedMenuMove(item, locale, localeSet, moveSeen)
+			if !ok {
 				continue
 			}
 			legacyIDs[item.ID] = struct{}{}
-			key := strings.ToLower(baseID + "::" + suffix)
-			if _, exists := moveSeen[key]; exists {
-				continue
-			}
-			moveSeen[key] = struct{}{}
-			moves = append(moves, translationMove{
-				baseID: baseID,
-				locale: suffix,
-				item:   item,
-			})
+			moves = append(moves, move)
 		}
 	}
+	return moves, legacyIDs, nil
+}
 
+func legacyLocalizedMenuMove(item admin.MenuItem, locale string, localeSet map[string]struct{}, moveSeen map[string]struct{}) (legacyTranslationMove, bool) {
+	baseID, suffix, ok := splitLegacyLocaleSuffix(strings.TrimSpace(item.ID), localeSet)
+	if !ok || !strings.EqualFold(suffix, locale) {
+		return legacyTranslationMove{}, false
+	}
+	key := strings.ToLower(baseID + "::" + suffix)
+	if _, exists := moveSeen[key]; exists {
+		return legacyTranslationMove{}, false
+	}
+	moveSeen[key] = struct{}{}
+	return legacyTranslationMove{
+		baseID: baseID,
+		locale: suffix,
+		item:   item,
+	}, true
+}
+
+func applyLegacyLocalizedMenuMoves(
+	ctx context.Context,
+	menuSvc admin.CMSMenuService,
+	menuCode string,
+	moves []legacyTranslationMove,
+	report *LegacyLocalizedMenuMigrationReport,
+) {
 	for _, move := range moves {
-		update := admin.MenuItem{
-			ID:            move.baseID,
-			Code:          move.baseID,
-			Type:          admin.NormalizeMenuItemType(move.item.Type),
-			Locale:        move.locale,
-			Label:         strings.TrimSpace(move.item.Label),
-			LabelKey:      strings.TrimSpace(move.item.LabelKey),
-			GroupTitle:    strings.TrimSpace(move.item.GroupTitle),
-			GroupTitleKey: strings.TrimSpace(move.item.GroupTitleKey),
-			URLOverride:   extractMenuURLOverride(move.item.Target),
-		}
-		if err := opts.MenuSvc.UpdateMenuItem(ctx, menuCode, update); err != nil {
+		if err := menuSvc.UpdateMenuItem(ctx, menuCode, legacyLocalizedMenuUpdate(move)); err != nil {
 			report.SkippedLegacyItems++
 			continue
 		}
 		report.MigratedTranslations++
 	}
+}
 
+func legacyLocalizedMenuUpdate(move legacyTranslationMove) admin.MenuItem {
+	return admin.MenuItem{
+		ID:            move.baseID,
+		Code:          move.baseID,
+		Type:          admin.NormalizeMenuItemType(move.item.Type),
+		Locale:        move.locale,
+		Label:         strings.TrimSpace(move.item.Label),
+		LabelKey:      strings.TrimSpace(move.item.LabelKey),
+		GroupTitle:    strings.TrimSpace(move.item.GroupTitle),
+		GroupTitleKey: strings.TrimSpace(move.item.GroupTitleKey),
+		URLOverride:   extractMenuURLOverride(move.item.Target),
+	}
+}
+
+func sortedLegacyMenuItemIDs(legacyIDs map[string]struct{}) []string {
 	ids := make([]string, 0, len(legacyIDs))
 	for id := range legacyIDs {
 		ids = append(ids, id)
@@ -111,19 +153,25 @@ func MigrateLegacyLocalizedMenuItems(ctx context.Context, opts LegacyLocalizedMe
 		}
 		return len(ids[i]) > len(ids[j])
 	})
-	report.LegacyItemIDs = append([]string{}, ids...)
+	return ids
+}
+
+func deleteLegacyLocalizedMenuItems(
+	ctx context.Context,
+	menuSvc admin.CMSMenuService,
+	menuCode string,
+	ids []string,
+	report *LegacyLocalizedMenuMigrationReport,
+) {
 	for _, id := range ids {
-		if err := opts.MenuSvc.DeleteMenuItem(ctx, menuCode, id); err != nil {
-			if errors.Is(err, admin.ErrNotFound) {
-				continue
+		if err := menuSvc.DeleteMenuItem(ctx, menuCode, id); err != nil {
+			if !errors.Is(err, admin.ErrNotFound) {
+				report.SkippedLegacyItems++
 			}
-			report.SkippedLegacyItems++
 			continue
 		}
 		report.DeletedLegacyItems++
 	}
-
-	return report, nil
 }
 
 func splitLegacyLocaleSuffix(id string, localeSet map[string]struct{}) (baseID string, locale string, ok bool) {

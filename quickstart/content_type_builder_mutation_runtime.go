@@ -22,8 +22,8 @@ func (h *contentTypeBuilderHandlers) DeprecateContentType(c router.Context) erro
 }
 
 func (h *contentTypeBuilderHandlers) CloneContentType(c router.Context) error {
-	if err := h.guard(c, "edit"); err != nil {
-		return err
+	if guardErr := h.guard(c, "edit"); guardErr != nil {
+		return guardErr
 	}
 	panel, err := h.panelFor("content_types")
 	if err != nil {
@@ -33,8 +33,8 @@ func (h *contentTypeBuilderHandlers) CloneContentType(c router.Context) error {
 		Slug string `json:"slug"`
 		Name string `json:"name"`
 	}{}
-	if err := parseJSONBody(c, &req); err != nil {
-		return err
+	if parseErr := parseJSONBody(c, &req); parseErr != nil {
+		return parseErr
 	}
 	newSlug := strings.TrimSpace(req.Slug)
 	if newSlug == "" {
@@ -107,8 +107,8 @@ func (h *contentTypeBuilderHandlers) ContentTypeVersions(c router.Context) error
 }
 
 func (h *contentTypeBuilderHandlers) PublishBlockDefinition(c router.Context) error {
-	if err := h.guard(c, "edit"); err != nil {
-		return err
+	if guardErr := h.guard(c, "edit"); guardErr != nil {
+		return guardErr
 	}
 	return h.updateBlockDefinitionStatus(c, "active")
 }
@@ -132,8 +132,8 @@ func (h *contentTypeBuilderHandlers) CloneBlockDefinition(c router.Context) erro
 		Type string `json:"type"`
 		Slug string `json:"slug"`
 	}{}
-	if err := parseJSONBody(c, &req); err != nil {
-		return err
+	if parseErr := parseJSONBody(c, &req); parseErr != nil {
+		return parseErr
 	}
 	newType := strings.TrimSpace(req.Type)
 	if newType == "" {
@@ -217,8 +217,8 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionVersions(c router.Context) e
 }
 
 func (h *contentTypeBuilderHandlers) updateContentTypeStatus(c router.Context, status string) error {
-	if err := h.guard(c, "edit"); err != nil {
-		return err
+	if guardErr := h.guard(c, "edit"); guardErr != nil {
+		return guardErr
 	}
 	panel, err := h.panelFor("content_types")
 	if err != nil {
@@ -234,8 +234,8 @@ func (h *contentTypeBuilderHandlers) updateContentTypeStatus(c router.Context, s
 		Force                bool `json:"force"`
 		AllowBreakingChanges bool `json:"allow_breaking_changes"`
 	}{}
-	if err := parseJSONBody(c, &req); err != nil {
-		return err
+	if parseErr := parseJSONBody(c, &req); parseErr != nil {
+		return parseErr
 	}
 	allowBreaking := req.Force || req.AllowBreakingChanges
 	adminCtx := adminContextFromRequest(h.admin, c, h.cfg.DefaultLocale)

@@ -22,8 +22,8 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	if err != nil {
 		return err
 	}
-	if err := h.guardPanel(c, panelName, panel, "read"); err != nil {
-		return err
+	if guardErr := h.guardPanel(c, panelName, panel, "read"); guardErr != nil {
+		return guardErr
 	}
 	items, total, err := h.listPanelItems(panel, adminCtx)
 	if err != nil {
@@ -158,8 +158,8 @@ func (h *contentEntryHandlers) detailForPanelWithID(c router.Context, panelSlug 
 	if err != nil {
 		return err
 	}
-	if err := h.guardPanel(c, panelName, panel, "read"); err != nil {
-		return err
+	if guardErr := h.guardPanel(c, panelName, panel, "read"); guardErr != nil {
+		return guardErr
 	}
 	id = strings.TrimSpace(id)
 	if id == "" {

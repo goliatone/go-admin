@@ -24,8 +24,8 @@ func (h *contentEntryHandlers) newForPanel(c router.Context, panelSlug string) e
 	if contentTypeSchema(contentType, panel) == nil {
 		return admin.ErrNotFound
 	}
-	if err := h.guardPanel(c, panelName, panel, "create"); err != nil {
-		return err
+	if guardErr := h.guardPanel(c, panelName, panel, "create"); guardErr != nil {
+		return guardErr
 	}
 	values := map[string]any{
 		"locale": defaultLocaleValue("", h.cfg.DefaultLocale),
@@ -47,8 +47,8 @@ func (h *contentEntryHandlers) createForPanel(c router.Context, panelSlug string
 	if schema == nil {
 		return admin.ErrNotFound
 	}
-	if err := h.guardPanel(c, panelName, panel, "create"); err != nil {
-		return err
+	if guardErr := h.guardPanel(c, panelName, panel, "create"); guardErr != nil {
+		return guardErr
 	}
 	record, err := h.parseFormPayload(c, schema)
 	if err != nil {
@@ -78,8 +78,8 @@ func (h *contentEntryHandlers) editForPanel(c router.Context, panelSlug string) 
 	if err != nil {
 		return err
 	}
-	if err := h.guardPanel(c, panelName, panel, "edit"); err != nil {
-		return err
+	if guardErr := h.guardPanel(c, panelName, panel, "edit"); guardErr != nil {
+		return guardErr
 	}
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {
@@ -115,8 +115,8 @@ func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string
 	if err != nil {
 		return err
 	}
-	if err := h.guardPanel(c, panelName, panel, "edit"); err != nil {
-		return err
+	if guardErr := h.guardPanel(c, panelName, panel, "edit"); guardErr != nil {
+		return guardErr
 	}
 	id := strings.TrimSpace(c.Param("id"))
 	if id == "" {

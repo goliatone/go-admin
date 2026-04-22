@@ -96,16 +96,9 @@ func NewFormGenerator(openapiFS fs.FS, templatesFS fs.FS, opts ...FormGeneratorO
 	}
 	componentRegistry := cfg.componentRegistry
 	if componentRegistry != nil && cfg.mergeComponentRegistry {
-		merged := components.NewDefaultRegistry()
-		for _, name := range componentRegistry.Names() {
-			if descriptor, ok := componentRegistry.Descriptor(name); ok {
-				if baseDescriptor, ok := merged.Descriptor(name); ok {
-					descriptor = MergeComponentDescriptors(baseDescriptor, descriptor)
-				}
-				if err := merged.Register(name, descriptor); err != nil {
-					return nil, fmt.Errorf("merge component registry: %s: %w", name, err)
-				}
-			}
+		merged, err := mergeFormComponentRegistry(componentRegistry)
+		if err != nil {
+			return nil, err
 		}
 		componentRegistry = merged
 	}
@@ -139,4 +132,21 @@ func NewFormGenerator(openapiFS fs.FS, templatesFS fs.FS, opts ...FormGeneratorO
 	}
 
 	return formgen.NewOrchestrator(orchestratorOpts...), nil
+}
+
+func mergeFormComponentRegistry(componentRegistry *components.Registry) (*components.Registry, error) {
+	merged := components.NewDefaultRegistry()
+	for _, name := range componentRegistry.Names() {
+		descriptor, ok := componentRegistry.Descriptor(name)
+		if !ok {
+			continue
+		}
+		if baseDescriptor, ok := merged.Descriptor(name); ok {
+			descriptor = MergeComponentDescriptors(baseDescriptor, descriptor)
+		}
+		if err := merged.Register(name, descriptor); err != nil {
+			return nil, fmt.Errorf("merge component registry: %s: %w", name, err)
+		}
+	}
+	return merged, nil
 }

@@ -350,27 +350,11 @@ func toNavString(value any) string {
 
 func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resolver, active string, scope navRequestScope) (map[string]any, bool) {
 	target := item.Target
-	children := make([]map[string]any, 0, len(item.Children))
-	childActive := false
-	for _, child := range item.Children {
-		childNode, hasActive := buildNavEntry(child, basePath, urls, active, scope)
-		if childNode == nil {
-			continue
-		}
-		if hasActive {
-			childActive = true
-		}
-		children = append(children, childNode)
-	}
+	children, childActive := buildNavChildren(item.Children, basePath, urls, active, scope)
 
 	href, derivedKey, position := resolveNavTarget(item.Target, basePath, urls, scope)
-	// Prefer target key for active matching since IDs may include parent prefixes
-	key := derivedKey
-	if key == "" {
-		key = strings.TrimSpace(item.ID)
-	}
-	// Match against target key, item ID, or the last segment of ID for nested items
-	isActive := active != "" && key != "" && (key == active || strings.TrimSpace(item.ID) == active || strings.HasSuffix(item.ID, "."+active))
+	key := navEntryKey(derivedKey, item.ID)
+	isActive := navEntryActive(active, key, item.ID)
 	collapsible := item.Collapsible && len(children) > 0
 	collapsed := collapsible && item.Collapsed
 	if isActive || childActive {
@@ -397,8 +381,46 @@ func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resol
 		"position":        position,
 		"active":          isActive,
 		"expanded":        collapsible && !collapsed,
-		"child_active":    childActive,
+			"child_active":    childActive,
+		}
+	applyNavTargetMetadata(entry, target, scope)
+	if strings.EqualFold(strings.TrimSpace(item.Type), admin.MenuItemTypeGroup) && len(children) == 0 {
+		return nil, false
 	}
+	return entry, isActive || childActive
+}
+
+func buildNavChildren(children []admin.NavigationItem, basePath string, urls urlkit.Resolver, active string, scope navRequestScope) ([]map[string]any, bool) {
+	out := make([]map[string]any, 0, len(children))
+	childActive := false
+	for _, child := range children {
+		childNode, hasActive := buildNavEntry(child, basePath, urls, active, scope)
+		if childNode == nil {
+			continue
+		}
+		childActive = childActive || hasActive
+		out = append(out, childNode)
+	}
+	return out, childActive
+}
+
+func navEntryKey(derivedKey, itemID string) string {
+	if strings.TrimSpace(derivedKey) != "" {
+		return strings.TrimSpace(derivedKey)
+	}
+	return strings.TrimSpace(itemID)
+}
+
+func navEntryActive(active, key, itemID string) bool {
+	active = strings.TrimSpace(active)
+	if active == "" || key == "" {
+		return false
+	}
+	itemID = strings.TrimSpace(itemID)
+	return key == active || itemID == active || strings.HasSuffix(itemID, "."+active)
+}
+
+func applyNavTargetMetadata(entry map[string]any, target map[string]any, scope navRequestScope) {
 	if breadcrumbLabel := strings.TrimSpace(toNavString(target["breadcrumb_label"])); breadcrumbLabel != "" {
 		entry["breadcrumb_label"] = breadcrumbLabel
 	}
@@ -417,10 +439,6 @@ func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resol
 	if disabledReasonCode := strings.TrimSpace(toNavString(target["disabled_reason_code"])); disabledReasonCode != "" {
 		entry["disabled_reason_code"] = disabledReasonCode
 	}
-	if strings.EqualFold(strings.TrimSpace(item.Type), admin.MenuItemTypeGroup) && len(children) == 0 {
-		return nil, false
-	}
-	return entry, isActive || childActive
 }
 
 func resolveNavTarget(target map[string]any, basePath string, urls urlkit.Resolver, scope navRequestScope) (string, string, int) {
@@ -433,39 +451,53 @@ func resolveNavTarget(target map[string]any, basePath string, urls urlkit.Resolv
 		return withNavScopeQuery(href, scope), key, position
 	}
 
-	if targetURL, ok := target["url"].(string); ok && strings.TrimSpace(targetURL) != "" {
-		href = strings.TrimSpace(targetURL)
-	} else if targetPath, ok := target["path"].(string); ok && strings.TrimSpace(targetPath) != "" {
-		href = strings.TrimSpace(targetPath)
-		if shouldPrefixBasePath(basePath, href) {
-			href = prefixBasePath(basePath, href)
-		}
-	} else if name, ok := target["name"].(string); ok && strings.TrimSpace(name) != "" {
-		trimmedName := strings.TrimSpace(name)
-		if resolved := resolveNavRoute(urls, trimmedName); resolved != "" {
-			href = resolved
-		} else {
-			trimmed := strings.TrimPrefix(trimmedName, "admin.")
-			href = prefixBasePath(basePath, trimmed)
-		}
-	}
-
-	if k, ok := target["key"].(string); ok && strings.TrimSpace(k) != "" {
-		key = strings.TrimSpace(k)
-	} else if name, ok := target["name"].(string); ok && strings.TrimSpace(name) != "" {
-		key = strings.TrimPrefix(strings.TrimSpace(name), "admin.")
-	} else if href != "" {
-		key = navTargetKeyFromHref(href)
-	}
-
-	switch p := target["position"].(type) {
-	case int:
-		position = p
-	case float64:
-		position = int(p)
-	}
+	href = resolveNavHref(target, basePath, urls, href)
+	key = resolveNavKey(target, href)
+	position = resolveNavPosition(target)
 
 	return withNavScopeQuery(href, scope), key, position
+}
+
+func resolveNavHref(target map[string]any, basePath string, urls urlkit.Resolver, fallback string) string {
+	if targetURL := strings.TrimSpace(toNavString(target["url"])); targetURL != "" {
+		return targetURL
+	}
+	if targetPath := strings.TrimSpace(toNavString(target["path"])); targetPath != "" {
+		if shouldPrefixBasePath(basePath, targetPath) {
+			return prefixBasePath(basePath, targetPath)
+		}
+		return targetPath
+	}
+	if name := strings.TrimSpace(toNavString(target["name"])); name != "" {
+		if resolved := resolveNavRoute(urls, name); resolved != "" {
+			return resolved
+		}
+		return prefixBasePath(basePath, strings.TrimPrefix(name, "admin."))
+	}
+	return fallback
+}
+
+func resolveNavKey(target map[string]any, href string) string {
+	if key := strings.TrimSpace(toNavString(target["key"])); key != "" {
+		return key
+	}
+	if name := strings.TrimSpace(toNavString(target["name"])); name != "" {
+		return strings.TrimPrefix(name, "admin.")
+	}
+	if href != "" {
+		return navTargetKeyFromHref(href)
+	}
+	return ""
+}
+
+func resolveNavPosition(target map[string]any) int {
+	switch p := target["position"].(type) {
+	case int:
+		return p
+	case float64:
+		return int(p)
+	}
+	return 0
 }
 
 func navTargetKeyFromHref(href string) string {

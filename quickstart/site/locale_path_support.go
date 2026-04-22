@@ -128,26 +128,16 @@ func normalizeLocalePath(value string) string {
 	if value == "" {
 		return "/"
 	}
-	lower := strings.ToLower(value)
-	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(value, "//") {
-		return "/"
-	}
 	if idx := strings.IndexAny(value, "?#"); idx >= 0 {
 		value = strings.TrimSpace(value[:idx])
 	}
-	if value == "" || strings.Contains(value, "\\") {
+	if value == "" || localePathUnsafe(value) {
 		return "/"
 	}
-	if !strings.HasPrefix(value, "/") {
-		value = "/" + strings.TrimLeft(value, "/")
-	} else {
-		value = "/" + strings.TrimLeft(value, "/")
-	}
-	for segment := range strings.SplitSeq(strings.Trim(value, "/"), "/") {
-		if segment == "." || segment == ".." {
-			return "/"
-		}
-	}
+	return cleanLocalePath("/" + strings.TrimLeft(value, "/"))
+}
+
+func cleanLocalePath(value string) string {
 	cleaned := pathpkg.Clean(value)
 	if !strings.HasPrefix(cleaned, "/") {
 		cleaned = "/" + cleaned

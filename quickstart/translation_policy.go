@@ -530,61 +530,83 @@ func resolveTranslationPolicyServices(cfg admin.Config, overrides TranslationPol
 }
 
 func resolveGoCMSPageChecker(raw any) TranslationChecker {
+	return resolveGoCMSChecker(raw, resolveTypedPageChecker, resolveGoCMSPageChecker, pageCheckerCandidates)
+}
+
+func resolveGoCMSContentChecker(raw any) TranslationChecker {
+	return resolveGoCMSChecker(raw, resolveTypedContentChecker, resolveGoCMSContentChecker, contentCheckerCandidates)
+}
+
+func resolveGoCMSChecker(raw any, typed func(any) TranslationChecker, nested func(any) TranslationChecker, candidates []func(any) any) TranslationChecker {
 	if raw == nil {
 		return nil
 	}
-	switch v := raw.(type) {
-	case interface{ Pages() cms.PageService }:
-		return resolveTranslationChecker(v.Pages())
-	case interface{ PageService() cms.PageService }:
-		return resolveTranslationChecker(v.PageService())
+	if svc := typed(raw); svc != nil {
+		return svc
 	}
 	if provider, ok := raw.(interface{ Container() any }); ok {
-		inner := provider.Container()
-		if svc := resolveGoCMSPageChecker(inner); svc != nil {
+		if svc := nested(provider.Container()); svc != nil {
 			return svc
 		}
 	}
-	if provider, ok := raw.(interface{ Pages() any }); ok {
-		if svc := resolveTranslationChecker(provider.Pages()); svc != nil {
-			return svc
-		}
-	}
-	if provider, ok := raw.(interface{ PageService() any }); ok {
-		if svc := resolveTranslationChecker(provider.PageService()); svc != nil {
+	for _, candidate := range candidates {
+		if svc := resolveTranslationChecker(candidate(raw)); svc != nil {
 			return svc
 		}
 	}
 	return nil
 }
 
-func resolveGoCMSContentChecker(raw any) TranslationChecker {
-	if raw == nil {
+func resolveTypedPageChecker(raw any) TranslationChecker {
+	switch v := raw.(type) {
+	case interface{ Pages() cms.PageService }:
+		return resolveTranslationChecker(v.Pages())
+	case interface{ PageService() cms.PageService }:
+		return resolveTranslationChecker(v.PageService())
+	default:
 		return nil
 	}
+}
+
+func resolveTypedContentChecker(raw any) TranslationChecker {
 	switch v := raw.(type) {
 	case interface{ Content() cms.ContentService }:
 		return resolveTranslationChecker(v.Content())
 	case interface{ ContentService() cms.ContentService }:
 		return resolveTranslationChecker(v.ContentService())
+	default:
+		return nil
 	}
-	if provider, ok := raw.(interface{ Container() any }); ok {
-		inner := provider.Container()
-		if svc := resolveGoCMSContentChecker(inner); svc != nil {
-			return svc
+}
+
+var pageCheckerCandidates = []func(any) any{
+	func(raw any) any {
+		if provider, ok := raw.(interface{ Pages() any }); ok {
+			return provider.Pages()
 		}
-	}
-	if provider, ok := raw.(interface{ Content() any }); ok {
-		if svc := resolveTranslationChecker(provider.Content()); svc != nil {
-			return svc
+		return nil
+	},
+	func(raw any) any {
+		if provider, ok := raw.(interface{ PageService() any }); ok {
+			return provider.PageService()
 		}
-	}
-	if provider, ok := raw.(interface{ ContentService() any }); ok {
-		if svc := resolveTranslationChecker(provider.ContentService()); svc != nil {
-			return svc
+		return nil
+	},
+}
+
+var contentCheckerCandidates = []func(any) any{
+	func(raw any) any {
+		if provider, ok := raw.(interface{ Content() any }); ok {
+			return provider.Content()
 		}
-	}
-	return nil
+		return nil
+	},
+	func(raw any) any {
+		if provider, ok := raw.(interface{ ContentService() any }); ok {
+			return provider.ContentService()
+		}
+		return nil
+	},
 }
 
 func resolveTranslationChecker(value any) TranslationChecker {

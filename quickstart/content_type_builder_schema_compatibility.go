@@ -267,56 +267,58 @@ func walkCompatibilityFields(node map[string]any, prefix string, fields map[stri
 	if node == nil {
 		return
 	}
-	required := requiredSetFromValue(node["required"])
-	if props, ok := node["properties"].(map[string]any); ok {
-		for name, raw := range props {
-			child, ok := raw.(map[string]any)
-			if !ok {
-				continue
-			}
-			path := joinCompatibilityPath(prefix, name)
-			fields[path] = compatFieldDescriptor{
-				Type:     parseCompatTypeInfo(child),
-				Required: required[name],
-			}
-			walkCompatibilityFields(child, path, fields)
-		}
-	}
+	walkCompatibilityProperties(node, prefix, fields)
 	if items, ok := node["items"].(map[string]any); ok {
-		itemPath := prefix
-		if itemPath == "" {
-			itemPath = "[]"
-		} else {
-			itemPath = itemPath + "[]"
-		}
-		walkCompatibilityFields(items, itemPath, fields)
+		walkCompatibilityFields(items, compatibilityItemPath(prefix), fields)
 	}
-	if oneOf, ok := node["oneOf"].([]any); ok {
-		for idx, entry := range oneOf {
-			child, ok := entry.(map[string]any)
-			if !ok {
-				continue
-			}
-			walkCompatibilityFields(child, joinCompatibilityPath(prefix, "oneOf", idx), fields)
+	walkCompatibilitySchemaList(node, prefix, "oneOf", fields)
+	walkCompatibilitySchemaList(node, prefix, "allOf", fields)
+	walkCompatibilityDefs(node, prefix, fields)
+}
+
+func walkCompatibilityProperties(node map[string]any, prefix string, fields map[string]compatFieldDescriptor) {
+	required := requiredSetFromValue(node["required"])
+	props, _ := node["properties"].(map[string]any)
+	for name, raw := range props {
+		child, ok := raw.(map[string]any)
+		if !ok {
+			continue
 		}
+		path := joinCompatibilityPath(prefix, name)
+		fields[path] = compatFieldDescriptor{
+			Type:     parseCompatTypeInfo(child),
+			Required: required[name],
+		}
+		walkCompatibilityFields(child, path, fields)
 	}
-	if allOf, ok := node["allOf"].([]any); ok {
-		for idx, entry := range allOf {
-			child, ok := entry.(map[string]any)
-			if !ok {
-				continue
-			}
-			walkCompatibilityFields(child, joinCompatibilityPath(prefix, "allOf", idx), fields)
-		}
+}
+
+func compatibilityItemPath(prefix string) string {
+	if prefix == "" {
+		return "[]"
 	}
-	if defs, ok := node["$defs"].(map[string]any); ok {
-		for name, entry := range defs {
-			child, ok := entry.(map[string]any)
-			if !ok {
-				continue
-			}
-			walkCompatibilityFields(child, joinCompatibilityPath(prefix, "$defs", name), fields)
+	return prefix + "[]"
+}
+
+func walkCompatibilitySchemaList(node map[string]any, prefix string, key string, fields map[string]compatFieldDescriptor) {
+	entries, _ := node[key].([]any)
+	for idx, entry := range entries {
+		child, ok := entry.(map[string]any)
+		if !ok {
+			continue
 		}
+		walkCompatibilityFields(child, joinCompatibilityPath(prefix, key, idx), fields)
+	}
+}
+
+func walkCompatibilityDefs(node map[string]any, prefix string, fields map[string]compatFieldDescriptor) {
+	defs, _ := node["$defs"].(map[string]any)
+	for name, entry := range defs {
+		child, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		walkCompatibilityFields(child, joinCompatibilityPath(prefix, "$defs", name), fields)
 	}
 }
 
@@ -352,25 +354,8 @@ func parseCompatTypeInfo(node map[string]any) compatTypeInfo {
 		return compatTypeInfo{kind: "unknown"}
 	}
 	types := readCompatTypeList(node["type"])
-	if len(types) > 0 {
-		containsObject := containsCompatType(types, "object")
-		containsArray := containsCompatType(types, "array")
-		if containsObject || containsArray {
-			if len(types) > 1 {
-				return compatTypeInfo{kind: "unknown", signature: "type:" + strings.Join(types, "|")}
-			}
-			if containsArray {
-				items, _ := node["items"].(map[string]any)
-				info := compatTypeInfo{kind: "array"}
-				if items != nil {
-					itemInfo := parseCompatTypeInfo(items)
-					info.items = &itemInfo
-				}
-				return info
-			}
-			return compatTypeInfo{kind: "object"}
-		}
-		return compatTypeInfo{kind: "scalar", scalars: compatToSet(types)}
+	if info, ok := compatTypeInfoFromTypes(node, types); ok {
+		return info
 	}
 
 	if info, ok := compatTypeInfoFromConst(node["const"]); ok {
@@ -384,36 +369,66 @@ func parseCompatTypeInfo(node map[string]any) compatTypeInfo {
 		return compatTypeInfo{kind: "object"}
 	}
 	if items, ok := node["items"].(map[string]any); ok {
-		info := compatTypeInfo{kind: "array"}
-		itemInfo := parseCompatTypeInfo(items)
-		info.items = &itemInfo
-		return info
+		return compatArrayTypeInfo(items)
 	}
 	if oneOf, ok := node["oneOf"].([]any); ok {
-		union := map[string]struct{}{}
-		for _, entry := range oneOf {
-			child, ok := entry.(map[string]any)
-			if !ok {
-				continue
-			}
-			childInfo := parseCompatTypeInfo(child)
-			if childInfo.kind != "scalar" {
-				return compatTypeInfo{kind: "unknown", signature: "oneOf"}
-			}
-			for scalar := range childInfo.scalars {
-				union[scalar] = struct{}{}
-			}
-		}
-		if len(union) > 0 {
-			return compatTypeInfo{kind: "scalar", scalars: union}
-		}
-		return compatTypeInfo{kind: "unknown", signature: "oneOf"}
+		return compatTypeInfoFromOneOf(oneOf)
 	}
 	if allOf, ok := node["allOf"].([]any); ok && len(allOf) > 0 {
 		return compatTypeInfo{kind: "unknown", signature: "allOf"}
 	}
 
 	return compatTypeInfo{kind: "unknown"}
+}
+
+func compatTypeInfoFromTypes(node map[string]any, types []string) (compatTypeInfo, bool) {
+	if len(types) == 0 {
+		return compatTypeInfo{}, false
+	}
+	containsObject := containsCompatType(types, "object")
+	containsArray := containsCompatType(types, "array")
+	if !containsObject && !containsArray {
+		return compatTypeInfo{kind: "scalar", scalars: compatToSet(types)}, true
+	}
+	if len(types) > 1 {
+		return compatTypeInfo{kind: "unknown", signature: "type:" + strings.Join(types, "|")}, true
+	}
+	if containsArray {
+		items, _ := node["items"].(map[string]any)
+		return compatArrayTypeInfo(items), true
+	}
+	return compatTypeInfo{kind: "object"}, true
+}
+
+func compatArrayTypeInfo(items map[string]any) compatTypeInfo {
+	info := compatTypeInfo{kind: "array"}
+	if items == nil {
+		return info
+	}
+	itemInfo := parseCompatTypeInfo(items)
+	info.items = &itemInfo
+	return info
+}
+
+func compatTypeInfoFromOneOf(oneOf []any) compatTypeInfo {
+	union := map[string]struct{}{}
+	for _, entry := range oneOf {
+		child, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		childInfo := parseCompatTypeInfo(child)
+		if childInfo.kind != "scalar" {
+			return compatTypeInfo{kind: "unknown", signature: "oneOf"}
+		}
+		for scalar := range childInfo.scalars {
+			union[scalar] = struct{}{}
+		}
+	}
+	if len(union) == 0 {
+		return compatTypeInfo{kind: "unknown", signature: "oneOf"}
+	}
+	return compatTypeInfo{kind: "scalar", scalars: union}
 }
 
 func compatTypeInfoFromConst(value any) (compatTypeInfo, bool) {
@@ -487,29 +502,37 @@ func compareCompatTypeInfo(oldInfo, newInfo compatTypeInfo) compatTypeChange {
 	case "scalar":
 		return compareCompatScalarSets(oldInfo.scalars, newInfo.scalars)
 	case "array":
-		if oldInfo.items == nil && newInfo.items == nil {
-			return compatTypeChangeNone
-		}
-		if oldInfo.items == nil && newInfo.items != nil {
-			return compatTypeChangeBreaking
-		}
-		if oldInfo.items != nil && newInfo.items == nil {
-			return compatTypeChangeMinor
-		}
-		return compareCompatTypeInfo(*oldInfo.items, *newInfo.items)
+		return compareCompatArrayItems(oldInfo.items, newInfo.items)
 	case "object":
 		return compatTypeChangeNone
 	default:
-		if oldInfo.signature == "" && newInfo.signature == "" {
-			return compatTypeChangeNone
-		}
-		if oldInfo.signature != "" || newInfo.signature != "" {
-			if oldInfo.signature == newInfo.signature {
-				return compatTypeChangeNone
-			}
-		}
+		return compareCompatUnknownSignatures(oldInfo.signature, newInfo.signature)
+	}
+}
+
+func compareCompatArrayItems(oldItems, newItems *compatTypeInfo) compatTypeChange {
+	if oldItems == nil && newItems == nil {
+		return compatTypeChangeNone
+	}
+	if oldItems == nil && newItems != nil {
 		return compatTypeChangeBreaking
 	}
+	if oldItems != nil && newItems == nil {
+		return compatTypeChangeMinor
+	}
+	return compareCompatTypeInfo(*oldItems, *newItems)
+}
+
+func compareCompatUnknownSignatures(oldSignature, newSignature string) compatTypeChange {
+	if oldSignature == "" && newSignature == "" {
+		return compatTypeChangeNone
+	}
+	if oldSignature != "" || newSignature != "" {
+		if oldSignature == newSignature {
+			return compatTypeChangeNone
+		}
+	}
+	return compatTypeChangeBreaking
 }
 
 func compareCompatScalarSets(oldSet, newSet map[string]struct{}) compatTypeChange {

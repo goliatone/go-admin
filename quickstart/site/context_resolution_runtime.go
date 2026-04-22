@@ -209,25 +209,10 @@ func resolveRequestTheme(c router.Context, requestCtx context.Context, siteCfg R
 	}
 	requested := SiteThemeSelector{}
 	selector := configured
-	if c != nil && environmentAllowsThemeOverride(environment) {
-		requested = SiteThemeSelector{
-			Name:    strings.TrimSpace(c.Query("theme")),
-			Variant: strings.TrimSpace(c.Query("variant")),
-		}
-		if siteCfg.Theme.AllowRequestNameOverride {
-			if requested.Name != "" {
-				selector.Name = requested.Name
-			}
-		}
-		if siteCfg.Theme.AllowRequestVariantOverride {
-			if requested.Variant != "" {
-				selector.Variant = requested.Variant
-			}
-		}
-	}
+	requested, selector = applyRequestThemeOverride(c, siteCfg, environment, requested, selector)
 
 	themeCtx := WithSiteThemeSelection(requestCtx, selector)
-	payload, selector := resolveSiteThemePayload(themeCtx, siteCfg.ThemeProvider, SiteThemeRequest{
+	payload, _ := resolveSiteThemePayload(themeCtx, siteCfg.ThemeProvider, SiteThemeRequest{
 		Configured: configured,
 		Requested:  requested,
 		Selector:   selector,
@@ -239,6 +224,29 @@ func resolveRequestTheme(c router.Context, requestCtx context.Context, siteCfg R
 		variant = strings.TrimSpace(selection["variant"])
 	}
 	return themeCtx, payload, name, variant
+}
+
+func applyRequestThemeOverride(
+	c router.Context,
+	siteCfg ResolvedSiteConfig,
+	environment string,
+	requested SiteThemeSelector,
+	selector SiteThemeSelector,
+) (SiteThemeSelector, SiteThemeSelector) {
+	if c == nil || !environmentAllowsThemeOverride(environment) {
+		return requested, selector
+	}
+	requested = SiteThemeSelector{
+		Name:    strings.TrimSpace(c.Query("theme")),
+		Variant: strings.TrimSpace(c.Query("variant")),
+	}
+	if siteCfg.Theme.AllowRequestNameOverride && requested.Name != "" {
+		selector.Name = requested.Name
+	}
+	if siteCfg.Theme.AllowRequestVariantOverride && requested.Variant != "" {
+		selector.Variant = requested.Variant
+	}
+	return requested, selector
 }
 
 func environmentAllowsThemeOverride(environment string) bool {

@@ -41,37 +41,26 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		}
 	}
 
-	titleFn := options.widgetTitleFn
-	if titleFn == nil {
-		titles := options.widgetTitles
-		titleFn = func(definition string) string {
-			if titles != nil {
-				if title, ok := titles[definition]; ok {
-					return title
-				}
-			}
-			return strings.ReplaceAll(definition, "_", " ")
-		}
-	}
-
 	basePath := sanitizeTemplateBasePath(options.basePath)
-
-	// Build icon render functions based on injected renderer or fallback
-	iconRenderFunc := options.iconRenderFunc
-	renderIconFn := func(icon string) string {
-		if iconRenderFunc != nil {
-			return iconRenderFunc(icon, "")
-		}
-		return renderMenuIcon(icon)
+	titleFn := resolveWidgetTitleFunc(options)
+	renderIconFn, renderIconVariantFn := resolveTemplateIconFuncs(options.iconRenderFunc)
+	funcs := buildDefaultTemplateFuncMap(options, basePath, titleFn, renderIconFn, renderIconVariantFn)
+	for key, value := range auth.TemplateHelpers() {
+		funcs[key] = value
 	}
-	renderIconVariantFn := func(icon, variant string) string {
-		if iconRenderFunc != nil {
-			return iconRenderFunc(icon, variant)
-		}
-		// Legacy path ignores variant
-		return renderMenuIcon(icon)
+	for key, value := range fgtemplates.TemplateHelpers(options.featureGate, options.featureHelperOptions...) {
+		funcs[key] = value
 	}
+	return funcs
+}
 
+func buildDefaultTemplateFuncMap(
+	options templateFuncOptions,
+	basePath string,
+	titleFn func(string) string,
+	renderIconFn func(string) string,
+	renderIconVariantFn func(string, string) string,
+) map[string]any {
 	funcs := map[string]any{
 		"toJSON": func(v any) string {
 			b, _ := json.Marshal(v)
@@ -112,6 +101,32 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		"oauthNeedsReauthorization": func(isExpired, isExpiringSoon, canAutoRefresh bool) bool {
 			return OAuthNeedsReauthorization(isExpired, isExpiringSoon, canAutoRefresh)
 		},
+		"dict": func(values ...any) (map[string]any, error) {
+			if len(values)%2 != 0 {
+				return nil, fmt.Errorf("dict requires even number of arguments")
+			}
+			dict := make(map[string]any, len(values)/2)
+			for i := 0; i < len(values); i += 2 {
+				key, ok := values[i].(string)
+				if !ok {
+					return nil, fmt.Errorf("dict keys must be strings")
+				}
+				dict[key] = values[i+1]
+			}
+			return dict, nil
+		},
+	}
+	for key, value := range buildSiteTemplateFuncMap() {
+		funcs[key] = value
+	}
+	for key, value := range buildTranslationTemplateFuncMap(options) {
+		funcs[key] = value
+	}
+	return funcs
+}
+
+func buildSiteTemplateFuncMap() map[string]any {
+	return map[string]any{
 		"siteLocaleItems":  siteLocaleItems,
 		"siteLocaleItem":   siteLocaleItem,
 		"siteLocaleURL":    siteLocaleURL,
@@ -126,6 +141,11 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 		"siteMenuHasActive": func(menu any) bool {
 			return siteMenuHasActive(menu)
 		},
+	}
+}
+
+func buildTranslationTemplateFuncMap(options templateFuncOptions) map[string]any {
+	return map[string]any{
 		"translate": func(args ...any) string {
 			locale, rest := templateTranslationArgs(options.defaultLocale, args)
 			if len(rest) == 0 {
@@ -144,28 +164,33 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 			locale, _ := templateTranslationArgs(options.defaultLocale, args)
 			return locale
 		},
-		"dict": func(values ...any) (map[string]any, error) {
-			if len(values)%2 != 0 {
-				return nil, fmt.Errorf("dict requires even number of arguments")
+	}
+}
+
+func resolveWidgetTitleFunc(options templateFuncOptions) func(string) string {
+	if options.widgetTitleFn != nil {
+		return options.widgetTitleFn
+	}
+	titles := options.widgetTitles
+	return func(definition string) string {
+		if titles != nil {
+			if title, ok := titles[definition]; ok {
+				return title
 			}
-			dict := make(map[string]any, len(values)/2)
-			for i := 0; i < len(values); i += 2 {
-				key, ok := values[i].(string)
-				if !ok {
-					return nil, fmt.Errorf("dict keys must be strings")
-				}
-				dict[key] = values[i+1]
-			}
-			return dict, nil
-		},
+		}
+		return strings.ReplaceAll(definition, "_", " ")
 	}
-	for key, value := range auth.TemplateHelpers() {
-		funcs[key] = value
+}
+
+func resolveTemplateIconFuncs(iconRenderFunc func(ref string, variant string) string) (func(string) string, func(string, string) string) {
+	if iconRenderFunc == nil {
+		return renderMenuIcon, func(icon, _ string) string { return renderMenuIcon(icon) }
 	}
-	for key, value := range fgtemplates.TemplateHelpers(options.featureGate, options.featureHelperOptions...) {
-		funcs[key] = value
-	}
-	return funcs
+	return func(icon string) string {
+			return iconRenderFunc(icon, "")
+		}, func(icon, variant string) string {
+			return iconRenderFunc(icon, variant)
+		}
 }
 
 // MergeTemplateFuncs combines default functions with caller overrides.
@@ -403,27 +428,16 @@ func renderMenuIcon(icon string) string {
 // isEmoji returns true if the string contains emoji characters.
 func isEmoji(s string) bool {
 	for _, r := range s {
-		if r > 0xFF {
-			// Symbol, Other category covers many emoji
-			if unicode.Is(unicode.So, r) {
-				return true
-			}
-			// Variation selector (U+FE0F) and ZWJ (U+200D) indicate emoji sequences
-			if r == 0xFE0F || r == 0x200D {
-				return true
-			}
-			// Miscellaneous Symbols and Dingbats (U+2600–U+27BF)
-			if r >= 0x2600 && r <= 0x27BF {
-				return true
-			}
-			// Main emoji blocks (U+1F300–U+1FAFF)
-			if r >= 0x1F300 && r <= 0x1FAFF {
-				return true
-			}
-			// Skin tone modifiers
-			if r >= 0x1F3FB && r <= 0x1F3FF {
-				return true
-			}
+		if r <= 0xFF {
+			continue
+		}
+		if unicode.Is(unicode.So, r) || r == 0xFE0F || r == 0x200D {
+			return true
+		}
+		if (r >= 0x2600 && r <= 0x27BF) ||
+			(r >= 0x1F300 && r <= 0x1FAFF) ||
+			(r >= 0x1F3FB && r <= 0x1F3FF) {
+			return true
 		}
 	}
 	return false

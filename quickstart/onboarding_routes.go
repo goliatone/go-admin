@@ -148,32 +148,28 @@ func RegisterOnboardingRoutes[T any](r router.Router[T], cfg admin.Config, handl
 		return handler
 	}
 
-	if handler := wrap(OnboardingRouteInvite, handlers.Invite); handler != nil {
-		r.Post(options.paths.Invite, handler)
-	}
-	if handlers.VerifyInvite != nil {
-		r.Get(options.paths.InviteVerify, handlers.VerifyInvite)
-	}
-	if handlers.AcceptInvite != nil {
-		r.Post(options.paths.InviteAccept, handlers.AcceptInvite)
-	}
-	if handlers.SelfRegister != nil {
-		r.Post(options.paths.Register, handlers.SelfRegister)
-	}
-	if handlers.ConfirmRegistration != nil {
-		r.Post(options.paths.RegisterConfirm, handlers.ConfirmRegistration)
-	}
-	if handlers.RequestPasswordReset != nil {
-		r.Post(options.paths.PasswordResetRequest, handlers.RequestPasswordReset)
-	}
-	if handlers.ConfirmPasswordReset != nil {
-		r.Post(options.paths.PasswordResetConfirm, handlers.ConfirmPasswordReset)
-	}
-	if handlers.TokenMetadata != nil {
-		r.Get(options.paths.TokenMetadata, handlers.TokenMetadata)
-	}
+	registerOptionalPostRoute(r, options.paths.Invite, wrap(OnboardingRouteInvite, handlers.Invite))
+	registerOptionalGetRoute(r, options.paths.InviteVerify, handlers.VerifyInvite)
+	registerOptionalPostRoute(r, options.paths.InviteAccept, handlers.AcceptInvite)
+	registerOptionalPostRoute(r, options.paths.Register, handlers.SelfRegister)
+	registerOptionalPostRoute(r, options.paths.RegisterConfirm, handlers.ConfirmRegistration)
+	registerOptionalPostRoute(r, options.paths.PasswordResetRequest, handlers.RequestPasswordReset)
+	registerOptionalPostRoute(r, options.paths.PasswordResetConfirm, handlers.ConfirmPasswordReset)
+	registerOptionalGetRoute(r, options.paths.TokenMetadata, handlers.TokenMetadata)
 
 	return nil
+}
+
+func registerOptionalGetRoute[T any](r router.Router[T], route string, handler router.HandlerFunc) {
+	if handler != nil {
+		r.Get(route, handler)
+	}
+}
+
+func registerOptionalPostRoute[T any](r router.Router[T], route string, handler router.HandlerFunc) {
+	if handler != nil {
+		r.Post(route, handler)
+	}
 }
 
 func mergeOnboardingPaths(base, override OnboardingRoutePaths) OnboardingRoutePaths {

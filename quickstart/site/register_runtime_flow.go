@@ -47,6 +47,14 @@ func resolveSiteRegisterOptions(
 			opt(&options)
 		}
 	}
+	resolveSiteContentHandler(adm, resolved, &options)
+	searchRuntime := resolveSiteSearchHandlers(resolved, modules, &options)
+	options.fallbackPolicy = mergeSiteFallbackPolicy(resolved.Fallback, options.fallbackOverlay)
+
+	return options, searchRuntime
+}
+
+func resolveSiteContentHandler(adm *admin.Admin, resolved ResolvedSiteConfig, options *siteRegisterOptions) {
 	if options.contentHandler == nil {
 		contentSvc := options.contentService
 		contentTypeSvc := options.contentTypeSvc
@@ -63,22 +71,33 @@ func resolveSiteRegisterOptions(
 	if options.contentHandler == nil {
 		options.contentHandler = defaultNotFoundHandler
 	}
+}
 
+func resolveSiteSearchHandlers(resolved ResolvedSiteConfig, modules []SiteModule, options *siteRegisterOptions) *searchRuntime {
 	var searchRuntime *searchRuntime
 	if options.searchProvider != nil {
 		if runtime := newSearchRuntime(resolved, options.searchProvider, modules); runtime != nil {
 			searchRuntime = runtime
-			if options.searchHandler == nil {
-				options.searchHandler = searchRuntime.PageHandler()
-			}
-			if options.searchAPIHandler == nil {
-				options.searchAPIHandler = searchRuntime.APIHandler()
-			}
-			if options.suggestAPIHandler == nil {
-				options.suggestAPIHandler = searchRuntime.SuggestAPIHandler()
-			}
+			applySiteSearchRuntimeHandlers(searchRuntime, options)
 		}
 	}
+	applyDefaultSiteSearchHandlers(options)
+	return searchRuntime
+}
+
+func applySiteSearchRuntimeHandlers(searchRuntime *searchRuntime, options *siteRegisterOptions) {
+	if options.searchHandler == nil {
+		options.searchHandler = searchRuntime.PageHandler()
+	}
+	if options.searchAPIHandler == nil {
+		options.searchAPIHandler = searchRuntime.APIHandler()
+	}
+	if options.suggestAPIHandler == nil {
+		options.suggestAPIHandler = searchRuntime.SuggestAPIHandler()
+	}
+}
+
+func applyDefaultSiteSearchHandlers(options *siteRegisterOptions) {
 	if options.searchHandler == nil {
 		options.searchHandler = defaultNotFoundHandler
 	}
@@ -88,9 +107,6 @@ func resolveSiteRegisterOptions(
 	if options.suggestAPIHandler == nil {
 		options.suggestAPIHandler = defaultNotFoundHandler
 	}
-	options.fallbackPolicy = mergeSiteFallbackPolicy(resolved.Fallback, options.fallbackOverlay)
-
-	return options, searchRuntime
 }
 
 func (f siteRegisterFlow[T]) register(r router.Router[T], adm *admin.Admin, cfg admin.Config) error {

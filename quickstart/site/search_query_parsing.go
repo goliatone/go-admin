@@ -112,39 +112,61 @@ func searchBaseRanges(c router.Context) []admin.SearchRange {
 		return nil
 	}
 	acc := map[string]*admin.SearchRange{}
+	addSearchBaseRanges(c, acc)
+	if len(acc) == 0 {
+		return nil
+	}
+	return searchRangesFromAccumulator(acc)
+}
+
+func addSearchBaseRanges(c router.Context, acc map[string]*admin.SearchRange) {
+	for _, key := range sortedSearchQueryKeys(c) {
+		field, bound, ok := searchRangeKeyParts(strings.TrimSpace(key))
+		if !ok {
+			continue
+		}
+		addSearchBaseRange(c, acc, key, field, bound)
+	}
+}
+
+func sortedSearchQueryKeys(c router.Context) []string {
 	keys := make([]string, 0, len(c.Queries()))
 	for key := range c.Queries() {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	for _, key := range keys {
-		field, bound, ok := searchRangeKeyParts(strings.TrimSpace(key))
-		if !ok {
-			continue
-		}
-		values := searchQueryValues(c, key)
-		if len(values) == 0 {
-			continue
-		}
-		entry := acc[field]
-		if entry == nil {
-			entry = &admin.SearchRange{Field: field}
-			acc[field] = entry
-		}
-		value := searchParseRangeValue(values[len(values)-1])
-		if value == nil {
-			continue
-		}
-		switch bound {
-		case "gte":
-			entry.GTE = value
-		case "lte":
-			entry.LTE = value
-		}
+	return keys
+}
+
+func addSearchBaseRange(c router.Context, acc map[string]*admin.SearchRange, key, field, bound string) {
+	values := searchQueryValues(c, key)
+	if len(values) == 0 {
+		return
 	}
-	if len(acc) == 0 {
-		return nil
+	value := searchParseRangeValue(values[len(values)-1])
+	if value == nil {
+		return
 	}
+	entry := searchRangeAccumulatorEntry(acc, field)
+	switch bound {
+	case "gte":
+		entry.GTE = value
+	case "lte":
+		entry.LTE = value
+	}
+}
+
+func searchRangeAccumulatorEntry(acc map[string]*admin.SearchRange, field string) *admin.SearchRange {
+	entry := acc[field]
+	if entry != nil {
+		return entry
+	}
+	entry = &admin.SearchRange{Field: field}
+	acc[field] = entry
+	return entry
+}
+
+func searchRangesFromAccumulator(acc map[string]*admin.SearchRange) []admin.SearchRange {
 	fields := make([]string, 0, len(acc))
 	for field := range acc {
 		fields = append(fields, field)

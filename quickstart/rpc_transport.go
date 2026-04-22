@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
+	cmdrpc "github.com/goliatone/go-command/rpc"
 	router "github.com/goliatone/go-router"
 	"github.com/goliatone/go-router/rpcfiber"
 )
@@ -72,51 +73,7 @@ func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 	}
 
 	mount := func(r admin.AdminRouter) error {
-		if r == nil {
-			return nil
-		}
-		if cfg.RequireAuth && !adm.HasAuthenticator() {
-			return fmt.Errorf("rpc transport requires authenticator")
-		}
-		rt, ok := r.(router.Router[*fiber.App])
-		if !ok {
-			if opts.rpcTransportConfigSet {
-				return fmt.Errorf("rpc transport requires Fiber router")
-			}
-			return nil
-		}
-
-		rpcOpts := []rpcfiber.Option{
-			rpcfiber.WithInvokePath(cfg.InvokePath),
-			rpcfiber.WithDiscoveryEnabled(cfg.DiscoveryEnabled),
-			rpcfiber.WithMetaMergePolicy(rpcfiber.MetaMergePolicyTransportOverrides),
-		}
-		if cfg.DiscoveryEnabled {
-			rpcOpts = append(rpcOpts, rpcfiber.WithEndpointsPath(path.Join(cfg.InvokePath, "endpoints")))
-		}
-		if cfg.RequireAuth {
-			wrapper := adm.AuthWrapper()
-			authMiddleware := router.MiddlewareFunc(func(next router.HandlerFunc) router.HandlerFunc {
-				if wrapper == nil {
-					return next
-				}
-				return wrapper(next)
-			})
-			rpcOpts = append(rpcOpts,
-				rpcfiber.WithInvokeMiddlewares(authMiddleware),
-				rpcfiber.WithDiscoveryMiddlewares(authMiddleware),
-			)
-		}
-		if cfg.MetaExtractor != nil {
-			rpcOpts = append(rpcOpts, rpcfiber.WithMetaExtractor(cfg.MetaExtractor))
-		}
-		if cfg.BeforeInvoke != nil {
-			rpcOpts = append(rpcOpts, rpcfiber.WithBeforeInvokeHook(cfg.BeforeInvoke))
-		}
-		if cfg.AfterInvoke != nil {
-			rpcOpts = append(rpcOpts, rpcfiber.WithAfterInvokeHook(cfg.AfterInvoke))
-		}
-		return rpcfiber.MountFiber(rt, rpcServer, rpcOpts...)
+		return mountRPCTransportRouter(adm, r, rpcServer, cfg, opts.rpcTransportConfigSet)
 	}
 	if r := adm.PublicRouter(); r != nil {
 		return mount(r)
@@ -125,6 +82,61 @@ func configureRPCTransport(adm *admin.Admin, opts adminOptions) error {
 		return mount(adm.PublicRouter())
 	})
 	return nil
+}
+
+func mountRPCTransportRouter(adm *admin.Admin, r admin.AdminRouter, rpcServer *cmdrpc.Server, cfg RPCTransportConfig, explicit bool) error {
+	if r == nil {
+		return nil
+	}
+	if cfg.RequireAuth && !adm.HasAuthenticator() {
+		return fmt.Errorf("rpc transport requires authenticator")
+	}
+	rt, ok := r.(router.Router[*fiber.App])
+	if !ok {
+		if explicit {
+			return fmt.Errorf("rpc transport requires Fiber router")
+		}
+		return nil
+	}
+	return rpcfiber.MountFiber(rt, rpcServer, rpcTransportOptions(adm, cfg)...)
+}
+
+func rpcTransportOptions(adm *admin.Admin, cfg RPCTransportConfig) []rpcfiber.Option {
+	rpcOpts := []rpcfiber.Option{
+		rpcfiber.WithInvokePath(cfg.InvokePath),
+		rpcfiber.WithDiscoveryEnabled(cfg.DiscoveryEnabled),
+		rpcfiber.WithMetaMergePolicy(rpcfiber.MetaMergePolicyTransportOverrides),
+	}
+	if cfg.DiscoveryEnabled {
+		rpcOpts = append(rpcOpts, rpcfiber.WithEndpointsPath(path.Join(cfg.InvokePath, "endpoints")))
+	}
+	if cfg.RequireAuth {
+		rpcOpts = append(rpcOpts, rpcTransportAuthOptions(adm)...)
+	}
+	if cfg.MetaExtractor != nil {
+		rpcOpts = append(rpcOpts, rpcfiber.WithMetaExtractor(cfg.MetaExtractor))
+	}
+	if cfg.BeforeInvoke != nil {
+		rpcOpts = append(rpcOpts, rpcfiber.WithBeforeInvokeHook(cfg.BeforeInvoke))
+	}
+	if cfg.AfterInvoke != nil {
+		rpcOpts = append(rpcOpts, rpcfiber.WithAfterInvokeHook(cfg.AfterInvoke))
+	}
+	return rpcOpts
+}
+
+func rpcTransportAuthOptions(adm *admin.Admin) []rpcfiber.Option {
+	wrapper := adm.AuthWrapper()
+	authMiddleware := router.MiddlewareFunc(func(next router.HandlerFunc) router.HandlerFunc {
+		if wrapper == nil {
+			return next
+		}
+		return wrapper(next)
+	})
+	return []rpcfiber.Option{
+		rpcfiber.WithInvokeMiddlewares(authMiddleware),
+		rpcfiber.WithDiscoveryMiddlewares(authMiddleware),
+	}
 }
 
 func normalizeRPCTransportConfig(adm *admin.Admin, cfg RPCTransportConfig) RPCTransportConfig {

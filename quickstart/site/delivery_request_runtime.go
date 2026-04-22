@@ -29,41 +29,7 @@ func (r *deliveryRuntime) canonicalRedirectTarget(c router.Context, resolution *
 	if canonical == "" {
 		return ""
 	}
-	resolvedLocale := normalizeRequestedLocale(
-		r.canonicalRedirectLocale(resolution),
-		firstNonEmpty(resolution.RequestedLocale, r.siteCfg.DefaultLocale),
-		r.siteCfg.SupportedLocales,
-	)
-	publicPath := canonical
-	if r.siteCfg.Features.EnableI18N {
-		seedPaths := cloneLocalizedPaths(resolution.PathsByLocale)
-		if canonical != "" && resolution.Record != nil {
-			recordLocale := normalizeRequestedLocale(
-				firstNonEmpty(resolution.Record.Locale, resolution.Record.ResolvedLocale, resolvedLocale),
-				resolvedLocale,
-				r.siteCfg.SupportedLocales,
-			)
-			if recordLocale != "" {
-				seedPaths[recordLocale] = canonical
-			}
-		}
-		var usedExplicitPath bool
-		publicPath, usedExplicitPath = localizedPublicPathForLocale(
-			r.siteCfg,
-			canonical,
-			resolvedLocale,
-			seedPaths,
-		)
-		if publicPath != "" && !usedExplicitPath {
-			publicPath = localizedPublicPathForStoredPath(
-				publicPath,
-				resolvedLocale,
-				r.siteCfg.DefaultLocale,
-				r.siteCfg.LocalePrefixMode,
-				r.siteCfg.SupportedLocales,
-			)
-		}
-	}
+	publicPath := r.canonicalPublicPath(canonical, resolution)
 	if publicPath == "" {
 		publicPath = canonical
 	}
@@ -79,6 +45,49 @@ func (r *deliveryRuntime) canonicalRedirectTarget(c router.Context, resolution *
 		return publicPath + "?" + query
 	}
 	return publicPath
+}
+
+func (r *deliveryRuntime) canonicalPublicPath(canonical string, resolution *deliveryResolution) string {
+	if !r.siteCfg.Features.EnableI18N {
+		return canonical
+	}
+	resolvedLocale := normalizeRequestedLocale(
+		r.canonicalRedirectLocale(resolution),
+		firstNonEmpty(resolution.RequestedLocale, r.siteCfg.DefaultLocale),
+		r.siteCfg.SupportedLocales,
+	)
+	publicPath, usedExplicitPath := localizedPublicPathForLocale(
+		r.siteCfg,
+		canonical,
+		resolvedLocale,
+		r.canonicalSeedPaths(canonical, resolvedLocale, resolution),
+	)
+	if publicPath != "" && !usedExplicitPath {
+		return localizedPublicPathForStoredPath(
+			publicPath,
+			resolvedLocale,
+			r.siteCfg.DefaultLocale,
+			r.siteCfg.LocalePrefixMode,
+			r.siteCfg.SupportedLocales,
+		)
+	}
+	return publicPath
+}
+
+func (r *deliveryRuntime) canonicalSeedPaths(canonical string, resolvedLocale string, resolution *deliveryResolution) map[string]string {
+	seedPaths := cloneLocalizedPaths(resolution.PathsByLocale)
+	if resolution.Record == nil {
+		return seedPaths
+	}
+	recordLocale := normalizeRequestedLocale(
+		firstNonEmpty(resolution.Record.Locale, resolution.Record.ResolvedLocale, resolvedLocale),
+		resolvedLocale,
+		r.siteCfg.SupportedLocales,
+	)
+	if recordLocale != "" {
+		seedPaths[recordLocale] = canonical
+	}
+	return seedPaths
 }
 
 func (r *deliveryRuntime) canonicalRedirectLocale(resolution *deliveryResolution) string {

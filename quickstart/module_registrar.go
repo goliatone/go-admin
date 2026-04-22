@@ -27,6 +27,44 @@ type moduleRegistrarOptions struct {
 	translationCapabilityMenuMode TranslationCapabilityMenuMode
 }
 
+type moduleRegistrarSeedRuntime struct {
+	adm      *admin.Admin
+	cfg      admin.Config
+	options  moduleRegistrarOptions
+	ordered  []admin.Module
+	menuCode string
+	locale   string
+}
+
+type translationCapabilityMenuItemSpec struct {
+	ID             string
+	Label          string
+	LabelKey       string
+	Icon           string
+	RouteName      string
+	FallbackPanel  []string
+	Name           string
+	Key            string
+	Breadcrumb     string
+	Position       int
+	EntryEnabled   bool
+	DisabledReason string
+	ReasonCode     string
+}
+
+type sidebarUtilityMenuItemSpec struct {
+	ID        string
+	Label     string
+	LabelKey  string
+	Icon      string
+	RouteName string
+	RoutePath []string
+	Name      string
+	Key       string
+	Position  int
+	Feature   admin.FeatureKey
+}
+
 type menuSeedHook interface {
 	AfterMenuSeed(ctx context.Context, admin *admin.Admin) error
 }
@@ -220,62 +258,100 @@ func NewModuleRegistrar(adm *admin.Admin, cfg admin.Config, modules []admin.Modu
 		}
 	}
 
-	if options.seed && options.seedOpts.MenuSvc != nil {
-		mainMenuCode := admin.NormalizeMenuSlug(strings.TrimSpace(options.seedOpts.MenuCode))
-		if mainMenuCode == "" {
-			mainMenuCode = admin.NormalizeMenuSlug(menuCode)
-		}
-		if mainMenuCode == "" {
-			mainMenuCode = admin.NormalizeMenuSlug(DefaultNavMenuCode)
-		}
-		menuLocale := strings.TrimSpace(options.seedOpts.Locale)
-		if menuLocale == "" {
-			menuLocale = locale
-		}
-		if menuLocale == "" {
-			menuLocale = "en"
-		}
-
-		baseItems := append([]admin.MenuItem{}, options.menuItems...)
-		baseItems = append(baseItems, normalizeToolsMenuItems(options.toolsMenuItems, mainMenuCode, menuLocale)...)
-		if options.translationCapabilityMenuMode == TranslationCapabilityMenuModeTools {
-			baseItems = append(baseItems, translationCapabilityMenuItems(adm, cfg, mainMenuCode, menuLocale)...)
-		}
-
-		items := buildSeedMenuItems(mainMenuCode, menuLocale, ordered, baseItems)
-		primarySeedOpts := options.seedOpts
-		primarySeedOpts.MenuCode = mainMenuCode
-		primarySeedOpts.Locale = menuLocale
-		primarySeedOpts.Items = items
-		if err := SeedNavigation(options.ctx, primarySeedOpts); err != nil {
-			return err
-		}
-
-		utilityItems := append([]admin.MenuItem{}, options.sidebarUtilityMenuItems...)
-		if options.defaultSidebarUtilityMenu {
-			utilityItems = append(utilityItems, defaultSidebarUtilityMenuItems(adm, cfg, "", menuLocale)...)
-		}
-		utilityItems = dedupeMenuItems(utilityItems)
-		if len(utilityItems) > 0 {
-			utilityMenuCode := admin.NormalizeMenuSlug(strings.TrimSpace(options.sidebarUtilityMenuCode))
-			if utilityMenuCode == "" {
-				utilityMenuCode = DefaultPlacements(cfg).MenuCodeFor(SidebarPlacementUtility, DefaultSidebarUtilityMenuCode)
-			}
-			utilitySeedOpts := options.seedOpts
-			utilitySeedOpts.MenuCode = utilityMenuCode
-			utilitySeedOpts.Locale = menuLocale
-			utilitySeedOpts.Items = normalizeMenuItemsForMenu(utilityItems, utilityMenuCode, menuLocale)
-			if err := SeedNavigation(options.ctx, utilitySeedOpts); err != nil {
-				return err
-			}
-		}
-
-		if err := runMenuSeedHooks(options.ctx, adm, ordered); err != nil {
-			return err
-		}
+	seedRuntime := moduleRegistrarSeedRuntime{
+		adm:      adm,
+		cfg:      cfg,
+		options:  options,
+		ordered:  ordered,
+		menuCode: menuCode,
+		locale:   locale,
+	}
+	if err := seedRuntime.seedNavigation(); err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func (runtime moduleRegistrarSeedRuntime) seedNavigation() error {
+	if !runtime.options.seed || runtime.options.seedOpts.MenuSvc == nil {
+		return nil
+	}
+	mainMenuCode := runtime.mainMenuCode()
+	menuLocale := runtime.menuLocale()
+	if err := runtime.seedPrimaryMenu(mainMenuCode, menuLocale); err != nil {
+		return err
+	}
+	if err := runtime.seedUtilityMenu(menuLocale); err != nil {
+		return err
+	}
+	return runMenuSeedHooks(runtime.options.ctx, runtime.adm, runtime.ordered)
+}
+
+func (runtime moduleRegistrarSeedRuntime) mainMenuCode() string {
+	mainMenuCode := admin.NormalizeMenuSlug(strings.TrimSpace(runtime.options.seedOpts.MenuCode))
+	if mainMenuCode != "" {
+		return mainMenuCode
+	}
+	mainMenuCode = admin.NormalizeMenuSlug(runtime.menuCode)
+	if mainMenuCode != "" {
+		return mainMenuCode
+	}
+	return admin.NormalizeMenuSlug(DefaultNavMenuCode)
+}
+
+func (runtime moduleRegistrarSeedRuntime) menuLocale() string {
+	menuLocale := strings.TrimSpace(runtime.options.seedOpts.Locale)
+	if menuLocale != "" {
+		return menuLocale
+	}
+	if runtime.locale != "" {
+		return runtime.locale
+	}
+	return "en"
+}
+
+func (runtime moduleRegistrarSeedRuntime) seedPrimaryMenu(mainMenuCode, menuLocale string) error {
+	baseItems := append([]admin.MenuItem{}, runtime.options.menuItems...)
+	baseItems = append(baseItems, normalizeToolsMenuItems(runtime.options.toolsMenuItems, mainMenuCode, menuLocale)...)
+	if runtime.options.translationCapabilityMenuMode == TranslationCapabilityMenuModeTools {
+		baseItems = append(baseItems, translationCapabilityMenuItems(runtime.adm, runtime.cfg, mainMenuCode, menuLocale)...)
+	}
+
+	primarySeedOpts := runtime.options.seedOpts
+	primarySeedOpts.MenuCode = mainMenuCode
+	primarySeedOpts.Locale = menuLocale
+	primarySeedOpts.Items = buildSeedMenuItems(mainMenuCode, menuLocale, runtime.ordered, baseItems)
+	return SeedNavigation(runtime.options.ctx, primarySeedOpts)
+}
+
+func (runtime moduleRegistrarSeedRuntime) seedUtilityMenu(menuLocale string) error {
+	utilityItems := runtime.utilityMenuItems(menuLocale)
+	if len(utilityItems) == 0 {
+		return nil
+	}
+	utilityMenuCode := runtime.utilityMenuCode()
+	utilitySeedOpts := runtime.options.seedOpts
+	utilitySeedOpts.MenuCode = utilityMenuCode
+	utilitySeedOpts.Locale = menuLocale
+	utilitySeedOpts.Items = normalizeMenuItemsForMenu(utilityItems, utilityMenuCode, menuLocale)
+	return SeedNavigation(runtime.options.ctx, utilitySeedOpts)
+}
+
+func (runtime moduleRegistrarSeedRuntime) utilityMenuItems(menuLocale string) []admin.MenuItem {
+	utilityItems := append([]admin.MenuItem{}, runtime.options.sidebarUtilityMenuItems...)
+	if runtime.options.defaultSidebarUtilityMenu {
+		utilityItems = append(utilityItems, defaultSidebarUtilityMenuItems(runtime.adm, runtime.cfg, "", menuLocale)...)
+	}
+	return dedupeMenuItems(utilityItems)
+}
+
+func (runtime moduleRegistrarSeedRuntime) utilityMenuCode() string {
+	utilityMenuCode := admin.NormalizeMenuSlug(strings.TrimSpace(runtime.options.sidebarUtilityMenuCode))
+	if utilityMenuCode != "" {
+		return utilityMenuCode
+	}
+	return DefaultPlacements(runtime.cfg).MenuCodeFor(SidebarPlacementUtility, DefaultSidebarUtilityMenuCode)
 }
 
 func runMenuSeedHooks(ctx context.Context, adm *admin.Admin, modules []admin.Module) error {
@@ -364,50 +440,78 @@ func filterModulesForRegistrarWithLogger(mods []admin.Module, gates fggate.Featu
 	if gates == nil {
 		return mods, nil
 	}
-	if onDisabled == nil {
-		logger = resolveQuickstartNamedLogger("quickstart.modules", nil, logger)
-		onDisabled = func(feature, moduleID string) error {
-			logger.Warn("module skipped: feature disabled",
-				"module_id", moduleID,
-				"feature", feature,
-			)
-			return nil
-		}
+	onDisabled = resolveModuleDisabledHandler(onDisabled, logger)
+	filtered, err := filterModulesByFeatureFlags(mods, gates, onDisabled)
+	if err != nil {
+		return nil, err
 	}
+	index, err := moduleIndex(filtered)
+	if err != nil {
+		return nil, err
+	}
+	if err := pruneModulesWithMissingDependencies(filtered, index, onDisabled); err != nil {
+		return nil, err
+	}
+	return modulesInIndexOrder(filtered, index), nil
+}
 
+func resolveModuleDisabledHandler(onDisabled func(feature, moduleID string) error, logger admin.Logger) func(feature, moduleID string) error {
+	if onDisabled != nil {
+		return onDisabled
+	}
+	logger = resolveQuickstartNamedLogger("quickstart.modules", nil, logger)
+	return func(feature, moduleID string) error {
+		logger.Warn("module skipped: feature disabled",
+			"module_id", moduleID,
+			"feature", feature,
+		)
+		return nil
+	}
+}
+
+func filterModulesByFeatureFlags(mods []admin.Module, gates fggate.FeatureGate, onDisabled func(feature, moduleID string) error) ([]admin.Module, error) {
 	filtered := make([]admin.Module, 0, len(mods))
 	for _, mod := range mods {
-		if mod == nil {
-			continue
+		id, disabled, err := moduleDisabledByFeatureFlag(mod, gates, onDisabled)
+		if err != nil {
+			return nil, err
 		}
-		manifest := mod.Manifest()
-		id := strings.TrimSpace(manifest.ID)
-		if id == "" {
-			return nil, fmt.Errorf("module missing ID")
-		}
-		disabled := false
-		for _, flag := range manifest.FeatureFlags {
-			enabled, err := gates.Enabled(context.Background(), flag, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
-			if err != nil {
-				return nil, err
-			}
-			if enabled {
-				continue
-			}
-			disabled = true
-			if err := onDisabled(flag, id); err != nil {
-				return nil, err
-			}
-			break
-		}
-		if disabled {
+		if mod == nil || id == "" || disabled {
 			continue
 		}
 		filtered = append(filtered, mod)
 	}
+	return filtered, nil
+}
 
+func moduleDisabledByFeatureFlag(mod admin.Module, gates fggate.FeatureGate, onDisabled func(feature, moduleID string) error) (string, bool, error) {
+	if mod == nil {
+		return "", false, nil
+	}
+	manifest := mod.Manifest()
+	id := strings.TrimSpace(manifest.ID)
+	if id == "" {
+		return "", false, fmt.Errorf("module missing ID")
+	}
+	for _, flag := range manifest.FeatureFlags {
+		enabled, err := gates.Enabled(context.Background(), flag, fggate.WithScopeChain(fggate.ScopeChain{{Kind: fggate.ScopeSystem}}))
+		if err != nil {
+			return "", false, err
+		}
+		if enabled {
+			continue
+		}
+		if err := onDisabled(flag, id); err != nil {
+			return "", false, err
+		}
+		return id, true, nil
+	}
+	return id, false, nil
+}
+
+func moduleIndex(mods []admin.Module) (map[string]admin.Module, error) {
 	index := map[string]admin.Module{}
-	for _, mod := range filtered {
+	for _, mod := range mods {
 		if mod == nil {
 			continue
 		}
@@ -420,34 +524,48 @@ func filterModulesForRegistrarWithLogger(mods []admin.Module, gates fggate.Featu
 		}
 		index[id] = mod
 	}
+	return index, nil
+}
 
+func pruneModulesWithMissingDependencies(mods []admin.Module, index map[string]admin.Module, onDisabled func(feature, moduleID string) error) error {
 	removed := true
 	for removed {
-		removed = false
-		for _, mod := range filtered {
-			if mod == nil {
-				continue
-			}
-			manifest := mod.Manifest()
-			id := strings.TrimSpace(manifest.ID)
-			if _, ok := index[id]; !ok {
-				continue
-			}
-			for _, dep := range manifest.Dependencies {
-				if _, ok := index[dep]; !ok {
-					delete(index, id)
-					removed = true
-					if err := onDisabled("dependency:"+dep, id); err != nil {
-						return nil, err
-					}
-					break
-				}
-			}
+		var err error
+		removed, err = pruneMissingDependencyPass(mods, index, onDisabled)
+		if err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
+func pruneMissingDependencyPass(mods []admin.Module, index map[string]admin.Module, onDisabled func(feature, moduleID string) error) (bool, error) {
+	for _, mod := range mods {
+		if mod == nil {
+			continue
+		}
+		manifest := mod.Manifest()
+		id := strings.TrimSpace(manifest.ID)
+		if _, ok := index[id]; !ok {
+			continue
+		}
+		for _, dep := range manifest.Dependencies {
+			if _, ok := index[dep]; ok {
+				continue
+			}
+			delete(index, id)
+			if err := onDisabled("dependency:"+dep, id); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func modulesInIndexOrder(mods []admin.Module, index map[string]admin.Module) []admin.Module {
 	out := make([]admin.Module, 0, len(index))
-	for _, mod := range filtered {
+	for _, mod := range mods {
 		if mod == nil {
 			continue
 		}
@@ -456,7 +574,7 @@ func filterModulesForRegistrarWithLogger(mods []admin.Module, gates fggate.Featu
 			out = append(out, mod)
 		}
 	}
-	return out, nil
+	return out
 }
 
 func buildSeedMenuItems(menuCode, locale string, modules []admin.Module, baseItems []admin.MenuItem) []admin.MenuItem {
@@ -504,17 +622,11 @@ func dedupeMenuItemKeys(item admin.MenuItem) []string {
 	if id := strings.TrimSpace(item.ID); id != "" {
 		keys = append(keys, "id:"+id)
 	}
-	if item.Target != nil {
-		if key, ok := item.Target["key"].(string); ok {
-			if key = strings.TrimSpace(key); key != "" {
-				keys = append(keys, "target:"+key)
-			}
-		}
-		if pathValue, ok := item.Target["path"].(string); ok {
-			if pathValue = strings.TrimSpace(pathValue); pathValue != "" {
-				keys = append(keys, "path:"+pathValue)
-			}
-		}
+	if key := stringTargetValue(item.Target, "key"); key != "" {
+		keys = append(keys, "target:"+key)
+	}
+	if pathValue := stringTargetValue(item.Target, "path"); pathValue != "" {
+		keys = append(keys, "path:"+pathValue)
 	}
 	if len(keys) == 0 {
 		// Preserve previous behavior for entries with no explicit identity.
@@ -526,6 +638,17 @@ func dedupeMenuItemKeys(item admin.MenuItem) []string {
 		return []string{"anon:" + fallback}
 	}
 	return keys
+}
+
+func stringTargetValue(target map[string]any, key string) string {
+	if target == nil {
+		return ""
+	}
+	value, ok := target[key].(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
 }
 
 func normalizeToolsMenuItems(items []admin.MenuItem, menuCode, locale string) []admin.MenuItem {
@@ -587,84 +710,89 @@ func translationCapabilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 		locale = "en"
 	}
 
-	urls := adm.URLs()
 	parentID := NavigationGroupTranslationsID
 	items := []admin.MenuItem{}
 
 	if queueEnabled {
-		dashboardPath := resolveTranslationCapabilityMenuPath(urls, cfg.BasePath, "translations.dashboard")
-		items = append(items, admin.MenuItem{
-			ID:       parentID + ".translations.dashboard",
-			Type:     admin.MenuItemTypeItem,
-			Label:    "Translation Dashboard",
-			LabelKey: "menu.translations.dashboard",
-			Icon:     "dashboard-dots",
-			Target: map[string]any{
-				"type":                 "url",
-				"path":                 dashboardPath,
-				"name":                 "admin.translations.dashboard",
-				"key":                  "translation_dashboard",
-				"breadcrumb_label":     "Translations",
-				"enabled":              exposure.Queue.EntryEnabled,
-				"disabled_reason":      exposure.Queue.Reason,
-				"disabled_reason_code": exposure.Queue.ReasonCode,
-			},
-			Position: intPtr(49),
-			ParentID: parentID,
-			Menu:     menuCode,
-			Locale:   locale,
-		})
-
-		queuePath := resolveTranslationCapabilityMenuPath(urls, cfg.BasePath, "translations.queue")
-		items = append(items, admin.MenuItem{
-			ID:       parentID + ".translations.queue",
-			Type:     admin.MenuItemTypeItem,
-			Label:    "Translation Queue",
-			LabelKey: "menu.translations.queue",
-			Icon:     "language",
-			Target: map[string]any{
-				"type":                 "url",
-				"path":                 queuePath,
-				"name":                 "admin.translations.queue",
-				"key":                  "translation_queue",
-				"breadcrumb_label":     "Queue",
-				"enabled":              exposure.Queue.EntryEnabled,
-				"disabled_reason":      exposure.Queue.Reason,
-				"disabled_reason_code": exposure.Queue.ReasonCode,
-			},
-			Position: intPtr(50),
-			ParentID: parentID,
-			Menu:     menuCode,
-			Locale:   locale,
-		})
+		items = append(items, translationCapabilityMenuItem(adm, cfg, parentID, menuCode, locale, translationCapabilityMenuItemSpec{
+			ID:             "translations.dashboard",
+			Label:          "Translation Dashboard",
+			LabelKey:       "menu.translations.dashboard",
+			Icon:           "dashboard-dots",
+			RouteName:      "translations.dashboard",
+			Name:           "admin.translations.dashboard",
+			Key:            "translation_dashboard",
+			Breadcrumb:     "Translations",
+			Position:       49,
+			EntryEnabled:   exposure.Queue.EntryEnabled,
+			DisabledReason: exposure.Queue.Reason,
+			ReasonCode:     exposure.Queue.ReasonCode,
+		}))
+		items = append(items, translationCapabilityMenuItem(adm, cfg, parentID, menuCode, locale, translationCapabilityMenuItemSpec{
+			ID:             "translations.queue",
+			Label:          "Translation Queue",
+			LabelKey:       "menu.translations.queue",
+			Icon:           "language",
+			RouteName:      "translations.queue",
+			Name:           "admin.translations.queue",
+			Key:            "translation_queue",
+			Breadcrumb:     "Queue",
+			Position:       50,
+			EntryEnabled:   exposure.Queue.EntryEnabled,
+			DisabledReason: exposure.Queue.Reason,
+			ReasonCode:     exposure.Queue.ReasonCode,
+		}))
 	}
 
 	if exchangeEnabled {
-		exchangePath := resolveTranslationCapabilityMenuPath(urls, cfg.BasePath, "translations.exchange")
-		items = append(items, admin.MenuItem{
-			ID:       parentID + ".translations.exchange",
-			Type:     admin.MenuItemTypeItem,
-			Label:    "Translation Exchange",
-			LabelKey: "menu.translations.exchange",
-			Icon:     "translate",
-			Target: map[string]any{
-				"type":                 "url",
-				"path":                 exchangePath,
-				"name":                 "admin.translations.exchange",
-				"key":                  "translation_exchange",
-				"breadcrumb_label":     "Exchange",
-				"enabled":              exposure.Exchange.EntryEnabled,
-				"disabled_reason":      exposure.Exchange.Reason,
-				"disabled_reason_code": exposure.Exchange.ReasonCode,
-			},
-			Position: intPtr(51),
-			ParentID: parentID,
-			Menu:     menuCode,
-			Locale:   locale,
-		})
+		items = append(items, translationCapabilityMenuItem(adm, cfg, parentID, menuCode, locale, translationCapabilityMenuItemSpec{
+			ID:             "translations.exchange",
+			Label:          "Translation Exchange",
+			LabelKey:       "menu.translations.exchange",
+			Icon:           "translate",
+			RouteName:      "translations.exchange",
+			Name:           "admin.translations.exchange",
+			Key:            "translation_exchange",
+			Breadcrumb:     "Exchange",
+			Position:       51,
+			EntryEnabled:   exposure.Exchange.EntryEnabled,
+			DisabledReason: exposure.Exchange.Reason,
+			ReasonCode:     exposure.Exchange.ReasonCode,
+		}))
 	}
 
 	return items
+}
+
+func translationCapabilityMenuItem(
+	adm *admin.Admin,
+	cfg admin.Config,
+	parentID string,
+	menuCode string,
+	locale string,
+	spec translationCapabilityMenuItemSpec,
+) admin.MenuItem {
+	return admin.MenuItem{
+		ID:       parentID + "." + spec.ID,
+		Type:     admin.MenuItemTypeItem,
+		Label:    spec.Label,
+		LabelKey: spec.LabelKey,
+		Icon:     spec.Icon,
+		Target: map[string]any{
+			"type":                 "url",
+			"path":                 resolveTranslationCapabilityMenuPath(adm.URLs(), cfg.BasePath, spec.RouteName),
+			"name":                 spec.Name,
+			"key":                  spec.Key,
+			"breadcrumb_label":     spec.Breadcrumb,
+			"enabled":              spec.EntryEnabled,
+			"disabled_reason":      spec.DisabledReason,
+			"disabled_reason_code": spec.ReasonCode,
+		},
+		Position: intPtr(spec.Position),
+		ParentID: parentID,
+		Menu:     menuCode,
+		Locale:   locale,
+	}
 }
 
 func resolveTranslationCapabilityMenuPath(urls urlkit.Resolver, fallbackBase, routeName string) string {
@@ -698,9 +826,6 @@ func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	if adm != nil {
 		urls = adm.URLs()
 	}
-	resolvePath := func(routeName string, fallbackSegments ...string) string {
-		return resolveAdminRouteURL(urls, cfg.BasePath, routeName, fallbackSegments...)
-	}
 	featureIsEnabled := func(feature admin.FeatureKey) bool {
 		if adm == nil {
 			return true
@@ -709,77 +834,63 @@ func defaultSidebarUtilityMenuItems(adm *admin.Admin, cfg admin.Config, menuCode
 	}
 
 	out := make([]admin.MenuItem, 0, 4)
-	if featureIsEnabled(admin.FeatureSettings) {
-		out = append(out, admin.MenuItem{
-			ID:       "utility.settings",
-			Type:     admin.MenuItemTypeItem,
-			Label:    "Settings",
-			LabelKey: "menu.settings",
-			Icon:     "settings",
-			Target: map[string]any{
-				"type": "url",
-				"path": resolvePath("settings", "settings"),
-				"name": "admin.settings",
-				"key":  "settings",
-			},
-			Position: intPtr(10),
-			Menu:     menuCode,
-			Locale:   locale,
-		})
+	for _, spec := range sidebarUtilityMenuItemSpecs() {
+		if spec.Feature != "" && !featureIsEnabled(spec.Feature) {
+			continue
+		}
+		out = append(out, sidebarUtilityMenuItem(urls, cfg, menuCode, locale, spec))
 	}
-	if featureIsEnabled(admin.FeaturePreferences) {
-		out = append(out, admin.MenuItem{
-			ID:       "utility.preferences",
-			Type:     admin.MenuItemTypeItem,
-			Label:    "Preferences",
-			LabelKey: "menu.preferences",
-			Icon:     "user-circle",
-			Target: map[string]any{
-				"type": "url",
-				"path": resolvePath("preferences", "preferences"),
-				"name": "admin.preferences",
-				"key":  "preferences",
-			},
-			Position: intPtr(20),
-			Menu:     menuCode,
-			Locale:   locale,
-		})
+	return out
+}
+
+func sidebarUtilityMenuItemSpecs() []sidebarUtilityMenuItemSpec {
+	return []sidebarUtilityMenuItemSpec{
+		{
+			ID: "utility.settings", Label: "Settings", LabelKey: "menu.settings", Icon: "settings",
+			RouteName: "settings", RoutePath: []string{"settings"}, Name: "admin.settings", Key: "settings",
+			Position: 10, Feature: admin.FeatureSettings,
+		},
+		{
+			ID: "utility.preferences", Label: "Preferences", LabelKey: "menu.preferences", Icon: "user-circle",
+			RouteName: "preferences", RoutePath: []string{"preferences"}, Name: "admin.preferences", Key: "preferences",
+			Position: 20, Feature: admin.FeaturePreferences,
+		},
+		{
+			ID: "utility.profile", Label: "Profile", LabelKey: "menu.profile", Icon: "user",
+			RouteName: "profile", RoutePath: []string{"profile"}, Name: "admin.profile", Key: "profile",
+			Position: 30, Feature: admin.FeatureProfile,
+		},
+		{
+			ID: "utility.help", Label: "Help", LabelKey: "menu.help", Icon: "question-mark",
+			RouteName: "help", RoutePath: []string{"help"}, Name: "admin.help", Key: "help",
+			Position: 40,
+		},
 	}
-	if featureIsEnabled(admin.FeatureProfile) {
-		out = append(out, admin.MenuItem{
-			ID:       "utility.profile",
-			Type:     admin.MenuItemTypeItem,
-			Label:    "Profile",
-			LabelKey: "menu.profile",
-			Icon:     "user",
-			Target: map[string]any{
-				"type": "url",
-				"path": resolvePath("profile", "profile"),
-				"name": "admin.profile",
-				"key":  "profile",
-			},
-			Position: intPtr(30),
-			Menu:     menuCode,
-			Locale:   locale,
-		})
-	}
-	out = append(out, admin.MenuItem{
-		ID:       "utility.help",
+}
+
+func sidebarUtilityMenuItem(
+	urls urlkit.Resolver,
+	cfg admin.Config,
+	menuCode string,
+	locale string,
+	spec sidebarUtilityMenuItemSpec,
+) admin.MenuItem {
+	return admin.MenuItem{
+		ID:       spec.ID,
 		Type:     admin.MenuItemTypeItem,
-		Label:    "Help",
-		LabelKey: "menu.help",
-		Icon:     "question-mark",
+		Label:    spec.Label,
+		LabelKey: spec.LabelKey,
+		Icon:     spec.Icon,
 		Target: map[string]any{
 			"type": "url",
-			"path": resolvePath("help", "help"),
-			"name": "admin.help",
-			"key":  "help",
+			"path": resolveAdminRouteURL(urls, cfg.BasePath, spec.RouteName, spec.RoutePath...),
+			"name": spec.Name,
+			"key":  spec.Key,
 		},
-		Position: intPtr(40),
+		Position: intPtr(spec.Position),
 		Menu:     menuCode,
 		Locale:   locale,
-	})
-	return out
+	}
 }
 
 func normalizeTranslationCapabilityMenuMode(mode TranslationCapabilityMenuMode) TranslationCapabilityMenuMode {

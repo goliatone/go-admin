@@ -105,73 +105,17 @@ func ResolveRequestMeta(c RequestMetaContext, policy RequestTrustPolicy) Request
 		meta.ClientIP = meta.PeerIP
 	}
 
-	if httpCtx, ok := c.(interface{ Request() *http.Request }); ok && httpCtx != nil {
-		request := httpCtx.Request()
-		if request != nil {
-			if meta.Host == "" {
-				meta.Host = strings.TrimSpace(request.Host)
-			}
-			if request.URL != nil {
-				if scheme := strings.ToLower(strings.TrimSpace(request.URL.Scheme)); scheme != "" {
-					meta.Scheme = scheme
-					meta.Secure = scheme == "https"
-				}
-			}
-			if request.TLS != nil {
-				meta.Secure = true
-				meta.Scheme = "https"
-			}
-		}
-	}
+	applyHTTPRequestMeta(&meta, requestFromMetaContext(c))
 	if host := strings.TrimSpace(c.Header("Host")); host != "" {
 		meta.Host = host
 	}
 
 	meta.ForwardedTrusted = shouldTrustForwardedHeaders(meta.PeerIP, policy)
 	if meta.ForwardedTrusted {
-		if forwardedClient := parseXForwardedFor(c.Header("X-Forwarded-For")); forwardedClient != "" {
-			meta.ClientIP = forwardedClient
-		} else if forwardedClient := parseForwardedHeader(c.Header("Forwarded")); forwardedClient != "" {
-			meta.ClientIP = forwardedClient
-		} else if realIP := normalizeIPToken(c.Header("X-Real-IP")); realIP != "" {
-			meta.ClientIP = realIP
-		}
-
-		if forwardedHost := firstCSVValue(c.Header("X-Forwarded-Host")); forwardedHost != "" {
-			meta.Host = forwardedHost
-		} else if forwardedHost := parseForwardedHeaderParam(c.Header("Forwarded"), "host"); forwardedHost != "" {
-			meta.Host = forwardedHost
-		}
-
-		if forwardedProto := strings.ToLower(firstCSVValue(c.Header("X-Forwarded-Proto"))); forwardedProto != "" {
-			meta.Scheme = forwardedProto
-			meta.Secure = forwardedProto == "https"
-		} else if forwardedProto := strings.ToLower(firstCSVValue(c.Header("X-Forwarded-Scheme"))); forwardedProto != "" {
-			meta.Scheme = forwardedProto
-			meta.Secure = forwardedProto == "https"
-		} else if forwardedProto := strings.ToLower(parseForwardedHeaderParam(c.Header("Forwarded"), "proto")); forwardedProto != "" {
-			meta.Scheme = forwardedProto
-			meta.Secure = forwardedProto == "https"
-		}
-
-		if strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-Ssl")), "on") {
-			meta.Secure = true
-			meta.Scheme = "https"
-		}
+		applyTrustedForwardedMeta(&meta, c)
 	}
 
-	meta.Host = strings.TrimSpace(meta.Host)
-	meta.Scheme = strings.ToLower(strings.TrimSpace(meta.Scheme))
-	if meta.Secure {
-		meta.Scheme = "https"
-	}
-	if meta.Scheme == "" {
-		if meta.Secure {
-			meta.Scheme = "https"
-		} else {
-			meta.Scheme = "http"
-		}
-	}
+	normalizeResolvedRequestMeta(&meta)
 	return meta
 }
 
@@ -201,23 +145,131 @@ func IsLoopbackPeer(c RequestMetaContext) bool {
 
 // IsLocalRequest reports whether request host resolves to localhost/loopback.
 func IsLocalRequest(c RequestMetaContext, policy RequestTrustPolicy) bool {
-	host := strings.TrimSpace(ResolveRequestMeta(c, policy).Host)
+	host := hostWithoutPort(ResolveRequestMeta(c, policy).Host)
 	if host == "" {
 		return false
 	}
-	if strings.Contains(host, ":") {
-		if parsedHost, _, err := net.SplitHostPort(host); err == nil {
-			host = parsedHost
-		} else if strings.Count(host, ":") == 1 {
-			if h, p, ok := strings.Cut(host, ":"); ok {
-				if port, err := strconv.Atoi(strings.TrimSpace(p)); err == nil && port >= 1 && port <= 65535 {
-					host = strings.TrimSpace(h)
-				}
-			}
-		}
-	}
 	host = strings.ToLower(strings.TrimSpace(host))
 	return host == "localhost" || host == "127.0.0.1" || host == "::1"
+}
+
+func requestFromMetaContext(c RequestMetaContext) *http.Request {
+	httpCtx, ok := c.(interface{ Request() *http.Request })
+	if !ok || httpCtx == nil {
+		return nil
+	}
+	return httpCtx.Request()
+}
+
+func applyHTTPRequestMeta(meta *RequestMeta, request *http.Request) {
+	if meta == nil || request == nil {
+		return
+	}
+	if meta.Host == "" {
+		meta.Host = strings.TrimSpace(request.Host)
+	}
+	if request.URL != nil {
+		if scheme := strings.ToLower(strings.TrimSpace(request.URL.Scheme)); scheme != "" {
+			meta.Scheme = scheme
+			meta.Secure = scheme == "https"
+		}
+	}
+	if request.TLS != nil {
+		meta.Secure = true
+		meta.Scheme = "https"
+	}
+}
+
+func applyTrustedForwardedMeta(meta *RequestMeta, c RequestMetaContext) {
+	if meta == nil || c == nil {
+		return
+	}
+	if clientIP := forwardedClientIP(c); clientIP != "" {
+		meta.ClientIP = clientIP
+	}
+	if host := forwardedHost(c); host != "" {
+		meta.Host = host
+	}
+	if proto := forwardedProto(c); proto != "" {
+		meta.Scheme = proto
+		meta.Secure = proto == "https"
+	}
+	if strings.EqualFold(strings.TrimSpace(c.Header("X-Forwarded-Ssl")), "on") {
+		meta.Secure = true
+		meta.Scheme = "https"
+	}
+}
+
+func forwardedClientIP(c RequestMetaContext) string {
+	for _, candidate := range []string{
+		parseXForwardedFor(c.Header("X-Forwarded-For")),
+		parseForwardedHeader(c.Header("Forwarded")),
+		normalizeIPToken(c.Header("X-Real-IP")),
+	} {
+		if candidate != "" {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func forwardedHost(c RequestMetaContext) string {
+	for _, candidate := range []string{
+		firstCSVValue(c.Header("X-Forwarded-Host")),
+		parseForwardedHeaderParam(c.Header("Forwarded"), "host"),
+	} {
+		if candidate != "" {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func forwardedProto(c RequestMetaContext) string {
+	for _, candidate := range []string{
+		firstCSVValue(c.Header("X-Forwarded-Proto")),
+		firstCSVValue(c.Header("X-Forwarded-Scheme")),
+		parseForwardedHeaderParam(c.Header("Forwarded"), "proto"),
+	} {
+		if proto := strings.ToLower(strings.TrimSpace(candidate)); proto != "" {
+			return proto
+		}
+	}
+	return ""
+}
+
+func normalizeResolvedRequestMeta(meta *RequestMeta) {
+	if meta == nil {
+		return
+	}
+	meta.Host = strings.TrimSpace(meta.Host)
+	meta.Scheme = strings.ToLower(strings.TrimSpace(meta.Scheme))
+	if meta.Secure || meta.Scheme == "https" {
+		meta.Secure = true
+		meta.Scheme = "https"
+		return
+	}
+	if meta.Scheme == "" {
+		meta.Scheme = "http"
+	}
+}
+
+func hostWithoutPort(host string) string {
+	host = strings.TrimSpace(host)
+	if host == "" || !strings.Contains(host, ":") {
+		return host
+	}
+	if parsedHost, _, err := net.SplitHostPort(host); err == nil {
+		return strings.TrimSpace(parsedHost)
+	}
+	if strings.Count(host, ":") != 1 {
+		return host
+	}
+	parsedHost, port, ok := strings.Cut(host, ":")
+	if !ok || !validPort(port) {
+		return host
+	}
+	return strings.TrimSpace(parsedHost)
 }
 
 func resolvePeerIP(c RequestMetaContext) string {
@@ -387,12 +439,8 @@ func normalizeIPToken(value string) string {
 
 	// IPv4:port fallback when split-host-port fails due missing brackets rules.
 	if strings.Count(token, ":") == 1 {
-		if host, port, ok := strings.Cut(token, ":"); ok {
-			if parsedPort := strings.TrimSpace(port); parsedPort != "" {
-				if portValue, err := strconv.Atoi(parsedPort); err == nil && portValue >= 1 && portValue <= 65535 {
-					token = strings.TrimSpace(host)
-				}
-			}
+		if host, port, ok := strings.Cut(token, ":"); ok && validPort(port) {
+			token = strings.TrimSpace(host)
 		}
 	}
 
@@ -400,4 +448,9 @@ func normalizeIPToken(value string) string {
 		return ip.String()
 	}
 	return ""
+}
+
+func validPort(port string) bool {
+	portValue, err := strconv.Atoi(strings.TrimSpace(port))
+	return err == nil && portValue >= 1 && portValue <= 65535
 }

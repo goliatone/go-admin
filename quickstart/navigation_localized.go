@@ -40,6 +40,12 @@ type SeedLocalizedNavigationOptions struct {
 	AutoCreateParents bool `json:"auto_create_parents"`
 }
 
+type localizedSeedInputs struct {
+	BaseItems          []admin.MenuItem
+	CanonicalByIndex   []string
+	TranslationByIndex [][]LocalizedMenuItemTranslation
+}
+
 // SeedLocalizedNavigation seeds canonical menu IDs and applies locale-specific translations.
 //
 // This is the preferred package-level API for localized site menus. It prevents locale-specific
@@ -72,44 +78,15 @@ func SeedLocalizedNavigation(ctx context.Context, opts SeedLocalizedNavigationOp
 		})
 	}
 
-	baseItems := make([]admin.MenuItem, 0, len(opts.Items))
-	canonicalByIndex := make([]string, len(opts.Items))
-	translationByIndex := make([][]LocalizedMenuItemTranslation, len(opts.Items))
-
-	for index, entry := range opts.Items {
-		base := entry.Item
-		base.Locale = defaultLocale
-		base.URLOverride = nil
-
-		if tr, ok := localizedTranslationForLocale(entry.Translations, defaultLocale); ok {
-			base.Label = strings.TrimSpace(firstNonEmpty(tr.Label, base.Label))
-			base.LabelKey = strings.TrimSpace(firstNonEmpty(tr.LabelKey, base.LabelKey))
-			base.GroupTitle = strings.TrimSpace(firstNonEmpty(tr.GroupTitle, base.GroupTitle))
-			base.GroupTitleKey = strings.TrimSpace(firstNonEmpty(tr.GroupTitleKey, base.GroupTitleKey))
-			if override := strings.TrimSpace(tr.URLOverride); override != "" {
-				if base.Target == nil {
-					base.Target = map[string]any{}
-				}
-				// Keep base target path aligned with default locale.
-				base.Target["path"] = override
-			}
-		}
-		if err := validateSeedMenuIdentity(base, defaultLocale); err != nil {
-			return err
-		}
-		normalized, err := normalizeSeedMenuItem(menuCode, defaultLocale, base)
-		if err != nil {
-			return err
-		}
-		canonicalByIndex[index] = strings.TrimSpace(normalized.ID)
-		translationByIndex[index] = normalizeLocalizedTranslations(entry.Translations)
-		baseItems = append(baseItems, base)
+	inputs, err := buildLocalizedSeedInputs(menuCode, defaultLocale, opts.Items)
+	if err != nil {
+		return err
 	}
 
 	if err := SeedNavigation(ctx, SeedNavigationOptions{
 		MenuSvc:           opts.MenuSvc,
 		MenuCode:          menuCode,
-		Items:             baseItems,
+		Items:             inputs.BaseItems,
 		Reset:             opts.Reset,
 		ResetEnv:          opts.ResetEnv,
 		Locale:            defaultLocale,
@@ -120,47 +97,129 @@ func SeedLocalizedNavigation(ctx context.Context, opts SeedLocalizedNavigationOp
 		return err
 	}
 
-	for index, translations := range translationByIndex {
-		itemPath := strings.TrimSpace(canonicalByIndex[index])
-		if itemPath == "" {
-			continue
+	return applyLocalizedMenuTranslations(ctx, opts.MenuSvc, menuCode, opts.Items, inputs)
+}
+
+func buildLocalizedSeedInputs(menuCode, defaultLocale string, items []LocalizedSeedMenuItem) (localizedSeedInputs, error) {
+	inputs := localizedSeedInputs{
+		BaseItems:          make([]admin.MenuItem, 0, len(items)),
+		CanonicalByIndex:   make([]string, len(items)),
+		TranslationByIndex: make([][]LocalizedMenuItemTranslation, len(items)),
+	}
+	for index, entry := range items {
+		base := localizedBaseMenuItem(entry, defaultLocale)
+		if err := validateSeedMenuIdentity(base, defaultLocale); err != nil {
+			return localizedSeedInputs{}, err
 		}
-		baseType := admin.NormalizeMenuItemType(opts.Items[index].Item.Type)
-		for _, tr := range translations {
-			locale := strings.ToLower(strings.TrimSpace(tr.Locale))
-			if locale == "" {
-				continue
-			}
-			update := admin.MenuItem{
-				ID:          itemPath,
-				Code:        itemPath,
-				Type:        baseType,
-				Locale:      locale,
-				URLOverride: urlOverridePointer(tr.URLOverride),
-			}
-			if baseType == admin.MenuItemTypeGroup {
-				update.GroupTitle = strings.TrimSpace(tr.GroupTitle)
-				update.GroupTitleKey = strings.TrimSpace(tr.GroupTitleKey)
-			} else if baseType != admin.MenuItemTypeSeparator {
-				update.Label = strings.TrimSpace(tr.Label)
-				update.LabelKey = strings.TrimSpace(tr.LabelKey)
-				update.GroupTitle = strings.TrimSpace(tr.GroupTitle)
-				update.GroupTitleKey = strings.TrimSpace(tr.GroupTitleKey)
-			}
-			if update.URLOverride == nil &&
-				update.Label == "" &&
-				update.LabelKey == "" &&
-				update.GroupTitle == "" &&
-				update.GroupTitleKey == "" {
-				continue
-			}
-			if err := opts.MenuSvc.UpdateMenuItem(ctx, menuCode, update); err != nil {
-				return err
-			}
+		normalized, err := normalizeSeedMenuItem(menuCode, defaultLocale, base)
+		if err != nil {
+			return localizedSeedInputs{}, err
+		}
+		inputs.CanonicalByIndex[index] = strings.TrimSpace(normalized.ID)
+		inputs.TranslationByIndex[index] = normalizeLocalizedTranslations(entry.Translations)
+		inputs.BaseItems = append(inputs.BaseItems, base)
+	}
+	return inputs, nil
+}
+
+func localizedBaseMenuItem(entry LocalizedSeedMenuItem, defaultLocale string) admin.MenuItem {
+	base := entry.Item
+	base.Locale = defaultLocale
+	base.URLOverride = nil
+	tr, ok := localizedTranslationForLocale(entry.Translations, defaultLocale)
+	if !ok {
+		return base
+	}
+	base.Label = strings.TrimSpace(firstNonEmpty(tr.Label, base.Label))
+	base.LabelKey = strings.TrimSpace(firstNonEmpty(tr.LabelKey, base.LabelKey))
+	base.GroupTitle = strings.TrimSpace(firstNonEmpty(tr.GroupTitle, base.GroupTitle))
+	base.GroupTitleKey = strings.TrimSpace(firstNonEmpty(tr.GroupTitleKey, base.GroupTitleKey))
+	if override := strings.TrimSpace(tr.URLOverride); override != "" {
+		if base.Target == nil {
+			base.Target = map[string]any{}
+		}
+		base.Target["path"] = override
+	}
+	return base
+}
+
+func applyLocalizedMenuTranslations(
+	ctx context.Context,
+	menuSvc admin.CMSMenuService,
+	menuCode string,
+	items []LocalizedSeedMenuItem,
+	inputs localizedSeedInputs,
+) error {
+	for index, translations := range inputs.TranslationByIndex {
+		if err := applyLocalizedMenuItemTranslations(ctx, menuSvc, menuCode, items[index], inputs.CanonicalByIndex[index], translations); err != nil {
+			return err
 		}
 	}
-
 	return nil
+}
+
+func applyLocalizedMenuItemTranslations(
+	ctx context.Context,
+	menuSvc admin.CMSMenuService,
+	menuCode string,
+	entry LocalizedSeedMenuItem,
+	itemPath string,
+	translations []LocalizedMenuItemTranslation,
+) error {
+	itemPath = strings.TrimSpace(itemPath)
+	if itemPath == "" {
+		return nil
+	}
+	baseType := admin.NormalizeMenuItemType(entry.Item.Type)
+	for _, tr := range translations {
+		update, ok := localizedMenuItemUpdate(itemPath, baseType, tr)
+		if !ok {
+			continue
+		}
+		if err := menuSvc.UpdateMenuItem(ctx, menuCode, update); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func localizedMenuItemUpdate(itemPath string, baseType string, tr LocalizedMenuItemTranslation) (admin.MenuItem, bool) {
+	locale := strings.ToLower(strings.TrimSpace(tr.Locale))
+	if locale == "" {
+		return admin.MenuItem{}, false
+	}
+	update := admin.MenuItem{
+		ID:          itemPath,
+		Code:        itemPath,
+		Type:        baseType,
+		Locale:      locale,
+		URLOverride: urlOverridePointer(tr.URLOverride),
+	}
+	applyLocalizedMenuItemLabels(&update, baseType, tr)
+	return update, localizedMenuItemUpdateHasChanges(update)
+}
+
+func applyLocalizedMenuItemLabels(update *admin.MenuItem, baseType string, tr LocalizedMenuItemTranslation) {
+	switch baseType {
+	case admin.MenuItemTypeGroup:
+		update.GroupTitle = strings.TrimSpace(tr.GroupTitle)
+		update.GroupTitleKey = strings.TrimSpace(tr.GroupTitleKey)
+	case admin.MenuItemTypeSeparator:
+		return
+	default:
+		update.Label = strings.TrimSpace(tr.Label)
+		update.LabelKey = strings.TrimSpace(tr.LabelKey)
+		update.GroupTitle = strings.TrimSpace(tr.GroupTitle)
+		update.GroupTitleKey = strings.TrimSpace(tr.GroupTitleKey)
+	}
+}
+
+func localizedMenuItemUpdateHasChanges(update admin.MenuItem) bool {
+	return update.URLOverride != nil ||
+		update.Label != "" ||
+		update.LabelKey != "" ||
+		update.GroupTitle != "" ||
+		update.GroupTitleKey != ""
 }
 
 func normalizeLocalizedTranslations(input []LocalizedMenuItemTranslation) []LocalizedMenuItemTranslation {

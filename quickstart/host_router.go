@@ -509,62 +509,19 @@ func hostStaticHandler(prefix string, fileSystem fs.FS, cfg router.Static) route
 	}
 
 	return func(c router.Context) error {
-		reqPath := c.Path()
-		filePath := strings.TrimPrefix(reqPath, prefix)
-		filePath = strings.TrimPrefix(filePath, "/")
-
-		if filePath == "" && cfg.Browse {
-			filePath = "."
-		} else if filePath == "" {
-			filePath = indexFile
-		}
-		filePath = path.Clean(filePath)
-		if filePath == "/" {
-			filePath = "."
-		}
-
-		f, err := fileSystem.Open(filePath)
+		filePath := hostStaticRequestPath(c.Path(), prefix, indexFile, cfg.Browse)
+		f, filePath, err := openHostStaticFile(fileSystem, filePath, indexFile, cfg.Browse)
 		if err != nil {
-			if errors.Is(err, fs.ErrNotExist) {
-				return c.Status(404).SendString("Not Found")
-			}
-			return c.Status(500).SendString(err.Error())
+			return hostStaticFileError(c, err)
 		}
-		defer f.Close()
+		defer func(file fs.File) {
+			_ = file.Close()
+		}(f)
 
-		stat, err := f.Stat()
-		if err != nil {
-			return c.Status(500).SendString(err.Error())
-		}
-		if stat.IsDir() {
-			if cfg.Browse {
-				return c.Status(404).SendString("Not Found")
-			}
-			indexPath := path.Join(filePath, indexFile)
-			indexFileHandle, indexErr := fileSystem.Open(indexPath)
-			if indexErr != nil {
-				if errors.Is(indexErr, fs.ErrNotExist) {
-					return c.Status(404).SendString("Not Found")
-				}
-				return c.Status(500).SendString(indexErr.Error())
-			}
-			defer indexFileHandle.Close()
-			f = indexFileHandle
-			filePath = indexPath
-		}
-
-		if cfg.MaxAge > 0 {
-			c.SetHeader("Cache-Control", fmt.Sprintf("public, max-age=%d", cfg.MaxAge))
-		}
-		if mimeType := mime.TypeByExtension(path.Ext(filePath)); mimeType != "" {
-			c.SetHeader("Content-Type", mimeType)
-		}
-		if cfg.Download {
-			c.SetHeader("Content-Disposition", "attachment; filename="+path.Base(filePath))
-		}
+		applyHostStaticResponseHeaders(c, cfg, filePath)
 		if cfg.ModifyResponse != nil {
-			if err := cfg.ModifyResponse(c); err != nil {
-				return err
+			if modifyErr := cfg.ModifyResponse(c); modifyErr != nil {
+				return modifyErr
 			}
 		}
 
@@ -573,6 +530,66 @@ func hostStaticHandler(prefix string, fileSystem fs.FS, cfg router.Static) route
 			return c.Status(500).SendString(err.Error())
 		}
 		return c.Send(content)
+	}
+}
+
+func hostStaticRequestPath(reqPath, prefix, indexFile string, browse bool) string {
+	filePath := strings.TrimPrefix(reqPath, prefix)
+	filePath = strings.TrimPrefix(filePath, "/")
+	if filePath == "" && browse {
+		filePath = "."
+	} else if filePath == "" {
+		filePath = indexFile
+	}
+	filePath = path.Clean(filePath)
+	if filePath == "/" {
+		return "."
+	}
+	return filePath
+}
+
+func openHostStaticFile(fileSystem fs.FS, filePath, indexFile string, browse bool) (fs.File, string, error) {
+	f, err := fileSystem.Open(filePath)
+	if err != nil {
+		return nil, filePath, err
+	}
+	stat, err := f.Stat()
+	if err != nil {
+		_ = f.Close()
+		return nil, filePath, err
+	}
+	if !stat.IsDir() {
+		return f, filePath, nil
+	}
+	if browse {
+		_ = f.Close()
+		return nil, filePath, fs.ErrNotExist
+	}
+	_ = f.Close()
+	indexPath := path.Join(filePath, indexFile)
+	indexFileHandle, err := fileSystem.Open(indexPath)
+	if err != nil {
+		return nil, indexPath, err
+	}
+	return indexFileHandle, indexPath, nil
+}
+
+func hostStaticFileError(c router.Context, err error) error {
+	if errors.Is(err, fs.ErrNotExist) {
+		return c.Status(404).SendString("Not Found")
+	}
+	return c.Status(500).SendString(err.Error())
+}
+
+func applyHostStaticResponseHeaders(c router.Context, cfg router.Static, filePath string) {
+	if cfg.MaxAge > 0 {
+		c.SetHeader("Cache-Control", fmt.Sprintf("public, max-age=%d", cfg.MaxAge))
+	}
+	if mimeType := mime.TypeByExtension(path.Ext(filePath)); mimeType != "" {
+		c.SetHeader("Content-Type", mimeType)
+	}
+	if cfg.Download {
+		c.SetHeader("Content-Disposition", "attachment; filename="+path.Base(filePath))
 	}
 }
 
@@ -616,19 +633,7 @@ func mergeHostStaticConfig(base router.Static, overrides ...router.Static) route
 
 func prepareHostStaticFilesystem(cfg router.Static) (fs.FS, error) {
 	if cfg.FS != nil {
-		root := normalizeHostStaticRoot(cfg.Root)
-		fsToUse := cfg.FS
-		if root != "." {
-			if _, err := fs.Stat(cfg.FS, root); err != nil {
-				return nil, fmt.Errorf("filesystem root validation failed for %q: %w", root, err)
-			}
-			sub, err := fs.Sub(cfg.FS, root)
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve filesystem root %q: %w", root, err)
-			}
-			fsToUse = sub
-		}
-		return fsToUse, nil
+		return prepareEmbeddedHostStaticFilesystem(cfg.FS, cfg.Root)
 	}
 
 	localRoot := cfg.Root
@@ -644,6 +649,21 @@ func prepareHostStaticFilesystem(cfg router.Static) (fs.FS, error) {
 		return nil, fmt.Errorf("static root %q must be a directory", cleaned)
 	}
 	return os.DirFS(cleaned), nil
+}
+
+func prepareEmbeddedHostStaticFilesystem(fileSystem fs.FS, rawRoot string) (fs.FS, error) {
+	root := normalizeHostStaticRoot(rawRoot)
+	if root == "." {
+		return fileSystem, nil
+	}
+	if _, err := fs.Stat(fileSystem, root); err != nil {
+		return nil, fmt.Errorf("filesystem root validation failed for %q: %w", root, err)
+	}
+	sub, err := fs.Sub(fileSystem, root)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve filesystem root %q: %w", root, err)
+	}
+	return sub, nil
 }
 
 func normalizeHostStaticRoot(root string) string {

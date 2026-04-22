@@ -13,6 +13,32 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		return c.Redirect(target, http.StatusPermanentRedirect)
 	}
 
+	availableLocales, pathsByLocale := r.prepareLocalizedResolution(c, state, resolution, cache)
+	viewCtx := r.resolutionViewContext(c, state, resolution, requestPath, availableLocales, pathsByLocale)
+	return renderSiteTemplateResponse(c, state, r.siteCfg, siteTemplateResponse{
+		JSONStatus:    200,
+		TemplateNames: resolution.TemplateCandidates,
+		JSONPayload: siteTemplateResponsePayload(firstTemplate(resolution.TemplateCandidates), viewCtx, map[string]any{
+			"mode": resolution.Mode,
+		}),
+		ViewContext: viewCtx,
+		FallbackError: SiteRuntimeError{
+			Status:          500,
+			Message:         "no site template could render the requested view",
+			RequestedLocale: resolution.RequestedLocale,
+			AvailableLocales: cloneStrings(
+				resolution.AvailableLocales,
+			),
+		},
+	})
+}
+
+func (r *deliveryRuntime) prepareLocalizedResolution(
+	c router.Context,
+	state RequestState,
+	resolution *deliveryResolution,
+	cache *siteContentCache,
+) ([]string, map[string]string) {
 	availableLocales := cloneStrings(resolution.AvailableLocales)
 	pathsByLocale := resolution.PathsByLocale
 	if resolution.Record != nil {
@@ -30,7 +56,17 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		resolution.Record = &record
 	}
 	resolution.AvailableLocales = cloneStrings(availableLocales)
+	return availableLocales, pathsByLocale
+}
 
+func (r *deliveryRuntime) resolutionViewContext(
+	c router.Context,
+	state RequestState,
+	resolution *deliveryResolution,
+	requestPath string,
+	availableLocales []string,
+	pathsByLocale map[string]string,
+) map[string]any {
 	viewCtx := newRuntimeViewContext(state)
 	viewCtx = applyResolvedLocaleViewContext(
 		viewCtx,
@@ -40,7 +76,32 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 		resolution.MissingRequested,
 	)
 	viewCtx = applyContentTypeViewContext(viewCtx, resolution.Capability.TypeSlug)
+	viewCtx = applyResolutionModeViewContext(viewCtx, resolution)
+	viewCtx = mergeSiteContentViewContext(viewCtx, map[string]any{
+		"kind":                deliveryResolutionContentKind(resolution),
+		"mode":                strings.ToLower(strings.TrimSpace(resolution.Mode)),
+		"family_id":           strings.TrimSpace(resolution.FamilyID),
+		"template_candidates": cloneStrings(resolution.TemplateCandidates),
+	})
+	viewCtx = r.applyResolutionNavigationContext(c, state, viewCtx, requestPath)
+	viewCtx = applyLocaleSwitcherViewContext(
+		viewCtx,
+		r.siteCfg,
+		requestPath,
+		resolution.RequestedLocale,
+		resolution.ResolvedLocale,
+		resolution.FamilyID,
+		availableLocales,
+		pathsByLocale,
+		state,
+	)
+	if len(r.modules) > 0 {
+		viewCtx = applyRequestStateModuleViewContext(c.Context(), viewCtx, r.modules)
+	}
+	return applySiteContentAwareViewContext(viewCtx)
+}
 
+func applyResolutionModeViewContext(viewCtx map[string]any, resolution *deliveryResolution) map[string]any {
 	switch strings.ToLower(strings.TrimSpace(resolution.Mode)) {
 	case "collection":
 		items := make([]map[string]any, 0, len(resolution.Records))
@@ -60,48 +121,13 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 			))
 		}
 	}
-	viewCtx = mergeSiteContentViewContext(viewCtx, map[string]any{
-		"kind":                deliveryResolutionContentKind(resolution),
-		"mode":                strings.ToLower(strings.TrimSpace(resolution.Mode)),
-		"family_id":           strings.TrimSpace(resolution.FamilyID),
-		"template_candidates": cloneStrings(resolution.TemplateCandidates),
-	})
+	return viewCtx
+}
 
+func (r *deliveryRuntime) applyResolutionNavigationContext(c router.Context, state RequestState, viewCtx map[string]any, requestPath string) map[string]any {
 	if r.navigation != nil {
 		menus := r.navigation.context(c, state, requestPath)
 		maps.Copy(viewCtx, menus)
 	}
-
-	viewCtx = applyLocaleSwitcherViewContext(
-		viewCtx,
-		r.siteCfg,
-		requestPath,
-		resolution.RequestedLocale,
-		resolution.ResolvedLocale,
-		resolution.FamilyID,
-		availableLocales,
-		pathsByLocale,
-		state,
-	)
-	if len(r.modules) > 0 {
-		viewCtx = applyRequestStateModuleViewContext(c.Context(), viewCtx, r.modules)
-	}
-	viewCtx = applySiteContentAwareViewContext(viewCtx)
-
-	return renderSiteTemplateResponse(c, state, r.siteCfg, siteTemplateResponse{
-		JSONStatus:    200,
-		TemplateNames: resolution.TemplateCandidates,
-		JSONPayload: siteTemplateResponsePayload(firstTemplate(resolution.TemplateCandidates), viewCtx, map[string]any{
-			"mode": resolution.Mode,
-		}),
-		ViewContext: viewCtx,
-		FallbackError: SiteRuntimeError{
-			Status:          500,
-			Message:         "no site template could render the requested view",
-			RequestedLocale: resolution.RequestedLocale,
-			AvailableLocales: cloneStrings(
-				resolution.AvailableLocales,
-			),
-		},
-	})
+	return viewCtx
 }

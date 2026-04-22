@@ -160,33 +160,7 @@ func buildTranslationProductResolution(cfg admin.Config, opts adminOptions) (tra
 	exchangeCfg, queueCfg := translationProfileDefaults(profile)
 	hasConfig := true
 
-	if productCfg.Exchange != nil {
-		exchangeCfg = mergeTranslationExchangeConfig(exchangeCfg, *productCfg.Exchange)
-	}
-	if productCfg.Queue != nil {
-		queueCfg = mergeTranslationQueueConfig(queueCfg, *productCfg.Queue)
-	}
-
-	if opts.translationExchangeConfigSet {
-		exchangeCfg = opts.translationExchangeConfig
-		warnings = append(warnings, translationProductLegacyOverrideWarning)
-	}
-	if opts.translationQueueConfigSet {
-		queueCfg = opts.translationQueueConfig
-		warnings = append(warnings, translationProductLegacyOverrideWarning)
-	}
-	if enabled, ok := translationFeatureOverride(opts.featureDefaults, admin.FeatureTranslationExchange); ok {
-		if exchangeCfg.Enabled != enabled {
-			warnings = append(warnings, translationProductFeatureOverrideWarning(admin.FeatureTranslationExchange))
-		}
-		exchangeCfg.Enabled = enabled
-	}
-	if enabled, ok := translationFeatureOverride(opts.featureDefaults, admin.FeatureTranslationQueue); ok {
-		if queueCfg.Enabled != enabled {
-			warnings = append(warnings, translationProductFeatureOverrideWarning(admin.FeatureTranslationQueue))
-		}
-		queueCfg.Enabled = enabled
-	}
+	exchangeCfg, queueCfg, warnings = applyTranslationProductOverrides(productCfg, opts, exchangeCfg, queueCfg, warnings)
 	if !cmsEnabled && (exchangeCfg.Enabled || queueCfg.Enabled) {
 		return translationProductResolution{}, newTranslationProductConfigError(
 			"translation.productization.requires_cms",
@@ -197,37 +171,8 @@ func buildTranslationProductResolution(cfg admin.Config, opts adminOptions) (tra
 		)
 	}
 
-	if exchangeCfg.Enabled {
-		if _, _, _, _, err := resolveTranslationExchangeHandlers(exchangeCfg); err != nil {
-			return translationProductResolution{}, newTranslationProductConfigError(
-				"translation.productization.exchange.handlers_missing",
-				"exchange module enabled without valid handlers",
-				"provide Store or Exporter/Validator/Applier handlers",
-				[]string{"module.exchange.handlers"},
-				err,
-			)
-		}
-	}
-	if queueCfg.Enabled {
-		policyCfg, hasPolicyCfg := queuePolicyConfigFromOptions(opts)
-		if _, err := resolveTranslationQueueSupportedLocales(queueCfg.SupportedLocales, policyCfg, hasPolicyCfg); err != nil {
-			return translationProductResolution{}, newTranslationProductConfigError(
-				"translation.productization.queue.locales_invalid",
-				"queue module enabled without valid locale requirements",
-				"set queue supported_locales or provide translation policy locale requirements",
-				[]string{"module.queue.supported_locales"},
-				err,
-			)
-		}
-		if queueCfg.Repository == nil {
-			return translationProductResolution{}, newTranslationProductConfigError(
-				"translation.productization.queue.repository_missing",
-				"queue module enabled without persistent assignment repository",
-				"provide a translation queue repository",
-				[]string{"module.queue.repository"},
-				translationQueueConfigError{Missing: []string{"repository"}},
-			)
-		}
+	if err := validateTranslationProductModules(exchangeCfg, queueCfg, opts); err != nil {
+		return translationProductResolution{}, err
 	}
 
 	return translationProductResolution{
@@ -242,6 +187,93 @@ func buildTranslationProductResolution(cfg admin.Config, opts adminOptions) (tra
 		Warnings:  dedupeStringSlice(warnings),
 		HasConfig: hasConfig,
 	}, nil
+}
+
+func applyTranslationProductOverrides(
+	productCfg TranslationProductConfig,
+	opts adminOptions,
+	exchangeCfg TranslationExchangeConfig,
+	queueCfg TranslationQueueConfig,
+	warnings []string,
+) (TranslationExchangeConfig, TranslationQueueConfig, []string) {
+	if productCfg.Exchange != nil {
+		exchangeCfg = mergeTranslationExchangeConfig(exchangeCfg, *productCfg.Exchange)
+	}
+	if productCfg.Queue != nil {
+		queueCfg = mergeTranslationQueueConfig(queueCfg, *productCfg.Queue)
+	}
+	if opts.translationExchangeConfigSet {
+		exchangeCfg = opts.translationExchangeConfig
+		warnings = append(warnings, translationProductLegacyOverrideWarning)
+	}
+	if opts.translationQueueConfigSet {
+		queueCfg = opts.translationQueueConfig
+		warnings = append(warnings, translationProductLegacyOverrideWarning)
+	}
+	exchangeCfg, warnings = applyTranslationExchangeFeatureOverride(exchangeCfg, opts, warnings)
+	queueCfg, warnings = applyTranslationQueueFeatureOverride(queueCfg, opts, warnings)
+	return exchangeCfg, queueCfg, warnings
+}
+
+func applyTranslationExchangeFeatureOverride(cfg TranslationExchangeConfig, opts adminOptions, warnings []string) (TranslationExchangeConfig, []string) {
+	enabled, ok := translationFeatureOverride(opts.featureDefaults, admin.FeatureTranslationExchange)
+	if !ok {
+		return cfg, warnings
+	}
+	if cfg.Enabled != enabled {
+		warnings = append(warnings, translationProductFeatureOverrideWarning(admin.FeatureTranslationExchange))
+	}
+	cfg.Enabled = enabled
+	return cfg, warnings
+}
+
+func applyTranslationQueueFeatureOverride(cfg TranslationQueueConfig, opts adminOptions, warnings []string) (TranslationQueueConfig, []string) {
+	enabled, ok := translationFeatureOverride(opts.featureDefaults, admin.FeatureTranslationQueue)
+	if !ok {
+		return cfg, warnings
+	}
+	if cfg.Enabled != enabled {
+		warnings = append(warnings, translationProductFeatureOverrideWarning(admin.FeatureTranslationQueue))
+	}
+	cfg.Enabled = enabled
+	return cfg, warnings
+}
+
+func validateTranslationProductModules(exchangeCfg TranslationExchangeConfig, queueCfg TranslationQueueConfig, opts adminOptions) error {
+	if exchangeCfg.Enabled {
+		if _, _, _, _, err := resolveTranslationExchangeHandlers(exchangeCfg); err != nil {
+			return newTranslationProductConfigError(
+				"translation.productization.exchange.handlers_missing",
+				"exchange module enabled without valid handlers",
+				"provide Store or Exporter/Validator/Applier handlers",
+				[]string{"module.exchange.handlers"},
+				err,
+			)
+		}
+	}
+	if !queueCfg.Enabled {
+		return nil
+	}
+	policyCfg, hasPolicyCfg := queuePolicyConfigFromOptions(opts)
+	if _, err := resolveTranslationQueueSupportedLocales(queueCfg.SupportedLocales, policyCfg, hasPolicyCfg); err != nil {
+		return newTranslationProductConfigError(
+			"translation.productization.queue.locales_invalid",
+			"queue module enabled without valid locale requirements",
+			"set queue supported_locales or provide translation policy locale requirements",
+			[]string{"module.queue.supported_locales"},
+			err,
+		)
+	}
+	if queueCfg.Repository == nil {
+		return newTranslationProductConfigError(
+			"translation.productization.queue.repository_missing",
+			"queue module enabled without persistent assignment repository",
+			"provide a translation queue repository",
+			[]string{"module.queue.repository"},
+			translationQueueConfigError{Missing: []string{"repository"}},
+		)
+	}
+	return nil
 }
 
 func translationProductCMSDefault(_ admin.Config, opts adminOptions) bool {
@@ -490,126 +522,13 @@ func validateTranslationProductRuntime(
 	modules, _ := snapshot["modules"].(map[string]any)
 	routes, _ := snapshot["routes"].(map[string]string)
 	failed := []string{}
-	exchangeEnabled := translationModuleEnabled(modules, "exchange")
-	queueEnabled := translationModuleEnabled(modules, "queue")
 	adminAPIGroup := strings.TrimSpace(adm.AdminAPIGroup())
 	if adminAPIGroup == "" {
 		adminAPIGroup = "admin.api"
 	}
 
-	exchangeUIKey := "admin.translations.exchange"
-	exchangeExportKey := fmt.Sprintf("%s.%s", adminAPIGroup, "translations.export")
-	exchangeUIResolved := resolveTranslationRoutePath(adm, "admin", "translations.exchange")
-	exchangeExportResolved := resolveTranslationRoutePath(adm, adminAPIGroup, "translations.export")
-	exchangeUIRoute := strings.TrimSpace(routes[exchangeUIKey])
-	exchangeExportRoute := strings.TrimSpace(routes[exchangeExportKey])
-	if exchangeEnabled {
-		if adm.BootTranslationExchange() == nil {
-			failed = append(failed, "exchange.binding")
-		}
-		if exchangeUIRoute == "" {
-			failed = append(failed, "exchange.route.translations.exchange")
-		}
-		if exchangeExportRoute == "" {
-			failed = append(failed, "exchange.route.translations.export")
-		}
-		if exchangeUIResolved == "" {
-			failed = append(failed, "exchange.route.translations.exchange.resolver")
-		}
-		if exchangeExportResolved == "" {
-			failed = append(failed, "exchange.route.translations.export.resolver")
-		}
-		if exchangeUIRoute != "" && !translationRuntimeRouteIsStatic(exchangeUIRoute) {
-			failed = append(failed, "exchange.route.translations.exchange.not_static")
-		}
-		if exchangeExportRoute != "" && !translationRuntimeRouteIsStatic(exchangeExportRoute) {
-			failed = append(failed, "exchange.route.translations.export.not_static")
-		}
-	} else {
-		if exchangeUIRoute != "" {
-			failed = append(failed, "exchange.route.translations.exchange.unexpected")
-		}
-		if exchangeExportRoute != "" {
-			failed = append(failed, "exchange.route.translations.export.unexpected")
-		}
-	}
-	queueDashboardKey := "admin.translations.dashboard"
-	queuePanelKey := "admin.translations.queue"
-	queueMyWorkKey := fmt.Sprintf("%s.%s", adminAPIGroup, "translations.my_work")
-	queueAPIQueueKey := fmt.Sprintf("%s.%s", adminAPIGroup, "translations.queue")
-	queueDashboardRoute := strings.TrimSpace(routes[queueDashboardKey])
-	queuePanelRoute := strings.TrimSpace(routes[queuePanelKey])
-	queueMyWorkRoute := strings.TrimSpace(routes[queueMyWorkKey])
-	queueAPIQueueRoute := strings.TrimSpace(routes[queueAPIQueueKey])
-	queueDashboardResolved := resolveTranslationRoutePath(adm, "admin", "translations.dashboard")
-	queuePanelResolved := resolveTranslationRoutePath(adm, "admin", "translations.queue")
-	queueMyWorkResolved := resolveTranslationRoutePath(adm, adminAPIGroup, "translations.my_work")
-	queueAPIQueueResolved := resolveTranslationRoutePath(adm, adminAPIGroup, "translations.queue")
-	if queueEnabled {
-		if adm.BootTranslationQueue() == nil {
-			failed = append(failed, "queue.binding")
-		}
-		if adm.Registry() == nil {
-			failed = append(failed, "queue.registry")
-		} else if _, ok := adm.Registry().Panel("translations"); !ok {
-			failed = append(failed, "queue.panel.translations")
-		}
-		if queueDashboardRoute == "" {
-			failed = append(failed, "queue.route.translations.dashboard")
-		}
-		if queuePanelRoute == "" {
-			failed = append(failed, "queue.route.translations.queue")
-		}
-		if queueMyWorkRoute == "" {
-			failed = append(failed, "queue.route.api.translations.my_work")
-		}
-		if queueAPIQueueRoute == "" {
-			failed = append(failed, "queue.route.api.translations.queue")
-		}
-		if queueDashboardResolved == "" {
-			failed = append(failed, "queue.route.translations.dashboard.resolver")
-		}
-		if queuePanelResolved == "" {
-			failed = append(failed, "queue.route.translations.queue.resolver")
-		}
-		if queueMyWorkResolved == "" {
-			failed = append(failed, "queue.route.api.translations.my_work.resolver")
-		}
-		if queueAPIQueueResolved == "" {
-			failed = append(failed, "queue.route.api.translations.queue.resolver")
-		}
-		if queueDashboardRoute != "" && !translationRuntimeRouteIsStatic(queueDashboardRoute) {
-			failed = append(failed, "queue.route.translations.dashboard.not_static")
-		}
-		if queuePanelRoute != "" && !translationRuntimeRouteIsStatic(queuePanelRoute) {
-			failed = append(failed, "queue.route.translations.queue.not_static")
-		}
-		if queueMyWorkRoute != "" && !translationRuntimeRouteIsStatic(queueMyWorkRoute) {
-			failed = append(failed, "queue.route.api.translations.my_work.not_static")
-		}
-		if queueAPIQueueRoute != "" && !translationRuntimeRouteIsStatic(queueAPIQueueRoute) {
-			failed = append(failed, "queue.route.api.translations.queue.not_static")
-		}
-		if queueDashboardRoute != "" && queueMyWorkRoute == "" {
-			failed = append(failed, "queue.coherence.dashboard_without_my_work_api")
-		}
-		if queueDashboardRoute == "" && queueMyWorkRoute != "" {
-			failed = append(failed, "queue.coherence.my_work_api_without_dashboard")
-		}
-	} else {
-		if queueDashboardRoute != "" {
-			failed = append(failed, "queue.route.translations.dashboard.unexpected")
-		}
-		if queuePanelRoute != "" {
-			failed = append(failed, "queue.route.translations.queue.unexpected")
-		}
-		if queueMyWorkRoute != "" {
-			failed = append(failed, "queue.route.api.translations.my_work.unexpected")
-		}
-		if queueAPIQueueRoute != "" {
-			failed = append(failed, "queue.route.api.translations.queue.unexpected")
-		}
-	}
+	failed = append(failed, validateTranslationExchangeRuntime(adm, routes, adminAPIGroup, translationModuleEnabled(modules, "exchange"))...)
+	failed = append(failed, validateTranslationQueueRuntime(adm, routes, adminAPIGroup, translationModuleEnabled(modules, "queue"))...)
 
 	if len(failed) > 0 {
 		sort.Strings(failed)
@@ -622,6 +541,134 @@ func validateTranslationProductRuntime(
 		)
 	}
 	return nil
+}
+
+type translationRuntimeRouteCheck struct {
+	Route          string
+	Resolved       string
+	Missing        string
+	Resolver       string
+	NotStatic      string
+	Unexpected     string
+	AllowCoherence bool
+}
+
+func validateTranslationExchangeRuntime(adm *admin.Admin, routes map[string]string, adminAPIGroup string, enabled bool) []string {
+	checks := []translationRuntimeRouteCheck{
+		{
+			Route:      strings.TrimSpace(routes["admin.translations.exchange"]),
+			Resolved:   resolveTranslationRoutePath(adm, "admin", "translations.exchange"),
+			Missing:    "exchange.route.translations.exchange",
+			Resolver:   "exchange.route.translations.exchange.resolver",
+			NotStatic:  "exchange.route.translations.exchange.not_static",
+			Unexpected: "exchange.route.translations.exchange.unexpected",
+		},
+		{
+			Route:      strings.TrimSpace(routes[fmt.Sprintf("%s.%s", adminAPIGroup, "translations.export")]),
+			Resolved:   resolveTranslationRoutePath(adm, adminAPIGroup, "translations.export"),
+			Missing:    "exchange.route.translations.export",
+			Resolver:   "exchange.route.translations.export.resolver",
+			NotStatic:  "exchange.route.translations.export.not_static",
+			Unexpected: "exchange.route.translations.export.unexpected",
+		},
+	}
+	failed := validateRuntimeRouteChecks(checks, enabled)
+	if enabled && adm.BootTranslationExchange() == nil {
+		failed = append(failed, "exchange.binding")
+	}
+	return failed
+}
+
+func validateTranslationQueueRuntime(adm *admin.Admin, routes map[string]string, adminAPIGroup string, enabled bool) []string {
+	checks := []translationRuntimeRouteCheck{
+		{
+			Route:          strings.TrimSpace(routes["admin.translations.dashboard"]),
+			Resolved:       resolveTranslationRoutePath(adm, "admin", "translations.dashboard"),
+			Missing:        "queue.route.translations.dashboard",
+			Resolver:       "queue.route.translations.dashboard.resolver",
+			NotStatic:      "queue.route.translations.dashboard.not_static",
+			Unexpected:     "queue.route.translations.dashboard.unexpected",
+			AllowCoherence: true,
+		},
+		{
+			Route:      strings.TrimSpace(routes["admin.translations.queue"]),
+			Resolved:   resolveTranslationRoutePath(adm, "admin", "translations.queue"),
+			Missing:    "queue.route.translations.queue",
+			Resolver:   "queue.route.translations.queue.resolver",
+			NotStatic:  "queue.route.translations.queue.not_static",
+			Unexpected: "queue.route.translations.queue.unexpected",
+		},
+		{
+			Route:          strings.TrimSpace(routes[fmt.Sprintf("%s.%s", adminAPIGroup, "translations.my_work")]),
+			Resolved:       resolveTranslationRoutePath(adm, adminAPIGroup, "translations.my_work"),
+			Missing:        "queue.route.api.translations.my_work",
+			Resolver:       "queue.route.api.translations.my_work.resolver",
+			NotStatic:      "queue.route.api.translations.my_work.not_static",
+			Unexpected:     "queue.route.api.translations.my_work.unexpected",
+			AllowCoherence: true,
+		},
+		{
+			Route:      strings.TrimSpace(routes[fmt.Sprintf("%s.%s", adminAPIGroup, "translations.queue")]),
+			Resolved:   resolveTranslationRoutePath(adm, adminAPIGroup, "translations.queue"),
+			Missing:    "queue.route.api.translations.queue",
+			Resolver:   "queue.route.api.translations.queue.resolver",
+			NotStatic:  "queue.route.api.translations.queue.not_static",
+			Unexpected: "queue.route.api.translations.queue.unexpected",
+		},
+	}
+	failed := validateRuntimeRouteChecks(checks, enabled)
+	if enabled {
+		failed = append(failed, validateTranslationQueueBindings(adm)...)
+		failed = append(failed, validateTranslationQueueRouteCoherence(checks[0].Route, checks[2].Route)...)
+	}
+	return failed
+}
+
+func validateRuntimeRouteChecks(checks []translationRuntimeRouteCheck, enabled bool) []string {
+	failed := []string{}
+	for _, check := range checks {
+		if !enabled {
+			if check.Route != "" {
+				failed = append(failed, check.Unexpected)
+			}
+			continue
+		}
+		if check.Route == "" {
+			failed = append(failed, check.Missing)
+		}
+		if check.Resolved == "" {
+			failed = append(failed, check.Resolver)
+		}
+		if check.Route != "" && !translationRuntimeRouteIsStatic(check.Route) {
+			failed = append(failed, check.NotStatic)
+		}
+	}
+	return failed
+}
+
+func validateTranslationQueueBindings(adm *admin.Admin) []string {
+	failed := []string{}
+	if adm.BootTranslationQueue() == nil {
+		failed = append(failed, "queue.binding")
+	}
+	if adm.Registry() == nil {
+		return append(failed, "queue.registry")
+	}
+	if _, ok := adm.Registry().Panel("translations"); !ok {
+		failed = append(failed, "queue.panel.translations")
+	}
+	return failed
+}
+
+func validateTranslationQueueRouteCoherence(dashboardRoute, myWorkRoute string) []string {
+	switch {
+	case dashboardRoute != "" && myWorkRoute == "":
+		return []string{"queue.coherence.dashboard_without_my_work_api"}
+	case dashboardRoute == "" && myWorkRoute != "":
+		return []string{"queue.coherence.my_work_api_without_dashboard"}
+	default:
+		return nil
+	}
 }
 
 func resolveTranslationRoutePath(adm *admin.Admin, group, route string) string {

@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -101,37 +102,23 @@ func firstNonEmptyMapString(values map[string]string, keys ...string) string {
 }
 
 func templateIntValue(raw any) (int, bool) {
-	switch typed := raw.(type) {
-	case int:
-		return typed, true
-	case int8:
-		return int(typed), true
-	case int16:
-		return int(typed), true
-	case int32:
-		return int(typed), true
-	case int64:
-		return int(typed), true
-	case uint:
-		return int(typed), true
-	case uint8:
-		return int(typed), true
-	case uint16:
-		return int(typed), true
-	case uint32:
-		return int(typed), true
-	case uint64:
-		return int(typed), true
-	case float32:
-		return int(typed), true
-	case float64:
-		return int(typed), true
-	case string:
-		value := strings.TrimSpace(typed)
-		if value == "" {
+	if raw == nil {
+		return 0, false
+	}
+	value := reflect.ValueOf(raw)
+	switch value.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return int(value.Int()), true
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return int(value.Uint()), true
+	case reflect.Float32, reflect.Float64:
+		return int(value.Float()), true
+	case reflect.String:
+		text := strings.TrimSpace(value.String())
+		if text == "" {
 			return 0, false
 		}
-		parsed, err := strconv.Atoi(value)
+		parsed, err := strconv.Atoi(text)
 		if err != nil {
 			return 0, false
 		}

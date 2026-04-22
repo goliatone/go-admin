@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"runtime"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -54,178 +53,199 @@ func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts .
 	if errorCfg.InternalMessage == "" {
 		errorCfg.InternalMessage = "An unexpected error occurred"
 	}
-	presenter := admin.NewErrorPresenter(errorCfg, options.errorMappers...)
-	routeDomains := newHostRouteDomainResolver(cfg)
+	runtime := fiberErrorHandlerRuntime{
+		adm:          adm,
+		cfg:          cfg,
+		errorCfg:     errorCfg,
+		presenter:    admin.NewErrorPresenter(errorCfg, options.errorMappers...),
+		routeDomains: newHostRouteDomainResolver(cfg),
+	}
 
 	return func(c *fiber.Ctx, err error) error {
-		code := fiber.StatusInternalServerError
-		message := "internal server error"
+		return runtime.handle(c, err)
+	}
+}
 
-		// Check for fiber.Error first
-		var fe *fiber.Error
-		if errors.As(err, &fe) {
-			code = fe.Code
-			message = fe.Message
+type fiberErrorHandlerRuntime struct {
+	adm          *admin.Admin
+	cfg          admin.Config
+	errorCfg     admin.ErrorConfig
+	presenter    admin.ErrorPresenter
+	routeDomains hostRouteDomainResolver
+}
+
+type resolvedFiberError struct {
+	code    int
+	message string
+	fiber   *fiber.Error
+}
+
+func (r fiberErrorHandlerRuntime) handle(c *fiber.Ctx, err error) error {
+	resolved := resolveFiberError(err)
+	if r.routeDomains.classify(c.Path(), hostRouteStandard) == adminrouting.RouteDomainAdminAPI {
+		return r.renderAPIError(c, err, resolved)
+	}
+	return r.renderHTMLError(c, err, resolved)
+}
+
+func resolveFiberError(err error) resolvedFiberError {
+	resolved := resolvedFiberError{code: fiber.StatusInternalServerError, message: "internal server error"}
+	if errors.As(err, &resolved.fiber) {
+		resolved.code = resolved.fiber.Code
+		resolved.message = resolved.fiber.Message
+	}
+	if ge := (&goerrors.Error{}); goerrors.As(err, &ge) {
+		if ge.Code != 0 {
+			resolved.code = ge.Code
 		}
-
-		// Then check for go-errors.Error
-		if ge := (&goerrors.Error{}); goerrors.As(err, &ge) {
-			if ge.Code != 0 {
-				code = ge.Code
-			}
-			if ge.Message != "" {
-				message = ge.Message
-			}
+		if ge.Message != "" {
+			resolved.message = ge.Message
 		}
+	}
+	switch {
+	case errors.Is(err, admin.ErrNotFound):
+		resolved.code = fiber.StatusNotFound
+		resolved.message = "not found"
+	case errors.Is(err, admin.ErrForbidden):
+		resolved.code = fiber.StatusForbidden
+		resolved.message = "forbidden"
+	}
+	return resolved
+}
 
-		// Map core admin errors to HTTP status codes.
-		if errors.Is(err, admin.ErrNotFound) {
-			code = fiber.StatusNotFound
-			message = "not found"
-		} else if errors.Is(err, admin.ErrForbidden) {
-			code = fiber.StatusForbidden
-			message = "forbidden"
+func (r fiberErrorHandlerRuntime) renderAPIError(c *fiber.Ctx, err error, resolved resolvedFiberError) error {
+	mapped, status := r.presenter.Present(err)
+	if mapped == nil {
+		mapped = goerrors.New(resolved.message, goerrors.CategoryInternal).
+			WithCode(resolved.code).
+			WithTextCode(goerrors.HTTPStatusToTextCode(resolved.code))
+		status = resolved.code
+	}
+	applyFiberErrorOverride(mapped, resolved, &status)
+	if mapped.Metadata == nil {
+		mapped.Metadata = map[string]any{}
+	}
+	mapped.Metadata["path"] = c.Path()
+	mapped.Metadata["method"] = c.Method()
+	code := mapped.Code
+	if code == 0 {
+		code = status
+		mapped.Code = code
+	}
+	return c.Status(code).JSON(mapped.ToErrorResponse(r.presenter.IncludeStackTrace(), mapped.StackTrace))
+}
+
+func applyFiberErrorOverride(mapped *goerrors.Error, resolved resolvedFiberError, status *int) {
+	if resolved.fiber == nil || resolved.fiber.Code <= 0 {
+		return
+	}
+	if mapped.Code != 0 && mapped.Code < fiber.StatusInternalServerError {
+		return
+	}
+	if resolved.fiber.Code >= fiber.StatusInternalServerError {
+		return
+	}
+	mapped.Code = resolved.fiber.Code
+	mapped.TextCode = goerrors.HTTPStatusToTextCode(resolved.fiber.Code)
+	mapped.Message = resolved.fiber.Message
+	mapped.Category = goerrors.CategoryValidation
+	if resolved.fiber.Code == fiber.StatusNotFound {
+		mapped.Category = goerrors.CategoryNotFound
+	}
+	*status = resolved.fiber.Code
+}
+
+func (r fiberErrorHandlerRuntime) renderHTMLError(c *fiber.Ctx, err error, resolved resolvedFiberError) error {
+	headline, userMessage := errorContext(resolved.code)
+	viewCtx := r.baseErrorViewContext(c, resolved.code, headline, userMessage)
+	if r.errorCfg.DevMode {
+		r.applyDevErrorContext(c, err, viewCtx)
+	}
+	for key, value := range viewCtx {
+		c.Locals(key, value)
+	}
+	if renderErr := c.Status(resolved.code).Render("error", nil); renderErr != nil {
+		return c.SendString(fmt.Sprintf("%d - %s", resolved.code, headline))
+	}
+	return nil
+}
+
+func (r fiberErrorHandlerRuntime) baseErrorViewContext(c *fiber.Ctx, code int, headline, message string) router.ViewContext {
+	reqCtx := c.UserContext()
+	if reqCtx == nil {
+		reqCtx = context.Background()
+	}
+	viewCtx := WithNav(router.ViewContext{}, r.adm, r.cfg, "", reqCtx)
+	viewCtx["status"] = code
+	viewCtx["headline"] = headline
+	viewCtx["message"] = message
+	viewCtx["request_path"] = c.Path()
+	viewCtx["base_path"] = r.cfg.BasePath
+	viewCtx["title"] = r.cfg.Title
+	viewCtx["dev_mode"] = r.errorCfg.DevMode
+	return viewCtx
+}
+
+func (r fiberErrorHandlerRuntime) applyDevErrorContext(c *fiber.Ctx, err error, viewCtx router.ViewContext) {
+	viewCtx["error_detail"] = err.Error()
+	devCtx := r.presenter.BuildDevErrorContext(err, buildRequestInfo(c, r.errorCfg))
+	if devCtx == nil {
+		r.applyLegacyDevErrorContext(err, viewCtx)
+	} else {
+		applyEnrichedDevErrorContext(viewCtx, devCtx)
+	}
+	var disabled admin.FeatureDisabledError
+	if errors.As(err, &disabled) {
+		viewCtx["error_feature"] = disabled.Feature
+		viewCtx["error_reason"] = disabled.Reason
+	}
+}
+
+func (r fiberErrorHandlerRuntime) applyLegacyDevErrorContext(err error, viewCtx router.ViewContext) {
+	mapped, _ := r.presenter.Present(err)
+	if mapped == nil {
+		return
+	}
+	viewCtx["error_text_code"] = mapped.TextCode
+	viewCtx["error_category"] = mapped.Category
+	applyErrorMetadata(viewCtx, mapped.Metadata)
+	if r.presenter.IncludeStackTrace() {
+		if stack := formatStackTrace(mapped.StackTrace); stack != "" {
+			viewCtx["error_stack"] = stack
 		}
+	}
+}
 
-		isAPI := routeDomains.classify(c.Path(), hostRouteStandard) == adminrouting.RouteDomainAdminAPI
-
-		if isAPI {
-			mapped, status := presenter.Present(err)
-			if mapped == nil {
-				mapped = goerrors.New(message, goerrors.CategoryInternal).
-					WithCode(code).
-					WithTextCode(goerrors.HTTPStatusToTextCode(code))
-				status = code
-			}
-			if fe != nil && fe.Code > 0 &&
-				(mapped.Code == 0 || mapped.Code >= fiber.StatusInternalServerError) &&
-				fe.Code < fiber.StatusInternalServerError {
-				mapped.Code = fe.Code
-				mapped.TextCode = goerrors.HTTPStatusToTextCode(fe.Code)
-				mapped.Message = fe.Message
-				switch fe.Code {
-				case fiber.StatusNotFound:
-					mapped.Category = goerrors.CategoryNotFound
-				default:
-					mapped.Category = goerrors.CategoryValidation
-				}
-				status = fe.Code
-			}
-			if mapped.Metadata == nil {
-				mapped.Metadata = map[string]any{}
-			}
-			mapped.Metadata["path"] = c.Path()
-			mapped.Metadata["method"] = c.Method()
-			if mapped.Code != 0 {
-				code = mapped.Code
-			} else {
-				code = status
-				mapped.Code = code
-			}
-			includeStack := presenter.IncludeStackTrace()
-			return c.Status(code).JSON(mapped.ToErrorResponse(includeStack, mapped.StackTrace))
+func applyEnrichedDevErrorContext(viewCtx router.ViewContext, devCtx *admin.DevErrorContext) {
+	viewCtx["dev_context"] = serializeTemplateValue(devCtx)
+	viewCtx["error_type"] = devCtx.ErrorType
+	viewCtx["error_text_code"] = devCtx.TextCode
+	viewCtx["error_category"] = devCtx.Category
+	if devCtx.PrimarySource != nil {
+		viewCtx["primary_source"] = serializeTemplateValue(devCtx.PrimarySource)
+	}
+	if len(devCtx.StackFrames) > 0 {
+		viewCtx["stack_frames"] = serializeTemplateValue(devCtx.StackFrames)
+		if stack := formatStackTrace(devCtx.StackFrames); stack != "" {
+			viewCtx["error_stack"] = stack
 		}
+	}
+	if devCtx.RequestInfo != nil {
+		viewCtx["request_info"] = serializeTemplateValue(devCtx.RequestInfo)
+	}
+	if devCtx.EnvironmentInfo != nil {
+		viewCtx["env_info"] = serializeTemplateValue(devCtx.EnvironmentInfo)
+	}
+	applyErrorMetadata(viewCtx, devCtx.Metadata)
+}
 
-		headline, userMessage := errorContext(code)
-
-		reqCtx := c.UserContext()
-		if reqCtx == nil {
-			reqCtx = context.Background()
-		}
-
-		// Start with nav context
-		viewCtx := WithNav(router.ViewContext{}, adm, cfg, "", reqCtx)
-
-		// Then add error-specific fields (these should override any nav values)
-		viewCtx["status"] = code
-		viewCtx["headline"] = headline
-		viewCtx["message"] = userMessage
-		viewCtx["request_path"] = c.Path()
-		viewCtx["base_path"] = cfg.BasePath
-		viewCtx["title"] = cfg.Title
-		viewCtx["dev_mode"] = errorCfg.DevMode
-
-		if errorCfg.DevMode {
-			viewCtx["error_detail"] = err.Error()
-
-			// Build request info for dev context
-			reqInfo := buildRequestInfo(c, errorCfg)
-
-			// Build enriched dev error context
-			devCtx := presenter.BuildDevErrorContext(err, reqInfo)
-			if devCtx != nil {
-				viewCtx["dev_context"] = serializeTemplateValue(devCtx)
-				viewCtx["error_type"] = devCtx.ErrorType
-				viewCtx["error_text_code"] = devCtx.TextCode
-				viewCtx["error_category"] = devCtx.Category
-
-				// Primary source context for the error tab
-				if devCtx.PrimarySource != nil {
-					viewCtx["primary_source"] = serializeTemplateValue(devCtx.PrimarySource)
-				}
-
-				// Stack frames for the stack tab
-				if len(devCtx.StackFrames) > 0 {
-					viewCtx["stack_frames"] = serializeTemplateValue(devCtx.StackFrames)
-					// Also provide legacy stack string for backwards compatibility
-					if stack := formatStackTrace(devCtx.StackFrames); stack != "" {
-						viewCtx["error_stack"] = stack
-					}
-				}
-
-				// Request info for the request tab
-				if devCtx.RequestInfo != nil {
-					viewCtx["request_info"] = serializeTemplateValue(devCtx.RequestInfo)
-				}
-
-				// Environment info for the app tab
-				if devCtx.EnvironmentInfo != nil {
-					viewCtx["env_info"] = serializeTemplateValue(devCtx.EnvironmentInfo)
-				}
-
-				// Metadata
-				if len(devCtx.Metadata) > 0 {
-					viewCtx["error_metadata"] = devCtx.Metadata
-					if metaJSON, metaErr := json.MarshalIndent(devCtx.Metadata, "", "  "); metaErr == nil {
-						viewCtx["error_metadata_json"] = string(metaJSON)
-					}
-				}
-			} else {
-				// Fallback to legacy behavior
-				if mapped, _ := presenter.Present(err); mapped != nil {
-					viewCtx["error_text_code"] = mapped.TextCode
-					viewCtx["error_category"] = mapped.Category
-					if len(mapped.Metadata) > 0 {
-						viewCtx["error_metadata"] = mapped.Metadata
-						if metaJSON, metaErr := json.MarshalIndent(mapped.Metadata, "", "  "); metaErr == nil {
-							viewCtx["error_metadata_json"] = string(metaJSON)
-						}
-					}
-					if presenter.IncludeStackTrace() {
-						if stack := formatStackTrace(mapped.StackTrace); stack != "" {
-							viewCtx["error_stack"] = stack
-						}
-					}
-				}
-			}
-
-			var disabled admin.FeatureDisabledError
-			if errors.As(err, &disabled) {
-				viewCtx["error_feature"] = disabled.Feature
-				viewCtx["error_reason"] = disabled.Reason
-			}
-		}
-
-		// Set all viewCtx values via Locals to ensure Fiber's PassLocalsToViews works
-		for key, value := range viewCtx {
-			c.Locals(key, value)
-		}
-
-		// Pass nil to force Fiber to use only c.Locals() with PassLocalsToViews
-		if renderErr := c.Status(code).Render("error", nil); renderErr != nil {
-			return c.SendString(fmt.Sprintf("%d - %s", code, headline))
-		}
-		return nil
+func applyErrorMetadata(viewCtx router.ViewContext, metadata map[string]any) {
+	if len(metadata) == 0 {
+		return
+	}
+	viewCtx["error_metadata"] = metadata
+	if metaJSON, err := json.MarshalIndent(metadata, "", "  "); err == nil {
+		viewCtx["error_metadata_json"] = string(metaJSON)
 	}
 }
 
@@ -291,48 +311,62 @@ func buildRequestInfo(c *fiber.Ctx, cfg admin.ErrorConfig) *admin.RequestInfo {
 	// Extract headers if enabled
 	if cfg.ShowRequestHeaders {
 		info.Headers = make(map[string]string)
-		c.Request().Header.VisitAll(func(key, value []byte) {
+		for key, value := range c.Request().Header.All() {
 			headerKey := string(key)
 			// Skip sensitive headers
 			if !isSensitiveHeader(headerKey) {
 				info.Headers[headerKey] = string(value)
 			}
-		})
+		}
 	}
 
 	// Extract query params
 	info.QueryParams = make(map[string]string)
-	c.Request().URI().QueryArgs().VisitAll(func(key, value []byte) {
+	for key, value := range c.Request().URI().QueryArgs().All() {
 		info.QueryParams[string(key)] = string(value)
-	})
+	}
 
-	// Extract form data for POST requests
-	if c.Method() == "POST" || c.Method() == "PUT" || c.Method() == "PATCH" {
-		contentType := info.ContentType
-		if strings.Contains(contentType, "application/x-www-form-urlencoded") ||
-			strings.Contains(contentType, "multipart/form-data") {
-			info.FormData = make(map[string]string)
-			c.Request().PostArgs().VisitAll(func(key, value []byte) {
-				formKey := string(key)
-				// Skip sensitive form fields
-				if !isSensitiveFormField(formKey) {
-					info.FormData[formKey] = string(value)
-				}
-			})
-		} else if cfg.ShowRequestBody && strings.Contains(contentType, "application/json") {
-			// Include JSON body (truncated)
-			body := c.Body()
-			if len(body) > 0 {
-				if len(body) > 2000 {
-					info.Body = string(body[:2000]) + "... (truncated)"
-				} else {
-					info.Body = string(body)
-				}
-			}
-		}
+	if methodMayHaveBody(c.Method()) {
+		applyRequestBodyInfo(c, cfg, info)
 	}
 
 	return info
+}
+
+func methodMayHaveBody(method string) bool {
+	return method == "POST" || method == "PUT" || method == "PATCH"
+}
+
+func applyRequestBodyInfo(c *fiber.Ctx, cfg admin.ErrorConfig, info *admin.RequestInfo) {
+	contentType := info.ContentType
+	if isFormContentType(contentType) {
+		info.FormData = make(map[string]string)
+		for key, value := range c.Request().PostArgs().All() {
+			formKey := string(key)
+			if !isSensitiveFormField(formKey) {
+				info.FormData[formKey] = string(value)
+			}
+		}
+		return
+	}
+	if cfg.ShowRequestBody && strings.Contains(contentType, "application/json") {
+		info.Body = truncateRequestBody(c.Body(), 2000)
+	}
+}
+
+func isFormContentType(contentType string) bool {
+	return strings.Contains(contentType, "application/x-www-form-urlencoded") ||
+		strings.Contains(contentType, "multipart/form-data")
+}
+
+func truncateRequestBody(body []byte, limit int) string {
+	if len(body) == 0 {
+		return ""
+	}
+	if len(body) <= limit {
+		return string(body)
+	}
+	return string(body[:limit]) + "... (truncated)"
 }
 
 // isSensitiveHeader checks if a header should be hidden.
@@ -375,27 +409,6 @@ func isSensitiveFormField(key string) bool {
 		}
 	}
 	return false
-}
-
-// buildEnvironmentInfo creates environment information.
-func buildEnvironmentInfo(cfg admin.ErrorConfig) *admin.EnvironmentInfo {
-	if !cfg.ShowEnvironment {
-		return nil
-	}
-
-	return &admin.EnvironmentInfo{
-		GoVersion:   runtime.Version(),
-		AppVersion:  cfg.AppVersion,
-		Environment: environmentLabel(cfg.DevMode),
-		Debug:       cfg.DevMode,
-	}
-}
-
-func environmentLabel(isDev bool) string {
-	if isDev {
-		return "development"
-	}
-	return "production"
 }
 
 func errorContext(code int) (string, string) {

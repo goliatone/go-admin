@@ -23,34 +23,17 @@ func (r *navigationRuntime) resolveRawMenu(
 ) (*admin.Menu, string, error) {
 	location = strings.TrimSpace(location)
 	var lastErr error
-	if r.menuSvc != nil && location != "" {
-		menu, err := r.menuByLocation(ctx, location, opts)
-		if err == nil && menu != nil && len(menu.Items) > 0 {
-			return menu, "location", nil
-		}
-		if err != nil {
-			lastErr = err
-		}
-		if err == nil && menu != nil && len(menu.Items) == 0 {
-			lastErr = nil
-		}
+	if menu, err, ok := r.resolveMenuByLocation(ctx, location, opts); ok {
+		return menu, "location", nil
+	} else if err != nil {
+		lastErr = err
 	}
 
 	fallbackCode := strings.TrimSpace(r.siteCfg.Navigation.FallbackMenuCode)
-	if r.menuSvc != nil && fallbackCode != "" {
-		menu, err := r.menuByCode(ctx, fallbackCode, opts)
-		if err == nil && menu != nil && len(menu.Items) > 0 {
-			if strings.TrimSpace(menu.Location) == "" {
-				menu.Location = location
-			}
-			return menu, "code", nil
-		}
-		if err != nil {
-			lastErr = err
-		}
-		if err == nil && menu != nil && len(menu.Items) == 0 {
-			lastErr = nil
-		}
+	if menu, err, ok := r.resolveMenuByFallbackCode(ctx, fallbackCode, location, opts); ok {
+		return menu, "code", nil
+	} else if err != nil {
+		lastErr = err
 	}
 
 	if generated := r.generatedFallbackMenu(ctx, state, location); generated != nil {
@@ -61,6 +44,37 @@ func (r *navigationRuntime) resolveRawMenu(
 		Location: location,
 		Items:    []admin.MenuItem{},
 	}, "empty", lastErr
+}
+
+func (r *navigationRuntime) resolveMenuByLocation(ctx context.Context, location string, opts navigationReadOptions) (*admin.Menu, error, bool) {
+	if r.menuSvc == nil || location == "" {
+		return nil, nil, false
+	}
+	return menuResolutionResult(r.menuByLocation(ctx, location, opts))
+}
+
+func (r *navigationRuntime) resolveMenuByFallbackCode(ctx context.Context, fallbackCode, location string, opts navigationReadOptions) (*admin.Menu, error, bool) {
+	if r.menuSvc == nil || fallbackCode == "" {
+		return nil, nil, false
+	}
+	menu, err, ok := menuResolutionResult(r.menuByCode(ctx, fallbackCode, opts))
+	if !ok {
+		return nil, err, false
+	}
+	if strings.TrimSpace(menu.Location) == "" {
+		menu.Location = location
+	}
+	return menu, nil, true
+}
+
+func menuResolutionResult(menu *admin.Menu, err error) (*admin.Menu, error, bool) {
+	if err != nil {
+		return nil, err, false
+	}
+	if menu == nil || len(menu.Items) == 0 {
+		return nil, nil, false
+	}
+	return menu, nil, true
 }
 
 func (r *navigationRuntime) menuByLocation(ctx context.Context, location string, opts navigationReadOptions) (*admin.Menu, error) {

@@ -559,11 +559,8 @@ func (h *contentTypeBuilderHandlers) BlockDefinitionDiagnostics(c router.Context
 	}
 	addEnv := func(defs []admin.CMSBlockDefinition, fallback string) {
 		for _, def := range defs {
-			env := normalizeChannelKey(strings.TrimSpace(def.Channel))
-			if strings.TrimSpace(def.Channel) == "" {
-				env = normalizeChannelKey(strings.TrimSpace(def.Environment))
-			}
-			if env == defaultChannelKey && strings.TrimSpace(def.Channel) == "" && strings.TrimSpace(def.Environment) == "" {
+			env := normalizeChannelKey(admin.CMSBlockDefinitionChannel(def))
+			if env == defaultChannelKey && strings.TrimSpace(def.Channel) == "" {
 				env = normalizeChannelKey(fallback)
 			}
 			envSet[env] = struct{}{}

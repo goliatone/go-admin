@@ -64,25 +64,7 @@ func (r *deliveryRuntime) resolveDetailKind(
 		return nil, SiteRuntimeError{}, false
 	}
 	slug := strings.TrimSpace(params["slug"])
-	candidates := []admin.CMSContent{}
-	for _, record := range records {
-		path := deliveryRequestMatchPath(r.strictLocalizedPathsEnabled(), record, capability, r.siteCfg.SupportedLocales)
-		if path != "" && pathsMatch(path, requestPath) {
-			candidates = append(candidates, record)
-			continue
-		}
-		if slug != "" {
-			if !deliverySlugMatches(record, slug, capability) {
-				continue
-			}
-		} else if path == "" || !pathsMatch(path, requestPath) {
-			continue
-		}
-		candidates = append(candidates, record)
-	}
-	if len(candidates) == 0 && !r.strictLocalizedPathsEnabled() {
-		candidates = r.resolveDetailPathAliasCandidates(ctx, capability, state, requestPath, slug, cache)
-	}
+	candidates := r.detailKindCandidates(ctx, capability, records, state, requestPath, slug, cache)
 	if len(candidates) == 0 {
 		return nil, SiteRuntimeError{}, false
 	}
@@ -99,6 +81,38 @@ func (r *deliveryRuntime) resolveDetailKind(
 	}
 	resolution := resolutionFromDetailRecord(capability, selected, state.Locale, available, fallbackUsed, candidates)
 	return resolution, SiteRuntimeError{}, true
+}
+
+func (r *deliveryRuntime) detailKindCandidates(
+	ctx context.Context,
+	capability deliveryCapability,
+	records []admin.CMSContent,
+	state RequestState,
+	requestPath string,
+	slug string,
+	cache *siteContentCache,
+) []admin.CMSContent {
+	candidates := []admin.CMSContent{}
+	for _, record := range records {
+		if detailKindRecordMatches(r.strictLocalizedPathsEnabled(), record, capability, r.siteCfg.SupportedLocales, requestPath, slug) {
+			candidates = append(candidates, record)
+		}
+	}
+	if len(candidates) == 0 && !r.strictLocalizedPathsEnabled() {
+		return r.resolveDetailPathAliasCandidates(ctx, capability, state, requestPath, slug, cache)
+	}
+	return candidates
+}
+
+func detailKindRecordMatches(strictLocalizedPaths bool, record admin.CMSContent, capability deliveryCapability, supportedLocales []string, requestPath string, slug string) bool {
+	path := deliveryRequestMatchPath(strictLocalizedPaths, record, capability, supportedLocales)
+	if path != "" && pathsMatch(path, requestPath) {
+		return true
+	}
+	if slug != "" {
+		return deliverySlugMatches(record, slug, capability)
+	}
+	return path != "" && pathsMatch(path, requestPath)
 }
 
 func (r *deliveryRuntime) resolveCollectionKind(

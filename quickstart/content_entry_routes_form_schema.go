@@ -122,29 +122,43 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 		}
 		return payload, nil
 	}
-	body := c.Body()
-	values := url.Values{}
-	if len(body) > 0 {
-		if isMultipartFormRequest(c) {
-			parsed, err := parseMultipartFormValues(c)
-			if err != nil {
-				return nil, goerrors.New("invalid multipart form payload", goerrors.CategoryValidation).
-					WithCode(http.StatusBadRequest).
-					WithTextCode("INVALID_FORM")
-			}
-			values = parsed
-		} else {
-			parsed, err := url.ParseQuery(string(body))
-			if err != nil {
-				return nil, goerrors.New("invalid form payload", goerrors.CategoryValidation).
-					WithCode(http.StatusBadRequest).
-					WithTextCode("INVALID_FORM")
-			}
-			values = parsed
-		}
+	values, err := parseFormRequestValues(c)
+	if err != nil {
+		return nil, err
 	}
 	record := map[string]any{}
 	schemaMap, boolPaths := flattenSchema(schema)
+	if err := applyFormValues(record, values, schemaMap); err != nil {
+		return nil, err
+	}
+	applyMissingBoolFields(record, boolPaths)
+	return record, nil
+}
+
+func parseFormRequestValues(c router.Context) (url.Values, error) {
+	body := c.Body()
+	if len(body) == 0 {
+		return url.Values{}, nil
+	}
+	if isMultipartFormRequest(c) {
+		parsed, err := parseMultipartFormValues(c)
+		if err != nil {
+			return nil, goerrors.New("invalid multipart form payload", goerrors.CategoryValidation).
+				WithCode(http.StatusBadRequest).
+				WithTextCode("INVALID_FORM")
+		}
+		return parsed, nil
+	}
+	parsed, err := url.ParseQuery(string(body))
+	if err != nil {
+		return nil, goerrors.New("invalid form payload", goerrors.CategoryValidation).
+			WithCode(http.StatusBadRequest).
+			WithTextCode("INVALID_FORM")
+	}
+	return parsed, nil
+}
+
+func applyFormValues(record map[string]any, values url.Values, schemaMap map[string]schemaPathInfo) error {
 	for key, vals := range values {
 		if key == "" {
 			continue
@@ -158,7 +172,7 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 		if len(vals) > 1 || (submittedArray && schemaType == "array") {
 			value, err := parseMultiValue(vals, schemaDef)
 			if err != nil {
-				return nil, goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(fieldKey)), goerrors.CategoryValidation).
+				return goerrors.New(fmt.Sprintf("invalid form payload for %s", strings.TrimSpace(fieldKey)), goerrors.CategoryValidation).
 					WithCode(http.StatusBadRequest).
 					WithTextCode("INVALID_FORM")
 			}
@@ -172,12 +186,15 @@ func (h *contentEntryHandlers) parseFormPayload(c router.Context, schema map[str
 		value := parseValue(vals[0], schemaDef)
 		setNestedValue(record, fieldKey, value)
 	}
+	return nil
+}
+
+func applyMissingBoolFields(record map[string]any, boolPaths []string) {
 	for _, path := range boolPaths {
 		if !hasNestedValue(record, path) {
 			setNestedValue(record, path, false)
 		}
 	}
-	return record, nil
 }
 
 func normalizeSubmittedArrayFieldName(key string, schemaMap map[string]schemaPathInfo) (string, bool) {
@@ -737,35 +754,13 @@ func formatContentEntryDetailValue(value any, displayKeys []string) string {
 	case string:
 		return typed
 	case []string:
-		if len(typed) == 0 {
-			return ""
-		}
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if trimmed := strings.TrimSpace(item); trimmed != "" {
-				out = append(out, trimmed)
-			}
-		}
-		return strings.Join(out, ", ")
+		return formatContentEntryStringSlice(typed)
 	case []any:
-		if len(typed) == 0 {
-			return ""
-		}
-		out := make([]string, 0, len(typed))
-		for _, item := range typed {
-			if text := strings.TrimSpace(formatContentEntryDetailValue(item, displayKeys)); text != "" {
-				out = append(out, text)
-			}
-		}
-		return strings.Join(out, ", ")
+		return formatContentEntryAnySlice(typed, displayKeys)
 	case map[string]any:
 		return summarizeContentEntryObject(typed, displayKeys)
 	case map[string]string:
-		converted := make(map[string]any, len(typed))
-		for key, item := range typed {
-			converted[key] = item
-		}
-		return summarizeContentEntryObject(converted, displayKeys)
+		return summarizeContentEntryObject(anyMapFromStringMap(typed), displayKeys)
 	case bool:
 		if typed {
 			return "true"
@@ -777,6 +772,40 @@ func formatContentEntryDetailValue(value any, displayKeys []string) string {
 		}
 		return anyToString(typed)
 	}
+}
+
+func formatContentEntryStringSlice(items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if trimmed := strings.TrimSpace(item); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return strings.Join(out, ", ")
+}
+
+func formatContentEntryAnySlice(items []any, displayKeys []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if text := strings.TrimSpace(formatContentEntryDetailValue(item, displayKeys)); text != "" {
+			out = append(out, text)
+		}
+	}
+	return strings.Join(out, ", ")
+}
+
+func anyMapFromStringMap(value map[string]string) map[string]any {
+	converted := make(map[string]any, len(value))
+	for key, item := range value {
+		converted[key] = item
+	}
+	return converted
 }
 
 func summarizeContentEntryObject(value map[string]any, displayKeys []string) string {
@@ -847,18 +876,26 @@ func contentTypeSchema(contentType *admin.CMSContentType, panel *admin.Panel) ma
 			return schema
 		}
 	}
-	if panel != nil {
-		if schema := panel.Schema().FormSchema; len(schema) > 0 {
-			normalized := ensureContentEntryJSONSchema(cloneAnyMap(schema))
-			if contentEntrySchemaHasRenderableFields(normalized) {
-				return normalized
-			}
+	if schema := contentTypeSchemaFromPanel(panel); len(schema) > 0 {
+		return schema
+	}
+	return nil
+}
+
+func contentTypeSchemaFromPanel(panel *admin.Panel) map[string]any {
+	if panel == nil {
+		return nil
+	}
+	if schema := panel.Schema().FormSchema; len(schema) > 0 {
+		normalized := ensureContentEntryJSONSchema(cloneAnyMap(schema))
+		if contentEntrySchemaHasRenderableFields(normalized) {
+			return normalized
 		}
-		if schema := schemaFromPanelFields(panel.Schema().FormFields); len(schema) > 0 {
-			normalized := ensureContentEntryJSONSchema(schema)
-			if contentEntrySchemaHasRenderableFields(normalized) {
-				return normalized
-			}
+	}
+	if schema := schemaFromPanelFields(panel.Schema().FormFields); len(schema) > 0 {
+		normalized := ensureContentEntryJSONSchema(schema)
+		if contentEntrySchemaHasRenderableFields(normalized) {
+			return normalized
 		}
 	}
 	return nil

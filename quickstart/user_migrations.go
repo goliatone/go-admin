@@ -84,62 +84,78 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		}
 	}
 
-	enableAuth, enableUsersCore, enableUsersAuthBootstrap, enableUsersAuthExtras, err := resolveUserMigrationsProfile(options.profile)
+	enabled, err := resolveUserMigrationEnabledSources(options)
 	if err != nil {
 		return err
-	}
-	if options.enableAuth != nil {
-		enableAuth = *options.enableAuth
-	}
-	if options.enableUsersCore != nil {
-		enableUsersCore = *options.enableUsersCore
-	}
-	if options.enableUsersAuthBootstrap != nil {
-		enableUsersAuthBootstrap = *options.enableUsersAuthBootstrap
-	}
-	if options.enableUsersAuthExtras != nil {
-		enableUsersAuthExtras = *options.enableUsersAuthExtras
 	}
 
 	orderedSources := make([]persistence.OrderedMigrationSource, 0, 4)
 	sourceNameCounts := map[string]int{}
-
-	if enableAuth {
-		migrationsFS, err := resolveMigrationFS(options.authFS, auth.GetMigrationsFS(), "data/sql/migrations")
+	for _, source := range userMigrationSourceSpecs(options, enabled) {
+		if !source.enabled {
+			continue
+		}
+		migrationsFS, err := resolveMigrationFS(source.overrideFS, source.defaultFS, source.subdir)
 		if err != nil {
 			return err
 		}
-		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.authLabel, options.validationTargets, options.observer)
-	}
-
-	if enableUsersAuthBootstrap {
-		migrationsFS, err := resolveMigrationFS(options.usersAuthBootstrapFS, users.GetAuthBootstrapMigrationsFS(), "data/sql/migrations/auth")
-		if err != nil {
-			return err
-		}
-		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.usersAuthBootstrapLabel, options.validationTargets, options.observer)
-	}
-
-	if enableUsersAuthExtras {
-		migrationsFS, err := resolveMigrationFS(options.usersAuthExtrasFS, users.GetAuthExtrasMigrationsFS(), "data/sql/migrations/auth_extras")
-		if err != nil {
-			return err
-		}
-		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.usersAuthExtrasLabel, options.validationTargets, options.observer)
-	}
-
-	if enableUsersCore {
-		migrationsFS, err := resolveMigrationFS(options.usersCoreFS, users.GetCoreMigrationsFS(), "data/sql/migrations")
-		if err != nil {
-			return err
-		}
-		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, options.usersCoreLabel, options.validationTargets, options.observer)
+		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, source.label, options.validationTargets, options.observer)
 	}
 
 	if len(orderedSources) == 0 {
 		return nil
 	}
 	return client.RegisterOrderedMigrationSources(orderedSources...)
+}
+
+type userMigrationEnabledSources struct {
+	auth               bool
+	usersCore          bool
+	usersAuthBootstrap bool
+	usersAuthExtras    bool
+}
+
+type userMigrationSourceSpec struct {
+	enabled    bool
+	overrideFS fs.FS
+	defaultFS  fs.FS
+	subdir     string
+	label      string
+}
+
+func resolveUserMigrationEnabledSources(options userMigrationsOptions) (userMigrationEnabledSources, error) {
+	enableAuth, enableUsersCore, enableUsersAuthBootstrap, enableUsersAuthExtras, err := resolveUserMigrationsProfile(options.profile)
+	if err != nil {
+		return userMigrationEnabledSources{}, err
+	}
+	enabled := userMigrationEnabledSources{
+		auth:               enableAuth,
+		usersCore:          enableUsersCore,
+		usersAuthBootstrap: enableUsersAuthBootstrap,
+		usersAuthExtras:    enableUsersAuthExtras,
+	}
+	if options.enableAuth != nil {
+		enabled.auth = *options.enableAuth
+	}
+	if options.enableUsersCore != nil {
+		enabled.usersCore = *options.enableUsersCore
+	}
+	if options.enableUsersAuthBootstrap != nil {
+		enabled.usersAuthBootstrap = *options.enableUsersAuthBootstrap
+	}
+	if options.enableUsersAuthExtras != nil {
+		enabled.usersAuthExtras = *options.enableUsersAuthExtras
+	}
+	return enabled, nil
+}
+
+func userMigrationSourceSpecs(options userMigrationsOptions, enabled userMigrationEnabledSources) []userMigrationSourceSpec {
+	return []userMigrationSourceSpec{
+		{enabled: enabled.auth, overrideFS: options.authFS, defaultFS: auth.GetMigrationsFS(), subdir: "data/sql/migrations", label: options.authLabel},
+		{enabled: enabled.usersAuthBootstrap, overrideFS: options.usersAuthBootstrapFS, defaultFS: users.GetAuthBootstrapMigrationsFS(), subdir: "data/sql/migrations/auth", label: options.usersAuthBootstrapLabel},
+		{enabled: enabled.usersAuthExtras, overrideFS: options.usersAuthExtrasFS, defaultFS: users.GetAuthExtrasMigrationsFS(), subdir: "data/sql/migrations/auth_extras", label: options.usersAuthExtrasLabel},
+		{enabled: enabled.usersCore, overrideFS: options.usersCoreFS, defaultFS: users.GetCoreMigrationsFS(), subdir: "data/sql/migrations", label: options.usersCoreLabel},
+	}
 }
 
 // WithUserMigrationsProfile sets the canonical user migration registration profile.

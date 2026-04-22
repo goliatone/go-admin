@@ -2,7 +2,6 @@ package site
 
 import (
 	"path"
-	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/admin/routing"
@@ -51,12 +50,4 @@ func siteRoutingRootsFromAdminConfig(cfg admin.Config) routing.RootsConfig {
 		},
 	})
 	return routing.MergeRoots(defaults, routing.NormalizeRoots(cfg.Routing.Roots))
-}
-
-func sitePublicAPIPrefixFromAdminConfig(cfg admin.Config) string {
-	publicPrefix := strings.TrimSpace(cfg.URLs.Public.APIPrefix)
-	if publicPrefix == "" {
-		publicPrefix = routing.DefaultPublicAPIPrefix
-	}
-	return routing.JoinAbsolutePath(cfg.URLs.Public.BasePath, publicPrefix)
 }

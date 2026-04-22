@@ -135,44 +135,51 @@ func mergeTranslationCapabilities(base, overlay map[string]any) map[string]any {
 	copyCapabilityField(out, overlay, "panels")
 	copyCapabilityField(out, overlay, "resolver_keys")
 
-	overlayModules, _ := overlay["modules"].(map[string]any)
-	if len(overlayModules) > 0 {
-		baseModules, _ := out["modules"].(map[string]any)
-		mergedModules := cloneAnyMap(baseModules)
-		if mergedModules == nil {
-			mergedModules = map[string]any{}
-		}
-		for moduleName, rawModule := range overlayModules {
-			moduleName = strings.TrimSpace(moduleName)
-			if moduleName == "" {
-				continue
-			}
-			moduleOverlay, ok := rawModule.(map[string]any)
-			if !ok {
-				continue
-			}
-			enabled, hasEnabled := moduleOverlay["enabled"].(bool)
-			rawBaseModule, _ := mergedModules[moduleName].(map[string]any)
-			baseModule := cloneAnyMap(rawBaseModule)
-			if baseModule == nil {
-				baseModule = map[string]any{}
-			}
-			if hasEnabled {
-				effectiveEnabled := enabled
-				if baseEnabled, ok := baseModule["enabled"].(bool); ok {
-					effectiveEnabled = effectiveTranslationModuleEnabled(baseEnabled, enabled)
-				}
-				baseModule["enabled"] = effectiveEnabled
-				applyModuleEntryState(baseModule, effectiveEnabled)
-				applyModuleActionStates(baseModule, effectiveEnabled)
-			}
-			mergedModules[moduleName] = baseModule
-		}
-		out["modules"] = mergedModules
-	}
+	mergeTranslationCapabilityModules(out, overlay)
 	applyTranslationCapabilityRouteFiltering(out)
 
 	return out
+}
+
+func mergeTranslationCapabilityModules(out, overlay map[string]any) {
+	overlayModules, _ := overlay["modules"].(map[string]any)
+	if len(overlayModules) == 0 {
+		return
+	}
+	baseModules, _ := out["modules"].(map[string]any)
+	mergedModules := cloneAnyMap(baseModules)
+	if mergedModules == nil {
+		mergedModules = map[string]any{}
+	}
+	for moduleName, rawModule := range overlayModules {
+		moduleName = strings.TrimSpace(moduleName)
+		moduleOverlay, ok := rawModule.(map[string]any)
+		if moduleName == "" || !ok {
+			continue
+		}
+		mergedModules[moduleName] = mergeTranslationCapabilityModule(mergedModules[moduleName], moduleOverlay)
+	}
+	out["modules"] = mergedModules
+}
+
+func mergeTranslationCapabilityModule(rawBase any, moduleOverlay map[string]any) map[string]any {
+	rawBaseModule, _ := rawBase.(map[string]any)
+	baseModule := cloneAnyMap(rawBaseModule)
+	if baseModule == nil {
+		baseModule = map[string]any{}
+	}
+	enabled, hasEnabled := moduleOverlay["enabled"].(bool)
+	if !hasEnabled {
+		return baseModule
+	}
+	effectiveEnabled := enabled
+	if baseEnabled, ok := baseModule["enabled"].(bool); ok {
+		effectiveEnabled = effectiveTranslationModuleEnabled(baseEnabled, enabled)
+	}
+	baseModule["enabled"] = effectiveEnabled
+	applyModuleEntryState(baseModule, effectiveEnabled)
+	applyModuleActionStates(baseModule, effectiveEnabled)
+	return baseModule
 }
 
 func copyCapabilityField(out, overlay map[string]any, key string) {

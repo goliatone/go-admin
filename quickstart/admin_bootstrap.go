@@ -293,48 +293,8 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		}
 		return nil, result, ErrPersistentCMSSetupFailed
 	}
-	if options.deps.TranslationPolicy == nil {
-		policyCfg := DefaultTranslationPolicyConfig()
-		if options.translationPolicyConfigSet {
-			policyCfg = options.translationPolicyConfig
-		}
-		if options.translationPolicyConfigSet || policyCfg.DenyByDefault || hasTranslationPolicyRequirements(policyCfg) {
-			policyCfg = NormalizeTranslationPolicyConfig(policyCfg)
-			services := resolveTranslationPolicyServices(cfg, options.translationPolicyServices)
-			if policy := NewTranslationPolicy(policyCfg, services); policy != nil {
-				options.deps.TranslationPolicy = policy
-			}
-		}
-	}
-	if options.deps.PreferencesStore == nil {
-		repo := options.preferencesRepo
-		if repo == nil && options.preferencesRepoFactory != nil {
-			var err error
-			repo, err = options.preferencesRepoFactory()
-			if err != nil {
-				return nil, result, err
-			}
-		}
-		if repo != nil {
-			store, err := NewGoUsersPreferencesStore(repo)
-			if err != nil {
-				return nil, result, err
-			}
-			options.deps.PreferencesStore = store
-		}
-	}
-	if options.deps.PreferencesStore == nil {
-		options.deps.PreferencesStore = admin.NewInMemoryPreferencesStore()
-	}
-	if options.deps.FeatureGate == nil {
-		defaults := DefaultAdminFeatures()
-		if len(options.featureSet) > 0 {
-			defaults = cloneFeatureDefaults(options.featureSet)
-		}
-		if len(options.featureDefaults) > 0 {
-			defaults = mergeFeatureDefaults(defaults, options.featureDefaults)
-		}
-		options.deps.FeatureGate = buildFeatureGate(cfg, defaults, options.deps.PreferencesStore)
+	if err := resolveAdminRuntimeDependencies(cfg, &options); err != nil {
+		return nil, result, err
 	}
 	applyRPCTransportPolicyConfig(&cfg, &options)
 	applyCommandExecutionRoutingConfig(&cfg, options)
@@ -395,6 +355,73 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		return nil, result, err
 	}
 	return adm, result, nil
+}
+
+func resolveAdminRuntimeDependencies(cfg admin.Config, options *adminOptions) error {
+	if options == nil {
+		return nil
+	}
+	resolveTranslationPolicyDependency(cfg, options)
+	if err := resolvePreferencesStoreDependency(options); err != nil {
+		return err
+	}
+	if options.deps.FeatureGate == nil {
+		options.deps.FeatureGate = buildFeatureGate(cfg, resolveFeatureDefaults(*options), options.deps.PreferencesStore)
+	}
+	return nil
+}
+
+func resolveTranslationPolicyDependency(cfg admin.Config, options *adminOptions) {
+	if options.deps.TranslationPolicy != nil {
+		return
+	}
+	policyCfg := DefaultTranslationPolicyConfig()
+	if options.translationPolicyConfigSet {
+		policyCfg = options.translationPolicyConfig
+	}
+	if !options.translationPolicyConfigSet && !policyCfg.DenyByDefault && !hasTranslationPolicyRequirements(policyCfg) {
+		return
+	}
+	policyCfg = NormalizeTranslationPolicyConfig(policyCfg)
+	services := resolveTranslationPolicyServices(cfg, options.translationPolicyServices)
+	if policy := NewTranslationPolicy(policyCfg, services); policy != nil {
+		options.deps.TranslationPolicy = policy
+	}
+}
+
+func resolvePreferencesStoreDependency(options *adminOptions) error {
+	if options.deps.PreferencesStore != nil {
+		return nil
+	}
+	repo := options.preferencesRepo
+	if repo == nil && options.preferencesRepoFactory != nil {
+		var err error
+		repo, err = options.preferencesRepoFactory()
+		if err != nil {
+			return err
+		}
+	}
+	if repo == nil {
+		options.deps.PreferencesStore = admin.NewInMemoryPreferencesStore()
+		return nil
+	}
+	store, err := NewGoUsersPreferencesStore(repo)
+	if err != nil {
+		return err
+	}
+	options.deps.PreferencesStore = store
+	return nil
+}
+
+func resolveFeatureDefaults(options adminOptions) map[string]bool {
+	defaults := DefaultAdminFeatures()
+	if len(options.featureSet) > 0 {
+		defaults = cloneFeatureDefaults(options.featureSet)
+	}
+	if len(options.featureDefaults) > 0 {
+		defaults = mergeFeatureDefaults(defaults, options.featureDefaults)
+	}
+	return defaults
 }
 
 func normalizeStartupPolicy(policy StartupPolicy) admin.ModuleStartupPolicy {

@@ -32,6 +32,14 @@ type SeedNavigationOptions struct {
 	AutoCreateParents bool `json:"auto_create_parents"`
 }
 
+type seedNavigationRuntime struct {
+	ctx      context.Context
+	opts     SeedNavigationOptions
+	menuCode string
+	locale   string
+	logf     func(format string, args ...any)
+}
+
 // SeedNavigation seeds a menu using the public admin CMS menu contract.
 func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 	if ctx == nil {
@@ -41,80 +49,99 @@ func SeedNavigation(ctx context.Context, opts SeedNavigationOptions) error {
 		return fmt.Errorf("MenuSvc is required")
 	}
 
+	runtime := newSeedNavigationRuntime(ctx, opts)
+	if err := runtime.resetMenu(); err != nil {
+		return err
+	}
+	if _, err := opts.MenuSvc.CreateMenu(ctx, runtime.menuCode); err != nil {
+		return err
+	}
+	return runtime.addSeedItems()
+}
+
+func newSeedNavigationRuntime(ctx context.Context, opts SeedNavigationOptions) seedNavigationRuntime {
 	menuCode := cms.CanonicalMenuCode(opts.MenuCode)
 	if menuCode == "" {
 		menuCode = cms.CanonicalMenuCode("admin")
 	}
-
-	resetEnv := opts.ResetEnv
-	if resetEnv == "" {
-		resetEnv = "RESET_NAV_MENU"
+	return seedNavigationRuntime{
+		ctx:      ctx,
+		opts:     opts,
+		menuCode: menuCode,
+		locale:   resolveSeedNavigationLocale(opts),
+		logf:     resolveSeedNavigationLogger(opts),
 	}
-	_ = resetEnv
-	reset := opts.Reset
+}
 
-	logf := opts.Logf
-	if logf == nil && !opts.SkipLogger {
-		logger := resolveQuickstartNamedLogger("quickstart.navigation", nil, nil)
-		logf = func(format string, args ...any) {
-			ensureQuickstartLogger(logger).Info(fmt.Sprintf(format, args...))
+func resolveSeedNavigationLogger(opts SeedNavigationOptions) func(format string, args ...any) {
+	if opts.Logf != nil || opts.SkipLogger {
+		return opts.Logf
+	}
+	logger := resolveQuickstartNamedLogger("quickstart.navigation", nil, nil)
+	return func(format string, args ...any) {
+		ensureQuickstartLogger(logger).Info(fmt.Sprintf(format, args...))
+	}
+}
+
+func resolveSeedNavigationLocale(opts SeedNavigationOptions) string {
+	if locale := strings.TrimSpace(opts.Locale); locale != "" {
+		return locale
+	}
+	for _, item := range opts.Items {
+		if locale := strings.TrimSpace(item.Locale); locale != "" {
+			return locale
 		}
 	}
+	return "en"
+}
 
-	locale := strings.TrimSpace(opts.Locale)
-	if locale == "" {
-		for _, item := range opts.Items {
-			if v := strings.TrimSpace(item.Locale); v != "" {
-				locale = v
-				break
-			}
+func (runtime seedNavigationRuntime) resetMenu() error {
+	if !runtime.opts.Reset {
+		return nil
+	}
+	resetter, ok := runtime.opts.MenuSvc.(menuResetterWithContext)
+	if !ok || resetter == nil {
+		if runtime.logf != nil {
+			runtime.logf("[nav seed] reset requested for %s but menu service does not implement reset", runtime.menuCode)
 		}
+		return nil
 	}
-	if locale == "" {
-		locale = "en"
-	}
-
-	if reset {
-		if resetter, ok := opts.MenuSvc.(menuResetterWithContext); ok && resetter != nil {
-			if err := resetter.ResetMenuContext(ctx, menuCode); err != nil && !errors.Is(err, admin.ErrNotFound) {
-				return err
-			}
-			if logf != nil {
-				logf("[nav seed] reset menu %s", menuCode)
-			}
-		} else if logf != nil {
-			logf("[nav seed] reset requested for %s but menu service does not implement reset", menuCode)
-		}
-	}
-
-	if _, err := opts.MenuSvc.CreateMenu(ctx, menuCode); err != nil {
+	if err := resetter.ResetMenuContext(runtime.ctx, runtime.menuCode); err != nil && !errors.Is(err, admin.ErrNotFound) {
 		return err
 	}
+	if runtime.logf != nil {
+		runtime.logf("[nav seed] reset menu %s", runtime.menuCode)
+	}
+	return nil
+}
 
-	seedItems := make([]admin.MenuItem, 0, len(opts.Items))
-	for _, item := range opts.Items {
-		normalized, err := normalizeSeedMenuItem(menuCode, locale, item)
-		if err != nil {
+func (runtime seedNavigationRuntime) addSeedItems() error {
+	seedItems, err := runtime.seedItems()
+	if err != nil {
+		return err
+	}
+	for _, item := range seedItems {
+		if err := runtime.opts.MenuSvc.AddMenuItem(runtime.ctx, runtime.menuCode, item); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (runtime seedNavigationRuntime) seedItems() ([]admin.MenuItem, error) {
+	seedItems := make([]admin.MenuItem, 0, len(runtime.opts.Items))
+	for _, item := range runtime.opts.Items {
+		normalized, err := normalizeSeedMenuItem(runtime.menuCode, runtime.locale, item)
+		if err != nil {
+			return nil, err
 		}
 		seedItems = append(seedItems, normalized)
 	}
-
-	autoCreateParents := opts.AutoCreateParents
-	if !autoCreateParents {
-		autoCreateParents = shouldAutoCreateParents(menuCode, seedItems)
-	}
+	autoCreateParents := runtime.opts.AutoCreateParents || shouldAutoCreateParents(runtime.menuCode, seedItems)
 	if autoCreateParents {
-		seedItems = withAutoCreatedParentItems(menuCode, locale, seedItems)
+		seedItems = withAutoCreatedParentItems(runtime.menuCode, runtime.locale, seedItems)
 	}
-
-	for _, item := range seedItems {
-		if err := opts.MenuSvc.AddMenuItem(ctx, menuCode, item); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return seedItems, nil
 }
 
 func normalizeSeedMenuItem(menuCode string, defaultLocale string, item admin.MenuItem) (admin.MenuItem, error) {
