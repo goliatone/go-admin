@@ -62,3 +62,18 @@ func TestPanelListTemplatesUseDataGridConfigContract(t *testing.T) {
 		})
 	}
 }
+
+func TestSharedListTemplateCanRenderDataGridShellWithoutPrefetchedItems(t *testing.T) {
+	path := filepath.Join("..", "pkg", "client", "templates", "resources", "shared", "list-base.html")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read template: %v", err)
+	}
+	content := string(raw)
+	if !strings.Contains(content, "{% if items or render_datagrid_shell %}") {
+		t.Fatalf("expected shared list template to render shell when render_datagrid_shell is true")
+	}
+	if !strings.Contains(content, `<table id="{{ datatable_id|default:resource }}-datatable"`) {
+		t.Fatalf("expected shared list template to keep the DataGrid table shell")
+	}
+}

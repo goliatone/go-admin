@@ -1057,6 +1057,7 @@ func TestListForPanelRendersDataGridShellWithoutPrefetchingRows(t *testing.T) {
 			return false
 		}
 		return contentEntryTestInt(viewCtx["total"]) == 0 &&
+			viewCtx["render_datagrid_shell"] == true &&
 			strings.TrimSpace(anyToString(viewCtx["list_api"])) == "/admin/api/panels/pages"
 	})).Return(nil).Once()
 
@@ -1188,6 +1189,23 @@ func TestListForPanelIncludesDataGridPersistenceConfigWhenConfigured(t *testing.
 		t.Fatalf("listForPanel(pages): %v", err)
 	}
 	ctx.AssertExpectations(t)
+}
+
+func TestContentEntryListStateStoreConfigDefaultsResourceForHydrateTimeoutOnly(t *testing.T) {
+	handler := &contentEntryHandlers{
+		dataGridStateStore: PanelDataGridStateStoreOptions{
+			HydrateTimeoutMS: 1500,
+		},
+	}
+
+	cfg := handler.listStateStoreConfig("pages")
+
+	if cfg.Resource != "pages" {
+		t.Fatalf("expected resource pages, got %q", cfg.Resource)
+	}
+	if cfg.HydrateTimeoutMS != 1500 {
+		t.Fatalf("expected hydrate timeout 1500, got %d", cfg.HydrateTimeoutMS)
+	}
 }
 
 func TestListForPanelOmitsCreateRoutesWhenPanelHasNoRenderableFormSchema(t *testing.T) {
