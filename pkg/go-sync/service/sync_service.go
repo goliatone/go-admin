@@ -108,66 +108,18 @@ func (s *SyncService) Mutate(ctx context.Context, input core.MutationInput) (cor
 	if err != nil {
 		return core.MutationResult{}, err
 	}
-	var (
-		reservation *store.IdempotencyReservation
-	)
-	if scopedKey != "" {
-		var (
-			replayed *core.MutationResult
-			pending  bool
-		)
-		reservation, replayed, pending, err = s.reserveReplayKey(ctx, input, scopedKey)
-		if err != nil {
-			mapped := s.mapError(err, "reserve idempotency key")
-			s.metrics.IncrementRetry(ctx, mutationAttrs(input, mapped))
-			s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, mapped))
-			s.logMutation(ctx, slog.LevelWarn, input, mapped, map[string]any{
-				"scoped_idempotency_key": scopedKey,
-			})
-			return core.MutationResult{}, mapped
-		}
-		if replayed != nil {
-			s.metrics.IncrementReplay(ctx, mutationAttrs(input, nil))
-			s.metrics.ObserveMutation(ctx, time.Since(startedAt), true, mutationAttrs(input, nil))
-			s.logMutation(ctx, slog.LevelInfo, input, nil, map[string]any{
-				"replay":                 true,
-				"scoped_idempotency_key": scopedKey,
-				"revision":               replayed.Snapshot.Revision,
-			})
-			return *replayed, nil
-		}
-		if pending {
-			mapped := core.NewError(core.CodeTemporaryFailure, "mutation with the same idempotency key is already in progress", map[string]any{
-				core.DetailIdempotencyKey: strings.TrimSpace(input.IdempotencyKey),
-			})
-			s.metrics.IncrementRetry(ctx, mutationAttrs(input, mapped))
-			s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, mapped))
-			s.logMutation(ctx, slog.LevelWarn, input, mapped, map[string]any{
-				"scoped_idempotency_key": scopedKey,
-				"pending":                true,
-			})
-			return core.MutationResult{}, mapped
-		}
+
+	reservation, replayed, err := s.prepareMutationReplay(ctx, input, scopedKey, startedAt)
+	if err != nil {
+		return core.MutationResult{}, err
+	}
+	if replayed != nil {
+		return *replayed, nil
 	}
 
-	snapshot, err := s.resources.Mutate(ctx, input)
+	snapshot, err := s.applyResourceMutation(ctx, input, reservation, scopedKey, startedAt)
 	if err != nil {
-		s.releaseReplayKey(ctx, input, reservation, scopedKey)
-		if core.HasCode(err, core.CodeStaleRevision) {
-			enriched := s.enrichStaleRevision(ctx, input.ResourceRef, err)
-			s.metrics.IncrementConflict(ctx, mutationAttrs(input, enriched))
-			s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, enriched))
-			s.logMutation(ctx, slog.LevelWarn, input, enriched, nil)
-			return core.MutationResult{}, enriched
-		}
-
-		mapped := s.mapError(err, "mutate resource")
-		if core.HasCode(mapped, core.CodeTemporaryFailure) {
-			s.metrics.IncrementRetry(ctx, mutationAttrs(input, mapped))
-		}
-		s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, mapped))
-		s.logMutation(ctx, slog.LevelWarn, input, mapped, nil)
-		return core.MutationResult{}, mapped
+		return core.MutationResult{}, err
 	}
 
 	result := core.MutationResult{
@@ -175,34 +127,149 @@ func (s *SyncService) Mutate(ctx context.Context, input core.MutationInput) (cor
 		Applied:  true,
 		Replay:   false,
 	}
-	if reservation != nil && s.idempotency != nil {
-		if err := s.idempotency.Commit(ctx, *reservation, result, s.idempotencyTTL); err != nil {
-			if recovered := s.recoverCommittedReplay(ctx, input, *reservation, result, scopedKey, err); recovered == nil {
-				s.metrics.ObserveMutation(ctx, time.Since(startedAt), true, mutationAttrs(input, nil))
-				s.logMutation(ctx, slog.LevelWarn, input, nil, map[string]any{
-					"scoped_idempotency_key": scopedKey,
-					"stored":                 true,
-					"recovered_commit":       true,
-				})
-				return result, nil
-			}
-			mapped := s.retryableError("persist idempotency result", err)
-			s.metrics.IncrementRetry(ctx, mutationAttrs(input, mapped))
-			s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, mapped))
-			s.logMutation(ctx, slog.LevelError, input, mapped, map[string]any{
-				"scoped_idempotency_key": scopedKey,
-				"stored":                 false,
-			})
-			return core.MutationResult{}, mapped
-		}
+	recovered, err := s.commitMutationReplay(ctx, input, reservation, result, scopedKey, startedAt)
+	if err != nil {
+		return core.MutationResult{}, err
+	}
+	if recovered {
+		return result, nil
 	}
 
+	s.observeMutationSuccess(ctx, input, result, startedAt)
+	return result, nil
+}
+
+func (s *SyncService) prepareMutationReplay(
+	ctx context.Context,
+	input core.MutationInput,
+	scopedKey string,
+	startedAt time.Time,
+) (*store.IdempotencyReservation, *core.MutationResult, error) {
+	if scopedKey == "" {
+		return nil, nil, nil
+	}
+	reservation, replayed, pending, err := s.reserveReplayKey(ctx, input, scopedKey)
+	if err != nil {
+		mapped := s.mapError(err, "reserve idempotency key")
+		s.metrics.IncrementRetry(ctx, mutationAttrs(input, mapped))
+		s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, mapped))
+		s.logMutation(ctx, slog.LevelWarn, input, mapped, map[string]any{
+			"scoped_idempotency_key": scopedKey,
+		})
+		return nil, nil, mapped
+	}
+	if replayed != nil {
+		s.observeMutationReplay(ctx, input, scopedKey, *replayed, startedAt)
+		return nil, replayed, nil
+	}
+	if pending {
+		mapped := pendingMutationError(input)
+		s.metrics.IncrementRetry(ctx, mutationAttrs(input, mapped))
+		s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, mapped))
+		s.logMutation(ctx, slog.LevelWarn, input, mapped, map[string]any{
+			"scoped_idempotency_key": scopedKey,
+			"pending":                true,
+		})
+		return nil, nil, mapped
+	}
+	return reservation, nil, nil
+}
+
+func pendingMutationError(input core.MutationInput) error {
+	return core.NewError(core.CodeTemporaryFailure, "mutation with the same idempotency key is already in progress", map[string]any{
+		core.DetailIdempotencyKey: strings.TrimSpace(input.IdempotencyKey),
+	})
+}
+
+func (s *SyncService) observeMutationReplay(
+	ctx context.Context,
+	input core.MutationInput,
+	scopedKey string,
+	replayed core.MutationResult,
+	startedAt time.Time,
+) {
+	s.metrics.IncrementReplay(ctx, mutationAttrs(input, nil))
+	s.metrics.ObserveMutation(ctx, time.Since(startedAt), true, mutationAttrs(input, nil))
+	s.logMutation(ctx, slog.LevelInfo, input, nil, map[string]any{
+		"replay":                 true,
+		"scoped_idempotency_key": scopedKey,
+		"revision":               replayed.Snapshot.Revision,
+	})
+}
+
+func (s *SyncService) applyResourceMutation(
+	ctx context.Context,
+	input core.MutationInput,
+	reservation *store.IdempotencyReservation,
+	scopedKey string,
+	startedAt time.Time,
+) (core.Snapshot, error) {
+	snapshot, err := s.resources.Mutate(ctx, input)
+	if err == nil {
+		return snapshot, nil
+	}
+	s.releaseReplayKey(ctx, input, reservation, scopedKey)
+	if core.HasCode(err, core.CodeStaleRevision) {
+		enriched := s.enrichStaleRevision(ctx, input.ResourceRef, err)
+		s.metrics.IncrementConflict(ctx, mutationAttrs(input, enriched))
+		s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, enriched))
+		s.logMutation(ctx, slog.LevelWarn, input, enriched, nil)
+		return core.Snapshot{}, enriched
+	}
+	mapped := s.mapError(err, "mutate resource")
+	if core.HasCode(mapped, core.CodeTemporaryFailure) {
+		s.metrics.IncrementRetry(ctx, mutationAttrs(input, mapped))
+	}
+	s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, mapped))
+	s.logMutation(ctx, slog.LevelWarn, input, mapped, nil)
+	return core.Snapshot{}, mapped
+}
+
+func (s *SyncService) commitMutationReplay(
+	ctx context.Context,
+	input core.MutationInput,
+	reservation *store.IdempotencyReservation,
+	result core.MutationResult,
+	scopedKey string,
+	startedAt time.Time,
+) (bool, error) {
+	if reservation == nil || s.idempotency == nil {
+		return false, nil
+	}
+	err := s.idempotency.Commit(ctx, *reservation, result, s.idempotencyTTL)
+	if err == nil {
+		return false, nil
+	}
+	if recovered := s.recoverCommittedReplay(ctx, input, *reservation, result, scopedKey, err); recovered == nil {
+		s.metrics.ObserveMutation(ctx, time.Since(startedAt), true, mutationAttrs(input, nil))
+		s.logMutation(ctx, slog.LevelWarn, input, nil, map[string]any{
+			"scoped_idempotency_key": scopedKey,
+			"stored":                 true,
+			"recovered_commit":       true,
+		})
+		return true, nil
+	}
+	mapped := s.retryableError("persist idempotency result", err)
+	s.metrics.IncrementRetry(ctx, mutationAttrs(input, mapped))
+	s.metrics.ObserveMutation(ctx, time.Since(startedAt), false, mutationAttrs(input, mapped))
+	s.logMutation(ctx, slog.LevelError, input, mapped, map[string]any{
+		"scoped_idempotency_key": scopedKey,
+		"stored":                 false,
+	})
+	return false, mapped
+}
+
+func (s *SyncService) observeMutationSuccess(
+	ctx context.Context,
+	input core.MutationInput,
+	result core.MutationResult,
+	startedAt time.Time,
+) {
 	s.metrics.ObserveMutation(ctx, time.Since(startedAt), true, mutationAttrs(input, nil))
 	s.logMutation(ctx, slog.LevelInfo, input, nil, map[string]any{
 		"applied":  true,
 		"revision": result.Snapshot.Revision,
 	})
-	return result, nil
 }
 
 func (s *SyncService) recoverCommittedReplay(

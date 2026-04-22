@@ -14,20 +14,9 @@ type TextAnchorResolver struct{}
 func (TextAnchorResolver) ID() string { return TextAnchorResolverID }
 
 func (TextAnchorResolver) Estimate(_ context.Context, _ ResolveInput) (models.Estimate, error) {
-	return models.Estimate{
-		ResolverID: TextAnchorResolverID,
-		Accuracy:   0.55,
-		Cost:       0.45,
-		Latency:    0.6,
-		Supported:  false,
-		Reason:     "stub_not_enabled",
-	}, nil
+	return unsupportedEstimate(TextAnchorResolverID, 0.55, 0.45, 0.6), nil
 }
 
 func (TextAnchorResolver) Resolve(_ context.Context, input ResolveInput) (models.ResolveResult, error) {
-	unresolved := make([]string, 0, len(input.FieldDefinitions))
-	for _, definition := range input.FieldDefinitions {
-		unresolved = append(unresolved, definition.ID)
-	}
-	return models.ResolveResult{UnresolvedDefinitionIDs: unresolved}, nil
+	return unresolvedDefinitions(input), nil
 }

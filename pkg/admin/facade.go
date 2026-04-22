@@ -1007,6 +1007,10 @@ func BuiltinLucideLibrary() IconLibrary {
 	return core.BuiltinLucideLibrary()
 }
 
+func CMSBlockDefinitionChannel(def CMSBlockDefinition) string {
+	return core.CMSBlockDefinitionChannel(def)
+}
+
 func CMSContentTypeChannel(ct CMSContentType) string {
 	return core.CMSContentTypeChannel(ct)
 }
