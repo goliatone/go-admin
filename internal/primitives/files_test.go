@@ -53,7 +53,11 @@ func TestOpenTrustedFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("OpenTrustedFile returned error: %v", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			t.Fatalf("close trusted file: %v", closeErr)
+		}
+	}()
 
 	info, err := file.Stat()
 	if err != nil {

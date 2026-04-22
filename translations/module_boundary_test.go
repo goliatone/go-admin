@@ -21,18 +21,24 @@ func TestCoreAndServicesPackagesRemainHostAgnostic(t *testing.T) {
 		filepath.Join(repoRoot, "translations", "core"),
 		filepath.Join(repoRoot, "translations", "services"),
 	} {
-		fset := token.NewFileSet()
-		pkgs, err := parser.ParseDir(fset, dir, nil, parser.ImportsOnly)
+		files, err := os.ReadDir(dir)
 		if err != nil {
-			t.Fatalf("parse dir %s: %v", dir, err)
+			t.Fatalf("read dir %s: %v", dir, err)
 		}
-		for _, pkg := range pkgs {
-			for filename, file := range pkg.Files {
-				for _, spec := range file.Imports {
-					path := strings.Trim(spec.Path.Value, `"`)
-					if strings.Contains(path, "/admin") || strings.Contains(path, "go-cms") {
-						t.Fatalf("%s imports forbidden host package %q", filename, path)
-					}
+		for _, entry := range files {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".go") {
+				continue
+			}
+			filename := filepath.Join(dir, entry.Name())
+			fset := token.NewFileSet()
+			file, parseErr := parser.ParseFile(fset, filename, nil, parser.ImportsOnly)
+			if parseErr != nil {
+				t.Fatalf("parse file %s: %v", filename, parseErr)
+			}
+			for _, spec := range file.Imports {
+				path := strings.Trim(spec.Path.Value, `"`)
+				if strings.Contains(path, "/admin") || strings.Contains(path, "go-cms") {
+					t.Fatalf("%s imports forbidden host package %q", filename, path)
 				}
 			}
 		}

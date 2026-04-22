@@ -222,7 +222,7 @@ func TestQuickstartRoutingConflictFailsStartupEvenWhenFiberRuntimeOptionsRelaxCo
 	}
 	t.Cleanup(adm.Commands().Reset)
 
-	if err := NewModuleRegistrar(
+	if err = NewModuleRegistrar(
 		adm,
 		cfg,
 		[]admin.Module{

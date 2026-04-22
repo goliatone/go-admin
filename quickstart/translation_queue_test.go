@@ -81,7 +81,7 @@ func TestNewAdminTranslationQueueEnabledRegistersPanelCommandsAndPermissions(t *
 		t.Fatalf("expected %d permissions, got %d", len(TranslationQueuePermissions()), len(registered))
 	}
 
-	if err := adm.Commands().DispatchByName(ctx, (admin.TranslationQueueClaimInput{}).Type(), map[string]any{
+	if err = adm.Commands().DispatchByName(ctx, (admin.TranslationQueueClaimInput{}).Type(), map[string]any{
 		"assignment_id":    created.ID,
 		"claimer_id":       "translator_1",
 		"expected_version": created.Version,

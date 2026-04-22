@@ -240,7 +240,7 @@ func performSiteTestRequest[T any](t *testing.T, server router.Server[T], method
 		if err != nil {
 			t.Fatalf("%s %s test request failed: %v", method, path, err)
 		}
-		defer resp.Body.Close()
+		defer closeResponseBody(t, resp)
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			t.Fatalf("%s %s read response failed: %v", method, path, err)

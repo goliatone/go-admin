@@ -36,7 +36,7 @@ func TestNewAdminConfiguresCreateTranslationActionLocalesFromPolicy(t *testing.T
 
 	workflow := admin.NewFSMWorkflowEngine()
 	admin.RegisterDefaultCMSWorkflows(workflow)
-	if err := workflow.RegisterWorkflow("posts", admin.WorkflowDefinition{
+	if err = workflow.RegisterWorkflow("posts", admin.WorkflowDefinition{
 		EntityType:   "posts",
 		InitialState: "draft",
 		Transitions: []admin.WorkflowTransition{

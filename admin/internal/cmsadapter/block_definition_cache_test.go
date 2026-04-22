@@ -77,15 +77,14 @@ func TestBlockDefinitionCacheKeyNormalizesEnvironmentAndKey(t *testing.T) {
 }
 
 func TestBlockDefinitionChannelHelpersPreserveLegacyEnvironmentMirror(t *testing.T) {
-	def := cmsboot.CMSBlockDefinition{
-		Environment: "legacy-preview",
-	}
+	def := cmsboot.CMSBlockDefinition{}
+	setLegacyStringField(&def, "Environment", "legacy-preview")
 	if got := BlockDefinitionChannel(def); got != "legacy-preview" {
 		t.Fatalf("expected legacy-preview from deprecated environment, got %q", got)
 	}
 
 	SetBlockDefinitionChannel(&def, "preview")
-	if def.Channel != "preview" || def.Environment != "preview" {
+	if def.Channel != "preview" || legacyStringField(def, "Environment") != "preview" {
 		t.Fatalf("expected channel/environment to stay synchronized, got %+v", def)
 	}
 	if got := BlockDefinitionChannel(def); got != "preview" {

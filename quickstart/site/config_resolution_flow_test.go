@@ -241,8 +241,3 @@ func TestResolveSiteConfigFlowAddsEnabledInternalOpsPathsToReservedPrefixes(t *t
 		}
 	}
 }
-
-//go:fix inline
-func stringPtr(value string) *string {
-	return new(value)
-}

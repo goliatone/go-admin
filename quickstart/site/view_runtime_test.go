@@ -170,7 +170,7 @@ func mustRenderViewWithOptions(t *testing.T, base fs.FS, options ...quickstart.V
 	if err != nil {
 		t.Fatalf("render request: %v", err)
 	}
-	defer res.Body.Close()
+	defer closeResponseBody(t, res)
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {

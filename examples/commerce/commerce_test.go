@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -52,8 +53,8 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 				NavMenuCode: cfg.NavMenuCode,
 			}),
 		}
-		if err := adm.RegisterModule(mod); err != nil {
-			t.Fatalf("register module: %v", err)
+		if registerErr := adm.RegisterModule(mod); registerErr != nil {
+			t.Fatalf("register module: %v", registerErr)
 		}
 
 		server := router.NewFiberAdapter(func(_ *fiber.App) *fiber.App {
@@ -61,8 +62,8 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		})
 		app := server.WrappedRouter()
 		r := server.Router()
-		if err := adm.Initialize(r); err != nil {
-			t.Fatalf("initialize admin: %v", err)
+		if initErr := adm.Initialize(r); initErr != nil {
+			t.Fatalf("initialize admin: %v", initErr)
 		}
 
 		token := tokens["Ada Lovelace"]
@@ -79,7 +80,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create product request failed: %v", err)
 		}
-		defer createResp.Body.Close()
+		defer closeResponseBody(t, createResp)
 		createBody, _ := io.ReadAll(createResp.Body)
 		if createResp.StatusCode != 200 {
 			t.Fatalf("create product status: %d body=%s", createResp.StatusCode, string(createBody))
@@ -101,7 +102,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatalf("detail product request failed: %v", err)
 		}
-		defer detailResp.Body.Close()
+		defer closeResponseBody(t, detailResp)
 		detailBody, _ := io.ReadAll(detailResp.Body)
 		if detailResp.StatusCode != 200 {
 			t.Fatalf("detail product status: %d body=%s", detailResp.StatusCode, string(detailBody))
@@ -118,7 +119,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatalf("list products request failed: %v", err)
 		}
-		defer listResp.Body.Close()
+		defer closeResponseBody(t, listResp)
 		if listResp.StatusCode != 200 {
 			body, _ := io.ReadAll(listResp.Body)
 			t.Fatalf("list products status: %d body=%s", listResp.StatusCode, string(body))
@@ -131,7 +132,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatalf("dashboard request failed: %v", err)
 		}
-		defer dashResp.Body.Close()
+		defer closeResponseBody(t, dashResp)
 		if dashResp.StatusCode != 200 {
 			body, _ := io.ReadAll(dashResp.Body)
 			t.Fatalf("dashboard status: %d body=%s", dashResp.StatusCode, string(body))
@@ -150,7 +151,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatalf("search request failed: %v", err)
 		}
-		defer searchResp.Body.Close()
+		defer closeResponseBody(t, searchResp)
 		if searchResp.StatusCode != 200 {
 			body, _ := io.ReadAll(searchResp.Body)
 			t.Fatalf("search status: %d body=%s", searchResp.StatusCode, string(body))
@@ -169,7 +170,7 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 		if err != nil {
 			t.Fatalf("jobs request failed: %v", err)
 		}
-		defer jobsResp.Body.Close()
+		defer closeResponseBody(t, jobsResp)
 		if jobsResp.StatusCode != 200 {
 			body, _ := io.ReadAll(jobsResp.Body)
 			t.Fatalf("jobs status: %d body=%s", jobsResp.StatusCode, string(body))
@@ -201,6 +202,16 @@ func TestCommerceExampleHappyPath(t *testing.T) {
 			t.Fatalf("expected cli options")
 		}
 	})
+}
+
+func closeResponseBody(t testing.TB, resp *http.Response) {
+	t.Helper()
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatalf("close response body: %v", err)
+	}
 }
 
 type allowAllAuthz struct{}

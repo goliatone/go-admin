@@ -354,7 +354,7 @@ func TestGoUsersPreferencesStoreUpsertAndDelete(t *testing.T) {
 		t.Fatalf("new store: %v", err)
 	}
 
-	if _, err := store.Upsert(context.Background(), admin.PreferencesUpsertInput{
+	if _, err = store.Upsert(context.Background(), admin.PreferencesUpsertInput{
 		Scope: admin.PreferenceScope{
 			UserID:   uid.String(),
 			TenantID: tenantID.String(),
@@ -379,7 +379,7 @@ func TestGoUsersPreferencesStoreUpsertAndDelete(t *testing.T) {
 		t.Fatalf("expected user override, got %v", resolved.Effective["theme"])
 	}
 
-	if err := store.Delete(context.Background(), admin.PreferencesDeleteInput{
+	if err = store.Delete(context.Background(), admin.PreferencesDeleteInput{
 		Scope: admin.PreferenceScope{
 			UserID:   uid.String(),
 			TenantID: tenantID.String(),

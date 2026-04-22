@@ -178,7 +178,7 @@ func TestNewFiberServerRecoversHandlerPanics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("panic request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 	if resp.StatusCode != http.StatusInternalServerError {
 		body, _ := io.ReadAll(resp.Body)
 		t.Fatalf("expected panic recovery status 500, got %d body=%s", resp.StatusCode, string(body))
@@ -207,7 +207,7 @@ func TestNewFiberServerRoutesUnmatchedAdminUI404ThroughErrorHandler(t *testing.T
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -248,7 +248,7 @@ func TestNewFiberServerRoutesUnmatchedAdminAPI404ThroughErrorHandler(t *testing.
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -287,7 +287,7 @@ func TestNewFiberServerPreservesExplicitAdmin404Responses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -326,7 +326,7 @@ func TestNewFiberServerRouteConflictDefaultsPreferStaticInDev(t *testing.T) {
 		t.Fatalf("static request failed: %v", err)
 	}
 	staticBody, err := io.ReadAll(respStatic.Body)
-	respStatic.Body.Close()
+	closeResponseBody(t, respStatic)
 	if err != nil {
 		t.Fatalf("reading static response failed: %v", err)
 	}
@@ -339,7 +339,7 @@ func TestNewFiberServerRouteConflictDefaultsPreferStaticInDev(t *testing.T) {
 		t.Fatalf("param request failed: %v", err)
 	}
 	paramBody, err := io.ReadAll(respParam.Body)
-	respParam.Body.Close()
+	closeResponseBody(t, respParam)
 	if err != nil {
 		t.Fatalf("reading param response failed: %v", err)
 	}
@@ -520,7 +520,7 @@ func TestDebugLogCaptureIncludesFiberRequestsAndDILogs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("admin.New error: %v", err)
 	}
-	if err := admin.NewDebugModule(cfg.Debug).Register(admin.ModuleContext{Admin: adm}); err != nil {
+	if err = admin.NewDebugModule(cfg.Debug).Register(admin.ModuleContext{Admin: adm}); err != nil {
 		t.Fatalf("debug module register error: %v", err)
 	}
 

@@ -116,7 +116,7 @@ func TestRegisterAdminUIRoutesTranslationExchangeRouteIsCapabilityGuarded(t *tes
 	}
 
 	disabledRouter := newUIRoutesCaptureRouter()
-	if err := RegisterAdminUIRoutes(disabledRouter, cfg, adm, nil); err != nil {
+	if err = RegisterAdminUIRoutes(disabledRouter, cfg, adm, nil); err != nil {
 		t.Fatalf("register ui routes (exchange disabled): %v", err)
 	}
 	if disabledRouter.getHandlers["/admin/translations/exchange"] != nil {
@@ -149,7 +149,7 @@ func TestRegisterAdminUIRoutesTranslationDashboardRouteIsCapabilityGuarded(t *te
 	}
 
 	disabledRouter := newUIRoutesCaptureRouter()
-	if err := RegisterAdminUIRoutes(disabledRouter, cfg, adm, nil); err != nil {
+	if err = RegisterAdminUIRoutes(disabledRouter, cfg, adm, nil); err != nil {
 		t.Fatalf("register ui routes (dashboard disabled): %v", err)
 	}
 	if disabledRouter.getHandlers["/admin/translations/dashboard"] != nil {
@@ -216,7 +216,7 @@ func TestRegisterAdminUIRoutesTranslationCoreShellsAreCapabilityGuarded(t *testi
 	}
 
 	disabledRouter := newUIRoutesCaptureRouter()
-	if err := RegisterAdminUIRoutes(disabledRouter, cfg, adm, nil); err != nil {
+	if err = RegisterAdminUIRoutes(disabledRouter, cfg, adm, nil); err != nil {
 		t.Fatalf("register ui routes: %v", err)
 	}
 	if disabledRouter.getHandlers["/admin/translations/families/:family_id"] != nil {

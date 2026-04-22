@@ -106,8 +106,8 @@ func TestResolveLocaleIDHandlesNilContextAndCache(t *testing.T) {
 	}
 	cache := NewLocaleIDCache(resolver)
 
-	//nolint:staticcheck // Explicitly verifies nil contexts are accepted by this helper.
-	if got, ok := ResolveLocaleID(nil, cache, "fr"); !ok || got != localeID {
+	var nilCtx context.Context
+	if got, ok := ResolveLocaleID(nilCtx, cache, "fr"); !ok || got != localeID {
 		t.Fatalf("expected helper to resolve locale id %s with nil context, got %s ok=%v", localeID, got, ok)
 	}
 	if got, ok := ResolveLocaleID(context.Background(), nil, "fr"); ok || got != uuid.Nil {

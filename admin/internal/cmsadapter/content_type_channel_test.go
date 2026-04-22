@@ -7,15 +7,14 @@ import (
 )
 
 func TestContentTypeChannelHelpersPreserveLegacyEnvironmentMirror(t *testing.T) {
-	ct := cmsboot.CMSContentType{
-		Environment: "legacy-preview",
-	}
+	ct := cmsboot.CMSContentType{}
+	setLegacyStringField(&ct, "Environment", "legacy-preview")
 	if got := ContentTypeChannel(ct); got != "legacy-preview" {
 		t.Fatalf("expected legacy-preview from deprecated environment, got %q", got)
 	}
 
 	SetContentTypeChannel(&ct, "preview")
-	if ct.Channel != "preview" || ct.Environment != "preview" {
+	if ct.Channel != "preview" || legacyStringField(ct, "Environment") != "preview" {
 		t.Fatalf("expected channel/environment to stay synchronized, got %+v", ct)
 	}
 	if got := ContentTypeChannel(ct); got != "preview" {

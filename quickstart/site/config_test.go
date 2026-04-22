@@ -235,8 +235,3 @@ func TestResolveSiteConfigFallsBackToCollectionsWhenIndexesUnset(t *testing.T) {
 		t.Fatalf("expected collections to remain available %v, got %v", want, got)
 	}
 }
-
-//go:fix inline
-func boolPtr(value bool) *bool {
-	return new(value)
-}

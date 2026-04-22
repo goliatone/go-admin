@@ -160,8 +160,8 @@ func TestMemoryIdempotencyStoreReserveCommitReplayAndRelease(t *testing.T) {
 		},
 		Applied: true,
 	}
-	if err := idempotencyStore.Commit(context.Background(), *first.Reservation, result, 5*time.Minute); err != nil {
-		t.Fatalf("commit reservation: %v", err)
+	if commitErr := idempotencyStore.Commit(context.Background(), *first.Reservation, result, 5*time.Minute); commitErr != nil {
+		t.Fatalf("commit reservation: %v", commitErr)
 	}
 
 	replay, err := idempotencyStore.Reserve(context.Background(), "idem_123", 5*time.Minute)
@@ -241,8 +241,8 @@ func TestMemoryIdempotencyStoreRecoverCommitStoresReplayResult(t *testing.T) {
 		},
 		Applied: true,
 	}
-	if err := idempotencyStore.RecoverCommit(context.Background(), *first.Reservation, result, 5*time.Minute); err != nil {
-		t.Fatalf("recover commit: %v", err)
+	if commitErr := idempotencyStore.RecoverCommit(context.Background(), *first.Reservation, result, 5*time.Minute); commitErr != nil {
+		t.Fatalf("recover commit: %v", commitErr)
 	}
 
 	replay, err := idempotencyStore.Reserve(context.Background(), "idem_recover", 5*time.Minute)

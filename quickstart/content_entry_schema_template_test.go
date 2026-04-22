@@ -40,8 +40,8 @@ func TestContentTypeSchemaFallsBackToPanelFields(t *testing.T) {
 
 	assertPropertyType := func(field, wantType string) {
 		t.Helper()
-		prop, ok := props[field].(map[string]any)
-		if !ok {
+		prop, propOK := props[field].(map[string]any)
+		if !propOK {
 			t.Fatalf("expected %s schema property map, got %T", field, props[field])
 		}
 		if got := prop["type"]; got != wantType {
@@ -174,10 +174,10 @@ func TestParseMultipartFormValuesReadsTextFieldsAndSkipsFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create file part: %v", err)
 	}
-	if _, err := filePart.Write([]byte("%PDF-1.4 fake")); err != nil {
+	if _, err = filePart.Write([]byte("%PDF-1.4 fake")); err != nil {
 		t.Fatalf("write file body: %v", err)
 	}
-	if err := writer.Close(); err != nil {
+	if err = writer.Close(); err != nil {
 		t.Fatalf("close multipart writer: %v", err)
 	}
 

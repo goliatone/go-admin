@@ -396,7 +396,7 @@ func assertResponseHeader[T any](t *testing.T, server router.Server[T], method, 
 	t.Helper()
 
 	resp := performHostRouterHTTPResponse(t, server, method, target)
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	if got := resp.Header.Get(header); got != want {
 		t.Fatalf("expected header %s=%q for %s %s, got %q", header, want, method, target, got)
@@ -407,7 +407,7 @@ func assertResponseHeaderAbsent[T any](t *testing.T, server router.Server[T], me
 	t.Helper()
 
 	resp := performHostRouterHTTPResponse(t, server, method, target)
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	if got := resp.Header.Get(header); got != "" {
 		t.Fatalf("expected header %s to be absent for %s %s, got %q", header, method, target, got)
@@ -418,7 +418,7 @@ func performHostRouterRequest[T any](t *testing.T, server router.Server[T], meth
 	t.Helper()
 
 	resp := performHostRouterHTTPResponse(t, server, method, target)
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {

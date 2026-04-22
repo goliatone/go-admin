@@ -162,8 +162,8 @@ func TestFamilyServiceListAndDetailRespectScopeFilters(t *testing.T) {
 		t.Fatalf("expected scoped tenant family, got %+v", scoped.Items)
 	}
 
-	if _, ok, err := svc.Detail(context.Background(), GetFamilyInput{Scope: Scope{}, FamilyID: "tenant-family"}); err != nil || ok {
-		t.Fatalf("expected cross-scope detail access denied, ok=%v err=%v", ok, err)
+	if _, detailOK, detailErr := svc.Detail(context.Background(), GetFamilyInput{Scope: Scope{}, FamilyID: "tenant-family"}); detailErr != nil || detailOK {
+		t.Fatalf("expected cross-scope detail access denied, ok=%v err=%v", detailOK, detailErr)
 	}
 
 	detail, ok, err := svc.Detail(context.Background(), GetFamilyInput{Scope: Scope{TenantID: "tenant-1", OrgID: "org-1"}, FamilyID: "tenant-family"})

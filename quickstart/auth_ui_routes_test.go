@@ -169,7 +169,7 @@ func TestAuthUIRoutesRespectPasswordResetGate(t *testing.T) {
 		t.Fatalf("new http authenticator: %v", err)
 	}
 
-	if err := RegisterAuthUIRoutes(r, cfg, routeAuth, WithAuthUIFeatureGate(gate)); err != nil {
+	if err = RegisterAuthUIRoutes(r, cfg, routeAuth, WithAuthUIFeatureGate(gate)); err != nil {
 		t.Fatalf("register auth routes: %v", err)
 	}
 	handler := r.getHandlers["/admin/password-reset"]

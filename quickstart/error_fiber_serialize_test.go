@@ -27,13 +27,13 @@ func TestSerializeTemplateValue_SourceContextUsesJSONTags(t *testing.T) {
 		t.Fatalf("expected map[string]any, got %T", got)
 	}
 
-	if _, ok := root["rel_path"].(string); !ok {
+	if _, relPathOK := root["rel_path"].(string); !relPathOK {
 		t.Fatalf("expected rel_path string, got %T", root["rel_path"])
 	}
-	if _, ok := root["can_open_ide"].(bool); !ok {
+	if _, canOpenIDEOK := root["can_open_ide"].(bool); !canOpenIDEOK {
 		t.Fatalf("expected can_open_ide bool, got %T", root["can_open_ide"])
 	}
-	if got, ok := numericValue(root["line"]); !ok || got != 42 {
+	if got, lineOK := numericValue(root["line"]); !lineOK || got != 42 {
 		t.Fatalf("expected line numeric value 42, got %v (%T)", root["line"], root["line"])
 	}
 

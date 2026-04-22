@@ -80,10 +80,10 @@ func TestNewAdminWithCommandQueueRoutingDispatchesQueuedByPolicy(t *testing.T) {
 	t.Cleanup(adm.Commands().Reset)
 
 	inline := &quickstartQueuedInlineCommand{}
-	if _, err := admin.RegisterCommand(adm.Commands(), inline); err != nil {
+	if _, err = admin.RegisterCommand(adm.Commands(), inline); err != nil {
 		t.Fatalf("RegisterCommand: %v", err)
 	}
-	if err := admin.RegisterMessageFactory(adm.Commands(), quickstartQueuedCommandName, func(payload map[string]any, _ []string) (quickstartQueuedMessage, error) {
+	if err = admin.RegisterMessageFactory(adm.Commands(), quickstartQueuedCommandName, func(payload map[string]any, _ []string) (quickstartQueuedMessage, error) {
 		return quickstartQueuedMessage{Value: toString(payload["value"])}, nil
 	}); err != nil {
 		t.Fatalf("RegisterMessageFactory: %v", err)
@@ -160,7 +160,7 @@ func TestCommandQueueRoutingFallbackReceiptWhenAdapterDoesNotExposeDispatchMetad
 	}
 	t.Cleanup(adm.Commands().Reset)
 
-	if err := admin.RegisterMessageFactory(adm.Commands(), quickstartQueuedCommandName, func(payload map[string]any, _ []string) (quickstartQueuedMessage, error) {
+	if err = admin.RegisterMessageFactory(adm.Commands(), quickstartQueuedCommandName, func(payload map[string]any, _ []string) (quickstartQueuedMessage, error) {
 		return quickstartQueuedMessage{Value: toString(payload["value"])}, nil
 	}); err != nil {
 		t.Fatalf("RegisterMessageFactory: %v", err)

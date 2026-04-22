@@ -71,10 +71,10 @@ func TestDeliveryRuntimeBootstrapListSiteContentsCachedUsesCacheAndNilFallbacks(
 	}
 
 	cache := newSiteContentCache()
-	if _, err := runtime.listSiteContentsCached(context.Background(), "en", cache); err != nil {
+	if _, err = runtime.listSiteContentsCached(context.Background(), "en", cache); err != nil {
 		t.Fatalf("unexpected cached load error: %v", err)
 	}
-	if _, err := runtime.listSiteContentsCached(context.Background(), "en", cache); err != nil {
+	if _, err = runtime.listSiteContentsCached(context.Background(), "en", cache); err != nil {
 		t.Fatalf("unexpected cached reload error: %v", err)
 	}
 	if stub.listCalls["en"] != 3 {

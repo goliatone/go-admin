@@ -353,12 +353,12 @@ func TestWithRPCTransportAppliesCommandRulesAndPolicyHook(t *testing.T) {
 	if bus == nil {
 		t.Fatalf("expected command bus")
 	}
-	if _, err := admin.RegisterCommand(bus, command.CommandFunc[quickstartRPCDispatchMessage](func(_ context.Context, _ quickstartRPCDispatchMessage) error {
+	if _, err = admin.RegisterCommand(bus, command.CommandFunc[quickstartRPCDispatchMessage](func(_ context.Context, _ quickstartRPCDispatchMessage) error {
 		return nil
 	})); err != nil {
 		t.Fatalf("register command: %v", err)
 	}
-	if err := admin.RegisterMessageFactory(bus, "rpc.transport.test", func(payload map[string]any, ids []string) (quickstartRPCDispatchMessage, error) {
+	if err = admin.RegisterMessageFactory(bus, "rpc.transport.test", func(payload map[string]any, ids []string) (quickstartRPCDispatchMessage, error) {
 		_, _ = payload, ids
 		return quickstartRPCDispatchMessage{}, nil
 	}); err != nil {

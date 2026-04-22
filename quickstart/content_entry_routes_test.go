@@ -1617,7 +1617,7 @@ func TestDetailForPanelIncludesTranslationFamilyLinkWhenTranslationUXEnabled(t *
 	if err != nil {
 		t.Fatalf("seed record: %v", err)
 	}
-	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+	if _, err = adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
 		WithRepository(repo).
 		Actions(admin.Action{Name: admin.CreateTranslationKey}).
 		DetailFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
@@ -1705,7 +1705,7 @@ func TestDetailForPanelBuildsDashboardTrailWithoutRecordBreadcrumbByDefault(t *t
 	if err != nil {
 		t.Fatalf("seed record: %v", err)
 	}
-	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+	if _, err = adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
 		WithRepository(repo).
 		DetailFields(admin.Field{Name: "title", Label: "Title", Type: "text"})); err != nil {
 		t.Fatalf("register panel: %v", err)
@@ -1948,7 +1948,7 @@ func TestUpdateForPanelBlocksFallbackLocaleEdits(t *testing.T) {
 		t.Fatalf("seed record: %v", err)
 	}
 
-	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+	if _, err = adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
 		WithRepository(repo).
 		FormFields(
 			admin.Field{Name: "title", Type: "text", Required: true},

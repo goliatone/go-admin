@@ -534,8 +534,8 @@ func TestBootWithContextNestedNilContextReturnsError(t *testing.T) {
 	adm := mustNewAdmin(t, Config{DefaultLocale: "en"}, Dependencies{})
 
 	err := adm.BootWithContext(outerCtx, func(ctx boot.BootCtx) error {
-		//nolint:staticcheck // Explicitly verifies nested nil lifecycle contexts are rejected.
-		return adm.BootWithContext(nil, func(inner boot.BootCtx) error {
+		var nestedCtx context.Context
+		return adm.BootWithContext(nestedCtx, func(inner boot.BootCtx) error {
 			return nil
 		})
 	})

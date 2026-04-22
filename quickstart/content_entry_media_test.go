@@ -174,7 +174,7 @@ func TestContentEntryRoutesPersistAndReopenMediaPickerValues(t *testing.T) {
 		t.Fatalf("new admin: %v", err)
 	}
 	repo := admin.NewMemoryRepository()
-	if _, err := adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
+	if _, err = adm.RegisterPanel("pages", (&admin.PanelBuilder{}).
 		WithRepository(repo).
 		FormSchema(map[string]any{
 			"type": "object",
@@ -212,7 +212,7 @@ func TestContentEntryRoutesPersistAndReopenMediaPickerValues(t *testing.T) {
 		"gallery[]": []string{"/media/1.jpg", "/media/2.jpg"},
 	}.Encode()))
 	createCtx.On("Redirect", mock.Anything).Return(nil).Once()
-	if err := h.createForPanel(createCtx, ""); err != nil {
+	if err = h.createForPanel(createCtx, ""); err != nil {
 		t.Fatalf("create content: %v", err)
 	}
 
@@ -238,7 +238,7 @@ func TestContentEntryRoutesPersistAndReopenMediaPickerValues(t *testing.T) {
 		"gallery[]": []string{"media-id-2"},
 	}.Encode()))
 	updateCtx.On("Redirect", mock.Anything).Return(nil).Once()
-	if err := h.updateForPanel(updateCtx, ""); err != nil {
+	if err = h.updateForPanel(updateCtx, ""); err != nil {
 		t.Fatalf("update content: %v", err)
 	}
 

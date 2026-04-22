@@ -29,7 +29,7 @@ func TestRegisterContentEntryUIRoutesUsesReconciledDynamicPanels(t *testing.T) {
 		}
 		defer adm.Commands().Reset()
 		adm.UseCMS(admin.NewNoopCMSContainer())
-		if err := adm.RegisterModule(NewContentTypeBuilderModule(cfg, "")); err != nil {
+		if err = adm.RegisterModule(NewContentTypeBuilderModule(cfg, "")); err != nil {
 			t.Fatalf("register content type builder module: %v", err)
 		}
 
@@ -69,7 +69,7 @@ func TestRegisterContentEntryUIRoutesUsesReconciledDynamicPanels(t *testing.T) {
 					Capabilities: map[string]any{"panel_slug": "news"},
 				},
 			} {
-				if _, err := adm.ContentTypeService().CreateContentType(ctx, item); err != nil {
+				if _, err = adm.ContentTypeService().CreateContentType(ctx, item); err != nil {
 					return err
 				}
 			}
@@ -111,8 +111,8 @@ func TestRegisterContentEntryUIRoutesSkipsCanonicalPanelsOwnedByAdminAliases(t *
 		}
 		defer adm.Commands().Reset()
 		adm.UseCMS(admin.NewNoopCMSContainer())
-		if err := adm.RegisterModule(NewContentTypeBuilderModule(cfg, "")); err != nil {
-			t.Fatalf("register content type builder module: %v", err)
+		if registerErr := adm.RegisterModule(NewContentTypeBuilderModule(cfg, "")); registerErr != nil {
+			t.Fatalf("register content type builder module: %v", registerErr)
 		}
 
 		adm.AddCMSBootstrapHook(func(ctx context.Context, adm *admin.Admin) error {
@@ -140,15 +140,15 @@ func TestRegisterContentEntryUIRoutesSkipsCanonicalPanelsOwnedByAdminAliases(t *
 					Capabilities: map[string]any{"panel_slug": "news"},
 				},
 			} {
-				if _, err := adm.ContentTypeService().CreateContentType(ctx, item); err != nil {
-					return err
+				if _, createErr := adm.ContentTypeService().CreateContentType(ctx, item); createErr != nil {
+					return createErr
 				}
 			}
 			return nil
 		})
 
 		server, rt := NewFiberServer(nil, cfg, adm, false, WithFiberLogger(false))
-		if err := adm.Initialize(rt); err != nil {
+		if err = adm.Initialize(rt); err != nil {
 			t.Fatalf("initialize: %v", err)
 		}
 		defer func() {
@@ -156,7 +156,7 @@ func TestRegisterContentEntryUIRoutesSkipsCanonicalPanelsOwnedByAdminAliases(t *
 				t.Fatalf("RegisterContentEntryUIRoutes panicked: %v", recovered)
 			}
 		}()
-		if err := RegisterContentEntryUIRoutes(rt, cfg, adm, nil); err != nil {
+		if err = RegisterContentEntryUIRoutes(rt, cfg, adm, nil); err != nil {
 			t.Fatalf("RegisterContentEntryUIRoutes: %v", err)
 		}
 

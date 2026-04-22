@@ -164,7 +164,7 @@ func TestSharedSidebarTemplatePrefersThemeLogoAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	var body bytes.Buffer
 	if _, err := body.ReadFrom(resp.Body); err != nil {
@@ -209,7 +209,7 @@ func TestSidebarTemplatePrefersThemeLogoAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	var body bytes.Buffer
 	if _, err := body.ReadFrom(resp.Body); err != nil {
@@ -257,7 +257,7 @@ func TestSidebarTemplateUsesCompactIconWhenAvailable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	var body bytes.Buffer
 	if _, err := body.ReadFrom(resp.Body); err != nil {
@@ -327,7 +327,7 @@ func TestSidebarTemplateFallsBackToLogoForCompactBrand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	var body bytes.Buffer
 	if _, err := body.ReadFrom(resp.Body); err != nil {
@@ -371,7 +371,7 @@ func TestSidebarTemplateFallsBackToBuiltInBrandAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	var body bytes.Buffer
 	if _, err := body.ReadFrom(resp.Body); err != nil {
@@ -409,7 +409,7 @@ func TestLoginTemplatePrefersThemeIconAsset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	var body bytes.Buffer
 	if _, err := body.ReadFrom(resp.Body); err != nil {

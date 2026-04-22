@@ -46,7 +46,7 @@ func TestRuntimeOverridesAffectBootAndModules(t *testing.T) {
 	}
 
 	server := router.NewFiberAdapter()
-	if err := adm.Initialize(server.Router()); err != nil {
+	if err = adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize error: %v", err)
 	}
 
@@ -59,7 +59,7 @@ func TestRuntimeOverridesAffectBootAndModules(t *testing.T) {
 	if err != nil {
 		t.Fatalf("settings request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404 for disabled settings, got %d", resp.StatusCode)

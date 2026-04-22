@@ -41,7 +41,7 @@ func TestFeatureFlagsAPIListAndMutate(t *testing.T) {
 	}
 
 	server := router.NewFiberAdapter()
-	if err := adm.Initialize(server.Router()); err != nil {
+	if err = adm.Initialize(server.Router()); err != nil {
 		t.Fatalf("initialize error: %v", err)
 	}
 
@@ -299,7 +299,7 @@ func getFeatureFlags(t *testing.T, server router.Server[*fiber.App], path string
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("expected list status 200, got %d", resp.StatusCode)
 	}
-	defer resp.Body.Close()
+	defer closeResponseBody(t, resp)
 
 	var payload map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {

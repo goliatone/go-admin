@@ -88,7 +88,7 @@ func TestNewModuleRegistrarWrapsRegisterErrors(t *testing.T) {
 		t.Fatalf("admin.New error: %v", err)
 	}
 	preRegistered := stubModule{id: "dup-module"}
-	if err := adm.RegisterModule(preRegistered); err != nil {
+	if err = adm.RegisterModule(preRegistered); err != nil {
 		t.Fatalf("pre-register module: %v", err)
 	}
 
@@ -260,7 +260,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsByDefault(t *testi
 		t.Cleanup(adm.Commands().Reset)
 	}
 
-	if err := NewModuleRegistrar(adm, cfg, nil, false); err != nil {
+	if err = NewModuleRegistrar(adm, cfg, nil, false); err != nil {
 		t.Fatalf("NewModuleRegistrar error: %v", err)
 	}
 
@@ -319,7 +319,7 @@ func TestNewModuleRegistrarDoesNotSeedSidebarUtilityMenuItemsByDefault(t *testin
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
-	if err := NewModuleRegistrar(adm, cfg, nil, false); err != nil {
+	if err = NewModuleRegistrar(adm, cfg, nil, false); err != nil {
 		t.Fatalf("NewModuleRegistrar error: %v", err)
 	}
 
@@ -344,7 +344,7 @@ func TestNewModuleRegistrarSeedsSidebarUtilityMenuItemsWhenOptedIn(t *testing.T)
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
-	if err := NewModuleRegistrar(
+	if err = NewModuleRegistrar(
 		adm,
 		cfg,
 		nil,
@@ -406,7 +406,7 @@ func TestNewModuleRegistrarSkipsSettingsUtilityItemWhenSettingsFeatureDisabled(t
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
-	if err := NewModuleRegistrar(
+	if err = NewModuleRegistrar(
 		adm,
 		cfg,
 		nil,
@@ -436,7 +436,7 @@ func TestNewModuleRegistrarSeedsToolsMenuItemsUnderToolsGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewAdmin error: %v", err)
 	}
-	if err := NewModuleRegistrar(
+	if err = NewModuleRegistrar(
 		adm,
 		cfg,
 		nil,
@@ -561,7 +561,7 @@ func TestNewModuleRegistrarSeedsTranslationCapabilityMenuItemsWhenEnabled(t *tes
 				t.Cleanup(adm.Commands().Reset)
 			}
 
-			if err := NewModuleRegistrar(
+			if err = NewModuleRegistrar(
 				adm,
 				cfg,
 				nil,

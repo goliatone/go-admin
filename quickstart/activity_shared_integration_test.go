@@ -66,7 +66,7 @@ func TestSharedActivitySinksIncludeAuthAndOnboarding(t *testing.T) {
 	actorID := uuid.New()
 
 	inviteResult := &command.UserInviteResult{}
-	if err := svc.Commands().UserInvite.Execute(ctx, command.UserInviteInput{
+	if err = svc.Commands().UserInvite.Execute(ctx, command.UserInviteInput{
 		Email:     "activity@example.com",
 		FirstName: "Activity",
 		LastName:  "User",
@@ -82,7 +82,7 @@ func TestSharedActivitySinksIncludeAuthAndOnboarding(t *testing.T) {
 		t.Fatalf("expected invite user result")
 	}
 
-	if err := sinks.Auth.Record(ctx, auth.ActivityEvent{
+	if err = sinks.Auth.Record(ctx, auth.ActivityEvent{
 		EventType:  auth.ActivityEventLoginSuccess,
 		Actor:      auth.ActorRef{ID: actorID.String(), Type: "user"},
 		UserID:     inviteResult.User.ID.String(),

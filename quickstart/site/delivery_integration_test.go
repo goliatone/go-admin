@@ -77,7 +77,7 @@ func TestSiteDeliveryPreviewFidelityThroughRegisteredRoutes(t *testing.T) {
 	}
 
 	server := router.NewHTTPServer()
-	if err := RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
+	if err = RegisterSiteRoutes(server.Router(), adm, admin.Config{DefaultLocale: "en"}, SiteConfig{
 		SupportedLocales: []string{"en", "es"},
 	}, WithDeliveryServices(content, content)); err != nil {
 		t.Fatalf("register site routes: %v", err)
@@ -797,11 +797,6 @@ func TestSiteDeliveryHandlesMixedRouteKeyFamiliesWithLegacyAndTranslatedPaths(t 
 	if got := localeSwitcherURLByLocale(payload, "zh"); got != "/zh/guanyu" {
 		t.Fatalf("expected zh locale switcher url /zh/guanyu, got %q payload=%+v", got, payload)
 	}
-}
-
-//go:fix inline
-func coreBoolPtr(value bool) *bool {
-	return new(value)
 }
 
 func performSiteRequest[T interface {

@@ -689,6 +689,3 @@ func stringsTrimSpace(value string) string {
 }
 
 //go:fix inline
-func intPtr(value int) *int {
-	return new(value)
-}

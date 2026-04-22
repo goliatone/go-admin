@@ -488,7 +488,7 @@ func renderSiteTemplateForTest(t *testing.T, cfg admin.Config, siteCfg SiteConfi
 	if err != nil {
 		t.Fatalf("render themed template request: %v", err)
 	}
-	defer res.Body.Close()
+	defer closeResponseBody(t, res)
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {

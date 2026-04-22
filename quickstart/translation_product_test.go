@@ -681,7 +681,7 @@ func TestTranslationProductQueueProfileDisableRetainsDataAndReEnableRestoresAcce
 	if _, ok := disabled.Registry().Panel("translations"); ok {
 		t.Fatalf("expected no queue panel when disabled")
 	}
-	if _, err := repo.Get(ctx, created.ID); err != nil {
+	if _, err = repo.Get(ctx, created.ID); err != nil {
 		t.Fatalf("expected assignment to persist while disabled: %v", err)
 	}
 
@@ -1599,14 +1599,4 @@ func translationRuntimeValidationURLKitConfigWithQueueRoutes(dashboardPath, myWo
 			},
 		},
 	}
-}
-
-func containsTranslationProductString(values []string, target string) bool {
-	target = strings.TrimSpace(target)
-	for _, value := range values {
-		if strings.EqualFold(strings.TrimSpace(value), target) {
-			return true
-		}
-	}
-	return false
 }

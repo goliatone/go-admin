@@ -92,7 +92,7 @@ func TestSiteTemplateContractsForPhase14(t *testing.T) {
 		filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_main.html"),
 		filepath.Join("..", "..", "pkg", "client", "templates", "site", "partials", "menu_footer.html"),
 	} {
-		if _, err := os.Stat(path); err != nil {
+		if _, err = os.Stat(path); err != nil {
 			t.Fatalf("expected default site template %s to exist: %v", path, err)
 		}
 	}
