@@ -88,23 +88,24 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 
 func (h *contentEntryHandlers) contentEntryListViewContext(params contentEntryListViewParams) router.ViewContext {
 	viewCtx := router.ViewContext{
-		"title":                h.cfg.Title,
-		"base_path":            params.BasePath,
-		"resource":             "content",
-		"resource_label":       contentTypeLabel(params.ContentType, params.PanelName),
-		"routes":               params.RoutesMap,
-		"action_base":          params.ActionBase,
-		"items":                params.Items,
-		"columns":              params.Columns,
-		"filters":              params.Filters,
-		"total":                params.Total,
-		"datatable_id":         params.DataTableID,
-		"list_api":             params.ListAPI,
-		"channel":              params.AdminCtx.Channel,
-		"channel_query_key":    admin.ContentChannelScopeQueryParam,
-		"panel_name":           params.PanelName,
-		"preferences_api_path": params.PreferencesAPI,
-		"content_type":         contentEntryListContentTypePayload(params.ContentType, params.PanelName, params.Slug),
+		"title":                 h.cfg.Title,
+		"base_path":             params.BasePath,
+		"resource":              "content",
+		"resource_label":        contentTypeLabel(params.ContentType, params.PanelName),
+		"routes":                params.RoutesMap,
+		"action_base":           params.ActionBase,
+		"items":                 params.Items,
+		"columns":               params.Columns,
+		"filters":               params.Filters,
+		"total":                 params.Total,
+		"render_datagrid_shell": strings.TrimSpace(params.ListAPI) != "",
+		"datatable_id":          params.DataTableID,
+		"list_api":              params.ListAPI,
+		"channel":               params.AdminCtx.Channel,
+		"channel_query_key":     admin.ContentChannelScopeQueryParam,
+		"panel_name":            params.PanelName,
+		"preferences_api_path":  params.PreferencesAPI,
+		"content_type":          contentEntryListContentTypePayload(params.ContentType, params.PanelName, params.Slug),
 	}
 	viewCtx = ApplyPanelBreadcrumbs(viewCtx, params.Panel, params.BasePath, contentTypeLabel(params.ContentType, params.PanelName), params.Routes.index(), BreadcrumbRouteList, nil)
 	applyContentEntryBulkViewContext(viewCtx, params.BulkCtx)
@@ -170,6 +171,7 @@ func (h *contentEntryHandlers) listStateStoreConfig(panelName string) PanelDataG
 	stateStoreConfigured := strings.TrimSpace(stateStoreCfg.Mode) != "" ||
 		strings.TrimSpace(stateStoreCfg.Resource) != "" ||
 		stateStoreCfg.SyncDebounceMS > 0 ||
+		stateStoreCfg.HydrateTimeoutMS > 0 ||
 		stateStoreCfg.MaxShareEntries > 0
 	if stateStoreConfigured && strings.TrimSpace(stateStoreCfg.Resource) == "" {
 		stateStoreCfg.Resource = panelName
