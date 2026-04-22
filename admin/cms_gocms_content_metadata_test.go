@@ -154,6 +154,10 @@ func hasDerivedProjectionListOption(opts []cmscontent.ContentListOption) bool {
 	return slices.Contains(opts, cmscontent.WithDerivedFields())
 }
 
+func hasContentTypeIDListOption(opts []cmscontent.ContentListOption, id string) bool {
+	return slices.Contains(opts, cmscontent.ContentListOption("content:list:content_type:"+id))
+}
+
 func hasDerivedProjectionGetOption(opts []cmscontent.ContentGetOption) bool {
 	return slices.Contains(opts, cmscontent.WithDerivedFields())
 }

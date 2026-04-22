@@ -514,7 +514,9 @@ func TestAdminContentReadServiceListForContentTypeGroupedUsesCompleteLocaleVaria
 	ctx := context.Background()
 	contentID := uuid.New()
 	familyID := uuid.New()
+	contentTypeID := uuid.New()
 	newsType := CMSContentType{
+		ID:           contentTypeID.String(),
 		Slug:         "news",
 		Capabilities: map[string]any{"translations": true},
 	}
@@ -610,6 +612,9 @@ func TestAdminContentReadServiceListForContentTypeGroupedUsesCompleteLocaleVaria
 	}
 	if contentSvc.getCount != 0 {
 		t.Fatalf("expected grouped locale variant list to avoid per-locale get calls, got %d", contentSvc.getCount)
+	}
+	if !hasContentTypeIDListOption(contentSvc.listOptions, contentTypeID.String()) {
+		t.Fatalf("expected content type scoped list option %s, got %v", contentTypeID, contentSvc.listOptions)
 	}
 }
 
