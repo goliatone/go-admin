@@ -131,6 +131,95 @@ test('block editor serializes media gallery hidden inputs as an ordered array', 
   assert.equal(payload[0]['images[]'], undefined);
 });
 
+test('block editor serializes an empty configured media gallery as an empty array', () => {
+  const dom = setupEditor(`
+    <form>
+      <div data-block-editor data-block-sortable="true">
+        <div data-block-empty></div>
+        <div data-block-list></div>
+        <input type="hidden" name="blocks" data-block-output value="" />
+        <select data-block-add-select></select>
+        <button type="button" data-block-add>Add</button>
+        <template data-block-template data-block-type="media_gallery" data-block-label="Media Gallery">
+          <div data-component="media_picker" data-component-config='{"multiple":true}'>
+            <input type="hidden" name="images" value="" />
+          </div>
+        </template>
+      </div>
+    </form>
+  `);
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const select = doc.querySelector('[data-block-add-select]');
+  const addButton = doc.querySelector('[data-block-add]');
+
+  select.value = 'media_gallery';
+  click(addButton);
+
+  const payload = getOutputPayload(doc);
+  assert.equal(payload.length, 1);
+  assert.equal(payload[0]._type, 'media_gallery');
+  assert.deepEqual(payload[0].images, []);
+});
+
+test('block editor cross-editor drag serializes checkbox arrays as selected values', () => {
+  const dom = setupEditor(`
+    <form>
+      <div data-block-editor data-block-sortable="true" data-component-config='{"enableCrossEditor":true}'>
+        <div data-block-empty></div>
+        <div data-block-list></div>
+        <input type="hidden" name="blocks" data-block-output value="" />
+        <select data-block-add-select></select>
+        <button type="button" data-block-add>Add</button>
+        <template data-block-template data-block-type="filters" data-block-label="Filters">
+          <label><input type="checkbox" name="tags[]" value="featured" /> Featured</label>
+          <label><input type="checkbox" name="tags[]" value="archived" /> Archived</label>
+        </template>
+      </div>
+    </form>
+  `);
+  initBlockEditors(dom.window.document);
+
+  const doc = dom.window.document;
+  const select = doc.querySelector('[data-block-add-select]');
+  const addButton = doc.querySelector('[data-block-add]');
+  select.value = 'filters';
+  click(addButton);
+
+  const item = doc.querySelector('[data-block-item]');
+  const checkboxes = item.querySelectorAll('input[type="checkbox"]');
+  checkboxes[0].checked = true;
+  checkboxes[1].checked = false;
+
+  const dragData = new Map();
+  const dataTransfer = {
+    effectAllowed: '',
+    setData(type, value) {
+      dragData.set(type, value);
+    },
+    getData(type) {
+      return dragData.get(type) || '';
+    },
+    setDragImage() {},
+  };
+  const dragEvent = new window.Event('dragstart', { bubbles: true, cancelable: true });
+  Object.defineProperty(dragEvent, 'dataTransfer', { value: dataTransfer });
+  item.querySelector('[data-block-drag-handle]').dispatchEvent(dragEvent);
+
+  const dragged = JSON.parse(dragData.get('application/x-block'));
+  assert.equal(dragged._type, 'filters');
+  assert.deepEqual(dragged.tags, ['featured']);
+
+  checkboxes[0].checked = false;
+  const emptyDragData = new Map();
+  dataTransfer.setData = (type, value) => emptyDragData.set(type, value);
+  dataTransfer.getData = (type) => emptyDragData.get(type) || '';
+  item.querySelector('[data-block-drag-handle]').dispatchEvent(dragEvent);
+  const emptyDragged = JSON.parse(emptyDragData.get('application/x-block'));
+  assert.deepEqual(emptyDragged.tags, []);
+});
+
 test('block editor supports collapse and removal', () => {
   const dom = setupEditor(editorMarkup());
   initBlockEditors(dom.window.document);

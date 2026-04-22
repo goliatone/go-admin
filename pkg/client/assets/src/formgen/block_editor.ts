@@ -777,7 +777,13 @@ function collectBlockData(item: HTMLElement): Record<string, any> {
     const arrayField = isArrayFieldForCollection(field, key);
     if (arrayField && field instanceof HTMLInputElement && field.type === 'hidden' && field.value.trim() === '') return;
     if (field instanceof HTMLInputElement && field.type === 'checkbox') {
-      assignBlockFieldValue(data, key, field.checked, arrayField);
+      if (arrayField) {
+        const normalizedKey = stripArrayFieldSuffix(key);
+        if (data[normalizedKey] === undefined) data[normalizedKey] = [];
+        if (field.checked) assignBlockFieldValue(data, key, field.value, true);
+      } else {
+        assignBlockFieldValue(data, key, field.checked, false);
+      }
     } else if (field instanceof HTMLSelectElement && field.multiple) {
       assignBlockFieldValue(data, key, Array.from(field.selectedOptions).map((opt) => opt.value), false);
     } else {
