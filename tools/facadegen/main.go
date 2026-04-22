@@ -141,27 +141,64 @@ type facadeSummary struct {
 }
 
 func buildFacade(corePath string) ([]byte, facadeSummary, error) {
+	pkg, err := loadFacadePackage(corePath)
+	if err != nil {
+		return nil, facadeSummary{}, err
+	}
+	builder := newFacadeBuilder(corePath)
+	if collectErr := builder.collect(pkg.Types.Scope()); collectErr != nil {
+		return nil, facadeSummary{}, collectErr
+	}
+	builder.sort()
+	manualDecls := builder.manualDecls()
+
+	source := renderFacadeSource(builder, manualDecls)
+	formatted, err := format.Source(source)
+	if err != nil {
+		return nil, facadeSummary{}, fmt.Errorf("format generated facade: %w", err)
+	}
+
+	return formatted, facadeSummary{
+		constCount:  len(builder.constNames),
+		varCount:    len(builder.varNames),
+		typeCount:   len(builder.typeDecls),
+		funcCount:   len(builder.funcDecls),
+		manualCount: len(manualDecls),
+	}, nil
+}
+
+func loadFacadePackage(corePath string) (*packages.Package, error) {
 	cfg := &packages.Config{
 		Mode: packages.NeedTypes | packages.NeedTypesSizes | packages.NeedName,
 	}
 	pkgs, err := packages.Load(cfg, corePath)
 	if err != nil {
-		return nil, facadeSummary{}, err
+		return nil, err
 	}
 	if packages.PrintErrors(pkgs) > 0 {
-		return nil, facadeSummary{}, fmt.Errorf("failed loading package %s", corePath)
+		return nil, fmt.Errorf("failed loading package %s", corePath)
 	}
 	if len(pkgs) != 1 {
-		return nil, facadeSummary{}, fmt.Errorf("expected 1 package for %s, got %d", corePath, len(pkgs))
+		return nil, fmt.Errorf("expected 1 package for %s, got %d", corePath, len(pkgs))
 	}
+	return pkgs[0], nil
+}
 
-	pkg := pkgs[0]
-	scope := pkg.Types.Scope()
-	names := scope.Names()
+type facadeBuilder struct {
+	corePath   string
+	imports    *importRegistry
+	renderType func(types.Type) string
 
+	constNames []string
+	varNames   []string
+	typeDecls  []string
+	funcDecls  []string
+	hasIntPtr  bool
+}
+
+func newFacadeBuilder(corePath string) *facadeBuilder {
 	imports := newImportRegistry()
 	imports.registerFixed(corePath, coreAlias)
-
 	renderType := func(t types.Type) string {
 		qualifier := func(other *types.Package) string {
 			if other == nil {
@@ -174,100 +211,123 @@ func buildFacade(corePath string) ([]byte, facadeSummary, error) {
 		}
 		return types.TypeString(t, qualifier)
 	}
+	return &facadeBuilder{
+		corePath:   corePath,
+		imports:    imports,
+		renderType: renderType,
+	}
+}
 
-	constNames := make([]string, 0)
-	varNames := make([]string, 0)
-	typeDecls := make([]string, 0)
-	funcDecls := make([]string, 0)
-	hasIntPtr := false
-
-	for _, name := range names {
+func (b *facadeBuilder) collect(scope *types.Scope) error {
+	for _, name := range scope.Names() {
 		if !token.IsExported(name) {
 			continue
 		}
-		obj := scope.Lookup(name)
-		switch typed := obj.(type) {
-		case *types.Const:
-			constNames = append(constNames, name)
-		case *types.Var:
-			varNames = append(varNames, name)
-		case *types.TypeName:
-			tparamsDecl, tparamsUse := renderTypeParams(typeParamsOfTypeName(typed), renderType)
-			typeDecls = append(typeDecls, fmt.Sprintf("\t%s%s = %s.%s%s", name, tparamsDecl, coreAlias, name, tparamsUse))
-		case *types.Func:
-			if name == "IntPtr" {
-				hasIntPtr = true
-			}
-			sig, ok := typed.Type().(*types.Signature)
-			if !ok {
-				return nil, facadeSummary{}, fmt.Errorf("expected function signature for %s", name)
-			}
-			if !isFacadeExportableSignature(sig, corePath) {
-				continue
-			}
-			decl, err := renderFuncDecl(name, sig, renderType)
-			if err != nil {
-				return nil, facadeSummary{}, err
-			}
-			funcDecls = append(funcDecls, decl)
+		if err := b.collectObject(name, scope.Lookup(name)); err != nil {
+			return err
 		}
 	}
+	return nil
+}
 
-	sort.Strings(constNames)
-	sort.Strings(varNames)
-	sort.Strings(typeDecls)
-	sort.Strings(funcDecls)
+func (b *facadeBuilder) collectObject(name string, obj types.Object) error {
+	switch typed := obj.(type) {
+	case *types.Const:
+		b.constNames = append(b.constNames, name)
+	case *types.Var:
+		b.varNames = append(b.varNames, name)
+	case *types.TypeName:
+		tparamsDecl, tparamsUse := renderTypeParams(typeParamsOfTypeName(typed), b.renderType)
+		b.typeDecls = append(b.typeDecls, fmt.Sprintf("\t%s%s = %s.%s%s", name, tparamsDecl, coreAlias, name, tparamsUse))
+	case *types.Func:
+		return b.collectFunc(name, typed)
+	}
+	return nil
+}
 
+func (b *facadeBuilder) collectFunc(name string, fn *types.Func) error {
+	if name == "IntPtr" {
+		b.hasIntPtr = true
+	}
+	sig, ok := fn.Type().(*types.Signature)
+	if !ok {
+		return fmt.Errorf("expected function signature for %s", name)
+	}
+	if !isFacadeExportableSignature(sig, b.corePath) {
+		return nil
+	}
+	decl, err := renderFuncDecl(name, sig, b.renderType)
+	if err != nil {
+		return err
+	}
+	b.funcDecls = append(b.funcDecls, decl)
+	return nil
+}
+
+func (b *facadeBuilder) sort() {
+	sort.Strings(b.constNames)
+	sort.Strings(b.varNames)
+	sort.Strings(b.typeDecls)
+	sort.Strings(b.funcDecls)
+}
+
+func (b *facadeBuilder) manualDecls() []string {
 	manualDecls := make([]string, 0, 1)
-	if !hasIntPtr {
+	if !b.hasIntPtr {
 		manualDecls = append(manualDecls, "func IntPtr(v int) *int {\n\treturn &v\n}")
 	}
+	return manualDecls
+}
 
+func renderFacadeSource(builder *facadeBuilder, manualDecls []string) []byte {
 	var buf strings.Builder
 	buf.WriteString("// Code generated by go run ../../tools/facadegen; DO NOT EDIT.\n")
 	buf.WriteString("// Source of truth: exported API surface from github.com/goliatone/go-admin/admin.\n")
 	buf.WriteString("\n")
 	buf.WriteString("package admin\n")
 	buf.WriteString("\n")
+	writeImportSection(&buf, builder.imports.list())
+	writeAliasBlock(&buf, "const", builder.constNames, func(name string) string {
+		return fmt.Sprintf("\t%s = %s.%s", name, coreAlias, name)
+	})
+	writeAliasBlock(&buf, "var", builder.varNames, func(name string) string {
+		return fmt.Sprintf("\t%s = %s.%s", name, coreAlias, name)
+	})
+	writeAliasBlock(&buf, "type", builder.typeDecls, func(decl string) string {
+		return decl
+	})
+	writeFuncDecls(&buf, builder.funcDecls)
+	writeManualDecls(&buf, builder.funcDecls, manualDecls)
+	return []byte(buf.String())
+}
 
-	importSpecs := imports.list()
+func writeImportSection(buf *strings.Builder, importSpecs []importSpec) {
 	if len(importSpecs) > 0 {
 		buf.WriteString("import (\n")
 		for _, spec := range importSpecs {
 			if spec.alias == "" || spec.alias == pathBase(spec.path) {
-				fmt.Fprintf(&buf, "\t\"%s\"\n", spec.path)
+				fmt.Fprintf(buf, "\t\"%s\"\n", spec.path)
 				continue
 			}
-			fmt.Fprintf(&buf, "\t%s \"%s\"\n", spec.alias, spec.path)
+			fmt.Fprintf(buf, "\t%s \"%s\"\n", spec.alias, spec.path)
 		}
 		buf.WriteString(")\n\n")
 	}
+}
 
-	if len(constNames) > 0 {
-		buf.WriteString("const (\n")
-		for _, name := range constNames {
-			fmt.Fprintf(&buf, "\t%s = %s.%s\n", name, coreAlias, name)
-		}
-		buf.WriteString(")\n\n")
+func writeAliasBlock(buf *strings.Builder, keyword string, values []string, render func(string) string) {
+	if len(values) == 0 {
+		return
 	}
-
-	if len(varNames) > 0 {
-		buf.WriteString("var (\n")
-		for _, name := range varNames {
-			fmt.Fprintf(&buf, "\t%s = %s.%s\n", name, coreAlias, name)
-		}
-		buf.WriteString(")\n\n")
+	fmt.Fprintf(buf, "%s (\n", keyword)
+	for _, value := range values {
+		buf.WriteString(render(value))
+		buf.WriteByte('\n')
 	}
+	buf.WriteString(")\n\n")
+}
 
-	if len(typeDecls) > 0 {
-		buf.WriteString("type (\n")
-		for _, decl := range typeDecls {
-			buf.WriteString(decl)
-			buf.WriteByte('\n')
-		}
-		buf.WriteString(")\n\n")
-	}
-
+func writeFuncDecls(buf *strings.Builder, funcDecls []string) {
 	for i, decl := range funcDecls {
 		buf.WriteString(decl)
 		buf.WriteByte('\n')
@@ -275,7 +335,9 @@ func buildFacade(corePath string) ([]byte, facadeSummary, error) {
 			buf.WriteByte('\n')
 		}
 	}
+}
 
+func writeManualDecls(buf *strings.Builder, funcDecls []string, manualDecls []string) {
 	if len(manualDecls) > 0 {
 		if len(funcDecls) > 0 {
 			buf.WriteString("\n\n")
@@ -290,20 +352,6 @@ func buildFacade(corePath string) ([]byte, facadeSummary, error) {
 		}
 		buf.WriteString("\n// ---- END MANUAL COMPATIBILITY SECTION ----\n")
 	}
-
-	formatted, err := format.Source([]byte(buf.String()))
-	if err != nil {
-		return nil, facadeSummary{}, fmt.Errorf("format generated facade: %w", err)
-	}
-
-	summary := facadeSummary{
-		constCount:  len(constNames),
-		varCount:    len(varNames),
-		typeCount:   len(typeDecls),
-		funcCount:   len(funcDecls),
-		manualCount: len(manualDecls),
-	}
-	return formatted, summary, nil
 }
 
 func renderFuncDecl(name string, sig *types.Signature, renderType func(types.Type) string) (string, error) {
@@ -466,75 +514,124 @@ func isFacadeExportableType(t types.Type, corePath string, seen map[types.Type]b
 	seen[t] = true
 
 	switch typed := t.(type) {
-	case *types.Alias:
-		if obj := typed.Obj(); obj != nil && obj.Pkg() != nil && obj.Pkg().Path() == corePath && !obj.Exported() {
-			return false
-		}
-		return isFacadeExportableType(typed.Rhs(), corePath, seen)
-	case *types.Array:
-		return isFacadeExportableType(typed.Elem(), corePath, seen)
-	case *types.Basic:
-		return true
-	case *types.Chan:
-		return isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Alias, *types.Named:
+		return isFacadeExportableNamedLike(typed, corePath, seen)
+	case *types.Array, *types.Chan, *types.Pointer, *types.Slice:
+		return isFacadeExportableElemType(typed, corePath, seen)
+	case *types.Basic, *types.Signature:
+		return isFacadeExportableDirectType(typed, corePath)
 	case *types.Interface:
-		for etyp := range typed.EmbeddedTypes() {
-			if !isFacadeExportableType(etyp, corePath, seen) {
-				return false
-			}
-		}
-		for method := range typed.Methods() {
-			method, ok := method.Type().(*types.Signature)
-			if !ok {
-				return false
-			}
-			if !isFacadeExportableSignature(method, corePath) {
-				return false
-			}
-		}
-		return true
-	case *types.Map:
-		return isFacadeExportableType(typed.Key(), corePath, seen) &&
-			isFacadeExportableType(typed.Elem(), corePath, seen)
-	case *types.Named:
-		if obj := typed.Obj(); obj != nil && obj.Pkg() != nil && obj.Pkg().Path() == corePath && !obj.Exported() {
-			return false
-		}
-		if args := typed.TypeArgs(); args != nil {
-			for t := range args.Types() {
-				if !isFacadeExportableType(t, corePath, seen) {
-					return false
-				}
-			}
-		}
-		return true
-	case *types.Pointer:
-		return isFacadeExportableType(typed.Elem(), corePath, seen)
-	case *types.Signature:
-		return isFacadeExportableSignature(typed, corePath)
-	case *types.Slice:
-		return isFacadeExportableType(typed.Elem(), corePath, seen)
-	case *types.Struct:
-		for field := range typed.Fields() {
-			if !isFacadeExportableType(field.Type(), corePath, seen) {
-				return false
-			}
-		}
-		return true
-	case *types.Tuple:
-		return isFacadeExportableTuple(typed, corePath, seen)
+		return isFacadeExportableInterface(typed, corePath, seen)
+	case *types.Map, *types.Struct, *types.Tuple, *types.Union:
+		return isFacadeExportableCompositeType(typed, corePath, seen)
 	case *types.TypeParam:
 		return isFacadeExportableType(typed.Constraint(), corePath, seen)
-	case *types.Union:
-		for term := range typed.Terms() {
-			if !isFacadeExportableType(term.Type(), corePath, seen) {
-				return false
-			}
-		}
-		return true
 	default:
 		return true
 	}
+}
+
+func isCorePrivateObject(obj *types.TypeName, corePath string) bool {
+	return obj != nil && obj.Pkg() != nil && obj.Pkg().Path() == corePath && !obj.Exported()
+}
+
+func isFacadeExportableNamedLike(t types.Type, corePath string, seen map[types.Type]bool) bool {
+	switch typed := t.(type) {
+	case *types.Alias:
+		if isCorePrivateObject(typed.Obj(), corePath) {
+			return false
+		}
+		return isFacadeExportableType(typed.Rhs(), corePath, seen)
+	case *types.Named:
+		return isFacadeExportableNamed(typed, corePath, seen)
+	default:
+		return true
+	}
+}
+
+func isFacadeExportableDirectType(t types.Type, corePath string) bool {
+	signature, ok := t.(*types.Signature)
+	return !ok || isFacadeExportableSignature(signature, corePath)
+}
+
+func isFacadeExportableElemType(t types.Type, corePath string, seen map[types.Type]bool) bool {
+	switch typed := t.(type) {
+	case *types.Array:
+		return isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Chan:
+		return isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Pointer:
+		return isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Slice:
+		return isFacadeExportableType(typed.Elem(), corePath, seen)
+	default:
+		return true
+	}
+}
+
+func isFacadeExportableInterface(t *types.Interface, corePath string, seen map[types.Type]bool) bool {
+	for etyp := range t.EmbeddedTypes() {
+		if !isFacadeExportableType(etyp, corePath, seen) {
+			return false
+		}
+	}
+	for method := range t.Methods() {
+		signature, ok := method.Type().(*types.Signature)
+		if !ok || !isFacadeExportableSignature(signature, corePath) {
+			return false
+		}
+	}
+	return true
+}
+
+func isFacadeExportableNamed(t *types.Named, corePath string, seen map[types.Type]bool) bool {
+	if isCorePrivateObject(t.Obj(), corePath) {
+		return false
+	}
+	args := t.TypeArgs()
+	if args == nil {
+		return true
+	}
+	for arg := range args.Types() {
+		if !isFacadeExportableType(arg, corePath, seen) {
+			return false
+		}
+	}
+	return true
+}
+
+func isFacadeExportableCompositeType(t types.Type, corePath string, seen map[types.Type]bool) bool {
+	switch typed := t.(type) {
+	case *types.Map:
+		return isFacadeExportableType(typed.Key(), corePath, seen) &&
+			isFacadeExportableType(typed.Elem(), corePath, seen)
+	case *types.Struct:
+		return isFacadeExportableStruct(typed, corePath, seen)
+	case *types.Tuple:
+		return isFacadeExportableTuple(typed, corePath, seen)
+	case *types.Union:
+		return isFacadeExportableUnion(typed, corePath, seen)
+	default:
+		return true
+	}
+}
+
+func isFacadeExportableStruct(t *types.Struct, corePath string, seen map[types.Type]bool) bool {
+	for field := range t.Fields() {
+		if !isFacadeExportableType(field.Type(), corePath, seen) {
+			return false
+		}
+	}
+	return true
+}
+
+func isFacadeExportableUnion(t *types.Union, corePath string, seen map[types.Type]bool) bool {
+	for term := range t.Terms() {
+		if !isFacadeExportableType(term.Type(), corePath, seen) {
+			return false
+		}
+	}
+	return true
 }
 
 func sanitizeIdent(s string) string {
@@ -544,16 +641,7 @@ func sanitizeIdent(s string) string {
 	}
 	var b strings.Builder
 	for i, r := range s {
-		if r == '_' || (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (i > 0 && r >= '0' && r <= '9') {
-			b.WriteRune(r)
-			continue
-		}
-		if i == 0 && r >= '0' && r <= '9' {
-			b.WriteByte('p')
-			b.WriteRune(r)
-			continue
-		}
-		b.WriteByte('_')
+		writeIdentRune(&b, i, r)
 	}
 	out := b.String()
 	if out == "" {
@@ -566,6 +654,31 @@ func sanitizeIdent(s string) string {
 		out = out + "Pkg"
 	}
 	return out
+}
+
+func writeIdentRune(b *strings.Builder, index int, r rune) {
+	if isIdentRune(index, r) {
+		b.WriteRune(r)
+		return
+	}
+	if index == 0 && isASCIIDigit(r) {
+		b.WriteByte('p')
+		b.WriteRune(r)
+		return
+	}
+	b.WriteByte('_')
+}
+
+func isIdentRune(index int, r rune) bool {
+	return r == '_' || isASCIILetter(r) || (index > 0 && isASCIIDigit(r))
+}
+
+func isASCIILetter(r rune) bool {
+	return (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z')
+}
+
+func isASCIIDigit(r rune) bool {
+	return r >= '0' && r <= '9'
 }
 
 func pathBase(path string) string {

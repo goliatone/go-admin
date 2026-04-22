@@ -283,34 +283,9 @@ func (s *FamilyService) List(ctx context.Context, input ListFamiliesInput) (List
 	}
 	filtered := make([]FamilyRecord, 0, len(families))
 	for _, family := range families {
-		if !familyMatchesScope(family, input.Scope) {
-			continue
-		}
-		if input.FamilyID != "" && !strings.EqualFold(strings.TrimSpace(family.ID), strings.TrimSpace(input.FamilyID)) {
-			continue
-		}
-		if input.ContentType != "" && !strings.EqualFold(strings.TrimSpace(family.ContentType), strings.TrimSpace(input.ContentType)) {
-			continue
-		}
-		if input.ReadinessState != "" && !strings.EqualFold(strings.TrimSpace(family.ReadinessState), strings.TrimSpace(input.ReadinessState)) {
-			continue
-		}
-		if input.BlockerCode != "" && !familyHasBlockerCode(family, input.BlockerCode) {
-			continue
-		}
-		if input.MissingLocale != "" && !familyMissingLocale(family, input.MissingLocale) {
-			continue
-		}
-		filtered = append(filtered, family)
+		filtered = appendMatchingFamily(filtered, family, input)
 	}
-	sort.SliceStable(filtered, func(i, j int) bool {
-		left := filtered[i]
-		right := filtered[j]
-		if left.UpdatedAt.Equal(right.UpdatedAt) {
-			return left.ID < right.ID
-		}
-		return left.UpdatedAt.After(right.UpdatedAt)
-	})
+	sortFamiliesForList(filtered)
 	total := len(filtered)
 	start := min((page-1)*perPage, total)
 	end := min(start+perPage, total)
@@ -321,6 +296,46 @@ func (s *FamilyService) List(ctx context.Context, input ListFamiliesInput) (List
 		Page:    page,
 		PerPage: perPage,
 	}, nil
+}
+
+func appendMatchingFamily(out []FamilyRecord, family FamilyRecord, input ListFamiliesInput) []FamilyRecord {
+	if familyMatchesListInput(family, input) {
+		return append(out, family)
+	}
+	return out
+}
+
+func familyMatchesListInput(family FamilyRecord, input ListFamiliesInput) bool {
+	return familyMatchesScope(family, input.Scope) &&
+		matchesOptionalText(family.ID, input.FamilyID) &&
+		matchesOptionalText(family.ContentType, input.ContentType) &&
+		matchesOptionalText(family.ReadinessState, input.ReadinessState) &&
+		matchesOptionalBlocker(family, input.BlockerCode) &&
+		matchesOptionalMissingLocale(family, input.MissingLocale)
+}
+
+func matchesOptionalText(value, expected string) bool {
+	expected = strings.TrimSpace(expected)
+	return expected == "" || strings.EqualFold(strings.TrimSpace(value), expected)
+}
+
+func matchesOptionalBlocker(family FamilyRecord, blockerCode string) bool {
+	return strings.TrimSpace(blockerCode) == "" || familyHasBlockerCode(family, blockerCode)
+}
+
+func matchesOptionalMissingLocale(family FamilyRecord, locale string) bool {
+	return strings.TrimSpace(locale) == "" || familyMissingLocale(family, locale)
+}
+
+func sortFamiliesForList(families []FamilyRecord) {
+	sort.SliceStable(families, func(i, j int) bool {
+		left := families[i]
+		right := families[j]
+		if left.UpdatedAt.Equal(right.UpdatedAt) {
+			return left.ID < right.ID
+		}
+		return left.UpdatedAt.After(right.UpdatedAt)
+	})
 }
 
 func (s *FamilyService) Detail(ctx context.Context, input GetFamilyInput) (FamilyRecord, bool, error) {
