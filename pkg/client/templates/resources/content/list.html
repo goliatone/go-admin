@@ -544,7 +544,8 @@ document.addEventListener('DOMContentLoaded', async function() {
   const columnVisibility = new ServerColumnVisibilityBehavior(columnFields, {
     resource: '{{ panel_name }}',
     localStorageKey: columnStorageKey,
-    preferencesEndpoint: preferencesEndpoint
+    preferencesEndpoint: preferencesEndpoint,
+    loadTimeoutMs: stateStoreConfig.hydrateTimeoutMs
   });
   await columnVisibility.loadFromServer();
 

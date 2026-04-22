@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { DataGrid, createDataGridStateStore } = await import('../dist/datatable/index.js');
+const { DataGrid, ServerColumnVisibilityBehavior, createDataGridStateStore } = await import('../dist/datatable/index.js');
 
 function createLocalStorage(initial = {}) {
   const store = new Map(Object.entries(initial));
@@ -299,6 +299,35 @@ test('preferences state hydration times out instead of blocking the grid', async
 
     await store.hydrate();
 
+    assert.equal(aborted, true);
+  } finally {
+    cleanup();
+  }
+});
+
+test('server column visibility hydration times out instead of blocking grid construction', async () => {
+  const { cleanup } = installTestGlobals();
+  let aborted = false;
+
+  globalThis.fetch = async (_url, options = {}) => new Promise((_resolve, reject) => {
+    options.signal?.addEventListener('abort', () => {
+      aborted = true;
+      const error = new Error('aborted');
+      error.name = 'AbortError';
+      reject(error);
+    });
+  });
+
+  try {
+    const behavior = new ServerColumnVisibilityBehavior(['title'], {
+      resource: 'pages',
+      preferencesEndpoint: '/admin/api/panels/preferences',
+      loadTimeoutMs: 1,
+    });
+
+    const result = await behavior.loadFromServer();
+
+    assert.equal(result, null);
     assert.equal(aborted, true);
   } finally {
     cleanup();

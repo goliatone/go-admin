@@ -17,6 +17,8 @@ interface ColumnPrefsV2 {
   order?: string[];
 }
 
+const DEFAULT_COLUMN_PREFS_LOAD_TIMEOUT_MS = 1500;
+
 /**
  * Type guard to check if prefs are V2 format
  */
@@ -256,6 +258,8 @@ export interface ServerColumnVisibilityConfig {
   localStorageKey?: string;
   /** Debounce delay in ms for server sync (default: 1000) */
   syncDebounce?: number;
+  /** Timeout for initial server hydration, in milliseconds (default: 1500) */
+  loadTimeoutMs?: number;
 }
 
 /**
@@ -272,6 +276,7 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
   private resource: string;
   private preferencesEndpoint: string;
   private syncDebounce: number;
+  private loadTimeoutMs: number;
   private syncTimeout: ReturnType<typeof setTimeout> | null = null;
   private serverPrefs: ColumnPrefsV2 | null = null;
 
@@ -292,6 +297,7 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
       this.preferencesEndpoint = '/api/panels/preferences';
     }
     this.syncDebounce = config.syncDebounce ?? 1000;
+    this.loadTimeoutMs = Math.max(100, config.loadTimeoutMs || DEFAULT_COLUMN_PREFS_LOAD_TIMEOUT_MS);
   }
 
   /**
@@ -329,10 +335,17 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
    * Returns the V2 prefs if found, null otherwise
    */
   async loadFromServer(): Promise<ColumnPrefsV2 | null> {
+    const controller = typeof AbortController !== 'undefined'
+      ? new AbortController()
+      : null;
+    const timeout = setTimeout(() => {
+      controller?.abort();
+    }, this.loadTimeoutMs);
     try {
       const response = await httpRequest(this.preferencesEndpoint, {
         method: 'GET',
         credentials: 'same-origin',
+        signal: controller?.signal,
         headers: {
           'Accept': 'application/json',
         },
@@ -377,6 +390,8 @@ export class ServerColumnVisibilityBehavior extends DefaultColumnVisibilityBehav
     } catch (e) {
       console.warn('[ServerColumnVisibility] Error loading server prefs:', e);
       return null;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

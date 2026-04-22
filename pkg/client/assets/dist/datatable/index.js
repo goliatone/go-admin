@@ -3,10 +3,10 @@ import { t as jt } from "../chunks/icon-renderer-a2WAOpSe.js";
 import { n as zt, r as Le } from "../chunks/modal-C7iNT0ae.js";
 import { t as F } from "../chunks/toast-manager-DJ83v89f.js";
 import { httpRequest as x, readHTTPError as ge, readHTTPJSON as Ne, readHTTPJSONObject as Nt, readHTTPJSONValue as Ge } from "../shared/transport/http-client.js";
-import { createStructuredActionError as Q, executeActionRequest as be, executeStructuredRequest as Ue, extractErrorMessage as Gt, extractExchangeError as va, extractTranslationBlocker as Ut, formatStructuredErrorForDisplay as B, generateExchangeReport as wa, getStructuredActionError as M, groupRowResultsByStatus as xa, isExchangeError as Sa, isHandledActionError as _, isTranslationBlocker as Ht, parseImportResult as Ca } from "../toast/error-helpers.js";
+import { createStructuredActionError as Q, executeActionRequest as be, executeStructuredRequest as Ue, extractErrorMessage as Gt, extractExchangeError as wa, extractTranslationBlocker as Ut, formatStructuredErrorForDisplay as B, generateExchangeReport as xa, getStructuredActionError as M, groupRowResultsByStatus as Sa, isExchangeError as Ca, isHandledActionError as _, isTranslationBlocker as Ht, parseImportResult as $a } from "../toast/error-helpers.js";
 import { n as Vt, t as Y } from "../chunks/badge-DT04uHwZ.js";
 import { t as W } from "../chunks/date-utils-Xhx5dXNC.js";
-import { A as He, C as q, D as Ea, E as La, F as Ve, M as Kt, N as Ke, O as _a, P as Jt, S as Ra, T as Da, _ as Pa, a as Ia, b as Ta, c as Ma, d as Ba, f as Fa, g as qa, h as Je, i as Oa, j as Qe, k as ja, l as za, m as Ye, n as Na, o as Ga, p as Ua, r as Ha, s as Va, t as Ka, u as We, v as Ja, w as Qt, x as Yt, y as Qa } from "../chunks/translation-status-vocabulary-C8mdmsgA.js";
+import { A as He, C as q, D as La, E as _a, F as Ve, M as Kt, N as Ke, O as Ra, P as Jt, S as Da, T as Pa, _ as Ia, a as Ta, b as Ma, c as Ba, d as Fa, f as qa, g as Oa, h as Je, i as ja, j as Qe, k as za, l as Na, m as Ye, n as Ga, o as Ua, p as Ha, r as Va, s as Ka, t as Ja, u as We, v as Qa, w as Qt, x as Yt, y as Ya } from "../chunks/translation-status-vocabulary-C8mdmsgA.js";
 import { buildURL as _e, deleteSearchParams as Wt } from "../shared/query-state/url-state.js";
 import { t as Xt } from "../chunks/sortable.esm-CnodmHaR.js";
 import { normalizeAPIBasePath as Zt, normalizeBasePath as er } from "../shared/path-normalization.js";
@@ -430,11 +430,11 @@ function L(e) {
     "_type"
   ]), t.recordId = P(e, ["id"]), !t.fallbackUsed && t.requestedLocale && t.resolvedLocale && (t.fallbackUsed = t.requestedLocale !== t.resolvedLocale), !t.missingRequestedLocale && t.fallbackUsed && (t.missingRequestedLocale = !0)), t;
 }
-function to(e) {
+function ro(e) {
   const t = L(e);
   return t.fallbackUsed || t.missingRequestedLocale;
 }
-function ro(e) {
+function no(e) {
   const t = L(e);
   return t.familyId !== null || t.resolvedLocale !== null || t.availableLocales.length > 0;
 }
@@ -475,7 +475,7 @@ function tt(e) {
   const n = L(e);
   return n.availableLocales.length > 0 ? n.availableLocales.length : n.resolvedLocale ? 1 : null;
 }
-function no(e, t = {}) {
+function so(e, t = {}) {
   const r = typeof e.translation_family_url == "string" ? e.translation_family_url.trim() : "";
   if (!r) return '<span class="text-gray-400">-</span>';
   const n = tt(e), s = n && n > 0 ? E(`${n} ${n === 1 ? "locale" : "locales"}`, t, "info") : "";
@@ -486,11 +486,11 @@ function no(e, t = {}) {
     </div>
   `.trim();
 }
-function so(e, t = {}) {
+function io(e, t = {}) {
   const r = tt(e);
   return !r || r <= 0 ? '<span class="text-gray-400">-</span>' : E(`${r} ${r === 1 ? "locale" : "locales"}`, t, "info");
 }
-function io(e, t = {}) {
+function ao(e, t = {}) {
   const r = et(e, "translation_assignment_summary");
   if (!r) return '<span class="text-gray-400">-</span>';
   const n = T(r, ["status"]), s = T(r, ["label"]), i = T(r, ["assignee_id"]), a = T(r, ["priority"]), o = de(r, ["active_count", "open_count"]), l = [];
@@ -500,7 +500,7 @@ function io(e, t = {}) {
     showIcon: !1
   })) : s && l.push(E(s, t, "info")), o !== null && o >= 0 && l.push(E(`${o} active`, t, "neutral")), i && l.push(E(`@${i}`, t, "neutral")), a && l.push(E(a, t, a === "urgent" || a === "high" ? "warning" : "neutral")), l.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="inline-flex items-center gap-1.5 flex-wrap">${l.join("")}</div>`;
 }
-function ao(e, t = {}) {
+function oo(e, t = {}) {
   const r = et(e, "translation_exchange_summary");
   if (!r) return '<span class="text-gray-400">-</span>';
   const n = T(r, ["status", "last_job_status"]), s = T(r, ["label", "last_job_label"]), i = de(r, ["pending_count"]), a = de(r, ["error_count"]), o = [];
@@ -538,10 +538,10 @@ function C(e) {
   }
   return t;
 }
-function oo(e) {
+function lo(e) {
   return C(e).hasReadinessMetadata;
 }
-function lo(e, t) {
+function co(e, t) {
   return C(e).readyForTransition[t] === !0;
 }
 function sr(e) {
@@ -589,12 +589,12 @@ function ar(e, t = {}) {
     size: s
   })), i.length === 0 ? '<span class="text-gray-400">-</span>' : `<div class="flex items-center flex-wrap ${s === "sm" ? "gap-1" : "gap-2"}">${i.join("")}</div>`;
 }
-function co(e, t = "default") {
+function uo(e, t = "default") {
   if (!e) return "";
   const r = e.trim();
   return Je(r) !== null ? q(r, { size: t === "sm" ? "sm" : "default" }) : Y(e, "status", r.toLowerCase(), { size: t === "sm" ? "sm" : void 0 });
 }
-function uo(e, t = {}) {
+function ho(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata) return "";
   const { size: n = "default", showDetailedTooltip: s = !0, extraClass: i = "" } = t, a = `inline-flex items-center gap-1 rounded font-medium ${n === "sm" ? "text-xs px-1.5 py-0.5" : "text-xs px-2 py-1"}`, o = r.readinessState || "ready", { icon: l, label: c, bgClass: d, textClass: h, tooltip: f } = or(o, r, s);
@@ -606,7 +606,7 @@ function uo(e, t = {}) {
     <span>${c}</span>
   </span>`;
 }
-function ho(e, t = {}) {
+function fo(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata) return "";
   const n = r.readyForTransition.publish === !0, { size: s = "default", extraClass: i = "" } = t, a = s === "sm" ? "text-[10px] px-1.5 py-0.5" : "text-xs px-2 py-1";
@@ -628,7 +628,7 @@ function ho(e, t = {}) {
     ${o > 0 ? `${o} missing` : "Not ready"}
   </span>`;
 }
-function fo(e, t = {}) {
+function po(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata || r.requiredLocales.length === 0) return "";
   const { size: n = "default", extraClass: s = "" } = t, i = n === "sm" ? "text-xs" : "text-sm", a = r.requiredLocales.length, o = r.availableLocales.filter((l) => r.requiredLocales.includes(l)).length;
@@ -638,7 +638,7 @@ function fo(e, t = {}) {
     ${o}/${a}
   </span>`;
 }
-function po(e, t = {}) {
+function mo(e, t = {}) {
   const r = C(e);
   if (!r.hasReadinessMetadata || r.readinessState === "ready") return "";
   const { size: n = "default", extraClass: s = "" } = t, i = n === "sm" ? "text-xs px-2 py-1" : "text-sm px-2.5 py-1", a = r.missingRequiredLocales.length, o = a > 0, l = Object.keys(r.missingRequiredFieldsByLocale).length > 0;
@@ -652,11 +652,11 @@ function po(e, t = {}) {
     <span>${h}</span>
   </span>` : "";
 }
-function mo(e) {
+function go(e) {
   const t = C(e);
   return t.hasReadinessMetadata ? t.readinessState !== "ready" : !1;
 }
-function go(e) {
+function bo(e) {
   return C(e).missingRequiredLocales.length;
 }
 function or(e, t, r) {
@@ -739,10 +739,10 @@ function cr(e) {
     for (const [r, n] of Object.entries(e)) Array.isArray(n) && n.length > 0 && t.add(r);
   return t;
 }
-function bo(e = {}) {
+function yo(e = {}) {
   return (t, r, n) => lr(r, e);
 }
-function yo(e, t = {}) {
+function vo(e, t = {}) {
   if (!e.fallbackUsed && !e.missingRequestedLocale) return "";
   const { showCreateButton: r = !0, createTranslationUrl: n, panelName: s } = t, i = e.requestedLocale || "requested locale", a = e.resolvedLocale || "default", o = r ? `
     <button type="button"
@@ -1027,7 +1027,7 @@ var Sr = class {
       return e ? `<img src="${e}" alt="${r}" class="h-8 w-8 rounded-full object-cover" />` : `<div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center text-white font-medium text-sm">${n}</div>`;
     });
   }
-}, vo = {
+}, wo = {
   statusBadge: (e) => (t) => {
     const r = String(t).toLowerCase();
     return Y(String(t), "status", r);
@@ -1528,7 +1528,7 @@ function Vr(e) {
     return !1;
   }
 }
-function wo(e, t, r = "explicit") {
+function xo(e, t, r = "explicit") {
   try {
     const n = X + e, s = fe(Array.from(t)), i = {
       version: 2,
@@ -1539,7 +1539,7 @@ function wo(e, t, r = "explicit") {
   } catch {
   }
 }
-function xo(e, t) {
+function So(e, t) {
   const r = e.groups.map((n) => n.groupId === t ? {
     ...n,
     expanded: !n.expanded
@@ -1549,7 +1549,7 @@ function xo(e, t) {
     groups: r
   };
 }
-function So(e) {
+function Co(e) {
   const t = e.groups.map((r) => ({
     ...r,
     expanded: !0
@@ -1559,7 +1559,7 @@ function So(e) {
     groups: t
   };
 }
-function Co(e) {
+function $o(e) {
   const t = e.groups.map((r) => ({
     ...r,
     expanded: !1
@@ -1569,7 +1569,7 @@ function Co(e) {
     groups: t
   };
 }
-function $o(e) {
+function ko(e) {
   const t = /* @__PURE__ */ new Set();
   for (const r of e.groups) r.expanded && t.add(r.groupId);
   return t;
@@ -1586,7 +1586,7 @@ function Jr(e) {
   }
   return null;
 }
-function ko(e, t) {
+function Ao(e, t) {
   try {
     const r = ft + e;
     localStorage.setItem(r, t);
@@ -1599,7 +1599,7 @@ function pt(e) {
 function mt(e) {
   return e && pt(e) ? e : null;
 }
-function Ao(e) {
+function Eo(e) {
   if (!(e instanceof Set) || e.size === 0) return "";
   const t = Array.from(new Set(Array.from(e).map((r) => we(r)).filter((r) => r !== null))).slice(0, ve).sort();
   return t.length === 0 ? "" : t.map((r) => encodeURIComponent(r)).join(",");
@@ -1756,7 +1756,7 @@ function en(e) {
     </tr>
   `;
 }
-function Eo(e) {
+function Lo(e) {
   return `
     <tr>
       <td colspan="${e + 2}" class="px-6 py-12 text-center">
@@ -1771,7 +1771,7 @@ function Eo(e) {
     </tr>
   `;
 }
-function Lo(e, t, r) {
+function _o(e, t, r) {
   const n = r ? `<button type="button" class="mt-2 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600" onclick="this.dispatchEvent(new CustomEvent('retry', { bubbles: true }))">Retry</button>` : "";
   return `
     <tr>
@@ -3471,7 +3471,7 @@ var Ie = {
       value: "between"
     }
   ]
-}, _o = class {
+}, Ro = class {
   constructor(e) {
     this.criteria = [], this.modal = null, this.container = null, this.searchInput = null, this.clearBtn = null, this.config = e, this.notifier = e.notifier || new F();
   }
@@ -3780,7 +3780,7 @@ var Ie = {
     label: "is not",
     value: "ne"
   }]
-}, Ro = class {
+}, Do = class {
   constructor(e) {
     this.panel = null, this.container = null, this.previewElement = null, this.sqlPreviewElement = null, this.overlay = null, this.config = e, this.notifier = e.notifier || new F(), this.structure = {
       groups: [],
@@ -4143,7 +4143,7 @@ var Ie = {
   setStructure(e) {
     this.structure = e, this.render();
   }
-}, Do = class {
+}, Po = class {
   constructor(e) {
     if (this.searchableFields = e, !e || e.length === 0) throw new Error("At least one searchable field is required");
   }
@@ -4157,7 +4157,7 @@ var Ie = {
   async onSearch(e, t) {
     t.resetPagination(), await t.refresh();
   }
-}, Po = class {
+}, Io = class {
   buildFilters(e) {
     const t = {}, r = /* @__PURE__ */ new Map();
     return e.forEach((n) => {
@@ -4177,7 +4177,7 @@ var Ie = {
   async onFilterChange(e, t, r) {
     r.resetPagination(), await r.refresh();
   }
-}, Io = class {
+}, To = class {
   buildQuery(e, t) {
     return {
       limit: t,
@@ -4187,14 +4187,14 @@ var Ie = {
   async onPageChange(e, t) {
     await t.refresh();
   }
-}, To = class {
+}, Mo = class {
   buildQuery(e) {
     return !e || e.length === 0 ? {} : { order: e.map((t) => `${t.field} ${t.direction}`).join(",") };
   }
   async onSort(e, t, r) {
     await r.refresh();
   }
-}, Mo = class {
+}, Bo = class {
   constructor(e) {
     if (!e || !e.endpoint) throw new Error("export endpoint is required");
     if (!e.definition && !e.resource) throw new Error("export definition or resource is required");
@@ -4412,7 +4412,7 @@ function R(e, t, r) {
   }
   t === "error" && alert(r);
 }
-var Bo = class {
+var Fo = class {
   constructor(e) {
     this.baseEndpoint = e;
   }
@@ -4434,11 +4434,11 @@ var Bo = class {
     }
     await r.refresh();
   }
-};
+}, Ys = 1500;
 function St(e) {
   return typeof e == "object" && e !== null && "version" in e && e.version === 2;
 }
-var Ys = class {
+var Ws = class {
   constructor(e, t = "datatable_columns") {
     this.cachedOrder = null, this.storageKey = t;
   }
@@ -4518,12 +4518,12 @@ var Ys = class {
       console.warn("Failed to clear column preferences:", e);
     }
   }
-}, Fo = class extends Ys {
+}, qo = class extends Ws {
   constructor(e, t) {
     const r = t.localStorageKey || `${t.resource}_datatable_columns`;
     super(e, r), this.syncTimeout = null, this.serverPrefs = null, this.resource = t.resource;
     const n = er(t.basePath), s = Zt(t.apiBasePath);
-    t.preferencesEndpoint ? this.preferencesEndpoint = t.preferencesEndpoint : s ? this.preferencesEndpoint = `${s}/panels/preferences` : n ? this.preferencesEndpoint = `${n}/api/panels/preferences` : this.preferencesEndpoint = "/api/panels/preferences", this.syncDebounce = t.syncDebounce ?? 1e3;
+    t.preferencesEndpoint ? this.preferencesEndpoint = t.preferencesEndpoint : s ? this.preferencesEndpoint = `${s}/panels/preferences` : n ? this.preferencesEndpoint = `${n}/api/panels/preferences` : this.preferencesEndpoint = "/api/panels/preferences", this.syncDebounce = t.syncDebounce ?? 1e3, this.loadTimeoutMs = Math.max(100, t.loadTimeoutMs || Ys);
   }
   get serverPrefsKey() {
     return `ui.datagrid.${this.resource}.columns`;
@@ -4535,24 +4535,30 @@ var Ys = class {
     super.reorderColumns(e, t), this.scheduleServerSync(t);
   }
   async loadFromServer() {
+    const e = typeof AbortController < "u" ? new AbortController() : null, t = setTimeout(() => {
+      e?.abort();
+    }, this.loadTimeoutMs);
     try {
-      const e = await x(this.preferencesEndpoint, {
+      const r = await x(this.preferencesEndpoint, {
         method: "GET",
         credentials: "same-origin",
+        signal: e?.signal,
         headers: { Accept: "application/json" }
       });
-      if (!e.ok)
-        return console.warn("[ServerColumnVisibility] Failed to load server prefs:", e.status), null;
-      const t = (await e.json()).records || [];
-      if (t.length === 0)
+      if (!r.ok)
+        return console.warn("[ServerColumnVisibility] Failed to load server prefs:", r.status), null;
+      const n = (await r.json()).records || [];
+      if (n.length === 0)
         return console.log("[ServerColumnVisibility] No server preferences found"), null;
-      const r = t[0]?.raw;
-      if (!r || !r[this.serverPrefsKey])
+      const s = n[0]?.raw;
+      if (!s || !s[this.serverPrefsKey])
         return console.log("[ServerColumnVisibility] No column preferences in server response"), null;
-      const n = r[this.serverPrefsKey];
-      return St(n) ? (this.serverPrefs = n, this.savePrefs(n), console.log("[ServerColumnVisibility] Loaded prefs from server:", n), n) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", n), null);
-    } catch (e) {
-      return console.warn("[ServerColumnVisibility] Error loading server prefs:", e), null;
+      const i = s[this.serverPrefsKey];
+      return St(i) ? (this.serverPrefs = i, this.savePrefs(i), console.log("[ServerColumnVisibility] Loaded prefs from server:", i), i) : (console.warn("[ServerColumnVisibility] Server prefs not in V2 format:", i), null);
+    } catch (r) {
+      return console.warn("[ServerColumnVisibility] Error loading server prefs:", r), null;
+    } finally {
+      clearTimeout(t);
     }
   }
   getInitialPrefs(e) {
@@ -4631,7 +4637,7 @@ var Ys = class {
     }
   }
 };
-function Ws(e) {
+function Xs(e) {
   const t = e.trim(), r = t.indexOf("?");
   return r === -1 ? {
     path: t,
@@ -4642,7 +4648,7 @@ function Ws(e) {
   };
 }
 function D(e, t, r = "", n = "") {
-  const { path: s, query: i } = Ws(e), a = s.replace(/\/+$/, ""), o = r.replace(/^\/+/, "");
+  const { path: s, query: i } = Xs(e), a = s.replace(/\/+$/, ""), o = r.replace(/^\/+/, "");
   let l = `${a}/${encodeURIComponent(t)}`;
   o && (l += `/${o}`);
   const c = [];
@@ -4662,7 +4668,7 @@ var Fe = {
   archive: 1e3,
   restore: 1100,
   delete: 9e3
-}, Xs = 5e3, Ct = class {
+}, Zs = 5e3, Ct = class {
   constructor(e) {
     this.seenActions = /* @__PURE__ */ new Set(), this.config = {
       useDefaultFallback: !0,
@@ -4702,7 +4708,7 @@ var Fe = {
   resolveActionOrder(e, t) {
     if (typeof t == "number" && Number.isFinite(t)) return t;
     const r = e.toLowerCase();
-    return this.config.actionOrderOverride?.[r] !== void 0 ? this.config.actionOrderOverride[r] : Fe[r] !== void 0 ? Fe[r] : Xs;
+    return this.config.actionOrderOverride?.[r] !== void 0 ? this.config.actionOrderOverride[r] : Fe[r] !== void 0 ? Fe[r] : Zs;
   }
   buildActionFromSchema(e, t, r, n) {
     const s = t.name, i = t.label || t.label_key || s, a = t.variant || "secondary", o = t.icon, l = this.isNavigationAction(t), c = s === "delete";
@@ -5311,23 +5317,23 @@ var Fe = {
     }[e.toLowerCase()];
   }
 };
-function qo(e, t, r) {
+function Oo(e, t, r) {
   return new Ct(r).buildRowActions(e, t);
 }
-function Oo(e) {
+function jo(e) {
   return e.schema?.actions;
 }
-function Zs() {
+function ei() {
   const e = globalThis.window;
   return e?.toastManager ? e.toastManager : new F();
 }
-async function ei(e) {
+async function ti(e) {
   return Ge(e, null);
 }
 function me(e, t) {
   return (typeof e.id == "string" && e.id.trim() ? e.id.trim() : `${e.label}-${t + 1}`).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || `action-${t + 1}`;
 }
-function ti(e, t) {
+function ri(e, t) {
   const r = "inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2";
   if (t) return `${r} cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 focus:ring-gray-300`;
   switch ((e.variant || "secondary").toLowerCase()) {
@@ -5343,7 +5349,7 @@ function ti(e, t) {
       return `${r} border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-blue-500`;
   }
 }
-function ri(e, t) {
+function ni(e, t) {
   const r = "flex w-full items-center gap-2 px-4 py-2.5 text-sm text-left transition-colors";
   if (t) return `${r} cursor-not-allowed text-gray-400`;
   switch ((e.variant || "secondary").toLowerCase()) {
@@ -5373,7 +5379,7 @@ function qe(e) {
     create_translation: "iconoir-translate"
   }[String(e.id || "").toLowerCase().replace(/[^a-z_]/g, "_")] || "";
 }
-function ni(e) {
+function si(e) {
   const t = e.findIndex((n) => String(n.id || "").toLowerCase() === "edit");
   if (t >= 0) return {
     primary: e[t],
@@ -5391,9 +5397,9 @@ function ni(e) {
     rest: e
   };
 }
-function si(e) {
+function ii(e) {
   if (e.length === 0) return "";
-  const { primary: t, rest: r } = ni(e);
+  const { primary: t, rest: r } = si(e);
   let n = "";
   if (t) {
     const i = t.disabled === !0, a = me(t, 0), o = qe(t), l = i ? (t.disabledReason || "Action unavailable").trim() : "", c = l ? `detail-action-reason-${a}` : "", d = c ? `aria-describedby="${c}"` : "", h = l ? `${t.label} unavailable: ${l}` : t.label, f = i && t.remediation?.href && t.remediation?.label ? `
@@ -5414,7 +5420,7 @@ function si(e) {
       <div data-detail-action-card="${u(a)}" class="flex items-center gap-2">
         <button
           type="button"
-          class="${ti(t, i)}"
+          class="${ri(t, i)}"
           data-detail-action-button="${u(a)}"
           data-detail-action-name="${u(t.id || t.label)}"
           data-disabled="${i}"
@@ -5470,7 +5476,7 @@ function si(e) {
         <div data-detail-action-card="${u(l)}" class="space-y-1">
           <button
             type="button"
-            class="${ri(i, o)}"
+            class="${ni(i, o)}"
             data-detail-action-button="${u(l)}"
             data-detail-action-name="${u(i.id || i.label)}"
             data-disabled="${o}"
@@ -5497,9 +5503,9 @@ function si(e) {
     </div>
   `;
 }
-var ii = class {
+var ai = class {
   constructor(e) {
-    this.actions = [], this.record = null, this.documentClickHandler = null, this.documentKeydownHandler = null, this.mount = e.mount, this.notifier = e.notifier || Zs(), this.fetchImpl = e.fetchImpl || fetch.bind(globalThis);
+    this.actions = [], this.record = null, this.documentClickHandler = null, this.documentKeydownHandler = null, this.mount = e.mount, this.notifier = e.notifier || ei(), this.fetchImpl = e.fetchImpl || fetch.bind(globalThis);
   }
   async init() {
     this.mount && (this.mount.setAttribute("aria-busy", "true"), await this.refresh());
@@ -5542,7 +5548,7 @@ var ii = class {
         await this.refresh();
       }
     });
-    this.record = t, this.actions = l.buildRowActions(t, r), this.mount.innerHTML = si(this.actions), this.mount.setAttribute("aria-busy", "false"), this.attachListeners(s), this.attachDropdownListeners();
+    this.record = t, this.actions = l.buildRowActions(t, r), this.mount.innerHTML = ii(this.actions), this.mount.setAttribute("aria-busy", "false"), this.attachListeners(s), this.attachDropdownListeners();
   }
   async fetchDetailPayload() {
     const e = this.detailEndpoint();
@@ -5550,7 +5556,7 @@ var ii = class {
     const t = await this.fetchImpl(e, { headers: { Accept: "application/json" } });
     if (!t.ok)
       return this.notifier.error(`Actions unavailable (${t.status})`), null;
-    const r = await ei(t);
+    const r = await ti(t);
     return !r || typeof r != "object" ? null : Ke(r);
   }
   attachListeners(e) {
@@ -5626,15 +5632,15 @@ var ii = class {
     return String(this.mount.dataset.recordId || "").trim();
   }
 };
-async function jo(e = document) {
+async function zo(e = document) {
   const t = Array.from(e.querySelectorAll("[data-panel-detail-actions]")), r = [];
   for (const n of t) {
-    const s = new ii({ mount: n });
+    const s = new ai({ mount: n });
     r.push(s), await s.init();
   }
   return r;
 }
-var ai = class $t extends zt {
+var oi = class $t extends zt {
   constructor(t) {
     super({
       size: "lg",
@@ -5906,16 +5912,16 @@ var ai = class $t extends zt {
     return this.resolved || (this.resolved = !0, this.config.onDismiss?.()), !0;
   }
 };
-async function zo(e) {
+async function No(e) {
   try {
-    await ai.showBlocker(e);
+    await oi.showBlocker(e);
   } catch (t) {
     console.error("[TranslationBlockerModal] Render failed, using fallback:", t);
     const r = `Cannot ${e.transition || "complete action"}: Missing translations for ${e.missingLocales.join(", ")}`;
     typeof window < "u" && "toastManager" in window ? window.toastManager.error(r) : alert(r);
   }
 }
-var oi = [
+var li = [
   {
     key: "ready",
     label: "Ready",
@@ -5954,7 +5960,7 @@ var oi = [
       title: e.title || "",
       orientation: e.orientation || "horizontal",
       size: e.size || "default",
-      items: e.items || oi
+      items: e.items || li
     }, this.container = t;
   }
   render() {
@@ -5993,15 +5999,15 @@ var oi = [
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 };
-function li(e) {
+function ci(e) {
   const t = new kt(e);
   return t.render(), t;
 }
-function No() {
+function Go() {
   const e = document.querySelectorAll("[data-status-legend]"), t = [];
   return e.forEach((r) => {
     if (r.hasAttribute("data-status-legend-init")) return;
-    const n = li({
+    const n = ci({
       container: r,
       orientation: r.dataset.orientation || "horizontal",
       size: r.dataset.size || "default",
@@ -6010,7 +6016,7 @@ function No() {
     r.setAttribute("data-status-legend-init", "true"), t.push(n);
   }), t;
 }
-function Go(e = {}) {
+function Uo(e = {}) {
   return new kt({
     container: document.createElement("div"),
     ...e
@@ -6062,7 +6068,7 @@ var At = [
     styleClass: "bg-orange-100 text-orange-700 hover:bg-orange-200",
     description: "Records currently viewed in fallback mode"
   }
-], ci = class {
+], di = class {
   constructor(e) {
     if (this.container = null, this.config = e, this.container = typeof e.container == "string" ? document.querySelector(e.container) : e.container, this.state = {
       activeKey: null,
@@ -6152,23 +6158,23 @@ var At = [
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 };
-function di(e, t, r = {}) {
-  return new ci({
+function ui(e, t, r = {}) {
+  return new di({
     container: e,
     filters: At,
     onFilterSelect: t,
     ...r
   });
 }
-function Uo(e) {
+function Ho(e) {
   const t = document.querySelectorAll("[data-quick-filters]"), r = [];
   return t.forEach((n) => {
     if (n.hasAttribute("data-quick-filters-init")) return;
-    const s = di(n, (i) => e(i, n), { size: n.dataset.size || "default" });
+    const s = ui(n, (i) => e(i, n), { size: n.dataset.size || "default" });
     n.setAttribute("data-quick-filters-init", "true"), r.push(s);
   }), r;
 }
-function Ho(e = {}) {
+function Vo(e = {}) {
   const { filters: t = At, activeKey: r = null, capabilities: n = [], size: s = "default", containerClass: i = "" } = e, a = s === "sm" ? "text-xs" : "text-sm", o = s === "sm" ? "px-2 py-1" : "px-3 py-1.5", l = /* @__PURE__ */ new Map();
   for (const c of n) l.set(c.key, c);
   return `<div class="quick-filters inline-flex items-center gap-1 flex-wrap ${i}">${t.map((c) => {
@@ -6179,7 +6185,7 @@ function Ho(e = {}) {
     return `<span class="${y} ${g}" ${w}>${m}<span>${u(c.label)}</span></span>`;
   }).join("")}</div>`;
 }
-var ae = "go-admin:translation-panel-expanded", ui = class {
+var ae = "go-admin:translation-panel-expanded", hi = class {
   constructor(e) {
     this.toggleButton = null, this.panelElement = null, this.expandAllButton = null, this.collapseAllButton = null, this.groupControls = null, this.viewModeButtons = [], this.expanded = !1, this.boundToggleHandler = null, this.config = {
       ...e,
@@ -6246,10 +6252,10 @@ var ae = "go-admin:translation-panel-expanded", ui = class {
     } }));
   }
 };
-function Vo(e) {
-  return new ui(e);
+function Ko(e) {
+  return new hi(e);
 }
-async function hi(e, t, r = {}) {
+async function fi(e, t, r = {}) {
   const { apiEndpoint: n, notifier: s = new F(), maxFailuresToShow: i = 5 } = e, a = `${n}/bulk/create-missing-translations`;
   try {
     const o = await x(a, {
@@ -6264,14 +6270,14 @@ async function hi(e, t, r = {}) {
       })
     });
     if (!o.ok) throw new Error(await ge(o, `Request failed: ${o.status}`, { appendStatusToFallback: !1 }));
-    const l = fi(await o.json(), i);
-    return pi(l, s), e.onSuccess && e.onSuccess(l), l;
+    const l = pi(await o.json(), i);
+    return mi(l, s), e.onSuccess && e.onSuccess(l), l;
   } catch (o) {
     const l = o instanceof Error ? o : new Error(String(o));
     throw s.error(`Failed to create translations: ${l.message}`), e.onError && e.onError(l), l;
   }
 }
-function fi(e, t) {
+function pi(e, t) {
   const r = e.data || [], n = e.created_count ?? r.filter((a) => a.success).length, s = e.failed_count ?? r.filter((a) => !a.success).length, i = e.skipped_count ?? 0;
   return {
     total: e.total ?? r.length,
@@ -6285,7 +6291,7 @@ function fi(e, t) {
     }))
   };
 }
-function pi(e, t) {
+function mi(e, t) {
   const { created: r, failed: n, skipped: s, total: i } = e;
   if (i === 0) {
     t.info("No translations to create");
@@ -6293,7 +6299,7 @@ function pi(e, t) {
   }
   n === 0 ? r > 0 ? t.success(`Created ${r} translation${r !== 1 ? "s" : ""}${s > 0 ? ` (${s} skipped)` : ""}`) : s > 0 && t.info(`All ${s} translation${s !== 1 ? "s" : ""} already exist`) : r === 0 ? t.error(`Failed to create ${n} translation${n !== 1 ? "s" : ""}`) : t.warning(`Created ${r}, failed ${n}${s > 0 ? `, skipped ${s}` : ""}`);
 }
-function Ko(e) {
+function Jo(e) {
   const { created: t, failed: r, skipped: n, total: s, failures: i } = e, a = `
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="text-center p-3 bg-green-50 rounded">
@@ -6346,18 +6352,18 @@ function Ko(e) {
     </div>
   `;
 }
-function Jo(e) {
+function Qo(e) {
   const { created: t, failed: r, skipped: n } = e, s = [];
   return t > 0 && s.push(`<span class="text-green-600">+${t}</span>`), r > 0 && s.push(`<span class="text-red-600">${r} failed</span>`), n > 0 && s.push(`<span class="text-yellow-600">${n} skipped</span>`), s.join(" · ");
 }
-function Qo(e, t, r) {
-  return async (n) => hi({
+function Yo(e, t, r) {
+  return async (n) => fi({
     apiEndpoint: e,
     notifier: t,
     onSuccess: r
   }, n);
 }
-var mi = {
+var gi = {
   en: "English",
   es: "Spanish",
   fr: "French",
@@ -6377,7 +6383,7 @@ var mi = {
   fi: "Finnish"
 };
 function k(e) {
-  return mi[e.toLowerCase()] || e.toUpperCase();
+  return gi[e.toLowerCase()] || e.toUpperCase();
 }
 var te = class {
   constructor(e) {
@@ -6546,7 +6552,7 @@ var te = class {
 function Et(e) {
   return new te(e).render();
 }
-function Yo(e, t) {
+function Wo(e, t) {
   return e.length === 0 ? "" : `
     <div class="flex flex-wrap items-center gap-2" role="list" aria-label="Missing translations">
       ${e.map((r) => Et({
@@ -6556,7 +6562,7 @@ function Yo(e, t) {
     </div>
   `;
 }
-function Wo(e, t) {
+function Xo(e, t) {
   const r = /* @__PURE__ */ new Map();
   return e.querySelectorAll("[data-locale-action]").forEach((n) => {
     const s = n.getAttribute("data-locale-action");
@@ -6721,9 +6727,9 @@ var ke = class {
     }).handleCreate();
   }
 };
-function gi(e, t) {
+function bi(e, t) {
   if (!t.locked) {
-    bi(e);
+    yi(e);
     return;
   }
   if (e.classList.add("form-locked", "pointer-events-none", "opacity-75"), e.setAttribute("data-form-locked", "true"), e.setAttribute("data-lock-reason", t.reason || ""), e.querySelectorAll('input, textarea, select, button[type="submit"]').forEach((r) => {
@@ -6733,39 +6739,39 @@ function gi(e, t) {
     r.setAttribute("data-form-lock-overlay", "true"), r.className = "absolute inset-0 bg-amber-50/30 cursor-not-allowed z-10", r.setAttribute("title", t.reason || "Form is locked"), window.getComputedStyle(e).position === "static" && (e.style.position = "relative"), e.appendChild(r);
   }
 }
-function bi(e) {
+function yi(e) {
   e.classList.remove("form-locked", "pointer-events-none", "opacity-75"), e.removeAttribute("data-form-locked"), e.removeAttribute("data-lock-reason"), e.querySelectorAll('[data-was-enabled="true"]').forEach((t) => {
     t.removeAttribute("disabled"), t.removeAttribute("data-was-enabled"), t.removeAttribute("aria-disabled");
   }), e.querySelector("[data-form-lock-overlay]")?.remove();
 }
-function Xo(e) {
+function Zo(e) {
   return e.getAttribute("data-form-locked") === "true";
 }
-function Zo(e) {
+function el(e) {
   return e.getAttribute("data-lock-reason");
 }
-function el(e, t) {
+function tl(e, t) {
   const r = L(e);
   return new ke({
     ...t,
     context: r
   }).render();
 }
-function tl(e) {
+function rl(e) {
   const t = L(e);
   return t.fallbackUsed || t.missingRequestedLocale;
 }
-function rl(e, t) {
+function nl(e, t) {
   const r = new ke(t);
   return r.mount(e), r;
 }
-function nl(e, t) {
+function sl(e, t) {
   const r = new ke({
     context: L(t),
     apiEndpoint: "",
     navigationBasePath: ""
   }).getFormLockState();
-  return gi(e, r), r;
+  return bi(e, r), r;
 }
 var Lt = class {
   constructor(e, t) {
@@ -6884,34 +6890,34 @@ var Lt = class {
     return this.chips.get(e);
   }
 };
-function yi(e, t) {
+function vi(e, t) {
   const r = String(e.id || "");
   return r ? new Lt(e, {
     ...t,
     recordId: r
   }).render() : "";
 }
-function sl(e) {
+function il(e) {
   const t = C(e);
   return t.hasReadinessMetadata && t.missingRequiredLocales.length > 0;
 }
-function il(e, t, r) {
+function al(e, t, r) {
   const n = String(t.id || ""), s = new Lt(t, {
     ...r,
     recordId: n
   });
   return s.mount(e), s;
 }
-function al(e) {
-  return (t, r, n) => yi(r, e);
+function ol(e) {
+  return (t, r, n) => vi(r, e);
 }
 function re() {
   return typeof navigator > "u" ? !1 : /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent);
 }
-function vi() {
+function wi() {
   return re() ? "⌘" : "Ctrl";
 }
-function wi(e) {
+function xi(e) {
   if (re()) switch (e) {
     case "ctrl":
       return "⌃";
@@ -6934,10 +6940,10 @@ function wi(e) {
   }
 }
 function _t(e) {
-  const t = e.modifiers.map(wi), r = xi(e.key);
+  const t = e.modifiers.map(xi), r = Si(e.key);
   return re() ? [...t, r].join("") : [...t, r].join("+");
 }
-function xi(e) {
+function Si(e) {
   return {
     Enter: "↵",
     Escape: "Esc",
@@ -7046,7 +7052,7 @@ var Rt = class {
     this.unbind(), this.shortcuts.clear();
   }
 };
-function Si(e) {
+function Ci(e) {
   const t = [];
   return e.onSave && t.push({
     id: "save",
@@ -7094,7 +7100,7 @@ function Si(e) {
     handler: e.onCreateTranslation
   }), t;
 }
-function ol(e) {
+function ll(e) {
   const t = /* @__PURE__ */ new Map();
   for (const i of e) {
     if (i.enabled === !1) continue;
@@ -7157,7 +7163,7 @@ var Dt = "admin_keyboard_shortcuts_settings", Pt = "admin_keyboard_shortcuts_hin
 function ne() {
   return typeof localStorage > "u" || !localStorage || typeof localStorage.getItem != "function" || typeof localStorage.setItem != "function" ? null : localStorage;
 }
-function Ci() {
+function $i() {
   const e = ne();
   if (!e) return { ...J };
   try {
@@ -7173,7 +7179,7 @@ function Ci() {
     return { ...J };
   }
 }
-function ll(e) {
+function cl(e) {
   const t = ne();
   if (t)
     try {
@@ -7185,11 +7191,11 @@ function ll(e) {
     } catch {
     }
 }
-function $i() {
+function ki() {
   const e = ne();
   return e ? e.getItem(Pt) === "true" : !1;
 }
-function ki() {
+function Ai() {
   const e = ne();
   if (e)
     try {
@@ -7197,8 +7203,8 @@ function ki() {
     } catch {
     }
 }
-function Ai(e) {
-  if ($i()) return null;
+function Ei(e) {
+  if (ki()) return null;
   const { container: t, position: r = "bottom", onDismiss: n, onShowHelp: s, autoDismissMs: i = 1e4 } = e, a = document.createElement("div");
   a.className = `shortcuts-discovery-hint fixed ${r === "top" ? "top-4" : "bottom-4"} right-4 z-50 animate-fade-in`, a.setAttribute("role", "alert"), a.setAttribute("aria-live", "polite"), a.innerHTML = `
     <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm">
@@ -7214,7 +7220,7 @@ function Ai(e) {
           </p>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Press <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">?</kbd>
-            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${vi()}+S</kbd> to save.
+            to view all shortcuts, or use <kbd class="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">${wi()}+S</kbd> to save.
           </p>
           <div class="mt-3 flex items-center gap-2">
             <button type="button" data-hint-action="show-help"
@@ -7238,7 +7244,7 @@ function Ai(e) {
     </div>
   `;
   const o = (l) => {
-    l && ki(), a.remove(), n?.();
+    l && Ai(), a.remove(), n?.();
   };
   return a.querySelector('[data-hint-action="show-help"]')?.addEventListener("click", () => {
     o(!0), s?.();
@@ -7250,7 +7256,7 @@ function Ai(e) {
     a.parentElement && o(!1);
   }, i), t.appendChild(a), a;
 }
-function cl(e) {
+function dl(e) {
   const { container: t, shortcuts: r, settings: n, onSettingsChange: s } = e, i = {
     save: "Save & Submit",
     navigation: "Navigation",
@@ -7366,7 +7372,7 @@ function cl(e) {
     s({ ...J });
   });
 }
-function Ei(e, t) {
+function Li(e, t) {
   const r = e;
   r.config && (r.config.enabled = t.enabled);
   for (const n of e.getShortcuts()) {
@@ -7375,33 +7381,33 @@ function Ei(e, t) {
   }
 }
 var oe = null;
-function dl() {
+function ul() {
   return oe || (oe = new Rt()), oe;
 }
-function Li(e, t) {
-  const r = Ci(), n = new Rt({
+function _i(e, t) {
+  const r = $i(), n = new Rt({
     ...t,
     enabled: r.enabled
-  }), s = Si(e);
+  }), s = Ci(e);
   for (const i of s) n.register(i);
-  return Ei(n, r), n.bind(), n;
+  return Li(n, r), n.bind(), n;
 }
-function ul(e, t) {
-  const r = Li(e, t);
-  return t.hintContainer && Ai({
+function hl(e, t) {
+  const r = _i(e, t);
+  return t.hintContainer && Ei({
     container: t.hintContainer,
     onShowHelp: t.onShowHelp,
     onDismiss: () => {
     }
   }), r;
 }
-var _i = 1500, Ri = 2e3, Ae = "autosave", j = {
+var Ri = 1500, Di = 2e3, Ae = "autosave", j = {
   idle: "",
   saving: "Saving...",
   saved: "Saved",
   error: "Save failed",
   conflict: "Conflict detected"
-}, Di = {
+}, Pi = {
   title: "Save Conflict",
   message: "This content was modified by someone else. Choose how to proceed:",
   useServer: "Use server version",
@@ -7413,8 +7419,8 @@ var _i = 1500, Ri = 2e3, Ae = "autosave", j = {
     this.state = "idle", this.conflictInfo = null, this.pendingData = null, this.lastError = null, this.debounceTimer = null, this.savedTimer = null, this.listeners = [], this.isDirty = !1, this.config = {
       container: e.container,
       onSave: e.onSave,
-      debounceMs: e.debounceMs ?? _i,
-      savedDurationMs: e.savedDurationMs ?? Ri,
+      debounceMs: e.debounceMs ?? Ri,
+      savedDurationMs: e.savedDurationMs ?? Di,
       notifier: e.notifier,
       showToasts: e.showToasts ?? !1,
       classPrefix: e.classPrefix ?? Ae,
@@ -7427,7 +7433,7 @@ var _i = 1500, Ri = 2e3, Ae = "autosave", j = {
       fetchServerState: e.fetchServerState,
       allowForceSave: e.allowForceSave ?? !0,
       conflictLabels: {
-        ...Di,
+        ...Pi,
         ...e.conflictLabels
       }
     };
@@ -7662,7 +7668,7 @@ var _i = 1500, Ri = 2e3, Ae = "autosave", j = {
     e && e.addEventListener("click", () => this.retry());
   }
 };
-function hl(e) {
+function fl(e) {
   return new It({
     debounceMs: 1500,
     savedDurationMs: 2e3,
@@ -7679,7 +7685,7 @@ function hl(e) {
     ...e
   });
 }
-function fl(e, t = {}) {
+function pl(e, t = {}) {
   const r = t.classPrefix ?? Ae, n = {
     ...j,
     ...t.labels
@@ -7704,7 +7710,7 @@ function fl(e, t = {}) {
     <span class="${r}__label">${n}</span>
   </div>`;
 }
-function pl(e = Ae) {
+function ml(e = Ae) {
   return `
     .${e} {
       display: inline-flex;
@@ -7844,7 +7850,7 @@ function pl(e = Ae) {
     }
   `;
 }
-function ml(e, t) {
+function gl(e, t) {
   const { watchFields: r, indicatorSelector: n, ...s } = t;
   let i = s.container;
   !i && n && (i = e.querySelector(n) ?? void 0);
@@ -7882,7 +7888,7 @@ function ml(e, t) {
     e.removeEventListener("input", l), e.removeEventListener("change", l), window.removeEventListener("beforeunload", c), document.removeEventListener("visibilitychange", d), h();
   }, a;
 }
-var Tt = "char-counter", Pi = "interpolation-preview", Mt = "dir-toggle", Bt = [
+var Tt = "char-counter", Ii = "interpolation-preview", Mt = "dir-toggle", Bt = [
   {
     pattern: /\{\{(\w+(?:\.\w+)*)\}\}/g,
     name: "Mustache",
@@ -7908,7 +7914,7 @@ var Tt = "char-counter", Pi = "interpolation-preview", Mt = "dir-toggle", Bt = [
     name: "Template Literal",
     example: "${name}"
   }
-], Ii = {
+], Ti = {
   name: "John",
   count: "5",
   email: "user@example.com",
@@ -7917,7 +7923,7 @@ var Tt = "char-counter", Pi = "interpolation-preview", Mt = "dir-toggle", Bt = [
   user: "Jane",
   item: "Product",
   total: "100"
-}, Ti = class {
+}, Mi = class {
   constructor(e) {
     this.counterEl = null, this.config = {
       input: e.input,
@@ -7971,15 +7977,15 @@ var Tt = "char-counter", Pi = "interpolation-preview", Mt = "dir-toggle", Bt = [
   defaultFormatDisplay(e, t) {
     return t ? `${e} / ${t}` : `${e}`;
   }
-}, Mi = class {
+}, Bi = class {
   constructor(e) {
     this.previewEl = null, this.config = {
       input: e.input,
       container: e.container,
-      sampleValues: e.sampleValues ?? Ii,
+      sampleValues: e.sampleValues ?? Ti,
       patterns: [...Bt, ...e.customPatterns ?? []],
       highlightVariables: e.highlightVariables ?? !0,
-      classPrefix: e.classPrefix ?? Pi
+      classPrefix: e.classPrefix ?? Ii
     }, this.boundUpdate = this.update.bind(this), this.init();
   }
   getMatches() {
@@ -8045,7 +8051,7 @@ var Tt = "char-counter", Pi = "interpolation-preview", Mt = "dir-toggle", Bt = [
     for (const [r, n] of Object.entries(this.config.sampleValues)) if (r.toLowerCase() === t) return n;
     return null;
   }
-}, Bi = class {
+}, Fi = class {
   constructor(e) {
     this.toggleEl = null, this.config = {
       input: e.input,
@@ -8111,25 +8117,25 @@ var Tt = "char-counter", Pi = "interpolation-preview", Mt = "dir-toggle", Bt = [
     </svg>`;
   }
 };
-function gl(e, t = {}) {
+function bl(e, t = {}) {
   const r = [], n = [], s = [];
   for (const i of t.charCounterFields ?? []) {
     const a = e.querySelector(`[name="${i}"]`);
-    a && r.push(new Ti({
+    a && r.push(new Mi({
       input: a,
       ...t.charCounterConfig
     }));
   }
   for (const i of t.interpolationFields ?? []) {
     const a = e.querySelector(`[name="${i}"]`);
-    a && n.push(new Mi({
+    a && n.push(new Bi({
       input: a,
       ...t.interpolationConfig
     }));
   }
   for (const i of t.directionToggleFields ?? []) {
     const a = e.querySelector(`[name="${i}"]`);
-    a && s.push(new Bi({
+    a && s.push(new Fi({
       input: a,
       persistenceKey: `dir-${i}`,
       ...t.directionToggleConfig
@@ -8144,20 +8150,20 @@ function gl(e, t = {}) {
     }
   };
 }
-function bl(e, t, r, n = Tt) {
+function yl(e, t, r, n = Tt) {
   const s = [n];
   r && s.push(`${n}--${r}`);
   const i = t ? `${e} / ${t}` : `${e}`;
   return `<span class="${s.join(" ")}" aria-live="polite">${i}</span>`;
 }
-function yl(e, t = Mt) {
+function vl(e, t = Mt) {
   const r = e === "rtl", n = r ? '<path d="M13 8H3M6 5L3 8l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' : '<path d="M3 8h10M10 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
   return `<button type="button" class="${t}" aria-pressed="${r}" title="Toggle text direction (${e.toUpperCase()})">
     <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">${n}</svg>
     <span class="${t}__label">${e.toUpperCase()}</span>
   </button>`;
 }
-function vl() {
+function wl() {
   return `
     /* Character Counter */
     .char-counter {
@@ -8237,7 +8243,7 @@ function vl() {
     }
   `;
 }
-function wl(e, t = Bt) {
+function xl(e, t = Bt) {
   const r = [];
   for (const n of t) {
     n.pattern.lastIndex = 0;
@@ -8251,10 +8257,10 @@ function wl(e, t = Bt) {
   }
   return r;
 }
-function xl(e, t, r) {
+function Sl(e, t, r) {
   return r && e >= r ? "error" : t && e >= t ? "warning" : null;
 }
-function Sl(e) {
+function Cl(e) {
   return typeof e == "string" && [
     "none",
     "core",
@@ -8263,16 +8269,16 @@ function Sl(e) {
     "full"
   ].includes(e) ? e : "none";
 }
-function Fi(e) {
+function qi(e) {
   return e === "core+exchange" || e === "full";
 }
-function qi(e) {
+function Oi(e) {
   return e === "core+queue" || e === "full";
 }
-function Cl(e) {
+function $l(e) {
   return e !== "none";
 }
-function Oi(e) {
+function ji(e) {
   return !e || typeof e != "object" ? null : tr(e);
 }
 var Ft = class {
@@ -8287,7 +8293,7 @@ var Ft = class {
   }
   isModuleEnabledByMode(e) {
     const t = this.capabilities.profile;
-    return e === "exchange" ? Fi(t) : qi(t);
+    return e === "exchange" ? qi(t) : Oi(t);
   }
   getModuleState(e) {
     return this.capabilities.modules[e] || null;
@@ -8367,16 +8373,16 @@ var Ft = class {
   }
 };
 function je(e) {
-  const t = Oi(e);
+  const t = ji(e);
   return t ? new Ft(t) : null;
 }
-function $l() {
+function kl() {
   return new Ft({ ...rr });
 }
-function kl(e) {
+function Al(e) {
   return e.visible ? e.enabled ? "" : `aria-disabled="true"${e.reason ? ` title="${b(e.reason)}"` : ""}` : 'aria-hidden="true" style="display: none;"';
 }
-function ji(e) {
+function zi(e) {
   if (e.enabled || !e.reason) return "";
   const t = (e.reasonCode || "").trim();
   return t ? Yt(t, {
@@ -8393,7 +8399,7 @@ function ji(e) {
     </span>
   `.trim();
 }
-function Al() {
+function El() {
   return `
     /* Capability Gate Styles */
     .capability-gate-reason {
@@ -8430,7 +8436,7 @@ function Al() {
     }
   `;
 }
-function zi(e, t) {
+function Ni(e, t) {
   if (!t.visible) {
     e.style.display = "none", e.setAttribute("aria-hidden", "true");
     return;
@@ -8440,22 +8446,22 @@ function zi(e, t) {
 function ze(e) {
   e.currentTarget.getAttribute("aria-disabled") === "true" && (e.preventDefault(), e.stopPropagation());
 }
-function El(e, t) {
+function Ll(e, t) {
   e.querySelectorAll("[data-capability-gate]").forEach((r) => {
     const n = r.dataset.capabilityGate;
     if (n)
       try {
         const s = JSON.parse(n);
-        zi(r, t.gateNavItem(s));
+        Ni(r, t.gateNavItem(s));
       } catch {
         console.warn("Invalid capability gate config:", n);
       }
   });
 }
-async function Ni(e) {
+async function Gi(e) {
   return Ne(e);
 }
-var Gi = {
+var Ui = {
   title: "My Translation Work",
   myAssignments: "My Assignments",
   dueSoon: "Due Soon",
@@ -8477,7 +8483,7 @@ var Gi = {
   status: "Status",
   targetLocale: "Target",
   sourceTitle: "Content"
-}, Ui = [
+}, Hi = [
   {
     id: "all",
     label: "All",
@@ -8498,19 +8504,19 @@ var Gi = {
     label: "Needs Review",
     filters: { status: "review" }
   }
-], Hi = class extends Xe {
+], Vi = class extends Xe {
   constructor(e) {
     super("loading"), this.container = null, this.gateResult = null, this.data = null, this.error = null, this.activePreset = "all", this.refreshTimer = null, this.config = {
       myWorkEndpoint: e.myWorkEndpoint,
       queueEndpoint: e.queueEndpoint || "",
       panelBaseUrl: e.panelBaseUrl || "",
       capabilityGate: e.capabilityGate,
-      filterPresets: e.filterPresets || Ui,
+      filterPresets: e.filterPresets || Hi,
       refreshInterval: e.refreshInterval || 0,
       onAssignmentClick: e.onAssignmentClick,
       onActionClick: e.onActionClick,
       labels: {
-        ...Gi,
+        ...Ui,
         ...e.labels || {}
       }
     };
@@ -8553,7 +8559,7 @@ var Gi = {
     try {
       const e = this.config.filterPresets.find((s) => s.id === this.activePreset), t = new URLSearchParams(e?.filters || {}), r = `${this.config.myWorkEndpoint}${t.toString() ? "?" + t.toString() : ""}`, n = await fetch(r, { headers: { Accept: "application/json" } });
       if (!n.ok) throw new Error(`Failed to load: ${n.status}`);
-      this.data = await Ni(n), this.state = this.data.assignments.length === 0 ? "empty" : "loaded", this.error = null;
+      this.data = await Gi(n), this.state = this.data.assignments.length === 0 ? "empty" : "loaded", this.error = null;
     } catch (e) {
       this.error = e instanceof Error ? e : new Error(String(e)), this.state = "error";
     }
@@ -8686,7 +8692,7 @@ var Gi = {
     `;
   }
   renderDisabled() {
-    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? ji(this.gateResult) : "";
+    const e = this.gateResult?.reason || "Access to this feature is not available.", t = this.gateResult ? zi(this.gateResult) : "";
     return `
       <div class="dashboard-disabled" role="alert" aria-live="polite">
         <div class="disabled-icon">
@@ -8729,10 +8735,10 @@ var Gi = {
   }
   renderAssignmentRow(e) {
     this.config.labels;
-    const t = Vi(e.due_state), r = Ki(e.priority), n = q(e.queue_state, {
+    const t = Ki(e.due_state), r = Ji(e.priority), n = q(e.queue_state, {
       domain: "queue",
       size: "sm"
-    }), s = e.due_date ? Qi(new Date(e.due_date)) : "-";
+    }), s = e.due_date ? Yi(new Date(e.due_date)) : "-";
     return `
       <tr class="assignment-row" data-assignment-id="${b(e.id)}">
         <td class="title-cell">
@@ -8753,7 +8759,7 @@ var Gi = {
           ${s}
         </td>
         <td class="priority-cell">
-          <span class="priority-indicator ${r}">${u(Ji(e.priority))}</span>
+          <span class="priority-indicator ${r}">${u(Qi(e.priority))}</span>
         </td>
         <td class="actions-cell">
           ${this.renderAssignmentActions(e)}
@@ -8833,7 +8839,7 @@ var Gi = {
     return !r || !n ? "" : `${t}/${encodeURIComponent(r)}/${encodeURIComponent(n)}/edit`;
   }
 };
-function Vi(e) {
+function Ki(e) {
   switch (e) {
     case "overdue":
       return "due-overdue";
@@ -8845,7 +8851,7 @@ function Vi(e) {
       return "";
   }
 }
-function Ki(e) {
+function Ji(e) {
   switch (e) {
     case "urgent":
       return "priority-urgent";
@@ -8859,17 +8865,17 @@ function Ki(e) {
       return "priority-normal";
   }
 }
-function Ji(e) {
+function Qi(e) {
   return e.charAt(0).toUpperCase() + e.slice(1);
 }
-function Qi(e) {
+function Yi(e) {
   const t = /* @__PURE__ */ new Date(), r = e.getTime() - t.getTime(), n = Math.ceil(r / (1e3 * 60 * 60 * 24));
   return n < 0 ? `${Math.abs(n)}d overdue` : n === 0 ? "Today" : n === 1 ? "Tomorrow" : n <= 7 ? `${n}d` : e.toLocaleDateString(void 0, {
     month: "short",
     day: "numeric"
   });
 }
-function Ll() {
+function _l() {
   return `
     /* Translator Dashboard Styles */
     .translator-dashboard {
@@ -9260,19 +9266,19 @@ function Ll() {
     }
   `;
 }
-function Yi(e, t) {
-  const r = new Hi(t);
+function Wi(e, t) {
+  const r = new Vi(t);
   return r.mount(e), r;
 }
-function _l(e) {
-  return Wi(e);
+function Rl(e) {
+  return Xi(e);
 }
-function Wi(e, t = {}) {
+function Xi(e, t = {}) {
   const r = e.dataset.myWorkEndpoint;
   if (!r)
     return console.warn("TranslatorDashboard: Missing data-my-work-endpoint attribute"), null;
-  const n = Xi(t);
-  return Yi(e, {
+  const n = Zi(t);
+  return Wi(e, {
     myWorkEndpoint: r,
     panelBaseUrl: e.dataset.panelBaseUrl,
     queueEndpoint: e.dataset.queueEndpoint,
@@ -9280,13 +9286,13 @@ function Wi(e, t = {}) {
     capabilityGate: n || void 0
   });
 }
-function Xi(e) {
+function Zi(e) {
   if (e.capabilityGate) return e.capabilityGate;
   if (e.capabilitiesPayload !== void 0) return je(e.capabilitiesPayload);
-  const t = Zi();
+  const t = ea();
   return t === null ? null : je(t);
 }
-function Zi() {
+function ea() {
   if (typeof window < "u") {
     const e = window.__TRANSLATION_CAPABILITIES__;
     if (e && typeof e == "object") return e;
@@ -9304,7 +9310,7 @@ function Zi() {
 async function le(e) {
   return Ne(e);
 }
-var ea = {
+var ta = {
   title: "Import Translations",
   selectFile: "Select file or paste data",
   validateButton: "Validate",
@@ -9336,7 +9342,7 @@ var ea = {
   allowCreateMissing: "Create missing translations",
   continueOnError: "Continue on error",
   dryRun: "Dry run (preview only)"
-}, ta = class extends Xe {
+}, ra = class extends Xe {
   constructor(e) {
     super("idle"), this.container = null, this.validationResult = null, this.previewRows = [], this.selection = {
       selected: /* @__PURE__ */ new Set(),
@@ -9349,7 +9355,7 @@ var ea = {
       async: !1
     }, this.error = null, this.file = null, this.rawData = "";
     const t = {
-      ...ea,
+      ...ta,
       ...e.labels || {}
     };
     this.config = {
@@ -9623,7 +9629,7 @@ var ea = {
         <td class="field-cell">${u(e.fieldPath)}</td>
         <td class="status-cell">
           ${n}
-          ${e.error ? `<span class="error-message" title="${b(e.error)}">${u(ra(e.error, 30))}</span>` : ""}
+          ${e.error ? `<span class="error-message" title="${b(e.error)}">${u(na(e.error, 30))}</span>` : ""}
         </td>
         <td class="translation-cell">
           <span class="translation-text" title="${b(e.targetLocale)}">${u(e.targetLocale)}</span>
@@ -9722,10 +9728,10 @@ var ea = {
     }));
   }
 };
-function ra(e, t) {
+function na(e, t) {
   return e.length <= t ? e : e.slice(0, t - 3) + "...";
 }
-function Rl() {
+function Dl() {
   return `
     /* Exchange Import Styles */
     .exchange-import {
@@ -10064,18 +10070,18 @@ function Rl() {
     }
   `;
 }
-function na(e, t) {
-  const r = new ta(t);
+function sa(e, t) {
+  const r = new ra(t);
   return r.mount(e), r;
 }
-function Dl(e) {
+function Pl(e) {
   const t = e.dataset.validateEndpoint, r = e.dataset.applyEndpoint;
-  return !t || !r ? (console.warn("ExchangeImport: Missing required data attributes"), null) : na(e, {
+  return !t || !r ? (console.warn("ExchangeImport: Missing required data attributes"), null) : sa(e, {
     validateEndpoint: t,
     applyEndpoint: r
   });
 }
-var sa = {
+var ia = {
   title: "Job Progress",
   running: "In Progress",
   completed: "Completed",
@@ -10094,17 +10100,17 @@ var sa = {
   startedAt: "Started",
   elapsed: "Elapsed",
   conflicts: "Conflicts"
-}, ia = 2e3, aa = 300, oa = "async_job_", qt = class {
+}, aa = 2e3, oa = 300, la = "async_job_", qt = class {
   constructor(e = {}) {
     this.container = null, this.job = null, this.pollingState = "idle", this.pollTimer = null, this.pollAttempts = 0, this.startTime = null, this.error = null;
     const t = {
-      ...sa,
+      ...ia,
       ...e.labels || {}
     };
     this.config = {
-      storageKeyPrefix: e.storageKeyPrefix || oa,
-      pollInterval: e.pollInterval || ia,
-      maxPollAttempts: e.maxPollAttempts || aa,
+      storageKeyPrefix: e.storageKeyPrefix || la,
+      pollInterval: e.pollInterval || aa,
+      maxPollAttempts: e.maxPollAttempts || oa,
       onComplete: e.onComplete,
       onFailed: e.onFailed,
       onError: e.onError,
@@ -10402,7 +10408,7 @@ var sa = {
     this.container && (this.container.querySelector(".resume-btn")?.addEventListener("click", () => this.resumePolling()), this.container.querySelector(".cancel-btn")?.addEventListener("click", () => this.stopPolling()), this.container.querySelector(".retry-btn")?.addEventListener("click", () => this.retry()), this.container.querySelector(".dismiss-btn")?.addEventListener("click", () => this.reset()));
   }
 };
-function Pl() {
+function Il() {
   return `
     /* Async Progress Styles */
     .async-progress {
@@ -10636,17 +10642,17 @@ function Pl() {
     }
   `;
 }
-function la(e, t) {
+function ca(e, t) {
   const r = new qt(t);
   return r.mount(e), r;
 }
-function Il(e) {
-  return la(e, {
+function Tl(e) {
+  return ca(e, {
     pollInterval: e.dataset.pollInterval ? parseInt(e.dataset.pollInterval, 10) : void 0,
     autoStart: e.dataset.autoStart !== "false"
   });
 }
-function Tl(e, t) {
+function Ml(e, t) {
   const r = new qt(t);
   return r.hasPersistedJob(e) ? r : null;
 }
@@ -10660,7 +10666,7 @@ var ce = {
   copySourceButton: "Copy from source",
   fieldChangedIndicator: "Source changed"
 };
-function ca(e) {
+function da(e) {
   const t = {
     sourceHash: null,
     sourceVersion: null,
@@ -10679,13 +10685,13 @@ function ca(e) {
   }
   return t;
 }
-function da(e, t) {
+function ua(e, t) {
   return !e || !e.hasDrift ? !1 : e.changedFieldsSummary.fields.some((r) => r.toLowerCase() === t.toLowerCase());
 }
-function Ml(e) {
+function Bl(e) {
   return !e || !e.hasDrift ? [] : [...e.changedFieldsSummary.fields];
 }
-var ua = class {
+var ha = class {
   constructor(e) {
     this.container = null, this.driftAcknowledged = !1;
     const t = typeof e.container == "string" ? document.querySelector(e.container) : e.container;
@@ -10904,19 +10910,19 @@ var ua = class {
     this.container && (this.container.innerHTML = ""), this.container = null;
   }
 };
-function ha(e) {
-  const t = new ua(e);
+function fa(e) {
+  const t = new ha(e);
   return t.render(), t;
 }
-function Bl(e, t, r, n, s) {
-  const i = ca(t);
-  return ha({
+function Fl(e, t, r, n, s) {
+  const i = da(t);
+  return fa({
     container: e,
     fields: n.map((a) => ({
       key: a,
       label: a.replace(/_/g, " ").replace(/\b\w/g, (o) => o.toUpperCase()),
       type: "text",
-      hasSourceChanged: da(i, a),
+      hasSourceChanged: ua(i, a),
       sourceValue: String(r[a] || ""),
       targetValue: String(t[a] || ""),
       sourceLocale: s.sourceLocale || "en",
@@ -10930,7 +10936,7 @@ function Bl(e, t, r, n, s) {
     ...s
   });
 }
-function Fl() {
+function ql() {
   return `
     /* Side-by-Side Editor Styles */
     .side-by-side-editor {
@@ -11302,225 +11308,225 @@ function Fl() {
 }
 export {
   nr as ActionRenderer,
-  _o as AdvancedSearch,
+  Ro as AdvancedSearch,
   qt as AsyncProgress,
   It as AutosaveIndicator,
-  Ka as CORE_READINESS_DISPLAY,
+  Ja as CORE_READINESS_DISPLAY,
   Ft as CapabilityGate,
   Sr as CellRendererRegistry,
-  Ti as CharacterCounter,
+  Mi as CharacterCounter,
   Xn as ColumnManager,
-  vo as CommonRenderers,
-  Ui as DEFAULT_FILTER_PRESETS,
+  wo as CommonRenderers,
+  Hi as DEFAULT_FILTER_PRESETS,
   Bt as DEFAULT_INTERPOLATION_PATTERNS,
-  Ii as DEFAULT_SAMPLE_VALUES,
+  Ti as DEFAULT_SAMPLE_VALUES,
   ce as DEFAULT_SIDE_BY_SIDE_LABELS,
-  oi as DEFAULT_STATUS_LEGEND_ITEMS,
+  li as DEFAULT_STATUS_LEGEND_ITEMS,
   At as DEFAULT_TRANSLATION_QUICK_FILTERS,
-  Na as DISABLED_REASON_DISPLAY,
+  Ga as DISABLED_REASON_DISPLAY,
   wt as DataGrid,
-  Ys as DefaultColumnVisibilityBehavior,
-  ii as DetailActionsController,
-  Bi as DirectionToggle,
-  Ha as EXCHANGE_JOB_STATUS_DISPLAY,
-  Oa as EXCHANGE_ROW_STATUS_DISPLAY,
-  ta as ExchangeImport,
+  Ws as DefaultColumnVisibilityBehavior,
+  ai as DetailActionsController,
+  Fi as DirectionToggle,
+  Va as EXCHANGE_JOB_STATUS_DISPLAY,
+  ja as EXCHANGE_ROW_STATUS_DISPLAY,
+  ra as ExchangeImport,
   ke as FallbackBanner,
-  Ro as FilterBuilder,
-  Bo as GoCrudBulkActionBehavior,
-  Mo as GoCrudExportBehavior,
-  Po as GoCrudFilterBehavior,
-  Io as GoCrudPaginationBehavior,
-  Do as GoCrudSearchBehavior,
-  To as GoCrudSortBehavior,
+  Do as FilterBuilder,
+  Fo as GoCrudBulkActionBehavior,
+  Bo as GoCrudExportBehavior,
+  Io as GoCrudFilterBehavior,
+  To as GoCrudPaginationBehavior,
+  Po as GoCrudSearchBehavior,
+  Mo as GoCrudSortBehavior,
   Lt as InlineLocaleChips,
-  Mi as InterpolationPreview,
+  Bi as InterpolationPreview,
   Rt as KeyboardShortcutRegistry,
   st as LocalDataGridStateStore,
   te as LocaleActionChip,
   Ze as PayloadInputModal,
   Pr as PreferencesDataGridStateStore,
-  Ia as QUEUE_CONTENT_STATE_DISPLAY,
-  Ga as QUEUE_DUE_STATE_DISPLAY,
-  Va as QUEUE_STATE_DISPLAY,
-  ci as QuickFilters,
+  Ta as QUEUE_CONTENT_STATE_DISPLAY,
+  Ua as QUEUE_DUE_STATE_DISPLAY,
+  Ka as QUEUE_STATE_DISPLAY,
+  di as QuickFilters,
   Ct as SchemaActionBuilder,
-  Fo as ServerColumnVisibilityBehavior,
-  ua as SideBySideEditor,
+  qo as ServerColumnVisibilityBehavior,
+  ha as SideBySideEditor,
   kt as StatusLegend,
-  ai as TranslationBlockerModal,
-  ui as TranslationPanel,
-  Hi as TranslatorDashboard,
-  gi as applyFormLock,
-  zi as applyGateToElement,
-  Ei as applyShortcutSettings,
+  oi as TranslationBlockerModal,
+  hi as TranslationPanel,
+  Vi as TranslatorDashboard,
+  bi as applyFormLock,
+  Ni as applyGateToElement,
+  Li as applyShortcutSettings,
   Oe as buildLocaleEditUrl,
-  qo as buildSchemaRowActions,
-  Tl as checkForPersistedJob,
-  Co as collapseAllGroups,
-  la as createAsyncProgress,
-  Qo as createBulkCreateMissingHandler,
+  Oo as buildSchemaRowActions,
+  Ml as checkForPersistedJob,
+  $o as collapseAllGroups,
+  ca as createAsyncProgress,
+  Yo as createBulkCreateMissingHandler,
   je as createCapabilityGate,
   Ir as createDataGridStateStore,
-  $l as createEmptyCapabilityGate,
-  na as createExchangeImport,
-  al as createInlineLocaleChipsRenderer,
+  kl as createEmptyCapabilityGate,
+  sa as createExchangeImport,
+  ol as createInlineLocaleChipsRenderer,
   dr as createLocaleBadgeRenderer,
-  Ma as createReasonCodeCellRenderer,
-  ha as createSideBySideEditor,
-  za as createStatusCellRenderer,
-  li as createStatusLegend,
-  hl as createTranslationAutosave,
-  bo as createTranslationMatrixRenderer,
-  Vo as createTranslationPanel,
-  di as createTranslationQuickFilters,
-  Si as createTranslationShortcuts,
+  Ba as createReasonCodeCellRenderer,
+  fa as createSideBySideEditor,
+  Na as createStatusCellRenderer,
+  ci as createStatusLegend,
+  fl as createTranslationAutosave,
+  yo as createTranslationMatrixRenderer,
+  Ko as createTranslationPanel,
+  ui as createTranslationQuickFilters,
+  Ci as createTranslationShortcuts,
   Re as createTranslationStatusRenderer,
-  Yi as createTranslatorDashboard,
+  Wi as createTranslatorDashboard,
   Qr as decodeExpandedGroupsToken,
-  wl as detectInterpolations,
-  ki as dismissShortcutHint,
-  Ao as encodeExpandedGroupsToken,
-  hi as executeBulkCreateMissing,
-  So as expandAllGroups,
+  xl as detectInterpolations,
+  Ai as dismissShortcutHint,
+  Eo as encodeExpandedGroupsToken,
+  fi as executeBulkCreateMissing,
+  Co as expandAllGroups,
   Gr as extractBackendSummaries,
-  Oi as extractCapabilities,
-  va as extractExchangeError,
-  Oo as extractSchemaActions,
-  ca as extractSourceTargetDrift,
+  ji as extractCapabilities,
+  wa as extractExchangeError,
+  jo as extractSchemaActions,
+  da as extractSourceTargetDrift,
   L as extractTranslationContext,
   C as extractTranslationReadiness,
   _t as formatShortcutDisplay,
-  wa as generateExchangeReport,
+  xa as generateExchangeReport,
   We as getActionBlockDisplay,
-  Ba as getAllReasonCodes,
-  Pl as getAsyncProgressStyles,
-  pl as getAutosaveIndicatorStyles,
-  Al as getCapabilityGateStyles,
-  Ml as getChangedFields,
-  xl as getCharCountSeverity,
-  dl as getDefaultShortcutRegistry,
-  Fa as getDisabledReasonDisplay,
-  Rl as getExchangeImportStyles,
-  $o as getExpandedGroupIds,
-  vl as getFieldHelperStyles,
-  Zo as getFormLockReason,
+  Fa as getAllReasonCodes,
+  Il as getAsyncProgressStyles,
+  ml as getAutosaveIndicatorStyles,
+  El as getCapabilityGateStyles,
+  Bl as getChangedFields,
+  Sl as getCharCountSeverity,
+  ul as getDefaultShortcutRegistry,
+  qa as getDisabledReasonDisplay,
+  Dl as getExchangeImportStyles,
+  ko as getExpandedGroupIds,
+  wl as getFieldHelperStyles,
+  el as getFormLockReason,
   k as getLocaleLabel,
-  go as getMissingTranslationsCount,
-  wi as getModifierSymbol,
+  bo as getMissingTranslationsCount,
+  xi as getModifierSymbol,
   Ur as getPersistedExpandState,
   Jr as getPersistedViewMode,
-  vi as getPrimaryModifierLabel,
-  Ua as getSeverityCssClass,
-  Fl as getSideBySideEditorStyles,
+  wi as getPrimaryModifierLabel,
+  Ha as getSeverityCssClass,
+  ql as getSideBySideEditorStyles,
   Ye as getStatusCssClass,
   Je as getStatusDisplay,
-  qa as getStatusVocabularyStyles,
-  Pa as getStatusesForDomain,
-  Ll as getTranslatorDashboardStyles,
+  Oa as getStatusVocabularyStyles,
+  Ia as getStatusesForDomain,
+  _l as getTranslatorDashboardStyles,
   xe as getViewModeForViewport,
-  xa as groupRowResultsByStatus,
+  Sa as groupRowResultsByStatus,
   Qn as handleDelete,
   it as hasBackendGroupedRows,
-  da as hasFieldDrift,
-  mo as hasMissingTranslations,
-  ro as hasTranslationContext,
-  oo as hasTranslationReadiness,
-  Il as initAsyncProgress,
-  El as initCapabilityGating,
-  Dl as initExchangeImport,
-  rl as initFallbackBanner,
-  gl as initFieldHelpers,
-  ml as initFormAutosave,
-  nl as initFormLock,
-  il as initInlineLocaleChips,
-  Li as initKeyboardShortcuts,
-  ul as initKeyboardShortcutsWithDiscovery,
-  Wo as initLocaleActionChips,
-  jo as initPanelDetailActions,
-  Uo as initQuickFilters,
-  Bl as initSideBySideEditorFromRecord,
-  No as initStatusLegends,
-  _l as initTranslatorDashboard,
-  Wi as initTranslatorDashboardWithOptions,
-  Ja as initializeVocabularyFromPayload,
-  Cl as isCoreEnabled,
-  Fi as isExchangeEnabled,
-  Sa as isExchangeError,
-  Xo as isFormLocked,
-  to as isInFallbackMode,
+  ua as hasFieldDrift,
+  go as hasMissingTranslations,
+  no as hasTranslationContext,
+  lo as hasTranslationReadiness,
+  Tl as initAsyncProgress,
+  Ll as initCapabilityGating,
+  Pl as initExchangeImport,
+  nl as initFallbackBanner,
+  bl as initFieldHelpers,
+  gl as initFormAutosave,
+  sl as initFormLock,
+  al as initInlineLocaleChips,
+  _i as initKeyboardShortcuts,
+  hl as initKeyboardShortcutsWithDiscovery,
+  Xo as initLocaleActionChips,
+  zo as initPanelDetailActions,
+  Ho as initQuickFilters,
+  Fl as initSideBySideEditorFromRecord,
+  Go as initStatusLegends,
+  Rl as initTranslatorDashboard,
+  Xi as initTranslatorDashboardWithOptions,
+  Qa as initializeVocabularyFromPayload,
+  $l as isCoreEnabled,
+  qi as isExchangeEnabled,
+  Ca as isExchangeError,
+  Zo as isFormLocked,
+  ro as isInFallbackMode,
   re as isMacPlatform,
   tn as isNarrowViewport,
-  qi as isQueueEnabled,
-  lo as isReadyForTransition,
-  $i as isShortcutHintDismissed,
-  Qa as isValidReasonCode,
-  Ta as isValidStatus,
-  Ci as loadShortcutSettings,
+  Oi as isQueueEnabled,
+  co as isReadyForTransition,
+  ki as isShortcutHintDismissed,
+  Ya as isValidReasonCode,
+  Ma as isValidStatus,
+  $i as loadShortcutSettings,
   Nr as mergeBackendSummaries,
-  Da as normalizeActionBlockCode,
-  La as normalizeActionState,
-  Ea as normalizeActionStateMap,
-  _a as normalizeActionStateMeta,
-  ja as normalizeActionStateRecord,
+  Pa as normalizeActionBlockCode,
+  _a as normalizeActionState,
+  La as normalizeActionStateMap,
+  Ra as normalizeActionStateMeta,
+  za as normalizeActionStateRecord,
   Mr as normalizeBackendGroupedRows,
   He as normalizeBulkActionStateConfig,
   Qe as normalizeBulkActionStateMap,
   Kt as normalizeBulkActionStateResponse,
   Ke as normalizeDetailActionStatePayload,
   Jt as normalizeListActionStatePayload,
-  Sl as parseCapabilityMode,
-  Ca as parseImportResult,
+  Cl as parseCapabilityMode,
+  $a as parseImportResult,
   mt as parseViewMode,
-  wo as persistExpandState,
-  ko as persistViewMode,
-  bi as removeFormLock,
-  fl as renderAutosaveIndicator,
+  xo as persistExpandState,
+  Ao as persistViewMode,
+  yi as removeFormLock,
+  pl as renderAutosaveIndicator,
   ir as renderAvailableLocalesIndicator,
-  Jo as renderBulkResultInline,
-  Ko as renderBulkResultSummary,
-  bl as renderCharacterCounter,
-  si as renderDetailActions,
-  yl as renderDirectionToggle,
-  ji as renderDisabledReasonBadge,
-  Ai as renderDiscoveryHint,
-  el as renderFallbackBannerFromRecord,
-  yo as renderFallbackWarning,
-  kl as renderGateAriaAttributes,
+  Qo as renderBulkResultInline,
+  Jo as renderBulkResultSummary,
+  yl as renderCharacterCounter,
+  ii as renderDetailActions,
+  vl as renderDirectionToggle,
+  zi as renderDisabledReasonBadge,
+  Ei as renderDiscoveryHint,
+  tl as renderFallbackBannerFromRecord,
+  vo as renderFallbackWarning,
+  Al as renderGateAriaAttributes,
   Zr as renderGroupHeaderRow,
   Yr as renderGroupHeaderSummary,
   en as renderGroupedEmptyState,
-  Lo as renderGroupedErrorState,
-  Eo as renderGroupedLoadingState,
-  yi as renderInlineLocaleChips,
+  _o as renderGroupedErrorState,
+  Lo as renderGroupedLoadingState,
+  vi as renderInlineLocaleChips,
   Et as renderLocaleActionChip,
-  Yo as renderLocaleActionList,
+  Wo as renderLocaleActionList,
   rt as renderLocaleBadge,
-  fo as renderLocaleCompleteness,
-  po as renderMissingTranslationsBadge,
-  ho as renderPublishReadinessBadge,
-  Ho as renderQuickFiltersHTML,
-  uo as renderReadinessIndicator,
+  po as renderLocaleCompleteness,
+  mo as renderMissingTranslationsBadge,
+  fo as renderPublishReadinessBadge,
+  Vo as renderQuickFiltersHTML,
+  ho as renderReadinessIndicator,
   Yt as renderReasonCodeBadge,
-  Ra as renderReasonCodeIndicator,
-  cl as renderShortcutSettingsUI,
-  ol as renderShortcutsHelpContent,
-  co as renderStatusBadge,
-  Go as renderStatusLegendHTML,
-  io as renderTranslationAssignmentSummary,
-  ao as renderTranslationExchangeSummary,
-  no as renderTranslationFamilyLink,
-  so as renderTranslationFamilyMemberCount,
+  Da as renderReasonCodeIndicator,
+  dl as renderShortcutSettingsUI,
+  ll as renderShortcutsHelpContent,
+  uo as renderStatusBadge,
+  Uo as renderStatusLegendHTML,
+  ao as renderTranslationAssignmentSummary,
+  oo as renderTranslationExchangeSummary,
+  so as renderTranslationFamilyLink,
+  io as renderTranslationFamilyMemberCount,
   lr as renderTranslationMatrixCell,
   ar as renderTranslationStatusCell,
   q as renderVocabularyStatusBadge,
   Qt as renderVocabularyStatusIcon,
   Ve as resolveActionState,
-  ll as saveShortcutSettings,
-  tl as shouldShowFallbackBanner,
-  sl as shouldShowInlineLocaleChips,
-  zo as showTranslationBlocker,
-  xo as toggleGroupExpand,
+  cl as saveShortcutSettings,
+  rl as shouldShowFallbackBanner,
+  il as shouldShowInlineLocaleChips,
+  No as showTranslationBlocker,
+  So as toggleGroupExpand,
   Tr as transformToGroups
 };
 
