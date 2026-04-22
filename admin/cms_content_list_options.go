@@ -22,3 +22,9 @@ func WithDerivedFields() CMSContentListOption {
 func WithLocaleVariants() CMSContentListOption {
 	return cmscontracts.WithLocaleVariants()
 }
+
+// WithContentTypeID requests that upstream content list reads scope rows to the
+// supplied content type before loading translations or projections.
+func WithContentTypeID(id string) CMSContentListOption {
+	return cmscontracts.WithContentTypeID(id)
+}
