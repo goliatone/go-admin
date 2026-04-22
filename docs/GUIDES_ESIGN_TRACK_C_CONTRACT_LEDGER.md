@@ -174,3 +174,15 @@ backend_tests: go test ./examples/esign/release -run TestValidateTrackCContractG
 frontend_tests: N/A (backend in-memory contract maintenance only)
 contract_hash: 7f45792e5797d469f997cca69eede0548abe19ab29b2112f347cb47d3c607151
 related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+
+## TC-2026-04-22-013
+
+date: 2026-04-22
+owner: backend
+breaking_change_rationale: refresh the Track C guard after the reviewed store, service, and panel repository contract set changed, so release validation tracks the current accepted backend contract boundary instead of failing against the April 16, 2026 snapshot.
+measurable_gain: CI validates the current reviewed Track C contract shape with a dated audit checkpoint, while preserving the prior reminder-state checkpoint for traceability.
+impacted_endpoints: no intended externally visible endpoint payload change; reviewed Track C files remain examples/esign/stores/contracts.go, examples/esign/stores/models.go, examples/esign/stores/memory.go, examples/esign/services/agreement_service.go, and examples/esign/modules/panel_repositories.go.
+backend_tests: go test ./examples/esign/release -count=1
+frontend_tests: N/A (no frontend contract payload change in this guard refresh)
+contract_hash: f6f71723dfcd3a5d8732c9d51d3dd1ed36206fbd981a59b2ef4e70acf88838c9
+related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
