@@ -262,92 +262,106 @@ func quickstartDoctorTranslationCheck() admin.DoctorCheck {
 			"Enable/disable translation modules consistently and ensure UI/API routes are registered for active modules.",
 			"Review translation wiring",
 		),
-		Run: func(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
-			if adm == nil {
-				return admin.DoctorCheckOutput{}
-			}
-			caps := TranslationCapabilities(adm)
-			if len(caps) == 0 {
-				return admin.DoctorCheckOutput{
-					Findings: []admin.DoctorFinding{
-						{
-							Severity:  admin.DoctorSeverityWarn,
-							Code:      "quickstart.translation.capabilities_missing",
-							Component: "translation",
-							Message:   "Translation capabilities snapshot is empty",
-							Hint:      "Register translation capabilities during quickstart bootstrap",
-						},
-					},
-				}
-			}
+			Run: quickstartDoctorTranslationRun,
+		}
+	}
 
-			modules, _ := caps["modules"].(map[string]any)
-			routes := translationRoutesToStrings(caps["routes"])
-			warnings := translationStringSlice(caps["warnings"])
-			profile := strings.TrimSpace(fmt.Sprint(caps["profile"]))
-			schemaVersion := strings.TrimSpace(fmt.Sprint(caps["schema_version"]))
-			apiGroup := strings.TrimSpace(adm.AdminAPIGroup())
-			if apiGroup == "" {
-				apiGroup = "admin.api"
-			}
-
-			findings := []admin.DoctorFinding{}
-			if translationModuleEnabled(modules, "exchange") {
-				if strings.TrimSpace(routes["admin.translations.exchange"]) == "" {
-					findings = append(findings, admin.DoctorFinding{
-						Severity:  admin.DoctorSeverityWarn,
-						Code:      "quickstart.translation.exchange_route_missing",
-						Component: "translation.exchange",
-						Message:   "Exchange module is enabled but exchange UI route is missing",
-						Hint:      "Register translation exchange routing or disable exchange module",
-					})
-				}
-			}
-			if translationModuleEnabled(modules, "queue") {
-				if strings.TrimSpace(routes["admin.translations.dashboard"]) == "" {
-					findings = append(findings, admin.DoctorFinding{
-						Severity:  admin.DoctorSeverityWarn,
-						Code:      "quickstart.translation.queue_dashboard_missing",
-						Component: "translation.queue",
-						Message:   "Queue module is enabled but dashboard route is missing",
-						Hint:      "Register translation queue dashboard routing",
-					})
-				}
-				myWorkKey := fmt.Sprintf("%s.%s", apiGroup, "translations.my_work")
-				if strings.TrimSpace(routes[myWorkKey]) == "" {
-					findings = append(findings, admin.DoctorFinding{
-						Severity:  admin.DoctorSeverityWarn,
-						Code:      "quickstart.translation.queue_api_missing",
-						Component: "translation.queue",
-						Message:   "Queue module is enabled but my_work API route is missing",
-						Hint:      "Register translation queue API routes and bindings",
-					})
-				}
-			}
-			for _, warning := range warnings {
-				warning = strings.TrimSpace(warning)
-				if warning == "" {
-					continue
-				}
-				findings = append(findings, admin.DoctorFinding{
-					Severity:  admin.DoctorSeverityInfo,
-					Code:      "quickstart.translation.warning",
-					Component: "translation",
-					Message:   warning,
-				})
-			}
-
-			return admin.DoctorCheckOutput{
-				Findings: findings,
-				Metadata: map[string]any{
-					"profile":        profile,
-					"schema_version": schemaVersion,
-					"warnings_count": len(warnings),
-					"routes_count":   len(routes),
-				},
-			}
+func quickstartDoctorTranslationRun(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
+	if adm == nil {
+		return admin.DoctorCheckOutput{}
+	}
+	caps := TranslationCapabilities(adm)
+	if len(caps) == 0 {
+		return quickstartDoctorMissingTranslationCapabilities()
+	}
+	modules, _ := caps["modules"].(map[string]any)
+	routes := translationRoutesToStrings(caps["routes"])
+	warnings := translationStringSlice(caps["warnings"])
+	findings := translationDoctorFindings(adm, modules, routes, warnings)
+	return admin.DoctorCheckOutput{
+		Findings: findings,
+		Metadata: map[string]any{
+			"profile":        strings.TrimSpace(fmt.Sprint(caps["profile"])),
+			"schema_version": strings.TrimSpace(fmt.Sprint(caps["schema_version"])),
+			"warnings_count": len(warnings),
+			"routes_count":   len(routes),
 		},
 	}
+}
+
+func quickstartDoctorMissingTranslationCapabilities() admin.DoctorCheckOutput {
+	return admin.DoctorCheckOutput{
+		Findings: []admin.DoctorFinding{
+			{
+				Severity:  admin.DoctorSeverityWarn,
+				Code:      "quickstart.translation.capabilities_missing",
+				Component: "translation",
+				Message:   "Translation capabilities snapshot is empty",
+				Hint:      "Register translation capabilities during quickstart bootstrap",
+			},
+		},
+	}
+}
+
+func translationDoctorFindings(adm *admin.Admin, modules map[string]any, routes map[string]string, warnings []string) []admin.DoctorFinding {
+	findings := []admin.DoctorFinding{}
+	findings = append(findings, translationDoctorExchangeFindings(modules, routes)...)
+	findings = append(findings, translationDoctorQueueFindings(adm, modules, routes)...)
+	for _, warning := range warnings {
+		if warning = strings.TrimSpace(warning); warning != "" {
+			findings = append(findings, admin.DoctorFinding{
+				Severity:  admin.DoctorSeverityInfo,
+				Code:      "quickstart.translation.warning",
+				Component: "translation",
+				Message:   warning,
+			})
+		}
+	}
+	return findings
+}
+
+func translationDoctorExchangeFindings(modules map[string]any, routes map[string]string) []admin.DoctorFinding {
+	if !translationModuleEnabled(modules, "exchange") || strings.TrimSpace(routes["admin.translations.exchange"]) != "" {
+		return nil
+	}
+	return []admin.DoctorFinding{{
+		Severity:  admin.DoctorSeverityWarn,
+		Code:      "quickstart.translation.exchange_route_missing",
+		Component: "translation.exchange",
+		Message:   "Exchange module is enabled but exchange UI route is missing",
+		Hint:      "Register translation exchange routing or disable exchange module",
+	}}
+}
+
+func translationDoctorQueueFindings(adm *admin.Admin, modules map[string]any, routes map[string]string) []admin.DoctorFinding {
+	if !translationModuleEnabled(modules, "queue") {
+		return nil
+	}
+	apiGroup := strings.TrimSpace(adm.AdminAPIGroup())
+	if apiGroup == "" {
+		apiGroup = "admin.api"
+	}
+	findings := []admin.DoctorFinding{}
+	if strings.TrimSpace(routes["admin.translations.dashboard"]) == "" {
+		findings = append(findings, admin.DoctorFinding{
+			Severity:  admin.DoctorSeverityWarn,
+			Code:      "quickstart.translation.queue_dashboard_missing",
+			Component: "translation.queue",
+			Message:   "Queue module is enabled but dashboard route is missing",
+			Hint:      "Register translation queue dashboard routing",
+		})
+	}
+	myWorkKey := fmt.Sprintf("%s.%s", apiGroup, "translations.my_work")
+	if strings.TrimSpace(routes[myWorkKey]) == "" {
+		findings = append(findings, admin.DoctorFinding{
+			Severity:  admin.DoctorSeverityWarn,
+			Code:      "quickstart.translation.queue_api_missing",
+			Component: "translation.queue",
+			Message:   "Queue module is enabled but my_work API route is missing",
+			Hint:      "Register translation queue API routes and bindings",
+		})
+	}
+	return findings
 }
 
 func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
@@ -360,191 +374,10 @@ func quickstartDoctorBlockDefinitionsCheck() admin.DoctorCheck {
 			"Seed block definitions in the default content channel and verify the Block Library channel selector is set to default.",
 			"Seed default block definitions",
 		),
-		Run: func(_ context.Context, adm *admin.Admin) admin.DoctorCheckOutput {
-			if adm == nil {
-				return admin.DoctorCheckOutput{}
-			}
-			content := adm.ContentService()
-			if content == nil {
-				return admin.DoctorCheckOutput{
-					Findings: []admin.DoctorFinding{
-						{
-							Severity:  admin.DoctorSeverityWarn,
-							Code:      "quickstart.blocks.content_service_missing",
-							Component: "cms",
-							Message:   "Content service is unavailable; block diagnostics skipped",
-							Hint:      "Configure CMS content service before running block seed diagnostics",
-						},
-					},
-				}
-			}
-
-			required := []string{"hero", "rich_text"}
-			requiredSet := map[string]bool{}
-			for _, key := range required {
-				requiredSet[key] = true
-			}
-
-			effectiveEnv := defaultChannelKey
-			defs, err := content.BlockDefinitions(admin.WithContentChannel(context.Background(), effectiveEnv))
-			if err != nil {
-				return admin.DoctorCheckOutput{
-					Findings: []admin.DoctorFinding{
-						{
-							Severity:  admin.DoctorSeverityError,
-							Code:      "quickstart.blocks.fetch_failed",
-							Component: "cms.blocks",
-							Message:   "Failed to load block definitions for diagnostics",
-							Hint:      "Verify CMS persistence wiring and block definition repository health",
-							Metadata: map[string]any{
-								"error": err.Error(),
-							},
-						},
-					},
-					Metadata: map[string]any{
-						"effective_channel": effectiveEnv,
-					},
-				}
-			}
-
-			present := map[string]bool{}
-			available := map[string]struct{}{}
-			for _, def := range defs {
-				for _, candidate := range blockDefinitionAliasKeys(def.ID, def.Slug, def.Type) {
-					if candidate == "" {
-						continue
-					}
-					available[candidate] = struct{}{}
-					if requiredSet[candidate] {
-						present[candidate] = true
-					}
-				}
-			}
-
-			missing := []string{}
-			for _, key := range required {
-				if !present[key] {
-					missing = append(missing, key)
-				}
-			}
-
-			availableList := make([]string, 0, len(available))
-			for key := range available {
-				availableList = append(availableList, key)
-			}
-			sort.Strings(availableList)
-			findings := []admin.DoctorFinding{}
-			metadata := map[string]any{
-				"effective_channel": effectiveEnv,
-				"required":          required,
-				"available_count":   len(availableList),
-				"available_types":   availableList,
-			}
-
-			visibleTotal := -1
-			visibleSource := ""
-			var panelListErr error
-			listCtx := admin.WithContentChannel(context.Background(), effectiveEnv)
-			if registry := adm.Registry(); registry != nil {
-				if panel, ok := registry.Panel("block_definitions"); ok && panel != nil {
-					adminCtx := admin.AdminContext{
-						Context:     listCtx,
-						Environment: effectiveEnv,
-						Locale:      strings.TrimSpace(adm.DefaultLocale()),
-					}
-					_, total, err := panel.List(adminCtx, admin.ListOptions{
-						Page:    1,
-						PerPage: 1,
-						Filters: map[string]any{admin.ContentChannelScopeQueryParam: effectiveEnv},
-					})
-					if err == nil {
-						visibleTotal = total
-						visibleSource = "panel"
-					} else {
-						panelListErr = err
-					}
-				}
-			}
-			if visibleSource == "" {
-				repo := admin.NewCMSBlockDefinitionRepository(content, adm.ContentTypeService())
-				_, total, err := repo.List(listCtx, admin.ListOptions{
-					Page:    1,
-					PerPage: 1,
-					Filters: map[string]any{admin.ContentChannelScopeQueryParam: effectiveEnv},
-				})
-				if err != nil {
-					visibilityErr := err
-					if panelListErr != nil && !errors.Is(panelListErr, admin.ErrForbidden) {
-						visibilityErr = fmt.Errorf("panel list failed: %w; repository fallback failed: %v", panelListErr, err)
-					}
-					findings = append(findings, admin.DoctorFinding{
-						Severity:  admin.DoctorSeverityWarn,
-						Code:      "quickstart.blocks.visibility_check_unavailable",
-						Component: "cms.blocks",
-						Message:   "Could not run Block Library visibility consistency check",
-						Hint:      "Ensure block_definitions panel and CMS repositories are healthy before relying on Block Library diagnostics",
-						Metadata: map[string]any{
-							"error": visibilityErr.Error(),
-						},
-					})
-				} else {
-					visibleTotal = total
-					visibleSource = "repository_fallback"
-				}
-			}
-			if panelListErr != nil {
-				metadata["panel_list_error"] = panelListErr.Error()
-			}
-			if visibleTotal >= 0 {
-				metadata["visible_total"] = visibleTotal
-			}
-			if visibleSource != "" {
-				metadata["visibility_source"] = visibleSource
-			}
-			metadata["service_total"] = len(defs)
-
-			if visibleTotal >= 0 && visibleTotal != len(defs) {
-				findings = append(findings, admin.DoctorFinding{
-					Severity:  admin.DoctorSeverityError,
-					Code:      "quickstart.blocks.visibility_mismatch",
-					Component: "cms.blocks",
-					Message:   fmt.Sprintf("Block Library visibility mismatch in %q channel: service=%d, visible=%d", effectiveEnv, len(defs), visibleTotal),
-					Hint:      "Align channel canonicalization between diagnostics and list-path filtering (blank vs default handling)",
-					Metadata: map[string]any{
-						"effective_channel": effectiveEnv,
-						"service_total":     len(defs),
-						"visible_total":     visibleTotal,
-						"visibility_source": visibleSource,
-					},
-				})
-			}
-
-			if len(missing) > 0 {
-				findings = append(findings, admin.DoctorFinding{
-					Severity:  admin.DoctorSeverityError,
-					Code:      "quickstart.blocks.seed_missing",
-					Component: "cms.blocks",
-					Message:   fmt.Sprintf("Missing required default block definitions: %s", strings.Join(missing, ", ")),
-					Hint:      "Seed missing block definitions into the default content channel or switch the Block Library back to default",
-					Metadata: map[string]any{
-						"missing": missing,
-					},
-				})
-			}
-
-			if len(findings) == 0 {
-				return admin.DoctorCheckOutput{
-					Summary:  "Required default block definitions are present and list visibility is consistent",
-					Metadata: metadata,
-				}
-			}
-			return admin.DoctorCheckOutput{
-				Findings: findings,
-				Metadata: metadata,
-			}
-		},
+			Run: quickstartDoctorBlockDefinitionsRun,
+		}
 	}
-}
+
 
 func routingDoctorSummaryMetadata(summary routing.RouteSummary) map[string]any {
 	return map[string]any{

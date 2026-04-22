@@ -3,7 +3,10 @@ package admin
 import (
 	"context"
 	"errors"
+	"log/slog"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/internal/primitives"
 )
@@ -123,14 +126,25 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 	if s.content == nil {
 		return nil, 0, ErrNotFound
 	}
+	overallStarted := time.Now()
 	locale := resolveListRequestedLocale(ctx, opts, "")
+	typeSlug := strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Slug, contentType.Name, contentType.ID))
+	grouped := shouldExpandContentEntryTranslationFamilyRowsForContext(ctx, opts)
+	contentReadStarted := time.Now()
 	contents, err := s.listContentsForContentType(ctx, contentType, locale, opts)
+	logCMSContentListTiming(ctx, "content_read", contentReadStarted,
+		"content_type", typeSlug,
+		"locale", locale,
+		"grouped", grouped,
+		"records", len(contents),
+	)
 	if err != nil {
 		return nil, 0, err
 	}
-	typeKey := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Slug, contentType.Name, contentType.ID)))
+	typeKey := strings.ToLower(typeSlug)
 	navigationPolicy := contentEntryNavigationPolicyFromContentType(contentType)
 	translationEnabled := contentTypeWantsTranslations(contentType)
+	recordBuildStarted := time.Now()
 	records := make([]map[string]any, 0, len(contents))
 	for _, item := range contents {
 		recordType := strings.ToLower(strings.TrimSpace(primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)))
@@ -160,11 +174,32 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 		record = applyContentEntryNavigationReadContract(record, navigationPolicy)
 		records = append(records, record)
 	}
+	logCMSContentListTiming(ctx, "record_build", recordBuildStarted,
+		"content_type", typeSlug,
+		"locale", locale,
+		"grouped", grouped,
+		"records", len(records),
+	)
+	filterStarted := time.Now()
 	listOpts := normalizeCMSContentListOptionsForFiltering(opts)
 	list, total := applyListOptionsToRecordMaps(records, listOpts, listRecordOptions{
 		PredicateMatcher: cmsContentRecordPredicateMatcher,
 		SearchMatcher:    cmsContentRecordSearchMatcher,
 	})
+	logCMSContentListTiming(ctx, "filter_page", filterStarted,
+		"content_type", typeSlug,
+		"locale", locale,
+		"grouped", grouped,
+		"records", len(list),
+		"total", total,
+	)
+	logCMSContentListTiming(ctx, "total", overallStarted,
+		"content_type", typeSlug,
+		"locale", locale,
+		"grouped", grouped,
+		"records", len(list),
+		"total", total,
+	)
 	return list, total, nil
 }
 
@@ -213,6 +248,27 @@ func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Con
 		}
 	}
 	return s.content.Contents(ctx, locale)
+}
+
+func cmsContentListTimingEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("GO_ADMIN_CONTENT_LIST_TIMING"))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
+func logCMSContentListTiming(ctx context.Context, stage string, started time.Time, attrs ...any) {
+	if !cmsContentListTimingEnabled() {
+		return
+	}
+	base := []any{
+		"stage", stage,
+		"duration_ms", time.Since(started).Milliseconds(),
+	}
+	base = append(base, attrs...)
+	slog.InfoContext(ctx, "cms content list timing", base...)
 }
 
 func normalizeCMSContentListOptionsForFiltering(opts ListOptions) ListOptions {

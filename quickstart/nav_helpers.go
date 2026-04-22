@@ -381,8 +381,8 @@ func buildNavEntry(item admin.NavigationItem, basePath string, urls urlkit.Resol
 		"position":        position,
 		"active":          isActive,
 		"expanded":        collapsible && !collapsed,
-			"child_active":    childActive,
-		}
+		"child_active":    childActive,
+	}
 	applyNavTargetMetadata(entry, target, scope)
 	if strings.EqualFold(strings.TrimSpace(item.Type), admin.MenuItemTypeGroup) && len(children) == 0 {
 		return nil, false
