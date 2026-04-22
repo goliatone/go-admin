@@ -6,7 +6,7 @@ import {
   normalizeListActionStatePayload,
 } from './action-contracts.js';
 
-export async function refresh(grid: any): Promise<void> {
+export async function refresh(grid: any, requestSeq?: number): Promise<void> {
     console.log('[DataGrid] ===== refresh() CALLED =====');
     console.log('[DataGrid] Current sort state:', JSON.stringify(grid.state.sort));
 
@@ -33,6 +33,10 @@ export async function refresh(grid: any): Promise<void> {
 
       const rawData: ApiResponse = await response.json();
       const data = normalizeListActionStatePayload(rawData) as ApiResponse || rawData;
+      if (typeof requestSeq === 'number' && typeof grid.isCurrentRefresh === 'function' && !grid.isCurrentRefresh(requestSeq)) {
+        console.log('[DataGrid] Ignoring stale refresh response');
+        return;
+      }
       console.log('[DataGrid] API Response:', data);
       console.log('[DataGrid] API Response data array:', data.data);
       console.log('[DataGrid] API Response total:', data.total, 'count:', data.count, '$meta:', data.$meta);
@@ -45,6 +49,10 @@ export async function refresh(grid: any): Promise<void> {
       grid.setBulkActionState(data.$meta?.bulk_action_state || null, data.schema?.bulk_action_state_config || null);
       const total = grid.getResponseTotal(data);
       if (grid.normalizePagination(total)) {
+        if (typeof grid.requestRefreshAfterCurrent === 'function') {
+          grid.requestRefreshAfterCurrent();
+          return;
+        }
         return grid.refresh();
       }
       console.log('[DataGrid] About to call renderData()...');

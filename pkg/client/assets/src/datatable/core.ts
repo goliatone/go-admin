@@ -78,6 +78,11 @@ export class DataGrid {
   private bulkActionStateDebounce: number | null = null;
   private bulkActionStateAbortController: AbortController | null = null;
   private bulkActionStateRequestSeq: number = 0;
+  private refreshDrainPromise: Promise<void> | null = null;
+  private refreshInFlight: Promise<void> | null = null;
+  private refreshQueued: boolean = false;
+  private refreshRequestSeq: number = 0;
+  private activeRefreshSeq: number = 0;
   private stateStore: DataGridStateStore;
   private hasURLStateOverrides: boolean = false;
   private hasPersistedHiddenColumnState: boolean = false;
@@ -222,25 +227,27 @@ export class DataGrid {
     this.bindBulkClearButton();
     this.bindDropdownToggles();
 
-    void this.refresh();
+    void this.refreshAfterStateHydration();
+  }
 
+  private async refreshAfterStateHydration(): Promise<void> {
     if (typeof this.stateStore.hydrate === 'function') {
-      void this.stateStore.hydrate().then(() => {
-        if (this.hasURLStateOverrides) {
-          return;
+      try {
+        await this.stateStore.hydrate();
+        if (!this.hasURLStateOverrides) {
+          const hydrated = this.stateStore.loadPersistedState();
+          if (hydrated) {
+            this.applyPersistedStateSnapshot(hydrated, { merge: true });
+            this.applyRestoredState();
+            this.pushStateToURL({ replace: true });
+          }
         }
-        const hydrated = this.stateStore.loadPersistedState();
-        if (!hydrated) {
-          return;
-        }
-        this.applyPersistedStateSnapshot(hydrated, { merge: true });
-        this.applyRestoredState();
-        this.pushStateToURL({ replace: true });
-        void this.refresh();
-      }).catch(() => {
-        // Ignore async hydrate failures.
-      });
+      } catch {
+        // Ignore async hydrate failures and render from local/default state.
+      }
     }
+
+    await this.refresh();
   }
 
   private getURLStateConfig(): Required<DataGridURLStateConfig> {
@@ -288,7 +295,36 @@ export class DataGrid {
   }
 
   async refresh(): Promise<void> {
-    return fetchOps.refresh(this);
+    if (this.refreshDrainPromise) {
+      this.refreshQueued = true;
+      return this.refreshDrainPromise;
+    }
+
+    this.refreshQueued = true;
+    this.refreshDrainPromise = this.drainRefreshQueue().finally(() => {
+      this.refreshDrainPromise = null;
+      this.refreshInFlight = null;
+    });
+    return this.refreshDrainPromise;
+  }
+
+  requestRefreshAfterCurrent(): void {
+    this.refreshQueued = true;
+  }
+
+  isCurrentRefresh(requestSeq: number): boolean {
+    return requestSeq === this.activeRefreshSeq;
+  }
+
+  private async drainRefreshQueue(): Promise<void> {
+    while (this.refreshQueued) {
+      this.refreshQueued = false;
+      const requestSeq = ++this.refreshRequestSeq;
+      this.activeRefreshSeq = requestSeq;
+      this.refreshInFlight = fetchOps.refresh(this, requestSeq);
+      await this.refreshInFlight;
+      this.refreshInFlight = null;
+    }
   }
 
   buildApiUrl(): string {
