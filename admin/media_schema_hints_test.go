@@ -123,6 +123,87 @@ func TestApplyMediaSchemaHintsSkipsWhenMediaUnavailable(t *testing.T) {
 	}
 }
 
+func TestApplyMediaSchemaHintsPreservesExistingComponentConfig(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureMedia),
+	})
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"hero": map[string]any{
+				"type": "string",
+				"x-formgen": map[string]any{
+					"component.config": map[string]any{
+						"variant":       "media-picker",
+						"valueMode":     "id",
+						"acceptedKinds": []any{"image"},
+						"maxSize":       12345,
+					},
+				},
+			},
+		},
+	}
+
+	if got := adm.ApplyMediaSchemaHints(schema); got != 1 {
+		t.Fatalf("expected one enriched media field, got %d", got)
+	}
+	prop := schema["properties"].(map[string]any)["hero"].(map[string]any)
+	formgen := prop["x-formgen"].(map[string]any)
+	componentOptions := formgen["componentOptions"].(map[string]any)
+	componentConfig := formgen["component.config"].(map[string]any)
+	for name, opts := range map[string]map[string]any{
+		"componentOptions": componentOptions,
+		"component.config": componentConfig,
+	} {
+		if opts["valueMode"] != "id" {
+			t.Fatalf("expected %s valueMode=id, got %+v", name, opts)
+		}
+		if opts["acceptedKinds"] == nil || opts["maxSize"] != 12345 {
+			t.Fatalf("expected %s to preserve existing component config, got %+v", name, opts)
+		}
+		if opts["itemEndpoint"] == "" || opts["capabilitiesEndpoint"] == "" {
+			t.Fatalf("expected %s to receive media endpoints, got %+v", name, opts)
+		}
+	}
+	componentOptions["valueMode"] = "url"
+	if componentConfig["valueMode"] != "id" {
+		t.Fatalf("componentOptions and component.config should not alias the same map")
+	}
+}
+
+func TestApplyMediaSchemaHintsMirrorsGalleryMultipleIntoComponentConfig(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureMedia),
+	})
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"gallery": map[string]any{
+				"type": "string",
+				"x-formgen": map[string]any{
+					"component.config": map[string]any{
+						"variant": "media-gallery",
+					},
+				},
+			},
+		},
+	}
+
+	if got := adm.ApplyMediaSchemaHints(schema); got != 1 {
+		t.Fatalf("expected one enriched media field, got %d", got)
+	}
+	prop := schema["properties"].(map[string]any)["gallery"].(map[string]any)
+	formgen := prop["x-formgen"].(map[string]any)
+	componentOptions := formgen["componentOptions"].(map[string]any)
+	componentConfig := formgen["component.config"].(map[string]any)
+	if componentOptions["multiple"] != true {
+		t.Fatalf("expected componentOptions multiple=true, got %+v", componentOptions)
+	}
+	if componentConfig["multiple"] != true {
+		t.Fatalf("expected component.config multiple=true, got %+v", componentConfig)
+	}
+}
+
 func TestApplyMediaSchemaHintsOnlyRecursesIntoArrayItemsWithProperties(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureMedia),

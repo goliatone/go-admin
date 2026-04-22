@@ -213,9 +213,10 @@ func applyMediaSchemaPropertyHints(prop map[string]any, media *MediaConfig, kind
 	valueMode := applyFormgenMediaHints(prop, media, kind)
 	if kind == "media-gallery" || mediaSchemaIsGallery(prop) {
 		if formgenMeta, _ := prop["x-formgen"].(map[string]any); formgenMeta != nil {
-			if componentOptions, _ := formgenMeta["componentOptions"].(map[string]any); componentOptions != nil {
-				componentOptions["multiple"] = true
-			}
+			componentOptions := mergedFormgenMediaComponentOptions(formgenMeta)
+			componentOptions["multiple"] = true
+			formgenMeta["componentOptions"] = deepCloneAnyMap(componentOptions)
+			formgenMeta["component.config"] = deepCloneAnyMap(componentOptions)
 		}
 	}
 	applyAdminMediaHints(prop, media, valueMode)
