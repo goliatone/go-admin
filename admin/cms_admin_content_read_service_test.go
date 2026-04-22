@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	goerrors "github.com/goliatone/go-errors"
@@ -126,6 +127,110 @@ func TestAdminContentReadServiceListAndGetPreserveRepositoryReadContract(t *test
 	}
 	if got := toString(record["family_id"]); got != "" {
 		t.Fatalf("expected blank family_id for non-translation content, got %q", got)
+	}
+}
+
+type contextRecordingContentService struct {
+	CMSContentService
+	captured context.Context
+}
+
+func (s *contextRecordingContentService) Contents(ctx context.Context, _ string) ([]CMSContent, error) {
+	s.captured = ctx
+	return []CMSContent{{
+		ID:              "ctx-record",
+		Title:           "Context Record",
+		Slug:            "context-record",
+		Locale:          "en",
+		Status:          "draft",
+		ContentType:     "news",
+		ContentTypeSlug: "news",
+	}}, nil
+}
+
+func TestAdminContentReadServiceListForContentTypePropagatesRequestContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	content := &contextRecordingContentService{}
+	service := newAdminContentReadService(content)
+
+	if _, _, err := service.ListForContentType(ctx, CMSContentType{Slug: "news"}, ListOptions{}); err != nil {
+		t.Fatalf("list for content type: %v", err)
+	}
+	if content.captured == nil {
+		t.Fatalf("expected content service to receive request context")
+	}
+	if err := content.captured.Err(); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected canceled request context, got %v", err)
+	}
+}
+
+func TestAdminContentReadServiceListForContentTypeSummarizesEmbeddedBlocksForListRows(t *testing.T) {
+	ctx := context.Background()
+	content := NewInMemoryContentService()
+	created, err := content.CreateContent(ctx, CMSContent{
+		Title:           "Block Heavy",
+		Slug:            "block-heavy",
+		Locale:          "en",
+		Status:          "published",
+		ContentType:     "page",
+		ContentTypeSlug: "page",
+		Data: map[string]any{
+			"blocks": []map[string]any{
+				{
+					"_type": "hero",
+					"id":    "hero-1",
+					"image": map[string]any{
+						"id":   "media-1",
+						"path": "/large/image.jpg",
+					},
+					"body": strings.Repeat("heavy", 100),
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create content: %v", err)
+	}
+	service := newAdminContentReadService(content)
+
+	rows, total, err := service.ListForContentType(ctx, CMSContentType{Slug: "page"}, ListOptions{})
+	if err != nil {
+		t.Fatalf("list for content type: %v", err)
+	}
+	if total != 1 || len(rows) != 1 {
+		t.Fatalf("expected one row, got total=%d len=%d", total, len(rows))
+	}
+	blocks, ok := rows[0]["blocks"].([]map[string]any)
+	if !ok || len(blocks) != 1 {
+		t.Fatalf("expected summarized top-level blocks, got %#v", rows[0]["blocks"])
+	}
+	if got := toString(blocks[0]["_type"]); got != "hero" {
+		t.Fatalf("expected summarized block type hero, got %q", got)
+	}
+	if _, ok := blocks[0]["image"]; ok {
+		t.Fatalf("expected list block summary to omit image payload, got %#v", blocks[0])
+	}
+	data := extractMap(rows[0]["data"])
+	dataBlocks, ok := data["blocks"].([]map[string]any)
+	if !ok || len(dataBlocks) != 1 {
+		t.Fatalf("expected summarized data blocks, got %#v", data["blocks"])
+	}
+	if _, ok := dataBlocks[0]["body"]; ok {
+		t.Fatalf("expected list data block summary to omit body payload, got %#v", dataBlocks[0])
+	}
+
+	detail, err := service.GetForContentType(ctx, CMSContentType{Slug: "page"}, created.ID)
+	if err != nil {
+		t.Fatalf("get for content type: %v", err)
+	}
+	detailData := extractMap(detail["data"])
+	detailBlocks, ok := detailData["blocks"].([]map[string]any)
+	if !ok || len(detailBlocks) != 1 {
+		t.Fatalf("expected detail data to keep full embedded blocks, got %#v", detailData["blocks"])
+	}
+	if _, ok := detailBlocks[0]["image"]; !ok {
+		t.Fatalf("expected detail block to keep image payload, got %#v", detailBlocks[0])
 	}
 }
 

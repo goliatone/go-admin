@@ -61,6 +61,7 @@ func (s goCMSAdminContentReadService) List(ctx context.Context, opts ListOptions
 			includeData:            true,
 			includeMetadata:        true,
 			includeContentTypeSlug: true,
+			summarizeBlocksForList: true,
 		})
 		if policy, ok := s.resolveContentNavigationPolicy(ctx, primitives.FirstNonEmptyRaw(item.ContentTypeSlug, item.ContentType)); ok {
 			record = applyContentEntryNavigationReadContract(record, policy)
@@ -170,6 +171,7 @@ func (s goCMSAdminContentReadService) ListForContentType(ctx context.Context, co
 			includeData:            true,
 			includeMetadata:        true,
 			includeContentTypeSlug: true,
+			summarizeBlocksForList: true,
 		})
 		record = applyContentEntryNavigationReadContract(record, navigationPolicy)
 		records = append(records, record)

@@ -123,6 +123,7 @@ type cmsContentRecordOptions struct {
 	includeData            bool
 	includeMetadata        bool
 	includeContentTypeSlug bool
+	summarizeBlocksForList bool
 }
 
 func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]any {
@@ -162,10 +163,20 @@ func cmsContentRecord(item CMSContent, opts cmsContentRecordOptions) map[string]
 		record["content_type_slug"] = contentType
 	}
 	if opts.includeBlocks {
-		record["blocks"] = blocksPayloadFromContent(item)
+		if opts.summarizeBlocksForList {
+			record["blocks"] = summaryBlocksPayloadFromContent(item)
+		} else {
+			record["blocks"] = blocksPayloadFromContent(item)
+		}
 	}
 	if opts.includeData {
-		record["data"] = primitives.CloneAnyMap(item.Data)
+		data := primitives.CloneAnyMap(item.Data)
+		if opts.summarizeBlocksForList {
+			if _, ok := data["blocks"]; ok {
+				data["blocks"] = summaryBlocksPayloadFromContent(item)
+			}
+		}
+		record["data"] = data
 	}
 	if opts.includeMetadata {
 		record["metadata"] = primitives.CloneAnyMap(item.Metadata)

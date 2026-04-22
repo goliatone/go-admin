@@ -733,6 +733,66 @@ func blocksPayloadFromContent(content CMSContent) any {
 	return nil
 }
 
+func summaryBlocksPayloadFromContent(content CMSContent) any {
+	return summarizeBlocksPayload(blocksPayloadFromContent(content))
+}
+
+func summarizeBlocksPayload(raw any) any {
+	switch blocks := raw.(type) {
+	case nil:
+		return nil
+	case []string:
+		return append([]string{}, blocks...)
+	case []map[string]any:
+		out := make([]map[string]any, 0, len(blocks))
+		for _, block := range blocks {
+			out = append(out, summarizeBlockMap(block))
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(blocks))
+		for _, block := range blocks {
+			switch typed := block.(type) {
+			case map[string]any:
+				out = append(out, summarizeBlockMap(typed))
+			case map[string]string:
+				out = append(out, summarizeBlockStringMap(typed))
+			default:
+				out = append(out, typed)
+			}
+		}
+		return out
+	default:
+		return raw
+	}
+}
+
+func summarizeBlockMap(block map[string]any) map[string]any {
+	if block == nil {
+		return nil
+	}
+	out := make(map[string]any, 6)
+	for _, key := range []string{"id", "_type", "type", "blockType", "block_type", "label"} {
+		if value, ok := block[key]; ok {
+			out[key] = value
+		}
+	}
+	return out
+}
+
+func summarizeBlockStringMap(block map[string]string) map[string]any {
+	if block == nil {
+		return nil
+	}
+	out := make(map[string]any, 6)
+	for _, key := range []string{"id", "_type", "type", "blockType", "block_type", "label"} {
+		if value, ok := block[key]; ok {
+			out[key] = value
+		}
+	}
+	return out
+}
+
 func blocksPayloadFromPage(page CMSPage) any {
 	if page.EmbeddedBlocks != nil {
 		return cloneEmbeddedBlocks(page.EmbeddedBlocks)
