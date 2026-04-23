@@ -92,6 +92,45 @@ func TestApplySessionClaimsMetadataSetsPermissionsVersion(t *testing.T) {
 	}
 }
 
+func TestNewSessionClaimsDecoratorCarriesTemporaryPasswordHints(t *testing.T) {
+	issuedAt := time.Date(2026, 4, 23, 15, 0, 0, 0, time.UTC)
+	expiresAt := issuedAt.Add(24 * time.Hour)
+	claims := &auth.JWTClaims{}
+
+	err := newSessionClaimsDecorator(authOptions{}, nil).Decorate(context.Background(), userIdentity{
+		id:       uuid.NewString(),
+		username: "bootstrap-admin",
+		email:    "bootstrap@example.com",
+		role:     "owner",
+		status:   auth.UserStatusActive,
+		metadata: map[string]any{
+			auth.TemporaryPasswordMetadataKey:          true,
+			auth.PasswordChangeRequiredMetadataKey:     true,
+			auth.TemporaryPasswordIssuedAtMetadataKey:  issuedAt.Format(time.RFC3339Nano),
+			auth.TemporaryPasswordExpiresAtMetadataKey: expiresAt.Format(time.RFC3339Nano),
+		},
+	}, claims)
+	if err != nil {
+		t.Fatalf("decorate session claims: %v", err)
+	}
+
+	if claims.Metadata[auth.TemporaryPasswordMetadataKey] != true {
+		t.Fatalf("expected temporary password hint in claims metadata, got %#v", claims.Metadata)
+	}
+	if claims.Metadata[auth.PasswordChangeRequiredMetadataKey] != true {
+		t.Fatalf("expected password change required hint in claims metadata, got %#v", claims.Metadata)
+	}
+	if claims.Metadata[auth.TemporaryPasswordIssuedAtMetadataKey] != issuedAt.Format(time.RFC3339Nano) {
+		t.Fatalf("expected issued_at metadata, got %#v", claims.Metadata[auth.TemporaryPasswordIssuedAtMetadataKey])
+	}
+	if claims.Metadata[auth.TemporaryPasswordExpiresAtMetadataKey] != expiresAt.Format(time.RFC3339Nano) {
+		t.Fatalf("expected expires_at metadata, got %#v", claims.Metadata[auth.TemporaryPasswordExpiresAtMetadataKey])
+	}
+	if claims.Metadata["username"] != "bootstrap-admin" {
+		t.Fatalf("expected username metadata to be preserved, got %#v", claims.Metadata["username"])
+	}
+}
+
 func TestNewRolePermissionResolverCachesByContextKey(t *testing.T) {
 	userID := uuid.New()
 	roleID := uuid.New()

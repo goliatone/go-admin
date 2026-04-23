@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/goliatone/go-admin/internal/primitives"
+	"maps"
 	"net/http"
 	"sort"
 	"strings"
@@ -43,9 +44,7 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 
 	auther := auth.NewAuthenticator(provider, cfg)
 	auther.WithResourceRoleProvider(provider).
-		WithClaimsDecorator(auth.ClaimsDecoratorFunc(func(ctx context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
-			return applySessionClaimsMetadata(ctx, identity, claims, options, deps.RoleRegistry)
-		}))
+		WithClaimsDecorator(newSessionClaimsDecorator(options, deps.RoleRegistry))
 	routeAuth, err := auth.NewHTTPAuthenticator(
 		auther,
 		cfg,
@@ -249,12 +248,14 @@ func (p *demoIdentityProvider) identityFromAuthUser(user *userstypes.AuthUser) a
 	if user == nil {
 		return nil
 	}
+	metadata := maps.Clone(user.Metadata)
 	return userIdentity{
 		id:       user.ID.String(),
 		username: user.Username,
 		email:    user.Email,
 		role:     string(mapToAuthRole(user.Role)),
 		status:   mapToAuthStatus(string(user.Status)),
+		metadata: metadata,
 	}
 }
 
@@ -264,6 +265,7 @@ type userIdentity struct {
 	email    string
 	role     string
 	status   auth.UserStatus
+	metadata map[string]any
 }
 
 func (i userIdentity) ID() string       { return i.id }
@@ -275,6 +277,10 @@ func (i userIdentity) Status() auth.UserStatus {
 		return auth.UserStatusActive
 	}
 	return i.status
+}
+
+func (i userIdentity) Metadata() map[string]any {
+	return maps.Clone(i.metadata)
 }
 
 type demoAuthConfig struct {
@@ -370,6 +376,29 @@ func logDemoTokens(ctx context.Context, auther *auth.Auther, provider *demoIdent
 		}
 		logger.Info("demo authorization token", "user", identity.Username(), "role", identity.Role(), "token", token)
 	}
+}
+
+func newSessionClaimsDecorator(defaults authOptions, registry userstypes.RoleRegistry) auth.ClaimsDecorator {
+	return composeClaimsDecorators(
+		auth.TemporaryPasswordClaimsDecorator(),
+		auth.ClaimsDecoratorFunc(func(ctx context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
+			return applySessionClaimsMetadata(ctx, identity, claims, defaults, registry)
+		}),
+	)
+}
+
+func composeClaimsDecorators(decorators ...auth.ClaimsDecorator) auth.ClaimsDecorator {
+	return auth.ClaimsDecoratorFunc(func(ctx context.Context, identity auth.Identity, claims *auth.JWTClaims) error {
+		for _, decorator := range decorators {
+			if decorator == nil {
+				continue
+			}
+			if err := decorator.Decorate(ctx, identity, claims); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func applySessionClaimsMetadata(ctx context.Context, identity auth.Identity, claims *auth.JWTClaims, defaults authOptions, registry userstypes.RoleRegistry) error {
