@@ -37,7 +37,7 @@ require (
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.6.0
-	github.com/goliatone/go-users v0.19.0
+	github.com/goliatone/go-users v0.20.0
 	github.com/google/uuid v1.6.0
 	github.com/jinzhu/inflection v1.0.0
 	github.com/julienschmidt/httprouter v1.3.0
@@ -127,7 +127,7 @@ require (
 	github.com/goliatone/go-print v0.4.1 // indirect
 	github.com/goliatone/go-repository-bun v0.15.1 // indirect
 	github.com/goliatone/go-repository-cache v0.7.1 // indirect
-	github.com/goliatone/go-search/adapters/goadmin v0.5.0 // indirect
+	github.com/goliatone/go-search/adapters/goadmin v0.7.0 // indirect
 	github.com/goliatone/go-slug v0.1.0 // indirect
 	github.com/goliatone/hashid v0.2.0 // indirect
 	github.com/goodsign/monday v1.0.2 // indirect

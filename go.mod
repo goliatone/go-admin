@@ -37,7 +37,7 @@ require (
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.6.0
-	github.com/goliatone/go-users v0.19.0
+	github.com/goliatone/go-users v0.20.0
 	github.com/goliatone/hashid v0.2.0
 	github.com/google/uuid v1.6.0
 	github.com/julienschmidt/httprouter v1.3.0
