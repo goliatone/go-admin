@@ -25,5 +25,5 @@ func WithContentTypeID(id string) CMSContentListOption {
 	if id == "" {
 		return ""
 	}
-	return CMSContentListOption(string(contentListContentTypePrefix) + id)
+	return contentListContentTypePrefix + id
 }

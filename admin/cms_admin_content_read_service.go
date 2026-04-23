@@ -240,19 +240,23 @@ func (s goCMSAdminContentReadService) listContentsForContentType(ctx context.Con
 	if s.content == nil {
 		return nil, ErrNotFound
 	}
-	if contentTypeWantsTranslations(contentType) {
-		if svc, ok := resolveCMSContentListOptionsService(s.content); ok && svc != nil {
-			listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
-			if id := strings.TrimSpace(contentType.ID); id != "" {
-				listOpts = append(listOpts, WithContentTypeID(id))
-			}
-			if shouldExpandContentEntryTranslationFamilyRowsForContext(ctx, opts) {
-				listOpts = append(listOpts, WithLocaleVariants())
-			}
-			return svc.ContentsWithOptions(ctx, locale, listOpts...)
-		}
+	if !contentTypeWantsTranslations(contentType) {
+		return s.content.Contents(ctx, locale)
 	}
-	return s.content.Contents(ctx, locale)
+
+	svc, ok := resolveCMSContentListOptionsService(s.content)
+	if !ok || svc == nil {
+		return s.content.Contents(ctx, locale)
+	}
+
+	listOpts := []CMSContentListOption{WithTranslations(), WithDerivedFields()}
+	if id := strings.TrimSpace(contentType.ID); id != "" {
+		listOpts = append(listOpts, WithContentTypeID(id))
+	}
+	if shouldExpandContentEntryTranslationFamilyRowsForContext(ctx, opts) {
+		listOpts = append(listOpts, WithLocaleVariants())
+	}
+	return svc.ContentsWithOptions(ctx, locale, listOpts...)
 }
 
 func cmsContentListTimingEnabled() bool {

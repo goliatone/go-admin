@@ -479,8 +479,3 @@ func (hostRouterSearchProviderStub) Search(_ context.Context, _ coreadmin.Search
 func (hostRouterSearchProviderStub) Suggest(_ context.Context, _ coreadmin.SuggestRequest) (coreadmin.SuggestResult, error) {
 	return coreadmin.SuggestResult{}, nil
 }
-
-//go:fix inline
-func boolPtr(v bool) *bool {
-	return new(v)
-}
