@@ -64,6 +64,12 @@ const (
 	exampleAppInfoPath            = "/.well-known/app-info"
 )
 
+type handlerAuthenticatorFunc func(router.HandlerFunc) router.HandlerFunc
+
+func (f handlerAuthenticatorFunc) WrapHandler(handler router.HandlerFunc) router.HandlerFunc {
+	return f(handler)
+}
+
 func main() {
 	rootLogger := glog.NewLogger(
 		glog.WithName("examples.web"),
@@ -683,11 +689,7 @@ func main() {
 	if resolvedScopeCfg.Mode == quickstart.ScopeModeSingle {
 		authOptions = append(authOptions, setup.WithDefaultScope(resolvedScopeCfg.DefaultTenantID, resolvedScopeCfg.DefaultOrgID))
 	}
-	authn, routeAuth, _, _ := setup.SetupAuth(adm, dataStores, usersDeps, authOptions...)
-	wrapAuthed := authn.WrapHandler
-	if scopeDebugEnabled {
-		wrapAuthed = quickstart.ScopeDebugWrap(authn, &cfg, scopeDebugBuffer)
-	}
+	authn, routeAuth, _, authContextKey := setup.SetupAuth(adm, dataStores, usersDeps, authOptions...)
 
 	siteCfg := resolveSiteRuntimeConfig(cfg, runtimeConfig.Site, isDev)
 	siteThemePackage, err := loadEmbeddedSiteThemePackage(siteCfg.Theme.Name)
@@ -768,6 +770,29 @@ func main() {
 	if adminAPIBasePath == "" {
 		adminAPIBasePath = path.Join(cfg.BasePath, "api")
 	}
+	baseWrapAuthed := authn.WrapHandler
+	if scopeDebugEnabled {
+		baseWrapAuthed = quickstart.ScopeDebugWrap(authn, &cfg, scopeDebugBuffer)
+	}
+	changePath := path.Join(cfg.BasePath, "profile")
+	temporaryPasswordGate := quickstart.TemporaryPasswordGate(quickstart.TemporaryPasswordGateConfig{
+		SessionContextKey: authContextKey,
+		ChangePath:        changePath,
+		AllowPaths: []string{
+			changePath,
+			path.Join(cfg.BasePath, "logout"),
+			path.Join(cfg.BasePath, "password-reset"),
+			path.Join(adminAPIBasePath, "navigation"),
+			path.Join(adminAPIBasePath, "session"),
+			path.Join(adminAPIBasePath, "timezones"),
+			path.Join(adminAPIBasePath, "panels", "profile"),
+			path.Join(adminAPIBasePath, "uploads", "users", "profile-picture"),
+		},
+	})
+	wrapAuthed := func(next router.HandlerFunc) router.HandlerFunc {
+		return baseWrapAuthed(temporaryPasswordGate(next))
+	}
+	protectedAuthn := handlerAuthenticatorFunc(wrapAuthed)
 	componentRegistry.MustRegister("block-library-picker", coreadmin.BlockLibraryPickerDescriptorWithAPIBase(cfg.BasePath, adminAPIBasePath))
 	formGenerator, err := quickstart.NewFormGenerator(
 		openapiFS,
@@ -1200,7 +1225,7 @@ func main() {
 		adminUI,
 		cfg,
 		adm,
-		authn,
+		protectedAuthn,
 		uiRouteOpts...,
 	); err != nil {
 		fatalf("failed to register admin UI routes: %v", err)
@@ -1209,13 +1234,13 @@ func main() {
 	adminUI.Get(cfg.BasePath, wrapAuthed(func(c router.Context) error {
 		return c.Redirect(dashboardPath, fiber.StatusFound)
 	}))
-	if err := quickstart.RegisterSettingsUIRoutes(adminUI, cfg, adm, authn); err != nil {
+	if err := quickstart.RegisterSettingsUIRoutes(adminUI, cfg, adm, protectedAuthn); err != nil {
 		fatalf("failed to register settings UI routes: %v", err)
 	}
-	if err := quickstart.RegisterContentTypeBuilderUIRoutes(adminUI, cfg, adm, authn); err != nil {
+	if err := quickstart.RegisterContentTypeBuilderUIRoutes(adminUI, cfg, adm, protectedAuthn); err != nil {
 		fatalf("failed to register content type builder UI routes: %v", err)
 	}
-	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(adminAPI, cfg, adm, authn); err != nil {
+	if err := quickstart.RegisterContentTypeBuilderAPIRoutes(adminAPI, cfg, adm, protectedAuthn); err != nil {
 		fatalf("failed to register content type builder API routes: %v", err)
 	}
 	contentEntryUIOpts := []quickstart.ContentEntryUIOption{
@@ -1251,7 +1276,7 @@ func main() {
 		adminUI,
 		cfg,
 		adm,
-		authn,
+		protectedAuthn,
 		contentEntryUIOpts...,
 	); err != nil {
 		fatalf("failed to register content entry UI routes: %v", err)

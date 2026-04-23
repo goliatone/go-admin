@@ -1292,6 +1292,25 @@ func (a *authRepositoryAdapter) ResetPassword(ctx context.Context, id uuid.UUID,
 	return a.users.ResetPassword(ctx, id, passwordHash)
 }
 
+func (a *authRepositoryAdapter) ResetPasswordAndClearTemporaryPassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	if a == nil || a.users == nil {
+		return types.ErrMissingAuthRepository
+	}
+	if resetRepo, ok := a.users.(interface {
+		ResetPasswordAndClearTemporaryPassword(context.Context, uuid.UUID, string) error
+	}); ok {
+		return resetRepo.ResetPasswordAndClearTemporaryPassword(ctx, id, passwordHash)
+	}
+	user, err := a.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if types.HasTemporaryPasswordMetadata(user.Metadata) {
+		return types.ErrTemporaryPasswordResetUnsupported
+	}
+	return a.users.ResetPassword(ctx, id, passwordHash)
+}
+
 func (a *authRepositoryAdapter) toAuthUser(user *auth.User) *types.AuthUser {
 	if user == nil {
 		return nil

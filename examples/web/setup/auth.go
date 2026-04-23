@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"maps"
 	"net/http"
 	"sort"
@@ -14,6 +13,7 @@ import (
 
 	weblog "github.com/goliatone/go-admin/examples/web/internal/logging"
 	"github.com/goliatone/go-admin/examples/web/stores"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-admin/pkg/admin"
 	auth "github.com/goliatone/go-auth"
 	goerrors "github.com/goliatone/go-errors"
@@ -31,8 +31,9 @@ func SetupAuth(adm *admin.Admin, dataStores *stores.DataStores, deps stores.User
 		cfg.adminCfg = admin.Config{BasePath: adm.BasePath()}
 	}
 	provider := &demoIdentityProvider{
-		users:    dataStores.Users,
-		authRepo: deps.AuthRepo,
+		users:       dataStores.Users,
+		authRepo:    deps.AuthRepo,
+		userTracker: userTrackerFromDependencies(deps),
 	}
 	options := authOptions{}
 	for _, opt := range opts {
@@ -109,8 +110,9 @@ func WithPermissionResolverCacheTTL(ttl time.Duration) AuthOption {
 }
 
 type demoIdentityProvider struct {
-	users    *stores.UserStore
-	authRepo userstypes.AuthRepository
+	users       *stores.UserStore
+	authRepo    userstypes.AuthRepository
+	userTracker auth.UserTracker
 }
 
 func (p *demoIdentityProvider) FindResourceRoles(ctx context.Context, identity auth.Identity) (map[string]string, error) {
@@ -156,11 +158,17 @@ func (p *demoIdentityProvider) FindResourceRoles(ctx context.Context, identity a
 }
 
 func (p *demoIdentityProvider) VerifyIdentity(ctx context.Context, identifier, password string) (auth.Identity, error) {
+	if provider := p.userProvider(); provider != nil {
+		return provider.VerifyIdentity(ctx, identifier, password)
+	}
 	if p != nil && p.authRepo != nil {
 		if authUser, err := p.authRepo.GetByIdentifier(ctx, identifier); err == nil && authUser != nil {
 			if raw, ok := authUser.Raw.(*auth.User); ok && raw != nil && strings.TrimSpace(raw.PasswordHash) != "" {
 				if err := auth.ComparePasswordAndHash(password, raw.PasswordHash); err != nil {
 					return nil, err
+				}
+				if state := auth.TemporaryPasswordStateFromMetadata(raw.Metadata); state.Expired(time.Now()) {
+					return nil, auth.ErrTemporaryPasswordExpired
 				}
 				return p.identityFromAuthUser(authUser), nil
 			}
@@ -181,7 +189,53 @@ func (p *demoIdentityProvider) VerifyIdentity(ctx context.Context, identifier, p
 }
 
 func (p *demoIdentityProvider) FindIdentityByIdentifier(ctx context.Context, identifier string) (auth.Identity, error) {
+	if provider := p.userProvider(); provider != nil {
+		return provider.FindIdentityByIdentifier(ctx, identifier)
+	}
 	return p.lookup(ctx, identifier)
+}
+
+func (p *demoIdentityProvider) userProvider() *auth.UserProvider {
+	if p == nil || p.userTracker == nil {
+		return nil
+	}
+	return auth.NewUserProvider(p.userTracker)
+}
+
+func userTrackerFromDependencies(deps stores.UserDependencies) auth.UserTracker {
+	if deps.RepoManager == nil {
+		return nil
+	}
+	usersRepo := deps.RepoManager.Users()
+	if usersRepo == nil {
+		return nil
+	}
+	return authUserTracker{users: usersRepo}
+}
+
+type authUserTracker struct {
+	users auth.Users
+}
+
+func (t authUserTracker) GetByIdentifier(ctx context.Context, identifier string) (*auth.User, error) {
+	if t.users == nil {
+		return nil, auth.ErrIdentityNotFound
+	}
+	return t.users.GetByIdentifier(ctx, identifier)
+}
+
+func (t authUserTracker) TrackAttemptedLogin(ctx context.Context, user *auth.User) error {
+	if t.users == nil {
+		return nil
+	}
+	return t.users.TrackAttemptedLogin(ctx, user)
+}
+
+func (t authUserTracker) TrackSucccessfulLogin(ctx context.Context, user *auth.User) error {
+	if t.users == nil {
+		return nil
+	}
+	return t.users.TrackSucccessfulLogin(ctx, user)
 }
 
 func (p *demoIdentityProvider) lookup(ctx context.Context, identifier string) (auth.Identity, error) {
