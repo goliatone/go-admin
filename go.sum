@@ -172,6 +172,8 @@ github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArs
 github.com/golang/mock v1.6.0/go.mod h1:p6yTPP+5HYm5mzsMV8JkE6ZKdX+/wYM6Hr+LicevLPs=
 github.com/goliatone/go-auth v0.41.0 h1:uLPTClzBR3ANhg0hnHrMkv4bwaNksJ3VQN0xnKHuZOg=
 github.com/goliatone/go-auth v0.41.0/go.mod h1:3pjlv0H47Oh0pgF+0Hq9kqHzjtVJEq1N9ssbgoZFyYE=
+github.com/goliatone/go-auth v0.42.0 h1:foJvFyy/YTftoofshKhFteQYSn2I2Tk630nmmDbcYvo=
+github.com/goliatone/go-auth v0.42.0/go.mod h1:3pjlv0H47Oh0pgF+0Hq9kqHzjtVJEq1N9ssbgoZFyYE=
 github.com/goliatone/go-auth/adapters/featuregate v0.41.0 h1:y1b6Kj+jdV8BlggIjvbuWclDPHlMtmakz7tgsXFw1Tw=
 github.com/goliatone/go-auth/adapters/featuregate v0.41.0/go.mod h1:BGQf/zR8KdwjJ9d3plvIewUFrMY/yVBK4kAufF3Evfk=
 github.com/goliatone/go-cms v0.50.0 h1:YdTxF/S3yp/+NytNOEhJROpcDg57q4T+eZf/nfVGyj8=
@@ -234,10 +236,10 @@ github.com/goliatone/go-uploader v0.4.0 h1:fo4K1J8juZ2LoG31hlwS3OjmFYqt2I+qUhiOZ
 github.com/goliatone/go-uploader v0.4.0/go.mod h1:D4PFxAypbnZ3EAuRbk0sjPAwEmMxf+7b1eZ4U6TAync=
 github.com/goliatone/go-urlkit v0.6.0 h1:em91h2tkVjy8RVCfTd7MY3E7tDMKKn3+uFcempTTaMs=
 github.com/goliatone/go-urlkit v0.6.0/go.mod h1:QVCju3Z9io9mX+t2D7RCp+ja9PYrLNJoucWc124siFQ=
-github.com/goliatone/go-users v0.19.0 h1:v0+kWpZg4BF/wawXEs5P81O/OoGGLOeGf0dXKte9Apw=
-github.com/goliatone/go-users v0.19.0/go.mod h1:Kkc82JgPBgG4TmE4RM4fSG4IDEmHum6CasdBeDXMIcw=
 github.com/goliatone/go-users v0.20.0 h1:FPO/tDFRpP/npKrOy5VREfaVqMLcN6szmAxtMM1WWBM=
 github.com/goliatone/go-users v0.20.0/go.mod h1:Kkc82JgPBgG4TmE4RM4fSG4IDEmHum6CasdBeDXMIcw=
+github.com/goliatone/go-users v0.22.1 h1:nyAkfwrzZnKmNi9l53sae7j5rtUrf3sAha56gMoCX8E=
+github.com/goliatone/go-users v0.22.1/go.mod h1:0WlX3/U+Qs5VZERrunmHvIA7yk/oJCmlapk3QLCd8MU=
 github.com/goliatone/hashid v0.2.0 h1:Q+OkMo+JX2FCok72BetkmniSIuV4YYj9JUhUZAjRDZ4=
 github.com/goliatone/hashid v0.2.0/go.mod h1:jgEJQBDWz7OSe4uWCcsu5rkb4HtKTNvgF4Wl3NPfC6E=
 github.com/goodsign/monday v1.0.2 h1:k8kRMkCRVfCTWOU4dRfRgneQsWlB1+mJd3MxG0lGLzQ=
