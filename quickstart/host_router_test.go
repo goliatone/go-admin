@@ -284,8 +284,8 @@ func assertHostPublicAPISurfaceSplit[T any](t *testing.T, server router.Server[T
 				Endpoint: quicksite.DefaultSiteSearchEndpointForAdminConfig(cfg),
 			},
 			Features: quicksite.SiteFeatures{
-				EnableSearch: boolPtr(true),
-				EnableI18N:   boolPtr(false),
+				EnableSearch: new(true),
+				EnableI18N:   new(false),
 			},
 			Fallback: quicksite.ResolveSiteFallbackPolicy(quicksite.SiteFallbackPolicy{
 				Mode:      quicksite.SiteFallbackModePublicContentOnly,

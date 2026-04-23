@@ -14,7 +14,7 @@ For first-instance provisioning, keep orchestration in `go-users` and enforcemen
 3. Wire login with `auth.NewUserProvider(repoManager.Users())` or an equivalent provider that reads go-auth user metadata.
 4. Add `auth.TemporaryPasswordClaimsDecorator()` to the authenticator when the UI needs a compact `password_change_required` session/JWT hint.
 5. Add `TemporaryPasswordGateForAdmin` or `TemporaryPasswordGate` after auth middleware so temporary sessions can only reach password-change/reset routes.
-6. When the user sets a permanent password, run the normal `UserPasswordReset`/confirm path; temporary-password metadata is cleared when the repository supports it.
+6. When the user sets a permanent password, run the normal `UserPasswordReset`/confirm path; temporary-password metadata is cleared when the repository supports it, and the reset token is claimed/finalized through the password-reset lifecycle repository so concurrent confirms cannot double-apply the password.
 
 The metadata contract is migration-free: `password_temporary`, `password_change_required`, `password_temporary_issued_at`, and `password_temporary_expires_at`. Expired temporary passwords are rejected by local `go-auth` password verification.
 

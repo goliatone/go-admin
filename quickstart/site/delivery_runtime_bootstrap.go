@@ -2,6 +2,7 @@ package site
 
 import (
 	"context"
+	"maps"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -92,9 +93,7 @@ func anyMap(raw any) map[string]any {
 	}
 	if typed, ok := raw.(router.ViewContext); ok {
 		out := map[string]any{}
-		for key, value := range typed {
-			out[key] = value
-		}
+		maps.Copy(out, typed)
 		return out
 	}
 	if typed, ok := raw.(map[string]string); ok {

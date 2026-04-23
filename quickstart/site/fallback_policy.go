@@ -34,7 +34,7 @@ type SiteFallbackPolicy struct {
 	AllowedExactPaths   []string                         `json:"allowed_exact_paths,omitempty"`
 	AllowedPathPrefixes []string                         `json:"allowed_path_prefixes,omitempty"`
 	ReservedPrefixes    []string                         `json:"reserved_prefixes,omitempty"`
-	StaticInput         quickstart.SiteStaticPrefixInput `json:"static_input,omitempty"`
+	StaticInput         quickstart.SiteStaticPrefixInput `json:"static_input"`
 }
 
 type siteFallbackPolicyOverlay struct {
