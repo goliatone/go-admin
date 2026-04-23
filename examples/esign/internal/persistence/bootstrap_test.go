@@ -148,6 +148,64 @@ func TestBootstrapSQLiteCreatesLineageLinkageColumns(t *testing.T) {
 	}
 }
 
+func TestRegisterOrderedSourcesGoUsersSQLiteProcessingOverlayRepairsMissingTokenColumns(t *testing.T) {
+	client, cleanup := newSQLiteMigrationClient(t)
+	defer cleanup()
+
+	cfg := appcfg.Defaults()
+	cfg.Services.ModuleEnabled = false
+	cfg.Persistence.Migrations.LocalOnly = false
+
+	if err := registerOrderedSources(client, cfg); err != nil {
+		t.Fatalf("registerOrderedSources: %v", err)
+	}
+	if err := client.MigrateSources(context.Background(), migrationSourceLabelAuth); err != nil {
+		t.Fatalf("migrate auth source: %v", err)
+	}
+
+	if _, err := client.DB().ExecContext(
+		context.Background(),
+		`INSERT INTO bun_migrations (name, group_id, migrated_at) VALUES (?, ?, CURRENT_TIMESTAMP)`,
+		"ord_000002_000006",
+		1,
+	); err != nil {
+		t.Fatalf("seed bun_migrations for go-users 00008: %v", err)
+	}
+
+	if err := client.MigrateSources(context.Background(), migrationSourceLabelUsers); err != nil {
+		t.Fatalf("migrate go-users source after skipping 00008: %v", err)
+	}
+
+	requiredColumns := []string{
+		"jti",
+		"issued_at",
+		"expires_at",
+		"used_at",
+		"scope_tenant_id",
+		"scope_org_id",
+	}
+	for _, column := range requiredColumns {
+		exists, err := sqliteColumnExists(context.Background(), client.DB().DB, "password_reset", column)
+		if err != nil {
+			t.Fatalf("sqliteColumnExists password_reset.%s: %v", column, err)
+		}
+		if !exists {
+			t.Fatalf("expected password_reset.%s to exist after go-users overlay repair", column)
+		}
+	}
+
+	var userTokensCount int
+	if err := client.DB().NewRaw(
+		`SELECT COUNT(1) FROM sqlite_master WHERE type='table' AND name = ?`,
+		"user_tokens",
+	).Scan(context.Background(), &userTokensCount); err != nil {
+		t.Fatalf("check user_tokens table: %v", err)
+	}
+	if userTokensCount != 1 {
+		t.Fatalf("expected user_tokens table to exist after go-users overlay repair")
+	}
+}
+
 func TestResolveDialectInputDefaultsByProfile(t *testing.T) {
 	devCfg := appcfg.Defaults()
 	devCfg.Runtime.Profile = "development"

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing/fstest"
 
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	esigndata "github.com/goliatone/go-admin/examples/esign/data"
@@ -87,6 +88,10 @@ func appendCoreMigrationSources(sources *[]persistence.OrderedMigrationSource, c
 	if err != nil {
 		return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelUsers, err)
 	}
+	usersRoot, err = applyUsersMigrationOverlay(usersRoot)
+	if err != nil {
+		return fmt.Errorf("overlay %s migrations: %w", migrationSourceLabelUsers, err)
+	}
 	appendOrderedSource(sources, migrationSourceLabelUsers, usersRoot, observer)
 
 	if !cfg.Services.ModuleEnabled {
@@ -132,6 +137,51 @@ func resolveMigrationFS(source fs.FS, subdir string) (fs.FS, error) {
 		return source, nil
 	}
 	return fs.Sub(source, trimmed)
+}
+
+func applyUsersMigrationOverlay(base fs.FS) (fs.FS, error) {
+	if base == nil {
+		return nil, nil
+	}
+	overlay, err := esigndata.GoUsersOverlayMigrationsFS()
+	if err != nil {
+		return nil, fmt.Errorf("resolve go-users overlay migrations: %w", err)
+	}
+	return mergeMigrationFS(base, overlay)
+}
+
+func mergeMigrationFS(base fs.FS, overlay fs.FS) (fs.FS, error) {
+	if base == nil {
+		return overlay, nil
+	}
+	if overlay == nil {
+		return base, nil
+	}
+	merged := fstest.MapFS{}
+	if err := copyMigrationFS(merged, base); err != nil {
+		return nil, err
+	}
+	if err := copyMigrationFS(merged, overlay); err != nil {
+		return nil, err
+	}
+	return merged, nil
+}
+
+func copyMigrationFS(dst fstest.MapFS, source fs.FS) error {
+	return fs.WalkDir(source, ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d == nil || d.IsDir() {
+			return nil
+		}
+		data, err := fs.ReadFile(source, path)
+		if err != nil {
+			return err
+		}
+		dst[path] = &fstest.MapFile{Data: data, Mode: 0o644}
+		return nil
+	})
 }
 
 func resolveAppLocalMigrationFS(cfg appcfg.Config) (fs.FS, error) {
