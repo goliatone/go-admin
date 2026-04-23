@@ -5,6 +5,22 @@ The quickstart package (module `github.com/goliatone/go-admin/quickstart`) bundl
 ## Bootstrap helpers
 Each helper is optional and composable.
 
+### Temporary bootstrap passwords
+
+For first-instance provisioning, keep orchestration in `go-users` and enforcement in `go-auth`:
+
+1. Generate a one-time password and hash it with `auth.HashPassword`.
+2. Execute `service.Commands().UserBootstrapPassword` with the target user, hash, actor, and optional TTL. The default TTL is 24 hours.
+3. Wire login with `auth.NewUserProvider(repoManager.Users())` or an equivalent provider that reads go-auth user metadata.
+4. Add `auth.TemporaryPasswordClaimsDecorator()` to the authenticator when the UI needs a compact `password_change_required` session/JWT hint.
+5. Add `TemporaryPasswordGateForAdmin` or `TemporaryPasswordGate` after auth middleware so temporary sessions can only reach password-change/reset routes.
+6. When the user sets a permanent password, run the normal `UserPasswordReset`/confirm path; temporary-password metadata is cleared when the repository supports it.
+
+The metadata contract is migration-free: `password_temporary`, `password_change_required`, `password_temporary_issued_at`, and `password_temporary_expires_at`. Expired temporary passwords are rejected by local `go-auth` password verification.
+
+See `../docs/GUIDE_ADMIN_TEMPORARY_PASSWORD.md` for the full provisioning,
+auth wiring, password-change gate, and recovery flow.
+
 ## Storage-backed uploads
 - `NewStorageBundle(ctx context.Context, cfg StorageBundleConfig) (*StorageBundle, error)` - Inputs: shared `go-uploader` provider config, optional validator/logger/startup validation toggle. Outputs: configured storage provider plus uploader manager for host apps.
 - `StorageBundleConfig` reuses `go-uploader` provider config so host apps can select `fs`, `s3`, or `multi` without embedding backend-specific construction logic into app modules.
