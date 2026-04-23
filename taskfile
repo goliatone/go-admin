@@ -260,6 +260,20 @@ function go:fmt {
     "${gofmt_bin}" -w "${files[@]}"
 }
 
+function go:fix {
+    local go_bin
+    local -a patterns=()
+
+    go_bin=$(_go:bin) || return 1
+    _go:quality:prepare_env || return 1
+    while IFS= read -r pattern; do
+        if [ -n "${pattern}" ]; then
+            patterns+=("${pattern}")
+        fi
+    done < <(_go:lint:patterns "$@")
+    "${go_bin}" fix "${patterns[@]}"
+}
+
 function go:fmt:check {
     local gofmt_bin
     local -a files=()
@@ -526,6 +540,8 @@ function go:quality:pr {
 }
 
 function go:quality:all {
+    go:fmt || return 1
+    go:fix "$@" || return 1
     go:fmt:check || return 1
     go:test "$@" || return 1
     go:race "$@" || return 1
