@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/url"
 	"path"
@@ -1034,9 +1035,7 @@ func googleAccessRevokedError(
 	if strings.TrimSpace(reason) != "" {
 		metadata["reason"] = reason
 	}
-	for key, value := range extra {
-		metadata[key] = value
-	}
+	maps.Copy(metadata, extra)
 	return goerrors.New(message, goerrors.CategoryAuthz).
 		WithCode(http.StatusUnauthorized).
 		WithTextCode(string(ErrorCodeGoogleAccessRevoked)).

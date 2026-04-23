@@ -597,10 +597,7 @@ func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
 	sortLegacyMediaItems(filtered, query.Sort)
 
 	total := len(filtered)
-	start := max(query.Offset, 0)
-	if start > total {
-		start = total
-	}
+	start := min(max(query.Offset, 0), total)
 	end := total
 	if query.Limit > 0 && start+query.Limit < end {
 		end = start + query.Limit
