@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"maps"
 	"strings"
 	"unicode"
 
@@ -45,12 +46,8 @@ func DefaultTemplateFuncs(opts ...TemplateFuncOption) map[string]any {
 	titleFn := resolveWidgetTitleFunc(options)
 	renderIconFn, renderIconVariantFn := resolveTemplateIconFuncs(options.iconRenderFunc)
 	funcs := buildDefaultTemplateFuncMap(options, basePath, titleFn, renderIconFn, renderIconVariantFn)
-	for key, value := range auth.TemplateHelpers() {
-		funcs[key] = value
-	}
-	for key, value := range fgtemplates.TemplateHelpers(options.featureGate, options.featureHelperOptions...) {
-		funcs[key] = value
-	}
+	maps.Copy(funcs, auth.TemplateHelpers())
+	maps.Copy(funcs, fgtemplates.TemplateHelpers(options.featureGate, options.featureHelperOptions...))
 	return funcs
 }
 
@@ -116,12 +113,8 @@ func buildDefaultTemplateFuncMap(
 			return dict, nil
 		},
 	}
-	for key, value := range buildSiteTemplateFuncMap() {
-		funcs[key] = value
-	}
-	for key, value := range buildTranslationTemplateFuncMap(options) {
-		funcs[key] = value
-	}
+	maps.Copy(funcs, buildSiteTemplateFuncMap())
+	maps.Copy(funcs, buildTranslationTemplateFuncMap(options))
 	return funcs
 }
 
@@ -196,9 +189,7 @@ func resolveTemplateIconFuncs(iconRenderFunc func(ref string, variant string) st
 // MergeTemplateFuncs combines default functions with caller overrides.
 func MergeTemplateFuncs(overrides map[string]any, opts ...TemplateFuncOption) map[string]any {
 	funcs := DefaultTemplateFuncs(opts...)
-	for key, value := range overrides {
-		funcs[key] = value
-	}
+	maps.Copy(funcs, overrides)
 	return funcs
 }
 
@@ -211,9 +202,7 @@ func WithWidgetTitleOverrides(overrides map[string]string) TemplateFuncOption {
 		if opts.widgetTitles == nil {
 			opts.widgetTitles = map[string]string{}
 		}
-		for key, value := range overrides {
-			opts.widgetTitles[key] = value
-		}
+		maps.Copy(opts.widgetTitles, overrides)
 	}
 }
 
@@ -353,9 +342,7 @@ func cloneWidgetTitles(input map[string]string) map[string]string {
 		return nil
 	}
 	out := make(map[string]string, len(input))
-	for key, value := range input {
-		out[key] = value
-	}
+	maps.Copy(out, input)
 	return out
 }
 

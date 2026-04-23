@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"testing"
 
@@ -159,9 +160,7 @@ func (r *compatibilityPanelRepo) Get(_ context.Context, id string) (map[string]a
 		return nil, admin.ErrNotFound
 	}
 	out := map[string]any{}
-	for key, value := range r.record {
-		out[key] = value
-	}
+	maps.Copy(out, r.record)
 	return out, nil
 }
 

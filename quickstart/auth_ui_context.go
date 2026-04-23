@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"maps"
 	"net/url"
 	"strings"
 
@@ -128,9 +129,7 @@ func withAuthUIViewThemeAssets(ctx router.ViewContext, assets map[string]string,
 	// Get or create the assets sub-map
 	assetsMap := map[string]string{}
 	if existingAssets, ok := theme["assets"]; ok && existingAssets != nil {
-		for k, v := range existingAssets {
-			assetsMap[k] = v
-		}
+		maps.Copy(assetsMap, existingAssets)
 	}
 
 	// Merge new assets, resolving paths with prefix

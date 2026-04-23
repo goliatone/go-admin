@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -407,9 +408,7 @@ func contentEntryMergeDefaultRenderers(base map[string]string, renderers map[str
 	if out == nil {
 		out = make(map[string]string, len(normalized))
 	}
-	for fieldType, renderer := range normalized {
-		out[fieldType] = renderer
-	}
+	maps.Copy(out, normalized)
 	return out
 }
 

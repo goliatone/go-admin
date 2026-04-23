@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"sort"
 	"strings"
@@ -396,9 +397,7 @@ func resolvedPreferenceVersions(versions map[string]int, keys []string, effectiv
 		return map[string]int{}
 	}
 	out := make(map[string]int, len(versions))
-	for key, version := range versions {
-		out[key] = version
-	}
+	maps.Copy(out, versions)
 	if len(keys) > 0 {
 		for _, key := range keys {
 			if _, ok := out[key]; !ok {

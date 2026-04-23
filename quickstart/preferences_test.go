@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
@@ -81,12 +82,7 @@ func recordKey(record types.PreferenceRecord) string {
 }
 
 func keyInList(key string, keys []string) bool {
-	for _, candidate := range keys {
-		if candidate == key {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(keys, key)
 }
 
 func matchesPreferenceFilter(record types.PreferenceRecord, filter types.PreferenceFilter) bool {

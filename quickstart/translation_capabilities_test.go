@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -22,14 +23,7 @@ func TestTranslationCapabilityRoutesIncludeExchangeUIKey(t *testing.T) {
 		t.Fatalf("expected exchange route path to contain translations/exchange, got %q", path)
 	}
 
-	found := false
-	for _, key := range keys {
-		if key == "admin.translations.exchange" {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !slices.Contains(keys, "admin.translations.exchange") {
 		t.Fatalf("expected resolver key admin.translations.exchange in %v", keys)
 	}
 }

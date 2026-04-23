@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -475,12 +476,7 @@ func translationPolicyEntityInSet(values []string, entity string) bool {
 	if target == "" {
 		return false
 	}
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }
 
 func uuidFromString(id string) uuid.UUID {

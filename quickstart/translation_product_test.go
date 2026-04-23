@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -200,14 +201,7 @@ func TestNewAdminTranslationProductConfigLegacyOverridesTakePrecedence(t *testin
 		t.Fatalf("expected queue capability enabled after legacy override")
 	}
 	warnings, _ := caps["warnings"].([]string)
-	found := false
-	for _, warning := range warnings {
-		if warning == translationProductLegacyOverrideWarning {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !slices.Contains(warnings, translationProductLegacyOverrideWarning) {
 		t.Fatalf("expected legacy override warning in capabilities, got %v", warnings)
 	}
 }
@@ -912,14 +906,7 @@ func TestNewAdminSchemaVersionZeroAddsUpconversionWarning(t *testing.T) {
 
 	caps := TranslationCapabilities(adm)
 	warnings, _ := caps["warnings"].([]string)
-	found := false
-	for _, warning := range warnings {
-		if warning == translationProductSchemaUpconvertWarning {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !slices.Contains(warnings, translationProductSchemaUpconvertWarning) {
 		t.Fatalf("expected schema upconversion warning, got %v", warnings)
 	}
 }

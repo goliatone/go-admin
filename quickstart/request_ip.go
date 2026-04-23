@@ -347,7 +347,7 @@ func normalizeStringList(values []string) []string {
 }
 
 func parseXForwardedFor(value string) string {
-	for _, part := range strings.Split(value, ",") {
+	for part := range strings.SplitSeq(value, ",") {
 		if parsed := normalizeIPToken(part); parsed != "" {
 			return parsed
 		}
@@ -360,10 +360,8 @@ func parseForwardedHeader(value string) string {
 		return ""
 	}
 	// RFC 7239: Forwarded: for=198.51.100.17;proto=https;by=203.0.113.43
-	entries := strings.Split(value, ",")
-	for _, entry := range entries {
-		params := strings.Split(entry, ";")
-		for _, param := range params {
+	for entry := range strings.SplitSeq(value, ",") {
+		for param := range strings.SplitSeq(entry, ";") {
 			pair := strings.SplitN(strings.TrimSpace(param), "=", 2)
 			if len(pair) != 2 {
 				continue
@@ -385,10 +383,8 @@ func parseForwardedHeaderParam(value, key string) string {
 	if value == "" || key == "" {
 		return ""
 	}
-	entries := strings.Split(value, ",")
-	for _, entry := range entries {
-		params := strings.Split(entry, ";")
-		for _, param := range params {
+	for entry := range strings.SplitSeq(value, ",") {
+		for param := range strings.SplitSeq(entry, ";") {
 			pair := strings.SplitN(strings.TrimSpace(param), "=", 2)
 			if len(pair) != 2 {
 				continue

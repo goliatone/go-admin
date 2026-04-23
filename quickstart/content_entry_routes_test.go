@@ -937,7 +937,6 @@ func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.panel, func(t *testing.T) {
 			ctx := router.NewMockContext()
 			ctx.On("Context").Return(context.Background())

@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"maps"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -49,9 +50,7 @@ func WithPathViewContext(ctx router.ViewContext, cfg admin.Config, pathCfg PathV
 	if ctx == nil {
 		ctx = router.ViewContext{}
 	}
-	for key, value := range PathViewContext(cfg, pathCfg) {
-		ctx[key] = value
-	}
+	maps.Copy(ctx, PathViewContext(cfg, pathCfg))
 	return ctx
 }
 

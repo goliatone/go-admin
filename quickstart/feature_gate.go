@@ -1,6 +1,7 @@
 package quickstart
 
 import (
+	"maps"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -32,9 +33,7 @@ func mergeFeatureDefaults(base, overrides map[string]bool) map[string]bool {
 	if out == nil {
 		out = map[string]bool{}
 	}
-	for key, value := range overrides {
-		out[key] = value
-	}
+	maps.Copy(out, overrides)
 	return out
 }
 
@@ -43,9 +42,7 @@ func cloneFeatureDefaults(in map[string]bool) map[string]bool {
 		return map[string]bool{}
 	}
 	out := make(map[string]bool, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 	return out
 }
 

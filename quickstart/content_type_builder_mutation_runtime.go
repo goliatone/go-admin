@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"strings"
 	"time"
@@ -54,9 +55,7 @@ func (h *contentTypeBuilderHandlers) CloneContentType(c router.Context) error {
 		return err
 	}
 	clone := map[string]any{}
-	for key, value := range record {
-		clone[key] = value
-	}
+	maps.Copy(clone, record)
 	delete(clone, "id")
 	delete(clone, "content_type_id")
 	delete(clone, "created_at")
@@ -154,9 +153,7 @@ func (h *contentTypeBuilderHandlers) CloneBlockDefinition(c router.Context) erro
 		return err
 	}
 	clone := map[string]any{}
-	for key, value := range record {
-		clone[key] = value
-	}
+	maps.Copy(clone, record)
 	delete(clone, "id")
 	delete(clone, "created_at")
 	delete(clone, "updated_at")

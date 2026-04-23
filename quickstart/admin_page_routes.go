@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -50,7 +51,6 @@ func RegisterAdminPageRoutes[T any](
 	fallbackAuthz := admin.NewGoAuthAuthorizer(admin.GoAuthAuthorizerConfig{DefaultResource: "admin"})
 
 	for _, spec := range specs {
-		spec := spec
 		routePath, template, err := resolveAdminPageRouteSpec(spec, urls, basePath)
 		if err != nil {
 			return err
@@ -153,9 +153,7 @@ func mergeViewContext(base router.ViewContext, extra router.ViewContext) router.
 	if base == nil {
 		base = router.ViewContext{}
 	}
-	for key, value := range extra {
-		base[key] = value
-	}
+	maps.Copy(base, extra)
 	return base
 }
 

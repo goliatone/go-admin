@@ -101,7 +101,7 @@ func applyDebugSessionOptions(debugCfg *admin.DebugConfig, opt DebugOption) {
 		debugCfg.SessionTracking = *opt.SessionTracking
 	}
 	if opt.SessionIncludeGlobalPanels != nil {
-		debugCfg.SessionIncludeGlobalPanels = admin.BoolPtr(*opt.SessionIncludeGlobalPanels)
+		debugCfg.SessionIncludeGlobalPanels = new(*opt.SessionIncludeGlobalPanels)
 	}
 	if value := strings.TrimSpace(opt.SessionCookieName); value != "" {
 		debugCfg.SessionCookieName = value
@@ -152,7 +152,7 @@ func applyDebugReplOptions(debugCfg *admin.DebugConfig, opt DebugOption) {
 		}
 	}
 	if opt.ReplReadOnly != nil {
-		debugCfg.Repl.ReadOnly = admin.BoolPtr(*opt.ReplReadOnly)
+		debugCfg.Repl.ReadOnly = new(*opt.ReplReadOnly)
 	}
 }
 

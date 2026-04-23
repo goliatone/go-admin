@@ -567,12 +567,10 @@ func resolveNavRoute(urls urlkit.Resolver, name string) string {
 	if trimmed == "" {
 		return ""
 	}
-	if strings.HasPrefix(trimmed, "admin.") {
-		route := strings.TrimPrefix(trimmed, "admin.")
+	if route, ok := strings.CutPrefix(trimmed, "admin."); ok {
 		return resolveRoutePath(urls, "admin", route)
 	}
-	if strings.HasPrefix(trimmed, "public.") {
-		route := strings.TrimPrefix(trimmed, "public.")
+	if route, ok := strings.CutPrefix(trimmed, "public."); ok {
 		return resolveRoutePath(urls, "public", route)
 	}
 	return resolveRoutePath(urls, "admin", trimmed)

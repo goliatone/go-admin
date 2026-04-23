@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -119,10 +120,10 @@ func applyClaimsToSession(session *SessionUser, claims authlib.AuthClaims) {
 		session.Metadata = mergeAnyMaps(session.Metadata, carrier.ClaimsMetadata())
 	}
 	if issued := claims.IssuedAt(); !issued.IsZero() {
-		session.IssuedAt = ptrTime(issued)
+		session.IssuedAt = new(issued)
 	}
 	if exp := claims.Expires(); !exp.IsZero() {
-		session.ExpiresAt = ptrTime(exp)
+		session.ExpiresAt = new(exp)
 	}
 }
 
@@ -205,9 +206,7 @@ func mergeAnyMaps(base map[string]any, src map[string]any) map[string]any {
 	if out == nil {
 		out = map[string]any{}
 	}
-	for k, v := range src {
-		out[k] = v
-	}
+	maps.Copy(out, src)
 	return out
 }
 
@@ -219,9 +218,7 @@ func mergeStringMaps(base map[string]string, src map[string]string) map[string]s
 	if out == nil {
 		out = map[string]string{}
 	}
-	for k, v := range src {
-		out[k] = v
-	}
+	maps.Copy(out, src)
 	return out
 }
 
@@ -342,8 +339,4 @@ func initialRune(s string) string {
 		return ""
 	}
 	return string(r)
-}
-
-func ptrTime(t time.Time) *time.Time {
-	return &t
 }

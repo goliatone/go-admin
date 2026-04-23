@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	theme "github.com/goliatone/go-theme"
@@ -151,9 +152,7 @@ func defaultThemeManifest(name string, tokenOverrides map[string]string, options
 		"sidebar-brand-collapsed-size": "32px",
 		"sidebar-brand-align":          "flex-start",
 	}
-	for key, value := range tokenOverrides {
-		tokens[key] = value
-	}
+	maps.Copy(tokens, tokenOverrides)
 
 	assetsPrefix := strings.TrimSpace(options.assetsPrefix)
 	assetsFiles := options.assetsFiles

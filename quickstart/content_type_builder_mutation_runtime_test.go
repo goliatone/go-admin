@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"testing"
 
@@ -124,9 +125,7 @@ func cloneMutationRecord(record map[string]any) map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(record))
-	for key, value := range record {
-		out[key] = value
-	}
+	maps.Copy(out, record)
 	return out
 }
 

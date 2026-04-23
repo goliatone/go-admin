@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -380,12 +381,7 @@ func isSensitiveHeader(key string) bool {
 		"x-auth-token",
 		"x-csrf-token",
 	}
-	for _, s := range sensitive {
-		if lower == s {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(sensitive, lower)
 }
 
 // isSensitiveFormField checks if a form field should be hidden.

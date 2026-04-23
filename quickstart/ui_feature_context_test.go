@@ -2,6 +2,7 @@ package quickstart
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -142,10 +143,5 @@ func assertBodyClass(t *testing.T, viewCtx map[string]any, className string) {
 
 func hasBodyClass(viewCtx map[string]any, className string) bool {
 	raw, _ := viewCtx["body_classes"].(string)
-	for _, candidate := range strings.Fields(strings.TrimSpace(raw)) {
-		if candidate == className {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(strings.Fields(strings.TrimSpace(raw)), className)
 }

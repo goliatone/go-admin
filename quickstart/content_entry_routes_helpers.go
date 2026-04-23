@@ -3,6 +3,7 @@ package quickstart
 import (
 	"net/url"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 
@@ -155,10 +156,8 @@ func panelRouteKeys(panelName string) []string {
 		if candidate == "" {
 			return
 		}
-		for _, existing := range out {
-			if existing == candidate {
-				return
-			}
+		if slices.Contains(out, candidate) {
+			return
 		}
 		out = append(out, candidate)
 	}

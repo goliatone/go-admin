@@ -12,8 +12,8 @@ import (
 func resolveAdminAPIBasePath(urls urlkit.Resolver, cfg admin.Config, fallbackBase string) string {
 	group := adminAPIGroupName(cfg)
 	if path := resolveRoutePath(urls, group, "errors"); path != "" {
-		if strings.HasSuffix(path, "/errors") {
-			return strings.TrimSuffix(path, "/errors")
+		if trimmed, ok := strings.CutSuffix(path, "/errors"); ok {
+			return trimmed
 		}
 	}
 
@@ -115,8 +115,8 @@ func resolveAdminPanelAPIBulkBasePath(urls urlkit.Resolver, cfg admin.Config, fa
 				return parsed.String()
 			}
 		}
-		if strings.HasSuffix(resolved, "/"+actionPlaceholder) {
-			return strings.TrimSuffix(resolved, "/"+actionPlaceholder)
+		if trimmed, ok := strings.CutSuffix(resolved, "/"+actionPlaceholder); ok {
+			return trimmed
 		}
 	}
 	collection := resolveAdminPanelAPICollectionPath(urls, cfg, fallbackBase, panel)

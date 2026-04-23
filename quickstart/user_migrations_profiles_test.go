@@ -41,7 +41,6 @@ func TestRegisterUserMigrations_ProfileOrderAndLabels(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			client := newUserMigrationsPersistenceClient(t)
 			labels := make([]string, 0, len(tc.expected))

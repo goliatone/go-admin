@@ -20,7 +20,7 @@ func TestConfigureDebugPanelsDoctorDevDefault(t *testing.T) {
 
 	ConfigureDebugPanels(
 		&cfg,
-		DebugPanelDeps{IsDevelopment: admin.BoolPtr(true)},
+		DebugPanelDeps{IsDevelopment: new(true)},
 		DefaultDebugPanelCatalog(),
 	)
 
@@ -37,7 +37,7 @@ func TestConfigureDebugPanelsDoctorProdDefaultDisabled(t *testing.T) {
 
 	ConfigureDebugPanels(
 		&cfg,
-		DebugPanelDeps{IsDevelopment: admin.BoolPtr(false)},
+		DebugPanelDeps{IsDevelopment: new(false)},
 		DefaultDebugPanelCatalog(),
 	)
 
@@ -53,7 +53,7 @@ func TestConfigureDebugPanelsDoctorExplicitToggle(t *testing.T) {
 		ConfigureDebugPanels(
 			&cfg,
 			DebugPanelDeps{
-				IsDevelopment: admin.BoolPtr(true),
+				IsDevelopment: new(true),
 				DoctorEnabled: &enabled,
 			},
 			DefaultDebugPanelCatalog(),
@@ -69,7 +69,7 @@ func TestConfigureDebugPanelsDoctorExplicitToggle(t *testing.T) {
 		ConfigureDebugPanels(
 			&cfg,
 			DebugPanelDeps{
-				IsDevelopment: admin.BoolPtr(false),
+				IsDevelopment: new(false),
 				DoctorEnabled: &enabled,
 			},
 			DefaultDebugPanelCatalog(),

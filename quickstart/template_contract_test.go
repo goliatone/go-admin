@@ -42,7 +42,6 @@ func TestPanelListTemplatesUseDataGridConfigContract(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			raw, err := os.ReadFile(tc.path)
 			if err != nil {

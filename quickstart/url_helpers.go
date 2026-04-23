@@ -39,8 +39,8 @@ func resolveRoutePath(urls urlkit.Resolver, group, route string) string {
 			return template
 		}
 		resolved = strings.TrimSpace(resolved)
-		if strings.HasSuffix(resolved, template) {
-			base := strings.TrimSpace(strings.TrimSuffix(resolved, template))
+		if base, ok := strings.CutSuffix(resolved, template); ok {
+			base = strings.TrimSpace(base)
 			if base != "" && strings.HasPrefix(template, base) {
 				return template
 			}

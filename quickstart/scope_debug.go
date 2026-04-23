@@ -34,12 +34,12 @@ type ScopeDebugEntry struct {
 	Method          string             `json:"method,omitempty"`
 	Path            string             `json:"path,omitempty"`
 	ScopeMode       string             `json:"scope_mode,omitempty"`
-	Actor           ScopeDebugActor    `json:"actor,omitempty"`
-	Claims          ScopeDebugClaims   `json:"claims,omitempty"`
-	RawScope        ScopeDebugScope    `json:"raw_scope,omitempty"`
-	ResolvedScope   ScopeDebugScope    `json:"resolved_scope,omitempty"`
-	DefaultScope    ScopeDebugScope    `json:"default_scope,omitempty"`
-	DefaultsApplied ScopeDebugDefaults `json:"defaults_applied,omitempty"`
+	Actor           ScopeDebugActor    `json:"actor"`
+	Claims          ScopeDebugClaims   `json:"claims"`
+	RawScope        ScopeDebugScope    `json:"raw_scope"`
+	ResolvedScope   ScopeDebugScope    `json:"resolved_scope"`
+	DefaultScope    ScopeDebugScope    `json:"default_scope"`
+	DefaultsApplied ScopeDebugDefaults `json:"defaults_applied"`
 	Metadata        map[string]any     `json:"metadata,omitempty"`
 	Headers         map[string]string  `json:"headers,omitempty"`
 	Query           map[string]string  `json:"query,omitempty"`
@@ -182,7 +182,7 @@ func RegisterScopeDebugPanel(buffer *ScopeDebugBuffer) {
 		Label:           "Scope",
 		Icon:            "target",
 		SnapshotKey:     ScopeDebugPanelID,
-		SupportsToolbar: admin.BoolPtr(true),
+		SupportsToolbar: new(true),
 		Category:        "auth",
 		Order:           70,
 		Snapshot: func(ctx context.Context) any {

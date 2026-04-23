@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -706,12 +707,7 @@ func compatToSet(values []string) map[string]struct{} {
 }
 
 func containsCompatType(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, target)
 }
 
 func compatIsSuperset(superset, subset map[string]struct{}) bool {
