@@ -1,5 +1,26 @@
 # Changelog
 
+# [0.55.0](https://github.com/goliatone/go-admin/compare/v0.54.0...v0.55.0) - (2026-04-23)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.55.0 ([d17d006](https://github.com/goliatone/go-admin/commit/d17d00692485bc27a6db92db2857f41402ca1a79))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Temporary password gate ([2dca902](https://github.com/goliatone/go-admin/commit/2dca9027c7956385d6b4fe33b4b496db9071e5bb))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.54.0 ([b494328](https://github.com/goliatone/go-admin/commit/b494328a54dd3f7078ea17e7b7a18f40775c4581))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([1e8c4b5](https://github.com/goliatone/go-admin/commit/1e8c4b516ba18f78c420056d9bfafee0ce10b751))  - (goliatone)
+- Update tasks ([ff6842c](https://github.com/goliatone/go-admin/commit/ff6842ce0484fc34ad876f2782e489557e9f51fb))  - (goliatone)
+- Update readme ([50483a9](https://github.com/goliatone/go-admin/commit/50483a933fd4ef362bb236e3061460dd7be01b77))  - (goliatone)
+- Update test ([4b94ea9](https://github.com/goliatone/go-admin/commit/4b94ea9c3e8258ce9ae3f43d996fb5aceb10b11c))  - (goliatone)
+
 # [0.54.0](https://github.com/goliatone/go-admin/compare/v0.53.1...v0.54.0) - (2026-04-22)
 
 ## <!-- 1 -->🐛 Bug Fixes
