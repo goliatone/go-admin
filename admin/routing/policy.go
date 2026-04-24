@@ -9,10 +9,12 @@ import (
 )
 
 const (
-	DefaultAdminAPIPrefix   = "api"
-	DefaultPublicAPIPrefix  = "api"
-	DefaultPublicAPIVersion = "v1"
-	SlugPattern             = "^[a-z][a-z0-9_-]{1,62}$"
+	DefaultAdminAPIPrefix      = "api"
+	DefaultPublicAPIPrefix     = "api"
+	DefaultPublicAPIVersion    = "v1"
+	DefaultProtectedAppRoot    = "/app"
+	DefaultProtectedAppAPIRoot = "/app/api"
+	SlugPattern                = "^[a-z][a-z0-9_-]{1,62}$"
 )
 
 var (
@@ -51,18 +53,36 @@ func DeriveDefaultRoots(input RootDerivationInput) RootsConfig {
 	}
 
 	return RootsConfig{
-		AdminRoot:     normalizeAbsolutePath(adminBase),
-		APIRoot:       JoinAbsolutePath(adminBase, adminPrefix, input.URLs.Admin.APIVersion),
-		PublicAPIRoot: JoinAbsolutePath(input.URLs.Public.BasePath, publicPrefix, publicVersion),
+		AdminRoot:           normalizeAbsolutePath(adminBase),
+		APIRoot:             JoinAbsolutePath(adminBase, adminPrefix, input.URLs.Admin.APIVersion),
+		PublicAPIRoot:       JoinAbsolutePath(input.URLs.Public.BasePath, publicPrefix, publicVersion),
+		ProtectedAppRoot:    protectedAppDefaultRoot(input.ProtectedAppEnabled),
+		ProtectedAppAPIRoot: protectedAppDefaultAPIRoot(input.ProtectedAppEnabled),
 	}
 }
 
 func NormalizeRoots(cfg RootsConfig) RootsConfig {
 	return RootsConfig{
-		AdminRoot:     normalizeAbsolutePath(cfg.AdminRoot),
-		APIRoot:       normalizeAbsolutePath(cfg.APIRoot),
-		PublicAPIRoot: normalizeAbsolutePath(cfg.PublicAPIRoot),
+		AdminRoot:           normalizeAbsolutePath(cfg.AdminRoot),
+		APIRoot:             normalizeAbsolutePath(cfg.APIRoot),
+		PublicAPIRoot:       normalizeAbsolutePath(cfg.PublicAPIRoot),
+		ProtectedAppRoot:    normalizeAbsolutePath(cfg.ProtectedAppRoot),
+		ProtectedAppAPIRoot: normalizeAbsolutePath(cfg.ProtectedAppAPIRoot),
 	}
+}
+
+func protectedAppDefaultRoot(enabled bool) string {
+	if !enabled {
+		return ""
+	}
+	return DefaultProtectedAppRoot
+}
+
+func protectedAppDefaultAPIRoot(enabled bool) string {
+	if !enabled {
+		return ""
+	}
+	return DefaultProtectedAppAPIRoot
 }
 
 func NormalizeMountOverride(cfg ModuleMountOverride) ModuleMountOverride {

@@ -13,15 +13,18 @@ type Config struct {
 	EnforceRouteNamePolicy bool                    `json:"enforce_route_name_policy"`
 	EnforceSlugPolicy      bool                    `json:"enforce_slug_policy"`
 	ConflictPolicy         ConflictPolicy          `json:"conflict_policy"`
+	ProtectedAppEnabled    bool                    `json:"protected_app_enabled,omitempty"`
 	Roots                  RootsConfig             `json:"roots"`
 	Modules                map[string]ModuleConfig `json:"modules"`
 	Manifest               ManifestConfig          `json:"manifest"`
 }
 
 type RootsConfig struct {
-	AdminRoot     string `json:"admin_root,omitempty"`
-	APIRoot       string `json:"api_root,omitempty"`
-	PublicAPIRoot string `json:"public_api_root,omitempty"`
+	AdminRoot           string `json:"admin_root,omitempty"`
+	APIRoot             string `json:"api_root,omitempty"`
+	PublicAPIRoot       string `json:"public_api_root,omitempty"`
+	ProtectedAppRoot    string `json:"protected_app_root,omitempty"`
+	ProtectedAppAPIRoot string `json:"protected_app_api_root,omitempty"`
 }
 
 type ModuleConfig struct {
@@ -53,8 +56,9 @@ type URLConfig struct {
 }
 
 type RootDerivationInput struct {
-	BasePath string    `json:"base_path"`
-	URLs     URLConfig `json:"urls"`
+	BasePath            string    `json:"base_path"`
+	URLs                URLConfig `json:"urls"`
+	ProtectedAppEnabled bool      `json:"protected_app_enabled,omitempty"`
 }
 
 func DefaultConfig() Config {
@@ -80,6 +84,7 @@ func NormalizeConfig(cfg Config, input RootDerivationInput) Config {
 	if cfg.ConflictPolicy == "" {
 		cfg.ConflictPolicy = ConflictPolicyError
 	}
+	cfg.ProtectedAppEnabled = cfg.ProtectedAppEnabled || input.ProtectedAppEnabled
 
 	cfg.Roots = MergeRoots(DeriveDefaultRoots(input), NormalizeRoots(cfg.Roots))
 	cfg.Modules = normalizeModuleConfigs(cfg.Modules)
@@ -99,7 +104,17 @@ func MergeRoots(defaults, overrides RootsConfig) RootsConfig {
 	if overrides.PublicAPIRoot != "" {
 		merged.PublicAPIRoot = overrides.PublicAPIRoot
 	}
+	if protectedAppRootsEnabled(defaults) && overrides.ProtectedAppRoot != "" {
+		merged.ProtectedAppRoot = overrides.ProtectedAppRoot
+	}
+	if protectedAppRootsEnabled(defaults) && overrides.ProtectedAppAPIRoot != "" {
+		merged.ProtectedAppAPIRoot = overrides.ProtectedAppAPIRoot
+	}
 	return merged
+}
+
+func protectedAppRootsEnabled(roots RootsConfig) bool {
+	return roots.ProtectedAppRoot != "" || roots.ProtectedAppAPIRoot != ""
 }
 
 func normalizeManifestConfig(cfg ManifestConfig) ManifestConfig {

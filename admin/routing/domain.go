@@ -6,13 +6,15 @@ import (
 )
 
 const (
-	RouteDomainSystem      = "system"
-	RouteDomainInternalOps = "internal_ops"
-	RouteDomainAdminUI     = "admin_ui"
-	RouteDomainAdminAPI    = "admin_api"
-	RouteDomainPublicAPI   = "public_api"
-	RouteDomainPublicSite  = "public_site"
-	RouteDomainStatic      = "static"
+	RouteDomainSystem          = "system"
+	RouteDomainInternalOps     = "internal_ops"
+	RouteDomainAdminUI         = "admin_ui"
+	RouteDomainAdminAPI        = "admin_api"
+	RouteDomainProtectedAppUI  = "protected_app_ui"
+	RouteDomainProtectedAppAPI = "protected_app_api"
+	RouteDomainPublicAPI       = "public_api"
+	RouteDomainPublicSite      = "public_site"
+	RouteDomainStatic          = "static"
 )
 
 func NormalizeRouteDomain(domain string) string {
@@ -25,6 +27,10 @@ func NormalizeRouteDomain(domain string) string {
 		return RouteDomainAdminUI
 	case RouteDomainAdminAPI, SurfaceAPI:
 		return RouteDomainAdminAPI
+	case RouteDomainProtectedAppUI:
+		return RouteDomainProtectedAppUI
+	case RouteDomainProtectedAppAPI:
+		return RouteDomainProtectedAppAPI
 	case RouteDomainPublicAPI:
 		return RouteDomainPublicAPI
 	case RouteDomainPublicSite:
@@ -42,6 +48,10 @@ func NormalizeRouteSurface(surface string) string {
 		return SurfaceUI
 	case SurfaceAPI:
 		return SurfaceAPI
+	case SurfaceProtectedAppUI:
+		return SurfaceProtectedAppUI
+	case SurfaceProtectedAppAPI:
+		return SurfaceProtectedAppAPI
 	case SurfacePublicAPI:
 		return SurfacePublicAPI
 	case SurfacePublicSite:
@@ -63,6 +73,10 @@ func DefaultRouteDomainForSurface(surface string) string {
 		return RouteDomainAdminUI
 	case SurfaceAPI:
 		return RouteDomainAdminAPI
+	case SurfaceProtectedAppUI:
+		return RouteDomainProtectedAppUI
+	case SurfaceProtectedAppAPI:
+		return RouteDomainProtectedAppAPI
 	case SurfacePublicAPI:
 		return RouteDomainPublicAPI
 	case SurfacePublicSite:
@@ -84,6 +98,10 @@ func DefaultRouteSurfaceForDomain(domain string) string {
 		return SurfaceUI
 	case RouteDomainAdminAPI:
 		return SurfaceAPI
+	case RouteDomainProtectedAppUI:
+		return SurfaceProtectedAppUI
+	case RouteDomainProtectedAppAPI:
+		return SurfaceProtectedAppAPI
 	case RouteDomainPublicAPI:
 		return SurfacePublicAPI
 	case RouteDomainPublicSite:
@@ -104,6 +122,8 @@ func RouteDomains() []string {
 		RouteDomainAdminAPI,
 		RouteDomainAdminUI,
 		RouteDomainInternalOps,
+		RouteDomainProtectedAppAPI,
+		RouteDomainProtectedAppUI,
 		RouteDomainPublicAPI,
 		RouteDomainPublicSite,
 		RouteDomainStatic,

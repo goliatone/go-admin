@@ -149,7 +149,9 @@ func FormatStartupReport(report StartupReport) string {
 		"routing report",
 		"roots: admin=" + printablePath(report.EffectiveRoots.AdminRoot) +
 			" api=" + printablePath(report.EffectiveRoots.APIRoot) +
-			" public_api=" + printablePath(report.EffectiveRoots.PublicAPIRoot),
+			" public_api=" + printablePath(report.EffectiveRoots.PublicAPIRoot) +
+			" protected_app=" + printablePath(report.EffectiveRoots.ProtectedAppRoot) +
+			" protected_app_api=" + printablePath(report.EffectiveRoots.ProtectedAppAPIRoot),
 		"summary: total=" + strconv.Itoa(report.RouteSummary.TotalRoutes) +
 			" host=" + strconv.Itoa(report.RouteSummary.HostRoutes) +
 			" module=" + strconv.Itoa(report.RouteSummary.ModuleRoutes) +

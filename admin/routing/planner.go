@@ -27,13 +27,15 @@ type Planner interface {
 }
 
 const (
-	SurfaceUI          = "ui"
-	SurfaceAPI         = "api"
-	SurfacePublicAPI   = "public_api"
-	SurfacePublicSite  = "public_site"
-	SurfaceSystem      = "system"
-	SurfaceInternalOps = "internal_ops"
-	SurfaceStatic      = "static"
+	SurfaceUI              = "ui"
+	SurfaceAPI             = "api"
+	SurfaceProtectedAppUI  = "protected_app_ui"
+	SurfaceProtectedAppAPI = "protected_app_api"
+	SurfacePublicAPI       = "public_api"
+	SurfacePublicSite      = "public_site"
+	SurfaceSystem          = "system"
+	SurfaceInternalOps     = "internal_ops"
+	SurfaceStatic          = "static"
 )
 
 type planner struct {
@@ -461,6 +463,10 @@ func routeRootForGroup(groupPath string, roots RootsConfig) string {
 		return roots.AdminRoot
 	case deriveAPIGroupPath(roots):
 		return roots.APIRoot
+	case deriveProtectedAppUIGroupPath():
+		return roots.ProtectedAppRoot
+	case deriveProtectedAppAPIGroupPath(roots):
+		return roots.ProtectedAppAPIRoot
 	case derivePublicAPIGroupPath(roots):
 		return roots.PublicAPIRoot
 	default:
@@ -714,6 +720,14 @@ func derivePublicAPIGroupPath(roots RootsConfig) string {
 	return deriveVersionedGroupPath("public.api", inferSurfaceVersion("", roots.PublicAPIRoot))
 }
 
+func deriveProtectedAppUIGroupPath() string {
+	return "protected.app"
+}
+
+func deriveProtectedAppAPIGroupPath(roots RootsConfig) string {
+	return deriveVersionedGroupPath("protected.app.api", inferSurfaceVersion(roots.ProtectedAppRoot, roots.ProtectedAppAPIRoot))
+}
+
 func deriveVersionedGroupPath(base, version string) string {
 	version = normalizePathSegment(version)
 	if version == "" {
@@ -780,6 +794,10 @@ func surfaceOrder(surface string) int {
 		return 1
 	case SurfacePublicAPI:
 		return 2
+	case SurfaceProtectedAppUI:
+		return 3
+	case SurfaceProtectedAppAPI:
+		return 4
 	default:
 		return 99
 	}
@@ -803,4 +821,12 @@ func AdminAPIGroupPath(roots RootsConfig) string {
 
 func PublicAPIGroupPath(roots RootsConfig) string {
 	return derivePublicAPIGroupPath(NormalizeRoots(roots))
+}
+
+func ProtectedAppUIGroupPath() string {
+	return deriveProtectedAppUIGroupPath()
+}
+
+func ProtectedAppAPIGroupPath(roots RootsConfig) string {
+	return deriveProtectedAppAPIGroupPath(NormalizeRoots(roots))
 }
