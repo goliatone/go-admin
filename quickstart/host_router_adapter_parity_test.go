@@ -22,7 +22,7 @@ func TestHostRouterPhase7AdapterParityForFallbackOwnershipAndMethods(t *testing.
 func runHostRouterPhase7AdapterMatrix[T any](t *testing.T, server router.Server[T]) {
 	t.Helper()
 
-	server, _ = buildHostRouterTestServer(t, server, []string{"host", "admin", "static", "site"})
+	server, _ = buildHostRouterTestServer(t, server, []string{"host", "admin", "protected", "static", "site"})
 
 	assertJSONHandler(t, server, http.MethodGet, "/posts/welcome", http.StatusOK, "site")
 	assertStatusCode(t, server, http.MethodPost, "/posts/welcome", http.StatusMethodNotAllowed)

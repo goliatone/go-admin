@@ -57,6 +57,12 @@ func TestDeriveDefaultRootsPreservesCurrentTopology(t *testing.T) {
 	if cfg.PublicAPIRoot != "/api/v1" {
 		t.Fatalf("expected public api root /api/v1, got %q", cfg.PublicAPIRoot)
 	}
+	if cfg.ProtectedAppRoot != "" {
+		t.Fatalf("expected protected app root empty when disabled, got %q", cfg.ProtectedAppRoot)
+	}
+	if cfg.ProtectedAppAPIRoot != "" {
+		t.Fatalf("expected protected app api root empty when disabled, got %q", cfg.ProtectedAppAPIRoot)
+	}
 }
 
 func TestDeriveDefaultRootsUsesCanonicalURLOverrides(t *testing.T) {
@@ -89,9 +95,11 @@ func TestDeriveDefaultRootsUsesCanonicalURLOverrides(t *testing.T) {
 
 func TestNormalizeRootsAndOverrides(t *testing.T) {
 	roots := NormalizeRoots(RootsConfig{
-		AdminRoot:     " admin/ ",
-		APIRoot:       "/admin/api/",
-		PublicAPIRoot: " /api/v1/ ",
+		AdminRoot:           " admin/ ",
+		APIRoot:             "/admin/api/",
+		PublicAPIRoot:       " /api/v1/ ",
+		ProtectedAppRoot:    " /app/ ",
+		ProtectedAppAPIRoot: " /app/api/ ",
 	})
 
 	if roots.AdminRoot != "/admin" {
@@ -102,6 +110,12 @@ func TestNormalizeRootsAndOverrides(t *testing.T) {
 	}
 	if roots.PublicAPIRoot != "/api/v1" {
 		t.Fatalf("expected normalized public api root /api/v1, got %q", roots.PublicAPIRoot)
+	}
+	if roots.ProtectedAppRoot != "/app" {
+		t.Fatalf("expected normalized protected app root /app, got %q", roots.ProtectedAppRoot)
+	}
+	if roots.ProtectedAppAPIRoot != "/app/api" {
+		t.Fatalf("expected normalized protected app api root /app/api, got %q", roots.ProtectedAppAPIRoot)
 	}
 
 	override := NormalizeMountOverride(ModuleMountOverride{
@@ -118,6 +132,85 @@ func TestNormalizeRootsAndOverrides(t *testing.T) {
 	}
 	if override.PublicAPIBase != "/public/translations" {
 		t.Fatalf("expected normalized public api base /public/translations, got %q", override.PublicAPIBase)
+	}
+}
+
+func TestDeriveDefaultRootsIncludesProtectedAppDefaultsWhenEnabled(t *testing.T) {
+	cfg := DeriveDefaultRoots(RootDerivationInput{
+		BasePath:            "/admin",
+		ProtectedAppEnabled: true,
+		URLs: URLConfig{
+			Admin: URLNamespaceConfig{APIPrefix: "api"},
+			Public: URLNamespaceConfig{
+				APIPrefix:  "api",
+				APIVersion: "v1",
+			},
+		},
+	})
+
+	if cfg.ProtectedAppRoot != DefaultProtectedAppRoot {
+		t.Fatalf("expected protected app root %q, got %q", DefaultProtectedAppRoot, cfg.ProtectedAppRoot)
+	}
+	if cfg.ProtectedAppAPIRoot != DefaultProtectedAppAPIRoot {
+		t.Fatalf("expected protected app api root %q, got %q", DefaultProtectedAppAPIRoot, cfg.ProtectedAppAPIRoot)
+	}
+}
+
+func TestNormalizeConfigIgnoresProtectedAppOverridesWhenDisabled(t *testing.T) {
+	cfg := NormalizeConfig(Config{
+		Roots: RootsConfig{
+			ProtectedAppRoot:    "/portal",
+			ProtectedAppAPIRoot: "/portal/api",
+		},
+	}, RootDerivationInput{
+		BasePath: "/admin",
+		URLs: URLConfig{
+			Admin: URLNamespaceConfig{APIPrefix: "api"},
+			Public: URLNamespaceConfig{
+				APIPrefix:  "api",
+				APIVersion: "v1",
+			},
+		},
+	})
+
+	if cfg.ProtectedAppEnabled {
+		t.Fatalf("expected protected app enablement to remain false")
+	}
+	if cfg.Roots.ProtectedAppRoot != "" {
+		t.Fatalf("expected protected app root empty when disabled, got %q", cfg.Roots.ProtectedAppRoot)
+	}
+	if cfg.Roots.ProtectedAppAPIRoot != "" {
+		t.Fatalf("expected protected app api root empty when disabled, got %q", cfg.Roots.ProtectedAppAPIRoot)
+	}
+}
+
+func TestNormalizeConfigPreservesProtectedAppOverridesWhenEnabled(t *testing.T) {
+	cfg := NormalizeConfig(Config{
+		ProtectedAppEnabled: true,
+		Roots: RootsConfig{
+			ProtectedAppRoot:    "/portal",
+			ProtectedAppAPIRoot: "/portal/api",
+		},
+	}, RootDerivationInput{
+		BasePath:            "/admin",
+		ProtectedAppEnabled: true,
+		URLs: URLConfig{
+			Admin: URLNamespaceConfig{APIPrefix: "api"},
+			Public: URLNamespaceConfig{
+				APIPrefix:  "api",
+				APIVersion: "v1",
+			},
+		},
+	})
+
+	if !cfg.ProtectedAppEnabled {
+		t.Fatalf("expected protected app enablement to remain true")
+	}
+	if cfg.Roots.ProtectedAppRoot != "/portal" {
+		t.Fatalf("expected protected app root override /portal, got %q", cfg.Roots.ProtectedAppRoot)
+	}
+	if cfg.Roots.ProtectedAppAPIRoot != "/portal/api" {
+		t.Fatalf("expected protected app api root override /portal/api, got %q", cfg.Roots.ProtectedAppAPIRoot)
 	}
 }
 

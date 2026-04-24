@@ -26,14 +26,14 @@ func TestHostRouterGroupedSurfacesPreserveOwnershipOnFiber(t *testing.T) {
 			PathConflictMode: router.PathConflictModePreferStatic,
 			StrictRoutes:     true,
 		}),
-		[]string{"host", "admin", "static", "site"},
+		[]string{"host", "admin", "protected", "static", "site"},
 	)
 	second, secondRoutes := buildHostRouterTestServer(t,
 		router.NewFiberAdapterWithConfig(router.FiberAdapterConfig{
 			PathConflictMode: router.PathConflictModePreferStatic,
 			StrictRoutes:     true,
 		}),
-		[]string{"site", "static", "admin", "host"},
+		[]string{"site", "static", "protected", "admin", "host"},
 	)
 
 	assertHostRouterServerMatrix(t, first)
@@ -44,8 +44,8 @@ func TestHostRouterGroupedSurfacesPreserveOwnershipOnFiber(t *testing.T) {
 }
 
 func TestHostRouterGroupedSurfacesPreserveOwnershipOnHTTPRouter(t *testing.T) {
-	first, firstRoutes := buildHostRouterTestServer(t, router.NewHTTPServer(), []string{"host", "admin", "static", "site"})
-	second, secondRoutes := buildHostRouterTestServer(t, router.NewHTTPServer(), []string{"site", "static", "admin", "host"})
+	first, firstRoutes := buildHostRouterTestServer(t, router.NewHTTPServer(), []string{"host", "admin", "protected", "static", "site"})
+	second, secondRoutes := buildHostRouterTestServer(t, router.NewHTTPServer(), []string{"site", "static", "protected", "admin", "host"})
 
 	assertHostRouterServerMatrix(t, first)
 	assertHostRouterServerMatrix(t, second)
@@ -78,6 +78,47 @@ func TestHostRouterAdminSurfaceRejectsSiteRouteRegistration(t *testing.T) {
 	}()
 
 	host.Admin().Get("/posts/welcome", jsonRouteHandler("site"))
+}
+
+func TestHostRouterProtectedAppSurfacesRejectWrongDomainRegistration(t *testing.T) {
+	cfg := quickstart.NewAdminConfig("/admin", "Host Router", "en")
+	cfg.Routing.ProtectedAppEnabled = true
+	host := quickstart.NewHostRouter(router.NewHTTPServer().Router(), cfg)
+
+	t.Run("ui rejects api path", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Fatalf("expected protected app UI surface registration to panic for api path")
+			}
+		}()
+		host.ProtectedAppUI().Get("/app/api/me", jsonRouteHandler("protected_app_api"))
+	})
+
+	t.Run("api rejects ui path", func(t *testing.T) {
+		defer func() {
+			if recover() == nil {
+				t.Fatalf("expected protected app API surface registration to panic for ui path")
+			}
+		}()
+		host.ProtectedAppAPI().Get("/app/dashboard", jsonRouteHandler("protected_app_ui"))
+	})
+}
+
+func TestHostRouterIgnoresDisabledProtectedAppRootOverrides(t *testing.T) {
+	cfg := quickstart.NewAdminConfig("/admin", "Host Router", "en")
+	cfg.Routing.Roots.ProtectedAppRoot = "/app"
+	cfg.Routing.Roots.ProtectedAppAPIRoot = "/app/api"
+	host := quickstart.NewHostRouter(router.NewHTTPServer().Router(), cfg)
+
+	host.PublicSite().Get("/app", jsonRouteHandler("site"))
+
+	defer func() {
+		if recover() == nil {
+			t.Fatalf("expected protected app ui surface registration to panic when protected app is disabled")
+		}
+	}()
+
+	host.ProtectedAppUI().Get("/app", jsonRouteHandler("protected_app_ui"))
 }
 
 func TestHostRouterAdminSurfacePreservesWebSocketRegistrationOnFiber(t *testing.T) {
@@ -149,6 +190,7 @@ func buildHostRouterTestServer[T any](t *testing.T, server router.Server[T], ord
 	t.Helper()
 
 	cfg := quickstart.NewAdminConfig("/admin", "Host Router", "en")
+	cfg.Routing.ProtectedAppEnabled = true
 	host := quickstart.NewHostRouter(server.Router(), cfg)
 	adminAPIBasePath := quickstart.ResolveAdminAPIBasePath(nil, cfg, cfg.BasePath)
 
@@ -195,6 +237,10 @@ func buildHostRouterTestServer[T any](t *testing.T, server router.Server[T], ord
 		"admin": func() {
 			host.AdminUI().Get(path.Join(cfg.BasePath, "debug"), jsonRouteHandler("admin_ui"))
 			host.AdminAPI().Get(path.Join(adminAPIBasePath, "debug", "scope"), jsonRouteHandler("admin_api"))
+		},
+		"protected": func() {
+			host.ProtectedAppUI().Get("/app", jsonRouteHandler("protected_app_ui"))
+			host.ProtectedAppAPI().Get("/app/api/me", jsonRouteHandler("protected_app_api"))
 		},
 		"static": func() {
 			host.Static().Static("/static", ".", router.Static{
@@ -245,6 +291,8 @@ func assertHostRouterServerMatrix[T any](t *testing.T, server router.Server[T]) 
 	assertJSONStatus(t, server, http.MethodGet, "/ops/status", http.StatusOK)
 	assertJSONHandler(t, server, http.MethodGet, "/admin/debug", http.StatusOK, "admin_ui")
 	assertJSONHandler(t, server, http.MethodGet, "/admin/api/debug/scope", http.StatusOK, "admin_api")
+	assertJSONHandler(t, server, http.MethodGet, "/app", http.StatusOK, "protected_app_ui")
+	assertJSONHandler(t, server, http.MethodGet, "/app/api/me", http.StatusOK, "protected_app_api")
 	assertTextBody(t, server, http.MethodGet, "/static/logo.svg", http.StatusOK, "<svg>logo</svg>")
 	assertStatusCode(t, server, http.MethodGet, "/admin/reports", http.StatusNotFound)
 	assertStatusCode(t, server, http.MethodGet, "/assets/logo.svg", http.StatusNotFound)

@@ -492,6 +492,161 @@ func TestGoAuthAuthenticatorUsesConfiguredAdminAPIRoot(t *testing.T) {
 	}
 }
 
+func TestProtectedSurfaceAuthenticatorUsesProtectedAppRoots(t *testing.T) {
+	cfg := cookieTestAuthConfig{
+		signingKey: "test-secret",
+		adminCfg: Config{
+			BasePath: "/admin",
+			Routing: routing.Config{
+				ProtectedAppEnabled: true,
+				Roots: routing.RootsConfig{
+					AdminRoot:           "/admin",
+					APIRoot:             "/admin/api",
+					ProtectedAppRoot:    "/app",
+					ProtectedAppAPIRoot: "/app/api",
+				},
+			},
+		},
+	}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	authenticator := NewProtectedSurfaceAuthenticator(routeAuth, cfg, ProtectedSurfaceScopeProtectedApp)
+
+	token, err := auther.TokenService().Generate(provider.identity, nil)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	server.Router().Get("/app/preferences", authenticator.WrapHandler(func(c router.Context) error {
+		csrfToken, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		if strings.TrimSpace(csrfToken) == "" {
+			t.Fatalf("expected csrf token in protected app browser route context")
+		}
+		return c.SendString(csrfToken)
+	}))
+	server.Router().Post("/app/api/preferences", authenticator.WrapHandler(func(c router.Context) error {
+		return c.SendStatus(http.StatusOK)
+	}))
+
+	browserReq := httptest.NewRequest(http.MethodGet, "http://example.com/app/preferences", nil)
+	browserReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	browserRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(browserRes, browserReq)
+	if browserRes.Code != http.StatusOK {
+		t.Fatalf("expected protected app browser route status 200, got %d body=%s", browserRes.Code, browserRes.Body.String())
+	}
+	browserToken := strings.TrimSpace(browserRes.Body.String())
+	if browserToken == "" {
+		t.Fatalf("expected csrf token from protected app browser route")
+	}
+
+	apiReq := httptest.NewRequest(http.MethodPost, "http://example.com/app/api/preferences", strings.NewReader(`{}`))
+	apiReq.Header.Set("Content-Type", "application/json")
+	apiReq.Header.Set("Origin", "http://example.com")
+	apiReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	apiRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(apiRes, apiReq)
+	if apiRes.Code != http.StatusBadRequest {
+		t.Fatalf("expected protected app api route without csrf status 400, got %d body=%s", apiRes.Code, apiRes.Body.String())
+	}
+
+	apiPostReq := httptest.NewRequest(http.MethodPost, "http://example.com/app/api/preferences", strings.NewReader(`{}`))
+	apiPostReq.Header.Set("Content-Type", "application/json")
+	apiPostReq.Header.Set("Origin", "http://example.com")
+	apiPostReq.Header.Set(csrfmw.DefaultHeaderName, browserToken)
+	apiPostReq.AddCookie(&http.Cookie{Name: cfg.GetContextKey(), Value: token})
+	apiPostRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(apiPostRes, apiPostReq)
+	if apiPostRes.Code != http.StatusOK {
+		t.Fatalf("expected protected app api route with csrf status 200, got %d body=%s", apiPostRes.Code, apiPostRes.Body.String())
+	}
+
+	bearerReq := httptest.NewRequest(http.MethodPost, "http://example.com/app/api/preferences", strings.NewReader(`{}`))
+	bearerReq.Header.Set("Content-Type", "application/json")
+	bearerReq.Header.Set("Authorization", "Bearer "+token)
+	bearerRes := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(bearerRes, bearerReq)
+	if bearerRes.Code != http.StatusOK {
+		t.Fatalf("expected protected app bearer api route status 200, got %d body=%s", bearerRes.Code, bearerRes.Body.String())
+	}
+}
+
+func TestProtectedSurfaceAuthenticatorDoesNotInferProtectedAppRootsWhenDisabled(t *testing.T) {
+	cfg := cookieTestAuthConfig{
+		signingKey: "test-secret",
+		adminCfg: Config{
+			BasePath: "/admin",
+			Routing: routing.Config{
+				Roots: routing.RootsConfig{
+					ProtectedAppRoot:    "/app",
+					ProtectedAppAPIRoot: "/app/api",
+				},
+			},
+		},
+	}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	authenticator := NewProtectedSurfaceAuthenticator(routeAuth, cfg, ProtectedSurfaceScopeProtectedApp)
+	if len(authenticator.browserRoots) != 0 {
+		t.Fatalf("expected disabled protected app auth to keep browser roots empty, got %v", authenticator.browserRoots)
+	}
+	if len(authenticator.apiRoots) != 0 {
+		t.Fatalf("expected disabled protected app auth to keep api roots empty, got %v", authenticator.apiRoots)
+	}
+}
+
+func TestGoAuthAuthenticatorMergesPartialProtectedSurfaceRootOverrides(t *testing.T) {
+	cfg := cookieTestAuthConfig{
+		signingKey: "test-secret",
+		adminCfg: Config{
+			BasePath: "/admin",
+			Routing: routing.Config{
+				Roots: routing.RootsConfig{
+					AdminRoot: "/admin",
+					APIRoot:   "/admin/internal/v2",
+				},
+			},
+		},
+	}
+	provider := &stubIdentityProvider{identity: testIdentity{
+		id:       "user-123",
+		username: "user@example.com",
+		email:    "user@example.com",
+		role:     string(auth.RoleAdmin),
+	}}
+	auther := auth.NewAuthenticator(provider, cfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, cfg)
+	if err != nil {
+		t.Fatalf("http authenticator: %v", err)
+	}
+	authenticator := NewGoAuthAuthenticator(routeAuth, cfg, WithProtectedSurfaceRoots([]string{"/console"}, nil))
+	if got := authenticator.browserRoots; len(got) != 1 || got[0] != "/console" {
+		t.Fatalf("expected custom browser roots [/console], got %v", got)
+	}
+	if got := authenticator.apiRoots; len(got) != 1 || got[0] != "/admin/internal/v2" {
+		t.Fatalf("expected partial override to inherit canonical api roots [/admin/internal/v2], got %v", got)
+	}
+}
+
 func TestGoAuthAuthenticatorWrapHandlerRendersBrowserHTML(t *testing.T) {
 	cfg := cookieTestAuthConfig{signingKey: "test-secret"}
 	provider := &stubIdentityProvider{identity: testIdentity{

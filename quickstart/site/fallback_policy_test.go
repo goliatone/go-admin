@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin"
+	"github.com/goliatone/go-admin/admin/routing"
 	router "github.com/goliatone/go-router"
 )
 
@@ -151,5 +152,32 @@ func TestSiteReservedPrefixesAndSearchEndpointFollowAdminConfigRoots(t *testing.
 
 	if got := DefaultSiteSearchEndpointForAdminConfig(cfg); got != "/public/content/v3/site/search" {
 		t.Fatalf("expected config-derived search endpoint, got %q", got)
+	}
+}
+
+func TestSiteReservedPrefixesIncludeProtectedAppRootsOnlyWhenEnabled(t *testing.T) {
+	cfg := admin.Config{
+		BasePath: "/admin",
+		Routing: routing.Config{
+			ProtectedAppEnabled: true,
+			Roots: routing.RootsConfig{
+				ProtectedAppRoot:    "/portal",
+				ProtectedAppAPIRoot: "/portal/api",
+			},
+		},
+	}
+
+	got := SiteReservedPrefixesForAdminConfig(cfg)
+	if !slices.Contains(got, "/portal") {
+		t.Fatalf("expected reserved prefixes to include protected app root, got %v", got)
+	}
+	if !slices.Contains(got, "/portal/api") {
+		t.Fatalf("expected reserved prefixes to include protected app api root, got %v", got)
+	}
+
+	cfg.Routing = routing.Config{}
+	got = SiteReservedPrefixesForAdminConfig(cfg)
+	if slices.Contains(got, "/app") || slices.Contains(got, "/app/api") {
+		t.Fatalf("expected disabled protected app roots to stay unreserved, got %v", got)
 	}
 }

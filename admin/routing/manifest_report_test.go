@@ -259,7 +259,7 @@ func TestFormatStartupReportProducesReadableOutput(t *testing.T) {
 
 	for _, fragment := range []string{
 		"routing report",
-		"roots: admin=/admin api=/admin/api public_api=-",
+		"roots: admin=/admin api=/admin/api public_api=- protected_app=- protected_app_api=-",
 		"modules:",
 		"domains: admin_ui=2 system=1",
 		"translations ui=/admin/translations api=/admin/api/translations",
@@ -278,6 +278,8 @@ func TestRouteDomainsExposeCanonicalVocabulary(t *testing.T) {
 		RouteDomainAdminAPI,
 		RouteDomainAdminUI,
 		RouteDomainInternalOps,
+		RouteDomainProtectedAppAPI,
+		RouteDomainProtectedAppUI,
 		RouteDomainPublicAPI,
 		RouteDomainPublicSite,
 		RouteDomainStatic,
@@ -294,8 +296,14 @@ func TestRouteDomainsExposeCanonicalVocabulary(t *testing.T) {
 	if got := DefaultRouteDomainForSurface(SurfaceUI); got != RouteDomainAdminUI {
 		t.Fatalf("expected ui surface to resolve admin_ui domain, got %q", got)
 	}
+	if got := DefaultRouteDomainForSurface(SurfaceProtectedAppUI); got != RouteDomainProtectedAppUI {
+		t.Fatalf("expected protected app ui surface to resolve protected_app_ui domain, got %q", got)
+	}
 	if got := NormalizeRouteDomain(" API "); got != RouteDomainAdminAPI {
 		t.Fatalf("expected api alias normalization to admin_api, got %q", got)
+	}
+	if got := NormalizeRouteDomain(" protected_app_api "); got != RouteDomainProtectedAppAPI {
+		t.Fatalf("expected protected app api normalization, got %q", got)
 	}
 }
 
