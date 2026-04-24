@@ -1,5 +1,26 @@
 # Changelog
 
+# [0.58.0](https://github.com/goliatone/go-admin/compare/v0.57.0...v0.58.0) - (2026-04-24)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.58.0 ([864288f](https://github.com/goliatone/go-admin/commit/864288f3b8238a3d7f1cf445f1a6dd1e5cc50abf))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Protected app setup ([37f4e89](https://github.com/goliatone/go-admin/commit/37f4e89a9a7f9f7cc97560114d21883a083ea6a3))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.57.0 ([a470001](https://github.com/goliatone/go-admin/commit/a4700016a8d6773fe360c86c7ab8be06ffbe0175))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([412c439](https://github.com/goliatone/go-admin/commit/412c4395b2f7678f6ac9da1b732a397c8ab7c423))  - (goliatone)
+- Update examples ([ac94ad6](https://github.com/goliatone/go-admin/commit/ac94ad6cafe9a232871f761b12bb3cb2032b44f6))  - (goliatone)
+- Update test ([1b9e3c2](https://github.com/goliatone/go-admin/commit/1b9e3c28557acfafe072a266c6fe46caf1f77c87))  - (goliatone)
+- Code quality ([7201b8f](https://github.com/goliatone/go-admin/commit/7201b8f2d703130a497fd063977076ccb20fe021))  - (goliatone)
+
 # [0.57.0](https://github.com/goliatone/go-admin/compare/v0.56.0...v0.57.0) - (2026-04-23)
 
 ## <!-- 13 -->📦 Bumps
@@ -9,7 +30,6 @@
 ## <!-- 3 -->📚 Documentation
 
 - Update changelog for v0.56.0 ([57d760a](https://github.com/goliatone/go-admin/commit/57d760a0de7771496aa39b5a5a46eabf4b5e8421))  - (goliatone)
-- Document protected-app opt-in routing, auth wiring, and quickstart helpers  - (codex)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
@@ -2724,4 +2744,5 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
+
 
