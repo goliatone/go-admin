@@ -183,6 +183,14 @@ func main() {
 	cfg.PreviewSecret = strings.TrimSpace(runtimeConfig.Admin.PreviewSecret)
 	cfg.URLs.Admin.APIVersion = strings.TrimSpace(runtimeConfig.Admin.APIVersion)
 	cfg.URLs.Admin.APIPrefix = strings.TrimSpace(runtimeConfig.Admin.APIPrefix)
+	cfg.Routing.ProtectedAppEnabled = runtimeConfig.ProtectedApp.Enabled
+	if cfg.Routing.ProtectedAppEnabled {
+		cfg.Routing.Roots.ProtectedAppRoot = strings.TrimSpace(runtimeConfig.ProtectedApp.Root)
+		cfg.Routing.Roots.ProtectedAppAPIRoot = strings.TrimSpace(runtimeConfig.ProtectedApp.APIRoot)
+	} else {
+		cfg.Routing.Roots.ProtectedAppRoot = ""
+		cfg.Routing.Roots.ProtectedAppAPIRoot = ""
+	}
 	configDir := filepath.Dir(strings.TrimSpace(runtimeConfig.ConfigPath))
 	cfg.FeatureCatalogPath = resolveFeatureCatalogPath(runtimeConfig.Admin.FeatureCatalogPath, configDir)
 	featureDefaults := map[string]bool{

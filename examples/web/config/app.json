@@ -95,6 +95,11 @@
       "status_path": "/status"
     }
   },
+  "protected_app": {
+    "enabled": false,
+    "root": "",
+    "api_root": ""
+  },
   "features": {
     "persistent_cms": true,
     "go_options": false,

@@ -24,6 +24,7 @@ type Config struct {
 	Server       ServerConfig       `koanf:"server" json:"server" yaml:"server"`
 	Admin        AdminConfig        `koanf:"admin" json:"admin" yaml:"admin"`
 	Site         SiteConfig         `koanf:"site" json:"site" yaml:"site"`
+	ProtectedApp ProtectedAppConfig `koanf:"protected_app" json:"protected_app" yaml:"protected_app"`
 	Features     FeatureConfig      `koanf:"features" json:"features" yaml:"features"`
 	Registration RegistrationConfig `koanf:"registration" json:"registration" yaml:"registration"`
 	Navigation   NavigationConfig   `koanf:"navigation" json:"navigation" yaml:"navigation"`
@@ -142,6 +143,12 @@ type SiteInternalOpsConfig struct {
 	EnableStatus  bool   `koanf:"enable_status" json:"enable_status" yaml:"enable_status"`
 	HealthzPath   string `koanf:"healthz_path" json:"healthz_path" yaml:"healthz_path"`
 	StatusPath    string `koanf:"status_path" json:"status_path" yaml:"status_path"`
+}
+
+type ProtectedAppConfig struct {
+	Enabled bool   `koanf:"enabled" json:"enabled" yaml:"enabled"`
+	Root    string `koanf:"root" json:"root" yaml:"root"`
+	APIRoot string `koanf:"api_root" json:"api_root" yaml:"api_root"`
 }
 
 type FeatureConfig struct {
@@ -361,6 +368,11 @@ func Defaults() *Config {
 				HealthzPath:   quickstart.DefaultInternalOpsHealthzPath,
 				StatusPath:    quickstart.DefaultInternalOpsStatusPath,
 			},
+		},
+		ProtectedApp: ProtectedAppConfig{
+			Enabled: false,
+			Root:    "",
+			APIRoot: "",
 		},
 		Features: FeatureConfig{
 			PersistentCMS:    true,

@@ -76,24 +76,22 @@ func registerDebugCompatibilityRoutes[T any](adminAPI, publicAPI, publicSite rou
 }
 
 func resolveDebugCompatibilityRouteSurface(cfg coreadmin.Config, alias string) string {
-	roots := adminrouting.MergeRoots(
-		adminrouting.DeriveDefaultRoots(adminrouting.RootDerivationInput{
-			BasePath: cfg.BasePath,
-			URLs: adminrouting.URLConfig{
-				Admin: adminrouting.URLNamespaceConfig{
-					BasePath:   cfg.URLs.Admin.BasePath,
-					APIPrefix:  cfg.URLs.Admin.APIPrefix,
-					APIVersion: cfg.URLs.Admin.APIVersion,
-				},
-				Public: adminrouting.URLNamespaceConfig{
-					BasePath:   cfg.URLs.Public.BasePath,
-					APIPrefix:  cfg.URLs.Public.APIPrefix,
-					APIVersion: cfg.URLs.Public.APIVersion,
-				},
+	roots := adminrouting.NormalizeConfig(cfg.Routing, adminrouting.RootDerivationInput{
+		BasePath:            cfg.BasePath,
+		ProtectedAppEnabled: cfg.Routing.ProtectedAppEnabled,
+		URLs: adminrouting.URLConfig{
+			Admin: adminrouting.URLNamespaceConfig{
+				BasePath:   cfg.URLs.Admin.BasePath,
+				APIPrefix:  cfg.URLs.Admin.APIPrefix,
+				APIVersion: cfg.URLs.Admin.APIVersion,
 			},
-		}),
-		adminrouting.NormalizeRoots(cfg.Routing.Roots),
-	)
+			Public: adminrouting.URLNamespaceConfig{
+				BasePath:   cfg.URLs.Public.BasePath,
+				APIPrefix:  cfg.URLs.Public.APIPrefix,
+				APIVersion: cfg.URLs.Public.APIVersion,
+			},
+		},
+	}).Roots
 	switch {
 	case routeMatchesPrefix(alias, roots.PublicAPIRoot):
 		return adminrouting.RouteDomainPublicAPI
