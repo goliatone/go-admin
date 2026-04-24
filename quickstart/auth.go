@@ -16,3 +16,9 @@ func WithGoAuth(adm *admin.Admin, routeAuth *auth.RouteAuthenticator, cfg auth.C
 	adm.WithAuthorizer(authorizer)
 	return authenticator, authorizer
 }
+
+// WithProtectedAppAuth builds a protected-app authenticator using the shared
+// protected-surface auth adapter.
+func WithProtectedAppAuth(routeAuth *auth.RouteAuthenticator, cfg auth.Config, opts ...admin.GoAuthAuthenticatorOption) *admin.GoAuthAuthenticator {
+	return admin.NewProtectedSurfaceAuthenticator(routeAuth, cfg, admin.ProtectedSurfaceScopeProtectedApp, opts...)
+}
