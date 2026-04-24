@@ -131,3 +131,7 @@ func enforceAdminAPIBrowserCSRF(c router.Context, cfg auth.Config) error {
 	}
 	return nil
 }
+
+func enforceProtectedSurfaceAPIBrowserCSRF(c router.Context, cfg auth.Config) error {
+	return enforceAdminAPIBrowserCSRF(c, cfg)
+}

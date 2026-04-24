@@ -36,14 +36,24 @@ type BrowserCSRFProtector interface {
 	EnforceBrowserCSRF(c router.Context) error
 }
 
+type ProtectedSurfaceScope string
+
+const (
+	ProtectedSurfaceScopeAdmin        ProtectedSurfaceScope = "admin"
+	ProtectedSurfaceScopeProtectedApp ProtectedSurfaceScope = "protected_app"
+)
+
 // GoAuthAuthenticator adapts a go-auth RouteAuthenticator to the Authenticator contract.
 type GoAuthAuthenticator struct {
-	middleware        router.MiddlewareFunc
-	requestMiddleware router.MiddlewareFunc
-	routeAuth         *auth.RouteAuthenticator
-	authConfig        auth.Config
-	optionalAuth      bool
-	authErrorHandler  func(router.Context, error) error
+	middleware            router.MiddlewareFunc
+	requestMiddleware     router.MiddlewareFunc
+	routeAuth             *auth.RouteAuthenticator
+	authConfig            auth.Config
+	optionalAuth          bool
+	authErrorHandler      func(router.Context, error) error
+	protectedSurfaceScope ProtectedSurfaceScope
+	browserRoots          []string
+	apiRoots              []string
 }
 
 type resolvedPermissionsCacheContextKey struct{}
@@ -103,38 +113,44 @@ func resolvedPermissionsCacheFromContext(ctx context.Context) *resolvedPermissio
 
 // NewGoAuthAuthenticator builds an Authenticator that executes the protected go-auth middleware.
 func NewGoAuthAuthenticator(routeAuth *auth.RouteAuthenticator, cfg auth.Config, opts ...GoAuthAuthenticatorOption) *GoAuthAuthenticator {
+	return NewProtectedSurfaceAuthenticator(routeAuth, cfg, ProtectedSurfaceScopeAdmin, opts...)
+}
+
+// NewProtectedSurfaceAuthenticator builds an authenticator for a named protected surface.
+func NewProtectedSurfaceAuthenticator(routeAuth *auth.RouteAuthenticator, cfg auth.Config, scope ProtectedSurfaceScope, opts ...GoAuthAuthenticatorOption) *GoAuthAuthenticator {
 	if routeAuth == nil {
 		return nil
 	}
 	authenticator := &GoAuthAuthenticator{
-		routeAuth:  routeAuth,
-		authConfig: cfg,
+		routeAuth:             routeAuth,
+		authConfig:            cfg,
+		protectedSurfaceScope: normalizeProtectedSurfaceScope(scope),
 	}
 	for _, opt := range opts {
 		if opt != nil {
 			opt(authenticator)
 		}
 	}
+	authenticator.browserRoots, authenticator.apiRoots = resolveProtectedSurfaceRoots(authenticator)
 	handler := authenticator.resolveErrorHandler()
-	authenticator.middleware = resolveProtectedRouteMiddleware(routeAuth, cfg, handler)
+	authenticator.middleware = resolveProtectedRouteMiddleware(authenticator, handler)
 	authenticator.requestMiddleware = routeAuth.ProtectedRoute(cfg, authenticator.resolveRequestErrorHandler())
 	return authenticator
 }
 
 func resolveProtectedRouteMiddleware(
-	routeAuth *auth.RouteAuthenticator,
-	cfg auth.Config,
+	authenticator *GoAuthAuthenticator,
 	handler func(router.Context, error) error,
 ) router.MiddlewareFunc {
-	if routeAuth == nil {
+	if authenticator == nil || authenticator.routeAuth == nil {
 		return nil
 	}
-	protectedRoute := routeAuth.ProtectedRoute(cfg, handler)
-	protectedBrowserRoute := resolveProtectedAdminBrowserRouteMiddleware(routeAuth, cfg, handler)
+	protectedRoute := authenticator.routeAuth.ProtectedRoute(authenticator.authConfig, handler)
+	protectedBrowserRoute := resolveProtectedBrowserRouteMiddleware(authenticator.routeAuth, authenticator.authConfig, handler)
 	return func(next router.HandlerFunc) router.HandlerFunc {
 		browserHandler := protectedBrowserRoute(next)
 		routeHandler := protectedRoute(func(c router.Context) error {
-			if err := enforceAdminAPIBrowserCSRF(c, cfg); err != nil {
+			if err := enforceProtectedSurfaceAPIBrowserCSRF(c, authenticator.authConfig); err != nil {
 				if c == nil {
 					return err
 				}
@@ -146,7 +162,7 @@ func resolveProtectedRouteMiddleware(
 			if c != nil {
 				c.SetContext(WithResolvedPermissionsCache(c.Context()))
 			}
-			if isProtectedAdminAPIRequest(c, cfg) {
+			if authenticator.isProtectedAPIRequest(c) {
 				return routeHandler(c)
 			}
 			return browserHandler(c)
@@ -154,27 +170,16 @@ func resolveProtectedRouteMiddleware(
 	}
 }
 
-func isProtectedAdminAPIRequest(c router.Context, cfg auth.Config) bool {
+func (a *GoAuthAuthenticator) isProtectedAPIRequest(c router.Context) bool {
 	if c == nil {
 		return false
 	}
-	return pathHasBase(c.Path(), protectedAdminAPIBasePath(cfg))
-}
-
-func protectedAdminAPIBasePath(cfg auth.Config) string {
-	adminCfg, ok := cfg.(interface{ AdminConfig() Config })
-	if !ok {
-		return defaultProtectedAdminAPIBasePath()
+	for _, root := range a.apiRoots {
+		if pathHasBase(c.Path(), root) {
+			return true
+		}
 	}
-	roots := effectiveRoutingRoots(adminCfg.AdminConfig())
-	if apiRoot := normalizeBasePath(roots.APIRoot); apiRoot != "" {
-		return apiRoot
-	}
-	return defaultProtectedAdminAPIBasePath()
-}
-
-func defaultProtectedAdminAPIBasePath() string {
-	return normalizeBasePath("/admin/" + defaultAPIPrefix)
+	return false
 }
 
 func pathHasBase(path, base string) bool {
@@ -186,7 +191,7 @@ func pathHasBase(path, base string) bool {
 	return path == base || strings.HasPrefix(path, base+"/")
 }
 
-func resolveProtectedAdminBrowserRouteMiddleware(
+func resolveProtectedBrowserRouteMiddleware(
 	routeAuth *auth.RouteAuthenticator,
 	cfg auth.Config,
 	handler func(router.Context, error) error,
@@ -195,6 +200,95 @@ func resolveProtectedAdminBrowserRouteMiddleware(
 		return nil
 	}
 	return routeAuth.ProtectedBrowserRoute(cfg, handler)
+}
+
+func resolveProtectedSurfaceRoots(authenticator *GoAuthAuthenticator) ([]string, []string) {
+	if authenticator == nil {
+		return nil, nil
+	}
+
+	browserRoots := normalizeProtectedSurfaceRootList(authenticator.browserRoots)
+	apiRoots := normalizeProtectedSurfaceRootList(authenticator.apiRoots)
+	roots := defaultProtectedSurfaceRoots(authenticator.authConfig, authenticator.protectedSurfaceScope)
+	if len(browserRoots) == 0 {
+		browserRoots = normalizeProtectedSurfaceRootList(roots.browser)
+	}
+	if len(apiRoots) == 0 {
+		apiRoots = normalizeProtectedSurfaceRootList(roots.api)
+	}
+	return browserRoots, apiRoots
+}
+
+type protectedSurfaceRoots struct {
+	browser []string
+	api     []string
+}
+
+func defaultProtectedSurfaceRoots(cfg auth.Config, scope ProtectedSurfaceScope) protectedSurfaceRoots {
+	scope = normalizeProtectedSurfaceScope(scope)
+	if adminCfg, ok := cfg.(interface{ AdminConfig() Config }); ok {
+		roots := effectiveRoutingRoots(adminCfg.AdminConfig())
+		switch scope {
+		case ProtectedSurfaceScopeProtectedApp:
+			if normalizeBasePath(roots.ProtectedAppRoot) == "" && normalizeBasePath(roots.ProtectedAppAPIRoot) == "" {
+				break
+			}
+			return protectedSurfaceRoots{
+				browser: []string{roots.ProtectedAppRoot},
+				api:     []string{roots.ProtectedAppAPIRoot},
+			}
+		default:
+			if normalizeBasePath(roots.AdminRoot) == "" || normalizeBasePath(roots.APIRoot) == "" {
+				break
+			}
+			return protectedSurfaceRoots{
+				browser: []string{roots.AdminRoot},
+				api:     []string{roots.APIRoot},
+			}
+		}
+	}
+
+	switch scope {
+	case ProtectedSurfaceScopeProtectedApp:
+		return protectedSurfaceRoots{}
+	default:
+		return protectedSurfaceRoots{
+			browser: []string{"/admin"},
+			api:     []string{"/admin/" + defaultAPIPrefix},
+		}
+	}
+}
+
+func normalizeProtectedSurfaceScope(scope ProtectedSurfaceScope) ProtectedSurfaceScope {
+	switch strings.ToLower(strings.TrimSpace(string(scope))) {
+	case string(ProtectedSurfaceScopeProtectedApp):
+		return ProtectedSurfaceScopeProtectedApp
+	default:
+		return ProtectedSurfaceScopeAdmin
+	}
+}
+
+func normalizeProtectedSurfaceRootList(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = normalizeBasePath(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // WrapHandler runs the go-auth middleware around the provided handler.
@@ -326,6 +420,18 @@ func WithAuthErrorHandler(handler func(router.Context, error) error) GoAuthAuthe
 		if g != nil && handler != nil {
 			g.authErrorHandler = handler
 		}
+	}
+}
+
+// WithProtectedSurfaceRoots overrides the browser and API roots used to choose
+// protected-surface browser vs API auth behavior.
+func WithProtectedSurfaceRoots(browserRoots, apiRoots []string) GoAuthAuthenticatorOption {
+	return func(g *GoAuthAuthenticator) {
+		if g == nil {
+			return
+		}
+		g.browserRoots = append([]string{}, browserRoots...)
+		g.apiRoots = append([]string{}, apiRoots...)
 	}
 }
 
