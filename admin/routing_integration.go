@@ -11,7 +11,8 @@ import (
 
 func routingRootDerivationInput(cfg Config) routing.RootDerivationInput {
 	return routing.RootDerivationInput{
-		BasePath: cfg.BasePath,
+		BasePath:            cfg.BasePath,
+		ProtectedAppEnabled: cfg.Routing.ProtectedAppEnabled,
 		URLs: routing.URLConfig{
 			Admin: routing.URLNamespaceConfig{
 				BasePath:   cfg.URLs.Admin.BasePath,
@@ -61,6 +62,8 @@ func (a *Admin) logRoutingStartupReport(stage string, err error) {
 		"admin_root", strings.TrimSpace(report.EffectiveRoots.AdminRoot),
 		"api_root", strings.TrimSpace(report.EffectiveRoots.APIRoot),
 		"public_api_root", strings.TrimSpace(report.EffectiveRoots.PublicAPIRoot),
+		"protected_app_root", strings.TrimSpace(report.EffectiveRoots.ProtectedAppRoot),
+		"protected_app_api_root", strings.TrimSpace(report.EffectiveRoots.ProtectedAppAPIRoot),
 		"summary", map[string]any{
 			"total_routes":    report.RouteSummary.TotalRoutes,
 			"host_routes":     report.RouteSummary.HostRoutes,
