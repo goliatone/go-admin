@@ -9,6 +9,7 @@
 ## <!-- 3 -->📚 Documentation
 
 - Update changelog for v0.56.0 ([57d760a](https://github.com/goliatone/go-admin/commit/57d760a0de7771496aa39b5a5a46eabf4b5e8421))  - (goliatone)
+- Document protected-app opt-in routing, auth wiring, and quickstart helpers  - (codex)
 
 ## <!-- 7 -->⚙️ Miscellaneous Tasks
 
@@ -2723,5 +2724,4 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
 

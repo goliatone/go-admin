@@ -134,6 +134,11 @@ cfg := admin.Config{
 - Mounted modules must implement `admin.RouteContractProvider`.
 - Startup routing validation is strict fail-fast in every environment.
 - Public API mounts are opt-in and only exist when a module declares `PublicAPIRoutes`.
+- Protected-app routing is also opt-in. Hosts must set `Config.Routing.ProtectedAppEnabled=true` before `/app` and `/app/api` roots are reserved.
+- When protected-app routing is enabled and no explicit roots are supplied, the canonical defaults are `/app` for the UI surface and `/app/api` for the protected API surface.
+- Protected-app root overrides are ignored unless protected-app routing is enabled.
+- Host runtime config may source these values from `app.json` or any other config system, but `go-admin` itself only consumes the normalized canonical fields on `Config.Routing`.
+- Quickstart supports both single-process and split-deployment composition with the same surface model: public-site deployments mount only the site surface, protected-app deployments mount `ProtectedAppUI()` and `ProtectedAppAPI()` with protected-app auth, and admin deployments keep the existing admin surfaces and auth wiring.
 
 Operationally, the supported diagnostics are in-process:
 

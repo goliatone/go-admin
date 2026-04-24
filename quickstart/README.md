@@ -102,6 +102,7 @@ auth wiring, password-change gate, and recovery flow.
 - Browser/admin routes rendered through quickstart now carry CSRF helpers automatically. Generated forms should include the hidden `_token` field, and same-origin JavaScript writes should send `X-CSRF-Token` from `meta[name="csrf-token"]`.
 - For cookie-backed browser pages, prefer the package-managed browser protection path instead of a custom CSRF wrapper so origin checks, CSRF header emission, and session-key resolution stay aligned with `go-auth`.
 - `RegisterAuthUIRoutes` applies CSRF middleware to login/logout/password-reset forms. Use `WithAuthUICSRFSecureKey(...)` when you need a stable stateless CSRF signing key across restarts or multi-instance deployments.
+- `WithProtectedAppAuth(routeAuth *auth.RouteAuthenticator, cfg auth.Config, opts ...admin.GoAuthAuthenticatorOption) *admin.GoAuthAuthenticator` - Inputs: shared go-auth route authenticator plus canonical admin config with protected-app roots. Outputs: a protected-app browser/API authenticator that reuses the same actor/session and CSRF model as admin routes.
 - `AttachDebugMiddleware(r router.Router[T], cfg admin.Config, adm *admin.Admin)` - Inputs: router/config/admin; outputs: none (registers debug request capture middleware).
 - `AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin)` - Inputs: config/admin; outputs: none (wires slog debug handler).
 - `ConfigureExportRenderers(bundle *ExportBundle, templatesFS fs.FS, opts ...ExportTemplateOption) error` - Inputs: export bundle + templates FS + options. Outputs: error (registers template/PDF renderers).
@@ -203,6 +204,63 @@ func (*PartnerToolsModule) Register(ctx admin.ModuleContext) error {
 ```
 
 Fiber runtime route options can relax adapter behavior for path matching, but they do not disable `admin/routing` startup validation. Route ownership and path conflicts still fail before router mutation.
+
+## Protected app quickstart
+
+Protected-app support extends the existing host-router surface model instead of introducing a second application container.
+
+- Enable it explicitly with `cfg.Routing.ProtectedAppEnabled = true`.
+- Omit roots to use the canonical defaults `/app` and `/app/api`.
+- Root overrides are only active when `ProtectedAppEnabled` is true; stale `/app` values do not reserve the surface by themselves.
+- Map host runtime config such as `protected_app.enabled`, `protected_app.root`, and `protected_app.api_root` into `cfg.Routing`; quickstart does not read `app.json` directly.
+- Use `host.ProtectedAppUI()` and `host.ProtectedAppAPI()` for explicit route ownership.
+- Use `WithProtectedAppAuth(...)` for browser/API auth semantics on `/app` and `/app/api`.
+- Use `quickstart/protectedapp` helpers for shell registration, bundle mounting, reserved-prefix derivation, and SPA history fallback.
+
+Example:
+
+```go
+cfg := quickstart.NewAdminConfig("/admin", "Admin", "en")
+cfg.Routing.ProtectedAppEnabled = true
+
+host := quickstart.NewHostRouter(server.Router(), cfg)
+
+host.ProtectedAppAPI().Get("/app/api/me", apiHandler)
+
+appAuth := quickstart.WithProtectedAppAuth(routeAuth, authCfg)
+host.ProtectedAppUI().Get("/app/settings", appAuth.WrapHandler(settingsPage))
+
+if err := protectedapp.RegisterShell(host.ProtectedAppUI(), cfg, appAuth.WrapHandler(appShell)); err != nil {
+	panic(err)
+}
+if err := protectedapp.MountBundle(host.Static(), cfg, "/app/assets", "./dist"); err != nil {
+	panic(err)
+}
+if err := protectedapp.RegisterHistoryFallback(
+	host.ProtectedAppUI(),
+	cfg,
+	appAuth.WrapHandler(appShell),
+	"/app/assets",
+	"/admin",
+	"/api",
+	"/static",
+	"/.well-known",
+); err != nil {
+	panic(err)
+}
+```
+
+Notes:
+
+- Existing hosts that do not enable protected-app routing keep their current `/app` behavior unchanged.
+- `WithProtectedSurfaceRoots(...)` inherits canonical roots for the side you do not override, so partial overrides keep browser/API split semantics intact.
+- `protectedapp.RegisterHistoryFallback(...)` is intended for Fiber-backed quickstart hosts. On `httprouter`-backed hosts, use explicit app routes instead of the SPA history-fallback helper.
+- `quickstart.BuildSessionUser(...)` reads the authenticated actor/claims from the same protected-app request context, so app handlers can project session metadata without a second auth adapter.
+
+Split deployment:
+
+- The same primitives work if you split surfaces later. A public-site deployment only mounts `PublicSite()` plus site fallback. A protected-app deployment mounts `ProtectedAppUI()`, `ProtectedAppAPI()`, and `WithProtectedAppAuth(...)`. An admin deployment mounts `AdminUI()`, `AdminAPI()`, and the existing admin auth wiring.
+- Keep the configured roots aligned across deployments. The public site should still reserve the protected-app and admin prefixes, while the protected-app deployment should own its own `/app` and `/app/api` surfaces directly instead of reintroducing a different routing model.
 
 ## Command routing
 Quickstart defaults to inline command execution. To opt into queued execution, configure policy and queue wiring explicitly.
