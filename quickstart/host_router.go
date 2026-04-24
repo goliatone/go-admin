@@ -23,6 +23,8 @@ type HostRouter[T any] interface {
 	InternalOps() router.Router[T]
 	AdminUI() router.Router[T]
 	AdminAPI() router.Router[T]
+	ProtectedAppUI() router.Router[T]
+	ProtectedAppAPI() router.Router[T]
 	PublicAPI() router.Router[T]
 	PublicSite() router.Router[T]
 	Static() router.Router[T]
@@ -36,6 +38,8 @@ type hostRouter[T any] struct {
 	internalOps  *hostSurfaceRouter[T]
 	adminUI      *hostSurfaceRouter[T]
 	adminAPI     *hostSurfaceRouter[T]
+	protectedUI  *hostSurfaceRouter[T]
+	protectedAPI *hostSurfaceRouter[T]
 	publicAPI    *hostSurfaceRouter[T]
 	publicSite   *hostSiteSurfaceRouter[T]
 	static       *hostSurfaceRouter[T]
@@ -79,6 +83,8 @@ func NewHostRouter[T any](r router.Router[T], cfg coreadmin.Config) HostRouter[T
 	host.internalOps = host.newSurface(r.Group(""), nil)
 	host.adminUI = host.newSurface(r.Group(""), host.validateAdminUIRoute)
 	host.adminAPI = host.newSurface(r.Group(""), host.validateAdminAPIRoute)
+	host.protectedUI = host.newSurface(r.Group(""), host.validateProtectedAppUIRoute)
+	host.protectedAPI = host.newSurface(r.Group(""), host.validateProtectedAppAPIRoute)
 	host.publicAPI = host.newSurface(r.Group(""), host.validatePublicAPIRoute)
 	host.publicSite = host.newSiteSurface(r.Group(""), host.validatePublicSiteRoute, host.publicAPI)
 	host.static = host.newSurface(r.Group(""), nil)
@@ -102,6 +108,14 @@ func (h *hostRouter[T]) AdminUI() router.Router[T] {
 
 func (h *hostRouter[T]) AdminAPI() router.Router[T] {
 	return h.adminAPI
+}
+
+func (h *hostRouter[T]) ProtectedAppUI() router.Router[T] {
+	return h.protectedUI
+}
+
+func (h *hostRouter[T]) ProtectedAppAPI() router.Router[T] {
+	return h.protectedAPI
 }
 
 func (h *hostRouter[T]) PublicAPI() router.Router[T] {
@@ -162,6 +176,20 @@ func (h *hostRouter[T]) validatePublicAPIRoute(path string, op hostRouteOperatio
 	panic(fmt.Sprintf("quickstart host router: public API surface cannot register %q", path))
 }
 
+func (h *hostRouter[T]) validateProtectedAppUIRoute(path string, op hostRouteOperation) {
+	if h.classify(path, op) == adminrouting.RouteDomainProtectedAppUI {
+		return
+	}
+	panic(fmt.Sprintf("quickstart host router: protected app UI surface cannot register %q", path))
+}
+
+func (h *hostRouter[T]) validateProtectedAppAPIRoute(path string, op hostRouteOperation) {
+	if h.classify(path, op) == adminrouting.RouteDomainProtectedAppAPI {
+		return
+	}
+	panic(fmt.Sprintf("quickstart host router: protected app API surface cannot register %q", path))
+}
+
 func (h *hostRouter[T]) validatePublicSiteRoute(path string, op hostRouteOperation) {
 	switch h.classify(path, op) {
 	case adminrouting.RouteDomainPublicSite:
@@ -185,8 +213,9 @@ func (h *hostRouter[T]) classify(candidate string, op hostRouteOperation) string
 }
 
 func resolveHostRouterRoots(cfg coreadmin.Config) adminrouting.RootsConfig {
-	defaults := adminrouting.DeriveDefaultRoots(adminrouting.RootDerivationInput{
-		BasePath: cfg.BasePath,
+	return adminrouting.NormalizeConfig(cfg.Routing, adminrouting.RootDerivationInput{
+		BasePath:            cfg.BasePath,
+		ProtectedAppEnabled: cfg.Routing.ProtectedAppEnabled,
 		URLs: adminrouting.URLConfig{
 			Admin: adminrouting.URLNamespaceConfig{
 				BasePath:   cfg.URLs.Admin.BasePath,
@@ -199,8 +228,7 @@ func resolveHostRouterRoots(cfg coreadmin.Config) adminrouting.RootsConfig {
 				APIVersion: cfg.URLs.Public.APIVersion,
 			},
 		},
-	})
-	return adminrouting.MergeRoots(defaults, adminrouting.NormalizeRoots(cfg.Routing.Roots))
+	}).Roots
 }
 
 func resolveHostStaticPrefixes(cfg coreadmin.Config) []string {

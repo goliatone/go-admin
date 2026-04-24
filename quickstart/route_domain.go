@@ -9,19 +9,23 @@ import (
 )
 
 type hostRouteDomainResolver struct {
-	adminRoot      string
-	apiRoot        string
-	publicAPIRoot  string
-	staticPrefixes []string
+	adminRoot           string
+	apiRoot             string
+	protectedAppRoot    string
+	protectedAppAPIRoot string
+	publicAPIRoot       string
+	staticPrefixes      []string
 }
 
 func newHostRouteDomainResolver(cfg coreadmin.Config) hostRouteDomainResolver {
 	roots := resolveHostRouterRoots(cfg)
 	return hostRouteDomainResolver{
-		adminRoot:      roots.AdminRoot,
-		apiRoot:        roots.APIRoot,
-		publicAPIRoot:  roots.PublicAPIRoot,
-		staticPrefixes: resolveHostStaticPrefixes(cfg),
+		adminRoot:           roots.AdminRoot,
+		apiRoot:             roots.APIRoot,
+		protectedAppRoot:    roots.ProtectedAppRoot,
+		protectedAppAPIRoot: roots.ProtectedAppAPIRoot,
+		publicAPIRoot:       roots.PublicAPIRoot,
+		staticPrefixes:      resolveHostStaticPrefixes(cfg),
 	}
 }
 
@@ -38,6 +42,10 @@ func (r hostRouteDomainResolver) classify(candidate string, op hostRouteOperatio
 		return adminrouting.RouteDomainSystem
 	case matchesAnyRoutePrefix(candidate, r.staticPrefixes):
 		return adminrouting.RouteDomainStatic
+	case matchesRoutePrefix(candidate, r.protectedAppAPIRoot):
+		return adminrouting.RouteDomainProtectedAppAPI
+	case matchesRoutePrefix(candidate, r.protectedAppRoot):
+		return adminrouting.RouteDomainProtectedAppUI
 	case matchesRoutePrefix(candidate, r.publicAPIRoot):
 		return adminrouting.RouteDomainPublicAPI
 	case matchesRoutePrefix(candidate, r.apiRoot):

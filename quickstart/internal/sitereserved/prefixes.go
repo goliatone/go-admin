@@ -21,6 +21,8 @@ func ForAdminConfig(cfg admin.Config, input staticprefixes.Input) []string {
 	roots := routingRootsFromAdminConfig(cfg)
 	return normalizePaths(append([]string{
 		roots.AdminRoot,
+		roots.ProtectedAppRoot,
+		roots.ProtectedAppAPIRoot,
 		publicAPIPrefixFromAdminConfig(cfg),
 		roots.PublicAPIRoot,
 		defaultReservedPrefixWellKnown,
@@ -30,8 +32,9 @@ func ForAdminConfig(cfg admin.Config, input staticprefixes.Input) []string {
 }
 
 func routingRootsFromAdminConfig(cfg admin.Config) routing.RootsConfig {
-	defaults := routing.DeriveDefaultRoots(routing.RootDerivationInput{
-		BasePath: cfg.BasePath,
+	return routing.NormalizeConfig(cfg.Routing, routing.RootDerivationInput{
+		BasePath:            cfg.BasePath,
+		ProtectedAppEnabled: cfg.Routing.ProtectedAppEnabled,
 		URLs: routing.URLConfig{
 			Admin: routing.URLNamespaceConfig{
 				BasePath:   cfg.URLs.Admin.BasePath,
@@ -44,8 +47,7 @@ func routingRootsFromAdminConfig(cfg admin.Config) routing.RootsConfig {
 				APIVersion: cfg.URLs.Public.APIVersion,
 			},
 		},
-	})
-	return routing.MergeRoots(defaults, routing.NormalizeRoots(cfg.Routing.Roots))
+	}).Roots
 }
 
 func publicAPIPrefixFromAdminConfig(cfg admin.Config) string {

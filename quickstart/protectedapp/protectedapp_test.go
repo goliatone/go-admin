@@ -168,7 +168,7 @@ func assertTextStatus[T any](t *testing.T, server router.Server[T], method, targ
 func requestJSON[T any](t *testing.T, server router.Server[T], method, target string) (int, map[string]any) {
 	t.Helper()
 	resp := requestHTTP(t, server, method, target)
-	defer resp.Body.Close()
+	defer closeResponseBody(t, method, target, resp.Body)
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode %s %s json: %v", method, target, err)
@@ -179,7 +179,7 @@ func requestJSON[T any](t *testing.T, server router.Server[T], method, target st
 func requestText[T any](t *testing.T, server router.Server[T], method, target string) (int, string) {
 	t.Helper()
 	resp := requestHTTP(t, server, method, target)
-	defer resp.Body.Close()
+	defer closeResponseBody(t, method, target, resp.Body)
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("read %s %s body: %v", method, target, err)
@@ -207,6 +207,13 @@ func requestHTTP[T any](t *testing.T, server router.Server[T], method, target st
 	default:
 		t.Fatalf("wrapped router does not implement a supported http test interface")
 		return nil
+	}
+}
+
+func closeResponseBody(t *testing.T, method, target string, body io.Closer) {
+	t.Helper()
+	if err := body.Close(); err != nil {
+		t.Fatalf("close %s %s body: %v", method, target, err)
 	}
 }
 

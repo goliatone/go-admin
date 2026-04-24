@@ -34,8 +34,9 @@ func DefaultSiteSearchEndpointForAdminConfig(cfg admin.Config) string {
 }
 
 func siteRoutingRootsFromAdminConfig(cfg admin.Config) routing.RootsConfig {
-	defaults := routing.DeriveDefaultRoots(routing.RootDerivationInput{
-		BasePath: cfg.BasePath,
+	return routing.NormalizeConfig(cfg.Routing, routing.RootDerivationInput{
+		BasePath:            cfg.BasePath,
+		ProtectedAppEnabled: cfg.Routing.ProtectedAppEnabled,
 		URLs: routing.URLConfig{
 			Admin: routing.URLNamespaceConfig{
 				BasePath:   cfg.URLs.Admin.BasePath,
@@ -48,6 +49,5 @@ func siteRoutingRootsFromAdminConfig(cfg admin.Config) routing.RootsConfig {
 				APIVersion: cfg.URLs.Public.APIVersion,
 			},
 		},
-	})
-	return routing.MergeRoots(defaults, routing.NormalizeRoots(cfg.Routing.Roots))
+	}).Roots
 }
