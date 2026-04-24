@@ -307,7 +307,7 @@ func missingURLKitRoutes(group *urlkit.Group, cfg urlkit.GroupConfig) map[string
 }
 
 func effectiveRoutingRoots(cfg Config) routing.RootsConfig {
-	return cfg.Routing.Roots
+	return routing.NormalizeConfig(cfg.Routing, routingRootDerivationInput(cfg)).Roots
 }
 
 func rootedRoutes(root string, routes map[string]string) map[string]string {
