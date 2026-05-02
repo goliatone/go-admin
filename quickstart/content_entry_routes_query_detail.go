@@ -83,7 +83,15 @@ func (h *contentEntryHandlers) listForPanel(c router.Context, panelSlug string) 
 	if h.viewContext != nil {
 		viewCtx = h.viewContext(viewCtx, panelName, c)
 	}
-	return h.renderTemplate(c, contentTypeSlug(contentType, panelName), h.listTemplate, viewCtx)
+	templateName := h.listTemplate
+	if slug == "media" {
+		mediaView := normalizeMediaContentEntryView(c.Query("view"))
+		viewCtx = mergeViewContext(viewCtx, mediaContentEntryViewContext(basePath, mediaView))
+		if mediaView == "grid" {
+			templateName = "resources/media/gallery"
+		}
+	}
+	return h.renderTemplate(c, contentTypeSlug(contentType, panelName), templateName, viewCtx)
 }
 
 func (h *contentEntryHandlers) contentEntryListViewContext(params contentEntryListViewParams) router.ViewContext {
@@ -153,6 +161,35 @@ func (h *contentEntryHandlers) contentEntryListCapabilities(params contentEntryL
 			URLState:            h.dataGridURLState,
 		},
 	})
+}
+
+func mediaContentEntryViewContext(basePath string, view string) router.ViewContext {
+	basePath = "/" + strings.Trim(strings.TrimSpace(basePath), "/")
+	if basePath == "/" {
+		basePath = ""
+	}
+	view = normalizeMediaContentEntryView(view)
+	contentMediaPath := path.Join("/", strings.Trim(basePath, "/"), "content", "media")
+	return router.ViewContext{
+		"media_view":               view,
+		"media_gallery_path":       contentMediaPath + "?view=grid",
+		"media_list_path":          contentMediaPath + "?view=list",
+		"media_library_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "library"),
+		"media_item_path":          path.Join("/", strings.Trim(basePath, "/"), "api", "media", "library", ":id"),
+		"media_resolve_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "resolve"),
+		"media_upload_path":        path.Join("/", strings.Trim(basePath, "/"), "api", "media", "upload"),
+		"media_presign_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "presign"),
+		"media_confirm_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "confirm"),
+		"media_capabilities_path":  path.Join("/", strings.Trim(basePath, "/"), "api", "media", "capabilities"),
+		"media_default_value_mode": string(admin.MediaValueModeURL),
+	}
+}
+
+func normalizeMediaContentEntryView(raw string) string {
+	if strings.EqualFold(strings.TrimSpace(raw), "grid") {
+		return "grid"
+	}
+	return "list"
 }
 
 func (h *contentEntryHandlers) withContentEntryBlockIcons(columns []map[string]any, adminCtx admin.AdminContext) []map[string]any {

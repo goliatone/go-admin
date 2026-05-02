@@ -907,6 +907,29 @@ func TestContentEntryCreateRedirectTargetFallsBackToIndexWhenMissingID(t *testin
 	}
 }
 
+func TestMediaContentEntryViewContextUsesSharedMediaEndpoints(t *testing.T) {
+	ctx := mediaContentEntryViewContext("/admin", "grid")
+
+	expected := map[string]string{
+		"media_view":               "grid",
+		"media_gallery_path":       "/admin/content/media?view=grid",
+		"media_list_path":          "/admin/content/media?view=list",
+		"media_library_path":       "/admin/api/media/library",
+		"media_item_path":          "/admin/api/media/library/:id",
+		"media_resolve_path":       "/admin/api/media/resolve",
+		"media_upload_path":        "/admin/api/media/upload",
+		"media_presign_path":       "/admin/api/media/presign",
+		"media_confirm_path":       "/admin/api/media/confirm",
+		"media_capabilities_path":  "/admin/api/media/capabilities",
+		"media_default_value_mode": "url",
+	}
+	for key, want := range expected {
+		if got := anyToString(ctx[key]); got != want {
+			t.Fatalf("expected %s to be %q, got %q", key, want, got)
+		}
+	}
+}
+
 func TestListForPanelInjectsExportConfigForPanelTemplates(t *testing.T) {
 	fixture := newContentEntryAdminFixture(t)
 	cfg := fixture.Config
