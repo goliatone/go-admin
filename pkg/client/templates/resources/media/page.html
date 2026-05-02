@@ -25,9 +25,9 @@
   </div>
 </header>
 
-<div class="flex-1 overflow-hidden p-6 sm:p-8">
+<div class="flex-1 overflow-y-auto p-6 sm:p-8">
   <div
-    class="h-full grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-6"
+    class="grid w-full min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]"
     data-media-page-root
     data-media-view="{{ media_view }}"
     data-media-gallery-path="{{ media_gallery_path }}"
@@ -41,10 +41,10 @@
     data-media-capabilities-path="{{ media_capabilities_path }}"
     data-media-default-value-mode="{{ media_default_value_mode }}"
   >
-    <section class="min-h-0 flex flex-col">
+    <section class="flex w-full min-w-0 flex-col">
       <div class="bg-white border border-gray-200 rounded-2xl p-4 sm:p-5 mb-5">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <label class="relative flex-1">
+        <div class="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center">
+          <label class="relative min-w-0 flex-1">
             <i class="iconoir-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
             <input
               type="search"
@@ -53,8 +53,8 @@
               data-media-search
             >
           </label>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:min-w-[460px]">
-            <select class="rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" data-media-type-filter>
+          <div class="grid w-full min-w-0 grid-cols-1 gap-3 sm:grid-cols-3 lg:w-[460px] lg:shrink">
+            <select class="w-full min-w-0 rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" data-media-type-filter>
               <option value="">All types</option>
               <option value="image">Images</option>
               <option value="video">Video</option>
@@ -64,14 +64,14 @@
               <option value="binary">Binary</option>
               <option value="vector">Vectors</option>
             </select>
-            <select class="rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" data-media-status-filter>
+            <select class="w-full min-w-0 rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" data-media-status-filter>
               <option value="">All statuses</option>
               <option value="ready">Ready</option>
               <option value="processing">Processing</option>
               <option value="uploaded">Uploaded</option>
               <option value="failed">Failed</option>
             </select>
-            <select class="rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" data-media-sort>
+            <select class="w-full min-w-0 rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-gray-900" data-media-sort>
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
               <option value="name">Name</option>
@@ -107,19 +107,19 @@
         </div>
       </div>
 
-      <div class="hidden flex-1 items-center justify-center border border-gray-200 bg-white rounded-2xl" data-media-loading>
+      <div class="hidden min-h-[320px] items-center justify-center border border-gray-200 bg-white rounded-2xl flex" data-media-loading>
         <div class="text-center text-gray-500">
           <div class="w-10 h-10 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin mx-auto mb-3"></div>
           <p class="text-sm">Loading media library…</p>
         </div>
       </div>
 
-      <div class="min-h-0 flex-1 flex flex-col gap-4">
-        <div class="{% if media_view == "list" %}hidden {% endif %}grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 content-start" data-media-grid></div>
+      <div class="flex min-w-0 flex-col gap-4">
+        <div class="{% if media_view == "list" %}hidden {% endif %} grid min-w-0 grid-cols-[repeat(auto-fill,minmax(220px,1fr))] content-start gap-4" data-media-grid></div>
 
-        <div class="{% if media_view != "list" %}hidden {% endif %}min-h-0 bg-white border border-gray-200 rounded-2xl overflow-hidden" data-media-list>
-          <div class="overflow-auto h-full">
-            <table class="w-full text-sm">
+        <div class="{% if media_view != "list" %}hidden {% endif %} min-w-0 bg-white border border-gray-200 rounded-2xl overflow-hidden" data-media-list>
+          <div class="w-full overflow-x-auto">
+            <table class="w-full min-w-[760px] text-sm">
               <thead class="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr>
                   <th class="w-10 px-4 py-3 text-left">
@@ -139,20 +139,20 @@
           </div>
         </div>
 
-        <div class="hidden items-center justify-between text-sm text-gray-500" data-media-footer>
+        <div class="hidden items-center justify-between text-sm text-gray-500 flex" data-media-footer>
           <span data-media-count-label>0 items</span>
           <button type="button" class="btn btn-secondary hidden" data-media-load-more>Load More</button>
         </div>
       </div>
     </section>
 
-    <aside class="bg-white border border-gray-200 rounded-2xl overflow-hidden min-h-0 flex flex-col" data-media-detail-shell>
+    <aside class="flex w-full min-w-0 flex-col self-start overflow-hidden rounded-2xl border border-gray-200 bg-white" data-media-detail-shell>
       <div class="px-5 py-4 border-b border-gray-200">
         <h2 class="text-lg font-semibold text-gray-900">Details</h2>
         <p class="text-sm text-gray-500 mt-1">Select an item to inspect metadata and edit operator fields.</p>
       </div>
 
-      <div class="flex-1 overflow-auto" data-media-detail-empty>
+      <div data-media-detail-empty>
         <div class="p-8 text-center text-gray-500">
           <div class="w-14 h-14 rounded-2xl bg-gray-100 text-gray-500 flex items-center justify-center mx-auto mb-4">
             <i class="iconoir-cursor-pointer text-2xl"></i>
@@ -161,7 +161,7 @@
         </div>
       </div>
 
-      <div class="hidden flex-1 overflow-auto" data-media-detail>
+      <div class="hidden" data-media-detail>
         <div class="p-5 border-b border-gray-200">
           <div class="aspect-[4/3] rounded-2xl bg-gray-100 border border-gray-200 overflow-hidden flex items-center justify-center" data-media-detail-preview></div>
         </div>

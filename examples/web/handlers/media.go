@@ -4,6 +4,7 @@ import (
 	"context"
 	"maps"
 	"path"
+	"strings"
 
 	"github.com/goliatone/go-admin/examples/web/helpers"
 	"github.com/goliatone/go-admin/examples/web/setup"
@@ -29,6 +30,7 @@ func (h *MediaHandlers) List(c router.Context) error {
 	if err := guardResource(c, "admin.media", "read"); err != nil {
 		return err
 	}
+	view := normalizeMediaViewQuery(c.Query("view"))
 	ctx := c.Context()
 	items, total, err := h.Store.List(ctx, admin.ListOptions{})
 	if err != nil {
@@ -51,8 +53,41 @@ func (h *MediaHandlers) List(c router.Context) error {
 		"total":          total,
 		"export_config":  helpers.BuildExportConfig(h.Config, "media", ""),
 	}, h.Admin, h.Config, setup.NavigationSectionContent+".media", c.Context(), c)
+	maps.Copy(viewCtx, mediaPageEndpointContext(h.Config, view))
 	viewCtx = helpers.WithTheme(viewCtx, h.Admin, c)
+	if view == "grid" {
+		return helpers.RenderTemplateView(c, "resources/media/gallery", viewCtx)
+	}
 	return helpers.RenderTemplateView(c, "resources/media/list", viewCtx)
+}
+
+func mediaPageEndpointContext(cfg admin.Config, view string) router.ViewContext {
+	basePath := "/" + strings.Trim(strings.TrimSpace(cfg.BasePath), "/")
+	if basePath == "/" {
+		basePath = ""
+	}
+	view = normalizeMediaViewQuery(view)
+	contentMediaPath := path.Join("/", strings.Trim(basePath, "/"), "content", "media")
+	return router.ViewContext{
+		"media_view":               view,
+		"media_gallery_path":       contentMediaPath + "?view=grid",
+		"media_list_path":          contentMediaPath + "?view=list",
+		"media_library_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "library"),
+		"media_item_path":          path.Join("/", strings.Trim(basePath, "/"), "api", "media", "library", ":id"),
+		"media_resolve_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "resolve"),
+		"media_upload_path":        path.Join("/", strings.Trim(basePath, "/"), "api", "media", "upload"),
+		"media_presign_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "presign"),
+		"media_confirm_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "confirm"),
+		"media_capabilities_path":  path.Join("/", strings.Trim(basePath, "/"), "api", "media", "capabilities"),
+		"media_default_value_mode": "url",
+	}
+}
+
+func normalizeMediaViewQuery(raw string) string {
+	if strings.EqualFold(strings.TrimSpace(raw), "grid") {
+		return "grid"
+	}
+	return "list"
 }
 
 func (h *MediaHandlers) New(c router.Context) error {
