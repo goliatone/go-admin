@@ -1,5 +1,24 @@
 # Changelog
 
+# [0.59.0](https://github.com/goliatone/go-admin/compare/v0.58.0...v0.59.0) - (2026-05-03)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.59.0 ([d4c4664](https://github.com/goliatone/go-admin/commit/d4c4664b3991f3792df9e4ed7852332e97c7338f))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Quickstart content ([288d222](https://github.com/goliatone/go-admin/commit/288d222d9501b585ceb21ad08eef359177f43530))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.58.0 ([b93d7e6](https://github.com/goliatone/go-admin/commit/b93d7e6a3ab0754df1c93d13cbd3d93894d1114e))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([c71561f](https://github.com/goliatone/go-admin/commit/c71561fc9b01d1b62de7145d3977c3d5611ef5d9))  - (goliatone)
+- Update tests ([fc3605f](https://github.com/goliatone/go-admin/commit/fc3605fb6a6d281d8d2c191ffa1eeb40d3d316ed))  - (goliatone)
+
 # [0.58.0](https://github.com/goliatone/go-admin/compare/v0.57.0...v0.58.0) - (2026-04-24)
 
 ## <!-- 13 -->📦 Bumps
