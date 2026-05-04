@@ -1,6 +1,7 @@
 package client
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -135,6 +136,24 @@ func TestMediaPageTemplatePreservesRuntimeMarkers(t *testing.T) {
 		"data-media-delete",
 		"data-media-detail-error",
 		"data-media-detail-feedback",
+	)
+}
+
+func TestMediaPageScriptBindsPageLevelControls(t *testing.T) {
+	source, err := os.ReadFile("assets/src/media/index.ts")
+	if err != nil {
+		t.Fatalf("read media source: %v", err)
+	}
+	script := string(source)
+
+	mediaRequireFragments(t, script,
+		"import { appendCSRFHeader } from '../shared/transport/http-client';",
+		"function byMediaPage",
+		"appendCSRFHeader(url, options, headers);",
+		"uploadInput: byMediaPage<HTMLInputElement>(root, '[data-media-upload-input]')",
+		"uploadTrigger: byMediaPage<HTMLButtonElement>(root, '[data-media-upload-trigger]')",
+		"selectionBar: byMediaPage(root, '[data-media-selection-bar]')",
+		"bulkDelete: byMediaPage<HTMLButtonElement>(root, '[data-media-bulk-delete]')",
 	)
 }
 

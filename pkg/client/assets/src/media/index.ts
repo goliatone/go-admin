@@ -1,3 +1,5 @@
+import { appendCSRFHeader } from '../shared/transport/http-client';
+
 type RecordValue = Record<string, unknown>;
 
 type MediaItem = {
@@ -154,6 +156,10 @@ function byData<T extends Element = Element>(root: ParentNode, selector: string)
   return node instanceof Element ? (node as T) : null;
 }
 
+function byMediaPage<T extends Element = Element>(root: HTMLElement, selector: string): T | null {
+  return byData<T>(root, selector) ?? byData<T>(root.ownerDocument, selector);
+}
+
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -299,13 +305,17 @@ function itemPath(template: string, id: string): string {
 }
 
 async function fetchJSON(url: string, init?: RequestInit): Promise<unknown> {
+  const options = init ?? {};
+  const headers = new Headers(options.headers ?? {});
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json');
+  }
+  appendCSRFHeader(url, options, headers);
+
   const response = await fetch(url, {
+    ...options,
     credentials: 'same-origin',
-    headers: {
-      Accept: 'application/json',
-      ...(init?.headers ?? {}),
-    },
-    ...init,
+    headers,
   });
   const contentType = String(response.headers.get('content-type') || '').toLowerCase();
   const expectsJSON = contentType.includes('application/json') || contentType.includes('+json');
@@ -473,14 +483,14 @@ function collectElements(root: HTMLElement): MediaPageElements {
     loading: byData(root, '[data-media-loading]'),
     error: byData(root, '[data-media-error]'),
     status: byData(root, '[data-media-status]'),
-    uploadInput: byData<HTMLInputElement>(root, '[data-media-upload-input]'),
-    uploadTrigger: byData<HTMLButtonElement>(root, '[data-media-upload-trigger]'),
+    uploadInput: byMediaPage<HTMLInputElement>(root, '[data-media-upload-input]'),
+    uploadTrigger: byMediaPage<HTMLButtonElement>(root, '[data-media-upload-trigger]'),
     uploadEmpty: byData<HTMLButtonElement>(root, '[data-media-upload-empty]'),
     selectAll: byData<HTMLInputElement>(root, '[data-media-select-all]'),
-    selectionBar: byData(root, '[data-media-selection-bar]'),
-    selectionCount: byData(root, '[data-media-selected-count]'),
-    clearSelection: byData<HTMLButtonElement>(root, '[data-media-clear-selection]'),
-    bulkDelete: byData<HTMLButtonElement>(root, '[data-media-bulk-delete]'),
+    selectionBar: byMediaPage(root, '[data-media-selection-bar]'),
+    selectionCount: byMediaPage(root, '[data-media-selected-count]'),
+    clearSelection: byMediaPage<HTMLButtonElement>(root, '[data-media-clear-selection]'),
+    bulkDelete: byMediaPage<HTMLButtonElement>(root, '[data-media-bulk-delete]'),
     detailEmpty: byData(root, '[data-media-detail-empty]'),
     detail: byData(root, '[data-media-detail]'),
     detailPreview: byData(root, '[data-media-detail-preview]'),

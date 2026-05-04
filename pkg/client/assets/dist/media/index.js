@@ -1,10 +1,11 @@
-var ae = 24, ie = 50;
-function R(t, e) {
-  const d = Math.max(0, e.attempted), s = Math.max(0, e.succeeded), p = Math.max(0, e.failed), h = e.failures.map((b) => c(b)).filter(Boolean).join(" ");
-  return d === 0 || s === 0 && p === 0 ? {
+import { appendCSRFHeader as ie } from "../shared/transport/http-client.js";
+var ne = 24, de = 50;
+function O(t, e) {
+  const d = Math.max(0, e.attempted), s = Math.max(0, e.succeeded), f = Math.max(0, e.failed), y = e.failures.map((b) => c(b)).filter(Boolean).join(" ");
+  return d === 0 || s === 0 && f === 0 ? {
     status: "",
-    error: h
-  } : p === 0 ? t === "upload" ? {
+    error: y
+  } : f === 0 ? t === "upload" ? {
     status: s === 1 ? "Upload complete." : `${s} uploads completed.`,
     error: ""
   } : {
@@ -12,19 +13,19 @@ function R(t, e) {
     error: ""
   } : s === 0 ? {
     status: "",
-    error: h
+    error: y
   } : t === "upload" ? {
     status: `${s} of ${d} uploads completed.`,
-    error: h
+    error: y
   } : {
     status: `${s} of ${d} media items deleted.`,
-    error: h
+    error: y
   };
 }
 function E(t) {
   return typeof t == "object" && t !== null && !Array.isArray(t);
 }
-function ne(t) {
+function re(t) {
   const e = globalThis.HTMLElement;
   return typeof e < "u" && t instanceof e;
 }
@@ -32,10 +33,13 @@ function r(t, e) {
   const d = t.querySelector(e);
   return d instanceof Element ? d : null;
 }
+function T(t, e) {
+  return r(t, e) ?? r(t.ownerDocument, e);
+}
 function c(t) {
   return typeof t == "string" ? t.trim() : "";
 }
-function q(t) {
+function W(t) {
   if (typeof t == "number" && Number.isFinite(t)) return t;
   if (typeof t == "string") {
     const e = Number.parseFloat(t.trim());
@@ -43,29 +47,29 @@ function q(t) {
   }
   return 0;
 }
-function W(t) {
+function J(t) {
   return Array.isArray(t) ? t.map((e) => c(e)).filter(Boolean) : typeof t == "string" ? t.split(",").map((e) => e.trim()).filter(Boolean) : [];
 }
-function de(t) {
+function se(t) {
   return E(t) ? { ...t } : {};
 }
-function O(t) {
-  const e = E(t) ? t : {}, d = de(e.metadata);
+function H(t) {
+  const e = E(t) ? t : {}, d = se(e.metadata);
   return {
     id: c(e.id),
     name: c(e.name) || c(e.filename) || "Untitled asset",
     url: c(e.url),
     thumbnail: c(e.thumbnail) || c(e.thumbnail_url) || c(e.url),
-    type: c(e.type) || re(c(e.mime_type)),
+    type: c(e.type) || le(c(e.mime_type)),
     mimeType: c(e.mime_type),
-    size: q(e.size),
+    size: W(e.size),
     status: c(e.status),
     workflowStatus: c(e.workflow_status),
     createdAt: c(e.created_at),
     metadata: d
   };
 }
-function re(t) {
+function le(t) {
   const e = t.toLowerCase();
   return e.startsWith("image/") ? "image" : e.startsWith("video/") ? "video" : e.startsWith("audio/") ? "audio" : e.includes("pdf") || e.includes("document") || e.includes("text/") ? "document" : "";
 }
@@ -83,7 +87,7 @@ function U(t) {
     d /= 1024, s += 1;
   return `${d.toFixed(s === 0 ? 0 : 1)} ${e[s]}`;
 }
-function A(t) {
+function B(t) {
   if (!t) return "Unknown";
   const e = new Date(t);
   return Number.isNaN(e.getTime()) ? t : e.toLocaleDateString(void 0, {
@@ -95,7 +99,7 @@ function A(t) {
 function v(t) {
   return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-function se(t) {
+function oe(t) {
   switch (t) {
     case "image":
     case "vector":
@@ -111,7 +115,7 @@ function se(t) {
       return "iconoir-attachment";
   }
 }
-function J(t) {
+function V(t) {
   switch (t) {
     case "ready":
       return "bg-emerald-100 text-emerald-700";
@@ -125,29 +129,28 @@ function J(t) {
       return "bg-gray-100 text-gray-600";
   }
 }
-function H(t, e) {
+function q(t, e) {
   return t.replace(":id", encodeURIComponent(e));
 }
 async function I(t, e) {
-  const d = await fetch(t, {
+  const d = e ?? {}, s = new Headers(d.headers ?? {});
+  s.has("Accept") || s.set("Accept", "application/json"), ie(t, d, s);
+  const f = await fetch(t, {
+    ...d,
     credentials: "same-origin",
-    headers: {
-      Accept: "application/json",
-      ...e?.headers ?? {}
-    },
-    ...e
-  }), s = String(d.headers.get("content-type") || "").toLowerCase(), p = s.includes("application/json") || s.includes("+json") ? await d.json().catch(() => null) : await d.text().catch(() => "");
-  if (!d.ok) throw new Error(P(p) || `Request failed (${d.status})`);
-  return p;
+    headers: s
+  }), y = String(f.headers.get("content-type") || "").toLowerCase(), b = y.includes("application/json") || y.includes("+json") ? await f.json().catch(() => null) : await f.text().catch(() => "");
+  if (!f.ok) throw new Error(A(b) || `Request failed (${f.status})`);
+  return b;
 }
-function P(t) {
+function A(t) {
   if (typeof t == "string") {
     const e = t.trim();
     return e.startsWith("<!doctype") || e.startsWith("<html") ? "" : e;
   }
   if (Array.isArray(t)) {
     for (const e of t) {
-      const d = P(e);
+      const d = A(e);
       if (d) return d;
     }
     return "";
@@ -159,22 +162,22 @@ function P(t) {
     "detail",
     "reason"
   ]) {
-    const d = P(t[e]);
+    const d = A(t[e]);
     if (d) return d;
   }
   return "";
 }
-function B(t, e) {
-  const d = document.createElement("div"), s = t.type === "image" || t.type === "vector", p = t.thumbnail || t.url;
-  if (s && p) {
+function N(t, e) {
+  const d = document.createElement("div"), s = t.type === "image" || t.type === "vector", f = t.thumbnail || t.url;
+  if (s && f) {
     const b = document.createElement("img");
-    return b.src = p, b.alt = t.name, b.loading = "lazy", b.className = e === "detail" ? "w-full h-full object-contain" : e === "list" ? "w-12 h-12 rounded-xl object-cover" : "w-full h-full object-cover", d.appendChild(b), d;
+    return b.src = f, b.alt = t.name, b.loading = "lazy", b.className = e === "detail" ? "w-full h-full object-contain" : e === "list" ? "w-12 h-12 rounded-xl object-cover" : "w-full h-full object-cover", d.appendChild(b), d;
   }
   d.className = e === "list" ? "w-12 h-12 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500" : "w-full h-full bg-gray-100 flex items-center justify-center text-gray-500";
-  const h = document.createElement("i");
-  return h.className = `${se(t.type)} ${e === "detail" ? "text-5xl" : "text-2xl"}`, d.appendChild(h), d;
+  const y = document.createElement("i");
+  return y.className = `${oe(t.type)} ${e === "detail" ? "text-5xl" : "text-2xl"}`, d.appendChild(y), d;
 }
-function le(t, e, d) {
+function ce(t, e, d) {
   const s = document.createElement("button");
   s.type = "button", s.dataset.mediaItem = t.id, s.className = [
     "group",
@@ -187,23 +190,23 @@ function le(t, e, d) {
     "transition",
     d ? "border-gray-900 ring-1 ring-gray-900" : "border-gray-200 hover:border-gray-300 hover:shadow-md"
   ].join(" ");
-  const p = document.createElement("div");
-  p.className = "relative aspect-[4/3] bg-gray-100 overflow-hidden", p.appendChild(B(t, "card"));
-  const h = document.createElement("input");
-  h.type = "checkbox", h.checked = e, h.dataset.mediaSelect = t.id, h.className = "absolute top-3 left-3 rounded border-gray-300 text-gray-900 focus:ring-gray-900", p.appendChild(h);
+  const f = document.createElement("div");
+  f.className = "relative aspect-[4/3] bg-gray-100 overflow-hidden", f.appendChild(N(t, "card"));
+  const y = document.createElement("input");
+  y.type = "checkbox", y.checked = e, y.dataset.mediaSelect = t.id, y.className = "absolute top-3 left-3 rounded border-gray-300 text-gray-900 focus:ring-gray-900", f.appendChild(y);
   const b = document.createElement("span");
-  b.className = `absolute top-3 right-3 inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${J(t.workflowStatus || t.status)}`, b.textContent = t.workflowStatus || t.status || "unknown", p.appendChild(b);
+  b.className = `absolute top-3 right-3 inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${V(t.workflowStatus || t.status)}`, b.textContent = t.workflowStatus || t.status || "unknown", f.appendChild(b);
   const k = document.createElement("div");
   return k.className = "p-4", k.innerHTML = `
     <div class="font-medium text-gray-900 truncate">${v(t.name)}</div>
     <div class="mt-1 text-sm text-gray-500">${v(t.type || "asset")}</div>
     <div class="mt-3 flex items-center justify-between text-xs text-gray-500">
       <span>${v(U(t.size))}</span>
-      <span>${v(A(t.createdAt))}</span>
+      <span>${v(B(t.createdAt))}</span>
     </div>
-  `, s.appendChild(p), s.appendChild(k), s;
+  `, s.appendChild(f), s.appendChild(k), s;
 }
-function oe(t, e, d) {
+function ue(t, e, d) {
   const s = document.createElement("tr");
   s.dataset.mediaItem = t.id, s.className = d ? "bg-gray-50" : "", s.innerHTML = `
     <td class="px-4 py-3">
@@ -216,20 +219,20 @@ function oe(t, e, d) {
     </td>
     <td class="px-4 py-3 hidden md:table-cell">${v(t.type || "asset")}</td>
     <td class="px-4 py-3 hidden md:table-cell">
-      <span class="inline-flex rounded-full px-2 py-1 text-xs font-medium ${J(t.workflowStatus || t.status)}">
+      <span class="inline-flex rounded-full px-2 py-1 text-xs font-medium ${V(t.workflowStatus || t.status)}">
         ${v(t.workflowStatus || t.status || "unknown")}
       </span>
     </td>
     <td class="px-4 py-3 hidden lg:table-cell">${v(U(t.size))}</td>
-    <td class="px-4 py-3 hidden lg:table-cell">${v(A(t.createdAt))}</td>
+    <td class="px-4 py-3 hidden lg:table-cell">${v(B(t.createdAt))}</td>
     <td class="px-4 py-3 text-right">
       <button type="button" class="text-sm font-medium text-gray-700 hover:text-gray-900" data-media-open="${v(t.id)}">Inspect</button>
     </td>
   `;
-  const p = r(s, "[data-media-preview-cell]");
-  return p && p.appendChild(B(t, "list")), s;
+  const f = r(s, "[data-media-preview-cell]");
+  return f && f.appendChild(N(t, "list")), s;
 }
-function ce(t) {
+function me(t) {
   return {
     root: t,
     search: r(t, "[data-media-search]"),
@@ -247,14 +250,14 @@ function ce(t) {
     loading: r(t, "[data-media-loading]"),
     error: r(t, "[data-media-error]"),
     status: r(t, "[data-media-status]"),
-    uploadInput: r(t, "[data-media-upload-input]"),
-    uploadTrigger: r(t, "[data-media-upload-trigger]"),
+    uploadInput: T(t, "[data-media-upload-input]"),
+    uploadTrigger: T(t, "[data-media-upload-trigger]"),
     uploadEmpty: r(t, "[data-media-upload-empty]"),
     selectAll: r(t, "[data-media-select-all]"),
-    selectionBar: r(t, "[data-media-selection-bar]"),
-    selectionCount: r(t, "[data-media-selected-count]"),
-    clearSelection: r(t, "[data-media-clear-selection]"),
-    bulkDelete: r(t, "[data-media-bulk-delete]"),
+    selectionBar: T(t, "[data-media-selection-bar]"),
+    selectionCount: T(t, "[data-media-selected-count]"),
+    clearSelection: T(t, "[data-media-clear-selection]"),
+    bulkDelete: T(t, "[data-media-bulk-delete]"),
     detailEmpty: r(t, "[data-media-detail-empty]"),
     detail: r(t, "[data-media-detail]"),
     detailPreview: r(t, "[data-media-detail-preview]"),
@@ -275,7 +278,7 @@ function ce(t) {
     detailDelete: r(t, "[data-media-delete]")
   };
 }
-function ue(t, e) {
+function fe(t, e) {
   let d = 0;
   return ((...s) => {
     globalThis.clearTimeout(d), d = globalThis.setTimeout(() => t(...s), e);
@@ -293,11 +296,11 @@ function u(t, e) {
 function x(t, e, d = "hidden") {
   t && (e ? t.classList.remove(d) : t.classList.add(d));
 }
-function me(t) {
-  return W(t.tags).join(", ");
+function pe(t) {
+  return J(t.tags).join(", ");
 }
-async function fe(t) {
-  const e = ce(t), d = c(t.dataset.mediaView) === "list" ? "list" : "grid", s = c(t.dataset.mediaLibraryPath), p = c(t.dataset.mediaItemPath), h = c(t.dataset.mediaUploadPath), b = c(t.dataset.mediaPresignPath), k = c(t.dataset.mediaConfirmPath), N = c(t.dataset.mediaCapabilitiesPath), i = {
+async function ge(t) {
+  const e = me(t), d = c(t.dataset.mediaView) === "list" ? "list" : "grid", s = c(t.dataset.mediaLibraryPath), f = c(t.dataset.mediaItemPath), y = c(t.dataset.mediaUploadPath), b = c(t.dataset.mediaPresignPath), k = c(t.dataset.mediaConfirmPath), _ = c(t.dataset.mediaCapabilitiesPath), i = {
     items: [],
     total: 0,
     selectedIDs: /* @__PURE__ */ new Set(),
@@ -305,47 +308,47 @@ async function fe(t) {
     loading: !1,
     capabilities: null
   };
-  function F() {
+  function M() {
     return i.activeID ? i.items.find((a) => a.id === i.activeID) ?? null : null;
   }
-  function M() {
+  function P() {
     return !!(i.capabilities?.operations?.upload || i.capabilities?.operations?.presign || i.capabilities?.upload?.direct_upload || i.capabilities?.upload?.presign);
   }
-  function _() {
+  function z() {
     return !!i.capabilities?.operations?.update;
   }
-  function C() {
+  function S() {
     return !!i.capabilities?.operations?.delete;
   }
-  function S() {
-    const a = F();
+  function $() {
+    const a = M();
     if (x(e.detailEmpty, !a), x(e.detail, !!a), !a) {
       u(e.detailError, ""), u(e.detailFeedback, "");
       return;
     }
-    e.detailPreview && e.detailPreview.replaceChildren(B(a, "detail")), e.detailName && (e.detailName.textContent = a.name), e.detailURL && (e.detailURL.textContent = a.url), e.detailType && (e.detailType.textContent = a.type || a.mimeType || "asset"), e.detailStatus && (e.detailStatus.textContent = a.workflowStatus || a.status || "unknown"), e.detailSize && (e.detailSize.textContent = U(a.size)), e.detailDate && (e.detailDate.textContent = A(a.createdAt)), e.detailAltText && (e.detailAltText.value = c(a.metadata.alt_text)), e.detailCaption && (e.detailCaption.value = c(a.metadata.caption)), e.detailTags && (e.detailTags.value = me(a.metadata)), e.detailSaveButton && (e.detailSaveButton.disabled = !_()), e.detailDelete && (e.detailDelete.disabled = !C());
+    e.detailPreview && e.detailPreview.replaceChildren(N(a, "detail")), e.detailName && (e.detailName.textContent = a.name), e.detailURL && (e.detailURL.textContent = a.url), e.detailType && (e.detailType.textContent = a.type || a.mimeType || "asset"), e.detailStatus && (e.detailStatus.textContent = a.workflowStatus || a.status || "unknown"), e.detailSize && (e.detailSize.textContent = U(a.size)), e.detailDate && (e.detailDate.textContent = B(a.createdAt)), e.detailAltText && (e.detailAltText.value = c(a.metadata.alt_text)), e.detailCaption && (e.detailCaption.value = c(a.metadata.caption)), e.detailTags && (e.detailTags.value = pe(a.metadata)), e.detailSaveButton && (e.detailSaveButton.disabled = !z()), e.detailDelete && (e.detailDelete.disabled = !S());
   }
   function L() {
     const a = i.selectedIDs.size;
-    e.selectionCount && (e.selectionCount.textContent = String(a)), x(e.selectionBar, a > 0), e.bulkDelete && (e.bulkDelete.disabled = !C() || a === 0);
+    e.selectionCount && (e.selectionCount.textContent = String(a)), x(e.selectionBar, a > 0), e.bulkDelete && (e.bulkDelete.disabled = !S() || a === 0);
   }
   function w() {
     if (e.grid && (e.grid.replaceChildren(), d === "grid"))
       for (const a of i.items) {
-        const n = le(a, i.selectedIDs.has(a.id), i.activeID === a.id), m = r(n, `[data-media-select="${a.id}"]`);
+        const n = ce(a, i.selectedIDs.has(a.id), i.activeID === a.id), m = r(n, `[data-media-select="${a.id}"]`);
         m?.addEventListener("click", (o) => {
           o.stopPropagation();
         }), m?.addEventListener("change", () => {
           m.checked ? i.selectedIDs.add(a.id) : i.selectedIDs.delete(a.id), L(), w();
         }), n.addEventListener("click", () => {
-          i.activeID = a.id, S(), w();
+          i.activeID = a.id, $(), w();
         }), e.grid.appendChild(n);
       }
     if (e.listBody && (e.listBody.replaceChildren(), d === "list"))
       for (const a of i.items) {
-        const n = oe(a, i.selectedIDs.has(a.id), i.activeID === a.id);
+        const n = ue(a, i.selectedIDs.has(a.id), i.activeID === a.id);
         n.addEventListener("click", () => {
-          i.activeID = a.id, S(), w();
+          i.activeID = a.id, $(), w();
         });
         const m = r(n, `[data-media-select="${a.id}"]`);
         m?.addEventListener("click", (o) => {
@@ -353,27 +356,27 @@ async function fe(t) {
         }), m?.addEventListener("change", () => {
           m.checked ? i.selectedIDs.add(a.id) : i.selectedIDs.delete(a.id), L(), w();
         }), r(n, `[data-media-open="${a.id}"]`)?.addEventListener("click", (o) => {
-          o.stopPropagation(), i.activeID = a.id, S(), w();
+          o.stopPropagation(), i.activeID = a.id, $(), w();
         }), e.listBody.appendChild(n);
       }
-    e.countLabel && (e.countLabel.textContent = `${i.items.length} of ${i.total || i.items.length} items`), e.selectAll && (e.selectAll.checked = i.items.length > 0 && i.items.every((a) => i.selectedIDs.has(a.id))), x(e.footer, i.items.length > 0), x(e.loadMore, i.items.length > 0 && i.items.length < i.total), L(), S();
+    e.countLabel && (e.countLabel.textContent = `${i.items.length} of ${i.total || i.items.length} items`), e.selectAll && (e.selectAll.checked = i.items.length > 0 && i.items.every((a) => i.selectedIDs.has(a.id))), x(e.footer, i.items.length > 0), x(e.loadMore, i.items.length > 0 && i.items.length < i.total), L(), $();
   }
-  function $() {
+  function F() {
     const a = !!(e.search?.value || e.typeFilter?.value || e.statusFilter?.value), n = i.items.length > 0;
     x(e.loading, i.loading, "hidden"), x(e.empty, !i.loading && !n && !a), x(e.noResults, !i.loading && !n && a), x(e.grid, !i.loading && n && d === "grid"), x(e.listShell, !i.loading && n && d === "list");
   }
-  function V(a) {
-    i.items = i.items.map((n) => n.id === a.id ? a : n), i.activeID || (i.activeID = a.id), w(), $();
+  function G(a) {
+    i.items = i.items.map((n) => n.id === a.id ? a : n), i.activeID || (i.activeID = a.id), w(), F();
   }
-  async function G() {
-    if (N) {
+  async function K() {
+    if (_) {
       try {
-        const a = await I(N);
+        const a = await I(_);
         i.capabilities = E(a) ? a : null;
       } catch (a) {
         u(e.status, ""), u(e.error, a instanceof Error ? a.message : "Failed to load media capabilities.");
       }
-      e.uploadTrigger && (e.uploadTrigger.disabled = !M()), e.uploadEmpty && (e.uploadEmpty.disabled = !M());
+      e.uploadTrigger && (e.uploadTrigger.disabled = !P()), e.uploadEmpty && (e.uploadEmpty.disabled = !P());
     }
   }
   async function D(a = !1) {
@@ -381,29 +384,29 @@ async function fe(t) {
       u(e.error, "Media library endpoint is not configured.");
       return;
     }
-    i.loading = !0, $(), u(e.error, "");
-    const n = new URLSearchParams(), m = d === "list" ? ie : ae, o = a ? i.items.length : 0;
+    i.loading = !0, F(), u(e.error, "");
+    const n = new URLSearchParams(), m = d === "list" ? de : ne, o = a ? i.items.length : 0;
     n.set("limit", String(m)), n.set("offset", String(o)), e.search?.value.trim() && n.set("search", e.search.value.trim()), e.typeFilter?.value && n.set("type", e.typeFilter.value), e.statusFilter?.value && n.set("status", e.statusFilter.value), e.sort?.value && n.set("sort", e.sort.value);
     try {
-      const g = await I(`${s}?${n.toString()}`), l = E(g) ? g : {}, f = (Array.isArray(l.items) ? l.items : []).map((y) => O(y)).filter((y) => y.id);
-      i.items = a ? [...i.items, ...f.filter((y) => !i.items.some((T) => T.id === y.id))] : f, i.total = Math.max(q(l.total), i.items.length), i.activeID && !i.items.some((y) => y.id === i.activeID) && (i.activeID = ""), !i.activeID && i.items.length > 0 && (i.activeID = i.items[0].id);
+      const g = await I(`${s}?${n.toString()}`), l = E(g) ? g : {}, p = (Array.isArray(l.items) ? l.items : []).map((h) => H(h)).filter((h) => h.id);
+      i.items = a ? [...i.items, ...p.filter((h) => !i.items.some((C) => C.id === h.id))] : p, i.total = Math.max(W(l.total), i.items.length), i.activeID && !i.items.some((h) => h.id === i.activeID) && (i.activeID = ""), !i.activeID && i.items.length > 0 && (i.activeID = i.items[0].id);
     } catch (g) {
       u(e.error, g instanceof Error ? g.message : "Failed to load media library.");
     } finally {
-      i.loading = !1, w(), $();
+      i.loading = !1, w(), F();
     }
   }
-  async function K() {
-    const a = F();
-    if (!a || !_()) return;
-    if (!p) {
+  async function Q() {
+    const a = M();
+    if (!a || !z()) return;
+    if (!f) {
       u(e.detailError, "Media item endpoint is not configured.");
       return;
     }
-    const n = { ...a.metadata }, m = e.detailAltText?.value.trim() || "", o = e.detailCaption?.value.trim() || "", g = W(e.detailTags?.value || "");
+    const n = { ...a.metadata }, m = e.detailAltText?.value.trim() || "", o = e.detailCaption?.value.trim() || "", g = J(e.detailTags?.value || "");
     m ? n.alt_text = m : delete n.alt_text, o ? n.caption = o : delete n.caption, g.length > 0 ? n.tags = g : delete n.tags;
     try {
-      u(e.detailError, ""), u(e.detailFeedback, ""), V(O(await I(H(p, a.id), {
+      u(e.detailError, ""), u(e.detailFeedback, ""), G(H(await I(q(f, a.id), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metadata: n })
@@ -412,12 +415,12 @@ async function fe(t) {
       u(e.detailError, l instanceof Error ? l.message : "Failed to save metadata.");
     }
   }
-  async function z(a, n) {
-    if (!C()) return {
+  async function j(a, n) {
+    if (!S()) return {
       deleted: !1,
       error: ""
     };
-    if (!p) {
+    if (!f) {
       const o = "Media item endpoint is not configured.";
       return n?.reportDetailError !== !1 && u(e.detailError, o), {
         deleted: !1,
@@ -430,7 +433,7 @@ async function fe(t) {
       error: ""
     };
     try {
-      return u(e.detailError, ""), await I(H(p, a), { method: "DELETE" }), i.items = i.items.filter((o) => o.id !== a), i.selectedIDs.delete(a), i.activeID === a && (i.activeID = i.items[0]?.id || ""), i.total = Math.max(0, i.total - 1), w(), $(), n?.suppressStatus || u(e.status, "Media item deleted."), {
+      return u(e.detailError, ""), await I(q(f, a), { method: "DELETE" }), i.items = i.items.filter((o) => o.id !== a), i.selectedIDs.delete(a), i.activeID === a && (i.activeID = i.items[0]?.id || ""), i.total = Math.max(0, i.total - 1), w(), F(), n?.suppressStatus || u(e.status, "Media item deleted."), {
         deleted: !0,
         error: ""
       };
@@ -442,25 +445,25 @@ async function fe(t) {
       };
     }
   }
-  async function Q() {
-    if (!C() || i.selectedIDs.size === 0 || !globalThis.confirm(`Delete ${i.selectedIDs.size} selected media item(s)?`)) return;
+  async function X() {
+    if (!S() || i.selectedIDs.size === 0 || !globalThis.confirm(`Delete ${i.selectedIDs.size} selected media item(s)?`)) return;
     const a = [...i.selectedIDs], n = /* @__PURE__ */ new Set(), m = [];
     let o = 0;
     u(e.error, ""), u(e.detailError, "");
     for (const l of a) {
-      const f = i.items.find((T) => T.id === l), y = await z(l, {
+      const p = i.items.find((C) => C.id === l), h = await j(l, {
         skipConfirm: !0,
         suppressStatus: !0,
         reportDetailError: !1
       });
-      if (y.deleted) {
+      if (h.deleted) {
         o += 1;
         continue;
       }
-      n.add(l), y.error && m.push(`Failed to delete ${f?.name || l}: ${y.error}`);
+      n.add(l), h.error && m.push(`Failed to delete ${p?.name || l}: ${h.error}`);
     }
     i.selectedIDs = n, L(), w();
-    const g = R("delete", {
+    const g = O("delete", {
       attempted: a.length,
       succeeded: o,
       failed: m.length,
@@ -468,8 +471,8 @@ async function fe(t) {
     });
     u(e.status, g.status), u(e.error, g.error);
   }
-  async function X() {
-    const a = F();
+  async function Y() {
+    const a = M();
     if (a?.url)
       try {
         await globalThis.navigator.clipboard.writeText(a.url), u(e.detailFeedback, "URL copied.");
@@ -477,23 +480,23 @@ async function fe(t) {
         u(e.detailError, "Clipboard access is unavailable.");
       }
   }
-  async function Y(a, n) {
+  async function Z(a, n) {
     const m = c(a.upload_url);
     if (!m) throw new Error("Upload URL missing from presign response.");
     const o = E(a.fields) ? a.fields : null;
     if (o) {
-      const f = new FormData();
-      for (const [T, te] of Object.entries(o)) f.append(T, String(te));
-      f.append("file", n);
-      const y = await fetch(m, {
+      const p = new FormData();
+      for (const [C, ae] of Object.entries(o)) p.append(C, String(ae));
+      p.append("file", n);
+      const h = await fetch(m, {
         method: c(a.method) || "POST",
-        body: f
+        body: p
       });
-      if (!y.ok) throw new Error(`Upload failed (${y.status}).`);
+      if (!h.ok) throw new Error(`Upload failed (${h.status}).`);
       return;
     }
     const g = new Headers();
-    if (E(a.headers)) for (const [f, y] of Object.entries(a.headers)) g.set(f, String(y));
+    if (E(a.headers)) for (const [p, h] of Object.entries(a.headers)) g.set(p, String(h));
     const l = await fetch(m, {
       method: c(a.method) || "PUT",
       headers: g,
@@ -501,10 +504,10 @@ async function fe(t) {
     });
     if (!l.ok) throw new Error(`Upload failed (${l.status}).`);
   }
-  async function Z(a) {
+  async function ee(a) {
     const n = Array.from(a);
     if (n.length === 0) return;
-    if (!M()) {
+    if (!P()) {
       u(e.error, "Uploads are not available for this request.");
       return;
     }
@@ -514,14 +517,14 @@ async function fe(t) {
     for (const l of n) {
       u(e.status, `Uploading ${l.name}…`);
       try {
-        if (i.capabilities?.upload?.direct_upload && h) {
-          const f = new FormData();
-          f.append("file", l), f.append("name", l.name), f.append("file_name", l.name), f.append("content_type", l.type), await I(h, {
+        if (i.capabilities?.upload?.direct_upload && y) {
+          const p = new FormData();
+          p.append("file", l), p.append("name", l.name), p.append("file_name", l.name), p.append("content_type", l.type), await I(y, {
             method: "POST",
-            body: f
+            body: p
           });
         } else if (i.capabilities?.upload?.presign && b && k) {
-          const f = await I(b, {
+          const p = await I(b, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -531,12 +534,12 @@ async function fe(t) {
               size: l.size
             })
           });
-          if (!E(f)) throw new Error("Invalid presign response.");
-          await Y(f, l), await I(k, {
+          if (!E(p)) throw new Error("Invalid presign response.");
+          await Z(p, l), await I(k, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              upload_id: c(f.upload_id),
+              upload_id: c(p.upload_id),
               name: l.name,
               file_name: l.name,
               content_type: l.type,
@@ -545,12 +548,12 @@ async function fe(t) {
           });
         } else throw new Error("No supported upload mode is configured.");
         m += 1;
-      } catch (f) {
-        const y = f instanceof Error ? f.message : `Failed to upload ${l.name}.`;
-        o.push(`Failed to upload ${l.name}: ${y}`);
+      } catch (p) {
+        const h = p instanceof Error ? p.message : `Failed to upload ${l.name}.`;
+        o.push(`Failed to upload ${l.name}: ${h}`);
       }
     }
-    const g = R("upload", {
+    const g = O("upload", {
       attempted: n.length,
       succeeded: m,
       failed: o.length,
@@ -558,10 +561,10 @@ async function fe(t) {
     });
     u(e.status, g.status), u(e.error, g.error), m > 0 && await D(!1);
   }
-  const ee = ue(() => {
+  const te = fe(() => {
     D(!1);
   }, 250);
-  e.search?.addEventListener("input", ee), e.typeFilter?.addEventListener("change", () => {
+  e.search?.addEventListener("input", te), e.typeFilter?.addEventListener("change", () => {
     D(!1);
   }), e.statusFilter?.addEventListener("change", () => {
     D(!1);
@@ -574,33 +577,33 @@ async function fe(t) {
     else i.selectedIDs.clear();
     L(), w();
   });
-  const j = () => {
+  const R = () => {
     e.uploadInput?.click();
   };
-  e.uploadTrigger?.addEventListener("click", j), e.uploadEmpty?.addEventListener("click", j), e.uploadInput?.addEventListener("change", () => {
-    e.uploadInput?.files && (Z(e.uploadInput.files), e.uploadInput.value = "");
+  e.uploadTrigger?.addEventListener("click", R), e.uploadEmpty?.addEventListener("click", R), e.uploadInput?.addEventListener("change", () => {
+    e.uploadInput?.files && (ee(e.uploadInput.files), e.uploadInput.value = "");
   }), e.clearSelection?.addEventListener("click", () => {
     i.selectedIDs.clear(), L(), w();
   }), e.bulkDelete?.addEventListener("click", () => {
-    Q();
-  }), e.detailForm?.addEventListener("submit", (a) => {
-    a.preventDefault(), K();
-  }), e.detailCopyURL?.addEventListener("click", () => {
     X();
+  }), e.detailForm?.addEventListener("submit", (a) => {
+    a.preventDefault(), Q();
+  }), e.detailCopyURL?.addEventListener("click", () => {
+    Y();
   }), e.detailDelete?.addEventListener("click", () => {
-    i.activeID && z(i.activeID);
-  }), await G(), await D(!1);
+    i.activeID && j(i.activeID);
+  }), await K(), await D(!1);
 }
-async function pe() {
+async function ye() {
   if (typeof document > "u") return;
   const t = Array.from(document.querySelectorAll("[data-media-page-root]"));
   for (const e of t)
-    ne(e) && await fe(e);
+    re(e) && await ge(e);
 }
-typeof document < "u" && pe();
+typeof document < "u" && ye();
 export {
-  pe as initMediaPages,
-  R as summarizeBatchMutation
+  ye as initMediaPages,
+  O as summarizeBatchMutation
 };
 
 //# sourceMappingURL=index.js.map
