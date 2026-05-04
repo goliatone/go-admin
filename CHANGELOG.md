@@ -1,5 +1,23 @@
 # Changelog
 
+# [0.60.0](https://github.com/goliatone/go-admin/compare/v0.59.0...v0.60.0) - (2026-05-04)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Media package controls ([579153b](https://github.com/goliatone/go-admin/commit/579153b1663fc6467c44a8ed41fc7402912eda94))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.60.0 ([5b4b01a](https://github.com/goliatone/go-admin/commit/5b4b01a8fcd2134965f44ba7d22afa8fca441867))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.59.0 ([f837805](https://github.com/goliatone/go-admin/commit/f837805ba11bdb9c3b681d24304d6c863069447c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([95fe89d](https://github.com/goliatone/go-admin/commit/95fe89d30a7d883c2f80eac00f78bf87a17fb229))  - (goliatone)
+
 # [0.59.0](https://github.com/goliatone/go-admin/compare/v0.58.0...v0.59.0) - (2026-05-03)
 
 ## <!-- 13 -->📦 Bumps
