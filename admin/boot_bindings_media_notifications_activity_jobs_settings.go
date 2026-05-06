@@ -55,6 +55,7 @@ func (m *mediaBinding) Add(c router.Context, body map[string]any) (any, error) {
 		Thumbnail: toString(body["thumbnail"]),
 		Type:      toString(body["type"]),
 		MIMEType:  toString(body["mime_type"]),
+		Size:      toInt64(body["size"]),
 		Status:    toString(body["status"]),
 		Metadata:  extractMap(body["metadata"]),
 	}

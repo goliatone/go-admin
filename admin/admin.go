@@ -385,6 +385,15 @@ func (a *Admin) WithOrganizationManagement(repo OrganizationRepository) *Admin {
 	return a
 }
 
+// WithMediaLibrary overrides the media library used by media module routes.
+func (a *Admin) WithMediaLibrary(lib MediaLibrary) *Admin {
+	if a == nil || lib == nil {
+		return a
+	}
+	a.mediaLibrary = lib
+	return a
+}
+
 func (a *Admin) applyActivitySink(sink ActivitySink) {
 	if a == nil || sink == nil {
 		return
