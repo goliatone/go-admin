@@ -17,7 +17,7 @@ func notFoundDomainError(message string, meta map[string]any) error {
 }
 
 func serviceUnavailableDomainError(message string, meta map[string]any) error {
-	return NewDomainError(TextCodeServiceUnavailable, message, meta)
+	return NewDomainError(TextCodeServiceUnavailable, message, meta).WithCode(http.StatusServiceUnavailable)
 }
 
 func pathConflictDomainError(meta map[string]any) error {

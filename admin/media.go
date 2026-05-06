@@ -3,7 +3,7 @@ package admin
 import (
 	"context"
 	"io"
-	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,12 +24,9 @@ type MediaItem struct {
 	CreatedAt      time.Time      `json:"created_at"`
 }
 
-// MediaLibrary exposes the legacy V1-compatible media listing/creation surface.
-// Hosts may continue to implement List/Add during the additive media-route
-// transition, but richer interfaces should be preferred for new integrations.
+// MediaLibrary exposes the required query-aware media listing surface.
 type MediaLibrary interface {
-	List(ctx context.Context) ([]MediaItem, error)
-	Add(ctx context.Context, item MediaItem) (MediaItem, error)
+	MediaQueryProvider
 }
 
 // MediaQuery carries list filtering and pagination hints.
@@ -71,15 +68,14 @@ const (
 // MediaOperationCapabilities describes which high-level operations are
 // available for the current request.
 type MediaOperationCapabilities struct {
-	List         bool `json:"list"`
-	Get          bool `json:"get"`
-	Resolve      bool `json:"resolve"`
-	Upload       bool `json:"upload"`
-	Presign      bool `json:"presign"`
-	Confirm      bool `json:"confirm"`
-	Update       bool `json:"update"`
-	Delete       bool `json:"delete"`
-	LegacyCreate bool `json:"legacy_create,omitempty"`
+	List    bool `json:"list"`
+	Get     bool `json:"get"`
+	Resolve bool `json:"resolve"`
+	Upload  bool `json:"upload"`
+	Presign bool `json:"presign"`
+	Confirm bool `json:"confirm"`
+	Update  bool `json:"update"`
+	Delete  bool `json:"delete"`
 }
 
 // MediaUploadCapabilities describes available upload modes and limits.
@@ -176,15 +172,14 @@ type MediaCapabilityProvider interface {
 // MediaOperationCapabilityOverrides applies partial request-scoped operation
 // overrides without requiring callers to populate a full capability payload.
 type MediaOperationCapabilityOverrides struct {
-	List         *bool `json:"list,omitempty"`
-	Get          *bool `json:"get,omitempty"`
-	Resolve      *bool `json:"resolve,omitempty"`
-	Upload       *bool `json:"upload,omitempty"`
-	Presign      *bool `json:"presign,omitempty"`
-	Confirm      *bool `json:"confirm,omitempty"`
-	Update       *bool `json:"update,omitempty"`
-	Delete       *bool `json:"delete,omitempty"`
-	LegacyCreate *bool `json:"legacy_create,omitempty"`
+	List    *bool `json:"list,omitempty"`
+	Get     *bool `json:"get,omitempty"`
+	Resolve *bool `json:"resolve,omitempty"`
+	Upload  *bool `json:"upload,omitempty"`
+	Presign *bool `json:"presign,omitempty"`
+	Confirm *bool `json:"confirm,omitempty"`
+	Update  *bool `json:"update,omitempty"`
+	Delete  *bool `json:"delete,omitempty"`
 }
 
 // MediaUploadCapabilityOverrides applies partial request-scoped upload
@@ -255,15 +250,13 @@ type MediaDeleter interface {
 
 // InMemoryMediaLibrary stores media items in memory.
 type InMemoryMediaLibrary struct {
-	mu     sync.Mutex
-	nextID int
-	items  []MediaItem
+	mu    sync.Mutex
+	items []MediaItem
 }
 
 // NewInMemoryMediaLibrary seeds a few sample assets.
 func NewInMemoryMediaLibrary(baseURL string) *InMemoryMediaLibrary {
 	return &InMemoryMediaLibrary{
-		nextID: 1,
 		items: []MediaItem{
 			{
 				ID:             "1",
@@ -301,56 +294,72 @@ func NewInMemoryMediaLibrary(baseURL string) *InMemoryMediaLibrary {
 	}
 }
 
-// List returns items newest first.
-func (m *InMemoryMediaLibrary) List(ctx context.Context) ([]MediaItem, error) {
+// QueryMedia returns items matching query filters.
+func (m *InMemoryMediaLibrary) QueryMedia(ctx context.Context, query MediaQuery) (MediaPage, error) {
 	_ = ctx
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	out := make([]MediaItem, len(m.items))
 	copy(out, m.items)
-	return out, nil
+	return mediaPageFromItems(out, query), nil
 }
 
-// Add stores a media item.
-func (m *InMemoryMediaLibrary) Add(ctx context.Context, item MediaItem) (MediaItem, error) {
+// GetMedia resolves an item by ID.
+func (m *InMemoryMediaLibrary) GetMedia(ctx context.Context, id string) (MediaItem, error) {
 	_ = ctx
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if item.ID == "" {
-		item.ID = strconv.Itoa(m.nextID)
-		m.nextID++
-	}
-	if item.CreatedAt.IsZero() {
-		item.CreatedAt = time.Now()
-	}
-	if item.Thumbnail == "" {
-		item.Thumbnail = item.URL
-	}
-	if item.Metadata == nil {
-		item.Metadata = map[string]any{}
-	}
-	if item.Type == "" {
-		if typed, ok := item.Metadata["type"].(string); ok {
-			item.Type = typed
+	id = strings.TrimSpace(id)
+	for _, item := range m.items {
+		if strings.TrimSpace(item.ID) == id {
+			return item, nil
 		}
 	}
-	if item.Status == "" {
-		item.Status = "ready"
+	return MediaItem{}, ErrNotFound
+}
+
+// ResolveMedia resolves an item from picker reference values.
+func (m *InMemoryMediaLibrary) ResolveMedia(ctx context.Context, ref MediaReference) (MediaItem, error) {
+	_ = ctx
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	id := strings.TrimSpace(ref.ID)
+	url := strings.TrimSpace(ref.URL)
+	name := strings.TrimSpace(ref.Name)
+	for _, item := range m.items {
+		if id != "" && strings.TrimSpace(item.ID) == id {
+			return item, nil
+		}
+		if url != "" && strings.TrimSpace(item.URL) == url {
+			return item, nil
+		}
+		if name != "" && strings.TrimSpace(item.Name) == name {
+			return item, nil
+		}
 	}
-	m.items = append([]MediaItem{item}, m.items...)
-	return item, nil
+	return MediaItem{}, ErrNotFound
+}
+
+func mediaItemCanUseAccessURLAsThumbnail(item MediaItem) bool {
+	mediaType := strings.ToLower(strings.TrimSpace(item.Type))
+	if mediaType == "" {
+		if typed, ok := item.Metadata["type"].(string); ok {
+			mediaType = strings.ToLower(strings.TrimSpace(typed))
+		}
+	}
+	switch mediaType {
+	case "image", "vector":
+		return true
+	}
+	mimeType := strings.ToLower(strings.TrimSpace(item.MIMEType))
+	return strings.HasPrefix(mimeType, "image/")
 }
 
 // DisabledMediaLibrary returns feature disabled errors.
 type DisabledMediaLibrary struct{}
 
-func (DisabledMediaLibrary) List(ctx context.Context) ([]MediaItem, error) {
+func (DisabledMediaLibrary) QueryMedia(ctx context.Context, query MediaQuery) (MediaPage, error) {
 	_ = ctx
-	return nil, FeatureDisabledError{Feature: string(FeatureMedia)}
-}
-
-func (DisabledMediaLibrary) Add(ctx context.Context, item MediaItem) (MediaItem, error) {
-	_ = ctx
-	_ = item
-	return MediaItem{}, FeatureDisabledError{Feature: string(FeatureMedia)}
+	_ = query
+	return MediaPage{}, FeatureDisabledError{Feature: string(FeatureMedia)}
 }

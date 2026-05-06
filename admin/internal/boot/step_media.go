@@ -51,7 +51,6 @@ func mediaRoutes(ctx BootCtx, responder Responder, binding MediaBinding) []Route
 	gates := ctx.Gates()
 	return []RouteSpec{
 		{Method: "GET", Path: paths.library, Handler: withFeatureGate(responder, gates, FeatureMedia, mediaListHandler(responder, binding))},
-		{Method: "POST", Path: paths.library, Handler: withFeatureGate(responder, gates, FeatureMedia, withParsedBody(ctx, responder, mediaAddHandler(responder, binding)))},
 		{Method: "GET", Path: paths.item, Handler: withFeatureGate(responder, gates, FeatureMedia, mediaGetHandler(responder, binding))},
 		{Method: "PATCH", Path: paths.item, Handler: withFeatureGate(responder, gates, FeatureMedia, withParsedBody(ctx, responder, mediaUpdateHandler(responder, binding)))},
 		{Method: "DELETE", Path: paths.item, Handler: withFeatureGate(responder, gates, FeatureMedia, mediaDeleteHandler(responder, binding))},
@@ -66,13 +65,6 @@ func mediaRoutes(ctx BootCtx, responder Responder, binding MediaBinding) []Route
 func mediaListHandler(responder Responder, binding MediaBinding) router.HandlerFunc {
 	return func(c router.Context) error {
 		payload, err := binding.List(c)
-		return writeJSONOrError(responder, c, payload, err)
-	}
-}
-
-func mediaAddHandler(responder Responder, binding MediaBinding) func(router.Context, map[string]any) error {
-	return func(c router.Context, body map[string]any) error {
-		payload, err := binding.Add(c, body)
 		return writeJSONOrError(responder, c, payload, err)
 	}
 }

@@ -163,7 +163,6 @@ type MultipartFile struct {
 // MediaBinding exposes media operations.
 type MediaBinding interface {
 	List(router.Context) (any, error)
-	Add(router.Context, map[string]any) (any, error)
 	Get(router.Context, string) (any, error)
 	Resolve(router.Context, map[string]any) (any, error)
 	Upload(router.Context, map[string]any, MultipartFile) (any, error)

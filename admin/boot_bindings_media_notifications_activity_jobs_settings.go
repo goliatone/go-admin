@@ -33,44 +33,13 @@ func (m *mediaBinding) List(c router.Context) (any, error) {
 	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaPermission, "media"); err != nil {
 		return nil, err
 	}
-	if provider, ok := m.admin.mediaLibrary.(MediaQueryProvider); ok {
-		return provider.QueryMedia(adminCtx.Context, mediaQueryFromRequest(c))
+	if m.admin.mediaLibrary == nil {
+		return nil, serviceUnavailableDomainError("media library not configured", map[string]any{
+			"component": "media",
+			"route":     "media.library",
+		})
 	}
-	items, err := m.admin.mediaLibrary.List(adminCtx.Context)
-	if err != nil {
-		return nil, err
-	}
-	return mediaPageFromLegacy(items, mediaQueryFromRequest(c)), nil
-}
-
-func (m *mediaBinding) Add(c router.Context, body map[string]any) (any, error) {
-	adminCtx := m.admin.adminContextFromRequest(c, m.admin.config.DefaultLocale)
-	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaCreatePermission, "media"); err != nil {
-		return nil, err
-	}
-	item := MediaItem{
-		ID:        toString(body["id"]),
-		Name:      toString(body["name"]),
-		URL:       toString(body["url"]),
-		Thumbnail: toString(body["thumbnail"]),
-		Type:      toString(body["type"]),
-		MIMEType:  toString(body["mime_type"]),
-		Size:      toInt64(body["size"]),
-		Status:    toString(body["status"]),
-		Metadata:  extractMap(body["metadata"]),
-	}
-	created, err := m.admin.mediaLibrary.Add(adminCtx.Context, item)
-	if err != nil {
-		return nil, err
-	}
-	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
-		Operation: MediaMutationCreate,
-		MediaID:   strings.TrimSpace(created.ID),
-		Reference: MediaReference{ID: created.ID, URL: created.URL, Name: created.Name},
-		After:     cloneMediaItem(created),
-		Request:   map[string]any{"request_kind": "legacy_create"},
-	})
-	return created, nil
+	return m.admin.mediaLibrary.QueryMedia(adminCtx.Context, mediaQueryFromRequest(c))
 }
 
 func (m *mediaBinding) Get(c router.Context, id string) (any, error) {
@@ -94,7 +63,10 @@ func (m *mediaBinding) Resolve(c router.Context, body map[string]any) (any, erro
 	if resolver, ok := m.admin.mediaLibrary.(MediaResolver); ok {
 		return resolver.ResolveMedia(adminCtx.Context, ref)
 	}
-	return m.resolveLegacyMedia(adminCtx.Context, ref)
+	return nil, serviceUnavailableDomainError("media resolver not configured", map[string]any{
+		"component": "media",
+		"route":     "media.resolve",
+	})
 }
 
 func (m *mediaBinding) Upload(c router.Context, body map[string]any, file boot.MultipartFile) (any, error) {
@@ -268,27 +240,10 @@ func (m *mediaBinding) getMedia(ctx context.Context, id string) (MediaItem, erro
 	if getter, ok := m.admin.mediaLibrary.(MediaGetter); ok {
 		return getter.GetMedia(ctx, id)
 	}
-	return m.resolveLegacyMedia(ctx, MediaReference{ID: id})
-}
-
-func (m *mediaBinding) resolveLegacyMedia(ctx context.Context, ref MediaReference) (MediaItem, error) {
-	items, err := m.admin.mediaLibrary.List(ctx)
-	if err != nil {
-		return MediaItem{}, err
-	}
-	id := strings.TrimSpace(ref.ID)
-	url := strings.TrimSpace(ref.URL)
-	for _, item := range items {
-		if id != "" && strings.TrimSpace(item.ID) == id {
-			return item, nil
-		}
-		if url != "" && strings.TrimSpace(item.URL) == url {
-			return item, nil
-		}
-	}
-	return MediaItem{}, notFoundDomainError("media item not found", map[string]any{
-		"id":  id,
-		"url": url,
+	return MediaItem{}, serviceUnavailableDomainError("media getter not configured", map[string]any{
+		"component": "media",
+		"route":     "media.item",
+		"id":        strings.TrimSpace(id),
 	})
 }
 
@@ -310,15 +265,14 @@ func optionalMediaItem(item MediaItem) *MediaItem {
 func (m *mediaBinding) effectiveCapabilities(adminCtx AdminContext) (MediaCapabilities, error) {
 	supported := MediaCapabilities{
 		Operations: MediaOperationCapabilities{
-			List:         true,
-			Get:          true,
-			Resolve:      true,
-			Upload:       m.can(adminCtx, m.admin.config.MediaCreatePermission) && implementsMediaUploader(m.admin.mediaLibrary),
-			Presign:      m.can(adminCtx, m.admin.config.MediaCreatePermission) && implementsMediaPresigner(m.admin.mediaLibrary),
-			Confirm:      m.can(adminCtx, m.admin.config.MediaCreatePermission) && implementsMediaConfirmer(m.admin.mediaLibrary),
-			Update:       m.can(adminCtx, m.admin.config.MediaUpdatePermission) && implementsMediaUpdater(m.admin.mediaLibrary),
-			Delete:       m.can(adminCtx, m.admin.config.MediaDeletePermission) && implementsMediaDeleter(m.admin.mediaLibrary),
-			LegacyCreate: m.can(adminCtx, m.admin.config.MediaCreatePermission) && m.admin.mediaLibrary != nil,
+			List:    m.admin.mediaLibrary != nil,
+			Get:     implementsMediaGetter(m.admin.mediaLibrary),
+			Resolve: implementsMediaResolver(m.admin.mediaLibrary),
+			Upload:  m.can(adminCtx, m.admin.config.MediaCreatePermission) && implementsMediaUploader(m.admin.mediaLibrary),
+			Presign: m.can(adminCtx, m.admin.config.MediaCreatePermission) && implementsMediaPresigner(m.admin.mediaLibrary),
+			Confirm: m.can(adminCtx, m.admin.config.MediaCreatePermission) && implementsMediaConfirmer(m.admin.mediaLibrary),
+			Update:  m.can(adminCtx, m.admin.config.MediaUpdatePermission) && implementsMediaUpdater(m.admin.mediaLibrary),
+			Delete:  m.can(adminCtx, m.admin.config.MediaDeletePermission) && implementsMediaDeleter(m.admin.mediaLibrary),
 		},
 		Upload: MediaUploadCapabilities{
 			DirectUpload: implementsMediaUploader(m.admin.mediaLibrary),
@@ -354,6 +308,16 @@ func (m *mediaBinding) can(adminCtx AdminContext, permission string) bool {
 
 func implementsMediaUploader(lib MediaLibrary) bool {
 	_, ok := lib.(MediaUploader)
+	return ok
+}
+
+func implementsMediaGetter(lib MediaLibrary) bool {
+	_, ok := lib.(MediaGetter)
+	return ok
+}
+
+func implementsMediaResolver(lib MediaLibrary) bool {
+	_, ok := lib.(MediaResolver)
 	return ok
 }
 
@@ -400,7 +364,6 @@ func applyMediaOperationOverrides(base *MediaOperationCapabilities, override Med
 	applyBoolOverride(&base.Confirm, override.Confirm)
 	applyBoolOverride(&base.Update, override.Update)
 	applyBoolOverride(&base.Delete, override.Delete)
-	applyBoolOverride(&base.LegacyCreate, override.LegacyCreate)
 }
 
 func applyMediaUploadOverrides(base *MediaUploadCapabilities, override MediaUploadCapabilityOverrides) {
@@ -425,7 +388,6 @@ func clampMediaOperationCapabilities(base *MediaOperationCapabilities, supported
 	base.Confirm = base.Confirm && supported.Confirm
 	base.Update = base.Update && supported.Update
 	base.Delete = base.Delete && supported.Delete
-	base.LegacyCreate = base.LegacyCreate && supported.LegacyCreate
 }
 
 func clampMediaUploadCapabilities(base *MediaUploadCapabilities, supported MediaUploadCapabilities) {
@@ -585,7 +547,7 @@ func mediaQueryFromRequest(c router.Context) MediaQuery {
 	}
 }
 
-func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
+func mediaPageFromItems(items []MediaItem, query MediaQuery) MediaPage {
 	filtered := make([]MediaItem, 0, len(items))
 	filters := normalizeMediaQueryFilters(query)
 
@@ -595,7 +557,7 @@ func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
 		}
 		filtered = append(filtered, item)
 	}
-	sortLegacyMediaItems(filtered, query.Sort)
+	sortMediaItems(filtered, query.Sort)
 
 	total := len(filtered)
 	start := min(max(query.Offset, 0), total)
@@ -611,7 +573,7 @@ func mediaPageFromLegacy(items []MediaItem, query MediaQuery) MediaPage {
 	}
 }
 
-func sortLegacyMediaItems(items []MediaItem, sortBy string) {
+func sortMediaItems(items []MediaItem, sortBy string) {
 	switch strings.ToLower(strings.TrimSpace(sortBy)) {
 	case "filename", "name":
 		sort.SliceStable(items, func(i, j int) bool {
@@ -688,10 +650,65 @@ func mediaItemMatchesQuery(item MediaItem, filters mediaQueryFilters) bool {
 	if filters.workflowFilter != "" && strings.ToLower(strings.TrimSpace(item.WorkflowStatus)) != filters.workflowFilter {
 		return false
 	}
-	if filters.mimeFamily != "" && !strings.HasPrefix(strings.ToLower(strings.TrimSpace(item.MIMEType)), filters.mimeFamily+"/") {
+	if filters.mimeFamily != "" && !mediaItemMatchesMIMEFamily(item, filters.mimeFamily) {
 		return false
 	}
 	return true
+}
+
+func mediaItemMatchesMIMEFamily(item MediaItem, family string) bool {
+	normalized := strings.ToLower(strings.Trim(strings.TrimSpace(family), "/"))
+	if normalized == "" {
+		return true
+	}
+	return effectiveMediaItemFamily(item) == normalized
+}
+
+func effectiveMediaItemFamily(item MediaItem) string {
+	mediaType := strings.ToLower(strings.TrimSpace(item.Type))
+	mimeFamily := mediaFamilyFromMIME(item.MIMEType)
+	if isPreviewMediaFamily(mediaType) {
+		return mediaType
+	}
+	if isPreviewMediaFamily(mimeFamily) {
+		return mimeFamily
+	}
+	if mediaType == "document" || mediaType == "text" {
+		return mediaType
+	}
+	if mimeFamily == "document" || mimeFamily == "text" {
+		return mimeFamily
+	}
+	return "asset"
+}
+
+func isPreviewMediaFamily(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "image", "vector", "video", "audio":
+		return true
+	default:
+		return false
+	}
+}
+
+func mediaFamilyFromMIME(mimeType string) string {
+	value := strings.ToLower(strings.TrimSpace(strings.Split(strings.TrimSpace(mimeType), ";")[0]))
+	switch {
+	case value == "image/svg+xml":
+		return "vector"
+	case strings.HasPrefix(value, "image/"):
+		return "image"
+	case strings.HasPrefix(value, "video/"):
+		return "video"
+	case strings.HasPrefix(value, "audio/"):
+		return "audio"
+	case strings.HasPrefix(value, "text/"):
+		return "text"
+	case strings.Contains(value, "pdf") || strings.Contains(value, "document"):
+		return "document"
+	default:
+		return ""
+	}
 }
 
 func intQuery(c router.Context, key string) int {
