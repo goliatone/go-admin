@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+## ⚠️ Breaking Changes
+
+- Media module legacy `MediaLibrary` `List(ctx)`/`Add(ctx, item)` compatibility, direct `POST /media/library` create behavior, `legacy_create` capabilities, and get/resolve list-scanning fallbacks have been removed. Host integrations must implement the modern media interfaces instead of relying on route-layer fallback behavior.
+
+Migration guidance:
+
+- Replace `List(ctx) ([]MediaItem, error)` with `QueryMedia(ctx, MediaQuery) (MediaPage, error)` so the host owns pagination, search, status filtering, sorting, and effective `mime_family` behavior.
+- Replace direct `Add(ctx, MediaItem)` legacy create usage with `UploadMedia`, `PresignMedia` plus `ConfirmMedia`, or another explicit supported mutation path; `POST /media/library` no longer creates media records.
+- Implement `GetMedia(ctx, id)` and/or `ResolveMedia(ctx, MediaReference)` for media picker ID/URL references; route code no longer scans list results as a fallback, and picker ID mode is only advertised when lookup support exists.
+- Expose `MediaCapabilities` or capability overrides when a host needs to tune upload limits, accepted kinds/MIME types, picker value modes, or operation availability.
+- Keep public media JSON keys stable (`id`, `name`, `url`, `thumbnail`, `type`, `mime_type`, `size`, `status`, `metadata`) while moving to the modern interfaces.
+
 # [0.60.0](https://github.com/goliatone/go-admin/compare/v0.59.0...v0.60.0) - (2026-05-04)
 
 ## <!-- 1 -->🐛 Bug Fixes
@@ -2781,5 +2795,3 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
-
-
