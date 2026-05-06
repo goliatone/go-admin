@@ -7,7 +7,7 @@ import (
 )
 
 func TestMediaLibraryContractRequiresQueryMedia(t *testing.T) {
-	contract := reflect.TypeOf((*MediaLibrary)(nil)).Elem()
+	contract := reflect.TypeFor[MediaLibrary]()
 	if _, ok := contract.MethodByName("QueryMedia"); !ok {
 		t.Fatalf("expected MediaLibrary contract to require QueryMedia")
 	}

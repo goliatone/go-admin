@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"mime"
 	"os"
 	"path"
@@ -614,10 +615,7 @@ func mediaQueryCriteria(query admin.MediaQuery) []repository.SelectCriteria {
 	if limit <= 0 {
 		limit = 50
 	}
-	offset := query.Offset
-	if offset < 0 {
-		offset = 0
-	}
+	offset := max(query.Offset, 0)
 	criteria := []repository.SelectCriteria{
 		repository.SelectPaginate(limit, offset),
 		mediaSortCriteria(query.Sort),
@@ -783,10 +781,7 @@ func sanitizeMediaUploadFileName(value string) string {
 		if len(ext) > 20 {
 			ext = ""
 		}
-		maxBase := 140 - len(ext)
-		if maxBase < 1 {
-			maxBase = 1
-		}
+		maxBase := max(140-len(ext), 1)
 		if len(base) > maxBase {
 			base = base[:maxBase]
 		}
@@ -980,9 +975,7 @@ func cloneMetadata(metadata map[string]any) map[string]any {
 }
 
 func mapsCopy(dest map[string]any, src map[string]any) {
-	for key, value := range src {
-		dest[key] = value
-	}
+	maps.Copy(dest, src)
 }
 
 func metadataString(metadata map[string]any, key string) string {

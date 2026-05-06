@@ -407,7 +407,7 @@ func TestMediaStoreLibraryUpdateCanClearMetadata(t *testing.T) {
 func TestMediaStoreLibraryListReturnsAllRecords(t *testing.T) {
 	ctx := context.Background()
 	store := newTestMediaStore(t, ctx)
-	for i := 0; i < 55; i++ {
+	for i := range 55 {
 		_, err := store.Create(ctx, map[string]any{
 			"filename": fmt.Sprintf("asset-%02d.txt", i),
 			"url":      path.Join("/uploads", fmt.Sprintf("asset-%02d.txt", i)),
