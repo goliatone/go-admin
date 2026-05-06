@@ -593,21 +593,6 @@ func main() {
 	dataStores.Pages.Seed()
 	dataStores.Posts.Seed()
 
-	if lib := adm.MediaLibrary(); lib != nil {
-		mediaItems, _, _ := dataStores.Media.List(context.Background(), admin.ListOptions{})
-		for _, item := range mediaItems {
-			_, _ = lib.Add(context.Background(), admin.MediaItem{
-				Name:      fmt.Sprintf("%v", item["filename"]),
-				URL:       fmt.Sprintf("%v", item["url"]),
-				Thumbnail: fmt.Sprintf("%v", item["url"]),
-				Metadata: map[string]any{
-					"type":        item["type"],
-					"uploaded_by": item["uploaded_by"],
-				},
-			})
-		}
-	}
-
 	// Setup translator
 	makeMessage := func(locale, id, template string) i18n.Message {
 		return i18n.Message{
@@ -885,6 +870,7 @@ func main() {
 		quickstart.WithDiskAssetsDir(diskAssetsDir),
 	}
 	quickstart.NewStaticAssets(staticRoutes, cfg, embeddedAssetsFS, staticAssetOptions...)
+	wirePersistentMediaLibrary(adm, dataStores.Media, stores.DefaultMediaLibraryUploadConfig(cfg.BasePath, diskAssetsDir))
 	siteCfg.Fallback.StaticInput = quickstart.ResolveSiteFallbackStaticInput(cfg, staticAssetOptions...)
 	siteCfg.Fallback = quicksite.ResolveSiteConfig(cfg, siteCfg).Fallback
 	if err := quicksite.ValidateSiteFallbackPolicy(siteCfg.Fallback); err != nil {
@@ -3278,6 +3264,13 @@ func (exportGuard) AuthorizeDownload(ctx context.Context, actor export.Actor, ex
 		return export.NewError(export.KindAuthz, "export download not authorized", nil)
 	}
 	return nil
+}
+
+func wirePersistentMediaLibrary(adm *admin.Admin, store *stores.MediaStore, uploadCfg stores.MediaLibraryUploadConfig) {
+	if adm == nil || store == nil {
+		return
+	}
+	adm.WithMediaLibrary(store.MediaLibraryWithUploads(uploadCfg))
 }
 
 // setupSearch registers search adapters
