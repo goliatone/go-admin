@@ -1,24 +1,70 @@
 - model: MediaRecord
   rows:
-    - id: '{{ hashid "media:logo.png" }}'
-      filename: "logo.png"
-      url: "/static/media/logo.png"
+    - id: '{{ hashid "media:dashboard-screenshot.png" }}'
+      filename: "dashboard-screenshot.png"
+      url: "/admin/assets/uploads/users/profile-pictures/1765861166124613.png"
       type: "image"
       mime_type: "image/png"
-      size: 24512
+      size: 38224
       metadata:
-        alt: "Logo"
+        alt_text: "Dashboard screenshot"
       uploaded_by: "admin"
       created_at: '{{ now }}'
       updated_at: '{{ now }}'
-    - id: '{{ hashid "media:banner.jpg" }}'
-      filename: "banner.jpg"
-      url: "/static/media/banner.jpg"
-      type: "image"
-      mime_type: "image/jpeg"
-      size: 98213
+    - id: '{{ hashid "media:brand-mark.svg" }}'
+      filename: "brand-mark.svg"
+      url: "/admin/assets/uploads/media/showcase/brand-mark.svg"
+      type: "vector"
+      mime_type: "image/svg+xml"
+      size: 493
       metadata:
-        alt: "Banner"
+        alt_text: "Brand mark"
+        caption: "SVG brand mark for vector preview checks"
+      uploaded_by: "jane.smith"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "media:operator-guide.pdf" }}'
+      filename: "operator-guide.pdf"
+      url: "/admin/assets/uploads/media/showcase/operator-guide.pdf"
+      type: "document"
+      mime_type: "application/pdf"
+      size: 470
+      metadata:
+        caption: "Operator guide document"
+      uploaded_by: "jane.smith"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "media:product-demo.mp4" }}'
+      filename: "product-demo.mp4"
+      url: "/admin/assets/uploads/media/showcase/product-demo.mp4"
+      type: "video"
+      mime_type: "video/mp4"
+      size: 12394
+      metadata:
+        caption: "Product demo video"
+      uploaded_by: "john.doe"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "media:narration.mp3" }}'
+      filename: "narration.mp3"
+      url: "/admin/assets/uploads/media/showcase/narration.mp3"
+      type: "binary"
+      mime_type: "audio/mpeg"
+      size: 4961
+      metadata:
+        caption: "Narration audio with generic type for MIME-family checks"
+      uploaded_by: "admin"
+      created_at: '{{ now }}'
+      updated_at: '{{ now }}'
+    - id: '{{ hashid "media:generic-vector.svg" }}'
+      filename: "generic-vector.svg"
+      url: "/admin/assets/uploads/media/showcase/generic-vector.svg"
+      type: "asset"
+      mime_type: "image/svg+xml"
+      size: 467
+      metadata:
+        alt_text: "Generic SVG asset"
+        caption: "Generic type SVG for effective vector filter checks"
       uploaded_by: "admin"
       created_at: '{{ now }}'
       updated_at: '{{ now }}'

@@ -2,6 +2,9 @@ import { appendCSRFHeader } from '../shared/transport/http-client';
 
 type RecordValue = Record<string, unknown>;
 
+type MediaFamily = 'image' | 'vector' | 'video' | 'audio' | 'document' | 'text' | 'asset';
+type PreviewMode = 'card' | 'detail' | 'list';
+
 type MediaItem = {
   id: string;
   name: string;
@@ -98,6 +101,8 @@ type BatchMutationFeedback = {
 
 const DEFAULT_LIMIT_GRID = 24;
 const DEFAULT_LIMIT_LIST = 50;
+const PREVIEW_FAMILIES = new Set(['image', 'vector', 'video', 'audio']);
+const MIME_FAMILY_FILTERS = new Set(['image', 'vector', 'video', 'audio']);
 
 export function summarizeBatchMutation(
   operation: 'upload' | 'delete',
@@ -198,13 +203,14 @@ function normalizeMetadata(value: unknown): Record<string, unknown> {
 function normalizeMediaItem(value: unknown): MediaItem {
   const record = isRecord(value) ? value : {};
   const metadata = normalizeMetadata(record.metadata);
+  const mimeType = toStringValue(record.mime_type);
   return {
     id: toStringValue(record.id),
     name: toStringValue(record.name) || toStringValue(record.filename) || 'Untitled asset',
     url: toStringValue(record.url),
-    thumbnail: toStringValue(record.thumbnail) || toStringValue(record.thumbnail_url) || toStringValue(record.url),
-    type: toStringValue(record.type) || inferTypeFromMIME(toStringValue(record.mime_type)),
-    mimeType: toStringValue(record.mime_type),
+    thumbnail: toStringValue(record.thumbnail) || toStringValue(record.thumbnail_url),
+    type: toStringValue(record.type) || inferTypeFromMIME(mimeType),
+    mimeType,
     size: toNumberValue(record.size),
     status: toStringValue(record.status),
     workflowStatus: toStringValue(record.workflow_status),
@@ -213,8 +219,27 @@ function normalizeMediaItem(value: unknown): MediaItem {
   };
 }
 
+function isCopiedAccessURL(thumbnail: string, url: string): boolean {
+  return Boolean(thumbnail && url && thumbnail === url);
+}
+
 function inferTypeFromMIME(mimeType: string): string {
-  const value = mimeType.toLowerCase();
+  const family = inferMediaFamily('', mimeType);
+  return family === 'asset' ? '' : family;
+}
+
+function normalizeMediaType(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function inferFamilyFromMIME(mimeType: string): MediaFamily | '' {
+  const value = mimeType.split(';', 1)[0].trim().toLowerCase();
+  if (!value) {
+    return '';
+  }
+  if (value === 'image/svg+xml') {
+    return 'vector';
+  }
   if (value.startsWith('image/')) {
     return 'image';
   }
@@ -224,10 +249,56 @@ function inferTypeFromMIME(mimeType: string): string {
   if (value.startsWith('audio/')) {
     return 'audio';
   }
-  if (value.includes('pdf') || value.includes('document') || value.includes('text/')) {
+  if (value.startsWith('text/')) {
+    return 'text';
+  }
+  if (value.includes('pdf') || value.includes('document')) {
     return 'document';
   }
   return '';
+}
+
+export function inferMediaFamily(type: string, mimeType = ''): MediaFamily {
+  const normalizedType = normalizeMediaType(type);
+  const mimeFamily = inferFamilyFromMIME(mimeType);
+
+  if (PREVIEW_FAMILIES.has(normalizedType)) {
+    return normalizedType as MediaFamily;
+  }
+  if (mimeFamily && PREVIEW_FAMILIES.has(mimeFamily)) {
+    return mimeFamily;
+  }
+  if (normalizedType === 'document' || normalizedType === 'text') {
+    return normalizedType;
+  }
+  if (mimeFamily === 'document' || mimeFamily === 'text') {
+    return mimeFamily;
+  }
+  return 'asset';
+}
+
+function previewThumbnailURL(item: MediaItem, family: MediaFamily): string {
+  if (!item.thumbnail) {
+    return '';
+  }
+  if ((family === 'image' || family === 'vector') && isCopiedAccessURL(item.thumbnail, item.url)) {
+    return item.thumbnail;
+  }
+  if (isCopiedAccessURL(item.thumbnail, item.url)) {
+    return '';
+  }
+  return item.thumbnail;
+}
+
+export function mediaTypeFilterParam(value: string): { key: 'type' | 'mime_family'; value: string } | null {
+  const normalized = normalizeMediaType(value);
+  if (!normalized) {
+    return null;
+  }
+  if (MIME_FAMILY_FILTERS.has(normalized)) {
+    return { key: 'mime_family', value: normalized };
+  }
+  return { key: 'type', value: normalized };
 }
 
 function formatBytes(value: number): string {
@@ -268,8 +339,8 @@ function escapeHTML(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-function iconForType(type: string): string {
-  switch (type) {
+function iconForFamily(family: MediaFamily): string {
+  switch (family) {
     case 'image':
     case 'vector':
       return 'iconoir-media-image';
@@ -355,13 +426,29 @@ function readErrorMessage(value: unknown): string {
   return '';
 }
 
-function buildPreview(item: MediaItem, mode: 'card' | 'detail' | 'list'): HTMLElement {
+function buildFallbackPreview(family: MediaFamily, mode: PreviewMode): HTMLElement {
   const wrapper = document.createElement('div');
-  const imageLike = item.type === 'image' || item.type === 'vector';
-  const previewURL = item.thumbnail || item.url;
-  if (imageLike && previewURL) {
+  wrapper.className =
+    mode === 'list'
+      ? 'w-12 h-12 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500'
+      : 'w-full h-full bg-gray-100 flex items-center justify-center text-gray-500';
+  const icon = document.createElement('i');
+  icon.className = `${iconForFamily(family)} ${mode === 'detail' ? 'text-5xl' : 'text-2xl'}`;
+  wrapper.appendChild(icon);
+  return wrapper;
+}
+
+function buildPreview(item: MediaItem, mode: PreviewMode): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = mode === 'list' ? 'w-12 h-12' : 'w-full h-full';
+  const family = inferMediaFamily(item.type, item.mimeType);
+  const imageLike = family === 'image' || family === 'vector';
+  const posterURL = previewThumbnailURL(item, family);
+  const imageURL = posterURL || item.url;
+
+  if (imageLike && imageURL) {
     const image = document.createElement('img');
-    image.src = previewURL;
+    image.src = imageURL;
     image.alt = item.name;
     image.loading = 'lazy';
     image.className =
@@ -373,14 +460,52 @@ function buildPreview(item: MediaItem, mode: 'card' | 'detail' | 'list'): HTMLEl
     wrapper.appendChild(image);
     return wrapper;
   }
-  wrapper.className =
-    mode === 'list'
-      ? 'w-12 h-12 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-500'
-      : 'w-full h-full bg-gray-100 flex items-center justify-center text-gray-500';
-  const icon = document.createElement('i');
-  icon.className = `${iconForType(item.type)} ${mode === 'detail' ? 'text-5xl' : 'text-2xl'}`;
-  wrapper.appendChild(icon);
-  return wrapper;
+
+  if (family === 'video' && mode !== 'detail' && posterURL) {
+    const image = document.createElement('img');
+    image.src = posterURL;
+    image.alt = item.name;
+    image.loading = 'lazy';
+    image.className = mode === 'list' ? 'w-12 h-12 rounded-xl object-cover' : 'w-full h-full object-cover';
+    wrapper.appendChild(image);
+    return wrapper;
+  }
+
+  if (mode === 'detail' && family === 'video' && item.url) {
+    const video = document.createElement('video');
+    video.src = item.url;
+    video.controls = true;
+    video.preload = 'metadata';
+    video.playsInline = true;
+    video.className = 'w-full h-full object-contain bg-black';
+    video.setAttribute('aria-label', item.name || 'Video preview');
+    if (posterURL) {
+      video.poster = posterURL;
+    }
+    wrapper.appendChild(video);
+    return wrapper;
+  }
+
+  if (mode === 'detail' && family === 'audio' && item.url) {
+    wrapper.className = 'w-full h-full bg-gray-100 flex flex-col items-center justify-center gap-4 px-4 text-gray-600';
+    const icon = document.createElement('i');
+    icon.className = 'iconoir-music-note text-5xl';
+    const audio = document.createElement('audio');
+    audio.src = item.url;
+    audio.controls = true;
+    audio.preload = 'metadata';
+    audio.className = 'w-full max-w-full';
+    audio.setAttribute('aria-label', item.name || 'Audio preview');
+    wrapper.appendChild(icon);
+    wrapper.appendChild(audio);
+    return wrapper;
+  }
+
+  return buildFallbackPreview(family, mode);
+}
+
+export function buildMediaPreview(value: unknown, mode: PreviewMode): HTMLElement {
+  return buildPreview(normalizeMediaItem(value), mode);
 }
 
 function createCard(item: MediaItem, selected: boolean, active: boolean): HTMLElement {
@@ -784,8 +909,9 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
     if (elements.search?.value.trim()) {
       query.set('search', elements.search.value.trim());
     }
-    if (elements.typeFilter?.value) {
-      query.set('type', elements.typeFilter.value);
+    const typeFilter = mediaTypeFilterParam(elements.typeFilter?.value || '');
+    if (typeFilter) {
+      query.set(typeFilter.key, typeFilter.value);
     }
     if (elements.statusFilter?.value) {
       query.set('status', elements.statusFilter.value);

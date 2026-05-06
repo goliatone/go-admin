@@ -590,6 +590,9 @@ func main() {
 	dataStores.Pages.WithActivitySink(activitySink)
 	dataStores.Posts.WithActivitySink(activitySink)
 	dataStores.Media.WithActivitySink(activitySink)
+	if err := dataStores.Media.SeedWithContext(context.Background()); err != nil {
+		fatalf("failed to seed media showcase: %v", err)
+	}
 	dataStores.Pages.Seed()
 	dataStores.Posts.Seed()
 

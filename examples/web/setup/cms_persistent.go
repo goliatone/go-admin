@@ -101,6 +101,9 @@ func SetupPersistentCMS(ctx context.Context, defaultLocale, dsn string) (admin.C
 	if err := LoadSeedGroup(ctx, client, seedCfg, SeedGroupCMS); err != nil {
 		return admin.CMSOptions{}, fmt.Errorf("load cms seeds: %w", err)
 	}
+	if err := stores.SeedMediaShowcase(ctx, client.DB()); err != nil {
+		return admin.CMSOptions{}, fmt.Errorf("seed media showcase: %w", err)
+	}
 	seedRefs, err := seedCMSPrereqs(ctx, client.DB(), defaultLocale)
 	if err != nil {
 		return admin.CMSOptions{}, fmt.Errorf("seed cms prereqs: %w", err)
@@ -835,6 +838,52 @@ func seedCMSBlockDefinitions(ctx context.Context, svc admin.CMSContentService, l
 						"type": "string",
 						"x-formgen": map[string]any{
 							"widget": "wysiwyg",
+						},
+					},
+				},
+			},
+		},
+		{
+			ID:          "media_gallery",
+			Name:        "Media Gallery",
+			Type:        "media_gallery",
+			Slug:        "media_gallery",
+			Status:      "active",
+			Environment: seedEnvironment,
+			Category:    "media",
+			Schema: map[string]any{
+				"$schema":  "https://json-schema.org/draft/2020-12/schema",
+				"type":     "object",
+				"required": []string{"_type", "images"},
+				"x-formgen": map[string]any{
+					"label": "Media Gallery",
+					"icon":  "media-gallery",
+				},
+				"properties": map[string]any{
+					"_type": map[string]any{
+						"const": "media_gallery",
+						"x-formgen": map[string]any{
+							"readonly": true,
+						},
+					},
+					"images": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type":   "string",
+							"format": "uri-reference",
+						},
+						"x-formgen": map[string]any{
+							"widget": "media-picker",
+							"componentOptions": map[string]any{
+								"variant":   "media-picker",
+								"multiple":  true,
+								"valueMode": "url",
+							},
+						},
+						"x-admin": map[string]any{
+							"media": map[string]any{
+								"valueMode": "url",
+							},
 						},
 					},
 				},

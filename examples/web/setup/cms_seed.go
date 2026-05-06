@@ -634,7 +634,7 @@ func ensureContentTypes(ctx context.Context, db *bun.DB) (uuid.UUID, uuid.UUID, 
 					"type": "array",
 					"items": map[string]any{
 						"type":   "string",
-						"format": "uri",
+						"format": "uri-reference",
 					},
 					"x-formgen": map[string]any{
 						"widget": "media-picker",

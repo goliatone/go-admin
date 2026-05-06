@@ -622,6 +622,8 @@ import type {
 } from './types';
 import { deepCloneJSON } from '../shared/deep-clone.js';
 
+const MEDIA_URL_SCHEMA_FORMAT = 'uri-reference';
+
 function cloneSchema<T>(value: T): T {
   return deepCloneJSON(value);
 }
@@ -633,6 +635,10 @@ function mergeSchemaSection(base: Record<string, unknown>, next: Record<string, 
 function normalizeMediaValueMode(value: unknown): MediaValueMode | undefined {
   const normalized = String(value ?? '').trim().toLowerCase();
   return normalized === 'id' || normalized === 'url' ? (normalized as MediaValueMode) : undefined;
+}
+
+function isUrlSchemaFormat(format: unknown): boolean {
+  return format === 'uri' || format === MEDIA_URL_SCHEMA_FORMAT;
 }
 
 function cloneMediaComponentOptions(value: unknown): MediaComponentOptions | undefined {
@@ -902,7 +908,7 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
     time: { type: 'string', format: 'time' },
     datetime: { type: 'string', format: 'date-time' },
     daterange: { type: 'object' },
-    'media-picker': { type: 'string', format: 'uri' },
+    'media-picker': { type: 'string', format: MEDIA_URL_SCHEMA_FORMAT },
     'media-gallery': { type: 'array' },
     'file-upload': { type: 'string', format: 'uri' },
     reference: { type: 'string', format: 'uuid' },
@@ -1038,7 +1044,7 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
       } else {
         delete componentOptions.acceptedKinds;
       }
-      schema.items = { type: 'string', format: valueMode === 'id' ? 'uuid' : 'uri' };
+      schema.items = { type: 'string', format: valueMode === 'id' ? 'uuid' : MEDIA_URL_SCHEMA_FORMAT };
       formgen.componentOptions = componentOptions;
       schema['x-formgen'] = formgen as FormgenExtension;
       sourceAdminMedia.valueMode = valueMode;
@@ -1087,7 +1093,7 @@ function fieldToSchemaProperty(field: FieldDefinition): JSONSchema {
         delete componentOptions.itemEndpoint;
         delete componentOptions.resolveEndpoint;
       }
-      schema.format = valueMode === 'id' ? 'uuid' : 'uri';
+      schema.format = valueMode === 'id' ? 'uuid' : field.type === 'file-upload' ? 'uri' : MEDIA_URL_SCHEMA_FORMAT;
       formgen.componentOptions = componentOptions;
       schema['x-formgen'] = formgen as FormgenExtension;
       sourceAdminMedia.valueMode = valueMode;
@@ -1415,7 +1421,7 @@ function schemaToFieldType(schema: JSONSchema): FieldType {
         if (isBlocksWidget(formgen?.widget)) return 'blocks';
         if (formgen?.widget === 'chips') return 'chips';
         if (formgen?.widget === 'media-picker') return 'media-gallery';
-        if (itemsSchema.format === 'uuid' || itemsSchema.format === 'uri') return 'references';
+        if (itemsSchema.format === 'uuid' || isUrlSchemaFormat(itemsSchema.format)) return 'references';
       }
       return 'repeater';
     }
@@ -1452,7 +1458,7 @@ function schemaToFieldType(schema: JSONSchema): FieldType {
       if (schema.format === 'date-time') return 'datetime';
       if (schema.format === 'date') return 'date';
       if (schema.format === 'time') return 'time';
-      if (schema.format === 'uri') return 'media-picker';
+      if (isUrlSchemaFormat(schema.format)) return 'media-picker';
       if (schema.format === 'uuid') return 'reference';
       if (schema.enum) return 'select';
       return 'text';

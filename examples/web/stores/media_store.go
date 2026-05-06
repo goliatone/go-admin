@@ -28,7 +28,18 @@ type MediaStore struct {
 const (
 	defaultMediaLibraryUploadSubdir = "uploads/media/library"
 	defaultMediaLibraryMaxUpload    = 25 * 1024 * 1024
+	mediaShowcaseImageURL           = "/admin/assets/uploads/users/profile-pictures/1765861166124613.png"
+	mediaShowcaseVectorURL          = "/admin/assets/uploads/media/showcase/brand-mark.svg"
+	mediaShowcaseGenericVectorURL   = "/admin/assets/uploads/media/showcase/generic-vector.svg"
+	mediaShowcaseVideoURL           = "/admin/assets/uploads/media/showcase/product-demo.mp4"
+	mediaShowcaseAudioURL           = "/admin/assets/uploads/media/showcase/narration.mp3"
+	mediaShowcaseDocumentURL        = "/admin/assets/uploads/media/showcase/operator-guide.pdf"
 )
+
+var staleMediaShowcaseURLs = []string{
+	"/static/media/logo.png",
+	"/static/media/banner.jpg",
+}
 
 // MediaLibraryUploadConfig configures disk-backed uploads for the media module.
 type MediaLibraryUploadConfig struct {
@@ -93,6 +104,15 @@ func NewMediaStore(db *bun.DB, opts ...repository.Option) (*MediaStore, error) {
 	return &MediaStore{repo: repo, adapter: adapter}, nil
 }
 
+// SeedMediaShowcase ensures the example showcase media records are present in a DB-backed media store.
+func SeedMediaShowcase(ctx context.Context, db *bun.DB, opts ...repository.Option) error {
+	store, err := NewMediaStore(db, opts...)
+	if err != nil {
+		return err
+	}
+	return store.SeedWithContext(ctx)
+}
+
 // WithActivitySink enables activity emission on CRUD operations.
 func (s *MediaStore) WithActivitySink(sink admin.ActivitySink) {
 	s.activity = sink
@@ -119,74 +139,92 @@ func (s *MediaStore) MediaLibraryWithUploads(cfg MediaLibraryUploadConfig) admin
 	return &uploadMediaStoreLibrary{mediaStoreLibrary: base, cfg: cfg}
 }
 
-// Seed populates the MediaStore with initial data when empty.
+// Seed ensures the example showcase media records are present.
 func (s *MediaStore) Seed() {
-	if s.repo == nil {
-		return
+	_ = s.SeedWithContext(context.Background())
+}
+
+// SeedWithContext ensures the example showcase media records are present.
+func (s *MediaStore) SeedWithContext(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	ctx := context.Background()
-	total, err := s.repo.Count(ctx)
-	if err == nil && total > 0 {
-		return
+	if s == nil || s.repo == nil {
+		return nil
+	}
+	if err := s.deleteStaleShowcaseMedia(ctx); err != nil {
+		return err
 	}
 
 	now := time.Now().UTC()
 	media := []map[string]any{
 		{
-			"id":          seedContentUUID("media:logo.png"),
-			"filename":    "logo.png",
+			"id":          seedContentUUID("media:dashboard-screenshot.png"),
+			"filename":    "dashboard-screenshot.png",
 			"type":        "image",
 			"mime_type":   "image/png",
-			"size":        parseSize("245 KB"),
-			"url":         "/uploads/logo.png",
+			"size":        int64(38224),
+			"url":         mediaShowcaseImageURL,
 			"uploaded_by": "admin",
 			"created_at":  now.Add(-60 * 24 * time.Hour),
-			"alt_text":    "Company Logo",
+			"alt_text":    "Dashboard screenshot",
 		},
 		{
-			"id":          seedContentUUID("media:banner.jpg"),
-			"filename":    "banner.jpg",
-			"type":        "image",
-			"mime_type":   "image/jpeg",
-			"size":        parseSize("1.2 MB"),
-			"url":         "/uploads/banner.jpg",
+			"id":          seedContentUUID("media:brand-mark.svg"),
+			"filename":    "brand-mark.svg",
+			"type":        "vector",
+			"mime_type":   "image/svg+xml",
+			"size":        int64(493),
+			"url":         mediaShowcaseVectorURL,
 			"uploaded_by": "jane.smith",
 			"created_at":  now.Add(-45 * 24 * time.Hour),
-			"alt_text":    "Homepage Banner",
-			"caption":     "Main banner image",
+			"alt_text":    "Brand mark",
+			"caption":     "SVG brand mark for vector preview checks",
 		},
 		{
-			"id":          seedContentUUID("media:guide.pdf"),
-			"filename":    "guide.pdf",
+			"id":          seedContentUUID("media:operator-guide.pdf"),
+			"filename":    "operator-guide.pdf",
 			"type":        "document",
 			"mime_type":   "application/pdf",
-			"size":        parseSize("3.5 MB"),
-			"url":         "/uploads/guide.pdf",
+			"size":        int64(470),
+			"url":         mediaShowcaseDocumentURL,
 			"uploaded_by": "jane.smith",
 			"created_at":  now.Add(-30 * 24 * time.Hour),
-			"caption":     "User guide document",
+			"caption":     "Operator guide document",
 		},
 		{
-			"id":          seedContentUUID("media:demo.mp4"),
-			"filename":    "demo.mp4",
+			"id":          seedContentUUID("media:product-demo.mp4"),
+			"filename":    "product-demo.mp4",
 			"type":        "video",
 			"mime_type":   "video/mp4",
-			"size":        parseSize("15.8 MB"),
-			"url":         "/uploads/demo.mp4",
+			"size":        int64(12394),
+			"url":         mediaShowcaseVideoURL,
 			"uploaded_by": "john.doe",
 			"created_at":  now.Add(-15 * 24 * time.Hour),
 			"caption":     "Product demo video",
 		},
 		{
-			"id":          seedContentUUID("media:screenshot.png"),
-			"filename":    "screenshot.png",
-			"type":        "image",
-			"mime_type":   "image/png",
-			"size":        parseSize("680 KB"),
-			"url":         "/uploads/screenshot.png",
+			"id":          seedContentUUID("media:narration.mp3"),
+			"filename":    "narration.mp3",
+			"type":        "binary",
+			"mime_type":   "audio/mpeg",
+			"size":        int64(4961),
+			"url":         mediaShowcaseAudioURL,
 			"uploaded_by": "admin",
 			"created_at":  now.Add(-5 * 24 * time.Hour),
-			"alt_text":    "Dashboard Screenshot",
+			"caption":     "Narration audio with generic type for MIME-family checks",
+		},
+		{
+			"id":          seedContentUUID("media:generic-vector.svg"),
+			"filename":    "generic-vector.svg",
+			"type":        "asset",
+			"mime_type":   "image/svg+xml",
+			"size":        int64(467),
+			"url":         mediaShowcaseGenericVectorURL,
+			"uploaded_by": "admin",
+			"created_at":  now.Add(-2 * 24 * time.Hour),
+			"alt_text":    "Generic SVG asset",
+			"caption":     "Generic type SVG for effective vector filter checks",
 		},
 	}
 
@@ -194,9 +232,26 @@ func (s *MediaStore) Seed() {
 		rec := mediaRecordFromMap(seed)
 		ensureMediaTimestamps(rec, true)
 		if _, err := s.repo.Upsert(ctx, rec); err != nil {
-			continue
+			return fmt.Errorf("seed media showcase %s: %w", rec.Filename, err)
 		}
 	}
+	return nil
+}
+
+func (s *MediaStore) deleteStaleShowcaseMedia(ctx context.Context) error {
+	if s == nil || s.repo == nil {
+		return nil
+	}
+	records, _, err := s.repo.List(ctx, repository.SelectColumnIn[string]("url", staleMediaShowcaseURLs))
+	if err != nil {
+		return fmt.Errorf("list stale media showcase rows: %w", err)
+	}
+	for _, rec := range records {
+		if err := s.repo.Delete(ctx, rec); err != nil {
+			return fmt.Errorf("delete stale media showcase row %s: %w", rec.URL, err)
+		}
+	}
+	return nil
 }
 
 // List returns a list of media files matching the given options.
@@ -336,36 +391,6 @@ type mediaStoreLibrary struct {
 	store *MediaStore
 }
 
-func (l *mediaStoreLibrary) List(ctx context.Context) ([]admin.MediaItem, error) {
-	if l == nil || l.store == nil {
-		return nil, errors.New("media store is nil")
-	}
-	records, _, err := l.store.repo.List(ctx, mediaSortCriteria(""))
-	if err != nil {
-		return nil, err
-	}
-	items := make([]admin.MediaItem, 0, len(records))
-	for _, record := range records {
-		items = append(items, mediaRecordToMediaItem(record))
-	}
-	return items, nil
-}
-
-func (l *mediaStoreLibrary) Add(ctx context.Context, item admin.MediaItem) (admin.MediaItem, error) {
-	if l == nil || l.store == nil {
-		return admin.MediaItem{}, errors.New("media store is nil")
-	}
-	record := mediaRecordFromMediaItem(item)
-	ensureMediaTimestamps(record, true)
-	created, err := l.store.repo.Create(ctx, record)
-	if err != nil {
-		return admin.MediaItem{}, err
-	}
-	out := mediaRecordToMediaItem(created)
-	l.store.emitActivity(ctx, "uploaded", mediaRecordToMap(created))
-	return out, nil
-}
-
 func (l *mediaStoreLibrary) QueryMedia(ctx context.Context, query admin.MediaQuery) (admin.MediaPage, error) {
 	if l == nil || l.store == nil {
 		return admin.MediaPage{}, errors.New("media store is nil")
@@ -389,6 +414,21 @@ func (l *mediaStoreLibrary) QueryMedia(ctx context.Context, query admin.MediaQue
 		Limit:  query.Limit,
 		Offset: query.Offset,
 	}, nil
+}
+
+func (l *mediaStoreLibrary) createMediaItem(ctx context.Context, item admin.MediaItem) (admin.MediaItem, error) {
+	if l == nil || l.store == nil {
+		return admin.MediaItem{}, errors.New("media store is nil")
+	}
+	record := mediaRecordFromMediaItem(item)
+	ensureMediaTimestamps(record, true)
+	created, err := l.store.repo.Create(ctx, record)
+	if err != nil {
+		return admin.MediaItem{}, err
+	}
+	out := mediaRecordToMediaItem(created)
+	l.store.emitActivity(ctx, "uploaded", mediaRecordToMap(created))
+	return out, nil
 }
 
 func (l *mediaStoreLibrary) GetMedia(ctx context.Context, id string) (admin.MediaItem, error) {
@@ -537,7 +577,7 @@ func (l *uploadMediaStoreLibrary) UploadMedia(ctx context.Context, input admin.M
 		Size:     size,
 		Metadata: input.Metadata,
 	}
-	created, err := l.mediaStoreLibrary.Add(ctx, item)
+	created, err := l.mediaStoreLibrary.createMediaItem(ctx, item)
 	if err != nil {
 		_ = os.Remove(finalPath)
 		return admin.MediaItem{}, err
@@ -549,13 +589,12 @@ func (l *uploadMediaStoreLibrary) MediaCapabilities(context.Context) (admin.Medi
 	cfg := normalizeMediaLibraryUploadConfig(l.cfg)
 	return admin.MediaCapabilities{
 		Operations: admin.MediaOperationCapabilities{
-			List:         true,
-			Get:          true,
-			Resolve:      true,
-			Upload:       cfg.uploadsEnabled(),
-			Update:       true,
-			Delete:       true,
-			LegacyCreate: true,
+			List:    true,
+			Get:     true,
+			Resolve: true,
+			Upload:  cfg.uploadsEnabled(),
+			Update:  true,
+			Delete:  true,
 		},
 		Upload: admin.MediaUploadCapabilities{
 			DirectUpload:      cfg.uploadsEnabled(),
@@ -622,9 +661,35 @@ func mediaSearchCriteria(search string) repository.SelectCriteria {
 }
 
 func mediaMIMEFamilyCriteria(family string) repository.SelectCriteria {
-	like := strings.ToLower(strings.Trim(strings.TrimSpace(family), "/")) + "/%"
+	normalized := strings.ToLower(strings.Trim(strings.TrimSpace(family), "/"))
+	if normalized == "" {
+		return repository.SelectRawProcessor(func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q
+		})
+	}
+	like := normalized + "/%"
 	return repository.SelectRawProcessor(func(q *bun.SelectQuery) *bun.SelectQuery {
-		return q.Where("LOWER(?TableAlias.mime_type) LIKE ?", like)
+		mediaType := "LOWER(COALESCE(?TableAlias.type, ''))"
+		mimeType := "LOWER(COALESCE(?TableAlias.mime_type, ''))"
+		if normalized == "vector" {
+			return q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+				return q.
+					WhereOr(mediaType+" = ?", "vector").
+					WhereOr("("+mediaType+" NOT IN (?) AND "+mimeType+" = ?)", bun.In([]string{"image", "vector", "video", "audio"}), "image/svg+xml")
+			})
+		}
+		if normalized == "image" {
+			return q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+				return q.
+					WhereOr(mediaType+" = ?", "image").
+					WhereOr("("+mediaType+" NOT IN (?) AND "+mimeType+" LIKE ? AND "+mimeType+" <> ?)", bun.In([]string{"image", "vector", "video", "audio"}), like, "image/svg+xml")
+			})
+		}
+		return q.WhereGroup(" AND ", func(q *bun.SelectQuery) *bun.SelectQuery {
+			return q.
+				WhereOr(mediaType+" = ?", normalized).
+				WhereOr("("+mediaType+" NOT IN (?) AND "+mimeType+" LIKE ?)", bun.In([]string{"image", "vector", "video", "audio"}), like)
+		})
 	})
 }
 
@@ -812,7 +877,7 @@ func mediaRecordToMediaItem(record *MediaRecord) admin.MediaItem {
 		ID:             record.ID.String(),
 		Name:           record.Filename,
 		URL:            record.URL,
-		Thumbnail:      record.URL,
+		Thumbnail:      mediaRecordThumbnailURL(record.Type, record.MimeType, record.URL),
 		Type:           record.Type,
 		MIMEType:       record.MimeType,
 		Size:           record.Size,
@@ -833,18 +898,34 @@ func mediaMapToMediaItem(record map[string]any) admin.MediaItem {
 			metadata[key] = value
 		}
 	}
+	typ := strings.ToLower(fmt.Sprint(record["type"]))
+	mimeType := fmt.Sprint(record["mime_type"])
+	url := fmt.Sprint(record["url"])
 	return admin.MediaItem{
 		ID:             fmt.Sprint(record["id"]),
 		Name:           fmt.Sprint(record["filename"]),
-		URL:            fmt.Sprint(record["url"]),
-		Thumbnail:      fmt.Sprint(record["url"]),
-		Type:           strings.ToLower(fmt.Sprint(record["type"])),
-		MIMEType:       fmt.Sprint(record["mime_type"]),
+		URL:            url,
+		Thumbnail:      mediaRecordThumbnailURL(typ, mimeType, url),
+		Type:           typ,
+		MIMEType:       mimeType,
 		Size:           toInt64Value(record["size"]),
 		Status:         "ready",
 		WorkflowStatus: "complete",
 		Metadata:       metadata,
 		CreatedAt:      parseTimeValue(record["created_at"]),
+	}
+}
+
+func mediaRecordThumbnailURL(mediaType string, mimeType string, url string) string {
+	switch strings.ToLower(strings.TrimSpace(mediaType)) {
+	case "image", "vector":
+		return strings.TrimSpace(url)
+	}
+	switch inferMediaType(mimeType, url) {
+	case "image", "vector":
+		return strings.TrimSpace(url)
+	default:
+		return ""
 	}
 }
 

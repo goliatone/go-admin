@@ -59,7 +59,17 @@ func (s *PageStore) Seed() {
 
 	now := time.Now().UTC()
 	pages := []map[string]any{
-		{"id": seedContentUUID("page:home"), "title": "Home", "slug": "home", "content": "Welcome to our website", "status": "published", "meta_title": "Home - Enterprise Admin", "meta_description": "Welcome to Enterprise Admin", "created_at": now.Add(-100 * 24 * time.Hour), "updated_at": now.Add(-10 * 24 * time.Hour)},
+		{
+			"id":               seedContentUUID("page:home"),
+			"title":            "Home",
+			"slug":             "home",
+			"content":          "Welcome to our website",
+			"status":           "published",
+			"meta_title":       "Home - Enterprise Admin",
+			"meta_description": "Welcome to Enterprise Admin",
+			"created_at":       now.Add(-100 * 24 * time.Hour),
+			"updated_at":       now.Add(-10 * 24 * time.Hour),
+		},
 		{"id": seedContentUUID("page:about"), "title": "About Us", "slug": "about", "content": "Learn more about our company", "status": "published", "meta_title": "About Us", "meta_description": "Learn more about our company", "created_at": now.Add(-90 * 24 * time.Hour), "updated_at": now.Add(-5 * 24 * time.Hour)},
 		{"id": seedContentUUID("page:team"), "title": "Our Team", "slug": "team", "content": "Meet our team members", "status": "published", "parent_id": seedContentUUID("page:about").String(), "meta_title": "Our Team", "meta_description": "Meet our team", "created_at": now.Add(-80 * 24 * time.Hour), "updated_at": now.Add(-3 * 24 * time.Hour)},
 		{"id": seedContentUUID("page:contact"), "title": "Contact", "slug": "contact", "content": "Get in touch with us", "status": "published", "meta_title": "Contact Us", "meta_description": "Get in touch", "created_at": now.Add(-70 * 24 * time.Hour), "updated_at": now.Add(-1 * 24 * time.Hour)},

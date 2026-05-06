@@ -87,3 +87,82 @@ test('schemaToFields/fieldsToSchema preserves media picker value mode and endpoi
   assert.equal(rebuilt.properties.gallery['x-formgen'].componentOptions.multiple, true);
   assert.deepEqual(rebuilt.properties.gallery['x-formgen'].componentOptions.acceptedKinds, ['image', 'video']);
 });
+
+test('fieldsToSchema serializes URL-mode media fields with URI-reference format', () => {
+  const rebuilt = fieldsToSchema(
+    [
+      {
+        id: 'field-hero',
+        name: 'hero',
+        type: 'media-picker',
+        label: 'Hero',
+        required: false,
+        config: {
+          valueMode: 'url',
+          acceptedKinds: ['image'],
+        },
+      },
+      {
+        id: 'field-gallery',
+        name: 'gallery',
+        type: 'media-gallery',
+        label: 'Gallery',
+        required: false,
+        config: {
+          valueMode: 'url',
+          multiple: true,
+          acceptedKinds: ['image', 'video'],
+        },
+      },
+    ],
+    'page'
+  );
+
+  assert.equal(rebuilt.properties.hero.format, 'uri-reference');
+  assert.equal(rebuilt.properties.hero['x-formgen'].componentOptions.valueMode, 'url');
+  assert.equal(rebuilt.properties.gallery.items.format, 'uri-reference');
+  assert.equal(rebuilt.properties.gallery['x-formgen'].componentOptions.valueMode, 'url');
+});
+
+test('schemaToFields imports URI-reference media picker and gallery schemas', () => {
+  const inputSchema = {
+    type: 'object',
+    properties: {
+      hero: {
+        type: 'string',
+        format: 'uri-reference',
+        'x-formgen': {
+          widget: 'media-picker',
+          componentOptions: {
+            valueMode: 'url',
+            acceptedKinds: ['image'],
+          },
+        },
+      },
+      gallery: {
+        type: 'array',
+        items: { type: 'string', format: 'uri-reference' },
+        'x-formgen': {
+          widget: 'media-picker',
+          componentOptions: {
+            valueMode: 'url',
+            multiple: true,
+            acceptedKinds: ['image', 'video'],
+          },
+        },
+      },
+    },
+  };
+
+  const fields = schemaToFields(inputSchema);
+  assert.equal(fields[0].type, 'media-picker');
+  assert.equal(fields[0].config.valueMode, 'url');
+  assert.deepEqual(fields[0].config.acceptedKinds, ['image']);
+  assert.equal(fields[1].type, 'media-gallery');
+  assert.equal(fields[1].config.valueMode, 'url');
+  assert.equal(fields[1].config.multiple, true);
+
+  const rebuilt = fieldsToSchema(fields, 'page');
+  assert.equal(rebuilt.properties.hero.format, 'uri-reference');
+  assert.equal(rebuilt.properties.gallery.items.format, 'uri-reference');
+});
