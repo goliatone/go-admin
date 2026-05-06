@@ -67,6 +67,7 @@ examples/web/assets/uploads/users/profile-pictures
 
 docs/*
 !docs/GUIDES_*.md
+!docs/GUIDE_MODULE_MEDIA.md
 !docs/ROUTING_RELEASE_CHECKLIST.md
 pkg/client/assets/tenant/
 pkg/client/assets/tenant/tenant-bootstrap/
