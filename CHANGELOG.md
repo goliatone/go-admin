@@ -1,18 +1,29 @@
 # Changelog
 
-## Unreleased
+# [0.61.0](https://github.com/goliatone/go-admin/compare/v0.60.0...v0.61.0) - (2026-05-06)
 
-## ⚠️ Breaking Changes
+## <!-- 1 -->🐛 Bug Fixes
 
-- Media module legacy `MediaLibrary` `List(ctx)`/`Add(ctx, item)` compatibility, direct `POST /media/library` create behavior, `legacy_create` capabilities, and get/resolve list-scanning fallbacks have been removed. Host integrations must implement the modern media interfaces instead of relying on route-layer fallback behavior.
+- Media preview setup ([89814c5](https://github.com/goliatone/go-admin/commit/89814c562e7bfb0048419f7e9947874c8fd9b64f))  - (goliatone)
 
-Migration guidance:
+## <!-- 13 -->📦 Bumps
 
-- Replace `List(ctx) ([]MediaItem, error)` with `QueryMedia(ctx, MediaQuery) (MediaPage, error)` so the host owns pagination, search, status filtering, sorting, and effective `mime_family` behavior.
-- Replace direct `Add(ctx, MediaItem)` legacy create usage with `UploadMedia`, `PresignMedia` plus `ConfirmMedia`, or another explicit supported mutation path; `POST /media/library` no longer creates media records.
-- Implement `GetMedia(ctx, id)` and/or `ResolveMedia(ctx, MediaReference)` for media picker ID/URL references; route code no longer scans list results as a fallback, and picker ID mode is only advertised when lookup support exists.
-- Expose `MediaCapabilities` or capability overrides when a host needs to tune upload limits, accepted kinds/MIME types, picker value modes, or operation availability.
-- Keep public media JSON keys stable (`id`, `name`, `url`, `thumbnail`, `type`, `mime_type`, `size`, `status`, `metadata`) while moving to the modern interfaces.
+- Bump version: v0.61.0 ([27fb108](https://github.com/goliatone/go-admin/commit/27fb108702c3380bbe8ca54d104bc074cac4e9f2))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Media library configuration ([f4c1229](https://github.com/goliatone/go-admin/commit/f4c12292dab57e9c0032a04d964ecde6e74c617a))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.60.0 ([5e7eaea](https://github.com/goliatone/go-admin/commit/5e7eaeab138527f6dea8974df192e9c5b8f7b3bd))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([5f40ec2](https://github.com/goliatone/go-admin/commit/5f40ec29533b96b6ec6a9d6a6bf88aa537a39ea7))  - (goliatone)
+- Update changelog ([1931e76](https://github.com/goliatone/go-admin/commit/1931e76b61c5ba97488b0a187c84ac217c1fad2d))  - (goliatone)
+- Update docs ([7503b7b](https://github.com/goliatone/go-admin/commit/7503b7bdea03adbbf9a245f56a66647713fb5115))  - (goliatone)
+- Update tests ([156c831](https://github.com/goliatone/go-admin/commit/156c831c16c245b96767510798e4d7b33beff50e))  - (goliatone)
 
 # [0.60.0](https://github.com/goliatone/go-admin/compare/v0.59.0...v0.60.0) - (2026-05-04)
 
@@ -2795,3 +2806,5 @@ Migration guidance:
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
+
+
