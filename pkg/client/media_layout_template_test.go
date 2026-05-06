@@ -153,6 +153,8 @@ func TestMediaPageScriptBindsPageLevelControls(t *testing.T) {
 		"uploadInput: byMediaPage<HTMLInputElement>(root, '[data-media-upload-input]')",
 		"uploadTrigger: byMediaPage<HTMLButtonElement>(root, '[data-media-upload-trigger]')",
 		"selectionBar: byMediaPage(root, '[data-media-selection-bar]')",
+		"selectionCount: byMediaPage(root, '[data-media-selected-count]')",
+		"clearSelection: byMediaPage<HTMLButtonElement>(root, '[data-media-clear-selection]')",
 		"bulkDelete: byMediaPage<HTMLButtonElement>(root, '[data-media-bulk-delete]')",
 	)
 }

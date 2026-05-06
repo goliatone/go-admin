@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-labelledby="title desc">
+  <title id="title">Generic SVG media asset</title>
+  <desc id="desc">A generic typed SVG used to verify effective vector filtering.</desc>
+  <rect width="320" height="180" fill="#ffffff"/>
+  <path d="M46 134 104 46l58 88z" fill="#14b8a6"/>
+  <path d="M150 134 208 46l58 88z" fill="#f97316"/>
+  <rect x="46" y="136" width="220" height="10" fill="#334155"/>
+</svg>

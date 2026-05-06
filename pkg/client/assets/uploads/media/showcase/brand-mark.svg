@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-labelledby="title desc">
+  <title id="title">go-admin brand mark</title>
+  <desc id="desc">A simple vector mark used by the example media library.</desc>
+  <rect width="320" height="180" fill="#f8fafc"/>
+  <rect x="24" y="24" width="272" height="132" rx="16" fill="#0f172a"/>
+  <circle cx="94" cy="90" r="38" fill="#38bdf8"/>
+  <path d="M142 58h84v20h-84zm0 32h110v20h-110zm0 32h72v20h-72z" fill="#f8fafc"/>
+</svg>

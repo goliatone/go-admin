@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -97,6 +98,124 @@ ORDER BY name`)
 	}
 	if !hasCanonicalKey {
 		t.Fatalf("expected canonical_key column from sanitized migrations")
+	}
+}
+
+func TestPersistentCMSReconcilesStaleMediaShowcaseRows(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := testSQLiteDSN(t)
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil {
+		t.Fatalf("expected CMS container")
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `DELETE FROM media`); err != nil {
+		_ = db.Close()
+		t.Fatalf("clear media rows: %v", err)
+	}
+	staleRows := []struct {
+		id       string
+		filename string
+		url      string
+		mimeType string
+	}{
+		{
+			id:       "10000000-0000-0000-0000-000000000001",
+			filename: "logo.png",
+			url:      "/static/media/logo.png",
+			mimeType: "image/png",
+		},
+		{
+			id:       "10000000-0000-0000-0000-000000000002",
+			filename: "banner.jpg",
+			url:      "/static/media/banner.jpg",
+			mimeType: "image/jpeg",
+		},
+		{
+			id:       "10000000-0000-0000-0000-000000000003",
+			filename: "user-upload.png",
+			url:      "/admin/assets/uploads/media/library/user-upload.png",
+			mimeType: "image/png",
+		},
+	}
+	for _, row := range staleRows {
+		if _, err := db.ExecContext(ctx, `
+INSERT INTO media (id, filename, url, type, mime_type, size, metadata, uploaded_by, created_at, updated_at)
+VALUES (?, ?, ?, 'image', ?, 1, '{}', 'test', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+			row.id, row.filename, row.url, row.mimeType,
+		); err != nil {
+			_ = db.Close()
+			t.Fatalf("insert stale media row %s: %v", row.filename, err)
+		}
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close sqlite before setup rerun: %v", err)
+	}
+
+	opts, err = SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("rerun persistent cms setup: %v", err)
+	}
+	if opts.Container == nil {
+		t.Fatalf("expected CMS container after rerun")
+	}
+
+	db, err = sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("reopen sqlite: %v", err)
+	}
+	defer db.Close()
+
+	rows, err := db.QueryContext(ctx, `SELECT COALESCE(url, '') FROM media`)
+	if err != nil {
+		t.Fatalf("query media urls: %v", err)
+	}
+	defer rows.Close()
+
+	urls := map[string]bool{}
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			t.Fatalf("scan media url: %v", err)
+		}
+		urls[url] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate media urls: %v", err)
+	}
+
+	for _, staleURL := range []string{
+		"/static/media/logo.png",
+		"/static/media/banner.jpg",
+	} {
+		if urls[staleURL] {
+			t.Fatalf("stale media URL should be reconciled away: %s", staleURL)
+		}
+	}
+	if !urls["/admin/assets/uploads/media/library/user-upload.png"] {
+		t.Fatalf("unrelated user media should be preserved")
+	}
+	for _, expectedURL := range []string{
+		"/admin/assets/uploads/users/profile-pictures/1765861166124613.png",
+		"/admin/assets/uploads/media/showcase/brand-mark.svg",
+		"/admin/assets/uploads/media/showcase/generic-vector.svg",
+		"/admin/assets/uploads/media/showcase/product-demo.mp4",
+		"/admin/assets/uploads/media/showcase/narration.mp3",
+		"/admin/assets/uploads/media/showcase/operator-guide.pdf",
+	} {
+		if !urls[expectedURL] {
+			t.Fatalf("expected current showcase URL after setup rerun: %s", expectedURL)
+		}
 	}
 }
 
@@ -316,6 +435,154 @@ func TestPersistentCMSSeedsCoreBlockDefinitions(t *testing.T) {
 	}
 }
 
+func TestPersistentCMSMediaGallerySchemaAllowsRelativeAdminAssetURLs(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := testSQLiteDSN(t)
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil || opts.Container.ContentService() == nil {
+		t.Fatalf("expected CMS content service")
+	}
+
+	defs, err := opts.Container.ContentService().BlockDefinitions(ctx)
+	if err != nil {
+		t.Fatalf("list block definitions: %v", err)
+	}
+
+	var gallerySchema map[string]any
+	for _, def := range defs {
+		if strings.EqualFold(strings.TrimSpace(def.ID), "media_gallery") {
+			gallerySchema = def.Schema
+			break
+		}
+	}
+	if len(gallerySchema) == 0 {
+		t.Fatalf("expected media_gallery block definition")
+	}
+	items := nestedSchemaMap(t, gallerySchema, "properties", "images", "items")
+	if got := strings.TrimSpace(fmt.Sprint(items["format"])); got != "uri-reference" {
+		t.Fatalf("expected persistent media_gallery image items format uri-reference, got %q", got)
+	}
+
+	fixture, err := os.ReadFile(filepath.Join("..", "data", "sql", "seeds", "cms", "cms.yml"))
+	if err != nil {
+		t.Fatalf("read cms seed fixture: %v", err)
+	}
+	body := string(fixture)
+	if !strings.Contains(body, `format: "uri-reference"`) {
+		t.Fatalf("expected SQL/YAML cms seed fixture to use uri-reference for media_gallery URLs")
+	}
+	if strings.Contains(body, `format: "uri"`) {
+		t.Fatalf("expected SQL/YAML cms seed fixture not to require absolute uri format")
+	}
+
+	contentFixture, err := os.ReadFile(filepath.Join("..", "data", "sql", "seeds", "content", "content.yml"))
+	if err != nil {
+		t.Fatalf("read content seed fixture: %v", err)
+	}
+	if !strings.Contains(string(contentFixture), `/admin/assets/uploads/media/showcase/brand-mark.svg`) {
+		t.Fatalf("expected content seed fixture to include relative admin asset media gallery URLs")
+	}
+}
+
+func TestPersistentCMSSeedsMediaGalleryBlocksFromContentFixture(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+	dsn := testSQLiteDSN(t)
+
+	opts, err := SetupPersistentCMS(ctx, "en", dsn)
+	if err != nil {
+		t.Fatalf("setup persistent cms: %v", err)
+	}
+	if opts.Container == nil {
+		t.Fatalf("expected CMS container")
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer db.Close()
+
+	rows, err := db.QueryContext(ctx, `
+SELECT ct.content
+FROM content_translations ct
+JOIN contents c ON c.id = ct.content_id
+WHERE c.slug = 'home'`)
+	if err != nil {
+		t.Fatalf("query home content translations: %v", err)
+	}
+	defer rows.Close()
+
+	rowCount := 0
+	galleryCount := 0
+	for rows.Next() {
+		rowCount++
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			t.Fatalf("scan content translation: %v", err)
+		}
+		payload := map[string]any{}
+		if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+			t.Fatalf("decode content translation payload: %v", err)
+		}
+		markdown, ok := payload["markdown"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected persisted home content translation to include markdown payload, got %#v", payload["markdown"])
+		}
+		custom, ok := markdown["custom"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected persisted home content translation to include markdown custom payload, got %#v", markdown["custom"])
+		}
+		blocks, ok := custom["blocks"].([]any)
+		if !ok || len(blocks) == 0 {
+			t.Fatalf("expected persisted home content translation to include embedded blocks, got %#v", custom["blocks"])
+		}
+		for _, block := range blocks {
+			blockMap, ok := block.(map[string]any)
+			if !ok {
+				continue
+			}
+			if strings.TrimSpace(fmt.Sprint(blockMap["_type"])) != "media_gallery" {
+				continue
+			}
+			galleryCount++
+			images, ok := blockMap["images"].([]any)
+			if !ok || len(images) < 3 {
+				t.Fatalf("expected media_gallery block images, got %#v", blockMap["images"])
+			}
+			imageSet := map[string]struct{}{}
+			for _, image := range images {
+				imageSet[strings.TrimSpace(fmt.Sprint(image))] = struct{}{}
+			}
+			for _, expected := range []string{
+				"/admin/assets/uploads/users/profile-pictures/1765861166124613.png",
+				"/admin/assets/uploads/media/showcase/brand-mark.svg",
+				"/admin/assets/uploads/media/showcase/generic-vector.svg",
+			} {
+				if _, ok := imageSet[expected]; !ok {
+					t.Fatalf("expected persistent media_gallery block to include %s, got %#v", expected, images)
+				}
+			}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate content translations: %v", err)
+	}
+	if rowCount == 0 {
+		t.Fatalf("expected at least one home content translation row")
+	}
+	if galleryCount == 0 {
+		t.Fatalf("expected persistent home content translations to include media_gallery blocks")
+	}
+}
+
 func TestPersistentCMSReconcilesRichTextBlockSlugDrift(t *testing.T) {
 	t.Helper()
 
@@ -379,6 +646,19 @@ WHERE LOWER(slug) = 'rich-text'`)
 	if !seenRichText {
 		t.Fatalf("expected rich_text block definition after reconciliation")
 	}
+}
+
+func nestedSchemaMap(t *testing.T, root map[string]any, keys ...string) map[string]any {
+	t.Helper()
+	current := root
+	for _, key := range keys {
+		next, ok := current[key].(map[string]any)
+		if !ok {
+			t.Fatalf("expected schema path %s to be an object, got %#v", strings.Join(keys, "."), current[key])
+		}
+		current = next
+	}
+	return current
 }
 
 func TestPersistentCMSBackfillsContentTranslationPathFromPageTranslations(t *testing.T) {

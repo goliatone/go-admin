@@ -30,22 +30,15 @@ func newMediaRouteTestLibrary() *mediaRouteTestLibrary {
 			Thumbnail:      "/assets/hero-thumb.jpg",
 			Type:           "image",
 			MIMEType:       "image/jpeg",
+			Size:           102400,
 			Status:         "ready",
 			WorkflowStatus: "complete",
 		}},
 	}
 }
 
-func (l *mediaRouteTestLibrary) List(context.Context) ([]MediaItem, error) {
-	return append([]MediaItem{}, l.items...), nil
-}
-
-func (l *mediaRouteTestLibrary) Add(_ context.Context, item MediaItem) (MediaItem, error) {
-	if item.ID == "" {
-		item.ID = "legacy-added"
-	}
-	l.items = append([]MediaItem{item}, l.items...)
-	return item, nil
+func (l *mediaRouteTestLibrary) QueryMedia(_ context.Context, query MediaQuery) (MediaPage, error) {
+	return mediaPageFromItems(append([]MediaItem{}, l.items...), query), nil
 }
 
 func (l *mediaRouteTestLibrary) GetMedia(_ context.Context, id string) (MediaItem, error) {
@@ -105,6 +98,7 @@ func (l *mediaRouteTestLibrary) ConfirmMedia(_ context.Context, req MediaConfirm
 		Thumbnail: req.URL,
 		Type:      "image",
 		MIMEType:  req.ContentType,
+		Size:      req.Size,
 		Status:    "ready",
 		Metadata:  req.Metadata,
 	}
@@ -145,15 +139,14 @@ func (l *mediaRouteTestLibrary) DeleteMedia(_ context.Context, id string) error 
 func (l *mediaRouteTestLibrary) MediaCapabilities(context.Context) (MediaCapabilities, error) {
 	return MediaCapabilities{
 		Operations: MediaOperationCapabilities{
-			List:         true,
-			Get:          true,
-			Resolve:      true,
-			Upload:       true,
-			Presign:      true,
-			Confirm:      true,
-			Update:       true,
-			Delete:       true,
-			LegacyCreate: true,
+			List:    true,
+			Get:     true,
+			Resolve: true,
+			Upload:  true,
+			Presign: true,
+			Confirm: true,
+			Update:  true,
+			Delete:  true,
 		},
 		Upload: MediaUploadCapabilities{
 			DirectUpload:      true,
@@ -167,6 +160,14 @@ func (l *mediaRouteTestLibrary) MediaCapabilities(context.Context) (MediaCapabil
 			DefaultValueMode: MediaValueModeURL,
 		},
 	}, nil
+}
+
+type queryOnlyMediaRouteLibrary struct {
+	items []MediaItem
+}
+
+func (l queryOnlyMediaRouteLibrary) QueryMedia(_ context.Context, query MediaQuery) (MediaPage, error) {
+	return mediaPageFromItems(append([]MediaItem{}, l.items...), query), nil
 }
 
 type allowPermissionAuthorizer struct {
@@ -240,12 +241,78 @@ func TestMediaRoutesRemainFeatureGated(t *testing.T) {
 	}
 }
 
-func TestMediaLegacyLibraryRoutesRemainCompatible(t *testing.T) {
+func TestMediaModernLibraryRoutesRemainCompatible(t *testing.T) {
 	server := newMediaRouteServer(t, allowAll{}, NewInMemoryMediaLibrary("/admin"), featureGateFromKeys(FeatureMedia, FeatureCMS))
-	assertMediaStatus(t, server, "GET", "/admin/api/media/library", nil, nil, 200)
-	assertMediaStatus(t, server, "POST", "/admin/api/media/library", bytes.NewBufferString(`{"name":"asset","url":"/assets/asset.jpg"}`), map[string]string{"Content-Type": "application/json"}, 200)
+	listPayload := assertMediaJSON[MediaPage](t, server, "GET", "/admin/api/media/library", nil, nil, 200)
+	if len(listPayload.Items) == 0 || listPayload.Items[0].Size <= 0 {
+		t.Fatalf("expected seeded media list response to include nonzero size, got %+v", listPayload.Items)
+	}
+	assertMediaStatus(t, server, "POST", "/admin/api/media/library", bytes.NewBufferString(`{"name":"asset","url":"/assets/asset.jpg","size":12345}`), map[string]string{"Content-Type": "application/json"}, 405)
 	assertMediaStatus(t, server, "GET", "/admin/api/media/library/1", nil, nil, 200)
 	assertMediaStatus(t, server, "POST", "/admin/api/media/resolve", bytes.NewBufferString(`{"id":"1"}`), map[string]string{"Content-Type": "application/json"}, 200)
+}
+
+func TestMediaRoutesRequireExplicitLookupInterfaces(t *testing.T) {
+	lib := queryOnlyMediaRouteLibrary{items: []MediaItem{{
+		ID:       "1",
+		Name:     "hero.jpg",
+		URL:      "/assets/hero.jpg",
+		Type:     "image",
+		MIMEType: "image/jpeg",
+		Size:     102400,
+	}}}
+	server := newMediaRouteServer(t, allowAll{}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS))
+
+	listPayload := assertMediaJSON[MediaPage](t, server, "GET", "/admin/api/media/library", nil, nil, 200)
+	if len(listPayload.Items) != 1 {
+		t.Fatalf("expected query-only media list response, got %+v", listPayload.Items)
+	}
+	assertMediaStatus(t, server, "GET", "/admin/api/media/library/1", nil, nil, 503)
+	assertMediaStatus(t, server, "POST", "/admin/api/media/resolve", bytes.NewBufferString(`{"url":"/assets/hero.jpg"}`), map[string]string{"Content-Type": "application/json"}, 503)
+
+	caps := assertMediaJSON[MediaCapabilities](t, server, "GET", "/admin/api/media/capabilities", nil, nil, 200)
+	if !caps.Operations.List || caps.Operations.Get || caps.Operations.Resolve {
+		t.Fatalf("expected query-only capabilities without lookup fallbacks, got %+v", caps.Operations)
+	}
+	if len(caps.Picker.ValueModes) != 1 || caps.Picker.ValueModes[0] != MediaValueModeURL {
+		t.Fatalf("expected picker to fall back to URL mode without lookup interfaces, got %+v", caps.Picker)
+	}
+}
+
+func TestWithMediaLibraryOverridesRouteLibrary(t *testing.T) {
+	cfg := Config{
+		BasePath:              "/admin",
+		DefaultLocale:         "en",
+		MediaPermission:       "perm.view",
+		MediaCreatePermission: "perm.create",
+		MediaUpdatePermission: "perm.update",
+		MediaDeletePermission: "perm.delete",
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		FeatureGate:  featureGateFromKeys(FeatureMedia, FeatureCMS),
+		MediaLibrary: NewInMemoryMediaLibrary("/admin"),
+	})
+	adm.WithAuthorizer(allowPermissionAuthorizer{allowed: "perm.view"})
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("init admin: %v", err)
+	}
+
+	replacement := &mediaRouteTestLibrary{items: []MediaItem{{
+		ID:       "replacement",
+		Name:     "replacement.jpg",
+		URL:      "/assets/replacement.jpg",
+		Type:     "image",
+		MIMEType: "image/jpeg",
+		Size:     98765,
+		Status:   "ready",
+	}}}
+	adm.WithMediaLibrary(replacement)
+
+	payload := assertMediaJSON[MediaPage](t, server, "GET", "/admin/api/media/library", nil, nil, 200)
+	if len(payload.Items) != 1 || payload.Items[0].ID != "replacement" || payload.Items[0].Size != 98765 {
+		t.Fatalf("expected route to use replacement media library, got %+v", payload.Items)
+	}
 }
 
 func assertMediaStatus(t *testing.T, server router.Server[*httprouter.Router], method, path string, body io.Reader, headers map[string]string, want int) {
@@ -259,6 +326,24 @@ func assertMediaStatus(t *testing.T, server router.Server[*httprouter.Router], m
 	if res.Code != want {
 		t.Fatalf("%s %s: expected %d, got %d body=%s", method, path, want, res.Code, res.Body.String())
 	}
+}
+
+func assertMediaJSON[T any](t *testing.T, server router.Server[*httprouter.Router], method, path string, body io.Reader, headers map[string]string, want int) T {
+	t.Helper()
+	req := httptest.NewRequest(method, path, body)
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != want {
+		t.Fatalf("%s %s: expected %d, got %d body=%s", method, path, want, res.Code, res.Body.String())
+	}
+	var payload T
+	if err := json.Unmarshal(res.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode %s %s response: %v body=%s", method, path, err, res.Body.String())
+	}
+	return payload
 }
 
 func assertMultipartMediaStatus(t *testing.T, server router.Server[*httprouter.Router], path string, want int) {

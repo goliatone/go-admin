@@ -35,6 +35,8 @@ func TestEmbeddedAssetsServed(t *testing.T) {
 		{path: "/admin/assets/logo.svg"},
 		{path: "/admin/assets/sidebar.js"},
 		{path: "/admin/assets/dist/dashboard/index.js"},
+		{path: "/admin/assets/uploads/media/showcase/product-demo.mp4"},
+		{path: "/admin/assets/uploads/media/showcase/narration.mp3"},
 		// Legacy (example-only) uploader bundle; kept for now.
 		{path: "/admin/assets/dist/formgen/file_uploader.js"},
 		// go-formgen v0.6+ assets used by runtime file_uploader.
