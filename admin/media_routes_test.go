@@ -236,8 +236,8 @@ func TestMediaRoutesRemainFeatureGated(t *testing.T) {
 	if res.Code < 400 {
 		t.Fatalf("expected gated media route to fail when feature disabled, got %d body=%s", res.Code, res.Body.String())
 	}
-	if !strings.Contains(strings.ToLower(res.Body.String()), "media") {
-		t.Fatalf("expected media feature error body, got %s", res.Body.String())
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected module-owned media routes to be absent when feature disabled, got %d body=%s", res.Code, res.Body.String())
 	}
 }
 

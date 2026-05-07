@@ -20,6 +20,20 @@ func TestMediaModuleRouteContractUsesModuleOwnedPages(t *testing.T) {
 	if got := contract.UIRoutes[mediaListRouteKey]; got != "/list" {
 		t.Fatalf("expected list route '/list', got %q", got)
 	}
+	expectedAPI := map[string]string{
+		mediaLibraryRouteKey:      "/library",
+		mediaItemRouteKey:         "/library/:id",
+		mediaResolveRouteKey:      "/resolve",
+		mediaUploadRouteKey:       "/upload",
+		mediaPresignRouteKey:      "/presign",
+		mediaConfirmRouteKey:      "/confirm",
+		mediaCapabilitiesRouteKey: "/capabilities",
+	}
+	for key, want := range expectedAPI {
+		if got := contract.APIRoutes[key]; got != want {
+			t.Fatalf("expected api route %s=%q, got %q", key, want, got)
+		}
+	}
 }
 
 func TestMediaModuleMenuItemsResolvePlannerPathAndPlacement(t *testing.T) {
