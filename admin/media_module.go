@@ -1,8 +1,10 @@
 package admin
 
 import (
+	"encoding/json"
 	"strings"
 
+	"github.com/goliatone/go-admin/admin/internal/boot"
 	"github.com/goliatone/go-admin/admin/routing"
 	templateview "github.com/goliatone/go-admin/internal/templateview"
 	router "github.com/goliatone/go-router"
@@ -14,6 +16,14 @@ const (
 	mediaIndexRouteKey  = "media.index"
 	mediaListRouteKey   = "media.list"
 	mediaDefaultMenuPos = 35
+
+	mediaLibraryRouteKey      = "media.library"
+	mediaItemRouteKey         = "media.item"
+	mediaResolveRouteKey      = "media.resolve"
+	mediaUploadRouteKey       = "media.upload"
+	mediaPresignRouteKey      = "media.presign"
+	mediaConfirmRouteKey      = "media.confirm"
+	mediaCapabilitiesRouteKey = "media.capabilities"
 )
 
 // MediaModule exposes the media library as a module-owned admin page.
@@ -65,6 +75,7 @@ func (m *MediaModule) Register(ctx ModuleContext) error {
 	ctx.ProtectedRouter.Get(listPath, func(c router.Context) error {
 		return m.renderPage(ctx.Admin, c, "list")
 	})
+	m.registerAdminAPIRoutes(ctx)
 	return nil
 }
 
@@ -95,7 +106,7 @@ func (m *MediaModule) applyDefaults(ctx ModuleContext) {
 	}
 }
 
-// RouteContract declares the UI routes owned by the media module.
+// RouteContract declares the UI and admin API routes owned by the media module.
 func (m *MediaModule) RouteContract() routing.ModuleContract {
 	return routing.ModuleContract{
 		Slug: mediaModuleID,
@@ -103,7 +114,190 @@ func (m *MediaModule) RouteContract() routing.ModuleContract {
 			mediaIndexRouteKey: "/",
 			mediaListRouteKey:  "/list",
 		},
+		APIRoutes: map[string]string{
+			mediaLibraryRouteKey:      "/library",
+			mediaItemRouteKey:         "/library/:id",
+			mediaResolveRouteKey:      "/resolve",
+			mediaUploadRouteKey:       "/upload",
+			mediaPresignRouteKey:      "/presign",
+			mediaConfirmRouteKey:      "/confirm",
+			mediaCapabilitiesRouteKey: "/capabilities",
+		},
 	}
+}
+
+func (m *MediaModule) registerAdminAPIRoutes(ctx ModuleContext) {
+	if ctx.ProtectedRouter == nil || ctx.Admin == nil {
+		return
+	}
+	binding := newMediaBinding(ctx.Admin)
+	if binding == nil {
+		return
+	}
+	responder := responderAdapter{}
+
+	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaLibraryRouteKey), m.mediaListHandler(responder, binding))
+	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaItemRouteKey), m.mediaGetHandler(responder, binding))
+	ctx.ProtectedRouter.Patch(m.apiRoutePath(ctx, mediaItemRouteKey), m.mediaUpdateHandler(responder, binding))
+	ctx.ProtectedRouter.Delete(m.apiRoutePath(ctx, mediaItemRouteKey), m.mediaDeleteHandler(responder, binding))
+	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaResolveRouteKey), m.mediaResolveHandler(responder, binding))
+	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaUploadRouteKey), m.mediaUploadHandler(responder, binding))
+	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaPresignRouteKey), m.mediaPresignHandler(responder, binding))
+	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaConfirmRouteKey), m.mediaConfirmHandler(responder, binding))
+	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaCapabilitiesRouteKey), m.mediaCapabilitiesHandler(responder, binding))
+}
+
+func (m *MediaModule) apiRoutePath(ctx ModuleContext, routeKey string) string {
+	if path := ctx.Routing.RoutePath(routing.SurfaceAPI, routeKey); strings.TrimSpace(path) != "" {
+		return path
+	}
+	group := adminAPIGroupName(ctx.Admin.config)
+	return resolveURLWith(ctx.Admin.URLs(), group, routeKey, nil, nil)
+}
+
+func (m *MediaModule) mediaListHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
+	return func(c router.Context) error {
+		payload, err := binding.List(c)
+		return mediaModuleWriteJSONOrError(responder, c, payload, err)
+	}
+}
+
+func (m *MediaModule) mediaGetHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
+	return func(c router.Context) error {
+		payload, err := binding.Get(c, c.Param("id"))
+		return mediaModuleWriteJSONOrError(responder, c, payload, err)
+	}
+}
+
+func (m *MediaModule) mediaUpdateHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
+	return func(c router.Context) error {
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return responder.WriteError(c, err)
+		}
+		payload, err := binding.Update(c, c.Param("id"), body)
+		return mediaModuleWriteJSONOrError(responder, c, payload, err)
+	}
+}
+
+func (m *MediaModule) mediaDeleteHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
+	return func(c router.Context) error {
+		if err := binding.Delete(c, c.Param("id")); err != nil {
+			return responder.WriteError(c, err)
+		}
+		return responder.WriteJSON(c, map[string]any{"status": "ok"})
+	}
+}
+
+func (m *MediaModule) mediaResolveHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
+	return func(c router.Context) error {
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return responder.WriteError(c, err)
+		}
+		payload, err := binding.Resolve(c, body)
+		return mediaModuleWriteJSONOrError(responder, c, payload, err)
+	}
+}
+
+func (m *MediaModule) mediaUploadHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
+	return func(c router.Context) error {
+		body, file, err := parseMediaModuleUploadRequest(c)
+		if err != nil {
+			return responder.WriteError(c, err)
+		}
+		if file.Reader != nil {
+			defer func() {
+				_ = file.Reader.Close()
+			}()
+		}
+		payload, err := binding.Upload(c, body, file)
+		return mediaModuleWriteJSONOrError(responder, c, payload, err)
+	}
+}
+
+func (m *MediaModule) mediaPresignHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
+	return func(c router.Context) error {
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return responder.WriteError(c, err)
+		}
+		payload, err := binding.Presign(c, body)
+		return mediaModuleWriteJSONOrError(responder, c, payload, err)
+	}
+}
+
+func (m *MediaModule) mediaConfirmHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
+	return func(c router.Context) error {
+		body, err := parseJSONBody(c)
+		if err != nil {
+			return responder.WriteError(c, err)
+		}
+		payload, err := binding.Confirm(c, body)
+		return mediaModuleWriteJSONOrError(responder, c, payload, err)
+	}
+}
+
+func (m *MediaModule) mediaCapabilitiesHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
+	return func(c router.Context) error {
+		payload, err := binding.Capabilities(c)
+		return mediaModuleWriteJSONOrError(responder, c, payload, err)
+	}
+}
+
+func mediaModuleWriteJSONOrError(responder responderAdapter, c router.Context, payload any, err error) error {
+	if err != nil {
+		return responder.WriteError(c, err)
+	}
+	return responder.WriteJSON(c, payload)
+}
+
+func parseMediaModuleUploadRequest(c router.Context) (map[string]any, boot.MultipartFile, error) {
+	header, err := c.FormFile("file")
+	if err != nil || header == nil {
+		return nil, boot.MultipartFile{}, validationDomainError("file required", map[string]any{
+			"field": "file",
+		})
+	}
+
+	body := map[string]any{}
+	if value := strings.TrimSpace(c.FormValue("name")); value != "" {
+		body["name"] = value
+	}
+	if value := strings.TrimSpace(c.FormValue("file_name")); value != "" {
+		body["file_name"] = value
+	}
+	if value := strings.TrimSpace(c.FormValue("content_type")); value != "" {
+		body["content_type"] = value
+	}
+	if raw := strings.TrimSpace(c.FormValue("metadata")); raw != "" {
+		var metadata map[string]any
+		if err := json.Unmarshal([]byte(raw), &metadata); err != nil {
+			return nil, boot.MultipartFile{}, validationDomainError("metadata must be valid JSON", map[string]any{
+				"field": "metadata",
+			})
+		}
+		body["metadata"] = metadata
+	}
+
+	file, err := header.Open()
+	if err != nil {
+		return nil, boot.MultipartFile{}, validationDomainError("file required", map[string]any{
+			"field": "file",
+		})
+	}
+
+	contentType := strings.TrimSpace(header.Header.Get("Content-Type"))
+	if contentType == "" {
+		contentType = strings.TrimSpace(toString(body["content_type"]))
+	}
+
+	return body, boot.MultipartFile{
+		FileName:    header.Filename,
+		ContentType: contentType,
+		Size:        header.Size,
+		Reader:      file,
+	}, nil
 }
 
 // MenuItems contributes navigation for the media module.
