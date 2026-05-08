@@ -76,6 +76,9 @@ type Admin struct {
 	bulkSvc                      BulkService
 	mediaLibrary                 MediaLibrary
 	mediaActivityHook            MediaActivityHook
+	mediaDeliveryRegistry        *MediaDeliveryRegistry
+	mediaDeliveryProjector       MediaDeliveryReferenceProjector
+	mediaDeliveryCredentials     MediaDeliveryCredentialResolver
 	initHooks                    []func(AdminRouter) error
 	initHooksRun                 bool
 	modulesLoaded                bool
@@ -392,6 +395,95 @@ func (a *Admin) WithMediaLibrary(lib MediaLibrary) *Admin {
 	}
 	a.mediaLibrary = lib
 	return a
+}
+
+// WithMediaDeliveryConfig configures media delivery route exposure before initialization.
+func (a *Admin) WithMediaDeliveryConfig(cfg MediaDeliveryConfig) *Admin {
+	if a == nil {
+		return a
+	}
+	a.config.MediaDelivery = normalizeMediaDeliveryConfig(cfg)
+	return a
+}
+
+// WithMediaDeliveryRegistry replaces the provider delivery adapter registry.
+func (a *Admin) WithMediaDeliveryRegistry(registry *MediaDeliveryRegistry) *Admin {
+	if a == nil || registry == nil {
+		return a
+	}
+	a.mediaDeliveryRegistry = registry
+	return a
+}
+
+// WithMediaDeliveryAdapter registers a provider delivery adapter.
+func (a *Admin) WithMediaDeliveryAdapter(provider string, adapter MediaDeliveryAdapter) *Admin {
+	if a == nil || adapter == nil {
+		return a
+	}
+	_ = a.RegisterMediaDeliveryAdapter(provider, adapter)
+	return a
+}
+
+// RegisterMediaDeliveryAdapter registers a provider delivery adapter and reports invalid input.
+func (a *Admin) RegisterMediaDeliveryAdapter(provider string, adapter MediaDeliveryAdapter) error {
+	if a == nil {
+		return serviceUnavailableDomainError("admin is nil", map[string]any{"component": "media_delivery"})
+	}
+	if a.mediaDeliveryRegistry == nil {
+		a.mediaDeliveryRegistry = NewMediaDeliveryRegistry()
+	}
+	return a.mediaDeliveryRegistry.Register(provider, adapter)
+}
+
+// WithMediaDeliveryReferenceProjector replaces the item-to-delivery-reference projector.
+func (a *Admin) WithMediaDeliveryReferenceProjector(projector MediaDeliveryReferenceProjector) *Admin {
+	if a == nil || projector == nil {
+		return a
+	}
+	a.mediaDeliveryProjector = projector
+	return a
+}
+
+// WithMediaDeliveryCredentialResolver configures provider credential resolution.
+func (a *Admin) WithMediaDeliveryCredentialResolver(resolver MediaDeliveryCredentialResolver) *Admin {
+	if a == nil || resolver == nil {
+		return a
+	}
+	a.mediaDeliveryCredentials = resolver
+	return a
+}
+
+// MediaDeliveryURLs resolves app-owned delivery URLs for an item ID.
+func (a *Admin) MediaDeliveryURLs(id string) MediaDeliveryURLs {
+	if a == nil {
+		return MediaDeliveryURLs{}
+	}
+	return BuildMediaDeliveryURLs(
+		a.urlManager,
+		adminAPIGroupName(a.config),
+		publicAPIGroupName(a.config),
+		id,
+		a.config.MediaDelivery.publicRoutesEnabled(),
+	)
+}
+
+func (a *Admin) normalizeMediaPageDelivery(page MediaPage) MediaPage {
+	if a == nil || len(page.Items) == 0 {
+		return page
+	}
+	items := make([]MediaItem, len(page.Items))
+	for idx, item := range page.Items {
+		items[idx] = a.normalizeMediaItemDelivery(item)
+	}
+	page.Items = items
+	return page
+}
+
+func (a *Admin) normalizeMediaItemDelivery(item MediaItem) MediaItem {
+	if a == nil {
+		return item
+	}
+	return normalizeMediaDeliveryPayload(item, a.MediaDeliveryURLs(item.ID))
 }
 
 func (a *Admin) applyActivitySink(sink ActivitySink) {
