@@ -41,16 +41,16 @@ test('schemaToFields/fieldsToSchema preserves media picker value mode and endpoi
           widget: 'media-picker',
           componentOptions: {
             valueMode: 'id',
-            libraryPath: '/admin/api/media/library',
-            itemEndpoint: '/admin/api/media/library/:id',
+            libraryPath: '/admin/api/media/assets',
+            itemEndpoint: '/admin/api/media/assets/:id',
             capabilitiesEndpoint: '/admin/api/media/capabilities',
             acceptedKinds: ['image'],
           },
         },
         'x-admin': {
           media: {
-            libraryPath: '/admin/api/media/library',
-            itemPath: '/admin/api/media/library/:id',
+            libraryPath: '/admin/api/media/assets',
+            itemPath: '/admin/api/media/assets/:id',
             capabilitiesPath: '/admin/api/media/capabilities',
           },
         },
@@ -81,7 +81,7 @@ test('schemaToFields/fieldsToSchema preserves media picker value mode and endpoi
   const rebuilt = fieldsToSchema(fields, 'page');
   assert.equal(rebuilt.properties.hero.format, 'uuid');
   assert.equal(rebuilt.properties.hero['x-formgen'].componentOptions.valueMode, 'id');
-  assert.equal(rebuilt.properties.hero['x-formgen'].componentOptions.itemEndpoint, '/admin/api/media/library/:id');
+  assert.equal(rebuilt.properties.hero['x-formgen'].componentOptions.itemEndpoint, '/admin/api/media/assets/:id');
   assert.deepEqual(rebuilt.properties.hero['x-formgen'].componentOptions.acceptedKinds, ['image']);
   assert.equal(rebuilt.properties.gallery.items.format, 'uuid');
   assert.equal(rebuilt.properties.gallery['x-formgen'].componentOptions.multiple, true);

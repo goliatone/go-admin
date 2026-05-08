@@ -155,6 +155,29 @@ const (
 	MenuItemTypeSeparator                          = core.MenuItemTypeSeparator
 	MenuRecordStatusDraft                          = core.MenuRecordStatusDraft
 	MenuRecordStatusPublished                      = core.MenuRecordStatusPublished
+	MediaDeliveryCapabilityAuthRequired            = core.MediaDeliveryCapabilityAuthRequired
+	MediaDeliveryCapabilityDownload                = core.MediaDeliveryCapabilityDownload
+	MediaDeliveryCapabilityImport                  = core.MediaDeliveryCapabilityImport
+	MediaDeliveryCapabilityPoster                  = core.MediaDeliveryCapabilityPoster
+	MediaDeliveryCapabilityProxy                   = core.MediaDeliveryCapabilityProxy
+	MediaDeliveryCapabilityRange                   = core.MediaDeliveryCapabilityRange
+	MediaDeliveryCapabilityRedirect                = core.MediaDeliveryCapabilityRedirect
+	MediaDeliveryCapabilityStream                  = core.MediaDeliveryCapabilityStream
+	MediaDeliveryIntentAsset                       = core.MediaDeliveryIntentAsset
+	MediaDeliveryIntentDownload                    = core.MediaDeliveryIntentDownload
+	MediaDeliveryIntentPoster                      = core.MediaDeliveryIntentPoster
+	MediaDeliveryIntentStream                      = core.MediaDeliveryIntentStream
+	MediaDeliveryModeImported                      = core.MediaDeliveryModeImported
+	MediaDeliveryModeProxy                         = core.MediaDeliveryModeProxy
+	MediaDeliveryModeRedirect                      = core.MediaDeliveryModeRedirect
+	MediaDeliveryModeUnavailable                   = core.MediaDeliveryModeUnavailable
+	MediaDeliveryStateExternalSourceOnly           = core.MediaDeliveryStateExternalSourceOnly
+	MediaDeliveryStateFailed                       = core.MediaDeliveryStateFailed
+	MediaDeliveryStateNeedsImport                  = core.MediaDeliveryStateNeedsImport
+	MediaDeliveryStateNotPlayable                  = core.MediaDeliveryStateNotPlayable
+	MediaDeliveryStateProcessing                   = core.MediaDeliveryStateProcessing
+	MediaDeliveryStateReady                        = core.MediaDeliveryStateReady
+	MediaDeliveryStateUnavailable                  = core.MediaDeliveryStateUnavailable
 	ModuleStartupPolicyEnforce                     = core.ModuleStartupPolicyEnforce
 	ModuleStartupPolicyWarn                        = core.ModuleStartupPolicyWarn
 	NavigationOverrideHide                         = core.NavigationOverrideHide
@@ -483,6 +506,7 @@ type (
 	DebugUserSessionStore                     = core.DebugUserSessionStore
 	DebugViewContextBuilder                   = core.DebugViewContextBuilder
 	DefaultIconRenderer                       = core.DefaultIconRenderer
+	DefaultMediaDeliveryReferenceProjector    = core.DefaultMediaDeliveryReferenceProjector
 	DefaultPageMapper                         = core.DefaultPageMapper
 	DefaultTranslationQueueAutoCreateHook     = core.DefaultTranslationQueueAutoCreateHook
 	DefaultTranslationQueueService            = core.DefaultTranslationQueueService
@@ -616,8 +640,40 @@ type (
 	ManagementPageService                     = core.ManagementPageService
 	ManagementServices                        = core.ManagementServices
 	MediaConfig                               = core.MediaConfig
+	MediaDeliveryAdapter                      = core.MediaDeliveryAdapter
+	MediaRedirectDeliveryAdapter              = core.MediaRedirectDeliveryAdapter
+	MediaLocalFileDeliveryAdapter             = core.MediaLocalFileDeliveryAdapter
+	MediaDeliveryCacheConfig                  = core.MediaDeliveryCacheConfig
+	MediaDeliveryCapability                   = core.MediaDeliveryCapability
+	MediaDeliveryConfig                       = core.MediaDeliveryConfig
+	MediaDeliveryImported                     = core.MediaDeliveryImported
+	MediaDeliveryInfo                         = core.MediaDeliveryInfo
+	MediaDeliveryIntent                       = core.MediaDeliveryIntent
+	MediaDeliveryMode                         = core.MediaDeliveryMode
+	MediaDeliveryProxy                        = core.MediaDeliveryProxy
+	MediaDeliveryProxyLimitConfig             = core.MediaDeliveryProxyLimitConfig
+	MediaDeliveryCredential                   = core.MediaDeliveryCredential
+	MediaDeliveryCredentialRequest            = core.MediaDeliveryCredentialRequest
+	MediaDeliveryCredentialResolver           = core.MediaDeliveryCredentialResolver
+	MediaDeliveryCredentialResolverFunc       = core.MediaDeliveryCredentialResolverFunc
+	MediaDeliveryReference                    = core.MediaDeliveryReference
+	MediaDeliveryReferenceProjector           = core.MediaDeliveryReferenceProjector
+	MediaDeliveryReferenceProjectorFunc       = core.MediaDeliveryReferenceProjectorFunc
+	MediaDeliveryRegistry                     = core.MediaDeliveryRegistry
+	MediaDeliveryRedirect                     = core.MediaDeliveryRedirect
+	MediaDeliveryRedirectConfig               = core.MediaDeliveryRedirectConfig
+	MediaDeliveryRequest                      = core.MediaDeliveryRequest
+	MediaDeliveryResponse                     = core.MediaDeliveryResponse
+	MediaDeliveryState                        = core.MediaDeliveryState
+	MediaDeliveryUnavailable                  = core.MediaDeliveryUnavailable
+	MediaDeliveryUnavailableError             = core.MediaDeliveryUnavailableError
+	MediaDeliveryURLs                         = core.MediaDeliveryURLs
 	MediaItem                                 = core.MediaItem
 	MediaLibrary                              = core.MediaLibrary
+	MediaPublicDeliveryAuthorization          = core.MediaPublicDeliveryAuthorization
+	MediaPublicDeliveryAuthorizer             = core.MediaPublicDeliveryAuthorizer
+	MediaPublicDeliveryConfig                 = core.MediaPublicDeliveryConfig
+	MediaPublicDeliveryTokenVerifier          = core.MediaPublicDeliveryTokenVerifier
 	MemoryRepository                          = core.MemoryRepository
 	MemoryTranslationExchangeRuntimeStore     = core.MemoryTranslationExchangeRuntimeStore
 	Menu                                      = core.Menu
@@ -1531,6 +1587,10 @@ func NewInMemoryMediaLibrary(baseURL string) *InMemoryMediaLibrary {
 	return core.NewInMemoryMediaLibrary(baseURL)
 }
 
+func NewMediaDeliveryRegistry() *MediaDeliveryRegistry {
+	return core.NewMediaDeliveryRegistry()
+}
+
 func NewInMemoryMenuService() *InMemoryMenuService {
 	return core.NewInMemoryMenuService()
 }
@@ -1767,6 +1827,14 @@ func NormalizeListPredicates(opts ListOptions) []ListPredicate {
 	return core.NormalizeListPredicates(opts)
 }
 
+func NormalizeMediaDeliveryCapabilities(values ...MediaDeliveryCapability) []MediaDeliveryCapability {
+	return core.NormalizeMediaDeliveryCapabilities(values...)
+}
+
+func NormalizeMediaDeliveryState(raw string) MediaDeliveryState {
+	return core.NormalizeMediaDeliveryState(raw)
+}
+
 func NormalizeMenuItemTranslationFields(item MenuItem) (string, string, string, string) {
 	return core.NormalizeMenuItemTranslationFields(item)
 }
@@ -1789,6 +1857,10 @@ func ParseIconReference(value string) IconReference {
 
 func ParseListPredicateKey(key string) (string, string) {
 	return core.ParseListPredicateKey(key)
+}
+
+func ParseMediaDeliveryIntent(raw string) (MediaDeliveryIntent, bool) {
+	return core.ParseMediaDeliveryIntent(raw)
 }
 
 func PermissionMatrixDescriptor(basePath string) components.Descriptor {

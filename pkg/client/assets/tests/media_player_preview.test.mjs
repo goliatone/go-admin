@@ -103,6 +103,38 @@ test('detail video preview renders a native video player', () => {
   assert.equal(video.playsInline, true);
 });
 
+test('detail video preview prefers delivery stream and poster URLs', () => {
+  const preview = renderPreview(media({
+    name: 'Delivered video',
+    url: 'https://provider.example/raw/video.mp4',
+    asset_url: '/admin/api/media/delivery/video-1/asset',
+    stream_url: '/admin/api/media/delivery/video-1/stream',
+    poster_url: '/admin/api/media/delivery/video-1/poster',
+    thumbnail: 'https://provider.example/raw/poster.jpg',
+    type: 'video',
+    mime_type: 'video/mp4',
+  }));
+
+  const video = preview.querySelector('video');
+  assert.ok(video, 'expected video detail preview');
+  assert.equal(video.getAttribute('src'), '/admin/api/media/delivery/video-1/stream');
+  assert.match(video.poster, /\/admin\/api\/media\/delivery\/video-1\/poster$/);
+});
+
+test('detail image preview prefers delivery asset URLs over provider URLs', () => {
+  const preview = renderPreview(media({
+    name: 'Delivered image',
+    url: 'https://provider.example/raw/image.png',
+    asset_url: '/admin/api/media/delivery/image-1/asset',
+    type: 'image',
+    mime_type: 'image/png',
+  }));
+
+  const image = preview.querySelector('img');
+  assert.ok(image, 'expected image preview');
+  assert.equal(image.getAttribute('src'), '/admin/api/media/delivery/image-1/asset');
+});
+
 test('detail video preview renders native video for MIME-only video items', () => {
   const preview = renderPreview(media({
     name: 'MIME-only video',

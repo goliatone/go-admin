@@ -9,6 +9,10 @@ type MediaItem = {
   id: string;
   name: string;
   url: string;
+  assetUrl: string;
+  streamUrl: string;
+  posterUrl: string;
+  downloadUrl: string;
   thumbnail: string;
   type: string;
   mimeType: string;
@@ -16,7 +20,19 @@ type MediaItem = {
   status: string;
   workflowStatus: string;
   createdAt: string;
+  delivery: {
+    state: string;
+    reason: string;
+    capabilities: string[];
+  };
   metadata: Record<string, unknown>;
+};
+
+type MediaDeliveryTemplates = {
+  asset: string;
+  stream: string;
+  poster: string;
+  download: string;
 };
 
 type MediaCapabilities = {
@@ -200,27 +216,67 @@ function normalizeMetadata(value: unknown): Record<string, unknown> {
   return { ...value };
 }
 
-function normalizeMediaItem(value: unknown): MediaItem {
+function normalizeDelivery(value: unknown): MediaItem['delivery'] {
+  const record = isRecord(value) ? value : {};
+  return {
+    state: toStringValue(record.state),
+    reason: toStringValue(record.reason),
+    capabilities: toStringList(record.capabilities),
+  };
+}
+
+function pathFromTemplate(template: string, id: string): string {
+  if (!template || !id) {
+    return '';
+  }
+  return template.replace(':id', encodeURIComponent(id));
+}
+
+function normalizeMediaItem(value: unknown, templates?: MediaDeliveryTemplates): MediaItem {
   const record = isRecord(value) ? value : {};
   const metadata = normalizeMetadata(record.metadata);
   const mimeType = toStringValue(record.mime_type);
+  const id = toStringValue(record.id);
+  const assetUrl =
+    toStringValue(record.asset_url) ||
+    toStringValue(record.assetUrl) ||
+    pathFromTemplate(templates?.asset || '', id) ||
+    toStringValue(record.url);
+  const streamUrl =
+    toStringValue(record.stream_url) ||
+    toStringValue(record.streamUrl) ||
+    pathFromTemplate(templates?.stream || '', id);
+  const posterUrl =
+    toStringValue(record.poster_url) ||
+    toStringValue(record.posterUrl) ||
+    pathFromTemplate(templates?.poster || '', id);
+  const downloadUrl =
+    toStringValue(record.download_url) ||
+    toStringValue(record.downloadUrl) ||
+    pathFromTemplate(templates?.download || '', id) ||
+    assetUrl;
   return {
-    id: toStringValue(record.id),
+    id,
     name: toStringValue(record.name) || toStringValue(record.filename) || 'Untitled asset',
-    url: toStringValue(record.url),
-    thumbnail: toStringValue(record.thumbnail) || toStringValue(record.thumbnail_url),
+    url: assetUrl,
+    assetUrl,
+    streamUrl,
+    posterUrl,
+    downloadUrl,
+    thumbnail: posterUrl || toStringValue(record.thumbnail) || toStringValue(record.thumbnail_url),
     type: toStringValue(record.type) || inferTypeFromMIME(mimeType),
     mimeType,
     size: toNumberValue(record.size),
     status: toStringValue(record.status),
     workflowStatus: toStringValue(record.workflow_status),
     createdAt: toStringValue(record.created_at),
+    delivery: normalizeDelivery(record.delivery),
     metadata,
   };
 }
 
-function isCopiedAccessURL(thumbnail: string, url: string): boolean {
-  return Boolean(thumbnail && url && thumbnail === url);
+function isCopiedAccessURL(thumbnail: string, item: MediaItem): boolean {
+  return Boolean(thumbnail && [item.url, item.assetUrl, item.streamUrl].filter(Boolean).includes(thumbnail));
 }
 
 function inferTypeFromMIME(mimeType: string): string {
@@ -281,10 +337,10 @@ function previewThumbnailURL(item: MediaItem, family: MediaFamily): string {
   if (!item.thumbnail) {
     return '';
   }
-  if ((family === 'image' || family === 'vector') && isCopiedAccessURL(item.thumbnail, item.url)) {
+  if ((family === 'image' || family === 'vector') && isCopiedAccessURL(item.thumbnail, item)) {
     return item.thumbnail;
   }
-  if (isCopiedAccessURL(item.thumbnail, item.url)) {
+  if (isCopiedAccessURL(item.thumbnail, item)) {
     return '';
   }
   return item.thumbnail;
@@ -444,7 +500,7 @@ function buildPreview(item: MediaItem, mode: PreviewMode): HTMLElement {
   const family = inferMediaFamily(item.type, item.mimeType);
   const imageLike = family === 'image' || family === 'vector';
   const posterURL = previewThumbnailURL(item, family);
-  const imageURL = posterURL || item.url;
+  const imageURL = posterURL || item.assetUrl;
 
   if (imageLike && imageURL) {
     const image = document.createElement('img');
@@ -471,9 +527,9 @@ function buildPreview(item: MediaItem, mode: PreviewMode): HTMLElement {
     return wrapper;
   }
 
-  if (mode === 'detail' && family === 'video' && item.url) {
+  if (mode === 'detail' && family === 'video' && (item.streamUrl || item.assetUrl)) {
     const video = document.createElement('video');
-    video.src = item.url;
+    video.src = item.streamUrl || item.assetUrl;
     video.controls = true;
     video.preload = 'metadata';
     video.playsInline = true;
@@ -486,12 +542,12 @@ function buildPreview(item: MediaItem, mode: PreviewMode): HTMLElement {
     return wrapper;
   }
 
-  if (mode === 'detail' && family === 'audio' && item.url) {
+  if (mode === 'detail' && family === 'audio' && (item.streamUrl || item.assetUrl)) {
     wrapper.className = 'w-full h-full bg-gray-100 flex flex-col items-center justify-center gap-4 px-4 text-gray-600';
     const icon = document.createElement('i');
     icon.className = 'iconoir-music-note text-5xl';
     const audio = document.createElement('audio');
-    audio.src = item.url;
+    audio.src = item.streamUrl || item.assetUrl;
     audio.controls = true;
     audio.preload = 'metadata';
     audio.className = 'w-full max-w-full';
@@ -673,6 +729,18 @@ function tagsFromMetadata(metadata: Record<string, unknown>): string {
   return toStringList(metadata.tags).join(', ');
 }
 
+function deliveryStatusLabel(item: MediaItem): string {
+  const state = item.delivery.state || item.workflowStatus || item.status || 'unknown';
+  if (['unavailable', 'needs_import', 'not_playable', 'failed'].includes(state) && item.delivery.reason) {
+    return `${state}: ${item.delivery.reason}`;
+  }
+  return state;
+}
+
+function copyURLForItem(item: MediaItem): string {
+  return item.downloadUrl || item.assetUrl || item.url;
+}
+
 async function bootMediaPage(root: HTMLElement): Promise<void> {
   const elements = collectElements(root);
   const view = toStringValue(root.dataset.mediaView) === 'list' ? 'list' : 'grid';
@@ -682,6 +750,12 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
   const presignPath = toStringValue(root.dataset.mediaPresignPath);
   const confirmPath = toStringValue(root.dataset.mediaConfirmPath);
   const capabilitiesPath = toStringValue(root.dataset.mediaCapabilitiesPath);
+  const deliveryTemplates: MediaDeliveryTemplates = {
+    asset: toStringValue(root.dataset.mediaAssetUrlTemplate),
+    stream: toStringValue(root.dataset.mediaStreamUrlTemplate),
+    poster: toStringValue(root.dataset.mediaPosterUrlTemplate),
+    download: toStringValue(root.dataset.mediaDownloadUrlTemplate),
+  };
 
   const state: MediaPageState = {
     items: [],
@@ -732,13 +806,13 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
       elements.detailName.textContent = item.name;
     }
     if (elements.detailURL) {
-      elements.detailURL.textContent = item.url;
+      elements.detailURL.textContent = copyURLForItem(item);
     }
     if (elements.detailType) {
       elements.detailType.textContent = item.type || item.mimeType || 'asset';
     }
     if (elements.detailStatus) {
-      elements.detailStatus.textContent = item.workflowStatus || item.status || 'unknown';
+      elements.detailStatus.textContent = deliveryStatusLabel(item);
     }
     if (elements.detailSize) {
       elements.detailSize.textContent = formatBytes(item.size);
@@ -924,7 +998,7 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
       const payload = await fetchJSON(`${libraryPath}?${query.toString()}`);
       const page = isRecord(payload) ? payload : {};
       const rawItems = Array.isArray(page.items) ? page.items : [];
-      const nextItems = rawItems.map((item) => normalizeMediaItem(item)).filter((item) => item.id);
+      const nextItems = rawItems.map((item) => normalizeMediaItem(item, deliveryTemplates)).filter((item) => item.id);
       state.items = append ? [...state.items, ...nextItems.filter((item) => !state.items.some((current) => current.id === item.id))] : nextItems;
       state.total = Math.max(toNumberValue(page.total), state.items.length);
       if (state.activeID && !state.items.some((item) => item.id === state.activeID)) {
@@ -980,7 +1054,7 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ metadata }),
       });
-      mergeUpdatedItem(normalizeMediaItem(payload));
+      mergeUpdatedItem(normalizeMediaItem(payload, deliveryTemplates));
       setMessage(elements.detailFeedback, 'Metadata saved.');
     } catch (error) {
       setMessage(elements.detailError, error instanceof Error ? error.message : 'Failed to save metadata.');
@@ -1074,11 +1148,12 @@ async function bootMediaPage(root: HTMLElement): Promise<void> {
 
   async function copyCurrentURL(): Promise<void> {
     const item = currentItem();
-    if (!item?.url) {
+    const url = item ? copyURLForItem(item) : '';
+    if (!url) {
       return;
     }
     try {
-      await globalThis.navigator.clipboard.writeText(item.url);
+      await globalThis.navigator.clipboard.writeText(url);
       setMessage(elements.detailFeedback, 'URL copied.');
     } catch {
       setMessage(elements.detailError, 'Clipboard access is unavailable.');

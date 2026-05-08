@@ -9,6 +9,7 @@ const ASSETS_DIR = resolve(__dirname, '..');
 const DIST_DIR = resolve(ASSETS_DIR, 'dist');
 const GALLERY_TEMPLATE_PATH = resolve(ASSETS_DIR, '../templates/resources/media/gallery.html');
 const LIST_TEMPLATE_PATH = resolve(ASSETS_DIR, '../templates/resources/media/list.html');
+const PAGE_TEMPLATE_PATH = resolve(ASSETS_DIR, '../templates/resources/media/page.html');
 const DIST_BUNDLE_PATH = resolve(DIST_DIR, 'media/index.js');
 
 test('media templates reference the built media bundle', () => {
@@ -16,6 +17,18 @@ test('media templates reference the built media bundle', () => {
   const list = readFileSync(LIST_TEMPLATE_PATH, 'utf-8');
   assert.match(gallery, /assets\/dist\/media\/index\.js/);
   assert.match(list, /assets\/dist\/media\/index\.js/);
+});
+
+test('media page template exposes delivery URL templates to the runtime', () => {
+  const page = readFileSync(PAGE_TEMPLATE_PATH, 'utf-8');
+  for (const attribute of [
+    'data-media-asset-url-template',
+    'data-media-stream-url-template',
+    'data-media-poster-url-template',
+    'data-media-download-url-template',
+  ]) {
+    assert.match(page, new RegExp(attribute));
+  }
 });
 
 test('media bundle exists in dist', () => {
