@@ -54,7 +54,7 @@ func TestParseMultiValueArrayRemainsArray(t *testing.T) {
 
 func TestParseFormPayloadNormalizesRepeatedArrayFieldSuffix(t *testing.T) {
 	ctx := router.NewMockContext()
-	ctx.On("Body").Return([]byte("gallery%5B%5D=/media/1.jpg&gallery%5B%5D=/media/2.jpg&hero=/media/hero.jpg"))
+	ctx.On("Body").Return([]byte("gallery%5B%5D=/admin/api/media/delivery/media-1/asset&gallery%5B%5D=/admin/api/media/delivery/media-2/asset&hero=/admin/api/media/delivery/media-hero/asset"))
 	h := &contentEntryHandlers{}
 	record, err := h.parseFormPayload(ctx, map[string]any{
 		"type": "object",
@@ -77,20 +77,20 @@ func TestParseFormPayloadNormalizesRepeatedArrayFieldSuffix(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected gallery array, got %#v", record["gallery"])
 	}
-	if len(gallery) != 2 || gallery[0] != "/media/1.jpg" || gallery[1] != "/media/2.jpg" {
+	if len(gallery) != 2 || gallery[0] != "/admin/api/media/delivery/media-1/asset" || gallery[1] != "/admin/api/media/delivery/media-2/asset" {
 		t.Fatalf("expected ordered gallery values, got %#v", gallery)
 	}
 	if _, exists := record["gallery[]"]; exists {
 		t.Fatalf("did not expect raw gallery[] key in record: %#v", record)
 	}
-	if got := record["hero"]; got != "/media/hero.jpg" {
+	if got := record["hero"]; got != "/admin/api/media/delivery/media-hero/asset" {
 		t.Fatalf("expected scalar hero value, got %#v", got)
 	}
 }
 
 func TestParseFormPayloadNormalizesSingleArrayFieldSuffixValue(t *testing.T) {
 	ctx := router.NewMockContext()
-	ctx.On("Body").Return([]byte("gallery%5B%5D=/media/solo.jpg"))
+	ctx.On("Body").Return([]byte("gallery%5B%5D=/admin/api/media/delivery/media-solo/asset"))
 	h := &contentEntryHandlers{}
 	record, err := h.parseFormPayload(ctx, map[string]any{
 		"type": "object",
@@ -110,14 +110,14 @@ func TestParseFormPayloadNormalizesSingleArrayFieldSuffixValue(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected gallery array, got %#v", record["gallery"])
 	}
-	if len(gallery) != 1 || gallery[0] != "/media/solo.jpg" {
+	if len(gallery) != 1 || gallery[0] != "/admin/api/media/delivery/media-solo/asset" {
 		t.Fatalf("expected one-item gallery array, got %#v", gallery)
 	}
 }
 
 func TestParseFormPayloadKeepsSingleArrayFieldAsArray(t *testing.T) {
 	ctx := router.NewMockContext()
-	ctx.On("Body").Return([]byte("gallery=/media/solo.jpg"))
+	ctx.On("Body").Return([]byte("gallery=/admin/api/media/delivery/media-solo/asset"))
 	h := &contentEntryHandlers{}
 	record, err := h.parseFormPayload(ctx, map[string]any{
 		"type": "object",
@@ -137,7 +137,7 @@ func TestParseFormPayloadKeepsSingleArrayFieldAsArray(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected gallery array, got %#v", record["gallery"])
 	}
-	if len(gallery) != 1 || gallery[0] != "/media/solo.jpg" {
+	if len(gallery) != 1 || gallery[0] != "/admin/api/media/delivery/media-solo/asset" {
 		t.Fatalf("expected one-item gallery array, got %#v", gallery)
 	}
 }

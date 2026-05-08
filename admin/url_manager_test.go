@@ -214,19 +214,49 @@ func TestNewURLManagerBackfillsMediaRoutesWhenFeatureEnabled(t *testing.T) {
 	if len(custom.Groups) == 0 || len(custom.Groups[0].Groups) == 0 {
 		t.Fatalf("expected default URLKit config to include admin api group")
 	}
-	delete(custom.Groups[0].Groups[0].Routes, "media.capabilities")
+	delete(custom.Groups[0].Groups[0].Routes, "media.delivery.stream")
 	cfg.URLs.URLKit = custom
 
 	manager, err := newURLManager(cfg, true)
 	if err != nil {
 		t.Fatalf("newURLManager: %v", err)
 	}
-	got, resolveErr := manager.Resolve("admin.api", "media.capabilities", nil, nil)
+	got, resolveErr := manager.Resolve("admin.api", "media.delivery.stream", urlkit.Params{"id": "asset-1"}, nil)
 	if resolveErr != nil {
-		t.Fatalf("resolve admin.api media.capabilities: %v", resolveErr)
+		t.Fatalf("resolve admin.api media.delivery.stream: %v", resolveErr)
 	}
-	if got != "/admin/api/media/capabilities" {
-		t.Fatalf("expected /admin/api/media/capabilities, got %q", got)
+	if got != "/admin/api/media/delivery/asset-1/stream" {
+		t.Fatalf("expected /admin/api/media/delivery/asset-1/stream, got %q", got)
+	}
+}
+
+func TestURLKitMediaRoutesUseCleanContractWithoutLegacyAliases(t *testing.T) {
+	cfg := applyConfigDefaults(Config{BasePath: "/admin"})
+	manager, err := newURLManager(cfg, true)
+	if err != nil {
+		t.Fatalf("newURLManager: %v", err)
+	}
+	resolved := map[string]string{
+		"media.assets.list":       "/admin/api/media/assets",
+		"media.assets.item":       "/admin/api/media/assets/asset-1",
+		"media.delivery.asset":    "/admin/api/media/delivery/asset-1/asset",
+		"media.delivery.stream":   "/admin/api/media/delivery/asset-1/stream",
+		"media.delivery.poster":   "/admin/api/media/delivery/asset-1/poster",
+		"media.delivery.download": "/admin/api/media/delivery/asset-1/download",
+	}
+	for key, want := range resolved {
+		got, resolveErr := manager.Resolve("admin.api", key, urlkit.Params{"id": "asset-1"}, nil)
+		if resolveErr != nil {
+			t.Fatalf("resolve %s: %v", key, resolveErr)
+		}
+		if got != want {
+			t.Fatalf("expected %s path %q, got %q", key, want, got)
+		}
+	}
+	for _, legacy := range []string{"media.library", "media.item"} {
+		if got, resolveErr := manager.Resolve("admin.api", legacy, urlkit.Params{"id": "asset-1"}, nil); resolveErr == nil {
+			t.Fatalf("legacy route %s unexpectedly resolved to %q", legacy, got)
+		}
 	}
 }
 

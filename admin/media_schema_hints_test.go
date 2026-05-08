@@ -70,10 +70,16 @@ func TestApplyMediaSchemaHintsDetectsPlainJSONSchemaMediaFields(t *testing.T) {
 		if opts["libraryPath"] == "" || opts["capabilitiesEndpoint"] == "" {
 			t.Fatalf("expected %s to receive media endpoints, got %+v", key, opts)
 		}
+		if opts["assetUrlTemplate"] == "" || opts["streamUrlTemplate"] == "" || opts["posterUrlTemplate"] == "" || opts["downloadUrlTemplate"] == "" {
+			t.Fatalf("expected %s to receive delivery templates, got %+v", key, opts)
+		}
 		adminMeta := prop["x-admin"].(map[string]any)
 		mediaMeta := adminMeta["media"].(map[string]any)
 		if mediaMeta["libraryPath"] == "" || mediaMeta["capabilitiesPath"] == "" {
 			t.Fatalf("expected %s to receive admin media hints, got %+v", key, mediaMeta)
+		}
+		if mediaMeta["assetUrlTemplate"] == "" || mediaMeta["streamUrlTemplate"] == "" || mediaMeta["posterUrlTemplate"] == "" || mediaMeta["downloadUrlTemplate"] == "" {
+			t.Fatalf("expected %s to receive admin delivery hints, got %+v", key, mediaMeta)
 		}
 	}
 	nested := props["nested"].(map[string]any)
@@ -98,6 +104,34 @@ func TestApplyMediaSchemaHintsDetectsPlainJSONSchemaMediaFields(t *testing.T) {
 	heroOpts := hero["x-formgen"].(map[string]any)["componentOptions"].(map[string]any)
 	if heroOpts["libraryPath"] == "" {
 		t.Fatalf("expected nested media field to be enriched, got %+v", heroOpts)
+	}
+}
+
+func TestResolveMediaSchemaConfigPublishesDeliveryTemplates(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureMedia),
+	})
+	media := adm.resolveMediaSchemaConfig()
+	if media == nil {
+		t.Fatalf("expected media schema config")
+	}
+	expected := map[string]string{
+		"asset":    "/admin/api/media/delivery/:id/asset",
+		"stream":   "/admin/api/media/delivery/:id/stream",
+		"poster":   "/admin/api/media/delivery/:id/poster",
+		"download": "/admin/api/media/delivery/:id/download",
+	}
+	if media.AssetURLTemplate != expected["asset"] {
+		t.Fatalf("expected asset template %q, got %q", expected["asset"], media.AssetURLTemplate)
+	}
+	if media.StreamURLTemplate != expected["stream"] {
+		t.Fatalf("expected stream template %q, got %q", expected["stream"], media.StreamURLTemplate)
+	}
+	if media.PosterURLTemplate != expected["poster"] {
+		t.Fatalf("expected poster template %q, got %q", expected["poster"], media.PosterURLTemplate)
+	}
+	if media.DownloadURLTemplate != expected["download"] {
+		t.Fatalf("expected download template %q, got %q", expected["download"], media.DownloadURLTemplate)
 	}
 }
 

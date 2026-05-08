@@ -21,18 +21,55 @@ func TestMediaModuleRouteContractUsesModuleOwnedPages(t *testing.T) {
 		t.Fatalf("expected list route '/list', got %q", got)
 	}
 	expectedAPI := map[string]string{
-		mediaLibraryRouteKey:      "/library",
-		mediaItemRouteKey:         "/library/:id",
-		mediaResolveRouteKey:      "/resolve",
-		mediaUploadRouteKey:       "/upload",
-		mediaPresignRouteKey:      "/presign",
-		mediaConfirmRouteKey:      "/confirm",
-		mediaCapabilitiesRouteKey: "/capabilities",
+		mediaAssetsListRouteKey:       "/assets",
+		mediaAssetsItemRouteKey:       "/assets/:id",
+		mediaResolveRouteKey:          "/resolve",
+		mediaUploadRouteKey:           "/upload",
+		mediaPresignRouteKey:          "/presign",
+		mediaConfirmRouteKey:          "/confirm",
+		mediaCapabilitiesRouteKey:     "/capabilities",
+		mediaDeliveryAssetRouteKey:    "/delivery/:id/asset",
+		mediaDeliveryStreamRouteKey:   "/delivery/:id/stream",
+		mediaDeliveryPosterRouteKey:   "/delivery/:id/poster",
+		mediaDeliveryDownloadRouteKey: "/delivery/:id/download",
 	}
 	for key, want := range expectedAPI {
 		if got := contract.APIRoutes[key]; got != want {
 			t.Fatalf("expected api route %s=%q, got %q", key, want, got)
 		}
+	}
+}
+
+func TestMediaModuleRouteContractOmitsPublicDeliveryByDefault(t *testing.T) {
+	contract := NewMediaModule().RouteContract()
+	if len(contract.PublicAPIRoutes) != 0 {
+		t.Fatalf("expected default media module to omit public delivery routes, got %+v", contract.PublicAPIRoutes)
+	}
+}
+
+func TestMediaModuleRouteContractAddsPublicDeliveryWithPolicy(t *testing.T) {
+	contract := NewMediaModule().WithDeliveryConfig(MediaDeliveryConfig{
+		Public: MediaPublicDeliveryConfig{
+			Enabled:            true,
+			AllowAdapterPolicy: true,
+		},
+	}).RouteContract()
+	for key, want := range mediaDeliveryRouteTable() {
+		if got := contract.PublicAPIRoutes[key]; got != want {
+			t.Fatalf("expected public route %s=%q, got %q", key, want, got)
+		}
+	}
+}
+
+func TestMediaModuleInvalidPublicDeliveryFailsClosed(t *testing.T) {
+	mod := NewMediaModule().WithDeliveryConfig(MediaDeliveryConfig{
+		Public: MediaPublicDeliveryConfig{Enabled: true},
+	})
+	if len(mod.RouteContract().PublicAPIRoutes) != 0 {
+		t.Fatalf("invalid public delivery config must not expose public routes")
+	}
+	if err := mod.ValidateStartup(context.Background()); err == nil {
+		t.Fatalf("expected invalid public delivery config to fail startup validation")
 	}
 }
 
@@ -122,6 +159,18 @@ func TestMediaModuleRenderPageIncludesLayoutContextAndContractPaths(t *testing.T
 			return false
 		}
 		if !strings.Contains(toString(viewCtx["media_capabilities_path"]), "/admin/api/media/capabilities") {
+			return false
+		}
+		if toString(viewCtx["media_asset_url_template"]) != "/admin/api/media/delivery/:id/asset" {
+			return false
+		}
+		if toString(viewCtx["media_stream_url_template"]) != "/admin/api/media/delivery/:id/stream" {
+			return false
+		}
+		if toString(viewCtx["media_poster_url_template"]) != "/admin/api/media/delivery/:id/poster" {
+			return false
+		}
+		if toString(viewCtx["media_download_url_template"]) != "/admin/api/media/delivery/:id/download" {
 			return false
 		}
 		navItems, ok := viewCtx["nav_items"].([]map[string]any)

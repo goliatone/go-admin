@@ -980,7 +980,7 @@ func TestBlockLibraryRenderFuncEnrichesMediaFields(t *testing.T) {
 	if !strings.Contains(html, `data-component="media_picker"`) {
 		t.Fatalf("expected media picker component in block template, got:\n%s", html)
 	}
-	if !strings.Contains(html, `/admin/api/media/library`) || !strings.Contains(html, `capabilitiesEndpoint`) {
+	if !strings.Contains(html, `/admin/api/media/assets`) || !strings.Contains(html, `capabilitiesEndpoint`) {
 		t.Fatalf("expected media endpoint hints in block template, got:\n%s", html)
 	}
 	if !strings.Contains(html, `multiple`) {

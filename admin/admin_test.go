@@ -1420,7 +1420,7 @@ func TestMediaLibraryRoute(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", "/admin/api/media/library", nil)
+	req := httptest.NewRequest("GET", "/admin/api/media/assets", nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {

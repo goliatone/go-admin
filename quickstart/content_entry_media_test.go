@@ -44,8 +44,9 @@ func TestRenderFormEnrichesContentEntryMediaSchemaHints(t *testing.T) {
 		}
 		html := strings.TrimSpace(anyToString(viewCtx["form_html"]))
 		return strings.Contains(html, `data-component="media_picker"`) &&
-			strings.Contains(html, `/admin/api/media/library`) &&
+			strings.Contains(html, `/admin/api/media/assets`) &&
 			strings.Contains(html, `capabilitiesEndpoint`) &&
+			strings.Contains(html, `assetUrlTemplate`) &&
 			strings.Contains(html, `multiple`)
 	})).Return(nil).Once()
 
@@ -208,8 +209,8 @@ func TestContentEntryRoutesPersistAndReopenMediaPickerValues(t *testing.T) {
 	createCtx.HeadersM["Content-Type"] = "application/x-www-form-urlencoded"
 	createCtx.On("Context").Return(context.Background())
 	createCtx.On("Body").Return([]byte(url.Values{
-		"hero":      []string{"/media/hero.jpg"},
-		"gallery[]": []string{"/media/1.jpg", "/media/2.jpg"},
+		"hero":      []string{"/admin/api/media/delivery/media-hero/asset"},
+		"gallery[]": []string{"/admin/api/media/delivery/media-1/asset", "/admin/api/media/delivery/media-2/asset"},
 	}.Encode()))
 	createCtx.On("Redirect", mock.Anything).Return(nil).Once()
 	if err = h.createForPanel(createCtx, ""); err != nil {
@@ -220,11 +221,11 @@ func TestContentEntryRoutesPersistAndReopenMediaPickerValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("get created record: %v", err)
 	}
-	if got := created["hero"]; got != "/media/hero.jpg" {
+	if got := created["hero"]; got != "/admin/api/media/delivery/media-hero/asset" {
 		t.Fatalf("expected hero media value, got %#v", got)
 	}
 	gallery, ok := created["gallery"].([]any)
-	if !ok || len(gallery) != 2 || gallery[0] != "/media/1.jpg" || gallery[1] != "/media/2.jpg" {
+	if !ok || len(gallery) != 2 || gallery[0] != "/admin/api/media/delivery/media-1/asset" || gallery[1] != "/admin/api/media/delivery/media-2/asset" {
 		t.Fatalf("expected ordered gallery array, got %#v", created["gallery"])
 	}
 

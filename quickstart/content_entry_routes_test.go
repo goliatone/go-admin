@@ -911,17 +911,21 @@ func TestMediaContentEntryViewContextUsesSharedMediaEndpoints(t *testing.T) {
 	ctx := mediaContentEntryViewContext("/admin", "grid")
 
 	expected := map[string]string{
-		"media_view":               "grid",
-		"media_gallery_path":       "/admin/content/media?view=grid",
-		"media_list_path":          "/admin/content/media?view=list",
-		"media_library_path":       "/admin/api/media/library",
-		"media_item_path":          "/admin/api/media/library/:id",
-		"media_resolve_path":       "/admin/api/media/resolve",
-		"media_upload_path":        "/admin/api/media/upload",
-		"media_presign_path":       "/admin/api/media/presign",
-		"media_confirm_path":       "/admin/api/media/confirm",
-		"media_capabilities_path":  "/admin/api/media/capabilities",
-		"media_default_value_mode": "url",
+		"media_view":                  "grid",
+		"media_gallery_path":          "/admin/content/media?view=grid",
+		"media_list_path":             "/admin/content/media?view=list",
+		"media_library_path":          "/admin/api/media/assets",
+		"media_item_path":             "/admin/api/media/assets/:id",
+		"media_resolve_path":          "/admin/api/media/resolve",
+		"media_upload_path":           "/admin/api/media/upload",
+		"media_presign_path":          "/admin/api/media/presign",
+		"media_confirm_path":          "/admin/api/media/confirm",
+		"media_capabilities_path":     "/admin/api/media/capabilities",
+		"media_asset_url_template":    "/admin/api/media/delivery/:id/asset",
+		"media_stream_url_template":   "/admin/api/media/delivery/:id/stream",
+		"media_poster_url_template":   "/admin/api/media/delivery/:id/poster",
+		"media_download_url_template": "/admin/api/media/delivery/:id/download",
+		"media_default_value_mode":    "url",
 	}
 	for key, want := range expected {
 		if got := anyToString(ctx[key]); got != want {
