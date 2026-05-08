@@ -40,6 +40,34 @@ func TestMediaModuleRouteContractUsesModuleOwnedPages(t *testing.T) {
 	}
 }
 
+func TestMediaModuleRouteContractDisablesOnlyAdminDeliveryRoutes(t *testing.T) {
+	adminDeliveryDisabled := false
+	contract := NewMediaModule().WithDeliveryConfig(MediaDeliveryConfig{AdminEnabled: &adminDeliveryDisabled}).RouteContract()
+	for _, routeKey := range []string{
+		mediaAssetsListRouteKey,
+		mediaAssetsItemRouteKey,
+		mediaResolveRouteKey,
+		mediaUploadRouteKey,
+		mediaPresignRouteKey,
+		mediaConfirmRouteKey,
+		mediaCapabilitiesRouteKey,
+	} {
+		if got := contract.APIRoutes[routeKey]; got == "" {
+			t.Fatalf("expected JSON media API route %q to remain declared when admin delivery is disabled", routeKey)
+		}
+	}
+	for _, routeKey := range []string{
+		mediaDeliveryAssetRouteKey,
+		mediaDeliveryStreamRouteKey,
+		mediaDeliveryPosterRouteKey,
+		mediaDeliveryDownloadRouteKey,
+	} {
+		if got := contract.APIRoutes[routeKey]; got != "" {
+			t.Fatalf("expected admin delivery route %q to be omitted, got %q", routeKey, got)
+		}
+	}
+}
+
 func TestMediaModuleRouteContractOmitsPublicDeliveryByDefault(t *testing.T) {
 	contract := NewMediaModule().RouteContract()
 	if len(contract.PublicAPIRoutes) != 0 {

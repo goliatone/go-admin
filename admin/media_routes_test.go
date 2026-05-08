@@ -181,6 +181,12 @@ func (a mediaDeliveryRouteAdapter) ResolveMediaDelivery(context.Context, MediaDe
 	return a.response, a.err
 }
 
+type mediaDeliveryRouteAdapterFunc func(context.Context, MediaDeliveryRequest) (MediaDeliveryResponse, error)
+
+func (f mediaDeliveryRouteAdapterFunc) ResolveMediaDelivery(ctx context.Context, req MediaDeliveryRequest) (MediaDeliveryResponse, error) {
+	return f(ctx, req)
+}
+
 type allowPermissionAuthorizer struct {
 	allowed string
 }
@@ -202,6 +208,29 @@ func newMediaRouteServerWithDeps(t *testing.T, authz Authorizer, lib MediaLibrar
 		MediaCreatePermission: "perm.create",
 		MediaUpdatePermission: "perm.update",
 		MediaDeletePermission: "perm.delete",
+	}
+	return newMediaRouteServerWithConfigDeps(t, cfg, authz, lib, featureGate, deps)
+}
+
+func newMediaRouteServerWithConfigDeps(t *testing.T, cfg Config, authz Authorizer, lib MediaLibrary, featureGate fggate.FeatureGate, deps Dependencies) router.Server[*httprouter.Router] {
+	t.Helper()
+	if strings.TrimSpace(cfg.BasePath) == "" {
+		cfg.BasePath = "/admin"
+	}
+	if strings.TrimSpace(cfg.DefaultLocale) == "" {
+		cfg.DefaultLocale = "en"
+	}
+	if strings.TrimSpace(cfg.MediaPermission) == "" {
+		cfg.MediaPermission = "perm.view"
+	}
+	if strings.TrimSpace(cfg.MediaCreatePermission) == "" {
+		cfg.MediaCreatePermission = "perm.create"
+	}
+	if strings.TrimSpace(cfg.MediaUpdatePermission) == "" {
+		cfg.MediaUpdatePermission = "perm.update"
+	}
+	if strings.TrimSpace(cfg.MediaDeletePermission) == "" {
+		cfg.MediaDeletePermission = "perm.delete"
 	}
 	deps.FeatureGate = featureGate
 	deps.MediaLibrary = lib
@@ -263,6 +292,31 @@ func TestMediaModernLibraryRoutesRemainCompatible(t *testing.T) {
 	assertMediaStatus(t, server, "POST", "/admin/api/media/resolve", bytes.NewBufferString(`{"id":"1"}`), map[string]string{"Content-Type": "application/json"}, 200)
 }
 
+func TestMediaAdminDeliveryCanBeDisabledWithoutDisablingJSONAPIs(t *testing.T) {
+	adminDeliveryDisabled := false
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		MediaDelivery: MediaDeliveryConfig{
+			AdminEnabled: &adminDeliveryDisabled,
+		},
+	}
+	lib := newMediaRouteTestLibrary()
+	lib.items[0].URL = "https://provider.example/raw/hero.jpg"
+	server := newMediaRouteServerWithConfigDeps(t, cfg, allowAll{}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS), Dependencies{})
+
+	payload := assertMediaJSON[map[string]any](t, server, "GET", "/admin/api/media/assets/1", nil, nil, http.StatusOK)
+	if got := toString(payload["url"]); got != "" {
+		t.Fatalf("expected disabled admin delivery not to expose raw url, got %q", got)
+	}
+	if got := toString(payload["asset_url"]); got != "" {
+		t.Fatalf("expected disabled admin delivery not to expose admin asset_url, got %q", got)
+	}
+	assertMediaStatus(t, server, "GET", "/admin/api/media/assets", nil, nil, http.StatusOK)
+	assertMediaStatus(t, server, "GET", "/admin/api/media/assets/1", nil, nil, http.StatusOK)
+	assertMediaStatus(t, server, "GET", "/admin/api/media/delivery/1/asset", nil, nil, http.StatusNotFound)
+}
+
 func TestMediaPayloadsEmitAppOwnedDeliveryURLs(t *testing.T) {
 	lib := newMediaRouteTestLibrary()
 	lib.items[0].URL = "https://drive.example/raw/hero.jpg"
@@ -305,6 +359,38 @@ func TestMediaPayloadsEmitAppOwnedDeliveryURLs(t *testing.T) {
 
 	detail := assertMediaJSON[map[string]any](t, server, "GET", "/admin/api/media/assets/1", nil, nil, 200)
 	assertMediaPayloadUsesDeliveryURL(t, detail, assetURL)
+}
+
+func TestMediaPayloadsDeepRedactProviderProvenance(t *testing.T) {
+	lib := newMediaRouteTestLibrary()
+	lib.items[0].Metadata = map[string]any{
+		"safe": "kept",
+		"provider_data": map[string]any{
+			"source_url": "https://drive.example/raw/hero.jpg",
+			"label":      "Drive",
+		},
+		"sources": []any{
+			map[string]any{
+				"signed_url": "https://drive.example/signed/hero.jpg",
+				"kind":       "preview",
+			},
+		},
+	}
+	server := newMediaRouteServer(t, allowAll{}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS))
+
+	payload := assertMediaJSON[map[string]any](t, server, "GET", "/admin/api/media/assets/1", nil, nil, 200)
+	raw, err := json.Marshal(payload["metadata"])
+	if err != nil {
+		t.Fatalf("marshal metadata: %v", err)
+	}
+	for _, leaked := range []string{"source_url", "signed_url", "https://drive.example/raw", "https://drive.example/signed"} {
+		if strings.Contains(string(raw), leaked) {
+			t.Fatalf("provider provenance leaked through metadata %q: %s", leaked, raw)
+		}
+	}
+	if !strings.Contains(string(raw), "kept") || !strings.Contains(string(raw), "Drive") || !strings.Contains(string(raw), "preview") {
+		t.Fatalf("expected safe nested metadata to remain, got %s", raw)
+	}
 }
 
 func TestMediaMutationResponsesAndActivityUseDeliveryURLs(t *testing.T) {
@@ -411,8 +497,8 @@ func assertMediaPayloadUsesDeliveryURL(t *testing.T, item map[string]any, assetU
 	if !ok {
 		t.Fatalf("expected delivery info object, got %+v", item["delivery"])
 	}
-	if state := toString(delivery["state"]); state == "" {
-		t.Fatalf("expected delivery state, got %+v", delivery)
+	if state := toString(delivery["state"]); state != string(MediaDeliveryStateReady) {
+		t.Fatalf("expected ready delivery state, got %+v", delivery)
 	}
 }
 
@@ -821,6 +907,85 @@ func TestAdminMediaDeliveryRoutesHandleRedirectHeadAndUnavailable(t *testing.T) 
 	}
 }
 
+func TestPublicMediaDeliveryRoutesAuthorizeAndResolve(t *testing.T) {
+	lib := newMediaRouteTestLibrary()
+	lib.items[0].Metadata = map[string]any{"provider": "public"}
+	called := false
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		MediaDelivery: MediaDeliveryConfig{
+			Public: MediaPublicDeliveryConfig{
+				Enabled: true,
+				Authorizer: func(_ context.Context, auth MediaPublicDeliveryAuthorization) error {
+					if auth.MediaID != "1" || auth.Intent != string(MediaDeliveryIntentAsset) || auth.Request == nil {
+						t.Fatalf("unexpected public auth context: %+v", auth)
+					}
+					called = true
+					return nil
+				},
+			},
+		},
+	}
+	registry := NewMediaDeliveryRegistry()
+	if err := registry.Register("public", mediaDeliveryRouteAdapterFunc(func(context.Context, MediaDeliveryRequest) (MediaDeliveryResponse, error) {
+		return MediaDeliveryResponse{
+			Mode: MediaDeliveryModeProxy,
+			Proxy: &MediaDeliveryProxy{
+				Reader:        io.NopCloser(strings.NewReader("public-bytes")),
+				ContentType:   "text/plain",
+				ContentLength: int64(len("public-bytes")),
+			},
+		}, nil
+	})); err != nil {
+		t.Fatalf("register public adapter: %v", err)
+	}
+	server := newMediaRouteServerWithConfigDeps(t, cfg, allowPermissionAuthorizer{allowed: "perm.view"}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS), Dependencies{
+		MediaDeliveryRegistry: registry,
+	})
+
+	req := httptest.NewRequest("GET", "/api/v1/media/delivery/1/asset", nil)
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusOK || res.Body.String() != "public-bytes" {
+		t.Fatalf("expected public delivery response, got status=%d body=%q", res.Code, res.Body.String())
+	}
+	if !called {
+		t.Fatalf("expected public authorizer to run")
+	}
+}
+
+func TestPublicMediaDeliveryRoutesFailClosedWhenAuthorizationFails(t *testing.T) {
+	lib := newMediaRouteTestLibrary()
+	lib.items[0].Metadata = map[string]any{"provider": "public"}
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		MediaDelivery: MediaDeliveryConfig{
+			Public: MediaPublicDeliveryConfig{
+				Enabled:    true,
+				Authorizer: func(context.Context, MediaPublicDeliveryAuthorization) error { return ErrForbidden },
+			},
+		},
+	}
+	registry := NewMediaDeliveryRegistry()
+	called := false
+	if err := registry.Register("public", mediaDeliveryRouteAdapterFunc(func(context.Context, MediaDeliveryRequest) (MediaDeliveryResponse, error) {
+		called = true
+		return MediaDeliveryResponse{Mode: MediaDeliveryModeProxy, Proxy: &MediaDeliveryProxy{Reader: io.NopCloser(strings.NewReader("nope"))}}, nil
+	})); err != nil {
+		t.Fatalf("register public adapter: %v", err)
+	}
+	server := newMediaRouteServerWithConfigDeps(t, cfg, allowPermissionAuthorizer{allowed: "perm.view"}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS), Dependencies{
+		MediaDeliveryRegistry: registry,
+	})
+
+	assertMediaStatus(t, server, "GET", "/api/v1/media/delivery/1/asset", nil, nil, http.StatusForbidden)
+	if called {
+		t.Fatalf("public delivery adapter must not run when public authorization fails")
+	}
+}
+
 func TestAdminMediaDeliveryRoutesHandleProxyDownloadAndErrors(t *testing.T) {
 	lib := newMediaRouteTestLibrary()
 	lib.items[0].Metadata = map[string]any{"provider": "proxy"}
@@ -866,6 +1031,111 @@ func TestAdminMediaDeliveryRoutesHandleProxyDownloadAndErrors(t *testing.T) {
 	}
 
 	assertMediaStatus(t, server, "GET", "/admin/api/media/delivery/missing/asset", nil, nil, http.StatusNotFound)
+}
+
+func TestAdminMediaDeliveryProxySupportsRanges(t *testing.T) {
+	lib := newMediaRouteTestLibrary()
+	lib.items[0].Metadata = map[string]any{"provider": "proxy"}
+	registry := NewMediaDeliveryRegistry()
+	if err := registry.Register("proxy", mediaDeliveryRouteAdapterFunc(func(context.Context, MediaDeliveryRequest) (MediaDeliveryResponse, error) {
+		return MediaDeliveryResponse{
+			Mode: MediaDeliveryModeProxy,
+			Proxy: &MediaDeliveryProxy{
+				Reader:        io.NopCloser(strings.NewReader("0123456789")),
+				ContentType:   "text/plain",
+				ContentLength: 10,
+				Range:         true,
+			},
+		}, nil
+	})); err != nil {
+		t.Fatalf("register delivery adapter: %v", err)
+	}
+	server := newMediaRouteServerWithDeps(t, allowPermissionAuthorizer{allowed: "perm.view"}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS), Dependencies{
+		MediaDeliveryRegistry: registry,
+	})
+
+	req := httptest.NewRequest("GET", "/admin/api/media/delivery/1/stream", nil)
+	req.Header.Set("Range", "bytes=2-5")
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusPartialContent || res.Body.String() != "2345" {
+		t.Fatalf("expected ranged proxy bytes, got status=%d body=%q", res.Code, res.Body.String())
+	}
+	if got := res.Header().Get("Accept-Ranges"); got != "bytes" {
+		t.Fatalf("expected Accept-Ranges bytes, got %q", got)
+	}
+	if got := res.Header().Get("Content-Range"); got != "bytes 2-5/10" {
+		t.Fatalf("expected Content-Range bytes 2-5/10, got %q", got)
+	}
+
+	req = httptest.NewRequest("HEAD", "/admin/api/media/delivery/1/stream", nil)
+	req.Header.Set("Range", "bytes=2-5")
+	res = httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusPartialContent || res.Body.Len() != 0 {
+		t.Fatalf("expected HEAD ranged proxy without body, got status=%d body=%q", res.Code, res.Body.String())
+	}
+	if got := res.Header().Get("Content-Length"); got != "4" {
+		t.Fatalf("expected HEAD ranged proxy Content-Length 4, got %q", got)
+	}
+	if got := res.Header().Get("Content-Range"); got != "bytes 2-5/10" {
+		t.Fatalf("expected HEAD ranged proxy Content-Range bytes 2-5/10, got %q", got)
+	}
+
+	req = httptest.NewRequest("GET", "/admin/api/media/delivery/1/stream", nil)
+	req.Header.Set("Range", "bytes=20-25")
+	res = httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusRequestedRangeNotSatisfiable {
+		t.Fatalf("expected invalid proxy range 416, got %d body=%s", res.Code, res.Body.String())
+	}
+}
+
+func TestAdminMediaDeliveryRequestExposesCredentialResolver(t *testing.T) {
+	lib := newMediaRouteTestLibrary()
+	lib.items[0].Metadata = map[string]any{"provider": "drive"}
+	registry := NewMediaDeliveryRegistry()
+	if err := registry.Register("drive", mediaDeliveryRouteAdapterFunc(func(ctx context.Context, req MediaDeliveryRequest) (MediaDeliveryResponse, error) {
+		credential, err := req.ResolveCredential(ctx, "media.read")
+		if err != nil {
+			return MediaDeliveryResponse{}, err
+		}
+		if credential.AccessToken != "drive-token" {
+			t.Fatalf("expected drive-token credential, got %+v", credential)
+		}
+		return MediaDeliveryResponse{
+			Mode: MediaDeliveryModeProxy,
+			Proxy: &MediaDeliveryProxy{
+				Reader:        io.NopCloser(strings.NewReader("drive-bytes")),
+				ContentType:   "text/plain",
+				ContentLength: int64(len("drive-bytes")),
+			},
+		}, nil
+	})); err != nil {
+		t.Fatalf("register delivery adapter: %v", err)
+	}
+	resolverCalled := false
+	resolver := MediaDeliveryCredentialResolverFunc(func(_ context.Context, req MediaDeliveryCredentialRequest) (MediaDeliveryCredential, error) {
+		resolverCalled = true
+		if req.Provider != "drive" || req.MediaID != "1" || req.Intent != MediaDeliveryIntentAsset || len(req.Scopes) != 1 || req.Scopes[0] != "media.read" {
+			t.Fatalf("unexpected credential request: %+v", req)
+		}
+		return MediaDeliveryCredential{AccessToken: "drive-token", TokenType: "Bearer"}, nil
+	})
+	server := newMediaRouteServerWithDeps(t, allowPermissionAuthorizer{allowed: "perm.view"}, lib, featureGateFromKeys(FeatureMedia, FeatureCMS), Dependencies{
+		MediaDeliveryRegistry:           registry,
+		MediaDeliveryCredentialResolver: resolver,
+	})
+
+	req := httptest.NewRequest("GET", "/admin/api/media/delivery/1/asset", nil)
+	res := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(res, req)
+	if res.Code != http.StatusOK || res.Body.String() != "drive-bytes" {
+		t.Fatalf("expected credential-backed delivery response, got status=%d body=%q", res.Code, res.Body.String())
+	}
+	if !resolverCalled {
+		t.Fatalf("expected credential resolver to be called")
+	}
 }
 
 func TestAdminMediaDeliveryRoutesServeImportedRangesAndHead(t *testing.T) {

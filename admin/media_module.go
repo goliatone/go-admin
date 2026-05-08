@@ -127,26 +127,29 @@ func (m *MediaModule) RouteContract() routing.ModuleContract {
 			mediaIndexRouteKey: "/",
 			mediaListRouteKey:  "/list",
 		},
+		APIRoutes: mediaAdminJSONRouteTable(),
 	}
 	if delivery.adminRoutesEnabled() {
-		contract.APIRoutes = map[string]string{
-			mediaAssetsListRouteKey:       "/assets",
-			mediaAssetsItemRouteKey:       "/assets/:id",
-			mediaResolveRouteKey:          "/resolve",
-			mediaUploadRouteKey:           "/upload",
-			mediaPresignRouteKey:          "/presign",
-			mediaConfirmRouteKey:          "/confirm",
-			mediaCapabilitiesRouteKey:     "/capabilities",
-			mediaDeliveryAssetRouteKey:    "/delivery/:id/asset",
-			mediaDeliveryStreamRouteKey:   "/delivery/:id/stream",
-			mediaDeliveryPosterRouteKey:   "/delivery/:id/poster",
-			mediaDeliveryDownloadRouteKey: "/delivery/:id/download",
+		for key, path := range mediaDeliveryRouteTable() {
+			contract.APIRoutes[key] = path
 		}
 	}
 	if delivery.publicRoutesEnabled() {
 		contract.PublicAPIRoutes = mediaDeliveryRouteTable()
 	}
 	return contract
+}
+
+func mediaAdminJSONRouteTable() map[string]string {
+	return map[string]string{
+		mediaAssetsListRouteKey:   "/assets",
+		mediaAssetsItemRouteKey:   "/assets/:id",
+		mediaResolveRouteKey:      "/resolve",
+		mediaUploadRouteKey:       "/upload",
+		mediaPresignRouteKey:      "/presign",
+		mediaConfirmRouteKey:      "/confirm",
+		mediaCapabilitiesRouteKey: "/capabilities",
+	}
 }
 
 func mediaDeliveryRouteTable() map[string]string {
@@ -183,38 +186,75 @@ func (m *MediaModule) registerAdminAPIRoutes(ctx ModuleContext) {
 	}
 	responder := responderAdapter{}
 
-	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaAssetsListRouteKey), m.mediaListHandler(responder, binding))
-	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaAssetsItemRouteKey), m.mediaGetHandler(responder, binding))
-	ctx.ProtectedRouter.Patch(m.apiRoutePath(ctx, mediaAssetsItemRouteKey), m.mediaUpdateHandler(responder, binding))
-	ctx.ProtectedRouter.Delete(m.apiRoutePath(ctx, mediaAssetsItemRouteKey), m.mediaDeleteHandler(responder, binding))
-	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaResolveRouteKey), m.mediaResolveHandler(responder, binding))
-	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaUploadRouteKey), m.mediaUploadHandler(responder, binding))
-	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaPresignRouteKey), m.mediaPresignHandler(responder, binding))
-	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaConfirmRouteKey), m.mediaConfirmHandler(responder, binding))
-	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaCapabilitiesRouteKey), m.mediaCapabilitiesHandler(responder, binding))
+	if path := m.adminAPIRoutePath(ctx, mediaAssetsListRouteKey); path != "" {
+		ctx.ProtectedRouter.Get(path, m.mediaListHandler(responder, binding))
+	}
+	if path := m.adminAPIRoutePath(ctx, mediaAssetsItemRouteKey); path != "" {
+		ctx.ProtectedRouter.Get(path, m.mediaGetHandler(responder, binding))
+		ctx.ProtectedRouter.Patch(path, m.mediaUpdateHandler(responder, binding))
+		ctx.ProtectedRouter.Delete(path, m.mediaDeleteHandler(responder, binding))
+	}
+	if path := m.adminAPIRoutePath(ctx, mediaResolveRouteKey); path != "" {
+		ctx.ProtectedRouter.Post(path, m.mediaResolveHandler(responder, binding))
+	}
+	if path := m.adminAPIRoutePath(ctx, mediaUploadRouteKey); path != "" {
+		ctx.ProtectedRouter.Post(path, m.mediaUploadHandler(responder, binding))
+	}
+	if path := m.adminAPIRoutePath(ctx, mediaPresignRouteKey); path != "" {
+		ctx.ProtectedRouter.Post(path, m.mediaPresignHandler(responder, binding))
+	}
+	if path := m.adminAPIRoutePath(ctx, mediaConfirmRouteKey); path != "" {
+		ctx.ProtectedRouter.Post(path, m.mediaConfirmHandler(responder, binding))
+	}
+	if path := m.adminAPIRoutePath(ctx, mediaCapabilitiesRouteKey); path != "" {
+		ctx.ProtectedRouter.Get(path, m.mediaCapabilitiesHandler(responder, binding))
+	}
 	m.registerAdminDeliveryRoutes(ctx)
+	m.registerPublicDeliveryRoutes(ctx)
 }
 
 func (m *MediaModule) registerAdminDeliveryRoutes(ctx ModuleContext) {
+	if !normalizeMediaDeliveryConfig(m.delivery).adminRoutesEnabled() || ctx.ProtectedRouter == nil || ctx.Admin == nil {
+		return
+	}
 	for routeKey, intent := range map[string]MediaDeliveryIntent{
 		mediaDeliveryAssetRouteKey:    MediaDeliveryIntentAsset,
 		mediaDeliveryStreamRouteKey:   MediaDeliveryIntentStream,
 		mediaDeliveryPosterRouteKey:   MediaDeliveryIntentPoster,
 		mediaDeliveryDownloadRouteKey: MediaDeliveryIntentDownload,
 	} {
-		path := m.apiRoutePath(ctx, routeKey)
+		path := m.adminAPIRoutePath(ctx, routeKey)
+		if path == "" {
+			continue
+		}
 		handler := m.mediaDeliveryHandler(ctx.Admin, intent)
 		ctx.ProtectedRouter.Get(path, handler)
 		ctx.ProtectedRouter.Head(path, handler)
 	}
 }
 
-func (m *MediaModule) apiRoutePath(ctx ModuleContext, routeKey string) string {
-	if path := ctx.Routing.RoutePath(routing.SurfaceAPI, routeKey); strings.TrimSpace(path) != "" {
-		return path
+func (m *MediaModule) registerPublicDeliveryRoutes(ctx ModuleContext) {
+	if !normalizeMediaDeliveryConfig(m.delivery).publicRoutesEnabled() || ctx.PublicRouter == nil || ctx.Admin == nil {
+		return
 	}
-	group := adminAPIGroupName(ctx.Admin.config)
-	return resolveURLWith(ctx.Admin.URLs(), group, routeKey, nil, nil)
+	for routeKey, intent := range map[string]MediaDeliveryIntent{
+		mediaDeliveryAssetRouteKey:    MediaDeliveryIntentAsset,
+		mediaDeliveryStreamRouteKey:   MediaDeliveryIntentStream,
+		mediaDeliveryPosterRouteKey:   MediaDeliveryIntentPoster,
+		mediaDeliveryDownloadRouteKey: MediaDeliveryIntentDownload,
+	} {
+		path := strings.TrimSpace(ctx.Routing.RoutePath(routing.SurfacePublicAPI, routeKey))
+		if path == "" {
+			continue
+		}
+		handler := m.mediaPublicDeliveryHandler(ctx.Admin, intent)
+		ctx.PublicRouter.Get(path, handler)
+		ctx.PublicRouter.Head(path, handler)
+	}
+}
+
+func (m *MediaModule) adminAPIRoutePath(ctx ModuleContext, routeKey string) string {
+	return strings.TrimSpace(ctx.Routing.RoutePath(routing.SurfaceAPI, routeKey))
 }
 
 func (m *MediaModule) mediaListHandler(responder responderAdapter, binding boot.MediaBinding) router.HandlerFunc {
@@ -372,45 +412,92 @@ func (m *MediaModule) mediaDeliveryHandler(adm *Admin, intent MediaDeliveryInten
 		if err := adm.requirePermission(adminCtx, adm.config.MediaPermission, mediaModuleID); err != nil {
 			return responder.WriteError(c, err)
 		}
-		item, err := m.mediaDeliveryItem(adminCtx.Context, adm, c.Param("id"))
-		if err != nil {
-			return responder.WriteError(c, err)
-		}
-		projector := adm.mediaDeliveryProjector
-		if projector == nil {
-			projector = DefaultMediaDeliveryReferenceProjector{}
-		}
-		reference, err := projector.ProjectMediaDeliveryReference(adminCtx.Context, item)
-		if err != nil {
-			return responder.WriteError(c, err)
-		}
-		registry := adm.mediaDeliveryRegistry
-		if registry == nil {
-			registry = NewMediaDeliveryRegistry()
-		}
-		httpReq := mediaHTTPDeliveryRequest(c)
-		response, err := registry.Resolve(adminCtx.Context, MediaDeliveryRequest{
-			Item:      item,
-			Reference: reference,
-			Intent:    intent,
-			Request:   httpReq,
-		})
-		if err != nil && response.Unavailable == nil {
-			if unavailable, ok := err.(MediaDeliveryUnavailableError); ok {
-				response = MediaDeliveryResponse{
-					Mode: MediaDeliveryModeUnavailable,
-					Unavailable: &MediaDeliveryUnavailable{
-						State:  unavailable.State,
-						Reason: unavailable.Reason,
-						Code:   unavailable.Code,
-					},
-				}
-			} else {
-				return responder.WriteError(c, err)
-			}
-		}
-		return writeMediaDeliveryResponse(c, intent, response)
+		return m.serveMediaDelivery(c, adm, adminCtx.Context, intent)
 	}
+}
+
+func (m *MediaModule) mediaPublicDeliveryHandler(adm *Admin, intent MediaDeliveryIntent) router.HandlerFunc {
+	return func(c router.Context) error {
+		responder := responderAdapter{}
+		if adm == nil {
+			return responder.WriteError(c, ErrNotFound)
+		}
+		if err := m.authorizePublicMediaDelivery(c, intent); err != nil {
+			return responder.WriteError(c, err)
+		}
+		return m.serveMediaDelivery(c, adm, c.Context(), intent)
+	}
+}
+
+func (m *MediaModule) authorizePublicMediaDelivery(c router.Context, intent MediaDeliveryIntent) error {
+	cfg := normalizeMediaDeliveryConfig(m.delivery).Public
+	if !cfg.Enabled || !cfg.hasPolicy() {
+		return ErrForbidden
+	}
+	httpReq := mediaHTTPDeliveryRequest(c)
+	auth := MediaPublicDeliveryAuthorization{
+		MediaID: strings.TrimSpace(c.Param("id")),
+		Intent:  string(intent),
+		Request: httpReq,
+	}
+	if cfg.TokenVerifier != nil {
+		token := mediaPublicDeliveryTokenFromRequest(httpReq)
+		if token == "" {
+			return ErrForbidden
+		}
+		if err := cfg.TokenVerifier(c.Context(), token, auth); err != nil {
+			return err
+		}
+	}
+	if cfg.Authorizer != nil {
+		if err := cfg.Authorizer(c.Context(), auth); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *MediaModule) serveMediaDelivery(c router.Context, adm *Admin, ctx context.Context, intent MediaDeliveryIntent) error {
+	responder := responderAdapter{}
+	item, err := m.mediaDeliveryItem(ctx, adm, c.Param("id"))
+	if err != nil {
+		return responder.WriteError(c, err)
+	}
+	projector := adm.mediaDeliveryProjector
+	if projector == nil {
+		projector = DefaultMediaDeliveryReferenceProjector{}
+	}
+	reference, err := projector.ProjectMediaDeliveryReference(ctx, item)
+	if err != nil {
+		return responder.WriteError(c, err)
+	}
+	registry := adm.mediaDeliveryRegistry
+	if registry == nil {
+		registry = NewMediaDeliveryRegistry()
+	}
+	httpReq := mediaHTTPDeliveryRequest(c)
+	response, err := registry.Resolve(ctx, MediaDeliveryRequest{
+		Item:               item,
+		Reference:          reference,
+		Intent:             intent,
+		Request:            httpReq,
+		CredentialResolver: adm.mediaDeliveryCredentials,
+	})
+	if err != nil && response.Unavailable == nil {
+		if unavailable, ok := err.(MediaDeliveryUnavailableError); ok {
+			response = MediaDeliveryResponse{
+				Mode: MediaDeliveryModeUnavailable,
+				Unavailable: &MediaDeliveryUnavailable{
+					State:  unavailable.State,
+					Reason: unavailable.Reason,
+					Code:   unavailable.Code,
+				},
+			}
+		} else {
+			return responder.WriteError(c, err)
+		}
+	}
+	return writeMediaDeliveryResponse(c, intent, response)
 }
 
 func (m *MediaModule) mediaDeliveryItem(ctx context.Context, adm *Admin, id string) (MediaItem, error) {
@@ -493,12 +580,51 @@ func writeMediaDeliveryProxy(w http.ResponseWriter, r *http.Request, intent Medi
 		_ = proxy.Reader.Close()
 	}()
 	copyMediaDeliveryHeaders(w.Header(), proxy.Headers)
+	if proxy.Range && proxy.ContentLength > 0 {
+		w.Header().Set("Accept-Ranges", "bytes")
+		if strings.TrimSpace(r.Header.Get("Range")) != "" {
+			return writeMediaDeliveryProxyRange(w, r, intent, proxy)
+		}
+	}
 	applyMediaDeliveryContentHeaders(w.Header(), intent, proxy.ContentType, proxy.ContentLength, proxy.FileName)
 	if r.Method == http.MethodHead {
 		w.WriteHeader(http.StatusOK)
 		return nil
 	}
 	_, err := io.Copy(w, proxy.Reader)
+	return err
+}
+
+func writeMediaDeliveryProxyRange(w http.ResponseWriter, r *http.Request, intent MediaDeliveryIntent, proxy *MediaDeliveryProxy) error {
+	size := proxy.ContentLength
+	rng, ok, err := ParseMediaDeliveryRange(r.Header.Get("Range"), size)
+	if err != nil {
+		w.Header().Set("Content-Range", "bytes */"+strconv.FormatInt(size, 10))
+		w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+		return nil
+	}
+	if !ok {
+		applyMediaDeliveryContentHeaders(w.Header(), intent, proxy.ContentType, proxy.ContentLength, proxy.FileName)
+		if r.Method == http.MethodHead {
+			w.WriteHeader(http.StatusOK)
+			return nil
+		}
+		_, err := io.Copy(w, proxy.Reader)
+		return err
+	}
+	length := rng.End - rng.Start + 1
+	applyMediaDeliveryContentHeaders(w.Header(), intent, proxy.ContentType, length, proxy.FileName)
+	w.Header().Set("Content-Range", "bytes "+strconv.FormatInt(rng.Start, 10)+"-"+strconv.FormatInt(rng.End, 10)+"/"+strconv.FormatInt(size, 10))
+	w.WriteHeader(http.StatusPartialContent)
+	if r.Method == http.MethodHead {
+		return nil
+	}
+	if rng.Start > 0 {
+		if _, err := io.CopyN(io.Discard, proxy.Reader, rng.Start); err != nil {
+			return err
+		}
+	}
+	_, err = io.CopyN(w, proxy.Reader, length)
 	return err
 }
 

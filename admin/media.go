@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"maps"
 	"net/url"
 	"strings"
 	"sync"
@@ -43,18 +42,26 @@ func sanitizeMediaItemMetadataForJSON(metadata map[string]any) map[string]any {
 	if len(metadata) == 0 {
 		return nil
 	}
+	out := sanitizeMediaMetadataMapForJSON(metadata, 0)
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func sanitizeMediaMetadataMapForJSON(metadata map[string]any, depth int) map[string]any {
+	if len(metadata) == 0 || depth > 32 {
+		return nil
+	}
 	out := make(map[string]any, len(metadata))
-	maps.Copy(out, metadata)
-	for _, key := range []string{
-		"source_url",
-		"signed_url",
-		"provider_url",
-		"external_url",
-		"external_id",
-		"storage_key",
-		"poster_key",
-	} {
-		delete(out, key)
+	for key, value := range metadata {
+		if mediaMetadataJSONRedactedKey(key) {
+			continue
+		}
+		sanitized, keep := sanitizeMediaMetadataValueForJSON(value, depth+1)
+		if keep {
+			out[key] = sanitized
+		}
 	}
 	if len(out) == 0 {
 		return nil
@@ -62,22 +69,80 @@ func sanitizeMediaItemMetadataForJSON(metadata map[string]any) map[string]any {
 	return out
 }
 
+func sanitizeMediaMetadataValueForJSON(value any, depth int) (any, bool) {
+	if depth > 32 {
+		return nil, false
+	}
+	switch typed := value.(type) {
+	case map[string]any:
+		out := sanitizeMediaMetadataMapForJSON(typed, depth)
+		return out, len(out) > 0
+	case map[string]string:
+		out := make(map[string]any, len(typed))
+		for key, value := range typed {
+			if mediaMetadataJSONRedactedKey(key) {
+				continue
+			}
+			out[key] = value
+		}
+		return out, len(out) > 0
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			if sanitized, keep := sanitizeMediaMetadataValueForJSON(item, depth+1); keep {
+				out = append(out, sanitized)
+			}
+		}
+		return out, len(out) > 0
+	case []map[string]any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			if sanitized := sanitizeMediaMetadataMapForJSON(item, depth+1); len(sanitized) > 0 {
+				out = append(out, sanitized)
+			}
+		}
+		return out, len(out) > 0
+	case []map[string]string:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			sanitized, keep := sanitizeMediaMetadataValueForJSON(item, depth+1)
+			if keep {
+				out = append(out, sanitized)
+			}
+		}
+		return out, len(out) > 0
+	default:
+		return value, true
+	}
+}
+
+func mediaMetadataJSONRedactedKey(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "source_url", "signed_url", "provider_url", "external_url", "external_id", "storage_key", "poster_key":
+		return true
+	default:
+		return false
+	}
+}
+
 func normalizeMediaDeliveryPayload(item MediaItem, urls MediaDeliveryURLs) MediaItem {
 	if strings.TrimSpace(item.ID) == "" {
 		return item
 	}
-	if strings.TrimSpace(urls.AssetURL) != "" {
-		item.AssetURL = strings.TrimSpace(urls.AssetURL)
+	if assetURL := firstNonEmpty(urls.AssetURL, urls.PublicAssetURL, item.AssetURL); assetURL != "" {
+		item.AssetURL = strings.TrimSpace(assetURL)
 		item.URL = item.AssetURL
+	} else {
+		item.URL = ""
 	}
-	if strings.TrimSpace(urls.StreamURL) != "" {
-		item.StreamURL = strings.TrimSpace(urls.StreamURL)
+	if streamURL := firstNonEmpty(urls.StreamURL, urls.PublicStreamURL, item.StreamURL); streamURL != "" {
+		item.StreamURL = strings.TrimSpace(streamURL)
 	}
-	if strings.TrimSpace(urls.PosterURL) != "" {
-		item.PosterURL = strings.TrimSpace(urls.PosterURL)
+	if posterURL := firstNonEmpty(urls.PosterURL, urls.PublicPosterURL, item.PosterURL); posterURL != "" {
+		item.PosterURL = strings.TrimSpace(posterURL)
 	}
-	if strings.TrimSpace(urls.DownloadURL) != "" {
-		item.DownloadURL = strings.TrimSpace(urls.DownloadURL)
+	if downloadURL := firstNonEmpty(urls.DownloadURL, urls.PublicDownloadURL, item.DownloadURL); downloadURL != "" {
+		item.DownloadURL = strings.TrimSpace(downloadURL)
 	}
 	if strings.TrimSpace(item.PosterURL) != "" {
 		item.Thumbnail = item.PosterURL
@@ -87,21 +152,39 @@ func normalizeMediaDeliveryPayload(item MediaItem, urls MediaDeliveryURLs) Media
 }
 
 func normalizeMediaItemDeliveryInfo(item MediaItem) MediaDeliveryInfo {
-	state := NormalizeMediaDeliveryState(firstNonEmpty(
-		mediaMetadataString(item.Metadata, "delivery_state"),
-		item.WorkflowStatus,
-		item.Status,
-	))
 	reason := firstNonEmpty(
 		mediaMetadataString(item.Metadata, "delivery_reason"),
 		item.WorkflowError,
 	)
 	capabilities := mediaDeliveryCapabilitiesForItem(item)
 	return MediaDeliveryInfo{
-		State:        state,
+		State:        mediaDeliveryStateForItem(item),
 		Reason:       strings.TrimSpace(reason),
 		Capabilities: capabilities,
 	}
+}
+
+func mediaDeliveryStateForItem(item MediaItem) MediaDeliveryState {
+	if raw := mediaMetadataString(item.Metadata, "delivery_state"); raw != "" {
+		return NormalizeMediaDeliveryState(raw)
+	}
+	for _, raw := range []string{item.WorkflowStatus, item.Status} {
+		switch strings.ToLower(strings.TrimSpace(strings.ReplaceAll(raw, "-", "_"))) {
+		case "ready", "complete", "completed", "available", "active", "published":
+			return MediaDeliveryStateReady
+		case "processing", "pending", "queued", "importing", "transcoding":
+			return MediaDeliveryStateProcessing
+		case "external_source_only":
+			return MediaDeliveryStateExternalSourceOnly
+		case "needs_import", "import_required":
+			return MediaDeliveryStateNeedsImport
+		case "not_playable":
+			return MediaDeliveryStateNotPlayable
+		case "failed", "failure", "error":
+			return MediaDeliveryStateFailed
+		}
+	}
+	return MediaDeliveryStateUnavailable
 }
 
 func mediaDeliveryCapabilitiesForItem(item MediaItem) []MediaDeliveryCapability {

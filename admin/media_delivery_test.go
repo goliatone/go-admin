@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -40,6 +41,22 @@ func TestMediaDeliveryStateNormalization(t *testing.T) {
 		if got := NormalizeMediaDeliveryState(raw); got != want {
 			t.Fatalf("state %q: expected %q, got %q", raw, want, got)
 		}
+	}
+}
+
+func TestMediaDeliveryStateForItemReadyWorkflowCompleteAndMetadataOverride(t *testing.T) {
+	item := MediaItem{
+		ID:             "asset-1",
+		Status:         "ready",
+		WorkflowStatus: "complete",
+	}
+	if got := mediaDeliveryStateForItem(item); got != MediaDeliveryStateReady {
+		t.Fatalf("expected ready state for ready/complete item, got %q", got)
+	}
+
+	item.Metadata = map[string]any{"delivery_state": "needs_import"}
+	if got := mediaDeliveryStateForItem(item); got != MediaDeliveryStateNeedsImport {
+		t.Fatalf("expected explicit metadata delivery_state to win, got %q", got)
 	}
 }
 
@@ -143,14 +160,55 @@ func TestMediaItemJSONRedactsProviderProvenanceMetadata(t *testing.T) {
 	}
 }
 
+func TestMediaItemJSONRedactsNestedProviderProvenanceMetadata(t *testing.T) {
+	item := MediaItem{
+		ID:   "asset-1",
+		Name: "asset.jpg",
+		Metadata: map[string]any{
+			"caption": "Safe caption",
+			"provider": map[string]any{
+				"source_url": "https://provider.example/raw",
+				"label":      "Drive",
+			},
+			"sources": []any{
+				map[string]any{
+					"signed_url": "https://provider.example/signed",
+					"kind":       "preview",
+				},
+			},
+		},
+	}
+	raw, err := json.Marshal(item)
+	if err != nil {
+		t.Fatalf("marshal media item: %v", err)
+	}
+	payload := string(raw)
+	for _, leaked := range []string{"source_url", "signed_url", "https://provider.example/raw", "https://provider.example/signed"} {
+		if strings.Contains(payload, leaked) {
+			t.Fatalf("expected nested provider provenance %q to be redacted from %s", leaked, payload)
+		}
+	}
+	if !strings.Contains(payload, "Safe caption") || !strings.Contains(payload, "Drive") || !strings.Contains(payload, "preview") {
+		t.Fatalf("expected safe nested metadata to remain, got %s", payload)
+	}
+}
+
 func TestMediaDeliveryCredentialResolverFunc(t *testing.T) {
+	credential, err := (MediaDeliveryRequest{}).ResolveCredential(context.Background(), "media.read")
+	if err != nil {
+		t.Fatalf("nil request resolver should not fail: %v", err)
+	}
+	if credential.AccessToken != "" || credential.TokenType != "" {
+		t.Fatalf("nil request resolver should return zero credential, got %+v", credential)
+	}
+
 	resolver := MediaDeliveryCredentialResolverFunc(func(_ context.Context, req MediaDeliveryCredentialRequest) (MediaDeliveryCredential, error) {
 		if req.Provider != "drive" || req.Intent != MediaDeliveryIntentStream {
 			t.Fatalf("unexpected credential request: %+v", req)
 		}
 		return MediaDeliveryCredential{AccessToken: "token", TokenType: "Bearer"}, nil
 	})
-	credential, err := resolver.ResolveMediaDeliveryCredential(context.Background(), MediaDeliveryCredentialRequest{
+	credential, err = resolver.ResolveMediaDeliveryCredential(context.Background(), MediaDeliveryCredentialRequest{
 		Provider: "drive",
 		Intent:   MediaDeliveryIntentStream,
 	})

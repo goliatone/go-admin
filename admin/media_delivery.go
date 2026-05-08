@@ -69,10 +69,25 @@ type MediaDeliveryInfo struct {
 
 // MediaDeliveryRequest is passed to delivery adapters.
 type MediaDeliveryRequest struct {
-	Item      MediaItem              `json:"item"`
-	Reference MediaDeliveryReference `json:"reference"`
-	Intent    MediaDeliveryIntent    `json:"intent"`
-	Request   *http.Request          `json:"-"`
+	Item               MediaItem                       `json:"item"`
+	Reference          MediaDeliveryReference          `json:"reference"`
+	Intent             MediaDeliveryIntent             `json:"intent"`
+	Request            *http.Request                   `json:"-"`
+	CredentialResolver MediaDeliveryCredentialResolver `json:"-"`
+}
+
+// ResolveCredential asks the host-owned resolver for provider credentials.
+func (req MediaDeliveryRequest) ResolveCredential(ctx context.Context, scopes ...string) (MediaDeliveryCredential, error) {
+	if req.CredentialResolver == nil {
+		return MediaDeliveryCredential{}, nil
+	}
+	return req.CredentialResolver.ResolveMediaDeliveryCredential(ctx, MediaDeliveryCredentialRequest{
+		Provider:  strings.TrimSpace(req.Reference.Provider),
+		MediaID:   strings.TrimSpace(req.Reference.ID),
+		Intent:    req.Intent,
+		Reference: req.Reference,
+		Scopes:    compactMediaDeliveryStrings(scopes...),
+	})
 }
 
 // MediaDeliveryReference is internal provider/provenance data used by adapters.
@@ -303,19 +318,32 @@ type MediaDeliveryURLs struct {
 	PublicDownloadURL string `json:"public_download_url,omitempty"`
 }
 
+type MediaDeliveryURLBuildOptions struct {
+	IncludeAdmin  bool `json:"include_admin,omitempty"`
+	IncludePublic bool `json:"include_public,omitempty"`
+}
+
 func BuildMediaDeliveryURLs(urls urlkit.Resolver, adminGroup, publicGroup, id string, includePublic bool) MediaDeliveryURLs {
+	return BuildMediaDeliveryURLsWithOptions(urls, adminGroup, publicGroup, id, MediaDeliveryURLBuildOptions{
+		IncludeAdmin:  true,
+		IncludePublic: includePublic,
+	})
+}
+
+func BuildMediaDeliveryURLsWithOptions(urls urlkit.Resolver, adminGroup, publicGroup, id string, opts MediaDeliveryURLBuildOptions) MediaDeliveryURLs {
 	id = strings.TrimSpace(id)
 	if urls == nil || id == "" {
 		return MediaDeliveryURLs{}
 	}
 	params := map[string]any{"id": id}
-	out := MediaDeliveryURLs{
-		AssetURL:    resolveURLWith(urls, adminGroup, mediaDeliveryAssetRouteKey, params, nil),
-		StreamURL:   resolveURLWith(urls, adminGroup, mediaDeliveryStreamRouteKey, params, nil),
-		PosterURL:   resolveURLWith(urls, adminGroup, mediaDeliveryPosterRouteKey, params, nil),
-		DownloadURL: resolveURLWith(urls, adminGroup, mediaDeliveryDownloadRouteKey, params, nil),
+	out := MediaDeliveryURLs{}
+	if opts.IncludeAdmin {
+		out.AssetURL = resolveURLWith(urls, adminGroup, mediaDeliveryAssetRouteKey, params, nil)
+		out.StreamURL = resolveURLWith(urls, adminGroup, mediaDeliveryStreamRouteKey, params, nil)
+		out.PosterURL = resolveURLWith(urls, adminGroup, mediaDeliveryPosterRouteKey, params, nil)
+		out.DownloadURL = resolveURLWith(urls, adminGroup, mediaDeliveryDownloadRouteKey, params, nil)
 	}
-	if includePublic && strings.TrimSpace(publicGroup) != "" {
+	if opts.IncludePublic && strings.TrimSpace(publicGroup) != "" {
 		out.PublicAssetURL = resolveURLWith(urls, publicGroup, mediaDeliveryAssetRouteKey, params, nil)
 		out.PublicStreamURL = resolveURLWith(urls, publicGroup, mediaDeliveryStreamRouteKey, params, nil)
 		out.PublicPosterURL = resolveURLWith(urls, publicGroup, mediaDeliveryPosterRouteKey, params, nil)
