@@ -734,18 +734,11 @@ Google Drive through `modules/services` or `go-services`:
 
 ```go
 type DriveDeliveryAdapter struct {
-    Credentials admin.MediaDeliveryCredentialResolver
     Drive       DriveContentClient
 }
 
 func (a DriveDeliveryAdapter) ResolveMediaDelivery(ctx context.Context, req admin.MediaDeliveryRequest) (admin.MediaDeliveryResponse, error) {
-    credential, err := a.Credentials.ResolveMediaDeliveryCredential(ctx, admin.MediaDeliveryCredentialRequest{
-        Provider:  "drive",
-        MediaID:   req.Reference.ID,
-        Intent:    req.Intent,
-        Reference: req.Reference,
-        Scopes:    []string{"https://www.googleapis.com/auth/drive.readonly"},
-    })
+    credential, err := req.ResolveCredential(ctx, "https://www.googleapis.com/auth/drive.readonly")
     if err != nil {
         return admin.MediaDeliveryResponse{}, err
     }
