@@ -667,6 +667,7 @@ type (
 	MediaDeliveryState                        = core.MediaDeliveryState
 	MediaDeliveryUnavailable                  = core.MediaDeliveryUnavailable
 	MediaDeliveryUnavailableError             = core.MediaDeliveryUnavailableError
+	MediaDeliveryURLBuildOptions              = core.MediaDeliveryURLBuildOptions
 	MediaDeliveryURLs                         = core.MediaDeliveryURLs
 	MediaItem                                 = core.MediaItem
 	MediaLibrary                              = core.MediaLibrary
@@ -1589,6 +1590,14 @@ func NewInMemoryMediaLibrary(baseURL string) *InMemoryMediaLibrary {
 
 func NewMediaDeliveryRegistry() *MediaDeliveryRegistry {
 	return core.NewMediaDeliveryRegistry()
+}
+
+func BuildMediaDeliveryURLs(urls urlkit.Resolver, adminGroup, publicGroup, id string, includePublic bool) MediaDeliveryURLs {
+	return core.BuildMediaDeliveryURLs(urls, adminGroup, publicGroup, id, includePublic)
+}
+
+func BuildMediaDeliveryURLsWithOptions(urls urlkit.Resolver, adminGroup, publicGroup, id string, opts MediaDeliveryURLBuildOptions) MediaDeliveryURLs {
+	return core.BuildMediaDeliveryURLsWithOptions(urls, adminGroup, publicGroup, id, opts)
 }
 
 func NewInMemoryMenuService() *InMemoryMenuService {
