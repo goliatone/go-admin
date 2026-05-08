@@ -171,17 +171,21 @@ func mediaContentEntryViewContext(basePath string, view string) router.ViewConte
 	view = normalizeMediaContentEntryView(view)
 	contentMediaPath := path.Join("/", strings.Trim(basePath, "/"), "content", "media")
 	return router.ViewContext{
-		"media_view":               view,
-		"media_gallery_path":       contentMediaPath + "?view=grid",
-		"media_list_path":          contentMediaPath + "?view=list",
-		"media_library_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "library"),
-		"media_item_path":          path.Join("/", strings.Trim(basePath, "/"), "api", "media", "library", ":id"),
-		"media_resolve_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "resolve"),
-		"media_upload_path":        path.Join("/", strings.Trim(basePath, "/"), "api", "media", "upload"),
-		"media_presign_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "presign"),
-		"media_confirm_path":       path.Join("/", strings.Trim(basePath, "/"), "api", "media", "confirm"),
-		"media_capabilities_path":  path.Join("/", strings.Trim(basePath, "/"), "api", "media", "capabilities"),
-		"media_default_value_mode": string(admin.MediaValueModeURL),
+		"media_view":                  view,
+		"media_gallery_path":          contentMediaPath + "?view=grid",
+		"media_list_path":             contentMediaPath + "?view=list",
+		"media_library_path":          path.Join("/", strings.Trim(basePath, "/"), "api", "media", "assets"),
+		"media_item_path":             path.Join("/", strings.Trim(basePath, "/"), "api", "media", "assets", ":id"),
+		"media_resolve_path":          path.Join("/", strings.Trim(basePath, "/"), "api", "media", "resolve"),
+		"media_upload_path":           path.Join("/", strings.Trim(basePath, "/"), "api", "media", "upload"),
+		"media_presign_path":          path.Join("/", strings.Trim(basePath, "/"), "api", "media", "presign"),
+		"media_confirm_path":          path.Join("/", strings.Trim(basePath, "/"), "api", "media", "confirm"),
+		"media_capabilities_path":     path.Join("/", strings.Trim(basePath, "/"), "api", "media", "capabilities"),
+		"media_asset_url_template":    path.Join("/", strings.Trim(basePath, "/"), "api", "media", "delivery", ":id", "asset"),
+		"media_stream_url_template":   path.Join("/", strings.Trim(basePath, "/"), "api", "media", "delivery", ":id", "stream"),
+		"media_poster_url_template":   path.Join("/", strings.Trim(basePath, "/"), "api", "media", "delivery", ":id", "poster"),
+		"media_download_url_template": path.Join("/", strings.Trim(basePath, "/"), "api", "media", "delivery", ":id", "download"),
+		"media_default_value_mode":    string(admin.MediaValueModeURL),
 	}
 }
 
