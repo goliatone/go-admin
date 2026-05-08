@@ -1,5 +1,31 @@
 # Changelog
 
+# [0.62.0](https://github.com/goliatone/go-admin/compare/v0.61.0...v0.62.0) - (2026-05-08)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Media delivery urls with options ([7eace4b](https://github.com/goliatone/go-admin/commit/7eace4b34d154c1c52c414f6e1ccaf0647cac75c))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.62.0 ([3483f7a](https://github.com/goliatone/go-admin/commit/3483f7a1428f92aa5e895d5c47903bc3c6615083))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Media delivery implementation ([fb4cfc7](https://github.com/goliatone/go-admin/commit/fb4cfc7431e8a5912f9d5085a08e5f72c9ea158f))  - (goliatone)
+- Media asset url management ([e65b8f2](https://github.com/goliatone/go-admin/commit/e65b8f202ae4994500d79414775d9db4de4417f0))  - (goliatone)
+- Media module handle exposing media assets ([4a230c7](https://github.com/goliatone/go-admin/commit/4a230c7703ed4ae7a7eecb6cc60aaf487aec4fec))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.61.0 ([58fe1ba](https://github.com/goliatone/go-admin/commit/58fe1ba876a524fbef80abe7ae8438d8c114076c))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([ed9ad79](https://github.com/goliatone/go-admin/commit/ed9ad7960af2e22b98c98f902b921f4973e2bdaf))  - (goliatone)
+- Update docs ([40673ed](https://github.com/goliatone/go-admin/commit/40673edae54d75a82094dfadfbd701e8ccd1e819))  - (goliatone)
+- Update tests ([128569d](https://github.com/goliatone/go-admin/commit/128569d289bc8ba078ed4597420b1404ddde192a))  - (goliatone)
+
 # [0.61.0](https://github.com/goliatone/go-admin/compare/v0.60.0...v0.61.0) - (2026-05-06)
 
 ## <!-- 1 -->🐛 Bug Fixes
