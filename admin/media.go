@@ -26,7 +26,7 @@ type MediaItem struct {
 	Status         string            `json:"status,omitempty"`
 	WorkflowStatus string            `json:"workflow_status,omitempty"`
 	WorkflowError  string            `json:"workflow_error,omitempty"`
-	Delivery       MediaDeliveryInfo `json:"delivery,omitempty"`
+	Delivery       MediaDeliveryInfo `json:"delivery"`
 	Metadata       map[string]any    `json:"metadata,omitempty"`
 	CreatedAt      time.Time         `json:"created_at"`
 }

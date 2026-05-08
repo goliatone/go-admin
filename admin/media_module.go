@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"maps"
 	"mime"
 	"net/http"
 	"strconv"
@@ -130,9 +131,7 @@ func (m *MediaModule) RouteContract() routing.ModuleContract {
 		APIRoutes: mediaAdminJSONRouteTable(),
 	}
 	if delivery.adminRoutesEnabled() {
-		for key, path := range mediaDeliveryRouteTable() {
-			contract.APIRoutes[key] = path
-		}
+		maps.Copy(contract.APIRoutes, mediaDeliveryRouteTable())
 	}
 	if delivery.publicRoutesEnabled() {
 		contract.PublicAPIRoutes = mediaDeliveryRouteTable()

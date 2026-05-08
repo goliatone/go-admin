@@ -143,7 +143,7 @@ type MediaDeliveryCredentialRequest struct {
 	Provider  string                 `json:"provider,omitempty"`
 	MediaID   string                 `json:"media_id,omitempty"`
 	Intent    MediaDeliveryIntent    `json:"intent,omitempty"`
-	Reference MediaDeliveryReference `json:"reference,omitempty"`
+	Reference MediaDeliveryReference `json:"reference"`
 	Scopes    []string               `json:"scopes,omitempty"`
 }
 
@@ -194,7 +194,7 @@ type MediaDeliveryProxy struct {
 	ContentType   string        `json:"content_type,omitempty"`
 	ContentLength int64         `json:"content_length,omitempty"`
 	FileName      string        `json:"file_name,omitempty"`
-	ModTime       time.Time     `json:"mod_time,omitempty"`
+	ModTime       time.Time     `json:"mod_time"`
 	Range         bool          `json:"range,omitempty"`
 	Headers       http.Header   `json:"-"`
 }
@@ -205,7 +205,7 @@ type MediaDeliveryImported struct {
 	ContentType   string        `json:"content_type,omitempty"`
 	ContentLength int64         `json:"content_length,omitempty"`
 	FileName      string        `json:"file_name,omitempty"`
-	ModTime       time.Time     `json:"mod_time,omitempty"`
+	ModTime       time.Time     `json:"mod_time"`
 	Headers       http.Header   `json:"-"`
 }
 
@@ -355,10 +355,10 @@ func BuildMediaDeliveryURLsWithOptions(urls urlkit.Resolver, adminGroup, publicG
 // MediaDeliveryConfig controls browser-consumable media delivery routes.
 type MediaDeliveryConfig struct {
 	AdminEnabled *bool                         `json:"admin_enabled,omitempty"`
-	Public       MediaPublicDeliveryConfig     `json:"public,omitempty"`
-	Cache        MediaDeliveryCacheConfig      `json:"cache,omitempty"`
-	Redirect     MediaDeliveryRedirectConfig   `json:"redirect,omitempty"`
-	Proxy        MediaDeliveryProxyLimitConfig `json:"proxy,omitempty"`
+	Public       MediaPublicDeliveryConfig     `json:"public"`
+	Cache        MediaDeliveryCacheConfig      `json:"cache"`
+	Redirect     MediaDeliveryRedirectConfig   `json:"redirect"`
+	Proxy        MediaDeliveryProxyLimitConfig `json:"proxy"`
 }
 
 // MediaPublicDeliveryConfig controls opt-in public delivery route exposure.
