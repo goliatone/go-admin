@@ -139,6 +139,20 @@ func resolveAdminRuntimeState(state adminConstructorState, deps Dependencies) (a
 	return state, nil
 }
 
+func resolveMediaDeliveryRegistry(registry *MediaDeliveryRegistry) *MediaDeliveryRegistry {
+	if registry != nil {
+		return registry
+	}
+	return NewMediaDeliveryRegistry()
+}
+
+func resolveMediaDeliveryProjector(projector MediaDeliveryReferenceProjector) MediaDeliveryReferenceProjector {
+	if projector != nil {
+		return projector
+	}
+	return DefaultMediaDeliveryReferenceProjector{}
+}
+
 func newAdminFromConstructorState(state adminConstructorState, deps Dependencies) *Admin {
 	return &Admin{
 		config:                 state.cfg,
@@ -162,50 +176,53 @@ func newAdminFromConstructorState(state adminConstructorState, deps Dependencies
 		validatePanelCommandWiring: deps.CommandBus != nil ||
 			featureEnabled(state.featureGate, FeatureCommands) ||
 			(state.commandBus != nil && state.commandBus.enabled),
-		rpcServer:              state.rpcServer,
-		rpcCommandPolicyHook:   deps.RPCCommandPolicyHook,
-		dashboard:              state.dashboard,
-		actionDiagnostics:      state.actionDiagnostics,
-		replSessionStore:       state.replSessionStore,
-		replSessionManager:     state.replSessionManager,
-		replCommandCatalog:     state.replCommandCatalog,
-		debugSessionStore:      state.debugSessionStore,
-		nav:                    NewNavigation(state.container.MenuService(), deps.Authorizer),
-		search:                 NewSearchEngine(deps.Authorizer),
-		authorizer:             deps.Authorizer,
-		notifications:          state.notifSvc,
-		activity:               state.activitySink,
-		activityFeed:           state.activityFeed,
-		activityPolicy:         state.activityPolicy,
-		jobs:                   state.jobReg,
-		settings:               state.settingsSvc,
-		settingsForm:           state.settingsForm,
-		settingsCommand:        state.settingsCmd,
-		preferences:            state.preferencesSvc,
-		profile:                state.profileSvc,
-		users:                  state.userSvc,
-		tenants:                state.tenantSvc,
-		organizations:          state.orgSvc,
-		bulkUserImport:         deps.BulkUserImport,
-		panelForm:              &PanelFormAdapter{},
-		defaultTheme:           state.defaultTheme,
-		exportRegistry:         state.exportRegistry,
-		exportRegistrar:        state.exportRegistrar,
-		exportMetadata:         state.exportMetadata,
-		bulkSvc:                state.bulkSvc,
-		mediaLibrary:           state.mediaLib,
-		mediaActivityHook:      state.mediaActivityHook,
-		moduleStartupPolicy:    ModuleStartupPolicyEnforce,
-		navMenuCode:            state.navMenuCode,
-		translator:             state.translator,
-		workflow:               deps.Workflow,
-		workflowRuntime:        deps.WorkflowRuntime,
-		translationPolicy:      deps.TranslationPolicy,
-		translationFamilyStore: deps.TranslationFamilyStore,
-		preview:                NewPreviewService(state.cfg.PreviewSecret),
-		iconService:            state.iconService,
-		menuBuilder:            NewMenuBuilderService(),
-		doctorChecks:           map[string]DoctorCheck{},
+		rpcServer:                state.rpcServer,
+		rpcCommandPolicyHook:     deps.RPCCommandPolicyHook,
+		dashboard:                state.dashboard,
+		actionDiagnostics:        state.actionDiagnostics,
+		replSessionStore:         state.replSessionStore,
+		replSessionManager:       state.replSessionManager,
+		replCommandCatalog:       state.replCommandCatalog,
+		debugSessionStore:        state.debugSessionStore,
+		nav:                      NewNavigation(state.container.MenuService(), deps.Authorizer),
+		search:                   NewSearchEngine(deps.Authorizer),
+		authorizer:               deps.Authorizer,
+		notifications:            state.notifSvc,
+		activity:                 state.activitySink,
+		activityFeed:             state.activityFeed,
+		activityPolicy:           state.activityPolicy,
+		jobs:                     state.jobReg,
+		settings:                 state.settingsSvc,
+		settingsForm:             state.settingsForm,
+		settingsCommand:          state.settingsCmd,
+		preferences:              state.preferencesSvc,
+		profile:                  state.profileSvc,
+		users:                    state.userSvc,
+		tenants:                  state.tenantSvc,
+		organizations:            state.orgSvc,
+		bulkUserImport:           deps.BulkUserImport,
+		panelForm:                &PanelFormAdapter{},
+		defaultTheme:             state.defaultTheme,
+		exportRegistry:           state.exportRegistry,
+		exportRegistrar:          state.exportRegistrar,
+		exportMetadata:           state.exportMetadata,
+		bulkSvc:                  state.bulkSvc,
+		mediaLibrary:             state.mediaLib,
+		mediaActivityHook:        state.mediaActivityHook,
+		mediaDeliveryRegistry:    resolveMediaDeliveryRegistry(deps.MediaDeliveryRegistry),
+		mediaDeliveryProjector:   resolveMediaDeliveryProjector(deps.MediaDeliveryReferenceProjector),
+		mediaDeliveryCredentials: deps.MediaDeliveryCredentialResolver,
+		moduleStartupPolicy:      ModuleStartupPolicyEnforce,
+		navMenuCode:              state.navMenuCode,
+		translator:               state.translator,
+		workflow:                 deps.Workflow,
+		workflowRuntime:          deps.WorkflowRuntime,
+		translationPolicy:        deps.TranslationPolicy,
+		translationFamilyStore:   deps.TranslationFamilyStore,
+		preview:                  NewPreviewService(state.cfg.PreviewSecret),
+		iconService:              state.iconService,
+		menuBuilder:              NewMenuBuilderService(),
+		doctorChecks:             map[string]DoctorCheck{},
 	}
 }
 

@@ -738,6 +738,10 @@ func applyFormgenMediaHints(prop map[string]any, media *MediaConfig, kinds ...st
 	componentOptions["presignEndpoint"] = media.PresignPath
 	componentOptions["confirmEndpoint"] = media.ConfirmPath
 	componentOptions["capabilitiesEndpoint"] = media.CapabilitiesPath
+	componentOptions["assetUrlTemplate"] = media.AssetURLTemplate
+	componentOptions["streamUrlTemplate"] = media.StreamURLTemplate
+	componentOptions["posterUrlTemplate"] = media.PosterURLTemplate
+	componentOptions["downloadUrlTemplate"] = media.DownloadURLTemplate
 	componentOptions["valueMode"] = string(resolveMediaFieldValueMode(componentOptions, prop, media))
 	if propType := strings.ToLower(strings.TrimSpace(toString(prop["type"]))); propType == "array" {
 		componentOptions["multiple"] = true
@@ -774,6 +778,10 @@ func applyAdminMediaHints(prop map[string]any, media *MediaConfig, valueMode str
 	adminMeta["media_presign_path"] = media.PresignPath
 	adminMeta["media_confirm_path"] = media.ConfirmPath
 	adminMeta["media_capabilities_path"] = media.CapabilitiesPath
+	adminMeta["media_asset_url_template"] = media.AssetURLTemplate
+	adminMeta["media_stream_url_template"] = media.StreamURLTemplate
+	adminMeta["media_poster_url_template"] = media.PosterURLTemplate
+	adminMeta["media_download_url_template"] = media.DownloadURLTemplate
 	mediaMeta, _ := adminMeta["media"].(map[string]any)
 	if mediaMeta == nil {
 		mediaMeta = map[string]any{}
@@ -785,6 +793,10 @@ func applyAdminMediaHints(prop map[string]any, media *MediaConfig, valueMode str
 	mediaMeta["presignPath"] = media.PresignPath
 	mediaMeta["confirmPath"] = media.ConfirmPath
 	mediaMeta["capabilitiesPath"] = media.CapabilitiesPath
+	mediaMeta["assetUrlTemplate"] = media.AssetURLTemplate
+	mediaMeta["streamUrlTemplate"] = media.StreamURLTemplate
+	mediaMeta["posterUrlTemplate"] = media.PosterURLTemplate
+	mediaMeta["downloadUrlTemplate"] = media.DownloadURLTemplate
 	mediaMeta["valueMode"] = valueMode
 	adminMeta["media"] = mediaMeta
 	prop["x-admin"] = adminMeta

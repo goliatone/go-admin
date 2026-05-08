@@ -36,10 +36,14 @@ func (m *mediaBinding) List(c router.Context) (any, error) {
 	if m.admin.mediaLibrary == nil {
 		return nil, serviceUnavailableDomainError("media library not configured", map[string]any{
 			"component": "media",
-			"route":     "media.library",
+			"route":     mediaAssetsListRouteKey,
 		})
 	}
-	return m.admin.mediaLibrary.QueryMedia(adminCtx.Context, mediaQueryFromRequest(c))
+	page, err := m.admin.mediaLibrary.QueryMedia(adminCtx.Context, mediaQueryFromRequest(c))
+	if err != nil {
+		return nil, err
+	}
+	return m.admin.normalizeMediaPageDelivery(page), nil
 }
 
 func (m *mediaBinding) Get(c router.Context, id string) (any, error) {
@@ -47,7 +51,11 @@ func (m *mediaBinding) Get(c router.Context, id string) (any, error) {
 	if err := m.admin.requirePermission(adminCtx, m.admin.config.MediaPermission, "media"); err != nil {
 		return nil, err
 	}
-	return m.getMedia(adminCtx.Context, strings.TrimSpace(id))
+	item, err := m.getMedia(adminCtx.Context, strings.TrimSpace(id))
+	if err != nil {
+		return nil, err
+	}
+	return m.admin.normalizeMediaItemDelivery(item), nil
 }
 
 func (m *mediaBinding) Resolve(c router.Context, body map[string]any) (any, error) {
@@ -60,8 +68,22 @@ func (m *mediaBinding) Resolve(c router.Context, body map[string]any) (any, erro
 		URL:  toString(body["url"]),
 		Name: toString(body["name"]),
 	}
+	if strings.TrimSpace(ref.ID) == "" {
+		ref.ID = mediaItemIDFromDeliveryURL(ref.URL)
+	}
 	if resolver, ok := m.admin.mediaLibrary.(MediaResolver); ok {
-		return resolver.ResolveMedia(adminCtx.Context, ref)
+		item, err := resolver.ResolveMedia(adminCtx.Context, ref)
+		if err != nil {
+			return nil, err
+		}
+		return m.admin.normalizeMediaItemDelivery(item), nil
+	}
+	if strings.TrimSpace(ref.ID) != "" {
+		item, err := m.getMedia(adminCtx.Context, ref.ID)
+		if err != nil {
+			return nil, err
+		}
+		return m.admin.normalizeMediaItemDelivery(item), nil
 	}
 	return nil, serviceUnavailableDomainError("media resolver not configured", map[string]any{
 		"component": "media",
@@ -94,6 +116,7 @@ func (m *mediaBinding) Upload(c router.Context, body map[string]any, file boot.M
 	if err != nil {
 		return nil, err
 	}
+	uploaded = m.admin.normalizeMediaItemDelivery(uploaded)
 	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
 		Operation: MediaMutationUpload,
 		MediaID:   strings.TrimSpace(uploaded.ID),
@@ -149,6 +172,7 @@ func (m *mediaBinding) Confirm(c router.Context, body map[string]any) (any, erro
 	if err != nil {
 		return nil, err
 	}
+	confirmed = m.admin.normalizeMediaItemDelivery(confirmed)
 	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
 		Operation: MediaMutationConfirm,
 		MediaID:   strings.TrimSpace(confirmed.ID),
@@ -172,7 +196,7 @@ func (m *mediaBinding) Update(c router.Context, id string, body map[string]any) 
 	if !ok {
 		return nil, serviceUnavailableDomainError("media updater not configured", map[string]any{
 			"component": "media",
-			"route":     "media.item",
+			"route":     mediaAssetsItemRouteKey,
 		})
 	}
 	updated, err := updater.UpdateMedia(adminCtx.Context, strings.TrimSpace(id), MediaUpdateInput{
@@ -188,6 +212,8 @@ func (m *mediaBinding) Update(c router.Context, id string, body map[string]any) 
 	if err != nil {
 		return nil, err
 	}
+	updated = m.admin.normalizeMediaItemDelivery(updated)
+	before = m.admin.normalizeMediaItemDelivery(before)
 	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
 		Operation: MediaMutationUpdate,
 		MediaID:   strings.TrimSpace(updated.ID),
@@ -212,12 +238,13 @@ func (m *mediaBinding) Delete(c router.Context, id string) error {
 	if !ok {
 		return serviceUnavailableDomainError("media deleter not configured", map[string]any{
 			"component": "media",
-			"route":     "media.item",
+			"route":     mediaAssetsItemRouteKey,
 		})
 	}
 	if err := deleter.DeleteMedia(adminCtx.Context, strings.TrimSpace(id)); err != nil {
 		return err
 	}
+	before = m.admin.normalizeMediaItemDelivery(before)
 	m.admin.recordMediaMutationActivity(adminCtx.Context, MediaMutationEvent{
 		Operation: MediaMutationDelete,
 		MediaID:   strings.TrimSpace(id),
@@ -242,7 +269,7 @@ func (m *mediaBinding) getMedia(ctx context.Context, id string) (MediaItem, erro
 	}
 	return MediaItem{}, serviceUnavailableDomainError("media getter not configured", map[string]any{
 		"component": "media",
-		"route":     "media.item",
+		"route":     mediaAssetsItemRouteKey,
 		"id":        strings.TrimSpace(id),
 	})
 }

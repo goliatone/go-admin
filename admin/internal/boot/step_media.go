@@ -36,8 +36,8 @@ type mediaRoutePaths struct {
 
 func newMediaRoutePaths(ctx BootCtx) mediaRoutePaths {
 	return mediaRoutePaths{
-		library:      routePath(ctx, ctx.AdminAPIGroup(), "media.library"),
-		item:         routePath(ctx, ctx.AdminAPIGroup(), "media.item"),
+		library:      routePath(ctx, ctx.AdminAPIGroup(), "media.assets.list"),
+		item:         routePath(ctx, ctx.AdminAPIGroup(), "media.assets.item"),
 		resolve:      routePath(ctx, ctx.AdminAPIGroup(), "media.resolve"),
 		upload:       routePath(ctx, ctx.AdminAPIGroup(), "media.upload"),
 		presign:      routePath(ctx, ctx.AdminAPIGroup(), "media.presign"),

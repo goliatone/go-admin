@@ -52,13 +52,16 @@ type Dependencies struct {
 	DebugREPLSessionStore          DebugREPLSessionStore           `json:"debug_repl_session_store"`
 	DebugUserSessionStore          DebugUserSessionStore           `json:"debug_user_session_store"`
 
-	NotificationService NotificationService    `json:"notification_service"`
-	ExportRegistry      ExportRegistry         `json:"export_registry"`
-	ExportRegistrar     ExportHTTPRegistrar    `json:"export_registrar"`
-	ExportMetadata      ExportMetadataProvider `json:"export_metadata"`
-	BulkService         BulkService            `json:"bulk_service"`
-	MediaLibrary        MediaLibrary           `json:"media_library"`
-	MediaActivityHook   MediaActivityHook      `json:"media_activity_hook"`
+	NotificationService             NotificationService             `json:"notification_service"`
+	ExportRegistry                  ExportRegistry                  `json:"export_registry"`
+	ExportRegistrar                 ExportHTTPRegistrar             `json:"export_registrar"`
+	ExportMetadata                  ExportMetadataProvider          `json:"export_metadata"`
+	BulkService                     BulkService                     `json:"bulk_service"`
+	MediaLibrary                    MediaLibrary                    `json:"media_library"`
+	MediaActivityHook               MediaActivityHook               `json:"media_activity_hook"`
+	MediaDeliveryRegistry           *MediaDeliveryRegistry          `json:"media_delivery_registry"`
+	MediaDeliveryReferenceProjector MediaDeliveryReferenceProjector `json:"media_delivery_reference_projector"`
+	MediaDeliveryCredentialResolver MediaDeliveryCredentialResolver `json:"media_delivery_credential_resolver"`
 
 	PreferencesStore PreferencesStore `json:"preferences_store"`
 	ProfileStore     ProfileStore     `json:"profile_store"`

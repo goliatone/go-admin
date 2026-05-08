@@ -32,22 +32,33 @@ func (a *Admin) resolveMediaSchemaConfig() *MediaConfig {
 	}
 	apiGroup := adminAPIGroupName(a.config)
 	return &MediaConfig{
-		LibraryPath:      resolveURLWith(a.urlManager, apiGroup, "media.library", nil, nil),
-		ItemPath:         mediaItemSchemaPath(a.urlManager, apiGroup),
-		ResolvePath:      resolveURLWith(a.urlManager, apiGroup, "media.resolve", nil, nil),
-		UploadPath:       resolveURLWith(a.urlManager, apiGroup, "media.upload", nil, nil),
-		PresignPath:      resolveURLWith(a.urlManager, apiGroup, "media.presign", nil, nil),
-		ConfirmPath:      resolveURLWith(a.urlManager, apiGroup, "media.confirm", nil, nil),
-		CapabilitiesPath: resolveURLWith(a.urlManager, apiGroup, "media.capabilities", nil, nil),
-		DefaultValueMode: MediaValueModeURL,
+		LibraryPath:         resolveURLWith(a.urlManager, apiGroup, mediaAssetsListRouteKey, nil, nil),
+		ItemPath:            mediaItemSchemaPath(a.urlManager, apiGroup),
+		ResolvePath:         resolveURLWith(a.urlManager, apiGroup, "media.resolve", nil, nil),
+		UploadPath:          resolveURLWith(a.urlManager, apiGroup, "media.upload", nil, nil),
+		PresignPath:         resolveURLWith(a.urlManager, apiGroup, "media.presign", nil, nil),
+		ConfirmPath:         resolveURLWith(a.urlManager, apiGroup, "media.confirm", nil, nil),
+		CapabilitiesPath:    resolveURLWith(a.urlManager, apiGroup, "media.capabilities", nil, nil),
+		AssetURLTemplate:    mediaDeliverySchemaPath(a.urlManager, apiGroup, mediaDeliveryAssetRouteKey),
+		StreamURLTemplate:   mediaDeliverySchemaPath(a.urlManager, apiGroup, mediaDeliveryStreamRouteKey),
+		PosterURLTemplate:   mediaDeliverySchemaPath(a.urlManager, apiGroup, mediaDeliveryPosterRouteKey),
+		DownloadURLTemplate: mediaDeliverySchemaPath(a.urlManager, apiGroup, mediaDeliveryDownloadRouteKey),
+		DefaultValueMode:    MediaValueModeURL,
 	}
 }
 
 func mediaItemSchemaPath(urls urlkit.Resolver, apiGroup string) string {
-	if path := routePathRaw(urls, apiGroup, "media.item"); path != "" {
+	if path := routePathRaw(urls, apiGroup, mediaAssetsItemRouteKey); path != "" {
 		return path
 	}
-	return resolveURLWith(urls, apiGroup, "media.item", map[string]any{"id": ":id"}, nil)
+	return resolveURLWith(urls, apiGroup, mediaAssetsItemRouteKey, map[string]any{"id": ":id"}, nil)
+}
+
+func mediaDeliverySchemaPath(urls urlkit.Resolver, apiGroup, routeKey string) string {
+	if path := routePathRaw(urls, apiGroup, routeKey); path != "" {
+		return path
+	}
+	return resolveURLWith(urls, apiGroup, routeKey, map[string]any{"id": ":id"}, nil)
 }
 
 func (a *Admin) decorateSchemaFor(ctx AdminContext, schema *Schema, panelName string) error {

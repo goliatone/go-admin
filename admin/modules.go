@@ -49,7 +49,9 @@ func (a *Admin) defaultModules() []defaultModuleRegistration {
 		{id: profileModuleID, enabled: featureEnabled(a.featureGate, FeatureProfile), build: func() Module { return NewProfileModule() }},
 		{id: tenantsModuleID, enabled: featureEnabled(a.featureGate, FeatureTenants), build: func() Module { return NewTenantsModule() }},
 		{id: organizationsModuleID, enabled: featureEnabled(a.featureGate, FeatureOrganizations), build: func() Module { return NewOrganizationsModule() }},
-		{id: mediaModuleID, enabled: featureEnabled(a.featureGate, FeatureMedia), build: func() Module { return NewMediaModule() }},
+		{id: mediaModuleID, enabled: featureEnabled(a.featureGate, FeatureMedia), build: func() Module {
+			return NewMediaModule().WithDeliveryConfig(a.config.MediaDelivery)
+		}},
 		{id: activityModuleID, enabled: true, build: func() Module { return NewActivityModule() }},
 	}
 }

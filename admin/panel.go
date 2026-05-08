@@ -295,14 +295,18 @@ type BulkConfig struct {
 
 // MediaConfig surfaces media library configuration for form widgets.
 type MediaConfig struct {
-	LibraryPath      string         `json:"library_path"`
-	ItemPath         string         `json:"item_path,omitempty"`
-	ResolvePath      string         `json:"resolve_path,omitempty"`
-	UploadPath       string         `json:"upload_path,omitempty"`
-	PresignPath      string         `json:"presign_path,omitempty"`
-	ConfirmPath      string         `json:"confirm_path,omitempty"`
-	CapabilitiesPath string         `json:"capabilities_path,omitempty"`
-	DefaultValueMode MediaValueMode `json:"default_value_mode,omitempty"`
+	LibraryPath         string         `json:"library_path"`
+	ItemPath            string         `json:"item_path,omitempty"`
+	ResolvePath         string         `json:"resolve_path,omitempty"`
+	UploadPath          string         `json:"upload_path,omitempty"`
+	PresignPath         string         `json:"presign_path,omitempty"`
+	ConfirmPath         string         `json:"confirm_path,omitempty"`
+	CapabilitiesPath    string         `json:"capabilities_path,omitempty"`
+	AssetURLTemplate    string         `json:"asset_url_template,omitempty"`
+	StreamURLTemplate   string         `json:"stream_url_template,omitempty"`
+	PosterURLTemplate   string         `json:"poster_url_template,omitempty"`
+	DownloadURLTemplate string         `json:"download_url_template,omitempty"`
+	DefaultValueMode    MediaValueMode `json:"default_value_mode,omitempty"`
 }
 
 // PanelBreadcrumbConfig controls breadcrumb rendering for panel-backed routes.

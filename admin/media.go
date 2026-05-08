@@ -2,7 +2,10 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"io"
+	"maps"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -10,18 +13,150 @@ import (
 
 // MediaItem describes a stored asset.
 type MediaItem struct {
-	ID             string         `json:"id"`
-	Name           string         `json:"name"`
-	URL            string         `json:"url"`
-	Thumbnail      string         `json:"thumbnail,omitempty"`
-	Type           string         `json:"type,omitempty"`
-	MIMEType       string         `json:"mime_type,omitempty"`
-	Size           int64          `json:"size,omitempty"`
-	Status         string         `json:"status,omitempty"`
-	WorkflowStatus string         `json:"workflow_status,omitempty"`
-	WorkflowError  string         `json:"workflow_error,omitempty"`
-	Metadata       map[string]any `json:"metadata,omitempty"`
-	CreatedAt      time.Time      `json:"created_at"`
+	ID             string            `json:"id"`
+	Name           string            `json:"name"`
+	URL            string            `json:"url"`
+	AssetURL       string            `json:"asset_url,omitempty"`
+	StreamURL      string            `json:"stream_url,omitempty"`
+	PosterURL      string            `json:"poster_url,omitempty"`
+	DownloadURL    string            `json:"download_url,omitempty"`
+	Thumbnail      string            `json:"thumbnail,omitempty"`
+	Type           string            `json:"type,omitempty"`
+	MIMEType       string            `json:"mime_type,omitempty"`
+	Size           int64             `json:"size,omitempty"`
+	Status         string            `json:"status,omitempty"`
+	WorkflowStatus string            `json:"workflow_status,omitempty"`
+	WorkflowError  string            `json:"workflow_error,omitempty"`
+	Delivery       MediaDeliveryInfo `json:"delivery,omitempty"`
+	Metadata       map[string]any    `json:"metadata,omitempty"`
+	CreatedAt      time.Time         `json:"created_at"`
+}
+
+func (item MediaItem) MarshalJSON() ([]byte, error) {
+	type mediaItemJSON MediaItem
+	out := mediaItemJSON(item)
+	out.Metadata = sanitizeMediaItemMetadataForJSON(item.Metadata)
+	return json.Marshal(out)
+}
+
+func sanitizeMediaItemMetadataForJSON(metadata map[string]any) map[string]any {
+	if len(metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(metadata))
+	maps.Copy(out, metadata)
+	for _, key := range []string{
+		"source_url",
+		"signed_url",
+		"provider_url",
+		"external_url",
+		"external_id",
+		"storage_key",
+		"poster_key",
+	} {
+		delete(out, key)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func normalizeMediaDeliveryPayload(item MediaItem, urls MediaDeliveryURLs) MediaItem {
+	if strings.TrimSpace(item.ID) == "" {
+		return item
+	}
+	if strings.TrimSpace(urls.AssetURL) != "" {
+		item.AssetURL = strings.TrimSpace(urls.AssetURL)
+		item.URL = item.AssetURL
+	}
+	if strings.TrimSpace(urls.StreamURL) != "" {
+		item.StreamURL = strings.TrimSpace(urls.StreamURL)
+	}
+	if strings.TrimSpace(urls.PosterURL) != "" {
+		item.PosterURL = strings.TrimSpace(urls.PosterURL)
+	}
+	if strings.TrimSpace(urls.DownloadURL) != "" {
+		item.DownloadURL = strings.TrimSpace(urls.DownloadURL)
+	}
+	if strings.TrimSpace(item.PosterURL) != "" {
+		item.Thumbnail = item.PosterURL
+	}
+	item.Delivery = normalizeMediaItemDeliveryInfo(item)
+	return item
+}
+
+func normalizeMediaItemDeliveryInfo(item MediaItem) MediaDeliveryInfo {
+	state := NormalizeMediaDeliveryState(firstNonEmpty(
+		mediaMetadataString(item.Metadata, "delivery_state"),
+		item.WorkflowStatus,
+		item.Status,
+	))
+	reason := firstNonEmpty(
+		mediaMetadataString(item.Metadata, "delivery_reason"),
+		item.WorkflowError,
+	)
+	capabilities := mediaDeliveryCapabilitiesForItem(item)
+	return MediaDeliveryInfo{
+		State:        state,
+		Reason:       strings.TrimSpace(reason),
+		Capabilities: capabilities,
+	}
+}
+
+func mediaDeliveryCapabilitiesForItem(item MediaItem) []MediaDeliveryCapability {
+	values := []MediaDeliveryCapability{
+		MediaDeliveryCapabilityDownload,
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(item.MIMEType)), "image/") || strings.EqualFold(strings.TrimSpace(item.Type), "image") {
+		values = append(values, MediaDeliveryCapabilityPoster)
+	}
+	if mediaItemStreamCapable(item) {
+		values = append(values, MediaDeliveryCapabilityStream, MediaDeliveryCapabilityRange)
+	}
+	if provider := mediaMetadataString(item.Metadata, "provider"); provider != "" {
+		values = append(values, MediaDeliveryCapabilityAuthRequired)
+	}
+	return NormalizeMediaDeliveryCapabilities(values...)
+}
+
+func mediaItemStreamCapable(item MediaItem) bool {
+	mimeType := strings.ToLower(strings.TrimSpace(item.MIMEType))
+	if strings.HasPrefix(mimeType, "video/") || strings.HasPrefix(mimeType, "audio/") {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(item.Type)) {
+	case "video", "audio":
+		return true
+	default:
+		return false
+	}
+}
+
+func mediaItemIDFromDeliveryURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	path := raw
+	if err == nil && strings.TrimSpace(parsed.Path) != "" {
+		path = parsed.Path
+	}
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	for idx := 0; idx+2 < len(segments); idx++ {
+		if segments[idx] != "delivery" {
+			continue
+		}
+		if _, ok := ParseMediaDeliveryIntent(segments[idx+2]); !ok {
+			continue
+		}
+		if id, err := url.PathUnescape(segments[idx+1]); err == nil {
+			return strings.TrimSpace(id)
+		}
+		return strings.TrimSpace(segments[idx+1])
+	}
+	return ""
 }
 
 // MediaLibrary exposes the required query-aware media listing surface.

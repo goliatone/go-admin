@@ -12,6 +12,7 @@ func applyConfigDefaults(cfg Config) Config {
 	cfg = applyCMSAndSiteConfigDefaults(cfg)
 	cfg = applyRoutingAndDebugConfigDefaults(cfg)
 	cfg = applyPermissionConfigDefaults(cfg)
+	cfg.MediaDelivery = normalizeMediaDeliveryConfig(cfg.MediaDelivery)
 	cfg = applyThemeTokenConfigDefaults(cfg)
 	cfg.Errors = normalizeErrorConfig(cfg.Errors, cfg.Debug)
 	cfg = applyCommandConfigDefaults(cfg)

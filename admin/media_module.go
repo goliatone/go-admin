@@ -1,8 +1,14 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
+	"io"
+	"mime"
+	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/goliatone/go-admin/admin/internal/boot"
 	"github.com/goliatone/go-admin/admin/routing"
@@ -17,13 +23,17 @@ const (
 	mediaListRouteKey   = "media.list"
 	mediaDefaultMenuPos = 35
 
-	mediaLibraryRouteKey      = "media.library"
-	mediaItemRouteKey         = "media.item"
-	mediaResolveRouteKey      = "media.resolve"
-	mediaUploadRouteKey       = "media.upload"
-	mediaPresignRouteKey      = "media.presign"
-	mediaConfirmRouteKey      = "media.confirm"
-	mediaCapabilitiesRouteKey = "media.capabilities"
+	mediaAssetsListRouteKey       = "media.assets.list"
+	mediaAssetsItemRouteKey       = "media.assets.item"
+	mediaResolveRouteKey          = "media.resolve"
+	mediaUploadRouteKey           = "media.upload"
+	mediaPresignRouteKey          = "media.presign"
+	mediaConfirmRouteKey          = "media.confirm"
+	mediaCapabilitiesRouteKey     = "media.capabilities"
+	mediaDeliveryAssetRouteKey    = "media.delivery.asset"
+	mediaDeliveryStreamRouteKey   = "media.delivery.stream"
+	mediaDeliveryPosterRouteKey   = "media.delivery.poster"
+	mediaDeliveryDownloadRouteKey = "media.delivery.download"
 )
 
 // MediaModule exposes the media library as a module-owned admin page.
@@ -36,6 +46,7 @@ type MediaModule struct {
 	menuPosition  int
 	uiGroupPath   string
 	urls          urlkit.Resolver
+	delivery      MediaDeliveryConfig
 }
 
 // NewMediaModule constructs the default media module.
@@ -104,26 +115,62 @@ func (m *MediaModule) applyDefaults(ctx ModuleContext) {
 	if m.menuPosition <= 0 {
 		m.menuPosition = mediaDefaultMenuPos
 	}
+	m.delivery = normalizeMediaDeliveryConfig(m.delivery)
 }
 
 // RouteContract declares the UI and admin API routes owned by the media module.
 func (m *MediaModule) RouteContract() routing.ModuleContract {
-	return routing.ModuleContract{
+	delivery := normalizeMediaDeliveryConfig(m.delivery)
+	contract := routing.ModuleContract{
 		Slug: mediaModuleID,
 		UIRoutes: map[string]string{
 			mediaIndexRouteKey: "/",
 			mediaListRouteKey:  "/list",
 		},
-		APIRoutes: map[string]string{
-			mediaLibraryRouteKey:      "/library",
-			mediaItemRouteKey:         "/library/:id",
-			mediaResolveRouteKey:      "/resolve",
-			mediaUploadRouteKey:       "/upload",
-			mediaPresignRouteKey:      "/presign",
-			mediaConfirmRouteKey:      "/confirm",
-			mediaCapabilitiesRouteKey: "/capabilities",
-		},
 	}
+	if delivery.adminRoutesEnabled() {
+		contract.APIRoutes = map[string]string{
+			mediaAssetsListRouteKey:       "/assets",
+			mediaAssetsItemRouteKey:       "/assets/:id",
+			mediaResolveRouteKey:          "/resolve",
+			mediaUploadRouteKey:           "/upload",
+			mediaPresignRouteKey:          "/presign",
+			mediaConfirmRouteKey:          "/confirm",
+			mediaCapabilitiesRouteKey:     "/capabilities",
+			mediaDeliveryAssetRouteKey:    "/delivery/:id/asset",
+			mediaDeliveryStreamRouteKey:   "/delivery/:id/stream",
+			mediaDeliveryPosterRouteKey:   "/delivery/:id/poster",
+			mediaDeliveryDownloadRouteKey: "/delivery/:id/download",
+		}
+	}
+	if delivery.publicRoutesEnabled() {
+		contract.PublicAPIRoutes = mediaDeliveryRouteTable()
+	}
+	return contract
+}
+
+func mediaDeliveryRouteTable() map[string]string {
+	return map[string]string{
+		mediaDeliveryAssetRouteKey:    "/delivery/:id/asset",
+		mediaDeliveryStreamRouteKey:   "/delivery/:id/stream",
+		mediaDeliveryPosterRouteKey:   "/delivery/:id/poster",
+		mediaDeliveryDownloadRouteKey: "/delivery/:id/download",
+	}
+}
+
+// WithDeliveryConfig configures route exposure before module route planning.
+func (m *MediaModule) WithDeliveryConfig(cfg MediaDeliveryConfig) *MediaModule {
+	if m == nil {
+		return m
+	}
+	m.delivery = normalizeMediaDeliveryConfig(cfg)
+	return m
+}
+
+// ValidateStartup rejects public delivery requests that cannot be authorized.
+func (m *MediaModule) ValidateStartup(ctx context.Context) error {
+	_ = ctx
+	return normalizeMediaDeliveryConfig(m.delivery).validate()
 }
 
 func (m *MediaModule) registerAdminAPIRoutes(ctx ModuleContext) {
@@ -136,15 +183,30 @@ func (m *MediaModule) registerAdminAPIRoutes(ctx ModuleContext) {
 	}
 	responder := responderAdapter{}
 
-	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaLibraryRouteKey), m.mediaListHandler(responder, binding))
-	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaItemRouteKey), m.mediaGetHandler(responder, binding))
-	ctx.ProtectedRouter.Patch(m.apiRoutePath(ctx, mediaItemRouteKey), m.mediaUpdateHandler(responder, binding))
-	ctx.ProtectedRouter.Delete(m.apiRoutePath(ctx, mediaItemRouteKey), m.mediaDeleteHandler(responder, binding))
+	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaAssetsListRouteKey), m.mediaListHandler(responder, binding))
+	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaAssetsItemRouteKey), m.mediaGetHandler(responder, binding))
+	ctx.ProtectedRouter.Patch(m.apiRoutePath(ctx, mediaAssetsItemRouteKey), m.mediaUpdateHandler(responder, binding))
+	ctx.ProtectedRouter.Delete(m.apiRoutePath(ctx, mediaAssetsItemRouteKey), m.mediaDeleteHandler(responder, binding))
 	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaResolveRouteKey), m.mediaResolveHandler(responder, binding))
 	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaUploadRouteKey), m.mediaUploadHandler(responder, binding))
 	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaPresignRouteKey), m.mediaPresignHandler(responder, binding))
 	ctx.ProtectedRouter.Post(m.apiRoutePath(ctx, mediaConfirmRouteKey), m.mediaConfirmHandler(responder, binding))
 	ctx.ProtectedRouter.Get(m.apiRoutePath(ctx, mediaCapabilitiesRouteKey), m.mediaCapabilitiesHandler(responder, binding))
+	m.registerAdminDeliveryRoutes(ctx)
+}
+
+func (m *MediaModule) registerAdminDeliveryRoutes(ctx ModuleContext) {
+	for routeKey, intent := range map[string]MediaDeliveryIntent{
+		mediaDeliveryAssetRouteKey:    MediaDeliveryIntentAsset,
+		mediaDeliveryStreamRouteKey:   MediaDeliveryIntentStream,
+		mediaDeliveryPosterRouteKey:   MediaDeliveryIntentPoster,
+		mediaDeliveryDownloadRouteKey: MediaDeliveryIntentDownload,
+	} {
+		path := m.apiRoutePath(ctx, routeKey)
+		handler := m.mediaDeliveryHandler(ctx.Admin, intent)
+		ctx.ProtectedRouter.Get(path, handler)
+		ctx.ProtectedRouter.Head(path, handler)
+	}
 }
 
 func (m *MediaModule) apiRoutePath(ctx ModuleContext, routeKey string) string {
@@ -300,6 +362,228 @@ func parseMediaModuleUploadRequest(c router.Context) (map[string]any, boot.Multi
 	}, nil
 }
 
+func (m *MediaModule) mediaDeliveryHandler(adm *Admin, intent MediaDeliveryIntent) router.HandlerFunc {
+	return func(c router.Context) error {
+		responder := responderAdapter{}
+		if adm == nil {
+			return responder.WriteError(c, ErrNotFound)
+		}
+		adminCtx := adm.adminContextFromRequest(c, adm.config.DefaultLocale)
+		if err := adm.requirePermission(adminCtx, adm.config.MediaPermission, mediaModuleID); err != nil {
+			return responder.WriteError(c, err)
+		}
+		item, err := m.mediaDeliveryItem(adminCtx.Context, adm, c.Param("id"))
+		if err != nil {
+			return responder.WriteError(c, err)
+		}
+		projector := adm.mediaDeliveryProjector
+		if projector == nil {
+			projector = DefaultMediaDeliveryReferenceProjector{}
+		}
+		reference, err := projector.ProjectMediaDeliveryReference(adminCtx.Context, item)
+		if err != nil {
+			return responder.WriteError(c, err)
+		}
+		registry := adm.mediaDeliveryRegistry
+		if registry == nil {
+			registry = NewMediaDeliveryRegistry()
+		}
+		httpReq := mediaHTTPDeliveryRequest(c)
+		response, err := registry.Resolve(adminCtx.Context, MediaDeliveryRequest{
+			Item:      item,
+			Reference: reference,
+			Intent:    intent,
+			Request:   httpReq,
+		})
+		if err != nil && response.Unavailable == nil {
+			if unavailable, ok := err.(MediaDeliveryUnavailableError); ok {
+				response = MediaDeliveryResponse{
+					Mode: MediaDeliveryModeUnavailable,
+					Unavailable: &MediaDeliveryUnavailable{
+						State:  unavailable.State,
+						Reason: unavailable.Reason,
+						Code:   unavailable.Code,
+					},
+				}
+			} else {
+				return responder.WriteError(c, err)
+			}
+		}
+		return writeMediaDeliveryResponse(c, intent, response)
+	}
+}
+
+func (m *MediaModule) mediaDeliveryItem(ctx context.Context, adm *Admin, id string) (MediaItem, error) {
+	if adm == nil {
+		return MediaItem{}, ErrNotFound
+	}
+	getter, ok := adm.mediaLibrary.(MediaGetter)
+	if !ok {
+		return MediaItem{}, serviceUnavailableDomainError("media getter not configured", map[string]any{
+			"component": "media_delivery",
+			"route":     mediaAssetsItemRouteKey,
+		})
+	}
+	return getter.GetMedia(ctx, strings.TrimSpace(id))
+}
+
+func mediaHTTPDeliveryRequest(c router.Context) *http.Request {
+	httpCtx, ok := c.(router.HTTPContext)
+	if !ok {
+		return nil
+	}
+	return httpCtx.Request()
+}
+
+func writeMediaDeliveryResponse(c router.Context, intent MediaDeliveryIntent, response MediaDeliveryResponse) error {
+	httpCtx, ok := c.(router.HTTPContext)
+	if !ok {
+		return serviceUnavailableDomainError("http response writer not available", map[string]any{
+			"component": "media_delivery",
+		})
+	}
+	w := httpCtx.Response()
+	r := httpCtx.Request()
+	if w == nil || r == nil {
+		return serviceUnavailableDomainError("http request/response not available", map[string]any{
+			"component": "media_delivery",
+		})
+	}
+	switch response.Mode {
+	case MediaDeliveryModeRedirect:
+		return writeMediaDeliveryRedirect(w, r, response.Redirect)
+	case MediaDeliveryModeProxy:
+		return writeMediaDeliveryProxy(w, r, intent, response.Proxy)
+	case MediaDeliveryModeImported:
+		return writeMediaDeliveryImported(w, r, intent, response.Imported)
+	default:
+		return writeMediaDeliveryUnavailable(w, response.Unavailable)
+	}
+}
+
+func writeMediaDeliveryRedirect(w http.ResponseWriter, r *http.Request, redirect *MediaDeliveryRedirect) error {
+	if redirect == nil || strings.TrimSpace(redirect.URL) == "" {
+		return writeMediaDeliveryUnavailable(w, &MediaDeliveryUnavailable{
+			State:  MediaDeliveryStateUnavailable,
+			Reason: "media redirect unavailable",
+			Code:   http.StatusServiceUnavailable,
+		})
+	}
+	copyMediaDeliveryHeaders(w.Header(), redirect.Headers)
+	if strings.TrimSpace(redirect.Cache) != "" {
+		w.Header().Set("Cache-Control", strings.TrimSpace(redirect.Cache))
+	}
+	status := redirect.Status
+	if status < 300 || status > 399 {
+		status = http.StatusFound
+	}
+	http.Redirect(w, r, redirect.URL, status)
+	return nil
+}
+
+func writeMediaDeliveryProxy(w http.ResponseWriter, r *http.Request, intent MediaDeliveryIntent, proxy *MediaDeliveryProxy) error {
+	if proxy == nil || proxy.Reader == nil {
+		return writeMediaDeliveryUnavailable(w, &MediaDeliveryUnavailable{
+			State:  MediaDeliveryStateUnavailable,
+			Reason: "media stream unavailable",
+			Code:   http.StatusServiceUnavailable,
+		})
+	}
+	defer func() {
+		_ = proxy.Reader.Close()
+	}()
+	copyMediaDeliveryHeaders(w.Header(), proxy.Headers)
+	applyMediaDeliveryContentHeaders(w.Header(), intent, proxy.ContentType, proxy.ContentLength, proxy.FileName)
+	if r.Method == http.MethodHead {
+		w.WriteHeader(http.StatusOK)
+		return nil
+	}
+	_, err := io.Copy(w, proxy.Reader)
+	return err
+}
+
+func writeMediaDeliveryImported(w http.ResponseWriter, r *http.Request, intent MediaDeliveryIntent, imported *MediaDeliveryImported) error {
+	if imported == nil || imported.Reader == nil {
+		return writeMediaDeliveryUnavailable(w, &MediaDeliveryUnavailable{
+			State:  MediaDeliveryStateUnavailable,
+			Reason: "media content unavailable",
+			Code:   http.StatusServiceUnavailable,
+		})
+	}
+	if closer, ok := imported.Reader.(io.Closer); ok {
+		defer func() {
+			_ = closer.Close()
+		}()
+	}
+	copyMediaDeliveryHeaders(w.Header(), imported.Headers)
+	applyMediaDeliveryContentHeaders(w.Header(), intent, imported.ContentType, imported.ContentLength, imported.FileName)
+	name := strings.TrimSpace(imported.FileName)
+	if name == "" {
+		name = "media"
+	}
+	modTime := imported.ModTime
+	if modTime.IsZero() {
+		modTime = time.Now()
+	}
+	http.ServeContent(w, r, name, modTime, imported.Reader)
+	return nil
+}
+
+func writeMediaDeliveryUnavailable(w http.ResponseWriter, unavailable *MediaDeliveryUnavailable) error {
+	if unavailable == nil {
+		unavailable = &MediaDeliveryUnavailable{
+			State:  MediaDeliveryStateUnavailable,
+			Reason: "media delivery unavailable",
+			Code:   http.StatusServiceUnavailable,
+		}
+	}
+	status := unavailable.Code
+	if status < 400 || status > 599 {
+		status = http.StatusServiceUnavailable
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	payload := map[string]any{
+		"error":  firstNonEmpty(unavailable.Reason, "media delivery unavailable"),
+		"state":  NormalizeMediaDeliveryState(string(unavailable.State)),
+		"status": status,
+	}
+	return json.NewEncoder(w).Encode(payload)
+}
+
+func copyMediaDeliveryHeaders(dst, src http.Header) {
+	if dst == nil || len(src) == 0 {
+		return
+	}
+	for key, values := range src {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		for _, value := range values {
+			dst.Add(key, value)
+		}
+	}
+}
+
+func applyMediaDeliveryContentHeaders(header http.Header, intent MediaDeliveryIntent, contentType string, contentLength int64, fileName string) {
+	if header == nil {
+		return
+	}
+	if strings.TrimSpace(contentType) != "" {
+		header.Set("Content-Type", strings.TrimSpace(contentType))
+	}
+	if contentLength > 0 {
+		header.Set("Content-Length", strconv.FormatInt(contentLength, 10))
+	}
+	if intent == MediaDeliveryIntentDownload {
+		disposition := "attachment"
+		if strings.TrimSpace(fileName) != "" {
+			disposition = mime.FormatMediaType("attachment", map[string]string{"filename": strings.TrimSpace(fileName)})
+		}
+		header.Set("Content-Disposition", disposition)
+	}
+}
+
 // MenuItems contributes navigation for the media module.
 func (m *MediaModule) MenuItems(locale string) []MenuItem {
 	if locale == "" {
@@ -367,20 +651,24 @@ func (m *MediaModule) renderPage(adm *Admin, c router.Context, view string) erro
 
 	mediaCfg := adm.resolveMediaSchemaConfig()
 	viewCtx := router.ViewContext{
-		"title":                    adm.config.Title,
-		"resource":                 mediaModuleID,
-		"resource_label":           "Media",
-		"media_view":               normalizeMediaView(view),
-		"media_gallery_path":       resolveMediaPagePath(m.urls, group, mediaIndexRouteKey, basePath),
-		"media_list_path":          resolveMediaPagePath(m.urls, group, mediaListRouteKey, strings.TrimRight(basePath, "/")+"/list"),
-		"media_library_path":       mediaCfg.LibraryPath,
-		"media_item_path":          mediaCfg.ItemPath,
-		"media_resolve_path":       mediaCfg.ResolvePath,
-		"media_upload_path":        mediaCfg.UploadPath,
-		"media_presign_path":       mediaCfg.PresignPath,
-		"media_confirm_path":       mediaCfg.ConfirmPath,
-		"media_capabilities_path":  mediaCfg.CapabilitiesPath,
-		"media_default_value_mode": string(mediaCfg.DefaultValueMode),
+		"title":                       adm.config.Title,
+		"resource":                    mediaModuleID,
+		"resource_label":              "Media",
+		"media_view":                  normalizeMediaView(view),
+		"media_gallery_path":          resolveMediaPagePath(m.urls, group, mediaIndexRouteKey, basePath),
+		"media_list_path":             resolveMediaPagePath(m.urls, group, mediaListRouteKey, strings.TrimRight(basePath, "/")+"/list"),
+		"media_library_path":          mediaCfg.LibraryPath,
+		"media_item_path":             mediaCfg.ItemPath,
+		"media_resolve_path":          mediaCfg.ResolvePath,
+		"media_upload_path":           mediaCfg.UploadPath,
+		"media_presign_path":          mediaCfg.PresignPath,
+		"media_confirm_path":          mediaCfg.ConfirmPath,
+		"media_capabilities_path":     mediaCfg.CapabilitiesPath,
+		"media_asset_url_template":    mediaCfg.AssetURLTemplate,
+		"media_stream_url_template":   mediaCfg.StreamURLTemplate,
+		"media_poster_url_template":   mediaCfg.PosterURLTemplate,
+		"media_download_url_template": mediaCfg.DownloadURLTemplate,
+		"media_default_value_mode":    string(mediaCfg.DefaultValueMode),
 	}
 	viewCtx = EnrichLayoutViewContext(adm, c, viewCtx, mediaModuleID)
 	viewCtx = CaptureViewContextForRequest(adm.Debug(), c, viewCtx)
