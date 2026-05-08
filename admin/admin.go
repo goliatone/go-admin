@@ -458,12 +458,15 @@ func (a *Admin) MediaDeliveryURLs(id string) MediaDeliveryURLs {
 	if a == nil {
 		return MediaDeliveryURLs{}
 	}
-	return BuildMediaDeliveryURLs(
+	return BuildMediaDeliveryURLsWithOptions(
 		a.urlManager,
 		adminAPIGroupName(a.config),
 		publicAPIGroupName(a.config),
 		id,
-		a.config.MediaDelivery.publicRoutesEnabled(),
+		MediaDeliveryURLBuildOptions{
+			IncludeAdmin:  a.config.MediaDelivery.adminRoutesEnabled(),
+			IncludePublic: a.config.MediaDelivery.publicRoutesEnabled(),
+		},
 	)
 }
 
