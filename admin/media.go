@@ -138,8 +138,13 @@ func normalizeMediaDeliveryPayload(item MediaItem, urls MediaDeliveryURLs) Media
 	if streamURL := firstNonEmpty(urls.StreamURL, urls.PublicStreamURL, item.StreamURL); streamURL != "" {
 		item.StreamURL = strings.TrimSpace(streamURL)
 	}
-	if posterURL := firstNonEmpty(urls.PosterURL, urls.PublicPosterURL, item.PosterURL); posterURL != "" {
-		item.PosterURL = strings.TrimSpace(posterURL)
+	if mediaItemCanUsePosterDelivery(item) {
+		if posterURL := firstNonEmpty(urls.PosterURL, urls.PublicPosterURL, item.PosterURL); posterURL != "" {
+			item.PosterURL = strings.TrimSpace(posterURL)
+		}
+	} else {
+		item.PosterURL = ""
+		item.Thumbnail = ""
 	}
 	if downloadURL := firstNonEmpty(urls.DownloadURL, urls.PublicDownloadURL, item.DownloadURL); downloadURL != "" {
 		item.DownloadURL = strings.TrimSpace(downloadURL)
@@ -149,6 +154,40 @@ func normalizeMediaDeliveryPayload(item MediaItem, urls MediaDeliveryURLs) Media
 	}
 	item.Delivery = normalizeMediaItemDeliveryInfo(item)
 	return item
+}
+
+func mediaItemCanUsePosterDelivery(item MediaItem) bool {
+	if mediaItemCanUseAccessURLAsThumbnail(item) {
+		return true
+	}
+	if mediaItemLooksLikeImagePreviewURL(item.PosterURL) {
+		return true
+	}
+	if mediaItemLooksLikeImagePreviewURL(item.Thumbnail) {
+		return true
+	}
+	return false
+}
+
+func mediaItemLooksLikeImagePreviewURL(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return false
+	}
+	lowered := strings.ToLower(raw)
+	if strings.HasPrefix(lowered, "data:image/") {
+		return true
+	}
+	pathValue := raw
+	if parsed, err := url.Parse(raw); err == nil && strings.TrimSpace(parsed.Path) != "" {
+		pathValue = parsed.Path
+	}
+	for _, suffix := range []string{".avif", ".bmp", ".gif", ".ico", ".jpeg", ".jpg", ".png", ".svg", ".tif", ".tiff", ".webp"} {
+		if strings.HasSuffix(strings.ToLower(pathValue), suffix) {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeMediaItemDeliveryInfo(item MediaItem) MediaDeliveryInfo {
