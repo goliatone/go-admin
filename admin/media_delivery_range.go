@@ -2,7 +2,6 @@ package admin
 
 import (
 	"errors"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,6 +14,7 @@ type MediaDeliveryRange struct {
 	End   int64
 }
 
+//nolint:gocyclo // Range parsing intentionally branches by byte-range shape.
 func ParseMediaDeliveryRange(header string, size int64) (MediaDeliveryRange, bool, error) {
 	header = strings.TrimSpace(header)
 	if header == "" {
@@ -70,22 +70,38 @@ func ParseMediaDeliveryRange(header string, size int64) (MediaDeliveryRange, boo
 }
 
 func NewLocalMediaDeliveryImported(path string, roots []string, contentType string) (*MediaDeliveryImported, error) {
-	resolved, err := resolveLocalMediaDeliveryPath(path, roots)
+	rootPath, relPath, resolved, err := resolveLocalMediaDeliveryPath(path, roots)
 	if err != nil {
 		return nil, err
 	}
-	file, err := os.Open(resolved)
+	root, err := os.OpenRoot(rootPath)
 	if err != nil {
 		return nil, err
+	}
+	file, err := root.Open(relPath)
+	closeRootErr := root.Close()
+	if err != nil {
+		return nil, err
+	}
+	if closeRootErr != nil {
+		if closeErr := file.Close(); closeErr != nil {
+			return nil, errors.Join(closeRootErr, closeErr)
+		}
+		return nil, closeRootErr
 	}
 	info, err := file.Stat()
 	if err != nil {
-		_ = file.Close()
+		if closeErr := file.Close(); closeErr != nil {
+			return nil, errors.Join(err, closeErr)
+		}
 		return nil, err
 	}
 	if info.IsDir() {
-		_ = file.Close()
-		return nil, errors.New("media delivery path is a directory")
+		err = errors.New("media delivery path is a directory")
+		if closeErr := file.Close(); closeErr != nil {
+			return nil, errors.Join(err, closeErr)
+		}
+		return nil, err
 	}
 	if strings.TrimSpace(contentType) == "" {
 		contentType = mediaContentTypeFromFileName(resolved)
@@ -99,17 +115,17 @@ func NewLocalMediaDeliveryImported(path string, roots []string, contentType stri
 	}, nil
 }
 
-func resolveLocalMediaDeliveryPath(path string, roots []string) (string, error) {
+func resolveLocalMediaDeliveryPath(path string, roots []string) (string, string, string, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return "", errors.New("media delivery path required")
+		return "", "", "", errors.New("media delivery path required")
 	}
 	if len(roots) == 0 {
-		return "", errors.New("media delivery root required")
+		return "", "", "", errors.New("media delivery root required")
 	}
 	candidate, err := filepath.Abs(path)
 	if err != nil {
-		return "", err
+		return "", "", "", err
 	}
 	candidate = filepath.Clean(candidate)
 	for _, root := range roots {
@@ -127,10 +143,10 @@ func resolveLocalMediaDeliveryPath(path string, roots []string) (string, error) 
 			continue
 		}
 		if rel == "." || (!strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != ".." && !filepath.IsAbs(rel)) {
-			return candidate, nil
+			return absRoot, rel, filepath.Join(absRoot, rel), nil
 		}
 	}
-	return "", errors.New("media delivery path is outside configured roots")
+	return "", "", "", errors.New("media delivery path is outside configured roots")
 }
 
 func mediaContentTypeFromFileName(name string) string {
@@ -155,11 +171,4 @@ func mediaContentTypeFromFileName(name string) string {
 	default:
 		return "application/octet-stream"
 	}
-}
-
-func mediaDeliveryRangeStatus(err error) int {
-	if err == nil {
-		return http.StatusOK
-	}
-	return http.StatusRequestedRangeNotSatisfiable
 }
