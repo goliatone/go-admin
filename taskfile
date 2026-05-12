@@ -545,7 +545,7 @@ function go:quality:all {
     go:fmt:check || return 1
     go:test "$@" || return 1
     go:race "$@" || return 1
-    go:lint "$@" || return 1
+    go:lint:new "$@" || return 1
     go:security:all "$@" || return 1
 }
 
