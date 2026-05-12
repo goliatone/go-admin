@@ -2,6 +2,7 @@ package client
 
 import (
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -225,12 +226,7 @@ func mediaRejectClasses(t *testing.T, label, class string, rejected ...string) {
 }
 
 func mediaClassListContains(class, item string) bool {
-	for _, field := range strings.Fields(class) {
-		if field == item {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(strings.Fields(class), item)
 }
 
 func mediaRequireFragments(t *testing.T, template string, fragments ...string) {
