@@ -1,5 +1,23 @@
 # Changelog
 
+# [0.63.0](https://github.com/goliatone/go-admin/compare/v0.62.0...v0.63.0) - (2026-05-12)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Media poster handling ([8f1d79e](https://github.com/goliatone/go-admin/commit/8f1d79e7bcef458fdc50d3c8866a05204bafb1b2))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.63.0 ([ba443f7](https://github.com/goliatone/go-admin/commit/ba443f78f1bb2f3f5987862caaf565fd031592c3))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.62.0 ([4f97f00](https://github.com/goliatone/go-admin/commit/4f97f005050bbff7d5f78a4f6c2b05fca1263275))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([7e8ac90](https://github.com/goliatone/go-admin/commit/7e8ac905ee557043d3d98b12371d887e760af770))  - (goliatone)
+
 # [0.62.0](https://github.com/goliatone/go-admin/compare/v0.61.0...v0.62.0) - (2026-05-08)
 
 ## <!-- 1 -->🐛 Bug Fixes
