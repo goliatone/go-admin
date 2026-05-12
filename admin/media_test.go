@@ -72,6 +72,39 @@ func TestInMemoryMediaLibraryOnlyBackfillsImageThumbnails(t *testing.T) {
 	}
 }
 
+func TestNormalizeMediaDeliveryPayloadOnlyAddsPosterForRealPosterCandidates(t *testing.T) {
+	audio := normalizeMediaDeliveryPayload(MediaItem{
+		ID:       "audio-1",
+		Name:     "chant.mp3",
+		URL:      "https://drive.example/chant.mp3",
+		Type:     "audio",
+		MIMEType: "audio/mpeg",
+	}, MediaDeliveryURLs{
+		AssetURL:    "/admin/api/media/delivery/audio-1/asset",
+		StreamURL:   "/admin/api/media/delivery/audio-1/stream",
+		PosterURL:   "/admin/api/media/delivery/audio-1/poster",
+		DownloadURL: "/admin/api/media/delivery/audio-1/download",
+	})
+	if audio.PosterURL != "" || audio.Thumbnail != "" {
+		t.Fatalf("expected audio without real poster to omit poster delivery, got %+v", audio)
+	}
+
+	video := normalizeMediaDeliveryPayload(MediaItem{
+		ID:        "video-1",
+		Name:      "teaching.mp4",
+		URL:       "https://stream.mux.com/playback.m3u8",
+		Thumbnail: "https://image.mux.com/playback/thumbnail.jpg",
+		Type:      "video",
+		MIMEType:  "video/mp4",
+	}, MediaDeliveryURLs{
+		AssetURL:  "/admin/api/media/delivery/video-1/asset",
+		PosterURL: "/admin/api/media/delivery/video-1/poster",
+	})
+	if video.PosterURL != "/admin/api/media/delivery/video-1/poster" || video.Thumbnail != video.PosterURL {
+		t.Fatalf("expected video with real poster to use poster delivery, got %+v", video)
+	}
+}
+
 func TestMediaContractTypesExposeExpectedDefaults(t *testing.T) {
 	caps := MediaCapabilities{
 		Operations: MediaOperationCapabilities{

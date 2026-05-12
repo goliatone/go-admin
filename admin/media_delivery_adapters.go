@@ -111,6 +111,9 @@ func mediaLocalDeliveryPath(ref MediaDeliveryReference, intent MediaDeliveryInte
 		); value != "" {
 			return value
 		}
+		if !mediaDeliveryReferenceCanUseAssetAsPoster(ref) {
+			return ""
+		}
 	case MediaDeliveryIntentStream:
 		if value := firstNonEmpty(
 			mediaReferenceMetadataString(ref, "local_stream_path"),
@@ -132,6 +135,25 @@ func mediaLocalDeliveryPath(ref MediaDeliveryReference, intent MediaDeliveryInte
 		mediaReferenceMetadataString(ref, "asset_path"),
 		ref.StorageKey,
 	)
+}
+
+func mediaDeliveryReferenceCanUseAssetAsPoster(ref MediaDeliveryReference) bool {
+	mimeType := strings.ToLower(strings.TrimSpace(ref.MIMEType))
+	if strings.HasPrefix(mimeType, "image/") {
+		return true
+	}
+	mediaType := strings.ToLower(strings.TrimSpace(mediaReferenceMetadataString(ref, "type")))
+	if mediaType == "image" || mediaType == "vector" {
+		return true
+	}
+	return mediaItemLooksLikeImagePreviewURL(firstNonEmpty(
+		ref.SourceURL,
+		mediaReferenceMetadataString(ref, "asset_url"),
+		mediaReferenceMetadataString(ref, "local_path"),
+		mediaReferenceMetadataString(ref, "path"),
+		mediaReferenceMetadataString(ref, "asset_path"),
+		ref.StorageKey,
+	))
 }
 
 func mediaReferenceMetadataString(ref MediaDeliveryReference, key string) string {
