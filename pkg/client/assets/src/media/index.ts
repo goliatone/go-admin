@@ -232,11 +232,27 @@ function pathFromTemplate(template: string, id: string): string {
   return template.replace(':id', encodeURIComponent(id));
 }
 
+function deliveryHasCapability(delivery: MediaItem['delivery'], capability: string): boolean {
+  return delivery.capabilities.some((value) => value.trim().toLowerCase().replace(/-/g, '_') === capability);
+}
+
+function canUsePosterTemplate(record: RecordValue, delivery: MediaItem['delivery'], mimeType: string): boolean {
+  if (deliveryHasCapability(delivery, 'poster')) {
+    return true;
+  }
+  const mediaType = toStringValue(record.type).toLowerCase();
+  if (mediaType === 'image' || mediaType === 'vector') {
+    return true;
+  }
+  return mimeType.toLowerCase().startsWith('image/');
+}
+
 function normalizeMediaItem(value: unknown, templates?: MediaDeliveryTemplates): MediaItem {
   const record = isRecord(value) ? value : {};
   const metadata = normalizeMetadata(record.metadata);
   const mimeType = toStringValue(record.mime_type);
   const id = toStringValue(record.id);
+  const delivery = normalizeDelivery(record.delivery);
   const assetUrl =
     toStringValue(record.asset_url) ||
     toStringValue(record.assetUrl) ||
@@ -246,10 +262,9 @@ function normalizeMediaItem(value: unknown, templates?: MediaDeliveryTemplates):
     toStringValue(record.stream_url) ||
     toStringValue(record.streamUrl) ||
     pathFromTemplate(templates?.stream || '', id);
+  const explicitPosterUrl = toStringValue(record.poster_url) || toStringValue(record.posterUrl);
   const posterUrl =
-    toStringValue(record.poster_url) ||
-    toStringValue(record.posterUrl) ||
-    pathFromTemplate(templates?.poster || '', id);
+    explicitPosterUrl || (canUsePosterTemplate(record, delivery, mimeType) ? pathFromTemplate(templates?.poster || '', id) : '');
   const downloadUrl =
     toStringValue(record.download_url) ||
     toStringValue(record.downloadUrl) ||
@@ -270,7 +285,7 @@ function normalizeMediaItem(value: unknown, templates?: MediaDeliveryTemplates):
     status: toStringValue(record.status),
     workflowStatus: toStringValue(record.workflow_status),
     createdAt: toStringValue(record.created_at),
-    delivery: normalizeDelivery(record.delivery),
+    delivery,
     metadata,
   };
 }

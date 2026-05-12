@@ -14,11 +14,12 @@ async function loadJSDOM() {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DIST_MEDIA_PATH = resolve(__dirname, '../dist/media/index.js');
 const { JSDOM } = await loadJSDOM();
-const { buildMediaPreview, inferMediaFamily, mediaTypeFilterParam } = await import(pathToFileURL(DIST_MEDIA_PATH).href);
+const { buildMediaPreview, inferMediaFamily, initMediaPages, mediaTypeFilterParam } = await import(pathToFileURL(DIST_MEDIA_PATH).href);
 
 function setGlobals(win) {
   globalThis.window = win;
   globalThis.document = win.document;
+  globalThis.Element = win.Element;
   globalThis.HTMLElement = win.HTMLElement;
   globalThis.Event = win.Event;
 }
@@ -296,6 +297,99 @@ test('video previews keep distinct poster thumbnails and images can still use th
 
   assert.equal(videoCard.querySelector('img')?.getAttribute('src'), '/uploads/media/video-poster.jpg');
   assert.equal(imageCard.querySelector('img')?.getAttribute('src'), '/uploads/media/image.png');
+});
+
+test('media page delivery templates do not synthesize posters for videos without real poster assets', async () => {
+  const dom = setupDOM();
+  dom.window.document.body.innerHTML = `
+    <div
+      data-media-page-root
+      data-media-view="grid"
+      data-media-library-path="/admin/api/media/assets"
+      data-media-asset-url-template="/admin/api/media/delivery/:id/asset"
+      data-media-stream-url-template="/admin/api/media/delivery/:id/stream"
+      data-media-poster-url-template="/admin/api/media/delivery/:id/poster"
+      data-media-download-url-template="/admin/api/media/delivery/:id/download"
+    >
+      <input data-media-search>
+      <select data-media-type-filter></select>
+      <select data-media-status-filter></select>
+      <select data-media-sort></select>
+      <div data-media-grid></div>
+      <div data-media-detail-empty></div>
+      <div data-media-detail>
+        <div data-media-detail-preview></div>
+        <h3 data-media-detail-name></h3>
+        <p data-media-detail-url></p>
+        <p data-media-detail-type></p>
+        <p data-media-detail-status-label></p>
+        <p data-media-detail-size></p>
+        <p data-media-detail-date></p>
+        <form data-media-detail-form>
+          <input id="media-alt-text">
+          <textarea id="media-caption"></textarea>
+          <input id="media-tags">
+          <button data-media-save-button></button>
+        </form>
+        <button data-media-copy-url></button>
+        <button data-media-delete></button>
+        <div data-media-detail-error></div>
+        <div data-media-detail-feedback></div>
+      </div>
+      <div data-media-footer></div>
+      <button data-media-load-more></button>
+      <div data-media-count-label></div>
+      <div data-media-loading></div>
+      <div data-media-empty></div>
+      <div data-media-no-results></div>
+      <div data-media-error></div>
+      <div data-media-status></div>
+    </div>
+  `;
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    assert.match(String(url), /\/admin\/api\/media\/assets\?/);
+    return new Response(JSON.stringify({
+      items: [
+        {
+          id: 'drive-video-1',
+          name: 'Drive video',
+          url: 'https://drive.google.com/file/d/file-id/view',
+          type: 'video',
+          mime_type: 'video/mp4',
+          delivery: { capabilities: ['stream', 'download', 'auth_required'] },
+        },
+        {
+          id: 'image-1',
+          name: 'Image asset',
+          url: 'https://provider.example/image.jpg',
+          type: 'image',
+          mime_type: 'image/jpeg',
+          delivery: { capabilities: ['poster', 'download'] },
+        },
+      ],
+      total: 2,
+    }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    await initMediaPages();
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+
+  const imageSources = Array.from(dom.window.document.querySelectorAll('img')).map((image) => image.getAttribute('src'));
+  assert.ok(imageSources.includes('/admin/api/media/delivery/image-1/poster'), 'expected image item to keep poster template preview');
+  assert.equal(imageSources.includes('/admin/api/media/delivery/drive-video-1/poster'), false);
+  assert.ok(dom.window.document.querySelector('.iconoir-video-camera'), 'expected video without poster to render fallback preview');
+  const detailVideo = dom.window.document.querySelector('[data-media-detail-preview] video');
+  assert.ok(detailVideo, 'expected active Drive video to render the stream preview');
+  assert.equal(detailVideo.getAttribute('src'), '/admin/api/media/delivery/drive-video-1/stream');
+  assert.equal(detailVideo.getAttribute('poster'), null);
 });
 
 test('media type filter parameters use MIME family for preview-family filters', () => {
