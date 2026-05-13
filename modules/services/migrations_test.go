@@ -263,6 +263,14 @@ func TestRegisterServiceMigrations_AppLocalRejectsSourceKeyCollisions(t *testing
 			want: "collides",
 		},
 		{
+			name: "duplicate public default app source key",
+			options: []ServiceMigrationsOption{
+				WithServiceMigrationsAppSource("", appMigrationTestFS("app_a")),
+				WithServiceMigrationsAppSource("", appMigrationTestFS("app_b")),
+			},
+			want: "collides",
+		},
+		{
 			name: "package source key",
 			options: []ServiceMigrationsOption{
 				WithServiceMigrationsStableAppSource("App A", appMigrationTestFS("app_a"), "go-services", 100),
