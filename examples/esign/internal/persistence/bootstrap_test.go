@@ -10,7 +10,10 @@ import (
 	"time"
 
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
+	auth "github.com/goliatone/go-auth"
 	persistence "github.com/goliatone/go-persistence-bun"
+	goservices "github.com/goliatone/go-services"
+	users "github.com/goliatone/go-users"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
@@ -161,6 +164,88 @@ func TestRegisterOrderedSourcesSourceStablePlanMetadata(t *testing.T) {
 	}
 }
 
+func TestRegisterOrderedSourcesBackfillsLegacyPositionalMarkers(t *testing.T) {
+	testCases := []struct {
+		name           string
+		mutate         func(*appcfg.Config)
+		wantSourceKeys []string
+	}{
+		{
+			name: "default",
+			mutate: func(cfg *appcfg.Config) {
+				cfg.Services.ModuleEnabled = true
+				cfg.Persistence.Migrations.LocalOnly = false
+			},
+			wantSourceKeys: []string{"go_auth", "go_users", "go_services", "app_local"},
+		},
+		{
+			name: "services-disabled",
+			mutate: func(cfg *appcfg.Config) {
+				cfg.Services.ModuleEnabled = false
+				cfg.Persistence.Migrations.LocalOnly = false
+			},
+			wantSourceKeys: []string{"go_auth", "go_users", "app_local"},
+		},
+		{
+			name: "local-only",
+			mutate: func(cfg *appcfg.Config) {
+				cfg.Persistence.Migrations.LocalOnly = true
+			},
+			wantSourceKeys: []string{"app_local"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			client, cleanup := newSQLiteMigrationClient(t)
+			defer cleanup()
+
+			cfg := appcfg.Defaults()
+			tc.mutate(&cfg)
+			legacySources := legacyEsignMigrationSources(t, cfg)
+
+			legacy := persistence.NewMigrations()
+			if err := legacy.RegisterOrderedMigrationSources(legacySources...); err != nil {
+				t.Fatalf("register legacy eSign migrations: %v", err)
+			}
+			if err := legacy.Migrate(ctx, client.DB()); err != nil {
+				t.Fatalf("migrate legacy positional eSign sources: %v", err)
+			}
+			legacyCount := countEsignMigrationRows(t, client, "ord_%")
+			if legacyCount == 0 {
+				t.Fatalf("expected legacy positional markers")
+			}
+
+			if err := registerOrderedSources(client, cfg); err != nil {
+				t.Fatalf("register stable eSign migrations: %v", err)
+			}
+			if err := client.GetMigrations().BackfillStableOrderedMigrationMarkers(ctx, client.DB(), legacySources); err != nil {
+				t.Fatalf("backfill stable eSign markers: %v", err)
+			}
+			stableCount := countEsignMigrationRows(t, client, "ordsrc_%")
+			if stableCount == 0 {
+				t.Fatalf("expected source-stable markers after backfill")
+			}
+
+			if err := client.GetMigrations().BackfillStableOrderedMigrationMarkers(ctx, client.DB(), legacySources); err != nil {
+				t.Fatalf("backfill stable eSign markers second run: %v", err)
+			}
+			if secondCount := countEsignMigrationRows(t, client, "ordsrc_%"); secondCount != stableCount {
+				t.Fatalf("stable marker count changed after idempotent backfill: got=%d want=%d", secondCount, stableCount)
+			}
+
+			plan, err := client.Plan(ctx)
+			if err != nil {
+				t.Fatalf("Plan stable eSign migrations: %v", err)
+			}
+			for _, sourceKey := range tc.wantSourceKeys {
+				assertEsignAppliedSourceStablePlanEntry(t, plan, sourceKey)
+			}
+		})
+	}
+}
+
 func TestBootstrapSQLiteRunsMigrationsAndReadiness(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
@@ -210,6 +295,20 @@ func assertEsignSourceStablePlanEntry(t *testing.T, plan *persistence.MigrationP
 	t.Fatalf("expected source key %q in migration plan", sourceKey)
 }
 
+func assertEsignAppliedSourceStablePlanEntry(t *testing.T, plan *persistence.MigrationPlan, sourceKey string) {
+	t.Helper()
+	for _, entry := range plan.Entries {
+		if entry.SourceKey != sourceKey {
+			continue
+		}
+		if !entry.Applied {
+			t.Fatalf("expected source key %q entry %q to be marked applied", sourceKey, entry.SyntheticName)
+		}
+		return
+	}
+	t.Fatalf("expected source key %q in migration plan", sourceKey)
+}
+
 func assertEsignSourceAbsent(t *testing.T, plan *persistence.MigrationPlan, sourceKey string) {
 	t.Helper()
 	for _, entry := range plan.Entries {
@@ -217,6 +316,58 @@ func assertEsignSourceAbsent(t *testing.T, plan *persistence.MigrationPlan, sour
 			t.Fatalf("expected source key %q to be absent", sourceKey)
 		}
 	}
+}
+
+func legacyEsignMigrationSources(t *testing.T, cfg appcfg.Config) []persistence.OrderedMigrationSource {
+	t.Helper()
+
+	sources := []persistence.OrderedMigrationSource{}
+	if !cfg.Persistence.Migrations.LocalOnly {
+		authRoot, err := resolveMigrationFS(auth.GetMigrationsFS(), "data/sql/migrations")
+		if err != nil {
+			t.Fatalf("resolve auth migrations: %v", err)
+		}
+		sources = append(sources, persistence.OrderedMigrationSource{Name: migrationSourceLabelAuth, Root: authRoot})
+
+		usersRoot, err := resolveMigrationFS(users.GetCoreMigrationsFS(), "data/sql/migrations")
+		if err != nil {
+			t.Fatalf("resolve users migrations: %v", err)
+		}
+		usersRoot, err = applyUsersMigrationOverlay(usersRoot)
+		if err != nil {
+			t.Fatalf("overlay users migrations: %v", err)
+		}
+		sources = append(sources, persistence.OrderedMigrationSource{Name: migrationSourceLabelUsers, Root: usersRoot})
+
+		if cfg.Services.ModuleEnabled {
+			servicesRoot, err := resolveMigrationFS(goservices.GetCoreMigrationsFS(), "data/sql/migrations")
+			if err != nil {
+				t.Fatalf("resolve services migrations: %v", err)
+			}
+			sources = append(sources, persistence.OrderedMigrationSource{Name: migrationSourceLabelServices, Root: servicesRoot})
+		}
+	}
+
+	appLocalRoot, err := resolveAppLocalMigrationFS(cfg)
+	if err != nil {
+		t.Fatalf("resolve app-local migrations: %v", err)
+	}
+	sources = append(sources, persistence.OrderedMigrationSource{Name: migrationSourceLabelAppLocal, Root: appLocalRoot})
+	return sources
+}
+
+func countEsignMigrationRows(t *testing.T, client *persistence.Client, pattern string) int {
+	t.Helper()
+	var count int
+	if err := client.DB().
+		NewSelect().
+		TableExpr("bun_migrations").
+		ColumnExpr("COUNT(1)").
+		Where("name LIKE ?", pattern).
+		Scan(context.Background(), &count); err != nil {
+		t.Fatalf("count migration rows %q: %v", pattern, err)
+	}
+	return count
 }
 
 func TestBootstrapSQLiteCreatesLineageLinkageColumns(t *testing.T) {

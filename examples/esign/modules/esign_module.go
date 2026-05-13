@@ -107,6 +107,7 @@ type ESignModule struct {
 	google               googleIntegrationService
 	durableJobs          *jobs.DurableJobRuntime
 	sourceReadModels     services.SourceReadModelService
+	sourceSearch         services.SourceSearchService
 	sourceDiagnostics    services.LineageDiagnosticsService
 	reconciliation       services.SourceReconciliationService
 	emailOutbox          scopedAsyncTrigger
@@ -231,6 +232,14 @@ func (m *ESignModule) SourceReadModelService() services.SourceReadModelService {
 		return nil
 	}
 	return m.sourceReadModels
+}
+
+// SourceSearchService returns the runtime source-search service when lineage is enabled.
+func (m *ESignModule) SourceSearchService() services.SourceSearchService {
+	if m == nil {
+		return nil
+	}
+	return m.sourceSearch
 }
 
 // MaxSourcePDFBytes returns the configured max source PDF size.
@@ -964,6 +973,7 @@ func (m *ESignModule) resolveHandlerReadModels(runtime moduleRegisterRuntime) (s
 		return nil, nil, err
 	}
 	m.sourceReadModels = sourceReadModels
+	m.sourceSearch = runtime.sourceSearch
 	m.sourceDiagnostics = lineageDiagnostics
 	m.reconciliation = runtime.sourceReconciliation
 	return sourceReadModels, lineageDiagnostics, nil

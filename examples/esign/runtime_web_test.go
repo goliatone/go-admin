@@ -2298,6 +2298,7 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 	if t != nil {
 		t.Helper()
 	}
+	setESignRuntimeTestConfig(googleEnabled)
 	_ = commandregistry.Stop(context.Background())
 	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), appcfg.Active())
 	if err != nil {

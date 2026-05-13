@@ -549,11 +549,35 @@ func seedESignRuntimeFixtures(
 	if err != nil {
 		return stores.LineageFixtureSet{}, fixtures.LineageFixtureURLSet{}, err
 	}
+	if err := refreshESignRuntimeFixtureSearchIndex(ctx, module, fixtureSet); err != nil {
+		return stores.LineageFixtureSet{}, fixtures.LineageFixtureURLSet{}, err
+	}
 	urls, err := fixtures.BuildLineageFixtureURLs(strings.TrimSpace(basePath), module.DefaultScope(), fixtureSet)
 	if err != nil {
 		return stores.LineageFixtureSet{}, fixtures.LineageFixtureURLSet{}, err
 	}
 	return fixtureSet, urls, nil
+}
+
+func refreshESignRuntimeFixtureSearchIndex(ctx context.Context, module *modules.ESignModule, fixtureSet stores.LineageFixtureSet) error {
+	if module == nil {
+		return nil
+	}
+	sourceSearch := module.SourceSearchService()
+	if sourceSearch == nil {
+		return nil
+	}
+	scope := module.DefaultScope()
+	for _, sourceDocumentID := range []string{fixtureSet.SourceDocumentID, fixtureSet.CandidateSourceDocumentID} {
+		sourceDocumentID = strings.TrimSpace(sourceDocumentID)
+		if sourceDocumentID == "" {
+			continue
+		}
+		if _, err := sourceSearch.ReindexSourceDocument(ctx, scope, sourceDocumentID); err != nil {
+			return fmt.Errorf("reindex seeded source document %s: %w", sourceDocumentID, err)
+		}
+	}
+	return nil
 }
 
 func isProductionLikeRuntimeProfile(profile string) bool {
