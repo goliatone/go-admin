@@ -23,6 +23,18 @@ const (
 	migrationSourceLabelAppLocal = "app-local"
 )
 
+const (
+	migrationSourceKeyAuth     = "go-auth"
+	migrationSourceKeyUsers    = "go-users"
+	migrationSourceKeyServices = "go-services"
+	migrationSourceKeyAppLocal = "app-local"
+
+	migrationSourceOrderAuth     = 10
+	migrationSourceOrderUsers    = 20
+	migrationSourceOrderServices = 30
+	migrationSourceOrderAppLocal = 100
+)
+
 var defaultValidationTargets = []string{"postgres", "sqlite"}
 
 type migrationRegistration struct {
@@ -69,7 +81,7 @@ func registerOrderedSources(client *persistence.Client, cfg appcfg.Config, opts 
 	if err != nil {
 		return err
 	}
-	appendOrderedSource(&orderedSources, migrationSourceLabelAppLocal, appLocalRoot, options.observer)
+	appendOrderedSource(&orderedSources, migrationSourceLabelAppLocal, appLocalRoot, migrationSourceKeyAppLocal, migrationSourceOrderAppLocal, appLocalDependencies(cfg), options.observer)
 
 	if len(orderedSources) == 0 {
 		return nil
@@ -82,7 +94,7 @@ func appendCoreMigrationSources(sources *[]persistence.OrderedMigrationSource, c
 	if err != nil {
 		return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelAuth, err)
 	}
-	appendOrderedSource(sources, migrationSourceLabelAuth, authRoot, observer)
+	appendOrderedSource(sources, migrationSourceLabelAuth, authRoot, migrationSourceKeyAuth, migrationSourceOrderAuth, nil, observer)
 
 	usersRoot, err := resolveMigrationFS(users.GetCoreMigrationsFS(), "data/sql/migrations")
 	if err != nil {
@@ -92,7 +104,7 @@ func appendCoreMigrationSources(sources *[]persistence.OrderedMigrationSource, c
 	if err != nil {
 		return fmt.Errorf("overlay %s migrations: %w", migrationSourceLabelUsers, err)
 	}
-	appendOrderedSource(sources, migrationSourceLabelUsers, usersRoot, observer)
+	appendOrderedSource(sources, migrationSourceLabelUsers, usersRoot, migrationSourceKeyUsers, migrationSourceOrderUsers, []string{migrationSourceKeyAuth}, observer)
 
 	if !cfg.Services.ModuleEnabled {
 		return nil
@@ -101,11 +113,21 @@ func appendCoreMigrationSources(sources *[]persistence.OrderedMigrationSource, c
 	if err != nil {
 		return fmt.Errorf("resolve %s migrations: %w", migrationSourceLabelServices, err)
 	}
-	appendOrderedSource(sources, migrationSourceLabelServices, servicesRoot, observer)
+	appendOrderedSource(sources, migrationSourceLabelServices, servicesRoot, migrationSourceKeyServices, migrationSourceOrderServices, []string{migrationSourceKeyUsers}, observer)
 	return nil
 }
 
-func appendOrderedSource(sources *[]persistence.OrderedMigrationSource, label string, root fs.FS, observer migrationObserver) {
+func appLocalDependencies(cfg appcfg.Config) []string {
+	if cfg.Persistence.Migrations.LocalOnly {
+		return nil
+	}
+	if cfg.Services.ModuleEnabled {
+		return []string{migrationSourceKeyServices}
+	}
+	return []string{migrationSourceKeyUsers}
+}
+
+func appendOrderedSource(sources *[]persistence.OrderedMigrationSource, label string, root fs.FS, sourceKey string, order int, dependsOn []string, observer migrationObserver) {
 	if sources == nil || root == nil {
 		return
 	}
@@ -121,11 +143,19 @@ func appendOrderedSource(sources *[]persistence.OrderedMigrationSource, label st
 		persistence.WithValidationTargets(defaultValidationTargets...),
 		persistence.WithValidateOnMigrate(true),
 	}
-	*sources = append(*sources, persistence.OrderedMigrationSource{
-		Name:    label,
-		Root:    root,
-		Options: migrationOptions,
-	})
+	sourceOptions := []persistence.OrderedMigrationSourceOption{
+		persistence.WithOrderedMigrationDialectOptions(migrationOptions...),
+	}
+	if len(dependsOn) > 0 {
+		sourceOptions = append(sourceOptions, persistence.WithOrderedMigrationDependencies(dependsOn...))
+	}
+	*sources = append(*sources, persistence.NewStableOrderedMigrationSource(
+		label,
+		root,
+		sourceKey,
+		order,
+		sourceOptions...,
+	))
 }
 
 func resolveMigrationFS(source fs.FS, subdir string) (fs.FS, error) {

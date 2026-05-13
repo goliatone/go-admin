@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,6 +95,72 @@ func TestRegisterOrderedSourcesLocalOnly(t *testing.T) {
 	}
 }
 
+func TestRegisterOrderedSourcesSourceStablePlanMetadata(t *testing.T) {
+	testCases := []struct {
+		name     string
+		mutate   func(*appcfg.Config)
+		expected []esignSourcePlanExpectation
+	}{
+		{
+			name: "default",
+			mutate: func(cfg *appcfg.Config) {
+				cfg.Services.ModuleEnabled = true
+				cfg.Persistence.Migrations.LocalOnly = false
+			},
+			expected: []esignSourcePlanExpectation{
+				{sourceKey: "go_auth", order: 10},
+				{sourceKey: "go_users", order: 20, dependsOn: []string{"go_auth"}},
+				{sourceKey: "go_services", order: 30, dependsOn: []string{"go_users"}},
+				{sourceKey: "app_local", order: 100, dependsOn: []string{"go_services"}},
+			},
+		},
+		{
+			name: "services-disabled",
+			mutate: func(cfg *appcfg.Config) {
+				cfg.Services.ModuleEnabled = false
+				cfg.Persistence.Migrations.LocalOnly = false
+			},
+			expected: []esignSourcePlanExpectation{
+				{sourceKey: "go_auth", order: 10},
+				{sourceKey: "go_users", order: 20, dependsOn: []string{"go_auth"}},
+				{sourceKey: "app_local", order: 100, dependsOn: []string{"go_users"}},
+			},
+		},
+		{
+			name: "local-only",
+			mutate: func(cfg *appcfg.Config) {
+				cfg.Persistence.Migrations.LocalOnly = true
+			},
+			expected: []esignSourcePlanExpectation{
+				{sourceKey: "app_local", order: 100},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client, cleanup := newSQLiteMigrationClient(t)
+			defer cleanup()
+
+			cfg := appcfg.Defaults()
+			tc.mutate(&cfg)
+			if err := registerOrderedSources(client, cfg); err != nil {
+				t.Fatalf("registerOrderedSources: %v", err)
+			}
+			plan, err := client.Plan(context.Background())
+			if err != nil {
+				t.Fatalf("Plan: %v", err)
+			}
+			for _, expected := range tc.expected {
+				assertEsignSourceStablePlanEntry(t, plan, expected.sourceKey, expected.order, expected.dependsOn)
+			}
+			if tc.name == "services-disabled" || tc.name == "local-only" {
+				assertEsignSourceAbsent(t, plan, "go_services")
+			}
+		})
+	}
+}
+
 func TestBootstrapSQLiteRunsMigrationsAndReadiness(t *testing.T) {
 	cfg := appcfg.Defaults()
 	cfg.Runtime.RepositoryDialect = appcfg.RepositoryDialectSQLite
@@ -113,6 +181,41 @@ func TestBootstrapSQLiteRunsMigrationsAndReadiness(t *testing.T) {
 	}
 	if err := CheckReadiness(context.Background(), result.Client); err != nil {
 		t.Fatalf("CheckReadiness: %v", err)
+	}
+}
+
+type esignSourcePlanExpectation struct {
+	sourceKey string
+	order     int
+	dependsOn []string
+}
+
+func assertEsignSourceStablePlanEntry(t *testing.T, plan *persistence.MigrationPlan, sourceKey string, order int, dependsOn []string) {
+	t.Helper()
+	for _, entry := range plan.Entries {
+		if entry.SourceKey != sourceKey {
+			continue
+		}
+		if entry.SourceOrder != order {
+			t.Fatalf("%s source order mismatch: got=%d want=%d", sourceKey, entry.SourceOrder, order)
+		}
+		if !reflect.DeepEqual(entry.SourceDependsOn, dependsOn) {
+			t.Fatalf("%s dependencies mismatch: got=%v want=%v", sourceKey, entry.SourceDependsOn, dependsOn)
+		}
+		if !strings.HasPrefix(entry.SyntheticName, "ordsrc_") {
+			t.Fatalf("%s synthetic name %q is not source-stable", sourceKey, entry.SyntheticName)
+		}
+		return
+	}
+	t.Fatalf("expected source key %q in migration plan", sourceKey)
+}
+
+func assertEsignSourceAbsent(t *testing.T, plan *persistence.MigrationPlan, sourceKey string) {
+	t.Helper()
+	for _, entry := range plan.Entries {
+		if entry.SourceKey == sourceKey {
+			t.Fatalf("expected source key %q to be absent", sourceKey)
+		}
 	}
 }
 
@@ -172,7 +275,7 @@ func TestRegisterOrderedSourcesGoUsersSQLiteProcessingOverlayRepairsMissingToken
 		t.Fatalf("seed bun_migrations for go-users 00008: %v", err)
 	}
 
-	if err := client.MigrateSources(context.Background(), migrationSourceLabelUsers); err != nil {
+	if err := client.MigrateSources(context.Background(), migrationSourceLabelAuth, migrationSourceLabelUsers); err != nil {
 		t.Fatalf("migrate go-users source after skipping 00008: %v", err)
 	}
 

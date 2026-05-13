@@ -242,17 +242,9 @@ func LegacyUserMigrations() UserMigrationsRegistrar {
 func quickstartUserMigrations(client *persistence.Client, phase UserMigrationsPhase) error {
 	switch phase {
 	case UserMigrationsAuth:
-		return quickstart.RegisterUserMigrations(
-			client,
-			quickstart.WithUserMigrationsCoreEnabled(false),
-			quickstart.WithUserMigrationsAuthBootstrapEnabled(false),
-			quickstart.WithUserMigrationsAuthExtrasEnabled(false),
-		)
+		return quickstart.RegisterUserMigrations(client)
 	case UserMigrationsCore:
-		return quickstart.RegisterUserMigrations(
-			client,
-			quickstart.WithUserMigrationsAuthEnabled(false),
-		)
+		return nil
 	default:
 		return nil
 	}

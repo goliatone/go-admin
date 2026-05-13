@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -11,7 +9,6 @@ import (
 	appcfg "github.com/goliatone/go-admin/examples/esign/config"
 	esignpersistence "github.com/goliatone/go-admin/examples/esign/internal/persistence"
 	"github.com/goliatone/go-admin/examples/esign/services"
-	"github.com/goliatone/go-admin/internal/primitives"
 	servicesmodule "github.com/goliatone/go-admin/modules/services"
 	goservices "github.com/goliatone/go-services"
 	gdrive "github.com/goliatone/go-services/providers/google/drive"
@@ -57,50 +54,20 @@ func setupESignServicesModule(adm *coreadmin.Admin, bootstrap *esignpersistence.
 	if err != nil {
 		return nil, err
 	}
-	if err := ensureESignServicesSchema(context.Background(), bootstrap.SQLDB); err != nil {
+	if err := ensureESignServicesSchema(context.Background(), bootstrap); err != nil {
 		return nil, err
 	}
 	return module, nil
 }
 
-func ensureESignServicesSchema(ctx context.Context, db *sql.DB) error {
-	if db == nil {
+func ensureESignServicesSchema(ctx context.Context, bootstrap *esignpersistence.BootstrapResult) error {
+	if bootstrap == nil || bootstrap.BunDB == nil {
 		return fmt.Errorf("esign services module: db handle is required")
 	}
-	requiredTables := []string{
-		"service_connections",
-		"service_credentials",
-		"service_grant_events",
-		"service_grant_snapshots",
-	}
-	for _, table := range requiredTables {
-		tableName, err := primitives.NormalizeSQLIdentifier(table)
-		if err != nil {
-			return err
-		}
-		// #nosec G201 -- table names come from the hardcoded requiredTables allowlist and are validated as identifiers.
-		query := fmt.Sprintf(`SELECT 1 FROM "%s" LIMIT 1`, tableName)
-		var marker int
-		err = db.QueryRowContext(ctx, query).Scan(&marker)
-		if err == nil || errors.Is(err, sql.ErrNoRows) {
-			continue
-		}
-		if isMissingTableError(err) {
-			return fmt.Errorf("esign services module: missing required table %q after migration: %w", table, err)
-		}
-		return fmt.Errorf("esign services module: check services schema table %q: %w", table, err)
+	if err := servicesmodule.VerifyServicesOAuthStorageSchema(ctx, bootstrap.BunDB); err != nil {
+		return fmt.Errorf("esign services module: %w", err)
 	}
 	return nil
-}
-
-func isMissingTableError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "no such table") ||
-		strings.Contains(msg, "does not exist") ||
-		strings.Contains(msg, "undefined table")
 }
 
 func buildGoogleDriveProviderFromConfig(runtimeCfg appcfg.Config) (servicesmodule.Provider, error) {
