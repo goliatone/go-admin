@@ -1,5 +1,20 @@
 # Changelog
 
+# [0.65.2](https://github.com/goliatone/go-admin/compare/v0.65.1...v0.65.2) - (2026-05-13)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.65.2 ([8b2ed2d](https://github.com/goliatone/go-admin/commit/8b2ed2d13bf9f4269986b604d2a6d5980017b8e6))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.65.1 ([cced1fb](https://github.com/goliatone/go-admin/commit/cced1fb8f223a564ae8e0910a4dd91dd3553d15f))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update readme ([beef980](https://github.com/goliatone/go-admin/commit/beef980eddfd90cb0355117eb1141b9c7f5a5d4b))  - (goliatone)
+- Update deps ([cd78bbf](https://github.com/goliatone/go-admin/commit/cd78bbfacde04445cfc952ba96643d5ba19dbcc2))  - (goliatone)
+
 # [0.65.1](https://github.com/goliatone/go-admin/compare/v0.65.0...v0.65.1) - (2026-05-13)
 
 ## <!-- 13 -->📦 Bumps
