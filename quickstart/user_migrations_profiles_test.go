@@ -148,7 +148,8 @@ func TestRegisterUserMigrations_UserCoreNamesStableWhenAuthSourceInserted(t *tes
 	}
 
 	combinedClient := newUserMigrationsPersistenceClient(t)
-	if err := RegisterUserMigrations(combinedClient); err != nil {
+	err = RegisterUserMigrations(combinedClient)
+	if err != nil {
 		t.Fatalf("RegisterUserMigrations combined: %v", err)
 	}
 	combinedPlan, err := combinedClient.Plan(context.Background())
@@ -374,7 +375,9 @@ func newUserMigrationsPersistenceClient(t *testing.T) *persistence.Client {
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 	t.Cleanup(func() {
-		_ = sqlDB.Close()
+		if err := sqlDB.Close(); err != nil {
+			t.Errorf("close sqlite: %v", err)
+		}
 	})
 
 	cfg := testPersistenceConfig{driver: sqliteshim.ShimName, server: dsn}

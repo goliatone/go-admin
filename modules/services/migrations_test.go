@@ -227,11 +227,12 @@ func TestRegisterServiceMigrations_AppLocalStableIdentity(t *testing.T) {
 	}
 
 	secondClient := newTestPersistenceClient(t)
-	if err := RegisterServiceMigrations(
+	err = RegisterServiceMigrations(
 		secondClient,
 		WithServiceMigrationsStableAppSource("App B", appMigrationTestFS("app_b"), "app-b", 110),
 		WithServiceMigrationsStableAppSource("App A", appMigrationTestFS("app_a"), "app-a", 120),
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatalf("register second service migrations: %v", err)
 	}
 	secondPlan, err := secondClient.Plan(context.Background())
@@ -361,7 +362,8 @@ func TestRegisterServiceMigrations_SQLiteMigrateAppliesOverlappingSources(t *tes
 func TestRegisterServiceMigrations_BackfillsLegacyPositionalMarkers(t *testing.T) {
 	ctx := context.Background()
 	client := newTestPersistenceClient(t)
-	legacySources := legacyServiceMigrationSources(t)
+	appFS := appMigrationTestFS("app_local_backfill")
+	legacySources := legacyServiceMigrationSources(t, appFS)
 
 	legacy := persistence.NewMigrations()
 	if err := legacy.RegisterOrderedMigrationSources(legacySources...); err != nil {
@@ -376,7 +378,7 @@ func TestRegisterServiceMigrations_BackfillsLegacyPositionalMarkers(t *testing.T
 	}
 
 	stable := persistence.NewMigrations()
-	if err := stable.RegisterOrderedMigrationSources(stableServiceMigrationSources(t)...); err != nil {
+	if err := stable.RegisterOrderedMigrationSources(stableServiceMigrationSources(t, appFS)...); err != nil {
 		t.Fatalf("register stable migrations: %v", err)
 	}
 	if err := stable.BackfillStableOrderedMigrationMarkers(ctx, client.DB(), legacySources); err != nil {
@@ -398,7 +400,7 @@ func TestRegisterServiceMigrations_BackfillsLegacyPositionalMarkers(t *testing.T
 	if err != nil {
 		t.Fatalf("plan stable migrations: %v", err)
 	}
-	for _, sourceKey := range []string{"go_auth", "go_users", "go_services"} {
+	for _, sourceKey := range []string{"go_auth", "go_users", "go_services", "app_local"} {
 		assertAppliedSourceStablePlanEntry(t, plan, sourceKey)
 	}
 }
@@ -419,7 +421,7 @@ func TestResolveMigrationFS_OverrideWins(t *testing.T) {
 	}
 }
 
-func legacyServiceMigrationSources(t *testing.T) []persistence.OrderedMigrationSource {
+func legacyServiceMigrationSources(t *testing.T, appFS fs.FS) []persistence.OrderedMigrationSource {
 	t.Helper()
 	authRoot, err := resolveMigrationFS(nil, auth.GetMigrationsFS(), "data/sql/migrations")
 	if err != nil {
@@ -437,10 +439,11 @@ func legacyServiceMigrationSources(t *testing.T) []persistence.OrderedMigrationS
 		{Name: ServiceMigrationsSourceLabelAuth, Root: authRoot},
 		{Name: ServiceMigrationsSourceLabelUsers, Root: usersRoot},
 		{Name: ServiceMigrationsSourceLabelServices, Root: servicesRoot},
+		{Name: ServiceMigrationsSourceLabelAppLocal, Root: appFS},
 	}
 }
 
-func stableServiceMigrationSources(t *testing.T) []persistence.OrderedMigrationSource {
+func stableServiceMigrationSources(t *testing.T, appFS fs.FS) []persistence.OrderedMigrationSource {
 	t.Helper()
 	authRoot, err := resolveMigrationFS(nil, auth.GetMigrationsFS(), "data/sql/migrations")
 	if err != nil {
@@ -458,6 +461,7 @@ func stableServiceMigrationSources(t *testing.T) []persistence.OrderedMigrationS
 		persistence.NewStableOrderedMigrationSource(ServiceMigrationsSourceLabelAuth, authRoot, serviceMigrationsSourceKeyAuth, serviceMigrationsSourceOrderAuth),
 		persistence.NewStableOrderedMigrationSource(ServiceMigrationsSourceLabelUsers, usersRoot, serviceMigrationsSourceKeyUsers, serviceMigrationsSourceOrderUsers, persistence.WithOrderedMigrationDependencies(serviceMigrationsSourceKeyAuth)),
 		persistence.NewStableOrderedMigrationSource(ServiceMigrationsSourceLabelServices, servicesRoot, serviceMigrationsSourceKeyServices, serviceMigrationsSourceOrderServices, persistence.WithOrderedMigrationDependencies(serviceMigrationsSourceKeyUsers)),
+		persistence.NewStableOrderedMigrationSource(ServiceMigrationsSourceLabelAppLocal, appFS, serviceMigrationsSourceKeyAppLocal, serviceMigrationsSourceOrderAppLocal, persistence.WithOrderedMigrationDependencies(serviceMigrationsSourceKeyServices)),
 	}
 }
 

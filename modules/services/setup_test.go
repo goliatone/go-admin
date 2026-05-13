@@ -55,7 +55,9 @@ func newTestPersistenceClient(t *testing.T) *persistence.Client {
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 	t.Cleanup(func() {
-		_ = sqlDB.Close()
+		if err := sqlDB.Close(); err != nil {
+			t.Errorf("close sqlite: %v", err)
+		}
 	})
 
 	client, err := persistence.New(testPersistenceConfig{driver: sqliteshim.ShimName, server: dsn}, sqlDB, sqlitedialect.New())
