@@ -92,6 +92,8 @@ type TableLifecycleHook func(ctx context.Context, db *bun.DB) error
 // AppMigrationSource describes app-local migrations to register after go-services.
 type AppMigrationSource struct {
 	Label      string `json:"label"`
+	SourceKey  string `json:"source_key"`
+	Order      int    `json:"order"`
 	Filesystem fs.FS  `json:"filesystem"`
 }
 
