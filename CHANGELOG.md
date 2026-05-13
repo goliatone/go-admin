@@ -1,5 +1,35 @@
 # Changelog
 
+# [0.64.0](https://github.com/goliatone/go-admin/compare/v0.63.0...v0.64.0) - (2026-05-13)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Module services use migration config ([d6fda09](https://github.com/goliatone/go-admin/commit/d6fda097dc509fe34a58f2008cca02d281b25b95))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.64.0 ([a49e2cb](https://github.com/goliatone/go-admin/commit/a49e2cbda289353ab02af9f0085522b0cce65901))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Migration services ([27c30f2](https://github.com/goliatone/go-admin/commit/27c30f27a35046148f99b2f26365366d3c1cb35d))  - (goliatone)
+- Source and order for services migration ([d6a58b2](https://github.com/goliatone/go-admin/commit/d6a58b26f1cc5d8bde614785d66681241407feaa))  - (goliatone)
+- Services schema ([ffdcafb](https://github.com/goliatone/go-admin/commit/ffdcafb607114ddfc61d94a4903f3c5b2c21edde))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.63.0 ([fc26013](https://github.com/goliatone/go-admin/commit/fc26013d18c75d30f56636b8612c40681d9b79e9))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([1893011](https://github.com/goliatone/go-admin/commit/18930112316787560eff0ac518cf103f2e375762))  - (goliatone)
+- Update examples ([6087204](https://github.com/goliatone/go-admin/commit/608720458d77b754f03a7291b67af2bbb2295eb0))  - (goliatone)
+- Update docs ([3b3d2bc](https://github.com/goliatone/go-admin/commit/3b3d2bc7cff37a9ad910a049d349f646d4a564c8))  - (goliatone)
+- Update tasks ([4d1dd47](https://github.com/goliatone/go-admin/commit/4d1dd478b80760b1d016c819905c92696d37812a))  - (goliatone)
+- Code quality ([8641073](https://github.com/goliatone/go-admin/commit/864107337b9694a019c8d6f2d70af99eb0a99e6c))  - (goliatone)
+- Update deps ([59f666a](https://github.com/goliatone/go-admin/commit/59f666ae2a82a170e0bd5c05da4d4f5b5d6cca1f))  - (goliatone)
+- Update linter setup ([2509991](https://github.com/goliatone/go-admin/commit/25099915a91a5b6c294816b5333b22aa5b613df3))  - (goliatone)
+
 # [0.63.0](https://github.com/goliatone/go-admin/compare/v0.62.0...v0.63.0) - (2026-05-12)
 
 ## <!-- 1 -->🐛 Bug Fixes
