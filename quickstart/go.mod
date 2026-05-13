@@ -18,7 +18,8 @@ require (
 	github.com/goliatone/go-admin v0.65.2
 	github.com/goliatone/go-auth v0.43.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.43.0
-	github.com/goliatone/go-cms v0.51.0
+	github.com/goliatone/go-cache v0.1.0
+	github.com/goliatone/go-cms v0.52.0
 	github.com/goliatone/go-command v0.19.0
 	github.com/goliatone/go-dashboard v0.12.0
 	github.com/goliatone/go-errors v0.10.0
@@ -31,7 +32,7 @@ require (
 	github.com/goliatone/go-logger v0.8.0
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.16.0
-	github.com/goliatone/go-router v0.57.0
+	github.com/goliatone/go-router v0.58.0
 	github.com/goliatone/go-search v0.8.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0

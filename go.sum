@@ -174,8 +174,12 @@ github.com/goliatone/go-auth v0.43.0 h1:Ti2IXbbkEIp1Aa3Rvwz8yYP8TuaSaMbyYqtzhEnl
 github.com/goliatone/go-auth v0.43.0/go.mod h1:3pjlv0H47Oh0pgF+0Hq9kqHzjtVJEq1N9ssbgoZFyYE=
 github.com/goliatone/go-auth/adapters/featuregate v0.43.0 h1:6WGKwyILTyHQNhB2M0mt9cXmFc3uWmm+YfvNOBV6b5c=
 github.com/goliatone/go-auth/adapters/featuregate v0.43.0/go.mod h1:eJ0mHACttIIWEGDR/FhKkzMd4UrPajfb2Sqm+idy3Zo=
+github.com/goliatone/go-cache v0.1.0 h1:hbIuZdtjdWJeb0BSOybU096Q0NC/xEOpTXPJqAktDRY=
+github.com/goliatone/go-cache v0.1.0/go.mod h1:JTIwNrs4jaQlu/6h3GOa/rPcMlp2UttvN7aXe8V4v0s=
 github.com/goliatone/go-cms v0.51.0 h1:DmNvDFHepEsYCWWa9Uhxhj0q5n3weS2dwPFJamYhf5c=
 github.com/goliatone/go-cms v0.51.0/go.mod h1:nJFMQiUsAzyiU9ZveaVdbisrdLkdPMwfNEeD2GL+yno=
+github.com/goliatone/go-cms v0.52.0 h1:eAEzuiR7ef1kN7JmomgUvcCn6Fr9Hg/B2JgLuPgzVVA=
+github.com/goliatone/go-cms v0.52.0/go.mod h1:s8Gnn3OGoU5yR83hZncnmV+snQGDJbBK7cQgchR5l+Q=
 github.com/goliatone/go-command v0.19.0 h1:8OTGKo6P6/QhR2zGe/shcEzJd81YrXMNMHD9/W0hScs=
 github.com/goliatone/go-command v0.19.0/go.mod h1:tWBQypgZxIk//4NBOEqFZiV4mgtWsEcvrqHPFo5eGv8=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
@@ -220,6 +224,8 @@ github.com/goliatone/go-repository-cache v0.7.1 h1:/JHBAWnBDiz9Gz1ko3XZMmq5ZuOOH
 github.com/goliatone/go-repository-cache v0.7.1/go.mod h1:vv+5iv/FjDBoasIzy8Tb0t/lpswK1W6+l3piar4+w1o=
 github.com/goliatone/go-router v0.57.0 h1:kDSB4/t6lejiXey2yp+jrrDqhzeuOxjgBNa1rfhC/OE=
 github.com/goliatone/go-router v0.57.0/go.mod h1:FJzU9n2f/Gm4ZI6TO7FgKTrFyOjU2r6G9FiV1sN1U1U=
+github.com/goliatone/go-router v0.58.0 h1:L2fPxrT3kejwje2Pj4f2uu5ZiRP601cSEsMlsiHodyY=
+github.com/goliatone/go-router v0.58.0/go.mod h1:FJzU9n2f/Gm4ZI6TO7FgKTrFyOjU2r6G9FiV1sN1U1U=
 github.com/goliatone/go-search v0.7.0 h1:7CYP5a0bxL3dP/XYL3nmMIdQZ7cvXgzgOKZ0Rb+qIgc=
 github.com/goliatone/go-search v0.7.0/go.mod h1:BvWF/BxgqRM02fE02FgsXkhJvz/pxYBr+GipO7pvHB4=
 github.com/goliatone/go-search v0.8.0 h1:dCYFz8UyqxFVLhihFwIqkr0OzoZs2f3UPg7QcFg6ELE=

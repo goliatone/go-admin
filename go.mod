@@ -14,7 +14,7 @@ require (
 	github.com/goliatone/go-admin/quickstart v0.0.0-00010101000000-000000000000
 	github.com/goliatone/go-auth v0.43.0
 	github.com/goliatone/go-auth/adapters/featuregate v0.43.0
-	github.com/goliatone/go-cms v0.51.0
+	github.com/goliatone/go-cms v0.52.0
 	github.com/goliatone/go-command v0.19.0
 	github.com/goliatone/go-crud v0.23.0
 	github.com/goliatone/go-crud/gql v0.23.0
@@ -31,7 +31,7 @@ require (
 	github.com/goliatone/go-options v0.7.1
 	github.com/goliatone/go-persistence-bun v0.16.0
 	github.com/goliatone/go-repository-bun v0.15.1
-	github.com/goliatone/go-router v0.57.0
+	github.com/goliatone/go-router v0.58.0
 	github.com/goliatone/go-search v0.8.0
 	github.com/goliatone/go-search/adapters/goadmin v0.7.0
 	github.com/goliatone/go-theme v0.3.0
@@ -64,6 +64,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5 // indirect
+	github.com/goliatone/go-cache v0.1.0 // indirect
 	github.com/goliatone/go-template v0.3.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	go.beyondstorage.io/v5 v5.0.0 // indirect
