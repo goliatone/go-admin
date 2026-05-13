@@ -109,6 +109,21 @@ Endpoint-specific aliases are preserved (for example `connections`, `subscriptio
   - request origin headers (`X-Forwarded-Proto`/`X-Forwarded-Host` or `Host`)
 - `redirect_uri` provided by the request always takes precedence over resolver defaults.
 
+## Persistence And Schema Diagnostics
+
+- `RegisterServiceMigrations` uses source-stable ordered migration identity:
+  `go-auth` order `10`, `go-users` order `20`, `go-services` order `30`, and
+  app-local sources at order `100+`.
+- Built-in dependency edges are pruned to the selected graph. App-local sources
+  depend on the nearest present package predecessor.
+- Multi-source app-local migrations must use explicit stable source keys and
+  sparse orders through `WithServiceMigrationsStableAppSource(...)`.
+- Existing databases with positional `ord_*` markers must backfill stable
+  markers before deploying wrapper behavior that generates `ordsrc_*` names.
+- Hosts can call `VerifyServicesOAuthStorageSchema(...)` or
+  `VerifyServicesSQLSchema(...)` to surface missing `service_*` tables with
+  migration/backfill context before provider callbacks run.
+
 ## Read Model Highlights
 
 ### `GET /connections/:ref`

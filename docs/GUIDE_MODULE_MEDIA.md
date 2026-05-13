@@ -724,6 +724,14 @@ Implement `admin.MediaDeliveryCredentialResolver` with `modules/services` or
 asks for short-lived provider credentials by provider, media ID, intent, and
 delivery reference; it does not store refresh tokens or own OAuth lifecycle.
 
+When the resolver depends on `modules/services`, keep services migrations in the
+host persistence bootstrap and validate the OAuth storage schema before provider
+callbacks or media delivery requests run. `modules/services` exposes
+`VerifyServicesOAuthStorageSchema(...)`, backed by `go-services/migrations`, so
+missing tables such as `service_connections`, `service_credentials`,
+`service_grant_events`, and `service_grant_snapshots` fail with migration
+composition guidance instead of surfacing as generic authorization errors.
+
 ## Optional Provider Adapter Examples
 
 These examples show host-owned adapter shapes. They are not required core
