@@ -89,6 +89,30 @@ if err := adm.Initialize(server.Router()); err != nil {
 - Commands: register typed commands and message factories for panel/API dispatch.
 - Panels: control canonical UI ownership (`PanelUIRouteMode*`) and canonical entry behavior (`PanelEntryMode*`).
 
+## Search Setup
+
+`go-admin` exposes adapters for wiring `go-search` into public site search and
+admin global search. Host applications still own the `go-search` runtime and
+schema setup.
+
+When using the Postgres-backed `go-search` provider or SQL-backed search stores,
+register the canonical source-stable migration graph from `go-search/migrations`
+with the same persistence client used by the rest of the app:
+
+```go
+if err := searchmigrations.Register(
+	client,
+	searchmigrations.WithProfile(searchmigrations.ProfilePostgresProvider),
+); err != nil {
+	return err
+}
+```
+
+Use `ProfileExternalProvider` for external providers that only need the
+generation/editorial store migrations. If host bootstrap owns the Postgres
+search schema, configure the Postgres provider with `SchemaManagementExternal`
+so it does not also run its internal plain migration manager.
+
 ## Media Responsibility Split
 
 The upstream media surface is intentionally split across layers:
