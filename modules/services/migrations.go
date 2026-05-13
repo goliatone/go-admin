@@ -19,6 +19,19 @@ const (
 	ServiceMigrationsSourceLabelAppLocal = "app-local"
 )
 
+const (
+	serviceMigrationsSourceKeyAuth     = "go-auth"
+	serviceMigrationsSourceKeyUsers    = "go-users"
+	serviceMigrationsSourceKeyServices = "go-services"
+	serviceMigrationsSourceKeyAppLocal = "app-local"
+
+	serviceMigrationsSourceOrderAuth     = 10
+	serviceMigrationsSourceOrderUsers    = 20
+	serviceMigrationsSourceOrderServices = 30
+	serviceMigrationsSourceOrderAppLocal = 100
+	serviceMigrationsAppSourceOrderStep  = 10
+)
+
 // ServiceMigrationsProfile controls which migration sources are registered.
 type ServiceMigrationsProfile string
 
@@ -79,7 +92,9 @@ func RegisterServiceMigrations(client *persistence.Client, opts ...ServiceMigrat
 	if err := appendBuiltInServiceMigrationSources(&orderedSources, sourceNameCounts, options, enableAuth, enableUsers, enableServices); err != nil {
 		return err
 	}
-	appendAppServiceMigrationSources(&orderedSources, sourceNameCounts, options)
+	if err := appendAppServiceMigrationSources(&orderedSources, sourceNameCounts, options, enableAuth, enableUsers, enableServices); err != nil {
+		return err
+	}
 	if len(orderedSources) == 0 {
 		return nil
 	}
@@ -123,34 +138,49 @@ func resolveServiceMigrationToggles(options serviceMigrationsOptions) (bool, boo
 
 func appendBuiltInServiceMigrationSources(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, options serviceMigrationsOptions, enableAuth, enableUsers, enableServices bool) error {
 	if enableAuth {
-		if err := appendServiceMigrationSource(orderedSources, sourceNameCounts, options.authFS, auth.GetMigrationsFS(), options.authLabel, options.validationTargets, options.observer); err != nil {
+		if err := appendServiceMigrationSource(orderedSources, sourceNameCounts, options.authFS, auth.GetMigrationsFS(), options.authLabel, serviceMigrationsSourceKeyAuth, serviceMigrationsSourceOrderAuth, nil, options.validationTargets, options.observer); err != nil {
 			return err
 		}
 	}
 	if enableUsers {
-		if err := appendServiceMigrationSource(orderedSources, sourceNameCounts, options.usersFS, users.GetCoreMigrationsFS(), options.usersLabel, options.validationTargets, options.observer); err != nil {
+		dependsOn := []string{}
+		if enableAuth {
+			dependsOn = append(dependsOn, serviceMigrationsSourceKeyAuth)
+		}
+		if err := appendServiceMigrationSource(orderedSources, sourceNameCounts, options.usersFS, users.GetCoreMigrationsFS(), options.usersLabel, serviceMigrationsSourceKeyUsers, serviceMigrationsSourceOrderUsers, dependsOn, options.validationTargets, options.observer); err != nil {
 			return err
 		}
 	}
 	if enableServices {
-		if err := appendServiceMigrationSource(orderedSources, sourceNameCounts, options.servicesFS, goservices.GetCoreMigrationsFS(), options.servicesLabel, options.validationTargets, options.observer); err != nil {
+		dependsOn := []string{}
+		if enableUsers {
+			dependsOn = append(dependsOn, serviceMigrationsSourceKeyUsers)
+		}
+		if err := appendServiceMigrationSource(orderedSources, sourceNameCounts, options.servicesFS, goservices.GetCoreMigrationsFS(), options.servicesLabel, serviceMigrationsSourceKeyServices, serviceMigrationsSourceOrderServices, dependsOn, options.validationTargets, options.observer); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func appendServiceMigrationSource(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, customFS fs.FS, fallbackFS fs.FS, label string, validationTargets []string, observer MigrationObserver) error {
+func appendServiceMigrationSource(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, customFS fs.FS, fallbackFS fs.FS, label string, sourceKey string, order int, dependsOn []string, validationTargets []string, observer MigrationObserver) error {
 	migrationsFS, err := resolveMigrationFS(customFS, fallbackFS, "data/sql/migrations")
 	if err != nil {
 		return err
 	}
-	appendOrderedMigrationSource(orderedSources, sourceNameCounts, migrationsFS, label, validationTargets, observer)
+	appendStableOrderedMigrationSource(orderedSources, sourceNameCounts, migrationsFS, label, sourceKey, order, dependsOn, validationTargets, observer)
 	return nil
 }
 
-func appendAppServiceMigrationSources(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, options serviceMigrationsOptions) {
-	for _, source := range options.appSources {
+func appendAppServiceMigrationSources(orderedSources *[]persistence.OrderedMigrationSource, sourceNameCounts map[string]int, options serviceMigrationsOptions, enableAuth, enableUsers, enableServices bool) error {
+	usedSourceKeys := map[string]string{
+		normalizeServiceMigrationSourceKey(serviceMigrationsSourceKeyAuth):     ServiceMigrationsSourceLabelAuth,
+		normalizeServiceMigrationSourceKey(serviceMigrationsSourceKeyUsers):    ServiceMigrationsSourceLabelUsers,
+		normalizeServiceMigrationSourceKey(serviceMigrationsSourceKeyServices): ServiceMigrationsSourceLabelServices,
+	}
+	usedOrders := map[int]string{}
+	appDependency := nearestServiceMigrationPredecessor(enableAuth, enableUsers, enableServices)
+	for idx, source := range options.appSources {
 		if source.Filesystem == nil {
 			continue
 		}
@@ -158,8 +188,49 @@ func appendAppServiceMigrationSources(orderedSources *[]persistence.OrderedMigra
 		if label == "" {
 			label = ServiceMigrationsSourceLabelAppLocal
 		}
-		appendOrderedMigrationSource(orderedSources, sourceNameCounts, source.Filesystem, label, options.validationTargets, options.observer)
+		sourceKey := strings.TrimSpace(source.SourceKey)
+		if sourceKey == "" {
+			sourceKey = serviceMigrationsSourceKeyAppLocal
+		}
+		order := source.Order
+		if order <= 0 {
+			order = serviceMigrationsSourceOrderAppLocal + idx*serviceMigrationsAppSourceOrderStep
+		}
+		if order < serviceMigrationsSourceOrderAppLocal {
+			return fmt.Errorf("modules/services: app migration source %q order %d must be >= %d", label, order, serviceMigrationsSourceOrderAppLocal)
+		}
+		normalizedSourceKey := normalizeServiceMigrationSourceKey(sourceKey)
+		if normalizedSourceKey == "" {
+			return fmt.Errorf("modules/services: app migration source %q source key %q is invalid", label, sourceKey)
+		}
+		if existingLabel, exists := usedSourceKeys[normalizedSourceKey]; exists {
+			return fmt.Errorf("modules/services: app migration source %q source key %q collides with %q", label, sourceKey, existingLabel)
+		}
+		if existingLabel, exists := usedOrders[order]; exists {
+			return fmt.Errorf("modules/services: app migration source %q order %d collides with %q", label, order, existingLabel)
+		}
+		usedSourceKeys[normalizedSourceKey] = label
+		usedOrders[order] = label
+		dependsOn := []string{}
+		if appDependency != "" {
+			dependsOn = append(dependsOn, appDependency)
+		}
+		appendStableOrderedMigrationSource(orderedSources, sourceNameCounts, source.Filesystem, label, sourceKey, order, dependsOn, options.validationTargets, options.observer)
 	}
+	return nil
+}
+
+func nearestServiceMigrationPredecessor(enableAuth, enableUsers, enableServices bool) string {
+	if enableServices {
+		return serviceMigrationsSourceKeyServices
+	}
+	if enableUsers {
+		return serviceMigrationsSourceKeyUsers
+	}
+	if enableAuth {
+		return serviceMigrationsSourceKeyAuth
+	}
+	return ""
 }
 
 // WithServiceMigrationsProfile sets the canonical service migration registration profile.
@@ -262,6 +333,22 @@ func WithServiceMigrationsAppSource(label string, fsys fs.FS) ServiceMigrationsO
 	}
 }
 
+// WithServiceMigrationsStableAppSource appends an app-local migration source
+// with explicit durable source-stable identity metadata.
+func WithServiceMigrationsStableAppSource(label string, fsys fs.FS, sourceKey string, order int) ServiceMigrationsOption {
+	return func(opts *serviceMigrationsOptions) {
+		if opts == nil || fsys == nil {
+			return
+		}
+		opts.appSources = append(opts.appSources, AppMigrationSource{
+			Label:      strings.TrimSpace(label),
+			SourceKey:  strings.TrimSpace(sourceKey),
+			Order:      order,
+			Filesystem: fsys,
+		})
+	}
+}
+
 // WithServiceMigrationsObserver captures ordered migration registration steps.
 func WithServiceMigrationsObserver(observer MigrationObserver) ServiceMigrationsOption {
 	return func(opts *serviceMigrationsOptions) {
@@ -294,11 +381,14 @@ func resolveServiceMigrationsProfile(profile ServiceMigrationsProfile) (bool, bo
 	}
 }
 
-func appendOrderedMigrationSource(
+func appendStableOrderedMigrationSource(
 	orderedSources *[]persistence.OrderedMigrationSource,
 	sourceNameCounts map[string]int,
 	migrationsFS fs.FS,
 	label string,
+	sourceKey string,
+	order int,
+	dependsOn []string,
 	targets []string,
 	observer MigrationObserver,
 ) {
@@ -318,11 +408,36 @@ func appendOrderedMigrationSource(
 	if len(targets) > 0 {
 		migrationOptions = append(migrationOptions, persistence.WithValidationTargets(targets...))
 	}
-	*orderedSources = append(*orderedSources, persistence.OrderedMigrationSource{
-		Name:    uniqueOrderedSourceName(normalizedLabel, sourceNameCounts),
-		Root:    migrationsFS,
-		Options: migrationOptions,
-	})
+	sourceOptions := []persistence.OrderedMigrationSourceOption{
+		persistence.WithOrderedMigrationDialectOptions(migrationOptions...),
+	}
+	if len(dependsOn) > 0 {
+		sourceOptions = append(sourceOptions, persistence.WithOrderedMigrationDependencies(dependsOn...))
+	}
+	*orderedSources = append(*orderedSources, persistence.NewStableOrderedMigrationSource(
+		uniqueOrderedSourceName(normalizedLabel, sourceNameCounts),
+		migrationsFS,
+		sourceKey,
+		order,
+		sourceOptions...,
+	))
+}
+
+func normalizeServiceMigrationSourceKey(value string) string {
+	key := strings.ToLower(strings.TrimSpace(value))
+	key = strings.ReplaceAll(key, "-", "_")
+	key = strings.Join(strings.Fields(key), "_")
+	key = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_' {
+			return r
+		}
+		return '_'
+	}, key)
+	key = strings.Trim(key, "_")
+	for strings.Contains(key, "__") {
+		key = strings.ReplaceAll(key, "__", "_")
+	}
+	return key
 }
 
 func uniqueOrderedSourceName(base string, sourceNameCounts map[string]int) string {
