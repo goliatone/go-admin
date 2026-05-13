@@ -70,7 +70,11 @@ func TestRuntimeRegistersWebEntrypointAndAuthRoutes(t *testing.T) {
 	assertRedirect(t, app, http.MethodGet, "/admin/", "/admin/login")
 
 	loginResp := doRequest(t, app, http.MethodGet, "/admin/login", "", nil)
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	if loginResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected /admin/login status 200, got %d", loginResp.StatusCode)
 	}
@@ -341,7 +345,11 @@ func TestRuntimeESignLegacyAliasesRedirectAfterLogin(t *testing.T) {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -363,7 +371,11 @@ func TestRuntimeGoogleIntegrationUIRoutesFeatureGatedWhenDisabled(t *testing.T) 
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -384,7 +396,11 @@ func TestRuntimeGoogleIntegrationUIRoutesRenderWhenEnabled(t *testing.T) {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -477,7 +493,11 @@ func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testin
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -549,7 +569,11 @@ func TestRuntimeNewDocumentRouteConfigReflectsGoogleFeatureGateWhenDisabled(t *t
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -657,7 +681,11 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -778,7 +806,11 @@ func TestRuntimeAgreementEditPageConfigParsesWithPopulatedParticipantsAndFields(
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -876,7 +908,11 @@ func TestRuntimeAgreementDetailReviewBootstrapParsesWithRecipientAndExternalRevi
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -1022,7 +1058,11 @@ func TestRuntimeSeededLineageDetailAPIsExposeSlice4Contracts(t *testing.T) {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -1094,7 +1134,11 @@ func TestRuntimeSeededLineageQAScenarioExposesCandidateWarningsAndNewerSourceSta
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -1160,7 +1204,11 @@ func TestRuntimeAgreementEditPageRedirectsNonDraftAgreementToDetail(t *testing.T
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -1253,7 +1301,11 @@ func TestRuntimeCoreAdminRoutesResolveAfterLogin(t *testing.T) {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -1269,7 +1321,11 @@ func TestRuntimeActivityAPIResolvesAfterLogin(t *testing.T) {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -1285,7 +1341,11 @@ func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	if loginResp.StatusCode != http.StatusFound {
 		t.Fatalf("expected login redirect status 302, got %d", loginResp.StatusCode)
 	}
@@ -1380,7 +1440,11 @@ func TestRuntimeLandingRendersRecentAgreementsFromStoreData(t *testing.T) {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -1424,7 +1488,11 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -1436,10 +1504,12 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 	if err != nil {
 		t.Fatalf("create form file: %v", err)
 	}
-	if _, err := fileWriter.Write(services.GenerateDeterministicPDF(1)); err != nil {
+	_, err = fileWriter.Write(services.GenerateDeterministicPDF(1))
+	if err != nil {
 		t.Fatalf("write pdf payload: %v", err)
 	}
-	if err := writer.Close(); err != nil {
+	err = writer.Close()
+	if err != nil {
 		t.Fatalf("close multipart writer: %v", err)
 	}
 
@@ -1458,7 +1528,8 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 		t.Fatalf("expected upload status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(payload)))
 	}
 	payload := map[string]any{}
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+	err = json.NewDecoder(resp.Body).Decode(&payload)
+	if err != nil {
 		t.Fatalf("decode upload payload: %v", err)
 	}
 	objectKey := strings.TrimSpace(fmt.Sprint(payload["object_key"]))
@@ -1498,7 +1569,11 @@ func TestRuntimeLoginFailureStaysOnLoginWithErrorMessage(t *testing.T) {
 	}
 
 	loginResp := doRequest(t, app, http.MethodGet, location, "", nil)
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	if loginResp.StatusCode != http.StatusOK {
 		t.Fatalf("expected login page status 200, got %d", loginResp.StatusCode)
 	}
@@ -1571,7 +1646,11 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -1851,7 +1930,11 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
@@ -2294,8 +2377,8 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 	}
 	if t != nil {
 		t.Cleanup(func() {
-			if err := bootstrapResult.Close(); err != nil {
-				t.Errorf("close persistence bootstrap: %v", err)
+			if closeErr := bootstrapResult.Close(); closeErr != nil {
+				t.Errorf("close persistence bootstrap: %v", closeErr)
 			}
 		})
 	}
@@ -2341,8 +2424,8 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 	}
 	if t != nil && storeCleanup != nil {
 		t.Cleanup(func() {
-			if err := storeCleanup(); err != nil {
-				t.Errorf("close runtime store: %v", err)
+			if closeErr := storeCleanup(); closeErr != nil {
+				t.Errorf("close runtime store: %v", closeErr)
 			}
 		})
 	}
@@ -2909,7 +2992,11 @@ func loginESignRuntimeBrowserUser(t *testing.T, app *fiber.App) *http.Cookie {
 	if err != nil {
 		t.Fatalf("login request failed: %v", err)
 	}
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		body := readHTTPResponseBody(t, loginResp)

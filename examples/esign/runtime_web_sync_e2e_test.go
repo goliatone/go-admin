@@ -215,7 +215,11 @@ func loginRuntimeWebAdmin(t *testing.T, app *fiber.App) *http.Cookie {
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
 	loginResp := doRequest(t, app, http.MethodPost, "/admin/login", "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
-	defer closeHTTPResponseBody(t, loginResp)
+	defer func() {
+		if closeErr := loginResp.Body.Close(); closeErr != nil {
+			t.Fatalf("close login response body: %v", closeErr)
+		}
+	}()
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
 		t.Fatal("expected auth cookie after login")
