@@ -18,6 +18,18 @@ const (
 	UserMigrationsSourceLabelUsersAuthExtras    = "go-users-auth-extras"
 )
 
+const (
+	userMigrationsSourceKeyAuth               = "go-auth"
+	userMigrationsSourceKeyUsersCore          = "go-users"
+	userMigrationsSourceKeyUsersAuthBootstrap = "go-users-auth"
+	userMigrationsSourceKeyUsersAuthExtras    = "go-users-auth-extras"
+
+	userMigrationsSourceOrderAuth               = 10
+	userMigrationsSourceOrderUsersAuthBootstrap = 20
+	userMigrationsSourceOrderUsersAuthExtras    = 30
+	userMigrationsSourceOrderUsersCore          = 40
+)
+
 // UserMigrationsProfile controls which migration sources are registered.
 type UserMigrationsProfile string
 
@@ -99,7 +111,7 @@ func RegisterUserMigrations(client *persistence.Client, opts ...UserMigrationsOp
 		if err != nil {
 			return err
 		}
-		appendOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, source.label, options.validationTargets, options.observer)
+		appendStableOrderedMigrationSource(&orderedSources, sourceNameCounts, migrationsFS, source.label, source.sourceKey, source.order, source.dependsOn, options.validationTargets, options.observer)
 	}
 
 	if len(orderedSources) == 0 {
@@ -121,6 +133,9 @@ type userMigrationSourceSpec struct {
 	defaultFS  fs.FS
 	subdir     string
 	label      string
+	sourceKey  string
+	order      int
+	dependsOn  []string
 }
 
 func resolveUserMigrationEnabledSources(options userMigrationsOptions) (userMigrationEnabledSources, error) {
@@ -151,11 +166,31 @@ func resolveUserMigrationEnabledSources(options userMigrationsOptions) (userMigr
 
 func userMigrationSourceSpecs(options userMigrationsOptions, enabled userMigrationEnabledSources) []userMigrationSourceSpec {
 	return []userMigrationSourceSpec{
-		{enabled: enabled.auth, overrideFS: options.authFS, defaultFS: auth.GetMigrationsFS(), subdir: "data/sql/migrations", label: options.authLabel},
-		{enabled: enabled.usersAuthBootstrap, overrideFS: options.usersAuthBootstrapFS, defaultFS: users.GetAuthBootstrapMigrationsFS(), subdir: "data/sql/migrations/auth", label: options.usersAuthBootstrapLabel},
-		{enabled: enabled.usersAuthExtras, overrideFS: options.usersAuthExtrasFS, defaultFS: users.GetAuthExtrasMigrationsFS(), subdir: "data/sql/migrations/auth_extras", label: options.usersAuthExtrasLabel},
-		{enabled: enabled.usersCore, overrideFS: options.usersCoreFS, defaultFS: users.GetCoreMigrationsFS(), subdir: "data/sql/migrations", label: options.usersCoreLabel},
+		{enabled: enabled.auth, overrideFS: options.authFS, defaultFS: auth.GetMigrationsFS(), subdir: "data/sql/migrations", label: options.authLabel, sourceKey: userMigrationsSourceKeyAuth, order: userMigrationsSourceOrderAuth},
+		{enabled: enabled.usersAuthBootstrap, overrideFS: options.usersAuthBootstrapFS, defaultFS: users.GetAuthBootstrapMigrationsFS(), subdir: "data/sql/migrations/auth", label: options.usersAuthBootstrapLabel, sourceKey: userMigrationsSourceKeyUsersAuthBootstrap, order: userMigrationsSourceOrderUsersAuthBootstrap},
+		{enabled: enabled.usersAuthExtras, overrideFS: options.usersAuthExtrasFS, defaultFS: users.GetAuthExtrasMigrationsFS(), subdir: "data/sql/migrations/auth_extras", label: options.usersAuthExtrasLabel, sourceKey: userMigrationsSourceKeyUsersAuthExtras, order: userMigrationsSourceOrderUsersAuthExtras, dependsOn: userAuthExtrasDependencies(enabled)},
+		{enabled: enabled.usersCore, overrideFS: options.usersCoreFS, defaultFS: users.GetCoreMigrationsFS(), subdir: "data/sql/migrations", label: options.usersCoreLabel, sourceKey: userMigrationsSourceKeyUsersCore, order: userMigrationsSourceOrderUsersCore, dependsOn: userCoreDependencies(enabled)},
 	}
+}
+
+func userAuthExtrasDependencies(enabled userMigrationEnabledSources) []string {
+	if enabled.usersAuthBootstrap {
+		return []string{userMigrationsSourceKeyUsersAuthBootstrap}
+	}
+	return nil
+}
+
+func userCoreDependencies(enabled userMigrationEnabledSources) []string {
+	if enabled.usersAuthExtras {
+		return []string{userMigrationsSourceKeyUsersAuthExtras}
+	}
+	if enabled.usersAuthBootstrap {
+		return []string{userMigrationsSourceKeyUsersAuthBootstrap}
+	}
+	if enabled.auth {
+		return []string{userMigrationsSourceKeyAuth}
+	}
+	return nil
 }
 
 // WithUserMigrationsProfile sets the canonical user migration registration profile.
@@ -284,11 +319,14 @@ func resolveUserMigrationsProfile(profile UserMigrationsProfile) (bool, bool, bo
 	}
 }
 
-func appendOrderedMigrationSource(
+func appendStableOrderedMigrationSource(
 	orderedSources *[]persistence.OrderedMigrationSource,
 	sourceNameCounts map[string]int,
 	migrationsFS fs.FS,
 	label string,
+	sourceKey string,
+	order int,
+	dependsOn []string,
 	targets []string,
 	observer UserMigrationObserver,
 ) {
@@ -308,11 +346,19 @@ func appendOrderedMigrationSource(
 	if len(targets) > 0 {
 		migrationOptions = append(migrationOptions, persistence.WithValidationTargets(targets...))
 	}
-	*orderedSources = append(*orderedSources, persistence.OrderedMigrationSource{
-		Name:    uniqueOrderedSourceName(normalizedLabel, sourceNameCounts),
-		Root:    migrationsFS,
-		Options: migrationOptions,
-	})
+	sourceOptions := []persistence.OrderedMigrationSourceOption{
+		persistence.WithOrderedMigrationDialectOptions(migrationOptions...),
+	}
+	if len(dependsOn) > 0 {
+		sourceOptions = append(sourceOptions, persistence.WithOrderedMigrationDependencies(dependsOn...))
+	}
+	*orderedSources = append(*orderedSources, persistence.NewStableOrderedMigrationSource(
+		uniqueOrderedSourceName(normalizedLabel, sourceNameCounts),
+		migrationsFS,
+		sourceKey,
+		order,
+		sourceOptions...,
+	))
 }
 
 func uniqueOrderedSourceName(base string, sourceNameCounts map[string]int) string {
