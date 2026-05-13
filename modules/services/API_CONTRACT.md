@@ -117,7 +117,9 @@ Endpoint-specific aliases are preserved (for example `connections`, `subscriptio
 - Built-in dependency edges are pruned to the selected graph. App-local sources
   depend on the nearest present package predecessor.
 - Multi-source app-local migrations must use explicit stable source keys and
-  sparse orders through `WithServiceMigrationsStableAppSource(...)`.
+  sparse orders through `WithServiceMigrationsStableAppSource(...)`,
+  `WithServiceMigrationsAppSources(...)`, or `Config.AppMigrations`; when one
+  is provided, both `SourceKey` and `Order` are required.
 - Existing databases with positional `ord_*` markers must backfill stable
   markers before deploying wrapper behavior that generates `ordsrc_*` names.
 - Hosts can call `VerifyServicesOAuthStorageSchema(...)` or

@@ -188,6 +188,11 @@ func appendAppServiceMigrationSources(orderedSources *[]persistence.OrderedMigra
 		if label == "" {
 			label = ServiceMigrationsSourceLabelAppLocal
 		}
+		hasExplicitSourceKey := strings.TrimSpace(source.SourceKey) != ""
+		hasExplicitOrder := source.Order > 0
+		if hasExplicitSourceKey != hasExplicitOrder {
+			return fmt.Errorf("modules/services: app migration source %q source key and order must be set together", label)
+		}
 		sourceKey := strings.TrimSpace(source.SourceKey)
 		if sourceKey == "" {
 			sourceKey = serviceMigrationsSourceKeyAppLocal
@@ -322,30 +327,41 @@ func WithServiceMigrationsValidationTargets(targets ...string) ServiceMigrations
 
 // WithServiceMigrationsAppSource appends an app-local dialect-aware migration source.
 func WithServiceMigrationsAppSource(label string, fsys fs.FS) ServiceMigrationsOption {
-	return func(opts *serviceMigrationsOptions) {
-		if opts == nil || fsys == nil {
-			return
-		}
-		opts.appSources = append(opts.appSources, AppMigrationSource{
-			Label:      strings.TrimSpace(label),
-			Filesystem: fsys,
-		})
-	}
+	return WithServiceMigrationsAppSources(AppMigrationSource{
+		Label:      strings.TrimSpace(label),
+		Filesystem: fsys,
+	})
 }
 
 // WithServiceMigrationsStableAppSource appends an app-local migration source
 // with explicit durable source-stable identity metadata.
 func WithServiceMigrationsStableAppSource(label string, fsys fs.FS, sourceKey string, order int) ServiceMigrationsOption {
+	return WithServiceMigrationsAppSources(AppMigrationSource{
+		Label:      strings.TrimSpace(label),
+		SourceKey:  strings.TrimSpace(sourceKey),
+		Order:      order,
+		Filesystem: fsys,
+	})
+}
+
+// WithServiceMigrationsAppSources appends app-local migration sources while
+// preserving any explicit durable source-stable identity metadata.
+func WithServiceMigrationsAppSources(sources ...AppMigrationSource) ServiceMigrationsOption {
 	return func(opts *serviceMigrationsOptions) {
-		if opts == nil || fsys == nil {
+		if opts == nil || len(sources) == 0 {
 			return
 		}
-		opts.appSources = append(opts.appSources, AppMigrationSource{
-			Label:      strings.TrimSpace(label),
-			SourceKey:  strings.TrimSpace(sourceKey),
-			Order:      order,
-			Filesystem: fsys,
-		})
+		for _, source := range sources {
+			if source.Filesystem == nil {
+				continue
+			}
+			opts.appSources = append(opts.appSources, AppMigrationSource{
+				Label:      strings.TrimSpace(source.Label),
+				SourceKey:  strings.TrimSpace(source.SourceKey),
+				Order:      source.Order,
+				Filesystem: source.Filesystem,
+			})
+		}
 	}
 }
 

@@ -286,6 +286,28 @@ func TestRegisterServiceMigrations_AppLocalRejectsSourceKeyCollisions(t *testing
 			want: "must be >= 100",
 		},
 		{
+			name: "source key without order",
+			options: []ServiceMigrationsOption{
+				WithServiceMigrationsAppSources(AppMigrationSource{
+					Label:      "App A",
+					SourceKey:  "app-a",
+					Filesystem: appMigrationTestFS("app_a"),
+				}),
+			},
+			want: "source key and order must be set together",
+		},
+		{
+			name: "order without source key",
+			options: []ServiceMigrationsOption{
+				WithServiceMigrationsAppSources(AppMigrationSource{
+					Label:      "App A",
+					Order:      110,
+					Filesystem: appMigrationTestFS("app_a"),
+				}),
+			},
+			want: "source key and order must be set together",
+		},
+		{
 			name: "duplicate app order",
 			options: []ServiceMigrationsOption{
 				WithServiceMigrationsStableAppSource("App A", appMigrationTestFS("app_a"), "app-a", 100),

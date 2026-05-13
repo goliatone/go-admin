@@ -173,6 +173,38 @@ func TestSetup_ModuleStartupDefaultsAndWiring(t *testing.T) {
 	}
 }
 
+func TestRegisterSetupMigrationsPreservesConfigAppMigrationIdentity(t *testing.T) {
+	client := newTestPersistenceClient(t)
+
+	cfg := DefaultConfig()
+	cfg.PersistenceClient = client
+	cfg.ValidationTargets = []string{"sqlite"}
+	cfg.AppMigrations = []AppMigrationSource{
+		{
+			Label:      "App B",
+			SourceKey:  "app-b",
+			Order:      110,
+			Filesystem: appMigrationTestFS("app_b"),
+		},
+		{
+			Label:      "App A",
+			SourceKey:  "app-a",
+			Order:      120,
+			Filesystem: appMigrationTestFS("app_a"),
+		},
+	}
+
+	if err := registerSetupMigrations(cfg, setupOptions{}); err != nil {
+		t.Fatalf("register setup migrations: %v", err)
+	}
+	plan, err := client.Plan(context.Background())
+	if err != nil {
+		t.Fatalf("plan migrations: %v", err)
+	}
+	assertSourceStablePlanEntry(t, plan, "app_b", 110, []string{"go_services"})
+	assertSourceStablePlanEntry(t, plan, "app_a", 120, []string{"go_services"})
+}
+
 func TestSetup_RespectsWithXOverrides(t *testing.T) {
 	client := newTestPersistenceClient(t)
 	adm := newTestAdmin(t)

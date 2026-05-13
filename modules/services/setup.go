@@ -475,11 +475,8 @@ func registerSetupMigrations(cfg Config, setupCfg setupOptions) error {
 	migrationOptions := []ServiceMigrationsOption{
 		WithServiceMigrationsValidationTargets(cfg.ValidationTargets...),
 	}
-	for _, source := range cfg.AppMigrations {
-		if source.Filesystem == nil {
-			continue
-		}
-		migrationOptions = append(migrationOptions, WithServiceMigrationsAppSource(source.Label, source.Filesystem))
+	if len(cfg.AppMigrations) > 0 {
+		migrationOptions = append(migrationOptions, WithServiceMigrationsAppSources(cfg.AppMigrations...))
 	}
 	migrationOptions = append(migrationOptions, setupCfg.migrationOptions...)
 	if err := RegisterServiceMigrations(cfg.PersistenceClient, migrationOptions...); err != nil {
