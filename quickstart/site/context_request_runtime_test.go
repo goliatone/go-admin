@@ -101,6 +101,7 @@ func TestRequestContextMiddlewareStoresResolvedStateViewContextAndLocaleCookie(t
 	ctx.On("SetContext", mock.Anything).Return()
 	ctx.On("Locals", requestStateLocalsKey, mock.Anything).Return(nil)
 	ctx.On("Locals", viewContextLocalsKey, mock.Anything).Return(nil)
+	ctx.On("Locals", localeCookieMutatedKey, true).Return(nil)
 	ctx.On("Cookie", mock.Anything).Return()
 	ctx.QueriesM["locale"] = "es"
 
