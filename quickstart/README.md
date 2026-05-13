@@ -1276,6 +1276,19 @@ Canonical source labels:
 - `quickstart.UserMigrationsSourceLabelUsersAuthBootstrap`
 - `quickstart.UserMigrationsSourceLabelUsersAuthExtras`
 
+The wrapper uses source-stable ordered migration identity. Source keys and order
+values are durable migration ABI:
+
+- `go-auth`: key `go-auth`, order `10`
+- `go-users-auth`: key `go-users-auth`, order `20`
+- `go-users-auth-extras`: key `go-users-auth-extras`, order `30`, depends on `go-users-auth` when present
+- `go-users`: key `go-users`, order `40`, depends on `go-auth` in combined mode or `go-users-auth-extras` in standalone mode
+
+When optional sources are disabled, dependency edges are pruned to the selected
+source graph. Existing databases with positional `ord_*` markers must run the
+`go-persistence-bun` stable-marker backfill before deploying wrapper behavior
+that generates `ordsrc_*` names.
+
 Example: register users standalone mode (no go-auth migrations):
 
 ```go
