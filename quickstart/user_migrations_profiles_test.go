@@ -65,6 +65,73 @@ func TestRegisterUserMigrations_ProfileOrderAndLabels(t *testing.T) {
 	}
 }
 
+func TestRegisterUserMigrations_SourceStablePlanMetadata(t *testing.T) {
+	testCases := []struct {
+		name     string
+		profile  UserMigrationsProfile
+		expected []userSourcePlanExpectation
+	}{
+		{
+			name:    "auth-only",
+			profile: UserMigrationsProfileAuthOnly,
+			expected: []userSourcePlanExpectation{
+				{sourceKey: "go_auth", order: 10},
+			},
+		},
+		{
+			name:    "combined",
+			profile: UserMigrationsProfileCombined,
+			expected: []userSourcePlanExpectation{
+				{sourceKey: "go_auth", order: 10},
+				{sourceKey: "go_users", order: 40, dependsOn: []string{"go_auth"}},
+			},
+		},
+		{
+			name:    "users-standalone",
+			profile: UserMigrationsProfileUsersStandalone,
+			expected: []userSourcePlanExpectation{
+				{sourceKey: "go_users_auth", order: 20},
+				{sourceKey: "go_users_auth_extras", order: 30, dependsOn: []string{"go_users_auth"}},
+				{sourceKey: "go_users", order: 40, dependsOn: []string{"go_users_auth_extras"}},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := newUserMigrationsPersistenceClient(t)
+			if err := RegisterUserMigrations(client, WithUserMigrationsProfile(tc.profile)); err != nil {
+				t.Fatalf("RegisterUserMigrations: %v", err)
+			}
+			plan, err := client.Plan(context.Background())
+			if err != nil {
+				t.Fatalf("Plan: %v", err)
+			}
+			for _, expected := range tc.expected {
+				assertUserSourceStablePlanEntry(t, plan, expected.sourceKey, expected.order, expected.dependsOn)
+			}
+		})
+	}
+}
+
+func TestRegisterUserMigrations_PrunesAbsentSourceDependencies(t *testing.T) {
+	client := newUserMigrationsPersistenceClient(t)
+	if err := RegisterUserMigrations(
+		client,
+		WithUserMigrationsProfile(UserMigrationsProfileUsersStandalone),
+		WithUserMigrationsAuthExtrasEnabled(false),
+	); err != nil {
+		t.Fatalf("RegisterUserMigrations: %v", err)
+	}
+	plan, err := client.Plan(context.Background())
+	if err != nil {
+		t.Fatalf("Plan: %v", err)
+	}
+	assertUserSourceStablePlanEntry(t, plan, "go_users_auth", 20, nil)
+	assertUserSourceStablePlanEntry(t, plan, "go_users", 40, []string{"go_users_auth"})
+	assertUserSourceAbsent(t, plan, "go_users_auth_extras")
+}
+
 func TestRegisterUserMigrations_InvalidProfile(t *testing.T) {
 	client := newUserMigrationsPersistenceClient(t)
 	err := RegisterUserMigrations(
@@ -76,6 +143,41 @@ func TestRegisterUserMigrations_InvalidProfile(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unsupported user migrations profile") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+type userSourcePlanExpectation struct {
+	sourceKey string
+	order     int
+	dependsOn []string
+}
+
+func assertUserSourceStablePlanEntry(t *testing.T, plan *persistence.MigrationPlan, sourceKey string, order int, dependsOn []string) {
+	t.Helper()
+	for _, entry := range plan.Entries {
+		if entry.SourceKey != sourceKey {
+			continue
+		}
+		if entry.SourceOrder != order {
+			t.Fatalf("%s source order mismatch: got=%d want=%d", sourceKey, entry.SourceOrder, order)
+		}
+		if !reflect.DeepEqual(entry.SourceDependsOn, dependsOn) {
+			t.Fatalf("%s dependencies mismatch: got=%v want=%v", sourceKey, entry.SourceDependsOn, dependsOn)
+		}
+		if !strings.HasPrefix(entry.SyntheticName, "ordsrc_") {
+			t.Fatalf("%s synthetic name %q is not source-stable", sourceKey, entry.SyntheticName)
+		}
+		return
+	}
+	t.Fatalf("expected source key %q in migration plan", sourceKey)
+}
+
+func assertUserSourceAbsent(t *testing.T, plan *persistence.MigrationPlan, sourceKey string) {
+	t.Helper()
+	for _, entry := range plan.Entries {
+		if entry.SourceKey == sourceKey {
+			t.Fatalf("expected source key %q to be absent", sourceKey)
+		}
 	}
 }
 

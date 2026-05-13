@@ -230,6 +230,49 @@ func TestSetup_RunsTableLifecycleHooks(t *testing.T) {
 	}
 }
 
+func TestVerifyServicesOAuthStorageSchemaDiagnostics(t *testing.T) {
+	ctx := context.Background()
+	client := newTestPersistenceClient(t)
+
+	err := VerifyServicesOAuthStorageSchema(ctx, client.DB())
+	if err == nil {
+		t.Fatalf("expected missing schema diagnostic")
+	}
+	for _, snippet := range []string{
+		"modules/services: go-services OAuth storage schema is incomplete",
+		"source-stable go-services migrations",
+		"service_connections",
+	} {
+		if !strings.Contains(err.Error(), snippet) {
+			t.Fatalf("expected diagnostic to contain %q, got %v", snippet, err)
+		}
+	}
+
+	if err := RegisterServiceMigrations(client); err != nil {
+		t.Fatalf("RegisterServiceMigrations: %v", err)
+	}
+	if err := client.Migrate(ctx); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if err := VerifyServicesOAuthStorageSchema(ctx, client.DB()); err != nil {
+		t.Fatalf("VerifyServicesOAuthStorageSchema after migrate: %v", err)
+	}
+}
+
+func TestRequiredServicesOAuthStorageTablesUseGoServicesList(t *testing.T) {
+	required := RequiredServicesOAuthStorageTables()
+	for _, table := range []string{
+		"service_connections",
+		"service_credentials",
+		"service_grant_events",
+		"service_grant_snapshots",
+	} {
+		if !containsString(required, table) {
+			t.Fatalf("expected required OAuth storage table %q in %v", table, required)
+		}
+	}
+}
+
 func TestSetup_MisconfigurationFailures(t *testing.T) {
 	client := newTestPersistenceClient(t)
 
