@@ -375,8 +375,8 @@ func newUserMigrationsPersistenceClient(t *testing.T) *persistence.Client {
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
 	t.Cleanup(func() {
-		if err := sqlDB.Close(); err != nil {
-			t.Errorf("close sqlite: %v", err)
+		if closeErr := sqlDB.Close(); closeErr != nil {
+			t.Errorf("close sqlite: %v", closeErr)
 		}
 	})
 
