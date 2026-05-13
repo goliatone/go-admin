@@ -185,7 +185,9 @@ func bootstrapESignPersistence(
 	}
 	store, storeCleanup, err := newESignRuntimeStore(bootstrapResult)
 	if err != nil {
-		_ = bootstrapResult.Close()
+		if closeErr := bootstrapResult.Close(); closeErr != nil {
+			err = fmt.Errorf("%w; close persistence bootstrap: %v", err, closeErr)
+		}
 		return nil, nil, nil, nil, nil, err
 	}
 	agreementStream := eventstream.New(eventstream.WithMatcher(eventstream.SubsetMatch))
@@ -549,7 +551,7 @@ func seedESignRuntimeFixtures(
 	if err != nil {
 		return stores.LineageFixtureSet{}, fixtures.LineageFixtureURLSet{}, err
 	}
-	if err := refreshESignRuntimeFixtureSearchIndex(ctx, module, fixtureSet); err != nil {
+	if err = refreshESignRuntimeFixtureSearchIndex(ctx, module, fixtureSet); err != nil {
 		return stores.LineageFixtureSet{}, fixtures.LineageFixtureURLSet{}, err
 	}
 	urls, err := fixtures.BuildLineageFixtureURLs(strings.TrimSpace(basePath), module.DefaultScope(), fixtureSet)

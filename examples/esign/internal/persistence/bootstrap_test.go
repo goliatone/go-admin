@@ -41,10 +41,16 @@ func newSQLiteMigrationClient(t *testing.T) (*persistence.Client, func()) {
 
 	client, err := persistence.New(testPersistenceConfig{driver: sqliteshim.ShimName, server: dsn}, sqlDB, sqlitedialect.New())
 	if err != nil {
-		_ = sqlDB.Close()
+		if closeErr := sqlDB.Close(); closeErr != nil {
+			t.Errorf("close sqlite after persistence.New failure: %v", closeErr)
+		}
 		t.Fatalf("persistence.New: %v", err)
 	}
-	return client, func() { _ = client.Close() }
+	return client, func() {
+		if err := client.Close(); err != nil {
+			t.Errorf("close persistence client: %v", err)
+		}
+	}
 }
 
 func TestRegisterOrderedSourcesDefaultOrder(t *testing.T) {
@@ -256,7 +262,11 @@ func TestBootstrapSQLiteRunsMigrationsAndReadiness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	defer func() { _ = result.Close() }()
+	defer func() {
+		if err := result.Close(); err != nil {
+			t.Errorf("close bootstrap result: %v", err)
+		}
+	}()
 
 	if result.Dialect != DialectSQLite {
 		t.Fatalf("expected sqlite dialect, got %q", result.Dialect)
@@ -380,7 +390,11 @@ func TestBootstrapSQLiteCreatesLineageLinkageColumns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Bootstrap: %v", err)
 	}
-	defer func() { _ = result.Close() }()
+	defer func() {
+		if err := result.Close(); err != nil {
+			t.Errorf("close bootstrap result: %v", err)
+		}
+	}()
 
 	requiredColumns := []struct {
 		table  string

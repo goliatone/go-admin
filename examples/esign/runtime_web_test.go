@@ -275,8 +275,8 @@ func TestRuntimeSignerReviewRoutesRedirectToCanonicalTokenKindPath(t *testing.T)
 }
 
 func TestRuntimeSenderAgreementViewerPermissionDeniedRendersHTMLPage(t *testing.T) {
-	_ = commandregistry.Stop(context.Background())
-	t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+	stopCommandRegistryForTest(t)
+	t.Cleanup(func() { stopCommandRegistryForTest(t) })
 
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
 	applyESignRuntimeDefaults(&cfg)
@@ -315,7 +315,7 @@ func TestRuntimeSenderAgreementViewerPermissionDeniedRendersHTMLPage(t *testing.
 	resp := doRequest(t, app, http.MethodGet, "/admin/esign/agreements/agreement-1/view", "", nil)
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body := readHTTPResponseBody(t, resp)
 		t.Fatalf("expected sender viewer permission error page status 200, got %d body=%s", resp.StatusCode, body)
 	}
 	if contentType := strings.TrimSpace(resp.Header.Get("Content-Type")); !strings.Contains(contentType, "text/html") {
@@ -406,7 +406,7 @@ func TestRuntimeGoogleIntegrationUIRoutesRenderWhenEnabled(t *testing.T) {
 	integrationResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign/integrations/google", authCookie)
 	defer closeHTTPResponseBody(t, integrationResp)
 	if integrationResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(integrationResp.Body)
+		body := readHTTPResponseBody(t, integrationResp)
 		t.Fatalf("expected /admin/esign/integrations/google status 200, got %d body=%s", integrationResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	integrationBody, err := io.ReadAll(integrationResp.Body)
@@ -420,7 +420,7 @@ func TestRuntimeGoogleIntegrationUIRoutesRenderWhenEnabled(t *testing.T) {
 	callbackResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign/integrations/google/callback", authCookie)
 	defer closeHTTPResponseBody(t, callbackResp)
 	if callbackResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(callbackResp.Body)
+		body := readHTTPResponseBody(t, callbackResp)
 		t.Fatalf("expected /admin/esign/integrations/google/callback status 200, got %d body=%s", callbackResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	callbackBody, err := io.ReadAll(callbackResp.Body)
@@ -434,7 +434,7 @@ func TestRuntimeGoogleIntegrationUIRoutesRenderWhenEnabled(t *testing.T) {
 	pickerResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/esign/integrations/google/drive", authCookie)
 	defer closeHTTPResponseBody(t, pickerResp)
 	if pickerResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(pickerResp.Body)
+		body := readHTTPResponseBody(t, pickerResp)
 		t.Fatalf("expected /admin/esign/integrations/google/drive status 200, got %d body=%s", pickerResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	pickerBody, err := io.ReadAll(pickerResp.Body)
@@ -455,7 +455,7 @@ func TestRuntimeGoogleIntegrationCallbackRouteAccessibleWithoutAuthCookie(t *tes
 	callbackResp := doRequest(t, app, http.MethodGet, "/admin/esign/integrations/google/callback?code=test-code", "", nil)
 	defer closeHTTPResponseBody(t, callbackResp)
 	if callbackResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(callbackResp.Body)
+		body := readHTTPResponseBody(t, callbackResp)
 		t.Fatalf("expected public callback route status 200, got %d body=%s", callbackResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	callbackBody, err := io.ReadAll(callbackResp.Body)
@@ -486,7 +486,7 @@ func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testin
 	initialResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents/new", authCookie)
 	defer closeHTTPResponseBody(t, initialResp)
 	if initialResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(initialResp.Body)
+		body := readHTTPResponseBody(t, initialResp)
 		t.Fatalf("expected /admin/content/esign_documents/new status 200, got %d body=%s", initialResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	initialBody, err := io.ReadAll(initialResp.Body)
@@ -522,14 +522,14 @@ func TestRuntimeNewDocumentRouteInjectsGoogleIngestionFlagsWhenEnabled(t *testin
 	)
 	defer closeHTTPResponseBody(t, connectResp)
 	if connectResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(connectResp.Body)
+		body := readHTTPResponseBody(t, connectResp)
 		t.Fatalf("expected google connect status 200, got %d body=%s", connectResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	connectedResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents/new?source=google", authCookie)
 	defer closeHTTPResponseBody(t, connectedResp)
 	if connectedResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(connectedResp.Body)
+		body := readHTTPResponseBody(t, connectedResp)
 		t.Fatalf("expected connected new-document status 200, got %d body=%s", connectedResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	connectedBody, err := io.ReadAll(connectedResp.Body)
@@ -558,7 +558,7 @@ func TestRuntimeNewDocumentRouteConfigReflectsGoogleFeatureGateWhenDisabled(t *t
 	resp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents/new?source=google", authCookie)
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body := readHTTPResponseBody(t, resp)
 		t.Fatalf("expected /admin/content/esign_documents/new status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	body, err := io.ReadAll(resp.Body)
@@ -585,7 +585,7 @@ func TestRuntimeDocumentUploadFlowSupportsCanonicalBrowserRoute(t *testing.T) {
 	pageResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/documents/new?"+query, authCookie)
 	defer closeHTTPResponseBody(t, pageResp)
 	if pageResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(pageResp.Body)
+		body := readHTTPResponseBody(t, pageResp)
 		t.Fatalf("expected canonical document route status 200, got %d body=%s", pageResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	pageBody, err := io.ReadAll(pageResp.Body)
@@ -621,7 +621,7 @@ func TestRuntimeDocumentUploadFlowSupportsCanonicalBrowserRoute(t *testing.T) {
 	)
 	defer closeHTTPResponseBody(t, uploadResp)
 	if uploadResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(uploadResp.Body)
+		body := readHTTPResponseBody(t, uploadResp)
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	uploadPayload := map[string]any{}
@@ -645,7 +645,7 @@ func TestRuntimeDocumentUploadFlowSupportsCanonicalBrowserRoute(t *testing.T) {
 	)
 	defer closeHTTPResponseBody(t, createResp)
 	if createResp.StatusCode != http.StatusFound {
-		body, _ := io.ReadAll(createResp.Body)
+		body := readHTTPResponseBody(t, createResp)
 		t.Fatalf("expected canonical document create redirect 302, got %d body=%s", createResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 }
@@ -666,7 +666,7 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin", authCookie)
 	defer closeHTTPResponseBody(t, landingResp)
 	if landingResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(landingResp.Body)
+		body := readHTTPResponseBody(t, landingResp)
 		t.Fatalf("expected /admin status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	landingBody, err := io.ReadAll(landingResp.Body)
@@ -689,7 +689,7 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	docResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents/new", authCookie)
 	defer closeHTTPResponseBody(t, docResp)
 	if docResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(docResp.Body)
+		body := readHTTPResponseBody(t, docResp)
 		t.Fatalf("expected /admin/content/esign_documents/new status 200, got %d body=%s", docResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	docBody, err := io.ReadAll(docResp.Body)
@@ -709,7 +709,7 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	agreementResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_agreements/new", authCookie)
 	defer closeHTTPResponseBody(t, agreementResp)
 	if agreementResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(agreementResp.Body)
+		body := readHTTPResponseBody(t, agreementResp)
 		t.Fatalf("expected /admin/content/esign_agreements/new status 200, got %d body=%s", agreementResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	agreementBody, err := io.ReadAll(agreementResp.Body)
@@ -735,25 +735,25 @@ func TestRuntimeMigratedPagesExposeValidatedESignModuleAssets(t *testing.T) {
 	landingAssetResp := doRequest(t, app, http.MethodGet, landingModulePath, "", nil)
 	defer closeHTTPResponseBody(t, landingAssetResp)
 	if landingAssetResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(landingAssetResp.Body)
+		body := readHTTPResponseBody(t, landingAssetResp)
 		t.Fatalf("expected landing module asset status 200, got %d body=%s", landingAssetResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	docAssetResp := doRequest(t, app, http.MethodGet, docModulePath, "", nil)
 	defer closeHTTPResponseBody(t, docAssetResp)
 	if docAssetResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(docAssetResp.Body)
+		body := readHTTPResponseBody(t, docAssetResp)
 		t.Fatalf("expected document-ingestion module asset status 200, got %d body=%s", docAssetResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	agreementAssetResp := doRequest(t, app, http.MethodGet, agreementModulePath, "", nil)
 	defer closeHTTPResponseBody(t, agreementAssetResp)
 	if agreementAssetResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(agreementAssetResp.Body)
+		body := readHTTPResponseBody(t, agreementAssetResp)
 		t.Fatalf("expected agreement-form module asset status 200, got %d body=%s", agreementAssetResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	syncCoreResp := doRequest(t, app, http.MethodGet, "/admin/sync-client/sync-core/index.js", "", nil)
 	defer closeHTTPResponseBody(t, syncCoreResp)
 	if syncCoreResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(syncCoreResp.Body)
+		body := readHTTPResponseBody(t, syncCoreResp)
 		t.Fatalf("expected sync-core asset status 200, got %d body=%s", syncCoreResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	syncCoreBody, err := io.ReadAll(syncCoreResp.Body)
@@ -830,7 +830,7 @@ func TestRuntimeAgreementEditPageConfigParsesWithPopulatedParticipantsAndFields(
 	editResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_agreements/"+agreementID+"/edit?"+query, authCookie)
 	defer closeHTTPResponseBody(t, editResp)
 	if editResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(editResp.Body)
+		body := readHTTPResponseBody(t, editResp)
 		t.Fatalf("expected agreement edit status 200, got %d body=%s", editResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	editBody, err := io.ReadAll(editResp.Body)
@@ -906,7 +906,7 @@ func TestRuntimeAgreementDetailReviewBootstrapParsesWithRecipientAndExternalRevi
 	detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?"+query, authCookie)
 	defer closeHTTPResponseBody(t, detailResp)
 	if detailResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(detailResp.Body)
+		body := readHTTPResponseBody(t, detailResp)
 		t.Fatalf("expected agreement detail status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	detailPayload := map[string]any{}
@@ -914,13 +914,7 @@ func TestRuntimeAgreementDetailReviewBootstrapParsesWithRecipientAndExternalRevi
 	if err != nil {
 		t.Fatalf("decode agreement detail payload: %v", err)
 	}
-	record, _ := detailPayload["record"].(map[string]any)
-	if record == nil {
-		record, _ = detailPayload["data"].(map[string]any)
-	}
-	if record == nil {
-		record = detailPayload
-	}
+	record := panelRecordFromPayload(detailPayload)
 	recipientID := firstNestedID(record, "recipients")
 	if recipientID == "" {
 		t.Fatalf("expected recipient id in agreement detail payload: %+v", detailPayload)
@@ -960,14 +954,14 @@ func TestRuntimeAgreementDetailReviewBootstrapParsesWithRecipientAndExternalRevi
 	)
 	defer closeHTTPResponseBody(t, requestReviewResp)
 	if requestReviewResp.StatusCode != http.StatusAccepted && requestReviewResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(requestReviewResp.Body)
+		body := readHTTPResponseBody(t, requestReviewResp)
 		t.Fatalf("expected request review action status 200/202, got %d body=%s", requestReviewResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	pageResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_agreements/"+agreementID+"?"+query, authCookie)
 	defer closeHTTPResponseBody(t, pageResp)
 	if pageResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(pageResp.Body)
+		body := readHTTPResponseBody(t, pageResp)
 		t.Fatalf("expected agreement detail page status 200, got %d body=%s", pageResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	pageBody, err := io.ReadAll(pageResp.Body)
@@ -1037,11 +1031,11 @@ func TestRuntimeSeededLineageDetailAPIsExposeSlice4Contracts(t *testing.T) {
 	documentResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_documents/"+fixtureSet.ImportedDocumentID+"?"+query, authCookie)
 	defer closeHTTPResponseBody(t, documentResp)
 	if documentResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(documentResp.Body)
+		body := readHTTPResponseBody(t, documentResp)
 		t.Fatalf("expected document detail status 200, got %d body=%s", documentResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	documentPayload := map[string]any{}
-	documentBody, _ := io.ReadAll(documentResp.Body)
+	documentBody := readHTTPResponseBody(t, documentResp)
 	if err := json.Unmarshal(documentBody, &documentPayload); err != nil {
 		t.Fatalf("decode document detail payload: %v body=%s", err, strings.TrimSpace(string(documentBody)))
 	}
@@ -1061,11 +1055,11 @@ func TestRuntimeSeededLineageDetailAPIsExposeSlice4Contracts(t *testing.T) {
 	agreementResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+fixtureSet.ImportedAgreementID+"?"+query, authCookie)
 	defer closeHTTPResponseBody(t, agreementResp)
 	if agreementResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(agreementResp.Body)
+		body := readHTTPResponseBody(t, agreementResp)
 		t.Fatalf("expected agreement detail status 200, got %d body=%s", agreementResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	agreementPayload := map[string]any{}
-	agreementBody, _ := io.ReadAll(agreementResp.Body)
+	agreementBody := readHTTPResponseBody(t, agreementResp)
 	if err := json.Unmarshal(agreementBody, &agreementPayload); err != nil {
 		t.Fatalf("decode agreement detail payload: %v body=%s", err, strings.TrimSpace(string(agreementBody)))
 	}
@@ -1216,7 +1210,7 @@ func TestRuntimeAgreementEditPageRedirectsNonDraftAgreementToDetail(t *testing.T
 	)
 	defer closeHTTPResponseBody(t, sendResp)
 	if sendResp.StatusCode != http.StatusAccepted {
-		body, _ := io.ReadAll(sendResp.Body)
+		body := readHTTPResponseBody(t, sendResp)
 		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -1226,11 +1220,11 @@ func TestRuntimeAgreementEditPageRedirectsNonDraftAgreementToDetail(t *testing.T
 		record := map[string]any{}
 		if detailResp.StatusCode == http.StatusOK {
 			payload := map[string]any{}
-			_ = json.NewDecoder(detailResp.Body).Decode(&payload)
-			record, _ = payload["data"].(map[string]any)
-			if record == nil {
-				record, _ = payload["record"].(map[string]any)
+			if err := json.NewDecoder(detailResp.Body).Decode(&payload); err != nil {
+				closeHTTPResponseBody(t, detailResp)
+				t.Fatalf("decode agreement detail payload: %v", err)
 			}
+			record = panelRecordFromPayload(payload)
 		}
 		closeHTTPResponseBody(t, detailResp)
 		if strings.EqualFold(strings.TrimSpace(fmt.Sprint(record["status"])), stores.AgreementStatusSent) {
@@ -1328,7 +1322,7 @@ func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
 	newDocumentResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/content/esign_documents/new", authCookie)
 	defer closeHTTPResponseBody(t, newDocumentResp)
 	if newDocumentResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(newDocumentResp.Body)
+		body := readHTTPResponseBody(t, newDocumentResp)
 		t.Fatalf("expected /admin/content/esign_documents/new status 200, got %d body=%s", newDocumentResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -1351,7 +1345,7 @@ func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
 		t.Fatalf("expected agreement create form action to target /admin/content/esign_agreements")
 	}
 
-	statsReq := httptest.NewRequest(http.MethodGet, "https://localhost:8082/admin/api/v1/esign/agreements/stats", nil)
+	statsReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "https://localhost:8082/admin/api/v1/esign/agreements/stats", nil)
 	statsReq.Host = "localhost:8082"
 	if authCookie != nil {
 		statsReq.AddCookie(authCookie)
@@ -1368,7 +1362,7 @@ func TestRuntimeLoginUnlocksAdminShellAndLandingRoute(t *testing.T) {
 	dashboardAPIResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/dashboard", authCookie)
 	defer closeHTTPResponseBody(t, dashboardAPIResp)
 	if dashboardAPIResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(dashboardAPIResp.Body)
+		body := readHTTPResponseBody(t, dashboardAPIResp)
 		t.Fatalf("expected /admin/api/v1/dashboard status 200, got %d body=%s", dashboardAPIResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 }
@@ -1407,7 +1401,7 @@ func TestRuntimeLandingRendersRecentAgreementsFromStoreData(t *testing.T) {
 	landingResp := doRequestWithCookie(t, app, http.MethodGet, "/admin?"+query, authCookie)
 	defer closeHTTPResponseBody(t, landingResp)
 	if landingResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(landingResp.Body)
+		body := readHTTPResponseBody(t, landingResp)
 		t.Fatalf("expected /admin status 200, got %d body=%s", landingResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	landingBody, err := io.ReadAll(landingResp.Body)
@@ -1460,7 +1454,7 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 	)
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		payload, _ := io.ReadAll(resp.Body)
+		payload := readHTTPResponseBody(t, resp)
 		t.Fatalf("expected upload status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(payload)))
 	}
 	payload := map[string]any{}
@@ -1471,7 +1465,11 @@ func TestRuntimeESignDocumentUploadEndpointStoresPDFAndReturnsObjectKey(t *testi
 	if objectKey == "" {
 		t.Fatalf("expected object_key in upload response, got %+v", payload)
 	}
-	if matched, _ := regexp.MatchString(`^tenant/[^/]+/org/[^/]+/docs/`, objectKey); !matched {
+	matched, err := regexp.MatchString(`^tenant/[^/]+/org/[^/]+/docs/`, objectKey)
+	if err != nil {
+		t.Fatalf("match scoped object key: %v", err)
+	}
+	if !matched {
 		t.Fatalf("expected tenant/org scoped object key, got %q", objectKey)
 	}
 	if strings.TrimSpace(fmt.Sprint(payload["url"])) == "" {
@@ -1604,7 +1602,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	)
 	defer closeHTTPResponseBody(t, uploadResp)
 	if uploadResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(uploadResp.Body)
+		body := readHTTPResponseBody(t, uploadResp)
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	uploadPayload := map[string]any{}
@@ -1633,7 +1631,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	)
 	defer closeHTTPResponseBody(t, createDocumentResp)
 	if createDocumentResp.StatusCode != http.StatusFound {
-		body, _ := io.ReadAll(createDocumentResp.Body)
+		body := readHTTPResponseBody(t, createDocumentResp)
 		t.Fatalf("expected document create redirect 302, got %d body=%s", createDocumentResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	documentLocation := strings.TrimSpace(createDocumentResp.Header.Get("Location"))
@@ -1668,7 +1666,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	)
 	defer closeHTTPResponseBody(t, createAgreementResp)
 	if createAgreementResp.StatusCode != http.StatusFound {
-		body, _ := io.ReadAll(createAgreementResp.Body)
+		body := readHTTPResponseBody(t, createAgreementResp)
 		t.Fatalf("expected agreement create redirect 302, got %d body=%s", createAgreementResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	agreementLocation := strings.TrimSpace(createAgreementResp.Header.Get("Location"))
@@ -1680,7 +1678,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?"+query, authCookie)
 	defer closeHTTPResponseBody(t, detailResp)
 	if detailResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(detailResp.Body)
+		body := readHTTPResponseBody(t, detailResp)
 		t.Fatalf("expected agreement detail status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	detailPayload := map[string]any{}
@@ -1689,13 +1687,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 		t.Fatalf("decode agreement detail payload: %v", err)
 	}
 
-	record, _ := detailPayload["record"].(map[string]any)
-	if record == nil {
-		record, _ = detailPayload["data"].(map[string]any)
-	}
-	if record == nil {
-		record = detailPayload
-	}
+	record := panelRecordFromPayload(detailPayload)
 	recipientID := firstNestedID(record, "recipients")
 	signatureFieldID := firstSignatureFieldID(record)
 	if recipientID == "" {
@@ -1716,7 +1708,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	)
 	defer closeHTTPResponseBody(t, sendResp)
 	if sendResp.StatusCode != http.StatusAccepted {
-		body, _ := io.ReadAll(sendResp.Body)
+		body := readHTTPResponseBody(t, sendResp)
 		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	drainRuntimeNotificationOutboxes(t, fixture, scope)
@@ -1726,7 +1718,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	reviewPageResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken), "", nil)
 	defer closeHTTPResponseBody(t, reviewPageResp)
 	if reviewPageResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(reviewPageResp.Body)
+		body := readHTTPResponseBody(t, reviewPageResp)
 		t.Fatalf("expected signer review page status 200, got %d body=%s", reviewPageResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	reviewPageBody, err := io.ReadAll(reviewPageResp.Body)
@@ -1747,13 +1739,13 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	assetsCSSResp := doRequest(t, app, http.MethodGet, "/admin/assets/output.css", "", nil)
 	defer closeHTTPResponseBody(t, assetsCSSResp)
 	if assetsCSSResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(assetsCSSResp.Body)
+		body := readHTTPResponseBody(t, assetsCSSResp)
 		t.Fatalf("expected /admin/assets/output.css status 200, got %d body=%s", assetsCSSResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	assetsToastResp := doRequest(t, app, http.MethodGet, "/admin/assets/dist/toast/init.js", "", nil)
 	defer closeHTTPResponseBody(t, assetsToastResp)
 	if assetsToastResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(assetsToastResp.Body)
+		body := readHTTPResponseBody(t, assetsToastResp)
 		t.Fatalf("expected /admin/assets/dist/toast/init.js status 200, got %d body=%s", assetsToastResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -1768,7 +1760,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	)
 	defer closeHTTPResponseBody(t, consentResp)
 	if consentResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(consentResp.Body)
+		body := readHTTPResponseBody(t, consentResp)
 		t.Fatalf("expected signer consent status 200, got %d body=%s", consentResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -1790,7 +1782,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	)
 	defer closeHTTPResponseBody(t, signatureResp)
 	if signatureResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(signatureResp.Body)
+		body := readHTTPResponseBody(t, signatureResp)
 		t.Fatalf("expected signer signature status 200, got %d body=%s", signatureResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -1808,7 +1800,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	)
 	defer closeHTTPResponseBody(t, submitResp)
 	if submitResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(submitResp.Body)
+		body := readHTTPResponseBody(t, submitResp)
 		t.Fatalf("expected signer submit status 200, got %d body=%s", submitResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	submitBody, err := io.ReadAll(submitResp.Body)
@@ -1822,7 +1814,7 @@ func TestRuntimeSignerWebE2ERecipientJourneyFromSignLinkToSubmit(t *testing.T) {
 	completePageResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken)+"/complete", "", nil)
 	defer closeHTTPResponseBody(t, completePageResp)
 	if completePageResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(completePageResp.Body)
+		body := readHTTPResponseBody(t, completePageResp)
 		t.Fatalf("expected signer complete page status 200, got %d body=%s", completePageResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	completeBody, err := io.ReadAll(completePageResp.Body)
@@ -1890,7 +1882,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, uploadResp)
 	if uploadResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(uploadResp.Body)
+		body := readHTTPResponseBody(t, uploadResp)
 		t.Fatalf("expected upload status 200, got %d body=%s", uploadResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	uploadPayload := map[string]any{}
@@ -1918,7 +1910,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, createDocumentResp)
 	if createDocumentResp.StatusCode != http.StatusFound {
-		body, _ := io.ReadAll(createDocumentResp.Body)
+		body := readHTTPResponseBody(t, createDocumentResp)
 		t.Fatalf("expected document create redirect 302, got %d body=%s", createDocumentResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	documentID := parseIDFromLocation("/admin/content/esign_documents/", strings.TrimSpace(createDocumentResp.Header.Get("Location")))
@@ -1963,7 +1955,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, createAgreementResp)
 	if createAgreementResp.StatusCode != http.StatusFound {
-		body, _ := io.ReadAll(createAgreementResp.Body)
+		body := readHTTPResponseBody(t, createAgreementResp)
 		t.Fatalf("expected agreement create redirect 302, got %d body=%s", createAgreementResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	agreementID := parseIDFromLocation("/admin/content/esign_agreements/", strings.TrimSpace(createAgreementResp.Header.Get("Location")))
@@ -1974,7 +1966,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	detailResp := doRequestWithCookie(t, app, http.MethodGet, "/admin/api/v1/panels/esign_agreements/"+agreementID+"?"+query, authCookie)
 	defer closeHTTPResponseBody(t, detailResp)
 	if detailResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(detailResp.Body)
+		body := readHTTPResponseBody(t, detailResp)
 		t.Fatalf("expected agreement detail status 200, got %d body=%s", detailResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	detailPayload := map[string]any{}
@@ -1982,13 +1974,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	if err != nil {
 		t.Fatalf("decode agreement detail payload: %v", err)
 	}
-	record, _ := detailPayload["record"].(map[string]any)
-	if record == nil {
-		record, _ = detailPayload["data"].(map[string]any)
-	}
-	if record == nil {
-		record = detailPayload
-	}
+	record := panelRecordFromPayload(detailPayload)
 	recipientID := firstNestedID(record, "recipients")
 	textFieldID := firstFieldIDByType(record, "text")
 	signatureFieldID := firstFieldIDByType(record, "signature")
@@ -2007,7 +1993,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, sendResp)
 	if sendResp.StatusCode != http.StatusAccepted {
-		body, _ := io.ReadAll(sendResp.Body)
+		body := readHTTPResponseBody(t, sendResp)
 		t.Fatalf("expected send action status 202, got %d body=%s", sendResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	drainRuntimeNotificationOutboxes(t, fixture, scope)
@@ -2017,7 +2003,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	entryResp := doRequest(t, app, http.MethodGet, "/sign/"+url.PathEscape(signerToken), "", nil)
 	defer closeHTTPResponseBody(t, entryResp)
 	if entryResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(entryResp.Body)
+		body := readHTTPResponseBody(t, entryResp)
 		t.Fatalf("expected signer unified review page status 200, got %d body=%s", entryResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	if location := strings.TrimSpace(entryResp.Header.Get("Location")); location != "" {
@@ -2080,7 +2066,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, sessionResp)
 	if sessionResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(sessionResp.Body)
+		body := readHTTPResponseBody(t, sessionResp)
 		t.Fatalf("expected signer session API status 200, got %d body=%s", sessionResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	sessionPayload, err := io.ReadAll(sessionResp.Body)
@@ -2105,7 +2091,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, consentResp)
 	if consentResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(consentResp.Body)
+		body := readHTTPResponseBody(t, consentResp)
 		t.Fatalf("expected signer consent status 200, got %d body=%s", consentResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -2120,7 +2106,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, fieldValueResp)
 	if fieldValueResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(fieldValueResp.Body)
+		body := readHTTPResponseBody(t, fieldValueResp)
 		t.Fatalf("expected signer field-values status 200, got %d body=%s", fieldValueResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -2142,7 +2128,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, signatureResp)
 	if signatureResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(signatureResp.Body)
+		body := readHTTPResponseBody(t, signatureResp)
 		t.Fatalf("expected signer signature status 200, got %d body=%s", signatureResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
@@ -2160,7 +2146,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, submitResp)
 	if submitResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(submitResp.Body)
+		body := readHTTPResponseBody(t, submitResp)
 		t.Fatalf("expected signer submit status 200, got %d body=%s", submitResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	submitBody, err := io.ReadAll(submitResp.Body)
@@ -2185,7 +2171,7 @@ func TestRuntimeSignerWebE2EUnifiedFlowConsentFieldSignatureSubmit(t *testing.T)
 	)
 	defer closeHTTPResponseBody(t, replayResp)
 	if replayResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(replayResp.Body)
+		body := readHTTPResponseBody(t, replayResp)
 		t.Fatalf("expected signer submit replay status 200, got %d body=%s", replayResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 }
@@ -2299,13 +2285,19 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 		t.Helper()
 	}
 	setESignRuntimeTestConfig(googleEnabled)
-	_ = commandregistry.Stop(context.Background())
+	if err := stopCommandRegistry(); err != nil {
+		return eSignRuntimeWebFixture{}, fmt.Errorf("stop command registry: %w", err)
+	}
 	bootstrapResult, err := esignpersistence.Bootstrap(context.Background(), appcfg.Active())
 	if err != nil {
 		return eSignRuntimeWebFixture{}, fmt.Errorf("bootstrap persistence: %w", err)
 	}
 	if t != nil {
-		t.Cleanup(func() { _ = bootstrapResult.Close() })
+		t.Cleanup(func() {
+			if err := bootstrapResult.Close(); err != nil {
+				t.Errorf("close persistence bootstrap: %v", err)
+			}
+		})
 	}
 
 	cfg := quickstart.NewAdminConfig("/admin", "E-Sign Test", "en")
@@ -2348,7 +2340,11 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 		return eSignRuntimeWebFixture{}, fmt.Errorf("new runtime store from bootstrap: %w", err)
 	}
 	if t != nil && storeCleanup != nil {
-		t.Cleanup(func() { _ = storeCleanup() })
+		t.Cleanup(func() {
+			if err := storeCleanup(); err != nil {
+				t.Errorf("close runtime store: %v", err)
+			}
+		})
 	}
 	if opts.StoreWrap != nil {
 		bootstrapStore = opts.StoreWrap(bootstrapStore)
@@ -2358,7 +2354,7 @@ func newESignRuntimeWebFixtureForTestsWithOptions(t *testing.T, googleEnabled bo
 		WithStore(bootstrapStore)
 	if t != nil {
 		t.Cleanup(func() { esignModule.Close() })
-		t.Cleanup(func() { _ = commandregistry.Stop(context.Background()) })
+		t.Cleanup(func() { stopCommandRegistryForTest(t) })
 	}
 	err = adm.RegisterModule(esignModule)
 	if err != nil {
@@ -2563,6 +2559,17 @@ func getESignConfigModulePath(payload map[string]any) string {
 	return strings.TrimSpace(fmt.Sprint(payload["module_path"]))
 }
 
+func stopCommandRegistryForTest(t *testing.T) {
+	t.Helper()
+	if err := stopCommandRegistry(); err != nil {
+		t.Fatalf("stop command registry: %v", err)
+	}
+}
+
+func stopCommandRegistry() error {
+	return commandregistry.Stop(context.Background())
+}
+
 func assertRedirect(t *testing.T, app *fiber.App, method, endpoint, expectedLocation string) {
 	t.Helper()
 	resp := doRequest(t, app, method, endpoint, "", nil)
@@ -2594,7 +2601,7 @@ func assertStatusWithCookie(t *testing.T, app *fiber.App, cookie *http.Cookie, m
 	resp := doRequestWithCookie(t, app, method, endpoint, cookie)
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != expectedStatus {
-		body, _ := io.ReadAll(resp.Body)
+		body := readHTTPResponseBody(t, resp)
 		t.Fatalf("expected %s %s status %d, got %d body=%s", method, endpoint, expectedStatus, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 }
@@ -2610,7 +2617,7 @@ func doRequest(t *testing.T, app *fiber.App, method, endpoint, contentType strin
 		}
 	}
 	reqBody := bytes.NewReader(payload)
-	req := httptest.NewRequest(method, endpoint, reqBody)
+	req := httptest.NewRequestWithContext(context.Background(), method, endpoint, reqBody)
 	prepareRuntimeTestRequest(req)
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -2622,7 +2629,7 @@ func doRequest(t *testing.T, app *fiber.App, method, endpoint, contentType strin
 			t.Fatalf("parse login form payload: %v", err)
 		}
 		values.Set("_token", csrfToken)
-		req = httptest.NewRequest(method, endpoint, strings.NewReader(values.Encode()))
+		req = httptest.NewRequestWithContext(context.Background(), method, endpoint, strings.NewReader(values.Encode()))
 		prepareRuntimeTestRequest(req)
 		req.Header.Set("Content-Type", contentType)
 		for _, cookie := range cookies {
@@ -2655,7 +2662,7 @@ func shouldAttachLoginCSRF(method, endpoint, contentType string, payload []byte)
 
 func fetchLoginCSRFState(t *testing.T, app *fiber.App) (string, []*http.Cookie) {
 	t.Helper()
-	loginPageReq := httptest.NewRequest(http.MethodGet, "/admin/login", nil)
+	loginPageReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/login", nil)
 	prepareRuntimeTestRequest(loginPageReq)
 	loginPageResp, err := app.Test(loginPageReq, -1)
 	if err != nil {
@@ -2663,7 +2670,7 @@ func fetchLoginCSRFState(t *testing.T, app *fiber.App) (string, []*http.Cookie) 
 	}
 	defer closeHTTPResponseBody(t, loginPageResp)
 	if loginPageResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(loginPageResp.Body)
+		body := readHTTPResponseBody(t, loginPageResp)
 		t.Fatalf("expected login page status 200, got %d body=%s", loginPageResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	loginPageBody, err := io.ReadAll(loginPageResp.Body)
@@ -2679,7 +2686,7 @@ func fetchLoginCSRFState(t *testing.T, app *fiber.App) (string, []*http.Cookie) 
 
 func doRequestWithCookie(t *testing.T, app *fiber.App, method, endpoint string, cookie *http.Cookie) *http.Response {
 	t.Helper()
-	req := httptest.NewRequest(method, endpoint, nil)
+	req := httptest.NewRequestWithContext(context.Background(), method, endpoint, nil)
 	prepareRuntimeTestRequest(req)
 	if cookie != nil {
 		req.AddCookie(cookie)
@@ -2717,7 +2724,7 @@ func doRequestWithCookieAndBody(t *testing.T, app *fiber.App, cookie *http.Cooki
 			payload = []byte(values.Encode())
 		}
 	}
-	req := httptest.NewRequest(method, endpoint, bytes.NewReader(payload))
+	req := httptest.NewRequestWithContext(context.Background(), method, endpoint, bytes.NewReader(payload))
 	prepareRuntimeTestRequest(req)
 	if cookie != nil {
 		req.AddCookie(cookie)
@@ -2771,7 +2778,7 @@ func fetchRuntimeBrowserCSRFState(t *testing.T, app *fiber.App, cookie *http.Coo
 	pageResp := doRequestWithCookie(t, app, http.MethodGet, pagePath, cookie)
 	defer closeHTTPResponseBody(t, pageResp)
 	if pageResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(pageResp.Body)
+		body := readHTTPResponseBody(t, pageResp)
 		t.Fatalf("expected browser form page status 200, got %d body=%s", pageResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	pageBody, err := io.ReadAll(pageResp.Body)
@@ -2825,7 +2832,7 @@ func runtimeBrowserFormCSRFPagePath(endpoint string) string {
 
 func doRequestWithBody(t *testing.T, app *fiber.App, method, endpoint, contentType string, body io.Reader, headers map[string]string) *http.Response {
 	t.Helper()
-	req := httptest.NewRequest(method, endpoint, body)
+	req := httptest.NewRequestWithContext(context.Background(), method, endpoint, body)
 	prepareRuntimeTestRequest(req)
 	if strings.TrimSpace(contentType) != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -2892,7 +2899,7 @@ func loginESignRuntimeBrowserUser(t *testing.T, app *fiber.App) *http.Cookie {
 	form.Set("_token", csrfToken)
 	form.Set("identifier", defaultESignDemoAdminEmail)
 	form.Set("password", defaultESignDemoAdminPassword)
-	loginReq := httptest.NewRequest(http.MethodPost, "/admin/login", strings.NewReader(form.Encode()))
+	loginReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/admin/login", strings.NewReader(form.Encode()))
 	prepareRuntimeTestRequest(loginReq)
 	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	for _, cookie := range cookies {
@@ -2905,7 +2912,7 @@ func loginESignRuntimeBrowserUser(t *testing.T, app *fiber.App) *http.Cookie {
 	defer closeHTTPResponseBody(t, loginResp)
 	authCookie := firstAuthCookie(loginResp)
 	if authCookie == nil {
-		body, _ := io.ReadAll(loginResp.Body)
+		body := readHTTPResponseBody(t, loginResp)
 		t.Fatalf("expected auth cookie after login, got status %d body=%s", loginResp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	return authCookie
@@ -2913,7 +2920,7 @@ func loginESignRuntimeBrowserUser(t *testing.T, app *fiber.App) *http.Cookie {
 
 func createPanelRecordWithCookie(t *testing.T, app *fiber.App, cookie *http.Cookie, endpoint string, payload map[string]any) string {
 	t.Helper()
-	body, _ := json.Marshal(payload)
+	body := marshalJSONForTest(t, payload)
 	resp := doRequestWithCookieAndBody(
 		t,
 		app,
@@ -2925,11 +2932,11 @@ func createPanelRecordWithCookie(t *testing.T, app *fiber.App, cookie *http.Cook
 	)
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody := readHTTPResponseBody(t, resp)
 		t.Fatalf("expected create status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(respBody)))
 	}
 	out := map[string]any{}
-	rawBody, _ := io.ReadAll(resp.Body)
+	rawBody := readHTTPResponseBody(t, resp)
 	if err := json.Unmarshal(rawBody, &out); err != nil {
 		t.Fatalf("decode create payload: %v body=%s", err, strings.TrimSpace(string(rawBody)))
 	}
@@ -2951,11 +2958,11 @@ func fetchPanelLineagePayload(t *testing.T, app *fiber.App, cookie *http.Cookie,
 	resp := doRequestWithCookie(t, app, http.MethodGet, endpoint, cookie)
 	defer closeHTTPResponseBody(t, resp)
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body := readHTTPResponseBody(t, resp)
 		t.Fatalf("expected lineage detail status 200, got %d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	payload := map[string]any{}
-	rawBody, _ := io.ReadAll(resp.Body)
+	rawBody := readHTTPResponseBody(t, resp)
 	if err := json.Unmarshal(rawBody, &payload); err != nil {
 		t.Fatalf("decode lineage detail payload: %v body=%s", err, strings.TrimSpace(string(rawBody)))
 	}
@@ -2967,6 +2974,19 @@ func fetchPanelLineagePayload(t *testing.T, app *fiber.App, cookie *http.Cookie,
 		t.Fatalf("expected lineage object, got %+v", payload["lineage"])
 	}
 	return lineage
+}
+
+func panelRecordFromPayload(payload map[string]any) map[string]any {
+	if payload == nil {
+		return map[string]any{}
+	}
+	if record, ok := payload["record"].(map[string]any); ok && record != nil {
+		return record
+	}
+	if record, ok := payload["data"].(map[string]any); ok && record != nil {
+		return record
+	}
+	return payload
 }
 
 func parseIDFromLocation(prefix, location string) string {
