@@ -32,7 +32,7 @@ require (
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-persistence-bun v0.16.0
 	github.com/goliatone/go-router v0.57.0
-	github.com/goliatone/go-search v0.7.0
+	github.com/goliatone/go-search v0.8.0
 	github.com/goliatone/go-template v0.3.1
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
@@ -206,7 +206,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
-	golang.org/x/net v0.52.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/time v0.15.0 // indirect

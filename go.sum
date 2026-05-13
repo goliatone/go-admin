@@ -222,6 +222,8 @@ github.com/goliatone/go-router v0.57.0 h1:kDSB4/t6lejiXey2yp+jrrDqhzeuOxjgBNa1rf
 github.com/goliatone/go-router v0.57.0/go.mod h1:FJzU9n2f/Gm4ZI6TO7FgKTrFyOjU2r6G9FiV1sN1U1U=
 github.com/goliatone/go-search v0.7.0 h1:7CYP5a0bxL3dP/XYL3nmMIdQZ7cvXgzgOKZ0Rb+qIgc=
 github.com/goliatone/go-search v0.7.0/go.mod h1:BvWF/BxgqRM02fE02FgsXkhJvz/pxYBr+GipO7pvHB4=
+github.com/goliatone/go-search v0.8.0 h1:dCYFz8UyqxFVLhihFwIqkr0OzoZs2f3UPg7QcFg6ELE=
+github.com/goliatone/go-search v0.8.0/go.mod h1:4tI8hujMlWXKumGPN+Wf2D+VUwN+gZNKTA9Fh+W7vrM=
 github.com/goliatone/go-search/adapters/goadmin v0.7.0 h1:vPBKlofGyK+m8fFEQqa95qGG9UF/M6OguYdVP9ojvCo=
 github.com/goliatone/go-search/adapters/goadmin v0.7.0/go.mod h1:b3AWbxWUnBdflPN23z4crm007AS0wNvhGPC2bcS08uM=
 github.com/goliatone/go-services v0.6.0 h1:26LMJxO1Nlw3x7d2XIcG1wsdgx2v1Tre/wAzKC77TMw=
@@ -485,6 +487,8 @@ golang.org/x/net v0.0.0-20200226121028-0de0cce0169b/go.mod h1:z5CRVTTTmAJ677TzLL
 golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4/go.mod h1:p54w0d4576C0XHj96bSt6lcn1PtDYWL6XObtHCRCNQM=
 golang.org/x/net v0.52.0 h1:He/TN1l0e4mmR3QqHMT2Xab3Aj3L9qjbhRm78/6jrW0=
 golang.org/x/net v0.52.0/go.mod h1:R1MAz7uMZxVMualyPXb+VaqGSa3LIaUqk0eEt3w36Sw=
+golang.org/x/net v0.53.0 h1:d+qAbo5L0orcWAr0a9JweQpjXF19LMXJE8Ey7hwOdUA=
+golang.org/x/net v0.53.0/go.mod h1:JvMuJH7rrdiCfbeHoo3fCQU24Lf5JJwT9W3sJFulfgs=
 golang.org/x/oauth2 v0.31.0 h1:8Fq0yVZLh4j4YA47vHKFTa9Ew5XIrCP8LC6UeNZnLxo=
 golang.org/x/oauth2 v0.31.0/go.mod h1:lzm5WQJQwKZ3nwavOZ3IS5Aulzxi68dUSgRHujetwEA=
 golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=

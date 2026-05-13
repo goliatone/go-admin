@@ -32,7 +32,7 @@ require (
 	github.com/goliatone/go-persistence-bun v0.16.0
 	github.com/goliatone/go-repository-bun v0.15.1
 	github.com/goliatone/go-router v0.57.0
-	github.com/goliatone/go-search v0.7.0
+	github.com/goliatone/go-search v0.8.0
 	github.com/goliatone/go-search/adapters/goadmin v0.7.0
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
@@ -210,7 +210,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/exp v0.0.0-20260218203240-3dfff04db8fa // indirect
-	golang.org/x/net v0.52.0 // indirect
+	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/sys v0.43.0
 	golang.org/x/text v0.36.0
 	golang.org/x/time v0.15.0 // indirect
