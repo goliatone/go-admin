@@ -142,6 +142,12 @@ func authenticatedRequestFromContext(ctx context.Context) bool {
 	return authenticated
 }
 
+// AuthenticatedRequestFromContext reports whether the request has passed
+// admin authentication middleware.
+func AuthenticatedRequestFromContext(ctx context.Context) bool {
+	return authenticatedRequestFromContext(ctx)
+}
+
 func markAuthenticatedRequest(c router.Context) {
 	if c == nil {
 		return
