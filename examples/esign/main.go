@@ -186,7 +186,7 @@ func bootstrapESignPersistence(
 	store, storeCleanup, err := newESignRuntimeStore(bootstrapResult)
 	if err != nil {
 		if closeErr := bootstrapResult.Close(); closeErr != nil {
-			err = fmt.Errorf("%w; close persistence bootstrap: %v", err, closeErr)
+			err = fmt.Errorf("%w; close persistence bootstrap: %w", err, closeErr)
 		}
 		return nil, nil, nil, nil, nil, err
 	}
