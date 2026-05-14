@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -898,10 +899,8 @@ func cloneHeaderMap(input map[string][]string) map[string][]string {
 
 func assertStringContains(t *testing.T, values []string, want string) {
 	t.Helper()
-	for _, value := range values {
-		if value == want {
-			return
-		}
+	if slices.Contains(values, want) {
+		return
 	}
 	t.Fatalf("expected %q in %v", want, values)
 }

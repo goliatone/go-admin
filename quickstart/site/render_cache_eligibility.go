@@ -3,6 +3,7 @@ package site
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
@@ -255,12 +256,7 @@ func renderCacheKnownStateQuery(key string) bool {
 }
 
 func renderCacheStatusAllowed(status int, allowed []int) bool {
-	for _, candidate := range allowed {
-		if status == candidate {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(allowed, status)
 }
 
 func renderCacheMethodIsHead(c router.Context) bool {
