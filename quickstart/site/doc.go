@@ -25,12 +25,19 @@
 //   - Cache hits replay stored RenderedSiteResponse values through site-owned
 //     safe-header filtering, HEAD handling, debug headers, and freshness
 //     metadata; raw router.CapturedResponse values are not stored or replayed.
+//   - StaleTTL enables stale-while-revalidate behavior: stores retain entries
+//     for FreshTTL plus StaleTTL, stale hits replay with cache status "stale",
+//     expired entries are deleted and refreshed as misses, and hosts can wire
+//     RenderCachePolicy.StaleRevalidator for safe background regeneration.
 //   - The default policy is conservative: GET/HEAD, status 200, no arbitrary
 //     query variation, auth/session/preview/JSON/search/API/cookie-mutating
 //     requests bypass, and only safe response headers are replayed.
 //   - Built-in auth bypass checks include Authorization, admin authenticated
 //     request context, go-auth claims/actor context, common session/JWT
 //     cookies, and host-declared RenderCachePolicy.AuthCookieNames.
+//   - RenderCachePolicy.RequireTagIndex is a production guard: memory backends
+//     bypass caching, stores must implement RenderCacheTagInvalidator, and tag
+//     attachment failure removes the just-written entry before it can be served.
 //
 // See /LOCALE_PATH_V1_GUIDE.md and /LOCALE_PATH_RUNBOOK.md for the full V1
 // rollout model, migration guidance, and V2 cleanup plan.

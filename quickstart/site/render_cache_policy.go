@@ -3,6 +3,7 @@ package site
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"strings"
 	"time"
 
@@ -36,10 +37,29 @@ type RenderCachePrefixInvalidator interface {
 	DeleteByKeyPrefix(ctx context.Context, prefix string) error
 }
 
+// RenderCacheBackendDescriber lets host stores declare whether they are memory
+// or shared backends without quickstart/site importing a concrete cache package.
+type RenderCacheBackendDescriber interface {
+	RenderCacheBackendKind() string
+}
+
 // RenderCacheBypassPredicate lets host applications block caching when they
 // know about auth, session, or personalization state that quickstart/site does
 // not own.
 type RenderCacheBypassPredicate func(c router.Context, state RequestState) (bool, string)
+
+// RenderCacheRevalidationRequest describes a stale cache hit that can be
+// refreshed by a host-owned background worker.
+type RenderCacheRevalidationRequest struct {
+	Key         string
+	RequestPath string
+	State       RequestState
+	Response    RenderedSiteResponse
+}
+
+// RenderCacheStaleRevalidator is called asynchronously after a stale response
+// is replayed. Hosts should use it to schedule safe background regeneration.
+type RenderCacheStaleRevalidator func(ctx context.Context, request RenderCacheRevalidationRequest)
 
 // RenderCachePolicy controls public-site rendered HTML caching.
 type RenderCachePolicy struct {
@@ -63,10 +83,16 @@ type RenderCachePolicy struct {
 	DebugKeys    bool `json:"debug_keys"`
 	FailClosed   bool `json:"fail_closed"`
 
+	// RequireTagIndex makes page storage depend on production-safe tag indexing.
+	// When enabled, stores must implement RenderCacheTagInvalidator and must not
+	// be a memory backend. This is intended for production invalidation rollout.
+	RequireTagIndex bool `json:"require_tag_index"`
+
 	MaxCaptureBodySize int64 `json:"max_capture_body_size"`
 
 	TemplateRenderer RenderCacheTemplateRenderer  `json:"-"`
 	BypassPredicates []RenderCacheBypassPredicate `json:"-"`
+	StaleRevalidator RenderCacheStaleRevalidator  `json:"-"`
 }
 
 type renderCacheConfig struct {
@@ -102,6 +128,9 @@ func normalizeRenderCachePolicy(policy RenderCachePolicy) RenderCachePolicy {
 	policy.RenderVersion = firstNonEmpty(strings.TrimSpace(policy.RenderVersion), defaultRenderCacheRenderVersion)
 	if policy.FreshTTL <= 0 {
 		policy.FreshTTL = 30 * time.Second
+	}
+	if policy.StaleTTL < 0 {
+		policy.StaleTTL = 0
 	}
 	if policy.MaxCaptureBodySize <= 0 {
 		policy.MaxCaptureBodySize = router.DefaultMaxCapturedBodySize
@@ -178,4 +207,32 @@ func normalizeStringList(values []string) []string {
 		out = append(out, value)
 	}
 	return out
+}
+
+func renderCacheStoreBackendKind(store RenderCacheStore) string {
+	if store == nil {
+		return ""
+	}
+	if describer, ok := store.(RenderCacheBackendDescriber); ok {
+		return strings.ToLower(strings.TrimSpace(describer.RenderCacheBackendKind()))
+	}
+	return renderCacheReflectBackendKind(store)
+}
+
+func renderCacheReflectBackendKind(store RenderCacheStore) string {
+	t := reflect.TypeOf(store)
+	if t == nil {
+		return ""
+	}
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	pkgPath := strings.ToLower(t.PkgPath())
+	typeName := strings.ToLower(t.String())
+	switch {
+	case strings.Contains(pkgPath, "/stores/memory") || strings.Contains(typeName, ".memorystore") || strings.Contains(typeName, ".memory"):
+		return "memory"
+	default:
+		return ""
+	}
 }

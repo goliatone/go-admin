@@ -15,6 +15,7 @@ const (
 	renderCacheStatusBypass = "bypass"
 	renderCacheStatusMiss   = "miss"
 	renderCacheStatusHit    = "hit"
+	renderCacheStatusStale  = "stale"
 
 	renderCacheReasonDisabled             = "disabled"
 	renderCacheReasonMissingStore         = "missing_store"
@@ -37,13 +38,17 @@ const (
 	renderCacheReasonStreamCapture        = "stream_capture"
 	renderCacheReasonNonHTML              = "non_html"
 	renderCacheReasonUnsafeHeader         = "unsafe_header"
+	renderCacheReasonTagIndexRequired     = "tag_index_required"
+	renderCacheReasonTagIndexMemoryStore  = "tag_index_memory_backend"
+	renderCacheReasonTagIndexWriteError   = "tag_index_write_error"
 )
 
 type renderCacheDecision struct {
-	Cacheable bool
-	Key       string
-	Query     url.Values
-	Reason    string
+	Cacheable   bool
+	Key         string
+	RequestPath string
+	Query       url.Values
+	Reason      string
 }
 
 func (r *deliveryRuntime) renderCacheLookupDecision(c router.Context, state RequestState) renderCacheDecision {
@@ -55,6 +60,7 @@ func (r *deliveryRuntime) renderCacheLookupDecision(c router.Context, state Requ
 		return decision
 	}
 	requestPath := r.requestPathForResolution(c)
+	decision.RequestPath = requestPath
 	decision.Key = buildRenderCacheKey(renderCacheKeyInput{
 		Policy:      r.renderCache.policy,
 		State:       state,
@@ -98,9 +104,21 @@ func renderCacheConfigDecision(cfg renderCacheConfig, policy RenderCachePolicy) 
 		return renderCacheDecision{Reason: renderCacheReasonDisabled}
 	case cfg.store == nil:
 		return renderCacheDecision{Reason: renderCacheReasonMissingStore}
+	case policy.RequireTagIndex && renderCacheStoreBackendKind(cfg.store) == "memory":
+		return renderCacheDecision{Reason: renderCacheReasonTagIndexMemoryStore}
+	case policy.RequireTagIndex && !renderCacheStoreSupportsTagIndex(cfg.store):
+		return renderCacheDecision{Reason: renderCacheReasonTagIndexRequired}
 	default:
 		return renderCacheDecision{Cacheable: true}
 	}
+}
+
+func renderCacheStoreSupportsTagIndex(store RenderCacheStore) bool {
+	if store == nil {
+		return false
+	}
+	_, ok := store.(RenderCacheTagInvalidator)
+	return ok
 }
 
 func renderCacheRequestDecision(c router.Context, policy RenderCachePolicy) renderCacheDecision {
