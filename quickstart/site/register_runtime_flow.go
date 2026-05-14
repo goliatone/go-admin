@@ -64,7 +64,7 @@ func resolveSiteContentHandler(adm *admin.Admin, resolved ResolvedSiteConfig, op
 		if contentTypeSvc == nil && adm != nil {
 			contentTypeSvc = adm.ContentTypeService()
 		}
-		if runtime := newDeliveryRuntime(resolved, adm, contentSvc, contentTypeSvc); runtime != nil {
+		if runtime := newDeliveryRuntime(resolved, adm, contentSvc, contentTypeSvc, options.renderCache); runtime != nil {
 			options.contentHandler = runtime.Handler()
 		}
 	}
