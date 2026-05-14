@@ -23,6 +23,13 @@ func (r *deliveryRuntime) prepareDeliveryFlow(c router.Context) deliveryRuntimeF
 	if strings.TrimSpace(state.ContentChannel) == "" {
 		state.ContentChannel = r.siteCfg.ContentChannel
 	}
+	return r.prepareDeliveryFlowWithState(c, state)
+}
+
+func (r *deliveryRuntime) prepareDeliveryFlowWithState(c router.Context, state RequestState) deliveryRuntimeFlow {
+	if r == nil {
+		return deliveryRuntimeFlow{}
+	}
 	requestPath := r.requestPathForResolution(c)
 	cache := newSiteContentCache()
 	requestCtx := RequestContext(c)
