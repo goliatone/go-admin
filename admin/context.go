@@ -130,16 +130,16 @@ func translationFamilyExpansionFromContext(ctx context.Context) bool {
 	if ctx == nil {
 		return false
 	}
-	enabled, _ := ctx.Value(translationFamilyExpansionContextKey).(bool)
-	return enabled
+	enabled, ok := ctx.Value(translationFamilyExpansionContextKey).(bool)
+	return ok && enabled
 }
 
 func authenticatedRequestFromContext(ctx context.Context) bool {
 	if ctx == nil {
 		return false
 	}
-	authenticated, _ := ctx.Value(authenticatedRequestContextKey).(bool)
-	return authenticated
+	authenticated, ok := ctx.Value(authenticatedRequestContextKey).(bool)
+	return ok && authenticated
 }
 
 // AuthenticatedRequestFromContext reports whether the request has passed
