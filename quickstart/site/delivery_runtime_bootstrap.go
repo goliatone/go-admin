@@ -15,6 +15,7 @@ type deliveryRuntime struct {
 	contentTypeSvc admin.CMSContentTypeService
 	navigation     *navigationRuntime
 	modules        []SiteModule
+	renderCache    renderCacheConfig
 }
 
 func newDeliveryRuntime(
@@ -22,9 +23,15 @@ func newDeliveryRuntime(
 	adm *admin.Admin,
 	contentSvc admin.CMSContentService,
 	contentTypeSvc admin.CMSContentTypeService,
+	renderCache ...renderCacheConfig,
 ) *deliveryRuntime {
 	if contentSvc == nil || contentTypeSvc == nil {
 		return nil
+	}
+	cacheConfig := renderCacheConfig{}
+	if len(renderCache) > 0 {
+		cacheConfig = renderCache[0]
+		cacheConfig.policy = normalizeRenderCachePolicy(cacheConfig.policy)
 	}
 	return &deliveryRuntime{
 		siteCfg:        siteCfg,
@@ -32,6 +39,7 @@ func newDeliveryRuntime(
 		contentTypeSvc: contentTypeSvc,
 		navigation:     newNavigationRuntime(siteCfg, adm, contentSvc, contentTypeSvc),
 		modules:        compactModules(siteCfg.Modules),
+		renderCache:    cacheConfig,
 	}
 }
 
