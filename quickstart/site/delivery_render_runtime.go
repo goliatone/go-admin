@@ -9,13 +9,27 @@ import (
 )
 
 func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState, resolution *deliveryResolution, requestPath string, cache *siteContentCache) error {
+	return r.renderResolutionWithCache(c, state, resolution, requestPath, cache, renderCacheDecision{})
+}
+
+func (r *deliveryRuntime) renderResolutionWithCache(
+	c router.Context,
+	state RequestState,
+	resolution *deliveryResolution,
+	requestPath string,
+	cache *siteContentCache,
+	cacheDecision renderCacheDecision,
+) error {
 	if target := r.canonicalRedirectTarget(c, resolution); target != "" {
+		if cacheDecision.Cacheable {
+			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCanonicalRedirect, cacheDecision.Key)
+		}
 		return c.Redirect(target, http.StatusPermanentRedirect)
 	}
 
 	availableLocales, pathsByLocale := r.prepareLocalizedResolution(c, state, resolution, cache)
 	viewCtx := r.resolutionViewContext(c, state, resolution, requestPath, availableLocales, pathsByLocale)
-	return renderSiteTemplateResponse(c, state, r.siteCfg, siteTemplateResponse{
+	response := siteTemplateResponse{
 		JSONStatus:    200,
 		TemplateNames: resolution.TemplateCandidates,
 		JSONPayload: siteTemplateResponsePayload(firstTemplate(resolution.TemplateCandidates), viewCtx, map[string]any{
@@ -30,7 +44,20 @@ func (r *deliveryRuntime) renderResolution(c router.Context, state RequestState,
 				resolution.AvailableLocales,
 			),
 		},
-	})
+	}
+	if cacheDecision.Cacheable {
+		result, err := renderSiteTemplateResponseCaptured(c, response, r.renderCache.policy.TemplateRenderer)
+		if err != nil {
+			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonRenderError, cacheDecision.Key)
+			return err
+		}
+		if result.Status <= 0 || strings.TrimSpace(result.TemplateName) == "" {
+			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonRenderError, cacheDecision.Key)
+			return renderSiteRuntimeError(c, state, r.siteCfg, response.FallbackError)
+		}
+		return r.writeCapturedRenderCacheResponse(c, state, cacheDecision, result, resolution)
+	}
+	return renderSiteTemplateResponse(c, state, r.siteCfg, response)
 }
 
 func (r *deliveryRuntime) prepareLocalizedResolution(
