@@ -1,5 +1,36 @@
 # Changelog
 
+# [0.66.0](https://github.com/goliatone/go-admin/compare/v0.65.2...v0.66.0) - (2026-05-14)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([b16249a](https://github.com/goliatone/go-admin/commit/b16249a972a53231e8c6a011cb4717f9c5bbfd90))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.66.0 ([67cc52a](https://github.com/goliatone/go-admin/commit/67cc52abe62d8905a0f0b90105d1cfe5af17be66))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Updated cache to use go-router primitives ([fda27ac](https://github.com/goliatone/go-admin/commit/fda27aca56db6e5d7866630f6038acef033c7585))  - (goliatone)
+- Render cache implementation ([71659fd](https://github.com/goliatone/go-admin/commit/71659fdae26e56b35993224e55da50c8198734f2))  - (goliatone)
+- Delivery runtime flow with state ([5ce3128](https://github.com/goliatone/go-admin/commit/5ce3128a47e247e5633a9d01c387e64bea3f8bc4))  - (goliatone)
+- Site context cookie mutation ([ad3ebbb](https://github.com/goliatone/go-admin/commit/ad3ebbb5d6b8e7334668d7ab2af67f30fa689038))  - (goliatone)
+- Authenticate request from context ([27a1211](https://github.com/goliatone/go-admin/commit/27a121120d86d0ea8d02074249954d562c27cd8b))  - (goliatone)
+- Site render cache ([063beb8](https://github.com/goliatone/go-admin/commit/063beb8cbfad167f4ebcf0cba5a90db1dcde5a68))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.65.2 ([f256240](https://github.com/goliatone/go-admin/commit/f256240a47b286ce88a3111c4317a2a47341daa2))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([f69bd42](https://github.com/goliatone/go-admin/commit/f69bd422c6f4364e555ac9d96706461d6493304e))  - (goliatone)
+- Update tests ([0cadb8f](https://github.com/goliatone/go-admin/commit/0cadb8ff6c36681de961a29b049528a0d72f1080))  - (goliatone)
+- Code quality ([7e9d4c3](https://github.com/goliatone/go-admin/commit/7e9d4c313c2c38bde33f03e3c116757040161d82))  - (goliatone)
+- Update deps ([abd2b3b](https://github.com/goliatone/go-admin/commit/abd2b3b69791baa1889c7deb7f205b6e789abff1))  - (goliatone)
+- Update readme ([707735f](https://github.com/goliatone/go-admin/commit/707735fbfba0f5f99adb8f2fa87208ecaef27c0e))  - (goliatone)
+
 # [0.65.2](https://github.com/goliatone/go-admin/compare/v0.65.1...v0.65.2) - (2026-05-13)
 
 ## <!-- 13 -->📦 Bumps
