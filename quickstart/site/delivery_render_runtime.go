@@ -1,6 +1,7 @@
 package site
 
 import (
+	"errors"
 	"maps"
 	"net/http"
 	"strings"
@@ -46,10 +47,15 @@ func (r *deliveryRuntime) renderResolutionWithCache(
 		},
 	}
 	if cacheDecision.Cacheable {
-		result, err := renderSiteTemplateResponseCaptured(c, response, r.renderCache.policy.TemplateRenderer)
+		result, err := renderSiteTemplateResponseCaptured(c, response, r.renderCache.policy)
 		if err != nil {
+			var captureErr renderCacheCaptureError
+			if errors.As(err, &captureErr) && captureErr.Reason != renderCacheReasonRenderError {
+				r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, captureErr.Reason, cacheDecision.Key)
+				return renderSiteTemplateResponse(c, state, r.siteCfg, response)
+			}
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonRenderError, cacheDecision.Key)
-			return err
+			return renderSiteRuntimeError(c, state, r.siteCfg, response.FallbackError)
 		}
 		if result.Status <= 0 || strings.TrimSpace(result.TemplateName) == "" {
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonRenderError, cacheDecision.Key)

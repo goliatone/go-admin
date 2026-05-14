@@ -15,9 +15,16 @@
 //   - Hosts provide the cache backend through RenderCacheStore. The interface is
 //     compatible with go-cache-style typed stores, but this package does not
 //     import go-cache.
-//   - Hosts must provide a RenderCacheTemplateRenderer before rendered responses
-//     can be stored. Without one, requests bypass storage and use the normal
-//     router template renderer.
+//   - Standard go-router Fiber and HTTPRouter contexts use router-backed
+//     response capture by default. RenderCacheTemplateRenderer is optional for
+//     tests, custom render stacks, and contexts without the router template
+//     capture capability.
+//   - RenderCachePolicy.MaxCaptureBodySize limits buffered template output and
+//     defaults to router.DefaultMaxCapturedBodySize. Oversized captures bypass
+//     storage and then use the normal router template renderer.
+//   - Cache hits replay stored RenderedSiteResponse values through site-owned
+//     safe-header filtering, HEAD handling, debug headers, and freshness
+//     metadata; raw router.CapturedResponse values are not stored or replayed.
 //   - The default policy is conservative: GET/HEAD, status 200, no arbitrary
 //     query variation, auth/session/preview/JSON/search/API/cookie-mutating
 //     requests bypass, and only safe response headers are replayed.

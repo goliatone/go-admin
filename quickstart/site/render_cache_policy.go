@@ -63,6 +63,8 @@ type RenderCachePolicy struct {
 	DebugKeys    bool `json:"debug_keys"`
 	FailClosed   bool `json:"fail_closed"`
 
+	MaxCaptureBodySize int64 `json:"max_capture_body_size"`
+
 	TemplateRenderer RenderCacheTemplateRenderer  `json:"-"`
 	BypassPredicates []RenderCacheBypassPredicate `json:"-"`
 }
@@ -100,6 +102,9 @@ func normalizeRenderCachePolicy(policy RenderCachePolicy) RenderCachePolicy {
 	policy.RenderVersion = firstNonEmpty(strings.TrimSpace(policy.RenderVersion), defaultRenderCacheRenderVersion)
 	if policy.FreshTTL <= 0 {
 		policy.FreshTTL = 30 * time.Second
+	}
+	if policy.MaxCaptureBodySize <= 0 {
+		policy.MaxCaptureBodySize = router.DefaultMaxCapturedBodySize
 	}
 	if len(policy.CacheableMethods) == 0 {
 		policy.CacheableMethods = []string{http.MethodGet, http.MethodHead}

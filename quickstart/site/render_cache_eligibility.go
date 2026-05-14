@@ -18,7 +18,7 @@ const (
 
 	renderCacheReasonDisabled             = "disabled"
 	renderCacheReasonMissingStore         = "missing_store"
-	renderCacheReasonMissingRenderer      = "missing_renderer"
+	renderCacheReasonUnsupportedRenderer  = "unsupported_template_renderer"
 	renderCacheReasonMethod               = "method"
 	renderCacheReasonJSON                 = "json"
 	renderCacheReasonPreview              = "preview"
@@ -33,6 +33,10 @@ const (
 	renderCacheReasonCanonicalRedirect    = "canonical_redirect"
 	renderCacheReasonRenderError          = "render_error"
 	renderCacheReasonStatus               = "status"
+	renderCacheReasonOversizedCapture     = "oversized_capture"
+	renderCacheReasonStreamCapture        = "stream_capture"
+	renderCacheReasonNonHTML              = "non_html"
+	renderCacheReasonUnsafeHeader         = "unsafe_header"
 )
 
 type renderCacheDecision struct {
@@ -63,23 +67,53 @@ func (r *deliveryRuntime) renderCacheLookupDecision(c router.Context, state Requ
 func (r *deliveryRuntime) renderCacheBaseDecision(c router.Context, state RequestState) renderCacheDecision {
 	cfg := r.renderCache
 	policy := normalizeRenderCachePolicy(cfg.policy)
+	if decision := renderCacheConfigDecision(cfg, policy); !decision.Cacheable {
+		return decision
+	}
+	if c == nil {
+		return renderCacheDecision{Reason: renderCacheReasonDisabled}
+	}
+	if decision := renderCacheRequestDecision(c, policy); !decision.Cacheable {
+		return decision
+	}
+	if decision := renderCacheStateDecision(c, state, policy); !decision.Cacheable {
+		return decision
+	}
+	if r.renderCacheReservedRoute(c) {
+		return renderCacheDecision{Reason: renderCacheReasonReservedRoute}
+	}
+	if r.renderCacheSearchRoute(c) {
+		return renderCacheDecision{Reason: renderCacheReasonSearchRoute}
+	}
+	query, ok := renderCacheAllowedQuery(c, policy)
+	if !ok {
+		return renderCacheDecision{Reason: renderCacheReasonUnknownQuery}
+	}
+	return renderCacheDecision{Cacheable: true, Query: query}
+}
+
+func renderCacheConfigDecision(cfg renderCacheConfig, policy RenderCachePolicy) renderCacheDecision {
 	switch {
 	case !policy.Enabled:
 		return renderCacheDecision{Reason: renderCacheReasonDisabled}
 	case cfg.store == nil:
 		return renderCacheDecision{Reason: renderCacheReasonMissingStore}
-	case policy.TemplateRenderer == nil:
-		return renderCacheDecision{Reason: renderCacheReasonMissingRenderer}
+	default:
+		return renderCacheDecision{Cacheable: true}
 	}
-	if c == nil {
-		return renderCacheDecision{Reason: renderCacheReasonDisabled}
-	}
+}
+
+func renderCacheRequestDecision(c router.Context, policy RenderCachePolicy) renderCacheDecision {
 	if !renderCacheMethodAllowed(c.Method(), policy.CacheableMethods) {
 		return renderCacheDecision{Reason: renderCacheReasonMethod}
 	}
 	if wantsJSONResponse(c) {
 		return renderCacheDecision{Reason: renderCacheReasonJSON}
 	}
+	return renderCacheDecision{Cacheable: true}
+}
+
+func renderCacheStateDecision(c router.Context, state RequestState, policy RenderCachePolicy) renderCacheDecision {
 	if state.PreviewTokenPresent || state.IsPreview || state.PreviewTokenValid {
 		return renderCacheDecision{Reason: renderCacheReasonPreview}
 	}
@@ -100,17 +134,7 @@ func (r *deliveryRuntime) renderCacheBaseDecision(c router.Context, state Reques
 	if LocaleCookieMutatedFromRequest(c) {
 		return renderCacheDecision{Reason: renderCacheReasonLocaleCookieMutation}
 	}
-	if r.renderCacheReservedRoute(c) {
-		return renderCacheDecision{Reason: renderCacheReasonReservedRoute}
-	}
-	if r.renderCacheSearchRoute(c) {
-		return renderCacheDecision{Reason: renderCacheReasonSearchRoute}
-	}
-	query, ok := renderCacheAllowedQuery(c, policy)
-	if !ok {
-		return renderCacheDecision{Reason: renderCacheReasonUnknownQuery}
-	}
-	return renderCacheDecision{Cacheable: true, Query: query}
+	return renderCacheDecision{Cacheable: true}
 }
 
 func renderCacheMethodAllowed(method string, allowed []string) bool {

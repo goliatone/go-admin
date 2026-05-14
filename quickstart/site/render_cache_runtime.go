@@ -66,7 +66,9 @@ func (r *deliveryRuntime) attachRenderedResponseTags(c router.Context, key strin
 	if !ok {
 		return
 	}
-	_ = invalidator.AddTagsForKey(RequestContext(c), key, cloneStrings(tags))
+	if err := invalidator.AddTagsForKey(RequestContext(c), key, cloneStrings(tags)); err != nil {
+		return
+	}
 }
 
 func (r *deliveryRuntime) writeRenderCacheDebugHeaders(c router.Context, status, reason, key string) {

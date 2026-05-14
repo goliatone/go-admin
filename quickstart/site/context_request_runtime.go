@@ -124,8 +124,8 @@ func LocaleCookieMutatedFromRequest(c router.Context) bool {
 	if c == nil {
 		return false
 	}
-	mutated, _ := c.Locals(localeCookieMutatedKey).(bool)
-	return mutated
+	mutated, ok := c.Locals(localeCookieMutatedKey).(bool)
+	return ok && mutated
 }
 
 func cloneViewContext(input router.ViewContext) router.ViewContext {
