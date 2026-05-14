@@ -1205,6 +1205,18 @@ siteCfg.Views.TemplateFS = []fs.FS{
 
 Use `site.home.page` when the public root route needs a dedicated homepage. If the host leaves `SiteThemeConfig.Variant` empty, the selector resolves the theme package `defaultVariant`; use `SiteThemeConfig.BaselineVariant` to warn when a downstream app forces a non-approved public baseline.
 
+## Public-site render cache
+
+`quickstart/site.WithRenderCache(store, policy)` enables anonymous rendered HTML caching for public CMS delivery routes. `quickstart/site` owns policy, keying, eligibility, response replay, and unsafe-header filtering; host apps own the backend, TTLs, rollout, and invalidation wiring.
+
+- Use a memory or Valkey `go-cache` store from host code and pass it through the local `site.RenderCacheStore` interface. `quickstart/site` intentionally does not import `go-cache`.
+- Provide `RenderCachePolicy.TemplateRenderer`; storage bypasses with `missing_renderer` until a host renderer can capture templates to bytes.
+- Use `RenderCachePolicy.AuthCookieNames` for host-specific auth cookies and `RenderCachePolicy.BypassPredicates` for application-specific auth, session, tenant, cart, A/B, or personalization signals. Built-in checks already cover Authorization, admin authenticated request context, go-auth claims/actor context, and common session/JWT cookie names such as `session_id` and `jwt`.
+- `quickstart/render_cache_gocache_compat_test.go` compiles and exercises a real `github.com/goliatone/go-cache/stores/memory` store as a `site.RenderCacheStore`, including tag invalidation, while keeping the `quickstart/site` package free of direct `go-cache` imports.
+- Staging defaults: memory backend, `FreshTTL` around 30s-60s, `DebugHeaders: true`, and `DebugKeys` only in safe local/staging environments.
+- Production defaults: shared backend or shared render-version source, `FreshTTL` around 5m-10m, active invalidation through render-version bumps or tag/prefix-capable stores before broad rollout.
+- Static asset caching is separate from rendered HTML caching and should stay on the asset/CDN path.
+
 ## Routing migration notes
 
 When migrating a host from the old shared-root quickstart/site setup to the explicit ownership model:
