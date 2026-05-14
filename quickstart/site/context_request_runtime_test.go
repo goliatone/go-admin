@@ -20,7 +20,11 @@ func TestViewContextFromRequestPrefersLocalsAndFallsBackToRequestState(t *testin
 		t.Fatalf("expected locals view context, got %v", got)
 	}
 	localsView["source"] = "mutated"
-	if got := ctx.LocalsMock[viewContextLocalsKey].(router.ViewContext)["source"]; got != "locals" {
+	storedView, ok := ctx.LocalsMock[viewContextLocalsKey].(router.ViewContext)
+	if !ok {
+		t.Fatalf("expected locals view context type, got %T", ctx.LocalsMock[viewContextLocalsKey])
+	}
+	if got := storedView["source"]; got != "locals" {
 		t.Fatalf("expected returned locals view context to be cloned, got %v", got)
 	}
 

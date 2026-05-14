@@ -35,10 +35,12 @@ func TestGoCacheMemoryStoreSatisfiesSiteRenderCacheStore(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := store.Set(ctx, "site-render:test", value, time.Minute); err != nil {
+	err = store.Set(ctx, "site-render:test", value, time.Minute)
+	if err != nil {
 		t.Fatalf("set rendered response: %v", err)
 	}
-	if err := store.AddTagsForKey(ctx, "site-render:test", value.Tags); err != nil {
+	err = store.AddTagsForKey(ctx, "site-render:test", value.Tags)
+	if err != nil {
 		t.Fatalf("add tags: %v", err)
 	}
 
@@ -53,12 +55,15 @@ func TestGoCacheMemoryStoreSatisfiesSiteRenderCacheStore(t *testing.T) {
 		t.Fatalf("unexpected rendered response: %+v", got)
 	}
 
-	if err := store.InvalidateTags(ctx, []string{"site:content:about"}); err != nil {
+	err = store.InvalidateTags(ctx, []string{"site:content:about"})
+	if err != nil {
 		t.Fatalf("invalidate tag: %v", err)
 	}
-	if _, hit, err := store.Get(ctx, "site-render:test"); err != nil {
+	_, hit, err = store.Get(ctx, "site-render:test")
+	if err != nil {
 		t.Fatalf("get after invalidate: %v", err)
-	} else if hit {
+	}
+	if hit {
 		t.Fatal("expected tag invalidation to remove rendered response")
 	}
 }

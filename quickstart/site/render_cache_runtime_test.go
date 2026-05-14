@@ -3,6 +3,7 @@ package site
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
@@ -88,12 +90,6 @@ func TestRenderCacheBypassScenarios(t *testing.T) {
 		mutate func(*http.Request) *http.Request
 		reason string
 	}{
-		{
-			name:   "missing renderer",
-			path:   "/about",
-			policy: RenderCachePolicy{Enabled: true, FreshTTL: time.Minute, DebugHeaders: true},
-			reason: renderCacheReasonMissingRenderer,
-		},
 		{
 			name: "unknown query",
 			path: "/about?utm_source=test",
@@ -317,6 +313,173 @@ func TestRenderCacheReservedAndSearchRoutesBypass(t *testing.T) {
 				t.Fatalf("expected reason %q, got %q", tt.reason, decision.Reason)
 			}
 		})
+	}
+}
+
+func TestRenderCachePolicyDefaultsMaxCaptureBodySize(t *testing.T) {
+	policy := normalizeRenderCachePolicy(RenderCachePolicy{Enabled: true})
+	if policy.MaxCaptureBodySize != router.DefaultMaxCapturedBodySize {
+		t.Fatalf("expected default max capture body size %d, got %d", router.DefaultMaxCapturedBodySize, policy.MaxCaptureBodySize)
+	}
+	policy = normalizeRenderCachePolicy(RenderCachePolicy{Enabled: true, MaxCaptureBodySize: -1})
+	if policy.MaxCaptureBodySize != router.DefaultMaxCapturedBodySize {
+		t.Fatalf("expected negative max capture body size to use default %d, got %d", router.DefaultMaxCapturedBodySize, policy.MaxCaptureBodySize)
+	}
+}
+
+func TestRenderCacheConfigAllowsMissingOverrideForRouterCapture(t *testing.T) {
+	decision := renderCacheConfigDecision(renderCacheConfig{
+		store:  newTestRenderCacheStore(),
+		policy: RenderCachePolicy{Enabled: true},
+	}, normalizeRenderCachePolicy(RenderCachePolicy{Enabled: true}))
+	if !decision.Cacheable {
+		t.Fatalf("expected missing override not to block cache decision, reason=%q", decision.Reason)
+	}
+}
+
+func TestRenderCacheRouterCaptureHTTPRouterWithoutOverride(t *testing.T) {
+	views := &testRenderCacheViews{}
+	rec := httptest.NewRecorder()
+	ctx := router.NewHTTPRouterContext(rec, httptestRequest(http.MethodGet, "/about"), nil, views)
+
+	result, err := renderSiteTemplateResponseCaptured(ctx, siteTemplateResponse{
+		TemplateNames: []string{"site/page"},
+		ViewContext: router.ViewContext{
+			"record": map[string]any{"id": "about"},
+		},
+	}, RenderCachePolicy{Enabled: true})
+	if err != nil {
+		t.Fatalf("router capture failed: %v", err)
+	}
+	if result.TemplateName != "site/page" {
+		t.Fatalf("expected captured template site/page, got %q", result.TemplateName)
+	}
+	if got := string(result.Rendered.Body); got != "template=site/page;record=about" {
+		t.Fatalf("expected captured body from router renderer, got %q", got)
+	}
+	if got := result.Rendered.ContentType; got != "text/html; charset=utf-8" {
+		t.Fatalf("expected default html content type, got %q", got)
+	}
+	if body := rec.Body.String(); body != "" {
+		t.Fatalf("expected capture not to commit live HTTPRouter body, got %q", body)
+	}
+	if views.calls != 1 {
+		t.Fatalf("expected one view render call, got %d", views.calls)
+	}
+}
+
+func TestRenderCacheRouterCaptureFiberWithoutOverride(t *testing.T) {
+	views := &testRenderCacheViews{}
+	var result renderedSiteTemplateResult
+	var captureErr error
+	app := fiber.New(fiber.Config{Views: views})
+	app.Get("/about", func(fc *fiber.Ctx) error {
+		ctx := router.NewFiberContext(fc, nil)
+		result, captureErr = renderSiteTemplateResponseCaptured(ctx, siteTemplateResponse{
+			TemplateNames: []string{"site/page"},
+			ViewContext: router.ViewContext{
+				"record": map[string]any{"id": "about"},
+			},
+		}, RenderCachePolicy{Enabled: true})
+		return fc.SendStatus(http.StatusNoContent)
+	})
+	resp, err := app.Test(httptestRequest(http.MethodGet, "/about"))
+	if err != nil {
+		t.Fatalf("fiber request failed: %v", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Errorf("closing response body: %v", closeErr)
+		}
+	}()
+	if resp.StatusCode != http.StatusNoContent {
+		t.Fatalf("expected no-content live response after capture, got %d", resp.StatusCode)
+	}
+	if captureErr != nil {
+		t.Fatalf("fiber capture failed: %v", captureErr)
+	}
+	if got := string(result.Rendered.Body); got != "template=site/page;record=about" {
+		t.Fatalf("expected captured body from fiber renderer, got %q", got)
+	}
+	if views.calls != 1 {
+		t.Fatalf("expected one view render call, got %d", views.calls)
+	}
+}
+
+func TestRenderCacheExplicitRendererOverrideTakesPrecedence(t *testing.T) {
+	ctx := router.NewMockContext()
+	ctx.On("Context").Return(context.Background())
+	ctx.RenderBodyM = "router-render"
+	override := &testRenderCacheRenderer{}
+
+	result, err := renderSiteTemplateResponseCaptured(ctx, siteTemplateResponse{
+		TemplateNames: []string{"site/page"},
+		ViewContext: router.ViewContext{
+			"record": map[string]any{"id": "about"},
+		},
+	}, RenderCachePolicy{
+		Enabled:          true,
+		TemplateRenderer: override,
+	})
+	if err != nil {
+		t.Fatalf("override capture failed: %v", err)
+	}
+	if override.calls != 1 {
+		t.Fatalf("expected explicit override to render once, got %d", override.calls)
+	}
+	if got := string(result.Rendered.Body); got != "template=site/page;record=about" {
+		t.Fatalf("expected override body, got %q", got)
+	}
+	if body := ctx.ResponseBodyM; body != "" {
+		t.Fatalf("expected explicit capture not to commit live body, got %q", body)
+	}
+}
+
+func TestRenderCacheRouterCaptureUnsupportedCapabilityBypassesStorage(t *testing.T) {
+	_, err := renderSiteTemplateResponseCaptured(nil, siteTemplateResponse{
+		TemplateNames: []string{"site/page"},
+	}, RenderCachePolicy{Enabled: true})
+	var captureErr renderCacheCaptureError
+	if !errors.As(err, &captureErr) {
+		t.Fatalf("expected capture error, got %v", err)
+	}
+	if captureErr.Reason != renderCacheReasonUnsupportedRenderer {
+		t.Fatalf("expected unsupported renderer reason, got %q", captureErr.Reason)
+	}
+}
+
+func TestRenderCacheRouterCaptureOversizedBypassesWithoutPartialCommit(t *testing.T) {
+	views := &testRenderCacheViews{body: strings.Repeat("x", 16)}
+	rec := httptest.NewRecorder()
+	ctx := router.NewHTTPRouterContext(rec, httptestRequest(http.MethodGet, "/about"), nil, views)
+	_, err := renderSiteTemplateResponseCaptured(ctx, siteTemplateResponse{
+		TemplateNames: []string{"site/page"},
+	}, RenderCachePolicy{Enabled: true, MaxCaptureBodySize: 4})
+	var captureErr renderCacheCaptureError
+	if !errors.As(err, &captureErr) {
+		t.Fatalf("expected capture error, got %v", err)
+	}
+	if captureErr.Reason != renderCacheReasonOversizedCapture {
+		t.Fatalf("expected oversized capture reason, got %q", captureErr.Reason)
+	}
+	if body := rec.Body.String(); body != "" {
+		t.Fatalf("expected oversized capture not to commit partial live body, got %q", body)
+	}
+}
+
+func TestRenderCacheRouterCaptureStreamFailureReason(t *testing.T) {
+	views := &testRenderCacheViews{err: router.ErrResponseCaptureStream}
+	rec := httptest.NewRecorder()
+	ctx := router.NewHTTPRouterContext(rec, httptestRequest(http.MethodGet, "/about"), nil, views)
+	_, err := renderSiteTemplateResponseCaptured(ctx, siteTemplateResponse{
+		TemplateNames: []string{"site/page"},
+	}, RenderCachePolicy{Enabled: true})
+	var captureErr renderCacheCaptureError
+	if !errors.As(err, &captureErr) {
+		t.Fatalf("expected capture error, got %v", err)
+	}
+	if captureErr.Reason != renderCacheReasonStreamCapture {
+		t.Fatalf("expected stream capture reason, got %q", captureErr.Reason)
 	}
 }
 
@@ -833,6 +996,31 @@ func (r *testRenderCacheRenderer) RenderSiteTemplate(_ context.Context, template
 	}, nil
 }
 
+type testRenderCacheViews struct {
+	calls int
+	body  string
+	err   error
+}
+
+func (v *testRenderCacheViews) Load() error {
+	return nil
+}
+
+func (v *testRenderCacheViews) Render(w io.Writer, name string, bind any, _ ...string) error {
+	v.calls++
+	if v.err != nil {
+		return v.err
+	}
+	viewCtx := anyMap(bind)
+	record := anyMap(viewCtx["record"])
+	body := v.body
+	if body == "" {
+		body = "template=" + name + ";record=" + anyString(record["id"])
+	}
+	_, err := io.WriteString(w, body)
+	return err
+}
+
 type renderCacheDeliveryServices struct {
 	admin.CMSContentService
 	admin.CMSContentTypeService
@@ -906,7 +1094,7 @@ func assertStringContains(t *testing.T, values []string, want string) {
 }
 
 func httptestRequest(method, path string) *http.Request {
-	req, err := http.NewRequest(method, path, nil)
+	req, err := http.NewRequestWithContext(context.Background(), method, path, nil)
 	if err != nil {
 		panic(err)
 	}
