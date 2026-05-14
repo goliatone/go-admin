@@ -15,7 +15,15 @@ func (r *deliveryRuntime) Handler() router.HandlerFunc {
 }
 
 func (r *deliveryRuntime) respondDelivery(c router.Context) error {
-	flow := r.prepareDeliveryFlow(c)
+	state := fallbackRequestState(c, r.siteCfg, "/")
+	if state.ContentChannel == "" {
+		state.ContentChannel = r.siteCfg.ContentChannel
+	}
+	hit, decision, err := r.tryRenderCacheHit(c, state)
+	if hit || err != nil {
+		return err
+	}
+	flow := r.prepareDeliveryFlowWithState(c, state)
 	if hasSiteRuntimeError(flow.err) {
 		return renderSiteRuntimeError(c, flow.state, r.siteCfg, flow.err)
 	}
@@ -25,5 +33,5 @@ func (r *deliveryRuntime) respondDelivery(c router.Context) error {
 			RequestedLocale: flow.state.Locale,
 		})
 	}
-	return r.renderResolution(c, flow.state, flow.resolution, flow.requestPath, flow.cache)
+	return r.renderResolutionWithCache(c, flow.state, flow.resolution, flow.requestPath, flow.cache, decision)
 }
