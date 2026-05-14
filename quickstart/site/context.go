@@ -13,6 +13,7 @@ const (
 	requestStateContextKey contextKey = "quickstart.site.request_state"
 	viewContextLocalsKey   contextKey = "quickstart.site.view_context"
 	requestStateLocalsKey  contextKey = "quickstart.site.request_state"
+	localeCookieMutatedKey contextKey = "quickstart.site.locale_cookie_mutated"
 )
 
 // RequestState is the normalized per-request site runtime state.
