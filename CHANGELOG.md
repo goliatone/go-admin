@@ -1,5 +1,24 @@
 # Changelog
 
+# [0.67.0](https://github.com/goliatone/go-admin/compare/v0.66.0...v0.67.0) - (2026-05-14)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.67.0 ([8dba948](https://github.com/goliatone/go-admin/commit/8dba94828cf56d9104b5f039f51655a94e49710c))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Per runtime SWR revalidation, and fixed other issues ([1e9b7ba](https://github.com/goliatone/go-admin/commit/1e9b7baa499ec9999f19a32ab0f698f0b892614a))  - (goliatone)
+- Implement TTL and SWR for cache ([d1a96a1](https://github.com/goliatone/go-admin/commit/d1a96a15caf51fc5376180527003254390a15d79))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.66.0 ([586114a](https://github.com/goliatone/go-admin/commit/586114af1bf6cf0868cdc0bfa191194bfeb20536))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update readme ([b48081f](https://github.com/goliatone/go-admin/commit/b48081f6e4c041e3cf5d6e7cda95ac79174897f8))  - (goliatone)
+
 # [0.66.0](https://github.com/goliatone/go-admin/compare/v0.65.2...v0.66.0) - (2026-05-14)
 
 ## <!-- 1 -->🐛 Bug Fixes
