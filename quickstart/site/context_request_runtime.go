@@ -86,23 +86,25 @@ func requestContextMiddleware(adm *admin.Admin, cfg admin.Config, siteCfg Resolv
 			c.SetContext(requestCtx)
 			c.Locals(requestStateLocalsKey, state)
 			c.Locals(viewContextLocalsKey, cloneViewContext(state.ViewContext))
-			persistLocaleCookie(c, siteCfg, state)
+			if persistLocaleCookie(c, siteCfg, state) {
+				c.Locals(localeCookieMutatedKey, true)
+			}
 			return next(c)
 		}
 	}
 }
 
-func persistLocaleCookie(c router.Context, siteCfg ResolvedSiteConfig, state RequestState) {
+func persistLocaleCookie(c router.Context, siteCfg ResolvedSiteConfig, state RequestState) bool {
 	if c == nil || !siteCfg.Features.EnableI18N {
-		return
+		return false
 	}
 	locale := matchSupportedLocale(state.Locale, siteCfg.SupportedLocales)
 	if locale == "" {
-		return
+		return false
 	}
 	current := matchSupportedLocale(c.Cookies(defaultLocaleCookieName), siteCfg.SupportedLocales)
 	if current == locale {
-		return
+		return false
 	}
 	path := normalizeLocalePath(siteCfg.BasePath)
 	if path == "" {
@@ -115,6 +117,15 @@ func persistLocaleCookie(c router.Context, siteCfg ResolvedSiteConfig, state Req
 	cookie.SessionOnly = false
 	cookie.HTTPOnly = false
 	c.Cookie(&cookie)
+	return true
+}
+
+func LocaleCookieMutatedFromRequest(c router.Context) bool {
+	if c == nil {
+		return false
+	}
+	mutated, _ := c.Locals(localeCookieMutatedKey).(bool)
+	return mutated
 }
 
 func cloneViewContext(input router.ViewContext) router.ViewContext {
