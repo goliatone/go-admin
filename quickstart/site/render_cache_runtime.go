@@ -32,26 +32,30 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 	return true, decision, replayRenderedSiteResponse(c, response)
 }
 
-func (r *deliveryRuntime) storeRenderedResponse(c router.Context, state RequestState, decision renderCacheDecision, result renderedSiteTemplateResult, resolution *deliveryResolution) {
+func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, state RequestState, decision renderCacheDecision, result renderedSiteTemplateResult, resolution *deliveryResolution) error {
 	if r == nil || !decision.Cacheable || strings.TrimSpace(decision.Key) == "" {
-		return
+		return writeRenderedTemplate(c, result.Status, result.Rendered)
 	}
 	policy := normalizeRenderCachePolicy(r.renderCache.policy)
 	if !renderCacheStatusAllowed(result.Status, policy.CacheableStatuses) {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonStatus, decision.Key)
-		return
+		return writeRenderedTemplate(c, result.Status, result.Rendered)
 	}
 	response, reason, ok := newRenderedSiteResponse(result, policy, renderCacheTagsForResolution(r.siteCfg, state, decision, resolution), time.Now())
 	if !ok {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, reason, decision.Key)
-		return
+		return writeRenderedTemplate(c, result.Status, result.Rendered)
 	}
 	if err := r.renderCache.store.Set(RequestContext(c), decision.Key, response, policy.FreshTTL); err != nil {
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
-		return
+		if policy.FailClosed {
+			return c.SendStatus(http.StatusServiceUnavailable)
+		}
+		return writeRenderedTemplate(c, result.Status, result.Rendered)
 	}
 	r.attachRenderedResponseTags(c, decision.Key, response.Tags)
 	r.writeRenderCacheDebugHeaders(c, renderCacheStatusMiss, "", decision.Key)
+	return writeRenderedTemplate(c, result.Status, result.Rendered)
 }
 
 func (r *deliveryRuntime) attachRenderedResponseTags(c router.Context, key string, tags []string) {

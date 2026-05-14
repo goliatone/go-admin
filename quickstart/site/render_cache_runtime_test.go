@@ -343,11 +343,12 @@ func TestRenderCacheRejectsUnsafeCapturedHeaders(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("request status=%d body=%s", rec.Code, rec.Body.String())
 	}
-	if got := rec.Header().Get("X-Site-Render-Cache"); got != renderCacheStatusBypass {
-		t.Fatalf("expected unsafe header bypass, got %q headers=%v", got, rec.Header())
+	headers := rec.Result().Header
+	if got := headers.Get("X-Site-Render-Cache"); got != renderCacheStatusBypass {
+		t.Fatalf("expected unsafe header bypass, got %q headers=%v", got, headers)
 	}
-	if got := rec.Header().Get("X-Site-Render-Cache-Reason"); got != "unsafe_header" {
-		t.Fatalf("expected unsafe_header reason, got %q headers=%v", got, rec.Header())
+	if got := headers.Get("X-Site-Render-Cache-Reason"); got != "unsafe_header" {
+		t.Fatalf("expected unsafe_header reason, got %q headers=%v", got, headers)
 	}
 	if len(store.items) != 0 {
 		t.Fatalf("expected unsafe response not to be stored, got %d items", len(store.items))
@@ -433,42 +434,63 @@ func TestRenderCacheBackendErrorsAreObservable(t *testing.T) {
 	}
 }
 
-func TestRenderCacheWriteErrorsAreObservableAfterMissRender(t *testing.T) {
-	store := newTestRenderCacheStore()
-	store.setErr = errors.New("cache write failed")
-	renderer := &testRenderCacheRenderer{}
-	services := newRenderCacheDeliveryServices(t)
-	server := router.NewHTTPServer()
-	if err := RegisterSiteRoutes(
-		server.Router(),
-		nil,
-		admin.Config{DefaultLocale: "en"},
-		SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
-		WithDeliveryServices(services, services),
-		WithRenderCache(store, RenderCachePolicy{
-			Enabled:          true,
-			FreshTTL:         time.Minute,
-			DebugHeaders:     true,
-			TemplateRenderer: renderer,
-		}),
-	); err != nil {
-		t.Fatalf("register site routes: %v", err)
+func TestRenderCacheWriteErrorsAreObservableBeforeCommit(t *testing.T) {
+	tests := []struct {
+		name       string
+		failClosed bool
+		wantStatus int
+		wantBody   bool
+	}{
+		{name: "fail open", wantStatus: http.StatusOK, wantBody: true},
+		{name: "fail closed", failClosed: true, wantStatus: http.StatusServiceUnavailable},
 	}
-	rec := performSiteRequestRaw(t, server, "/about", "text/html")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("request status=%d body=%s", rec.Code, rec.Body.String())
-	}
-	if renderer.calls == 0 {
-		t.Fatal("expected cache miss to render before Set failure")
-	}
-	if got := rec.Header().Get("X-Site-Render-Cache"); got != renderCacheStatusBypass {
-		t.Fatalf("expected write-error bypass, got %q headers=%v", got, rec.Header())
-	}
-	if got := rec.Header().Get("X-Site-Render-Cache-Reason"); got != renderCacheReasonCacheWriteError {
-		t.Fatalf("expected cache_write_error reason, got %q headers=%v", got, rec.Header())
-	}
-	if len(store.items) != 0 {
-		t.Fatalf("expected failed Set not to store items, got %d", len(store.items))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := newTestRenderCacheStore()
+			store.setErr = errors.New("cache write failed")
+			renderer := &testRenderCacheRenderer{}
+			services := newRenderCacheDeliveryServices(t)
+			server := router.NewHTTPServer()
+			if err := RegisterSiteRoutes(
+				server.Router(),
+				nil,
+				admin.Config{DefaultLocale: "en"},
+				SiteConfig{Features: SiteFeatures{EnableI18N: new(false)}},
+				WithDeliveryServices(services, services),
+				WithRenderCache(store, RenderCachePolicy{
+					Enabled:          true,
+					FreshTTL:         time.Minute,
+					DebugHeaders:     true,
+					FailClosed:       tt.failClosed,
+					TemplateRenderer: renderer,
+				}),
+			); err != nil {
+				t.Fatalf("register site routes: %v", err)
+			}
+			rec := performSiteRequestRaw(t, server, "/about", "text/html")
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("expected status %d, got %d body=%s", tt.wantStatus, rec.Code, rec.Body.String())
+			}
+			if renderer.calls == 0 {
+				t.Fatal("expected cache miss to render before Set failure")
+			}
+			headers := rec.Result().Header
+			if got := headers.Get("X-Site-Render-Cache"); got != renderCacheStatusBypass {
+				t.Fatalf("expected write-error bypass, got %q headers=%v", got, headers)
+			}
+			if got := headers.Get("X-Site-Render-Cache-Reason"); got != renderCacheReasonCacheWriteError {
+				t.Fatalf("expected cache_write_error reason, got %q headers=%v", got, headers)
+			}
+			if tt.wantBody && !strings.Contains(rec.Body.String(), "record=about") {
+				t.Fatalf("expected fail-open response body, got %q", rec.Body.String())
+			}
+			if !tt.wantBody && strings.Contains(rec.Body.String(), "record=about") {
+				t.Fatalf("did not expect fail-closed page body, got %q", rec.Body.String())
+			}
+			if len(store.items) != 0 {
+				t.Fatalf("expected failed Set not to store items, got %d", len(store.items))
+			}
+		})
 	}
 }
 

@@ -29,8 +29,6 @@ type renderedSiteTemplateResult struct {
 
 func renderSiteTemplateResponseCaptured(
 	c router.Context,
-	state RequestState,
-	cfg ResolvedSiteConfig,
 	response siteTemplateResponse,
 	renderer RenderCacheTemplateRenderer,
 ) (renderedSiteTemplateResult, error) {
@@ -38,11 +36,7 @@ func renderSiteTemplateResponseCaptured(
 		return renderedSiteTemplateResult{}, errors.New(renderCacheReasonMissingRenderer)
 	}
 	if wantsJSONResponse(c) {
-		status := response.JSONStatus
-		if status <= 0 {
-			status = http.StatusOK
-		}
-		return renderedSiteTemplateResult{}, c.JSON(status, response.JSONPayload)
+		return renderedSiteTemplateResult{}, errors.New(renderCacheReasonJSON)
 	}
 	status := response.TemplateStatus
 	if status <= 0 {
@@ -60,17 +54,11 @@ func renderSiteTemplateResponseCaptured(
 		if strings.TrimSpace(rendered.ContentType) == "" {
 			rendered.ContentType = "text/html; charset=utf-8"
 		}
-		if err := writeRenderedTemplate(c, status, rendered); err != nil {
-			return renderedSiteTemplateResult{}, err
-		}
 		return renderedSiteTemplateResult{
 			Status:       status,
 			TemplateName: templateName,
 			Rendered:     rendered,
 		}, nil
-	}
-	if err := renderSiteRuntimeError(c, state, cfg, response.FallbackError); err != nil {
-		return renderedSiteTemplateResult{}, err
 	}
 	return renderedSiteTemplateResult{}, nil
 }
