@@ -20,6 +20,7 @@ type siteRegisterOptions struct {
 	themeProvider     SiteThemeProvider
 	fallbackPolicy    SiteFallbackPolicy
 	fallbackOverlay   siteFallbackPolicyOverlay
+	renderCache       renderCacheConfig
 }
 
 // WithSearchProvider sets the search provider for optional search route wiring.
