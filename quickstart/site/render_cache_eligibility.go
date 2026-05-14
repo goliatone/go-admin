@@ -40,6 +40,7 @@ const (
 	renderCacheReasonUnsafeHeader         = "unsafe_header"
 	renderCacheReasonTagIndexRequired     = "tag_index_required"
 	renderCacheReasonTagIndexMemoryStore  = "tag_index_memory_backend"
+	renderCacheReasonTagIndexBackendKind  = "tag_index_backend_kind"
 	renderCacheReasonTagIndexWriteError   = "tag_index_write_error"
 )
 
@@ -104,8 +105,10 @@ func renderCacheConfigDecision(cfg renderCacheConfig, policy RenderCachePolicy) 
 		return renderCacheDecision{Reason: renderCacheReasonDisabled}
 	case cfg.store == nil:
 		return renderCacheDecision{Reason: renderCacheReasonMissingStore}
-	case policy.RequireTagIndex && renderCacheStoreBackendKind(cfg.store) == "memory":
+	case policy.RequireTagIndex && renderCacheStoreIsMemoryBackend(cfg.store):
 		return renderCacheDecision{Reason: renderCacheReasonTagIndexMemoryStore}
+	case policy.RequireTagIndex && !renderCacheStoreHasDeclaredBackendKind(cfg.store):
+		return renderCacheDecision{Reason: renderCacheReasonTagIndexBackendKind}
 	case policy.RequireTagIndex && !renderCacheStoreSupportsTagIndex(cfg.store):
 		return renderCacheDecision{Reason: renderCacheReasonTagIndexRequired}
 	default:

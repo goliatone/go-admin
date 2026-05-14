@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	router "github.com/goliatone/go-router"
@@ -31,7 +32,15 @@ func (r *deliveryRuntime) tryRenderCacheHit(c router.Context, state RequestState
 	}
 	freshness := renderCacheResponseFreshness(response, time.Now())
 	if freshness == renderCacheFreshnessExpired {
-		_ = r.renderCache.store.Delete(RequestContext(c), decision.Key)
+		if err := r.renderCache.store.Delete(RequestContext(c), decision.Key); err != nil {
+			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
+			if r.renderCache.policy.FailClosed {
+				return true, decision, c.SendStatus(http.StatusServiceUnavailable)
+			}
+			decision.Cacheable = false
+			decision.Reason = renderCacheReasonCacheWriteError
+			return false, decision, nil
+		}
 		r.writeRenderCacheDebugHeaders(c, renderCacheStatusMiss, "", decision.Key)
 		return false, decision, nil
 	}
@@ -67,7 +76,13 @@ func (r *deliveryRuntime) writeCapturedRenderCacheResponse(c router.Context, sta
 	}
 	if err := r.attachRenderedResponseTags(c, decision.Key, response.Tags); err != nil {
 		if policy.RequireTagIndex {
-			_ = r.renderCache.store.Delete(RequestContext(c), decision.Key)
+			if err := r.renderCache.store.Delete(RequestContext(c), decision.Key); err != nil {
+				r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonCacheWriteError, decision.Key)
+				if policy.FailClosed {
+					return c.SendStatus(http.StatusServiceUnavailable)
+				}
+				return writeRenderedTemplate(c, result.Status, result.Rendered)
+			}
 			r.writeRenderCacheDebugHeaders(c, renderCacheStatusBypass, renderCacheReasonTagIndexWriteError, decision.Key)
 			if policy.FailClosed {
 				return c.SendStatus(http.StatusServiceUnavailable)
@@ -117,6 +132,10 @@ func (r *deliveryRuntime) triggerRenderCacheStaleRevalidation(c router.Context, 
 	if key == "" {
 		return
 	}
+	group := &r.revalidation
+	if !group.begin(key) {
+		return
+	}
 	request := RenderCacheRevalidationRequest{
 		Key:         key,
 		RequestPath: strings.TrimSpace(decision.RequestPath),
@@ -128,7 +147,49 @@ func (r *deliveryRuntime) triggerRenderCacheStaleRevalidation(c router.Context, 
 		ctx = context.WithoutCancel(RequestContext(c))
 	}
 	revalidator := r.renderCache.policy.StaleRevalidator
-	go revalidator(ctx, request)
+	go func() {
+		defer group.done(key)
+		defer func() {
+			_ = recover()
+		}()
+		revalidator(ctx, request)
+	}()
+}
+
+type renderCacheRevalidationGroup struct {
+	mu       sync.Mutex
+	inFlight map[string]struct{}
+}
+
+func newRenderCacheRevalidationGroup() *renderCacheRevalidationGroup {
+	return &renderCacheRevalidationGroup{inFlight: map[string]struct{}{}}
+}
+
+func (g *renderCacheRevalidationGroup) begin(key string) bool {
+	key = strings.TrimSpace(key)
+	if g == nil || key == "" {
+		return false
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.inFlight == nil {
+		g.inFlight = map[string]struct{}{}
+	}
+	if _, ok := g.inFlight[key]; ok {
+		return false
+	}
+	g.inFlight[key] = struct{}{}
+	return true
+}
+
+func (g *renderCacheRevalidationGroup) done(key string) {
+	key = strings.TrimSpace(key)
+	if g == nil || key == "" {
+		return
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	delete(g.inFlight, key)
 }
 
 func cloneRenderCacheRevalidationState(state RequestState) RequestState {
@@ -150,7 +211,7 @@ func (r *deliveryRuntime) attachRenderedResponseTags(c router.Context, key strin
 	if r == nil || len(tags) == 0 || strings.TrimSpace(key) == "" {
 		return nil
 	}
-	if renderCacheStoreBackendKind(r.renderCache.store) == "memory" {
+	if renderCacheStoreIsMemoryBackend(r.renderCache.store) {
 		return nil
 	}
 	invalidator, ok := r.renderCache.store.(RenderCacheTagInvalidator)

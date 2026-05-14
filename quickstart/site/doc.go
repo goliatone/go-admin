@@ -29,6 +29,8 @@
 //     for FreshTTL plus StaleTTL, stale hits replay with cache status "stale",
 //     expired entries are deleted and refreshed as misses, and hosts can wire
 //     RenderCachePolicy.StaleRevalidator for safe background regeneration.
+//     Revalidation is keyed so duplicate stale hits do not stampede one process,
+//     and host callback panics are recovered.
 //   - The default policy is conservative: GET/HEAD, status 200, no arbitrary
 //     query variation, auth/session/preview/JSON/search/API/cookie-mutating
 //     requests bypass, and only safe response headers are replayed.
@@ -36,8 +38,9 @@
 //     request context, go-auth claims/actor context, common session/JWT
 //     cookies, and host-declared RenderCachePolicy.AuthCookieNames.
 //   - RenderCachePolicy.RequireTagIndex is a production guard: memory backends
-//     bypass caching, stores must implement RenderCacheTagInvalidator, and tag
-//     attachment failure removes the just-written entry before it can be served.
+//     bypass caching, stores must explicitly declare backend kind, stores must
+//     implement RenderCacheTagInvalidator, and tag attachment failure removes
+//     the just-written entry before it can be served.
 //
 // See /LOCALE_PATH_V1_GUIDE.md and /LOCALE_PATH_RUNBOOK.md for the full V1
 // rollout model, migration guidance, and V2 cleanup plan.

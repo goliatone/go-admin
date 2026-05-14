@@ -219,6 +219,21 @@ func renderCacheStoreBackendKind(store RenderCacheStore) string {
 	return renderCacheReflectBackendKind(store)
 }
 
+func renderCacheStoreHasDeclaredBackendKind(store RenderCacheStore) bool {
+	if store == nil {
+		return false
+	}
+	describer, ok := store.(RenderCacheBackendDescriber)
+	if !ok {
+		return false
+	}
+	return strings.TrimSpace(describer.RenderCacheBackendKind()) != ""
+}
+
+func renderCacheStoreIsMemoryBackend(store RenderCacheStore) bool {
+	return renderCacheStoreBackendKind(store) == "memory"
+}
+
 func renderCacheReflectBackendKind(store RenderCacheStore) string {
 	t := reflect.TypeOf(store)
 	if t == nil {

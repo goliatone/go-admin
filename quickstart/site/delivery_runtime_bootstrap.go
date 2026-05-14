@@ -16,6 +16,7 @@ type deliveryRuntime struct {
 	navigation     *navigationRuntime
 	modules        []SiteModule
 	renderCache    renderCacheConfig
+	revalidation   renderCacheRevalidationGroup
 }
 
 func newDeliveryRuntime(
