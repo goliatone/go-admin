@@ -1,14 +1,34 @@
 # Changelog
 
-# Unreleased
+# [0.69.0](https://github.com/goliatone/go-admin/compare/v0.68.0...v0.69.0) - (2026-05-15)
 
-## Add
+## <!-- 1 -->🐛 Bug Fixes
 
-- Add quickstart/site render-cache runtime construction for memory and Valkey backends, startup diagnostics, diagnostic observer wrapping, `site-render-cache` debug panel backend registration, and exported clear/invalidation targets.
+- Code quality ([9d9392f](https://github.com/goliatone/go-admin/commit/9d9392f267ca6efcbfdf15806720e6761c4ab8ed))  - (goliatone)
 
-## Documentation
+## <!-- 13 -->📦 Bumps
 
-- Document host wiring for the upstream site render cache runtime and debug panel, including fail-open/fail-closed behavior, process-local diagnostics, Valkey redaction, raw-key debug mode, and CMS invalidation alignment.
+- Bump version: v0.69.0 ([26e88f2](https://github.com/goliatone/go-admin/commit/26e88f2a9bb5ec82b3f92dbfaf354b5a14a0373d))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Cache render panels ([c86b4bf](https://github.com/goliatone/go-admin/commit/c86b4bf6d7cc2a20a2406204428fb8db3323d1fb))  - (goliatone)
+- Debug panel assets ([ee4735d](https://github.com/goliatone/go-admin/commit/ee4735d4f78b0b857700c389867d901c780ec9a4))  - (goliatone)
+- Debug panel registry ([8654985](https://github.com/goliatone/go-admin/commit/86549858698c119de39f48937cff17aac80be027))  - (goliatone)
+- Expose panel actions endpoint ([237f9e6](https://github.com/goliatone/go-admin/commit/237f9e61abd60793c7b816dfe6697f8b50d8321c))  - (goliatone)
+- Debug collection and panel registry update ([22d8188](https://github.com/goliatone/go-admin/commit/22d8188e466fcbc6855927793a45d703bd030fb6))  - (goliatone)
+- Site render cache management ([4d5329d](https://github.com/goliatone/go-admin/commit/4d5329de2d6f6d0b12e5490334deb890627db9aa))  - (goliatone)
+- Expose debug panel ui ([010638e](https://github.com/goliatone/go-admin/commit/010638efa0e420b9452c2328b47f9752a8c395a6))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.68.0 ([b853235](https://github.com/goliatone/go-admin/commit/b8532352b5ef83fa60cccfea09bdca9f02059960))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([bbdfdb0](https://github.com/goliatone/go-admin/commit/bbdfdb0c6ac2df62f6075840b6166555df174b48))  - (goliatone)
+- Update docs ([731ffae](https://github.com/goliatone/go-admin/commit/731ffae7a76cc87ac0dc1e8e48b540f66465653a))  - (goliatone)
+- Update deps ([d44b842](https://github.com/goliatone/go-admin/commit/d44b84246864265879e35a61cd07092e0ecc1563))  - (goliatone)
 
 # [0.68.0](https://github.com/goliatone/go-admin/compare/v0.67.0...v0.68.0) - (2026-05-15)
 
@@ -2993,4 +3013,5 @@
 - Example templates ([74d23ed](https://github.com/goliatone/go-admin/commit/74d23ed807d5e312e8a61e009d19ad46d1632b5c))  - (goliatone)
 - Example update ([ff16170](https://github.com/goliatone/go-admin/commit/ff16170e3c7fdf46121bd546f3f6cd43f1dcdadc))  - (goliatone)
 - Initial commit ([2197564](https://github.com/goliatone/go-admin/commit/2197564725b64c8ef15d034763ee283ee95ac4ba))  - (goliatone)
+
 
