@@ -464,6 +464,27 @@ test('site render cache panel includes clear button with correct action', () => 
   assert.match(html, /data-debug-action="clear-panel"/, 'should have clear-panel action attribute');
 });
 
+test('site render cache panel uses fixed-size svg icons for controls and capability chips', () => {
+  const html = renderSiteRenderCachePanel(fixtures.healthy, consoleStyles);
+  const dom = new JSDOM(`<!doctype html><html><body>${html}</body></html>`);
+  const doc = dom.window.document;
+
+  const clearIcon = doc.querySelector('[data-debug-action="clear-panel"] svg[data-site-cache-icon="refresh"]');
+  assert.ok(clearIcon, 'clear button should render a fixed-box refresh svg');
+  assert.equal(clearIcon.getAttribute('width'), '13');
+  assert.equal(clearIcon.getAttribute('height'), '13');
+
+  const scopeIcon = doc.querySelector('svg[data-site-cache-icon="warning"]');
+  assert.ok(scopeIcon, 'process_local scope should render a fixed-box warning svg');
+
+  const capabilityIcons = doc.querySelectorAll('details svg[data-site-cache-icon="check"], details svg[data-site-cache-icon="x"]');
+  assert.ok(capabilityIcons.length >= 5, 'capability chips should render fixed-box status svgs');
+
+  assert.doesNotMatch(html, new RegExp('>\\u21bb<'), 'clear button should not rely on fallback-font refresh glyphs');
+  assert.doesNotMatch(html, new RegExp('>\\u26a0<'), 'warning chips should not rely on fallback-font warning glyphs');
+  assert.doesNotMatch(html, new RegExp('>\\u2713<'), 'status chips should not rely on fallback-font check glyphs');
+});
+
 test('site render cache compact panel renders correctly', () => {
   const html = renderSiteRenderCachePanelCompact(fixtures.healthy, toolbarStyles);
 

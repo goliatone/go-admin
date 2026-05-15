@@ -159,8 +159,32 @@ type StatusConfig = {
   color: string;
   bgColor: string;
   borderColor: string;
-  icon: string;
+  icon: SiteRenderCacheIcon;
 };
+
+type SiteRenderCacheIcon = 'check' | 'warning' | 'x' | 'circle' | 'help' | 'refresh';
+
+function renderCacheIcon(icon: SiteRenderCacheIcon, options: { size?: number; color?: string } = {}): string {
+  const size = options.size || 12;
+  const color = options.color || 'currentColor';
+  const commonAttrs = `data-site-cache-icon="${icon}" aria-hidden="true" focusable="false" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;flex:0 0 ${size}px;width:${size}px;height:${size}px;color:${color};vertical-align:-2px;"`;
+
+  switch (icon) {
+    case 'check':
+      return `<svg ${commonAttrs}><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    case 'warning':
+      return `<svg ${commonAttrs}><path d="M10.3 4.3 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>`;
+    case 'x':
+      return `<svg ${commonAttrs}><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>`;
+    case 'circle':
+      return `<svg ${commonAttrs}><circle cx="12" cy="12" r="8"></circle></svg>`;
+    case 'refresh':
+      return `<svg ${commonAttrs}><path d="M21 12a9 9 0 0 1-15.1 6.6"></path><path d="M3 12a9 9 0 0 1 15.1-6.6"></path><path d="M18 3v5h-5"></path><path d="M6 21v-5h5"></path></svg>`;
+    case 'help':
+    default:
+      return `<svg ${commonAttrs}><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.6 2.6 0 1 1 4.3 2c-.9.6-1.8 1.3-1.8 2.5"></path><path d="M12 17h.01"></path></svg>`;
+  }
+}
 
 function getStatusConfig(status?: string): StatusConfig {
   const s = (status || '').toLowerCase();
@@ -170,7 +194,7 @@ function getStatusConfig(status?: string): StatusConfig {
       color: '#22c55e',
       bgColor: 'rgba(34, 197, 94, 0.1)',
       borderColor: 'rgba(34, 197, 94, 0.4)',
-      icon: '\u2713', // ✓
+      icon: 'check',
     };
   }
   if (s === 'degraded' || s === 'warn') {
@@ -179,7 +203,7 @@ function getStatusConfig(status?: string): StatusConfig {
       color: '#f59e0b',
       bgColor: 'rgba(245, 158, 11, 0.1)',
       borderColor: 'rgba(245, 158, 11, 0.4)',
-      icon: '\u26A0', // ⚠
+      icon: 'warning',
     };
   }
   if (s === 'error' || s === 'startup_error') {
@@ -188,7 +212,7 @@ function getStatusConfig(status?: string): StatusConfig {
       color: '#ef4444',
       bgColor: 'rgba(239, 68, 68, 0.1)',
       borderColor: 'rgba(239, 68, 68, 0.4)',
-      icon: '\u2717', // ✗
+      icon: 'x',
     };
   }
   if (s === 'inactive' || s === 'disabled') {
@@ -197,7 +221,7 @@ function getStatusConfig(status?: string): StatusConfig {
       color: '#64748b',
       bgColor: 'rgba(100, 116, 139, 0.1)',
       borderColor: 'rgba(100, 116, 139, 0.4)',
-      icon: '\u25CB', // ○
+      icon: 'circle',
     };
   }
   return {
@@ -205,7 +229,7 @@ function getStatusConfig(status?: string): StatusConfig {
     color: '#94a3b8',
     bgColor: 'rgba(148, 163, 184, 0.1)',
     borderColor: 'rgba(148, 163, 184, 0.4)',
-    icon: '\u003F', // ?
+    icon: 'help',
   };
 }
 
@@ -217,7 +241,7 @@ function getCommandOutcomeConfig(outcome?: string): StatusConfig {
       color: '#22c55e',
       bgColor: 'rgba(34, 197, 94, 0.1)',
       borderColor: 'rgba(34, 197, 94, 0.4)',
-      icon: '\u2713',
+      icon: 'check',
     };
   }
   if (o === 'failed' || o === 'error') {
@@ -226,7 +250,7 @@ function getCommandOutcomeConfig(outcome?: string): StatusConfig {
       color: '#ef4444',
       bgColor: 'rgba(239, 68, 68, 0.1)',
       borderColor: 'rgba(239, 68, 68, 0.4)',
-      icon: '\u2717',
+      icon: 'x',
     };
   }
   if (o === 'unsupported' || o === 'none') {
@@ -235,7 +259,7 @@ function getCommandOutcomeConfig(outcome?: string): StatusConfig {
       color: '#f59e0b',
       bgColor: 'rgba(245, 158, 11, 0.1)',
       borderColor: 'rgba(245, 158, 11, 0.4)',
-      icon: '\u26A0',
+      icon: 'warning',
     };
   }
   return {
@@ -243,7 +267,7 @@ function getCommandOutcomeConfig(outcome?: string): StatusConfig {
     color: '#94a3b8',
     bgColor: 'rgba(148, 163, 184, 0.1)',
     borderColor: 'rgba(148, 163, 184, 0.4)',
-    icon: '\u003F',
+    icon: 'help',
   };
 }
 
@@ -279,11 +303,7 @@ function renderStatusBadge(snapshot: SiteRenderCacheSnapshot): string {
       border: 1px solid ${config.borderColor};
       border-radius: 5px;
     ">
-      <span style="
-        font-size: 12px;
-        color: ${config.color};
-        line-height: 1;
-      ">${config.icon}</span>
+      ${renderCacheIcon(config.icon, { size: 13, color: config.color })}
       <span style="
         font-size: 12px;
         font-weight: 600;
@@ -328,7 +348,7 @@ function renderBackendInfo(snapshot: SiteRenderCacheSnapshot): string {
         border-radius: 4px;
         color: ${scopeTextColor};
         font-weight: 500;
-      ">${isProcessLocal ? '<span style="font-size: 12px; line-height: 1;">⚠</span>' : ''}<span>${escapeHTML(scope)}</span></span>
+      ">${isProcessLocal ? renderCacheIcon('warning', { size: 13, color: scopeTextColor }) : ''}<span>${escapeHTML(scope)}</span></span>
       ${snapshot.observed_by ? `
         <span style="color: #64748b; font-size: 11px;">
           obs: ${escapeHTML(snapshot.observed_by)}
@@ -359,7 +379,7 @@ function renderClearButton(): string {
         line-height: 1;
       "
     >
-      <span style="font-size: 13px; line-height: 1;">↻</span>
+      ${renderCacheIcon('refresh', { size: 13, color: '#fff' })}
       <span>Clear Cache</span>
     </button>
   `;
@@ -614,7 +634,7 @@ function renderRecentErrors(errors?: SiteRenderCacheError[], maxErrors = 10): st
         align-items: center;
         gap: 5px;
       ">
-        <span style="font-size: 12px;">⚠</span> Recent Errors (${items.length})
+        ${renderCacheIcon('warning', { size: 13, color: '#ef4444' })} Recent Errors (${items.length})
       </div>
       <div style="
         background: #0f172a;
@@ -773,7 +793,7 @@ function renderCapabilitiesSection(caps?: SiteRenderCacheCapabilities): string {
     .map(({ label, value }) => {
       const supported = Boolean(value);
       const color = supported ? '#22c55e' : '#64748b';
-      const icon = supported ? '\u2713' : '\u2717';
+      const icon = supported ? 'check' : 'x';
       return `
         <span style="
           display: inline-flex;
@@ -786,7 +806,7 @@ function renderCapabilitiesSection(caps?: SiteRenderCacheCapabilities): string {
           font-size: 11px;
           color: ${color};
         ">
-          <span>${icon}</span>
+          ${renderCacheIcon(icon, { size: 13, color })}
           ${escapeHTML(label)}
         </span>
       `;
@@ -1134,7 +1154,7 @@ export function renderSiteRenderCachePanel(
           padding: 32px 16px;
           color: #64748b;
         ">
-          <div style="font-size: 24px; margin-bottom: 10px;">○</div>
+          <div style="margin-bottom: 10px;">${renderCacheIcon('circle', { size: 24, color: '#64748b' })}</div>
           <div style="font-size: 14px; font-weight: 500; margin-bottom: 6px; color: #94a3b8;">Cache Not Configured</div>
           <div style="font-size: 12px;">Enable site render cache in application configuration.</div>
         </div>
@@ -1215,7 +1235,7 @@ export function renderSiteRenderCachePanelCompact(
           border: 1px solid ${statusConfig.borderColor};
           border-radius: 4px;
         ">
-          <span style="font-size: 12px; color: ${statusConfig.color};">${statusConfig.icon}</span>
+          ${renderCacheIcon(statusConfig.icon, { size: 13, color: statusConfig.color })}
           <span style="font-size: 11px; font-weight: 600; color: ${statusConfig.color};">${escapeHTML(statusConfig.label)}</span>
         </span>
         <span style="
@@ -1235,7 +1255,7 @@ export function renderSiteRenderCachePanelCompact(
             border-radius: 4px;
             font-size: 10px;
             color: #f59e0b;
-          ">⚠ local</span>
+          ">${renderCacheIcon('warning', { size: 12, color: '#f59e0b' })} local</span>
         ` : ''}
       </div>
       <div style="
@@ -1270,7 +1290,7 @@ export function renderSiteRenderCachePanelCompact(
               align-items: center;
               gap: 4px;
             "
-          ><span style="font-size: 12px;">↻</span> Clear</button>
+          >${renderCacheIcon('refresh', { size: 12, color: '#fff' })} Clear</button>
         </div>
       ` : ''}
     </div>

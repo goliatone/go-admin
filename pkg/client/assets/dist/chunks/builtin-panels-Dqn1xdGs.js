@@ -1,10 +1,10 @@
 import { escapeHTML as n } from "../shared/html.js";
-import { normalizeDebugBasePath as Y } from "../debug/shared/path-helpers.js";
-import { A as B, D as Z, E, F as J, I as ee, M as w, N as b, O as te, P as m, R as $, S as f, _ as k, i as oe, j as L, w as h } from "./server-definitions-BXgs2Hko.js";
-var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
-  const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = Y(e);
+import { normalizeDebugBasePath as Z } from "../debug/shared/path-helpers.js";
+import { A as I, D as ee, E as L, F as U, I as te, M as k, N as b, O as oe, P as m, R as w, S as f, _ as C, i as re, j as N, w as h } from "./server-definitions-BXgs2Hko.js";
+var ne = 1e3, se = 12e3, ae = 8, ie = 1, le = 3e4, de = (e) => {
+  const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = Z(e);
   return `${t}//${window.location.host}${o}/ws`;
-}, de = (e, t, o) => {
+}, ce = (e, t, o) => {
   const r = e.trim();
   if (!r || !t || !o) return e;
   const [s, i] = r.split("#"), l = `${s}${s.includes("?") ? "&" : "?"}${encodeURIComponent(t)}=${encodeURIComponent(o)}`;
@@ -18,7 +18,7 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
     return null;
   }
   return null;
-}, ce = (e) => {
+}, ue = (e) => {
   if (!e) return null;
   const t = e.split(".");
   if (t.length < 2) return null;
@@ -31,7 +31,7 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
     return null;
   }
   return null;
-}, ue = (e, t) => {
+}, ge = (e, t) => {
   if (t) {
     if (typeof t.expiresInMs == "number" && t.expiresInMs > 0) return Date.now() + t.expiresInMs;
     const o = t.expiresAt ?? t.expires_at;
@@ -41,13 +41,13 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
       if (!Number.isNaN(r.getTime())) return r.getTime();
     }
   }
-  return ce(e);
-}, ge = class {
+  return ue(e);
+}, be = class {
   constructor(e) {
     this.ws = null, this.reconnectTimer = null, this.reconnectAttempts = 0, this.manualClose = !1, this.pendingCommands = [], this.status = "disconnected", this.hasConnected = !1, this.options = e;
   }
   getWebSocketURL() {
-    return this.options.url ? this.options.url : le(this.options.basePath || "");
+    return this.options.url ? this.options.url : de(this.options.basePath || "");
   }
   connect() {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
@@ -122,7 +122,7 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
     for (const t of e) this.ws.send(JSON.stringify(t));
   }
   scheduleReconnect() {
-    const e = this.hasConnected ? this.options.maxReconnectAttempts ?? se : this.options.maxInitialReconnectAttempts ?? ae, t = this.options.reconnectDelayMs ?? re, o = this.options.maxReconnectDelayMs ?? ne;
+    const e = this.hasConnected ? this.options.maxReconnectAttempts ?? ae : this.options.maxInitialReconnectAttempts ?? ie, t = this.options.reconnectDelayMs ?? ne, o = this.options.maxReconnectDelayMs ?? se;
     if (this.reconnectAttempts >= e) {
       this.setStatus("disconnected");
       return;
@@ -132,26 +132,26 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
       this.reconnectTimer = null, this.connect();
     }, s + i);
   }
-}, Ot = class extends ge {
+}, Ot = class extends be {
   constructor(e) {
-    const { url: t, authToken: o, tokenProvider: r, tokenRefreshBufferMs: s, tokenParam: i, appId: l, onEvent: d, ...p } = e, a = (c) => {
-      if (l && c && !c.app_id) {
+    const { url: t, authToken: o, tokenProvider: r, tokenRefreshBufferMs: s, tokenParam: i, appId: l, onEvent: d, ...c } = e, a = (p) => {
+      if (l && p && !p.app_id) {
         d?.({
-          ...c,
+          ...p,
           app_id: l
         });
         return;
       }
-      d?.(c);
+      d?.(p);
     };
     super({
-      ...p,
+      ...c,
       url: t,
       onEvent: a
-    }), this.authToken = null, this.tokenRefreshTimer = null, this.tokenExpiresAt = null, this.baseUrl = t, this.tokenProvider = r, this.tokenRefreshBufferMs = s ?? ie, this.tokenParam = i || "token", o && this.setToken(o);
+    }), this.authToken = null, this.tokenRefreshTimer = null, this.tokenExpiresAt = null, this.baseUrl = t, this.tokenProvider = r, this.tokenRefreshBufferMs = s ?? le, this.tokenParam = i || "token", o && this.setToken(o);
   }
   getWebSocketURL() {
-    return this.authToken ? de(this.baseUrl, this.tokenParam, this.authToken) : this.baseUrl;
+    return this.authToken ? ce(this.baseUrl, this.tokenParam, this.authToken) : this.baseUrl;
   }
   connect() {
     this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING) || this.ensureToken().then((e) => {
@@ -172,7 +172,7 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
     }, e);
   }
   setToken(e, t) {
-    this.authToken = e, this.tokenExpiresAt = ue(e, t), this.scheduleTokenRefresh();
+    this.authToken = e, this.tokenExpiresAt = ge(e, t), this.scheduleTokenRefresh();
   }
   tokenNeedsRefresh() {
     return this.tokenExpiresAt ? Date.now() + this.tokenRefreshBufferMs >= this.tokenExpiresAt : !1;
@@ -190,7 +190,7 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
     }
   }
 };
-async function U(e, t, o = {}) {
+async function V(e, t, o = {}) {
   const { feedbackDuration: r = 1500, useIconFeedback: s = !1, successClass: i = s ? "debug-copy--success" : "copied", errorClass: l = "debug-copy--error" } = o;
   try {
     await navigator.clipboard.writeText(e);
@@ -209,23 +209,23 @@ async function U(e, t, o = {}) {
     }, r), !1;
   }
 }
-function Mt(e, t = {}) {
+function Bt(e, t = {}) {
   e.querySelectorAll("[data-copy-trigger]").forEach((o) => {
     o.addEventListener("click", async (r) => {
       r.preventDefault(), r.stopPropagation();
       const s = o.closest("[data-copy-content]");
-      s && await U(s.getAttribute("data-copy-content") || "", o, t);
+      s && await V(s.getAttribute("data-copy-content") || "", o, t);
     });
   });
 }
-function Bt(e) {
+function It(e) {
   e.querySelectorAll(".expandable-row").forEach((t) => {
     t.addEventListener("click", (o) => {
       o.target.closest("a, button, input") || o.currentTarget.classList.toggle("expanded");
     });
   });
 }
-function It(e, t) {
+function Dt(e, t) {
   e.querySelectorAll("[data-sort-toggle]").forEach((o) => {
     o.addEventListener("change", (r) => {
       const s = r.target, i = s.dataset.sortToggle;
@@ -233,13 +233,13 @@ function It(e, t) {
     });
   });
 }
-var Dt = {
+var At = {
   COPY_TRIGGER: "data-copy-trigger",
   COPY_CONTENT: "data-copy-content",
   ROW_ID: "data-row-id",
   EXPANSION_FOR: "data-expansion-for",
   SORT_TOGGLE: "data-sort-toggle"
-}, At = {
+}, Ht = {
   EXPANDABLE_ROW: "expandable-row",
   EXPANDED: "expanded",
   EXPANSION_ROW: "expansion-row",
@@ -247,55 +247,55 @@ var Dt = {
   ERROR_QUERY: "error-query",
   EXPAND_ICON: "expand-icon"
 };
-function I(e, t) {
+function D(e, t) {
   return [...t].sort((o, r) => o - r).map((o) => e[o]).filter(Boolean).map((o) => {
-    let r = `-- Duration: ${L(o.duration).text} | Rows: ${o.row_count ?? 0}`;
+    let r = `-- Duration: ${N(o.duration).text} | Rows: ${o.row_count ?? 0}`;
     return o.error && (r += ` | Error: ${o.error}`), o.timestamp && (r += ` | Time: ${o.timestamp}`), `${r}
 ${o.query || ""};`;
   }).join(`
 
 `);
 }
-function be(e, t, o = "text/sql") {
+function fe(e, t, o = "text/sql") {
   const r = new Blob([e], { type: o }), s = URL.createObjectURL(r), i = document.createElement("a");
   i.href = s, i.download = t, i.click(), URL.revokeObjectURL(s);
 }
-function Ht(e, t, o = {}) {
+function Ft(e, t, o = {}) {
   const r = /* @__PURE__ */ new Set(), s = e.querySelector("[data-sql-toolbar]"), i = e.querySelector("[data-sql-selected-count]"), l = e.querySelector(".sql-select-all"), d = e.querySelectorAll(".sql-select-row");
   if (!s || d.length === 0) return;
-  function p() {
+  function c() {
     if (!s) return;
     const a = r.size;
     s.dataset.visible = a > 0 ? "true" : "false", i && (i.textContent = `${a} selected`), l && (l.checked = a > 0 && a === d.length, l.indeterminate = a > 0 && a < d.length);
   }
   d.forEach((a) => {
-    a.addEventListener("click", (c) => {
-      c.stopPropagation();
+    a.addEventListener("click", (p) => {
+      p.stopPropagation();
     }), a.addEventListener("change", () => {
-      const c = parseInt(a.dataset.sqlIndex || "", 10);
-      Number.isNaN(c) || (a.checked ? r.add(c) : r.delete(c), p());
+      const p = parseInt(a.dataset.sqlIndex || "", 10);
+      Number.isNaN(p) || (a.checked ? r.add(p) : r.delete(p), c());
     });
   }), l && (l.addEventListener("click", (a) => {
     a.stopPropagation();
   }), l.addEventListener("change", () => {
     d.forEach((a) => {
       a.checked = l.checked;
-      const c = parseInt(a.dataset.sqlIndex || "", 10);
-      Number.isNaN(c) || (l.checked ? r.add(c) : r.delete(c));
-    }), p();
+      const p = parseInt(a.dataset.sqlIndex || "", 10);
+      Number.isNaN(p) || (l.checked ? r.add(p) : r.delete(p));
+    }), c();
   })), e.querySelector('[data-sql-export="clipboard"]')?.addEventListener("click", async (a) => {
     if (a.preventDefault(), r.size === 0) return;
-    const c = I(t, r), u = a.currentTarget;
-    await U(c, u, o);
+    const p = D(t, r), u = a.currentTarget;
+    await V(p, u, o);
   }), e.querySelector('[data-sql-export="download"]')?.addEventListener("click", (a) => {
-    a.preventDefault(), r.size !== 0 && be(I(t, r), `sql-queries-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19)}.sql`);
+    a.preventDefault(), r.size !== 0 && fe(D(t, r), `sql-queries-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19)}.sql`);
   }), e.querySelector("[data-sql-clear-selection]")?.addEventListener("click", (a) => {
-    a.preventDefault(), r.clear(), d.forEach((c) => {
-      c.checked = !1;
-    }), p();
+    a.preventDefault(), r.clear(), d.forEach((p) => {
+      p.checked = !1;
+    }), c();
   });
 }
-function Ft(e, t) {
+function Kt(e, t) {
   e.querySelectorAll("[data-request-table]").forEach((o) => {
     o.addEventListener("click", (r) => {
       const s = r.target;
@@ -306,17 +306,17 @@ function Ft(e, t) {
       if (!l) return;
       const d = i.nextElementSibling;
       if (!d || !d.hasAttribute("data-detail-for") || d.dataset.detailFor !== l) return;
-      const p = d.querySelector("[data-request-detail-template]");
-      if (p) {
-        const c = d.querySelector("td");
-        c && (c.appendChild(p.content.cloneNode(!0)), p.remove());
+      const c = d.querySelector("[data-request-detail-template]");
+      if (c) {
+        const p = d.querySelector("td");
+        p && (p.appendChild(c.content.cloneNode(!0)), c.remove());
       }
       const a = i.querySelector("[data-expand-icon]");
       t.has(l) ? (t.delete(l), d.style.display = "none", a && (a.textContent = "▶")) : (t.add(l), d.style.display = "table-row", a && (a.textContent = "▼"));
     });
   });
 }
-var fe = {
+var xe = {
   table: "debug-table",
   tableRoutes: "debug-table debug-routes-table",
   badge: "badge",
@@ -368,16 +368,16 @@ var fe = {
   detailBody: "request-detail-body",
   detailMetadataLine: "request-detail-metadata",
   badgeContentType: "badge badge--content-type"
-}, xe = {
+}, me = {
   table: "",
   tableRoutes: "",
   badge: "badge",
   badgeMethod: (e) => `badge badge-method ${e.toLowerCase()}`,
   badgeStatus: (e) => {
-    const t = ee(e);
+    const t = te(e);
     return t ? `badge badge-status ${t}` : "badge badge-status";
   },
-  badgeLevel: (e) => `badge badge-level ${J(e)}`,
+  badgeLevel: (e) => `badge badge-level ${U(e)}`,
   badgeError: "badge badge-status error",
   badgeCustom: "badge",
   duration: "duration",
@@ -424,20 +424,20 @@ var fe = {
   detailMetadataLine: "request-detail-metadata",
   badgeContentType: "badge badge-content-type"
 };
-function Kt(e) {
-  return e === "console" ? fe : xe;
+function Jt(e) {
+  return e === "console" ? xe : me;
 }
-function me(e) {
+function he(e) {
   const t = String(e ?? "GET").trim().toUpperCase();
   return {
     display: t || "GET",
     classToken: t.replace(/[^A-Z]/g, "") || "GET"
   };
 }
-function he(e, t) {
+function ye(e, t) {
   return e.id ? e.id : `${e.timestamp || ""}-${t}`;
 }
-function ye(e, t, o) {
+function ve(e, t, o) {
   return `
     <div class="${o.panelControls}">
       <label class="${o.sortToggle}">
@@ -447,12 +447,12 @@ function ye(e, t, o) {
     </div>
   `;
 }
-function ve(e, t, o = {}) {
+function $e(e, t, o = {}) {
   const { maskPlaceholder: r = "***", maxDetailLength: s } = o, i = [], l = [];
   if (e.id && l.push(`<span>ID: <code>${n(e.id)}</code></span>`), e.remote_ip && l.push(`<span>IP: <code>${n(e.remote_ip)}</code></span>`), e.content_type && l.push(`<span>Content-Type: <code>${n(e.content_type)}</code></span>`), l.length > 0 && i.push(`<div class="${t.detailMetadataLine}">${l.join("")}</div>`), e.headers && Object.keys(e.headers).length > 0) {
-    const d = Object.entries(e.headers).map(([p, a]) => {
-      const c = s && a.length > s ? $(a, s) : a, u = a === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
-      return `<dt>${n(p)}</dt><dd>${n(c)}${u}</dd>`;
+    const d = Object.entries(e.headers).map(([c, a]) => {
+      const p = s && a.length > s ? w(a, s) : a, u = a === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
+      return `<dt>${n(c)}</dt><dd>${n(p)}${u}</dd>`;
     }).join("");
     i.push(`
       <div class="${t.detailSection}">
@@ -462,9 +462,9 @@ function ve(e, t, o = {}) {
     `);
   }
   if (e.query && Object.keys(e.query).length > 0) {
-    const d = Object.entries(e.query).map(([p, a]) => {
-      const c = a === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
-      return `<dt>${n(p)}</dt><dd>${n(a)}${c}</dd>`;
+    const d = Object.entries(e.query).map(([c, a]) => {
+      const p = a === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
+      return `<dt>${n(c)}</dt><dd>${n(a)}${p}</dd>`;
     }).join("");
     i.push(`
       <div class="${t.detailSection}">
@@ -474,16 +474,16 @@ function ve(e, t, o = {}) {
     `);
   }
   if (e.request_body) {
-    const d = e.request_size ? ` (${B(e.request_size)})` : "", p = e.body_truncated ? ' <span class="' + t.detailMasked + '">(truncated)</span>' : "";
+    const d = e.request_size ? ` (${I(e.request_size)})` : "", c = e.body_truncated ? ' <span class="' + t.detailMasked + '">(truncated)</span>' : "";
     let a;
     try {
-      a = E(JSON.parse(e.request_body), !0);
+      a = L(JSON.parse(e.request_body), !0);
     } catch {
       a = n(e.request_body);
     }
     i.push(`
       <div class="${t.detailSection}">
-        <span class="${t.detailLabel}">Request Body${d}${p}</span>
+        <span class="${t.detailLabel}">Request Body${d}${c}</span>
         <div class="${t.detailBody}">
           <pre>${a}</pre>
         </div>
@@ -492,9 +492,9 @@ function ve(e, t, o = {}) {
     `);
   }
   if (e.response_headers && Object.keys(e.response_headers).length > 0) {
-    const d = Object.entries(e.response_headers).map(([p, a]) => {
-      const c = s && a.length > s ? $(a, s) : a;
-      return `<dt>${n(p)}</dt><dd>${n(c)}</dd>`;
+    const d = Object.entries(e.response_headers).map(([c, a]) => {
+      const p = s && a.length > s ? w(a, s) : a;
+      return `<dt>${n(c)}</dt><dd>${n(p)}</dd>`;
     }).join("");
     i.push(`
       <div class="${t.detailSection}">
@@ -504,18 +504,18 @@ function ve(e, t, o = {}) {
     `);
   }
   if (e.response_body) {
-    const d = e.response_size ? ` (${B(e.response_size)})` : "";
-    let p;
+    const d = e.response_size ? ` (${I(e.response_size)})` : "";
+    let c;
     try {
-      p = E(JSON.parse(e.response_body), !0);
+      c = L(JSON.parse(e.response_body), !0);
     } catch {
-      p = n(e.response_body);
+      c = n(e.response_body);
     }
     i.push(`
       <div class="${t.detailSection}">
         <span class="${t.detailLabel}">Response Body${d}</span>
         <div class="${t.detailBody}">
-          <pre>${p}</pre>
+          <pre>${c}</pre>
         </div>
         <button class="${t.copyBtnSm}" data-copy-trigger="${n(e.response_body)}">Copy</button>
       </div>
@@ -527,45 +527,45 @@ function ve(e, t, o = {}) {
       </div>
     `), i.length === 0 ? `<div class="${t.detailPane}"><span class="${t.muted}">No additional details available</span></div>` : `<div class="${t.detailPane}">${i.join("")}</div>`;
 }
-function $e(e, t, o, r) {
-  const { display: s, classToken: i } = me(e.method), l = e.path || "", d = e.status || 0, p = L(e.duration, r.slowThresholdMs), a = he(e, t), c = r.expandedRequestIds?.has(a) || !1, u = o.badgeMethod(i), g = o.badgeStatus(d), x = p.isSlow ? o.durationSlow : "", y = d >= 400 ? o.rowError : "", v = r.truncatePath ? $(l, r.maxPathLength || 50) : l;
-  let P = "";
-  const C = s;
-  if (C === "POST" || C === "PUT" || C === "PATCH") {
-    const M = (e.content_type || e.headers?.["Content-Type"] || e.headers?.["content-type"] || "").split(";")[0].trim();
-    M && (P = ` <span class="${o.badgeContentType}">${n(M)}</span>`);
+function we(e, t, o, r) {
+  const { display: s, classToken: i } = he(e.method), l = e.path || "", d = e.status || 0, c = N(e.duration, r.slowThresholdMs), a = ye(e, t), p = r.expandedRequestIds?.has(a) || !1, u = o.badgeMethod(i), g = o.badgeStatus(d), x = c.isSlow ? o.durationSlow : "", v = d >= 400 ? o.rowError : "", $ = r.truncatePath ? w(l, r.maxPathLength || 50) : l;
+  let M = "";
+  const S = s;
+  if (S === "POST" || S === "PUT" || S === "PATCH") {
+    const B = (e.content_type || e.headers?.["Content-Type"] || e.headers?.["content-type"] || "").split(";")[0].trim();
+    B && (M = ` <span class="${o.badgeContentType}">${n(B)}</span>`);
   }
-  const Q = `<span class="${o.expandIcon}" data-expand-icon>${c ? "▼" : "▶"}</span>`, G = c ? "table-row" : "none", O = ve(e, o, {
+  const G = `<span class="${o.expandIcon}" data-expand-icon>${p ? "▼" : "▶"}</span>`, X = p ? "table-row" : "none", O = $e(e, o, {
     maskPlaceholder: r.maskPlaceholder,
     maxDetailLength: r.maxDetailLength
-  }), X = c ? O : `<template data-request-detail-template>${O}</template>`;
+  }), Y = p ? O : `<template data-request-detail-template>${O}</template>`;
   return `
-    <tr class="${y}" data-request-id="${n(a)}" style="cursor:pointer">
-      <td>${Q}<span class="${u}">${n(s)}</span>${P}</td>
-      <td class="${o.path}" title="${n(l)}">${n(v)}</td>
+    <tr class="${v}" data-request-id="${n(a)}" style="cursor:pointer">
+      <td>${G}<span class="${u}">${n(s)}</span>${M}</td>
+      <td class="${o.path}" title="${n(l)}">${n($)}</td>
       <td><span class="${g}">${n(d || "-")}</span></td>
-      <td class="${o.duration} ${x}">${p.text}</td>
+      <td class="${o.duration} ${x}">${c.text}</td>
       <td class="${o.timestamp}">${n(m(e.timestamp))}</td>
     </tr>
-    <tr class="${o.detailRow}" data-detail-for="${n(a)}" style="display:${G}">
-      <td colspan="5">${X}</td>
+    <tr class="${o.detailRow}" data-detail-for="${n(a)}" style="display:${X}">
+      <td colspan="5">${Y}</td>
     </tr>
   `;
 }
-function S(e, t, o = {}) {
-  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: i, showSortToggle: l = !1, truncatePath: d = !0, maxPathLength: p = 50 } = o, a = l ? ye("requests", r, t) : "";
+function T(e, t, o = {}) {
+  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: i, showSortToggle: l = !1, truncatePath: d = !0, maxPathLength: c = 50 } = o, a = l ? ve("requests", r, t) : "";
   if (!e.length) return a + `<div class="${t.emptyState}">No requests captured</div>`;
-  const c = i ? Math.max(0, e.length - i) : 0;
-  let u = (i ? e.slice(-i) : e).map((x, y) => ({
+  const p = i ? Math.max(0, e.length - i) : 0;
+  let u = (i ? e.slice(-i) : e).map((x, v) => ({
     entry: x,
-    originalIndex: c + y
+    originalIndex: p + v
   }));
   r && (u = [...u].reverse());
-  const g = u.map(({ entry: x, originalIndex: y }) => $e(x, y, t, {
+  const g = u.map(({ entry: x, originalIndex: v }) => we(x, v, t, {
     ...o,
     slowThresholdMs: s,
     truncatePath: d,
-    maxPathLength: p
+    maxPathLength: c
   })).join("");
   return `
     ${a}
@@ -583,7 +583,7 @@ function S(e, t, o = {}) {
     </table>
   `;
 }
-function we(e, t, o) {
+function ke(e, t, o) {
   return `
     <div class="${o.panelControls}">
       <label class="${o.sortToggle}">
@@ -593,7 +593,7 @@ function we(e, t, o) {
     </div>
   `;
 }
-function ke(e) {
+function Ce(e) {
   return `
     <div class="${e.sqlToolbar}" data-sql-toolbar>
       <span data-sql-selected-count>0 selected</span>
@@ -618,7 +618,7 @@ function ke(e) {
     </div>
   `;
 }
-function Ce(e, t, o) {
+function Se(e, t, o) {
   return t ? `
       <button class="${e.copyBtnSm}" data-copy-trigger="${o}" title="Copy SQL">
         <i class="iconoir-copy"></i> Copy
@@ -633,22 +633,22 @@ function Ce(e, t, o) {
     </button>
   `;
 }
-function Se(e, t, o, r) {
-  const s = L(e.duration, r.slowThresholdMs), i = s.isSlow, l = !!e.error, d = `sql-row-${t}`, p = e.query || "", a = Z(p, !0), c = [o.expandableRow];
-  i && c.push(o.slowQuery), l && c.push(o.errorQuery);
-  const u = i ? o.durationSlow : "", g = Ce(o, r.useIconCopyButton || !1, d);
+function Te(e, t, o, r) {
+  const s = N(e.duration, r.slowThresholdMs), i = s.isSlow, l = !!e.error, d = `sql-row-${t}`, c = e.query || "", a = ee(c, !0), p = [o.expandableRow];
+  i && p.push(o.slowQuery), l && p.push(o.errorQuery);
+  const u = i ? o.durationSlow : "", g = Se(o, r.useIconCopyButton || !1, d);
   return `
-    <tr class="${c.join(" ")}" data-row-id="${d}">
+    <tr class="${p.join(" ")}" data-row-id="${d}">
       <td class="${o.selectCell}"><input type="checkbox" class="sql-select-row" data-sql-index="${t}"></td>
       <td class="${o.duration} ${u}">${s.text}</td>
       <td>${n(b(e.row_count ?? "-"))}</td>
       <td class="${o.timestamp}">${n(m(e.timestamp))}</td>
       <td>${l ? `<span class="${o.badgeError}">Error</span>` : ""}</td>
-      <td class="${o.queryText}"><span class="${o.expandIcon}">&#9654;</span>${n(p)}</td>
+      <td class="${o.queryText}"><span class="${o.expandIcon}">&#9654;</span>${n(c)}</td>
     </tr>
     <tr class="${o.expansionRow}" data-expansion-for="${d}">
       <td colspan="6">
-        <div class="${o.expandedContent}" data-copy-content="${n(p)}">
+        <div class="${o.expandedContent}" data-copy-content="${n(c)}">
           <div class="${o.expandedContentHeader}">
             ${g}
           </div>
@@ -658,18 +658,18 @@ function Se(e, t, o, r) {
     </tr>
   `;
 }
-function T(e, t, o = {}) {
-  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: i = 50, showSortToggle: l = !1, useIconCopyButton: d = !1 } = o, p = l ? we("sql", r, t) : "", a = ke(t);
-  if (!e.length) return p + `<div class="${t.emptyState}">No SQL queries captured</div>`;
-  let c = i ? e.slice(-i) : e;
-  r && (c = [...c].reverse());
-  const u = c.map((g, x) => Se(g, x, t, {
+function _(e, t, o = {}) {
+  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: i = 50, showSortToggle: l = !1, useIconCopyButton: d = !1 } = o, c = l ? ke("sql", r, t) : "", a = Ce(t);
+  if (!e.length) return c + `<div class="${t.emptyState}">No SQL queries captured</div>`;
+  let p = i ? e.slice(-i) : e;
+  r && (p = [...p].reverse());
+  const u = p.map((g, x) => Te(g, x, t, {
     ...o,
     slowThresholdMs: s,
     useIconCopyButton: d
   })).join("");
   return `
-    ${p}
+    ${c}
     ${a}
     <table class="${t.table}">
       <thead>
@@ -686,7 +686,7 @@ function T(e, t, o = {}) {
     </table>
   `;
 }
-function Te(e, t, o) {
+function _e(e, t, o) {
   return `
     <div class="${o.panelControls}">
       <label class="${o.sortToggle}">
@@ -696,27 +696,27 @@ function Te(e, t, o) {
     </div>
   `;
 }
-function _e(e, t, o) {
-  const r = e.level || "INFO", s = String(r).toUpperCase(), i = J(String(r)), l = e.message || "", d = e.source || "", p = t.badgeLevel(i), a = i === "error" ? t.rowError : "", c = o.truncateMessage ? $(l, o.maxMessageLength || 100) : l, u = o.showSource ? `<td class="${t.timestamp}">${n(d)}</td>` : "";
+function ze(e, t, o) {
+  const r = e.level || "INFO", s = String(r).toUpperCase(), i = U(String(r)), l = e.message || "", d = e.source || "", c = t.badgeLevel(i), a = i === "error" ? t.rowError : "", p = o.truncateMessage ? w(l, o.maxMessageLength || 100) : l, u = o.showSource ? `<td class="${t.timestamp}">${n(d)}</td>` : "";
   return `
     <tr class="${a}">
-      <td><span class="${p}">${n(s)}</span></td>
+      <td><span class="${c}">${n(s)}</span></td>
       <td class="${t.timestamp}">${n(m(e.timestamp))}</td>
-      <td class="${t.message}" title="${n(l)}">${n(c)}</td>
+      <td class="${t.message}" title="${n(l)}">${n(p)}</td>
       ${u}
     </tr>
   `;
 }
-function _(e, t, o = {}) {
-  const { newestFirst: r = !0, maxEntries: s = 100, showSortToggle: i = !1, showSource: l = !1, truncateMessage: d = !0, maxMessageLength: p = 100 } = o, a = i ? Te("logs", r, t) : "";
+function z(e, t, o = {}) {
+  const { newestFirst: r = !0, maxEntries: s = 100, showSortToggle: i = !1, showSource: l = !1, truncateMessage: d = !0, maxMessageLength: c = 100 } = o, a = i ? _e("logs", r, t) : "";
   if (!e.length) return a + `<div class="${t.emptyState}">No logs captured</div>`;
-  let c = s ? e.slice(-s) : e;
-  r && (c = [...c].reverse());
-  const u = c.map((x) => _e(x, t, {
+  let p = s ? e.slice(-s) : e;
+  r && (p = [...p].reverse());
+  const u = p.map((x) => ze(x, t, {
     ...o,
     showSource: l,
     truncateMessage: d,
-    maxMessageLength: p
+    maxMessageLength: c
   })).join(""), g = l ? "<th>Source</th>" : "";
   return `
     ${a}
@@ -733,21 +733,21 @@ function _(e, t, o = {}) {
     </table>
   `;
 }
-function ze(e, t, o) {
-  const r = e.method || "GET", s = e.path || "", i = e.handler || "-", l = e.name || "", d = t.badgeMethod(r), p = o.showName ? `<td class="${t.timestamp}">${n(l)}</td>` : "";
+function Re(e, t, o) {
+  const r = e.method || "GET", s = e.path || "", i = e.handler || "-", l = e.name || "", d = t.badgeMethod(r), c = o.showName ? `<td class="${t.timestamp}">${n(l)}</td>` : "";
   return `
     <tr>
       <td><span class="${d}">${n(r)}</span></td>
       <td class="${t.path}">${n(s)}</td>
       <td>${n(i)}</td>
-      ${p}
+      ${c}
     </tr>
   `;
 }
-function z(e, t, o = {}) {
+function R(e, t, o = {}) {
   const { showName: r = !1 } = o;
   if (!e.length) return `<div class="${t.emptyState}">No routes available</div>`;
-  const s = e.map((l) => ze(l, t, { showName: r })).join(""), i = r ? "<th>Name</th>" : "";
+  const s = e.map((l) => Re(l, t, { showName: r })).join(""), i = r ? "<th>Name</th>" : "";
   return `
     <table class="${t.tableRoutes || t.table}">
       <thead>
@@ -762,7 +762,7 @@ function z(e, t, o = {}) {
     </table>
   `;
 }
-function Re(e, t) {
+function qe(e, t) {
   return t ? `
       <button class="${e.copyBtn}" data-copy-trigger="custom-data" title="Copy to clipboard">
         <i class="iconoir-copy"></i> Copy
@@ -777,7 +777,7 @@ function Re(e, t) {
     </button>
   `;
 }
-function qe(e, t) {
+function Ee(e, t) {
   return `
     <tr>
       <td><span class="${t.badgeCustom}">${n(e.category || "custom")}</span></td>
@@ -786,14 +786,14 @@ function qe(e, t) {
     </tr>
   `;
 }
-function Ee(e, t, o) {
-  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, i = w(e), l = E(e, !0), d = Re(t, r), p = s ? `<span class="${t.muted}">${b(te(e))} keys</span>` : "";
+function Le(e, t, o) {
+  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, i = k(e), l = L(e, !0), d = qe(t, r), c = s ? `<span class="${t.muted}">${b(oe(e))} keys</span>` : "";
   return `
     <div class="${t.jsonPanel}" data-copy-content="${n(i)}">
       <div class="${t.jsonHeader}">
         <span class="${t.jsonViewerTitle}">Custom Data</span>
         <div class="${t.jsonActions}">
-          ${p}
+          ${c}
           ${d}
         </div>
       </div>
@@ -803,10 +803,10 @@ function Ee(e, t, o) {
     </div>
   `;
 }
-function Le(e, t, o) {
+function Ne(e, t, o) {
   const { maxLogEntries: r = 50 } = o;
   if (!e.length) return `<div class="${t.emptyState}">No custom logs yet.</div>`;
-  const s = e.slice(-r).reverse().map((i) => qe(i, t)).join("");
+  const s = e.slice(-r).reverse().map((i) => Ee(i, t)).join("");
   return `
     <table class="${t.table}">
       <thead>
@@ -820,23 +820,23 @@ function Le(e, t, o) {
     </table>
   `;
 }
-function R(e, t, o = {}) {
-  const { dataFilterFn: r } = o, s = e.data || {}, i = r ? r(s) : s, l = e.logs || [], d = Object.keys(i).length > 0, p = l.length > 0;
-  if (!d && !p) return `<div class="${t.emptyState}">No custom data captured</div>`;
+function q(e, t, o = {}) {
+  const { dataFilterFn: r } = o, s = e.data || {}, i = r ? r(s) : s, l = e.logs || [], d = Object.keys(i).length > 0, c = l.length > 0;
+  if (!d && !c) return `<div class="${t.emptyState}">No custom data captured</div>`;
   let a = "";
-  return d && (a += Ee(i, t, o)), p && (a += `
+  return d && (a += Le(i, t, o)), c && (a += `
       <div class="${t.jsonPanel}">
         <div class="${t.jsonHeader}">
           <span class="${t.jsonViewerTitle}">Custom Logs</span>
           <span class="${t.muted}">${b(l.length)} entries</span>
         </div>
         <div class="${t.jsonContent}">
-          ${Le(l, t, o)}
+          ${Ne(l, t, o)}
         </div>
       </div>
-    `), d && p ? `<div class="${t.jsonGrid}">${a}</div>` : a;
+    `), d && c ? `<div class="${t.jsonGrid}">${a}</div>` : a;
 }
-function Ne(e) {
+function je(e) {
   switch ((e || "").toLowerCase()) {
     case "uncaught":
       return "error";
@@ -850,7 +850,7 @@ function Ne(e) {
       return "error";
   }
 }
-function je(e) {
+function Pe(e) {
   switch ((e || "").toLowerCase()) {
     case "uncaught":
       return "Uncaught";
@@ -864,10 +864,10 @@ function je(e) {
       return e || "Error";
   }
 }
-function Pe(e, t, o) {
-  const r = je(e.type), s = Ne(e.type), i = t.badgeLevel(s), l = e.message || "", d = e.source || "", p = !!e.stack, a = e.type === "network_error" && e.extra?.request_url ? String(e.extra.request_url) : d && e.line ? `${d}:${e.line}${e.column ? ":" + e.column : ""}` : d || "", c = p ? `<span class="${t.expandIcon}">&#9654;</span>` : "", u = p ? t.expandableRow : "", g = o.compact ? n(l.length > 100 ? l.slice(0, 100) + "..." : l) : n(l), x = !o.compact && a ? `<td class="${t.timestamp}" title="${n(a)}">${n(a.length > 60 ? "..." + a.slice(-57) : a)}</td>` : "", y = !o.compact && e.url ? `<td class="${t.timestamp}" title="${n(e.url)}">${n(e.url.length > 40 ? "..." + e.url.slice(-37) : e.url)}</td>` : "";
-  let v = "";
-  return p && (v = `
+function Me(e, t, o) {
+  const r = Pe(e.type), s = je(e.type), i = t.badgeLevel(s), l = e.message || "", d = e.source || "", c = !!e.stack, a = e.type === "network_error" && e.extra?.request_url ? String(e.extra.request_url) : d && e.line ? `${d}:${e.line}${e.column ? ":" + e.column : ""}` : d || "", p = c ? `<span class="${t.expandIcon}">&#9654;</span>` : "", u = c ? t.expandableRow : "", g = o.compact ? n(l.length > 100 ? l.slice(0, 100) + "..." : l) : n(l), x = !o.compact && a ? `<td class="${t.timestamp}" title="${n(a)}">${n(a.length > 60 ? "..." + a.slice(-57) : a)}</td>` : "", v = !o.compact && e.url ? `<td class="${t.timestamp}" title="${n(e.url)}">${n(e.url.length > 40 ? "..." + e.url.slice(-37) : e.url)}</td>` : "";
+  let $ = "";
+  return c && ($ = `
       <tr class="${t.expansionRow}">
         <td colspan="${o.compact ? 3 : 5}">
           <div class="${t.expandedContent}">
@@ -877,13 +877,13 @@ function Pe(e, t, o) {
       </tr>
     `), `
     <tr class="${t.rowError} ${u}">
-      <td>${c}<span class="${i}">${n(r)}</span></td>
+      <td>${p}<span class="${i}">${n(r)}</span></td>
       <td class="${t.timestamp}">${n(m(e.timestamp))}</td>
       <td class="${t.message}" title="${n(l)}">${g}</td>
       ${x}
-      ${y}
+      ${v}
     </tr>
-    ${v}
+    ${$}
   `;
 }
 function Oe(e, t) {
@@ -896,15 +896,15 @@ function Oe(e, t) {
     </div>
   `;
 }
-function q(e, t, o = {}) {
+function E(e, t, o = {}) {
   const { newestFirst: r = !0, maxEntries: s = 100, compact: i = !1, showSortToggle: l = !1 } = o, d = l ? Oe(r, t) : "";
   if (!e.length) return d + `<div class="${t.emptyState}">No JS errors captured</div>`;
-  let p = s ? e.slice(-s) : e;
-  r && (p = [...p].reverse());
-  const a = p.map((g) => Pe(g, t, {
+  let c = s ? e.slice(-s) : e;
+  r && (c = [...c].reverse());
+  const a = c.map((g) => Me(g, t, {
     ...o,
     compact: i
-  })).join(""), c = i ? "" : "<th>Location</th>", u = i ? "" : "<th>Page</th>";
+  })).join(""), p = i ? "" : "<th>Location</th>", u = i ? "" : "<th>Page</th>";
   return `
     ${d}
     <table class="${t.table}">
@@ -913,7 +913,7 @@ function q(e, t, o = {}) {
           <th>Type</th>
           <th>Time</th>
           <th>Message</th>
-          ${c}
+          ${p}
           ${u}
         </tr>
       </thead>
@@ -921,7 +921,7 @@ function q(e, t, o = {}) {
     </table>
   `;
 }
-function N(e) {
+function j(e) {
   switch (e) {
     case "healthy":
       return {
@@ -967,7 +967,7 @@ function N(e) {
       };
   }
 }
-function Me(e) {
+function Be(e) {
   switch (e) {
     case "ok":
       return {
@@ -991,8 +991,8 @@ function Me(e) {
       };
   }
 }
-function Be(e) {
-  const t = N(e.verdict), o = e.user_info || {};
+function Ie(e) {
+  const t = j(e.verdict), o = e.user_info || {};
   let r = "";
   return (o.username || o.user_id) && (r = `
       <div style="display: flex; gap: 12px; font-size: 12px; color: #94a3b8; margin-top: 8px;">
@@ -1026,7 +1026,7 @@ function Be(e) {
     </div>
   `;
 }
-function Ie(e) {
+function De(e) {
   const t = e.summary || {
     module_count: 0,
     required_keys: 0,
@@ -1079,8 +1079,8 @@ function Ie(e) {
     </div>
   `;
 }
-function De(e, t) {
-  const o = Me(e.status), r = (s) => s ? '<span style="color: #22c55e; font-weight: bold;">✓</span>' : '<span style="color: #ef4444; font-weight: bold;">✗</span>';
+function Ae(e, t) {
+  const o = Be(e.status), r = (s) => s ? '<span style="color: #22c55e; font-weight: bold;">✓</span>' : '<span style="color: #ef4444; font-weight: bold;">✗</span>';
   return `
     <tr style="border-bottom: 1px solid #334155;">
       <td style="padding: 10px 12px; font-family: monospace; font-size: 12px; color: #e2e8f0;">
@@ -1103,7 +1103,7 @@ function De(e, t) {
     </tr>
   `;
 }
-function Ae(e) {
+function He(e) {
   const t = e.entries || [];
   return t.length === 0 ? `
       <div style="
@@ -1138,14 +1138,14 @@ function Ae(e) {
             </tr>
           </thead>
           <tbody>
-            ${t.map((o, r) => De(o, r)).join("")}
+            ${t.map((o, r) => Ae(o, r)).join("")}
           </tbody>
         </table>
       </div>
     </div>
   `;
 }
-function He(e) {
+function Fe(e) {
   const t = e.next_actions || [];
   return t.length === 0 ? "" : `
     <div style="
@@ -1164,7 +1164,7 @@ function He(e) {
         align-items: center;
         gap: 8px;
       ">
-        <span style="color: ${N(e.verdict).color};">Next Actions</span>
+        <span style="color: ${j(e.verdict).color};">Next Actions</span>
       </h3>
       <ul style="
         margin: 0;
@@ -1178,7 +1178,7 @@ function He(e) {
     </div>
   `;
 }
-function Fe(e) {
+function Ke(e) {
   return `
     <details style="margin-top: 16px;">
       <summary style="
@@ -1208,26 +1208,26 @@ function Fe(e) {
           color: #e2e8f0;
           white-space: pre-wrap;
           word-break: break-word;
-        ">${n(w(e))}</pre>
+        ">${n(k(e))}</pre>
       </div>
     </details>
   `;
 }
-function D(e, t, o = {}) {
+function A(e, t, o = {}) {
   const { showRawJSON: r = !0, showCollapsible: s = !0 } = o;
   return e ? `
     <div style="padding: 8px;">
-      ${Be(e)}
       ${Ie(e)}
-      ${Ae(e)}
+      ${De(e)}
       ${He(e)}
-      ${r ? Fe(e) : ""}
+      ${Fe(e)}
+      ${r ? Ke(e) : ""}
     </div>
   ` : `<div class="${t.emptyState}">No permissions data available</div>`;
 }
-function Ke(e, t) {
+function Je(e, t) {
   if (!e) return `<div class="${t.emptyState}">No permissions data</div>`;
-  const o = N(e.verdict), r = e.summary || {
+  const o = j(e.verdict), r = e.summary || {
     module_count: 0,
     required_keys: 0,
     claims_keys: 0,
@@ -1264,7 +1264,7 @@ function Ke(e, t) {
     </div>
   `;
 }
-function j(e) {
+function P(e) {
   switch ((e || "").toLowerCase()) {
     case "error":
       return {
@@ -1300,7 +1300,7 @@ function j(e) {
       };
   }
 }
-function Je(e) {
+function Ue(e) {
   switch ((e || "").toLowerCase()) {
     case "error":
       return "Unhealthy";
@@ -1312,8 +1312,8 @@ function Je(e) {
       return "Healthy";
   }
 }
-function Ue(e) {
-  const t = j(e.verdict), o = Je(e.verdict);
+function Ve(e) {
+  const t = P(e.verdict), o = Ue(e.verdict);
   return `
     <div style="
       display: flex;
@@ -1345,7 +1345,7 @@ function Ue(e) {
     </div>
   `;
 }
-function Ve(e) {
+function We(e) {
   const t = e || {
     checks: 0,
     ok: 0,
@@ -1413,7 +1413,7 @@ function Ve(e) {
     </div>
   `;
 }
-function We(e) {
+function Qe(e) {
   const t = e.generated_at ? new Date(e.generated_at).toLocaleString() : "";
   return `
     <div style="
@@ -1424,16 +1424,16 @@ function We(e) {
       margin-bottom: 20px;
       flex-wrap: wrap;
     ">
-      ${Ue(e)}
+      ${Ve(e)}
       <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-        ${Ve(e.summary)}
+        ${We(e.summary)}
         ${t ? `<span style="font-size: 11px; color: #64748b;">Generated: ${n(t)}</span>` : ""}
       </div>
     </div>
   `;
 }
-function Qe(e) {
-  const t = j(e.severity), o = String(e.message || "").trim(), r = String(e.hint || "").trim(), s = String(e.code || "").trim(), i = String(e.component || "").trim();
+function Ge(e) {
+  const t = P(e.severity), o = String(e.message || "").trim(), r = String(e.hint || "").trim(), s = String(e.code || "").trim(), i = String(e.component || "").trim();
   if (!o) return "";
   const l = [s, i].filter(Boolean).join(" • ");
   return `
@@ -1483,7 +1483,7 @@ function Qe(e) {
     </div>
   `;
 }
-function Ge(e) {
+function Xe(e) {
   return !e || e.length === 0 ? "" : `
     <div style="margin-top: 12px;">
       <div style="
@@ -1494,15 +1494,15 @@ function Ge(e) {
         letter-spacing: 0.5px;
         margin-bottom: 8px;
       ">Findings</div>
-      ${e.map((t) => Qe(t)).join("")}
+      ${e.map((t) => Ge(t)).join("")}
     </div>
   `;
 }
-function Xe(e, t) {
+function Ye(e, t) {
   if (!t) return "";
-  const o = String(t.description || "").trim(), r = String(t.cta || t.label || "").trim(), s = !!t.runnable, i = !!t.applicable, l = !!t.requires_confirmation, d = String(t.confirm_text || "").trim(), p = t.kind || "manual";
-  let a = "enabled", c = "";
-  i ? s || (a = "manual", c = p === "manual" ? "Manual action required" : "Action not available") : (a = "not-applicable", c = "Not applicable for current status");
+  const o = String(t.description || "").trim(), r = String(t.cta || t.label || "").trim(), s = !!t.runnable, i = !!t.applicable, l = !!t.requires_confirmation, d = String(t.confirm_text || "").trim(), c = t.kind || "manual";
+  let a = "enabled", p = "";
+  i ? s || (a = "manual", p = c === "manual" ? "Manual action required" : "Action not available") : (a = "not-applicable", p = "Not applicable for current status");
   const u = a !== "enabled", g = u ? "background: #374151; color: #6b7280; cursor: not-allowed;" : "background: #3b82f6; color: #fff; cursor: pointer;";
   return `
     <div style="
@@ -1547,21 +1547,21 @@ function Xe(e, t) {
             "
           >${n(r)}</button>
         ` : ""}
-        ${c ? `
+        ${p ? `
           <span style="
             font-size: 12px;
             color: #64748b;
             font-style: italic;
-          ">${n(c)}</span>
+          ">${n(p)}</span>
         ` : ""}
       </div>
     </div>
   `;
 }
-function Ye(e) {
+function Ze(e) {
   return e == null ? '<span style="color: #64748b; font-style: italic;">null</span>' : typeof e == "boolean" ? `<span style="color: ${e ? "#22c55e" : "#ef4444"}; font-weight: 500;">${e}</span>` : typeof e == "number" ? `<span style="color: #818cf8;">${e}</span>` : typeof e == "string" ? `<span style="color: #fbbf24;">"${n(e)}"</span>` : typeof e == "object" ? `<span style="color: #94a3b8;">${n(JSON.stringify(e))}</span>` : n(String(e));
 }
-function Ze(e) {
+function et(e) {
   if (!e || Object.keys(e).length === 0) return "";
   const t = Object.entries(e).map(([o, r]) => `
       <tr>
@@ -1577,7 +1577,7 @@ function Ze(e) {
           font-family: monospace;
           font-size: 11px;
           word-break: break-all;
-        ">${Ye(r)}</td>
+        ">${Ze(r)}</td>
       </tr>
     `).join("");
   return `
@@ -1608,8 +1608,8 @@ function Ze(e) {
     </details>
   `;
 }
-function et(e) {
-  const t = j(e.status), o = String(e.label || e.id || "").trim(), r = String(e.summary || "").trim(), s = String(e.help || e.description || "").trim(), i = e.duration_ms !== void 0 ? `${e.duration_ms}ms` : "";
+function tt(e) {
+  const t = P(e.status), o = String(e.label || e.id || "").trim(), r = String(e.summary || "").trim(), s = String(e.help || e.description || "").trim(), i = e.duration_ms !== void 0 ? `${e.duration_ms}ms` : "";
   return `
     <div style="
       border: 1px solid ${t.borderColor};
@@ -1710,18 +1710,18 @@ function et(e) {
         ` : ""}
 
         <!-- Findings -->
-        ${Ge(e.findings)}
+        ${Xe(e.findings)}
 
         <!-- Action -->
-        ${Xe(e.id, e.action)}
+        ${Ye(e.id, e.action)}
 
         <!-- Metadata -->
-        ${Ze(e.metadata)}
+        ${et(e.metadata)}
       </div>
     </div>
   `;
 }
-function tt(e) {
+function ot(e) {
   return !e || e.length === 0 ? "" : `
     <div style="
       margin-top: 20px;
@@ -1754,7 +1754,7 @@ function tt(e) {
     </div>
   `;
 }
-function ot(e) {
+function rt(e) {
   return `
     <details style="margin-top: 20px;">
       <summary style="
@@ -1784,12 +1784,12 @@ function ot(e) {
           color: #e2e8f0;
           white-space: pre-wrap;
           word-break: break-word;
-        ">${n(w(e))}</pre>
+        ">${n(k(e))}</pre>
       </div>
     </details>
   `;
 }
-function A(e, t, o = {}) {
+function H(e, t, o = {}) {
   const { showRawJSON: r = !0, problemsOnly: s = !1 } = o;
   if (!e) return `<div class="${t.emptyState}">No doctor diagnostics available</div>`;
   let i = e.checks || [];
@@ -1800,13 +1800,13 @@ function A(e, t, o = {}) {
     info: 2,
     ok: 3
   };
-  i = [...i].sort((a, c) => {
-    const u = l[a.status || "ok"] ?? 4, g = l[c.status || "ok"] ?? 4;
-    return u !== g ? u - g : (a.label || a.id || "").localeCompare(c.label || c.id || "");
+  i = [...i].sort((a, p) => {
+    const u = l[a.status || "ok"] ?? 4, g = l[p.status || "ok"] ?? 4;
+    return u !== g ? u - g : (a.label || a.id || "").localeCompare(p.label || p.id || "");
   });
   const d = i.some((a) => a.status === "warn" || a.status === "error");
-  let p = "";
-  return i.length === 0 ? s && !d ? p = `
+  let c = "";
+  return i.length === 0 ? s && !d ? c = `
         <div style="
           text-align: center;
           padding: 40px 20px;
@@ -1816,81 +1816,98 @@ function A(e, t, o = {}) {
           <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">All Systems Healthy</div>
           <div style="font-size: 14px; color: #94a3b8;">${e.summary?.checks || 0} checks passed</div>
         </div>
-      ` : p = `<div class="${t.emptyState}">No doctor checks available</div>` : p = i.map((a) => et(a)).join(""), `
+      ` : c = `<div class="${t.emptyState}">No doctor checks available</div>` : c = i.map((a) => tt(a)).join(""), `
     <div style="padding: 12px;">
-      ${We(e)}
-      ${p}
-      ${tt(e.next_actions)}
-      ${r ? ot(e) : ""}
+      ${Qe(e)}
+      ${c}
+      ${ot(e.next_actions)}
+      ${r ? rt(e) : ""}
     </div>
   `;
 }
-function V(e) {
+function y(e, t = {}) {
+  const o = t.size || 12, r = `data-site-cache-icon="${e}" aria-hidden="true" focusable="false" width="${o}" height="${o}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;flex:0 0 ${o}px;width:${o}px;height:${o}px;color:${t.color || "currentColor"};vertical-align:-2px;"`;
+  switch (e) {
+    case "check":
+      return `<svg ${r}><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    case "warning":
+      return `<svg ${r}><path d="M10.3 4.3 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>`;
+    case "x":
+      return `<svg ${r}><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>`;
+    case "circle":
+      return `<svg ${r}><circle cx="12" cy="12" r="8"></circle></svg>`;
+    case "refresh":
+      return `<svg ${r}><path d="M21 12a9 9 0 0 1-15.1 6.6"></path><path d="M3 12a9 9 0 0 1 15.1-6.6"></path><path d="M18 3v5h-5"></path><path d="M6 21v-5h5"></path></svg>`;
+    default:
+      return `<svg ${r}><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.6 2.6 0 1 1 4.3 2c-.9.6-1.8 1.3-1.8 2.5"></path><path d="M12 17h.01"></path></svg>`;
+  }
+}
+function W(e) {
   const t = (e || "").toLowerCase();
   return t === "healthy" || t === "active" ? {
     label: "Healthy",
     color: "#22c55e",
     bgColor: "rgba(34, 197, 94, 0.1)",
     borderColor: "rgba(34, 197, 94, 0.4)",
-    icon: "✓"
+    icon: "check"
   } : t === "degraded" || t === "warn" ? {
     label: "Degraded",
     color: "#f59e0b",
     bgColor: "rgba(245, 158, 11, 0.1)",
     borderColor: "rgba(245, 158, 11, 0.4)",
-    icon: "⚠"
+    icon: "warning"
   } : t === "error" || t === "startup_error" ? {
     label: "Error",
     color: "#ef4444",
     bgColor: "rgba(239, 68, 68, 0.1)",
     borderColor: "rgba(239, 68, 68, 0.4)",
-    icon: "✗"
+    icon: "x"
   } : t === "inactive" || t === "disabled" ? {
     label: "Inactive",
     color: "#64748b",
     bgColor: "rgba(100, 116, 139, 0.1)",
     borderColor: "rgba(100, 116, 139, 0.4)",
-    icon: "○"
+    icon: "circle"
   } : {
     label: e || "Unknown",
     color: "#94a3b8",
     bgColor: "rgba(148, 163, 184, 0.1)",
     borderColor: "rgba(148, 163, 184, 0.4)",
-    icon: "?"
+    icon: "help"
   };
 }
-function W(e) {
+function Q(e) {
   const t = (e || "").toLowerCase();
   return t === "success" || t === "ok" ? {
     label: "Success",
     color: "#22c55e",
     bgColor: "rgba(34, 197, 94, 0.1)",
     borderColor: "rgba(34, 197, 94, 0.4)",
-    icon: "✓"
+    icon: "check"
   } : t === "failed" || t === "error" ? {
     label: "Failed",
     color: "#ef4444",
     bgColor: "rgba(239, 68, 68, 0.1)",
     borderColor: "rgba(239, 68, 68, 0.4)",
-    icon: "✗"
+    icon: "x"
   } : t === "unsupported" || t === "none" ? {
     label: "Unsupported",
     color: "#f59e0b",
     bgColor: "rgba(245, 158, 11, 0.1)",
     borderColor: "rgba(245, 158, 11, 0.4)",
-    icon: "⚠"
+    icon: "warning"
   } : {
     label: e || "Unknown",
     color: "#94a3b8",
     bgColor: "rgba(148, 163, 184, 0.1)",
     borderColor: "rgba(148, 163, 184, 0.4)",
-    icon: "?"
+    icon: "help"
   };
 }
-function rt(e) {
+function nt(e) {
   let t = e.status;
   e.configured && e.active || (t = "inactive");
-  const o = V(t);
+  const o = W(t);
   let r = o.label;
   return e.configured ? e.active || (r = "Inactive") : r = "Not Configured", `
     <div style="
@@ -1902,11 +1919,10 @@ function rt(e) {
       border: 1px solid ${o.borderColor};
       border-radius: 5px;
     ">
-      <span style="
-        font-size: 12px;
-        color: ${o.color};
-        line-height: 1;
-      ">${o.icon}</span>
+      ${y(o.icon, {
+    size: 13,
+    color: o.color
+  })}
       <span style="
         font-size: 12px;
         font-weight: 600;
@@ -1915,7 +1931,7 @@ function rt(e) {
     </div>
   `;
 }
-function nt(e) {
+function st(e) {
   const t = e.backend || "none", o = e.scope || "unknown", r = o === "process_local", s = r ? "rgba(245, 158, 11, 0.15)" : "rgba(100, 116, 139, 0.15)", i = r ? "rgba(245, 158, 11, 0.3)" : "rgba(100, 116, 139, 0.3)", l = r ? "#f59e0b" : "#94a3b8";
   return `
     <div style="
@@ -1942,7 +1958,10 @@ function nt(e) {
         border-radius: 4px;
         color: ${l};
         font-weight: 500;
-      ">${r ? '<span style="font-size: 12px; line-height: 1;">⚠</span>' : ""}<span>${n(o)}</span></span>
+      ">${r ? y("warning", {
+    size: 13,
+    color: l
+  }) : ""}<span>${n(o)}</span></span>
       ${e.observed_by ? `
         <span style="color: #64748b; font-size: 11px;">
           obs: ${n(e.observed_by)}
@@ -1951,7 +1970,7 @@ function nt(e) {
     </div>
   `;
 }
-function st() {
+function at() {
   return `
     <button
       type="button"
@@ -1972,12 +1991,15 @@ function st() {
         line-height: 1;
       "
     >
-      <span style="font-size: 13px; line-height: 1;">↻</span>
+      ${y("refresh", {
+    size: 13,
+    color: "#fff"
+  })}
       <span>Clear Cache</span>
     </button>
   `;
 }
-function H(e) {
+function F(e) {
   return `
     <div style="
       display: flex;
@@ -1988,21 +2010,21 @@ function H(e) {
       border-bottom: 1px solid #1e293b;
       flex-wrap: wrap;
     ">
-      ${rt(e)}
-      <span style="color: #334155; font-size: 10px;">│</span>
       ${nt(e)}
+      <span style="color: #334155; font-size: 10px;">│</span>
+      ${st(e)}
       ${e.active ? `
         <div style="margin-left: auto;">
-          ${st()}
+          ${at()}
         </div>
       ` : ""}
     </div>
   `;
 }
-function at(e) {
+function it(e) {
   const t = e || {}, o = t.lookups || 0, r = t.hits || 0, s = t.misses || 0, i = t.writes || 0, l = t.errors || 0, d = t.clears || 0;
-  let p = "N/A";
-  return o > 0 && (p = `${((t.hit_ratio !== null && t.hit_ratio !== void 0 ? t.hit_ratio : r / o) * 100).toFixed(1)}%`), `
+  let c = "N/A";
+  return o > 0 && (c = `${((t.hit_ratio !== null && t.hit_ratio !== void 0 ? t.hit_ratio : r / o) * 100).toFixed(1)}%`), `
     <div style="
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
@@ -2042,7 +2064,7 @@ function at(e) {
     },
     {
       label: "Hit Rate",
-      value: p,
+      value: c,
       color: o > 0 ? "#22c55e" : "#64748b"
     }
   ].map((a) => `
@@ -2071,9 +2093,9 @@ function at(e) {
     </div>
   `;
 }
-function it(e) {
+function lt(e) {
   if (!e) return "";
-  const t = W(e.outcome), o = e.timestamp ? m(e.timestamp) : "";
+  const t = Q(e.outcome), o = e.timestamp ? m(e.timestamp) : "";
   return `
     <div style="
       margin-bottom: 12px;
@@ -2129,7 +2151,7 @@ function it(e) {
     </div>
   `;
 }
-function lt(e) {
+function dt(e) {
   return e ? `
     <div style="
       margin-bottom: 12px;
@@ -2166,7 +2188,7 @@ function lt(e) {
     </div>
   ` : "";
 }
-function dt(e) {
+function ct(e) {
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
       <td style="padding: 5px 8px; color: #64748b; font-size: 10px; white-space: nowrap;">${n(e.timestamp ? m(e.timestamp) : "")}</td>
@@ -2203,7 +2225,10 @@ function pt(e, t = 10) {
         align-items: center;
         gap: 5px;
       ">
-        <span style="font-size: 12px;">⚠</span> Recent Errors (${o.length})
+        ${y("warning", {
+    size: 13,
+    color: "#ef4444"
+  })} Recent Errors (${o.length})
       </div>
       <div style="
         background: #0f172a;
@@ -2221,17 +2246,17 @@ function pt(e, t = 10) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => dt(s)).join("")}
+            ${r.map((s) => ct(s)).join("")}
           </tbody>
         </table>
       </div>
     </div>
   `;
 }
-function F(e) {
+function K(e) {
   return e == null ? '<span style="color: #64748b; font-style: italic;">null</span>' : typeof e == "boolean" ? `<span style="color: ${e ? "#22c55e" : "#64748b"}; font-weight: 500;">${e}</span>` : typeof e == "number" ? `<span style="color: #818cf8;">${e}</span>` : typeof e == "string" ? e === "" ? '<span style="color: #64748b; font-style: italic;">empty</span>' : `<span style="color: #fbbf24;">${n(e)}</span>` : n(String(e));
 }
-function ct(e) {
+function ut(e) {
   if (!e) return "";
   const t = [
     {
@@ -2281,7 +2306,7 @@ function ct(e) {
   ].map(({ key: r, value: s }) => `
     <tr>
       <td style="padding: 4px 8px 4px 0; color: #94a3b8; font-size: 12px; white-space: nowrap;">${n(r)}:</td>
-      <td style="padding: 4px 0; font-family: monospace; font-size: 11px;">${F(s)}</td>
+      <td style="padding: 4px 0; font-family: monospace; font-size: 11px;">${K(s)}</td>
     </tr>
   `).join("");
   let o = "";
@@ -2324,7 +2349,7 @@ function ct(e) {
   ].map(({ key: r, value: s }) => `
       <tr>
         <td style="padding: 4px 8px 4px 0; color: #94a3b8; font-size: 12px; white-space: nowrap;">${n(r)}:</td>
-        <td style="padding: 4px 0; font-family: monospace; font-size: 11px;">${F(s)}</td>
+        <td style="padding: 4px 0; font-family: monospace; font-size: 11px;">${K(s)}</td>
       </tr>
     `).join("")}</table>
       </div>
@@ -2356,7 +2381,7 @@ function ct(e) {
     </details>
   `;
 }
-function ut(e) {
+function gt(e) {
   return e ? `
     <details style="margin-bottom: 8px;">
       <summary style="
@@ -2422,7 +2447,10 @@ function ut(e) {
           font-size: 11px;
           color: ${s};
         ">
-          <span>${r ? "✓" : "✗"}</span>
+          ${y(r ? "check" : "x", {
+      size: 13,
+      color: s
+    })}
           ${n(t)}
         </span>
       `;
@@ -2431,7 +2459,7 @@ function ut(e) {
     </details>
   ` : "";
 }
-function gt(e) {
+function bt(e) {
   if (!e) return "";
   const t = e.timestamp ? m(e.timestamp) : "";
   return `
@@ -2500,7 +2528,7 @@ function gt(e) {
     </details>
   `;
 }
-function bt(e) {
+function ft(e) {
   const t = e.observed_at ? m(e.observed_at) : "", o = e.raw_key || e.route_hint || e.key_hash?.slice(0, 16) || "unknown";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
@@ -2515,7 +2543,7 @@ function bt(e) {
     </tr>
   `;
 }
-function ft(e, t = 20) {
+function xt(e, t = 20) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
@@ -2552,15 +2580,15 @@ function ft(e, t = 20) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => bt(s)).join("")}
+            ${r.map((s) => ft(s)).join("")}
           </tbody>
         </table>
       </div>
     </details>
   `;
 }
-function xt(e) {
-  const t = e.timestamp ? m(e.timestamp) : "", o = W(e.outcome), r = e.key?.route_hint || e.key?.key_hash?.slice(0, 12) || "";
+function mt(e) {
+  const t = e.timestamp ? m(e.timestamp) : "", o = Q(e.outcome), r = e.key?.route_hint || e.key?.key_hash?.slice(0, 12) || "";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
       <td style="padding: 5px 8px; font-size: 10px; color: #64748b; white-space: nowrap;">${n(t)}</td>
@@ -2591,7 +2619,7 @@ function xt(e) {
     </tr>
   `;
 }
-function mt(e, t = 20) {
+function ht(e, t = 20) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
@@ -2630,14 +2658,14 @@ function mt(e, t = 20) {
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => xt(s)).join("")}
+            ${r.map((s) => mt(s)).join("")}
           </tbody>
         </table>
       </div>
     </details>
   `;
 }
-function ht(e) {
+function yt(e) {
   return `
     <details style="margin-top: 12px;">
       <summary style="
@@ -2667,51 +2695,54 @@ function ht(e) {
           color: #e2e8f0;
           white-space: pre-wrap;
           word-break: break-word;
-        ">${n(w(e))}</pre>
+        ">${n(k(e))}</pre>
       </div>
     </details>
   `;
 }
-function K(e, t, o = {}) {
+function J(e, t, o = {}) {
   const { maxOperations: r = 20, maxKeys: s = 20, maxErrors: i = 10, showRawJSON: l = !1 } = o;
   return e ? e.configured ? `
     <div style="padding: 14px;">
-      ${H(e)}
-      ${lt(e.startup_error)}
-      ${at(e.counters)}
-      ${it(e.last_command)}
+      ${F(e)}
+      ${dt(e.startup_error)}
+      ${it(e.counters)}
+      ${lt(e.last_command)}
       ${pt(e.recent_errors, i)}
-      ${gt(e.latest_cached)}
-      ${ct(e.config)}
-      ${ut(e.capabilities)}
-      ${ft(e.observed_keys, s)}
-      ${mt(e.recent_operations, r)}
-      ${l ? ht(e) : ""}
+      ${bt(e.latest_cached)}
+      ${ut(e.config)}
+      ${gt(e.capabilities)}
+      ${xt(e.observed_keys, s)}
+      ${ht(e.recent_operations, r)}
+      ${l ? yt(e) : ""}
     </div>
   ` : `
       <div style="padding: 12px;">
-        ${H(e)}
+        ${F(e)}
         <div style="
           text-align: center;
           padding: 32px 16px;
           color: #64748b;
         ">
-          <div style="font-size: 24px; margin-bottom: 10px;">○</div>
+          <div style="margin-bottom: 10px;">${y("circle", {
+    size: 24,
+    color: "#64748b"
+  })}</div>
           <div style="font-size: 14px; font-weight: 500; margin-bottom: 6px; color: #94a3b8;">Cache Not Configured</div>
           <div style="font-size: 12px;">Enable site render cache in application configuration.</div>
         </div>
       </div>
     ` : `<div class="${t.emptyState}">No site render cache data available</div>`;
 }
-function yt(e, t) {
+function vt(e, t) {
   if (!e) return `<div class="${t.emptyState}">No cache data</div>`;
   let o = e.status;
   e.configured && e.active || (o = "inactive");
-  const r = V(o), s = e.counters || {}, i = s.hits || 0, l = s.misses || 0, d = s.errors || 0;
-  let p = "N/A";
+  const r = W(o), s = e.counters || {}, i = s.hits || 0, l = s.misses || 0, d = s.errors || 0;
+  let c = "N/A";
   const a = s.lookups || 0;
-  a > 0 && (p = `${((s.hit_ratio !== null && s.hit_ratio !== void 0 ? s.hit_ratio : i / a) * 100).toFixed(1)}%`);
-  const c = (e.recent_errors || []).length, u = (e.scope || "unknown") === "process_local";
+  a > 0 && (c = `${((s.hit_ratio !== null && s.hit_ratio !== void 0 ? s.hit_ratio : i / a) * 100).toFixed(1)}%`);
+  const p = (e.recent_errors || []).length, u = (e.scope || "unknown") === "process_local";
   return `
     <div style="padding: 8px;">
       <div style="
@@ -2731,7 +2762,10 @@ function yt(e, t) {
           border: 1px solid ${r.borderColor};
           border-radius: 4px;
         ">
-          <span style="font-size: 12px; color: ${r.color};">${r.icon}</span>
+          ${y(r.icon, {
+    size: 13,
+    color: r.color
+  })}
           <span style="font-size: 11px; font-weight: 600; color: ${r.color};">${n(r.label)}</span>
         </span>
         <span style="
@@ -2751,7 +2785,10 @@ function yt(e, t) {
             border-radius: 4px;
             font-size: 10px;
             color: #f59e0b;
-          ">⚠ local</span>
+          ">${y("warning", {
+    size: 12,
+    color: "#f59e0b"
+  })} local</span>
         ` : ""}
       </div>
       <div style="
@@ -2761,10 +2798,10 @@ function yt(e, t) {
         color: #94a3b8;
         flex-wrap: wrap;
       ">
-        <span>Hit Rate: <strong style="color: ${a > 0 ? "#22c55e" : "#64748b"};">${p}</strong></span>
+        <span>Hit Rate: <strong style="color: ${a > 0 ? "#22c55e" : "#64748b"};">${c}</strong></span>
         <span>Hits: <strong style="color: #22c55e;">${b(i)}</strong></span>
         <span>Misses: <strong style="color: #f59e0b;">${b(l)}</strong></span>
-        ${d > 0 || c > 0 ? `
+        ${d > 0 || p > 0 ? `
           <span>Errors: <strong style="color: #ef4444;">${b(d)}</strong></span>
         ` : ""}
       </div>
@@ -2786,13 +2823,16 @@ function yt(e, t) {
               align-items: center;
               gap: 4px;
             "
-          ><span style="font-size: 12px;">↻</span> Clear</button>
+          >${y("refresh", {
+    size: 12,
+    color: "#fff"
+  })} Clear</button>
         </div>
       ` : ""}
     </div>
   `;
 }
-var vt = {
+var $t = {
   id: "requests",
   label: "Requests",
   icon: "iconoir-network",
@@ -2800,17 +2840,17 @@ var vt = {
   eventTypes: "request",
   category: "core",
   order: 10,
-  render: (e, t, o) => S(e || [], t, {
+  render: (e, t, o) => T(e || [], t, {
     ...o,
     showSortToggle: !1,
     truncatePath: !1
   }),
-  renderConsole: (e, t, o) => S(e || [], t, {
+  renderConsole: (e, t, o) => T(e || [], t, {
     ...o,
     showSortToggle: !1,
     truncatePath: !1
   }),
-  renderToolbar: (e, t, o) => S(e || [], t, {
+  renderToolbar: (e, t, o) => T(e || [], t, {
     ...o,
     maxEntries: 50,
     showSortToggle: !0,
@@ -2818,9 +2858,9 @@ var vt = {
     maxPathLength: 50
   }),
   getCount: (e) => (e || []).length,
-  handleEvent: (e, t) => k(e || [], t, 500),
+  handleEvent: (e, t) => C(e || [], t, 500),
   supportsToolbar: !0
-}, $t = {
+}, wt = {
   id: "sql",
   label: "SQL",
   icon: "iconoir-database",
@@ -2828,27 +2868,27 @@ var vt = {
   eventTypes: "sql",
   category: "core",
   order: 20,
-  render: (e, t, o) => T(e || [], t, {
+  render: (e, t, o) => _(e || [], t, {
     ...o,
     showSortToggle: !1,
     useIconCopyButton: !0
   }),
-  renderConsole: (e, t, o) => T(e || [], t, {
+  renderConsole: (e, t, o) => _(e || [], t, {
     ...o,
     maxEntries: 200,
     showSortToggle: !1,
     useIconCopyButton: !0
   }),
-  renderToolbar: (e, t, o) => T(e || [], t, {
+  renderToolbar: (e, t, o) => _(e || [], t, {
     ...o,
     maxEntries: 50,
     showSortToggle: !0,
     useIconCopyButton: !1
   }),
   getCount: (e) => (e || []).length,
-  handleEvent: (e, t) => k(e || [], t, 500),
+  handleEvent: (e, t) => C(e || [], t, 500),
   supportsToolbar: !0
-}, wt = {
+}, kt = {
   id: "logs",
   label: "Logs",
   icon: "iconoir-page",
@@ -2856,20 +2896,20 @@ var vt = {
   eventTypes: "log",
   category: "core",
   order: 30,
-  render: (e, t, o) => _(e || [], t, {
+  render: (e, t, o) => z(e || [], t, {
     ...o,
     showSortToggle: !1,
     showSource: !0,
     truncateMessage: !1
   }),
-  renderConsole: (e, t, o) => _(e || [], t, {
+  renderConsole: (e, t, o) => z(e || [], t, {
     ...o,
     maxEntries: 500,
     showSortToggle: !1,
     showSource: !0,
     truncateMessage: !1
   }),
-  renderToolbar: (e, t, o) => _(e || [], t, {
+  renderToolbar: (e, t, o) => z(e || [], t, {
     newestFirst: !0,
     maxEntries: 100,
     showSortToggle: !1,
@@ -2878,9 +2918,9 @@ var vt = {
     maxMessageLength: 100
   }),
   getCount: (e) => (e || []).length,
-  handleEvent: (e, t) => k(e || [], t, 1e3),
+  handleEvent: (e, t) => C(e || [], t, 1e3),
   supportsToolbar: !0
-}, kt = {
+}, Ct = {
   id: "routes",
   label: "Routes",
   icon: "iconoir-path-arrow",
@@ -2888,12 +2928,12 @@ var vt = {
   eventTypes: [],
   category: "system",
   order: 40,
-  render: (e, t) => z(e || [], t, { showName: !0 }),
-  renderConsole: (e, t) => z(e || [], t, { showName: !0 }),
-  renderToolbar: (e, t) => z(e || [], t, { showName: !1 }),
+  render: (e, t) => R(e || [], t, { showName: !0 }),
+  renderConsole: (e, t) => R(e || [], t, { showName: !0 }),
+  renderToolbar: (e, t) => R(e || [], t, { showName: !1 }),
   getCount: (e) => (e || []).length,
   supportsToolbar: !0
-}, Ct = {
+}, St = {
   id: "config",
   label: "Config",
   icon: "iconoir-settings",
@@ -2919,7 +2959,7 @@ var vt = {
   }),
   getCount: (e) => e && typeof e == "object" ? Object.keys(e).length : 0,
   supportsToolbar: !0
-}, St = {
+}, Tt = {
   id: "template",
   label: "Template",
   icon: "iconoir-code",
@@ -2946,7 +2986,7 @@ var vt = {
   getCount: (e) => e && typeof e == "object" ? Object.keys(e).length : 0,
   handleEvent: (e, t) => t,
   supportsToolbar: !0
-}, Tt = {
+}, _t = {
   id: "session",
   label: "Session",
   icon: "iconoir-user",
@@ -2973,7 +3013,7 @@ var vt = {
   getCount: (e) => e && typeof e == "object" ? Object.keys(e).length : 0,
   handleEvent: (e, t) => t,
   supportsToolbar: !0
-}, _t = {
+}, zt = {
   id: "custom",
   label: "Custom",
   icon: "iconoir-puzzle",
@@ -2981,20 +3021,20 @@ var vt = {
   eventTypes: "custom",
   category: "data",
   order: 30,
-  render: (e, t, o) => R(e || {}, t, {
+  render: (e, t, o) => q(e || {}, t, {
     useIconCopyButton: !0,
     showCount: !0
   }),
   renderConsole: (e, t, o) => {
     const r = e || {}, s = o?.dataFilterFn;
-    return R(r, t, {
+    return q(r, t, {
       maxLogEntries: 100,
       useIconCopyButton: !0,
       showCount: !0,
       dataFilterFn: s
     });
   },
-  renderToolbar: (e, t) => R(e || {}, t, {
+  renderToolbar: (e, t) => q(e || {}, t, {
     maxLogEntries: 50,
     useIconCopyButton: !1,
     showCount: !1
@@ -3003,9 +3043,9 @@ var vt = {
     const t = e || {};
     return (t.data ? Object.keys(t.data).length : 0) + (t.logs?.length || 0);
   },
-  handleEvent: (e, t) => oe(e, t, 500),
+  handleEvent: (e, t) => re(e, t, 500),
   supportsToolbar: !0
-}, zt = {
+}, Rt = {
   id: "jserrors",
   label: "JS Errors",
   icon: "iconoir-warning-triangle",
@@ -3013,27 +3053,27 @@ var vt = {
   eventTypes: "jserror",
   category: "core",
   order: 35,
-  render: (e, t, o) => q(e || [], t, {
+  render: (e, t, o) => E(e || [], t, {
     ...o,
     compact: !1,
     showSortToggle: !1
   }),
-  renderConsole: (e, t, o) => q(e || [], t, {
+  renderConsole: (e, t, o) => E(e || [], t, {
     ...o,
     maxEntries: 500,
     compact: !1,
     showSortToggle: !1
   }),
-  renderToolbar: (e, t, o) => q(e || [], t, {
+  renderToolbar: (e, t, o) => E(e || [], t, {
     ...o,
     maxEntries: 50,
     compact: !0,
     showSortToggle: !0
   }),
   getCount: (e) => (e || []).length,
-  handleEvent: (e, t) => k(e || [], t, 500),
+  handleEvent: (e, t) => C(e || [], t, 500),
   supportsToolbar: !0
-}, Rt = {
+}, qt = {
   id: "permissions",
   label: "Permissions",
   icon: "iconoir-shield-check",
@@ -3042,15 +3082,15 @@ var vt = {
   category: "system",
   order: 45,
   showFilters: !1,
-  render: (e, t, o) => D(e, t, { showRawJSON: !0 }),
-  renderConsole: (e, t, o) => D(e, t, { showRawJSON: !0 }),
-  renderToolbar: (e, t, o) => Ke(e, t),
+  render: (e, t, o) => A(e, t, { showRawJSON: !0 }),
+  renderConsole: (e, t, o) => A(e, t, { showRawJSON: !0 }),
+  renderToolbar: (e, t, o) => Je(e, t),
   getCount: (e) => {
     const t = e;
     return !t || !t.summary ? 0 : t.summary.missing_keys;
   },
   supportsToolbar: !0
-}, qt = {
+}, Et = {
   id: "doctor",
   label: "Doctor",
   icon: "iconoir-heartbeat",
@@ -3059,14 +3099,14 @@ var vt = {
   category: "system",
   order: 46,
   showFilters: !1,
-  render: (e, t, o) => A(e, t, { showRawJSON: !0 }),
-  renderConsole: (e, t, o) => A(e, t, { showRawJSON: !0 }),
+  render: (e, t, o) => H(e, t, { showRawJSON: !0 }),
+  renderConsole: (e, t, o) => H(e, t, { showRawJSON: !0 }),
   getCount: (e) => {
     const t = e;
     return !t || !t.summary ? 0 : (t.summary.error || 0) + (t.summary.warn || 0);
   },
   supportsToolbar: !1
-}, Et = {
+}, Lt = {
   id: "site-render-cache",
   label: "Site Cache",
   icon: "iconoir-database",
@@ -3075,46 +3115,46 @@ var vt = {
   category: "site",
   order: 80,
   showFilters: !1,
-  render: (e, t) => K(e, t, { showRawJSON: !1 }),
-  renderConsole: (e, t) => K(e, t, {
+  render: (e, t) => J(e, t, { showRawJSON: !1 }),
+  renderConsole: (e, t) => J(e, t, {
     showRawJSON: !0,
     maxOperations: 50,
     maxKeys: 50,
     maxErrors: 20
   }),
-  renderToolbar: (e, t) => yt(e, t),
+  renderToolbar: (e, t) => vt(e, t),
   getCount: (e) => {
     const t = e;
     return !t || !t.counters ? 0 : t.counters.errors || 0;
   },
   supportsToolbar: !0
 };
-function Lt() {
-  f.register(vt), f.register($t), f.register(wt), f.register(zt), f.register(kt), f.register(Rt), f.register(qt), f.register(Et), f.register(Ct), f.register(St), f.register(Tt), f.register(_t);
+function Nt() {
+  f.register($t), f.register(wt), f.register(kt), f.register(Rt), f.register(Ct), f.register(qt), f.register(Et), f.register(Lt), f.register(St), f.register(Tt), f.register(_t), f.register(zt);
 }
-Lt();
+Nt();
 export {
-  Ht as _,
-  z as a,
-  ge as b,
-  S as c,
-  xe as d,
-  Dt as f,
-  Ft as g,
-  Bt as h,
-  R as i,
-  fe as l,
-  Mt as m,
-  yt as n,
-  _ as o,
-  At as p,
-  q as r,
-  T as s,
-  K as t,
-  Kt as u,
-  It as v,
+  Ft as _,
+  R as a,
+  be as b,
+  T as c,
+  me as d,
+  At as f,
+  Kt as g,
+  It as h,
+  q as i,
+  xe as l,
+  Bt as m,
+  vt as n,
+  z as o,
+  Ht as p,
+  E as r,
+  _ as s,
+  J as t,
+  Jt as u,
+  Dt as v,
   Ot as x,
-  U as y
+  V as y
 };
 
-//# sourceMappingURL=builtin-panels-BF4CqBgC.js.map
+//# sourceMappingURL=builtin-panels-Dqn1xdGs.js.map
