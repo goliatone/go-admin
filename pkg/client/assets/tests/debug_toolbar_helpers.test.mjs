@@ -16,6 +16,15 @@ globalThis.customElements = {
 
 const debugToolbar = await import('../dist/debug/shared-helpers.js');
 
+const testStyles = new Proxy({}, {
+  get(_target, prop) {
+    if (prop === 'badgeMethod' || prop === 'badgeStatus' || prop === 'badgeLevel') {
+      return () => 'badge';
+    }
+    return String(prop);
+  },
+});
+
 debugToolbar.panelRegistry.register({
   id: 'requests',
   label: 'Requests',
@@ -166,4 +175,92 @@ test('debug toolbar helpers fetch snapshots and count summary state through one 
       slowQueries: 1,
     }
   );
+});
+
+test('debug toolbar helpers hydrate server panel definitions without overwriting client renderers', async () => {
+  const originalFetch = globalThis.fetch;
+  const clientRender = () => 'client-renderer';
+
+  debugToolbar.panelRegistry.register({
+    id: 'client-cache',
+    label: 'Client Cache',
+    snapshotKey: 'client-cache',
+    eventTypes: 'client-cache',
+    render: clientRender,
+  });
+  debugToolbar.panelRegistry.unregister('server-cache');
+
+  try {
+    globalThis.fetch = async (url) => {
+      assert.equal(String(url), '/debug-hydration/api/panels');
+      return {
+        ok: true,
+        async json() {
+          return {
+            panels: [
+              {
+                id: 'client-cache',
+                label: 'Server Should Not Win',
+                snapshot_key: 'server-cache',
+                event_types: ['server-cache'],
+                ui: { views: { console: { renderer: 'table', bind: 'items' } } },
+              },
+              {
+                id: 'server-cache',
+                label: 'Server Cache',
+                snapshot_key: 'server-cache',
+                event_types: ['cache-event'],
+                supports_toolbar: true,
+                category: 'data',
+                order: 42,
+                ui: {
+                  views: { console: { renderer: 'table', bind: 'items' } },
+                  count: { mode: 'array_length', bind: 'items' },
+                  filters: [{ id: 'status', label: 'Status', kind: 'select', bind: 'status', options: ['ok'] }],
+                  events: { mode: 'append', bind: 'entry', max_entries: 2 },
+                  actions: [{ id: 'refresh', label: 'Refresh', refresh: true, payload: { source: 'test' } }],
+                },
+              },
+            ],
+          };
+        },
+      };
+    };
+
+    assert.equal(await debugToolbar.hydrateServerPanelDefinitions('/debug-hydration'), 1);
+    assert.equal(debugToolbar.panelRegistry.get('client-cache')?.label, 'Client Cache');
+    assert.equal(debugToolbar.panelRegistry.get('client-cache')?.render, clientRender);
+    assert.equal(debugToolbar.panelRegistry.get('server-cache')?.label, 'Server Cache');
+    assert.equal(debugToolbar.panelRegistry.isServerDefinition('server-cache'), true);
+    assert.equal(debugToolbar.buildEventToPanel()['cache-event'], 'server-cache');
+    assert.equal(debugToolbar.panelRegistry.get('server-cache')?.getCount?.({ items: [1, 2, 3] }), 3);
+    assert.deepEqual(
+      debugToolbar.panelRegistry.get('server-cache')?.handleEvent?.([{ id: 1 }], { entry: { id: 2 } }),
+      [{ id: 1 }, { id: 2 }],
+    );
+    assert.deepEqual(
+      debugToolbar.panelRegistry.get('server-cache')?.handleEvent?.([{ id: 1 }, { id: 2 }], { entry: { id: 3 } }),
+      [{ id: 2 }, { id: 3 }],
+    );
+    assert.deepEqual(
+      debugToolbar.panelRegistry.get('server-cache')?.applyFilters?.(
+        [{ status: 'ok' }, { status: 'warn' }],
+        { status: 'ok' },
+      ),
+      [{ status: 'ok' }],
+    );
+
+    const html = debugToolbar.panelRegistry
+      .get('server-cache')
+      ?.renderConsole?.({ items: [{ key: 'a<b', value: 2 }] }, testStyles, {});
+    assert.match(html || '', /<table/);
+    assert.match(html || '', /data-panel-action/);
+    assert.match(html || '', /data-action-id="refresh"/);
+    assert.match(html || '', /a&lt;b/);
+    assert.doesNotMatch(html || '', /a<b/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    debugToolbar.panelRegistry.unregister('client-cache');
+    debugToolbar.panelRegistry.unregister('server-cache');
+  }
 });

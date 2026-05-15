@@ -1,9 +1,10 @@
-import { escapeHTML as q } from "../shared/html.js";
-import { normalizeDebugBasePath as L } from "./shared/path-helpers.js";
-import { S as w, _ as P, a as c, b as T, c as z, g as M, i as R, l as H, p as $, r as I, s as A, u as D, v as f, y as O } from "../chunks/builtin-panels-DIhjLELL.js";
-import { t as j } from "../chunks/repl-panel-So0Od67n.js";
-import { a as at, b as F, c as B, d as N, f as Q, g as _, h as G, i as y, l as Y, n as k, o as h, r as p, s as v, t as ot, u as st, y as b } from "../chunks/runtime-helpers-73DjiyO0.js";
-var K = `
+import { escapeHTML as w } from "../shared/html.js";
+import { httpRequest as L } from "../shared/transport/http-client.js";
+import { normalizeDebugBasePath as T } from "./shared/path-helpers.js";
+import { _ as z, a as M, b as y, c as R, d as A, g as x, h as $, i as I, m as H, o as D, r as O, s as j, v as F } from "../chunks/builtin-panels-BlCr1SBy.js";
+import { t as B } from "../chunks/repl-panel-So0Od67n.js";
+import { C as N, S as h, a as S, c as rt, d as Q, f as _, h as G, i as nt, l as p, m as Y, n as k, o as b, p as it, s as C, u as v, v as K, w as c, y as U } from "../chunks/server-definitions-CN7XKSsz.js";
+var J = `
   :host {
     --toolbar-bg: #1e1e2e;
     --toolbar-bg-secondary: #181825;
@@ -1033,14 +1034,14 @@ var K = `
       max-width: 60%;
     }
   }
-`, l = $;
+`, l = A;
 function m(e, t, a = 50, o) {
-  const s = b.get(e);
-  if (s) return F(s, _(t, s), l, o || {}, "toolbar");
+  const s = h.get(e);
+  if (s) return N(s, U(t, s), l, o || {}, "toolbar");
   const r = o?.newestFirst ?? !0, i = o?.slowThresholdMs ?? a;
   switch (e) {
     case "requests":
-      return D(t.requests || [], l, {
+      return R(t.requests || [], l, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1051,7 +1052,7 @@ function m(e, t, a = 50, o) {
         maxDetailLength: 80
       });
     case "sql":
-      return H(t.sql || [], l, {
+      return j(t.sql || [], l, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1059,7 +1060,7 @@ function m(e, t, a = 50, o) {
         useIconCopyButton: !1
       });
     case "logs":
-      return z(t.logs || [], l, {
+      return D(t.logs || [], l, {
         newestFirst: !0,
         maxEntries: 100,
         showSortToggle: !1,
@@ -1073,7 +1074,7 @@ function m(e, t, a = 50, o) {
         showCount: !1
       });
     case "routes":
-      return A(t.routes || [], l, { showName: !1 });
+      return M(t.routes || [], l, { showName: !1 });
     case "template":
       return c("Template Context", t.template || {}, l, {
         useIconCopyButton: !1,
@@ -1085,31 +1086,31 @@ function m(e, t, a = 50, o) {
         showCount: !1
       });
     case "jserrors":
-      return I(t.jserrors || [], l, {
+      return O(t.jserrors || [], l, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return R(t.custom || {}, l, {
+      return I(t.custom || {}, l, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
       });
     default: {
       const n = t[e];
-      return n != null ? c(e.replace(/[_-]/g, " ").replace(/\b\w/g, (x) => x.toUpperCase()), n, l, {
+      return n != null ? c(e.replace(/[_-]/g, " ").replace(/\b\w/g, (f) => f.toUpperCase()), n, l, {
         useIconCopyButton: !1,
         showCount: !1
-      }) : `<div class="${l.emptyState}">Panel "${q(e)}" not available</div>`;
+      }) : `<div class="${l.emptyState}">Panel "${w(e)}" not available</div>`;
     }
   }
 }
 function u(e, t = 50) {
-  return Y(e, t);
+  return _(e, t);
 }
-var g, S = class d extends HTMLElement {
+var g, E = class d extends HTMLElement {
   static get observedAttributes() {
     return [
       "base-path",
@@ -1127,13 +1128,16 @@ var g, S = class d extends HTMLElement {
     }, this.shadow = this.attachShadow({ mode: "open" });
   }
   connectedCallback() {
-    this.eventToPanel = p(), this.unsubscribeRegistry = b.subscribe((t) => this.handleRegistryChange(t)), this.loadState(), this.render(), this.useFab || (this.liveTransportEnabled && this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
+    this.initialize();
+  }
+  async initialize() {
+    await k(this.debugPath), this.eventToPanel = b(), this.unsubscribeRegistry = h.subscribe((t) => this.handleRegistryChange(t)), this.loadState(), this.render(), this.useFab || (this.liveTransportEnabled && this.initWebSocket(), this.fetchInitialSnapshot()), this.setupKeyboardShortcut();
   }
   disconnectedCallback() {
     this.stream?.close(), this.unsubscribeRegistry?.(), document.removeEventListener("keydown", this.handleKeyDown);
   }
   handleRegistryChange(t) {
-    this.eventToPanel = p(), this.updateSubscriptions(), this.expanded && this.render();
+    this.eventToPanel = b(), this.updateSubscriptions(), this.expanded && this.render();
   }
   updateSubscriptions() {
     const t = this.getStream();
@@ -1218,9 +1222,9 @@ var g, S = class d extends HTMLElement {
     const t = this.getAttribute("panels");
     if (t) {
       const a = t.split(",").map((o) => o.trim().toLowerCase()).filter(Boolean);
-      return a.length ? a : h();
+      return a.length ? a : p();
     }
-    return h();
+    return p();
   }
   get liveTransportEnabled() {
     const t = this.getAttribute("live-transport");
@@ -1233,7 +1237,7 @@ var g, S = class d extends HTMLElement {
     return this.externalStream || this.stream;
   }
   initWebSocket() {
-    this.stream = new w({
+    this.stream = new y({
       basePath: this.debugPath,
       onEvent: (a) => this.handleEvent(a),
       onStatusChange: (a) => this.handleStatusChange(a)
@@ -1243,7 +1247,7 @@ var g, S = class d extends HTMLElement {
     this.stream.subscribe(Array.from(t));
   }
   async fetchInitialSnapshot() {
-    const t = await y(this.debugPath);
+    const t = await C(this.debugPath);
     t && this.applySnapshot(t);
   }
   handleEvent(t) {
@@ -1252,27 +1256,27 @@ var g, S = class d extends HTMLElement {
         this.applySnapshot(t.payload);
         return;
       }
-      (k(this.snapshot, t, { eventToPanel: this.eventToPanel }) || t.type) === this.activePanel && this.expanded && this.updateContent();
+      (S(this.snapshot, t, { eventToPanel: this.eventToPanel }) || t.type) === this.activePanel && this.expanded && this.updateContent();
     }
   }
   handleStatusChange(t) {
     this.connectionStatus = t, this.updateConnectionStatus();
   }
   applySnapshot(t) {
-    this.snapshot = t || {}, this.replCommands = N(this.snapshot.repl_commands), this.updateContent();
+    this.snapshot = t || {}, this.replCommands = Y(this.snapshot.repl_commands), this.updateContent();
   }
   render() {
     const t = u(this.snapshot, this.slowThresholdMs), a = this.panels.map((n) => {
-      const x = B(n), E = this.getPanelCount(n);
+      const f = Q(n), P = this.getPanelCount(n);
       return `
           <button class="tab ${this.activePanel === n ? "active" : ""}" data-panel="${n}">
-            ${x}
-            <span class="tab-count">${E}</span>
+            ${f}
+            <span class="tab-count">${P}</span>
           </button>
         `;
     }).join(""), o = this.expanded ? "expanded" : "collapsed", s = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || d.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
     this.shadow.innerHTML = `
-      <style>${K}</style>
+      <style>${J}</style>
       <div class="toolbar ${o} ${s}" style="${i}">
         ${this.expanded ? `
           <div class="resize-handle" data-resize-handle></div>
@@ -1343,7 +1347,7 @@ var g, S = class d extends HTMLElement {
   updateContent() {
     if (this.expanded) {
       const t = this.shadow.getElementById("panel-content");
-      t && (Q.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = m(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests))), this.panels.forEach((a) => {
+      t && (G.has(this.activePanel) ? this.renderReplPanel(t, this.activePanel) : (t.innerHTML = m(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && x(this.shadow, this.expandedRequests), this.attachPanelActionListeners())), this.panels.forEach((a) => {
         const o = this.shadow.querySelector(`[data-panel="${a}"] .tab-count`);
         o && (o.textContent = String(this.getPanelCount(a)));
       });
@@ -1364,8 +1368,8 @@ var g, S = class d extends HTMLElement {
     a && (a.className = `status-dot ${this.connectionStatus}`), o && (o.textContent = this.connectionStatus);
   }
   getPanelCount(t) {
-    const a = b.get(t);
-    if (a) return G(this.snapshot, a);
+    const a = h.get(t);
+    if (a) return K(this.snapshot, a);
     switch (t) {
       case "requests":
         return this.snapshot.requests?.length || 0;
@@ -1404,10 +1408,10 @@ var g, S = class d extends HTMLElement {
         if (o && o !== this.activePanel) {
           this.activePanel = o, this.shadow.querySelectorAll(".tab").forEach((r) => r.classList.remove("active")), a.currentTarget.classList.add("active");
           const s = this.shadow.getElementById("panel-content");
-          s && (s.innerHTML = m(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests));
+          s && (s.innerHTML = m(this.activePanel, this.snapshot, this.slowThresholdMs, this.getPanelOptions()), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && x(this.shadow, this.expandedRequests), this.attachPanelActionListeners());
         }
       });
-    }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && f(this.shadow, this.expandedRequests), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
+    }), this.attachExpandableRowListeners(), this.attachCopyListeners(), this.attachSortToggleListeners(), this.attachSQLSelectionListeners(), this.activePanel === "requests" && x(this.shadow, this.expandedRequests), this.attachPanelActionListeners(), this.shadow.querySelectorAll("[data-action]").forEach((t) => {
       t.addEventListener("click", (a) => {
         const o = a.currentTarget.dataset.action, s = this.getStream();
         switch (o) {
@@ -1433,9 +1437,49 @@ var g, S = class d extends HTMLElement {
     }
     this.attachResizeListeners(), this.attachCopyListeners();
   }
+  attachPanelActionListeners() {
+    this.shadow.querySelectorAll("[data-panel-action]").forEach((t) => {
+      t.addEventListener("click", () => {
+        t.disabled || this.runPanelAction(t);
+      });
+    });
+  }
+  async runPanelAction(t) {
+    const a = t.dataset.panelId || "", o = t.dataset.actionId || "";
+    if (!a || !o) return;
+    const s = t.dataset.actionConfirm || "";
+    if ((t.dataset.actionRequiresConfirm === "true" || s) && !window.confirm(s || "Run this debug panel action?")) return;
+    let r = {};
+    if (t.dataset.actionPayload) try {
+      r = JSON.parse(t.dataset.actionPayload);
+    } catch {
+      r = {};
+    }
+    t.disabled = !0;
+    try {
+      const i = await L(`${this.debugPath}/api/panels/${encodeURIComponent(a)}/actions/${encodeURIComponent(o)}`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(r)
+      });
+      if (!i.ok) throw new Error(`Action failed (${i.status})`);
+      const n = await i.json();
+      this.showPanelActionResult(a, n.ok === !1 ? "error" : "ok", n.message || (n.ok === !1 ? "Action failed" : "Action complete")), n.event && this.handleEvent(n.event), n.refresh && await this.fetchInitialSnapshot();
+    } catch (i) {
+      const n = i instanceof Error ? i.message : "Action failed";
+      this.showPanelActionResult(a, "error", n);
+    } finally {
+      t.disabled = !1;
+    }
+  }
+  showPanelActionResult(t, a, o) {
+    const s = Array.from(this.shadow.querySelectorAll("[data-panel-action-result]")).find((r) => r.dataset.panelActionResult === t);
+    s && (s.innerHTML = `<div class="${a === "error" ? "badge error" : "badge"}">${w(o)}</div>`);
+  }
   renderReplPanel(t, a) {
     let o = this.replPanels.get(a);
-    o || (o = new j({
+    o || (o = new B({
       kind: a === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: a === "console" ? this.replCommands : []
@@ -1472,26 +1516,26 @@ var g, S = class d extends HTMLElement {
     r && (r.style.height = `${s}px`);
   }
   attachExpandableRowListeners() {
-    P(this.shadow);
+    $(this.shadow);
   }
   attachCopyListeners() {
-    M(this.shadow, { useIconFeedback: !1 });
+    H(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    T(this.shadow, (t, a) => {
+    F(this.shadow, (t, a) => {
       this.panelSortOrder.set(t, a), this.saveState(), this.updateContent();
     });
   }
   attachSQLSelectionListeners() {
-    this.activePanel === "sql" && O(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
+    this.activePanel === "sql" && z(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
   }
 };
-g = S;
+g = E;
 g.MIN_HEIGHT = 150;
 g.MAX_HEIGHT_RATIO = 0.8;
 g.DEFAULT_HEIGHT = 320;
-customElements.get("debug-toolbar") || customElements.define("debug-toolbar", S);
-var U = `
+customElements.get("debug-toolbar") || customElements.define("debug-toolbar", E);
+var W = `
   :host {
     --fab-bg: #1e1e2e;
     --fab-bg-hover: #313244;
@@ -1721,7 +1765,7 @@ var U = `
       font-size: 8px;
     }
   }
-`, W = class extends HTMLElement {
+`, X = class extends HTMLElement {
   static get observedAttributes() {
     return [
       "debug-path",
@@ -1734,7 +1778,10 @@ var U = `
     super(), this.stream = null, this.snapshot = {}, this.connectionStatus = "disconnected", this.isHovered = !1, this.toolbarExpanded = !1, this.eventToPanel = {}, this.unsubscribeRegistry = null, this.shadow = this.attachShadow({ mode: "open" });
   }
   connectedCallback() {
-    this.eventToPanel = p(), this.unsubscribeRegistry = b.subscribe((e) => this.handleRegistryChange(e)), this.render(), this.liveTransportEnabled && this.initWebSocket(), this.fetchInitialSnapshot(), this.loadState();
+    this.initialize();
+  }
+  async initialize() {
+    await k(this.debugPath), this.eventToPanel = b(), this.unsubscribeRegistry = h.subscribe((e) => this.handleRegistryChange(e)), this.render(), this.liveTransportEnabled && this.initWebSocket(), this.fetchInitialSnapshot(), this.loadState();
   }
   disconnectedCallback() {
     this.stream?.close(), this.unsubscribeRegistry?.();
@@ -1761,9 +1808,9 @@ var U = `
     const e = this.getAttribute("panels");
     if (e) {
       const t = e.split(",").map((a) => a.trim().toLowerCase()).filter(Boolean);
-      return t.length ? t : h();
+      return t.length ? t : p();
     }
-    return h();
+    return p();
   }
   get liveTransportEnabled() {
     const e = this.getAttribute("live-transport");
@@ -1783,14 +1830,14 @@ var U = `
     }
   }
   initWebSocket() {
-    this.stream = new w({
+    this.stream = new y({
       basePath: this.debugPath,
       onEvent: (e) => this.handleEvent(e),
       onStatusChange: (e) => this.handleStatusChange(e)
     }), this.stream.connect(), this.updateSubscriptions();
   }
   async fetchInitialSnapshot() {
-    const e = await y(this.debugPath);
+    const e = await C(this.debugPath);
     e && this.applySnapshot(e);
   }
   handleEvent(e) {
@@ -1799,7 +1846,7 @@ var U = `
         this.applySnapshot(e.payload);
         return;
       }
-      k(this.snapshot, e, { eventToPanel: this.eventToPanel }), this.updateCounters();
+      S(this.snapshot, e, { eventToPanel: this.eventToPanel }), this.updateCounters();
     }
   }
   handleStatusChange(e) {
@@ -1819,7 +1866,7 @@ var U = `
   render() {
     const e = u(this.snapshot), t = e.errors > 0, a = e.slowQueries > 0, o = this.toolbarExpanded ? "hidden" : "";
     this.shadow.innerHTML = `
-      <style>${U}</style>
+      <style>${W}</style>
       <div class="fab ${o}" data-status="${this.connectionStatus}">
         <span class="fab-status-dot"></span>
         <div class="fab-collapsed">
@@ -1879,7 +1926,7 @@ var U = `
     e && e.setAttribute("data-status", this.connectionStatus);
   }
   handleRegistryChange(e) {
-    this.eventToPanel = p(), this.updateSubscriptions();
+    this.eventToPanel = b(), this.updateSubscriptions();
   }
   updateSubscriptions() {
     if (!this.stream) return;
@@ -1902,8 +1949,8 @@ var U = `
     }));
   }
 };
-customElements.get("debug-fab") || customElements.define("debug-fab", W);
-var C = class {
+customElements.get("debug-fab") || customElements.define("debug-fab", X);
+var q = class {
   constructor(e = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
       panels: [
@@ -1917,7 +1964,7 @@ var C = class {
       container: document.body,
       ...e
     };
-    const t = L(this.options.basePath);
+    const t = T(this.options.basePath);
     t && (this.options.basePath = t), !this.options.debugPath && t && (this.options.debugPath = `${t}/debug`);
   }
   init() {
@@ -1960,7 +2007,7 @@ var C = class {
     })));
   }
 };
-function J() {
+function Z() {
   const e = window.DEBUG_CONFIG, t = document.querySelector("[data-debug-path]");
   let a = {};
   if (e ? a = {
@@ -1975,29 +2022,29 @@ function J() {
     panels: t.getAttribute("data-panels")?.split(","),
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
   }), !a.debugPath && !a.basePath && !e && !t) return null;
-  const o = new C(a);
+  const o = new q(a);
   return o.init(), o;
 }
-window.DebugManager = C;
-window.initDebugManager = J;
+window.DebugManager = q;
+window.initDebugManager = Z;
 export {
-  W as DebugFab,
-  C as DebugManager,
-  S as DebugToolbar,
-  ot as applyCustomEventPayload,
-  k as applyDebugEventToSnapshot,
-  p as buildEventToPanel,
-  y as fetchDebugSnapshot,
+  X as DebugFab,
+  q as DebugManager,
+  E as DebugToolbar,
+  nt as applyCustomEventPayload,
+  S as applyDebugEventToSnapshot,
+  b as buildEventToPanel,
+  C as fetchDebugSnapshot,
   u as getCounts,
-  at as getDefaultPanels,
-  h as getDefaultToolbarPanels,
+  rt as getDefaultPanels,
+  p as getDefaultToolbarPanels,
   v as getPanelEventTypes,
-  B as getPanelLabel,
-  J as initDebugManager,
-  st as isKnownPanel,
-  N as normalizeReplCommands,
+  Q as getPanelLabel,
+  Z as initDebugManager,
+  it as isKnownPanel,
+  Y as normalizeReplCommands,
   m as renderPanel,
-  Q as replPanelIDs
+  G as replPanelIDs
 };
 
 //# sourceMappingURL=toolbar.js.map

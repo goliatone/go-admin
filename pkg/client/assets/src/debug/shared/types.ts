@@ -100,6 +100,80 @@ export type DebugSnapshot = {
   [key: string]: unknown;
 };
 
+export type PanelUIRendererKind =
+  | 'metrics'
+  | 'key_value'
+  | 'table'
+  | 'status_list'
+  | 'timeline'
+  | 'json'
+  | 'stack';
+
+export type ServerPanelUIView = {
+  renderer?: string;
+  title?: string;
+  bind?: string;
+  options?: Record<string, unknown>;
+  sections?: ServerPanelUIView[];
+};
+
+export type ServerPanelUI = {
+  schema_version?: string;
+  views?: {
+    console?: ServerPanelUIView;
+    toolbar?: ServerPanelUIView;
+  };
+  count?: {
+    bind?: string;
+    mode?: string;
+    label?: string;
+  };
+  filters?: Array<{
+    id?: string;
+    label?: string;
+    kind?: string;
+    bind?: string;
+    options?: string[];
+  }>;
+  events?: {
+    mode?: string;
+    bind?: string;
+    key?: string;
+    max_entries?: number;
+  };
+  actions?: Array<{
+    id?: string;
+    label?: string;
+    kind?: string;
+    confirm_text?: string;
+    requires_confirm?: boolean;
+    refresh?: boolean;
+    update_policy?: string;
+    payload?: Record<string, unknown>;
+  }>;
+  metadata?: Record<string, unknown>;
+};
+
+export type ServerPanelDefinition = {
+  id?: string;
+  label?: string;
+  icon?: string;
+  span?: number;
+  snapshot_key?: string;
+  event_types?: string[];
+  supports_toolbar?: boolean;
+  category?: string;
+  order?: number;
+  version?: string;
+  metadata?: Record<string, unknown>;
+  ui?: ServerPanelUI;
+};
+
+export type ServerPanelDefinitionsResponse = {
+  panels?: ServerPanelDefinition[];
+  version?: string;
+};
+
 export type DebugUserSession = {
   session_id?: string;
   user_id?: string;

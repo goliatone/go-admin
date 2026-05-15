@@ -1,9 +1,9 @@
-import { escapeHTML as m } from "../shared/html.js";
-import { httpRequest as _ } from "../shared/transport/http-client.js";
-import { C as Fe, S as F, _ as J, a as H, c as Q, d as x, f as Ne, g as X, h as je, i as z, l as Y, m as Me, n as Be, o as Ue, p as Ke, r as G, s as V, t as Je, u as W, v as Z, x as He, y as ee } from "../chunks/builtin-panels-DIhjLELL.js";
-import { t as te } from "../chunks/repl-panel-So0Od67n.js";
-import { A as se, D as re, E as L, O as ze, S as T, T as ie, _ as D, a as ne, b as Ye, c as N, d as ae, f as oe, g as Ge, h as le, j as Ve, k as We, m as he, p as Ze, r as j, s as ce, u as ue, v as et, w as tt, x as k, y as v } from "../chunks/runtime-helpers-73DjiyO0.js";
-var de = class {
+import { escapeHTML as E } from "../shared/html.js";
+import { httpRequest as L } from "../shared/transport/http-client.js";
+import { _ as K, a as H, b as N, c as Q, d as Ne, f as je, g as X, h as z, i as Y, l as w, m as G, n as Me, o as V, p as Be, r as W, s as Z, t as Ue, u as Je, x as Ke, y as He } from "../chunks/builtin-panels-BlCr1SBy.js";
+import { t as ee } from "../chunks/repl-panel-So0Od67n.js";
+import { C as ze, F as Ye, I as Ge, L as te, M as se, N as D, O as T, P as re, R as Ve, S as v, T as We, _ as ie, b as _, c as ne, d as j, g as Ze, h as ae, j as et, k, m as oe, n as le, o as I, p as he, u as ce, v as ue, w as de, x as tt, y as st } from "../chunks/server-definitions-CN7XKSsz.js";
+var fe = class {
   add(t, e, s) {
     if (typeof arguments[0] != "string") for (let r in arguments[0]) this.add(r, arguments[0][r], arguments[1]);
     else (Array.isArray(t) ? t : [t]).forEach(function(r) {
@@ -15,7 +15,7 @@ var de = class {
       s.call(e && e.context ? e.context : e, e);
     });
   }
-}, fe = class {
+}, pe = class {
   constructor(t) {
     this.jsep = t, this.registered = {};
   }
@@ -351,10 +351,10 @@ var de = class {
       elements: this.gobbleArguments(a.CBRACK_CODE)
     };
   }
-}, pe = new de();
+}, ge = new fe();
 Object.assign(S, {
-  hooks: pe,
-  plugins: new fe(S),
+  hooks: ge,
+  plugins: new pe(S),
   COMPOUND: "Compound",
   SEQUENCE_EXP: "SequenceExpression",
   IDENTIFIER: "Identifier",
@@ -422,14 +422,14 @@ Object.assign(S, {
 });
 S.max_unop_len = S.getMaxKeyLen(S.unary_ops);
 S.max_binop_len = S.getMaxKeyLen(S.binary_ops);
-var w = (t) => new S(t).parse(), ge = Object.getOwnPropertyNames(class {
+var x = (t) => new S(t).parse(), be = Object.getOwnPropertyNames(class {
 });
-Object.getOwnPropertyNames(S).filter((t) => !ge.includes(t) && w[t] === void 0).forEach((t) => {
-  w[t] = S[t];
+Object.getOwnPropertyNames(S).filter((t) => !be.includes(t) && x[t] === void 0).forEach((t) => {
+  x[t] = S[t];
 });
-w.Jsep = S;
-var be = "ConditionalExpression";
-w.plugins.register({
+x.Jsep = S;
+var ye = "ConditionalExpression";
+x.plugins.register({
   name: "ternary",
   init(t) {
     t.hooks.add("after-expression", function(s) {
@@ -440,7 +440,7 @@ w.plugins.register({
           this.index++;
           const n = this.gobbleExpression();
           if (n || this.throwError("Expected expression"), s.node = {
-            type: be,
+            type: ye,
             test: r,
             consequent: i,
             alternate: n
@@ -454,7 +454,7 @@ w.plugins.register({
     });
   }
 });
-var M = 47, ye = 92, Ee = {
+var M = 47, Ee = 92, me = {
   name: "regex",
   init(t) {
     t.hooks.add("gobble-token", function(s) {
@@ -482,13 +482,13 @@ var M = 47, ye = 92, Ee = {
               raw: this.expr.slice(r - 1, this.index)
             }, s.node = this.gobbleTokenProperty(s.node), s.node;
           }
-          this.code === t.OBRACK_CODE ? i = !0 : i && this.code === t.CBRACK_CODE && (i = !1), this.index += this.code === ye ? 2 : 1;
+          this.code === t.OBRACK_CODE ? i = !0 : i && this.code === t.CBRACK_CODE && (i = !1), this.index += this.code === Ee ? 2 : 1;
         }
         this.throwError("Unclosed Regex");
       }
     });
   }
-}, I = 43, P = {
+}, $ = 43, P = {
   name: "assignment",
   assignmentOperators: /* @__PURE__ */ new Set([
     "=",
@@ -508,7 +508,7 @@ var M = 47, ye = 92, Ee = {
     "&&=",
     "??="
   ]),
-  updateOperators: [I, 45],
+  updateOperators: [$, 45],
   assignmentPrecedence: 0.9,
   init(t) {
     const e = [t.IDENTIFIER, t.MEMBER_EXP];
@@ -516,7 +516,7 @@ var M = 47, ye = 92, Ee = {
       const n = this.code;
       P.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (this.index += 2, i.node = {
         type: "UpdateExpression",
-        operator: n === I ? "++" : "--",
+        operator: n === $ ? "++" : "--",
         argument: this.gobbleTokenProperty(this.gobbleIdentifier()),
         prefix: !0
       }, (!i.node.argument || !e.includes(i.node.argument.type)) && this.throwError(`Unexpected ${i.node.operator}`));
@@ -525,7 +525,7 @@ var M = 47, ye = 92, Ee = {
         const n = this.code;
         P.updateOperators.some((o) => o === n && o === this.expr.charCodeAt(this.index + 1)) && (e.includes(i.node.type) || this.throwError(`Unexpected ${i.node.operator}`), this.index += 2, i.node = {
           type: "UpdateExpression",
-          operator: n === I ? "++" : "--",
+          operator: n === $ ? "++" : "--",
           argument: i.node,
           prefix: !1
         });
@@ -540,11 +540,11 @@ var M = 47, ye = 92, Ee = {
     }
   }
 };
-w.plugins.register(Ee, P);
-w.addUnaryOp("typeof");
-w.addLiteral("null", null);
-w.addLiteral("undefined", void 0);
-var me = /* @__PURE__ */ new Set([
+x.plugins.register(me, P);
+x.addUnaryOp("typeof");
+x.addLiteral("null", null);
+x.addLiteral("undefined", void 0);
+var Se = /* @__PURE__ */ new Set([
   "constructor",
   "__proto__",
   "__defineGetter__",
@@ -628,7 +628,7 @@ var me = /* @__PURE__ */ new Set([
   evalMemberExpression(t, e) {
     const s = String(t.computed ? p.evalAst(t.property) : t.property.name), r = p.evalAst(t.object, e);
     if (r == null) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
-    if (!Object.hasOwn(r, s) && me.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
+    if (!Object.hasOwn(r, s) && Se.has(s)) throw TypeError(`Cannot read properties of ${r} (reading '${s}')`);
     const i = r[s];
     return typeof i == "function" ? i.bind(r) : i;
   },
@@ -653,9 +653,9 @@ var me = /* @__PURE__ */ new Set([
     const s = t.left.name;
     return e[s] = p.evalAst(t.right, e), e[s];
   }
-}, Se = class {
+}, we = class {
   constructor(t) {
-    this.code = t, this.ast = w(this.code);
+    this.code = t, this.ast = x(this.code);
   }
   runInNewContext(t) {
     const e = Object.assign(/* @__PURE__ */ Object.create(null), t);
@@ -665,10 +665,10 @@ var me = /* @__PURE__ */ new Set([
 function C(t, e) {
   return t = t.slice(), t.push(e), t;
 }
-function q(t, e) {
+function F(t, e) {
   return e = e.slice(), e.unshift(t), e;
 }
-var we = class extends Error {
+var xe = class extends Error {
   constructor(t) {
     super('JSONPath should not be called with "new" (it prevents return of (unwrapped) scalar values)'), this.avoidNew = !0, this.value = t, this.name = "NewError";
   }
@@ -688,7 +688,7 @@ function f(t, e, s, r, i) {
     const o = { path: n ? t.path : e };
     n ? "json" in t && (o.json = t.json) : o.json = s;
     const h = this.evaluate(o);
-    if (!h || typeof h != "object") throw new we(h);
+    if (!h || typeof h != "object") throw new xe(h);
     return h;
   }
 }
@@ -778,15 +778,15 @@ f.prototype._trace = function(t, e, s, r, i, n, o, h) {
     else if (c.indexOf("?(") === 0) {
       if (this.currEval === !1) throw new Error("Eval [?(expr)] prevented in JSONPath expression.");
       const u = c.replace(/^\?\((.*?)\)$/u, "$1"), b = /@.?([^?]*)[['](\??\(.*?\))(?!.\)\])[\]']/gu.exec(u);
-      b ? this._walk(e, (E) => {
-        const A = [b[2]], O = b[1] ? e[E][b[1]] : e[E];
-        this._trace(A, O, s, r, i, n, !0).length > 0 && y(this._trace(d, e[E], C(s, E), e, E, n, !0));
-      }) : this._walk(e, (E) => {
-        this._eval(u, e[E], E, s, r, i) && y(this._trace(d, e[E], C(s, E), e, E, n, !0));
+      b ? this._walk(e, (m) => {
+        const A = [b[2]], O = b[1] ? e[m][b[1]] : e[m];
+        this._trace(A, O, s, r, i, n, !0).length > 0 && y(this._trace(d, e[m], C(s, m), e, m, n, !0));
+      }) : this._walk(e, (m) => {
+        this._eval(u, e[m], m, s, r, i) && y(this._trace(d, e[m], C(s, m), e, m, n, !0));
       });
     } else if (c[0] === "(") {
       if (this.currEval === !1) throw new Error("Eval [(expr)] prevented in JSONPath expression.");
-      y(this._trace(q(this._eval(c, e, s.at(-1), s.slice(0, -1), r, i), d), e, s, r, i, n, o));
+      y(this._trace(F(this._eval(c, e, s.at(-1), s.slice(0, -1), r, i), d), e, s, r, i, n, o));
     } else if (c[0] === "@") {
       let u = !1;
       const b = c.slice(1, -2);
@@ -836,19 +836,19 @@ f.prototype._trace = function(t, e, s, r, i, n, o, h) {
       y(this._trace(d, e[u], C(s, u), e, u, n, o, !0));
     } else if (c.includes(",")) {
       const u = c.split(",");
-      for (const b of u) y(this._trace(q(b, d), e, s, r, i, n, !0));
+      for (const b of u) y(this._trace(F(b, d), e, s, r, i, n, !0));
     } else !h && e && Object.hasOwn(e, c) && y(this._trace(d, e[c], C(s, c), e, c, n, o, !0));
   }
   if (this._hasParentSelector) for (let u = 0; u < g.length; u++) {
     const b = g[u];
     if (b && b.isParentSelector) {
-      const E = this._trace(b.expr, e, b.path, r, i, n, o);
-      if (Array.isArray(E)) {
-        g[u] = E[0];
-        const A = E.length;
+      const m = this._trace(b.expr, e, b.path, r, i, n, o);
+      if (Array.isArray(m)) {
+        g[u] = m[0];
+        const A = m.length;
         for (let O = 1; O < A; O++)
-          u++, g.splice(u, 0, E[O]);
-      } else g[u] = E;
+          u++, g.splice(u, 0, m[O]);
+      } else g[u] = m;
     }
   }
   return g;
@@ -867,7 +867,7 @@ f.prototype._slice = function(t, e, s, r, i, n, o) {
   let d = l[0] && Number.parseInt(l[0]) || 0, g = l[1] && Number.parseInt(l[1]) || h;
   d = d < 0 ? Math.max(0, d + h) : Math.min(h, d), g = g < 0 ? Math.max(0, g + h) : Math.min(h, g);
   const y = [];
-  for (let u = d; u < g; u += c) this._trace(q(u, e), s, r, i, n, o, !0).forEach((b) => {
+  for (let u = d; u < g; u += c) this._trace(F(u, e), s, r, i, n, o, !0).forEach((b) => {
     y.push(b);
   });
   return y;
@@ -922,21 +922,21 @@ f.toPathArray = function(t) {
     return !i || !i[1] ? r : s[i[1]];
   }), e[t].concat();
 };
-f.prototype.safeVm = { Script: Se };
-var xe = function(t, e, s) {
+f.prototype.safeVm = { Script: we };
+var Ce = function(t, e, s) {
   const r = t.length;
   for (let i = 0; i < r; i++) {
     const n = t[i];
     s(n) && e.push(t.splice(i--, 1)[0]);
   }
-}, Ce = class {
+}, ve = class {
   constructor(t) {
     this.code = t;
   }
   runInNewContext(t) {
     let e = this.code;
     const s = Object.keys(t), r = [];
-    xe(s, r, (h) => typeof t[h] == "function");
+    Ce(s, r, (h) => typeof t[h] == "function");
     const i = s.map((h) => t[h]);
     e = r.reduce((h, l) => {
       let c = t[l].toString();
@@ -946,18 +946,18 @@ var xe = function(t, e, s) {
     return new Function(...s, o)(...i);
   }
 };
-f.prototype.vm = { Script: Ce };
-function ve(t) {
+f.prototype.vm = { Script: ve };
+function Pe(t) {
   return t ? !!(t.startsWith("$") || /\[\d+\]/.test(t) || /\[['"]/.test(t) || /^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)+$/.test(t) || t.includes("..") || t.includes("*")) : !1;
 }
-function Pe(t) {
+function Ae(t) {
   return t ? t.startsWith("$") ? t : `$.${t}` : "$";
 }
-function Ae(t, e) {
+function Oe(t, e) {
   if (!t || !e) return [];
   try {
     return (f({
-      path: Pe(e),
+      path: Ae(e),
       json: t,
       resultType: "all"
     }) || []).map((s) => ({
@@ -968,23 +968,23 @@ function Ae(t, e) {
     return [];
   }
 }
-function Oe(t, e) {
+function Te(t, e) {
   if (!e || !t) return t || {};
-  const s = ve(e);
+  const s = Pe(e);
   if (console.log("[jsonpath-search] search:", e, "isJsonPath:", s), s) {
-    const i = ke(t, e);
+    const i = Le(t, e);
     return console.log("[jsonpath-search] JSONPath result:", i), i;
   }
-  const r = Te(t, e);
+  const r = ke(t, e);
   return console.log("[jsonpath-search] key match result:", r), r;
 }
-function Te(t, e) {
+function ke(t, e) {
   const s = e.toLowerCase(), r = {};
   for (const [i, n] of Object.entries(t || {})) i.toLowerCase().includes(s) && (r[i] = n);
   return r;
 }
-function ke(t, e) {
-  const s = Ae(t, e);
+function Le(t, e) {
+  const s = Oe(t, e);
   if (s.length === 0) return {};
   if (s.length === 1) {
     const { path: i, value: n } = s[0];
@@ -1011,7 +1011,7 @@ var U = (t) => {
   } catch {
     return null;
   }
-}, Le = (t) => Array.isArray(t) && t.length > 0 ? t.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : ne(), $ = (t, e) => Oe(t, e), _e = (t, e, s) => {
+}, De = (t) => Array.isArray(t) && t.length > 0 ? t.filter((e) => typeof e == "string" && e.trim()).map((e) => e.trim()) : ne(), R = (t, e) => Te(t, e), _e = (t, e, s) => {
   if (!t || !e) return;
   const r = e.split(".").map((n) => n.trim()).filter(Boolean);
   if (r.length === 0) return;
@@ -1021,13 +1021,13 @@ var U = (t) => {
     (!i[o] || typeof i[o] != "object") && (i[o] = {}), i = i[o];
   }
   i[r[r.length - 1]] = s;
-}, R = (t, e) => {
+}, q = (t, e) => {
   if (!t) return e;
   const s = Number(t);
   return Number.isNaN(s) ? e : s;
-}, De = class {
+}, Ie = class {
   constructor(t) {
-    this.customFilterState = {}, this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.container = t, this.panels = Le(U(t.dataset.panels)), this.panels.includes("sessions") || this.panels.push("sessions"), this.activePanel = this.panels[0] || "template", this.debugPath = t.dataset.debugPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = R(t.dataset.maxLogEntries, 500), this.maxSQLQueries = R(t.dataset.maxSqlQueries, 200), this.slowThresholdMs = R(t.dataset.slowThresholdMs, 50), this.replCommands = ae(U(t.dataset.replCommands)), this.state = {
+    this.customFilterState = {}, this.paused = !1, this.eventCount = 0, this.lastEventAt = null, this.sessions = [], this.sessionsLoading = !1, this.sessionsLoaded = !1, this.sessionsError = null, this.sessionsUpdatedAt = null, this.activeSessionId = null, this.activeSession = null, this.sessionBannerEl = null, this.sessionMetaEl = null, this.sessionDetachEl = null, this.unsubscribeRegistry = null, this.expandedRequests = /* @__PURE__ */ new Set(), this.container = t, this.panels = De(U(t.dataset.panels)), this.panels.includes("sessions") || this.panels.push("sessions"), this.activePanel = this.panels[0] || "template", this.debugPath = t.dataset.debugPath || "", this.streamBasePath = this.debugPath, this.maxLogEntries = q(t.dataset.maxLogEntries, 500), this.maxSQLQueries = q(t.dataset.maxSqlQueries, 200), this.slowThresholdMs = q(t.dataset.slowThresholdMs, 50), this.replCommands = oe(U(t.dataset.replCommands)), this.state = {
       template: {},
       session: {},
       requests: [],
@@ -1068,16 +1068,19 @@ var U = (t) => {
       sessions: { search: "" },
       custom: { search: "" },
       objects: { search: "" }
-    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), oe.forEach((e) => {
+    }, this.replPanels = /* @__PURE__ */ new Map(), this.panelRenderers = /* @__PURE__ */ new Map(), ae.forEach((e) => {
       this.panelRenderers.set(e, {
         render: () => this.renderReplPanel(e),
         filters: () => '<span class="timestamp">REPL controls are in the panel header.</span>'
       });
-    }), this.eventToPanel = j(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.renderTabs(), this.renderActivePanel(), this.bindActions(), this.updateSessionBanner(), this.stream = new F({
+    }), this.eventToPanel = I(), this.tabsEl = this.requireElement("[data-debug-tabs]", document), this.panelEl = this.requireElement("[data-debug-panel]", document), this.filtersEl = this.requireElement("[data-debug-filters]", document), this.statusEl = document.querySelector("[data-debug-status]") || this.container, this.connectionEl = this.requireElement("[data-debug-connection]", document), this.eventCountEl = this.requireElement("[data-debug-events]", document), this.lastEventEl = this.requireElement("[data-debug-last]", document), this.sessionBannerEl = document.querySelector("[data-debug-session-banner]"), this.sessionMetaEl = document.querySelector("[data-debug-session-meta]"), this.sessionDetachEl = document.querySelector("[data-debug-session-detach]"), this.sessionDetachEl && this.sessionDetachEl.addEventListener("click", () => this.detachSession()), this.bindActions(), this.updateSessionBanner(), this.stream = new N({
       basePath: this.streamBasePath,
       onEvent: (e) => this.handleEvent(e),
       onStatusChange: (e) => this.updateConnectionStatus(e)
-    }), this.unsubscribeRegistry = v.subscribe((e) => this.handleRegistryChange(e)), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
+    }), this.unsubscribeRegistry = v.subscribe((e) => this.handleRegistryChange(e)), this.initializeServerDefinitions();
+  }
+  async initializeServerDefinitions() {
+    await le(this.debugPath), this.eventToPanel = I(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
   }
   subscribeToEvents() {
     const t = /* @__PURE__ */ new Set();
@@ -1085,7 +1088,7 @@ var U = (t) => {
     this.stream.subscribe(Array.from(t));
   }
   handleRegistryChange(t) {
-    this.eventToPanel = j(), t.type === "register" ? (this.panels.includes(t.panelId) || this.panels.push(t.panelId), t.panel && t.panel.defaultFilters !== void 0 && !(t.panelId in this.customFilterState) && (this.customFilterState[t.panelId] = this.cloneFilterState(t.panel.defaultFilters))) : t.type === "unregister" && delete this.customFilterState[t.panelId], this.subscribeToEvents(), this.renderTabs(), t.panelId === this.activePanel && this.renderActivePanel();
+    this.eventToPanel = I(), t.type === "register" ? (this.panels.includes(t.panelId) || this.panels.push(t.panelId), t.panel && t.panel.defaultFilters !== void 0 && !(t.panelId in this.customFilterState) && (this.customFilterState[t.panelId] = this.cloneFilterState(t.panel.defaultFilters))) : t.type === "unregister" && delete this.customFilterState[t.panelId], this.subscribeToEvents(), this.renderTabs(), t.panelId === this.activePanel && this.renderActivePanel();
   }
   requireElement(t, e = this.container) {
     const s = e.querySelector(t);
@@ -1130,9 +1133,9 @@ var U = (t) => {
   }
   renderTabs() {
     const t = this.panels.map((e) => `
-          <button class="debug-tab ${e === this.activePanel ? "debug-tab--active" : ""}" data-panel="${m(e)}">
-            <span class="debug-tab__label">${m(N(e))}</span>
-            <span class="debug-tab__count" data-panel-count="${m(e)}">0</span>
+          <button class="debug-tab ${e === this.activePanel ? "debug-tab--active" : ""}" data-panel="${E(e)}">
+            <span class="debug-tab__label">${E(j(e))}</span>
+            <span class="debug-tab__count" data-panel-count="${E(e)}">0</span>
           </button>
         `).join("");
     this.tabsEl.innerHTML = t, this.updateTabCounts();
@@ -1197,7 +1200,7 @@ var U = (t) => {
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${m(r.search)}" placeholder="/admin/users" />
+          <input type="search" data-filter="search" value="${E(r.search)}" placeholder="/admin/users" />
         </div>
         <label class="debug-btn">
           <input type="checkbox" data-filter="hasBody" ${r.hasBody ? "checked" : ""} />
@@ -1213,7 +1216,7 @@ var U = (t) => {
       e = `
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${m(r.search)}" placeholder="SELECT" />
+          <input type="search" data-filter="search" value="${E(r.search)}" placeholder="SELECT" />
         </div>
         <label class="debug-btn">
           <input type="checkbox" data-filter="slowOnly" ${r.slowOnly ? "checked" : ""} />
@@ -1245,7 +1248,7 @@ var U = (t) => {
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${m(r.search)}" placeholder="database" />
+          <input type="search" data-filter="search" value="${E(r.search)}" placeholder="database" />
         </div>
         <label class="debug-btn">
           <input type="checkbox" data-filter="newestFirst" ${r.newestFirst ? "checked" : ""} />
@@ -1274,7 +1277,7 @@ var U = (t) => {
         </div>
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${m(r.search)}" placeholder="/admin" />
+          <input type="search" data-filter="search" value="${E(r.search)}" placeholder="/admin" />
         </div>
       `;
     } else if (!s?.filters && t === "sessions") {
@@ -1282,7 +1285,7 @@ var U = (t) => {
       e = `
         <div class="debug-filter debug-filter--grow">
           <label>Search</label>
-          <input type="search" data-filter="search" value="${m(r.search)}" placeholder="user, session id, path" />
+          <input type="search" data-filter="search" value="${E(r.search)}" placeholder="user, session id, path" />
         </div>
       `;
     } else if (!s?.filters) {
@@ -1290,7 +1293,7 @@ var U = (t) => {
       e = `
         <div class="debug-filter debug-filter--grow">
           <label>Search (JSONPath supported)</label>
-          <input type="search" data-filter="search" value="${m(r.search)}" placeholder="user.roles[0].name" />
+          <input type="search" data-filter="search" value="${E(r.search)}" placeholder="user.roles[0].name" />
         </div>
       `;
     }
@@ -1385,40 +1388,80 @@ var U = (t) => {
     else if (t === "routes") s = this.renderRoutes();
     else if (t === "sessions") s = this.renderSessionsPanel();
     else if (t === "custom") s = this.renderCustom();
-    else if (t === "jserrors") s = G(this.state.extra.jserrors || [], x, {
+    else if (t === "jserrors") s = W(this.state.extra.jserrors || [], w, {
       newestFirst: this.filters.logs.newestFirst,
       showSortToggle: !0
     });
     else {
       const r = v.get(t);
       if (r && (r.renderConsole || r.render)) {
-        const i = D(r);
+        const i = _(r);
         let n = this.getStateForKey(i);
         if (r.applyFilters) {
           const o = this.getPanelFilterState(t, r);
           n = r.applyFilters(n, o);
         } else if (!r.renderFilters && r.showFilters !== !1) {
           const o = this.filters.objects.search.trim();
-          o && n && typeof n == "object" && !Array.isArray(n) && (n = $(n, o));
+          o && n && typeof n == "object" && !Array.isArray(n) && (n = R(n, o));
         }
-        s = (r.renderConsole || r.render)(n, x, { newestFirst: this.filters.logs.newestFirst });
-      } else s = this.renderJSONPanel(N(t), this.state.extra[t], this.filters.objects.search);
+        s = (r.renderConsole || r.render)(n, w, { newestFirst: this.filters.logs.newestFirst });
+      } else s = this.renderJSONPanel(j(t), this.state.extra[t], this.filters.objects.search);
     }
-    this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), t === "requests" && Z(this.panelEl, this.expandedRequests), t === "sql" && this.attachSQLSelectionListeners(), t === "sessions" && this.attachSessionActions();
+    this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), t === "requests" && X(this.panelEl, this.expandedRequests), t === "sql" && this.attachSQLSelectionListeners(), t === "sessions" && this.attachSessionActions(), this.attachPanelActionListeners();
+  }
+  attachPanelActionListeners() {
+    this.panelEl.querySelectorAll("[data-panel-action]").forEach((t) => {
+      t.addEventListener("click", () => {
+        t.disabled || this.runPanelAction(t);
+      });
+    });
+  }
+  async runPanelAction(t) {
+    const e = t.dataset.panelId || "", s = t.dataset.actionId || "";
+    if (!this.debugPath || !e || !s) return;
+    const r = t.dataset.actionConfirm || "";
+    if ((t.dataset.actionRequiresConfirm === "true" || r) && !window.confirm(r || "Run this debug panel action?")) return;
+    let i = {};
+    if (t.dataset.actionPayload) try {
+      i = JSON.parse(t.dataset.actionPayload);
+    } catch {
+      i = {};
+    }
+    t.disabled = !0;
+    try {
+      const n = await L(`${this.debugPath}/api/panels/${encodeURIComponent(e)}/actions/${encodeURIComponent(s)}`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(i)
+      });
+      if (!n.ok) throw new Error(`Action failed (${n.status})`);
+      const o = await n.json();
+      this.showPanelActionResult(e, o.ok === !1 ? "error" : "ok", o.message || (o.ok === !1 ? "Action failed" : "Action complete")), o.event && this.handleEvent(o.event), o.refresh && await this.fetchSnapshot();
+    } catch (n) {
+      const o = n instanceof Error ? n.message : "Action failed";
+      this.showPanelActionResult(e, "error", o);
+    } finally {
+      t.disabled = !1;
+    }
+  }
+  showPanelActionResult(t, e, s) {
+    const r = Array.from(this.panelEl.querySelectorAll("[data-panel-action-result]")).find((i) => i.dataset.panelActionResult === t);
+    r && (r.innerHTML = `<div class="${e === "error" ? w.badgeError : w.badge}">${E(s)}</div>`);
   }
   attachExpandableRowListeners() {
-    J(this.panelEl);
+    z(this.panelEl);
   }
   attachCopyButtonListeners() {
-    X(this.panelEl, { useIconFeedback: !0 });
+    G(this.panelEl, { useIconFeedback: !0 });
   }
   attachSQLSelectionListeners() {
-    ee(this.panelEl, this.state.sql, { useIconFeedback: !0 });
+    K(this.panelEl, this.state.sql, { useIconFeedback: !0 });
   }
   renderReplPanel(t) {
     this.panelEl.classList.add("debug-content--repl");
     let e = this.replPanels.get(t);
-    e || (e = new te({
+    e || (e = new ee({
       kind: t === "shell" ? "shell" : "console",
       debugPath: this.debugPath,
       commands: t === "console" ? this.replCommands : []
@@ -1434,7 +1477,7 @@ var U = (t) => {
   }
   renderRequests() {
     const { method: t, status: e, search: s, newestFirst: r, hasBody: i, contentType: n } = this.filters.requests, o = s.toLowerCase(), h = this.state.requests.filter((l) => !(t !== "all" && (l.method || "").toUpperCase() !== t || e !== "all" && String(l.status || "") !== e || o && !(l.path || "").toLowerCase().includes(o) || i && !l.request_body || n !== "all" && (l.content_type || "").split(";")[0].trim() !== n));
-    return h.length === 0 ? this.renderEmptyState("No requests captured yet.") : W(h, x, {
+    return h.length === 0 ? this.renderEmptyState("No requests captured yet.") : Q(h, w, {
       newestFirst: r,
       slowThresholdMs: this.slowThresholdMs,
       showSortToggle: !1,
@@ -1444,7 +1487,7 @@ var U = (t) => {
   }
   renderSQL() {
     const { search: t, slowOnly: e, errorOnly: s, newestFirst: r } = this.filters.sql, i = t.toLowerCase(), n = this.state.sql.filter((o) => !(s && !o.error || e && !this.isSlowQuery(o) || i && !(o.query || "").toLowerCase().includes(i)));
-    return n.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : Y(n, x, {
+    return n.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : Z(n, w, {
       newestFirst: r,
       slowThresholdMs: this.slowThresholdMs,
       maxEntries: this.maxSQLQueries,
@@ -1455,10 +1498,10 @@ var U = (t) => {
   renderLogs() {
     const { level: t, search: e, newestFirst: s } = this.filters.logs, r = e.toLowerCase(), i = this.state.logs.filter((n) => {
       if (t !== "all" && (n.level || "").toLowerCase() !== t) return !1;
-      const o = `${n.message || ""} ${n.source || ""} ${ie(n.fields || {})}`.toLowerCase();
+      const o = `${n.message || ""} ${n.source || ""} ${se(n.fields || {})}`.toLowerCase();
       return !(r && !o.includes(r));
     });
-    return i.length === 0 ? this.renderEmptyState("No logs captured yet.") : Q(i, x, {
+    return i.length === 0 ? this.renderEmptyState("No logs captured yet.") : V(i, w, {
       newestFirst: s,
       maxEntries: this.maxLogEntries,
       showSortToggle: !1,
@@ -1472,7 +1515,7 @@ var U = (t) => {
       const n = `${i.path || ""} ${i.handler || ""} ${i.summary || ""}`.toLowerCase();
       return !(s && !n.includes(s));
     });
-    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : V(r, x, { showName: !0 });
+    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : H(r, w, { showName: !0 });
   }
   renderSessionsPanel() {
     if (!this.sessionsLoaded && !this.sessionsLoading && this.fetchSessions(), this.sessionsError) return this.renderEmptyState(this.sessionsError);
@@ -1491,23 +1534,23 @@ var U = (t) => {
     if (s.length === 0)
       return t === !1 ? this.renderEmptyState("Session tracking is disabled. Enable it to list active sessions.") : this.renderEmptyState("No active sessions yet.");
     const r = s.map((n) => {
-      const o = n.session_id || "", h = n.username || n.user_id || "Unknown", l = re(n.last_activity || n.started_at), c = L(n.request_count ?? 0), d = !!o && o === this.activeSessionId, g = d ? "detach" : "attach", y = d ? "Detach" : "Attach", u = d ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", b = d ? "debug-session-row debug-session-row--active" : "debug-session-row", E = n.current_page || "-", A = n.ip || "-";
+      const o = n.session_id || "", h = n.username || n.user_id || "Unknown", l = re(n.last_activity || n.started_at), c = D(n.request_count ?? 0), d = !!o && o === this.activeSessionId, g = d ? "detach" : "attach", y = d ? "Detach" : "Attach", u = d ? "debug-btn debug-btn--danger" : "debug-btn debug-btn--primary", b = d ? "debug-session-row debug-session-row--active" : "debug-session-row", m = n.current_page || "-", A = n.ip || "-";
       return `
           <tr class="${b}">
             <td>
-              <div class="debug-session-user">${m(h)}</div>
+              <div class="debug-session-user">${E(h)}</div>
               <div class="debug-session-meta">
-                <span class="debug-session-id">${m(o || "-")}</span>
+                <span class="debug-session-id">${E(o || "-")}</span>
               </div>
             </td>
-            <td>${m(A)}</td>
+            <td>${E(A)}</td>
             <td>
-              <span class="debug-session-path">${m(E)}</span>
+              <span class="debug-session-path">${E(m)}</span>
             </td>
-            <td>${m(l || "-")}</td>
-            <td>${m(c)}</td>
+            <td>${E(l || "-")}</td>
+            <td>${E(c)}</td>
             <td>
-              <button class="${u}" data-session-action="${g}" data-session-id="${m(o)}">
+              <button class="${u}" data-session-action="${g}" data-session-id="${E(o)}">
                 ${y}
               </button>
             </td>
@@ -1516,7 +1559,7 @@ var U = (t) => {
     }).join(""), i = this.sessionsLoading ? "Refreshing..." : "Refresh";
     return `
       <div class="debug-session-toolbar">
-        <span class="debug-session-toolbar__label">${`${L(s.length)} active`}</span>
+        <span class="debug-session-toolbar__label">${`${D(s.length)} active`}</span>
         <div class="debug-session-toolbar__actions">
           <button class="debug-btn" data-session-action="refresh">
             <i class="iconoir-refresh"></i> ${i}
@@ -1542,19 +1585,19 @@ var U = (t) => {
   }
   renderCustom() {
     const { search: t } = this.filters.custom, e = Object.keys(this.state.custom.data).length > 0, s = this.state.custom.logs.length > 0;
-    return !e && !s ? this.renderEmptyState("No custom data captured yet.") : z(this.state.custom, x, {
+    return !e && !s ? this.renderEmptyState("No custom data captured yet.") : Y(this.state.custom, w, {
       maxLogEntries: this.maxLogEntries,
       useIconCopyButton: !0,
       showCount: !0,
-      dataFilterFn: t ? (r) => $(r, t) : void 0
+      dataFilterFn: t ? (r) => R(r, t) : void 0
     });
   }
   renderJSONPanel(t, e, s) {
     const r = e && typeof e == "object" && !Array.isArray(e), i = Array.isArray(e);
-    return r && Object.keys(e || {}).length === 0 || i && (e || []).length === 0 || !r && !i && !e ? this.renderEmptyState(`No ${t.toLowerCase()} data available.`) : H(t, e, x, {
+    return r && Object.keys(e || {}).length === 0 || i && (e || []).length === 0 || !r && !i && !e ? this.renderEmptyState(`No ${t.toLowerCase()} data available.`) : de(t, e, w, {
       useIconCopyButton: !0,
       showCount: !0,
-      filterFn: s ? (n) => $(n, s) : void 0
+      filterFn: s ? (n) => R(n, s) : void 0
     });
   }
   attachSessionActions() {
@@ -1612,7 +1655,7 @@ var U = (t) => {
     this.activeSessionId && (this.activeSessionId = null, this.activeSession = null, this.streamBasePath = this.debugPath, this.resetDebugState(), this.updateSessionBanner(), this.rebuildStream("global"), this.renderPanel());
   }
   rebuildStream(t) {
-    this.stream.close(), this.stream = new F({
+    this.stream.close(), this.stream = new N({
       basePath: this.streamBasePath,
       onEvent: (e) => this.handleEvent(e),
       onStatusChange: (e) => this.updateConnectionStatus(e)
@@ -1660,15 +1703,15 @@ var U = (t) => {
     if (t !== "sessions") {
       const e = v.get(t);
       if (e) {
-        const s = D(e);
-        return le({ [s]: this.getStateForKey(s) }, e);
+        const s = _(e);
+        return ue({ [s]: this.getStateForKey(s) }, e);
       }
     }
     switch (t) {
       case "template":
-        return k(this.state.template);
+        return T(this.state.template);
       case "session":
-        return k(this.state.session);
+        return T(this.state.session);
       case "requests":
         return this.state.requests.length;
       case "sql":
@@ -1676,41 +1719,41 @@ var U = (t) => {
       case "logs":
         return this.state.logs.length;
       case "config":
-        return k(this.state.config);
+        return T(this.state.config);
       case "routes":
         return this.state.routes.length;
       case "sessions":
         return this.sessions.length;
       case "custom":
-        return k(this.state.custom.data) + this.state.custom.logs.length;
+        return T(this.state.custom.data) + this.state.custom.logs.length;
       default:
-        return k(this.state.extra[t]);
+        return T(this.state.extra[t]);
     }
   }
   renderEmptyState(t) {
     return `
       <div class="debug-empty">
-        <p>${m(t)}</p>
+        <p>${E(t)}</p>
       </div>
     `;
   }
   renderSelectOptions(t, e) {
     return t.map((s) => {
       const r = s.toLowerCase() === e.toLowerCase() ? "selected" : "";
-      return `<option value="${m(s)}" ${r}>${m(s)}</option>`;
+      return `<option value="${E(s)}" ${r}>${E(s)}</option>`;
     }).join("");
   }
   updateTabCounts() {
     this.panels.forEach((t) => {
       const e = this.panelCount(t), s = this.tabsEl.querySelector(`[data-panel-count="${t}"]`);
-      s && (s.textContent = L(e));
+      s && (s.textContent = D(e));
     });
   }
   updateConnectionStatus(t) {
     this.connectionEl.textContent = t, this.statusEl.setAttribute("data-status", t);
   }
   updateStatusMeta() {
-    this.eventCountEl.textContent = `${L(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
+    this.eventCountEl.textContent = `${D(this.eventCount)} events`, this.lastEventAt && (this.lastEventEl.textContent = this.lastEventAt.toLocaleTimeString());
   }
   handleEvent(t) {
     if (!t || !t.type) return;
@@ -1721,7 +1764,7 @@ var U = (t) => {
     if (this.eventCount += 1, this.lastEventAt = /* @__PURE__ */ new Date(), this.updateStatusMeta(), this.paused) return;
     const e = this.eventToPanel[t.type] || t.type, s = v.get(e);
     if (s) {
-      const r = D(s), i = this.getStateForKey(r), n = (s.handleEvent || ((o, h) => he(o, h, this.maxLogEntries)))(i, t.payload);
+      const r = _(s), i = this.getStateForKey(r), n = (s.handleEvent || ((o, h) => ie(o, h, this.maxLogEntries)))(i, t.payload);
       this.setStateForKey(r, n);
     } else switch (t.type) {
       case "request":
@@ -1743,7 +1786,7 @@ var U = (t) => {
         this.handleCustomEvent(t.payload);
         break;
       default:
-        ue(e) || (this.state.extra[e] = t.payload);
+        he(e) || (this.state.extra[e] = t.payload);
         break;
     }
     this.updateTabCounts(), e === this.activePanel && this.renderPanel();
@@ -1818,11 +1861,11 @@ var U = (t) => {
   }
   applySnapshot(t) {
     const e = t || {};
-    this.state.template = e.template || {}, this.state.session = e.session || {}, this.state.requests = T(e.requests), this.state.sql = T(e.sql), this.state.logs = T(e.logs), this.state.config = e.config || {}, this.state.routes = T(e.routes);
+    this.state.template = e.template || {}, this.state.session = e.session || {}, this.state.requests = k(e.requests), this.state.sql = k(e.sql), this.state.logs = k(e.logs), this.state.config = e.config || {}, this.state.routes = k(e.routes);
     const s = e.custom || {};
     this.state.custom = {
       data: s.data || {},
-      logs: T(s.logs)
+      logs: k(s.logs)
     };
     const r = /* @__PURE__ */ new Set([
       "template",
@@ -1843,7 +1886,7 @@ var U = (t) => {
       for (; t.length > e; ) t.shift();
   }
   isSlowQuery(t) {
-    return se(t?.duration, this.slowThresholdMs);
+    return te(t?.duration, this.slowThresholdMs);
   }
   async fetchSnapshot() {
     if (this.debugPath && !this.activeSessionId)
@@ -1856,7 +1899,7 @@ var U = (t) => {
       }
   }
   clearAll() {
-    this.debugPath && (this.stream.clear(), !this.activeSessionId && _(`${this.debugPath}/api/clear`, {
+    this.debugPath && (this.stream.clear(), !this.activeSessionId && L(`${this.debugPath}/api/clear`, {
       method: "POST",
       credentials: "same-origin"
     }).catch(() => {
@@ -1865,7 +1908,7 @@ var U = (t) => {
   clearActivePanel() {
     if (!this.debugPath) return;
     const t = this.activePanel;
-    this.stream.clear([t]), !this.activeSessionId && _(`${this.debugPath}/api/clear/${t}`, {
+    this.stream.clear([t]), !this.activeSessionId && L(`${this.debugPath}/api/clear/${t}`, {
       method: "POST",
       credentials: "same-origin"
     }).catch(() => {
@@ -1927,7 +1970,7 @@ var U = (t) => {
       if (!window.confirm(n)) return;
     }
     try {
-      const n = await _(`${this.debugPath}/api/doctor/${encodeURIComponent(r)}/action`, {
+      const n = await L(`${this.debugPath}/api/doctor/${encodeURIComponent(r)}/action`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -1953,52 +1996,52 @@ var U = (t) => {
   togglePause(t) {
     this.paused = !this.paused, t.textContent = this.paused ? "Resume" : "Pause", this.paused || this.stream.requestSnapshot();
   }
-}, Ie = (t) => {
+}, $e = (t) => {
   const e = t || document.querySelector("[data-debug-console]");
-  return e ? new De(e) : null;
-}, K = () => {
-  Ie();
+  return e ? new Ie(e) : null;
+}, J = () => {
+  $e();
 };
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", K) : K();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", J) : J();
 export {
-  Me as DATA_ATTRS,
-  De as DebugPanel,
-  F as DebugStream,
-  je as INTERACTION_CLASSES,
-  Fe as RemoteDebugStream,
-  X as attachCopyListeners,
-  J as attachExpandableRowListeners,
-  x as consoleStyles,
+  je as DATA_ATTRS,
+  Ie as DebugPanel,
+  N as DebugStream,
+  Be as INTERACTION_CLASSES,
+  Ke as RemoteDebugStream,
+  G as attachCopyListeners,
+  z as attachExpandableRowListeners,
+  w as consoleStyles,
   He as copyToClipboard,
-  k as countPayload,
+  T as countPayload,
   Ze as defaultGetCount,
-  he as defaultHandleEvent,
-  m as escapeHTML,
-  tt as formatDuration,
-  ie as formatJSON,
-  L as formatNumber,
+  ie as defaultHandleEvent,
+  E as escapeHTML,
+  et as formatDuration,
+  se as formatJSON,
+  D as formatNumber,
   re as formatTimestamp,
-  ze as getLevelClass,
-  le as getPanelCount,
-  Ge as getPanelData,
-  D as getSnapshotKey,
-  We as getStatusClass,
-  Ne as getStyleConfig,
-  Ie as initDebugPanel,
-  se as isSlowDuration,
-  et as normalizeEventTypes,
+  Ye as getLevelClass,
+  ue as getPanelCount,
+  st as getPanelData,
+  _ as getSnapshotKey,
+  Ge as getStatusClass,
+  Je as getStyleConfig,
+  $e as initDebugPanel,
+  te as isSlowDuration,
+  tt as normalizeEventTypes,
   v as panelRegistry,
-  z as renderCustomPanel,
-  H as renderJSONPanel,
-  Ue as renderJSONViewer,
-  Q as renderLogsPanel,
-  Ye as renderPanelContent,
-  W as renderRequestsPanel,
-  V as renderRoutesPanel,
-  Y as renderSQLPanel,
-  Je as renderSiteRenderCachePanel,
-  Be as renderSiteRenderCachePanelCompact,
-  Ke as toolbarStyles,
+  Y as renderCustomPanel,
+  de as renderJSONPanel,
+  We as renderJSONViewer,
+  V as renderLogsPanel,
+  ze as renderPanelContent,
+  Q as renderRequestsPanel,
+  H as renderRoutesPanel,
+  Z as renderSQLPanel,
+  Ue as renderSiteRenderCachePanel,
+  Me as renderSiteRenderCachePanelCompact,
+  Ne as toolbarStyles,
   Ve as truncate
 };
 

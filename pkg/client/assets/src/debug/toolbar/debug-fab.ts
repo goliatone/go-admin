@@ -12,6 +12,7 @@ import {
   getDefaultToolbarPanels,
   getPanelEventTypes,
 } from '../shared/runtime-helpers.js';
+import { hydrateServerPanelDefinitions } from '../shared/server-definitions.js';
 import '../shared/builtin-panels.js';
 
 export class DebugFab extends HTMLElement {
@@ -34,6 +35,11 @@ export class DebugFab extends HTMLElement {
   }
 
   connectedCallback(): void {
+    void this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    await hydrateServerPanelDefinitions(this.debugPath);
     this.eventToPanel = buildEventToPanel();
     this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
     this.render();

@@ -1,4 +1,5 @@
 export * from './shared/runtime-helpers.js';
+export * from './shared/server-definitions.js';
 export {
   panelRegistry,
   type PanelDefinition,

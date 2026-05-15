@@ -52,6 +52,7 @@ import {
   normalizeReplCommands,
   replPanelIDs,
 } from './shared/runtime-helpers.js';
+import { hydrateServerPanelDefinitions } from './shared/server-definitions.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
 import './shared/builtin-panels.js';
@@ -240,8 +241,6 @@ export class DebugPanel {
       this.sessionDetachEl.addEventListener('click', () => this.detachSession());
     }
 
-    this.renderTabs();
-    this.renderActivePanel();
     this.bindActions();
     this.updateSessionBanner();
 
@@ -254,6 +253,14 @@ export class DebugPanel {
     // Subscribe to registry changes for dynamic panel updates
     this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
 
+    void this.initializeServerDefinitions();
+  }
+
+  private async initializeServerDefinitions(): Promise<void> {
+    await hydrateServerPanelDefinitions(this.debugPath);
+    this.eventToPanel = buildEventToPanel();
+    this.renderTabs();
+    this.renderActivePanel();
     this.fetchSnapshot();
     this.stream.connect();
     this.subscribeToEvents();
@@ -732,6 +739,73 @@ export class DebugPanel {
     if (panel === 'sessions') {
       this.attachSessionActions();
     }
+    this.attachPanelActionListeners();
+  }
+
+  private attachPanelActionListeners(): void {
+    this.panelEl.querySelectorAll<HTMLButtonElement>('[data-panel-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        if (button.disabled) {
+          return;
+        }
+        this.runPanelAction(button);
+      });
+    });
+  }
+
+  private async runPanelAction(button: HTMLButtonElement): Promise<void> {
+    const panelID = button.dataset.panelId || '';
+    const actionID = button.dataset.actionId || '';
+    if (!this.debugPath || !panelID || !actionID) {
+      return;
+    }
+    const confirmText = button.dataset.actionConfirm || '';
+    const requiresConfirm = button.dataset.actionRequiresConfirm === 'true';
+    if ((requiresConfirm || confirmText) && !window.confirm(confirmText || 'Run this debug panel action?')) {
+      return;
+    }
+    let payload: Record<string, unknown> = {};
+    if (button.dataset.actionPayload) {
+      try {
+        payload = JSON.parse(button.dataset.actionPayload) as Record<string, unknown>;
+      } catch {
+        payload = {};
+      }
+    }
+    button.disabled = true;
+    try {
+      const response = await httpRequest(`${this.debugPath}/api/panels/${encodeURIComponent(panelID)}/actions/${encodeURIComponent(actionID)}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        throw new Error(`Action failed (${response.status})`);
+      }
+      const result = await response.json() as { ok?: boolean; message?: string; refresh?: boolean; event?: DebugEvent };
+      this.showPanelActionResult(panelID, result.ok === false ? 'error' : 'ok', result.message || (result.ok === false ? 'Action failed' : 'Action complete'));
+      if (result.event) {
+        this.handleEvent(result.event);
+      }
+      if (result.refresh) {
+        await this.fetchSnapshot();
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Action failed';
+      this.showPanelActionResult(panelID, 'error', message);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  private showPanelActionResult(panelID: string, status: 'ok' | 'error', message: string): void {
+    const target = Array.from(this.panelEl.querySelectorAll<HTMLElement>('[data-panel-action-result]'))
+      .find((element) => element.dataset.panelActionResult === panelID);
+    if (!target) {
+      return;
+    }
+    target.innerHTML = `<div class="${status === 'error' ? consoleStyles.badgeError : consoleStyles.badge}">${escapeHTML(message)}</div>`;
   }
 
   private attachExpandableRowListeners(): void {

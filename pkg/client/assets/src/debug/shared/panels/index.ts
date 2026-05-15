@@ -6,6 +6,15 @@ export { renderSQLPanel, type SQLPanelOptions } from './sql.js';
 export { renderLogsPanel, type LogsPanelOptions } from './logs.js';
 export { renderRoutesPanel, type RoutesPanelOptions } from './routes.js';
 export { renderJSONPanel, renderJSONViewer, type JSONPanelOptions } from './json.js';
+export {
+  renderSchemaPanelView,
+  renderSchemaMetrics,
+  renderSchemaKeyValue,
+  renderSchemaTable,
+  renderSchemaStatusList,
+  renderSchemaTimeline,
+  renderSchemaStack,
+} from './schema.js';
 export { renderCustomPanel, type CustomPanelOptions } from './custom.js';
 export { renderJSErrorsPanel, type JSErrorsPanelOptions } from './jserrors.js';
 export { renderPermissionsPanel, renderPermissionsPanelCompact, type PermissionsPanelOptions } from './permissions.js';

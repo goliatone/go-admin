@@ -1,16 +1,19 @@
-import { a as e, c as s, d as l, f as n, i as t, l as o, n as p, o as r, r as g, s as u, t as P, u as b, y as i } from "../chunks/runtime-helpers-73DjiyO0.js";
+import { S as a, a as s, c as n, d as t, f as l, h as o, i as r, l as i, m as p, n as P, o as f, p as g, r as m, s as u, t as D, u as v } from "../chunks/server-definitions-CN7XKSsz.js";
 export {
-  P as applyCustomEventPayload,
-  p as applyDebugEventToSnapshot,
-  g as buildEventToPanel,
-  t as fetchDebugSnapshot,
-  e as getDefaultPanels,
-  r as getDefaultToolbarPanels,
-  u as getPanelEventTypes,
-  s as getPanelLabel,
-  o as getToolbarCounts,
-  b as isKnownPanel,
-  l as normalizeReplCommands,
-  i as panelRegistry,
-  n as replPanelIDs
+  r as applyCustomEventPayload,
+  s as applyDebugEventToSnapshot,
+  f as buildEventToPanel,
+  u as fetchDebugSnapshot,
+  D as fetchServerPanelDefinitions,
+  n as getDefaultPanels,
+  i as getDefaultToolbarPanels,
+  v as getPanelEventTypes,
+  t as getPanelLabel,
+  l as getToolbarCounts,
+  P as hydrateServerPanelDefinitions,
+  g as isKnownPanel,
+  p as normalizeReplCommands,
+  m as panelDefinitionFromServer,
+  a as panelRegistry,
+  o as replPanelIDs
 };

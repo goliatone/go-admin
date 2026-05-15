@@ -98,6 +98,8 @@ export interface PanelDefinition {
   order?: number;
 }
 
+type PanelDefinitionSource = 'client' | 'server';
+
 /**
  * Get the snapshot key for a panel definition.
  * Falls back to panel id if not specified.
@@ -222,6 +224,7 @@ export type RegistryChangeListener = (event: RegistryChangeEvent) => void;
  */
 export class PanelRegistry {
   private panels: Map<string, PanelDefinition> = new Map();
+  private sources: Map<string, PanelDefinitionSource> = new Map();
   private listeners: Set<RegistryChangeListener> = new Set();
 
   /**
@@ -230,6 +233,7 @@ export class PanelRegistry {
    */
   register(panel: PanelDefinition): void {
     this.panels.set(panel.id, panel);
+    this.sources.set(panel.id, 'client');
     this.notifyListeners({
       type: 'register',
       panelId: panel.id,
@@ -238,11 +242,32 @@ export class PanelRegistry {
   }
 
   /**
+   * Register a server-discovered panel without replacing client renderers.
+   * A server definition may refresh a prior server definition for the same ID.
+   */
+  registerServerDefinition(panel: PanelDefinition): boolean {
+    const existing = this.panels.get(panel.id);
+    const source = this.sources.get(panel.id);
+    if (existing && source !== 'server') {
+      return false;
+    }
+    this.panels.set(panel.id, panel);
+    this.sources.set(panel.id, 'server');
+    this.notifyListeners({
+      type: 'register',
+      panelId: panel.id,
+      panel,
+    });
+    return true;
+  }
+
+  /**
    * Unregister a panel by ID.
    */
   unregister(id: string): void {
     const panel = this.panels.get(id);
     if (this.panels.delete(id)) {
+      this.sources.delete(id);
       this.notifyListeners({
         type: 'unregister',
         panelId: id,
@@ -263,6 +288,13 @@ export class PanelRegistry {
    */
   has(id: string): boolean {
     return this.panels.has(id);
+  }
+
+  /**
+   * Returns true when a panel was created by server hydration.
+   */
+  isServerDefinition(id: string): boolean {
+    return this.sources.get(id) === 'server';
   }
 
   /**
