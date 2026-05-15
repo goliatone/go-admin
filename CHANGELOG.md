@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.72.1](https://github.com/goliatone/go-admin/compare/v0.72.0...v0.72.1) - (2026-05-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Icon sizing ([58a44a4](https://github.com/goliatone/go-admin/commit/58a44a48998e440c606d02cdca01e88d143833c1))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.72.1 ([d23987f](https://github.com/goliatone/go-admin/commit/d23987f18f9ef62d31bd154d9b3b5b34ffe124d5))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.72.0 ([fe38a18](https://github.com/goliatone/go-admin/commit/fe38a183d537a73cf49cc62f5ce45ac382ff979f))  - (goliatone)
+
 # [0.72.0](https://github.com/goliatone/go-admin/compare/v0.71.0...v0.72.0) - (2026-05-15)
 
 ## <!-- 13 -->📦 Bumps
