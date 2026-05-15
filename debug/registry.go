@@ -15,21 +15,214 @@ type PanelSnapshotFunc func(ctx context.Context) any
 // PanelClearFunc clears panel state when requested by the client.
 type PanelClearFunc func(ctx context.Context) error
 
+// PanelActionHandler executes a schema-declared debug panel action.
+type PanelActionHandler func(ctx context.Context, req PanelActionRequest) (PanelActionResult, error)
+
+const (
+	// PanelUISchemaVersion is the current declarative panel UI schema version.
+	PanelUISchemaVersion = "1"
+
+	PanelRendererMetrics    = "metrics"
+	PanelRendererKeyValue   = "key_value"
+	PanelRendererTable      = "table"
+	PanelRendererStatusList = "status_list"
+	PanelRendererTimeline   = "timeline"
+	PanelRendererJSON       = "json"
+	PanelRendererStack      = "stack"
+
+	PanelCountArrayLength = "array_length"
+	PanelCountObjectKeys  = "object_keys"
+	PanelCountTruthy      = "truthy"
+	PanelCountNumber      = "number"
+
+	PanelFilterSearch   = "search"
+	PanelFilterSelect   = "select"
+	PanelFilterCheckbox = "checkbox"
+
+	PanelEventReplace = "replace"
+	PanelEventAppend  = "append"
+	PanelEventMerge   = "merge"
+	PanelEventUpsert  = "upsert"
+)
+
+// PanelUI is a JSON-safe declarative UI schema for Go-registered panels.
+type PanelUI struct {
+	SchemaVersion string              `json:"schema_version"`
+	Views         PanelUIViews        `json:"views"`
+	Count         *PanelUICount       `json:"count,omitempty"`
+	Filters       []PanelUIFilter     `json:"filters,omitempty"`
+	Events        *PanelUIEventPolicy `json:"events,omitempty"`
+	Actions       []PanelUIAction     `json:"actions,omitempty"`
+	Metadata      map[string]any      `json:"metadata,omitempty"`
+}
+
+// PanelUIViews declares console and toolbar renderers.
+type PanelUIViews struct {
+	Console *PanelUIView `json:"console,omitempty"`
+	Toolbar *PanelUIView `json:"toolbar,omitempty"`
+}
+
+// PanelUIView declares one renderer instance. Stack views may use Sections.
+type PanelUIView struct {
+	Renderer string         `json:"renderer"`
+	Title    string         `json:"title,omitempty"`
+	Bind     string         `json:"bind,omitempty"`
+	Options  map[string]any `json:"options,omitempty"`
+	Sections []PanelUIView  `json:"sections,omitempty"`
+}
+
+// PanelUICount declares badge/count behavior.
+type PanelUICount struct {
+	Bind  string `json:"bind,omitempty"`
+	Mode  string `json:"mode,omitempty"`
+	Label string `json:"label,omitempty"`
+}
+
+// PanelUIFilter declares a client-side console filter.
+type PanelUIFilter struct {
+	ID      string   `json:"id"`
+	Label   string   `json:"label"`
+	Kind    string   `json:"kind"`
+	Bind    string   `json:"bind,omitempty"`
+	Options []string `json:"options,omitempty"`
+}
+
+// PanelUIEventPolicy declares how live events update panel data.
+type PanelUIEventPolicy struct {
+	Mode       string `json:"mode"`
+	Bind       string `json:"bind,omitempty"`
+	Key        string `json:"key,omitempty"`
+	MaxEntries int    `json:"max_entries,omitempty"`
+}
+
+// PanelUIAction declares a UI action backed by a Go handler.
+type PanelUIAction struct {
+	ID              string         `json:"id"`
+	Label           string         `json:"label"`
+	Kind            string         `json:"kind,omitempty"`
+	ConfirmText     string         `json:"confirm_text,omitempty"`
+	RequiresConfirm bool           `json:"requires_confirm,omitempty"`
+	Refresh         bool           `json:"refresh,omitempty"`
+	UpdatePolicy    string         `json:"update_policy,omitempty"`
+	Payload         map[string]any `json:"payload,omitempty"`
+}
+
+// PanelUIColumn declares a table column option.
+type PanelUIColumn struct {
+	Label    string `json:"label"`
+	Bind     string `json:"bind"`
+	Format   string `json:"format,omitempty"`
+	Width    string `json:"width,omitempty"`
+	Severity string `json:"severity,omitempty"`
+}
+
+// PanelUIField declares a key/value field option.
+type PanelUIField struct {
+	Label  string `json:"label"`
+	Bind   string `json:"bind"`
+	Format string `json:"format,omitempty"`
+	Empty  string `json:"empty,omitempty"`
+}
+
+// PanelUIMetric declares a metric tile option.
+type PanelUIMetric struct {
+	Label    string `json:"label"`
+	Bind     string `json:"bind"`
+	Format   string `json:"format,omitempty"`
+	Severity string `json:"severity,omitempty"`
+}
+
+// NewPanelUI creates a panel UI schema with optional console and toolbar views.
+func NewPanelUI(console, toolbar *PanelUIView) *PanelUI {
+	return &PanelUI{
+		SchemaVersion: PanelUISchemaVersion,
+		Views: PanelUIViews{
+			Console: console,
+			Toolbar: toolbar,
+		},
+	}
+}
+
+// PanelView creates a renderer view bound to a payload path.
+func PanelView(renderer, bind string) *PanelUIView {
+	return &PanelUIView{Renderer: renderer, Bind: bind}
+}
+
+// MetricsView creates a metrics renderer view.
+func MetricsView(bind string) *PanelUIView {
+	return PanelView(PanelRendererMetrics, bind)
+}
+
+// KeyValueView creates a key/value renderer view.
+func KeyValueView(bind string) *PanelUIView {
+	return PanelView(PanelRendererKeyValue, bind)
+}
+
+// TableView creates a table renderer view.
+func TableView(bind string) *PanelUIView {
+	return PanelView(PanelRendererTable, bind)
+}
+
+// StatusListView creates a status list renderer view.
+func StatusListView(bind string) *PanelUIView {
+	return PanelView(PanelRendererStatusList, bind)
+}
+
+// TimelineView creates a timeline renderer view.
+func TimelineView(bind string) *PanelUIView {
+	return PanelView(PanelRendererTimeline, bind)
+}
+
+// JSONView creates a JSON fallback renderer view.
+func JSONView(bind string) *PanelUIView {
+	return PanelView(PanelRendererJSON, bind)
+}
+
+// StackView creates a stack renderer view with child sections.
+func StackView(sections ...PanelUIView) *PanelUIView {
+	return &PanelUIView{Renderer: PanelRendererStack, Sections: append([]PanelUIView{}, sections...)}
+}
+
+// PanelActionRequest is sent to a registered action handler.
+type PanelActionRequest struct {
+	PanelID  string         `json:"panel_id"`
+	ActionID string         `json:"action_id"`
+	Payload  map[string]any `json:"payload,omitempty"`
+}
+
+// PanelActionResult is returned by panel action handlers.
+type PanelActionResult struct {
+	OK      bool              `json:"ok"`
+	Message string            `json:"message,omitempty"`
+	Data    any               `json:"data,omitempty"`
+	Refresh bool              `json:"refresh,omitempty"`
+	Event   *PanelActionEvent `json:"event,omitempty"`
+	Errors  map[string]any    `json:"errors,omitempty"`
+}
+
+// PanelActionEvent allows action results to be applied like a live event.
+type PanelActionEvent struct {
+	Type    string `json:"type"`
+	Payload any    `json:"payload,omitempty"`
+}
+
 // PanelConfig configures a server-side debug panel registration.
 type PanelConfig struct {
-	Label           string            `json:"label"`
-	Icon            string            `json:"icon"`
-	Span            int               `json:"span"`
-	SnapshotKey     string            `json:"snapshot_key"`
-	EventType       string            `json:"event_type"`
-	EventTypes      []string          `json:"event_types"`
-	Snapshot        PanelSnapshotFunc `json:"snapshot"`
-	Clear           PanelClearFunc    `json:"clear"`
-	SupportsToolbar *bool             `json:"supports_toolbar"`
-	Category        string            `json:"category"`
-	Order           int               `json:"order"`
-	Version         string            `json:"version"`
-	Metadata        map[string]any    `json:"metadata"`
+	Label           string                        `json:"label"`
+	Icon            string                        `json:"icon"`
+	Span            int                           `json:"span"`
+	SnapshotKey     string                        `json:"snapshot_key"`
+	EventType       string                        `json:"event_type"`
+	EventTypes      []string                      `json:"event_types"`
+	Snapshot        PanelSnapshotFunc             `json:"snapshot"`
+	Clear           PanelClearFunc                `json:"clear"`
+	SupportsToolbar *bool                         `json:"supports_toolbar"`
+	Category        string                        `json:"category"`
+	Order           int                           `json:"order"`
+	Version         string                        `json:"version"`
+	Metadata        map[string]any                `json:"metadata"`
+	UI              *PanelUI                      `json:"ui,omitempty"`
+	Actions         map[string]PanelActionHandler `json:"-"`
 }
 
 // PanelDefinition describes a registered panel for client discovery.
@@ -45,13 +238,15 @@ type PanelDefinition struct {
 	Order           int            `json:"order,omitempty"`
 	Version         string         `json:"version,omitempty"`
 	Metadata        map[string]any `json:"metadata,omitempty"`
+	UI              *PanelUI       `json:"ui,omitempty"`
 }
 
 // PanelRegistration stores definition metadata and server hooks.
 type PanelRegistration struct {
-	Definition PanelDefinition   `json:"definition"`
-	Snapshot   PanelSnapshotFunc `json:"snapshot"`
-	Clear      PanelClearFunc    `json:"clear"`
+	Definition PanelDefinition               `json:"definition"`
+	Snapshot   PanelSnapshotFunc             `json:"snapshot"`
+	Clear      PanelClearFunc                `json:"clear"`
+	Actions    map[string]PanelActionHandler `json:"-"`
 }
 
 // PanelRegistry stores registered panels and metadata.
@@ -289,10 +484,14 @@ func buildRegistration(id string, config PanelConfig) PanelRegistration {
 	if len(config.Metadata) > 0 {
 		def.Metadata = cloneMetadata(config.Metadata)
 	}
+	if config.UI != nil {
+		def.UI = normalizePanelUI(config.UI, config.Actions)
+	}
 	return PanelRegistration{
 		Definition: def,
 		Snapshot:   config.Snapshot,
 		Clear:      config.Clear,
+		Actions:    normalizeActionHandlers(def.UI, config.Actions),
 	}
 }
 
@@ -366,4 +565,324 @@ func cloneMetadata(input map[string]any) map[string]any {
 	out := make(map[string]any, len(input))
 	maps.Copy(out, input)
 	return out
+}
+
+func normalizePanelUI(input *PanelUI, handlers map[string]PanelActionHandler) *PanelUI {
+	if input == nil {
+		return nil
+	}
+	ui := &PanelUI{
+		SchemaVersion: strings.TrimSpace(input.SchemaVersion),
+		Views: PanelUIViews{
+			Console: normalizePanelUIView(input.Views.Console),
+			Toolbar: normalizePanelUIView(input.Views.Toolbar),
+		},
+	}
+	if ui.SchemaVersion == "" {
+		ui.SchemaVersion = PanelUISchemaVersion
+	}
+	if input.Count != nil {
+		if count := normalizePanelUICount(input.Count); count != nil {
+			ui.Count = count
+		}
+	}
+	for _, filter := range input.Filters {
+		if normalized, ok := normalizePanelUIFilter(filter); ok {
+			ui.Filters = append(ui.Filters, normalized)
+		}
+	}
+	if input.Events != nil {
+		if events := normalizePanelUIEventPolicy(input.Events); events != nil {
+			ui.Events = events
+		}
+	}
+	ui.Actions = normalizePanelUIActions(input.Actions, handlers)
+	if len(input.Metadata) > 0 {
+		ui.Metadata = cloneMetadata(input.Metadata)
+	}
+	if ui.Views.Console == nil && ui.Views.Toolbar == nil && ui.Count == nil && len(ui.Filters) == 0 && ui.Events == nil && len(ui.Actions) == 0 {
+		return nil
+	}
+	return ui
+}
+
+func normalizePanelUIView(input *PanelUIView) *PanelUIView {
+	if input == nil {
+		return nil
+	}
+	renderer := normalizeRenderer(input.Renderer)
+	if renderer == "" {
+		return nil
+	}
+	view := &PanelUIView{
+		Renderer: renderer,
+		Title:    trimSafeText(input.Title),
+		Bind:     normalizeBind(input.Bind),
+	}
+	if len(input.Options) > 0 {
+		view.Options = cloneJSONSafeMap(input.Options)
+	}
+	for _, section := range input.Sections {
+		if normalized := normalizePanelUIView(&section); normalized != nil {
+			view.Sections = append(view.Sections, *normalized)
+		}
+	}
+	return view
+}
+
+func normalizePanelUICount(input *PanelUICount) *PanelUICount {
+	mode := normalizeCountMode(input.Mode)
+	if mode == "" {
+		mode = PanelCountArrayLength
+	}
+	return &PanelUICount{
+		Bind:  normalizeBind(input.Bind),
+		Mode:  mode,
+		Label: trimSafeText(input.Label),
+	}
+}
+
+func normalizePanelUIFilter(input PanelUIFilter) (PanelUIFilter, bool) {
+	id := normalizeID(input.ID)
+	kind := normalizeFilterKind(input.Kind)
+	if id == "" || kind == "" {
+		return PanelUIFilter{}, false
+	}
+	label := trimSafeText(input.Label)
+	if label == "" {
+		label = formatPanelLabel(id)
+	}
+	out := PanelUIFilter{
+		ID:    id,
+		Label: label,
+		Kind:  kind,
+		Bind:  normalizeBind(input.Bind),
+	}
+	for _, option := range input.Options {
+		option = trimSafeText(option)
+		if option != "" {
+			out.Options = append(out.Options, option)
+		}
+	}
+	if out.Kind == PanelFilterSelect && len(out.Options) == 0 {
+		return PanelUIFilter{}, false
+	}
+	return out, true
+}
+
+func normalizePanelUIEventPolicy(input *PanelUIEventPolicy) *PanelUIEventPolicy {
+	mode := normalizeEventPolicyMode(input.Mode)
+	if mode == "" {
+		mode = PanelEventReplace
+	}
+	out := &PanelUIEventPolicy{
+		Mode:       mode,
+		Bind:       normalizeBind(input.Bind),
+		Key:        normalizeBind(input.Key),
+		MaxEntries: input.MaxEntries,
+	}
+	if out.MaxEntries < 0 {
+		out.MaxEntries = 0
+	}
+	if out.Mode == PanelEventUpsert && out.Key == "" {
+		return nil
+	}
+	return out
+}
+
+func normalizePanelUIActions(actions []PanelUIAction, handlers map[string]PanelActionHandler) []PanelUIAction {
+	if len(actions) == 0 || len(handlers) == 0 {
+		return nil
+	}
+	seen := map[string]bool{}
+	out := make([]PanelUIAction, 0, len(actions))
+	for _, action := range actions {
+		id := normalizeID(action.ID)
+		if id == "" || seen[id] {
+			continue
+		}
+		if panelActionHandlerFor(handlers, id) == nil {
+			continue
+		}
+		label := trimSafeText(action.Label)
+		if label == "" {
+			label = formatPanelLabel(id)
+		}
+		seen[id] = true
+		out = append(out, PanelUIAction{
+			ID:              id,
+			Label:           label,
+			Kind:            normalizeID(action.Kind),
+			ConfirmText:     trimSafeText(action.ConfirmText),
+			RequiresConfirm: action.RequiresConfirm,
+			Refresh:         action.Refresh,
+			UpdatePolicy:    normalizeEventPolicyMode(action.UpdatePolicy),
+			Payload:         cloneJSONSafeMap(action.Payload),
+		})
+	}
+	return out
+}
+
+func normalizeActionHandlers(ui *PanelUI, handlers map[string]PanelActionHandler) map[string]PanelActionHandler {
+	if ui == nil || len(ui.Actions) == 0 || len(handlers) == 0 {
+		return nil
+	}
+	out := map[string]PanelActionHandler{}
+	for _, action := range ui.Actions {
+		id := normalizeID(action.ID)
+		if id == "" {
+			continue
+		}
+		if handler := panelActionHandlerFor(handlers, id); handler != nil {
+			out[id] = handler
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func panelActionHandlerFor(handlers map[string]PanelActionHandler, actionID string) PanelActionHandler {
+	if len(handlers) == 0 {
+		return nil
+	}
+	actionID = normalizeID(actionID)
+	if actionID == "" {
+		return nil
+	}
+	if handler := handlers[actionID]; handler != nil {
+		return handler
+	}
+	for id, handler := range handlers {
+		if normalizeID(id) == actionID {
+			return handler
+		}
+	}
+	return nil
+}
+
+func normalizeRenderer(value string) string {
+	switch normalizeID(value) {
+	case PanelRendererMetrics:
+		return PanelRendererMetrics
+	case PanelRendererKeyValue:
+		return PanelRendererKeyValue
+	case PanelRendererTable:
+		return PanelRendererTable
+	case PanelRendererStatusList:
+		return PanelRendererStatusList
+	case PanelRendererTimeline:
+		return PanelRendererTimeline
+	case PanelRendererJSON:
+		return PanelRendererJSON
+	case PanelRendererStack:
+		return PanelRendererStack
+	default:
+		return ""
+	}
+}
+
+func normalizeCountMode(value string) string {
+	switch normalizeID(value) {
+	case PanelCountArrayLength:
+		return PanelCountArrayLength
+	case PanelCountObjectKeys:
+		return PanelCountObjectKeys
+	case PanelCountTruthy:
+		return PanelCountTruthy
+	case PanelCountNumber:
+		return PanelCountNumber
+	default:
+		return ""
+	}
+}
+
+func normalizeFilterKind(value string) string {
+	switch normalizeID(value) {
+	case PanelFilterSearch:
+		return PanelFilterSearch
+	case PanelFilterSelect:
+		return PanelFilterSelect
+	case PanelFilterCheckbox:
+		return PanelFilterCheckbox
+	default:
+		return ""
+	}
+}
+
+func normalizeEventPolicyMode(value string) string {
+	switch normalizeID(value) {
+	case PanelEventReplace:
+		return PanelEventReplace
+	case PanelEventAppend:
+		return PanelEventAppend
+	case PanelEventMerge:
+		return PanelEventMerge
+	case PanelEventUpsert:
+		return PanelEventUpsert
+	default:
+		return ""
+	}
+}
+
+func normalizeBind(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if strings.ContainsAny(value, "<>") {
+		return ""
+	}
+	return strings.TrimPrefix(value, "$.")
+}
+
+func trimSafeText(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || strings.ContainsAny(value, "<>") {
+		return ""
+	}
+	return value
+}
+
+func cloneJSONSafeMap(input map[string]any) map[string]any {
+	if len(input) == 0 {
+		return nil
+	}
+	out := map[string]any{}
+	for key, value := range input {
+		key = trimSafeText(key)
+		if key == "" {
+			continue
+		}
+		if cloned, ok := cloneJSONSafeValue(value); ok {
+			out[key] = cloned
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func cloneJSONSafeValue(value any) (any, bool) {
+	switch typed := value.(type) {
+	case nil, bool, float64, float32, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, string:
+		if text, ok := typed.(string); ok {
+			return trimSafeText(text), true
+		}
+		return typed, true
+	case []any:
+		out := make([]any, 0, len(typed))
+		for _, item := range typed {
+			if cloned, ok := cloneJSONSafeValue(item); ok {
+				out = append(out, cloned)
+			}
+		}
+		return out, true
+	case map[string]any:
+		return cloneJSONSafeMap(typed), true
+	default:
+		return nil, false
+	}
 }
