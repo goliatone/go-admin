@@ -25,14 +25,18 @@ var (
 
 var debugMaskFields = map[string]string{
 	"apikey":        "preserveEnds(2,2)",
+	"api_key":       "preserveEnds(2,2)",
+	"authorization": debugMaskTypeToken,
 	"bearer":        debugMaskTypeToken,
 	"client_secret": debugMaskTypeSecret,
 	"cookie":        debugMaskTypeSecret,
 	"csrf":          debugMaskTypeToken,
 	"jwt":           debugMaskTypeToken,
+	"password":      debugMaskTypeSecret,
 	"secret":        debugMaskTypeSecret,
 	"session":       debugMaskTypeToken,
 	"set-cookie":    debugMaskTypeSecret,
+	"token":         debugMaskTypeToken,
 }
 
 func debugMasker(cfg DebugConfig) *masker.Masker {
@@ -172,15 +176,17 @@ func debugMaskBodyString(cfg DebugConfig, contentType string, body string) strin
 }
 
 // debugMaskInlineString masks sensitive values embedded in freeform strings
-// such as error messages, stack traces, and URLs. It applies two passes:
+// such as error messages, stack traces, and URLs. It applies three passes:
 // 1. Mask URL query parameters whose names match known sensitive fields.
 // 2. Mask inline Bearer/JWT tokens that appear in the text.
+// 3. Mask key/value fragments such as "secret=value" or "token: value".
 func debugMaskInlineString(cfg DebugConfig, s string) string {
 	if strings.TrimSpace(s) == "" {
 		return s
 	}
 	s = debugMaskQueryParams(cfg, s)
 	s = debugMaskInlineTokens(cfg, s)
+	s = debugMaskInlineKeyValues(cfg, s)
 	return s
 }
 
@@ -214,6 +220,31 @@ func debugMaskQueryParams(cfg DebugConfig, s string) string {
 		}
 		u.RawQuery = q.Encode()
 		return u.String()
+	})
+}
+
+// debugInlineKeyValuePattern matches simple freeform key/value fragments while
+// keeping the key, separator, and value token distinct for replacement.
+var debugInlineKeyValuePattern = regexp.MustCompile(`\b([A-Za-z][A-Za-z0-9_.-]{0,80})(\s*[:=]\s*)("([^"\\]*(?:\\.[^"\\]*)*)"|'([^'\\]*(?:\\.[^'\\]*)*)'|[^\s"',;&<>]+)`)
+
+func debugMaskInlineKeyValues(cfg DebugConfig, s string) string {
+	return debugInlineKeyValuePattern.ReplaceAllStringFunc(s, func(match string) string {
+		parts := debugInlineKeyValuePattern.FindStringSubmatch(match)
+		if len(parts) < 4 {
+			return match
+		}
+		key := parts[1]
+		maskType, ok := debugMaskTypeForField(cfg, key)
+		if !ok {
+			return match
+		}
+		value := parts[3]
+		if len(value) >= 2 && (value[0] == '"' || value[0] == '\'') && value[len(value)-1] == value[0] {
+			quote := value[:1]
+			inner := value[1 : len(value)-1]
+			return key + parts[2] + quote + debugMaskStringWithType(cfg, maskType, inner) + quote
+		}
+		return key + parts[2] + debugMaskStringWithType(cfg, maskType, value)
 	})
 }
 
