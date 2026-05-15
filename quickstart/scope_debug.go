@@ -185,6 +185,60 @@ func RegisterScopeDebugPanel(buffer *ScopeDebugBuffer) {
 		SupportsToolbar: new(true),
 		Category:        "auth",
 		Order:           70,
+		UI: &debugregistry.PanelUI{
+			Views: debugregistry.PanelUIViews{
+				Console: debugregistry.StackView(
+					debugregistry.PanelUIView{
+						Renderer: debugregistry.PanelRendererMetrics,
+						Options: map[string]any{
+							"metrics": []any{
+								map[string]any{"label": "Entries", "bind": "count", "format": "number"},
+								map[string]any{"label": "Limit", "bind": "limit", "format": "number"},
+								map[string]any{"label": "Updated", "bind": "updated_at", "format": "timestamp"},
+							},
+						},
+					},
+					debugregistry.PanelUIView{
+						Renderer: debugregistry.PanelRendererTable,
+						Title:    "Scope entries",
+						Bind:     "entries",
+						Options: map[string]any{
+							"columns": []any{
+								map[string]any{"label": "Time", "bind": "timestamp", "format": "timestamp"},
+								map[string]any{"label": "Method", "bind": "method"},
+								map[string]any{"label": "Path", "bind": "path"},
+								map[string]any{"label": "Mode", "bind": "scope_mode"},
+								map[string]any{"label": "Request", "bind": "request_id"},
+							},
+						},
+					},
+				),
+				Toolbar: debugregistry.MetricsView(""),
+			},
+			Count: &debugregistry.PanelUICount{
+				Bind: "entries",
+				Mode: debugregistry.PanelCountArrayLength,
+			},
+			Filters: []debugregistry.PanelUIFilter{
+				{ID: "search", Label: "Search", Kind: debugregistry.PanelFilterSearch, Bind: "path"},
+			},
+			Events: &debugregistry.PanelUIEventPolicy{
+				Mode:       debugregistry.PanelEventAppend,
+				Bind:       "entry",
+				MaxEntries: 200,
+			},
+			Actions: []debugregistry.PanelUIAction{
+				{ID: "clear", Label: "Clear entries", RequiresConfirm: true, ConfirmText: "Clear scope debug entries?", Refresh: true},
+			},
+		},
+		Actions: map[string]debugregistry.PanelActionHandler{
+			"clear": func(_ context.Context, _ debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+				if err := buffer.Clear(); err != nil {
+					return debugregistry.PanelActionResult{OK: false, Message: "Scope entries could not be cleared"}, err
+				}
+				return debugregistry.PanelActionResult{OK: true, Message: "Scope entries cleared", Refresh: true}, nil
+			},
+		},
 		Snapshot: func(ctx context.Context) any {
 			return buffer.Snapshot()
 		},
