@@ -1207,20 +1207,57 @@ Use `site.home.page` when the public root route needs a dedicated homepage. If t
 
 ## Public-site render cache
 
-`quickstart/site.WithRenderCache(store, policy)` enables anonymous rendered HTML caching for public CMS delivery routes. `quickstart/site` owns policy, keying, eligibility, response replay, and unsafe-header filtering; host apps own the backend, TTLs, rollout, and invalidation wiring.
+`quickstart/site.WithRenderCache(store, policy)` enables anonymous rendered HTML caching for public CMS delivery routes. `quickstart/site` owns policy, keying, eligibility, response replay, and unsafe-header filtering; host apps own rollout, host-specific policy mapping, and application-specific invalidation wiring.
 
-- Use a memory or Valkey `go-cache` store from host code and pass it through the local `site.RenderCacheStore` interface. `quickstart/site` intentionally does not import `go-cache`.
+- Use `site.NewRenderCacheRuntime(ctx, cfg, policy)` when the host wants quickstart-owned memory or Valkey store construction, startup diagnostics, diagnostic observation, and debug-panel state. Hosts that already own a custom backend can still pass it directly through `WithRenderCache`.
+- `site.RenderCacheConfig` controls backend setup (`memory` or `valkey`), debug flags, fail-open/fail-closed startup behavior, tag-index requirements, capture limits, render version, and sanitized diagnostic config. `site.RenderCachePolicy` remains the public-site eligibility and keying policy.
+- Valkey setup supports URL parsing, address fallback, username/password, DB selection, TLS, TLS skip verify, single-client mode, and disabled client-side cache. Startup diagnostics redact URL userinfo and credential-bearing query values.
+- `site.RegisterRenderCacheDebugPanel(runtime)` registers the built-in `site-render-cache` debug panel backend. The debug console and toolbar include the matching built-in client renderer, so enabled hosts get the purpose-built panel instead of generic JSON.
+- The runtime snapshot is process-local by design. It reports configured/active state, backend, status, scope, startup errors, sanitized config, capabilities, counters, latest cached metadata, observed key metadata, recent operations/errors, and the last clear command.
+- Clear commands use the existing debug clear-panel transport and record results in the follow-up snapshot. Shared invalidation targets are exported as `site.RenderCacheAllSiteTag` and `site.RenderCacheKeyPrefix`; app-specific CMS invalidation should use the same values as the debug clear path.
 - Standard go-router Fiber and HTTPRouter site contexts use router-backed response capture by default, so hosts do not need to provide `RenderCachePolicy.TemplateRenderer` for the common path.
 - `RenderCachePolicy.TemplateRenderer` remains an optional override for tests, custom render stacks, and router contexts that cannot use non-committing template capture. Unsupported contexts bypass storage with an observable reason unless an override is configured.
 - `RenderCachePolicy.MaxCaptureBodySize` defaults to `router.DefaultMaxCapturedBodySize`; oversized captures bypass storage and then use the normal template response path without committing a partial response.
 - Cache hits replay stored `site.RenderedSiteResponse` values through the site-owned replay path. `quickstart/site` does not store or replay raw `router.CapturedResponse` values, so safe-header filtering, `HEAD` handling, debug headers, and freshness metadata stay under site-cache policy.
 - `RenderCachePolicy.StaleTTL` enables stale-while-revalidate. Entries are stored for `FreshTTL + StaleTTL`; hits before `FreshUntil` report `hit`, hits through `StaleUntil` report `stale` and replay the stale response, and entries past `StaleUntil` are deleted and refreshed as misses. Use `RenderCachePolicy.StaleRevalidator` to schedule host-owned background regeneration without reusing a live router context. Stale revalidation is keyed per process so duplicate stale hits do not stampede one runtime, and callback panics are recovered.
 - Use `RenderCachePolicy.AuthCookieNames` for host-specific auth cookies and `RenderCachePolicy.BypassPredicates` for application-specific auth, session, tenant, cart, A/B, or personalization signals. Built-in checks already cover Authorization, admin authenticated request context, go-auth claims/actor context, and common session/JWT cookie names such as `session_id` and `jwt`.
-- `quickstart/render_cache_gocache_compat_test.go` compiles and exercises a real `github.com/goliatone/go-cache/stores/memory` store as a `site.RenderCacheStore`, including local tag API compatibility, while keeping the `quickstart/site` package free of direct `go-cache` imports.
+- `quickstart/render_cache_gocache_compat_test.go` compiles and exercises a real `github.com/goliatone/go-cache/stores/memory` store as a `site.RenderCacheStore`, including local tag API compatibility. The higher-level runtime API imports `go-cache` so hosts do not need to duplicate memory/Valkey construction.
 - Use `RenderCachePolicy.RequireTagIndex: true` only with a shared non-memory backend for production tag invalidation. With this guard enabled, memory backends bypass caching, stores must implement `site.RenderCacheBackendDescriber` with a non-memory backend kind, stores without `site.RenderCacheTagInvalidator` bypass caching, and tag attachment failures remove the just-written entry before it can be served.
 - Staging defaults: memory backend, `FreshTTL` around 30s-60s, `DebugHeaders: true`, and `DebugKeys` only in safe local/staging environments.
 - Production defaults: shared backend or shared render-version source, `FreshTTL` around 5m-10m, active invalidation through render-version bumps or tag/prefix-capable stores before broad rollout.
 - Static asset caching is separate from rendered HTML caching and should stay on the asset/CDN path.
+
+Example:
+
+```go
+policy := quicksite.RenderCachePolicy{
+	Enabled:              true,
+	ApplicationNamespace: "archive-admin",
+	EnvironmentNamespace: "staging",
+	SiteNamespace:        "public-site",
+	FreshTTL:             30 * time.Second,
+	DebugHeaders:         true,
+	AuthCookieNames:      []string{"admin_session", "debug_session"},
+}
+
+runtime, err := quicksite.NewRenderCacheRuntime(ctx, quicksite.RenderCacheConfig{
+	Enabled:         true,
+	Backend:         quicksite.RenderCacheBackendValkey,
+	DebugHeaders:    true,
+	RequireTagIndex: true,
+	Valkey: quicksite.RenderCacheValkeyConfig{
+		Address:   "127.0.0.1:6379",
+		Namespace: "archive:staging:site-render-cache",
+	},
+}, policy)
+if err != nil {
+	return err
+}
+if err := quicksite.RegisterRenderCacheDebugPanel(runtime); err != nil {
+	return err
+}
+quicksite.RegisterSiteRoutes(router, siteCfg, quicksite.WithRenderCache(runtime.Store, runtime.Policy))
+```
 
 ## Routing migration notes
 
@@ -1504,8 +1541,35 @@ repoOptions := adm.DebugQueryHookOptions()
 repo := repository.MustNewRepositoryWithOptions[*MyModel](db, handlers, repoOptions...)
 ```
 
+### Go-only rich debug panels
+Go applications can register operator-friendly debug panels without shipping app-side JavaScript by adding a declarative `debug.PanelUI` schema to `debug.PanelConfig`.
+
+```go
+_ = debug.RegisterPanel("queue", debug.PanelConfig{
+	Label:           "Queue",
+	SnapshotKey:     "queue",
+	SupportsToolbar: admin.BoolPtr(true),
+	UI: debug.NewPanelUI(
+		debug.TableView("jobs"),
+		debug.MetricsView("summary"),
+	),
+	Snapshot: func(ctx context.Context) any {
+		return map[string]any{
+			"summary": map[string]any{"pending": 3},
+			"jobs": []map[string]any{
+				{"id": "job-1", "status": "pending"},
+			},
+		}
+	},
+})
+```
+
+Supported schema renderers are `metrics`, `key_value`, `table`, `status_list`, `timeline`, `json`, and `stack`. `count`, `filters`, and `events` configure badges, console filtering, and live-event update behavior. `actions` render buttons that post to `/admin/debug/api/panels/:panel/actions/:action` and must be backed by `debug.PanelActionHandler` entries in the same registration.
+
+The panel ID must still be present in `DebugConfig.Panels`; toolbar rendering also requires `supports_toolbar` plus the toolbar panel configuration. Panels without a schema, malformed schema, or unsupported renderer names fall back to escaped JSON rendering. Use a TypeScript `panelRegistry.register(...)` renderer when a panel needs bespoke browser interaction beyond the declarative catalog.
+
 ### Scope debug (optional)
-Scope debug captures the raw/resolved tenant/org scope for requests, adds an `X-Admin-Resolved-Scope` header, and exposes a JSON snapshot endpoint.
+Scope debug captures the raw/resolved tenant/org scope for requests, adds an `X-Admin-Resolved-Scope` header, and exposes a JSON snapshot endpoint. When enabled through `ConfigureDebugPanels`, it also registers a Go-only rich debug panel using the declarative schema described above.
 
 Scope debug is explicit:
 - choose whether scope capture is enabled in your host config
