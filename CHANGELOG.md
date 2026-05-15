@@ -1,5 +1,31 @@
 # Changelog
 
+# [0.70.0](https://github.com/goliatone/go-admin/compare/v0.69.0...v0.70.0) - (2026-05-15)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Expose marker meta ([1fa84d7](https://github.com/goliatone/go-admin/commit/1fa84d76e8eb251674ccbddcbc76d4f421277bbe))  - (goliatone)
+- Toolbar fallback, action result masking, version management ([6584990](https://github.com/goliatone/go-admin/commit/658499074b0762ebf5bd5ccb4389e894e6d9d303))  - (goliatone)
+- Debug panel payload clone ([f92d888](https://github.com/goliatone/go-admin/commit/f92d888e74befe141ae34c095b78783fb00074d6))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.70.0 ([99820c1](https://github.com/goliatone/go-admin/commit/99820c1a92836f97e41010ca20b319708ab6a107))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Mask url key params ([baad1ec](https://github.com/goliatone/go-admin/commit/baad1ec9760b4d9b6f7890e54aa4c1be0562aba2))  - (goliatone)
+- Debug collector state tracking ([b13ea3e](https://github.com/goliatone/go-admin/commit/b13ea3e35051c74867ab8c2a2666d13527aa9f2e))  - (goliatone)
+- Debug panels keep state ([ce23058](https://github.com/goliatone/go-admin/commit/ce23058295e42de78fff72826891c921aabc2d06))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.69.0 ([7a8607c](https://github.com/goliatone/go-admin/commit/7a8607ce5a61e9ac8ca81a7d62b620e49b92ff98))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([aeb531d](https://github.com/goliatone/go-admin/commit/aeb531dd22ea978c356ce3ea97c45c640e01f954))  - (goliatone)
+
 # [0.69.0](https://github.com/goliatone/go-admin/compare/v0.68.0...v0.69.0) - (2026-05-15)
 
 ## <!-- 1 -->🐛 Bug Fixes
