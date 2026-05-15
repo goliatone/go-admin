@@ -826,7 +826,24 @@ func (c *DebugCollector) RunPanelAction(ctx context.Context, req debugregistry.P
 	if err != nil {
 		return debugregistry.PanelActionResult{}, err
 	}
-	return result, nil
+	return c.maskPanelActionResult(result), nil
+}
+
+func (c *DebugCollector) maskPanelActionResult(result debugregistry.PanelActionResult) debugregistry.PanelActionResult {
+	if c == nil {
+		return result
+	}
+	result.Message = debugMaskInlineString(c.config, result.Message)
+	result.Data = debugMaskValue(c.config, result.Data)
+	if result.Errors != nil {
+		result.Errors = debugMaskMap(c.config, result.Errors)
+	}
+	if result.Event != nil {
+		event := *result.Event
+		event.Payload = debugMaskValue(c.config, event.Payload)
+		result.Event = &event
+	}
+	return result
 }
 
 // Clear removes all stored debug data across panels.
