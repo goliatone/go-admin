@@ -359,14 +359,14 @@ func TestRenderCacheDebugObserverBoundsLogs(t *testing.T) {
 	store.backendKind = RenderCacheBackendValkey
 	observer := NewRenderCacheDebugObserver(store, RenderCacheConfig{Enabled: true, Backend: RenderCacheBackendValkey})
 	wrapped := NewRenderCacheDebugObservedStore(observer)
-	for i := 0; i < renderCacheDebugOperationsCap+25; i++ {
+	for i := range renderCacheDebugOperationsCap + 25 {
 		key := RenderCacheKeyPrefix + "path=%2Fbounded-" + time.Duration(i).String()
 		if err := wrapped.Set(context.Background(), key, RenderedSiteResponse{Status: 200}, time.Minute); err != nil {
 			t.Fatalf("Set[%d]: %v", i, err)
 		}
 	}
 	store.err = errors.New("cache unavailable")
-	for i := 0; i < renderCacheDebugErrorsCap+10; i++ {
+	for i := range renderCacheDebugErrorsCap + 10 {
 		_, _, _ = wrapped.Get(context.Background(), RenderCacheKeyPrefix+"path=%2Ferror-"+time.Duration(i).String())
 	}
 	snapshot := observer.Snapshot(&RenderCacheRuntime{Config: RenderCacheConfig{Enabled: true}, Store: wrapped})

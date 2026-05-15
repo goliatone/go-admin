@@ -102,7 +102,7 @@ func TestDebugPanelsEndpointExposesEnabledRichUIDefinitions(t *testing.T) {
 	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
 		Label:           "Rich Transport",
 		SnapshotKey:     panelID,
-		SupportsToolbar: boolPtr(true),
+		SupportsToolbar: new(true),
 		UI: &debugregistry.PanelUI{
 			Views: debugregistry.PanelUIViews{
 				Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererTable, Bind: "items"},
@@ -262,8 +262,9 @@ func TestDebugPanelActionEndpointRejectsDisabledPanel(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func boolPtr(value bool) *bool {
-	return &value
+	return new(value)
 }
 
 func TestDebugRoutesUseAuthenticator(t *testing.T) {
