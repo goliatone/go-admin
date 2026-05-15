@@ -42,7 +42,7 @@ func buildRenderCacheKey(input renderCacheKeyInput) string {
 		}
 		parts[i] = kv[0] + "=" + url.QueryEscape(kv[1])
 	}
-	return "site-render:" + strings.Join(parts, "|")
+	return RenderCacheKeyPrefix + strings.Join(parts, "|")
 }
 
 func cloneSortedQuery(values url.Values) url.Values {
