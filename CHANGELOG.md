@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.71.0](https://github.com/goliatone/go-admin/compare/v0.70.0...v0.71.0) - (2026-05-15)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.71.0 ([a25ec06](https://github.com/goliatone/go-admin/commit/a25ec0687f52c015762f4e9e75d54151a86e0f67))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Better debug panel UI ([d7bb6e7](https://github.com/goliatone/go-admin/commit/d7bb6e79662a07eb606bb4751b30b71a2c151fb7))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.70.0 ([9b318c3](https://github.com/goliatone/go-admin/commit/9b318c3f3faa9076cac564690e367a503271f4b1))  - (goliatone)
+
 # [0.70.0](https://github.com/goliatone/go-admin/compare/v0.69.0...v0.70.0) - (2026-05-15)
 
 ## <!-- 1 -->🐛 Bug Fixes
