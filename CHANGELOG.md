@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.72.0](https://github.com/goliatone/go-admin/compare/v0.71.0...v0.72.0) - (2026-05-15)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.72.0 ([f58b468](https://github.com/goliatone/go-admin/commit/f58b468b5d66c16eddd2ff7cbef34c4c0694f79c))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Updated dashboard widget ([f690221](https://github.com/goliatone/go-admin/commit/f6902210c635c9dd750d1d2b7864ff2bdfb2dbf4))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.71.0 ([c789e7f](https://github.com/goliatone/go-admin/commit/c789e7f9523c743d5690038136afe30054349a89))  - (goliatone)
+
 # [0.71.0](https://github.com/goliatone/go-admin/compare/v0.70.0...v0.71.0) - (2026-05-15)
 
 ## <!-- 13 -->📦 Bumps
