@@ -148,6 +148,72 @@ func TestPanelUINormalizationDropsUnsupportedSchemaParts(t *testing.T) {
 	}
 }
 
+func TestPanelUINormalizationDropsUnsupportedSchemaVersion(t *testing.T) {
+	registry := NewPanelRegistry()
+	err := registry.Register("future", PanelConfig{
+		UI: &PanelUI{
+			SchemaVersion: "999",
+			Views: PanelUIViews{
+				Console: JSONView(""),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	registration, ok := registry.Registration("future")
+	if !ok {
+		t.Fatalf("expected panel registration")
+	}
+	if registration.Definition.UI == nil {
+		t.Fatalf("expected future-version ui marker to remain")
+	}
+	if registration.Definition.UI.SchemaVersion != "999" {
+		t.Fatalf("expected future schema version marker, got %+v", registration.Definition.UI)
+	}
+	if registration.Definition.UI.Views.Console != nil || registration.Definition.UI.Views.Toolbar != nil {
+		t.Fatalf("expected unsupported schema views to be dropped, got %+v", registration.Definition.UI.Views)
+	}
+}
+
+func TestPanelUINormalizationSanitizesMetadata(t *testing.T) {
+	registry := NewPanelRegistry()
+	err := registry.Register("metadata", PanelConfig{
+		UI: &PanelUI{
+			Views: PanelUIViews{
+				Console: JSONView(""),
+			},
+			Metadata: map[string]any{
+				"safe":   "ok",
+				"unsafe": func() {},
+				"markup": "<b>bad</b>",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("register panel: %v", err)
+	}
+
+	registration, ok := registry.Registration("metadata")
+	if !ok {
+		t.Fatalf("expected panel registration")
+	}
+	metadata := registration.Definition.UI.Metadata
+	if metadata["safe"] != "ok" {
+		t.Fatalf("expected safe metadata to remain, got %+v", metadata)
+	}
+	if _, ok := metadata["unsafe"]; ok {
+		t.Fatalf("expected unsafe metadata function to be dropped")
+	}
+	if metadata["markup"] != "" {
+		t.Fatalf("expected unsafe metadata text to be sanitized, got %+v", metadata["markup"])
+	}
+	if _, err := json.Marshal(registration.Definition.UI); err != nil {
+		t.Fatalf("metadata should remain JSON serializable: %v", err)
+	}
+}
+
 func TestPanelUINormalizationDropsActionsWithoutHandlers(t *testing.T) {
 	registry := NewPanelRegistry()
 	err := registry.Register("actions", PanelConfig{

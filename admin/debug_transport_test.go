@@ -216,6 +216,88 @@ func TestDebugPanelActionEndpointDispatchesRegisteredHandler(t *testing.T) {
 	}
 }
 
+func TestDebugPanelActionEndpointMasksActionResultPayloads(t *testing.T) {
+	const panelID = "masked_action_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Label:       "Masked Action",
+		SnapshotKey: panelID,
+		UI: &debugregistry.PanelUI{
+			Views:   debugregistry.PanelUIViews{Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererJSON}},
+			Actions: []debugregistry.PanelUIAction{{ID: "inspect", Label: "Inspect"}},
+		},
+		Actions: map[string]debugregistry.PanelActionHandler{
+			"inspect": func(context.Context, debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+				return debugregistry.PanelActionResult{
+					OK:      true,
+					Message: "inspected secret=open-sesame",
+					Data:    map[string]any{"secret": "open-sesame"},
+					Event: &debugregistry.PanelActionEvent{
+						Type:    "masked-event",
+						Payload: map[string]any{"client_secret": "client-open-sesame"},
+					},
+					Errors: map[string]any{"token": "token-open-sesame"},
+				}, nil
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register action panel: %v", err)
+	}
+
+	debugCfg := DebugConfig{
+		Enabled:    true,
+		AllowedIPs: []string{"1.1.1.1"},
+		Panels:     []string{panelID},
+	}
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	path := strings.Replace(debugAPIPath(t, adm, debugCfg, "panel.action"), ":panel", panelID, 1)
+	path = strings.Replace(path, ":action", "inspect", 1)
+	req := httptest.NewRequest("POST", path, nil)
+	req.RemoteAddr = "1.1.1.1:12345"
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected panel action ok, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var result debugregistry.PanelActionResult
+	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode result: %v", err)
+	}
+	data, ok := result.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("expected masked data map, got %T", result.Data)
+	}
+	if data["secret"] == "open-sesame" {
+		t.Fatalf("expected data secret to be masked, got %+v", data)
+	}
+	if strings.Contains(result.Message, "open-sesame") {
+		t.Fatalf("expected message secret to be masked, got %q", result.Message)
+	}
+	if result.Errors["token"] == "token-open-sesame" {
+		t.Fatalf("expected error token to be masked, got %+v", result.Errors)
+	}
+	eventPayload, ok := result.Event.Payload.(map[string]any)
+	if !ok {
+		t.Fatalf("expected masked event payload, got %T", result.Event.Payload)
+	}
+	if eventPayload["client_secret"] == "client-open-sesame" {
+		t.Fatalf("expected event payload secret to be masked, got %+v", eventPayload)
+	}
+}
+
 func TestDebugPanelActionEndpointRejectsDisabledPanel(t *testing.T) {
 	const panelID = "disabled_action_panel"
 
