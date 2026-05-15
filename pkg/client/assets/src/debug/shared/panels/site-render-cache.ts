@@ -273,19 +273,19 @@ function renderStatusBadge(snapshot: SiteRenderCacheSnapshot): string {
     <div style="
       display: inline-flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
+      gap: 5px;
+      padding: 5px 10px;
       background: ${config.bgColor};
       border: 1px solid ${config.borderColor};
-      border-radius: 6px;
+      border-radius: 5px;
     ">
       <span style="
-        font-size: 14px;
+        font-size: 12px;
         color: ${config.color};
         line-height: 1;
       ">${config.icon}</span>
       <span style="
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         color: ${config.color};
       ">${escapeHTML(statusLabel)}</span>
@@ -307,11 +307,11 @@ function renderBackendInfo(snapshot: SiteRenderCacheSnapshot): string {
     <div style="
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 12px;
+      gap: 6px;
+      font-size: 11px;
     ">
       <span style="
-        padding: 4px 8px;
+        padding: 5px 8px;
         background: #1e293b;
         border: 1px solid #334155;
         border-radius: 4px;
@@ -322,13 +322,13 @@ function renderBackendInfo(snapshot: SiteRenderCacheSnapshot): string {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 4px 8px;
+        padding: 5px 8px;
         background: ${scopeBgColor};
         border: 1px solid ${scopeBorderColor};
         border-radius: 4px;
         color: ${scopeTextColor};
         font-weight: 500;
-      ">${isProcessLocal ? '<span style="font-size: 11px;">⚠</span>' : ''}<span>${escapeHTML(scope)}</span></span>
+      ">${isProcessLocal ? '<span style="font-size: 12px; line-height: 1;">⚠</span>' : ''}<span>${escapeHTML(scope)}</span></span>
       ${snapshot.observed_by ? `
         <span style="color: #64748b; font-size: 11px;">
           obs: ${escapeHTML(snapshot.observed_by)}
@@ -345,21 +345,21 @@ function renderClearButton(): string {
       class="debug-btn"
       data-debug-action="clear-panel"
       style="
-        padding: 6px 12px;
+        padding: 5px 10px;
         background: #dc2626;
         color: #fff;
         border: none;
         border-radius: 4px;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
-        gap: 5px;
+        gap: 4px;
         line-height: 1;
       "
     >
-      <span style="font-size: 14px; line-height: 1;">↻</span>
+      <span style="font-size: 13px; line-height: 1;">↻</span>
       <span>Clear Cache</span>
     </button>
   `;
@@ -370,14 +370,14 @@ function renderHeaderBar(snapshot: SiteRenderCacheSnapshot): string {
     <div style="
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
       border-bottom: 1px solid #1e293b;
       flex-wrap: wrap;
     ">
       ${renderStatusBadge(snapshot)}
-      <span style="color: #334155;">·</span>
+      <span style="color: #334155; font-size: 10px;">│</span>
       ${renderBackendInfo(snapshot)}
       ${snapshot.active ? `
         <div style="margin-left: auto;">
