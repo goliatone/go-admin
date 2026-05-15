@@ -1,8 +1,8 @@
 import { escapeHTML as m } from "../shared/html.js";
 import { httpRequest as _ } from "../shared/transport/http-client.js";
-import { _ as J, a as H, b as F, c as Q, d as Fe, f as Ne, g as X, h as z, i as je, l as x, m as Y, n as G, o as V, p as Me, r as W, s as Z, t as ee, u as Be, x as Ue, y as Ke } from "../chunks/builtin-panels-DpLF0CLs.js";
+import { C as Fe, S as F, _ as J, a as H, c as Q, d as x, f as Ne, g as X, h as je, i as z, l as Y, m as Me, n as Be, o as Ue, p as Ke, r as G, s as V, t as Je, u as W, v as Z, x as He, y as ee } from "../chunks/builtin-panels-rp98daiS.js";
 import { t as te } from "../chunks/repl-panel-So0Od67n.js";
-import { A as se, D as re, E as L, O as Qe, S as T, T as ie, _ as D, a as ne, b as Xe, c as N, d as ae, f as oe, g as ze, h as le, j as Ye, k as Ge, m as he, p as Ve, r as j, s as ce, u as ue, v as We, w as Ze, x as k, y as v } from "../chunks/runtime-helpers-73DjiyO0.js";
+import { A as se, D as re, E as L, O as ze, S as T, T as ie, _ as D, a as ne, b as Ye, c as N, d as ae, f as oe, g as Ge, h as le, j as Ve, k as We, m as he, p as Ze, r as j, s as ce, u as ue, v as et, w as tt, x as k, y as v } from "../chunks/runtime-helpers-73DjiyO0.js";
 var de = class {
   add(t, e, s) {
     if (typeof arguments[0] != "string") for (let r in arguments[0]) this.add(r, arguments[0][r], arguments[1]);
@@ -1385,7 +1385,7 @@ var U = (t) => {
     else if (t === "routes") s = this.renderRoutes();
     else if (t === "sessions") s = this.renderSessionsPanel();
     else if (t === "custom") s = this.renderCustom();
-    else if (t === "jserrors") s = ee(this.state.extra.jserrors || [], x, {
+    else if (t === "jserrors") s = G(this.state.extra.jserrors || [], x, {
       newestFirst: this.filters.logs.newestFirst,
       showSortToggle: !0
     });
@@ -1404,16 +1404,16 @@ var U = (t) => {
         s = (r.renderConsole || r.render)(n, x, { newestFirst: this.filters.logs.newestFirst });
       } else s = this.renderJSONPanel(N(t), this.state.extra[t], this.filters.objects.search);
     }
-    this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), t === "requests" && X(this.panelEl, this.expandedRequests), t === "sql" && this.attachSQLSelectionListeners(), t === "sessions" && this.attachSessionActions();
+    this.panelEl.innerHTML = s, t === "logs" && this.filters.logs.autoScroll && (this.panelEl.scrollTop = this.filters.logs.newestFirst ? 0 : this.panelEl.scrollHeight), this.attachExpandableRowListeners(), this.attachCopyButtonListeners(), t === "requests" && Z(this.panelEl, this.expandedRequests), t === "sql" && this.attachSQLSelectionListeners(), t === "sessions" && this.attachSessionActions();
   }
   attachExpandableRowListeners() {
-    z(this.panelEl);
+    J(this.panelEl);
   }
   attachCopyButtonListeners() {
-    Y(this.panelEl, { useIconFeedback: !0 });
+    X(this.panelEl, { useIconFeedback: !0 });
   }
   attachSQLSelectionListeners() {
-    J(this.panelEl, this.state.sql, { useIconFeedback: !0 });
+    ee(this.panelEl, this.state.sql, { useIconFeedback: !0 });
   }
   renderReplPanel(t) {
     this.panelEl.classList.add("debug-content--repl");
@@ -1434,7 +1434,7 @@ var U = (t) => {
   }
   renderRequests() {
     const { method: t, status: e, search: s, newestFirst: r, hasBody: i, contentType: n } = this.filters.requests, o = s.toLowerCase(), h = this.state.requests.filter((l) => !(t !== "all" && (l.method || "").toUpperCase() !== t || e !== "all" && String(l.status || "") !== e || o && !(l.path || "").toLowerCase().includes(o) || i && !l.request_body || n !== "all" && (l.content_type || "").split(";")[0].trim() !== n));
-    return h.length === 0 ? this.renderEmptyState("No requests captured yet.") : Q(h, x, {
+    return h.length === 0 ? this.renderEmptyState("No requests captured yet.") : W(h, x, {
       newestFirst: r,
       slowThresholdMs: this.slowThresholdMs,
       showSortToggle: !1,
@@ -1444,7 +1444,7 @@ var U = (t) => {
   }
   renderSQL() {
     const { search: t, slowOnly: e, errorOnly: s, newestFirst: r } = this.filters.sql, i = t.toLowerCase(), n = this.state.sql.filter((o) => !(s && !o.error || e && !this.isSlowQuery(o) || i && !(o.query || "").toLowerCase().includes(i)));
-    return n.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : Z(n, x, {
+    return n.length === 0 ? this.renderEmptyState("No SQL queries captured yet.") : Y(n, x, {
       newestFirst: r,
       slowThresholdMs: this.slowThresholdMs,
       maxEntries: this.maxSQLQueries,
@@ -1458,7 +1458,7 @@ var U = (t) => {
       const o = `${n.message || ""} ${n.source || ""} ${ie(n.fields || {})}`.toLowerCase();
       return !(r && !o.includes(r));
     });
-    return i.length === 0 ? this.renderEmptyState("No logs captured yet.") : V(i, x, {
+    return i.length === 0 ? this.renderEmptyState("No logs captured yet.") : Q(i, x, {
       newestFirst: s,
       maxEntries: this.maxLogEntries,
       showSortToggle: !1,
@@ -1472,7 +1472,7 @@ var U = (t) => {
       const n = `${i.path || ""} ${i.handler || ""} ${i.summary || ""}`.toLowerCase();
       return !(s && !n.includes(s));
     });
-    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : H(r, x, { showName: !0 });
+    return r.length === 0 ? this.renderEmptyState("No routes captured yet.") : V(r, x, { showName: !0 });
   }
   renderSessionsPanel() {
     if (!this.sessionsLoaded && !this.sessionsLoading && this.fetchSessions(), this.sessionsError) return this.renderEmptyState(this.sessionsError);
@@ -1542,7 +1542,7 @@ var U = (t) => {
   }
   renderCustom() {
     const { search: t } = this.filters.custom, e = Object.keys(this.state.custom.data).length > 0, s = this.state.custom.logs.length > 0;
-    return !e && !s ? this.renderEmptyState("No custom data captured yet.") : G(this.state.custom, x, {
+    return !e && !s ? this.renderEmptyState("No custom data captured yet.") : z(this.state.custom, x, {
       maxLogEntries: this.maxLogEntries,
       useIconCopyButton: !0,
       showCount: !0,
@@ -1551,7 +1551,7 @@ var U = (t) => {
   }
   renderJSONPanel(t, e, s) {
     const r = e && typeof e == "object" && !Array.isArray(e), i = Array.isArray(e);
-    return r && Object.keys(e || {}).length === 0 || i && (e || []).length === 0 || !r && !i && !e ? this.renderEmptyState(`No ${t.toLowerCase()} data available.`) : W(t, e, x, {
+    return r && Object.keys(e || {}).length === 0 || i && (e || []).length === 0 || !r && !i && !e ? this.renderEmptyState(`No ${t.toLowerCase()} data available.`) : H(t, e, x, {
       useIconCopyButton: !0,
       showCount: !0,
       filterFn: s ? (n) => $(n, s) : void 0
@@ -1961,43 +1961,45 @@ var U = (t) => {
 };
 document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", K) : K();
 export {
-  Ne as DATA_ATTRS,
+  Me as DATA_ATTRS,
   De as DebugPanel,
   F as DebugStream,
-  Me as INTERACTION_CLASSES,
-  Ue as RemoteDebugStream,
-  Y as attachCopyListeners,
-  z as attachExpandableRowListeners,
+  je as INTERACTION_CLASSES,
+  Fe as RemoteDebugStream,
+  X as attachCopyListeners,
+  J as attachExpandableRowListeners,
   x as consoleStyles,
-  Ke as copyToClipboard,
+  He as copyToClipboard,
   k as countPayload,
-  Ve as defaultGetCount,
+  Ze as defaultGetCount,
   he as defaultHandleEvent,
   m as escapeHTML,
-  Ze as formatDuration,
+  tt as formatDuration,
   ie as formatJSON,
   L as formatNumber,
   re as formatTimestamp,
-  Qe as getLevelClass,
+  ze as getLevelClass,
   le as getPanelCount,
-  ze as getPanelData,
+  Ge as getPanelData,
   D as getSnapshotKey,
-  Ge as getStatusClass,
-  Be as getStyleConfig,
+  We as getStatusClass,
+  Ne as getStyleConfig,
   Ie as initDebugPanel,
   se as isSlowDuration,
-  We as normalizeEventTypes,
+  et as normalizeEventTypes,
   v as panelRegistry,
-  G as renderCustomPanel,
-  W as renderJSONPanel,
-  je as renderJSONViewer,
-  V as renderLogsPanel,
-  Xe as renderPanelContent,
-  Q as renderRequestsPanel,
-  H as renderRoutesPanel,
-  Z as renderSQLPanel,
-  Fe as toolbarStyles,
-  Ye as truncate
+  z as renderCustomPanel,
+  H as renderJSONPanel,
+  Ue as renderJSONViewer,
+  Q as renderLogsPanel,
+  Ye as renderPanelContent,
+  W as renderRequestsPanel,
+  V as renderRoutesPanel,
+  Y as renderSQLPanel,
+  Je as renderSiteRenderCachePanel,
+  Be as renderSiteRenderCachePanelCompact,
+  Ke as toolbarStyles,
+  Ve as truncate
 };
 
 //# sourceMappingURL=index.js.map

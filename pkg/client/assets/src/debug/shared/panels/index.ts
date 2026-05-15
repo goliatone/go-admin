@@ -10,3 +10,9 @@ export { renderCustomPanel, type CustomPanelOptions } from './custom.js';
 export { renderJSErrorsPanel, type JSErrorsPanelOptions } from './jserrors.js';
 export { renderPermissionsPanel, renderPermissionsPanelCompact, type PermissionsPanelOptions } from './permissions.js';
 export { renderDoctorPanel, renderDoctorPanelCompact, type DoctorPanelOptions } from './doctor.js';
+export {
+  renderSiteRenderCachePanel,
+  renderSiteRenderCachePanelCompact,
+  type SiteRenderCachePanelOptions,
+  type SiteRenderCacheSnapshot,
+} from './site-render-cache.js';

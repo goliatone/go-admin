@@ -26,6 +26,9 @@ import {
   renderPermissionsPanel,
   renderPermissionsPanelCompact,
   renderDoctorPanel,
+  renderSiteRenderCachePanel,
+  renderSiteRenderCachePanelCompact,
+  type SiteRenderCacheSnapshot,
 } from './panels/index.js';
 
 // ============================================================================
@@ -576,6 +579,54 @@ const doctorPanel: PanelDefinition = {
   supportsToolbar: false,
 };
 
+/**
+ * Site Render Cache panel - Public site render cache diagnostics
+ * snapshotKey: "site-render-cache"
+ * eventTypes: none (snapshot only)
+ */
+const siteRenderCachePanel: PanelDefinition = {
+  id: 'site-render-cache',
+  label: 'Site Cache',
+  icon: 'iconoir-database',
+  snapshotKey: 'site-render-cache',
+  eventTypes: [], // Snapshot only, no incremental events
+  category: 'site',
+  order: 80,
+  showFilters: false,
+
+  render: (data, styles) => {
+    const snapshot = data as SiteRenderCacheSnapshot;
+    return renderSiteRenderCachePanel(snapshot, styles, {
+      showRawJSON: false,
+    });
+  },
+
+  renderConsole: (data, styles) => {
+    const snapshot = data as SiteRenderCacheSnapshot;
+    return renderSiteRenderCachePanel(snapshot, styles, {
+      showRawJSON: true,
+      maxOperations: 50,
+      maxKeys: 50,
+      maxErrors: 20,
+    });
+  },
+
+  renderToolbar: (data, styles) => {
+    const snapshot = data as SiteRenderCacheSnapshot;
+    return renderSiteRenderCachePanelCompact(snapshot, styles);
+  },
+
+  getCount: (data) => {
+    const snapshot = data as SiteRenderCacheSnapshot;
+    if (!snapshot || !snapshot.counters) return 0;
+    // Show error count as the badge count
+    return snapshot.counters.errors || 0;
+  },
+
+  // No handleEvent - snapshot only
+  supportsToolbar: true,
+};
+
 // ============================================================================
 // Registration
 // ============================================================================
@@ -592,6 +643,7 @@ export function registerBuiltinPanels(): void {
   panelRegistry.register(routesPanel);
   panelRegistry.register(permissionsPanel);
   panelRegistry.register(doctorPanel);
+  panelRegistry.register(siteRenderCachePanel);
   panelRegistry.register(configPanel);
   panelRegistry.register(templatePanel);
   panelRegistry.register(sessionPanel);
@@ -613,6 +665,7 @@ export {
   routesPanel,
   permissionsPanel,
   doctorPanel,
+  siteRenderCachePanel,
   configPanel,
   templatePanel,
   sessionPanel,

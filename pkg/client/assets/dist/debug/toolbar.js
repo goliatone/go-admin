@@ -1,6 +1,6 @@
 import { escapeHTML as q } from "../shared/html.js";
 import { normalizeDebugBasePath as L } from "./shared/path-helpers.js";
-import { _ as P, a as T, b as w, c as z, d as M, g as f, h as R, m as H, n as $, o as I, r as c, s as A, t as D, v as O } from "../chunks/builtin-panels-DpLF0CLs.js";
+import { S as w, _ as P, a as c, b as T, c as z, g as M, i as R, l as H, p as $, r as I, s as A, u as D, v as f, y as O } from "../chunks/builtin-panels-rp98daiS.js";
 import { t as j } from "../chunks/repl-panel-So0Od67n.js";
 import { a as at, b as F, c as B, d as N, f as Q, g as _, h as G, i as y, l as Y, n as k, o as h, r as p, s as v, t as ot, u as st, y as b } from "../chunks/runtime-helpers-73DjiyO0.js";
 var K = `
@@ -1033,14 +1033,14 @@ var K = `
       max-width: 60%;
     }
   }
-`, l = M;
+`, l = $;
 function m(e, t, a = 50, o) {
   const s = b.get(e);
   if (s) return F(s, _(t, s), l, o || {}, "toolbar");
   const r = o?.newestFirst ?? !0, i = o?.slowThresholdMs ?? a;
   switch (e) {
     case "requests":
-      return z(t.requests || [], l, {
+      return D(t.requests || [], l, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1051,7 +1051,7 @@ function m(e, t, a = 50, o) {
         maxDetailLength: 80
       });
     case "sql":
-      return A(t.sql || [], l, {
+      return H(t.sql || [], l, {
         newestFirst: r,
         slowThresholdMs: i,
         maxEntries: 50,
@@ -1059,7 +1059,7 @@ function m(e, t, a = 50, o) {
         useIconCopyButton: !1
       });
     case "logs":
-      return I(t.logs || [], l, {
+      return z(t.logs || [], l, {
         newestFirst: !0,
         maxEntries: 100,
         showSortToggle: !1,
@@ -1073,7 +1073,7 @@ function m(e, t, a = 50, o) {
         showCount: !1
       });
     case "routes":
-      return T(t.routes || [], l, { showName: !1 });
+      return A(t.routes || [], l, { showName: !1 });
     case "template":
       return c("Template Context", t.template || {}, l, {
         useIconCopyButton: !1,
@@ -1085,14 +1085,14 @@ function m(e, t, a = 50, o) {
         showCount: !1
       });
     case "jserrors":
-      return D(t.jserrors || [], l, {
+      return I(t.jserrors || [], l, {
         newestFirst: r,
         maxEntries: 50,
         compact: !0,
         showSortToggle: !0
       });
     case "custom":
-      return $(t.custom || {}, l, {
+      return R(t.custom || {}, l, {
         maxLogEntries: 50,
         useIconCopyButton: !1,
         showCount: !1
@@ -1472,18 +1472,18 @@ var g, S = class d extends HTMLElement {
     r && (r.style.height = `${s}px`);
   }
   attachExpandableRowListeners() {
-    R(this.shadow);
+    P(this.shadow);
   }
   attachCopyListeners() {
-    H(this.shadow, { useIconFeedback: !1 });
+    M(this.shadow, { useIconFeedback: !1 });
   }
   attachSortToggleListeners() {
-    O(this.shadow, (t, a) => {
+    T(this.shadow, (t, a) => {
       this.panelSortOrder.set(t, a), this.saveState(), this.updateContent();
     });
   }
   attachSQLSelectionListeners() {
-    this.activePanel === "sql" && P(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
+    this.activePanel === "sql" && O(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
   }
 };
 g = S;

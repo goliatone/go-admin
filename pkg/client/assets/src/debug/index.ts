@@ -77,6 +77,8 @@ export {
   renderJSONPanel,
   renderJSONViewer,
   renderCustomPanel,
+  renderSiteRenderCachePanel,
+  renderSiteRenderCachePanelCompact,
 } from './shared/panels/index.js';
 
 // Types
