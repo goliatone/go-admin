@@ -430,6 +430,47 @@ test('debug toolbar persists active panel with existing toolbar preferences', as
   });
 });
 
+test('debug toolbar falls back to the first configured panel when stored active panel is unavailable', async () => {
+  setGlobals(bootstrapDOM.window);
+  globalThis.WebSocket = OpenWebSocket;
+  bootstrapDOM.window.WebSocket = OpenWebSocket;
+  bootstrapDOM.window.document.body.innerHTML = '';
+  bootstrapDOM.window.localStorage.clear();
+  bootstrapDOM.window.localStorage.setItem('debug-toolbar-expanded', 'true');
+  bootstrapDOM.window.localStorage.setItem('debug-toolbar-active-panel', 'missing-panel');
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/panels')) {
+      return new Response(JSON.stringify({ panels: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        sql: [{ query: 'select 1', duration: '1ms' }],
+        routes: [{ method: 'GET', path: '/health', handler: 'health' }],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response('{}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const toolbar = bootstrapDOM.window.document.createElement('debug-toolbar');
+  toolbar.setAttribute('debug-path', '/admin/toolbar-fallback');
+  toolbar.setAttribute('panels', 'sql,routes');
+  toolbar.setAttribute('live-transport', 'false');
+  bootstrapDOM.window.document.body.appendChild(toolbar);
+  await flushMicrotasks();
+
+  assert.equal(toolbar.shadowRoot?.querySelector('.tab.active')?.dataset.panel, 'sql');
+  assert.equal(toolbar.shadowRoot?.querySelectorAll('.tab.active').length, 1);
+});
+
 test('debug panel delegates dynamic clear-panel actions after panel rerender', async () => {
   const dom = createSiteRenderCacheDebugDOM();
   setGlobals(dom.window);

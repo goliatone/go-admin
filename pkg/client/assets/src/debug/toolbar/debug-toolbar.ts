@@ -206,6 +206,10 @@ export class DebugToolbar extends HTMLElement {
     return this.panels.includes(panel) ? panel : null;
   }
 
+  private fallbackActivePanel(): string {
+    return this.panels[0] || 'requests';
+  }
+
   private loadState(): void {
     try {
       const stored = localStorage.getItem('debug-toolbar-expanded');
@@ -232,10 +236,10 @@ export class DebugToolbar extends HTMLElement {
         }
       }
       const storedActivePanel = this.normalizeStoredPanelID(localStorage.getItem(DEBUG_TOOLBAR_ACTIVE_PANEL_KEY));
-      this.activePanel = storedActivePanel || this.normalizeStoredPanelID(this.activePanel) || 'requests';
+      this.activePanel = storedActivePanel || this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
     } catch {
       // Ignore localStorage errors
-      this.activePanel = this.normalizeStoredPanelID(this.activePanel) || 'requests';
+      this.activePanel = this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
     }
   }
 

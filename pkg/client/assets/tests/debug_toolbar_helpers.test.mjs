@@ -266,6 +266,8 @@ test('debug toolbar helpers hydrate server panel definitions without overwriting
     const futureHTML = debugToolbar.panelRegistry
       .get('future-cache')
       ?.renderConsole?.({ items: [{ key: 'future', value: 1 }] }, testStyles, {});
+    assert.match(futureHTML || '', /Panel UI degraded/);
+    assert.match(futureHTML || '', /Unsupported panel UI schema version/);
     assert.doesNotMatch(futureHTML || '', /\sdata-panel-action(\s|>)/);
     assert.equal(debugToolbar.buildEventToPanel()['cache-event'], 'server-cache');
     assert.equal(debugToolbar.panelRegistry.get('server-cache')?.getCount?.({ items: [1, 2, 3] }), 3);

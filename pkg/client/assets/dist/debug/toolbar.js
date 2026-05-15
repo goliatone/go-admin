@@ -1,9 +1,9 @@
 import { escapeHTML as y } from "../shared/html.js";
 import { httpRequest as z } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as T } from "./shared/path-helpers.js";
-import { _ as M, a as R, b as S, c as I, d as A, g as x, h as $, i as H, m as D, o as O, r as j, s as F, v as G } from "../chunks/builtin-panels-BCqiRlk4.js";
+import { _ as M, a as R, b as S, c as I, d as A, g as x, h as $, i as H, m as D, o as O, r as j, s as F, v as G } from "../chunks/builtin-panels-BnFmkpp-.js";
 import { t as B } from "../chunks/repl-panel-So0Od67n.js";
-import { C as N, S as h, a as k, c as nt, d as _, f as Q, h as Y, i as it, l as p, m as K, n as C, o as b, p as lt, s as E, u as v, v as U, w as c, y as J } from "../chunks/server-definitions-CMXNSIlj.js";
+import { C as N, S as h, a as k, c as nt, d as _, f as Q, h as Y, i as it, l as p, m as K, n as C, o as b, p as lt, s as E, u as v, v as U, w as c, y as J } from "../chunks/server-definitions-BXgs2Hko.js";
 var W = `
   :host {
     --toolbar-bg: #1e1e2e;
@@ -1177,6 +1177,9 @@ var g, w = "debug-toolbar-active-panel", P = class d extends HTMLElement {
     const a = typeof t == "string" ? t.trim() : "";
     return a && this.panels.includes(a) ? a : null;
   }
+  fallbackActivePanel() {
+    return this.panels[0] || "requests";
+  }
   loadState() {
     try {
       const t = localStorage.getItem("debug-toolbar-expanded");
@@ -1194,9 +1197,9 @@ var g, w = "debug-toolbar-active-panel", P = class d extends HTMLElement {
         });
       } catch {
       }
-      this.activePanel = this.normalizeStoredPanelID(localStorage.getItem(w)) || this.normalizeStoredPanelID(this.activePanel) || "requests";
+      this.activePanel = this.normalizeStoredPanelID(localStorage.getItem(w)) || this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
     } catch {
-      this.activePanel = this.normalizeStoredPanelID(this.activePanel) || "requests";
+      this.activePanel = this.normalizeStoredPanelID(this.activePanel) || this.fallbackActivePanel();
     }
   }
   saveState() {

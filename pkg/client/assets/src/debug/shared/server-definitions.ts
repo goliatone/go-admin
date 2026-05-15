@@ -53,12 +53,25 @@ function isSupportedView(view: ServerPanelUIView | undefined): boolean {
   return renderer !== '' && SUPPORTED_RENDERERS.has(renderer);
 }
 
+function unsupportedUIReason(ui: ServerPanelUI | undefined): string | null {
+  if (!ui || typeof ui !== 'object') {
+    return null;
+  }
+  const schemaVersion = normalizeText(ui.schema_version);
+  if (schemaVersion !== '' && schemaVersion !== SUPPORTED_SCHEMA_VERSION) {
+    return `Unsupported panel UI schema version "${schemaVersion}". Rendering JSON fallback.`;
+  }
+  if (!isSupportedView(ui.views?.console) && !isSupportedView(ui.views?.toolbar)) {
+    return 'Panel UI schema does not declare a supported renderer. Rendering JSON fallback.';
+  }
+  return null;
+}
+
 function isSupportedUI(ui: ServerPanelUI | undefined): boolean {
   if (!ui || typeof ui !== 'object') {
     return false;
   }
-  const schemaVersion = normalizeText(ui.schema_version);
-  if (schemaVersion !== '' && schemaVersion !== SUPPORTED_SCHEMA_VERSION) {
+  if (unsupportedUIReason(ui) !== null) {
     return false;
   }
   return isSupportedView(ui.views?.console) || isSupportedView(ui.views?.toolbar);
@@ -241,7 +254,8 @@ function renderServerPanelView(
   view: ServerPanelUIView | undefined,
   data: unknown,
   styles: StyleConfig,
-  useIconCopyButton: boolean
+  useIconCopyButton: boolean,
+  degradedReason?: string | null
 ): string {
   let body = '';
   if (view && isSupportedView(view)) {
@@ -255,7 +269,19 @@ function renderServerPanelView(
       useIconCopyButton
     );
   }
-  return `${renderPanelActionControls(serverDef, styles)}${body}<div data-panel-action-result="${escapeHTML(normalizeID(serverDef.id))}"></div>`;
+  return `${renderPanelActionControls(serverDef, styles)}${renderDegradedNotice(serverDef, styles, degradedReason)}${body}<div data-panel-action-result="${escapeHTML(normalizeID(serverDef.id))}"></div>`;
+}
+
+function renderDegradedNotice(
+  serverDef: ServerPanelDefinition,
+  styles: StyleConfig,
+  reason?: string | null
+): string {
+  if (!reason) {
+    return '';
+  }
+  const panelID = normalizeID(serverDef.id);
+  return `<div class="${styles.emptyState}" data-panel-degraded="${escapeHTML(panelID)}"><strong>Panel UI degraded.</strong> ${escapeHTML(reason)}</div>`;
 }
 
 function renderPanelActionControls(serverDef: ServerPanelDefinition, styles: StyleConfig): string {
@@ -296,7 +322,8 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
   }
   const label = normalizeText(serverDef.label) || id;
   const snapshotKey = normalizeID(serverDef.snapshot_key) || id;
-  const ui = isSupportedUI(serverDef.ui) ? serverDef.ui : undefined;
+  const degradedReason = unsupportedUIReason(serverDef.ui);
+  const ui = degradedReason === null && isSupportedUI(serverDef.ui) ? serverDef.ui : undefined;
   const renderDef = ui ? serverDef : { ...serverDef, ui: undefined };
   return {
     id,
@@ -312,9 +339,9 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
     renderFilters: ui?.filters?.length ? (state) => renderFilterControls(ui, state) : undefined,
     defaultFilters: ui?.filters?.length ? defaultFilterState(ui) : undefined,
     applyFilters: ui?.filters?.length ? (data, state) => applyDeclaredFilters(data, state, ui) : undefined,
-    render: (data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true),
-    renderConsole: (data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true),
-    renderToolbar: (data, styles) => renderServerPanelView(renderDef, ui?.views?.toolbar || ui?.views?.console, data, styles, false),
+    render: (data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason),
+    renderConsole: (data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true, degradedReason),
+    renderToolbar: (data, styles) => renderServerPanelView(renderDef, ui?.views?.toolbar || ui?.views?.console, data, styles, false, degradedReason),
     showFilters: Boolean(ui?.filters?.length),
   };
 }
