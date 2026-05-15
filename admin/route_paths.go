@@ -21,6 +21,7 @@ var debugRouteResolverKeys = map[string]map[string]string{
 		"sessions":                  debugSessionsRouteKey,
 		"clear":                     debugClearRouteKey,
 		"clear.panel":               debugClearPanelRouteKey,
+		"panel.action":              debugPanelActionRouteKey,
 		"doctor.action":             debugDoctorActionRouteKey,
 		"errors":                    debugErrorsRouteKey,
 		"dashboard":                 debugDashboardRouteKey,
