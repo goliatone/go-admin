@@ -1341,17 +1341,17 @@ func renderCacheRouteHint(key string) string {
 	if key == "" {
 		return ""
 	}
-	if strings.HasPrefix(key, RenderCacheKeyPrefix) {
-		key = strings.TrimPrefix(key, RenderCacheKeyPrefix)
+	if after, ok := strings.CutPrefix(key, RenderCacheKeyPrefix); ok {
+		key = after
 	}
-	parts := strings.Split(key, "|")
-	for _, part := range parts {
+	parts := strings.SplitSeq(key, "|")
+	for part := range parts {
 		part = strings.TrimSpace(part)
 		if strings.HasPrefix(part, "/") {
 			return part
 		}
-		if strings.HasPrefix(part, "path=") {
-			unescaped, err := neturl.QueryUnescape(strings.TrimPrefix(part, "path="))
+		if after, ok := strings.CutPrefix(part, "path="); ok {
+			unescaped, err := neturl.QueryUnescape(after)
 			if err == nil && strings.HasPrefix(unescaped, "/") {
 				return unescaped
 			}
