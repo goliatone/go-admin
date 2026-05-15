@@ -581,6 +581,12 @@ func normalizePanelUI(input *PanelUI, handlers map[string]PanelActionHandler) *P
 	if ui.SchemaVersion == "" {
 		ui.SchemaVersion = PanelUISchemaVersion
 	}
+	if ui.SchemaVersion != PanelUISchemaVersion {
+		if len(input.Metadata) > 0 {
+			ui.Metadata = cloneJSONSafeMap(input.Metadata)
+		}
+		return ui
+	}
 	if input.Count != nil {
 		if count := normalizePanelUICount(input.Count); count != nil {
 			ui.Count = count
@@ -598,7 +604,7 @@ func normalizePanelUI(input *PanelUI, handlers map[string]PanelActionHandler) *P
 	}
 	ui.Actions = normalizePanelUIActions(input.Actions, handlers)
 	if len(input.Metadata) > 0 {
-		ui.Metadata = cloneMetadata(input.Metadata)
+		ui.Metadata = cloneJSONSafeMap(input.Metadata)
 	}
 	if ui.Views.Console == nil && ui.Views.Toolbar == nil && ui.Count == nil && len(ui.Filters) == 0 && ui.Events == nil && len(ui.Actions) == 0 {
 		return nil
