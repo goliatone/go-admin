@@ -1,6 +1,6 @@
 import { escapeHTML as n } from "../shared/html.js";
 import { normalizeDebugBasePath as Y } from "../debug/shared/path-helpers.js";
-import { A as B, D as Z, E, F as J, I as ee, M as w, N as b, O as te, P as x, R as $, S as f, _ as k, i as oe, j as L, w as h } from "./server-definitions-BXgs2Hko.js";
+import { A as B, D as Z, E, F as J, I as ee, M as w, N as b, O as te, P as m, R as $, S as f, _ as k, i as oe, j as L, w as h } from "./server-definitions-BXgs2Hko.js";
 var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = Y(e);
   return `${t}//${window.location.host}${o}/ws`;
@@ -9,7 +9,7 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
   if (!r || !t || !o) return e;
   const [s, i] = r.split("#"), l = `${s}${s.includes("?") ? "&" : "?"}${encodeURIComponent(t)}=${encodeURIComponent(o)}`;
   return i ? `${l}#${i}` : l;
-}, ce = (e) => {
+}, pe = (e) => {
   if (!e) return null;
   const t = e.replace(/-/g, "+").replace(/_/g, "/"), o = t.padEnd(t.length + (4 - (t.length % 4 || 4)) % 4, "=");
   try {
@@ -18,11 +18,11 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
     return null;
   }
   return null;
-}, pe = (e) => {
+}, ce = (e) => {
   if (!e) return null;
   const t = e.split(".");
   if (t.length < 2) return null;
-  const o = ce(t[1]);
+  const o = pe(t[1]);
   if (!o) return null;
   try {
     const r = JSON.parse(o);
@@ -41,7 +41,7 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
       if (!Number.isNaN(r.getTime())) return r.getTime();
     }
   }
-  return pe(e);
+  return ce(e);
 }, ge = class {
   constructor(e) {
     this.ws = null, this.reconnectTimer = null, this.reconnectAttempts = 0, this.manualClose = !1, this.pendingCommands = [], this.status = "disconnected", this.hasConnected = !1, this.options = e;
@@ -134,18 +134,18 @@ var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
   }
 }, Ot = class extends ge {
   constructor(e) {
-    const { url: t, authToken: o, tokenProvider: r, tokenRefreshBufferMs: s, tokenParam: i, appId: l, onEvent: d, ...c } = e, a = (p) => {
-      if (l && p && !p.app_id) {
+    const { url: t, authToken: o, tokenProvider: r, tokenRefreshBufferMs: s, tokenParam: i, appId: l, onEvent: d, ...p } = e, a = (c) => {
+      if (l && c && !c.app_id) {
         d?.({
-          ...p,
+          ...c,
           app_id: l
         });
         return;
       }
-      d?.(p);
+      d?.(c);
     };
     super({
-      ...c,
+      ...p,
       url: t,
       onEvent: a
     }), this.authToken = null, this.tokenRefreshTimer = null, this.tokenExpiresAt = null, this.baseUrl = t, this.tokenProvider = r, this.tokenRefreshBufferMs = s ?? ie, this.tokenParam = i || "token", o && this.setToken(o);
@@ -263,36 +263,36 @@ function be(e, t, o = "text/sql") {
 function Ht(e, t, o = {}) {
   const r = /* @__PURE__ */ new Set(), s = e.querySelector("[data-sql-toolbar]"), i = e.querySelector("[data-sql-selected-count]"), l = e.querySelector(".sql-select-all"), d = e.querySelectorAll(".sql-select-row");
   if (!s || d.length === 0) return;
-  function c() {
+  function p() {
     if (!s) return;
     const a = r.size;
     s.dataset.visible = a > 0 ? "true" : "false", i && (i.textContent = `${a} selected`), l && (l.checked = a > 0 && a === d.length, l.indeterminate = a > 0 && a < d.length);
   }
   d.forEach((a) => {
-    a.addEventListener("click", (p) => {
-      p.stopPropagation();
+    a.addEventListener("click", (c) => {
+      c.stopPropagation();
     }), a.addEventListener("change", () => {
-      const p = parseInt(a.dataset.sqlIndex || "", 10);
-      Number.isNaN(p) || (a.checked ? r.add(p) : r.delete(p), c());
+      const c = parseInt(a.dataset.sqlIndex || "", 10);
+      Number.isNaN(c) || (a.checked ? r.add(c) : r.delete(c), p());
     });
   }), l && (l.addEventListener("click", (a) => {
     a.stopPropagation();
   }), l.addEventListener("change", () => {
     d.forEach((a) => {
       a.checked = l.checked;
-      const p = parseInt(a.dataset.sqlIndex || "", 10);
-      Number.isNaN(p) || (l.checked ? r.add(p) : r.delete(p));
-    }), c();
+      const c = parseInt(a.dataset.sqlIndex || "", 10);
+      Number.isNaN(c) || (l.checked ? r.add(c) : r.delete(c));
+    }), p();
   })), e.querySelector('[data-sql-export="clipboard"]')?.addEventListener("click", async (a) => {
     if (a.preventDefault(), r.size === 0) return;
-    const p = I(t, r), u = a.currentTarget;
-    await U(p, u, o);
+    const c = I(t, r), u = a.currentTarget;
+    await U(c, u, o);
   }), e.querySelector('[data-sql-export="download"]')?.addEventListener("click", (a) => {
     a.preventDefault(), r.size !== 0 && be(I(t, r), `sql-queries-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19)}.sql`);
   }), e.querySelector("[data-sql-clear-selection]")?.addEventListener("click", (a) => {
-    a.preventDefault(), r.clear(), d.forEach((p) => {
-      p.checked = !1;
-    }), c();
+    a.preventDefault(), r.clear(), d.forEach((c) => {
+      c.checked = !1;
+    }), p();
   });
 }
 function Ft(e, t) {
@@ -306,10 +306,10 @@ function Ft(e, t) {
       if (!l) return;
       const d = i.nextElementSibling;
       if (!d || !d.hasAttribute("data-detail-for") || d.dataset.detailFor !== l) return;
-      const c = d.querySelector("[data-request-detail-template]");
-      if (c) {
-        const p = d.querySelector("td");
-        p && (p.appendChild(c.content.cloneNode(!0)), c.remove());
+      const p = d.querySelector("[data-request-detail-template]");
+      if (p) {
+        const c = d.querySelector("td");
+        c && (c.appendChild(p.content.cloneNode(!0)), p.remove());
       }
       const a = i.querySelector("[data-expand-icon]");
       t.has(l) ? (t.delete(l), d.style.display = "none", a && (a.textContent = "▶")) : (t.add(l), d.style.display = "table-row", a && (a.textContent = "▼"));
@@ -368,7 +368,7 @@ var fe = {
   detailBody: "request-detail-body",
   detailMetadataLine: "request-detail-metadata",
   badgeContentType: "badge badge--content-type"
-}, me = {
+}, xe = {
   table: "",
   tableRoutes: "",
   badge: "badge",
@@ -425,9 +425,9 @@ var fe = {
   badgeContentType: "badge badge-content-type"
 };
 function Kt(e) {
-  return e === "console" ? fe : me;
+  return e === "console" ? fe : xe;
 }
-function xe(e) {
+function me(e) {
   const t = String(e ?? "GET").trim().toUpperCase();
   return {
     display: t || "GET",
@@ -450,9 +450,9 @@ function ye(e, t, o) {
 function ve(e, t, o = {}) {
   const { maskPlaceholder: r = "***", maxDetailLength: s } = o, i = [], l = [];
   if (e.id && l.push(`<span>ID: <code>${n(e.id)}</code></span>`), e.remote_ip && l.push(`<span>IP: <code>${n(e.remote_ip)}</code></span>`), e.content_type && l.push(`<span>Content-Type: <code>${n(e.content_type)}</code></span>`), l.length > 0 && i.push(`<div class="${t.detailMetadataLine}">${l.join("")}</div>`), e.headers && Object.keys(e.headers).length > 0) {
-    const d = Object.entries(e.headers).map(([c, a]) => {
-      const p = s && a.length > s ? $(a, s) : a, u = a === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
-      return `<dt>${n(c)}</dt><dd>${n(p)}${u}</dd>`;
+    const d = Object.entries(e.headers).map(([p, a]) => {
+      const c = s && a.length > s ? $(a, s) : a, u = a === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
+      return `<dt>${n(p)}</dt><dd>${n(c)}${u}</dd>`;
     }).join("");
     i.push(`
       <div class="${t.detailSection}">
@@ -462,9 +462,9 @@ function ve(e, t, o = {}) {
     `);
   }
   if (e.query && Object.keys(e.query).length > 0) {
-    const d = Object.entries(e.query).map(([c, a]) => {
-      const p = a === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
-      return `<dt>${n(c)}</dt><dd>${n(a)}${p}</dd>`;
+    const d = Object.entries(e.query).map(([p, a]) => {
+      const c = a === r ? ` <span class="${t.detailMasked}">(masked)</span>` : "";
+      return `<dt>${n(p)}</dt><dd>${n(a)}${c}</dd>`;
     }).join("");
     i.push(`
       <div class="${t.detailSection}">
@@ -474,7 +474,7 @@ function ve(e, t, o = {}) {
     `);
   }
   if (e.request_body) {
-    const d = e.request_size ? ` (${B(e.request_size)})` : "", c = e.body_truncated ? ' <span class="' + t.detailMasked + '">(truncated)</span>' : "";
+    const d = e.request_size ? ` (${B(e.request_size)})` : "", p = e.body_truncated ? ' <span class="' + t.detailMasked + '">(truncated)</span>' : "";
     let a;
     try {
       a = E(JSON.parse(e.request_body), !0);
@@ -483,7 +483,7 @@ function ve(e, t, o = {}) {
     }
     i.push(`
       <div class="${t.detailSection}">
-        <span class="${t.detailLabel}">Request Body${d}${c}</span>
+        <span class="${t.detailLabel}">Request Body${d}${p}</span>
         <div class="${t.detailBody}">
           <pre>${a}</pre>
         </div>
@@ -492,9 +492,9 @@ function ve(e, t, o = {}) {
     `);
   }
   if (e.response_headers && Object.keys(e.response_headers).length > 0) {
-    const d = Object.entries(e.response_headers).map(([c, a]) => {
-      const p = s && a.length > s ? $(a, s) : a;
-      return `<dt>${n(c)}</dt><dd>${n(p)}</dd>`;
+    const d = Object.entries(e.response_headers).map(([p, a]) => {
+      const c = s && a.length > s ? $(a, s) : a;
+      return `<dt>${n(p)}</dt><dd>${n(c)}</dd>`;
     }).join("");
     i.push(`
       <div class="${t.detailSection}">
@@ -505,17 +505,17 @@ function ve(e, t, o = {}) {
   }
   if (e.response_body) {
     const d = e.response_size ? ` (${B(e.response_size)})` : "";
-    let c;
+    let p;
     try {
-      c = E(JSON.parse(e.response_body), !0);
+      p = E(JSON.parse(e.response_body), !0);
     } catch {
-      c = n(e.response_body);
+      p = n(e.response_body);
     }
     i.push(`
       <div class="${t.detailSection}">
         <span class="${t.detailLabel}">Response Body${d}</span>
         <div class="${t.detailBody}">
-          <pre>${c}</pre>
+          <pre>${p}</pre>
         </div>
         <button class="${t.copyBtnSm}" data-copy-trigger="${n(e.response_body)}">Copy</button>
       </div>
@@ -528,24 +528,24 @@ function ve(e, t, o = {}) {
     `), i.length === 0 ? `<div class="${t.detailPane}"><span class="${t.muted}">No additional details available</span></div>` : `<div class="${t.detailPane}">${i.join("")}</div>`;
 }
 function $e(e, t, o, r) {
-  const { display: s, classToken: i } = xe(e.method), l = e.path || "", d = e.status || 0, c = L(e.duration, r.slowThresholdMs), a = he(e, t), p = r.expandedRequestIds?.has(a) || !1, u = o.badgeMethod(i), g = o.badgeStatus(d), m = c.isSlow ? o.durationSlow : "", y = d >= 400 ? o.rowError : "", v = r.truncatePath ? $(l, r.maxPathLength || 50) : l;
+  const { display: s, classToken: i } = me(e.method), l = e.path || "", d = e.status || 0, p = L(e.duration, r.slowThresholdMs), a = he(e, t), c = r.expandedRequestIds?.has(a) || !1, u = o.badgeMethod(i), g = o.badgeStatus(d), x = p.isSlow ? o.durationSlow : "", y = d >= 400 ? o.rowError : "", v = r.truncatePath ? $(l, r.maxPathLength || 50) : l;
   let P = "";
   const C = s;
   if (C === "POST" || C === "PUT" || C === "PATCH") {
     const M = (e.content_type || e.headers?.["Content-Type"] || e.headers?.["content-type"] || "").split(";")[0].trim();
     M && (P = ` <span class="${o.badgeContentType}">${n(M)}</span>`);
   }
-  const Q = `<span class="${o.expandIcon}" data-expand-icon>${p ? "▼" : "▶"}</span>`, G = p ? "table-row" : "none", O = ve(e, o, {
+  const Q = `<span class="${o.expandIcon}" data-expand-icon>${c ? "▼" : "▶"}</span>`, G = c ? "table-row" : "none", O = ve(e, o, {
     maskPlaceholder: r.maskPlaceholder,
     maxDetailLength: r.maxDetailLength
-  }), X = p ? O : `<template data-request-detail-template>${O}</template>`;
+  }), X = c ? O : `<template data-request-detail-template>${O}</template>`;
   return `
     <tr class="${y}" data-request-id="${n(a)}" style="cursor:pointer">
       <td>${Q}<span class="${u}">${n(s)}</span>${P}</td>
       <td class="${o.path}" title="${n(l)}">${n(v)}</td>
       <td><span class="${g}">${n(d || "-")}</span></td>
-      <td class="${o.duration} ${m}">${c.text}</td>
-      <td class="${o.timestamp}">${n(x(e.timestamp))}</td>
+      <td class="${o.duration} ${x}">${p.text}</td>
+      <td class="${o.timestamp}">${n(m(e.timestamp))}</td>
     </tr>
     <tr class="${o.detailRow}" data-detail-for="${n(a)}" style="display:${G}">
       <td colspan="5">${X}</td>
@@ -553,19 +553,19 @@ function $e(e, t, o, r) {
   `;
 }
 function S(e, t, o = {}) {
-  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: i, showSortToggle: l = !1, truncatePath: d = !0, maxPathLength: c = 50 } = o, a = l ? ye("requests", r, t) : "";
+  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: i, showSortToggle: l = !1, truncatePath: d = !0, maxPathLength: p = 50 } = o, a = l ? ye("requests", r, t) : "";
   if (!e.length) return a + `<div class="${t.emptyState}">No requests captured</div>`;
-  const p = i ? Math.max(0, e.length - i) : 0;
-  let u = (i ? e.slice(-i) : e).map((m, y) => ({
-    entry: m,
-    originalIndex: p + y
+  const c = i ? Math.max(0, e.length - i) : 0;
+  let u = (i ? e.slice(-i) : e).map((x, y) => ({
+    entry: x,
+    originalIndex: c + y
   }));
   r && (u = [...u].reverse());
-  const g = u.map(({ entry: m, originalIndex: y }) => $e(m, y, t, {
+  const g = u.map(({ entry: x, originalIndex: y }) => $e(x, y, t, {
     ...o,
     slowThresholdMs: s,
     truncatePath: d,
-    maxPathLength: c
+    maxPathLength: p
   })).join("");
   return `
     ${a}
@@ -634,21 +634,21 @@ function Ce(e, t, o) {
   `;
 }
 function Se(e, t, o, r) {
-  const s = L(e.duration, r.slowThresholdMs), i = s.isSlow, l = !!e.error, d = `sql-row-${t}`, c = e.query || "", a = Z(c, !0), p = [o.expandableRow];
-  i && p.push(o.slowQuery), l && p.push(o.errorQuery);
+  const s = L(e.duration, r.slowThresholdMs), i = s.isSlow, l = !!e.error, d = `sql-row-${t}`, p = e.query || "", a = Z(p, !0), c = [o.expandableRow];
+  i && c.push(o.slowQuery), l && c.push(o.errorQuery);
   const u = i ? o.durationSlow : "", g = Ce(o, r.useIconCopyButton || !1, d);
   return `
-    <tr class="${p.join(" ")}" data-row-id="${d}">
+    <tr class="${c.join(" ")}" data-row-id="${d}">
       <td class="${o.selectCell}"><input type="checkbox" class="sql-select-row" data-sql-index="${t}"></td>
       <td class="${o.duration} ${u}">${s.text}</td>
       <td>${n(b(e.row_count ?? "-"))}</td>
-      <td class="${o.timestamp}">${n(x(e.timestamp))}</td>
+      <td class="${o.timestamp}">${n(m(e.timestamp))}</td>
       <td>${l ? `<span class="${o.badgeError}">Error</span>` : ""}</td>
-      <td class="${o.queryText}"><span class="${o.expandIcon}">&#9654;</span>${n(c)}</td>
+      <td class="${o.queryText}"><span class="${o.expandIcon}">&#9654;</span>${n(p)}</td>
     </tr>
     <tr class="${o.expansionRow}" data-expansion-for="${d}">
       <td colspan="6">
-        <div class="${o.expandedContent}" data-copy-content="${n(c)}">
+        <div class="${o.expandedContent}" data-copy-content="${n(p)}">
           <div class="${o.expandedContentHeader}">
             ${g}
           </div>
@@ -659,17 +659,17 @@ function Se(e, t, o, r) {
   `;
 }
 function T(e, t, o = {}) {
-  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: i = 50, showSortToggle: l = !1, useIconCopyButton: d = !1 } = o, c = l ? we("sql", r, t) : "", a = ke(t);
-  if (!e.length) return c + `<div class="${t.emptyState}">No SQL queries captured</div>`;
-  let p = i ? e.slice(-i) : e;
-  r && (p = [...p].reverse());
-  const u = p.map((g, m) => Se(g, m, t, {
+  const { newestFirst: r = !0, slowThresholdMs: s = 50, maxEntries: i = 50, showSortToggle: l = !1, useIconCopyButton: d = !1 } = o, p = l ? we("sql", r, t) : "", a = ke(t);
+  if (!e.length) return p + `<div class="${t.emptyState}">No SQL queries captured</div>`;
+  let c = i ? e.slice(-i) : e;
+  r && (c = [...c].reverse());
+  const u = c.map((g, x) => Se(g, x, t, {
     ...o,
     slowThresholdMs: s,
     useIconCopyButton: d
   })).join("");
   return `
-    ${c}
+    ${p}
     ${a}
     <table class="${t.table}">
       <thead>
@@ -697,26 +697,26 @@ function Te(e, t, o) {
   `;
 }
 function _e(e, t, o) {
-  const r = e.level || "INFO", s = String(r).toUpperCase(), i = J(String(r)), l = e.message || "", d = e.source || "", c = t.badgeLevel(i), a = i === "error" ? t.rowError : "", p = o.truncateMessage ? $(l, o.maxMessageLength || 100) : l, u = o.showSource ? `<td class="${t.timestamp}">${n(d)}</td>` : "";
+  const r = e.level || "INFO", s = String(r).toUpperCase(), i = J(String(r)), l = e.message || "", d = e.source || "", p = t.badgeLevel(i), a = i === "error" ? t.rowError : "", c = o.truncateMessage ? $(l, o.maxMessageLength || 100) : l, u = o.showSource ? `<td class="${t.timestamp}">${n(d)}</td>` : "";
   return `
     <tr class="${a}">
-      <td><span class="${c}">${n(s)}</span></td>
-      <td class="${t.timestamp}">${n(x(e.timestamp))}</td>
-      <td class="${t.message}" title="${n(l)}">${n(p)}</td>
+      <td><span class="${p}">${n(s)}</span></td>
+      <td class="${t.timestamp}">${n(m(e.timestamp))}</td>
+      <td class="${t.message}" title="${n(l)}">${n(c)}</td>
       ${u}
     </tr>
   `;
 }
 function _(e, t, o = {}) {
-  const { newestFirst: r = !0, maxEntries: s = 100, showSortToggle: i = !1, showSource: l = !1, truncateMessage: d = !0, maxMessageLength: c = 100 } = o, a = i ? Te("logs", r, t) : "";
+  const { newestFirst: r = !0, maxEntries: s = 100, showSortToggle: i = !1, showSource: l = !1, truncateMessage: d = !0, maxMessageLength: p = 100 } = o, a = i ? Te("logs", r, t) : "";
   if (!e.length) return a + `<div class="${t.emptyState}">No logs captured</div>`;
-  let p = s ? e.slice(-s) : e;
-  r && (p = [...p].reverse());
-  const u = p.map((m) => _e(m, t, {
+  let c = s ? e.slice(-s) : e;
+  r && (c = [...c].reverse());
+  const u = c.map((x) => _e(x, t, {
     ...o,
     showSource: l,
     truncateMessage: d,
-    maxMessageLength: c
+    maxMessageLength: p
   })).join(""), g = l ? "<th>Source</th>" : "";
   return `
     ${a}
@@ -734,13 +734,13 @@ function _(e, t, o = {}) {
   `;
 }
 function ze(e, t, o) {
-  const r = e.method || "GET", s = e.path || "", i = e.handler || "-", l = e.name || "", d = t.badgeMethod(r), c = o.showName ? `<td class="${t.timestamp}">${n(l)}</td>` : "";
+  const r = e.method || "GET", s = e.path || "", i = e.handler || "-", l = e.name || "", d = t.badgeMethod(r), p = o.showName ? `<td class="${t.timestamp}">${n(l)}</td>` : "";
   return `
     <tr>
       <td><span class="${d}">${n(r)}</span></td>
       <td class="${t.path}">${n(s)}</td>
       <td>${n(i)}</td>
-      ${c}
+      ${p}
     </tr>
   `;
 }
@@ -781,19 +781,19 @@ function qe(e, t) {
   return `
     <tr>
       <td><span class="${t.badgeCustom}">${n(e.category || "custom")}</span></td>
-      <td class="${t.timestamp}">${n(x(e.timestamp))}</td>
+      <td class="${t.timestamp}">${n(m(e.timestamp))}</td>
       <td class="${t.message}">${n(e.message || "")}</td>
     </tr>
   `;
 }
 function Ee(e, t, o) {
-  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, i = w(e), l = E(e, !0), d = Re(t, r), c = s ? `<span class="${t.muted}">${b(te(e))} keys</span>` : "";
+  const { useIconCopyButton: r = !1, showCount: s = !0 } = o, i = w(e), l = E(e, !0), d = Re(t, r), p = s ? `<span class="${t.muted}">${b(te(e))} keys</span>` : "";
   return `
     <div class="${t.jsonPanel}" data-copy-content="${n(i)}">
       <div class="${t.jsonHeader}">
         <span class="${t.jsonViewerTitle}">Custom Data</span>
         <div class="${t.jsonActions}">
-          ${c}
+          ${p}
           ${d}
         </div>
       </div>
@@ -821,10 +821,10 @@ function Le(e, t, o) {
   `;
 }
 function R(e, t, o = {}) {
-  const { dataFilterFn: r } = o, s = e.data || {}, i = r ? r(s) : s, l = e.logs || [], d = Object.keys(i).length > 0, c = l.length > 0;
-  if (!d && !c) return `<div class="${t.emptyState}">No custom data captured</div>`;
+  const { dataFilterFn: r } = o, s = e.data || {}, i = r ? r(s) : s, l = e.logs || [], d = Object.keys(i).length > 0, p = l.length > 0;
+  if (!d && !p) return `<div class="${t.emptyState}">No custom data captured</div>`;
   let a = "";
-  return d && (a += Ee(i, t, o)), c && (a += `
+  return d && (a += Ee(i, t, o)), p && (a += `
       <div class="${t.jsonPanel}">
         <div class="${t.jsonHeader}">
           <span class="${t.jsonViewerTitle}">Custom Logs</span>
@@ -834,7 +834,7 @@ function R(e, t, o = {}) {
           ${Le(l, t, o)}
         </div>
       </div>
-    `), d && c ? `<div class="${t.jsonGrid}">${a}</div>` : a;
+    `), d && p ? `<div class="${t.jsonGrid}">${a}</div>` : a;
 }
 function Ne(e) {
   switch ((e || "").toLowerCase()) {
@@ -865,9 +865,9 @@ function je(e) {
   }
 }
 function Pe(e, t, o) {
-  const r = je(e.type), s = Ne(e.type), i = t.badgeLevel(s), l = e.message || "", d = e.source || "", c = !!e.stack, a = e.type === "network_error" && e.extra?.request_url ? String(e.extra.request_url) : d && e.line ? `${d}:${e.line}${e.column ? ":" + e.column : ""}` : d || "", p = c ? `<span class="${t.expandIcon}">&#9654;</span>` : "", u = c ? t.expandableRow : "", g = o.compact ? n(l.length > 100 ? l.slice(0, 100) + "..." : l) : n(l), m = !o.compact && a ? `<td class="${t.timestamp}" title="${n(a)}">${n(a.length > 60 ? "..." + a.slice(-57) : a)}</td>` : "", y = !o.compact && e.url ? `<td class="${t.timestamp}" title="${n(e.url)}">${n(e.url.length > 40 ? "..." + e.url.slice(-37) : e.url)}</td>` : "";
+  const r = je(e.type), s = Ne(e.type), i = t.badgeLevel(s), l = e.message || "", d = e.source || "", p = !!e.stack, a = e.type === "network_error" && e.extra?.request_url ? String(e.extra.request_url) : d && e.line ? `${d}:${e.line}${e.column ? ":" + e.column : ""}` : d || "", c = p ? `<span class="${t.expandIcon}">&#9654;</span>` : "", u = p ? t.expandableRow : "", g = o.compact ? n(l.length > 100 ? l.slice(0, 100) + "..." : l) : n(l), x = !o.compact && a ? `<td class="${t.timestamp}" title="${n(a)}">${n(a.length > 60 ? "..." + a.slice(-57) : a)}</td>` : "", y = !o.compact && e.url ? `<td class="${t.timestamp}" title="${n(e.url)}">${n(e.url.length > 40 ? "..." + e.url.slice(-37) : e.url)}</td>` : "";
   let v = "";
-  return c && (v = `
+  return p && (v = `
       <tr class="${t.expansionRow}">
         <td colspan="${o.compact ? 3 : 5}">
           <div class="${t.expandedContent}">
@@ -877,10 +877,10 @@ function Pe(e, t, o) {
       </tr>
     `), `
     <tr class="${t.rowError} ${u}">
-      <td>${p}<span class="${i}">${n(r)}</span></td>
-      <td class="${t.timestamp}">${n(x(e.timestamp))}</td>
+      <td>${c}<span class="${i}">${n(r)}</span></td>
+      <td class="${t.timestamp}">${n(m(e.timestamp))}</td>
       <td class="${t.message}" title="${n(l)}">${g}</td>
-      ${m}
+      ${x}
       ${y}
     </tr>
     ${v}
@@ -899,12 +899,12 @@ function Oe(e, t) {
 function q(e, t, o = {}) {
   const { newestFirst: r = !0, maxEntries: s = 100, compact: i = !1, showSortToggle: l = !1 } = o, d = l ? Oe(r, t) : "";
   if (!e.length) return d + `<div class="${t.emptyState}">No JS errors captured</div>`;
-  let c = s ? e.slice(-s) : e;
-  r && (c = [...c].reverse());
-  const a = c.map((g) => Pe(g, t, {
+  let p = s ? e.slice(-s) : e;
+  r && (p = [...p].reverse());
+  const a = p.map((g) => Pe(g, t, {
     ...o,
     compact: i
-  })).join(""), p = i ? "" : "<th>Location</th>", u = i ? "" : "<th>Page</th>";
+  })).join(""), c = i ? "" : "<th>Location</th>", u = i ? "" : "<th>Page</th>";
   return `
     ${d}
     <table class="${t.table}">
@@ -913,7 +913,7 @@ function q(e, t, o = {}) {
           <th>Type</th>
           <th>Time</th>
           <th>Message</th>
-          ${p}
+          ${c}
           ${u}
         </tr>
       </thead>
@@ -1500,9 +1500,9 @@ function Ge(e) {
 }
 function Xe(e, t) {
   if (!t) return "";
-  const o = String(t.description || "").trim(), r = String(t.cta || t.label || "").trim(), s = !!t.runnable, i = !!t.applicable, l = !!t.requires_confirmation, d = String(t.confirm_text || "").trim(), c = t.kind || "manual";
-  let a = "enabled", p = "";
-  i ? s || (a = "manual", p = c === "manual" ? "Manual action required" : "Action not available") : (a = "not-applicable", p = "Not applicable for current status");
+  const o = String(t.description || "").trim(), r = String(t.cta || t.label || "").trim(), s = !!t.runnable, i = !!t.applicable, l = !!t.requires_confirmation, d = String(t.confirm_text || "").trim(), p = t.kind || "manual";
+  let a = "enabled", c = "";
+  i ? s || (a = "manual", c = p === "manual" ? "Manual action required" : "Action not available") : (a = "not-applicable", c = "Not applicable for current status");
   const u = a !== "enabled", g = u ? "background: #374151; color: #6b7280; cursor: not-allowed;" : "background: #3b82f6; color: #fff; cursor: pointer;";
   return `
     <div style="
@@ -1547,12 +1547,12 @@ function Xe(e, t) {
             "
           >${n(r)}</button>
         ` : ""}
-        ${p ? `
+        ${c ? `
           <span style="
             font-size: 12px;
             color: #64748b;
             font-style: italic;
-          ">${n(p)}</span>
+          ">${n(c)}</span>
         ` : ""}
       </div>
     </div>
@@ -1800,13 +1800,13 @@ function A(e, t, o = {}) {
     info: 2,
     ok: 3
   };
-  i = [...i].sort((a, p) => {
-    const u = l[a.status || "ok"] ?? 4, g = l[p.status || "ok"] ?? 4;
-    return u !== g ? u - g : (a.label || a.id || "").localeCompare(p.label || p.id || "");
+  i = [...i].sort((a, c) => {
+    const u = l[a.status || "ok"] ?? 4, g = l[c.status || "ok"] ?? 4;
+    return u !== g ? u - g : (a.label || a.id || "").localeCompare(c.label || c.id || "");
   });
   const d = i.some((a) => a.status === "warn" || a.status === "error");
-  let c = "";
-  return i.length === 0 ? s && !d ? c = `
+  let p = "";
+  return i.length === 0 ? s && !d ? p = `
         <div style="
           text-align: center;
           padding: 40px 20px;
@@ -1816,10 +1816,10 @@ function A(e, t, o = {}) {
           <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">All Systems Healthy</div>
           <div style="font-size: 14px; color: #94a3b8;">${e.summary?.checks || 0} checks passed</div>
         </div>
-      ` : c = `<div class="${t.emptyState}">No doctor checks available</div>` : c = i.map((a) => et(a)).join(""), `
+      ` : p = `<div class="${t.emptyState}">No doctor checks available</div>` : p = i.map((a) => et(a)).join(""), `
     <div style="padding: 12px;">
       ${We(e)}
-      ${c}
+      ${p}
       ${tt(e.next_actions)}
       ${r ? ot(e) : ""}
     </div>
@@ -1894,69 +1894,59 @@ function rt(e) {
   let r = o.label;
   return e.configured ? e.active || (r = "Inactive") : r = "Not Configured", `
     <div style="
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      padding: 12px 16px;
+      gap: 6px;
+      padding: 6px 10px;
       background: ${o.bgColor};
       border: 1px solid ${o.borderColor};
-      border-radius: 8px;
+      border-radius: 6px;
     ">
       <span style="
-        font-size: 24px;
+        font-size: 14px;
         color: ${o.color};
         line-height: 1;
       ">${o.icon}</span>
-      <div>
-        <div style="
-          font-size: 16px;
-          font-weight: 600;
-          color: ${o.color};
-        ">${n(r)}</div>
-        <div style="
-          font-size: 11px;
-          color: #94a3b8;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        ">Site Render Cache</div>
-      </div>
+      <span style="
+        font-size: 13px;
+        font-weight: 600;
+        color: ${o.color};
+      ">${n(r)}</span>
     </div>
   `;
 }
 function nt(e) {
-  const t = e.backend || "none", o = e.scope || "unknown", r = o === "process_local";
+  const t = e.backend || "none", o = e.scope || "unknown", r = o === "process_local", s = r ? "rgba(245, 158, 11, 0.15)" : "rgba(100, 116, 139, 0.15)", i = r ? "rgba(245, 158, 11, 0.3)" : "rgba(100, 116, 139, 0.3)", l = r ? "#f59e0b" : "#94a3b8";
   return `
     <div style="
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      text-align: right;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
     ">
-      <div style="
-        font-size: 13px;
+      <span style="
+        padding: 4px 8px;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 4px;
+        font-family: monospace;
         color: #e2e8f0;
-      ">
-        <span style="color: #64748b;">Backend:</span>
-        <span style="
-          margin-left: 6px;
-          padding: 2px 8px;
-          background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 4px;
-          font-family: monospace;
-        ">${n(t)}</span>
-      </div>
-      <div style="
-        font-size: 12px;
-        color: ${r ? "#f59e0b" : "#94a3b8"};
-        ${r ? "font-weight: 500;" : ""}
-      ">
-        ${r ? "⚠ " : ""}Scope: ${n(o)}
-      </div>
+      ">${n(t)}</span>
+      <span style="
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        background: ${s};
+        border: 1px solid ${i};
+        border-radius: 4px;
+        color: ${l};
+        font-weight: 500;
+      ">${r ? '<span style="font-size: 11px;">⚠</span>' : ""}<span>${n(o)}</span></span>
       ${e.observed_by ? `
-        <div style="font-size: 11px; color: #64748b;">
-          Observer: ${n(e.observed_by)}
-        </div>
+        <span style="color: #64748b; font-size: 11px;">
+          obs: ${n(e.observed_by)}
+        </span>
       ` : ""}
     </div>
   `;
@@ -1968,20 +1958,22 @@ function st() {
       class="debug-btn"
       data-debug-action="clear-panel"
       style="
-        padding: 8px 16px;
+        padding: 6px 12px;
         background: #dc2626;
         color: #fff;
         border: none;
-        border-radius: 6px;
-        font-size: 13px;
+        border-radius: 4px;
+        font-size: 12px;
         font-weight: 500;
         cursor: pointer;
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
+        line-height: 1;
       "
     >
-      <span>↻</span> Clear Cache
+      <span style="font-size: 14px; line-height: 1;">↻</span>
+      <span>Clear Cache</span>
     </button>
   `;
 }
@@ -1989,29 +1981,33 @@ function H(e) {
   return `
     <div style="
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
-      margin-bottom: 20px;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1e293b;
       flex-wrap: wrap;
     ">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        ${rt(e)}
-        ${e.active ? st() : ""}
-      </div>
+      ${rt(e)}
+      <span style="color: #334155;">·</span>
       ${nt(e)}
+      ${e.active ? `
+        <div style="margin-left: auto;">
+          ${st()}
+        </div>
+      ` : ""}
     </div>
   `;
 }
 function at(e) {
   const t = e || {}, o = t.lookups || 0, r = t.hits || 0, s = t.misses || 0, i = t.writes || 0, l = t.errors || 0, d = t.clears || 0;
-  let c = "N/A";
-  return o > 0 && (c = `${((t.hit_ratio !== null && t.hit_ratio !== void 0 ? t.hit_ratio : r / o) * 100).toFixed(1)}%`), `
+  let p = "N/A";
+  return o > 0 && (p = `${((t.hit_ratio !== null && t.hit_ratio !== void 0 ? t.hit_ratio : r / o) * 100).toFixed(1)}%`), `
     <div style="
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-      gap: 8px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
+      gap: 6px;
+      margin-bottom: 16px;
     ">
       ${[
     {
@@ -2046,20 +2042,20 @@ function at(e) {
     },
     {
       label: "Hit Rate",
-      value: c,
+      value: p,
       color: o > 0 ? "#22c55e" : "#64748b"
     }
   ].map((a) => `
         <div style="
           background: ${a.color}15;
           border: 1px solid ${a.color}30;
-          border-radius: 6px;
-          padding: 10px 12px;
+          border-radius: 5px;
+          padding: 8px 10px;
           text-align: center;
         ">
           <div style="
-            font-size: 18px;
-            font-weight: 700;
+            font-size: 16px;
+            font-weight: 600;
             color: ${a.color};
             line-height: 1.2;
           ">${a.value}</div>
@@ -2077,33 +2073,33 @@ function at(e) {
 }
 function it(e) {
   if (!e) return "";
-  const t = W(e.outcome), o = e.timestamp ? x(e.timestamp) : "";
+  const t = W(e.outcome), o = e.timestamp ? m(e.timestamp) : "";
   return `
     <div style="
-      margin-bottom: 16px;
-      padding: 12px 16px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
       background: ${t.bgColor};
       border: 1px solid ${t.borderColor};
-      border-left: 4px solid ${t.color};
-      border-radius: 0 8px 8px 0;
+      border-left: 3px solid ${t.color};
+      border-radius: 0 6px 6px 0;
     ">
       <div style="
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       ">
         <div style="
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
           color: #94a3b8;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.4px;
         ">Last Command</div>
         <span style="
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 11px;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 10px;
           font-weight: 600;
           color: ${t.color};
           background: ${t.bgColor};
@@ -2112,9 +2108,9 @@ function it(e) {
       </div>
       <div style="
         display: flex;
-        gap: 16px;
+        gap: 12px;
         flex-wrap: wrap;
-        font-size: 13px;
+        font-size: 12px;
         color: #cbd5e1;
       ">
         <span><strong>Command:</strong> ${n(e.command || "unknown")}</span>
@@ -2124,8 +2120,8 @@ function it(e) {
       </div>
       ${e.message ? `
         <div style="
-          margin-top: 8px;
-          font-size: 12px;
+          margin-top: 6px;
+          font-size: 11px;
           color: #94a3b8;
           font-style: italic;
         ">${n(e.message)}</div>
@@ -2136,31 +2132,31 @@ function it(e) {
 function lt(e) {
   return e ? `
     <div style="
-      margin-bottom: 16px;
-      padding: 12px 16px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
       background: rgba(239, 68, 68, 0.1);
       border: 1px solid rgba(239, 68, 68, 0.4);
-      border-left: 4px solid #ef4444;
-      border-radius: 0 8px 8px 0;
+      border-left: 3px solid #ef4444;
+      border-radius: 0 6px 6px 0;
     ">
       <div style="
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
         color: #ef4444;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
+        letter-spacing: 0.4px;
+        margin-bottom: 6px;
       ">Startup Error</div>
       <div style="
-        font-size: 13px;
+        font-size: 12px;
         color: #fca5a5;
         line-height: 1.5;
       ">${n(e.message || "Unknown error")}</div>
       <div style="
-        margin-top: 8px;
+        margin-top: 6px;
         display: flex;
-        gap: 16px;
-        font-size: 12px;
+        gap: 12px;
+        font-size: 11px;
         color: #94a3b8;
       ">
         ${e.backend ? `<span><strong>Backend:</strong> ${n(e.backend)}</span>` : ""}
@@ -2173,55 +2169,55 @@ function lt(e) {
 function dt(e) {
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
-      <td style="padding: 8px; color: #64748b; font-size: 11px; white-space: nowrap;">${n(e.timestamp ? x(e.timestamp) : "")}</td>
-      <td style="padding: 8px;">
+      <td style="padding: 5px 8px; color: #64748b; font-size: 10px; white-space: nowrap;">${n(e.timestamp ? m(e.timestamp) : "")}</td>
+      <td style="padding: 5px 8px;">
         <span style="
-          padding: 2px 6px;
+          padding: 2px 5px;
           background: rgba(239, 68, 68, 0.15);
-          border-radius: 4px;
-          font-size: 11px;
+          border-radius: 3px;
+          font-size: 10px;
           color: #f87171;
         ">${n(e.operation || "unknown")}</span>
       </td>
-      <td style="padding: 8px; font-size: 12px; color: #cbd5e1;">${n(e.message || "")}</td>
-      <td style="padding: 8px; font-size: 11px; color: #64748b; font-family: monospace;">
+      <td style="padding: 5px 8px; font-size: 11px; color: #cbd5e1;">${n(e.message || "")}</td>
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b; font-family: monospace;">
         ${e.key?.route_hint ? n(e.key.route_hint) : e.key?.key_hash ? n(e.key.key_hash.slice(0, 12)) : ""}
       </td>
     </tr>
   `;
 }
-function ct(e, t = 10) {
+function pt(e, t = 10) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
   return `
-    <div style="margin-bottom: 16px;">
+    <div style="margin-bottom: 12px;">
       <div style="
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
         color: #ef4444;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
+        letter-spacing: 0.4px;
+        margin-bottom: 6px;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
       ">
-        <span>⚠</span> Recent Errors (${o.length})
+        <span style="font-size: 12px;">⚠</span> Recent Errors (${o.length})
       </div>
       <div style="
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
         overflow: hidden;
       ">
-        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
           <thead>
             <tr style="background: #1e293b;">
-              <th style="padding: 8px; text-align: left; color: #94a3b8; font-weight: 500;">Time</th>
-              <th style="padding: 8px; text-align: left; color: #94a3b8; font-weight: 500;">Operation</th>
-              <th style="padding: 8px; text-align: left; color: #94a3b8; font-weight: 500;">Message</th>
-              <th style="padding: 8px; text-align: left; color: #94a3b8; font-weight: 500;">Key</th>
+              <th style="padding: 6px 8px; text-align: left; color: #94a3b8; font-weight: 500; font-size: 10px;">Time</th>
+              <th style="padding: 6px 8px; text-align: left; color: #94a3b8; font-weight: 500; font-size: 10px;">Operation</th>
+              <th style="padding: 6px 8px; text-align: left; color: #94a3b8; font-weight: 500; font-size: 10px;">Message</th>
+              <th style="padding: 6px 8px; text-align: left; color: #94a3b8; font-weight: 500; font-size: 10px;">Key</th>
             </tr>
           </thead>
           <tbody>
@@ -2235,7 +2231,7 @@ function ct(e, t = 10) {
 function F(e) {
   return e == null ? '<span style="color: #64748b; font-style: italic;">null</span>' : typeof e == "boolean" ? `<span style="color: ${e ? "#22c55e" : "#64748b"}; font-weight: 500;">${e}</span>` : typeof e == "number" ? `<span style="color: #818cf8;">${e}</span>` : typeof e == "string" ? e === "" ? '<span style="color: #64748b; font-style: italic;">empty</span>' : `<span style="color: #fbbf24;">${n(e)}</span>` : n(String(e));
 }
-function pt(e) {
+function ct(e) {
   if (!e) return "";
   const t = [
     {
@@ -2333,26 +2329,26 @@ function pt(e) {
     `).join("")}</table>
       </div>
     `), `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Configuration</span>
+        <span style="margin-left: 6px;">Configuration</span>
       </summary>
       <div style="
         margin-top: 4px;
-        padding: 12px;
+        padding: 10px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
       ">
         <table style="width: 100%; border-collapse: collapse;">${t}</table>
         ${o}
@@ -2362,29 +2358,29 @@ function pt(e) {
 }
 function ut(e) {
   return e ? `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Capabilities</span>
+        <span style="margin-left: 6px;">Capabilities</span>
       </summary>
       <div style="
         margin-top: 4px;
-        padding: 12px;
+        padding: 10px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
       ">
         ${[
     {
@@ -2437,42 +2433,42 @@ function ut(e) {
 }
 function gt(e) {
   if (!e) return "";
-  const t = e.timestamp ? x(e.timestamp) : "";
+  const t = e.timestamp ? m(e.timestamp) : "";
   return `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Latest Cached Response</span>
+        <span style="margin-left: 6px;">Latest Cached Response</span>
         <span style="
-          margin-left: 8px;
-          padding: 2px 6px;
+          margin-left: 6px;
+          padding: 2px 5px;
           background: #3b82f615;
-          border-radius: 4px;
-          font-size: 10px;
+          border-radius: 3px;
+          font-size: 9px;
           color: #60a5fa;
         ">${n(e.key?.route_hint || e.key?.key_hash?.slice(0, 16) || "unknown")}</span>
       </summary>
       <div style="
         margin-top: 4px;
-        padding: 12px;
+        padding: 10px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
       ">
         <div style="
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-          gap: 12px;
-          font-size: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+          gap: 10px;
+          font-size: 11px;
         ">
           <div>
             <div style="color: #64748b; margin-bottom: 2px;">Status</div>
@@ -2480,7 +2476,7 @@ function gt(e) {
           </div>
           <div>
             <div style="color: #64748b; margin-bottom: 2px;">Content Type</div>
-            <div style="color: #e2e8f0; font-family: monospace; font-size: 11px;">${n(e.content_type || "unknown")}</div>
+            <div style="color: #e2e8f0; font-family: monospace; font-size: 10px;">${n(e.content_type || "unknown")}</div>
           </div>
           <div>
             <div style="color: #64748b; margin-bottom: 2px;">Body Size</div>
@@ -2499,21 +2495,21 @@ function gt(e) {
             <div style="color: #e2e8f0;">${n(e.ttl_class || "default")}</div>
           </div>
         </div>
-        ${t ? `<div style="margin-top: 8px; font-size: 11px; color: #64748b;">Cached at: ${n(t)}</div>` : ""}
+        ${t ? `<div style="margin-top: 6px; font-size: 10px; color: #64748b;">Cached at: ${n(t)}</div>` : ""}
       </div>
     </details>
   `;
 }
 function bt(e) {
-  const t = e.observed_at ? x(e.observed_at) : "", o = e.raw_key || e.route_hint || e.key_hash?.slice(0, 16) || "unknown";
+  const t = e.observed_at ? m(e.observed_at) : "", o = e.raw_key || e.route_hint || e.key_hash?.slice(0, 16) || "unknown";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
-      <td style="padding: 6px 8px; font-size: 11px; color: #64748b; white-space: nowrap;">${n(t)}</td>
-      <td style="padding: 6px 8px; font-family: monospace; font-size: 11px; color: #e2e8f0; word-break: break-all;">
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b; white-space: nowrap;">${n(t)}</td>
+      <td style="padding: 5px 8px; font-family: monospace; font-size: 10px; color: #e2e8f0; word-break: break-all;">
         ${n(o)}
         ${e.key_redacted ? '<span style="color: #64748b; font-style: italic;"> (redacted)</span>' : ""}
       </td>
-      <td style="padding: 6px 8px; font-size: 11px; color: #64748b;">
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b;">
         ${e.render_prefix ? '<span style="color: #8b5cf6;">render</span>' : ""}
       </td>
     </tr>
@@ -2524,35 +2520,35 @@ function ft(e, t = 20) {
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
   return `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Observed Keys (${o.length})</span>
+        <span style="margin-left: 6px;">Observed Keys (${o.length})</span>
       </summary>
       <div style="
         margin-top: 4px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
         overflow: hidden;
-        max-height: 300px;
+        max-height: 250px;
         overflow-y: auto;
       ">
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="background: #1e293b; position: sticky; top: 0;">
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Time</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Key</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Type</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Time</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Key</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Type</th>
             </tr>
           </thead>
           <tbody>
@@ -2563,78 +2559,78 @@ function ft(e, t = 20) {
     </details>
   `;
 }
-function mt(e) {
-  const t = e.timestamp ? x(e.timestamp) : "", o = W(e.outcome), r = e.key?.route_hint || e.key?.key_hash?.slice(0, 12) || "";
+function xt(e) {
+  const t = e.timestamp ? m(e.timestamp) : "", o = W(e.outcome), r = e.key?.route_hint || e.key?.key_hash?.slice(0, 12) || "";
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
-      <td style="padding: 6px 8px; font-size: 11px; color: #64748b; white-space: nowrap;">${n(t)}</td>
-      <td style="padding: 6px 8px;">
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b; white-space: nowrap;">${n(t)}</td>
+      <td style="padding: 5px 8px;">
         <span style="
-          padding: 2px 6px;
+          padding: 2px 5px;
           background: #3b82f615;
-          border-radius: 4px;
-          font-size: 11px;
+          border-radius: 3px;
+          font-size: 10px;
           color: #60a5fa;
         ">${n(e.operation || "unknown")}</span>
       </td>
-      <td style="padding: 6px 8px;">
+      <td style="padding: 5px 8px;">
         <span style="
-          padding: 2px 6px;
+          padding: 2px 5px;
           background: ${o.bgColor};
-          border-radius: 4px;
-          font-size: 11px;
+          border-radius: 3px;
+          font-size: 10px;
           color: ${o.color};
         ">${n(e.outcome || "unknown")}</span>
       </td>
-      <td style="padding: 6px 8px; font-family: monospace; font-size: 10px; color: #94a3b8; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+      <td style="padding: 5px 8px; font-family: monospace; font-size: 9px; color: #94a3b8; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
         ${n(r)}
       </td>
-      <td style="padding: 6px 8px; font-size: 11px; color: #64748b;">
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b;">
         ${e.message ? n(e.message.slice(0, 50)) : ""}
       </td>
     </tr>
   `;
 }
-function xt(e, t = 20) {
+function mt(e, t = 20) {
   const o = e || [];
   if (o.length === 0) return "";
   const r = o.slice(-t).reverse();
   return `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Recent Operations (${o.length})</span>
+        <span style="margin-left: 6px;">Recent Operations (${o.length})</span>
       </summary>
       <div style="
         margin-top: 4px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
         overflow: hidden;
-        max-height: 300px;
+        max-height: 250px;
         overflow-y: auto;
       ">
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="background: #1e293b; position: sticky; top: 0;">
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Time</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Operation</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Outcome</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Key</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Message</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Time</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Operation</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Outcome</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Key</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Message</th>
             </tr>
           </thead>
           <tbody>
-            ${r.map((s) => mt(s)).join("")}
+            ${r.map((s) => xt(s)).join("")}
           </tbody>
         </table>
       </div>
@@ -2643,31 +2639,31 @@ function xt(e, t = 20) {
 }
 function ht(e) {
   return `
-    <details style="margin-top: 16px;">
+    <details style="margin-top: 12px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #64748b;
-        font-size: 12px;
+        font-size: 11px;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Raw JSON Data</span>
+        <span style="margin-left: 6px;">Raw JSON Data</span>
       </summary>
       <div style="
         margin-top: 4px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
-        padding: 12px;
+        border-radius: 5px;
+        padding: 10px;
         overflow-x: auto;
       ">
         <pre style="
           margin: 0;
           font-family: monospace;
-          font-size: 11px;
+          font-size: 10px;
           color: #e2e8f0;
           white-space: pre-wrap;
           word-break: break-word;
@@ -2679,17 +2675,17 @@ function ht(e) {
 function K(e, t, o = {}) {
   const { maxOperations: r = 20, maxKeys: s = 20, maxErrors: i = 10, showRawJSON: l = !1 } = o;
   return e ? e.configured ? `
-    <div style="padding: 12px;">
+    <div style="padding: 14px;">
       ${H(e)}
       ${lt(e.startup_error)}
       ${at(e.counters)}
       ${it(e.last_command)}
-      ${ct(e.recent_errors, i)}
+      ${pt(e.recent_errors, i)}
       ${gt(e.latest_cached)}
-      ${pt(e.config)}
+      ${ct(e.config)}
       ${ut(e.capabilities)}
       ${ft(e.observed_keys, s)}
-      ${xt(e.recent_operations, r)}
+      ${mt(e.recent_operations, r)}
       ${l ? ht(e) : ""}
     </div>
   ` : `
@@ -2697,12 +2693,12 @@ function K(e, t, o = {}) {
         ${H(e)}
         <div style="
           text-align: center;
-          padding: 40px 20px;
+          padding: 32px 16px;
           color: #64748b;
         ">
-          <div style="font-size: 36px; margin-bottom: 12px;">○</div>
-          <div style="font-size: 16px; font-weight: 500; margin-bottom: 8px; color: #94a3b8;">Cache Not Configured</div>
-          <div style="font-size: 13px;">Enable site render cache in application configuration.</div>
+          <div style="font-size: 24px; margin-bottom: 10px;">○</div>
+          <div style="font-size: 14px; font-weight: 500; margin-bottom: 6px; color: #94a3b8;">Cache Not Configured</div>
+          <div style="font-size: 12px;">Enable site render cache in application configuration.</div>
         </div>
       </div>
     ` : `<div class="${t.emptyState}">No site render cache data available</div>`;
@@ -2712,63 +2708,85 @@ function yt(e, t) {
   let o = e.status;
   e.configured && e.active || (o = "inactive");
   const r = V(o), s = e.counters || {}, i = s.hits || 0, l = s.misses || 0, d = s.errors || 0;
-  let c = "N/A";
+  let p = "N/A";
   const a = s.lookups || 0;
-  a > 0 && (c = `${((s.hit_ratio !== null && s.hit_ratio !== void 0 ? s.hit_ratio : i / a) * 100).toFixed(1)}%`);
-  const p = (e.recent_errors || []).length;
+  a > 0 && (p = `${((s.hit_ratio !== null && s.hit_ratio !== void 0 ? s.hit_ratio : i / a) * 100).toFixed(1)}%`);
+  const c = (e.recent_errors || []).length, u = (e.scope || "unknown") === "process_local";
   return `
     <div style="padding: 8px;">
       <div style="
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-bottom: 10px;
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #1e293b;
       ">
         <span style="
-          font-size: 18px;
-          color: ${r.color};
-        ">${r.icon}</span>
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 6px;
+          background: ${r.bgColor};
+          border: 1px solid ${r.borderColor};
+          border-radius: 4px;
+        ">
+          <span style="font-size: 12px; color: ${r.color};">${r.icon}</span>
+          <span style="font-size: 11px; font-weight: 600; color: ${r.color};">${n(r.label)}</span>
+        </span>
         <span style="
-          font-size: 13px;
-          font-weight: 600;
-          color: ${r.color};
-        ">${n(r.label)}</span>
-        <span style="
-          margin-left: auto;
-          font-size: 11px;
-          color: #64748b;
+          padding: 3px 6px;
+          background: #1e293b;
+          border: 1px solid #334155;
+          border-radius: 4px;
+          font-size: 10px;
           font-family: monospace;
+          color: #e2e8f0;
         ">${n(e.backend || "none")}</span>
+        ${u ? `
+          <span style="
+            padding: 3px 6px;
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 4px;
+            font-size: 10px;
+            color: #f59e0b;
+          ">⚠ local</span>
+        ` : ""}
       </div>
       <div style="
         display: flex;
-        gap: 16px;
+        gap: 12px;
         font-size: 11px;
         color: #94a3b8;
+        flex-wrap: wrap;
       ">
-        <span>Hit Rate: <strong style="color: ${a > 0 ? "#22c55e" : "#64748b"};">${c}</strong></span>
+        <span>Hit Rate: <strong style="color: ${a > 0 ? "#22c55e" : "#64748b"};">${p}</strong></span>
         <span>Hits: <strong style="color: #22c55e;">${b(i)}</strong></span>
         <span>Misses: <strong style="color: #f59e0b;">${b(l)}</strong></span>
-        ${d > 0 || p > 0 ? `
+        ${d > 0 || c > 0 ? `
           <span>Errors: <strong style="color: #ef4444;">${b(d)}</strong></span>
         ` : ""}
       </div>
       ${e.active ? `
-        <div style="margin-top: 10px;">
+        <div style="margin-top: 8px;">
           <button
             type="button"
             class="debug-btn"
             data-debug-action="clear-panel"
             style="
-              padding: 6px 12px;
+              padding: 4px 10px;
               background: #dc2626;
               color: #fff;
               border: none;
               border-radius: 4px;
               font-size: 11px;
               cursor: pointer;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
             "
-          >Clear Cache</button>
+          ><span style="font-size: 12px;">↻</span> Clear</button>
         </div>
       ` : ""}
     </div>
@@ -3080,7 +3098,7 @@ export {
   z as a,
   ge as b,
   S as c,
-  me as d,
+  xe as d,
   Dt as f,
   Ft as g,
   Bt as h,
@@ -3099,4 +3117,4 @@ export {
   U as y
 };
 
-//# sourceMappingURL=builtin-panels-BnFmkpp-.js.map
+//# sourceMappingURL=builtin-panels-Drf8qrx2.js.map

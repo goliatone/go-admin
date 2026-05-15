@@ -271,32 +271,24 @@ function renderStatusBadge(snapshot: SiteRenderCacheSnapshot): string {
 
   return `
     <div style="
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-      padding: 12px 16px;
+      gap: 6px;
+      padding: 6px 10px;
       background: ${config.bgColor};
       border: 1px solid ${config.borderColor};
-      border-radius: 8px;
+      border-radius: 6px;
     ">
       <span style="
-        font-size: 24px;
+        font-size: 14px;
         color: ${config.color};
         line-height: 1;
       ">${config.icon}</span>
-      <div>
-        <div style="
-          font-size: 16px;
-          font-weight: 600;
-          color: ${config.color};
-        ">${escapeHTML(statusLabel)}</div>
-        <div style="
-          font-size: 11px;
-          color: #94a3b8;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        ">Site Render Cache</div>
-      </div>
+      <span style="
+        font-size: 13px;
+        font-weight: 600;
+        color: ${config.color};
+      ">${escapeHTML(statusLabel)}</span>
     </div>
   `;
 }
@@ -306,38 +298,41 @@ function renderBackendInfo(snapshot: SiteRenderCacheSnapshot): string {
   const scope = snapshot.scope || 'unknown';
   const isProcessLocal = scope === 'process_local';
 
+  // Scope badge styles
+  const scopeBgColor = isProcessLocal ? 'rgba(245, 158, 11, 0.15)' : 'rgba(100, 116, 139, 0.15)';
+  const scopeBorderColor = isProcessLocal ? 'rgba(245, 158, 11, 0.3)' : 'rgba(100, 116, 139, 0.3)';
+  const scopeTextColor = isProcessLocal ? '#f59e0b' : '#94a3b8';
+
   return `
     <div style="
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      text-align: right;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
     ">
-      <div style="
-        font-size: 13px;
+      <span style="
+        padding: 4px 8px;
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 4px;
+        font-family: monospace;
         color: #e2e8f0;
-      ">
-        <span style="color: #64748b;">Backend:</span>
-        <span style="
-          margin-left: 6px;
-          padding: 2px 8px;
-          background: #1e293b;
-          border: 1px solid #334155;
-          border-radius: 4px;
-          font-family: monospace;
-        ">${escapeHTML(backend)}</span>
-      </div>
-      <div style="
-        font-size: 12px;
-        color: ${isProcessLocal ? '#f59e0b' : '#94a3b8'};
-        ${isProcessLocal ? 'font-weight: 500;' : ''}
-      ">
-        ${isProcessLocal ? '\u26A0 ' : ''}Scope: ${escapeHTML(scope)}
-      </div>
+      ">${escapeHTML(backend)}</span>
+      <span style="
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 8px;
+        background: ${scopeBgColor};
+        border: 1px solid ${scopeBorderColor};
+        border-radius: 4px;
+        color: ${scopeTextColor};
+        font-weight: 500;
+      ">${isProcessLocal ? '<span style="font-size: 11px;">⚠</span>' : ''}<span>${escapeHTML(scope)}</span></span>
       ${snapshot.observed_by ? `
-        <div style="font-size: 11px; color: #64748b;">
-          Observer: ${escapeHTML(snapshot.observed_by)}
-        </div>
+        <span style="color: #64748b; font-size: 11px;">
+          obs: ${escapeHTML(snapshot.observed_by)}
+        </span>
       ` : ''}
     </div>
   `;
@@ -350,20 +345,22 @@ function renderClearButton(): string {
       class="debug-btn"
       data-debug-action="clear-panel"
       style="
-        padding: 8px 16px;
+        padding: 6px 12px;
         background: #dc2626;
         color: #fff;
         border: none;
-        border-radius: 6px;
-        font-size: 13px;
+        border-radius: 4px;
+        font-size: 12px;
         font-weight: 500;
         cursor: pointer;
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
+        line-height: 1;
       "
     >
-      <span>\u21BB</span> Clear Cache
+      <span style="font-size: 14px; line-height: 1;">↻</span>
+      <span>Clear Cache</span>
     </button>
   `;
 }
@@ -372,17 +369,21 @@ function renderHeaderBar(snapshot: SiteRenderCacheSnapshot): string {
   return `
     <div style="
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
-      margin-bottom: 20px;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1e293b;
       flex-wrap: wrap;
     ">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        ${renderStatusBadge(snapshot)}
-        ${snapshot.active ? renderClearButton() : ''}
-      </div>
+      ${renderStatusBadge(snapshot)}
+      <span style="color: #334155;">·</span>
       ${renderBackendInfo(snapshot)}
+      ${snapshot.active ? `
+        <div style="margin-left: auto;">
+          ${renderClearButton()}
+        </div>
+      ` : ''}
     </div>
   `;
 }
@@ -422,9 +423,9 @@ function renderCounterChips(counters?: SiteRenderCacheCounters): string {
   return `
     <div style="
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
-      gap: 8px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
+      gap: 6px;
+      margin-bottom: 16px;
     ">
       ${chips
         .map(
@@ -432,13 +433,13 @@ function renderCounterChips(counters?: SiteRenderCacheCounters): string {
         <div style="
           background: ${chip.color}15;
           border: 1px solid ${chip.color}30;
-          border-radius: 6px;
-          padding: 10px 12px;
+          border-radius: 5px;
+          padding: 8px 10px;
           text-align: center;
         ">
           <div style="
-            font-size: 18px;
-            font-weight: 700;
+            font-size: 16px;
+            font-weight: 600;
             color: ${chip.color};
             line-height: 1.2;
           ">${chip.value}</div>
@@ -469,30 +470,30 @@ function renderLastCommand(cmd?: SiteRenderCacheCommand): string {
 
   return `
     <div style="
-      margin-bottom: 16px;
-      padding: 12px 16px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
       background: ${config.bgColor};
       border: 1px solid ${config.borderColor};
-      border-left: 4px solid ${config.color};
-      border-radius: 0 8px 8px 0;
+      border-left: 3px solid ${config.color};
+      border-radius: 0 6px 6px 0;
     ">
       <div style="
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       ">
         <div style="
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
           color: #94a3b8;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
+          letter-spacing: 0.4px;
         ">Last Command</div>
         <span style="
-          padding: 2px 8px;
-          border-radius: 4px;
-          font-size: 11px;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 10px;
           font-weight: 600;
           color: ${config.color};
           background: ${config.bgColor};
@@ -501,9 +502,9 @@ function renderLastCommand(cmd?: SiteRenderCacheCommand): string {
       </div>
       <div style="
         display: flex;
-        gap: 16px;
+        gap: 12px;
         flex-wrap: wrap;
-        font-size: 13px;
+        font-size: 12px;
         color: #cbd5e1;
       ">
         <span><strong>Command:</strong> ${escapeHTML(cmd.command || 'unknown')}</span>
@@ -513,8 +514,8 @@ function renderLastCommand(cmd?: SiteRenderCacheCommand): string {
       </div>
       ${cmd.message ? `
         <div style="
-          margin-top: 8px;
-          font-size: 12px;
+          margin-top: 6px;
+          font-size: 11px;
           color: #94a3b8;
           font-style: italic;
         ">${escapeHTML(cmd.message)}</div>
@@ -532,31 +533,31 @@ function renderStartupError(err?: SiteRenderCacheStartupError): string {
 
   return `
     <div style="
-      margin-bottom: 16px;
-      padding: 12px 16px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
       background: rgba(239, 68, 68, 0.1);
       border: 1px solid rgba(239, 68, 68, 0.4);
-      border-left: 4px solid #ef4444;
-      border-radius: 0 8px 8px 0;
+      border-left: 3px solid #ef4444;
+      border-radius: 0 6px 6px 0;
     ">
       <div style="
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
         color: #ef4444;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
+        letter-spacing: 0.4px;
+        margin-bottom: 6px;
       ">Startup Error</div>
       <div style="
-        font-size: 13px;
+        font-size: 12px;
         color: #fca5a5;
         line-height: 1.5;
       ">${escapeHTML(err.message || 'Unknown error')}</div>
       <div style="
-        margin-top: 8px;
+        margin-top: 6px;
         display: flex;
-        gap: 16px;
-        font-size: 12px;
+        gap: 12px;
+        font-size: 11px;
         color: #94a3b8;
       ">
         ${err.backend ? `<span><strong>Backend:</strong> ${escapeHTML(err.backend)}</span>` : ''}
@@ -576,18 +577,18 @@ function renderErrorRow(err: SiteRenderCacheError): string {
 
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
-      <td style="padding: 8px; color: #64748b; font-size: 11px; white-space: nowrap;">${escapeHTML(timestamp)}</td>
-      <td style="padding: 8px;">
+      <td style="padding: 5px 8px; color: #64748b; font-size: 10px; white-space: nowrap;">${escapeHTML(timestamp)}</td>
+      <td style="padding: 5px 8px;">
         <span style="
-          padding: 2px 6px;
+          padding: 2px 5px;
           background: rgba(239, 68, 68, 0.15);
-          border-radius: 4px;
-          font-size: 11px;
+          border-radius: 3px;
+          font-size: 10px;
           color: #f87171;
         ">${escapeHTML(err.operation || 'unknown')}</span>
       </td>
-      <td style="padding: 8px; font-size: 12px; color: #cbd5e1;">${escapeHTML(err.message || '')}</td>
-      <td style="padding: 8px; font-size: 11px; color: #64748b; font-family: monospace;">
+      <td style="padding: 5px 8px; font-size: 11px; color: #cbd5e1;">${escapeHTML(err.message || '')}</td>
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b; font-family: monospace;">
         ${err.key?.route_hint ? escapeHTML(err.key.route_hint) : (err.key?.key_hash ? escapeHTML(err.key.key_hash.slice(0, 12)) : '')}
       </td>
     </tr>
@@ -601,33 +602,33 @@ function renderRecentErrors(errors?: SiteRenderCacheError[], maxErrors = 10): st
   const displayItems = items.slice(-maxErrors).reverse();
 
   return `
-    <div style="margin-bottom: 16px;">
+    <div style="margin-bottom: 12px;">
       <div style="
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
         color: #ef4444;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 8px;
+        letter-spacing: 0.4px;
+        margin-bottom: 6px;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
       ">
-        <span>\u26A0</span> Recent Errors (${items.length})
+        <span style="font-size: 12px;">⚠</span> Recent Errors (${items.length})
       </div>
       <div style="
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
         overflow: hidden;
       ">
-        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
           <thead>
             <tr style="background: #1e293b;">
-              <th style="padding: 8px; text-align: left; color: #94a3b8; font-weight: 500;">Time</th>
-              <th style="padding: 8px; text-align: left; color: #94a3b8; font-weight: 500;">Operation</th>
-              <th style="padding: 8px; text-align: left; color: #94a3b8; font-weight: 500;">Message</th>
-              <th style="padding: 8px; text-align: left; color: #94a3b8; font-weight: 500;">Key</th>
+              <th style="padding: 6px 8px; text-align: left; color: #94a3b8; font-weight: 500; font-size: 10px;">Time</th>
+              <th style="padding: 6px 8px; text-align: left; color: #94a3b8; font-weight: 500; font-size: 10px;">Operation</th>
+              <th style="padding: 6px 8px; text-align: left; color: #94a3b8; font-weight: 500; font-size: 10px;">Message</th>
+              <th style="padding: 6px 8px; text-align: left; color: #94a3b8; font-weight: 500; font-size: 10px;">Key</th>
             </tr>
           </thead>
           <tbody>
@@ -725,26 +726,26 @@ function renderConfigSection(config?: SiteRenderCacheConfig): string {
   }
 
   return `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Configuration</span>
+        <span style="margin-left: 6px;">Configuration</span>
       </summary>
       <div style="
         margin-top: 4px;
-        padding: 12px;
+        padding: 10px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
       ">
         <table style="width: 100%; border-collapse: collapse;">${rows}</table>
         ${valkeySection}
@@ -793,29 +794,29 @@ function renderCapabilitiesSection(caps?: SiteRenderCacheCapabilities): string {
     .join('');
 
   return `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Capabilities</span>
+        <span style="margin-left: 6px;">Capabilities</span>
       </summary>
       <div style="
         margin-top: 4px;
-        padding: 12px;
+        padding: 10px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
       ">
         ${badges}
       </div>
@@ -834,40 +835,40 @@ function renderLatestCached(cached?: SiteRenderCacheCachedResponse): string {
   const keyDisplay = cached.key?.route_hint || cached.key?.key_hash?.slice(0, 16) || 'unknown';
 
   return `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Latest Cached Response</span>
+        <span style="margin-left: 6px;">Latest Cached Response</span>
         <span style="
-          margin-left: 8px;
-          padding: 2px 6px;
+          margin-left: 6px;
+          padding: 2px 5px;
           background: #3b82f615;
-          border-radius: 4px;
-          font-size: 10px;
+          border-radius: 3px;
+          font-size: 9px;
           color: #60a5fa;
         ">${escapeHTML(keyDisplay)}</span>
       </summary>
       <div style="
         margin-top: 4px;
-        padding: 12px;
+        padding: 10px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
       ">
         <div style="
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-          gap: 12px;
-          font-size: 12px;
+          grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+          gap: 10px;
+          font-size: 11px;
         ">
           <div>
             <div style="color: #64748b; margin-bottom: 2px;">Status</div>
@@ -875,7 +876,7 @@ function renderLatestCached(cached?: SiteRenderCacheCachedResponse): string {
           </div>
           <div>
             <div style="color: #64748b; margin-bottom: 2px;">Content Type</div>
-            <div style="color: #e2e8f0; font-family: monospace; font-size: 11px;">${escapeHTML(cached.content_type || 'unknown')}</div>
+            <div style="color: #e2e8f0; font-family: monospace; font-size: 10px;">${escapeHTML(cached.content_type || 'unknown')}</div>
           </div>
           <div>
             <div style="color: #64748b; margin-bottom: 2px;">Body Size</div>
@@ -894,7 +895,7 @@ function renderLatestCached(cached?: SiteRenderCacheCachedResponse): string {
             <div style="color: #e2e8f0;">${escapeHTML(cached.ttl_class || 'default')}</div>
           </div>
         </div>
-        ${timestamp ? `<div style="margin-top: 8px; font-size: 11px; color: #64748b;">Cached at: ${escapeHTML(timestamp)}</div>` : ''}
+        ${timestamp ? `<div style="margin-top: 6px; font-size: 10px; color: #64748b;">Cached at: ${escapeHTML(timestamp)}</div>` : ''}
       </div>
     </details>
   `;
@@ -910,12 +911,12 @@ function renderKeyRow(key: SiteRenderCacheKey): string {
 
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
-      <td style="padding: 6px 8px; font-size: 11px; color: #64748b; white-space: nowrap;">${escapeHTML(timestamp)}</td>
-      <td style="padding: 6px 8px; font-family: monospace; font-size: 11px; color: #e2e8f0; word-break: break-all;">
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b; white-space: nowrap;">${escapeHTML(timestamp)}</td>
+      <td style="padding: 5px 8px; font-family: monospace; font-size: 10px; color: #e2e8f0; word-break: break-all;">
         ${escapeHTML(display)}
         ${key.key_redacted ? '<span style="color: #64748b; font-style: italic;"> (redacted)</span>' : ''}
       </td>
-      <td style="padding: 6px 8px; font-size: 11px; color: #64748b;">
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b;">
         ${key.render_prefix ? '<span style="color: #8b5cf6;">render</span>' : ''}
       </td>
     </tr>
@@ -929,35 +930,35 @@ function renderObservedKeys(keys?: SiteRenderCacheKey[], maxKeys = 20): string {
   const displayItems = items.slice(-maxKeys).reverse();
 
   return `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Observed Keys (${items.length})</span>
+        <span style="margin-left: 6px;">Observed Keys (${items.length})</span>
       </summary>
       <div style="
         margin-top: 4px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
         overflow: hidden;
-        max-height: 300px;
+        max-height: 250px;
         overflow-y: auto;
       ">
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="background: #1e293b; position: sticky; top: 0;">
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Time</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Key</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Type</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Time</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Key</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Type</th>
             </tr>
           </thead>
           <tbody>
@@ -980,29 +981,29 @@ function renderOperationRow(op: SiteRenderCacheOperation): string {
 
   return `
     <tr style="border-bottom: 1px solid #1e293b;">
-      <td style="padding: 6px 8px; font-size: 11px; color: #64748b; white-space: nowrap;">${escapeHTML(timestamp)}</td>
-      <td style="padding: 6px 8px;">
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b; white-space: nowrap;">${escapeHTML(timestamp)}</td>
+      <td style="padding: 5px 8px;">
         <span style="
-          padding: 2px 6px;
+          padding: 2px 5px;
           background: #3b82f615;
-          border-radius: 4px;
-          font-size: 11px;
+          border-radius: 3px;
+          font-size: 10px;
           color: #60a5fa;
         ">${escapeHTML(op.operation || 'unknown')}</span>
       </td>
-      <td style="padding: 6px 8px;">
+      <td style="padding: 5px 8px;">
         <span style="
-          padding: 2px 6px;
+          padding: 2px 5px;
           background: ${outcomeConfig.bgColor};
-          border-radius: 4px;
-          font-size: 11px;
+          border-radius: 3px;
+          font-size: 10px;
           color: ${outcomeConfig.color};
         ">${escapeHTML(op.outcome || 'unknown')}</span>
       </td>
-      <td style="padding: 6px 8px; font-family: monospace; font-size: 10px; color: #94a3b8; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+      <td style="padding: 5px 8px; font-family: monospace; font-size: 9px; color: #94a3b8; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
         ${escapeHTML(keyDisplay)}
       </td>
-      <td style="padding: 6px 8px; font-size: 11px; color: #64748b;">
+      <td style="padding: 5px 8px; font-size: 10px; color: #64748b;">
         ${op.message ? escapeHTML(op.message.slice(0, 50)) : ''}
       </td>
     </tr>
@@ -1016,37 +1017,37 @@ function renderRecentOperations(ops?: SiteRenderCacheOperation[], maxOps = 20): 
   const displayItems = items.slice(-maxOps).reverse();
 
   return `
-    <details style="margin-bottom: 12px;">
+    <details style="margin-bottom: 8px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #94a3b8;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 500;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Recent Operations (${items.length})</span>
+        <span style="margin-left: 6px;">Recent Operations (${items.length})</span>
       </summary>
       <div style="
         margin-top: 4px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
+        border-radius: 5px;
         overflow: hidden;
-        max-height: 300px;
+        max-height: 250px;
         overflow-y: auto;
       ">
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="background: #1e293b; position: sticky; top: 0;">
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Time</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Operation</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Outcome</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Key</th>
-              <th style="padding: 6px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 11px;">Message</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Time</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Operation</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Outcome</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Key</th>
+              <th style="padding: 5px 8px; text-align: left; color: #64748b; font-weight: 500; font-size: 10px;">Message</th>
             </tr>
           </thead>
           <tbody>
@@ -1066,31 +1067,31 @@ function renderRawJSON(snapshot: SiteRenderCacheSnapshot): string {
   const jsonString = formatJSON(snapshot);
 
   return `
-    <details style="margin-top: 16px;">
+    <details style="margin-top: 12px;">
       <summary style="
         cursor: pointer;
-        padding: 10px 12px;
+        padding: 8px 10px;
         background: #1e293b;
         border: 1px solid #334155;
-        border-radius: 6px;
+        border-radius: 5px;
         color: #64748b;
-        font-size: 12px;
+        font-size: 11px;
         user-select: none;
       ">
-        <span style="margin-left: 8px;">Raw JSON Data</span>
+        <span style="margin-left: 6px;">Raw JSON Data</span>
       </summary>
       <div style="
         margin-top: 4px;
         background: #0f172a;
         border: 1px solid #1e293b;
-        border-radius: 6px;
-        padding: 12px;
+        border-radius: 5px;
+        padding: 10px;
         overflow-x: auto;
       ">
         <pre style="
           margin: 0;
           font-family: monospace;
-          font-size: 11px;
+          font-size: 10px;
           color: #e2e8f0;
           white-space: pre-wrap;
           word-break: break-word;
@@ -1130,19 +1131,19 @@ export function renderSiteRenderCachePanel(
         ${renderHeaderBar(snapshot)}
         <div style="
           text-align: center;
-          padding: 40px 20px;
+          padding: 32px 16px;
           color: #64748b;
         ">
-          <div style="font-size: 36px; margin-bottom: 12px;">\u25CB</div>
-          <div style="font-size: 16px; font-weight: 500; margin-bottom: 8px; color: #94a3b8;">Cache Not Configured</div>
-          <div style="font-size: 13px;">Enable site render cache in application configuration.</div>
+          <div style="font-size: 24px; margin-bottom: 10px;">○</div>
+          <div style="font-size: 14px; font-weight: 500; margin-bottom: 6px; color: #94a3b8;">Cache Not Configured</div>
+          <div style="font-size: 12px;">Enable site render cache in application configuration.</div>
         </div>
       </div>
     `;
   }
 
   return `
-    <div style="padding: 12px;">
+    <div style="padding: 14px;">
       ${renderHeaderBar(snapshot)}
       ${renderStartupError(snapshot.startup_error)}
       ${renderCounterChips(snapshot.counters)}
@@ -1192,36 +1193,57 @@ export function renderSiteRenderCachePanelCompact(
   }
 
   const recentErrorCount = (snapshot.recent_errors || []).length;
+  const scope = snapshot.scope || 'unknown';
+  const isProcessLocal = scope === 'process_local';
 
   return `
     <div style="padding: 8px;">
       <div style="
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-bottom: 10px;
+        gap: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #1e293b;
       ">
         <span style="
-          font-size: 18px;
-          color: ${statusConfig.color};
-        ">${statusConfig.icon}</span>
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 6px;
+          background: ${statusConfig.bgColor};
+          border: 1px solid ${statusConfig.borderColor};
+          border-radius: 4px;
+        ">
+          <span style="font-size: 12px; color: ${statusConfig.color};">${statusConfig.icon}</span>
+          <span style="font-size: 11px; font-weight: 600; color: ${statusConfig.color};">${escapeHTML(statusConfig.label)}</span>
+        </span>
         <span style="
-          font-size: 13px;
-          font-weight: 600;
-          color: ${statusConfig.color};
-        ">${escapeHTML(statusConfig.label)}</span>
-        <span style="
-          margin-left: auto;
-          font-size: 11px;
-          color: #64748b;
+          padding: 3px 6px;
+          background: #1e293b;
+          border: 1px solid #334155;
+          border-radius: 4px;
+          font-size: 10px;
           font-family: monospace;
+          color: #e2e8f0;
         ">${escapeHTML(snapshot.backend || 'none')}</span>
+        ${isProcessLocal ? `
+          <span style="
+            padding: 3px 6px;
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 4px;
+            font-size: 10px;
+            color: #f59e0b;
+          ">⚠ local</span>
+        ` : ''}
       </div>
       <div style="
         display: flex;
-        gap: 16px;
+        gap: 12px;
         font-size: 11px;
         color: #94a3b8;
+        flex-wrap: wrap;
       ">
         <span>Hit Rate: <strong style="color: ${lookups > 0 ? '#22c55e' : '#64748b'};">${hitRatioDisplay}</strong></span>
         <span>Hits: <strong style="color: #22c55e;">${formatNumber(hits)}</strong></span>
@@ -1231,21 +1253,24 @@ export function renderSiteRenderCachePanelCompact(
         ` : ''}
       </div>
       ${snapshot.active ? `
-        <div style="margin-top: 10px;">
+        <div style="margin-top: 8px;">
           <button
             type="button"
             class="debug-btn"
             data-debug-action="clear-panel"
             style="
-              padding: 6px 12px;
+              padding: 4px 10px;
               background: #dc2626;
               color: #fff;
               border: none;
               border-radius: 4px;
               font-size: 11px;
               cursor: pointer;
+              display: inline-flex;
+              align-items: center;
+              gap: 4px;
             "
-          >Clear Cache</button>
+          ><span style="font-size: 12px;">↻</span> Clear</button>
         </div>
       ` : ''}
     </div>
