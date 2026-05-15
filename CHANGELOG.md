@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.68.0](https://github.com/goliatone/go-admin/compare/v0.67.0...v0.68.0) - (2026-05-15)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.68.0 ([5e383ce](https://github.com/goliatone/go-admin/commit/5e383ce3137b678240b35a09c3ef04bc2b22cab5))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Cache render panel ([59b9f07](https://github.com/goliatone/go-admin/commit/59b9f075d924fa20586d5075608d866c98ff0a1f))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.67.0 ([d51390b](https://github.com/goliatone/go-admin/commit/d51390bcace430ae89db41c0c317e7a651566f6b))  - (goliatone)
+
 # [0.67.0](https://github.com/goliatone/go-admin/compare/v0.66.0...v0.67.0) - (2026-05-14)
 
 ## <!-- 13 -->📦 Bumps
