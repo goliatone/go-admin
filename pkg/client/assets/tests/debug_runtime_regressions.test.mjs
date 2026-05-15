@@ -71,6 +71,33 @@ function createDebugDOM() {
   `, { url: 'http://127.0.0.1:9090/admin/debug' });
 }
 
+function createSiteRenderCacheDebugDOM() {
+  return new JSDOM(`
+    <!doctype html>
+    <html>
+      <body>
+        <div class="debug-connection" data-debug-status="disconnected">
+          <span data-debug-connection>disconnected</span>
+        </div>
+        <nav data-debug-tabs></nav>
+        <section data-debug-filters></section>
+        <main
+          data-debug-panel
+          data-debug-console
+          data-debug-path="/admin/debug"
+          data-panels='["site-render-cache"]'
+          data-repl-commands='[]'
+          data-max-log-entries="25"
+          data-max-sql-queries="25"
+          data-slow-threshold-ms="50"
+        ></main>
+        <span data-debug-events>0</span>
+        <span data-debug-last>--</span>
+      </body>
+    </html>
+  `, { url: 'http://127.0.0.1:9090/admin/debug' });
+}
+
 function flushMicrotasks() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -162,6 +189,61 @@ test('debug bundle initializes without throwing in a browser-like environment', 
   assert.match(
     dom.window.document.querySelector('[data-debug-panel]').innerHTML,
     /request_id|No template data available/i,
+  );
+});
+
+test('debug panel delegates dynamic clear-panel actions after panel rerender', async () => {
+  const dom = createSiteRenderCacheDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+
+  const requests = [];
+  globalThis.fetch = async (input, init = {}) => {
+    requests.push({ url: String(input), method: init.method || 'GET' });
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        'site-render-cache': {
+          configured: true,
+          active: true,
+          backend: 'memory',
+          status: 'healthy',
+          scope: 'process_local',
+          counters: { lookups: 1, hits: 1, misses: 0, errors: 0 },
+          observed_keys: [],
+          recent_operations: [],
+          recent_errors: [],
+        },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(input).endsWith('/api/sessions')) {
+      return new Response(JSON.stringify({ sessions: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ status: 'ok' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const panel = debugModule.initDebugPanel(dom.window.document.querySelector('[data-debug-console]'));
+  await flushMicrotasks();
+
+  assert.ok(panel, 'expected debug panel to initialize');
+  const button = dom.window.document.querySelector('[data-debug-panel] [data-debug-action="clear-panel"]');
+  assert.ok(button, 'expected site render cache panel to render a clear button');
+
+  button.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+  await flushMicrotasks();
+
+  assert.ok(
+    requests.some((request) => request.method === 'POST' && request.url.endsWith('/api/clear/site-render-cache')),
+    `expected clear-panel POST request, got ${JSON.stringify(requests)}`,
   );
 });
 

@@ -1103,9 +1103,10 @@ var U = (t) => {
       if (!s) return;
       const r = s.dataset.panel || "";
       !r || r === this.activePanel || (this.activePanel = r, this.renderActivePanel());
-    }), this.container.querySelectorAll("[data-debug-action]").forEach((t) => {
-      t.addEventListener("click", () => {
-        switch (t.dataset.debugAction || "") {
+    }), this.container.addEventListener("click", (t) => {
+      const e = t.target?.closest("[data-debug-action]");
+      if (!(!e || !this.container.contains(e)))
+        switch (e.dataset.debugAction || "") {
           case "snapshot":
             this.stream.requestSnapshot();
             break;
@@ -1113,7 +1114,7 @@ var U = (t) => {
             this.clearAll();
             break;
           case "pause":
-            this.togglePause(t);
+            this.togglePause(e);
             break;
           case "clear-panel":
             this.clearActivePanel();
@@ -1121,7 +1122,6 @@ var U = (t) => {
           default:
             break;
         }
-      });
     }), this.panelEl.addEventListener("click", (t) => {
       const e = t.target;
       if (!e) return;
