@@ -36,6 +36,10 @@ var errDebugPanelRequired = goerrors.New("panel is required", goerrors.CategoryV
 	WithCode(http.StatusBadRequest).
 	WithTextCode(TextCodeMissingPanel)
 
+var errDebugPanelActionRequired = goerrors.New("panel action is required", goerrors.CategoryValidation).
+	WithCode(http.StatusBadRequest).
+	WithTextCode(TextCodeValidationError)
+
 var errDebugDoctorCheckRequired = goerrors.New("doctor check is required", goerrors.CategoryValidation).
 	WithCode(http.StatusBadRequest).
 	WithTextCode("MISSING_DOCTOR_CHECK")
@@ -173,6 +177,7 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	registerGet(debugAPIRoutePath(admin, m.config, "sessions"), m.handleDebugSessions, sessionAccess)
 	registerPost(debugAPIRoutePath(admin, m.config, "clear"), m.handleDebugClear)
 	registerPost(debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel)
+	registerPost(debugAPIRoutePath(admin, m.config, "panel.action"), m.handleDebugPanelAction)
 	registerPost(debugAPIRoutePath(admin, m.config, "doctor.action"), m.handleDebugDoctorAction)
 	// JS error ingestion remains nonce-protected, but it should only be mounted
 	// when the host explicitly configured a debug exposure boundary.
@@ -339,6 +344,49 @@ func (m *DebugModule) handleDebugClearPanel(c router.Context) error {
 	}
 	m.publishSnapshot()
 	return writeJSON(c, map[string]string{"status": "ok", "panel": panelID})
+}
+
+func (m *DebugModule) handleDebugPanelAction(c router.Context) error {
+	panelID := debugpanels.NormalizePanelID(c.Param("panel", ""))
+	if panelID == "" {
+		return writeError(c, errDebugPanelRequired)
+	}
+	actionID := strings.ToLower(strings.TrimSpace(c.Param("action", "")))
+	if actionID == "" {
+		return writeError(c, errDebugPanelActionRequired)
+	}
+	if m == nil || m.collector == nil {
+		return writeError(c, ErrNotFound)
+	}
+	if len(c.Body()) > 1<<20 {
+		return writeError(c, goerrors.New("panel action payload too large", goerrors.CategoryValidation).
+			WithCode(http.StatusRequestEntityTooLarge).
+			WithTextCode(TextCodeValidationError))
+	}
+	payload := map[string]any{}
+	rawBody := strings.TrimSpace(string(c.Body()))
+	if rawBody != "" {
+		if err := json.Unmarshal([]byte(rawBody), &payload); err != nil {
+			return writeError(c, goerrors.New("invalid JSON payload", goerrors.CategoryValidation).
+				WithCode(http.StatusBadRequest).
+				WithTextCode("INVALID_PAYLOAD"))
+		}
+	}
+	result, err := m.collector.RunPanelAction(c.Context(), debugregistry.PanelActionRequest{
+		PanelID:  panelID,
+		ActionID: actionID,
+		Payload:  payload,
+	})
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return writeError(c, ErrNotFound)
+		}
+		return writeError(c, err)
+	}
+	if result.Refresh {
+		m.publishSnapshot()
+	}
+	return writeJSON(c, result)
 }
 
 func (m *DebugModule) handleDebugDoctorAction(c router.Context) error {

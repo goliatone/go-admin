@@ -94,6 +94,12 @@ func registerDebugPanelFromInterface(panel DebugPanel) {
 	if spanProvider, ok := panel.(interface{ Span() int }); ok {
 		config.Span = spanProvider.Span()
 	}
+	if uiProvider, ok := panel.(DebugPanelUIProvider); ok {
+		config.UI = uiProvider.UI()
+	}
+	if actionProvider, ok := panel.(DebugPanelActionProvider); ok {
+		config.Actions = actionProvider.Actions()
+	}
 	_ = debugregistry.RegisterPanel(id, config)
 }
 

@@ -26,6 +26,16 @@ type DebugPanel interface {
 	Collect(ctx context.Context) map[string]any
 }
 
+// DebugPanelUIProvider optionally adds a declarative rich UI schema to a panel.
+type DebugPanelUIProvider interface {
+	UI() *debugregistry.PanelUI
+}
+
+// DebugPanelActionProvider optionally adds action handlers to a rich panel.
+type DebugPanelActionProvider interface {
+	Actions() map[string]debugregistry.PanelActionHandler
+}
+
 // DebugCollector aggregates debug data from multiple sources.
 type DebugCollector struct {
 	mu sync.RWMutex
@@ -787,6 +797,36 @@ func (c *DebugCollector) PanelDefinitions() []debugregistry.PanelDefinition {
 		defs = append(defs, def)
 	}
 	return defs
+}
+
+// RunPanelAction dispatches a schema-declared action to its registered handler.
+func (c *DebugCollector) RunPanelAction(ctx context.Context, req debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+	if c == nil {
+		return debugregistry.PanelActionResult{}, ErrNotFound
+	}
+	panelID := debugpanels.NormalizePanelID(req.PanelID)
+	actionID := strings.ToLower(strings.TrimSpace(req.ActionID))
+	if panelID == "" || actionID == "" || !c.panelEnabled(panelID) {
+		return debugregistry.PanelActionResult{}, ErrNotFound
+	}
+	registration, ok := debugregistry.Panel(panelID)
+	if !ok {
+		return debugregistry.PanelActionResult{}, ErrNotFound
+	}
+	handler := registration.Actions[actionID]
+	if handler == nil {
+		return debugregistry.PanelActionResult{}, ErrNotFound
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	req.PanelID = panelID
+	req.ActionID = actionID
+	result, err := handler(ctx, req)
+	if err != nil {
+		return debugregistry.PanelActionResult{}, err
+	}
+	return result, nil
 }
 
 // Clear removes all stored debug data across panels.
