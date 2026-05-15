@@ -1,6 +1,6 @@
 import { escapeHTML as q } from "../shared/html.js";
 import { normalizeDebugBasePath as L } from "./shared/path-helpers.js";
-import { S as w, _ as P, a as c, b as T, c as z, g as M, i as R, l as H, p as $, r as I, s as A, u as D, v as f, y as O } from "../chunks/builtin-panels-rp98daiS.js";
+import { S as w, _ as P, a as c, b as T, c as z, g as M, i as R, l as H, p as $, r as I, s as A, u as D, v as f, y as O } from "../chunks/builtin-panels-DIhjLELL.js";
 import { t as j } from "../chunks/repl-panel-So0Od67n.js";
 import { a as at, b as F, c as B, d as N, f as Q, g as _, h as G, i as y, l as Y, n as k, o as h, r as p, s as v, t as ot, u as st, y as b } from "../chunks/runtime-helpers-73DjiyO0.js";
 var K = `

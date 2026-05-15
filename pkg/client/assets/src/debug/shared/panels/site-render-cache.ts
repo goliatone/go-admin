@@ -252,7 +252,15 @@ function getCommandOutcomeConfig(outcome?: string): StatusConfig {
 // ============================================================================
 
 function renderStatusBadge(snapshot: SiteRenderCacheSnapshot): string {
-  const config = getStatusConfig(snapshot.status);
+  // Determine effective status based on configured/active state
+  let effectiveStatus = snapshot.status;
+  if (!snapshot.configured) {
+    effectiveStatus = 'inactive';
+  } else if (!snapshot.active) {
+    effectiveStatus = 'inactive';
+  }
+
+  const config = getStatusConfig(effectiveStatus);
 
   let statusLabel = config.label;
   if (!snapshot.configured) {
@@ -668,6 +676,8 @@ function renderConfigSection(config?: SiteRenderCacheConfig): string {
     { key: 'debug_headers', value: config.debug_headers },
     { key: 'debug_keys', value: config.debug_keys },
     { key: 'fail_closed', value: config.fail_closed },
+    { key: 'require_tag_index', value: config.require_tag_index },
+    { key: 'max_capture_body_size', value: config.max_capture_body_size },
   ];
 
   const rows = mainFields
@@ -688,7 +698,9 @@ function renderConfigSection(config?: SiteRenderCacheConfig): string {
       { key: 'address', value: config.valkey.address },
       { key: 'namespace', value: config.valkey.namespace },
       { key: 'db', value: config.valkey.db },
+      { key: 'url_configured', value: config.valkey.url_configured },
       { key: 'tls_enabled', value: config.valkey.tls_enabled },
+      { key: 'tls_skip_verify', value: config.valkey.tls_skip_verify },
       { key: 'username_set', value: config.valkey.username_set },
       { key: 'password_set', value: config.valkey.password_set },
     ];
@@ -1157,7 +1169,14 @@ export function renderSiteRenderCachePanelCompact(
     return `<div class="${styles.emptyState}">No cache data</div>`;
   }
 
-  const statusConfig = getStatusConfig(snapshot.status);
+  // Determine effective status based on configured/active state
+  let effectiveStatus = snapshot.status;
+  if (!snapshot.configured) {
+    effectiveStatus = 'inactive';
+  } else if (!snapshot.active) {
+    effectiveStatus = 'inactive';
+  }
+  const statusConfig = getStatusConfig(effectiveStatus);
   const counters = snapshot.counters || {};
   const hits = counters.hits || 0;
   const misses = counters.misses || 0;
