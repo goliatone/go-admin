@@ -335,27 +335,29 @@ export class DebugPanel {
       this.renderActivePanel();
     });
 
-    const actions = this.container.querySelectorAll<HTMLButtonElement>('[data-debug-action]');
-    actions.forEach((button) => {
-      button.addEventListener('click', () => {
-        const action = button.dataset.debugAction || '';
-        switch (action) {
-          case 'snapshot':
-            this.stream.requestSnapshot();
-            break;
-          case 'clear':
-            this.clearAll();
-            break;
-          case 'pause':
-            this.togglePause(button);
-            break;
-          case 'clear-panel':
-            this.clearActivePanel();
-            break;
-          default:
-            break;
-        }
-      });
+    this.container.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      const button = target?.closest<HTMLButtonElement>('[data-debug-action]');
+      if (!button || !this.container.contains(button)) {
+        return;
+      }
+      const action = button.dataset.debugAction || '';
+      switch (action) {
+        case 'snapshot':
+          this.stream.requestSnapshot();
+          break;
+        case 'clear':
+          this.clearAll();
+          break;
+        case 'pause':
+          this.togglePause(button);
+          break;
+        case 'clear-panel':
+          this.clearActivePanel();
+          break;
+        default:
+          break;
+      }
     });
 
     this.panelEl.addEventListener('click', (event) => {
