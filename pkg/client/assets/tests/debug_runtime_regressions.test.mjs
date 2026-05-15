@@ -38,7 +38,16 @@ function setGlobals(win) {
   globalThis.Node = win.Node;
   globalThis.MutationObserver = win.MutationObserver;
   globalThis.customElements = win.customElements;
-  globalThis.localStorage = win.localStorage;
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: win.localStorage,
+    configurable: true,
+    writable: true,
+  });
+  Object.defineProperty(globalThis, 'sessionStorage', {
+    value: win.sessionStorage,
+    configurable: true,
+    writable: true,
+  });
   globalThis.location = win.location;
   globalThis.Headers = globalThis.Headers || win.Headers;
   globalThis.Response = globalThis.Response || win.Response;
@@ -155,6 +164,7 @@ globalThis.fetch = async (input) => {
 };
 
 const debugModule = await import('../dist/debug/index.js');
+await import('../dist/debug/toolbar.js');
 
 test('debug bundle initializes without throwing in a browser-like environment', async () => {
   const dom = createDebugDOM();
@@ -190,6 +200,234 @@ test('debug bundle initializes without throwing in a browser-like environment', 
     dom.window.document.querySelector('[data-debug-panel]').innerHTML,
     /request_id|No template data available/i,
   );
+});
+
+test('debug panel restores a valid active panel from same-tab storage after hydration', async () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  dom.window.sessionStorage.setItem('debug-console-active-panel', ' sql ');
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/panels')) {
+      return new Response(JSON.stringify({ panels: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        template: { request_id: 'req-3' },
+        sql: [{ query: 'select 1', duration: '1ms' }],
+        config: {},
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  debugModule.initDebugPanel(dom.window.document.querySelector('[data-debug-console]'));
+  await flushMicrotasks();
+
+  assert.equal(
+    dom.window.document.querySelector('[data-debug-tabs] .debug-tab--active')?.dataset.panel,
+    'sql',
+  );
+});
+
+test('debug panel ignores stale stored active panels and tolerates storage failures', async () => {
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  dom.window.sessionStorage.setItem('debug-console-active-panel', 'missing-panel');
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/panels')) {
+      return new Response(JSON.stringify({ panels: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({ template: {}, sql: [], config: {} }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  debugModule.initDebugPanel(dom.window.document.querySelector('[data-debug-console]'));
+  await flushMicrotasks();
+
+  assert.equal(
+    dom.window.document.querySelector('[data-debug-tabs] .debug-tab--active')?.dataset.panel,
+    'template',
+  );
+
+  Object.defineProperty(globalThis, 'sessionStorage', {
+    value: {
+      getItem() {
+        throw new Error('blocked');
+      },
+      setItem() {
+        throw new Error('blocked');
+      },
+    },
+    configurable: true,
+  });
+
+  const sqlTab = dom.window.document.querySelector('[data-debug-tabs] [data-panel="sql"]');
+  assert.ok(sqlTab, 'expected SQL tab to render');
+  sqlTab.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true }));
+
+  assert.equal(
+    dom.window.document.querySelector('[data-debug-tabs] .debug-tab--active')?.dataset.panel,
+    'sql',
+  );
+});
+
+test('debug panel restores built-in Site Cache when it remains enabled', async () => {
+  const dom = new JSDOM(`
+    <!doctype html>
+    <html>
+      <body>
+        <div class="debug-connection" data-debug-status="disconnected">
+          <span data-debug-connection>disconnected</span>
+        </div>
+        <nav data-debug-tabs></nav>
+        <section data-debug-filters></section>
+        <main
+          data-debug-panel
+          data-debug-console
+          data-debug-path="/admin/site-cache-debug"
+          data-panels='["template","site-render-cache"]'
+          data-repl-commands='[]'
+          data-max-log-entries="25"
+          data-max-sql-queries="25"
+          data-slow-threshold-ms="50"
+        ></main>
+        <span data-debug-events>0</span>
+        <span data-debug-last>--</span>
+      </body>
+    </html>
+  `, { url: 'http://127.0.0.1:9090/admin/site-cache-debug' });
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  dom.window.sessionStorage.setItem('debug-console-active-panel', 'site-render-cache');
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/panels')) {
+      return new Response(JSON.stringify({ panels: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        template: {},
+        'site-render-cache': {
+          configured: true,
+          active: true,
+          backend: 'memory',
+          status: 'healthy',
+          scope: 'process_local',
+          counters: { lookups: 1, hits: 1, misses: 0, errors: 0 },
+          observed_keys: [],
+          recent_operations: [],
+          recent_errors: [],
+        },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  debugModule.initDebugPanel(dom.window.document.querySelector('[data-debug-console]'));
+  await flushMicrotasks();
+
+  assert.equal(
+    dom.window.document.querySelector('[data-debug-tabs] .debug-tab--active')?.dataset.panel,
+    'site-render-cache',
+  );
+});
+
+test('debug toolbar persists active panel with existing toolbar preferences', async () => {
+  setGlobals(bootstrapDOM.window);
+  globalThis.WebSocket = OpenWebSocket;
+  bootstrapDOM.window.WebSocket = OpenWebSocket;
+  bootstrapDOM.window.document.body.innerHTML = '';
+  bootstrapDOM.window.localStorage.clear();
+  bootstrapDOM.window.localStorage.setItem('debug-toolbar-expanded', 'true');
+  bootstrapDOM.window.localStorage.setItem('debug-toolbar-height', '420');
+  bootstrapDOM.window.localStorage.setItem('debug-toolbar-sort-order', JSON.stringify({ requests: false, sql: true }));
+  bootstrapDOM.window.localStorage.setItem('debug-toolbar-active-panel', ' sql ');
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/panels')) {
+      return new Response(JSON.stringify({ panels: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        requests: [{ status: 200 }],
+        sql: [{ query: 'select 1', duration: '1ms' }],
+        'site-render-cache': {
+          configured: true,
+          active: true,
+          backend: 'memory',
+          status: 'healthy',
+          scope: 'process_local',
+          counters: { lookups: 1, hits: 1, misses: 0, errors: 0 },
+          observed_keys: [],
+          recent_operations: [],
+          recent_errors: [],
+        },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response('{}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const toolbar = bootstrapDOM.window.document.createElement('debug-toolbar');
+  toolbar.setAttribute('debug-path', '/admin/toolbar-persistence');
+  toolbar.setAttribute('panels', 'requests,sql,site-render-cache');
+  toolbar.setAttribute('live-transport', 'false');
+  bootstrapDOM.window.document.body.appendChild(toolbar);
+  await flushMicrotasks();
+
+  assert.equal(toolbar.shadowRoot?.querySelector('.tab.active')?.dataset.panel, 'sql');
+
+  const siteCacheTab = toolbar.shadowRoot?.querySelector('[data-panel="site-render-cache"]');
+  assert.ok(siteCacheTab, 'expected Site Cache toolbar tab to render');
+  siteCacheTab.dispatchEvent(new bootstrapDOM.window.MouseEvent('click', { bubbles: true }));
+
+  assert.equal(bootstrapDOM.window.localStorage.getItem('debug-toolbar-active-panel'), 'site-render-cache');
+  assert.equal(bootstrapDOM.window.localStorage.getItem('debug-toolbar-expanded'), 'true');
+  assert.equal(bootstrapDOM.window.localStorage.getItem('debug-toolbar-height'), '420');
+  assert.deepEqual(JSON.parse(bootstrapDOM.window.localStorage.getItem('debug-toolbar-sort-order')), {
+    requests: false,
+    sql: true,
+  });
 });
 
 test('debug panel delegates dynamic clear-panel actions after panel rerender', async () => {

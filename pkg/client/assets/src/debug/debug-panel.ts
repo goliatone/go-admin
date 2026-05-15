@@ -84,6 +84,8 @@ type PanelRenderer = {
   filters?: () => string;
 };
 
+const DEBUG_CONSOLE_ACTIVE_PANEL_KEY = 'debug-console-active-panel';
+
 
 const parseJSON = (value: string | undefined): any => {
   if (!value) {
@@ -259,6 +261,7 @@ export class DebugPanel {
   private async initializeServerDefinitions(): Promise<void> {
     await hydrateServerPanelDefinitions(this.debugPath);
     this.eventToPanel = buildEventToPanel();
+    this.restoreActivePanel();
     this.renderTabs();
     this.renderActivePanel();
     this.fetchSnapshot();
@@ -277,6 +280,32 @@ export class DebugPanel {
       }
     }
     this.stream.subscribe(Array.from(eventTypes));
+  }
+
+  private normalizeStoredPanelID(value: string | null): string | null {
+    const panel = typeof value === 'string' ? value.trim() : '';
+    if (!panel) {
+      return null;
+    }
+    return this.panels.includes(panel) ? panel : null;
+  }
+
+  private restoreActivePanel(): void {
+    let restored: string | null = null;
+    try {
+      restored = this.normalizeStoredPanelID(sessionStorage.getItem(DEBUG_CONSOLE_ACTIVE_PANEL_KEY));
+    } catch {
+      restored = null;
+    }
+    this.activePanel = restored || this.normalizeStoredPanelID(this.activePanel) || this.panels[0] || 'template';
+  }
+
+  private persistActivePanel(): void {
+    try {
+      sessionStorage.setItem(DEBUG_CONSOLE_ACTIVE_PANEL_KEY, this.activePanel);
+    } catch {
+      // Ignore blocked or unavailable browser storage.
+    }
   }
 
   /**
@@ -332,6 +361,7 @@ export class DebugPanel {
         return;
       }
       this.activePanel = panel;
+      this.persistActivePanel();
       this.renderActivePanel();
     });
 

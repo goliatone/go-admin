@@ -177,6 +177,20 @@ test('debug toolbar helpers fetch snapshots and count summary state through one 
   );
 });
 
+test('debug toolbar helpers bound panel-definition discovery latency', async () => {
+  const originalFetch = globalThis.fetch;
+
+  try {
+    globalThis.fetch = async (_url, init = {}) => new Promise((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+    });
+
+    assert.deepEqual(await debugToolbar.fetchServerPanelDefinitions('/debug-hanging', 1), []);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('debug toolbar helpers hydrate server panel definitions without overwriting client renderers', async () => {
   const originalFetch = globalThis.fetch;
   const clientRender = () => 'client-renderer';
@@ -221,17 +235,38 @@ test('debug toolbar helpers hydrate server panel definitions without overwriting
                   actions: [{ id: 'refresh', label: 'Refresh', refresh: true, payload: { source: 'test' } }],
                 },
               },
+              {
+                id: 'future-cache',
+                label: 'Future Cache',
+                snapshot_key: 'future-cache',
+                ui: {
+                  schema_version: '999',
+                  views: { console: { renderer: 'table', bind: 'items' } },
+                  count: { mode: 'array_length', bind: 'items' },
+                  actions: [{ id: 'future-action', label: 'Future Action' }],
+                },
+              },
             ],
           };
         },
       };
     };
 
-    assert.equal(await debugToolbar.hydrateServerPanelDefinitions('/debug-hydration'), 1);
+    assert.equal(await debugToolbar.hydrateServerPanelDefinitions('/debug-hydration'), 2);
     assert.equal(debugToolbar.panelRegistry.get('client-cache')?.label, 'Client Cache');
     assert.equal(debugToolbar.panelRegistry.get('client-cache')?.render, clientRender);
     assert.equal(debugToolbar.panelRegistry.get('server-cache')?.label, 'Server Cache');
     assert.equal(debugToolbar.panelRegistry.isServerDefinition('server-cache'), true);
+    assert.equal(debugToolbar.panelRegistry.get('future-cache')?.label, 'Future Cache');
+    assert.equal(debugToolbar.panelRegistry.isServerDefinition('future-cache'), true);
+    assert.equal(
+      debugToolbar.panelRegistry.get('future-cache')?.getCount?.({ items: [1, 2, 3] }),
+      undefined,
+    );
+    const futureHTML = debugToolbar.panelRegistry
+      .get('future-cache')
+      ?.renderConsole?.({ items: [{ key: 'future', value: 1 }] }, testStyles, {});
+    assert.doesNotMatch(futureHTML || '', /\sdata-panel-action(\s|>)/);
     assert.equal(debugToolbar.buildEventToPanel()['cache-event'], 'server-cache');
     assert.equal(debugToolbar.panelRegistry.get('server-cache')?.getCount?.({ items: [1, 2, 3] }), 3);
     assert.deepEqual(
@@ -262,5 +297,6 @@ test('debug toolbar helpers hydrate server panel definitions without overwriting
     globalThis.fetch = originalFetch;
     debugToolbar.panelRegistry.unregister('client-cache');
     debugToolbar.panelRegistry.unregister('server-cache');
+    debugToolbar.panelRegistry.unregister('future-cache');
   }
 });

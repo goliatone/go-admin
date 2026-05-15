@@ -1,6 +1,6 @@
 import { escapeHTML as n } from "../shared/html.js";
 import { normalizeDebugBasePath as Y } from "../debug/shared/path-helpers.js";
-import { A as B, D as Z, E, F as J, I as ee, M as w, N as b, O as te, P as x, R as $, S as f, _ as k, i as oe, j as L, w as h } from "./server-definitions-CN7XKSsz.js";
+import { A as B, D as Z, E, F as J, I as ee, M as w, N as b, O as te, P as x, R as $, S as f, _ as k, i as oe, j as L, w as h } from "./server-definitions-CMXNSIlj.js";
 var re = 1e3, ne = 12e3, se = 8, ae = 1, ie = 3e4, le = (e) => {
   const t = window.location.protocol === "https:" ? "wss:" : "ws:", o = Y(e);
   return `${t}//${window.location.host}${o}/ws`;
@@ -3099,4 +3099,4 @@ export {
   U as y
 };
 
-//# sourceMappingURL=builtin-panels-BlCr1SBy.js.map
+//# sourceMappingURL=builtin-panels-BCqiRlk4.js.map

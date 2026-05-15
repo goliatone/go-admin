@@ -15,6 +15,8 @@ import type {
 import { escapeHTML } from './utils.js';
 
 const SUPPORTED_RENDERERS = new Set(['metrics', 'key_value', 'table', 'status_list', 'timeline', 'json', 'stack']);
+const SUPPORTED_SCHEMA_VERSION = '1';
+const PANEL_DEFINITION_FETCH_TIMEOUT_MS = 3000;
 const hydrationPromises = new Map<string, Promise<number>>();
 
 function normalizeDebugPath(debugPath: string): string {
@@ -53,6 +55,10 @@ function isSupportedView(view: ServerPanelUIView | undefined): boolean {
 
 function isSupportedUI(ui: ServerPanelUI | undefined): boolean {
   if (!ui || typeof ui !== 'object') {
+    return false;
+  }
+  const schemaVersion = normalizeText(ui.schema_version);
+  if (schemaVersion !== '' && schemaVersion !== SUPPORTED_SCHEMA_VERSION) {
     return false;
   }
   return isSupportedView(ui.views?.console) || isSupportedView(ui.views?.toolbar);
@@ -291,6 +297,7 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
   const label = normalizeText(serverDef.label) || id;
   const snapshotKey = normalizeID(serverDef.snapshot_key) || id;
   const ui = isSupportedUI(serverDef.ui) ? serverDef.ui : undefined;
+  const renderDef = ui ? serverDef : { ...serverDef, ui: undefined };
   return {
     id,
     label,
@@ -305,18 +312,27 @@ export function panelDefinitionFromServer(serverDef: ServerPanelDefinition): Pan
     renderFilters: ui?.filters?.length ? (state) => renderFilterControls(ui, state) : undefined,
     defaultFilters: ui?.filters?.length ? defaultFilterState(ui) : undefined,
     applyFilters: ui?.filters?.length ? (data, state) => applyDeclaredFilters(data, state, ui) : undefined,
-    render: (data, styles) => renderServerPanelView(serverDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true),
-    renderConsole: (data, styles) => renderServerPanelView(serverDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true),
-    renderToolbar: (data, styles) => renderServerPanelView(serverDef, ui?.views?.toolbar || ui?.views?.console, data, styles, false),
+    render: (data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true),
+    renderConsole: (data, styles) => renderServerPanelView(renderDef, ui?.views?.console || ui?.views?.toolbar, data, styles, true),
+    renderToolbar: (data, styles) => renderServerPanelView(renderDef, ui?.views?.toolbar || ui?.views?.console, data, styles, false),
     showFilters: Boolean(ui?.filters?.length),
   };
 }
 
-export async function fetchServerPanelDefinitions(debugPath: string): Promise<ServerPanelDefinition[]> {
+export async function fetchServerPanelDefinitions(
+  debugPath: string,
+  timeoutMs = PANEL_DEFINITION_FETCH_TIMEOUT_MS
+): Promise<ServerPanelDefinition[]> {
+  let timeoutID: ReturnType<typeof setTimeout> | undefined;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
   try {
     const base = normalizeDebugPath(debugPath);
+    if (controller && timeoutMs > 0) {
+      timeoutID = setTimeout(() => controller.abort(), timeoutMs);
+    }
     const response = await fetch(`${base}/api/panels`, {
       credentials: 'same-origin',
+      signal: controller?.signal,
     });
     if (!response.ok) {
       return [];
@@ -325,6 +341,10 @@ export async function fetchServerPanelDefinitions(debugPath: string): Promise<Se
     return Array.isArray(payload.panels) ? payload.panels : [];
   } catch {
     return [];
+  } finally {
+    if (timeoutID !== undefined) {
+      clearTimeout(timeoutID);
+    }
   }
 }
 

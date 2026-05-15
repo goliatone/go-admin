@@ -24,6 +24,7 @@ export class DebugFab extends HTMLElement {
   private toolbarExpanded = false;
   private eventToPanel: Record<string, string> = {};
   private unsubscribeRegistry: (() => void) | null = null;
+  private initializeGeneration = 0;
 
   static get observedAttributes(): string[] {
     return ['debug-path', 'panels', 'toolbar-expanded', 'live-transport'];
@@ -35,24 +36,40 @@ export class DebugFab extends HTMLElement {
   }
 
   connectedCallback(): void {
-    void this.initialize();
+    this.initializeGeneration += 1;
+    void this.initialize(this.initializeGeneration);
   }
 
-  private async initialize(): Promise<void> {
+  private async initialize(generation: number): Promise<void> {
     await hydrateServerPanelDefinitions(this.debugPath);
+    if (this.isInitializationStale(generation)) {
+      return;
+    }
     this.eventToPanel = buildEventToPanel();
     this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
+    if (this.isInitializationStale(generation)) {
+      this.unsubscribeRegistry?.();
+      this.unsubscribeRegistry = null;
+      return;
+    }
     this.render();
     if (this.liveTransportEnabled) {
       this.initWebSocket();
     }
-    this.fetchInitialSnapshot();
+    this.fetchInitialSnapshot(generation);
     this.loadState();
   }
 
   disconnectedCallback(): void {
+    this.initializeGeneration += 1;
     this.stream?.close();
+    this.stream = null;
     this.unsubscribeRegistry?.();
+    this.unsubscribeRegistry = null;
+  }
+
+  private isInitializationStale(generation: number): boolean {
+    return generation !== this.initializeGeneration || !this.isConnected;
   }
 
   attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void {
@@ -142,8 +159,11 @@ export class DebugFab extends HTMLElement {
   }
 
   // Fetch initial snapshot via HTTP
-  private async fetchInitialSnapshot(): Promise<void> {
+  private async fetchInitialSnapshot(generation = this.initializeGeneration): Promise<void> {
     const data = await fetchDebugSnapshot(this.debugPath);
+    if (this.isInitializationStale(generation)) {
+      return;
+    }
     if (data) {
       this.applySnapshot(data);
     }

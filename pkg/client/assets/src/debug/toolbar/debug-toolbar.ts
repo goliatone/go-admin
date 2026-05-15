@@ -34,6 +34,8 @@ import { httpRequest } from '../../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
 import '../shared/builtin-panels.js';
 
+const DEBUG_TOOLBAR_ACTIVE_PANEL_KEY = 'debug-toolbar-active-panel';
+
 export class DebugToolbar extends HTMLElement {
   private shadow: ShadowRoot;
   private stream: DebugStream | null = null;
@@ -61,6 +63,7 @@ export class DebugToolbar extends HTMLElement {
   private unsubscribeRegistry: (() => void) | null = null;
   // Expanded request detail state (preserved across re-renders)
   private expandedRequests: Set<string> = new Set();
+  private initializeGeneration = 0;
 
   private static readonly MIN_HEIGHT = 150;
   private static readonly MAX_HEIGHT_RATIO = 0.8;
@@ -76,17 +79,26 @@ export class DebugToolbar extends HTMLElement {
   }
 
   connectedCallback(): void {
-    void this.initialize();
+    this.initializeGeneration += 1;
+    void this.initialize(this.initializeGeneration);
   }
 
-  private async initialize(): Promise<void> {
+  private async initialize(generation: number): Promise<void> {
     await hydrateServerPanelDefinitions(this.debugPath);
+    if (this.isInitializationStale(generation)) {
+      return;
+    }
 
     // Build event-to-panel mapping from registry
     this.eventToPanel = buildEventToPanel();
 
     // Subscribe to registry changes
     this.unsubscribeRegistry = panelRegistry.subscribe((event) => this.handleRegistryChange(event));
+    if (this.isInitializationStale(generation)) {
+      this.unsubscribeRegistry?.();
+      this.unsubscribeRegistry = null;
+      return;
+    }
 
     this.loadState();
     this.render();
@@ -95,15 +107,22 @@ export class DebugToolbar extends HTMLElement {
       if (this.liveTransportEnabled) {
         this.initWebSocket();
       }
-      this.fetchInitialSnapshot();
+      this.fetchInitialSnapshot(generation);
     }
     this.setupKeyboardShortcut();
   }
 
   disconnectedCallback(): void {
+    this.initializeGeneration += 1;
     this.stream?.close();
+    this.stream = null;
     this.unsubscribeRegistry?.();
+    this.unsubscribeRegistry = null;
     document.removeEventListener('keydown', this.handleKeyDown);
+  }
+
+  private isInitializationStale(generation: number): boolean {
+    return generation !== this.initializeGeneration || !this.isConnected;
   }
 
   /**
@@ -179,6 +198,14 @@ export class DebugToolbar extends HTMLElement {
   }
 
   // State persistence
+  private normalizeStoredPanelID(value: string | null): string | null {
+    const panel = typeof value === 'string' ? value.trim() : '';
+    if (!panel) {
+      return null;
+    }
+    return this.panels.includes(panel) ? panel : null;
+  }
+
   private loadState(): void {
     try {
       const stored = localStorage.getItem('debug-toolbar-expanded');
@@ -204,8 +231,11 @@ export class DebugToolbar extends HTMLElement {
           // Ignore parse errors
         }
       }
+      const storedActivePanel = this.normalizeStoredPanelID(localStorage.getItem(DEBUG_TOOLBAR_ACTIVE_PANEL_KEY));
+      this.activePanel = storedActivePanel || this.normalizeStoredPanelID(this.activePanel) || 'requests';
     } catch {
       // Ignore localStorage errors
+      this.activePanel = this.normalizeStoredPanelID(this.activePanel) || 'requests';
     }
   }
 
@@ -221,6 +251,7 @@ export class DebugToolbar extends HTMLElement {
         sortOrderObj[key] = value;
       });
       localStorage.setItem('debug-toolbar-sort-order', JSON.stringify(sortOrderObj));
+      localStorage.setItem(DEBUG_TOOLBAR_ACTIVE_PANEL_KEY, this.activePanel);
     } catch {
       // Ignore localStorage errors
     }
@@ -333,8 +364,11 @@ export class DebugToolbar extends HTMLElement {
   }
 
   // Fetch initial snapshot via HTTP
-  private async fetchInitialSnapshot(): Promise<void> {
+  private async fetchInitialSnapshot(generation = this.initializeGeneration): Promise<void> {
     const data = await fetchDebugSnapshot(this.debugPath);
+    if (this.isInitializationStale(generation)) {
+      return;
+    }
     if (data) {
       this.applySnapshot(data);
     }
@@ -597,6 +631,7 @@ export class DebugToolbar extends HTMLElement {
         const panel = (e.currentTarget as HTMLElement).dataset.panel;
         if (panel && panel !== this.activePanel) {
           this.activePanel = panel;
+          this.saveState();
           // Update active state
           this.shadow.querySelectorAll('.tab').forEach((t) => t.classList.remove('active'));
           (e.currentTarget as HTMLElement).classList.add('active');
