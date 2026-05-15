@@ -59,6 +59,26 @@ func TestDebugMaskQueryParamsNoURL(t *testing.T) {
 	}
 }
 
+func TestDebugMaskInlineKeyValues(t *testing.T) {
+	cfg := DebugConfig{
+		MaskFieldTypes: map[string]string{"custom_credential": "filled"},
+	}
+
+	input := `inspect failed secret=open-sesame token: "token-open-sesame" custom_credential='credential-open-sesame' ok=value`
+	result := debugMaskInlineKeyValues(cfg, input)
+	for _, raw := range []string{"open-sesame", "token-open-sesame", "credential-open-sesame"} {
+		if strings.Contains(result, raw) {
+			t.Fatalf("expected inline key/value secret %q to be masked, got %q", raw, result)
+		}
+	}
+	if !strings.Contains(result, "ok=value") {
+		t.Fatalf("expected non-sensitive key/value preserved, got %q", result)
+	}
+	if !strings.Contains(result, `token: "`) || !strings.Contains(result, `custom_credential='`) {
+		t.Fatalf("expected separators and quotes preserved, got %q", result)
+	}
+}
+
 func TestDebugMaskInlineTokensBearer(t *testing.T) {
 	cfg := DebugConfig{}
 	input := "error: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature123 at line 5"
@@ -115,5 +135,18 @@ func TestDebugMaskInlineStringCombined(t *testing.T) {
 	}
 	if !strings.Contains(result, "page=1") {
 		t.Fatalf("expected non-sensitive param preserved, got %q", result)
+	}
+}
+
+func TestDebugMaskInlineStringAuthorizationBearer(t *testing.T) {
+	cfg := DebugConfig{}
+	token := "abc123secret456"
+	input := "request failed authorization: Bearer " + token
+	result := debugMaskInlineString(cfg, input)
+	if strings.Contains(result, token) {
+		t.Fatalf("expected authorization bearer token masked, got %q", result)
+	}
+	if !strings.Contains(result, "authorization:") {
+		t.Fatalf("expected authorization key preserved, got %q", result)
 	}
 }
