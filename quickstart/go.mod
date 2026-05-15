@@ -45,6 +45,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/uptrace/bun/dialect/sqlitedialect v1.2.18
 	github.com/uptrace/bun/driver/sqliteshim v1.2.18
+	github.com/valkey-io/valkey-go v1.0.72
 	golang.org/x/text v0.36.0
 	gopkg.in/yaml.v3 v3.0.1
 )
