@@ -2,12 +2,14 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/goliatone/go-admin/admin/routing"
+	debugregistry "github.com/goliatone/go-admin/debug"
 	router "github.com/goliatone/go-router"
 )
 
@@ -90,6 +92,178 @@ func TestDebugRoutesAllowStandaloneIPAccessWithoutAuthorizer(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected debug snapshot allowed for allowlisted IP, got %d body=%s", rr.Code, rr.Body.String())
 	}
+}
+
+func TestDebugPanelsEndpointExposesEnabledRichUIDefinitions(t *testing.T) {
+	const panelID = "rich_transport_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Label:           "Rich Transport",
+		SnapshotKey:     panelID,
+		SupportsToolbar: boolPtr(true),
+		UI: &debugregistry.PanelUI{
+			Views: debugregistry.PanelUIViews{
+				Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererTable, Bind: "items"},
+				Toolbar: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererMetrics, Bind: "summary"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register rich panel: %v", err)
+	}
+
+	debugCfg := DebugConfig{
+		Enabled:    true,
+		AllowedIPs: []string{"1.1.1.1"},
+		Panels:     []string{panelID},
+	}
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", debugAPIPath(t, adm, debugCfg, "panels"), nil)
+	req.RemoteAddr = "1.1.1.1:12345"
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected debug panels ok, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var response debugPanelsResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Panels) != 1 {
+		t.Fatalf("expected one panel, got %+v", response.Panels)
+	}
+	panel := response.Panels[0]
+	if panel.ID != panelID || panel.UI == nil || panel.UI.Views.Console == nil {
+		t.Fatalf("expected rich panel definition, got %+v", panel)
+	}
+	if panel.UI.Views.Console.Renderer != debugregistry.PanelRendererTable {
+		t.Fatalf("expected table renderer, got %+v", panel.UI.Views.Console)
+	}
+}
+
+func TestDebugPanelActionEndpointDispatchesRegisteredHandler(t *testing.T) {
+	const panelID = "action_transport_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	called := false
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Label:       "Action Transport",
+		SnapshotKey: panelID,
+		UI: &debugregistry.PanelUI{
+			Views: debugregistry.PanelUIViews{
+				Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererJSON},
+			},
+			Actions: []debugregistry.PanelUIAction{{ID: "refresh", Label: "Refresh", Refresh: true}},
+		},
+		Actions: map[string]debugregistry.PanelActionHandler{
+			"refresh": func(_ context.Context, req debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+				called = req.PanelID == panelID && req.ActionID == "refresh" && req.Payload["source"] == "test"
+				return debugregistry.PanelActionResult{OK: true, Message: "refreshed", Refresh: true}, nil
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register action panel: %v", err)
+	}
+
+	debugCfg := DebugConfig{
+		Enabled:    true,
+		AllowedIPs: []string{"1.1.1.1"},
+		Panels:     []string{panelID},
+	}
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	path := strings.Replace(debugAPIPath(t, adm, debugCfg, "panel.action"), ":panel", panelID, 1)
+	path = strings.Replace(path, ":action", "refresh", 1)
+	req := httptest.NewRequest("POST", path, strings.NewReader(`{"source":"test"}`))
+	req.RemoteAddr = "1.1.1.1:12345"
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected panel action ok, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	if !called {
+		t.Fatalf("expected registered action handler to be called")
+	}
+	var result debugregistry.PanelActionResult
+	if err := json.Unmarshal(rr.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode result: %v", err)
+	}
+	if !result.OK || result.Message != "refreshed" || !result.Refresh {
+		t.Fatalf("unexpected action result: %+v", result)
+	}
+}
+
+func TestDebugPanelActionEndpointRejectsDisabledPanel(t *testing.T) {
+	const panelID = "disabled_action_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		UI: &debugregistry.PanelUI{
+			Views:   debugregistry.PanelUIViews{Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererJSON}},
+			Actions: []debugregistry.PanelUIAction{{ID: "refresh", Label: "Refresh"}},
+		},
+		Actions: map[string]debugregistry.PanelActionHandler{
+			"refresh": func(context.Context, debugregistry.PanelActionRequest) (debugregistry.PanelActionResult, error) {
+				return debugregistry.PanelActionResult{OK: true}, nil
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register action panel: %v", err)
+	}
+
+	debugCfg := DebugConfig{
+		Enabled:    true,
+		AllowedIPs: []string{"1.1.1.1"},
+		Panels:     []string{"other_panel"},
+	}
+	cfg := Config{BasePath: "/admin", DefaultLocale: "en", Debug: debugCfg}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	if err := adm.RegisterModule(NewDebugModule(debugCfg)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	path := strings.Replace(debugAPIPath(t, adm, debugCfg, "panel.action"), ":panel", panelID, 1)
+	path = strings.Replace(path, ":action", "refresh", 1)
+	req := httptest.NewRequest("POST", path, nil)
+	req.RemoteAddr = "1.1.1.1:12345"
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected disabled panel action not found, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 func TestDebugRoutesUseAuthenticator(t *testing.T) {

@@ -136,6 +136,41 @@ func TestDebugCollectorSnapshotWithContextUsesRequestContext(t *testing.T) {
 	}
 }
 
+func TestDebugCollectorPanelDefinitionsExposeEnabledRichUI(t *testing.T) {
+	const panelID = "rich_collector_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Label:       "Rich Collector",
+		SnapshotKey: panelID,
+		UI: &debugregistry.PanelUI{
+			Views: debugregistry.PanelUIViews{
+				Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererKeyValue},
+			},
+			Count: &debugregistry.PanelUICount{Mode: debugregistry.PanelCountObjectKeys},
+		},
+	}); err != nil {
+		t.Fatalf("register rich panel: %v", err)
+	}
+
+	enabled := NewDebugCollector(DebugConfig{Panels: []string{panelID}})
+	defs := enabled.PanelDefinitions()
+	if len(defs) != 1 {
+		t.Fatalf("expected one panel definition, got %+v", defs)
+	}
+	if defs[0].UI == nil || defs[0].UI.Views.Console == nil {
+		t.Fatalf("expected rich ui in enabled definition, got %+v", defs[0])
+	}
+
+	disabled := NewDebugCollector(DebugConfig{Panels: []string{"other_panel"}})
+	for _, def := range disabled.PanelDefinitions() {
+		if def.ID == panelID {
+			t.Fatalf("disabled panel should not be exposed, got %+v", def)
+		}
+	}
+}
+
 func TestDebugCollectorRedaction(t *testing.T) {
 	cfg := DebugConfig{
 		CaptureSQL:  true,
@@ -435,6 +470,14 @@ func (p testDebugPanel) Collect(_ context.Context) map[string]any {
 	return map[string]any{"origin": "collect"}
 }
 
+type richTestDebugPanel struct {
+	testDebugPanel
+}
+
+func (p richTestDebugPanel) UI() *debugregistry.PanelUI {
+	return debugregistry.NewPanelUI(debugregistry.KeyValueView(""), debugregistry.MetricsView("summary"))
+}
+
 func TestDebugCollectorPublishPanelSnapshot(t *testing.T) {
 	cfg := DebugConfig{
 		Panels: []string{"activity"},
@@ -461,6 +504,26 @@ func TestDebugCollectorPublishPanelSnapshot(t *testing.T) {
 	}
 	if panel["count"] != expected["count"] {
 		t.Fatalf("expected count preserved, got %+v", panel["count"])
+	}
+}
+
+func TestDebugCollectorRegisterPanelInterfaceExposesRichUI(t *testing.T) {
+	const panelID = "rich_interface_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	collector := NewDebugCollector(DebugConfig{Panels: []string{panelID}})
+	collector.RegisterPanel(richTestDebugPanel{testDebugPanel: testDebugPanel{id: panelID}})
+
+	defs := collector.PanelDefinitions()
+	if len(defs) != 1 {
+		t.Fatalf("expected one definition, got %+v", defs)
+	}
+	if defs[0].UI == nil || defs[0].UI.Views.Console == nil {
+		t.Fatalf("expected rich ui from interface panel, got %+v", defs[0])
+	}
+	if defs[0].UI.Views.Console.Renderer != debugregistry.PanelRendererKeyValue {
+		t.Fatalf("expected helper-created key_value renderer, got %+v", defs[0].UI.Views.Console)
 	}
 }
 
