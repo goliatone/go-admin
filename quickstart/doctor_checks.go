@@ -9,22 +9,24 @@ import (
 
 	"github.com/goliatone/go-admin/admin"
 	"github.com/goliatone/go-admin/admin/routing"
+	"github.com/google/uuid"
 )
 
 func registerQuickstartDoctorChecks(adm *admin.Admin, cfg admin.Config, result AdapterResult, options adminOptions) {
 	if adm == nil {
 		return
 	}
-	checks := defaultQuickstartDoctorChecks(cfg, result)
+	checks := defaultQuickstartDoctorChecks(cfg, result, options)
 	if len(options.doctorChecks) > 0 {
 		checks = append(checks, options.doctorChecks...)
 	}
 	adm.RegisterDoctorChecks(checks...)
 }
 
-func defaultQuickstartDoctorChecks(cfg admin.Config, result AdapterResult) []admin.DoctorCheck {
+func defaultQuickstartDoctorChecks(cfg admin.Config, result AdapterResult, options adminOptions) []admin.DoctorCheck {
 	return []admin.DoctorCheck{
 		quickstartDoctorAdaptersCheck(result),
+		quickstartDoctorGoUsersScopeCheck(cfg, options),
 		quickstartDoctorRoutingCheck(),
 		quickstartDoctorRoutesCheck(cfg),
 		quickstartDoctorBlockDefinitionsCheck(),
@@ -92,6 +94,203 @@ func quickstartDoctorAdaptersCheck(result AdapterResult) admin.DoctorCheck {
 			}
 		},
 	}
+}
+
+func quickstartDoctorGoUsersScopeCheck(cfg admin.Config, options adminOptions) admin.DoctorCheck {
+	return admin.DoctorCheck{
+		ID:          "quickstart.go_users_scope",
+		Label:       "go-users Scope Wiring",
+		Description: "Reports quickstart go-users adapter scope resolver wiring and single-tenant default coverage.",
+		Help:        "Use this check when user or role lists look empty even though go-users seed data exists. It reports quickstart-owned resolver metadata and labels custom resolver behavior as best-effort.",
+		Action: admin.NewManualDoctorAction(
+			"Use quickstart.ScopeBuilder(adminCfg), or an equivalent config-aware resolver, for scoped go-users user, role, and profile reads.",
+			"Review go-users scope wiring",
+		),
+		Run: func(ctx context.Context, _ *admin.Admin) admin.DoctorCheckOutput {
+			metadata := goUsersScopeDoctorMetadata(ctx, cfg, options)
+			findings := goUsersScopeDoctorFindings(metadata)
+			if len(findings) == 0 {
+				return admin.DoctorCheckOutput{
+					Summary:  goUsersScopeDoctorSummary(metadata),
+					Metadata: metadata,
+				}
+			}
+			return admin.DoctorCheckOutput{
+				Summary:  goUsersScopeDoctorSummary(metadata),
+				Findings: findings,
+				Metadata: metadata,
+			}
+		},
+	}
+}
+
+func goUsersScopeDoctorMetadata(ctx context.Context, cfg admin.Config, options adminOptions) map[string]any {
+	scopeCfg := ScopeConfigFromAdmin(cfg)
+	rawScope := ScopeFromContext(ctx)
+	resolvedScope := ScopeBuilder(cfg)(ctx)
+	defaultScope := DefaultScopeFilter(cfg)
+	defaultTenantPresent := defaultScope.TenantID != uuid.Nil
+	defaultOrgPresent := defaultScope.OrgID != uuid.Nil
+	wiring := goUsersScopeDoctorWiringMetadata(options)
+	return map[string]any{
+		"scope": map[string]any{
+			"mode": scopeCfg.Mode,
+			"raw": map[string]string{
+				"tenant_id": formatUUID(rawScope.TenantID),
+				"org_id":    formatUUID(rawScope.OrgID),
+			},
+			"resolved": map[string]string{
+				"tenant_id": formatUUID(resolvedScope.TenantID),
+				"org_id":    formatUUID(resolvedScope.OrgID),
+			},
+			"default": map[string]string{
+				"tenant_id": formatUUID(defaultScope.TenantID),
+				"org_id":    formatUUID(defaultScope.OrgID),
+			},
+			"defaults_present": map[string]bool{
+				"tenant_id": defaultTenantPresent,
+				"org_id":    defaultOrgPresent,
+			},
+			"defaults_applied": map[string]bool{
+				"tenant_id": rawScope.TenantID == uuid.Nil && defaultScope.TenantID != uuid.Nil && resolvedScope.TenantID == defaultScope.TenantID,
+				"org_id":    rawScope.OrgID == uuid.Nil && defaultScope.OrgID != uuid.Nil && resolvedScope.OrgID == defaultScope.OrgID,
+			},
+		},
+		"wiring": wiring,
+	}
+}
+
+func goUsersScopeDoctorWiringMetadata(options adminOptions) map[string]any {
+	wiring := options.goUsersUserManagement
+	userGoUsers := false
+	roleGoUsers := false
+	profileGoUsers := false
+	if _, ok := options.deps.UserRepository.(*admin.GoUsersUserRepository); ok {
+		userGoUsers = true
+	}
+	if _, ok := options.deps.RoleRepository.(*admin.GoUsersRoleRepository); ok {
+		roleGoUsers = true
+	}
+	if _, ok := options.deps.ProfileStore.(*admin.GoUsersProfileStore); ok {
+		profileGoUsers = true
+	}
+
+	userOwned := wiring != nil && options.deps.UserRepository == wiring.userRepo
+	roleOwned := wiring != nil && options.deps.RoleRepository == wiring.roleRepo
+	profileOwned := wiring != nil && wiring.profileStore != nil && options.deps.ProfileStore == wiring.profileStore
+	source := "none"
+	if userGoUsers || roleGoUsers || profileGoUsers {
+		source = goUsersScopeResolverSourceUnknown
+	}
+	if userOwned || roleOwned || profileOwned {
+		source = wiring.source
+	}
+	return map[string]any{
+		"resolver_source":       source,
+		"quickstart_configured": wiring != nil,
+		"quickstart_owned": map[string]bool{
+			"user_repository": userOwned,
+			"role_repository": roleOwned,
+			"profile_store":   profileOwned,
+		},
+		"go_users_adapters": map[string]bool{
+			"user_repository": userGoUsers,
+			"role_repository": roleGoUsers,
+			"profile_store":   profileGoUsers,
+		},
+		"profile_configured": wiring != nil && wiring.profileWired,
+		"resolver_finalized": wiring != nil && (wiring.explicit != nil || wiring.finalized),
+	}
+}
+
+func goUsersScopeDoctorFindings(metadata map[string]any) []admin.DoctorFinding {
+	scope := mapFromMetadata(metadata, "scope")
+	wiring := mapFromMetadata(metadata, "wiring")
+	source := strings.TrimSpace(fmt.Sprint(wiring["resolver_source"]))
+	mode := strings.TrimSpace(fmt.Sprint(scope["mode"]))
+	if !goUsersScopeDoctorHasGoUsersAdapter(wiring) || mode != string(ScopeModeSingle) {
+		return nil
+	}
+	defaultsPresent := boolMapFromMetadata(scope, "defaults_present")
+	if !defaultsPresent["tenant_id"] || !defaultsPresent["org_id"] {
+		return []admin.DoctorFinding{{
+			Severity:  admin.DoctorSeverityWarn,
+			Code:      "quickstart.go_users_scope.defaults_missing",
+			Component: "users.scope",
+			Message:   "Single-tenant go-users scope defaults are not fully configured",
+			Hint:      "Configure DefaultTenantID and DefaultOrgID, or use quickstart.WithScopeConfig with single-tenant defaults.",
+			Metadata: map[string]any{
+				"resolver_source": source,
+			},
+		}}
+	}
+	if source == goUsersScopeResolverSourceUnknown {
+		return []admin.DoctorFinding{{
+			Severity:  admin.DoctorSeverityWarn,
+			Code:      "quickstart.go_users_scope.unknown_resolver",
+			Component: "users.scope",
+			Message:   "go-users user management adapters are active, but quickstart cannot verify their scope resolver",
+			Hint:      "Use quickstart.ScopeBuilder(adminCfg), or an equivalent config-aware resolver, for scoped go-users user, role, and profile reads.",
+			Metadata: map[string]any{
+				"resolver_source": source,
+				"confidence":      "best_effort",
+			},
+		}}
+	}
+	return nil
+}
+
+func goUsersScopeDoctorSummary(metadata map[string]any) string {
+	wiring := mapFromMetadata(metadata, "wiring")
+	source := strings.TrimSpace(fmt.Sprint(wiring["resolver_source"]))
+	if !goUsersScopeDoctorHasGoUsersAdapter(wiring) {
+		return "No go-users user management adapters detected"
+	}
+	switch source {
+	case goUsersScopeResolverSourceDefaulted:
+		return "Quickstart go-users adapters use the config-aware default scope resolver"
+	case goUsersScopeResolverSourceExplicit:
+		return "Quickstart go-users adapters use an explicit resolver; resolver behavior is best-effort to diagnostics"
+	case goUsersScopeResolverSourceUnknown:
+		return "go-users adapters are active with resolver behavior that quickstart cannot inspect"
+	default:
+		return "go-users scope wiring metadata collected"
+	}
+}
+
+func goUsersScopeDoctorHasGoUsersAdapter(wiring map[string]any) bool {
+	adapters := boolMapFromMetadata(wiring, "go_users_adapters")
+	return adapters["user_repository"] || adapters["role_repository"] || adapters["profile_store"]
+}
+
+func mapFromMetadata(metadata map[string]any, key string) map[string]any {
+	if metadata == nil {
+		return map[string]any{}
+	}
+	out, _ := metadata[key].(map[string]any)
+	if out == nil {
+		return map[string]any{}
+	}
+	return out
+}
+
+func boolMapFromMetadata(metadata map[string]any, key string) map[string]bool {
+	out := map[string]bool{}
+	if metadata == nil {
+		return out
+	}
+	if raw, ok := metadata[key].(map[string]bool); ok {
+		for k, v := range raw {
+			out[k] = v
+		}
+		return out
+	}
+	raw, _ := metadata[key].(map[string]any)
+	for k, v := range raw {
+		val, _ := v.(bool)
+		out[k] = val
+	}
+	return out
 }
 
 func quickstartDoctorRoutesCheck(cfg admin.Config) admin.DoctorCheck {
