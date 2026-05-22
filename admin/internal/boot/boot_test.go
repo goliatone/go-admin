@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/goliatone/go-admin/admin/routing"
+	goerrors "github.com/goliatone/go-errors"
 	"github.com/stretchr/testify/require"
 
 	router "github.com/goliatone/go-router"
@@ -19,6 +20,7 @@ type stubResponder struct {
 	errCalled      int
 	lastJSONStatus int
 	lastJSON       any
+	lastErr        error
 }
 
 func (s *stubResponder) WriteJSON(_ router.Context, payload any) error {
@@ -32,7 +34,11 @@ func (s *stubResponder) WriteJSONStatus(_ router.Context, statusCode int, payloa
 	return nil
 }
 func (s *stubResponder) WriteHTML(_ router.Context, _ string) error { s.htmlCalled++; return nil }
-func (s *stubResponder) WriteError(_ router.Context, _ error) error { s.errCalled++; return nil }
+func (s *stubResponder) WriteError(_ router.Context, err error) error {
+	s.errCalled++
+	s.lastErr = err
+	return nil
+}
 
 type stubCtx struct {
 	lifecycle  context.Context
@@ -462,6 +468,7 @@ type stubPanelBinding struct {
 		value string
 	}
 	listMeta map[string]any
+	errs     map[string]error
 }
 
 func (s *stubPanelBinding) Name() string { return s.name }
@@ -472,18 +479,30 @@ func (s *stubPanelBinding) List(_ router.Context, locale string, _ ListOptions) 
 	if meta == nil {
 		meta = map[string]any{"count": 1}
 	}
+	if err := s.errs["list"]; err != nil {
+		return nil, 0, nil, nil, nil, err
+	}
 	return []map[string]any{{"id": "1"}}, 1, map[string]any{"schema": true}, map[string]any{"form": true}, meta, nil
 }
 func (s *stubPanelBinding) Detail(router.Context, string, string) (map[string]any, error) {
+	if err := s.errs["detail"]; err != nil {
+		return nil, err
+	}
 	return map[string]any{"id": "1"}, nil
 }
 func (s *stubPanelBinding) Create(router.Context, string, map[string]any) (map[string]any, error) {
+	if err := s.errs["create"]; err != nil {
+		return nil, err
+	}
 	return map[string]any{"id": "2"}, nil
 }
 func (s *stubPanelBinding) Update(router.Context, string, string, map[string]any) (map[string]any, error) {
+	if err := s.errs["update"]; err != nil {
+		return nil, err
+	}
 	return map[string]any{"id": "3"}, nil
 }
-func (s *stubPanelBinding) Delete(router.Context, string, string) error { return nil }
+func (s *stubPanelBinding) Delete(router.Context, string, string) error { return s.errs["delete"] }
 func (s *stubPanelBinding) Action(_ router.Context, locale, action string, body map[string]any) (ActionResponse, error) {
 	s.actionCalled++
 	s.lastLocale = locale
@@ -491,12 +510,18 @@ func (s *stubPanelBinding) Action(_ router.Context, locale, action string, body 
 	if action == "" {
 		return ActionResponse{}, errors.New("missing action")
 	}
+	if err := s.errs["action"]; err != nil {
+		return ActionResponse{}, err
+	}
 	return s.actionResult, nil
 }
 func (s *stubPanelBinding) BulkActionState(_ router.Context, locale string, body map[string]any) (map[string]any, error) {
 	s.bulkStateCalled++
 	s.lastLocale = locale
 	s.lastActionBody = body
+	if err := s.errs["bulk_state"]; err != nil {
+		return nil, err
+	}
 	return map[string]any{"bulk_action_state": map[string]any{}}, nil
 }
 func (s *stubPanelBinding) Bulk(_ router.Context, locale, action string, body map[string]any) (map[string]any, error) {
@@ -506,10 +531,16 @@ func (s *stubPanelBinding) Bulk(_ router.Context, locale, action string, body ma
 	if action == "" {
 		return nil, errors.New("missing action")
 	}
+	if err := s.errs["bulk"]; err != nil {
+		return nil, err
+	}
 	return s.bulkResult, nil
 }
 
 func (s *stubPanelBinding) Preview(router.Context, string, string) (map[string]any, error) {
+	if err := s.errs["preview"]; err != nil {
+		return nil, err
+	}
 	return map[string]any{"token": "preview-token"}, nil
 }
 
@@ -523,6 +554,9 @@ func (s *stubPanelBinding) HandleSubresource(_ router.Context, locale, id, subre
 	s.lastSubresource.id = id
 	s.lastSubresource.name = subresource
 	s.lastSubresource.value = value
+	if err := s.errs["subresource"]; err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -883,6 +917,105 @@ func TestPanelStepListPublishesResponseMeta(t *testing.T) {
 	require.True(t, ok)
 	_, ok = bulkState["delete"]
 	require.True(t, ok)
+}
+
+func TestPanelStepWrapsBindingFailuresBeforeResponder(t *testing.T) {
+	rawErr := errors.New("repository failed")
+	cases := []struct {
+		name      string
+		errKey    string
+		callIndex int
+		setup     func(*router.MockContext)
+		wantText  string
+	}{
+		{name: "list", errKey: "list", callIndex: 0, wantText: "panel route panel users list records"},
+		{name: "detail", errKey: "detail", callIndex: 1, setup: func(c *router.MockContext) {
+			c.ParamsM["id"] = "42"
+		}, wantText: "panel route panel users load record id 42"},
+		{name: "create", errKey: "create", callIndex: 2, setup: mockBody, wantText: "panel route panel users create record"},
+		{name: "update", errKey: "update", callIndex: 3, setup: func(c *router.MockContext) {
+			c.ParamsM["id"] = "42"
+			mockBody(c)
+		}, wantText: "panel route panel users update record id 42"},
+		{name: "delete", errKey: "delete", callIndex: 5, setup: func(c *router.MockContext) {
+			c.ParamsM["id"] = "42"
+		}, wantText: "panel route panel users delete record id 42"},
+		{name: "action", errKey: "action", callIndex: 6, setup: func(c *router.MockContext) {
+			c.ParamsM["action"] = "publish"
+			mockBody(c)
+		}, wantText: "panel route panel users run action action publish"},
+		{name: "bulk state", errKey: "bulk_state", callIndex: 7, setup: mockBody, wantText: "panel route panel users load bulk action state"},
+		{name: "bulk", errKey: "bulk", callIndex: 8, setup: func(c *router.MockContext) {
+			c.ParamsM["action"] = "archive"
+			mockBody(c)
+		}, wantText: "panel route panel users run bulk action bulk_action archive"},
+		{name: "preview", errKey: "preview", callIndex: 9, setup: func(c *router.MockContext) {
+			c.ParamsM["id"] = "42"
+		}, wantText: "panel route panel users preview record id 42"},
+		{name: "subresource", errKey: "subresource", callIndex: 10, setup: func(c *router.MockContext) {
+			c.ParamsM["id"] = "42"
+			c.ParamsM["value"] = "artifact-1"
+		}, wantText: "panel route panel users handle subresource id 42 subresource artifact value artifact-1"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rr := &recordRouter{}
+			resp := &stubResponder{}
+			binding := &stubPanelBinding{
+				name: "users",
+				errs: map[string]error{tc.errKey: rawErr},
+				subresources: []PanelSubresourceSpec{
+					{Name: "artifact", Method: "GET"},
+				},
+			}
+			ctx := &stubCtx{
+				router:     rr,
+				responder:  resp,
+				basePath:   "/admin",
+				defaultLoc: "en",
+				panels:     []PanelBinding{binding},
+			}
+
+			require.NoError(t, PanelStep(ctx))
+			require.Greater(t, len(rr.calls), tc.callIndex)
+
+			mockCtx := router.NewMockContext()
+			if tc.setup != nil {
+				tc.setup(mockCtx)
+			}
+			require.NoError(t, rr.calls[tc.callIndex].handler(mockCtx))
+			require.Equal(t, 1, resp.errCalled)
+			require.ErrorIs(t, resp.lastErr, rawErr)
+			require.Contains(t, resp.lastErr.Error(), tc.wantText)
+			require.NotEmpty(t, routeErrorStackTrace(resp.lastErr))
+		})
+	}
+}
+
+func TestPanelRouteErrorPreservesExistingStack(t *testing.T) {
+	base := withRouteStack(errors.New("repository failed"))
+	baseStack := routeErrorStackTrace(base)
+
+	got := panelRouteError("users", "load record", map[string]string{"id": "42"}, base)
+	gotStack := routeErrorStackTrace(got)
+
+	require.Len(t, gotStack, len(baseStack))
+	if len(gotStack) > 0 {
+		require.Equal(t, baseStack[0], gotStack[0])
+	}
+}
+
+func mockBody(c *router.MockContext) {
+	c.On("Body").Return([]byte{})
+}
+
+func routeErrorStackTrace(err error) goerrors.StackTrace {
+	var carrier routeStackCarrier
+	if errors.As(err, &carrier) {
+		return carrier.StackTrace()
+	}
+	return nil
 }
 
 type stubNavigationBinding struct {

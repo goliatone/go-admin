@@ -21,7 +21,6 @@ type stubRoleRegistry struct{}
 type stubProfileRepo struct{}
 
 type captureInventoryRepo struct {
-	stubInventoryRepo
 	filter userstypes.UserInventoryFilter
 }
 
