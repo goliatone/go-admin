@@ -59,6 +59,7 @@ type adminOptions struct {
 	translationQueueConfigSet    bool
 	startupPolicy                *admin.ModuleStartupPolicy
 	doctorChecks                 []admin.DoctorCheck
+	goUsersUserManagement        *goUsersUserManagementWiring
 	errors                       []error
 	registerUserRoleBulkRoutes   bool
 }
@@ -293,6 +294,7 @@ func NewAdmin(cfg admin.Config, hooks AdapterHooks, opts ...AdminOption) (*admin
 		}
 		return nil, result, ErrPersistentCMSSetupFailed
 	}
+	finalizeGoUsersUserManagement(cfg, &options)
 	if err := resolveAdminRuntimeDependencies(cfg, &options); err != nil {
 		return nil, result, err
 	}
