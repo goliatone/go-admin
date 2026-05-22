@@ -18,6 +18,12 @@ const (
 
 var ErrGoUsersUserManagementConfig = errors.New("go-users user management config invalid")
 
+const (
+	goUsersScopeResolverSourceDefaulted = "defaulted"
+	goUsersScopeResolverSourceExplicit  = "explicit"
+	goUsersScopeResolverSourceUnknown   = "unknown"
+)
+
 // GoUsersUserManagementConfig captures go-users adapters used by quickstart user management.
 type GoUsersUserManagementConfig struct {
 	AuthRepo      userstypes.AuthRepository                    `json:"auth_repo"`
@@ -29,6 +35,17 @@ type GoUsersUserManagementConfig struct {
 
 type GoUsersUserManagementConfigError struct {
 	Missing []string `json:"missing"`
+}
+
+type goUsersUserManagementWiring struct {
+	source       string
+	explicit     func(context.Context) userstypes.ScopeFilter
+	defaulted    func(context.Context) userstypes.ScopeFilter
+	userRepo     *admin.GoUsersUserRepository
+	roleRepo     *admin.GoUsersRoleRepository
+	profileStore *admin.GoUsersProfileStore
+	profileWired bool
+	finalized    bool
 }
 
 func (e GoUsersUserManagementConfigError) Error() string {
@@ -52,15 +69,24 @@ func WithGoUsersUserManagement(cfg GoUsersUserManagementConfig) AdminOption {
 			opts.addError(err)
 			return
 		}
-		opts.deps.UserRepository = admin.NewGoUsersUserRepository(cfg.AuthRepo, cfg.InventoryRepo, cfg.ScopeResolver)
-		opts.deps.RoleRepository = admin.NewGoUsersRoleRepository(cfg.RoleRegistry, cfg.ScopeResolver)
+		wiring := newGoUsersUserManagementWiring(cfg)
+		userRepo := admin.NewGoUsersUserRepository(cfg.AuthRepo, cfg.InventoryRepo, wiring.resolve)
+		roleRepo := admin.NewGoUsersRoleRepository(cfg.RoleRegistry, wiring.resolve)
+		opts.deps.UserRepository = userRepo
+		opts.deps.RoleRepository = roleRepo
+		wiring.userRepo = userRepo
+		wiring.roleRepo = roleRepo
 		if cfg.ProfileRepo != nil {
-			opts.deps.ProfileStore = admin.NewGoUsersProfileStore(cfg.ProfileRepo, cfg.ScopeResolver)
+			profileStore := admin.NewGoUsersProfileStore(cfg.ProfileRepo, wiring.resolve)
+			opts.deps.ProfileStore = profileStore
+			wiring.profileStore = profileStore
+			wiring.profileWired = true
 		}
 		if opts.deps.BulkUserImport == nil {
 			create := command.NewUserCreateCommand(command.UserCreateCommandConfig{Repository: cfg.AuthRepo})
 			opts.deps.BulkUserImport = command.NewBulkUserImportCommand(create)
 		}
+		opts.goUsersUserManagement = wiring
 	}
 }
 
@@ -88,6 +114,45 @@ func validateGoUsersUserManagementConfig(cfg GoUsersUserManagementConfig) error 
 		return GoUsersUserManagementConfigError{Missing: missing}
 	}
 	return nil
+}
+
+func newGoUsersUserManagementWiring(cfg GoUsersUserManagementConfig) *goUsersUserManagementWiring {
+	wiring := &goUsersUserManagementWiring{
+		source: goUsersScopeResolverSourceDefaulted,
+	}
+	if cfg.ScopeResolver != nil {
+		wiring.source = goUsersScopeResolverSourceExplicit
+		wiring.explicit = cfg.ScopeResolver
+	}
+	return wiring
+}
+
+func (w *goUsersUserManagementWiring) resolve(ctx context.Context) userstypes.ScopeFilter {
+	if w == nil {
+		return userstypes.ScopeFilter{}
+	}
+	if w.explicit != nil {
+		return w.explicit(ctx)
+	}
+	if w.defaulted != nil {
+		return w.defaulted(ctx)
+	}
+	return userstypes.ScopeFilter{}
+}
+
+func finalizeGoUsersUserManagement(cfg admin.Config, opts *adminOptions) {
+	if opts == nil || opts.goUsersUserManagement == nil {
+		return
+	}
+	opts.goUsersUserManagement.finalize(cfg)
+}
+
+func (w *goUsersUserManagementWiring) finalize(cfg admin.Config) {
+	if w == nil || w.explicit != nil {
+		return
+	}
+	w.defaulted = ScopeBuilder(cfg)
+	w.finalized = true
 }
 
 func registerUserRoleBulkRoutes(adm *admin.Admin, cfg admin.Config) error {
