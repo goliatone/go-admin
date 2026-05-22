@@ -137,3 +137,32 @@ func TestRoleHandlersRenderFormInjectsCSRFField(t *testing.T) {
 	}
 	ctx.AssertExpectations(t)
 }
+
+func TestRegisterRolesUIRoutesWiresCustomRolesSurface(t *testing.T) {
+	cfg := admin.Config{
+		BasePath:      "/admin",
+		Title:         "Admin",
+		DefaultLocale: "en",
+	}
+	adm, err := admin.New(cfg, admin.Dependencies{})
+	if err != nil {
+		t.Fatalf("new admin: %v", err)
+	}
+
+	r := newContentEntryRouteCaptureRouter()
+	if err := RegisterRolesUIRoutes(r, cfg, adm); err != nil {
+		t.Fatalf("RegisterRolesUIRoutes: %v", err)
+	}
+
+	for _, routePath := range []string{
+		"/admin/roles",
+		"/admin/roles/new",
+		"/admin/roles/:id",
+		"/admin/roles/:id/edit",
+		"/admin/roles/:id/delete",
+	} {
+		if !r.paths[routePath] {
+			t.Fatalf("expected roles UI route %q, got %+v", routePath, r.paths)
+		}
+	}
+}

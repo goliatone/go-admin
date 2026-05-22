@@ -76,3 +76,31 @@ func TestSharedListTemplateCanRenderDataGridShellWithoutPrefetchedItems(t *testi
 		t.Fatalf("expected shared list template to keep the DataGrid table shell")
 	}
 }
+
+func TestRolesListTemplateNoopsWhenDataTableIsMissing(t *testing.T) {
+	rolesPath := filepath.Join("..", "pkg", "client", "templates", "resources", "roles", "list.html")
+	raw, err := os.ReadFile(rolesPath)
+	if err != nil {
+		t.Fatalf("read roles template: %v", err)
+	}
+	rolesTemplate := string(raw)
+	required := []string{
+		"const tableEl = document.getElementById(tableId);",
+		"if (!tableEl) {\n    return;\n  }",
+	}
+	for _, fragment := range required {
+		if !strings.Contains(rolesTemplate, fragment) {
+			t.Fatalf("expected roles list template to contain no-table guard fragment %q", fragment)
+		}
+	}
+
+	sharedPath := filepath.Join("..", "pkg", "client", "templates", "resources", "shared", "list-base.html")
+	raw, err = os.ReadFile(sharedPath)
+	if err != nil {
+		t.Fatalf("read shared template: %v", err)
+	}
+	sharedTemplate := string(raw)
+	if !strings.Contains(sharedTemplate, "{% if items or render_datagrid_shell %}") {
+		t.Fatalf("expected shared list template to omit table shell for empty-state pages")
+	}
+}
