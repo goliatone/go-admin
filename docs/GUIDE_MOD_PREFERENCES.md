@@ -373,6 +373,7 @@ If you need dedicated tenant/org/system management UIs, build a custom module or
 - `admin/preferences.go` (service, defaults, in-memory store)
 - `admin/preferences_module.go` (module, panel repo, raw filtering)
 - `quickstart/go_users_preferences.go` (go-users adapter)
-- `quickstart/preferences_quickstart.go` (wiring helper)
+- `quickstart/preferences_options.go` (quickstart options)
+- `quickstart/preferences_module.go` (quickstart module defaults)
 - `quickstart/preferences_permissions.go` (default permissions)
 - `docs/AUTH.md` (permissions + troubleshooting)

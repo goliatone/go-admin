@@ -351,7 +351,7 @@ Update and rollback safety:
 - rollback is performed via `PUT /admin/api/workflows/:id` with `rollback_to_version`
 
 For migration SQL, rollout order, and rollback procedures, see
-`docs/WORKFLOW_PERSISTENCE.md`.
+`docs/reference/root/WORKFLOW_PERSISTENCE.md`.
 
 ### Row Action Availability Contract (`_action_state`)
 

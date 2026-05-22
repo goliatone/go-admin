@@ -5,6 +5,7 @@ This guide explains how to create, register, and integrate custom modules into g
 ## What it provides
 
 - Module interface and manifest system for self-describing features
+- Explicit route contracts for mounted modules
 - Feature flag integration for conditional module loading
 - Navigation menu contribution from modules
 - Panel module pattern for CRUD-based admin features
@@ -13,6 +14,7 @@ This guide explains how to create, register, and integrate custom modules into g
 - Route registration patterns for module endpoints
 - Quickstart helpers for streamlined module registration
 - i18n support via TranslatorAware interface
+- Startup validation and icon contribution hooks
 - Security patterns (auth, permissions, redaction)
 
 ## Table of Contents
@@ -96,6 +98,11 @@ type AdminRouter interface {
 type RouteContractProvider interface {
     RouteContract() routing.ModuleContract
 }
+
+// ModuleStartupValidator can run additional startup checks after module registration.
+type ModuleStartupValidator interface {
+    ValidateStartup(ctx context.Context) error
+}
 ```
 
 ### Optional Interfaces
@@ -113,13 +120,23 @@ type MenuContributor interface {
 type TranslatorAware interface {
     WithTranslator(Translator)
 }
+
+// IconContributor optionally lets package-internal modules contribute icon libraries
+// and definitions during load.
+type IconContributor interface {
+    IconLibraries() []modules.IconLibrary
+    IconDefinitions() []modules.IconDefinition
+}
 ```
 
-MenuContributor is separate from Module; your module should implement Module and optionally MenuContributor/TranslatorAware.
+MenuContributor is separate from Module; your module should implement Module and
+optionally MenuContributor/TranslatorAware. Icon contribution is currently wired
+through the internal module loader for go-admin-owned modules.
 
-Mounted modules should also implement `RouteContractProvider`; module routing is
-no longer inferred. See `docs/GUIDE_ROUTING.md` for the published slug, route
-ownership, mount, and manifest-review contract.
+All registered modules are planned through the routing system and must implement
+`RouteContractProvider`. Module routing is no longer inferred. See
+`docs/GUIDE_ROUTING.md` for the published slug, route ownership, mount, and
+manifest-review contract.
 
 ### Repository Interface
 
@@ -143,14 +160,18 @@ go-admin includes several built-in modules that follow consistent patterns. Thes
 
 ### Quick Reference: Feature Flags to Module IDs
 
-| Feature Flag           | Module ID       | File                          | Description                          |
-| ---------------------- | --------------- | ----------------------------- | ------------------------------------ |
-| `FeatureProfile`       | `profile`       | `admin/profile_module.go`     | Current user profile management      |
-| `FeaturePreferences`   | `preferences`   | `admin/preferences_module.go` | User preferences (theme, layout, UI) |
-| `FeatureUsers`         | `users`         | `admin/users_module.go`       | User and role management             |
-| `FeatureTenants`       | `tenants`       | `admin/tenants_module.go`     | Multi-tenant support                 |
-| `FeatureOrganizations` | `organizations` | `admin/tenants_module.go`     | Organization hierarchy               |
-| `debug` (custom)       | `debug`         | `admin/debug_module.go`       | Development introspection            |
+| Feature Flag                         | Module ID              | File                                   | Default Registration | Description                          |
+| ------------------------------------ | ---------------------- | -------------------------------------- | -------------------- | ------------------------------------ |
+| `FeatureUsers`                       | `users`                | `admin/users_module.go`                | Feature-gated        | User and role management             |
+| `FeaturePreferences`                 | `preferences`          | `admin/preferences_module.go`          | Feature-gated        | User preferences (theme, layout, UI) |
+| Always registered                    | `feature_flags`        | `admin/feature_flags_module.go`        | Yes                  | Feature flag administration entry    |
+| `FeatureProfile`                     | `profile`              | `admin/profile_module.go`              | Feature-gated        | Current user profile management      |
+| `FeatureTenants`                     | `tenants`              | `admin/tenants_module.go`              | Feature-gated        | Multi-tenant support                 |
+| `FeatureOrganizations`               | `organizations`        | `admin/tenants_module.go`              | Feature-gated        | Organization hierarchy               |
+| `FeatureMedia`                       | `media`                | `admin/media_module.go`                | Feature-gated        | Media library UI and API routes      |
+| Always registered                    | `activity`             | `admin/activity_module.go`             | Yes                  | Activity navigation and integrations |
+| `debug` (custom feature key)         | `debug`                | `admin/debug_module.go`                | Manual               | Development introspection            |
+| `FeatureCMS`, `FeatureCommands`      | `content_type_builder` | `admin/content_type_builder_module.go` | Manual               | Content type builder                 |
 
 ### Profile Module
 
@@ -233,23 +254,64 @@ Organization management with hierarchical structure.
 | Panel Route  | `/admin/organizations`                                           |
 | Permissions  | `OrganizationsPermission`, `OrganizationsCreatePermission`, etc. |
 
+### Feature Flags Module
+
+**File**: `admin/feature_flags_module.go`
+
+Feature flag administration navigation. This module is registered by default and
+owns the `feature_flags.index` UI route.
+
+### Media Module
+
+**File**: `admin/media_module.go`
+
+Media library page, list page, admin JSON routes, and optional media delivery
+routes. The module is feature-gated by `FeatureMedia`; media delivery routes are
+included in the module route contract when delivery configuration enables them.
+
+See `docs/GUIDE_MODULE_MEDIA.md` for detailed behavior.
+
+### Activity Module
+
+**File**: `admin/activity_module.go`
+
+Activity navigation and activity-related integrations. This module is registered
+by default and owns the `activity.index` UI route.
+
+See `docs/GUIDE_ACTIVITY.md` for detailed behavior.
+
+### Other Module Implementations
+
+`ContentTypeBuilderModule` is a useful reference for a manually registered
+module. `modules/services` is a separate setup integration package rather than
+an `admin.Module`; it wires go-services runtime, migrations, and API routes
+through its own `Setup(...)` flow.
+
 ### Default Module Registration
 
-Built-in modules are auto-registered when their feature flags are enabled:
+Built-in modules are auto-registered during initialization. Feature-gated
+modules are included only when their gates are enabled; always-on utility
+modules are included unless the host registered the same module ID first:
 
 ```go
 // In admin/modules.go
 func (a *Admin) registerDefaultModules() error {
-    if a.gates.Enabled(FeatureUsers) {
-        if _, exists := a.registry.Module(usersModuleID); !exists {
-            if err := a.registry.RegisterModule(NewUserManagementModule()); err != nil {
-                return err
-            }
+    for _, candidate := range a.defaultModules() {
+        if !candidate.enabled {
+            continue
+        }
+        if err := a.registerDefaultModule(candidate.id, candidate.build); err != nil {
+            return err
         }
     }
-    // ... same pattern for Preferences, Profile, Tenants, Organizations
+    return nil
 }
 ```
+
+The default module list currently includes `users`, `preferences`,
+`feature_flags`, `profile`, `tenants`, `organizations`, `media`, and `activity`.
+Duplicate IDs are skipped so host code can register a customized module before
+initialization.
 
 ---
 
@@ -286,6 +348,36 @@ Panel UI behavior has two independent controls:
 
 Use entry mode for reusable package-level behavior (for example self-service
 profile screens) without app-specific route overrides.
+
+### Custom UI Route Registration
+
+`PanelUIRouteModeCustom` only declares ownership. It does not register HTTP
+handlers.
+
+When a panel is marked custom-owned, quickstart's canonical content-entry route
+registrar skips it. The owning module or host must register the actual UI
+surface explicitly:
+
+```go
+// Example host wiring for the built-in custom-owned roles panel.
+if err := quickstart.RegisterRolesUIRoutes(adminUI, cfg, adm); err != nil {
+    return err
+}
+```
+
+If the route exists in URLKit or navigation but no custom UI registrar is called,
+the menu can point at a valid-looking path such as `/admin/roles` while the
+router still returns 404.
+
+Use this rule for every custom-owned panel:
+
+- Add the route to the module `RouteContract()` or URLKit group so navigation
+  and URL helpers can resolve it.
+- Register the matching UI handlers on the runtime router.
+- Add a route-registration test that asserts the expected GET/POST paths are
+  mounted.
+- Keep generic content-entry registration for canonical panels only; it will not
+  backfill custom-owned panels.
 
 ### Example: Profile Module Structure
 
@@ -375,7 +467,17 @@ func (m *ProfileModule) Register(ctx ModuleContext) error {
     return nil
 }
 
-// 5. Menu contribution
+// 5. Route contract
+func (m *ProfileModule) RouteContract() routing.ModuleContract {
+    return routing.ModuleContract{
+        Slug: "profile",
+        UIRoutes: map[string]string{
+            "profile.index": "/",
+        },
+    }
+}
+
+// 6. Menu contribution
 func (m *ProfileModule) MenuItems(locale string) []MenuItem {
     if locale == "" {
         locale = m.defaultLocale
@@ -403,7 +505,7 @@ func (m *ProfileModule) MenuItems(locale string) []MenuItem {
     }}
 }
 
-// 6. Optional: menu parent setter
+// 7. Optional: menu parent setter
 func (m *ProfileModule) WithMenuParent(parent string) *ProfileModule {
     m.menuParent = parent
     return m
@@ -486,6 +588,7 @@ type DebugModule struct {
     menuCode      string
     locale        string
     permission    string
+    uiGroupPath   string
 }
 
 // NewDebugModule creates a new debug module instance
@@ -498,19 +601,41 @@ func NewDebugModule(config DebugConfig) *DebugModule {
 
 ```go
 type DebugConfig struct {
-    Enabled            bool          // Master enable flag
-    CaptureSQL         bool          // Enable SQL query capture
-    CaptureLogs        bool          // Enable log streaming
-    StrictQueryHooks   bool          // Panic on invalid query hook registrations
-    MaxLogEntries      int           // Ring buffer size for logs
-    MaxSQLQueries      int           // Ring buffer size for SQL
-    Panels             []string      // Enabled panel IDs
-    FeatureKey         string        // Feature gate key (defaults to "debug")
-    Permission         string        // Optional permission gate
-    BasePath           string        // Optional path override
-    SlowQueryThreshold time.Duration // Highlight slow queries
-    AllowedIPs         []string      // Optional IP whitelist
-    PersistLayout      bool          // Opt-in to layout persistence
+    Enabled            bool              // Master enable flag
+    CaptureSQL         bool              // Enable SQL query capture
+    CaptureLogs        bool              // Enable log streaming
+    CaptureRequestBody bool              // Capture request bodies when safe
+    CaptureJSErrors    bool              // Capture browser JS errors
+    StrictQueryHooks   bool              // Panic on invalid query hook registrations
+    MaxLogEntries      int               // Ring buffer size for request/log/js/custom data
+    MaxSQLQueries      int               // Ring buffer size for SQL
+    MaskFieldTypes     map[string]string // Field-type mask overrides
+    MaskPlaceholder    string            // Redaction placeholder
+    Panels             []string          // Enabled console panel IDs
+    ToolbarMode        bool              // Render toolbar on admin pages
+    ToolbarPanels      []string          // Enabled toolbar panel IDs
+    ToolbarExcludePaths []string         // Paths where toolbar is hidden
+    FeatureKey         string            // Feature gate key (defaults to "debug")
+    Permission         string            // Debug view permission
+    BasePath           string            // Optional path override
+    LayoutMode         DebugLayoutMode   // standalone or admin template layout
+    PageTemplate       string            // Primary debug template
+    DashboardTemplate  string            // go-dashboard template override
+    ViewContextBuilder DebugViewContextBuilder
+    SecureRequestResolver DebugSecureRequestResolver
+    SlowQueryThreshold time.Duration     // Highlight slow queries
+    AllowedIPs         []string          // Optional IP allowlist
+    AllowedOrigins     []string          // Remote debug origin allowlist
+    RemoteEnabled      bool              // Remote identity/token endpoints
+    AppID              string            // Remote debug app id
+    AppName            string            // Remote debug app name
+    Environment        string            // Deployment label
+    TokenTTL           time.Duration     // Remote token TTL
+    PersistLayout      bool              // Opt-in to layout persistence
+    SessionTracking    bool              // Debug session tracking
+    SessionCookieName  string            // Debug session cookie name
+    SessionInactivityExpiry time.Duration
+    Repl               DebugREPLConfig
 }
 ```
 
@@ -534,7 +659,36 @@ func (m *DebugModule) Manifest() ModuleManifest {
 }
 ```
 
-### Step 4: Implement Register
+### Step 4: Implement RouteContract
+
+Every registered module must declare the route surfaces it owns:
+
+```go
+const (
+    debugRouteKey         = "debug_tools.index"
+    debugSnapshotRouteKey = "debug_tools.api.snapshot"
+)
+
+func (m *DebugModule) RouteContract() routing.ModuleContract {
+    return routing.ModuleContract{
+        Slug: "debug_tools",
+        UIRoutes: map[string]string{
+            debugRouteKey:         "/",
+            debugSnapshotRouteKey: "/api/snapshot",
+        },
+    }
+}
+```
+
+Route tables are relative to the module mount. Use `UIRoutes` for admin UI
+pages, `APIRoutes` for admin API routes, and `PublicAPIRoutes` only for
+intentional public API exposure.
+
+The debug module keeps console support endpoints under its UI mount so the
+entire debug surface shares one access boundary. General reusable modules should
+prefer `APIRoutes` for admin JSON APIs.
+
+### Step 5: Implement Register
 
 The Register method wires the module into the admin:
 
@@ -564,8 +718,11 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
     if m.permission == "" {
         m.permission = cfg.Permission
     }
-    if m.basePath == "" {
-        m.basePath = cfg.BasePath
+    if path := ctx.Routing.RoutePath(routing.SurfaceUI, debugRouteKey); path != "" {
+        m.basePath = path
+    }
+    if group := strings.TrimSpace(ctx.Routing.Resolved.UIGroupPath); group != "" {
+        m.uiGroupPath = group
     }
     if m.collector == nil {
         m.collector = NewDebugCollector(cfg)
@@ -576,8 +733,8 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
     m.captureRoutesSnapshot(ctx.Admin)
     m.registerDashboardArea(ctx.Admin)
     m.registerDashboardProviders(ctx.Admin)
-    m.registerDebugRoutes(ctx.Admin)
-    m.registerDebugWebSocket(ctx.Admin)
+    m.registerDebugRoutes(ctx)
+    m.registerDebugWebSocket(ctx)
 
     return nil
 }
@@ -612,49 +769,40 @@ The actual module loading happens in `admin/modules.go`:
 
 ```go
 func (a *Admin) loadModules(ctx context.Context) error {
-    // 1. Register default modules (based on feature flags)
     if err := a.registerDefaultModules(); err != nil {
         return err
     }
 
-    // 2. Load all registered modules in dependency order
-    modulesToLoad := []modules.Module{}
-    for _, mod := range a.registry.Modules() {
-        if mod == nil {
-            continue
-        }
-        modulesToLoad = append(modulesToLoad, mod)
+    modulesToLoad := collectRegisteredModules(a.registry.Modules())
+    routingContexts, err := a.planModuleRouting(modulesToLoad)
+    if err != nil {
+        return err
     }
-    err := modules.Load(ctx, modules.LoadOptions{
-        Modules:       modulesToLoad,
-        Gates:         a.gates,
-        DefaultLocale: a.config.DefaultLocale,
-        Translator:    a.translator,
-        DisabledError: func(feature, moduleID string) error {
-            return FeatureDisabledError{
-                Feature: feature,
-                Reason:  fmt.Sprintf("required by module %s; enable via FeatureGate defaults or overrides", moduleID),
-            }
-        },
-        Register: func(mod modules.Module) error {
-            registrar, ok := mod.(Module)
-            if !ok {
-                return fmt.Errorf("module %s missing Register implementation", mod.Manifest().ID)
-            }
-            return registrar.Register(ModuleContext{
-                Admin:      a,
-                Router:     a.router,
-                Locale:     a.config.DefaultLocale,
-                Translator: a.translator,
-            })
-        },
-        AddMenuItems: func(ctx context.Context, items []navinternal.MenuItem) error {
-            return a.addMenuItems(ctx, []MenuItem(items))
-        },
-    })
-    return err
+
+    authMiddleware, publicRouter, protectedRouter := a.moduleRouters()
+    return modules.Load(ctx, a.moduleLoadOptions(
+        ctx,
+        modulesToLoad,
+        routingContexts,
+        authMiddleware,
+        publicRouter,
+        protectedRouter,
+    ))
 }
 ```
+
+Loading has three important phases:
+
+1. Default modules are added when their feature gates are enabled.
+2. The routing planner validates every registered module's `RouteContract()` and
+   builds resolved mount paths.
+3. Modules load in dependency order with a staged public and protected router.
+   Staged routes are committed only after registration and startup validation
+   succeed.
+
+`modules.Load` also injects translators, adds contributed menu items, adds
+contributed icon libraries/definitions, and skips dependents when an earlier
+module was intentionally skipped.
 
 ### Module Ordering (Topological Sort)
 
@@ -820,15 +968,28 @@ Checklist:
 
 ```go
 type MenuItem struct {
-    Label       string         // Display text
-    LabelKey    string         // i18n key
-    Icon        string         // Icon identifier (iconoir)
-    Target      map[string]any // Navigation target
-    Permissions []string       // Required permissions
-    Position    *int           // Menu ordering
-    Menu        string         // Menu code to attach to
-    Locale      string         // Locale for i18n
-    Children    []MenuItem     // Nested items
+    ID            string            // Stable item path/id
+    Code          string            // Optional code alias
+    Type          string            // item, group, separator
+    Label         string            // Display text
+    LabelKey      string            // i18n key
+    GroupTitle    string            // Group heading
+    GroupTitleKey string            // Group heading i18n key
+    URLOverride   *string           // Locale-specific URL override
+    Target        map[string]any    // Navigation target
+    Icon          string            // Icon identifier
+    Position      *int              // Menu ordering
+    Children      []MenuItem        // Nested items
+    Locale        string            // Locale for i18n
+    Badge         map[string]any    // Optional badge metadata
+    Permissions   []string          // Required permissions
+    Menu          string            // Menu code to attach to
+    Classes       []string          // Optional UI classes
+    Styles        map[string]string // Optional UI styles
+    ParentID      string            // Parent item path/id
+    ParentCode    string            // Parent item code alias
+    Collapsible   bool              // Group can collapse
+    Collapsed     bool              // Initial collapsed state
 }
 ```
 
@@ -854,6 +1015,7 @@ func (m *DebugModule) registerDashboardWidgets(ctx ModuleContext) error {
     ctx.Admin.RegisterWidgetArea(WidgetAreaDefinition{
         Code: "admin.debug",
         Name: "Debug Console",
+        Scope: "admin",
     })
 
     // Register widget providers for each panel
@@ -870,6 +1032,8 @@ func (m *DebugModule) registerDashboardWidgets(ctx ModuleContext) error {
 ```go
 type DebugPanelWidgetPayload struct {
     Panel string `json:"panel"`
+    Label string `json:"label,omitempty"`
+    Icon  string `json:"icon,omitempty"`
     Data  any    `json:"data"`
 }
 
@@ -879,6 +1043,7 @@ func (m *DebugModule) registerPanelWidget(ctx ModuleContext, panelID string) {
         Name:        m.panelDisplayName(panelID),
         DefaultArea: "admin.debug",
         DefaultSpan: 12,
+        Permission:  m.permission,
         Handler:     m.createPanelHandler(panelID),
     }
 
@@ -888,19 +1053,13 @@ func (m *DebugModule) registerPanelWidget(ctx ModuleContext, panelID string) {
 func (m *DebugModule) createPanelHandler(panelID string) WidgetProvider {
     return func(ctx AdminContext, config map[string]any) (WidgetPayload, error) {
         snapshot := m.collector.Snapshot()
-
-        switch panelID {
-        case "template":
-            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot["template"]}), nil
-        case "session":
-            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot["session"]}), nil
-        case "sql":
-            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot["sql"]}), nil
-        case "logs":
-            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot["logs"]}), nil
-        default:
-            return WidgetPayloadOf(DebugPanelWidgetPayload{Panel: panelID, Data: snapshot[panelID]}), nil
-        }
+        meta := m.panelMeta(panelID)
+        return WidgetPayloadOf(DebugPanelWidgetPayload{
+            Panel: panelID,
+            Label: meta.Label,
+            Icon:  meta.Icon,
+            Data:  snapshot[panelID],
+        }), nil
     }
 }
 ```
@@ -923,6 +1082,10 @@ All panels default to span 12 (full width). See `admin/debug_module.go` for pane
 | `config`   | App configuration     | 12           |
 | `routes`   | Registered routes     | 12           |
 | `custom`   | User-defined data     | 12           |
+| `jserrors` | Browser JS errors     | 12           |
+| `permissions` | Permission checks  | 12           |
+| `actions`  | Action diagnostics    | 12           |
+| `doctor`   | Runtime health checks | 12           |
 
 ---
 
@@ -943,7 +1106,22 @@ func (m *MyModule) Register(ctx ModuleContext) error {
     if ctx.Router == nil {
         return errors.New("router is nil")
     }
-    m.registerRoutes(ctx)
+    indexPath := ctx.Routing.RoutePath(routing.SurfaceUI, "my_module.index")
+    dataPath := ctx.Routing.RoutePath(routing.SurfaceAPI, "my_module.data")
+    actionPath := ctx.Routing.RoutePath(routing.SurfaceAPI, "my_module.action")
+
+    guard := func(handler router.HandlerFunc) router.HandlerFunc {
+        return func(c router.Context) error {
+            if !m.allowRequest(c) {
+                return ErrForbidden
+            }
+            return handler(c)
+        }
+    }
+
+    ctx.ProtectedRouter.Get(indexPath, guard(m.handleIndex))
+    ctx.ProtectedRouter.Get(dataPath, guard(m.handleData))
+    ctx.ProtectedRouter.Post(actionPath, guard(m.handleAction))
     return nil
 }
 ```
@@ -954,47 +1132,28 @@ overrides, and manifest export coherent.
 
 ### Router Capabilities
 
-If you need router-specific features (groups, WebSocket support, etc.), type-assert the router to the interface you need.
+If you need router-specific features (groups, WebSocket support, etc.),
+type-assert the router to the interface you need and still use the resolved route
+path:
 
 ```go
 type WebSocketRouter interface {
     WebSocket(path string, config router.WebSocketConfig, handler func(router.WebSocketContext) error) router.RouteInfo
 }
 
-if ws, ok := ctx.Router.(WebSocketRouter); ok {
-    ws.WebSocket("/admin/my-module/ws", router.DefaultWebSocketConfig(), m.handleWebSocket)
+if ws, ok := ctx.ProtectedRouter.(WebSocketRouter); ok {
+    ws.WebSocket(
+        ctx.Routing.RoutePath(routing.SurfaceUI, "my_module.ws"),
+        router.DefaultWebSocketConfig(),
+        m.handleWebSocket,
+    )
 }
 ```
 
-### Custom Route Registration Pattern
-
-For modules that don't use go-dashboard, here's the standard pattern:
-
-```go
-func (m *MyModule) registerRoutes(ctx ModuleContext) error {
-    if ctx.Router == nil {
-        return errors.New("router is nil")
-    }
-
-    // Guard function with module-specific checks
-    guard := func(handler router.HandlerFunc) router.HandlerFunc {
-        return func(c router.Context) error {
-            if !m.allowRequest(c) {
-                return ErrForbidden
-            }
-            return handler(c)
-        }
-    }
-
-    // Register routes
-    ctx.Router.Get(m.basePath, guard(m.handleIndex))
-    ctx.Router.Get(path.Join(m.basePath, "api/data"), guard(m.handleData))
-    ctx.Router.Post(path.Join(m.basePath, "api/action"), guard(m.handleAction))
-    return nil
-}
-```
-
-Note: If you want navigation to resolve this route via URLKit, add the route name to the admin URLKit config (`defaultAdminRoutes()` or `cfg.URLs.URLKit`). Otherwise `resolveURLWith(...)` will return an empty string and your menu item will fall back to the base path.
+Note: If you want navigation to resolve this route via URLKit, keep route keys in
+the module contract and route names consistent. Otherwise `resolveURLWith(...)`
+will return an empty string and your menu item should provide an explicit
+fallback path.
 
 ### Route Handlers Example
 
@@ -1037,6 +1196,16 @@ type DebugPanel interface {
     Collect(ctx context.Context) map[string]any // Gather panel data
 }
 
+// DebugPanelUIProvider optionally adds a declarative rich UI schema.
+type DebugPanelUIProvider interface {
+    UI() *debugregistry.PanelUI
+}
+
+// DebugPanelActionProvider optionally adds action handlers to a rich panel.
+type DebugPanelActionProvider interface {
+    Actions() map[string]debugregistry.PanelActionHandler
+}
+
 // RegisterPanel adds a custom debug panel.
 func (c *DebugCollector) RegisterPanel(panel DebugPanel) {
     if c == nil || panel == nil {
@@ -1055,6 +1224,13 @@ func (c *DebugCollector) RegisterPanel(panel DebugPanel) {
     c.panelIndex[id] = panel
 }
 ```
+
+For Go-only rich panels, provide a `debug.PanelConfig` with `UI`, or implement
+`DebugPanelUIProvider` when registering through `DebugCollector.RegisterPanel`.
+The browser hydrates those definitions from the debug panel discovery endpoint
+and renders them with shipped schema-driven renderers. Custom TypeScript
+`panelRegistry.register(...)` renderers are still appropriate for bespoke
+interactions that cannot be expressed with the declarative schema.
 
 **Example Custom Panel:**
 
@@ -1474,12 +1650,12 @@ func (m *DebugModule) registerWebSocket(ctx ModuleContext) {
     if ctx.Router == nil {
         return
     }
-    ws, ok := ctx.Router.(WebSocketRouter)
+    ws, ok := ctx.ProtectedRouter.(WebSocketRouter)
     if !ok {
         return // Router doesn't support WebSocket
     }
     ws.WebSocket(
-        path.Join(m.basePath, "ws"),
+        ctx.Routing.RoutePath(routing.SurfaceUI, debugWSRouteKey),
         router.DefaultWebSocketConfig(),
         m.handleDebugWebSocket,
     )
@@ -1575,10 +1751,13 @@ interface DebugEvent {
     | "log"
     | "sql"
     | "request"
-    | "template"
-    | "session"
-    | "custom"
-    | "snapshot";
+	    | "template"
+	    | "session"
+	    | "custom"
+	    | "jserrors"
+	    | "permissions"
+	    | "actions"
+	    | "snapshot";
   payload: any;
   timestamp: string;
 }
@@ -1600,16 +1779,20 @@ func (m *DebugModule) Register(ctx ModuleContext) error {
 }
 ```
 
-### 2. Authentication Required
+### 2. Authentication Boundary
 
-All debug routes should require authentication:
+Debug routes should be mounted on `ProtectedRouter` unless the host explicitly
+configures a standalone IP allowlist/access boundary:
 
 ```go
 func (m *DebugModule) registerRoutes(ctx ModuleContext) {
     if ctx.Router == nil {
         return
     }
-    ctx.Router.Get(m.basePath, m.guard(m.handleDebugDashboard))
+    ctx.ProtectedRouter.Get(
+        ctx.Routing.RoutePath(routing.SurfaceUI, debugRouteKey),
+        m.guard(m.handleDebugDashboard),
+    )
 }
 ```
 
@@ -1820,13 +2003,16 @@ go-admin/
 │   ├── debug_config.go        # Config defaults and normalizer
 │   ├── debug_module.go        # Module registration & manifest
 │   ├── debug_collector.go     # Data collection & aggregation
+│   ├── debug_panel_registry.go # Built-in/rich panel definitions
 │   ├── debug_integrations.go  # Middleware + log/session/template helpers
 │   ├── debug_query_hook.go    # Bun query hook integration
-│   └── debug_transport.go     # Routes + WebSocket handlers
+│   ├── debug_transport.go     # Routes + WebSocket handlers
+│   └── debug_repl_*.go        # Optional REPL/session support
 ├── pkg/client/
 │   ├── assets/src/debug/
 │   │   ├── debug-panel.ts     # Debug panel component
-│   │   └── debug-stream.ts    # WebSocket client
+│   │   ├── shared/            # Hydration, registry, schema renderers
+│   │   └── toolbar/           # Toolbar/FAB client
 │   └── templates/resources/debug/
 │       └── index.html         # Debug dashboard template
 ```
@@ -1839,11 +2025,13 @@ cfg.Debug = admin.DebugConfig{
     Enabled:            debugEnabled,
     CaptureSQL:         debugEnabled,
     CaptureLogs:        debugEnabled,
+    CaptureJSErrors:    debugEnabled,
     MaxLogEntries:      500,
     MaxSQLQueries:      200,
     SlowQueryThreshold: 50 * time.Millisecond,
     Permission:         "admin.debug",
     AllowedIPs:         []string{"127.0.0.1"},
+    ToolbarMode:        debugEnabled,
     Panels: []string{
         "template",
         "session",
@@ -1853,6 +2041,9 @@ cfg.Debug = admin.DebugConfig{
         "config",
         "routes",
         "custom",
+        "jserrors",
+        "permissions",
+        "actions",
     },
 }
 ```
@@ -1869,12 +2060,20 @@ Default panel IDs:
 - `config`
 - `routes`
 - `custom`
+- `jserrors`
+- `permissions`
+- `actions`
+
+Additional panels such as `doctor`, `shell`, and `console` are available when
+their supporting runtime/configuration is registered.
 
 ### Enable/Disable Guidance
 
 - The module is disabled by default; set `DebugConfig.Enabled=true` to opt in.
 - The module also requires the feature gate key (default key is `debug`; override with `DebugConfig.FeatureKey`).
-- When enabled, ensure the dashboard feature and CMS widget service are available.
+- Without `FeatureDashboard`, the debug module serves its fallback page and API routes.
+- With `FeatureDashboard`, debug panels are also registered as dashboard providers and can use dashboard runtime routes/widgets.
+- CMS widget persistence is only required for persisted dashboard widget instances, not for the fallback debug console.
 - Disable by setting `Enabled=false` or providing an empty `Panels` list.
 
 ### Wiring in Host Application
@@ -1960,9 +2159,18 @@ func (h *UserHandlers) List(c router.Context) error {
 | ------ | ------------------------------- | ---------------------- |
 | GET    | `{debug_path}`                  | Debug dashboard page   |
 | GET    | `{debug_path}/ws`               | WebSocket connection   |
+| GET    | `{debug_path}/session/:sessionId/ws` | Session-scoped WebSocket |
+| GET    | `{debug_path}/repl/app/ws`      | REPL app WebSocket |
+| GET    | `{debug_path}/repl/shell/ws`    | REPL shell WebSocket |
+| GET    | `{debug_path}/api/panels`       | Enabled panel definitions |
 | GET    | `{debug_path}/api/snapshot`     | Current state snapshot |
+| GET    | `{debug_path}/api/sessions`     | Active debug sessions |
 | POST   | `{debug_path}/api/clear`        | Clear all buffers      |
 | POST   | `{debug_path}/api/clear/:panel` | Clear specific panel   |
+| POST   | `{debug_path}/api/panels/:panel/actions/:action` | Run panel action |
+| POST   | `{debug_path}/api/doctor/:check/action` | Run doctor action |
+| POST   | `{debug_path}/api/errors`       | JS error ingestion when enabled |
+| GET/POST | `{debug_path}/api/dashboard...` | Dashboard widget runtime routes |
 
 ---
 
@@ -1997,10 +2205,15 @@ if err != nil {
 | -------------------------------------- | ------------------------------------- |
 | `WithModuleRegistrarContext(ctx)`      | Set context for navigation seeding    |
 | `WithModuleMenuItems(items...)`        | Append base menu items before seeding |
+| `WithToolsMenuItems(items...)`         | Append items to the quickstart Tools group |
+| `WithSidebarUtilityMenuItems(items...)` | Append fixed sidebar utility links   |
+| `WithDefaultSidebarUtilityItems(bool)` | Toggle quickstart-provided utility links |
+| `WithSidebarUtilityMenuCode(code)`     | Override the utility menu code        |
 | `WithSeedNavigation(bool)`             | Toggle navigation seeding             |
 | `WithSeedNavigationOptions(fn)`        | Mutate seed options                   |
 | `WithModuleFeatureGates(gates)`        | Enable feature-gated module filtering |
 | `WithModuleFeatureDisabledHandler(fn)` | Custom handler for disabled modules   |
+| `WithTranslationCapabilityMenuMode(mode)` | Control seeded translation links   |
 
 ### Feature Gates in Quickstart
 
@@ -2010,7 +2223,8 @@ for module filtering.
 
 ### Handling Disabled Modules
 
-By default, disabled modules are silently skipped. Use a custom handler for logging:
+By default, disabled modules are skipped and logged. Use a custom handler when
+you want different logging or fail-fast behavior:
 
 ```go
 quickstart.NewModuleRegistrar(
@@ -2043,7 +2257,7 @@ quickstart.NewModuleRegistrar(
 
 1. **Use Panel Module pattern** — For CRUD features, follow the built-in module structure
 2. **Check service availability** — Return `FeatureDisabledError` if required services are nil
-3. **Resolve defaults from context** — Use `ctx.Admin.config.*` for base path, locale, permissions
+3. **Resolve defaults from context** — Use public helpers such as `ctx.Admin.BasePath()`, `ctx.Admin.URLs()`, `ctx.Admin.DefaultLocale()`, and `ctx.Admin.NavMenuCode()` in external modules; package-internal modules may use lower-level fields when needed
 4. **Declare feature flags** — Use `Manifest().FeatureFlags` for conditional loading
 5. **Implement MenuContributor** — Provide navigation items with proper permissions
 6. **Use Repository adapters** — Convert services to panel Repository interface
@@ -2052,6 +2266,9 @@ quickstart.NewModuleRegistrar(
 9. **Test auth paths** — Verify unauthorized users get 403/filtered results
 10. **Document permission strings** — List required permissions in module docs
 11. **Use `WithNav` in custom handlers** — Keep `translation_capabilities`, activity flags, and sidebar/session payload consistent with built-in routes
+12. **Declare route ownership** — Implement `RouteContract()` and register concrete paths through `ctx.Routing.RoutePath(...)`
+13. **Mount custom-owned UI routes** — `PanelUIRouteModeCustom` panels are skipped by canonical content-entry routing, so call the owning route registrar explicitly
+14. **Use startup validation sparingly** — Implement `ModuleStartupValidator` only for checks that must run after module registration
 
 ---
 
@@ -2067,6 +2284,10 @@ quickstart.NewModuleRegistrar(
 | `admin/preferences_module.go`     | Preferences module                                |
 | `admin/users_module.go`           | Users/roles module (complex example)              |
 | `admin/tenants_module.go`         | Tenants and Organizations modules                 |
+| `admin/feature_flags_module.go`   | Feature flags navigation module                   |
+| `admin/media_module.go`           | Media module UI/API route owner                   |
+| `admin/activity_module.go`        | Activity navigation module                        |
+| `admin/content_type_builder_module.go` | Manually registered CMS builder module        |
 | `quickstart/module_registrar.go`  | Quickstart module registration helpers            |
 
 ---
@@ -2075,8 +2296,10 @@ quickstart.NewModuleRegistrar(
 
 - [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) — Template and theme customization
 - [Preferences Module Guide](GUIDE_MOD_PREFERENCES.md) — Detailed preferences behavior
+- [Media Module Guide](GUIDE_MODULE_MEDIA.md) — Media module configuration and delivery
+- [Activity Guide](GUIDE_ACTIVITY.md) — Activity module and widget integrations
+- [Debug Module Guide](GUIDE_DEBUG_MODULE.md) — Debug module configuration and APIs
+- [Routing Guide](GUIDE_ROUTING.md) — Module route ownership and mount policy
 - [Auth Guide](AUTH.md) — Authentication and authorization patterns
 - [Quickstart README](../quickstart/README.md) — Bootstrap helpers and adapters
 - [Architecture & Design](../CLAUDE.md) — Package structure and design principles
-- [Debug Module Design](../DEBUGGER_GUI.md) — Advanced module specification
-- [Debug Module Tasks](../DEBUGGER_TSK.md) — Implementation task breakdown

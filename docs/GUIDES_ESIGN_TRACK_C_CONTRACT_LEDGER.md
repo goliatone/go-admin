@@ -41,7 +41,7 @@ impacted_endpoints: admin panel agreement draft create/update payloads, agreemen
 backend_tests: "/Users/goliatone/.g/go/bin/go" test ./examples/esign/services ./examples/esign/stores ./examples/esign/modules
 frontend_tests: N/A (backend phase entry; FE lockstep planned in Phase 21.FE tasks)
 contract_hash: 980208005f1e4bcf1f72719cb8d8037bd5e26889812be67e1f6062af3adc144b
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-02-16-002
 
@@ -53,7 +53,7 @@ impacted_endpoints: /admin/api/v1/esign/integrations/mappings, /admin/api/v1/esi
 backend_tests: "/Users/goliatone/.g/go/bin/go" test ./examples/esign/stores -run 'TestMigrationsExposeIntegrationFoundationTablesAndColumns|TestInMemoryIntegrationCredentialScopedCRUD' && "/Users/goliatone/.g/go/bin/go" test ./examples/esign/services -run 'TestIntegrationFoundation' && "/Users/goliatone/.g/go/bin/go" test ./examples/esign/handlers -run 'TestRegisterIntegration|TestBuildRouteSet'
 frontend_tests: N/A (backend-only Phase 26 execution)
 contract_hash: 5e38deadc319ecddacece3be802e84cb28024526df90f14f64b8c9f765ed20ae
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-03-05-003
 
@@ -65,7 +65,7 @@ impacted_endpoints: /api/v1/esign/signing/signatures/:token, /api/v1/esign/signi
 backend_tests: go test ./examples/esign/stores ./examples/esign/services ./examples/esign/handlers ./examples/esign/release
 frontend_tests: npm run build (pkg/client/assets)
 contract_hash: d1e98491d05e368f67c7ad22653d9220be55d45adec20d2846f7fe3979f89ab1
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-03-09-004
 
@@ -89,7 +89,7 @@ impacted_endpoints: /admin/api/v1/esign/documents/upload response payload, /admi
 backend_tests: go test ./examples/esign/... -count=1
 frontend_tests: cd pkg/client/assets && npm run build
 contract_hash: 75b1d9dd96328c0dd35dd9c5d6b21e58f4096760a11a6cedb2c38a4c67e2a169
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-03-18-006
 
@@ -101,7 +101,7 @@ impacted_endpoints: /admin/api/v1/esign/documents/upload response payload, docum
 backend_tests: go test ./examples/esign ./examples/esign/handlers ./examples/esign/modules ./examples/esign/services ./quickstart/... && (cd ../go-uploader && go test ./...)
 frontend_tests: N/A (no frontend contract payload shape change beyond existing object_key response fields)
 contract_hash: 58e3e5c4f45d918b6f7d64435f204bffe0dd86b1b657a5c1aa945ba51a42632f
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-03-19-007
 
@@ -113,7 +113,7 @@ impacted_endpoints: /admin/content/esign_documents/:id lineage payload, /admin/c
 backend_tests: go test ./examples/esign/release ./examples/esign/stores ./examples/esign/modules ./examples/esign/services -count=1
 frontend_tests: go test ./pkg/client -count=1
 contract_hash: 21896ef49e315a2f257f2eeb1e13f7184c12f2abdcd84c4d1f20c29f466cff56
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-03-23-008
 
@@ -125,7 +125,7 @@ impacted_endpoints: no externally intended endpoint shape change; tracked Track 
 backend_tests: go test ./examples/esign/release ./examples/esign/services ./examples/esign/modules ./examples/esign/stores -count=1 && go test ./...
 frontend_tests: N/A (no frontend contract payload change in this review-only snapshot refresh)
 contract_hash: 33d4406270b3a8edb2db3a42039143c6d671e4b32846fcb4dbe52ce2c19b06bc
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-03-25-009
 
@@ -137,7 +137,7 @@ impacted_endpoints: no intended externally visible endpoint payload change; revi
 backend_tests: go test ./examples/esign/release ./examples/esign/services ./examples/esign/modules ./examples/esign/stores -count=1 && go test ./...
 frontend_tests: N/A (no frontend contract payload change in this guard refresh)
 contract_hash: 3dcfd3d3bd2074a8033a28fd8e6be984267cc08ffb27f6aec03feb0df73aaeb3
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-04-02-010
 
@@ -149,7 +149,7 @@ impacted_endpoints: no intended externally visible endpoint payload change; revi
 backend_tests: go test ./examples/esign/release ./examples/esign/services ./examples/esign/modules ./examples/esign/stores -count=1 && go test ./...
 frontend_tests: N/A (no frontend contract payload change in this guard refresh)
 contract_hash: d4450024575af6eb29a6a20ad4d691882b47f2309ae09f72019d52e23e365bd5
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-04-16-011
 
@@ -161,7 +161,7 @@ impacted_endpoints: no intended externally visible endpoint payload change; revi
 backend_tests: go test ./examples/esign/...
 frontend_tests: N/A (no frontend contract payload change in this guard refresh)
 contract_hash: 8d9a01403b08a6f06c5f34865abcdc6e718a67cb2a826515431ab077ee7d5221
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-04-16-012
 
@@ -173,7 +173,7 @@ impacted_endpoints: admin agreement reminder sweep command path, admin agreement
 backend_tests: go test ./examples/esign/release -run TestValidateTrackCContractGuardPassesForCurrentSnapshot -count=1
 frontend_tests: N/A (backend in-memory contract maintenance only)
 contract_hash: 7f45792e5797d469f997cca69eede0548abe19ab29b2112f347cb47d3c607151
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
 
 ## TC-2026-04-22-013
 
@@ -185,4 +185,4 @@ impacted_endpoints: no intended externally visible endpoint payload change; revi
 backend_tests: go test ./examples/esign/release -count=1
 frontend_tests: N/A (no frontend contract payload change in this guard refresh)
 contract_hash: f6f71723dfcd3a5d8732c9d51d3dd1ed36206fbd981a59b2ef4e70acf88838c9
-related_adr: docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md
+related_adr: examples/esign/docs/GUIDES_ESIGN_ADR_0001_FLAGSHIP_CONSTRAINTS.md

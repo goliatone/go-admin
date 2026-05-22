@@ -41,6 +41,7 @@ Useful references:
 
 - `README.md`
 - `quickstart/README.md`
+- `docs/GUIDE_CRUD.md`
 - `docs/GUIDE_DEBUG_MODULE.md`
 - `docs/GUIDE_DEBUG_CLIENT.md`
 

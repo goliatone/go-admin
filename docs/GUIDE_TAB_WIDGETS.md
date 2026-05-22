@@ -1,6 +1,11 @@
 # Tab Widget Guide
 
-This guide documents how to add a new widget-backed tab in a panel detail view, using the Users detail view (`/admin/users/:id`) and its `Profile` and `Activity` tabs as the reference implementation.
+This guide documents how to add a new widget-backed tab in a panel detail view,
+using the Users detail view (`/admin/users/:id`) as the reference
+implementation. The `Profile` tab is the current generic widget-backed example.
+The `Activity` tab shares the same tab registration and render-mode flow, but
+it builds a custom activity payload instead of rendering the generic widget
+list.
 
 ## Terms used in this guide
 
@@ -20,7 +25,10 @@ This guide documents how to add a new widget-backed tab in a panel detail view, 
 4. Render the tab panel (SSR/hybrid/client) in the users detail template.
 5. (Optional) apply record-specific widget data overrides per user.
 
-The existing `Profile` and `Activity` tabs follow this exact flow.
+The existing `Profile` tab follows this generic widget flow. The `Activity` tab
+registers a dashboard area/provider and uses hybrid tab loading, but
+`buildTabPanel(...)` special-cases activity data before generic widget
+resolution.
 
 ## Existing Users example (Profile + Activity)
 
@@ -50,7 +58,8 @@ Render mode decides how tab content loads:
 
 - `ssr`: full page navigation
 - `hybrid`: fetch server-rendered HTML (`GET /admin/users/:id/tabs/:tab`)
-- `client`: fetch JSON and render in browser (`GET /admin/api/users/:id/tabs/:tab`)
+- `client`: fetch JSON from the configured admin API base, for example
+  `GET /admin/api/users/:id/tabs/:tab`
 
 Current example:
 
@@ -76,21 +85,32 @@ See `examples/web/setup/dashboard.go`.
 
 ### 5) Build tab panel payload
 
-`buildTabPanel(...)` resolves widgets for `dashboard_area` / `cms_area` and sends:
+For generic `dashboard_area` / `cms_area` tabs, `buildTabPanel(...)` resolves
+widgets and sends:
 
 - `kind`
 - `area_code`
 - `widgets`
 - fallback `empty_message`
 
+The Activity tab is intentionally different: it uses the same tab shell but
+returns activity-specific fields such as `entries`, `has_entries`,
+`unavailable`, `unavailable_reason`, and `error_message`. The JSON endpoint also
+wraps the tab payload with `record`, `fields`, `resource`, and
+`resource_label`.
+
 See `examples/web/handlers/users.go`.
 
 ### 6) Render in template
 
 - Server partial: `pkg/client/templates/partials/tab-panel.html`
-- Client/hybrid controller: `pkg/client/templates/resources/users/detail.html`
+- Users detail template: `pkg/client/templates/resources/users/detail.html`
+  initializes `assets/dist/tabs/index.js`
+- Client renderer source: `pkg/client/assets/src/tabs/renderers.ts`
 
-Widget cards are rendered through `dashboard_widget.html` and `dashboard_widget_content.html`, with fallback JSON for unknown widget definitions.
+Widget cards are rendered through `dashboard_widget.html` and
+`dashboard_widget_content.html`, with fallback JSON for unknown widget
+definitions.
 
 ## How to add your own widget-backed tab
 
@@ -154,11 +174,15 @@ If the current JSON fallback is enough, no template change is required.
 If you want custom UI:
 
 - Add a new branch in `dashboard_widget_content.html` for your definition code.
-- If using client mode rendering in `users/detail.html`, mirror the same definition branch in `renderWidgetContent(...)`.
+- If using client mode rendering, mirror the same definition branch in
+  `renderWidgetContent(...)` in `pkg/client/assets/src/tabs/renderers.ts`.
+- Rebuild client assets after TypeScript renderer changes:
+  `cd pkg/client/assets && npm run build`.
 
 ### 7) Optional: inject per-user data before render
 
-If widget config is generic but content must be user-specific, follow the `ApplyUserProfileWidgetOverrides(...)` pattern:
+If widget config is generic but content must be user-specific, follow the
+`ApplyUserProfileWidgetOverrides(...)` pattern:
 
 - read the resolved widgets for the area
 - locate your widget by `definition`
@@ -171,7 +195,9 @@ See `examples/web/helpers/tab_rendering.go`.
 For `hybrid` and `client`, users tab endpoints must be registered:
 
 - `GET /admin/users/:id/tabs/:tab` (HTML)
-- `GET /admin/api/users/:id/tabs/:tab` (JSON)
+- `GET {api_base_path}/users/:id/tabs/:tab` (JSON), where
+  `api_base_path` is the configured admin API base. The default is usually
+  `/admin/api`.
 
 See route registration in `examples/web/main.go`.
 
@@ -282,7 +308,10 @@ In `pkg/client/templates/dashboard_widget_content.html`:
   </dl>
 ```
 
-If your tab uses `client` mode, add the same branch in `renderWidgetContent(...)` inside `pkg/client/templates/resources/users/detail.html` so browser-side rendering matches SSR output.
+If your tab uses `client` mode, add the same branch in
+`renderWidgetContent(...)` inside `pkg/client/assets/src/tabs/renderers.ts` so
+browser-side rendering matches SSR output. Then rebuild with
+`cd pkg/client/assets && npm run build`.
 
 ## File map (where to change what)
 
@@ -292,5 +321,7 @@ If your tab uses `client` mode, add the same branch in `renderWidgetContent(...)
 - Widget area/provider registration: `examples/web/setup/dashboard.go`
 - Tab panel server partial: `pkg/client/templates/partials/tab-panel.html`
 - Users detail tab loader (hybrid/client): `pkg/client/templates/resources/users/detail.html`
+- Client tab renderer source: `pkg/client/assets/src/tabs/renderers.ts`
 - Widget template rendering: `pkg/client/templates/dashboard_widget.html`
 - Widget content branches: `pkg/client/templates/dashboard_widget_content.html`
+- Built tab bundle: `pkg/client/assets/dist/tabs/index.js` (generated)

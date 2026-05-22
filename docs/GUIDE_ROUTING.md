@@ -11,16 +11,8 @@ Use these artifacts in this order:
 
 1. `admin/routing/*` and `quickstart/site/*` for the runtime contract.
 2. `docs/GUIDE_ROUTING.md` for the published module-author and operator policy.
-3. `ROUTING_ARD.md` for the accepted design and migration rationale.
-4. `ROUTING_TSK.md` for the execution ledger across all routing/theme phases.
-5. `docs/ROUTING_RELEASE_CHECKLIST.md` for final release signoff and
-   verification commands.
-
-The canonical execution and signoff chain for this feature is:
-
-1. `ROUTING_ARD.md`
-2. `ROUTING_TSK.md`
-3. `docs/ROUTING_RELEASE_CHECKLIST.md`
+3. `docs/archive/docs/ROUTING_RELEASE_CHECKLIST.md` for archived release
+   signoff and verification commands.
 
 The canonical diagnostics surfaces are in-process, not HTTP:
 

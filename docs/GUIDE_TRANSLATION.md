@@ -29,7 +29,7 @@ Important current defaults:
 
 Supported profiles:
 
-- `none`: no translation capability exposure
+- `none`: no productized translation menu/module exposure
 - `core`: translation family/core UI only
 - `core+exchange`: core UI + exchange
 - `core+queue`: core UI + queue/dashboard/editor
@@ -61,6 +61,13 @@ Queue navigation details:
 
 - Direct queue UI route: `/admin/translations/queue`
 - Compatibility alias used by the seeded menu entry: `/admin/content/translations`
+
+Route exposure follows the selected profile:
+
+- `core`: family detail and matrix UI/API routes are exposed.
+- `core+queue`: core routes plus dashboard, queue, assignment editor, and queue APIs.
+- `core+exchange`: core routes plus exchange UI/API routes.
+- `full`: all core, queue, dashboard/editor, and exchange routes.
 
 ## 3. Core Model
 
@@ -154,19 +161,29 @@ The new locale variant is created as a draft record.
 
 ### Step 4: Edit the translated record
 
-Translated content is edited in the actual content form, not in the queue row.
+There are two current edit surfaces:
+
+- Content forms remain the primary content-owner edit path.
+- The assignment editor is the queue/review edit path with autosave, source drift detection, QA surfacing, review feedback, and workflow actions.
 
 Typical edit routes:
 
 - `/admin/content/pages/:id/edit?locale=es`
 - `/admin/content/posts/:id/edit?locale=fr`
+- `/admin/translations/assignments/:assignment_id/edit`
+
+Editor API routes used by the assignment editor:
+
+- `GET /admin/api/translations/assignments/:assignment_id`
+- `PATCH /admin/api/translations/variants/:variant_id`
+- `POST /admin/api/translations/assignments/:assignment_id/actions/:action`
 
 ### Step 5: Use family and matrix views when needed
 
 Useful contextual/deep-link surfaces:
 
 - Family detail: review all locale variants and create missing locales
-- Matrix: scan family-by-locale readiness at higher density
+- Matrix: scan family-by-locale readiness at higher density, create missing variants in bulk, and export selected work
 
 These are especially useful when debugging why a record is not publish-ready.
 
@@ -208,13 +225,25 @@ Typical queue actions:
 
 Important rule:
 
-- queue rows coordinate work, but they do not replace editing the translated content in the content forms
+- queue rows coordinate work; use the assignment editor for queue/review editing, or content forms for direct content editing
 
 The assignment editor is opened from queue context or direct links:
 
 - `/admin/translations/assignments/:assignment_id/edit`
 
 The queue/dashboard/editor surfaces are enabled when the queue module is enabled.
+
+Core queue API routes:
+
+- `GET /admin/api/translations/dashboard`
+- `GET /admin/api/translations/queue`
+- `GET /admin/api/translations/my-work`
+- `GET /admin/api/translations/assignments`
+- `GET /admin/api/translations/assignments/:assignment_id`
+- `POST /admin/api/translations/assignments/:assignment_id/actions/:action`
+- `PATCH /admin/api/translations/variants/:variant_id`
+
+Queue option endpoints also exist under `/admin/api/translations/options/*` for entity types, source records, locales, families, and assignees.
 
 ## 6. Tutorial: Run the Exchange Workflow
 
@@ -237,6 +266,8 @@ Core API endpoints:
 
 - `POST /admin/api/translations/exchange/export`
 - `GET /admin/api/translations/exchange/template`
+- `POST /admin/api/translations/exchange/import/validate`
+- `POST /admin/api/translations/exchange/import/apply`
 
 Security note:
 
@@ -278,11 +309,13 @@ Applied translations still flow back into the normal editorial surfaces:
 
 ### Step 6: Inspect job history
 
-Exchange job history endpoints:
+Exchange job history and retention endpoints:
 
 - `GET /admin/api/translations/exchange/jobs`
 - `GET /admin/api/translations/exchange/jobs/:job_id`
 - `DELETE /admin/api/translations/exchange/jobs/:job_id`
+
+The exchange UI uses the same endpoints for retained history, status polling, and retry-oriented flows.
 
 ## 7. Production Navigation and Verification Checklist
 
@@ -293,13 +326,14 @@ When validating a production-style setup in `examples/web`, verify:
    - dashboard
    - queue
    - exchange
-3. Core/contextual routes remain reachable:
-   - family detail
-   - matrix
-   - assignment editor
+3. Expected contextual routes remain reachable for their enabled module:
+   - core: family detail and matrix
+   - queue: assignment editor
 4. Disabled profiles behave correctly:
-   - `core`: no queue/dashboard/exchange
-   - `none`: no translation routes
+   - `core`: family detail and matrix are exposed; queue/dashboard/editor/exchange are not
+   - `core+queue`: queue/dashboard/editor are exposed; exchange is not
+   - `core+exchange`: exchange is exposed; queue/dashboard/editor are not
+   - `none`: no productized translation menu or module entrypoints
 5. Privileged roles retain required translation permissions.
 
 Quick smoke matrix:
@@ -403,9 +437,9 @@ You may still have:
 
 ### “Queue is enabled, but editing still happens in a content form”
 
-Expected.
+Expected for direct content-owner editing.
 
-The queue coordinates translation work; the actual translated content still lives in the page/post/news records.
+The actual translated content still lives in the page/post/news records. Queue users can also edit through the assignment editor, which saves back to the same translated variant record.
 
 ### “Exchange apply failed because a target locale does not exist”
 
@@ -440,6 +474,9 @@ Quickstart/productization references:
 Translation backend/UI bindings:
 
 - `admin/translation_*`
+- `translations/core/`
+- `translations/services/`
+- `translations/ui/openapi/translations.json`
 - `pkg/client/templates/resources/translations/`
 - `pkg/client/assets/src/translation-*`
 - `pkg/client/assets/src/datatable/translation-*`

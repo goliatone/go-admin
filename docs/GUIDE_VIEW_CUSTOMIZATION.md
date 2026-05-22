@@ -125,8 +125,13 @@ Use these keys in templates:
 - `datagrid_config.table_id`
 - `datagrid_config.api_endpoint`
 - `datagrid_config.action_base`
+- `datagrid_config.preferences_endpoint` (optional)
 - `datagrid_config.column_storage_key`
-- `datagrid_config.state_store` (optional: `mode`, `resource`, `sync_debounce_ms`, `max_share_entries`)
+- `datagrid_config.translation_ux_enabled` (optional)
+- `datagrid_config.enable_grouped_mode` (optional)
+- `datagrid_config.default_view_mode` (optional)
+- `datagrid_config.group_by_field` (optional)
+- `datagrid_config.state_store` (optional: `mode`, `resource`, `sync_debounce_ms`, `hydrate_timeout_ms`, `max_share_entries`)
 - `datagrid_config.url_state` (optional: `max_url_length`, `max_filters_length`, `enable_state_token`)
 - `datagrid_config.export_config`
 
@@ -137,6 +142,7 @@ const dataGridConfig = {{ toJSON(datagrid_config)|safe }} || {};
 const tableId = `${dataGridConfig.table_id || '{{ datatable_id|default:resource }}'}-datatable`;
 const apiEndpoint = dataGridConfig.api_endpoint || '{{ list_api|default:"" }}';
 const actionBasePath = dataGridConfig.action_base || '{{ action_base|default:"" }}';
+const preferencesEndpoint = dataGridConfig.preferences_endpoint || '{{ preferences_api_path|default:"" }}';
 const stateStoreConfig = dataGridConfig.state_store || null;
 const urlStateConfig = dataGridConfig.url_state || null;
 const exportConfig = dataGridConfig.export_config || {{ toJSON(export_config)|safe }};
@@ -149,6 +155,9 @@ query strings.
 Legacy keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are
 still injected for compatibility, but treat them as fallback-only for custom
 templates.
+
+For full CRUD, DataGrid, and workflow/action wiring, see
+`docs/GUIDE_CRUD.md`.
 
 ## Content DataGrid renderer extension
 
@@ -529,9 +538,9 @@ Injected by specific UI route handlers:
 
 | Variable | Route | Description |
 |----------|-------|-------------|
-| `activity_api_path` | `/admin/activity` | Activity API endpoint path (`/admin/api/activity`) |
-| `feature_flags_api_path` | `/admin/feature-flags` | Feature flags API endpoint path (`/admin/api/feature-flags`) |
-| `translation_exchange_api_path` | `/admin/translations/exchange` | Translation exchange API endpoint path (`/admin/api/translations`) |
+| `activity_api_path` | `/admin/api/activity` | Activity API endpoint path |
+| `feature_flags_api_path` | `/admin/api/feature-flags` | Feature flags API endpoint path |
+| `translation_exchange_api_path` | `/admin/api/translations/exchange` | Translation exchange API endpoint path |
 
 ### Navigation debug variables
 
