@@ -1227,6 +1227,9 @@ func main() {
 	); err != nil {
 		fatalf("failed to register admin UI routes: %v", err)
 	}
+	if err := quickstart.RegisterRolesUIRoutes(adminUI, cfg, adm); err != nil {
+		fatalf("failed to register roles UI routes: %v", err)
+	}
 	dashboardPath := path.Join(cfg.BasePath, "dashboard")
 	adminUI.Get(cfg.BasePath, wrapAuthed(func(c router.Context) error {
 		return c.Redirect(dashboardPath, fiber.StatusFound)
