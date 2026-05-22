@@ -176,6 +176,11 @@ quickstart doctor output instead.
 See `docs/GUIDE_ROUTING.md` for the external-module contract, release policy,
 and CI manifest-review guidance.
 
+## CRUD, DataGrid, and Actions
+
+Panel CRUD resources, DataGrid list wiring, and workflow/command-backed row and
+bulk actions are documented in `docs/GUIDE_CRUD.md`.
+
 ## Panel Entry Modes
 
 Panels can customize what the canonical panel URL (`/admin/<panel>`) renders.
@@ -289,6 +294,8 @@ Mapping behavior:
 ## References
 
 - Quickstart API and helpers: `quickstart/README.md`
+- CRUD, DataGrid, and workflow/action wiring: `docs/GUIDE_CRUD.md`
+- Roles and role seeding: `docs/GUIDE_ROLES.md`
 - Routing policy contract and CI review workflow: `docs/GUIDE_ROUTING.md`
 - Routing execution/signoff chain: `ROUTING_ARD.md`, `ROUTING_TSK.md`, `docs/ROUTING_RELEASE_CHECKLIST.md`
 - Example runtime config conventions: `examples/web/config/app.json` and `examples/web/README.md`

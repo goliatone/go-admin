@@ -77,6 +77,7 @@ The example uses quickstart scope defaults. Configure via:
 
 For multi-tenant mode, ensure your auth claims and seeded data share the same tenant/org IDs.
 When running in single-tenant mode, the seed loader rewrites seeded rows to the configured defaults so the demo data stays in scope.
+The standard quickstart go-users wiring also uses those defaults when `ScopeResolver` is omitted; custom direct go-users reads must use `quickstart.ScopeBuilder(cfg)` or an equivalent resolver.
 
 ### Translation capability profiles (productized wiring)
 
@@ -444,12 +445,14 @@ curl http://localhost:8080/admin/test-error?type=nested
 
 ## Adding a new CRUD resource (HTML)
 
-1) **Routes & guards**: define routes under `/admin/<resource>` with auth middleware and permission checks (`admin.<resource>.read/create/edit/delete`). See `handlers/users.go` and `handlers/tenants.go`.
-2) **URL helper**: use `helpers.NewResourceRoutes(basePath, resource)` to build `index/new/show/edit/delete` URLs. Avoid hardcoding strings.
-3) **Handlers**: populate generic view keys: `resource`, `resource_label`, `routes`, `items` (list), `columns` (list headers), `resource_item` (detail/form), `fields` (detail sections), `is_edit`, `form_action`, `form_method`. Attach `actions` per row via `routes.ActionsMap(id)`.
-4) **Templates**: place views at `pkg/client/templates/resources/<resource>/list.html`, `detail.html`, `form.html`. The generic templates for users/tenants show how to render the shared keys.
-5) **Data shape**: return maps with snake_case fields; keep consistent keys across resources so the same template structure works.
-6) **Smoke**: list/create/edit/delete, verify guards (401/403 for unauthorized), and ensure menu visibility matches permissions.
+Prefer the panel-backed CRUD path documented in `docs/GUIDE_CRUD.md`:
+
+1) Register an `admin.PanelBuilder` with repository, fields, filters, permissions, and actions.
+2) Use canonical panel JSON routes under `/admin/api/panels/:panel`.
+3) Let quickstart/content-entry templates consume `datagrid_config`, `schema`, `records`, and `_action_state`.
+4) Use custom HTML handlers only for resource-specific surfaces that cannot use canonical panel UI routes.
+
+The older resource-handler pattern in `handlers/users.go` and `handlers/tenants.go` remains useful for fully custom pages, but new list/datagrid resources should start from the panel contract.
 
 ## User Detail Tabs (Example)
 
@@ -864,7 +867,7 @@ service := admin.NewUserManagementService(nil, nil)
 
 ### Quickstart Wiring (Example)
 
-The example uses the quickstart helper to wire go-users repositories and the profile store:
+The example uses the quickstart helper to wire go-users repositories and the profile store. `ScopeResolver` can be omitted for the standard quickstart path; when omitted, quickstart uses `quickstart.ScopeBuilder(cfg)` so single-tenant default scope still applies:
 
 ```go
 scopeResolver := quickstart.ScopeBuilder(cfg)
@@ -877,7 +880,7 @@ adm, _, err := quickstart.NewAdmin(
         InventoryRepo: usersDeps.InventoryRepo,
         RoleRegistry:  usersDeps.RoleRegistry,
         ProfileRepo:   usersDeps.ProfileRepo,
-        ScopeResolver: scopeResolver,
+        ScopeResolver: scopeResolver, // optional; omitted uses quickstart.ScopeBuilder(cfg)
     }),
 )
 if err != nil {
@@ -885,7 +888,7 @@ if err != nil {
 }
 ```
 
-For manual wiring (outside quickstart), you can still build repositories and services directly:
+For manual wiring (outside quickstart), build repositories with the same config-aware resolver:
 
 ```go
 authRepo := // go-users AuthRepository

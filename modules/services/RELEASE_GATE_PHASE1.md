@@ -82,12 +82,26 @@ Status: Complete
 
 Consumer migration strategy (ad-hoc integrations -> `go-services` primitives via `go-admin/modules/services`):
 
-1. Register migrations using the canonical `services-stack` profile in dependency order: `go-auth -> go-users -> go-services -> app-local`.
+1. Register migrations using the canonical source-stable `services-stack` profile in dependency order: `go-auth -> go-users -> go-services -> app-local`.
 2. Configure credential encryption material (`encryption_key`, optional key-id/version).
 3. Enable/seed required RBAC permissions (`admin.services.*`).
 4. Route provider webhooks/inbound callbacks to services module endpoints.
 5. Move async processing to services worker jobs (refresh, webhook process, renewals, sync, outbox dispatch).
 6. Use stable API contract from `modules/services/API_CONTRACT.md` for frontend/ops clients.
+
+Source-stable migration release gate:
+
+- Source keys/order values are ABI: `go-auth` order `10`, `go-users` order
+  `20`, `go-services` order `30`, app-local order `100+`.
+- Configured app-local migrations must preserve explicit `SourceKey` and
+  `Order` metadata from `Config.AppMigrations` or
+  `WithServiceMigrationsAppSources(...)`; partial metadata is rejected.
+- Existing databases with positional `ord_*` markers must run
+  `BackfillStableOrderedMigrationMarkers(...)` with the historical source list
+  before deploying wrappers that generate `ordsrc_*` names.
+- Provider callback startup should call `VerifyServicesOAuthStorageSchema(...)`
+  or `VerifyServicesSQLSchema(...)` when migrations are owned by host
+  bootstrap.
 
 Versioning policy:
 
