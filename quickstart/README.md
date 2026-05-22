@@ -84,7 +84,7 @@ auth wiring, password-change gate, and recovery flow.
 - `WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement MenuPlacementKey, active string, reqCtx context.Context) router.ViewContext` - Inputs: same as `WithNav`, plus placement mapping. Outputs: placement-aware nav context for non-sidebar menus while preserving the same feature/session/theme enrichment.
 - `ResolveDashboardArea(placements PlacementConfig, placement placement.DashboardPlacementKey, fallback string) string` - Inputs: placement config, shared dashboard placement key, fallback area code. Outputs: resolved dashboard area code for quickstart-owned widget wiring.
 - `BuildPanelExportConfig(cfg admin.Config, opts PanelViewCapabilityOptions) map[string]any` - Inputs: admin config and panel capability options. Outputs: normalized `export_config` payload (`endpoint`, `definition`, optional `variant`).
-- `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, optional `preferences_endpoint`, `column_storage_key`, optional `state_store` and `url_state`).
+- `BuildPanelDataGridConfig(opts PanelDataGridConfigOptions) map[string]any` - Inputs: datagrid options. Outputs: normalized `datagrid_config` payload (`table_id`, `api_endpoint`, `action_base`, optional `preferences_endpoint`, `column_storage_key`, optional translation/grouped-mode keys, `state_store`, and `url_state`).
 - `BuildPanelViewCapabilities(cfg admin.Config, opts PanelViewCapabilityOptions) router.ViewContext` - Inputs: admin config and panel capability options. Outputs: template capability context including `export_config` and `datagrid_config`.
 - `PathViewContext(cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: config + path resolver hints. Outputs: normalized `base_path`, `api_base_path`, `asset_base_path`, `preferences_api_path`.
 - `WithPathViewContext(ctx router.ViewContext, cfg admin.Config, pathCfg PathViewContextConfig) router.ViewContext` - Inputs: existing context + path resolver hints. Outputs: merged context with canonical path keys.
@@ -380,7 +380,7 @@ Alert evaluation (`observability.EvaluateAlerts`) now includes:
 ## User management
 Quickstart can wire go-users repositories and expose the built-in users module. The `users` feature flag is enabled by default in `DefaultAdminFeatures()`; if you disable it, the users module is skipped and user/role endpoints return `FeatureDisabledError`.
 
-Use `WithGoUsersUserManagement` to provide the required repositories (`AuthRepo`, `InventoryRepo`, `RoleRegistry`) and optional `ProfileRepo` + `ScopeResolver`. This wires `UserRepository`, `RoleRepository`, and (when provided) `ProfileStore`.
+Use `WithGoUsersUserManagement` to provide the required repositories (`AuthRepo`, `InventoryRepo`, `RoleRegistry`) and optional `ProfileRepo` + `ScopeResolver`. This wires `UserRepository`, `RoleRepository`, and (when provided) `ProfileStore`. When `ScopeResolver` is omitted, quickstart uses `ScopeBuilder(cfg)` so single-tenant defaults apply to the standard go-users user, role, and profile adapters. Explicit resolvers still win.
 
 Bulk role operations should use panel bulk routes (`/panels/:panel/bulk/:action`, e.g. `/admin/api/panels/users/bulk/assign-role`). Legacy static routes are disabled by default; enable them only for compatibility:
 
@@ -402,7 +402,7 @@ adm, _, err := quickstart.NewAdmin(
 \t\tInventoryRepo: inventoryRepo,
 \t\tRoleRegistry:  roleRegistry,
 \t\tProfileRepo:   profileRepo,   // optional
-\t\tScopeResolver: scopeResolver, // optional
+\t\tScopeResolver: scopeResolver, // optional; omitted uses quickstart.ScopeBuilder(cfg)
 \t}),
 )
 if err != nil {
@@ -712,6 +712,11 @@ Modes:
 - `single` (default): injects default tenant/org IDs when claims are missing.
 - `multi`: never injects defaults; scope must come from auth claims/metadata.
 
+The standard `WithGoUsersUserManagement` path uses these rules automatically
+when `ScopeResolver` is omitted. Custom repositories, handlers, or direct
+go-users registry calls must use `quickstart.ScopeBuilder(cfg)` or an
+equivalent config-aware resolver themselves.
+
 Defaults:
 - tenant: `11111111-1111-1111-1111-111111111111`
 - org: `22222222-2222-2222-2222-222222222222`
@@ -821,7 +826,9 @@ For list templates rendered from quickstart panel/content-entry routes, use `dat
 - `datagrid_config.action_base`
 - `datagrid_config.preferences_endpoint` (optional; resolved panel preferences API path)
 - `datagrid_config.column_storage_key`
-- `datagrid_config.state_store` (optional: `{mode, resource, sync_debounce_ms, max_share_entries}`)
+- `datagrid_config.translation_ux_enabled` (optional)
+- `datagrid_config.enable_grouped_mode`, `default_view_mode`, `group_by_field` (optional)
+- `datagrid_config.state_store` (optional: `{mode, resource, sync_debounce_ms, hydrate_timeout_ms, max_share_entries}`)
 - `datagrid_config.url_state` (optional: `{max_url_length, max_filters_length, enable_state_token}`)
 - `datagrid_config.export_config`
 
@@ -831,6 +838,8 @@ State persistence behavior:
 - URL sync writes compact query state; when limits are exceeded, DataGrid can fallback to `state=<token>` instead of writing large query payloads.
 
 Compatibility keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are still present for legacy templates, but new/updated templates should read from `datagrid_config` first.
+
+See `docs/GUIDE_CRUD.md` for the full CRUD/DataGrid/action wiring contract.
 
 Password reset UI defaults to two pages:
 
