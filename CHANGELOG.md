@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.73.1](https://github.com/goliatone/go-admin/compare/v0.73.0...v0.73.1) - (2026-05-23)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.73.1 ([a55de15](https://github.com/goliatone/go-admin/commit/a55de15ff3f291baa49fb97126d3b74291bd6899))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.73.0 ([caffe25](https://github.com/goliatone/go-admin/commit/caffe25dce8c13066663e494e34f75534a4c1b18))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([8a54827](https://github.com/goliatone/go-admin/commit/8a54827f097d7d094f99bc018bb6daba6c75dabc))  - (goliatone)
+
 # [0.73.0](https://github.com/goliatone/go-admin/compare/v0.72.1...v0.73.0) - (2026-05-23)
 
 ## <!-- 13 -->📦 Bumps
