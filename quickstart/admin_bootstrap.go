@@ -508,11 +508,17 @@ func configureCreateTranslationActionLocaleSchema(action admin.Action, locales [
 	schema["additionalProperties"] = false
 	schema["required"] = []string{"locale"}
 
-	properties, _ := schema["properties"].(map[string]any)
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		properties = nil
+	}
 	if properties == nil {
 		properties = map[string]any{}
 	}
-	localeSchema, _ := properties["locale"].(map[string]any)
+	localeSchema, ok := properties["locale"].(map[string]any)
+	if !ok {
+		localeSchema = nil
+	}
 	if localeSchema == nil {
 		localeSchema = map[string]any{}
 	}

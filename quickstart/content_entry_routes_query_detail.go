@@ -256,7 +256,7 @@ func (h *contentEntryHandlers) detailForPanelWithID(c router.Context, panelSlug 
 	}
 	record, err := panel.Get(adminCtx, id)
 	if err != nil {
-		return err
+		return contentEntryRouteError(panelName, "load detail record", id, err)
 	}
 	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Channel)
 	baseSlug := contentTypeSlug(contentType, panelName)

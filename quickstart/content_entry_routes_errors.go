@@ -1,11 +1,27 @@
 package quickstart
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/goliatone/go-admin/admin"
 )
+
+type contentEntryBoundaryError struct {
+	context string
+	err     error
+}
+
+func (e *contentEntryBoundaryError) Error() string {
+	return e.context + ": " + e.err.Error()
+}
+
+func (e *contentEntryBoundaryError) Unwrap() error {
+	return e.err
+}
+
+func (e *contentEntryBoundaryError) RouteBoundaryContext() string {
+	return e.context
+}
 
 func contentEntryRouteError(panelName, operation, id string, err error) error {
 	if err == nil {
@@ -21,5 +37,5 @@ func contentEntryRouteError(panelName, operation, id string, err error) error {
 	if id = strings.TrimSpace(id); id != "" {
 		message += " id " + id
 	}
-	return admin.WithStack(fmt.Errorf("%s: %w", message, err))
+	return admin.WithStack(&contentEntryBoundaryError{context: message, err: err})
 }

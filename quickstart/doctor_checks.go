@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 
@@ -162,29 +163,9 @@ func goUsersScopeDoctorMetadata(ctx context.Context, cfg admin.Config, options a
 
 func goUsersScopeDoctorWiringMetadata(options adminOptions) map[string]any {
 	wiring := options.goUsersUserManagement
-	userGoUsers := false
-	roleGoUsers := false
-	profileGoUsers := false
-	if _, ok := options.deps.UserRepository.(*admin.GoUsersUserRepository); ok {
-		userGoUsers = true
-	}
-	if _, ok := options.deps.RoleRepository.(*admin.GoUsersRoleRepository); ok {
-		roleGoUsers = true
-	}
-	if _, ok := options.deps.ProfileStore.(*admin.GoUsersProfileStore); ok {
-		profileGoUsers = true
-	}
-
-	userOwned := wiring != nil && options.deps.UserRepository == wiring.userRepo
-	roleOwned := wiring != nil && options.deps.RoleRepository == wiring.roleRepo
-	profileOwned := wiring != nil && wiring.profileStore != nil && options.deps.ProfileStore == wiring.profileStore
-	source := "none"
-	if userGoUsers || roleGoUsers || profileGoUsers {
-		source = goUsersScopeResolverSourceUnknown
-	}
-	if userOwned || roleOwned || profileOwned {
-		source = wiring.source
-	}
+	userGoUsers, roleGoUsers, profileGoUsers := goUsersScopeDoctorAdapterFlags(options)
+	userOwned, roleOwned, profileOwned := goUsersScopeDoctorOwnedFlags(options, wiring)
+	source := goUsersScopeDoctorResolverSource(wiring, userGoUsers || roleGoUsers || profileGoUsers, userOwned || roleOwned || profileOwned)
 	return map[string]any{
 		"resolver_source":       source,
 		"quickstart_configured": wiring != nil,
@@ -201,6 +182,40 @@ func goUsersScopeDoctorWiringMetadata(options adminOptions) map[string]any {
 		"profile_configured": wiring != nil && wiring.profileWired,
 		"resolver_finalized": wiring != nil && (wiring.explicit != nil || wiring.finalized),
 	}
+}
+
+func goUsersScopeDoctorAdapterFlags(options adminOptions) (bool, bool, bool) {
+	userGoUsers := false
+	roleGoUsers := false
+	profileGoUsers := false
+	if _, ok := options.deps.UserRepository.(*admin.GoUsersUserRepository); ok {
+		userGoUsers = true
+	}
+	if _, ok := options.deps.RoleRepository.(*admin.GoUsersRoleRepository); ok {
+		roleGoUsers = true
+	}
+	if _, ok := options.deps.ProfileStore.(*admin.GoUsersProfileStore); ok {
+		profileGoUsers = true
+	}
+	return userGoUsers, roleGoUsers, profileGoUsers
+}
+
+func goUsersScopeDoctorOwnedFlags(options adminOptions, wiring *goUsersUserManagementWiring) (bool, bool, bool) {
+	userOwned := wiring != nil && options.deps.UserRepository == wiring.userRepo
+	roleOwned := wiring != nil && options.deps.RoleRepository == wiring.roleRepo
+	profileOwned := wiring != nil && wiring.profileStore != nil && options.deps.ProfileStore == wiring.profileStore
+	return userOwned, roleOwned, profileOwned
+}
+
+func goUsersScopeDoctorResolverSource(wiring *goUsersUserManagementWiring, hasGoUsersAdapter bool, hasOwnedAdapter bool) string {
+	source := "none"
+	if hasGoUsersAdapter {
+		source = goUsersScopeResolverSourceUnknown
+	}
+	if wiring != nil && hasOwnedAdapter {
+		source = wiring.source
+	}
+	return source
 }
 
 func goUsersScopeDoctorFindings(metadata map[string]any) []admin.DoctorFinding {
@@ -267,7 +282,10 @@ func mapFromMetadata(metadata map[string]any, key string) map[string]any {
 	if metadata == nil {
 		return map[string]any{}
 	}
-	out, _ := metadata[key].(map[string]any)
+	out, ok := metadata[key].(map[string]any)
+	if !ok {
+		return map[string]any{}
+	}
 	if out == nil {
 		return map[string]any{}
 	}
@@ -280,15 +298,17 @@ func boolMapFromMetadata(metadata map[string]any, key string) map[string]bool {
 		return out
 	}
 	if raw, ok := metadata[key].(map[string]bool); ok {
-		for k, v := range raw {
-			out[k] = v
-		}
+		maps.Copy(out, raw)
 		return out
 	}
-	raw, _ := metadata[key].(map[string]any)
+	raw, ok := metadata[key].(map[string]any)
+	if !ok {
+		return out
+	}
 	for k, v := range raw {
-		val, _ := v.(bool)
-		out[k] = val
+		if val, ok := v.(bool); ok {
+			out[k] = val
+		}
 	}
 	return out
 }
@@ -473,7 +493,10 @@ func quickstartDoctorTranslationRun(_ context.Context, adm *admin.Admin) admin.D
 	if len(caps) == 0 {
 		return quickstartDoctorMissingTranslationCapabilities()
 	}
-	modules, _ := caps["modules"].(map[string]any)
+	modules, ok := caps["modules"].(map[string]any)
+	if !ok {
+		modules = map[string]any{}
+	}
 	routes := translationRoutesToStrings(caps["routes"])
 	warnings := translationStringSlice(caps["warnings"])
 	findings := translationDoctorFindings(adm, modules, routes, warnings)
@@ -754,7 +777,7 @@ func blockVisibilityFindings(effectiveEnv string, serviceTotal int, visibility b
 	if visibility.err != nil {
 		visibilityErr := visibility.err
 		if visibility.panelListErr != nil && !errors.Is(visibility.panelListErr, admin.ErrForbidden) {
-			visibilityErr = fmt.Errorf("panel list failed: %w; repository fallback failed: %v", visibility.panelListErr, visibility.err)
+			visibilityErr = fmt.Errorf("panel list failed: %w; repository fallback failed: %w", visibility.panelListErr, visibility.err)
 		}
 		return []admin.DoctorFinding{{
 			Severity:  admin.DoctorSeverityWarn,

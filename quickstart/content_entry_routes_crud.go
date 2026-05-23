@@ -62,7 +62,7 @@ func (h *contentEntryHandlers) createForPanel(c router.Context, panelSlug string
 	}
 	created, err := panel.Create(adminCtx, record)
 	if err != nil {
-		return err
+		return contentEntryRouteError(panelName, "create record", "", err)
 	}
 	baseSlug := contentTypeSlug(contentType, panelName)
 	routes := newContentEntryRoutes(h.cfg.BasePath, baseSlug, adminCtx.Channel)
@@ -87,7 +87,7 @@ func (h *contentEntryHandlers) editForPanel(c router.Context, panelSlug string) 
 	}
 	record, err := panel.Get(adminCtx, id)
 	if err != nil {
-		return err
+		return contentEntryRouteError(panelName, "load record", id, err)
 	}
 	if h != nil && h.editGuard != nil {
 		handled, guardErr := h.editGuard(c, panelName, record)
@@ -101,7 +101,7 @@ func (h *contentEntryHandlers) editForPanel(c router.Context, panelSlug string) 
 	values := contentEntryValues(record)
 	previewURL, err := h.previewURLForRecord(c.Context(), panelName, id, record)
 	if err != nil {
-		return err
+		return contentEntryRouteError(panelName, "generate preview token", id, err)
 	}
 	return h.renderForm(c, panelName, panel, contentType, adminCtx, values, record, true, previewURL)
 }
@@ -124,7 +124,7 @@ func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string
 	}
 	existingRecord, err := panel.Get(adminCtx, id)
 	if err != nil {
-		return err
+		return contentEntryRouteError(panelName, "load existing record", id, err)
 	}
 	existingTranslationState := contentEntryTranslationStateFromRecord(existingRecord)
 	if existingTranslationState.InFallbackMode {
@@ -153,7 +153,7 @@ func (h *contentEntryHandlers) updateForPanel(c router.Context, panelSlug string
 	}
 	updated, err := panel.Update(adminCtx, id, record)
 	if err != nil {
-		return err
+		return contentEntryRouteError(panelName, "update record", id, err)
 	}
 	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Channel)
 	if updatedID := strings.TrimSpace(anyToString(updated["id"])); updatedID != "" {
@@ -183,7 +183,7 @@ func (h *contentEntryHandlers) deleteForPanel(c router.Context, panelSlug string
 		return admin.ErrNotFound
 	}
 	if err := panel.Delete(adminCtx, id); err != nil {
-		return err
+		return contentEntryRouteError(panelName, "delete record", id, err)
 	}
 	routes := newContentEntryRoutes(h.cfg.BasePath, contentTypeSlug(contentType, panelName), adminCtx.Channel)
 	return c.Redirect(routes.index())
