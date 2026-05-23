@@ -29,11 +29,11 @@ require (
 	github.com/goliatone/go-masker v0.1.0
 	github.com/goliatone/go-notifications v0.14.0
 	github.com/goliatone/go-options v0.7.1
-	github.com/goliatone/go-persistence-bun v0.16.0
+	github.com/goliatone/go-persistence-bun v0.16.1
 	github.com/goliatone/go-repository-bun v0.15.1
 	github.com/goliatone/go-router v0.58.0
 	github.com/goliatone/go-search v0.8.0
-	github.com/goliatone/go-search/adapters/goadmin v0.7.0
+	github.com/goliatone/go-search/adapters/goadmin v0.8.0
 	github.com/goliatone/go-theme v0.3.0
 	github.com/goliatone/go-uploader v0.4.0
 	github.com/goliatone/go-urlkit v0.6.0
@@ -64,8 +64,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.7 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5 // indirect
+	github.com/goliatone/go-cache v0.1.0 // indirect
 	github.com/goliatone/go-template v0.3.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
+	github.com/valkey-io/valkey-go v1.0.72 // indirect
 	go.beyondstorage.io/v5 v5.0.0 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
