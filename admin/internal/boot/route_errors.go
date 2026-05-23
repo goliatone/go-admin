@@ -2,7 +2,6 @@ package boot
 
 import (
 	stderrors "errors"
-	"fmt"
 	"strings"
 
 	goerrors "github.com/goliatone/go-errors"
@@ -29,24 +28,42 @@ func (e *routeStackError) StackTrace() goerrors.StackTrace {
 	return e.stack
 }
 
+type panelRouteBoundaryError struct {
+	context string
+	err     error
+}
+
+func (e *panelRouteBoundaryError) Error() string {
+	return e.context + ": " + e.err.Error()
+}
+
+func (e *panelRouteBoundaryError) Unwrap() error {
+	return e.err
+}
+
+func (e *panelRouteBoundaryError) RouteBoundaryContext() string {
+	return e.context
+}
+
 func panelRouteError(panelName, operation string, attrs map[string]string, err error) error {
 	if err == nil {
 		return nil
 	}
-	message := "panel route"
+	var message strings.Builder
+	message.WriteString("panel route")
 	if panelName = strings.TrimSpace(panelName); panelName != "" {
-		message += " panel " + panelName
+		message.WriteString(" panel " + panelName)
 	}
 	if operation = strings.TrimSpace(operation); operation != "" {
-		message += " " + operation
+		message.WriteString(" " + operation)
 	}
 	for _, key := range []string{"id", "action", "bulk_action", "subresource", "value"} {
 		value := strings.TrimSpace(attrs[key])
 		if value != "" {
-			message += " " + key + " " + value
+			message.WriteString(" " + key + " " + value)
 		}
 	}
-	return withRouteStack(fmt.Errorf("%s: %w", message, err))
+	return withRouteStack(&panelRouteBoundaryError{context: message.String(), err: err})
 }
 
 func withRouteStack(err error) error {
