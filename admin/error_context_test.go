@@ -45,22 +45,26 @@ func TestWrappedControlFlowErrorsKeepStatusMapping(t *testing.T) {
 		name       string
 		err        error
 		wantStatus int
+		wantMsg    string
 	}{
-		{name: "not found", err: ErrNotFound, wantStatus: http.StatusNotFound},
-		{name: "forbidden", err: ErrForbidden, wantStatus: http.StatusForbidden},
-		{name: "fiber", err: fiber.NewError(http.StatusBadRequest, "bad request"), wantStatus: http.StatusBadRequest},
+		{name: "not found", err: ErrNotFound, wantStatus: http.StatusNotFound, wantMsg: ErrNotFound.Error()},
+		{name: "forbidden", err: ErrForbidden, wantStatus: http.StatusForbidden, wantMsg: ErrForbidden.Error()},
+		{name: "fiber", err: fiber.NewError(http.StatusBadRequest, "bad request"), wantStatus: http.StatusBadRequest, wantMsg: "bad request"},
 	}
 
 	presenter := NewErrorPresenter(ErrorConfig{DevMode: true})
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			wrapped := WithStack(fmt.Errorf("route boundary: %w", tc.err))
+			wrapped := WithStack(&testRouteBoundaryError{context: "route boundary", err: tc.err})
 			mapped, status := presenter.Present(wrapped)
 			if status != tc.wantStatus {
 				t.Fatalf("status = %d, want %d", status, tc.wantStatus)
 			}
 			if mapped == nil || mapped.Code != tc.wantStatus {
 				t.Fatalf("mapped code = %#v, want %d", mapped, tc.wantStatus)
+			}
+			if mapped.Message != tc.wantMsg {
+				t.Fatalf("mapped message = %q, want %q", mapped.Message, tc.wantMsg)
 			}
 			if !errors.Is(wrapped, tc.err) && tc.name != "fiber" {
 				t.Fatalf("expected errors.Is to reach %v", tc.err)
@@ -71,4 +75,34 @@ func TestWrappedControlFlowErrorsKeepStatusMapping(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWrappedControlFlowErrorsKeepCustomMessagesOutsideRouteBoundaries(t *testing.T) {
+	err := WithStack(fmt.Errorf("custom user lookup failed: %w", ErrNotFound))
+
+	mapped, status := NewErrorPresenter(ErrorConfig{DevMode: true}).Present(err)
+	if status != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", status, http.StatusNotFound)
+	}
+	want := "custom user lookup failed: not found"
+	if mapped.Message != want {
+		t.Fatalf("mapped message = %q, want %q", mapped.Message, want)
+	}
+}
+
+type testRouteBoundaryError struct {
+	context string
+	err     error
+}
+
+func (e *testRouteBoundaryError) Error() string {
+	return e.context + ": " + e.err.Error()
+}
+
+func (e *testRouteBoundaryError) Unwrap() error {
+	return e.err
+}
+
+func (e *testRouteBoundaryError) RouteBoundaryContext() string {
+	return e.context
 }

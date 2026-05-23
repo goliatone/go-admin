@@ -105,6 +105,27 @@ func TestBuildDevErrorContextPrefersRouteBoundaryOverGenericGoAdminCheckout(t *t
 	}
 }
 
+func TestBuildDevErrorContextSkipsGOROOTStdlibFrames(t *testing.T) {
+	root := t.TempDir()
+	routeFile := writeSourceFile(t, root, "github.com/goliatone/go-admin/admin/internal/boot/step_panels.go")
+
+	err := &stackError{
+		err: errors.New("binding failed"),
+		stack: goerrors.StackTrace{
+			{Function: "net/http.serverHandler.ServeHTTP", File: "/usr/local/go/src/net/http/server.go", Line: 2220},
+			{Function: "github.com/goliatone/go-admin/admin/internal/boot.panelDetailRoute.func1", File: routeFile, Line: 1},
+		},
+	}
+
+	ctx := NewErrorPresenter(ErrorConfig{DevMode: true}).BuildDevErrorContext(err, nil)
+	if ctx == nil || ctx.PrimarySource == nil {
+		t.Fatalf("expected primary source")
+	}
+	if ctx.PrimarySource.File != routeFile {
+		t.Fatalf("primary source = %q, want route boundary %q", ctx.PrimarySource.File, routeFile)
+	}
+}
+
 func writeSourceFile(t *testing.T, root string, rel string) string {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
