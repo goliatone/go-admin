@@ -1,5 +1,31 @@
 # Changelog
 
+# [0.73.0](https://github.com/goliatone/go-admin/compare/v0.72.1...v0.73.0) - (2026-05-23)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.73.0 ([390ae5b](https://github.com/goliatone/go-admin/commit/390ae5b946d3d46211cd600e4ba6b388f3f9af95))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Error handle stacks relative to app ([aa58939](https://github.com/goliatone/go-admin/commit/aa5893978f54a6065b819c51152dc1c32f7228a7))  - (goliatone)
+- Content entry routes errors ([eb98c78](https://github.com/goliatone/go-admin/commit/eb98c7868561b9335f03bb7fff1e1c0b02e47c3d))  - (goliatone)
+- Route errors boot ([46fc16d](https://github.com/goliatone/go-admin/commit/46fc16de76c5e5819e8916bcafb5194b68538340))  - (goliatone)
+- Quickstart doctor checks for user scope ([03d1b6f](https://github.com/goliatone/go-admin/commit/03d1b6f464f8ad4863a64718de092795400fd492))  - (goliatone)
+- User scope management helper ([328edf0](https://github.com/goliatone/go-admin/commit/328edf0777d1e64cdc1ea917c6e9d7ae8d75c615))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.72.1 ([f321699](https://github.com/goliatone/go-admin/commit/f321699e6314e17564353db90b6b44b41c5454ba))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([ad97c3a](https://github.com/goliatone/go-admin/commit/ad97c3a2d050c22d605d08c2004e1df5cbf9df52))  - (goliatone)
+- Udpate tests ([079a7ec](https://github.com/goliatone/go-admin/commit/079a7ece98f09576e652a5563bcb949cad2542e0))  - (goliatone)
+- Update docs ([00ff4ce](https://github.com/goliatone/go-admin/commit/00ff4ceff5434d743851cd584a0d01a216db27c3))  - (goliatone)
+- Update gitignore ([bfd0572](https://github.com/goliatone/go-admin/commit/bfd05721b918b0fcaf2dad11c90d7f50d53e71c4))  - (goliatone)
+- Update examples ([006cf48](https://github.com/goliatone/go-admin/commit/006cf4867f397e35c1b5d3305a09009fa3d0c38c))  - (goliatone)
+
 # [0.72.1](https://github.com/goliatone/go-admin/compare/v0.72.0...v0.72.1) - (2026-05-15)
 
 ## <!-- 1 -->🐛 Bug Fixes
