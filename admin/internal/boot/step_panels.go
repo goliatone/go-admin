@@ -114,7 +114,7 @@ func panelListRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLo
 			}
 			records, total, schema, form, meta, err := binding.List(c, panelLocale(ctx, c), parseListOptions(c))
 			if err != nil {
-				return responder.WriteError(c, err)
+				return responder.WriteError(c, panelRouteError(panelName, "list records", nil, err))
 			}
 			payload := map[string]any{
 				"total":   total,
@@ -146,7 +146,7 @@ func panelDetailRoute(ctx BootCtx, responder Responder, panelLookup panelBinding
 			}
 			rec, err := binding.Detail(c, panelLocale(ctx, c), id)
 			if err != nil {
-				return responder.WriteError(c, err)
+				return responder.WriteError(c, panelRouteError(panelName, "load record", map[string]string{"id": id}, err))
 			}
 			return responder.WriteJSON(c, rec)
 		},
@@ -168,7 +168,7 @@ func panelCreateRoute(ctx BootCtx, responder Responder, panelLookup panelBinding
 			}
 			created, err := binding.Create(c, panelLocale(ctx, c), body)
 			if err != nil {
-				return responder.WriteError(c, err)
+				return responder.WriteError(c, panelRouteError(panelName, "create record", nil, err))
 			}
 			return responder.WriteJSON(c, created)
 		},
@@ -194,7 +194,7 @@ func panelUpdateRoute(ctx BootCtx, responder Responder, panelLookup panelBinding
 			}
 			updated, err := binding.Update(c, panelLocale(ctx, c), id, body)
 			if err != nil {
-				return responder.WriteError(c, err)
+				return responder.WriteError(c, panelRouteError(panelName, "update record", map[string]string{"id": id}, err))
 			}
 			return responder.WriteJSON(c, updated)
 		},
@@ -238,7 +238,7 @@ func deletePanelRecord(ctx BootCtx, responder Responder, c router.Context, bindi
 		return responder.WriteError(c, errMissingID)
 	}
 	if err := binding.Delete(c, panelLocale(ctx, c), id); err != nil {
-		return responder.WriteError(c, err)
+		return responder.WriteError(c, panelRouteError(binding.Name(), "delete record", map[string]string{"id": id}, err))
 	}
 	return responder.WriteJSON(c, map[string]string{"status": "deleted"})
 }
@@ -263,7 +263,7 @@ func panelActionRoute(ctx BootCtx, responder Responder, panelLookup panelBinding
 			locale := panelLocale(ctx, c)
 			response, err := binding.Action(c, locale, actionName, mergeActionContextFromRequest(c, body, locale))
 			if err != nil {
-				return responder.WriteError(c, err)
+				return responder.WriteError(c, panelRouteError(panelName, "run action", map[string]string{"action": actionName}, err))
 			}
 			response = normalizeActionResponse(response)
 			payload := map[string]any{"status": "ok"}
@@ -290,7 +290,7 @@ func panelBulkStateRoute(ctx BootCtx, responder Responder, panelLookup panelBind
 			}
 			data, err := binding.BulkActionState(c, panelLocale(ctx, c), body)
 			if err != nil {
-				return responder.WriteError(c, err)
+				return responder.WriteError(c, panelRouteError(panelName, "load bulk action state", nil, err))
 			}
 			return responder.WriteJSON(c, data)
 		},
@@ -316,7 +316,7 @@ func panelBulkRoute(ctx BootCtx, responder Responder, panelLookup panelBindingLo
 			}
 			data, err := binding.Bulk(c, panelLocale(ctx, c), actionName, body)
 			if err != nil {
-				return responder.WriteError(c, err)
+				return responder.WriteError(c, panelRouteError(panelName, "run bulk action", map[string]string{"bulk_action": actionName}, err))
 			}
 			payload := map[string]any{"status": "ok"}
 			if len(data) > 0 {
@@ -342,7 +342,7 @@ func panelPreviewRoute(ctx BootCtx, responder Responder, panelLookup panelBindin
 			}
 			res, err := binding.Preview(c, panelLocale(ctx, c), id)
 			if err != nil {
-				return responder.WriteError(c, err)
+				return responder.WriteError(c, panelRouteError(panelName, "preview record", map[string]string{"id": id}, err))
 			}
 			return responder.WriteJSON(c, res)
 		},
@@ -381,7 +381,11 @@ func panelSubresourceRoutes(ctx BootCtx, responder Responder, panelLookup panelB
 					return responder.WriteError(c, errMissingSubresourceValue)
 				}
 				if err := binding.HandleSubresource(c, panelLocale(ctx, c), id, spec.Name, value); err != nil {
-					return responder.WriteError(c, err)
+					return responder.WriteError(c, panelRouteError(panelName, "handle subresource", map[string]string{
+						"id":          id,
+						"subresource": spec.Name,
+						"value":       value,
+					}, err))
 				}
 				return nil
 			},
