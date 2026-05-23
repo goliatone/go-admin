@@ -1,5 +1,10 @@
 package admin
 
+import (
+	"path/filepath"
+	"strings"
+)
+
 // ErrorConfig controls how errors are presented to clients.
 type ErrorConfig struct {
 	// DevMode enables developer-friendly error responses.
@@ -24,6 +29,8 @@ type ErrorConfig struct {
 	ShowEnvironment bool `json:"show_environment"`
 	// AppVersion is displayed in the error page environment section.
 	AppVersion string `json:"app_version"`
+	// AppRoots ranks host application source paths ahead of framework paths in dev error pages.
+	AppRoots []string `json:"app_roots,omitempty"`
 }
 
 const defaultInternalErrorMessage = "An unexpected error occurred"
@@ -44,6 +51,7 @@ func normalizeErrorConfig(cfg ErrorConfig, debug DebugConfig) ErrorConfig {
 	if cfg.MaxStackFrames <= 0 {
 		cfg.MaxStackFrames = 20
 	}
+	cfg.AppRoots = normalizeAppRoots(cfg.AppRoots)
 	// Enable all dev features by default when DevMode is on
 	if cfg.DevMode {
 		if !cfg.ShowRequestHeaders {
@@ -54,6 +62,24 @@ func normalizeErrorConfig(cfg ErrorConfig, debug DebugConfig) ErrorConfig {
 		}
 	}
 	return cfg
+}
+
+func normalizeAppRoots(roots []string) []string {
+	if len(roots) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(roots))
+	for _, root := range roots {
+		root = strings.TrimSpace(root)
+		if root == "" {
+			continue
+		}
+		out = append(out, filepath.Clean(root))
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (cfg ErrorConfig) includeStackTrace() bool {

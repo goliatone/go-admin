@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
+	"github.com/gofiber/fiber/v2"
 	cmscontent "github.com/goliatone/go-cms/content"
 	cmspages "github.com/goliatone/go-cms/pages"
 	"github.com/goliatone/go-command/flow"
@@ -393,10 +394,11 @@ func mapFeatureConfigValidationErrors(err error) (*goerrors.Error, int, bool) {
 
 func mapPermissionAndCommonErrors(err error) (*goerrors.Error, int, bool) {
 	var permission PermissionDeniedError
+	var fiberErr *fiber.Error
 
 	switch {
 	case errors.As(err, &permission):
-		mapped := goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryAuthz, mappedControlFlowMessage(err, permission.Error())).
 			WithCode(http.StatusForbidden).
 			WithTextCode(TextCodeForbidden)
 		meta := map[string]any{}
@@ -417,23 +419,28 @@ func mapPermissionAndCommonErrors(err error) (*goerrors.Error, int, bool) {
 			mapped.Metadata = meta
 		}
 		return mapped, http.StatusForbidden, true
+	case errors.As(err, &fiberErr) && fiberErr != nil:
+		mapped := goerrors.Wrap(err, goerrors.CategoryRouting, fiberErr.Message).
+			WithCode(fiberErr.Code).
+			WithTextCode(goerrors.HTTPStatusToTextCode(fiberErr.Code))
+		return mapped, fiberErr.Code, true
 	case errors.Is(err, ErrForbidden):
-		mapped := goerrors.Wrap(err, goerrors.CategoryAuthz, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryAuthz, mappedControlFlowMessage(err, ErrForbidden.Error())).
 			WithCode(http.StatusForbidden).
 			WithTextCode(TextCodeForbidden)
 		return mapped, http.StatusForbidden, true
 	case errors.Is(err, ErrREPLSessionLimit):
-		mapped := goerrors.Wrap(err, goerrors.CategoryRateLimit, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryRateLimit, mappedControlFlowMessage(err, ErrREPLSessionLimit.Error())).
 			WithCode(http.StatusTooManyRequests).
 			WithTextCode(TextCodeReplSessionLimit)
 		return mapped, http.StatusTooManyRequests, true
 	case errors.Is(err, ErrFeatureDisabled):
-		mapped := goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryNotFound, mappedControlFlowMessage(err, ErrFeatureDisabled.Error())).
 			WithCode(http.StatusNotFound).
 			WithTextCode(TextCodeFeatureDisabled)
 		return mapped, http.StatusNotFound, true
 	case errors.Is(err, ErrPathConflict):
-		mapped := NewDomainError(TextCodePathConflict, err.Error(), nil)
+		mapped := NewDomainError(TextCodePathConflict, mappedControlFlowMessage(err, ErrPathConflict.Error()), nil)
 		return mapped, mapped.Code, true
 	case isContentTypeSchemaBreaking(err):
 		meta := map[string]any{}
@@ -443,12 +450,27 @@ func mapPermissionAndCommonErrors(err error) (*goerrors.Error, int, bool) {
 		mapped := NewDomainError(TextCodeContentTypeSchemaBreaking, err.Error(), meta)
 		return mapped, mapped.Code, true
 	case errors.Is(err, ErrNotFound):
-		mapped := goerrors.Wrap(err, goerrors.CategoryNotFound, err.Error()).
+		mapped := goerrors.Wrap(err, goerrors.CategoryNotFound, mappedControlFlowMessage(err, ErrNotFound.Error())).
 			WithCode(http.StatusNotFound).
 			WithTextCode(TextCodeNotFound)
 		return mapped, http.StatusNotFound, true
 	}
 	return nil, 0, false
+}
+
+type routeBoundaryContextCarrier interface {
+	RouteBoundaryContext() string
+}
+
+func mappedControlFlowMessage(err error, canonical string) string {
+	var boundary routeBoundaryContextCarrier
+	if errors.As(err, &boundary) {
+		return strings.TrimSpace(canonical)
+	}
+	if message := strings.TrimSpace(err.Error()); message != "" {
+		return message
+	}
+	return strings.TrimSpace(canonical)
 }
 
 func mapFallbackGoError(err error, mappers []goerrors.ErrorMapper, status int) (*goerrors.Error, int) {

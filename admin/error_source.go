@@ -2,7 +2,9 @@ package admin
 
 import (
 	"bufio"
+	"math"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/goliatone/go-admin/internal/primitives"
@@ -81,6 +83,10 @@ type EnvironmentInfo struct {
 // ExtractSourceContext reads source code around the given file and line.
 // contextLines specifies how many lines to show before and after the error line.
 func ExtractSourceContext(filePath string, errorLine, contextLines int) *SourceContext {
+	return extractSourceContext(filePath, errorLine, contextLines, ErrorConfig{})
+}
+
+func extractSourceContext(filePath string, errorLine, contextLines int, cfg ErrorConfig) *SourceContext {
 	if filePath == "" || errorLine <= 0 {
 		return nil
 	}
@@ -128,32 +134,46 @@ func ExtractSourceContext(filePath string, errorLine, contextLines int) *SourceC
 		Lines:      lines,
 		Language:   detectLanguage(filePath),
 		RelPath:    extractRelativePath(filePath),
-		IsAppCode:  isApplicationCode(filePath),
+		IsAppCode:  classifyStackFrame(filePath, "", cfg).SourceEligible,
 		CanOpenIDE: true,
 	}
 }
 
 // EnrichStackFrames adds source context to stack frames.
 func EnrichStackFrames(frames []StackFrameInfo, contextLines int, maxFrames int) []StackFrameInfo {
+	return EnrichStackFramesWithConfig(frames, ErrorConfig{
+		SourceContextLines: contextLines,
+		MaxStackFrames:     maxFrames,
+	})
+}
+
+func EnrichStackFramesWithConfig(frames []StackFrameInfo, cfg ErrorConfig) []StackFrameInfo {
 	if len(frames) == 0 {
 		return frames
+	}
+	if cfg.SourceContextLines <= 0 {
+		cfg.SourceContextLines = 7
+	}
+	if cfg.MaxStackFrames <= 0 {
+		cfg.MaxStackFrames = 20
 	}
 
 	enriched := make([]StackFrameInfo, 0, len(frames))
 	appFrameCount := 0
 
 	for i, frame := range frames {
-		if maxFrames > 0 && i >= maxFrames {
+		if cfg.MaxStackFrames > 0 && i >= cfg.MaxStackFrames {
 			break
 		}
 
-		frame.IsAppCode = isApplicationCode(frame.File)
+		classification := classifyStackFrame(frame.File, frame.Function, cfg)
+		frame.IsAppCode = classification.SourceEligible
 		frame.Package = extractPackage(frame.Function)
 		frame.IDELink = buildIDELink(frame.File, frame.Line)
 
 		// Only extract source for first few app frames to limit I/O
 		if frame.IsAppCode && appFrameCount < 3 {
-			frame.Source = ExtractSourceContext(frame.File, frame.Line, contextLines)
+			frame.Source = extractSourceContext(frame.File, frame.Line, cfg.SourceContextLines, cfg)
 			frame.IsExpanded = appFrameCount == 0
 			appFrameCount++
 		}
@@ -162,6 +182,42 @@ func EnrichStackFrames(frames []StackFrameInfo, contextLines int, maxFrames int)
 	}
 
 	return enriched
+}
+
+func selectPrimarySource(frames []StackFrameInfo, cfg ErrorConfig) *SourceContext {
+	var selected *StackFrameInfo
+	selectedRank := math.MaxInt
+	for i := range frames {
+		frame := &frames[i]
+		classification := classifyStackFrame(frame.File, frame.Function, cfg)
+		if !classification.PrimaryEligible {
+			continue
+		}
+		if classification.Rank < selectedRank {
+			selected = frame
+			selectedRank = classification.Rank
+		}
+	}
+	if selected == nil {
+		for i := range frames {
+			frame := &frames[i]
+			if isInternalLocation(frame.File, frame.Function) {
+				continue
+			}
+			selected = frame
+			break
+		}
+	}
+	if selected == nil && len(frames) > 0 {
+		selected = &frames[0]
+	}
+	if selected == nil {
+		return nil
+	}
+	if selected.Source != nil {
+		return selected.Source
+	}
+	return extractSourceContext(selected.File, selected.Line, cfg.SourceContextLines, cfg)
 }
 
 // detectLanguage determines the programming language from file extension.
@@ -193,45 +249,144 @@ func detectLanguage(filePath string) string {
 
 // isApplicationCode determines if a file path is application code vs framework/library.
 func isApplicationCode(filePath string) bool {
-	if filePath == "" {
-		return false
-	}
+	return classifyStackFrame(filePath, "", ErrorConfig{}).SourceEligible
+}
 
-	// Framework/library indicators
-	frameworkIndicators := []string{
+type stackFrameClassification struct {
+	Rank            int
+	SourceEligible  bool
+	PrimaryEligible bool
+}
+
+func classifyStackFrame(filePath, fn string, cfg ErrorConfig) stackFrameClassification {
+	const (
+		rankAppRoot       = 100
+		rankHost          = 200
+		rankRouteBoundary = 300
+		rankGoAdmin       = 400
+		rankLibrary       = 900
+	)
+	if filePath == "" {
+		return stackFrameClassification{Rank: rankLibrary}
+	}
+	if isInternalLocation(filePath, fn) {
+		return stackFrameClassification{Rank: rankLibrary, SourceEligible: false, PrimaryEligible: false}
+	}
+	if isLibraryPath(filePath, fn) {
+		return stackFrameClassification{Rank: rankLibrary, SourceEligible: false, PrimaryEligible: false}
+	}
+	for idx, root := range cfg.AppRoots {
+		if pathWithinRoot(filePath, root) {
+			return stackFrameClassification{Rank: rankAppRoot + idx, SourceEligible: true, PrimaryEligible: true}
+		}
+	}
+	if isGoAdminRouteBoundary(filePath) {
+		return stackFrameClassification{Rank: rankRouteBoundary, SourceEligible: true, PrimaryEligible: true}
+	}
+	if isGoAdminPath(filePath) {
+		return stackFrameClassification{Rank: rankGoAdmin, SourceEligible: true, PrimaryEligible: true}
+	}
+	return stackFrameClassification{Rank: rankHost, SourceEligible: true, PrimaryEligible: true}
+}
+
+func isLibraryPath(filePath, fn string) bool {
+	if strings.HasPrefix(fn, "runtime.") {
+		return true
+	}
+	if strings.HasPrefix(fn, "testing.") {
+		return true
+	}
+	if isStandardLibrarySourcePath(filePath) {
+		return true
+	}
+	return containsAny(filePath,
 		"/go/pkg/mod/",
 		"/vendor/",
 		"@v",
 		"/runtime/",
+		"/libexec/src/",
 		"/go-errors/",
 		"/go-router/",
 		"/fiber/",
 		"/fasthttp/",
+	)
+}
+
+func isStandardLibrarySourcePath(filePath string) bool {
+	cleanFile := filepath.ToSlash(filepath.Clean(filePath))
+	gorootSrc := filepath.ToSlash(filepath.Join(runtime.GOROOT(), "src"))
+	if slashPathWithinRoot(cleanFile, gorootSrc) {
+		return true
 	}
 
-	for _, indicator := range frameworkIndicators {
-		if strings.Contains(filePath, indicator) {
-			return false
-		}
-	}
-
-	// Application code indicators
-	appIndicators := []string{
-		"/src/",
-		"/admin/",
-		"/examples/",
-		"/cmd/",
-		"/internal/",
-		"/pkg/",
-	}
-
-	for _, indicator := range appIndicators {
-		if strings.Contains(filePath, indicator) {
+	for _, marker := range []string{
+		"/usr/local/go/src/",
+		"/usr/lib/go/src/",
+		"/usr/lib/golang/src/",
+		"/opt/go/src/",
+	} {
+		if _, after, ok := strings.Cut(cleanFile, marker); ok && looksStandardLibraryImportPath(after) {
 			return true
 		}
 	}
+	return false
+}
 
-	return true
+func slashPathWithinRoot(cleanFile, cleanRoot string) bool {
+	cleanFile = strings.TrimRight(cleanFile, "/")
+	cleanRoot = strings.TrimRight(cleanRoot, "/")
+	if cleanFile == "" || cleanRoot == "" {
+		return false
+	}
+	return cleanFile == cleanRoot || strings.HasPrefix(cleanFile, cleanRoot+"/")
+}
+
+func looksStandardLibraryImportPath(importPath string) bool {
+	importPath = strings.Trim(strings.TrimSpace(importPath), "/")
+	if importPath == "" {
+		return false
+	}
+	first, _, _ := strings.Cut(importPath, "/")
+	return first != "" && !strings.Contains(first, ".")
+}
+
+func isGoAdminRouteBoundary(filePath string) bool {
+	return hasSuffixAny(filePath,
+		"/quickstart/content_entry_routes_crud.go",
+		"/quickstart/content_entry_routes_query_detail.go",
+		"/admin/internal/boot/step_panels.go",
+	)
+}
+
+func isGoAdminPath(filePath string) bool {
+	return strings.Contains(filePath, "github.com/goliatone/go-admin/") ||
+		strings.Contains(filePath, "/go-admin/")
+}
+
+func pathWithinRoot(filePath, root string) bool {
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return false
+	}
+	cleanFile := filepath.Clean(filePath)
+	cleanRoot := filepath.Clean(root)
+	if cleanFile == cleanRoot {
+		return true
+	}
+	prefix := cleanRoot
+	if !strings.HasSuffix(prefix, string(filepath.Separator)) {
+		prefix += string(filepath.Separator)
+	}
+	return strings.HasPrefix(cleanFile, prefix)
+}
+
+func containsAny(value string, parts ...string) bool {
+	for _, part := range parts {
+		if strings.Contains(value, part) {
+			return true
+		}
+	}
+	return false
 }
 
 // extractRelativePath attempts to extract a clean relative path.

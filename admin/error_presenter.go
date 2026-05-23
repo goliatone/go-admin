@@ -130,14 +130,7 @@ func (p ErrorPresenter) BuildDevErrorContext(err error, reqInfo *RequestInfo) *D
 	// Build enriched stack frames
 	if p.IncludeStackTrace() && len(mapped.StackTrace) > 0 {
 		ctx.StackFrames = buildStackFrames(mapped.StackTrace, p.Config)
-
-		// Extract primary source context from first app frame
-		for _, frame := range ctx.StackFrames {
-			if frame.IsAppCode && frame.Source != nil {
-				ctx.PrimarySource = frame.Source
-				break
-			}
-		}
+		ctx.PrimarySource = selectPrimarySource(ctx.StackFrames, p.Config)
 	}
 
 	// Add environment info
@@ -167,7 +160,7 @@ func buildStackFrames(trace goerrors.StackTrace, cfg ErrorConfig) []StackFrameIn
 		})
 	}
 
-	return EnrichStackFrames(frames, cfg.SourceContextLines, cfg.MaxStackFrames)
+	return EnrichStackFramesWithConfig(frames, cfg)
 }
 
 // extractErrorTypeName returns the type name of an error.

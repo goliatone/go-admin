@@ -37,6 +37,10 @@ func WithStack(err error) error {
 	if stderrors.As(err, &carrier) && len(carrier.StackTrace()) > 0 {
 		return err
 	}
+	var ge *goerrors.Error
+	if stderrors.As(err, &ge) && ge != nil && len(ge.StackTrace) > 0 {
+		return err
+	}
 	return &stackError{
 		err:   err,
 		stack: goerrors.CaptureStackTrace(1),
@@ -77,7 +81,8 @@ func stackFromError(err error) goerrors.StackTrace {
 	if stderrors.As(err, &carrier) {
 		return carrier.StackTrace()
 	}
-	if ge, ok := err.(*goerrors.Error); ok && len(ge.StackTrace) > 0 {
+	var ge *goerrors.Error
+	if stderrors.As(err, &ge) && ge != nil && len(ge.StackTrace) > 0 {
 		return ge.StackTrace
 	}
 	return nil
@@ -125,6 +130,8 @@ func isInternalLocation(file, fn string) bool {
 		"/admin/error_mapping.go",
 		"/admin/http_helpers.go",
 		"/admin/placeholders.go",
+		"/admin/internal/boot/route_errors.go",
+		"/quickstart/content_entry_routes_errors.go",
 		"/quickstart/error_fiber.go",
 		"/examples/web/setup/auth.go",
 	) {
