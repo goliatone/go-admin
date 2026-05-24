@@ -198,7 +198,7 @@ Record fragment:
   "_action_state": {
     "publish": {
       "enabled": false,
-      "reason_code": "workflow_transition_not_available",
+      "reason_code": "INVALID_STATUS",
       "reason": "transition \"publish\" is not available from state \"published\""
     }
   }

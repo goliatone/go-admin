@@ -1,8 +1,8 @@
 # Guide: CRUD, DataGrid, and Workflow Actions
 
 This guide is the canonical wiring reference for panel CRUD resources, list
-DataGrid screens, and workflow/command actions attached to rows and bulk
-selection.
+DataGrid screens, and command actions attached to rows and bulk selection. For
+workflow/state-machine details, see `docs/GUIDE_WORKFLOW.md`.
 
 Use it when adding a new admin resource or when replacing custom list/action
 code with the shared panel contracts.
@@ -1120,6 +1120,9 @@ Typical content panels combine:
 The examples in `examples/web/setup/panels.go`,
 `examples/web/setup/content_action_state.go`, and
 `examples/web/content_panels.go` are the current reference for pages/posts.
+
+For workflow definitions, runtime bindings, dynamic content type resolution,
+action execution, and persistence details, see `docs/GUIDE_WORKFLOW.md`.
 
 ## Validation Checklist
 

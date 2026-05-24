@@ -237,18 +237,9 @@ Recommended migration flow:
 
 ## 5. Approval Workflow
 
-The CMS module includes a state-machine based workflow engine to manage content lifecycles.
-
-### States and Transitions
-
-Typical states include:
-
-- `draft`: Initial state, visible only in admin.
-- `pending_approval`: Content is locked and waiting for review.
-- `published`: Content is live and accessible via public APIs.
-- `archived`: Content is no longer live but preserved.
-
-### `FSMWorkflowEngine`
+The CMS module uses the shared go-admin workflow system to manage content
+lifecycles. This section is a CMS-specific summary; the canonical workflow
+reference is `docs/GUIDE_WORKFLOW.md`.
 
 `go-admin` provides an FSM adapter backed by `go-command/flow`:
 
@@ -264,134 +255,34 @@ _ = workflow.RegisterWorkflow("pages", admin.WorkflowDefinition{
 })
 ```
 
-Transitions are exposed as panel actions and enforced during updates via canonical FSM envelopes (`ApplyEvent` + `Snapshot`). The adapter supports guard/dynamic resolver registries, idempotency keys, dry-run requests, optimistic preconditions, and lifecycle hooks.
-CMS demo panels default to the `submit_for_approval` and `publish` actions. Override them with `adm.WithCMSWorkflowActions(...)` (use `admin.DefaultCMSWorkflowActions()` as a base).
+Transitions are exposed as panel actions and enforced through canonical FSM
+envelopes (`ApplyEvent` and `Snapshot`). CMS demo panels default to the
+`submit_for_approval` and `publish` actions. Override them with
+`adm.WithCMSWorkflowActions(...)` using `admin.DefaultCMSWorkflowActions()` as a
+base.
 
-### Workflow ID Resolution and Migration
-
-Workflow assignment now resolves in this order:
+Dynamic content panels resolve workflow assignment in this order:
 
 1. `workflow_id` (aliases: `workflowId`, `workflow-id`)
-2. legacy `workflow` (backward compatible)
-3. trait default mapping (`panel_traits` / `panel_preset`)
+2. legacy `workflow`
+3. persisted workflow runtime binding (`content_type`, then `trait`, then `global`)
 4. no workflow
 
-Trait defaults can be registered at bootstrap:
-
-```go
-adm.WithTraitWorkflowDefaults(map[string]string{
-    "editorial": "editorial.default",
-})
-```
-
-Content type example (explicit override wins):
+Content type example:
 
 ```json
 {
   "panel_traits": ["editorial"],
-  "workflow_id": "editorial.news",
-  "workflow": "legacy.pages"
+  "workflow_id": "editorial.news"
 }
 ```
-
-Migration notes:
-
-1. Keep existing `workflow` values in place first (no behavior break).
-2. Add trait defaults for shared behavior (for example, `editorial`).
-3. Move content types to explicit `workflow_id` where needed.
-4. Remove legacy `workflow` keys only after parity checks pass.
 
 If a resolved workflow ID is missing in the registry, panel registration
-continues and logs a warning (`workflow not found`) with
-`resolved_workflow_id`.
+continues and logs a warning with `resolved_workflow_id`.
 
-### Persisted Workflow Runtime (Stage 3)
-
-go-admin also supports persisted workflow definitions and scope bindings through
-`WorkflowRuntime` integration.
-
-Wiring:
-
-```go
-runtime := admin.NewWorkflowRuntimeService(
-    admin.NewInMemoryWorkflowDefinitionRepository(),
-    admin.NewInMemoryWorkflowBindingRepository(),
-)
-
-adm.WithWorkflowRuntime(runtime)
-```
-
-Runtime binding resolution order:
-
-1. content type binding
-2. trait binding
-3. global binding
-
-Explicit capability precedence is still honored first:
-
-1. `workflow_id` (and aliases)
-2. legacy `workflow`
-3. persisted binding resolver
-4. trait defaults
-5. no workflow
-
-Management API endpoints:
-
-- `GET /admin/api/workflows`
-- `POST /admin/api/workflows`
-- `PUT /admin/api/workflows/:id`
-- `GET /admin/api/workflows/bindings`
-- `POST /admin/api/workflows/bindings`
-- `PUT /admin/api/workflows/bindings/:id`
-- `DELETE /admin/api/workflows/bindings/:id`
-
-Update and rollback safety:
-
-- workflow and binding updates require `expected_version` (optimistic locking)
-- rollback is performed via `PUT /admin/api/workflows/:id` with `rollback_to_version`
-
-For migration SQL, rollout order, and rollback procedures, see
-`docs/reference/root/WORKFLOW_PERSISTENCE.md`.
-
-### Row Action Availability Contract (`_action_state`)
-
-List responses now include per-record action availability metadata under
-`_action_state`. The UI uses this to disable actions that are not valid for the
-current record state.
-
-Example record fragment:
-
-```json
-{
-  "id": "post_123",
-  "status": "published",
-  "_action_state": {
-    "submit_for_approval": {
-      "enabled": false,
-      "reason_code": "workflow_transition_not_available",
-      "reason": "transition \"submit_for_approval\" is not available from state \"published\"",
-      "available_transitions": ["unpublish"]
-    },
-    "publish": {
-      "enabled": false,
-      "reason_code": "workflow_transition_not_available"
-    },
-    "unpublish": {
-      "enabled": true,
-      "available_transitions": ["unpublish"]
-    }
-  }
-}
-```
-
-Current `reason_code` values:
-
-- `workflow_transition_not_available`
-- `workflow_not_configured`
-- `workflow_transitions_unavailable`
-- `record_id_missing`
-- `missing_context_required`
-- `permission_denied`
+List and detail responses include workflow action availability under
+`_action_state`. Workflow-state blocks use canonical reason codes such as
+`INVALID_STATUS`, `MISSING_CONTEXT`, and `PERMISSION_DENIED`.
 
 ### Action Execution Error Semantics
 
@@ -405,17 +296,15 @@ generic action lookup failure:
 
 Command-backed actions still use command dispatch fallback behavior.
 
-### Boot-Time Action Wiring Validation
+### Workflow Runtime And Action Wiring
 
-`Admin.Prepare(...)` validates panel action wiring before routes are used.
-Validation fails fast when:
+Persisted workflow definitions and scope bindings are managed through
+`WorkflowRuntime` and exposed under `/admin/api/workflows*` when configured.
+Updates require `expected_version`; rollback uses `rollback_to_version`.
 
-- a row/bulk action references an unregistered command factory
-- a workflow action exists but no workflow is configured
-- a workflow action exists but no matching workflow transition is registered
-
-This is intended to catch configuration drift at startup instead of at request
-time.
+`Admin.Prepare(...)` validates panel action wiring before routes are used and
+fails fast for missing commands, missing workflow engines, or workflow actions
+that do not match registered transitions.
 
 ### Block Definitions Workflow
 
@@ -436,9 +325,11 @@ workflow.RegisterWorkflow("block_definitions", admin.WorkflowDefinition{
 ```
 
 When you do not provide a custom workflow engine, go-admin registers the default
-CMS workflow set (content, pages, block definitions, and content types) for you.
-To start from defaults and override only a subset, call `admin.RegisterDefaultCMSWorkflows(workflow)` before registering your overrides, or
-use `adm.WithWorkflow(workflow).WithCMSWorkflowDefaults()` to fill missing defaults when the engine can report existing definitions.
+CMS workflow set (`content`, `block_definitions`, and `content_types`) for you.
+To start from defaults and override only a subset, call
+`admin.RegisterDefaultCMSWorkflows(workflow)` before registering your overrides,
+or use `adm.WithWorkflow(workflow).WithCMSWorkflowDefaults()` to fill missing
+defaults when the engine can report existing definitions.
 
 ### Workflow Authorization
 
@@ -460,6 +351,9 @@ builder := admin.NewContentTypeBuilderModule(
 
 Use `WithWorkflowExtraCheck` to add custom checks when role and permission
 checks are not enough.
+
+See `docs/GUIDE_WORKFLOW.md` for the complete workflow model, runtime binding
+rules, management APIs, persistence migrations, diagnostics, and tests.
 
 ---
 

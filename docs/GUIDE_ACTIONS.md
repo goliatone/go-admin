@@ -3,6 +3,9 @@
 This guide documents the shipped action availability and action UX system for
 `go-admin`.
 
+For workflow definitions, state-machine execution, and persisted workflow
+bindings, see `docs/GUIDE_WORKFLOW.md`.
+
 It covers:
 
 - backend authoring with `Action.Guard`, `WithActionStateResolver(...)`, and
