@@ -7,6 +7,29 @@ selection.
 Use it when adding a new admin resource or when replacing custom list/action
 code with the shared panel contracts.
 
+## Table Of Contents
+
+- [Core Model](#core-model)
+- [Panel CRUD Backend](#panel-crud-backend)
+- [Repository List Contract](#repository-list-contract)
+- [DataGrid Filters And Sorting](#datagrid-filters-and-sorting)
+- [DataGrid Search](#datagrid-search)
+- [Canonical Panel API](#canonical-panel-api)
+- [Preview And Subresources](#preview-and-subresources)
+- [Error and Validation Contract](#error-and-validation-contract)
+- [DataGrid Wiring](#datagrid-wiring)
+- [DataGrid Export](#datagrid-export)
+- [DataGrid State And Preferences](#datagrid-state-and-preferences)
+- [Detail, New, and Edit Pages](#detail-new-and-edit-pages)
+- [Detail Page Tabs](#detail-page-tabs)
+- [Form Generator Contract](#form-generator-contract)
+- [Form Submission Contract](#form-submission-contract)
+- [Actions From DataGrid](#actions-from-datagrid)
+- [Action Payloads And Selection](#action-payloads-and-selection)
+- [Workflow Action Availability](#workflow-action-availability)
+- [Workflow Transitions](#workflow-transitions)
+- [Validation Checklist](#validation-checklist)
+
 ## Core Model
 
 A CRUD resource has three layers:
@@ -140,6 +163,186 @@ Every listed record must expose a stable `id` value. The same ID is used for row
 actions, detail/edit routes, delete, bulk selection, and record-scoped tab
 filters such as `{{record.id}}`.
 
+## DataGrid Filters And Sorting
+
+DataGrid filtering and sorting work only when all three layers agree:
+
+1. The panel schema declares visible list fields and filter controls.
+2. The HTML/DataGrid configuration marks the matching columns as sortable or
+   filterable and uses the shared go-crud behaviors.
+3. The repository or adapter applies `ListOptions` before pagination and returns
+   the filtered total.
+
+`admin.Filter` configures the list UI and schema. It does not, by itself,
+implement repository filtering. Custom repositories must read `opts.Filters`,
+`opts.Predicates`, `opts.SortBy`, and `opts.SortDesc`.
+
+Panel setup:
+
+```go
+builder := (&admin.PanelBuilder{}).
+    WithRepository(repo).
+    ListFields(
+        admin.Field{Name: "title", Label: "Title", Type: "text"},
+        admin.Field{Name: "status", Label: "Status", Type: "select"},
+        admin.Field{Name: "created_at", Label: "Created", Type: "datetime"},
+    ).
+    FormFields(
+        admin.Field{Name: "title", Label: "Title", Type: "text", Required: true},
+        admin.Field{
+            Name:  "status",
+            Label: "Status",
+            Type:  "select",
+            Options: []admin.Option{
+                {Label: "Draft", Value: "draft"},
+                {Label: "Published", Value: "published"},
+            },
+        },
+    ).
+    Filters(
+        admin.Filter{
+            Name:            "title",
+            Label:           "Title",
+            Type:            "text",
+            Operators:       []string{"eq", "ilike", "in"},
+            DefaultOperator: "ilike",
+        },
+        admin.Filter{
+            Name:            "status",
+            Label:           "Status",
+            Type:            "select",
+            Operators:       []string{"eq", "in"},
+            DefaultOperator: "eq",
+            Options: []admin.Option{
+                {Label: "Draft", Value: "draft"},
+                {Label: "Published", Value: "published"},
+            },
+        },
+    )
+```
+
+For content-entry screens, `contentEntryColumns(...)` marks a column filterable
+when its field is declared in `schema.Filters`. Columns are sortable by default
+unless the field is hidden or a large/nested type such as `textarea`, `json`,
+`object`, `array`, `block-library-picker`, or `blocks`. If no explicit filters
+are configured, content-entry routes create fallback filters from visible list
+fields; option-backed fields become select filters with `eq`/`in`, while text
+fields default to `ilike`.
+
+The shared client behaviors emit these list query parameters:
+
+```text
+?page=1&per_page=10
+?order=title asc
+?order=created_at desc
+?status=published
+?status__in=draft,published
+?title__ilike=home
+```
+
+`GoCrudSortBehavior` sends `order=<field> <asc|desc>`. The panel route parser
+also accepts the legacy shape `sort=<field>&sort_desc=true`, but new DataGrid
+templates should use `GoCrudSortBehavior`.
+
+`GoCrudFilterBehavior` sends simple equality as `field=value`; non-equality
+operators use `field__operator=value`; multiple values for the same equality
+filter become `field__in=a,b`. The panel API parser converts those query
+parameters into both:
+
+- `ListOptions.Filters`, the original map shape, for simple repositories.
+- `ListOptions.Predicates`, normalized `{Field, Operator, Values}` entries, for
+  operator-aware repositories.
+
+Common operators are `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `nin`, `like`,
+`ilike`, and `contains`. Adapters and repositories may support a subset, but
+they should ignore empty filters and handle unsupported operators
+conservatively.
+
+Backend setup depends on the repository type:
+
+- `admin.NewBunRepositoryAdapter[T](...)` translates pagination, search,
+  `SortBy`/`SortDesc`, and predicates into repository criteria. Use custom
+  filter builders when a UI field does not map directly to a database column.
+- `admin.NewCRUDRepositoryAdapter(...)` translates the same list options into
+  go-crud `ListQueryOptions` and preserves query values for services that still
+  inspect the request context.
+- Custom `admin.Repository` implementations must apply search and filters before
+  sorting and pagination, then return the page slice plus the total after
+  filtering.
+
+Minimal custom repository pattern:
+
+```go
+func (r *ArticleRepository) List(ctx context.Context, opts admin.ListOptions) ([]map[string]any, int, error) {
+    records, err := r.loadRecords(ctx)
+    if err != nil {
+        return nil, 0, err
+    }
+
+    predicates := admin.NormalizeListPredicates(opts)
+    filtered := applyArticleSearch(records, opts.Search)
+    filtered = applyArticlePredicates(filtered, predicates)
+    sortArticleRecords(filtered, opts.SortBy, opts.SortDesc)
+
+    total := len(filtered)
+    page := max(opts.Page, 1)
+    perPage := opts.PerPage
+    if perPage <= 0 {
+        perPage = 10
+    }
+    start := min((page-1)*perPage, total)
+    end := min(start+perPage, total)
+    return articleMaps(filtered[start:end]), total, nil
+}
+```
+
+Do not paginate before applying filters or custom sorting. Otherwise page totals
+will drift, sorted page two can repeat or skip rows, and the DataGrid pagination
+normalizer will keep correcting the browser state.
+
+## DataGrid Search
+
+Global search is separate from column filters. The search box only affects API
+requests when the DataGrid has a `search` behavior wired.
+
+For panel APIs, prefer a search behavior that emits the canonical `search`
+parameter:
+
+```js
+class PanelSearchBehavior {
+  buildQuery(term) {
+    const value = term ? term.trim() : '';
+    return value ? { search: value } : {};
+  }
+
+  async onSearch(term, grid) {
+    grid.resetPagination();
+    await grid.refresh();
+  }
+}
+```
+
+Then include it in the DataGrid behaviors:
+
+```js
+behaviors: {
+  search: new PanelSearchBehavior(),
+  filter: new GoCrudFilterBehavior(),
+  pagination: new GoCrudPaginationBehavior(),
+  sort: new GoCrudSortBehavior(),
+}
+```
+
+The panel route parser maps `?search=term` or `?q=term` into
+`ListOptions.Search`. Repository adapters pass that search term into their
+search criteria. Custom repositories must apply `opts.Search` before pagination
+and return the filtered total.
+
+`GoCrudSearchBehavior(searchableFields)` emits field predicates such as
+`title__ilike=%term%`. Use it only when the backing repository supports that
+predicate shape for global search. For normal panel APIs, `PanelSearchBehavior`
+is the safer default because it uses the dedicated `Search` field.
+
 ## Canonical Panel API
 
 Registered panels expose these JSON routes through the admin API group. The
@@ -187,6 +390,58 @@ Row and detail action availability is server-authored:
 - selected-row bulk refresh: `bulk_action_state` from the bulk state endpoint
 
 Do not invent per-resource action-state endpoints.
+
+## Preview And Subresources
+
+Preview and subresource routes are optional panel API extensions. Do not expose
+buttons or links for them unless the panel and backing services are configured.
+
+Preview route:
+
+```text
+GET /admin/api/panels/:panel/:id/preview
+```
+
+The default panel preview binding generates a short-lived preview token through
+the admin preview service and returns a URL payload. Quickstart edit pages also
+build a site preview URL when a record has enough path information. For content
+entries, the path is resolved from record fields in this order:
+
+- top-level `path` or `preview_url`
+- nested `data.path` or `data.preview_url`
+- `slug` as a fallback
+
+Preview requires `Config.PreviewSecret` and a configured preview service. Site
+delivery must validate the `preview_token` query parameter before showing draft
+content. Repositories should return the record fields needed to build the
+preview path on edit/detail payloads.
+
+Subresource route:
+
+```text
+GET /admin/api/panels/:panel/:id/:subresource/:value
+```
+
+Declare subresources on the panel:
+
+```go
+builder.Subresources(
+    admin.PanelSubresource{
+        Name:       "source",
+        Method:     "GET",
+        Permission: "admin.documents.view",
+    },
+)
+```
+
+Then implement subresource serving on the repository or panel binding path used
+by the resource. A subresource handler receives the current admin context, HTTP
+context, record ID, subresource name, and route value. It should enforce the
+same ownership and permission assumptions as normal detail/download routes and
+return `admin.ErrNotFound` or `admin.ErrForbidden` when appropriate.
+
+Use subresources for record-owned streams or side payloads such as source files,
+artifacts, or generated previews. Keep CRUD JSON under the normal detail route.
 
 ## Error and Validation Contract
 
@@ -266,10 +521,11 @@ const grid = new DataGrid({
   columns,
   perPage: 10,
   behaviors: {
+    search: new PanelSearchBehavior(),
     filter: new GoCrudFilterBehavior(),
     pagination: new GoCrudPaginationBehavior(),
     sort: new GoCrudSortBehavior(),
-    export: new GoCrudExportBehavior(exportConfig),
+    export: exportConfig ? new GoCrudExportBehavior(exportConfig) : undefined,
     columnVisibility: columnVisibilityBehavior,
   },
   selectors: {
@@ -285,6 +541,12 @@ const grid = new DataGrid({
 });
 ```
 
+Column definitions should use field names that the repository can filter and
+sort. Mark a column `filterable` only when a matching `admin.Filter` exists or
+the backing repository handles that field. Mark a column `sortable` only when
+`opts.SortBy` for that field is supported. A sortable or filterable column is a
+UI promise that the list API can honor the emitted query parameters.
+
 Column visibility should use `datagrid_config.column_storage_key`. If
 `state_store.mode` is `preferences`, also provide `preferences_endpoint` so the
 client can hydrate/sync user state with local fallback.
@@ -292,6 +554,99 @@ client can hydrate/sync user state with local fallback.
 Content-entry templates currently use the richer content DataGrid implementation
 in `pkg/client/templates/resources/content/list.html`. Roles use a smaller
 reference implementation in `pkg/client/templates/resources/roles/list.html`.
+
+## DataGrid Export
+
+`GoCrudExportBehavior` requires a usable `export_config`; otherwise the
+constructor fails. Quickstart builds this from panel view capabilities:
+
+```go
+exportConfig := quickstart.BuildPanelExportConfig(cfg, quickstart.PanelViewCapabilityOptions{
+    Definition:     "articles",
+    Variant:        "default",
+    ExportEndpoint: "/admin/exports",
+})
+```
+
+The resulting template payload must include:
+
+- `endpoint`: POST target for export requests.
+- `definition` or `resource`: export definition name.
+- `variant` or `sourceVariant`: optional export variant.
+- `delivery`: optional `auto`, `sync`, or `async`; PDF defaults to async.
+- `columns`: optional explicit columns. Otherwise visible DataGrid columns are
+  exported.
+- `selection`: optional explicit selection. Otherwise selected rows are exported
+  when any are selected; if none are selected, mode is `all`.
+
+The client posts this payload:
+
+```json
+{
+  "definition": "articles",
+  "format": "csv",
+  "delivery": "auto",
+  "columns": ["title", "status", "created_at"],
+  "selection": {"mode": "ids", "ids": ["article_1"]},
+  "query": {
+    "filters": [{"field": "status", "op": "eq", "value": "published"}],
+    "sort": [{"field": "created_at", "desc": true}]
+  }
+}
+```
+
+The export backend must register the named definition and honor the `query`,
+`selection`, and `columns` values. The query is derived from the current
+DataGrid search, filters, sorting, and pagination behaviors, so export results
+should match what the user is viewing unless the export definition intentionally
+expands scope.
+
+If export is not configured for a resource, omit the export behavior and export
+buttons from the template instead of passing an empty config.
+
+## DataGrid State And Preferences
+
+DataGrid has two related state channels:
+
+- URL state: shareable/search state such as page, per-page, filters, and sort.
+- Persisted state: user preferences such as view mode, group expansion, hidden
+  columns, and column order.
+
+Use `datagrid_config.column_storage_key` for column visibility. It defaults from
+the table ID when quickstart builds `datagrid_config`, but resource-specific
+templates should pass the configured key to the column visibility behavior so
+renaming DOM IDs does not lose user preferences.
+
+Use `datagrid_config.state_store` when the resource should persist richer grid
+state:
+
+```json
+{
+  "mode": "preferences",
+  "resource": "articles",
+  "sync_debounce_ms": 500,
+  "hydrate_timeout_ms": 1500,
+  "max_share_entries": 20
+}
+```
+
+When `state_store.mode` is `preferences`, also provide
+`datagrid_config.preferences_endpoint`. The client hydrates from preferences
+with local fallback. Use `mode: "local"` for browser-local persistence only.
+
+Use `datagrid_config.url_state` to constrain shareable URL state:
+
+```json
+{
+  "max_url_length": 1800,
+  "max_filters_length": 600,
+  "enable_state_token": true
+}
+```
+
+If filters or share state exceed the configured URL limits and state tokens are
+enabled, the client stores a compact share token instead of overlong query
+parameters.
 
 ## Detail, New, and Edit Pages
 
@@ -503,6 +858,40 @@ a renderable form schema from `FormFields(...)` or `FormSchema(...)`; otherwise
 registration fails. Panels that own a fully custom create/edit UI should use
 `WithUIRouteMode(admin.PanelUIRouteModeCustom)` and register their own handlers.
 
+## Form Submission Contract
+
+Canonical new/edit pages submit against the same schema used to render the
+form. JSON requests are decoded directly. Browser form submissions support
+`application/x-www-form-urlencoded` and `multipart/form-data`, then coerce values
+from the JSON Schema.
+
+Important parsing behavior:
+
+- Repeated form keys become arrays.
+- A field submitted as `name[]` maps to `name` only when the schema says the
+  field type is `array`.
+- Single submitted values for array fields are parsed as array values.
+- Missing boolean fields are set to `false`, which keeps unchecked checkboxes
+  from disappearing.
+- Nested field paths are supported by the form parser and are written back into
+  nested maps.
+- Invalid form payloads return a validation-style `INVALID_FORM` error.
+
+`FormFields(...)` and `FormSchema(...)` describe rendering and parsing, but the
+repository remains the authority for create/update validation. Repositories and
+services should still enforce required domain fields, uniqueness, ownership,
+workflow state, and read-only server-managed values.
+
+Read-only and hidden form metadata are UI hints, not a security boundary.
+Quickstart removes unsupported `readOnly` keywords before rendering content
+entry forms so the form generator can render consistently. Do not trust a
+browser to omit hidden or read-only fields; ignore or overwrite server-managed
+values in repository code.
+
+For custom widgets, keep submitted values aligned with the schema type. If a
+widget posts JSON strings for arrays or objects, make sure the parser or
+repository normalizes those values before persistence.
+
 ## Actions From DataGrid
 
 Define actions on the panel, not in the template:
@@ -535,7 +924,7 @@ Register the matching command and message factory:
 
 ```go
 type ArticlePublishMsg struct {
-    IDs []string `json:"i_ds"`
+    IDs []string `json:"ids"`
 }
 
 func (ArticlePublishMsg) Type() string { return "articles.publish" }
@@ -567,6 +956,94 @@ Execution flow:
 Use `SchemaActionBuilder` for row/detail action rendering. It understands
 `_action_state`, keeps disabled actions visible, formats structured failures,
 and supports reconciliation hooks.
+
+## Action Payloads And Selection
+
+The panel action routes resolve target IDs from query parameters and JSON body.
+Factories should accept the `ids []string` argument from
+`RegisterMessageFactory(...)`, then merge any extra payload fields they need.
+
+ID sources are deduped from:
+
+- `?id=...`
+- `?ids=a,b` or `?ids=a;b`
+- body `id`
+- body `ids`
+- body `selection.id`
+- body `selection.ids`
+- body `record.id`
+
+Typical row action payload:
+
+```json
+{
+  "id": "article_123",
+  "record": {"id": "article_123"}
+}
+```
+
+Typical bulk action payload:
+
+```json
+{
+  "selection": {
+    "mode": "ids",
+    "ids": ["article_123", "article_456"]
+  }
+}
+```
+
+Action definitions can require additional payload fields:
+
+```go
+admin.Action{
+    Name:            "schedule",
+    Label:           "Schedule",
+    CommandName:     "articles.schedule",
+    Scope:           admin.ActionScopeBulk,
+    PayloadRequired: []string{"publish_at"},
+    PayloadSchema: map[string]any{
+        "type": "object",
+        "properties": map[string]any{
+            "publish_at": map[string]any{"type": "string", "format": "date-time"},
+        },
+    },
+}
+```
+
+`PayloadRequired` is checked before command dispatch. `PayloadSchema`, when
+present, is compiled as JSON Schema and validates the normalized payload.
+Idempotent actions can set `Idempotent: true` and optionally
+`IdempotencyField`; the route fills a missing idempotency field from the action
+name and target ID.
+
+Message factories should validate domain-specific payload rules and return
+typed validation/domain errors when selection or required fields are invalid:
+
+```go
+func buildArticleScheduleMsg(payload map[string]any, ids []string) (ArticleScheduleMsg, error) {
+    publishAt, _ := payload["publish_at"].(string)
+    msg := ArticleScheduleMsg{
+        IDs:       append([]string{}, ids...),
+        PublishAt: strings.TrimSpace(publishAt),
+    }
+    if len(msg.IDs) == 0 {
+        return msg, admin.NewDomainError(admin.TextCodeInvalidSelection, "article ids required", nil)
+    }
+    if msg.PublishAt == "" {
+        return msg, admin.NewDomainError(
+            admin.TextCodeValidationError,
+            "publish_at required",
+            map[string]any{"field": "publish_at"},
+        )
+    }
+    return msg, nil
+}
+```
+
+Command handlers must still enforce authorization, ownership, workflow state,
+and stale-state checks. Disabled action state and payload validation are client
+and route affordances, not the final security layer.
 
 ## Workflow Action Availability
 
@@ -652,16 +1129,25 @@ Before considering a CRUD resource done:
    mode.
 2. List API returns `records`, `total`, `schema`, and expected action contracts.
 3. HTML list uses `datagrid_config` first.
-4. Row/detail/bulk actions use server-authored action state.
-5. Action command names have matching commands and message factories.
-6. Runtime handlers enforce the same rules advertised in `_action_state`.
-7. List tests verify total/page semantics, filtering, sorting, search, and no
+4. Filterable and sortable columns match fields the repository actually handles.
+5. Repository list logic applies search, filters, and sorting before pagination.
+6. Search input has a `search` behavior when the template renders search UI.
+7. Export UI is rendered only when `export_config` and a backend export
+   definition are configured.
+8. Preview and subresource links are rendered only when the panel/service can
+   serve the corresponding route.
+9. Row/detail/bulk actions use server-authored action state.
+10. Action command names have matching commands and message factories.
+11. Action payload requirements and command factories agree on ID and selection
+    shape.
+12. Runtime handlers enforce the same rules advertised in `_action_state`.
+13. List tests verify total/page semantics, filtering, sorting, search, and no
    duplicate IDs across pages.
-8. Form tests verify schema rendering, create/update parsing, validation
+14. Form tests verify schema rendering, create/update parsing, validation
    failures, and browser form submissions.
-9. Tabbed detail tests verify `?tab=details`, permission-filtered tabs, invalid
+15. Tabbed detail tests verify `?tab=details`, permission-filtered tabs, invalid
    tab fallback or denial, and HTML/JSON tab routes for hybrid/client modes.
-10. Focused tests cover list, create/update/delete, action success, disabled
+16. Focused tests cover list, create/update/delete, action success, disabled
    state, and stale action failure.
 
 Useful focused tests:
