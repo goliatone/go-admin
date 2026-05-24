@@ -400,9 +400,9 @@ curl http://localhost:8080/admin/test-error?type=nested
 - Navigation highlights the active item; search results link to the new views.
 - Content entry filters now derive automatically from panel schema filters, and when missing they fall back to visible list/form fields by default.
 - Workflow config fixture: `examples/web/workflow_config.yaml` declares:
-  - `trait_defaults.editorial = editorial.default`
+  - a trait binding from `editorial` to `editorial.default`
   - explicit workflow `editorial.news` used by the seeded `news` content type via `workflow_id`.
-  The app loads this file automatically when present (override path with `APP_ADMIN__WORKFLOW_CONFIG_PATH`), seeds persisted runtime workflows as `active`, and seeds trait default bindings under `/admin/api/workflows/bindings`.
+  The app loads this file automatically when present (override path with `APP_ADMIN__WORKFLOW_CONFIG_PATH`), seeds persisted runtime workflows as `active`, and seeds trait bindings under `/admin/api/workflows/bindings`.
 
 ### Content persistence (SQLite + go-repository-bun)
 

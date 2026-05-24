@@ -921,7 +921,12 @@ Templates use a conditional fallback pattern:
 ```
 
 ## CMS workflow defaults
-Quickstart defaults wire CMS workflows for demo panels when you do not provide a custom engine. To start from defaults and override only a subset, register defaults before your overrides or opt in to default registration on a custom engine:
+Quickstart wires CMS workflows through the shared go-admin workflow system. This
+section covers startup helpers; see `../docs/GUIDE_WORKFLOW.md` for the full
+workflow/state-machine contract.
+
+To start from defaults and override only a subset, register defaults before your
+overrides or opt in to default registration on a custom engine:
 
 ```go
 workflow := admin.NewFSMWorkflowEngine()
@@ -952,26 +957,8 @@ Workflow capability precedence for dynamic content panels:
 
 1. `workflow_id` (aliases: `workflowId`, `workflow-id`)
 2. legacy `workflow`
-3. trait default mapping configured through quickstart/admin options
+3. persisted workflow runtime binding (`content_type`, then `trait`, then `global`)
 4. no workflow
-
-Configure trait defaults at bootstrap:
-
-```go
-adm, _, err := quickstart.NewAdmin(
-    cfg,
-    hooks,
-    quickstart.WithAdminDependencies(admin.Dependencies{
-        Workflow: workflow,
-    }),
-    quickstart.WithTraitWorkflowDefaults(map[string]string{
-        "editorial": "editorial.default",
-    }),
-)
-if err != nil {
-    return err
-}
-```
 
 Content type capability examples:
 
@@ -992,7 +979,7 @@ Content type capability examples:
 Migration guidance:
 
 1. Keep legacy `workflow` keys initially.
-2. Add trait defaults (`WithTraitWorkflowDefaults`) for shared defaults.
+2. Add runtime bindings for shared defaults.
 3. Add explicit `workflow_id` for content types that must override defaults.
 4. Remove legacy `workflow` after validation.
 
@@ -1000,8 +987,6 @@ External workflow config (YAML/JSON) can be loaded at startup:
 
 ```yaml
 schema_version: 1
-trait_defaults:
-  editorial: editorial.default
 workflows:
   editorial.default:
     initial_state: draft
@@ -1021,6 +1006,12 @@ workflows:
       - name: publish
         from: approval
         to: published
+bindings:
+  - scope_type: trait
+    scope_ref: editorial
+    workflow_id: editorial.default
+    priority: 100
+    status: active
 ```
 
 ```go
@@ -1031,12 +1022,15 @@ adm, _, err := quickstart.NewAdmin(
 )
 ```
 
+Definitions are registered into the configured workflow engine during startup.
+Bindings are seeded when `WithWorkflowRuntime(...)` is also provided.
+
 Validation fails fast with actionable field errors for:
 - unsupported schema versions
 - invalid workflow definitions (missing `initial_state`, transition fields, duplicate transition names)
-- trait defaults referencing unknown workflow IDs
+- bindings referencing unknown workflow IDs
 
-Persisted workflow runtime (Stage 3) can be wired for dynamic workflow and binding management:
+Persisted workflow runtime can be wired for dynamic workflow and binding management:
 
 ```go
 runtime := admin.NewWorkflowRuntimeService(
@@ -1070,7 +1064,8 @@ Workflow management API endpoints:
 - `PUT /admin/api/workflows/bindings/:id` (`expected_version` required)
 - `DELETE /admin/api/workflows/bindings/:id`
 
-Operational migration/rollback details: `../docs/WORKFLOW_PERSISTENCE.md`.
+Operational migration, rollback, and persistence details:
+`../docs/GUIDE_WORKFLOW.md#persisted-workflow-runtime`.
 
 CMS demo panels default to the `submit_for_approval` and `publish` actions. Override them with:
 
