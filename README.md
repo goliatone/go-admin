@@ -294,12 +294,13 @@ Mapping behavior:
 ## References
 
 - Quickstart API and helpers: `quickstart/README.md`
-- CRUD, DataGrid, and workflow/action wiring: `docs/GUIDE_CRUD.md`
+- CRUD and DataGrid wiring: `docs/GUIDE_CRUD.md`
+- Workflow/state-machine wiring: `docs/GUIDE_WORKFLOW.md`
 - Roles and role seeding: `docs/GUIDE_ROLES.md`
 - Routing policy contract and CI review workflow: `docs/GUIDE_ROUTING.md`
 - Routing execution/signoff chain: `ROUTING_ARD.md`, `ROUTING_TSK.md`, `docs/ROUTING_RELEASE_CHECKLIST.md`
 - Example runtime config conventions: `examples/web/config/app.json` and `examples/web/README.md`
 - CMS and translation workflow guide: `docs/GUIDE_CMS.md`
 - Background command routing observability: `docs/GUIDE_BKG_CMD_OBSERVABILITY.md`
-- Persisted workflow runtime: `docs/WORKFLOW_PERSISTENCE.md`
+- Persisted workflow runtime: `docs/GUIDE_WORKFLOW.md#persisted-workflow-runtime`
 - End-to-end examples: `examples/web/main.go`, `examples/esign/main.go`
