@@ -7,6 +7,20 @@ It is written as a tutorial first, with maintainer notes at the end.
 Maintainer note:
 - Backend contract guardrails for translation surfaces are defined in `docs/GUIDE_DEVELOPMENT.md#10-rfc-contract-and-security-guardrails`.
 
+## Table Of Contents
+
+- [1. Quick Start](#1-quick-start)
+- [2. What `examples/web` Shows Today](#2-what-examplesweb-shows-today)
+- [3. Core Model](#3-core-model)
+- [4. Tutorial: Translate Content From the Content Panels](#4-tutorial-translate-content-from-the-content-panels)
+- [5. Tutorial: Work the Queue](#5-tutorial-work-the-queue)
+- [6. Tutorial: Run the Exchange Workflow](#6-tutorial-run-the-exchange-workflow)
+- [7. Production Navigation and Verification Checklist](#7-production-navigation-and-verification-checklist)
+- [8. Release-Readiness Artifacts in the Repo](#8-release-readiness-artifacts-in-the-repo)
+- [9. Permissions](#9-permissions)
+- [10. Troubleshooting](#10-troubleshooting)
+- [11. Maintainer Pointers](#11-maintainer-pointers)
+
 If you only want the current user workflow, start at section 4.
 
 ## 1. Quick Start
@@ -62,12 +76,19 @@ Queue navigation details:
 - Direct queue UI route: `/admin/translations/queue`
 - Compatibility alias used by the seeded menu entry: `/admin/content/translations`
 
-Route exposure follows the selected profile:
+Productized UI/nav exposure follows the selected profile:
 
-- `core`: family detail and matrix UI/API routes are exposed.
-- `core+queue`: core routes plus dashboard, queue, assignment editor, and queue APIs.
-- `core+exchange`: core routes plus exchange UI/API routes.
-- `full`: all core, queue, dashboard/editor, and exchange routes.
+- `core`: family detail and matrix UI routes are exposed.
+- `core+queue`: core UI plus dashboard, queue, assignment editor UI, and queue APIs.
+- `core+exchange`: core UI plus exchange UI/API routes.
+- `full`: all productized core UI, queue/dashboard/editor UI, queue API, and exchange UI/API routes.
+
+Backend route gating is more granular than the product profile:
+
+- CMS-backed family and matrix APIs are registered by the translation family boot step when CMS is enabled.
+- Queue APIs are registered only when the translation queue feature is enabled.
+- Exchange APIs are registered only when the translation exchange feature is enabled.
+- `none` removes productized translation UI/nav exposure and disabled module capability routes, but does not by itself disable CMS-backed translation-family internals for a CMS-enabled host.
 
 ## 3. Core Model
 
@@ -326,14 +347,14 @@ When validating a production-style setup in `examples/web`, verify:
    - dashboard
    - queue
    - exchange
-3. Expected contextual routes remain reachable for their enabled module:
+3. Expected contextual UI routes remain reachable for their enabled module:
    - core: family detail and matrix
    - queue: assignment editor
 4. Disabled profiles behave correctly:
-   - `core`: family detail and matrix are exposed; queue/dashboard/editor/exchange are not
+   - `core`: family detail and matrix UI are exposed; queue/dashboard/editor/exchange are not
    - `core+queue`: queue/dashboard/editor are exposed; exchange is not
    - `core+exchange`: exchange is exposed; queue/dashboard/editor are not
-   - `none`: no productized translation menu or module entrypoints
+   - `none`: no productized translation menu or module UI entrypoints
 5. Privileged roles retain required translation permissions.
 
 Quick smoke matrix:
@@ -474,9 +495,11 @@ Quickstart/productization references:
 Translation backend/UI bindings:
 
 - `admin/translation_*`
+- `admin/internal/boot/step_translation_*.go`
+- `translations/adapters/goadmin/module_contract.go`
 - `translations/core/`
 - `translations/services/`
-- `translations/ui/openapi/translations.json`
+- `translations/ui/openapi/translations.json` (partial OpenAPI snapshot; confirm against boot route steps before treating it as a complete route inventory)
 - `pkg/client/templates/resources/translations/`
 - `pkg/client/assets/src/translation-*`
 - `pkg/client/assets/src/datatable/translation-*`
