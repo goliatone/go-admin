@@ -1,5 +1,25 @@
 # Changelog
 
+# [0.74.0](https://github.com/goliatone/go-admin/compare/v0.73.1...v0.74.0) - (2026-05-25)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Toolbar scroller tabs ([31ccce3](https://github.com/goliatone/go-admin/commit/31ccce3c06e5c014119b59d44256c2e09dd14a26))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.74.0 ([f6fac31](https://github.com/goliatone/go-admin/commit/f6fac314d01b12b0b7045e32f1b42de8e6a8bd8f))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.73.1 ([562a603](https://github.com/goliatone/go-admin/commit/562a6036da327391b88a87f876c59e4c24040ece))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update readme ([f829b61](https://github.com/goliatone/go-admin/commit/f829b6193d5d033da4a0778078533e77f050086f))  - (goliatone)
+- Update docs ([3ff65ba](https://github.com/goliatone/go-admin/commit/3ff65bab8cc6b341b50d10b7e0897fb594212f97))  - (goliatone)
+- Update deps ([27f6ee9](https://github.com/goliatone/go-admin/commit/27f6ee9bd30900195e0b3e2d134badb77c275857))  - (goliatone)
+
 # [0.73.1](https://github.com/goliatone/go-admin/compare/v0.73.0...v0.73.1) - (2026-05-23)
 
 ## <!-- 13 -->📦 Bumps
