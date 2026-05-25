@@ -10,8 +10,21 @@ import (
 
 	"github.com/goliatone/go-admin/admin/routing"
 	debugregistry "github.com/goliatone/go-admin/debug"
+	auth "github.com/goliatone/go-auth"
 	router "github.com/goliatone/go-router"
 )
+
+type headerDebugAuthenticator struct{}
+
+func (headerDebugAuthenticator) Wrap(c router.Context) error {
+	userID := strings.TrimSpace(c.Header("X-Test-User"))
+	if userID == "" {
+		userID = "auth-user"
+	}
+	actor := &auth.ActorContext{ActorID: userID, Subject: userID}
+	c.SetContext(auth.WithActorContext(c.Context(), actor))
+	return nil
+}
 
 func TestDebugRoutesRequirePermission(t *testing.T) {
 	cfg := Config{
@@ -341,6 +354,188 @@ func TestDebugPanelActionEndpointRejectsDisabledPanel(t *testing.T) {
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("expected disabled panel action not found, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestDebugPanelOrderPreferenceEndpointPersistsNormalizedUserOrder(t *testing.T) {
+	store := NewInMemoryPreferencesStore()
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled: true,
+			Panels:  []string{DebugPanelTemplate, DebugPanelSQL, DebugPanelConfig},
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{
+		FeatureGate:      featureGateFromFlags(map[string]bool{"debug": true}),
+		PreferencesStore: store,
+	})
+	adm.WithAuth(headerDebugAuthenticator{}, nil)
+	adm.WithAuthorizer(allowAuthorizer{})
+	mod := NewDebugModule(cfg.Debug)
+	if err := adm.RegisterModule(mod); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	path := debugAPIPath(t, adm, cfg.Debug, "preferences.panel_order")
+	body := `{"panel_order":[" sql ","unknown","template","sql","bad panel","sessions"]}`
+	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected panel order save ok, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var saveResp debugPanelOrderPreferenceResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &saveResp); err != nil {
+		t.Fatalf("decode save response: %v", err)
+	}
+	if !saveResp.Available || !saveResp.Found || saveResp.UserID != "user-1" {
+		t.Fatalf("unexpected save response metadata: %+v", saveResp)
+	}
+	if got, want := strings.Join(saveResp.PanelOrder, ","), "sql,template,sessions"; got != want {
+		t.Fatalf("expected normalized panel order %q, got %q", want, got)
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, path, nil)
+	getReq.Header.Set("X-Test-User", "user-1")
+	getRR := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(getRR, getReq)
+	if getRR.Code != http.StatusOK {
+		t.Fatalf("expected panel order get ok, got %d body=%s", getRR.Code, getRR.Body.String())
+	}
+	var getResp debugPanelOrderPreferenceResponse
+	if err := json.Unmarshal(getRR.Body.Bytes(), &getResp); err != nil {
+		t.Fatalf("decode get response: %v", err)
+	}
+	if got, want := strings.Join(getResp.PanelOrder, ","), "sql,template,sessions"; got != want {
+		t.Fatalf("expected stored panel order %q, got %q", want, got)
+	}
+
+	fresh := NewPreferencesService(store)
+	prefs, err := fresh.Get(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("fresh service get: %v", err)
+	}
+	if got, want := strings.Join(normalizeDebugPanelOrderPreference(mod, prefs.Raw[debugPanelOrderPreferenceKey]), ","), "sql,template,sessions"; got != want {
+		t.Fatalf("expected fresh service to load %q, got %q", want, got)
+	}
+}
+
+func TestDebugPanelOrderPreferenceEndpointIsUserScoped(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled: true,
+			Panels:  []string{DebugPanelTemplate, DebugPanelSQL, DebugPanelConfig},
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	adm.WithAuth(headerDebugAuthenticator{}, nil)
+	adm.WithAuthorizer(allowAuthorizer{})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	path := debugAPIPath(t, adm, cfg.Debug, "preferences.panel_order")
+	for _, tc := range []struct {
+		user  string
+		order string
+	}{
+		{user: "user-1", order: `["sql"]`},
+		{user: "user-2", order: `["config"]`},
+	} {
+		req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(`{"panel_order":`+tc.order+`}`))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Test-User", tc.user)
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected save ok for %s, got %d body=%s", tc.user, rr.Code, rr.Body.String())
+		}
+	}
+
+	for _, tc := range []struct {
+		user string
+		want string
+	}{
+		{user: "user-1", want: "sql"},
+		{user: "user-2", want: "config"},
+	} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("X-Test-User", tc.user)
+		rr := httptest.NewRecorder()
+		server.WrappedRouter().ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected get ok for %s, got %d body=%s", tc.user, rr.Code, rr.Body.String())
+		}
+		var resp debugPanelOrderPreferenceResponse
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode get response: %v", err)
+		}
+		if got := strings.Join(resp.PanelOrder, ","); got != tc.want {
+			t.Fatalf("expected order %q for %s, got %q", tc.want, tc.user, got)
+		}
+	}
+}
+
+func TestDebugPanelOrderPreferenceEndpointFallsBackForUserlessAccess(t *testing.T) {
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled:    true,
+			AllowedIPs: []string{"1.1.1.1"},
+			Panels:     []string{DebugPanelTemplate, DebugPanelSQL},
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	path := debugAPIPath(t, adm, cfg.Debug, "preferences.panel_order")
+	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(`{"panel_order":["sql"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "spoofed-user")
+	req.RemoteAddr = "1.1.1.1:12345"
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected userless fallback ok, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	var resp debugPanelOrderPreferenceResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode fallback response: %v", err)
+	}
+	if resp.Available || resp.Found || len(resp.PanelOrder) != 0 {
+		t.Fatalf("expected unavailable empty fallback response, got %+v", resp)
+	}
+	prefs, err := adm.PreferencesService().Get(context.Background(), "spoofed-user")
+	if err != nil {
+		t.Fatalf("get spoofed preferences: %v", err)
+	}
+	if _, ok := prefs.Raw[debugPanelOrderPreferenceKey]; ok {
+		t.Fatalf("expected userless request not to persist spoofed user preference, got %+v", prefs.Raw)
 	}
 }
 
