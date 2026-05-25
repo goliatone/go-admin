@@ -219,46 +219,5 @@ func resolveContentEntryAliasPanelSlug(ctx context.Context, adm *admin.Admin, al
 }
 
 func panelSlugFromCapabilities(capabilities map[string]any) string {
-	if len(capabilities) == 0 {
-		return ""
-	}
-	for _, key := range []string{"panel_slug", "panelSlug", "panel-slug"} {
-		if raw, ok := capabilities[key]; ok {
-			if value := capabilityStringValue(raw); value != "" {
-				return value
-			}
-		}
-	}
-	return ""
-}
-
-func capabilityStringValue(raw any) string {
-	switch value := raw.(type) {
-	case string:
-		return strings.TrimSpace(value)
-	case []string:
-		if len(value) == 0 {
-			return ""
-		}
-		return strings.TrimSpace(value[0])
-	case []any:
-		if len(value) == 0 {
-			return ""
-		}
-		if v, ok := value[0].(string); ok {
-			return strings.TrimSpace(v)
-		}
-		return strings.TrimSpace(fmt.Sprint(value[0]))
-	case map[string]any:
-		for _, key := range []string{"value", "name", "key", "slug", "id"} {
-			if nested, ok := value[key]; ok {
-				if out := capabilityStringValue(nested); out != "" {
-					return out
-				}
-			}
-		}
-		return ""
-	default:
-		return strings.TrimSpace(fmt.Sprint(raw))
-	}
+	return admin.ContentTypeCapabilityString(capabilities, admin.ContentTypeCapabilityKeyPanelSlug)
 }
