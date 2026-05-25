@@ -23,6 +23,7 @@ var debugRouteResolverKeys = map[string]map[string]string{
 		"clear.panel":               debugClearPanelRouteKey,
 		"panel.action":              debugPanelActionRouteKey,
 		"doctor.action":             debugDoctorActionRouteKey,
+		"preferences.panel_order":   debugPanelOrderPrefsRouteKey,
 		"errors":                    debugErrorsRouteKey,
 		"dashboard":                 debugDashboardRouteKey,
 		"dashboard.widgets":         debugDashboardWidgetsRouteKey,
