@@ -117,7 +117,7 @@ func looksLikeFiberRouteMiss(message, method, path string) bool {
 	if message == "" || method == "" || path == "" {
 		return false
 	}
-	return strings.Contains(message, method) && strings.Contains(message, path)
+	return message == "Cannot "+method+" "+path
 }
 
 func resolveFiberError(err error) resolvedFiberError {
@@ -159,6 +159,7 @@ func (r fiberErrorHandlerRuntime) renderAPIError(c *fiber.Ctx, err error, resolv
 		status = resolved.code
 	}
 	applyFiberErrorOverride(mapped, resolved, &status)
+	applySyntheticRouteMissMappedContext(err, mapped)
 	if mapped.Metadata == nil {
 		mapped.Metadata = map[string]any{}
 	}
@@ -244,6 +245,7 @@ func (r fiberErrorHandlerRuntime) applyLegacyDevErrorContext(err error, viewCtx 
 	if mapped == nil {
 		return
 	}
+	applySyntheticRouteMissMappedContext(err, mapped)
 	viewCtx["error_text_code"] = mapped.TextCode
 	viewCtx["error_category"] = mapped.Category
 	applyErrorMetadata(viewCtx, mapped.Metadata)
@@ -264,13 +266,34 @@ func applySyntheticRouteMissDevContext(err error, devCtx *admin.DevErrorContext)
 	}
 	devCtx.PrimarySource = nil
 	devCtx.StackFrames = nil
-	if devCtx.Metadata == nil {
-		devCtx.Metadata = map[string]any{}
+	devCtx.Metadata = withSyntheticRouteMissMetadata(routeMiss, devCtx.Metadata)
+}
+
+func applySyntheticRouteMissMappedContext(err error, mapped *goerrors.Error) {
+	if mapped == nil {
+		return
+	}
+	var routeMiss *fiberOwnedRouteMissError
+	if !errors.As(err, &routeMiss) || routeMiss == nil {
+		return
+	}
+	mapped.StackTrace = nil
+	mapped.Location = nil
+	mapped.Metadata = withSyntheticRouteMissMetadata(routeMiss, mapped.Metadata)
+}
+
+func withSyntheticRouteMissMetadata(routeMiss *fiberOwnedRouteMissError, metadata map[string]any) map[string]any {
+	if routeMiss == nil {
+		return metadata
+	}
+	if metadata == nil {
+		metadata = map[string]any{}
 	}
 	for key, value := range routeMiss.metadata() {
-		devCtx.Metadata[key] = value
+		metadata[key] = value
 	}
-	devCtx.Metadata["diagnostic"] = "synthetic admin route miss"
+	metadata["diagnostic"] = "synthetic admin route miss"
+	return metadata
 }
 
 func applyEnrichedDevErrorContext(viewCtx router.ViewContext, devCtx *admin.DevErrorContext) {
