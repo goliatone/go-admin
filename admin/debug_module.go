@@ -30,6 +30,7 @@ const (
 	debugClearPanelRouteKey       = "debug_tools.api.clear_panel"
 	debugPanelActionRouteKey      = "debug_tools.api.panel_action"
 	debugDoctorActionRouteKey     = "debug_tools.api.doctor_action"
+	debugPanelOrderPrefsRouteKey  = "debug_tools.api.panel_order_preferences"
 	debugErrorsRouteKey           = "debug_tools.api.errors"
 	debugDashboardRouteKey        = "debug_tools.api.dashboard"
 	debugDashboardWidgetsRouteKey = "debug_tools.api.dashboard_widgets"
@@ -231,6 +232,7 @@ func debugModuleRoutes() map[string]string {
 		debugClearPanelRouteKey:       "/api/clear/:panel",
 		debugPanelActionRouteKey:      "/api/panels/:panel/actions/:action",
 		debugDoctorActionRouteKey:     "/api/doctor/:check/action",
+		debugPanelOrderPrefsRouteKey:  "/api/preferences/panel-order",
 		debugErrorsRouteKey:           "/api/errors",
 		debugDashboardRouteKey:        "/api/dashboard",
 		debugDashboardWidgetsRouteKey: "/api/dashboard/widgets",
