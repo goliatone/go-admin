@@ -616,7 +616,10 @@ func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, 
 	}
 	item = normalizeMenuItem(item, menuCode)
 	menu, err := f.admin.menuSvc.Menu(ctx, menuCode, locale)
-	if err != nil || menu == nil {
+	if err != nil {
+		return false, err
+	}
+	if menu == nil {
 		return false, nil
 	}
 	existing, ok := findMenuItemByID(menu.Items, item.ID)
