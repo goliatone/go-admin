@@ -9,7 +9,7 @@ import (
 
 // GetWorkflowRuntimeMigrationsFS returns runtime workflow migrations rooted for sqlite usage.
 func GetWorkflowRuntimeMigrationsFS() fs.FS {
-	source := admindata.TranslationAssignmentMigrations()
+	source := admindata.WorkflowRuntimeMigrations()
 	paths := []string{
 		"0003_workflows.up.sql",
 		"0003_workflows.down.sql",
