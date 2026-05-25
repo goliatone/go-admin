@@ -1,5 +1,30 @@
 # Changelog
 
+# [0.75.1](https://github.com/goliatone/go-admin/compare/v0.75.0...v0.75.1) - (2026-05-25)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Save preferences for debug panels ([9b260b9](https://github.com/goliatone/go-admin/commit/9b260b9c70853cc6a9477538df17037db3db92b9))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.75.1 ([7352fd6](https://github.com/goliatone/go-admin/commit/7352fd6950cc9e4c127d91f2f4c29cfd3213f8f9))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Save debug module user preferences ([a029d78](https://github.com/goliatone/go-admin/commit/a029d78e5dd2c95778e082d3f03c81abbf4a81c6))  - (goliatone)
+- Icons for debug panels ([23ba162](https://github.com/goliatone/go-admin/commit/23ba1628685f8f68c726f9dd396e408657e74fe4))  - (goliatone)
+- Make tabs in debug panel sortable ([ff271cd](https://github.com/goliatone/go-admin/commit/ff271cd9cc2bf624edcb3ff07fbb07f9fb215709))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.75.0 ([ce940a9](https://github.com/goliatone/go-admin/commit/ce940a98bb8e1c43f35eb99315f4df24d8bffd66))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([fb47f2e](https://github.com/goliatone/go-admin/commit/fb47f2e5e3e400d3ae2407a2da941483e0e6c091))  - (goliatone)
+- Update tests ([2207c8d](https://github.com/goliatone/go-admin/commit/2207c8dff8beeb0baf7736898a65dc4eb649478f))  - (goliatone)
+
 # [0.75.0](https://github.com/goliatone/go-admin/compare/v0.74.0...v0.75.0) - (2026-05-25)
 
 ## <!-- 1 -->🐛 Bug Fixes
