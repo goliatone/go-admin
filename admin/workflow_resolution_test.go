@@ -116,14 +116,14 @@ func TestResolveWorkflowIDForContentTypeFallsBackToLegacyWorkflow(t *testing.T) 
 
 func TestWorkflowEngineForContentTypePrefersWorkflowIDCapability(t *testing.T) {
 	engine := NewFSMWorkflowEngine()
-	_ = engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
+	mustRegisterWorkflow(t, engine, "legacy.pages", WorkflowDefinition{
 		EntityType:   "legacy.pages",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
 			{Name: "legacy_publish", From: "draft", To: "published"},
 		},
 	})
-	_ = engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+	mustRegisterWorkflow(t, engine, "editorial.news", WorkflowDefinition{
 		EntityType:   "editorial.news",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -159,7 +159,7 @@ func TestWorkflowEngineForContentTypePrefersWorkflowIDCapability(t *testing.T) {
 
 func TestWorkflowEngineForContentTypeDoesNotUseAdminTraitWorkflowDefaults(t *testing.T) {
 	engine := NewFSMWorkflowEngine()
-	_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+	mustRegisterWorkflow(t, engine, "editorial.default", WorkflowDefinition{
 		EntityType:   "editorial.default",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{

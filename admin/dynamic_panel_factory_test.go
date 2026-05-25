@@ -6,6 +6,13 @@ import (
 	"testing"
 )
 
+func mustRegisterWorkflow(t *testing.T, engine *FSMWorkflowEngine, entityType string, definition WorkflowDefinition) {
+	t.Helper()
+	if err := engine.RegisterWorkflow(entityType, definition); err != nil {
+		t.Fatalf("register workflow %s: %v", entityType, err)
+	}
+}
+
 func TestDynamicPanelFactoryCreatesPageAndPostPanelsFromActiveContentTypes(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 	factory := NewDynamicPanelFactory(adm)
@@ -370,7 +377,7 @@ func TestDynamicPanelFactorySkipsCreateTranslationWhenTranslationsDisabled(t *te
 
 func TestDynamicPanelFactoryEditorialActionsRespectWorkflowTransitions(t *testing.T) {
 	engine := NewFSMWorkflowEngine()
-	_ = engine.RegisterWorkflow("news", WorkflowDefinition{
+	mustRegisterWorkflow(t, engine, "news", WorkflowDefinition{
 		EntityType:   "news",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -409,7 +416,7 @@ func TestDynamicPanelFactoryEditorialActionsRespectWorkflowTransitions(t *testin
 
 func TestDynamicPanelFactoryWorkflowLookupUsesResolvedWorkflowID(t *testing.T) {
 	engine := NewFSMWorkflowEngine()
-	_ = engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+	mustRegisterWorkflow(t, engine, "editorial.news", WorkflowDefinition{
 		EntityType:   "editorial.news",
 		InitialState: "draft",
 		Transitions: []WorkflowTransition{
@@ -457,14 +464,14 @@ func TestDynamicPanelFactoryWorkflowLookupUsesResolvedWorkflowID(t *testing.T) {
 func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T) {
 	t.Run("legacy workflow still works", func(t *testing.T) {
 		engine := NewFSMWorkflowEngine()
-		_ = engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
+		mustRegisterWorkflow(t, engine, "legacy.pages", WorkflowDefinition{
 			EntityType:   "legacy.pages",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
 				{Name: "publish", From: "draft", To: "published"},
 			},
 		})
-		_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+		mustRegisterWorkflow(t, engine, "editorial.default", WorkflowDefinition{
 			EntityType:   "editorial.default",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
@@ -505,7 +512,7 @@ func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T)
 
 	t.Run("trait default fallback removed", func(t *testing.T) {
 		engine := NewFSMWorkflowEngine()
-		_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+		mustRegisterWorkflow(t, engine, "editorial.default", WorkflowDefinition{
 			EntityType:   "editorial.default",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
@@ -541,14 +548,14 @@ func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T)
 
 	t.Run("explicit workflow_id override works", func(t *testing.T) {
 		engine := NewFSMWorkflowEngine()
-		_ = engine.RegisterWorkflow("editorial.default", WorkflowDefinition{
+		mustRegisterWorkflow(t, engine, "editorial.default", WorkflowDefinition{
 			EntityType:   "editorial.default",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
 				{Name: "publish", From: "draft", To: "published"},
 			},
 		})
-		_ = engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+		mustRegisterWorkflow(t, engine, "editorial.news", WorkflowDefinition{
 			EntityType:   "editorial.news",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
@@ -585,14 +592,14 @@ func TestDynamicPanelFactoryWorkflowResolutionPrecedenceRegression(t *testing.T)
 
 	t.Run("conflicting keys prefer workflow_id", func(t *testing.T) {
 		engine := NewFSMWorkflowEngine()
-		_ = engine.RegisterWorkflow("legacy.pages", WorkflowDefinition{
+		mustRegisterWorkflow(t, engine, "legacy.pages", WorkflowDefinition{
 			EntityType:   "legacy.pages",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{
 				{Name: "publish", From: "draft", To: "published"},
 			},
 		})
-		_ = engine.RegisterWorkflow("editorial.news", WorkflowDefinition{
+		mustRegisterWorkflow(t, engine, "editorial.news", WorkflowDefinition{
 			EntityType:   "editorial.news",
 			InitialState: "draft",
 			Transitions: []WorkflowTransition{

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"database/sql"
 	"io/fs"
 	"strings"
@@ -103,7 +104,7 @@ func applySQLiteMigrations(t *testing.T, migrationsFS fs.FS, paths ...string) {
 		if readErr != nil {
 			t.Fatalf("read migration %s: %v", path, readErr)
 		}
-		if _, execErr := db.Exec(string(data)); execErr != nil {
+		if _, execErr := db.ExecContext(context.Background(), string(data)); execErr != nil {
 			t.Fatalf("apply migration %s: %v", path, execErr)
 		}
 	}

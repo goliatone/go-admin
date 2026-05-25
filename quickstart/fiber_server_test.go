@@ -108,28 +108,31 @@ func TestDebugFiberSlogMiddlewareEmitsLevelByResponse(t *testing.T) {
 		return fiber.NewError(fiber.StatusInternalServerError, "boom")
 	})
 
-	okReq := httptest.NewRequest("GET", "/ok", nil)
+	okReq := httptest.NewRequestWithContext(context.Background(), "GET", "/ok", nil)
 	okReq.Header.Set("User-Agent", "quickstart-test")
 	okResp, err := app.Test(okReq, -1)
 	if err != nil {
 		t.Fatalf("ok request failed: %v", err)
 	}
+	defer closeResponseBody(t, okResp)
 	if okResp.StatusCode != fiber.StatusOK {
 		t.Fatalf("expected 200 got %d", okResp.StatusCode)
 	}
 
-	warnResp, err := app.Test(httptest.NewRequest("GET", "/warn", nil), -1)
+	warnResp, err := app.Test(httptest.NewRequestWithContext(context.Background(), "GET", "/warn", nil), -1)
 	if err != nil {
 		t.Fatalf("warn request failed: %v", err)
 	}
+	defer closeResponseBody(t, warnResp)
 	if warnResp.StatusCode != fiber.StatusBadRequest {
 		t.Fatalf("expected 400 got %d", warnResp.StatusCode)
 	}
 
-	errResp, err := app.Test(httptest.NewRequest("GET", "/err", nil), -1)
+	errResp, err := app.Test(httptest.NewRequestWithContext(context.Background(), "GET", "/err", nil), -1)
 	if err != nil {
 		t.Fatalf("error request failed: %v", err)
 	}
+	defer closeResponseBody(t, errResp)
 	if errResp.StatusCode != fiber.StatusInternalServerError {
 		t.Fatalf("expected 500 got %d", errResp.StatusCode)
 	}
@@ -159,7 +162,7 @@ func TestDebugFiberSlogMiddlewareEmitsLevelByResponse(t *testing.T) {
 	if status := fmt.Sprint(records[2].attrs["status"]); status != "500" {
 		t.Fatalf("expected status attr 500, got %#v", records[2].attrs["status"])
 	}
-	if ua, _ := records[0].attrs["user_agent"].(string); ua != "quickstart-test" {
+	if ua, ok := records[0].attrs["user_agent"].(string); !ok || ua != "quickstart-test" {
 		t.Fatalf("expected user_agent attr captured, got %#v", records[0].attrs["user_agent"])
 	}
 	if _, ok := records[2].attrs["error"]; !ok {
@@ -175,13 +178,16 @@ func TestNewFiberServerRecoversHandlerPanics(t *testing.T) {
 		panic("boom")
 	})
 
-	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/panic", nil), -1)
+	resp, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/panic", nil), -1)
 	if err != nil {
 		t.Fatalf("panic request failed: %v", err)
 	}
 	defer closeResponseBody(t, resp)
 	if resp.StatusCode != http.StatusInternalServerError {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			t.Fatalf("read response body: %v", readErr)
+		}
 		t.Fatalf("expected panic recovery status 500, got %d body=%s", resp.StatusCode, string(body))
 	}
 }
@@ -204,7 +210,7 @@ func TestNewFiberServerRoutesUnmatchedAdminUI404ThroughErrorHandler(t *testing.T
 		}),
 	)
 
-	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/missing", nil), -1)
+	resp, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/missing", nil), -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -247,13 +253,16 @@ func TestNewFiberServerOwnedAdmin404UsesRouteMissDiagnostic(t *testing.T) {
 		return c.Status(http.StatusNotFound).SendString("Not Found")
 	})
 
-	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/plain-miss", nil), -1)
+	resp, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/plain-miss", nil), -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
 	defer closeResponseBody(t, resp)
 	if resp.StatusCode != http.StatusNotFound {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			t.Fatalf("read response body: %v", readErr)
+		}
 		t.Fatalf("expected status 404, got %d body=%s", resp.StatusCode, string(body))
 	}
 
@@ -309,7 +318,7 @@ func TestNewFiberServerRoutesUnmatchedAdminAPI404ThroughErrorHandler(t *testing.
 		}),
 	)
 
-	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/api/missing", nil), -1)
+	resp, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/missing", nil), -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -347,7 +356,7 @@ func TestNewFiberServerDefaultAdminAPI404UsesRouteMissDiagnostic(t *testing.T) {
 	}
 	server, _ := NewFiberServer(nil, cfg, nil, true, WithFiberLogger(false))
 
-	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/api/missing", nil), -1)
+	resp, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/missing", nil), -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -372,10 +381,10 @@ func TestNewFiberServerDefaultAdminAPI404UsesRouteMissDiagnostic(t *testing.T) {
 	if code := fmt.Sprint(errPayload["code"]); code != "404" {
 		t.Fatalf("expected error code 404, got %q payload=%+v", code, errPayload)
 	}
-	if _, ok := errPayload["stack_trace"]; ok {
+	if _, hasStackTrace := errPayload["stack_trace"]; hasStackTrace {
 		t.Fatalf("synthetic API route miss should not expose stack_trace, got %+v", errPayload["stack_trace"])
 	}
-	if _, ok := errPayload["location"]; ok {
+	if _, hasLocation := errPayload["location"]; hasLocation {
 		t.Fatalf("synthetic API route miss should not expose location, got %+v", errPayload["location"])
 	}
 	metadata, ok := errPayload["metadata"].(map[string]any)
@@ -408,7 +417,7 @@ func TestNewFiberServerPreservesExplicitAdmin404Responses(t *testing.T) {
 		return c.Status(http.StatusNotFound).SendString("handled 404")
 	})
 
-	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/reports", nil), -1)
+	resp, err := server.WrappedRouter().Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/reports", nil), -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
@@ -446,7 +455,7 @@ func TestNewFiberServerRouteConflictDefaultsPreferStaticInDev(t *testing.T) {
 	}
 
 	app := server.WrappedRouter()
-	respStatic, err := app.Test(httptest.NewRequest(http.MethodGet, "/route-conflict/static", nil), -1)
+	respStatic, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/route-conflict/static", nil), -1)
 	if err != nil {
 		t.Fatalf("static request failed: %v", err)
 	}
@@ -459,7 +468,7 @@ func TestNewFiberServerRouteConflictDefaultsPreferStaticInDev(t *testing.T) {
 		t.Fatalf("expected static route to win, got %q", got)
 	}
 
-	respParam, err := app.Test(httptest.NewRequest(http.MethodGet, "/route-conflict/dynamic", nil), -1)
+	respParam, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/route-conflict/dynamic", nil), -1)
 	if err != nil {
 		t.Fatalf("param request failed: %v", err)
 	}
@@ -662,10 +671,11 @@ func TestDebugLogCaptureIncludesFiberRequestsAndDILogs(t *testing.T) {
 		return c.SendStatus(fiber.StatusOK)
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/ok", nil), -1)
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), "GET", "/ok", nil), -1)
 	if err != nil {
 		t.Fatalf("request failed: %v", err)
 	}
+	defer closeResponseBody(t, resp)
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("expected 200 got %d", resp.StatusCode)
 	}
