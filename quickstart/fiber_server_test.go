@@ -336,6 +336,66 @@ func TestNewFiberServerRoutesUnmatchedAdminAPI404ThroughErrorHandler(t *testing.
 	}
 }
 
+func TestNewFiberServerDefaultAdminAPI404UsesRouteMissDiagnostic(t *testing.T) {
+	cfg := admin.Config{
+		BasePath: "/admin",
+		Errors: admin.ErrorConfig{
+			DevMode:           true,
+			IncludeStackTrace: true,
+			InternalMessage:   "An unexpected error occurred",
+		},
+	}
+	server, _ := NewFiberServer(nil, cfg, nil, true, WithFiberLogger(false))
+
+	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/api/missing", nil), -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer closeResponseBody(t, resp)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("expected status 404, got %d body=%s", resp.StatusCode, string(body))
+	}
+
+	payload := map[string]any{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode response payload: %v body=%s", err, string(body))
+	}
+	errPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error envelope, got %+v", payload)
+	}
+	if code := fmt.Sprint(errPayload["code"]); code != "404" {
+		t.Fatalf("expected error code 404, got %q payload=%+v", code, errPayload)
+	}
+	if _, ok := errPayload["stack_trace"]; ok {
+		t.Fatalf("synthetic API route miss should not expose stack_trace, got %+v", errPayload["stack_trace"])
+	}
+	if _, ok := errPayload["location"]; ok {
+		t.Fatalf("synthetic API route miss should not expose location, got %+v", errPayload["location"])
+	}
+	metadata, ok := errPayload["metadata"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected route miss metadata, got %+v", errPayload)
+	}
+	if got := fmt.Sprint(metadata["classification"]); got != "route_miss" {
+		t.Fatalf("expected route_miss classification, got %q metadata=%+v", got, metadata)
+	}
+	if got := fmt.Sprint(metadata["route_domain"]); got != "admin_api" {
+		t.Fatalf("expected admin_api route domain, got %q metadata=%+v", got, metadata)
+	}
+	if got := fmt.Sprint(metadata["path"]); got != "/admin/api/missing" {
+		t.Fatalf("expected route miss path metadata, got %q metadata=%+v", got, metadata)
+	}
+	if got := fmt.Sprint(metadata["method"]); got != http.MethodGet {
+		t.Fatalf("expected route miss method metadata, got %q metadata=%+v", got, metadata)
+	}
+}
+
 func TestNewFiberServerPreservesExplicitAdmin404Responses(t *testing.T) {
 	cfg := admin.Config{
 		BasePath: "/admin",
