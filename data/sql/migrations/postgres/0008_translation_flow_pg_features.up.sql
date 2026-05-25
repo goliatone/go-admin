@@ -1,5 +1,5 @@
 CREATE INDEX IF NOT EXISTS ix_families_blocker_codes_gin
-    ON content_families USING GIN (CAST(blocker_codes_json AS JSONB));
+    ON content_families USING GIN ((blocker_codes_json::jsonb));
 
 ALTER TABLE content_families
     ADD CONSTRAINT fk_families_source_variant

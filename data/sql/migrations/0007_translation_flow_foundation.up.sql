@@ -42,7 +42,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_locale_variants_family_locale
     ON locale_variants(family_id, locale);
 CREATE UNIQUE INDEX IF NOT EXISTS ux_locale_variants_one_source_per_family
     ON locale_variants(family_id)
-    WHERE is_source = 1;
+    WHERE is_source;
 CREATE INDEX IF NOT EXISTS ix_locale_variants_scope_status_updated
     ON locale_variants(tenant_id, org_id, status, updated_at DESC);
 
