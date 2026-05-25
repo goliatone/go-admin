@@ -48,11 +48,13 @@ import {
   buildEventToPanel,
   getDefaultPanels,
   getPanelEventTypes,
+  getPanelIcon,
   getPanelLabel,
   isKnownPanel,
   normalizeReplCommands,
   replPanelIDs,
 } from './shared/runtime-helpers.js';
+import { renderDebugIconRef } from './shared/icons.js';
 import { hydrateServerPanelDefinitions } from './shared/server-definitions.js';
 import { httpRequest } from '../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
@@ -85,9 +87,16 @@ type PanelRenderer = {
   filters?: () => string;
 };
 
+type PanelOrderPreferenceResponse = {
+  available?: boolean;
+  found?: boolean;
+  panel_order?: unknown;
+};
+
 const DEBUG_CONSOLE_ACTIVE_PANEL_KEY = 'debug-console-active-panel';
 const DEBUG_CONSOLE_PANEL_ORDER_KEY = 'debug-console-panel-order';
 
+const DEBUG_PANEL_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9._:-]*$/;
 
 const parseJSON = (value: string | undefined): any => {
   if (!value) {
@@ -144,6 +153,9 @@ const parseNumber = (value: string | undefined, fallback: number): number => {
 export class DebugPanel {
   private container: HTMLElement;
   private debugPath: string;
+  private panelOrderPreferencesPath: string;
+  private availablePanels: string[];
+  private savedPanelOrder: string[] | null = null;
   private panels: string[];
   private activePanel: string;
   private state: DebugState;
@@ -189,11 +201,13 @@ export class DebugPanel {
     if (!serverPanels.includes('sessions')) {
       serverPanels.push('sessions');
     }
-    // Restore user's custom panel order from localStorage, merging with server panels
-    this.panels = this.restorePanelOrder(serverPanels);
+    this.availablePanels = this.normalizeAvailablePanelIDs(serverPanels);
+    this.savedPanelOrder = this.loadStoredPanelOrder();
+    this.panels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder);
     this.activePanel = this.panels[0] || 'template';
 
     this.debugPath = container.dataset.debugPath || '';
+    this.panelOrderPreferencesPath = container.dataset.panelOrderPreferencesPath || '';
     this.streamBasePath = this.debugPath;
     this.maxLogEntries = parseNumber(container.dataset.maxLogEntries, 500);
     this.maxSQLQueries = parseNumber(container.dataset.maxSqlQueries, 200);
@@ -264,6 +278,8 @@ export class DebugPanel {
   }
 
   private async initializeServerDefinitions(): Promise<void> {
+    await this.loadServerPanelOrderPreference();
+    this.applyPanelOrder();
     await hydrateServerPanelDefinitions(this.debugPath);
     this.eventToPanel = buildEventToPanel();
     this.restoreActivePanel();
@@ -324,48 +340,118 @@ export class DebugPanel {
     }
   }
 
+  private async loadServerPanelOrderPreference(): Promise<void> {
+    const endpoint = this.panelOrderPreferencesPath.trim();
+    if (!endpoint) {
+      return;
+    }
+    try {
+      const response = await httpRequest(endpoint, {
+        method: 'GET',
+        credentials: 'same-origin',
+      });
+      if (!response.ok) {
+        return;
+      }
+      const payload = (await response.json()) as PanelOrderPreferenceResponse;
+      if (!payload?.available || !payload.found) {
+        return;
+      }
+      this.savedPanelOrder = this.normalizeAvailablePanelIDs(payload.panel_order);
+    } catch {
+      // Server preferences are optional; localStorage remains the fallback.
+    }
+  }
+
+  private async saveServerPanelOrderPreference(order: string[]): Promise<void> {
+    const endpoint = this.panelOrderPreferencesPath.trim();
+    if (!endpoint) {
+      return;
+    }
+    try {
+      await httpRequest(endpoint, {
+        method: 'PUT',
+        credentials: 'same-origin',
+        json: { panel_order: order },
+      });
+    } catch {
+      // Keep the visible and local order even when server persistence fails.
+    }
+  }
+
   /**
-   * Restore panel order from localStorage, merging with server-provided panels
-   * to handle new panels added after order was saved.
+   * Read panel order from localStorage without filtering unknown IDs yet. Server
+   * definitions can arrive later, so saved dynamic panels must remain available.
    */
-  private restorePanelOrder(serverPanels: string[]): string[] {
-    let savedOrder: string[] | null = null;
+  private loadStoredPanelOrder(): string[] | null {
     try {
       const stored = localStorage.getItem(DEBUG_CONSOLE_PANEL_ORDER_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.every((item) => typeof item === 'string')) {
-          savedOrder = parsed;
-        }
+        return this.normalizeSavedPanelOrder(parsed);
       }
     } catch {
       // Ignore parse errors or blocked storage.
     }
 
-    if (!savedOrder || savedOrder.length === 0) {
-      return serverPanels;
-    }
+    return null;
+  }
 
-    // Merge: keep saved order for panels that still exist, append new panels at the end
-    const serverSet = new Set(serverPanels);
+  private normalizePanelID(value: unknown): string | null {
+    const panel = typeof value === 'string' ? value.trim() : '';
+    if (!panel || !DEBUG_PANEL_ID_PATTERN.test(panel)) {
+      return null;
+    }
+    return panel;
+  }
+
+  private normalizeAvailablePanelIDs(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
     const result: string[] = [];
-
-    // First, add panels from saved order that still exist in server list
-    for (const panel of savedOrder) {
-      if (serverSet.has(panel)) {
-        result.push(panel);
-        serverSet.delete(panel);
+    const seen = new Set<string>();
+    for (const item of value) {
+      const panel = this.normalizePanelID(item);
+      if (!panel || seen.has(panel)) {
+        continue;
       }
+      seen.add(panel);
+      result.push(panel);
     }
-
-    // Then append any new panels from server that weren't in saved order
-    for (const panel of serverPanels) {
-      if (serverSet.has(panel)) {
-        result.push(panel);
-      }
-    }
-
     return result;
+  }
+
+  private normalizeSavedPanelOrder(value: unknown): string[] | null {
+    const order = this.normalizeAvailablePanelIDs(value);
+    return order.length > 0 ? order : null;
+  }
+
+  private mergePanelOrder(availablePanels: string[], savedOrder: string[] | null): string[] {
+    const available = this.normalizeAvailablePanelIDs(availablePanels);
+    if (!savedOrder || savedOrder.length === 0) {
+      return available;
+    }
+    const remaining = new Set(available);
+    const result: string[] = [];
+    for (const panel of savedOrder) {
+      if (remaining.has(panel)) {
+        result.push(panel);
+        remaining.delete(panel);
+      }
+    }
+    for (const panel of available) {
+      if (remaining.has(panel)) {
+        result.push(panel);
+      }
+    }
+    return result;
+  }
+
+  private applyPanelOrder(): void {
+    const nextPanels = this.mergePanelOrder(this.availablePanels, this.savedPanelOrder);
+    this.panels = nextPanels.length > 0 ? nextPanels : this.availablePanels;
+    this.restoreActivePanel();
   }
 
   /**
@@ -379,19 +465,29 @@ export class DebugPanel {
 
     this.tabsSortable = Sortable.create(this.tabsEl, {
       animation: 150,
+      draggable: '.debug-tab',
+      fallbackTolerance: 5,
+      delayOnTouchOnly: true,
+      delay: 120,
+      touchStartThreshold: 8,
+      scroll: true,
+      bubbleScroll: true,
       ghostClass: 'debug-tab--ghost',
       chosenClass: 'debug-tab--chosen',
       dragClass: 'debug-tab--drag',
       direction: 'horizontal',
       onEnd: () => {
         // Collect new order from DOM
-        const newOrder = Array.from(this.tabsEl.querySelectorAll<HTMLElement>('[data-panel]'))
+        const domOrder = Array.from(this.tabsEl.querySelectorAll<HTMLElement>('[data-panel]'))
           .map((el) => el.dataset.panel || '')
           .filter(Boolean);
+        const newOrder = this.mergePanelOrder(this.availablePanels, domOrder);
 
         if (newOrder.length > 0) {
+          this.savedPanelOrder = newOrder;
           this.panels = newOrder;
           this.persistPanelOrder();
+          void this.saveServerPanelOrderPreference(newOrder);
         }
       },
     });
@@ -406,16 +502,18 @@ export class DebugPanel {
 
     // If a new panel was registered and it's in our panel list, update UI
     if (event.type === 'register') {
-      // Add to panels if not already present and not explicitly filtered
-      if (!this.panels.includes(event.panelId)) {
-        this.panels.push(event.panelId);
+      const panelID = this.normalizePanelID(event.panelId);
+      if (panelID && !this.availablePanels.includes(panelID)) {
+        this.availablePanels.push(panelID);
       }
       if (event.panel && event.panel.defaultFilters !== undefined && !(event.panelId in this.customFilterState)) {
         this.customFilterState[event.panelId] = this.cloneFilterState(event.panel.defaultFilters);
       }
     } else if (event.type === 'unregister') {
+      this.availablePanels = this.availablePanels.filter((panel) => panel !== event.panelId);
       delete this.customFilterState[event.panelId];
     }
+    this.applyPanelOrder();
 
     // Update subscriptions
     this.subscribeToEvents();
@@ -499,8 +597,13 @@ export class DebugPanel {
     const tabs = this.panels
       .map((panel) => {
         const active = panel === this.activePanel ? 'debug-tab--active' : '';
+        const icon = renderDebugIconRef(getPanelIcon(panel), {
+          size: '14px',
+          extraClass: 'debug-tab__icon',
+        });
         return `
           <button class="debug-tab ${active}" data-panel="${escapeHTML(panel)}">
+            ${icon}
             <span class="debug-tab__label">${escapeHTML(getPanelLabel(panel))}</span>
             <span class="debug-tab__count" data-panel-count="${escapeHTML(panel)}">0</span>
           </button>

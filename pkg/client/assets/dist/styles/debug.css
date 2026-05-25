@@ -212,6 +212,7 @@ body {
   overscroll-behavior-x: contain;
   scroll-behavior: smooth;
   scroll-snap-type: x proximity;
+  touch-action: pan-x;
   /* Visible thin scrollbar for discoverability */
   scrollbar-width: thin;
   scrollbar-color: var(--debug-border) transparent;
@@ -258,7 +259,7 @@ body {
   font-size: 11px;
   font-family: inherit;
   font-weight: 600;
-  cursor: pointer;
+  cursor: grab;
   white-space: nowrap;
   display: inline-flex;
   flex: 0 0 auto;
@@ -268,9 +269,27 @@ body {
   scroll-snap-align: start;
 }
 
+.debug-tab .debug-icon {
+  display: inline-flex;
+  flex: 0 0 14px;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  line-height: 1;
+}
+
+.debug-tab .debug-icon i {
+  display: block;
+}
+
 .debug-tab:hover {
   background: rgba(137, 180, 250, 0.1);
   color: var(--debug-text);
+}
+
+.debug-tab:active {
+  cursor: grabbing;
 }
 
 .debug-tab--active {
@@ -309,14 +328,6 @@ body {
   background: var(--debug-bg-secondary);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   border-radius: 4px;
-}
-
-.debug-tabs {
-  cursor: grab;
-}
-
-.debug-tabs.sortable-sorting {
-  cursor: grabbing;
 }
 
 /* Toolbar row */

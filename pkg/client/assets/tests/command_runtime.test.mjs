@@ -123,6 +123,7 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
   const { initCommandRuntime } = await importSourceModule('command-runtime.ts');
   const notifier = createNotifier();
   const requests = [];
+  const dispatches = [];
 
   const fetchImpl = async (input, init = {}) => {
     const url = String(input);
@@ -131,7 +132,11 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
       return new Response(JSON.stringify({
         data: {
           receipt: {
-            accepted: true,
+            Accepted: true,
+            Mode: 'inline',
+            CommandID: 'esign.agreements.notify_reviewers',
+            DispatchID: 'dispatch-1',
+            CorrelationID: 'corr-1',
           },
         },
       }), {
@@ -167,6 +172,9 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
     onAfterRefresh(detail) {
       refreshed.push(detail.sourceDocument.getElementById('agreement-review-bootstrap')?.textContent || '');
     },
+    onAfterDispatch(detail) {
+      dispatches.push(detail);
+    },
   });
 
   document.getElementById('notify-btn').click();
@@ -186,6 +194,11 @@ test('CommandRuntimeController dispatches rpc commands and refreshes fragments',
   assert.equal(rpcRequest.params.data.payload.recipient_id, '');
   assert.equal(rpcRequest.params.data.payload.tenant_id, 'tenant-1');
   assert.equal(rpcRequest.params.data.payload.org_id, 'org-1');
+  assert.equal(dispatches[0].receipt.accepted, true);
+  assert.equal(dispatches[0].receipt.mode, 'inline');
+  assert.equal(dispatches[0].receipt.commandId, 'esign.agreements.notify_reviewers');
+  assert.equal(dispatches[0].receipt.dispatchId, 'dispatch-1');
+  assert.equal(dispatches[0].receipt.correlationId, 'corr-1');
   assert.equal(refreshed.length, 1);
   assert.match(refreshed[0], /"status":"approved"/);
 });

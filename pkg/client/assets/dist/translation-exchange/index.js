@@ -1,7 +1,7 @@
 import { escapeHTML as o } from "../shared/html.js";
 import { httpRequest as N, readHTTPResponsePayload as F } from "../shared/transport/http-client.js";
 import { a as T, i as U, o as f, s as A } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { S as V, T as _, W as S, d as M, et as B, f as W, l as m, q, r as w, s as E, t as $, w as x, x as z } from "../chunks/translation-shared-BSLmw_rJ.js";
+import { S as V, T as _, W as S, d as M, et as B, f as W, l as m, q, r as w, s as E, t as $, w as x, x as z } from "../chunks/translation-shared-kfjHEDZW.js";
 import { formatTranslationShortDateTime as k } from "../translation-shared/formatters.js";
 var G = { root: "#translation-exchange-app" };
 function C(t) {

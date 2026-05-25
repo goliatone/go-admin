@@ -12,6 +12,7 @@ import type {
 } from '../types.js';
 import type { StyleConfig } from '../styles.js';
 import { escapeHTML, formatJSON } from '../utils.js';
+import { renderDebugIcon, type DebugIconKind } from '../icons.js';
 
 /**
  * Options for rendering the doctor panel
@@ -32,7 +33,7 @@ type SeverityConfig = {
   color: string;
   bgColor: string;
   borderColor: string;
-  icon: string;
+  icon: DebugIconKind;
 };
 
 function getSeverityConfig(severity?: DoctorSeverity): SeverityConfig {
@@ -43,7 +44,7 @@ function getSeverityConfig(severity?: DoctorSeverity): SeverityConfig {
         color: '#ef4444',
         bgColor: 'rgba(239, 68, 68, 0.1)',
         borderColor: 'rgba(239, 68, 68, 0.4)',
-        icon: '\u2717', // ✗
+        icon: 'error',
       };
     case 'warn':
       return {
@@ -51,7 +52,7 @@ function getSeverityConfig(severity?: DoctorSeverity): SeverityConfig {
         color: '#f59e0b',
         bgColor: 'rgba(245, 158, 11, 0.1)',
         borderColor: 'rgba(245, 158, 11, 0.4)',
-        icon: '\u26A0', // ⚠
+        icon: 'warning',
       };
     case 'info':
       return {
@@ -59,7 +60,7 @@ function getSeverityConfig(severity?: DoctorSeverity): SeverityConfig {
         color: '#3b82f6',
         bgColor: 'rgba(59, 130, 246, 0.1)',
         borderColor: 'rgba(59, 130, 246, 0.4)',
-        icon: '\u2139', // ℹ
+        icon: 'info',
       };
     default:
       return {
@@ -67,7 +68,7 @@ function getSeverityConfig(severity?: DoctorSeverity): SeverityConfig {
         color: '#22c55e',
         bgColor: 'rgba(34, 197, 94, 0.1)',
         borderColor: 'rgba(34, 197, 94, 0.4)',
-        icon: '\u2713', // ✓
+        icon: 'success',
       };
   }
 }
@@ -107,7 +108,7 @@ function renderVerdictBadge(report: DoctorReport): string {
         font-size: 24px;
         color: ${config.color};
         line-height: 1;
-      ">${config.icon}</span>
+      ">${renderDebugIcon(config.icon, { size: '24px' })}</span>
       <div>
         <div style="
           font-size: 16px;
@@ -227,7 +228,7 @@ function renderFinding(finding: DoctorFinding): string {
         font-size: 14px;
         color: ${config.color};
         line-height: 1.4;
-      ">${config.icon}</span>
+      ">${renderDebugIcon(config.icon, { size: '14px' })}</span>
       <div style="flex: 1; min-width: 0;">
         <div style="
           font-size: 13px;
@@ -244,7 +245,7 @@ function renderFinding(finding: DoctorFinding): string {
             align-items: flex-start;
             gap: 6px;
           ">
-            <span style="color: #64748b;">💡</span>
+            <span style="color: #64748b;">${renderDebugIcon('hint', { size: '13px' })}</span>
             <span>${escapeHTML(hint)}</span>
           </div>
         ` : ''}
@@ -489,7 +490,7 @@ function renderCheckCard(check: DoctorCheckResult): string {
             border-radius: 50%;
             font-size: 12px;
             font-weight: 600;
-          ">${config.icon}</span>
+          ">${renderDebugIcon(config.icon, { size: '12px' })}</span>
           <div>
             <div style="
               font-size: 14px;
@@ -597,7 +598,7 @@ function renderNextActions(actions: string[] | undefined): string {
         align-items: center;
         gap: 8px;
       ">
-        <span style="color: #f59e0b;">📋</span>
+        <span style="color: #f59e0b;">${renderDebugIcon('nextAction', { size: '14px' })}</span>
         Recommended Next Actions
       </div>
       <ol style="
@@ -701,7 +702,7 @@ export function renderDoctorPanel(
           padding: 40px 20px;
           color: #22c55e;
         ">
-          <div style="font-size: 48px; margin-bottom: 12px;">✓</div>
+          <div style="font-size: 48px; margin-bottom: 12px;">${renderDebugIcon('success', { size: '48px' })}</div>
           <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">All Systems Healthy</div>
           <div style="font-size: 14px; color: #94a3b8;">${report.summary?.checks || 0} checks passed</div>
         </div>
@@ -750,7 +751,7 @@ export function renderDoctorPanelCompact(
         <span style="
           font-size: 20px;
           color: ${config.color};
-        ">${config.icon}</span>
+        ">${renderDebugIcon(config.icon, { size: '20px' })}</span>
         <span style="
           font-size: 14px;
           font-weight: 600;

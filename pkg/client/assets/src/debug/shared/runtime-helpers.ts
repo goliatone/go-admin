@@ -28,6 +28,11 @@ const replPanelLabels: Record<string, string> = {
   shell: 'Shell',
 };
 
+const replPanelIcons: Record<string, string> = {
+  console: 'iconoir:code',
+  shell: 'iconoir:terminal',
+};
+
 const formatFallbackPanelLabel = (panelId: string): string => {
   if (!panelId) {
     return '';
@@ -105,6 +110,15 @@ export function getPanelLabel(panelId: string): string {
   }
 
   return formatFallbackPanelLabel(panelId);
+}
+
+export function getPanelIcon(panelId: string): string | undefined {
+  if (replPanelIcons[panelId]) {
+    return replPanelIcons[panelId];
+  }
+
+  const def = panelRegistry.get(panelId);
+  return def?.icon;
 }
 
 export function getPanelEventTypes(panelId: string): string[] {

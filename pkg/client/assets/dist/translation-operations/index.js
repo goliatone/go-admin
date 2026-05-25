@@ -2,7 +2,7 @@ import { escapeHTML as c } from "../shared/html.js";
 import { httpRequest as R } from "../shared/transport/http-client.js";
 import { extractStructuredError as q } from "../toast/error-helpers.js";
 import { r as h, t as N } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { G as b, K as I, W as v, n as w, r as A, t as P } from "../chunks/translation-shared-BSLmw_rJ.js";
+import { G as b, K as I, W as v, n as w, r as A, t as P } from "../chunks/translation-shared-kfjHEDZW.js";
 var U = {
   QUEUE: "admin.translations.queue",
   EXCHANGE_UI: "admin.translations.exchange",

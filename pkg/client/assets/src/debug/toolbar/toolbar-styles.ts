@@ -174,6 +174,20 @@ export const toolbarStyles = `
     scroll-snap-align: start;
   }
 
+  .tab .debug-icon {
+    display: inline-flex;
+    flex: 0 0 14px;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    line-height: 1;
+  }
+
+  .tab .debug-icon i {
+    display: block;
+  }
+
   .tab:hover {
     background: rgba(137, 180, 250, 0.1);
     color: var(--toolbar-text);

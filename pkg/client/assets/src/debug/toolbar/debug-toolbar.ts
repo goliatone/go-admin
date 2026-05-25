@@ -25,10 +25,12 @@ import {
   fetchDebugSnapshot,
   getDefaultToolbarPanels,
   getPanelEventTypes,
+  getPanelIcon,
   getPanelLabel,
   normalizeReplCommands,
   replPanelIDs,
 } from '../shared/runtime-helpers.js';
+import { renderDebugIconRef } from '../shared/icons.js';
 import { hydrateServerPanelDefinitions } from '../shared/server-definitions.js';
 import { httpRequest } from '../../shared/transport/http-client.js';
 // Import to ensure built-in panels are registered
@@ -415,9 +417,14 @@ export class DebugToolbar extends HTMLElement {
         const label = getPanelLabel(panel);
         const count = this.getPanelCount(panel);
         const active = this.activePanel === panel ? 'active' : '';
+        const icon = renderDebugIconRef(getPanelIcon(panel), {
+          size: '14px',
+          extraClass: 'tab-icon',
+        });
         return `
-          <button class="tab ${active}" data-panel="${panel}">
-            ${label}
+          <button class="tab ${active}" data-panel="${escapeHTML(panel)}">
+            ${icon}
+            <span class="tab-label">${escapeHTML(label)}</span>
             <span class="tab-count">${count}</span>
           </button>
         `;

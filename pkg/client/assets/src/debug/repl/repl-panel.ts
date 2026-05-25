@@ -1,5 +1,6 @@
 import { DebugReplTerminal, type DebugReplKind, type DebugReplStatus } from './repl-terminal.js';
 import { escapeHTML } from '../../shared/html.js';
+import { renderDebugIcon } from '../shared/icons.js';
 
 type DebugReplPanelOptions = {
   kind: DebugReplKind;
@@ -33,9 +34,9 @@ const replStatusLabels: Record<DebugReplStatus, string> = {
   error: 'error',
 };
 
-const replOverlayIcon = '<i class="iconoir-terminal debug-repl__overlay-icon"></i>';
+const replOverlayIcon = renderDebugIcon('terminal', { size: '20px', extraClass: 'debug-repl__overlay-icon' });
 const replOverlayText = '<span class="debug-repl__overlay-text">Session not connected. Click the button below to start a terminal session.</span>';
-const replOverlayButton = '<button class="debug-repl__overlay-btn" data-overlay-connect><i class="iconoir-play"></i> Connect</button>';
+const replOverlayButton = `<button class="debug-repl__overlay-btn" data-overlay-connect>${renderDebugIcon('connect', { size: '14px' })} Connect</button>`;
 
 
 export class DebugReplPanel {
@@ -69,9 +70,9 @@ export class DebugReplPanel {
           </div>
         </div>
         <div class="debug-repl__actions">
-          <button class="debug-btn" data-repl-action="reconnect"><i class="iconoir-refresh"></i> Reconnect</button>
-          <button class="debug-btn" data-repl-action="clear"><i class="iconoir-erase"></i> Clear</button>
-          <button class="debug-btn debug-btn--danger" data-repl-action="kill"><i class="iconoir-trash"></i> Kill</button>
+          <button class="debug-btn" data-repl-action="reconnect">${renderDebugIcon('refresh', { size: '14px' })} Reconnect</button>
+          <button class="debug-btn" data-repl-action="clear">${renderDebugIcon('clear', { size: '14px' })} Clear</button>
+          <button class="debug-btn debug-btn--danger" data-repl-action="kill">${renderDebugIcon('delete', { size: '14px' })} Kill</button>
         </div>
       </div>
       <div class="debug-repl__body">
@@ -189,7 +190,8 @@ export class DebugReplPanel {
     this.terminalEl.dataset.terminalDisconnected = isDisconnected ? 'true' : 'false';
     if (this.connectButton) {
       const actionLabel = isDisconnected ? 'Connect' : 'Reconnect';
-      this.connectButton.innerHTML = `<i class="iconoir-refresh"></i> ${actionLabel}`;
+      const actionIcon = isDisconnected ? 'connect' : 'refresh';
+      this.connectButton.innerHTML = `${renderDebugIcon(actionIcon, { size: '14px' })} ${actionLabel}`;
     }
   }
 

@@ -68,6 +68,31 @@ export {
   INTERACTION_CLASSES,
 } from './shared/interactions.js';
 
+export {
+  applyCustomEventPayload,
+  applyDebugEventToSnapshot,
+  buildEventToPanel,
+  fetchDebugSnapshot,
+  getDefaultPanels,
+  getDefaultToolbarPanels,
+  getPanelEventTypes,
+  getPanelIcon,
+  getPanelLabel,
+  getToolbarCounts,
+  isKnownPanel,
+  normalizeReplCommands,
+  replPanelIDs,
+} from './shared/runtime-helpers.js';
+
+export {
+  DEBUG_ICON_REFS,
+  getDebugIconRef,
+  renderDebugIcon,
+  renderDebugIconRef,
+  type DebugIconKind,
+  type DebugIconRenderOptions,
+} from './shared/icons.js';
+
 // Shared panel renderers - for building custom panels
 export {
   renderRequestsPanel,
@@ -77,6 +102,10 @@ export {
   renderJSONPanel,
   renderJSONViewer,
   renderCustomPanel,
+  renderPermissionsPanel,
+  renderPermissionsPanelCompact,
+  renderDoctorPanel,
+  renderDoctorPanelCompact,
   renderSiteRenderCachePanel,
   renderSiteRenderCachePanelCompact,
 } from './shared/panels/index.js';

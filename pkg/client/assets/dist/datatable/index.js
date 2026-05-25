@@ -13,7 +13,7 @@ import { normalizeAPIBasePath as Zt, normalizeBasePath as er } from "../shared/p
 import { r as tr, t as rr } from "../chunks/translation-contracts-Ct_EG7JJ.js";
 import { StatefulController as Xe } from "../shared/stateful-controller.js";
 var Ze = { async prompt(e) {
-  const { PayloadInputModal: t } = await import("../chunks/payload-modal-BxTFNhae.js");
+  const { PayloadInputModal: t } = await import("../chunks/payload-modal-DsIQwh34.js");
   return t.prompt(e);
 } }, nr = class {
   constructor(e = {}) {

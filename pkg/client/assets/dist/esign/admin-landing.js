@@ -1,4 +1,4 @@
-import { n, r as o, t as r } from "../chunks/landing-D52vCgS7.js";
+import { n, r as o, t as r } from "../chunks/landing-BGSHAMS_.js";
 export {
   r as LandingPageController,
   n as bootstrapLandingPage,

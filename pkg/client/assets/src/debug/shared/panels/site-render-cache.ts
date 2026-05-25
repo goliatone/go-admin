@@ -4,6 +4,7 @@
 import type { PanelOptions } from '../types.js';
 import type { StyleConfig } from '../styles.js';
 import { escapeHTML, formatTimestamp, formatNumber, formatJSON } from '../utils.js';
+import type { DebugIconKind } from '../icons.js';
 
 // ============================================================================
 // Types (matching backend snapshot shape)
@@ -162,7 +163,10 @@ type StatusConfig = {
   icon: SiteRenderCacheIcon;
 };
 
-type SiteRenderCacheIcon = 'check' | 'warning' | 'x' | 'circle' | 'help' | 'refresh';
+type SiteRenderCacheIcon = Extract<
+  DebugIconKind,
+  'success' | 'warning' | 'error' | 'unknown' | 'refresh' | 'clear'
+> | 'inactive';
 
 function renderCacheIcon(icon: SiteRenderCacheIcon, options: { size?: number; color?: string } = {}): string {
   const size = options.size || 12;
@@ -170,17 +174,19 @@ function renderCacheIcon(icon: SiteRenderCacheIcon, options: { size?: number; co
   const commonAttrs = `data-site-cache-icon="${icon}" aria-hidden="true" focusable="false" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;flex:0 0 ${size}px;width:${size}px;height:${size}px;color:${color};vertical-align:-2px;"`;
 
   switch (icon) {
-    case 'check':
+    case 'success':
       return `<svg ${commonAttrs}><polyline points="20 6 9 17 4 12"></polyline></svg>`;
     case 'warning':
       return `<svg ${commonAttrs}><path d="M10.3 4.3 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>`;
-    case 'x':
+    case 'error':
       return `<svg ${commonAttrs}><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>`;
-    case 'circle':
+    case 'inactive':
       return `<svg ${commonAttrs}><circle cx="12" cy="12" r="8"></circle></svg>`;
     case 'refresh':
       return `<svg ${commonAttrs}><path d="M21 12a9 9 0 0 1-15.1 6.6"></path><path d="M3 12a9 9 0 0 1 15.1-6.6"></path><path d="M18 3v5h-5"></path><path d="M6 21v-5h5"></path></svg>`;
-    case 'help':
+    case 'clear':
+      return `<svg ${commonAttrs}><path d="m7 21-4-4 10-10 4 4-8 8"></path><path d="m14 4 6 6"></path><path d="M9 21h12"></path></svg>`;
+    case 'unknown':
     default:
       return `<svg ${commonAttrs}><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.6 2.6 0 1 1 4.3 2c-.9.6-1.8 1.3-1.8 2.5"></path><path d="M12 17h.01"></path></svg>`;
   }
@@ -194,7 +200,7 @@ function getStatusConfig(status?: string): StatusConfig {
       color: '#22c55e',
       bgColor: 'rgba(34, 197, 94, 0.1)',
       borderColor: 'rgba(34, 197, 94, 0.4)',
-      icon: 'check',
+      icon: 'success',
     };
   }
   if (s === 'degraded' || s === 'warn') {
@@ -212,7 +218,7 @@ function getStatusConfig(status?: string): StatusConfig {
       color: '#ef4444',
       bgColor: 'rgba(239, 68, 68, 0.1)',
       borderColor: 'rgba(239, 68, 68, 0.4)',
-      icon: 'x',
+      icon: 'error',
     };
   }
   if (s === 'inactive' || s === 'disabled') {
@@ -221,7 +227,7 @@ function getStatusConfig(status?: string): StatusConfig {
       color: '#64748b',
       bgColor: 'rgba(100, 116, 139, 0.1)',
       borderColor: 'rgba(100, 116, 139, 0.4)',
-      icon: 'circle',
+      icon: 'inactive',
     };
   }
   return {
@@ -229,7 +235,7 @@ function getStatusConfig(status?: string): StatusConfig {
     color: '#94a3b8',
     bgColor: 'rgba(148, 163, 184, 0.1)',
     borderColor: 'rgba(148, 163, 184, 0.4)',
-    icon: 'help',
+    icon: 'unknown',
   };
 }
 
@@ -241,7 +247,7 @@ function getCommandOutcomeConfig(outcome?: string): StatusConfig {
       color: '#22c55e',
       bgColor: 'rgba(34, 197, 94, 0.1)',
       borderColor: 'rgba(34, 197, 94, 0.4)',
-      icon: 'check',
+      icon: 'success',
     };
   }
   if (o === 'failed' || o === 'error') {
@@ -250,7 +256,7 @@ function getCommandOutcomeConfig(outcome?: string): StatusConfig {
       color: '#ef4444',
       bgColor: 'rgba(239, 68, 68, 0.1)',
       borderColor: 'rgba(239, 68, 68, 0.4)',
-      icon: 'x',
+      icon: 'error',
     };
   }
   if (o === 'unsupported' || o === 'none') {
@@ -267,7 +273,7 @@ function getCommandOutcomeConfig(outcome?: string): StatusConfig {
     color: '#94a3b8',
     bgColor: 'rgba(148, 163, 184, 0.1)',
     borderColor: 'rgba(148, 163, 184, 0.4)',
-    icon: 'help',
+    icon: 'unknown',
   };
 }
 
@@ -379,7 +385,7 @@ function renderClearButton(): string {
         line-height: 1;
       "
     >
-      ${renderCacheIcon('refresh', { size: 13, color: '#fff' })}
+      ${renderCacheIcon('clear', { size: 13, color: '#fff' })}
       <span>Clear Cache</span>
     </button>
   `;
@@ -793,7 +799,7 @@ function renderCapabilitiesSection(caps?: SiteRenderCacheCapabilities): string {
     .map(({ label, value }) => {
       const supported = Boolean(value);
       const color = supported ? '#22c55e' : '#64748b';
-      const icon = supported ? 'check' : 'x';
+      const icon = supported ? 'success' : 'error';
       return `
         <span style="
           display: inline-flex;
@@ -1154,7 +1160,7 @@ export function renderSiteRenderCachePanel(
           padding: 32px 16px;
           color: #64748b;
         ">
-          <div style="margin-bottom: 10px;">${renderCacheIcon('circle', { size: 24, color: '#64748b' })}</div>
+          <div style="margin-bottom: 10px;">${renderCacheIcon('inactive', { size: 24, color: '#64748b' })}</div>
           <div style="font-size: 14px; font-weight: 500; margin-bottom: 6px; color: #94a3b8;">Cache Not Configured</div>
           <div style="font-size: 12px;">Enable site render cache in application configuration.</div>
         </div>
@@ -1290,7 +1296,7 @@ export function renderSiteRenderCachePanelCompact(
               align-items: center;
               gap: 4px;
             "
-          >${renderCacheIcon('refresh', { size: 12, color: '#fff' })} Clear</button>
+          >${renderCacheIcon('clear', { size: 12, color: '#fff' })} Clear</button>
         </div>
       ` : ''}
     </div>

@@ -4,6 +4,7 @@
 import type { PermissionsSnapshot, PermissionEntry, PanelOptions } from '../types.js';
 import type { StyleConfig } from '../styles.js';
 import { escapeHTML, formatJSON } from '../utils.js';
+import { renderDebugIcon, type DebugIconKind } from '../icons.js';
 
 /**
  * Options for rendering the permissions panel
@@ -18,49 +19,49 @@ export type PermissionsPanelOptions = PanelOptions & {
 /**
  * Get verdict display configuration
  */
-function getVerdictConfig(verdict: string): { label: string; color: string; bgColor: string; icon: string } {
+function getVerdictConfig(verdict: string): { label: string; color: string; bgColor: string; icon: DebugIconKind } {
   switch (verdict) {
     case 'healthy':
       return {
         label: 'Healthy',
         color: '#22c55e',
         bgColor: 'rgba(34, 197, 94, 0.1)',
-        icon: '\u2713', // checkmark
+        icon: 'success',
       };
     case 'missing_grants':
       return {
         label: 'Missing Grants',
         color: '#ef4444',
         bgColor: 'rgba(239, 68, 68, 0.1)',
-        icon: '\u2717', // x mark
+        icon: 'error',
       };
     case 'claims_stale':
       return {
         label: 'Resolver Drift',
         color: '#f97316',
         bgColor: 'rgba(249, 115, 22, 0.1)',
-        icon: '\u26A0', // warning
+        icon: 'warning',
       };
     case 'scope_mismatch':
       return {
         label: 'Scope/Policy Mismatch',
         color: '#eab308',
         bgColor: 'rgba(234, 179, 8, 0.1)',
-        icon: '\u26A0', // warning
+        icon: 'warning',
       };
     case 'error':
       return {
         label: 'Error',
         color: '#ef4444',
         bgColor: 'rgba(239, 68, 68, 0.1)',
-        icon: '\u2717', // x mark
+        icon: 'error',
       };
     default:
       return {
         label: 'Unknown',
         color: '#6b7280',
         bgColor: 'rgba(107, 114, 128, 0.1)',
-        icon: '?',
+        icon: 'unknown',
       };
   }
 }
@@ -113,7 +114,7 @@ function renderStatusBanner(data: PermissionsSnapshot): string {
         <span style="
           font-size: 24px;
           color: ${verdict.color};
-        ">${verdict.icon}</span>
+        ">${renderDebugIcon(verdict.icon, { size: '24px' })}</span>
         <div>
           <div style="
             font-size: 18px;
@@ -178,9 +179,9 @@ function renderPermissionRow(entry: PermissionEntry, index: number): string {
 
   const checkIcon = (value: boolean): string => {
     if (value) {
-      return `<span style="color: #22c55e; font-weight: bold;">\u2713</span>`;
+      return `<span style="color: #22c55e;">${renderDebugIcon('success', { size: '14px' })}</span>`;
     }
-    return `<span style="color: #ef4444; font-weight: bold;">\u2717</span>`;
+    return `<span style="color: #ef4444;">${renderDebugIcon('error', { size: '14px' })}</span>`;
   };
 
   return `
@@ -405,7 +406,7 @@ export function renderPermissionsPanelCompact(
         <span style="
           font-size: 18px;
           color: ${verdict.color};
-        ">${verdict.icon}</span>
+        ">${renderDebugIcon(verdict.icon, { size: '18px' })}</span>
         <span style="
           font-size: 14px;
           font-weight: 600;

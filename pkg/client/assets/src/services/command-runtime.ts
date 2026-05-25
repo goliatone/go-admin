@@ -412,12 +412,13 @@ function toCommandDispatchReceipt(value: unknown): CommandDispatchReceipt | unde
     return undefined;
   }
   const receipt = value as Record<string, unknown>;
-  const accepted = typeof receipt.accepted === 'boolean' ? receipt.accepted : undefined;
-  const mode = normalizeMode(receipt.mode);
-  const commandId = String(receipt.command_id || receipt.commandId || '').trim() || undefined;
-  const dispatchId = String(receipt.dispatch_id || receipt.dispatchId || '').trim() || undefined;
-  const correlationId = String(receipt.correlation_id || receipt.correlationId || '').trim() || undefined;
-  const rawEnqueuedAt = receipt.enqueued_at || receipt.enqueuedAt;
+  const acceptedValue = receipt.accepted ?? receipt.Accepted;
+  const accepted = typeof acceptedValue === 'boolean' ? acceptedValue : undefined;
+  const mode = normalizeMode(receipt.mode ?? receipt.Mode);
+  const commandId = String(receipt.command_id || receipt.commandId || receipt.CommandID || '').trim() || undefined;
+  const dispatchId = String(receipt.dispatch_id || receipt.dispatchId || receipt.DispatchID || '').trim() || undefined;
+  const correlationId = String(receipt.correlation_id || receipt.correlationId || receipt.CorrelationID || '').trim() || undefined;
+  const rawEnqueuedAt = receipt.enqueued_at || receipt.enqueuedAt || receipt.EnqueuedAt;
   const enqueuedAt = rawEnqueuedAt == null ? undefined : String(rawEnqueuedAt).trim() || undefined;
   if (
     accepted === undefined &&

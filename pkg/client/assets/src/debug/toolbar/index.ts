@@ -17,6 +17,7 @@ export {
   fetchDebugSnapshot,
   getDefaultPanels,
   getDefaultToolbarPanels,
+  getPanelIcon,
   getPanelEventTypes,
   getPanelLabel,
   isKnownPanel,
