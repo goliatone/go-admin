@@ -278,10 +278,14 @@ export class DebugPanel {
   }
 
   private async initializeServerDefinitions(): Promise<void> {
-    await this.loadServerPanelOrderPreference();
+    const loadedServerPanelOrder = await this.loadServerPanelOrderPreference();
     this.applyPanelOrder();
     await hydrateServerPanelDefinitions(this.debugPath);
     this.eventToPanel = buildEventToPanel();
+    this.applyPanelOrder();
+    if (loadedServerPanelOrder) {
+      this.persistPanelOrder();
+    }
     this.restoreActivePanel();
     this.renderTabs();
     this.renderActivePanel();
@@ -340,10 +344,10 @@ export class DebugPanel {
     }
   }
 
-  private async loadServerPanelOrderPreference(): Promise<void> {
+  private async loadServerPanelOrderPreference(): Promise<boolean> {
     const endpoint = this.panelOrderPreferencesPath.trim();
     if (!endpoint) {
-      return;
+      return false;
     }
     try {
       const response = await httpRequest(endpoint, {
@@ -351,15 +355,17 @@ export class DebugPanel {
         credentials: 'same-origin',
       });
       if (!response.ok) {
-        return;
+        return false;
       }
       const payload = (await response.json()) as PanelOrderPreferenceResponse;
       if (!payload?.available || !payload.found) {
-        return;
+        return false;
       }
       this.savedPanelOrder = this.normalizeAvailablePanelIDs(payload.panel_order);
+      return this.savedPanelOrder.length > 0;
     } catch {
       // Server preferences are optional; localStorage remains the fallback.
+      return false;
     }
   }
 
@@ -497,30 +503,34 @@ export class DebugPanel {
    * Handle registry changes (panel registered/unregistered)
    */
   private handleRegistryChange(event: RegistryChangeEvent): void {
+    const panelID = this.normalizePanelID(event.panelId);
+    const previousActivePanel = this.activePanel;
+    const wasActivePanelUnregistered = event.type === 'unregister' && panelID === previousActivePanel;
+
     // Rebuild event-to-panel mapping
     this.eventToPanel = buildEventToPanel();
 
     // If a new panel was registered and it's in our panel list, update UI
     if (event.type === 'register') {
-      const panelID = this.normalizePanelID(event.panelId);
       if (panelID && !this.availablePanels.includes(panelID)) {
         this.availablePanels.push(panelID);
       }
-      if (event.panel && event.panel.defaultFilters !== undefined && !(event.panelId in this.customFilterState)) {
-        this.customFilterState[event.panelId] = this.cloneFilterState(event.panel.defaultFilters);
+      if (panelID && event.panel && event.panel.defaultFilters !== undefined && !(panelID in this.customFilterState)) {
+        this.customFilterState[panelID] = this.cloneFilterState(event.panel.defaultFilters);
       }
-    } else if (event.type === 'unregister') {
-      this.availablePanels = this.availablePanels.filter((panel) => panel !== event.panelId);
-      delete this.customFilterState[event.panelId];
+    } else if (event.type === 'unregister' && panelID) {
+      this.availablePanels = this.availablePanels.filter((panel) => panel !== panelID);
+      delete this.customFilterState[panelID];
     }
     this.applyPanelOrder();
+    const activePanelChanged = previousActivePanel !== this.activePanel;
 
     // Update subscriptions
     this.subscribeToEvents();
 
     // Rebuild tabs and re-render if needed
     this.renderTabs();
-    if (event.panelId === this.activePanel) {
+    if (wasActivePanelUnregistered || activePanelChanged || panelID === this.activePanel) {
       this.renderActivePanel();
     }
   }
