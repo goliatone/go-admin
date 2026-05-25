@@ -1049,7 +1049,7 @@ func ensureRequiredSeedContentTypes(ctx context.Context, db *bun.DB, refs cmsSee
 		if len(row.Capabilities) == 0 {
 			return fmt.Errorf("required content type %s missing capabilities", item.Name)
 		}
-		panel := strings.ToLower(strings.TrimSpace(capabilityString(row.Capabilities, "panel_slug", "panelSlug", "panel-slug")))
+		panel := strings.ToLower(strings.TrimSpace(admin.ContentTypeCapabilityString(row.Capabilities, admin.ContentTypeCapabilityKeyPanelSlug)))
 		if panel != item.ExpectedPanel {
 			return fmt.Errorf("required content type %s panel slug mismatch", item.Name)
 		}
@@ -1097,11 +1097,11 @@ func validateSeedContentTypeCapabilities(seeds []seedContentTypeSpec) error {
 			}
 		}
 		for _, required := range seed.RequiredTraits {
-			if !capabilityStringSliceContains(seed.Capabilities, required, "panel_traits", "panelTraits", "panel-traits") {
+			if !capabilityStringSliceContains(seed.Capabilities, required, admin.ContentTypeCapabilityKeyPanelTraits) {
 				return fmt.Errorf("seed content type %s missing panel trait %s", seed.Name, required)
 			}
 		}
-		panelSlug := capabilityString(seed.Capabilities, "panel_slug", "panelSlug", "panel-slug")
+		panelSlug := admin.ContentTypeCapabilityString(seed.Capabilities, admin.ContentTypeCapabilityKeyPanelSlug)
 		if panelSlug == "" {
 			return fmt.Errorf("seed content type %s missing capability panel_slug", seed.Name)
 		}
@@ -1147,22 +1147,24 @@ func capabilityStringSlice(capabilities map[string]any, keys ...string) []string
 		out = append(out, trimmed)
 	}
 	for _, key := range keys {
-		value, ok := capabilities[key]
-		if !ok || value == nil {
+		values := admin.ContentTypeCapabilityValues(capabilities, key)
+		if len(values) == 0 {
 			continue
 		}
-		switch typed := value.(type) {
-		case string:
-			for segment := range strings.SplitSeq(typed, ",") {
-				add(segment)
-			}
-		case []string:
-			for _, segment := range typed {
-				add(segment)
-			}
-		case []any:
-			for _, segment := range typed {
-				add(fmt.Sprint(segment))
+		for _, value := range values {
+			switch typed := value.(type) {
+			case string:
+				for segment := range strings.SplitSeq(typed, ",") {
+					add(segment)
+				}
+			case []string:
+				for _, segment := range typed {
+					add(segment)
+				}
+			case []any:
+				for _, segment := range typed {
+					add(fmt.Sprint(segment))
+				}
 			}
 		}
 	}
@@ -1173,21 +1175,7 @@ func capabilityStringSlice(capabilities map[string]any, keys ...string) []string
 }
 
 func capabilityString(capabilities map[string]any, keys ...string) string {
-	if capabilities == nil {
-		return ""
-	}
-	if len(keys) == 0 {
-		return ""
-	}
-	for _, key := range keys {
-		if value, ok := capabilities[key]; ok {
-			trimmed := strings.TrimSpace(fmt.Sprint(value))
-			if trimmed != "" {
-				return trimmed
-			}
-		}
-	}
-	return ""
+	return admin.ContentTypeCapabilityString(capabilities, keys...)
 }
 
 func capabilityBool(capabilities map[string]any, key string) (bool, bool) {
