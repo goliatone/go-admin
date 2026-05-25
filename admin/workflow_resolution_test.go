@@ -55,6 +55,35 @@ func TestResolveWorkflowIDForContentTypeSupportsWorkflowIDAliases(t *testing.T) 
 	}
 }
 
+func TestCapabilityStringUsesGeneratedAliasesAndSkipsEmptyValues(t *testing.T) {
+	got := capabilityString(map[string]any{
+		"panel_slug": "",
+		"panelSlug":  "articles",
+	}, "panel_slug")
+	if got != "articles" {
+		t.Fatalf("expected non-empty generated alias value, got %q", got)
+	}
+}
+
+func TestPanelTraitsForContentTypeMergesGeneratedAliases(t *testing.T) {
+	traits := panelTraitsForContentType(map[string]any{
+		"panel_traits": []any{"editorial"},
+		"panelTraits":  []any{"translation"},
+		"panel-traits": map[string]any{
+			"seo":      true,
+			"disabled": false,
+		},
+	})
+	for _, trait := range []string{"editorial", "translation", "seo"} {
+		if !hasPanelTrait(traits, trait) {
+			t.Fatalf("expected trait %q in %+v", trait, traits)
+		}
+	}
+	if hasPanelTrait(traits, "disabled") {
+		t.Fatalf("did not expect disabled trait in %+v", traits)
+	}
+}
+
 func TestResolveWorkflowIDForContentTypeNoLongerFallsBackToTraitDefaults(t *testing.T) {
 	capabilities := map[string]any{
 		"panel_traits": map[string]any{

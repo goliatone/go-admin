@@ -21,3 +21,18 @@ func TestGetTranslationAssignmentMigrationsFSIncludesExpectedFiles(t *testing.T)
 		}
 	}
 }
+
+func TestGetTranslationAssignmentMigrationsFSExcludesWorkflowAndFlowFiles(t *testing.T) {
+	migrationsFS := GetTranslationAssignmentMigrationsFS()
+	excluded := []string{
+		"0003_workflows.up.sql",
+		"0007_translation_flow_foundation.up.sql",
+		"0009_translation_exchange_runtime.up.sql",
+		"0010_translation_flow_admin_fields.up.sql",
+	}
+	for _, path := range excluded {
+		if _, err := fs.ReadFile(migrationsFS, path); err == nil {
+			t.Fatalf("expected migration file %s to be excluded", path)
+		}
+	}
+}
