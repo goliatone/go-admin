@@ -20,6 +20,8 @@ import (
 
 const debugEventSnapshot = "snapshot"
 
+const debugPanelOrderPreferenceKey = "ui.debug.console.panel_order"
+
 const (
 	debugSessionViewPermission   = "admin.debug.session.view"
 	debugSessionAttachPermission = "admin.debug.session.attach"
@@ -56,6 +58,13 @@ type debugPanelsResponse struct {
 
 type debugSessionsResponse struct {
 	Sessions []DebugUserSession `json:"sessions"`
+}
+
+type debugPanelOrderPreferenceResponse struct {
+	Available  bool     `json:"available"`
+	Found      bool     `json:"found"`
+	PanelOrder []string `json:"panel_order"`
+	UserID     string   `json:"user_id,omitempty"`
 }
 
 type debugSubscription struct {
@@ -162,6 +171,16 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 		}
 		admin.router.Post(path, handler)
 	}
+	registerPut := func(path string, handler router.HandlerFunc) {
+		if path == "" {
+			return
+		}
+		if access != nil {
+			admin.router.Put(path, handler, access)
+			return
+		}
+		admin.router.Put(path, handler)
+	}
 
 	if !featureEnabled(admin.featureGate, FeatureDashboard) {
 		debugBase := debugRoutePath(admin, m.config, "admin.debug", "index")
@@ -179,6 +198,12 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	registerPost(debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel)
 	registerPost(debugAPIRoutePath(admin, m.config, "panel.action"), m.handleDebugPanelAction)
 	registerPost(debugAPIRoutePath(admin, m.config, "doctor.action"), m.handleDebugDoctorAction)
+	registerGet(debugAPIRoutePath(admin, m.config, "preferences.panel_order"), func(c router.Context) error {
+		return m.handleDebugPanelOrderPreference(admin, c)
+	}, access)
+	registerPut(debugAPIRoutePath(admin, m.config, "preferences.panel_order"), func(c router.Context) error {
+		return m.handleDebugPanelOrderPreferenceSave(admin, c)
+	})
 	// JS error ingestion remains nonce-protected, but it should only be mounted
 	// when the host explicitly configured a debug exposure boundary.
 	if path := debugAPIRoutePath(admin, m.config, "errors"); path != "" && debugJSErrorRouteEnabled(admin, m.config) {
@@ -296,6 +321,152 @@ func (m *DebugModule) handleDebugSessions(c router.Context) error {
 	return writeJSON(c, debugSessionsResponse{Sessions: sessions})
 }
 
+func (m *DebugModule) handleDebugPanelOrderPreference(admin *Admin, c router.Context) error {
+	userID, prefService, ctx := debugPanelOrderPreferenceContext(admin, c)
+	if userID == "" || prefService == nil {
+		return writeJSON(c, debugPanelOrderPreferenceResponse{Available: false, PanelOrder: []string{}})
+	}
+	prefs, err := prefService.Get(ctx, userID)
+	if err != nil {
+		return writeError(c, err)
+	}
+	_, found := prefs.Raw[debugPanelOrderPreferenceKey]
+	return writeJSON(c, debugPanelOrderPreferenceResponse{
+		Available:  true,
+		Found:      found,
+		PanelOrder: normalizeDebugPanelOrderPreference(m, prefs.Raw[debugPanelOrderPreferenceKey]),
+		UserID:     userID,
+	})
+}
+
+func (m *DebugModule) handleDebugPanelOrderPreferenceSave(admin *Admin, c router.Context) error {
+	userID, prefService, ctx := debugPanelOrderPreferenceContext(admin, c)
+	if userID == "" || prefService == nil {
+		return writeJSON(c, debugPanelOrderPreferenceResponse{Available: false, PanelOrder: []string{}})
+	}
+	var payload struct {
+		PanelOrder any `json:"panel_order"`
+	}
+	rawBody := strings.TrimSpace(string(c.Body()))
+	if rawBody != "" {
+		if err := json.Unmarshal([]byte(rawBody), &payload); err != nil {
+			return writeError(c, goerrors.New("invalid JSON payload", goerrors.CategoryValidation).
+				WithCode(http.StatusBadRequest).
+				WithTextCode("INVALID_PAYLOAD"))
+		}
+	}
+	order := normalizeDebugPanelOrderPreference(m, payload.PanelOrder)
+	if _, err := prefService.Save(ctx, userID, UserPreferences{
+		UserID: userID,
+		Raw: map[string]any{
+			debugPanelOrderPreferenceKey: order,
+		},
+	}); err != nil {
+		return writeError(c, err)
+	}
+	return writeJSON(c, debugPanelOrderPreferenceResponse{
+		Available:  true,
+		Found:      true,
+		PanelOrder: order,
+		UserID:     userID,
+	})
+}
+
+func debugPanelOrderPreferenceContext(admin *Admin, c router.Context) (string, *PreferencesService, context.Context) {
+	if admin == nil || c == nil {
+		return "", nil, context.Background()
+	}
+	ctx := c.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if !authenticatedRequestFromContext(ctx) {
+		return "", admin.PreferencesService(), ctx
+	}
+	locale := strings.TrimSpace(c.Query("locale"))
+	if locale == "" {
+		locale = strings.TrimSpace(admin.config.DefaultLocale)
+	}
+	adminCtx := admin.adminContextFromRequest(c, locale)
+	return strings.TrimSpace(adminCtx.UserID), admin.PreferencesService(), adminCtx.Context
+}
+
+func normalizeDebugPanelOrderPreference(m *DebugModule, value any) []string {
+	candidates := debugPanelOrderPreferenceCandidates(value)
+	if len(candidates) == 0 {
+		return []string{}
+	}
+	allowed := debugPanelOrderAllowedSet(m)
+	out := make([]string, 0, len(candidates))
+	seen := map[string]bool{}
+	for _, candidate := range candidates {
+		panelID := debugpanels.NormalizePanelID(candidate)
+		if panelID == "" || seen[panelID] || !debugPanelOrderPreferenceIDValid(panelID) || !allowed[panelID] {
+			continue
+		}
+		seen[panelID] = true
+		out = append(out, panelID)
+	}
+	if len(out) == 0 {
+		return []string{}
+	}
+	return out
+}
+
+func debugPanelOrderPreferenceCandidates(value any) []string {
+	switch typed := value.(type) {
+	case []string:
+		return typed
+	case []any:
+		out := make([]string, 0, len(typed))
+		for _, item := range typed {
+			if val, ok := item.(string); ok {
+				out = append(out, val)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func debugPanelOrderAllowedSet(m *DebugModule) map[string]bool {
+	allowed := map[string]bool{
+		"sessions": true,
+	}
+	if m != nil {
+		for _, panelID := range m.config.Panels {
+			if normalized := debugpanels.NormalizePanelID(panelID); normalized != "" {
+				allowed[normalized] = true
+			}
+		}
+		if m.collector != nil {
+			for _, def := range m.collector.PanelDefinitions() {
+				if normalized := debugpanels.NormalizePanelID(def.ID); normalized != "" {
+					allowed[normalized] = true
+				}
+			}
+		}
+	}
+	return allowed
+}
+
+func debugPanelOrderPreferenceIDValid(panelID string) bool {
+	if panelID == "" {
+		return false
+	}
+	for _, r := range panelID {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= '0' && r <= '9':
+		case r == '-' || r == '_' || r == '.' || r == ':':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 func (m *DebugModule) handleDebugDashboard(admin *Admin, c router.Context) error {
 	if m == nil {
 		return ErrForbidden
@@ -309,14 +480,15 @@ func (m *DebugModule) handleDebugDashboard(admin *Admin, c router.Context) error
 		debugPath = normalizeDebugConfig(m.config, basePath).BasePath
 	}
 	viewCtx := router.ViewContext{
-		"title":                   "Debug Console",
-		"base_path":               basePath,
-		"debug_path":              debugPath,
-		"panels":                  m.config.Panels,
-		"repl_commands":           debugREPLCommandsForRequest(admin, m.config, c),
-		"max_log_entries":         m.config.MaxLogEntries,
-		"max_sql_queries":         m.config.MaxSQLQueries,
-		"slow_query_threshold_ms": m.config.SlowQueryThreshold.Milliseconds(),
+		"title":                        "Debug Console",
+		"base_path":                    basePath,
+		"debug_path":                   debugPath,
+		"panels":                       m.config.Panels,
+		"repl_commands":                debugREPLCommandsForRequest(admin, m.config, c),
+		"panel_order_preferences_path": debugAPIRoutePath(admin, m.config, "preferences.panel_order"),
+		"max_log_entries":              m.config.MaxLogEntries,
+		"max_sql_queries":              m.config.MaxSQLQueries,
+		"slow_query_threshold_ms":      m.config.SlowQueryThreshold.Milliseconds(),
 	}
 	viewCtx = buildDebugViewContext(admin, m.config, c, viewCtx)
 	return templateview.RenderTemplateView(c, debugPageTemplate(m.config, c), viewCtx)
@@ -928,7 +1100,11 @@ func debugAuthenticateRequest(admin *Admin, c router.Context) error {
 		return nil
 	}
 	if requestAuth, ok := admin.authenticator.(RequestAuthenticator); ok && requestAuth != nil {
-		return requestAuth.AuthenticateRequest(c)
+		if err := requestAuth.AuthenticateRequest(c); err != nil {
+			return err
+		}
+		markAuthenticatedRequest(c)
+		return nil
 	}
 	if admin.authenticator == nil {
 		return ErrForbidden
