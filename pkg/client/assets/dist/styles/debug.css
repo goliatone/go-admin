@@ -291,6 +291,34 @@ body {
   background: rgba(0, 0, 0, 0.2);
 }
 
+/* Drag/drop reordering states */
+.debug-tab--ghost {
+  opacity: 0.4;
+  background: rgba(137, 180, 250, 0.15);
+  border: 1px dashed var(--debug-accent);
+  border-radius: 4px;
+}
+
+.debug-tab--chosen {
+  box-shadow: 0 0 0 2px var(--debug-accent);
+  border-radius: 4px;
+}
+
+.debug-tab--drag {
+  opacity: 0.95;
+  background: var(--debug-bg-secondary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+
+.debug-tabs {
+  cursor: grab;
+}
+
+.debug-tabs.sortable-sorting {
+  cursor: grabbing;
+}
+
 /* Toolbar row */
 .debug-toolbar {
   display: flex;

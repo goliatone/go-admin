@@ -1,3 +1,4 @@
+import Sortable from 'sortablejs';
 import { DebugStream, type DebugEvent, type DebugStreamStatus } from './debug-stream.js';
 import { DebugReplPanel, type DebugReplCommand } from './repl/repl-panel.js';
 import { filterObjectBySearch } from './shared/jsonpath-search.js';
@@ -85,6 +86,7 @@ type PanelRenderer = {
 };
 
 const DEBUG_CONSOLE_ACTIVE_PANEL_KEY = 'debug-console-active-panel';
+const DEBUG_CONSOLE_PANEL_ORDER_KEY = 'debug-console-panel-order';
 
 
 const parseJSON = (value: string | undefined): any => {
@@ -178,14 +180,17 @@ export class DebugPanel {
   private eventToPanel: Record<string, string>;
   private unsubscribeRegistry: (() => void) | null = null;
   private expandedRequests: Set<string> = new Set();
+  private tabsSortable: Sortable | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
     const panelsData = parseJSON(container.dataset.panels);
-    this.panels = normalizePanelList(panelsData);
-    if (!this.panels.includes('sessions')) {
-      this.panels.push('sessions');
+    const serverPanels = normalizePanelList(panelsData);
+    if (!serverPanels.includes('sessions')) {
+      serverPanels.push('sessions');
     }
+    // Restore user's custom panel order from localStorage, merging with server panels
+    this.panels = this.restorePanelOrder(serverPanels);
     this.activePanel = this.panels[0] || 'template';
 
     this.debugPath = container.dataset.debugPath || '';
@@ -309,6 +314,90 @@ export class DebugPanel {
   }
 
   /**
+   * Persist panel order to localStorage
+   */
+  private persistPanelOrder(): void {
+    try {
+      localStorage.setItem(DEBUG_CONSOLE_PANEL_ORDER_KEY, JSON.stringify(this.panels));
+    } catch {
+      // Ignore blocked or unavailable browser storage.
+    }
+  }
+
+  /**
+   * Restore panel order from localStorage, merging with server-provided panels
+   * to handle new panels added after order was saved.
+   */
+  private restorePanelOrder(serverPanels: string[]): string[] {
+    let savedOrder: string[] | null = null;
+    try {
+      const stored = localStorage.getItem(DEBUG_CONSOLE_PANEL_ORDER_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.every((item) => typeof item === 'string')) {
+          savedOrder = parsed;
+        }
+      }
+    } catch {
+      // Ignore parse errors or blocked storage.
+    }
+
+    if (!savedOrder || savedOrder.length === 0) {
+      return serverPanels;
+    }
+
+    // Merge: keep saved order for panels that still exist, append new panels at the end
+    const serverSet = new Set(serverPanels);
+    const result: string[] = [];
+
+    // First, add panels from saved order that still exist in server list
+    for (const panel of savedOrder) {
+      if (serverSet.has(panel)) {
+        result.push(panel);
+        serverSet.delete(panel);
+      }
+    }
+
+    // Then append any new panels from server that weren't in saved order
+    for (const panel of serverPanels) {
+      if (serverSet.has(panel)) {
+        result.push(panel);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Initialize drag/drop reordering for tabs using SortableJS
+   */
+  private initTabDragDrop(): void {
+    if (this.tabsSortable) {
+      this.tabsSortable.destroy();
+      this.tabsSortable = null;
+    }
+
+    this.tabsSortable = Sortable.create(this.tabsEl, {
+      animation: 150,
+      ghostClass: 'debug-tab--ghost',
+      chosenClass: 'debug-tab--chosen',
+      dragClass: 'debug-tab--drag',
+      direction: 'horizontal',
+      onEnd: () => {
+        // Collect new order from DOM
+        const newOrder = Array.from(this.tabsEl.querySelectorAll<HTMLElement>('[data-panel]'))
+          .map((el) => el.dataset.panel || '')
+          .filter(Boolean);
+
+        if (newOrder.length > 0) {
+          this.panels = newOrder;
+          this.persistPanelOrder();
+        }
+      },
+    });
+  }
+
+  /**
    * Handle registry changes (panel registered/unregistered)
    */
   private handleRegistryChange(event: RegistryChangeEvent): void {
@@ -420,6 +509,8 @@ export class DebugPanel {
       .join('');
     this.tabsEl.innerHTML = tabs;
     this.updateTabCounts();
+    // Reinitialize drag/drop after DOM rebuild
+    this.initTabDragDrop();
   }
 
   private renderActivePanel(): void {
