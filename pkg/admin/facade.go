@@ -85,6 +85,27 @@ const (
 	AssignmentTypeDirect                           = core.AssignmentTypeDirect
 	AssignmentTypeOpenPool                         = core.AssignmentTypeOpenPool
 	ContentChannelScopeQueryParam                  = core.ContentChannelScopeQueryParam
+	ContentTypeCapabilityKeyBlockTypes             = core.ContentTypeCapabilityKeyBlockTypes
+	ContentTypeCapabilityKeyBlocks                 = core.ContentTypeCapabilityKeyBlocks
+	ContentTypeCapabilityKeyI18N                   = core.ContentTypeCapabilityKeyI18N
+	ContentTypeCapabilityKeyLocalized              = core.ContentTypeCapabilityKeyLocalized
+	ContentTypeCapabilityKeyMenuLabel              = core.ContentTypeCapabilityKeyMenuLabel
+	ContentTypeCapabilityKeyNavigationLabel        = core.ContentTypeCapabilityKeyNavigationLabel
+	ContentTypeCapabilityKeyPanelLabel             = core.ContentTypeCapabilityKeyPanelLabel
+	ContentTypeCapabilityKeyPanelPreset            = core.ContentTypeCapabilityKeyPanelPreset
+	ContentTypeCapabilityKeyPanelSlug              = core.ContentTypeCapabilityKeyPanelSlug
+	ContentTypeCapabilityKeyPanelTraits            = core.ContentTypeCapabilityKeyPanelTraits
+	ContentTypeCapabilityKeyPermission             = core.ContentTypeCapabilityKeyPermission
+	ContentTypeCapabilityKeyPermissions            = core.ContentTypeCapabilityKeyPermissions
+	ContentTypeCapabilityKeySEO                    = core.ContentTypeCapabilityKeySEO
+	ContentTypeCapabilityKeyTranslation            = core.ContentTypeCapabilityKeyTranslation
+	ContentTypeCapabilityKeyTranslations           = core.ContentTypeCapabilityKeyTranslations
+	ContentTypeCapabilityKeyTree                   = core.ContentTypeCapabilityKeyTree
+	ContentTypeCapabilityKeyTreeView               = core.ContentTypeCapabilityKeyTreeView
+	ContentTypeCapabilityKeyUseSEO                 = core.ContentTypeCapabilityKeyUseSEO
+	ContentTypeCapabilityKeyWorkflow               = core.ContentTypeCapabilityKeyWorkflow
+	ContentTypeCapabilityKeyWorkflowID             = core.ContentTypeCapabilityKeyWorkflowID
+	ContentTypeCapabilityKeyWorkflowKey            = core.ContentTypeCapabilityKeyWorkflowKey
 	CreateRoleOperation                            = core.CreateRoleOperation
 	CreateTranslationKey                           = core.CreateTranslationKey
 	DebugLayoutAdmin                               = core.DebugLayoutAdmin
@@ -150,11 +171,14 @@ const (
 	IconTypeSVG                                    = core.IconTypeSVG
 	IconTypeURL                                    = core.IconTypeURL
 	IconTypeUnknown                                = core.IconTypeUnknown
-	MenuItemTypeGroup                              = core.MenuItemTypeGroup
-	MenuItemTypeItem                               = core.MenuItemTypeItem
-	MenuItemTypeSeparator                          = core.MenuItemTypeSeparator
-	MenuRecordStatusDraft                          = core.MenuRecordStatusDraft
-	MenuRecordStatusPublished                      = core.MenuRecordStatusPublished
+	LocalePathRecordAmbiguousLocaleLike            = core.LocalePathRecordAmbiguousLocaleLike
+	LocalePathRecordCanonicalUnprefixed            = core.LocalePathRecordCanonicalUnprefixed
+	LocalePathRecordLegacyPrefixed                 = core.LocalePathRecordLegacyPrefixed
+	LocalePathRecordMissing                        = core.LocalePathRecordMissing
+	LocalePathRecordTranslatedLocalized            = core.LocalePathRecordTranslatedLocalized
+	LocalePathRouteKeyAmbiguous                    = core.LocalePathRouteKeyAmbiguous
+	LocalePathRouteKeyMissingDerivable             = core.LocalePathRouteKeyMissingDerivable
+	LocalePathRouteKeyPresentConsistent            = core.LocalePathRouteKeyPresentConsistent
 	MediaDeliveryCapabilityAuthRequired            = core.MediaDeliveryCapabilityAuthRequired
 	MediaDeliveryCapabilityDownload                = core.MediaDeliveryCapabilityDownload
 	MediaDeliveryCapabilityImport                  = core.MediaDeliveryCapabilityImport
@@ -178,6 +202,18 @@ const (
 	MediaDeliveryStateProcessing                   = core.MediaDeliveryStateProcessing
 	MediaDeliveryStateReady                        = core.MediaDeliveryStateReady
 	MediaDeliveryStateUnavailable                  = core.MediaDeliveryStateUnavailable
+	MediaMutationConfirm                           = core.MediaMutationConfirm
+	MediaMutationCreate                            = core.MediaMutationCreate
+	MediaMutationDelete                            = core.MediaMutationDelete
+	MediaMutationUpdate                            = core.MediaMutationUpdate
+	MediaMutationUpload                            = core.MediaMutationUpload
+	MediaValueModeID                               = core.MediaValueModeID
+	MediaValueModeURL                              = core.MediaValueModeURL
+	MenuItemTypeGroup                              = core.MenuItemTypeGroup
+	MenuItemTypeItem                               = core.MenuItemTypeItem
+	MenuItemTypeSeparator                          = core.MenuItemTypeSeparator
+	MenuRecordStatusDraft                          = core.MenuRecordStatusDraft
+	MenuRecordStatusPublished                      = core.MenuRecordStatusPublished
 	ModuleStartupPolicyEnforce                     = core.ModuleStartupPolicyEnforce
 	ModuleStartupPolicyWarn                        = core.ModuleStartupPolicyWarn
 	NavigationOverrideHide                         = core.NavigationOverrideHide
@@ -212,6 +248,8 @@ const (
 	PriorityLow                                    = core.PriorityLow
 	PriorityNormal                                 = core.PriorityNormal
 	PriorityUrgent                                 = core.PriorityUrgent
+	ProtectedSurfaceScopeAdmin                     = core.ProtectedSurfaceScopeAdmin
+	ProtectedSurfaceScopeProtectedApp              = core.ProtectedSurfaceScopeProtectedApp
 	RPCMethodCommandDispatch                       = core.RPCMethodCommandDispatch
 	RPCMethodCommandList                           = core.RPCMethodCommandList
 	RPCMethodWorkflowBindingsDelete                = core.RPCMethodWorkflowBindingsDelete
@@ -287,6 +325,9 @@ const (
 	WidgetBarChart                                 = core.WidgetBarChart
 	WidgetChartSample                              = core.WidgetChartSample
 	WidgetContentStats                             = core.WidgetContentStats
+	WidgetDefinitionSyncStatusCreated              = core.WidgetDefinitionSyncStatusCreated
+	WidgetDefinitionSyncStatusUnchanged            = core.WidgetDefinitionSyncStatusUnchanged
+	WidgetDefinitionSyncStatusUpdated              = core.WidgetDefinitionSyncStatusUpdated
 	WidgetGaugeChart                               = core.WidgetGaugeChart
 	WidgetLineChart                                = core.WidgetLineChart
 	WidgetNotifications                            = core.WidgetNotifications
@@ -436,10 +477,12 @@ type (
 	CMSBootstrapHook                          = core.CMSBootstrapHook
 	CMSContainer                              = core.CMSContainer
 	CMSContainerBuilder                       = core.CMSContainerBuilder
+	CMSContainerUnwrapper                     = core.CMSContainerUnwrapper
 	CMSContent                                = core.CMSContent
 	CMSContentListOption                      = core.CMSContentListOption
 	CMSContentRepository                      = core.CMSContentRepository
 	CMSContentService                         = core.CMSContentService
+	CMSContentServiceUnwrapper                = core.CMSContentServiceUnwrapper
 	CMSContentTranslationCreator              = core.CMSContentTranslationCreator
 	CMSContentType                            = core.CMSContentType
 	CMSContentTypeEntryRepository             = core.CMSContentTypeEntryRepository
@@ -468,6 +511,7 @@ type (
 	ContentTypePublishMsg                     = core.ContentTypePublishMsg
 	ContentTypeUpdateMsg                      = core.ContentTypeUpdateMsg
 	ConvertedFields                           = core.ConvertedFields
+	CountTranslator                           = core.CountTranslator
 	CustomLogEntry                            = core.CustomLogEntry
 	Dashboard                                 = core.Dashboard
 	DashboardDiagnosticsMsg                   = core.DashboardDiagnosticsMsg
@@ -490,6 +534,8 @@ type (
 	DebugLogHandler                           = core.DebugLogHandler
 	DebugModule                               = core.DebugModule
 	DebugPanel                                = core.DebugPanel
+	DebugPanelActionProvider                  = core.DebugPanelActionProvider
+	DebugPanelUIProvider                      = core.DebugPanelUIProvider
 	DebugPanelWidgetPayload                   = core.DebugPanelWidgetPayload
 	DebugQueryHook                            = core.DebugQueryHook
 	DebugREPLCommand                          = core.DebugREPLCommand
@@ -578,10 +624,10 @@ type (
 	GoCMSTranslationPolicy                    = core.GoCMSTranslationPolicy
 	GoCMSWidgetAdapter                        = core.GoCMSWidgetAdapter
 	GoOptionsSettingsAdapter                  = core.GoOptionsSettingsAdapter
-	GoSearchGlobalAdapter                     = core.GoSearchGlobalAdapter
-	GoSearchGlobalAdapterConfig               = core.GoSearchGlobalAdapterConfig
 	GoSearchBundle                            = core.GoSearchBundle
 	GoSearchBundleConfig                      = core.GoSearchBundleConfig
+	GoSearchGlobalAdapter                     = core.GoSearchGlobalAdapter
+	GoSearchGlobalAdapterConfig               = core.GoSearchGlobalAdapterConfig
 	GoSearchOperations                        = core.GoSearchOperations
 	GoSearchSiteProvider                      = core.GoSearchSiteProvider
 	GoSearchSiteProviderConfig                = core.GoSearchSiteProviderConfig
@@ -632,6 +678,15 @@ type (
 	LegacyChartSampleWidgetPayload            = core.LegacyChartSampleWidgetPayload
 	ListOptions                               = core.ListOptions
 	ListPredicate                             = core.ListPredicate
+	LocalePathMigrationApplyResult            = core.LocalePathMigrationApplyResult
+	LocalePathMigrationFamilyPlan             = core.LocalePathMigrationFamilyPlan
+	LocalePathMigrationOptions                = core.LocalePathMigrationOptions
+	LocalePathMigrationRecordPlan             = core.LocalePathMigrationRecordPlan
+	LocalePathMigrationReport                 = core.LocalePathMigrationReport
+	LocalePathMigrationRewrite                = core.LocalePathMigrationRewrite
+	LocalePathMigrationSummary                = core.LocalePathMigrationSummary
+	LocalePathRecordClassification            = core.LocalePathRecordClassification
+	LocalePathRouteKeyReadiness               = core.LocalePathRouteKeyReadiness
 	LogEntry                                  = core.LogEntry
 	Logger                                    = core.Logger
 	LoggerProvider                            = core.LoggerProvider
@@ -639,42 +694,76 @@ type (
 	ManagementContentTypeService              = core.ManagementContentTypeService
 	ManagementPageService                     = core.ManagementPageService
 	ManagementServices                        = core.ManagementServices
+	MediaActivityDecision                     = core.MediaActivityDecision
+	MediaActivityHook                         = core.MediaActivityHook
+	MediaCapabilities                         = core.MediaCapabilities
+	MediaCapabilityOverrideProvider           = core.MediaCapabilityOverrideProvider
+	MediaCapabilityOverrides                  = core.MediaCapabilityOverrides
+	MediaCapabilityProvider                   = core.MediaCapabilityProvider
 	MediaConfig                               = core.MediaConfig
+	MediaConfirmRequest                       = core.MediaConfirmRequest
+	MediaConfirmer                            = core.MediaConfirmer
+	MediaDeleter                              = core.MediaDeleter
 	MediaDeliveryAdapter                      = core.MediaDeliveryAdapter
-	MediaRedirectDeliveryAdapter              = core.MediaRedirectDeliveryAdapter
-	MediaLocalFileDeliveryAdapter             = core.MediaLocalFileDeliveryAdapter
 	MediaDeliveryCacheConfig                  = core.MediaDeliveryCacheConfig
 	MediaDeliveryCapability                   = core.MediaDeliveryCapability
 	MediaDeliveryConfig                       = core.MediaDeliveryConfig
+	MediaDeliveryCredential                   = core.MediaDeliveryCredential
+	MediaDeliveryCredentialRequest            = core.MediaDeliveryCredentialRequest
+	MediaDeliveryCredentialResolver           = core.MediaDeliveryCredentialResolver
+	MediaDeliveryCredentialResolverFunc       = core.MediaDeliveryCredentialResolverFunc
 	MediaDeliveryImported                     = core.MediaDeliveryImported
 	MediaDeliveryInfo                         = core.MediaDeliveryInfo
 	MediaDeliveryIntent                       = core.MediaDeliveryIntent
 	MediaDeliveryMode                         = core.MediaDeliveryMode
 	MediaDeliveryProxy                        = core.MediaDeliveryProxy
 	MediaDeliveryProxyLimitConfig             = core.MediaDeliveryProxyLimitConfig
-	MediaDeliveryCredential                   = core.MediaDeliveryCredential
-	MediaDeliveryCredentialRequest            = core.MediaDeliveryCredentialRequest
-	MediaDeliveryCredentialResolver           = core.MediaDeliveryCredentialResolver
-	MediaDeliveryCredentialResolverFunc       = core.MediaDeliveryCredentialResolverFunc
+	MediaDeliveryRange                        = core.MediaDeliveryRange
+	MediaDeliveryRedirect                     = core.MediaDeliveryRedirect
+	MediaDeliveryRedirectConfig               = core.MediaDeliveryRedirectConfig
 	MediaDeliveryReference                    = core.MediaDeliveryReference
 	MediaDeliveryReferenceProjector           = core.MediaDeliveryReferenceProjector
 	MediaDeliveryReferenceProjectorFunc       = core.MediaDeliveryReferenceProjectorFunc
 	MediaDeliveryRegistry                     = core.MediaDeliveryRegistry
-	MediaDeliveryRedirect                     = core.MediaDeliveryRedirect
-	MediaDeliveryRedirectConfig               = core.MediaDeliveryRedirectConfig
 	MediaDeliveryRequest                      = core.MediaDeliveryRequest
 	MediaDeliveryResponse                     = core.MediaDeliveryResponse
 	MediaDeliveryState                        = core.MediaDeliveryState
-	MediaDeliveryUnavailable                  = core.MediaDeliveryUnavailable
-	MediaDeliveryUnavailableError             = core.MediaDeliveryUnavailableError
 	MediaDeliveryURLBuildOptions              = core.MediaDeliveryURLBuildOptions
 	MediaDeliveryURLs                         = core.MediaDeliveryURLs
+	MediaDeliveryUnavailable                  = core.MediaDeliveryUnavailable
+	MediaDeliveryUnavailableError             = core.MediaDeliveryUnavailableError
+	MediaGetter                               = core.MediaGetter
 	MediaItem                                 = core.MediaItem
 	MediaLibrary                              = core.MediaLibrary
+	MediaLocalFileDeliveryAdapter             = core.MediaLocalFileDeliveryAdapter
+	MediaModule                               = core.MediaModule
+	MediaMutationEvent                        = core.MediaMutationEvent
+	MediaMutationOperation                    = core.MediaMutationOperation
+	MediaOperationCapabilities                = core.MediaOperationCapabilities
+	MediaOperationCapabilityOverrides         = core.MediaOperationCapabilityOverrides
+	MediaPage                                 = core.MediaPage
+	MediaPickerCapabilities                   = core.MediaPickerCapabilities
+	MediaPickerCapabilityOverrides            = core.MediaPickerCapabilityOverrides
+	MediaPresignRequest                       = core.MediaPresignRequest
+	MediaPresignResponse                      = core.MediaPresignResponse
+	MediaPresigner                            = core.MediaPresigner
 	MediaPublicDeliveryAuthorization          = core.MediaPublicDeliveryAuthorization
 	MediaPublicDeliveryAuthorizer             = core.MediaPublicDeliveryAuthorizer
 	MediaPublicDeliveryConfig                 = core.MediaPublicDeliveryConfig
 	MediaPublicDeliveryTokenVerifier          = core.MediaPublicDeliveryTokenVerifier
+	MediaQuery                                = core.MediaQuery
+	MediaQueryProvider                        = core.MediaQueryProvider
+	MediaRedirectDeliveryAdapter              = core.MediaRedirectDeliveryAdapter
+	MediaReference                            = core.MediaReference
+	MediaResolver                             = core.MediaResolver
+	MediaUpdateInput                          = core.MediaUpdateInput
+	MediaUpdater                              = core.MediaUpdater
+	MediaUploadCapabilities                   = core.MediaUploadCapabilities
+	MediaUploadCapabilityOverrides            = core.MediaUploadCapabilityOverrides
+	MediaUploadInput                          = core.MediaUploadInput
+	MediaUploadRequest                        = core.MediaUploadRequest
+	MediaUploader                             = core.MediaUploader
+	MediaValueMode                            = core.MediaValueMode
 	MemoryRepository                          = core.MemoryRepository
 	MemoryTranslationExchangeRuntimeStore     = core.MemoryTranslationExchangeRuntimeStore
 	Menu                                      = core.Menu
@@ -765,6 +854,7 @@ type (
 	ProfileRepository                         = core.ProfileRepository
 	ProfileService                            = core.ProfileService
 	ProfileStore                              = core.ProfileStore
+	ProtectedSurfaceScope                     = core.ProtectedSurfaceScope
 	QuickActionWidgetPayload                  = core.QuickActionWidgetPayload
 	QuickActionsWidgetPayload                 = core.QuickActionsWidgetPayload
 	RPCCommandConfig                          = core.RPCCommandConfig
@@ -778,6 +868,7 @@ type (
 	Registry                                  = core.Registry
 	Repository                                = core.Repository
 	RepositoryTranslationCreator              = core.RepositoryTranslationCreator
+	RequestAuthenticator                      = core.RequestAuthenticator
 	RequestEntry                              = core.RequestEntry
 	RequestInfo                               = core.RequestInfo
 	RequiredFieldsValidationStrategy          = core.RequiredFieldsValidationStrategy
@@ -970,6 +1061,8 @@ type (
 	WidgetAreaDefinition                      = core.WidgetAreaDefinition
 	WidgetDefinition                          = core.WidgetDefinition
 	WidgetDefinitionRepository                = core.WidgetDefinitionRepository
+	WidgetDefinitionSyncResult                = core.WidgetDefinitionSyncResult
+	WidgetDefinitionSyncStatus                = core.WidgetDefinitionSyncStatus
 	WidgetInstance                            = core.WidgetInstance
 	WidgetInstanceFilter                      = core.WidgetInstanceFilter
 	WidgetInstanceRepository                  = core.WidgetInstanceRepository
@@ -1020,8 +1113,20 @@ func ActionResponseCollectorFromContext(ctx context.Context) *ActionResponseColl
 	return core.ActionResponseCollectorFromContext(ctx)
 }
 
+func ApplyLocalePathMigration(ctx context.Context, svc CMSContentService, report LocalePathMigrationReport) (LocalePathMigrationApplyResult, error) {
+	return core.ApplyLocalePathMigration(ctx, svc, report)
+}
+
 func AttachErrorContext(err error, mapped *errors.Error) *errors.Error {
 	return core.AttachErrorContext(err, mapped)
+}
+
+func AuditLocalePathMigration(ctx context.Context, svc CMSContentService, opts LocalePathMigrationOptions) (LocalePathMigrationReport, error) {
+	return core.AuditLocalePathMigration(ctx, svc, opts)
+}
+
+func AuthenticatedRequestFromContext(ctx context.Context) bool {
+	return core.AuthenticatedRequestFromContext(ctx)
 }
 
 func BackfillContentTypeNavigationDefaults(ctx context.Context, service CMSContentTypeService) (int, error) {
@@ -1050,6 +1155,14 @@ func BoolPtr(value bool) *bool {
 
 func BuildGoCMSContainer(ctx context.Context, cfg Config) (CMSContainer, error) {
 	return core.BuildGoCMSContainer(ctx, cfg)
+}
+
+func BuildMediaDeliveryURLs(urls urlkit.Resolver, adminGroup string, publicGroup string, id string, includePublic bool) MediaDeliveryURLs {
+	return core.BuildMediaDeliveryURLs(urls, adminGroup, publicGroup, id, includePublic)
+}
+
+func BuildMediaDeliveryURLsWithOptions(urls urlkit.Resolver, adminGroup string, publicGroup string, id string, opts MediaDeliveryURLBuildOptions) MediaDeliveryURLs {
+	return core.BuildMediaDeliveryURLsWithOptions(urls, adminGroup, publicGroup, id, opts)
 }
 
 func BuiltinEmojiLibrary() IconLibrary {
@@ -1118,6 +1231,18 @@ func ComposeAdminDashboardPage(page dashboard.Page) AdminDashboardPage {
 
 func ContentChannelFromContext(ctx context.Context) string {
 	return core.ContentChannelFromContext(ctx)
+}
+
+func ContentTypeCapabilityString(capabilities map[string]any, keys ...string) string {
+	return core.ContentTypeCapabilityString(capabilities, keys...)
+}
+
+func ContentTypeCapabilityValue(capabilities map[string]any, keys ...string) (any, bool) {
+	return core.ContentTypeCapabilityValue(capabilities, keys...)
+}
+
+func ContentTypeCapabilityValues(capabilities map[string]any, keys ...string) []any {
+	return core.ContentTypeCapabilityValues(capabilities, keys...)
 }
 
 func ContextWithActionDiagnostics(ctx context.Context, sink ActionDiagnosticSink) context.Context {
@@ -1196,6 +1321,10 @@ func EnrichStackFrames(frames []StackFrameInfo, contextLines int, maxFrames int)
 	return core.EnrichStackFrames(frames, contextLines, maxFrames)
 }
 
+func EnrichStackFramesWithConfig(frames []StackFrameInfo, cfg ErrorConfig) []StackFrameInfo {
+	return core.EnrichStackFramesWithConfig(frames, cfg)
+}
+
 func EnsureMenuParents(ctx context.Context, opts EnsureMenuParentsOptions) error {
 	return core.EnsureMenuParents(ctx, opts)
 }
@@ -1246,6 +1375,14 @@ func LocaleFallbackAllowed(ctx context.Context) bool {
 
 func LocaleFromContext(ctx context.Context) string {
 	return core.LocaleFromContext(ctx)
+}
+
+func LocalizeMenu(menu *Menu, t Translator, locale string) *Menu {
+	return core.LocalizeMenu(menu, t, locale)
+}
+
+func LocalizeMenuItems(items []MenuItem, t Translator, locale string) []MenuItem {
+	return core.LocalizeMenuItems(items, t, locale)
 }
 
 func ManagementGraphQLControllers() []registrar.Controller {
@@ -1524,12 +1661,12 @@ func NewGoOptionsSettingsAdapter() *GoOptionsSettingsAdapter {
 	return core.NewGoOptionsSettingsAdapter()
 }
 
-func NewGoSearchGlobalAdapter(cfg GoSearchGlobalAdapterConfig) *GoSearchGlobalAdapter {
-	return core.NewGoSearchGlobalAdapter(cfg)
-}
-
 func NewGoSearchBundle(cfg GoSearchBundleConfig) *GoSearchBundle {
 	return core.NewGoSearchBundle(cfg)
+}
+
+func NewGoSearchGlobalAdapter(cfg GoSearchGlobalAdapterConfig) *GoSearchGlobalAdapter {
+	return core.NewGoSearchGlobalAdapter(cfg)
 }
 
 func NewGoSearchSiteProvider(cfg GoSearchSiteProviderConfig) *GoSearchSiteProvider {
@@ -1588,18 +1725,6 @@ func NewInMemoryMediaLibrary(baseURL string) *InMemoryMediaLibrary {
 	return core.NewInMemoryMediaLibrary(baseURL)
 }
 
-func NewMediaDeliveryRegistry() *MediaDeliveryRegistry {
-	return core.NewMediaDeliveryRegistry()
-}
-
-func BuildMediaDeliveryURLs(urls urlkit.Resolver, adminGroup, publicGroup, id string, includePublic bool) MediaDeliveryURLs {
-	return core.BuildMediaDeliveryURLs(urls, adminGroup, publicGroup, id, includePublic)
-}
-
-func BuildMediaDeliveryURLsWithOptions(urls urlkit.Resolver, adminGroup, publicGroup, id string, opts MediaDeliveryURLBuildOptions) MediaDeliveryURLs {
-	return core.BuildMediaDeliveryURLsWithOptions(urls, adminGroup, publicGroup, id, opts)
-}
-
 func NewInMemoryMenuService() *InMemoryMenuService {
 	return core.NewInMemoryMenuService()
 }
@@ -1648,6 +1773,10 @@ func NewJobRegistry() *JobRegistry {
 	return core.NewJobRegistry()
 }
 
+func NewLocalMediaDeliveryImported(path string, roots []string, contentType string) (*MediaDeliveryImported, error) {
+	return core.NewLocalMediaDeliveryImported(path, roots, contentType)
+}
+
 func NewManagementContentService(container CMSContainer, opts DeliveryOptions) *ManagementContentService {
 	return core.NewManagementContentService(container, opts)
 }
@@ -1666,6 +1795,14 @@ func NewManagementServices(container CMSContainer, opts DeliveryOptions) Managem
 
 func NewManualDoctorAction(description string, cta string) *DoctorAction {
 	return core.NewManualDoctorAction(description, cta)
+}
+
+func NewMediaDeliveryRegistry() *MediaDeliveryRegistry {
+	return core.NewMediaDeliveryRegistry()
+}
+
+func NewMediaModule() *MediaModule {
+	return core.NewMediaModule()
 }
 
 func NewMemoryRepository() *MemoryRepository {
@@ -1730,6 +1867,10 @@ func NewProfileRepository(service *ProfileService, defaultLocale string) *Profil
 
 func NewProfileService(store ProfileStore) *ProfileService {
 	return core.NewProfileService(store)
+}
+
+func NewProtectedSurfaceAuthenticator(routeAuth *auth.RouteAuthenticator, cfg auth.Config, scope ProtectedSurfaceScope, opts ...GoAuthAuthenticatorOption) *GoAuthAuthenticator {
+	return core.NewProtectedSurfaceAuthenticator(routeAuth, cfg, scope, opts...)
 }
 
 func NewRateLimiter(maxRequests int, window time.Duration) *RateLimiter {
@@ -1870,6 +2011,10 @@ func ParseListPredicateKey(key string) (string, string) {
 
 func ParseMediaDeliveryIntent(raw string) (MediaDeliveryIntent, bool) {
 	return core.ParseMediaDeliveryIntent(raw)
+}
+
+func ParseMediaDeliveryRange(header string, size int64) (MediaDeliveryRange, bool, error) {
+	return core.ParseMediaDeliveryRange(header, size)
 }
 
 func PermissionMatrixDescriptor(basePath string) components.Descriptor {
@@ -2188,6 +2333,10 @@ func WithContentTypeBuilderWorkflowAuthorizer(authorizer WorkflowAuthorizer) Con
 	return core.WithContentTypeBuilderWorkflowAuthorizer(authorizer)
 }
 
+func WithContentTypeID(id string) CMSContentListOption {
+	return core.WithContentTypeID(id)
+}
+
 func WithDefaultLibrary(library string) IconServiceOption {
 	return core.WithDefaultLibrary(library)
 }
@@ -2280,12 +2429,20 @@ func WithLocaleFallback(ctx context.Context, allow bool) context.Context {
 	return core.WithLocaleFallback(ctx, allow)
 }
 
+func WithLocaleVariants() CMSContentListOption {
+	return core.WithLocaleVariants()
+}
+
 func WithMenuPositions(usersPos *int, rolesPos *int) UserManagementModuleOption {
 	return core.WithMenuPositions(usersPos, rolesPos)
 }
 
 func WithOptionalAuth(optional bool) GoAuthAuthenticatorOption {
 	return core.WithOptionalAuth(optional)
+}
+
+func WithProtectedSurfaceRoots(browserRoots []string, apiRoots []string) GoAuthAuthenticatorOption {
+	return core.WithProtectedSurfaceRoots(browserRoots, apiRoots)
 }
 
 func WithRequestIP(ctx context.Context, requestIP string) context.Context {
