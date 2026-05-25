@@ -6,6 +6,9 @@ This guide documents the shipped action availability and action UX system for
 For workflow definitions, state-machine execution, and persisted workflow
 bindings, see `docs/GUIDE_WORKFLOW.md`.
 
+For custom page commands that use the shared RPC transport instead of canonical
+panel action routes, see `docs/GUIDE_RPC.md`.
+
 It covers:
 
 - backend authoring with `Action.Guard`, `WithActionStateResolver(...)`, and

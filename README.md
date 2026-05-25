@@ -87,6 +87,8 @@ if err := adm.Initialize(server.Router()); err != nil {
 - Modules: register host modules with `RegisterModule`; mounted modules must expose `RouteContractProvider` so routing ownership stays explicit.
 - URLs: use `Config.URLs` + URLKit route names instead of hardcoding paths.
 - Commands: register typed commands and message factories for panel/API dispatch.
+- RPC: expose selected commands through `admin.commands.dispatch` with
+  deny-by-default command rules; see `docs/GUIDE_RPC.md`.
 - Panels: control canonical UI ownership (`PanelUIRouteMode*`) and canonical entry behavior (`PanelEntryMode*`).
 - Themes: wire admin `go-theme` selectors separately from public-site theme
   packages; see `docs/GUIDE_THEME.md`.
@@ -171,7 +173,8 @@ and CI manifest-review guidance.
 Panel CRUD resources, DataGrid list wiring, and workflow/command-backed row and
 bulk actions are documented in `docs/GUIDE_CRUD.md`. Form generation,
 go-formgen integration, UI schema overlays, and custom form components are
-documented in `docs/GUIDE_FORMGEN.md`.
+documented in `docs/GUIDE_FORMGEN.md`. RPC command transport and workflow RPC
+methods are documented in `docs/GUIDE_RPC.md`.
 
 ## Panel Entry Modes
 
@@ -291,6 +294,7 @@ Mapping behavior:
 - Form generation and go-formgen customization: `docs/GUIDE_FORMGEN.md`
 - Theme and go-theme integration: `docs/GUIDE_THEME.md`
 - Workflow/state-machine wiring: `docs/GUIDE_WORKFLOW.md`
+- RPC transport and command dispatch: `docs/GUIDE_RPC.md`
 - Roles and role seeding: `docs/GUIDE_ROLES.md`
 - Routing policy contract and CI review workflow: `docs/GUIDE_ROUTING.md`
 - Routing execution/signoff chain: `ROUTING_ARD.md`, `ROUTING_TSK.md`, `docs/ROUTING_RELEASE_CHECKLIST.md`

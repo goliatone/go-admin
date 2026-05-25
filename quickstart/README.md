@@ -45,7 +45,7 @@ auth wiring, password-change gate, and recovery flow.
 - `WithStartupPolicy(policy StartupPolicy) AdminOption` - Inputs: startup policy (`enforce` or `warn`); outputs: option controlling module startup validation handling.
 - `WithCommandExecutionPolicy(policy admin.CommandExecutionPolicy) AdminOption` - Inputs: command execution policy (global default + per-command overrides); outputs: option that injects command routing policy into bootstrap.
 - `WithCommandQueueRouting(cfg CommandQueueRoutingConfig) AdminOption` - Inputs: queue routing config (`enabled`, `enqueuer`, optional command registry + dedupe store); outputs: option that attaches the queued dispatcher executor.
-- `WithRPCTransport(cfg RPCTransportConfig) AdminOption` - Inputs: RPC transport config (`enabled`, optional `invoke_path`, `require_auth`, explicit `allow_unauthenticated` opt-out, `discovery_enabled`, optional command rules/policy hook); outputs: option that mounts Fiber RPC invoke routes and wires admin RPC command policy defaults.
+- `WithRPCTransport(cfg RPCTransportConfig) AdminOption` - Inputs: RPC transport config (`enabled`, optional `invoke_path`, `require_auth`, explicit `allow_unauthenticated` opt-out, `discovery_enabled`, optional command rules/policy hook); outputs: option that mounts Fiber RPC invoke routes and wires admin RPC command policy defaults. See `../docs/GUIDE_RPC.md`.
 - `TranslationExchangeCommandIDs() []string` - Outputs: canonical translation-exchange command ids for policy configuration.
 - `TranslationQueueCommandIDs() []string` - Outputs: canonical translation-queue command ids for policy configuration.
 - `WithTranslationProfile(profile TranslationProfile) AdminOption` - Inputs: profile (`none`, `core`, `core+exchange`, `core+queue`, `full`); outputs: option that applies productized translation defaults.
@@ -272,6 +272,8 @@ Quickstart defaults to inline command execution. To opt into queued execution, c
 - Unauthenticated RPC transport must be opted into explicitly with `allow_unauthenticated=true`.
 - Discovery route mounting is disabled by default (`discovery_enabled=false`).
 - Admin command RPC dispatch is deny-by-default until command rules are configured (`command_rules` / `commands.rpc.commands`).
+
+See `../docs/GUIDE_RPC.md` for the full RPC transport, command dispatch, and workflow RPC contract.
 
 ### Dev inline (default)
 ```go

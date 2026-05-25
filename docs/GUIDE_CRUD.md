@@ -4,6 +4,7 @@ This guide is the canonical wiring reference for panel CRUD resources, list
 DataGrid screens, and command actions attached to rows and bulk selection. For
 workflow/state-machine details, see `docs/GUIDE_WORKFLOW.md`. For full form
 generation and go-formgen customization details, see `docs/GUIDE_FORMGEN.md`.
+For RPC transport and custom page command dispatch, see `docs/GUIDE_RPC.md`.
 
 Use it when adding a new admin resource or when replacing custom list/action
 code with the shared panel contracts.
@@ -970,6 +971,11 @@ Execution flow:
    `CommandName` through the admin command bus.
 5. The client refreshes the grid or detail payload after success or structured
    domain failure.
+
+Panel action routes are the canonical transport for actions emitted by panel
+schemas. For custom page controls that dispatch directly through
+`admin.commands.dispatch`, use the RPC command runtime contract in
+`docs/GUIDE_RPC.md#client-command-runtime-wiring`.
 
 Use `SchemaActionBuilder` for row/detail action rendering. It understands
 `_action_state`, keeps disabled actions visible, formats structured failures,

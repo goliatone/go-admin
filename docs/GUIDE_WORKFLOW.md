@@ -8,6 +8,9 @@ Use it when adding a workflow to a panel, wiring CMS content lifecycle rules,
 loading workflow config from quickstart, debugging `_action_state`, or exposing
 workflow management APIs.
 
+For the shared RPC transport, command dispatch method, and workflow RPC method
+surface, see `docs/GUIDE_RPC.md`.
+
 ## Table Of Contents
 
 - [Core Model](#core-model)
@@ -462,7 +465,9 @@ sending `rollback_to_version` to `PUT /admin/api/workflows/:id`.
 RPC workflow authoring APIs are also available when the RPC transport is
 configured. They use the same runtime service and authoring store, with
 permissions such as `admin.workflows.read`, `admin.workflows.write`,
-`admin.workflows.bindings.read`, and `admin.workflows.bindings.write`.
+`admin.workflows.bindings.read`, and `admin.workflows.bindings.write`. See
+`docs/GUIDE_RPC.md#workflow-rpc-endpoints` for method names, transport setup,
+and discovery behavior.
 
 ## Persistence And Migrations
 

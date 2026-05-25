@@ -115,7 +115,8 @@ func (*PartnerToolsModule) Register(ctx admin.ModuleContext) error {
    Slugs must match `^[a-z][a-z0-9_-]{1,62}$`.
 2. Do not use reserved slugs.
    Reserved values are `admin`, `api`, `public`, `debug`, `health`, `rpc`,
-   `static`, and `assets`.
+   `static`, and `assets`. The `rpc` value is reserved for the shared RPC
+   transport; see `docs/GUIDE_RPC.md`.
 3. Keep route tables relative.
    Use route templates such as `/`, `/queue`, or `/jobs/:id`.
    Do not hardcode `/admin/...`, `/api/...`, or other host bases in the module
