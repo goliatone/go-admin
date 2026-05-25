@@ -3,10 +3,35 @@ package admin
 import (
 	"context"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
 	cmscontent "github.com/goliatone/go-cms/content"
+)
+
+const (
+	ContentTypeCapabilityKeyBlocks          = "blocks"
+	ContentTypeCapabilityKeyBlockTypes      = "block_types"
+	ContentTypeCapabilityKeyI18N            = "i18n"
+	ContentTypeCapabilityKeyLocalized       = "localized"
+	ContentTypeCapabilityKeyMenuLabel       = "menu_label"
+	ContentTypeCapabilityKeyNavigationLabel = "navigation_label"
+	ContentTypeCapabilityKeyPanelLabel      = "panel_label"
+	ContentTypeCapabilityKeyPanelPreset     = "panel_preset"
+	ContentTypeCapabilityKeyPanelSlug       = "panel_slug"
+	ContentTypeCapabilityKeyPanelTraits     = "panel_traits"
+	ContentTypeCapabilityKeyPermission      = "permission"
+	ContentTypeCapabilityKeyPermissions     = "permissions"
+	ContentTypeCapabilityKeySEO             = "seo"
+	ContentTypeCapabilityKeyTranslation     = "translation"
+	ContentTypeCapabilityKeyTranslations    = "translations"
+	ContentTypeCapabilityKeyTree            = "tree"
+	ContentTypeCapabilityKeyTreeView        = "tree_view"
+	ContentTypeCapabilityKeyUseSEO          = "use_seo"
+	ContentTypeCapabilityKeyWorkflow        = "workflow"
+	ContentTypeCapabilityKeyWorkflowID      = "workflow_id"
+	ContentTypeCapabilityKeyWorkflowKey     = "workflow_key"
 )
 
 // ContentTypeCapabilityContracts captures normalized capability payloads and
@@ -42,6 +67,26 @@ func NormalizeContentTypeCapabilities(capabilities map[string]any) (map[string]a
 // capabilities via the canonical go-cms implementation.
 func ValidateAndNormalizeContentTypeCapabilities(capabilities map[string]any) (map[string]any, error) {
 	return cmscontent.ValidateAndNormalizeContentTypeCapabilities(capabilities)
+}
+
+// ContentTypeCapabilityString returns the first non-empty string value for the
+// canonical capability keys, accepting snake_case, camelCase, and kebab-case
+// spellings for compatibility with legacy payloads.
+func ContentTypeCapabilityString(capabilities map[string]any, keys ...string) string {
+	return capabilityString(capabilities, keys...)
+}
+
+// ContentTypeCapabilityValue returns the first capability value for the
+// canonical capability keys, accepting snake_case, camelCase, and kebab-case
+// spellings for compatibility with legacy payloads.
+func ContentTypeCapabilityValue(capabilities map[string]any, keys ...string) (any, bool) {
+	return capabilityValue(capabilities, keys...)
+}
+
+// ContentTypeCapabilityValues returns all values found for the canonical
+// capability keys and their supported legacy spellings.
+func ContentTypeCapabilityValues(capabilities map[string]any, keys ...string) []any {
+	return capabilityValues(capabilities, keys...)
 }
 
 // BackfillContentTypeNavigationDefaults updates existing content types so
@@ -88,6 +133,141 @@ func convertCapabilityContracts(in cmscontent.ContentTypeCapabilityContracts) Co
 func normalizeContentTypeCapabilitiesInternal(capabilities map[string]any) (map[string]any, map[string]string, bool) {
 	contracts := cmscontent.ParseContentTypeCapabilityContracts(capabilities)
 	return contracts.Normalized, contracts.Validation, contracts.MigratedDeliveryMenu
+}
+
+func capabilityString(capabilities map[string]any, keys ...string) string {
+	if len(capabilities) == 0 {
+		return ""
+	}
+	for _, raw := range capabilityValues(capabilities, keys...) {
+		if value := capabilityStringValue(raw); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func capabilityStringValue(raw any) string {
+	switch value := raw.(type) {
+	case string:
+		return strings.TrimSpace(value)
+	case []string:
+		if len(value) == 0 {
+			return ""
+		}
+		return strings.TrimSpace(value[0])
+	case []any:
+		if len(value) == 0 {
+			return ""
+		}
+		return strings.TrimSpace(toString(value[0]))
+	case map[string]any:
+		keys := []string{"value", "name", "key", "slug", "id"}
+		for _, key := range keys {
+			if nested, ok := value[key]; ok {
+				if result := capabilityStringValue(nested); result != "" {
+					return result
+				}
+			}
+		}
+		return ""
+	}
+	return strings.TrimSpace(toString(raw))
+}
+
+func capabilityValue(capabilities map[string]any, keys ...string) (any, bool) {
+	if len(capabilities) == 0 {
+		return nil, false
+	}
+	for _, key := range keys {
+		for _, variant := range capabilityKeyVariants(key) {
+			if raw, ok := capabilities[variant]; ok {
+				return raw, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func capabilityValues(capabilities map[string]any, keys ...string) []any {
+	if len(capabilities) == 0 {
+		return nil
+	}
+	out := []any{}
+	seen := map[string]struct{}{}
+	for _, key := range keys {
+		for _, variant := range capabilityKeyVariants(key) {
+			if _, ok := seen[variant]; ok {
+				continue
+			}
+			seen[variant] = struct{}{}
+			if raw, ok := capabilities[variant]; ok {
+				out = append(out, raw)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func capabilityKeyVariants(key string) []string {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return nil
+	}
+	out := []string{}
+	appendVariant := func(variant string) {
+		variant = strings.TrimSpace(variant)
+		if variant == "" {
+			return
+		}
+		if slices.Contains(out, variant) {
+			return
+		}
+		out = append(out, variant)
+	}
+	appendVariant(key)
+	words := capabilityKeyWordsFromCanonical(key)
+	if len(words) == 0 {
+		return out
+	}
+	appendVariant(strings.Join(words, "_"))
+	appendVariant(lowerCamelCapabilityKey(words))
+	appendVariant(strings.Join(words, "-"))
+	return out
+}
+
+func capabilityKeyWordsFromCanonical(key string) []string {
+	key = strings.NewReplacer("-", "_", " ", "_", ".", "_").Replace(key)
+	rawWords := strings.Split(key, "_")
+	words := make([]string, 0, len(rawWords))
+	for _, word := range rawWords {
+		word = strings.ToLower(strings.TrimSpace(word))
+		if word != "" {
+			words = append(words, word)
+		}
+	}
+	return words
+}
+
+func lowerCamelCapabilityKey(words []string) string {
+	if len(words) == 0 {
+		return ""
+	}
+	var out strings.Builder
+	out.WriteString(words[0])
+	for _, word := range words[1:] {
+		if word == "" {
+			continue
+		}
+		out.WriteString(strings.ToUpper(word[:1]))
+		if len(word) > 1 {
+			out.WriteString(word[1:])
+		}
+	}
+	return out.String()
 }
 
 func normalizeStringListAny(raw any) []string {
