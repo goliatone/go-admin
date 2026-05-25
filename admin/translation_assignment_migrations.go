@@ -1,11 +1,12 @@
 package admin
 
 import (
-	admindata "github.com/goliatone/go-admin/data"
 	"io/fs"
+
+	admindata "github.com/goliatone/go-admin/data"
 )
 
-// GetTranslationAssignmentMigrationsFS returns queue assignment migrations from top-level data/sql/migrations.
+// GetTranslationAssignmentMigrationsFS returns the legacy queue assignment migration set.
 func GetTranslationAssignmentMigrationsFS() fs.FS {
 	return admindata.TranslationAssignmentMigrations()
 }
