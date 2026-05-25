@@ -110,7 +110,7 @@ func (a *GoCMSContentTypeAdapter) contentTypeByPanelSlug(ctx context.Context, sl
 		return nil, err
 	}
 	for _, ct := range types {
-		panelSlug := capabilityString(ct.Capabilities, "panel_slug")
+		panelSlug := capabilityString(ct.Capabilities, ContentTypeCapabilityKeyPanelSlug)
 		if panelSlug != "" && strings.EqualFold(panelSlug, slug) {
 			contentType := ct
 			return &contentType, nil
