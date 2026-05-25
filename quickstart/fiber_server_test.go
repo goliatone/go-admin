@@ -3,6 +3,7 @@ package quickstart
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -218,6 +219,70 @@ func TestNewFiberServerRoutesUnmatchedAdminUI404ThroughErrorHandler(t *testing.T
 	}
 	if got := string(body); got != "admin-ui-404" {
 		t.Fatalf("expected custom admin 404 body, got %q", got)
+	}
+}
+
+func TestNewFiberServerOwnedAdmin404UsesRouteMissDiagnostic(t *testing.T) {
+	cfg := admin.Config{
+		BasePath: "/admin",
+		Errors: admin.ErrorConfig{
+			DevMode:           true,
+			IncludeStackTrace: true,
+			InternalMessage:   "An unexpected error occurred",
+		},
+	}
+	var capturedErr error
+	server, r := NewFiberServer(
+		nil,
+		cfg,
+		nil,
+		true,
+		WithFiberLogger(false),
+		WithFiberErrorHandler(func(c *fiber.Ctx, err error) error {
+			capturedErr = err
+			return c.Status(http.StatusNotFound).SendString("admin-ui-404")
+		}),
+	)
+	r.Get("/admin/plain-miss", func(c gorouter.Context) error {
+		return c.Status(http.StatusNotFound).SendString("Not Found")
+	})
+
+	resp, err := server.WrappedRouter().Test(httptest.NewRequest(http.MethodGet, "/admin/plain-miss", nil), -1)
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer closeResponseBody(t, resp)
+	if resp.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("expected status 404, got %d body=%s", resp.StatusCode, string(body))
+	}
+
+	var routeMiss *fiberOwnedRouteMissError
+	if !errors.As(capturedErr, &routeMiss) {
+		t.Fatalf("expected owned route miss error, got %T %[1]v", capturedErr)
+	}
+	if routeMiss.StatusCode() != http.StatusNotFound {
+		t.Fatalf("expected route miss status 404, got %d", routeMiss.StatusCode())
+	}
+	devCtx := admin.NewErrorPresenter(cfg.Errors, mapFiberOwnedRouteMissError).BuildDevErrorContext(capturedErr, nil)
+	if devCtx == nil {
+		t.Fatal("expected developer context")
+	}
+	applySyntheticRouteMissDevContext(capturedErr, devCtx)
+	if devCtx.PrimarySource != nil {
+		t.Fatalf("synthetic route miss should not report primary source, got %+v", devCtx.PrimarySource)
+	}
+	if len(devCtx.StackFrames) != 0 {
+		t.Fatalf("synthetic route miss should not expose stack frames, got %d", len(devCtx.StackFrames))
+	}
+	if got := fmt.Sprint(devCtx.Metadata["classification"]); got != "route_miss" {
+		t.Fatalf("expected route_miss classification, got %q metadata=%+v", got, devCtx.Metadata)
+	}
+	if got := fmt.Sprint(devCtx.Metadata["path"]); got != "/admin/plain-miss" {
+		t.Fatalf("expected route miss path metadata, got %q metadata=%+v", got, devCtx.Metadata)
+	}
+	if got := fmt.Sprint(devCtx.Metadata["route_domain"]); got != "admin_ui" {
+		t.Fatalf("expected admin_ui route domain, got %q metadata=%+v", got, devCtx.Metadata)
 	}
 }
 

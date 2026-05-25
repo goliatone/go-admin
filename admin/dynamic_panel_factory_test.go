@@ -61,6 +61,24 @@ func TestDynamicPanelFactoryCreatesPageAndPostPanelsFromActiveContentTypes(t *te
 	}
 }
 
+func TestDynamicPanelNavigationAndBreadcrumbLabelsUseCapabilityOverrides(t *testing.T) {
+	contentType := &CMSContentType{
+		Name:         "Archive Event",
+		Slug:         "archive_event",
+		Capabilities: map[string]any{"panel_slug": "archive_event", "panel_label": "Events"},
+	}
+
+	if got := dynamicPanelNavigationLabel(contentType, "archive_event"); got != "Events" {
+		t.Fatalf("navigation label=%q, want Events", got)
+	}
+	if got := dynamicPanelBreadcrumbLabel(contentType, "archive_event"); got != "Events" {
+		t.Fatalf("breadcrumb label=%q, want Events", got)
+	}
+	if got := dynamicPanelNavigationLabel(&CMSContentType{Name: "Media Detail", Slug: "media_detail"}, "media-detail"); got != "Media Detail" {
+		t.Fatalf("hyphenated navigation label=%q, want Media Detail", got)
+	}
+}
+
 func TestDynamicPanelFactoryCreatesPostsPanelForBlogPostPanelSlug(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{})
 	factory := NewDynamicPanelFactory(adm)
@@ -727,6 +745,21 @@ func TestDynamicPanelFactoryDoesNotRewriteContentParentOnPathCollision(t *testin
 	}); err != nil {
 		t.Fatalf("add pages child: %v", err)
 	}
+	if err := adm.menuSvc.AddMenuItem(ctx, menuCode, MenuItem{
+		ID:       "legacy.pages.duplicate",
+		Type:     MenuItemTypeItem,
+		Label:    "Pages",
+		Menu:     menuCode,
+		Locale:   "en",
+		ParentID: contentID,
+		Target: map[string]any{
+			"type": "url",
+			"path": "/admin/content/pages",
+			"key":  "pages",
+		},
+	}); err != nil {
+		t.Fatalf("add duplicate pages child: %v", err)
+	}
 
 	factory := NewDynamicPanelFactory(adm,
 		WithDynamicPanelMenu("/admin", menuCode, contentID, "en"),
@@ -760,6 +793,9 @@ func TestDynamicPanelFactoryDoesNotRewriteContentParentOnPathCollision(t *testin
 	}
 	if toString(content.Target["key"]) != "content" {
 		t.Fatalf("expected content parent target key to remain content, got %+v", content.Target)
+	}
+	if _, ok := menuItemByID(menu.Items, "legacy.pages.duplicate"); ok {
+		t.Fatalf("expected duplicate pages child to be removed")
 	}
 	if hasSelfParent(menu.Items) {
 		t.Fatalf("expected no self-parent relationships after panel sync, got %+v", menu.Items)
