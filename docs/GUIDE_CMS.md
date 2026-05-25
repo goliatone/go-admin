@@ -494,6 +494,9 @@ Preview and draft access can be enabled with query flags on the management API:
 
 Content entry screens mount under `/admin/content/:panel` when you register
 `quickstart.RegisterContentEntryUIRoutes` (or the equivalent wiring in your app).
+These routes render create/edit forms through the go-admin/go-formgen pipeline;
+see `docs/GUIDE_FORMGEN.md` for schema conversion, UI schema overlays, component
+registration, and browser form parsing.
 Common route options:
 
 - `quickstart.WithContentEntryUIBasePath(...)`
@@ -542,6 +545,9 @@ finishes.
 The content-entry list columns are derived from panel `ListFields`, and filter
 metadata comes from panel `Filters`. When `Filters` are empty, the UI
 automatically falls back to list-field based filters.
+
+Form rendering is covered separately in `docs/GUIDE_FORMGEN.md`; this section is
+about list/detail DataGrid rendering and content-entry template context.
 
 List columns now support renderer metadata:
 
@@ -878,7 +884,10 @@ detail reads unchanged.
 ## 16. See Also
 
 - [Module Development Guide](GUIDE_MODULES.md) — Creating and registering modules.
-- [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) — Theming and templates.
+- [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) — Template and view engine customization.
+- [Theme Guide](GUIDE_THEME.md) — Admin go-theme wiring and public-site theme isolation.
+- [Form Generation Guide](GUIDE_FORMGEN.md) — Content forms, UI schema overlays, and form components.
+- [Search Guide](GUIDE_SEARCH.md) — Admin global search, public site search, and go-search adapter wiring.
 - [Block Editor Guide](GUIDE_BLOCK_EDITOR.md) — Block editor setup, drag/drop, icon picker, and custom icon tabs.
 - [Development Guide RFC Guardrails](GUIDE_DEVELOPMENT.md#10-rfc-contract-and-security-guardrails) — Core backend contract/security rules for async jobs, action ordering, and degraded supplemental payloads.
 - [CMS TDD](../CMS_TDD.md) — Technical design document for the CMS extension.

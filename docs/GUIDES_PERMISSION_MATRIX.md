@@ -28,6 +28,8 @@ This guide explains the `permission-matrix` form component used by Roles and oth
 ## 1. Architecture Overview
 
 `permission-matrix` is a custom go-formgen vanilla component registered in go-admin.
+For the general form generation pipeline, component registry, and UI schema
+overlay rules, see `GUIDE_FORMGEN.md`.
 
 At render time it:
 
@@ -198,6 +200,7 @@ Without relationship runtime initialization, the select still works as a plain `
 
 ## 10. See Also
 
+- `GUIDE_FORMGEN.md`
 - `GUIDE_MODULES.md`
 - `GUIDE_ROLES.md`
 - `GUIDE_VIEW_CUSTOMIZATION.md`

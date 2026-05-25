@@ -15,11 +15,11 @@ Use this document to standardize:
 
 Default workflow:
 
-1. Confirm the target behavior and affected package(s).
-2. Make the smallest structural change that solves the problem.
-3. Add or update tests close to the changed code.
-4. Run targeted tests first, then broader tests when possible.
-5. Update documentation/tasks when behavior or conventions changed.
+1.  Confirm the target behavior and affected package(s).
+2.  Make the smallest structural change that solves the problem.
+3.  Add or update tests close to the changed code.
+4.  Run targeted tests first, then broader tests when possible.
+5.  Update documentation/tasks when behavior or conventions changed.
 
 Principles:
 
@@ -42,6 +42,8 @@ Useful references:
 - `README.md`
 - `quickstart/README.md`
 - `docs/GUIDE_CRUD.md`
+- `docs/GUIDE_SEARCH.md`
+- `docs/GUIDE_THEME.md`
 - `docs/GUIDE_DEBUG_MODULE.md`
 - `docs/GUIDE_DEBUG_CLIENT.md`
 
@@ -49,11 +51,11 @@ Useful references:
 
 Typical loop:
 
-1. Identify code with `rg`.
-2. Implement change.
-3. `gofmt` changed Go files.
-4. Run focused tests first.
-5. Run broader package tests if dependencies allow.
+1.  Identify code with `rg`.
+2.  Implement change.
+3.  `gofmt` changed Go files.
+4.  Run focused tests first.
+5.  Run broader package tests if dependencies allow.
 
 Command examples:
 
@@ -92,12 +94,12 @@ Core wiring:
 
 For Fiber apps using `quickstart.NewFiberServer`:
 
-- A default Fiber -> `slog` request bridge is installed when:
+- A default Fiber -\> `slog` request bridge is installed when:
   - `cfg.Debug.Enabled == true`
   - `cfg.Debug.CaptureLogs == true`
 - Level mapping in the bridge:
-  - `ERROR` when handler returns error or status >= 500
-  - `WARN` when status >= 400
+  - `ERROR` when handler returns error or status \>= 500
+  - `WARN` when status \>= 400
   - `INFO` otherwise
 
 `slog` remains the debug-capture transport. Runtime library callsites should still emit through the DI logger path so both app logs and request logs converge in the Debug Console stream.
@@ -128,16 +130,16 @@ Use these controls when you need verbose CMS logs for debugging:
 
 Precedence:
 
-1. Runtime config override (`cms.runtime_logs` / `APP_CMS__RUNTIME_LOGS`).
-2. Test flag `-cms-test-logs` (test runs only).
-3. Default behavior (`false` in tests, `true` outside tests).
+1.  Runtime config override (`cms.runtime_logs` / `APP_CMS__RUNTIME_LOGS`).
+2.  Test flag `-cms-test-logs` (test runs only).
+3.  Default behavior (`false` in tests, `true` outside tests).
 
 Validation checklist per change:
 
-1. Changed files formatted (`gofmt`).
-2. Targeted tests pass.
-3. No unintended API/config contract changes.
-4. Docs updated for behavior or workflow changes.
+1.  Changed files formatted (`gofmt`).
+2.  Targeted tests pass.
+3.  No unintended API/config contract changes.
+4.  Docs updated for behavior or workflow changes.
 
 ## 7. Documentation and Task Hygiene
 
@@ -162,77 +164,77 @@ Avoid docs for:
 
 If Debug Console logs are missing:
 
-1. Verify `cfg.Debug.Enabled` and `cfg.Debug.CaptureLogs`.
-2. Verify debug module is registered.
-3. Verify `AttachDebugMiddleware` and `AttachDebugLogHandler` are called.
-4. Verify DI logger wiring is present (`Dependencies.Logger` / `Dependencies.LoggerProvider`) and runtime callsites are not bypassing it.
-5. Verify request logs reach `slog` bridge output, and app logs are emitted via DI logger (both should appear in one collector stream).
-6. Run focused bridge tests:
-   - `go test -mod=mod ./... -run 'TestAttachDebugLogHandler(WiresSlog|AvoidsDefaultDelegateRecursion|InstallsBridgeIdempotently)$|TestDebugFiberSlogMiddlewareEmitsLevelByResponse$|TestDebugLogCaptureIncludesFiberRequestsAndDILogs$'` (workdir: `quickstart`).
+1.  Verify `cfg.Debug.Enabled` and `cfg.Debug.CaptureLogs`.
+2.  Verify debug module is registered.
+3.  Verify `AttachDebugMiddleware` and `AttachDebugLogHandler` are called.
+4.  Verify DI logger wiring is present (`Dependencies.Logger` / `Dependencies.LoggerProvider`) and runtime callsites are not bypassing it.
+5.  Verify request logs reach `slog` bridge output, and app logs are emitted via DI logger (both should appear in one collector stream).
+6.  Run focused bridge tests:
+    - `go test -mod=mod ./... -run 'TestAttachDebugLogHandler(WiresSlog|AvoidsDefaultDelegateRecursion|InstallsBridgeIdempotently)$|TestDebugFiberSlogMiddlewareEmitsLevelByResponse$|TestDebugLogCaptureIncludesFiberRequestsAndDILogs$'` (workdir: `quickstart`).
 
 If Debug Console logs duplicate:
 
-1. Verify `AttachDebugLogHandler` is not wrapped multiple times by custom host code.
-2. Confirm idempotent bridge install test still passes:
-   - `go test -mod=mod ./... -run 'TestAttachDebugLogHandlerInstallsBridgeIdempotently$'` (workdir: `quickstart`).
-3. Verify only one request logging middleware is active for the same route stack.
+1.  Verify `AttachDebugLogHandler` is not wrapped multiple times by custom host code.
+2.  Confirm idempotent bridge install test still passes:
+    - `go test -mod=mod ./... -run 'TestAttachDebugLogHandlerInstallsBridgeIdempotently$'` (workdir: `quickstart`).
+3.  Verify only one request logging middleware is active for the same route stack.
 
 If tests fail outside changed scope:
 
-1. Record failing package and exact compiler/test error.
-2. Confirm your targeted tests for changed scope still pass.
-3. Report blockers before widening refactors.
+1.  Record failing package and exact compiler/test error.
+2.  Confirm your targeted tests for changed scope still pass.
+3.  Report blockers before widening refactors.
 
 If site runtime returns 404 with empty primary nav in persistent CMS:
 
-1. Check effective runtime/content channel pair in startup logs (`Site Environments: runtime=... content=...`).
-2. Verify local profile uses `site.runtime_env=dev` and `site.content_channel=default` (or your promoted target channel).
-3. Confirm seed/promoted data exists in that content channel (content types, contents, and `site.main` menu bindings/items).
-4. Enable strict mismatch detection in non-local runs: `site.environment_strict=true` (`APP_SITE__ENVIRONMENT_STRICT=true`).
+1.  Check effective runtime/content channel pair in startup logs (`Site Environments: runtime=... content=...`).
+2.  Verify local profile uses `site.runtime_env=dev` and `site.content_channel=default` (or your promoted target channel).
+3.  Confirm seed/promoted data exists in that content channel (content types, contents, and `site.main` menu bindings/items).
+4.  Enable strict mismatch detection in non-local runs: `site.environment_strict=true` (`APP_SITE__ENVIRONMENT_STRICT=true`).
 
 If admin content grids are empty while menus/locales still work:
 
-1. Inspect list requests in DevTools and confirm scoped channel is sent as `$channel` (or `%24channel` in encoded URLs).
-2. If requests send `channel=...`, verify the resource does not have a real `channel` field filter that could zero results.
-3. Prefer `admin.ContentChannelScopeQueryParam` in backend-generated query maps and template view context (`channel_query_key`).
+1.  Inspect list requests in DevTools and confirm scoped channel is sent as `$channel` (or `%24channel` in encoded URLs).
+2.  If requests send `channel=...`, verify the resource does not have a real `channel` field filter that could zero results.
+3.  Prefer `admin.ContentChannelScopeQueryParam` in backend-generated query maps and template view context (`channel_query_key`).
 
 If admin menu labels localize but clicks still open default-locale content:
 
-1. Ensure navigation is built through `quickstart.WithNav` / `quickstart.BuildNavItemsForPlacement` (not a custom renderer that only reads `target.path`).
-2. Quickstart nav link resolution contract:
-   - resolve menu with request locale from context (fallback: `cfg.DefaultLocale`)
-   - prefer localized `target.url` when present, then `target.path`/`target.name`
-   - propagate active scope in generated links via `?locale=...` and `?$channel=...` (`admin.ContentChannelScopeQueryParam`)
-3. If behavior diverges, turn on nav payload logging (`cfg.NavDebugLog=true`) and verify emitted `href` values include locale/scope query state.
+1.  Ensure navigation is built through `quickstart.WithNav` / `quickstart.BuildNavItemsForPlacement` (not a custom renderer that only reads `target.path`).
+2.  Quickstart nav link resolution contract:
+    - resolve menu with request locale from context (fallback: `cfg.DefaultLocale`)
+    - prefer localized `target.url` when present, then `target.path`/`target.name`
+    - propagate active scope in generated links via `?locale=...` and `?$channel=...` (`admin.ContentChannelScopeQueryParam`)
+3.  If behavior diverges, turn on nav payload logging (`cfg.NavDebugLog=true`) and verify emitted `href` values include locale/scope query state.
 
-If site menu links are locale-prefixed but final page URL drops locale prefix (for example `/es/...` -> `/...`):
+If site menu links are locale-prefixed but final page URL drops locale prefix (for example `/es/...` -\> `/...`):
 
-1. Confirm rendered menu href payload is localized (`context.main_menu.items[*].href` includes `/es/...`).
-2. Check site redirect policy:
-   - `site.enable_canonical_redirect=true|false`
-   - `site.canonical_redirect_mode=requested_locale_sticky|resolved_locale_canonical`
-3. For locale continuity with fallback content, set `site.canonical_redirect_mode=requested_locale_sticky`.
-4. Verify `site_locale` cookie is being set on localized requests (`Set-Cookie: site_locale=<locale>`); unprefixed stale links rely on this cookie to retain locale continuity.
-5. Keep `resolved_locale_canonical` only when cross-locale canonical redirects are intentional (for example strict canonical SEO policy).
-6. In `LocalePrefixMode=non_default`, confirm locale switcher EN links include `?locale=en`; this disambiguates explicit default-locale switches from cookie-driven fallback.
+1.  Confirm rendered menu href payload is localized (`context.main_menu.items[*].href` includes `/es/...`).
+2.  Check site redirect policy:
+    - `site.enable_canonical_redirect=true|false`
+    - `site.canonical_redirect_mode=requested_locale_sticky|resolved_locale_canonical`
+3.  For locale continuity with fallback content, set `site.canonical_redirect_mode=requested_locale_sticky`.
+4.  Verify `site_locale` cookie is being set on localized requests (`Set-Cookie: site_locale=<locale>`); unprefixed stale links rely on this cookie to retain locale continuity.
+5.  Keep `resolved_locale_canonical` only when cross-locale canonical redirects are intentional (for example strict canonical SEO policy).
+6.  In `LocalePrefixMode=non_default`, confirm locale switcher EN links include `?locale=en`; this disambiguates explicit default-locale switches from cookie-driven fallback.
 
 If `/` works but menu links like `/about` return `Cannot GET /about`:
 
-1. Treat this as a route registration issue, not an env/locale issue.
-2. Verify site catch-all route syntax for your adapter:
-   - Fiber expects `/*`
-   - HTTPRouter expects `/*path`
-3. Ensure host wiring uses `quickstart/site.RegisterSiteRoutes` from the current package version (adapter-aware catch-all handling).
+1.  Treat this as a route registration issue, not an env/locale issue.
+2.  Verify site catch-all route syntax for your adapter:
+    - Fiber expects `/*`
+    - HTTPRouter expects `/*path`
+3.  Ensure host wiring uses `quickstart/site.RegisterSiteRoutes` from the current package version (adapter-aware catch-all handling).
 
 ## 9. Definition of Done
 
 A change is done when:
 
-1. Behavior is correct and structural.
-2. Tests for changed behavior pass.
-3. Logging/observability implications are handled.
-4. Documentation is updated where needed.
-5. Open risks or unrelated blockers are clearly called out.
+1.  Behavior is correct and structural.
+2.  Tests for changed behavior pass.
+3.  Logging/observability implications are handled.
+4.  Documentation is updated where needed.
+5.  Open risks or unrelated blockers are clearly called out.
 
 ## 10. RFC: Contract and Security Guardrails
 

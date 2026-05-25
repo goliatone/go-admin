@@ -480,6 +480,9 @@ library and routes return feature-disabled errors.
 Content models should use media fields instead of plain text URL fields when
 the editor should choose media from the library:
 
+For the broader form generation pipeline, component registration, and schema
+metadata conventions, see `docs/GUIDE_FORMGEN.md`.
+
 ```go
 admin.Field{
     Name:  "primary_media_id",

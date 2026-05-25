@@ -3,7 +3,8 @@
 This is the canonical routing contract for `go-admin` hosts, built-in modules,
 and external modules. It covers route ownership, public-site fallback policy,
 grouped host routing, theme-scope isolation, and the release-time diagnostics
-required for rollout.
+required for rollout. For the full admin/public-site theme contract, see
+`docs/GUIDE_THEME.md`.
 
 ## Source of truth
 
@@ -187,6 +188,8 @@ Default behavior:
 - Enabled internal-ops paths such as `/healthz` and `/status` are added to the
   reserved set automatically when hosts provide them through
   `quicksite.SiteConfig.InternalOps`.
+- Public site search route ownership, API paths, and fallback interactions are
+  covered in `docs/GUIDE_SEARCH.md`.
 
 Operational rules:
 
@@ -245,6 +248,8 @@ admin, API, or system paths.
 ## Theme scope isolation
 
 Admin and public-site theme resolution are intentionally separate.
+See `docs/GUIDE_THEME.md` for provider wiring, payload shape, and validation
+checks.
 
 Use:
 
@@ -317,7 +322,7 @@ When migrating old shared theme wiring:
 4. Re-run admin/site theme isolation QA after the cutover.
 
 There is no deprecation bridge for `WithGoTheme(...)`; the clean-break API is
-`WithAdminTheme(...)`.
+`WithAdminTheme(...)`. See `docs/GUIDE_THEME.md#migration-notes`.
 
 ### Recommended QA after migration
 

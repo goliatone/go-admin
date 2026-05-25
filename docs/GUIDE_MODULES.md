@@ -16,6 +16,8 @@ This guide explains how to create, register, and integrate custom modules into g
 - i18n support via TranslatorAware interface
 - Startup validation and icon contribution hooks
 - Security patterns (auth, permissions, redaction)
+- Theme payload handoff for module views; see `GUIDE_THEME.md` for the full
+  admin/public-site theme contract
 
 ## Table of Contents
 
@@ -49,6 +51,10 @@ A module is a self-contained feature unit that extends go-admin functionality. M
 - Register search adapters
 - Define feature flag dependencies
 - Declare dependencies on other modules
+
+Search has its own contract split between admin global search, public site
+search, and panel list search. See `docs/GUIDE_SEARCH.md` before adding or
+replacing module search wiring.
 
 ### Module Interface
 
@@ -511,6 +517,9 @@ func (m *ProfileModule) WithMenuParent(parent string) *ProfileModule {
     return m
 }
 ```
+
+For deeper guidance on `FormFields(...)`, `FormSchema(...)`, go-formgen
+rendering, and custom form components, see `GUIDE_FORMGEN.md`.
 
 ### Repository Adapter Pattern
 
@@ -1475,7 +1484,7 @@ When `DebugConfig.ToolbarMode` is enabled, `CaptureViewContext` adds these varia
 
 **Using with Quickstart UI Routes:**
 
-The `quickstart.RegisterAdminUIRoutes` helper automatically calls `CaptureViewContext` via its `defaultUIViewContextBuilder`. Custom UI route builders should do the same, and should call `quickstart.WithNav(...)` so feature context keys (including `translation_capabilities`, `activity_enabled`, and `body_classes`) are present for template/sidebar gating:
+The `quickstart.RegisterAdminUIRoutes` helper automatically calls `CaptureViewContext` via its `defaultUIViewContextBuilder`. Custom UI route builders should do the same, and should call `quickstart.WithNav(...)` so feature context keys (including `translation_capabilities`, `activity_enabled`, and `body_classes`) are present for template/sidebar gating. Call `quickstart.WithThemeContext(...)` when the view should honor `?theme=` / `?variant=` preview overrides; see `GUIDE_THEME.md`.
 
 ```go
 // Custom view context builder with debug toolbar support
@@ -1498,7 +1507,7 @@ quickstart.RegisterAdminUIRoutes(router, cfg, adm, auth,
 
 **Manual Route Registration:**
 
-For routes registered outside the quickstart helpers, ensure `quickstart.WithNav(...)` and `CaptureViewContext` are called:
+For routes registered outside the quickstart helpers, ensure `quickstart.WithNav(...)` and `CaptureViewContext` are called. Add `quickstart.WithThemeContext(...)` when request query theme overrides should be supported:
 
 ```go
 router.Get("/admin/custom-page", authMiddleware(func(c router.Context) error {
@@ -2294,10 +2303,12 @@ quickstart.NewModuleRegistrar(
 
 ## See Also
 
-- [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) — Template and theme customization
+- [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) — Template customization and view engine layering
+- [Theme Guide](GUIDE_THEME.md) — Admin go-theme wiring, theme payloads, and public-site theme isolation
 - [Preferences Module Guide](GUIDE_MOD_PREFERENCES.md) — Detailed preferences behavior
 - [Media Module Guide](GUIDE_MODULE_MEDIA.md) — Media module configuration and delivery
 - [Activity Guide](GUIDE_ACTIVITY.md) — Activity module and widget integrations
+- [Search Guide](GUIDE_SEARCH.md) — Admin global search, public site search, and go-search adapters
 - [Debug Module Guide](GUIDE_DEBUG_MODULE.md) — Debug module configuration and APIs
 - [Routing Guide](GUIDE_ROUTING.md) — Module route ownership and mount policy
 - [Auth Guide](AUTH.md) — Authentication and authorization patterns

@@ -304,5 +304,6 @@ auth UI views by default).
 
 - Module gating: `docs/GUIDE_MODULES.md`
 - Debug module gating: `docs/GUIDE_DEBUG_MODULE.md`
+- Search gating and permissions: `docs/GUIDE_SEARCH.md`
 - Preferences gating: `docs/GUIDE_MOD_PREFERENCES.md`
 - Onboarding gating: `docs/GUIDE_ONBOARDING.md`

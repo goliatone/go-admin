@@ -1868,6 +1868,7 @@ cd pkg/client/assets && npm run build
 
 - [Debug Client Guide](GUIDE_DEBUG_CLIENT.md) - Frontend debug architecture, panel renderers, and adding application code
 - [Module Development Guide](GUIDE_MODULES.md) - General module patterns
-- [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) - Template and theme customization
+- [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) - Template and view engine customization
+- [Theme Guide](GUIDE_THEME.md) - Admin go-theme wiring and theme payloads
 - [Auth Guide](AUTH.md) - Authentication and authorization patterns
 - [DEBUG_SQL_BUG.md](../DEBUG_SQL_BUG.md) - SQL capture troubleshooting

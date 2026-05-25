@@ -2,13 +2,25 @@
 
 This guide is the canonical wiring reference for panel CRUD resources, list
 DataGrid screens, and command actions attached to rows and bulk selection. For
-workflow/state-machine details, see `docs/GUIDE_WORKFLOW.md`.
+workflow/state-machine details, see `docs/GUIDE_WORKFLOW.md`. For full form
+generation and go-formgen customization details, see `docs/GUIDE_FORMGEN.md`.
 
 Use it when adding a new admin resource or when replacing custom list/action
 code with the shared panel contracts.
 
+## What It Provides
+
+- Panel repository and adapter boundaries.
+- Canonical panel API shape.
+- DataGrid list, filter, search, export, and state contracts.
+- Detail, new, edit, and tab route expectations.
+- CRUD-facing form schema summary with a handoff to `docs/GUIDE_FORMGEN.md`.
+- Row, detail, bulk, and workflow action contracts.
+- Validation checklist and focused test commands.
+
 ## Table Of Contents
 
+- [What It Provides](#what-it-provides)
 - [Core Model](#core-model)
 - [Panel CRUD Backend](#panel-crud-backend)
 - [Repository List Contract](#repository-list-contract)
@@ -304,6 +316,9 @@ normalizer will keep correcting the browser state.
 
 Global search is separate from column filters. The search box only affects API
 requests when the DataGrid has a `search` behavior wired.
+
+This section covers panel list search only. For admin global search, public site
+search, and `go-search` integration, see `docs/GUIDE_SEARCH.md`.
 
 For panel APIs, prefer a search behavior that emits the canonical `search`
 parameter:
@@ -701,7 +716,9 @@ Default content detail rendering lives in
 templates can override blocks for identity/header/field presentation, but they
 should keep `resource_item` and `fields` as the contract.
 
-New and edit pages both render through go-formgen. The handler builds:
+New and edit pages both render through go-formgen. See
+`docs/GUIDE_FORMGEN.md` for renderer setup, UI schema overlays, custom
+components, and submission parsing. The handler builds:
 
 - `form_action`: collection create URL for new records, record update URL for
   edits.
@@ -807,24 +824,21 @@ For widget-backed tabs, keep this guide as the CRUD contract and use
 
 ## Form Generator Contract
 
-Panels can supply form schema two ways:
+This section is the CRUD-facing summary. The full form generation pipeline,
+component registry, UI schema overlay, template override, and parsing contract
+live in `docs/GUIDE_FORMGEN.md`.
+
+Panels supply form schema two ways:
 
 - `FormFields(...)`: concise panel fields converted into JSON Schema.
 - `FormSchema(...)`: explicit JSON Schema, optionally merged with
   `FormFields(...)`.
 
-`FormFields(...)` are converted by `buildFormSchema(...)`:
+Use `FormFields(...)` for flat CRUD forms. Use `FormSchema(...)` when the form
+needs nested objects, arrays, custom component configuration, relationship
+widgets, media value-mode control, or content-type authored schemas.
 
-- `Field.Required` contributes to `required`.
-- `Field.ReadOnly` emits `readOnly` and `read_only`.
-- `Field.Hidden` emits `x-hidden`.
-- `Field.Options` emits `x-options`.
-- common field types map to formgen widgets, for example `textarea`,
-  `media-picker`, `block`, `block-library-picker`, and `schema-editor`.
-
-Use `FormSchema(...)` when the form needs nested objects, arrays, custom
-widgets, custom component config, relationship widgets, or content-type authored
-schemas. Formgen metadata should stay on the schema properties, for example:
+Example:
 
 ```go
 builder.FormSchema(map[string]any{
@@ -840,7 +854,7 @@ builder.FormSchema(map[string]any{
             "title":            "Hero Image",
             "x-formgen:widget": "media-picker",
             "x-formgen": map[string]any{
-                "component.config": map[string]any{
+                "componentOptions": map[string]any{
                     "variant": "media-picker",
                 },
             },
@@ -849,9 +863,10 @@ builder.FormSchema(map[string]any{
 })
 ```
 
-Media fields receive admin media endpoint hints automatically when media
-configuration is available. Prefer those generated hints over hardcoding upload
-or resolve paths in templates.
+Common `FormFields(...)` types map to formgen widgets, including `textarea`,
+`media-picker`, `block`, `block-library-picker`, and `schema-editor`. Media
+fields receive admin media endpoint hints automatically when media configuration
+is available. Prefer generated hints over hardcoded upload or resolve paths.
 
 If a panel sets `Permissions.Create` and uses canonical UI routes, it must have
 a renderable form schema from `FormFields(...)` or `FormSchema(...)`; otherwise
@@ -891,6 +906,9 @@ values in repository code.
 For custom widgets, keep submitted values aligned with the schema type. If a
 widget posts JSON strings for arrays or objects, make sure the parser or
 repository normalizes those values before persistence.
+
+For the full rendering, overlay, component, and template customization flow, see
+`docs/GUIDE_FORMGEN.md`.
 
 ## Actions From DataGrid
 

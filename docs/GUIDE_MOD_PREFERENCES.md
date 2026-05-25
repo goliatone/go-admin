@@ -9,7 +9,8 @@ This guide explains how the Preferences module works in go-admin, what it provid
 - A resolver-based persistence contract (`PreferencesStore`) with an in-memory fallback.
 - API endpoints for self-service read/write of preferences, plus optional traces/versions for clients that request them.
 - Deterministic scope resolution: tenant/org from `AdminContext` (auth claims) first, then query params.
-- Theme selection and dashboard layout preferences integration.
+- Theme selection and dashboard layout preferences integration; see
+  `docs/GUIDE_THEME.md` for the full theme resolution contract.
 - Support for safe, namespaced UI preferences via `raw` keys (`ui.*`).
 
 ## Feature gate and permissions
@@ -78,6 +79,9 @@ These fields are **not** accepted by the API. Invalid JSON or disallowed keys re
 The Preferences form is generated from a JSON schema. By default, go-admin loads the embedded schema at
 `data/uischemas/preferences/schema.json`. To override it, point the Preferences module at a file path or a
 directory containing `schema.json`:
+
+For the general schema-driven form pipeline, go-formgen customization, and
+component metadata rules, see `docs/GUIDE_FORMGEN.md`.
 
 ```go
 mod := admin.NewPreferencesModule().
@@ -339,6 +343,8 @@ if err != nil {
 Theme resolution reads preferences when enabled:
 
 - `Admin.Theme(ctx)` merges config defaults with stored preferences and optional request overrides.
+- The supported theme preference keys are `theme` and `theme_variant`; see
+  `docs/GUIDE_THEME.md#preferences-and-request-overrides`.
 
 Dashboard layout persistence:
 
