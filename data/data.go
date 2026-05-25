@@ -19,13 +19,32 @@ func UISchemas() fs.FS {
 	return sub
 }
 
-// TranslationAssignmentMigrations returns queue assignment migrations rooted at sql/migrations.
+// TranslationAssignmentMigrations returns the legacy queue assignment migration set.
 func TranslationAssignmentMigrations() fs.FS {
-	sub, err := fs.Sub(embeddedFS, "sql/migrations")
-	if err != nil {
-		return embeddedFS
-	}
-	return sub
+	return migrationSubset(
+		"0001_translation_assignments.up.sql",
+		"0001_translation_assignments.down.sql",
+		"sqlite/0002_translation_assignments_active_unique.up.sql",
+		"sqlite/0002_translation_assignments_active_unique.down.sql",
+		"postgres/0002_translation_assignments_active_unique.up.sql",
+		"postgres/0002_translation_assignments_active_unique.down.sql",
+	)
+}
+
+// WorkflowRuntimeMigrations returns the workflow runtime migration set.
+func WorkflowRuntimeMigrations() fs.FS {
+	return migrationSubset(
+		"0003_workflows.up.sql",
+		"0003_workflows.down.sql",
+		"0005_workflow_revisions.up.sql",
+		"0005_workflow_revisions.down.sql",
+		"0006_workflow_authoring.up.sql",
+		"0006_workflow_authoring.down.sql",
+		"sqlite/0004_workflow_bindings_active_unique.up.sql",
+		"sqlite/0004_workflow_bindings_active_unique.down.sql",
+		"postgres/0004_workflow_bindings_active_unique.up.sql",
+		"postgres/0004_workflow_bindings_active_unique.down.sql",
+	)
 }
 
 func migrationSubset(paths ...string) fs.FS {
@@ -60,6 +79,10 @@ func TranslationFlowMigrations() fs.FS {
 		"sqlite/0008_translation_flow_active_unique.down.sql",
 		"postgres/0008_translation_flow_pg_features.up.sql",
 		"postgres/0008_translation_flow_pg_features.down.sql",
+		"postgres/0009_translation_exchange_runtime.up.sql",
+		"postgres/0009_translation_exchange_runtime.down.sql",
+		"postgres/0010_translation_flow_admin_fields.up.sql",
+		"postgres/0010_translation_flow_admin_fields.down.sql",
 	)
 }
 
