@@ -7406,7 +7406,7 @@ WARNING: This link could potentially be dangerous`)) {
   reconnecting: "reconnecting",
   error: "error"
 }, Ie = ne("terminal", {
-  size: "20px",
+  size: "var(--debug-repl-overlay-icon-size, 48px)",
   extraClass: "debug-repl__overlay-icon"
 }), He = '<span class="debug-repl__overlay-text">Session not connected. Click the button below to start a terminal session.</span>', Fe = `<button class="debug-repl__overlay-btn" data-overlay-connect>${ne("connect", { size: "14px" })} Connect</button>`, ze = class {
   constructor(A) {
@@ -7535,4 +7535,4 @@ export {
   ze as t
 };
 
-//# sourceMappingURL=repl-panel-DGamLeld.js.map
+//# sourceMappingURL=repl-panel-TBK_l2hR.js.map

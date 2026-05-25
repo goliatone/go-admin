@@ -2,7 +2,7 @@ import { escapeHTML as h } from "../shared/html.js";
 import { httpRequest as R } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as M } from "./shared/path-helpers.js";
 import { S as I, b as m, c as A, d as $, f as H, h as D, l as O, s as j, u as F, v as G, w as S, x as B, y as N } from "../chunks/builtin-panels-Ci6_J75P.js";
-import { t as _ } from "../chunks/repl-panel-DGamLeld.js";
+import { t as _ } from "../chunks/repl-panel-TBK_l2hR.js";
 import { i as Q } from "../chunks/icons-munwu0_3.js";
 import { C as p, T as c, a as k, b as Y, c as ht, d as K, f as U, g as J, h as W, i as pt, l as b, m as bt, n as C, o as u, p as V, s as E, u as w, w as X, y as Z } from "../chunks/server-definitions-_wj2pe1k.js";
 var tt = `
