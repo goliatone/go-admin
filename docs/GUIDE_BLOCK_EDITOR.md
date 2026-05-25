@@ -1,6 +1,6 @@
 # Block Editor Development Guide
 
-This guide explains how to use and configure the block editor component in `go-admin`. It covers setup, configuration options, drag/drop functionality, validation, schema versioning, and accessibility features.
+This guide explains how to use and configure the block editor component in `go-admin`. It covers setup, configuration options, drag/drop functionality, validation, schema versioning, accessibility features, and related Content Type Builder icon behavior.
 
 ## What it provides
 
@@ -11,7 +11,7 @@ This guide explains how to use and configure the block editor component in `go-a
 - **Conflict Detection**: Compare embedded blocks with legacy block instances.
 - **Keyboard Accessibility**: Full keyboard navigation and screen reader announcements.
 - **Cross-Editor Drag**: Transfer blocks between separate block editors.
-- **Workflow Publishing**: Block definitions use workflow transitions (publish/deprecate) when the Content Type Builder module is enabled.
+- **Content Type Builder Integration**: Content Type Builder block definitions can use workflow transitions (publish/deprecate) and shared icon picker UI when that module is enabled.
 
 ## Table of Contents
 
@@ -94,25 +94,39 @@ The block editor requires a specific HTML structure:
 </div>
 ```
 
-### Required Data Attributes
+### Minimal Data Attributes
+
+The client initializer requires only a root element, a block list, and a hidden output input:
 
 | Attribute | Element | Description |
 | --------- | ------- | ----------- |
 | `data-block-editor` | Container | Marks the root block editor element |
-| `data-block-field` | Container | Base field name for serialization |
-| `data-block-sortable` | Container | Enable drag/drop reordering |
 | `data-block-list` | Div | Container for rendered block items |
 | `data-block-output` | Input | Hidden field for serialized JSON |
+
+### Optional Data Attributes
+
+| Attribute | Element | Description |
+| --------- | ------- | ----------- |
+| `data-block-field` | Container | Base field name for generated input names; falls back to output input `name` |
+| `data-block-sortable` | Container | Enable drag/drop reordering when `true` |
 | `data-block-add-select` | Select | Dropdown for block type selection |
 | `data-block-add` | Button | Trigger to add selected block |
 | `data-block-empty` | Element | Empty state message (auto-hidden) |
 | `data-block-template` | Template | Block type definition |
 | `data-block-type` | Template | Unique block type identifier |
 | `data-block-label` | Template | Human-readable block name |
+| `data-block-icon` | Template | Header icon text for the rendered block instance |
+| `data-block-collapsed` | Template | Initial collapsed state when `true` |
+| `data-block-schema-version` | Template | Explicit schema version for new blocks |
+| `data-block-required-fields` | Template | Comma-separated required field names |
+| `data-block-init="manual"` | Container | Skip auto-initialization; call `initBlockEditor(root)` yourself |
+| `data-block-library-picker="true"` | Container | Exclude library picker roots from block editor auto-init |
+| `data-block-legacy` | Container | Legacy blocks JSON used for conflict detection |
 
 ### Server-Side Registration
 
-Register the block editor component with the form generator:
+Register the block editor component with the go-formgen vanilla component registry:
 
 For the full go-admin/go-formgen pipeline, component registry behavior, and UI
 schema overlay rules, see `GUIDE_FORMGEN.md`.
@@ -120,18 +134,52 @@ schema overlay rules, see `GUIDE_FORMGEN.md`.
 ```go
 import (
     "github.com/goliatone/go-admin/admin"
+    "github.com/goliatone/go-admin/quickstart"
     "github.com/goliatone/go-formgen/pkg/renderers/vanilla/components"
 )
 
-// Register the block editor component
-components.Register("block", admin.BlockEditorDescriptor("/admin"))
+registry := components.New()
+registry.MustRegister("block", admin.BlockEditorDescriptor("/admin"))
+
+formgen, err := quickstart.NewFormGenerator(
+    openapiFS,
+    templatesFS,
+    quickstart.WithComponentRegistryMergeDefaults(registry),
+)
 ```
+
+Internal Content Type Builder form generators already register the block editor through
+`admin.NewFormgenSchemaValidatorWithAPIBase(...)`, alongside `schema-editor`,
+`block-library-picker`, and `permission-matrix`.
+
+### Server-Rendered Definitions
+
+When using the `block` go-formgen component, `admin/block_editor.go` derives
+templates from `model.Field.Nested`. It also supports array item definitions via
+`field.Items.Nested` when candidates contain a `_type` discriminator or a
+`UIHints["blockType"]` value.
+
+For each block definition:
+
+- Type comes from `UIHints["blockType"]`, `UIHints["type"]`, `Metadata["block.type"]`, nested `_type`, or the field name.
+- Label comes from the field label, then `UIHints["label"]` when present.
+- Icon comes from `UIHints["icon"]`.
+- Initial collapsed state comes from `UIHints["collapsed"]`.
+- Schema version comes from metadata keys such as `schema_version`, `schema.version`, `schemaVersion`, or nested `_schema`.
+
+The server template emits `data-block-template`, `data-block-type`, `data-block-label`,
+`data-block-icon`, `data-block-collapsed`, and `data-block-schema-version`. It does
+not currently emit `data-block-required-fields`; required validation must be passed
+through `data-component-config.requiredFields` or manually-authored template
+attributes.
 
 ---
 
 ## 3. Configuration Options
 
-Configuration is passed via the `data-component-config` attribute as JSON:
+Configuration is passed via the nearest `data-component-config` attribute as JSON.
+In server-rendered go-formgen output this is usually placed directly on the
+`data-block-editor` root:
 
 ```html
 <div data-block-editor="true" data-component-config='{
@@ -249,9 +297,10 @@ Or per-template:
 
 ### How Version Resolution Works
 
-1. Check `data-block-schema-version` on the template.
-2. Fall back to config `schemaVersionPattern` with `{type}` replaced.
-3. Default to `{type}@v1.0.0`.
+1. Preserve an existing block value's `_schema` when editing serialized data.
+2. Check `data-block-schema-version` on the template.
+3. Fall back to config `schemaVersionPattern` with `{type}` replaced.
+4. Default to `{type}@v1.0.0`.
 
 ---
 
@@ -281,10 +330,11 @@ Or per-template:
 
 ### Validation Behavior
 
-- Validation runs on every input change when `validateOnInput: true`.
+- Validation runs on every sync when `validateOnInput: true`, including add, input, change, reorder, removal, and submit sync.
 - Invalid blocks are marked with `.block-item--invalid` class.
 - An error badge appears in the block header showing error count.
 - Individual fields display error messages below them.
+- Required fields get `data-block-required="true"` and a visual asterisk when the field has an associated label.
 
 ### Validation UI Classes
 
@@ -293,6 +343,7 @@ Or per-template:
 | `.block-item--invalid` | Block container with validation errors |
 | `.block-error-badge` | Error count badge in header |
 | `.block-field-error` | Field-level error message |
+| `.block-required-indicator` | Required field asterisk appended to labels |
 
 ### Programmatic Validation Check
 
@@ -380,19 +431,20 @@ All drag and reorder operations are announced via an ARIA live region:
 
 ## 9. CSS Styling
 
-### Required CSS Import
+### CSS Source
 
-Include the block editor styles in your build:
+The component source styles live at `pkg/client/assets/src/styles/block-editor.css`.
+Use this file when bundling a host-specific admin stylesheet or when adding the
+block editor styles to the client asset build.
 
 ```css
-@import 'src/styles/block-editor.css';
+@import './src/styles/block-editor.css';
 ```
 
-Or link directly:
-
-```html
-<link rel="stylesheet" href="/assets/dist/styles/block-editor.css">
-```
+There is not currently a standalone generated file at
+`/assets/dist/styles/block-editor.css`. The block editor descriptor emits the JS
+module at `/assets/dist/formgen/block_editor.js`; CSS must be included by the
+host page or bundled into an existing stylesheet.
 
 ### Key CSS Classes
 
@@ -415,7 +467,10 @@ Animations are disabled when `prefers-reduced-motion: reduce` is set:
 @media (prefers-reduced-motion: reduce) {
     [data-block-item],
     .block-drop-indicator,
-    .block-error-badge {
+    .block-error-badge,
+    .block-field-error,
+    .block-conflict-report,
+    .picker-popover {
         animation: none;
         transition: none;
     }
@@ -431,14 +486,48 @@ Animations are disabled when `prefers-reduced-motion: reduce` is set:
 Initialize block editors manually:
 
 ```javascript
-import { initBlockEditors } from './formgen/block_editor';
+import {
+  initBlockEditor,
+  initBlockEditors,
+  markRequiredFields,
+  registerBlockTemplate,
+  refreshBlockTemplateRegistry,
+} from './formgen/block_editor';
 
 // Initialize all block editors in document
 initBlockEditors();
 
 // Initialize within a specific scope
 initBlockEditors(document.querySelector('#my-form'));
+
+const root = document.querySelector('[data-block-editor]');
+if (!root) throw new Error('block editor root not found');
+
+// Add a dynamic template before initialization.
+registerBlockTemplate(root, {
+  type: 'cta',
+  label: 'Call to Action',
+  icon: 'megaphone',
+  schemaVersion: 'cta@v1.0.0',
+  requiredFields: ['title', 'url'],
+  html: '<label>Title <input name="title"></label><label>URL <input name="url"></label>',
+});
+
+// Initialize one root, including data-block-init="manual" roots.
+initBlockEditor(root);
+
+// Advanced: re-read live template elements after direct DOM edits.
+// This does not rebuild the add-select options.
+refreshBlockTemplateRegistry(root);
+
+// Advanced: mark required fields in a custom block body.
+const blockBody = root.querySelector('[data-block-body]');
+if (blockBody) markRequiredFields(blockBody, ['title', 'url']);
 ```
+
+`initBlockEditors()` automatically scans `[data-component="block"]` and
+`[data-block-editor]`, but skips roots with `data-block-init="manual"` or
+`data-block-library-picker="true"`.
 
 ### Block Item Structure
 
@@ -448,7 +537,6 @@ Each rendered block has this structure:
 <div data-block-item="true"
      data-block-type="text"
      data-block-schema="text@v1.0.0"
-     data-block-collapsed="false"
      data-block-valid="true"
      draggable="true">
     <div data-block-header="true" tabindex="0" role="button">
@@ -458,10 +546,18 @@ Each rendered block has this structure:
     <div data-block-body="true">
         <!-- Block fields from template -->
     </div>
-    <input type="hidden" name="_type" value="text" data-block-type-input="true">
-    <input type="hidden" name="_schema" value="text@v1.0.0" data-block-schema-input="true">
+    <input type="hidden" name="_type" value="text" data-block-type-input="true" data-block-ignore="true">
+    <input type="hidden" name="_schema" value="text@v1.0.0" data-block-schema-input="true" data-block-ignore="true">
 </div>
 ```
+
+Block fields are renamed during synchronization using
+`data-block-field`/output input `name` as the base, for example
+`blocks[0][title]`. The original field name is retained in `data-block-field-name`
+and used for JSON serialization.
+
+`draggable="true"` is present only when sorting is enabled. `data-block-collapsed`
+is set when a block is initially collapsed or after the user toggles collapse.
 
 ### Output Format
 
@@ -487,7 +583,10 @@ The hidden output field contains JSON:
 
 ## 11. Icon Picker
 
-The block editor, block library, content type editor, and layout editor all use a shared icon picker component for selecting icons and emoji. The picker is extensible — projects can register custom icon tabs to add their own icon sets.
+The Content Type Builder block editor panel, block library, content type editor,
+and layout editor all use a shared icon picker component for selecting icons and
+emoji. The picker is extensible — projects can register custom icon tabs to add
+their own icon sets.
 
 ### Custom Icon Uploads (Not Supported)
 
@@ -495,25 +594,28 @@ The icon picker does not include a file upload option. Supporting uploads would 
 
 ### Built-in Tabs
 
-The picker ships with two tabs:
+The picker ships with three tabs:
 
 | Tab | Content | Storage Format |
 | --- | ------- | -------------- |
+| **Sidebar** | Iconoir sidebar/navigation icons grouped by content, objects, people, business, media, communication, system, and misc categories | Key string (e.g. `"page"`) |
 | **Emoji** | ~200 curated emoji in 8 categories (smileys, people, animals, food, travel, activities, objects, symbols) | Unicode character (e.g. `"📰"`) |
 | **Icons** | ~30 SVG icons from the field type registry (text, number, date, media, etc.) | Key string (e.g. `"file-text"`) |
 
 ### How Icons are Stored
 
-Icons are stored as plain strings. Emoji stores the unicode character directly (`"📰"`). SVG icons store a key (`"file-text"`). Custom icons store whatever value the tab's entries define. At display time, `resolveIcon(value)` converts the stored string to renderable HTML.
+Icons are stored as plain strings. Emoji stores the unicode character directly (`"📰"`). SVG icons store a key (`"file-text"`). Custom icons store whatever value the tab's entries define. In Content Type Builder surfaces, `resolveIcon(value)` converts the stored string to renderable HTML.
+
+The formgen block editor itself currently renders `data-block-icon` as text in the block header. Use short text, an emoji, or another plain string that is acceptable as direct text content there.
 
 ### Resolution Order
 
 `resolveIcon(value)` checks in this order:
 
-1. Empty string → returns empty
-2. Built-in SVG icon key match (`iconForKey()`) → returns SVG markup
-3. Registered custom tab entry match → returns `entry.display`
-4. Passthrough → returns the value itself (assumed emoji)
+1. Empty string -> returns empty
+2. Built-in SVG icon key match (`iconForKey()`) -> returns SVG markup
+3. Registered tab entry match, including built-in Sidebar/Emoji/Icons tabs and custom tabs -> returns `entry.display`
+4. Passthrough -> returns escaped text, typically an emoji or plain label
 
 ### Registering a Custom Icon Tab
 
@@ -557,7 +659,7 @@ const lucideTab: IconTab = {
 registerIconTab(lucideTab);
 ```
 
-After registration, the "Lucide" tab appears in every icon picker popover alongside Emoji and Icons. When a user selects `lucide:home`, the string `"lucide:home"` is stored. Wherever that icon is displayed (block list, field cards, etc.), `resolveIcon('lucide:home')` returns the SVG HTML from the registered entry.
+After registration, the "Lucide" tab appears in every icon picker popover alongside Sidebar, Emoji, and Icons. When a user selects `lucide:home`, the string `"lucide:home"` is stored. In surfaces that call `resolveIcon('lucide:home')`, the registered SVG HTML is returned.
 
 ### Loading Icons Dynamically
 
@@ -613,13 +715,15 @@ registerIconTab({
 
 ### Removing a Built-in Tab
 
-To remove the Icons tab entirely (keeping only emoji and any custom tabs):
+To remove the Icons tab entirely:
 
 ```typescript
 import { unregisterIconTab } from './content-type-builder';
 
 unregisterIconTab('icons');
 ```
+
+To remove the Sidebar tab, unregister `iconoir`.
 
 ### IconEntry Interface
 
@@ -689,7 +793,7 @@ The icon picker trigger replaces the plain text `<input>` in these surfaces:
 | File | Description |
 | ---- | ----------- |
 | `content-type-builder/shared/icon-picker.ts` | Registry, trigger, popover, events |
-| `content-type-builder/shared/icon-picker-data.ts` | Curated emoji data and SVG icon keys |
+| `content-type-builder/shared/icon-picker-data.ts` | Curated emoji and built-in icon tab data |
 
 ---
 
@@ -727,7 +831,7 @@ The icon picker trigger replaces the plain text `<input>` in these surfaces:
 | `pkg/client/templates/formgen/vanilla/templates/components/block.tmpl` | HTML template |
 | `admin/cms_blocks.go` | Block parsing and migration utilities |
 | `pkg/client/assets/src/content-type-builder/shared/icon-picker.ts` | Shared icon picker component |
-| `pkg/client/assets/src/content-type-builder/shared/icon-picker-data.ts` | Emoji and SVG icon data |
+| `pkg/client/assets/src/content-type-builder/shared/icon-picker-data.ts` | Curated emoji and built-in icon tab data |
 
 ---
 
@@ -812,31 +916,46 @@ The icon picker trigger replaces the plain text `<input>` in these surfaces:
 ### Server-Side Handler
 
 ```go
+import "encoding/json"
+
 func handlePageCreate(c router.Context) error {
     var payload struct {
-        Title  string           `json:"title"`
-        Blocks []map[string]any `json:"blocks"`
+        Title  string `form:"title"`
+        Blocks string `form:"blocks"`
     }
 
     if err := c.Bind(&payload); err != nil {
         return err
     }
 
-    // Blocks are already parsed as an array of objects
-    for _, block := range payload.Blocks {
-        blockType := block["_type"].(string)
-        schemaVersion := block["_schema"].(string)
+    var blocks []map[string]any
+    if payload.Blocks != "" {
+        if err := json.Unmarshal([]byte(payload.Blocks), &blocks); err != nil {
+            return err
+        }
+    }
+
+    for _, block := range blocks {
+        blockType, _ := block["_type"].(string)
+        schemaVersion, _ := block["_schema"].(string)
         // Process each block...
+        _ = blockType
+        _ = schemaVersion
     }
 
     return c.JSON(200, map[string]any{"success": true})
 }
 ```
 
+The existing CMS helpers already handle both decoded arrays and string-encoded
+embedded block payloads. For custom form handlers, remember that normal HTML form
+submission sends the hidden `data-block-output` value as a string.
+
 ---
 
 ## 15. See Also
 
+- [Formgen Guide](GUIDE_FORMGEN.md) - go-admin/go-formgen pipeline, component registration, and UI schema overlays.
 - [CMS Module Development Guide](GUIDE_CMS.md) - Content management and block storage.
 - [View Customization Guide](GUIDE_VIEW_CUSTOMIZATION.md) - Template and view engine customization.
 - [Theme Guide](GUIDE_THEME.md) - Admin go-theme wiring and theme payloads.
