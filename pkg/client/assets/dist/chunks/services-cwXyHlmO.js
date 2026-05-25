@@ -2148,15 +2148,15 @@ function Ce(t, e) {
 }
 function Le(t) {
   if (!t || typeof t != "object") return;
-  const e = t, i = typeof e.accepted == "boolean" ? e.accepted : void 0, s = nt(e.mode), r = String(e.command_id || e.commandId || "").trim() || void 0, n = String(e.dispatch_id || e.dispatchId || "").trim() || void 0, o = String(e.correlation_id || e.correlationId || "").trim() || void 0, a = e.enqueued_at || e.enqueuedAt, l = a == null ? void 0 : String(a).trim() || void 0;
-  if (!(i === void 0 && !s && !r && !n && !o && !l))
+  const e = t, i = e.accepted ?? e.Accepted, s = typeof i == "boolean" ? i : void 0, r = nt(e.mode ?? e.Mode), n = String(e.command_id || e.commandId || e.CommandID || "").trim() || void 0, o = String(e.dispatch_id || e.dispatchId || e.DispatchID || "").trim() || void 0, a = String(e.correlation_id || e.correlationId || e.CorrelationID || "").trim() || void 0, l = e.enqueued_at || e.enqueuedAt || e.EnqueuedAt, d = l == null ? void 0 : String(l).trim() || void 0;
+  if (!(s === void 0 && !r && !n && !o && !a && !d))
     return {
-      accepted: i,
-      mode: s,
-      commandId: r,
-      dispatchId: n,
-      correlationId: o,
-      enqueuedAt: l
+      accepted: s,
+      mode: r,
+      commandId: n,
+      dispatchId: o,
+      correlationId: a,
+      enqueuedAt: d
     };
 }
 var ke = class {
@@ -5707,4 +5707,4 @@ export {
   Qt as zt
 };
 
-//# sourceMappingURL=services-Bdqjqkck.js.map
+//# sourceMappingURL=services-cwXyHlmO.js.map

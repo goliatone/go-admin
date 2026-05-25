@@ -17,6 +17,7 @@ const { JSDOM } = await loadJSDOM();
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const syntaxHighlightSourcePath = path.resolve(testFileDir, '../src/debug/syntax-highlight.ts');
 const debugPanelSourcePath = path.resolve(testFileDir, '../src/debug/debug-panel.ts');
+const debugReplPanelSourcePath = path.resolve(testFileDir, '../src/debug/repl/repl-panel.ts');
 const debugConsoleStylesPath = path.resolve(testFileDir, '../src/styles/debug/console.css');
 
 function setGlobals(win) {
@@ -300,6 +301,15 @@ test('debug Doctor and Permissions rich panels render icon markup without review
   assert.doesNotMatch(permissionsHTML, />\s*\?\s*</);
 });
 
+test('debug REPL overlay terminal icon uses stylesheet-controlled sizing', () => {
+  const replSource = fs.readFileSync(debugReplPanelSourcePath, 'utf8');
+  const styleText = fs.readFileSync(debugConsoleStylesPath, 'utf8');
+
+  assert.match(replSource, /size:\s*'var\(--debug-repl-overlay-icon-size,\s*48px\)'/);
+  assert.doesNotMatch(replSource, /replOverlayIcon[\s\S]*size:\s*'20px'/);
+  assert.match(styleText, /\.debug-repl__overlay-icon\s*\{[\s\S]*--debug-repl-overlay-icon-size:\s*48px;/);
+});
+
 test('debug panel restores a valid active panel from same-tab storage after hydration', async () => {
   const dom = createDebugDOM();
   setGlobals(dom.window);
@@ -549,6 +559,12 @@ test('debug panel prefers found server panel order over local panel order', asyn
   await flushMicrotasks();
 
   assert.deepEqual(debugTabOrder(dom.window.document), ['config', 'template', 'sql', 'sessions']);
+  assert.deepEqual(JSON.parse(dom.window.localStorage.getItem('debug-console-panel-order')), [
+    'config',
+    'template',
+    'sql',
+    'sessions',
+  ]);
 });
 
 test('debug panel falls back to local panel order when server preference is unavailable', async () => {
@@ -678,6 +694,69 @@ test('debug panel attempts server panel order persistence after Sortable drag en
   const save = requests.find((request) => request.method === 'PUT' && request.url.endsWith('/api/preferences/panel-order'));
   assert.ok(save, `expected server panel-order save request, got ${JSON.stringify(requests)}`);
   assert.deepEqual(JSON.parse(save.body).panel_order, ['config', 'template', 'sql', 'sessions']);
+});
+
+test('debug panel re-renders content when the active dynamic panel is unregistered', async (t) => {
+  const panelID = 'ephemeral-panel';
+  debugModule.panelRegistry.unregister(panelID);
+  t.after(() => debugModule.panelRegistry.unregister(panelID));
+  debugModule.panelRegistry.register({
+    id: panelID,
+    label: 'Ephemeral',
+    snapshotKey: panelID,
+    showFilters: false,
+    render: () => '<div data-ephemeral-panel>Ephemeral Active</div>',
+  });
+
+  const dom = createDebugDOM();
+  setGlobals(dom.window);
+  globalThis.WebSocket = OpenWebSocket;
+  dom.window.WebSocket = OpenWebSocket;
+  const consoleEl = dom.window.document.querySelector('[data-debug-console]');
+  consoleEl.dataset.panels = JSON.stringify([panelID, 'template', 'sql', 'config']);
+  dom.window.sessionStorage.setItem('debug-console-active-panel', panelID);
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/panels')) {
+      return new Response(JSON.stringify({ panels: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    if (String(input).endsWith('/api/snapshot')) {
+      return new Response(JSON.stringify({
+        [panelID]: { ok: true },
+        template: { request_id: 'req-dynamic' },
+        sql: [],
+        config: {},
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response(JSON.stringify({ sessions: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  debugModule.initDebugPanel(consoleEl);
+  await flushMicrotasks();
+
+  assert.equal(
+    dom.window.document.querySelector('[data-debug-tabs] .debug-tab--active')?.dataset.panel,
+    panelID,
+  );
+  assert.match(dom.window.document.querySelector('[data-debug-panel]').innerHTML, /Ephemeral Active/);
+
+  debugModule.panelRegistry.unregister(panelID);
+  await flushMicrotasks();
+
+  assert.equal(
+    dom.window.document.querySelector('[data-debug-tabs] .debug-tab--active')?.dataset.panel,
+    'template',
+  );
+  assert.doesNotMatch(dom.window.document.querySelector('[data-debug-panel]').innerHTML, /Ephemeral Active/);
+  assert.match(dom.window.document.querySelector('[data-debug-panel]').innerHTML, /req-dynamic|Template Context/);
 });
 
 test('debug panel restores built-in Site Cache when it remains enabled', async () => {

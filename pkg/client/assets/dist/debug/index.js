@@ -4,7 +4,7 @@ import { t as z } from "../chunks/sortable.esm-CnodmHaR.js";
 import { C as He, T as ze, _ as Qe, a as Xe, b as Q, c as X, d as Y, f as G, g as Ye, h as Ge, i as Ve, l as V, m as Ze, n as We, o as et, p as P, r as tt, s as Z, t as st, u as W, v as ee, w as F, x as te, y as se } from "../chunks/builtin-panels-Ci6_J75P.js";
 import { t as re } from "../chunks/repl-panel-DGamLeld.js";
 import { i as ie, n as nt, r as at, t as ot } from "../chunks/icons-munwu0_3.js";
-import { A as D, C as x, E as ht, F as ne, I as ct, L as ut, M as dt, N as ae, P as L, R as oe, S as ft, T as le, _ as pt, a as gt, b as bt, c as he, d as ce, f as j, g as ue, h as de, i as yt, k, l as mt, m as fe, n as pe, o as _, p as Et, s as St, u as ge, v as be, w as Pt, x as I, y as ye, z as wt } from "../chunks/server-definitions-_wj2pe1k.js";
+import { A as D, C as x, E as ht, F as ne, I as ct, L as ut, M as dt, N as ae, P as L, R as oe, S as ft, T as le, _ as pt, a as gt, b as bt, c as he, d as ce, f as j, g as ue, h as de, i as yt, k, l as mt, m as fe, n as pe, o as _, p as Et, s as St, u as ge, v as be, w as Pt, x as I, y as ye, z as vt } from "../chunks/server-definitions-_wj2pe1k.js";
 var me = class {
   add(t, e, s) {
     if (typeof arguments[0] != "string") for (let r in arguments[0]) this.add(r, arguments[0][r], arguments[1]);
@@ -424,14 +424,14 @@ Object.assign(S, {
 });
 S.max_unop_len = S.getMaxKeyLen(S.unary_ops);
 S.max_binop_len = S.getMaxKeyLen(S.binary_ops);
-var w = (t) => new S(t).parse(), Pe = Object.getOwnPropertyNames(class {
+var v = (t) => new S(t).parse(), Pe = Object.getOwnPropertyNames(class {
 });
-Object.getOwnPropertyNames(S).filter((t) => !Pe.includes(t) && w[t] === void 0).forEach((t) => {
-  w[t] = S[t];
+Object.getOwnPropertyNames(S).filter((t) => !Pe.includes(t) && v[t] === void 0).forEach((t) => {
+  v[t] = S[t];
 });
-w.Jsep = S;
-var we = "ConditionalExpression";
-w.plugins.register({
+v.Jsep = S;
+var ve = "ConditionalExpression";
+v.plugins.register({
   name: "ternary",
   init(t) {
     t.hooks.add("after-expression", function(s) {
@@ -442,7 +442,7 @@ w.plugins.register({
           this.index++;
           const n = this.gobbleExpression();
           if (n || this.throwError("Expected expression"), s.node = {
-            type: we,
+            type: ve,
             test: r,
             consequent: i,
             alternate: n
@@ -456,7 +456,7 @@ w.plugins.register({
     });
   }
 });
-var M = 47, ve = 92, xe = {
+var M = 47, we = 92, xe = {
   name: "regex",
   init(t) {
     t.hooks.add("gobble-token", function(s) {
@@ -484,7 +484,7 @@ var M = 47, ve = 92, xe = {
               raw: this.expr.slice(r - 1, this.index)
             }, s.node = this.gobbleTokenProperty(s.node), s.node;
           }
-          this.code === t.OBRACK_CODE ? i = !0 : i && this.code === t.CBRACK_CODE && (i = !1), this.index += this.code === ve ? 2 : 1;
+          this.code === t.OBRACK_CODE ? i = !0 : i && this.code === t.CBRACK_CODE && (i = !1), this.index += this.code === we ? 2 : 1;
         }
         this.throwError("Unclosed Regex");
       }
@@ -542,10 +542,10 @@ var M = 47, ve = 92, xe = {
     }
   }
 };
-w.plugins.register(xe, O);
-w.addUnaryOp("typeof");
-w.addLiteral("null", null);
-w.addLiteral("undefined", void 0);
+v.plugins.register(xe, O);
+v.addUnaryOp("typeof");
+v.addLiteral("null", null);
+v.addLiteral("undefined", void 0);
 var Ce = /* @__PURE__ */ new Set([
   "constructor",
   "__proto__",
@@ -657,14 +657,14 @@ var Ce = /* @__PURE__ */ new Set([
   }
 }, Oe = class {
   constructor(t) {
-    this.code = t, this.ast = w(this.code);
+    this.code = t, this.ast = v(this.code);
   }
   runInNewContext(t) {
     const e = Object.assign(/* @__PURE__ */ Object.create(null), t);
     return p.evalAst(this.ast, e);
   }
 };
-function v(t, e) {
+function w(t, e) {
   return t = t.slice(), t.push(e), t;
 }
 function N(t, e) {
@@ -753,13 +753,13 @@ f.prototype._trace = function(t, e, s, r, i, n, o, h) {
       g.push(b);
     }) : g.push(u);
   }
-  if ((typeof c != "string" || h) && e && Object.hasOwn(e, c)) y(this._trace(d, e[c], v(s, c), e, c, n, o));
+  if ((typeof c != "string" || h) && e && Object.hasOwn(e, c)) y(this._trace(d, e[c], w(s, c), e, c, n, o));
   else if (c === "*") this._walk(e, (u) => {
-    y(this._trace(d, e[u], v(s, u), e, u, n, !0, !0));
+    y(this._trace(d, e[u], w(s, u), e, u, n, !0, !0));
   });
   else if (c === "..")
     y(this._trace(d, e, s, r, i, n, o)), this._walk(e, (u) => {
-      typeof e[u] == "object" && y(this._trace(t.slice(), e[u], v(s, u), e, u, n, !0));
+      typeof e[u] == "object" && y(this._trace(t.slice(), e[u], w(s, u), e, u, n, !0));
     });
   else {
     if (c === "^")
@@ -770,7 +770,7 @@ f.prototype._trace = function(t, e, s, r, i, n, o, h) {
       };
     if (c === "~")
       return l = {
-        path: v(s, c),
+        path: w(s, c),
         value: i,
         parent: r,
         parentProperty: null
@@ -782,9 +782,9 @@ f.prototype._trace = function(t, e, s, r, i, n, o, h) {
       const u = c.replace(/^\?\((.*?)\)$/u, "$1"), b = /@.?([^?]*)[['](\??\(.*?\))(?!.\)\])[\]']/gu.exec(u);
       b ? this._walk(e, (E) => {
         const A = [b[2]], T = b[1] ? e[E][b[1]] : e[E];
-        this._trace(A, T, s, r, i, n, !0).length > 0 && y(this._trace(d, e[E], v(s, E), e, E, n, !0));
+        this._trace(A, T, s, r, i, n, !0).length > 0 && y(this._trace(d, e[E], w(s, E), e, E, n, !0));
       }) : this._walk(e, (E) => {
-        this._eval(u, e[E], E, s, r, i) && y(this._trace(d, e[E], v(s, E), e, E, n, !0));
+        this._eval(u, e[E], E, s, r, i) && y(this._trace(d, e[E], w(s, E), e, E, n, !0));
       });
     } else if (c[0] === "(") {
       if (this.currEval === !1) throw new Error("Eval [(expr)] prevented in JSONPath expression.");
@@ -835,11 +835,11 @@ f.prototype._trace = function(t, e, s, r, i, n, o, h) {
         }, this._handleCallback(l, n, "value"), l;
     } else if (c[0] === "`" && e && Object.hasOwn(e, c.slice(1))) {
       const u = c.slice(1);
-      y(this._trace(d, e[u], v(s, u), e, u, n, o, !0));
+      y(this._trace(d, e[u], w(s, u), e, u, n, o, !0));
     } else if (c.includes(",")) {
       const u = c.split(",");
       for (const b of u) y(this._trace(N(b, d), e, s, r, i, n, !0));
-    } else !h && e && Object.hasOwn(e, c) && y(this._trace(d, e[c], v(s, c), e, c, n, o, !0));
+    } else !h && e && Object.hasOwn(e, c) && y(this._trace(d, e[c], w(s, c), e, c, n, o, !0));
   }
   if (this._hasParentSelector) for (let u = 0; u < g.length; u++) {
     const b = g[u];
@@ -1084,7 +1084,8 @@ var U = "debug-console-active-panel", J = "debug-console-panel-order", qe = /^[a
     }), this.unsubscribeRegistry = x.subscribe((s) => this.handleRegistryChange(s)), this.initializeServerDefinitions();
   }
   async initializeServerDefinitions() {
-    await this.loadServerPanelOrderPreference(), this.applyPanelOrder(), await pe(this.debugPath), this.eventToPanel = _(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
+    const t = await this.loadServerPanelOrderPreference();
+    this.applyPanelOrder(), await pe(this.debugPath), this.eventToPanel = _(), this.applyPanelOrder(), t && this.persistPanelOrder(), this.restoreActivePanel(), this.renderTabs(), this.renderActivePanel(), this.fetchSnapshot(), this.stream.connect(), this.subscribeToEvents();
   }
   subscribeToEvents() {
     const t = /* @__PURE__ */ new Set();
@@ -1118,18 +1119,18 @@ var U = "debug-console-active-panel", J = "debug-console-panel-order", qe = /^[a
   }
   async loadServerPanelOrderPreference() {
     const t = this.panelOrderPreferencesPath.trim();
-    if (t)
-      try {
-        const e = await C(t, {
-          method: "GET",
-          credentials: "same-origin"
-        });
-        if (!e.ok) return;
-        const s = await e.json();
-        if (!s?.available || !s.found) return;
-        this.savedPanelOrder = this.normalizeAvailablePanelIDs(s.panel_order);
-      } catch {
-      }
+    if (!t) return !1;
+    try {
+      const e = await C(t, {
+        method: "GET",
+        credentials: "same-origin"
+      });
+      if (!e.ok) return !1;
+      const s = await e.json();
+      return !s?.available || !s.found ? !1 : (this.savedPanelOrder = this.normalizeAvailablePanelIDs(s.panel_order), this.savedPanelOrder.length > 0);
+    } catch {
+      return !1;
+    }
   }
   async saveServerPanelOrderPreference(t) {
     const e = this.panelOrderPreferencesPath.trim();
@@ -1204,11 +1205,10 @@ var U = "debug-console-active-panel", J = "debug-console-panel-order", qe = /^[a
     });
   }
   handleRegistryChange(t) {
-    if (this.eventToPanel = _(), t.type === "register") {
-      const e = this.normalizePanelID(t.panelId);
-      e && !this.availablePanels.includes(e) && this.availablePanels.push(e), t.panel && t.panel.defaultFilters !== void 0 && !(t.panelId in this.customFilterState) && (this.customFilterState[t.panelId] = this.cloneFilterState(t.panel.defaultFilters));
-    } else t.type === "unregister" && (this.availablePanels = this.availablePanels.filter((e) => e !== t.panelId), delete this.customFilterState[t.panelId]);
-    this.applyPanelOrder(), this.subscribeToEvents(), this.renderTabs(), t.panelId === this.activePanel && this.renderActivePanel();
+    const e = this.normalizePanelID(t.panelId), s = this.activePanel, r = t.type === "unregister" && e === s;
+    this.eventToPanel = _(), t.type === "register" ? (e && !this.availablePanels.includes(e) && this.availablePanels.push(e), e && t.panel && t.panel.defaultFilters !== void 0 && !(e in this.customFilterState) && (this.customFilterState[e] = this.cloneFilterState(t.panel.defaultFilters))) : t.type === "unregister" && e && (this.availablePanels = this.availablePanels.filter((n) => n !== e), delete this.customFilterState[e]), this.applyPanelOrder();
+    const i = s !== this.activePanel;
+    this.subscribeToEvents(), this.renderTabs(), (r || i || e === this.activePanel) && this.renderActivePanel();
   }
   requireElement(t, e = this.container) {
     const s = e.querySelector(t);
@@ -2190,7 +2190,7 @@ export {
   We as renderSiteRenderCachePanelCompact,
   ue as replPanelIDs,
   Ge as toolbarStyles,
-  wt as truncate
+  vt as truncate
 };
 
 //# sourceMappingURL=index.js.map

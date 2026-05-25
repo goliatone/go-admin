@@ -585,7 +585,7 @@ body {
 }
 
 .debug-repl__overlay-icon {
-  font-size: 48px;
+  --debug-repl-overlay-icon-size: 48px;
   color: var(--debug-accent);
   opacity: 0.6;
 }

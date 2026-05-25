@@ -34,7 +34,10 @@ const replStatusLabels: Record<DebugReplStatus, string> = {
   error: 'error',
 };
 
-const replOverlayIcon = renderDebugIcon('terminal', { size: '20px', extraClass: 'debug-repl__overlay-icon' });
+const replOverlayIcon = renderDebugIcon('terminal', {
+  size: 'var(--debug-repl-overlay-icon-size, 48px)',
+  extraClass: 'debug-repl__overlay-icon',
+});
 const replOverlayText = '<span class="debug-repl__overlay-text">Session not connected. Click the button below to start a terminal session.</span>';
 const replOverlayButton = `<button class="debug-repl__overlay-btn" data-overlay-connect>${renderDebugIcon('connect', { size: '14px' })} Connect</button>`;
 
