@@ -3,14 +3,14 @@ package admin
 import (
 	"context"
 	"errors"
-	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
-	"github.com/goliatone/go-admin/internal/primitives"
 	"net/url"
 	"path"
 	"sort"
 	"strings"
 	"sync"
 
+	cmsadapter "github.com/goliatone/go-admin/admin/internal/cmsadapter"
+	"github.com/goliatone/go-admin/internal/primitives"
 	"github.com/goliatone/go-command/flow"
 )
 
@@ -566,9 +566,17 @@ func (f *DynamicPanelFactory) navigationDefaults() (string, string, string) {
 }
 
 func dynamicPanelNavigationLabel(contentType *CMSContentType, panelSlug string) string {
-	label := strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Name, contentType.Slug))
+	if contentType != nil {
+		if label := capabilityString(contentType.Capabilities, "panel_label", "panelLabel", "panel-label", "menu_label", "menuLabel", "menu-label", "navigation_label", "navigationLabel", "navigation-label"); label != "" {
+			return label
+		}
+	}
+	label := ""
+	if contentType != nil {
+		label = strings.TrimSpace(primitives.FirstNonEmptyRaw(contentType.Name, contentType.Slug))
+	}
 	if override := strings.TrimSpace(panelSlug); override != "" {
-		label = titleCase(override)
+		label = dynamicPanelBreadcrumbTitle(override)
 	}
 	return label
 }
@@ -623,6 +631,9 @@ func (f *DynamicPanelFactory) updateExistingNavigationItem(ctx context.Context, 
 		if isMenuTargetMissing(err) {
 			return false, nil
 		}
+		return false, err
+	}
+	if err := f.deleteLegacyPanelNavigationItems(ctx, menuCode, menu.Items, item, panelPath, panelName); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -1621,6 +1632,9 @@ func extractTabs(uiSchema map[string]any, panelName string) []PanelTab {
 
 func dynamicPanelBreadcrumbLabel(contentType *CMSContentType, fallback string) string {
 	if contentType != nil {
+		if label := capabilityString(contentType.Capabilities, "panel_label", "panelLabel", "panel-label", "menu_label", "menuLabel", "menu-label", "navigation_label", "navigationLabel", "navigation-label"); label != "" {
+			return label
+		}
 		if panelSlug := strings.TrimSpace(panelSlugForContentType(contentType)); panelSlug != "" {
 			return dynamicPanelBreadcrumbTitle(panelSlug)
 		}
