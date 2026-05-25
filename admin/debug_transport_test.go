@@ -430,6 +430,63 @@ func TestDebugPanelOrderPreferenceEndpointPersistsNormalizedUserOrder(t *testing
 	}
 }
 
+func TestDebugPanelOrderPreferenceEndpointRejectsGloballyRegisteredDisabledPanel(t *testing.T) {
+	const panelID = "disabled_pref_panel"
+
+	debugregistry.UnregisterPanel(panelID)
+	defer debugregistry.UnregisterPanel(panelID)
+	if err := debugregistry.RegisterPanel(panelID, debugregistry.PanelConfig{
+		Label:       "Disabled Preference Panel",
+		SnapshotKey: panelID,
+		UI: &debugregistry.PanelUI{
+			Views: debugregistry.PanelUIViews{
+				Console: &debugregistry.PanelUIView{Renderer: debugregistry.PanelRendererJSON},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register disabled preference panel: %v", err)
+	}
+
+	cfg := Config{
+		BasePath:      "/admin",
+		DefaultLocale: "en",
+		Debug: DebugConfig{
+			Enabled: true,
+			Panels:  []string{DebugPanelTemplate, DebugPanelSQL, DebugPanelConfig},
+		},
+	}
+	adm := mustNewAdmin(t, cfg, Dependencies{FeatureGate: featureGateFromFlags(map[string]bool{"debug": true})})
+	adm.WithAuth(headerDebugAuthenticator{}, nil)
+	adm.WithAuthorizer(allowAuthorizer{})
+	if err := adm.RegisterModule(NewDebugModule(cfg.Debug)); err != nil {
+		t.Fatalf("register debug module: %v", err)
+	}
+
+	server := router.NewHTTPServer()
+	if err := adm.Initialize(server.Router()); err != nil {
+		t.Fatalf("initialize: %v", err)
+	}
+
+	path := debugAPIPath(t, adm, cfg.Debug, "preferences.panel_order")
+	body := `{"panel_order":["sql","` + panelID + `","template"]}`
+	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Test-User", "user-1")
+	rr := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected panel order save ok, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var resp debugPanelOrderPreferenceResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode save response: %v", err)
+	}
+	if got, want := strings.Join(resp.PanelOrder, ","), "sql,template"; got != want {
+		t.Fatalf("expected disabled global panel to be filtered from stored order %q, got %q", want, got)
+	}
+}
+
 func TestDebugPanelOrderPreferenceEndpointIsUserScoped(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
