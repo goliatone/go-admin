@@ -88,30 +88,18 @@ if err := adm.Initialize(server.Router()); err != nil {
 - URLs: use `Config.URLs` + URLKit route names instead of hardcoding paths.
 - Commands: register typed commands and message factories for panel/API dispatch.
 - Panels: control canonical UI ownership (`PanelUIRouteMode*`) and canonical entry behavior (`PanelEntryMode*`).
+- Themes: wire admin `go-theme` selectors separately from public-site theme
+  packages; see `docs/GUIDE_THEME.md`.
 
 ## Search Setup
 
 `go-admin` exposes adapters for wiring `go-search` into public site search and
-admin global search. Host applications still own the `go-search` runtime and
-schema setup.
+admin global search, but host applications still own the `go-search` runtime,
+schema setup, migrations, and indexing.
 
-When using the Postgres-backed `go-search` provider or SQL-backed search stores,
-register the canonical source-stable migration graph from `go-search/migrations`
-with the same persistence client used by the rest of the app:
-
-```go
-if err := searchmigrations.Register(
-	client,
-	searchmigrations.WithProfile(searchmigrations.ProfilePostgresProvider),
-); err != nil {
-	return err
-}
-```
-
-Use `ProfileExternalProvider` for external providers that only need the
-generation/editorial store migrations. If host bootstrap owns the Postgres
-search schema, configure the Postgres provider with `SchemaManagementExternal`
-so it does not also run its internal plain migration manager.
+See `docs/GUIDE_SEARCH.md` for admin global search, public site search,
+`NewGoSearchBundle(...)`, route contracts, feature gates, permissions, and
+panel DataGrid search.
 
 ## Media Responsibility Split
 
@@ -122,6 +110,8 @@ The upstream media surface is intentionally split across layers:
 - Host apps keep ownership of storage providers, upload workflows, delivery URL rules, and any CMS-specific normalization around persisted media values.
 
 That split keeps page-level media UX aligned with normal admin module/layout behavior while letting hosts keep app-specific delivery and persistence concerns out of core.
+See `docs/GUIDE_FORMGEN.md` for the broader form generation and component
+customization contract.
 
 ## URL Configuration
 
@@ -179,7 +169,9 @@ and CI manifest-review guidance.
 ## CRUD, DataGrid, and Actions
 
 Panel CRUD resources, DataGrid list wiring, and workflow/command-backed row and
-bulk actions are documented in `docs/GUIDE_CRUD.md`.
+bulk actions are documented in `docs/GUIDE_CRUD.md`. Form generation,
+go-formgen integration, UI schema overlays, and custom form components are
+documented in `docs/GUIDE_FORMGEN.md`.
 
 ## Panel Entry Modes
 
@@ -295,6 +287,9 @@ Mapping behavior:
 
 - Quickstart API and helpers: `quickstart/README.md`
 - CRUD and DataGrid wiring: `docs/GUIDE_CRUD.md`
+- Search wiring and go-search integration: `docs/GUIDE_SEARCH.md`
+- Form generation and go-formgen customization: `docs/GUIDE_FORMGEN.md`
+- Theme and go-theme integration: `docs/GUIDE_THEME.md`
 - Workflow/state-machine wiring: `docs/GUIDE_WORKFLOW.md`
 - Roles and role seeding: `docs/GUIDE_ROLES.md`
 - Routing policy contract and CI review workflow: `docs/GUIDE_ROUTING.md`

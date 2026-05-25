@@ -79,7 +79,7 @@ auth wiring, password-change gate, and recovery flow.
 - `MergeTemplateFuncs(overrides map[string]any, opts ...TemplateFuncOption) map[string]any` - Inputs: overrides + optional template options. Outputs: merged map for `WithViewTemplateFuncs`.
 - `WithTemplateURLResolver(urls urlkit.Resolver) TemplateFuncOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
 - `WithViewURLResolver(urls urlkit.Resolver) ViewEngineOption` - Inputs: URLKit resolver; outputs: option that configures `adminURL` to resolve via URLKit.
-- `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection.
+- `WithThemeContext(ctx router.ViewContext, adm *admin.Admin, req router.Context) router.ViewContext` - Inputs: view context, admin, request. Outputs: context enriched with theme tokens/selection and query-string theme preview overrides. See `../docs/GUIDE_THEME.md`.
 - `WithNav(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, active string, reqCtx context.Context) router.ViewContext` - Inputs: base view context + admin/config/request state. Outputs: context enriched with feature flags (`activity_enabled`, `activity_feature_enabled`, `translation_capabilities`, `body_classes`), session user payload, nav items, theme payload, and path helpers.
 - `WithNavPlacements(ctx router.ViewContext, adm *admin.Admin, cfg admin.Config, placements PlacementConfig, placement MenuPlacementKey, active string, reqCtx context.Context) router.ViewContext` - Inputs: same as `WithNav`, plus placement mapping. Outputs: placement-aware nav context for non-sidebar menus while preserving the same feature/session/theme enrichment.
 - `ResolveDashboardArea(placements PlacementConfig, placement placement.DashboardPlacementKey, fallback string) string` - Inputs: placement config, shared dashboard placement key, fallback area code. Outputs: resolved dashboard area code for quickstart-owned widget wiring.
@@ -122,6 +122,7 @@ auth wiring, password-change gate, and recovery flow.
 - `WithComponentRegistry(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that replaces default components (clean replace).
 - `WithComponentRegistryMergeDefaults(reg *components.Registry) FormGeneratorOption` - Inputs: custom registry; outputs: option that merges into defaults, overriding matching names.
 - `WithVanillaOption(opt formgenvanilla.Option) FormGeneratorOption` - Inputs: vanilla renderer option; outputs: option applied last so it can override templates/styles/registry.
+- Form generation guide: `../docs/GUIDE_FORMGEN.md` covers the end-to-end form generation pipeline, UI schema overlays, component registration, and submission parsing.
 
 - `DefaultSecureLinkConfig(basePath string) SecureLinkConfig` - Inputs: base path; outputs: securelink defaults.
 - `DefaultSecureLinkRoutes(basePath string) map[string]string` - Inputs: base path; outputs: securelink routes map.
@@ -840,6 +841,8 @@ State persistence behavior:
 Compatibility keys (`datatable_id`, `list_api`, `action_base`, `export_config`) are still present for legacy templates, but new/updated templates should read from `datagrid_config` first.
 
 See `docs/GUIDE_CRUD.md` for the full CRUD/DataGrid/action wiring contract.
+See `../docs/GUIDE_SEARCH.md` for admin global search, public site search,
+`go-search` adapter wiring, and panel DataGrid search distinctions.
 
 Password reset UI defaults to two pages:
 
@@ -1149,7 +1152,7 @@ if err != nil {
 ```
 
 ### Theme selector + manifest
-When using go-theme, pass the selector + manifest into quickstart so the Preferences UI can list available variants:
+When using go-theme, pass the selector + manifest into quickstart so the Preferences UI can list available variants. The full theme contract, resolution order, and payload shape are documented in `../docs/GUIDE_THEME.md`.
 
 ```go
 selector, manifest, err := quickstart.NewThemeSelector(
@@ -1177,7 +1180,7 @@ if err != nil {
 _ = adm
 ```
 
-If you build the admin manually, call `adm.WithAdminTheme(selector)` and `adm.WithThemeManifest(manifest)` after initialization. Public-site theme selection is separate; attach it with `quicksite.WithSiteTheme(selector)` or `SiteConfig.ThemeProvider`.
+If you build the admin manually, call `adm.WithAdminTheme(selector)` and `adm.WithThemeManifest(manifest)` after initialization. Public-site theme selection is separate; attach it with `quicksite.WithSiteTheme(selector)` or `SiteConfig.ThemeProvider` as described in `../docs/GUIDE_THEME.md#public-site-theme-isolation`.
 
 The default quickstart manifest also exposes these sidebar brand tokens:
 
@@ -1192,7 +1195,7 @@ If you have local CSS that forces the sidebar logo to `width: 100%`, remove that
 
 ## Public-site theme precedence
 
-For `quickstart/site`, the packaged theme should be the primary public-site HTML source and host-local wrappers should stay limited to compatibility glue. The supported diagnostics surfaces are:
+For `quickstart/site`, the packaged theme should be the primary public-site HTML source and host-local wrappers should stay limited to compatibility glue. See `../docs/GUIDE_THEME.md` for admin/site provider isolation. The supported diagnostics surfaces are:
 
 - `site_theme.manifest_partials` plus `site_theme.partials` in request/view context
 - `site_theme.baseline` for selected-versus-approved variant checks
@@ -1271,7 +1274,7 @@ When migrating a host from the old shared-root quickstart/site setup to the expl
 - register system, internal-ops, admin UI, admin API, public API, public site, and static routes through `quickstart.NewHostRouter(...)`; do not rely on calling `RegisterSiteRoutes(...)` before or after admin wiring to make ownership work
 - replace callback matchers or magic fallback mode strings with `quicksite.SiteFallbackPolicy` plus the exported mode constants (`SiteFallbackModeDisabled`, `SiteFallbackModePublicContentOnly`, `SiteFallbackModeExplicitPathsOnly`)
 - remove handler-level prefix guards for `/admin`, `/api`, `/.well-known`, `/assets`, and `/static`; reserved-prefix enforcement now belongs in the grouped router surfaces and the declarative fallback policy
-- migrate old shared theme wiring from `adm.WithGoTheme(...)` to `adm.WithAdminTheme(...)`, and attach the public-site selector separately with `quicksite.WithSiteTheme(...)` or `SiteConfig.ThemeProvider`
+- migrate old shared theme wiring from `adm.WithGoTheme(...)` to `adm.WithAdminTheme(...)`, and attach the public-site selector separately with `quicksite.WithSiteTheme(...)` or `SiteConfig.ThemeProvider`; see `../docs/GUIDE_THEME.md#migration-notes`
 - keep `/healthz` and `/status` on the internal-ops surface when enabled so those endpoints never resolve through site fallback
 
 Recommended QA after migration:
@@ -1281,6 +1284,9 @@ Recommended QA after migration:
 - `GET /admin/missing` returns the admin 404 behavior rather than a site page
 - `GET /.well-known/...` bypasses site templates entirely
 - enabled `/healthz` and `/status` endpoints return host-owned diagnostics payloads
+
+Search route ownership and request/response contracts are covered in
+`../docs/GUIDE_SEARCH.md`.
 
 ## Onboarding + secure links
 
@@ -1489,6 +1495,8 @@ _ = formgen
 ```
 
 `WithVanillaOption(...)` is applied last, so it can override templates/styles/registry. Use `WithComponentRegistry(...)` instead of the merge option to replace defaults entirely.
+
+For full formgen customization guidance, see `../docs/GUIDE_FORMGEN.md`.
 
 ## Debug quickstart
 Debug is opt-in and requires module registration plus middleware/log wiring. Configure panels before constructing the admin; attach middleware/log helpers after the debug module is registered so the collector is available.
@@ -1769,6 +1777,7 @@ log.Printf("Registered routes: %v", caps["routes"])
 ## References
 - `../QUICKBOOT_TDD.md`
 - `../QUICKBOOT_TSK.md`
+- `../docs/GUIDE_FORMGEN.md`
 
 ## Compatibility note
 If you previously imported quickstart as part of the root module, keep the same import path but add a direct `require` on `github.com/goliatone/go-admin/quickstart` in your `go.mod` (or use a local `replace`/`go.work` entry during dev). The APIs are unchanged; only the module boundary moved.

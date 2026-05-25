@@ -201,6 +201,9 @@ Config toggles:
 - **Workflows**: `GET/POST /admin/api/workflows`, `PUT /admin/api/workflows/:id`
 - **Workflow Bindings**: `GET/POST /admin/api/workflows/bindings`, `PUT/DELETE /admin/api/workflows/bindings/:id`
 - **Search**: `GET /admin/api/search?query=...`
+
+For the complete search contract, including admin global search, public site
+search, `go-search` adapters, and DataGrid search, see `docs/GUIDE_SEARCH.md`.
 - **Notifications**: `GET /admin/api/notifications`
 - **Activity**: `GET /admin/api/activity?limit=50&offset=0&channel=users` (filters: `user_id`, `actor_id`, `verb`, `object_type`, `object_id`, `channel`/`channels`, `channel_denylist`, `since`, `until`, `q`; response includes `entries`, `total`, `next_offset`, `has_more`; defaults: limit 50, max 200, offset 0; ordered by most recent first).
 - **Jobs**: `GET /admin/api/jobs`, `POST /admin/api/jobs/:name/trigger`
@@ -259,6 +262,9 @@ Defaults:
   - API: `GET /api/v1/site/search`
   - suggest: `GET /api/v1/site/search/suggest`
 
+See `docs/GUIDE_SEARCH.md` for the full site search request/response contract
+and `go-search` bundle wiring.
+
 Useful config toggles:
 - `site.supported_locales` (`APP_SITE__SUPPORTED_LOCALES=en,es,fr`)
 - `site.locale_prefix_mode` (`APP_SITE__LOCALE_PREFIX_MODE=non_default|always`)
@@ -292,6 +298,8 @@ Theme override behavior:
 - Swap variants with `APP_SITE__THEME_VARIANT=<variant>` or use `?variant=<variant>` in non-production runtime modes.
 - The embedded package is a generated site-theme snapshot, including renderer-compatible base, navigation, search, and content templates.
 - The example app uses the generated `site.search.page` template while preserving the runtime search contract for suggestions, filters, pagination, and query state.
+- The general admin/public-site theme contract is documented in
+  `../../docs/GUIDE_THEME.md`.
 
 Search UI state demos:
 - Normal results: `/search?q=go`
@@ -315,7 +323,7 @@ Routing ownership model in the example host:
 Migration notes:
 - the example host now uses `quickstart.NewHostRouter(...)` for grouped route ownership instead of relying on registration order
 - site fallback is configured through the typed `quicksite.SiteFallbackPolicy` contract exposed in config, not callback matchers or magic strings
-- admin and public-site themes are attached separately; old shared `WithGoTheme(...)` usage migrates to `adm.WithAdminTheme(...)` plus the site theme provider/selector
+- admin and public-site themes are attached separately; old shared `WithGoTheme(...)` usage migrates to `adm.WithAdminTheme(...)` plus the site theme provider/selector; see `../../docs/GUIDE_THEME.md#migration-notes`
 - internal ops routes (`/healthz`, `/status`) stay host-owned and are added to the reserved-prefix set when enabled
 - the router surfaces and fallback policy are now the primary ownership boundary; handler-level guards remain a defensive fallback, not the ownership mechanism
 
@@ -1103,7 +1111,9 @@ pkg/client/assets/     # Admin client assets (source + dist)
 - **Authenticator**: `admin.WithAuth(authenticator, authConfig)`
 - **Authorizer**: `admin.WithAuthorizer(authorizer)`
 - **Activity Sink**: `admin.WithActivitySink(sink)`
-- **Theme Provider**: `admin.WithThemeProvider(provider)`
+- **Theme Provider**: `admin.WithThemeProvider(provider)` for custom admin
+  providers, or `adm.WithAdminTheme(selector)` for `go-theme`; see
+  `../../docs/GUIDE_THEME.md`
 - **CMS Container**: `admin.Config.CMS.Container`
 
 ## Production Considerations
