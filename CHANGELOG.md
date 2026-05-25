@@ -1,5 +1,40 @@
 # Changelog
 
+# [0.75.0](https://github.com/goliatone/go-admin/compare/v0.74.0...v0.75.0) - (2026-05-25)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([e6f8664](https://github.com/goliatone/go-admin/commit/e6f86644f9254b12a15c03f73d8bee5402187e55))  - (goliatone)
+- Worfklow runtime migrations ([56260d9](https://github.com/goliatone/go-admin/commit/56260d9fce99a011611e3c5c31a30a3ddd9fc4cc))  - (goliatone)
+- Migration translation set ([5199eec](https://github.com/goliatone/go-admin/commit/5199eec45588078c224ade61706cdd39143c2031))  - (goliatone)
+- Content capabilities use contst ([f6e9ca5](https://github.com/goliatone/go-admin/commit/f6e9ca56f45e5da28a5d4faf77382be1f6230d5e))  - (goliatone)
+- Migration setup ([b06201e](https://github.com/goliatone/go-admin/commit/b06201ed4442ddac4d7c17abe61b508af7c25f4f))  - (goliatone)
+- Dynamic panel factory ([da990a6](https://github.com/goliatone/go-admin/commit/da990a625185113fe12a7202e2447e597b9ea976))  - (goliatone)
+- Centralize route miss clean up ([2dbfffa](https://github.com/goliatone/go-admin/commit/2dbfffa11a09eecce770cf2b48983a3fc62bf8da))  - (goliatone)
+- Fiber route error handler ([eedb4a2](https://github.com/goliatone/go-admin/commit/eedb4a23d797bc080478d6f30dd7df7398dd6a99))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.75.0 ([b551c81](https://github.com/goliatone/go-admin/commit/b551c81b364f27b5fbf4ad0e61c083f6c35434f5))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Expose content capabilities ([da9b8b8](https://github.com/goliatone/go-admin/commit/da9b8b8623f9f12a4ed13e9b0ac98d452880955e))  - (goliatone)
+- Migrations for exchange and flow admin ([695674c](https://github.com/goliatone/go-admin/commit/695674cca8e269c93abb6784aac89778109f4142))  - (goliatone)
+
+## <!-- 2 -->🚜 Refactor
+
+- Capabilit strings remove multi spellings ([faf6fdc](https://github.com/goliatone/go-admin/commit/faf6fdc1d07a5cd493beffbe49a5904da3fddedb))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.74.0 ([7779e98](https://github.com/goliatone/go-admin/commit/7779e9808c6857a6b5a5f82448b335c43430d912))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Code quality ([852ea90](https://github.com/goliatone/go-admin/commit/852ea906b5e3feb60c8159627e08a31e972fc62c))  - (goliatone)
+- Update tests ([0fe83ff](https://github.com/goliatone/go-admin/commit/0fe83ff5d022f491d2e31647818c7e2092a6d511))  - (goliatone)
+
 # [0.74.0](https://github.com/goliatone/go-admin/compare/v0.73.1...v0.74.0) - (2026-05-25)
 
 ## <!-- 1 -->🐛 Bug Fixes
