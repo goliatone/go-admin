@@ -16,6 +16,7 @@ const { JSDOM } = await loadJSDOM();
 
 const testFileDir = path.dirname(fileURLToPath(import.meta.url));
 const syntaxHighlightSourcePath = path.resolve(testFileDir, '../src/debug/syntax-highlight.ts');
+const debugConsoleStylesPath = path.resolve(testFileDir, '../src/styles/debug/console.css');
 
 function setGlobals(win) {
   globalThis.window = win;
@@ -428,6 +429,60 @@ test('debug toolbar persists active panel with existing toolbar preferences', as
     requests: false,
     sql: true,
   });
+});
+
+test('debug toolbar constrains tab strip as horizontal scroll container with visible scrollbar', async () => {
+  setGlobals(bootstrapDOM.window);
+  globalThis.WebSocket = OpenWebSocket;
+  bootstrapDOM.window.WebSocket = OpenWebSocket;
+  bootstrapDOM.window.document.body.innerHTML = '';
+  bootstrapDOM.window.localStorage.clear();
+  bootstrapDOM.window.localStorage.setItem('debug-toolbar-expanded', 'true');
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith('/api/panels')) {
+      return new Response(JSON.stringify({ panels: [] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    return new Response('{}', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  const toolbar = bootstrapDOM.window.document.createElement('debug-toolbar');
+  toolbar.setAttribute('debug-path', '/admin/toolbar-tabs');
+  toolbar.setAttribute('panels', 'requests,sql,logs,jserrors,routes,config,doctor,export_pipeline,site-render-cache,scope');
+  toolbar.setAttribute('live-transport', 'false');
+  bootstrapDOM.window.document.body.appendChild(toolbar);
+  await flushMicrotasks();
+
+  const styleText = toolbar.shadowRoot?.querySelector('style')?.textContent || '';
+  // Core overflow constraints
+  assert.match(styleText, /\.toolbar-tabs\s*\{[\s\S]*flex: 1 1 auto;[\s\S]*min-width: 0;[\s\S]*overflow-x: auto;/);
+  assert.match(styleText, /\.tab\s*\{[\s\S]*flex: 0 0 auto;/);
+  // Visible scrollbar (not hidden)
+  assert.match(styleText, /\.toolbar-tabs\s*\{[\s\S]*scrollbar-width: thin;/);
+  assert.match(styleText, /\.toolbar-tabs::-webkit-scrollbar\s*\{[\s\S]*height:\s*\d+px;/);
+  // Scroll snap for better UX
+  assert.match(styleText, /\.toolbar-tabs\s*\{[\s\S]*scroll-snap-type: x proximity;/);
+  assert.match(styleText, /\.tab\s*\{[\s\S]*scroll-snap-align: start;/);
+  assert.equal(toolbar.shadowRoot?.querySelectorAll('.toolbar-tabs .tab').length, 10);
+});
+
+test('debug console constrains tab strip as horizontal scroll container with visible scrollbar', () => {
+  const styleText = fs.readFileSync(debugConsoleStylesPath, 'utf8');
+
+  // Core overflow constraints
+  assert.match(styleText, /\.debug-tabs\s*\{[\s\S]*width: 100%;[\s\S]*max-width: 100%;[\s\S]*min-width: 0;[\s\S]*overflow-x: auto;/);
+  assert.match(styleText, /\.debug-tab\s*\{[\s\S]*flex: 0 0 auto;/);
+  // Visible scrollbar (not hidden)
+  assert.match(styleText, /\.debug-tabs\s*\{[\s\S]*scrollbar-width: thin;/);
+  assert.match(styleText, /\.debug-tabs::-webkit-scrollbar\s*\{[\s\S]*height:\s*\d+px;/);
+  // Scroll snap for better UX
+  assert.match(styleText, /\.debug-tabs\s*\{[\s\S]*scroll-snap-type: x proximity;/);
+  assert.match(styleText, /\.debug-tab\s*\{[\s\S]*scroll-snap-align: start;/);
 });
 
 test('debug toolbar falls back to the first configured panel when stored active panel is unavailable', async () => {

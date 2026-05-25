@@ -1,7 +1,7 @@
 import { escapeHTML as y } from "../shared/html.js";
-import { httpRequest as z } from "../shared/transport/http-client.js";
+import { httpRequest as L } from "../shared/transport/http-client.js";
 import { normalizeDebugBasePath as T } from "./shared/path-helpers.js";
-import { _ as M, a as R, b as S, c as I, d as A, g as x, h as $, i as H, m as D, o as O, r as j, s as F, v as G } from "../chunks/builtin-panels-Dqn1xdGs.js";
+import { _ as R, a as M, b as S, c as I, d as A, g as x, h as $, i as H, m as D, o as O, r as j, s as F, v as G } from "../chunks/builtin-panels-Dqn1xdGs.js";
 import { t as B } from "../chunks/repl-panel-So0Od67n.js";
 import { C as N, S as h, a as k, c as nt, d as _, f as Q, h as Y, i as it, l as p, m as K, n as C, o as b, p as lt, s as E, u as v, v as U, w as c, y as J } from "../chunks/server-definitions-BXgs2Hko.js";
 var W = `
@@ -114,13 +114,49 @@ var W = `
 
   .toolbar-tabs {
     display: flex;
+    flex: 1 1 auto;
     gap: 2px;
+    min-width: 0;
     overflow-x: auto;
-    scrollbar-width: none;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    /* Visible thin scrollbar for discoverability */
+    scrollbar-width: thin;
+    scrollbar-color: var(--toolbar-border) transparent;
+    /* Subtle edge shadows to indicate scrollable overflow */
+    --tabs-shadow-size: 12px;
+    --tabs-shadow-color: rgba(0, 0, 0, 0.4);
+    background:
+      /* Left fade indicator */
+      linear-gradient(to right, var(--toolbar-bg-secondary) 30%, transparent) left center / var(--tabs-shadow-size) 100% no-repeat,
+      /* Right fade indicator */
+      linear-gradient(to left, var(--toolbar-bg-secondary) 30%, transparent) right center / var(--tabs-shadow-size) 100% no-repeat,
+      /* Left shadow overlay */
+      linear-gradient(to right, var(--tabs-shadow-color), transparent) left center / var(--tabs-shadow-size) 100% no-repeat,
+      /* Right shadow overlay */
+      linear-gradient(to left, var(--tabs-shadow-color), transparent) right center / var(--tabs-shadow-size) 100% no-repeat,
+      /* Base background - inherit from parent */
+      transparent;
+    background-attachment: local, local, scroll, scroll, scroll;
   }
 
   .toolbar-tabs::-webkit-scrollbar {
-    display: none;
+    height: 5px;
+  }
+
+  .toolbar-tabs::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .toolbar-tabs::-webkit-scrollbar-thumb {
+    background: var(--toolbar-border);
+    border-radius: 3px;
+  }
+
+  .toolbar-tabs::-webkit-scrollbar-thumb:hover {
+    background: var(--toolbar-accent);
   }
 
   .tab {
@@ -135,8 +171,10 @@ var W = `
     white-space: nowrap;
     transition: all 0.15s ease;
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 6px;
+    scroll-snap-align: start;
   }
 
   .tab:hover {
@@ -165,6 +203,7 @@ var W = `
   /* Actions */
   .toolbar-actions {
     display: flex;
+    flex: 0 0 auto;
     gap: 4px;
     align-items: center;
   }
@@ -1074,7 +1113,7 @@ function m(e, t, a = 50, o) {
         showCount: !1
       });
     case "routes":
-      return R(t.routes || [], l, { showName: !1 });
+      return M(t.routes || [], l, { showName: !1 });
     case "template":
       return c("Template Context", t.template || {}, l, {
         useIconCopyButton: !1,
@@ -1285,11 +1324,11 @@ var g, w = "debug-toolbar-active-panel", P = class d extends HTMLElement {
   }
   render() {
     const t = u(this.snapshot, this.slowThresholdMs), a = this.panels.map((n) => {
-      const f = _(n), L = this.getPanelCount(n);
+      const f = _(n), q = this.getPanelCount(n);
       return `
           <button class="tab ${this.activePanel === n ? "active" : ""}" data-panel="${n}">
             ${f}
-            <span class="tab-count">${L}</span>
+            <span class="tab-count">${q}</span>
           </button>
         `;
     }).join(""), o = this.expanded ? "expanded" : "collapsed", s = this.useFab && !this.expanded ? "hidden" : "", r = this.expanded ? this.customHeight || d.DEFAULT_HEIGHT : 36, i = this.expanded ? `height: ${r}px;` : "";
@@ -1475,7 +1514,7 @@ var g, w = "debug-toolbar-active-panel", P = class d extends HTMLElement {
     }
     t.disabled = !0;
     try {
-      const i = await z(`${this.debugPath}/api/panels/${encodeURIComponent(a)}/actions/${encodeURIComponent(o)}`, {
+      const i = await L(`${this.debugPath}/api/panels/${encodeURIComponent(a)}/actions/${encodeURIComponent(o)}`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -1545,7 +1584,7 @@ var g, w = "debug-toolbar-active-panel", P = class d extends HTMLElement {
     });
   }
   attachSQLSelectionListeners() {
-    this.activePanel === "sql" && M(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
+    this.activePanel === "sql" && R(this.shadow, this.snapshot.sql || [], { useIconFeedback: !1 });
   }
 };
 g = P;
@@ -1977,7 +2016,7 @@ var V = `
   }
 };
 customElements.get("debug-fab") || customElements.define("debug-fab", X);
-var q = class {
+var z = class {
   constructor(e = {}) {
     this.fab = null, this.toolbar = null, this.initialized = !1, this.options = {
       panels: [
@@ -2049,14 +2088,14 @@ function Z() {
     panels: t.getAttribute("data-panels")?.split(","),
     slowThresholdMs: parseInt(t.getAttribute("data-slow-threshold-ms") || "50", 10)
   }), !a.debugPath && !a.basePath && !e && !t) return null;
-  const o = new q(a);
+  const o = new z(a);
   return o.init(), o;
 }
-window.DebugManager = q;
+window.DebugManager = z;
 window.initDebugManager = Z;
 export {
   X as DebugFab,
-  q as DebugManager,
+  z as DebugManager,
   P as DebugToolbar,
   it as applyCustomEventPayload,
   k as applyDebugEventToSnapshot,

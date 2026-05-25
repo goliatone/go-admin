@@ -198,17 +198,55 @@ body {
 /* Tab bar */
 .debug-tabs {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 2px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 8px 16px;
   background: var(--debug-bg);
   border-bottom: 1px solid var(--debug-border);
   overflow-x: auto;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  /* Visible thin scrollbar for discoverability */
+  scrollbar-width: thin;
+  scrollbar-color: var(--debug-border) transparent;
+  /* Subtle edge shadows to indicate scrollable overflow */
+  --tabs-shadow-size: 16px;
+  --tabs-shadow-color: rgba(0, 0, 0, 0.35);
+  background:
+    /* Left fade indicator */
+    linear-gradient(to right, var(--debug-bg) 30%, transparent) left center / var(--tabs-shadow-size) 100% no-repeat,
+    /* Right fade indicator */
+    linear-gradient(to left, var(--debug-bg) 30%, transparent) right center / var(--tabs-shadow-size) 100% no-repeat,
+    /* Left shadow overlay */
+    linear-gradient(to right, var(--tabs-shadow-color), transparent) left center / var(--tabs-shadow-size) 100% no-repeat,
+    /* Right shadow overlay */
+    linear-gradient(to left, var(--tabs-shadow-color), transparent) right center / var(--tabs-shadow-size) 100% no-repeat,
+    /* Base background */
+    var(--debug-bg);
+  background-attachment: local, local, scroll, scroll, scroll;
 }
 
 .debug-tabs::-webkit-scrollbar {
-  display: none;
+  height: 6px;
+}
+
+.debug-tabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.debug-tabs::-webkit-scrollbar-thumb {
+  background: var(--debug-border);
+  border-radius: 3px;
+}
+
+.debug-tabs::-webkit-scrollbar-thumb:hover {
+  background: var(--debug-accent);
 }
 
 .debug-tab {
@@ -223,9 +261,11 @@ body {
   cursor: pointer;
   white-space: nowrap;
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
   transition: all 0.15s ease;
+  scroll-snap-align: start;
 }
 
 .debug-tab:hover {

@@ -111,13 +111,49 @@ export const toolbarStyles = `
 
   .toolbar-tabs {
     display: flex;
+    flex: 1 1 auto;
     gap: 2px;
+    min-width: 0;
     overflow-x: auto;
-    scrollbar-width: none;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    /* Visible thin scrollbar for discoverability */
+    scrollbar-width: thin;
+    scrollbar-color: var(--toolbar-border) transparent;
+    /* Subtle edge shadows to indicate scrollable overflow */
+    --tabs-shadow-size: 12px;
+    --tabs-shadow-color: rgba(0, 0, 0, 0.4);
+    background:
+      /* Left fade indicator */
+      linear-gradient(to right, var(--toolbar-bg-secondary) 30%, transparent) left center / var(--tabs-shadow-size) 100% no-repeat,
+      /* Right fade indicator */
+      linear-gradient(to left, var(--toolbar-bg-secondary) 30%, transparent) right center / var(--tabs-shadow-size) 100% no-repeat,
+      /* Left shadow overlay */
+      linear-gradient(to right, var(--tabs-shadow-color), transparent) left center / var(--tabs-shadow-size) 100% no-repeat,
+      /* Right shadow overlay */
+      linear-gradient(to left, var(--tabs-shadow-color), transparent) right center / var(--tabs-shadow-size) 100% no-repeat,
+      /* Base background - inherit from parent */
+      transparent;
+    background-attachment: local, local, scroll, scroll, scroll;
   }
 
   .toolbar-tabs::-webkit-scrollbar {
-    display: none;
+    height: 5px;
+  }
+
+  .toolbar-tabs::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .toolbar-tabs::-webkit-scrollbar-thumb {
+    background: var(--toolbar-border);
+    border-radius: 3px;
+  }
+
+  .toolbar-tabs::-webkit-scrollbar-thumb:hover {
+    background: var(--toolbar-accent);
   }
 
   .tab {
@@ -132,8 +168,10 @@ export const toolbarStyles = `
     white-space: nowrap;
     transition: all 0.15s ease;
     display: flex;
+    flex: 0 0 auto;
     align-items: center;
     gap: 6px;
+    scroll-snap-align: start;
   }
 
   .tab:hover {
@@ -162,6 +200,7 @@ export const toolbarStyles = `
   /* Actions */
   .toolbar-actions {
     display: flex;
+    flex: 0 0 auto;
     gap: 4px;
     align-items: center;
   }
