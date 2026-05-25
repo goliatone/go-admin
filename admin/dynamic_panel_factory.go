@@ -567,7 +567,7 @@ func (f *DynamicPanelFactory) navigationDefaults() (string, string, string) {
 
 func dynamicPanelNavigationLabel(contentType *CMSContentType, panelSlug string) string {
 	if contentType != nil {
-		if label := capabilityString(contentType.Capabilities, "panel_label", "panelLabel", "panel-label", "menu_label", "menuLabel", "menu-label", "navigation_label", "navigationLabel", "navigation-label"); label != "" {
+		if label := capabilityString(contentType.Capabilities, ContentTypeCapabilityKeyPanelLabel, ContentTypeCapabilityKeyMenuLabel, ContentTypeCapabilityKeyNavigationLabel); label != "" {
 			return label
 		}
 	}
@@ -951,17 +951,17 @@ func hasBlocksField(schema map[string]any) bool {
 }
 
 func hasSEOCapability(capabilities map[string]any) bool {
-	enabled, _ := capabilityFlag(capabilities, "seo", "use_seo", "useSeo")
+	enabled, _ := capabilityFlag(capabilities, ContentTypeCapabilityKeySEO, ContentTypeCapabilityKeyUseSEO)
 	return enabled
 }
 
 func hasTreeCapability(capabilities map[string]any) bool {
-	enabled, _ := capabilityFlag(capabilities, "tree", "tree_view", "treeView")
+	enabled, _ := capabilityFlag(capabilities, ContentTypeCapabilityKeyTree, ContentTypeCapabilityKeyTreeView)
 	return enabled
 }
 
 func hasTranslationsCapability(capabilities map[string]any) bool {
-	enabled, ok := capabilityFlag(capabilities, "translations", "translation", "localized", "i18n")
+	enabled, ok := capabilityFlag(capabilities, ContentTypeCapabilityKeyTranslations, ContentTypeCapabilityKeyTranslation, ContentTypeCapabilityKeyLocalized, ContentTypeCapabilityKeyI18N)
 	return ok && enabled
 }
 
@@ -970,10 +970,10 @@ func panelTraitsForContentType(capabilities map[string]any) map[string]struct{} 
 	if len(capabilities) == 0 {
 		return out
 	}
-	collectPanelTraits(out, capabilities["panel_traits"])
-	collectPanelTraits(out, capabilities["panelTraits"])
-	collectPanelTraits(out, capabilities["panel-traits"])
-	if preset := capabilityString(capabilities, "panel_preset", "panelPreset", "panel-preset"); preset != "" {
+	for _, raw := range capabilityValues(capabilities, ContentTypeCapabilityKeyPanelTraits) {
+		collectPanelTraits(out, raw)
+	}
+	if preset := capabilityString(capabilities, ContentTypeCapabilityKeyPanelPreset); preset != "" {
 		out[strings.ToLower(strings.TrimSpace(preset))] = struct{}{}
 	}
 	return out
@@ -1184,7 +1184,7 @@ func dedupeActionsByName(actions []Action) []Action {
 }
 
 func blocksCapability(capabilities map[string]any) (bool, bool) {
-	if enabled, ok := capabilityFlag(capabilities, "blocks"); ok {
+	if enabled, ok := capabilityFlag(capabilities, ContentTypeCapabilityKeyBlocks); ok {
 		return enabled, true
 	}
 	if types, ok := blockTypesFromCapabilities(capabilities); ok {
@@ -1198,7 +1198,7 @@ func capabilityFlag(capabilities map[string]any, keys ...string) (bool, bool) {
 		return false, false
 	}
 	for _, key := range keys {
-		if raw, ok := capabilities[key]; ok {
+		if raw, ok := capabilityValue(capabilities, key); ok {
 			return capabilityEnabled(raw), true
 		}
 	}
@@ -1216,11 +1216,8 @@ func capabilityEnabled(raw any) bool {
 	case []any:
 		return len(value) > 0
 	case map[string]any:
-		keys := []string{"enabled", "active", "use", "types", "allowed", "block_types", "blockTypes"}
-		for _, key := range keys {
-			if nested, ok := value[key]; ok {
-				return capabilityEnabled(nested)
-			}
+		if nested, ok := capabilityValue(value, "enabled", "active", "use", "types", "allowed", ContentTypeCapabilityKeyBlockTypes); ok {
+			return capabilityEnabled(nested)
 		}
 		return len(value) > 0
 	default:
@@ -1232,7 +1229,7 @@ func panelSlugForContentType(contentType *CMSContentType) string {
 	if contentType == nil {
 		return ""
 	}
-	if override := capabilityString(contentType.Capabilities, "panel_slug", "panelSlug", "panel-slug"); override != "" {
+	if override := capabilityString(contentType.Capabilities, ContentTypeCapabilityKeyPanelSlug); override != "" {
 		return override
 	}
 	return strings.TrimSpace(contentType.Slug)
@@ -1250,11 +1247,7 @@ func permissionsFromCapabilities(capabilities map[string]any) (PanelPermissions,
 }
 
 func panelPermissionsCapability(capabilities map[string]any) (any, bool) {
-	if raw, ok := capabilities["permissions"]; ok {
-		return raw, true
-	}
-	raw, ok := capabilities["permission"]
-	return raw, ok
+	return capabilityValue(capabilities, ContentTypeCapabilityKeyPermissions, ContentTypeCapabilityKeyPermission)
 }
 
 func panelPermissionsFromCapabilityValue(raw any) (PanelPermissions, bool) {
@@ -1316,8 +1309,8 @@ func panelPermissionsFromBase(base string) PanelPermissions {
 }
 
 const (
-	workflowResolutionSourceWorkflowID = "workflow_id"
-	workflowResolutionSourceWorkflow   = "workflow"
+	workflowResolutionSourceWorkflowID = ContentTypeCapabilityKeyWorkflowID
+	workflowResolutionSourceWorkflow   = ContentTypeCapabilityKeyWorkflow
 )
 
 type workflowResolution struct {
@@ -1328,10 +1321,10 @@ type workflowResolution struct {
 
 func resolveWorkflowIDForContentType(capabilities map[string]any, traitDefaults map[string]string) workflowResolution {
 	_ = traitDefaults
-	if workflowID := capabilityString(capabilities, "workflow_id", "workflowId", "workflow-id"); workflowID != "" {
+	if workflowID := capabilityString(capabilities, ContentTypeCapabilityKeyWorkflowID); workflowID != "" {
 		return workflowResolution{id: workflowID, source: workflowResolutionSourceWorkflowID}
 	}
-	if workflowID := capabilityString(capabilities, "workflow", "workflow_key", "workflowKey"); workflowID != "" {
+	if workflowID := capabilityString(capabilities, ContentTypeCapabilityKeyWorkflow, ContentTypeCapabilityKeyWorkflowKey); workflowID != "" {
 		return workflowResolution{id: workflowID, source: workflowResolutionSourceWorkflow}
 	}
 	traits := orderedPanelTraitsForWorkflowLookup(capabilities)
@@ -1353,11 +1346,11 @@ func orderedPanelTraitsForWorkflowLookup(capabilities map[string]any) []string {
 			out = append(out, trait)
 		}
 	}
-	appendTraits(capabilities["panel_traits"])
-	appendTraits(capabilities["panelTraits"])
-	appendTraits(capabilities["panel-traits"])
+	for _, raw := range capabilityValues(capabilities, ContentTypeCapabilityKeyPanelTraits) {
+		appendTraits(raw)
+	}
 
-	if preset := capabilityString(capabilities, "panel_preset", "panelPreset", "panel-preset"); preset != "" {
+	if preset := capabilityString(capabilities, ContentTypeCapabilityKeyPanelPreset); preset != "" {
 		trait := strings.ToLower(strings.TrimSpace(preset))
 		if trait != "" {
 			if _, ok := seen[trait]; !ok {
@@ -1543,48 +1536,6 @@ func (f *DynamicPanelFactory) ensurePanelSlugUnique(env string, slug string, id 
 	return nil
 }
 
-func capabilityString(capabilities map[string]any, keys ...string) string {
-	if len(capabilities) == 0 {
-		return ""
-	}
-	for _, key := range keys {
-		if raw, ok := capabilities[key]; ok {
-			if value := capabilityStringValue(raw); value != "" {
-				return value
-			}
-		}
-	}
-	return ""
-}
-
-func capabilityStringValue(raw any) string {
-	switch value := raw.(type) {
-	case string:
-		return strings.TrimSpace(value)
-	case []string:
-		if len(value) == 0 {
-			return ""
-		}
-		return strings.TrimSpace(value[0])
-	case []any:
-		if len(value) == 0 {
-			return ""
-		}
-		return strings.TrimSpace(toString(value[0]))
-	case map[string]any:
-		keys := []string{"value", "name", "key", "slug", "id"}
-		for _, key := range keys {
-			if nested, ok := value[key]; ok {
-				if result := capabilityStringValue(nested); result != "" {
-					return result
-				}
-			}
-		}
-		return ""
-	}
-	return strings.TrimSpace(toString(raw))
-}
-
 func extractTabs(uiSchema map[string]any, panelName string) []PanelTab {
 	if uiSchema == nil {
 		return nil
@@ -1632,7 +1583,7 @@ func extractTabs(uiSchema map[string]any, panelName string) []PanelTab {
 
 func dynamicPanelBreadcrumbLabel(contentType *CMSContentType, fallback string) string {
 	if contentType != nil {
-		if label := capabilityString(contentType.Capabilities, "panel_label", "panelLabel", "panel-label", "menu_label", "menuLabel", "menu-label", "navigation_label", "navigationLabel", "navigation-label"); label != "" {
+		if label := capabilityString(contentType.Capabilities, ContentTypeCapabilityKeyPanelLabel, ContentTypeCapabilityKeyMenuLabel, ContentTypeCapabilityKeyNavigationLabel); label != "" {
 			return label
 		}
 		if panelSlug := strings.TrimSpace(panelSlugForContentType(contentType)); panelSlug != "" {
