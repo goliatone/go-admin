@@ -36,7 +36,7 @@ func WithFiberErrorMappers(mappers ...goerrors.ErrorMapper) FiberErrorHandlerOpt
 // and an HTML error page (with nav + theme) for non-API paths.
 func NewFiberErrorHandler(adm *admin.Admin, cfg admin.Config, isDev bool, opts ...FiberErrorHandlerOption) fiber.ErrorHandler {
 	options := fiberErrorHandlerOptions{
-		errorMappers: goerrors.DefaultErrorMappers(),
+		errorMappers: append([]goerrors.ErrorMapper{mapFiberOwnedRouteMissError}, goerrors.DefaultErrorMappers()...),
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -83,14 +83,50 @@ type resolvedFiberError struct {
 
 func (r fiberErrorHandlerRuntime) handle(c *fiber.Ctx, err error) error {
 	resolved := resolveFiberError(err)
+	err, resolved = r.normalizeSyntheticRouteMiss(c, err, resolved)
 	if r.routeDomains.classify(c.Path(), hostRouteStandard) == adminrouting.RouteDomainAdminAPI {
 		return r.renderAPIError(c, err, resolved)
 	}
 	return r.renderHTMLError(c, err, resolved)
 }
 
+func (r fiberErrorHandlerRuntime) normalizeSyntheticRouteMiss(c *fiber.Ctx, err error, resolved resolvedFiberError) (error, resolvedFiberError) {
+	if c == nil || resolved.code != fiber.StatusNotFound {
+		return err, resolved
+	}
+	if existing := (*fiberOwnedRouteMissError)(nil); errors.As(err, &existing) {
+		return err, resolved
+	}
+	routeDomain := r.routeDomains.classify(c.Path(), hostRouteStandard)
+	switch routeDomain {
+	case adminrouting.RouteDomainAdminUI, adminrouting.RouteDomainAdminAPI:
+	default:
+		return err, resolved
+	}
+	if resolved.fiber == nil || !looksLikeFiberRouteMiss(resolved.fiber.Message, c.Method(), c.Path()) {
+		return err, resolved
+	}
+	routeMiss := newFiberOwnedRouteMissError(c.Method(), c.Path(), routeDomain)
+	return routeMiss, resolveFiberError(routeMiss)
+}
+
+func looksLikeFiberRouteMiss(message, method, path string) bool {
+	message = strings.TrimSpace(message)
+	method = strings.TrimSpace(method)
+	path = strings.TrimSpace(path)
+	if message == "" || method == "" || path == "" {
+		return false
+	}
+	return strings.Contains(message, method) && strings.Contains(message, path)
+}
+
 func resolveFiberError(err error) resolvedFiberError {
 	resolved := resolvedFiberError{code: fiber.StatusInternalServerError, message: "internal server error"}
+	var routeMiss *fiberOwnedRouteMissError
+	if errors.As(err, &routeMiss) && routeMiss != nil {
+		resolved.code = fiber.StatusNotFound
+		resolved.message = fiber.ErrNotFound.Message
+	}
 	if errors.As(err, &resolved.fiber) {
 		resolved.code = resolved.fiber.Code
 		resolved.message = resolved.fiber.Message
@@ -193,6 +229,7 @@ func (r fiberErrorHandlerRuntime) applyDevErrorContext(c *fiber.Ctx, err error, 
 	if devCtx == nil {
 		r.applyLegacyDevErrorContext(err, viewCtx)
 	} else {
+		applySyntheticRouteMissDevContext(err, devCtx)
 		applyEnrichedDevErrorContext(viewCtx, devCtx)
 	}
 	var disabled admin.FeatureDisabledError
@@ -215,6 +252,25 @@ func (r fiberErrorHandlerRuntime) applyLegacyDevErrorContext(err error, viewCtx 
 			viewCtx["error_stack"] = stack
 		}
 	}
+}
+
+func applySyntheticRouteMissDevContext(err error, devCtx *admin.DevErrorContext) {
+	if devCtx == nil {
+		return
+	}
+	var routeMiss *fiberOwnedRouteMissError
+	if !errors.As(err, &routeMiss) || routeMiss == nil {
+		return
+	}
+	devCtx.PrimarySource = nil
+	devCtx.StackFrames = nil
+	if devCtx.Metadata == nil {
+		devCtx.Metadata = map[string]any{}
+	}
+	for key, value := range routeMiss.metadata() {
+		devCtx.Metadata[key] = value
+	}
+	devCtx.Metadata["diagnostic"] = "synthetic admin route miss"
 }
 
 func applyEnrichedDevErrorContext(viewCtx router.ViewContext, devCtx *admin.DevErrorContext) {
