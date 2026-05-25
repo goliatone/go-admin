@@ -65,6 +65,24 @@ func TestCapabilityStringUsesGeneratedAliasesAndSkipsEmptyValues(t *testing.T) {
 	}
 }
 
+func TestContentTypeCapabilityStringNormalizesIdentifierValues(t *testing.T) {
+	got := ContentTypeCapabilityString(map[string]any{
+		"panelSlug": " Articles ",
+	}, ContentTypeCapabilityKeyPanelSlug)
+	if got != "articles" {
+		t.Fatalf("expected normalized panel slug, got %q", got)
+	}
+}
+
+func TestContentTypeCapabilityStringPreservesDisplayValueCase(t *testing.T) {
+	got := ContentTypeCapabilityString(map[string]any{
+		"panelLabel": " Events ",
+	}, ContentTypeCapabilityKeyPanelLabel)
+	if got != "Events" {
+		t.Fatalf("expected display label case preserved, got %q", got)
+	}
+}
+
 func TestPanelTraitsForContentTypeMergesGeneratedAliases(t *testing.T) {
 	traits := panelTraitsForContentType(map[string]any{
 		"panel_traits": []any{"editorial"},

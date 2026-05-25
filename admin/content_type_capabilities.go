@@ -71,9 +71,20 @@ func ValidateAndNormalizeContentTypeCapabilities(capabilities map[string]any) (m
 
 // ContentTypeCapabilityString returns the first non-empty string value for the
 // canonical capability keys, accepting snake_case, camelCase, and kebab-case
-// spellings for compatibility with legacy payloads.
+// spellings for compatibility with legacy payloads. Identifier-like
+// capabilities are normalized to lowercase; display strings preserve case.
 func ContentTypeCapabilityString(capabilities map[string]any, keys ...string) string {
-	return capabilityString(capabilities, keys...)
+	if len(capabilities) == 0 {
+		return ""
+	}
+	for _, key := range keys {
+		for _, raw := range capabilityValues(capabilities, key) {
+			if value := capabilityStringValue(raw); value != "" {
+				return normalizeContentTypeCapabilityString(key, value)
+			}
+		}
+	}
+	return ""
 }
 
 // ContentTypeCapabilityValue returns the first capability value for the
@@ -173,6 +184,28 @@ func capabilityStringValue(raw any) string {
 		return ""
 	}
 	return strings.TrimSpace(toString(raw))
+}
+
+func normalizeContentTypeCapabilityString(key, value string) string {
+	value = strings.TrimSpace(value)
+	switch canonicalContentTypeCapabilityKey(key) {
+	case ContentTypeCapabilityKeyPanelPreset,
+		ContentTypeCapabilityKeyPanelSlug,
+		ContentTypeCapabilityKeyWorkflow,
+		ContentTypeCapabilityKeyWorkflowID,
+		ContentTypeCapabilityKeyWorkflowKey:
+		return strings.ToLower(value)
+	default:
+		return value
+	}
+}
+
+func canonicalContentTypeCapabilityKey(key string) string {
+	words := capabilityKeyWordsFromCanonical(key)
+	if len(words) == 0 {
+		return strings.TrimSpace(key)
+	}
+	return strings.Join(words, "_")
 }
 
 func capabilityValue(capabilities map[string]any, keys ...string) (any, bool) {

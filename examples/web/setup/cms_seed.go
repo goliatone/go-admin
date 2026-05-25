@@ -1049,7 +1049,7 @@ func ensureRequiredSeedContentTypes(ctx context.Context, db *bun.DB, refs cmsSee
 		if len(row.Capabilities) == 0 {
 			return fmt.Errorf("required content type %s missing capabilities", item.Name)
 		}
-		panel := strings.ToLower(strings.TrimSpace(admin.ContentTypeCapabilityString(row.Capabilities, admin.ContentTypeCapabilityKeyPanelSlug)))
+		panel := admin.ContentTypeCapabilityString(row.Capabilities, admin.ContentTypeCapabilityKeyPanelSlug)
 		if panel != item.ExpectedPanel {
 			return fmt.Errorf("required content type %s panel slug mismatch", item.Name)
 		}
