@@ -223,6 +223,9 @@ func TestTranslationFamilyBindingDetailNotFoundIncludesSyncRecoveryForAuthorized
 	if canSync, _ := recovery["can_sync"].(bool); !canSync {
 		t.Fatalf("expected sync recovery can_sync=true, got %+v", recovery)
 	}
+	if syncable, _ := recovery["syncable"].(bool); !syncable {
+		t.Fatalf("expected sync recovery syncable=true, got %+v", recovery)
+	}
 	if got := toString(recovery["permission"]); got != PermAdminTranslationsSync {
 		t.Fatalf("expected sync permission %q, got %q", PermAdminTranslationsSync, got)
 	}
