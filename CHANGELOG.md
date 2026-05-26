@@ -1,5 +1,25 @@
 # Changelog
 
+# [0.76.1](https://github.com/goliatone/go-admin/compare/v0.76.0...v0.76.1) - (2026-05-26)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Translation family setup ([3ad5625](https://github.com/goliatone/go-admin/commit/3ad56257461e22f8866f16727ee9a0f287b5d5ce))  - (goliatone)
+- Redirect on auth failure ([02fca3f](https://github.com/goliatone/go-admin/commit/02fca3fea9a8d4c65c6749228f1c65a734bdd1d0))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.76.1 ([84516f2](https://github.com/goliatone/go-admin/commit/84516f28c4681c1becfe391b44d100ee1bd9c6fb))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.76.0 ([565f6fb](https://github.com/goliatone/go-admin/commit/565f6fb7c58c622f900f681ee4a4275900b9d9d9))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update examples ([0a3ca31](https://github.com/goliatone/go-admin/commit/0a3ca31cca56360d577bef07d51606219a0048a0))  - (goliatone)
+- Update tests ([611bc76](https://github.com/goliatone/go-admin/commit/611bc766e8e9835a00e9883d7de3790fb18c3c02))  - (goliatone)
+
 # [0.76.0](https://github.com/goliatone/go-admin/compare/v0.75.1...v0.76.0) - (2026-05-26)
 
 ## <!-- 1 -->🐛 Bug Fixes
