@@ -535,7 +535,20 @@ func registerAuthUILoginRoutes[T any](r router.Router[T], runtime authUIRouteRun
 
 	r.Post(options.loginPath, func(c router.Context) error {
 		payload := loginPayload{}
-		_ = c.Bind(&payload)
+		if err := c.Bind(&payload); err != nil {
+			return c.Redirect(
+				buildLoginFailureRedirect(
+					options.loginPath,
+					options.loginErrorQueryKey,
+					classifyLoginErrorCode(err),
+					options.loginIdentifierQueryKey,
+					payload.Identifier,
+					options.loginRememberQueryKey,
+					payload.Remember,
+				),
+				fiber.StatusFound,
+			)
+		}
 
 		if err := runtime.routeAuth.Login(c, payload); err != nil {
 			errorCode := classifyLoginErrorCode(err)
