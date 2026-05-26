@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS translation_assignments (
     tenant_id TEXT,
     org_id TEXT,
     family_id TEXT NOT NULL REFERENCES content_families(family_id) ON DELETE CASCADE,
-    variant_id TEXT NOT NULL,
+    variant_id TEXT,
     source_locale TEXT NOT NULL,
     target_locale TEXT NOT NULL,
     work_scope TEXT NOT NULL DEFAULT '__all__',
@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS translation_assignments (
     CONSTRAINT fk_assignments_variant_family_locale
         FOREIGN KEY (variant_id, family_id, target_locale)
         REFERENCES locale_variants(variant_id, family_id, locale)
+        ON UPDATE CASCADE
         ON DELETE CASCADE
 );
 

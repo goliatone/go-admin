@@ -5,6 +5,7 @@ ALTER TABLE content_families
     ADD CONSTRAINT fk_families_source_variant
     FOREIGN KEY (source_variant_id, family_id, source_locale)
     REFERENCES locale_variants(variant_id, family_id, locale)
+    ON UPDATE CASCADE
     DEFERRABLE INITIALLY DEFERRED;
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_assignments_scope_active_family_locale_scope

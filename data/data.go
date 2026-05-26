@@ -77,12 +77,16 @@ func TranslationFlowMigrations() fs.FS {
 		"0010_translation_flow_admin_fields.down.sql",
 		"sqlite/0008_translation_flow_active_unique.up.sql",
 		"sqlite/0008_translation_flow_active_unique.down.sql",
+		"sqlite/0011_translation_flow_assignment_variant_fk.up.sql",
+		"sqlite/0011_translation_flow_assignment_variant_fk.down.sql",
 		"postgres/0008_translation_flow_pg_features.up.sql",
 		"postgres/0008_translation_flow_pg_features.down.sql",
 		"postgres/0009_translation_exchange_runtime.up.sql",
 		"postgres/0009_translation_exchange_runtime.down.sql",
 		"postgres/0010_translation_flow_admin_fields.up.sql",
 		"postgres/0010_translation_flow_admin_fields.down.sql",
+		"postgres/0011_translation_flow_assignment_variant_fk.up.sql",
+		"postgres/0011_translation_flow_assignment_variant_fk.down.sql",
 	)
 }
 
@@ -98,5 +102,7 @@ func TranslationFlowSQLiteMigrations() fs.FS {
 		"0010_translation_flow_admin_fields.down.sql",
 		"sqlite/0008_translation_flow_active_unique.up.sql",
 		"sqlite/0008_translation_flow_active_unique.down.sql",
+		"sqlite/0011_translation_flow_assignment_variant_fk.up.sql",
+		"sqlite/0011_translation_flow_assignment_variant_fk.down.sql",
 	)
 }
