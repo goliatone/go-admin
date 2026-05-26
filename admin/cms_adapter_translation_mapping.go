@@ -425,6 +425,14 @@ func translationMetadataMap(val reflect.Value) map[string]any {
 		if m, ok := metadataField.Interface().(map[string]any); ok {
 			return primitives.CloneAnyMap(m)
 		}
+		if metadataField.Type().Key().Kind() == reflect.String {
+			out := map[string]any{}
+			iter := metadataField.MapRange()
+			for iter.Next() {
+				out[iter.Key().String()] = iter.Value().Interface()
+			}
+			return out
+		}
 	}
 	return nil
 }
