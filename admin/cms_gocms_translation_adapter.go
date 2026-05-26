@@ -33,6 +33,7 @@ func (a *GoCMSContentAdapter) CreateTranslation(ctx context.Context, input Trans
 		record, err := a.adminWrite.CreateTranslation(ctx, cms.AdminContentCreateTranslationRequest{
 			SourceID:       sourceID,
 			TargetLocale:   input.Locale,
+			FamilyID:       cmsadapter.UUIDPointerFromString(toString(input.Metadata["family_id"])),
 			EnvironmentKey: input.Environment,
 			ActorID:        actorUUID(ctx),
 			Status:         input.Status,
