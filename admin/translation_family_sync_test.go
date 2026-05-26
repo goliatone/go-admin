@@ -296,6 +296,55 @@ func TestBunTranslationAssignmentRepositoryResolvesLocaleVariantID(t *testing.T)
 	}
 }
 
+func TestBunTranslationAssignmentRepositoryAllowsMissingLocaleAssignment(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	store := NewBunTranslationFamilyStore(db)
+	ctx := context.Background()
+
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-privacy",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "page-privacy::en",
+		ReadinessState:  "blocked",
+		Variants: []translationservices.FamilyVariant{{
+			ID:             "page-privacy::en",
+			FamilyID:       "family-privacy",
+			Locale:         "en",
+			Status:         "published",
+			IsSource:       true,
+			SourceRecordID: "page-privacy",
+		}},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+
+	repo := NewBunTranslationAssignmentRepository(db)
+	created, err := repo.Create(ctx, TranslationAssignment{
+		FamilyID:       "family-privacy",
+		EntityType:     "pages",
+		SourceRecordID: "page-privacy",
+		SourceLocale:   "en",
+		TargetLocale:   "bo",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create missing-locale assignment: %v", err)
+	}
+	if created.VariantID != "" {
+		t.Fatalf("created variant_id = %q, want empty missing-locale variant", created.VariantID)
+	}
+	var storedVariantID sql.NullString
+	if err := db.QueryRowContext(ctx, `SELECT variant_id FROM translation_assignments WHERE assignment_id = ?`, created.ID).Scan(&storedVariantID); err != nil {
+		t.Fatalf("load stored assignment: %v", err)
+	}
+	if storedVariantID.Valid {
+		t.Fatalf("stored variant_id valid = true, value %q; want SQL NULL", storedVariantID.String)
+	}
+}
+
 type translationFamilySyncContentStub struct {
 	*InMemoryContentService
 	pagesByLocale    map[string][]CMSPage
@@ -404,7 +453,7 @@ func newTranslationFamilyStoreSQLiteDB(t *testing.T) *bun.DB {
 			tenant_id TEXT,
 			org_id TEXT,
 			family_id TEXT NOT NULL REFERENCES content_families(family_id) ON DELETE CASCADE,
-			variant_id TEXT NOT NULL,
+			variant_id TEXT,
 			entity_type TEXT,
 			source_record_id TEXT,
 			source_locale TEXT,
