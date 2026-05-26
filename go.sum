@@ -180,6 +180,8 @@ github.com/goliatone/go-cache v0.1.0 h1:hbIuZdtjdWJeb0BSOybU096Q0NC/xEOpTXPJqAkt
 github.com/goliatone/go-cache v0.1.0/go.mod h1:JTIwNrs4jaQlu/6h3GOa/rPcMlp2UttvN7aXe8V4v0s=
 github.com/goliatone/go-cms v0.52.0 h1:eAEzuiR7ef1kN7JmomgUvcCn6Fr9Hg/B2JgLuPgzVVA=
 github.com/goliatone/go-cms v0.52.0/go.mod h1:s8Gnn3OGoU5yR83hZncnmV+snQGDJbBK7cQgchR5l+Q=
+github.com/goliatone/go-cms v0.53.0 h1:8BkttyJvsgwIDiOa7qb/5Y40jLjAm/vymnmG1i8a3Ro=
+github.com/goliatone/go-cms v0.53.0/go.mod h1:s8Gnn3OGoU5yR83hZncnmV+snQGDJbBK7cQgchR5l+Q=
 github.com/goliatone/go-command v0.19.0 h1:8OTGKo6P6/QhR2zGe/shcEzJd81YrXMNMHD9/W0hScs=
 github.com/goliatone/go-command v0.19.0/go.mod h1:tWBQypgZxIk//4NBOEqFZiV4mgtWsEcvrqHPFo5eGv8=
 github.com/goliatone/go-composite-fs v0.3.0 h1:dM/iD097b7FWyMVduGpS9HK3Swig7FVNUWfIUs/hp7o=
