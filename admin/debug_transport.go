@@ -145,67 +145,89 @@ func (m *DebugModule) registerDebugRoutes(admin *Admin) {
 	if admin == nil || admin.router == nil || m == nil || m.collector == nil {
 		return
 	}
-	basePath := m.basePath
-	if basePath == "" {
-		basePath = normalizeDebugConfig(m.config, adminBasePath(admin.config)).BasePath
-	}
+	basePath := m.debugBasePath(admin)
 	access := debugAccessMiddleware(admin, m.config, m.permission)
 	sessionAccess := debugAccessMiddleware(admin, m.config, debugSessionViewPermission)
-	registerGet := func(path string, handler router.HandlerFunc, middleware router.MiddlewareFunc) {
-		if path == "" {
-			return
-		}
-		if middleware != nil {
-			admin.router.Get(path, handler, middleware)
-			return
-		}
-		admin.router.Get(path, handler)
-	}
-	registerPost := func(path string, handler router.HandlerFunc) {
-		if path == "" {
-			return
-		}
-		if access != nil {
-			admin.router.Post(path, handler, access)
-			return
-		}
-		admin.router.Post(path, handler)
-	}
-	registerPut := func(path string, handler router.HandlerFunc) {
-		if path == "" {
-			return
-		}
-		if access != nil {
-			admin.router.Put(path, handler, access)
-			return
-		}
-		admin.router.Put(path, handler)
-	}
 
 	if !featureEnabled(admin.featureGate, FeatureDashboard) {
-		debugBase := debugRoutePath(admin, m.config, "admin.debug", "index")
-		if debugBase == "" {
-			debugBase = basePath
-		}
-		registerGet(debugBase, func(c router.Context) error {
-			return m.handleDebugDashboard(admin, c)
-		}, access)
+		m.registerDebugDashboardRoute(admin, basePath, access)
 	}
-	registerGet(debugAPIRoutePath(admin, m.config, "panels"), m.handleDebugPanels, access)
-	registerGet(debugAPIRoutePath(admin, m.config, "snapshot"), m.handleDebugSnapshot, access)
-	registerGet(debugAPIRoutePath(admin, m.config, "sessions"), m.handleDebugSessions, sessionAccess)
-	registerPost(debugAPIRoutePath(admin, m.config, "clear"), m.handleDebugClear)
-	registerPost(debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel)
-	registerPost(debugAPIRoutePath(admin, m.config, "panel.action"), m.handleDebugPanelAction)
-	registerPost(debugAPIRoutePath(admin, m.config, "doctor.action"), m.handleDebugDoctorAction)
-	registerGet(debugAPIRoutePath(admin, m.config, "preferences.panel_order"), func(c router.Context) error {
+	m.registerDebugCoreAPIRoutes(admin, access, sessionAccess)
+	m.registerDebugPreferenceRoutes(admin, access)
+	m.registerDebugJSErrorRoute(admin)
+}
+
+func (m *DebugModule) debugBasePath(admin *Admin) string {
+	if m.basePath != "" {
+		return m.basePath
+	}
+	return normalizeDebugConfig(m.config, adminBasePath(admin.config)).BasePath
+}
+
+func (m *DebugModule) registerDebugGet(admin *Admin, path string, handler router.HandlerFunc, middleware router.MiddlewareFunc) {
+	if path == "" {
+		return
+	}
+	if middleware != nil {
+		admin.router.Get(path, handler, middleware)
+		return
+	}
+	admin.router.Get(path, handler)
+}
+
+func (m *DebugModule) registerDebugPost(admin *Admin, path string, handler router.HandlerFunc, middleware router.MiddlewareFunc) {
+	if path == "" {
+		return
+	}
+	if middleware != nil {
+		admin.router.Post(path, handler, middleware)
+		return
+	}
+	admin.router.Post(path, handler)
+}
+
+func (m *DebugModule) registerDebugPut(admin *Admin, path string, handler router.HandlerFunc, middleware router.MiddlewareFunc) {
+	if path == "" {
+		return
+	}
+	if middleware != nil {
+		admin.router.Put(path, handler, middleware)
+		return
+	}
+	admin.router.Put(path, handler)
+}
+
+func (m *DebugModule) registerDebugDashboardRoute(admin *Admin, basePath string, access router.MiddlewareFunc) {
+	debugBase := debugRoutePath(admin, m.config, "admin.debug", "index")
+	if debugBase == "" {
+		debugBase = basePath
+	}
+	m.registerDebugGet(admin, debugBase, func(c router.Context) error {
+		return m.handleDebugDashboard(admin, c)
+	}, access)
+}
+
+func (m *DebugModule) registerDebugCoreAPIRoutes(admin *Admin, access router.MiddlewareFunc, sessionAccess router.MiddlewareFunc) {
+	m.registerDebugGet(admin, debugAPIRoutePath(admin, m.config, "panels"), m.handleDebugPanels, access)
+	m.registerDebugGet(admin, debugAPIRoutePath(admin, m.config, "snapshot"), m.handleDebugSnapshot, access)
+	m.registerDebugGet(admin, debugAPIRoutePath(admin, m.config, "sessions"), m.handleDebugSessions, sessionAccess)
+	m.registerDebugPost(admin, debugAPIRoutePath(admin, m.config, "clear"), m.handleDebugClear, access)
+	m.registerDebugPost(admin, debugAPIRoutePath(admin, m.config, "clear.panel"), m.handleDebugClearPanel, access)
+	m.registerDebugPost(admin, debugAPIRoutePath(admin, m.config, "panel.action"), m.handleDebugPanelAction, access)
+	m.registerDebugPost(admin, debugAPIRoutePath(admin, m.config, "doctor.action"), m.handleDebugDoctorAction, access)
+}
+
+func (m *DebugModule) registerDebugPreferenceRoutes(admin *Admin, access router.MiddlewareFunc) {
+	path := debugAPIRoutePath(admin, m.config, "preferences.panel_order")
+	m.registerDebugGet(admin, path, func(c router.Context) error {
 		return m.handleDebugPanelOrderPreference(admin, c)
 	}, access)
-	registerPut(debugAPIRoutePath(admin, m.config, "preferences.panel_order"), func(c router.Context) error {
+	m.registerDebugPut(admin, path, func(c router.Context) error {
 		return m.handleDebugPanelOrderPreferenceSave(admin, c)
-	})
-	// JS error ingestion remains nonce-protected, but it should only be mounted
-	// when the host explicitly configured a debug exposure boundary.
+	}, access)
+}
+
+func (m *DebugModule) registerDebugJSErrorRoute(admin *Admin) {
 	if path := debugAPIRoutePath(admin, m.config, "errors"); path != "" && debugJSErrorRouteEnabled(admin, m.config) {
 		admin.router.Post(path, func(c router.Context) error {
 			return m.handleJSErrorReport(admin, c)
@@ -306,7 +328,9 @@ func (m *DebugModule) handleDebugSessions(c router.Context) error {
 		return writeJSON(c, debugSessionsResponse{Sessions: []DebugUserSession{}})
 	}
 	if ttl := m.config.SessionInactivityExpiry; ttl > 0 {
-		_, _ = m.sessionStore.Expire(c.Context(), ttl)
+		if _, err := m.sessionStore.Expire(c.Context(), ttl); err != nil {
+			return writeError(c, err)
+		}
 	}
 	sessions, err := m.sessionStore.ListActive(c.Context())
 	if err != nil {
@@ -719,7 +743,9 @@ func (m *DebugModule) runDebugWebSocketLoop(c router.WebSocketContext, subscript
 			if !ok {
 				return nil
 			}
-			m.handleDebugCommand(c, subscriptions, cmd)
+			if err := m.handleDebugCommand(c, subscriptions, cmd); err != nil {
+				return err
+			}
 		case event, ok := <-events:
 			if !ok {
 				return nil
@@ -779,7 +805,9 @@ func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSock
 			if !ok {
 				return nil
 			}
-			m.handleDebugSessionCommand(c, subscriptions, cmd, sessionID, includeGlobals)
+			if err := m.handleDebugSessionCommand(c, subscriptions, cmd, sessionID, includeGlobals); err != nil {
+				return err
+			}
 		case event, ok := <-events:
 			if !ok {
 				return nil
@@ -841,17 +869,23 @@ func (m *DebugModule) loadDebugSession(ctx context.Context, sessionID string) De
 		return session
 	}
 	if ttl := m.config.SessionInactivityExpiry; ttl > 0 {
-		_, _ = m.sessionStore.Expire(ctx, ttl)
+		if _, err := m.sessionStore.Expire(ctx, ttl); err != nil {
+			return session
+		}
 	}
-	if stored, ok, _ := m.sessionStore.Get(ctx, sessionID); ok {
+	stored, ok, err := m.sessionStore.Get(ctx, sessionID)
+	if err != nil {
+		return session
+	}
+	if ok {
 		return stored
 	}
 	return session
 }
 
-func (m *DebugModule) handleDebugSessionCommand(c router.WebSocketContext, subscriptions *debugSubscription, cmd debugCommand, sessionID string, includeGlobals bool) {
+func (m *DebugModule) handleDebugSessionCommand(c router.WebSocketContext, subscriptions *debugSubscription, cmd debugCommand, sessionID string, includeGlobals bool) error {
 	if m == nil {
-		return
+		return nil
 	}
 	switch strings.ToLower(strings.TrimSpace(cmd.Type)) {
 	case "subscribe":
@@ -859,16 +893,17 @@ func (m *DebugModule) handleDebugSessionCommand(c router.WebSocketContext, subsc
 	case "unsubscribe":
 		subscriptions.unsubscribe(cmd.Panels)
 	case "snapshot":
-		_ = m.writeDebugSessionSnapshot(c, sessionID, includeGlobals)
+		return m.writeDebugSessionSnapshot(c, sessionID, includeGlobals)
 	case "clear":
 		m.clearDebugPanels(cmd.Panels)
-		_ = m.writeDebugSessionSnapshot(c, sessionID, includeGlobals)
+		return m.writeDebugSessionSnapshot(c, sessionID, includeGlobals)
 	}
+	return nil
 }
 
-func (m *DebugModule) handleDebugCommand(c router.WebSocketContext, subscriptions *debugSubscription, cmd debugCommand) {
+func (m *DebugModule) handleDebugCommand(c router.WebSocketContext, subscriptions *debugSubscription, cmd debugCommand) error {
 	if m == nil {
-		return
+		return nil
 	}
 	switch strings.ToLower(strings.TrimSpace(cmd.Type)) {
 	case "subscribe":
@@ -876,10 +911,11 @@ func (m *DebugModule) handleDebugCommand(c router.WebSocketContext, subscription
 	case "unsubscribe":
 		subscriptions.unsubscribe(cmd.Panels)
 	case "snapshot":
-		_ = m.writeDebugSnapshot(c)
+		return m.writeDebugSnapshot(c)
 	case "clear":
 		m.clearDebugPanels(cmd.Panels)
 	}
+	return nil
 }
 
 func (m *DebugModule) clearDebugPanels(panels []string) {

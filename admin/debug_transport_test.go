@@ -45,7 +45,7 @@ func TestDebugRoutesRequirePermission(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 403 {
@@ -71,7 +71,7 @@ func TestDebugRoutesDenyWhenNoAuthorizerOrIPAllowlistConfigured(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != http.StatusForbidden {
@@ -98,7 +98,7 @@ func TestDebugRoutesAllowStandaloneIPAccessWithoutAuthorizer(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
 	req.RemoteAddr = "1.1.1.1:12345"
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -142,7 +142,7 @@ func TestDebugPanelsEndpointExposesEnabledRichUIDefinitions(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", debugAPIPath(t, adm, debugCfg, "panels"), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, debugCfg, "panels"), nil)
 	req.RemoteAddr = "1.1.1.1:12345"
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -209,7 +209,7 @@ func TestDebugPanelActionEndpointDispatchesRegisteredHandler(t *testing.T) {
 
 	path := strings.Replace(debugAPIPath(t, adm, debugCfg, "panel.action"), ":panel", panelID, 1)
 	path = strings.Replace(path, ":action", "refresh", 1)
-	req := httptest.NewRequest("POST", path, strings.NewReader(`{"source":"test"}`))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", path, strings.NewReader(`{"source":"test"}`))
 	req.RemoteAddr = "1.1.1.1:12345"
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -277,7 +277,7 @@ func TestDebugPanelActionEndpointMasksActionResultPayloads(t *testing.T) {
 
 	path := strings.Replace(debugAPIPath(t, adm, debugCfg, "panel.action"), ":panel", panelID, 1)
 	path = strings.Replace(path, ":action", "inspect", 1)
-	req := httptest.NewRequest("POST", path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), "POST", path, nil)
 	req.RemoteAddr = "1.1.1.1:12345"
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -348,7 +348,7 @@ func TestDebugPanelActionEndpointRejectsDisabledPanel(t *testing.T) {
 
 	path := strings.Replace(debugAPIPath(t, adm, debugCfg, "panel.action"), ":panel", panelID, 1)
 	path = strings.Replace(path, ":action", "refresh", 1)
-	req := httptest.NewRequest("POST", path, nil)
+	req := httptest.NewRequestWithContext(context.Background(), "POST", path, nil)
 	req.RemoteAddr = "1.1.1.1:12345"
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -385,7 +385,7 @@ func TestDebugPanelOrderPreferenceEndpointPersistsNormalizedUserOrder(t *testing
 
 	path := debugAPIPath(t, adm, cfg.Debug, "preferences.panel_order")
 	body := `{"panel_order":[" sql ","unknown","template","sql","bad panel","sessions"]}`
-	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Test-User", "user-1")
 	rr := httptest.NewRecorder()
@@ -405,7 +405,7 @@ func TestDebugPanelOrderPreferenceEndpointPersistsNormalizedUserOrder(t *testing
 		t.Fatalf("expected normalized panel order %q, got %q", want, got)
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, path, nil)
+	getReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 	getReq.Header.Set("X-Test-User", "user-1")
 	getRR := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(getRR, getReq)
@@ -469,7 +469,7 @@ func TestDebugPanelOrderPreferenceEndpointRejectsGloballyRegisteredDisabledPanel
 
 	path := debugAPIPath(t, adm, cfg.Debug, "preferences.panel_order")
 	body := `{"panel_order":["sql","` + panelID + `","template"]}`
-	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, path, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Test-User", "user-1")
 	rr := httptest.NewRecorder()
@@ -516,7 +516,7 @@ func TestDebugPanelOrderPreferenceEndpointIsUserScoped(t *testing.T) {
 		{user: "user-1", order: `["sql"]`},
 		{user: "user-2", order: `["config"]`},
 	} {
-		req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(`{"panel_order":`+tc.order+`}`))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, path, strings.NewReader(`{"panel_order":`+tc.order+`}`))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Test-User", tc.user)
 		rr := httptest.NewRecorder()
@@ -533,7 +533,7 @@ func TestDebugPanelOrderPreferenceEndpointIsUserScoped(t *testing.T) {
 		{user: "user-1", want: "sql"},
 		{user: "user-2", want: "config"},
 	} {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, path, nil)
 		req.Header.Set("X-Test-User", tc.user)
 		rr := httptest.NewRecorder()
 		server.WrappedRouter().ServeHTTP(rr, req)
@@ -571,7 +571,7 @@ func TestDebugPanelOrderPreferenceEndpointFallsBackForUserlessAccess(t *testing.
 	}
 
 	path := debugAPIPath(t, adm, cfg.Debug, "preferences.panel_order")
-	req := httptest.NewRequest(http.MethodPut, path, strings.NewReader(`{"panel_order":["sql"]}`))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, path, strings.NewReader(`{"panel_order":["sql"]}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-ID", "spoofed-user")
 	req.RemoteAddr = "1.1.1.1:12345"
@@ -596,11 +596,6 @@ func TestDebugPanelOrderPreferenceEndpointFallsBackForUserlessAccess(t *testing.
 	}
 }
 
-//go:fix inline
-func boolPtr(value bool) *bool {
-	return new(value)
-}
-
 func TestDebugRoutesUseAuthenticator(t *testing.T) {
 	cfg := Config{
 		BasePath:      "/admin",
@@ -622,7 +617,7 @@ func TestDebugRoutesUseAuthenticator(t *testing.T) {
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != 200 {
@@ -652,7 +647,7 @@ func TestDebugRoutesDenyWhenAuthenticatorMissingEvenWithAuthorizer(t *testing.T)
 		t.Fatalf("initialize: %v", err)
 	}
 
-	req := httptest.NewRequest("GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", debugAPIPath(t, adm, cfg.Debug, "snapshot"), nil)
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
 	if rr.Code != http.StatusForbidden {
@@ -698,7 +693,7 @@ func TestDebugDoctorActionEndpointRunsCheckAction(t *testing.T) {
 	}
 
 	path := strings.Replace(debugAPIPath(t, adm, cfg.Debug, "doctor.action"), ":check", "debug.autofix", 1)
-	req := httptest.NewRequest("POST", path, strings.NewReader(`{"source":"transport-test"}`))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", path, strings.NewReader(`{"source":"transport-test"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -747,7 +742,7 @@ func TestJSErrorReportEndpointAcceptsValidPayload(t *testing.T) {
 
 	nonce := "test-nonce-abc123"
 	body := `{"type":"uncaught","message":"ReferenceError: foo is not defined","source":"app.js","line":42,"nonce":"` + nonce + `"}`
-	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, nonce)
@@ -781,7 +776,7 @@ func TestJSErrorReportEndpointRejectsEmptyMessage(t *testing.T) {
 
 	nonce := "test-nonce-empty-msg"
 	body := `{"type":"uncaught","message":"","nonce":"` + nonce + `"}`
-	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, nonce)
@@ -811,7 +806,7 @@ func TestJSErrorReportEndpointRejectsInvalidJSON(t *testing.T) {
 	}
 
 	body := `not json`
-	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, "some-nonce")
@@ -841,7 +836,7 @@ func TestJSErrorReportEndpointReturns404WithoutExposureBoundary(t *testing.T) {
 
 	nonce := "test-nonce-no-auth"
 	body := `{"type":"uncaught","message":"test error","nonce":"` + nonce + `"}`
-	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	addNonceCookie(req, nonce)
 	rr := httptest.NewRecorder()
@@ -870,7 +865,7 @@ func TestJSErrorReportEndpointRejectsMismatchedNonce(t *testing.T) {
 	}
 
 	body := `{"type":"uncaught","message":"test error","nonce":"body-nonce"}`
-	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, "cookie-nonce") // Different from body nonce
@@ -901,7 +896,7 @@ func TestJSErrorReportEndpointRejectsMissingNonce(t *testing.T) {
 
 	// No nonce cookie, no nonce in body
 	body := `{"type":"uncaught","message":"test error"}`
-	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.RemoteAddr = "1.1.1.1:12345"
 	rr := httptest.NewRecorder()
@@ -932,7 +927,7 @@ func TestJSErrorReportEndpointReturns404WhenDisabled(t *testing.T) {
 	}
 
 	body := `{"type":"uncaught","message":"test error"}`
-	req := httptest.NewRequest("POST", debugAPIPath(t, adm, cfg.Debug, "errors"), strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", debugAPIPath(t, adm, cfg.Debug, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(rr, req)
@@ -961,7 +956,7 @@ func TestJSErrorReportEndpointAcceptsNetworkErrorType(t *testing.T) {
 
 	nonce := "test-nonce-network"
 	body := `{"type":"network_error","message":"GET http://localhost/api/test 404 (Not Found)","nonce":"` + nonce + `","extra":{"method":"GET","status":404,"status_text":"Not Found","request_url":"http://localhost/api/test"}}`
-	req := httptest.NewRequest("POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", debugAPIPath(t, adm, debugCfg, "errors"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.RemoteAddr = "1.1.1.1:12345"
 	addNonceCookie(req, nonce)
