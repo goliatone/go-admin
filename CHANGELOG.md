@@ -1,5 +1,23 @@
 # Changelog
 
+# [0.76.2](https://github.com/goliatone/go-admin/compare/v0.76.1...v0.76.2) - (2026-05-26)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Translation family setup ([4af9b9d](https://github.com/goliatone/go-admin/commit/4af9b9d0a3c760f71c533a0a45358b9039c06190))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.76.2 ([41b86cd](https://github.com/goliatone/go-admin/commit/41b86cdaf3432253e27c6deb965801219757848a))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.76.1 ([bccaf7f](https://github.com/goliatone/go-admin/commit/bccaf7fca118cb88da5e217087a63030275048c4))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update docs ([2098e19](https://github.com/goliatone/go-admin/commit/2098e192667c74cae7119b6ec05025570bd6d3b2))  - (goliatone)
+
 # [0.76.1](https://github.com/goliatone/go-admin/compare/v0.76.0...v0.76.1) - (2026-05-26)
 
 ## <!-- 1 -->🐛 Bug Fixes
