@@ -78,22 +78,34 @@ func translationFamilyAssignmentsByFamily(assignments []translationservices.Fami
 
 func translationFamilySyncFamilies(ctx context.Context, adm *Admin, locales []string, defaultLocale string) (map[string]translationservices.FamilyRecord, error) {
 	families := map[string]translationservices.FamilyRecord{}
-	seenVariants := map[string]struct{}{}
+	state := newTranslationFamilySyncState()
 	for _, locale := range locales {
-		if err := appendTranslationFamilyLocaleVariants(ctx, adm, families, seenVariants, locale, defaultLocale); err != nil {
+		if err := appendTranslationFamilyLocaleVariants(ctx, adm, families, state, locale, defaultLocale); err != nil {
 			return nil, err
 		}
 	}
 	return families, nil
 }
 
-func appendTranslationFamilyLocaleVariants(ctx context.Context, adm *Admin, families map[string]translationservices.FamilyRecord, seenVariants map[string]struct{}, locale, defaultLocale string) error {
+type translationFamilySyncState struct {
+	seenLocaleVariants map[string]struct{}
+	recordLocales      map[string]map[string]string
+}
+
+func newTranslationFamilySyncState() *translationFamilySyncState {
+	return &translationFamilySyncState{
+		seenLocaleVariants: map[string]struct{}{},
+		recordLocales:      map[string]map[string]string{},
+	}
+}
+
+func appendTranslationFamilyLocaleVariants(ctx context.Context, adm *Admin, families map[string]translationservices.FamilyRecord, state *translationFamilySyncState, locale, defaultLocale string) error {
 	pages, err := adm.contentSvc.Pages(ctx, locale)
 	if err != nil {
 		return err
 	}
 	for _, page := range pages {
-		appendErr := appendPageFamilyVariant(families, seenVariants, page, locale, defaultLocale)
+		appendErr := appendPageFamilyVariant(families, state, page, locale, defaultLocale)
 		if appendErr != nil {
 			return appendErr
 		}
@@ -103,7 +115,7 @@ func appendTranslationFamilyLocaleVariants(ctx context.Context, adm *Admin, fami
 		return err
 	}
 	for _, content := range contents {
-		if err := appendContentFamilyVariant(families, seenVariants, content, locale, defaultLocale); err != nil {
+		if err := appendContentFamilyVariant(families, state, content, locale, defaultLocale); err != nil {
 			return err
 		}
 	}
@@ -131,7 +143,7 @@ func recomputeTranslationFamilies(ctx context.Context, adm *Admin, environment s
 	return err
 }
 
-func appendPageFamilyVariant(families map[string]translationservices.FamilyRecord, seen map[string]struct{}, page CMSPage, locale, defaultLocale string) error {
+func appendPageFamilyVariant(families map[string]translationservices.FamilyRecord, state *translationFamilySyncState, page CMSPage, locale, defaultLocale string) error {
 	familyID := strings.TrimSpace(page.FamilyID)
 	if familyID == "" {
 		return validationDomainError("translation-enabled page missing canonical family_id", map[string]any{
@@ -140,11 +152,10 @@ func appendPageFamilyVariant(families map[string]translationservices.FamilyRecor
 			"entity":    "pages",
 		})
 	}
-	key := familyID + "::" + strings.TrimSpace(page.ID)
-	if _, ok := seen[key]; ok {
+	resolvedLocale := translationFamilyLocale(page.Locale, locale)
+	if state.seenLocaleVariant(familyID, page.ID, resolvedLocale) {
 		return nil
 	}
-	seen[key] = struct{}{}
 	family := families[familyID]
 	scope := translationScopeFromMaps(page.Metadata, page.Data)
 	if family.ID == "" {
@@ -162,10 +173,7 @@ func appendPageFamilyVariant(families map[string]translationservices.FamilyRecor
 	if strings.TrimSpace(family.SourceLocale) == "" {
 		family.SourceLocale = translationFamilyLocale(defaultLocale, page.Locale)
 	}
-	if strings.EqualFold(translationFamilyLocale(page.Locale, locale), strings.TrimSpace(strings.ToLower(defaultLocale))) {
-		family.SourceVariantID = strings.TrimSpace(page.ID)
-	}
-	family.Variants = append(family.Variants, translationFamilyVariantRecord(
+	variant := translationFamilyVariantRecord(
 		familyID,
 		scope,
 		page.ID,
@@ -177,12 +185,17 @@ func appendPageFamilyVariant(families map[string]translationservices.FamilyRecor
 		page.Metadata,
 		locale,
 		defaultLocale,
-	))
+	)
+	variant.ID = state.variantIDForRecord(&family, variant.SourceRecordID, variant.Locale)
+	if variant.IsSource {
+		family.SourceVariantID = strings.TrimSpace(variant.ID)
+	}
+	family.Variants = append(family.Variants, variant)
 	families[familyID] = family
 	return nil
 }
 
-func appendContentFamilyVariant(families map[string]translationservices.FamilyRecord, seen map[string]struct{}, content CMSContent, locale, defaultLocale string) error {
+func appendContentFamilyVariant(families map[string]translationservices.FamilyRecord, state *translationFamilySyncState, content CMSContent, locale, defaultLocale string) error {
 	contentType := strings.TrimSpace(strings.ToLower(firstNonEmpty(content.ContentTypeSlug, content.ContentType)))
 	if contentType == "" || contentType == "page" {
 		return nil
@@ -195,11 +208,10 @@ func appendContentFamilyVariant(families map[string]translationservices.FamilyRe
 			"entity":    contentType,
 		})
 	}
-	key := familyID + "::" + strings.TrimSpace(content.ID)
-	if _, ok := seen[key]; ok {
+	resolvedLocale := translationFamilyLocale(content.Locale, locale)
+	if state.seenLocaleVariant(familyID, content.ID, resolvedLocale) {
 		return nil
 	}
-	seen[key] = struct{}{}
 	family := families[familyID]
 	scope := translationScopeFromMaps(content.Metadata, content.Data)
 	if family.ID == "" {
@@ -217,10 +229,7 @@ func appendContentFamilyVariant(families map[string]translationservices.FamilyRe
 	if strings.TrimSpace(family.SourceLocale) == "" {
 		family.SourceLocale = translationFamilyLocale(defaultLocale, content.Locale)
 	}
-	if strings.EqualFold(translationFamilyLocale(content.Locale, locale), strings.TrimSpace(strings.ToLower(defaultLocale))) {
-		family.SourceVariantID = strings.TrimSpace(content.ID)
-	}
-	family.Variants = append(family.Variants, translationFamilyVariantRecord(
+	variant := translationFamilyVariantRecord(
 		familyID,
 		scope,
 		content.ID,
@@ -232,9 +241,77 @@ func appendContentFamilyVariant(families map[string]translationservices.FamilyRe
 		content.Metadata,
 		locale,
 		defaultLocale,
-	))
+	)
+	variant.ID = state.variantIDForRecord(&family, variant.SourceRecordID, variant.Locale)
+	if variant.IsSource {
+		family.SourceVariantID = strings.TrimSpace(variant.ID)
+	}
+	family.Variants = append(family.Variants, variant)
 	families[familyID] = family
 	return nil
+}
+
+func (s *translationFamilySyncState) seenLocaleVariant(familyID, recordID, locale string) bool {
+	if s == nil {
+		return false
+	}
+	key := strings.Join([]string{
+		strings.TrimSpace(familyID),
+		strings.TrimSpace(recordID),
+		strings.TrimSpace(strings.ToLower(locale)),
+	}, "::")
+	if _, ok := s.seenLocaleVariants[key]; ok {
+		return true
+	}
+	s.seenLocaleVariants[key] = struct{}{}
+	return false
+}
+
+func (s *translationFamilySyncState) variantIDForRecord(family *translationservices.FamilyRecord, recordID, locale string) string {
+	recordID = strings.TrimSpace(recordID)
+	locale = strings.TrimSpace(strings.ToLower(locale))
+	if s == nil || family == nil || recordID == "" {
+		return recordID
+	}
+	recordKey := strings.TrimSpace(family.ID) + "::" + recordID
+	locales := s.recordLocales[recordKey]
+	if locales == nil {
+		locales = map[string]string{}
+		s.recordLocales[recordKey] = locales
+	}
+	if len(locales) == 0 {
+		locales[locale] = recordID
+		return recordID
+	}
+	if existing := strings.TrimSpace(locales[locale]); existing != "" {
+		return existing
+	}
+	for i := range family.Variants {
+		variantLocale := strings.TrimSpace(strings.ToLower(family.Variants[i].Locale))
+		if strings.TrimSpace(family.Variants[i].SourceRecordID) != recordID || variantLocale == "" {
+			continue
+		}
+		localizedID := translationFamilyLocaleVariantID(recordID, variantLocale)
+		if strings.TrimSpace(family.Variants[i].ID) == recordID {
+			family.Variants[i].ID = localizedID
+			if family.Variants[i].IsSource && strings.TrimSpace(family.SourceVariantID) == recordID {
+				family.SourceVariantID = localizedID
+			}
+		}
+		locales[variantLocale] = strings.TrimSpace(family.Variants[i].ID)
+	}
+	localizedID := translationFamilyLocaleVariantID(recordID, locale)
+	locales[locale] = localizedID
+	return localizedID
+}
+
+func translationFamilyLocaleVariantID(recordID, locale string) string {
+	recordID = strings.TrimSpace(recordID)
+	locale = strings.TrimSpace(strings.ToLower(locale))
+	if recordID == "" || locale == "" {
+		return recordID
+	}
+	return recordID + "::" + locale
 }
 
 func translationFamilyVariantRecord(

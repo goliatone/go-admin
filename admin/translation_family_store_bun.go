@@ -15,19 +15,19 @@ import (
 type bunTranslationFamilyRecord struct {
 	bun.BaseModel `bun:"table:content_families,alias:cf"`
 
-	FamilyID                   string    `bun:"family_id,pk" json:"family_id"`
-	TenantID                   string    `bun:"tenant_id" json:"tenant_id"`
-	OrgID                      string    `bun:"org_id" json:"org_id"`
-	ContentType                string    `bun:"content_type" json:"content_type"`
-	SourceLocale               string    `bun:"source_locale" json:"source_locale"`
-	SourceVariantID            string    `bun:"source_variant_id" json:"source_variant_id"`
-	ReadinessState             string    `bun:"readiness_state" json:"readiness_state"`
-	BlockerCodesJSON           string    `bun:"blocker_codes_json" json:"blocker_codes_json"`
-	MissingRequiredLocaleCount int       `bun:"missing_required_locale_count" json:"missing_required_locale_count"`
-	PendingReviewCount         int       `bun:"pending_review_count" json:"pending_review_count"`
-	OutdatedLocaleCount        int       `bun:"outdated_locale_count" json:"outdated_locale_count"`
-	CreatedAt                  time.Time `bun:"created_at" json:"created_at"`
-	UpdatedAt                  time.Time `bun:"updated_at" json:"updated_at"`
+	FamilyID                   string         `bun:"family_id,pk" json:"family_id"`
+	TenantID                   string         `bun:"tenant_id" json:"tenant_id"`
+	OrgID                      string         `bun:"org_id" json:"org_id"`
+	ContentType                string         `bun:"content_type" json:"content_type"`
+	SourceLocale               string         `bun:"source_locale" json:"source_locale"`
+	SourceVariantID            sql.NullString `bun:"source_variant_id" json:"source_variant_id"`
+	ReadinessState             string         `bun:"readiness_state" json:"readiness_state"`
+	BlockerCodesJSON           string         `bun:"blocker_codes_json" json:"blocker_codes_json"`
+	MissingRequiredLocaleCount int            `bun:"missing_required_locale_count" json:"missing_required_locale_count"`
+	PendingReviewCount         int            `bun:"pending_review_count" json:"pending_review_count"`
+	OutdatedLocaleCount        int            `bun:"outdated_locale_count" json:"outdated_locale_count"`
+	CreatedAt                  time.Time      `bun:"created_at" json:"created_at"`
+	UpdatedAt                  time.Time      `bun:"updated_at" json:"updated_at"`
 }
 
 type bunTranslationLocaleVariantRecord struct {
@@ -129,6 +129,12 @@ func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family trans
 			Set("updated_at = EXCLUDED.updated_at").
 			Exec(ctx); upsertFamilyErr != nil {
 			return upsertFamilyErr
+		}
+		if err := clearFamilySourceVariants(ctx, tx, family); err != nil {
+			return err
+		}
+		if err := deleteStaleFamilyVariants(ctx, tx, family); err != nil {
+			return err
 		}
 		for _, variant := range family.Variants {
 			row, rowErr := bunTranslationLocaleVariantRecordFromModel(family, variant)
@@ -263,7 +269,7 @@ func bunTranslationFamilyRecordFromModel(family translationservices.FamilyRecord
 		OrgID:                      strings.TrimSpace(family.OrgID),
 		ContentType:                strings.TrimSpace(strings.ToLower(family.ContentType)),
 		SourceLocale:               strings.TrimSpace(strings.ToLower(family.SourceLocale)),
-		SourceVariantID:            strings.TrimSpace(family.SourceVariantID),
+		SourceVariantID:            nullString(strings.TrimSpace(family.SourceVariantID)),
 		ReadinessState:             normalizeStoredFamilyReadinessState(family),
 		BlockerCodesJSON:           string(blockerCodesJSON),
 		MissingRequiredLocaleCount: family.MissingRequiredLocaleCount,
@@ -303,7 +309,7 @@ func familyModelFromBunRecord(record bunTranslationFamilyRecord) (translationser
 		OrgID:                      strings.TrimSpace(record.OrgID),
 		ContentType:                strings.TrimSpace(strings.ToLower(record.ContentType)),
 		SourceLocale:               strings.TrimSpace(strings.ToLower(record.SourceLocale)),
-		SourceVariantID:            strings.TrimSpace(record.SourceVariantID),
+		SourceVariantID:            nullStringValue(record.SourceVariantID),
 		ReadinessState:             strings.TrimSpace(strings.ToLower(record.ReadinessState)),
 		MissingRequiredLocaleCount: record.MissingRequiredLocaleCount,
 		PendingReviewCount:         record.PendingReviewCount,
@@ -312,6 +318,53 @@ func familyModelFromBunRecord(record bunTranslationFamilyRecord) (translationser
 		CreatedAt:                  record.CreatedAt,
 		UpdatedAt:                  record.UpdatedAt,
 	}, nil
+}
+
+func clearFamilySourceVariants(ctx context.Context, tx bun.Tx, family translationservices.FamilyRecord) error {
+	familyID := strings.TrimSpace(family.ID)
+	if familyID == "" || len(family.Variants) == 0 {
+		return nil
+	}
+	_, err := tx.NewUpdate().
+		Model((*bunTranslationLocaleVariantRecord)(nil)).
+		Set("is_source = ?", false).
+		Where("family_id = ?", familyID).
+		Exec(ctx)
+	return err
+}
+
+func deleteStaleFamilyVariants(ctx context.Context, tx bun.Tx, family translationservices.FamilyRecord) error {
+	familyID := strings.TrimSpace(family.ID)
+	if familyID == "" || len(family.Variants) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(family.Variants))
+	for _, variant := range family.Variants {
+		if id := strings.TrimSpace(variant.ID); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := tx.NewDelete().
+		Model((*bunTranslationLocaleVariantRecord)(nil)).
+		Where("family_id = ?", familyID).
+		Where("variant_id NOT IN (?)", bun.List(ids)).
+		Exec(ctx)
+	return err
+}
+
+func nullString(value string) sql.NullString {
+	value = strings.TrimSpace(value)
+	return sql.NullString{String: value, Valid: value != ""}
+}
+
+func nullStringValue(value sql.NullString) string {
+	if !value.Valid {
+		return ""
+	}
+	return strings.TrimSpace(value.String)
 }
 
 func bunTranslationLocaleVariantRecordFromModel(family translationservices.FamilyRecord, variant translationservices.FamilyVariant) (bunTranslationLocaleVariantRecord, error) {
