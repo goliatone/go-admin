@@ -35,6 +35,7 @@ function setGlobals(win) {
   globalThis.HTMLButtonElement = win.HTMLButtonElement;
   globalThis.Event = win.Event;
   Object.defineProperty(globalThis, 'navigator', { value: win.navigator, configurable: true });
+  Object.defineProperty(globalThis, 'location', { value: win.location, configurable: true });
 }
 
 function setupDom(markup) {
@@ -252,6 +253,7 @@ test('translation-family detail: dispatches sync recovery with rpc command envel
   assert.equal(request.params.data.options.IdempotencyKey, 'translation.families.sync:production:missing-family');
   assert.equal(request.params.data.options.Metadata.correlation_id, 'corr-1');
 
+  setupDom('<meta name="csrf-token" content="family-sync-csrf">');
   const requests = [];
   const result = await dispatchTranslationFamilySync(recovery, {
     correlationId: 'corr-1',
@@ -280,6 +282,7 @@ test('translation-family detail: dispatches sync recovery with rpc command envel
   assert.equal(body.params.data.options.Mode, 'inline');
   assert.equal(body.params.data.options.CorrelationID, 'corr-1');
   assert.equal(body.params.data.options.IdempotencyKey, 'translation.families.sync:production:missing-family');
+  assert.equal(new Headers(requests[0].init.headers).get('X-CSRF-Token'), 'family-sync-csrf');
   assert.equal(result.receipt.CommandID, 'translation.families.sync');
 });
 
@@ -439,6 +442,14 @@ test('translation-family detail: post-sync non-not-found reload failure stays in
 test('translation-family detail: failed rpc sync surfaces structured error without losing controls', async () => {
   const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/missing-family" data-base-path="/admin"></div>');
   const root = dom.window.document.getElementById('root');
+  const toastManager = {
+    errors: [],
+    error(message) {
+      this.errors.push(message);
+    },
+  };
+  globalThis.toastManager = toastManager;
+  dom.window.toastManager = toastManager;
   const fetchImpl = async (url) => {
     if (String(url).endsWith('/rpc')) {
       return new Response(JSON.stringify({
@@ -463,4 +474,5 @@ test('translation-family detail: failed rpc sync surfaces structured error witho
   assert.match(root.innerHTML, /sync permission denied/i);
   assert.equal(button.disabled, false);
   assert.match(root.innerHTML, /data-family-sync-action="true"/);
+  assert.deepEqual(toastManager.errors, ['sync permission denied']);
 });

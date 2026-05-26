@@ -6,7 +6,7 @@ import {
   asString,
   asStringArray,
 } from '../shared/coercion.js';
-import { httpRequest, readHTTPJSON } from '../shared/transport/http-client.js';
+import { appendCSRFHeader, httpRequest, readHTTPJSON } from '../shared/transport/http-client.js';
 import { normalizeStringRecord } from '../shared/record-normalization.js';
 import { trimTrailingSlash } from '../shared/path-normalization.js';
 import {
@@ -337,15 +337,18 @@ export async function dispatchTranslationFamilySync(
   if (!recovery.canSync) {
     throw new Error('translation family sync is not available for this request');
   }
-  const response = await fetchImpl(recovery.rpcInvokePath, {
+  const headers = new Headers({
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  });
+  const init: RequestInit = {
     method: 'POST',
     credentials: 'same-origin',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(buildTranslationFamilySyncRPCRequest(recovery, options.correlationId)),
-  });
+  };
+  appendCSRFHeader(recovery.rpcInvokePath, init, headers);
+  const response = await fetchImpl(recovery.rpcInvokePath, init);
   if (!response.ok) {
     const structured = await extractStructuredError(response);
     throw new Error(structured.message || 'Failed to sync translation families.');
@@ -1624,7 +1627,7 @@ function globalToast(kind: 'success' | 'error' | 'warning' | 'info', message: st
   const manager = (globalThis as { toastManager?: Record<string, (input: string) => void> }).toastManager;
   const handler = manager?.[kind];
   if (typeof handler === 'function') {
-    handler(message);
+    handler.call(manager, message);
   }
 }
 
