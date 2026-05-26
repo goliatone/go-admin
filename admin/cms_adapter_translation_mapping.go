@@ -143,6 +143,9 @@ func applyCreateTranslationRequestFields(req reflect.Value, input TranslationCre
 	}
 	if len(input.Metadata) > 0 {
 		gocmsutil.SetMapField(req, "Metadata", cloneAnyMap(input.Metadata))
+		if familyID := cmsadapter.UUIDFromString(toString(input.Metadata["family_id"])); familyID != uuid.Nil {
+			setUUIDFieldByName(req, "FamilyID", familyID)
+		}
 	}
 	setUUIDFieldByName(req, "CreatedBy", uuid.Nil)
 	setUUIDFieldByName(req, "UpdatedBy", uuid.Nil)
