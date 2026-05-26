@@ -13,9 +13,10 @@ import (
 
 func BuildGoCMSContentTranslations(content cmsboot.CMSContent) []cmscontent.ContentTranslationInput {
 	tr := cmscontent.ContentTranslationInput{
-		Locale:  content.Locale,
-		Title:   content.Title,
-		Content: primitives.CloneAnyMap(content.Data),
+		Locale:   content.Locale,
+		FamilyID: contentFamilyIDPointer(content),
+		Title:    content.Title,
+		Content:  primitives.CloneAnyMap(content.Data),
 	}
 	if summary := strings.TrimSpace(AsString(content.Data["excerpt"], "")); summary != "" {
 		s := summary
@@ -24,11 +25,34 @@ func BuildGoCMSContentTranslations(content cmsboot.CMSContent) []cmscontent.Cont
 	return []cmscontent.ContentTranslationInput{tr}
 }
 
+func contentFamilyIDPointer(content cmsboot.CMSContent) *uuid.UUID {
+	raw := strings.TrimSpace(content.FamilyID)
+	if raw == "" {
+		raw = strings.TrimSpace(AsString(content.Data["family_id"], ""))
+	}
+	if raw == "" {
+		raw = strings.TrimSpace(AsString(content.Metadata["family_id"], ""))
+	}
+	parsed := UUIDFromString(raw)
+	if parsed == uuid.Nil {
+		return nil
+	}
+	return &parsed
+}
+
 func UUIDFromString(id string) uuid.UUID {
 	if parsed, err := uuid.Parse(strings.TrimSpace(id)); err == nil {
 		return parsed
 	}
 	return uuid.Nil
+}
+
+func UUIDPointerFromString(id string) *uuid.UUID {
+	parsed := UUIDFromString(id)
+	if parsed == uuid.Nil {
+		return nil
+	}
+	return &parsed
 }
 
 func UUIDStringField(val reflect.Value, name string) string {
