@@ -213,12 +213,36 @@ func (b *translationFamilyBinding) Detail(c router.Context, id string) (payload 
 		return nil, err
 	}
 	if !ok {
-		return nil, notFoundDomainError("translation family not found", map[string]any{"family_id": strings.TrimSpace(id)})
+		return nil, notFoundDomainError("translation family not found", b.detailNotFoundMetadata(adminCtx, id, channel))
 	}
 	return map[string]any{
 		"data": translationFamilyDetailPayload(family, channel),
 		"meta": mergeTranslationChannelContract(nil, channel),
 	}, nil
+}
+
+func (b *translationFamilyBinding) detailNotFoundMetadata(adminCtx AdminContext, id string, channel string) map[string]any {
+	familyID := strings.TrimSpace(id)
+	meta := map[string]any{"family_id": familyID}
+	if b == nil || b.admin == nil {
+		return meta
+	}
+	if !permissionAllowed(b.admin.Authorizer(), adminCtx.Context, PermAdminTranslationsSync, "translations") {
+		return meta
+	}
+	apiBasePath := strings.TrimRight(b.admin.AdminAPIBasePath(), "/")
+	if apiBasePath == "" {
+		apiBasePath = "/admin/api"
+	}
+	meta["sync_recovery"] = map[string]any{
+		"can_sync":        true,
+		"permission":      PermAdminTranslationsSync,
+		"command_name":    "translation.families.sync",
+		"rpc_invoke_path": apiBasePath + "/rpc",
+		"environment":     strings.TrimSpace(channel),
+		"family_id":       familyID,
+	}
+	return meta
 }
 
 func (b *translationFamilyBinding) Create(c router.Context, id string) (payload any, err error) {
