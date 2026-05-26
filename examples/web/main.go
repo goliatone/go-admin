@@ -1326,6 +1326,7 @@ func main() {
 		quickstart.WithAuthUIPasswordResetConfirmPath(passwordResetConfirmPath),
 		quickstart.WithAuthUIRegisterPath(registerPath),
 		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),
+		quickstart.WithAuthUILogoutAuthenticator(authn),
 		quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
 		quickstart.WithAuthUIViewContextBuilder(authUIViewContext),
 	); err != nil {

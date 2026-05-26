@@ -163,6 +163,7 @@ func registerAdminShellUIRoutes(
 		adminCfg,
 		routeAuth,
 		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),
+		quickstart.WithAuthUILogoutAuthenticator(authn),
 		quickstart.WithAuthUITemplates("login-demo", "password_reset"),
 		quickstart.WithAuthUIViewContextBuilder(func(ctx router.ViewContext, _ router.Context) router.ViewContext {
 			ctx["demo_credentials"] = demoCredentialsView(demoCredentials)

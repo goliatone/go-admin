@@ -568,7 +568,7 @@ func registerESignWebRoutes(
 	}
 	registerESignDocumentUploadRoute(r, authn, routes, esignModule)
 	registerESignLegacyUIAliasRoutes(r, authn, basePath)
-	if err := registerESignAuthUIRoutes(r, cfg, adm, routeAuth, cookieName); err != nil {
+	if err := registerESignAuthUIRoutes(r, cfg, adm, authn, routeAuth, cookieName); err != nil {
 		return err
 	}
 	if err := registerESignLandingRoute(r, cfg, adm, authn, routes, esignModule, routeState); err != nil {
@@ -682,6 +682,7 @@ func registerESignAuthUIRoutes(
 	r router.Router[*fiber.App],
 	cfg coreadmin.Config,
 	adm *coreadmin.Admin,
+	authn coreadmin.HandlerAuthenticator,
 	routeAuth *auth.RouteAuthenticator,
 	cookieName string,
 ) error {
@@ -693,6 +694,7 @@ func registerESignAuthUIRoutes(
 		quickstart.WithAuthUITitles("Login", "Password Reset"),
 		quickstart.WithAuthUITemplates("login-esign", "password_reset"),
 		quickstart.WithAuthUIFeatureGate(adm.FeatureGate()),
+		quickstart.WithAuthUILogoutAuthenticator(authn),
 	); err != nil {
 		return err
 	}
