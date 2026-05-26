@@ -49,6 +49,7 @@ const (
 type TranslationAssignment struct {
 	ID         string `json:"id"`
 	FamilyID   string `json:"family_id"`
+	VariantID  string `json:"variant_id,omitempty"`
 	EntityType string `json:"entity_type"`
 	TenantID   string `json:"tenant_id,omitempty"`
 	OrgID      string `json:"org_id,omitempty"`
