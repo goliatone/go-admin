@@ -1844,7 +1844,11 @@ func renderSignerReviewPage(c router.Context, cfg SignerWebRouteConfig, apiBaseP
 		observability.ObserveUnifiedViewerLoad(c.Context(), time.Since(startedAt), false)
 		return handleSignerTokenError(c, cfg, apiBasePath, err, token)
 	}
-	if redirected := redirectToCanonicalSignerRoute(c, token, publicToken); redirected {
+	redirected, err := redirectToCanonicalSignerRoute(c, token, publicToken)
+	if err != nil {
+		return err
+	}
+	if redirected {
 		return nil
 	}
 
@@ -1888,19 +1892,21 @@ func canonicalSignerRoutePath(rawToken string, token services.PublicReviewToken)
 	return canonicalSignerBasePath(token) + "/" + url.PathEscape(strings.TrimSpace(rawToken))
 }
 
-func redirectToCanonicalSignerRoute(c router.Context, rawToken string, token services.PublicReviewToken) bool {
+func redirectToCanonicalSignerRoute(c router.Context, rawToken string, token services.PublicReviewToken) (bool, error) {
 	if c == nil {
-		return false
+		return false, nil
 	}
 	target := canonicalSignerRoutePath(rawToken, token)
 	if strings.TrimSpace(c.Path()) == target {
-		return false
+		return false, nil
 	}
 	if rawQuery := rawQueryFromURL(c.OriginalURL()); rawQuery != "" {
 		target += "?" + rawQuery
 	}
-	_ = c.Redirect(target, http.StatusFound)
-	return true
+	if err := c.Redirect(target, http.StatusFound); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func canRenderUnifiedSession(session services.SignerSessionContext) bool {
