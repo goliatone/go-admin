@@ -58,6 +58,7 @@ function missingFamilyResponse({ canSync = true, status = 404, textCode = 'NOT_F
         family_id: 'missing-family',
         sync_recovery: canSync ? {
           can_sync: true,
+          syncable: true,
           permission: 'admin.translations.sync',
           command_name: 'translation.families.sync',
           rpc_invoke_path: '/admin/api/rpc',
@@ -202,7 +203,26 @@ test('translation-family detail: keeps sync action hidden without capability or 
   assert.equal(noCapabilityState.syncRecovery, null);
   assert.doesNotMatch(renderTranslationFamilyDetailState(noCapabilityState), /Sync translation families/i);
 
-  globalThis.fetch = async () => missingFamilyResponse({ status: 409, textCode: 'VERSION_CONFLICT' });
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    error: {
+      text_code: 'VERSION_CONFLICT',
+      message: 'translation family conflict',
+      metadata: {
+        family_id: 'missing-family',
+        sync_recovery: {
+          can_sync: true,
+          permission: 'admin.translations.sync',
+          command_name: 'translation.families.sync',
+          rpc_invoke_path: '/admin/api/rpc',
+          environment: 'production',
+          family_id: 'missing-family',
+        },
+      },
+    },
+  }), {
+    status: 409,
+    headers: { 'Content-Type': 'application/json' },
+  });
   const conflictState = await fetchTranslationFamilyDetailState('/admin/api/translations/families/missing-family');
   assert.equal(conflictState.status, 'conflict');
   assert.doesNotMatch(renderTranslationFamilyDetailState(conflictState), /Sync translation families/i);
@@ -253,6 +273,41 @@ test('translation-family detail: dispatches sync recovery with rpc command envel
   assert.equal(body.params.data.name, 'translation.families.sync');
   assert.equal(body.params.data.payload.channel, 'production');
   assert.equal(result.receipt.command_id, 'translation.families.sync');
+});
+
+test('translation-family detail: rejects malformed rpc success responses without receipts', async () => {
+  const recovery = normalizeTranslationFamilySyncRecoveryCapability({
+    can_sync: true,
+    syncable: true,
+    permission: 'admin.translations.sync',
+    command_name: 'translation.families.sync',
+    rpc_invoke_path: '/admin/api/rpc',
+    environment: 'production',
+    family_id: 'missing-family',
+  });
+  assert.ok(recovery);
+
+  await assert.rejects(
+    () => dispatchTranslationFamilySync(recovery, {
+      fetch: async () => new Response(JSON.stringify({ data: {} }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    }),
+    /valid dispatch receipt/i
+  );
+
+  await assert.rejects(
+    () => dispatchTranslationFamilySync(recovery, {
+      fetch: async () => new Response(JSON.stringify({
+        data: { receipt: { accepted: true, command_id: 'other.command' } },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    }),
+    /valid dispatch receipt/i
+  );
 });
 
 test('translation-family detail: sync action dispatches receipt and reloads detail', async () => {
