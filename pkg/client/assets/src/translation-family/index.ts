@@ -206,11 +206,28 @@ export interface TranslationFamilyDetailLoadState {
   traceId?: string;
   statusCode?: number;
   errorCode?: string | null;
+  syncRecovery?: TranslationFamilySyncRecoveryCapability | null;
+  syncStatus?: 'idle' | 'syncing' | 'completed' | 'failed';
+  syncMessage?: string;
 }
 
 export interface TranslationFamilyDetailRenderOptions {
   basePath?: string;
   contentBasePath?: string;
+}
+
+export interface TranslationFamilySyncRecoveryCapability {
+  canSync: boolean;
+  permission: string;
+  commandName: string;
+  rpcInvokePath: string;
+  environment: string;
+  familyId: string;
+}
+
+export interface TranslationFamilySyncDispatchOptions {
+  fetch?: typeof fetch;
+  correlationId?: string;
 }
 
 export interface TranslationCreateLocaleError extends Error {
@@ -219,6 +236,118 @@ export interface TranslationCreateLocaleError extends Error {
   requestId?: string;
   traceId?: string;
   metadata?: Record<string, unknown>;
+}
+
+export function normalizeTranslationFamilySyncRecoveryCapability(
+  input: unknown,
+  fallback: Partial<TranslationFamilySyncRecoveryCapability> = {}
+): TranslationFamilySyncRecoveryCapability | null {
+  const raw = asRecord(input);
+  const canSync = asBoolean(raw.can_sync ?? raw.canSync);
+  const familyId = asString(raw.family_id ?? raw.familyId ?? fallback.familyId);
+  const commandName = asString((raw.command_name ?? raw.commandName ?? fallback.commandName) || 'translation.families.sync');
+  const rpcInvokePath = asString(raw.rpc_invoke_path ?? raw.rpcInvokePath ?? fallback.rpcInvokePath);
+  const environment = asString((raw.environment ?? raw.channel ?? fallback.environment) || 'default');
+  if (!canSync || !familyId || !commandName || !rpcInvokePath) {
+    return null;
+  }
+  return {
+    canSync,
+    permission: asString((raw.permission ?? fallback.permission) || 'admin.translations.sync'),
+    commandName,
+    rpcInvokePath,
+    environment,
+    familyId,
+  };
+}
+
+export function buildTranslationFamilySyncRPCRequest(
+  recovery: TranslationFamilySyncRecoveryCapability,
+  correlationId = ''
+): Record<string, unknown> {
+  const trimmedCorrelationId = asString(correlationId);
+  return {
+    method: 'admin.commands.dispatch',
+    params: {
+      data: {
+        name: recovery.commandName,
+        ids: recovery.familyId ? [recovery.familyId] : [],
+        payload: {
+          family_id: recovery.familyId,
+          environment: recovery.environment,
+          channel: recovery.environment,
+        },
+        options: {
+          correlation_id: trimmedCorrelationId,
+          metadata: {
+            correlation_id: trimmedCorrelationId,
+          },
+        },
+      },
+    },
+  };
+}
+
+function normalizeTranslationFamilySyncReceipt(input: unknown, commandName: string): Record<string, unknown> | null {
+  const receipt = asRecord(input);
+  if (Object.keys(receipt).length === 0) {
+    return null;
+  }
+  const acceptedRaw = receipt.accepted ?? receipt.Accepted;
+  if (acceptedRaw !== undefined && !asBoolean(acceptedRaw)) {
+    return null;
+  }
+  const receiptCommand = asString(
+    receipt.command_id ??
+    receipt.commandId ??
+    receipt.CommandID ??
+    receipt.command_name ??
+    receipt.commandName
+  );
+  if (receiptCommand && receiptCommand !== commandName) {
+    return null;
+  }
+  return receipt;
+}
+
+export async function dispatchTranslationFamilySync(
+  recovery: TranslationFamilySyncRecoveryCapability,
+  options: TranslationFamilySyncDispatchOptions = {}
+): Promise<Record<string, unknown>> {
+  const fetchImpl = options.fetch ?? globalThis.fetch?.bind(globalThis);
+  if (!fetchImpl) {
+    throw new Error('translation family sync requires fetch');
+  }
+  if (!recovery.canSync) {
+    throw new Error('translation family sync is not available for this request');
+  }
+  const response = await fetchImpl(recovery.rpcInvokePath, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(buildTranslationFamilySyncRPCRequest(recovery, options.correlationId)),
+  });
+  if (!response.ok) {
+    const structured = await extractStructuredError(response);
+    throw new Error(structured.message || 'Failed to sync translation families.');
+  }
+  const payload = asRecord(await response.json().catch(() => ({})));
+  const errorPayload = asRecord(payload.error);
+  if (Object.keys(errorPayload).length > 0) {
+    throw new Error(asString(errorPayload.message) || 'Failed to sync translation families.');
+  }
+  const data = asRecord(payload.data);
+  const receipt = normalizeTranslationFamilySyncReceipt(data.receipt, recovery.commandName);
+  if (!receipt) {
+    throw new Error('Translation family sync did not return a valid dispatch receipt.');
+  }
+  return {
+    ...data,
+    receipt,
+  };
 }
 
 export interface TranslationCreateLocaleRequest {
@@ -1270,14 +1399,41 @@ function renderFamilyEmptyState(title: string, message: string): string {
   `;
 }
 
-function renderFamilyErrorState(title: string, message: string): string {
+function renderFamilyErrorState(title: string, message: string, state: TranslationFamilyDetailLoadState): string {
+  const recovery = state.syncRecovery;
+  const syncAction = recovery?.canSync && state.syncStatus !== 'completed'
+    ? `
+      <button
+        type="button"
+        class="mt-4 ${BTN_PRIMARY}"
+        data-family-sync-action="true"
+        data-family-sync-rpc="${escapeAttribute(recovery.rpcInvokePath)}"
+        data-family-sync-command="${escapeAttribute(recovery.commandName)}"
+        data-family-sync-family-id="${escapeAttribute(recovery.familyId)}"
+        data-family-sync-environment="${escapeAttribute(recovery.environment)}"
+      >
+        Sync translation families
+      </button>
+    `
+    : '';
+  const syncFeedback = state.syncMessage
+    ? escapeHTML(state.syncMessage)
+    : '';
   return `
     <div class="${ERROR_STATE} p-6" role="alert">
       <h2 class="${ERROR_STATE_TITLE}">${escapeHTML(title)}</h2>
       <p class="${ERROR_STATE_TEXT} mt-2">${escapeHTML(message)}</p>
-      <button type="button" class="ui-state-retry-btn mt-4 ${BTN_SECONDARY}">
-        Reload family detail
-      </button>
+      <p
+        data-family-sync-feedback="true"
+        class="mt-3 text-sm ${state.syncStatus === 'failed' ? 'text-rose-700' : 'text-amber-700'}"
+        ${syncFeedback ? '' : 'hidden'}
+      >${syncFeedback}</p>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <button type="button" class="ui-state-retry-btn ${BTN_SECONDARY}">
+          Reload family detail
+        </button>
+        ${syncAction}
+      </div>
     </div>
   `;
 }
@@ -1307,7 +1463,7 @@ export function renderTranslationFamilyDetailState(
       : 'The translation family detail request failed.');
     return `
       <div class="translation-family-detail-error">
-        ${renderFamilyErrorState(title, message)}
+        ${renderFamilyErrorState(title, message, state)}
         ${renderDiagnostics(state)}
       </div>
     `;
@@ -1395,6 +1551,8 @@ export async function fetchTranslationFamilyDetailState(
 
     if (!response.ok) {
       const structured = await extractStructuredError(response);
+      const recoveryMetadata = asRecord(structured.metadata?.sync_recovery);
+      const syncableNotFound = structured.textCode === 'NOT_FOUND' || asBoolean(recoveryMetadata.syncable);
       return {
         status: response.status === 409 ? 'conflict' : 'error',
         message: structured.message,
@@ -1402,6 +1560,12 @@ export async function fetchTranslationFamilyDetailState(
         traceId,
         statusCode: response.status,
         errorCode: structured.textCode,
+        syncRecovery: syncableNotFound
+          ? normalizeTranslationFamilySyncRecoveryCapability(
+              recoveryMetadata,
+              { familyId: asString(structured.metadata?.family_id) }
+            )
+          : null,
       };
     }
 
@@ -1768,6 +1932,48 @@ export async function initTranslationFamilyDetailPage(
     if (retryButton) {
       retryButton.addEventListener('click', () => {
         void initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
+      });
+    }
+    const syncButton = (root as HTMLElement).querySelector<HTMLButtonElement>('[data-family-sync-action="true"]');
+    if (syncButton && state.syncRecovery?.canSync) {
+      syncButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        syncButton.disabled = true;
+        syncButton.classList.add('opacity-60', 'cursor-not-allowed');
+        try {
+          const recovery = state.syncRecovery;
+          if (!recovery) return;
+          await dispatchTranslationFamilySync(recovery, {
+            fetch: options.fetch,
+            correlationId: state.requestId || '',
+          });
+          const refreshed = await fetchTranslationFamilyDetailState(endpoint, { fetch: options.fetch });
+          if (refreshed.status === 'error' && (refreshed.errorCode === 'NOT_FOUND' || refreshed.statusCode === 404)) {
+            renderTranslationFamilyDetailPage(root as HTMLElement, {
+              ...refreshed,
+              syncRecovery: recovery,
+              syncStatus: 'completed',
+              syncMessage: 'Sync completed; family detail still returned NOT_FOUND.',
+            }, renderOptions);
+            const retry = (root as HTMLElement).querySelector<HTMLButtonElement>('.ui-state-retry-btn');
+            retry?.addEventListener('click', () => {
+              void initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
+            });
+            return;
+          }
+          globalToast('success', 'Translation families synced.');
+          await initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Failed to sync translation families.';
+          const feedback = (root as HTMLElement).querySelector<HTMLElement>('[data-family-sync-feedback="true"]');
+          if (feedback) {
+            feedback.hidden = false;
+            feedback.textContent = message;
+          }
+          syncButton.disabled = false;
+          syncButton.classList.remove('opacity-60', 'cursor-not-allowed');
+          globalToast('error', message);
+        }
       });
     }
   }

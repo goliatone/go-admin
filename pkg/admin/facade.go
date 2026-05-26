@@ -239,6 +239,7 @@ const (
 	PermAdminTranslationsImportValidate            = core.PermAdminTranslationsImportValidate
 	PermAdminTranslationsImportView                = core.PermAdminTranslationsImportView
 	PermAdminTranslationsManage                    = core.PermAdminTranslationsManage
+	PermAdminTranslationsSync                      = core.PermAdminTranslationsSync
 	PermAdminTranslationsView                      = core.PermAdminTranslationsView
 	PreferenceLevelOrg                             = core.PreferenceLevelOrg
 	PreferenceLevelSystem                          = core.PreferenceLevelSystem

@@ -3,14 +3,87 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const {
+  buildTranslationFamilySyncRPCRequest,
   buildFamilyActivityPreview,
+  dispatchTranslationFamilySync,
   fetchTranslationFamilyDetailState,
+  initTranslationFamilyDetailPage,
   normalizeFamilyDetail,
+  normalizeTranslationFamilySyncRecoveryCapability,
   renderTranslationFamilyDetailState,
 } = await import('../dist/translation-family/index.js');
 
+async function loadJSDOM() {
+  try {
+    return await import('jsdom');
+  } catch {
+    return await import('../../../../../go-formgen/client/node_modules/jsdom/lib/api.js');
+  }
+}
+
+const { JSDOM } = await loadJSDOM();
 const fixtureURL = new URL('./fixtures/translation_family_detail/family_states.json', import.meta.url);
 const fixtures = JSON.parse(await readFile(fixtureURL, 'utf8'));
+
+function setGlobals(win) {
+  globalThis.window = win;
+  globalThis.document = win.document;
+  globalThis.Document = win.Document;
+  globalThis.Node = win.Node;
+  globalThis.Element = win.Element;
+  globalThis.HTMLElement = win.HTMLElement;
+  globalThis.HTMLButtonElement = win.HTMLButtonElement;
+  globalThis.Event = win.Event;
+  Object.defineProperty(globalThis, 'navigator', { value: win.navigator, configurable: true });
+}
+
+function setupDom(markup) {
+  const dom = new JSDOM(markup, {
+    url: 'http://localhost:8082/admin/translations/families/missing-family',
+  });
+  setGlobals(dom.window);
+  return dom;
+}
+
+function nextTick() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function missingFamilyResponse({ canSync = true, status = 404, textCode = 'NOT_FOUND' } = {}) {
+  return new Response(JSON.stringify({
+    error: {
+      text_code: textCode,
+      message: textCode === 'NOT_FOUND' ? 'translation family not found' : 'translation family conflict',
+      metadata: {
+        family_id: 'missing-family',
+        sync_recovery: canSync ? {
+          can_sync: true,
+          permission: 'admin.translations.sync',
+          command_name: 'translation.families.sync',
+          rpc_invoke_path: '/admin/api/rpc',
+          environment: 'production',
+          family_id: 'missing-family',
+        } : {
+          can_sync: false,
+        },
+      },
+    },
+  }), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Request-Id': 'req-missing',
+      'X-Trace-Id': 'trace-missing',
+    },
+  });
+}
+
+function readyFamilyResponse() {
+  return new Response(JSON.stringify({ data: fixtures.ready }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 test('translation-family detail: renders complete surface from ready fixture', () => {
   const detail = normalizeFamilyDetail(fixtures.ready);
@@ -104,4 +177,159 @@ test('translation-family detail: loading and conflict states render accessible f
   const conflictHTML = renderTranslationFamilyDetailState(state);
   assert.match(conflictHTML, /Reload family detail/i);
   assert.match(conflictHTML, /Code VERSION_CONFLICT/);
+});
+
+test('translation-family detail: renders authorized sync recovery for not found responses', async () => {
+  globalThis.fetch = async () => missingFamilyResponse();
+
+  const state = await fetchTranslationFamilyDetailState('/admin/api/translations/families/missing-family');
+  assert.equal(state.status, 'error');
+  assert.equal(state.errorCode, 'NOT_FOUND');
+  assert.equal(state.syncRecovery?.canSync, true);
+  assert.equal(state.syncRecovery?.commandName, 'translation.families.sync');
+
+  const html = renderTranslationFamilyDetailState(state);
+  assert.match(html, /Sync translation families/i);
+  assert.match(html, /data-family-sync-action="true"/);
+  assert.match(html, /data-family-sync-rpc="\/admin\/api\/rpc"/);
+  assert.match(html, /Request req-missing/);
+  assert.match(html, /Trace trace-missing/);
+});
+
+test('translation-family detail: keeps sync action hidden without capability or not found error', async () => {
+  globalThis.fetch = async () => missingFamilyResponse({ canSync: false });
+  const noCapabilityState = await fetchTranslationFamilyDetailState('/admin/api/translations/families/missing-family');
+  assert.equal(noCapabilityState.syncRecovery, null);
+  assert.doesNotMatch(renderTranslationFamilyDetailState(noCapabilityState), /Sync translation families/i);
+
+  globalThis.fetch = async () => missingFamilyResponse({ status: 409, textCode: 'VERSION_CONFLICT' });
+  const conflictState = await fetchTranslationFamilyDetailState('/admin/api/translations/families/missing-family');
+  assert.equal(conflictState.status, 'conflict');
+  assert.doesNotMatch(renderTranslationFamilyDetailState(conflictState), /Sync translation families/i);
+  assert.match(renderTranslationFamilyDetailState(conflictState), /Reload family detail/i);
+});
+
+test('translation-family detail: dispatches sync recovery with rpc command envelope', async () => {
+  const recovery = normalizeTranslationFamilySyncRecoveryCapability({
+    can_sync: true,
+    permission: 'admin.translations.sync',
+    command_name: 'translation.families.sync',
+    rpc_invoke_path: '/admin/api/rpc',
+    environment: 'production',
+    family_id: 'missing-family',
+  });
+  assert.ok(recovery);
+
+  const request = buildTranslationFamilySyncRPCRequest(recovery, 'corr-1');
+  assert.equal(request.method, 'admin.commands.dispatch');
+  assert.equal(request.params.data.name, 'translation.families.sync');
+  assert.deepEqual(request.params.data.ids, ['missing-family']);
+  assert.equal(request.params.data.payload.family_id, 'missing-family');
+  assert.equal(request.params.data.payload.environment, 'production');
+  assert.equal(request.params.data.options.correlation_id, 'corr-1');
+
+  const requests = [];
+  const result = await dispatchTranslationFamilySync(recovery, {
+    correlationId: 'corr-1',
+    fetch: async (url, init = {}) => {
+      requests.push({ url, init });
+      return new Response(JSON.stringify({
+        data: {
+          receipt: {
+            accepted: true,
+            command_id: 'translation.families.sync',
+          },
+        },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  });
+
+  assert.equal(requests[0].url, '/admin/api/rpc');
+  const body = JSON.parse(String(requests[0].init.body));
+  assert.equal(body.method, 'admin.commands.dispatch');
+  assert.equal(body.params.data.name, 'translation.families.sync');
+  assert.equal(body.params.data.payload.channel, 'production');
+  assert.equal(result.receipt.command_id, 'translation.families.sync');
+});
+
+test('translation-family detail: sync action dispatches receipt and reloads detail', async () => {
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/missing-family" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const requests = [];
+  const fetchImpl = async (url, init = {}) => {
+    requests.push({ url: String(url), init });
+    if (String(url).endsWith('/rpc')) {
+      return new Response(JSON.stringify({ data: { receipt: { accepted: true } } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return requests.filter((entry) => entry.url === '/admin/api/translations/families/missing-family').length === 1
+      ? missingFamilyResponse()
+      : readyFamilyResponse();
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  root.querySelector('[data-family-sync-action="true"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.ok(requests.some((entry) => entry.url === '/admin/api/rpc'));
+  assert.equal(requests.filter((entry) => entry.url === '/admin/api/translations/families/missing-family').length >= 2, true);
+  assert.match(root.innerHTML, /Translation family/i);
+});
+
+test('translation-family detail: post-sync not found keeps diagnostics in error panel', async () => {
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/missing-family" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const fetchImpl = async (url) => {
+    if (String(url).endsWith('/rpc')) {
+      return new Response(JSON.stringify({ data: { receipt: { accepted: true } } }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return missingFamilyResponse();
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  root.querySelector('[data-family-sync-action="true"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.match(root.innerHTML, /Sync completed; family detail still returned NOT_FOUND/i);
+  assert.doesNotMatch(root.innerHTML, /data-family-sync-action="true"/);
+  assert.match(root.innerHTML, /Reload family detail/i);
+});
+
+test('translation-family detail: failed rpc sync surfaces structured error without losing controls', async () => {
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/missing-family" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const fetchImpl = async (url) => {
+    if (String(url).endsWith('/rpc')) {
+      return new Response(JSON.stringify({
+        error: {
+          text_code: 'FORBIDDEN',
+          message: 'sync permission denied',
+        },
+      }), {
+        status: 403,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    return missingFamilyResponse();
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  const button = root.querySelector('[data-family-sync-action="true"]');
+  button.dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.match(root.innerHTML, /sync permission denied/i);
+  assert.equal(button.disabled, false);
+  assert.match(root.innerHTML, /data-family-sync-action="true"/);
 });
