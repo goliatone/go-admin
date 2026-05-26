@@ -1,5 +1,35 @@
 # Changelog
 
+# [0.76.0](https://github.com/goliatone/go-admin/compare/v0.75.1...v0.76.0) - (2026-05-26)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Check for nil logout auth ([7426b54](https://github.com/goliatone/go-admin/commit/7426b54850691025c532bee8df486a8d6d77f5f4))  - (goliatone)
+- CSRF logout issue ([ec19466](https://github.com/goliatone/go-admin/commit/ec1946678cce7423442f488f975d213e080c5c38))  - (goliatone)
+- Debug transport route registration ([410935c](https://github.com/goliatone/go-admin/commit/410935c7d40c3c2018786a9bcde0d4d02b55b692))  - (goliatone)
+- Translation family binding ([05309ee](https://github.com/goliatone/go-admin/commit/05309ee7b1e1ddfb5a20803ecee0beafc44739d7))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.76.0 ([10a0e04](https://github.com/goliatone/go-admin/commit/10a0e040a2bd0361ece44a8be59465d52bea0007))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Translation family bindings ([ba61271](https://github.com/goliatone/go-admin/commit/ba6127118e7adbfb54c3658a76895a3b29d2008c))  - (goliatone)
+- Translation family sync rpc ([4ee6e0b](https://github.com/goliatone/go-admin/commit/4ee6e0bb4409dafe012593d5ea7b4ff3feb4bf95))  - (goliatone)
+- Sync recovery syncable prop ([50da043](https://github.com/goliatone/go-admin/commit/50da0437e45ddb1ceaf0d4f3e72e7818044857b1))  - (goliatone)
+- Translation permission include admin.translation.sync ([76478e0](https://github.com/goliatone/go-admin/commit/76478e0d6d7ce4d998b788677bc080089a5de1a1))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.75.1 ([c172122](https://github.com/goliatone/go-admin/commit/c1721225179f0626821cbb83459a79e2a3536604))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([da0868b](https://github.com/goliatone/go-admin/commit/da0868b87074e3dbd0ea00f478a08a0cc5b2b6b5))  - (goliatone)
+- Code quality ([60bde92](https://github.com/goliatone/go-admin/commit/60bde92582abd1903e5b5e3b506ce38ee1f18279))  - (goliatone)
+- Update examples ([b692d96](https://github.com/goliatone/go-admin/commit/b692d961818c08df9355e4b123991d5a326c34fe))  - (goliatone)
+
 # [0.75.1](https://github.com/goliatone/go-admin/compare/v0.75.0...v0.75.1) - (2026-05-25)
 
 ## <!-- 1 -->🐛 Bug Fixes
