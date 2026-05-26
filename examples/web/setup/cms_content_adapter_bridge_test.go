@@ -40,8 +40,11 @@ type optionCapableBridgeTranslationStub struct {
 	Title      string
 	Path       string
 	Content    map[string]any
+	Metadata   bridgeNamedMetadata
 	FamilyID   *uuid.UUID
 }
+
+type bridgeNamedMetadata map[string]any
 
 type bridgeOptionToken string
 
@@ -50,11 +53,15 @@ type bridgeCreateTranslationRequestStub struct {
 	SourceID        uuid.UUID
 	ID              uuid.UUID
 	Locale          string
+	Path            string
+	RouteKey        string
 	TargetLocale    string
 	EnvironmentKey  string
 	ContentType     string
 	ContentTypeSlug string
 	Status          string
+	Metadata        map[string]any
+	FamilyID        *uuid.UUID
 }
 
 func (s *optionCapableBridgeContentServiceStub) List(_ context.Context, opts ...bridgeOptionToken) ([]optionCapableBridgeContentRecordStub, error) {
@@ -210,6 +217,7 @@ func TestGoCMSContentBridgePagePreservesTranslationMetadata(t *testing.T) {
 					LocaleCode: "en",
 					Title:      "Fallback EN",
 					Content:    map[string]any{"path": "/translations/missing-fr"},
+					Metadata:   bridgeNamedMetadata{"translation_note": "fallback metadata"},
 					FamilyID:   &groupID,
 				},
 				{
@@ -247,6 +255,9 @@ func TestGoCMSContentBridgePagePreservesTranslationMetadata(t *testing.T) {
 	}
 	if page.AvailableLocales[0] != "en" || page.AvailableLocales[1] != "es" {
 		t.Fatalf("expected available locales [en es], got %#v", page.AvailableLocales)
+	}
+	if page.Metadata["translation_note"] != "fallback metadata" {
+		t.Fatalf("expected translation metadata to be preserved, got %#v", page.Metadata)
 	}
 }
 
@@ -417,6 +428,12 @@ func TestGoCMSContentBridgeCreateTranslationUsesOptionalCommand(t *testing.T) {
 		Environment: "staging",
 		ContentType: "posts",
 		Status:      "draft",
+		Path:        "/bonjour",
+		RouteKey:    "posts/hello",
+		Metadata: map[string]any{
+			"custom":    "keep",
+			"family_id": groupID.String(),
+		},
 	})
 	if err != nil {
 		t.Fatalf("create translation failed: %v", err)
@@ -432,6 +449,24 @@ func TestGoCMSContentBridgeCreateTranslationUsesOptionalCommand(t *testing.T) {
 	}
 	if contentSvc.createTranslationReq.EnvironmentKey != "staging" {
 		t.Fatalf("expected environment staging, got %q", contentSvc.createTranslationReq.EnvironmentKey)
+	}
+	if contentSvc.createTranslationReq.Path != "/bonjour" {
+		t.Fatalf("expected path /bonjour, got %q", contentSvc.createTranslationReq.Path)
+	}
+	if contentSvc.createTranslationReq.RouteKey != "posts/hello" {
+		t.Fatalf("expected route key posts/hello, got %q", contentSvc.createTranslationReq.RouteKey)
+	}
+	if contentSvc.createTranslationReq.Metadata["path"] != "/bonjour" {
+		t.Fatalf("expected metadata path /bonjour, got %#v", contentSvc.createTranslationReq.Metadata)
+	}
+	if contentSvc.createTranslationReq.Metadata["route_key"] != "posts/hello" {
+		t.Fatalf("expected metadata route_key posts/hello, got %#v", contentSvc.createTranslationReq.Metadata)
+	}
+	if contentSvc.createTranslationReq.Metadata["custom"] != "keep" {
+		t.Fatalf("expected custom metadata, got %#v", contentSvc.createTranslationReq.Metadata)
+	}
+	if contentSvc.createTranslationReq.FamilyID == nil || *contentSvc.createTranslationReq.FamilyID != groupID {
+		t.Fatalf("expected family id %s, got %#v", groupID.String(), contentSvc.createTranslationReq.FamilyID)
 	}
 	if created == nil {
 		t.Fatalf("expected created record")

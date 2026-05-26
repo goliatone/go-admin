@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	cmscontent "github.com/goliatone/go-cms/content"
 	"github.com/google/uuid"
 )
 
@@ -123,5 +124,29 @@ func TestApplyGoCMSTranslationLocaleStateMarksMissingRequestedLocale(t *testing.
 func TestTranslationMetadataMapReturnsNilForZeroValue(t *testing.T) {
 	if meta := translationMetadataMap(reflect.Value{}); meta != nil {
 		t.Fatalf("expected nil metadata for zero value, got %#v", meta)
+	}
+}
+
+func TestTranslationMetadataMapSupportsGoCMSTranslationMetadata(t *testing.T) {
+	record := struct {
+		Metadata cmscontent.TranslationMetadata
+	}{
+		Metadata: cmscontent.TranslationMetadata{
+			"path":   "/fr/home",
+			"custom": "keep",
+		},
+	}
+
+	meta := translationMetadataMap(reflect.ValueOf(record))
+	if meta["path"] != "/fr/home" {
+		t.Fatalf("expected path metadata, got %#v", meta)
+	}
+	if meta["custom"] != "keep" {
+		t.Fatalf("expected custom metadata, got %#v", meta)
+	}
+
+	record.Metadata["path"] = "/mutated"
+	if meta["path"] != "/fr/home" {
+		t.Fatalf("expected metadata clone, got %#v", meta)
 	}
 }
