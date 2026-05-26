@@ -1166,8 +1166,7 @@ func (b *translationFamilyBinding) variantMatchesCreateVariantReplay(actorID, fa
 	if strings.TrimSpace(toString(replay[translationFamilyCreateVariantMetadataKeyIDKey])) != strings.TrimSpace(input.IdempotencyKey) {
 		return false, nil
 	}
-	createdAt, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(toString(replay[translationFamilyCreateVariantMetadataCreatedAtKey])))
-	if parseErr != nil || b.now().Sub(createdAt.UTC()) > translationFamilyCreateVariantIdempotencyTTL {
+	if translationFamilyCreateVariantReplayExpired(b.now(), toString(replay[translationFamilyCreateVariantMetadataCreatedAtKey])) {
 		return false, nil
 	}
 	requestHash, err := translationFamilyCreateVariantRequestHash(familyID, input)
@@ -1196,6 +1195,11 @@ func translationFamilyPayloadMap(payload map[string]any, key string) map[string]
 	value := map[string]any{}
 	payload[key] = value
 	return value
+}
+
+func translationFamilyCreateVariantReplayExpired(now time.Time, rawCreatedAt string) bool {
+	createdAt, err := time.Parse(time.RFC3339, strings.TrimSpace(rawCreatedAt))
+	return err != nil || now.Sub(createdAt.UTC()) > translationFamilyCreateVariantIdempotencyTTL
 }
 
 func translationFamilyReplayAssignment(family translationservices.FamilyRecord, locale, workScope string) (TranslationAssignment, bool) {
