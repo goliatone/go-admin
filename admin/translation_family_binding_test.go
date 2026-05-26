@@ -32,15 +32,19 @@ func TestTranslationFamilyBindingListAppliesFiltersAndScopeIsolation(t *testing.
 	}
 
 	app := newTranslationFamilyTestApp(t, binding)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families?family_id=tg-page-1&content_type=pages&readiness_state=blocked&blocker_code=missing_locale&missing_locale=fr&tenant_id=tenant-1&org_id=org-1&channel=production", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/families?family_id=tg-page-1&content_type=pages&readiness_state=blocked&blocker_code=missing_locale&missing_locale=fr&tenant_id=tenant-1&org_id=org-1&channel=production", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -54,17 +58,17 @@ func TestTranslationFamilyBindingListAppliesFiltersAndScopeIsolation(t *testing.
 	if got := toString(meta["channel"]); got != "production" {
 		t.Fatalf("expected channel production, got %q", got)
 	}
-	report, _ := meta["report"].(map[string]any)
-	summary, _ := report["summary"].(map[string]any)
+	report := extractMap(meta["report"])
+	summary := extractMap(report["summary"])
 	if got := toInt(summary["families"]); got != 3 {
 		t.Fatalf("expected report families=3, got %d", got)
 	}
 
-	items, _ := data["items"].([]any)
+	items := testAnySlice(t, data["items"], "data.items")
 	if len(items) != 1 {
 		t.Fatalf("expected one filtered family, got %d", len(items))
 	}
-	row, _ := items[0].(map[string]any)
+	row := extractMap(items[0])
 	if got := toString(row["family_id"]); got != "tg-page-1" {
 		t.Fatalf("expected family_id tg-page-1, got %q", got)
 	}
@@ -101,15 +105,19 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 	}
 
 	app := newTranslationFamilyTestApp(t, binding)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families/tg-page-1?tenant_id=tenant-1&org_id=org-1&channel=production", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/families/tg-page-1?tenant_id=tenant-1&org_id=org-1&channel=production", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -119,7 +127,7 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 	if got := toString(data["family_id"]); got != "tg-page-1" {
 		t.Fatalf("expected family_id tg-page-1, got %q", got)
 	}
-	source, _ := data["source_variant"].(map[string]any)
+	source := extractMap(data["source_variant"])
 	if got := toString(source["locale"]); got != "en" {
 		t.Fatalf("expected source locale en, got %q", got)
 	}
@@ -127,12 +135,12 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 		t.Fatalf("expected source_record_id page-1, got %q", got)
 	}
 
-	blockers, _ := data["blockers"].([]any)
+	blockers := testAnySlice(t, data["blockers"], "data.blockers")
 	if len(blockers) != 2 {
 		t.Fatalf("expected 2 blockers, got %d", len(blockers))
 	}
-	firstBlocker, _ := blockers[0].(map[string]any)
-	secondBlocker, _ := blockers[1].(map[string]any)
+	firstBlocker := extractMap(blockers[0])
+	secondBlocker := extractMap(blockers[1])
 	if got := toString(firstBlocker["blocker_code"]); got != "missing_locale" {
 		t.Fatalf("expected first blocker missing_locale, got %q", got)
 	}
@@ -140,11 +148,11 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 		t.Fatalf("expected second blocker pending_review, got %q", got)
 	}
 
-	assignments, _ := data["active_assignments"].([]any)
+	assignments := testAnySlice(t, data["active_assignments"], "data.active_assignments")
 	if len(assignments) != 1 {
 		t.Fatalf("expected one active assignment, got %d", len(assignments))
 	}
-	assignment, _ := assignments[0].(map[string]any)
+	assignment := extractMap(assignments[0])
 	if got := toString(assignment["target_locale"]); got != "es" {
 		t.Fatalf("expected active assignment target es, got %q", got)
 	}
@@ -152,7 +160,7 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 		t.Fatalf("expected active assignment in_progress, got %q", got)
 	}
 
-	summary, _ := data["readiness_summary"].(map[string]any)
+	summary := extractMap(data["readiness_summary"])
 	if got := toString(summary["state"]); got != string(translationcore.FamilyReadinessBlocked) {
 		t.Fatalf("expected blocked readiness summary, got %q", got)
 	}
@@ -163,24 +171,24 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 		t.Fatalf("expected missing_required_locale_count=1, got %d", got)
 	}
 
-	publishGate, _ := data["publish_gate"].(map[string]any)
-	if allowed, _ := publishGate["allowed"].(bool); allowed {
+	publishGate := extractMap(data["publish_gate"])
+	if testBool(t, publishGate["allowed"], "publish_gate.allowed") {
 		t.Fatalf("expected publish gate blocked")
 	}
-	if overrideAllowed, _ := publishGate["override_allowed"].(bool); !overrideAllowed {
+	if !testBool(t, publishGate["override_allowed"], "publish_gate.override_allowed") {
 		t.Fatalf("expected publish override allowed")
 	}
-	if reviewRequired, _ := publishGate["review_required"].(bool); !reviewRequired {
+	if !testBool(t, publishGate["review_required"], "publish_gate.review_required") {
 		t.Fatalf("expected review_required=true")
 	}
-	quickCreate, _ := data["quick_create"].(map[string]any)
+	quickCreate := extractMap(data["quick_create"])
 	if quickCreate == nil {
 		t.Fatalf("expected quick_create payload, got %#v", data["quick_create"])
 	}
 	if got := toStringSlice(quickCreate["missing_locales"]); len(got) != 1 || got[0] != "fr" {
 		t.Fatalf("expected quick_create missing_locales [fr], got %+v", got)
 	}
-	defaultAssignment, _ := quickCreate["default_assignment"].(map[string]any)
+	defaultAssignment := extractMap(quickCreate["default_assignment"])
 	if got := toString(defaultAssignment["work_scope"]); got != "localization" {
 		t.Fatalf("expected quick_create default assignment work_scope localization, got %q", got)
 	}
@@ -203,15 +211,19 @@ func TestTranslationFamilyBindingDetailNotFoundIncludesSyncRecoveryForAuthorized
 	}
 
 	app := newTranslationFamilyTestApp(t, binding)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families/missing-family?tenant_id=tenant-1&org_id=org-1&channel=production", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/families/missing-family?tenant_id=tenant-1&org_id=org-1&channel=production", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status=%d want=404", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -220,10 +232,10 @@ func TestTranslationFamilyBindingDetailNotFoundIncludesSyncRecoveryForAuthorized
 	errPayload := extractMap(payload["error"])
 	metadata := extractMap(errPayload["metadata"])
 	recovery := extractMap(metadata["sync_recovery"])
-	if canSync, _ := recovery["can_sync"].(bool); !canSync {
+	if !testBool(t, recovery["can_sync"], "sync_recovery.can_sync") {
 		t.Fatalf("expected sync recovery can_sync=true, got %+v", recovery)
 	}
-	if syncable, _ := recovery["syncable"].(bool); !syncable {
+	if !testBool(t, recovery["syncable"], "sync_recovery.syncable") {
 		t.Fatalf("expected sync recovery syncable=true, got %+v", recovery)
 	}
 	if got := toString(recovery["permission"]); got != PermAdminTranslationsSync {
@@ -257,15 +269,19 @@ func TestTranslationFamilyBindingDetailNotFoundOmitsSyncRecoveryWithoutPermissio
 	}
 
 	app := newTranslationFamilyTestApp(t, binding)
-	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families/missing-family?tenant_id=tenant-1&org_id=org-1&channel=production", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/admin/api/translations/families/missing-family?tenant_id=tenant-1&org_id=org-1&channel=production", nil)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status=%d want=404", resp.StatusCode)
 	}
-	defer mustClose(t, "response body", resp.Body)
 
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -325,7 +341,7 @@ func TestTranslationFamilyBindingCreateVariantRecomputesReadinessAndRecordsAudit
 	}
 
 	meta := extractMap(payload["meta"])
-	if hit, _ := meta["idempotency_hit"].(bool); hit {
+	if testBool(t, meta["idempotency_hit"], "meta.idempotency_hit") {
 		t.Fatalf("expected first create request not to be an idempotency replay")
 	}
 	familyMeta := extractMap(meta["family"])
@@ -345,7 +361,7 @@ func TestTranslationFamilyBindingCreateVariantRecomputesReadinessAndRecordsAudit
 	if got := toStringSlice(quickCreate["missing_locales"]); len(got) != 0 {
 		t.Fatalf("expected quick_create missing_locales empty after creation, got %+v", got)
 	}
-	if enabled, _ := quickCreate["enabled"].(bool); enabled {
+	if testBool(t, quickCreate["enabled"], "quick_create.enabled") {
 		t.Fatalf("expected quick_create disabled after creation, got %+v", quickCreate)
 	}
 
@@ -481,7 +497,7 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplayReturnsStablePayl
 	}
 	if got := toString(extractMap(secondPayload["meta"])["idempotency_hit"]); strings.ToLower(got) != "true" {
 		meta := extractMap(secondPayload["meta"])
-		if hit, _ := meta["idempotency_hit"].(bool); !hit {
+		if !testBool(t, meta["idempotency_hit"], "meta.idempotency_hit") {
 			t.Fatalf("expected idempotency replay to set meta.idempotency_hit=true, got %+v", meta)
 		}
 	}
@@ -490,7 +506,7 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplayReturnsStablePayl
 	if detailStatus != http.StatusOK {
 		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
 	}
-	variants, _ := extractMap(detailPayload["data"])["locale_variants"].([]any)
+	variants := testAnySlice(t, extractMap(detailPayload["data"])["locale_variants"], "data.locale_variants")
 	count := 0
 	for _, item := range variants {
 		if toString(extractMap(item)["locale"]) == "fr" {
@@ -527,7 +543,7 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplaySurvivesBindingRe
 	if secondStatus != http.StatusOK {
 		t.Fatalf("second create status=%d payload=%+v", secondStatus, secondPayload)
 	}
-	if hit, _ := extractMap(secondPayload["meta"])["idempotency_hit"].(bool); !hit {
+	if !testBool(t, extractMap(secondPayload["meta"])["idempotency_hit"], "meta.idempotency_hit") {
 		t.Fatalf("expected idempotency replay hit after restart, got %+v", secondPayload)
 	}
 	familyMeta := extractMap(extractMap(secondPayload["meta"])["family"])
@@ -541,7 +557,7 @@ func TestTranslationFamilyBindingCreateVariantIdempotencyReplaySurvivesBindingRe
 	if detailStatus != http.StatusOK {
 		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
 	}
-	variants, _ := extractMap(detailPayload["data"])["locale_variants"].([]any)
+	variants := testAnySlice(t, extractMap(detailPayload["data"])["locale_variants"], "data.locale_variants")
 	count := 0
 	for _, item := range variants {
 		if toString(extractMap(item)["locale"]) == "fr" {
@@ -590,7 +606,7 @@ func TestTranslationFamilyBindingCreateVariantRollsBackVariantWhenAssignmentSeed
 	if detailStatus != http.StatusOK {
 		t.Fatalf("detail status=%d payload=%+v", detailStatus, detailPayload)
 	}
-	variants, _ := extractMap(detailPayload["data"])["locale_variants"].([]any)
+	variants := testAnySlice(t, extractMap(detailPayload["data"])["locale_variants"], "data.locale_variants")
 	for _, item := range variants {
 		if toString(extractMap(item)["locale"]) == "fr" {
 			t.Fatalf("expected fr variant rollback, got %+v", variants)
@@ -832,6 +848,24 @@ func toInt(value any) int {
 	}
 }
 
+func testAnySlice(t *testing.T, value any, label string) []any {
+	t.Helper()
+	items, ok := value.([]any)
+	if !ok {
+		t.Fatalf("expected %s to be []any, got %T", label, value)
+	}
+	return items
+}
+
+func testBool(t *testing.T, value any, label string) bool {
+	t.Helper()
+	typed, ok := value.(bool)
+	if !ok {
+		t.Fatalf("expected %s to be bool, got %T", label, value)
+	}
+	return typed
+}
+
 type translationFamilyMutationFixtureOptions struct {
 	RequiredLocales      []string
 	ReviewRequired       bool
@@ -1056,7 +1090,7 @@ func doTranslationFamilyJSONRequest(t *testing.T, app *fiber.App, method, target
 		}
 		rawBody = encoded
 	}
-	req := httptest.NewRequest(method, target, bytes.NewReader(rawBody))
+	req := httptest.NewRequestWithContext(context.Background(), method, target, bytes.NewReader(rawBody))
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -1067,7 +1101,11 @@ func doTranslationFamilyJSONRequest(t *testing.T, app *fiber.App, method, target
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			t.Fatalf("close response body: %v", closeErr)
+		}
+	}()
 	payload := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode response payload: %v", err)
