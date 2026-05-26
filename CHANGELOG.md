@@ -1,5 +1,25 @@
 # Changelog
 
+# [0.77.1](https://github.com/goliatone/go-admin/compare/v0.77.0...v0.77.1) - (2026-05-26)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Go-cms metadata ([5756f21](https://github.com/goliatone/go-admin/commit/5756f21ee7ac03ac5ef70d8df1843d3f7c2a31e5))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.77.1 ([0948a8a](https://github.com/goliatone/go-admin/commit/0948a8af7adb684f8189570609b46ec4289b0752))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.77.0 ([79915ff](https://github.com/goliatone/go-admin/commit/79915ffd795a7ab7f65d3fae0e357ecc2d187070))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([1228982](https://github.com/goliatone/go-admin/commit/12289824d1ab3c60900f3220202169df27b48334))  - (goliatone)
+- Update examples ([074abdd](https://github.com/goliatone/go-admin/commit/074abddc2c5753140ea1fa0f7b48de4bcbe9cdfb))  - (goliatone)
+- Update tests ([4de58a3](https://github.com/goliatone/go-admin/commit/4de58a3d964ca70669e4433f5835ad2e2bbc82fa))  - (goliatone)
+
 # [0.77.0](https://github.com/goliatone/go-admin/compare/v0.76.2...v0.77.0) - (2026-05-26)
 
 ## <!-- 1 -->🐛 Bug Fixes
