@@ -266,6 +266,7 @@ export function buildTranslationFamilySyncRPCRequest(
   correlationId = ''
 ): Record<string, unknown> {
   const trimmedCorrelationId = asString(correlationId);
+  const idempotencyKey = buildTranslationFamilySyncIdempotencyKey(recovery);
   return {
     method: 'admin.commands.dispatch',
     params: {
@@ -278,14 +279,29 @@ export function buildTranslationFamilySyncRPCRequest(
           channel: recovery.environment,
         },
         options: {
-          correlation_id: trimmedCorrelationId,
-          metadata: {
+          Mode: 'inline',
+          IdempotencyKey: idempotencyKey,
+          CorrelationID: trimmedCorrelationId,
+          Metadata: {
             correlation_id: trimmedCorrelationId,
+            idempotency_key: idempotencyKey,
           },
         },
       },
+      meta: {
+        correlationId: trimmedCorrelationId,
+      },
     },
   };
+}
+
+function buildTranslationFamilySyncIdempotencyKey(recovery: TranslationFamilySyncRecoveryCapability): string {
+  const segments = [
+    recovery.commandName || 'translation.families.sync',
+    recovery.environment || 'default',
+    recovery.familyId || 'all',
+  ].map((segment) => encodeURIComponent(asString(segment).trim() || 'default'));
+  return segments.join(':');
 }
 
 function normalizeTranslationFamilySyncReceipt(input: unknown, commandName: string): Record<string, unknown> | null {
@@ -294,7 +310,7 @@ function normalizeTranslationFamilySyncReceipt(input: unknown, commandName: stri
     return null;
   }
   const acceptedRaw = receipt.accepted ?? receipt.Accepted;
-  if (acceptedRaw !== undefined && !asBoolean(acceptedRaw)) {
+  if (!asBoolean(acceptedRaw)) {
     return null;
   }
   const receiptCommand = asString(
@@ -304,7 +320,7 @@ function normalizeTranslationFamilySyncReceipt(input: unknown, commandName: stri
     receipt.command_name ??
     receipt.commandName
   );
-  if (receiptCommand && receiptCommand !== commandName) {
+  if (receiptCommand !== commandName) {
     return null;
   }
   return receipt;
@@ -1928,12 +1944,14 @@ export async function initTranslationFamilyDetailPage(
         });
       });
     }
-    const retryButton = (root as HTMLElement).querySelector<HTMLButtonElement>('.ui-state-retry-btn');
-    if (retryButton) {
+    const attachRetryButton = () => {
+      const retryButton = (root as HTMLElement).querySelector<HTMLButtonElement>('.ui-state-retry-btn');
+      if (!retryButton) return;
       retryButton.addEventListener('click', () => {
         void initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
       });
-    }
+    };
+    attachRetryButton();
     const syncButton = (root as HTMLElement).querySelector<HTMLButtonElement>('[data-family-sync-action="true"]');
     if (syncButton && state.syncRecovery?.canSync) {
       syncButton.addEventListener('click', async (event) => {
@@ -1955,10 +1973,19 @@ export async function initTranslationFamilyDetailPage(
               syncStatus: 'completed',
               syncMessage: 'Sync completed; family detail still returned NOT_FOUND.',
             }, renderOptions);
-            const retry = (root as HTMLElement).querySelector<HTMLButtonElement>('.ui-state-retry-btn');
-            retry?.addEventListener('click', () => {
-              void initTranslationFamilyDetailPage(root as HTMLElement, { ...options, ...renderOptions, endpoint });
-            });
+            attachRetryButton();
+            return;
+          }
+          if (refreshed.status !== 'ready') {
+            const message = refreshed.message || 'Sync completed, but family detail reload failed.';
+            renderTranslationFamilyDetailPage(root as HTMLElement, {
+              ...refreshed,
+              syncRecovery: recovery,
+              syncStatus: 'failed',
+              syncMessage: message,
+            }, renderOptions);
+            attachRetryButton();
+            globalToast('error', message);
             return;
           }
           globalToast('success', 'Translation families synced.');

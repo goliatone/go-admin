@@ -246,7 +246,11 @@ test('translation-family detail: dispatches sync recovery with rpc command envel
   assert.deepEqual(request.params.data.ids, ['missing-family']);
   assert.equal(request.params.data.payload.family_id, 'missing-family');
   assert.equal(request.params.data.payload.environment, 'production');
-  assert.equal(request.params.data.options.correlation_id, 'corr-1');
+  assert.equal(request.params.meta.correlationId, 'corr-1');
+  assert.equal(request.params.data.options.Mode, 'inline');
+  assert.equal(request.params.data.options.CorrelationID, 'corr-1');
+  assert.equal(request.params.data.options.IdempotencyKey, 'translation.families.sync:production:missing-family');
+  assert.equal(request.params.data.options.Metadata.correlation_id, 'corr-1');
 
   const requests = [];
   const result = await dispatchTranslationFamilySync(recovery, {
@@ -256,8 +260,8 @@ test('translation-family detail: dispatches sync recovery with rpc command envel
       return new Response(JSON.stringify({
         data: {
           receipt: {
-            accepted: true,
-            command_id: 'translation.families.sync',
+            Accepted: true,
+            CommandID: 'translation.families.sync',
           },
         },
       }), {
@@ -272,7 +276,11 @@ test('translation-family detail: dispatches sync recovery with rpc command envel
   assert.equal(body.method, 'admin.commands.dispatch');
   assert.equal(body.params.data.name, 'translation.families.sync');
   assert.equal(body.params.data.payload.channel, 'production');
-  assert.equal(result.receipt.command_id, 'translation.families.sync');
+  assert.equal(body.params.meta.correlationId, 'corr-1');
+  assert.equal(body.params.data.options.Mode, 'inline');
+  assert.equal(body.params.data.options.CorrelationID, 'corr-1');
+  assert.equal(body.params.data.options.IdempotencyKey, 'translation.families.sync:production:missing-family');
+  assert.equal(result.receipt.CommandID, 'translation.families.sync');
 });
 
 test('translation-family detail: rejects malformed rpc success responses without receipts', async () => {
@@ -300,6 +308,18 @@ test('translation-family detail: rejects malformed rpc success responses without
   await assert.rejects(
     () => dispatchTranslationFamilySync(recovery, {
       fetch: async () => new Response(JSON.stringify({
+        data: { receipt: { accepted: true } },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    }),
+    /valid dispatch receipt/i
+  );
+
+  await assert.rejects(
+    () => dispatchTranslationFamilySync(recovery, {
+      fetch: async () => new Response(JSON.stringify({
         data: { receipt: { accepted: true, command_id: 'other.command' } },
       }), {
         status: 200,
@@ -317,7 +337,14 @@ test('translation-family detail: sync action dispatches receipt and reloads deta
   const fetchImpl = async (url, init = {}) => {
     requests.push({ url: String(url), init });
     if (String(url).endsWith('/rpc')) {
-      return new Response(JSON.stringify({ data: { receipt: { accepted: true } } }), {
+      return new Response(JSON.stringify({
+        data: {
+          receipt: {
+            accepted: true,
+            command_id: 'translation.families.sync',
+          },
+        },
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -342,7 +369,14 @@ test('translation-family detail: post-sync not found keeps diagnostics in error 
   const root = dom.window.document.getElementById('root');
   const fetchImpl = async (url) => {
     if (String(url).endsWith('/rpc')) {
-      return new Response(JSON.stringify({ data: { receipt: { accepted: true } } }), {
+      return new Response(JSON.stringify({
+        data: {
+          receipt: {
+            accepted: true,
+            command_id: 'translation.families.sync',
+          },
+        },
+      }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       });
@@ -358,6 +392,48 @@ test('translation-family detail: post-sync not found keeps diagnostics in error 
   assert.match(root.innerHTML, /Sync completed; family detail still returned NOT_FOUND/i);
   assert.doesNotMatch(root.innerHTML, /data-family-sync-action="true"/);
   assert.match(root.innerHTML, /Reload family detail/i);
+});
+
+test('translation-family detail: post-sync non-not-found reload failure stays in error state', async () => {
+  const dom = setupDom('<div id="root" data-endpoint="/admin/api/translations/families/missing-family" data-base-path="/admin"></div>');
+  const root = dom.window.document.getElementById('root');
+  const fetchImpl = async (url) => {
+    if (String(url).endsWith('/rpc')) {
+      return new Response(JSON.stringify({
+        data: {
+          receipt: {
+            accepted: true,
+            command_id: 'translation.families.sync',
+          },
+        },
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const detailRequests = fetchImpl.detailRequests = (fetchImpl.detailRequests || 0) + 1;
+    if (detailRequests === 1) {
+      return missingFamilyResponse();
+    }
+    return new Response(JSON.stringify({
+      error: {
+        text_code: 'INTERNAL',
+        message: 'detail reload failed',
+      },
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  };
+
+  await initTranslationFamilyDetailPage(root, { fetch: fetchImpl });
+  root.querySelector('[data-family-sync-action="true"]').dispatchEvent(new dom.window.Event('click', { bubbles: true }));
+  await nextTick();
+  await nextTick();
+
+  assert.match(root.innerHTML, /detail reload failed/i);
+  assert.match(root.innerHTML, /Reload family detail/i);
+  assert.doesNotMatch(root.innerHTML, /Translation family<\/h1>/i);
 });
 
 test('translation-family detail: failed rpc sync surfaces structured error without losing controls', async () => {
