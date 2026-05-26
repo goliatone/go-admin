@@ -3,11 +3,15 @@ package quickstart
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/goliatone/go-admin/admin"
 	auth "github.com/goliatone/go-auth"
+	csrfmw "github.com/goliatone/go-auth/middleware/csrf"
 	goerrors "github.com/goliatone/go-errors"
 	router "github.com/goliatone/go-router"
 	"github.com/stretchr/testify/mock"
@@ -16,6 +20,8 @@ import (
 type captureRouter struct {
 	getHandlers          map[string]router.HandlerFunc
 	postHandlers         map[string]router.HandlerFunc
+	getMiddlewares       map[string][]router.MiddlewareFunc
+	postMiddlewares      map[string][]router.MiddlewareFunc
 	getMiddlewareCounts  map[string]int
 	postMiddlewareCounts map[string]int
 }
@@ -24,6 +30,8 @@ func newCaptureRouter() *captureRouter {
 	return &captureRouter{
 		getHandlers:          map[string]router.HandlerFunc{},
 		postHandlers:         map[string]router.HandlerFunc{},
+		getMiddlewares:       map[string][]router.MiddlewareFunc{},
+		postMiddlewares:      map[string][]router.MiddlewareFunc{},
 		getMiddlewareCounts:  map[string]int{},
 		postMiddlewareCounts: map[string]int{},
 	}
@@ -73,12 +81,14 @@ func (r *captureRouter) Use(m ...router.MiddlewareFunc) router.Router[*fiber.App
 
 func (r *captureRouter) Get(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.getHandlers[path] = handler
+	r.getMiddlewares[path] = append([]router.MiddlewareFunc(nil), mw...)
 	r.getMiddlewareCounts[path] = len(mw)
 	return nil
 }
 
 func (r *captureRouter) Post(path string, handler router.HandlerFunc, mw ...router.MiddlewareFunc) router.RouteInfo {
 	r.postHandlers[path] = handler
+	r.postMiddlewares[path] = append([]router.MiddlewareFunc(nil), mw...)
 	r.postMiddlewareCounts[path] = len(mw)
 	return nil
 }
@@ -227,6 +237,143 @@ func TestAuthUIRoutesRegisterCSRFMiddlewareInRouterChain(t *testing.T) {
 	}
 	if got := r.postMiddlewareCounts["/admin/logout"]; got != 1 {
 		t.Fatalf("expected logout POST to register one middleware, got %d", got)
+	}
+}
+
+func TestAuthUIRoutesAllowLogoutMiddlewareOverride(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	calls := 0
+	logoutMiddleware := func(next router.HandlerFunc) router.HandlerFunc {
+		return func(c router.Context) error {
+			calls++
+			return next(c)
+		}
+	}
+
+	if err := RegisterAuthUIRoutes(
+		r,
+		cfg,
+		routeAuth,
+		WithAuthUILogoutMiddleware(logoutMiddleware),
+		WithAuthUILogoutGET(true),
+	); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+
+	postMiddlewares := r.postMiddlewares["/admin/logout"]
+	if len(postMiddlewares) != 1 {
+		t.Fatalf("expected logout POST to register override middleware, got %d", len(postMiddlewares))
+	}
+	if err := postMiddlewares[0](func(router.Context) error { return nil })(router.NewMockContext()); err != nil {
+		t.Fatalf("logout POST middleware returned error: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("expected logout POST middleware to run once, got %d", calls)
+	}
+	getMiddlewares := r.getMiddlewares["/admin/logout"]
+	if len(getMiddlewares) != 1 {
+		t.Fatalf("expected logout GET to register override middleware, got %d", len(getMiddlewares))
+	}
+	if err := getMiddlewares[0](func(router.Context) error { return nil })(router.NewMockContext()); err != nil {
+		t.Fatalf("logout GET middleware returned error: %v", err)
+	}
+	if calls != 2 {
+		t.Fatalf("expected logout GET middleware to run, got %d total calls", calls)
+	}
+	if got := r.postMiddlewareCounts["/admin/login"]; got != 1 {
+		t.Fatalf("expected login POST to keep standalone CSRF middleware, got %d", got)
+	}
+}
+
+func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	authCfg := cookieStubAuthConfig{adminCfg: cfg}
+	identity := protectedAppTestIdentity{
+		id:       "admin-1",
+		username: "admin",
+		email:    "admin@example.test",
+		role:     string(auth.RoleAdmin),
+	}
+	auther := auth.NewAuthenticator(protectedAppStubIdentityProvider{identity: identity}, authCfg)
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, authCfg)
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+	goAuth := admin.NewGoAuthAuthenticator(routeAuth, authCfg)
+
+	server := router.NewHTTPServer().(*router.HTTPServer)
+	r := server.Router()
+	r.Get("/admin/page", func(c router.Context) error {
+		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		return c.SendString(token)
+	}, goAuth.WrapHandler)
+
+	if err := RegisterAuthUIRoutes(
+		r,
+		cfg,
+		routeAuth,
+		WithAuthUILogoutAuthenticator(goAuth),
+		WithAuthUILogoutGET(true),
+	); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+
+	sessionToken, err := auther.TokenService().Generate(identity, nil)
+	if err != nil {
+		t.Fatalf("generate session token: %v", err)
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/page", nil)
+	getReq.Host = "example.com"
+	getReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
+	getResp := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(getResp, getReq)
+	if getResp.Code != http.StatusOK {
+		t.Fatalf("expected admin page to render, got %d body=%s", getResp.Code, getResp.Body.String())
+	}
+	csrfToken := strings.TrimSpace(getResp.Body.String())
+	if csrfToken == "" {
+		t.Fatal("expected admin browser route to emit CSRF token")
+	}
+
+	missingReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/logout", nil)
+	missingReq.Host = "example.com"
+	missingReq.Header.Set("Origin", "http://example.com")
+	missingReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
+	missingResp := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(missingResp, missingReq)
+	if missingResp.Code == http.StatusFound {
+		t.Fatalf("expected logout POST without CSRF token to fail, got redirect")
+	}
+
+	postReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/logout", nil)
+	postReq.Host = "example.com"
+	postReq.Header.Set("Origin", "http://example.com")
+	postReq.Header.Set(csrfmw.DefaultHeaderName, csrfToken)
+	postReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
+	postResp := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(postResp, postReq)
+	if postResp.Code != http.StatusFound {
+		t.Fatalf("expected logout POST with admin CSRF token to redirect, got %d body=%s", postResp.Code, postResp.Body.String())
+	}
+	if location := postResp.Header().Get("Location"); location != "/admin/login" {
+		t.Fatalf("expected logout redirect to /admin/login, got %q", location)
+	}
+
+	getLogoutReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/logout", nil)
+	getLogoutReq.Host = "example.com"
+	getLogoutReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
+	getLogoutResp := httptest.NewRecorder()
+	server.WrappedRouter().ServeHTTP(getLogoutResp, getLogoutReq)
+	if getLogoutResp.Code != http.StatusFound {
+		t.Fatalf("expected wrapped logout GET to redirect, got %d body=%s", getLogoutResp.Code, getLogoutResp.Body.String())
 	}
 }
 

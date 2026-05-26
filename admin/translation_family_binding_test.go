@@ -186,6 +186,95 @@ func TestTranslationFamilyBindingDetailReturnsSourceAssignmentsAndPublishGate(t 
 	}
 }
 
+func TestTranslationFamilyBindingDetailNotFoundIncludesSyncRecoveryForAuthorizedUser(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView: true,
+			PermAdminTranslationsSync: true,
+		},
+	})
+	binding := newTranslationFamilyBinding(adm)
+	runtime := newTranslationFamilyBindingTestRuntime(t)
+	binding.loadRuntime = func(context.Context, string) (*translationFamilyRuntime, error) {
+		return runtime, nil
+	}
+
+	app := newTranslationFamilyTestApp(t, binding)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families/missing-family?tenant_id=tenant-1&org_id=org-1&channel=production", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status=%d want=404", resp.StatusCode)
+	}
+	defer mustClose(t, "response body", resp.Body)
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	errPayload := extractMap(payload["error"])
+	metadata := extractMap(errPayload["metadata"])
+	recovery := extractMap(metadata["sync_recovery"])
+	if canSync, _ := recovery["can_sync"].(bool); !canSync {
+		t.Fatalf("expected sync recovery can_sync=true, got %+v", recovery)
+	}
+	if got := toString(recovery["permission"]); got != PermAdminTranslationsSync {
+		t.Fatalf("expected sync permission %q, got %q", PermAdminTranslationsSync, got)
+	}
+	if got := toString(recovery["command_name"]); got != "translation.families.sync" {
+		t.Fatalf("expected sync command name, got %q", got)
+	}
+	if got := toString(recovery["rpc_invoke_path"]); got != "/admin/api/rpc" {
+		t.Fatalf("expected rpc invoke path /admin/api/rpc, got %q", got)
+	}
+	if got := toString(recovery["environment"]); got != "production" {
+		t.Fatalf("expected production environment, got %q", got)
+	}
+	if got := toString(recovery["family_id"]); got != "missing-family" {
+		t.Fatalf("expected family id missing-family, got %q", got)
+	}
+}
+
+func TestTranslationFamilyBindingDetailNotFoundOmitsSyncRecoveryWithoutPermission(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{PermAdminTranslationsView: true},
+	})
+	binding := newTranslationFamilyBinding(adm)
+	runtime := newTranslationFamilyBindingTestRuntime(t)
+	binding.loadRuntime = func(context.Context, string) (*translationFamilyRuntime, error) {
+		return runtime, nil
+	}
+
+	app := newTranslationFamilyTestApp(t, binding)
+	req := httptest.NewRequest(http.MethodGet, "/admin/api/translations/families/missing-family?tenant_id=tenant-1&org_id=org-1&channel=production", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status=%d want=404", resp.StatusCode)
+	}
+	defer mustClose(t, "response body", resp.Body)
+
+	payload := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	errPayload := extractMap(payload["error"])
+	metadata := extractMap(errPayload["metadata"])
+	if _, ok := metadata["sync_recovery"]; ok {
+		t.Fatalf("expected sync recovery omitted without permission, got %+v", metadata["sync_recovery"])
+	}
+}
+
 func TestTranslationFamilyBindingCreateVariantRecomputesReadinessAndRecordsAudit(t *testing.T) {
 	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
 		RequiredLocales: []string{"fr"},
