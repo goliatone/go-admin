@@ -34,6 +34,7 @@ workflow/state-machine behavior, see `docs/GUIDE_WORKFLOW.md`.
 - [Trusted Identity And Metadata](#trusted-identity-and-metadata)
 - [Host Policy Hooks](#host-policy-hooks)
 - [Client Command Runtime Wiring](#client-command-runtime-wiring)
+- [Browser RPC CSRF](#browser-rpc-csrf)
 - [Queued Commands And Feedback](#queued-commands-and-feedback)
 - [Workflow RPC Endpoints](#workflow-rpc-endpoints)
 - [Discovery Endpoint](#discovery-endpoint)
@@ -134,7 +135,11 @@ quickstart.WithRPCTransport(quickstart.RPCTransportConfig{
 ```
 
 The quickstart transport currently requires a Fiber-backed go-router adapter
-when explicitly enabled.
+when explicitly enabled. Prefer `quickstart.WithRPCTransport(...)` for app-level
+RPC mounting because it applies the admin defaults, path normalization, auth
+middleware, discovery settings, and command exposure checks together. Direct
+`rpcfiber.MountFiber(...)` usage is for lower-level adapters or custom
+transport integration where the host intentionally owns those guardrails.
 
 ## RPC Transport Hardening Defaults
 
@@ -457,6 +462,36 @@ Use panel action routes for canonical row/detail/bulk actions emitted by panel
 schemas. Use RPC runtime commands for custom page interactions, cross-panel
 commands, and command flows that are not naturally owned by one panel action
 route.
+
+## Browser RPC CSRF
+
+Cookie-backed browser RPC calls use the same CSRF contract as other unsafe
+admin API requests. Same-origin `POST`, `PUT`, `PATCH`, and `DELETE` requests
+must include the admin shell token as `X-CSRF-Token` when
+`meta[name="csrf-token"]` is present.
+
+The shared client transport does this automatically. Prefer `httpRequest(...)`
+or the `data-command-transport="rpc"` runtime for browser-originated admin RPC.
+If a screen has to use custom `fetch`, create mutable `Headers`, keep
+`credentials: 'same-origin'`, and call `appendCSRFHeader(endpoint, init,
+headers)` before sending the request.
+
+This is incomplete for a cookie-backed browser RPC call:
+
+```js
+fetch('/admin/api/rpc', {
+  method: 'POST',
+  credentials: 'same-origin',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify(envelope),
+});
+```
+
+A `400 Bad Request` immediately after a browser click can indicate CSRF
+rejection before `admin.commands.dispatch` or command policy runs. This browser
+CSRF requirement does not apply to non-browser clients using an explicit
+authorization mechanism such as Bearer tokens, unless the host transport also
+requires CSRF for those clients.
 
 ## Queued Commands And Feedback
 
