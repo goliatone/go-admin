@@ -282,6 +282,11 @@ func (b *translationFamilyBinding) Create(c router.Context, id string) (payload 
 	if err != nil {
 		return b.handleCreateVariantError(request, state, err)
 	}
+	if request.Input.AutoCreateAssignment {
+		if syncErr := SyncTranslationFamilyStore(request.AdminCtx.Context, b.admin, request.Input.Environment); syncErr != nil {
+			return nil, b.rollbackCreatedFamilyVariant(request.AdminCtx.Context, createdVariant, syncErr, request.Input.Environment)
+		}
+	}
 	outcome, err := b.translationMatrixCreateVariantOutcome(request.AdminCtx, state.Family, request.Input, assignmentPlan, createdVariant)
 	if err != nil {
 		return nil, err
@@ -708,7 +713,7 @@ func (b *translationFamilyBinding) planCreateVariantAssignment(ctx context.Conte
 	return plan, nil
 }
 
-func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.Context, family translationservices.FamilyRecord, input translationFamilyCreateVariantInput, plan translationFamilyCreateVariantAssignmentPlan) (translationFamilyCreateVariantOutcome, error) {
+func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.Context, family translationservices.FamilyRecord, input translationFamilyCreateVariantInput, plan translationFamilyCreateVariantAssignmentPlan, createdVariant *CMSContent) (translationFamilyCreateVariantOutcome, error) {
 	repo, err := (&translationQueueBinding{admin: b.admin}).assignmentRepository()
 	if err != nil {
 		return translationFamilyCreateVariantOutcome{}, err
@@ -728,7 +733,7 @@ func (b *translationFamilyBinding) applyCreateVariantAssignmentPlan(ctx context.
 		outcome.AssignmentReused = true
 		return outcome, nil
 	}
-	created, inserted, err := b.createVariantAssignment(ctx, repo, family, input, plan)
+	created, inserted, err := b.createVariantAssignment(ctx, repo, family, input, plan, createdVariant)
 	if err != nil {
 		return translationFamilyCreateVariantOutcome{}, b.rollbackArchivedAssignments(ctx, repo, archivedSnapshots, err)
 	}
@@ -819,6 +824,7 @@ func (b *translationFamilyBinding) createVariantAssignment(
 	family translationservices.FamilyRecord,
 	input translationFamilyCreateVariantInput,
 	plan translationFamilyCreateVariantAssignmentPlan,
+	createdVariant *CMSContent,
 ) (TranslationAssignment, bool, error) {
 	source := translationFamilySourceVariant(family)
 	assignment := TranslationAssignment{
@@ -832,6 +838,9 @@ func (b *translationFamilyBinding) createVariantAssignment(
 		Priority:       Priority(firstNonEmpty(string(input.Priority), string(PriorityNormal))),
 		WorkScope:      plan.WorkScope,
 		DueDate:        cloneTimePtr(input.DueDate),
+	}
+	if createdVariant != nil {
+		assignment.TargetRecordID = strings.TrimSpace(createdVariant.ID)
 	}
 	if input.AssigneeID != "" {
 		assignment.AssignmentType = AssignmentTypeDirect
@@ -1267,6 +1276,16 @@ func (b *translationFamilyBinding) deleteFamilyVariant(ctx context.Context, crea
 		return b.admin.contentSvc.DeletePage(ctx, recordID)
 	}
 	return b.admin.contentSvc.DeleteContent(ctx, recordID)
+}
+
+func (b *translationFamilyBinding) rollbackCreatedFamilyVariant(ctx context.Context, created *CMSContent, cause error, environment string) error {
+	if rollbackErr := b.deleteFamilyVariant(ctx, created); rollbackErr != nil {
+		return errors.Join(cause, rollbackErr)
+	}
+	if syncErr := SyncTranslationFamilyStore(ctx, b.admin, environment); syncErr != nil {
+		return errors.Join(cause, syncErr)
+	}
+	return cause
 }
 
 func (b *translationFamilyBinding) recordCreateVariantActivity(ctx context.Context, actorID string, familyBefore, familyAfter translationservices.FamilyRecord, input translationFamilyCreateVariantInput, outcome translationFamilyCreateVariantOutcome) {

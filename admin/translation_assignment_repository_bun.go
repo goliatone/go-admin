@@ -15,11 +15,11 @@ import (
 type bunTranslationAssignmentRecord struct {
 	bun.BaseModel `bun:"table:translation_assignments,alias:ta"`
 
-	AssignmentID        string     `bun:"assignment_id,pk" json:"assignment_id"`
-	TenantID            string     `bun:"tenant_id" json:"tenant_id"`
-	OrgID               string     `bun:"org_id" json:"org_id"`
-	FamilyID            string     `bun:"family_id" json:"family_id"`
-	VariantID           string     `bun:"variant_id" json:"variant_id"`
+	AssignmentID        string         `bun:"assignment_id,pk" json:"assignment_id"`
+	TenantID            string         `bun:"tenant_id" json:"tenant_id"`
+	OrgID               string         `bun:"org_id" json:"org_id"`
+	FamilyID            string         `bun:"family_id" json:"family_id"`
+	VariantID           sql.NullString `bun:"variant_id" json:"variant_id"`
 	EntityType          string     `bun:"entity_type" json:"entity_type"`
 	SourceRecordID      string     `bun:"source_record_id" json:"source_record_id"`
 	SourceLocale        string     `bun:"source_locale" json:"source_locale"`
@@ -147,6 +147,11 @@ func (r *BunTranslationAssignmentRepository) Update(ctx context.Context, assignm
 		if validateErr := next.Validate(); validateErr != nil {
 			return validateErr
 		}
+		resolvedVariantID, resolveErr := r.resolveAssignmentVariantIDTx(ctx, tx, next)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		next.VariantID = resolvedVariantID
 		record := bunTranslationAssignmentRecordFromAssignment(next)
 		result, err := tx.NewUpdate().
 			Model(&record).
@@ -199,6 +204,11 @@ func (r *BunTranslationAssignmentRepository) create(ctx context.Context, assignm
 	var created TranslationAssignment
 	var inserted bool
 	err := r.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		resolvedVariantID, resolveErr := r.resolveAssignmentVariantIDTx(ctx, tx, normalized)
+		if resolveErr != nil {
+			return resolveErr
+		}
+		normalized.VariantID = resolvedVariantID
 		if !normalized.Status.IsActive() {
 			return insertAssignmentTx(ctx, tx, normalized, &created, &inserted)
 		}
@@ -211,6 +221,11 @@ func (r *BunTranslationAssignmentRepository) create(ctx context.Context, assignm
 				return newTranslationAssignmentConflict(normalized, existing.ID)
 			}
 			refreshed := refreshExistingAssignment(existing, normalized, now)
+			resolvedVariantID, resolveErr := r.resolveAssignmentVariantIDTx(ctx, tx, refreshed)
+			if resolveErr != nil {
+				return resolveErr
+			}
+			refreshed.VariantID = resolvedVariantID
 			record := bunTranslationAssignmentRecordFromAssignment(refreshed)
 			if _, err := tx.NewUpdate().
 				Model(&record).
@@ -238,6 +253,46 @@ func insertAssignmentTx(ctx context.Context, tx bun.Tx, assignment TranslationAs
 	*created = assignment
 	*inserted = true
 	return nil
+}
+
+func (r *BunTranslationAssignmentRepository) resolveAssignmentVariantIDTx(ctx context.Context, db bun.IDB, assignment TranslationAssignment) (string, error) {
+	fallback := strings.TrimSpace(firstNonEmpty(assignment.VariantID, assignment.TargetRecordID))
+	familyID := strings.TrimSpace(assignment.FamilyID)
+	targetLocale := strings.TrimSpace(strings.ToLower(assignment.TargetLocale))
+	if familyID == "" || targetLocale == "" {
+		return fallback, nil
+	}
+	record := bunTranslationLocaleVariantRecord{}
+	err := db.NewSelect().
+		Model(&record).
+		Column("variant_id").
+		Where("family_id = ?", familyID).
+		Where("locale = ?", targetLocale).
+		Limit(1).
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		if isMissingLocaleVariantsTableError(err) {
+			return assignmentStorageVariantID(assignment), nil
+		}
+		return "", err
+	}
+	if variantID := nullStringValue(record.VariantID); variantID != "" {
+		return variantID, nil
+	}
+	return fallback, nil
+}
+
+func isMissingLocaleVariantsTableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such table: locale_variants") ||
+		strings.Contains(message, `relation "locale_variants" does not exist`) ||
+		strings.Contains(message, "table locale_variants does not exist")
 }
 
 func (r *BunTranslationAssignmentRepository) getTx(ctx context.Context, db bun.IDB, id string) (TranslationAssignment, error) {
@@ -286,7 +341,7 @@ func bunTranslationAssignmentRecordFromAssignment(assignment TranslationAssignme
 		TenantID:            strings.TrimSpace(assignment.TenantID),
 		OrgID:               strings.TrimSpace(assignment.OrgID),
 		FamilyID:            strings.TrimSpace(assignment.FamilyID),
-		VariantID:           strings.TrimSpace(firstNonEmpty(assignment.TargetRecordID, assignment.SourceRecordID)),
+		VariantID:           nullString(assignmentStorageVariantID(assignment)),
 		EntityType:          strings.TrimSpace(strings.ToLower(assignment.EntityType)),
 		SourceRecordID:      strings.TrimSpace(assignment.SourceRecordID),
 		SourceLocale:        strings.TrimSpace(strings.ToLower(assignment.SourceLocale)),
@@ -319,6 +374,7 @@ func translationAssignmentFromBunRecord(record bunTranslationAssignmentRecord) T
 	return cloneTranslationAssignment(TranslationAssignment{
 		ID:                  strings.TrimSpace(record.AssignmentID),
 		FamilyID:            strings.TrimSpace(record.FamilyID),
+		VariantID:           nullStringValue(record.VariantID),
 		EntityType:          strings.TrimSpace(strings.ToLower(record.EntityType)),
 		TenantID:            strings.TrimSpace(record.TenantID),
 		OrgID:               strings.TrimSpace(record.OrgID),
@@ -347,6 +403,10 @@ func translationAssignmentFromBunRecord(record bunTranslationAssignmentRecord) T
 		PublishedAt:         cloneTimePtr(record.PublishedAt),
 		ArchivedAt:          cloneTimePtr(record.ArchivedAt),
 	})
+}
+
+func assignmentStorageVariantID(assignment TranslationAssignment) string {
+	return strings.TrimSpace(firstNonEmpty(assignment.VariantID, assignment.TargetRecordID, assignment.SourceRecordID))
 }
 
 func translationAssignmentTypeToStorage(value AssignmentType) string {
