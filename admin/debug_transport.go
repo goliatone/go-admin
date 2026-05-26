@@ -765,36 +765,47 @@ func writeSubscribedDebugEvent(c router.WebSocketContext, subscriptions *debugSu
 }
 
 func (m *DebugModule) handleDebugSessionWebSocket(admin *Admin, c router.WebSocketContext) error {
-	if m == nil || m.collector == nil || c == nil {
-		return ErrForbidden
+	sessionID, includeGlobals, err := m.debugSessionWebSocketConfig(c)
+	if err != nil {
+		return err
 	}
-	sessionID := strings.TrimSpace(c.Param("sessionId"))
-	if sessionID == "" {
-		return ErrNotFound
-	}
-	includeGlobals := m.config.SessionIncludeGlobalPanelsEnabled()
-
-	clientID := uuid.NewString()
-	events := m.collector.Subscribe(clientID)
+	events, cleanup := m.subscribeDebugEvents()
 	if events == nil {
 		return nil
 	}
-	defer m.collector.Unsubscribe(clientID)
+	defer cleanup()
 
 	if err := m.writeDebugSessionSnapshot(c, sessionID, includeGlobals); err != nil {
 		return err
 	}
 
-	adminCtx := debugSessionAdminContext(c)
-	attachMeta := debugSessionAttachMeta(c)
-	session := m.loadDebugSession(adminCtx.Context, sessionID)
-	recordDebugSessionAttach(admin, adminCtx.Context, session, attachMeta)
-
+	m.recordDebugSessionAttach(admin, c, sessionID)
 	commandCh := make(chan debugCommand, 16)
 	done := make(chan struct{})
 	go m.readDebugSessionCommands(c, commandCh, done)
 
-	subscriptions := newDebugSubscription()
+	return m.runDebugSessionWebSocketLoop(c, newDebugSubscription(), commandCh, done, events, sessionID, includeGlobals)
+}
+
+func (m *DebugModule) debugSessionWebSocketConfig(c router.WebSocketContext) (string, bool, error) {
+	if m == nil || m.collector == nil || c == nil {
+		return "", false, ErrForbidden
+	}
+	sessionID := strings.TrimSpace(c.Param("sessionId"))
+	if sessionID == "" {
+		return "", false, ErrNotFound
+	}
+	return sessionID, m.config.SessionIncludeGlobalPanelsEnabled(), nil
+}
+
+func (m *DebugModule) recordDebugSessionAttach(admin *Admin, c router.WebSocketContext, sessionID string) {
+	adminCtx := debugSessionAdminContext(c)
+	attachMeta := debugSessionAttachMeta(c)
+	session := m.loadDebugSession(adminCtx.Context, sessionID)
+	recordDebugSessionAttach(admin, adminCtx.Context, session, attachMeta)
+}
+
+func (m *DebugModule) runDebugSessionWebSocketLoop(c router.WebSocketContext, subscriptions *debugSubscription, commandCh <-chan debugCommand, done <-chan struct{}, events <-chan DebugEvent, sessionID string, includeGlobals bool) error {
 	for {
 		select {
 		case <-done:
