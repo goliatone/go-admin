@@ -1,5 +1,28 @@
 # Changelog
 
+# [0.78.0](https://github.com/goliatone/go-admin/compare/v0.77.2...v0.78.0) - (2026-05-26)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Code quality ([81019a3](https://github.com/goliatone/go-admin/commit/81019a3063ca328193781359e544d7e6cbce8208))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.78.0 ([52eaf12](https://github.com/goliatone/go-admin/commit/52eaf12f0267fa98dd5d1a8a8b00f7b8fcf999e9))  - (goliatone)
+
+## <!-- 16 -->➕ Add
+
+- Migrations for variants ([2276315](https://github.com/goliatone/go-admin/commit/2276315891656ceec41fa12619e987a038abc0c3))  - (goliatone)
+- Variant id to translation ([be1705f](https://github.com/goliatone/go-admin/commit/be1705f3a2c4bb2296c1d61be18df3f6b57dd6fa))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.77.2 ([f8c3298](https://github.com/goliatone/go-admin/commit/f8c32981eb510a2550122f99364479fee2c4e0c5))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update tests ([60942be](https://github.com/goliatone/go-admin/commit/60942be09975ba50af36fecd08e0e6ad0a8f251d))  - (goliatone)
+
 # [0.77.2](https://github.com/goliatone/go-admin/compare/v0.77.1...v0.77.2) - (2026-05-26)
 
 ## <!-- 1 -->🐛 Bug Fixes
