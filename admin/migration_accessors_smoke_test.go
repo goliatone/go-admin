@@ -85,6 +85,7 @@ func TestTranslationFlowSQLiteSubsetAppliesCleanly(t *testing.T) {
 		"sqlite/0008_translation_flow_active_unique.up.sql",
 		"0009_translation_exchange_runtime.up.sql",
 		"0010_translation_flow_admin_fields.up.sql",
+		"sqlite/0011_translation_flow_assignment_variant_fk.up.sql",
 	)
 }
 
