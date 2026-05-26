@@ -236,6 +236,7 @@ func (b *translationFamilyBinding) detailNotFoundMetadata(adminCtx AdminContext,
 	}
 	meta["sync_recovery"] = map[string]any{
 		"can_sync":        true,
+		"syncable":        true,
 		"permission":      PermAdminTranslationsSync,
 		"command_name":    "translation.families.sync",
 		"rpc_invoke_path": apiBasePath + "/rpc",
