@@ -224,6 +224,7 @@ func (r *InMemoryTranslationAssignmentRepository) nextAssignmentIDLocked() strin
 func normalizeAssignmentForCreate(assignment TranslationAssignment) TranslationAssignment {
 	assignment.ID = strings.TrimSpace(assignment.ID)
 	assignment.FamilyID = strings.TrimSpace(assignment.FamilyID)
+	assignment.VariantID = strings.TrimSpace(assignment.VariantID)
 	assignment.EntityType = strings.TrimSpace(assignment.EntityType)
 	assignment.TenantID = strings.TrimSpace(assignment.TenantID)
 	assignment.OrgID = strings.TrimSpace(assignment.OrgID)
