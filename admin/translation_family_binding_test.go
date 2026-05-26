@@ -629,6 +629,35 @@ func TestTranslationFamilyBindingCreateVariantRollsBackVariantWhenAssignmentSeed
 	}
 }
 
+func TestTranslationFamilyBindingCreateVariantRollsBackVariantWhenPreAssignmentSyncFails(t *testing.T) {
+	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
+		RequiredLocales: []string{"fr"},
+	})
+	fixture.admin.translationFamilyStore = &translationFamilyFailingStore{
+		base:     fixture.admin.translationFamilyStore,
+		saveErr:  errors.New("sync failed"),
+		failSave: true,
+	}
+
+	status, payload := doTranslationFamilyJSONRequest(t, fixture.app, http.MethodPost, "/admin/api/translations/families/tg-page-1/variants?channel=production&tenant_id=tenant-1&org_id=org-1", map[string]any{
+		"locale":                 "fr",
+		"auto_create_assignment": true,
+	}, nil)
+	if status != http.StatusInternalServerError {
+		t.Fatalf("expected sync failure, got status=%d payload=%+v", status, payload)
+	}
+
+	pages, err := fixture.content.Pages(context.Background(), "fr")
+	if err != nil {
+		t.Fatalf("list fr pages: %v", err)
+	}
+	for _, page := range pages {
+		if strings.EqualFold(page.FamilyID, "tg-page-1") {
+			t.Fatalf("expected created fr variant rollback after sync failure, got page %+v", page)
+		}
+	}
+}
+
 func TestTranslationFamilyBindingCreateVariantScopesLifecycleByWorkScope(t *testing.T) {
 	fixture := newTranslationFamilyMutationFixture(t, translationFamilyMutationFixtureOptions{
 		RequiredLocales:      []string{"fr"},
@@ -1143,4 +1172,25 @@ func (r *translationAssignmentFailingRepository) Update(ctx context.Context, ass
 		return TranslationAssignment{}, r.failUpdate
 	}
 	return r.base.Update(ctx, assignment, expectedVersion)
+}
+
+type translationFamilyFailingStore struct {
+	base     translationservices.FamilyStore
+	saveErr  error
+	failSave bool
+}
+
+func (s *translationFamilyFailingStore) Families(ctx context.Context) ([]translationservices.FamilyRecord, error) {
+	return s.base.Families(ctx)
+}
+
+func (s *translationFamilyFailingStore) Family(ctx context.Context, id string) (translationservices.FamilyRecord, bool, error) {
+	return s.base.Family(ctx, id)
+}
+
+func (s *translationFamilyFailingStore) SaveFamily(ctx context.Context, family translationservices.FamilyRecord) error {
+	if s.failSave {
+		return s.saveErr
+	}
+	return s.base.SaveFamily(ctx, family)
 }
