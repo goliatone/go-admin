@@ -169,6 +169,133 @@ func TestBunTranslationFamilyStoreReplacesStaleLocaleVariantIDs(t *testing.T) {
 	}
 }
 
+func TestBunTranslationFamilyStoreRenamesStaleVariantIDsWithoutDeletingAssignments(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	store := NewBunTranslationFamilyStore(db)
+	ctx := context.Background()
+
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-privacy",
+		ContentType:     "pages",
+		SourceLocale:    "bo",
+		SourceVariantID: "page-privacy",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{{
+			ID:             "page-privacy",
+			FamilyID:       "family-privacy",
+			Locale:         "bo",
+			Status:         "published",
+			IsSource:       true,
+			SourceRecordID: "page-privacy",
+		}},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+	_, err := db.ExecContext(ctx, `INSERT INTO translation_assignments (
+		assignment_id, family_id, variant_id, entity_type, source_record_id, source_locale,
+		target_locale, work_scope, assignment_type, status, priority, row_version, created_at, updated_at
+	) VALUES (
+		'assignment-bo', 'family-privacy', 'page-privacy', 'pages', 'page-privacy', 'en',
+		'bo', '__all__', 'open_pool', 'open', 'normal', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+	)`)
+	if err != nil {
+		t.Fatalf("seed assignment: %v", err)
+	}
+
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-privacy",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "page-privacy::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{
+			{
+				ID:             "page-privacy::bo",
+				FamilyID:       "family-privacy",
+				Locale:         "bo",
+				Status:         "published",
+				SourceRecordID: "page-privacy",
+			},
+			{
+				ID:             "page-privacy::en",
+				FamilyID:       "family-privacy",
+				Locale:         "en",
+				Status:         "published",
+				IsSource:       true,
+				SourceRecordID: "page-privacy",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("rename variants: %v", err)
+	}
+
+	var variantID string
+	if err := db.QueryRowContext(ctx, `SELECT variant_id FROM translation_assignments WHERE assignment_id = 'assignment-bo'`).Scan(&variantID); err != nil {
+		t.Fatalf("load assignment: %v", err)
+	}
+	if variantID != "page-privacy::bo" {
+		t.Fatalf("assignment variant_id = %q, want page-privacy::bo", variantID)
+	}
+}
+
+func TestBunTranslationAssignmentRepositoryResolvesLocaleVariantID(t *testing.T) {
+	db := newTranslationFamilyStoreSQLiteDB(t)
+	store := NewBunTranslationFamilyStore(db)
+	ctx := context.Background()
+
+	if err := store.SaveFamily(ctx, translationservices.FamilyRecord{
+		ID:              "family-privacy",
+		ContentType:     "pages",
+		SourceLocale:    "en",
+		SourceVariantID: "page-privacy::en",
+		ReadinessState:  "ready",
+		Variants: []translationservices.FamilyVariant{
+			{
+				ID:             "page-privacy::bo",
+				FamilyID:       "family-privacy",
+				Locale:         "bo",
+				Status:         "draft",
+				SourceRecordID: "page-privacy",
+			},
+			{
+				ID:             "page-privacy::en",
+				FamilyID:       "family-privacy",
+				Locale:         "en",
+				Status:         "published",
+				IsSource:       true,
+				SourceRecordID: "page-privacy",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed family: %v", err)
+	}
+
+	repo := NewBunTranslationAssignmentRepository(db)
+	created, err := repo.Create(ctx, TranslationAssignment{
+		FamilyID:       "family-privacy",
+		EntityType:     "pages",
+		SourceRecordID: "page-privacy",
+		SourceLocale:   "en",
+		TargetLocale:   "bo",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if created.VariantID != "page-privacy::bo" {
+		t.Fatalf("created variant_id = %q, want page-privacy::bo", created.VariantID)
+	}
+	var storedVariantID string
+	if err := db.QueryRowContext(ctx, `SELECT variant_id FROM translation_assignments WHERE assignment_id = ?`, created.ID).Scan(&storedVariantID); err != nil {
+		t.Fatalf("load stored assignment: %v", err)
+	}
+	if storedVariantID != "page-privacy::bo" {
+		t.Fatalf("stored variant_id = %q, want page-privacy::bo", storedVariantID)
+	}
+}
+
 type translationFamilySyncContentStub struct {
 	*InMemoryContentService
 	pagesByLocale    map[string][]CMSPage
@@ -217,6 +344,9 @@ func newTranslationFamilyStoreSQLiteDB(t *testing.T) *bun.DB {
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
+	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatalf("enable foreign keys: %v", err)
+	}
 	statements := []string{
 		`CREATE TABLE content_families (
 			family_id TEXT PRIMARY KEY,
@@ -231,13 +361,17 @@ func newTranslationFamilyStoreSQLiteDB(t *testing.T) *bun.DB {
 			pending_review_count INTEGER NOT NULL DEFAULT 0,
 			outdated_locale_count INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT,
-			updated_at TEXT
+			updated_at TEXT,
+			FOREIGN KEY (source_variant_id, family_id, source_locale)
+				REFERENCES locale_variants(variant_id, family_id, locale)
+				ON UPDATE CASCADE
+				DEFERRABLE INITIALLY DEFERRED
 		)`,
 		`CREATE TABLE locale_variants (
 			variant_id TEXT PRIMARY KEY,
 			tenant_id TEXT,
 			org_id TEXT,
-			family_id TEXT NOT NULL,
+			family_id TEXT NOT NULL REFERENCES content_families(family_id) ON DELETE CASCADE,
 			locale TEXT NOT NULL,
 			status TEXT NOT NULL,
 			is_source BOOLEAN NOT NULL DEFAULT FALSE,
@@ -247,8 +381,9 @@ func newTranslationFamilyStoreSQLiteDB(t *testing.T) *bun.DB {
 			source_record_id TEXT,
 			created_at TEXT,
 			updated_at TEXT,
-				published_at TEXT,
-				UNIQUE (family_id, locale)
+			published_at TEXT,
+			UNIQUE (variant_id, family_id, locale),
+			UNIQUE (family_id, locale)
 			)`,
 		`CREATE UNIQUE INDEX ux_locale_variants_one_source_per_family
 			ON locale_variants(family_id)
@@ -268,12 +403,12 @@ func newTranslationFamilyStoreSQLiteDB(t *testing.T) *bun.DB {
 			assignment_id TEXT PRIMARY KEY,
 			tenant_id TEXT,
 			org_id TEXT,
-			family_id TEXT,
-			variant_id TEXT,
+			family_id TEXT NOT NULL REFERENCES content_families(family_id) ON DELETE CASCADE,
+			variant_id TEXT NOT NULL,
 			entity_type TEXT,
 			source_record_id TEXT,
 			source_locale TEXT,
-			target_locale TEXT,
+			target_locale TEXT NOT NULL,
 			target_record_id TEXT,
 			source_title TEXT,
 			source_path TEXT,
@@ -294,7 +429,11 @@ func newTranslationFamilyStoreSQLiteDB(t *testing.T) *bun.DB {
 			published_at TEXT,
 			archived_at TEXT,
 			created_at TEXT,
-			updated_at TEXT
+			updated_at TEXT,
+			FOREIGN KEY (variant_id, family_id, target_locale)
+				REFERENCES locale_variants(variant_id, family_id, locale)
+				ON UPDATE CASCADE
+				ON DELETE CASCADE
 		)`,
 	}
 	for _, statement := range statements {

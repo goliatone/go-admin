@@ -22,6 +22,8 @@ func TestGetTranslationFlowMigrationsFSIncludesExpectedFiles(t *testing.T) {
 		"postgres/0009_translation_exchange_runtime.down.sql",
 		"postgres/0010_translation_flow_admin_fields.up.sql",
 		"postgres/0010_translation_flow_admin_fields.down.sql",
+		"postgres/0011_translation_flow_assignment_variant_fk.up.sql",
+		"postgres/0011_translation_flow_assignment_variant_fk.down.sql",
 	}
 	for _, path := range expected {
 		if _, err := fs.ReadFile(migrationsFS, path); err != nil {
