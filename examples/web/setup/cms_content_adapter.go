@@ -164,6 +164,7 @@ func (b *goCMSContentBridge) pageFromContent(content admin.CMSContent) admin.CMS
 		RouteKey:               routeKey,
 		Status:                 content.Status,
 		Data:                   data,
+		Metadata:               primitives.CloneAnyMapEmptyOnEmpty(content.Metadata),
 		PreviewURL:             path,
 	}
 	if out.PreviewURL == "" && strings.TrimSpace(out.Slug) != "" {
@@ -573,6 +574,28 @@ func (b *goCMSContentBridge) CreateTranslation(ctx context.Context, input admin.
 	input.Environment = strings.TrimSpace(input.Environment)
 	input.ContentType = strings.TrimSpace(input.ContentType)
 	input.Status = strings.TrimSpace(input.Status)
+	input.Path = strings.TrimSpace(input.Path)
+	input.RouteKey = strings.TrimSpace(input.RouteKey)
+	if len(input.Metadata) > 0 {
+		input.Metadata = primitives.CloneAnyMap(input.Metadata)
+	}
+	if input.Path == "" {
+		input.Path = strings.TrimSpace(asString(input.Metadata["path"], ""))
+	}
+	if input.RouteKey == "" {
+		input.RouteKey = strings.TrimSpace(asString(input.Metadata["route_key"], ""))
+	}
+	if input.Path != "" || input.RouteKey != "" {
+		if input.Metadata == nil {
+			input.Metadata = map[string]any{}
+		}
+		if input.Path != "" {
+			input.Metadata["path"] = input.Path
+		}
+		if input.RouteKey != "" {
+			input.Metadata["route_key"] = input.RouteKey
+		}
+	}
 	if input.SourceID == "" {
 		return nil, admin.NewDomainError(admin.TextCodeValidationError, "translation requires a single id", map[string]any{
 			"field": "id",
@@ -993,12 +1016,24 @@ func bridgePersistTranslationGroupMetadata(groupID string, data, metadata map[st
 }
 
 func bridgeMapFieldAny(value reflect.Value, fieldName string) map[string]any {
+	value = deref(value)
+	if !value.IsValid() || value.Kind() != reflect.Struct {
+		return nil
+	}
 	field := deref(value.FieldByName(fieldName))
 	if !field.IsValid() || field.Kind() != reflect.Map {
 		return nil
 	}
 	if mapped, ok := field.Interface().(map[string]any); ok {
 		return primitives.CloneAnyMapEmptyOnEmpty(mapped)
+	}
+	if field.Type().Key().Kind() == reflect.String {
+		out := map[string]any{}
+		iter := field.MapRange()
+		for iter.Next() {
+			out[iter.Key().String()] = iter.Value().Interface()
+		}
+		return out
 	}
 	return nil
 }
@@ -1117,6 +1152,12 @@ func (b *goCMSContentBridge) convertContent(value reflect.Value, locale string, 
 	}
 	if meta := bridgeMapFieldAny(val, "Metadata"); meta != nil {
 		out.Metadata = meta
+	}
+	if meta := bridgeMapFieldAny(chosen, "Metadata"); len(meta) > 0 {
+		if out.Metadata == nil {
+			out.Metadata = map[string]any{}
+		}
+		maps.Copy(out.Metadata, meta)
 	}
 	requestedLocale := strings.ToLower(strings.TrimSpace(locale))
 	if requestedLocale == "" {
@@ -1359,6 +1400,8 @@ func applyBridgeCreateTranslationRequest(req reflect.Value, input admin.Translat
 
 	setStringField(req, "Locale", input.Locale)
 	setStringField(req, "TargetLocale", input.Locale)
+	setStringField(req, "Path", input.Path)
+	setStringField(req, "RouteKey", input.RouteKey)
 
 	env := strings.TrimSpace(input.Environment)
 	if env != "" {
@@ -1372,6 +1415,13 @@ func applyBridgeCreateTranslationRequest(req reflect.Value, input admin.Translat
 	}
 	if status := strings.TrimSpace(input.Status); status != "" {
 		setStringField(req, "Status", status)
+	}
+	if len(input.Metadata) > 0 {
+		setMapField(req, "Metadata", primitives.CloneAnyMap(input.Metadata))
+		if familyID := uuidOrNil(asString(input.Metadata["family_id"], "")); familyID != uuid.Nil {
+			setUUIDPtr(req, "FamilyID", familyID)
+			setUUIDField(req, "FamilyID", familyID)
+		}
 	}
 }
 
@@ -1604,8 +1654,14 @@ func setStringPtr(val reflect.Value, name, value string) {
 
 func setMapField(val reflect.Value, name string, m map[string]any) {
 	field := val.FieldByName(name)
-	if field.IsValid() && field.CanSet() && field.Kind() == reflect.Map {
-		field.Set(reflect.ValueOf(m))
+	if !field.IsValid() || !field.CanSet() || field.Kind() != reflect.Map {
+		return
+	}
+	value := reflect.ValueOf(m)
+	if value.Type().AssignableTo(field.Type()) {
+		field.Set(value)
+	} else if value.Type().ConvertibleTo(field.Type()) {
+		field.Set(value.Convert(field.Type()))
 	}
 }
 

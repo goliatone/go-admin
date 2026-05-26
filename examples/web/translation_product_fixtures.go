@@ -1447,6 +1447,13 @@ func findPageLocaleVariantForSource(
 		return nil, err
 	}
 	targetLocale = strings.ToLower(strings.TrimSpace(targetLocale))
+	if targetLocale != "" {
+		localizedPages, localizedErr := contentSvc.Pages(ctx, targetLocale)
+		if localizedErr != nil {
+			return nil, localizedErr
+		}
+		pages = append(pages, localizedPages...)
+	}
 	expectedSlug, sourceID := "", ""
 	if source != nil {
 		sourceSlug := strings.TrimSpace(source.Slug)
@@ -1456,13 +1463,17 @@ func findPageLocaleVariantForSource(
 		sourceID = strings.ToLower(strings.TrimSpace(source.ID))
 	}
 	for _, page := range pages {
+		if isMissingRequestedLocaleProjection(page, targetLocale) {
+			continue
+		}
 		if !matchesTranslationGroup(groupID, page.FamilyID) && !matchesTranslationGroup(groupID, page.ID) {
 			continue
 		}
-		if sourceID != "" && strings.EqualFold(strings.TrimSpace(page.ID), sourceID) {
+		localeMatch := strings.EqualFold(strings.TrimSpace(page.Locale), targetLocale) ||
+			strings.EqualFold(strings.TrimSpace(page.ResolvedLocale), targetLocale)
+		if sourceID != "" && strings.EqualFold(strings.TrimSpace(page.ID), sourceID) && !localeMatch {
 			continue
 		}
-		localeMatch := strings.EqualFold(strings.TrimSpace(page.Locale), targetLocale)
 		slugMatch := expectedSlug != "" && strings.EqualFold(strings.TrimSpace(page.Slug), expectedSlug)
 		if localeMatch || slugMatch {
 			copy := cloneCMSPage(page)
@@ -1471,7 +1482,12 @@ func findPageLocaleVariantForSource(
 	}
 	if expectedSlug != "" {
 		for _, page := range pages {
-			if sourceID != "" && strings.EqualFold(strings.TrimSpace(page.ID), sourceID) {
+			if isMissingRequestedLocaleProjection(page, targetLocale) {
+				continue
+			}
+			localeMatch := strings.EqualFold(strings.TrimSpace(page.Locale), targetLocale) ||
+				strings.EqualFold(strings.TrimSpace(page.ResolvedLocale), targetLocale)
+			if sourceID != "" && strings.EqualFold(strings.TrimSpace(page.ID), sourceID) && !localeMatch {
 				continue
 			}
 			if strings.EqualFold(strings.TrimSpace(page.Slug), expectedSlug) {
@@ -1500,7 +1516,17 @@ func findPostLocaleVariant(ctx context.Context, contentSvc coreadmin.CMSContentS
 		return nil, err
 	}
 	targetLocale = strings.ToLower(strings.TrimSpace(targetLocale))
+	if targetLocale != "" {
+		localizedItems, localizedErr := contentSvc.Contents(ctx, targetLocale)
+		if localizedErr != nil {
+			return nil, localizedErr
+		}
+		items = append(items, localizedItems...)
+	}
 	for _, item := range items {
+		if isMissingRequestedLocaleContentProjection(item, targetLocale) {
+			continue
+		}
 		if !strings.EqualFold(strings.TrimSpace(item.ContentTypeSlug), "posts") &&
 			!strings.EqualFold(strings.TrimSpace(item.ContentType), "posts") {
 			continue
@@ -1508,12 +1534,29 @@ func findPostLocaleVariant(ctx context.Context, contentSvc coreadmin.CMSContentS
 		if !matchesTranslationGroup(groupID, item.FamilyID) && !matchesTranslationGroup(groupID, item.ID) {
 			continue
 		}
-		if strings.EqualFold(strings.TrimSpace(item.Locale), targetLocale) {
+		if strings.EqualFold(strings.TrimSpace(item.Locale), targetLocale) ||
+			strings.EqualFold(strings.TrimSpace(item.ResolvedLocale), targetLocale) {
 			copy := cloneCMSContent(item)
 			return &copy, nil
 		}
 	}
 	return nil, nil
+}
+
+func isMissingRequestedLocaleProjection(page coreadmin.CMSPage, targetLocale string) bool {
+	if !page.MissingRequestedLocale {
+		return false
+	}
+	requested := strings.ToLower(strings.TrimSpace(page.RequestedLocale))
+	return requested == "" || requested == strings.ToLower(strings.TrimSpace(targetLocale))
+}
+
+func isMissingRequestedLocaleContentProjection(content coreadmin.CMSContent, targetLocale string) bool {
+	if !content.MissingRequestedLocale {
+		return false
+	}
+	requested := strings.ToLower(strings.TrimSpace(content.RequestedLocale))
+	return requested == "" || requested == strings.ToLower(strings.TrimSpace(targetLocale))
 }
 
 func normalizeExchangeResources(resources []string) map[string]bool {
