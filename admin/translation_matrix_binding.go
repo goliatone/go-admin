@@ -1157,7 +1157,8 @@ func translationMatrixCreateQuickAction(
 		"locales":    []string{locale},
 		"channel":    strings.TrimSpace(channel),
 	}
-	if enabled, _ := createActionState["enabled"].(bool); !enabled {
+	enabled, ok := createActionState["enabled"].(bool)
+	if !ok || !enabled {
 		action["reason"] = toString(createActionState["reason"])
 		action["reason_code"] = toString(createActionState["reason_code"])
 		return action

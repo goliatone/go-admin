@@ -427,25 +427,29 @@ func (s *DefaultTranslationQueueService) recordTransition(ctx context.Context, a
 	}
 	meta := s.transitionMetadata(action, assignment)
 	if s.Activity != nil {
-		_ = s.Activity.Record(ctx, ActivityEntry{
+		if err := s.Activity.Record(ctx, ActivityEntry{
 			Actor:    actorID,
 			Action:   "translation.queue." + action,
 			Object:   "translation_assignment:" + strings.TrimSpace(assignment.ID),
 			Metadata: primitives.CloneAnyMap(meta),
-		})
+		}); err != nil {
+			meta["activity_record_error"] = err.Error()
+		}
 	}
 
 	targetUser := queueNotificationTarget(action, assignment, actorID)
 	if s.Notifications != nil && targetUser != "" {
 		title, message := queueNotificationMessage(action, assignment)
-		_, _ = s.Notifications.Add(ctx, Notification{
+		if _, err := s.Notifications.Add(ctx, Notification{
 			Title:     title,
 			Message:   message,
 			ActionURL: primitives.FirstNonEmptyRaw(toString(meta["url"]), ""),
 			Metadata:  primitives.CloneAnyMap(meta),
 			UserID:    targetUser,
 			Read:      false,
-		})
+		}); err != nil {
+			return
+		}
 	}
 }
 
@@ -483,12 +487,14 @@ func (s *DefaultTranslationQueueService) recordReviewFeedback(ctx context.Contex
 	if len(styleNotes) > 0 {
 		metadata["style_notes"] = append([]string{}, styleNotes...)
 	}
-	_ = s.Activity.Record(ctx, ActivityEntry{
+	if err := s.Activity.Record(ctx, ActivityEntry{
 		Actor:    actorID,
 		Action:   "translation.review.feedback",
 		Object:   "translation_assignment:" + strings.TrimSpace(assignment.ID),
 		Metadata: metadata,
-	})
+	}); err != nil {
+		return
+	}
 }
 
 func (s *DefaultTranslationQueueService) transitionMetadata(action string, assignment TranslationAssignment) map[string]any {

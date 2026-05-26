@@ -387,11 +387,15 @@ func newTranslationFamilyStoreSQLiteDB(t *testing.T) *bun.DB {
 		t.Fatalf("open sqlite: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = sqlDB.Close()
+		if closeErr := sqlDB.Close(); closeErr != nil {
+			t.Errorf("close sqlite handle: %v", closeErr)
+		}
 	})
 	db := bun.NewDB(sqlDB, sqlitedialect.New())
 	t.Cleanup(func() {
-		_ = db.Close()
+		if closeErr := db.Close(); closeErr != nil {
+			t.Errorf("close bun db: %v", closeErr)
+		}
 	})
 	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
 		t.Fatalf("enable foreign keys: %v", err)

@@ -115,80 +115,104 @@ func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family trans
 		}
 		sourceVariantID := record.SourceVariantID
 		record.SourceVariantID = sql.NullString{}
-		if _, upsertFamilyErr := tx.NewInsert().
-			Model(&record).
-			On("CONFLICT (family_id) DO UPDATE").
+		if saveErr := upsertTranslationFamilyRecordTx(ctx, tx, &record); saveErr != nil {
+			return saveErr
+		}
+		if saveErr := clearFamilySourceVariants(ctx, tx, family); saveErr != nil {
+			return saveErr
+		}
+		if saveErr := renameFamilyLocaleVariants(ctx, tx, family); saveErr != nil {
+			return saveErr
+		}
+		if saveErr := upsertFamilyLocaleVariantsTx(ctx, tx, family); saveErr != nil {
+			return saveErr
+		}
+		if saveErr := updateFamilySourceVariantTx(ctx, tx, family.ID, sourceVariantID); saveErr != nil {
+			return saveErr
+		}
+		if saveErr := deleteStaleFamilyVariants(ctx, tx, family); saveErr != nil {
+			return saveErr
+		}
+		return replaceFamilyBlockersTx(ctx, tx, family)
+	})
+}
+
+func upsertTranslationFamilyRecordTx(ctx context.Context, tx bun.Tx, record *bunTranslationFamilyRecord) error {
+	_, err := tx.NewInsert().
+		Model(record).
+		On("CONFLICT (family_id) DO UPDATE").
+		Set("tenant_id = EXCLUDED.tenant_id").
+		Set("org_id = EXCLUDED.org_id").
+		Set("content_type = EXCLUDED.content_type").
+		Set("source_locale = EXCLUDED.source_locale").
+		Set("source_variant_id = EXCLUDED.source_variant_id").
+		Set("readiness_state = EXCLUDED.readiness_state").
+		Set("blocker_codes_json = EXCLUDED.blocker_codes_json").
+		Set("missing_required_locale_count = EXCLUDED.missing_required_locale_count").
+		Set("pending_review_count = EXCLUDED.pending_review_count").
+		Set("outdated_locale_count = EXCLUDED.outdated_locale_count").
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx)
+	return err
+}
+
+func upsertFamilyLocaleVariantsTx(ctx context.Context, tx bun.Tx, family translationservices.FamilyRecord) error {
+	for _, variant := range family.Variants {
+		row, err := bunTranslationLocaleVariantRecordFromModel(family, variant)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.NewInsert().
+			Model(&row).
+			On("CONFLICT (variant_id) DO UPDATE").
 			Set("tenant_id = EXCLUDED.tenant_id").
 			Set("org_id = EXCLUDED.org_id").
-			Set("content_type = EXCLUDED.content_type").
-			Set("source_locale = EXCLUDED.source_locale").
-			Set("source_variant_id = EXCLUDED.source_variant_id").
-			Set("readiness_state = EXCLUDED.readiness_state").
-			Set("blocker_codes_json = EXCLUDED.blocker_codes_json").
-			Set("missing_required_locale_count = EXCLUDED.missing_required_locale_count").
-			Set("pending_review_count = EXCLUDED.pending_review_count").
-			Set("outdated_locale_count = EXCLUDED.outdated_locale_count").
+			Set("family_id = EXCLUDED.family_id").
+			Set("locale = EXCLUDED.locale").
+			Set("status = EXCLUDED.status").
+			Set("is_source = EXCLUDED.is_source").
+			Set("source_hash_at_last_sync = EXCLUDED.source_hash_at_last_sync").
+			Set("fields_json = EXCLUDED.fields_json").
+			Set("row_version = EXCLUDED.row_version").
+			Set("source_record_id = EXCLUDED.source_record_id").
 			Set("updated_at = EXCLUDED.updated_at").
-			Exec(ctx); upsertFamilyErr != nil {
-			return upsertFamilyErr
-		}
-		if err := clearFamilySourceVariants(ctx, tx, family); err != nil {
+			Set("published_at = EXCLUDED.published_at").
+			Exec(ctx); err != nil {
 			return err
 		}
-		if err := renameFamilyLocaleVariants(ctx, tx, family); err != nil {
-			return err
-		}
-		for _, variant := range family.Variants {
-			row, rowErr := bunTranslationLocaleVariantRecordFromModel(family, variant)
-			if rowErr != nil {
-				return rowErr
-			}
-			if _, upsertVariantErr := tx.NewInsert().
-				Model(&row).
-				On("CONFLICT (variant_id) DO UPDATE").
-				Set("tenant_id = EXCLUDED.tenant_id").
-				Set("org_id = EXCLUDED.org_id").
-				Set("family_id = EXCLUDED.family_id").
-				Set("locale = EXCLUDED.locale").
-				Set("status = EXCLUDED.status").
-				Set("is_source = EXCLUDED.is_source").
-				Set("source_hash_at_last_sync = EXCLUDED.source_hash_at_last_sync").
-				Set("fields_json = EXCLUDED.fields_json").
-				Set("row_version = EXCLUDED.row_version").
-				Set("source_record_id = EXCLUDED.source_record_id").
-				Set("updated_at = EXCLUDED.updated_at").
-				Set("published_at = EXCLUDED.published_at").
-				Exec(ctx); upsertVariantErr != nil {
-				return upsertVariantErr
-			}
-		}
-		if _, updateSourceErr := tx.NewUpdate().
-			Model((*bunTranslationFamilyRecord)(nil)).
-			Set("source_variant_id = ?", sourceVariantID).
-			Where("family_id = ?", strings.TrimSpace(family.ID)).
-			Exec(ctx); updateSourceErr != nil {
-			return updateSourceErr
-		}
-		if err := deleteStaleFamilyVariants(ctx, tx, family); err != nil {
-			return err
-		}
-		if _, deleteBlockersErr := tx.NewDelete().Model((*bunTranslationFamilyBlockerRecord)(nil)).Where("family_id = ?", strings.TrimSpace(family.ID)).Exec(ctx); deleteBlockersErr != nil {
-			return deleteBlockersErr
-		}
-		if len(family.Blockers) == 0 {
-			return nil
-		}
-		rows := make([]bunTranslationFamilyBlockerRecord, 0, len(family.Blockers))
-		for _, blocker := range family.Blockers {
-			row, rowErr := bunTranslationFamilyBlockerRecordFromModel(family, blocker)
-			if rowErr != nil {
-				return rowErr
-			}
-			rows = append(rows, row)
-		}
-		_, err = tx.NewInsert().Model(&rows).Exec(ctx)
+	}
+	return nil
+}
+
+func updateFamilySourceVariantTx(ctx context.Context, tx bun.Tx, familyID string, sourceVariantID sql.NullString) error {
+	_, err := tx.NewUpdate().
+		Model((*bunTranslationFamilyRecord)(nil)).
+		Set("source_variant_id = ?", sourceVariantID).
+		Where("family_id = ?", strings.TrimSpace(familyID)).
+		Exec(ctx)
+	return err
+}
+
+func replaceFamilyBlockersTx(ctx context.Context, tx bun.Tx, family translationservices.FamilyRecord) error {
+	if _, err := tx.NewDelete().
+		Model((*bunTranslationFamilyBlockerRecord)(nil)).
+		Where("family_id = ?", strings.TrimSpace(family.ID)).
+		Exec(ctx); err != nil {
 		return err
-	})
+	}
+	if len(family.Blockers) == 0 {
+		return nil
+	}
+	rows := make([]bunTranslationFamilyBlockerRecord, 0, len(family.Blockers))
+	for _, blocker := range family.Blockers {
+		row, err := bunTranslationFamilyBlockerRecordFromModel(family, blocker)
+		if err != nil {
+			return err
+		}
+		rows = append(rows, row)
+	}
+	_, err := tx.NewInsert().Model(&rows).Exec(ctx)
+	return err
 }
 
 func (s *BunTranslationFamilyStore) familiesFromRows(ctx context.Context, familyRows []bunTranslationFamilyRecord) ([]translationservices.FamilyRecord, error) {
