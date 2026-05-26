@@ -55,6 +55,7 @@ type authUIOptions struct {
 	loginRedirectStatus          int
 	logoutRedirectStatus         int
 	logoutGetEnabled             bool
+	logoutMiddleware             router.MiddlewareFunc
 }
 
 type authUIRouteRuntime struct {
@@ -171,6 +172,28 @@ func WithAuthUILogoutGET(enabled bool) AuthUIOption {
 	return func(opts *authUIOptions) {
 		if opts != nil {
 			opts.logoutGetEnabled = enabled
+		}
+	}
+}
+
+// WithAuthUILogoutMiddleware overrides the middleware used to protect logout
+// routes. Use this when logout forms are rendered inside another protected
+// shell whose CSRF token must be validated by the same middleware.
+func WithAuthUILogoutMiddleware(mw router.MiddlewareFunc) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil && mw != nil {
+			opts.logoutMiddleware = mw
+		}
+	}
+}
+
+// WithAuthUILogoutAuthenticator protects logout routes with the provided
+// handler authenticator. This lets authenticated admin shells validate logout
+// POSTs with the same browser auth and CSRF contract that rendered the form.
+func WithAuthUILogoutAuthenticator(authn admin.HandlerAuthenticator) AuthUIOption {
+	return func(opts *authUIOptions) {
+		if opts != nil && authn != nil {
+			opts.logoutMiddleware = authn.WrapHandler
 		}
 	}
 }
@@ -593,9 +616,18 @@ func registerAuthUILogoutRoutes[T any](r router.Router[T], runtime authUIRouteRu
 		return c.Redirect(options.logoutRedirectPath, options.logoutRedirectStatus)
 	}
 
-	r.Post(options.logoutPath, logoutHandler, runtime.csrfMiddleware)
+	logoutMiddleware := runtime.csrfMiddleware
+	if options.logoutMiddleware != nil {
+		logoutMiddleware = options.logoutMiddleware
+	}
+
+	r.Post(options.logoutPath, logoutHandler, logoutMiddleware)
 	if options.logoutGetEnabled {
-		r.Get(options.logoutPath, logoutHandler)
+		if options.logoutMiddleware != nil {
+			r.Get(options.logoutPath, logoutHandler, options.logoutMiddleware)
+		} else {
+			r.Get(options.logoutPath, logoutHandler)
+		}
 	}
 }
 

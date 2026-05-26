@@ -96,12 +96,14 @@ auth wiring, password-change gate, and recovery flow.
 - `RegisterAdminUIRoutes(r router.Router[T], cfg admin.Config, adm *admin.Admin, auth admin.HandlerAuthenticator, opts ...UIRouteOption) error` - Inputs: router/config/admin/auth wrapper + options. Outputs: error (registers dashboard + notifications UI routes, and injects feature-aware view context such as `activity_enabled` + `body_classes`).
 - `WithContentEntryDataGridStateStore(cfg PanelDataGridStateStoreOptions) ContentEntryUIOption` - Inputs: DataGrid state-store config for content-entry list templates. Outputs: content-entry route option (default mode remains localStorage when unset).
 - `WithContentEntryDataGridURLState(cfg PanelDataGridURLStateOptions) ContentEntryUIOption` - Inputs: URL sync limits/token config for content-entry list templates. Outputs: content-entry route option.
-- `RegisterAuthUIRoutes(r router.Router[T], cfg admin.Config, auther *auth.Auther, cookieName string, opts ...AuthUIOption) error` - Inputs: router/config/go-auth auther/cookie name + options. Outputs: error (registers login/logout/reset UI routes).
+- `RegisterAuthUIRoutes(r router.Router[T], cfg admin.Config, routeAuth *auth.RouteAuthenticator, opts ...AuthUIOption) error` - Inputs: router/config/go-auth route authenticator + options. Outputs: error (registers login/logout/reset UI routes).
 - `RegisterRegistrationUIRoutes(r router.Router[T], cfg admin.Config, opts ...RegistrationUIOption) error` - Inputs: router/config + options. Outputs: error (registers signup UI route).
 - `AuthUIViewContext(cfg admin.Config, state AuthUIState, paths AuthUIPaths) router.ViewContext` - Inputs: config/state/paths; outputs: view context with auth flags + paths (`base_path`, `api_base_path`, `asset_base_path`, `preferences_api_path`).
 - Browser/admin routes rendered through quickstart now carry CSRF helpers automatically. Generated forms should include the hidden `_token` field, and same-origin JavaScript writes should send `X-CSRF-Token` from `meta[name="csrf-token"]`.
 - For cookie-backed browser pages, prefer the package-managed browser protection path instead of a custom CSRF wrapper so origin checks, CSRF header emission, and session-key resolution stay aligned with `go-auth`.
-- `RegisterAuthUIRoutes` applies CSRF middleware to login/logout/password-reset forms. Use `WithAuthUICSRFSecureKey(...)` when you need a stable stateless CSRF signing key across restarts or multi-instance deployments.
+- `RegisterAuthUIRoutes` applies standalone Auth UI CSRF middleware to login and password-reset forms. Use `WithAuthUICSRFSecureKey(...)` when you need a stable stateless CSRF signing key across restarts or multi-instance deployments.
+- When an authenticated admin shell renders a POST logout form with the page's ambient `csrf_field`, pass `WithAuthUILogoutAuthenticator(authn)` or `WithAuthUILogoutMiddleware(mw)` so `/logout` validates with the same browser auth/CSRF contract that produced the token. Login and password reset remain on the standalone Auth UI CSRF path.
+- `WithAuthUILogoutGET(true)` remains an opt-in compatibility route. If a logout authenticator or middleware is configured, the GET route is wrapped by the same middleware; new shells should keep POST logout canonical.
 - `WithProtectedAppAuth(routeAuth *auth.RouteAuthenticator, cfg auth.Config, opts ...admin.GoAuthAuthenticatorOption) *admin.GoAuthAuthenticator` - Inputs: shared go-auth route authenticator plus canonical admin config with protected-app roots. Outputs: a protected-app browser/API authenticator that reuses the same actor/session and CSRF model as admin routes.
 - `AttachDebugMiddleware(r router.Router[T], cfg admin.Config, adm *admin.Admin)` - Inputs: router/config/admin; outputs: none (registers debug request capture middleware).
 - `AttachDebugLogHandler(cfg admin.Config, adm *admin.Admin)` - Inputs: config/admin; outputs: none (wires slog debug handler).
@@ -784,8 +786,8 @@ if err := quickstart.RegisterAdminUIRoutes(router, cfg, adm, authn); err != nil 
 if err := quickstart.RegisterAuthUIRoutes(
 	router,
 	cfg,
-	auther,
-	authCookieName,
+	routeAuth,
+	quickstart.WithAuthUILogoutAuthenticator(authn),
 	quickstart.WithAuthUITitles("Login", "Password Reset"),
 ); err != nil {
 	return err
@@ -874,8 +876,8 @@ authThemeAssetPrefix := path.Join(cfg.BasePath, "assets")
 if err := quickstart.RegisterAuthUIRoutes(
 	router,
 	cfg,
-	auther,
-	authCookieName,
+	routeAuth,
+	quickstart.WithAuthUILogoutAuthenticator(authn),
 	quickstart.WithAuthUITitles("Login", "Password Reset"),
 	quickstart.WithAuthUIThemeAssets(authThemeAssetPrefix, authThemeAssets),
 ); err != nil {
