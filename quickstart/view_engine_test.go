@@ -2,7 +2,9 @@ package quickstart
 
 import (
 	"bytes"
+	"context"
 	"io/fs"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"testing/fstest"
@@ -160,7 +162,7 @@ func TestSharedSidebarTemplatePrefersThemeLogoAsset(t *testing.T) {
 		})
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
@@ -205,7 +207,7 @@ func TestSidebarTemplatePrefersThemeLogoAsset(t *testing.T) {
 		})
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
@@ -253,7 +255,7 @@ func TestSidebarTemplateUsesCompactIconWhenAvailable(t *testing.T) {
 		})
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
@@ -323,7 +325,7 @@ func TestSidebarTemplateFallsBackToLogoForCompactBrand(t *testing.T) {
 		})
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
@@ -367,7 +369,7 @@ func TestSidebarTemplateFallsBackToBuiltInBrandAsset(t *testing.T) {
 		})
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}
@@ -405,7 +407,7 @@ func TestLoginTemplatePrefersThemeIconAsset(t *testing.T) {
 		})
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/", nil))
+	resp, err := app.Test(httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil), -1)
 	if err != nil {
 		t.Fatalf("app.Test: %v", err)
 	}

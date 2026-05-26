@@ -337,20 +337,27 @@ func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 	}
 	goAuth := admin.NewGoAuthAuthenticator(routeAuth, authCfg)
 
-	server := router.NewHTTPServer().(*router.HTTPServer)
+	server, ok := router.NewHTTPServer().(*router.HTTPServer)
+	if !ok {
+		t.Fatalf("expected router.NewHTTPServer to return *router.HTTPServer")
+	}
 	r := server.Router()
 	r.Get("/admin/page", func(c router.Context) error {
-		token, _ := c.Locals(csrfmw.DefaultContextKey).(string)
+		token, ok := c.Locals(csrfmw.DefaultContextKey).(string)
+		if !ok {
+			t.Fatalf("expected CSRF token local to be a string")
+		}
 		return c.SendString(token)
 	}, goAuth.WrapHandler)
 
-	if err := RegisterAuthUIRoutes(
+	err = RegisterAuthUIRoutes(
 		r,
 		cfg,
 		routeAuth,
 		WithAuthUILogoutAuthenticator(goAuth),
 		WithAuthUILogoutGET(true),
-	); err != nil {
+	)
+	if err != nil {
 		t.Fatalf("register auth routes: %v", err)
 	}
 
@@ -359,7 +366,7 @@ func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 		t.Fatalf("generate session token: %v", err)
 	}
 
-	getReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/page", nil)
+	getReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/admin/page", nil)
 	getReq.Host = "example.com"
 	getReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
 	getResp := httptest.NewRecorder()
@@ -372,7 +379,7 @@ func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 		t.Fatal("expected admin browser route to emit CSRF token")
 	}
 
-	missingReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/logout", nil)
+	missingReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/logout", nil)
 	missingReq.Host = "example.com"
 	missingReq.Header.Set("Origin", "http://example.com")
 	missingReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
@@ -384,7 +391,7 @@ func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 
 	form := url.Values{}
 	form.Set(csrfmw.DefaultFormFieldName, csrfToken)
-	postReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/logout", strings.NewReader(form.Encode()))
+	postReq := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.com/admin/logout", strings.NewReader(form.Encode()))
 	postReq.Host = "example.com"
 	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	postReq.Header.Set("Origin", "http://example.com")
@@ -398,7 +405,7 @@ func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 		t.Fatalf("expected logout redirect to /admin/login, got %q", location)
 	}
 
-	getLogoutReq := httptest.NewRequest(http.MethodGet, "http://example.com/admin/logout", nil)
+	getLogoutReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "http://example.com/admin/logout", nil)
 	getLogoutReq.Host = "example.com"
 	getLogoutReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
 	getLogoutResp := httptest.NewRecorder()
@@ -623,7 +630,10 @@ func TestAuthUIRoutesSupportLegacyLogoutGETAndSeeOtherRedirects(t *testing.T) {
 
 	loginCtx := router.NewMockContext()
 	loginCtx.On("Bind", mock.AnythingOfType("*quickstart.loginPayload")).Run(func(args mock.Arguments) {
-		payload := args.Get(0).(*loginPayload)
+		payload, ok := args.Get(0).(*loginPayload)
+		if !ok {
+			t.Fatalf("expected login payload argument")
+		}
 		payload.Identifier = "triage.admin"
 		payload.Password = "password"
 	}).Return(nil)

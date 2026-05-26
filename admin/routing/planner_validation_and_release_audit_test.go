@@ -69,6 +69,9 @@ func TestPlannerValidationTypicalModuleCountMeetsStartupBudget(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping startup budget check in short mode")
 	}
+	if testRaceEnabled {
+		t.Skip("startup budget check is not meaningful under the race detector")
+	}
 
 	planner := mustPlanner(t, Config{
 		Roots: RootsConfig{
@@ -96,6 +99,9 @@ func TestPlannerValidationTypicalModuleCountMeetsStartupBudget(t *testing.T) {
 func TestFallbackValidationAndReportGenerationTypicalModuleCountMeetsStartupBudget(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping startup budget check in short mode")
+	}
+	if testRaceEnabled {
+		t.Skip("startup budget check is not meaningful under the race detector")
 	}
 
 	planner := mustPlanner(t, Config{
