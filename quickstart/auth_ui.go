@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -192,9 +193,22 @@ func WithAuthUILogoutMiddleware(mw router.MiddlewareFunc) AuthUIOption {
 // POSTs with the same browser auth and CSRF contract that rendered the form.
 func WithAuthUILogoutAuthenticator(authn admin.HandlerAuthenticator) AuthUIOption {
 	return func(opts *authUIOptions) {
-		if opts != nil && authn != nil {
+		if opts != nil && !isNilAuthUIOptionValue(authn) {
 			opts.logoutMiddleware = authn.WrapHandler
 		}
+	}
+}
+
+func isNilAuthUIOptionValue(value any) bool {
+	if value == nil {
+		return true
+	}
+	v := reflect.ValueOf(value)
+	switch v.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		return v.IsNil()
+	default:
+		return false
 	}
 }
 

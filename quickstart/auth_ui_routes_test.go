@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -292,6 +293,34 @@ func TestAuthUIRoutesAllowLogoutMiddlewareOverride(t *testing.T) {
 	}
 }
 
+func TestAuthUIRoutesIgnoreTypedNilLogoutAuthenticator(t *testing.T) {
+	cfg := NewAdminConfig("/admin", "Admin", "en")
+	r := newCaptureRouter()
+	auther := auth.NewAuthenticator(stubIdentityProvider{}, stubAuthConfig{})
+	routeAuth, err := auth.NewHTTPAuthenticator(auther, stubAuthConfig{})
+	if err != nil {
+		t.Fatalf("new http authenticator: %v", err)
+	}
+
+	var authn *admin.GoAuthAuthenticator
+	if err := RegisterAuthUIRoutes(
+		r,
+		cfg,
+		routeAuth,
+		WithAuthUILogoutAuthenticator(authn),
+		WithAuthUILogoutGET(true),
+	); err != nil {
+		t.Fatalf("register auth routes: %v", err)
+	}
+
+	if got := r.postMiddlewareCounts["/admin/logout"]; got != 1 {
+		t.Fatalf("expected logout POST to keep default CSRF middleware, got %d", got)
+	}
+	if got := r.getMiddlewareCounts["/admin/logout"]; got != 0 {
+		t.Fatalf("expected logout GET to keep default compatibility behavior, got %d middlewares", got)
+	}
+}
+
 func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 	cfg := NewAdminConfig("/admin", "Admin", "en")
 	authCfg := cookieStubAuthConfig{adminCfg: cfg}
@@ -353,10 +382,12 @@ func TestAuthUIRoutesLogoutAuthenticatorAcceptsAdminBrowserCSRF(t *testing.T) {
 		t.Fatalf("expected logout POST without CSRF token to fail, got redirect")
 	}
 
-	postReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/logout", nil)
+	form := url.Values{}
+	form.Set(csrfmw.DefaultFormFieldName, csrfToken)
+	postReq := httptest.NewRequest(http.MethodPost, "http://example.com/admin/logout", strings.NewReader(form.Encode()))
 	postReq.Host = "example.com"
+	postReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	postReq.Header.Set("Origin", "http://example.com")
-	postReq.Header.Set(csrfmw.DefaultHeaderName, csrfToken)
 	postReq.AddCookie(&http.Cookie{Name: "user", Value: sessionToken})
 	postResp := httptest.NewRecorder()
 	server.WrappedRouter().ServeHTTP(postResp, postReq)
