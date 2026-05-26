@@ -467,17 +467,9 @@ func translationFamilyAttachAssignmentOutcome(payloadMap map[string]any, outcome
 	if outcome.Assignment == nil {
 		return
 	}
-	data, _ := payloadMap["data"].(map[string]any)
-	if data == nil {
-		data = map[string]any{}
-		payloadMap["data"] = data
-	}
+	data := translationFamilyPayloadMap(payloadMap, "data")
 	data["assignment"] = translationCreateVariantAssignmentPayload(*outcome.Assignment)
-	meta, _ := payloadMap["meta"].(map[string]any)
-	if meta == nil {
-		meta = map[string]any{}
-		payloadMap["meta"] = meta
-	}
+	meta := translationFamilyPayloadMap(payloadMap, "meta")
 	meta["assignment_reused"] = outcome.AssignmentReused
 	if len(outcome.ArchivedAssignmentIDs) > 0 {
 		meta["archived_assignment_ids"] = append([]string{}, outcome.ArchivedAssignmentIDs...)
@@ -973,11 +965,7 @@ func (b *translationFamilyBinding) lookupCreateVariantIdempotency(adminCtx Admin
 		})
 	}
 	out := cloneAnyMap(record.Payload)
-	meta, _ := out["meta"].(map[string]any)
-	if meta == nil {
-		meta = map[string]any{}
-		out["meta"] = meta
-	}
+	meta := translationFamilyPayloadMap(out, "meta")
 	meta["idempotency_hit"] = true
 	return out, nil
 }
@@ -1017,17 +1005,13 @@ func (b *translationFamilyBinding) lookupCreateVariantReplay(adminCtx AdminConte
 	if err != nil {
 		return nil, false, err
 	}
-	data, _ := payload["data"].(map[string]any)
+	data := extractMap(payload["data"])
 	if input.AutoCreateAssignment && data != nil && data["assignment"] == nil {
 		if assignment, ok := translationFamilyReplayAssignment(family, input.Locale, translationFamilyDefaultWorkScope(family)); ok {
 			data["assignment"] = translationCreateVariantAssignmentPayload(assignment)
 		}
 	}
-	meta, _ := payload["meta"].(map[string]any)
-	if meta == nil {
-		meta = map[string]any{}
-		payload["meta"] = meta
-	}
+	meta := translationFamilyPayloadMap(payload, "meta")
 	meta["idempotency_hit"] = true
 	return payload, true, nil
 }
@@ -1080,11 +1064,7 @@ func translationFamilyAttachCreateVariantNavigation(payload map[string]any, crea
 	if len(payload) == 0 || created == nil {
 		return
 	}
-	data, _ := payload["data"].(map[string]any)
-	if data == nil {
-		data = map[string]any{}
-		payload["data"] = data
-	}
+	data := translationFamilyPayloadMap(payload, "data")
 	if recordID := strings.TrimSpace(created.ID); recordID != "" {
 		data["record_id"] = recordID
 	}
@@ -1186,8 +1166,8 @@ func (b *translationFamilyBinding) variantMatchesCreateVariantReplay(actorID, fa
 	if strings.TrimSpace(toString(replay[translationFamilyCreateVariantMetadataKeyIDKey])) != strings.TrimSpace(input.IdempotencyKey) {
 		return false, nil
 	}
-	createdAt, err := time.Parse(time.RFC3339, strings.TrimSpace(toString(replay[translationFamilyCreateVariantMetadataCreatedAtKey])))
-	if err != nil || b.now().Sub(createdAt.UTC()) > translationFamilyCreateVariantIdempotencyTTL {
+	createdAt, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(toString(replay[translationFamilyCreateVariantMetadataCreatedAtKey])))
+	if parseErr != nil || b.now().Sub(createdAt.UTC()) > translationFamilyCreateVariantIdempotencyTTL {
 		return false, nil
 	}
 	requestHash, err := translationFamilyCreateVariantRequestHash(familyID, input)
@@ -1204,6 +1184,18 @@ func (b *translationFamilyBinding) variantMatchesCreateVariantReplay(actorID, fa
 		"expected_request": recordHash,
 		"actual_request":   requestHash,
 	})
+}
+
+func translationFamilyPayloadMap(payload map[string]any, key string) map[string]any {
+	if payload == nil {
+		return map[string]any{}
+	}
+	if value, ok := payload[key].(map[string]any); ok {
+		return value
+	}
+	value := map[string]any{}
+	payload[key] = value
+	return value
 }
 
 func translationFamilyReplayAssignment(family translationservices.FamilyRecord, locale, workScope string) (TranslationAssignment, bool) {
@@ -1279,7 +1271,7 @@ func (b *translationFamilyBinding) recordCreateVariantActivity(ctx context.Conte
 	}
 	variant, ok := translationFamilyVariantByLocale(familyAfter, input.Locale)
 	if ok {
-		_ = b.admin.activity.Record(ctx, ActivityEntry{
+		if err := b.admin.activity.Record(ctx, ActivityEntry{
 			Actor:  strings.TrimSpace(actorID),
 			Action: "translation.family.variant_created",
 			Object: "translation_variant:" + strings.TrimSpace(variant.ID),
@@ -1291,13 +1283,15 @@ func (b *translationFamilyBinding) recordCreateVariantActivity(ctx context.Conte
 				"source_record_id":  strings.TrimSpace(variant.SourceRecordID),
 				"assignment_seeded": outcome.Assignment != nil,
 			},
-		})
+		}); err != nil {
+			return
+		}
 	}
 	if !equalStringSlices(familyBefore.BlockerCodes, familyAfter.BlockerCodes) ||
 		familyBefore.MissingRequiredLocaleCount != familyAfter.MissingRequiredLocaleCount ||
 		familyBefore.PendingReviewCount != familyAfter.PendingReviewCount ||
 		familyBefore.OutdatedLocaleCount != familyAfter.OutdatedLocaleCount {
-		_ = b.admin.activity.Record(ctx, ActivityEntry{
+		if err := b.admin.activity.Record(ctx, ActivityEntry{
 			Actor:  strings.TrimSpace(actorID),
 			Action: "translation.family.blockers_changed",
 			Object: "translation_family:" + strings.TrimSpace(familyAfter.ID),
@@ -1312,10 +1306,12 @@ func (b *translationFamilyBinding) recordCreateVariantActivity(ctx context.Conte
 				"previous_outdated_locale_count":         familyBefore.OutdatedLocaleCount,
 				"outdated_locale_count":                  familyAfter.OutdatedLocaleCount,
 			},
-		})
+		}); err != nil {
+			return
+		}
 	}
 	if outcome.Assignment != nil {
-		_ = b.admin.activity.Record(ctx, ActivityEntry{
+		if err := b.admin.activity.Record(ctx, ActivityEntry{
 			Actor:  strings.TrimSpace(actorID),
 			Action: "translation.family.assignment_seeded",
 			Object: "translation_assignment:" + strings.TrimSpace(outcome.Assignment.ID),
@@ -1330,7 +1326,9 @@ func (b *translationFamilyBinding) recordCreateVariantActivity(ctx context.Conte
 				"assignment_reused":       outcome.AssignmentReused,
 				"archived_assignment_ids": append([]string{}, outcome.ArchivedAssignmentIDs...),
 			},
-		})
+		}); err != nil {
+			return
+		}
 	}
 }
 
