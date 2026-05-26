@@ -1,5 +1,23 @@
 # Changelog
 
+# [0.77.0](https://github.com/goliatone/go-admin/compare/v0.76.2...v0.77.0) - (2026-05-26)
+
+## <!-- 1 -->🐛 Bug Fixes
+
+- Cms adaper get family id from meta ([df10093](https://github.com/goliatone/go-admin/commit/df100932d953579b78c73a44bc48efa7e2ec7dce))  - (goliatone)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.77.0 ([9e455ff](https://github.com/goliatone/go-admin/commit/9e455ff702b4639c8f450faf931e936504b5211c))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.76.2 ([815b6fe](https://github.com/goliatone/go-admin/commit/815b6fef1f2d03a944a6c83eb9fc511558c88fd7))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([79acbc9](https://github.com/goliatone/go-admin/commit/79acbc9a2a8f5981f26352e23dc371ea1387b9cc))  - (goliatone)
+
 # [0.76.2](https://github.com/goliatone/go-admin/compare/v0.76.1...v0.76.2) - (2026-05-26)
 
 ## <!-- 1 -->🐛 Bug Fixes
