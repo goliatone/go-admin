@@ -113,6 +113,8 @@ func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family trans
 		if err != nil {
 			return err
 		}
+		sourceVariantID := record.SourceVariantID
+		record.SourceVariantID = sql.NullString{}
 		if _, upsertFamilyErr := tx.NewInsert().
 			Model(&record).
 			On("CONFLICT (family_id) DO UPDATE").
@@ -133,7 +135,7 @@ func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family trans
 		if err := clearFamilySourceVariants(ctx, tx, family); err != nil {
 			return err
 		}
-		if err := deleteStaleFamilyVariants(ctx, tx, family); err != nil {
+		if err := renameFamilyLocaleVariants(ctx, tx, family); err != nil {
 			return err
 		}
 		for _, variant := range family.Variants {
@@ -159,6 +161,16 @@ func (s *BunTranslationFamilyStore) SaveFamily(ctx context.Context, family trans
 				Exec(ctx); upsertVariantErr != nil {
 				return upsertVariantErr
 			}
+		}
+		if _, updateSourceErr := tx.NewUpdate().
+			Model((*bunTranslationFamilyRecord)(nil)).
+			Set("source_variant_id = ?", sourceVariantID).
+			Where("family_id = ?", strings.TrimSpace(family.ID)).
+			Exec(ctx); updateSourceErr != nil {
+			return updateSourceErr
+		}
+		if err := deleteStaleFamilyVariants(ctx, tx, family); err != nil {
+			return err
 		}
 		if _, deleteBlockersErr := tx.NewDelete().Model((*bunTranslationFamilyBlockerRecord)(nil)).Where("family_id = ?", strings.TrimSpace(family.ID)).Exec(ctx); deleteBlockersErr != nil {
 			return deleteBlockersErr
@@ -355,6 +367,30 @@ func deleteStaleFamilyVariants(ctx context.Context, tx bun.Tx, family translatio
 	return err
 }
 
+func renameFamilyLocaleVariants(ctx context.Context, tx bun.Tx, family translationservices.FamilyRecord) error {
+	familyID := strings.TrimSpace(family.ID)
+	if familyID == "" || len(family.Variants) == 0 {
+		return nil
+	}
+	for _, variant := range family.Variants {
+		variantID := strings.TrimSpace(variant.ID)
+		locale := strings.TrimSpace(strings.ToLower(variant.Locale))
+		if variantID == "" || locale == "" {
+			continue
+		}
+		if _, err := tx.NewUpdate().
+			Model((*bunTranslationLocaleVariantRecord)(nil)).
+			Set("variant_id = ?", variantID).
+			Where("family_id = ?", familyID).
+			Where("locale = ?", locale).
+			Where("variant_id <> ?", variantID).
+			Exec(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func nullString(value string) sql.NullString {
 	value = strings.TrimSpace(value)
 	return sql.NullString{String: value, Valid: value != ""}
@@ -455,7 +491,7 @@ func familyAssignmentFromAssignment(assignment TranslationAssignment) translatio
 	return translationservices.FamilyAssignment{
 		ID:           strings.TrimSpace(assignment.ID),
 		FamilyID:     strings.TrimSpace(assignment.FamilyID),
-		VariantID:    strings.TrimSpace(firstNonEmpty(assignment.TargetRecordID, assignment.SourceRecordID)),
+		VariantID:    assignmentStorageVariantID(assignment),
 		TenantID:     strings.TrimSpace(assignment.TenantID),
 		OrgID:        strings.TrimSpace(assignment.OrgID),
 		SourceLocale: strings.TrimSpace(strings.ToLower(assignment.SourceLocale)),

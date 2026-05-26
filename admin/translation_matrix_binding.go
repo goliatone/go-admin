@@ -1265,6 +1265,11 @@ func (b *translationFamilyBinding) translationMatrixCreateVariant(adminCtx Admin
 	if err != nil {
 		return nil, err
 	}
+	if input.AutoCreateAssignment {
+		if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); syncErr != nil {
+			return nil, b.rollbackCreatedFamilyVariant(adminCtx.Context, createdVariant, syncErr, input.Environment)
+		}
+	}
 	outcome, err := b.translationMatrixCreateVariantOutcome(adminCtx, familyBefore, input, assignmentPlan, createdVariant)
 	if err != nil {
 		return nil, err
@@ -1325,12 +1330,15 @@ func (b *translationFamilyBinding) translationMatrixCreateVariantOutcome(adminCt
 	if !input.AutoCreateAssignment {
 		return translationFamilyCreateVariantOutcome{}, nil
 	}
-	outcome, err := b.applyCreateVariantAssignmentPlan(adminCtx.Context, familyBefore, input, assignmentPlan)
+	outcome, err := b.applyCreateVariantAssignmentPlan(adminCtx.Context, familyBefore, input, assignmentPlan, createdVariant)
 	if err == nil {
 		return outcome, nil
 	}
 	if rollbackErr := b.deleteFamilyVariant(adminCtx.Context, createdVariant); rollbackErr != nil {
 		return translationFamilyCreateVariantOutcome{}, errors.Join(err, rollbackErr)
+	}
+	if syncErr := SyncTranslationFamilyStore(adminCtx.Context, b.admin, input.Environment); syncErr != nil {
+		return translationFamilyCreateVariantOutcome{}, errors.Join(err, syncErr)
 	}
 	return translationFamilyCreateVariantOutcome{}, err
 }

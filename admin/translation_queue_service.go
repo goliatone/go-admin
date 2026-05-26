@@ -464,10 +464,10 @@ func (s *DefaultTranslationQueueService) recordReviewFeedback(ctx context.Contex
 	if body == "" {
 		body = reason
 	}
-	metadata := map[string]any{
-		"assignment_id":      strings.TrimSpace(assignment.ID),
-		"family_id":          strings.TrimSpace(assignment.FamilyID),
-		"variant_id":         strings.TrimSpace(assignment.TargetRecordID),
+		metadata := map[string]any{
+			"assignment_id":      strings.TrimSpace(assignment.ID),
+			"family_id":          strings.TrimSpace(assignment.FamilyID),
+			"variant_id":         assignmentStorageVariantID(assignment),
 		"target_locale":      strings.TrimSpace(assignment.TargetLocale),
 		"kind":               "review_feedback",
 		"translator_visible": true,
