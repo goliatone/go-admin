@@ -33,9 +33,9 @@ const (
 // the sidebar "Content" parent node.
 func DefaultContentParentPermissions() []string {
 	return []string{
-		"admin.media.view",
-		"admin.content_types.view",
-		"admin.block_definitions.view",
+		admin.PermAdminMediaView,
+		admin.PermAdminContentTypesView,
+		admin.PermAdminBlockDefinitionsView,
 	}
 }
 

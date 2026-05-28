@@ -16,8 +16,8 @@ type PermissionRegisterFunc func(def PermissionDefinition) error
 // PreferencesPermissions returns the default permissions for preferences.
 func PreferencesPermissions() []PermissionDefinition {
 	return []PermissionDefinition{
-		{Key: "admin.preferences.view", Description: "View user preferences"},
-		{Key: "admin.preferences.edit", Description: "Edit user preferences"},
+		{Key: admin.PermAdminPreferencesView, Description: "View user preferences"},
+		{Key: admin.PermAdminPreferencesEdit, Description: "Edit user preferences"},
 	}
 }
 
