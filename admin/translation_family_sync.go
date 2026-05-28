@@ -115,7 +115,7 @@ func appendTranslationFamilyLocaleVariants(ctx context.Context, adm *Admin, fami
 		return err
 	}
 	for _, content := range contents {
-		if err := appendContentFamilyVariant(families, state, content, locale, defaultLocale); err != nil {
+		if err := appendContentFamilyVariant(ctx, adm, families, state, content, locale, defaultLocale); err != nil {
 			return err
 		}
 	}
@@ -195,11 +195,12 @@ func appendPageFamilyVariant(families map[string]translationservices.FamilyRecor
 	return nil
 }
 
-func appendContentFamilyVariant(families map[string]translationservices.FamilyRecord, state *translationFamilySyncState, content CMSContent, locale, defaultLocale string) error {
+func appendContentFamilyVariant(ctx context.Context, adm *Admin, families map[string]translationservices.FamilyRecord, state *translationFamilySyncState, content CMSContent, locale, defaultLocale string) error {
 	contentType := strings.TrimSpace(strings.ToLower(firstNonEmpty(content.ContentTypeSlug, content.ContentType)))
 	if contentType == "" || contentType == "page" {
 		return nil
 	}
+	familyContentType := translationFamilySyncContentType(ctx, adm, contentType)
 	familyID := strings.TrimSpace(content.FamilyID)
 	if familyID == "" {
 		return validationDomainError("translation-enabled content missing canonical family_id", map[string]any{
@@ -219,7 +220,7 @@ func appendContentFamilyVariant(families map[string]translationservices.FamilyRe
 			ID:          familyID,
 			TenantID:    scope.TenantID,
 			OrgID:       scope.OrgID,
-			ContentType: contentType,
+			ContentType: familyContentType,
 			SourceLocale: translationFamilyLocale(
 				defaultLocale,
 				content.Locale,
@@ -249,6 +250,24 @@ func appendContentFamilyVariant(families map[string]translationservices.FamilyRe
 	family.Variants = append(family.Variants, variant)
 	families[familyID] = family
 	return nil
+}
+
+func translationFamilySyncContentType(ctx context.Context, adm *Admin, contentType string) string {
+	contentType = strings.TrimSpace(strings.ToLower(contentType))
+	if adm == nil || adm.contentTypeSvc == nil || contentType == "" {
+		return contentType
+	}
+	record, err := adm.contentTypeSvc.ContentTypeBySlug(ctx, contentType)
+	if err != nil || record == nil {
+		record, err = adm.contentTypeSvc.ContentType(ctx, contentType)
+	}
+	if err != nil || record == nil {
+		return contentType
+	}
+	if panelSlug := strings.TrimSpace(toString(record.Capabilities["panel_slug"])); panelSlug != "" {
+		return strings.TrimSpace(strings.ToLower(panelSlug))
+	}
+	return contentType
 }
 
 func (s *translationFamilySyncState) seenLocaleVariant(familyID, recordID, locale string) bool {

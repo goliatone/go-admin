@@ -3,8 +3,8 @@ package admin
 import "strings"
 
 const (
-	debugReplDefaultPermission         = "admin.debug.repl"
-	debugReplDefaultExecPermission     = "admin.debug.repl.exec"
+	debugReplDefaultPermission         = PermAdminDebugRepl
+	debugReplDefaultExecPermission     = PermAdminDebugReplExec
 	debugReplDefaultShellCommand       = "/bin/sh"
 	debugReplDefaultMaxSessionSeconds  = 900
 	debugReplDefaultAppEvalTimeoutMs   = 3000

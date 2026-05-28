@@ -22,10 +22,10 @@ import (
 )
 
 const (
-	translationExchangePermissionExport         = "admin.translations.export"
-	translationExchangePermissionImportValidate = "admin.translations.import.validate"
-	translationExchangePermissionImportApply    = "admin.translations.import.apply"
-	translationExchangePermissionImportView     = "admin.translations.import.view"
+	translationExchangePermissionExport         = PermAdminTranslationsExport
+	translationExchangePermissionImportValidate = PermAdminTranslationsImportValidate
+	translationExchangePermissionImportApply    = PermAdminTranslationsImportApply
+	translationExchangePermissionImportView     = PermAdminTranslationsImportView
 )
 
 var translationExchangeSupportedFormats = []string{"csv", "json"}

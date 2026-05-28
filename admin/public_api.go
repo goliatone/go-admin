@@ -506,12 +506,12 @@ func (a *Admin) authorizeSiteDraftRead(c router.Context, query SiteQuery, previe
 	if a != nil && a.config.Site.TrustPrivateNetworkDraftReads && isInternalSiteRequest(c) {
 		return nil
 	}
-	permission := "admin.site.read_drafts"
+	permission := PermAdminSiteReadDrafts
 	if a != nil {
 		permission = strings.TrimSpace(a.config.Site.DraftReadPermission)
 	}
 	if permission == "" {
-		permission = "admin.site.read_drafts"
+		permission = PermAdminSiteReadDrafts
 	}
 	if c != nil && authenticatedAdminRequest(c.Context()) && a != nil && permissionAllowed(a.authorizer, c.Context(), permission, "site") {
 		return nil

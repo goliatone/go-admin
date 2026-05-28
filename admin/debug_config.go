@@ -10,7 +10,7 @@ import (
 
 const (
 	debugDefaultFeatureKey         = "debug"
-	debugDefaultPermission         = "admin.debug.view"
+	debugDefaultPermission         = PermAdminDebugView
 	debugDefaultPathSuffix         = "debug"
 	debugDefaultPageTemplate       = "resources/debug/index"
 	debugDefaultAdminPageTemplate  = "resources/debug/index_admin"

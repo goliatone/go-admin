@@ -37,13 +37,13 @@ func applyCMSAndSiteConfigDefaults(cfg Config) Config {
 		cfg.Site.AllowLocaleFallback = &allow
 	}
 	if cfg.Site.ReadPermission == "" {
-		cfg.Site.ReadPermission = "admin.site.read"
+		cfg.Site.ReadPermission = PermAdminSiteRead
 	}
 	if cfg.Site.DraftReadPermission == "" {
-		cfg.Site.DraftReadPermission = "admin.site.read_drafts"
+		cfg.Site.DraftReadPermission = PermAdminSiteReadDrafts
 	}
 	if cfg.Site.ViewProfileOverridePermission == "" {
-		cfg.Site.ViewProfileOverridePermission = "admin.site.view_profile_override"
+		cfg.Site.ViewProfileOverridePermission = PermAdminSiteViewProfileOverride
 	}
 	return cfg
 }
@@ -67,35 +67,35 @@ func applyPermissionConfigDefaults(cfg Config) Config {
 
 func applySettingsPermissionDefaults(cfg Config) Config {
 	if cfg.SettingsPermission == "" {
-		cfg.SettingsPermission = "admin.settings.view"
+		cfg.SettingsPermission = PermAdminSettingsView
 	}
 	if cfg.SettingsUpdatePermission == "" {
-		cfg.SettingsUpdatePermission = "admin.settings.edit"
+		cfg.SettingsUpdatePermission = PermAdminSettingsEdit
 	}
 	if cfg.FeatureFlagsViewPermission == "" {
-		cfg.FeatureFlagsViewPermission = "admin.feature_flags.view"
+		cfg.FeatureFlagsViewPermission = PermAdminFeatureFlagsView
 	}
 	if cfg.FeatureFlagsUpdatePermission == "" {
-		cfg.FeatureFlagsUpdatePermission = "admin.feature_flags.update"
+		cfg.FeatureFlagsUpdatePermission = PermAdminFeatureFlagsUpdate
 	}
 	if cfg.NotificationsPermission == "" {
-		cfg.NotificationsPermission = "admin.notifications.view"
+		cfg.NotificationsPermission = PermAdminNotificationsView
 	}
 	if cfg.NotificationsUpdatePermission == "" {
-		cfg.NotificationsUpdatePermission = "admin.notifications.update"
+		cfg.NotificationsUpdatePermission = PermAdminNotificationsUpdate
 	}
 	if cfg.ActivityPermission == "" {
-		cfg.ActivityPermission = "admin.activity.view"
+		cfg.ActivityPermission = PermAdminActivityView
 	}
 	return cfg
 }
 
 func applyPreferencePermissionDefaults(cfg Config) Config {
 	if cfg.PreferencesPermission == "" {
-		cfg.PreferencesPermission = "admin.preferences.view"
+		cfg.PreferencesPermission = PermAdminPreferencesView
 	}
 	if cfg.PreferencesUpdatePermission == "" {
-		cfg.PreferencesUpdatePermission = "admin.preferences.edit"
+		cfg.PreferencesUpdatePermission = PermAdminPreferencesEdit
 	}
 	if cfg.DashboardPreferencesPermission == "" {
 		cfg.DashboardPreferencesPermission = cfg.PreferencesPermission
@@ -104,109 +104,109 @@ func applyPreferencePermissionDefaults(cfg Config) Config {
 		cfg.DashboardPreferencesUpdatePermission = cfg.PreferencesUpdatePermission
 	}
 	if cfg.PreferencesManageTenantPermission == "" {
-		cfg.PreferencesManageTenantPermission = "admin.preferences.manage_tenant"
+		cfg.PreferencesManageTenantPermission = PermAdminPreferencesManageTenant
 	}
 	if cfg.PreferencesManageOrgPermission == "" {
-		cfg.PreferencesManageOrgPermission = "admin.preferences.manage_org"
+		cfg.PreferencesManageOrgPermission = PermAdminPreferencesManageOrg
 	}
 	if cfg.PreferencesManageSystemPermission == "" {
-		cfg.PreferencesManageSystemPermission = "admin.preferences.manage_system"
+		cfg.PreferencesManageSystemPermission = PermAdminPreferencesManageSystem
 	}
 	return cfg
 }
 
 func applyIdentityPermissionDefaults(cfg Config) Config {
 	if cfg.ProfilePermission == "" {
-		cfg.ProfilePermission = "admin.profile.view"
+		cfg.ProfilePermission = PermAdminProfileView
 	}
 	if cfg.ProfileUpdatePermission == "" {
-		cfg.ProfileUpdatePermission = "admin.profile.edit"
+		cfg.ProfileUpdatePermission = PermAdminProfileEdit
 	}
 	if cfg.UsersPermission == "" {
-		cfg.UsersPermission = "admin.users.view"
+		cfg.UsersPermission = PermAdminUsersView
 	}
 	if cfg.UsersCreatePermission == "" {
-		cfg.UsersCreatePermission = "admin.users.create"
+		cfg.UsersCreatePermission = PermAdminUsersCreate
 	}
 	if cfg.UsersImportPermission == "" {
-		cfg.UsersImportPermission = "admin.users.import"
+		cfg.UsersImportPermission = PermAdminUsersImport
 	}
 	if cfg.UsersUpdatePermission == "" {
-		cfg.UsersUpdatePermission = "admin.users.edit"
+		cfg.UsersUpdatePermission = PermAdminUsersEdit
 	}
 	if cfg.UsersDeletePermission == "" {
-		cfg.UsersDeletePermission = "admin.users.delete"
+		cfg.UsersDeletePermission = PermAdminUsersDelete
 	}
 	if cfg.RolesPermission == "" {
-		cfg.RolesPermission = "admin.roles.view"
+		cfg.RolesPermission = PermAdminRolesView
 	}
 	if cfg.RolesCreatePermission == "" {
-		cfg.RolesCreatePermission = "admin.roles.create"
+		cfg.RolesCreatePermission = PermAdminRolesCreate
 	}
 	if cfg.RolesUpdatePermission == "" {
-		cfg.RolesUpdatePermission = "admin.roles.edit"
+		cfg.RolesUpdatePermission = PermAdminRolesEdit
 	}
 	if cfg.RolesDeletePermission == "" {
-		cfg.RolesDeletePermission = "admin.roles.delete"
+		cfg.RolesDeletePermission = PermAdminRolesDelete
 	}
 	return cfg
 }
 
 func applyScopePermissionDefaults(cfg Config) Config {
 	if cfg.TenantsPermission == "" {
-		cfg.TenantsPermission = "admin.tenants.view"
+		cfg.TenantsPermission = PermAdminTenantsView
 	}
 	if cfg.TenantsCreatePermission == "" {
-		cfg.TenantsCreatePermission = "admin.tenants.create"
+		cfg.TenantsCreatePermission = PermAdminTenantsCreate
 	}
 	if cfg.TenantsUpdatePermission == "" {
-		cfg.TenantsUpdatePermission = "admin.tenants.edit"
+		cfg.TenantsUpdatePermission = PermAdminTenantsEdit
 	}
 	if cfg.TenantsDeletePermission == "" {
-		cfg.TenantsDeletePermission = "admin.tenants.delete"
+		cfg.TenantsDeletePermission = PermAdminTenantsDelete
 	}
 	if cfg.OrganizationsPermission == "" {
-		cfg.OrganizationsPermission = "admin.organizations.view"
+		cfg.OrganizationsPermission = PermAdminOrganizationsView
 	}
 	if cfg.OrganizationsCreatePermission == "" {
-		cfg.OrganizationsCreatePermission = "admin.organizations.create"
+		cfg.OrganizationsCreatePermission = PermAdminOrganizationsCreate
 	}
 	if cfg.OrganizationsUpdatePermission == "" {
-		cfg.OrganizationsUpdatePermission = "admin.organizations.edit"
+		cfg.OrganizationsUpdatePermission = PermAdminOrganizationsEdit
 	}
 	if cfg.OrganizationsDeletePermission == "" {
-		cfg.OrganizationsDeletePermission = "admin.organizations.delete"
+		cfg.OrganizationsDeletePermission = PermAdminOrganizationsDelete
 	}
 	return cfg
 }
 
 func applyContentPermissionDefaults(cfg Config) Config {
 	if cfg.MenuBuilderPermission == "" {
-		cfg.MenuBuilderPermission = "admin.menus.view"
+		cfg.MenuBuilderPermission = PermAdminMenusView
 	}
 	if cfg.MenuBuilderEditPermission == "" {
-		cfg.MenuBuilderEditPermission = "admin.menus.edit"
+		cfg.MenuBuilderEditPermission = PermAdminMenusEdit
 	}
 	if cfg.MenuBuilderPublishPermission == "" {
-		cfg.MenuBuilderPublishPermission = "admin.menus.publish"
+		cfg.MenuBuilderPublishPermission = PermAdminMenusPublish
 	}
 	if cfg.MediaPermission == "" {
-		cfg.MediaPermission = "admin.media.view"
+		cfg.MediaPermission = PermAdminMediaView
 	}
 	if cfg.MediaCreatePermission == "" {
-		cfg.MediaCreatePermission = "admin.media.create"
+		cfg.MediaCreatePermission = PermAdminMediaCreate
 	}
 	if cfg.MediaUpdatePermission == "" {
-		cfg.MediaUpdatePermission = "admin.media.edit"
+		cfg.MediaUpdatePermission = PermAdminMediaEdit
 	}
 	if cfg.MediaDeletePermission == "" {
-		cfg.MediaDeletePermission = "admin.media.delete"
+		cfg.MediaDeletePermission = PermAdminMediaDelete
 	}
 	if cfg.JobsPermission == "" {
-		cfg.JobsPermission = "admin.jobs.view"
+		cfg.JobsPermission = PermAdminJobsView
 	}
 	if cfg.JobsTriggerPermission == "" {
-		cfg.JobsTriggerPermission = "admin.jobs.trigger"
+		cfg.JobsTriggerPermission = PermAdminJobsTrigger
 	}
 	return cfg
 }

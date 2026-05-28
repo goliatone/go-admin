@@ -23,8 +23,8 @@ const debugEventSnapshot = "snapshot"
 const debugPanelOrderPreferenceKey = "ui.debug.console.panel_order"
 
 const (
-	debugSessionViewPermission   = "admin.debug.session.view"
-	debugSessionAttachPermission = "admin.debug.session.attach"
+	debugSessionViewPermission   = PermAdminDebugSessionView
+	debugSessionAttachPermission = PermAdminDebugSessionAttach
 	debugSessionWSPathSuffix     = "session/:sessionId/ws"
 )
 
