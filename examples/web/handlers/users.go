@@ -521,7 +521,7 @@ func (h *UserHandlers) guardActivity(c router.Context) error {
 	}
 	activityPermission := h.Config.ActivityPermission
 	if activityPermission == "" {
-		activityPermission = "admin.activity.view"
+		activityPermission = admin.PermAdminActivityView
 	}
 	if !authlib.Can(c.Context(), activityPermission, "read") {
 		return goerrors.New("activity view permission required", goerrors.CategoryAuthz).
@@ -541,7 +541,7 @@ func (h *UserHandlers) guardActivity(c router.Context) error {
 func (h *UserHandlers) canViewActivity(c router.Context) bool {
 	activityPermission := h.Config.ActivityPermission
 	if activityPermission == "" {
-		activityPermission = "admin.activity.view"
+		activityPermission = admin.PermAdminActivityView
 	}
 	return authlib.Can(c.Context(), activityPermission, "read")
 }

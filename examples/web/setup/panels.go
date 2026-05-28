@@ -106,7 +106,7 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 				Icon:       "user",
 				Position:   0,
 				Scope:      admin.PanelTabScopeDetail,
-				Permission: "admin.users.view",
+				Permission: admin.PermAdminUsersView,
 				Target:     admin.PanelTabTarget{Type: "panel", Panel: "users"},
 			},
 		).
@@ -115,22 +115,22 @@ func NewUserPanelBuilder(store *stores.UserStore) *admin.PanelBuilder {
 			admin.Filter{Name: "status", Type: "select"},
 		).
 		Actions(
-			admin.Action{Name: "activate", CommandName: "users.activate", Permission: "admin.users.edit"},
-			admin.Action{Name: "suspend", CommandName: "users.suspend", Permission: "admin.users.edit"},
-			admin.Action{Name: "disable", CommandName: "users.disable", Permission: "admin.users.edit"},
-			admin.Action{Name: "archive", CommandName: "users.archive", Permission: "admin.users.delete"},
+			admin.Action{Name: "activate", CommandName: "users.activate", Permission: admin.PermAdminUsersEdit},
+			admin.Action{Name: "suspend", CommandName: "users.suspend", Permission: admin.PermAdminUsersEdit},
+			admin.Action{Name: "disable", CommandName: "users.disable", Permission: admin.PermAdminUsersEdit},
+			admin.Action{Name: "archive", CommandName: "users.archive", Permission: admin.PermAdminUsersDelete},
 		).
 		BulkActions(
-			admin.Action{Name: "activate", Label: "Activate", Icon: "check-circle", Confirm: "Activate {count} user(s)?", CommandName: "users.activate", Permission: "admin.users.edit"},
-			admin.Action{Name: "suspend", Label: "Suspend", Icon: "pause", Confirm: "Suspend {count} user(s)?", CommandName: "users.suspend", Permission: "admin.users.edit"},
-			admin.Action{Name: "disable", Label: "Disable", Icon: "x-circle", Confirm: "Disable {count} user(s)?", Variant: "danger", CommandName: "users.disable", Permission: "admin.users.edit", Overflow: true},
-			admin.Action{Name: "archive", Label: "Archive", Icon: "archive", Confirm: "Archive {count} user(s)?", Variant: "danger", CommandName: "users.archive", Permission: "admin.users.delete", Overflow: true},
+			admin.Action{Name: "activate", Label: "Activate", Icon: "check-circle", Confirm: "Activate {count} user(s)?", CommandName: "users.activate", Permission: admin.PermAdminUsersEdit},
+			admin.Action{Name: "suspend", Label: "Suspend", Icon: "pause", Confirm: "Suspend {count} user(s)?", CommandName: "users.suspend", Permission: admin.PermAdminUsersEdit},
+			admin.Action{Name: "disable", Label: "Disable", Icon: "x-circle", Confirm: "Disable {count} user(s)?", Variant: "danger", CommandName: "users.disable", Permission: admin.PermAdminUsersEdit, Overflow: true},
+			admin.Action{Name: "archive", Label: "Archive", Icon: "archive", Confirm: "Archive {count} user(s)?", Variant: "danger", CommandName: "users.archive", Permission: admin.PermAdminUsersDelete, Overflow: true},
 		).
 		Permissions(admin.PanelPermissions{
-			View:   "admin.users.view",
-			Create: "admin.users.create",
-			Edit:   "admin.users.edit",
-			Delete: "admin.users.delete",
+			View:   admin.PermAdminUsersView,
+			Create: admin.PermAdminUsersCreate,
+			Edit:   admin.PermAdminUsersEdit,
+			Delete: admin.PermAdminUsersDelete,
 		})
 	return builder
 }
@@ -175,10 +175,10 @@ func NewUserProfilesPanelBuilder(store *stores.UserProfileStore) *admin.PanelBui
 			admin.Filter{Name: "timezone", Label: "Timezone", Type: "text"},
 		).
 		Permissions(admin.PanelPermissions{
-			View:   "admin.users.view",
-			Create: "admin.users.create",
-			Edit:   "admin.users.edit",
-			Delete: "admin.users.delete",
+			View:   admin.PermAdminUsersView,
+			Create: admin.PermAdminUsersCreate,
+			Edit:   admin.PermAdminUsersEdit,
+			Delete: admin.PermAdminUsersDelete,
 		})
 	return builder
 }
@@ -256,30 +256,30 @@ func NewPagesPanelBuilder(store stores.PageRepository) *admin.PanelBuilder {
 			}},
 		).
 		Actions(
-			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: "admin.pages.view", Scope: admin.ActionScopeRow},
-			viewFamilyAction("admin.pages.view"),
-			admin.Action{Name: "edit", Label: "Edit", LabelKey: "actions.edit", Permission: "admin.pages.edit", Scope: admin.ActionScopeAny},
-			admin.Action{Name: "delete", Label: "Delete", LabelKey: "actions.delete", Variant: "danger", Permission: "admin.pages.delete", Scope: admin.ActionScopeAny},
-			createTranslationAction("admin.pages.edit"),
-			withContentWorkflowGuard("pages", admin.Action{Name: "request_approval", Label: "Request Approval", LabelKey: "actions.request_approval", Permission: "admin.pages.edit", Scope: admin.ActionScopeAny}),
-			withContentWorkflowGuard("pages", admin.Action{Name: "approve", Label: "Approve", LabelKey: "actions.approve", Permission: "admin.pages.publish", Scope: admin.ActionScopeAny}),
-			withContentWorkflowGuard("pages", admin.Action{Name: "reject", Label: "Reject", LabelKey: "actions.reject", Permission: "admin.pages.publish", Scope: admin.ActionScopeAny}),
-			withContentWorkflowGuard("pages", admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", CommandName: "pages.publish", Permission: "admin.pages.publish", Scope: admin.ActionScopeAny}),
-			withContentWorkflowGuard("pages", admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", CommandName: "pages.bulk_unpublish", Permission: "admin.pages.publish", Scope: admin.ActionScopeAny}),
+			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: admin.PermAdminPagesView, Scope: admin.ActionScopeRow},
+			viewFamilyAction(admin.PermAdminPagesView),
+			admin.Action{Name: "edit", Label: "Edit", LabelKey: "actions.edit", Permission: admin.PermAdminPagesEdit, Scope: admin.ActionScopeAny},
+			admin.Action{Name: "delete", Label: "Delete", LabelKey: "actions.delete", Variant: "danger", Permission: admin.PermAdminPagesDelete, Scope: admin.ActionScopeAny},
+			createTranslationAction(admin.PermAdminPagesEdit),
+			withContentWorkflowGuard("pages", admin.Action{Name: "request_approval", Label: "Request Approval", LabelKey: "actions.request_approval", Permission: admin.PermAdminPagesEdit, Scope: admin.ActionScopeAny}),
+			withContentWorkflowGuard("pages", admin.Action{Name: "approve", Label: "Approve", LabelKey: "actions.approve", Permission: admin.PermAdminPagesPublish, Scope: admin.ActionScopeAny}),
+			withContentWorkflowGuard("pages", admin.Action{Name: "reject", Label: "Reject", LabelKey: "actions.reject", Permission: admin.PermAdminPagesPublish, Scope: admin.ActionScopeAny}),
+			withContentWorkflowGuard("pages", admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", CommandName: "pages.publish", Permission: admin.PermAdminPagesPublish, Scope: admin.ActionScopeAny}),
+			withContentWorkflowGuard("pages", admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", CommandName: "pages.bulk_unpublish", Permission: admin.PermAdminPagesPublish, Scope: admin.ActionScopeAny}),
 		).
 		BulkActions(
-			withContentWorkflowGuard("pages", admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", Icon: "check-circle", Confirm: "Publish {count} page(s)?", CommandName: "pages.bulk_publish", Permission: "admin.pages.publish", Scope: admin.ActionScopeBulk}),
-			withContentWorkflowGuard("pages", admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", Icon: "pause", Confirm: "Unpublish {count} page(s)?", CommandName: "pages.bulk_unpublish", Permission: "admin.pages.publish", Scope: admin.ActionScopeBulk}),
+			withContentWorkflowGuard("pages", admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", Icon: "check-circle", Confirm: "Publish {count} page(s)?", CommandName: "pages.bulk_publish", Permission: admin.PermAdminPagesPublish, Scope: admin.ActionScopeBulk}),
+			withContentWorkflowGuard("pages", admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", Icon: "pause", Confirm: "Unpublish {count} page(s)?", CommandName: "pages.bulk_unpublish", Permission: admin.PermAdminPagesPublish, Scope: admin.ActionScopeBulk}),
 		).
 		UseBlocks(true).
 		UseSEO(true).
 		TreeView(true).
 		WithActionStateResolver(contentActionStateResolver("pages")).
 		Permissions(admin.PanelPermissions{
-			View:   "admin.pages.view",
-			Create: "admin.pages.create",
-			Edit:   "admin.pages.edit",
-			Delete: "admin.pages.delete",
+			View:   admin.PermAdminPagesView,
+			Create: admin.PermAdminPagesCreate,
+			Edit:   admin.PermAdminPagesEdit,
+			Delete: admin.PermAdminPagesDelete,
 		})
 	return builder
 }
@@ -369,31 +369,31 @@ func NewPostsPanelBuilder(store stores.PostRepository) *admin.PanelBuilder {
 			}},
 		).
 		Actions(
-			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: "admin.posts.view", Scope: admin.ActionScopeRow},
-			viewFamilyAction("admin.posts.view"),
-			admin.Action{Name: "edit", Label: "Edit", LabelKey: "actions.edit", Permission: "admin.posts.edit", Scope: admin.ActionScopeAny},
-			admin.Action{Name: "delete", Label: "Delete", LabelKey: "actions.delete", Variant: "danger", Permission: "admin.posts.delete", Scope: admin.ActionScopeAny},
-			createTranslationAction("admin.posts.edit"),
-			withContentWorkflowGuard("posts", admin.Action{Name: "request_approval", Label: "Request Approval", LabelKey: "actions.request_approval", Permission: "admin.posts.edit", Scope: admin.ActionScopeAny}),
-			withContentWorkflowGuard("posts", admin.Action{Name: "approve", Label: "Approve", LabelKey: "actions.approve", Permission: "admin.posts.publish", Scope: admin.ActionScopeAny}),
-			withContentWorkflowGuard("posts", admin.Action{Name: "reject", Label: "Reject", LabelKey: "actions.reject", Permission: "admin.posts.publish", Scope: admin.ActionScopeAny}),
-			withContentWorkflowGuard("posts", admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", CommandName: "posts.bulk_publish", Permission: "admin.posts.publish", Scope: admin.ActionScopeAny}),
-			withContentWorkflowGuard("posts", admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", CommandName: "posts.bulk_unpublish", Permission: "admin.posts.edit", Scope: admin.ActionScopeAny}),
-			withPostScheduleGuard(admin.Action{Name: "schedule", Label: "Schedule", LabelKey: "actions.schedule", CommandName: "posts.bulk_schedule", Permission: "admin.posts.publish", Scope: admin.ActionScopeAny}),
+			admin.Action{Name: "view", Label: "View", LabelKey: "actions.view", Permission: admin.PermAdminPostsView, Scope: admin.ActionScopeRow},
+			viewFamilyAction(admin.PermAdminPostsView),
+			admin.Action{Name: "edit", Label: "Edit", LabelKey: "actions.edit", Permission: admin.PermAdminPostsEdit, Scope: admin.ActionScopeAny},
+			admin.Action{Name: "delete", Label: "Delete", LabelKey: "actions.delete", Variant: "danger", Permission: admin.PermAdminPostsDelete, Scope: admin.ActionScopeAny},
+			createTranslationAction(admin.PermAdminPostsEdit),
+			withContentWorkflowGuard("posts", admin.Action{Name: "request_approval", Label: "Request Approval", LabelKey: "actions.request_approval", Permission: admin.PermAdminPostsEdit, Scope: admin.ActionScopeAny}),
+			withContentWorkflowGuard("posts", admin.Action{Name: "approve", Label: "Approve", LabelKey: "actions.approve", Permission: admin.PermAdminPostsPublish, Scope: admin.ActionScopeAny}),
+			withContentWorkflowGuard("posts", admin.Action{Name: "reject", Label: "Reject", LabelKey: "actions.reject", Permission: admin.PermAdminPostsPublish, Scope: admin.ActionScopeAny}),
+			withContentWorkflowGuard("posts", admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", CommandName: "posts.bulk_publish", Permission: admin.PermAdminPostsPublish, Scope: admin.ActionScopeAny}),
+			withContentWorkflowGuard("posts", admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", CommandName: "posts.bulk_unpublish", Permission: admin.PermAdminPostsEdit, Scope: admin.ActionScopeAny}),
+			withPostScheduleGuard(admin.Action{Name: "schedule", Label: "Schedule", LabelKey: "actions.schedule", CommandName: "posts.bulk_schedule", Permission: admin.PermAdminPostsPublish, Scope: admin.ActionScopeAny}),
 		).
 		BulkActions(
-			withContentWorkflowGuard("posts", admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", Icon: "check-circle", Confirm: "Publish {count} post(s)?", CommandName: "posts.bulk_publish", Permission: "admin.posts.publish", Scope: admin.ActionScopeBulk}),
-			withContentWorkflowGuard("posts", admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", Icon: "pause", Confirm: "Unpublish {count} post(s)?", CommandName: "posts.bulk_unpublish", Permission: "admin.posts.edit", Scope: admin.ActionScopeBulk}),
-			withPostScheduleGuard(admin.Action{Name: "schedule", Label: "Schedule", LabelKey: "actions.schedule", Icon: "calendar", Confirm: "Schedule {count} post(s)?", CommandName: "posts.bulk_schedule", Permission: "admin.posts.publish", Scope: admin.ActionScopeBulk, Overflow: true}),
-			admin.Action{Name: "archive", Label: "Archive", LabelKey: "actions.archive", Icon: "archive", Confirm: "Archive {count} post(s)?", Variant: "danger", CommandName: "posts.bulk_archive", Permission: "admin.posts.edit", Scope: admin.ActionScopeBulk, Overflow: true},
+			withContentWorkflowGuard("posts", admin.Action{Name: "publish", Label: "Publish", LabelKey: "actions.publish", Icon: "check-circle", Confirm: "Publish {count} post(s)?", CommandName: "posts.bulk_publish", Permission: admin.PermAdminPostsPublish, Scope: admin.ActionScopeBulk}),
+			withContentWorkflowGuard("posts", admin.Action{Name: "unpublish", Label: "Unpublish", LabelKey: "actions.unpublish", Icon: "pause", Confirm: "Unpublish {count} post(s)?", CommandName: "posts.bulk_unpublish", Permission: admin.PermAdminPostsEdit, Scope: admin.ActionScopeBulk}),
+			withPostScheduleGuard(admin.Action{Name: "schedule", Label: "Schedule", LabelKey: "actions.schedule", Icon: "calendar", Confirm: "Schedule {count} post(s)?", CommandName: "posts.bulk_schedule", Permission: admin.PermAdminPostsPublish, Scope: admin.ActionScopeBulk, Overflow: true}),
+			admin.Action{Name: "archive", Label: "Archive", LabelKey: "actions.archive", Icon: "archive", Confirm: "Archive {count} post(s)?", Variant: "danger", CommandName: "posts.bulk_archive", Permission: admin.PermAdminPostsEdit, Scope: admin.ActionScopeBulk, Overflow: true},
 		).
 		UseSEO(true).
 		WithActionStateResolver(contentActionStateResolver("posts")).
 		Permissions(admin.PanelPermissions{
-			View:   "admin.posts.view",
-			Create: "admin.posts.create",
-			Edit:   "admin.posts.edit",
-			Delete: "admin.posts.delete",
+			View:   admin.PermAdminPostsView,
+			Create: admin.PermAdminPostsCreate,
+			Edit:   admin.PermAdminPostsEdit,
+			Delete: admin.PermAdminPostsDelete,
 		})
 	return builder
 }
@@ -436,13 +436,13 @@ func NewMediaPanelBuilder(store *stores.MediaStore) *admin.PanelBuilder {
 			admin.Filter{Name: "type", Type: "select"},
 		).
 		BulkActions(
-			admin.Action{Name: "delete", CommandName: "media.bulk_delete", Permission: "admin.media.delete"},
+			admin.Action{Name: "delete", CommandName: "media.bulk_delete", Permission: admin.PermAdminMediaDelete},
 		).
 		Permissions(admin.PanelPermissions{
-			View:   "admin.media.view",
-			Create: "admin.media.create",
-			Edit:   "admin.media.edit",
-			Delete: "admin.media.delete",
+			View:   admin.PermAdminMediaView,
+			Create: admin.PermAdminMediaCreate,
+			Edit:   admin.PermAdminMediaEdit,
+			Delete: admin.PermAdminMediaDelete,
 		})
 	return builder
 }

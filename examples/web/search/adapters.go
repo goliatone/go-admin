@@ -42,7 +42,7 @@ func (a *usersSearchAdapter) Search(ctx context.Context, query string, limit int
 }
 
 func (a *usersSearchAdapter) Permission() string {
-	return "admin.users.view"
+	return admin.PermAdminUsersView
 }
 
 // pagesSearchAdapter searches pages
@@ -75,7 +75,7 @@ func (a *pagesSearchAdapter) Search(ctx context.Context, query string, limit int
 }
 
 func (a *pagesSearchAdapter) Permission() string {
-	return "admin.pages.view"
+	return admin.PermAdminPagesView
 }
 
 // postsSearchAdapter searches posts
@@ -108,7 +108,7 @@ func (a *postsSearchAdapter) Search(ctx context.Context, query string, limit int
 }
 
 func (a *postsSearchAdapter) Permission() string {
-	return "admin.posts.view"
+	return admin.PermAdminPostsView
 }
 
 // mediaSearchAdapter searches media
@@ -140,5 +140,5 @@ func (a *mediaSearchAdapter) Search(ctx context.Context, query string, limit int
 }
 
 func (a *mediaSearchAdapter) Permission() string {
-	return "admin.media.view"
+	return admin.PermAdminMediaView
 }

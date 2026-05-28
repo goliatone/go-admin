@@ -169,7 +169,7 @@ func ensureCoreContentMenuItems(adm *admin.Admin) error {
 			Menu:        menuCode,
 			ParentID:    contentParentID,
 			Locale:      locale,
-			Permissions: []string{"admin.pages.view"},
+			Permissions: []string{admin.PermAdminPagesView},
 		},
 		{
 			ID:       contentParentID + ".posts",
@@ -185,7 +185,7 @@ func ensureCoreContentMenuItems(adm *admin.Admin) error {
 			Menu:        menuCode,
 			ParentID:    contentParentID,
 			Locale:      locale,
-			Permissions: []string{"admin.posts.view"},
+			Permissions: []string{admin.PermAdminPostsView},
 		},
 	}
 
