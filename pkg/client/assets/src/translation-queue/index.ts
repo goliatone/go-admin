@@ -252,18 +252,27 @@ export interface BulkActionResultItem {
 
 export interface BulkActionResponse {
   data: {
+    action: string;
     requested: number;
     succeeded: number;
     failed: number;
+    partial: boolean;
+    selectionScope: string;
     results: BulkActionResultItem[];
   };
   meta: {
     action: string;
+    requested: number;
+    succeeded: number;
+    failed: number;
+    partial: boolean;
+    selection_scope: string;
   };
 }
 
 export interface AssignmentQueueScreenConfig {
   endpoint: string;
+  bulkActionEndpoint?: string;
   editorBasePath?: string;
   title?: string;
   description?: string;
@@ -646,10 +655,20 @@ export function normalizeAssignmentListRow(value: unknown): AssignmentListRow {
 
 export function normalizeAssignmentListResponse(value: unknown): AssignmentListResponse {
   const raw = asRecord(value);
+  const meta = normalizeAssignmentListMeta(raw.meta);
   const data = Array.isArray(raw.data) ? raw.data : [];
+  if (meta.grouping?.enabled) {
+    const rawRows = data
+      .filter((row): row is Record<string, unknown> => !!row && typeof row === 'object' && !Array.isArray(row))
+      .map((row) => ({ ...row }));
+    return {
+      data: rawRows as unknown as AssignmentListRow[],
+      meta,
+    };
+  }
   return {
     data: data.map((row) => normalizeAssignmentListRow(row)),
-    meta: normalizeAssignmentListMeta(raw.meta),
+    meta,
   };
 }
 
@@ -900,6 +919,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const requestedPresetId = asString(config.initialPresetId);
     this.config = {
       endpoint: config.endpoint,
+      bulkActionEndpoint: config.bulkActionEndpoint || resolveAssignmentBulkActionEndpoint(config.endpoint),
       editorBasePath: config.editorBasePath || '',
       title: config.title || 'Translation Queue',
       description: config.description || 'Filter assignments, claim open work, and release items back to the pool without leaving the queue.',
@@ -1069,9 +1089,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   }
 
   private async executeBulkAction(request: BulkActionRequest): Promise<BulkActionResponse> {
-    const response = await httpRequest(`${this.config.endpoint}/bulk/${request.action}`, {
+    const response = await httpRequest(this.config.bulkActionEndpoint || resolveAssignmentBulkActionEndpoint(this.config.endpoint), {
       method: 'POST',
       json: {
+        action: request.action,
         assignments: request.assignments.map((a) => ({
           assignment_id: a.assignmentId,
           expected_version: a.expectedVersion,
@@ -1087,26 +1108,41 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
     const raw = asRecord(await response.json());
     const data = asRecord(raw.data);
+    const meta = asRecord(raw.meta);
     const results = Array.isArray(data.results) ? data.results : [];
+    const requested = asNumber(meta.requested);
+    const succeeded = asNumber(meta.succeeded);
+    const failed = asNumber(meta.failed);
+    const partial = meta.partial === true;
+    const selectionScope = asString(meta.selection_scope) || 'current_page';
 
     return {
       data: {
-        requested: asNumber(data.requested),
-        succeeded: asNumber(data.succeeded),
-        failed: asNumber(data.failed),
+        action: asString(data.action) || request.action,
+        requested,
+        succeeded,
+        failed,
+        partial,
+        selectionScope,
         results: results.map((item: unknown) => {
           const r = asRecord(item);
+          const error = asRecord(r.error);
           return {
             assignmentId: asString(r.assignment_id),
-            success: r.success === true,
-            error: asString(r.error) || undefined,
-            errorCode: asString(r.error_code) || undefined,
+            success: asString(r.status) === 'succeeded',
+            error: asString(error.message) || asString(r.error) || undefined,
+            errorCode: asString(error.code) || asString(r.error_code) || undefined,
             assignment: r.assignment ? normalizeAssignmentListRow(r.assignment) : undefined,
           };
         }),
       },
       meta: {
-        action: asString(asRecord(raw.meta).action),
+        action: asString(data.action) || request.action,
+        requested,
+        succeeded,
+        failed,
+        partial,
+        selection_scope: selectionScope,
       },
     };
   }
