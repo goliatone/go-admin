@@ -103,7 +103,7 @@ func TestTranslationQueueBindingMyWorkReturnsAssignmentsWithDueState(t *testing.
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -163,7 +163,7 @@ func TestTranslationQueueBindingMyWorkRequiresViewPermission(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status=%d want=403", resp.StatusCode)
 	}
@@ -224,7 +224,7 @@ func TestTranslationQueueBindingQueueIncludesUnifiedInboxFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -316,7 +316,7 @@ func TestTranslationQueueBindingAssignmentsReturnsEnvelopeAndActionStates(t *tes
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -399,7 +399,7 @@ func TestTranslationQueueBindingAssignmentsSupportsPageLocalFamilyGrouping(t *te
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -465,7 +465,7 @@ func TestTranslationQueueBindingAssignmentsRejectsUnsupportedGrouping(t *testing
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d want=400", resp.StatusCode)
 	}
@@ -512,7 +512,7 @@ func TestTranslationQueueBindingAssignmentsUsesOptimizedPageAndReviewerSummary(t
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -620,7 +620,7 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -678,7 +678,7 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	if err != nil {
 		t.Fatalf("reviewer request error: %v", err)
 	}
-	defer mustClose(t, "response body", respReviewer.Body)
+	defer respReviewer.Body.Close()
 	if respReviewer.StatusCode != http.StatusOK {
 		t.Fatalf("reviewer status=%d want=200", respReviewer.StatusCode)
 	}
@@ -704,7 +704,7 @@ func TestTranslationQueueBindingAssignmentsExposeReviewerGuardFeedbackAndQASumma
 	if err != nil {
 		t.Fatalf("actorless preset request error: %v", err)
 	}
-	defer mustClose(t, "response body", respActorlessPreset.Body)
+	defer respActorlessPreset.Body.Close()
 	if respActorlessPreset.StatusCode != http.StatusOK {
 		t.Fatalf("actorless preset status=%d want=200", respActorlessPreset.StatusCode)
 	}
@@ -770,7 +770,7 @@ func TestTranslationQueueBindingAssignmentsSupportStableReviewStateAndGroupFilte
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -835,7 +835,7 @@ func TestTranslationQueueBindingRejectActionRequiresReason(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode < 400 || resp.StatusCode >= 500 {
 		t.Fatalf("status=%d want=4xx", resp.StatusCode)
 	}
@@ -939,7 +939,7 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 	if err != nil {
 		t.Fatalf("first request error: %v", err)
 	}
-	defer mustClose(t, "response body", firstResp.Body)
+	defer firstResp.Body.Close()
 	if firstResp.StatusCode != http.StatusOK {
 		t.Fatalf("first status=%d want=200", firstResp.StatusCode)
 	}
@@ -956,7 +956,7 @@ func TestTranslationQueueBindingAssignmentActionClaimSupportsIdempotentReplay(t 
 	if err != nil {
 		t.Fatalf("second request error: %v", err)
 	}
-	defer mustClose(t, "response body", secondResp.Body)
+	defer secondResp.Body.Close()
 	if secondResp.StatusCode != http.StatusOK {
 		t.Fatalf("second status=%d want=200", secondResp.StatusCode)
 	}
@@ -1015,7 +1015,7 @@ func TestTranslationQueueBindingAssignmentActionRequiresPermission(t *testing.T)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status=%d want=403", resp.StatusCode)
 	}
@@ -1082,7 +1082,7 @@ func TestTranslationQueueBindingBulkActionAssignReturnsUpdatedRowsAndPartialFail
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -1194,7 +1194,7 @@ func TestTranslationQueueBindingBulkActionSupportsReleasePriorityAndArchive(t *t
 		if err != nil {
 			t.Fatalf("%s request error: %v", action, err)
 		}
-		defer mustClose(t, "response body", resp.Body)
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("%s status=%d want=200", action, resp.StatusCode)
 		}
@@ -1273,7 +1273,7 @@ func TestTranslationQueueBindingBulkActionReportsPerItemPermissionDenial(t *test
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -1309,7 +1309,7 @@ func TestTranslationQueueBindingBulkActionRejectsUnsupportedAction(t *testing.T)
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status=%d want=400", resp.StatusCode)
 	}
@@ -1352,7 +1352,7 @@ func TestTranslationQueueBindingAssignmentActionEnforcesScopeIsolation(t *testin
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("status=%d want=403", resp.StatusCode)
 	}
@@ -1378,7 +1378,7 @@ func TestTranslationQueueBindingMyWorkEchoesTraceHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 
 	if got := strings.TrimSpace(resp.Header.Get("X-Request-ID")); got != "req-queue-1" {
 		t.Fatalf("expected X-Request-ID req-queue-1, got %q", got)
@@ -1464,7 +1464,7 @@ func TestTranslationQueueBindingMyWorkSummaryIncludesAllFilteredAssignmentsAcros
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -1549,7 +1549,7 @@ func TestTranslationQueueBindingQueueSummaryIncludesAllFilteredAssignmentsAcross
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer mustClose(t, "response body", resp.Body)
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}

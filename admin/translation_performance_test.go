@@ -107,7 +107,7 @@ func TestTranslationDashboardOptimizedSyntheticValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request %s: %v", label, err)
 		}
-		defer mustClose(t, "response body", resp.Body)
+		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("%s status=%d want=200", label, resp.StatusCode)
 		}
@@ -126,7 +126,7 @@ func TestTranslationDashboardOptimizedSyntheticValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request family list: %v", err)
 	}
-	defer mustClose(t, "response body", familyResp.Body)
+	defer familyResp.Body.Close()
 	if familyResp.StatusCode != http.StatusOK {
 		t.Fatalf("family list status=%d want=200", familyResp.StatusCode)
 	}
