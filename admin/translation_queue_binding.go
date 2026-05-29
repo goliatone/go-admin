@@ -125,10 +125,10 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 		return nil, err
 	}
 	rows := b.assignmentListRows(adminCtx.Context, assignments, now, channel, grouping)
-	reviewAssignments := assignments
+	var reviewAssignments []TranslationAssignment
 	if optimizedPage {
-		reviewAggregateCounts, err := b.optimizedReviewerAggregateCounts(adminCtx.Context, repo, filter, actorID, now)
-		if err == nil {
+		optimizedCounts, countsErr := b.optimizedReviewerAggregateCounts(adminCtx.Context, repo, filter, actorID, now)
+		if countsErr == nil {
 			return map[string]any{
 				"data": rows,
 				"meta": mergeTranslationChannelContract(map[string]any{
@@ -144,7 +144,7 @@ func (b *translationQueueBinding) Assignments(c router.Context) (payload any, er
 					"saved_review_filter_presets":  TranslationQueueSavedReviewFilterPresets(),
 					"default_review_filter_preset": "review_inbox",
 					"review_actor_id":              actorID,
-					"review_aggregate_counts":      reviewAggregateCounts,
+					"review_aggregate_counts":      optimizedCounts,
 					"grouping":                     translationQueueGroupingContract(grouping, len(rows), len(assignments)),
 				}, channel),
 			}, nil
@@ -246,7 +246,8 @@ func (b *translationQueueBinding) RunAssignmentAction(c router.Context, assignme
 	if replay, ok, replayErr := b.lookupActionReplay(identity.ActorID, assignmentID, action, idempotencyKey, body); replayErr != nil {
 		return nil, replayErr
 	} else if ok {
-		if meta, _ := replay["meta"].(map[string]any); meta != nil {
+		if rawMeta, hasMeta := replay["meta"]; hasMeta {
+			meta := extractMap(rawMeta)
 			meta["idempotency_hit"] = true
 			replay["meta"] = meta
 		}
@@ -1586,7 +1587,7 @@ func collectReadinessRequiredLocales(localeSet map[string]struct{}, sourceRecord
 	if sourceRecord == nil {
 		return
 	}
-	readiness, _ := sourceRecord["translation_readiness"].(map[string]any)
+	readiness := extractMap(sourceRecord["translation_readiness"])
 	for _, locale := range toStringSlice(readiness["required_locales"]) {
 		addTranslationLocale(localeSet, locale)
 	}
@@ -2236,7 +2237,7 @@ func (b *translationQueueBinding) reviewActionStates(ctx context.Context, assign
 
 func (b *translationQueueBinding) reviewLifecycleActionState(ctx context.Context, assignment TranslationAssignment, permission, statusReason string) map[string]any {
 	state := b.queueActionState(ctx, assignment.Status == AssignmentStatusInReview, permission, statusReason)
-	if enabled, _ := state["enabled"].(bool); !enabled {
+	if enabled := toBool(state["enabled"]); !enabled {
 		return state
 	}
 	actorID := strings.TrimSpace(actorFromContext(ctx))

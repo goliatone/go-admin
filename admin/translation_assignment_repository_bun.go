@@ -206,33 +206,33 @@ func applyBunAssignmentFilter(query *bun.SelectQuery, key string, raw any, dueSQ
 	}
 	switch key {
 	case "assignment_id", "id":
-		query.Where("LOWER(assignment_id) IN (?)", bun.In(values))
+		query.Where("LOWER(assignment_id) IN (?)", bun.List(values))
 	case "status":
-		query.Where("LOWER(status) IN (?)", bun.In(values))
+		query.Where("LOWER(status) IN (?)", bun.List(values))
 	case "target_locale", "locale":
-		query.Where("LOWER(target_locale) IN (?)", bun.In(values))
+		query.Where("LOWER(target_locale) IN (?)", bun.List(values))
 	case "source_locale":
-		query.Where("LOWER(source_locale) IN (?)", bun.In(values))
+		query.Where("LOWER(source_locale) IN (?)", bun.List(values))
 	case "assignee_id":
-		query.Where("LOWER(assignee_id) IN (?)", bun.In(values))
+		query.Where("LOWER(assignee_id) IN (?)", bun.List(values))
 	case "reviewer_id":
-		query.Where("LOWER(COALESCE(NULLIF(reviewer_id, ''), last_reviewer_id, '')) IN (?)", bun.In(values))
+		query.Where("LOWER(COALESCE(NULLIF(reviewer_id, ''), last_reviewer_id, '')) IN (?)", bun.List(values))
 	case "assignment_type":
-		query.Where("LOWER(assignment_type) IN (?)", bun.In(values))
+		query.Where("LOWER(assignment_type) IN (?)", bun.List(values))
 	case "work_scope":
-		query.Where("LOWER(work_scope) IN (?)", bun.In(values))
+		query.Where("LOWER(work_scope) IN (?)", bun.List(values))
 	case "entity_type":
-		query.Where("LOWER(entity_type) IN (?)", bun.In(values))
+		query.Where("LOWER(entity_type) IN (?)", bun.List(values))
 	case "priority":
-		query.Where("LOWER(priority) IN (?)", bun.In(values))
+		query.Where("LOWER(priority) IN (?)", bun.List(values))
 	case "family_id":
-		query.Where("LOWER(family_id) IN (?)", bun.In(values))
+		query.Where("LOWER(family_id) IN (?)", bun.List(values))
 	case "tenant_id":
-		query.Where("LOWER(tenant_id) IN (?)", bun.In(values))
+		query.Where("LOWER(tenant_id) IN (?)", bun.List(values))
 	case "org_id":
-		query.Where("LOWER(org_id) IN (?)", bun.In(values))
+		query.Where("LOWER(org_id) IN (?)", bun.List(values))
 	case "source_record_id":
-		query.Where("LOWER(source_record_id) IN (?)", bun.In(values))
+		query.Where("LOWER(source_record_id) IN (?)", bun.List(values))
 	}
 }
 

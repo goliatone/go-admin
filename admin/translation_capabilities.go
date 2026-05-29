@@ -283,16 +283,14 @@ func translationCapabilityModuleEnabled(modules map[string]any, module string) b
 	if !ok {
 		return false
 	}
-	enabled, _ := typed["enabled"].(bool)
-	return enabled
+	return toBool(typed["enabled"])
 }
 
 func translationCapabilityFeatureEnabled(features map[string]any, feature string) bool {
 	if len(features) == 0 {
 		return false
 	}
-	enabled, _ := features[strings.TrimSpace(feature)].(bool)
-	return enabled
+	return toBool(features[strings.TrimSpace(feature)])
 }
 
 func inferTranslationCapabilityProfile(cmsEnabled, exchangeEnabled, queueEnabled bool) string {

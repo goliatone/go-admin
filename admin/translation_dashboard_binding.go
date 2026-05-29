@@ -86,7 +86,9 @@ func (b *translationQueueBinding) translationDashboardOptimizedPayload(adminCtx 
 	runtime, degradedReasons := translationDashboardRuntimeSources(adminCtx, familyBinding, channel)
 	var familyStore TranslationDashboardFamilyMetricsStore
 	if runtime != nil && runtime.service != nil && runtime.service.Store != nil {
-		familyStore, _ = runtime.service.Store.(TranslationDashboardFamilyMetricsStore)
+		if optimizedStore, ok := runtime.service.Store.(TranslationDashboardFamilyMetricsStore); ok {
+			familyStore = optimizedStore
+		}
 	}
 	if runtime != nil && familyStore == nil {
 		return nil, false, nil
@@ -652,7 +654,7 @@ func translationDashboardAlerts(cards []map[string]any, degraded bool) []map[str
 		})
 	}
 	for _, card := range cards {
-		alert, _ := card["alert"].(map[string]any)
+		alert := extractMap(card["alert"])
 		state := strings.TrimSpace(toString(alert["state"]))
 		if state == "" || state == translationDashboardAlertStateOK {
 			continue

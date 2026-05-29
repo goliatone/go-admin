@@ -215,7 +215,7 @@ func (b *translationQueueBinding) recordVariantUpdateActivity(ctx context.Contex
 	if b == nil || b.admin == nil || b.admin.activity == nil {
 		return
 	}
-	_ = b.admin.activity.Record(ctx, ActivityEntry{
+	if err := b.admin.activity.Record(ctx, ActivityEntry{
 		Actor:  actorID,
 		Action: "translation.variant.saved",
 		Object: "translation_variant:" + strings.TrimSpace(editorCtx.TargetVariant.ID),
@@ -228,7 +228,9 @@ func (b *translationQueueBinding) recordVariantUpdateActivity(ctx context.Contex
 			"row_version":   nextVersion,
 			"autosave":      autosave,
 		},
-	})
+	}); err != nil {
+		return
+	}
 }
 
 func (b *translationQueueBinding) variantUpdatePayload(ctx context.Context, variantID, channel string, body map[string]any, updatedRecord any, updatedFields map[string]string, nextVersion int64) (map[string]any, error) {
@@ -310,13 +312,16 @@ func (b *translationQueueBinding) loadAssignmentEditorContext(ctx context.Contex
 			"family_id": strings.TrimSpace(assignment.FamilyID),
 		})
 	}
-	editorCtx, _ := translationEditorContextFromFamily(family, assignment, environment)
+	editorCtx, hasTarget := translationEditorContextFromFamily(family, assignment, environment)
+	editorCtx.HasTarget = hasTarget
 
 	entries := []ActivityEntry{}
 	if b != nil && b.admin != nil && b.admin.activity != nil {
-		entries, _ = b.admin.activity.List(ctx, 50, ActivityFilter{
+		if activityEntries, listErr := b.admin.activity.List(ctx, 50, ActivityFilter{
 			Object: "translation_assignment:" + strings.TrimSpace(assignment.ID),
-		})
+		}); listErr == nil {
+			entries = activityEntries
+		}
 	}
 
 	sourceVersion := ""
@@ -539,7 +544,7 @@ func translationEditorFieldValidations(editorCtx translationEditorContext) map[s
 	out := make(map[string]any, len(paths))
 	for _, path := range paths {
 		entry := extractMap(completeness[path])
-		missing, _ := entry["missing"].(bool)
+		missing := toBool(entry["missing"])
 		out[path] = map[string]any{
 			"valid":   !missing,
 			"message": translationEditorValidationMessage(path, missing),
@@ -640,7 +645,7 @@ func translationEditorMissingRequiredFields(editorCtx translationEditorContext) 
 	out := []string{}
 	for _, path := range translationEditorFieldPaths(editorCtx) {
 		entry := extractMap(completeness[path])
-		missing, _ := entry["missing"].(bool)
+		missing := toBool(entry["missing"])
 		if missing {
 			out = append(out, path)
 		}
@@ -699,8 +704,8 @@ func translationEditorMemorySuggestions(ctx context.Context, b *translationQueue
 		suggestions = append(suggestions, translationEditorMemorySuggestionPayload(match.Family, match.SourceVariant, match.TargetVariant, match.FieldPath, match.SourceText, match.SuggestedText, sourceHash))
 	}
 	sort.SliceStable(suggestions, func(i, j int) bool {
-		leftScore, _ := suggestions[i]["score"].(float64)
-		rightScore, _ := suggestions[j]["score"].(float64)
+		leftScore := float64FromAny(suggestions[i]["score"])
+		rightScore := float64FromAny(suggestions[j]["score"])
 		if leftScore == rightScore {
 			if toString(suggestions[i]["field_path"]) == toString(suggestions[j]["field_path"]) {
 				return toString(suggestions[i]["source_label"]) < toString(suggestions[j]["source_label"])
@@ -710,6 +715,29 @@ func translationEditorMemorySuggestions(ctx context.Context, b *translationQueue
 		return leftScore > rightScore
 	})
 	return suggestions
+}
+
+func float64FromAny(value any) float64 {
+	switch typed := value.(type) {
+	case float64:
+		return typed
+	case float32:
+		return float64(typed)
+	case int:
+		return float64(typed)
+	case int64:
+		return float64(typed)
+	case int32:
+		return float64(typed)
+	case uint:
+		return float64(typed)
+	case uint64:
+		return float64(typed)
+	case uint32:
+		return float64(typed)
+	default:
+		return 0
+	}
 }
 
 func translationEditorMemorySuggestionPayload(family translationservices.FamilyRecord, source, target translationservices.FamilyVariant, fieldPath, sourceText, suggestedText, sourceHash string) map[string]any {

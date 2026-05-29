@@ -167,8 +167,8 @@ func (s *BunTranslationFamilyStore) ListFamiliesQuery(ctx context.Context, input
 	query := s.db.NewSelect().Model(&rows)
 	applyBunFamilyListFilters(query, input)
 	query.OrderExpr("updated_at DESC").OrderExpr("family_id ASC").Limit(perPage).Offset((page - 1) * perPage)
-	if err := query.Scan(ctx); err != nil {
-		return translationservices.ListFamiliesResult{}, err
+	if scanErr := query.Scan(ctx); scanErr != nil {
+		return translationservices.ListFamiliesResult{}, scanErr
 	}
 	families, err := s.familyListProjectionRowsFromRows(ctx, rows)
 	if err != nil {
@@ -354,49 +354,6 @@ func translationEditorMemorySuggestionsFromBunRows(rows []bunTranslationMemorySu
 				return out, nil
 			}
 		}
-	}
-	return out, nil
-}
-
-func (s *BunTranslationFamilyStore) familyListRowsFromRows(ctx context.Context, familyRows []bunTranslationFamilyRecord) ([]translationservices.FamilyRecord, error) {
-	if len(familyRows) == 0 {
-		return nil, nil
-	}
-	familyIDs := make([]string, 0, len(familyRows))
-	for _, row := range familyRows {
-		familyIDs = append(familyIDs, row.FamilyID)
-	}
-	variantRows := []bunTranslationLocaleVariantRecord{}
-	if err := s.db.NewSelect().
-		Model(&variantRows).
-		Where("family_id IN (?)", bun.List(familyIDs)).
-		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
-	}
-	blockerRows := []bunTranslationFamilyBlockerRecord{}
-	if err := s.db.NewSelect().
-		Model(&blockerRows).
-		Where("family_id IN (?)", bun.List(familyIDs)).
-		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, err
-	}
-	variantsByFamily, err := bunFamilyVariantsByFamily(variantRows)
-	if err != nil {
-		return nil, err
-	}
-	blockersByFamily, err := bunFamilyBlockersByFamily(blockerRows)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]translationservices.FamilyRecord, 0, len(familyRows))
-	for _, row := range familyRows {
-		family, err := familyModelFromBunRecord(row)
-		if err != nil {
-			return nil, err
-		}
-		family.Variants = variantsByFamily[row.FamilyID]
-		family.Blockers = blockersByFamily[row.FamilyID]
-		out = append(out, family)
 	}
 	return out, nil
 }
