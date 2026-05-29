@@ -6,6 +6,11 @@ const fixturePath = new URL('../../../../../admin/testdata/translation_editor_co
 const fixtures = JSON.parse(readFileSync(fixturePath, 'utf8'));
 const assignmentID = 'tqa_editor';
 
+async function openSidebarTab(page, tab) {
+  await page.locator(`[data-sidebar-tab="${tab}"]`).click();
+  await expect(page.locator(`[data-sidebar-panel="${tab}"]`)).toBeVisible();
+}
+
 function makeSubmitReadyFixture() {
   const next = structuredClone(fixtures.detail);
   next.data.qa_results = {
@@ -197,7 +202,9 @@ test.describe('Translation Assignment Editor', () => {
     await page.waitForLoadState('networkidle');
 
     await expect(page.locator('[data-translation-editor="true"]')).toBeVisible();
+    await openSidebarTab(page, 'history');
     await expect(page.locator('[data-history-entry="comment:last_rejection_reason"]')).toBeVisible();
+    await openSidebarTab(page, 'files');
     await expect(page.locator('text=homepage-brief.pdf')).toBeVisible();
 
     await page.locator('[data-field-input="title"]').fill('Guide de publication');
@@ -266,7 +273,7 @@ test.describe('Translation Assignment Editor', () => {
 
     await expect(page.locator('[data-editor-panel="review-actions"]')).toHaveCount(0);
     await expect(page.locator('[data-editor-panel="management-actions"]')).toBeVisible();
-    await expect(page.locator('text=Approved')).toBeVisible();
+    await expect(page.locator('[data-translation-editor="true"] > section').first()).toContainText('Approved');
   });
 
   test('qa blockers keep submit disabled and expose a blocker message', async ({ page }) => {
@@ -284,7 +291,9 @@ test.describe('Translation Assignment Editor', () => {
     const submitButton = page.locator('[data-action="submit-review"]');
     await expect(submitButton).toBeDisabled();
     await expect(submitButton).toHaveAttribute('title', /Resolve QA blockers before submitting for review\./);
+    await openSidebarTab(page, 'qa');
     await expect(page.locator('text=Submit is blocked until blockers are resolved.')).toBeVisible();
+    await openSidebarTab(page, 'actions');
     await expect(page.locator('[data-editor-panel="review-actions"]')).toHaveCount(0);
     await expect(page.locator('[data-editor-panel="management-actions"]')).toBeVisible();
   });
@@ -321,7 +330,7 @@ test.describe('Translation Assignment Editor', () => {
     await page.locator('[data-editor-panel="review-actions"] [data-action="approve"]').click();
 
     await expect(page.locator('[data-editor-panel="management-actions"]')).toBeVisible();
-    await expect(page.locator('text=Approved')).toBeVisible();
+    await expect(page.locator('[data-translation-editor="true"] > section').first()).toContainText('Approved');
   });
 
   test('reject modal captures reviewer feedback and timeline shows the round trip', async ({ page }) => {
@@ -353,6 +362,7 @@ test.describe('Translation Assignment Editor', () => {
     await page.locator('[data-reject-comment="true"]').fill('Keep the glossary term consistent.');
     await page.locator('[data-action="confirm-reject"]').click();
 
+    await openSidebarTab(page, 'history');
     await expect(page.locator('text=Workflow timeline')).toBeVisible();
     await expect(page.locator('[data-history-entry]').filter({ hasText: 'Please preserve the CTA token.' }).first()).toBeVisible();
   });

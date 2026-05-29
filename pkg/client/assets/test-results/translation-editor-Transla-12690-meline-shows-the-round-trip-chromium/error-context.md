@@ -263,6 +263,6 @@
         - generic [ref=e287]: "200"
         - generic [ref=e288]: SQL
       - generic [ref=e289]:
-        - generic [ref=e290]: "503"
+        - generic [ref=e290]: "502"
         - generic [ref=e291]: Logs
 ```

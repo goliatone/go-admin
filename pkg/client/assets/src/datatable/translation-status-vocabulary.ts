@@ -41,7 +41,7 @@ export type CoreReadinessState = 'ready' | 'missing_locales' | 'missing_fields' 
 /**
  * Queue assignment states
  */
-export type QueueState = 'pending' | 'assigned' | 'in_progress' | 'review' | 'rejected' | 'approved' | 'published' | 'archived';
+export type QueueState = 'open' | 'pending' | 'assigned' | 'in_progress' | 'review' | 'rejected' | 'approved' | 'published' | 'archived';
 
 /**
  * Queue content states
@@ -228,6 +228,16 @@ export const CORE_READINESS_DISPLAY: Record<CoreReadinessState, StatusDisplayCon
  * Queue state display configurations
  */
 export const QUEUE_STATE_DISPLAY: Record<QueueState, StatusDisplayConfig> = {
+  open: {
+    label: 'Open',
+    colorClass: 'bg-gray-100 text-gray-700',
+    bgClass: 'bg-gray-100',
+    textClass: 'text-gray-700',
+    icon: ICONS.document,
+    iconType: 'svg',
+    severity: 'neutral',
+    description: 'Available to be claimed',
+  },
   pending: {
     label: 'Pending',
     colorClass: 'bg-gray-100 text-gray-700',
@@ -949,4 +959,3 @@ export function getStatusVocabularyStyles(): string {
 // ============================================================================
 // Helpers
 // ============================================================================
-
