@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -545,9 +546,7 @@ func (r *optimizedAssignmentReadRepo) ListAssignmentPage(context.Context, Transl
 func (r *optimizedAssignmentReadRepo) AssignmentReviewerAggregateCounts(context.Context, TranslationAssignmentReviewerAggregateInput) (map[string]int, error) {
 	r.reviewerCalls++
 	out := map[string]int{}
-	for key, value := range r.reviewerCounts {
-		out[key] = value
-	}
+	maps.Copy(out, r.reviewerCounts)
 	return out, nil
 }
 
@@ -1180,9 +1179,7 @@ func TestTranslationQueueBindingBulkActionSupportsReleasePriorityAndArchive(t *t
 				{"assignment_id": assignment.ID, "expected_version": assignment.Version},
 			},
 		}
-		for key, value := range extra {
-			payload[key] = value
-		}
+		maps.Copy(payload, extra)
 		body, err := json.Marshal(payload)
 		if err != nil {
 			t.Fatalf("marshal %s request: %v", action, err)

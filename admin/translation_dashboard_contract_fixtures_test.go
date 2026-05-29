@@ -3,6 +3,7 @@ package admin
 import (
 	"encoding/json"
 	"os"
+	"slices"
 	"testing"
 )
 
@@ -207,10 +208,5 @@ func assertDashboardReasonContext(t *testing.T, row map[string]any) {
 }
 
 func dashboardFixtureContains(values []string, candidate string) bool {
-	for _, value := range values {
-		if value == candidate {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(values, candidate)
 }

@@ -26,10 +26,10 @@ func TestTranslationDashboardOptimizedSyntheticValidation(t *testing.T) {
 	ctx := context.Background()
 	ensureTranslationSyntheticIndexes(t, ctx, db)
 	familyStore := NewBunTranslationFamilyStore(db)
-	for idx := 0; idx < familyCount; idx++ {
+	for idx := range familyCount {
 		familyID := "perf-family-" + strconv.Itoa(idx)
 		blockers := make([]translationservices.FamilyBlocker, 0, blockersPerFamily)
-		for blockerIdx := 0; blockerIdx < blockersPerFamily; blockerIdx++ {
+		for blockerIdx := range blockersPerFamily {
 			blockers = append(blockers, translationservices.FamilyBlocker{
 				FamilyID:    familyID,
 				TenantID:    "tenant-perf",
@@ -59,7 +59,7 @@ func TestTranslationDashboardOptimizedSyntheticValidation(t *testing.T) {
 		}
 	}
 	repo := NewBunTranslationAssignmentRepository(db)
-	for idx := 0; idx < assignmentCount; idx++ {
+	for idx := range assignmentCount {
 		familyID := "perf-family-" + strconv.Itoa(idx%max(familyCount, 1))
 		due := now.Add(time.Duration(idx%240-120) * time.Minute)
 		status := AssignmentStatusAssigned
