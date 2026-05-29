@@ -571,12 +571,13 @@ func registerAdminUITranslationOverviewRoutes[T any](
 		r.Get(options.translationQueuePath, wrap(func(c router.Context) error {
 			apiBase := resolveAPIBase()
 			return renderView(c, options.translationShellTemplate, options.translationQueueTitle, options.translationQueueActive, router.ViewContext{
-				"translation_shell_surface":          "queue",
-				"translation_shell_title":            options.translationQueueTitle,
-				"translation_shell_description":      "Assignment-centric queue with saved filters, keyboard row navigation, and inline claim/release actions.",
-				"translation_shell_api_path":         prefixBasePath(apiBase, path.Join("translations", "assignments")),
-				"translation_queue_editor_base_path": path.Join(options.basePath, "translations", "assignments"),
-				"translation_queue_initial_preset":   "open",
+				"translation_shell_surface":              "queue",
+				"translation_shell_title":                options.translationQueueTitle,
+				"translation_shell_description":          "Assignment-centric queue with saved filters, keyboard row navigation, and inline claim/release actions.",
+				"translation_shell_api_path":             prefixBasePath(apiBase, path.Join("translations", "assignments")),
+				"translation_queue_bulk_action_api_path": prefixBasePath(apiBase, path.Join("translations", "assignment-actions", "bulk")),
+				"translation_queue_editor_base_path":     path.Join(options.basePath, "translations", "assignments"),
+				"translation_queue_initial_preset":       "open",
 			})
 		}))
 	}
