@@ -10,6 +10,12 @@ import (
 
 // SyncTranslationFamilyStore rebuilds the canonical family/variant tables from the CMS content service.
 func SyncTranslationFamilyStore(ctx context.Context, adm *Admin, environment string) error {
+	return SyncTranslationFamilyStoreForFamily(ctx, adm, environment, "")
+}
+
+// SyncTranslationFamilyStoreForFamily rebuilds the canonical family/variant tables from the CMS content service.
+// When familyID is non-empty, only that family is saved and recomputed.
+func SyncTranslationFamilyStoreForFamily(ctx context.Context, adm *Admin, environment string, familyID string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -29,8 +35,21 @@ func SyncTranslationFamilyStore(ctx context.Context, adm *Admin, environment str
 	if err != nil {
 		return err
 	}
+	if familyID = strings.TrimSpace(familyID); familyID != "" {
+		family, ok := families[familyID]
+		if !ok {
+			return validationDomainError("translation family not found during sync", map[string]any{
+				"family_id":   familyID,
+				"environment": strings.TrimSpace(environment),
+			})
+		}
+		families = map[string]translationservices.FamilyRecord{familyID: family}
+	}
 	if err := saveTranslationFamilies(ctx, adm, families, translationFamilyAssignmentsByFamily(binding.collectAssignments(ctx))); err != nil {
 		return err
+	}
+	if familyID != "" {
+		return recomputeTranslationFamily(ctx, adm, familyID, environment)
 	}
 	return recomputeTranslationFamilies(ctx, adm, environment)
 }
@@ -50,6 +69,9 @@ func translationFamilySyncLocales(ctx context.Context, adm *Admin, binding *tran
 	}
 	for _, content := range contentsDefault {
 		addRecordLocales(locales, content.AvailableLocales)
+	}
+	for _, locale := range adm.activeLocales(ctx) {
+		locales[strings.ToLower(strings.TrimSpace(locale))] = struct{}{}
 	}
 	for _, locale := range binding.policyLocales(ctx, environment) {
 		locales[strings.ToLower(strings.TrimSpace(locale))] = struct{}{}
@@ -140,6 +162,17 @@ func recomputeTranslationFamilies(ctx context.Context, adm *Admin, environment s
 		},
 	}
 	_, err := service.RecomputeAll(ctx, environment)
+	return err
+}
+
+func recomputeTranslationFamily(ctx context.Context, adm *Admin, familyID string, environment string) error {
+	service := translationservices.FamilyService{
+		Store: adm.translationFamilyStore,
+		Policies: translationservices.PolicyService{
+			Resolver: translationFamilyPolicyResolver{admin: adm},
+		},
+	}
+	_, err := service.Recompute(ctx, familyID, environment)
 	return err
 }
 
