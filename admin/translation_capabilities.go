@@ -239,6 +239,7 @@ func translationCapabilityRouteSpecs(adminGroup, adminAPIGroup string) []transla
 		"translations.variants.id",
 		"translations.assignments",
 		"translations.assignments.id",
+		"translations.assignments.bulk_actions",
 		"translations.assignments.actions",
 		"translations.my_work",
 		"translations.queue",
