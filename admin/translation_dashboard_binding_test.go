@@ -114,7 +114,7 @@ func TestTranslationQueueBindingDashboardAggregatesCardsTablesAndLinks(t *testin
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -252,7 +252,7 @@ func TestTranslationQueueBindingDashboardDegradesWhenFamilyRuntimeUnavailable(t 
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -335,7 +335,7 @@ func TestTranslationQueueBindingDashboardOptimizedPathAvoidsFullFamilyHydration(
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -416,7 +416,7 @@ func TestTranslationQueueBindingDashboardOptimizedAssignmentFailureFallsBackWith
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status=%d want=200", resp.StatusCode)
 	}
@@ -655,7 +655,7 @@ func TestTranslationQueueBindingDashboardLatencyStaysWithinTarget(t *testing.T) 
 		if err != nil {
 			t.Fatalf("request %d error: %v", idx, err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("request %d status=%d want=200", idx, resp.StatusCode)
 		}

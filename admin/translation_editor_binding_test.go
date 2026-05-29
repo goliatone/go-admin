@@ -925,7 +925,7 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reject request error: %v", err)
 	}
-	defer rejectResp.Body.Close()
+	defer rejectResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 	if rejectResp.StatusCode != http.StatusOK {
 		t.Fatalf("reject status=%d want=200", rejectResp.StatusCode)
 	}
@@ -974,7 +974,7 @@ func TestTranslationEditorReviewActionsPersistVariantStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("approve request error: %v", err)
 	}
-	defer approveResp.Body.Close()
+	defer approveResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 	if approveResp.StatusCode != http.StatusOK {
 		t.Fatalf("approve status=%d want=200", approveResp.StatusCode)
 	}
@@ -1065,7 +1065,7 @@ func doTranslationEditorJSONRequest(t *testing.T, app *fiber.App, method, target
 	if err != nil {
 		t.Fatalf("request error: %v", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 
 	out := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {

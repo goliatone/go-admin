@@ -107,7 +107,7 @@ func TestTranslationDashboardOptimizedSyntheticValidation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("request %s: %v", label, err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("%s status=%d want=200", label, resp.StatusCode)
 		}
@@ -126,7 +126,7 @@ func TestTranslationDashboardOptimizedSyntheticValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("request family list: %v", err)
 	}
-	defer familyResp.Body.Close()
+	defer familyResp.Body.Close() //nolint:errcheck // test response body cleanup is best-effort
 	if familyResp.StatusCode != http.StatusOK {
 		t.Fatalf("family list status=%d want=200", familyResp.StatusCode)
 	}
@@ -161,26 +161,38 @@ func logTranslationSyntheticQueryPlans(t *testing.T, db interface {
 		},
 	}
 	for _, plan := range plans {
-		rows, err := db.QueryContext(context.Background(), plan.query, plan.args...)
-		if err != nil {
-			t.Logf("query plan %s unavailable: %v", plan.name, err)
-			continue
-		}
-		parts := []string{}
-		for rows.Next() {
-			var id, parent, notUsed int
-			var detail string
-			if scanErr := rows.Scan(&id, &parent, &notUsed, &detail); scanErr != nil {
-				t.Logf("query plan %s scan unavailable: %v", plan.name, scanErr)
-				break
-			}
-			parts = append(parts, detail)
-		}
-		if closeErr := rows.Close(); closeErr != nil {
-			t.Logf("query plan %s close error: %v", plan.name, closeErr)
-		}
-		t.Logf("query plan %s: %s", plan.name, strings.Join(parts, " | "))
+		logTranslationSyntheticQueryPlan(t, db, plan.name, plan.query, plan.args)
 	}
+}
+
+func logTranslationSyntheticQueryPlan(t *testing.T, db interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}, name, query string, args []any) {
+	t.Helper()
+	rows, err := db.QueryContext(context.Background(), query, args...)
+	if err != nil {
+		t.Logf("query plan %s unavailable: %v", name, err)
+		return
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			t.Logf("query plan %s close error: %v", name, closeErr)
+		}
+	}()
+	parts := []string{}
+	for rows.Next() {
+		var id, parent, notUsed int
+		var detail string
+		if scanErr := rows.Scan(&id, &parent, &notUsed, &detail); scanErr != nil {
+			t.Logf("query plan %s scan unavailable: %v", name, scanErr)
+			break
+		}
+		parts = append(parts, detail)
+	}
+	if rowsErr := rows.Err(); rowsErr != nil {
+		t.Logf("query plan %s rows error: %v", name, rowsErr)
+	}
+	t.Logf("query plan %s: %s", name, strings.Join(parts, " | "))
 }
 
 func ensureTranslationSyntheticIndexes(t *testing.T, ctx context.Context, db interface {
