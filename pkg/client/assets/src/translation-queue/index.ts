@@ -200,6 +200,39 @@ export interface AssignmentActionRequest {
   reason?: string;
 }
 
+// T10: Bulk action types
+export interface BulkActionItem {
+  assignmentId: string;
+  expectedVersion: number;
+}
+
+export interface BulkActionRequest {
+  action: 'assign' | 'release' | 'priority' | 'archive';
+  assignments: BulkActionItem[];
+  reason?: string;
+  priority?: AssignmentPriority;
+}
+
+export interface BulkActionResultItem {
+  assignmentId: string;
+  success: boolean;
+  error?: string;
+  errorCode?: string;
+  assignment?: AssignmentListRow;
+}
+
+export interface BulkActionResponse {
+  data: {
+    requested: number;
+    succeeded: number;
+    failed: number;
+    results: BulkActionResultItem[];
+  };
+  meta: {
+    action: string;
+  };
+}
+
 export interface AssignmentQueueScreenConfig {
   endpoint: string;
   editorBasePath?: string;
@@ -782,6 +815,12 @@ function shouldShowQueueManagementActions(row: AssignmentListRow): boolean {
   return Boolean(row.review_actions.archive.enabled);
 }
 
+// T10: Selection state entry
+interface SelectionEntry {
+  assignmentId: string;
+  expectedVersion: number;
+}
+
 export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScreenState> {
   private config: Required<AssignmentQueueScreenConfig>;
   private container: HTMLElement | null = null;
@@ -794,6 +833,10 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
   private feedback: AssignmentQueueFeedback | null = null;
   private error: AssignmentQueueRequestError | Error | null = null;
   private pendingActions = new Set<string>();
+
+  // T10: Selection state
+  private selectedRows = new Map<string, SelectionEntry>();
+  private bulkActionPending = false;
 
   constructor(config: AssignmentQueueScreenConfig) {
     super('loading');
@@ -851,6 +894,154 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
 
   getActiveReviewPresetId(): string {
     return this.activeReviewPresetId;
+  }
+
+  // T10: Selection getters
+  getSelectedCount(): number {
+    return this.selectedRows.size;
+  }
+
+  getSelectedIds(): string[] {
+    return Array.from(this.selectedRows.keys());
+  }
+
+  isRowSelected(assignmentId: string): boolean {
+    return this.selectedRows.has(assignmentId);
+  }
+
+  isAllPageSelected(): boolean {
+    if (this.rows.length === 0) return false;
+    return this.rows.every((row) => this.selectedRows.has(row.id));
+  }
+
+  // T10: Selection actions
+  toggleRowSelection(assignmentId: string): void {
+    const row = this.rows.find((r) => r.id === assignmentId);
+    if (!row) return;
+
+    if (this.selectedRows.has(assignmentId)) {
+      this.selectedRows.delete(assignmentId);
+    } else {
+      this.selectedRows.set(assignmentId, {
+        assignmentId: row.id,
+        expectedVersion: row.version,
+      });
+    }
+    this.render();
+  }
+
+  selectAllPage(): void {
+    for (const row of this.rows) {
+      this.selectedRows.set(row.id, {
+        assignmentId: row.id,
+        expectedVersion: row.version,
+      });
+    }
+    this.render();
+  }
+
+  clearSelection(): void {
+    this.selectedRows.clear();
+    this.render();
+  }
+
+  // T10: Bulk action execution
+  async runBulkAction(action: 'assign' | 'release' | 'priority' | 'archive', options?: { priority?: AssignmentPriority; reason?: string }): Promise<void> {
+    if (this.selectedRows.size === 0) {
+      this.feedback = { kind: 'error', message: 'No assignments selected.' };
+      this.render();
+      return;
+    }
+
+    const assignments: BulkActionItem[] = Array.from(this.selectedRows.values());
+    this.bulkActionPending = true;
+    this.feedback = null;
+    this.render();
+
+    try {
+      const response = await this.executeBulkAction({
+        action,
+        assignments,
+        reason: options?.reason,
+        priority: options?.priority,
+      });
+
+      // Update rows with results
+      for (const result of response.data.results) {
+        if (result.success && result.assignment) {
+          const index = this.rows.findIndex((r) => r.id === result.assignmentId);
+          if (index >= 0) {
+            this.rows[index] = cloneRow(result.assignment);
+          }
+          // Remove from selection on success
+          this.selectedRows.delete(result.assignmentId);
+        }
+      }
+
+      if (response.data.failed > 0) {
+        const failedIds = response.data.results
+          .filter((r) => !r.success)
+          .map((r) => r.assignmentId)
+          .slice(0, 3);
+        this.feedback = {
+          kind: 'error',
+          message: `${response.data.succeeded} succeeded, ${response.data.failed} failed. Failed: ${failedIds.join(', ')}${response.data.failed > 3 ? '...' : ''}`,
+        };
+      } else {
+        this.feedback = {
+          kind: 'success',
+          message: `${response.data.succeeded} assignment${response.data.succeeded !== 1 ? 's' : ''} updated.`,
+        };
+      }
+    } catch (error) {
+      this.feedback = formatQueueActionError(error, `Bulk ${action} failed.`);
+    } finally {
+      this.bulkActionPending = false;
+      this.render();
+    }
+  }
+
+  private async executeBulkAction(request: BulkActionRequest): Promise<BulkActionResponse> {
+    const response = await httpRequest(`${this.config.endpoint}/bulk/${request.action}`, {
+      method: 'POST',
+      json: {
+        assignments: request.assignments.map((a) => ({
+          assignment_id: a.assignmentId,
+          expected_version: a.expectedVersion,
+        })),
+        reason: request.reason,
+        priority: request.priority,
+      },
+    });
+
+    if (!response.ok) {
+      throw await buildQueueRequestError(response, `Bulk ${request.action} failed`);
+    }
+
+    const raw = asRecord(await response.json());
+    const data = asRecord(raw.data);
+    const results = Array.isArray(data.results) ? data.results : [];
+
+    return {
+      data: {
+        requested: asNumber(data.requested),
+        succeeded: asNumber(data.succeeded),
+        failed: asNumber(data.failed),
+        results: results.map((item: unknown) => {
+          const r = asRecord(item);
+          return {
+            assignmentId: asString(r.assignment_id),
+            success: r.success === true,
+            error: asString(r.error) || undefined,
+            errorCode: asString(r.error_code) || undefined,
+            assignment: r.assignment ? normalizeAssignmentListRow(r.assignment) : undefined,
+          };
+        }),
+      },
+      meta: {
+        action: asString(asRecord(raw.meta).action),
+      },
+    };
   }
 
   async load(): Promise<void> {
@@ -1048,6 +1239,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
           </div>
         </section>
         ${this.renderFeedback()}
+        ${this.renderBulkActionBar()}
         ${this.renderReviewStateBar()}
         ${this.renderPresetBar()}
         ${this.renderFilters()}
@@ -1077,6 +1269,47 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         <strong>${escapeHtml(this.feedback.message)}</strong>
         ${meta.length ? `<span class="feedback-meta">${meta.join(' · ')}</span>` : ''}
       </div>
+    `;
+  }
+
+  // T10: Bulk action bar
+  private renderBulkActionBar(): string {
+    const selectedCount = this.selectedRows.size;
+    if (selectedCount === 0) {
+      return '';
+    }
+
+    const isPending = this.bulkActionPending;
+
+    return `
+      <section class="bulk-action-bar" data-bulk-action-bar="true" role="toolbar" aria-label="Bulk actions for ${selectedCount} selected assignment${selectedCount !== 1 ? 's' : ''}">
+        <div class="bulk-action-bar-info">
+          <span class="bulk-action-count">${selectedCount} selected</span>
+          <button type="button" class="bulk-action-clear" data-bulk-clear="true" ${isPending ? 'disabled' : ''}>
+            Clear selection
+          </button>
+        </div>
+        <div class="bulk-action-buttons">
+          <button
+            type="button"
+            class="${BTN_SECONDARY_SM}"
+            data-bulk-action="release"
+            ${isPending ? 'disabled' : ''}
+            title="Release selected assignments back to the pool"
+          >
+            ${isPending ? 'Processing…' : 'Release'}
+          </button>
+          <button
+            type="button"
+            class="${BTN_SECONDARY_SM}"
+            data-bulk-action="archive"
+            ${isPending ? 'disabled' : ''}
+            title="Archive selected assignments"
+          >
+            ${isPending ? 'Processing…' : 'Archive'}
+          </button>
+        </div>
+      </section>
     `;
   }
 
@@ -1188,6 +1421,7 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (!rows.length) {
       return `<div class="assignment-queue-state" data-queue-state="empty">No assignments match the current filters.</div>`;
     }
+    const allSelected = this.isAllPageSelected();
     return `
       <!-- Mobile Card View (visible on small screens) -->
       <div class="flex flex-col gap-3 sm:hidden" data-queue-mobile-view="true">
@@ -1198,6 +1432,15 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         <table class="assignment-queue-table" aria-label="Translation assignment queue">
           <thead>
             <tr>
+              <th scope="col" class="queue-select-col">
+                <input
+                  type="checkbox"
+                  class="queue-select-all"
+                  data-select-all="true"
+                  ${allSelected ? 'checked' : ''}
+                  aria-label="Select all assignments on this page"
+                />
+              </th>
               <th scope="col">Content</th>
               <th scope="col">Locale</th>
               <th scope="col">Status</th>
@@ -1251,8 +1494,19 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     if (row.family_id && row.family_id !== row.source_path) metaParts.push(row.family_id);
     const metaLine = metaParts.join(' · ');
 
+    const isSelected = this.isRowSelected(row.id);
+
     return `
-      <tr class="assignment-queue-row" tabindex="0" data-assignment-id="${escapeAttr(row.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${escapeAttr(buildRowAriaLabel(row))}">
+      <tr class="assignment-queue-row ${isSelected ? 'is-selected' : ''}" tabindex="0" data-assignment-id="${escapeAttr(row.id)}" data-assignment-row="true" data-assignment-nav-group="table" aria-label="${escapeAttr(buildRowAriaLabel(row))}">
+        <td class="queue-select-col">
+          <input
+            type="checkbox"
+            class="queue-row-select"
+            data-select-row="${escapeAttr(row.id)}"
+            ${isSelected ? 'checked' : ''}
+            aria-label="Select assignment ${escapeAttr(row.source_title || row.id)}"
+          />
+        </td>
         <td>
           <div class="queue-content-cell">
             <strong class="queue-content-title">${escapeHtml(row.source_title || row.source_path || row.id)}</strong>
@@ -1393,9 +1647,12 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
     const hasDueDate = Boolean(row.due_date);
     const showDueState = hasDueDate || row.due_state === 'overdue' || row.due_state === 'due_soon';
 
+    // T10: Selection state
+    const isSelected = this.isRowSelected(row.id);
+
     return `
       <article
-        class="${MOBILE_CARD}"
+        class="${MOBILE_CARD} ${isSelected ? 'is-selected' : ''}"
         data-assignment-id="${escapeAttr(row.id)}"
         data-assignment-card="true"
         data-assignment-nav-group="mobile"
@@ -1404,7 +1661,16 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         aria-label="${escapeAttr(buildRowAriaLabel(row))}"
       >
         <div class="${MOBILE_CARD_HEADER}">
-          <div>
+          <div class="mobile-card-select">
+            <input
+              type="checkbox"
+              class="queue-row-select"
+              data-select-row="${escapeAttr(row.id)}"
+              ${isSelected ? 'checked' : ''}
+              aria-label="Select assignment ${escapeAttr(row.source_title || row.id)}"
+            />
+          </div>
+          <div class="mobile-card-title-group">
             <h3 class="${MOBILE_CARD_TITLE}">${escapeHtml(row.source_title || row.source_path || row.id)}</h3>
             <p class="${MOBILE_CARD_SUBTITLE}">${escapeHtml(row.source_path && row.source_title ? row.source_path : (row.entity_type || row.family_id))}</p>
           </div>
@@ -1568,6 +1834,48 @@ export class AssignmentQueueScreen extends StatefulController<AssignmentQueueScr
         }
         if ((action === 'approve' || action === 'reject' || action === 'archive') && assignmentId) {
           void this.runReviewAction(action, assignmentId);
+        }
+      });
+    });
+
+    // T10: Selection event handlers
+    const selectAllCheckbox = this.container.querySelector<HTMLInputElement>('[data-select-all]');
+    if (selectAllCheckbox) {
+      selectAllCheckbox.addEventListener('change', () => {
+        if (selectAllCheckbox.checked) {
+          this.selectAllPage();
+        } else {
+          this.clearSelection();
+        }
+      });
+    }
+
+    this.container.querySelectorAll<HTMLInputElement>('[data-select-row]').forEach((checkbox) => {
+      checkbox.addEventListener('change', (event) => {
+        event.stopPropagation();
+        const assignmentId = checkbox.dataset.selectRow;
+        if (assignmentId) {
+          this.toggleRowSelection(assignmentId);
+        }
+      });
+      checkbox.addEventListener('click', (event) => {
+        event.stopPropagation();
+      });
+    });
+
+    // T10: Bulk action handlers
+    const clearButton = this.container.querySelector<HTMLButtonElement>('[data-bulk-clear]');
+    if (clearButton) {
+      clearButton.addEventListener('click', () => {
+        this.clearSelection();
+      });
+    }
+
+    this.container.querySelectorAll<HTMLButtonElement>('[data-bulk-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.bulkAction;
+        if (action === 'release' || action === 'archive') {
+          void this.runBulkAction(action);
         }
       });
     });
@@ -2134,6 +2442,98 @@ export function getAssignmentQueueStyles(): string {
       gap: 0.5rem;
       flex-wrap: wrap;
       justify-content: flex-end;
+    }
+
+    /* T10: Selection styles */
+    .queue-select-col {
+      width: 3rem;
+      padding: 0.75rem !important;
+      text-align: center;
+    }
+
+    .queue-row-select,
+    .queue-select-all {
+      width: 1rem;
+      height: 1rem;
+      cursor: pointer;
+      accent-color: #2563eb;
+    }
+
+    .assignment-queue-row.is-selected {
+      background: #eff6ff;
+    }
+
+    .assignment-queue-row.is-selected:hover,
+    .assignment-queue-row.is-selected:focus {
+      background: #dbeafe;
+    }
+
+    /* T10: Bulk action bar */
+    .bulk-action-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+      border-radius: 0.75rem;
+      color: #ffffff;
+      flex-wrap: wrap;
+    }
+
+    .bulk-action-bar-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .bulk-action-count {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .bulk-action-clear {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.8);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: underline;
+      padding: 0;
+    }
+
+    .bulk-action-clear:hover {
+      color: #ffffff;
+    }
+
+    .bulk-action-clear:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .bulk-action-buttons {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    /* T10: Mobile card selection */
+    .mobile-card-select {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      padding-right: 0.5rem;
+    }
+
+    .mobile-card-title-group {
+      flex: 1;
+      min-width: 0;
+    }
+
+    [data-assignment-card].is-selected {
+      border-color: #3b82f6;
+      background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
     }
 
     @media (max-width: 900px) {
