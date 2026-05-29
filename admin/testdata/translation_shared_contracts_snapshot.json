@@ -50,6 +50,13 @@
           "content_families_scope_readiness_idx",
           "content_families_scope_missing_required_locales_idx"
         ],
+        "optional_fields": [
+          "reason_breakdown",
+          "blocker_codes",
+          "blocker_labels",
+          "affected_locales",
+          "reason_data"
+        ],
         "resolver_keys": [
           "admin.translations.families.id",
           "admin.api.translations.families"
@@ -129,6 +136,36 @@
           "family_id"
         ]
       }
+    },
+    "reason_contract": {
+      "fields": {
+        "affected_locales": "Sorted locale codes affected by the known blockers.",
+        "blocker_codes": "Stable machine-readable blocker codes already present on blocked family rows.",
+        "blocker_labels": "Map of blocker code to human-readable label for visible remediation UI.",
+        "reason_breakdown": "Array of {code,label,count,affected_locales} entries for the row's known blocker reasons.",
+        "reason_data": "Availability state for optional reason context."
+      },
+      "reason_data": {
+        "message": "Optional human-readable explanation when reason data is unavailable or degraded.",
+        "state": [
+          "available",
+          "unavailable",
+          "degraded"
+        ]
+      },
+      "table_id": "blocked_families"
+    },
+    "reason_data_states": [
+      "available",
+      "unavailable",
+      "degraded"
+    ],
+    "reason_labels": {
+      "missing_field": "Missing required field",
+      "missing_locale": "Missing locale",
+      "outdated_source": "Source changed",
+      "pending_review": "Pending review",
+      "policy_denied": "Policy blocked"
     },
     "runbooks": [
       {
@@ -222,7 +259,18 @@
         "summary",
         "rules"
       ],
-      "translation_memory_key": "translation_memory_suggestions"
+      "translation_memory_key": "translation_memory_suggestions",
+      "translation_memory_required_fields": [
+        "score",
+        "source_label",
+        "locale_pair",
+        "source_locale",
+        "target_locale",
+        "field_path",
+        "suggested_text",
+        "stale_source"
+      ],
+      "translation_memory_source": "internal_variant_history"
     },
     "attachments": {
       "payload_key": "attachments",

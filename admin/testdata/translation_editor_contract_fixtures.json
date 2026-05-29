@@ -155,7 +155,27 @@
           "summary_markdown": "Keep terminology consistent, preserve links/placeholders, and mirror source structure before stylistic changes.",
           "title": "FR Pages Style Guide"
         },
-        "translation_memory_suggestions": []
+        "translation_memory_suggestions": [
+          {
+            "field_path": "body",
+            "id": "tm:tg-page-prior:fr:body",
+            "locale_pair": "en:fr",
+            "score": 0.95,
+            "source": "internal_variant_history",
+            "source_family_id": "tg-page-prior",
+            "source_hash": "fixture-source-hash",
+            "source_hash_at_last_sync": "fixture-source-hash",
+            "source_label": "Prior publish guide",
+            "source_locale": "en",
+            "source_state": "current",
+            "source_text": "Translation guide for publish workflows from the home page.",
+            "source_variant_id": "page-prior-en",
+            "stale_source": false,
+            "suggested_text": "Guide precedent pour les workflows de publication.",
+            "target_locale": "fr",
+            "target_variant_id": "page-prior-fr"
+          }
+        ]
       },
       "attachment_summary": {
         "kinds": {
@@ -1297,7 +1317,27 @@
           "summary_markdown": "Keep terminology consistent, preserve links/placeholders, and mirror source structure before stylistic changes.",
           "title": "FR Pages Style Guide"
         },
-        "translation_memory_suggestions": []
+        "translation_memory_suggestions": [
+          {
+            "field_path": "body",
+            "id": "tm:tg-page-prior:fr:body",
+            "locale_pair": "en:fr",
+            "score": 0.95,
+            "source": "internal_variant_history",
+            "source_family_id": "tg-page-prior",
+            "source_hash": "fixture-source-hash",
+            "source_hash_at_last_sync": "fixture-source-hash",
+            "source_label": "Prior publish guide",
+            "source_locale": "en",
+            "source_state": "current",
+            "source_text": "Translation guide for publish workflows from the home page.",
+            "source_variant_id": "page-prior-en",
+            "stale_source": false,
+            "suggested_text": "Guide precedent pour les workflows de publication.",
+            "target_locale": "fr",
+            "target_variant_id": "page-prior-fr"
+          }
+        ]
       },
       "family_id": "tg-page-1",
       "field_completeness": {
