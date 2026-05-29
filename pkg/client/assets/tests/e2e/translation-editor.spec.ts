@@ -75,6 +75,45 @@ function makeReviewReadyFixture() {
   return next;
 }
 
+function makeApprovedDetailFixture() {
+  const next = makeSubmitReadyFixture();
+  next.data.status = 'approved';
+  next.data.translation_assignment = {
+    ...next.data.translation_assignment,
+    status: 'approved',
+    queue_state: 'approved',
+  };
+  next.data.assignment_action_states = {
+    ...next.data.assignment_action_states,
+    submit_review: {
+      enabled: false,
+      permission: 'admin.translations.edit',
+      reason: 'assignment must be in progress',
+      reason_code: 'INVALID_STATUS',
+    },
+  };
+  next.data.review_action_states = {
+    ...next.data.review_action_states,
+    approve: {
+      enabled: false,
+      permission: 'admin.translations.approve',
+      reason: 'assignment must be in review',
+      reason_code: 'INVALID_STATUS',
+    },
+    reject: {
+      enabled: false,
+      permission: 'admin.translations.approve',
+      reason: 'assignment must be in review',
+      reason_code: 'INVALID_STATUS',
+    },
+    archive: {
+      enabled: true,
+      permission: 'admin.translations.manage',
+    },
+  };
+  return next;
+}
+
 function makeSubmitReadyUpdateFixture() {
   const next = structuredClone(fixtures.variant_update);
   next.data.qa_results = {
@@ -242,20 +281,20 @@ test.describe('Translation Assignment Editor', () => {
   });
 
   test('submit for review supports auto-approve response', async ({ page }) => {
-    await page.route(`**/api/translations/assignments/${assignmentID}*`, async (route) => {
-      const url = route.request().url();
-      if (url.includes('/actions/submit_review')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(fixtures.no_review_auto_approve),
-        });
-        return;
-      }
+    let submitted = false;
+    await page.route('**/api/translations/assignments/asg-editor-1/actions/submit_review', async (route) => {
+      submitted = true;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(makeSubmitReadyFixture()),
+        body: JSON.stringify(fixtures.no_review_auto_approve),
+      });
+    });
+    await page.route(`**/api/translations/assignments/${assignmentID}*`, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(submitted ? makeApprovedDetailFixture() : makeSubmitReadyFixture()),
       });
     });
     await page.route('**/api/translations/variants/*', async (route) => {
@@ -300,21 +339,21 @@ test.describe('Translation Assignment Editor', () => {
 
   test('review assignments render review and management actions separately', async ({ page }) => {
     let detailLoads = 0;
+    let approved = false;
+    await page.route('**/api/translations/assignments/asg-editor-1/actions/approve', async (route) => {
+      approved = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(fixtures.review_approve),
+      });
+    });
     await page.route(`**/api/translations/assignments/${assignmentID}*`, async (route) => {
-      const url = route.request().url();
-      if (url.includes('/actions/approve')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(fixtures.review_approve),
-        });
-        return;
-      }
       detailLoads += 1;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(detailLoads === 1 ? makeReviewReadyFixture() : makeSubmitReadyFixture()),
+        body: JSON.stringify(approved || detailLoads > 1 ? makeApprovedDetailFixture() : makeReviewReadyFixture()),
       });
     });
 
@@ -335,21 +374,21 @@ test.describe('Translation Assignment Editor', () => {
 
   test('reject modal captures reviewer feedback and timeline shows the round trip', async ({ page }) => {
     let detailLoads = 0;
+    let rejected = false;
+    await page.route('**/api/translations/assignments/asg-editor-1/actions/reject', async (route) => {
+      rejected = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(fixtures.review_reject),
+      });
+    });
     await page.route(`**/api/translations/assignments/${assignmentID}*`, async (route) => {
-      const url = route.request().url();
-      if (url.includes('/actions/reject')) {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(fixtures.review_reject),
-        });
-        return;
-      }
       detailLoads += 1;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(detailLoads === 1 ? makeReviewReadyFixture() : makeRejectedDetailFixture()),
+        body: JSON.stringify(rejected || detailLoads > 1 ? makeRejectedDetailFixture() : makeReviewReadyFixture()),
       });
     });
 
