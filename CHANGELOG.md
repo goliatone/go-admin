@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.79.1](https://github.com/goliatone/go-admin/compare/v0.79.0...v0.79.1) - (2026-05-29)
+
+## <!-- 13 -->📦 Bumps
+
+- Bump version: v0.79.1 ([f5024bd](https://github.com/goliatone/go-admin/commit/f5024bd3bdea85735334930892f3c9f5fd1f6190))  - (goliatone)
+
+## <!-- 3 -->📚 Documentation
+
+- Update changelog for v0.79.0 ([284fc1c](https://github.com/goliatone/go-admin/commit/284fc1c32b4864265844d31db699cc46a5b8087b))  - (goliatone)
+
+## <!-- 7 -->⚙️ Miscellaneous Tasks
+
+- Update deps ([9fdc216](https://github.com/goliatone/go-admin/commit/9fdc216a7be2cd5bedfae9a8058d0c3a31c16179))  - (goliatone)
+
 # [0.79.0](https://github.com/goliatone/go-admin/compare/v0.78.0...v0.79.0) - (2026-05-29)
 
 ## <!-- 1 -->🐛 Bug Fixes
