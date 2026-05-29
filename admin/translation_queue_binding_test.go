@@ -913,6 +913,301 @@ func TestTranslationQueueBindingAssignmentActionRequiresPermission(t *testing.T)
 	}
 }
 
+func TestTranslationQueueBindingBulkActionAssignReturnsUpdatedRowsAndPartialFailures(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView:   true,
+			PermAdminTranslationsAssign: true,
+		},
+	})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	first, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "tg-bulk-1",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create first assignment: %v", err)
+	}
+	second, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "tg-bulk-2",
+		EntityType:     "pages",
+		SourceRecordID: "page-2",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityNormal,
+	})
+	if err != nil {
+		t.Fatalf("create second assignment: %v", err)
+	}
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+	payload := map[string]any{
+		"action":      "assign",
+		"assignee_id": "translator-1",
+		"assignments": []map[string]any{
+			{"assignment_id": first.ID, "expected_version": first.Version},
+			{"assignment_id": second.ID, "expected_version": second.Version + 100},
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal request: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/actions/bulk", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "manager-1")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	defer mustClose(t, "response body", resp.Body)
+	response := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(response["meta"])
+	if intValue(meta["requested"]) != 2 || intValue(meta["succeeded"]) != 1 || intValue(meta["failed"]) != 1 {
+		t.Fatalf("unexpected bulk metadata: %+v", meta)
+	}
+	if partial, _ := meta["partial"].(bool); !partial {
+		t.Fatalf("expected partial=true, got %+v", meta)
+	}
+	data := extractMap(response["data"])
+	assignments, _ := data["assignments"].([]any)
+	if len(assignments) != 1 {
+		t.Fatalf("expected one updated assignment row, got %d", len(assignments))
+	}
+	errorsOut, _ := data["errors"].([]any)
+	if len(errorsOut) != 1 {
+		t.Fatalf("expected one item error, got %d", len(errorsOut))
+	}
+	itemErr := extractMap(errorsOut[0])
+	errBody := extractMap(itemErr["error"])
+	if got := strings.TrimSpace(toString(errBody["code"])); got != TextCodeTranslationQueueVersionConflict {
+		t.Fatalf("expected version conflict code, got %q in %+v", got, errBody)
+	}
+	stored, err := repo.Get(context.Background(), first.ID)
+	if err != nil {
+		t.Fatalf("get stored assignment: %v", err)
+	}
+	if stored.Status != AssignmentStatusAssigned || stored.AssigneeID != "translator-1" {
+		t.Fatalf("expected first assignment assigned to translator-1, got %+v", stored)
+	}
+}
+
+func TestTranslationQueueBindingBulkActionSupportsReleasePriorityAndArchive(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView:   true,
+			PermAdminTranslationsAssign: true,
+			PermAdminTranslationsManage: true,
+		},
+	})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	releaseCandidate, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "tg-bulk-release",
+		EntityType:     "pages",
+		SourceRecordID: "page-release",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		AssigneeID:     "translator-1",
+	})
+	if err != nil {
+		t.Fatalf("create release candidate: %v", err)
+	}
+	priorityCandidate, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "tg-bulk-priority",
+		EntityType:     "pages",
+		SourceRecordID: "page-priority",
+		SourceLocale:   "en",
+		TargetLocale:   "fr",
+		AssignmentType: AssignmentTypeOpenPool,
+		Status:         AssignmentStatusOpen,
+		Priority:       PriorityLow,
+	})
+	if err != nil {
+		t.Fatalf("create priority candidate: %v", err)
+	}
+	archiveCandidate, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "tg-bulk-archive",
+		EntityType:     "pages",
+		SourceRecordID: "page-archive",
+		SourceLocale:   "en",
+		TargetLocale:   "de",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusApproved,
+	})
+	if err != nil {
+		t.Fatalf("create archive candidate: %v", err)
+	}
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+	doBulk := func(action string, assignment TranslationAssignment, extra map[string]any) map[string]any {
+		t.Helper()
+		payload := map[string]any{
+			"action": action,
+			"assignments": []map[string]any{
+				{"assignment_id": assignment.ID, "expected_version": assignment.Version},
+			},
+		}
+		for key, value := range extra {
+			payload[key] = value
+		}
+		body, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal %s request: %v", action, err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/actions/bulk", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-User-ID", "manager-1")
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("%s request error: %v", action, err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("%s status=%d want=200", action, resp.StatusCode)
+		}
+		defer mustClose(t, "response body", resp.Body)
+		response := map[string]any{}
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			t.Fatalf("decode %s response: %v", action, err)
+		}
+		meta := extractMap(response["meta"])
+		if intValue(meta["succeeded"]) != 1 || intValue(meta["failed"]) != 0 {
+			t.Fatalf("unexpected %s metadata: %+v", action, meta)
+		}
+		return response
+	}
+
+	doBulk("release", releaseCandidate, nil)
+	released, err := repo.Get(context.Background(), releaseCandidate.ID)
+	if err != nil {
+		t.Fatalf("get released assignment: %v", err)
+	}
+	if released.Status != AssignmentStatusOpen || released.AssignmentType != AssignmentTypeOpenPool {
+		t.Fatalf("expected released assignment to return to open pool, got %+v", released)
+	}
+
+	doBulk("priority", priorityCandidate, map[string]any{"priority": string(PriorityHigh)})
+	prioritized, err := repo.Get(context.Background(), priorityCandidate.ID)
+	if err != nil {
+		t.Fatalf("get prioritized assignment: %v", err)
+	}
+	if prioritized.Priority != PriorityHigh {
+		t.Fatalf("expected high priority, got %q", prioritized.Priority)
+	}
+
+	doBulk("archive", archiveCandidate, nil)
+	archived, err := repo.Get(context.Background(), archiveCandidate.ID)
+	if err != nil {
+		t.Fatalf("get archived assignment: %v", err)
+	}
+	if archived.Status != AssignmentStatusArchived || archived.ArchivedAt == nil {
+		t.Fatalf("expected archived assignment, got %+v", archived)
+	}
+}
+
+func TestTranslationQueueBindingBulkActionReportsPerItemPermissionDenial(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView: true,
+		},
+	})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	created, err := repo.Create(context.Background(), TranslationAssignment{
+		FamilyID:       "tg-bulk-permission",
+		EntityType:     "pages",
+		SourceRecordID: "page-1",
+		SourceLocale:   "en",
+		TargetLocale:   "es",
+		AssignmentType: AssignmentTypeDirect,
+		Status:         AssignmentStatusAssigned,
+		AssigneeID:     "translator-1",
+	})
+	if err != nil {
+		t.Fatalf("create assignment: %v", err)
+	}
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+	body := []byte(`{"action":"release","assignments":[{"assignment_id":"` + created.ID + `","expected_version":1}]}`)
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/actions/bulk", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "manager-1")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d want=200", resp.StatusCode)
+	}
+	defer mustClose(t, "response body", resp.Body)
+	response := map[string]any{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	meta := extractMap(response["meta"])
+	if intValue(meta["succeeded"]) != 0 || intValue(meta["failed"]) != 1 {
+		t.Fatalf("unexpected permission-denial metadata: %+v", meta)
+	}
+}
+
+func TestTranslationQueueBindingBulkActionRejectsUnsupportedAction(t *testing.T) {
+	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
+		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
+	})
+	adm.WithAuthorizer(translationPermissionAuthorizer{
+		allowed: map[string]bool{
+			PermAdminTranslationsView: true,
+		},
+	})
+	repo := NewInMemoryTranslationAssignmentRepository()
+	if _, registerErr := RegisterTranslationQueuePanel(adm, repo); registerErr != nil {
+		t.Fatalf("register queue panel: %v", registerErr)
+	}
+	app := newTranslationQueueTestApp(t, newTranslationQueueBinding(adm))
+	req := httptest.NewRequest(http.MethodPost, "/admin/api/translations/assignments/actions/bulk", strings.NewReader(`{"action":"approve","assignments":[{"assignment_id":"asg-1","expected_version":1}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-User-ID", "manager-1")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("request error: %v", err)
+	}
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d want=400", resp.StatusCode)
+	}
+}
+
 func TestTranslationQueueBindingAssignmentActionEnforcesScopeIsolation(t *testing.T) {
 	adm := mustNewAdmin(t, Config{BasePath: "/admin", DefaultLocale: "en"}, Dependencies{
 		FeatureGate: featureGateFromKeys(FeatureCMS, FeatureTranslationQueue),
