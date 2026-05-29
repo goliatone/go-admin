@@ -1167,8 +1167,8 @@ func parseTranslationImportFile(c router.Context, file *multipart.FileHeader, re
 			Field:   "file",
 		}
 	}
-	if err := validateTranslationExchangeUpload(file); err != nil {
-		return nil, "", err
+	if uploadErr := validateTranslationExchangeUpload(file); uploadErr != nil {
+		return nil, "", uploadErr
 	}
 	format, err = detectTranslationExchangeFormat(c, file.Filename, file.Header.Get("Content-Type"))
 	if err != nil {
