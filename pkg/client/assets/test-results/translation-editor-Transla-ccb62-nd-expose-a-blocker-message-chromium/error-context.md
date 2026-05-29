@@ -1,0 +1,251 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - complementary [ref=e3]:
+      - generic [ref=e4]:
+        - link "Translation Editor" [ref=e5] [cursor=pointer]:
+          - /url: /admin
+          - img "Translation Editor" [ref=e7]
+        - button "Toggle sidebar" [ref=e8] [cursor=pointer]
+      - generic [ref=e11]:
+        - textbox "Search" [ref=e12]
+        - generic [ref=e14]: ⌘K
+      - navigation [ref=e15]:
+        - generic [ref=e16]:
+          - button "Navigation" [ref=e17] [cursor=pointer]:
+            - generic [ref=e19]: Navigation
+          - generic [ref=e20]:
+            - link "Dashboard" [ref=e21] [cursor=pointer]:
+              - /url: /admin/dashboard
+              - generic [ref=e23]: Dashboard
+            - generic [ref=e24]:
+              - button "Content" [ref=e25] [cursor=pointer]:
+                - generic [ref=e27]: Content
+              - generic [ref=e29]:
+                - link "Block Library" [ref=e30] [cursor=pointer]:
+                  - /url: /admin/content/block-library
+                  - generic [ref=e32]: Block Library
+                - link "Pages" [ref=e33] [cursor=pointer]:
+                  - /url: /admin/content/pages
+                  - generic [ref=e35]: Pages
+                - link "Posts" [ref=e36] [cursor=pointer]:
+                  - /url: /admin/content/posts
+                  - generic [ref=e38]: Posts
+                - link "Content Modeling" [ref=e39] [cursor=pointer]:
+                  - /url: /admin/content/types
+                  - generic [ref=e41]: Content Modeling
+                - link "Media" [ref=e42] [cursor=pointer]:
+                  - /url: /admin/content/media
+                  - generic [ref=e44]: Media
+                - link "News" [ref=e45] [cursor=pointer]:
+                  - /url: /admin/content/news
+                  - generic [ref=e47]: News
+            - link "Users" [ref=e48] [cursor=pointer]:
+              - /url: /admin/users
+              - generic [ref=e50]: Users
+            - link "Roles" [ref=e51] [cursor=pointer]:
+              - /url: /admin/roles
+              - generic [ref=e53]: Roles
+            - link "User Profiles" [ref=e54] [cursor=pointer]:
+              - /url: /admin/user-profiles
+              - generic [ref=e56]: User Profiles
+        - generic [ref=e57]:
+          - button "Translations" [ref=e58] [cursor=pointer]:
+            - generic [ref=e60]: Translations
+          - generic [ref=e61]:
+            - button "Translation Dashboard PERMISSION_DENIED" [disabled] [ref=e62]:
+              - generic [ref=e64]: Translation Dashboard
+              - generic [ref=e65]: PERMISSION_DENIED
+            - button "Translation Queue PERMISSION_DENIED" [disabled] [ref=e66]:
+              - generic [ref=e68]: Translation Queue
+              - generic [ref=e69]: PERMISSION_DENIED
+            - button "Translation Exchange PERMISSION_DENIED" [disabled] [ref=e70]:
+              - generic [ref=e72]: Translation Exchange
+              - generic [ref=e73]: PERMISSION_DENIED
+        - generic [ref=e74]:
+          - button "Tools" [ref=e75] [cursor=pointer]:
+            - generic [ref=e77]: Tools
+          - generic [ref=e78]:
+            - link "Feature Flags" [ref=e79] [cursor=pointer]:
+              - /url: /admin/feature-flags
+              - generic [ref=e81]: Feature Flags
+            - link "Activity" [ref=e82] [cursor=pointer]:
+              - /url: /admin/activity
+              - generic [ref=e84]: Activity
+            - link "Debug" [ref=e85] [cursor=pointer]:
+              - /url: /admin/debug
+              - generic [ref=e87]: Debug
+      - navigation [ref=e88]:
+        - generic [ref=e89]: Utility
+        - link "Settings" [ref=e90] [cursor=pointer]:
+          - /url: /admin/settings
+          - generic [ref=e92]: Settings
+        - link "Preferences" [ref=e93] [cursor=pointer]:
+          - /url: /admin/preferences
+          - generic [ref=e95]: Preferences
+        - link "Profile" [ref=e96] [cursor=pointer]:
+          - /url: /admin/profile
+          - generic [ref=e98]: Profile
+        - link "Help" [ref=e99] [cursor=pointer]:
+          - /url: /admin/help
+          - generic [ref=e101]: Help
+      - button "admin admin Online" [ref=e104] [cursor=pointer]:
+        - img "admin" [ref=e106]
+        - generic [ref=e108]:
+          - generic [ref=e109]: admin
+          - generic [ref=e110]: Online
+    - main [ref=e112]:
+      - generic [ref=e115]:
+        - navigation "Breadcrumb" [ref=e116]:
+          - list [ref=e117]:
+            - listitem [ref=e118]: /
+            - listitem [ref=e119]:
+              - link "Dashboard" [ref=e120] [cursor=pointer]:
+                - /url: /admin
+            - listitem [ref=e121]: /
+            - listitem [ref=e122]:
+              - link "Translation Queue" [ref=e123] [cursor=pointer]:
+                - /url: /admin/translations/queue
+            - listitem [ref=e124]: /
+            - listitem [ref=e125]: Assignment tqa_editor
+        - paragraph [ref=e126]: Translations
+        - heading "Assignment editor" [level=1] [ref=e127]
+        - paragraph [ref=e128]: Edit translations with autosave, drift detection, and review workflow.
+      - generic [ref=e132]:
+        - generic [ref=e134]:
+          - generic [ref=e135]:
+            - paragraph [ref=e136]: Assignment editor
+            - generic [ref=e137]:
+              - heading "Translation guide" [level=1] [ref=e138]
+              - paragraph [ref=e139]: EN to FR • In progress • Priority high
+            - generic [ref=e140]:
+              - generic [ref=e141]: Assignee translator-1
+              - generic [ref=e142]: Reviewer Not set
+              - generic [ref=e143]: No pending changes
+              - generic [ref=e144]: Warnings 3
+              - generic [ref=e145]: Blockers 3
+          - generic [ref=e146]:
+            - button "Save draft" [disabled] [ref=e147] [cursor=pointer]
+            - button "Submit for review" [disabled] [ref=e148] [cursor=pointer]
+        - generic [ref=e149]:
+          - generic [ref=e151]:
+            - region "Field progress summary" [ref=e152]:
+              - generic [ref=e153]:
+                - generic [ref=e154]: 3/3 complete
+                - generic [ref=e155]: 2 source changed
+                - generic [ref=e156]: 3 QA blockers
+                - generic [ref=e157]: 3 QA warnings
+              - button "Jump to issue" [ref=e158] [cursor=pointer]:
+                - text: Jump to issue
+                - img [ref=e159]
+            - article [ref=e161]:
+              - generic [ref=e162]:
+                - generic [ref=e163]:
+                  - heading "Body" [level=2] [ref=e164]
+                  - paragraph [ref=e165]: body • Required
+                - button "Copy source text to translation field for Body" [ref=e166] [cursor=pointer]: Copy source
+              - generic [ref=e167]:
+                - generic [ref=e168]:
+                  - paragraph [ref=e169]: Source
+                  - generic [ref=e170]: Translation guide for publish workflows from the home page. Review https://example.com <strong>now</strong>.
+                - generic [ref=e171]:
+                  - text: Translation
+                  - textbox "Translation" [ref=e172]: Publier le contenu depuis l'accueil.
+                  - generic [ref=e173]:
+                    - generic [ref=e174]: Ready to submit
+                    - generic [ref=e175]: Source changed
+                  - generic [ref=e176]:
+                    - paragraph [ref=e177]: Source changed since the last synced draft.
+                    - paragraph [ref=e178]: "Before: Translation guide for publish workflows."
+                    - paragraph [ref=e179]: "Current: Translation guide for publish workflows from the home page. Review https://example.com <strong>now</strong>."
+                  - generic [ref=e180]:
+                    - generic [ref=e181]:
+                      - generic [ref=e182]: home
+                      - text: → accueil
+                    - generic [ref=e183]:
+                      - generic [ref=e184]: publish
+                      - text: → publier
+                    - generic [ref=e185]:
+                      - generic [ref=e186]: translation
+                      - text: → traduction
+            - article [ref=e187]:
+              - generic [ref=e188]:
+                - generic [ref=e189]:
+                  - heading "Path" [level=2] [ref=e190]
+                  - paragraph [ref=e191]: path
+                - button "Copy source text to translation field for Path" [ref=e192] [cursor=pointer]: Copy source
+              - generic [ref=e193]:
+                - generic [ref=e194]:
+                  - paragraph [ref=e195]: Source
+                  - generic [ref=e196]: /page-1
+                - generic [ref=e197]:
+                  - text: Translation
+                  - textbox "Translation" [ref=e198]: /fr/page-1
+                  - generic [ref=e200]: Ready to submit
+            - article [ref=e201]:
+              - generic [ref=e202]:
+                - generic [ref=e203]:
+                  - heading "Title" [level=2] [ref=e204]
+                  - paragraph [ref=e205]: title • Required
+                - button "Copy source text to translation field for Title" [ref=e206] [cursor=pointer]: Copy source
+              - generic [ref=e207]:
+                - generic [ref=e208]:
+                  - paragraph [ref=e209]: Source
+                  - generic [ref=e210]: "Translation publish guide {{cta}}"
+                - generic [ref=e211]:
+                  - text: Translation
+                  - textbox "Translation" [ref=e212]: Guide de contenu
+                  - generic [ref=e213]:
+                    - generic [ref=e214]: Ready to submit
+                    - generic [ref=e215]: Source changed
+                  - generic [ref=e216]:
+                    - paragraph [ref=e217]: Source changed since the last synced draft.
+                    - paragraph [ref=e218]: "Before: Page 1"
+                    - paragraph [ref=e219]: "Current: Translation publish guide {{cta}}"
+                  - generic [ref=e220]:
+                    - generic [ref=e221]:
+                      - generic [ref=e222]: publish
+                      - text: → publier
+                    - generic [ref=e223]:
+                      - generic [ref=e224]: translation
+                      - text: → traduction
+          - complementary [ref=e226]:
+            - tablist "Editor sidebar sections" [ref=e227]:
+              - tab "Actions" [selected] [ref=e228] [cursor=pointer]:
+                - img [ref=e229]
+                - generic [ref=e231]: Actions
+              - tab "QA 6" [ref=e232] [cursor=pointer]:
+                - img [ref=e233]
+                - generic [ref=e235]: QA
+                - generic [ref=e236]: "6"
+              - tab "Assist 6" [ref=e237] [cursor=pointer]:
+                - img [ref=e238]
+                - generic [ref=e240]: Assist
+                - generic [ref=e241]: "6"
+              - tab "Files 2" [ref=e242] [cursor=pointer]:
+                - img [ref=e243]
+                - generic [ref=e246]: Files
+                - generic [ref=e247]: "2"
+              - tab "History 3" [ref=e248] [cursor=pointer]:
+                - img [ref=e249]
+                - generic [ref=e252]: History
+                - generic [ref=e253]: "3"
+            - tabpanel [ref=e254]:
+              - region "Management actions" [ref=e255]:
+                - heading "Management actions" [level=2] [ref=e256]
+                - button "Archive" [ref=e258] [cursor=pointer]
+  - generic [ref=e260] [cursor=pointer]:
+    - img [ref=e264]
+    - generic [ref=e266]:
+      - generic [ref=e267]:
+        - generic [ref=e268]: "0"
+        - generic [ref=e269]: Req
+      - generic [ref=e270]:
+        - generic [ref=e271]: "200"
+        - generic [ref=e272]: SQL
+      - generic [ref=e273]:
+        - generic [ref=e274]: "500"
+        - generic [ref=e275]: Logs
+```

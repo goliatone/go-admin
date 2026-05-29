@@ -316,6 +316,7 @@ test('translation editor state model: dirty fields, validation, autosave conflic
 
   const dirty = applyEditorFieldChange(initial, 'body', '');
   assert.equal(dirty.dirty_fields.body, '');
+  assert.equal(dirty.detail.fields.find((field) => field.path === 'body')?.target_value, '');
   assert.equal(dirty.detail.field_completeness.body.missing, true);
   assert.equal(dirty.can_submit_review, false);
 

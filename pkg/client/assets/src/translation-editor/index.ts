@@ -610,13 +610,14 @@ function normalizeFieldEntries(
         const field = asRecord(entry);
         const path = asString(field.path);
         if (!path) return null;
+        const hasTargetField = Object.prototype.hasOwnProperty.call(targetFields, path);
         return {
           path,
           label: asString(field.label) || path,
           input_type: asString(field.input_type) || 'text',
           required: asBoolean(field.required),
           source_value: asString(field.source_value) || sourceFields[path] || '',
-          target_value: asString(field.target_value) || targetFields[path] || '',
+          target_value: hasTargetField ? targetFields[path] : asString(field.target_value),
           completeness: normalizeFieldCompleteness(field.completeness ?? completeness[path]),
           drift: normalizeFieldDrift(field.drift ?? drift[path]),
           validation: normalizeFieldValidation(field.validation ?? validations[path]),

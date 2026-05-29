@@ -2,23 +2,23 @@ import { escapeAttribute as m, escapeHTML as l } from "../shared/html.js";
 import { httpRequest as y, readHTTPError as X, readHTTPErrorResult as Z } from "../shared/transport/http-client.js";
 import { extractStructuredError as B } from "../toast/error-helpers.js";
 import { n as ee } from "../chunks/translation-contracts-Ct_EG7JJ.js";
-import { asBoolean as b, asNumber as f, asRecord as u, asString as i, asStringArray as O } from "../shared/coercion.js";
-import { C as te, E as se, H as ae, J as re, Q as ie, S as ne, U as oe, X as h, Y as le, Z as de, _ as ce, b as ue, d as A, g as me, h as fe, i as ge, l as j, m as pe, nt as be, o as I, p as he, rt as ve, s as N, tt as _e, u as L, v as ye, y as xe } from "../chunks/translation-shared-kfjHEDZW.js";
+import { asBoolean as p, asNumber as f, asRecord as u, asString as i, asStringArray as O } from "../shared/coercion.js";
+import { C as te, E as se, H as ae, J as re, Q as ie, S as ne, U as oe, X as v, Y as le, Z as de, _ as ce, b as ue, d as A, g as me, h as fe, i as ge, l as j, m as pe, nt as be, o as I, p as he, rt as ve, s as N, tt as _e, u as L, v as ye, y as xe } from "../chunks/translation-shared-kfjHEDZW.js";
 import { formatTranslationTimestampUTC as H, sentenceCaseToken as $ } from "../translation-shared/formatters.js";
 import { normalizeStringRecord as S } from "../shared/record-normalization.js";
 import { c as V, s as $e } from "../chunks/ui-states-1McZ5upU.js";
 function T(e) {
   const t = u(e);
   return {
-    required: b(t.required),
-    complete: b(t.complete),
-    missing: b(t.missing)
+    required: p(t.required),
+    complete: p(t.complete),
+    missing: p(t.missing)
   };
 }
 function q(e) {
   const t = u(e), s = i(t.comparison_mode) === "hash_only" ? "hash_only" : "snapshot";
   return {
-    changed: b(t.changed),
+    changed: p(t.changed),
     comparison_mode: s,
     previous_source_value: i(t.previous_source_value),
     current_source_value: i(t.current_source_value)
@@ -31,7 +31,7 @@ function E(e) {
     message: i(t.message)
   };
 }
-function v(e, t) {
+function _(e, t) {
   const s = u(e), a = {};
   for (const [r, n] of Object.entries(s))
     r.trim() && (a[r.trim()] = t(n));
@@ -54,7 +54,7 @@ function we(e) {
 function ke(e) {
   const t = u(e);
   return {
-    available: b(t.available),
+    available: p(t.available),
     title: i(t.title),
     summary: i(t.summary) || i(t.summary_markdown),
     rules: O(t.rules)
@@ -115,7 +115,7 @@ function Ee(e) {
     page: f(t.page, 1) || 1,
     per_page: f(t.per_page, 10) || 10,
     total: f(t.total, s.length),
-    has_more: b(t.has_more),
+    has_more: p(t.has_more),
     next_page: f(t.next_page)
   };
 }
@@ -155,7 +155,7 @@ function Fe(e, t) {
   const s = u(e);
   return {
     category: i(s.category) || t,
-    enabled: b(s.enabled),
+    enabled: p(s.enabled),
     feature_flag: i(s.feature_flag) || void 0,
     finding_count: f(s.finding_count),
     warning_count: f(s.warning_count),
@@ -168,7 +168,7 @@ function U(e) {
     o.trim() && (r[o.trim()] = Fe(d, o.trim()));
   const n = Array.isArray(t.findings) ? t.findings.map((o) => De(o)).filter((o) => o !== null) : [];
   return {
-    enabled: b(t.enabled),
+    enabled: p(t.enabled),
     summary: {
       finding_count: f(s.finding_count, n.length),
       warning_count: f(s.warning_count),
@@ -176,8 +176,8 @@ function U(e) {
     },
     categories: r,
     findings: n,
-    save_blocked: b(t.save_blocked),
-    submit_blocked: b(t.submit_blocked)
+    save_blocked: p(t.save_blocked),
+    submit_blocked: p(t.submit_blocked)
   };
 }
 function Le(e) {
@@ -216,18 +216,20 @@ function x(e) {
 function Y(e, t, s, a, r, n) {
   if (Array.isArray(e.fields)) return e.fields.map((d) => {
     const c = u(d), g = i(c.path);
-    return g ? {
+    if (!g) return null;
+    const b = Object.prototype.hasOwnProperty.call(s, g);
+    return {
       path: g,
       label: i(c.label) || g,
       input_type: i(c.input_type) || "text",
-      required: b(c.required),
+      required: p(c.required),
       source_value: i(c.source_value) || t[g] || "",
-      target_value: i(c.target_value) || s[g] || "",
+      target_value: b ? s[g] : i(c.target_value),
       completeness: T(c.completeness ?? a[g]),
       drift: q(c.drift ?? r[g]),
       validation: E(c.validation ?? n[g]),
-      glossary_hits: Array.isArray(c.glossary_hits) ? c.glossary_hits.filter((p) => p && typeof p == "object") : []
-    } : null;
+      glossary_hits: Array.isArray(c.glossary_hits) ? c.glossary_hits.filter((h) => h && typeof h == "object") : []
+    };
   }).filter((d) => !!d);
   const o = /* @__PURE__ */ new Set([
     ...Object.keys(t),
@@ -268,7 +270,7 @@ function Me(e) {
   }), r = S(s.target_fields ?? s.fields, {
     trimKeys: !0,
     omitBlankKeys: !0
-  }), n = v(s.field_completeness, T), o = v(s.field_drift, q), d = v(s.field_validations, E), c = Ae(s.attachments);
+  }), n = _(s.field_completeness, T), o = _(s.field_drift, q), d = _(s.field_validations, E), c = Ae(s.attachments);
   return {
     assignment_id: i(s.assignment_id),
     assignment_row_version: f(s.assignment_row_version || s.assignment_version || u(s.translation_assignment).row_version || u(s.translation_assignment).version),
@@ -309,9 +311,9 @@ function Pe(e) {
       trimKeys: !0,
       omitBlankKeys: !0
     }),
-    field_completeness: v(s.field_completeness, T),
-    field_drift: v(s.field_drift, q),
-    field_validations: v(s.field_validations, E),
+    field_completeness: _(s.field_completeness, T),
+    field_drift: _(s.field_drift, q),
+    field_validations: _(s.field_validations, E),
     assist: G(s.assist, s),
     qa_results: U(s.qa_results),
     assignment_action_states: x(s.assignment_action_states),
@@ -523,9 +525,9 @@ function Ke(e) {
 function We(e) {
   const t = e.qa_results;
   if (!t.enabled || t.summary.finding_count <= 0) return "";
-  const s = t.summary.blocker_count > 0 ? h("error") : h("success"), a = t.summary.blocker_count > 0 ? `Blockers ${t.summary.blocker_count}` : "No blockers";
+  const s = t.summary.blocker_count > 0 ? v("error") : v("success"), a = t.summary.blocker_count > 0 ? `Blockers ${t.summary.blocker_count}` : "No blockers";
   return `
-    <span class="${h("warning")}">Warnings ${t.summary.warning_count}</span>
+    <span class="${v("warning")}">Warnings ${t.summary.warning_count}</span>
     <span class="${s}">${a}</span>
   `;
 }
@@ -590,21 +592,21 @@ function z(e, t, s) {
   });
 }
 function tt(e, t, s, a, r, n = "") {
-  const o = e.assignment_action_states.submit_review, d = !o?.enabled || r || a || e.qa_results.submit_blocked, c = r || !s, g = (e.source_locale || "source").toUpperCase(), p = (e.target_locale || "target").toUpperCase(), _ = e.translation_assignment, J = e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : o?.reason || "";
+  const o = e.assignment_action_states.submit_review, d = !o?.enabled || r || a || e.qa_results.submit_blocked, c = r || !s, g = (e.source_locale || "source").toUpperCase(), b = (e.target_locale || "target").toUpperCase(), h = e.translation_assignment, J = e.qa_results.submit_blocked ? "Resolve QA blockers before submitting for review." : o?.reason || "";
   return `
     <section class="${A} p-6 shadow-sm">
       <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
         <div class="space-y-3">
           <p class="${ne}">Assignment editor</p>
           <div>
-            <h1 class="${te}">${l(_.source_title || "Translation assignment")}</h1>
+            <h1 class="${te}">${l(h.source_title || "Translation assignment")}</h1>
             <p class="mt-2 text-sm text-gray-600">
-              ${l(g)} to ${l(p)} • ${l($(e.status || _.status || "draft"))} • Priority ${l(e.priority || "normal")}
+              ${l(g)} to ${l(b)} • ${l($(e.status || h.status || "draft"))} • Priority ${l(e.priority || "normal")}
             </p>
           </div>
           <div class="flex flex-wrap gap-2 text-xs text-gray-600">
-            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${l(_.assignee_id || "Unassigned")}</span>
-            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${l(_.reviewer_id || "Not set")}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Assignee ${l(h.assignee_id || "Unassigned")}</span>
+            <span class="rounded-full bg-gray-100 px-3 py-1 font-medium">Reviewer ${l(h.reviewer_id || "Not set")}</span>
             <span class="rounded-full px-3 py-1 font-medium ${t.tone}" data-autosave-state="${m(t.state)}">${l(t.text)}</span>
             ${We(e)}
           </div>
@@ -766,7 +768,7 @@ function W(e) {
       localePair: i(a.locale_pair) || "",
       fieldPath: i(a.field_path) || "",
       suggestedText: r,
-      isStaleSource: b(a.is_stale_source) || b(a.stale_source)
+      isStaleSource: p(a.is_stale_source) || p(a.stale_source)
     });
   }
   return t.sort((s, a) => a.score - s.score);
@@ -913,13 +915,13 @@ function ft(e) {
             ${t.submit_blocked ? "Submit is blocked until blockers are resolved." : "Warnings are advisory; blockers must be resolved before submit."}
           </p>
         </div>
-        <span class="${t.submit_blocked ? h("error") : h("neutral")}">
+        <span class="${t.submit_blocked ? v("error") : v("neutral")}">
           ${t.summary.finding_count} findings
         </span>
       </div>
       <div class="mt-4 flex flex-wrap gap-2 text-xs">
-        <span class="${h("warning")}">Warnings ${t.summary.warning_count}</span>
-        <span class="${h("error")}">Blockers ${t.summary.blocker_count}</span>
+        <span class="${v("warning")}">Warnings ${t.summary.warning_count}</span>
+        <span class="${v("error")}">Blockers ${t.summary.blocker_count}</span>
       </div>
       ${s.length || a.length ? `<div class="mt-4 space-y-4">${r(s, "blocker")}${r(a, "warning")}</div>` : '<p class="mt-4 text-sm text-gray-500">No QA findings for this assignment.</p>'}
     </section>
@@ -1113,18 +1115,18 @@ function yt(e, t, s = "actions", a) {
       icon: '<svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor"><path d="M8.515 1.019A7 7 0 0 0 8 1V0a8 8 0 0 1 .589.022l-.074.997zm2.004.45a7.003 7.003 0 0 0-.985-.299l.219-.976c.383.086.76.2 1.126.342l-.36.933zm1.37.71a7.01 7.01 0 0 0-.439-.27l.493-.87a8.025 8.025 0 0 1 .979.654l-.615.789a6.996 6.996 0 0 0-.418-.302zm1.834 1.79a6.99 6.99 0 0 0-.653-.796l.724-.69c.27.285.52.59.747.91l-.818.576zM8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 1a6 6 0 1 1 0 12A6 6 0 0 1 8 2z"/><path d="M7.5 3a.5.5 0 0 1 .5.5v5.21l3.248 1.856a.5.5 0 0 1-.496.868l-3.5-2A.5.5 0 0 1 7 9V3.5a.5.5 0 0 1 .5-.5z"/></svg>',
       badge: r.history
     }
-  ].map((p) => `
+  ].map((b) => `
         <button
           type="button"
-          class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${s === p.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"}"
-          data-sidebar-tab="${m(p.id)}"
+          class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${s === b.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"}"
+          data-sidebar-tab="${m(b.id)}"
           role="tab"
-          aria-selected="${s === p.id}"
-          aria-controls="sidebar-panel-${m(p.id)}"
+          aria-selected="${s === b.id}"
+          aria-controls="sidebar-panel-${m(b.id)}"
         >
-          ${p.icon}
-          <span class="hidden sm:inline">${l(p.label)}</span>
-          ${p.badge ? `<span class="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">${l(p.badge)}</span>` : ""}
+          ${b.icon}
+          <span class="hidden sm:inline">${l(b.label)}</span>
+          ${b.badge ? `<span class="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700">${l(b.badge)}</span>` : ""}
         </button>
       `).join("")}
     </nav>
