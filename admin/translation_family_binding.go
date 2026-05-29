@@ -513,6 +513,10 @@ type translationFamilyPolicyResolver struct {
 	admin *Admin
 }
 
+type translationFamilyPolicyBlockerProvider interface {
+	FamilyPolicyBlockers(context.Context, translationservices.FamilyRecord, translationservices.FamilyPolicy, string) ([]translationservices.FamilyBlocker, error)
+}
+
 func (r translationFamilyPolicyResolver) ResolvePolicy(ctx context.Context, contentType, environment string) (translationservices.FamilyPolicy, bool, error) {
 	if r.admin == nil || r.admin.translationPolicy == nil {
 		return translationservices.FamilyPolicy{}, false, nil
@@ -530,14 +534,10 @@ func (r translationFamilyPolicyResolver) ResolvePolicy(ctx context.Context, cont
 	if err != nil || !found {
 		return translationservices.FamilyPolicy{}, found, err
 	}
-	sourceLocale := strings.TrimSpace(strings.ToLower(r.admin.config.DefaultLocale))
-	if sourceLocale == "" {
-		sourceLocale = "en"
-	}
 	return translationservices.FamilyPolicy{
 		ContentType:             strings.TrimSpace(strings.ToLower(contentType)),
 		Environment:             strings.TrimSpace(environment),
-		SourceLocale:            sourceLocale,
+		SourceLocale:            translationFamilyPolicySourceLocale(req, r.admin.config.DefaultLocale),
 		RequiredLocales:         append([]string{}, req.Locales...),
 		RequiredFields:          cloneRequiredFieldsString(req.RequiredFields),
 		ReviewRequired:          req.ReviewRequired,
@@ -545,6 +545,76 @@ func (r translationFamilyPolicyResolver) ResolvePolicy(ctx context.Context, cont
 		AssignmentLifecycleMode: req.AssignmentLifecycleMode,
 		DefaultWorkScope:        normalizeTranslationAssignmentWorkScope(req.DefaultWorkScope),
 	}, true, nil
+}
+
+func (r translationFamilyPolicyResolver) ResolvePolicyBlockers(ctx context.Context, family translationservices.FamilyRecord, policy translationservices.FamilyPolicy, environment string) ([]translationservices.FamilyBlocker, error) {
+	if r.admin == nil || r.admin.translationPolicy == nil {
+		return nil, nil
+	}
+	if provider, ok := r.admin.translationPolicy.(translationFamilyPolicyBlockerProvider); ok && provider != nil {
+		return provider.FamilyPolicyBlockers(ctx, family, policy, environment)
+	}
+	source := translationFamilySourceVariant(family)
+	recordID := strings.TrimSpace(firstNonEmpty(source.SourceRecordID, source.ID))
+	if recordID == "" {
+		return nil, nil
+	}
+	locale := strings.TrimSpace(strings.ToLower(firstNonEmpty(source.Locale, family.SourceLocale, policy.SourceLocale)))
+	err := r.admin.translationPolicy.Validate(ctx, TranslationPolicyInput{
+		EntityType:      strings.TrimSpace(strings.ToLower(family.ContentType)),
+		EntityID:        recordID,
+		Transition:      translationReadinessTransitionPublish,
+		Environment:     strings.TrimSpace(environment),
+		PolicyEntity:    strings.TrimSpace(strings.ToLower(firstNonEmpty(policy.ContentType, family.ContentType))),
+		RequestedLocale: locale,
+	})
+	if err == nil {
+		return nil, nil
+	}
+	var missing MissingTranslationsError
+	if errors.As(err, &missing) {
+		return nil, nil
+	}
+	scope := translationservices.Scope{TenantID: family.TenantID, OrgID: family.OrgID}
+	return []translationservices.FamilyBlocker{{
+		ID:          translationservices.DeterministicBlockerID(scope, family.ID, string(translationcore.FamilyBlockerPolicyDenied), locale, "host_policy"),
+		FamilyID:    family.ID,
+		TenantID:    family.TenantID,
+		OrgID:       family.OrgID,
+		BlockerCode: string(translationcore.FamilyBlockerPolicyDenied),
+		Locale:      locale,
+		Details: map[string]any{
+			"content_type": family.ContentType,
+			"environment":  strings.TrimSpace(environment),
+			"reason":       err.Error(),
+		},
+	}}, nil
+}
+
+func translationFamilyPolicySourceLocale(req TranslationRequirements, fallback string) string {
+	sourceLocale := strings.TrimSpace(strings.ToLower(req.SourceLocale))
+	if sourceLocale != "" {
+		return sourceLocale
+	}
+	for _, locale := range req.Locales {
+		if strings.EqualFold(strings.TrimSpace(locale), "en") {
+			return "en"
+		}
+	}
+	if sourceLocale == "" {
+		sourceLocale = strings.TrimSpace(strings.ToLower(fallback))
+	}
+	if sourceLocale == "" {
+		for _, locale := range req.Locales {
+			if sourceLocale = strings.TrimSpace(strings.ToLower(locale)); sourceLocale != "" {
+				return sourceLocale
+			}
+		}
+	}
+	if sourceLocale == "" {
+		sourceLocale = "en"
+	}
+	return sourceLocale
 }
 
 const (
@@ -1384,14 +1454,10 @@ func (b *translationFamilyBinding) translationFamilyPolicy(ctx context.Context, 
 	if err != nil || !found {
 		return translationservices.FamilyPolicy{}, false
 	}
-	sourceLocale := strings.TrimSpace(strings.ToLower(b.admin.config.DefaultLocale))
-	if sourceLocale == "" {
-		sourceLocale = "en"
-	}
 	return translationservices.FamilyPolicy{
 		ContentType:             contentType,
 		Environment:             environment,
-		SourceLocale:            sourceLocale,
+		SourceLocale:            translationFamilyPolicySourceLocale(req, b.admin.config.DefaultLocale),
 		RequiredLocales:         append([]string{}, req.Locales...),
 		RequiredFields:          cloneRequiredFieldsString(req.RequiredFields),
 		ReviewRequired:          req.ReviewRequired,
