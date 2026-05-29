@@ -700,7 +700,10 @@ func roleMetadata(value any) map[string]any {
 	case map[string]any:
 		return v
 	case string:
-		parsed, _ := parseRoleMetadata(v)
+		parsed, err := parseRoleMetadata(v)
+		if err != nil {
+			return nil
+		}
 		return parsed
 	default:
 		return nil

@@ -1160,7 +1160,7 @@ func parseTranslationImportRows(c router.Context, requireTranslatedText bool) ([
 	return rows, payload, "json", nil
 }
 
-func parseTranslationImportFile(c router.Context, file *multipart.FileHeader, requireTranslatedText bool) ([]TranslationExchangeRow, string, error) {
+func parseTranslationImportFile(c router.Context, file *multipart.FileHeader, requireTranslatedText bool) (rows []TranslationExchangeRow, format string, err error) {
 	if file == nil {
 		return nil, "", TranslationExchangeInvalidPayloadError{
 			Message: "file required",
@@ -1170,7 +1170,7 @@ func parseTranslationImportFile(c router.Context, file *multipart.FileHeader, re
 	if err := validateTranslationExchangeUpload(file); err != nil {
 		return nil, "", err
 	}
-	format, err := detectTranslationExchangeFormat(c, file.Filename, file.Header.Get("Content-Type"))
+	format, err = detectTranslationExchangeFormat(c, file.Filename, file.Header.Get("Content-Type"))
 	if err != nil {
 		return nil, "", err
 	}
@@ -1183,9 +1183,10 @@ func parseTranslationImportFile(c router.Context, file *multipart.FileHeader, re
 		}
 	}
 	defer func() {
-		_ = fh.Close()
+		if closeErr := fh.Close(); closeErr != nil && err == nil {
+			err = closeErr
+		}
 	}()
-	var rows []TranslationExchangeRow
 	switch format {
 	case "json":
 		payload, readErr := io.ReadAll(fh)
